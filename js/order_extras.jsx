@@ -276,10 +276,10 @@ function FeeDrawer({ open, onClose }) {
 /* ---------- Passenger drawer (Добавить пассажира) ---------- */
 function PassengerDrawer({ open, onClose }) {
   const toast = useToast();
-  const empty = { fio: '', dob: '', citizenship: '', docType: '', docNo: '', expiry: '', email: '', phone: '', comment: '' };
+  const empty = { fio: '', dob: null, citizenship: '', docType: '', docNo: '', expiry: null, email: '', phone: '', comment: '' };
   const [f, setF] = useState(empty);
   const [errs, setErrs] = useState({});
-  const set = (k) => (e) => setF((p) => ({ ...p, [k]: e.target ? e.target.value : e }));
+  const set = (k) => (e) => setF((p) => ({ ...p, [k]: e && e.target ? e.target.value : e }));
   useEffect(() => { if (open) { setF(empty); setErrs({}); } }, [open]);
   const submit = () => {
     const er = {};
@@ -296,11 +296,11 @@ function PassengerDrawer({ open, onClose }) {
       footer={<><Button variant="secondary" onClick={onClose}>Отмена</Button><Button variant="primary" onClick={submit}>Добавить</Button></>}>
       <div className="form-grid">
         <Field label="ФИО" required error={errs.fio}><Input placeholder="Введите ФИО" value={f.fio} onChange={set('fio')} error={errs.fio} /></Field>
-        <Field label="Дата рождения"><Input placeholder="дд.мм.гггг" value={f.dob} onChange={set('dob')} /></Field>
+        <DateField label="Дата рождения" value={f.dob} onChange={set('dob')} placeholder="Выбрать дату" />
         <Field label="Гражданство" required error={errs.citizenship}><Select placeholder="Выберите страну" options={['Кыргызстан', 'Казахстан', 'Россия', 'Узбекистан', 'Германия']} value={f.citizenship} onChange={set('citizenship')} error={errs.citizenship} /></Field>
         <Field label="Тип документа" required error={errs.docType}><Select placeholder="Выберите тип" options={['Паспорт', 'ID Card', 'Загранпаспорт']} value={f.docType} onChange={set('docType')} error={errs.docType} /></Field>
         <Field label="Номер документа"><Input placeholder="Введите номер" value={f.docNo} onChange={set('docNo')} /></Field>
-        <Field label="Срок действия"><Input placeholder="дд.мм.гггг" value={f.expiry} onChange={set('expiry')} /></Field>
+        <DateField label="Срок действия" value={f.expiry} onChange={set('expiry')} placeholder="Выбрать дату" />
         <Field label="Контактный e-mail" error={errs.email}><Input placeholder="johndoe@mail.com" value={f.email} onChange={set('email')} error={errs.email} /></Field>
         <Field label="Контактный телефон"><Input placeholder="+996 (___) __-__-__" value={f.phone} onChange={set('phone')} /></Field>
         <div className="full"><Field label="Комментарий"><textarea className="input" rows={3} placeholder="Descriptions..." value={f.comment} onChange={set('comment')} /></Field></div>

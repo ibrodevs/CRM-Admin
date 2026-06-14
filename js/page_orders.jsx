@@ -195,11 +195,11 @@ function ServiceSection({ svcName, startDate, endDate, selectedFlight, onSelectF
       <div style={{ display: 'flex', alignItems: 'flex-end', gap: 10, marginBottom: 12, flexWrap: 'wrap' }}>
         <div>
           <div style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 4 }}>Начало</div>
-          <input className="input" style={{ height: 40, width: 108, fontSize: 13.5 }} value={startDate || '21.01.26'} readOnly />
+          <input className="input" style={{ height: 40, width: 108, fontSize: 13.5 }} value={startDate instanceof Date ? fmtDate(startDate) : (startDate || '21.01.26')} readOnly />
         </div>
         <div>
           <div style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 4 }}>Конец</div>
-          <input className="input" style={{ height: 40, width: 108, fontSize: 13.5 }} value={endDate || '01.02.26'} readOnly />
+          <input className="input" style={{ height: 40, width: 108, fontSize: 13.5 }} value={endDate instanceof Date ? fmtDate(endDate) : (endDate || '01.02.26')} readOnly />
         </div>
         <button type="button" style={{ border: 'none', background: 'none', color: 'var(--muted)', fontSize: 13.5, cursor: 'pointer', paddingBottom: 2 }}>Изменить даты</button>
         <select className="select" style={{ width: 160, height: 40, fontSize: 13.5 }}>
@@ -291,8 +291,8 @@ function OrderCreateModal({ open, onClose, onCreated }) {
   const [svc, setSvc] = useState({});
   const [currency, setCurrency] = useState('');
   const [numDays, setNumDays] = useState('');
-  const [startDate, setStartDate] = useState('');
-  const [endDate, setEndDate] = useState('');
+  const [startDate, setStartDate] = useState(null);
+  const [endDate, setEndDate] = useState(null);
   const [specialCase, setSpecialCase] = useState('');
   const [operator, setOperator] = useState('');
   const [travelStatement, setTravelStatement] = useState(false);
@@ -310,7 +310,7 @@ function OrderCreateModal({ open, onClose, onCreated }) {
     setPhase('step1');
     setClientType('person'); setNumPersons('1');
     setSvc({}); setCurrency(''); setNumDays('');
-    setStartDate(''); setEndDate(''); setSpecialCase('');
+    setStartDate(null); setEndDate(null); setSpecialCase('');
     setOperator(''); setTravelStatement(false);
     setCurrentPersonIdx(0); setPersons([{}]);
     setSelectedFlights({});
@@ -432,21 +432,13 @@ function OrderCreateModal({ open, onClose, onCreated }) {
         <Field label="Количество дней">
           <Input placeholder="Введите значение" value={numDays} onChange={(e) => setNumDays(e.target.value)} type="number" min="1" />
         </Field>
-        <Field label="Выбор периода отдыха">
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-            <div>
-              <div style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 5 }}>Начало</div>
-              <Input placeholder="Введите дату" value={startDate} onChange={(e) => setStartDate(e.target.value)} type="date" />
-            </div>
-            <div>
-              <div style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 5 }}>Конец</div>
-              <Input placeholder="Введите дату" value={endDate} onChange={(e) => setEndDate(e.target.value)} type="date" />
-            </div>
-          </div>
-          <button type="button" style={{ border: 'none', background: 'none', color: 'var(--muted)', cursor: 'pointer', fontSize: 13, padding: '4px 0 0', textAlign: 'left' }}>
-            Указать индивидуальные даты
-          </button>
-        </Field>
+        <DateRangeField
+          label="Выбор периода отдыха"
+          startVal={startDate}
+          endVal={endDate}
+          placeholder="Выбрать период отдыха"
+          onChange={(s, e) => { setStartDate(s); setEndDate(e || null); }}
+        />
         <Field label="Особые случаи">
           <select className="select" value={specialCase} onChange={(e) => setSpecialCase(e.target.value)}>
             <option value="">Выбрать</option>
@@ -491,9 +483,8 @@ function OrderCreateModal({ open, onClose, onCreated }) {
           <Field label="Фамилия">
             <Input placeholder="Введите значение" value={p.lastName || ''} onChange={set('lastName')} />
           </Field>
-          <Field label="Дата рождения">
-            <Input placeholder="Введите значение" value={p.dob || ''} onChange={set('dob')} type="date" />
-          </Field>
+          <DateField label="Дата рождения" value={p.dob || null}
+            onChange={(d) => setPerson(currentPersonIdx, 'dob', d)} placeholder="Выбрать дату" />
           <Field label="Имя">
             <Input placeholder="Введите значение" value={p.firstName || ''} onChange={set('firstName')} />
           </Field>

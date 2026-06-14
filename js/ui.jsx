@@ -328,9 +328,214 @@ function ActionMenu({ items, trigger }) {
   );
 }
 
+/* ============ Calendar / Date Picker ============ */
+
+const CAL_MONTHS = ['Январь','Февраль','Март','Апрель','Май','Июнь','Июль','Август','Сентябрь','Октябрь','Ноябрь','Декабрь'];
+const CAL_DAYS  = ['ВС','ПН','ВТ','СР','ЧТ','ПТ','СБ'];
+
+function fmtDate(d) {
+  if (!d || !(d instanceof Date)) return '';
+  return `${String(d.getDate()).padStart(2,'0')}.${String(d.getMonth()+1).padStart(2,'0')}.${String(d.getFullYear()).slice(2)}`;
+}
+function sameDayEq(a, b) {
+  if (!a || !b) return false;
+  return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
+}
+
+function CalendarPicker({ mode = 'range', startVal = null, endVal = null, onConfirm, onClose }) {
+  const now = new Date();
+  const [month, setMonth] = useState(startVal ? startVal.getMonth() : now.getMonth());
+  const [year,  setYear]  = useState(startVal ? startVal.getFullYear() : now.getFullYear());
+  const [selS,  setSelS]  = useState(startVal);
+  const [selE,  setSelE]  = useState(endVal);
+  const [hover, setHover] = useState(null);
+  const [phase, setPhase] = useState('start'); // 'start' | 'end'
+
+  const prevMo = () => { if (month === 0) { setMonth(11); setYear(y => y - 1); } else setMonth(m => m - 1); };
+  const nextMo = () => { if (month === 11) { setMonth(0); setYear(y => y + 1); } else setMonth(m => m + 1); };
+
+  // Build 42-cell grid (6 rows × 7 cols), week starts Sunday
+  const cells = [];
+  const firstDow   = new Date(year, month, 1).getDay();   // 0=Sun
+  const daysInMo   = new Date(year, month + 1, 0).getDate();
+  const prevMonDays = new Date(year, month, 0).getDate();
+  for (let i = firstDow - 1; i >= 0; i--) {
+    const pm = month === 0 ? 11 : month - 1;
+    const py = month === 0 ? year - 1 : year;
+    cells.push({ d: new Date(py, pm, prevMonDays - i), cur: false });
+  }
+  for (let d = 1; d <= daysInMo; d++) cells.push({ d: new Date(year, month, d), cur: true });
+  let nxt = 1;
+  while (cells.length < 42) {
+    const nm = month === 11 ? 0 : month + 1;
+    const ny = month === 11 ? year + 1 : year;
+    cells.push({ d: new Date(ny, nm, nxt++), cur: false });
+  }
+
+  // Effective range (includes hover preview)
+  const effEnd = selE || (mode === 'range' && phase === 'end' && selS && hover ? hover : null);
+  const rS = selS && effEnd ? (selS <= effEnd ? selS : effEnd) : null;
+  const rE = selS && effEnd ? (selS <= effEnd ? effEnd : selS) : null;
+
+  const handleClick = ({ d, cur }) => {
+    if (!cur) return;
+    if (mode === 'single') { setSelS(new Date(d)); setSelE(null); return; }
+    if (phase === 'start' || !selS) {
+      setSelS(new Date(d)); setSelE(null); setPhase('end');
+    } else {
+      if (d < selS) { setSelE(new Date(selS)); setSelS(new Date(d)); }
+      else            { setSelE(new Date(d)); }
+      setPhase('start');
+    }
+  };
+
+  const periodText = selS ? (selE && mode === 'range' ? `${fmtDate(selS)}-${fmtDate(selE)}` : fmtDate(selS)) : '';
+
+  const BG = 'var(--blue-soft)';
+  const SOLO = sameDayEq(rS, rE);
+
+  return (
+    <div style={{ background: '#fff', borderRadius: 20, padding: '22px 18px 16px', boxShadow: '0 16px 48px rgba(16,23,38,.22)', width: 302, userSelect: 'none' }}>
+      {/* Header */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
+        <button type="button" onClick={prevMo} style={{ border: 'none', background: 'none', cursor: 'pointer', color: 'var(--blue)', padding: '6px', borderRadius: 8, display: 'flex' }}>
+          <Icon name="chevLeft" style={{ width: 20, height: 20 }} />
+        </button>
+        <span style={{ fontWeight: 700, fontSize: 17, color: 'var(--ink)' }}>{CAL_MONTHS[month]}</span>
+        <button type="button" onClick={nextMo} style={{ border: 'none', background: 'none', cursor: 'pointer', color: 'var(--blue)', padding: '6px', borderRadius: 8, display: 'flex' }}>
+          <Icon name="chevRight" style={{ width: 20, height: 20 }} />
+        </button>
+      </div>
+
+      {/* Weekday headers */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7,1fr)', marginBottom: 2 }}>
+        {CAL_DAYS.map(d => (
+          <div key={d} style={{ textAlign: 'center', fontSize: 12.5, fontWeight: 700, color: 'var(--blue)', padding: '3px 0 6px' }}>{d}</div>
+        ))}
+      </div>
+
+      {/* Days */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7,1fr)' }}>
+        {cells.map(({ d, cur }, i) => {
+          const isSt  = cur && rS && sameDayEq(d, rS);
+          const isEn  = cur && rE && sameDayEq(d, rE);
+          const inR   = cur && rS && rE && d > rS && d < rE;
+          const isSel = mode === 'single' && cur && selS && sameDayEq(d, selS);
+          const circle = isSt || isEn || isSel;
+
+          let cellBg = 'transparent';
+          if (inR)               cellBg = BG;
+          else if (isSt && !SOLO) cellBg = `linear-gradient(to right, transparent 50%, ${BG} 50%)`;
+          else if (isEn && !SOLO) cellBg = `linear-gradient(to left,  transparent 50%, ${BG} 50%)`;
+
+          return (
+            <div key={i}
+              onClick={() => handleClick({ d, cur })}
+              onMouseEnter={() => { if (cur && mode === 'range' && phase === 'end' && selS) setHover(new Date(d)); }}
+              onMouseLeave={() => setHover(null)}
+              style={{ height: 38, display: 'flex', alignItems: 'center', justifyContent: 'center', background: cellBg, cursor: cur ? 'pointer' : 'default' }}>
+              <div style={{
+                width: 34, height: 34, borderRadius: '50%',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                background: circle ? 'var(--blue)' : 'transparent',
+                color: circle ? '#fff' : (!cur ? 'var(--faint)' : 'var(--ink)'),
+                fontWeight: circle ? 700 : 400,
+                fontSize: 14, transition: 'background .1s',
+              }}>{d.getDate()}</div>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Period text */}
+      <div style={{ textAlign: 'center', fontSize: 13, color: 'var(--muted)', margin: '10px 0 14px', minHeight: 18 }}>
+        {periodText ? (mode === 'range' ? `Выбранный период: ${periodText}` : periodText) : ' '}
+      </div>
+
+      {/* Buttons */}
+      <Button variant="primary" style={{ width: '100%', marginBottom: 8 }}
+        onClick={() => selS && onConfirm(selS, mode === 'range' ? selE : undefined)}
+        disabled={!selS}>
+        Далее
+      </Button>
+      <button type="button" onClick={onClose}
+        style={{ width: '100%', border: 'none', background: 'none', color: 'var(--muted)', cursor: 'pointer', fontSize: 15, padding: '6px 0', fontFamily: 'inherit' }}>
+        Закрыть
+      </button>
+    </div>
+  );
+}
+
+/* Single date picker field */
+function DateField({ label, value, onChange, placeholder = 'Выбрать дату', required, error, style }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef(null);
+  useEffect(() => {
+    const h = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); };
+    document.addEventListener('mousedown', h);
+    return () => document.removeEventListener('mousedown', h);
+  }, []);
+  return (
+    <div ref={ref} style={{ position: 'relative', ...style }}>
+      {label && <label className="label" style={{ display: 'block', marginBottom: 7 }}>{label}{required && <span className="req"> *</span>}</label>}
+      <div className={'input' + (error ? ' err' : '')}
+        style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 10 }}
+        onClick={() => setOpen(o => !o)}>
+        <Icon name="calendar" style={{ width: 18, height: 18, color: 'var(--muted-2)', flexShrink: 0 }} />
+        <span style={{ color: value ? 'var(--ink)' : 'var(--faint)', fontSize: 15, flex: 1 }}>
+          {value ? fmtDate(value) : placeholder}
+        </span>
+      </div>
+      {error && <div className="err-text"><Icon name="alertCircle" style={{ width: 14, height: 14 }} />{error}</div>}
+      {open && (
+        <div style={{ position: 'absolute', top: 'calc(100% + 6px)', left: 0, zIndex: 400 }}>
+          <CalendarPicker mode="single" startVal={value || null}
+            onConfirm={(d) => { onChange(d); setOpen(false); }}
+            onClose={() => setOpen(false)} />
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* Date range picker field */
+function DateRangeField({ label, startVal, endVal, onChange, placeholder = 'Выбрать период', style }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef(null);
+  useEffect(() => {
+    const h = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); };
+    document.addEventListener('mousedown', h);
+    return () => document.removeEventListener('mousedown', h);
+  }, []);
+  const display = startVal
+    ? (endVal ? `${fmtDate(startVal)} — ${fmtDate(endVal)}` : fmtDate(startVal))
+    : '';
+  return (
+    <div ref={ref} style={{ position: 'relative', ...style }}>
+      {label && <label className="label" style={{ display: 'block', marginBottom: 7 }}>{label}</label>}
+      <div className="input"
+        style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 10 }}
+        onClick={() => setOpen(o => !o)}>
+        <Icon name="calendar" style={{ width: 18, height: 18, color: 'var(--muted-2)', flexShrink: 0 }} />
+        <span style={{ color: display ? 'var(--ink)' : 'var(--faint)', fontSize: 15, flex: 1 }}>
+          {display || placeholder}
+        </span>
+      </div>
+      {open && (
+        <div style={{ position: 'absolute', top: 'calc(100% + 6px)', left: 0, zIndex: 400 }}>
+          <CalendarPicker mode="range" startVal={startVal || null} endVal={endVal || null}
+            onConfirm={(s, e) => { onChange(s, e); setOpen(false); }}
+            onClose={() => setOpen(false)} />
+        </div>
+      )}
+    </div>
+  );
+}
+
 Object.assign(window, {
   ToastProvider, useToast, Button, Pill, Toggle, Checkbox, Radio,
   Field, Input, Select, SearchBox, Avatar, Modal, ModalHeader, Drawer,
   ConfirmDialog, Tabs, FilterChip, Pagination, Th, useSort,
   EmptyState, SkeletonRows, ActionMenu,
+  fmtDate, CalendarPicker, DateField, DateRangeField,
 });
