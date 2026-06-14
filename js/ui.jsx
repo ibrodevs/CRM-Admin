@@ -1,0 +1,336 @@
+// ===== Shared UI primitives =====
+const { useState, useEffect, useRef, createContext, useContext, useCallback } = React;
+
+/* ---------- Toast system ---------- */
+const ToastCtx = createContext(() => {});
+const useToast = () => useContext(ToastCtx);
+
+function ToastProvider({ children }) {
+  const [toasts, setToasts] = useState([]);
+  const push = useCallback((msg, kind = 'ok') => {
+    const id = Math.random().toString(36).slice(2);
+    setToasts((t) => [...t, { id, msg, kind }]);
+    setTimeout(() => setToasts((t) => t.filter((x) => x.id !== id)), 3400);
+  }, []);
+  const icoName = (k) => (k === 'ok' ? 'checkCircle' : k === 'err' ? 'alertCircle' : 'bell');
+  return (
+    <ToastCtx.Provider value={push}>
+      {children}
+      <div className="toast-wrap">
+        {toasts.map((t) => (
+          <div key={t.id} className={'toast ' + t.kind}>
+            <Icon name={icoName(t.kind)} className={'t-ico ' + t.kind} />
+            <span className="t-msg">{t.msg}</span>
+          </div>
+        ))}
+      </div>
+    </ToastCtx.Provider>
+  );
+}
+
+/* ---------- Button ---------- */
+function Button({ variant = 'primary', size, icon, iconRight, children, className = '', ...rest }) {
+  const cls = ['btn', 'btn-' + variant, size === 'sm' ? 'btn-sm' : size === 'lg' ? 'btn-lg' : '', className]
+    .filter(Boolean).join(' ');
+  return (
+    <button className={cls} {...rest}>
+      {icon && <Icon name={icon} />}
+      {children}
+      {iconRight && <Icon name={iconRight} />}
+    </button>
+  );
+}
+
+/* ---------- Status pill ---------- */
+const PILL_TONE = {
+  green: 'pill-green', red: 'pill-red', teal: 'pill-teal',
+  amber: 'pill-amber', blue: 'pill-blue', gray: 'pill-gray',
+};
+function Pill({ tone = 'gray', children }) {
+  return <span className={'pill ' + (PILL_TONE[tone] || 'pill-gray')}>{children}</span>;
+}
+
+/* ---------- Toggle / Checkbox / Radio ---------- */
+function Toggle({ on, onChange }) {
+  return <button type="button" className={'toggle' + (on ? ' on' : '')} onClick={() => onChange(!on)} />;
+}
+function Checkbox({ on, onChange }) {
+  return (
+    <button type="button" className={'checkbox' + (on ? ' on' : '')} onClick={() => onChange(!on)}>
+      {on && <Icon name="check" strokeWidth={3} />}
+    </button>
+  );
+}
+function Radio({ on, onChange }) {
+  return <button type="button" className={'radio' + (on ? ' on' : '')} onClick={() => onChange(true)} />;
+}
+
+/* ---------- Field / Input ---------- */
+function Field({ label, required, hint, error, children }) {
+  return (
+    <div className="field">
+      {label && <label className="label">{label}{required && <span className="req"> *</span>}</label>}
+      {hint && <div className="hint">{hint}</div>}
+      {children}
+      {error && <div className="err-text"><Icon name="alertCircle" style={{ width: 14, height: 14 }} />{error}</div>}
+    </div>
+  );
+}
+function Input({ error, leadIcon, trailIcon, onTrail, ...rest }) {
+  if (leadIcon || trailIcon) {
+    return (
+      <div className="input-wrap">
+        {leadIcon && <Icon name={leadIcon} className="lead" />}
+        <input className={'input' + (trailIcon ? ' has-trail' : '') + (error ? ' err' : '')} {...rest} />
+        {trailIcon && <Icon name={trailIcon} className="trail" onClick={onTrail} />}
+      </div>
+    );
+  }
+  return <input className={'input' + (error ? ' err' : '')} {...rest} />;
+}
+function Select({ options, error, placeholder, ...rest }) {
+  return (
+    <select className={'select' + (error ? ' err' : '')} {...rest}>
+      {placeholder && <option value="">{placeholder}</option>}
+      {options.map((o) => {
+        const val = typeof o === 'string' ? o : o.value;
+        const lab = typeof o === 'string' ? o : o.label;
+        return <option key={val} value={val}>{lab}</option>;
+      })}
+    </select>
+  );
+}
+function SearchBox({ value, onChange, placeholder = 'Поиск', style }) {
+  return (
+    <div className="search" style={style}>
+      <Icon name="search" />
+      <input value={value} onChange={(e) => onChange(e.target.value)} placeholder={placeholder} />
+    </div>
+  );
+}
+
+/* ---------- Avatar ---------- */
+function Avatar({ src, name = '', size = 40 }) {
+  const initials = name.split(' ').filter(Boolean).slice(0, 2).map((w) => w[0]).join('').toUpperCase();
+  if (src) return <img className="avatar" src={src} alt={name} style={{ width: size, height: size }} />;
+  return <span className="avatar-ph" style={{ width: size, height: size, fontSize: size * 0.36 }}>{initials}</span>;
+}
+
+/* ---------- Modal ---------- */
+function Modal({ open, onClose, children, size, className = '' }) {
+  useEffect(() => {
+    if (!open) return;
+    const h = (e) => { if (e.key === 'Escape') onClose && onClose(); };
+    window.addEventListener('keydown', h);
+    return () => window.removeEventListener('keydown', h);
+  }, [open, onClose]);
+  if (!open) return null;
+  return (
+    <div className="overlay" onMouseDown={(e) => { if (e.target === e.currentTarget) onClose && onClose(); }}>
+      <div className={'modal ' + (size === 'sm' ? 'modal-sm ' : '') + className}>{children}</div>
+    </div>
+  );
+}
+function ModalHeader({ title, sub, onClose }) {
+  return (
+    <div className="modal-head">
+      <div>
+        <h2 className="modal-title">{title}</h2>
+        {sub && <div className="modal-sub">{sub}</div>}
+      </div>
+      {onClose && <button className="modal-close" onClick={onClose}><Icon name="x" /></button>}
+    </div>
+  );
+}
+
+/* ---------- Drawer (slide-over) ---------- */
+function Drawer({ open, onClose, title, children, footer }) {
+  useEffect(() => {
+    if (!open) return;
+    const h = (e) => { if (e.key === 'Escape') onClose && onClose(); };
+    window.addEventListener('keydown', h);
+    return () => window.removeEventListener('keydown', h);
+  }, [open, onClose]);
+  if (!open) return null;
+  return (
+    <div className="drawer-overlay" onMouseDown={(e) => { if (e.target === e.currentTarget) onClose && onClose(); }}>
+      <div className="drawer scroll">
+        <div className="drawer-head">
+          <h2 className="modal-title" style={{ fontSize: 24 }}>{title}</h2>
+          <button className="modal-close" onClick={onClose}><Icon name="x" /></button>
+        </div>
+        <div className="drawer-body">{children}</div>
+        {footer && <div className="drawer-foot">{footer}</div>}
+      </div>
+    </div>
+  );
+}
+
+/* ---------- Confirm dialog ---------- */
+function ConfirmDialog({ open, title = 'Вы уверены?', message, confirmLabel = 'Удалить', onConfirm, onCancel }) {
+  return (
+    <Modal open={open} onClose={onCancel} size="sm">
+      <div className="modal-pad" style={{ padding: '26px 28px' }}>
+        <div className="modal-head" style={{ marginBottom: 8 }}>
+          <h2 className="modal-title" style={{ fontSize: 22 }}>{title}</h2>
+          <button className="modal-close" onClick={onCancel}><Icon name="x" /></button>
+        </div>
+        <p style={{ color: 'var(--muted)', fontSize: 15, margin: '0 0 22px' }}>{message}</p>
+        <div style={{ display: 'flex', gap: 12 }}>
+          <Button variant="secondary" onClick={onCancel} style={{ flex: 1 }}>Отменить</Button>
+          <Button variant="danger" onClick={onConfirm} style={{ flex: 1 }}>{confirmLabel}</Button>
+        </div>
+      </div>
+    </Modal>
+  );
+}
+
+/* ---------- Tabs ---------- */
+function Tabs({ tabs, value, onChange }) {
+  return (
+    <div className="tabs">
+      {tabs.map((t) => (
+        <button key={t.key} className={'tab' + (value === t.key ? ' active' : '')} onClick={() => onChange(t.key)}>
+          {t.label}
+          {t.count != null && <span className="tab-count">{t.count}</span>}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+/* ---------- Filter chip with dropdown ---------- */
+function FilterChip({ label, options, value, onChange, icon = 'filter' }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef(null);
+  useEffect(() => {
+    const h = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); };
+    document.addEventListener('mousedown', h);
+    return () => document.removeEventListener('mousedown', h);
+  }, []);
+  const cur = options.find((o) => (o.value ?? o) === value);
+  const curLabel = value ? (cur ? (cur.label ?? cur) : value) : label;
+  return (
+    <div style={{ position: 'relative' }} ref={ref}>
+      <button className={'chip' + (value ? '' : '')} onClick={() => setOpen((o) => !o)}>
+        {curLabel}
+        <Icon name={icon === 'filter' ? 'filter' : 'chevDown'} />
+      </button>
+      {open && (
+        <div className="dropdown" style={{ top: 48, left: 0 }}>
+          <div className="dropdown-item" onClick={() => { onChange(''); setOpen(false); }}>
+            <span style={{ width: 17 }} />Все
+          </div>
+          <div className="dropdown-sep" />
+          {options.map((o) => {
+            const val = o.value ?? o, lab = o.label ?? o;
+            return (
+              <div key={val} className="dropdown-item" onClick={() => { onChange(val); setOpen(false); }}>
+                {value === val ? <Icon name="check" /> : <span style={{ width: 17 }} />}{lab}
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ---------- Pagination ---------- */
+function Pagination({ page, pages, onPage }) {
+  return (
+    <div className="pagination">
+      <Button variant="secondary" size="sm" disabled={page <= 1} onClick={() => onPage(page - 1)}>Назад</Button>
+      <div className="page-info">Страница {page} из {pages}</div>
+      <Button variant="secondary" size="sm" disabled={page >= pages} onClick={() => onPage(page + 1)}>Вперед</Button>
+    </div>
+  );
+}
+
+/* ---------- Sortable column header ---------- */
+function Th({ label, col, sort, onSort, sortable = true, style }) {
+  if (!sortable) return <th style={style}>{label}</th>;
+  const active = sort && sort.col === col;
+  return (
+    <th className="sortable" style={style} onClick={() => onSort(col)}>
+      <span className="th-in">{label}
+        <Icon name={active ? (sort.dir === 'asc' ? 'chevUp' : 'chevDown') : 'chevDown'}
+          style={{ opacity: active ? 0.9 : 0.35 }} />
+      </span>
+    </th>
+  );
+}
+function useSort(initial) {
+  const [sort, setSort] = useState(initial || null);
+  const onSort = (col) => setSort((s) => (s && s.col === col ? { col, dir: s.dir === 'asc' ? 'desc' : 'asc' } : { col, dir: 'asc' }));
+  const apply = (rows, accessors) => {
+    if (!sort) return rows;
+    const acc = accessors[sort.col] || ((r) => r[sort.col]);
+    const sorted = [...rows].sort((a, b) => {
+      const x = acc(a), y = acc(b);
+      if (typeof x === 'number' && typeof y === 'number') return x - y;
+      return String(x).localeCompare(String(y), 'ru');
+    });
+    return sort.dir === 'asc' ? sorted : sorted.reverse();
+  };
+  return { sort, onSort, apply };
+}
+
+/* ---------- Empty / Skeleton ---------- */
+function EmptyState({ icon = 'inbox', title = 'Нет данных', sub }) {
+  return (
+    <div className="empty">
+      <Icon name={icon} strokeWidth={1.5} />
+      <div className="e-title">{title}</div>
+      {sub && <div className="e-sub">{sub}</div>}
+    </div>
+  );
+}
+function SkeletonRows({ rows = 6, cols = 6 }) {
+  return (
+    <tbody>
+      {Array.from({ length: rows }).map((_, i) => (
+        <tr key={i}>
+          {Array.from({ length: cols }).map((__, j) => (
+            <td key={j}><div className="sk" style={{ height: 16, width: j === 0 ? '40%' : '70%' }} /></td>
+          ))}
+        </tr>
+      ))}
+    </tbody>
+  );
+}
+
+/* ---------- Dropdown menu (actions) ---------- */
+function ActionMenu({ items, trigger }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef(null);
+  useEffect(() => {
+    const h = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); };
+    document.addEventListener('mousedown', h);
+    return () => document.removeEventListener('mousedown', h);
+  }, []);
+  return (
+    <div style={{ position: 'relative' }} ref={ref}>
+      <span onClick={(e) => { e.stopPropagation(); setOpen((o) => !o); }}>{trigger}</span>
+      {open && (
+        <div className="dropdown" style={{ top: 38, right: 0 }}>
+          {items.map((it, i) => it.sep
+            ? <div key={i} className="dropdown-sep" />
+            : (
+              <div key={i} className={'dropdown-item' + (it.danger ? ' danger' : '')}
+                onClick={(e) => { e.stopPropagation(); setOpen(false); it.onClick && it.onClick(); }}>
+                {it.icon && <Icon name={it.icon} />}{it.label}
+              </div>
+            ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+Object.assign(window, {
+  ToastProvider, useToast, Button, Pill, Toggle, Checkbox, Radio,
+  Field, Input, Select, SearchBox, Avatar, Modal, ModalHeader, Drawer,
+  ConfirmDialog, Tabs, FilterChip, Pagination, Th, useSort,
+  EmptyState, SkeletonRows, ActionMenu,
+});
