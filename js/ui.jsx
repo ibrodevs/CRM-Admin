@@ -469,30 +469,45 @@ function CalendarPicker({ mode = 'range', startVal = null, endVal = null, onConf
 /* Single date picker field */
 function DateField({ label, value, onChange, placeholder = 'Выбрать дату', required, error, style }) {
   const [open, setOpen] = useState(false);
+  const [pos, setPos] = useState({ top: 0, left: 0 });
   const ref = useRef(null);
   useEffect(() => {
-    const h = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); };
+    const h = (e) => {
+      if (!ref.current) return;
+      // allow clicks inside the portal popup too
+      const portal = document.getElementById('__cal_portal__');
+      if (ref.current.contains(e.target) || (portal && portal.contains(e.target))) return;
+      setOpen(false);
+    };
     document.addEventListener('mousedown', h);
     return () => document.removeEventListener('mousedown', h);
   }, []);
+  const toggle = () => {
+    if (!open && ref.current) {
+      const r = ref.current.getBoundingClientRect();
+      setPos({ top: r.bottom + 6, left: r.left });
+    }
+    setOpen(o => !o);
+  };
   return (
     <div ref={ref} style={{ position: 'relative', ...style }}>
       {label && <label className="label" style={{ display: 'block', marginBottom: 7 }}>{label}{required && <span className="req"> *</span>}</label>}
       <div className={'input' + (error ? ' err' : '')}
         style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 10 }}
-        onClick={() => setOpen(o => !o)}>
+        onClick={toggle}>
         <Icon name="calendar" style={{ width: 18, height: 18, color: 'var(--muted-2)', flexShrink: 0 }} />
         <span style={{ color: value ? 'var(--ink)' : 'var(--faint)', fontSize: 15, flex: 1 }}>
           {value ? fmtDate(value) : placeholder}
         </span>
       </div>
       {error && <div className="err-text"><Icon name="alertCircle" style={{ width: 14, height: 14 }} />{error}</div>}
-      {open && (
-        <div style={{ position: 'absolute', top: 'calc(100% + 6px)', left: 0, zIndex: 400 }}>
+      {open && ReactDOM.createPortal(
+        <div id="__cal_portal__" style={{ position: 'fixed', top: pos.top, left: pos.left, zIndex: 9999 }}>
           <CalendarPicker mode="single" startVal={value || null}
             onConfirm={(d) => { onChange(d); setOpen(false); }}
             onClose={() => setOpen(false)} />
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );
@@ -501,12 +516,25 @@ function DateField({ label, value, onChange, placeholder = 'Выбрать да�
 /* Date range picker field */
 function DateRangeField({ label, startVal, endVal, onChange, placeholder = 'Выбрать период', style }) {
   const [open, setOpen] = useState(false);
+  const [pos, setPos] = useState({ top: 0, left: 0 });
   const ref = useRef(null);
   useEffect(() => {
-    const h = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); };
+    const h = (e) => {
+      if (!ref.current) return;
+      const portal = document.getElementById('__calr_portal__');
+      if (ref.current.contains(e.target) || (portal && portal.contains(e.target))) return;
+      setOpen(false);
+    };
     document.addEventListener('mousedown', h);
     return () => document.removeEventListener('mousedown', h);
   }, []);
+  const toggle = () => {
+    if (!open && ref.current) {
+      const r = ref.current.getBoundingClientRect();
+      setPos({ top: r.bottom + 6, left: r.left });
+    }
+    setOpen(o => !o);
+  };
   const display = startVal
     ? (endVal ? `${fmtDate(startVal)} — ${fmtDate(endVal)}` : fmtDate(startVal))
     : '';
@@ -515,18 +543,19 @@ function DateRangeField({ label, startVal, endVal, onChange, placeholder = 'Вы
       {label && <label className="label" style={{ display: 'block', marginBottom: 7 }}>{label}</label>}
       <div className="input"
         style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 10 }}
-        onClick={() => setOpen(o => !o)}>
+        onClick={toggle}>
         <Icon name="calendar" style={{ width: 18, height: 18, color: 'var(--muted-2)', flexShrink: 0 }} />
         <span style={{ color: display ? 'var(--ink)' : 'var(--faint)', fontSize: 15, flex: 1 }}>
           {display || placeholder}
         </span>
       </div>
-      {open && (
-        <div style={{ position: 'absolute', top: 'calc(100% + 6px)', left: 0, zIndex: 400 }}>
+      {open && ReactDOM.createPortal(
+        <div id="__calr_portal__" style={{ position: 'fixed', top: pos.top, left: pos.left, zIndex: 9999 }}>
           <CalendarPicker mode="range" startVal={startVal || null} endVal={endVal || null}
             onConfirm={(s, e) => { onChange(s, e); setOpen(false); }}
             onClose={() => setOpen(false)} />
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );
