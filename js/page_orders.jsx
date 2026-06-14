@@ -1,67 +1,657 @@
-// ===== Orders: list + detail + create drawer =====
+// ===== Orders: list + detail + multi-step create modal =====
 
 const PAGE_SIZE = 9;
 
-function OrderCreateDrawer({ open, onClose, onCreated }) {
-  const toast = useToast();
-  const empty = { client: '', requestType: '', service: '', operator: '', currency: 'USD', sum: '', comment: '' };
-  const [f, setF] = useState(empty);
-  const [errs, setErrs] = useState({});
-  const set = (k) => (e) => setF((p) => ({ ...p, [k]: e.target ? e.target.value : e }));
-  useEffect(() => { if (open) { setF(empty); setErrs({}); } }, [open]);
+const ALL_SERVICES = ['Авиаперелет', 'Отель', 'Транспорт', 'Страховка', 'Другое', 'ЖД', 'Виза', 'Трансфер'];
 
-  const submit = () => {
-    const er = {};
-    if (!f.client.trim()) er.client = 'Укажите клиента';
-    if (!f.requestType) er.requestType = 'Выберите тип';
-    if (!f.service) er.service = 'Выберите услугу';
-    if (!f.sum || isNaN(+f.sum)) er.sum = 'Введите сумму';
-    setErrs(er);
-    if (Object.keys(er).length) { toast('Проверьте поля формы', 'err'); return; }
-    onCreated({ no: 51181, client: f.client, requestType: f.requestType, service: f.service,
-      status: 'Новое', operator: f.operator || 'Даниель', operatorRole: 'Оператор',
-      sum: +f.sum, currency: f.currency, services: 1, progress: 5, date: '14.06.26' });
+const MOCK_FLIGHTS_DB = [
+  {
+    id: 1,
+    fromCity: 'Ташкент (UZB)', toCity: 'Дубай (DXB)',
+    dep: '21.01.26 (18:20)', arr: '22.01.26 (07:50)',
+    retDep: '01.02.26 (00:20)', retArr: '02.02.26 (09:50)',
+    airline: 'S7 Airlines', cls: 'E Class (Эконом)',
+    baggage: 'До 17кг + 5кг ручной', cost: '726$', comm: '1.5$', fees: '1.2$',
+  },
+  {
+    id: 2,
+    fromCity: 'Ташкент (UZB)', toCity: 'Дубай (DXB)',
+    dep: '21.01.26 (18:20)', arr: '22.01.26 (09:50)',
+    retDep: '01.02.26 (00:20)', retArr: '02.02.26 (09:50)',
+    airline: 'AviaTraffic', cls: 'C Class (Бизнес класс)',
+    baggage: 'До 23кг', cost: '220$', comm: '2.4$', fees: '1.6$',
+  },
+];
+
+/* ---- Step progress indicator ---- */
+function StepIndicator({ step }) {
+  const labels = ['Основные параметры', 'Информация о клиенте', 'Добавление услуг'];
+  const pct = Math.round((step / 3) * 100);
+  return (
+    <div style={{ marginBottom: 0 }}>
+      <div style={{ fontSize: 13.5, color: 'var(--muted)', fontWeight: 500, marginBottom: 8 }}>
+        {step}. {labels[step - 1]}
+      </div>
+      <div style={{ height: 3, borderRadius: 999, background: 'var(--line)', overflow: 'hidden' }}>
+        <div style={{ height: '100%', width: pct + '%', background: 'var(--blue)', borderRadius: 999, transition: 'width .35s ease' }} />
+      </div>
+    </div>
+  );
+}
+
+/* ---- Client type card ---- */
+function TypeCard({ iconName, label, selected, onClick }) {
+  return (
+    <button type="button" onClick={onClick} style={{
+      display: 'flex', alignItems: 'center', gap: 12,
+      padding: '14px 18px', borderRadius: 14,
+      border: '1.5px solid ' + (selected ? 'var(--blue)' : 'var(--field-line)'),
+      background: selected ? 'var(--blue-soft)' : '#fff',
+      cursor: 'pointer', width: '100%', textAlign: 'left',
+      transition: '.14s', fontFamily: 'inherit',
+    }}>
+      <Icon name={iconName} style={{ width: 22, height: 22, color: selected ? 'var(--blue)' : 'var(--muted)' }} />
+      <span style={{ flex: 1, fontWeight: 500, color: 'var(--ink)', fontSize: 15 }}>{label}</span>
+      <span className={'radio' + (selected ? ' on' : '')} />
+    </button>
+  );
+}
+
+/* ---- Document upload button ---- */
+function DocUploadBtn({ label, placeholder = 'Добавить паспорт' }) {
+  return (
+    <div className="field">
+      {label && <label className="label">{label}</label>}
+      <button type="button" style={{
+        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+        padding: '12px 16px', borderRadius: 12, border: '1px solid var(--field-line)',
+        background: '#fff', cursor: 'pointer', width: '100%',
+        fontSize: 15, color: 'var(--body)', fontFamily: 'inherit', transition: '.14s',
+      }}>
+        <span>{placeholder}</span>
+        <Icon name="chevRight" style={{ width: 18, height: 18, color: 'var(--muted-2)' }} />
+      </button>
+    </div>
+  );
+}
+
+/* ---- Person selector tab ---- */
+function PersonTab({ icon = 'user', name, sub, active, onClick }) {
+  return (
+    <button type="button" onClick={onClick} style={{
+      display: 'flex', alignItems: 'center', gap: 10,
+      padding: '10px 16px', borderRadius: 13,
+      border: '1.5px solid ' + (active ? 'var(--blue)' : 'var(--field-line)'),
+      background: '#fff', cursor: 'pointer', fontFamily: 'inherit', transition: '.14s',
+    }}>
+      <Icon name={icon} style={{ width: 20, height: 20, color: active ? 'var(--blue)' : 'var(--muted)' }} />
+      <div style={{ textAlign: 'left' }}>
+        <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--ink)', whiteSpace: 'nowrap' }}>{name}</div>
+        {sub && <div style={{ fontSize: 12, color: 'var(--muted)' }}>{sub}</div>}
+      </div>
+      <span className={'radio' + (active ? ' on' : '')} />
+    </button>
+  );
+}
+
+/* ---- Analysis modal (loading / error / expired) ---- */
+function AnalysisModal({ phase, clientName, onContinue }) {
+  if (!phase) return null;
+
+  const content = {
+    loading: {
+      icon: <Icon name="loader" style={{ width: 52, height: 52, color: 'var(--blue)', animation: 'spin 1s linear infinite' }} />,
+      title: 'Идет анализ документов',
+      btn: null,
+    },
+    error: {
+      icon: (
+        <div style={{ width: 68, height: 68, borderRadius: '50%', background: 'var(--red-bg)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ width: 36, height: 36, color: 'var(--red-strong)' }}>
+            <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
+          </svg>
+        </div>
+      ),
+      title: 'Ошибка при анализе документов',
+      btn: 'Попробовать снова',
+    },
+    expired: {
+      icon: (
+        <div style={{ width: 68, height: 68, borderRadius: '50%', background: 'var(--red-bg)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ width: 36, height: 36, color: 'var(--red-strong)' }}>
+            <rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>
+            <circle cx="16" cy="16" r="3"/><polyline points="16 14.5 16 16 17 17"/>
+          </svg>
+        </div>
+      ),
+      title: 'Истек срок годности паспорта',
+      btn: 'Продолжить',
+    },
+  }[phase];
+
+  return (
+    <div className="overlay" style={{ zIndex: 200 }} onMouseDown={(e) => { if (e.target === e.currentTarget && phase !== 'loading') onContinue(); }}>
+      <div className="modal modal-sm" onClick={(e) => e.stopPropagation()}>
+        <div style={{ padding: '52px 44px', display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', gap: 14 }}>
+          {content.icon}
+          <div style={{ fontSize: 20, fontWeight: 700, color: 'var(--ink)', lineHeight: 1.3 }}>{content.title}</div>
+          <div style={{ color: 'var(--muted)', fontSize: 15 }}>{clientName}</div>
+          {content.btn && (
+            <Button variant="primary" onClick={onContinue} style={{ marginTop: 10 }}>{content.btn}</Button>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ---- Flight search dropdown ---- */
+function FlightSearchBox({ value, onChange, onSelect, svcName }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef(null);
+
+  useEffect(() => {
+    const h = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); };
+    document.addEventListener('mousedown', h);
+    return () => document.removeEventListener('mousedown', h);
+  }, []);
+
+  return (
+    <div ref={ref} style={{ position: 'relative' }}>
+      <div className="search" style={{ width: 200, height: 40 }} onClick={() => setOpen(true)}>
+        <Icon name="search" />
+        <input
+          placeholder={svcName === 'Авиаперелет' ? 'Бишкек - Алматы' : 'Найти'}
+          value={value}
+          onChange={(e) => { onChange(e.target.value); setOpen(true); }}
+        />
+      </div>
+      {open && (
+        <div className="dropdown" style={{ top: 48, right: 0, minWidth: 220 }}>
+          {MOCK_FLIGHTS_DB.map((f) => (
+            <div key={f.id} className="dropdown-item"
+              onClick={() => { onSelect(f); setOpen(false); onChange(''); }}>
+              <span style={{ flex: 1 }}>{f.airline}</span>
+              <span style={{ color: 'var(--red-strong)', fontWeight: 700 }}>{f.cost}</span>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ---- Service section in step 3 ---- */
+function ServiceSection({ svcName, startDate, endDate, selectedFlight, onSelectFlight }) {
+  const [search, setSearch] = useState('');
+  const isAvia = svcName === 'Авиаперелет';
+  const fl = selectedFlight;
+
+  return (
+    <div style={{ marginBottom: 32 }}>
+      <h3 style={{ fontSize: 18, fontWeight: 700, color: 'var(--ink)', margin: '0 0 14px' }}>{svcName}</h3>
+
+      {/* Controls row */}
+      <div style={{ display: 'flex', alignItems: 'flex-end', gap: 10, marginBottom: 12, flexWrap: 'wrap' }}>
+        <div>
+          <div style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 4 }}>Начало</div>
+          <input className="input" style={{ height: 40, width: 108, fontSize: 13.5 }} value={startDate || '21.01.26'} readOnly />
+        </div>
+        <div>
+          <div style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 4 }}>Конец</div>
+          <input className="input" style={{ height: 40, width: 108, fontSize: 13.5 }} value={endDate || '01.02.26'} readOnly />
+        </div>
+        <button type="button" style={{ border: 'none', background: 'none', color: 'var(--muted)', fontSize: 13.5, cursor: 'pointer', paddingBottom: 2 }}>Изменить даты</button>
+        <select className="select" style={{ width: 160, height: 40, fontSize: 13.5 }}>
+          <option value="">Выбрать класс</option>
+          <option>Эконом</option><option>Бизнес</option><option>Первый</option>
+        </select>
+        <select className="select" style={{ width: 130, height: 40, fontSize: 13.5 }}>
+          <option value="">Выбрать</option>
+          <option>Есть</option><option>Нет</option>
+        </select>
+        <select className="select" style={{ width: 140, height: 40, fontSize: 13.5 }}>
+          <option value="">Выбрать</option>
+          <option>Прямой</option><option>С пересадкой</option>
+        </select>
+        <div style={{ marginLeft: 'auto' }}>
+          <FlightSearchBox
+            svcName={svcName}
+            value={search}
+            onChange={setSearch}
+            onSelect={onSelectFlight}
+          />
+        </div>
+      </div>
+
+      {/* Table */}
+      <div className="table-card">
+        <table className="tbl">
+          <thead>
+            <tr>
+              <th style={{ width: 64 }}>Выбрать</th>
+              <th>Данные Вылета</th>
+              <th>Данные прилета</th>
+              <th>Авиакомпания</th>
+              <th>Багаж</th>
+              <th>Стоимость</th>
+              <th>Комиссия</th>
+              <th>Сборы</th>
+            </tr>
+          </thead>
+          <tbody>
+            {!fl ? (
+              <tr>
+                <td><span className="radio on" /></td>
+                <td colSpan={7} style={{ color: 'var(--muted)', fontStyle: 'italic' }}>
+                  {isAvia ? 'Выберите перелеты' : `Выберите ${svcName.toLowerCase()}`}
+                </td>
+              </tr>
+            ) : (
+              <tr>
+                <td><span className="radio on" /></td>
+                <td>
+                  <div className="t-strong">{fl.fromCity} — {fl.toCity}</div>
+                  <div className="t-sub">{fl.dep} — {fl.arr}</div>
+                </td>
+                <td>
+                  <div className="t-strong">{fl.toCity} — {fl.fromCity}</div>
+                  <div className="t-sub">{fl.retDep} — {fl.retArr}</div>
+                </td>
+                <td>
+                  <div style={{ color: 'var(--ink)' }}>{fl.airline}</div>
+                  <div className="t-sub">{fl.cls}</div>
+                </td>
+                <td>
+                  <div>Есть</div>
+                  <div className="t-sub">{fl.baggage}</div>
+                </td>
+                <td><Pill tone="red">{fl.cost}</Pill></td>
+                <td><Pill tone="blue">{fl.comm}</Pill></td>
+                <td><Pill tone="blue">{fl.fees}</Pill></td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+/* ===== Main multi-step modal ===== */
+function OrderCreateModal({ open, onClose, onCreated }) {
+  const toast = useToast();
+
+  // phase: 'step1' | 'step2' | 'analyzing' | 'error' | 'expired' | 'step3'
+  const [phase, setPhase] = useState('step1');
+
+  // Step 1
+  const [clientType, setClientType] = useState('person');
+  const [numPersons, setNumPersons] = useState('1');
+  const [svc, setSvc] = useState({});
+  const [currency, setCurrency] = useState('');
+  const [numDays, setNumDays] = useState('');
+  const [startDate, setStartDate] = useState('');
+  const [endDate, setEndDate] = useState('');
+  const [specialCase, setSpecialCase] = useState('');
+  const [operator, setOperator] = useState('');
+  const [travelStatement, setTravelStatement] = useState(false);
+
+  // Step 2
+  const [currentPersonIdx, setCurrentPersonIdx] = useState(0);
+  const [persons, setPersons] = useState([{}]);
+
+  // Step 3 — selectedFlight per service name
+  const [selectedFlights, setSelectedFlights] = useState({});
+
+  // Reset on open
+  useEffect(() => {
+    if (!open) return;
+    setPhase('step1');
+    setClientType('person'); setNumPersons('1');
+    setSvc({}); setCurrency(''); setNumDays('');
+    setStartDate(''); setEndDate(''); setSpecialCase('');
+    setOperator(''); setTravelStatement(false);
+    setCurrentPersonIdx(0); setPersons([{}]);
+    setSelectedFlights({});
+  }, [open]);
+
+  // Escape key
+  useEffect(() => {
+    if (!open) return;
+    const h = (e) => { if (e.key === 'Escape') onClose(); };
+    window.addEventListener('keydown', h);
+    return () => window.removeEventListener('keydown', h);
+  }, [open]);
+
+  if (!open) return null;
+
+  const numP = Math.max(1, parseInt(numPersons) || 1);
+  const activeServices = ALL_SERVICES.filter((s) => svc[s]);
+
+  const personName = (idx) => {
+    const p = persons[idx];
+    if (!p) return clientType === 'org' ? `Организация ${idx + 1}` : `Физическое лицо ${idx + 1}`;
+    const name = [p.lastName, p.firstName].filter(Boolean).join(' ');
+    return name || (clientType === 'org' ? `Организация ${idx + 1}` : `Физическое лицо ${idx + 1}`);
+  };
+  const isPersonFilled = (idx) => {
+    const p = persons[idx];
+    return !!(p && (p.lastName || p.firstName));
+  };
+
+  const setPerson = (idx, field, value) => {
+    setPersons((prev) => {
+      const next = [...prev];
+      next[idx] = { ...next[idx], [field]: value };
+      return next;
+    });
+  };
+
+  const ensurePersons = (n) => {
+    setPersons((prev) => {
+      const next = [...prev];
+      while (next.length < n) next.push({});
+      return next.slice(0, n);
+    });
+  };
+
+  const goStep2 = () => {
+    ensurePersons(numP);
+    setCurrentPersonIdx(0);
+    setPhase('step2');
+  };
+
+  const goAnalyze = () => {
+    setPhase('loading');
+    setTimeout(() => setPhase('expired'), 1600);
+  };
+
+  const handleAnalysisAction = () => {
+    if (phase === 'error') { setPhase('loading'); setTimeout(() => setPhase('expired'), 1600); }
+    else setPhase('step3');
+  };
+
+  const submitOrder = () => {
+    const clientLabel = isPersonFilled(0)
+      ? personName(0)
+      : (clientType === 'org' ? 'Новая организация' : 'Новый клиент');
+    onCreated({
+      no: 51181 + Math.floor(Math.random() * 10),
+      client: clientLabel,
+      requestType: 'Индивидуальная',
+      service: activeServices[0] || 'Авиа',
+      status: 'Новое', operator: operator || 'Даниель', operatorRole: 'Оператор',
+      sum: 0, currency: currency || 'USD',
+      services: Math.max(1, activeServices.length),
+      progress: 0, date: '14.06.26',
+    });
     toast('Заказ создан', 'ok');
     onClose();
   };
 
-  return (
-    <Drawer open={open} onClose={onClose} title="Новый заказ"
-      footer={<>
-        <Button variant="secondary" onClick={onClose}>Отмена</Button>
-        <Button variant="primary" iconRight="arrowRight" onClick={submit}>Создать заказ</Button>
-      </>}>
-      <div className="form-grid">
-        <div className="full">
-          <Field label="Клиент" required error={errs.client}>
-            <Input placeholder="Введите ФИО или организацию" value={f.client} onChange={set('client')} error={errs.client} />
-          </Field>
+  /* ---- Render step 1 ---- */
+  const renderStep1 = () => (
+    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px 32px' }}>
+      {/* Left */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+          <TypeCard iconName="user" label="Физическое лицо" selected={clientType === 'person'} onClick={() => setClientType('person')} />
+          <TypeCard iconName="users" label="Организация" selected={clientType === 'org'} onClick={() => setClientType('org')} />
         </div>
-        <Field label="Тип заявки" required error={errs.requestType}>
-          <Select placeholder="Выберите тип" options={REQUEST_TYPE} value={f.requestType} onChange={set('requestType')} error={errs.requestType} />
+        <Field label="Количество лиц">
+          <Input placeholder="Введите значение" value={numPersons} onChange={(e) => setNumPersons(e.target.value)} type="number" min="1" />
         </Field>
-        <Field label="Тип услуги" required error={errs.service}>
-          <Select placeholder="Выберите услугу" options={Object.keys(SERVICE_TYPE)} value={f.service} onChange={set('service')} error={errs.service} />
-        </Field>
-        <Field label="Ответственное лицо">
-          <Select placeholder="Выберите оператора" options={OPERATORS} value={f.operator} onChange={set('operator')} />
-        </Field>
-        <Field label="Валюта">
-          <Select options={CURRENCIES.map((c) => c.code)} value={f.currency} onChange={set('currency')} />
-        </Field>
-        <Field label="Сумма" required error={errs.sum}>
-          <Input placeholder="0.00" value={f.sum} onChange={set('sum')} error={errs.sum} />
-        </Field>
-        <div className="full">
-          <Field label="Комментарий">
-            <textarea className="input" rows={3} placeholder="Дополнительная информация..." value={f.comment} onChange={set('comment')} />
-          </Field>
+        <div>
+          {ALL_SERVICES.map((s) => (
+            <div key={s} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 0', borderBottom: '1px solid var(--line)' }}>
+              <span style={{ fontSize: 15, color: 'var(--body)' }}>{s}</span>
+              <Toggle on={!!svc[s]} onChange={(v) => setSvc((p) => ({ ...p, [s]: v }))} />
+            </div>
+          ))}
+          <div style={{ display: 'flex', gap: 22, marginTop: 12 }}>
+            <button type="button" style={{ border: 'none', background: 'none', color: 'var(--muted)', cursor: 'pointer', fontSize: 14, padding: 0 }}
+              onClick={() => { const anyOn = Object.values(svc).some(Boolean); const ns = {}; ALL_SERVICES.forEach((s) => { ns[s] = !anyOn; }); setSvc(ns); }}>
+              Выбрать все
+            </button>
+            <button type="button" style={{ border: 'none', background: 'none', color: 'var(--muted)', cursor: 'pointer', fontSize: 14, padding: 0 }}>
+              Добавить индивидуальный пакет
+            </button>
+          </div>
         </div>
       </div>
-    </Drawer>
+
+      {/* Right */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+        <Field label="Валюта расчета">
+          <select className="select" value={currency} onChange={(e) => setCurrency(e.target.value)}>
+            <option value="">Выбрать</option>
+            {CURRENCIES.map((c) => <option key={c.code} value={c.code}>{c.name}</option>)}
+          </select>
+        </Field>
+        <Field label="Количество дней">
+          <Input placeholder="Введите значение" value={numDays} onChange={(e) => setNumDays(e.target.value)} type="number" min="1" />
+        </Field>
+        <Field label="Выбор периода отдыха">
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+            <div>
+              <div style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 5 }}>Начало</div>
+              <Input placeholder="Введите дату" value={startDate} onChange={(e) => setStartDate(e.target.value)} type="date" />
+            </div>
+            <div>
+              <div style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 5 }}>Конец</div>
+              <Input placeholder="Введите дату" value={endDate} onChange={(e) => setEndDate(e.target.value)} type="date" />
+            </div>
+          </div>
+          <button type="button" style={{ border: 'none', background: 'none', color: 'var(--muted)', cursor: 'pointer', fontSize: 13, padding: '4px 0 0', textAlign: 'left' }}>
+            Указать индивидуальные даты
+          </button>
+        </Field>
+        <Field label="Особые случаи">
+          <select className="select" value={specialCase} onChange={(e) => setSpecialCase(e.target.value)}>
+            <option value="">Выбрать</option>
+            <option>День рождения</option><option>Медовый месяц</option><option>Юбилей</option>
+          </select>
+        </Field>
+        <Field label="Оператор">
+          <select className="select" value={operator} onChange={(e) => setOperator(e.target.value)}>
+            <option value="">Выбрать</option>
+            {OPERATORS.map((o) => <option key={o} value={o}>{o}</option>)}
+          </select>
+        </Field>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingTop: 4 }}>
+          <span style={{ fontSize: 15, color: 'var(--body)', fontWeight: 500 }}>Выписка о путешествии</span>
+          <Toggle on={travelStatement} onChange={setTravelStatement} />
+        </div>
+      </div>
+    </div>
+  );
+
+  /* ---- Render step 2 ---- */
+  const renderStep2 = () => {
+    const p = persons[currentPersonIdx] || {};
+    const set = (field) => (e) => setPerson(currentPersonIdx, field, e.target ? e.target.value : e);
+    return (
+      <div>
+        {/* Person tabs */}
+        <div style={{ display: 'flex', gap: 12, marginBottom: 24, flexWrap: 'wrap' }}>
+          {Array.from({ length: numP }).map((_, i) => (
+            <PersonTab
+              key={i}
+              name={personName(i)}
+              sub={isPersonFilled(i) ? 'Данные заполнены' : 'Заполните данные'}
+              active={currentPersonIdx === i}
+              onClick={() => setCurrentPersonIdx(i)}
+            />
+          ))}
+        </div>
+
+        {/* Form */}
+        <div className="form-grid" style={{ marginBottom: 24 }}>
+          <Field label="Фамилия">
+            <Input placeholder="Введите значение" value={p.lastName || ''} onChange={set('lastName')} />
+          </Field>
+          <Field label="Дата рождения">
+            <Input placeholder="Введите значение" value={p.dob || ''} onChange={set('dob')} type="date" />
+          </Field>
+          <Field label="Имя">
+            <Input placeholder="Введите значение" value={p.firstName || ''} onChange={set('firstName')} />
+          </Field>
+          <Field label="ИНН">
+            <Input placeholder="Введите значение" value={p.inn || ''} onChange={set('inn')} />
+          </Field>
+          <Field label="Отчество">
+            <Input placeholder="Введите значение" value={p.middleName || ''} onChange={set('middleName')} />
+          </Field>
+          <Field label="Наличие визы">
+            <select className="select" value={p.visa || ''} onChange={set('visa')}>
+              <option value="">Выбрать</option>
+              <option>Есть</option><option>Нет</option><option>В процессе</option>
+            </select>
+          </Field>
+          <Field label="Гражданство">
+            <Input placeholder="Введите значение" value={p.citizenship || ''} onChange={set('citizenship')} />
+          </Field>
+          <Field label="Пол">
+            <select className="select" value={p.gender || ''} onChange={set('gender')}>
+              <option value="">Выбрать</option>
+              <option>Мужской</option><option>Женский</option>
+            </select>
+          </Field>
+        </div>
+
+        {/* Document uploads */}
+        <div className="form-grid">
+          <DocUploadBtn label="Фото паспорта" placeholder="Добавить паспорт" />
+          <DocUploadBtn label="Фото визы (при наличии)" placeholder="Добавить паспорт" />
+          <div className="full">
+            <DocUploadBtn label="Иные документы (при наличии)" placeholder="Добавить документ" />
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  /* ---- Render step 3 ---- */
+  const renderStep3 = () => {
+    const shownServices = activeServices.length > 0 ? activeServices : ['Авиаперелет', 'Отель'];
+    return (
+      <div>
+        {/* Person tabs */}
+        <div style={{ display: 'flex', gap: 12, marginBottom: 28, flexWrap: 'wrap' }}>
+          <PersonTab name="Для всех физических лиц" active={true} onClick={() => {}} />
+          {Array.from({ length: numP }).map((_, i) => (
+            <PersonTab
+              key={i}
+              name={personName(i)}
+              sub={isPersonFilled(i) ? 'Данные заполнены' : 'Заполните данные'}
+              active={false}
+              onClick={() => {}}
+            />
+          ))}
+        </div>
+
+        {shownServices.map((sName) => (
+          <ServiceSection
+            key={sName}
+            svcName={sName}
+            startDate={startDate}
+            endDate={endDate}
+            selectedFlight={selectedFlights[sName]}
+            onSelectFlight={(f) => setSelectedFlights((prev) => ({ ...prev, [sName]: f }))}
+          />
+        ))}
+      </div>
+    );
+  };
+
+  /* ---- Layout ---- */
+  const isStep3 = phase === 'step3';
+  const isAnalysis = phase === 'loading' || phase === 'error' || phase === 'expired';
+  const stepNum = phase === 'step1' ? 1 : phase === 'step2' ? 2 : 3;
+
+  // Analysis modal — renders independently, no panel
+  if (isAnalysis) {
+    return <AnalysisModal phase={phase} clientName={personName(0)} onContinue={handleAnalysisAction} />;
+  }
+
+  return (
+    <>
+      {/* Overlay + panel */}
+      <div
+        className="drawer-overlay"
+        style={isStep3
+          ? { display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }
+          : { display: 'flex', justifyContent: 'flex-end' }}
+        onMouseDown={(e) => { if (e.target === e.currentTarget) onClose(); }}
+      >
+        <div
+          className="scroll"
+          style={isStep3
+            ? {
+                background: '#fff', borderRadius: 22,
+                boxShadow: 'var(--shadow-modal)',
+                width: 'min(1160px, 94vw)', maxHeight: '92vh', overflow: 'auto',
+                animation: 'pop .2s cubic-bezier(.2,.9,.3,1)',
+                display: 'flex', flexDirection: 'column',
+              }
+            : {
+                background: '#fff', width: 'min(680px, 58vw)', height: '100vh',
+                overflow: 'auto', boxShadow: 'var(--shadow-modal)',
+                animation: 'slidein .26s cubic-bezier(.2,.9,.3,1)',
+                display: 'flex', flexDirection: 'column',
+              }}
+        >
+          {/* Header — sticky */}
+          <div style={{
+            padding: '26px 36px 20px', position: 'sticky', top: 0,
+            background: '#fff', zIndex: 2,
+            borderBottom: isStep3 ? '1px solid var(--line)' : 'none',
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+              <h2 style={{ fontSize: 26, fontWeight: 700, color: 'var(--ink)', margin: 0, letterSpacing: '-.02em' }}>
+                Добавление заказа
+              </h2>
+              <button type="button" className="modal-close" onClick={onClose}><Icon name="x" /></button>
+            </div>
+            <StepIndicator step={stepNum} />
+          </div>
+
+          {/* Body */}
+          <div style={{ padding: '24px 36px', flex: 1 }}>
+            {phase === 'step1' && renderStep1()}
+            {phase === 'step2' && renderStep2()}
+            {phase === 'step3' && renderStep3()}
+          </div>
+
+          {/* Footer — sticky */}
+          <div style={{
+            padding: '18px 36px', borderTop: '1px solid var(--line)',
+            position: 'sticky', bottom: 0, background: '#fff',
+          }}>
+            {phase === 'step1' && (
+              <Button variant="primary" iconRight="arrowRight" onClick={goStep2}>
+                Продолжить заполнение
+              </Button>
+            )}
+            {phase === 'step2' && (
+              <Button variant="primary" iconRight="arrowRight" onClick={goAnalyze}>
+                Продолжить заполнение
+              </Button>
+            )}
+            {phase === 'step3' && (
+              <Button variant="primary" iconRight="arrowRight" onClick={submitOrder}>
+                Продолжить заполнение
+              </Button>
+            )}
+          </div>
+        </div>
+      </div>
+    </>
   );
 }
 
+/* ===== Orders list ===== */
 function OrdersList({ orders, onOpen, onCreate }) {
   const toast = useToast();
   const [search, setSearch] = useState('');
@@ -139,6 +729,7 @@ function OrdersList({ orders, onOpen, onCreate }) {
   );
 }
 
+/* ===== Order detail ===== */
 function OrderDetail({ order, onBack }) {
   const toast = useToast();
   const [confirm, setConfirm] = useState(null);
@@ -217,7 +808,6 @@ function OrderDetail({ order, onBack }) {
           </div>
         </div>
 
-        {/* fees */}
         <SectionWithTable title="Сборы и налоги" action="Добавить сбор / налог" onAction={() => setFeeOpen(true)}
           head={['Услуга', 'Тип сбора', 'Значение', 'Налог', 'Тип Валюта', 'Комментарий', 'Действие']}>
           {fees.map((r, i) => (
@@ -229,7 +819,6 @@ function OrderDetail({ order, onBack }) {
           ))}
         </SectionWithTable>
 
-        {/* calc */}
         <SectionWithTable title="Калькуляция" action="Добавить калькуляцию" onAction={() => toast('Добавление калькуляции', 'info')}
           head={['Услуга', 'Услуги', 'Стоимость', 'Сборы и налоги', 'Тип Валюта', 'Итог', 'Действие']}>
           {calc.map((r, i) => (
@@ -245,7 +834,6 @@ function OrderDetail({ order, onBack }) {
           </tr>
         </SectionWithTable>
 
-        {/* documents */}
         <h2 className="section-title" style={{ margin: '34px 0 16px' }}>Документы</h2>
         <div className="card card-pad" style={{ marginBottom: 30 }}>
           <div style={{ fontWeight: 600, color: 'var(--ink)', marginBottom: 12 }}>Клиент 1: Нуралиев Данияр</div>
@@ -262,7 +850,6 @@ function OrderDetail({ order, onBack }) {
           </div>
         </div>
 
-        {/* history */}
         <h2 className="section-title" style={{ marginBottom: 16 }}>История заказа</h2>
         <div className="card card-pad" style={{ maxWidth: 440 }}>
           <div className="timeline">
@@ -303,6 +890,7 @@ function SectionWithTable({ title, action, onAction, head, children }) {
   );
 }
 
+/* ===== Orders page root ===== */
 function OrdersPage({ intent, onConsume, orders, addOrder }) {
   const [detail, setDetail] = useState(null);
   const [createOpen, setCreateOpen] = useState(false);
@@ -317,7 +905,7 @@ function OrdersPage({ intent, onConsume, orders, addOrder }) {
   return (
     <>
       <OrdersList orders={orders} onOpen={setDetail} onCreate={() => setCreateOpen(true)} />
-      <OrderCreateDrawer open={createOpen} onClose={() => setCreateOpen(false)} onCreated={addOrder} />
+      <OrderCreateModal open={createOpen} onClose={() => setCreateOpen(false)} onCreated={addOrder} />
     </>
   );
 }
