@@ -40,6 +40,11 @@ function DashboardPage({ onNavigate, onAddOrder, onOpenOrder }) {
           ))}
         </div>
 
+        {/* attention feed */}
+        <div style={{ marginBottom: 32 }}>
+          <ActivityFeed onNavigate={onNavigate} onOpenOrder={onOpenOrder} />
+        </div>
+
         {/* order statistics */}
         <h2 className="section-title" style={{ marginBottom: 16 }}>Статистика заказов</h2>
         <div className="stackbar" style={{ marginBottom: 4 }}>

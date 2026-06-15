@@ -892,7 +892,7 @@ function OrdersPage({ intent, onConsume, orders, addOrder }) {
     onConsume();
   }, [intent]);
 
-  if (detail) return <OrderDetail order={detail} onBack={() => setDetail(null)} />;
+  if (detail) return <OrderCard order={detail} onBack={() => setDetail(null)} />;
   return (
     <>
       <OrdersList orders={orders} onOpen={setDetail} onCreate={() => setCreateOpen(true)} />

@@ -192,35 +192,110 @@ function NotificationsModal({ open, onClose }) {
   );
 }
 
+function UsersTab({ onAdd }) {
+  const toast = useToast();
+  return (
+    <div className="fade-in">
+      <div style={{ display: 'flex', alignItems: 'center', marginBottom: 16 }}>
+        <span style={{ color: 'var(--muted)', fontSize: 14 }}>{USERS.length} пользователей</span>
+        <div style={{ flex: 1 }} /><Button icon="plus" onClick={onAdd}>Добавить пользователя</Button>
+      </div>
+      <div className="table-card">
+        <table className="tbl">
+          <thead><tr><th>Сотрудник</th><th>E-mail</th><th>Роль</th><th>Был активен</th><th>Статус</th><th></th></tr></thead>
+          <tbody>
+            {USERS.map((u, i) => (
+              <tr key={i}>
+                <td><span style={{ display: 'flex', alignItems: 'center', gap: 10 }}><Avatar src={u.avatar} name={u.name} size={32} /><span style={{ fontWeight: 600 }}>{u.name}</span></span></td>
+                <td className="t-muted">{u.email}</td>
+                <td><Pill tone={u.role === 'Админ' ? 'blue' : 'gray'}>{u.role}</Pill></td>
+                <td>{u.last}</td>
+                <td><Pill tone={USER_STATUS[u.status]}>{u.status}</Pill></td>
+                <td><ActionMenu trigger={<button className="btn btn-ghost btn-icon btn-sm"><Icon name="more" /></button>}
+                  items={[{ icon: 'edit', label: 'Изменить роль', onClick: () => toast('Изменение роли', 'info') }, { icon: 'mail', label: 'Сбросить пароль', onClick: () => toast('Письмо отправлено', 'ok') }, { sep: true }, { icon: 'lock', label: u.status === 'Заблокированный' ? 'Разблокировать' : 'Заблокировать', danger: u.status !== 'Заблокированный', onClick: () => toast('Готово', 'ok') }]} /></td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+function RolesTab() {
+  const toast = useToast();
+  const [matrix, setMatrix] = useState(PERMISSIONS);
+  const toggle = (gi, ii, ri) => {
+    if (ri === 0) return; // Админ — полный доступ, не редактируется
+    setMatrix((m) => m.map((g, x) => x !== gi ? g : { ...g, items: g.items.map((it, y) => y !== ii ? it : { ...it, r: it.r.map((v, z) => z === ri ? (v ? 0 : 1) : v) }) }));
+  };
+  return (
+    <div className="fade-in">
+      <div style={{ display: 'flex', alignItems: 'center', marginBottom: 16 }}>
+        <span style={{ color: 'var(--muted)', fontSize: 14 }}>Матрица прав доступа по ролям · «Админ» всегда имеет полный доступ</span>
+        <div style={{ flex: 1 }} /><Button variant="secondary" icon="check" onClick={() => toast('Права сохранены', 'ok')}>Сохранить</Button>
+      </div>
+      <div className="table-card">
+        <table className="tbl">
+          <thead><tr><th style={{ minWidth: 260 }}>Право доступа</th>{ROLES.map((r) => <th key={r} style={{ textAlign: 'center' }}>{r}</th>)}</tr></thead>
+          <tbody>
+            {matrix.map((g, gi) => (
+              <React.Fragment key={g.group}>
+                <tr><td colSpan={5} style={{ background: 'var(--surface-2)', fontWeight: 700, color: 'var(--ink)', fontSize: 13.5 }}>{g.group}</td></tr>
+                {g.items.map((it, ii) => (
+                  <tr key={it.k}>
+                    <td>{it.k}</td>
+                    {it.r.map((v, ri) => (
+                      <td key={ri} style={{ textAlign: 'center' }}>
+                        <span style={{ display: 'inline-flex', justifyContent: 'center' }}>
+                          {ri === 0
+                            ? <span className="checkbox on" style={{ opacity: .55, cursor: 'default' }}><Icon name="check" strokeWidth={3} /></span>
+                            : <Checkbox on={!!v} onChange={() => toggle(gi, ii, ri)} />}
+                        </span>
+                      </td>
+                    ))}
+                  </tr>
+                ))}
+              </React.Fragment>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
 function SettingsPage() {
   const toast = useToast();
   const [modal, setModal] = useState(null);
+  const [tab, setTab] = useState('users');
   const groups = [
     { title: 'Курсы валют', items: [['Изменить курс валют', () => setModal('currency')], ['Добавить / удалить валюту', () => setModal('currency')]] },
-    { title: 'Пользователи и роли', items: [['Добавить пользователя', () => setModal('adduser')], ['Изменить роль пользователя', () => toast('Изменение роли', 'info')]] },
     { title: 'Общие настройки', items: [['Настройки уведомления', () => setModal('notif')]] },
-    { title: 'API/интеграции', items: [['Доступы к API', () => setModal('apiaccess')], ['Сгенерировать API ключ', () => setModal('apikey')], ['Убрать доступ к API', () => setModal('apiaccess')], ['Настройки API', () => toast('Настройки API', 'info')], ['Настройки SLA', () => toast('Настройки SLA', 'info')]] },
+    { title: 'API / интеграции', items: [['Доступы к API', () => setModal('apiaccess')], ['Сгенерировать API ключ', () => setModal('apikey')], ['Убрать доступ к API', () => setModal('apiaccess')], ['Настройки SLA', () => toast('Настройки SLA', 'info')]] },
     { title: 'Шаблоны документов', items: [['Добавить шаблон', () => toast('Добавление шаблона', 'info')], ['Изменить шаблон', () => toast('Изменение шаблона', 'info')]] },
+    { title: 'Справочники', items: [['Аэропорты и города', () => toast('Справочник', 'info')], ['Типы услуг', () => toast('Справочник', 'info')]] },
   ];
+  const TABS = [{ key: 'users', label: 'Пользователи', count: USERS.length }, { key: 'roles', label: 'Роли и права' }, { key: 'params', label: 'Параметры системы' }];
   return (
     <div className="fade-in">
-      <Topbar title="Настройки">
-        <div className="topbar-spacer" />
-        <SearchBox value="" onChange={() => {}} style={{ width: 300 }} />
-      </Topbar>
+      <Topbar title="Настройки" />
       <div className="content">
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '40px 50px', maxWidth: 1100 }}>
-          {groups.map((g, i) => (
-            <div key={i}>
-              <h3 style={{ fontSize: 21, fontWeight: 700, color: 'var(--ink)', margin: '0 0 16px' }}>{g.title}</h3>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-                {g.items.map(([label, fn], j) => (
-                  <button key={j} className="doc-chip" style={{ height: 50, padding: '0 18px' }} onClick={fn}>{label}<Icon name="chevRight" /></button>
-                ))}
+        <div style={{ marginBottom: 20 }}><Tabs tabs={TABS} value={tab} onChange={setTab} /></div>
+        {tab === 'users' && <UsersTab onAdd={() => setModal('adduser')} />}
+        {tab === 'roles' && <RolesTab />}
+        {tab === 'params' && (
+          <div className="fade-in" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '36px 46px', maxWidth: 1100 }}>
+            {groups.map((g, i) => (
+              <div key={i}>
+                <h3 style={{ fontSize: 19, fontWeight: 700, color: 'var(--ink)', margin: '0 0 14px' }}>{g.title}</h3>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                  {g.items.map(([label, fn], j) => (<button key={j} className="doc-chip" style={{ height: 50, padding: '0 18px' }} onClick={fn}>{label}<Icon name="chevRight" /></button>))}
+                </div>
               </div>
-            </div>
-          ))}
-        </div>
+            ))}
+          </div>
+        )}
       </div>
       <CurrencyModal open={modal === 'currency'} onClose={() => setModal(null)} />
       <ApiKeyModal open={modal === 'apikey'} onClose={() => setModal(null)} />
@@ -231,4 +306,4 @@ function SettingsPage() {
   );
 }
 
-Object.assign(window, { SettingsPage });
+Object.assign(window, { SettingsPage, UsersTab, RolesTab });

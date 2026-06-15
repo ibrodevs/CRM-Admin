@@ -54,6 +54,16 @@ const ICON_PATHS = {
   template: '<rect x="3" y="3" width="18" height="18" rx="2.5"/><path d="M3 9h18M9 9v12"/>',
   logout: '<path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9"/>',
   briefcase: '<rect x="3" y="7" width="18" height="13" rx="2.5"/><path d="M8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="M3 12h18"/>',
+  plane: '<path d="M21 15.5 13 11V4.5a1.5 1.5 0 0 0-3 0V11l-8 4.5V18l8-2.5V20l-2.5 1.5V23l4-1 4 1v-1.5L13 20v-4.5L21 18Z"/>',
+  train: '<rect x="5" y="3" width="14" height="13" rx="3"/><path d="M5 10h14"/><path d="M9 16l-2 4M15 16l2 4"/><circle cx="8.5" cy="13" r="1"/><circle cx="15.5" cy="13" r="1"/>',
+  car: '<path d="M3 13l2-5a3 3 0 0 1 2.8-2h8.4A3 3 0 0 1 19 8l2 5"/><path d="M3 13h18v4a1 1 0 0 1-1 1h-1a1 1 0 0 1-1-1v-1H6v1a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1Z"/><path d="M7 16h.01M17 16h.01"/>',
+  bus: '<rect x="4" y="4" width="16" height="13" rx="2.5"/><path d="M4 11h16M9 4v7"/><path d="M7 17v2M17 17v2"/><circle cx="8" cy="14" r="0.6"/><circle cx="16" cy="14" r="0.6"/>',
+  refund: '<path d="M3 8a9 9 0 1 1-1 4"/><path d="M3 4v4h4"/><path d="M14.5 9.5h-3a1.5 1.5 0 0 0 0 3h1a1.5 1.5 0 0 1 0 3h-3M12 8.5v1M12 15.5v1"/>',
+  swap: '<path d="M7 4 3 8l4 4"/><path d="M3 8h14M17 20l4-4-4-4"/><path d="M21 16H7"/>',
+  zap: '<path d="M13 2 4 14h7l-1 8 9-12h-7l1-8Z"/>',
+  ticket: '<path d="M3 8a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2 2 2 0 0 0 0 4 2 2 0 0 1-2 2H5a2 2 0 0 1-2-2 2 2 0 0 0 0-4Z"/><path d="M14 6v12"/>',
+  luggage: '<rect x="6" y="7" width="12" height="13" rx="2"/><path d="M9 7V5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2M10 20v1M14 20v1"/>',
+  clipboard: '<rect x="5" y="4" width="14" height="17" rx="2.5"/><path d="M9 4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v1a1 1 0 0 1-1 1h-4a1 1 0 0 1-1-1Z"/><path d="M9 12l2 2 4-4"/>',
 };
 
 function Icon({ name, className, style, strokeWidth = 1.9 }) {

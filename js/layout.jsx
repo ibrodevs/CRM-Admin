@@ -3,12 +3,55 @@
 const NAV_ITEMS = [
   { key: 'dashboard', label: 'Главное', icon: 'home' },
   { key: 'orders', label: 'Заказы', icon: 'orders' },
+  { group: 'services', label: 'Услуги', icon: 'route', children: [
+    { key: 'flights',   label: 'Авиабилеты',        icon: 'plane' },
+    { key: 'rail',      label: 'ЖД билеты',          icon: 'train' },
+    { key: 'hotels',    label: 'Гостиницы',          icon: 'building' },
+    { key: 'transfers', label: 'Трансферы',          icon: 'car' },
+    { key: 'buses',     label: 'Автобусы',           icon: 'bus' },
+    { key: 'tours',     label: 'Групповые поездки',  icon: 'users' },
+  ]},
+  { key: 'clients', label: 'Клиенты', icon: 'user' },
+  { key: 'companies', label: 'Компании', icon: 'building' },
   { key: 'suppliers', label: 'Поставщики', icon: 'suppliers' },
-  { key: 'chats', label: 'Чаты', icon: 'chat', badge: 10 },
+  { key: 'offers', label: 'Ком. предложения', icon: 'template' },
   { key: 'finance', label: 'Финансы', icon: 'finance' },
   { key: 'documents', label: 'Документы', icon: 'docs' },
+  { key: 'fulfillment', label: 'Оформление', icon: 'clipboard' },
+  { key: 'chats', label: 'Чаты', icon: 'chat', badge: 10 },
+  { key: 'notifications', label: 'Уведомления', icon: 'bell', badge: 4 },
+  { key: 'returns', label: 'Возвраты и обмены', icon: 'refund' },
   { key: 'settings', label: 'Настройки', icon: 'settings' },
 ];
+
+const SERVICE_KEYS = ['flights', 'rail', 'hotels', 'transfers', 'buses', 'tours'];
+
+function NavGroup({ item, active, onNavigate }) {
+  const hasActiveChild = item.children.some((c) => c.key === active);
+  const [open, setOpen] = useState(hasActiveChild);
+  useEffect(() => { if (hasActiveChild) setOpen(true); }, [hasActiveChild]);
+  return (
+    <div className="nav-group">
+      <button className={'nav-item' + (hasActiveChild && !open ? ' has-active' : '')} onClick={() => setOpen((o) => !o)}>
+        <Icon name={item.icon} />
+        <span>{item.label}</span>
+        <Icon name="chevDown" className={'nav-caret' + (open ? ' open' : '')} />
+      </button>
+      {open && (
+        <div className="nav-sub">
+          {item.children.map((c) => (
+            <button key={c.key}
+              className={'nav-subitem' + (active === c.key ? ' active' : '')}
+              onClick={() => onNavigate(c.key)}>
+              <Icon name={c.icon} />
+              <span>{c.label}</span>
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
 
 function Sidebar({ route, onNavigate, onLogout }) {
   const active = route.split('/')[0];
@@ -19,7 +62,9 @@ function Sidebar({ route, onNavigate, onLogout }) {
         <span>ПСЦ&nbsp;-&nbsp;Travel&nbsp;Hub</span>
       </div>
       <nav className="nav scroll">
-        {NAV_ITEMS.map((it) => (
+        {NAV_ITEMS.map((it) => it.group ? (
+          <NavGroup key={it.group} item={it} active={active} onNavigate={onNavigate} />
+        ) : (
           <button key={it.key}
             className={'nav-item' + (active === it.key ? ' active' : '')}
             onClick={() => onNavigate(it.key)}>
@@ -84,4 +129,34 @@ function Topbar({ title, children }) {
   );
 }
 
-Object.assign(window, { NAV_ITEMS, Sidebar, ProfileCard, AppShell, Topbar });
+// Placeholder for modules planned in the next build phases.
+// Keeps the full information architecture navigable so the product feels whole.
+function ModulePlaceholder({ title, icon = 'inbox', planned = [] }) {
+  return (
+    <>
+      <Topbar title={title} />
+      <div className="content">
+        <div className="card card-pad fade-in" style={{ maxWidth: 720, margin: '40px auto', textAlign: 'center', padding: '48px 40px' }}>
+          <div style={{ width: 64, height: 64, borderRadius: 18, background: 'var(--blue-soft)', color: 'var(--blue)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 18px' }}>
+            <Icon name={icon} style={{ width: 30, height: 30 }} />
+          </div>
+          <h2 className="card-title" style={{ marginBottom: 8 }}>Модуль «{title}»</h2>
+          <p style={{ color: 'var(--muted)', fontSize: 15.5, margin: '0 0 22px' }}>
+            Спроектирован в дизайн-системе и запланирован к реализации в следующей фазе.
+          </p>
+          {planned.length > 0 && (
+            <div style={{ display: 'inline-flex', flexDirection: 'column', gap: 10, textAlign: 'left' }}>
+              {planned.map((p) => (
+                <div key={p} style={{ display: 'flex', alignItems: 'center', gap: 10, color: 'var(--body)', fontSize: 14.5 }}>
+                  <Icon name="check" style={{ width: 17, height: 17, color: 'var(--green)' }} />{p}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+    </>
+  );
+}
+
+Object.assign(window, { NAV_ITEMS, SERVICE_KEYS, NavGroup, Sidebar, ProfileCard, AppShell, Topbar, ModulePlaceholder });

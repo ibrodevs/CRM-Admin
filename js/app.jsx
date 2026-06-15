@@ -22,13 +22,28 @@ function App() {
     <AppShell route={route} onNavigate={navigate} onLogout={() => { setAuthed(false); setRoute('dashboard'); }}>
       {route === 'dashboard' && <DashboardPage onNavigate={navigate} onAddOrder={createOrder} onOpenOrder={openOrder} />}
       {route === 'orders' && <OrdersPage intent={intent} onConsume={() => setIntent(null)} orders={orders} addOrder={addOrder} />}
+      {route === 'flights' && <FlightsPage />}
       {route === 'suppliers' && <SuppliersPage intent={intent} onConsume={() => setIntent(null)} suppliers={suppliers} addSupplier={addSupplier} />}
-      {route === 'chats' && <ChatsPage />}
-      {route === 'finance' && <FinancePage finance={FINANCE} />}
-      {route === 'documents' && <DocsPage documents={DOCUMENTS} />}
+      {route === 'chats' && <ChatsPage onOpenOrder={openOrder} />}
+      {route === 'finance' && <FinancePageNew />}
+      {route === 'documents' && <DocCenterPage />}
+      {route === 'fulfillment' && <FulfillmentPage onOpenOrder={openOrder} />}
       {route === 'settings' && <SettingsPage />}
       {route === 'profile' && <ProfilePage onNavigate={navigate} />}
       {route === 'account' && <AccountSettingsPage onNavigate={navigate} />}
+
+      {/* Service modules — shared framework on the avia template */}
+      {route === 'rail' && <ServiceFlow routeKey="rail" />}
+      {route === 'hotels' && <ServiceFlow routeKey="hotels" />}
+      {route === 'transfers' && <ServiceFlow routeKey="transfers" />}
+      {route === 'buses' && <ServiceFlow routeKey="buses" />}
+      {route === 'tours' && <ServiceFlow routeKey="tours" />}
+
+      {route === 'clients' && <ClientsPage onOpenOrder={openOrder} />}
+      {route === 'companies' && <CompaniesPage onOpenOrder={openOrder} />}
+      {route === 'offers' && <OffersPage onOpenOrder={openOrder} />}
+      {route === 'notifications' && <NotificationsPage onNavigate={navigate} onOpenOrder={openOrder} />}
+      {route === 'returns' && <ReturnsPage onOpenOrder={openOrder} />}
     </AppShell>
   );
 }
