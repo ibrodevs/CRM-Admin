@@ -882,9 +882,10 @@ function SectionWithTable({ title, action, onAction, head, children }) {
 }
 
 /* ===== Orders page root ===== */
-function OrdersPage({ intent, onConsume, orders, addOrder }) {
-  const [detail, setDetail] = useState(null);
+function OrdersPage({ intent, onConsume, orders, addOrder, onDetailChange }) {
+  const [detail, setDetailRaw] = useState(null);
   const [createOpen, setCreateOpen] = useState(false);
+  const setDetail = (o) => { setDetailRaw(o); onDetailChange && onDetailChange(o); };
   useEffect(() => {
     if (!intent) return;
     if (intent.type === 'create') setCreateOpen(true);

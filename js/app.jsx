@@ -9,19 +9,55 @@ function App() {
   const [orders, setOrders] = useState(ORDERS);
   const [suppliers, setSuppliers] = useState(SUPPLIERS);
 
-  const navigate = (r) => { setRoute(r); };
+  // global shell state
+  const [chatOpen, setChatOpen] = useState(false);
+  const [notifOpen, setNotifOpen] = useState(false);
+  const [ctxOrder, setCtxOrder] = useState(null); // context for breadcrumbs + chat drawer
+  const [role, setRole] = useState(CURRENT_USER.role); // active role — drives §6 access
 
-  const openOrder = (o) => { setRoute('orders'); setIntent({ type: 'open', order: o }); };
-  const createOrder = () => { setRoute('orders'); setIntent({ type: 'create' }); };
+  const unreadChat = CHAT_THREADS.reduce((s, t) => s + Object.values(t.unread || {}).reduce((a, n) => a + n, 0), 0);
+  const unreadNotif = NOTIFICATIONS.filter((n) => !n.read).length;
+
+  const navigate = (r) => { setRoute(r); if (r.split('/')[0] !== 'orders') setCtxOrder(null); };
+  // switching role: if current section is now forbidden, fall back to dashboard
+  const changeRole = (r) => { setRole(r); if (!roleCanSee(r, route.split('/')[0])) { setRoute('dashboard'); setCtxOrder(null); } };
+  const blocked = !roleCanSee(role, route.split('/')[0]);
+
+  const openOrder = (o) => {
+    if (o === '__create__') { setRoute('orders'); setIntent({ type: 'create' }); setCtxOrder(null); return; }
+    setRoute('orders'); setIntent({ type: 'open', order: o }); setCtxOrder(o);
+  };
+  const createOrder = () => { setRoute('orders'); setIntent({ type: 'create' }); setCtxOrder(null); };
+  const createClient = () => { setRoute('clients'); setIntent({ type: 'create' }); setCtxOrder(null); };
+  const createKP = () => { setRoute('offers'); setIntent({ type: 'create' }); setCtxOrder(null); };
   const addOrder = (o) => setOrders((cur) => [o, ...cur]);
   const addSupplier = (s) => setSuppliers((cur) => [s, ...cur]);
 
   if (!authed) return <LoginScreen onLogin={() => setAuthed(true)} />;
 
+  const topbar = (
+    <GlobalTopbar
+      route={route} ctxOrder={ctxOrder}
+      onNavigate={navigate} onOpenOrder={openOrder}
+      onCreateClient={createClient} onCreateKP={createKP}
+      onOpenChat={() => setChatOpen(true)} onOpenNotif={() => setNotifOpen(true)}
+      unreadChat={unreadChat} unreadNotif={unreadNotif}
+      role={role} onRole={changeRole} />
+  );
+  const overlays = (
+    <>
+      <NotificationDrawer open={notifOpen} onClose={() => setNotifOpen(false)} onNavigate={navigate} onOpenOrder={openOrder} />
+      <GlobalChatDrawer open={chatOpen} onClose={() => setChatOpen(false)} contextOrder={ctxOrder} onOpenOrder={openOrder} />
+    </>
+  );
+
   return (
-    <AppShell route={route} onNavigate={navigate} onLogout={() => { setAuthed(false); setRoute('dashboard'); }}>
+    <AppShell route={route} onNavigate={navigate} onLogout={() => { setAuthed(false); setRoute('dashboard'); }}
+      role={role} topbar={topbar} overlays={overlays}>
+      {blocked && <AccessDenied onNavigate={navigate} />}
+      {!blocked && <>
       {route === 'dashboard' && <DashboardPage onNavigate={navigate} onAddOrder={createOrder} onOpenOrder={openOrder} />}
-      {route === 'orders' && <OrdersPage intent={intent} onConsume={() => setIntent(null)} orders={orders} addOrder={addOrder} />}
+      {route === 'orders' && <OrdersPage intent={intent} onConsume={() => setIntent(null)} orders={orders} addOrder={addOrder} onDetailChange={setCtxOrder} />}
       {route === 'flights' && <FlightsPage />}
       {route === 'suppliers' && <SuppliersPage intent={intent} onConsume={() => setIntent(null)} suppliers={suppliers} addSupplier={addSupplier} />}
       {route === 'chats' && <ChatsPage onOpenOrder={openOrder} />}
@@ -39,11 +75,12 @@ function App() {
       {route === 'buses' && <ServiceFlow routeKey="buses" />}
       {route === 'tours' && <ServiceFlow routeKey="tours" />}
 
-      {route === 'clients' && <ClientsPage onOpenOrder={openOrder} />}
+      {route === 'clients' && <ClientsPage onOpenOrder={openOrder} intent={intent} onConsume={() => setIntent(null)} />}
       {route === 'companies' && <CompaniesPage onOpenOrder={openOrder} />}
-      {route === 'offers' && <OffersPage onOpenOrder={openOrder} />}
+      {route === 'offers' && <OffersPage onOpenOrder={openOrder} intent={intent} onConsume={() => setIntent(null)} />}
       {route === 'notifications' && <NotificationsPage onNavigate={navigate} onOpenOrder={openOrder} />}
       {route === 'returns' && <ReturnsPage onOpenOrder={openOrder} />}
+      </>}
     </AppShell>
   );
 }

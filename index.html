@@ -74,7 +74,7 @@ input,textarea,select{font-family:inherit}
 .profile-card .chev{margin-left:auto;color:var(--faint);width:20px;height:20px;flex:0 0 20px}
 
 .main{flex:1;height:100vh;overflow-y:auto;display:flex;flex-direction:column}
-.topbar{display:flex;align-items:flex-start;gap:18px;padding:30px 38px 8px;flex-wrap:wrap}
+.topbar{display:flex;align-items:flex-start;gap:18px;padding:22px 38px 8px;flex-wrap:wrap}
 .page-title{font-size:33px;font-weight:700;letter-spacing:-.025em;color:var(--ink);line-height:1.1;margin:0;white-space:nowrap}
 .topbar-spacer{flex:1}
 .content{padding:18px 38px 60px;flex:1}
@@ -252,6 +252,28 @@ table.tbl tbody tr:last-child td{border-bottom:none}
 .drawer-head{display:flex;align-items:center;justify-content:space-between;padding:26px 32px;border-bottom:1px solid var(--line);position:sticky;top:0;background:#fff;z-index:2}
 .drawer-body{padding:28px 32px;flex:1}
 .drawer-foot{display:flex;justify-content:flex-end;gap:13px;padding:20px 32px;border-top:1px solid var(--line);position:sticky;bottom:0;background:#fff}
+/* shell slide-over (chat / notifications) — full-height flex panel */
+.shell-drawer{background:#fff;height:100vh;overflow:hidden;box-shadow:var(--shadow-modal);animation:slidein .26s cubic-bezier(.2,.9,.3,1);display:flex;flex-direction:column}
+/* ===== Global Topbar ===== */
+.gtop{position:sticky;top:0;z-index:40;display:flex;align-items:center;gap:16px;padding:11px 38px;background:rgba(255,255,255,.86);backdrop-filter:blur(10px);border-bottom:1px solid var(--line)}
+.crumbs{display:flex;align-items:center;gap:6px;font-size:14px;color:var(--muted);min-width:0;flex-wrap:wrap}
+.crumb{white-space:nowrap;cursor:pointer;transition:.12s}
+.crumb:hover{color:var(--ink)}
+.crumb.cur{color:var(--ink);font-weight:600;cursor:default}
+.crumb-sep{width:15px;height:15px;color:var(--faint);flex:0 0 auto}
+.gtop-search{position:relative;flex:1;max-width:420px;min-width:160px}
+.gtop-actions{display:flex;align-items:center;gap:6px}
+.gtop-ic{position:relative}
+.gtop-badge{position:absolute;top:-1px;right:-1px;min-width:16px;height:16px;padding:0 4px;border-radius:999px;background:var(--red);color:#fff;font-size:10.5px;font-weight:700;display:flex;align-items:center;justify-content:center;border:1.5px solid #fff}
+.gsearch-pop{position:absolute;top:46px;left:0;right:0;max-height:60vh;overflow-y:auto;background:#fff;border:1px solid var(--line-strong);border-radius:14px;box-shadow:var(--shadow-pop);padding:7px;z-index:60;animation:pop .14s ease}
+.gsearch-grp{font-size:11.5px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--muted-2);padding:9px 12px 5px}
+.gsearch-row{display:flex;align-items:center;gap:12px;padding:9px 11px;border-radius:10px;cursor:pointer;transition:.12s}
+.gsearch-row:hover{background:var(--hover)}
+.gsearch-ic{width:32px;height:32px;border-radius:9px;display:flex;align-items:center;justify-content:center;flex:0 0 auto}
+.gsearch-ic svg{width:16px;height:16px}
+.gsearch-t{font-weight:600;color:var(--ink);font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.gsearch-s{font-size:12.5px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.shell-drawer .grid-4{grid-template-columns:repeat(2,1fr);gap:14px}
 .form-grid{display:grid;grid-template-columns:1fr 1fr;gap:20px 22px}
 .form-grid .full{grid-column:1/-1}
 
@@ -604,6 +626,7 @@ table.tbl tbody tr:last-child td{border-bottom:none}
 <script type="text/babel" src="js/page_chats.jsx"></script>
 <script type="text/babel" src="js/page_settings.jsx"></script>
 <script type="text/babel" src="js/page_account.jsx"></script>
+<script type="text/babel" src="js/shell.jsx"></script>
 <script type="text/babel" src="js/app.jsx"></script>
 </body>
 </html>

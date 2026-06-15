@@ -109,6 +109,23 @@ function FixVariantModal({ open, proposal, onClose, onFix }) {
 
 const KP_ADD_TYPES = ['Авиа', 'ЖД', 'Гостиница', 'Трансфер', 'Автобус', 'Группа'];
 
+// ----- KP templates (§4.6): reusable item-sets, not bound to an order -----
+const KP_TEMPLATES = [
+  { id: 'TPL-01', name: 'Стамбул · пакет «Стандарт»', desc: 'Перелёт + отель 4★ + индивидуальный трансфер', items: [
+    { kind: 'Авиа', title: 'Turkish Airlines · FRU–IST–FRU', sub: 'Прямой · эконом', cost: 470, fee: 22 },
+    { kind: 'Гостиница', title: 'Hilton Istanbul 4★', sub: '7 ночей · BB', cost: 980, fee: 25 },
+    { kind: 'Трансфер', title: 'Индивидуальный трансфер', sub: 'Минивэн · встреча с табличкой', cost: 60, fee: 0 },
+  ] },
+  { id: 'TPL-02', name: 'Бизнес-поездка', desc: 'Перелёт бизнес-класса + отель в центре', items: [
+    { kind: 'Авиа', title: 'Бизнес-класс · по запросу', sub: 'Гибкий тариф', cost: 1400, fee: 60 },
+    { kind: 'Гостиница', title: 'Отель 5★ · центр', sub: '3 ночи · BB', cost: 720, fee: 30 },
+  ] },
+  { id: 'TPL-03', name: 'ЖД + отель по СНГ', desc: 'Железная дорога и проживание', items: [
+    { kind: 'ЖД', title: 'ЖД билеты · купе', sub: 'Туда-обратно', cost: 180, fee: 10 },
+    { kind: 'Гостиница', title: 'Отель 3★', sub: '4 ночи · BB', cost: 260, fee: 14 },
+  ] },
+];
+
 /* ====================================================================
    KP MODULE — lives inside the order card (КП tab)
    ==================================================================== */
@@ -116,11 +133,12 @@ function KPModule({ order, services, participants, onApprove }) {
   const toast = useToast();
   const seeded = PROPOSALS.filter((p) => p.order === order.no);
   const [proposals, setProposals] = useState(seeded);
-  const [view, setView] = useState('list'); // list | edit | preview
+  const [view, setView] = useState('list'); // list | edit | preview | templates
   const [activeId, setActiveId] = useState(null);
   const [activeVar, setActiveVar] = useState(null);
   const [fixOpen, setFixOpen] = useState(false);
   const [histOpen, setHistOpen] = useState(false);
+  const [templates, setTemplates] = useState(KP_TEMPLATES);
 
   const active = proposals.find((p) => p.id === activeId);
   const uid = (pre) => pre + Math.random().toString(36).slice(2, 7);
@@ -136,6 +154,22 @@ function KPModule({ order, services, participants, onApprove }) {
   };
   const openEdit = (p) => { setActiveId(p.id); setActiveVar(p.variants[0].id); setView('edit'); };
   const openPreview = (p) => { setActiveId(p.id); setView('preview'); };
+
+  // ----- templates (§4.6) -----
+  const createFromTemplate = (tpl) => {
+    const items = tpl.items.map((s) => ({ id: uid('i'), kind: s.kind, title: s.title, sub: s.sub, cost: s.cost, fee: s.fee }));
+    const np = { id: 'КП-' + (1052 + proposals.length), order: order.no, client: order.client, status: 'Черновик', currency: 'USD', validUntil: '25.06.2026', created: '15.06.2026', approvedVariant: null,
+      variants: [{ id: uid('v'), name: tpl.name, items }], history: [{ t: kpNow(), text: 'КП создано из шаблона «' + tpl.name + '»', who: 'Даниель' }] };
+    setProposals((ps) => [np, ...ps]); setActiveId(np.id); setActiveVar(np.variants[0].id); setView('edit');
+    toast('КП создано из шаблона', 'ok');
+  };
+  const saveAsTemplate = () => {
+    const v = active.variants.find((x) => x.id === activeVar) || active.variants[0];
+    const tpl = { id: 'TPL-' + String(templates.length + 1).padStart(2, '0'), name: v.name + ' · ' + active.id, desc: v.items.length + ' услуг(и) · ' + kpM(varTotal(v), active.currency),
+      items: v.items.map((it) => ({ kind: it.kind, title: it.title, sub: it.sub, cost: it.cost, fee: it.fee })) };
+    setTemplates((t) => [tpl, ...t]); toast('Вариант сохранён как шаблон', 'ok');
+  };
+  const delTemplate = (id) => setTemplates((t) => t.filter((x) => x.id !== id));
 
   // variant ops
   const addVariant = (dup) => {
@@ -169,21 +203,73 @@ function KPModule({ order, services, participants, onApprove }) {
     onApprove && onApprove(active.variants.find((v) => v.id === vid));
   };
 
+  /* ----- TEMPLATES (§4.6) ----- */
+  if (view === 'templates') {
+    return (
+      <div className="fade-in">
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>
+          <Button variant="secondary" size="sm" icon="chevLeft" onClick={() => setView('list')}>Все КП</Button>
+          <span style={{ fontWeight: 700, color: 'var(--ink)' }}>Шаблоны КП</span>
+          <span style={{ color: 'var(--muted)', fontSize: 14 }}>· {templates.length} шаблон(ов)</span>
+        </div>
+        {templates.length === 0
+          ? <EmptyState icon="template" title="Шаблонов пока нет" sub="Откройте КП и сохраните вариант как шаблон" />
+          : (
+            <div className="grid-2" style={{ alignItems: 'start' }}>
+              {templates.map((t) => (
+                <div className="card card-pad" key={t.id}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 6 }}>
+                    <div style={{ fontWeight: 700, color: 'var(--ink)', fontSize: 16 }}>{t.name}</div>
+                    <ActionMenu trigger={<button className="btn btn-ghost btn-icon btn-sm"><Icon name="more" /></button>}
+                      items={[{ icon: 'trash', label: 'Удалить шаблон', danger: true, onClick: () => delTemplate(t.id) }]} />
+                  </div>
+                  <div style={{ color: 'var(--muted)', fontSize: 13.5, marginBottom: 12 }}>{t.desc}</div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 14 }}>
+                    {t.items.map((it, i) => {
+                      const k = SERVICE_KIND[it.kind] || SERVICE_KIND['Авиа'];
+                      return (
+                        <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
+                          <span className="airline-logo sm" style={{ background: k.color, width: 26, height: 26, borderRadius: 7 }}><Icon name={k.icon} style={{ width: 14, height: 14 }} /></span>
+                          <span style={{ fontSize: 13.5, color: 'var(--body)', flex: 1, minWidth: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{it.title}</span>
+                          <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink)' }}>{kpM(it.cost + it.fee)}</span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                  <Button icon="plus" className="btn-block" onClick={() => createFromTemplate(t)}>Создать КП по шаблону</Button>
+                </div>
+              ))}
+            </div>
+          )}
+      </div>
+    );
+  }
+
   /* ----- LIST ----- */
   if (view === 'list') {
     if (!proposals.length) {
       return (
         <div className="fade-in">
-          <EmptyState icon="template" title="Коммерческих предложений ещё нет" sub="Соберите варианты из услуг заказа и отправьте клиенту" />
-          <div style={{ textAlign: 'center', marginTop: 16 }}><Button icon="plus" onClick={createProposal}>Создать КП из заказа</Button></div>
+          <EmptyState icon="template" title="Коммерческих предложений ещё нет" sub="Соберите варианты из услуг заказа, по шаблону — и отправьте клиенту" />
+          <div style={{ display: 'flex', gap: 10, justifyContent: 'center', marginTop: 16 }}>
+            <Button icon="plus" onClick={createProposal}>Создать КП из заказа</Button>
+            <Button variant="secondary" icon="template" onClick={() => setView('templates')}>Из шаблона</Button>
+          </div>
         </div>
       );
     }
     return (
       <div className="fade-in">
-        <div style={{ display: 'flex', alignItems: 'center', marginBottom: 16 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
           <span style={{ color: 'var(--muted)', fontSize: 14 }}>{proposals.length} предложение(й) по заказу</span>
-          <div style={{ flex: 1 }} /><Button icon="plus" onClick={createProposal}>Создать КП</Button>
+          <div style={{ flex: 1 }} />
+          <Button variant="secondary" icon="template" onClick={() => setView('templates')}>Шаблоны</Button>
+          <ActionMenu trigger={<Button icon="plus">Создать КП</Button>}
+            items={[
+              { icon: 'orders', label: 'Пустое из услуг заказа', onClick: createProposal },
+              { sep: true },
+              ...templates.map((t) => ({ icon: 'template', label: 'Из шаблона: ' + t.name, onClick: () => createFromTemplate(t) })),
+            ]} />
         </div>
         <div className="grid-2" style={{ alignItems: 'start' }}>
           {proposals.map((p) => (
@@ -235,6 +321,7 @@ function KPModule({ order, services, participants, onApprove }) {
           <KPStatusControl status={active.status} onChange={setStatus} />
           <div style={{ flex: 1 }} />
           <Button variant="secondary" size="sm" icon="clock" onClick={() => setHistOpen(true)}>История</Button>
+          <Button variant="secondary" size="sm" icon="template" onClick={saveAsTemplate}>В шаблон</Button>
           <Button variant="secondary" size="sm" icon="eye" onClick={() => setView('preview')}>Предпросмотр</Button>
           {!approved && !canFix && <Button size="sm" icon="send" onClick={sendToClient}>Отправить клиенту</Button>}
           {canFix && <Button size="sm" icon="check" onClick={() => setFixOpen(true)}>Зафиксировать вариант</Button>}
@@ -339,24 +426,83 @@ function KPHistoryDrawer({ open, proposal, onClose }) {
   );
 }
 
+/* ---------- Новое КП (форма создания, привязка к заказу) ---------- */
+function KPCreateModal({ open, onClose, onCreated, onOpenOrder }) {
+  const toast = useToast();
+  const [orderNo, setOrderNo] = useState('');
+  const [name, setName] = useState('');
+  const [currency, setCurrency] = useState('USD');
+  const [valid, setValid] = useState('25.06.2026');
+  const [base, setBase] = useState('empty'); // empty | services | tpl:<id>
+  const [errs, setErrs] = useState({});
+  useEffect(() => { if (open) { setOrderNo(''); setName(''); setCurrency('USD'); setValid('25.06.2026'); setBase('empty'); setErrs({}); } }, [open]);
+  const uid = (p) => p + Math.random().toString(36).slice(2, 7);
+  // unique orders for the picker
+  const seen = {};
+  const orderOpts = ORDERS.filter((o) => (seen[o.no] ? false : (seen[o.no] = true))).map((o) => ({ value: String(o.no), label: `№ ${o.no} · ${o.client}` }));
+  const baseOpts = [{ value: 'empty', label: 'Пустой вариант' }, { value: 'services', label: 'Из услуг заказа' },
+    ...KP_TEMPLATES.map((t) => ({ value: 'tpl:' + t.id, label: 'Шаблон: ' + t.name }))];
+
+  const build = () => {
+    const order = ORDERS.find((o) => String(o.no) === String(orderNo));
+    let items = [], vname = name || 'Вариант A';
+    if (base === 'services') items = (ORDER_SERVICES || []).map((s) => ({ id: uid('i'), kind: s.kind, title: s.title, sub: s.sub, cost: Math.round((s.sum || 0) * 0.95), fee: Math.round((s.sum || 0) * 0.05) }));
+    else if (base.indexOf('tpl:') === 0) { const t = KP_TEMPLATES.find((x) => x.id === base.slice(4)); if (t) { items = t.items.map((s) => ({ id: uid('i'), ...s })); if (!name) vname = t.name; } }
+    const np = { id: 'КП-' + (1100 + PROPOSALS.length), order: order.no, client: order.client, status: 'Черновик', currency, validUntil: valid, created: '15.06.2026', approvedVariant: null,
+      variants: [{ id: uid('v'), name: vname, items }], history: [{ t: kpNow(), text: 'КП создано для заказа № ' + order.no, who: 'Даниель' }] };
+    PROPOSALS.unshift(np); // visible in the order-card КП tab too
+    return { np, order };
+  };
+  const submit = (openAfter) => {
+    if (!orderNo) { setErrs({ order: 'Выберите заказ' }); return; }
+    const { np, order } = build();
+    onCreated && onCreated(np); toast('Черновик КП ' + np.id + ' создан', 'ok'); onClose();
+    if (openAfter) onOpenOrder && onOpenOrder(order);
+  };
+  if (!open) return null;
+  return (
+    <Modal open={open} onClose={onClose}>
+      <div className="modal-pad">
+        <ModalHeader title="Новое коммерческое предложение" sub="КП привязывается к заказу — далее редактируется в конструкторе" onClose={onClose} />
+        <div className="form-grid">
+          <Field label="Заказ" required error={errs.order} ><Select options={orderOpts} placeholder="Выберите заказ" value={orderNo} onChange={(e) => setOrderNo(e.target.value)} error={errs.order} /></Field>
+          <Field label="Название варианта"><Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Вариант A · Прямые рейсы" /></Field>
+          <Field label="Валюта"><Select options={CURRENCIES.map((c) => ({ value: c.code, label: `${c.code} · ${c.name}` }))} value={currency} onChange={(e) => setCurrency(e.target.value)} /></Field>
+          <Field label="Действует до"><Input value={valid} onChange={(e) => setValid(e.target.value)} leadIcon="calendar" /></Field>
+          <Field label="Наполнение варианта"><Select options={baseOpts} value={base} onChange={(e) => setBase(e.target.value)} /></Field>
+        </div>
+        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 12, marginTop: 26 }}>
+          <Button variant="secondary" onClick={onClose}>Отмена</Button>
+          <Button variant="secondary" icon="check" onClick={() => submit(false)}>Создать черновик</Button>
+          <Button icon="arrowRight" iconRight="arrowRight" onClick={() => submit(true)}>Создать и открыть заказ</Button>
+        </div>
+      </div>
+    </Modal>
+  );
+}
+
 /* ====================================================================
    STANDALONE REGISTRY (route 'offers')
    ==================================================================== */
-function OffersRegistry({ onOpenOrder }) {
+function OffersRegistry({ onOpenOrder, intent, onConsume }) {
   const toast = useToast();
   const [q, setQ] = useState('');
   const [fStatus, setFStatus] = useState('');
   const [preview, setPreview] = useState(null);
+  const [proposals, setProposals] = useState(() => PROPOSALS.slice()); // copy: КПCreateModal also unshifts into PROPOSALS for the order card
+  const [createOpen, setCreateOpen] = useState(false);
   const { sort, onSort, apply } = useSort({ col: 'created', dir: 'desc' });
 
-  let rows = PROPOSALS.filter((p) => {
+  useEffect(() => { if (intent && intent.type === 'create') { setCreateOpen(true); onConsume && onConsume(); } }, [intent]);
+
+  let rows = proposals.filter((p) => {
     if (fStatus && p.status !== fStatus) return false;
     if (q && !(`${p.id} ${p.client} ${p.order}`.toLowerCase().includes(q.toLowerCase()))) return false;
     return true;
   });
   rows = apply(rows, { id: (r) => r.id, order: (r) => r.order, created: (r) => r.created, total: (r) => Math.max(...r.variants.map(varTotal)) });
 
-  const counts = (st) => PROPOSALS.filter((p) => !st || p.status === st).length;
+  const counts = (st) => proposals.filter((p) => !st || p.status === st).length;
   const STATS = [['Всего', counts()], ['Отправлено', counts('Отправлено клиенту')], ['На согласовании', counts('На согласовании')], ['Согласовано', counts('Согласовано')]];
 
   return (
@@ -368,6 +514,7 @@ function OffersRegistry({ onOpenOrder }) {
         <SearchBox value={q} onChange={setQ} placeholder="Поиск: № КП, клиент, заказ…" style={{ width: 300 }} />
         <FilterChip label="Статус" value={fStatus} onChange={setFStatus} options={KP_STATUS_FLOW} />
         <div style={{ flex: 1 }} />
+        <Button icon="plus" onClick={() => setCreateOpen(true)}>Создать КП</Button>
       </div>
       <div className="table-card">
         {rows.length ? (
@@ -410,17 +557,20 @@ function OffersRegistry({ onOpenOrder }) {
           <div style={{ padding: 24, background: 'var(--surface-2)' }}>{preview && <KPPreviewDoc proposal={preview} />}</div>
         </div>
       </Modal>
+
+      <KPCreateModal open={createOpen} onClose={() => setCreateOpen(false)}
+        onCreated={(np) => setProposals((ps) => [np, ...ps])} onOpenOrder={onOpenOrder} />
     </div>
   );
 }
 
-function OffersPage({ onOpenOrder }) {
+function OffersPage({ onOpenOrder, intent, onConsume }) {
   return (
     <>
       <Topbar title="Коммерческие предложения" />
-      <div className="content"><OffersRegistry onOpenOrder={onOpenOrder} /></div>
+      <div className="content"><OffersRegistry onOpenOrder={onOpenOrder} intent={intent} onConsume={onConsume} /></div>
     </>
   );
 }
 
-Object.assign(window, { KPModule, KPPreviewDoc, OffersRegistry, OffersPage, FixVariantModal, KPHistoryDrawer });
+Object.assign(window, { KPModule, KPPreviewDoc, KPCreateModal, OffersRegistry, OffersPage, FixVariantModal, KPHistoryDrawer });

@@ -75,22 +75,72 @@ function ClientCard({ c, onBack, onOpenOrder }) {
   );
 }
 
-function ClientsPage({ onOpenOrder }) {
+/* ---------- Новый клиент (форма добавления) ---------- */
+function ClientCreateModal({ open, onClose, onCreated }) {
+  const toast = useToast();
+  const blank = { name: '', type: 'Физлицо', status: 'Новый', company: '', phone: '', email: '', city: 'Бишкек', doc: '', dob: '' };
+  const [f, setF] = useState(blank);
+  const [errs, setErrs] = useState({});
+  useEffect(() => { if (open) { setF(blank); setErrs({}); } }, [open]);
+  const upd = (k, v) => setF((s) => ({ ...s, [k]: v }));
+  const submit = () => {
+    const er = {};
+    if (!f.name.trim()) er.name = 'Укажите имя клиента';
+    if (!f.phone.trim()) er.phone = 'Укажите телефон';
+    if (f.email && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(f.email)) er.email = 'Некорректный e-mail';
+    setErrs(er);
+    if (Object.keys(er).length) return;
+    const d = new Date();
+    const since = `${String(d.getDate()).padStart(2, '0')}.${String(d.getMonth() + 1).padStart(2, '0')}.${d.getFullYear()}`;
+    const c = { id: 'CL-' + (1061 + Math.floor(Math.random() * 8999)), ...f, name: f.name.trim(), company: f.company.trim() || '—', since, orders: 0, spent: 0, debt: 0, doc: f.doc.trim() || '—', dob: f.dob.trim() || '—' };
+    onCreated(c); toast('Клиент «' + c.name + '» добавлен', 'ok'); onClose();
+  };
+  if (!open) return null;
+  return (
+    <Modal open={open} onClose={onClose}>
+      <div className="modal-pad">
+        <ModalHeader title="Новый клиент" sub="Контактные и учётные данные" onClose={onClose} />
+        <div className="form-grid">
+          <Field label="ФИО / Наименование" required error={errs.name} ><Input value={f.name} onChange={(e) => upd('name', e.target.value)} placeholder="Иванов Иван Иванович" error={errs.name} /></Field>
+          <Field label="Тип клиента"><Select options={['Физлицо', 'ИП', 'Организация']} value={f.type} onChange={(e) => upd('type', e.target.value)} /></Field>
+          <Field label="Телефон" required error={errs.phone}><Input value={f.phone} onChange={(e) => upd('phone', e.target.value)} placeholder="+996 700 000 000" leadIcon="phone" error={errs.phone} /></Field>
+          <Field label="E-mail" error={errs.email}><Input value={f.email} onChange={(e) => upd('email', e.target.value)} placeholder="mail@example.com" leadIcon="mail" error={errs.email} /></Field>
+          <Field label="Город"><Input value={f.city} onChange={(e) => upd('city', e.target.value)} /></Field>
+          <Field label="Статус"><Select options={Object.keys(CLIENT_STATUS)} value={f.status} onChange={(e) => upd('status', e.target.value)} /></Field>
+          <Field label="Компания"><Input value={f.company} onChange={(e) => upd('company', e.target.value)} placeholder="— (для физлица)" /></Field>
+          <Field label="Документ"><Input value={f.doc} onChange={(e) => upd('doc', e.target.value)} placeholder="ID / Паспорт / ИНН" leadIcon="idcard" /></Field>
+          <Field label="Дата рождения"><Input value={f.dob} onChange={(e) => upd('dob', e.target.value)} placeholder="дд.мм.гггг" leadIcon="calendar" /></Field>
+        </div>
+        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 12, marginTop: 26 }}>
+          <Button variant="secondary" onClick={onClose}>Отмена</Button>
+          <Button icon="check" onClick={submit}>Добавить клиента</Button>
+        </div>
+      </div>
+    </Modal>
+  );
+}
+
+function ClientsPage({ onOpenOrder, intent, onConsume }) {
   const [view, setView] = useState('list');
   const [active, setActive] = useState(null);
   const [q, setQ] = useState('');
   const [fStatus, setFStatus] = useState('');
+  const [clients, setClients] = useState(CLIENTS_DB);
+  const [createOpen, setCreateOpen] = useState(false);
   const { sort, onSort, apply } = useSort(null);
+
+  useEffect(() => { if (intent && intent.type === 'create') { setCreateOpen(true); onConsume && onConsume(); } }, [intent]);
+  const addClient = (c) => setClients((cur) => [c, ...cur]);
 
   if (view === 'card' && active) return (<><Topbar title="Карточка клиента" /><div className="content"><ClientCard c={active} onBack={() => setView('list')} onOpenOrder={onOpenOrder} /></div></>);
 
-  let rows = CLIENTS_DB.filter((c) => (!fStatus || c.status === fStatus) && (!q || `${c.id} ${c.name} ${c.company} ${c.phone}`.toLowerCase().includes(q.toLowerCase())));
+  let rows = clients.filter((c) => (!fStatus || c.status === fStatus) && (!q || `${c.id} ${c.name} ${c.company} ${c.phone}`.toLowerCase().includes(q.toLowerCase())));
   rows = apply(rows, { name: (r) => r.name, orders: (r) => r.orders, spent: (r) => r.spent, debt: (r) => r.debt });
-  const STATS = [['Всего клиентов', CLIENTS_DB.length], ['Активные', CLIENTS_DB.filter((c) => c.status === 'Активный' || c.status === 'VIP').length], ['VIP', CLIENTS_DB.filter((c) => c.status === 'VIP').length], ['С задолженностью', pUsd(CLIENTS_DB.reduce((s, c) => s + c.debt, 0))]];
+  const STATS = [['Всего клиентов', clients.length], ['Активные', clients.filter((c) => c.status === 'Активный' || c.status === 'VIP').length], ['VIP', clients.filter((c) => c.status === 'VIP').length], ['С задолженностью', pUsd(clients.reduce((s, c) => s + c.debt, 0))]];
 
   return (
     <>
-      <Topbar title="Клиенты"><div className="topbar-spacer" /><Button icon="plus">Добавить клиента</Button></Topbar>
+      <Topbar title="Клиенты"><div className="topbar-spacer" /><Button icon="plus" onClick={() => setCreateOpen(true)}>Добавить клиента</Button></Topbar>
       <div className="content fade-in">
         <div className="grid-4" style={{ marginBottom: 22 }}>{STATS.map(([l, v]) => (<div className="stat-card" key={l}><div className="s-label">{l}</div><div className="s-value">{v}</div></div>))}</div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16, flexWrap: 'wrap' }}>
@@ -117,6 +167,7 @@ function ClientsPage({ onOpenOrder }) {
           ) : <EmptyState icon="user" title="Клиентов не найдено" />}
         </div>
       </div>
+      <ClientCreateModal open={createOpen} onClose={() => setCreateOpen(false)} onCreated={addClient} />
     </>
   );
 }
@@ -242,4 +293,4 @@ function CompaniesPage({ onOpenOrder }) {
   );
 }
 
-Object.assign(window, { ClientsPage, ClientCard, CompaniesPage, CompanyCard });
+Object.assign(window, { ClientsPage, ClientCard, ClientCreateModal, CompaniesPage, CompanyCard });

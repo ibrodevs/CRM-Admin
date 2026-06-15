@@ -18,8 +18,8 @@ const NAV_ITEMS = [
   { key: 'finance', label: 'Финансы', icon: 'finance' },
   { key: 'documents', label: 'Документы', icon: 'docs' },
   { key: 'fulfillment', label: 'Оформление', icon: 'clipboard' },
-  { key: 'chats', label: 'Чаты', icon: 'chat', badge: 10 },
-  { key: 'notifications', label: 'Уведомления', icon: 'bell', badge: 4 },
+  { key: 'chats', label: 'Чаты', icon: 'chat' },
+  { key: 'notifications', label: 'Уведомления', icon: 'bell' },
   { key: 'returns', label: 'Возвраты и обмены', icon: 'refund' },
   { key: 'settings', label: 'Настройки', icon: 'settings' },
 ];
@@ -53,8 +53,13 @@ function NavGroup({ item, active, onNavigate }) {
   );
 }
 
-function Sidebar({ route, onNavigate, onLogout }) {
+function Sidebar({ route, onNavigate, onLogout, role }) {
   const active = route.split('/')[0];
+  const can = (k) => (typeof roleCanSee === 'function' ? roleCanSee(role, k) : true);
+  const items = NAV_ITEMS.map((it) => {
+    if (it.group) { const children = it.children.filter((c) => can(c.key)); return children.length ? { ...it, children } : null; }
+    return can(it.key) ? it : null;
+  }).filter(Boolean);
   return (
     <aside className="sidebar">
       <div className="sb-logo" onClick={() => onNavigate('dashboard')}>
@@ -62,7 +67,7 @@ function Sidebar({ route, onNavigate, onLogout }) {
         <span>ПСЦ&nbsp;-&nbsp;Travel&nbsp;Hub</span>
       </div>
       <nav className="nav scroll">
-        {NAV_ITEMS.map((it) => it.group ? (
+        {items.map((it) => it.group ? (
           <NavGroup key={it.group} item={it} active={active} onNavigate={onNavigate} />
         ) : (
           <button key={it.key}
@@ -110,11 +115,15 @@ function ProfileCard({ onLogout, onNavigate }) {
   );
 }
 
-function AppShell({ route, onNavigate, onLogout, children }) {
+function AppShell({ route, onNavigate, onLogout, role, topbar, overlays, children }) {
   return (
     <div className="app">
-      <Sidebar route={route} onNavigate={onNavigate} onLogout={onLogout} />
-      <main className="main scroll">{children}</main>
+      <Sidebar route={route} onNavigate={onNavigate} onLogout={onLogout} role={role} />
+      <main className="main scroll">
+        {topbar}
+        {children}
+      </main>
+      {overlays}
     </div>
   );
 }
