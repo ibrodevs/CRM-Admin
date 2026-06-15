@@ -95,7 +95,10 @@ function SupplierModal({ supplier, onClose, onDelete }) {
                     onClick={() => {
                       if (periodChipRef.current) {
                         const r = periodChipRef.current.getBoundingClientRect();
-                        setPeriodPickerPos({ top: r.bottom + 6, left: r.left });
+                        const calH = 460, calW = 310;
+                        const top = (r.bottom + calH > window.innerHeight - 8) ? Math.max(8, r.top - calH) : r.bottom + 6;
+                        const left = Math.max(8, Math.min(r.left, window.innerWidth - calW - 8));
+                        setPeriodPickerPos({ top, left });
                       }
                       setShowPeriodPicker(true);
                     }}

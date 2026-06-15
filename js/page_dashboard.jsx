@@ -121,7 +121,10 @@ function DashboardPage({ onNavigate, onAddOrder, onOpenOrder }) {
             onClick={() => {
               if (pickerBtnRef.current) {
                 const r = pickerBtnRef.current.getBoundingClientRect();
-                setPickerPos({ top: r.bottom + 6, left: r.left });
+                const calH = 460, calW = 310;
+                const top = (r.bottom + calH > window.innerHeight - 8) ? Math.max(8, r.top - calH) : r.bottom + 6;
+                const left = Math.max(8, Math.min(r.left, window.innerWidth - calW - 8));
+                setPickerPos({ top, left });
               }
               setShowPicker(true);
             }}
