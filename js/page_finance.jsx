@@ -57,6 +57,11 @@ function FinancePage({ finance }) {
   const [modal, setModal] = useState(null);
   const [confirm, setConfirm] = useState(null);
   const { sort, onSort, apply } = useSort(null);
+  const [showPeriodPicker, setShowPeriodPicker] = useState(false);
+  const [periodPickerPos, setPeriodPickerPos] = useState({ top: 0, left: 0 });
+  const [periodStart, setPeriodStart] = useState(null);
+  const [periodEnd, setPeriodEnd] = useState(null);
+  const periodChipRef = useRef(null);
 
   const tabFilter = (r) => tab === 'all' ? true : tab === 'debt' ? (r.pct < 100) : (r.status === 'Возврат');
   let rows = finance.filter((r) =>
@@ -95,7 +100,35 @@ function FinancePage({ finance }) {
           ]} />
           <div className="topbar-spacer" />
           <span style={{ color: 'var(--muted)', fontSize: 14 }}>Последнее обновление 5 минут назад</span>
-          <span className="chip">Выберите период<Icon name="chevDown" /></span>
+          <span
+            ref={periodChipRef}
+            className="chip"
+            style={{ cursor: 'pointer' }}
+            onClick={() => {
+              if (periodChipRef.current) {
+                const r = periodChipRef.current.getBoundingClientRect();
+                setPeriodPickerPos({ top: r.bottom + 6, left: r.left });
+              }
+              setShowPeriodPicker(true);
+            }}
+          >
+            {periodStart
+              ? (periodEnd ? `${fmtDate(periodStart)} — ${fmtDate(periodEnd)}` : fmtDate(periodStart))
+              : 'Выберите период'}
+            <Icon name="chevDown" />
+          </span>
+          {showPeriodPicker && ReactDOM.createPortal(
+            <div style={{ position: 'fixed', top: periodPickerPos.top, left: periodPickerPos.left, zIndex: 9999 }}>
+              <CalendarPicker
+                mode="range"
+                startVal={periodStart}
+                endVal={periodEnd}
+                onConfirm={(s, e) => { setPeriodStart(s); setPeriodEnd(e || null); setShowPeriodPicker(false); }}
+                onClose={() => setShowPeriodPicker(false)}
+              />
+            </div>,
+            document.body
+          )}
         </div>
         <div className="table-card">
           <table className="tbl">

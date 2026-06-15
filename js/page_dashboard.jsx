@@ -17,6 +17,11 @@ function StatCardDash({ s, onGo }) {
 function DashboardPage({ onNavigate, onAddOrder, onOpenOrder }) {
   const [period, setPeriod] = useState('today');
   const [search, setSearch] = useState('');
+  const [showPicker, setShowPicker] = useState(false);
+  const [pickerPos, setPickerPos] = useState({ top: 0, left: 0 });
+  const [customStart, setCustomStart] = useState(null);
+  const [customEnd, setCustomEnd] = useState(null);
+  const pickerBtnRef = useRef(null);
   const rows = ORDERS.filter((o) => o.client.toLowerCase().includes(search.toLowerCase())).slice(0, 6);
 
   return (
@@ -107,9 +112,36 @@ function DashboardPage({ onNavigate, onAddOrder, onOpenOrder }) {
         <h2 className="section-title" style={{ marginBottom: 16 }}>Последние изменения</h2>
         <div style={{ display: 'flex', gap: 10, marginBottom: 16 }}>
           {[['month', 'Месяц'], ['week', 'Неделя'], ['today', 'Сегодня']].map(([k, l]) => (
-            <button key={k} className={'tab' + (period === k ? ' active' : '')} onClick={() => setPeriod(k)}>{l}</button>
+            <button key={k} className={'tab' + (period === k ? ' active' : '')} onClick={() => { setPeriod(k); setCustomStart(null); setCustomEnd(null); }}>{l}</button>
           ))}
-          <button className="tab" style={{ background: 'none', border: 'none', color: 'var(--muted)' }}>Выбрать период</button>
+          <button
+            ref={pickerBtnRef}
+            className={'tab' + (period === 'custom' ? ' active' : '')}
+            style={period !== 'custom' ? { background: 'none', border: 'none', color: 'var(--muted)' } : {}}
+            onClick={() => {
+              if (pickerBtnRef.current) {
+                const r = pickerBtnRef.current.getBoundingClientRect();
+                setPickerPos({ top: r.bottom + 6, left: r.left });
+              }
+              setShowPicker(true);
+            }}
+          >
+            {period === 'custom' && customStart
+              ? (customEnd ? `${fmtDate(customStart)} — ${fmtDate(customEnd)}` : fmtDate(customStart))
+              : 'Выбрать период'}
+          </button>
+          {showPicker && ReactDOM.createPortal(
+            <div style={{ position: 'fixed', top: pickerPos.top, left: pickerPos.left, zIndex: 9999 }}>
+              <CalendarPicker
+                mode="range"
+                startVal={customStart}
+                endVal={customEnd}
+                onConfirm={(s, e) => { setCustomStart(s); setCustomEnd(e || null); setPeriod('custom'); setShowPicker(false); }}
+                onClose={() => setShowPicker(false)}
+              />
+            </div>,
+            document.body
+          )}
         </div>
         <div className="table-card">
           <table className="tbl">

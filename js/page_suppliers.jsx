@@ -29,6 +29,11 @@ const SUP_TABS = [
 function SupplierModal({ supplier, onClose, onDelete }) {
   const toast = useToast();
   const [tab, setTab] = useState('general');
+  const [showPeriodPicker, setShowPeriodPicker] = useState(false);
+  const [periodPickerPos, setPeriodPickerPos] = useState({ top: 0, left: 0 });
+  const [periodStart, setPeriodStart] = useState(null);
+  const [periodEnd, setPeriodEnd] = useState(null);
+  const periodChipRef = useRef(null);
   if (!supplier) return null;
   const s = supplier;
   const tabMeta = SUP_TABS.find((t) => t.key === tab);
@@ -83,7 +88,35 @@ function SupplierModal({ supplier, onClose, onDelete }) {
                   ))}
                 </div>
                 <div className="card card-pad">
-                  <span className="chip" style={{ marginBottom: 10 }}>Выберите период<Icon name="chevDown" /></span>
+                  <span
+                    ref={periodChipRef}
+                    className="chip"
+                    style={{ marginBottom: 10, cursor: 'pointer' }}
+                    onClick={() => {
+                      if (periodChipRef.current) {
+                        const r = periodChipRef.current.getBoundingClientRect();
+                        setPeriodPickerPos({ top: r.bottom + 6, left: r.left });
+                      }
+                      setShowPeriodPicker(true);
+                    }}
+                  >
+                    {periodStart
+                      ? (periodEnd ? `${fmtDate(periodStart)} — ${fmtDate(periodEnd)}` : fmtDate(periodStart))
+                      : 'Выберите период'}
+                    <Icon name="chevDown" />
+                  </span>
+                  {showPeriodPicker && ReactDOM.createPortal(
+                    <div style={{ position: 'fixed', top: periodPickerPos.top, left: periodPickerPos.left, zIndex: 9999 }}>
+                      <CalendarPicker
+                        mode="range"
+                        startVal={periodStart}
+                        endVal={periodEnd}
+                        onConfirm={(s, e) => { setPeriodStart(s); setPeriodEnd(e || null); setShowPeriodPicker(false); }}
+                        onClose={() => setShowPeriodPicker(false)}
+                      />
+                    </div>,
+                    document.body
+                  )}
                   <MiniLineChart />
                   <div className="legend" style={{ marginTop: 8 }}>
                     <div className="legend-item" style={{ fontSize: 14 }}><span className="dot" style={{ background: '#ec4444', borderRadius: '50%' }} />Отмены</div>
