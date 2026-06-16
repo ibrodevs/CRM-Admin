@@ -311,6 +311,106 @@ const AIR_STATS = [
   { label: 'В возврате', value: 2 },
 ];
 
+// ============ AVIA PICKER (two-pane in-order flight selection) ============
+
+// Fare tiers shown in step 2 «Выберите тариф». delta = price difference vs the base fare.
+const AVIA_FARE_TIERS = [
+  { id: 'light', name: 'Эконом Лайт', delta: 0, recommended: false,
+    features: [
+      { ok: true,  text: 'Ручная кладь 10 кг' },
+      { ok: false, text: 'Багаж не включён' },
+      { ok: false, text: 'Невозвратный' },
+      { ok: false, text: 'Платный выбор места' },
+    ] },
+  { id: 'optimum', name: 'Эконом Оптимум', delta: 1900, recommended: true,
+    features: [
+      { ok: true,  text: 'Ручная кладь 10 кг' },
+      { ok: true,  text: 'Багаж 1 место 23 кг' },
+      { ok: true,  text: 'Возврат со штрафом' },
+      { ok: true,  text: 'Выбор места включён' },
+    ] },
+  { id: 'max', name: 'Эконом Максимум', delta: 4300, recommended: false,
+    features: [
+      { ok: true,  text: 'Ручная кладь 10 кг' },
+      { ok: true,  text: 'Багаж 2 места 23 кг' },
+      { ok: true,  text: 'Свободный возврат' },
+      { ok: true,  text: 'Выбор места + питание' },
+    ] },
+];
+
+// Baggage options per passenger (step 4 → Багаж)
+const AVIA_BAGGAGE_OPTIONS = [
+  { id: 'none', label: 'Без багажа',     price: 0 },
+  { id: 'b23',  label: '1 место · 23 кг', price: 1800 },
+  { id: 'b23x2',label: '2 места · 23 кг', price: 3300 },
+  { id: 'b32',  label: '1 место · 32 кг', price: 2600 },
+];
+const AVIA_SPECIAL_BAGGAGE = [
+  { id: 'bike',  label: 'Велосипед',             icon: 'route',     from: 3500 },
+  { id: 'ski',   label: 'Лыжи / сноуборд',       icon: 'zap',       from: 3000 },
+  { id: 'music', label: 'Музыкальный инструмент', icon: 'template',  from: 2500 },
+  { id: 'sport', label: 'Спортивный инвентарь',   icon: 'briefcase', from: 2800 },
+  { id: 'animal',label: 'Животное в салоне',      icon: 'paperclip', from: 5000 },
+];
+
+// Meals per passenger (step 4 → Питание)
+const AVIA_MEALS = [
+  { id: 'standard', label: 'Стандартное питание',  price: 0,    note: 'Включено в тариф' },
+  { id: 'light',    label: 'Лёгкое питание',       price: 600 },
+  { id: 'kids',     label: 'Детское питание',      price: 600 },
+  { id: 'veg',      label: 'Вегетарианское',       price: 800 },
+  { id: 'none',     label: 'Без питания',          price: 0 },
+];
+
+// Insurance plans per passenger (step 4 → Страхование)
+const AVIA_INSURANCE_PLANS = [
+  { id: 'none',    label: 'Без страховки', price: 0,    cover: '—' },
+  { id: 'basic',   label: 'Базовая',       price: 600,  cover: 'Медрасходы до 30 000 $' },
+  { id: 'standard',label: 'Стандарт',      price: 900,  cover: 'Медрасходы до 50 000 $ · багаж' },
+  { id: 'premium', label: 'Премиум',       price: 1400, cover: 'Медрасходы до 100 000 $ · отмена · багаж' },
+];
+const AVIA_INSURANCE_INCLUDES = [
+  { icon: 'plus',  title: 'Медицинские расходы' },
+  { icon: 'luggage', title: 'Потеря багажа' },
+  { icon: 'calendar', title: 'Отмена поездки' },
+  { icon: 'clock', title: 'Задержка рейса' },
+];
+
+// Comfort & service add-ons (step 4 → Комфорт и сервис), grouped
+const AVIA_COMFORT_GROUPS = [
+  { group: 'Комфорт в перелёте', items: [
+    { id: 'fasttrack', label: 'Fast Track в аэропорту', sub: 'Ускоренное прохождение контроля', price: 2200 },
+    { id: 'lounge',    label: 'Бизнес-зал',             sub: 'Доступ в зал ожидания', price: 3500 },
+    { id: 'priority',  label: 'Приоритетная посадка',   sub: 'Посадка вне очереди', price: 1200 },
+    { id: 'vip',       label: 'VIP-сопровождение',      sub: 'Персональный ассистент', price: 6000 },
+  ] },
+  { group: 'Связь и развлечения', items: [
+    { id: 'wifi',  label: 'Wi-Fi на борту',     sub: 'Интернет в течение всего полёта', price: 900 },
+    { id: 'power', label: 'Розетка у кресла',   sub: 'Гарантированное питание устройств', price: 400 },
+    { id: 'media', label: 'Мультимедиа премиум', sub: 'Расширенный пакет контента', price: 600 },
+  ] },
+  { group: 'Дополнительный сервис', items: [
+    { id: 'meetgreet', label: 'Встреча с табличкой', sub: 'В аэропорту прилёта', price: 2500 },
+    { id: 'transferb', label: 'Трансфер до отеля',   sub: 'Индивидуальный автомобиль', price: 3200 },
+    { id: 'sim',       label: 'Туристическая SIM',    sub: 'Интернет в стране назначения', price: 800 },
+  ] },
+];
+
+// Seat map for step 3 / step 4 → Места. Compact cabin: rows × A–F, aisle between C and D.
+const AVIA_SEATMAP = {
+  cols: ['A', 'B', 'C', 'D', 'E', 'F'],
+  rows: 18,
+  legend: [
+    { kind: 'std',  label: 'Стандарт', price: 0 },
+    { kind: 'extra',label: 'Больше места', price: 1500 },
+    { kind: 'front',label: 'Первые ряды', price: 2200 },
+  ],
+  // explicit pricing/category overrides by row; default category is 'std'
+  rowKind: { 1: 'front', 2: 'front', 3: 'front', 11: 'extra', 12: 'extra' },
+  occupied: ['1A', '1B', '3F', '5C', '7D', '7E', '9A', '11F', '14B', '14C', '16D'],
+  price: { std: 0, extra: 1500, front: 2200 },
+};
+
 // ============ ORDER CARD ============
 
 // Service kinds shown inside an order (icon + accent for the registry/badges)
@@ -384,6 +484,37 @@ const ORDER_PARTICIPANTS = [
   { name: 'Нуралиев Данияр',  role: 'Взрослый', doc: 'ID AC1234567', dob: '14.03.1990', phone: '+996 700 123 456', lead: true },
   { name: 'Нуралиева Айгерим', role: 'Взрослый', doc: 'ID AC7654321', dob: '02.08.1992', phone: '+996 700 765 432' },
   { name: 'Нуралиев Эмир',    role: 'Ребёнок',  doc: 'ID AC9911223', dob: '11.05.2017', phone: '—' },
+];
+
+// ============ GROUP TRAVEL (4a — групповое бронирование) ============
+// Larger passenger roster used when an order is marked as a group trip.
+const GROUP_PAX = [
+  { name: 'Нуралиев Данияр',     role: 'Взрослый', doc: 'ID AC1234567' },
+  { name: 'Каримов Икрам',       role: 'Взрослый', doc: 'ID AC7766554' },
+  { name: 'Сагынбеков Бекзат',   role: 'Взрослый', doc: 'ID AC4455667' },
+  { name: 'Аттокуров Эрбол',     role: 'Взрослый', doc: 'ID AC9911223' },
+  { name: 'Жумабекова Назгуль',  role: 'Взрослый', doc: 'ID AC8877665' },
+  { name: 'Осмонова Айпери',     role: 'Взрослый', doc: 'ID AC5512347' },
+  { name: 'Мамытов Тилек',       role: 'Взрослый', doc: 'ID AC6623481' },
+  { name: 'Бакиров Адилет',      role: 'Взрослый', doc: 'ID AC7734512' },
+  { name: 'Эргешов Нурлан',      role: 'Взрослый', doc: 'ID AC8845623' },
+  { name: 'Кадырова Жанара',     role: 'Взрослый', doc: 'ID AC9956734' },
+  { name: 'Турдубаева Айгуль',   role: 'Взрослый', doc: 'ID AC1167845' },
+  { name: 'Сыдыков Эмир',        role: 'Взрослый', doc: 'ID AC2278956' },
+  { name: 'Абдыкеримов Руслан',  role: 'Взрослый', doc: 'ID AC3389067' },
+  { name: 'Исаева Динара',       role: 'Взрослый', doc: 'ID AC4490178' },
+  { name: 'Бейшеналиев Канат',   role: 'Взрослый', doc: 'ID AC5501289' },
+  { name: 'Орозова Бермет',      role: 'Взрослый', doc: 'ID AC6612390' },
+  { name: 'Жээнбеков Алмаз',     role: 'Взрослый', doc: 'ID AC7723401' },
+  { name: 'Касымова Чолпон',     role: 'Ребёнок',  doc: 'ID AC8834512' },
+  { name: 'Маматов Темир',       role: 'Ребёнок',  doc: 'ID AC9945623' },
+  { name: 'Алиева Асель',        role: 'Взрослый', doc: 'ID AC1056734' },
+];
+// member indices reference GROUP_PAX positions; fare references AVIA_FARE_TIERS ids
+const AVIA_GROUPS_SEED = [
+  { id: 'g1', name: 'Руководство', desc: 'Топ-менеджмент, бизнес-класс', fare: 'max',     members: [0, 1, 2, 3] },
+  { id: 'g2', name: 'Менеджеры',   desc: 'Линейные руководители',        fare: 'optimum', members: [4, 5, 6, 7, 8, 9, 10, 11] },
+  { id: 'g3', name: 'Сопровождение', desc: 'Поддержка и логистика',       fare: 'light',   members: [12, 13, 14, 15, 16, 17, 18, 19] },
 ];
 
 const ORDER_TASKS = [
@@ -655,7 +786,10 @@ Object.assign(window, {
   USERS, USER_STATUS, ROLES, PERMISSIONS,
   DASH_STATS, ORDER_BREAKDOWN, RECENT_CHANGES, API_ACCESS, CURRENCIES,
   AIRLINES, AIR_STATUS, CABIN_CLASSES, AIRPORTS, FLIGHT_OFFERS, AIR_SERVICES, AIR_STATS,
+  AVIA_FARE_TIERS, AVIA_BAGGAGE_OPTIONS, AVIA_SPECIAL_BAGGAGE, AVIA_MEALS,
+  AVIA_INSURANCE_PLANS, AVIA_INSURANCE_INCLUDES, AVIA_COMFORT_GROUPS, AVIA_SEATMAP,
   SERVICE_KIND, SERVICE_STATUS, ORDER_SERVICES, KP_STATUS, KP_STATUS_FLOW, PROPOSALS, ORDER_PARTICIPANTS, ORDER_TASKS,
+  GROUP_PAX, AVIA_GROUPS_SEED,
   ORDER_STAGES, FIN_OP_STATUS, FIN_OPS, DOC_KIND, DOC_STATUS2, DOCS2, FULFILLMENT,
   RETURN_FLOW, RETURN_STATUS, RETURN_TYPE, RETURNS,
   NOTIF_PRIORITY, NOTIF_PRIO_RANK, NOTIF_SOURCE, NOTIFICATIONS, NOTIF_SETTINGS,

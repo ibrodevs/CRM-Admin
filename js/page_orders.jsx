@@ -285,35 +285,32 @@ function ServiceSection({ svcName, startDate, endDate, selectedFlight, onSelectF
 function OrderCreateModal({ open, onClose, onCreated }) {
   const toast = useToast();
 
-  // phase: 'step1' | 'step2' — search of services is NOT part of this modal;
-  // it happens on the order's full "Услуги" screen after "Найти услуги".
-  const [phase, setPhase] = useState('step1');
-
-  // Step 1
-  const [clientType, setClientType] = useState('person');
-  const [numPersons, setNumPersons] = useState('1');
+  // Section 1 — client type
+  const [clientType, setClientType] = useState('person'); // 'person' | 'org'
+  // Section 2 — client(s)
+  const [clientQuery, setClientQuery] = useState('');
+  const [selClients, setSelClients] = useState([CLIENTS_DB[0]]); // выбранные физлица
+  const [company, setCompany] = useState(COMPANIES_DB[0]);
+  const [employees, setEmployees] = useState([CLIENTS_DB[0]]);   // сотрудники компании
+  // Section 3 — route
+  const [trip, setTrip] = useState('rt'); // rt | ow | mc
+  const [pts, setPts] = useState(['SVO', 'DXB']);
+  // Section 4 — services
   const [svc, setSvc] = useState({});
-  const [currency, setCurrency] = useState('');
-  const [numDays, setNumDays] = useState('');
-  const [startDate, setStartDate] = useState(null);
-  const [endDate, setEndDate] = useState(null);
-  const [specialCase, setSpecialCase] = useState('');
-  const [operator, setOperator] = useState('');
-  const [travelStatement, setTravelStatement] = useState(false);
-
-  // Step 2
-  const [currentPersonIdx, setCurrentPersonIdx] = useState(0);
-  const [persons, setPersons] = useState([{}]);
+  const [isGroup, setIsGroup] = useState(false); // групповая поездка
+  // nested panels
+  const [cityPick, setCityPick] = useState(null);   // { idx } — какой пункт маршрута меняем / добавляем
+  const [docFor, setDocFor] = useState(null);       // client для «Добавление документа»
+  const [bonusFor, setBonusFor] = useState(null);   // client для «Добавление бонусной карты»
+  const [empPick, setEmpPick] = useState(false);    // выбор сотрудников (для организации)
 
   // Reset on open
   useEffect(() => {
     if (!open) return;
-    setPhase('step1');
-    setClientType('person'); setNumPersons('1');
-    setSvc({}); setCurrency(''); setNumDays('');
-    setStartDate(null); setEndDate(null); setSpecialCase('');
-    setOperator(''); setTravelStatement(false);
-    setCurrentPersonIdx(0); setPersons([{}]);
+    setClientType('person'); setClientQuery('');
+    setSelClients([CLIENTS_DB[0]]); setCompany(COMPANIES_DB[0]); setEmployees([CLIENTS_DB[0]]);
+    setTrip('rt'); setPts(['SVO', 'DXB']); setSvc({}); setIsGroup(false);
+    setCityPick(null); setDocFor(null); setBonusFor(null); setEmpPick(false);
   }, [open]);
 
   // Escape key
@@ -326,57 +323,29 @@ function OrderCreateModal({ open, onClose, onCreated }) {
 
   if (!open) return null;
 
-  const numP = Math.max(1, parseInt(numPersons) || 1);
-  const activeServices = ALL_SERVICES.filter((s) => svc[s]);
+  // services offered at order creation → mapped to a picker kind (null = no search screen)
+  const ORDER_SVC = [
+    ['Авиабилеты', 'Авиа'], ['Ж/д билеты', 'ЖД'], ['Гостиница', 'Гостиница'],
+    ['Трансфер', 'Трансфер'], ['Виза', null], ['Страховка', null], ['Доп.услуги', null],
+  ];
+  const activeServices = ORDER_SVC.filter(([l]) => svc[l]).map(([l]) => l);
+  const cityLabel = (code) => { const a = AIRPORTS.find((x) => x.code === code); return a ? `${a.city} (${a.code})` : null; };
+  const swapPts = (i) => setPts((p) => { const n = [...p]; [n[i], n[i + 1]] = [n[i + 1], n[i]]; return n; });
+  const removePt = (i) => setPts((p) => p.length > 2 ? p.filter((_, x) => x !== i) : p);
+  const addPt = () => { setTrip('mc'); const idx = pts.length; setPts((p) => [...p, '']); setCityPick({ idx }); };
 
-  const personName = (idx) => {
-    const p = persons[idx];
-    if (!p) return clientType === 'org' ? `Организация ${idx + 1}` : `Физическое лицо ${idx + 1}`;
-    const name = [p.lastName, p.firstName].filter(Boolean).join(' ');
-    return name || (clientType === 'org' ? `Организация ${idx + 1}` : `Физическое лицо ${idx + 1}`);
-  };
-  const isPersonFilled = (idx) => {
-    const p = persons[idx];
-    return !!(p && (p.lastName || p.firstName));
-  };
-
-  const setPerson = (idx, field, value) => {
-    setPersons((prev) => {
-      const next = [...prev];
-      next[idx] = { ...next[idx], [field]: value };
-      return next;
-    });
-  };
-
-  const ensurePersons = (n) => {
-    setPersons((prev) => {
-      const next = [...prev];
-      while (next.length < n) next.push({});
-      return next.slice(0, n);
-    });
-  };
-
-  const goStep2 = () => {
-    ensurePersons(numP);
-    setCurrentPersonIdx(0);
-    setPhase('step2');
-  };
-
-  // "Найти услуги": создаём заказ и сразу уходим в полноценный экран подбора (вкладка «Услуги»).
-  // Поиск НЕ выполняется в модалке — здесь только сбор вводных данных.
+  // "Найти услуги": создаём заказ и уходим на полноценный экран подбора (вкладка «Услуги»).
   const findServices = () => {
-    const clientLabel = isPersonFilled(0)
-      ? personName(0)
-      : (clientType === 'org' ? 'Новая организация' : 'Новый клиент');
-    // первая выбранная услуга, для которой есть экран подбора → открыть её поиск
-    const searchKind = activeServices.map((s) => SEARCH_KIND[s]).find(Boolean) || null;
+    const clientLabel = clientType === 'org' ? company.name : (selClients[0] ? selClients[0].name : 'Новый клиент');
+    const searchKind = activeServices.map((s) => (ORDER_SVC.find(([l]) => l === s) || [])[1]).find(Boolean) || null;
     onCreated({
       no: 51181 + Math.floor(Math.random() * 10),
       client: clientLabel,
-      requestType: 'Индивидуальная',
+      requestType: isGroup ? 'Групповая' : (clientType === 'org' ? 'Корпоративная' : 'Индивидуальная'),
+      isGroup,
       service: activeServices[0] || 'Авиа',
-      status: 'Новое', operator: operator || 'Даниель', operatorRole: 'Оператор',
-      sum: 0, currency: currency || 'USD',
+      status: 'Новое', operator: 'Даниель', operatorRole: 'Оператор',
+      sum: 0, currency: 'USD',
       services: Math.max(1, activeServices.length),
       progress: 0, date: '14.06.26',
     }, searchKind);
@@ -384,202 +353,327 @@ function OrderCreateModal({ open, onClose, onCreated }) {
     onClose();
   };
 
-  /* ---- Render step 1 ---- */
-  const renderStep1 = () => (
-    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px 32px' }}>
-      {/* Left */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-          <TypeCard iconName="user" label="Физическое лицо" selected={clientType === 'person'} onClick={() => setClientType('person')} />
-          <TypeCard iconName="users" label="Организация" selected={clientType === 'org'} onClick={() => setClientType('org')} />
-        </div>
-        <Field label="Количество лиц">
-          <Input placeholder="Введите значение" value={numPersons} onChange={(e) => setNumPersons(e.target.value)} type="number" min="1" />
-        </Field>
-        <div>
-          {ALL_SERVICES.map((s) => (
-            <div key={s} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 0', borderBottom: '1px solid var(--line)' }}>
-              <span style={{ fontSize: 15, color: 'var(--body)' }}>{s}</span>
-              <Toggle on={!!svc[s]} onChange={(v) => setSvc((p) => ({ ...p, [s]: v }))} />
-            </div>
-          ))}
-          <div style={{ display: 'flex', gap: 22, marginTop: 12 }}>
-            <button type="button" style={{ border: 'none', background: 'none', color: 'var(--muted)', cursor: 'pointer', fontSize: 14, padding: 0 }}
-              onClick={() => { const anyOn = Object.values(svc).some(Boolean); const ns = {}; ALL_SERVICES.forEach((s) => { ns[s] = !anyOn; }); setSvc(ns); }}>
-              Выбрать все
-            </button>
-            <button type="button" style={{ border: 'none', background: 'none', color: 'var(--muted)', cursor: 'pointer', fontSize: 14, padding: 0 }}>
-              Добавить индивидуальный пакет
-            </button>
-          </div>
-        </div>
-      </div>
+  const q = clientQuery.trim().toLowerCase();
+  const clientMatches = q ? CLIENTS_DB.filter((c) => !selClients.find((s) => s.id === c.id) &&
+    (c.name.toLowerCase().includes(q) || c.phone.includes(q) || (c.doc || '').toLowerCase().includes(q))) : [];
 
-      {/* Right */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-        <Field label="Валюта расчета">
-          <select className="select" value={currency} onChange={(e) => setCurrency(e.target.value)}>
-            <option value="">Выбрать</option>
-            {CURRENCIES.map((c) => <option key={c.code} value={c.code}>{c.name}</option>)}
-          </select>
-        </Field>
-        <Field label="Количество дней">
-          <Input placeholder="Введите значение" value={numDays} onChange={(e) => setNumDays(e.target.value)} type="number" min="1" />
-        </Field>
-        <DateRangeField
-          label="Выбор периода отдыха"
-          startVal={startDate}
-          endVal={endDate}
-          placeholder="Выбрать период отдыха"
-          onChange={(s, e) => { setStartDate(s); setEndDate(e || null); }}
-        />
-        <Field label="Особые случаи">
-          <select className="select" value={specialCase} onChange={(e) => setSpecialCase(e.target.value)}>
-            <option value="">Выбрать</option>
-            <option>День рождения</option><option>Медовый месяц</option><option>Юбилей</option>
-          </select>
-        </Field>
-        <Field label="Оператор">
-          <select className="select" value={operator} onChange={(e) => setOperator(e.target.value)}>
-            <option value="">Выбрать</option>
-            {OPERATORS.map((o) => <option key={o} value={o}>{o}</option>)}
-          </select>
-        </Field>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingTop: 4 }}>
-          <span style={{ fontSize: 15, color: 'var(--body)', fontWeight: 500 }}>Выписка о путешествии</span>
-          <Toggle on={travelStatement} onChange={setTravelStatement} />
-        </div>
-      </div>
+  const personMenu = (c) => [
+    { icon: 'docs', label: 'Добавить документ', onClick: () => setDocFor(c) },
+    { icon: 'star', label: 'Бонусная карта', onClick: () => setBonusFor(c) },
+    { sep: true },
+    { icon: 'trash', label: 'Убрать', danger: true, onClick: () => setSelClients((l) => l.filter((x) => x.id !== c.id)) },
+  ];
+
+  /* ---- Section header ---- */
+  const Sec = ({ n, title, children }) => (
+    <div className="oce-sec">
+      <div className="oce-sec-h"><span className="n">{n}</span><span className="t">{title}</span></div>
+      {children}
     </div>
   );
 
-  /* ---- Render step 2 ---- */
-  const renderStep2 = () => {
-    const p = persons[currentPersonIdx] || {};
-    const set = (field) => (e) => setPerson(currentPersonIdx, field, e.target ? e.target.value : e);
-    return (
-      <div>
-        {/* Person tabs */}
-        <div style={{ display: 'flex', gap: 12, marginBottom: 24, flexWrap: 'wrap' }}>
-          {Array.from({ length: numP }).map((_, i) => (
-            <PersonTab
-              key={i}
-              name={personName(i)}
-              sub={isPersonFilled(i) ? 'Данные заполнены' : 'Заполните данные'}
-              active={currentPersonIdx === i}
-              onClick={() => setCurrentPersonIdx(i)}
-            />
-          ))}
-        </div>
-
-        {/* Form */}
-        <div className="form-grid" style={{ marginBottom: 24 }}>
-          <Field label="Фамилия">
-            <Input placeholder="Введите значение" value={p.lastName || ''} onChange={set('lastName')} />
-          </Field>
-          <DateField label="Дата рождения" value={p.dob || null}
-            onChange={(d) => setPerson(currentPersonIdx, 'dob', d)} placeholder="Выбрать дату" />
-          <Field label="Имя">
-            <Input placeholder="Введите значение" value={p.firstName || ''} onChange={set('firstName')} />
-          </Field>
-          <Field label="ИНН">
-            <Input placeholder="Введите значение" value={p.inn || ''} onChange={set('inn')} />
-          </Field>
-          <Field label="Отчество">
-            <Input placeholder="Введите значение" value={p.middleName || ''} onChange={set('middleName')} />
-          </Field>
-          <Field label="Наличие визы">
-            <select className="select" value={p.visa || ''} onChange={set('visa')}>
-              <option value="">Выбрать</option>
-              <option>Есть</option><option>Нет</option><option>В процессе</option>
-            </select>
-          </Field>
-          <Field label="Гражданство">
-            <Input placeholder="Введите значение" value={p.citizenship || ''} onChange={set('citizenship')} />
-          </Field>
-          <Field label="Пол">
-            <select className="select" value={p.gender || ''} onChange={set('gender')}>
-              <option value="">Выбрать</option>
-              <option>Мужской</option><option>Женский</option>
-            </select>
-          </Field>
-        </div>
-
-        {/* Document uploads */}
-        <div className="form-grid">
-          <DocUploadBtn label="Фото паспорта" placeholder="Добавить паспорт" />
-          <DocUploadBtn label="Фото визы (при наличии)" placeholder="Добавить паспорт" />
-          <div className="full">
-            <DocUploadBtn label="Иные документы (при наличии)" placeholder="Добавить документ" />
-          </div>
-        </div>
-      </div>
-    );
-  };
-
-  /* ---- Layout — always a right-side data-entry panel (no in-modal service search) ---- */
-  const stepNum = phase === 'step1' ? 1 : 2;
+  const TRIPS = [['rt', 'Туда-обратно'], ['ow', 'В одну сторону'], ['mc', 'Сложный маршрут']];
+  const routePts = trip === 'mc' ? pts : pts.slice(0, 2);
 
   return (
     <>
-      {/* Overlay + panel */}
-      <div
-        className="drawer-overlay"
-        style={{ display: 'flex', justifyContent: 'flex-end' }}
-        onMouseDown={(e) => { if (e.target === e.currentTarget) onClose(); }}
-      >
-        <div
-          className="scroll"
-          style={{
-            background: '#fff', width: 'min(680px, 58vw)', height: '100vh',
-            overflow: 'auto', boxShadow: 'var(--shadow-modal)',
-            animation: 'slidein .26s cubic-bezier(.2,.9,.3,1)',
-            display: 'flex', flexDirection: 'column',
-          }}
-        >
-          {/* Header — sticky */}
-          <div style={{
-            padding: '26px 36px 20px', position: 'sticky', top: 0,
-            background: '#fff', zIndex: 2,
-          }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
-              <h2 style={{ fontSize: 26, fontWeight: 700, color: 'var(--ink)', margin: 0, letterSpacing: '-.02em' }}>
-                Добавление заказа
-              </h2>
+      <div className="drawer-overlay" style={{ display: 'flex', justifyContent: 'flex-end' }}
+        onMouseDown={(e) => { if (e.target === e.currentTarget) onClose(); }}>
+        <div className="scroll" style={{ background: '#fff', width: 'min(560px, 50vw)', height: '100vh',
+          overflow: 'auto', boxShadow: 'var(--shadow-modal)', animation: 'slidein .26s cubic-bezier(.2,.9,.3,1)',
+          display: 'flex', flexDirection: 'column' }}>
+          {/* Header */}
+          <div style={{ padding: '22px 30px 18px', position: 'sticky', top: 0, background: '#fff', zIndex: 2, borderBottom: '1px solid var(--line)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <h2 style={{ fontSize: 23, fontWeight: 700, color: 'var(--ink)', margin: 0, letterSpacing: '-.02em' }}>Создание заказа</h2>
               <button type="button" className="modal-close" onClick={onClose}><Icon name="x" /></button>
             </div>
-            <StepIndicator step={stepNum} />
           </div>
 
           {/* Body */}
-          <div style={{ padding: '24px 36px', flex: 1 }}>
-            {phase === 'step1' && renderStep1()}
-            {phase === 'step2' && renderStep2()}
+          <div style={{ padding: '22px 30px', flex: 1 }}>
+            {/* 1 — client type */}
+            <Sec n={1} title="Тип клиента">
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                <TypeCard iconName="building" label="Юридическое лицо" selected={clientType === 'org'} onClick={() => setClientType('org')} />
+                <TypeCard iconName="user" label="Физическое лицо" selected={clientType === 'person'} onClick={() => setClientType('person')} />
+              </div>
+              <label style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer', marginTop: 12, padding: '11px 13px', border: '1px solid var(--line)', borderRadius: 11, background: isGroup ? 'var(--blue-soft)' : '#fff' }}>
+                <Icon name="users" style={{ width: 18, height: 18, color: 'var(--blue)' }} />
+                <div style={{ flex: 1 }}><div style={{ fontWeight: 600, color: 'var(--ink)', fontSize: 14.5 }}>Групповая поездка</div>
+                  <div style={{ fontSize: 12.5, color: 'var(--muted)' }}>Бронирование на группу пассажиров с управлением группами</div></div>
+                <Toggle on={isGroup} onChange={setIsGroup} />
+              </label>
+            </Sec>
+
+            {/* 2 — client */}
+            {clientType === 'person' ? (
+              <Sec n={2} title="Физическое лицо">
+                <div style={{ position: 'relative', marginBottom: 12 }}>
+                  <SearchBox value={clientQuery} onChange={setClientQuery} placeholder="Поиск по ФИО, телефону или документу" />
+                  {clientMatches.length > 0 && (
+                    <div className="dropdown scroll" style={{ top: 46, left: 0, right: 0, maxHeight: 240, overflowY: 'auto', padding: 6 }}>
+                      {clientMatches.map((c) => (
+                        <div key={c.id} className="dropdown-item" onClick={() => { setSelClients((l) => [...l, c]); setClientQuery(''); }}>
+                          <Avatar name={c.name} size={30} />
+                          <span style={{ flex: 1 }}><div style={{ fontWeight: 600 }}>{c.name}</div>
+                            <div style={{ fontSize: 12.5, color: 'var(--muted)' }}>{c.phone} · {c.doc}</div></span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+                {selClients.map((c) => (
+                  <div key={c.id} className="oce-client found">
+                    <Icon name="checkCircle" style={{ width: 20, height: 20, color: 'var(--green)', flex: '0 0 20px' }} />
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div className="nm">{c.name} <Pill tone={CLIENT_STATUS[c.status] || 'gray'}>{c.status}</Pill></div>
+                      <div className="mt">{c.id} · {c.phone} · {c.doc}</div>
+                    </div>
+                    <ActionMenu trigger={<button className="btn btn-ghost btn-icon btn-sm"><Icon name="more" /></button>} items={personMenu(c)} />
+                  </div>
+                ))}
+                <button className="oce-add" onClick={() => { const next = CLIENTS_DB.find((c) => !selClients.find((s) => s.id === c.id)); if (next) setSelClients((l) => [...l, next]); }}>
+                  <Icon name="plus" style={{ width: 16, height: 16 }} />Добавить физическое лицо
+                </button>
+              </Sec>
+            ) : (
+              <Sec n={2} title="Компания">
+                <Field label="Организация">
+                  <select className="select" value={company.id} onChange={(e) => setCompany(COMPANIES_DB.find((c) => c.id === e.target.value))}>
+                    {COMPANIES_DB.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+                  </select>
+                </Field>
+                <div className="oce-client" style={{ marginTop: 10 }}>
+                  <span className="oce-svc-ic" style={{ width: 36, height: 36, borderRadius: 10, background: 'var(--blue-soft)', color: 'var(--blue)', display: 'flex', alignItems: 'center', justifyContent: 'center', flex: '0 0 36px' }}><Icon name="building" style={{ width: 18, height: 18 }} /></span>
+                  <div style={{ flex: 1, minWidth: 0 }}><div className="nm">{company.name}</div><div className="mt">ИНН {company.inn} · {company.dir}</div></div>
+                </div>
+                <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '.02em', margin: '16px 2px 10px' }}>Сотрудники в поездке</div>
+                {employees.map((c) => (
+                  <div key={c.id} className="oce-client">
+                    <Avatar name={c.name} size={32} />
+                    <div style={{ flex: 1, minWidth: 0 }}><div className="nm">{c.name}</div><div className="mt">{c.phone} · {c.doc}</div></div>
+                    <ActionMenu trigger={<button className="btn btn-ghost btn-icon btn-sm"><Icon name="more" /></button>} items={personMenu(c)} />
+                  </div>
+                ))}
+                <button className="oce-add" onClick={() => setEmpPick(true)}><Icon name="users" style={{ width: 16, height: 16 }} />Выберите сотрудников</button>
+              </Sec>
+            )}
+
+            {/* 3 — route */}
+            <Sec n={3} title="Маршрут">
+              <div className="trip-toggle" style={{ marginBottom: 14 }}>
+                {TRIPS.map(([k, l]) => <button key={k} className={trip === k ? 'on' : ''} onClick={() => setTrip(k)}>{l}</button>)}
+              </div>
+              {routePts.map((code, i) => (
+                <div className="oce-route-row" key={i}>
+                  <span className="idx">{i + 1}</span>
+                  <div className="oce-city" onClick={() => setCityPick({ idx: i })}>
+                    <Icon name="plane" />
+                    {cityLabel(code) ? <span>{cityLabel(code)}</span> : <span className="ph">Выберите город</span>}
+                  </div>
+                  {trip !== 'mc' && i === 0 && (
+                    <button className="btn btn-secondary btn-icon btn-sm" title="Поменять местами" onClick={() => swapPts(0)}><Icon name="swap" /></button>
+                  )}
+                  {trip === 'mc' && (
+                    <ActionMenu trigger={<button className="btn btn-ghost btn-icon btn-sm"><Icon name="more" /></button>}
+                      items={[
+                        { icon: 'edit', label: 'Изменить город', onClick: () => setCityPick({ idx: i }) },
+                        { icon: 'plus', label: 'Добавить пересадку', onClick: () => { setPts((p) => { const n = [...p]; n.splice(i + 1, 0, ''); return n; }); setCityPick({ idx: i + 1 }); } },
+                        { sep: true },
+                        { icon: 'trash', label: 'Удалить город', danger: true, onClick: () => removePt(i) },
+                      ]} />
+                  )}
+                </div>
+              ))}
+              <div style={{ display: 'flex', gap: 10, marginTop: 4 }}>
+                <button className="oce-add" style={{ flex: 1 }} onClick={addPt}><Icon name="plus" style={{ width: 16, height: 16 }} />Добавить город</button>
+                <Button variant="secondary" icon="zap" onClick={() => toast('Маршрут оптимизирован', 'ok')}>Оптимизировать</Button>
+              </div>
+            </Sec>
+
+            {/* 4 — services */}
+            <Sec n={4} title="Услуги">
+              <div className="oce-svc-grid">
+                {ORDER_SVC.map(([l]) => (
+                  <label key={l}><Checkbox on={!!svc[l]} onChange={(v) => setSvc((p) => ({ ...p, [l]: v }))} />{l}</label>
+                ))}
+              </div>
+            </Sec>
           </div>
 
-          {/* Footer — sticky */}
-          <div style={{
-            padding: '18px 36px', borderTop: '1px solid var(--line)',
-            position: 'sticky', bottom: 0, background: '#fff',
-            display: 'flex', alignItems: 'center', gap: 12,
-          }}>
-            {phase === 'step1' && (
-              <Button variant="primary" iconRight="arrowRight" onClick={goStep2}>
-                Продолжить заполнение
-              </Button>
-            )}
-            {phase === 'step2' && (
-              <>
-                <Button variant="secondary" icon="chevLeft" onClick={() => setPhase('step1')}>Назад</Button>
-                <Button variant="primary" icon="search" onClick={findServices}>
-                  Найти услуги
-                </Button>
-              </>
-            )}
+          {/* Footer */}
+          <div style={{ padding: '16px 30px', borderTop: '1px solid var(--line)', position: 'sticky', bottom: 0, background: '#fff', display: 'flex', alignItems: 'center', gap: 12 }}>
+            <Button variant="secondary" onClick={onClose}>Отмена</Button>
+            <div style={{ flex: 1 }} />
+            <Button variant="primary" icon="search" onClick={findServices}>Найти услуги</Button>
           </div>
         </div>
       </div>
+
+      {/* nested panels */}
+      {cityPick && <CityPickPanel value={pts[cityPick.idx]}
+        onClose={() => setCityPick(null)}
+        onPick={(code) => { setPts((p) => { const n = [...p]; n[cityPick.idx] = code; return n; }); setCityPick(null); }} />}
+      {docFor && <DocumentPanel client={docFor} onClose={() => setDocFor(null)} onSave={() => { toast('Документ добавлен', 'ok'); setDocFor(null); }} />}
+      {bonusFor && <BonusCardPanel client={bonusFor} onClose={() => setBonusFor(null)} onSave={() => { toast('Бонусная карта добавлена', 'ok'); setBonusFor(null); }} />}
+      {empPick && <EmployeePanel selected={employees} onClose={() => setEmpPick(false)} onApply={(list) => { setEmployees(list); setEmpPick(false); }} />}
     </>
+  );
+}
+
+/* ===== Nested panel shell (stacked over the create drawer) ===== */
+function StackPanel({ title, onClose, footer, children, width }) {
+  useEffect(() => {
+    const h = (e) => { if (e.key === 'Escape') onClose(); };
+    window.addEventListener('keydown', h);
+    return () => window.removeEventListener('keydown', h);
+  }, []);
+  return (
+    <div className="drawer-stack" onMouseDown={(e) => { if (e.target === e.currentTarget) onClose(); }}>
+      <div className="drawer-stack-panel scroll" style={width ? { width } : null}>
+        <div style={{ padding: '20px 26px 16px', position: 'sticky', top: 0, background: '#fff', zIndex: 2, borderBottom: '1px solid var(--line)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <h3 style={{ fontSize: 19, fontWeight: 700, color: 'var(--ink)', margin: 0 }}>{title}</h3>
+          <button type="button" className="modal-close" onClick={onClose}><Icon name="x" /></button>
+        </div>
+        <div style={{ padding: '20px 26px', flex: 1 }}>{children}</div>
+        {footer && <div style={{ padding: '14px 26px', borderTop: '1px solid var(--line)', position: 'sticky', bottom: 0, background: '#fff', display: 'flex', gap: 10 }}>{footer}</div>}
+      </div>
+    </div>
+  );
+}
+
+/* ---- city picker ---- */
+function CityPickPanel({ value, onPick, onClose }) {
+  const [q, setQ] = useState('');
+  const s = q.trim().toLowerCase();
+  const popular = ['SVO', 'DME', 'IST', 'DXB', 'ALA', 'TAS'];
+  const list = AIRPORTS.filter((a) => !s || a.city.toLowerCase().includes(s) || a.code.toLowerCase().includes(s) || a.name.toLowerCase().includes(s));
+  return (
+    <StackPanel title="Добавление города" onClose={onClose}>
+      <SearchBox value={q} onChange={setQ} placeholder="Город или аэропорт" />
+      {!s && (
+        <>
+          <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '.02em', margin: '18px 0 10px' }}>Популярные города</div>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 9 }}>
+            {popular.map((code) => AIRPORTS.find((x) => x.code === code)).filter(Boolean).map((a) => (
+              <button key={a.code} className={'city-chip' + (value === a.code ? ' sel' : '')} onClick={() => onPick(a.code)}>{a.city} ({a.code})</button>
+            ))}
+          </div>
+        </>
+      )}
+      <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '.02em', margin: '18px 0 6px' }}>Все направления</div>
+      {list.map((a) => (
+        <div key={a.code} className="city-row" onClick={() => onPick(a.code)}>
+          <span className="code">{a.code}</span>
+          <span style={{ flex: 1 }}><div style={{ fontWeight: 600 }}>{a.city}</div><div style={{ fontSize: 12.5, color: 'var(--muted)' }}>{a.name}, {a.country}</div></span>
+          {value === a.code && <Icon name="check" style={{ width: 18, height: 18, color: 'var(--blue)' }} />}
+        </div>
+      ))}
+      {!list.length && <EmptyState icon="search" title="Ничего не найдено" />}
+    </StackPanel>
+  );
+}
+
+/* ---- document add ---- */
+function DocumentPanel({ client, onClose, onSave }) {
+  return (
+    <StackPanel title="Добавление документа" onClose={onClose}
+      footer={<><Button variant="secondary" style={{ flex: 1 }} onClick={onClose}>Отмена</Button><Button style={{ flex: 1 }} icon="check" onClick={onSave}>Сохранить документ</Button></>}>
+      <div className="oce-client" style={{ marginBottom: 16 }}>
+        <Avatar name={client.name} size={32} /><div style={{ flex: 1 }}><div className="nm">{client.name}</div><div className="mt">Владелец документа</div></div>
+      </div>
+      <div style={{ display: 'flex', gap: 10, marginBottom: 18 }}>
+        <Button variant="secondary" icon="zap" style={{ flex: 1 }}>Загрузить документ (OCR)</Button>
+        <Button variant="secondary" icon="edit" style={{ flex: 1 }}>Заполнить вручную</Button>
+      </div>
+      <div style={{ border: '1px dashed var(--field-line)', borderRadius: 12, padding: '26px', textAlign: 'center', color: 'var(--muted)', marginBottom: 18 }}>
+        <Icon name="download" style={{ width: 28, height: 28, color: 'var(--muted-2)' }} />
+        <div style={{ margintop: 8, fontWeight: 600, color: 'var(--ink)' }}>Перетащите файл сюда</div>
+        <div style={{ fontSize: 13, margin: '4px 0 12px' }}>JPG, PNG, PDF · до 10 МБ</div>
+        <Button variant="secondary" size="sm">Выбрать файл</Button>
+      </div>
+      <div className="form-grid">
+        <Field label="Тип документа"><select className="select"><option>Загранпаспорт</option><option>Паспорт РФ</option><option>ID-карта</option></select></Field>
+        <Field label="Гражданство"><select className="select"><option>Российская Федерация</option><option>Кыргызстан</option><option>Казахстан</option></select></Field>
+        <Field label="Номер документа"><Input placeholder="71 1234567" /></Field>
+        <DateField label="Срок действия" value={null} onChange={() => {}} placeholder="Выбрать дату" />
+        <Field label="Фамилия (лат.)"><Input placeholder="IVANOV" /></Field>
+        <Field label="Имя (лат.)"><Input placeholder="IVAN" /></Field>
+        <Field label="Отчество"><Input placeholder="IVANOVICH" /></Field>
+        <DateField label="Дата рождения" value={null} onChange={() => {}} placeholder="Выбрать дату" />
+      </div>
+    </StackPanel>
+  );
+}
+
+/* ---- bonus card add ---- */
+const LOYALTY_PROGRAMS = ['Аэрофлот Бонус', 'S7 Priority', 'РЖД Бонус', 'Turkish Miles&Smiles', 'Emirates Skywards', 'Marriott Bonvoy', 'Accor ALL'];
+function BonusCardPanel({ client, onClose, onSave }) {
+  const [program, setProgram] = useState('');
+  const [auto, setAuto] = useState(true);
+  return (
+    <StackPanel title="Добавление бонусной карты" onClose={onClose}
+      footer={<><Button variant="secondary" style={{ flex: 1 }} onClick={onClose}>Отмена</Button><Button style={{ flex: 1 }} icon="check" onClick={onSave}>Сохранить карту</Button></>}>
+      <div className="oce-client" style={{ marginBottom: 16 }}>
+        <Avatar name={client.name} size={32} /><div style={{ flex: 1 }}><div className="nm">{client.name}</div><div className="mt">Держатель карты</div></div>
+      </div>
+      <Field label="1. Программа лояльности">
+        <select className="select" value={program} onChange={(e) => setProgram(e.target.value)}>
+          <option value="">Выберите программу</option>
+          {LOYALTY_PROGRAMS.map((p) => <option key={p} value={p}>{p}</option>)}
+        </select>
+      </Field>
+      <Field label="2. Номер карты / участника"><Input placeholder="Введите номер" /></Field>
+      <Field label="3. Статус в программе">
+        <select className="select"><option>Базовый</option><option>Серебряный</option><option>Золотой</option><option>Платиновый</option></select>
+      </Field>
+      <label style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer', marginTop: 8 }}>
+        <Checkbox on={auto} onChange={setAuto} /><span>Подставлять карту в бронирования автоматически</span>
+      </label>
+    </StackPanel>
+  );
+}
+
+/* ---- employee picker (org) ---- */
+function EmployeePanel({ selected, onApply, onClose }) {
+  const [q, setQ] = useState('');
+  const [picked, setPicked] = useState(selected.map((c) => c.id));
+  const [newMode, setNewMode] = useState(false);
+  const s = q.trim().toLowerCase();
+  const list = CLIENTS_DB.filter((c) => !s || c.name.toLowerCase().includes(s) || c.phone.includes(s));
+  const toggle = (id) => setPicked((p) => p.includes(id) ? p.filter((x) => x !== id) : [...p, id]);
+  const apply = () => onApply(CLIENTS_DB.filter((c) => picked.includes(c.id)));
+  return (
+    <StackPanel title={newMode ? 'Новый сотрудник' : 'Выбор сотрудников'} onClose={onClose}
+      footer={newMode
+        ? <><Button variant="secondary" style={{ flex: 1 }} onClick={() => setNewMode(false)}>Назад</Button><Button style={{ flex: 1 }} icon="check" onClick={() => setNewMode(false)}>Добавить</Button></>
+        : <><Button variant="secondary" style={{ flex: 1 }} onClick={onClose}>Отмена</Button><Button style={{ flex: 1 }} icon="check" onClick={apply}>Применить{picked.length ? ` (${picked.length})` : ''}</Button></>}>
+      {newMode ? (
+        <div className="form-grid">
+          <Field label="Фамилия"><Input placeholder="Введите значение" /></Field>
+          <Field label="Имя"><Input placeholder="Введите значение" /></Field>
+          <Field label="Отчество"><Input placeholder="Введите значение" /></Field>
+          <DateField label="Дата рождения" value={null} onChange={() => {}} placeholder="Выбрать дату" />
+          <Field label="Телефон"><Input placeholder="+7 (___) ___-__-__" /></Field>
+          <Field label="Документ"><Input placeholder="Серия и номер" /></Field>
+        </div>
+      ) : (
+        <>
+          <SearchBox value={q} onChange={setQ} placeholder="Поиск сотрудника" />
+          <div style={{ marginTop: 12 }}>
+            {list.map((c) => (
+              <label key={c.id} className="oce-client" style={{ cursor: 'pointer' }}>
+                <Checkbox on={picked.includes(c.id)} onChange={() => toggle(c.id)} />
+                <Avatar name={c.name} size={32} />
+                <div style={{ flex: 1, minWidth: 0 }}><div className="nm">{c.name}</div><div className="mt">{c.phone} · {c.doc}</div></div>
+              </label>
+            ))}
+          </div>
+          <button className="oce-add" style={{ marginTop: 6 }} onClick={() => setNewMode(true)}><Icon name="plus" style={{ width: 16, height: 16 }} />Новый сотрудник</button>
+        </>
+      )}
+    </StackPanel>
   );
 }
 

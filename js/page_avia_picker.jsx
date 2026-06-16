@@ -1,0 +1,583 @@
+// ===== AVIA PICKER: two-pane in-order flight selection =====
+// Left  — «Сценарий поездки» (order composition)
+// Right — «Подбор авиаперелёта» (numbered accordion: рейс → тариф → места → доп.услуги → пассажиры)
+
+function rub(n) { return Math.round(n).toLocaleString('ru-RU') + ' ₽'; }
+
+/* ---------- compact flight row (step 1) ---------- */
+function ApFlightRow({ opt, sel, onSelect }) {
+  const leg = opt.leg;
+  return (
+    <div className={'ap-flight' + (sel ? ' sel' : '')} onClick={() => onSelect(opt)}>
+      <AirlineLogo code={opt.airline} size="sm" />
+      <div className="ap-fl-time">{leg.dep}<div className="ap">{leg.from}</div></div>
+      <div className="ap-fl-mid">
+        <div className="d">{leg.dur}</div>
+        <div className="line" />
+        <div className={'st ' + (leg.stops ? 'via' : 'direct')}>{leg.stops ? leg.stopText.split('·')[0].trim() : 'Прямой'}</div>
+      </div>
+      <div className="ap-fl-time">{leg.arr}<div className="ap">{leg.to}</div></div>
+      <div className="ap-fl-pr"><div className="v">{rub(opt.price)}</div><div className="c">{AIRLINES[opt.airline].name}</div></div>
+      <Radio on={sel} onChange={() => onSelect(opt)} />
+    </div>
+  );
+}
+
+/* ---------- accordion section ---------- */
+function ApStep({ n, title, summary, active, done, onToggle, children }) {
+  return (
+    <div className={'ap-step' + (active ? ' active' : '') + (done && !active ? ' done' : '')}>
+      <div className="ap-step-head" onClick={onToggle}>
+        <span className="ap-num">{done && !active ? <Icon name="check" style={{ width: 16, height: 16 }} /> : n}</span>
+        <div className="ap-step-tt">
+          <div className="t">{title}</div>
+          {!active && summary && <div className="s">{summary}</div>}
+        </div>
+        <Icon name={active ? 'chevUp' : 'chevDown'} style={{ width: 18, height: 18, color: 'var(--muted-2)' }} />
+      </div>
+      {active && <div className="ap-step-body">{children}</div>}
+    </div>
+  );
+}
+
+/* ---------- seat selector (steps 3 + 4·Места) ---------- */
+function SeatSelector({ seats, setSeats, pax }) {
+  const [activePax, setActivePax] = useState(0);
+  const M = AVIA_SEATMAP;
+  const kindOf = (row) => M.rowKind[row] || 'std';
+  const occupied = new Set(M.occupied);
+  const taken = new Set(Object.entries(seats).filter(([k]) => +k !== activePax).map(([, v]) => v));
+  const pick = (id) => {
+    if (occupied.has(id) || taken.has(id)) return;
+    setSeats({ ...seats, [activePax]: seats[activePax] === id ? undefined : id });
+  };
+  return (
+    <div>
+      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 14 }}>
+        {pax.map((p, i) => (
+          <button key={i} className={'tab' + (activePax === i ? ' active' : '')} onClick={() => setActivePax(i)}>
+            {p.name.split(' ')[0]} {seats[i] && <span className="tab-count">{seats[i]}</span>}
+          </button>
+        ))}
+      </div>
+      <div className="seatmap-wrap">
+        <div className="seatmap">
+          <div className="seatmap-cabin">↑ Нос самолёта</div>
+          {Array.from({ length: M.rows }, (_, r) => {
+            const row = r + 1; const kind = kindOf(row);
+            return (
+              <div className="seat-row" key={row}>
+                <span className="rn">{row}</span>
+                {M.cols.map((c, ci) => {
+                  const id = row + c;
+                  const isOcc = occupied.has(id) || taken.has(id);
+                  const isSel = seats[activePax] === id;
+                  return (
+                    <React.Fragment key={c}>
+                      {ci === 3 && <span className="aisle" />}
+                      <div className={'seat ' + kind + (isOcc ? ' occupied' : '') + (isSel ? ' sel' : '')}
+                        title={isOcc ? 'Занято' : `${id} · ${M.price[kind] ? rub(M.price[kind]) : 'бесплатно'}`}
+                        onClick={() => pick(id)}>{c}</div>
+                    </React.Fragment>
+                  );
+                })}
+              </div>
+            );
+          })}
+        </div>
+        <div className="seat-legend">
+          {M.legend.map((l) => (
+            <div className="seat-leg-item" key={l.kind}>
+              <span className={'seat-leg-sw seat ' + l.kind} />
+              <span>{l.label}{l.price ? ' · ' + rub(l.price) : ' · бесплатно'}</span>
+            </div>
+          ))}
+          <div className="seat-leg-item"><span className="seat-leg-sw seat occupied" /><span>Занято</span></div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ---------- per-passenger option picker (baggage / meal / insurance) ---------- */
+function PaxOptionBlock({ pax, options, value, onChange, render }) {
+  return (
+    <>
+      {pax.map((p, i) => (
+        <div className="ap-pax" key={i}>
+          <div className="ap-pax-h">
+            <Avatar name={p.name} size={30} />
+            <div><div className="n">{p.name}</div><div className="r">{p.role}</div></div>
+          </div>
+          <div className="ap-opt-row">
+            {options.map((o) => (
+              <div key={o.id} className={'ap-opt' + (value[i] === o.id ? ' sel' : '')} onClick={() => onChange({ ...value, [i]: o.id })}>
+                <span className="ol">{o.label}</span>
+                {render ? render(o) : <span className={'op' + (o.price ? '' : ' free')}>{o.price ? '+ ' + rub(o.price) : 'бесплатно'}</span>}
+              </div>
+            ))}
+          </div>
+        </div>
+      ))}
+    </>
+  );
+}
+
+/* ---------- additional services (step 4) ---------- */
+function ExtrasTabs({ pax, state, set, embedded }) {
+  const [tab, setTab] = useState('seats');
+  const TABS = [
+    { key: 'seats', label: 'Места', icon: 'idcard' },
+    { key: 'baggage', label: 'Багаж', icon: 'luggage' },
+    { key: 'meal', label: 'Питание', icon: 'briefcase' },
+    { key: 'insurance', label: 'Страхование', icon: 'check' },
+    { key: 'comfort', label: 'Комфорт', icon: 'star' },
+  ];
+  const cnt = {
+    seats: Object.values(state.seats).filter(Boolean).length,
+    baggage: Object.values(state.baggage).filter((v) => v && v !== 'none').length,
+    meal: Object.values(state.meal).filter((v) => v && v !== 'standard' && v !== 'none').length,
+    insurance: Object.values(state.insurance).filter((v) => v && v !== 'none').length,
+    comfort: Object.keys(state.comfort).filter((k) => state.comfort[k]).length,
+  };
+  const toggleComfort = (key) => set({ ...state, comfort: { ...state.comfort, [key]: !state.comfort[key] } });
+  return (
+    <div>
+      <div className="ap-svc-tabs">
+        {TABS.map((t) => (
+          <button key={t.key} className={'ap-svc-tab' + (tab === t.key ? ' active' : '')} onClick={() => setTab(t.key)}>
+            <Icon name={t.icon} />{t.label}{cnt[t.key] > 0 && <span className="b">{cnt[t.key]}</span>}
+          </button>
+        ))}
+      </div>
+
+      {tab === 'seats' && <SeatSelector seats={state.seats} setSeats={(s) => set({ ...state, seats: s })} pax={pax} />}
+
+      {tab === 'baggage' && (
+        <>
+          <PaxOptionBlock pax={pax} options={AVIA_BAGGAGE_OPTIONS} value={state.baggage} onChange={(v) => set({ ...state, baggage: v })} />
+          <div className="ap-sc-title" style={{ marginTop: 18 }}>Специальный багаж</div>
+          {AVIA_SPECIAL_BAGGAGE.map((b) => (
+            <div key={b.id} className={'ap-list-row' + (state.special[b.id] ? ' sel' : '')}
+              onClick={() => set({ ...state, special: { ...state.special, [b.id]: !state.special[b.id] } })}>
+              <span className="ic"><Icon name={b.icon} /></span>
+              <div style={{ flex: 1 }}><div className="t">{b.label}</div><div className="s">оплачивается отдельно</div></div>
+              <span className="pr">от {rub(b.from)}</span>
+              <Checkbox on={!!state.special[b.id]} onChange={() => {}} />
+            </div>
+          ))}
+        </>
+      )}
+
+      {tab === 'meal' && (
+        <PaxOptionBlock pax={pax} options={AVIA_MEALS} value={state.meal} onChange={(v) => set({ ...state, meal: v })}
+          render={(o) => <span className={'op' + (o.price ? '' : ' free')}>{o.note || (o.price ? '+ ' + rub(o.price) : 'бесплатно')}</span>} />
+      )}
+
+      {tab === 'insurance' && (
+        <>
+          <PaxOptionBlock pax={pax} options={AVIA_INSURANCE_PLANS} value={state.insurance} onChange={(v) => set({ ...state, insurance: v })}
+            render={(o) => <span className={'op' + (o.price ? '' : ' free')}>{o.price ? '+ ' + rub(o.price) : '—'}<br /><span style={{ fontSize: 11.5 }}>{o.cover}</span></span>} />
+          <div className="ap-sc-title" style={{ marginTop: 18 }}>Что входит в покрытие</div>
+          <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+            {AVIA_INSURANCE_INCLUDES.map((c) => (
+              <span key={c.title} className="pill pill-gray" style={{ display: 'inline-flex', alignItems: 'center', gap: 7 }}>
+                <Icon name={c.icon} style={{ width: 14, height: 14 }} />{c.title}</span>
+            ))}
+          </div>
+        </>
+      )}
+
+      {tab === 'comfort' && (
+        AVIA_COMFORT_GROUPS.map((g) => (
+          <div key={g.group} style={{ marginBottom: 18 }}>
+            <div className="ap-sc-title">{g.group}</div>
+            {g.items.map((it) => {
+              const anySel = pax.some((_, i) => state.comfort[it.id + ':' + i]);
+              return (
+                <div key={it.id} className={'ap-list-row' + (anySel ? ' sel' : '')} style={{ alignItems: 'flex-start' }}>
+                  <span className="ic"><Icon name="zap" /></span>
+                  <div style={{ flex: 1 }}>
+                    <div className="t">{it.label} <span className="pr" style={{ fontWeight: 700 }}>· {rub(it.price)}</span></div>
+                    <div className="s">{it.sub}</div>
+                    <div style={{ display: 'flex', gap: 14, marginTop: 8, flexWrap: 'wrap' }}>
+                      {pax.map((p, i) => (
+                        <label key={i} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, cursor: 'pointer' }}>
+                          <Checkbox on={!!state.comfort[it.id + ':' + i]} onChange={() => toggleComfort(it.id + ':' + i)} />
+                          {p.name.split(' ')[0]}
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        ))
+      )}
+    </div>
+  );
+}
+
+/* ====================================================================
+   MAIN PICKER
+   ==================================================================== */
+function AviaPicker({ params, setParams, services = [], onApply, onCancel, onAddType, onRemoveService, group = false }) {
+  const toast = useToast();
+  const PAX = group ? GROUP_PAX : ORDER_PARTICIPANTS.slice(0, Math.max(1, params.pax.adt + params.pax.chd));
+  const [open, setOpen] = useState(1);          // active accordion step
+  const [editSearch, setEditSearch] = useState(false);
+  const [extrasFull, setExtrasFull] = useState(false);
+
+  // selections
+  const [legs, setLegs] = useState({});         // { out, back } or { seg0, seg1 }
+  const [fare, setFare] = useState('optimum');
+  const [groups, setGroups] = useState(() => AVIA_GROUPS_SEED.map((g) => ({ ...g, members: [...g.members] })));
+  const [extras, setExtras] = useState({ seats: {}, baggage: {}, meal: {}, insurance: {}, special: {}, comfort: {} });
+
+  // leg option lists derived from FLIGHT_OFFERS
+  const outOpts = FLIGHT_OFFERS.map((o) => ({ key: o.id + '-o', airline: o.airline, leg: o.out, supplier: o.supplier, price: (o.fare + o.fee) * 90 * 0.6 }));
+  const backOpts = FLIGHT_OFFERS.filter((o) => o.back).map((o) => ({ key: o.id + '-b', airline: o.airline, leg: o.back, supplier: o.supplier, price: (o.fare + o.fee) * 90 * 0.4 }));
+
+  const trip = params.trip;
+  const segKeys = trip === 'rt' ? ['out', 'back'] : trip === 'ow' ? ['out'] : ['out', 'seg1', 'seg2'];
+  const segLabels = trip === 'rt' ? ['Туда', 'Обратно'] : trip === 'ow' ? ['Рейс'] : ['Сегмент 1', 'Сегмент 2', 'Сегмент 3'];
+  const optsFor = (k) => (k === 'back' ? backOpts : outOpts);
+
+  // totals (₽)
+  const fareTier = AVIA_FARE_TIERS.find((f) => f.id === fare) || AVIA_FARE_TIERS[0];
+  const flightTotal = segKeys.reduce((s, k) => s + (legs[k] ? legs[k].price : 0), 0);
+  const fareTotal = fareTier.delta * PAX.length;
+  const sum = (arr, fn) => arr.reduce((a, x) => a + fn(x), 0);
+  const seatPrice = (id) => { if (!id) return 0; const row = +id.match(/\d+/)[0]; const kind = AVIA_SEATMAP.rowKind[row] || 'std'; return AVIA_SEATMAP.price[kind] || 0; };
+  const seatsTotal = sum(Object.values(extras.seats), seatPrice);
+  const baggageTotal = sum(Object.entries(extras.baggage), ([, v]) => (AVIA_BAGGAGE_OPTIONS.find((o) => o.id === v) || {}).price || 0)
+    + sum(Object.entries(extras.special), ([id, on]) => on ? (AVIA_SPECIAL_BAGGAGE.find((b) => b.id === id) || {}).from || 0 : 0);
+  const mealTotal = sum(Object.values(extras.meal), (v) => (AVIA_MEALS.find((m) => m.id === v) || {}).price || 0);
+  const insTotal = sum(Object.values(extras.insurance), (v) => (AVIA_INSURANCE_PLANS.find((p) => p.id === v) || {}).price || 0);
+  const comfortTotal = Object.entries(extras.comfort).reduce((a, [k, on]) => {
+    if (!on) return a; const id = k.split(':')[0];
+    for (const g of AVIA_COMFORT_GROUPS) { const it = g.items.find((x) => x.id === id); if (it) return a + it.price; }
+    return a;
+  }, 0);
+  const extrasTotal = seatsTotal + baggageTotal + mealTotal + insTotal + comfortTotal;
+  // group pricing: each passenger pays the base leg fare + the fare-tier delta of their group
+  const fareDeltaOf = (i) => { const g = groups.find((gr) => gr.members.includes(i)); const t = AVIA_FARE_TIERS.find((x) => x.id === (g ? g.fare : fare)); return t ? t.delta : 0; };
+  const groupFlightTotal = PAX.reduce((a, _, i) => a + flightTotal + fareDeltaOf(i), 0);
+  const grand = group ? groupFlightTotal + extrasTotal : flightTotal + fareTotal + extrasTotal;
+  const assignedCount = groups.reduce((a, g) => a + g.members.length, 0);
+
+  const allLegsPicked = segKeys.every((k) => legs[k]);
+  const stepSummary = {
+    1: allLegsPicked ? segKeys.map((k) => legs[k] ? `${legs[k].leg.from}–${legs[k].leg.to} ${legs[k].leg.dep}` : '').join(' · ') : 'Рейс не выбран',
+    2: fareTier.name + ' · ' + (fareTier.delta ? '+ ' + rub(fareTotal) : 'без доплаты'),
+    3: Object.values(extras.seats).filter(Boolean).length ? Object.values(extras.seats).filter(Boolean).join(', ') : 'Места не выбраны',
+    4: extrasTotal ? '+ ' + rub(extrasTotal) : 'Не добавлены',
+    5: group ? `${PAX.length} пасс. · ${groups.length} ${groups.length === 1 ? 'группа' : 'группы'}` : PAX.length + ' пасс. · ' + PAX.map((p) => p.name.split(' ')[0]).join(', '),
+  };
+
+  // left scenario items (current services + the in-progress avia draft)
+  const draftTitle = allLegsPicked ? legs.out.leg.from + segKeys.map((k) => ' → ' + legs[k].leg.to).join('') : 'Новый перелёт';
+  const draftSub = allLegsPicked ? `${legs.out.leg.from} → ${legs[segKeys[segKeys.length - 1]].leg.to} · ${PAX.length} пасс.` : 'выберите рейс';
+
+  const apply = () => {
+    if (!allLegsPicked) { toast('Сначала выберите рейс', 'err'); return; }
+    onApply({
+      out: legs.out.leg, back: legs.back ? legs.back.leg : null,
+      airline: legs.out.airline, supplier: legs.out.supplier,
+      fareName: fareTier.name, paxCount: PAX.length, totalRub: grand, extrasTotal,
+    });
+  };
+
+  const ServiceList = () => (
+    <>
+      {services.map((s) => {
+        const k = SERVICE_KIND[s.kind] || SERVICE_KIND['Авиа'];
+        return (
+          <div className="ap-sc-item" key={s.id}>
+            <span className="ic" style={{ background: k.color }}><Icon name={k.icon} /></span>
+            <div style={{ flex: 1, minWidth: 0 }}><div className="t">{s.title}</div><div className="s">{s.sub}</div></div>
+            <span className="pr">{ocMoney(s.sum, s.currency)}</span>
+            {onRemoveService && <button className="btn btn-ghost btn-icon btn-sm" onClick={() => onRemoveService(s)}><Icon name="x" /></button>}
+          </div>
+        );
+      })}
+      <div className="ap-sc-item draft">
+        <span className="ic" style={{ background: SERVICE_KIND['Авиа'].color }}><Icon name="plane" /></span>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div className="t">{draftTitle}</div>
+          <div className="s">{draftSub}</div>
+        </div>
+        <span className="pr">{grand ? rub(grand) : '—'}</span>
+      </div>
+    </>
+  );
+
+  return (
+    <div className="fade-in">
+      <BackRow label="К услугам заказа" onBack={onCancel} />
+      <div className="avia-picker">
+        {/* LEFT — scenario */}
+        <aside className="ap-scenario">
+          <div className="ap-sc-head">
+            <div className="ap-sc-route">
+              <Icon name="plane" />
+              {(AIRPORTS.find((a) => a.code === params.from) || {}).city || params.from}
+              <Icon name="arrowRight" />
+              {(AIRPORTS.find((a) => a.code === params.to) || {}).city || params.to}
+            </div>
+            <div style={{ fontSize: 12.5, color: 'var(--muted)', marginTop: 6 }}>
+              {params.depDate ? fmtDate(params.depDate) : '24.06'}{trip === 'rt' ? ' — ' + (params.retDate ? fmtDate(params.retDate) : '01.07') : ''} · {PAX.length} пасс. · {params.cabin}
+            </div>
+          </div>
+          <div className="ap-sc-body">
+            <div className="ap-sc-title">Состав сценария</div>
+            <ServiceList />
+            <button className="ap-sc-add" onClick={() => onAddType && onAddType()}><Icon name="plus" style={{ width: 16, height: 16 }} />Добавить услугу</button>
+          </div>
+          <div className="ap-sc-foot">
+            <div className="ap-sc-total">
+              <span className="l">Итого по сценарию</span>
+              <span className="v">{rub(grand + services.reduce((a, s) => a + (s.currency === '₽' || s.currency === 'RUB' ? s.sum : s.sum * 90), 0))}</span>
+            </div>
+            <Button icon="template" style={{ width: '100%' }} onClick={() => toast('Сформировано предложение из сценария', 'ok')}>Сформировать предложение</Button>
+          </div>
+        </aside>
+
+        {/* RIGHT — picker accordion */}
+        <div className="ap-steps">
+          {/* step 1 — flight */}
+          <ApStep n={1} title="Выберите рейс" summary={stepSummary[1]} done={allLegsPicked} active={open === 1} onToggle={() => setOpen(open === 1 ? 0 : 1)}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6 }}>
+              <div className="trip-toggle">
+                {[['rt', 'Туда-обратно'], ['ow', 'В одну сторону'], ['mc', 'Сложный маршрут']].map(([k, l]) => (
+                  <button key={k} className={trip === k ? 'on' : ''} onClick={() => { setParams({ ...params, trip: k }); setLegs({}); }}>{l}</button>
+                ))}
+              </div>
+              <div style={{ flex: 1 }} />
+              <Button variant="secondary" size="sm" icon="edit" onClick={() => setEditSearch((v) => !v)}>{editSearch ? 'Свернуть' : 'Изменить поиск'}</Button>
+            </div>
+            {editSearch && <div style={{ margin: '12px 0 18px' }}><FlightSearch params={params} setParams={setParams} onSearch={() => setEditSearch(false)} /></div>}
+            {segKeys.map((k, si) => (
+              <div key={k}>
+                <div className="ap-seg-label"><Icon name="plane" style={{ width: 15, height: 15 }} />{segLabels[si]}</div>
+                {optsFor(k).map((o) => (
+                  <ApFlightRow key={o.key} opt={o} sel={legs[k] && legs[k].key === o.key}
+                    onSelect={(opt) => { const nl = { ...legs, [k]: opt }; setLegs(nl); if (segKeys.every((kk) => nl[kk])) setOpen(2); }} />
+                ))}
+              </div>
+            ))}
+          </ApStep>
+
+          {/* step 2 — fare */}
+          <ApStep n={2} title="Выберите тариф" summary={stepSummary[2]} done={!!fare} active={open === 2} onToggle={() => setOpen(open === 2 ? 0 : 2)}>
+            <div className="fare-grid">
+              {AVIA_FARE_TIERS.map((f) => (
+                <div key={f.id} className={'fare-card' + (fare === f.id ? ' sel' : '')} onClick={() => setFare(f.id)}>
+                  {f.recommended && <span className="fc-badge">Рекомендуем</span>}
+                  <div className="fc-name">{f.name}</div>
+                  <div className="fc-price">{f.delta ? '+ ' + rub(f.delta) : 'без доплаты'}<small>{f.delta ? ' / пасс.' : ''}</small></div>
+                  {f.features.map((ft, i) => (
+                    <div key={i} className={'fare-feat ' + (ft.ok ? 'ok' : 'no')}><Icon name={ft.ok ? 'check' : 'x'} />{ft.text}</div>
+                  ))}
+                </div>
+              ))}
+            </div>
+          </ApStep>
+
+          {/* step 3 — seats */}
+          <ApStep n={3} title="Места и тарифы" summary={stepSummary[3]} done={Object.values(extras.seats).filter(Boolean).length > 0} active={open === 3} onToggle={() => setOpen(open === 3 ? 0 : 3)}>
+            <SeatSelector seats={extras.seats} setSeats={(s) => setExtras({ ...extras, seats: s })} pax={PAX} />
+          </ApStep>
+
+          {/* step 4 — extras */}
+          <ApStep n={4} title="Дополнительные услуги" summary={stepSummary[4]} done={extrasTotal > 0} active={open === 4} onToggle={() => setOpen(open === 4 ? 0 : 4)}>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 8 }}>
+              <Button variant="ghost" size="sm" icon="arrowUpRight" onClick={() => setExtrasFull(true)}>Развернуть всё</Button>
+            </div>
+            <ExtrasTabs pax={PAX} state={extras} set={setExtras} />
+          </ApStep>
+
+          {/* step 5 — passengers (group → groups & fares) */}
+          <ApStep n={5} title={group ? 'Пассажиры и тарифы' : 'Пассажиры'} summary={stepSummary[5]} done active={open === 5} onToggle={() => setOpen(open === 5 ? 0 : 5)}>
+            {group ? (
+              <GroupManager pax={PAX} groups={groups} setGroups={setGroups} perPax={flightTotal} extras={extras} />
+            ) : (
+              <div className="table-card">
+                <table className="tbl">
+                  <thead><tr><th>Пассажир</th><th>Тип</th><th>Документ</th><th>Место</th><th>Багаж</th></tr></thead>
+                  <tbody>{PAX.map((p, i) => (
+                    <tr key={i}>
+                      <td style={{ fontWeight: 600 }}>{p.name}</td><td>{p.role}</td><td>{p.doc}</td>
+                      <td>{extras.seats[i] || <span style={{ color: 'var(--muted-2)' }}>—</span>}</td>
+                      <td>{(AVIA_BAGGAGE_OPTIONS.find((o) => o.id === extras.baggage[i]) || AVIA_BAGGAGE_OPTIONS[0]).label}</td>
+                    </tr>
+                  ))}</tbody>
+                </table>
+              </div>
+            )}
+          </ApStep>
+
+          {/* footer */}
+          <div className="ap-footer">
+            <div className="ft-total">Итого за перелёт<b>{rub(grand)}</b></div>
+            <div style={{ flex: 1 }} />
+            <Button variant="secondary" onClick={onCancel}>Отмена</Button>
+            <Button icon="check" disabled={!allLegsPicked} onClick={apply}>Применить в сценарий</Button>
+          </div>
+        </div>
+      </div>
+
+      {/* fullscreen extras overlay */}
+      {extrasFull && (
+        <div className="ap-extras-ov">
+          <div className="ap-extras-top">
+            <Button variant="secondary" size="sm" icon="chevLeft" onClick={() => setExtrasFull(false)}>Свернуть</Button>
+            <div style={{ fontWeight: 700, fontSize: 17 }}>4. Дополнительные услуги</div>
+            <div style={{ flex: 1 }} />
+            <div className="ft-total" style={{ textAlign: 'right' }}>Доп.услуги<b style={{ fontSize: 18 }}>{rub(extrasTotal)}</b></div>
+            <Button icon="check" onClick={() => setExtrasFull(false)}>Применить</Button>
+          </div>
+          <div className="ap-extras-scroll">
+            <div style={{ maxWidth: 920, margin: '0 auto' }} className="card card-pad">
+              <ExtrasTabs pax={PAX} state={extras} set={setExtras} embedded />
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ====================================================================
+   GROUP MANAGEMENT (4a) — used in step 5 when the order is a group trip
+   ==================================================================== */
+function tierName(id) { return (AVIA_FARE_TIERS.find((t) => t.id === id) || {}).name || id; }
+function tierDelta(id) { return (AVIA_FARE_TIERS.find((t) => t.id === id) || {}).delta || 0; }
+
+function GroupManager({ pax, groups, setGroups, perPax, extras }) {
+  const toast = useToast();
+  const [tab, setTab] = useState('manage');
+  const [addOpen, setAddOpen] = useState(false);
+  const [editId, setEditId] = useState(null);
+
+  const groupOf = (i) => groups.find((g) => g.members.includes(i));
+  const assigned = new Set(groups.flatMap((g) => g.members));
+  const unassigned = pax.map((_, i) => i).filter((i) => !assigned.has(i));
+
+  const setGroupFare = (id, fare) => setGroups((gs) => gs.map((g) => g.id === id ? { ...g, fare } : g));
+  const removeGroup = (id) => setGroups((gs) => gs.filter((g) => g.id !== id));
+  // members assigned to one group are removed from every other group (a passenger is in one group)
+  const saveMembers = (id, members) => setGroups((gs) => gs.map((g) => g.id === id ? { ...g, members } : { ...g, members: g.members.filter((m) => !members.includes(m)) }));
+  const createGroup = (g) => { setGroups((gs) => [...gs.map((x) => ({ ...x, members: x.members.filter((m) => !g.members.includes(m)) })), { id: 'g' + Date.now(), ...g }]); toast('Группа создана', 'ok'); };
+  const fareOpts = AVIA_FARE_TIERS.map((t) => ({ value: t.id, label: t.name }));
+
+  return (
+    <div>
+      <div className="ap-svc-tabs">
+        <button className={'ap-svc-tab' + (tab === 'manage' ? ' active' : '')} onClick={() => setTab('manage')}><Icon name="users" />Управление группами<span className="b">{groups.length}</span></button>
+        <button className={'ap-svc-tab' + (tab === 'applied' ? ' active' : '')} onClick={() => setTab('applied')}><Icon name="clipboard" />Применённый список<span className="b">{pax.length}</span></button>
+      </div>
+
+      {tab === 'manage' ? (
+        <>
+          {groups.map((g) => (
+            <div className="ap-pax" key={g.id}>
+              <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10, marginBottom: 12 }}>
+                <span className="ap-num" style={{ background: 'var(--blue)', color: '#fff' }}>{g.members.length}</span>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontWeight: 700, color: 'var(--ink)', fontSize: 15 }}>{g.name}</div>
+                  <div style={{ fontSize: 12.5, color: 'var(--muted)' }}>{g.desc || 'Без описания'}</div>
+                </div>
+                <Button variant="secondary" size="sm" icon="edit" onClick={() => setEditId(g.id)}>Изменить состав</Button>
+                <button className="btn btn-ghost btn-icon btn-sm" onClick={() => removeGroup(g.id)}><Icon name="trash" /></button>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+                <div style={{ minWidth: 220, flex: 1 }}>
+                  <Field label="Тариф группы"><Select options={fareOpts} value={g.fare} onChange={(e) => setGroupFare(g.id, e.target.value)} /></Field>
+                </div>
+                <div style={{ textAlign: 'right' }}>
+                  <div style={{ fontSize: 12.5, color: 'var(--muted)' }}>Стоимость группы</div>
+                  <div style={{ fontWeight: 800, fontSize: 17, color: 'var(--ink)' }}>{rub(g.members.length * (perPax + tierDelta(g.fare)))}</div>
+                </div>
+              </div>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 12 }}>
+                {g.members.map((mi) => <span key={mi} className="pill pill-gray" style={{ height: 26, fontSize: 12.5 }}>{pax[mi].name}</span>)}
+              </div>
+            </div>
+          ))}
+          {unassigned.length > 0 && (
+            <div className="chan-note" style={{ justifyContent: 'flex-start' }}><Icon name="alertCircle" />Не распределено пассажиров: {unassigned.length}</div>
+          )}
+          <button className="ap-sc-add" onClick={() => setAddOpen(true)}><Icon name="plus" style={{ width: 16, height: 16 }} />Добавить группу</button>
+        </>
+      ) : (
+        <div className="table-card">
+          <table className="tbl">
+            <thead><tr><th>#</th><th>Пассажир</th><th>Группа</th><th>Тариф</th><th>Место</th><th style={{ textAlign: 'right' }}>Стоимость</th></tr></thead>
+            <tbody>{pax.map((p, i) => { const g = groupOf(i); const fare = g ? g.fare : 'light'; return (
+              <tr key={i}>
+                <td style={{ color: 'var(--muted)' }}>{i + 1}</td>
+                <td style={{ fontWeight: 600 }}>{p.name}</td>
+                <td>{g ? <Pill tone="blue">{g.name}</Pill> : <span style={{ color: 'var(--muted-2)' }}>—</span>}</td>
+                <td>{tierName(fare)}</td>
+                <td>{extras.seats[i] || <span style={{ color: 'var(--muted-2)' }}>—</span>}</td>
+                <td style={{ textAlign: 'right', fontWeight: 600 }}>{rub(perPax + tierDelta(fare))}</td>
+              </tr>
+            ); })}</tbody>
+          </table>
+        </div>
+      )}
+
+      {addOpen && <GroupEditPanel title="Добавление группы" pax={pax} groups={groups}
+        onClose={() => setAddOpen(false)} onSave={(data) => { createGroup(data); setAddOpen(false); }} isNew />}
+      {editId && (() => { const g = groups.find((x) => x.id === editId); return (
+        <GroupEditPanel title={'Изменение состава · ' + g.name} pax={pax} groups={groups} group={g}
+          onClose={() => setEditId(null)} onSave={(data) => { saveMembers(g.id, data.members); setEditId(null); toast('Состав группы обновлён', 'ok'); }} />
+      ); })()}
+    </div>
+  );
+}
+
+/* add / edit group composition drawer (reuses the stacked panel shell) */
+function GroupEditPanel({ title, pax, groups, group, onClose, onSave, isNew }) {
+  const [name, setName] = useState(group ? group.name : '');
+  const [desc, setDesc] = useState(group ? group.desc : '');
+  const [fare, setFare] = useState(group ? group.fare : 'optimum');
+  const [members, setMembers] = useState(group ? [...group.members] : []);
+  const [q, setQ] = useState('');
+  const s = q.trim().toLowerCase();
+  const otherGroupOf = (i) => groups.find((g) => g.id !== (group ? group.id : null) && g.members.includes(i));
+  const toggle = (i) => setMembers((m) => m.includes(i) ? m.filter((x) => x !== i) : [...m, i]);
+  const list = pax.map((p, i) => ({ p, i })).filter(({ p }) => !s || p.name.toLowerCase().includes(s));
+  const fareOpts = AVIA_FARE_TIERS.map((t) => ({ value: t.id, label: t.name }));
+  return (
+    <StackPanel title={title} onClose={onClose}
+      footer={<><Button variant="secondary" style={{ flex: 1 }} onClick={onClose}>Отмена</Button>
+        <Button style={{ flex: 1 }} icon="check" disabled={isNew && !name.trim()} onClick={() => onSave({ name: name.trim() || 'Новая группа', desc, fare, members })}>{isNew ? 'Создать группу' : 'Сохранить изменения'}</Button></>}>
+      {isNew && (
+        <>
+          <Field label="Название группы"><Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Например, Руководство" /></Field>
+          <Field label="Описание (необязательно)"><Input value={desc} onChange={(e) => setDesc(e.target.value)} placeholder="Краткое описание" /></Field>
+        </>
+      )}
+      <Field label="Тариф группы"><Select options={fareOpts} value={fare} onChange={(e) => setFare(e.target.value)} /></Field>
+      <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '.02em', margin: '16px 2px 10px', display: 'flex', alignItems: 'center' }}>
+        Пассажиры<span style={{ flex: 1 }} /><span style={{ textTransform: 'none', color: 'var(--blue)' }}>{members.length} выбрано</span>
+      </div>
+      <SearchBox value={q} onChange={setQ} placeholder="Поиск пассажира" />
+      <div style={{ marginTop: 10 }}>
+        {list.map(({ p, i }) => { const og = otherGroupOf(i); return (
+          <label key={i} className="oce-client" style={{ cursor: 'pointer', opacity: og && !members.includes(i) ? 0.6 : 1 }}>
+            <Checkbox on={members.includes(i)} onChange={() => toggle(i)} />
+            <Avatar name={p.name} size={30} />
+            <div style={{ flex: 1, minWidth: 0 }}><div className="nm">{p.name}</div>
+              <div className="mt">{p.doc}{og ? ' · в группе «' + og.name + '»' : ''}</div></div>
+          </label>
+        ); })}
+      </div>
+    </StackPanel>
+  );
+}
+
+Object.assign(window, { AviaPicker });

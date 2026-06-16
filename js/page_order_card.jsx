@@ -427,7 +427,7 @@ function OrderCard({ order, onBack, initTab, initSvcSearch }) {
   const [stageIdx, setStageIdx] = useState(initStage());
 
   // service sub-flow (avia + other service modules)
-  const [svcView, setSvcView] = useState(null); // null | 'avia-search' | 'avia-results' | 'avia-card' | 'svc-add' | 'svc-card'
+  const [svcView, setSvcView] = useState(null); // null | 'avia-picker' | 'avia-card' | 'svc-add' | 'svc-card'
   const [activeAvia, setActiveAvia] = useState(null);
   const [addRoute, setAddRoute] = useState(null);   // routeKey for the non-avia add-flow
   const [activeSvc, setActiveSvc] = useState(null); // non-avia service being viewed
@@ -458,21 +458,24 @@ function OrderCard({ order, onBack, initTab, initSvcSearch }) {
   ];
 
   const goAddType = (type) => {
-    if (type === 'Авиа') { setSvcView('avia-search'); return; }
+    if (type === 'Авиа') { setSvcView('avia-picker'); return; }
     const rk = routeKeyForKind(type);
     if (rk) { setAddRoute(rk); setSvcView('svc-add'); return; }
     toast('Тип «' + type + '» недоступен', 'info');
   };
   // landed here from "Найти услуги" — open the search screen of the chosen service right away
   useEffect(() => { if (initSvcSearch) { setTab('services'); goAddType(initSvcSearch); } }, [initSvcSearch, order.no]);
-  const addAviaService = (offer) => {
+  // applied from the two-pane AviaPicker (ruble-denominated)
+  const addAviaFromPicker = (p) => {
     const id = 'S' + (services.length + 1);
-    const sv = { id, kind: 'Авиа', title: `${offer.out.from} → ${offer.out.to}${offer.back ? ' → ' + offer.back.to : ''}`,
-      sub: `${AIRLINES[offer.airline].name} · ${offer.out.flightNo} · ${aviaParams.pax.adt + aviaParams.pax.chd} пасс.`,
-      status: 'Предложение', sum: offer.fare + offer.fee, currency: 'USD', date: offer.out.date, supplier: offer.supplier, offer };
+    const offer = { out: p.out, back: p.back, airline: p.airline, fare: p.totalRub, fee: 0, fareName: p.fareName,
+      baggage: '—', cabin: aviaParams.cabin, refundable: false, supplier: p.supplier, currency: '₽' };
+    const sv = { id, kind: 'Авиа', title: `${p.out.from} → ${p.out.to}${p.back ? ' → ' + p.back.to : ''}`,
+      sub: `${AIRLINES[p.airline].name} · ${p.out.flightNo} · ${p.paxCount} пасс. · ${p.fareName}`,
+      status: 'Предложение', sum: p.totalRub, currency: '₽', date: p.out.date, supplier: p.supplier, offer };
     setServices((cur) => [...cur, sv]);
     setSvcView(null);
-    toast('Авиауслуга добавлена в заказ', 'ok');
+    toast('Перелёт добавлен в сценарий заказа', 'ok');
   };
   const addSvcOffer = (offer, kind) => {
     const id = 'S' + (services.length + 1);
@@ -485,8 +488,12 @@ function OrderCard({ order, onBack, initTab, initSvcSearch }) {
 
   // --- inside the Services tab, a service sub-flow can take over the main column ---
   const renderServicesArea = () => {
-    if (svcView === 'avia-search') return <div><BackRow label="К услугам заказа" onBack={() => setSvcView(null)} /><FlightSearch params={aviaParams} setParams={setAviaParams} onSearch={() => setSvcView('avia-results')} /></div>;
-    if (svcView === 'avia-results') return <div><BackRow label="Изменить поиск" onBack={() => setSvcView('avia-search')} /><FlightResults params={aviaParams} onBackToSearch={() => setSvcView('avia-search')} onSelect={addAviaService} /></div>;
+    if (svcView === 'avia-picker') return <AviaPicker params={aviaParams} setParams={setAviaParams} services={services}
+      group={order.isGroup || order.requestType === 'Групповая'}
+      onApply={addAviaFromPicker} onCancel={() => setSvcView(null)} onAddType={() => goAddType('Авиа')}
+      onRemoveService={(s) => setServices((cur) => cur.filter((x) => x.id !== s.id))} />;
+    if (svcView === 'booking') return <BookingWizard order={order} services={services} onClose={() => setSvcView(null)}
+      onComplete={() => { setStatus('Оплачено'); setStageIdx(4); }} />;
     if (svcView === 'avia-card') return <FlightCard svc={activeAvia} offer={activeAvia ? activeAvia.offer : null} onBack={() => setSvcView(null)} />;
     if (svcView === 'svc-add') return <ServiceAddFlow routeKey={addRoute} onAdd={addSvcOffer} onCancel={() => setSvcView(null)} />;
     if (svcView === 'svc-card') return <SvcCard item={activeSvc} kind={activeSvc.kind} onBack={() => setSvcView(null)} />;
@@ -549,26 +556,29 @@ function OrderCard({ order, onBack, initTab, initSvcSearch }) {
           </div>
 
           <div className="oc-actions">
-            <Button icon="plus" onClick={() => { setTab('services'); setSvcView('avia-search'); }}>Добавить услугу</Button>
+            <Button icon="plus" onClick={() => { setTab('services'); setSvcView('avia-picker'); }}>Добавить услугу</Button>
+            <Button icon="zap" onClick={() => { setTab('services'); setSvcView('booking'); }}>Начать бронирование</Button>
             <Button variant="secondary" icon="template" onClick={() => setTab('offers')}>Создать КП</Button>
             <Button variant="secondary" icon="send" onClick={() => toast('Заказ отправлен клиенту', 'ok')}>Отправить клиенту</Button>
             <Button variant="secondary" icon="finance" onClick={() => setTab('finance')}>Открыть финансы</Button>
           </div>
         </div>
 
-        {/* body: tabs + main + aside */}
+        {/* body: tabs + main + aside. The two-pane avia picker takes over full width. */}
         <div className="oc-grid">
           <div className="oc-main">
-            <div className="oc-tabs">
-              {TABS.map((t) => (
-                <button key={t.key} className={'tab' + (tab === t.key ? ' active' : '')} onClick={() => { setTab(t.key); if (t.key !== 'services') setSvcView(null); }}>
-                  {t.label}{t.count != null && <span className="tab-count">{t.count}</span>}
-                </button>
-              ))}
-            </div>
+            {!['avia-picker', 'booking'].includes(svcView) && (
+              <div className="oc-tabs">
+                {TABS.map((t) => (
+                  <button key={t.key} className={'tab' + (tab === t.key ? ' active' : '')} onClick={() => { setTab(t.key); if (t.key !== 'services') setSvcView(null); }}>
+                    {t.label}{t.count != null && <span className="tab-count">{t.count}</span>}
+                  </button>
+                ))}
+              </div>
+            )}
             {tabContent()}
           </div>
-          <OrderAside services={services} onOpenFinance={() => setTab('finance')} onOpenTasks={() => toast('Список задач по заказу', 'info')} />
+          {!['avia-picker', 'booking'].includes(svcView) && <OrderAside services={services} onOpenFinance={() => setTab('finance')} onOpenTasks={() => toast('Список задач по заказу', 'info')} />}
         </div>
       </div>
 
