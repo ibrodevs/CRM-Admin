@@ -3,6 +3,10 @@
     "allow": [
       "Read(//tmp/**)",
       "Read(//private/tmp/**)"
+    ],
+    "additionalDirectories": [
+      "/tmp",
+      "/private/tmp"
     ]
   }
 }

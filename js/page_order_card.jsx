@@ -410,9 +410,9 @@ function TabHistory() {
 /* ====================================================================
    ORDER CARD ROOT
    ==================================================================== */
-function OrderCard({ order, onBack, initTab }) {
+function OrderCard({ order, onBack, initTab, initSvcSearch }) {
   const toast = useToast();
-  const [tab, setTab] = useState(initTab || 'overview');
+  const [tab, setTab] = useState(initSvcSearch ? 'services' : (initTab || 'overview'));
   const [loading, setLoading] = useState(true);
   const [status, setStatus] = useState(order.status === 'Нет данных' ? 'Новое' : order.status);
   const [services, setServices] = useState(ORDER_SERVICES);
@@ -463,6 +463,8 @@ function OrderCard({ order, onBack, initTab }) {
     if (rk) { setAddRoute(rk); setSvcView('svc-add'); return; }
     toast('Тип «' + type + '» недоступен', 'info');
   };
+  // landed here from "Найти услуги" — open the search screen of the chosen service right away
+  useEffect(() => { if (initSvcSearch) { setTab('services'); goAddType(initSvcSearch); } }, [initSvcSearch, order.no]);
   const addAviaService = (offer) => {
     const id = 'S' + (services.length + 1);
     const sv = { id, kind: 'Авиа', title: `${offer.out.from} → ${offer.out.to}${offer.back ? ' → ' + offer.back.to : ''}`,

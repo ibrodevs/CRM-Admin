@@ -3,6 +3,9 @@
 const PAGE_SIZE = 9;
 
 const ALL_SERVICES = ['Авиаперелет', 'Отель', 'Транспорт', 'Страховка', 'Другое', 'ЖД', 'Виза', 'Трансфер'];
+// услуга из формы заказа → тип для экрана подбора в карточке заказа (goAddType).
+// Страховка / Виза / Другое не имеют экрана поиска — оператор добавит их вручную.
+const SEARCH_KIND = { 'Авиаперелет': 'Авиа', 'Отель': 'Гостиница', 'ЖД': 'ЖД', 'Трансфер': 'Трансфер', 'Транспорт': 'Автобус' };
 
 const MOCK_FLIGHTS_DB = [
   {
@@ -25,8 +28,8 @@ const MOCK_FLIGHTS_DB = [
 
 /* ---- Step progress indicator ---- */
 function StepIndicator({ step }) {
-  const labels = ['Основные параметры', 'Информация о клиенте', 'Добавление услуг'];
-  const pct = Math.round((step / 3) * 100);
+  const labels = ['Основные параметры', 'Информация о клиенте'];
+  const pct = Math.round((step / labels.length) * 100);
   return (
     <div style={{ marginBottom: 0 }}>
       <div style={{ fontSize: 13.5, color: 'var(--muted)', fontWeight: 500, marginBottom: 8 }}>
@@ -282,7 +285,8 @@ function ServiceSection({ svcName, startDate, endDate, selectedFlight, onSelectF
 function OrderCreateModal({ open, onClose, onCreated }) {
   const toast = useToast();
 
-  // phase: 'step1' | 'step2' | 'analyzing' | 'error' | 'expired' | 'step3'
+  // phase: 'step1' | 'step2' — search of services is NOT part of this modal;
+  // it happens on the order's full "Услуги" screen after "Найти услуги".
   const [phase, setPhase] = useState('step1');
 
   // Step 1
@@ -301,9 +305,6 @@ function OrderCreateModal({ open, onClose, onCreated }) {
   const [currentPersonIdx, setCurrentPersonIdx] = useState(0);
   const [persons, setPersons] = useState([{}]);
 
-  // Step 3 — selectedFlight per service name
-  const [selectedFlights, setSelectedFlights] = useState({});
-
   // Reset on open
   useEffect(() => {
     if (!open) return;
@@ -313,7 +314,6 @@ function OrderCreateModal({ open, onClose, onCreated }) {
     setStartDate(null); setEndDate(null); setSpecialCase('');
     setOperator(''); setTravelStatement(false);
     setCurrentPersonIdx(0); setPersons([{}]);
-    setSelectedFlights({});
   }, [open]);
 
   // Escape key
@@ -362,20 +362,14 @@ function OrderCreateModal({ open, onClose, onCreated }) {
     setPhase('step2');
   };
 
-  const goAnalyze = () => {
-    setPhase('loading');
-    setTimeout(() => setPhase('expired'), 1600);
-  };
-
-  const handleAnalysisAction = () => {
-    if (phase === 'error') { setPhase('loading'); setTimeout(() => setPhase('expired'), 1600); }
-    else setPhase('step3');
-  };
-
-  const submitOrder = () => {
+  // "Найти услуги": создаём заказ и сразу уходим в полноценный экран подбора (вкладка «Услуги»).
+  // Поиск НЕ выполняется в модалке — здесь только сбор вводных данных.
+  const findServices = () => {
     const clientLabel = isPersonFilled(0)
       ? personName(0)
       : (clientType === 'org' ? 'Новая организация' : 'Новый клиент');
+    // первая выбранная услуга, для которой есть экран подбора → открыть её поиск
+    const searchKind = activeServices.map((s) => SEARCH_KIND[s]).find(Boolean) || null;
     onCreated({
       no: 51181 + Math.floor(Math.random() * 10),
       client: clientLabel,
@@ -385,8 +379,8 @@ function OrderCreateModal({ open, onClose, onCreated }) {
       sum: 0, currency: currency || 'USD',
       services: Math.max(1, activeServices.length),
       progress: 0, date: '14.06.26',
-    });
-    toast('Заказ создан', 'ok');
+    }, searchKind);
+    toast('Заказ создан — подберите услуги', 'ok');
     onClose();
   };
 
@@ -523,81 +517,30 @@ function OrderCreateModal({ open, onClose, onCreated }) {
     );
   };
 
-  /* ---- Render step 3 ---- */
-  const renderStep3 = () => {
-    const shownServices = activeServices.length > 0 ? activeServices : ['Авиаперелет', 'Отель'];
-    return (
-      <div>
-        {/* Person tabs */}
-        <div style={{ display: 'flex', gap: 12, marginBottom: 28, flexWrap: 'wrap' }}>
-          <PersonTab name="Для всех физических лиц" active={true} onClick={() => {}} />
-          {Array.from({ length: numP }).map((_, i) => (
-            <PersonTab
-              key={i}
-              name={personName(i)}
-              sub={isPersonFilled(i) ? 'Данные заполнены' : 'Заполните данные'}
-              active={false}
-              onClick={() => {}}
-            />
-          ))}
-        </div>
-
-        {shownServices.map((sName) => (
-          <ServiceSection
-            key={sName}
-            svcName={sName}
-            startDate={startDate}
-            endDate={endDate}
-            selectedFlight={selectedFlights[sName]}
-            onSelectFlight={(f) => setSelectedFlights((prev) => ({ ...prev, [sName]: f }))}
-          />
-        ))}
-      </div>
-    );
-  };
-
-  /* ---- Layout ---- */
-  const isStep3 = phase === 'step3';
-  const isAnalysis = phase === 'loading' || phase === 'error' || phase === 'expired';
-  const stepNum = phase === 'step1' ? 1 : phase === 'step2' ? 2 : 3;
-
-  // Analysis modal — renders independently, no panel
-  if (isAnalysis) {
-    return <AnalysisModal phase={phase} clientName={personName(0)} onContinue={handleAnalysisAction} />;
-  }
+  /* ---- Layout — always a right-side data-entry panel (no in-modal service search) ---- */
+  const stepNum = phase === 'step1' ? 1 : 2;
 
   return (
     <>
       {/* Overlay + panel */}
       <div
         className="drawer-overlay"
-        style={isStep3
-          ? { display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }
-          : { display: 'flex', justifyContent: 'flex-end' }}
+        style={{ display: 'flex', justifyContent: 'flex-end' }}
         onMouseDown={(e) => { if (e.target === e.currentTarget) onClose(); }}
       >
         <div
           className="scroll"
-          style={isStep3
-            ? {
-                background: '#fff', borderRadius: 22,
-                boxShadow: 'var(--shadow-modal)',
-                width: 'min(1160px, 94vw)', maxHeight: '92vh', overflow: 'auto',
-                animation: 'pop .2s cubic-bezier(.2,.9,.3,1)',
-                display: 'flex', flexDirection: 'column',
-              }
-            : {
-                background: '#fff', width: 'min(680px, 58vw)', height: '100vh',
-                overflow: 'auto', boxShadow: 'var(--shadow-modal)',
-                animation: 'slidein .26s cubic-bezier(.2,.9,.3,1)',
-                display: 'flex', flexDirection: 'column',
-              }}
+          style={{
+            background: '#fff', width: 'min(680px, 58vw)', height: '100vh',
+            overflow: 'auto', boxShadow: 'var(--shadow-modal)',
+            animation: 'slidein .26s cubic-bezier(.2,.9,.3,1)',
+            display: 'flex', flexDirection: 'column',
+          }}
         >
           {/* Header — sticky */}
           <div style={{
             padding: '26px 36px 20px', position: 'sticky', top: 0,
             background: '#fff', zIndex: 2,
-            borderBottom: isStep3 ? '1px solid var(--line)' : 'none',
           }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
               <h2 style={{ fontSize: 26, fontWeight: 700, color: 'var(--ink)', margin: 0, letterSpacing: '-.02em' }}>
@@ -612,13 +555,13 @@ function OrderCreateModal({ open, onClose, onCreated }) {
           <div style={{ padding: '24px 36px', flex: 1 }}>
             {phase === 'step1' && renderStep1()}
             {phase === 'step2' && renderStep2()}
-            {phase === 'step3' && renderStep3()}
           </div>
 
           {/* Footer — sticky */}
           <div style={{
             padding: '18px 36px', borderTop: '1px solid var(--line)',
             position: 'sticky', bottom: 0, background: '#fff',
+            display: 'flex', alignItems: 'center', gap: 12,
           }}>
             {phase === 'step1' && (
               <Button variant="primary" iconRight="arrowRight" onClick={goStep2}>
@@ -626,14 +569,12 @@ function OrderCreateModal({ open, onClose, onCreated }) {
               </Button>
             )}
             {phase === 'step2' && (
-              <Button variant="primary" iconRight="arrowRight" onClick={goAnalyze}>
-                Продолжить заполнение
-              </Button>
-            )}
-            {phase === 'step3' && (
-              <Button variant="primary" iconRight="arrowRight" onClick={submitOrder}>
-                Продолжить заполнение
-              </Button>
+              <>
+                <Button variant="secondary" icon="chevLeft" onClick={() => setPhase('step1')}>Назад</Button>
+                <Button variant="primary" icon="search" onClick={findServices}>
+                  Найти услуги
+                </Button>
+              </>
             )}
           </div>
         </div>
@@ -885,8 +826,15 @@ function SectionWithTable({ title, action, onAction, head, children }) {
 function OrdersPage({ intent, onConsume, orders, addOrder, onDetailChange }) {
   const [detail, setDetailRaw] = useState(null);
   const [detailTab, setDetailTab] = useState(null);
+  const [svcSearch, setSvcSearch] = useState(null);
   const [createOpen, setCreateOpen] = useState(false);
-  const setDetail = (o, tab) => { setDetailRaw(o); setDetailTab(tab || null); onDetailChange && onDetailChange(o); };
+  const setDetail = (o, tab) => { setDetailRaw(o); setDetailTab(tab || null); setSvcSearch(null); onDetailChange && onDetailChange(o); };
+  // after "Найти услуги": add the order and land straight on its full "Услуги" search screen
+  const handleCreated = (o, searchKind) => {
+    addOrder(o); setCreateOpen(false);
+    setDetailRaw(o); setDetailTab('services'); setSvcSearch(searchKind || null);
+    onDetailChange && onDetailChange(o);
+  };
   useEffect(() => {
     if (!intent) return;
     if (intent.type === 'create') setCreateOpen(true);
@@ -894,11 +842,11 @@ function OrdersPage({ intent, onConsume, orders, addOrder, onDetailChange }) {
     onConsume();
   }, [intent]);
 
-  if (detail) return <OrderCard order={detail} initTab={detailTab} onBack={() => setDetail(null)} />;
+  if (detail) return <OrderCard order={detail} initTab={detailTab} initSvcSearch={svcSearch} onBack={() => setDetail(null)} />;
   return (
     <>
       <OrdersList orders={orders} onOpen={setDetail} onCreate={() => setCreateOpen(true)} />
-      <OrderCreateModal open={createOpen} onClose={() => setCreateOpen(false)} onCreated={addOrder} />
+      <OrderCreateModal open={createOpen} onClose={() => setCreateOpen(false)} onCreated={handleCreated} />
     </>
   );
 }
