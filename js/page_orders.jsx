@@ -333,6 +333,12 @@ function OrderCreateModal({ open, onClose, onCreated }) {
   const swapPts = (i) => setPts((p) => { const n = [...p]; [n[i], n[i + 1]] = [n[i + 1], n[i]]; return n; });
   const removePt = (i) => setPts((p) => p.length > 2 ? p.filter((_, x) => x !== i) : p);
   const addPt = () => { setTrip('mc'); const idx = pts.length; setPts((p) => [...p, '']); setCityPick({ idx }); };
+  const dupPt = (i) => setPts((p) => { const n = [...p]; n.splice(i + 1, 0, p[i]); return n; });
+  const movePt = (i, dir) => setPts((p) => {
+    const j = i + dir;
+    if (j < 0 || j >= p.length) return p;
+    const n = [...p]; [n[i], n[j]] = [n[j], n[i]]; return n;
+  });
 
   // "Найти услуги": создаём заказ и уходим на полноценный экран подбора (вкладка «Услуги»).
   const findServices = () => {
@@ -479,7 +485,11 @@ function OrderCreateModal({ open, onClose, onCreated }) {
                     <ActionMenu trigger={<button className="btn btn-ghost btn-icon btn-sm"><Icon name="more" /></button>}
                       items={[
                         { icon: 'edit', label: 'Изменить город', onClick: () => setCityPick({ idx: i }) },
-                        { icon: 'plus', label: 'Добавить пересадку', onClick: () => { setPts((p) => { const n = [...p]; n.splice(i + 1, 0, ''); return n; }); setCityPick({ idx: i + 1 }); } },
+                        { icon: 'plus', label: 'Добавить город', onClick: () => { setPts((p) => { const n = [...p]; n.splice(i + 1, 0, ''); return n; }); setCityPick({ idx: i + 1 }); } },
+                        { icon: 'copy', label: 'Дублировать город', onClick: () => dupPt(i) },
+                        { sep: true },
+                        { icon: 'chevUp', label: 'Переместить вверх', onClick: () => movePt(i, -1) },
+                        { icon: 'chevDown', label: 'Переместить вниз', onClick: () => movePt(i, 1) },
                         { sep: true },
                         { icon: 'trash', label: 'Удалить город', danger: true, onClick: () => removePt(i) },
                       ]} />
@@ -543,18 +553,34 @@ function StackPanel({ title, onClose, footer, children, width }) {
   );
 }
 
+/* small section subhead used inside stacked panels */
+function PanelSub({ children, style }) {
+  return (
+    <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '.02em', margin: '20px 2px 10px', ...style }}>
+      {children}
+    </div>
+  );
+}
+
 /* ---- city picker ---- */
 function CityPickPanel({ value, onPick, onClose }) {
   const [q, setQ] = useState('');
   const s = q.trim().toLowerCase();
   const popular = ['SVO', 'DME', 'IST', 'DXB', 'ALA', 'TAS'];
   const list = AIRPORTS.filter((a) => !s || a.city.toLowerCase().includes(s) || a.code.toLowerCase().includes(s) || a.name.toLowerCase().includes(s));
+  // group airports by city (Москва → SVO / DME / VKO …)
+  const groups = [];
+  list.forEach((a) => {
+    let g = groups.find((x) => x.city === a.city);
+    if (!g) { g = { city: a.city, country: a.country, items: [] }; groups.push(g); }
+    g.items.push(a);
+  });
   return (
     <StackPanel title="Добавление города" onClose={onClose}>
       <SearchBox value={q} onChange={setQ} placeholder="Город или аэропорт" />
       {!s && (
         <>
-          <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '.02em', margin: '18px 0 10px' }}>Популярные города</div>
+          <PanelSub>Популярные города</PanelSub>
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 9 }}>
             {popular.map((code) => AIRPORTS.find((x) => x.code === code)).filter(Boolean).map((a) => (
               <button key={a.code} className={'city-chip' + (value === a.code ? ' sel' : '')} onClick={() => onPick(a.code)}>{a.city} ({a.code})</button>
@@ -562,12 +588,20 @@ function CityPickPanel({ value, onPick, onClose }) {
           </div>
         </>
       )}
-      <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '.02em', margin: '18px 0 6px' }}>Все направления</div>
-      {list.map((a) => (
-        <div key={a.code} className="city-row" onClick={() => onPick(a.code)}>
-          <span className="code">{a.code}</span>
-          <span style={{ flex: 1 }}><div style={{ fontWeight: 600 }}>{a.city}</div><div style={{ fontSize: 12.5, color: 'var(--muted)' }}>{a.name}, {a.country}</div></span>
-          {value === a.code && <Icon name="check" style={{ width: 18, height: 18, color: 'var(--blue)' }} />}
+      <PanelSub style={{ margin: '20px 0 6px' }}>Все направления</PanelSub>
+      {groups.map((g) => (
+        <div key={g.city} style={{ marginBottom: 6 }}>
+          <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, padding: '8px 12px 4px' }}>
+            <span style={{ fontWeight: 700, color: 'var(--ink)', fontSize: 14.5 }}>{g.city}</span>
+            <span style={{ fontSize: 12.5, color: 'var(--muted)' }}>{g.country}</span>
+          </div>
+          {g.items.map((a) => (
+            <div key={a.code} className="city-row" onClick={() => onPick(a.code)}>
+              <span className="code">{a.code}</span>
+              <span style={{ flex: 1 }}><div style={{ fontWeight: 600 }}>{a.name}</div></span>
+              {value === a.code && <Icon name="check" style={{ width: 18, height: 18, color: 'var(--blue)' }} />}
+            </div>
+          ))}
         </div>
       ))}
       {!list.length && <EmptyState icon="search" title="Ничего не найдено" />}
@@ -577,6 +611,8 @@ function CityPickPanel({ value, onPick, onClose }) {
 
 /* ---- document add ---- */
 function DocumentPanel({ client, onClose, onSave }) {
+  const [mode, setMode] = useState('ocr'); // 'ocr' | 'manual'
+  const [scanned, setScanned] = useState(false);
   return (
     <StackPanel title="Добавление документа" onClose={onClose}
       footer={<><Button variant="secondary" style={{ flex: 1 }} onClick={onClose}>Отмена</Button><Button style={{ flex: 1 }} icon="check" onClick={onSave}>Сохранить документ</Button></>}>
@@ -584,53 +620,139 @@ function DocumentPanel({ client, onClose, onSave }) {
         <Avatar name={client.name} size={32} /><div style={{ flex: 1 }}><div className="nm">{client.name}</div><div className="mt">Владелец документа</div></div>
       </div>
       <div style={{ display: 'flex', gap: 10, marginBottom: 18 }}>
-        <Button variant="secondary" icon="zap" style={{ flex: 1 }}>Загрузить документ (OCR)</Button>
-        <Button variant="secondary" icon="edit" style={{ flex: 1 }}>Заполнить вручную</Button>
+        <Button variant={mode === 'ocr' ? 'primary' : 'secondary'} icon="zap" style={{ flex: 1 }} onClick={() => setMode('ocr')}>Загрузить документ (OCR)</Button>
+        <Button variant={mode === 'manual' ? 'primary' : 'secondary'} icon="edit" style={{ flex: 1 }} onClick={() => setMode('manual')}>Заполнить вручную</Button>
       </div>
-      <div style={{ border: '1px dashed var(--field-line)', borderRadius: 12, padding: '26px', textAlign: 'center', color: 'var(--muted)', marginBottom: 18 }}>
-        <Icon name="download" style={{ width: 28, height: 28, color: 'var(--muted-2)' }} />
-        <div style={{ margintop: 8, fontWeight: 600, color: 'var(--ink)' }}>Перетащите файл сюда</div>
-        <div style={{ fontSize: 13, margin: '4px 0 12px' }}>JPG, PNG, PDF · до 10 МБ</div>
-        <Button variant="secondary" size="sm">Выбрать файл</Button>
-      </div>
+
+      {mode === 'ocr' && (
+        <>
+          <div onClick={() => setScanned(true)} style={{ border: '1px dashed var(--field-line)', borderRadius: 12, padding: '26px', textAlign: 'center', color: 'var(--muted)', marginBottom: 14, cursor: 'pointer' }}>
+            <Icon name="download" style={{ width: 28, height: 28, color: 'var(--muted-2)' }} />
+            <div style={{ marginTop: 8, fontWeight: 600, color: 'var(--ink)' }}>Перетащите файл сюда</div>
+            <div style={{ margin: '10px 0' }}><Button variant="secondary" size="sm">Выбрать файл</Button></div>
+            <div style={{ fontSize: 12.5 }}>Поддерживаемые форматы: JPG, PNG, PDF</div>
+            <div style={{ fontSize: 12.5 }}>Максимальный размер файла: 10 МБ</div>
+          </div>
+          {scanned && (
+            <div style={{ display: 'flex', gap: 9, alignItems: 'flex-start', padding: '11px 13px', borderRadius: 11, background: 'var(--green-bg)', border: '1px solid var(--green)', marginBottom: 18 }}>
+              <Icon name="checkCircle" style={{ width: 18, height: 18, color: 'var(--green)', flex: '0 0 18px', marginTop: 1 }} />
+              <span style={{ fontSize: 13, color: 'var(--body)' }}>Документ распознан системой. Проверьте данные и при необходимости отредактируйте их.</span>
+            </div>
+          )}
+        </>
+      )}
+
+      <PanelSub style={{ marginTop: 6 }}>Данные документа</PanelSub>
       <div className="form-grid">
         <Field label="Тип документа"><select className="select"><option>Загранпаспорт</option><option>Паспорт РФ</option><option>ID-карта</option></select></Field>
         <Field label="Гражданство"><select className="select"><option>Российская Федерация</option><option>Кыргызстан</option><option>Казахстан</option></select></Field>
         <Field label="Номер документа"><Input placeholder="71 1234567" /></Field>
         <DateField label="Срок действия" value={null} onChange={() => {}} placeholder="Выбрать дату" />
+      </div>
+
+      <PanelSub>Данные владельца</PanelSub>
+      <div className="form-grid">
         <Field label="Фамилия (лат.)"><Input placeholder="IVANOV" /></Field>
         <Field label="Имя (лат.)"><Input placeholder="IVAN" /></Field>
-        <Field label="Отчество"><Input placeholder="IVANOVICH" /></Field>
+        <Field label="Отчество (лат.)"><Input placeholder="IVANOVICH" /></Field>
         <DateField label="Дата рождения" value={null} onChange={() => {}} placeholder="Выбрать дату" />
       </div>
+
+      <PanelSub>Контактная информация</PanelSub>
+      <div className="form-grid">
+        <Field label="Основной телефон"><Input placeholder="+7 (___) ___-__-__" /></Field>
+        <Field label="Дополнительный телефон"><Input placeholder="+7 (___) ___-__-__" /></Field>
+      </div>
+
+      <PanelSub>Дополнительная информация <span style={{ textTransform: 'none', fontWeight: 400, color: 'var(--faint)' }}>(необязательно)</span></PanelSub>
+      <textarea className="input" rows={3} placeholder="Комментарий к документу" style={{ resize: 'vertical' }} />
     </StackPanel>
   );
 }
 
 /* ---- bonus card add ---- */
-const LOYALTY_PROGRAMS = ['Аэрофлот Бонус', 'S7 Priority', 'РЖД Бонус', 'Turkish Miles&Smiles', 'Emirates Skywards', 'Marriott Bonvoy', 'Accor ALL'];
+const LOYALTY_PROGRAMS = [
+  { name: 'Аэрофлот Бонус',       type: 'Авиакомпания', popular: true },
+  { name: 'S7 Priority',          type: 'Авиакомпания', popular: true },
+  { name: 'Miles & More',         type: 'Авиакомпания', popular: true },
+  { name: 'Turkish Miles&Smiles', type: 'Авиакомпания', popular: true },
+  { name: 'РЖД Бонус',            type: 'Ж/Д' },
+  { name: 'Marriott Bonvoy',      type: 'Отель' },
+  { name: 'Accor ALL',            type: 'Отель' },
+];
 function BonusCardPanel({ client, onClose, onSave }) {
-  const [program, setProgram] = useState('');
+  const [program, setProgram] = useState(null);
+  const [open, setOpen] = useState(false);
   const [auto, setAuto] = useState(true);
+  const [extra, setExtra] = useState(false);
+  const ref = useRef(null);
+  useEffect(() => {
+    const h = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); };
+    document.addEventListener('mousedown', h);
+    return () => document.removeEventListener('mousedown', h);
+  }, []);
+  const Logo = ({ p }) => (
+    <span style={{ width: 30, height: 30, flex: '0 0 30px', borderRadius: 8, background: 'var(--surface-2)', color: 'var(--blue)', fontSize: 12, fontWeight: 800, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      {p.name.slice(0, 2).toUpperCase()}
+    </span>
+  );
   return (
     <StackPanel title="Добавление бонусной карты" onClose={onClose}
       footer={<><Button variant="secondary" style={{ flex: 1 }} onClick={onClose}>Отмена</Button><Button style={{ flex: 1 }} icon="check" onClick={onSave}>Сохранить карту</Button></>}>
       <div className="oce-client" style={{ marginBottom: 16 }}>
         <Avatar name={client.name} size={32} /><div style={{ flex: 1 }}><div className="nm">{client.name}</div><div className="mt">Держатель карты</div></div>
       </div>
+
       <Field label="1. Программа лояльности">
-        <select className="select" value={program} onChange={(e) => setProgram(e.target.value)}>
-          <option value="">Выберите программу</option>
-          {LOYALTY_PROGRAMS.map((p) => <option key={p} value={p}>{p}</option>)}
-        </select>
+        <div style={{ position: 'relative' }} ref={ref}>
+          <div className="input" style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 10 }} onClick={() => setOpen((o) => !o)}>
+            <span style={{ flex: 1, color: program ? 'var(--ink)' : 'var(--faint)' }}>{program ? program.name : 'Выберите программу лояльности'}</span>
+            <Icon name="chevDown" style={{ width: 18, height: 18, color: 'var(--muted-2)' }} />
+          </div>
+          {open && (
+            <div className="dropdown scroll" style={{ top: 50, left: 0, right: 0, maxHeight: 280, overflowY: 'auto', padding: 6 }}>
+              <PanelSub style={{ margin: '6px 8px 4px' }}>Популярные программы</PanelSub>
+              {LOYALTY_PROGRAMS.filter((p) => p.popular).map((p) => (
+                <div key={p.name} className="dropdown-item" style={{ gap: 10 }} onClick={() => { setProgram(p); setOpen(false); }}>
+                  <Logo p={p} /><span style={{ flex: 1, fontWeight: 600 }}>{p.name}</span><Pill tone="blue">{p.type}</Pill>
+                </div>
+              ))}
+              <div className="dropdown-sep" />
+              {LOYALTY_PROGRAMS.filter((p) => !p.popular).map((p) => (
+                <div key={p.name} className="dropdown-item" style={{ gap: 10 }} onClick={() => { setProgram(p); setOpen(false); }}>
+                  <Logo p={p} /><span style={{ flex: 1, fontWeight: 600 }}>{p.name}</span><Pill tone="gray">{p.type}</Pill>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
       </Field>
-      <Field label="2. Номер карты / участника"><Input placeholder="Введите номер" /></Field>
-      <Field label="3. Статус в программе">
-        <select className="select"><option>Базовый</option><option>Серебряный</option><option>Золотой</option><option>Платиновый</option></select>
+
+      <Field label="2. Тип программы">
+        <Input value={program ? program.type : ''} placeholder="Определяется автоматически" readOnly />
       </Field>
-      <label style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer', marginTop: 8 }}>
-        <Checkbox on={auto} onChange={setAuto} /><span>Подставлять карту в бронирования автоматически</span>
+      <Field label="3. Номер участника"><Input placeholder="Введите номер карты / участника" /></Field>
+      <Field label={<>4. Статус <span style={{ fontWeight: 400, color: 'var(--faint)' }}>(необязательно)</span></>}>
+        <select className="select"><option value="">Выберите статус</option><option>Базовый</option><option>Серебряный</option><option>Золотой</option><option>Платиновый</option></select>
+      </Field>
+
+      <label style={{ display: 'flex', alignItems: 'flex-start', gap: 10, cursor: 'pointer', marginTop: 12 }}>
+        <Checkbox on={auto} onChange={setAuto} />
+        <span><div style={{ fontWeight: 600, color: 'var(--ink)' }}>Использовать автоматически</div>
+          <div style={{ fontSize: 12.5, color: 'var(--muted)', marginTop: 2 }}>Подставлять карту в бронированиях автоматически</div></span>
       </label>
+
+      <button type="button" onClick={() => setExtra((v) => !v)}
+        style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'none', border: 'none', cursor: 'pointer', font: 'inherit', color: 'var(--blue)', fontWeight: 600, padding: 0, margin: '18px 0 0' }}>
+        Дополнительная информация (необязательно)
+        <Icon name={extra ? 'chevUp' : 'chevDown'} style={{ width: 16, height: 16 }} />
+      </button>
+      {extra && <textarea className="input" rows={3} placeholder="Комментарий" style={{ resize: 'vertical', marginTop: 10 }} />}
+
+      <div style={{ display: 'flex', gap: 9, alignItems: 'flex-start', padding: '11px 13px', borderRadius: 11, background: 'var(--blue-soft)', marginTop: 18 }}>
+        <Icon name="alertCircle" style={{ width: 17, height: 17, color: 'var(--blue)', flex: '0 0 17px', marginTop: 1 }} />
+        <span style={{ fontSize: 12.5, color: 'var(--body)' }}>Бонусные карты подставляются в подходящие услуги автоматически при бронировании. Их можно изменить в профиле клиента.</span>
+      </div>
     </StackPanel>
   );
 }
@@ -650,14 +772,39 @@ function EmployeePanel({ selected, onApply, onClose }) {
         ? <><Button variant="secondary" style={{ flex: 1 }} onClick={() => setNewMode(false)}>Назад</Button><Button style={{ flex: 1 }} icon="check" onClick={() => setNewMode(false)}>Добавить</Button></>
         : <><Button variant="secondary" style={{ flex: 1 }} onClick={onClose}>Отмена</Button><Button style={{ flex: 1 }} icon="check" onClick={apply}>Применить{picked.length ? ` (${picked.length})` : ''}</Button></>}>
       {newMode ? (
-        <div className="form-grid">
-          <Field label="Фамилия"><Input placeholder="Введите значение" /></Field>
-          <Field label="Имя"><Input placeholder="Введите значение" /></Field>
-          <Field label="Отчество"><Input placeholder="Введите значение" /></Field>
-          <DateField label="Дата рождения" value={null} onChange={() => {}} placeholder="Выбрать дату" />
-          <Field label="Телефон"><Input placeholder="+7 (___) ___-__-__" /></Field>
-          <Field label="Документ"><Input placeholder="Серия и номер" /></Field>
-        </div>
+        <>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '16px', border: '1px dashed var(--field-line)', borderRadius: 12, marginBottom: 4 }}>
+            <span className="avatar-ph" style={{ width: 52, height: 52, fontSize: 18 }}><Icon name="user" style={{ width: 24, height: 24 }} /></span>
+            <div style={{ flex: 1 }}>
+              <div style={{ fontWeight: 600, color: 'var(--ink)', fontSize: 14 }}>Перетащите фото или</div>
+              <Button variant="secondary" size="sm" style={{ marginTop: 6 }}>Выбрать файл</Button>
+            </div>
+          </div>
+
+          <PanelSub>Личные данные</PanelSub>
+          <div className="form-grid">
+            <Field label="Фамилия" required><Input placeholder="Введите значение" /></Field>
+            <Field label="Имя" required><Input placeholder="Введите значение" /></Field>
+            <Field label="Отчество"><Input placeholder="Введите значение" /></Field>
+            <Field label="Пол"><select className="select"><option value="">Не указан</option><option>Мужской</option><option>Женский</option></select></Field>
+            <DateField label="Дата рождения" value={null} onChange={() => {}} placeholder="Выбрать дату" />
+            <Field label="Гражданство"><select className="select"><option>Российская Федерация</option><option>Кыргызстан</option><option>Казахстан</option></select></Field>
+          </div>
+
+          <PanelSub>Контактная информация</PanelSub>
+          <div className="form-grid">
+            <Field label="Телефон"><Input placeholder="+7 (___) ___-__-__" /></Field>
+            <Field label="Email"><Input placeholder="name@company.ru" /></Field>
+            <Field label="Должность"><Input placeholder="Введите должность" /></Field>
+            <Field label="Отдел"><Input placeholder="Введите отдел" /></Field>
+          </div>
+
+          <PanelSub>Документ <span style={{ textTransform: 'none', fontWeight: 400, color: 'var(--faint)' }}>(необязательно)</span></PanelSub>
+          <div className="form-grid">
+            <Field label="Тип документа"><select className="select"><option>Загранпаспорт</option><option>Паспорт РФ</option><option>ID-карта</option></select></Field>
+            <Field label="Номер документа"><Input placeholder="Серия и номер" /></Field>
+          </div>
+        </>
       ) : (
         <>
           <SearchBox value={q} onChange={setQ} placeholder="Поиск сотрудника" />
