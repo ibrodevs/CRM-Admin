@@ -410,9 +410,9 @@ function TabHistory() {
 /* ====================================================================
    ORDER CARD ROOT
    ==================================================================== */
-function OrderCard({ order, onBack }) {
+function OrderCard({ order, onBack, initTab }) {
   const toast = useToast();
-  const [tab, setTab] = useState('overview');
+  const [tab, setTab] = useState(initTab || 'overview');
   const [loading, setLoading] = useState(true);
   const [status, setStatus] = useState(order.status === 'Нет данных' ? 'Новое' : order.status);
   const [services, setServices] = useState(ORDER_SERVICES);
@@ -440,6 +440,8 @@ function OrderCard({ order, onBack }) {
   const [feeOpen, setFeeOpen] = useState(false);
 
   useEffect(() => { setLoading(true); const t = setTimeout(() => setLoading(false), 600); return () => clearTimeout(t); }, [order.no]);
+  // deep-link: switch to requested tab even if the card is already mounted (e.g. opened from a notification)
+  useEffect(() => { if (initTab) setTab(initTab); }, [initTab, order.no]);
 
   const TABS = [
     { key: 'overview', label: 'Общая информация' },

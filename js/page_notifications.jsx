@@ -1,9 +1,12 @@
 // ===== Уведомления: центр управления вниманием + лента активности =====
 
+// link.type / source → конкретная вкладка карточки заказа (deep-link в контекст записи, а не в раздел)
+const NOTIF_TAB = { finance: 'finance', documents: 'documents', offers: 'offers', returns: 'aftersale', order: 'overview' };
 function notifGo(n, onNavigate, onOpenOrder) {
-  if (n.link.type === 'order' && n.order) {
+  const tab = n.source === 'Чаты' ? 'chat' : (NOTIF_TAB[n.link.type] || 'overview');
+  if (n.order && onOpenOrder) {
     const o = ORDERS.find((x) => x.no === n.order) || { no: n.order, client: n.title, requestType: 'Индивидуальная', status: 'В работе', operator: n.resp, date: '15.06.25' };
-    onOpenOrder && onOpenOrder(o);
+    onOpenOrder(o, tab);
   } else onNavigate && onNavigate(n.link.type);
 }
 

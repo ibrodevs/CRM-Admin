@@ -201,7 +201,7 @@ function NotificationDrawer({ open, onClose, onNavigate, onOpenOrder }) {
         <div className="scroll" style={{ flex: 1, overflowY: 'auto', padding: '18px 22px' }}>
           <NotificationsCenter
             onNavigate={(r) => { onClose(); onNavigate(r); }}
-            onOpenOrder={(o) => { onClose(); onOpenOrder(o); }} />
+            onOpenOrder={(o, tab) => { onClose(); onOpenOrder(o, tab); }} />
         </div>
       </div>
     </div>
@@ -229,24 +229,43 @@ function GlobalChatDrawer({ open, onClose, contextOrder, onOpenOrder }) {
   const totalUnread = (t) => Object.values(t.unread || {}).reduce((s, n) => s + n, 0);
   const goOrder = (t) => { const o = ORDERS.find((x) => x.no === t.order); onClose(); o && onOpenOrder(o); };
 
+  const ord = ORDERS.find((x) => x.no === active.order);
+  const meta = [
+    active.client || active.name,
+    ord && ord.requestType,
+    (ord && ord.operator) && ('отв. ' + ord.operator),
+  ].filter(Boolean);
+
   return (
     <div className="drawer-overlay" onMouseDown={(e) => { if (e.target === e.currentTarget) onClose(); }}>
       <div className="shell-drawer" style={{ width: 'min(480px,96vw)' }}>
-        <div className="drawer-head" style={{ padding: '16px 22px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
-            <h2 className="modal-title" style={{ fontSize: 20 }}>Чат</h2>
-            <ActionMenu
-              trigger={<button className="chip" style={{ height: 34 }}>№ {active.order}<Icon name="chevDown" /></button>}
-              items={threads.map((t) => ({
-                icon: 'chat',
-                label: '№ ' + t.order + ' · ' + t.name + (totalUnread(t) ? '  (' + totalUnread(t) + ')' : ''),
-                onClick: () => setActiveId(t.id),
-              }))} />
+        <div className="drawer-head" style={{ padding: '14px 22px', flexDirection: 'column', alignItems: 'stretch', justifyContent: 'flex-start', gap: 6 }}>
+          <div style={{ display: 'flex', alignItems: 'center' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0, flex: 1 }}>
+              <h2 className="modal-title" style={{ fontSize: 20 }}>Чат</h2>
+              <ActionMenu
+                trigger={<button className="chip" style={{ height: 34 }}>№ {active.order}<Icon name="chevDown" /></button>}
+                items={threads.map((t) => ({
+                  icon: 'chat',
+                  label: '№ ' + t.order + ' · ' + t.name + (totalUnread(t) ? '  (' + totalUnread(t) + ')' : ''),
+                  onClick: () => setActiveId(t.id),
+                }))} />
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+              <button className="icon-btn" title="Открыть заказ" onClick={() => goOrder(active)}><Icon name="orders" /></button>
+              <button className="modal-close" onClick={onClose}><Icon name="x" /></button>
+            </div>
           </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-            <button className="icon-btn" title="Открыть заказ" onClick={() => goOrder(active)}><Icon name="orders" /></button>
-            <button className="modal-close" onClick={onClose}><Icon name="x" /></button>
-          </div>
+          {meta.length > 0 && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap', fontSize: 13, color: 'var(--muted)' }}>
+              {meta.map((m, i) => (
+                <React.Fragment key={i}>
+                  {i > 0 && <span style={{ color: 'var(--faint)' }}>·</span>}
+                  <span>{m}</span>
+                </React.Fragment>
+              ))}
+            </div>
+          )}
         </div>
         <div style={{ flex: 1, minHeight: 0 }}>
           <ChatThread thread={active} embedded onOpenOrder={() => goOrder(active)} />

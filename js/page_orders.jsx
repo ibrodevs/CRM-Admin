@@ -884,16 +884,17 @@ function SectionWithTable({ title, action, onAction, head, children }) {
 /* ===== Orders page root ===== */
 function OrdersPage({ intent, onConsume, orders, addOrder, onDetailChange }) {
   const [detail, setDetailRaw] = useState(null);
+  const [detailTab, setDetailTab] = useState(null);
   const [createOpen, setCreateOpen] = useState(false);
-  const setDetail = (o) => { setDetailRaw(o); onDetailChange && onDetailChange(o); };
+  const setDetail = (o, tab) => { setDetailRaw(o); setDetailTab(tab || null); onDetailChange && onDetailChange(o); };
   useEffect(() => {
     if (!intent) return;
     if (intent.type === 'create') setCreateOpen(true);
-    if (intent.type === 'open') setDetail(intent.order);
+    if (intent.type === 'open') setDetail(intent.order, intent.tab);
     onConsume();
   }, [intent]);
 
-  if (detail) return <OrderCard order={detail} onBack={() => setDetail(null)} />;
+  if (detail) return <OrderCard order={detail} initTab={detailTab} onBack={() => setDetail(null)} />;
   return (
     <>
       <OrdersList orders={orders} onOpen={setDetail} onCreate={() => setCreateOpen(true)} />

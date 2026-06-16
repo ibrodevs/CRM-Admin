@@ -23,9 +23,9 @@ function App() {
   const changeRole = (r) => { setRole(r); if (!roleCanSee(r, route.split('/')[0])) { setRoute('dashboard'); setCtxOrder(null); } };
   const blocked = !roleCanSee(role, route.split('/')[0]);
 
-  const openOrder = (o) => {
+  const openOrder = (o, tab) => {
     if (o === '__create__') { setRoute('orders'); setIntent({ type: 'create' }); setCtxOrder(null); return; }
-    setRoute('orders'); setIntent({ type: 'open', order: o }); setCtxOrder(o);
+    setRoute('orders'); setIntent({ type: 'open', order: o, tab }); setCtxOrder(o);
   };
   const createOrder = () => { setRoute('orders'); setIntent({ type: 'create' }); setCtxOrder(null); };
   const createClient = () => { setRoute('clients'); setIntent({ type: 'create' }); setCtxOrder(null); };
