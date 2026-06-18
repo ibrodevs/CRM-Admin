@@ -1,6 +1,15 @@
 // ===== Order Card: the operator's main workspace =====
 
-function ocMoney(n, c = 'USD') { return n.toLocaleString('ru-RU') + ' ' + (c === 'USD' ? '$' : c); }
+function ocCurrency(c = 'USD') {
+  if (c === 'USD' || c === '$') return '$';
+  if (c === 'RUB' || c === '₽') return '₽';
+  if (c === 'EUR' || c === '€') return '€';
+  if (c === 'KGS') return 'сом';
+  return c;
+}
+function ocMoney(n, c = 'USD') { return Math.round(n).toLocaleString('ru-RU') + ' ' + ocCurrency(c); }
+function opPayable(op) { return op.tariff + op.taxes + op.fee + op.penalty - op.discount; }
+function opDebt(op) { return Math.max(0, opPayable(op) - op.paid - op.refund); }
 
 /* Reusable async wrapper: loading / error / empty / content */
 function AsyncBlock({ state = 'ok', onRetry, skeletonRows = 4, empty, children }) {
@@ -48,27 +57,66 @@ function svcCalc(s) {
 }
 
 /* ---- right info panel ---- */
-function OrderAside({ services, onOpenFinance, onOpenTasks }) {
+function financeSnapshot(orderNo, services) {
+  const ops = FIN_OPS.filter((o) => o.order === orderNo);
   const byKind = {};
-  services.forEach((s) => { byKind[s.kind] = (byKind[s.kind] || 0) + svcCalc(s).total; });
-  const feesTotal = services.reduce((s, x) => s + svcCalc(x).fee, 0);
-  const total = services.reduce((s, x) => s + svcCalc(x).total, 0);
-  const paid = 1660;
-  const debt = Math.max(0, total - paid);
+  services.forEach((s) => {
+    const calc = svcCalc(s);
+    byKind[s.kind] = {
+      total: (byKind[s.kind]?.total || 0) + calc.total,
+      tariff: (byKind[s.kind]?.tariff || 0) + calc.tariff,
+      taxes: (byKind[s.kind]?.taxes || 0) + calc.taxes,
+      fee: (byKind[s.kind]?.fee || 0) + calc.fee,
+      commission: (byKind[s.kind]?.commission || 0) + calc.commission,
+      currency: s.currency || byKind[s.kind]?.currency || 'USD',
+    };
+  });
+  ops.forEach((o) => {
+    byKind[o.source] = {
+      ...(byKind[o.source] || { total: 0, tariff: 0, taxes: 0, fee: 0, commission: 0, currency: o.currency }),
+      paid: (byKind[o.source]?.paid || 0) + o.paid,
+      debt: (byKind[o.source]?.debt || 0) + opDebt(o),
+      margin: (byKind[o.source]?.margin || 0) + o.commission,
+      payable: (byKind[o.source]?.payable || 0) + opPayable(o),
+      refund: (byKind[o.source]?.refund || 0) + o.refund,
+    };
+  });
+  return {
+    byKind,
+    tariffs: services.reduce((s, x) => s + svcCalc(x).tariff, 0),
+    taxes: services.reduce((s, x) => s + svcCalc(x).taxes, 0),
+    fees: services.reduce((s, x) => s + svcCalc(x).fee, 0),
+    margin: ops.length ? ops.reduce((s, x) => s + (x.commission || 0), 0) : services.reduce((s, x) => s + svcCalc(x).commission, 0),
+    total: services.reduce((s, x) => s + svcCalc(x).total, 0),
+    paid: ops.reduce((s, x) => s + x.paid, 0),
+    debt: ops.reduce((s, x) => s + opDebt(x), 0),
+    refund: ops.reduce((s, x) => s + x.refund, 0),
+    hasOps: ops.length > 0,
+    currencies: [...new Set(services.map((s) => s.currency).concat(ops.map((o) => o.currency)).filter(Boolean))],
+  };
+}
+
+function OrderAside({ order, services, participants, onOpenFinance, onOpenTasks }) {
+  const snap = financeSnapshot(order.no, services);
   const urgent = ORDER_TASKS.filter((t) => t.urgent);
   return (
     <div className="oc-aside">
       <div className="card card-pad">
         <h3 className="card-title" style={{ fontSize: 17, marginBottom: 8 }}>Финансовая сводка</h3>
-        {Object.entries(byKind).map(([kind, sum]) => (
-          <div className="oc-kpi" key={kind}><span className="l">{kind}</span><span className="v">{ocMoney(sum)}</span></div>
+        {Object.entries(snap.byKind).map(([kind, meta]) => (
+          <div className="oc-kpi" key={kind}><span className="l">{kind}</span><span className="v">{ocMoney(meta.total || meta.payable || 0, meta.currency)}</span></div>
         ))}
-        {feesTotal > 0 && <div className="oc-kpi"><span className="l">Сервисные сборы</span><span className="v">{ocMoney(feesTotal)}</span></div>}
-        <div className="oc-kpi" style={{ borderTop: '1px solid var(--line)', marginTop: 4, paddingTop: 12 }}><span className="l">Итого клиенту</span><span className="v" style={{ fontSize: 18 }}>{ocMoney(total)}</span></div>
-        <div className="oc-kpi"><span className="l">Оплачено</span><span className="v green">{ocMoney(paid)}</span></div>
-        <div className="oc-kpi"><span className="l">Задолженность</span><span className={'v' + (debt ? ' red' : '')}>{ocMoney(debt)}</span></div>
-        <div className="oc-kpi"><span className="l">Участников</span><span className="v">{ORDER_PARTICIPANTS.length}</span></div>
+        <div className="oc-kpi"><span className="l">Тарифы поставщиков</span><span className="v">{ocMoney(snap.tariffs)}</span></div>
+        <div className="oc-kpi"><span className="l">Таксы и сборы</span><span className="v">{ocMoney(snap.taxes)}</span></div>
+        <div className="oc-kpi"><span className="l">Сервисные сборы</span><span className="v">{ocMoney(snap.fees)}</span></div>
+        <div className="oc-kpi"><span className="l">Маржа / комиссия</span><span className="v green">{ocMoney(snap.margin)}</span></div>
+        <div className="oc-kpi" style={{ borderTop: '1px solid var(--line)', marginTop: 4, paddingTop: 12 }}><span className="l">Итого клиенту</span><span className="v" style={{ fontSize: 18 }}>{ocMoney(snap.total)}</span></div>
+        <div className="oc-kpi"><span className="l">Оплачено</span><span className="v green">{ocMoney(snap.paid)}</span></div>
+        <div className="oc-kpi"><span className="l">Задолженность</span><span className={'v' + (snap.debt ? ' red' : '')}>{ocMoney(snap.debt)}</span></div>
+        {snap.refund > 0 && <div className="oc-kpi"><span className="l">Возвраты</span><span className="v">{ocMoney(snap.refund)}</span></div>}
+        <div className="oc-kpi"><span className="l">Участников</span><span className="v">{participants.length}</span></div>
         <div className="oc-kpi"><span className="l">Активных задач</span><span className="v">{ORDER_TASKS.length}</span></div>
+        {snap.currencies.length > 1 && <div style={{ fontSize: 12.5, color: 'var(--muted)', marginTop: 10 }}>В заказе несколько валют, суммы показаны по текущему сценарию без конвертации.</div>}
         <Button variant="secondary" size="sm" className="btn-block" icon="finance" style={{ marginTop: 14 }} onClick={onOpenFinance}>Открыть финансы</Button>
       </div>
 
@@ -107,6 +155,8 @@ function TripSummaryBar({ order, services, participants, aviaParams, requestType
   const trip = tripFromServices(services, aviaParams);
   const isGroup = requestType === 'Групповая';
   const errCount = participants.filter((p) => p.docStatus === 'check').length;
+  const lead = participants.find((p) => p.lead) || participants[0];
+  const servicesLabel = services.map((s) => s.kind).join(', ');
   return (
     <div className="oc-trip" style={{ marginTop: 16, paddingTop: 16, borderTop: '1px solid var(--line)' }}>
       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', flexWrap: 'wrap', gap: 14 }}>
@@ -129,6 +179,23 @@ function TripSummaryBar({ order, services, participants, aviaParams, requestType
           )}
         </div>
         <Button variant="secondary" size="sm" icon="edit" onClick={onEdit}>Редактировать данные</Button>
+      </div>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 10, marginTop: 14 }}>
+        <div style={{ padding: '12px 14px', border: '1px solid var(--line)', borderRadius: 14, background: 'var(--surface-2)' }}>
+          <div style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 4 }}>Кто едет</div>
+          <div style={{ fontWeight: 700, color: 'var(--ink)' }}>{lead ? lead.name : order.client}</div>
+          <div style={{ fontSize: 12.5, color: 'var(--muted)', marginTop: 2 }}>{isGroup ? `+ ещё ${Math.max(0, participants.length - 1)} участников` : 'Контакт поездки'}</div>
+        </div>
+        <div style={{ padding: '12px 14px', border: '1px solid var(--line)', borderRadius: 14, background: 'var(--surface-2)' }}>
+          <div style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 4 }}>Выбранные услуги</div>
+          <div style={{ fontWeight: 700, color: 'var(--ink)' }}>{services.length ? servicesLabel : 'Услуги не добавлены'}</div>
+          <div style={{ fontSize: 12.5, color: 'var(--muted)', marginTop: 2 }}>{services.length} в сценарии поездки</div>
+        </div>
+        <div style={{ padding: '12px 14px', border: '1px solid var(--line)', borderRadius: 14, background: 'var(--surface-2)' }}>
+          <div style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 4 }}>Статус по услугам</div>
+          <div style={{ fontWeight: 700, color: 'var(--ink)' }}>{services.filter((s) => s.status === 'Выписано' || s.status === 'Подтверждено').length} подтверждено</div>
+          <div style={{ fontSize: 12.5, color: errCount ? 'var(--amber)' : 'var(--muted)', marginTop: 2 }}>{errCount ? 'Есть ошибки по документам' : 'Документы готовы к бронированию'}</div>
+        </div>
       </div>
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 14 }}>
         {services.length === 0 && <span style={{ fontSize: 13, color: 'var(--muted)' }}>Услуги не выбраны</span>}
@@ -378,6 +445,109 @@ function TabRoute({ services }) {
   );
 }
 
+function PassengerScenarioCard({ participants, isGroup, onOpenParticipants }) {
+  const errCount = participants.filter((p) => p.docStatus === 'check').length;
+  const groups = isGroup ? ORDER_GROUPS : [];
+  return (
+    <div className="card card-pad" style={{ marginBottom: 16 }}>
+      <div style={{ display: 'flex', alignItems: 'flex-start', gap: 14, flexWrap: 'wrap' }}>
+        <span className="oc-svc-ic" style={{ background: 'var(--blue)', width: 52, height: 52, borderRadius: 16 }}><Icon name="users" style={{ width: 24, height: 24 }} /></span>
+        <div style={{ flex: 1, minWidth: 240 }}>
+          <div style={{ fontWeight: 700, color: 'var(--ink)', fontSize: 17 }}>{participants.length} пассажиров{isGroup ? ' · Групповая поездка' : ''}</div>
+          <div style={{ fontSize: 13.5, color: errCount ? 'var(--amber)' : 'var(--green)', marginTop: 4 }}>
+            Поимённый список: {participants.length - errCount} без ошибок{errCount ? `, ${errCount} требуют проверки` : ''}
+          </div>
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 12 }}>
+            {groups.length ? groups.map((g) => (
+              <span key={g.id} style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '7px 10px', borderRadius: 999, background: 'var(--surface-2)', border: '1px solid var(--line)', fontSize: 12.5, color: 'var(--body)' }}>
+                <b style={{ color: 'var(--ink)' }}>{g.name}</b>{g.pax} чел. · {g.policy}
+              </span>
+            )) : (
+              <span style={{ fontSize: 13, color: 'var(--muted)' }}>Индивидуальная поездка без деления на группы</span>
+            )}
+          </div>
+        </div>
+        <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+          <Button variant="secondary" size="sm" icon="clipboard" onClick={onOpenParticipants}>Проверить список</Button>
+          <Button variant="secondary" size="sm" icon="users" onClick={onOpenParticipants}>Открыть участников</Button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ExtrasByPassengerCard({ isGroup }) {
+  const rows = ORDER_SERVICE_EXTRAS.passengers || [];
+  return (
+    <div className="card card-pad" style={{ marginTop: 18 }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', marginBottom: 14 }}>
+        <div>
+          <div style={{ fontWeight: 700, color: 'var(--ink)', fontSize: 17 }}>Дополнительные услуги по пассажирам</div>
+          <div style={{ fontSize: 13.5, color: 'var(--muted)', marginTop: 2 }}>Места, багаж, питание, страхование и тарифы учитываются по каждому пассажиру отдельно.</div>
+        </div>
+        <Button variant="secondary" size="sm" icon="edit">Изменить назначения</Button>
+      </div>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))', gap: 10, marginBottom: 14 }}>
+        {ORDER_SERVICE_EXTRAS.summary.map((item) => (
+          <div key={item.key} style={{ border: '1px solid var(--line)', borderRadius: 14, padding: '12px 14px', background: 'var(--surface-2)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: 'var(--ink)', fontWeight: 700 }}>
+              <Icon name={item.icon} style={{ width: 16, height: 16, color: 'var(--blue)' }} />{item.label}
+            </div>
+            <div style={{ fontSize: 13, color: 'var(--muted)', marginTop: 6 }}>{item.value}</div>
+          </div>
+        ))}
+      </div>
+      <div className="table-card">
+        <table className="tbl">
+          <thead><tr><th>Пассажир</th>{isGroup && <th>Группа</th>}<th>Тариф</th><th>Место</th><th>Багаж</th><th>Питание</th><th>Страхование</th></tr></thead>
+          <tbody>
+            {rows.map((p) => (
+              <tr key={p.name}>
+                <td className="t-strong">{p.name}{p.issue && <span className="pill pill-amber" style={{ marginLeft: 8 }}>Проверить</span>}</td>
+                {isGroup && <td>{p.group}</td>}
+                <td>{p.fare}</td>
+                <td>{p.seat}</td>
+                <td>{p.baggage}</td>
+                <td>{p.meal}</td>
+                <td>{p.insurance}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+function BookingFlowCard({ onStart }) {
+  const tone = { done: 'green', current: 'amber', pending: 'gray' };
+  return (
+    <div className="card card-pad" style={{ marginTop: 18 }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', marginBottom: 14 }}>
+        <div>
+          <div style={{ fontWeight: 700, color: 'var(--ink)', fontSize: 17 }}>Рабочий процесс бронирования</div>
+          <div style={{ fontSize: 13.5, color: 'var(--muted)', marginTop: 2 }}>Отдельный процесс после подбора услуг: запуск, ответы поставщиков, подтверждение, выписка и оплата.</div>
+        </div>
+        <Button variant="secondary" size="sm" icon="zap" onClick={onStart}>Начать бронирование</Button>
+      </div>
+      <div style={{ display: 'grid', gap: 10 }}>
+        {ORDER_BOOKING_FLOW.map((step, i) => (
+          <div key={step.key} style={{ display: 'flex', alignItems: 'flex-start', gap: 12, padding: '12px 14px', border: '1px solid var(--line)', borderRadius: 14, background: step.status === 'current' ? 'var(--amber-bg)' : '#fff' }}>
+            <div style={{ width: 28, height: 28, borderRadius: 999, background: step.status === 'done' ? 'var(--green-bg)' : step.status === 'current' ? '#fff' : 'var(--surface-2)', color: step.status === 'done' ? 'var(--green)' : step.status === 'current' ? 'var(--amber)' : 'var(--muted)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, flex: '0 0 28px' }}>{i + 1}</div>
+            <div style={{ flex: 1 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                <div style={{ fontWeight: 700, color: 'var(--ink)' }}>{step.label}</div>
+                <Pill tone={tone[step.status]}>{step.status === 'done' ? 'Готово' : step.status === 'current' ? 'В работе' : 'Ожидает'}</Pill>
+              </div>
+              <div style={{ fontSize: 13, color: 'var(--muted)', marginTop: 4 }}>{step.note}</div>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 const ADD_TYPES = ['Авиа', 'ЖД', 'Гостиница', 'Трансфер', 'Автобус', 'Группа'];
 const SCENARIO_KINDS = ['Авиа', 'Гостиница', 'Трансфер'];
 const CALC_ROWS = {
@@ -387,7 +557,7 @@ const CALC_ROWS = {
 };
 
 /* one row of a service's financial calculation */
-function CalcLines({ s }) {
+function CalcLines({ s, fin }) {
   const c = svcCalc(s);
   const rows = CALC_ROWS[s.kind] || [['tariff', 'Стоимость поставщика'], ['fee', 'Сервисный сбор'], ['commission', 'Комиссия']];
   return (
@@ -396,12 +566,19 @@ function CalcLines({ s }) {
         <div className="off-price-line" key={k}><span>{l}</span><span>{ocMoney(c[k], s.currency)}</span></div>
       ))}
       <div className="off-price-line" style={{ fontWeight: 700, color: 'var(--ink)', marginTop: 4 }}><span>Итого по услуге</span><span>{ocMoney(c.total, s.currency)}</span></div>
+      {fin && (
+        <>
+          <div className="off-price-line" style={{ marginTop: 8 }}><span>Оплачено по операции</span><span style={{ color: 'var(--green)' }}>{ocMoney(fin.paid || 0, fin.currency || s.currency)}</span></div>
+          <div className="off-price-line"><span>Задолженность</span><span style={{ color: fin.debt ? 'var(--red)' : 'var(--muted)' }}>{ocMoney(fin.debt || 0, fin.currency || s.currency)}</span></div>
+          <div className="off-price-line"><span>Маржа агентства</span><span style={{ color: 'var(--green)' }}>{ocMoney(fin.margin || fin.commission || 0, fin.currency || s.currency)}</span></div>
+        </>
+      )}
     </div>
   );
 }
 
 /* scenario card: either a filled service (with status/supplier/calc) or an empty "Подобрать" prompt */
-function ScenarioCard({ kind, items, onPick, onOpen }) {
+function ScenarioCard({ kind, items, onPick, onOpen, financeMeta, paxCount, isGroup }) {
   const k = SERVICE_KIND[kind];
   if (!items.length) {
     return (
@@ -415,33 +592,38 @@ function ScenarioCard({ kind, items, onPick, onOpen }) {
       </div>
     );
   }
-  return items.map((s) => (
-    <div className="card card-pad" key={s.id} style={{ marginBottom: 14 }}>
-      <div style={{ display: 'flex', alignItems: 'flex-start', gap: 16 }}>
-        <span className="oc-svc-ic" style={{ background: k.color }}><Icon name={k.icon} /></span>
-        <div style={{ flex: 1, minWidth: 0, cursor: 'pointer' }} onClick={() => onOpen(s)}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <span className="oc-svc-t">{s.title}</span>
-            <Pill tone={SERVICE_STATUS[s.status] || 'gray'}>{s.status}</Pill>
+  return items.map((s) => {
+    const displaySub = isGroup ? s.sub.replace(/\d+\s*пасс\./i, `${paxCount} пасс.`) : s.sub;
+    return (
+      <div className="card card-pad" key={s.id} style={{ marginBottom: 14 }}>
+        <div style={{ display: 'flex', alignItems: 'flex-start', gap: 16 }}>
+          <span className="oc-svc-ic" style={{ background: k.color }}><Icon name={k.icon} /></span>
+          <div style={{ flex: 1, minWidth: 0, cursor: 'pointer' }} onClick={() => onOpen(s)}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <span className="oc-svc-t">{s.title}</span>
+              <Pill tone={SERVICE_STATUS[s.status] || 'gray'}>{s.status}</Pill>
+            </div>
+            <div className="oc-svc-s">{displaySub}</div>
+            <div style={{ display: 'flex', gap: 18, marginTop: 8, flexWrap: 'wrap', fontSize: 12.5, color: 'var(--muted)' }}>
+              <span><Icon name="api" style={{ width: 12, height: 12, verticalAlign: -1 }} /> {s.supplier || '—'}</span>
+              <span><Icon name="users" style={{ width: 12, height: 12, verticalAlign: -1 }} /> {isGroup ? paxCount : (s.pax || paxCount)} пасс.</span>
+              <span><Icon name="calendar" style={{ width: 12, height: 12, verticalAlign: -1 }} /> {s.date}</span>
+            </div>
           </div>
-          <div className="oc-svc-s">{s.sub}</div>
-          <div style={{ display: 'flex', gap: 18, marginTop: 8, flexWrap: 'wrap', fontSize: 12.5, color: 'var(--muted)' }}>
-            <span><Icon name="api" style={{ width: 12, height: 12, verticalAlign: -1 }} /> {s.supplier || '—'}</span>
-            <span><Icon name="users" style={{ width: 12, height: 12, verticalAlign: -1 }} /> {s.pax || ORDER_PARTICIPANTS.length} пасс.</span>
-            <span><Icon name="calendar" style={{ width: 12, height: 12, verticalAlign: -1 }} /> {s.date}</span>
-          </div>
+          <Button variant="secondary" size="sm" icon="edit" onClick={onPick}>Изменить</Button>
         </div>
-        <Button variant="secondary" size="sm" icon="edit" onClick={onPick}>Изменить</Button>
+        <CalcLines s={s} fin={financeMeta} />
       </div>
-      <CalcLines s={s} />
-    </div>
-  ));
+    );
+  });
 }
 
-function TabServices({ services, onOpenAvia, onAddType, onOpenOther }) {
+function TabServices({ orderNo, services, participants, requestType, onOpenAvia, onAddType, onOpenOther, onStartBooking, onOpenParticipants }) {
   const extraServices = services.filter((s) => !SCENARIO_KINDS.includes(s.kind));
   const extraTypes = ADD_TYPES.filter((t) => !SCENARIO_KINDS.includes(t));
   const total = services.reduce((s, x) => s + svcCalc(x).total, 0);
+  const fin = financeSnapshot(orderNo, services);
+  const isGroup = requestType === 'Групповая';
   return (
     <div className="fade-in">
       <div style={{ display: 'flex', alignItems: 'center', marginBottom: 16 }}>
@@ -451,8 +633,11 @@ function TabServices({ services, onOpenAvia, onAddType, onOpenOther }) {
           items={extraTypes.map((t) => ({ icon: SERVICE_KIND[t].icon, label: t, onClick: () => onAddType(t) }))} />
       </div>
 
+      <PassengerScenarioCard participants={participants} isGroup={isGroup} onOpenParticipants={onOpenParticipants} />
+
       {SCENARIO_KINDS.map((kind) => (
         <ScenarioCard key={kind} kind={kind} items={services.filter((s) => s.kind === kind)}
+          financeMeta={fin.byKind[kind]} paxCount={participants.length} isGroup={isGroup}
           onPick={() => onAddType(kind)} onOpen={(s) => kind === 'Авиа' ? onOpenAvia(s) : onOpenOther(s)} />
       ))}
 
@@ -476,6 +661,9 @@ function TabServices({ services, onOpenAvia, onAddType, onOpenOther }) {
           </div>
         );
       })}
+
+      <ExtrasByPassengerCard isGroup={isGroup} />
+      <BookingFlowCard onStart={onStartBooking} />
     </div>
   );
 }
@@ -740,7 +928,9 @@ function OrderCard({ order, onBack, initTab, initSvcSearch, fresh }) {
     if (svcView === 'avia-card') return <FlightCard svc={activeAvia} offer={activeAvia ? activeAvia.offer : null} onBack={() => setSvcView(null)} />;
     if (svcView === 'svc-add') return <ServiceAddFlow routeKey={addRoute} onAdd={addSvcOffer} onCancel={() => setSvcView(null)} />;
     if (svcView === 'svc-card') return <SvcCard item={activeSvc} kind={activeSvc.kind} onBack={() => setSvcView(null)} />;
-    return <TabServices services={services}
+    return <TabServices orderNo={order.no} services={services} participants={participants} requestType={requestType}
+      onOpenParticipants={() => setTab('participants')}
+      onStartBooking={() => setSvcView('booking')}
       onAddType={goAddType}
       onOpenAvia={(s) => { const match = AIR_SERVICES.find((a) => a.no === s.avia) || { no: s.avia || s.id, airline: (s.offer ? s.offer.airline : 'KC'), status: s.status, supplier: s.supplier, pax: 2, sum: s.sum, currency: s.currency, route: s.title, pnr: '—', ticket: '—', dep: s.date }; setActiveAvia(s.offer ? { ...match, offer: s.offer } : match); setSvcView('avia-card'); }}
       onOpenOther={(s) => { if (s.svcOffer) { setActiveSvc({ ...s.svcOffer, kind: s.kind, status: s.status }); setSvcView('svc-card'); } else { setOtherSvc(s); } }} />;
@@ -837,7 +1027,7 @@ function OrderCard({ order, onBack, initTab, initSvcSearch, fresh }) {
             )}
             {tabContent()}
           </div>
-          {!['avia-picker', 'booking'].includes(svcView) && <OrderAside services={services} onOpenFinance={() => setTab('finance')} onOpenTasks={() => toast('Список задач по заказу', 'info')} />}
+          {!['avia-picker', 'booking'].includes(svcView) && <OrderAside order={order} services={services} participants={participants} onOpenFinance={() => setTab('finance')} onOpenTasks={() => toast('Список задач по заказу', 'info')} />}
         </div>
       </div>
 
@@ -872,6 +1062,7 @@ function OrderCard({ order, onBack, initTab, initSvcSearch, fresh }) {
             <div className="kv-row"><span className="k">Даты</span><span className="v">{otherSvc.date}</span></div>
             <div className="kv-row"><span className="k">Статус</span><span className="v"><Pill tone={SERVICE_STATUS[otherSvc.status]}>{otherSvc.status}</Pill></span></div>
             <div className="kv-row"><span className="k">Стоимость</span><span className="v">{ocMoney(otherSvc.sum, otherSvc.currency)}</span></div>
+            {!!otherSvc.calc && <div className="kv-row"><span className="k">Расчёт</span><span className="v">{ocMoney(otherSvc.calc.tariff || 0, otherSvc.currency)} + {ocMoney(otherSvc.calc.fee || 0, otherSvc.currency)} сервис</span></div>}
           </div>
         )}
       </Drawer>

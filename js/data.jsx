@@ -530,6 +530,32 @@ const GROUP_PAX = [
   { name: 'Маматов Темир',       role: 'Ребёнок',  doc: 'ID AC9945623', docStatus: 'check' },
   { name: 'Алиева Асель',        role: 'Взрослый', doc: 'ID AC1056734', docStatus: 'ok' },
 ];
+const ORDER_GROUPS = [
+  { id: 'grp-1', name: 'Руководство', type: 'Отдел', pax: 4, policy: 'Бизнес-класс', ready: 4, issues: 0 },
+  { id: 'grp-2', name: 'Маркетинг', type: 'Отдел', pax: 8, policy: 'Эконом', ready: 7, issues: 1 },
+  { id: 'grp-3', name: 'Сопровождение', type: 'Группа', pax: 8, policy: 'Эконом + багаж', ready: 7, issues: 1 },
+];
+const ORDER_SERVICE_EXTRAS = {
+  summary: [
+    { key: 'seats', label: 'Места', value: '18 назначено, 2 требуют выбора', icon: 'briefcase' },
+    { key: 'baggage', label: 'Багаж', value: '14 c багажом, 6 без багажа', icon: 'luggage' },
+    { key: 'meal', label: 'Питание', value: '6 спецпитаний, 14 стандарт', icon: 'docs' },
+    { key: 'insurance', label: 'Страхование', value: '20 полисов, 3 тарифа', icon: 'idcard' },
+  ],
+  passengers: [
+    { name: 'Нуралиев Данияр', group: 'Руководство', fare: 'Бизнес Flex', seat: '2A', baggage: '2x23 кг', meal: 'Вегетарианское', insurance: 'Premium' },
+    { name: 'Каримов Икрам', group: 'Руководство', fare: 'Бизнес Flex', seat: '2C', baggage: '2x23 кг', meal: 'Стандарт', insurance: 'Premium' },
+    { name: 'Жумабекова Назгуль', group: 'Маркетинг', fare: 'Эконом Optimum', seat: '14A', baggage: '1x23 кг', meal: 'Стандарт', insurance: 'Standard' },
+    { name: 'Касымова Чолпон', group: 'Сопровождение', fare: 'Эконом Light', seat: 'не выбрано', baggage: 'без багажа', meal: 'Детское', insurance: 'Standard', issue: true },
+  ],
+};
+const ORDER_BOOKING_FLOW = [
+  { key: 'method', label: 'Способ бронирования', note: 'Индивидуальный и групповой сценарий доступны', status: 'done' },
+  { key: 'launch', label: 'Запуск бронирования', note: 'Запросы к Air Astana, Booking B2B и Karimov Transfer готовы', status: 'done' },
+  { key: 'supplier', label: 'Ответы поставщиков', note: '2 ответа получены, трансфер ожидает подтверждения', status: 'current' },
+  { key: 'confirm', label: 'Подтверждение услуг', note: 'После проверки тарифов и документов', status: 'pending' },
+  { key: 'issue', label: 'Выписка и оплата', note: 'Выписка, сбор документов и закрытие долга', status: 'pending' },
+];
 // member indices reference GROUP_PAX positions; fare references AVIA_FARE_TIERS ids
 const AVIA_GROUPS_SEED = [
   { id: 'g1', name: 'Руководство', desc: 'Топ-менеджмент, бизнес-класс', fare: 'max',     members: [0, 1, 2, 3] },
@@ -843,7 +869,7 @@ Object.assign(window, {
   AVIA_FARE_TIERS, AVIA_BAGGAGE_OPTIONS, AVIA_SPECIAL_BAGGAGE, AVIA_MEALS,
   AVIA_INSURANCE_PLANS, AVIA_INSURANCE_INCLUDES, AVIA_COMFORT_GROUPS, AVIA_SEATMAP,
   SERVICE_KIND, SERVICE_STATUS, ORDER_SERVICES, KP_STATUS, KP_STATUS_FLOW, PROPOSALS, ORDER_PARTICIPANTS, ORDER_TASKS,
-  GROUP_PAX, AVIA_GROUPS_SEED,
+  GROUP_PAX, ORDER_GROUPS, ORDER_SERVICE_EXTRAS, ORDER_BOOKING_FLOW, AVIA_GROUPS_SEED,
   ORDER_STAGES, FIN_OP_STATUS, FIN_OPS, DOC_KIND, DOC_STATUS2, DOCS2, FULFILLMENT,
   RETURN_FLOW, RETURN_STATUS, RETURN_TYPE, RETURNS,
   NOTIF_PRIORITY, NOTIF_PRIO_RANK, NOTIF_SOURCE, NOTIFICATIONS, NOTIF_SETTINGS,
