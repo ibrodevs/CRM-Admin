@@ -49,12 +49,32 @@ function BwSvc({ s, status, tone, right }) {
   );
 }
 
+/* synthesize a КП-shaped proposal from the booking's services so the existing branded
+   KPPreviewDoc (firm letterhead + price breakdown) can render it as a downloadable offer —
+   this is the "convert supplier blank into our branded offer" step. */
+function offerFromServices(order, services, total, fee, rec) {
+  const rubOf = (n, s) => (s.currency === 'USD' || s.currency === '$') ? n * 90 : n;
+  const items = services.map((s) => { const c = svcCalc(s); const feeRub = rubOf(c.fee || 0, s); return { id: s.id, kind: s.kind, title: s.title, sub: s.sub, cost: bwRub(s) - feeRub, fee: feeRub }; });
+  if (rec) items.push({ id: 'extra', kind: 'Группа', title: 'Доп. услуги и страхование', sub: 'Рекомендованный пакет', cost: 61000, fee: 0 });
+  const now = new Date();
+  const p = (n) => String(n).padStart(2, '0');
+  return {
+    id: 'ПРЕД-' + (order ? order.no : '0000'), client: order ? order.client : '—', order: order ? order.no : 0,
+    created: `${p(now.getDate())}.${p(now.getMonth() + 1)}.${now.getFullYear()}`,
+    validUntil: `${p(now.getDate())}.${p(now.getMonth() + 1)}.${now.getFullYear()}`,
+    currency: '₽', approvedVariant: null,
+    variants: [{ id: 'v1', name: rec ? 'Расширенный вариант' : 'Базовый вариант', items }],
+  };
+}
+
 function BookingWizard({ order, services, onClose, onComplete }) {
   const toast = useToast();
   const [step, setStep] = useState(0);
   const [method, setMethod] = useState('ind');
   const [pay, setPay] = useState('invoice');
   const [histOpen, setHistOpen] = useState(false);
+  const [supportOpen, setSupportOpen] = useState(false);
+  const [offerPreview, setOfferPreview] = useState(null); // { rec: bool } | null
 
   const STEPS = ['Выбор варианта', 'Запуск', 'Получение ответов', 'Подтверждение', 'Формирование КП', 'Выписка и оплата', 'Завершение'];
   const total = services.reduce((a, s) => a + bwRub(s), 0);
@@ -116,6 +136,7 @@ function BookingWizard({ order, services, onClose, onComplete }) {
           <div style={{ display: 'flex', alignItems: 'center', marginBottom: 14 }}>
             <div className="section-title" style={{ fontSize: 18 }}>Получение ответов от поставщиков</div>
             <div style={{ flex: 1 }} />
+            <Button variant="secondary" size="sm" icon="chat" onClick={() => setSupportOpen(true)}>Написать в поддержку</Button>
             <Button variant="secondary" size="sm" icon="clock" onClick={() => setHistOpen(true)}>История запросов</Button>
           </div>
           {services.map((s, i) => { const v = svcView(s, i); return (
@@ -147,6 +168,7 @@ function BookingWizard({ order, services, onClose, onComplete }) {
                 {services.map((s) => <div key={s.id} className="kv-row"><span className="k">{s.title}</span><span className="v">{ocMoney(s.sum, s.currency)}</span></div>)}
                 {rec && <div className="kv-row"><span className="k">Доп. услуги и страхование</span><span className="v" style={{ color: 'var(--green)' }}>+ 61 000 ₽</span></div>}
                 <div className="kv-row" style={{ borderBottom: 'none' }}><span className="k" style={{ fontWeight: 700, color: 'var(--ink)' }}>Итого</span><span className="v" style={{ fontSize: 18 }}>{bwMoney(sum)}</span></div>
+                <Button variant="secondary" size="sm" icon="eye" className="btn-block" style={{ marginTop: 12 }} onClick={() => setOfferPreview({ rec })}>Просмотр предложения</Button>
               </div>
             ))}
           </div>
@@ -284,8 +306,34 @@ function BookingWizard({ order, services, onClose, onComplete }) {
           ))}
         </div>
       </Drawer>
+
+      {/* support / supplier chat — "Написать в поддержку" */}
+      <Drawer open={supportOpen} onClose={() => setSupportOpen(false)} title="Поддержка">
+        <div style={{ height: 560, display: 'flex', flexDirection: 'column', overflow: 'hidden', margin: '-28px -32px' }}>
+          {order && <ChatThread thread={getThreadForOrder(order)} embedded initChannel="supplier" />}
+        </div>
+      </Drawer>
+
+      {/* branded offer preview — converts the supplier blanks into our letterhead document */}
+      <Modal open={!!offerPreview} onClose={() => setOfferPreview(null)}>
+        {offerPreview && (() => {
+          const offer = offerFromServices(order, services, total, fee, offerPreview.rec);
+          return (
+            <div style={{ padding: '24px 26px' }}>
+              <ModalHeader title="Предложение для клиента" sub={offer.id} onClose={() => setOfferPreview(null)} />
+              <div style={{ background: 'var(--surface-2)', padding: 20, borderRadius: 14 }}>
+                <KPPreviewDoc proposal={offer} />
+              </div>
+              <div className="modal-actions">
+                <Button variant="secondary" icon="download" onClick={() => toast('PDF скачан', 'ok')}>Скачать PDF</Button>
+                <Button icon="send" onClick={() => { toast('Предложение отправлено клиенту', 'ok'); setOfferPreview(null); }}>Отправить клиенту</Button>
+              </div>
+            </div>
+          );
+        })()}
+      </Modal>
     </div>
   );
 }
 
-Object.assign(window, { BookingWizard });
+Object.assign(window, { BookingWizard, offerFromServices });

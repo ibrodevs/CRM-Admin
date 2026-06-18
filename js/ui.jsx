@@ -51,12 +51,12 @@ function Pill({ tone = 'gray', children }) {
 }
 
 /* ---------- Toggle / Checkbox / Radio ---------- */
-function Toggle({ on, onChange }) {
-  return <button type="button" className={'toggle' + (on ? ' on' : '')} onClick={() => onChange(!on)} />;
+function Toggle({ on, onChange, style }) {
+  return <button type="button" className={'toggle' + (on ? ' on' : '')} style={style} onClick={() => onChange(!on)} />;
 }
-function Checkbox({ on, onChange }) {
+function Checkbox({ on, onChange, style }) {
   return (
-    <button type="button" className={'checkbox' + (on ? ' on' : '')} onClick={() => onChange(!on)}>
+    <button type="button" className={'checkbox' + (on ? ' on' : '')} style={style} onClick={() => onChange(!on)}>
       {on && <Icon name="check" strokeWidth={3} />}
     </button>
   );

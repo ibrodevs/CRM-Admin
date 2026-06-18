@@ -20,16 +20,16 @@ function getThreadForOrder(order) {
 }
 
 /* ---------- reusable conversation panel ---------- */
-function ChatThread({ thread, embedded, onOpenOrder }) {
+function ChatThread({ thread, embedded, onOpenOrder, initChannel = 'client' }) {
   const toast = useToast();
-  const [channel, setChannel] = useState('client');
+  const [channel, setChannel] = useState(initChannel);
   const [chans, setChans] = useState(thread.channels);
   const [unread, setUnread] = useState(thread.unread || {});
   const [draft, setDraft] = useState('');
   const scrollRef = useRef(null);
 
   // reset when switching to a different thread
-  useEffect(() => { setChans(thread.channels); setUnread(thread.unread || {}); setChannel('client'); }, [thread.id]);
+  useEffect(() => { setChans(thread.channels); setUnread(thread.unread || {}); setChannel(initChannel); }, [thread.id]);
   useEffect(() => { if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight; }, [channel, chans]);
 
   const msgs = chans[channel] || [];

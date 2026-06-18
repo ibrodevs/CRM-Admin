@@ -725,13 +725,16 @@ table.tbl tbody tr:last-child td{border-bottom:none}
 .oce-add{width:100%;display:flex;align-items:center;justify-content:center;gap:8px;padding:11px;border:1px dashed var(--field-line);border-radius:12px;background:none;color:var(--blue);font:inherit;font-weight:600;cursor:pointer;transition:.14s}
 .oce-add:hover{background:var(--blue-soft);border-color:var(--blue)}
 .oce-route-row{display:flex;align-items:center;gap:9px;margin-bottom:10px}
+.oce-route-row.dragging{opacity:.4}
 .oce-route-row .idx{width:22px;height:22px;border-radius:50%;background:var(--surface-2);color:var(--muted);font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center;flex:0 0 22px}
+.oce-drag-handle{display:flex;align-items:center;justify-content:center;width:18px;height:26px;flex:0 0 18px;color:var(--muted-2);cursor:grab}
+.oce-drag-handle:active{cursor:grabbing}
 .oce-city{flex:1;min-width:0;display:flex;align-items:center;gap:9px;border:1px solid var(--field-line);border-radius:var(--r-input);padding:10px 12px;cursor:pointer;background:#fff;font-size:14px;transition:.14s}
 .oce-city:hover{border-color:var(--blue)}
 .oce-city svg{width:16px;height:16px;color:var(--muted-2);flex:0 0 16px}
 .oce-city .ph{color:var(--faint)}
 .oce-svc-grid{display:grid;grid-template-columns:1fr 1fr;gap:11px 20px}
-.oce-svc-grid label{display:flex;align-items:center;gap:10px;cursor:pointer;font-size:14.5px;color:var(--body)}
+.oce-svc-grid>div{display:flex;align-items:center;gap:10px;cursor:pointer;font-size:14.5px;color:var(--body)}
 /* popular city chips */
 .city-chip{display:inline-flex;align-items:center;gap:7px;padding:8px 13px;border:1px solid var(--line);border-radius:999px;background:#fff;cursor:pointer;font-size:13.5px;font-weight:500;color:var(--ink);transition:.14s}
 .city-chip:hover{border-color:var(--blue);background:var(--blue-soft)}

@@ -59,30 +59,39 @@ function AirportField({ label, value, onChange, placeholder = 'Город или
 }
 
 /* ---------- passengers + cabin popover ---------- */
-function PaxField({ pax, setPax, cabin, setCabin }) {
+const PAX_DEFAULT_OPTIONS = { sameClass: true, allowDiffClasses: false, seekSubsidized: false, seekGroupFares: false };
+
+function paxTotal(pax) { return pax.adt + pax.chd + pax.infNoSeat + pax.infSeat; }
+
+function PaxField({ pax, setPax, cabin, setCabin, options = PAX_DEFAULT_OPTIONS, setOptions }) {
   const [open, setOpen] = useState(false);
+  const [specialOpen, setSpecialOpen] = useState(false);
   const ref = useRef(null);
   useEffect(() => {
     const h = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); };
     document.addEventListener('mousedown', h);
     return () => document.removeEventListener('mousedown', h);
   }, []);
-  const total = pax.adt + pax.chd + pax.inf;
+  const total = paxTotal(pax);
   const plural = (n) => n === 1 ? 'пассажир' : (n < 5 ? 'пассажира' : 'пассажиров');
-  const Step = ({ label, sub, k, min = 0 }) => (
+  const specialCount = Object.values(pax.special || {}).reduce((a, n) => a + (n || 0), 0)
+    + Object.values(pax.subsidized || {}).reduce((a, n) => a + (n || 0), 0);
+  const Step = ({ label, sub, val, set, min = 0 }) => (
     <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 0' }}>
       <div style={{ flex: 1 }}>
         <div style={{ fontWeight: 600, fontSize: 14.5 }}>{label}</div>
-        <div style={{ fontSize: 12.5, color: 'var(--muted)' }}>{sub}</div>
+        {sub && <div style={{ fontSize: 12.5, color: 'var(--muted)' }}>{sub}</div>}
       </div>
-      <button className="btn btn-secondary btn-icon btn-sm" disabled={pax[k] <= min}
-        onClick={() => setPax({ ...pax, [k]: pax[k] - 1 })}>−</button>
-      <span style={{ width: 22, textAlign: 'center', fontWeight: 700 }}>{pax[k]}</span>
-      <button className="btn btn-secondary btn-icon btn-sm" onClick={() => setPax({ ...pax, [k]: pax[k] + 1 })}>+</button>
+      <button className="btn btn-secondary btn-icon btn-sm" disabled={val <= min} onClick={() => set(val - 1)}>−</button>
+      <span style={{ width: 22, textAlign: 'center', fontWeight: 700 }}>{val}</span>
+      <button className="btn btn-secondary btn-icon btn-sm" onClick={() => set(val + 1)}>+</button>
     </div>
   );
+  const setBase = (k, min = 0) => (v) => setPax({ ...pax, [k]: Math.max(min, v) });
+  const setSpecial = (group, k) => (v) => setPax({ ...pax, [group]: { ...(pax[group] || {}), [k]: Math.max(0, v) } });
+  const opt = (k) => (e) => setOptions && setOptions({ [k]: e.target ? e.target.checked : e });
   return (
-    <div className="av-field" style={{ position: 'relative', width: 210 }} ref={ref}>
+    <div className="av-field" style={{ position: 'relative', width: 230 }} ref={ref}>
       <span className="label">Пассажиры и класс</span>
       <div className="input" style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 9 }} onClick={() => setOpen((o) => !o)}>
         <Icon name="users" style={{ width: 17, height: 17, color: 'var(--muted-2)', flexShrink: 0 }} />
@@ -90,10 +99,39 @@ function PaxField({ pax, setPax, cabin, setCabin }) {
         <Icon name="chevDown" style={{ width: 16, height: 16, color: 'var(--muted-2)' }} />
       </div>
       {open && (
-        <div className="dropdown" style={{ top: 74, left: 0, width: 280, padding: 14 }}>
-          <Step label="Взрослые" sub="12 лет и старше" k="adt" min={1} />
-          <Step label="Дети" sub="2–11 лет" k="chd" />
-          <Step label="Младенцы" sub="до 2 лет" k="inf" />
+        <div className="dropdown scroll" style={{ top: 74, left: 0, width: 320, maxHeight: 520, overflowY: 'auto', padding: 14 }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
+            <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--ink)', textTransform: 'uppercase', letterSpacing: '.02em' }}>Пассажиры</span>
+            <Pill tone="blue">Всего {total}</Pill>
+          </div>
+          <Step label="Взрослые" sub="от 12 лет" val={pax.adt} set={setBase('adt', 1)} min={1} />
+          <Step label="Дети" sub="2–11 лет" val={pax.chd} set={setBase('chd')} />
+          <Step label="Младенцы без места" sub="до 2 лет" val={pax.infNoSeat} set={setBase('infNoSeat')} />
+          <Step label="Младенцы с местом" sub="до 2 лет" val={pax.infSeat} set={setBase('infSeat')} />
+
+          <button className="dropdown-sep" style={{ width: '100%', border: 'none', background: 'none', padding: 0, margin: '10px 0', cursor: 'pointer' }}
+            onClick={() => setSpecialOpen((o) => !o)}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderTop: '1px solid var(--line)', paddingTop: 12 }}>
+              <span style={{ display: 'flex', alignItems: 'center', gap: 8, fontWeight: 600, color: 'var(--ink)', fontSize: 14 }}>
+                <Icon name="plus" style={{ width: 14, height: 14 }} />Специальные категории{specialCount > 0 && <span className="tab-count">{specialCount}</span>}
+              </span>
+              <Icon name={specialOpen ? 'chevUp' : 'chevDown'} style={{ width: 16, height: 16, color: 'var(--muted-2)' }} />
+            </div>
+          </button>
+
+          {specialOpen && (
+            <>
+              <div style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--muted)', margin: '4px 0 2px' }}>Льготные категории</div>
+              {SPECIAL_PAX_CATEGORIES.map((c) => (
+                <Step key={c.key} label={c.label} val={(pax.special || {})[c.key] || 0} set={setSpecial('special', c.key)} />
+              ))}
+              <div style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--muted)', margin: '10px 0 2px' }}>Субсидированные программы</div>
+              {SUBSIDIZED_PAX_PROGRAMS.map((c) => (
+                <Step key={c.key} label={c.label} val={(pax.subsidized || {})[c.key] || 0} set={setSpecial('subsidized', c.key)} />
+              ))}
+            </>
+          )}
+
           <div className="dropdown-sep" />
           <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--ink)', margin: '8px 0' }}>Класс обслуживания</div>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
@@ -101,6 +139,23 @@ function PaxField({ pax, setPax, cabin, setCabin }) {
               <button key={c} className={'tab' + (cabin === c ? ' active' : '')} style={{ justifyContent: 'center' }}
                 onClick={() => setCabin(c)}>{c}</button>
             ))}
+          </div>
+
+          <div className="dropdown-sep" />
+          <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--ink)', margin: '8px 0' }}>Дополнительные параметры</div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            <label style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer', fontSize: 13.5 }}>
+              <Checkbox on={options.sameClass} onChange={() => setOptions && setOptions({ sameClass: !options.sameClass })} />Все пассажиры одного класса
+            </label>
+            <label style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer', fontSize: 13.5 }}>
+              <Checkbox on={options.allowDiffClasses} onChange={() => setOptions && setOptions({ allowDiffClasses: !options.allowDiffClasses })} />Разрешить разные классы
+            </label>
+            <label style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer', fontSize: 13.5 }}>
+              <Checkbox on={options.seekSubsidized} onChange={() => setOptions && setOptions({ seekSubsidized: !options.seekSubsidized })} />Подобрать субсидированные тарифы
+            </label>
+            <label style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer', fontSize: 13.5 }}>
+              <Checkbox on={options.seekGroupFares} onChange={() => setOptions && setOptions({ seekGroupFares: !options.seekGroupFares })} />Искать групповые тарифы авиакомпаний
+            </label>
           </div>
         </div>
       )}
@@ -130,17 +185,19 @@ function FlightSearch({ params, setParams, onSearch, onBack }) {
         <AirportField label="Откуда" value={p.from} onChange={(v) => set({ from: v })} />
         <button className="av-swap" onClick={swap} title="Поменять местами"><Icon name="swap" style={{ width: 20, height: 20 }} /></button>
         <AirportField label="Куда" value={p.to} onChange={(v) => set({ to: v })} />
-        <div className="av-field" style={{ width: 156 }}>
-          <span className="label">Дата вылета</span>
-          <DateField value={p.depDate} onChange={(d) => set({ depDate: d })} placeholder="Выбрать" />
-        </div>
-        {p.trip === 'rt' && (
+        {p.trip === 'rt' ? (
+          <div className="av-field" style={{ width: 230 }}>
+            <span className="label">Даты поездки</span>
+            <DateRangeField startVal={p.depDate} endVal={p.retDate} onChange={(s, e) => set({ depDate: s, retDate: e })} placeholder="Туда — обратно" />
+          </div>
+        ) : (
           <div className="av-field" style={{ width: 156 }}>
-            <span className="label">Дата возврата</span>
-            <DateField value={p.retDate} onChange={(d) => set({ retDate: d })} placeholder="Выбрать" />
+            <span className="label">Дата вылета</span>
+            <DateField value={p.depDate} onChange={(d) => set({ depDate: d })} placeholder="Выбрать" />
           </div>
         )}
-        <PaxField pax={p.pax} setPax={(v) => set({ pax: v })} cabin={p.cabin} setCabin={(v) => set({ cabin: v })} />
+        <PaxField pax={p.pax} setPax={(v) => set({ pax: v })} cabin={p.cabin} setCabin={(v) => set({ cabin: v })}
+          options={p} setOptions={(patch) => set(patch)} />
         <Button icon="search" style={{ height: 46, marginBottom: 0 }} onClick={onSearch}>Найти билеты</Button>
       </div>
 
@@ -334,7 +391,7 @@ function FlightResults({ params, onSelect, onBackToSearch }) {
         <Button variant="secondary" size="sm" icon="chevLeft" onClick={onBackToSearch}>Изменить поиск</Button>
         <div style={{ fontWeight: 600, color: 'var(--ink)' }}>{fromCity} → {toCity}</div>
         <span className="pill pill-gray">{params.depDate ? fmtDate(params.depDate) : '24.06'}{params.trip === 'rt' ? ' — ' + (params.retDate ? fmtDate(params.retDate) : '01.07') : ''}</span>
-        <span style={{ color: 'var(--muted)', fontSize: 14 }}>{params.pax.adt + params.pax.chd + params.pax.inf} пасс. · {params.cabin}</span>
+        <span style={{ color: 'var(--muted)', fontSize: 14 }}>{paxTotal(params.pax)} пасс. · {params.cabin}</span>
       </div>
 
       <div style={{ display: 'flex', gap: 22, alignItems: 'flex-start' }}>
@@ -651,8 +708,9 @@ function FlightsPage() {
   const toast = useToast();
   const [params, setParams] = useState({
     trip: 'rt', from: 'FRU', to: 'IST', depDate: null, retDate: null,
-    pax: { adt: 1, chd: 0, inf: 0 }, cabin: 'Эконом',
+    pax: { adt: 1, chd: 0, infNoSeat: 0, infSeat: 0, special: {}, subsidized: {} }, cabin: 'Эконом',
     baggage: false, flex: false, direct: false, airline: '',
+    ...PAX_DEFAULT_OPTIONS,
   });
 
   const TITLES = { registry: 'Авиабилеты', search: 'Поиск авиабилетов', results: 'Результаты поиска', card: 'Авиауслуга' };
@@ -684,4 +742,4 @@ function FlightsPage() {
   );
 }
 
-Object.assign(window, { FlightsPage, AirlineLogo, FlightSearch, FlightResults, FlightCard });
+Object.assign(window, { FlightsPage, AirlineLogo, FlightSearch, FlightResults, FlightCard, paxTotal, PAX_DEFAULT_OPTIONS });

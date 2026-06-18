@@ -233,6 +233,23 @@ const AIR_STATUS = {
 
 const CABIN_CLASSES = ['Эконом', 'Комфорт', 'Бизнес', 'Первый'];
 
+// Discount / subsidized passenger categories shown under "Специальные категории"
+// in the avia passengers-and-class popover.
+const SPECIAL_PAX_CATEGORIES = [
+  { key: 'youth',          label: 'Молодёжь (12–23 года)' },
+  { key: 'seniorM',        label: 'Пенсионеры мужчины (60+)' },
+  { key: 'seniorF',        label: 'Пенсионеры женщины (55+)' },
+  { key: 'largeFamily',    label: 'Многодетные семьи' },
+  { key: 'disabled',       label: 'Инвалиды' },
+  { key: 'disabledEscort', label: 'Инвалиды с сопровождением' },
+];
+const SUBSIDIZED_PAX_PROGRAMS = [
+  { key: 'dvoResident', label: 'Резиденты ДВО' },
+  { key: 'dvoChild',    label: 'Дети ДВО' },
+  { key: 'kldResident', label: 'Резиденты Калининградской области' },
+  { key: 'kldChild',    label: 'Дети Калининградской области' },
+];
+
 // Airport directory for the autocomplete
 const AIRPORTS = [
   { code: 'FRU', city: 'Бишкек',     name: 'Манас',              country: 'Кыргызстан' },
@@ -429,9 +446,12 @@ const SERVICE_STATUS = {
 };
 
 const ORDER_SERVICES = [
-  { id: 'S1', kind: 'Авиа',      title: 'FRU → IST → FRU',       sub: 'Air Astana · KC 131/132 · 2 пасс.', status: 'Выписано',      sum: 1720, currency: 'USD', date: '24.06 – 01.07', avia: 'AV-51162', supplier: 'Air Astana (API)' },
-  { id: 'S2', kind: 'Гостиница', title: 'Hilton Istanbul · 4★',  sub: 'Standard Double · 7 ночей · BB',     status: 'Забронировано', sum: 980,  currency: 'USD', date: '24.06 – 01.07', supplier: 'Booking B2B' },
-  { id: 'S3', kind: 'Трансфер',  title: 'IST → Hilton Istanbul', sub: 'Минивэн · 2 чел · встреча с табличкой', status: 'Подтверждено', sum: 60,  currency: 'USD', date: '24.06', supplier: 'Karimov Transfer' },
+  { id: 'S1', kind: 'Авиа',      title: 'FRU → IST → FRU',       sub: 'Air Astana · KC 131/132 · 2 пасс.', status: 'Выписано',      sum: 1720, currency: 'USD', date: '24.06 – 01.07', avia: 'AV-51162', supplier: 'Air Astana (API)', pax: 2,
+    calc: { tariff: 1280, taxes: 216, fee: 80, commission: 144, total: 1720 } },
+  { id: 'S2', kind: 'Гостиница', title: 'Hilton Istanbul · 4★',  sub: 'Standard Double · 7 ночей · BB',     status: 'Забронировано', sum: 980,  currency: 'USD', date: '24.06 – 01.07', supplier: 'Booking B2B', pax: 2,
+    calc: { tariff: 910, taxes: 0, fee: 40, commission: 30, total: 980 } },
+  { id: 'S3', kind: 'Трансфер',  title: 'IST → Hilton Istanbul', sub: 'Минивэн · 2 чел · встреча с табличкой', status: 'Подтверждено', sum: 60,  currency: 'USD', date: '24.06', supplier: 'Karimov Transfer', pax: 2,
+    calc: { tariff: 48, taxes: 0, fee: 6, commission: 6, total: 60 } },
 ];
 
 // Commercial proposals (КП). A proposal belongs to an order and holds several variants;
@@ -481,34 +501,34 @@ const PROPOSALS = [
 ];
 
 const ORDER_PARTICIPANTS = [
-  { name: 'Нуралиев Данияр',  role: 'Взрослый', doc: 'ID AC1234567', dob: '14.03.1990', phone: '+996 700 123 456', lead: true },
-  { name: 'Нуралиева Айгерим', role: 'Взрослый', doc: 'ID AC7654321', dob: '02.08.1992', phone: '+996 700 765 432' },
-  { name: 'Нуралиев Эмир',    role: 'Ребёнок',  doc: 'ID AC9911223', dob: '11.05.2017', phone: '—' },
+  { name: 'Нуралиев Данияр',  role: 'Взрослый', doc: 'ID AC1234567', dob: '14.03.1990', phone: '+996 700 123 456', lead: true, docStatus: 'ok' },
+  { name: 'Нуралиева Айгерим', role: 'Взрослый', doc: 'ID AC7654321', dob: '02.08.1992', phone: '+996 700 765 432', docStatus: 'ok' },
+  { name: 'Нуралиев Эмир',    role: 'Ребёнок',  doc: 'ID AC9911223', dob: '11.05.2017', phone: '—', docStatus: 'check' },
 ];
 
 // ============ GROUP TRAVEL (4a — групповое бронирование) ============
 // Larger passenger roster used when an order is marked as a group trip.
 const GROUP_PAX = [
-  { name: 'Нуралиев Данияр',     role: 'Взрослый', doc: 'ID AC1234567' },
-  { name: 'Каримов Икрам',       role: 'Взрослый', doc: 'ID AC7766554' },
-  { name: 'Сагынбеков Бекзат',   role: 'Взрослый', doc: 'ID AC4455667' },
-  { name: 'Аттокуров Эрбол',     role: 'Взрослый', doc: 'ID AC9911223' },
-  { name: 'Жумабекова Назгуль',  role: 'Взрослый', doc: 'ID AC8877665' },
-  { name: 'Осмонова Айпери',     role: 'Взрослый', doc: 'ID AC5512347' },
-  { name: 'Мамытов Тилек',       role: 'Взрослый', doc: 'ID AC6623481' },
-  { name: 'Бакиров Адилет',      role: 'Взрослый', doc: 'ID AC7734512' },
-  { name: 'Эргешов Нурлан',      role: 'Взрослый', doc: 'ID AC8845623' },
-  { name: 'Кадырова Жанара',     role: 'Взрослый', doc: 'ID AC9956734' },
-  { name: 'Турдубаева Айгуль',   role: 'Взрослый', doc: 'ID AC1167845' },
-  { name: 'Сыдыков Эмир',        role: 'Взрослый', doc: 'ID AC2278956' },
-  { name: 'Абдыкеримов Руслан',  role: 'Взрослый', doc: 'ID AC3389067' },
-  { name: 'Исаева Динара',       role: 'Взрослый', doc: 'ID AC4490178' },
-  { name: 'Бейшеналиев Канат',   role: 'Взрослый', doc: 'ID AC5501289' },
-  { name: 'Орозова Бермет',      role: 'Взрослый', doc: 'ID AC6612390' },
-  { name: 'Жээнбеков Алмаз',     role: 'Взрослый', doc: 'ID AC7723401' },
-  { name: 'Касымова Чолпон',     role: 'Ребёнок',  doc: 'ID AC8834512' },
-  { name: 'Маматов Темир',       role: 'Ребёнок',  doc: 'ID AC9945623' },
-  { name: 'Алиева Асель',        role: 'Взрослый', doc: 'ID AC1056734' },
+  { name: 'Нуралиев Данияр',     role: 'Взрослый', doc: 'ID AC1234567', docStatus: 'ok' },
+  { name: 'Каримов Икрам',       role: 'Взрослый', doc: 'ID AC7766554', docStatus: 'ok' },
+  { name: 'Сагынбеков Бекзат',   role: 'Взрослый', doc: 'ID AC4455667', docStatus: 'ok' },
+  { name: 'Аттокуров Эрбол',     role: 'Взрослый', doc: 'ID AC9911223', docStatus: 'ok' },
+  { name: 'Жумабекова Назгуль',  role: 'Взрослый', doc: 'ID AC8877665', docStatus: 'ok' },
+  { name: 'Осмонова Айпери',     role: 'Взрослый', doc: 'ID AC5512347', docStatus: 'ok' },
+  { name: 'Мамытов Тилек',       role: 'Взрослый', doc: 'ID AC6623481', docStatus: 'ok' },
+  { name: 'Бакиров Адилет',      role: 'Взрослый', doc: 'ID AC7734512', docStatus: 'ok' },
+  { name: 'Эргешов Нурлан',      role: 'Взрослый', doc: 'ID AC8845623', docStatus: 'ok' },
+  { name: 'Кадырова Жанара',     role: 'Взрослый', doc: 'ID AC9956734', docStatus: 'ok' },
+  { name: 'Турдубаева Айгуль',   role: 'Взрослый', doc: 'ID AC1167845', docStatus: 'ok' },
+  { name: 'Сыдыков Эмир',        role: 'Взрослый', doc: 'ID AC2278956', docStatus: 'ok' },
+  { name: 'Абдыкеримов Руслан',  role: 'Взрослый', doc: 'ID AC3389067', docStatus: 'ok' },
+  { name: 'Исаева Динара',       role: 'Взрослый', doc: 'ID AC4490178', docStatus: 'ok' },
+  { name: 'Бейшеналиев Канат',   role: 'Взрослый', doc: 'ID AC5501289', docStatus: 'ok' },
+  { name: 'Орозова Бермет',      role: 'Взрослый', doc: 'ID AC6612390', docStatus: 'ok' },
+  { name: 'Жээнбеков Алмаз',     role: 'Взрослый', doc: 'ID AC7723401', docStatus: 'ok' },
+  { name: 'Касымова Чолпон',     role: 'Ребёнок',  doc: 'ID AC8834512', docStatus: 'check' },
+  { name: 'Маматов Темир',       role: 'Ребёнок',  doc: 'ID AC9945623', docStatus: 'check' },
+  { name: 'Алиева Асель',        role: 'Взрослый', doc: 'ID AC1056734', docStatus: 'ok' },
 ];
 // member indices reference GROUP_PAX positions; fare references AVIA_FARE_TIERS ids
 const AVIA_GROUPS_SEED = [
@@ -778,14 +798,48 @@ const COMPANIES_DB = [
   { id: 'CO-2005', name: 'ИП Мамажанов', type: 'Корпоративный клиент', status: 'Архив', inn: '21807199100123', okpo: '—', dir: 'Мамажанов Абдутаир', phone: '+996 555 111 000', email: 'mamajanov@mail.ru', addr: 'Джалал-Абад, ул. Ленина 5', bank: 'Айыл Банк', account: '1230000222333444', contract: '№ 2024-101 от 11.11.24', orders: 2, turnover: 3200, contacts: 1, vat: 'без НДС' },
 ];
 
+// Company staff directories, grouped by department (used by the "Создать заказ" employee
+// picker so an operator can pick a whole department / travel-policy group instead of
+// typing full names one by one).
+const COMPANY_STAFF = {
+  'CO-2001': {
+    departments: [
+      { id: 'd1', name: 'Руководство', policy: 'Бизнес-класс' },
+      { id: 'd2', name: 'Отдел продаж', policy: 'Эконом' },
+      { id: 'd3', name: 'Логистика', policy: 'Эконом' },
+    ],
+    employees: [
+      { id: 'E-101', name: 'Нуралиев Данияр',  phone: '+996 700 123 456', doc: 'ID AC1234567', dept: 'd1' },
+      { id: 'E-102', name: 'Нуралиева Айгерим', phone: '+996 700 765 432', doc: 'ID AC7654321', dept: 'd1' },
+      { id: 'E-103', name: 'Орозов Бакыт',      phone: '+996 700 111 222', doc: 'ID AC1112223', dept: 'd2' },
+      { id: 'E-104', name: 'Турдубекова Жаныл', phone: '+996 700 333 444', doc: 'ID AC3334445', dept: 'd2' },
+      { id: 'E-105', name: 'Асанов Тилек',      phone: '+996 700 555 666', doc: 'ID AC5556667', dept: 'd2' },
+      { id: 'E-106', name: 'Бекова Нурзат',     phone: '+996 700 777 888', doc: 'ID AC7778889', dept: 'd3' },
+      { id: 'E-107', name: 'Маматов Эрлан',      phone: '+996 700 999 000', doc: 'ID AC9990001', dept: 'd3' },
+    ],
+  },
+  'CO-2002': {
+    departments: [
+      { id: 'd1', name: 'Дирекция', policy: 'Бизнес-класс' },
+      { id: 'd2', name: 'Маркетинг', policy: 'Эконом' },
+    ],
+    employees: [
+      { id: 'E-201', name: 'Каримов Икрам',     phone: '+996 555 987 654', doc: 'ID AC7766554', dept: 'd1' },
+      { id: 'E-202', name: 'Сатарова Венера',   phone: '+996 555 222 333', doc: 'ID AC2223334', dept: 'd2' },
+      { id: 'E-203', name: 'Жолдошев Азамат',   phone: '+996 555 444 555', doc: 'ID AC4445556', dept: 'd2' },
+    ],
+  },
+};
+function companyStaff(companyId) { return COMPANY_STAFF[companyId] || { departments: [], employees: [] }; }
+
 Object.assign(window, {
   CURRENT_USER, ORDER_STATUS, SERVICE_TYPE, REQUEST_TYPE, SUPPLIER_STATUS,
   FIN_STATUS, DOC_STATUS, DOC_STAGE, DOC_TYPE, ORG_TYPE, CLIENTS, OPERATORS,
   ORDERS, SUPPLIERS, FINANCE, FIN_STATS, DOCUMENTS, CHATS, CHAT_CHANNELS, CHAT_THREADS, SVC_DATA,
-  CLIENT_STATUS, CLIENTS_DB, COMPANY_STATUS, COMPANIES_DB,
+  CLIENT_STATUS, CLIENTS_DB, COMPANY_STATUS, COMPANIES_DB, COMPANY_STAFF, companyStaff,
   USERS, USER_STATUS, ROLES, PERMISSIONS,
   DASH_STATS, ORDER_BREAKDOWN, RECENT_CHANGES, API_ACCESS, CURRENCIES,
-  AIRLINES, AIR_STATUS, CABIN_CLASSES, AIRPORTS, FLIGHT_OFFERS, AIR_SERVICES, AIR_STATS,
+  AIRLINES, AIR_STATUS, CABIN_CLASSES, SPECIAL_PAX_CATEGORIES, SUBSIDIZED_PAX_PROGRAMS, AIRPORTS, FLIGHT_OFFERS, AIR_SERVICES, AIR_STATS,
   AVIA_FARE_TIERS, AVIA_BAGGAGE_OPTIONS, AVIA_SPECIAL_BAGGAGE, AVIA_MEALS,
   AVIA_INSURANCE_PLANS, AVIA_INSURANCE_INCLUDES, AVIA_COMFORT_GROUPS, AVIA_SEATMAP,
   SERVICE_KIND, SERVICE_STATUS, ORDER_SERVICES, KP_STATUS, KP_STATUS_FLOW, PROPOSALS, ORDER_PARTICIPANTS, ORDER_TASKS,

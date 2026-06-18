@@ -291,10 +291,15 @@ function OrderCreateModal({ open, onClose, onCreated }) {
   const [clientQuery, setClientQuery] = useState('');
   const [selClients, setSelClients] = useState([CLIENTS_DB[0]]); // выбранные физлица
   const [company, setCompany] = useState(COMPANIES_DB[0]);
-  const [employees, setEmployees] = useState([CLIENTS_DB[0]]);   // сотрудники компании
+  const [companyQuery, setCompanyQuery] = useState('');
+  const [companyOpen, setCompanyOpen] = useState(false);
+  const [employees, setEmployees] = useState(companyStaff(COMPANIES_DB[0].id).employees.slice(0, 1)); // сотрудники компании
   // Section 3 — route
   const [trip, setTrip] = useState('rt'); // rt | ow | mc
   const [pts, setPts] = useState(['SVO', 'DXB']);
+  const [depDate, setDepDate] = useState(null);
+  const [retDate, setRetDate] = useState(null);
+  const [dragIdx, setDragIdx] = useState(null); // index of the route row being dragged
   // Section 4 — services
   const [svc, setSvc] = useState({});
   const [isGroup, setIsGroup] = useState(false); // групповая поездка
@@ -308,8 +313,8 @@ function OrderCreateModal({ open, onClose, onCreated }) {
   useEffect(() => {
     if (!open) return;
     setClientType('person'); setClientQuery('');
-    setSelClients([CLIENTS_DB[0]]); setCompany(COMPANIES_DB[0]); setEmployees([CLIENTS_DB[0]]);
-    setTrip('rt'); setPts(['SVO', 'DXB']); setSvc({}); setIsGroup(false);
+    setSelClients([CLIENTS_DB[0]]); setCompany(COMPANIES_DB[0]); setCompanyQuery(''); setCompanyOpen(false); setEmployees(companyStaff(COMPANIES_DB[0].id).employees.slice(0, 1));
+    setTrip('rt'); setPts(['SVO', 'DXB']); setDepDate(null); setRetDate(null); setSvc({}); setIsGroup(false);
     setCityPick(null); setDocFor(null); setBonusFor(null); setEmpPick(false);
   }, [open]);
 
@@ -320,6 +325,15 @@ function OrderCreateModal({ open, onClose, onCreated }) {
     window.addEventListener('keydown', h);
     return () => window.removeEventListener('keydown', h);
   }, [open]);
+
+  // close the company combobox when clicking outside of it
+  const companyRef = useRef(null);
+  useEffect(() => {
+    if (!companyOpen) return;
+    const h = (e) => { if (companyRef.current && !companyRef.current.contains(e.target)) setCompanyOpen(false); };
+    document.addEventListener('mousedown', h);
+    return () => document.removeEventListener('mousedown', h);
+  }, [companyOpen]);
 
   if (!open) return null;
 
@@ -363,11 +377,11 @@ function OrderCreateModal({ open, onClose, onCreated }) {
   const clientMatches = q ? CLIENTS_DB.filter((c) => !selClients.find((s) => s.id === c.id) &&
     (c.name.toLowerCase().includes(q) || c.phone.includes(q) || (c.doc || '').toLowerCase().includes(q))) : [];
 
-  const personMenu = (c) => [
+  const personMenu = (c, onRemove) => [
     { icon: 'docs', label: 'Добавить документ', onClick: () => setDocFor(c) },
     { icon: 'star', label: 'Бонусная карта', onClick: () => setBonusFor(c) },
     { sep: true },
-    { icon: 'trash', label: 'Убрать', danger: true, onClick: () => setSelClients((l) => l.filter((x) => x.id !== c.id)) },
+    { icon: 'trash', label: 'Убрать', danger: true, onClick: onRemove },
   ];
 
   /* ---- Section header ---- */
@@ -404,12 +418,13 @@ function OrderCreateModal({ open, onClose, onCreated }) {
                 <TypeCard iconName="building" label="Юридическое лицо" selected={clientType === 'org'} onClick={() => setClientType('org')} />
                 <TypeCard iconName="user" label="Физическое лицо" selected={clientType === 'person'} onClick={() => setClientType('person')} />
               </div>
-              <label style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer', marginTop: 12, padding: '11px 13px', border: '1px solid var(--line)', borderRadius: 11, background: isGroup ? 'var(--blue-soft)' : '#fff' }}>
+              <div role="button" tabIndex={0} onClick={() => setIsGroup((v) => !v)}
+                style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer', marginTop: 12, padding: '11px 13px', border: '1px solid var(--line)', borderRadius: 11, background: isGroup ? 'var(--blue-soft)' : '#fff' }}>
                 <Icon name="users" style={{ width: 18, height: 18, color: 'var(--blue)' }} />
                 <div style={{ flex: 1 }}><div style={{ fontWeight: 600, color: 'var(--ink)', fontSize: 14.5 }}>Групповая поездка</div>
                   <div style={{ fontSize: 12.5, color: 'var(--muted)' }}>Бронирование на группу пассажиров с управлением группами</div></div>
-                <Toggle on={isGroup} onChange={setIsGroup} />
-              </label>
+                <Toggle on={isGroup} onChange={setIsGroup} style={{ pointerEvents: 'none' }} />
+              </div>
             </Sec>
 
             {/* 2 — client */}
@@ -436,7 +451,8 @@ function OrderCreateModal({ open, onClose, onCreated }) {
                       <div className="nm">{c.name} <Pill tone={CLIENT_STATUS[c.status] || 'gray'}>{c.status}</Pill></div>
                       <div className="mt">{c.id} · {c.phone} · {c.doc}</div>
                     </div>
-                    <ActionMenu trigger={<button className="btn btn-ghost btn-icon btn-sm"><Icon name="more" /></button>} items={personMenu(c)} />
+                    <ActionMenu trigger={<button className="btn btn-ghost btn-icon btn-sm"><Icon name="more" /></button>}
+                      items={personMenu(c, () => setSelClients((l) => l.filter((x) => x.id !== c.id)))} />
                   </div>
                 ))}
                 <button className="oce-add" onClick={() => { const next = CLIENTS_DB.find((c) => !selClients.find((s) => s.id === c.id)); if (next) setSelClients((l) => [...l, next]); }}>
@@ -446,9 +462,32 @@ function OrderCreateModal({ open, onClose, onCreated }) {
             ) : (
               <Sec n={2} title="Компания">
                 <Field label="Организация">
-                  <select className="select" value={company.id} onChange={(e) => setCompany(COMPANIES_DB.find((c) => c.id === e.target.value))}>
-                    {COMPANIES_DB.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
-                  </select>
+                  <div style={{ position: 'relative' }} ref={companyRef}>
+                    <Input leadIcon="search" value={companyOpen ? companyQuery : company.name}
+                      onFocus={() => { setCompanyOpen(true); setCompanyQuery(''); }}
+                      onChange={(e) => { setCompanyQuery(e.target.value); setCompanyOpen(true); }}
+                      placeholder="Поиск по названию или ИНН" />
+                    {companyOpen && (() => {
+                      const cq = companyQuery.trim().toLowerCase();
+                      const matches = COMPANIES_DB.filter((c) => !cq || c.name.toLowerCase().includes(cq) || c.inn.includes(cq));
+                      return (
+                        <div className="dropdown scroll" style={{ top: 50, left: 0, right: 0, maxHeight: 260, overflowY: 'auto', padding: 6 }}>
+                          {matches.map((c) => (
+                            <div key={c.id} className="dropdown-item" style={{ gap: 10 }}
+                              onClick={() => { setCompany(c); setCompanyQuery(''); setCompanyOpen(false); setEmployees(companyStaff(c.id).employees.slice(0, 1)); }}>
+                              <span className="oce-svc-ic" style={{ width: 32, height: 32, borderRadius: 9, background: 'var(--blue-soft)', color: 'var(--blue)', display: 'flex', alignItems: 'center', justifyContent: 'center', flex: '0 0 32px' }}><Icon name="building" style={{ width: 16, height: 16 }} /></span>
+                              <span style={{ flex: 1, minWidth: 0 }}>
+                                <div style={{ fontWeight: 600 }}>{c.name}</div>
+                                <div style={{ fontSize: 12.5, color: 'var(--muted)' }}>ИНН {c.inn} · {c.dir}</div>
+                              </span>
+                              {company.id === c.id && <Icon name="check" style={{ width: 16, height: 16, color: 'var(--blue)' }} />}
+                            </div>
+                          ))}
+                          {!matches.length && <div style={{ padding: 12, color: 'var(--muted)', fontSize: 14 }}>Ничего не найдено</div>}
+                        </div>
+                      );
+                    })()}
+                  </div>
                 </Field>
                 <div className="oce-client" style={{ marginTop: 10 }}>
                   <span className="oce-svc-ic" style={{ width: 36, height: 36, borderRadius: 10, background: 'var(--blue-soft)', color: 'var(--blue)', display: 'flex', alignItems: 'center', justifyContent: 'center', flex: '0 0 36px' }}><Icon name="building" style={{ width: 18, height: 18 }} /></span>
@@ -459,7 +498,8 @@ function OrderCreateModal({ open, onClose, onCreated }) {
                   <div key={c.id} className="oce-client">
                     <Avatar name={c.name} size={32} />
                     <div style={{ flex: 1, minWidth: 0 }}><div className="nm">{c.name}</div><div className="mt">{c.phone} · {c.doc}</div></div>
-                    <ActionMenu trigger={<button className="btn btn-ghost btn-icon btn-sm"><Icon name="more" /></button>} items={personMenu(c)} />
+                    <ActionMenu trigger={<button className="btn btn-ghost btn-icon btn-sm"><Icon name="more" /></button>}
+                      items={personMenu(c, () => setEmployees((l) => l.filter((x) => x.id !== c.id)))} />
                   </div>
                 ))}
                 <button className="oce-add" onClick={() => setEmpPick(true)}><Icon name="users" style={{ width: 16, height: 16 }} />Выберите сотрудников</button>
@@ -471,8 +511,28 @@ function OrderCreateModal({ open, onClose, onCreated }) {
               <div className="trip-toggle" style={{ marginBottom: 14 }}>
                 {TRIPS.map(([k, l]) => <button key={k} className={trip === k ? 'on' : ''} onClick={() => setTrip(k)}>{l}</button>)}
               </div>
+
+              <div style={{ marginBottom: 14 }}>
+                {trip === 'rt' ? (
+                  <DateRangeField label="Даты поездки" startVal={depDate} endVal={retDate}
+                    onChange={(s, e) => { setDepDate(s); setRetDate(e); }} placeholder="Туда — обратно" />
+                ) : (
+                  <DateField label={trip === 'ow' ? 'Дата вылета' : 'Дата начала поездки'} value={depDate} onChange={setDepDate} placeholder="Выбрать дату" />
+                )}
+              </div>
+
               {routePts.map((code, i) => (
-                <div className="oce-route-row" key={i}>
+                <div className={'oce-route-row' + (dragIdx === i ? ' dragging' : '')} key={i}
+                  draggable={trip === 'mc'}
+                  onDragStart={trip === 'mc' ? () => setDragIdx(i) : undefined}
+                  onDragOver={trip === 'mc' ? (e) => e.preventDefault() : undefined}
+                  onDrop={trip === 'mc' ? () => {
+                    if (dragIdx === null || dragIdx === i) return;
+                    setPts((p) => { const n = [...p]; const [moved] = n.splice(dragIdx, 1); n.splice(i, 0, moved); return n; });
+                    setDragIdx(null);
+                  } : undefined}
+                  onDragEnd={trip === 'mc' ? () => setDragIdx(null) : undefined}>
+                  {trip === 'mc' && <span className="oce-drag-handle" title="Перетащить для изменения порядка"><Icon name="more" style={{ width: 14, height: 14 }} /></span>}
                   <span className="idx">{i + 1}</span>
                   <div className="oce-city" onClick={() => setCityPick({ idx: i })}>
                     <Icon name="plane" />
@@ -506,7 +566,9 @@ function OrderCreateModal({ open, onClose, onCreated }) {
             <Sec n={4} title="Услуги">
               <div className="oce-svc-grid">
                 {ORDER_SVC.map(([l]) => (
-                  <label key={l}><Checkbox on={!!svc[l]} onChange={(v) => setSvc((p) => ({ ...p, [l]: v }))} />{l}</label>
+                  <div key={l} role="button" tabIndex={0} onClick={() => setSvc((p) => ({ ...p, [l]: !p[l] }))}>
+                    <Checkbox on={!!svc[l]} onChange={() => setSvc((p) => ({ ...p, [l]: !p[l] }))} style={{ pointerEvents: 'none' }} />{l}
+                  </div>
                 ))}
               </div>
             </Sec>
@@ -527,7 +589,7 @@ function OrderCreateModal({ open, onClose, onCreated }) {
         onPick={(code) => { setPts((p) => { const n = [...p]; n[cityPick.idx] = code; return n; }); setCityPick(null); }} />}
       {docFor && <DocumentPanel client={docFor} onClose={() => setDocFor(null)} onSave={() => { toast('Документ добавлен', 'ok'); setDocFor(null); }} />}
       {bonusFor && <BonusCardPanel client={bonusFor} onClose={() => setBonusFor(null)} onSave={() => { toast('Бонусная карта добавлена', 'ok'); setBonusFor(null); }} />}
-      {empPick && <EmployeePanel selected={employees} onClose={() => setEmpPick(false)} onApply={(list) => { setEmployees(list); setEmpPick(false); }} />}
+      {empPick && <EmployeePanel company={company} selected={employees} onClose={() => setEmpPick(false)} onApply={(list) => { setEmployees(list); setEmpPick(false); }} />}
     </>
   );
 }
@@ -736,11 +798,11 @@ function BonusCardPanel({ client, onClose, onSave }) {
         <select className="select"><option value="">Выберите статус</option><option>Базовый</option><option>Серебряный</option><option>Золотой</option><option>Платиновый</option></select>
       </Field>
 
-      <label style={{ display: 'flex', alignItems: 'flex-start', gap: 10, cursor: 'pointer', marginTop: 12 }}>
-        <Checkbox on={auto} onChange={setAuto} />
+      <div role="button" tabIndex={0} onClick={() => setAuto((v) => !v)} style={{ display: 'flex', alignItems: 'flex-start', gap: 10, cursor: 'pointer', marginTop: 12 }}>
+        <Checkbox on={auto} onChange={setAuto} style={{ pointerEvents: 'none' }} />
         <span><div style={{ fontWeight: 600, color: 'var(--ink)' }}>Использовать автоматически</div>
           <div style={{ fontSize: 12.5, color: 'var(--muted)', marginTop: 2 }}>Подставлять карту в бронированиях автоматически</div></span>
-      </label>
+      </div>
 
       <button type="button" onClick={() => setExtra((v) => !v)}
         style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'none', border: 'none', cursor: 'pointer', font: 'inherit', color: 'var(--blue)', fontWeight: 600, padding: 0, margin: '18px 0 0' }}>
@@ -757,15 +819,24 @@ function BonusCardPanel({ client, onClose, onSave }) {
   );
 }
 
-/* ---- employee picker (org) ---- */
-function EmployeePanel({ selected, onApply, onClose }) {
+/* ---- employee picker (org) — department-aware: pick a whole department/group or search by name ---- */
+function EmployeePanel({ company, selected, onApply, onClose }) {
   const [q, setQ] = useState('');
+  const [deptFilter, setDeptFilter] = useState(''); // '' = all departments
   const [picked, setPicked] = useState(selected.map((c) => c.id));
   const [newMode, setNewMode] = useState(false);
+  const staff = companyStaff(company ? company.id : null);
   const s = q.trim().toLowerCase();
-  const list = CLIENTS_DB.filter((c) => !s || c.name.toLowerCase().includes(s) || c.phone.includes(s));
+  const list = staff.employees.filter((c) =>
+    (!deptFilter || c.dept === deptFilter) &&
+    (!s || c.name.toLowerCase().includes(s) || c.phone.includes(s)));
   const toggle = (id) => setPicked((p) => p.includes(id) ? p.filter((x) => x !== id) : [...p, id]);
-  const apply = () => onApply(CLIENTS_DB.filter((c) => picked.includes(c.id)));
+  const toggleDept = (deptId) => {
+    const ids = staff.employees.filter((c) => c.dept === deptId).map((c) => c.id);
+    const allIn = ids.every((id) => picked.includes(id));
+    setPicked((p) => allIn ? p.filter((id) => !ids.includes(id)) : [...new Set([...p, ...ids])]);
+  };
+  const apply = () => onApply(staff.employees.filter((c) => picked.includes(c.id)));
   return (
     <StackPanel title={newMode ? 'Новый сотрудник' : 'Выбор сотрудников'} onClose={onClose}
       footer={newMode
@@ -807,15 +878,40 @@ function EmployeePanel({ selected, onApply, onClose }) {
         </>
       ) : (
         <>
-          <SearchBox value={q} onChange={setQ} placeholder="Поиск сотрудника" />
+          {staff.departments.length > 0 && (
+            <>
+              <PanelSub style={{ margin: '0 0 10px' }}>Отделы и тревел-группы</PanelSub>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 18 }}>
+                <div role="button" tabIndex={0} className="oce-client" style={{ cursor: 'pointer', background: !deptFilter ? 'var(--blue-soft)' : '#fff' }} onClick={() => setDeptFilter('')}>
+                  <span className="oce-svc-ic" style={{ width: 32, height: 32, borderRadius: 9, background: 'var(--surface-2)', color: 'var(--blue)', display: 'flex', alignItems: 'center', justifyContent: 'center', flex: '0 0 32px' }}><Icon name="users" style={{ width: 16, height: 16 }} /></span>
+                  <div style={{ flex: 1, minWidth: 0 }}><div className="nm">Все сотрудники</div><div className="mt">{staff.employees.length} чел.</div></div>
+                </div>
+                {staff.departments.map((d) => {
+                  const deptEmployees = staff.employees.filter((c) => c.dept === d.id);
+                  const allIn = deptEmployees.length > 0 && deptEmployees.every((c) => picked.includes(c.id));
+                  return (
+                    <div key={d.id} className="oce-client" style={{ background: deptFilter === d.id ? 'var(--blue-soft)' : '#fff' }}>
+                      <div role="button" tabIndex={0} style={{ display: 'flex', alignItems: 'center', gap: 12, flex: 1, minWidth: 0, cursor: 'pointer' }} onClick={() => setDeptFilter(d.id)}>
+                        <span className="oce-svc-ic" style={{ width: 32, height: 32, borderRadius: 9, background: 'var(--surface-2)', color: 'var(--blue)', display: 'flex', alignItems: 'center', justifyContent: 'center', flex: '0 0 32px' }}><Icon name="briefcase" style={{ width: 16, height: 16 }} /></span>
+                        <div style={{ flex: 1, minWidth: 0 }}><div className="nm">{d.name}</div><div className="mt">{deptEmployees.length} чел. · политика: {d.policy}</div></div>
+                      </div>
+                      <Button variant="secondary" size="sm" onClick={() => toggleDept(d.id)}>{allIn ? 'Убрать всех' : 'Выбрать всех'}</Button>
+                    </div>
+                  );
+                })}
+              </div>
+            </>
+          )}
+          <SearchBox value={q} onChange={setQ} placeholder="Поиск сотрудника по ФИО или телефону" />
           <div style={{ marginTop: 12 }}>
             {list.map((c) => (
-              <label key={c.id} className="oce-client" style={{ cursor: 'pointer' }}>
-                <Checkbox on={picked.includes(c.id)} onChange={() => toggle(c.id)} />
+              <div key={c.id} role="button" tabIndex={0} className="oce-client" style={{ cursor: 'pointer' }} onClick={() => toggle(c.id)}>
+                <Checkbox on={picked.includes(c.id)} onChange={() => toggle(c.id)} style={{ pointerEvents: 'none' }} />
                 <Avatar name={c.name} size={32} />
                 <div style={{ flex: 1, minWidth: 0 }}><div className="nm">{c.name}</div><div className="mt">{c.phone} · {c.doc}</div></div>
-              </label>
+              </div>
             ))}
+            {!list.length && <EmptyState icon="users" title="Сотрудники не найдены" sub="Измените фильтр или добавьте нового сотрудника" />}
           </div>
           <button className="oce-add" style={{ marginTop: 6 }} onClick={() => setNewMode(true)}><Icon name="plus" style={{ width: 16, height: 16 }} />Новый сотрудник</button>
         </>
