@@ -1004,11 +1004,12 @@ function OrdersPage({ intent, onConsume, orders, addOrder, onDetailChange }) {
   const [detailTab, setDetailTab] = useState(null);
   const [svcSearch, setSvcSearch] = useState(null);
   const [createOpen, setCreateOpen] = useState(false);
-  const setDetail = (o, tab) => { setDetailRaw(o); setDetailTab(tab || null); setSvcSearch(null); onDetailChange && onDetailChange(o); };
+  const [fresh, setFresh] = useState(false); // just-created order → show onboarding hint
+  const setDetail = (o, tab) => { setFresh(false); setDetailRaw(o); setDetailTab(tab || null); setSvcSearch(null); onDetailChange && onDetailChange(o); };
   // after "Найти услуги": add the order and land straight on its full "Услуги" search screen
   const handleCreated = (o, searchKind) => {
     addOrder(o); setCreateOpen(false);
-    setDetailRaw(o); setDetailTab('services'); setSvcSearch(searchKind || null);
+    setFresh(true); setDetailRaw(o); setDetailTab('services'); setSvcSearch(searchKind || null);
     onDetailChange && onDetailChange(o);
   };
   useEffect(() => {
@@ -1018,7 +1019,7 @@ function OrdersPage({ intent, onConsume, orders, addOrder, onDetailChange }) {
     onConsume();
   }, [intent]);
 
-  if (detail) return <OrderCard order={detail} initTab={detailTab} initSvcSearch={svcSearch} onBack={() => setDetail(null)} />;
+  if (detail) return <OrderCard order={detail} fresh={fresh} initTab={detailTab} initSvcSearch={svcSearch} onBack={() => setDetail(null)} />;
   return (
     <>
       <OrdersList orders={orders} onOpen={setDetail} onCreate={() => setCreateOpen(true)} />

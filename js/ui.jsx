@@ -5,11 +5,12 @@ const { useState, useEffect, useRef, createContext, useContext, useCallback } = 
 const ToastCtx = createContext(() => {});
 const useToast = () => useContext(ToastCtx);
 
+const MAX_TOASTS = 3; // keep the toast stack short so it never buries the top bar
 function ToastProvider({ children }) {
   const [toasts, setToasts] = useState([]);
   const push = useCallback((msg, kind = 'ok') => {
     const id = Math.random().toString(36).slice(2);
-    setToasts((t) => [...t, { id, msg, kind }]);
+    setToasts((t) => [...t, { id, msg, kind }].slice(-MAX_TOASTS));
     setTimeout(() => setToasts((t) => t.filter((x) => x.id !== id)), 3400);
   }, []);
   const icoName = (k) => (k === 'ok' ? 'checkCircle' : k === 'err' ? 'alertCircle' : 'bell');
@@ -48,6 +49,25 @@ const PILL_TONE = {
 };
 function Pill({ tone = 'gray', children }) {
   return <span className={'pill ' + (PILL_TONE[tone] || 'pill-gray')}>{children}</span>;
+}
+
+/* Accent badge for deadlines / time-limits — a pill with a clock icon so it reads as urgent,
+   not as a line of plain text. */
+function TimeLimitBadge({ tone = 'red', icon = 'clock', children }) {
+  return (
+    <span className={'pill ' + (PILL_TONE[tone] || 'pill-red')} style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>
+      <Icon name={icon} style={{ width: 13, height: 13 }} />{children}
+    </span>
+  );
+}
+
+/* Russian plural picker: plural(n, ['предложение','предложения','предложений']) */
+function plural(n, forms) {
+  const a = Math.abs(n) % 100, b = a % 10;
+  if (a > 10 && a < 20) return forms[2];
+  if (b > 1 && b < 5) return forms[1];
+  if (b === 1) return forms[0];
+  return forms[2];
 }
 
 /* ---------- Toggle / Checkbox / Radio ---------- */
@@ -167,7 +187,7 @@ function Drawer({ open, onClose, title, children, footer }) {
 }
 
 /* ---------- Confirm dialog ---------- */
-function ConfirmDialog({ open, title = 'Вы уверены?', message, confirmLabel = 'Удалить', onConfirm, onCancel }) {
+function ConfirmDialog({ open, title = 'Вы уверены?', message, confirmLabel = 'Удалить', confirmVariant = 'danger', onConfirm, onCancel }) {
   return (
     <Modal open={open} onClose={onCancel} size="sm">
       <div className="modal-pad" style={{ padding: '26px 28px' }}>
@@ -175,10 +195,10 @@ function ConfirmDialog({ open, title = 'Вы уверены?', message, confirmL
           <h2 className="modal-title" style={{ fontSize: 22 }}>{title}</h2>
           <button className="modal-close" onClick={onCancel}><Icon name="x" /></button>
         </div>
-        <p style={{ color: 'var(--muted)', fontSize: 15, margin: '0 0 22px' }}>{message}</p>
+        <div style={{ color: 'var(--muted)', fontSize: 15, margin: '0 0 22px' }}>{message}</div>
         <div style={{ display: 'flex', gap: 12 }}>
           <Button variant="secondary" onClick={onCancel} style={{ flex: 1 }}>Отменить</Button>
-          <Button variant="danger" onClick={onConfirm} style={{ flex: 1 }}>{confirmLabel}</Button>
+          <Button variant={confirmVariant} onClick={onConfirm} style={{ flex: 1 }}>{confirmLabel}</Button>
         </div>
       </div>
     </Modal>
@@ -562,7 +582,7 @@ function DateRangeField({ label, startVal, endVal, onChange, placeholder = 'Вы
 }
 
 Object.assign(window, {
-  ToastProvider, useToast, Button, Pill, Toggle, Checkbox, Radio,
+  ToastProvider, useToast, Button, Pill, TimeLimitBadge, plural, Toggle, Checkbox, Radio,
   Field, Input, Select, SearchBox, Avatar, Modal, ModalHeader, Drawer,
   ConfirmDialog, Tabs, FilterChip, Pagination, Th, useSort,
   EmptyState, SkeletonRows, ActionMenu,

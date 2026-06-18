@@ -261,7 +261,7 @@ function KPModule({ order, services, participants, onApprove }) {
     return (
       <div className="fade-in">
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
-          <span style={{ color: 'var(--muted)', fontSize: 14 }}>{proposals.length} предложение(й) по заказу</span>
+          <span style={{ color: 'var(--muted)', fontSize: 14 }}>{proposals.length} {plural(proposals.length, ['предложение', 'предложения', 'предложений'])} по заказу</span>
           <div style={{ flex: 1 }} />
           <Button variant="secondary" icon="template" onClick={() => setView('templates')}>Шаблоны</Button>
           <ActionMenu trigger={<Button icon="plus">Создать КП</Button>}

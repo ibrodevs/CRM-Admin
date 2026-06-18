@@ -533,7 +533,7 @@ function FlightCard({ svc, offer, onBack }) {
               <div className="kv-row"><span className="k">Класс</span><span className="v">{offer ? offer.cabin : 'Эконом'}</span></div>
               <div className="kv-row"><span className="k">Багаж</span><span className="v">{offer ? offer.baggage : '23 кг'}</span></div>
               <div className="kv-row"><span className="k">Возврат</span><span className="v">{offer ? (offer.refundable ? 'Возвратный' : 'Невозвратный') : '—'}</span></div>
-              <div className="kv-row"><span className="k">Тайм-лимит</span><span className="v" style={{ color: 'var(--red)' }}>сегодня 18:00</span></div>
+              <div className="kv-row"><span className="k">Тайм-лимит</span><span className="v"><TimeLimitBadge>сегодня 18:00</TimeLimitBadge></span></div>
             </div>
           </div>
         </div>
@@ -563,7 +563,7 @@ function FlightCard({ svc, offer, onBack }) {
           <div className="card card-pad"><div className="kv">
             <div className="kv-row"><span className="k">Статус оплаты поставщику</span><span className="v"><Pill tone="amber">Ожидает</Pill></span></div>
             <div className="kv-row"><span className="k">Комиссия</span><span className="v">8% + 15 EUR</span></div>
-            <div className="kv-row"><span className="k">Тайм-лимит выписки</span><span className="v" style={{ color: 'var(--red)' }}>сегодня 18:00</span></div>
+            <div className="kv-row"><span className="k">Тайм-лимит выписки</span><span className="v"><TimeLimitBadge>сегодня 18:00</TimeLimitBadge></span></div>
           </div></div>
         </div>
       )}

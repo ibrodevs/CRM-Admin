@@ -3,6 +3,7 @@
 // Right — «Подбор авиаперелёта» (numbered accordion: рейс → тариф → места → доп.услуги → пассажиры)
 
 function rub(n) { return Math.round(n).toLocaleString('ru-RU') + ' ₽'; }
+const RUB_PER_USD = 90; // demo conversion rate used across the picker totals
 
 /* ---------- compact flight row (step 1) ---------- */
 function ApFlightRow({ opt, sel, onSelect }) {
@@ -268,12 +269,13 @@ function AviaPicker({ params, setParams, services = [], onApply, onCancel, onAdd
   const assignedCount = groups.reduce((a, g) => a + g.members.length, 0);
 
   const allLegsPicked = segKeys.every((k) => legs[k]);
+  // seat selection lives only inside step 3 (Доп. услуги → Места), so steps renumber to 1–4
+  const seatsSummary = Object.values(extras.seats).filter(Boolean).length ? Object.values(extras.seats).filter(Boolean).join(', ') + ' · ' : '';
   const stepSummary = {
     1: allLegsPicked ? segKeys.map((k) => legs[k] ? `${legs[k].leg.from}–${legs[k].leg.to} ${legs[k].leg.dep}` : '').join(' · ') : 'Рейс не выбран',
     2: fareTier.name + ' · ' + (fareTier.delta ? '+ ' + rub(fareTotal) : 'без доплаты'),
-    3: Object.values(extras.seats).filter(Boolean).length ? Object.values(extras.seats).filter(Boolean).join(', ') : 'Места не выбраны',
-    4: extrasTotal ? '+ ' + rub(extrasTotal) : 'Не добавлены',
-    5: group ? `${PAX.length} пасс. · ${groups.length} ${groups.length === 1 ? 'группа' : 'группы'}` : PAX.length + ' пасс. · ' + PAX.map((p) => p.name.split(' ')[0]).join(', '),
+    3: extrasTotal ? seatsSummary + '+ ' + rub(extrasTotal) : 'Не добавлены',
+    4: group ? `${PAX.length} пасс. · ${groups.length} ${groups.length === 1 ? 'группа' : 'группы'}` : PAX.length + ' пасс. · ' + PAX.map((p) => p.name.split(' ')[0]).join(', '),
   };
 
   // left scenario items (current services + the in-progress avia draft)
@@ -338,8 +340,14 @@ function AviaPicker({ params, setParams, services = [], onApply, onCancel, onAdd
           <div className="ap-sc-foot">
             <div className="ap-sc-total">
               <span className="l">Итого по сценарию</span>
-              <span className="v">{rub(grand + services.reduce((a, s) => a + (s.currency === '₽' || s.currency === 'RUB' ? s.sum : s.sum * 90), 0))}</span>
+              <span className="v">{rub(grand + services.reduce((a, s) => a + (s.currency === '₽' || s.currency === 'RUB' ? s.sum : s.sum * RUB_PER_USD), 0))}</span>
             </div>
+            {services.some((s) => s.currency && s.currency !== '₽' && s.currency !== 'RUB') && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: 'var(--muted)', margin: '0 0 10px' }}>
+                <Icon name="alertCircle" style={{ width: 13, height: 13 }} />
+                Суммы в валюте пересчитаны по курсу ≈ {RUB_PER_USD} ₽/$
+              </div>
+            )}
             <Button icon="template" style={{ width: '100%' }} onClick={() => toast('Сформировано предложение из сценария', 'ok')}>Сформировать предложение</Button>
           </div>
         </aside>
@@ -385,21 +393,16 @@ function AviaPicker({ params, setParams, services = [], onApply, onCancel, onAdd
             </div>
           </ApStep>
 
-          {/* step 3 — seats */}
-          <ApStep n={3} title="Места и тарифы" summary={stepSummary[3]} done={Object.values(extras.seats).filter(Boolean).length > 0} active={open === 3} onToggle={() => setOpen(open === 3 ? 0 : 3)}>
-            <SeatSelector seats={extras.seats} setSeats={(s) => setExtras({ ...extras, seats: s })} pax={PAX} />
-          </ApStep>
-
-          {/* step 4 — extras */}
-          <ApStep n={4} title="Дополнительные услуги" summary={stepSummary[4]} done={extrasTotal > 0} active={open === 4} onToggle={() => setOpen(open === 4 ? 0 : 4)}>
+          {/* step 3 — extras (seat selection lives here, in the «Места» tab — no separate step) */}
+          <ApStep n={3} title="Дополнительные услуги и места" summary={stepSummary[3]} done={extrasTotal > 0} active={open === 3} onToggle={() => setOpen(open === 3 ? 0 : 3)}>
             <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 8 }}>
               <Button variant="ghost" size="sm" icon="arrowUpRight" onClick={() => setExtrasFull(true)}>Развернуть всё</Button>
             </div>
             <ExtrasTabs pax={PAX} state={extras} set={setExtras} />
           </ApStep>
 
-          {/* step 5 — passengers (group → groups & fares) */}
-          <ApStep n={5} title={group ? 'Пассажиры и тарифы' : 'Пассажиры'} summary={stepSummary[5]} done active={open === 5} onToggle={() => setOpen(open === 5 ? 0 : 5)}>
+          {/* step 4 — passengers (group → groups & fares) */}
+          <ApStep n={4} title={group ? 'Пассажиры и тарифы' : 'Пассажиры'} summary={stepSummary[4]} done active={open === 4} onToggle={() => setOpen(open === 4 ? 0 : 4)}>
             {group ? (
               <GroupManager pax={PAX} groups={groups} setGroups={setGroups} perPax={flightTotal} extras={extras} />
             ) : (
@@ -433,7 +436,7 @@ function AviaPicker({ params, setParams, services = [], onApply, onCancel, onAdd
         <div className="ap-extras-ov">
           <div className="ap-extras-top">
             <Button variant="secondary" size="sm" icon="chevLeft" onClick={() => setExtrasFull(false)}>Свернуть</Button>
-            <div style={{ fontWeight: 700, fontSize: 17 }}>4. Дополнительные услуги</div>
+            <div style={{ fontWeight: 700, fontSize: 17 }}>3. Дополнительные услуги и места</div>
             <div style={{ flex: 1 }} />
             <div className="ft-total" style={{ textAlign: 'right' }}>Доп.услуги<b style={{ fontSize: 18 }}>{rub(extrasTotal)}</b></div>
             <Button icon="check" onClick={() => setExtrasFull(false)}>Применить</Button>

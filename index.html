@@ -298,7 +298,8 @@ table.tbl tbody tr:last-child td{border-bottom:none}
 .tl-text{font-size:15px;color:var(--ink);font-weight:600;margin-top:1px}
 
 /* toast */
-.toast-wrap{position:fixed;top:22px;right:22px;z-index:200;display:flex;flex-direction:column;gap:11px}
+.toast-wrap{position:fixed;bottom:22px;right:22px;z-index:200;display:flex;flex-direction:column;gap:11px;pointer-events:none}
+.toast-wrap .toast{pointer-events:auto}
 .toast{display:flex;align-items:center;gap:12px;background:#fff;border:1px solid var(--line-strong);border-left:4px solid var(--blue);border-radius:13px;padding:14px 18px;min-width:290px;max-width:380px;box-shadow:var(--shadow-pop);animation:toastin .26s cubic-bezier(.2,.9,.3,1)}
 @keyframes toastin{from{opacity:0;transform:translateX(40px)}to{opacity:1;transform:none}}
 .toast.ok{border-left-color:var(--green)}
@@ -694,6 +695,8 @@ table.tbl tbody tr:last-child td{border-bottom:none}
 .ap-list-row .pr{font-weight:700;color:var(--ink);white-space:nowrap}
 /* seat map */
 .seatmap-wrap{display:flex;gap:24px;flex-wrap:wrap;align-items:flex-start}
+/* inside the accordion step the seat map scrolls within its own block instead of stretching the whole page */
+.ap-step-body .seatmap-wrap{max-height:430px;overflow-y:auto;padding-right:4px}
 .seatmap{display:inline-block;background:var(--surface-2);border:1px solid var(--line);border-radius:16px;padding:16px}
 .seatmap-cabin{font-size:12px;color:var(--muted);text-align:center;margin-bottom:10px;font-weight:600}
 .seat-row{display:flex;align-items:center;gap:6px;margin-bottom:6px}

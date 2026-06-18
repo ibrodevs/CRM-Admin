@@ -145,6 +145,30 @@ function FinanceRegistry({ scopeOrder, onOpenOp }) {
           {STATS.map((s) => (<div className="stat-card" key={s.l}><div className="s-label">{s.l}</div><div className="s-value" style={s.tone === 'red' ? { color: 'var(--red)' } : s.tone === 'teal' ? { color: 'var(--teal)' } : null}>{s.v}</div></div>))}
         </div>
       )}
+      {scopeOrder && (() => {
+        // per-currency totals so mixed-currency orders never sum apples and oranges into one number
+        const curs = [...new Set(ops.map((o) => o.currency))];
+        const sumCur = (c, fn) => ops.filter((o) => o.currency === c).reduce((s, o) => s + fn(o), 0);
+        return (
+          <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginBottom: 18 }}>
+            {curs.map((c) => (
+              <div className="stat-card" key={c} style={{ flex: '1 1 220px' }}>
+                <div className="s-label">Итоги по операциям · {c}</div>
+                <div style={{ display: 'flex', gap: 22, marginTop: 8, flexWrap: 'wrap' }}>
+                  <div><div style={{ fontSize: 12, color: 'var(--muted)' }}>К оплате</div><div style={{ fontWeight: 700, fontSize: 16 }}>{fUsd(sumCur(c, finPayable), c)}</div></div>
+                  <div><div style={{ fontSize: 12, color: 'var(--muted)' }}>Оплачено</div><div style={{ fontWeight: 700, fontSize: 16, color: 'var(--green)' }}>{fUsd(sumCur(c, (o) => o.paid), c)}</div></div>
+                  <div><div style={{ fontSize: 12, color: 'var(--muted)' }}>Задолженность</div><div style={{ fontWeight: 700, fontSize: 16, color: sumCur(c, finDebt) ? 'var(--red)' : 'var(--ink)' }}>{fUsd(sumCur(c, finDebt), c)}</div></div>
+                </div>
+              </div>
+            ))}
+            {curs.length > 1 && (
+              <div style={{ width: '100%', fontSize: 12.5, color: 'var(--muted)', display: 'flex', alignItems: 'center', gap: 6 }}>
+                <Icon name="alertCircle" style={{ width: 14, height: 14 }} />Операции заказа в разных валютах — суммы по валютам не складываются.
+              </div>
+            )}
+          </div>
+        );
+      })()}
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16, flexWrap: 'wrap' }}>
         <Tabs tabs={TABS} value={tab} onChange={setTab} />
         <div style={{ flex: 1 }} />

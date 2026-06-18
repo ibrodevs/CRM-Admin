@@ -179,17 +179,45 @@ function TripEditModal({ open, onClose, aviaParams, setAviaParams, requestType, 
 /* ====================================================================
    TAB CONTENTS
    ==================================================================== */
-function TabOverview({ order }) {
+/* generic edit drawer for a list of [label, value] rows — really updates the values shown in a kv-stack */
+function KvEditDrawer({ open, onClose, title, rows, onSave }) {
   const toast = useToast();
+  const [vals, setVals] = useState(() => rows.map((r) => r[1]));
+  useEffect(() => { if (open) setVals(rows.map((r) => r[1])); }, [open]);
+  const submit = () => { onSave(rows.map((r, i) => [r[0], vals[i]])); toast('Изменения сохранены', 'ok'); onClose(); };
+  return (
+    <Drawer open={open} onClose={onClose} title={title}
+      footer={<><Button variant="secondary" onClick={onClose}>Отмена</Button><Button variant="primary" onClick={submit}>Сохранить</Button></>}>
+      <div className="form-grid">
+        {rows.map((r, i) => (
+          <Field key={r[0]} label={r[0]}>
+            <Input value={vals[i]} onChange={(e) => setVals((p) => p.map((x, j) => (j === i ? e.target.value : x)))} />
+          </Field>
+        ))}
+      </div>
+    </Drawer>
+  );
+}
+
+function TabOverview({ order }) {
+  const [main, setMain] = useState([
+    ['Организация', order.client], ['ИНН/ПИН', '07070707070707'], ['Юридический адрес', 'Бишкек, ул. Токтогула 125/1'],
+    ['Тип организации', 'Туроператор'], ['Телефон', '+996 (777) 777-777'], ['E-mail', 'grandlimited@mail.ru'],
+  ]);
+  const [params, setParams] = useState([
+    ['Тип заявки', order.requestType], ['Оператор', order.operator], ['Дата создания', order.date], ['Валюта', 'USD'], ['Тип комиссии', 'Процентная (%)'],
+    ['Комиссия', '5%'], ['Синхронизация', '1С ✓'], ['Метод округления', 'До 1 USD'], ['Ставка НДС', '12%'], ['Тип расчёта', 'НДС включён'],
+  ]);
+  const [edit, setEdit] = useState(null); // 'main' | 'params' | null
   return (
     <div className="grid-2 fade-in" style={{ alignItems: 'start' }}>
       <div className="card card-pad">
         <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 18 }}>
           <h3 className="card-title">Основная информация</h3>
-          <button className="icon-btn green" onClick={() => toast('Редактирование', 'info')}><Icon name="edit" /></button>
+          <button className="icon-btn green" title="Редактировать" onClick={() => setEdit('main')}><Icon name="edit" /></button>
         </div>
         <div className="kv-stack">
-          {[['Организация', order.client], ['ИНН/ПИН', '07070707070707'], ['Юридический адрес', 'Бишкек, ул. Токтогула 125/1'], ['Тип организации', 'Туроператор'], ['Телефон', '+996 (777) 777-777'], ['E-mail', 'grandlimited@mail.ru']].map(([k, v], i) => (
+          {main.map(([k, v], i) => (
             <div key={i}><div className="label2">{k}</div><div className="val2">{v}</div></div>
           ))}
         </div>
@@ -197,27 +225,33 @@ function TabOverview({ order }) {
       <div className="card card-pad">
         <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 18 }}>
           <h3 className="card-title">Параметры заказа</h3>
-          <button className="icon-btn green"><Icon name="edit" /></button>
+          <button className="icon-btn green" title="Редактировать" onClick={() => setEdit('params')}><Icon name="edit" /></button>
         </div>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0 28px' }}>
           <div className="kv-stack">
-            {[['Тип заявки', order.requestType], ['Оператор', order.operator], ['Дата создания', order.date], ['Валюта', 'USD'], ['Тип комиссии', 'Процентная (%)']].map(([k, v], i) => (
+            {params.slice(0, 5).map(([k, v], i) => (
               <div key={i}><div className="label2">{k}</div><div className="val2">{v}</div></div>
             ))}
           </div>
           <div className="kv-stack">
-            {[['Комиссия', '5%'], ['Синхронизация', '1С ✓'], ['Метод округления', 'До 1 USD'], ['Ставка НДС', '12%'], ['Тип расчёта', 'НДС включён']].map(([k, v], i) => (
+            {params.slice(5).map(([k, v], i) => (
               <div key={i}><div className="label2">{k}</div><div className="val2">{v}</div></div>
             ))}
           </div>
         </div>
       </div>
+      <KvEditDrawer open={edit === 'main'} onClose={() => setEdit(null)} title="Основная информация" rows={main} onSave={setMain} />
+      <KvEditDrawer open={edit === 'params'} onClose={() => setEdit(null)} title="Параметры заказа" rows={params} onSave={setParams} />
     </div>
   );
 }
 
-function TabClients({ order }) {
-  const toast = useToast();
+function TabClients({ order, onOpenChat }) {
+  const [cardOpen, setCardOpen] = useState(false);
+  const clientRows = [
+    ['Контактное лицо', 'Нуралиев Данияр'], ['Телефон', '+996 700 123 456'], ['E-mail', 'd.nuraliev@mail.ru'],
+    ['Заказов всего', '12'], ['Юр. лицо', order.client], ['ИНН', '07070707070707'],
+  ];
   return (
     <div className="grid-2 fade-in" style={{ alignItems: 'start' }}>
       <div className="card card-pad">
@@ -233,9 +267,19 @@ function TabClients({ order }) {
           <div className="kv-row"><span className="k">Заказов всего</span><span className="v">12</span></div>
         </div>
         <div style={{ display: 'flex', gap: 10, marginTop: 16 }}>
-          <Button variant="secondary" size="sm" icon="chat" onClick={() => toast('Открываю чат с клиентом', 'info')}>Написать</Button>
-          <Button variant="secondary" size="sm" icon="user" onClick={() => toast('Карточка клиента', 'info')}>Карточка</Button>
+          <Button variant="secondary" size="sm" icon="chat" onClick={onOpenChat}>Написать</Button>
+          <Button variant="secondary" size="sm" icon="user" onClick={() => setCardOpen(true)}>Карточка</Button>
         </div>
+        <Drawer open={cardOpen} onClose={() => setCardOpen(false)} title="Карточка клиента"
+          footer={<Button variant="secondary" style={{ width: '100%' }} onClick={() => setCardOpen(false)}>Закрыть</Button>}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 18 }}>
+            <Avatar name={order.client} size={48} />
+            <div><div style={{ fontWeight: 700, fontSize: 16, color: 'var(--ink)' }}>{order.client}</div><div style={{ color: 'var(--muted)', fontSize: 13.5 }}>Заказчик · Компания</div></div>
+          </div>
+          <div className="kv">
+            {clientRows.map(([k, v], i) => (<div className="kv-row" key={i}><span className="k">{k}</span><span className="v">{v}</span></div>))}
+          </div>
+        </Drawer>
       </div>
       <div className="card card-pad">
         <h3 className="card-title" style={{ marginBottom: 16 }}>Реквизиты компании</h3>
@@ -251,11 +295,25 @@ function TabClients({ order }) {
   );
 }
 
-function TabParticipants({ list, isGroup, onPassport, onAdd }) {
-  if (!list.length) return <EmptyState icon="users" title="Участников пока нет" sub="Добавьте пассажиров поездки" />;
+function TabParticipants({ list, isGroup, fresh, onPassport, onAdd }) {
+  if (!list.length) return (
+    <div className="fade-in">
+      <EmptyState icon="users" title="Участников пока нет" sub="Добавьте пассажиров поездки и их документы здесь" />
+      <div style={{ display: 'flex', justifyContent: 'center', marginTop: -12 }}><Button icon="plus" onClick={onAdd}>Добавить участника</Button></div>
+    </div>
+  );
   const errCount = list.filter((p) => p.docStatus === 'check').length;
   return (
     <div className="fade-in">
+      {fresh && (
+        <div className="card card-pad" style={{ marginBottom: 16, display: 'flex', alignItems: 'center', gap: 12, borderLeft: '4px solid var(--blue)' }}>
+          <Icon name="users" style={{ width: 20, height: 20, color: 'var(--blue)' }} />
+          <div style={{ flex: 1, fontSize: 13.5, color: 'var(--body)' }}>
+            <b style={{ color: 'var(--ink)' }}>Новый заказ.</b> Добавьте участников и их документы здесь — это нужно для выписки билетов и проверки виз.
+          </div>
+          <Button size="sm" icon="plus" onClick={onAdd}>Добавить участника</Button>
+        </div>
+      )}
       {isGroup && (
         <div className="card card-pad" style={{ marginBottom: 16, display: 'flex', alignItems: 'center', gap: 16 }}>
           <span className="oc-svc-ic" style={{ background: 'var(--blue)' }}><Icon name="users" /></span>
@@ -589,7 +647,7 @@ function TabHistory() {
 /* ====================================================================
    ORDER CARD ROOT
    ==================================================================== */
-function OrderCard({ order, onBack, initTab, initSvcSearch }) {
+function OrderCard({ order, onBack, initTab, initSvcSearch, fresh }) {
   const toast = useToast();
   const [tab, setTab] = useState(initSvcSearch ? 'services' : (initTab || 'overview'));
   const [loading, setLoading] = useState(true);
@@ -597,6 +655,7 @@ function OrderCard({ order, onBack, initTab, initSvcSearch }) {
   const [services, setServices] = useState(ORDER_SERVICES);
   const [requestType, setRequestType] = useState(order.requestType);
   const [tripEditOpen, setTripEditOpen] = useState(false);
+  const [sendOpen, setSendOpen] = useState(false);
   const participants = requestType === 'Групповая' ? GROUP_PAX : ORDER_PARTICIPANTS;
   const initStage = () => {
     if (order.status === 'Оплачено') return 4;
@@ -624,6 +683,8 @@ function OrderCard({ order, onBack, initTab, initSvcSearch }) {
   useEffect(() => { setLoading(true); const t = setTimeout(() => setLoading(false), 600); return () => clearTimeout(t); }, [order.no]);
   // deep-link: switch to requested tab even if the card is already mounted (e.g. opened from a notification)
   useEffect(() => { if (initTab) setTab(initTab); }, [initTab, order.no]);
+  // onboarding: new order lands on «Услуги» — point the operator to where passengers & documents go
+  useEffect(() => { if (fresh) toast('Заказ создан. Добавьте участников и их документы во вкладке «Участники».', 'info'); }, []);
 
   const TABS = [
     { key: 'overview', label: 'Общая информация' },
@@ -689,8 +750,8 @@ function OrderCard({ order, onBack, initTab, initSvcSearch }) {
     if (loading) return <AsyncBlock state="loading" skeletonRows={5} />;
     switch (tab) {
       case 'overview': return <TabOverview order={order} />;
-      case 'clients': return <TabClients order={order} />;
-      case 'participants': return <TabParticipants list={participants} isGroup={requestType === 'Групповая'} onPassport={setPassport} onAdd={() => setPaxOpen(true)} />;
+      case 'clients': return <TabClients order={order} onOpenChat={() => setTab('chat')} />;
+      case 'participants': return <TabParticipants list={participants} isGroup={requestType === 'Групповая'} fresh={fresh} onPassport={setPassport} onAdd={() => setPaxOpen(true)} />;
       case 'route': return <TabRoute services={services} />;
       case 'services': return renderServicesArea();
       case 'offers': return <KPModule order={order} services={services} participants={participants}
@@ -712,39 +773,55 @@ function OrderCard({ order, onBack, initTab, initSvcSearch }) {
       </Topbar>
 
       <div className="content" style={{ paddingTop: 8 }}>
-        {/* header */}
-        <div className="oc-head">
-          <div style={{ display: 'flex', alignItems: 'flex-start', gap: 16, flexWrap: 'wrap' }}>
-            <div className="oc-id">
-              <h2>Заказ № {order.no}</h2>
-              <StatusControl status={status} onChange={(s) => { setStatus(s); toast('Статус: ' + s, 'ok'); }} />
+        {/* header — collapses to a single breadcrumb line while the booking wizard is open
+            (the wizard has its own stepper/route; the full head + stage-bar + actions would push it off-screen) */}
+        {svcView === 'booking' ? (
+          <div className="oc-head" style={{ paddingBottom: 14 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap' }}>
+              <div className="oc-id" style={{ marginBottom: 0 }}>
+                <h2 style={{ fontSize: 20 }}>Заказ № {order.no}</h2>
+                <StatusControl status={status} onChange={(s) => { setStatus(s); toast('Статус: ' + s, 'ok'); }} />
+              </div>
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8, color: 'var(--muted)', fontSize: 14 }}>
+                <Icon name="plane" style={{ width: 15, height: 15, color: 'var(--blue)' }} />
+                {(() => { const t = tripFromServices(services, aviaParams); return `${t.from} → ${t.to}`; })()}
+              </span>
             </div>
-            <div style={{ flex: 1 }} />
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-              <Avatar name={order.operator} size={36} />
-              <div><div style={{ fontSize: 12.5, color: 'var(--muted)' }}>Ответственный</div><div style={{ fontWeight: 600, color: 'var(--ink)', fontSize: 14 }}>{order.operator}</div></div>
+          </div>
+        ) : (
+          <div className="oc-head">
+            <div style={{ display: 'flex', alignItems: 'flex-start', gap: 16, flexWrap: 'wrap' }}>
+              <div className="oc-id">
+                <h2>Заказ № {order.no}</h2>
+                <StatusControl status={status} onChange={(s) => { setStatus(s); toast('Статус: ' + s, 'ok'); }} />
+              </div>
+              <div style={{ flex: 1 }} />
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <Avatar name={order.operator} size={36} />
+                <div><div style={{ fontSize: 12.5, color: 'var(--muted)' }}>Ответственный</div><div style={{ fontWeight: 600, color: 'var(--ink)', fontSize: 14 }}>{order.operator}</div></div>
+              </div>
+            </div>
+
+            <div className="oc-facts">
+              <div className="oc-fact"><div className="l">Клиент / Компания</div><div className="v"><Icon name="building" style={{ width: 16, height: 16, color: 'var(--muted-2)' }} />{order.client}</div></div>
+              <div className="oc-fact"><div className="l">Создан</div><div className="v">{order.date}</div></div>
+            </div>
+
+            <TripSummaryBar order={order} services={services} participants={participants} aviaParams={aviaParams} requestType={requestType} onEdit={() => setTripEditOpen(true)} />
+
+            <div style={{ marginTop: 16, paddingTop: 16, borderTop: '1px solid var(--line)' }}>
+              <OrderStageBar index={stageIdx} />
+            </div>
+
+            <div className="oc-actions">
+              <Button icon="plus" onClick={() => { setTab('services'); setSvcView('avia-picker'); }}>Добавить услугу</Button>
+              <Button icon="zap" onClick={() => { setTab('services'); setSvcView('booking'); }}>Начать бронирование</Button>
+              <Button variant="secondary" icon="template" onClick={() => setTab('offers')}>Создать КП</Button>
+              <Button variant="secondary" icon="send" onClick={() => setSendOpen(true)}>Отправить клиенту</Button>
+              <Button variant="secondary" icon="finance" onClick={() => setTab('finance')}>Открыть финансы</Button>
             </div>
           </div>
-
-          <div className="oc-facts">
-            <div className="oc-fact"><div className="l">Клиент / Компания</div><div className="v"><Icon name="building" style={{ width: 16, height: 16, color: 'var(--muted-2)' }} />{order.client}</div></div>
-            <div className="oc-fact"><div className="l">Создан</div><div className="v">{order.date}</div></div>
-          </div>
-
-          <TripSummaryBar order={order} services={services} participants={participants} aviaParams={aviaParams} requestType={requestType} onEdit={() => setTripEditOpen(true)} />
-
-          <div style={{ marginTop: 16, paddingTop: 16, borderTop: '1px solid var(--line)' }}>
-            <OrderStageBar index={stageIdx} />
-          </div>
-
-          <div className="oc-actions">
-            <Button icon="plus" onClick={() => { setTab('services'); setSvcView('avia-picker'); }}>Добавить услугу</Button>
-            <Button icon="zap" onClick={() => { setTab('services'); setSvcView('booking'); }}>Начать бронирование</Button>
-            <Button variant="secondary" icon="template" onClick={() => setTab('offers')}>Создать КП</Button>
-            <Button variant="secondary" icon="send" onClick={() => toast('Заказ отправлен клиенту', 'ok')}>Отправить клиенту</Button>
-            <Button variant="secondary" icon="finance" onClick={() => setTab('finance')}>Открыть финансы</Button>
-          </div>
-        </div>
+        )}
 
         {/* body: tabs + main + aside. The two-pane avia picker takes over full width. */}
         <div className="oc-grid">
@@ -767,8 +844,22 @@ function OrderCard({ order, onBack, initTab, initSvcSearch }) {
       {/* drawers / modals reused from order_extras */}
       {paxOpen && <PassengerDrawer open={paxOpen} onClose={() => setPaxOpen(false)} />}
       {feeOpen && <FeeDrawer open={feeOpen} onClose={() => setFeeOpen(false)} />}
-      {passport && <PassportModal passenger={passport} onClose={() => setPassport(null)} />}
+      {passport && <PassportModal passenger={passport} participants={participants} onClose={() => setPassport(null)} />}
       <TripEditModal open={tripEditOpen} onClose={() => setTripEditOpen(false)} aviaParams={aviaParams} setAviaParams={setAviaParams} requestType={requestType} setRequestType={setRequestType} />
+
+      {/* confirm before anything actually leaves for the client */}
+      <ConfirmDialog open={sendOpen} title="Отправить заказ клиенту?" confirmLabel="Отправить" confirmVariant="primary"
+        onCancel={() => setSendOpen(false)}
+        onConfirm={() => { setSendOpen(false); toast('Заказ отправлен клиенту', 'ok'); }}
+        message={
+          <>
+            Клиенту <b>{order.client}</b> по заказу № {order.no} будет отправлено:
+            <ul style={{ margin: '10px 0 0', paddingLeft: 20 }}>
+              <li>актуальное коммерческое предложение</li>
+              <li>документы по заказу</li>
+            </ul>
+          </>
+        } />
 
       {/* other-service quick drawer */}
       <Drawer open={!!otherSvc} onClose={() => setOtherSvc(null)} title={otherSvc ? otherSvc.title : ''}

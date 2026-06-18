@@ -24,12 +24,25 @@ const PASS_DOCTYPES = [
   { key: 'visa', label: 'Visa', icon: 'users' },
   { key: 'bank', label: 'Банковская выписка', icon: 'bank' },
 ];
-function PassportModal({ passenger, onClose }) {
+function PassportModal({ passenger, participants, onClose }) {
   const toast = useToast();
   const [docType, setDocType] = useState('pass');
-  const [activePax, setActivePax] = useState(0);
-  const pax = [{ name: passenger || 'Меркель Александр', sub: 'Нет визы', expired: true }, { name: 'Аттокуров Эрбол', sub: 'Нет визы', expired: false }];
-  const cur = pax[activePax];
+  const [q, setQ] = useState('');
+  // build the passenger list from the real order roster (can be 20+), not a hardcoded pair
+  const source = (participants && participants.length)
+    ? participants
+    : [{ name: passenger || 'Меркель Александр', docStatus: 'check' }, { name: 'Аттокуров Эрбол', docStatus: 'ok' }];
+  const pax = source.map((p) => ({
+    name: p.name,
+    sub: p.docStatus === 'check' ? 'Требует проверки' : (p.doc || 'Документы в порядке'),
+    expired: p.docStatus === 'check',
+  }));
+  const initIdx = Math.max(0, pax.findIndex((p) => p.name === passenger));
+  const [activePax, setActivePax] = useState(initIdx);
+  const cur = pax[activePax] || pax[0];
+  const showSearch = pax.length > 8;
+  const s = q.trim().toLowerCase();
+  const filtered = pax.map((p, i) => ({ p, i })).filter(({ p }) => !s || p.name.toLowerCase().includes(s));
   return (
     <Modal open onClose={onClose}>
       <div className="modal-pad">
@@ -46,15 +59,17 @@ function PassportModal({ passenger, onClose }) {
             ))}
           </div>
           <div>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14, marginBottom: 18 }}>
-              {pax.map((p, i) => (
+            {showSearch && <div style={{ marginBottom: 12 }}><SearchBox value={q} onChange={setQ} placeholder="Поиск пассажира по ФИО" /></div>}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14, marginBottom: 18, maxHeight: 230, overflowY: 'auto', paddingRight: filtered.length > 6 ? 4 : 0 }}>
+              {filtered.map(({ p, i }) => (
                 <button key={i} onClick={() => setActivePax(i)}
-                  style={{ display: 'flex', alignItems: 'center', gap: 11, padding: '12px 14px', borderRadius: 13, border: '1px solid var(--field-line)', background: '#fff', cursor: 'pointer', textAlign: 'left' }}>
+                  style={{ display: 'flex', alignItems: 'center', gap: 11, padding: '12px 14px', borderRadius: 13, border: '1px solid ' + (activePax === i ? 'var(--blue)' : 'var(--field-line)'), background: activePax === i ? 'var(--blue-soft)' : '#fff', cursor: 'pointer', textAlign: 'left' }}>
                   <Avatar name={p.name} size={34} />
                   <div style={{ flex: 1, minWidth: 0 }}><div style={{ fontSize: 14, fontWeight: 600, color: 'var(--ink)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{p.name}</div><div className="t-sub">{p.sub}</div></div>
                   <span className={'radio' + (activePax === i ? ' on' : '')} />
                 </button>
               ))}
+              {filtered.length === 0 && <div style={{ color: 'var(--muted)', fontSize: 13.5, gridColumn: '1 / -1' }}>Пассажиры не найдены</div>}
             </div>
             <div style={{ position: 'relative', display: 'flex', justifyContent: 'center', paddingTop: 28 }}>
               <div className="badge-tip" style={{ left: '50%', top: 0, background: cur.expired ? '#ec4444' : '#f5a623' }}>
@@ -132,10 +147,14 @@ function PassengerDrawer({ open, onClose }) {
   return (
     <Drawer open={open} onClose={onClose} title="Добавить пассажира"
       footer={<><Button variant="secondary" onClick={onClose}>Отмена</Button><Button variant="primary" onClick={submit}>Добавить</Button></>}>
+      <div style={{ fontSize: 18, fontWeight: 700, color: 'var(--ink)', margin: '0 0 16px' }}>Личные данные</div>
       <div className="form-grid">
         <Field label="ФИО" required error={errs.fio}><Input placeholder="Введите ФИО" value={f.fio} onChange={set('fio')} error={errs.fio} /></Field>
         <DateField label="Дата рождения" value={f.dob} onChange={set('dob')} placeholder="Выбрать дату" />
-        <Field label="Гражданство" required error={errs.citizenship}><Select placeholder="Выберите страну" options={['Кыргызстан', 'Казахстан', 'Россия', 'Узбекистан', 'Германия']} value={f.citizenship} onChange={set('citizenship')} error={errs.citizenship} /></Field>
+        <div className="full"><Field label="Гражданство" required error={errs.citizenship}><Select placeholder="Выберите страну" options={['Кыргызстан', 'Казахстан', 'Россия', 'Узбекистан', 'Германия']} value={f.citizenship} onChange={set('citizenship')} error={errs.citizenship} /></Field></div>
+      </div>
+      <div style={{ fontSize: 18, fontWeight: 700, color: 'var(--ink)', margin: '26px 0 16px' }}>Документ и контакты</div>
+      <div className="form-grid">
         <Field label="Тип документа" required error={errs.docType}><Select placeholder="Выберите тип" options={['Паспорт', 'ID Card', 'Загранпаспорт']} value={f.docType} onChange={set('docType')} error={errs.docType} /></Field>
         <Field label="Номер документа"><Input placeholder="Введите номер" value={f.docNo} onChange={set('docNo')} /></Field>
         <DateField label="Срок действия" value={f.expiry} onChange={set('expiry')} placeholder="Выбрать дату" />

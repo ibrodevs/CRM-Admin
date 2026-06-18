@@ -75,6 +75,9 @@ function BookingWizard({ order, services, onClose, onComplete }) {
   const [histOpen, setHistOpen] = useState(false);
   const [supportOpen, setSupportOpen] = useState(false);
   const [offerPreview, setOfferPreview] = useState(null); // { rec: bool } | null
+  const [exitOpen, setExitOpen] = useState(false);
+  // guard against losing wizard progress once the operator has moved past step 0
+  const requestClose = () => { if (step > 0) setExitOpen(true); else onClose(); };
 
   const STEPS = ['Выбор варианта', 'Запуск', 'Получение ответов', 'Подтверждение', 'Формирование КП', 'Выписка и оплата', 'Завершение'];
   const total = services.reduce((a, s) => a + bwRub(s), 0);
@@ -268,7 +271,7 @@ function BookingWizard({ order, services, onClose, onComplete }) {
 
   return (
     <div className="fade-in">
-      <BackRow label="К услугам заказа" onBack={onClose} />
+      <BackRow label="К услугам заказа" onBack={requestClose} />
 
       {/* top summary */}
       <div className="bw-top">
@@ -279,7 +282,7 @@ function BookingWizard({ order, services, onClose, onComplete }) {
             <span className="bw-svc-chip" key={k}><span className="dot" /><Icon name={(SERVICE_KIND[k] || {}).icon || 'plane'} />{k}</span>
           ))}
         </div>
-        <Button variant="secondary" size="sm" icon="edit" onClick={onClose}>Редактировать данные</Button>
+        <Button variant="secondary" size="sm" icon="x" onClick={requestClose}>Выйти из бронирования</Button>
       </div>
 
       <BwStepper steps={STEPS} step={step} onJump={setStep} />
@@ -332,6 +335,12 @@ function BookingWizard({ order, services, onClose, onComplete }) {
           );
         })()}
       </Modal>
+
+      {/* exit guard — don't drop wizard progress on a stray click */}
+      <ConfirmDialog open={exitOpen} title="Выйти из бронирования?"
+        message="Прогресс мастера бронирования не сохранится. Вернуться к услугам заказа?"
+        confirmLabel="Выйти" confirmVariant="danger"
+        onCancel={() => setExitOpen(false)} onConfirm={() => { setExitOpen(false); onClose(); }} />
     </div>
   );
 }
