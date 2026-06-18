@@ -578,6 +578,16 @@ function CalcLines({ s, fin }) {
 }
 
 /* scenario card: either a filled service (with status/supplier/calc) or an empty "Подобрать" prompt */
+const SERVICE_LABELS = {
+  'Авиа': 'Авиаперелёт',
+  'Гостиница': 'Гостиница',
+  'Трансфер': 'Трансфер',
+};
+
+function serviceLabel(kind) {
+  return SERVICE_LABELS[kind] || kind;
+}
+
 function ScenarioCard({ kind, items, onPick, onOpen, financeMeta, paxCount, isGroup }) {
   const k = SERVICE_KIND[kind];
   if (!items.length) {
@@ -585,7 +595,7 @@ function ScenarioCard({ kind, items, onPick, onOpen, financeMeta, paxCount, isGr
       <div className="card card-pad" style={{ marginBottom: 14, display: 'flex', alignItems: 'center', gap: 16, borderStyle: 'dashed' }}>
         <span className="oc-svc-ic" style={{ background: 'var(--surface-2)', color: 'var(--muted-2)' }}><Icon name={k.icon} /></span>
         <div style={{ flex: 1 }}>
-          <div style={{ fontWeight: 600, color: 'var(--ink)' }}>{kind}</div>
+          <div style={{ fontWeight: 600, color: 'var(--ink)' }}>{serviceLabel(kind)}</div>
           <div style={{ fontSize: 13, color: 'var(--muted)' }}>Услуга ещё не выбрана</div>
         </div>
         <Button size="sm" icon="search" onClick={onPick}>Подобрать</Button>
@@ -600,7 +610,7 @@ function ScenarioCard({ kind, items, onPick, onOpen, financeMeta, paxCount, isGr
           <span className="oc-svc-ic" style={{ background: k.color }}><Icon name={k.icon} /></span>
           <div style={{ flex: 1, minWidth: 0, cursor: 'pointer' }} onClick={() => onOpen(s)}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              <span className="oc-svc-t">{s.title}</span>
+              <span className="oc-svc-t">{serviceLabel(kind)} · {s.title}</span>
               <Pill tone={SERVICE_STATUS[s.status] || 'gray'}>{s.status}</Pill>
             </div>
             <div className="oc-svc-s">{displaySub}</div>
@@ -610,9 +620,62 @@ function ScenarioCard({ kind, items, onPick, onOpen, financeMeta, paxCount, isGr
               <span><Icon name="calendar" style={{ width: 12, height: 12, verticalAlign: -1 }} /> {s.date}</span>
             </div>
           </div>
-          <Button variant="secondary" size="sm" icon="edit" onClick={onPick}>Изменить</Button>
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 10 }}>
+            <div style={{ fontWeight: 700, color: 'var(--ink)', whiteSpace: 'nowrap' }}>{ocMoney(svcCalc(s).total, s.currency)}</div>
+            <Button variant="secondary" size="sm" icon="edit" onClick={onPick}>Изменить</Button>
+          </div>
         </div>
         <CalcLines s={s} fin={financeMeta} />
+      </div>
+    );
+  });
+}
+
+function ExtraServicesCard({ items, extraTypes, onOpen, onAddType, paxCount, isGroup }) {
+  const pickTrigger = (
+    <Button size="sm" icon="search">{items.length ? 'Изменить' : 'Подобрать'}</Button>
+  );
+  if (!items.length) {
+    return (
+      <div className="card card-pad" style={{ marginBottom: 14, display: 'flex', alignItems: 'center', gap: 16, borderStyle: 'dashed' }}>
+        <span className="oc-svc-ic" style={{ background: 'var(--surface-2)', color: 'var(--muted-2)' }}><Icon name="briefcase" /></span>
+        <div style={{ flex: 1 }}>
+          <div style={{ fontWeight: 600, color: 'var(--ink)' }}>Дополнительные услуги</div>
+          <div style={{ fontSize: 13, color: 'var(--muted)' }}>Страховка, ЖД, автобус, визы и другие сервисы ещё не добавлены</div>
+        </div>
+        <ActionMenu
+          trigger={pickTrigger}
+          items={extraTypes.map((t) => ({ icon: SERVICE_KIND[t].icon, label: t, onClick: () => onAddType(t) }))}
+        />
+      </div>
+    );
+  }
+  return items.map((s) => {
+    const k = SERVICE_KIND[s.kind] || { icon: 'briefcase', color: 'var(--blue)' };
+    return (
+      <div className="card card-pad" key={s.id} style={{ marginBottom: 14 }}>
+        <div style={{ display: 'flex', alignItems: 'flex-start', gap: 16 }}>
+          <span className="oc-svc-ic" style={{ background: k.color }}><Icon name={k.icon} /></span>
+          <div style={{ flex: 1, minWidth: 0, cursor: 'pointer' }} onClick={() => onOpen(s)}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <span className="oc-svc-t">Дополнительные услуги · {s.kind}</span>
+              <Pill tone={SERVICE_STATUS[s.status] || 'gray'}>{s.status}</Pill>
+            </div>
+            <div className="oc-svc-s">{s.title}</div>
+            <div style={{ display: 'flex', gap: 18, marginTop: 8, flexWrap: 'wrap', fontSize: 12.5, color: 'var(--muted)' }}>
+              <span><Icon name="api" style={{ width: 12, height: 12, verticalAlign: -1 }} /> {s.supplier || '—'}</span>
+              <span><Icon name="users" style={{ width: 12, height: 12, verticalAlign: -1 }} /> {isGroup ? paxCount : (s.pax || paxCount)} пасс.</span>
+              <span><Icon name="calendar" style={{ width: 12, height: 12, verticalAlign: -1 }} /> {s.date || '—'}</span>
+            </div>
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 10 }}>
+            <div style={{ fontWeight: 700, color: 'var(--ink)', whiteSpace: 'nowrap' }}>{ocMoney(svcCalc(s).total, s.currency)}</div>
+            <ActionMenu
+              trigger={<Button variant="secondary" size="sm" icon="edit">Изменить</Button>}
+              items={extraTypes.map((t) => ({ icon: SERVICE_KIND[t].icon, label: t, onClick: () => onAddType(t) }))}
+            />
+          </div>
+        </div>
       </div>
     );
   });
@@ -642,25 +705,14 @@ function TabServices({ orderNo, services, participants, requestType, onOpenAvia,
       ))}
 
       <h3 className="section-title" style={{ fontSize: 17, margin: '22px 0 12px' }}>Дополнительные услуги</h3>
-      {extraServices.length === 0 && <div style={{ color: 'var(--muted)', fontSize: 14, marginBottom: 8 }}>Дополнительных услуг нет</div>}
-      {extraServices.map((s) => {
-        const k = SERVICE_KIND[s.kind];
-        return (
-          <div className="card card-pad" key={s.id} style={{ marginBottom: 14 }}>
-            <div style={{ display: 'flex', alignItems: 'flex-start', gap: 16 }}>
-              <span className="oc-svc-ic" style={{ background: k.color }}><Icon name={k.icon} /></span>
-              <div style={{ flex: 1, minWidth: 0, cursor: 'pointer' }} onClick={() => onOpenOther(s)}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <span className="oc-svc-t">{s.kind} · {s.title}</span>
-                  <Pill tone={SERVICE_STATUS[s.status] || 'gray'}>{s.status}</Pill>
-                </div>
-                <div className="oc-svc-s">{s.sub}</div>
-              </div>
-              <div style={{ fontWeight: 700, color: 'var(--ink)' }}>{ocMoney(svcCalc(s).total, s.currency)}</div>
-            </div>
-          </div>
-        );
-      })}
+      <ExtraServicesCard
+        items={extraServices}
+        extraTypes={extraTypes}
+        onOpen={onOpenOther}
+        onAddType={onAddType}
+        paxCount={participants.length}
+        isGroup={isGroup}
+      />
 
       <ExtrasByPassengerCard isGroup={isGroup} />
       <BookingFlowCard onStart={onStartBooking} />
@@ -837,7 +889,7 @@ function TabHistory() {
    ==================================================================== */
 function OrderCard({ order, onBack, initTab, initSvcSearch, fresh }) {
   const toast = useToast();
-  const [tab, setTab] = useState(initSvcSearch ? 'services' : (initTab || 'overview'));
+  const [tab, setTab] = useState(initTab || (initSvcSearch ? 'services' : 'overview'));
   const [loading, setLoading] = useState(true);
   const [status, setStatus] = useState(order.status === 'Нет данных' ? 'Новое' : order.status);
   const [services, setServices] = useState(ORDER_SERVICES);
@@ -894,8 +946,6 @@ function OrderCard({ order, onBack, initTab, initSvcSearch, fresh }) {
     if (rk) { setAddRoute(rk); setSvcView('svc-add'); return; }
     toast('Тип «' + type + '» недоступен', 'info');
   };
-  // landed here from "Найти услуги" — open the search screen of the chosen service right away
-  useEffect(() => { if (initSvcSearch) { setTab('services'); goAddType(initSvcSearch); } }, [initSvcSearch, order.no]);
   // applied from the two-pane AviaPicker (ruble-denominated)
   const addAviaFromPicker = (p) => {
     const id = 'S' + (services.length + 1);

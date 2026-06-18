@@ -354,7 +354,7 @@ function OrderCreateModal({ open, onClose, onCreated }) {
     const n = [...p]; [n[i], n[j]] = [n[j], n[i]]; return n;
   });
 
-  // "Найти услуги": создаём заказ и уходим на полноценный экран подбора (вкладка «Услуги»).
+  // "Найти услуги": создаём заказ и открываем вкладку «Услуги» с составом сценария поездки.
   const findServices = () => {
     const clientLabel = clientType === 'org' ? company.name : (selClients[0] ? selClients[0].name : 'Новый клиент');
     const searchKind = activeServices.map((s) => (ORDER_SVC.find(([l]) => l === s) || [])[1]).find(Boolean) || null;
@@ -1006,7 +1006,7 @@ function OrdersPage({ intent, onConsume, orders, addOrder, onDetailChange }) {
   const [createOpen, setCreateOpen] = useState(false);
   const [fresh, setFresh] = useState(false); // just-created order → show onboarding hint
   const setDetail = (o, tab) => { setFresh(false); setDetailRaw(o); setDetailTab(tab || null); setSvcSearch(null); onDetailChange && onDetailChange(o); };
-  // after "Найти услуги": add the order and land straight on its full "Услуги" search screen
+  // after "Найти услуги": add the order and land on the full "Услуги" tab
   const handleCreated = (o, searchKind) => {
     addOrder(o); setCreateOpen(false);
     setFresh(true); setDetailRaw(o); setDetailTab('services'); setSvcSearch(searchKind || null);
