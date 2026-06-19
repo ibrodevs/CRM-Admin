@@ -26,21 +26,24 @@ const NAV_ITEMS = [
 
 const SERVICE_KEYS = ['flights', 'rail', 'hotels', 'transfers', 'buses', 'tours'];
 
-function NavGroup({ item, active, onNavigate }) {
+function NavGroup({ item, active, onNavigate, collapsed }) {
   const hasActiveChild = item.children.some((c) => c.key === active);
   const [open, setOpen] = useState(hasActiveChild);
   useEffect(() => { if (hasActiveChild) setOpen(true); }, [hasActiveChild]);
+  // collapsed: the flyout is shown purely via CSS :hover, so it's always in the DOM
+  const showSub = collapsed ? true : open;
   return (
     <div className="nav-group">
-      <button className={'nav-item' + (hasActiveChild && !open ? ' has-active' : '')} onClick={() => setOpen((o) => !o)}>
+      <button className={'nav-item' + (hasActiveChild && !open ? ' has-active' : '')} title={item.label}
+        onClick={() => { if (!collapsed) setOpen((o) => !o); }}>
         <Icon name={item.icon} />
         <span>{item.label}</span>
-        <Icon name="chevDown" className={'nav-caret' + (open ? ' open' : '')} />
+        {!collapsed && <Icon name="chevDown" className={'nav-caret' + (open ? ' open' : '')} />}
       </button>
-      {open && (
+      {showSub && (
         <div className="nav-sub">
           {item.children.map((c) => (
-            <button key={c.key}
+            <button key={c.key} title={c.label}
               className={'nav-subitem' + (active === c.key ? ' active' : '')}
               onClick={() => onNavigate(c.key)}>
               <Icon name={c.icon} />
@@ -53,7 +56,7 @@ function NavGroup({ item, active, onNavigate }) {
   );
 }
 
-function Sidebar({ route, onNavigate, onLogout, role }) {
+function Sidebar({ route, onNavigate, onLogout, role, collapsed }) {
   const active = route.split('/')[0];
   const can = (k) => (typeof roleCanSee === 'function' ? roleCanSee(role, k) : true);
   const items = NAV_ITEMS.map((it) => {
@@ -61,16 +64,16 @@ function Sidebar({ route, onNavigate, onLogout, role }) {
     return can(it.key) ? it : null;
   }).filter(Boolean);
   return (
-    <aside className="sidebar">
+    <aside className={'sidebar' + (collapsed ? ' collapsed' : '')}>
       <div className="sb-logo" onClick={() => onNavigate('dashboard')}>
         <BrandMark size={26} />
         <span>ПСЦ&nbsp;-&nbsp;Travel&nbsp;Hub</span>
       </div>
       <nav className="nav scroll">
         {items.map((it) => it.group ? (
-          <NavGroup key={it.group} item={it} active={active} onNavigate={onNavigate} />
+          <NavGroup key={it.group} item={it} active={active} onNavigate={onNavigate} collapsed={collapsed} />
         ) : (
-          <button key={it.key}
+          <button key={it.key} title={it.label}
             className={'nav-item' + (active === it.key ? ' active' : '')}
             onClick={() => onNavigate(it.key)}>
             <Icon name={it.icon} />
@@ -79,12 +82,12 @@ function Sidebar({ route, onNavigate, onLogout, role }) {
           </button>
         ))}
       </nav>
-      <ProfileCard onLogout={onLogout} onNavigate={onNavigate} />
+      <ProfileCard onLogout={onLogout} onNavigate={onNavigate} collapsed={collapsed} />
     </aside>
   );
 }
 
-function ProfileCard({ onLogout, onNavigate }) {
+function ProfileCard({ onLogout, onNavigate, collapsed }) {
   const [open, setOpen] = useState(false);
   const ref = useRef(null);
   useEffect(() => {
@@ -96,16 +99,16 @@ function ProfileCard({ onLogout, onNavigate }) {
   return (
     <div style={{ position: 'relative' }} ref={ref}>
       {open && (
-        <div className="dropdown" style={{ bottom: 74, left: 0, right: 0, minWidth: 0 }}>
+        <div className="dropdown" style={collapsed ? { bottom: 74, left: 0, minWidth: 220 } : { bottom: 74, left: 0, right: 0, minWidth: 0 }}>
           <div className="dropdown-item" onClick={() => go('profile')}><Icon name="user" />Мой профиль</div>
           <div className="dropdown-item" onClick={() => go('account')}><Icon name="settings" />Настройки аккаунта</div>
           <div className="dropdown-sep" />
           <div className="dropdown-item danger" onClick={onLogout}><Icon name="logout" />Выйти</div>
         </div>
       )}
-      <div className="profile-card" onClick={() => setOpen((o) => !o)}>
+      <div className="profile-card" title={CURRENT_USER.name} onClick={() => setOpen((o) => !o)}>
         <Avatar src={CURRENT_USER.avatar} name={CURRENT_USER.name} size={44} />
-        <div style={{ minWidth: 0 }}>
+        <div className="pc-info" style={{ minWidth: 0 }}>
           <div className="pc-name">{CURRENT_USER.name}</div>
           <div className="pc-role">{CURRENT_USER.role}</div>
         </div>
@@ -115,10 +118,10 @@ function ProfileCard({ onLogout, onNavigate }) {
   );
 }
 
-function AppShell({ route, onNavigate, onLogout, role, topbar, overlays, children }) {
+function AppShell({ route, onNavigate, onLogout, role, topbar, overlays, children, sidebarCollapsed }) {
   return (
     <div className="app">
-      <Sidebar route={route} onNavigate={onNavigate} onLogout={onLogout} role={role} />
+      <Sidebar route={route} onNavigate={onNavigate} onLogout={onLogout} role={role} collapsed={sidebarCollapsed} />
       <main className="main scroll">
         {topbar}
         {children}

@@ -930,17 +930,20 @@ function OrderCard({ order, onBack, initTab, initSvcSearch, fresh, onOpenChat })
   useEffect(() => { if (fresh) toast('Заказ создан. Добавьте участников и их документы во вкладке «Участники».', 'info'); }, []);
 
   const TABS = [
-    { key: 'overview', label: 'Общая информация' },
-    { key: 'clients', label: 'Клиенты' },
-    { key: 'participants', label: 'Участники', count: participants.length },
-    { key: 'route', label: 'Маршрут' },
-    { key: 'services', label: 'Услуги', count: services.length },
-    { key: 'offers', label: 'Ком. предложения', count: PROPOSALS.filter((p) => p.order === order.no).length },
-    { key: 'documents', label: 'Документы' },
-    { key: 'finance', label: 'Финансы' },
-    { key: 'aftersale', label: 'Постпродажа', count: RETURNS.filter((r) => r.order === order.no).length || null },
-    { key: 'history', label: 'История' },
+    { key: 'overview', label: 'Общая информация', icon: 'clipboard', group: 0 },
+    { key: 'clients', label: 'Клиенты', icon: 'contacts', group: 0 },
+    { key: 'participants', label: 'Пассажиры', icon: 'users', group: 0, count: participants.length },
+    { key: 'route', label: 'Маршрут', icon: 'route', group: 0 },
+    { key: 'services', label: 'Услуги', icon: 'briefcase', group: 0, count: services.length },
+    { key: 'offers', label: 'КП', icon: 'template', group: 1, count: PROPOSALS.filter((p) => p.order === order.no).length },
+    { key: 'documents', label: 'Документы', icon: 'docs', group: 1 },
+    { key: 'finance', label: 'Финансы', icon: 'finance', group: 1 },
+    { key: 'history', label: 'История', icon: 'clock', group: 2 },
+    { key: 'aftersale', label: 'Постпродажа', icon: 'refund', group: 2, count: RETURNS.filter((r) => r.order === order.no).length || null },
   ];
+  const TAB_GROUPS = ['Состав поездки', 'Работа с заказом', 'Сопровождение'];
+  // КП/Документы/Финансы/Постпродажа open up once the order moves past «Подбор услуг»
+  const isTabLocked = (t) => (t.group === 1 || t.key === 'aftersale') && stageIdx < 2;
 
   const goAddType = (type) => {
     if (type === 'Авиа') { setSvcView('avia-picker'); return; }
@@ -1074,12 +1077,36 @@ function OrderCard({ order, onBack, initTab, initSvcSearch, fresh, onOpenChat })
         <div className="oc-grid">
           <div className="oc-main">
             {!['avia-picker', 'booking'].includes(svcView) && (
-              <div className="oc-tabs">
-                {TABS.map((t) => (
-                  <button key={t.key} className={'tab' + (tab === t.key ? ' active' : '')} onClick={() => { setTab(t.key); if (t.key !== 'services') setSvcView(null); }}>
-                    {t.label}{t.count != null && <span className="tab-count">{t.count}</span>}
-                  </button>
-                ))}
+              <div className="oc-navpanel">
+                <div className="oc-navrow">
+                  {TAB_GROUPS.map((g, gi) => (
+                    <div className="oc-navgroup" key={g}>
+                      <div className="oc-navgroup-h">{g}</div>
+                      <div className="oc-navtiles">
+                        {TABS.filter((t) => t.group === gi).map((t) => {
+                          const locked = isTabLocked(t);
+                          return (
+                            <button key={t.key} className={'oc-navtile' + (tab === t.key ? ' active' : '') + (locked ? ' locked' : '')}
+                              onClick={() => {
+                                if (locked) { toast('Раздел станет доступен на следующих этапах заказа', 'info'); return; }
+                                setTab(t.key); if (t.key !== 'services') setSvcView(null);
+                              }}>
+                              <span className="ic"><Icon name={t.icon} /></span>
+                              <span className="nm">{t.label}</span>
+                              {t.count != null && <span className="cnt">{t.count}</span>}
+                              {locked && <span className="lockic"><Icon name="lock" /></span>}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                <div className="oc-navlegend">
+                  <div className="oc-navlegend-i"><span className="d act" /><span><b>Активный раздел</b> · можно работать</span></div>
+                  <div className="oc-navlegend-i"><span className="d avail" /><span><b>Доступный раздел</b> · можно перейти и просматривать</span></div>
+                  <div className="oc-navlegend-i"><span className="d lock" /><span><b>Недоступный раздел</b> · будет доступен позже</span></div>
+                </div>
               </div>
             )}
             {tabContent()}
