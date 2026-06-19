@@ -782,37 +782,6 @@ function TabOffers({ onCreate }) {
   );
 }
 
-function TabDocuments({ onPassport }) {
-  const toast = useToast();
-  const perClient = ['Паспорт', 'Виза', 'Банковское подтверждение', 'Справка с работы', 'Мед. страховка', 'Согласие на выезд'];
-  const general = ['Договор', 'Счёт на оплату', 'Ваучер', 'Акт', 'Маршрут-квитанция'];
-  return (
-    <div className="fade-in">
-      <div className="card card-pad" style={{ marginBottom: 18 }}>
-        <div style={{ fontWeight: 600, color: 'var(--ink)', marginBottom: 12 }}>Документы участника: Нуралиев Данияр</div>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 12 }}>
-          {perClient.map((d) => (
-            <button key={d} className="doc-chip" onClick={() => onPassport('Нуралиев Данияр')}>
-              <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}><Icon name="idcard" />{d}</span><Icon name="chevRight" /></button>
-          ))}
-        </div>
-      </div>
-      <div className="card card-pad">
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-          <div style={{ fontWeight: 600, color: 'var(--ink)' }}>Документы по заказу</div>
-          <Button variant="secondary" size="sm" icon="plus" onClick={() => toast('Загрузка документа', 'info')}>Загрузить</Button>
-        </div>
-        <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
-          {general.map((d) => (
-            <button key={d} className="doc-chip" style={{ width: 'auto' }} onClick={() => toast('Открываю: ' + d, 'info')}>
-              <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}><Icon name="docs" />{d}</span><Icon name="download" /></button>
-          ))}
-        </div>
-      </div>
-    </div>
-  );
-}
-
 function TabFinance({ services, onAddFee }) {
   const toast = useToast();
   const total = services.reduce((s, x) => s + x.sum, 0);
@@ -888,7 +857,7 @@ function OrderCard({ order, onBack, initTab, initSvcSearch, fresh, onOpenChat })
   const [tripEditOpen, setTripEditOpen] = useState(false);
   const [sendOpen, setSendOpen] = useState(false);
   const participants = requestType === 'Групповая' ? GROUP_PAX : ORDER_PARTICIPANTS;
-  const chatUnread = Object.values(getThreadForOrder(order).unread || {}).reduce((s, n) => s + n, 0);
+  const chatUnread = threadUnread(getThreadForOrder(order));
   const initStage = () => {
     if (order.status === 'Оплачено') return 4;
     if (order.status === 'Отменено') return 0;
@@ -993,7 +962,7 @@ function OrderCard({ order, onBack, initTab, initSvcSearch, fresh, onOpenChat })
       case 'services': return renderServicesArea();
       case 'offers': return <KPModule order={order} services={services} participants={participants}
         onApprove={() => { setStageIdx((i) => Math.max(i, 2)); toast('Созданы финансовые записи и задачи по выпуску документов', 'ok'); }} />;
-      case 'documents': return <DocCenter scopeOrder={order.no} />;
+      case 'documents': return <DocCenter scopeOrder={order.no} participants={participants} />;
       case 'finance': return <FinanceRegistry scopeOrder={order.no} />;
       case 'aftersale': return <ReturnsModule scopeOrder={order.no} order={order} compact />;
       case 'history': return <TabHistory />;

@@ -15,7 +15,7 @@ function App() {
   const [ctxOrder, setCtxOrder] = useState(null); // context for breadcrumbs + chat drawer
   const [role, setRole] = useState(CURRENT_USER.role); // active role — drives §6 access
 
-  const unreadChat = CHAT_THREADS.reduce((s, t) => s + Object.values(t.unread || {}).reduce((a, n) => a + n, 0), 0);
+  const unreadChat = CHAT_THREADS.reduce((s, t) => s + threadUnread(t), 0);
   const unreadNotif = NOTIFICATIONS.filter((n) => !n.read).length;
 
   const navigate = (r) => { setRoute(r); if (r.split('/')[0] !== 'orders') setCtxOrder(null); };

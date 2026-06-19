@@ -272,12 +272,58 @@ function DocCard({ doc, onClose }) {
   );
 }
 
-function DocCenter({ scopeOrder, onOpenDoc }) {
+// document types that belong to bookkeeping — shown separately, never under a passenger
+const DOC_BOOKKEEPING = ['Счёт', 'Акт', 'Договор'];
+
+/* one passenger's travel documents (tickets / boarding / vouchers / insurance / visas) */
+function DocPassengerGroup({ name, role, docs, onOpen, onUpload }) {
+  return (
+    <div className="card card-pad" style={{ marginBottom: 14 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+        <Avatar name={name} size={40} />
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ fontWeight: 700, color: 'var(--ink)' }}>{name}</div>
+          <div style={{ fontSize: 13, color: 'var(--muted)' }}>{role || 'Пассажир'} · {docs.length ? docs.length + ' ' + plural(docs.length, ['документ', 'документа', 'документов']) : 'документов нет'}</div>
+        </div>
+        <Button variant="secondary" size="sm" icon="plus" onClick={onUpload}>Загрузить</Button>
+      </div>
+      {docs.length ? (
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2,1fr)', gap: 10, marginTop: 14 }}>
+          {docs.map((d) => {
+            const k = DOC_KIND[d.type] || DOC_KIND['Прочее'];
+            return (
+              <button key={d.no} className="doc-chip" style={{ width: 'auto' }} onClick={() => onOpen(d)}>
+                <span style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
+                  <span className="airline-logo sm" style={{ background: k.color, width: 28, height: 28, borderRadius: 7, flexShrink: 0 }}><Icon name={k.icon} style={{ width: 15, height: 15 }} /></span>
+                  <span style={{ display: 'flex', flexDirection: 'column', minWidth: 0, textAlign: 'left' }}>
+                    <span style={{ fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{d.name}</span>
+                    <span style={{ fontSize: 12, color: 'var(--muted)' }}>{d.type} · v{d.version}</span>
+                  </span>
+                </span>
+                <Pill tone={DOC_STATUS2[d.status]}>{d.status}</Pill>
+              </button>
+            );
+          })}
+        </div>
+      ) : (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 12, padding: '12px 14px', border: '1px dashed var(--line)', borderRadius: 12, color: 'var(--muted)', fontSize: 13.5 }}>
+          <Icon name="idcard" style={{ width: 18, height: 18, color: 'var(--muted-2)' }} />
+          Документы пассажира ещё не загружены — добавьте билеты, ваучеры, визы и страховки.
+        </div>
+      )}
+    </div>
+  );
+}
+
+function DocCenter({ scopeOrder, participants, onOpenDoc }) {
   const toast = useToast();
   const [q, setQ] = useState('');
   const [tab, setTab] = useState('all');
   const [fStatus, setFStatus] = useState('');
   const [card, setCard] = useState(null);
+  // passenger grouping is only meaningful inside a single order with a known roster
+  const canGroupByPax = !!scopeOrder && Array.isArray(participants) && participants.length > 0;
+  const [view, setView] = useState('byType'); // 'byType' | 'byPassenger'
   const all = scopeOrder ? DOCS2.filter((d) => d.order === scopeOrder) : DOCS2;
 
   const TYPE_TABS = [
@@ -290,44 +336,82 @@ function DocCenter({ scopeOrder, onOpenDoc }) {
     { key: 'missing', label: 'Требуют действия', test: (d) => ['Черновик', 'На подписи'].includes(d.status) },
   ];
   const cur = TYPE_TABS.find((t) => t.key === tab);
-  let rows = all.filter((d) => cur.test(d) && (!fStatus || d.status === fStatus) &&
-    (!q || `${d.no} ${d.name} ${d.order} ${d.participant}`.toLowerCase().includes(q.toLowerCase())));
-
+  const matchesQ = (d) => !q || `${d.no} ${d.name} ${d.order} ${d.participant} ${d.type}`.toLowerCase().includes(q.toLowerCase());
+  let rows = all.filter((d) => cur.test(d) && (!fStatus || d.status === fStatus) && matchesQ(d));
   const open = (d) => onOpenDoc ? onOpenDoc(d) : setCard(d);
+
+  // passenger view data: travel docs grouped per passenger + a separate bookkeeping block
+  const paxDocs = (name) => all.filter((d) => d.participant === name && !DOC_BOOKKEEPING.includes(d.type) && (!fStatus || d.status === fStatus) && matchesQ(d));
+  const bookkeeping = all.filter((d) => DOC_BOOKKEEPING.includes(d.type) && (!fStatus || d.status === fStatus) && matchesQ(d));
+  const paxList = canGroupByPax
+    ? participants.filter((p) => !q || p.name.toLowerCase().includes(q.toLowerCase()) || paxDocs(p.name).length)
+    : [];
 
   return (
     <div className="fade-in">
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16, flexWrap: 'wrap' }}>
-        <Tabs tabs={TYPE_TABS.map((t) => ({ key: t.key, label: t.label, count: all.filter(t.test).length }))} value={tab} onChange={setTab} />
+        {canGroupByPax && (
+          <div className="trip-toggle" style={{ display: 'inline-flex' }}>
+            <button className={view === 'byType' ? 'on' : ''} onClick={() => setView('byType')}>По типу</button>
+            <button className={view === 'byPassenger' ? 'on' : ''} onClick={() => setView('byPassenger')}>По пассажирам</button>
+          </div>
+        )}
+        {view === 'byType' && <Tabs tabs={TYPE_TABS.map((t) => ({ key: t.key, label: t.label, count: all.filter(t.test).length }))} value={tab} onChange={setTab} />}
         <div style={{ flex: 1 }} />
-        <SearchBox value={q} onChange={setQ} placeholder="Поиск документа…" style={{ width: 230 }} />
+        <SearchBox value={q} onChange={setQ} placeholder={view === 'byPassenger' ? 'Поиск пассажира или документа…' : 'Поиск документа…'} style={{ width: 230 }} />
         <FilterChip label="Статус" value={fStatus} onChange={setFStatus} options={Object.keys(DOC_STATUS2)} />
         <Button icon="plus" onClick={() => toast('Загрузка документа', 'info')}>Загрузить</Button>
       </div>
-      <div className="table-card">
-        {rows.length ? (
-          <table className="tbl">
-            <thead><tr><th style={{ width: 90 }}>№</th><th>Документ</th><th>Тип</th><th>Заказ</th><th>Привязка</th><th>Версия</th><th>Дата</th><th>Статус</th></tr></thead>
-            <tbody>
-              {rows.map((d) => {
-                const k = DOC_KIND[d.type] || DOC_KIND['Прочее'];
-                return (
-                  <tr key={d.no} style={{ cursor: 'pointer' }} onClick={() => open(d)}>
-                    <td className="t-strong">{d.no}</td>
-                    <td><span style={{ display: 'flex', alignItems: 'center', gap: 10 }}><span className="airline-logo sm" style={{ background: k.color, width: 30, height: 30, borderRadius: 8 }}><Icon name={k.icon} style={{ width: 16, height: 16 }} /></span><span style={{ fontWeight: 600 }}>{d.name}</span></span></td>
-                    <td>{d.type}</td>
-                    <td><span style={{ color: 'var(--blue)', fontWeight: 600 }}>№ {d.order}</span></td>
-                    <td className="t-muted">{d.participant !== '—' ? d.participant : d.service !== '—' ? d.service : '—'}</td>
-                    <td>v{d.version}</td>
-                    <td>{d.date}</td>
-                    <td><Pill tone={DOC_STATUS2[d.status]}>{d.status}</Pill></td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        ) : <EmptyState icon="docs" title="Документы не найдены" />}
-      </div>
+
+      {view === 'byPassenger' ? (
+        <>
+          {paxList.length ? paxList.map((p) => (
+            <DocPassengerGroup key={p.name} name={p.name} role={p.role} docs={paxDocs(p.name)} onOpen={open} onUpload={() => toast('Загрузка документа · ' + p.name, 'info')} />
+          )) : <EmptyState icon="users" title="Пассажиры не найдены" />}
+
+          <h3 className="section-title" style={{ fontSize: 17, margin: '22px 0 12px' }}>Документы по заказу · бухгалтерия</h3>
+          {bookkeeping.length ? (
+            <div className="card card-pad">
+              <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
+                {bookkeeping.map((d) => {
+                  const k = DOC_KIND[d.type] || DOC_KIND['Прочее'];
+                  return (
+                    <button key={d.no} className="doc-chip" style={{ width: 'auto' }} onClick={() => open(d)}>
+                      <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}><Icon name={k.icon} />{d.name}</span>
+                      <Pill tone={DOC_STATUS2[d.status]}>{d.status}</Pill>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          ) : <div style={{ color: 'var(--muted)', fontSize: 14 }}>Бухгалтерских документов нет</div>}
+        </>
+      ) : (
+        <div className="table-card">
+          {rows.length ? (
+            <table className="tbl">
+              <thead><tr><th style={{ width: 90 }}>№</th><th>Документ</th><th>Тип</th><th>Заказ</th><th>Привязка</th><th>Версия</th><th>Дата</th><th>Статус</th></tr></thead>
+              <tbody>
+                {rows.map((d) => {
+                  const k = DOC_KIND[d.type] || DOC_KIND['Прочее'];
+                  return (
+                    <tr key={d.no} style={{ cursor: 'pointer' }} onClick={() => open(d)}>
+                      <td className="t-strong">{d.no}</td>
+                      <td><span style={{ display: 'flex', alignItems: 'center', gap: 10 }}><span className="airline-logo sm" style={{ background: k.color, width: 30, height: 30, borderRadius: 8 }}><Icon name={k.icon} style={{ width: 16, height: 16 }} /></span><span style={{ fontWeight: 600 }}>{d.name}</span></span></td>
+                      <td>{d.type}</td>
+                      <td><span style={{ color: 'var(--blue)', fontWeight: 600 }}>№ {d.order}</span></td>
+                      <td className="t-muted">{d.participant !== '—' ? d.participant : d.service !== '—' ? d.service : '—'}</td>
+                      <td>v{d.version}</td>
+                      <td>{d.date}</td>
+                      <td><Pill tone={DOC_STATUS2[d.status]}>{d.status}</Pill></td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          ) : <EmptyState icon="docs" title="Документы не найдены" />}
+        </div>
+      )}
       {card && <DocCard doc={card} onClose={() => setCard(null)} />}
     </div>
   );

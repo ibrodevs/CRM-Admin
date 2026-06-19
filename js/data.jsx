@@ -124,51 +124,128 @@ const CHATS = [
     messages: [{ from: 'them', text: 'Спасибо за помощь', time: 'Ср' }] },
 ];
 
-// ---- CHAT THREADS (3-way: client / supplier / internal) ----
-const CHAT_CHANNELS = [
-  { key: 'client',   label: 'Клиент',     icon: 'user' },
-  { key: 'supplier', label: 'Поставщик',  icon: 'suppliers' },
-  { key: 'internal', label: 'Внутренние', icon: 'users' },
+// ---- CHATS: many independent threads, each tied to an order and (optionally) a service ----
+// Thread types drive the left-nav filters; channel drives the connection badge.
+const CHAT_TYPES = [
+  { key: 'client',         label: 'Клиент',               icon: 'user' },
+  { key: 'operator',       label: 'Операторы',            icon: 'users' },
+  { key: 'supplier',       label: 'Поставщики',           icon: 'suppliers' },
+  { key: 'local_supplier', label: 'Локальные поставщики', icon: 'building' },
+  { key: 'system',         label: 'События',              icon: 'bell' },
 ];
+const CHAT_TYPE_LABEL = { client: 'Клиентский', operator: 'Операторский', supplier: 'Поставщик', local_supplier: 'Локальный поставщик', system: 'Системный' };
+const CHAT_CHANNEL_TONE = { 'MAX': 'blue', 'Email': 'teal', 'API': 'gray', 'Система': 'amber', 'Телефон': 'green', 'Поставщик': 'gray' };
+// kept for backwards-compat (composer sub-channels are now just «Сообщение» / «Внутренний комментарий»)
+const CHAT_CHANNELS = CHAT_TYPES;
 
 const CHAT_THREADS = [
-  { id: 1, order: 51162, name: 'ОсОО "Гранд лимитед"', client: 'Нуралиев Данияр', supplier: 'Air Astana', online: '5 мин назад', unread: { client: 2, supplier: 0, internal: 1 },
-    channels: {
-      client: [
-        { from: 'them', author: 'Нуралиев Данияр', text: 'Добрый день! Когда будет готово КП по Стамбулу?', time: '14:02' },
-        { from: 'system', text: 'КП-1042 отправлено клиенту', time: '15:34' },
-        { from: 'me', author: 'Даниель', text: 'Здравствуйте! Отправили, посмотрите два варианта в предложении.', time: '15:36', read: true },
-        { from: 'them', author: 'Нуралиев Данияр', text: 'Спасибо! Согласовываю вариант A.', time: '15:50' },
-      ],
-      supplier: [
-        { from: 'me', author: 'Даниель', text: 'Прошу подтвердить бронь KC 131/132 на 2 пассажиров.', time: '12:40', read: true },
-        { from: 'them', author: 'Air Astana', text: 'Подтверждаем, PNR KC8H2L. Тайм-лимит выписки сегодня 18:00.', time: '12:51' },
-        { from: 'them', author: 'Air Astana', text: '', attach: { name: 'Подтверждение брони.pdf', size: '96 КБ' }, time: '12:52' },
-      ],
-      internal: [
-        { from: 'them', author: 'Адилет', text: '@Даниель клиент просит места рядом — учти при выписке.', time: '13:10' },
-        { from: 'me', author: 'Даниель', text: 'Принял, выберу 12A и 12B.', time: '13:12', read: true },
-        { from: 'system', text: 'Назначен ответственный: Даниель', time: '14:05' },
-      ],
-    } },
-  { id: 2, order: 51170, name: 'ОсОО "Asia Travel"', client: 'Каримов Икрам', supplier: 'Qatar Airways', online: '1 ч назад', unread: { client: 0, supplier: 1, internal: 0 },
-    channels: {
-      client: [{ from: 'them', author: 'Каримов Икрам', text: 'Подтвердите, пожалуйста, статус заявки на 6 человек.', time: '11:20' }, { from: 'me', author: 'Куба', text: 'В работе, выписываем билеты до 18:00.', time: '11:40', read: true }],
-      supplier: [{ from: 'me', author: 'Куба', text: 'Нужна выписка по PNR QR9981, тайм-лимит горит.', time: '16:05', read: true }, { from: 'them', author: 'Qatar Airways', text: 'Принято в обработку, ответим в течение часа.', time: '16:20' }],
-      internal: [{ from: 'system', text: 'Тайм-лимит выписки сегодня 18:00', time: '16:00' }],
-    } },
-  { id: 3, order: 51163, name: 'Аттокуров Эрбол', client: 'Аттокуров Эрбол', supplier: 'Amadeus GDS', online: '2 ч назад', unread: { client: 1, supplier: 0, internal: 0 },
-    channels: {
-      client: [{ from: 'them', author: 'Аттокуров Эрбол', text: 'Загрузил паспорт, проверьте пожалуйста.', time: '09:10', attach: { name: 'passport.jpg', size: '1.1 МБ' } }],
-      supplier: [{ from: 'me', author: 'Даниель', text: 'Запрос на аннуляцию AV-51163, ожидаем расчёт штрафа.', time: '12:10', read: false }],
-      internal: [{ from: 'me', author: 'Даниель', text: 'Тариф невозвратный, аннуляция со 100% штрафом.', time: '12:12', read: true }],
-    } },
-  { id: 4, order: 51156, name: 'Сагынбеков Икрам', client: 'Сагынбеков Икрам', supplier: 'Coral Travel', online: 'вчера', unread: { client: 0, supplier: 0, internal: 0 },
-    channels: {
-      client: [{ from: 'me', author: 'Кими', text: 'Тур «Анталия All Inclusive» забронирован, ожидаем предоплату.', time: 'Вчера', read: true }],
-      supplier: [{ from: 'them', author: 'Coral Travel', text: 'Блок мест держим до 17.06.', time: 'Вчера' }],
-      internal: [],
-    } },
+  // ===== order 51162 — ОсОО "Гранд лимитед" =====
+  { id: 1, order: 51162, type: 'client', channel: 'MAX', name: 'ОсОО "Гранд лимитед"', client: 'Нуралиев Данияр', online: '5 мин назад',
+    createdAt: '14.06.2026', responsibleOperator: 'Даниель', connectionStatus: 'Подключено', pinned: true, unread: 2,
+    relatedServices: ['S1', 'S2'], participants: [{ name: 'Нуралиев Данияр', role: 'Клиент' }, { name: 'Даниель', role: 'Оператор' }],
+    messages: [
+      { from: 'them', author: 'Нуралиев Данияр', text: 'Добрый день! Когда будет готово КП по Стамбулу?', time: '14:02' },
+      { from: 'system', text: 'КП-1042 отправлено клиенту', time: '15:34' },
+      { from: 'me', author: 'Даниель', text: 'Здравствуйте! Отправили, посмотрите два варианта в предложении.', time: '15:36', read: true },
+      { from: 'them', author: 'Нуралиев Данияр', text: 'Спасибо! Согласовываю вариант A.', time: '15:50' },
+    ],
+    internal: [
+      { from: 'them', author: 'Адилет', text: '@Даниель клиент просит места рядом — учти при выписке.', time: '13:10' },
+      { from: 'me', author: 'Даниель', text: 'Принял, выберу 12A и 12B.', time: '13:12', read: true },
+    ] },
+  { id: 2, order: 51162, type: 'supplier', channel: 'API', name: 'Air Astana', client: 'Нуралиев Данияр', supplier: 'Air Astana', online: '12 мин назад',
+    createdAt: '14.06.2026', responsibleOperator: 'Даниель', connectionStatus: 'Подключено', pinned: false, unread: 0,
+    relatedServices: ['S1'], participants: [{ name: 'Air Astana', role: 'Поставщик' }, { name: 'Даниель', role: 'Оператор' }],
+    messages: [
+      { from: 'me', author: 'Даниель', text: 'Прошу подтвердить бронь KC 131/132 на 2 пассажиров.', time: '12:40', read: true },
+      { from: 'them', author: 'Air Astana', text: 'Подтверждаем, PNR KC8H2L. Тайм-лимит выписки сегодня 18:00.', time: '12:51' },
+      { from: 'them', author: 'Air Astana', text: '', attach: { name: 'Подтверждение брони.pdf', size: '96 КБ' }, time: '12:52' },
+    ],
+    internal: [] },
+  { id: 3, order: 51162, type: 'supplier', channel: 'Email', name: 'Booking B2B', client: 'Нуралиев Данияр', supplier: 'Booking B2B', online: '1 ч назад',
+    createdAt: '14.06.2026', responsibleOperator: 'Даниель', connectionStatus: 'Подключено', pinned: false, unread: 1,
+    relatedServices: ['S2'], participants: [{ name: 'Booking B2B', role: 'Поставщик' }, { name: 'Даниель', role: 'Оператор' }],
+    messages: [
+      { from: 'me', author: 'Даниель', text: 'Уточните тариф по Hilton Istanbul на 7 ночей, BB.', time: '13:20', read: true },
+      { from: 'them', author: 'Booking B2B', text: 'Тариф подтверждён, бронь под гарантию до 16.06.', time: '14:18' },
+    ],
+    internal: [] },
+  { id: 4, order: 51162, type: 'system', channel: 'Система', name: 'События заказа № 51162', client: 'Нуралиев Данияр', online: 'сейчас',
+    createdAt: '14.06.2026', responsibleOperator: 'Даниель', connectionStatus: 'Подключено', pinned: false, unread: 0,
+    relatedServices: ['S1'], participants: [{ name: 'Система', role: 'Бот' }],
+    messages: [
+      { from: 'system', text: 'Назначен ответственный: Даниель', time: '14:05' },
+      { from: 'system', text: 'Получен ответ от поставщика Air Astana по запросу №34251. Статус: Подтверждено', time: '15:40', action: { label: 'Открыть ответ', service: 'S1' } },
+      { from: 'system', text: 'Тайм-лимит выписки авиабилетов — сегодня 18:00', time: '16:00' },
+    ],
+    internal: [] },
+  { id: 5, order: 51162, type: 'operator', channel: 'MAX', name: 'Команда заказа № 51162', client: 'Нуралиев Данияр', online: '3 мин назад',
+    createdAt: '14.06.2026', responsibleOperator: 'Даниель', connectionStatus: 'Подключено', pinned: false, unread: 0,
+    relatedServices: [], participants: [{ name: 'Даниель', role: 'Оператор' }, { name: 'Адилет', role: 'Оператор' }, { name: 'Кими', role: 'Бухгалтер' }],
+    messages: [
+      { from: 'them', author: 'Кими', text: 'Счёт по варианту A сформирую после согласования клиента.', time: '15:55' },
+      { from: 'me', author: 'Даниель', text: 'Клиент согласовал A, можно выставлять.', time: '15:58', read: true },
+    ],
+    internal: [] },
+
+  // ===== order 51170 — ОсОО "Asia Travel" =====
+  { id: 6, order: 51170, type: 'client', channel: 'MAX', name: 'ОсОО "Asia Travel"', client: 'Каримов Икрам', online: '1 ч назад',
+    createdAt: '12.06.2026', responsibleOperator: 'Куба', connectionStatus: 'Подключено', pinned: false, unread: 0,
+    relatedServices: ['S1'], participants: [{ name: 'Каримов Икрам', role: 'Клиент' }, { name: 'Куба', role: 'Оператор' }],
+    messages: [{ from: 'them', author: 'Каримов Икрам', text: 'Подтвердите, пожалуйста, статус заявки на 6 человек.', time: '11:20' }, { from: 'me', author: 'Куба', text: 'В работе, выписываем билеты до 18:00.', time: '11:40', read: true }],
+    internal: [] },
+  { id: 7, order: 51170, type: 'supplier', channel: 'API', name: 'Qatar Airways', client: 'Каримов Икрам', supplier: 'Qatar Airways', online: '20 мин назад',
+    createdAt: '12.06.2026', responsibleOperator: 'Куба', connectionStatus: 'Подключено', pinned: false, unread: 1,
+    relatedServices: ['S1'], participants: [{ name: 'Qatar Airways', role: 'Поставщик' }, { name: 'Куба', role: 'Оператор' }],
+    messages: [{ from: 'me', author: 'Куба', text: 'Нужна выписка по PNR QR9981, тайм-лимит горит.', time: '16:05', read: true }, { from: 'them', author: 'Qatar Airways', text: 'Принято в обработку, ответим в течение часа.', time: '16:20' }],
+    internal: [{ from: 'system', text: 'Тайм-лимит выписки сегодня 18:00', time: '16:00' }] },
+  { id: 8, order: 51170, type: 'operator', channel: 'Телефон', name: 'Куба ↔ Даниель', client: 'Каримов Икрам', online: 'вчера',
+    createdAt: '12.06.2026', responsibleOperator: 'Куба', connectionStatus: 'Подключено', pinned: false, unread: 0,
+    relatedServices: [], participants: [{ name: 'Куба', role: 'Оператор' }, { name: 'Даниель', role: 'Оператор' }],
+    messages: [{ from: 'them', author: 'Даниель', text: 'Передаю заказ тебе на сегодня, я на встрече.', time: 'Вчера' }, { from: 'me', author: 'Куба', text: 'Принял, держу тайм-лимит.', time: 'Вчера', read: true }],
+    internal: [] },
+
+  // ===== order 51163 — Аттокуров Эрбол =====
+  { id: 9, order: 51163, type: 'client', channel: 'MAX', name: 'Аттокуров Эрбол', client: 'Аттокуров Эрбол', online: '2 ч назад',
+    createdAt: '14.06.2026', responsibleOperator: 'Даниель', connectionStatus: 'Подключено', pinned: false, unread: 1,
+    relatedServices: [], participants: [{ name: 'Аттокуров Эрбол', role: 'Клиент' }, { name: 'Даниель', role: 'Оператор' }],
+    messages: [{ from: 'them', author: 'Аттокуров Эрбол', text: 'Загрузил паспорт, проверьте пожалуйста.', time: '09:10', attach: { name: 'passport.jpg', size: '1.1 МБ' } }],
+    internal: [{ from: 'me', author: 'Даниель', text: 'Скан читаемый, отправляю на проверку визы.', time: '09:20', read: true }] },
+  { id: 10, order: 51163, type: 'supplier', channel: 'API', name: 'Amadeus GDS', client: 'Аттокуров Эрбол', supplier: 'Amadeus GDS', online: '3 ч назад',
+    createdAt: '13.06.2026', responsibleOperator: 'Даниель', connectionStatus: 'Отключено', pinned: false, unread: 0,
+    relatedServices: ['S1'], participants: [{ name: 'Amadeus GDS', role: 'Поставщик' }, { name: 'Даниель', role: 'Оператор' }],
+    messages: [{ from: 'me', author: 'Даниель', text: 'Запрос на аннуляцию AV-51163, ожидаем расчёт штрафа.', time: '12:10', read: false }],
+    internal: [{ from: 'me', author: 'Даниель', text: 'Тариф невозвратный, аннуляция со 100% штрафом.', time: '12:12', read: true }] },
+  { id: 11, order: 51163, type: 'local_supplier', channel: 'Email', name: 'Asia Local DMC', client: 'Аттокуров Эрбол', supplier: 'Asia Local DMC', online: 'вчера',
+    createdAt: '13.06.2026', responsibleOperator: 'Даниель', connectionStatus: 'Подключено', pinned: false, unread: 0,
+    relatedServices: ['S3'], participants: [{ name: 'Asia Local DMC', role: 'Локальный поставщик' }, { name: 'Даниель', role: 'Оператор' }],
+    messages: [{ from: 'them', author: 'Asia Local DMC', text: 'Трансфер подтверждён, встреча с табличкой у выхода 3.', time: 'Вчера' }],
+    internal: [] },
+
+  // ===== order 51156 — Сагынбеков Икрам =====
+  { id: 12, order: 51156, type: 'client', channel: 'Email', name: 'Сагынбеков Икрам', client: 'Сагынбеков Икрам', online: 'вчера',
+    createdAt: '10.06.2026', responsibleOperator: 'Кими', connectionStatus: 'Подключено', pinned: false, unread: 0,
+    relatedServices: [], participants: [{ name: 'Сагынбеков Икрам', role: 'Клиент' }, { name: 'Кими', role: 'Оператор' }],
+    messages: [{ from: 'me', author: 'Кими', text: 'Тур «Анталия All Inclusive» забронирован, ожидаем предоплату.', time: 'Вчера', read: true }],
+    internal: [] },
+  { id: 13, order: 51156, type: 'supplier', channel: 'Email', name: 'Coral Travel', client: 'Сагынбеков Икрам', supplier: 'Coral Travel', online: 'вчера',
+    createdAt: '10.06.2026', responsibleOperator: 'Кими', connectionStatus: 'Подключено', pinned: false, unread: 0,
+    relatedServices: ['S2'], participants: [{ name: 'Coral Travel', role: 'Поставщик' }, { name: 'Кими', role: 'Оператор' }],
+    messages: [{ from: 'them', author: 'Coral Travel', text: 'Блок мест держим до 17.06.', time: 'Вчера' }],
+    internal: [] },
+  { id: 14, order: 51156, type: 'local_supplier', channel: 'Телефон', name: 'Antalya Transfers', client: 'Сагынбеков Икрам', supplier: 'Antalya Transfers', online: '2 дн назад',
+    createdAt: '10.06.2026', responsibleOperator: 'Кими', connectionStatus: 'Подключено', pinned: false, unread: 0,
+    relatedServices: ['S3'], participants: [{ name: 'Antalya Transfers', role: 'Локальный поставщик' }, { name: 'Кими', role: 'Оператор' }],
+    messages: [{ from: 'them', author: 'Antalya Transfers', text: 'Машина и водитель назначены на дату заезда.', time: '2 дн назад' }],
+    internal: [] },
+  { id: 15, order: 51156, type: 'system', channel: 'Система', name: 'События заказа № 51156', client: 'Сагынбеков Икрам', online: 'сейчас',
+    createdAt: '10.06.2026', responsibleOperator: 'Кими', connectionStatus: 'Подключено', pinned: false, unread: 0,
+    relatedServices: [], participants: [{ name: 'Система', role: 'Бот' }],
+    messages: [
+      { from: 'system', text: 'Заказ создан и назначен оператору Кими', time: '10.06 · 10:00' },
+      { from: 'system', text: 'Ожидается предоплата от клиента', time: '10.06 · 10:05' },
+    ],
+    internal: [] },
 ];
 
 // ---- DASHBOARD ----
@@ -645,6 +722,17 @@ const DOCS2 = [
     versions: [{ v: 1, date: '12.06', who: 'Куба', note: 'Полис ВЗР' }], history: [{ t: '12.06 · 10:00', text: 'Полис оформлен', who: 'Куба' }] },
   { no: 'D-3077', name: 'Паспорт · Аттокуров Эрбол', type: 'Паспорт', order: 51163, participant: 'Аттокуров Эрбол', service: '—', finOp: '—', status: 'Черновик', version: 1, date: '14.06.2026', size: '1.1 МБ',
     versions: [{ v: 1, date: '14.06', who: 'Клиент', note: 'Скан загружен' }], history: [{ t: '14.06 · 09:10', text: 'Загружен клиентом', who: 'Клиент' }] },
+  // --- per-passenger documents for the group order 51162 (demo of grouping by passenger) ---
+  { no: 'D-3130', name: 'Электронный билет · Каримов И.', type: 'Билет', order: 51162, participant: 'Каримов Икрам', service: 'Авиа · AV-51162', finOp: 'F-2041', status: 'Подписан', version: 1, date: '14.06.2026', size: '178 КБ',
+    versions: [{ v: 1, date: '14.06 · 15:42', who: 'Система', note: 'Выписка' }], history: [{ t: '14.06 · 15:42', text: 'Билет выписан', who: 'Система' }] },
+  { no: 'D-3131', name: 'Страховой полис · Каримов И.', type: 'Страховой полис', order: 51162, participant: 'Каримов Икрам', service: 'Группа', finOp: '—', status: 'Сформирован', version: 1, date: '14.06.2026', size: '88 КБ',
+    versions: [{ v: 1, date: '14.06 · 16:00', who: 'Даниель', note: 'Полис ВЗР' }], history: [{ t: '14.06 · 16:00', text: 'Полис оформлен', who: 'Даниель' }] },
+  { no: 'D-3132', name: 'Электронный билет · Сагынбеков Б.', type: 'Билет', order: 51162, participant: 'Сагынбеков Бекзат', service: 'Авиа · AV-51162', finOp: 'F-2041', status: 'Подписан', version: 1, date: '14.06.2026', size: '181 КБ',
+    versions: [{ v: 1, date: '14.06 · 15:43', who: 'Система', note: 'Выписка' }], history: [{ t: '14.06 · 15:43', text: 'Билет выписан', who: 'Система' }] },
+  { no: 'D-3133', name: 'Паспорт · Сагынбеков Б.', type: 'Паспорт', order: 51162, participant: 'Сагынбеков Бекзат', service: '—', finOp: '—', status: 'На подписи', version: 1, date: '13.06.2026', size: '0.9 МБ',
+    versions: [{ v: 1, date: '13.06', who: 'Клиент', note: 'Скан загружен' }], history: [{ t: '13.06 · 11:20', text: 'Загружен клиентом', who: 'Клиент' }] },
+  { no: 'D-3134', name: 'Электронный билет · Аттокуров Э.', type: 'Билет', order: 51162, participant: 'Аттокуров Эрбол', service: 'Авиа · AV-51162', finOp: 'F-2041', status: 'Подписан', version: 1, date: '14.06.2026', size: '179 КБ',
+    versions: [{ v: 1, date: '14.06 · 15:44', who: 'Система', note: 'Выписка' }], history: [{ t: '14.06 · 15:44', text: 'Билет выписан', who: 'Система' }] },
 ];
 
 // Fulfillment control desk rows (отдел оформления). cat: payment | docs | overdue | return
@@ -892,7 +980,7 @@ function companyStaff(companyId) { return COMPANY_STAFF[companyId] || { departme
 Object.assign(window, {
   CURRENT_USER, ORDER_STATUS, SERVICE_TYPE, REQUEST_TYPE, SUPPLIER_STATUS,
   FIN_STATUS, DOC_STATUS, DOC_STAGE, DOC_TYPE, ORG_TYPE, CLIENTS, OPERATORS,
-  ORDERS, SUPPLIERS, FINANCE, FIN_STATS, DOCUMENTS, CHATS, CHAT_CHANNELS, CHAT_THREADS, SVC_DATA,
+  ORDERS, SUPPLIERS, FINANCE, FIN_STATS, DOCUMENTS, CHATS, CHAT_CHANNELS, CHAT_TYPES, CHAT_TYPE_LABEL, CHAT_CHANNEL_TONE, CHAT_THREADS, SVC_DATA,
   CLIENT_STATUS, CLIENTS_DB, COMPANY_STATUS, COMPANIES_DB, COMPANY_STAFF, companyStaff,
   USERS, USER_STATUS, ROLES, PERMISSIONS,
   DASH_STATS, ORDER_BREAKDOWN, RECENT_CHANGES, API_ACCESS, CURRENCIES,

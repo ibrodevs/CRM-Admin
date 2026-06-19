@@ -226,7 +226,7 @@ function GlobalChatDrawer({ open, onClose, contextOrder, onOpenOrder }) {
 
   const active = threads.find((t) => t.id === activeId) ||
     (contextOrder ? getThreadForOrder(contextOrder) : threads[0]);
-  const totalUnread = (t) => Object.values(t.unread || {}).reduce((s, n) => s + n, 0);
+  const totalUnread = (t) => threadUnread(t);
   const goOrder = (t) => { const o = ORDERS.find((x) => x.no === t.order); onClose(); o && onOpenOrder(o); };
 
   const ord = ORDERS.find((x) => x.no === active.order);

@@ -1,5 +1,6 @@
-// ===== Чаты: 3-стороннее общение (клиент / поставщик / внутренние) =====
-// вложения · упоминания · история · системные события · связь с заказом
+// ===== Чаты: много независимых чатов (клиент / операторы / поставщики / локальные / события) =====
+// каждый чат привязан к заказу и (опционально) к услуге · вложения · упоминания · системные события
+// внутри чата два под-канала композера: «Сообщение» и «Внутренний комментарий» (закрытый).
 
 function chatNow() { const d = new Date(); return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`; }
 function chatText(text) {
@@ -9,71 +10,116 @@ function chatText(text) {
     : <React.Fragment key={i}>{p}</React.Fragment>);
 }
 function lastMessage(thread) {
-  const all = [].concat(thread.channels.client, thread.channels.supplier, thread.channels.internal);
+  const all = thread.messages || [];
   const m = all[all.length - 1];
   if (!m) return '';
+  if (m.from === 'system') return m.text;
   return (m.from === 'me' ? 'Вы: ' : '') + (m.attach ? '📎 ' + m.attach.name : m.text);
 }
+function threadUnread(t) { return typeof t.unread === 'number' ? t.unread : Object.values(t.unread || {}).reduce((s, n) => s + n, 0); }
+function chatServiceById(id) { return (typeof ORDER_SERVICES !== 'undefined' ? ORDER_SERVICES : []).find((s) => s.id === id) || null; }
+function chatOrderStatus(no) { const o = (typeof ORDERS !== 'undefined' ? ORDERS : []).find((x) => x.no === no); if (!o) return null; return o.status === 'Нет данных' ? 'Новое' : o.status; }
+function chatTypeMeta(key) { return (CHAT_TYPES.find((t) => t.key === key)) || { key, label: key, icon: 'chat' }; }
+
+// default thread for an order (used by the order card & global drawer entry points)
 function getThreadForOrder(order) {
-  return CHAT_THREADS.find((t) => t.order === order.no) ||
-    { id: 'o' + order.no, order: order.no, name: order.client, client: order.client, supplier: '—', online: '—', unread: { client: 0, supplier: 0, internal: 0 }, channels: { client: [], supplier: [], internal: [] } };
+  return CHAT_THREADS.find((t) => t.order === order.no && t.type === 'client') ||
+    CHAT_THREADS.find((t) => t.order === order.no) ||
+    { id: 'o' + order.no, order: order.no, type: 'client', channel: 'MAX', name: order.client, client: order.client,
+      online: '—', unread: 0, pinned: false, connectionStatus: 'Подключено', responsibleOperator: order.operator || 'Даниель',
+      relatedServices: [], participants: [{ name: order.client, role: 'Клиент' }], messages: [], internal: [] };
+}
+
+/* small channel badge for list rows & header */
+function ChannelBadge({ channel }) {
+  return <Pill tone={CHAT_CHANNEL_TONE[channel] || 'gray'}>{channel}</Pill>;
 }
 
 /* ---------- reusable conversation panel ---------- */
-function ChatThread({ thread, embedded, onOpenOrder, initChannel = 'client' }) {
+function ChatThread({ thread, embedded, onOpenOrder, onOpenService, initChannel }) {
   const toast = useToast();
-  const [channel, setChannel] = useState(initChannel);
-  const [chans, setChans] = useState(thread.channels);
-  const [unread, setUnread] = useState(thread.unread || {});
+  const [sub, setSub] = useState('message'); // composer sub-channel: 'message' | 'internal'
+  const [msgs, setMsgs] = useState(thread.messages || []);
+  const [intl, setIntl] = useState(thread.internal || []);
   const [draft, setDraft] = useState('');
+  const [linked, setLinked] = useState(null); // service id attached to the message being composed
+  const [pinned, setPinned] = useState(!!thread.pinned);
   const scrollRef = useRef(null);
 
-  // reset when switching to a different thread
-  useEffect(() => { setChans(thread.channels); setUnread(thread.unread || {}); setChannel(initChannel); }, [thread.id]);
-  useEffect(() => { if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight; }, [channel, chans]);
+  useEffect(() => { setMsgs(thread.messages || []); setIntl(thread.internal || []); setSub('message'); setLinked(null); setPinned(!!thread.pinned); }, [thread.id]);
+  useEffect(() => { if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight; }, [sub, msgs, intl]);
 
-  const msgs = chans[channel] || [];
-  const pushMsg = (m) => setChans((c) => ({ ...c, [channel]: [...c[channel], m] }));
-  const send = () => { if (!draft.trim()) return; pushMsg({ from: 'me', author: 'Даниель', text: draft, time: chatNow(), read: false }); setDraft(''); };
-  const attach = () => { pushMsg({ from: 'me', author: 'Даниель', attach: { name: 'Документ.pdf', size: '128 КБ' }, time: chatNow(), read: false }); toast('Файл прикреплён', 'ok'); };
-  const openChannel = (k) => { setChannel(k); setUnread((u) => ({ ...u, [k]: 0 })); };
+  const feed = sub === 'internal' ? intl : msgs;
+  const setFeed = sub === 'internal' ? setIntl : setMsgs;
+  const send = () => {
+    if (!draft.trim()) return;
+    setFeed((c) => [...c, { from: 'me', author: 'Даниель', text: draft, time: chatNow(), read: false, service: linked }]);
+    setDraft('');
+  };
+  const attach = () => { setFeed((c) => [...c, { from: 'me', author: 'Даниель', attach: { name: 'Документ.pdf', size: '128 КБ' }, time: chatNow(), read: false }]); toast('Файл прикреплён', 'ok'); };
+
+  const status = chatOrderStatus(thread.order);
+  const services = typeof ORDER_SERVICES !== 'undefined' ? ORDER_SERVICES : [];
+  const tMeta = chatTypeMeta(thread.type);
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden' }}>
       {/* header */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '14px 20px', borderBottom: '1px solid var(--line)' }}>
-        <Avatar name={thread.name} size={embedded ? 38 : 46} />
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontWeight: 600, color: 'var(--ink)' }}>{thread.name}</div>
-          <div style={{ fontSize: 13, color: 'var(--muted)' }}>{thread.client} · был в сети {thread.online}</div>
+      {embedded ? (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '14px 20px', borderBottom: '1px solid var(--line)' }}>
+          <Avatar name={thread.name} size={38} />
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontWeight: 600, color: 'var(--ink)' }}>{thread.name}</div>
+            <div style={{ fontSize: 13, color: 'var(--muted)' }}>{tMeta.label} · был в сети {thread.online}</div>
+          </div>
+          <ChannelBadge channel={thread.channel} />
         </div>
-        {!embedded && (
-          <span className="link-chip" onClick={() => onOpenOrder && onOpenOrder(thread)}><Icon name="orders" />Заказ № {thread.order}</span>
-        )}
-        <button className="icon-btn"><Icon name="search" /></button>
-      </div>
-
-      {/* channel tabs */}
-      <div style={{ display: 'flex', gap: 8, padding: '12px 20px 0' }}>
-        {CHAT_CHANNELS.map((c) => (
-          <button key={c.key} className={'tab btn-sm' + (channel === c.key ? ' active' : '')} style={{ height: 36 }} onClick={() => openChannel(c.key)}>
-            <Icon name={c.icon} />{c.label}{unread[c.key] > 0 && <span className="chan-tab-badge">{unread[c.key]}</span>}
-          </button>
-        ))}
-      </div>
+      ) : (
+        <div style={{ padding: '14px 22px', borderBottom: '1px solid var(--line)' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+            <span style={{ fontWeight: 700, fontSize: 17, color: 'var(--ink)' }}>Заказ № {thread.order}</span>
+            {status && <Pill tone={(typeof ORDER_STATUS !== 'undefined' && ORDER_STATUS[status]) || 'blue'}>{status}</Pill>}
+            <ChannelBadge channel={thread.channel} />
+            <Pill tone={thread.connectionStatus === 'Подключено' ? 'green' : 'red'}>{thread.connectionStatus}</Pill>
+            <div style={{ flex: 1 }} />
+            <Button variant="secondary" size="sm" icon="clipboard" onClick={() => toast('Создание задачи по чату', 'info')}>Создать задачу</Button>
+            <Button variant={pinned ? 'primary' : 'secondary'} size="sm" icon="star" onClick={() => { setPinned((p) => !p); toast(pinned ? 'Чат откреплён' : 'Чат закреплён', 'ok'); }}>{pinned ? 'Закреплён' : 'Закрепить'}</Button>
+            <ActionMenu trigger={<button className="btn btn-secondary btn-icon btn-sm"><Icon name="more" /></button>}
+              items={[
+                { icon: 'orders', label: 'Открыть карточку заказа', onClick: () => onOpenOrder && onOpenOrder(thread) },
+                { icon: 'mail', label: 'Отправить email', onClick: () => toast('Черновик письма создан', 'info') },
+                { icon: 'clock', label: 'История изменений', onClick: () => toast('История изменений чата', 'info') },
+              ]} />
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', fontSize: 13, color: 'var(--muted)', marginTop: 8 }}>
+            <span style={{ fontWeight: 600, color: 'var(--ink)' }}>{thread.name}</span>
+            <span style={{ color: 'var(--faint)' }}>·</span><span>{tMeta.label}</span>
+            <span style={{ color: 'var(--faint)' }}>·</span><span>отв. {thread.responsibleOperator}</span>
+            <span style={{ color: 'var(--faint)' }}>·</span><span>{(thread.participants || []).length} участников</span>
+          </div>
+        </div>
+      )}
 
       {/* messages */}
       <div ref={scrollRef} className="scroll" style={{ flex: 1, overflowY: 'auto', padding: '16px 22px', display: 'flex', flexDirection: 'column', gap: 10, minHeight: 0 }}>
-        {channel === 'internal' && <div className="chan-note"><Icon name="lock" style={{ width: 14, height: 14 }} />Видно только сотрудникам агентства</div>}
-        {channel === 'supplier' && <div className="chan-note" style={{ color: 'var(--gray-text)', background: 'var(--gray-bg)' }}><Icon name="suppliers" style={{ width: 14, height: 14 }} />Канал с поставщиком · {thread.supplier}</div>}
-        {!msgs.length && <EmptyState icon="chat" title="Сообщений пока нет" sub="Начните переписку в этом канале" />}
-        {msgs.map((m, i) => {
-          if (m.from === 'system') return <div className="chat-sys" key={i}><span><Icon name="bell" />{m.text} · {m.time}</span></div>;
+        {sub === 'internal' && <div className="chan-note"><Icon name="lock" style={{ width: 14, height: 14 }} />Внутренний комментарий — виден только сотрудникам агентства</div>}
+        {sub === 'message' && thread.type === 'supplier' && <div className="chan-note" style={{ color: 'var(--gray-text)', background: 'var(--gray-bg)' }}><Icon name="suppliers" style={{ width: 14, height: 14 }} />Канал с поставщиком · {thread.supplier || thread.name} · {thread.channel}</div>}
+        {!feed.length && <EmptyState icon="chat" title="Сообщений пока нет" sub={sub === 'internal' ? 'Оставьте внутренний комментарий' : 'Начните переписку'} />}
+        {feed.map((m, i) => {
+          if (m.from === 'system') return (
+            <div className="chat-sys" key={i}>
+              <span><Icon name="bell" />{m.text} · {m.time}
+                {m.action && <button className="link-chip" style={{ marginLeft: 10 }} onClick={() => onOpenService && onOpenService(m.action.service)}>{m.action.label}<Icon name="chevRight" /></button>}
+              </span>
+            </div>
+          );
           const me = m.from === 'me';
+          const svc = m.service ? chatServiceById(m.service) : null;
           return (
             <div className={'msg-row ' + (me ? 'me' : 'them')} key={i}>
-              <div className={'msg ' + (me ? 'me' : 'them') + (channel === 'internal' ? ' internal' : '')}>
-                {!me && m.author && channel !== 'client' && <div className="msg-author">{m.author}</div>}
+              <div className={'msg ' + (me ? 'me' : 'them') + (sub === 'internal' ? ' internal' : '')}>
+                {!me && m.author && thread.type !== 'client' && <div className="msg-author">{m.author}</div>}
+                {svc && <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12, fontWeight: 600, color: 'var(--blue)', background: 'var(--blue-soft)', borderRadius: 8, padding: '3px 8px', marginBottom: 6 }}><Icon name={(SERVICE_KIND[svc.kind] || {}).icon || 'route'} style={{ width: 12, height: 12 }} />{svc.kind} · {svc.title}</div>}
                 {m.attach
                   ? <div className="chat-attach" onClick={() => toast('Скачивание ' + m.attach.name, 'info')}><span className="ic"><Icon name="paperclip" /></span><div><div style={{ fontWeight: 600, fontSize: 13.5 }}>{m.attach.name}</div><div style={{ fontSize: 12, color: 'var(--muted)' }}>{m.attach.size}</div></div><Icon name="download" style={{ width: 16, height: 16, color: 'var(--muted-2)' }} /></div>
                   : <span>{chatText(m.text)}</span>}
@@ -86,14 +132,187 @@ function ChatThread({ thread, embedded, onOpenOrder, initChannel = 'client' }) {
 
       {/* composer */}
       <div style={{ padding: '12px 20px', borderTop: '1px solid var(--line)' }}>
+        {linked && (() => { const s = chatServiceById(linked); return (
+          <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, fontSize: 12.5, fontWeight: 600, color: 'var(--ink)', background: 'var(--surface-2)', border: '1px solid var(--line)', borderRadius: 999, padding: '5px 10px', marginBottom: 10 }}>
+            <Icon name={(SERVICE_KIND[s.kind] || {}).icon || 'route'} style={{ width: 13, height: 13, color: 'var(--blue)' }} />{s.kind} · {s.title}
+            <button className="icon-btn btn-sm" style={{ width: 20, height: 20 }} onClick={() => setLinked(null)}><Icon name="x" style={{ width: 13, height: 13 }} /></button>
+          </div>
+        ); })()}
+        <div className="trip-toggle" style={{ display: 'inline-flex', marginBottom: 10 }}>
+          <button className={sub === 'message' ? 'on' : ''} onClick={() => setSub('message')}>Сообщение</button>
+          <button className={sub === 'internal' ? 'on' : ''} onClick={() => setSub('internal')}><Icon name="lock" style={{ width: 13, height: 13, verticalAlign: -2, marginRight: 4 }} />Внутренний комментарий</button>
+        </div>
         <div className="search" style={{ width: '100%', minWidth: 0 }}>
           <button className="icon-btn" onClick={attach} title="Прикрепить"><Icon name="paperclip" /></button>
+          <ActionMenu trigger={<button className="icon-btn" title="Привязать к услуге"><Icon name="route" /></button>}
+            items={services.length ? services.map((s) => ({ icon: (SERVICE_KIND[s.kind] || {}).icon || 'route', label: s.kind + ' · ' + s.title, onClick: () => { setLinked(s.id); toast('Привязано к услуге: ' + s.title, 'ok'); } })) : [{ icon: 'route', label: 'Нет услуг в заказе', onClick: () => {} }]} />
           <ActionMenu trigger={<button className="icon-btn" title="Упомянуть"><span style={{ fontWeight: 700, fontSize: 16, color: 'var(--muted)' }}>@</span></button>}
             items={OPERATORS.map((o) => ({ icon: 'user', label: o, onClick: () => setDraft((d) => (d ? d + ' ' : '') + '@' + o.split(' ')[0] + ' ') }))} />
           <input value={draft} onChange={(e) => setDraft(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && send()}
-            placeholder={channel === 'internal' ? 'Внутренний комментарий…' : 'Сообщение…'} style={{ flex: 1 }} />
+            placeholder={sub === 'internal' ? 'Внутренний комментарий…' : 'Сообщение…'} style={{ flex: 1 }} />
           <button className="icon-btn" style={{ color: 'var(--blue)' }} onClick={send}><Icon name="send" /></button>
         </div>
+      </div>
+    </div>
+  );
+}
+
+/* ---------- right info panel ---------- */
+function ChatInfoPanel({ thread, onOpenOrder, onOpenService }) {
+  const toast = useToast();
+  const [allPax, setAllPax] = useState(false);
+  const services = (thread.relatedServices || []).map(chatServiceById).filter(Boolean);
+  const tMeta = chatTypeMeta(thread.type);
+  const pax = thread.participants || [];
+  const shownPax = allPax ? pax : pax.slice(0, 4);
+  const quick = [
+    { icon: 'clipboard', label: 'Создать задачу', onClick: () => toast('Создание задачи по чату', 'info') },
+    { icon: 'mail', label: 'Отправить email', onClick: () => toast('Черновик письма создан', 'info') },
+    { icon: 'orders', label: 'Открыть карточку заказа', onClick: () => onOpenOrder && onOpenOrder(thread) },
+    { icon: 'clock', label: 'История изменений', onClick: () => toast('История изменений чата', 'info') },
+  ];
+  return (
+    <div className="scroll" style={{ overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 16, padding: 2 }}>
+      {/* related services */}
+      <div className="card card-pad">
+        <h3 className="card-title" style={{ fontSize: 15, marginBottom: 12 }}>Связано с услугой</h3>
+        {services.length ? services.map((s) => {
+          const k = SERVICE_KIND[s.kind] || SERVICE_KIND['Авиа'];
+          return (
+            <div key={s.id} style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 12 }}>
+              <span className="oc-svc-ic" style={{ background: k.color, width: 38, height: 38 }}><Icon name={k.icon} /></span>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontWeight: 600, color: 'var(--ink)', fontSize: 13.5 }}>{s.kind} · {s.title}</div>
+                <div style={{ fontSize: 12.5, color: 'var(--muted)' }}>{s.date} · <Pill tone={SERVICE_STATUS[s.status] || 'gray'}>{s.status}</Pill></div>
+              </div>
+            </div>
+          );
+        }) : <div style={{ color: 'var(--muted)', fontSize: 13.5, marginBottom: 8 }}>Чат не привязан к услуге</div>}
+        <Button variant="secondary" size="sm" className="btn-block" iconRight="chevRight" onClick={() => onOpenService && onOpenService(services[0] ? services[0].id : null)}>Открыть услугу</Button>
+      </div>
+
+      {/* chat info */}
+      <div className="card card-pad">
+        <h3 className="card-title" style={{ fontSize: 15, marginBottom: 12 }}>Информация о чате</h3>
+        <div className="kv">
+          <div className="kv-row"><span className="k">Тип чата</span><span className="v">{tMeta.label}</span></div>
+          <div className="kv-row"><span className="k">Канал связи</span><span className="v"><ChannelBadge channel={thread.channel} /></span></div>
+          <div className="kv-row"><span className="k">Подключение</span><span className="v"><Pill tone={thread.connectionStatus === 'Подключено' ? 'green' : 'red'}>{thread.connectionStatus}</Pill></span></div>
+          <div className="kv-row"><span className="k">Создан</span><span className="v">{thread.createdAt}</span></div>
+          <div className="kv-row"><span className="k">Ответственный</span><span className="v">{thread.responsibleOperator}</span></div>
+        </div>
+      </div>
+
+      {/* participants */}
+      <div className="card card-pad">
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+          <h3 className="card-title" style={{ fontSize: 15 }}>Участники</h3>
+          {pax.length > 4 && <button className="link-chip" onClick={() => setAllPax((v) => !v)}>{allPax ? 'Свернуть' : 'Показать всех'}</button>}
+        </div>
+        {shownPax.map((p, i) => (
+          <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
+            <Avatar name={p.name} size={32} />
+            <div style={{ flex: 1, minWidth: 0 }}><div style={{ fontWeight: 600, fontSize: 13.5, color: 'var(--ink)' }}>{p.name}</div><div style={{ fontSize: 12, color: 'var(--muted)' }}>{p.role}</div></div>
+          </div>
+        ))}
+      </div>
+
+      {/* quick actions */}
+      <div className="card card-pad">
+        <h3 className="card-title" style={{ fontSize: 15, marginBottom: 12 }}>Быстрые действия</h3>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          {quick.map((q) => (
+            <Button key={q.label} variant="secondary" size="sm" icon={q.icon} className="btn-block" style={{ justifyContent: 'flex-start' }} onClick={q.onClick}>{q.label}</Button>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ---------- left navigation ---------- */
+function ChatsNav({ threads, activeId, onSelect, search, setSearch, mode, setMode }) {
+  const [typeFilter, setTypeFilter] = useState('all');
+  const matchesSearch = (t) => {
+    const hay = `${t.name} ${t.order} ${t.client} ${t.channel} ${(t.relatedServices || []).map((id) => { const s = chatServiceById(id); return s ? s.kind + ' ' + s.title : ''; }).join(' ')} ${lastMessage(t)}`.toLowerCase();
+    return hay.includes(search.toLowerCase());
+  };
+  const searched = threads.filter(matchesSearch);
+  const typeCount = (k) => searched.filter((t) => t.type === k).length;
+  const filtered = (mode === 'byType' && typeFilter !== 'all') ? searched.filter((t) => t.type === typeFilter) : searched;
+  // pinned first, then newest (by id desc)
+  const sorted = [...filtered].sort((a, b) => (b.pinned ? 1 : 0) - (a.pinned ? 1 : 0) || b.id - a.id);
+
+  const TYPE_FILTERS = [{ key: 'all', label: 'Все чаты' }].concat(CHAT_TYPES.map((t) => ({ key: t.key, label: t.label })));
+
+  const Row = (t) => {
+    const tMeta = chatTypeMeta(t.type);
+    const u = threadUnread(t);
+    return (
+      <div key={t.id} onClick={() => onSelect(t.id)}
+        style={{ display: 'flex', gap: 12, padding: 11, borderRadius: 13, cursor: 'pointer', background: t.id === activeId ? 'var(--hover)' : 'transparent', marginBottom: 2 }}>
+        {t.type === 'system'
+          ? <span className="oc-svc-ic" style={{ background: 'var(--amber)', width: 44, height: 44, flexShrink: 0 }}><Icon name="bell" /></span>
+          : <Avatar name={t.name} size={44} />}
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, alignItems: 'center' }}>
+            <span style={{ fontWeight: 600, color: 'var(--ink)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', display: 'flex', alignItems: 'center', gap: 6 }}>
+              {t.pinned && <Icon name="star" style={{ width: 13, height: 13, color: 'var(--amber)' }} />}{t.name}
+            </span>
+            <span style={{ fontSize: 12, color: 'var(--muted-2)', whiteSpace: 'nowrap' }}>№ {t.order}</span>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, margin: '4px 0 3px' }}>
+            <ChannelBadge channel={t.channel} />
+            <span style={{ fontSize: 11.5, color: 'var(--muted-2)' }}>{tMeta.label}</span>
+          </div>
+          <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, alignItems: 'center' }}>
+            <span style={{ fontSize: 13, color: 'var(--muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{lastMessage(t)}</span>
+            {u > 0 && <span className="chan-tab-badge" style={{ marginLeft: 0 }}>{u}</span>}
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  return (
+    <div className="card" style={{ display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+      <div style={{ padding: 16, borderBottom: '1px solid var(--line)' }}>
+        <SearchBox value={search} onChange={setSearch} placeholder="Поиск: чат, участник, услуга…" style={{ width: '100%', minWidth: 0 }} />
+        <div className="trip-toggle" style={{ display: 'flex', marginTop: 12 }}>
+          <button className={mode === 'byType' ? 'on' : ''} style={{ flex: 1 }} onClick={() => setMode('byType')}>По типу</button>
+          <button className={mode === 'byService' ? 'on' : ''} style={{ flex: 1 }} onClick={() => setMode('byService')}>По услуге</button>
+        </div>
+        {mode === 'byType' && (
+          <div style={{ display: 'flex', gap: 7, flexWrap: 'wrap', marginTop: 12 }}>
+            {TYPE_FILTERS.map((f) => {
+              const n = f.key === 'all' ? searched.length : typeCount(f.key);
+              return (
+                <button key={f.key} className={'chip' + (typeFilter === f.key ? ' active' : '')} style={{ height: 30, fontSize: 12.5, background: typeFilter === f.key ? 'var(--blue-soft)' : undefined, borderColor: typeFilter === f.key ? 'var(--blue)' : undefined, color: typeFilter === f.key ? 'var(--blue)' : undefined }} onClick={() => setTypeFilter(f.key)}>
+                  {f.label}<span style={{ fontWeight: 700 }}>{n}</span>
+                </button>
+              );
+            })}
+          </div>
+        )}
+      </div>
+      <div className="scroll" style={{ flex: 1, overflowY: 'auto', padding: '8px 10px 10px' }}>
+        <div style={{ fontSize: 12, color: 'var(--muted-2)', fontWeight: 600, padding: '6px 6px 8px' }}>Сначала новые</div>
+        {mode === 'byService'
+          ? (() => {
+            const groups = {};
+            sorted.forEach((t) => { const sid = (t.relatedServices || [])[0] || '—'; (groups[sid] = groups[sid] || []).push(t); });
+            const order = Object.keys(groups).sort((a, b) => (a === '—' ? 1 : 0) - (b === '—' ? 1 : 0));
+            return order.length ? order.map((sid) => {
+              const s = chatServiceById(sid);
+              return (
+                <div key={sid} style={{ marginBottom: 6 }}>
+                  <div style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--ink)', padding: '8px 6px 4px' }}>{s ? s.kind + ' · ' + s.title : 'Без привязки к услуге'}</div>
+                  {groups[sid].map(Row)}
+                </div>
+              );
+            }) : <div style={{ padding: 24 }}><EmptyState icon="chat" title="Ничего не найдено" /></div>;
+          })()
+          : (sorted.length ? sorted.map(Row) : <div style={{ padding: 24 }}><EmptyState icon="chat" title="Ничего не найдено" /></div>)}
       </div>
     </div>
   );
@@ -105,59 +324,30 @@ function ChatsPage({ onOpenOrder }) {
   const [threads] = useState(CHAT_THREADS);
   const [activeId, setActiveId] = useState(CHAT_THREADS[0].id);
   const [search, setSearch] = useState('');
-  const [onlyUnread, setOnlyUnread] = useState(false);
+  const [mode, setMode] = useState('byType');
 
-  const totalUnread = (t) => Object.values(t.unread || {}).reduce((s, n) => s + n, 0);
-  const list = threads.filter((t) => (`${t.name} ${t.order} ${t.client}`.toLowerCase().includes(search.toLowerCase())) && (!onlyUnread || totalUnread(t) > 0));
   const active = threads.find((t) => t.id === activeId) || threads[0];
-  const openOrderFromThread = (t) => { const o = ORDERS.find((x) => x.no === t.order) || { no: t.order, client: t.name, requestType: 'Индивидуальная', status: 'В работе', operator: 'Даниель', date: '15.06.25' }; onOpenOrder && onOpenOrder(o); };
+  const openOrderFromThread = (t) => { const o = ORDERS.find((x) => x.no === t.order) || { no: t.order, client: t.client || t.name, requestType: 'Индивидуальная', status: 'В работе', operator: t.responsibleOperator || 'Даниель', date: '15.06.25' }; onOpenOrder && onOpenOrder(o); };
+  const openServiceFromThread = (sid) => { const o = ORDERS.find((x) => x.no === active.order) || { no: active.order, client: active.client || active.name, requestType: 'Индивидуальная', status: 'В работе', operator: active.responsibleOperator || 'Даниель', date: '15.06.25' }; onOpenOrder && onOpenOrder(o, 'services'); };
 
   return (
     <div className="fade-in" style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
       <Topbar title="Чаты" />
       <div className="content" style={{ flex: 1, minHeight: 0 }}>
-        <div style={{ display: 'grid', gridTemplateColumns: '360px 1fr', gap: 22, height: 'calc(100vh - 150px)' }}>
-          {/* list */}
-          <div className="card" style={{ display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-            <div style={{ padding: 16 }}>
-              <SearchBox value={search} onChange={setSearch} placeholder="Найти заказ или контакт" style={{ width: '100%', minWidth: 0 }} />
-              <div style={{ display: 'flex', gap: 9, marginTop: 12 }}>
-                <button className={'tab btn-sm' + (!onlyUnread ? ' active' : '')} style={{ height: 34 }} onClick={() => setOnlyUnread(false)}>Все</button>
-                <button className={'tab btn-sm' + (onlyUnread ? ' active' : '')} style={{ height: 34 }} onClick={() => setOnlyUnread(true)}>Непрочитанные</button>
-              </div>
-            </div>
-            <div className="scroll" style={{ flex: 1, overflowY: 'auto', padding: '0 10px 10px' }}>
-              {list.map((t) => (
-                <div key={t.id} onClick={() => setActiveId(t.id)}
-                  style={{ display: 'flex', gap: 13, padding: 12, borderRadius: 13, cursor: 'pointer', background: t.id === activeId ? 'var(--hover)' : 'transparent', marginBottom: 2 }}>
-                  <Avatar name={t.name} size={46} />
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8 }}>
-                      <span style={{ fontWeight: 600, color: 'var(--ink)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{t.name}</span>
-                      <span style={{ fontSize: 12, color: 'var(--muted-2)', whiteSpace: 'nowrap' }}>№ {t.order}</span>
-                    </div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, alignItems: 'center', marginTop: 2 }}>
-                      <span style={{ fontSize: 13.5, color: 'var(--muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{lastMessage(t)}</span>
-                      {totalUnread(t) > 0 && <span className="chan-tab-badge" style={{ marginLeft: 0 }}>{totalUnread(t)}</span>}
-                    </div>
-                  </div>
-                </div>
-              ))}
-              {!list.length && <div style={{ padding: 24 }}><EmptyState icon="chat" title="Ничего не найдено" /></div>}
-            </div>
-            <div style={{ padding: 14 }}>
-              <Button variant="primary" icon="plus" className="btn-block" onClick={() => toast('Новый чат', 'info')}>Написать сообщение</Button>
-            </div>
-          </div>
+        <div style={{ display: 'grid', gridTemplateColumns: '340px 1fr 320px', gap: 18, height: 'calc(100vh - 150px)' }}>
+          <ChatsNav threads={threads} activeId={activeId} onSelect={setActiveId} search={search} setSearch={setSearch} mode={mode} setMode={setMode} />
 
           {/* conversation */}
           <div className="card" style={{ display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-            {active ? <ChatThread thread={active} onOpenOrder={openOrderFromThread} /> : <EmptyState icon="chat" title="Выберите чат" />}
+            {active ? <ChatThread thread={active} onOpenOrder={openOrderFromThread} onOpenService={openServiceFromThread} /> : <EmptyState icon="chat" title="Выберите чат" />}
           </div>
+
+          {/* info panel */}
+          {active && <ChatInfoPanel thread={active} onOpenOrder={openOrderFromThread} onOpenService={openServiceFromThread} />}
         </div>
       </div>
     </div>
   );
 }
 
-Object.assign(window, { ChatsPage, ChatThread, getThreadForOrder });
+Object.assign(window, { ChatsPage, ChatThread, ChatInfoPanel, ChatsNav, getThreadForOrder, threadUnread, lastMessage });
