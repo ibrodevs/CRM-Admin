@@ -64,6 +64,11 @@ const ICON_PATHS = {
   ticket: '<path d="M3 8a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2 2 2 0 0 0 0 4 2 2 0 0 1-2 2H5a2 2 0 0 1-2-2 2 2 0 0 0 0-4Z"/><path d="M14 6v12"/>',
   luggage: '<rect x="6" y="7" width="12" height="13" rx="2"/><path d="M9 7V5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2M10 20v1M14 20v1"/>',
   clipboard: '<rect x="5" y="4" width="14" height="17" rx="2.5"/><path d="M9 4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v1a1 1 0 0 1-1 1h-4a1 1 0 0 1-1-1Z"/><path d="M9 12l2 2 4-4"/>',
+  passport: '<rect x="5" y="3" width="14" height="18" rx="2"/><circle cx="12" cy="10" r="2.6"/><path d="M9.5 17h5"/>',
+  birthCert: '<rect x="4" y="3" width="16" height="14" rx="2"/><path d="M8 8h8M8 12h5"/><path d="M9 17v4l3-2 3 2v-4Z"/>',
+  visa: '<rect x="3" y="5" width="18" height="14" rx="2.5"/><path d="M7 9h4M7 12.5h3M7 16h4"/><circle cx="16" cy="13" r="3"/>',
+  shield: '<path d="M12 3 5 6v6c0 5 3.5 7.5 7 9 3.5-1.5 7-4 7-9V6Z"/><path d="m9 12 2 2 4-4"/>',
+  camera: '<path d="M4 8h3l1.5-2h7L17 8h3a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9a1 1 0 0 1 1-1Z"/><circle cx="12" cy="13" r="3.4"/>',
 };
 
 function Icon({ name, className, style, strokeWidth = 1.9 }) {

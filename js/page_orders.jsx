@@ -999,7 +999,7 @@ function OrdersList({ orders, onOpen, onCreate }) {
 }
 
 /* ===== Orders page root ===== */
-function OrdersPage({ intent, onConsume, orders, addOrder, onDetailChange }) {
+function OrdersPage({ intent, onConsume, orders, addOrder, onDetailChange, onOpenChat }) {
   const [detail, setDetailRaw] = useState(null);
   const [detailTab, setDetailTab] = useState(null);
   const [svcSearch, setSvcSearch] = useState(null);
@@ -1019,7 +1019,7 @@ function OrdersPage({ intent, onConsume, orders, addOrder, onDetailChange }) {
     onConsume();
   }, [intent]);
 
-  if (detail) return <OrderCard order={detail} fresh={fresh} initTab={detailTab} initSvcSearch={svcSearch} onBack={() => setDetail(null)} />;
+  if (detail) return <OrderCard order={detail} fresh={fresh} initTab={detailTab} initSvcSearch={svcSearch} onBack={() => setDetail(null)} onOpenChat={onOpenChat} />;
   return (
     <>
       <OrdersList orders={orders} onOpen={setDetail} onCreate={() => setCreateOpen(true)} />

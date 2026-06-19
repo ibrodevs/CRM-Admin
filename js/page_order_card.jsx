@@ -96,30 +96,10 @@ function financeSnapshot(orderNo, services) {
   };
 }
 
-function OrderAside({ order, services, participants, onOpenFinance, onOpenTasks }) {
-  const snap = financeSnapshot(order.no, services);
+function OrderAside({ onOpenTasks }) {
   const urgent = ORDER_TASKS.filter((t) => t.urgent);
   return (
     <div className="oc-aside">
-      <div className="card card-pad">
-        <h3 className="card-title" style={{ fontSize: 17, marginBottom: 8 }}>Финансовая сводка</h3>
-        {Object.entries(snap.byKind).map(([kind, meta]) => (
-          <div className="oc-kpi" key={kind}><span className="l">{kind}</span><span className="v">{ocMoney(meta.total || meta.payable || 0, meta.currency)}</span></div>
-        ))}
-        <div className="oc-kpi"><span className="l">Тарифы поставщиков</span><span className="v">{ocMoney(snap.tariffs)}</span></div>
-        <div className="oc-kpi"><span className="l">Таксы и сборы</span><span className="v">{ocMoney(snap.taxes)}</span></div>
-        <div className="oc-kpi"><span className="l">Сервисные сборы</span><span className="v">{ocMoney(snap.fees)}</span></div>
-        <div className="oc-kpi"><span className="l">Маржа / комиссия</span><span className="v green">{ocMoney(snap.margin)}</span></div>
-        <div className="oc-kpi" style={{ borderTop: '1px solid var(--line)', marginTop: 4, paddingTop: 12 }}><span className="l">Итого клиенту</span><span className="v" style={{ fontSize: 18 }}>{ocMoney(snap.total)}</span></div>
-        <div className="oc-kpi"><span className="l">Оплачено</span><span className="v green">{ocMoney(snap.paid)}</span></div>
-        <div className="oc-kpi"><span className="l">Задолженность</span><span className={'v' + (snap.debt ? ' red' : '')}>{ocMoney(snap.debt)}</span></div>
-        {snap.refund > 0 && <div className="oc-kpi"><span className="l">Возвраты</span><span className="v">{ocMoney(snap.refund)}</span></div>}
-        <div className="oc-kpi"><span className="l">Участников</span><span className="v">{participants.length}</span></div>
-        <div className="oc-kpi"><span className="l">Активных задач</span><span className="v">{ORDER_TASKS.length}</span></div>
-        {snap.currencies.length > 1 && <div style={{ fontSize: 12.5, color: 'var(--muted)', marginTop: 10 }}>В заказе несколько валют, суммы показаны по текущему сценарию без конвертации.</div>}
-        <Button variant="secondary" size="sm" className="btn-block" icon="finance" style={{ marginTop: 14 }} onClick={onOpenFinance}>Открыть финансы</Button>
-      </div>
-
       <div className="card card-pad">
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
           <h3 className="card-title" style={{ fontSize: 17 }}>Ближайшие дедлайны</h3>
@@ -362,6 +342,23 @@ function TabClients({ order, onOpenChat }) {
   );
 }
 
+function DocCell({ p }) {
+  const k = PAX_DOC_KIND[p.docType];
+  if (!k || !p.docNo) return <span>{p.doc || '—'}</span>;
+  return (
+    <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10 }}>
+      <span className="oc-svc-ic" style={{ background: k.color, width: 30, height: 30, borderRadius: 9, flex: '0 0 30px' }}>
+        <Icon name={k.icon} style={{ width: 15, height: 15 }} />
+      </span>
+      <div>
+        <div style={{ fontWeight: 600, color: 'var(--ink)' }}>{p.docType}</div>
+        <div style={{ fontSize: 12.5, color: 'var(--muted)' }}>№ {p.docNo}</div>
+        {p.docExpiry && <div style={{ fontSize: 12.5, color: 'var(--muted)' }}>до {p.docExpiry}</div>}
+      </div>
+    </div>
+  );
+}
+
 function TabParticipants({ list, isGroup, fresh, onPassport, onAdd }) {
   if (!list.length) return (
     <div className="fade-in">
@@ -403,7 +400,7 @@ function TabParticipants({ list, isGroup, fresh, onPassport, onAdd }) {
             {list.map((p, i) => (
               <tr key={i} style={{ cursor: 'pointer' }} onClick={() => onPassport(p.name)}>
                 <td className="t-strong">{p.name} {p.lead && <span className="pill pill-blue" style={{ marginLeft: 6 }}>Лид</span>}</td>
-                <td>{p.role}</td><td>{p.doc}</td><td>{p.dob || '—'}</td><td>{p.phone || '—'}</td>
+                <td>{p.role}</td><td><DocCell p={p} /></td><td>{p.dob || '—'}</td><td>{p.phone || '—'}</td>
                 <td><Pill tone={p.docStatus === 'check' ? 'amber' : 'green'}>{p.docStatus === 'check' ? 'Требует проверки' : 'Без ошибок'}</Pill></td>
                 <td onClick={(e) => e.stopPropagation()}>
                   <ActionMenu trigger={<button className="btn btn-ghost btn-icon btn-sm"><Icon name="more" /></button>}
@@ -550,6 +547,50 @@ function BookingFlowCard({ onStart }) {
 
 const ADD_TYPES = ['Авиа', 'ЖД', 'Гостиница', 'Трансфер', 'Автобус', 'Группа'];
 const SCENARIO_KINDS = ['Авиа', 'Гостиница', 'Трансфер'];
+
+// tile grid shown when picking a service type to add to the order
+const ADD_SERVICE_TILES = [
+  { kind: 'Авиа', label: 'Авиабилеты', icon: 'plane', color: '#2566ff', desc: 'Поиск и подбор авиаперелётов' },
+  { kind: 'ЖД', label: 'ЖД билеты', icon: 'train', color: '#2f88aa', desc: 'Поиск и подбор ж/д билетов' },
+  { kind: 'Гостиница', label: 'Гостиницы', icon: 'building', color: '#1f9d57', desc: 'Подбор отелей и размещения' },
+  { kind: 'Трансфер', label: 'Трансфер', icon: 'car', color: '#c47e22', desc: 'Индивидуальные и групповые трансферы' },
+  { kind: 'Страховка', label: 'Страховка', icon: 'shield', color: '#1f9d57', desc: 'Медицинское страхование' },
+  { kind: 'VIP-зал', label: 'VIP-зал', icon: 'star', color: '#5a5af0', desc: 'Доступ в бизнес-залы аэропортов' },
+  { kind: 'Аэроэкспресс', label: 'Аэроэкспресс', icon: 'ticket', color: '#5a5af0', desc: 'Билеты на аэроэкспресс' },
+  { kind: 'Автобус', label: 'Автобус', icon: 'bus', color: '#6c7686', desc: 'Междугородные автобусные билеты' },
+  { kind: 'Виза', label: 'Виза', icon: 'visa', color: '#2f88aa', desc: 'Визовая поддержка и оформление' },
+  { kind: 'Экскурсии', label: 'Экскурсии', icon: 'camera', color: '#2f88aa', desc: 'Экскурсии и активности' },
+  { kind: 'Доп. услуга', label: 'Доп. услуга', icon: 'star', color: '#c47e22', desc: 'Дополнительные услуги без категории' },
+  { kind: 'Другое', label: 'Другое', icon: 'plus', color: '#9aa3b2', desc: 'Создать услугу без категории' },
+];
+
+function TypePickerCard({ onPick, onCancel }) {
+  return (
+    <div className="card card-pad fade-in">
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 18, gap: 12 }}>
+        <div>
+          <h3 className="card-title" style={{ marginBottom: 4 }}>Добавить услугу</h3>
+          <div style={{ color: 'var(--muted)', fontSize: 13.5 }}>Выберите тип услуги для добавления в заказ</div>
+        </div>
+        <Button variant="secondary" size="sm" icon="x" onClick={onCancel}>Закрыть</Button>
+      </div>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 12 }}>
+        {ADD_SERVICE_TILES.map((t) => (
+          <button key={t.kind} onClick={() => onPick(t.kind)}
+            style={{ textAlign: 'left', border: '1px solid var(--line)', borderRadius: 14, padding: 14, background: '#fff', cursor: 'pointer', display: 'flex', flexDirection: 'column', gap: 10 }}>
+            <span className="oc-svc-ic" style={{ background: t.color, width: 40, height: 40, borderRadius: 12 }}>
+              <Icon name={t.icon} style={{ width: 18, height: 18 }} />
+            </span>
+            <div>
+              <div style={{ fontWeight: 700, color: 'var(--ink)', fontSize: 14.5 }}>{t.label}</div>
+              <div style={{ fontSize: 12.5, color: 'var(--muted)', marginTop: 2 }}>{t.desc}</div>
+            </div>
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
 const CALC_ROWS = {
   'Авиа':      [['tariff', 'Тариф'], ['taxes', 'Таксы и сборы'], ['fee', 'Сервисный сбор'], ['commission', 'Комиссия / наценка']],
   'Гостиница': [['tariff', 'Стоимость поставщика'], ['fee', 'Сервисный сбор'], ['commission', 'Комиссия']],
@@ -631,10 +672,7 @@ function ScenarioCard({ kind, items, onPick, onOpen, financeMeta, paxCount, isGr
   });
 }
 
-function ExtraServicesCard({ items, extraTypes, onOpen, onAddType, paxCount, isGroup }) {
-  const pickTrigger = (
-    <Button size="sm" icon="search">{items.length ? 'Изменить' : 'Подобрать'}</Button>
-  );
+function ExtraServicesCard({ items, extraTypes, onOpen, onAddType, onOpenPicker, paxCount, isGroup }) {
   if (!items.length) {
     return (
       <div className="card card-pad" style={{ marginBottom: 14, display: 'flex', alignItems: 'center', gap: 16, borderStyle: 'dashed' }}>
@@ -643,10 +681,7 @@ function ExtraServicesCard({ items, extraTypes, onOpen, onAddType, paxCount, isG
           <div style={{ fontWeight: 600, color: 'var(--ink)' }}>Дополнительные услуги</div>
           <div style={{ fontSize: 13, color: 'var(--muted)' }}>Страховка, ЖД, автобус, визы и другие сервисы ещё не добавлены</div>
         </div>
-        <ActionMenu
-          trigger={pickTrigger}
-          items={extraTypes.map((t) => ({ icon: SERVICE_KIND[t].icon, label: t, onClick: () => onAddType(t) }))}
-        />
+        <Button size="sm" icon="search" onClick={onOpenPicker}>Подобрать</Button>
       </div>
     );
   }
@@ -681,7 +716,7 @@ function ExtraServicesCard({ items, extraTypes, onOpen, onAddType, paxCount, isG
   });
 }
 
-function TabServices({ orderNo, services, participants, requestType, onOpenAvia, onAddType, onOpenOther, onStartBooking, onOpenParticipants }) {
+function TabServices({ orderNo, services, participants, requestType, onOpenAvia, onAddType, onOpenOther, onStartBooking, onOpenParticipants, onOpenPicker }) {
   const extraServices = services.filter((s) => !SCENARIO_KINDS.includes(s.kind));
   const extraTypes = ADD_TYPES.filter((t) => !SCENARIO_KINDS.includes(t));
   const total = services.reduce((s, x) => s + svcCalc(x).total, 0);
@@ -692,8 +727,7 @@ function TabServices({ orderNo, services, participants, requestType, onOpenAvia,
       <div style={{ display: 'flex', alignItems: 'center', marginBottom: 16 }}>
         <span style={{ color: 'var(--muted)', fontSize: 14 }}>Сценарий поездки · {services.length} услуг{services.length ? ' · итого ' + ocMoney(total) : ''}</span>
         <div style={{ flex: 1 }} />
-        <ActionMenu trigger={<Button variant="secondary" icon="plus">Доп. услуга</Button>}
-          items={extraTypes.map((t) => ({ icon: SERVICE_KIND[t].icon, label: t, onClick: () => onAddType(t) }))} />
+        <Button variant="secondary" icon="plus" onClick={onOpenPicker}>Доп. услуга</Button>
       </div>
 
       <PassengerScenarioCard participants={participants} isGroup={isGroup} onOpenParticipants={onOpenParticipants} />
@@ -710,6 +744,7 @@ function TabServices({ orderNo, services, participants, requestType, onOpenAvia,
         extraTypes={extraTypes}
         onOpen={onOpenOther}
         onAddType={onAddType}
+        onOpenPicker={onOpenPicker}
         paxCount={participants.length}
         isGroup={isGroup}
       />
@@ -831,39 +866,6 @@ function TabFinance({ services, onAddFee }) {
   );
 }
 
-function TabChat() {
-  const toast = useToast();
-  const [kind, setKind] = useState('client');
-  const data = {
-    client: [{ from: 'them', text: 'Добрый день! Когда будет готово КП по Стамбулу?', time: '14:02' }, { from: 'me', text: 'Здравствуйте! Отправим сегодня до 16:00.', time: '14:05' }],
-    supplier: [{ from: 'me', text: 'Прошу подтвердить бронь KC 131/132 на 2 пасс.', time: '12:40' }, { from: 'them', text: 'Подтверждаем, PNR KC8H2L. Тайм-лимит сегодня 18:00.', time: '12:51' }],
-    internal: [{ from: 'them', text: '@Даниель клиент просит места рядом — учти при выписке.', time: '13:10' }],
-  };
-  const TYPES = [['client', 'Клиент'], ['supplier', 'Поставщик'], ['internal', 'Внутренний']];
-  return (
-    <div className="card fade-in" style={{ maxWidth: 720, display: 'flex', flexDirection: 'column', height: 520 }}>
-      <div style={{ padding: '14px 18px', borderBottom: '1px solid var(--line)' }}>
-        <div className="trip-toggle" style={{ display: 'inline-flex' }}>
-          {TYPES.map(([k, l]) => <button key={k} className={kind === k ? 'on' : ''} onClick={() => setKind(k)}>{l}</button>)}
-        </div>
-      </div>
-      <div className="scroll" style={{ flex: 1, overflowY: 'auto', padding: 18, display: 'flex', flexDirection: 'column', gap: 12 }}>
-        {data[kind].map((m, i) => (
-          <div key={i} style={{ alignSelf: m.from === 'me' ? 'flex-end' : 'flex-start', maxWidth: '72%' }}>
-            <div style={{ background: m.from === 'me' ? 'var(--blue)' : 'var(--surface-2)', color: m.from === 'me' ? '#fff' : 'var(--ink)', padding: '10px 14px', borderRadius: 14, fontSize: 14.5 }}>{m.text}</div>
-            <div style={{ fontSize: 11.5, color: 'var(--muted)', marginTop: 4, textAlign: m.from === 'me' ? 'right' : 'left' }}>{m.time}</div>
-          </div>
-        ))}
-      </div>
-      <div style={{ padding: 14, borderTop: '1px solid var(--line)', display: 'flex', gap: 10 }}>
-        <button className="btn btn-secondary btn-icon"><Icon name="paperclip" /></button>
-        <Input placeholder="Сообщение…" style={{ flex: 1 }} />
-        <Button icon="send" onClick={() => toast('Сообщение отправлено')}>Отправить</Button>
-      </div>
-    </div>
-  );
-}
-
 function TabHistory() {
   const items = [
     { t: '14.06.2026 · 15:34', text: 'КП-1042 отправлено клиенту', who: 'Даниель' },
@@ -887,7 +889,7 @@ function TabHistory() {
 /* ====================================================================
    ORDER CARD ROOT
    ==================================================================== */
-function OrderCard({ order, onBack, initTab, initSvcSearch, fresh }) {
+function OrderCard({ order, onBack, initTab, initSvcSearch, fresh, onOpenChat }) {
   const toast = useToast();
   const [tab, setTab] = useState(initTab || (initSvcSearch ? 'services' : 'overview'));
   const [loading, setLoading] = useState(true);
@@ -897,6 +899,7 @@ function OrderCard({ order, onBack, initTab, initSvcSearch, fresh }) {
   const [tripEditOpen, setTripEditOpen] = useState(false);
   const [sendOpen, setSendOpen] = useState(false);
   const participants = requestType === 'Групповая' ? GROUP_PAX : ORDER_PARTICIPANTS;
+  const chatUnread = Object.values(getThreadForOrder(order).unread || {}).reduce((s, n) => s + n, 0);
   const initStage = () => {
     if (order.status === 'Оплачено') return 4;
     if (order.status === 'Отменено') return 0;
@@ -936,7 +939,6 @@ function OrderCard({ order, onBack, initTab, initSvcSearch, fresh }) {
     { key: 'documents', label: 'Документы' },
     { key: 'finance', label: 'Финансы' },
     { key: 'aftersale', label: 'Постпродажа', count: RETURNS.filter((r) => r.order === order.no).length || null },
-    { key: 'chat', label: 'Чат' },
     { key: 'history', label: 'История' },
   ];
 
@@ -944,6 +946,7 @@ function OrderCard({ order, onBack, initTab, initSvcSearch, fresh }) {
     if (type === 'Авиа') { setSvcView('avia-picker'); return; }
     const rk = routeKeyForKind(type);
     if (rk) { setAddRoute(rk); setSvcView('svc-add'); return; }
+    setSvcView(null);
     toast('Тип «' + type + '» недоступен', 'info');
   };
   // applied from the two-pane AviaPicker (ruble-denominated)
@@ -978,10 +981,12 @@ function OrderCard({ order, onBack, initTab, initSvcSearch, fresh }) {
     if (svcView === 'avia-card') return <FlightCard svc={activeAvia} offer={activeAvia ? activeAvia.offer : null} onBack={() => setSvcView(null)} />;
     if (svcView === 'svc-add') return <ServiceAddFlow routeKey={addRoute} onAdd={addSvcOffer} onCancel={() => setSvcView(null)} />;
     if (svcView === 'svc-card') return <SvcCard item={activeSvc} kind={activeSvc.kind} onBack={() => setSvcView(null)} />;
+    if (svcView === 'type-picker') return <TypePickerCard onPick={goAddType} onCancel={() => setSvcView(null)} />;
     return <TabServices orderNo={order.no} services={services} participants={participants} requestType={requestType}
       onOpenParticipants={() => setTab('participants')}
       onStartBooking={() => setSvcView('booking')}
       onAddType={goAddType}
+      onOpenPicker={() => setSvcView('type-picker')}
       onOpenAvia={(s) => { const match = AIR_SERVICES.find((a) => a.no === s.avia) || { no: s.avia || s.id, airline: (s.offer ? s.offer.airline : 'KC'), status: s.status, supplier: s.supplier, pax: 2, sum: s.sum, currency: s.currency, route: s.title, pnr: '—', ticket: '—', dep: s.date }; setActiveAvia(s.offer ? { ...match, offer: s.offer } : match); setSvcView('avia-card'); }}
       onOpenOther={(s) => { if (s.svcOffer) { setActiveSvc({ ...s.svcOffer, kind: s.kind, status: s.status }); setSvcView('svc-card'); } else { setOtherSvc(s); } }} />;
   };
@@ -990,7 +995,7 @@ function OrderCard({ order, onBack, initTab, initSvcSearch, fresh }) {
     if (loading) return <AsyncBlock state="loading" skeletonRows={5} />;
     switch (tab) {
       case 'overview': return <TabOverview order={order} />;
-      case 'clients': return <TabClients order={order} onOpenChat={() => setTab('chat')} />;
+      case 'clients': return <TabClients order={order} onOpenChat={onOpenChat} />;
       case 'participants': return <TabParticipants list={participants} isGroup={requestType === 'Групповая'} fresh={fresh} onPassport={setPassport} onAdd={() => setPaxOpen(true)} />;
       case 'route': return <TabRoute services={services} />;
       case 'services': return renderServicesArea();
@@ -999,7 +1004,6 @@ function OrderCard({ order, onBack, initTab, initSvcSearch, fresh }) {
       case 'documents': return <DocCenter scopeOrder={order.no} />;
       case 'finance': return <FinanceRegistry scopeOrder={order.no} />;
       case 'aftersale': return <ReturnsModule scopeOrder={order.no} order={order} compact />;
-      case 'chat': return <div className="card" style={{ height: 560, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}><ChatThread thread={getThreadForOrder(order)} embedded /></div>;
       case 'history': return <TabHistory />;
       default: return null;
     }
@@ -1036,6 +1040,9 @@ function OrderCard({ order, onBack, initTab, initSvcSearch, fresh }) {
                 <StatusControl status={status} onChange={(s) => { setStatus(s); toast('Статус: ' + s, 'ok'); }} />
               </div>
               <div style={{ flex: 1 }} />
+              <Button variant="secondary" size="sm" icon="chat" onClick={onOpenChat}>
+                Чат{chatUnread > 0 && <span className="pill pill-red" style={{ marginLeft: 6 }}>{chatUnread}</span>}
+              </Button>
               <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                 <Avatar name={order.operator} size={36} />
                 <div><div style={{ fontSize: 12.5, color: 'var(--muted)' }}>Ответственный</div><div style={{ fontWeight: 600, color: 'var(--ink)', fontSize: 14 }}>{order.operator}</div></div>
@@ -1054,7 +1061,7 @@ function OrderCard({ order, onBack, initTab, initSvcSearch, fresh }) {
             </div>
 
             <div className="oc-actions">
-              <Button icon="plus" onClick={() => { setTab('services'); setSvcView('avia-picker'); }}>Добавить услугу</Button>
+              <Button icon="plus" onClick={() => { setTab('services'); setSvcView('type-picker'); }}>Добавить услугу</Button>
               <Button icon="zap" onClick={() => { setTab('services'); setSvcView('booking'); }}>Начать бронирование</Button>
               <Button variant="secondary" icon="template" onClick={() => setTab('offers')}>Создать КП</Button>
               <Button variant="secondary" icon="send" onClick={() => setSendOpen(true)}>Отправить клиенту</Button>
@@ -1077,7 +1084,7 @@ function OrderCard({ order, onBack, initTab, initSvcSearch, fresh }) {
             )}
             {tabContent()}
           </div>
-          {!['avia-picker', 'booking'].includes(svcView) && <OrderAside order={order} services={services} participants={participants} onOpenFinance={() => setTab('finance')} onOpenTasks={() => toast('Список задач по заказу', 'info')} />}
+          {!['avia-picker', 'booking'].includes(svcView) && <OrderAside onOpenTasks={() => toast('Список задач по заказу', 'info')} />}
         </div>
       </div>
 
