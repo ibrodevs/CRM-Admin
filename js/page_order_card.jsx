@@ -136,48 +136,25 @@ function TripSummaryBar({ order, services, participants, aviaParams, requestType
   const isGroup = requestType === 'Групповая';
   const errCount = participants.filter((p) => p.docStatus === 'check').length;
   const lead = participants.find((p) => p.lead) || participants[0];
-  const servicesLabel = services.map((s) => s.kind).join(', ');
+  const confirmedCount = services.filter((s) => s.status === 'Выписано' || s.status === 'Подтверждено').length;
   return (
-    <div className="oc-trip" style={{ marginTop: 16, paddingTop: 16, borderTop: '1px solid var(--line)' }}>
+    <div className="oc-trip" style={{ marginTop: 14, paddingTop: 14, borderTop: '1px solid var(--line)' }}>
       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', flexWrap: 'wrap', gap: 14 }}>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 19, fontWeight: 700, color: 'var(--ink)' }}>
-            <Icon name="plane" style={{ width: 18, height: 18, color: 'var(--blue)' }} />
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 18, fontWeight: 700, color: 'var(--ink)' }}>
+            <Icon name="plane" style={{ width: 17, height: 17, color: 'var(--blue)' }} />
             {trip.from} → {trip.to}
           </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 18, flexWrap: 'wrap', fontSize: 13.5, color: 'var(--muted)' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap', fontSize: 13.5, color: 'var(--muted)' }}>
             <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}><Icon name="calendar" style={{ width: 14, height: 14 }} />{trip.dates}</span>
-            <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}><Icon name="users" style={{ width: 14, height: 14 }} />{participants.length} пассажиров{isGroup ? ' · групповая поездка' : ''}</span>
-            <span>{requestType}</span>
-            <span>{aviaParams.cabin}</span>
+            <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}><Icon name="users" style={{ width: 14, height: 14 }} />{lead ? lead.name : order.client}{isGroup ? ` +${Math.max(0, participants.length - 1)}` : ''}</span>
+            <span>{requestType} · {aviaParams.cabin}</span>
           </div>
-          {isGroup && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color: errCount ? 'var(--amber)' : 'var(--green)' }}>
-              <Icon name={errCount ? 'alertCircle' : 'checkCircle'} style={{ width: 14, height: 14 }} />
-              Поимённый список: {participants.length - errCount} без ошибок{errCount ? `, ${errCount} требуют проверки` : ''}
-            </div>
-          )}
         </div>
         <Button variant="secondary" size="sm" icon="edit" onClick={onEdit}>Редактировать данные</Button>
       </div>
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 10, marginTop: 14 }}>
-        <div style={{ padding: '12px 14px', border: '1px solid var(--line)', borderRadius: 14, background: 'var(--surface-2)' }}>
-          <div style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 4 }}>Кто едет</div>
-          <div style={{ fontWeight: 700, color: 'var(--ink)' }}>{lead ? lead.name : order.client}</div>
-          <div style={{ fontSize: 12.5, color: 'var(--muted)', marginTop: 2 }}>{isGroup ? `+ ещё ${Math.max(0, participants.length - 1)} участников` : 'Контакт поездки'}</div>
-        </div>
-        <div style={{ padding: '12px 14px', border: '1px solid var(--line)', borderRadius: 14, background: 'var(--surface-2)' }}>
-          <div style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 4 }}>Выбранные услуги</div>
-          <div style={{ fontWeight: 700, color: 'var(--ink)' }}>{services.length ? servicesLabel : 'Услуги не добавлены'}</div>
-          <div style={{ fontSize: 12.5, color: 'var(--muted)', marginTop: 2 }}>{services.length} в сценарии поездки</div>
-        </div>
-        <div style={{ padding: '12px 14px', border: '1px solid var(--line)', borderRadius: 14, background: 'var(--surface-2)' }}>
-          <div style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 4 }}>Статус по услугам</div>
-          <div style={{ fontWeight: 700, color: 'var(--ink)' }}>{services.filter((s) => s.status === 'Выписано' || s.status === 'Подтверждено').length} подтверждено</div>
-          <div style={{ fontSize: 12.5, color: errCount ? 'var(--amber)' : 'var(--muted)', marginTop: 2 }}>{errCount ? 'Есть ошибки по документам' : 'Документы готовы к бронированию'}</div>
-        </div>
-      </div>
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 14 }}>
+
+      <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 8, marginTop: 12 }}>
         {services.length === 0 && <span style={{ fontSize: 13, color: 'var(--muted)' }}>Услуги не выбраны</span>}
         {services.map((s) => {
           const k = SERVICE_KIND[s.kind];
@@ -188,7 +165,19 @@ function TripSummaryBar({ order, services, participants, aviaParams, requestType
             </span>
           );
         })}
+        {services.length > 0 && (
+          <span style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12.5, color: errCount ? 'var(--amber)' : 'var(--green)' }}>
+            <Icon name={errCount ? 'alertCircle' : 'checkCircle'} style={{ width: 13, height: 13 }} />
+            {confirmedCount}/{services.length} подтверждено{errCount ? ` · ${errCount} ошибки в документах` : ''}
+          </span>
+        )}
       </div>
+
+      {isGroup && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12.5, color: errCount ? 'var(--amber)' : 'var(--muted)', marginTop: 8 }}>
+          Поимённый список: {participants.length - errCount} без ошибок{errCount ? `, ${errCount} требуют проверки` : ''}
+        </div>
+      )}
     </div>
   );
 }
@@ -1042,6 +1031,10 @@ function OrderCard({ order, onBack, initTab, initSvcSearch, fresh, onOpenChat })
                 <h2>Заказ № {order.no}</h2>
                 <StatusControl status={status} onChange={(s) => { setStatus(s); toast('Статус: ' + s, 'ok'); }} />
               </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap', fontSize: 13.5, color: 'var(--muted)' }}>
+                <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}><Icon name="building" style={{ width: 14, height: 14, color: 'var(--muted-2)' }} /><b style={{ color: 'var(--ink)', fontWeight: 600 }}>{order.client}</b></span>
+                <span>Создан {order.date}</span>
+              </div>
               <div style={{ flex: 1 }} />
               <Button variant="secondary" size="sm" icon="chat" onClick={onOpenChat}>
                 Чат{chatUnread > 0 && <span className="pill pill-red" style={{ marginLeft: 6 }}>{chatUnread}</span>}
@@ -1052,20 +1045,14 @@ function OrderCard({ order, onBack, initTab, initSvcSearch, fresh, onOpenChat })
               </div>
             </div>
 
-            <div className="oc-facts">
-              <div className="oc-fact"><div className="l">Клиент / Компания</div><div className="v"><Icon name="building" style={{ width: 16, height: 16, color: 'var(--muted-2)' }} />{order.client}</div></div>
-              <div className="oc-fact"><div className="l">Создан</div><div className="v">{order.date}</div></div>
-            </div>
-
             <TripSummaryBar order={order} services={services} participants={participants} aviaParams={aviaParams} requestType={requestType} onEdit={() => setTripEditOpen(true)} />
 
-            <div style={{ marginTop: 16, paddingTop: 16, borderTop: '1px solid var(--line)' }}>
+            <div style={{ marginTop: 14, paddingTop: 14, borderTop: '1px solid var(--line)' }}>
               <OrderStageBar index={stageIdx} />
             </div>
 
             <div className="oc-actions">
               <Button icon="plus" onClick={() => { setTab('services'); setSvcView('type-picker'); }}>Добавить услугу</Button>
-              <Button icon="zap" onClick={() => { setTab('services'); setSvcView('booking'); }}>Начать бронирование</Button>
               <Button variant="secondary" icon="template" onClick={() => setTab('offers')}>Создать КП</Button>
               <Button variant="secondary" icon="send" onClick={() => setSendOpen(true)}>Отправить клиенту</Button>
               <Button variant="secondary" icon="finance" onClick={() => setTab('finance')}>Открыть финансы</Button>
@@ -1087,6 +1074,7 @@ function OrderCard({ order, onBack, initTab, initSvcSearch, fresh, onOpenChat })
                           const locked = isTabLocked(t);
                           return (
                             <button key={t.key} className={'oc-navtile' + (tab === t.key ? ' active' : '') + (locked ? ' locked' : '')}
+                              title={locked ? 'Раздел станет доступен на следующих этапах заказа' : undefined}
                               onClick={() => {
                                 if (locked) { toast('Раздел станет доступен на следующих этапах заказа', 'info'); return; }
                                 setTab(t.key); if (t.key !== 'services') setSvcView(null);
@@ -1102,11 +1090,6 @@ function OrderCard({ order, onBack, initTab, initSvcSearch, fresh, onOpenChat })
                     </div>
                   ))}
                 </div>
-                <div className="oc-navlegend">
-                  <div className="oc-navlegend-i"><span className="d act" /><span><b>Активный раздел</b> · можно работать</span></div>
-                  <div className="oc-navlegend-i"><span className="d avail" /><span><b>Доступный раздел</b> · можно перейти и просматривать</span></div>
-                  <div className="oc-navlegend-i"><span className="d lock" /><span><b>Недоступный раздел</b> · будет доступен позже</span></div>
-                </div>
               </div>
             )}
             {tabContent()}
@@ -1114,6 +1097,10 @@ function OrderCard({ order, onBack, initTab, initSvcSearch, fresh, onOpenChat })
           {!['avia-picker', 'booking'].includes(svcView) && <OrderAside onOpenTasks={() => toast('Список задач по заказу', 'info')} />}
         </div>
       </div>
+
+      {!['avia-picker', 'booking'].includes(svcView) && (
+        <Button className="oc-fab" icon="zap" onClick={() => { setTab('services'); setSvcView('booking'); }}>Начать бронирование</Button>
+      )}
 
       {/* drawers / modals reused from order_extras */}
       {paxOpen && <PassengerDrawer open={paxOpen} onClose={() => setPaxOpen(false)} />}
