@@ -79,9 +79,9 @@ function ChatThread({ thread, embedded, onOpenOrder, onOpenService, initChannel 
           <ChannelBadge channel={thread.channel} />
         </div>
       ) : (
-        <div style={{ padding: '10px 16px', borderBottom: '1px solid var(--line)' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-            <span style={{ fontWeight: 700, fontSize: 15, color: 'var(--ink)' }}>№ {thread.order}</span>
+        <div style={{ padding: '8px 14px', borderBottom: '1px solid var(--line)' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 7, flexWrap: 'wrap' }}>
+            <span style={{ fontWeight: 700, fontSize: 14, color: 'var(--ink)' }}>№ {thread.order}</span>
             {status && <Pill tone={(typeof ORDER_STATUS !== 'undefined' && ORDER_STATUS[status]) || 'blue'}>{status}</Pill>}
             <ChannelBadge channel={thread.channel} />
             <Pill tone={thread.connectionStatus === 'Подключено' ? 'green' : 'red'}>{thread.connectionStatus}</Pill>
@@ -100,7 +100,7 @@ function ChatThread({ thread, embedded, onOpenOrder, onOpenService, initChannel 
       )}
 
       {/* messages */}
-      <div ref={scrollRef} className="scroll" style={{ flex: 1, overflowY: 'auto', padding: '16px 22px', display: 'flex', flexDirection: 'column', gap: 10, minHeight: 0 }}>
+      <div ref={scrollRef} className="scroll" style={{ flex: 1, overflowY: 'auto', padding: '12px 16px', display: 'flex', flexDirection: 'column', gap: 8, minHeight: 0 }}>
         {sub === 'internal' && <div className="chan-note"><Icon name="lock" style={{ width: 14, height: 14 }} />Внутренний комментарий — виден только сотрудникам агентства</div>}
         {sub === 'message' && thread.type === 'supplier' && <div className="chan-note" style={{ color: 'var(--gray-text)', background: 'var(--gray-bg)' }}><Icon name="suppliers" style={{ width: 14, height: 14 }} />Канал с поставщиком · {thread.supplier || thread.name} · {thread.channel}</div>}
         {!feed.length && <EmptyState icon="chat" title="Сообщений пока нет" sub={sub === 'internal' ? 'Оставьте внутренний комментарий' : 'Начните переписку'} />}
@@ -130,14 +130,14 @@ function ChatThread({ thread, embedded, onOpenOrder, onOpenService, initChannel 
       </div>
 
       {/* composer */}
-      <div style={{ padding: '10px 16px', borderTop: '1px solid var(--line)' }}>
+      <div style={{ padding: '8px 14px', borderTop: '1px solid var(--line)' }}>
         {linked && (() => { const s = chatServiceById(linked); return (
-          <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, fontSize: 12.5, fontWeight: 600, color: 'var(--ink)', background: 'var(--surface-2)', border: '1px solid var(--line)', borderRadius: 999, padding: '5px 10px', marginBottom: 8 }}>
+          <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, fontSize: 12.5, fontWeight: 600, color: 'var(--ink)', background: 'var(--surface-2)', border: '1px solid var(--line)', borderRadius: 999, padding: '5px 10px', marginBottom: 6 }}>
             <Icon name={(SERVICE_KIND[s.kind] || {}).icon || 'route'} style={{ width: 13, height: 13, color: 'var(--blue)' }} />{s.kind} · {s.title}
             <button className="icon-btn btn-sm" style={{ width: 20, height: 20 }} onClick={() => setLinked(null)}><Icon name="x" style={{ width: 13, height: 13 }} /></button>
           </div>
         ); })()}
-        <div className="trip-toggle" style={{ display: 'inline-flex', marginBottom: 8 }}>
+        <div className="trip-toggle" style={{ display: 'inline-flex', marginBottom: 6 }}>
           <button className={sub === 'message' ? 'on' : ''} onClick={() => setSub('message')}>Сообщение</button>
           <button className={sub === 'internal' ? 'on' : ''} onClick={() => setSub('internal')}><Icon name="lock" style={{ width: 13, height: 13, verticalAlign: -2, marginRight: 4 }} />Внутренний комментарий</button>
         </div>
@@ -171,10 +171,10 @@ function ChatInfoPanel({ thread, onOpenOrder, onOpenService }) {
     { icon: 'clock', label: 'История', title: 'История изменений', onClick: () => toast('История изменений чата', 'info') },
   ];
   return (
-    <div className="scroll" style={{ overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 10, padding: 2 }}>
+    <div className="scroll" style={{ overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 8, padding: 2 }}>
       {/* related services */}
-      <div className="card" style={{ padding: '12px 14px' }}>
-        <h3 className="card-title" style={{ fontSize: 13.5, marginBottom: 8 }}>Связано с услугой</h3>
+      <div className="card" style={{ padding: '10px 12px' }}>
+        <h3 className="card-title" style={{ fontSize: 13, marginBottom: 7 }}>Связано с услугой</h3>
         {services.length ? services.map((s) => {
           const k = SERVICE_KIND[s.kind] || SERVICE_KIND['Авиа'];
           return (
@@ -191,8 +191,8 @@ function ChatInfoPanel({ thread, onOpenOrder, onOpenService }) {
       </div>
 
       {/* chat info */}
-      <div className="card" style={{ padding: '12px 14px' }}>
-        <h3 className="card-title" style={{ fontSize: 13.5, marginBottom: 4 }}>Информация о чате</h3>
+      <div className="card" style={{ padding: '10px 12px' }}>
+        <h3 className="card-title" style={{ fontSize: 13, marginBottom: 3 }}>Информация о чате</h3>
         <div className="kv">
           <div className="kv-row" style={{ padding: '7px 0' }}><span className="k" style={{ fontSize: 12.5 }}>Тип чата</span><span className="v" style={{ fontSize: 12.5 }}>{tMeta.label}</span></div>
           <div className="kv-row" style={{ padding: '7px 0' }}><span className="k" style={{ fontSize: 12.5 }}>Канал связи</span><span className="v"><ChannelBadge channel={thread.channel} sm /></span></div>
@@ -203,22 +203,22 @@ function ChatInfoPanel({ thread, onOpenOrder, onOpenService }) {
       </div>
 
       {/* participants */}
-      <div className="card" style={{ padding: '12px 14px' }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
-          <h3 className="card-title" style={{ fontSize: 13.5 }}>Участники</h3>
+      <div className="card" style={{ padding: '10px 12px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 7 }}>
+          <h3 className="card-title" style={{ fontSize: 13 }}>Участники</h3>
           {pax.length > 4 && <button className="link-chip" style={{ padding: '3px 8px', fontSize: 12 }} onClick={() => setAllPax((v) => !v)}>{allPax ? 'Свернуть' : 'Показать всех'}</button>}
         </div>
         {shownPax.map((p, i) => (
-          <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 7 }}>
-            <Avatar name={p.name} size={26} />
+          <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
+            <Avatar name={p.name} size={25} />
             <div style={{ flex: 1, minWidth: 0 }}><div style={{ fontWeight: 600, fontSize: 12.5, color: 'var(--ink)' }}>{p.name}</div><div style={{ fontSize: 11, color: 'var(--muted)' }}>{p.role}</div></div>
           </div>
         ))}
       </div>
 
       {/* quick actions */}
-      <div className="card" style={{ padding: '12px 14px' }}>
-        <h3 className="card-title" style={{ fontSize: 13.5, marginBottom: 8 }}>Быстрые действия</h3>
+      <div className="card" style={{ padding: '10px 12px' }}>
+        <h3 className="card-title" style={{ fontSize: 13, marginBottom: 7 }}>Быстрые действия</h3>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6 }}>
           {quick.map((q) => (
             <Button key={q.label} variant="secondary" size="sm" icon={q.icon} className="btn-block" title={q.title} style={{ justifyContent: 'flex-start', fontSize: 12, padding: '0 8px' }} onClick={q.onClick}>{q.label}</Button>
@@ -249,10 +249,10 @@ function ChatsNav({ threads, activeId, onSelect, search, setSearch, mode, setMod
     const u = threadUnread(t);
     return (
       <div key={t.id} onClick={() => onSelect(t.id)}
-        style={{ display: 'flex', gap: 10, padding: '8px 9px', borderRadius: 11, cursor: 'pointer', background: t.id === activeId ? 'var(--hover)' : 'transparent', marginBottom: 1 }}>
+        style={{ display: 'flex', gap: 9, padding: '7px 8px', borderRadius: 10, cursor: 'pointer', background: t.id === activeId ? 'var(--hover)' : 'transparent', marginBottom: 1 }}>
         {t.type === 'system'
-          ? <span className="oc-svc-ic" style={{ background: 'var(--amber)', width: 36, height: 36, flexShrink: 0 }}><Icon name="bell" style={{ width: 16, height: 16 }} /></span>
-          : <Avatar name={t.name} size={36} />}
+          ? <span className="oc-svc-ic" style={{ background: 'var(--amber)', width: 33, height: 33, flexShrink: 0 }}><Icon name="bell" style={{ width: 15, height: 15 }} /></span>
+          : <Avatar name={t.name} size={33} />}
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, alignItems: 'center' }}>
             <span style={{ fontWeight: 600, fontSize: 13.5, color: 'var(--ink)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', display: 'flex', alignItems: 'center', gap: 5 }}>
@@ -274,16 +274,16 @@ function ChatsNav({ threads, activeId, onSelect, search, setSearch, mode, setMod
 
   return (
     <div className="card" style={{ display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-      <div style={{ padding: '12px 14px', borderBottom: '1px solid var(--line)' }}>
-        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+      <div style={{ padding: '10px 12px', borderBottom: '1px solid var(--line)' }}>
+        <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
           <SearchBox value={search} onChange={setSearch} placeholder="Поиск чатов…" style={{ flex: 1, minWidth: 0 }} />
-          <div className="trip-toggle" style={{ display: 'flex', flexShrink: 0 }}>
-            <button className={mode === 'byType' ? 'on' : ''} style={{ padding: '7px 10px', fontSize: 12.5 }} onClick={() => setMode('byType')}>Тип</button>
-            <button className={mode === 'byService' ? 'on' : ''} style={{ padding: '7px 10px', fontSize: 12.5 }} onClick={() => setMode('byService')}>Услуга</button>
+          <div className="trip-toggle" style={{ display: 'flex', flexShrink: 0, padding: 3 }}>
+            <button className={mode === 'byType' ? 'on' : ''} style={{ padding: '6px 9px', fontSize: 12 }} onClick={() => setMode('byType')}>Тип</button>
+            <button className={mode === 'byService' ? 'on' : ''} style={{ padding: '6px 9px', fontSize: 12 }} onClick={() => setMode('byService')}>Услуга</button>
           </div>
         </div>
         {mode === 'byType' && (
-          <div className="chat-filter-scroll" style={{ display: 'flex', gap: 5, flexWrap: 'nowrap', overflowX: 'auto', marginTop: 8, paddingBottom: 2 }}>
+          <div className="chat-filter-scroll" style={{ display: 'flex', gap: 5, flexWrap: 'nowrap', overflowX: 'auto', marginTop: 7, paddingBottom: 2 }}>
             {TYPE_FILTERS.map((f) => {
               const n = f.key === 'all' ? searched.length : typeCount(f.key);
               return (
@@ -295,7 +295,7 @@ function ChatsNav({ threads, activeId, onSelect, search, setSearch, mode, setMod
           </div>
         )}
       </div>
-      <div className="scroll" style={{ flex: 1, overflowY: 'auto', padding: '6px 8px 8px' }}>
+      <div className="scroll" style={{ flex: 1, overflowY: 'auto', padding: '5px 7px 7px' }}>
         {mode === 'byService'
           ? (() => {
             const groups = {};
@@ -331,9 +331,8 @@ function ChatsPage({ onOpenOrder }) {
 
   return (
     <div className="fade-in" style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
-      <Topbar title="Чаты" />
-      <div className="content" style={{ flex: 1, minHeight: 0 }}>
-        <div style={{ display: 'grid', gridTemplateColumns: '300px 1fr 280px', gap: 12, height: 'calc(100vh - 140px)' }}>
+      <div className="content" style={{ flex: 1, minHeight: 0, padding: '20px 20px 20px' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: '268px 1fr 252px', gap: 10, height: 'calc(100vh - 100px)' }}>
           <ChatsNav threads={threads} activeId={activeId} onSelect={setActiveId} search={search} setSearch={setSearch} mode={mode} setMode={setMode} />
 
           {/* conversation */}

@@ -53,7 +53,7 @@ function App() {
 
   return (
     <AppShell route={route} onNavigate={navigate} onLogout={() => { setAuthed(false); setRoute('dashboard'); }}
-      role={role} topbar={topbar} overlays={overlays} sidebarCollapsed={!!ctxOrder}>
+      role={role} topbar={topbar} overlays={overlays} sidebarCollapsed={!!ctxOrder || route.split('/')[0] === 'chats'}>
       {blocked && <AccessDenied onNavigate={navigate} />}
       {!blocked && <>
       {route === 'dashboard' && <DashboardPage onNavigate={navigate} onAddOrder={createOrder} onOpenOrder={openOrder} />}
