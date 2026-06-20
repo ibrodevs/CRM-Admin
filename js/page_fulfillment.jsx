@@ -4,10 +4,17 @@ function fUsd(n, c = 'USD') { return Math.round(n).toLocaleString('ru-RU') + ' '
 function finPayable(op) { return op.tariff + op.taxes + op.fee + op.penalty - op.discount; }
 function finDebt(op) { return Math.max(0, finPayable(op) - op.paid); }
 
+// closing documents (Счёт/Акт/Договор) carry the counterparty's name on `participant` directly;
+// travel documents are linked to a company only through their order.
+function companyForDoc(doc) {
+  const name = doc.participant !== '—' ? doc.participant : ORDERS.find((o) => o.no === doc.order)?.client;
+  return COMPANIES_DB.find((c) => c.name === name) || null;
+}
+
 /* ---------- order stage bar ---------- */
-function OrderStageBar({ index }) {
+function OrderStageBar({ index, compact }) {
   return (
-    <div className="stage-bar">
+    <div className={'stage-bar' + (compact ? ' compact' : '')}>
       {ORDER_STAGES.map((s, i) => {
         const state = i < index ? 'done' : i === index ? 'active' : '';
         return (
@@ -216,10 +223,93 @@ function FinancePageNew() {
 /* ====================================================================
    DOCUMENT CARD + CENTER
    ==================================================================== */
-function DocCard({ doc, onClose }) {
+// document types that belong to bookkeeping — shown separately, never under a passenger
+const DOC_BOOKKEEPING = ['Счёт', 'Акт', 'Договор'];
+const now = () => new Date().toLocaleString('ru-RU', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }).replace(',', ' ·');
+
+/* ---------- preview before sending a closing document (Счёт/Акт/Договор) to accounting ---------- */
+function DocPreviewModal({ doc, company, onClose, onChange }) {
   const toast = useToast();
+  const [correcting, setCorrecting] = useState(false);
+  const [note, setNote] = useState('');
+  if (!doc) return null;
+
+  const addHistory = (text, who) => [...doc.history, { t: now(), text, who }];
+
+  const sendForCorrection = () => {
+    if (!note.trim()) return;
+    onChange(doc.no, { status: 'Черновик', history: addHistory('Возвращён на корректировку: ' + note, 'Даниель') });
+    if (company) company.docCorrections = [...company.docCorrections, { date: now(), who: 'Даниель', note }];
+    toast('Замечание сохранено для контрагента, документ — в работу', 'ok');
+    setNote(''); setCorrecting(false); onClose();
+  };
+
+  const sendToAccounting = () => {
+    onChange(doc.no, { status: 'В бухгалтерии', history: addHistory('Отправлен в онлайн-бухгалтерию', 'Даниель') });
+    toast('Отправлено в бухгалтерию', 'info');
+    onClose();
+    setTimeout(() => {
+      const signed = !!company?.requiresESign;
+      onChange(doc.no, {
+        status: signed ? 'Подписан' : 'Сформирован',
+        version: doc.version + 1,
+        versions: [...doc.versions, { v: doc.version + 1, date: now(), who: 'Бухгалтерия', note: signed ? 'Возвращён подписанным ЭЦП' : 'Принят без ЭЦП' }],
+        history: addHistory(signed ? 'Возвращён из бухгалтерии · подписан ЭЦП' : 'Возвращён из бухгалтерии · без ЭЦП', 'Бухгалтерия'),
+      });
+      toast(signed ? 'Документ подписан ЭЦП и обновлён' : 'Бухгалтерия приняла документ без ЭЦП', 'ok');
+    }, 1600);
+  };
+
+  return (
+    <Modal open={!!doc} onClose={onClose}>
+      <div className="modal-pad" style={{ padding: '26px 28px', width: 520 }}>
+        <ModalHeader title="Предпросмотр перед отправкой" sub={doc.no + ' · ' + doc.name} onClose={onClose} />
+
+        <div className="card card-pad" style={{ marginBottom: 16 }}>
+          <div className="kv-row"><span className="k">Контрагент</span><span className="v">{company ? company.name : doc.participant}</span></div>
+          <div className="kv-row"><span className="k">Договор</span><span className="v">{company ? company.contract : '—'}</span></div>
+          <div className="kv-row"><span className="k">Наименование в документе</span><span className="v">{doc.name}</span></div>
+          <div className="kv-row"><span className="k">ЭЦП у контрагента</span><span className="v">{company ? (company.requiresESign ? 'Требуется' : 'Не требуется') : '—'}</span></div>
+        </div>
+
+        {company && company.docCorrections.length > 0 && (
+          <div style={{ marginBottom: 16 }}>
+            <h3 className="card-title" style={{ fontSize: 14, marginBottom: 8 }}>Ранее отмечено по этому контрагенту</h3>
+            {company.docCorrections.map((c, i) => (
+              <div key={i} style={{ fontSize: 13, color: 'var(--muted)', marginBottom: 4, display: 'flex', gap: 6 }}>
+                <Icon name="alertCircle" style={{ width: 14, height: 14, flexShrink: 0, marginTop: 2 }} />{c.note}
+              </div>
+            ))}
+          </div>
+        )}
+
+        {correcting ? (
+          <Field label="Что нужно исправить?">
+            <Input value={note} onChange={(e) => setNote(e.target.value)} placeholder="Например: неверное наименование услуги в акте" />
+            <div style={{ display: 'flex', gap: 10, marginTop: 12 }}>
+              <Button variant="secondary" style={{ flex: 1 }} onClick={() => setCorrecting(false)}>Назад</Button>
+              <Button style={{ flex: 1 }} onClick={sendForCorrection}>Сохранить и вернуть в работу</Button>
+            </div>
+          </Field>
+        ) : (
+          <div style={{ display: 'flex', gap: 10 }}>
+            <Button variant="secondary" style={{ flex: 1 }} icon="edit" onClick={() => setCorrecting(true)}>Откорректировать</Button>
+            <Button style={{ flex: 1 }} icon="send" onClick={sendToAccounting}>Отправить в бухгалтерию</Button>
+          </div>
+        )}
+      </div>
+    </Modal>
+  );
+}
+
+function DocCard({ doc, onClose, onChange }) {
+  const toast = useToast();
+  const [preview, setPreview] = useState(false);
   if (!doc) return null;
   const k = DOC_KIND[doc.type] || DOC_KIND['Прочее'];
+  const isClosingDoc = DOC_BOOKKEEPING.includes(doc.type);
+  const needsPreview = isClosingDoc && !['Подписан', 'Аннулирован'].includes(doc.status);
+  const company = companyForDoc(doc);
   const links = [
     { ic: 'orders', label: 'Заказ № ' + doc.order, on: doc.order },
     { ic: 'user', label: doc.participant, on: doc.participant !== '—' },
@@ -227,11 +317,12 @@ function DocCard({ doc, onClose }) {
     { ic: 'finance', label: 'Операция ' + doc.finOp, on: doc.finOp !== '—' },
   ].filter((l) => l.on);
   return (
+    <>
     <Drawer open={!!doc} onClose={onClose} title={doc.no}
       footer={<div style={{ display: 'flex', gap: 10 }}>
         <Button style={{ flex: 1 }} icon="download" onClick={() => toast('Скачивание…', 'info')}>Скачать</Button>
         <Button variant="secondary" icon="plus" onClick={() => toast('Загрузка новой версии', 'info')}>Новая версия</Button>
-        {doc.status !== 'Подписан' && <Button variant="secondary" icon="check" onClick={() => toast('Документ подписан', 'ok')}>Подписать</Button>}
+        {!isClosingDoc && doc.status !== 'Подписан' && <Button variant="secondary" icon="check" onClick={() => toast('Документ подписан', 'ok')}>Подписать</Button>}
       </div>}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>
         <span className="oc-svc-ic" style={{ background: k.color }}><Icon name={k.icon} /></span>
@@ -242,7 +333,9 @@ function DocCard({ doc, onClose }) {
       <div className="doc-preview" style={{ marginBottom: 16 }}>
         <Icon name={k.icon} style={{ width: 44, height: 44 }} strokeWidth={1.4} />
         <span style={{ fontSize: 13 }}>Предпросмотр документа · v{doc.version}</span>
-        <Button variant="secondary" size="sm" icon="eye" onClick={() => toast('Открываю предпросмотр', 'info')}>Открыть</Button>
+        {needsPreview
+          ? <Button variant="secondary" size="sm" icon="eye" onClick={() => setPreview(true)}>Предпросмотр перед отправкой</Button>
+          : <Button variant="secondary" size="sm" icon="eye" onClick={() => toast('Открываю предпросмотр', 'info')}>Открыть</Button>}
       </div>
 
       <h3 className="card-title" style={{ fontSize: 15, marginBottom: 10 }}>Связи</h3>
@@ -269,11 +362,10 @@ function DocCard({ doc, onClose }) {
         ))}
       </div>
     </Drawer>
+    {needsPreview && <DocPreviewModal doc={preview ? doc : null} company={company} onClose={() => setPreview(false)} onChange={onChange} />}
+    </>
   );
 }
-
-// document types that belong to bookkeeping — shown separately, never under a passenger
-const DOC_BOOKKEEPING = ['Счёт', 'Акт', 'Договор'];
 
 /* one passenger's travel documents (tickets / boarding / vouchers / insurance / visas) */
 function DocPassengerGroup({ name, role, docs, onOpen, onUpload }) {
@@ -320,11 +412,13 @@ function DocCenter({ scopeOrder, participants, onOpenDoc }) {
   const [q, setQ] = useState('');
   const [tab, setTab] = useState('all');
   const [fStatus, setFStatus] = useState('');
-  const [card, setCard] = useState(null);
+  const [openNo, setOpenNo] = useState(null);
   // passenger grouping is only meaningful inside a single order with a known roster
   const canGroupByPax = !!scopeOrder && Array.isArray(participants) && participants.length > 0;
   const [view, setView] = useState('byType'); // 'byType' | 'byPassenger'
-  const all = scopeOrder ? DOCS2.filter((d) => d.order === scopeOrder) : DOCS2;
+  const [docs, setDocs] = useState(() => (scopeOrder ? DOCS2.filter((d) => d.order === scopeOrder) : DOCS2));
+  const updateDoc = (no, patch) => setDocs((cur) => cur.map((d) => (d.no === no ? { ...d, ...patch } : d)));
+  const card = docs.find((d) => d.no === openNo) || null;
 
   const TYPE_TABS = [
     { key: 'all', label: 'Все', test: () => true },
@@ -337,12 +431,12 @@ function DocCenter({ scopeOrder, participants, onOpenDoc }) {
   ];
   const cur = TYPE_TABS.find((t) => t.key === tab);
   const matchesQ = (d) => !q || `${d.no} ${d.name} ${d.order} ${d.participant} ${d.type}`.toLowerCase().includes(q.toLowerCase());
-  let rows = all.filter((d) => cur.test(d) && (!fStatus || d.status === fStatus) && matchesQ(d));
-  const open = (d) => onOpenDoc ? onOpenDoc(d) : setCard(d);
+  let rows = docs.filter((d) => cur.test(d) && (!fStatus || d.status === fStatus) && matchesQ(d));
+  const open = (d) => onOpenDoc ? onOpenDoc(d) : setOpenNo(d.no);
 
   // passenger view data: travel docs grouped per passenger + a separate bookkeeping block
-  const paxDocs = (name) => all.filter((d) => d.participant === name && !DOC_BOOKKEEPING.includes(d.type) && (!fStatus || d.status === fStatus) && matchesQ(d));
-  const bookkeeping = all.filter((d) => DOC_BOOKKEEPING.includes(d.type) && (!fStatus || d.status === fStatus) && matchesQ(d));
+  const paxDocs = (name) => docs.filter((d) => d.participant === name && !DOC_BOOKKEEPING.includes(d.type) && (!fStatus || d.status === fStatus) && matchesQ(d));
+  const bookkeeping = docs.filter((d) => DOC_BOOKKEEPING.includes(d.type) && (!fStatus || d.status === fStatus) && matchesQ(d));
   const paxList = canGroupByPax
     ? participants.filter((p) => !q || p.name.toLowerCase().includes(q.toLowerCase()) || paxDocs(p.name).length)
     : [];
@@ -356,7 +450,7 @@ function DocCenter({ scopeOrder, participants, onOpenDoc }) {
             <button className={view === 'byPassenger' ? 'on' : ''} onClick={() => setView('byPassenger')}>По пассажирам</button>
           </div>
         )}
-        {view === 'byType' && <Tabs tabs={TYPE_TABS.map((t) => ({ key: t.key, label: t.label, count: all.filter(t.test).length }))} value={tab} onChange={setTab} />}
+        {view === 'byType' && <Tabs tabs={TYPE_TABS.map((t) => ({ key: t.key, label: t.label, count: docs.filter(t.test).length }))} value={tab} onChange={setTab} />}
         <div style={{ flex: 1 }} />
         <SearchBox value={q} onChange={setQ} placeholder={view === 'byPassenger' ? 'Поиск пассажира или документа…' : 'Поиск документа…'} style={{ width: 230 }} />
         <FilterChip label="Статус" value={fStatus} onChange={setFStatus} options={Object.keys(DOC_STATUS2)} />
@@ -412,7 +506,7 @@ function DocCenter({ scopeOrder, participants, onOpenDoc }) {
           ) : <EmptyState icon="docs" title="Документы не найдены" />}
         </div>
       )}
-      {card && <DocCard doc={card} onClose={() => setCard(null)} />}
+      {card && <DocCard doc={card} onClose={() => setOpenNo(null)} onChange={updateDoc} />}
     </div>
   );
 }

@@ -978,10 +978,11 @@ function OrderCard({ order, onBack, initTab, initSvcSearch, fresh, onOpenChat })
       </Topbar>
 
       <div className="content" style={{ paddingTop: 8 }}>
-        {/* header — collapses to a single breadcrumb line while the booking wizard is open
-            (the wizard has its own stepper/route; the full head + stage-bar + actions would push it off-screen) */}
+        {/* header — collapses to a slim pinned bar while the booking wizard is open
+            (the wizard has its own stepper/route for the booking steps; we keep the
+            order-level stage bar visible so the operator never loses sight of overall progress) */}
         {svcView === 'booking' ? (
-          <div className="oc-head" style={{ paddingBottom: 14 }}>
+          <div className="oc-head oc-head-pinned" style={{ paddingBottom: 14 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap' }}>
               <div className="oc-id" style={{ marginBottom: 0 }}>
                 <h2 style={{ fontSize: 20 }}>Заказ № {order.no}</h2>
@@ -991,6 +992,9 @@ function OrderCard({ order, onBack, initTab, initSvcSearch, fresh, onOpenChat })
                 <Icon name="plane" style={{ width: 15, height: 15, color: 'var(--blue)' }} />
                 {(() => { const t = tripFromServices(services, aviaParams); return `${t.from} → ${t.to}`; })()}
               </span>
+            </div>
+            <div style={{ marginTop: 12, paddingTop: 12, borderTop: '1px solid var(--line)' }}>
+              <OrderStageBar index={stageIdx} compact />
             </div>
           </div>
         ) : (
@@ -1016,28 +1020,21 @@ function OrderCard({ order, onBack, initTab, initSvcSearch, fresh, onOpenChat })
 
             <TripSummaryBar order={order} services={services} participants={participants} aviaParams={aviaParams} requestType={requestType} onEdit={() => setTripEditOpen(true)} />
 
-            <div style={{ marginTop: 14, paddingTop: 14, borderTop: '1px solid var(--line)' }}>
-              <OrderStageBar index={stageIdx} />
+            <div className="oc-progress-row">
+              <OrderStageBar index={stageIdx} compact />
+              <div className="oc-actions">
+                <Button size="sm" icon="plus" onClick={() => { setTab('services'); setSvcView('type-picker'); }}>Добавить услугу</Button>
+                <Button variant="secondary" size="sm" icon="template" onClick={() => setTab('offers')}>КП</Button>
+                <Button variant="secondary" size="sm" icon="send" onClick={() => setSendOpen(true)}>Отправить</Button>
+                <Button variant="secondary" size="sm" icon="finance" onClick={() => setTab('finance')}>Финансы</Button>
+              </div>
             </div>
 
-            <div className="oc-actions">
-              <Button icon="plus" onClick={() => { setTab('services'); setSvcView('type-picker'); }}>Добавить услугу</Button>
-              <Button variant="secondary" icon="template" onClick={() => setTab('offers')}>Создать КП</Button>
-              <Button variant="secondary" icon="send" onClick={() => setSendOpen(true)}>Отправить клиенту</Button>
-              <Button variant="secondary" icon="finance" onClick={() => setTab('finance')}>Открыть финансы</Button>
-            </div>
-          </div>
-        )}
-
-        {/* body: tabs + main + aside. The two-pane avia picker takes over full width. */}
-        <div className="oc-grid">
-          <div className="oc-main">
-            {!['avia-picker', 'booking'].includes(svcView) && (
+            {svcView !== 'avia-picker' && (
               <div className="oc-navpanel">
                 <div className="oc-navrow">
                   {TAB_GROUPS.map((g, gi) => (
-                    <div className="oc-navgroup" key={g}>
-                      <div className="oc-navgroup-h">{g}</div>
+                    <div className="oc-navgroup" key={g} title={g}>
                       <div className="oc-navtiles">
                         {TABS.filter((t) => t.group === gi).map((t) => {
                           const locked = isTabLocked(t);
@@ -1061,6 +1058,12 @@ function OrderCard({ order, onBack, initTab, initSvcSearch, fresh, onOpenChat })
                 </div>
               </div>
             )}
+          </div>
+        )}
+
+        {/* body: tabs + main + aside. The two-pane avia picker takes over full width. */}
+        <div className="oc-grid">
+          <div className="oc-main">
             {tabContent()}
           </div>
           {!['avia-picker', 'booking'].includes(svcView) && <OrderAside onOpenTasks={() => toast('Список задач по заказу', 'info')} />}

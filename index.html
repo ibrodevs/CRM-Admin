@@ -460,22 +460,24 @@ table.tbl tbody tr:last-child td{border-bottom:none}
 
 /* ============ ORDER CARD ============ */
 .oc-head{background:#fff;border:1px solid var(--line);border-radius:var(--r-card);box-shadow:var(--shadow-card);padding:16px 20px}
+.oc-head-pinned{position:sticky;top:71px;z-index:30}
 .oc-id{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
 .oc-id h2{font-size:21px;font-weight:700;color:var(--ink);letter-spacing:-.01em;margin:0}
-.oc-actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px;padding-top:14px;border-top:1px solid var(--line)}
+.oc-actions{display:flex;gap:8px;flex-wrap:wrap}
+.oc-progress-row{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-top:14px;padding-top:14px;border-top:1px solid var(--line)}
 .oc-fab{position:fixed;right:32px;bottom:28px;z-index:40;box-shadow:var(--shadow-pop);animation:pop .16s ease}
 
 .oc-grid{display:flex;gap:22px;align-items:flex-start;margin-top:18px}
 .oc-main{flex:1;min-width:0}
 .oc-aside{width:312px;flex:0 0 312px;position:sticky;top:18px;display:flex;flex-direction:column;gap:16px}
 
-.oc-navpanel{background:#fff;border:1px solid var(--line);border-radius:var(--r-card);padding:8px 10px;margin-bottom:14px}
-.oc-navrow{display:flex;align-items:center;gap:14px;flex-wrap:wrap}
-.oc-navgroup{display:flex;align-items:center;gap:8px}
-.oc-navgroup+.oc-navgroup{border-left:1px solid var(--line);padding-left:14px}
-.oc-navgroup-h{font-size:10.5px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--faint);white-space:nowrap}
-.oc-navtiles{display:flex;gap:4px;flex-wrap:wrap}
-.oc-navtile{display:flex;align-items:center;gap:6px;padding:6px 10px;border-radius:9px;border:1px solid transparent;background:transparent;cursor:pointer;white-space:nowrap;transition:.12s;font:inherit}
+.oc-navpanel{margin-top:14px;padding-top:12px;border-top:1px solid var(--line)}
+.oc-navrow{display:flex;align-items:center;gap:6px;flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none}
+.oc-navrow::-webkit-scrollbar{display:none}
+.oc-navgroup{display:flex;align-items:center;gap:2px;flex:0 0 auto}
+.oc-navgroup+.oc-navgroup{border-left:1px solid var(--line);padding-left:6px}
+.oc-navtiles{display:flex;gap:2px;flex-wrap:nowrap}
+.oc-navtile{display:flex;align-items:center;gap:5px;padding:6px 8px;border-radius:9px;border:1px solid transparent;background:transparent;cursor:pointer;white-space:nowrap;transition:.12s;font:inherit}
 .oc-navtile:hover{background:var(--hover)}
 .oc-navtile .ic{display:flex;align-items:center;justify-content:center;color:var(--muted-2)}
 .oc-navtile .ic svg{width:14px;height:14px}
@@ -560,6 +562,12 @@ table.tbl tbody tr:last-child td{border-bottom:none}
 .stage.done .lbl,.stage.active .lbl{color:var(--ink)}
 .stage-line{width:30px;height:2px;background:var(--line-strong);margin:0 9px;flex:0 0 30px}
 .stage-line.done{background:var(--green)}
+.stage-bar.compact{row-gap:6px}
+.stage-bar.compact .dot{width:20px;height:20px;font-size:11px;flex:0 0 20px}
+.stage-bar.compact .dot svg{width:12px;height:12px}
+.stage-bar.compact .lbl{font-size:12px}
+.stage-bar.compact .stage-line{width:18px;flex:0 0 18px;margin:0 6px}
+.stage-bar.compact .stage{gap:6px}
 
 /* ============ FINANCE OP CARD ============ */
 .amt-row{display:flex;justify-content:space-between;align-items:baseline;padding:9px 0;font-size:14.5px}

@@ -704,7 +704,7 @@ const DOC_KIND = {
   'Паспорт':              { icon: 'idcard',   color: '#7e889a' },
   'Прочее':               { icon: 'paperclip',color: '#9aa3b2' },
 };
-const DOC_STATUS2 = { 'Черновик': 'gray', 'Сформирован': 'teal', 'На подписи': 'amber', 'Подписан': 'green', 'Аннулирован': 'red' };
+const DOC_STATUS2 = { 'Черновик': 'gray', 'Сформирован': 'teal', 'В бухгалтерии': 'blue', 'На подписи': 'amber', 'Подписан': 'green', 'Аннулирован': 'red' };
 
 const DOCS2 = [
   { no: 'D-3120', name: 'Маршрут-квитанция KC 131/132', type: 'Маршрутная квитанция', order: 51162, participant: 'Нуралиев Данияр', service: 'Авиа · AV-51162', finOp: 'F-2041', status: 'Подписан', version: 2, date: '14.06.2026', size: '212 КБ',
@@ -935,12 +935,20 @@ const CLIENTS_DB = [
 
 // ============ КОМПАНИИ ============
 const COMPANY_STATUS = { 'Действующий': 'green', 'На паузе': 'amber', 'Архив': 'gray' };
+// requiresESign: контрагент принимает закрывающие документы только с ЭЦП (зависит от его бухгалтерии).
+// docCorrections: память о замечаниях по оформлению документов этого контрагента (наименование услуг,
+// реквизиты подписи и т.п.), накопленная на предпросмотре — чтобы не повторять одну и ту же ошибку.
 const COMPANIES_DB = [
-  { id: 'CO-2001', name: 'ОсОО "Гранд лимитед"', type: 'Туроператор', status: 'Действующий', inn: '07070707070707', okpo: '8362411', dir: 'Нуралиев Данияр', phone: '+996 777 777 777', email: 'grandlimited@mail.ru', addr: 'Бишкек, ул. Токтогула 125/1', bank: 'Демир Банк', account: '1240020000123456', contract: '№ 2024-118 от 09.09.24', orders: 12, turnover: 86400, contacts: 3, vat: '12%' },
-  { id: 'CO-2002', name: 'ОсОО "Asia Travel"', type: 'Турагент', status: 'Действующий', inn: '02208200512345', okpo: '2291055', dir: 'Каримов Икрам', phone: '+996 312 555 444', email: 'office@asia.kg', addr: 'Ош, ул. Курманжан Датка 12', bank: 'Оптима Банк', account: '1090000111223344', contract: '№ 2025-014 от 14.01.25', orders: 7, turnover: 54200, contacts: 2, vat: '12%' },
-  { id: 'CO-2003', name: 'ИП Сагынбеков', type: 'Корпоративный клиент', status: 'На паузе', inn: '20312198800321', okpo: '—', dir: 'Сагынбеков Икрам', phone: '+996 770 444 555', email: 'sagyn@mail.ru', addr: 'Бишкек, ул. Чуй 200', bank: 'РСК Банк', account: '1180000999888777', contract: '№ 2025-033 от 20.03.25', orders: 3, turnover: 12800, contacts: 1, vat: 'без НДС' },
-  { id: 'CO-2004', name: 'Best Travel Inc', type: 'Партнёр', status: 'Действующий', inn: '00000000000000', okpo: '—', dir: 'Greg James', phone: '+1 202 555 0114', email: 'partner@besttravel.com', addr: 'Dubai, Sheikh Zayed Rd', bank: 'Emirates NBD', account: 'AE12 0000 1111', contract: '№ INT-2025-7 от 02.02.25', orders: 5, turnover: 41000, contacts: 2, vat: '—' },
-  { id: 'CO-2005', name: 'ИП Мамажанов', type: 'Корпоративный клиент', status: 'Архив', inn: '21807199100123', okpo: '—', dir: 'Мамажанов Абдутаир', phone: '+996 555 111 000', email: 'mamajanov@mail.ru', addr: 'Джалал-Абад, ул. Ленина 5', bank: 'Айыл Банк', account: '1230000222333444', contract: '№ 2024-101 от 11.11.24', orders: 2, turnover: 3200, contacts: 1, vat: 'без НДС' },
+  { id: 'CO-2001', name: 'ОсОО "Гранд лимитед"', type: 'Туроператор', status: 'Действующий', inn: '07070707070707', okpo: '8362411', dir: 'Нуралиев Данияр', phone: '+996 777 777 777', email: 'grandlimited@mail.ru', addr: 'Бишкек, ул. Токтогула 125/1', bank: 'Демир Банк', account: '1240020000123456', contract: '№ 2024-118 от 09.09.24', orders: 12, turnover: 86400, contacts: 3, vat: '12%',
+    requiresESign: true, docCorrections: [{ date: '02.06.2026', who: 'Даниель', note: 'В акте указывать «Агентское вознаграждение по доп. соглашению № 3», а не общее «Сервисный сбор»' }] },
+  { id: 'CO-2002', name: 'ОсОО "Asia Travel"', type: 'Турагент', status: 'Действующий', inn: '02208200512345', okpo: '2291055', dir: 'Каримов Икрам', phone: '+996 312 555 444', email: 'office@asia.kg', addr: 'Ош, ул. Курманжан Датка 12', bank: 'Оптима Банк', account: '1090000111223344', contract: '№ 2025-014 от 14.01.25', orders: 7, turnover: 54200, contacts: 2, vat: '12%',
+    requiresESign: false, docCorrections: [] },
+  { id: 'CO-2003', name: 'ИП Сагынбеков', type: 'Корпоративный клиент', status: 'На паузе', inn: '20312198800321', okpo: '—', dir: 'Сагынбеков Икрам', phone: '+996 770 444 555', email: 'sagyn@mail.ru', addr: 'Бишкек, ул. Чуй 200', bank: 'РСК Банк', account: '1180000999888777', contract: '№ 2025-033 от 20.03.25', orders: 3, turnover: 12800, contacts: 1, vat: 'без НДС',
+    requiresESign: false, docCorrections: [] },
+  { id: 'CO-2004', name: 'Best Travel Inc', type: 'Партнёр', status: 'Действующий', inn: '00000000000000', okpo: '—', dir: 'Greg James', phone: '+1 202 555 0114', email: 'partner@besttravel.com', addr: 'Dubai, Sheikh Zayed Rd', bank: 'Emirates NBD', account: 'AE12 0000 1111', contract: '№ INT-2025-7 от 02.02.25', orders: 5, turnover: 41000, contacts: 2, vat: '—',
+    requiresESign: true, docCorrections: [] },
+  { id: 'CO-2005', name: 'ИП Мамажанов', type: 'Корпоративный клиент', status: 'Архив', inn: '21807199100123', okpo: '—', dir: 'Мамажанов Абдутаир', phone: '+996 555 111 000', email: 'mamajanov@mail.ru', addr: 'Джалал-Абад, ул. Ленина 5', bank: 'Айыл Банк', account: '1230000222333444', contract: '№ 2024-101 от 11.11.24', orders: 2, turnover: 3200, contacts: 1, vat: 'без НДС',
+    requiresESign: false, docCorrections: [] },
 ];
 
 // Company staff directories, grouped by department (used by the "Создать заказ" employee
