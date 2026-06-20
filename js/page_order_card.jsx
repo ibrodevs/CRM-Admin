@@ -505,16 +505,24 @@ function ExtrasByPassengerCard({ isGroup }) {
   );
 }
 
-function BookingFlowCard({ onStart }) {
+const BOOKING_WIZARD_STEPS = ['Выбор варианта', 'Запуск', 'Получение ответов', 'Подтверждение', 'Формирование КП', 'Выписка и оплата', 'Завершение'];
+
+function BookingFlowCard({ onStart, draft }) {
   const tone = { done: 'green', current: 'amber', pending: 'gray' };
   return (
-    <div className="card card-pad" style={{ marginTop: 18 }}>
+    <div className="card card-pad" style={{ marginTop: 18, borderColor: draft ? 'var(--blue)' : undefined }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', marginBottom: 14 }}>
         <div>
           <div style={{ fontWeight: 700, color: 'var(--ink)', fontSize: 17 }}>Рабочий процесс бронирования</div>
-          <div style={{ fontSize: 13.5, color: 'var(--muted)', marginTop: 2 }}>Отдельный процесс после подбора услуг: запуск, ответы поставщиков, подтверждение, выписка и оплата.</div>
+          <div style={{ fontSize: 13.5, color: draft ? 'var(--blue)' : 'var(--muted)', marginTop: 2 }}>
+            {draft
+              ? `Черновик: шаг «${BOOKING_WIZARD_STEPS[draft.step]}» (${draft.step + 1} из ${BOOKING_WIZARD_STEPS.length}). Можно продолжить или вернуться на предыдущие шаги.`
+              : 'Отдельный процесс после подбора услуг: запуск, ответы поставщиков, подтверждение, выписка и оплата.'}
+          </div>
         </div>
-        <Button variant="secondary" size="sm" icon="zap" onClick={onStart}>Начать бронирование</Button>
+        <Button variant={draft ? 'primary' : 'secondary'} size="sm" icon={draft ? 'arrowRight' : 'zap'} onClick={onStart}>
+          {draft ? 'Продолжить бронирование' : 'Начать бронирование'}
+        </Button>
       </div>
       <div style={{ display: 'grid', gap: 10 }}>
         {ORDER_BOOKING_FLOW.map((step, i) => (
@@ -553,16 +561,10 @@ const ADD_SERVICE_TILES = [
   { kind: 'Другое', label: 'Другое', icon: 'plus', color: '#9aa3b2', desc: 'Создать услугу без категории' },
 ];
 
-function TypePickerCard({ onPick, onCancel }) {
+function TypePickerCard({ onPick }) {
   return (
-    <div className="card card-pad fade-in">
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 18, gap: 12 }}>
-        <div>
-          <h3 className="card-title" style={{ marginBottom: 4 }}>Добавить услугу</h3>
-          <div style={{ color: 'var(--muted)', fontSize: 13.5 }}>Выберите тип услуги для добавления в заказ</div>
-        </div>
-        <Button variant="secondary" size="sm" icon="x" onClick={onCancel}>Закрыть</Button>
-      </div>
+    <div className="fade-in">
+      <div style={{ color: 'var(--muted)', fontSize: 13.5, marginBottom: 16 }}>Выберите тип услуги для добавления в заказ</div>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 12 }}>
         {ADD_SERVICE_TILES.map((t) => (
           <button key={t.kind} onClick={() => onPick(t.kind)}
@@ -705,7 +707,7 @@ function ExtraServicesCard({ items, extraTypes, onOpen, onAddType, onOpenPicker,
   });
 }
 
-function TabServices({ orderNo, services, participants, requestType, onOpenAvia, onAddType, onOpenOther, onStartBooking, onOpenParticipants, onOpenPicker }) {
+function TabServices({ orderNo, services, participants, requestType, bookingDraft, onOpenAvia, onAddType, onOpenOther, onStartBooking, onOpenParticipants, onOpenPicker }) {
   const extraServices = services.filter((s) => !SCENARIO_KINDS.includes(s.kind));
   const extraTypes = ADD_TYPES.filter((t) => !SCENARIO_KINDS.includes(t));
   const total = services.reduce((s, x) => s + svcCalc(x).total, 0);
@@ -739,7 +741,7 @@ function TabServices({ orderNo, services, participants, requestType, onOpenAvia,
       />
 
       <ExtrasByPassengerCard isGroup={isGroup} />
-      <BookingFlowCard onStart={onStartBooking} />
+      <BookingFlowCard onStart={onStartBooking} draft={bookingDraft} />
     </div>
   );
 }
@@ -869,7 +871,10 @@ function OrderCard({ order, onBack, initTab, initSvcSearch, fresh, onOpenChat })
   const [stageIdx, setStageIdx] = useState(initStage());
 
   // service sub-flow (avia + other service modules)
-  const [svcView, setSvcView] = useState(null); // null | 'avia-picker' | 'avia-card' | 'svc-add' | 'svc-card'
+  const [svcView, setSvcView] = useState(null); // null | 'avia-picker' | 'avia-card' | 'svc-add' | 'svc-card' | 'booking'
+  // booking wizard progress lives here (not inside BookingWizard) so it survives the operator
+  // switching to other order tabs mid-flow, and can be resumed later as a draft
+  const [bookingDraft, setBookingDraft] = useState(null); // null | { step, method, pay }
   const [activeAvia, setActiveAvia] = useState(null);
   const [addRoute, setAddRoute] = useState(null);   // routeKey for the non-avia add-flow
   const [activeSvc, setActiveSvc] = useState(null); // non-avia service being viewed
@@ -931,19 +936,17 @@ function OrderCard({ order, onBack, initTab, initSvcSearch, fresh, onOpenChat })
     toast(kind + ': услуга добавлена в заказ', 'ok');
   };
 
-  // --- inside the Services tab, a service sub-flow can take over the main column ---
+  // --- inside the Services tab, a sub-flow for viewing an existing service can take over the main column.
+  // Adding a new service (type-picker → svc-add / avia-picker) instead opens in a side panel, see addFlowOpen below,
+  // so the operator never loses sight of the services already in the scenario. ---
   const renderServicesArea = () => {
-    if (svcView === 'avia-picker') return <AviaPicker params={aviaParams} setParams={setAviaParams} services={services}
-      group={requestType === 'Групповая'}
-      onApply={addAviaFromPicker} onCancel={() => setSvcView(null)} onAddType={() => goAddType('Авиа')}
-      onRemoveService={(s) => setServices((cur) => cur.filter((x) => x.id !== s.id))} />;
-    if (svcView === 'booking') return <BookingWizard order={order} services={services} onClose={() => setSvcView(null)}
-      onComplete={() => { setStatus('Оплачено'); setStageIdx(4); }} />;
+    if (svcView === 'booking') return <BookingWizard order={order} services={services} draft={bookingDraft}
+      onSaveDraft={setBookingDraft} onClose={() => setSvcView(null)}
+      onComplete={() => { setStatus('Оплачено'); setStageIdx(4); setBookingDraft(null); }} />;
     if (svcView === 'avia-card') return <FlightCard svc={activeAvia} offer={activeAvia ? activeAvia.offer : null} onBack={() => setSvcView(null)} />;
-    if (svcView === 'svc-add') return <ServiceAddFlow routeKey={addRoute} onAdd={addSvcOffer} onCancel={() => setSvcView(null)} />;
     if (svcView === 'svc-card') return <SvcCard item={activeSvc} kind={activeSvc.kind} onBack={() => setSvcView(null)} />;
-    if (svcView === 'type-picker') return <TypePickerCard onPick={goAddType} onCancel={() => setSvcView(null)} />;
     return <TabServices orderNo={order.no} services={services} participants={participants} requestType={requestType}
+      bookingDraft={bookingDraft}
       onOpenParticipants={() => setTab('participants')}
       onStartBooking={() => setSvcView('booking')}
       onAddType={goAddType}
@@ -970,6 +973,16 @@ function OrderCard({ order, onBack, initTab, initSvcSearch, fresh, onOpenChat })
     }
   };
 
+  // true only while the Услуги tab is actually showing a full-width sub-flow (the booking
+  // wizard) — on every other tab the aside/FAB stay visible as usual, even if a booking
+  // draft is parked in the background. Adding a service is a side panel now, not full-width.
+  const fullWidthFlow = tab === 'services' && svcView === 'booking';
+  // «Добавить услугу»: type-picker → svc-add / avia-picker all live in one side panel that
+  // floats over whatever tab is currently open, so the underlying screen never has to move.
+  const addFlowOpen = svcView === 'type-picker' || svcView === 'svc-add' || svcView === 'avia-picker';
+  const addFlowTitle = svcView === 'avia-picker' ? 'Авиабилеты' : svcView === 'svc-add' ? SVC_CFG[addRoute].title : 'Добавить услугу';
+  const addFlowWidth = svcView === 'avia-picker' ? 'min(1450px,96vw)' : svcView === 'type-picker' ? 'min(720px,92vw)' : 'min(820px,92vw)';
+
   return (
     <div className="fade-in">
       <Topbar title="Карточка заказа">
@@ -978,28 +991,8 @@ function OrderCard({ order, onBack, initTab, initSvcSearch, fresh, onOpenChat })
       </Topbar>
 
       <div className="content" style={{ paddingTop: 8 }}>
-        {/* header — collapses to a slim pinned bar while the booking wizard is open
-            (the wizard has its own stepper/route for the booking steps; we keep the
-            order-level stage bar visible so the operator never loses sight of overall progress) */}
-        {svcView === 'booking' ? (
-          <div className="oc-head oc-head-pinned" style={{ paddingBottom: 14 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap' }}>
-              <div className="oc-id" style={{ marginBottom: 0 }}>
-                <h2 style={{ fontSize: 20 }}>Заказ № {order.no}</h2>
-                <StatusControl status={status} onChange={(s) => { setStatus(s); toast('Статус: ' + s, 'ok'); }} />
-              </div>
-              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8, color: 'var(--muted)', fontSize: 14 }}>
-                <Icon name="plane" style={{ width: 15, height: 15, color: 'var(--blue)' }} />
-                {(() => { const t = tripFromServices(services, aviaParams); return `${t.from} → ${t.to}`; })()}
-              </span>
-            </div>
-            <div style={{ marginTop: 12, paddingTop: 12, borderTop: '1px solid var(--line)' }}>
-              <OrderStageBar index={stageIdx} compact />
-            </div>
-          </div>
-        ) : (
-          <div className="oc-head">
-            <div style={{ display: 'flex', alignItems: 'flex-start', gap: 16, flexWrap: 'wrap' }}>
+        <div className="oc-head">
+          <div style={{ display: 'flex', alignItems: 'flex-start', gap: 16, flexWrap: 'wrap' }}>
               <div className="oc-id">
                 <h2>Заказ № {order.no}</h2>
                 <StatusControl status={status} onChange={(s) => { setStatus(s); toast('Статус: ' + s, 'ok'); }} />
@@ -1030,48 +1023,63 @@ function OrderCard({ order, onBack, initTab, initSvcSearch, fresh, onOpenChat })
               </div>
             </div>
 
-            {svcView !== 'avia-picker' && (
-              <div className="oc-navpanel">
-                <div className="oc-navrow">
-                  {TAB_GROUPS.map((g, gi) => (
-                    <div className="oc-navgroup" key={g} title={g}>
-                      <div className="oc-navtiles">
-                        {TABS.filter((t) => t.group === gi).map((t) => {
-                          const locked = isTabLocked(t);
-                          return (
-                            <button key={t.key} className={'oc-navtile' + (tab === t.key ? ' active' : '') + (locked ? ' locked' : '')}
-                              title={locked ? 'Раздел станет доступен на следующих этапах заказа' : undefined}
-                              onClick={() => {
-                                if (locked) { toast('Раздел станет доступен на следующих этапах заказа', 'info'); return; }
-                                setTab(t.key); if (t.key !== 'services') setSvcView(null);
-                              }}>
-                              <span className="ic"><Icon name={t.icon} /></span>
-                              <span className="nm">{t.label}</span>
-                              {t.count != null && <span className="cnt">{t.count}</span>}
-                              {locked && <span className="lockic"><Icon name="lock" /></span>}
-                            </button>
-                          );
-                        })}
-                      </div>
+            <div className="oc-navpanel">
+              <div className="oc-navrow">
+                {TAB_GROUPS.map((g, gi) => (
+                  <div className="oc-navgroup" key={g} title={g}>
+                    <div className="oc-navtiles">
+                      {TABS.filter((t) => t.group === gi).map((t) => {
+                        const locked = isTabLocked(t);
+                        return (
+                          <button key={t.key} className={'oc-navtile' + (tab === t.key ? ' active' : '') + (locked ? ' locked' : '')}
+                            title={locked ? 'Раздел станет доступен на следующих этапах заказа' : undefined}
+                            onClick={() => {
+                              if (locked) { toast('Раздел станет доступен на следующих этапах заказа', 'info'); return; }
+                              setTab(t.key);
+                              // leave the booking wizard mounted in the background — its progress is
+                              // already saved as a draft, so coming back to «Услуги» resumes it as-is
+                              if (t.key !== 'services' && svcView !== 'booking') setSvcView(null);
+                            }}>
+                            <span className="ic"><Icon name={t.icon} /></span>
+                            <span className="nm">{t.label}</span>
+                            {t.count != null && <span className="cnt">{t.count}</span>}
+                            {locked && <span className="lockic"><Icon name="lock" /></span>}
+                          </button>
+                        );
+                      })}
                     </div>
-                  ))}
-                </div>
+                  </div>
+                ))}
               </div>
-            )}
-          </div>
-        )}
+            </div>
+        </div>
 
-        {/* body: tabs + main + aside. The two-pane avia picker takes over full width. */}
+        {/* body: tabs + main + aside. The booking wizard takes over full width —
+            but only while the Услуги tab is actually showing it; on other tabs it stays parked in the background. */}
         <div className="oc-grid">
           <div className="oc-main">
             {tabContent()}
           </div>
-          {!['avia-picker', 'booking'].includes(svcView) && <OrderAside onOpenTasks={() => toast('Список задач по заказу', 'info')} />}
+          {!fullWidthFlow && <OrderAside onOpenTasks={() => toast('Список задач по заказу', 'info')} />}
         </div>
       </div>
 
-      {!['avia-picker', 'booking'].includes(svcView) && (
-        <Button className="oc-fab" icon="zap" onClick={() => { setTab('services'); setSvcView('booking'); }}>Начать бронирование</Button>
+      {!fullWidthFlow && (
+        <Button className="oc-fab" icon="zap" onClick={() => { setTab('services'); setSvcView('booking'); }}>
+          {bookingDraft ? 'Продолжить бронирование' : 'Начать бронирование'}
+        </Button>
+      )}
+
+      {/* «Добавить услугу» side panel — type-picker → svc-add / avia-picker, all without leaving the current tab */}
+      {addFlowOpen && (
+        <StackPanel title={addFlowTitle} width={addFlowWidth} onClose={() => setSvcView(null)}>
+          {svcView === 'type-picker' && <TypePickerCard onPick={goAddType} />}
+          {svcView === 'svc-add' && <ServiceAddFlow routeKey={addRoute} onAdd={addSvcOffer} />}
+          {svcView === 'avia-picker' && <AviaPicker params={aviaParams} setParams={setAviaParams} services={services}
+            group={requestType === 'Групповая'}
+            onApply={addAviaFromPicker} onCancel={() => setSvcView(null)} onAddType={() => goAddType('Авиа')}
+            onRemoveService={(s) => setServices((cur) => cur.filter((x) => x.id !== s.id))} />}
+        </StackPanel>
       )}
 
       {/* drawers / modals reused from order_extras */}

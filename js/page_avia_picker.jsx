@@ -1,6 +1,7 @@
 // ===== AVIA PICKER: two-pane in-order flight selection =====
 // Left  — «Сценарий поездки» (order composition)
-// Right — «Подбор авиаперелёта» (numbered accordion: рейс → тариф → места → доп.услуги → пассажиры)
+// Right — flight list stays static; тариф / доп.услуги и места / пассажиры open as side panels (StackPanel)
+//         over the screen instead of an inline accordion, so picking a fare never requires scrolling past flights
 
 function rub(n) { return Math.round(n).toLocaleString('ru-RU') + ' ₽'; }
 const RUB_PER_USD = 90; // demo conversion rate used across the picker totals
@@ -20,23 +21,6 @@ function ApFlightRow({ opt, sel, onSelect }) {
       <div className="ap-fl-time">{leg.arr}<div className="ap">{leg.to}</div></div>
       <div className="ap-fl-pr"><div className="v">{rub(opt.price)}</div><div className="c">{AIRLINES[opt.airline].name}</div></div>
       <Radio on={sel} onChange={() => onSelect(opt)} />
-    </div>
-  );
-}
-
-/* ---------- accordion section ---------- */
-function ApStep({ n, title, summary, active, done, onToggle, children }) {
-  return (
-    <div className={'ap-step' + (active ? ' active' : '') + (done && !active ? ' done' : '')}>
-      <div className="ap-step-head" onClick={onToggle}>
-        <span className="ap-num">{done && !active ? <Icon name="check" style={{ width: 16, height: 16 }} /> : n}</span>
-        <div className="ap-step-tt">
-          <div className="t">{title}</div>
-          {!active && summary && <div className="s">{summary}</div>}
-        </div>
-        <Icon name={active ? 'chevUp' : 'chevDown'} style={{ width: 18, height: 18, color: 'var(--muted-2)' }} />
-      </div>
-      {active && <div className="ap-step-body">{children}</div>}
     </div>
   );
 }
@@ -220,15 +204,31 @@ function ExtrasTabs({ pax, state, set, embedded }) {
   );
 }
 
+/* ---------- compact summary row — opens a side panel instead of expanding inline ---------- */
+function ApSumRow({ icon, title, sub, value, done, locked, onClick }) {
+  return (
+    <div className={'ap-list-row ap-sum-row' + (done ? ' sel' : '') + (locked ? ' locked' : '')} onClick={locked ? undefined : onClick}>
+      <span className="ic"><Icon name={icon} /></span>
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div className="t">{title}</div>
+        <div className="s">{sub}</div>
+      </div>
+      <span className="pr">{value}</span>
+      <Icon name="chevRight" style={{ width: 18, height: 18, color: 'var(--muted-2)', flex: '0 0 18px' }} />
+    </div>
+  );
+}
+
 /* ====================================================================
    MAIN PICKER
    ==================================================================== */
 function AviaPicker({ params, setParams, services = [], onApply, onCancel, onAddType, onRemoveService, group = false }) {
   const toast = useToast();
   const PAX = group ? GROUP_PAX : ORDER_PARTICIPANTS.slice(0, Math.max(1, params.pax.adt + params.pax.chd));
-  const [open, setOpen] = useState(1);          // active accordion step
   const [editSearch, setEditSearch] = useState(false);
-  const [extrasFull, setExtrasFull] = useState(false);
+  const [farePanel, setFarePanel] = useState(false);
+  const [extrasPanel, setExtrasPanel] = useState(false);
+  const [paxPanel, setPaxPanel] = useState(false);
 
   // selections
   const [legs, setLegs] = useState({});         // { out, back } or { seg0, seg1 }
@@ -269,13 +269,11 @@ function AviaPicker({ params, setParams, services = [], onApply, onCancel, onAdd
   const assignedCount = groups.reduce((a, g) => a + g.members.length, 0);
 
   const allLegsPicked = segKeys.every((k) => legs[k]);
-  // seat selection lives only inside step 3 (Доп. услуги → Места), so steps renumber to 1–4
   const seatsSummary = Object.values(extras.seats).filter(Boolean).length ? Object.values(extras.seats).filter(Boolean).join(', ') + ' · ' : '';
-  const stepSummary = {
-    1: allLegsPicked ? segKeys.map((k) => legs[k] ? `${legs[k].leg.from}–${legs[k].leg.to} ${legs[k].leg.dep}` : '').join(' · ') : 'Рейс не выбран',
-    2: fareTier.name + ' · ' + (fareTier.delta ? '+ ' + rub(fareTotal) : 'без доплаты'),
-    3: extrasTotal ? seatsSummary + '+ ' + rub(extrasTotal) : 'Не добавлены',
-    4: group ? `${PAX.length} пасс. · ${groups.length} ${groups.length === 1 ? 'группа' : 'группы'}` : PAX.length + ' пасс. · ' + PAX.map((p) => p.name.split(' ')[0]).join(', '),
+  const sumRow = {
+    fare: fareTier.name + ' · ' + (fareTier.delta ? '+ ' + rub(fareTotal) : 'без доплаты'),
+    extras: extrasTotal ? seatsSummary + '+ ' + rub(extrasTotal) : 'Не добавлены',
+    pax: group ? `${PAX.length} пасс. · ${groups.length} ${groups.length === 1 ? 'группа' : 'группы'}` : PAX.length + ' пасс. · ' + PAX.map((p) => p.name.split(' ')[0]).join(', '),
   };
 
   // left scenario items (current services + the in-progress avia draft)
@@ -317,7 +315,6 @@ function AviaPicker({ params, setParams, services = [], onApply, onCancel, onAdd
 
   return (
     <div className="fade-in">
-      <BackRow label="К услугам заказа" onBack={onCancel} />
       <div className="avia-picker">
         {/* LEFT — scenario */}
         <aside className="ap-scenario">
@@ -352,74 +349,61 @@ function AviaPicker({ params, setParams, services = [], onApply, onCancel, onAdd
           </div>
         </aside>
 
-        {/* RIGHT — picker accordion */}
+        {/* RIGHT — static flight list + compact summary rows that open side panels */}
         <div className="ap-steps">
-          {/* step 1 — flight */}
-          <ApStep n={1} title="Выберите рейс" summary={stepSummary[1]} done={allLegsPicked} active={open === 1} onToggle={() => setOpen(open === 1 ? 0 : 1)}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6 }}>
-              <div className="trip-toggle">
-                {[['rt', 'Туда-обратно'], ['ow', 'В одну сторону'], ['mc', 'Сложный маршрут']].map(([k, l]) => (
-                  <button key={k} className={trip === k ? 'on' : ''} onClick={() => { setParams({ ...params, trip: k }); setLegs({}); }}>{l}</button>
-                ))}
-              </div>
-              <div style={{ flex: 1 }} />
-              <Button variant="secondary" size="sm" icon="edit" onClick={() => setEditSearch((v) => !v)}>{editSearch ? 'Свернуть' : 'Изменить поиск'}</Button>
+          {/* flight selection — the only thing that lives inline; never collapses, never pushed around */}
+          <div className="ap-step done">
+            <div className="ap-step-head static">
+              <span className="ap-num"><Icon name="plane" style={{ width: 15, height: 15 }} /></span>
+              <div className="ap-step-tt"><div className="t">Выберите рейс</div></div>
             </div>
-            {editSearch && <div style={{ margin: '12px 0 18px' }}><FlightSearch params={params} setParams={setParams} onSearch={() => setEditSearch(false)} /></div>}
-            {segKeys.map((k, si) => (
-              <div key={k}>
-                <div className="ap-seg-label"><Icon name="plane" style={{ width: 15, height: 15 }} />{segLabels[si]}</div>
-                {optsFor(k).map((o) => (
-                  <ApFlightRow key={o.key} opt={o} sel={legs[k] && legs[k].key === o.key}
-                    onSelect={(opt) => { const nl = { ...legs, [k]: opt }; setLegs(nl); if (segKeys.every((kk) => nl[kk])) setOpen(2); }} />
-                ))}
+            <div className="ap-step-body">
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6 }}>
+                <div className="trip-toggle">
+                  {[['rt', 'Туда-обратно'], ['ow', 'В одну сторону'], ['mc', 'Сложный маршрут']].map(([k, l]) => (
+                    <button key={k} className={trip === k ? 'on' : ''} onClick={() => { setParams({ ...params, trip: k }); setLegs({}); }}>{l}</button>
+                  ))}
+                </div>
+                <div style={{ flex: 1 }} />
+                <Button variant="secondary" size="sm" icon="edit" onClick={() => setEditSearch((v) => !v)}>{editSearch ? 'Свернуть' : 'Изменить поиск'}</Button>
               </div>
-            ))}
-          </ApStep>
-
-          {/* step 2 — fare */}
-          <ApStep n={2} title="Выберите тариф" summary={stepSummary[2]} done={!!fare} active={open === 2} onToggle={() => setOpen(open === 2 ? 0 : 2)}>
-            <div className="fare-grid">
-              {AVIA_FARE_TIERS.map((f) => (
-                <div key={f.id} className={'fare-card' + (fare === f.id ? ' sel' : '')} onClick={() => setFare(f.id)}>
-                  {f.recommended && <span className="fc-badge">Рекомендуем</span>}
-                  <div className="fc-name">{f.name}</div>
-                  <div className="fc-price">{f.delta ? '+ ' + rub(f.delta) : 'без доплаты'}<small>{f.delta ? ' / пасс.' : ''}</small></div>
-                  {f.features.map((ft, i) => (
-                    <div key={i} className={'fare-feat ' + (ft.ok ? 'ok' : 'no')}><Icon name={ft.ok ? 'check' : 'x'} />{ft.text}</div>
+              {editSearch && <div style={{ margin: '12px 0 18px' }}><FlightSearch params={params} setParams={setParams} onSearch={() => setEditSearch(false)} /></div>}
+              {segKeys.map((k, si) => (
+                <div key={k}>
+                  <div className="ap-seg-label"><Icon name="plane" style={{ width: 15, height: 15 }} />{segLabels[si]}</div>
+                  {optsFor(k).map((o) => (
+                    <ApFlightRow key={o.key} opt={o} sel={legs[k] && legs[k].key === o.key}
+                      onSelect={(opt) => {
+                        const nl = { ...legs, [k]: opt }; setLegs(nl);
+                        // last leg of the trip just got picked — slide the fare panel in right away, no scrolling needed
+                        if (segKeys.every((kk) => nl[kk]) && !legs[k]) setFarePanel(true);
+                      }} />
                   ))}
                 </div>
               ))}
             </div>
-          </ApStep>
+          </div>
 
-          {/* step 3 — extras (seat selection lives here, in the «Места» tab — no separate step) */}
-          <ApStep n={3} title="Дополнительные услуги и места" summary={stepSummary[3]} done={extrasTotal > 0} active={open === 3} onToggle={() => setOpen(open === 3 ? 0 : 3)}>
-            <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 8 }}>
-              <Button variant="ghost" size="sm" icon="arrowUpRight" onClick={() => setExtrasFull(true)}>Развернуть всё</Button>
+          {/* compact summary rows — tariff / extras / passengers open as side panels over the static screen */}
+          <div className="ap-step">
+            <div className="ap-step-head static">
+              <span className="ap-num">2</span>
+              <div className="ap-step-tt"><div className="t">Тариф, услуги и пассажиры</div></div>
             </div>
-            <ExtrasTabs pax={PAX} state={extras} set={setExtras} />
-          </ApStep>
-
-          {/* step 4 — passengers (group → groups & fares) */}
-          <ApStep n={4} title={group ? 'Пассажиры и тарифы' : 'Пассажиры'} summary={stepSummary[4]} done active={open === 4} onToggle={() => setOpen(open === 4 ? 0 : 4)}>
-            {group ? (
-              <GroupManager pax={PAX} groups={groups} setGroups={setGroups} perPax={flightTotal} extras={extras} />
-            ) : (
-              <div className="table-card">
-                <table className="tbl">
-                  <thead><tr><th>Пассажир</th><th>Тип</th><th>Документ</th><th>Место</th><th>Багаж</th></tr></thead>
-                  <tbody>{PAX.map((p, i) => (
-                    <tr key={i}>
-                      <td style={{ fontWeight: 600 }}>{p.name}</td><td>{p.role}</td><td>{p.doc}</td>
-                      <td>{extras.seats[i] || <span style={{ color: 'var(--muted-2)' }}>—</span>}</td>
-                      <td>{(AVIA_BAGGAGE_OPTIONS.find((o) => o.id === extras.baggage[i]) || AVIA_BAGGAGE_OPTIONS[0]).label}</td>
-                    </tr>
-                  ))}</tbody>
-                </table>
-              </div>
-            )}
-          </ApStep>
+            <div className="ap-step-body">
+              <ApSumRow icon="template" title="Тариф" sub={sumRow.fare} value={fareTier.delta ? '+ ' + rub(fareTotal) : 'без доплаты'}
+                done={!!fare} locked={!allLegsPicked} onClick={() => setFarePanel(true)} />
+              <ApSumRow icon="briefcase" title="Доп. услуги и места" sub={sumRow.extras} value={extrasTotal ? rub(extrasTotal) : '—'}
+                done={extrasTotal > 0} locked={!allLegsPicked} onClick={() => setExtrasPanel(true)} />
+              <ApSumRow icon="users" title={group ? 'Пассажиры и тарифы' : 'Пассажиры'} sub={sumRow.pax} value={PAX.length + ' чел.'}
+                done locked={!allLegsPicked} onClick={() => setPaxPanel(true)} />
+              {!allLegsPicked && (
+                <div className="chan-note" style={{ justifyContent: 'flex-start', marginTop: 4 }}>
+                  <Icon name="alertCircle" />Сначала выберите рейс — тариф, услуги и пассажиры откроются в боковой панели
+                </div>
+              )}
+            </div>
+          </div>
 
           {/* footer */}
           <div className="ap-footer">
@@ -431,22 +415,55 @@ function AviaPicker({ params, setParams, services = [], onApply, onCancel, onAdd
         </div>
       </div>
 
-      {/* fullscreen extras overlay */}
-      {extrasFull && (
-        <div className="ap-extras-ov">
-          <div className="ap-extras-top">
-            <Button variant="secondary" size="sm" icon="chevLeft" onClick={() => setExtrasFull(false)}>Свернуть</Button>
-            <div style={{ fontWeight: 700, fontSize: 17 }}>3. Дополнительные услуги и места</div>
-            <div style={{ flex: 1 }} />
-            <div className="ft-total" style={{ textAlign: 'right' }}>Доп.услуги<b style={{ fontSize: 18 }}>{rub(extrasTotal)}</b></div>
-            <Button icon="check" onClick={() => setExtrasFull(false)}>Применить</Button>
+      {/* side panel — fare */}
+      {farePanel && (
+        <StackPanel title="Выберите тариф" width="min(760px,92vw)" onClose={() => setFarePanel(false)}
+          footer={<Button style={{ width: '100%' }} icon="check" onClick={() => setFarePanel(false)}>Готово</Button>}>
+          <div className="fare-grid">
+            {AVIA_FARE_TIERS.map((f) => (
+              <div key={f.id} className={'fare-card' + (fare === f.id ? ' sel' : '')} onClick={() => setFare(f.id)}>
+                {f.recommended && <span className="fc-badge">Рекомендуем</span>}
+                <div className="fc-name">{f.name}</div>
+                <div className="fc-price">{f.delta ? '+ ' + rub(f.delta) : 'без доплаты'}<small>{f.delta ? ' / пасс.' : ''}</small></div>
+                {f.features.map((ft, i) => (
+                  <div key={i} className={'fare-feat ' + (ft.ok ? 'ok' : 'no')}><Icon name={ft.ok ? 'check' : 'x'} />{ft.text}</div>
+                ))}
+              </div>
+            ))}
           </div>
-          <div className="ap-extras-scroll">
-            <div style={{ maxWidth: 920, margin: '0 auto' }} className="card card-pad">
-              <ExtrasTabs pax={PAX} state={extras} set={setExtras} embedded />
+        </StackPanel>
+      )}
+
+      {/* side panel — extras (seats / baggage / meal / insurance / comfort) */}
+      {extrasPanel && (
+        <StackPanel title="Дополнительные услуги и места" width="min(820px,92vw)" onClose={() => setExtrasPanel(false)}
+          footer={<><div className="ft-total" style={{ marginRight: 'auto' }}>Доп.услуги<b style={{ fontSize: 18 }}>{rub(extrasTotal)}</b></div>
+            <Button icon="check" onClick={() => setExtrasPanel(false)}>Готово</Button></>}>
+          <ExtrasTabs pax={PAX} state={extras} set={setExtras} embedded />
+        </StackPanel>
+      )}
+
+      {/* side panel — passengers (group → group manager & fares) */}
+      {paxPanel && (
+        <StackPanel title={group ? 'Пассажиры и тарифы' : 'Пассажиры'} width="min(900px,92vw)" onClose={() => setPaxPanel(false)}
+          footer={<Button style={{ width: '100%' }} icon="check" onClick={() => setPaxPanel(false)}>Готово</Button>}>
+          {group ? (
+            <GroupManager pax={PAX} groups={groups} setGroups={setGroups} perPax={flightTotal} extras={extras} />
+          ) : (
+            <div className="table-card">
+              <table className="tbl">
+                <thead><tr><th>Пассажир</th><th>Тип</th><th>Документ</th><th>Место</th><th>Багаж</th></tr></thead>
+                <tbody>{PAX.map((p, i) => (
+                  <tr key={i}>
+                    <td style={{ fontWeight: 600 }}>{p.name}</td><td>{p.role}</td><td>{p.doc}</td>
+                    <td>{extras.seats[i] || <span style={{ color: 'var(--muted-2)' }}>—</span>}</td>
+                    <td>{(AVIA_BAGGAGE_OPTIONS.find((o) => o.id === extras.baggage[i]) || AVIA_BAGGAGE_OPTIONS[0]).label}</td>
+                  </tr>
+                ))}</tbody>
+              </table>
             </div>
-          </div>
-        </div>
+          )}
+        </StackPanel>
       )}
     </div>
   );

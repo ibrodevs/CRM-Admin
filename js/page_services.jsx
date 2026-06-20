@@ -224,7 +224,7 @@ function ServiceFlow({ routeKey }) {
 /* ---------- embeddable add-flow (search → results) for the order card ---------- */
 function routeKeyForKind(kind) { return Object.keys(SVC_CFG).find((k) => SVC_CFG[k].kind === kind); }
 
-function ServiceAddFlow({ routeKey, onAdd, onCancel }) {
+function ServiceAddFlow({ routeKey, onAdd }) {
   const cfg = SVC_CFG[routeKey];
   const data = SVC_DATA[routeKey];
   const toast = useToast();
@@ -242,7 +242,7 @@ function ServiceAddFlow({ routeKey, onAdd, onCancel }) {
   return (
     <div className="fade-in">
       <div style={{ marginBottom: 14, display: 'flex', gap: 10, alignItems: 'center' }}>
-        <Button variant="secondary" size="sm" icon="chevLeft" onClick={view === 'results' ? () => setView('search') : onCancel}>{view === 'results' ? 'Изменить поиск' : 'К услугам заказа'}</Button>
+        {view === 'results' && <Button variant="secondary" size="sm" icon="chevLeft" onClick={() => setView('search')}>Изменить поиск</Button>}
         <span style={{ fontWeight: 600, color: 'var(--ink)' }}>{cfg.searchTitle}</span>
       </div>
 

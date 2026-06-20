@@ -67,17 +67,18 @@ function offerFromServices(order, services, total, fee, rec) {
   };
 }
 
-function BookingWizard({ order, services, onClose, onComplete }) {
+function BookingWizard({ order, services, draft, onClose, onComplete, onSaveDraft }) {
   const toast = useToast();
-  const [step, setStep] = useState(0);
-  const [method, setMethod] = useState('ind');
-  const [pay, setPay] = useState('invoice');
+  const [step, setStep] = useState(draft ? draft.step : 0);
+  const [method, setMethod] = useState(draft ? draft.method : 'ind');
+  const [pay, setPay] = useState(draft ? draft.pay : 'invoice');
   const [histOpen, setHistOpen] = useState(false);
   const [supportOpen, setSupportOpen] = useState(false);
   const [offerPreview, setOfferPreview] = useState(null); // { rec: bool } | null
-  const [exitOpen, setExitOpen] = useState(false);
-  // guard against losing wizard progress once the operator has moved past step 0
-  const requestClose = () => { if (step > 0) setExitOpen(true); else onClose(); };
+  // progress is auto-saved as a draft on every change — the operator can switch to other
+  // sections of the order or close the wizard at any point and resume exactly where they left off
+  useEffect(() => { onSaveDraft && onSaveDraft({ step, method, pay }); }, [step, method, pay]);
+  const saveDraftAndExit = () => { toast('Бронирование сохранено как черновик — можно продолжить в любой момент', 'ok'); onClose(); };
 
   const STEPS = ['Выбор варианта', 'Запуск', 'Получение ответов', 'Подтверждение', 'Формирование КП', 'Выписка и оплата', 'Завершение'];
   const total = services.reduce((a, s) => a + bwRub(s), 0);
@@ -271,7 +272,7 @@ function BookingWizard({ order, services, onClose, onComplete }) {
 
   return (
     <div className="fade-in">
-      <BackRow label="К услугам заказа" onBack={requestClose} />
+      <BackRow label="К услугам заказа" onBack={saveDraftAndExit} />
 
       {/* top summary */}
       <div className="bw-top">
@@ -282,7 +283,7 @@ function BookingWizard({ order, services, onClose, onComplete }) {
             <span className="bw-svc-chip" key={k}><span className="dot" /><Icon name={(SERVICE_KIND[k] || {}).icon || 'plane'} />{k}</span>
           ))}
         </div>
-        <Button variant="secondary" size="sm" icon="x" onClick={requestClose}>Выйти из бронирования</Button>
+        <Button variant="secondary" size="sm" icon="clipboard" onClick={saveDraftAndExit}>Сохранить как черновик</Button>
       </div>
 
       <BwStepper steps={STEPS} step={step} onJump={setStep} />
@@ -335,12 +336,6 @@ function BookingWizard({ order, services, onClose, onComplete }) {
           );
         })()}
       </Modal>
-
-      {/* exit guard — don't drop wizard progress on a stray click */}
-      <ConfirmDialog open={exitOpen} title="Выйти из бронирования?"
-        message="Прогресс мастера бронирования не сохранится. Вернуться к услугам заказа?"
-        confirmLabel="Выйти" confirmVariant="danger"
-        onCancel={() => setExitOpen(false)} onConfirm={() => { setExitOpen(false); onClose(); }} />
     </div>
   );
 }

@@ -732,6 +732,10 @@ table.tbl tbody tr:last-child td{border-bottom:none}
 .ap-list-row .t{font-weight:600;color:var(--ink);font-size:14px}
 .ap-list-row .s{font-size:12.5px;color:var(--muted);margin-top:1px}
 .ap-list-row .pr{font-weight:700;color:var(--ink);white-space:nowrap}
+/* summary rows — open a side panel instead of expanding inline (tariff / extras / passengers) */
+.ap-sum-row{cursor:pointer}
+.ap-sum-row.sel{border-color:#cfe0d6}
+.ap-sum-row.locked{opacity:.55;cursor:not-allowed}
 /* seat map */
 .seatmap-wrap{display:flex;gap:24px;flex-wrap:wrap;align-items:flex-start}
 /* inside the accordion step the seat map scrolls within its own block instead of stretching the whole page */
@@ -788,10 +792,6 @@ table.tbl tbody tr:last-child td{border-bottom:none}
 .drawer-stack{position:fixed;inset:0;z-index:90;display:flex;justify-content:flex-end;background:rgba(16,23,38,.28)}
 .drawer-stack-panel{background:#fff;width:min(480px,46vw);height:100vh;overflow:auto;box-shadow:var(--shadow-modal);animation:slidein .24s cubic-bezier(.2,.9,.3,1);display:flex;flex-direction:column}
 
-/* fullscreen extras overlay */
-.ap-extras-ov{position:fixed;inset:0;z-index:60;background:var(--bg);display:flex;flex-direction:column}
-.ap-extras-top{display:flex;align-items:center;gap:14px;padding:16px 26px;border-bottom:1px solid var(--line);background:var(--surface)}
-.ap-extras-scroll{flex:1;overflow:auto;padding:24px 26px}
 
 /* ===== BOOKING WIZARD («Начать бронирование») ===== */
 .bw-top{display:flex;align-items:center;gap:22px;flex-wrap:wrap;padding:14px 18px;background:var(--surface);border:1px solid var(--line);border-radius:var(--r-card);box-shadow:var(--shadow-card);margin-bottom:16px}
