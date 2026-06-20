@@ -40,6 +40,11 @@ input,textarea,select{font-family:inherit}
 .scroll::-webkit-scrollbar{width:9px;height:9px}
 .scroll::-webkit-scrollbar-thumb{background:#d9dde5;border-radius:8px;border:2px solid #fff}
 .scroll::-webkit-scrollbar-track{background:transparent}
+/* slim horizontal scrollbar for the chat type-filter row */
+.chat-filter-scroll{scrollbar-width:thin;scrollbar-color:#d9dde5 transparent}
+.chat-filter-scroll::-webkit-scrollbar{height:4px}
+.chat-filter-scroll::-webkit-scrollbar-thumb{background:#d9dde5;border-radius:8px}
+.chat-filter-scroll::-webkit-scrollbar-track{background:transparent}
 
 /* ============ APP SHELL ============ */
 #root{height:100vh;overflow:hidden}
@@ -850,29 +855,28 @@ table.tbl tbody tr:last-child td{border-bottom:none}
 <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
 <script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
 
-<script type="text/babel" src="js/icons.jsx"></script>
-<script type="text/babel" src="js/ui.jsx"></script>
-<script type="text/babel" src="js/data.jsx"></script>
-<script type="text/babel" src="js/layout.jsx"></script>
-<script type="text/babel" src="js/login.jsx"></script>
-<script type="text/babel" src="js/page_dashboard.jsx"></script>
-<script type="text/babel" src="js/page_flights.jsx"></script>
-<script type="text/babel" src="js/page_avia_picker.jsx"></script>
-<script type="text/babel" src="js/page_booking.jsx"></script>
-<script type="text/babel" src="js/order_extras.jsx"></script>
-<script type="text/babel" src="js/page_orders.jsx"></script>
-<script type="text/babel" src="js/page_order_card.jsx"></script>
-<script type="text/babel" src="js/page_offers.jsx"></script>
-<script type="text/babel" src="js/page_fulfillment.jsx"></script>
-<script type="text/babel" src="js/page_returns.jsx"></script>
-<script type="text/babel" src="js/page_notifications.jsx"></script>
-<script type="text/babel" src="js/page_services.jsx"></script>
-<script type="text/babel" src="js/page_people.jsx"></script>
-<script type="text/babel" src="js/page_suppliers.jsx"></script>
-<script type="text/babel" src="js/page_chats.jsx"></script>
-<script type="text/babel" src="js/page_settings.jsx"></script>
-<script type="text/babel" src="js/page_account.jsx"></script>
-<script type="text/babel" src="js/shell.jsx"></script>
-<script type="text/babel" src="js/app.jsx"></script>
+<script>
+/* Inject all app scripts with a per-load cache-busting query so edits are always picked up
+   (the browser caches `text/babel` sources aggressively otherwise). Tags are inserted while the
+   page is still parsing, so Babel-standalone auto-transforms them in order, exactly like static tags. */
+(function () {
+  var files = [
+    'js/icons.jsx', 'js/ui.jsx', 'js/data.jsx', 'js/layout.jsx', 'js/login.jsx',
+    'js/page_dashboard.jsx', 'js/page_flights.jsx', 'js/page_avia_picker.jsx', 'js/page_booking.jsx',
+    'js/order_extras.jsx', 'js/page_orders.jsx', 'js/page_order_card.jsx', 'js/page_offers.jsx',
+    'js/page_fulfillment.jsx', 'js/page_returns.jsx', 'js/page_notifications.jsx', 'js/page_services.jsx',
+    'js/page_people.jsx', 'js/page_suppliers.jsx', 'js/page_chats.jsx', 'js/page_settings.jsx',
+    'js/page_account.jsx', 'js/shell.jsx', 'js/app.jsx'
+  ];
+  var v = Date.now();
+  var here = document.currentScript;
+  files.forEach(function (f) {
+    var s = document.createElement('script');
+    s.type = 'text/babel';
+    s.src = f + '?v=' + v;
+    here.parentNode.insertBefore(s, here);
+  });
+})();
+</script>
 </body>
 </html>
