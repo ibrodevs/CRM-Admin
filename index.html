@@ -459,7 +459,7 @@ table.tbl tbody tr:last-child td{border-bottom:none}
 .seg-body{flex:1;padding-bottom:4px}
 
 /* ============ ORDER CARD ============ */
-.oc-head{background:#fff;border:1px solid var(--line);border-radius:var(--r-card);box-shadow:var(--shadow-card);padding:16px 20px}
+.oc-head{background:#fff;border:1px solid var(--line);border-radius:var(--r-card);box-shadow:var(--shadow-card);padding:16px 20px;margin-bottom:18px}
 .oc-head-pinned{position:sticky;top:71px;z-index:30}
 .oc-id{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
 .oc-id h2{font-size:21px;font-weight:700;color:var(--ink);letter-spacing:-.01em;margin:0}
@@ -467,30 +467,21 @@ table.tbl tbody tr:last-child td{border-bottom:none}
 .oc-progress-row{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-top:14px;padding-top:14px;border-top:1px solid var(--line)}
 .oc-fab{position:fixed;right:32px;bottom:28px;z-index:40;box-shadow:var(--shadow-pop);animation:pop .16s ease}
 
-.oc-grid{display:flex;gap:22px;align-items:flex-start;margin-top:18px}
+.oc-grid{display:flex;gap:22px;align-items:flex-start}
 .oc-main{flex:1;min-width:0}
-.oc-aside{width:312px;flex:0 0 312px;position:sticky;top:18px;display:flex;flex-direction:column;gap:16px}
+.oc-aside{width:300px;flex:0 0 300px;position:sticky;top:18px;display:flex;flex-direction:column;gap:14px}
 
-.oc-navpanel{margin-top:14px;padding-top:12px;border-top:1px solid var(--line)}
-.oc-navrow{display:flex;align-items:center;gap:6px;flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none}
-.oc-navrow::-webkit-scrollbar{display:none}
-.oc-navgroup{display:flex;align-items:center;gap:2px;flex:0 0 auto}
-.oc-navgroup+.oc-navgroup{border-left:1px solid var(--line);padding-left:6px}
-.oc-navtiles{display:flex;gap:2px;flex-wrap:nowrap}
-.oc-navtile{display:flex;align-items:center;gap:5px;padding:6px 8px;border-radius:9px;border:1px solid transparent;background:transparent;cursor:pointer;white-space:nowrap;transition:.12s;font:inherit}
-.oc-navtile:hover{background:var(--hover)}
-.oc-navtile .ic{display:flex;align-items:center;justify-content:center;color:var(--muted-2)}
-.oc-navtile .ic svg{width:14px;height:14px}
-.oc-navtile .nm{font-size:13px;font-weight:600;color:var(--body)}
-.oc-navtile .cnt{font-size:11px;font-weight:700;color:var(--muted);background:var(--gray-bg);border-radius:999px;padding:1px 6px}
-.oc-navtile.active{background:var(--blue-soft)}
-.oc-navtile.active .ic{color:var(--blue)}
-.oc-navtile.active .nm{color:var(--blue-soft-text)}
-.oc-navtile.active .cnt{background:#fff;color:var(--blue-soft-text)}
-.oc-navtile.locked{cursor:default;opacity:.45}
-.oc-navtile.locked:hover{background:transparent}
-.oc-navtile .lockic{color:var(--muted-2);display:flex}
-.oc-navtile .lockic svg{width:11px;height:11px}
+/* simple top tab strip (Маршрут / Услуги / Пассажиры / Документы / Финансы / История + overflow) */
+.oc-tabbar{display:flex;align-items:center;gap:4px;margin-top:14px;padding-top:2px;border-top:1px solid var(--line)}
+.oc-tabbar-scroll{display:flex;align-items:center;gap:4px;overflow-x:auto;scrollbar-width:none;min-width:0}
+.oc-tabbar-scroll::-webkit-scrollbar{display:none}
+.oc-tab{display:flex;align-items:center;gap:7px;padding:13px 4px;margin-right:22px;border:none;border-bottom:2px solid transparent;background:none;cursor:pointer;white-space:nowrap;font:inherit;color:var(--muted);font-weight:600;font-size:14.5px;transition:.12s}
+.oc-tab svg{width:16px;height:16px}
+.oc-tab:hover{color:var(--ink)}
+.oc-tab.active{color:var(--blue);border-bottom-color:var(--blue)}
+.oc-tab .cnt{font-size:12px;font-weight:700;color:var(--muted);background:var(--gray-bg);border-radius:999px;padding:1px 7px}
+.oc-tab.active .cnt{background:var(--blue-soft);color:var(--blue-soft-text)}
+.oc-tab-more{margin-left:auto;flex:0 0 auto}
 
 .oc-kpi{display:flex;justify-content:space-between;align-items:baseline;padding:12px 0;border-bottom:1px solid var(--line)}
 .oc-kpi:last-child{border-bottom:none}
@@ -513,6 +504,106 @@ table.tbl tbody tr:last-child td{border-bottom:none}
 .oc-task .tt{font-size:14px;color:var(--ink);font-weight:500}
 .oc-task .td{font-size:12.5px;color:var(--muted);margin-top:1px}
 .oc-task .td.urgent{color:var(--red);font-weight:600}
+
+/* ---- right aside: compact clickable info rows (Статус / Маршрут / Пассажиры / Услуги / Документы / Финансы) ---- */
+.oc-aside-card{padding:16px 18px}
+.oc-aside-row{display:flex;align-items:flex-start;gap:12px;cursor:pointer;width:100%;text-align:left;background:none;border:none;font:inherit;padding:0}
+.oc-aside-row .ic{width:34px;height:34px;border-radius:10px;background:var(--surface-2);color:var(--muted-2);display:flex;align-items:center;justify-content:center;flex:0 0 34px}
+.oc-aside-row .ic svg{width:16px;height:16px}
+.oc-aside-row .body{flex:1;min-width:0}
+.oc-aside-row .lbl{font-size:12.5px;color:var(--muted);margin-bottom:3px}
+.oc-aside-row .val{font-size:14.5px;font-weight:700;color:var(--ink)}
+.oc-aside-row .sub{font-size:12.5px;color:var(--muted);margin-top:3px}
+.oc-aside-row .chev{flex:0 0 16px;color:var(--muted-2);margin-top:8px}
+.oc-aside-sep{border-top:1px solid var(--line);margin:14px 0}
+.oc-aside-stat{display:flex;align-items:center;gap:7px;font-size:12.5px;color:var(--body);margin-top:4px}
+.oc-aside-stat .dot{width:7px;height:7px;border-radius:50%;flex:0 0 7px}
+.oc-aside-amount{font-size:24px;font-weight:800;color:var(--ink);letter-spacing:-.01em;margin-top:6px}
+.oc-aside-resp{display:flex;align-items:center;gap:11px}
+.oc-aside-resp .nm{font-weight:700;color:var(--ink);font-size:14.5px}
+.oc-aside-resp .rl{font-size:12.5px;color:var(--muted);margin-top:1px}
+
+/* ---- services list ("Добавленные услуги") ---- */
+.oc-svc-filters{display:flex;align-items:center;gap:20px;flex-wrap:wrap}
+.oc-svc-chip{display:inline-flex;align-items:center;gap:8px;padding:7px 12px;border-radius:999px;border:none;background:none;font-size:14px;font-weight:600;color:var(--body);cursor:pointer;transition:.14s;white-space:nowrap}
+.oc-svc-chip svg{color:var(--muted-2)}
+.oc-svc-chip:hover{background:var(--hover)}
+.oc-svc-chip .cnt{font-size:12.5px;font-weight:700;color:var(--muted);background:var(--gray-bg);border-radius:999px;padding:2px 8px;min-width:22px;text-align:center}
+.oc-svc-chip.active{background:var(--blue-soft);color:var(--blue-soft-text)}
+.oc-svc-chip.active svg{color:var(--blue-soft-text)}
+.oc-svc-chip.active .cnt{background:#fff;color:var(--blue-soft-text)}
+.oc-svc-row{display:flex;align-items:center;gap:18px;padding:16px 4px;border-bottom:1px solid var(--line)}
+.oc-svc-row:last-child{border-bottom:none}
+.oc-svc-row .ic{width:40px;height:40px;border-radius:11px;display:flex;align-items:center;justify-content:center;flex:0 0 40px;color:#fff}
+.oc-svc-row .ic svg{width:18px;height:18px}
+.oc-svc-row .body{flex:1;min-width:0;cursor:pointer}
+.oc-svc-row .cat{font-size:12px;color:var(--muted);margin-bottom:3px}
+.oc-svc-row .ttl{font-weight:700;color:var(--ink);font-size:14.5px}
+.oc-svc-row .sub{font-size:12.5px;color:var(--muted);margin-top:3px}
+.oc-svc-row .mcol{display:flex;flex-direction:column;gap:5px;min-width:108px}
+.oc-svc-row .mcol .l{font-size:12px;color:var(--muted)}
+.oc-svc-row .mcol .v{font-weight:700;color:var(--ink);font-size:14px}
+.oc-svc-footer{position:sticky;bottom:0;z-index:6;display:flex;align-items:center;gap:26px;flex-wrap:wrap;background:#fff;border:1px solid var(--line);border-radius:var(--r-card);box-shadow:0 -2px 14px rgba(16,23,38,.06);padding:16px 22px;margin-top:18px}
+.oc-svc-footer .grp{display:flex;flex-direction:column;gap:2px}
+.oc-svc-footer .grp .l{font-size:12px;color:var(--muted)}
+.oc-svc-footer .grp .v{font-weight:700;color:var(--ink);font-size:15px}
+.oc-svc-footer .grp .v.amber{color:var(--amber)}
+.oc-svc-footer .grp .v.green{color:var(--green)}
+.oc-svc-footer .grp .v.red{color:var(--red)}
+.oc-svc-footer .grp .v.blue{color:var(--blue)}
+
+/* ---- add-service side panel: category tabs + compact flight rows ---- */
+.svcp-cattabs{display:flex;align-items:center;gap:6px;flex-wrap:wrap;padding-bottom:14px;margin-bottom:14px;border-bottom:1px solid var(--line)}
+.svcp-cattab{display:flex;align-items:center;gap:7px;padding:8px 13px;border-radius:10px;border:1px solid transparent;background:none;font:inherit;font-size:13.5px;font-weight:600;color:var(--muted);cursor:pointer;transition:.12s;white-space:nowrap}
+.svcp-cattab svg{width:15px;height:15px}
+.svcp-cattab:hover{background:var(--hover)}
+.svcp-cattab.active{background:var(--blue-soft);color:var(--blue-soft-text)}
+.svcf-row{display:flex;align-items:center;gap:18px;padding:14px 16px;border:1px solid var(--line);border-radius:14px;background:#fff;margin-bottom:10px;transition:.14s}
+.svcf-row:hover{border-color:#d3dbe8;box-shadow:0 2px 10px rgba(16,23,38,.06)}
+.svcf-row .al{display:flex;flex-direction:column;gap:2px;min-width:96px}
+.svcf-row .al .nm{font-weight:700;color:var(--ink);font-size:13.5px}
+.svcf-row .al .no{font-size:12px;color:var(--muted)}
+.svcf-row .tm{font-weight:700;color:var(--ink);font-size:16px;min-width:56px}
+.svcf-row .tm .ap{font-size:11.5px;font-weight:600;color:var(--muted);margin-top:2px}
+.svcf-row .mid{flex:1;display:flex;flex-direction:column;align-items:center;gap:4px;min-width:90px}
+.svcf-row .mid .d{font-size:12px;color:var(--muted)}
+.svcf-row .mid .ln{position:relative;width:100%;height:2px;background:var(--line-strong)}
+.svcf-row .mid .ln::before,.svcf-row .mid .ln::after{content:"";position:absolute;top:50%;width:5px;height:5px;border-radius:50%;background:var(--muted-2);transform:translateY(-50%)}
+.svcf-row .mid .ln::before{left:0}.svcf-row .mid .ln::after{right:0}
+.svcf-row .mid .st{font-size:11.5px;font-weight:600}
+.svcf-row .mid .st.direct{color:var(--green)}
+.svcf-row .mid .st.via{color:var(--amber)}
+.svcf-row .bag{display:flex;flex-direction:column;gap:4px;font-size:11.5px;color:var(--muted);min-width:104px}
+.svcf-row .bag span{display:flex;align-items:center;gap:6px}
+.svcf-row .bag svg{width:13px;height:13px}
+.svcf-row .pr{text-align:right;min-width:84px}
+.svcf-row .pr .v{font-weight:800;color:var(--ink);font-size:16px}
+.svcf-row .pr .c{font-size:11.5px;color:var(--muted)}
+.svcf-more{width:100%;display:flex;align-items:center;justify-content:center;gap:8px;padding:11px;border:1px solid var(--line);border-radius:999px;background:#fff;color:var(--body);font:inherit;font-weight:600;cursor:pointer;margin-top:6px}
+
+/* ---- avia route variations: one-way / round-trip / multi-city (see reference sheet) ---- */
+.svcp-section-h{font-size:13.5px;font-weight:700;color:var(--ink);margin:18px 0 10px}
+.svcp-section-h:first-child{margin-top:0}
+.svcf-row.sel-row{cursor:pointer}
+.svcf-row.sel-row.sel{border-color:var(--blue);box-shadow:0 0 0 3px var(--blue-soft)}
+.svcf-group{display:flex;flex-direction:column;gap:6px}
+.svcf-group .svcf-row{margin-bottom:0}
+.svcf-swap-mid{display:flex;align-items:center;padding-left:14px;margin:-3px 0}
+.svcf-swap-mid .ic{width:28px;height:28px;border-radius:50%;background:#fff;border:1px solid var(--line);display:flex;align-items:center;justify-content:center;color:var(--muted-2)}
+.svcf-swap-mid .ic svg{width:14px;height:14px}
+.svcf-summary{display:flex;align-items:center;gap:22px;background:var(--blue-soft);border:1px solid var(--blue-soft-2);border-radius:14px;padding:14px 18px;margin-top:10px;flex-wrap:wrap}
+.svcf-summary .ic{width:34px;height:34px;border-radius:10px;background:#fff;display:flex;align-items:center;justify-content:center;color:var(--blue);flex:0 0 34px}
+.svcf-summary .grp{display:flex;flex-direction:column;gap:3px}
+.svcf-summary .grp .l{font-size:12px;color:var(--muted)}
+.svcf-summary .grp .v{font-weight:700;color:var(--ink);font-size:14.5px}
+.svcf-summary .grp .v.big{font-size:19px;font-weight:800}
+.svcf-mc{display:flex;gap:14px}
+.svcf-mc-rail{position:relative;display:flex;flex-direction:column;justify-content:space-between;align-items:center;flex:0 0 26px;padding:13px 0}
+.svcf-mc-rail::before{content:'';position:absolute;top:13px;bottom:13px;left:50%;width:2px;background:var(--line-strong);transform:translateX(-50%)}
+.svcf-mc-rail .dot{position:relative;z-index:1;width:26px;height:26px;border-radius:50%;background:var(--blue-soft);color:var(--blue-soft-text);font-weight:700;font-size:12.5px;display:flex;align-items:center;justify-content:center;flex:0 0 26px}
+.svcf-mc-body{flex:1;min-width:0;display:flex;flex-direction:column;gap:6px}
+.svcf-mc-layover{display:inline-flex;align-self:flex-start;font-size:11.5px;font-weight:600;color:var(--muted);background:var(--surface-2);border-radius:999px;padding:4px 12px;margin:-1px 0}
+.svcp-search-bar{display:flex;align-items:flex-end;gap:12px;background:var(--surface-2);border:1px solid var(--line);border-radius:14px;padding:14px 16px;flex-wrap:wrap;margin-bottom:18px}
 
 .add-svc-card{border:1px solid var(--line);border-radius:14px;padding:18px;display:flex;flex-direction:column;align-items:center;gap:10px;cursor:pointer;background:#fff;transition:.14s;text-align:center}
 .add-svc-card:hover{border-color:var(--blue);background:var(--blue-soft)}
@@ -687,6 +778,37 @@ table.tbl tbody tr:last-child td{border-bottom:none}
 .ap-fl-pr{text-align:right;white-space:nowrap}
 .ap-fl-pr .v{font-weight:700;color:var(--ink);font-size:15px}
 .ap-fl-pr .c{font-size:11.5px;color:var(--muted)}
+/* 3 alternative route packages — one-way / round-trip / complex */
+.ap-route-section{margin-bottom:22px;transition:opacity .14s}
+.ap-route-section:last-child{margin-bottom:0}
+.ap-route-section.inactive{opacity:.55}
+.ap-route-title{font-size:14px;font-weight:700;color:var(--ink);margin:0 2px 10px}
+.ap-route-card{position:relative;border:1px solid var(--line);border-radius:13px;background:#fff;overflow:hidden;transition:.14s;margin-bottom:12px}
+.ap-route-card:hover{border-color:#d3dbe8}
+.ap-route-card.sel{border-color:var(--blue);box-shadow:0 0 0 2px var(--blue-soft)}
+.ap-route-card .ap-flight{border:none;border-radius:0;margin-bottom:0;box-shadow:none!important}
+.ap-route-card .ap-flight+.ap-flight{border-top:1px solid var(--line)}
+.ap-route-swap{position:absolute;left:34px;top:50%;transform:translateY(-50%);width:24px;height:24px;border-radius:8px;background:#fff;border:1px solid var(--line);display:flex;align-items:center;justify-content:center;color:var(--muted-2);z-index:2}
+.ap-route-swap svg{width:13px;height:13px}
+.ap-route-totals{display:flex;align-items:center;gap:22px;background:var(--blue-soft);padding:12px 16px;border-top:1px solid var(--line);flex-wrap:wrap}
+.ap-route-totals .rt-block{display:flex;align-items:center;gap:8px}
+.ap-route-totals .rt-block>svg{width:16px;height:16px;color:var(--blue);flex:0 0 16px}
+.ap-route-totals .rt-block .l{font-size:11.5px;color:var(--muted)}
+.ap-route-totals .rt-block .v{font-size:13.5px;font-weight:700;color:var(--ink)}
+.ap-route-totals .rt-price{margin-left:auto;text-align:right}
+.ap-route-totals .rt-price .l{font-size:11.5px;color:var(--muted)}
+.ap-route-totals .rt-price .v{font-size:17px;font-weight:800;color:var(--ink)}
+.ap-route-totals .rt-badge{flex:0 0 auto}
+.ap-route-card.chain{padding-top:2px}
+.ap-route-chain{padding:14px 14px 0}
+.ap-route-card.chain .ap-route-totals{margin:0 -14px;border-radius:0}
+.ap-route-chain-row{display:flex;gap:12px}
+.ap-route-chain-num{flex:0 0 22px;display:flex;flex-direction:column;align-items:center}
+.ap-route-chain-num span{width:22px;height:22px;border-radius:50%;background:var(--surface-2);color:var(--muted);font-size:11.5px;font-weight:700;display:flex;align-items:center;justify-content:center;flex:0 0 22px}
+.ap-route-chain-num i{flex:1;width:1px;background:var(--line);margin:4px 0;min-height:8px}
+.ap-route-chain-leg{flex:1;min-width:0;padding-bottom:8px}
+.ap-route-chain-leg .ap-flight{border:1px solid var(--line);border-radius:13px}
+.ap-route-chain-layover{display:inline-flex;align-items:center;font-size:11.5px;color:var(--muted);background:var(--surface-2);border-radius:7px;padding:3px 9px;margin:-2px 0 10px 0}
 /* fare tier cards in step 2 */
 .fare-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
 @media(max-width:720px){.fare-grid{grid-template-columns:1fr}}
@@ -702,6 +824,56 @@ table.tbl tbody tr:last-child td{border-bottom:none}
 .fare-feat.no{color:var(--muted-2)}
 .fare-feat.ok svg{color:var(--green)}
 .fare-feat.no svg{color:var(--faint)}
+/* per-passenger fare selection screen */
+.fare-hint{display:flex;align-items:flex-start;gap:10px;background:var(--blue-soft);color:var(--body);font-size:13px;padding:12px 14px;border-radius:12px;margin-bottom:20px}
+.fare-hint svg{width:16px;height:16px;color:var(--blue);flex:0 0 16px;margin-top:1px}
+.fare-layout{display:flex;gap:26px;align-items:flex-start}
+.fare-main{flex:1;min-width:0}
+.fare-aside{width:268px;flex:0 0 268px}
+.fare-pax-tabs{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:20px}
+.fare-pax-tab{border:1.5px solid var(--field-line);border-radius:13px;background:#fff;padding:10px 16px;cursor:pointer;font:inherit;text-align:left;transition:.14s}
+.fare-pax-tab:hover{border-color:var(--blue)}
+.fare-pax-tab.sel{border-color:var(--blue);background:var(--blue-soft)}
+.fare-pax-tab .n{font-weight:700;color:var(--ink);font-size:13.5px;white-space:nowrap}
+.fare-pax-tab .r{font-size:12px;color:var(--green);margin-top:2px}
+.fare-pax-tab.sel .r{color:var(--blue)}
+.fare-pax-tab.add{display:flex;align-items:center;gap:7px;border-style:dashed;color:var(--blue);font-weight:600;font-size:13.5px;justify-content:center}
+.fare-pax-tab.add svg{width:15px;height:15px}
+.fare-pax-tab.add:hover{background:var(--blue-soft)}
+.fare-sub-head{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin:0 2px 16px;font-size:13.5px;color:var(--body)}
+.fare-applyall{display:inline-flex;align-items:center;gap:7px;border:none;background:none;color:var(--blue);font:inherit;font-size:13px;font-weight:600;cursor:pointer;padding:0}
+.fare-applyall svg{width:15px;height:15px}
+.fare-class-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(108px,1fr));gap:10px;margin-bottom:24px}
+.fare-class-tile{position:relative;border:1.5px solid var(--field-line);border-radius:13px;padding:13px 10px;cursor:pointer;background:#fff;text-align:center;transition:.14s}
+.fare-class-tile:hover{border-color:var(--blue)}
+.fare-class-tile.sel{border-color:var(--blue);background:var(--blue-soft)}
+.fare-class-tile .code{font-weight:800;font-size:17px;color:var(--ink)}
+.fare-class-tile .cab{font-size:11.5px;color:var(--muted);margin-top:2px}
+.fare-class-tile .left{font-size:11px;color:var(--muted-2);margin-top:6px}
+.fare-class-tile .ic-sel{position:absolute;top:8px;right:8px;width:15px;height:15px;color:var(--blue)}
+.fare-pick-btn{width:100%;justify-content:center;margin-top:4px}
+.fare-classlist{display:flex;flex-direction:column;gap:2px;margin-bottom:24px}
+.fare-classlist-row{display:flex;align-items:center;gap:10px;padding:9px 4px;border-bottom:1px solid var(--line);cursor:pointer;font-size:13px;transition:.14s}
+.fare-classlist-row:hover{background:var(--hover)}
+.fare-classlist-row .code{font-weight:700;color:var(--blue);width:18px}
+.fare-classlist-row .cab{flex:1;color:var(--ink)}
+.fare-classlist-row .left{color:var(--muted);font-size:12px;white-space:nowrap}
+.fare-classlist-row .left.low{color:var(--red-strong);font-weight:600}
+.fare-classlist-row svg{width:15px;height:15px;color:var(--muted-2);flex:0 0 15px}
+.fare-sel-list{display:flex;flex-direction:column;gap:8px;margin-bottom:14px}
+.fare-sel-row{border:1px solid var(--line);border-radius:11px;padding:10px 12px;cursor:pointer;transition:.14s}
+.fare-sel-row:hover{border-color:#d3dbe8}
+.fare-sel-row.active{border-color:var(--blue);background:var(--blue-soft)}
+.fare-sel-row .nm{font-weight:600;color:var(--ink);font-size:13px}
+.fare-sel-row .tr{font-size:12px;color:var(--blue);margin-top:2px}
+.fare-sel-row .pr{font-size:12.5px;color:var(--muted);margin-top:2px;font-weight:600}
+.fare-total-row{display:flex;align-items:center;justify-content:space-between;padding:14px 0 0;border-top:1px solid var(--line);font-size:14px;color:var(--ink);font-weight:700}
+.fare-total-row b{font-size:19px}
+.fare-footer-toggles{display:flex;gap:14px;flex-wrap:wrap;margin-top:26px;padding-top:18px;border-top:1px solid var(--line)}
+.fare-toggle-card{flex:1;min-width:240px;display:flex;align-items:flex-start;gap:12px;border:1px solid var(--line);border-radius:13px;padding:13px 14px;cursor:pointer}
+.fare-toggle-card svg{width:18px;height:18px;color:var(--blue);flex:0 0 18px;margin-top:2px}
+.fare-toggle-card .t{font-weight:600;color:var(--ink);font-size:13.5px}
+.fare-toggle-card .s{font-size:12px;color:var(--muted);margin-top:2px}
 /* inner service tabs (step 4) */
 .ap-svc-tabs{display:flex;gap:6px;border-bottom:1px solid var(--line);margin:-2px -2px 18px;flex-wrap:wrap}
 .ap-svc-tab{display:inline-flex;align-items:center;gap:7px;border:none;background:none;font:inherit;font-size:14px;font-weight:600;color:var(--muted);padding:9px 13px;border-bottom:2px solid transparent;cursor:pointer;transition:.14s}

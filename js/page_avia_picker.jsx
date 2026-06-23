@@ -6,6 +6,9 @@
 function rub(n) { return Math.round(n).toLocaleString('ru-RU') + ' ₽'; }
 const RUB_PER_USD = 90; // demo conversion rate used across the picker totals
 
+function parseDurMin(s) { const m = /(?:(\d+)ч)?\s*(?:(\d+)м)?/.exec(s || ''); return (+(m && m[1] || 0)) * 60 + (+(m && m[2] || 0)); }
+function fmtDurMin(min) { return `${Math.floor(min / 60)}ч ${min % 60}м`; }
+
 /* ---------- compact flight row (step 1) ---------- */
 function ApFlightRow({ opt, sel, onSelect }) {
   const leg = opt.leg;
@@ -204,6 +207,141 @@ function ExtrasTabs({ pax, state, set, embedded }) {
   );
 }
 
+/* ---------- per-passenger fare selection (step 2 · «Тариф») ---------- */
+function fareClassGroup(code) { return ['C', 'J', 'D'].includes(code) ? 'business' : 'economy'; }
+function fareTiersForClass(code) { return fareClassGroup(code) === 'business' ? AVIA_FARE_TIERS_BUSINESS : AVIA_FARE_TIERS; }
+function fareCabinLabel(code) { return (AVIA_BOOKING_CLASSES.find((c) => c.code === code) || {}).cabin || 'Эконом'; }
+
+function FareSelectPanel({ pax, classByPax, setClassByPax, fareByPax, setFareByPax, individualMode, setIndividualMode, onAddPax, onClose, onApply }) {
+  const [activePax, setActivePax] = useState(0);
+  const classOf = (i) => classByPax[i] || 'Y';
+  const tiersOf = (i) => fareTiersForClass(classOf(i));
+  const fareOf = (i) => fareByPax[i] || (tiersOf(i).find((f) => f.recommended) || tiersOf(i)[0]).id;
+  const tierOf = (i) => tiersOf(i).find((f) => f.id === fareOf(i)) || tiersOf(i)[0];
+
+  // when individualMode is off, every selection broadcasts to all passengers at once
+  const setForPax = (i, patch) => {
+    const idxs = individualMode ? [i] : pax.map((_, k) => k);
+    if (patch.cls !== undefined) {
+      setClassByPax((p) => { const n = { ...p }; idxs.forEach((k) => { n[k] = patch.cls; }); return n; });
+      // switching class can invalidate the previously chosen fare id (economy ↔ business tier ids differ)
+      setFareByPax((p) => { const n = { ...p }; idxs.forEach((k) => delete n[k]); return n; });
+    }
+    if (patch.fare !== undefined) {
+      setFareByPax((p) => { const n = { ...p }; idxs.forEach((k) => { n[k] = patch.fare; }); return n; });
+    }
+  };
+
+  const applyToAll = () => {
+    const cls = classOf(activePax), fr = fareOf(activePax);
+    setClassByPax((p) => { const n = { ...p }; pax.forEach((_, k) => { n[k] = cls; }); return n; });
+    setFareByPax((p) => { const n = { ...p }; pax.forEach((_, k) => { n[k] = fr; }); return n; });
+  };
+
+  const total = pax.reduce((s, _, i) => s + tierOf(i).delta, 0);
+  const ap = pax[activePax];
+
+  return (
+    <StackPanel title="Выберите тариф" width="min(1240px,96vw)" onClose={onClose}
+      footer={<Button style={{ width: '100%' }} icon="check" onClick={onApply}>Применить тарифы и продолжить</Button>}>
+      <div className="fare-hint"><Icon name="alertCircle" />Стоимость может отличаться для каждого пассажира в зависимости от выбранного тарифа и условий.</div>
+
+      <div className="fare-layout">
+        <div className="fare-main">
+          <div className="ap-sc-title">Пассажиры ({pax.length})</div>
+          <div className="fare-pax-tabs">
+            {pax.map((p, i) => (
+              <button key={i} className={'fare-pax-tab' + (activePax === i ? ' sel' : '')} onClick={() => setActivePax(i)}>
+                <div className="n">{i + 1}. {p.name}</div>
+                <div className="r">{p.role}</div>
+              </button>
+            ))}
+            {onAddPax && (
+              <button type="button" className="fare-pax-tab add" onClick={onAddPax}>
+                <Icon name="plus" />Добавить пассажира
+              </button>
+            )}
+          </div>
+
+          <div className="fare-sub-head">
+            <span>Выберите тариф для пассажира: <b>{ap.name}</b></span>
+            <button type="button" className="fare-applyall" onClick={applyToAll}><Icon name="users" />Применить выбранный тариф для всех</button>
+          </div>
+
+          <div className="ap-sc-title">1. Выберите класс бронирования</div>
+          <div className="fare-class-grid">
+            {AVIA_BOOKING_CLASSES.map((c) => (
+              <div key={c.code} className={'fare-class-tile' + (classOf(activePax) === c.code ? ' sel' : '')}
+                onClick={() => setForPax(activePax, { cls: c.code })}>
+                {classOf(activePax) === c.code && <Icon name="check" className="ic-sel" />}
+                <div className="code">{c.code}</div>
+                <div className="cab">{c.cabin}</div>
+                <div className="left">Осталось мест: {c.seatsLeft}</div>
+              </div>
+            ))}
+          </div>
+
+          <div className="ap-sc-title">2. Выберите тариф в классе {classOf(activePax)} ({fareCabinLabel(classOf(activePax))})</div>
+          <div className="fare-grid">
+            {tiersOf(activePax).map((f) => (
+              <div key={f.id} className={'fare-card' + (fareOf(activePax) === f.id ? ' sel' : '')} onClick={() => setForPax(activePax, { fare: f.id })}>
+                {f.recommended && <span className="fc-badge">Рекомендуем</span>}
+                <div className="fc-name">{f.name}</div>
+                <div className="fc-price">{f.delta ? '+ ' + rub(f.delta) : 'без доплаты'}<small>{f.delta ? ' / пассажир' : ''}</small></div>
+                {f.features.map((ft, k) => (
+                  <div key={k} className={'fare-feat ' + (ft.ok ? 'ok' : 'no')}><Icon name={ft.ok ? 'check' : 'x'} />{ft.text}</div>
+                ))}
+                <Button variant="secondary" size="sm" className="fare-pick-btn" icon={fareOf(activePax) === f.id ? 'check' : undefined}
+                  onClick={(e) => { e.stopPropagation(); setForPax(activePax, { fare: f.id }); }}>
+                  {fareOf(activePax) === f.id ? 'Выбран' : 'Выбрать тариф'}
+                </Button>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <aside className="fare-aside">
+          <div className="ap-sc-title">Все доступные классы на рейс</div>
+          <div className="fare-classlist">
+            {AVIA_BOOKING_CLASSES.map((c) => (
+              <div key={c.code} className="fare-classlist-row" onClick={() => setForPax(activePax, { cls: c.code })}>
+                <span className="code">{c.code}</span><span className="cab">{c.cabin}</span>
+                <span className={'left' + (c.seatsLeft <= 2 ? ' low' : '')}>{c.seatsLeft} {c.seatsLeft === 1 ? 'место' : 'мест'}</span>
+                <Icon name="chevRight" />
+              </div>
+            ))}
+          </div>
+
+          <div className="ap-sc-title">Выбранные тарифы</div>
+          <div className="fare-sel-list">
+            {pax.map((p, i) => (
+              <div key={i} className={'fare-sel-row' + (activePax === i ? ' active' : '')} onClick={() => setActivePax(i)}>
+                <div className="nm">{i + 1}. {p.name}</div>
+                <div className="tr">{tierOf(i).name}</div>
+                <div className="pr">{tierOf(i).delta ? '+ ' + rub(tierOf(i).delta) : '0 ₽'}</div>
+              </div>
+            ))}
+          </div>
+          <div className="fare-total-row"><span>Итого за всех пассажиров</span><b>{rub(total)}</b></div>
+        </aside>
+      </div>
+
+      <div className="fare-footer-toggles">
+        <label className="fare-toggle-card" onClick={() => setIndividualMode(true)}>
+          <Icon name="users" />
+          <div style={{ flex: 1 }}><div className="t">Индивидуальный тариф для каждого пассажира</div><div className="s">Итоговая стоимость будет рассчитана с учётом выбранных тарифов для всех пассажиров заказа</div></div>
+          <Toggle on={individualMode} onChange={setIndividualMode} style={{ pointerEvents: 'none' }} />
+        </label>
+        <label className="fare-toggle-card" onClick={() => setIndividualMode(false)}>
+          <Icon name="users" />
+          <div style={{ flex: 1 }}><div className="t">Применить для всех участников</div><div className="s">Выбранный тариф будет назначен всем пассажирам заказа</div></div>
+          <Toggle on={!individualMode} onChange={(v) => setIndividualMode(!v)} style={{ pointerEvents: 'none' }} />
+        </label>
+      </div>
+    </StackPanel>
+  );
+}
+
 /* ---------- compact summary row — opens a side panel instead of expanding inline ---------- */
 function ApSumRow({ icon, title, sub, value, done, locked, onClick }) {
   return (
@@ -224,7 +362,9 @@ function ApSumRow({ icon, title, sub, value, done, locked, onClick }) {
    ==================================================================== */
 function AviaPicker({ params, setParams, services = [], onApply, onCancel, onAddType, onRemoveService, group = false }) {
   const toast = useToast();
-  const PAX = group ? GROUP_PAX : ORDER_PARTICIPANTS.slice(0, Math.max(1, params.pax.adt + params.pax.chd));
+  const paxPool = group ? GROUP_PAX : ORDER_PARTICIPANTS;
+  const PAX = paxPool.slice(0, Math.min(paxPool.length, Math.max(1, params.pax.adt + params.pax.chd)));
+  const onAddPax = PAX.length < paxPool.length ? () => setParams({ ...params, pax: { ...params.pax, adt: params.pax.adt + 1 } }) : null;
   const [editSearch, setEditSearch] = useState(false);
   const [farePanel, setFarePanel] = useState(false);
   const [extrasPanel, setExtrasPanel] = useState(false);
@@ -232,7 +372,10 @@ function AviaPicker({ params, setParams, services = [], onApply, onCancel, onAdd
 
   // selections
   const [legs, setLegs] = useState({});         // { out, back } or { seg0, seg1 }
-  const [fare, setFare] = useState('optimum');
+  const [fare, setFare] = useState('optimum');  // group mode: single fallback tariff for passengers not assigned to a group
+  const [classByPax, setClassByPax] = useState({}); // individual mode: paxIdx -> booking class code (Y/B/M/U/C/J/D)
+  const [fareByPax, setFareByPax] = useState({});   // individual mode: paxIdx -> fare tier id within that class
+  const [individualMode, setIndividualMode] = useState(true);
   const [groups, setGroups] = useState(() => AVIA_GROUPS_SEED.map((g) => ({ ...g, members: [...g.members] })));
   const [extras, setExtras] = useState({ seats: {}, baggage: {}, meal: {}, insurance: {}, special: {}, comfort: {} });
 
@@ -242,13 +385,38 @@ function AviaPicker({ params, setParams, services = [], onApply, onCancel, onAdd
 
   const trip = params.trip;
   const segKeys = trip === 'rt' ? ['out', 'back'] : trip === 'ow' ? ['out'] : ['out', 'seg1', 'seg2'];
-  const segLabels = trip === 'rt' ? ['Туда', 'Обратно'] : trip === 'ow' ? ['Рейс'] : ['Сегмент 1', 'Сегмент 2', 'Сегмент 3'];
-  const optsFor = (k) => (k === 'back' ? backOpts : outOpts);
+
+  // ---- 3 alternative route packages shown side by side: one-way / round-trip / complex ----
+  const sortedOutOpts = [...outOpts].sort((a, b) => a.price - b.price);
+  const rtCombos = FLIGHT_OFFERS.filter((o) => o.back).map((o) => ({
+    id: o.id,
+    out: { key: o.id + '-o', airline: o.airline, leg: o.out, price: (o.fare + o.fee) * 90 * 0.6 },
+    back: { key: o.id + '-b', airline: o.airline, leg: o.back, price: (o.fare + o.fee) * 90 * 0.4 },
+  })).sort((a, b) => (a.out.price + a.back.price) - (b.out.price + b.back.price));
+  const complexOpts = AVIA_COMPLEX_ROUTE.legs.map((l, i) => ({
+    key: 'mc-' + i, airline: l.airline, price: l.price,
+    leg: { from: l.from, to: l.to, dep: l.dep, arr: l.arr, dur: l.dur, stops: 0, stopText: 'Прямой' },
+  }));
+  const complexTotal = AVIA_COMPLEX_ROUTE.legs.reduce((s, l) => s + l.price, 0);
+  const complexDur = fmtDurMin(
+    AVIA_COMPLEX_ROUTE.legs.reduce((s, l) => s + parseDurMin(l.dur), 0) +
+    AVIA_COMPLEX_ROUTE.layovers.reduce((s, lo) => s + lo.min, 0)
+  );
+
+  const activeRoute = legs.out ? trip : null;
+  const sectionInactive = (type) => activeRoute && activeRoute !== type;
+
+  const selectOneWay = (opt) => { setParams({ ...params, trip: 'ow' }); setLegs({ out: opt }); setFarePanel(true); };
+  const selectRoundTrip = (outOpt, backOpt) => { setParams({ ...params, trip: 'rt' }); setLegs({ out: outOpt, back: backOpt }); setFarePanel(true); };
+  const selectComplex = () => { setParams({ ...params, trip: 'mc' }); setLegs({ out: complexOpts[0], seg1: complexOpts[1], seg2: complexOpts[2] }); setFarePanel(true); };
 
   // totals (₽)
   const fareTier = AVIA_FARE_TIERS.find((f) => f.id === fare) || AVIA_FARE_TIERS[0];
+  // per-passenger fare/class (non-group mode)
+  const paxTierOf = (i) => { const cls = classByPax[i] || 'Y'; const tiers = fareTiersForClass(cls); const id = fareByPax[i] || (tiers.find((f) => f.recommended) || tiers[0]).id; return tiers.find((f) => f.id === id) || tiers[0]; };
+  const allSameFare = !group && PAX.every((_, i) => (classByPax[i] || 'Y') === (classByPax[0] || 'Y') && paxTierOf(i).id === paxTierOf(0).id);
   const flightTotal = segKeys.reduce((s, k) => s + (legs[k] ? legs[k].price : 0), 0);
-  const fareTotal = fareTier.delta * PAX.length;
+  const fareTotal = group ? fareTier.delta * PAX.length : PAX.reduce((s, _, i) => s + paxTierOf(i).delta, 0);
   const sum = (arr, fn) => arr.reduce((a, x) => a + fn(x), 0);
   const seatPrice = (id) => { if (!id) return 0; const row = +id.match(/\d+/)[0]; const kind = AVIA_SEATMAP.rowKind[row] || 'std'; return AVIA_SEATMAP.price[kind] || 0; };
   const seatsTotal = sum(Object.values(extras.seats), seatPrice);
@@ -271,7 +439,11 @@ function AviaPicker({ params, setParams, services = [], onApply, onCancel, onAdd
   const allLegsPicked = segKeys.every((k) => legs[k]);
   const seatsSummary = Object.values(extras.seats).filter(Boolean).length ? Object.values(extras.seats).filter(Boolean).join(', ') + ' · ' : '';
   const sumRow = {
-    fare: fareTier.name + ' · ' + (fareTier.delta ? '+ ' + rub(fareTotal) : 'без доплаты'),
+    fare: group
+      ? fareTier.name + ' · ' + (fareTier.delta ? '+ ' + rub(fareTotal) : 'без доплаты')
+      : (allSameFare
+          ? paxTierOf(0).name + ' · ' + (paxTierOf(0).delta ? '+ ' + rub(paxTierOf(0).delta) + ' / пасс.' : 'без доплаты')
+          : 'Индивидуальные тарифы · ' + PAX.length + ' пасс.'),
     extras: extrasTotal ? seatsSummary + '+ ' + rub(extrasTotal) : 'Не добавлены',
     pax: group ? `${PAX.length} пасс. · ${groups.length} ${groups.length === 1 ? 'группа' : 'группы'}` : PAX.length + ' пасс. · ' + PAX.map((p) => p.name.split(' ')[0]).join(', '),
   };
@@ -285,7 +457,7 @@ function AviaPicker({ params, setParams, services = [], onApply, onCancel, onAdd
     onApply({
       out: legs.out.leg, back: legs.back ? legs.back.leg : null,
       airline: legs.out.airline, supplier: legs.out.supplier,
-      fareName: fareTier.name, paxCount: PAX.length, totalRub: grand, extrasTotal,
+      fareName: group ? fareTier.name : (allSameFare ? paxTierOf(0).name : 'Индивидуальные тарифы'), paxCount: PAX.length, totalRub: grand, extrasTotal,
     });
   };
 
@@ -358,29 +530,73 @@ function AviaPicker({ params, setParams, services = [], onApply, onCancel, onAdd
               <div className="ap-step-tt"><div className="t">Выберите рейс</div></div>
             </div>
             <div className="ap-step-body">
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6 }}>
-                <div className="trip-toggle">
-                  {[['rt', 'Туда-обратно'], ['ow', 'В одну сторону'], ['mc', 'Сложный маршрут']].map(([k, l]) => (
-                    <button key={k} className={trip === k ? 'on' : ''} onClick={() => { setParams({ ...params, trip: k }); setLegs({}); }}>{l}</button>
-                  ))}
-                </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14 }}>
                 <div style={{ flex: 1 }} />
                 <Button variant="secondary" size="sm" icon="edit" onClick={() => setEditSearch((v) => !v)}>{editSearch ? 'Свернуть' : 'Изменить поиск'}</Button>
               </div>
-              {editSearch && <div style={{ margin: '12px 0 18px' }}><FlightSearch params={params} setParams={setParams} onSearch={() => setEditSearch(false)} /></div>}
-              {segKeys.map((k, si) => (
-                <div key={k}>
-                  <div className="ap-seg-label"><Icon name="plane" style={{ width: 15, height: 15 }} />{segLabels[si]}</div>
-                  {optsFor(k).map((o) => (
-                    <ApFlightRow key={o.key} opt={o} sel={legs[k] && legs[k].key === o.key}
-                      onSelect={(opt) => {
-                        const nl = { ...legs, [k]: opt }; setLegs(nl);
-                        // last leg of the trip just got picked — slide the fare panel in right away, no scrolling needed
-                        if (segKeys.every((kk) => nl[kk]) && !legs[k]) setFarePanel(true);
-                      }} />
-                  ))}
+              {editSearch && <div style={{ margin: '0 0 18px' }}><FlightSearch params={params} setParams={setParams} onSearch={() => setEditSearch(false)} /></div>}
+
+              {/* 1. one-way options */}
+              <div className={'ap-route-section' + (sectionInactive('ow') ? ' inactive' : '')}>
+                <div className="ap-route-title">1. Маршрут туда</div>
+                {sortedOutOpts.map((o) => {
+                  const sel = activeRoute === 'ow' && legs.out && legs.out.key === o.key;
+                  return (
+                    <div key={o.key} className={'ap-route-card' + (sel ? ' sel' : '')}>
+                      <ApFlightRow opt={o} sel={sel} onSelect={selectOneWay} />
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* 2. round-trip combos (same offer both ways) */}
+              <div className={'ap-route-section' + (sectionInactive('rt') ? ' inactive' : '')}>
+                <div className="ap-route-title">2. Туда и обратно</div>
+                {rtCombos.map((c) => {
+                  const total = c.out.price + c.back.price;
+                  const dur = fmtDurMin(parseDurMin(c.out.leg.dur) + parseDurMin(c.back.leg.dur));
+                  const savings = Math.round(total * 0.045);
+                  const sel = activeRoute === 'rt' && legs.out && legs.out.key === c.out.key;
+                  const pick = () => selectRoundTrip(c.out, c.back);
+                  return (
+                    <div key={c.id} className={'ap-route-card' + (sel ? ' sel' : '')}>
+                      <ApFlightRow opt={c.out} sel={sel} onSelect={pick} />
+                      <span className="ap-route-swap"><Icon name="swap" /></span>
+                      <ApFlightRow opt={c.back} sel={sel} onSelect={pick} />
+                      <div className="ap-route-totals">
+                        <div className="rt-block"><Icon name="route" /><div><div className="l">Общая продолжительность</div><div className="v">{dur}</div></div></div>
+                        <div className="rt-price"><div className="l">Итого за маршрут</div><div className="v">{rub(total)}</div></div>
+                        <span className="pill pill-green rt-badge"><Icon name="zap" />Выгоднее на {rub(savings)}</span>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* 3. complex / multi-city route */}
+              <div className={'ap-route-section' + (sectionInactive('mc') ? ' inactive' : '')}>
+                <div className="ap-route-title">3. Сложный маршрут</div>
+                <div className={'ap-route-card chain' + (activeRoute === 'mc' ? ' sel' : '')}>
+                  <div className="ap-route-chain">
+                    {complexOpts.map((o, i) => (
+                      <React.Fragment key={o.key}>
+                        <div className="ap-route-chain-row">
+                          <div className="ap-route-chain-num"><span>{i + 1}</span>{i < complexOpts.length - 1 && <i />}</div>
+                          <div className="ap-route-chain-leg"><ApFlightRow opt={o} sel={activeRoute === 'mc'} onSelect={selectComplex} /></div>
+                        </div>
+                        {i < AVIA_COMPLEX_ROUTE.layovers.length && (
+                          <div style={{ marginLeft: 36 }}><span className="ap-route-chain-layover">{AVIA_COMPLEX_ROUTE.layovers[i].label}</span></div>
+                        )}
+                      </React.Fragment>
+                    ))}
+                  </div>
+                  <div className="ap-route-totals">
+                    <div className="rt-block"><Icon name="route" /><div><div className="l">Общая продолжительность (с учётом пересадок)</div><div className="v">{complexDur}</div></div></div>
+                    <div className="rt-price"><div className="l">Итого за маршрут</div><div className="v">{rub(complexTotal)}</div></div>
+                    <span className="pill pill-blue rt-badge"><Icon name="star" />Оптимальный маршрут</span>
+                  </div>
                 </div>
-              ))}
+              </div>
             </div>
           </div>
 
@@ -415,8 +631,10 @@ function AviaPicker({ params, setParams, services = [], onApply, onCancel, onAdd
         </div>
       </div>
 
-      {/* side panel — fare */}
-      {farePanel && (
+      {/* side panel — fare. Group trips keep the single shared-tariff grid (per-group tariffs
+          live in the «Пассажиры» panel's GroupManager); individual trips get the full
+          per-passenger fare-selection screen. */}
+      {farePanel && (group ? (
         <StackPanel title="Выберите тариф" width="min(760px,92vw)" onClose={() => setFarePanel(false)}
           footer={<Button style={{ width: '100%' }} icon="check" onClick={() => setFarePanel(false)}>Готово</Button>}>
           <div className="fare-grid">
@@ -432,7 +650,13 @@ function AviaPicker({ params, setParams, services = [], onApply, onCancel, onAdd
             ))}
           </div>
         </StackPanel>
-      )}
+      ) : (
+        <FareSelectPanel pax={PAX} classByPax={classByPax} setClassByPax={setClassByPax}
+          fareByPax={fareByPax} setFareByPax={setFareByPax}
+          individualMode={individualMode} setIndividualMode={setIndividualMode}
+          onAddPax={onAddPax}
+          onClose={() => setFarePanel(false)} onApply={() => setFarePanel(false)} />
+      ))}
 
       {/* side panel — extras (seats / baggage / meal / insurance / comfort) */}
       {extrasPanel && (

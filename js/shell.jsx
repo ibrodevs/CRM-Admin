@@ -210,7 +210,9 @@ function NotificationDrawer({ open, onClose, onNavigate, onOpenOrder }) {
 
 /* ---------- global chat slide-over (context-aware) ---------- */
 function GlobalChatDrawer({ open, onClose, contextOrder, onOpenOrder }) {
-  const threads = CHAT_THREADS;
+  // extraThreads holds contacts (e.g. «Админ») created on the fly via the «Кому» picker
+  const [extraThreads, setExtraThreads] = useState([]);
+  const threads = [...CHAT_THREADS, ...extraThreads];
   const initialId = contextOrder ? getThreadForOrder(contextOrder).id : threads[0].id;
   const [activeId, setActiveId] = useState(initialId);
   useEffect(() => {
@@ -228,6 +230,11 @@ function GlobalChatDrawer({ open, onClose, contextOrder, onOpenOrder }) {
     (contextOrder ? getThreadForOrder(contextOrder) : threads[0]);
   const totalUnread = (t) => threadUnread(t);
   const goOrder = (t) => { const o = ORDERS.find((x) => x.no === t.order); onClose(); o && onOpenOrder(o); };
+  const recipients = chatRecipients(active.order, extraThreads);
+  const switchThread = (t) => {
+    if (t.virtual) { const real = { ...t, virtual: false }; setExtraThreads((cur) => [...cur, real]); setActiveId(real.id); }
+    else setActiveId(t.id);
+  };
 
   const ord = ORDERS.find((x) => x.no === active.order);
   const meta = [
@@ -268,7 +275,7 @@ function GlobalChatDrawer({ open, onClose, contextOrder, onOpenOrder }) {
           )}
         </div>
         <div style={{ flex: 1, minHeight: 0 }}>
-          <ChatThread thread={active} embedded onOpenOrder={() => goOrder(active)} />
+          <ChatThread thread={active} embedded onOpenOrder={() => goOrder(active)} recipients={recipients} onSwitchThread={switchThread} />
         </div>
       </div>
     </div>

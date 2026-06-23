@@ -387,6 +387,19 @@ const FLIGHT_OFFERS = [
   },
 ];
 
+// Pre-built multi-city itinerary shown as route option 3 («Сложный маршрут») in the avia picker
+const AVIA_COMPLEX_ROUTE = {
+  legs: [
+    { airline: 'KC', from: 'FRU', to: 'IST', dep: '04:15', arr: '08:40',    dur: '6ч 25м', price: 23220 },
+    { airline: 'PC', from: 'IST', to: 'SAW', dep: '09:30', arr: '11:40',    dur: '2ч 10м', price: 6180 },
+    { airline: 'SU', from: 'SAW', to: 'FRU', dep: '23:10', arr: '02:40 +1', dur: '3ч 30м', price: 12780 },
+  ],
+  layovers: [
+    { label: 'Пересадка 50м', min: 50 },
+    { label: 'Пересадка 6ч 30м', min: 390 },
+  ],
+};
+
 // Flight-services registry rows
 const AIR_SERVICES = [
   { no: 'AV-51162', order: 51162, route: 'FRU → IST → FRU', pax: 4, airline: 'KC', pnr: 'KC8H2L', ticket: '465-2410…', supplier: 'Air Astana (API)', status: 'Выписано', sum: 1720, currency: 'USD', dep: '24.06.26' },
@@ -430,6 +443,42 @@ const AVIA_FARE_TIERS = [
       { ok: true,  text: 'Свободный возврат' },
       { ok: true,  text: 'Выбор места + питание' },
     ] },
+];
+
+// Business-cabin fare tiers (used when the passenger's booking class is C/J/D)
+const AVIA_FARE_TIERS_BUSINESS = [
+  { id: 'biz-lite', name: 'Бизнес Лайт', delta: 8000, recommended: false,
+    features: [
+      { ok: true,  text: 'Багаж 2 места 32 кг' },
+      { ok: true,  text: 'Бизнес-зал в аэропорту' },
+      { ok: false, text: 'Возврат со штрафом' },
+      { ok: true,  text: 'Выбор места включён' },
+    ] },
+  { id: 'biz-flex', name: 'Бизнес Флекс', delta: 14000, recommended: true,
+    features: [
+      { ok: true,  text: 'Багаж 2 места 32 кг' },
+      { ok: true,  text: 'Бизнес-зал в аэропорту' },
+      { ok: true,  text: 'Свободный возврат' },
+      { ok: true,  text: 'Выбор места + питание' },
+    ] },
+  { id: 'biz-premium', name: 'Бизнес Премиум', delta: 22000, recommended: false,
+    features: [
+      { ok: true,  text: 'Багаж 3 места 32 кг' },
+      { ok: true,  text: 'VIP-зал и фаст-трек' },
+      { ok: true,  text: 'Свободный возврат' },
+      { ok: true,  text: 'Личный ассистент' },
+    ] },
+];
+
+// Booking classes shown on the fare-selection screen («Все доступные классы на рейс»)
+const AVIA_BOOKING_CLASSES = [
+  { code: 'Y', cabin: 'Эконом',         seatsLeft: 18 },
+  { code: 'B', cabin: 'Эконом',         seatsLeft: 9 },
+  { code: 'M', cabin: 'Эконом',         seatsLeft: 5 },
+  { code: 'U', cabin: 'Премиум эконом', seatsLeft: 4 },
+  { code: 'C', cabin: 'Бизнес',         seatsLeft: 3 },
+  { code: 'J', cabin: 'Бизнес',         seatsLeft: 2 },
+  { code: 'D', cabin: 'Бизнес',         seatsLeft: 1 },
 ];
 
 // Baggage options per passenger (step 4 → Багаж)
@@ -518,7 +567,7 @@ const SERVICE_KIND = {
 };
 const SERVICE_STATUS = {
   'Поиск': 'gray', 'Предложение': 'teal', 'Согласование': 'amber',
-  'Забронировано': 'blue', 'Подтверждено': 'blue', 'Выписано': 'green',
+  'Забронировано': 'blue', 'Подтверждено': 'green', 'Выписано': 'green',
   'Возврат': 'red', 'Отменено': 'red',
 };
 
@@ -993,7 +1042,7 @@ Object.assign(window, {
   USERS, USER_STATUS, ROLES, PERMISSIONS,
   DASH_STATS, ORDER_BREAKDOWN, RECENT_CHANGES, API_ACCESS, CURRENCIES,
   AIRLINES, AIR_STATUS, CABIN_CLASSES, SPECIAL_PAX_CATEGORIES, SUBSIDIZED_PAX_PROGRAMS, AIRPORTS, FLIGHT_OFFERS, AIR_SERVICES, AIR_STATS,
-  AVIA_FARE_TIERS, AVIA_BAGGAGE_OPTIONS, AVIA_SPECIAL_BAGGAGE, AVIA_MEALS,
+  AVIA_FARE_TIERS, AVIA_FARE_TIERS_BUSINESS, AVIA_BOOKING_CLASSES, AVIA_BAGGAGE_OPTIONS, AVIA_SPECIAL_BAGGAGE, AVIA_MEALS,
   AVIA_INSURANCE_PLANS, AVIA_INSURANCE_INCLUDES, AVIA_COMFORT_GROUPS, AVIA_SEATMAP,
   SERVICE_KIND, SERVICE_STATUS, PAX_DOC_KIND, ORDER_SERVICES, KP_STATUS, KP_STATUS_FLOW, PROPOSALS, ORDER_PARTICIPANTS, ORDER_TASKS,
   GROUP_PAX, ORDER_GROUPS, ORDER_SERVICE_EXTRAS, ORDER_BOOKING_FLOW, AVIA_GROUPS_SEED,

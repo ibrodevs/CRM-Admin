@@ -3,14 +3,6 @@
 const NAV_ITEMS = [
   { key: 'dashboard', label: 'Главное', icon: 'home' },
   { key: 'orders', label: 'Заказы', icon: 'orders' },
-  { group: 'services', label: 'Услуги', icon: 'route', children: [
-    { key: 'flights',   label: 'Авиабилеты',        icon: 'plane' },
-    { key: 'rail',      label: 'ЖД билеты',          icon: 'train' },
-    { key: 'hotels',    label: 'Гостиницы',          icon: 'building' },
-    { key: 'transfers', label: 'Трансферы',          icon: 'car' },
-    { key: 'buses',     label: 'Автобусы',           icon: 'bus' },
-    { key: 'tours',     label: 'Групповые поездки',  icon: 'users' },
-  ]},
   { key: 'clients', label: 'Клиенты', icon: 'user' },
   { key: 'companies', label: 'Компании', icon: 'building' },
   { key: 'suppliers', label: 'Поставщики', icon: 'suppliers' },

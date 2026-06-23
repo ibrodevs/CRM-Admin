@@ -1,5 +1,21 @@
 // ===== Dashboard (Главное) =====
 
+/* «Детальный поиск» — reuses the same category-tab service picker that lives inside an order's
+   «Добавить услугу» flow, but standalone: no order to attach to yet, so results are informational. */
+function DetailedSearchPanel({ onClose }) {
+  const toast = useToast();
+  const [kind, setKind] = useState('Авиа');
+  const [aviaParams, setAviaParams] = useState({ trip: 'rt', from: 'FRU', to: 'IST', depDate: null, retDate: null, pax: { adt: 1, chd: 0, infNoSeat: 0, infSeat: 0, special: {}, subsidized: {} }, cabin: 'Эконом', baggage: false, flex: false, direct: false, airline: '', ...PAX_DEFAULT_OPTIONS });
+  return (
+    <StackPanel title="Детальный поиск услуг" width="min(1320px,96vw)" onClose={onClose}>
+      <AddServicePanel kind={kind} setKind={setKind} aviaParams={aviaParams} setAviaParams={setAviaParams}
+        paxCount={aviaParams.pax.adt + aviaParams.pax.chd}
+        onAddAvia={() => toast('Перелёт найден. Откройте нужный заказ, чтобы добавить его в сценарий', 'ok')}
+        onAddOther={() => toast('Услуга найдена. Откройте нужный заказ, чтобы добавить её в сценарий', 'ok')} />
+    </StackPanel>
+  );
+}
+
 function StatCardDash({ s, onGo }) {
   return (
     <div className="stat-card" style={{ cursor: 'pointer' }} onClick={onGo}>
@@ -17,6 +33,7 @@ function StatCardDash({ s, onGo }) {
 function DashboardPage({ onNavigate, onAddOrder, onOpenOrder }) {
   const [period, setPeriod] = useState('today');
   const [search, setSearch] = useState('');
+  const [searchOpen, setSearchOpen] = useState(false);
   const [showPicker, setShowPicker] = useState(false);
   const [pickerPos, setPickerPos] = useState({ top: 0, left: 0 });
   const [customStart, setCustomStart] = useState(null);
@@ -29,8 +46,11 @@ function DashboardPage({ onNavigate, onAddOrder, onOpenOrder }) {
       <Topbar title="Добрый день, Айсулуу">
         <div className="topbar-spacer" />
         <SearchBox value={search} onChange={setSearch} placeholder="Поиск" style={{ width: 260 }} />
+        <Button variant="secondary" icon="search" onClick={() => setSearchOpen(true)}>Детальный поиск</Button>
         <Button variant="primary" icon="plus" onClick={onAddOrder}>Добавить заказ</Button>
       </Topbar>
+
+      {searchOpen && <DetailedSearchPanel onClose={() => setSearchOpen(false)} />}
 
       <div className="content">
         {/* stat cards */}

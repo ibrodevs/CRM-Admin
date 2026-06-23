@@ -30,6 +30,30 @@ function getThreadForOrder(order) {
       relatedServices: [], participants: [{ name: order.client, role: 'Клиент' }], messages: [], internal: [] };
 }
 
+/* «Кому» — every contact you can address within an order's chat: every existing thread
+   (client / operators / suppliers / system) plus an always-available admin channel, even if
+   no admin thread has been started yet. */
+function makeAdminThread(order) {
+  return {
+    id: 'admin-' + order.no, order: order.no, type: 'operator', isAdmin: true, channel: 'MAX',
+    name: 'Админ · ' + CURRENT_USER.name, client: order.client, online: 'сейчас',
+    createdAt: order.date, responsibleOperator: order.operator || 'Даниель', connectionStatus: 'Подключено',
+    pinned: false, unread: 0, relatedServices: [],
+    participants: [{ name: CURRENT_USER.name, role: 'Админ' }],
+    messages: [], internal: [],
+  };
+}
+function recipientLabel(t) {
+  if (t.isAdmin) return 'Админ · ' + t.name.replace('Админ · ', '');
+  return chatTypeMeta(t.type).label + ' · ' + t.name;
+}
+// existing threads for the order (+ extra ones synthesized this session) + a standing «Админ» option
+function chatRecipients(orderNo, extraThreads) {
+  const mine = CHAT_THREADS.filter((t) => t.order === orderNo).concat((extraThreads || []).filter((t) => t.order === orderNo));
+  if (!mine.some((t) => t.isAdmin)) mine.push({ ...makeAdminThread({ no: orderNo, client: mine[0] && mine[0].client, date: mine[0] && mine[0].createdAt }), virtual: true });
+  return mine;
+}
+
 /* small channel badge for list rows & header */
 function ChannelBadge({ channel, sm }) {
   if (sm) {
@@ -40,7 +64,7 @@ function ChannelBadge({ channel, sm }) {
 }
 
 /* ---------- reusable conversation panel ---------- */
-function ChatThread({ thread, embedded, onOpenOrder, onOpenService, initChannel }) {
+function ChatThread({ thread, embedded, onOpenOrder, onOpenService, initChannel, recipients, onSwitchThread }) {
   const toast = useToast();
   const [sub, setSub] = useState('message'); // composer sub-channel: 'message' | 'internal'
   const [msgs, setMsgs] = useState(thread.messages || []);
@@ -66,17 +90,33 @@ function ChatThread({ thread, embedded, onOpenOrder, onOpenService, initChannel 
   const services = typeof ORDER_SERVICES !== 'undefined' ? ORDER_SERVICES : [];
   const tMeta = chatTypeMeta(thread.type);
 
+  // «Кому» — switch which contact of this order the composer is writing to (client / operator / supplier / admin)
+  const recipientPicker = recipients && onSwitchThread && (
+    <ActionMenu trigger={
+      <button className="chip" style={{ height: 32, fontSize: 12.5, padding: '0 11px' }} title="Выбрать получателя">
+        <Icon name="users" style={{ width: 13, height: 13 }} />Кому: {recipientLabel(thread)}<Icon name="chevDown" style={{ width: 13, height: 13 }} />
+      </button>
+    } items={recipients.map((r) => ({
+      icon: r.isAdmin ? 'user' : chatTypeMeta(r.type).icon,
+      label: recipientLabel(r) + (threadUnread(r) ? `  (${threadUnread(r)})` : ''),
+      onClick: () => onSwitchThread(r),
+    }))} />
+  );
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden' }}>
       {/* header */}
       {embedded ? (
-        <div style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '14px 20px', borderBottom: '1px solid var(--line)' }}>
-          <Avatar name={thread.name} size={38} />
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ fontWeight: 600, color: 'var(--ink)' }}>{thread.name}</div>
-            <div style={{ fontSize: 13, color: 'var(--muted)' }}>{tMeta.label} · был в сети {thread.online}</div>
+        <div style={{ padding: '14px 20px', borderBottom: '1px solid var(--line)' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+            <Avatar name={thread.name} size={38} />
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontWeight: 600, color: 'var(--ink)' }}>{thread.name}</div>
+              <div style={{ fontSize: 13, color: 'var(--muted)' }}>{tMeta.label} · был в сети {thread.online}</div>
+            </div>
+            <ChannelBadge channel={thread.channel} />
           </div>
-          <ChannelBadge channel={thread.channel} />
+          {recipientPicker && <div style={{ marginTop: 10 }}>{recipientPicker}</div>}
         </div>
       ) : (
         <div style={{ padding: '8px 14px', borderBottom: '1px solid var(--line)' }}>
@@ -87,6 +127,7 @@ function ChatThread({ thread, embedded, onOpenOrder, onOpenService, initChannel 
             <Pill tone={thread.connectionStatus === 'Подключено' ? 'green' : 'red'}>{thread.connectionStatus}</Pill>
             <span style={{ fontSize: 12.5, color: 'var(--muted)' }}>{thread.name} · отв. {thread.responsibleOperator} · {(thread.participants || []).length} уч.</span>
             <div style={{ flex: 1 }} />
+            {recipientPicker}
             <button className="btn btn-secondary btn-icon btn-sm" title="Создать задачу" onClick={() => toast('Создание задачи по чату', 'info')}><Icon name="clipboard" /></button>
             <button className={'btn btn-icon btn-sm ' + (pinned ? 'btn-primary' : 'btn-secondary')} title={pinned ? 'Открепить чат' : 'Закрепить чат'} onClick={() => { setPinned((p) => !p); toast(pinned ? 'Чат откреплён' : 'Чат закреплён', 'ok'); }}><Icon name="star" /></button>
             <ActionMenu trigger={<button className="btn btn-secondary btn-icon btn-sm"><Icon name="more" /></button>}
@@ -283,15 +324,20 @@ function ChatsNav({ threads, activeId, onSelect, search, setSearch, mode, setMod
           </div>
         </div>
         {mode === 'byType' && (
-          <div className="chat-filter-scroll" style={{ display: 'flex', gap: 5, flexWrap: 'nowrap', overflowX: 'auto', marginTop: 7, paddingBottom: 2 }}>
-            {TYPE_FILTERS.map((f) => {
-              const n = f.key === 'all' ? searched.length : typeCount(f.key);
-              return (
-                <button key={f.key} className={'chip' + (typeFilter === f.key ? ' active' : '')} style={{ height: 26, fontSize: 12, padding: '0 10px', gap: 5, flexShrink: 0, background: typeFilter === f.key ? 'var(--blue-soft)' : 'var(--surface-2)', borderColor: typeFilter === f.key ? 'var(--blue)' : 'transparent', color: typeFilter === f.key ? 'var(--blue)' : 'var(--muted)' }} onClick={() => setTypeFilter(f.key)}>
-                  {f.label}<span style={{ fontWeight: 700 }}>{n}</span>
-                </button>
-              );
-            })}
+          <div style={{ marginTop: 7 }}>
+            <ActionMenu trigger={
+              <button className="chip ghost" style={{ height: 30, fontSize: 12.5, width: '100%', justifyContent: 'space-between' }}>
+                <span style={{ display: 'flex', alignItems: 'center', gap: 6, overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                  {TYPE_FILTERS.find((f) => f.key === typeFilter).label}
+                  <span style={{ fontWeight: 700, color: 'var(--blue)' }}>{typeFilter === 'all' ? searched.length : typeCount(typeFilter)}</span>
+                </span>
+                <Icon name="chevDown" />
+              </button>
+            } items={TYPE_FILTERS.map((f) => ({
+              icon: typeFilter === f.key ? 'check' : null,
+              label: f.label + '  ' + (f.key === 'all' ? searched.length : typeCount(f.key)),
+              onClick: () => setTypeFilter(f.key),
+            }))} />
           </div>
         )}
       </div>
@@ -320,12 +366,20 @@ function ChatsNav({ threads, activeId, onSelect, search, setSearch, mode, setMod
 /* ---------- standalone Чаты page ---------- */
 function ChatsPage({ onOpenOrder }) {
   const toast = useToast();
-  const [threads] = useState(CHAT_THREADS);
+  // extraThreads holds contacts (e.g. «Админ») created on the fly via the «Кому» picker,
+  // once you actually pick them — they then show up in the left list like any other chat
+  const [extraThreads, setExtraThreads] = useState([]);
+  const threads = [...CHAT_THREADS, ...extraThreads];
   const [activeId, setActiveId] = useState(CHAT_THREADS[0].id);
   const [search, setSearch] = useState('');
   const [mode, setMode] = useState('byType');
 
   const active = threads.find((t) => t.id === activeId) || threads[0];
+  const recipients = active ? chatRecipients(active.order, extraThreads) : [];
+  const switchThread = (t) => {
+    if (t.virtual) { const real = { ...t, virtual: false }; setExtraThreads((cur) => [...cur, real]); setActiveId(real.id); }
+    else setActiveId(t.id);
+  };
   const openOrderFromThread = (t) => { const o = ORDERS.find((x) => x.no === t.order) || { no: t.order, client: t.client || t.name, requestType: 'Индивидуальная', status: 'В работе', operator: t.responsibleOperator || 'Даниель', date: '15.06.25' }; onOpenOrder && onOpenOrder(o); };
   const openServiceFromThread = (sid) => { const o = ORDERS.find((x) => x.no === active.order) || { no: active.order, client: active.client || active.name, requestType: 'Индивидуальная', status: 'В работе', operator: active.responsibleOperator || 'Даниель', date: '15.06.25' }; onOpenOrder && onOpenOrder(o, 'services'); };
 
@@ -337,7 +391,8 @@ function ChatsPage({ onOpenOrder }) {
 
           {/* conversation */}
           <div className="card" style={{ display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-            {active ? <ChatThread thread={active} onOpenOrder={openOrderFromThread} onOpenService={openServiceFromThread} /> : <EmptyState icon="chat" title="Выберите чат" />}
+            {active ? <ChatThread thread={active} onOpenOrder={openOrderFromThread} onOpenService={openServiceFromThread}
+              recipients={recipients} onSwitchThread={switchThread} /> : <EmptyState icon="chat" title="Выберите чат" />}
           </div>
 
           {/* info panel */}
@@ -348,4 +403,4 @@ function ChatsPage({ onOpenOrder }) {
   );
 }
 
-Object.assign(window, { ChatsPage, ChatThread, ChatInfoPanel, ChatsNav, getThreadForOrder, threadUnread, lastMessage });
+Object.assign(window, { ChatsPage, ChatThread, ChatInfoPanel, ChatsNav, getThreadForOrder, threadUnread, lastMessage, chatRecipients, recipientLabel });

@@ -927,6 +927,13 @@ function OrdersList({ orders, onOpen, onCreate }) {
   const [page, setPage] = useState(1);
   const [filters, setFilters] = useState({ status: '', requestType: '', service: '' });
   const { sort, onSort, apply } = useSort(null);
+  const [selected, setSelected] = useState(null); // row chosen for the «Редактировать» toolbar action
+  const [editOrder, setEditOrder] = useState(null); // order currently open in the quick-edit drawer
+
+  const handleEditClick = () => {
+    if (!selected) { toast('Выберите заказ для редактирования', 'info'); return; }
+    setEditOrder(selected);
+  };
 
   let rows = orders.filter((o) =>
     (o.client.toLowerCase().includes(search.toLowerCase()) || String(o.no).includes(search)) &&
@@ -942,7 +949,7 @@ function OrdersList({ orders, onOpen, onCreate }) {
     <div className="fade-in">
       <Topbar title="Заказы">
         <div className="topbar-spacer" />
-        <Button variant="secondary" icon="edit" onClick={() => toast('Выберите заказ для редактирования', 'info')}>Редактировать</Button>
+        <Button variant="secondary" icon="edit" onClick={handleEditClick}>Редактировать</Button>
         <Button variant="secondary" icon="docs" onClick={() => toast('КП сформировано и отправлено', 'ok')}>Сформировать КП</Button>
         <Button variant="primary" icon="plus" onClick={onCreate}>Добавить заказ</Button>
       </Topbar>
@@ -960,6 +967,7 @@ function OrdersList({ orders, onOpen, onCreate }) {
           <table className="tbl">
             <thead>
               <tr>
+                <th style={{ width: 36 }}></th>
                 <Th label="№" col="no" sort={sort} onSort={onSort} style={{ width: 80 }} />
                 <th>Клиент</th><th>Тип заявки</th><th>Статус заказа</th><th>Тип услуги</th>
                 <th>Ответственное лицо</th>
@@ -968,11 +976,12 @@ function OrdersList({ orders, onOpen, onCreate }) {
               </tr>
             </thead>
             {pageRows.length === 0
-              ? <tbody><tr><td colSpan={8}><EmptyState title="Заказы не найдены" sub="Измените параметры поиска или фильтры" /></td></tr></tbody>
+              ? <tbody><tr><td colSpan={9}><EmptyState title="Заказы не найдены" sub="Измените параметры поиска или фильтры" /></td></tr></tbody>
               : (
                 <tbody>
                   {pageRows.map((o, i) => (
                     <tr key={i} style={{ cursor: 'pointer' }} onClick={() => onOpen(o)}>
+                      <td onClick={(e) => e.stopPropagation()}><Radio on={!!selected && selected.no === o.no} onChange={() => setSelected(o)} /></td>
                       <td className="t-strong">{o.no}</td>
                       <td className="t-strong">{o.client}</td>
                       <td><Pill tone="blue">{o.requestType}</Pill></td>
@@ -994,6 +1003,17 @@ function OrdersList({ orders, onOpen, onCreate }) {
           <Pagination page={page} pages={pages} onPage={setPage} />
         </div>
       </div>
+
+      {editOrder && (
+        <OrderEditDrawer open
+          order={editOrder}
+          status={editOrder.status === 'Нет данных' ? 'Новое' : editOrder.status}
+          onStatusChange={(s) => setEditOrder((o) => ({ ...o, status: s }))}
+          services={ORDER_SERVICES}
+          participants={editOrder.requestType === 'Групповая' ? GROUP_PAX : ORDER_PARTICIPANTS}
+          onClose={() => setEditOrder(null)}
+          onAddPassenger={() => { setEditOrder(null); onOpen(editOrder, 'participants'); }} />
+      )}
     </div>
   );
 }
