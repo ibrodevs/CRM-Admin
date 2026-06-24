@@ -23,6 +23,33 @@ function proposalSummary(p) {
   return lo === hi ? kpM(lo, p.currency) : `${kpM(lo, p.currency)} – ${kpM(hi, p.currency)}`;
 }
 
+/* ----- export the rendered client document to a PDF file -----
+   Rendered off-screen from a detached clone so wide tables (which scroll
+   horizontally on screen) are captured in full, and the live UI never flashes. */
+async function exportKpToPdf(node, filename, onDone) {
+  if (!node || !window.html2canvas || !window.jspdf) { onDone && onDone(false); return; }
+  const host = document.createElement('div');
+  host.style.position = 'fixed'; host.style.left = '-99999px'; host.style.top = '0'; host.style.zIndex = '-1';
+  const clone = node.cloneNode(true);
+  host.appendChild(clone);
+  document.body.appendChild(host);
+  clone.querySelectorAll('.kp2-doc').forEach((d) => { d.style.maxWidth = 'none'; });
+  clone.querySelectorAll('.kp2-table-wrap').forEach((w) => { w.style.overflow = 'visible'; w.style.flex = '0 0 auto'; });
+  const targetWidth = clone.scrollWidth;
+  try {
+    const canvas = await window.html2canvas(clone, { scale: 1.5, backgroundColor: '#ffffff', useCORS: true, windowWidth: targetWidth, width: targetWidth });
+    const { jsPDF } = window.jspdf;
+    const pdf = new jsPDF({ orientation: canvas.width >= canvas.height ? 'landscape' : 'portrait', unit: 'px', format: [canvas.width, canvas.height], compress: true });
+    pdf.addImage(canvas.toDataURL('image/jpeg', 0.92), 'JPEG', 0, 0, canvas.width, canvas.height);
+    pdf.save(filename);
+    onDone && onDone(true);
+  } catch (e) {
+    onDone && onDone(false);
+  } finally {
+    document.body.removeChild(host);
+  }
+}
+
 /* editable status pill */
 function KPStatusControl({ status, onChange }) {
   return (
@@ -38,54 +65,64 @@ function KPStatusControl({ status, onChange }) {
 function KPPreviewDoc({ proposal, participants }) {
   const p = proposal;
   const vids = p.approvedVariant ? [p.approvedVariant] : p.variants.map((v) => v.id);
+  const pax = participants || ORDER_PARTICIPANTS;
   return (
-    <div className="kp-doc">
-      <div className="kp-band">
-        <div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
-            <BrandMark size={30} color="#fff" /><span style={{ fontWeight: 800, fontSize: 18 }}>ПСЦ — Travel Hub</span>
-          </div>
-          <h2>Коммерческое предложение</h2>
-          <div style={{ opacity: .85, marginTop: 6, fontSize: 14 }}>№ {p.id} от {p.created}</div>
-        </div>
-        <div style={{ textAlign: 'right', fontSize: 13.5, opacity: .9 }}>
-          <div>Действительно до</div>
-          <div style={{ fontSize: 18, fontWeight: 700, marginTop: 2 }}>{p.validUntil}</div>
-          <div style={{ marginTop: 10 }}>Валюта: {p.currency}</div>
+    <div className="kp2-doc">
+      <div className="kp2-header">
+        <div className="kp2-brand"><BrandMark size={30} color="#e8674f" /><div><div className="kp2-brand-name">Пассажирский</div><div className="kp2-brand-name">сервисный</div><div className="kp2-brand-name">центр</div></div></div>
+        <div className="kp2-badge"><div className="kp2-badge-l">Заказчик: <b>{p.client}</b></div><div className="kp2-badge-s">№ {p.id} от {p.created} · действует до {p.validUntil}</div></div>
+      </div>
+
+      <div className="kp2-section">
+        <div className="kp2-tabs">
+          <KPTab tone="gray" emoji="🧳"><div className="kp2-tab-title">Заказ № {p.order}</div></KPTab>
+          <KPTab tone="amber" emoji=""><div className="kp2-tab-amber-row"><div className="kp2-tab-num">{pax.length}</div><div className="kp2-tab-cap">{plural(pax.length, ['участник', 'участника', 'участников'])}</div></div></KPTab>
+          <KPTab tone="coral" emoji=""><div className="kp2-tab-cap kp2-tab-cap-light">валюта предложения</div><div className="kp2-tab-strong">{p.currency}</div></KPTab>
         </div>
       </div>
-      <div className="kp-body">
-        <div style={{ display: 'flex', justifyContent: 'space-between', gap: 30, flexWrap: 'wrap' }}>
-          <div><div className="kp-sec-h" style={{ marginTop: 0 }}>Клиент</div><div style={{ fontWeight: 700, color: 'var(--ink)', fontSize: 16 }}>{p.client}</div><div style={{ color: 'var(--muted)', fontSize: 13.5, marginTop: 3 }}>Заказ № {p.order}</div></div>
-          <div><div className="kp-sec-h" style={{ marginTop: 0 }}>Участники поездки</div>
-            {(participants || ORDER_PARTICIPANTS).map((pt, i) => <div key={i} style={{ fontSize: 14, color: 'var(--ink)' }}>{pt.name} <span style={{ color: 'var(--muted)' }}>· {pt.role}</span></div>)}
-          </div>
-        </div>
 
-        <div className="kp-sec-h">{vids.length > 1 ? 'Варианты на выбор' : 'Состав предложения'}</div>
-        {p.variants.filter((v) => vids.includes(v.id)).map((v) => (
-          <div className="kp-vbox" key={v.id}>
-            <div className={'kp-vhead' + (p.approvedVariant === v.id ? ' pick' : '')}>
-              <span style={{ fontWeight: 700, color: 'var(--ink)' }}>{v.name}</span>
+      {p.variants.filter((v) => vids.includes(v.id)).map((v) => {
+        const groups = {};
+        v.items.forEach((it) => { (groups[it.kind] = groups[it.kind] || []).push(it); });
+        return (
+          <div className="kp2-section" key={v.id}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14 }}>
+              <span style={{ fontWeight: 700, fontSize: 17, color: 'var(--ink)' }}>{v.name}</span>
               {p.approvedVariant === v.id && <Pill tone="green">Выбран клиентом</Pill>}
             </div>
-            {v.items.map((it) => {
-              const k = SERVICE_KIND[it.kind] || SERVICE_KIND['Авиа'];
+            {Object.entries(groups).map(([kind, items]) => {
+              const k = SERVICE_KIND[kind] || SERVICE_KIND['Авиа'];
+              const subtotal = items.reduce((s, it) => s + it.cost + it.fee, 0);
               return (
-                <div className="kp-li" key={it.id}>
-                  <span className="kp-li-ic" style={{ background: k.color }}><Icon name={k.icon} /></span>
-                  <div style={{ flex: 1 }}><div style={{ fontWeight: 600, color: 'var(--ink)' }}>{it.title}</div><div style={{ fontSize: 13, color: 'var(--muted)' }}>{it.sub}</div></div>
-                  <div style={{ fontWeight: 700, color: 'var(--ink)' }}>{kpM(it.cost + it.fee, p.currency)}</div>
+                <div className="kp2-row" key={kind}>
+                  <div className="kp2-side">
+                    <div className="kp2-side-label"><Icon name={k.icon} style={{ width: 15, height: 15, marginRight: 6, verticalAlign: 'middle' }} />{kind}</div>
+                    <div className="kp2-side-total"><div className="kp2-side-total-l">Итого</div><div className="kp2-side-total-v">{kpM(subtotal, p.currency)}</div></div>
+                  </div>
+                  <div className="kp2-table-wrap">
+                    <table className="kp2-table">
+                      <thead><tr><th>Услуга</th><th>Описание</th><th>Стоимость</th><th>Сервисный сбор</th><th>Итого</th></tr></thead>
+                      <tbody>
+                        {items.map((it) => (
+                          <tr key={it.id}>
+                            <td>{it.title}</td><td className="kp2-td-wide">{it.sub}</td>
+                            <td>{kpM(it.cost, p.currency)}</td><td>{kpM(it.fee, p.currency)}</td><td>{kpM(it.cost + it.fee, p.currency)}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
                 </div>
               );
             })}
-            <div className="kp-vtot"><span>Итого по варианту</span><span style={{ fontSize: 17 }}>{kpM(varTotal(v), p.currency)}</span></div>
+            <div className="kp2-note" style={{ fontStyle: 'normal', textAlign: 'right', fontSize: 16, fontWeight: 700, color: 'var(--ink)', background: 'var(--surface-2)' }}>Итого по варианту «{v.name}»: {kpM(varTotal(v), p.currency)}</div>
           </div>
-        ))}
+        );
+      })}
 
-        <div style={{ marginTop: 26, paddingTop: 18, borderTop: '1px solid var(--line)', color: 'var(--muted)', fontSize: 13, lineHeight: 1.6 }}>
-          Стоимость указана с учётом сервисных сборов агентства. Предложение носит предварительный характер и может быть скорректировано в зависимости от наличия мест и тарифов на момент бронирования.
-        </div>
+      <div className="kp2-note">
+        Участники поездки: {pax.map((pt) => pt.name).join(', ')}.<br />
+        Стоимость указана с учётом сервисных сборов агентства. Предложение носит предварительный характер и может быть скорректировано в зависимости от наличия мест и тарифов на момент бронирования.
       </div>
     </div>
   );
@@ -246,6 +283,8 @@ function KPModule({ order, services, participants, onApprove }) {
   const [fixOpen, setFixOpen] = useState(false);
   const [histOpen, setHistOpen] = useState(false);
   const [templates, setTemplates] = useState(KP_TEMPLATES);
+  const [pdfBusy, setPdfBusy] = useState(false);
+  const docRef = useRef(null);
 
   const active = proposals.find((p) => p.id === activeId);
   const uid = (pre) => pre + Math.random().toString(36).slice(2, 7);
@@ -407,10 +446,13 @@ function KPModule({ order, services, participants, onApprove }) {
         <div style={{ display: 'flex', gap: 10, marginBottom: 16 }}>
           <Button variant="secondary" size="sm" icon="chevLeft" onClick={() => setView('list')}>Назад</Button>
           <div style={{ flex: 1 }} />
-          <Button variant="secondary" icon="download" onClick={() => toast('PDF сформирован', 'ok')}>Скачать PDF</Button>
+          <Button variant="secondary" icon="download" disabled={pdfBusy} onClick={() => {
+            setPdfBusy(true);
+            exportKpToPdf(docRef.current, active.id + '.pdf', (ok) => { setPdfBusy(false); toast(ok ? 'PDF сохранён' : 'Не удалось сформировать PDF', ok ? 'ok' : 'err'); });
+          }}>{pdfBusy ? 'Формируем…' : 'Скачать PDF'}</Button>
           <Button icon="send" onClick={() => { sendToClient(); setView('list'); }}>Отправить клиенту</Button>
         </div>
-        {active.docType === 'train' ? <KPTrainPreviewDoc proposal={active} /> : <KPPreviewDoc proposal={active} participants={participants} />}
+        <div ref={docRef}>{active.docType === 'train' ? <KPTrainPreviewDoc proposal={active} /> : <KPPreviewDoc proposal={active} participants={participants} />}</div>
       </div>
     );
   }
@@ -728,6 +770,8 @@ function OffersRegistry({ onOpenOrder, intent, onConsume }) {
   const [preview, setPreview] = useState(null);
   const [proposals, setProposals] = useState(() => PROPOSALS.slice()); // copy: КПCreateModal also unshifts into PROPOSALS for the order card
   const [createOpen, setCreateOpen] = useState(false);
+  const [pdfBusy, setPdfBusy] = useState(false);
+  const previewDocRef = useRef(null);
   const { sort, onSort, apply } = useSort({ col: 'created', dir: 'desc' });
 
   useEffect(() => { if (intent && intent.type === 'create') { setCreateOpen(true); onConsume && onConsume(); } }, [intent]);
@@ -788,10 +832,14 @@ function OffersRegistry({ onOpenOrder, intent, onConsume }) {
         <div style={{ padding: 0, maxHeight: '88vh', overflowY: 'auto' }}>
           <div style={{ display: 'flex', justifyContent: 'flex-end', padding: '14px 16px', position: 'sticky', top: 0, background: '#fff', borderBottom: '1px solid var(--line)', zIndex: 2 }}>
             {preview && <span style={{ flex: 1, fontWeight: 700, alignSelf: 'center', paddingLeft: 8 }}>{preview.id} · заказ № {preview.order}</span>}
+            <Button variant="secondary" size="sm" icon="download" disabled={pdfBusy} onClick={() => {
+              setPdfBusy(true);
+              exportKpToPdf(previewDocRef.current, preview.id + '.pdf', (ok) => { setPdfBusy(false); toast(ok ? 'PDF сохранён' : 'Не удалось сформировать PDF', ok ? 'ok' : 'err'); });
+            }}>{pdfBusy ? 'Формируем…' : 'Скачать PDF'}</Button>
             <Button variant="secondary" size="sm" icon="orders" onClick={() => { const o = (ORDERS.find((x) => x.no === preview.order)) || { no: preview.order, client: preview.client, requestType: 'Индивидуальная', status: 'В работе', operator: 'Даниель', date: '15.06.25' }; setPreview(null); onOpenOrder(o); }}>Перейти в заказ</Button>
             <button className="modal-close" onClick={() => setPreview(null)} style={{ marginLeft: 8 }}><Icon name="x" /></button>
           </div>
-          <div style={{ padding: 24, background: 'var(--surface-2)' }}>{preview && (preview.docType === 'train' ? <KPTrainPreviewDoc proposal={preview} /> : <KPPreviewDoc proposal={preview} />)}</div>
+          <div ref={previewDocRef} style={{ padding: 24, background: 'var(--surface-2)' }}>{preview && (preview.docType === 'train' ? <KPTrainPreviewDoc proposal={preview} /> : <KPPreviewDoc proposal={preview} />)}</div>
         </div>
       </Modal>
 

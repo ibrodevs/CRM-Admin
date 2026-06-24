@@ -70,7 +70,7 @@ function App() {
 
       {/* Service modules — shared framework on the avia template */}
       {route === 'rail' && <ServiceFlow routeKey="rail" />}
-      {route === 'hotels' && <ServiceFlow routeKey="hotels" />}
+      {route === 'hotels' && <HotelsPage />}
       {route === 'transfers' && <ServiceFlow routeKey="transfers" />}
       {route === 'buses' && <ServiceFlow routeKey="buses" />}
       {route === 'tours' && <ServiceFlow routeKey="tours" />}

@@ -762,7 +762,7 @@ function QuickAddForm({ kind, onAdd }) {
   );
 }
 
-function AddServicePanel({ kind, setKind, aviaParams, setAviaParams, paxCount, onAddAvia, onAddOther }) {
+function AddServicePanel({ kind, setKind, aviaParams, setAviaParams, paxCount, participants, isGroup, onAddAvia, onAddOther }) {
   const cat = ADD_SVC_CATS.find((c) => c.kind === kind) || ADD_SVC_CATS[0];
   return (
     <div className="fade-in">
@@ -774,8 +774,11 @@ function AddServicePanel({ kind, setKind, aviaParams, setAviaParams, paxCount, o
         ))}
       </div>
       {kind === 'Авиа' && <AviaSearchPanel params={aviaParams} setParams={setAviaParams} paxCount={paxCount} onAdd={onAddAvia} />}
-      {kind !== 'Авиа' && cat.routeKey && <ServiceAddFlow routeKey={cat.routeKey} onAdd={onAddOther} />}
-      {kind !== 'Авиа' && !cat.routeKey && <QuickAddForm kind={kind} onAdd={onAddOther} />}
+      {/* Гостиницы — полноценный модуль подбора с фильтром слева, выбором номера,
+          составом гостей, групповым размещением и подтверждением бронирования */}
+      {kind === 'Гостиница' && <HotelPicker participants={participants} group={isGroup} onApply={(offer) => onAddOther(offer, 'Гостиница')} onCancel={() => {}} />}
+      {kind !== 'Авиа' && kind !== 'Гостиница' && cat.routeKey && <ServiceAddFlow routeKey={cat.routeKey} onAdd={onAddOther} />}
+      {kind !== 'Авиа' && kind !== 'Гостиница' && !cat.routeKey && <QuickAddForm kind={kind} onAdd={onAddOther} />}
     </div>
   );
 }
@@ -981,7 +984,7 @@ function OrderCard({ order, onBack, initTab, initSvcSearch, fresh, onOpenChat })
   };
   const addSvcOffer = (offer, kind) => {
     const id = 'S' + (services.length + 1);
-    const sv = { id, kind, title: offer.title, sub: offer.sub, status: 'Предложение', sum: offer.cost + offer.fee, currency: 'USD',
+    const sv = { id, kind, title: offer.title, sub: offer.sub, status: 'Предложение', sum: offer.cost + offer.fee, currency: offer.currency || 'USD',
       date: (offer.info && offer.info[0] && offer.info[0].v) || '—', supplier: offer.supplier, svcOffer: offer };
     setServices((cur) => [...cur, sv]);
     setSvcView(null);
@@ -1006,7 +1009,8 @@ function OrderCard({ order, onBack, initTab, initSvcSearch, fresh, onOpenChat })
             items={[{ label: 'Нет недавних запросов' }]} />
         </div>
         <AddServicePanel kind={addKind} setKind={setAddKind} aviaParams={aviaParams} setAviaParams={setAviaParams}
-          paxCount={participants.length} onAddAvia={startAviaFareStep} onAddOther={addSvcOffer} />
+          paxCount={participants.length} participants={participants} isGroup={requestType === 'Групповая'}
+          onAddAvia={startAviaFareStep} onAddOther={addSvcOffer} />
       </div>
     );
     return <TabServices orderNo={order.no} services={services} participants={participants} requestType={requestType}

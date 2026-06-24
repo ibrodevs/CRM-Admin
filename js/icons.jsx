@@ -69,6 +69,22 @@ const ICON_PATHS = {
   visa: '<rect x="3" y="5" width="18" height="14" rx="2.5"/><path d="M7 9h4M7 12.5h3M7 16h4"/><circle cx="16" cy="13" r="3"/>',
   shield: '<path d="M12 3 5 6v6c0 5 3.5 7.5 7 9 3.5-1.5 7-4 7-9V6Z"/><path d="m9 12 2 2 4-4"/>',
   camera: '<path d="M4 8h3l1.5-2h7L17 8h3a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9a1 1 0 0 1 1-1Z"/><circle cx="12" cy="13" r="3.4"/>',
+  bed: '<path d="M3 6v12"/><path d="M3 13h18v5"/><path d="M21 18v-4a3 3 0 0 0-3-3H10v3"/><circle cx="7" cy="10" r="1.6"/>',
+  wifi: '<path d="M5 12.5a10 10 0 0 1 14 0"/><path d="M8.5 16a5 5 0 0 1 7 0"/><path d="M12 19h.01"/>',
+  coffee: '<path d="M5 8h11v5a4 4 0 0 1-4 4H9a4 4 0 0 1-4-4Z"/><path d="M16 9h2a2 2 0 0 1 0 4h-2"/><path d="M7 3v2M10 3v2M13 3v2"/>',
+  parking: '<rect x="4" y="4" width="16" height="16" rx="3"/><path d="M9 17V8h3.5a2.5 2.5 0 0 1 0 5H9"/>',
+  snowflake: '<path d="M12 3v18M5 7l14 10M19 7 5 17"/><path d="M9 4.5l3 2 3-2M9 19.5l3-2 3 2"/>',
+  tv: '<rect x="2.5" y="6" width="19" height="12" rx="2"/><path d="M8 3l4 3 4-3"/>',
+  heart: '<path d="M12 20s-7-4.3-9.3-8.4C1.2 8.6 2.6 5.5 5.6 5.5c2 0 3.2 1.2 4.4 2.6 1.2-1.4 2.4-2.6 4.4-2.6 3 0 4.4 3.1 2.9 6.1C19 15.7 12 20 12 20Z"/>',
+  mapPin: '<path d="M12 21s7-5.3 7-11a7 7 0 0 0-14 0c0 5.7 7 11 7 11Z"/><circle cx="12" cy="10" r="2.6"/>',
+  sparkles: '<path d="M12 3l1.8 4.7L18.5 9.5 13.8 11.3 12 16l-1.8-4.7L5.5 9.5 10.2 7.7Z"/><path d="M18.5 15l.6 1.6L20.7 17.2l-1.6.6L18.5 19.4l-.6-1.6L16.3 17.2l1.6-.6Z"/>',
+  moon: '<path d="M20 13.5A8 8 0 1 1 10.5 4 6.5 6.5 0 0 0 20 13.5Z"/>',
+  grid: '<rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/>',
+  move: '<path d="M5 9 2 12l3 3M9 5l3-3 3 3M15 19l-3 3-3-3M19 9l3 3-3 3"/><path d="M2 12h20M12 2v20"/>',
+  utensils: '<path d="M5 3v7a2 2 0 0 0 4 0V3M7 12v9M16 3c-1.6 0-2.7 2-2.7 4.7S14.4 12 16 12v9"/>',
+  baby: '<circle cx="12" cy="6" r="2.2"/><path d="M9 11h6M8 15l4 2 4-2M10 21l2-4 2 4"/>',
+  sun: '<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4 12H2M22 12h-2M5 5l1.5 1.5M17.5 17.5 19 19M19 5l-1.5 1.5M6.5 17.5 5 19"/>',
+  dumbbell: '<path d="M6.5 6.5l11 11M4 9l2-2 3 3-2 2zM15 18l2-2 3 3-2 2zM18 9l2-2M6 15l-2 2"/>',
 };
 
 function Icon({ name, className, style, strokeWidth = 1.9 }) {

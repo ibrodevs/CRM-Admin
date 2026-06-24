@@ -989,6 +989,133 @@ const SVC_DATA = {
   },
 };
 
+// ============ ГОСТИНИЦЫ (полный модуль подбора) ============
+// Справочники для расширенного модуля бронирования гостиниц: каталог отелей,
+// категории номеров, тарифы, удобства и дополнительные услуги. Цены — в рублях.
+const HOTEL_AMENITIES = [
+  { id: 'ac', icon: 'snowflake', label: 'Кондиционер' },
+  { id: 'tv', icon: 'tv', label: 'Телевизор' },
+  { id: 'safe', icon: 'lock', label: 'Сейф' },
+  { id: 'minibar', icon: 'coffee', label: 'Мини-бар' },
+  { id: 'wifi', icon: 'wifi', label: 'Wi-Fi бесплатно' },
+  { id: 'robe', icon: 'sparkles', label: 'Халат и тапочки' },
+  { id: 'desk', icon: 'briefcase', label: 'Рабочий стол' },
+  { id: 'bath', icon: 'sun', label: 'Ванная с душем' },
+];
+
+// набор тарифов, общий для всех номеров (база — цена номера за ночь)
+function hotelTariffs(base) {
+  return [
+    { id: 'pop', name: 'Популярный', badge: 'Популярный', price: base,
+      feats: [{ ok: true, t: 'Завтрак включён' }, { ok: true, t: 'Бесплатная отмена до 17.06.2026' }, { ok: true, t: 'Оплата на месте · без предоплаты' }] },
+    { id: 'flex', name: 'Тариф с гибкой отменой', price: Math.round(base * 1.18),
+      feats: [{ ok: true, t: 'Завтрак включён' }, { ok: true, t: 'Бесплатная отмена в любое время' }, { ok: true, t: 'Оплата на месте · без предоплаты' }] },
+    { id: 'nobreak', name: 'Тариф без завтрака', price: Math.round(base * 0.88),
+      feats: [{ ok: false, t: 'Без завтрака' }, { ok: false, t: 'Без бесплатной отмены' }, { ok: true, t: 'Оплата на месте' }] },
+  ];
+}
+
+// фабрика стандартного набора категорий номеров
+function hotelRooms(mult) {
+  const m = mult || 1;
+  const R = (id, name, base, beds, cap, count, area, floor) =>
+    ({ id, name, base: Math.round(base * m), beds, cap, count, area, floor, tariffs: hotelTariffs(Math.round(base * m)) });
+  return [
+    R('superior', 'Superior Room', 12450, '1 большая кровать', 2, 5, 24, '2–9'),
+    R('deluxe', 'Deluxe Room', 16200, '1 большая кровать', 2, 3, 32, '3–11'),
+    R('junior', 'Junior Suite', 24800, '2 раздельные кровати', 2, 4, 40, '6–12'),
+    R('suite', 'Suite', 34600, '1 большая кровать', 2, 2, 55, '10–14'),
+    R('exec', 'Executive Suite', 48500, '1 большая кровать', 2, 1, 70, '14'),
+    R('family', 'Family Room', 18900, '2 кровати', 4, 2, 38, '2–6'),
+    R('standard', 'Standard Room', 9800, '1 кровать', 2, 6, 18, '1–5'),
+  ];
+}
+
+const HOTELS = [
+  { id: 'metropol', name: 'Metropol Hotel Moscow', stars: 5, addr: 'Тверская б-р, д. 2, Москва', district: 'Центр города', metro: 450,
+    rating: 9.4, ratingText: 'Превосходно', reviews: 1243, base: 12450, breakfast: true, freeCancel: '17.06.2026', payAtHotel: true,
+    supplier: 'Островок', phone: '+7 495 937-10-00', email: 'reservation@metropol-moscow.ru', addrFull: 'Тверская б-р, д. 2, Москва, 125009, Россия',
+    rooms: hotelRooms(1) },
+  { id: 'azimut', name: 'Azimut City Hotel Smolenskaya', stars: 4, addr: 'Смоленская ул., 8, Москва', district: 'Центр города', metro: 600,
+    rating: 8.7, ratingText: 'Отлично', reviews: 892, base: 8900, breakfast: true, freeCancel: '17.06.2026', payAtHotel: true,
+    supplier: 'Островок', phone: '+7 495 411-77-77', email: 'reservation@azimuthotels.com', addrFull: 'Смоленская ул., 8, Москва, 121099, Россия',
+    rooms: hotelRooms(0.72) },
+  { id: 'ibis', name: 'Ibis Moscow Centre Bakhrushina', stars: 3, addr: 'ул. Бахрушина, 11, Москва', district: 'Центр города', metro: 800,
+    rating: 8.2, ratingText: 'Очень хорошо', reviews: 568, base: 6200, breakfast: true, freeCancel: '18.06.2026', payAtHotel: true,
+    supplier: 'Островок', phone: '+7 495 660-09-09', email: 'h7141@accor.com', addrFull: 'ул. Бахрушина, 11, Москва, 115054, Россия',
+    rooms: hotelRooms(0.5) },
+  { id: 'ararat', name: 'Ararat Park Hyatt Moscow', stars: 5, addr: 'Неглинная ул., 4, Москва', district: 'Центр города', metro: 300,
+    rating: 9.6, ratingText: 'Превосходно', reviews: 657, base: 24800, breakfast: true, freeCancel: '18.06.2026', payAtHotel: true,
+    supplier: 'Островок', phone: '+7 495 783-12-34', email: 'moscow.park@hyatt.com', addrFull: 'Неглинная ул., 4, Москва, 109012, Россия',
+    rooms: hotelRooms(1.99) },
+  { id: 'radisson', name: 'Radisson Collection Hotel', stars: 5, addr: 'Кутузовский пр-т, 2/1, Москва', district: 'Дорогомилово', metro: 350,
+    rating: 9.1, ratingText: 'Превосходно', reviews: 1024, base: 19500, breakfast: true, freeCancel: '17.06.2026', payAtHotel: false,
+    supplier: 'Островок', phone: '+7 495 221-55-55', email: 'info.moscow@radissoncollection.com', addrFull: 'Кутузовский пр-т, 2/1, Москва, 121248, Россия',
+    rooms: hotelRooms(1.56) },
+  { id: 'novotel', name: 'Novotel Moscow City', stars: 4, addr: 'Пресненская наб., 2, Москва', district: 'Пресненский', metro: 200,
+    rating: 8.6, ratingText: 'Отлично', reviews: 741, base: 10200, breakfast: true, freeCancel: '17.06.2026', payAtHotel: true,
+    supplier: 'Островок', phone: '+7 495 114-95-00', email: 'h7726@accor.com', addrFull: 'Пресненская наб., 2, Москва, 123317, Россия',
+    rooms: hotelRooms(0.82) },
+  { id: 'mercure', name: 'Mercure Arbat Moscow', stars: 4, addr: 'Смоленская пл., 6, Москва', district: 'Арбат', metro: 500,
+    rating: 8.4, ratingText: 'Очень хорошо', reviews: 503, base: 9400, breakfast: false, freeCancel: '16.06.2026', payAtHotel: true,
+    supplier: 'Островок', phone: '+7 495 225-00-25', email: 'h9518@accor.com', addrFull: 'Смоленская пл., 6, Москва, 119121, Россия',
+    rooms: hotelRooms(0.75) },
+  { id: 'hostel', name: 'City Comfort Inn', stars: 2, addr: 'ул. Щепкина, 28, Москва', district: 'Мещанский', metro: 700,
+    rating: 7.6, ratingText: 'Хорошо', reviews: 214, base: 4200, breakfast: false, freeCancel: '15.06.2026', payAtHotel: true,
+    supplier: 'Островок', phone: '+7 495 120-30-40', email: 'book@citycomfort.ru', addrFull: 'ул. Щепкина, 28, Москва, 129110, Россия',
+    rooms: hotelRooms(0.34) },
+];
+
+// районы для бокового фильтра (значения должны совпадать с HOTELS[].district)
+const HOTEL_DISTRICTS = ['Центр города', 'Арбат', 'Дорогомилово', 'Пресненский', 'Мещанский'];
+
+// типы питания (тарифные планы)
+const HOTEL_MEALS = [
+  { id: 'RO', label: 'RO', full: 'Без питания' },
+  { id: 'BB', label: 'BB', full: 'Завтрак' },
+  { id: 'HB', label: 'HB', full: 'Полупансион' },
+  { id: 'FB', label: 'FB', full: 'Полный пансион' },
+  { id: 'AI', label: 'AI', full: 'Всё включено' },
+];
+
+// дополнительные услуги отеля, сгруппированы по категориям
+const HOTEL_EXTRAS = [
+  { cat: 'stay', icon: 'building', label: 'Проживание', items: [
+    { id: 'early', label: 'Ранний заезд', note: 'с 06:00', price: 1500, per: 'room' },
+    { id: 'late', label: 'Поздний выезд', note: 'до 18:00', price: 1500, per: 'room' },
+    { id: 'extrabed', label: 'Дополнительная кровать', price: 1000, per: 'room' },
+    { id: 'kidbed', label: 'Детская кровать', price: 0, per: 'room' },
+    { id: 'upgrade', label: 'Повышение категории номера', note: 'Superior → Deluxe', price: 4000, per: 'room' },
+  ] },
+  { cat: 'meal', icon: 'utensils', label: 'Питание', items: [
+    { id: 'breakfast', label: 'Завтрак (шведский стол)', price: 750, per: 'guest' },
+    { id: 'lunch', label: 'Обед', price: 900, per: 'guest' },
+    { id: 'dinner', label: 'Ужин', price: 1200, per: 'guest' },
+  ] },
+  { cat: 'transfer', icon: 'car', label: 'Трансферы', items: [
+    { id: 'tr_in', label: 'Трансфер аэропорт → отель', price: 1800, per: 'unit' },
+    { id: 'tr_out', label: 'Трансфер отель → аэропорт', price: 1800, per: 'unit' },
+  ] },
+  { cat: 'service', icon: 'sparkles', label: 'Сервис в отеле', items: [
+    { id: 'parking', label: 'Парковка', note: 'на период проживания', price: 1000, per: 'unit' },
+    { id: 'spa', label: 'SPA / фитнес доступ', price: 500, per: 'guest' },
+    { id: 'welcome', label: 'Поздравление к приезду', price: 0, per: 'unit' },
+    { id: 'roomservice', label: 'Поздний ужин (room service)', price: 500, per: 'unit' },
+  ] },
+  { cat: 'kids', icon: 'baby', label: 'Детские услуги', items: [
+    { id: 'nanny', label: 'Услуги няни (час)', price: 1200, per: 'unit' },
+    { id: 'kidsmenu', label: 'Детское меню', price: 600, per: 'guest' },
+  ] },
+  { cat: 'insurance', icon: 'shield', label: 'Страхование', items: [
+    { id: 'med', label: 'Медицинская страховка', price: 450, per: 'guest' },
+    { id: 'cancel', label: 'Страховка от невыезда', price: 700, per: 'guest' },
+  ] },
+  { cat: 'other', icon: 'briefcase', label: 'Прочее', items: [
+    { id: 'flowers', label: 'Цветы в номер', price: 2500, per: 'unit' },
+    { id: 'lateco', label: 'Дополнительный комплект полотенец', price: 0, per: 'room' },
+  ] },
+];
+
 // ============ НАСТРОЙКИ: пользователи / роли / права ============
 const USER_STATUS = { 'Активный': 'green', 'Заблокированный': 'red', 'Приглашён': 'amber' };
 const USERS = [
@@ -1087,4 +1214,5 @@ Object.assign(window, {
   ORDER_STAGES, FIN_OP_STATUS, FIN_OPS, DOC_KIND, DOC_STATUS2, DOCS2, FULFILLMENT,
   RETURN_FLOW, RETURN_STATUS, RETURN_TYPE, RETURNS,
   NOTIF_PRIORITY, NOTIF_PRIO_RANK, NOTIF_SOURCE, NOTIFICATIONS, NOTIF_SETTINGS,
+  HOTELS, HOTEL_AMENITIES, HOTEL_DISTRICTS, HOTEL_MEALS, HOTEL_EXTRAS, hotelTariffs, hotelRooms,
 });
