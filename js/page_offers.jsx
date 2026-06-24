@@ -1,13 +1,24 @@
 // ===== Commercial Proposals (КП): constructor, preview, approval, registry =====
 
-function kpM(n, c = 'USD') { return Math.round(n).toLocaleString('ru-RU') + ' ' + (c === 'USD' ? '$' : c); }
+function kpM(n, c = 'USD') { const sym = (CURRENCIES.find((x) => x.code === c) || {}).sym || c; return Math.round(n).toLocaleString('ru-RU') + ' ' + sym; }
 function varCost(v) { return v.items.reduce((s, i) => s + (+i.cost || 0), 0); }
 function varFee(v) { return v.items.reduce((s, i) => s + (+i.fee || 0), 0); }
 function varTotal(v) { return varCost(v) + varFee(v); }
 function kpNow() { const d = new Date(); const p = (n) => String(n).padStart(2, '0'); return `${p(d.getDate())}.${p(d.getMonth() + 1)} · ${p(d.getHours())}:${p(d.getMinutes())}`; }
+
+/* ----- helpers for the "Поезд + Проживание" (train) КП type ----- */
+function trainTotal(train) { return (train.trips || []).reduce((s, t) => s + (+t.cost || 0), 0); }
+function accRowTotal(r) { return +r.cost || 0; }
+function accVarTotal(v) { return (v.rows || []).reduce((s, r) => s + accRowTotal(r), 0); }
+// normalized variant list, regardless of КП type, for summaries/approval UI
+function pVariants(p) {
+  if (p.docType === 'train') return p.accommodation.variants.map((v) => ({ id: v.id, name: v.name, total: accVarTotal(v) }));
+  return p.variants.map((v) => ({ id: v.id, name: v.name, total: varTotal(v) }));
+}
 function proposalSummary(p) {
-  if (p.approvedVariant) { const v = p.variants.find((x) => x.id === p.approvedVariant); return v ? kpM(varTotal(v), p.currency) : '—'; }
-  const totals = p.variants.map(varTotal);
+  const vs = pVariants(p);
+  if (p.approvedVariant) { const v = vs.find((x) => x.id === p.approvedVariant); return v ? kpM(v.total, p.currency) : '—'; }
+  const totals = vs.map((v) => v.total);
   const lo = Math.min(...totals), hi = Math.max(...totals);
   return lo === hi ? kpM(lo, p.currency) : `${kpM(lo, p.currency)} – ${kpM(hi, p.currency)}`;
 }
@@ -80,23 +91,119 @@ function KPPreviewDoc({ proposal, participants }) {
   );
 }
 
+/* ---------- client-facing document: "Поезд + Проживание" ---------- */
+function KPTab({ tone, emoji, children }) {
+  return <div className={'kp2-tab kp2-tab-' + tone}><span className="kp2-tab-emoji">{emoji}</span><div className="kp2-tab-body">{children}</div></div>;
+}
+function TrainTableView({ trips, currency }) {
+  return (
+    <table className="kp2-table">
+      <thead><tr><th>Перевозчик</th><th>Номер</th><th>Маршрут</th><th>Дата</th><th>Отправление</th><th>Дата</th><th>Прибытие</th><th>Цена</th><th>АСБ</th><th>СА</th><th>Кол-во</th><th>Стоимость</th><th>Примечание</th><th>Класс</th><th>Дополнительно</th></tr></thead>
+      <tbody>
+        {trips.map((t) => (
+          <tr key={t.id}>
+            <td>{t.carrier}</td><td>{t.number}</td><td className="kp2-td-wide">{t.route}</td>
+            <td>{t.dateDep}</td><td>{t.timeDep}</td><td>{t.dateArr}</td><td>{t.timeArr}</td>
+            <td>{(+t.price).toLocaleString('ru-RU', { minimumFractionDigits: 2 })}</td>
+            <td>{(+t.asb).toLocaleString('ru-RU', { minimumFractionDigits: 2 })}</td>
+            <td>{(+t.sa).toLocaleString('ru-RU', { minimumFractionDigits: 2 })}</td>
+            <td>{t.qty}</td>
+            <td>{(+t.cost).toLocaleString('ru-RU', { minimumFractionDigits: 2 })}</td>
+            <td className="kp2-td-wide">{t.note}</td><td>{t.cls}</td><td>{t.extra}</td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  );
+}
+function AccTableView({ rows }) {
+  return (
+    <table className="kp2-table">
+      <thead><tr><th>Гостиница</th><th>Номер</th><th>Адрес</th><th>Дата</th><th>Заезд</th><th>Дата</th><th>Выезд</th><th>Цена</th><th>АСБ</th><th>СА</th><th>Кол-во</th><th>Стоимость</th><th>Примечание</th><th>Питание</th><th>Точка</th></tr></thead>
+      <tbody>
+        {rows.map((r) => (
+          <tr key={r.id}>
+            <td>{r.hotel}</td><td>{r.room}</td><td className="kp2-td-wide">{r.address}</td>
+            <td>{r.dateIn}</td><td>{r.timeIn}</td><td>{r.dateOut}</td><td>{r.timeOut}</td>
+            <td>{(+r.price).toLocaleString('ru-RU', { minimumFractionDigits: 2 })}</td>
+            <td>{(+r.asb).toLocaleString('ru-RU')}</td><td>{(+r.sa).toLocaleString('ru-RU')}</td><td>{r.qty}</td>
+            <td>{(+r.cost).toLocaleString('ru-RU', { minimumFractionDigits: 2 })}</td>
+            <td className="kp2-td-wide">{r.note}</td><td>{r.meal}</td><td>{r.point}</td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  );
+}
+function KPTrainPreviewDoc({ proposal }) {
+  const p = proposal;
+  const { train, accommodation: acc } = p;
+  return (
+    <div className="kp2-doc">
+      <div className="kp2-header">
+        <div className="kp2-brand"><BrandMark size={30} color="#e8674f" /><div><div className="kp2-brand-name">Пассажирский</div><div className="kp2-brand-name">сервисный</div><div className="kp2-brand-name">центр</div></div></div>
+        <div className="kp2-badge"><div className="kp2-badge-l">Заказчик: <b>{p.client}</b></div><div className="kp2-badge-s">№ {p.id} от {p.created}</div></div>
+      </div>
+
+      <div className="kp2-section">
+        <div className="kp2-tabs">
+          <KPTab tone="gray" emoji="🚆"><div className="kp2-tab-title">Поезд</div></KPTab>
+          <KPTab tone="amber" emoji=""><div className="kp2-tab-amber-row"><div className="kp2-tab-num">{train.passengers}</div><div className="kp2-tab-cap">пассажиров</div></div></KPTab>
+          <KPTab tone="coral" emoji=""><div className="kp2-tab-cap kp2-tab-cap-light">направление</div><div className="kp2-tab-strong">{train.direction}</div></KPTab>
+        </div>
+        <div className="kp2-row">
+          <div className="kp2-side">
+            <div className="kp2-side-label">В обе стороны</div>
+            <div className="kp2-side-total"><div className="kp2-side-total-l">Итого</div><div className="kp2-side-total-v">{kpM(trainTotal(train), p.currency)}</div></div>
+          </div>
+          <div className="kp2-table-wrap"><TrainTableView trips={train.trips} currency={p.currency} /></div>
+        </div>
+        {train.note && <div className="kp2-note">* {train.note}</div>}
+      </div>
+
+      <div className="kp2-section">
+        <div className="kp2-tabs">
+          <KPTab tone="gray" emoji="🔑"><div className="kp2-tab-title">Проживание</div></KPTab>
+          <KPTab tone="amber" emoji=""><div className="kp2-tab-amber-row"><div className="kp2-tab-num">{acc.guests}</div><div className="kp2-tab-cap">гостей</div></div></KPTab>
+          <KPTab tone="coral" emoji=""><div className="kp2-tab-cap kp2-tab-cap-light">локация</div><div className="kp2-tab-strong">{acc.location.split('\n').map((l, i) => <div key={i}>{l}</div>)}</div></KPTab>
+        </div>
+        {acc.variants.map((v) => (
+          <div className="kp2-row" key={v.id}>
+            <div className="kp2-side">
+              <div className="kp2-side-label">{v.name}</div>
+              {p.approvedVariant === v.id && <Pill tone="green">Выбран клиентом</Pill>}
+              <div className="kp2-side-total"><div className="kp2-side-total-l">Итого</div><div className="kp2-side-total-v">{kpM(accVarTotal(v), p.currency)}</div></div>
+            </div>
+            <div className="kp2-table-wrap"><AccTableView rows={v.rows} /></div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 /* ---------- fix-variant modal (approval) ---------- */
 function FixVariantModal({ open, proposal, onClose, onFix }) {
-  const [pick, setPick] = useState(proposal ? proposal.variants[0].id : null);
-  useEffect(() => { if (proposal) setPick(proposal.variants[0].id); }, [proposal]);
+  const vs = proposal ? pVariants(proposal) : [];
+  const [pick, setPick] = useState(vs[0] ? vs[0].id : null);
+  useEffect(() => { if (proposal) setPick(pVariants(proposal)[0].id); }, [proposal]);
   if (!open || !proposal) return null;
+  const isTrain = proposal.docType === 'train';
   return (
     <Modal open={open} onClose={onClose} size="sm">
       <div style={{ padding: '24px 26px' }}>
         <ModalHeader title="Зафиксировать выбранный вариант" sub="Клиент согласовал предложение" onClose={onClose} />
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10, margin: '10px 0 20px' }}>
-          {proposal.variants.map((v) => (
-            <label key={v.id} className="off-card" style={{ display: 'flex', gridTemplateColumns: 'none', padding: '14px 16px', cursor: 'pointer', borderColor: pick === v.id ? 'var(--blue)' : 'var(--line)' }} onClick={() => setPick(v.id)}>
-              <Radio on={pick === v.id} onChange={() => setPick(v.id)} />
-              <div style={{ flex: 1, marginLeft: 12 }}><div style={{ fontWeight: 600 }}>{v.name}</div><div style={{ fontSize: 13, color: 'var(--muted)' }}>{v.items.length} услуг</div></div>
-              <div style={{ fontWeight: 700 }}>{kpM(varTotal(v), proposal.currency)}</div>
-            </label>
-          ))}
+          {vs.map((v) => {
+            const rowsCount = isTrain ? proposal.accommodation.variants.find((x) => x.id === v.id).rows.length : proposal.variants.find((x) => x.id === v.id).items.length;
+            return (
+              <label key={v.id} className="off-card" style={{ display: 'flex', gridTemplateColumns: 'none', padding: '14px 16px', cursor: 'pointer', borderColor: pick === v.id ? 'var(--blue)' : 'var(--line)' }} onClick={() => setPick(v.id)}>
+                <Radio on={pick === v.id} onChange={() => setPick(v.id)} />
+                <div style={{ flex: 1, marginLeft: 12 }}><div style={{ fontWeight: 600 }}>{v.name}</div><div style={{ fontSize: 13, color: 'var(--muted)' }}>{rowsCount} {isTrain ? plural(rowsCount, ['номер', 'номера', 'номеров']) : 'услуг'}</div></div>
+                <div style={{ fontWeight: 700 }}>{kpM(v.total, proposal.currency)}</div>
+              </label>
+            );
+          })}
         </div>
         <div style={{ display: 'flex', gap: 12 }}>
           <Button variant="secondary" style={{ flex: 1 }} onClick={onClose}>Отмена</Button>
@@ -152,7 +259,7 @@ function KPModule({ order, services, participants, onApprove }) {
     setProposals((ps) => [np, ...ps]); setActiveId(np.id); setActiveVar(np.variants[0].id); setView('edit');
     toast('Черновик КП создан', 'ok');
   };
-  const openEdit = (p) => { setActiveId(p.id); setActiveVar(p.variants[0].id); setView('edit'); };
+  const openEdit = (p) => { setActiveId(p.id); setActiveVar(p.docType === 'train' ? null : p.variants[0].id); setView('edit'); };
   const openPreview = (p) => { setActiveId(p.id); setView('preview'); };
 
   // ----- templates (§4.6) -----
@@ -197,10 +304,10 @@ function KPModule({ order, services, participants, onApprove }) {
   const setField = (f, val) => patch(active.id, (p) => ({ ...p, [f]: val }));
   const sendToClient = () => { patch(active.id, (p) => withHist({ ...p, status: 'Отправлено клиенту' }, 'Отправлено клиенту')); toast('КП отправлено клиенту', 'ok'); };
   const fixVariant = (vid) => {
-    const vname = (active.variants.find((v) => v.id === vid) || {}).name;
+    const vname = (pVariants(active).find((v) => v.id === vid) || {}).name;
     patch(active.id, (p) => withHist({ ...p, status: 'Согласовано', approvedVariant: vid }, 'Зафиксирован вариант: ' + vname));
     setFixOpen(false); toast('Вариант зафиксирован — услуги готовы к бронированию', 'ok');
-    onApprove && onApprove(active.variants.find((v) => v.id === vid));
+    onApprove && onApprove(vid);
   };
 
   /* ----- TEMPLATES (§4.6) ----- */
@@ -275,7 +382,7 @@ function KPModule({ order, services, participants, onApprove }) {
           {proposals.map((p) => (
             <div className="card card-pad" key={p.id}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 }}>
-                <div><div style={{ fontWeight: 700, color: 'var(--ink)', fontSize: 16 }}>{p.id}</div><div style={{ color: 'var(--muted)', fontSize: 13, marginTop: 2 }}>{p.variants.length} вариант(ов) · до {p.validUntil}</div></div>
+                <div><div style={{ fontWeight: 700, color: 'var(--ink)', fontSize: 16 }}>{p.id}</div><div style={{ color: 'var(--muted)', fontSize: 13, marginTop: 2 }}>{p.docType === 'train' && <><Pill tone="teal">Поезд + Проживание</Pill>{' '}</>}{pVariants(p).length} вариант(ов) · до {p.validUntil}</div></div>
                 <Pill tone={KP_STATUS[p.status]}>{p.status}</Pill>
               </div>
               <div className="kv-row" style={{ borderBottom: 'none', padding: '6px 0' }}><span className="k">Сумма</span><span className="v" style={{ fontSize: 17 }}>{proposalSummary(p)}</span></div>
@@ -303,14 +410,29 @@ function KPModule({ order, services, participants, onApprove }) {
           <Button variant="secondary" icon="download" onClick={() => toast('PDF сформирован', 'ok')}>Скачать PDF</Button>
           <Button icon="send" onClick={() => { sendToClient(); setView('list'); }}>Отправить клиенту</Button>
         </div>
-        <KPPreviewDoc proposal={active} participants={participants} />
+        {active.docType === 'train' ? <KPTrainPreviewDoc proposal={active} /> : <KPPreviewDoc proposal={active} participants={participants} />}
       </div>
     );
   }
 
+  /* ----- train-type mutators (trips / accommodation variants) ----- */
+  const updTrip = (tripId, f, val) => patch(active.id, (p) => ({ ...p, train: { ...p.train, trips: p.train.trips.map((t) => (t.id === tripId ? { ...t, [f]: val } : t)) } }));
+  const addTrip = () => patch(active.id, (p) => ({ ...p, train: { ...p.train, trips: [...p.train.trips, { id: uid('t'), carrier: 'Поезд', number: '', route: '', dateDep: '', timeDep: '', dateArr: '', timeArr: '', price: 0, asb: 0, sa: 0, qty: 1, cost: 0, note: '', cls: '', extra: '' }] } }));
+  const delTrip = (tripId) => patch(active.id, (p) => ({ ...p, train: { ...p.train, trips: p.train.trips.filter((t) => t.id !== tripId) } }));
+  const setTrainField = (f, val) => patch(active.id, (p) => ({ ...p, train: { ...p.train, [f]: val } }));
+
+  const updAccRow = (varId, rowId, f, val) => patch(active.id, (p) => ({ ...p, accommodation: { ...p.accommodation, variants: p.accommodation.variants.map((v) => (v.id !== varId ? v : { ...v, rows: v.rows.map((r) => (r.id === rowId ? { ...r, [f]: val } : r)) })) } }));
+  const addAccRow = (varId) => patch(active.id, (p) => ({ ...p, accommodation: { ...p.accommodation, variants: p.accommodation.variants.map((v) => (v.id !== varId ? v : { ...v, rows: [...v.rows, { id: uid('r'), hotel: '', room: '', address: '', dateIn: '', timeIn: '', dateOut: '', timeOut: '', price: 0, asb: 0, sa: 0, qty: 1, cost: 0, note: '', meal: '', point: '' }] })) } }));
+  const delAccRow = (varId, rowId) => patch(active.id, (p) => ({ ...p, accommodation: { ...p.accommodation, variants: p.accommodation.variants.map((v) => (v.id !== varId ? v : { ...v, rows: v.rows.filter((r) => r.id !== rowId) })) } }));
+  const addAccVariant = () => patch(active.id, (p) => ({ ...p, accommodation: { ...p.accommodation, variants: [...p.accommodation.variants, { id: uid('av'), name: 'Вариант ' + (p.accommodation.variants.length + 1), rows: [] }] } }));
+  const delAccVariant = (varId) => { if (active.accommodation.variants.length <= 1) { toast('Должен остаться хотя бы один вариант проживания', 'err'); return; } patch(active.id, (p) => ({ ...p, accommodation: { ...p.accommodation, variants: p.accommodation.variants.filter((v) => v.id !== varId) } })); };
+  const renameAccVariant = (varId, name) => patch(active.id, (p) => ({ ...p, accommodation: { ...p.accommodation, variants: p.accommodation.variants.map((v) => (v.id === varId ? { ...v, name } : v)) } }));
+  const setAccField = (f, val) => patch(active.id, (p) => ({ ...p, accommodation: { ...p.accommodation, [f]: val } }));
+
   /* ----- EDIT (constructor) ----- */
   if (view === 'edit' && active) {
-    const v = active.variants.find((x) => x.id === activeVar) || active.variants[0];
+    const isTrain = active.docType === 'train';
+    const v = !isTrain ? (active.variants.find((x) => x.id === activeVar) || active.variants[0]) : null;
     const canFix = active.status === 'Отправлено клиенту' || active.status === 'На согласовании';
     const approved = active.status === 'Согласовано';
     return (
@@ -321,7 +443,7 @@ function KPModule({ order, services, participants, onApprove }) {
           <KPStatusControl status={active.status} onChange={setStatus} />
           <div style={{ flex: 1 }} />
           <Button variant="secondary" size="sm" icon="clock" onClick={() => setHistOpen(true)}>История</Button>
-          <Button variant="secondary" size="sm" icon="template" onClick={saveAsTemplate}>В шаблон</Button>
+          {!isTrain && <Button variant="secondary" size="sm" icon="template" onClick={saveAsTemplate}>В шаблон</Button>}
           <Button variant="secondary" size="sm" icon="eye" onClick={() => setView('preview')}>Предпросмотр</Button>
           {!approved && !canFix && <Button size="sm" icon="send" onClick={sendToClient}>Отправить клиенту</Button>}
           {canFix && <Button size="sm" icon="check" onClick={() => setFixOpen(true)}>Зафиксировать вариант</Button>}
@@ -337,71 +459,173 @@ function KPModule({ order, services, participants, onApprove }) {
           </div>
         )}
 
-        <div className="kp-var-tabs">
-          {active.variants.map((vr) => (
-            <button key={vr.id} className={'tab' + (vr.id === activeVar ? ' active' : '')} onClick={() => setActiveVar(vr.id)}>
-              {vr.name}{active.approvedVariant === vr.id && ' ✓'}<span className="tab-count">{kpM(varTotal(vr), active.currency)}</span>
-            </button>
-          ))}
-          <ActionMenu trigger={<button className="btn btn-ghost btn-icon btn-sm"><Icon name="plus" /></button>}
-            items={[{ icon: 'plus', label: 'Новый вариант', onClick: () => addVariant(false) }, { icon: 'copy', label: 'Дублировать текущий', onClick: () => addVariant(true) }]} />
-        </div>
-
-        <div className="kp-edit">
-          <div className="kp-main">
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
-              <input className="cell-input" style={{ maxWidth: 320, fontWeight: 600 }} value={v.name} onChange={(e) => renameVariant(v.id, e.target.value)} />
-              <div style={{ flex: 1 }} />
-              <ActionMenu trigger={<Button variant="secondary" size="sm" icon="plus">Услуга</Button>}
-                items={KP_ADD_TYPES.map((t) => ({ icon: SERVICE_KIND[t].icon, label: t, onClick: () => addItem(t) }))} />
-              {active.variants.length > 1 && <Button variant="ghost" size="sm" icon="trash" onClick={() => delVariant(v.id)}>Удалить вариант</Button>}
+        {isTrain ? (
+          <div className="kp2-doc kp2-doc-edit">
+            <div className="kp2-section">
+              <div className="kp2-tabs">
+                <KPTab tone="gray" emoji="🚆"><div className="kp2-tab-title">Поезд</div></KPTab>
+                <KPTab tone="amber" emoji=""><div className="kp2-tab-amber-row"><input className="kp2-tab-num kp2-tab-input" type="number" value={active.train.passengers} onChange={(e) => setTrainField('passengers', +e.target.value)} /><div className="kp2-tab-cap">пассажиров</div></div></KPTab>
+                <KPTab tone="coral" emoji=""><div className="kp2-tab-cap kp2-tab-cap-light">направление</div><input className="kp2-tab-strong kp2-tab-input kp2-tab-input-light" value={active.train.direction} onChange={(e) => setTrainField('direction', e.target.value)} /></KPTab>
+              </div>
+              <div className="kp2-row">
+                <div className="kp2-side">
+                  <div className="kp2-side-label">В обе стороны</div>
+                  <div className="kp2-side-total"><div className="kp2-side-total-l">Итого</div><div className="kp2-side-total-v">{kpM(trainTotal(active.train), active.currency)}</div></div>
+                </div>
+                <div className="kp2-table-wrap">
+                  <table className="kp2-table kp2-table-edit">
+                    <thead><tr><th>Перевозчик</th><th>Номер</th><th>Маршрут</th><th>Дата</th><th>Отправление</th><th>Дата</th><th>Прибытие</th><th>Цена</th><th>АСБ</th><th>СА</th><th>Кол-во</th><th>Стоимость</th><th>Примечание</th><th>Класс</th><th>Дополнительно</th><th style={{ width: 30 }}></th></tr></thead>
+                    <tbody>
+                      {active.train.trips.map((t) => (
+                        <tr key={t.id}>
+                          <td><input className="kp2-cell" value={t.carrier} onChange={(e) => updTrip(t.id, 'carrier', e.target.value)} /></td>
+                          <td><input className="kp2-cell" value={t.number} onChange={(e) => updTrip(t.id, 'number', e.target.value)} /></td>
+                          <td><input className="kp2-cell kp2-cell-wide" value={t.route} onChange={(e) => updTrip(t.id, 'route', e.target.value)} /></td>
+                          <td><input className="kp2-cell" value={t.dateDep} onChange={(e) => updTrip(t.id, 'dateDep', e.target.value)} /></td>
+                          <td><input className="kp2-cell" value={t.timeDep} onChange={(e) => updTrip(t.id, 'timeDep', e.target.value)} /></td>
+                          <td><input className="kp2-cell" value={t.dateArr} onChange={(e) => updTrip(t.id, 'dateArr', e.target.value)} /></td>
+                          <td><input className="kp2-cell" value={t.timeArr} onChange={(e) => updTrip(t.id, 'timeArr', e.target.value)} /></td>
+                          <td><input className="kp2-cell kp2-cell-num" type="number" value={t.price} onChange={(e) => updTrip(t.id, 'price', +e.target.value)} /></td>
+                          <td><input className="kp2-cell kp2-cell-num" type="number" value={t.asb} onChange={(e) => updTrip(t.id, 'asb', +e.target.value)} /></td>
+                          <td><input className="kp2-cell kp2-cell-num" type="number" value={t.sa} onChange={(e) => updTrip(t.id, 'sa', +e.target.value)} /></td>
+                          <td><input className="kp2-cell kp2-cell-num" type="number" value={t.qty} onChange={(e) => updTrip(t.id, 'qty', +e.target.value)} /></td>
+                          <td><input className="kp2-cell kp2-cell-num" type="number" value={t.cost} onChange={(e) => updTrip(t.id, 'cost', +e.target.value)} /></td>
+                          <td><input className="kp2-cell kp2-cell-wide" value={t.note} onChange={(e) => updTrip(t.id, 'note', e.target.value)} /></td>
+                          <td><input className="kp2-cell" value={t.cls} onChange={(e) => updTrip(t.id, 'cls', e.target.value)} /></td>
+                          <td><input className="kp2-cell" value={t.extra} onChange={(e) => updTrip(t.id, 'extra', e.target.value)} /></td>
+                          <td><button className="icon-btn" onClick={() => delTrip(t.id)}><Icon name="trash" style={{ width: 15, height: 15 }} /></button></td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                  <button className="btn btn-ghost btn-sm kp2-add-row" onClick={addTrip}><Icon name="plus" style={{ width: 15, height: 15 }} />Рейс</button>
+                </div>
+              </div>
+              <div style={{ marginTop: 12 }}><Field label="Примечание к стоимости"><Input value={active.train.note} onChange={(e) => setTrainField('note', e.target.value)} /></Field></div>
             </div>
 
-            <div className="table-card">
-              <table className="tbl">
-                <thead><tr><th style={{ width: 36 }}></th><th>Тип</th><th>Услуга</th><th style={{ width: 110, textAlign: 'right' }}>Стоимость</th><th style={{ width: 110, textAlign: 'right' }}>Сервис. сбор</th><th style={{ width: 100, textAlign: 'right' }}>Итого</th><th style={{ width: 40 }}></th></tr></thead>
-                <tbody>
-                  {v.items.length === 0 ? (
-                    <tr><td colSpan={7}><EmptyState icon="inbox" title="В варианте нет услуг" sub="Добавьте услугу через кнопку «Услуга»" /></td></tr>
-                  ) : v.items.map((it, idx) => {
-                    const k = SERVICE_KIND[it.kind] || SERVICE_KIND['Авиа'];
-                    return (
-                      <tr key={it.id}>
-                        <td><div className="row-handle"><button disabled={idx === 0} onClick={() => moveItem(idx, -1)}><Icon name="chevUp" style={{ width: 16, height: 16 }} /></button><button disabled={idx === v.items.length - 1} onClick={() => moveItem(idx, 1)}><Icon name="chevDown" style={{ width: 16, height: 16 }} /></button></div></td>
-                        <td><span style={{ display: 'inline-flex', alignItems: 'center', gap: 7 }}><span className="airline-logo sm" style={{ background: k.color, width: 28, height: 28, borderRadius: 8 }}><Icon name={k.icon} style={{ width: 15, height: 15 }} /></span><Pill tone={k.tone}>{it.kind}</Pill></span></td>
-                        <td><input className="cell-input" value={it.title} onChange={(e) => updItem(it.id, 'title', e.target.value)} style={{ marginBottom: 5 }} /><input className="cell-input" value={it.sub} placeholder="Описание" onChange={(e) => updItem(it.id, 'sub', e.target.value)} style={{ fontSize: 12.5, color: 'var(--muted)' }} /></td>
-                        <td><input className="cell-input cell-num" type="number" value={it.cost} onChange={(e) => updItem(it.id, 'cost', +e.target.value)} /></td>
-                        <td><input className="cell-input cell-num" type="number" value={it.fee} onChange={(e) => updItem(it.id, 'fee', +e.target.value)} /></td>
-                        <td style={{ textAlign: 'right', fontWeight: 700, color: 'var(--ink)' }}>{kpM(it.cost + it.fee, active.currency)}</td>
-                        <td><button className="icon-btn" onClick={() => delItem(it.id)}><Icon name="trash" /></button></td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
+            <div className="kp2-section">
+              <div className="kp2-tabs">
+                <KPTab tone="gray" emoji="🔑"><div className="kp2-tab-title">Проживание</div></KPTab>
+                <KPTab tone="amber" emoji=""><div className="kp2-tab-amber-row"><input className="kp2-tab-num kp2-tab-input" type="number" value={active.accommodation.guests} onChange={(e) => setAccField('guests', +e.target.value)} /><div className="kp2-tab-cap">гостей</div></div></KPTab>
+                <KPTab tone="coral" emoji=""><div className="kp2-tab-cap kp2-tab-cap-light">локация</div><textarea className="kp2-tab-strong kp2-tab-input kp2-tab-input-light kp2-tab-textarea" value={active.accommodation.location} onChange={(e) => setAccField('location', e.target.value)} /></KPTab>
+              </div>
+              {active.accommodation.variants.map((av) => (
+                <div className="kp2-row" key={av.id}>
+                  <div className="kp2-side">
+                    <input className="kp2-side-label kp2-side-label-input" value={av.name} onChange={(e) => renameAccVariant(av.id, e.target.value)} />
+                    {active.approvedVariant === av.id && <Pill tone="green">Выбран клиентом</Pill>}
+                    <div className="kp2-side-total"><div className="kp2-side-total-l">Итого</div><div className="kp2-side-total-v">{kpM(accVarTotal(av), active.currency)}</div></div>
+                    {active.accommodation.variants.length > 1 && <button className="btn btn-ghost btn-sm" onClick={() => delAccVariant(av.id)}><Icon name="trash" style={{ width: 14, height: 14 }} />Удалить</button>}
+                  </div>
+                  <div className="kp2-table-wrap">
+                    <table className="kp2-table kp2-table-edit">
+                      <thead><tr><th>Гостиница</th><th>Номер</th><th>Адрес</th><th>Дата</th><th>Заезд</th><th>Дата</th><th>Выезд</th><th>Цена</th><th>АСБ</th><th>СА</th><th>Кол-во</th><th>Стоимость</th><th>Примечание</th><th>Питание</th><th>Точка</th><th style={{ width: 30 }}></th></tr></thead>
+                      <tbody>
+                        {av.rows.map((r) => (
+                          <tr key={r.id}>
+                            <td><input className="kp2-cell" value={r.hotel} onChange={(e) => updAccRow(av.id, r.id, 'hotel', e.target.value)} /></td>
+                            <td><input className="kp2-cell" value={r.room} onChange={(e) => updAccRow(av.id, r.id, 'room', e.target.value)} /></td>
+                            <td><input className="kp2-cell kp2-cell-wide" value={r.address} onChange={(e) => updAccRow(av.id, r.id, 'address', e.target.value)} /></td>
+                            <td><input className="kp2-cell" value={r.dateIn} onChange={(e) => updAccRow(av.id, r.id, 'dateIn', e.target.value)} /></td>
+                            <td><input className="kp2-cell" value={r.timeIn} onChange={(e) => updAccRow(av.id, r.id, 'timeIn', e.target.value)} /></td>
+                            <td><input className="kp2-cell" value={r.dateOut} onChange={(e) => updAccRow(av.id, r.id, 'dateOut', e.target.value)} /></td>
+                            <td><input className="kp2-cell" value={r.timeOut} onChange={(e) => updAccRow(av.id, r.id, 'timeOut', e.target.value)} /></td>
+                            <td><input className="kp2-cell kp2-cell-num" type="number" value={r.price} onChange={(e) => updAccRow(av.id, r.id, 'price', +e.target.value)} /></td>
+                            <td><input className="kp2-cell kp2-cell-num" type="number" value={r.asb} onChange={(e) => updAccRow(av.id, r.id, 'asb', +e.target.value)} /></td>
+                            <td><input className="kp2-cell kp2-cell-num" type="number" value={r.sa} onChange={(e) => updAccRow(av.id, r.id, 'sa', +e.target.value)} /></td>
+                            <td><input className="kp2-cell kp2-cell-num" type="number" value={r.qty} onChange={(e) => updAccRow(av.id, r.id, 'qty', +e.target.value)} /></td>
+                            <td><input className="kp2-cell kp2-cell-num" type="number" value={r.cost} onChange={(e) => updAccRow(av.id, r.id, 'cost', +e.target.value)} /></td>
+                            <td><input className="kp2-cell kp2-cell-wide" value={r.note} onChange={(e) => updAccRow(av.id, r.id, 'note', e.target.value)} /></td>
+                            <td><input className="kp2-cell" value={r.meal} onChange={(e) => updAccRow(av.id, r.id, 'meal', e.target.value)} /></td>
+                            <td><input className="kp2-cell" value={r.point} onChange={(e) => updAccRow(av.id, r.id, 'point', e.target.value)} /></td>
+                            <td><button className="icon-btn" onClick={() => delAccRow(av.id, r.id)}><Icon name="trash" style={{ width: 15, height: 15 }} /></button></td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                    <button className="btn btn-ghost btn-sm kp2-add-row" onClick={() => addAccRow(av.id)}><Icon name="plus" style={{ width: 15, height: 15 }} />Номер</button>
+                  </div>
+                </div>
+              ))}
+              <Button variant="secondary" size="sm" icon="plus" onClick={addAccVariant} style={{ marginTop: 6 }}>Вариант проживания</Button>
             </div>
-          </div>
 
-          <div className="kp-aside">
-            <div className="card card-pad">
-              <h3 className="card-title" style={{ fontSize: 16, marginBottom: 10 }}>Итог варианта</h3>
-              <div className="oc-kpi"><span className="l">Стоимость услуг</span><span className="v">{kpM(varCost(v), active.currency)}</span></div>
-              <div className="oc-kpi"><span className="l">Сервисные сборы</span><span className="v">{kpM(varFee(v), active.currency)}</span></div>
-              <div className="oc-kpi"><span className="l" style={{ fontWeight: 700, color: 'var(--ink)' }}>Итого</span><span className="v" style={{ fontSize: 18 }}>{kpM(varTotal(v), active.currency)}</span></div>
-            </div>
-            <div className="card card-pad">
+            <div className="card card-pad" style={{ marginTop: 18 }}>
               <Field label="Валюта"><Select options={CURRENCIES.map((c) => ({ value: c.code, label: `${c.code} · ${c.name}` }))} value={active.currency} onChange={(e) => setField('currency', e.target.value)} /></Field>
               <div style={{ height: 14 }} />
               <Field label="Срок действия предложения"><Input value={active.validUntil} onChange={(e) => setField('validUntil', e.target.value)} leadIcon="calendar" /></Field>
             </div>
-            <div className="card card-pad">
-              <h3 className="card-title" style={{ fontSize: 16, marginBottom: 10 }}>Участники</h3>
-              {(participants || ORDER_PARTICIPANTS).map((p, i) => (
-                <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '7px 0' }}><Avatar name={p.name} size={30} /><div><div style={{ fontSize: 14, fontWeight: 600 }}>{p.name}</div><div style={{ fontSize: 12, color: 'var(--muted)' }}>{p.role}</div></div></div>
-              ))}
-            </div>
           </div>
-        </div>
+        ) : (
+          <>
+            <div className="kp-var-tabs">
+              {active.variants.map((vr) => (
+                <button key={vr.id} className={'tab' + (vr.id === activeVar ? ' active' : '')} onClick={() => setActiveVar(vr.id)}>
+                  {vr.name}{active.approvedVariant === vr.id && ' ✓'}<span className="tab-count">{kpM(varTotal(vr), active.currency)}</span>
+                </button>
+              ))}
+              <ActionMenu trigger={<button className="btn btn-ghost btn-icon btn-sm"><Icon name="plus" /></button>}
+                items={[{ icon: 'plus', label: 'Новый вариант', onClick: () => addVariant(false) }, { icon: 'copy', label: 'Дублировать текущий', onClick: () => addVariant(true) }]} />
+            </div>
+
+            <div className="kp-edit">
+              <div className="kp-main">
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
+                  <input className="cell-input" style={{ maxWidth: 320, fontWeight: 600 }} value={v.name} onChange={(e) => renameVariant(v.id, e.target.value)} />
+                  <div style={{ flex: 1 }} />
+                  <ActionMenu trigger={<Button variant="secondary" size="sm" icon="plus">Услуга</Button>}
+                    items={KP_ADD_TYPES.map((t) => ({ icon: SERVICE_KIND[t].icon, label: t, onClick: () => addItem(t) }))} />
+                  {active.variants.length > 1 && <Button variant="ghost" size="sm" icon="trash" onClick={() => delVariant(v.id)}>Удалить вариант</Button>}
+                </div>
+
+                <div className="table-card">
+                  <table className="tbl">
+                    <thead><tr><th style={{ width: 36 }}></th><th>Тип</th><th>Услуга</th><th style={{ width: 110, textAlign: 'right' }}>Стоимость</th><th style={{ width: 110, textAlign: 'right' }}>Сервис. сбор</th><th style={{ width: 100, textAlign: 'right' }}>Итого</th><th style={{ width: 40 }}></th></tr></thead>
+                    <tbody>
+                      {v.items.length === 0 ? (
+                        <tr><td colSpan={7}><EmptyState icon="inbox" title="В варианте нет услуг" sub="Добавьте услугу через кнопку «Услуга»" /></td></tr>
+                      ) : v.items.map((it, idx) => {
+                        const k = SERVICE_KIND[it.kind] || SERVICE_KIND['Авиа'];
+                        return (
+                          <tr key={it.id}>
+                            <td><div className="row-handle"><button disabled={idx === 0} onClick={() => moveItem(idx, -1)}><Icon name="chevUp" style={{ width: 16, height: 16 }} /></button><button disabled={idx === v.items.length - 1} onClick={() => moveItem(idx, 1)}><Icon name="chevDown" style={{ width: 16, height: 16 }} /></button></div></td>
+                            <td><span style={{ display: 'inline-flex', alignItems: 'center', gap: 7 }}><span className="airline-logo sm" style={{ background: k.color, width: 28, height: 28, borderRadius: 8 }}><Icon name={k.icon} style={{ width: 15, height: 15 }} /></span><Pill tone={k.tone}>{it.kind}</Pill></span></td>
+                            <td><input className="cell-input" value={it.title} onChange={(e) => updItem(it.id, 'title', e.target.value)} style={{ marginBottom: 5 }} /><input className="cell-input" value={it.sub} placeholder="Описание" onChange={(e) => updItem(it.id, 'sub', e.target.value)} style={{ fontSize: 12.5, color: 'var(--muted)' }} /></td>
+                            <td><input className="cell-input cell-num" type="number" value={it.cost} onChange={(e) => updItem(it.id, 'cost', +e.target.value)} /></td>
+                            <td><input className="cell-input cell-num" type="number" value={it.fee} onChange={(e) => updItem(it.id, 'fee', +e.target.value)} /></td>
+                            <td style={{ textAlign: 'right', fontWeight: 700, color: 'var(--ink)' }}>{kpM(it.cost + it.fee, active.currency)}</td>
+                            <td><button className="icon-btn" onClick={() => delItem(it.id)}><Icon name="trash" /></button></td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              <div className="kp-aside">
+                <div className="card card-pad">
+                  <h3 className="card-title" style={{ fontSize: 16, marginBottom: 10 }}>Итог варианта</h3>
+                  <div className="oc-kpi"><span className="l">Стоимость услуг</span><span className="v">{kpM(varCost(v), active.currency)}</span></div>
+                  <div className="oc-kpi"><span className="l">Сервисные сборы</span><span className="v">{kpM(varFee(v), active.currency)}</span></div>
+                  <div className="oc-kpi"><span className="l" style={{ fontWeight: 700, color: 'var(--ink)' }}>Итого</span><span className="v" style={{ fontSize: 18 }}>{kpM(varTotal(v), active.currency)}</span></div>
+                </div>
+                <div className="card card-pad">
+                  <Field label="Валюта"><Select options={CURRENCIES.map((c) => ({ value: c.code, label: `${c.code} · ${c.name}` }))} value={active.currency} onChange={(e) => setField('currency', e.target.value)} /></Field>
+                  <div style={{ height: 14 }} />
+                  <Field label="Срок действия предложения"><Input value={active.validUntil} onChange={(e) => setField('validUntil', e.target.value)} leadIcon="calendar" /></Field>
+                </div>
+                <div className="card card-pad">
+                  <h3 className="card-title" style={{ fontSize: 16, marginBottom: 10 }}>Участники</h3>
+                  {(participants || ORDER_PARTICIPANTS).map((p, i) => (
+                    <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '7px 0' }}><Avatar name={p.name} size={30} /><div><div style={{ fontSize: 14, fontWeight: 600 }}>{p.name}</div><div style={{ fontSize: 12, color: 'var(--muted)' }}>{p.role}</div></div></div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </>
+        )}
 
         <FixVariantModal open={fixOpen} proposal={active} onClose={() => setFixOpen(false)} onFix={fixVariant} />
         <KPHistoryDrawer open={histOpen} proposal={active} onClose={() => setHistOpen(false)} />
@@ -427,15 +651,18 @@ function KPHistoryDrawer({ open, proposal, onClose }) {
 }
 
 /* ---------- Новое КП (форма создания, привязка к заказу) ---------- */
+const KP_DOC_TYPES = [{ value: 'generic', label: 'Обычное (услуги: авиа, гостиница, трансфер…)' }, { value: 'train', label: 'Поезд + Проживание' }];
+
 function KPCreateModal({ open, onClose, onCreated, onOpenOrder }) {
   const toast = useToast();
   const [orderNo, setOrderNo] = useState('');
+  const [docType, setDocType] = useState('generic');
   const [name, setName] = useState('');
   const [currency, setCurrency] = useState('USD');
   const [valid, setValid] = useState('25.06.2026');
   const [base, setBase] = useState('empty'); // empty | services | tpl:<id>
   const [errs, setErrs] = useState({});
-  useEffect(() => { if (open) { setOrderNo(''); setName(''); setCurrency('USD'); setValid('25.06.2026'); setBase('empty'); setErrs({}); } }, [open]);
+  useEffect(() => { if (open) { setOrderNo(''); setDocType('generic'); setName(''); setCurrency('USD'); setValid('25.06.2026'); setBase('empty'); setErrs({}); } }, [open]);
   const uid = (p) => p + Math.random().toString(36).slice(2, 7);
   // unique orders for the picker
   const seen = {};
@@ -443,8 +670,17 @@ function KPCreateModal({ open, onClose, onCreated, onOpenOrder }) {
   const baseOpts = [{ value: 'empty', label: 'Пустой вариант' }, { value: 'services', label: 'Из услуг заказа' },
     ...KP_TEMPLATES.map((t) => ({ value: 'tpl:' + t.id, label: 'Шаблон: ' + t.name }))];
 
+  const buildTrain = (order) => {
+    const np = { id: 'КП-' + (1100 + PROPOSALS.length), order: order.no, client: order.client, status: 'Черновик', currency, validUntil: valid, created: '15.06.2026', approvedVariant: null, docType: 'train',
+      train: { passengers: 1, direction: '', note: '', trips: [] },
+      accommodation: { guests: 1, location: '', variants: [{ id: uid('av'), name: 'Вариант 1', rows: [] }] },
+      history: [{ t: kpNow(), text: 'КП «Поезд + Проживание» создано для заказа № ' + order.no, who: 'Даниель' }] };
+    PROPOSALS.unshift(np);
+    return np;
+  };
   const build = () => {
     const order = ORDERS.find((o) => String(o.no) === String(orderNo));
+    if (docType === 'train') return { np: buildTrain(order), order };
     let items = [], vname = name || 'Вариант A';
     if (base === 'services') items = (ORDER_SERVICES || []).map((s) => ({ id: uid('i'), kind: s.kind, title: s.title, sub: s.sub, cost: Math.round((s.sum || 0) * 0.95), fee: Math.round((s.sum || 0) * 0.05) }));
     else if (base.indexOf('tpl:') === 0) { const t = KP_TEMPLATES.find((x) => x.id === base.slice(4)); if (t) { items = t.items.map((s) => ({ id: uid('i'), ...s })); if (!name) vname = t.name; } }
@@ -466,10 +702,11 @@ function KPCreateModal({ open, onClose, onCreated, onOpenOrder }) {
         <ModalHeader title="Новое коммерческое предложение" sub="КП привязывается к заказу — далее редактируется в конструкторе" onClose={onClose} />
         <div className="form-grid">
           <Field label="Заказ" required error={errs.order} ><Select options={orderOpts} placeholder="Выберите заказ" value={orderNo} onChange={(e) => setOrderNo(e.target.value)} error={errs.order} /></Field>
-          <Field label="Название варианта"><Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Вариант A · Прямые рейсы" /></Field>
+          <Field label="Тип КП"><Select options={KP_DOC_TYPES} value={docType} onChange={(e) => setDocType(e.target.value)} /></Field>
+          {docType !== 'train' && <Field label="Название варианта"><Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Вариант A · Прямые рейсы" /></Field>}
           <Field label="Валюта"><Select options={CURRENCIES.map((c) => ({ value: c.code, label: `${c.code} · ${c.name}` }))} value={currency} onChange={(e) => setCurrency(e.target.value)} /></Field>
           <Field label="Действует до"><Input value={valid} onChange={(e) => setValid(e.target.value)} leadIcon="calendar" /></Field>
-          <Field label="Наполнение варианта"><Select options={baseOpts} value={base} onChange={(e) => setBase(e.target.value)} /></Field>
+          {docType !== 'train' && <Field label="Наполнение варианта"><Select options={baseOpts} value={base} onChange={(e) => setBase(e.target.value)} /></Field>}
         </div>
         <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 12, marginTop: 26 }}>
           <Button variant="secondary" onClick={onClose}>Отмена</Button>
@@ -500,7 +737,7 @@ function OffersRegistry({ onOpenOrder, intent, onConsume }) {
     if (q && !(`${p.id} ${p.client} ${p.order}`.toLowerCase().includes(q.toLowerCase()))) return false;
     return true;
   });
-  rows = apply(rows, { id: (r) => r.id, order: (r) => r.order, created: (r) => r.created, total: (r) => Math.max(...r.variants.map(varTotal)) });
+  rows = apply(rows, { id: (r) => r.id, order: (r) => r.order, created: (r) => r.created, total: (r) => Math.max(...pVariants(r).map((v) => v.total)) });
 
   const counts = (st) => proposals.filter((p) => !st || p.status === st).length;
   const STATS = [['Всего', counts()], ['Отправлено', counts('Отправлено клиенту')], ['На согласовании', counts('На согласовании')], ['Согласовано', counts('Согласовано')]];
@@ -532,7 +769,7 @@ function OffersRegistry({ onOpenOrder, intent, onConsume }) {
                   <td className="t-strong">{p.id}</td>
                   <td><span style={{ color: 'var(--blue)', fontWeight: 600 }}>№ {p.order}</span></td>
                   <td>{p.client}</td>
-                  <td>{p.variants.length}</td>
+                  <td>{pVariants(p).length}</td>
                   <td style={{ textAlign: 'right', fontWeight: 600 }}>{proposalSummary(p)}</td>
                   <td>{p.validUntil}</td>
                   <td><Pill tone={KP_STATUS[p.status]}>{p.status}</Pill></td>
@@ -547,14 +784,14 @@ function OffersRegistry({ onOpenOrder, intent, onConsume }) {
         ) : <EmptyState icon="template" title="Предложений не найдено" sub="Измените поиск или фильтры" />}
       </div>
 
-      <Modal open={!!preview} onClose={() => setPreview(null)} className="">
+      <Modal open={!!preview} onClose={() => setPreview(null)} className={preview && preview.docType === 'train' ? 'kp2-modal-wide' : ''}>
         <div style={{ padding: 0, maxHeight: '88vh', overflowY: 'auto' }}>
           <div style={{ display: 'flex', justifyContent: 'flex-end', padding: '14px 16px', position: 'sticky', top: 0, background: '#fff', borderBottom: '1px solid var(--line)', zIndex: 2 }}>
             {preview && <span style={{ flex: 1, fontWeight: 700, alignSelf: 'center', paddingLeft: 8 }}>{preview.id} · заказ № {preview.order}</span>}
             <Button variant="secondary" size="sm" icon="orders" onClick={() => { const o = (ORDERS.find((x) => x.no === preview.order)) || { no: preview.order, client: preview.client, requestType: 'Индивидуальная', status: 'В работе', operator: 'Даниель', date: '15.06.25' }; setPreview(null); onOpenOrder(o); }}>Перейти в заказ</Button>
             <button className="modal-close" onClick={() => setPreview(null)} style={{ marginLeft: 8 }}><Icon name="x" /></button>
           </div>
-          <div style={{ padding: 24, background: 'var(--surface-2)' }}>{preview && <KPPreviewDoc proposal={preview} />}</div>
+          <div style={{ padding: 24, background: 'var(--surface-2)' }}>{preview && (preview.docType === 'train' ? <KPTrainPreviewDoc proposal={preview} /> : <KPPreviewDoc proposal={preview} />)}</div>
         </div>
       </Modal>
 

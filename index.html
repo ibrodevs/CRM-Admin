@@ -1014,6 +1014,63 @@ table.tbl tbody tr:last-child td{border-bottom:none}
 .bw-done-card{text-align:center;padding:34px 24px}
 .bw-done-ic{width:72px;height:72px;border-radius:50%;background:var(--green-bg);color:var(--green);display:flex;align-items:center;justify-content:center;margin:0 auto 16px}
 .bw-done-ic svg{width:38px;height:38px}
+
+/* ===== KP2: client document "Поезд + Проживание" ===== */
+.kp2-doc{background:#fff;border-radius:18px;padding:32px 36px 40px;max-width:1320px}
+.kp2-doc-edit{padding:0;max-width:none}
+.kp2-header{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:28px;gap:20px;flex-wrap:wrap}
+.kp2-brand{display:flex;align-items:center;gap:10px}
+.kp2-brand-name{font-size:13px;font-weight:700;color:#e8674f;line-height:1.22}
+.kp2-badge{background:var(--surface-2);border-radius:14px;padding:14px 20px;min-width:220px}
+.kp2-badge-l{font-size:15px;color:var(--ink);margin-bottom:6px}
+.kp2-badge-l b{font-weight:700}
+.kp2-badge-s{font-size:13px;color:var(--muted)}
+
+.kp2-section{margin-bottom:32px}
+.kp2-section:last-child{margin-bottom:0}
+
+.kp2-tabs{display:flex;align-items:flex-end;gap:14px;margin-bottom:20px;flex-wrap:wrap}
+.kp2-tab{position:relative;border-radius:14px;padding:18px 24px 16px;min-width:150px}
+.kp2-tab::before{content:'';position:absolute;top:-12px;left:18px;width:46px;height:16px;border-radius:9px 9px 0 0;background-color:inherit}
+.kp2-tab-gray{background:var(--gray-bg)}
+.kp2-tab-amber{background:#fbe3a4}
+.kp2-tab-coral{background:#e8674f;color:#fff}
+.kp2-tab-emoji{font-size:26px;line-height:1;margin-right:10px;vertical-align:middle}
+.kp2-tab-body{display:inline-block;vertical-align:middle}
+.kp2-tab-title{font-size:19px;font-weight:700;color:var(--ink)}
+.kp2-tab-amber-row{display:flex;align-items:baseline;gap:7px}
+.kp2-tab-num{font-size:30px;font-weight:800;color:var(--ink);line-height:1}
+.kp2-tab-num.kp2-tab-input{width:2.2em;border:none;background:transparent;font:inherit;font-weight:800;color:var(--ink);padding:0}
+.kp2-tab-cap{font-size:12px;color:var(--muted)}
+.kp2-tab-cap-light{color:rgba(255,255,255,.85);font-size:11.5px;font-weight:600;margin-bottom:3px}
+.kp2-tab-strong{font-size:15.5px;font-weight:700;color:#fff;line-height:1.32;display:block}
+.kp2-tab-input{border:none;background:transparent;font:inherit;padding:0;width:100%}
+.kp2-tab-input-light{color:#fff}
+.kp2-tab-input-light::placeholder{color:rgba(255,255,255,.7)}
+.kp2-tab-textarea{resize:none;min-height:40px;font-size:15.5px;font-weight:700;line-height:1.32}
+
+.kp2-row{display:flex;gap:14px;align-items:stretch;margin-bottom:14px}
+.kp2-side{flex:0 0 168px;background:var(--surface-2);border-radius:14px;padding:16px;display:flex;flex-direction:column;justify-content:space-between;gap:10px}
+.kp2-side-label{font-size:14px;font-weight:600;color:var(--ink)}
+.kp2-side-label-input{border:none;background:transparent;font:inherit;font-weight:600;padding:0;width:100%}
+.kp2-side-total-l{font-size:12px;color:var(--muted);margin-bottom:2px}
+.kp2-side-total-v{font-size:21px;font-weight:800;color:var(--ink)}
+
+.kp2-table-wrap{flex:1;min-width:0;overflow-x:auto;border:1px solid var(--line);border-radius:14px}
+.kp2-table{width:100%;border-collapse:collapse;font-size:12.6px;white-space:nowrap}
+.kp2-table th,.kp2-table td{border:1px solid var(--line);padding:10px 12px;text-align:left;color:var(--body)}
+.kp2-table th{font-weight:600;color:var(--muted);background:#fbfcfe;white-space:nowrap}
+.kp2-table td.kp2-td-wide{white-space:normal;min-width:180px}
+
+.kp2-table-edit td{padding:4px 5px}
+.kp2-cell{width:100%;border:1px solid transparent;border-radius:7px;padding:6px 7px;font-size:12.6px;background:transparent;min-width:64px}
+.kp2-cell:focus{border-color:var(--field-line);background:#fff}
+.kp2-cell-num{text-align:right}
+.kp2-cell-wide{min-width:160px}
+.kp2-add-row{margin:10px}
+
+.kp2-note{margin-top:10px;background:var(--surface-2);border-radius:10px;padding:10px 16px;font-size:12.5px;color:var(--muted);font-style:italic}
+.modal.kp2-modal-wide{max-width:min(96vw,1480px)}
 </style>
 </head>
 <body>
