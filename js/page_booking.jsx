@@ -74,13 +74,35 @@ function BookingWizard({ order, services, draft, onClose, onComplete, onSaveDraf
   const [pay, setPay] = useState(draft ? draft.pay : 'invoice');
   const [histOpen, setHistOpen] = useState(false);
   const [supportOpen, setSupportOpen] = useState(false);
-  const [offerPreview, setOfferPreview] = useState(null); // { rec: bool } | null
+  const [offerPreview, setOfferPreview] = useState(null); // { rec, draft } | null
+  const [contactSvc, setContactSvc] = useState(null); // service being chased with a supplier
+  // тайм-лимиты ответов поставщиков: базовый дедлайн на услугу + продления оператора
+  const startRef = useRef(Date.now());
+  const [tlBonus, setTlBonus] = useState({}); // serviceId -> добавленные минуты
+  const [now, setNow] = useState(Date.now());
+  // живой отсчёт тикает только на шаге «Получение ответов», чтобы не нагружать остальные шаги
+  useEffect(() => {
+    if (step !== 1) return;
+    const t = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(t);
+  }, [step]);
+  // дедлайн тайм-лимита по услуге (первая услуга уже подтверждена, у остальных идёт отсчёт)
+  const tlDeadline = (s, i) => startRef.current + (45 + i * 20 + (tlBonus[s.id] || 0)) * 60000;
+  const tlText = (s, i) => {
+    const ms = tlDeadline(s, i) - now;
+    if (ms <= 0) return 'тайм-лимит истёк';
+    const m = Math.floor(ms / 60000), h = Math.floor(m / 60);
+    return 'осталось ' + (h ? h + 'ч ' : '') + (m % 60) + 'м';
+  };
+  const refreshTl = (s) => { setTlBonus((p) => ({ ...p, [s.id]: (p[s.id] || 0) + 30 })); setNow(Date.now()); toast('Тайм-лимит по «' + s.title + '» продлён на 30 мин — запрос отправлен поставщику', 'ok'); };
   // progress is auto-saved as a draft on every change — the operator can switch to other
   // sections of the order or close the wizard at any point and resume exactly where they left off
   useEffect(() => { onSaveDraft && onSaveDraft({ step, method, pay }); }, [step, method, pay]);
   const saveDraftAndExit = () => { toast('Бронирование сохранено как черновик — можно продолжить в любой момент', 'ok'); onClose(); };
 
-  const STEPS = ['Выбор варианта', 'Запуск', 'Получение ответов', 'Подтверждение', 'Формирование КП', 'Выписка и оплата', 'Завершение'];
+  // «Запуск» убран как лишний шаг; формирование КП объединено с «Подтверждением»
+  // (на подтверждении суммы фиксируются по тайм-лимиту)
+  const STEPS = ['Выбор вариантов', 'Получение ответов', 'Подтверждение', 'Выписка и оплата', 'Завершение'];
   const total = services.reduce((a, s) => a + bwRub(s), 0);
   const fee = 1900;
   const route = (services.find((s) => s.kind === 'Авиа') || {}).title || (order && order.no ? 'Заказ № ' + order.no : 'Маршрут заказа');
@@ -93,17 +115,17 @@ function BookingWizard({ order, services, draft, onClose, onComplete, onSaveDraf
   const readiness = [
     { tone: 'ok', text: 'Все услуги добавлены в заказ' },
     { tone: 'ok', text: 'Пассажиры и документы заполнены' },
-    { tone: step >= 2 ? 'ok' : 'wait', text: 'Запрос отправлен поставщикам' },
-    { tone: step >= 3 ? 'ok' : 'idle', text: 'Ответы получены и подтверждены' },
-    { tone: step >= 5 ? 'ok' : 'idle', text: 'Документы выписаны' },
+    { tone: step >= 1 ? 'ok' : 'wait', text: 'Запрос отправлен поставщикам' },
+    { tone: step >= 2 ? 'ok' : 'idle', text: 'Ответы получены и подтверждены' },
+    { tone: step >= 3 ? 'ok' : 'idle', text: 'Документы выписаны' },
   ];
 
   // booking-status by step for each service (visual)
   const svcView = (s, i) => {
-    if (step <= 1) return { status: 'Готово к запуску', tone: 'gray' };
-    if (step === 2) return i === 0 ? { status: 'Подтверждено', tone: 'green' } : { status: 'Ожидание ответа', tone: 'amber' };
-    if (step < 5) return { status: 'Подтверждено', tone: 'green' };
-    return { status: step >= 6 ? 'Выписано' : 'К выписке', tone: step >= 6 ? 'green' : 'blue' };
+    if (step === 0) return { status: 'Готово к бронированию', tone: 'gray' };
+    if (step === 1) return i === 0 ? { status: 'Подтверждено', tone: 'green' } : { status: 'Ожидание ответа', tone: 'amber' };
+    if (step === 2) return { status: 'Подтверждено', tone: 'green' };
+    return { status: step >= 4 ? 'Выписано' : 'К выписке', tone: step >= 4 ? 'green' : 'blue' };
   };
 
   /* ---- per-step main content ---- */
@@ -126,42 +148,54 @@ function BookingWizard({ order, services, draft, onClose, onComplete, onSaveDraf
           </div>
           <div className="section-title" style={{ fontSize: 16, marginBottom: 12 }}>Услуги к бронированию</div>
           {services.map((s, i) => <BwSvc key={s.id} s={s} />)}
+          {/* на этом этапе можно сформировать ознакомительное КП — стоимость ещё не зафиксирована */}
+          <div className="card card-pad bw-kp-note" style={{ marginTop: 16, display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap' }}>
+            <span className="bw-kp-ic"><Icon name="template" /></span>
+            <div style={{ flex: 1, minWidth: 220 }}>
+              <div style={{ fontWeight: 700, color: 'var(--ink)' }}>Ознакомительное КП</div>
+              <div style={{ fontSize: 13, color: 'var(--muted)', marginTop: 3 }}>Стоимость предварительная и не зафиксирована — итоговые суммы зафиксируются на этапе «Подтверждение» по тайм-лимиту.</div>
+            </div>
+            <Button variant="secondary" icon="eye" onClick={() => setOfferPreview({ rec: false, draft: true })}>Сформировать КП</Button>
+          </div>
         </div>
       );
       case 1: return (
         <div>
-          <div className="section-title" style={{ fontSize: 18, marginBottom: 6 }}>Запуск бронирования</div>
-          <div style={{ color: 'var(--muted)', fontSize: 13.5, marginBottom: 16 }}>Запросы будут отправлены поставщикам одновременно. Тайм-лимиты начнут отсчёт после запуска.</div>
-          {services.map((s, i) => { const v = svcView(s, i); return <BwSvc key={s.id} s={s} status={v.status} tone={v.tone} />; })}
-        </div>
-      );
-      case 2: return (
-        <div>
-          <div style={{ display: 'flex', alignItems: 'center', marginBottom: 14 }}>
+          <div style={{ display: 'flex', alignItems: 'center', marginBottom: 6 }}>
             <div className="section-title" style={{ fontSize: 18 }}>Получение ответов от поставщиков</div>
             <div style={{ flex: 1 }} />
             <Button variant="secondary" size="sm" icon="chat" onClick={() => setSupportOpen(true)}>Написать в поддержку</Button>
             <Button variant="secondary" size="sm" icon="clock" onClick={() => setHistOpen(true)}>История запросов</Button>
           </div>
-          {services.map((s, i) => { const v = svcView(s, i); return (
+          <div style={{ color: 'var(--muted)', fontSize: 13.5, marginBottom: 16 }}>Тайм-лимиты идут по каждой услуге. Продлите лимит или свяжитесь с поставщиком, чтобы ускорить ответ.</div>
+          {services.map((s, i) => { const v = svcView(s, i); const wait = v.tone === 'amber'; return (
             <BwSvc key={s.id} s={s} status={v.status} tone={v.tone}
-              right={<div style={{ textAlign: 'right', minWidth: 120 }}>
-                <div style={{ fontWeight: 700, color: 'var(--ink)' }}>{ocMoney(s.sum, s.currency)}</div>
-                <div style={{ fontSize: 12, color: v.tone === 'amber' ? 'var(--amber)' : 'var(--muted)' }}>{v.tone === 'amber' ? 'тайм-лимит 17:00' : 'ответ получен'}</div>
+              right={<div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                {wait ? (
+                  <div className="bw-tl">
+                    <span className="bw-tl-time"><Icon name="clock" />{tlText(s, i)}</span>
+                    <button className="bw-tl-btn" onClick={() => refreshTl(s)}><Icon name="zap" />Продлить</button>
+                    <button className="bw-tl-btn alt" onClick={() => setContactSvc(s)}><Icon name="chat" />Связаться</button>
+                  </div>
+                ) : (
+                  <div style={{ textAlign: 'right' }}>
+                    <div style={{ fontWeight: 700, color: 'var(--ink)' }}>{ocMoney(s.sum, s.currency)}</div>
+                    <div style={{ fontSize: 12, color: 'var(--green)' }}>ответ получен</div>
+                  </div>
+                )}
               </div>} />
           ); })}
         </div>
       );
-      case 3: return (
+      case 2: return (
         <div>
-          <div className="section-title" style={{ fontSize: 18, marginBottom: 14 }}>Подтверждение услуг</div>
+          <div className="section-title" style={{ fontSize: 18, marginBottom: 6 }}>Подтверждение услуг</div>
+          <div style={{ color: 'var(--muted)', fontSize: 13.5, marginBottom: 14 }}>Стоимость зафиксирована по тайм-лимиту. КП формируется с фиксированными суммами для согласования с клиентом.</div>
           {services.map((s) => <BwSvc key={s.id} s={s} status="Подтверждено" tone="green" />)}
-        </div>
-      );
-      case 4: return (
-        <div>
-          <div className="section-title" style={{ fontSize: 18, marginBottom: 6 }}>Сформировать обновлённое КП</div>
-          <div style={{ color: 'var(--muted)', fontSize: 13.5, marginBottom: 16 }}>Сравните варианты и отправьте клиенту на согласование перед выпиской.</div>
+          <div className="section-title" style={{ fontSize: 16, margin: '22px 0 6px', display: 'flex', alignItems: 'center', gap: 8 }}>
+            КП с фиксированными суммами <Pill tone="green">Цена зафиксирована</Pill>
+          </div>
+          <div style={{ color: 'var(--muted)', fontSize: 13, marginBottom: 14 }}>Сравните варианты и отправьте клиенту на согласование перед выпиской.</div>
           <div className="grid-2">
             {[['Базовый вариант', total, false], ['Расширенный вариант', total + 61000, true]].map(([title, sum, rec]) => (
               <div key={title} className={'card card-pad' + (rec ? '' : '')} style={{ border: rec ? '1px solid var(--blue)' : null, boxShadow: rec ? '0 0 0 2px var(--blue-soft)' : null }}>
@@ -178,7 +212,7 @@ function BookingWizard({ order, services, draft, onClose, onComplete, onSaveDraf
           </div>
         </div>
       );
-      case 5: return (
+      case 3: return (
         <div>
           <div className="section-title" style={{ fontSize: 18, marginBottom: 14 }}>Выписка и оплата</div>
           {services.map((s, i) => { const v = svcView(s, i); return (
@@ -195,7 +229,7 @@ function BookingWizard({ order, services, draft, onClose, onComplete, onSaveDraf
           </div>
         </div>
       );
-      case 6: return (
+      case 4: return (
         <div>
           <div className="card">
             <div className="bw-done-card">
@@ -225,7 +259,7 @@ function BookingWizard({ order, services, draft, onClose, onComplete, onSaveDraf
 
   /* ---- per-step aside ---- */
   const aside = () => {
-    if (step === 2) return (
+    if (step === 1) return (
       <div className="bw-aside">
         <h4>Идёт получение ответов</h4>
         <div className="bw-prog" style={{ '--p': '72%' }}><span>72%</span></div>
@@ -233,10 +267,10 @@ function BookingWizard({ order, services, draft, onClose, onComplete, onSaveDraf
         <BwReadiness title="Состояние" items={services.map((s, i) => ({ tone: svcView(s, i).tone === 'green' ? 'ok' : 'wait', text: s.kind + ' — ' + svcView(s, i).status }))} />
       </div>
     );
-    if (step === 3 || step === 5) return (
+    if (step === 2 || step === 3) return (
       <div>
         <div className="bw-aside">
-          <h4>{step === 3 ? 'Готовность к выписке' : 'Сводка по заказу'}</h4>
+          <h4>{step === 2 ? 'Готовность к выписке' : 'Сводка по заказу'}</h4>
           {services.map((s) => <div key={s.id} className="kv-row"><span className="k">{s.kind}</span><span className="v">{ocMoney(s.sum, s.currency)}</span></div>)}
           <div className="kv-row"><span className="k">Сервисный сбор</span><span className="v">{bwMoney(fee)}</span></div>
           <div className="kv-row" style={{ borderBottom: 'none' }}><span className="k" style={{ fontWeight: 700, color: 'var(--ink)' }}>Итого</span><span className="v" style={{ fontSize: 18 }}>{bwMoney(total + fee)}</span></div>
@@ -244,7 +278,7 @@ function BookingWizard({ order, services, draft, onClose, onComplete, onSaveDraf
         <BwReadiness items={readiness} title="Документы к выпуску" />
       </div>
     );
-    if (step === 6) return (
+    if (step === 4) return (
       <div className="bw-aside">
         <h4>Информация о заказе</h4>
         <div className="kv">
@@ -261,12 +295,10 @@ function BookingWizard({ order, services, draft, onClose, onComplete, onSaveDraf
 
   /* ---- footer ---- */
   const footer = () => {
-    if (step === 0) return <><Button variant="secondary" onClick={onClose}>Отмена</Button><div style={{ flex: 1 }} /><Button iconRight="arrowRight" onClick={next}>Продолжить</Button></>;
-    if (step === 1) return <><Button variant="secondary" icon="chevLeft" onClick={back}>Назад</Button><div style={{ flex: 1 }} /><Button icon="zap" onClick={() => { toast('Бронирование запущено', 'ok'); next(); }}>Запустить бронирование</Button></>;
-    if (step === 2) return <><Button variant="secondary" icon="chevLeft" onClick={back}>Назад</Button><div style={{ flex: 1 }} /><Button icon="check" onClick={next}>Все ответы получены</Button></>;
-    if (step === 3) return <><Button variant="secondary" icon="chevLeft" onClick={back}>Назад</Button><div style={{ flex: 1 }} /><Button variant="secondary" icon="template" onClick={next}>Сформировать КП</Button><Button iconRight="arrowRight" onClick={() => setStep(5)}>К выписке и оплате</Button></>;
-    if (step === 4) return <><Button variant="secondary" icon="chevLeft" onClick={back}>Назад</Button><div style={{ flex: 1 }} /><Button variant="secondary" onClick={() => setStep(5)}>Создать без согласования</Button><Button icon="send" onClick={() => { toast('КП отправлено на согласование', 'ok'); setStep(5); }}>Отправить на согласование</Button></>;
-    if (step === 5) return <><Button variant="secondary" icon="chevLeft" onClick={back}>Назад</Button><div style={{ flex: 1 }} /><Button icon="check" onClick={() => { toast('Документы выписаны, оплата принята', 'ok'); next(); }}>Выписать и принять оплату</Button></>;
+    if (step === 0) return <><Button variant="secondary" onClick={onClose}>Отмена</Button><div style={{ flex: 1 }} /><Button icon="zap" onClick={() => { toast('Бронирование запущено — запросы отправлены поставщикам', 'ok'); next(); }}>Забронировать</Button></>;
+    if (step === 1) return <><Button variant="secondary" icon="chevLeft" onClick={back}>Назад</Button><div style={{ flex: 1 }} /><Button icon="check" onClick={next}>Все ответы получены</Button></>;
+    if (step === 2) return <><Button variant="secondary" icon="chevLeft" onClick={back}>Назад</Button><div style={{ flex: 1 }} /><Button variant="secondary" icon="send" onClick={() => toast('КП отправлено клиенту на согласование', 'ok')}>Отправить КП клиенту</Button><Button iconRight="arrowRight" onClick={next}>К выписке и оплате</Button></>;
+    if (step === 3) return <><Button variant="secondary" icon="chevLeft" onClick={back}>Назад</Button><div style={{ flex: 1 }} /><Button icon="check" onClick={() => { toast('Документы выписаны, оплата принята', 'ok'); next(); }}>Выписать и принять оплату</Button></>;
     return <><div style={{ flex: 1 }} /><Button icon="check" onClick={() => { onComplete && onComplete(); onClose(); }}>Готово</Button></>;
   };
 
@@ -318,13 +350,40 @@ function BookingWizard({ order, services, draft, onClose, onComplete, onSaveDraf
         </div>
       </Drawer>
 
+      {/* связаться с поставщиком по конкретной услуге — ускорение ответа на тайм-лимите */}
+      <Drawer open={!!contactSvc} onClose={() => setContactSvc(null)} title={contactSvc ? 'Поставщик · ' + contactSvc.supplier : 'Поставщик'}>
+        {contactSvc && (
+          <div style={{ margin: '-4px 0 14px' }}>
+            <div className="bw-svc" style={{ marginBottom: 12 }}>
+              <span className="ic" style={{ background: (SERVICE_KIND[contactSvc.kind] || SERVICE_KIND['Авиа']).color }}><Icon name={(SERVICE_KIND[contactSvc.kind] || {}).icon || 'plane'} /></span>
+              <div style={{ flex: 1, minWidth: 0 }}><div className="t">{contactSvc.title}</div><div className="s">{contactSvc.sub} · {contactSvc.supplier}</div></div>
+              <Pill tone="amber">Ожидание ответа</Pill>
+            </div>
+            <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginBottom: 14 }}>
+              <Button variant="secondary" icon="zap" onClick={() => { refreshTl(contactSvc); }}>Продлить тайм-лимит</Button>
+              <Button variant="secondary" icon="phone" onClick={() => toast('Звонок поставщику ' + contactSvc.supplier, 'info')}>Позвонить</Button>
+              <Button icon="send" onClick={() => { toast('Запрос на ускорение отправлен — ' + contactSvc.supplier, 'ok'); setContactSvc(null); }}>Поторопить</Button>
+            </div>
+            <div style={{ height: 460, display: 'flex', flexDirection: 'column', overflow: 'hidden', margin: '0 -32px -28px' }}>
+              {order && <ChatThread thread={getThreadForOrder(order)} embedded initChannel="supplier" />}
+            </div>
+          </div>
+        )}
+      </Drawer>
+
       {/* branded offer preview — converts the supplier blanks into our letterhead document */}
       <Modal open={!!offerPreview} onClose={() => setOfferPreview(null)}>
         {offerPreview && (() => {
           const offer = offerFromServices(order, services, total, fee, offerPreview.rec);
           return (
             <div style={{ padding: '24px 26px' }}>
-              <ModalHeader title="Предложение для клиента" sub={offer.id} onClose={() => setOfferPreview(null)} />
+              <ModalHeader title={offerPreview.draft ? 'Ознакомительное КП' : 'Предложение для клиента'} sub={offer.id} onClose={() => setOfferPreview(null)} />
+              <div className={'bw-kp-banner ' + (offerPreview.draft ? 'draft' : 'fixed')}>
+                <Icon name={offerPreview.draft ? 'alertCircle' : 'checkCircle'} />
+                {offerPreview.draft
+                  ? 'Стоимость предварительная и не зафиксирована — может измениться после ответов поставщиков.'
+                  : 'Стоимость зафиксирована по тайм-лимиту.'}
+              </div>
               <div style={{ background: 'var(--surface-2)', padding: 20, borderRadius: 14 }}>
                 <KPPreviewDoc proposal={offer} />
               </div>

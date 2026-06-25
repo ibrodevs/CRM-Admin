@@ -595,18 +595,74 @@ function RadioFlightRow({ opt, selected, onSelect }) {
    group with a swap icon, then a savings summary) and «3. Сложный маршрут»
    (numbered timeline of legs with layover tags, then a route summary).
    ==================================================================== */
+/* левый фильтр выдачи рейсов (как у гостиниц): цена / пересадки / авиакомпании / багаж / поставщики */
+function aviaPriceBounds() { const t = FLIGHT_OFFERS.map((o) => o.fare + o.fee); return { min: Math.floor(Math.min(...t)), max: Math.ceil(Math.max(...t)) }; }
+function AviaFilters({ flt, setFlt, bounds }) {
+  const airlines = [...new Set(FLIGHT_OFFERS.map((o) => o.airline))];
+  const suppliers = [...new Set(FLIGHT_OFFERS.map((o) => o.supplier))];
+  const tg = (key, val) => setFlt((f) => ({ ...f, [key]: f[key].includes(val) ? f[key].filter((x) => x !== val) : [...f[key], val] }));
+  return (
+    <aside className="hp-filters">
+      <div className="hp-filters-head">
+        <span>Фильтры</span>
+        <button className="hp-reset" onClick={() => setFlt({ stops: [], air: [], sup: [], bagOnly: false, refundOnly: false, priceMax: bounds.max })}>Сбросить всё</button>
+      </div>
+      <div className="hp-filter-block">
+        <div className="hp-filter-title">Цена</div>
+        <div className="hp-price-range">
+          <span className="hp-pr-from">от {money(bounds.min, 'USD')}</span>
+          <span className="hp-pr-to">{money(flt.priceMax == null ? bounds.max : flt.priceMax, 'USD')}</span>
+        </div>
+        <input type="range" className="hp-slider" min={bounds.min} max={bounds.max} step="1"
+          value={flt.priceMax == null ? bounds.max : flt.priceMax}
+          onChange={(e) => setFlt((f) => ({ ...f, priceMax: +e.target.value }))} />
+      </div>
+      <div className="hp-filter-block">
+        <div className="hp-filter-title">Пересадки</div>
+        {[['0', 'Без пересадок'], ['1', '1 пересадка'], ['2plus', '2+ пересадки']].map(([v, l]) => (
+          <label key={v} className="hp-check-row"><Checkbox on={flt.stops.includes(v)} onChange={() => tg('stops', v)} /><span className="hp-check-label">{l}</span></label>
+        ))}
+      </div>
+      <div className="hp-filter-block">
+        <div className="hp-filter-title">Авиакомпании</div>
+        {airlines.map((a) => (
+          <label key={a} className="hp-check-row"><Checkbox on={flt.air.includes(a)} onChange={() => tg('air', a)} /><span className="hp-check-label">{AIRLINES[a].name}</span><span className="hp-check-cnt">{FLIGHT_OFFERS.filter((o) => o.airline === a).length}</span></label>
+        ))}
+      </div>
+      <div className="hp-filter-block">
+        <div className="hp-filter-title">Багаж и тариф</div>
+        <label className="hp-check-row"><Checkbox on={flt.bagOnly} onChange={() => setFlt((f) => ({ ...f, bagOnly: !f.bagOnly }))} /><span className="hp-check-label">Только с багажом</span></label>
+        <label className="hp-check-row"><Checkbox on={flt.refundOnly} onChange={() => setFlt((f) => ({ ...f, refundOnly: !f.refundOnly }))} /><span className="hp-check-label">Только возвратные</span></label>
+      </div>
+      <div className="hp-filter-block">
+        <div className="hp-filter-title">Поставщики</div>
+        {suppliers.map((s) => (
+          <label key={s} className="hp-check-row"><Checkbox on={flt.sup.includes(s)} onChange={() => tg('sup', s)} /><span className="hp-check-label">{s}</span></label>
+        ))}
+      </div>
+    </aside>
+  );
+}
+
 function AviaSearchPanel({ params, setParams, paxCount, onAdd }) {
   const p = params;
   const set = (patch) => setParams({ ...p, ...patch });
   const swap = () => set({ from: p.to, to: p.from });
-  const [stopFilter, setStopFilter] = useState('rec');
+  const aviaBounds = aviaPriceBounds();
+  const [flt, setFlt] = useState({ stops: [], air: [], sup: [], bagOnly: false, refundOnly: false, priceMax: aviaBounds.max });
   const [visible, setVisible] = useState(5);
   const [legs, setLegs] = useState({}); // { out: optKey, back: optKey, seg1: optKey, seg2: optKey }
 
-  let pool = [...FLIGHT_OFFERS];
-  if (stopFilter === 'direct') pool = pool.filter((o) => !o.out.stops);
-  if (stopFilter === '1') pool = pool.filter((o) => o.out.stops === 1);
-  if (stopFilter === '2plus') pool = pool.filter((o) => o.out.stops >= 2);
+  let pool = FLIGHT_OFFERS.filter((o) => {
+    const st = o.out.stops >= 2 ? '2plus' : String(o.out.stops || 0);
+    if (flt.stops.length && !flt.stops.includes(st)) return false;
+    if (flt.air.length && !flt.air.includes(o.airline)) return false;
+    if (flt.sup.length && !flt.sup.includes(o.supplier)) return false;
+    if (flt.bagOnly && o.baggage === 'Без багажа') return false;
+    if (flt.refundOnly && !o.refundable) return false;
+    if (flt.priceMax != null && (o.fare + o.fee) > flt.priceMax) return false;
+    return true;
+  });
   pool = [...pool].sort((a, b) => (a.fare + a.fee) - (b.fare + b.fee));
 
   const outOpts = pool.map((o) => ({ key: o.id + '-o', airline: o.airline, leg: o.out, supplier: o.supplier, price: Math.round((o.fare + o.fee) * 0.6) }));
@@ -648,17 +704,13 @@ function AviaSearchPanel({ params, setParams, paxCount, onAdd }) {
           ))}
         </div>
         <div style={{ flex: 1 }} />
+        <span style={{ color: 'var(--muted)', fontSize: 13.5 }}>Найдено {pool.length}</span>
         <div style={{ minWidth: 190 }}><Select options={[{ value: 'price', label: 'Сортировка: Цена' }]} value="price" onChange={() => {}} /></div>
       </div>
 
-      <div style={{ display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap', marginBottom: 6 }}>
-        <div className="tabs">
-          {[['rec', 'Рекомендованные'], ['all', 'Все рейсы'], ['direct', 'Прямые'], ['1', '1 пересадка'], ['2plus', '2+ пересадки']].map(([k, l]) => (
-            <button key={k} className={'tab' + (stopFilter === k ? ' active' : '')} onClick={() => setStopFilter(k)}>{l}</button>
-          ))}
-        </div>
-      </div>
-
+      <div className="hp-layout">
+        <AviaFilters flt={flt} setFlt={setFlt} bounds={aviaBounds} />
+        <div style={{ minWidth: 0 }}>
       {/* 1. one-way — a flat radio list */}
       {p.trip === 'ow' && (
         <>
@@ -730,6 +782,8 @@ function AviaSearchPanel({ params, setParams, paxCount, onAdd }) {
       )}
 
       <Button icon="check" disabled={!allPicked} style={{ marginTop: 14 }} onClick={submit}>Добавить в заказ</Button>
+        </div>
+      </div>
     </div>
   );
 }

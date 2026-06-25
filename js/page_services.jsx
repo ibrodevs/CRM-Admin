@@ -122,6 +122,57 @@ function SvcCard({ item, kind, onBack }) {
 }
 function SVC_CFG_TITLE(kind) { return Object.values(SVC_CFG).find((c) => c.kind === kind).title; }
 
+/* ---------- левый фильтр выдачи (как у гостиниц): цена / поставщик / особенности ---------- */
+function svcPriceBounds(offers) {
+  const totals = offers.map((o) => o.cost + o.fee);
+  return { min: Math.floor(Math.min(...totals)), max: Math.ceil(Math.max(...totals)) };
+}
+function SvcFilters({ allOffers, flt, setFlt, bounds, facetLabel }) {
+  const suppliers = [...new Set(allOffers.map((o) => o.supplier))];
+  const supCount = (s) => allOffers.filter((o) => o.supplier === s).length;
+  const tags = [...new Set(allOffers.flatMap((o) => o.tags || []))];
+  const tg = (key, val) => setFlt((f) => ({ ...f, [key]: f[key].includes(val) ? f[key].filter((x) => x !== val) : [...f[key], val] }));
+  return (
+    <aside className="hp-filters">
+      <div className="hp-filters-head">
+        <span>Фильтры</span>
+        <button className="hp-reset" onClick={() => setFlt({ sup: [], tags: [], priceMax: bounds.max })}>Сбросить всё</button>
+      </div>
+      <div className="hp-filter-block">
+        <div className="hp-filter-title">Цена</div>
+        <div className="hp-price-range">
+          <span className="hp-pr-from">от {svM(bounds.min)}</span>
+          <span className="hp-pr-to">{svM(flt.priceMax == null ? bounds.max : flt.priceMax)}</span>
+        </div>
+        <input type="range" className="hp-slider" min={bounds.min} max={bounds.max} step="1"
+          value={flt.priceMax == null ? bounds.max : flt.priceMax}
+          onChange={(e) => setFlt((f) => ({ ...f, priceMax: +e.target.value }))} />
+      </div>
+      <div className="hp-filter-block">
+        <div className="hp-filter-title">Поставщик</div>
+        {suppliers.map((s) => (
+          <label key={s} className="hp-check-row">
+            <Checkbox on={flt.sup.includes(s)} onChange={() => tg('sup', s)} />
+            <span className="hp-check-label">{s}</span>
+            <span className="hp-check-cnt">{supCount(s)}</span>
+          </label>
+        ))}
+      </div>
+      {tags.length > 0 && (
+        <div className="hp-filter-block">
+          <div className="hp-filter-title">{facetLabel || 'Особенности'}</div>
+          {tags.map((t) => (
+            <label key={t} className="hp-check-row">
+              <Checkbox on={flt.tags.includes(t)} onChange={() => tg('tags', t)} />
+              <span className="hp-check-label">{t}</span>
+            </label>
+          ))}
+        </div>
+      )}
+    </aside>
+  );
+}
+
 /* ====================================================================
    FLOW
    ==================================================================== */
@@ -137,15 +188,22 @@ function ServiceFlow({ routeKey }) {
   const [sort, setSort] = useState('best');
   const [q, setQ] = useState('');
   const [fStatus, setFStatus] = useState('');
+  const bounds = svcPriceBounds(data.offers);
+  const [flt, setFlt] = useState({ sup: [], tags: [], priceMax: bounds.max });
   const setF = (key, val) => setForm((f) => ({ ...f, [key]: val }));
 
   const TITLES = { registry: cfg.title, search: cfg.searchTitle, results: 'Результаты поиска', card: cfg.title };
 
   const runSearch = () => { setView('results'); setLoading(true); setTimeout(() => setLoading(false), 900); };
 
-  let offers = [...data.offers];
-  if (sort === 'cheap') offers.sort((a, b) => (a.cost + a.fee) - (b.cost + b.fee));
-  if (sort === 'pricey') offers.sort((a, b) => (b.cost + b.fee) - (a.cost + a.fee));
+  let offers = data.offers.filter((o) => {
+    if (flt.priceMax != null && (o.cost + o.fee) > flt.priceMax) return false;
+    if (flt.sup.length && !flt.sup.includes(o.supplier)) return false;
+    if (flt.tags.length && !(o.tags || []).some((t) => flt.tags.includes(t))) return false;
+    return true;
+  });
+  if (sort === 'cheap') offers = [...offers].sort((a, b) => (a.cost + a.fee) - (b.cost + b.fee));
+  if (sort === 'pricey') offers = [...offers].sort((a, b) => (b.cost + b.fee) - (a.cost + a.fee));
 
   let rows = data.registry.filter((r) => (!fStatus || r.status === fStatus) && (!q || `${r.no} ${r.main} ${r.order}`.toLowerCase().includes(q.toLowerCase())));
 
@@ -209,9 +267,16 @@ function ServiceFlow({ routeKey }) {
               <div style={{ flex: 1 }} />
               <span style={{ color: 'var(--muted)', fontSize: 14 }}>{loading ? 'Поиск…' : `Найдено ${offers.length}`}</span>
             </div>
-            {loading
-              ? [0, 1, 2].map((i) => (<div key={i} className="off-card" style={{ marginBottom: 14 }}><div className="off-main"><div className="sk" style={{ height: 44, width: '55%' }} /><div className="sk" style={{ height: 26, width: '85%' }} /></div><div className="off-side"><div className="sk" style={{ height: 56 }} /></div></div>))
-              : offers.map((o) => <SvcOfferCard key={o.id} o={o} kind={cfg.kind} onSelect={(x) => { setItem(x); setView('card'); toast('Открыто без привязки к заказу — добавить можно из карточки заказа', 'info'); }} onSave={() => toast('Предложение сохранено', 'ok')} />)}
+            <div className="hp-layout">
+              <SvcFilters allOffers={data.offers} flt={flt} setFlt={setFlt} bounds={bounds} facetLabel={cfg.kind === 'ЖД' ? 'Класс и условия' : 'Особенности'} />
+              <div>
+                {loading
+                  ? [0, 1, 2].map((i) => (<div key={i} className="off-card" style={{ marginBottom: 14 }}><div className="off-main"><div className="sk" style={{ height: 44, width: '55%' }} /><div className="sk" style={{ height: 26, width: '85%' }} /></div><div className="off-side"><div className="sk" style={{ height: 56 }} /></div></div>))
+                  : offers.length
+                    ? offers.map((o) => <SvcOfferCard key={o.id} o={o} kind={cfg.kind} onSelect={(x) => { setItem(x); setView('card'); toast('Открыто без привязки к заказу — добавить можно из карточки заказа', 'info'); }} onSave={() => toast('Предложение сохранено', 'ok')} />)
+                    : <EmptyState icon={k.icon} title="Нет вариантов по фильтрам" sub="Смягчите условия фильтрации слева" />}
+              </div>
+            </div>
           </div>
         )}
 
@@ -232,12 +297,19 @@ function ServiceAddFlow({ routeKey, onAdd }) {
   const [form, setForm] = useState({});
   const [loading, setLoading] = useState(false);
   const [sort, setSort] = useState('best');
+  const bounds = svcPriceBounds(data.offers);
+  const [flt, setFlt] = useState({ sup: [], tags: [], priceMax: bounds.max });
   const setF = (k, v) => setForm((f) => ({ ...f, [k]: v }));
   const runSearch = () => { setView('results'); setLoading(true); setTimeout(() => setLoading(false), 800); };
 
-  let offers = [...data.offers];
-  if (sort === 'cheap') offers.sort((a, b) => (a.cost + a.fee) - (b.cost + b.fee));
-  if (sort === 'pricey') offers.sort((a, b) => (b.cost + b.fee) - (a.cost + a.fee));
+  let offers = data.offers.filter((o) => {
+    if (flt.priceMax != null && (o.cost + o.fee) > flt.priceMax) return false;
+    if (flt.sup.length && !flt.sup.includes(o.supplier)) return false;
+    if (flt.tags.length && !(o.tags || []).some((t) => flt.tags.includes(t))) return false;
+    return true;
+  });
+  if (sort === 'cheap') offers = [...offers].sort((a, b) => (a.cost + a.fee) - (b.cost + b.fee));
+  if (sort === 'pricey') offers = [...offers].sort((a, b) => (b.cost + b.fee) - (a.cost + a.fee));
 
   return (
     <div className="fade-in">
@@ -264,9 +336,16 @@ function ServiceAddFlow({ routeKey, onAdd }) {
             {[['best', 'Оптимальные'], ['cheap', 'Дешевле'], ['pricey', 'Дороже']].map(([k, l]) => (<button key={k} className={'tab' + (sort === k ? ' active' : '')} onClick={() => setSort(k)}>{l}</button>))}
             <div style={{ flex: 1 }} /><span style={{ color: 'var(--muted)', fontSize: 14, alignSelf: 'center' }}>{loading ? 'Поиск…' : `Найдено ${offers.length}`}</span>
           </div>
-          {loading
-            ? [0, 1, 2].map((i) => (<div key={i} className="off-card" style={{ marginBottom: 14 }}><div className="off-main"><div className="sk" style={{ height: 44, width: '55%' }} /><div className="sk" style={{ height: 26, width: '85%' }} /></div><div className="off-side"><div className="sk" style={{ height: 56 }} /></div></div>))
-            : offers.map((o) => <SvcOfferCard key={o.id} o={o} kind={cfg.kind} onSelect={(x) => onAdd(x, cfg.kind)} onSave={() => toast('Предложение сохранено', 'ok')} />)}
+          <div className="hp-layout">
+            <SvcFilters allOffers={data.offers} flt={flt} setFlt={setFlt} bounds={bounds} facetLabel={cfg.kind === 'ЖД' ? 'Класс и условия' : 'Особенности'} />
+            <div>
+              {loading
+                ? [0, 1, 2].map((i) => (<div key={i} className="off-card" style={{ marginBottom: 14 }}><div className="off-main"><div className="sk" style={{ height: 44, width: '55%' }} /><div className="sk" style={{ height: 26, width: '85%' }} /></div><div className="off-side"><div className="sk" style={{ height: 56 }} /></div></div>))
+                : offers.length
+                  ? offers.map((o) => <SvcOfferCard key={o.id} o={o} kind={cfg.kind} onSelect={(x) => onAdd(x, cfg.kind)} onSave={() => toast('Предложение сохранено', 'ok')} />)
+                  : <EmptyState icon={SERVICE_KIND[cfg.kind].icon} title="Нет вариантов по фильтрам" sub="Смягчите условия фильтрации слева" />}
+            </div>
+          </div>
         </>
       )}
     </div>
