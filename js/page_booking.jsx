@@ -69,8 +69,11 @@ function offerFromServices(order, services, total, fee, rec) {
 
 function BookingWizard({ order, services, draft, onClose, onComplete, onSaveDraft }) {
   const toast = useToast();
+  // групповой сценарий (выбор «индивидуальное / групповое») показываем ТОЛЬКО когда заказ
+  // действительно групповой/корпоративный — для заявок на пару человек он лишний
+  const isGroupOrder = !!(order && (order.requestType === 'Групповая' || order.requestType === 'Корпоративная'));
   const [step, setStep] = useState(draft ? draft.step : 0);
-  const [method, setMethod] = useState(draft ? draft.method : 'ind');
+  const [method, setMethod] = useState(isGroupOrder ? (draft ? draft.method : 'ind') : 'ind');
   const [pay, setPay] = useState(draft ? draft.pay : 'invoice');
   const [histOpen, setHistOpen] = useState(false);
   const [supportOpen, setSupportOpen] = useState(false);
@@ -133,19 +136,23 @@ function BookingWizard({ order, services, draft, onClose, onComplete, onSaveDraf
     switch (step) {
       case 0: return (
         <div>
-          <div className="section-title" style={{ fontSize: 18, marginBottom: 12 }}>Выберите способ бронирования</div>
-          <div className="grid-2" style={{ marginBottom: 22 }}>
-            <div className={'bw-method' + (method === 'ind' ? ' sel' : '')} onClick={() => setMethod('ind')}>
-              <span className="mi"><Icon name="user" /></span>
-              <div><div style={{ fontWeight: 700, color: 'var(--ink)', fontSize: 15.5 }}>Индивидуальное бронирование</div>
-                <div style={{ fontSize: 13, color: 'var(--muted)', marginTop: 4 }}>Автоматическая отправка запросов поставщикам по каждой услуге</div></div>
-            </div>
-            <div className={'bw-method' + (method === 'group' ? ' sel' : '')} onClick={() => setMethod('group')}>
-              <span className="mi"><Icon name="users" /></span>
-              <div><div style={{ fontWeight: 700, color: 'var(--ink)', fontSize: 15.5 }}>Групповой запрос</div>
-                <div style={{ fontSize: 13, color: 'var(--muted)', marginTop: 4 }}>Единый запрос на группу — ручное подтверждение поставщиком</div></div>
-            </div>
-          </div>
+          {isGroupOrder && (
+            <>
+              <div className="section-title" style={{ fontSize: 18, marginBottom: 12 }}>Выберите способ бронирования</div>
+              <div className="grid-2" style={{ marginBottom: 22 }}>
+                <div className={'bw-method' + (method === 'ind' ? ' sel' : '')} onClick={() => setMethod('ind')}>
+                  <span className="mi"><Icon name="user" /></span>
+                  <div><div style={{ fontWeight: 700, color: 'var(--ink)', fontSize: 15.5 }}>Индивидуальное бронирование</div>
+                    <div style={{ fontSize: 13, color: 'var(--muted)', marginTop: 4 }}>Автоматическая отправка запросов поставщикам по каждой услуге</div></div>
+                </div>
+                <div className={'bw-method' + (method === 'group' ? ' sel' : '')} onClick={() => setMethod('group')}>
+                  <span className="mi"><Icon name="users" /></span>
+                  <div><div style={{ fontWeight: 700, color: 'var(--ink)', fontSize: 15.5 }}>Групповой запрос</div>
+                    <div style={{ fontSize: 13, color: 'var(--muted)', marginTop: 4 }}>Единый запрос на группу — ручное подтверждение поставщиком</div></div>
+                </div>
+              </div>
+            </>
+          )}
           <div className="section-title" style={{ fontSize: 16, marginBottom: 12 }}>Услуги к бронированию</div>
           {services.map((s, i) => <BwSvc key={s.id} s={s} />)}
           {/* на этом этапе можно сформировать ознакомительное КП — стоимость ещё не зафиксирована */}

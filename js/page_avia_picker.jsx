@@ -212,8 +212,11 @@ function fareClassGroup(code) { return ['C', 'J', 'D'].includes(code) ? 'busines
 function fareTiersForClass(code) { return fareClassGroup(code) === 'business' ? AVIA_FARE_TIERS_BUSINESS : AVIA_FARE_TIERS; }
 function fareCabinLabel(code) { return (AVIA_BOOKING_CLASSES.find((c) => c.code === code) || {}).cabin || 'Эконом'; }
 
-function FareSelectPanel({ pax, classByPax, setClassByPax, fareByPax, setFareByPax, individualMode, setIndividualMode, onAddPax, onClose, onApply }) {
+function paxIsChild(p) { return /реб[её]н|child|инфант|infant/i.test(p.role || ''); }
+
+function FareSelectPanel({ pax, groups, classByPax, setClassByPax, fareByPax, setFareByPax, individualMode, setIndividualMode, onAddPax, onClose, onApply }) {
   const [activePax, setActivePax] = useState(0);
+  const [collapsed, setCollapsed] = useState({}); // groupId -> bool (left-list subgroup folding)
   const classOf = (i) => classByPax[i] || 'Y';
   const tiersOf = (i) => fareTiersForClass(classOf(i));
   const fareOf = (i) => fareByPax[i] || (tiersOf(i).find((f) => f.recommended) || tiersOf(i)[0]).id;
@@ -232,37 +235,87 @@ function FareSelectPanel({ pax, classByPax, setClassByPax, fareByPax, setFareByP
     }
   };
 
-  const applyToAll = () => {
+  // copy the active passenger's class + fare onto an explicit set of passenger indices
+  const applyTo = (idxs) => {
     const cls = classOf(activePax), fr = fareOf(activePax);
-    setClassByPax((p) => { const n = { ...p }; pax.forEach((_, k) => { n[k] = cls; }); return n; });
-    setFareByPax((p) => { const n = { ...p }; pax.forEach((_, k) => { n[k] = fr; }); return n; });
+    setClassByPax((p) => { const n = { ...p }; idxs.forEach((k) => { n[k] = cls; }); return n; });
+    setFareByPax((p) => { const n = { ...p }; idxs.forEach((k) => { n[k] = fr; }); return n; });
+  };
+  const applyToAll = () => applyTo(pax.map((_, k) => k));
+
+  // ---- subgroup sections for the left list ----
+  // `groups` (optional): [{ id, name, members:[paxIdx] }]. Passengers not in any group fall
+  // into a trailing «Без подгруппы» section. With no groups we render one flat, header-less list.
+  const sections = (() => {
+    if (groups && groups.length) {
+      const used = new Set();
+      const secs = groups.map((g) => {
+        const members = (g.members || []).filter((i) => i < pax.length && !used.has(i));
+        members.forEach((i) => used.add(i));
+        return { id: g.id, name: g.name, members };
+      }).filter((s) => s.members.length);
+      const rest = pax.map((_, i) => i).filter((i) => !used.has(i));
+      if (rest.length) secs.push({ id: '__rest', name: 'Без подгруппы', members: rest });
+      return secs;
+    }
+    return [{ id: '__all', name: null, members: pax.map((_, i) => i) }];
+  })();
+
+  const sectionStatus = (members) => {
+    if (members.every((i) => paxIsChild(pax[i]))) return { label: 'Дети', tone: 'blue' };
+    const explicit = members.filter((i) => fareByPax[i] !== undefined).length;
+    if (explicit === members.length) return { label: 'С тарифом', tone: 'green' };
+    if (explicit === 0) return { label: 'Не назначены', tone: 'amber' };
+    return { label: explicit + ' из ' + members.length, tone: 'gray' };
   };
 
   const total = pax.reduce((s, _, i) => s + tierOf(i).delta, 0);
   const ap = pax[activePax];
 
+  const PaxRow = ({ i }) => (
+    <div className={'fare-sel-row' + (activePax === i ? ' active' : '')} onClick={() => setActivePax(i)}>
+      <div className="nm">{i + 1}. {pax[i].name}</div>
+      <div className="tr">{tierOf(i).name}{classOf(i) !== 'Y' ? ' · класс ' + classOf(i) : ''}</div>
+      <div className="pr">{tierOf(i).delta ? '+ ' + rub(tierOf(i).delta) : '0 ₽'}</div>
+    </div>
+  );
+
   return (
-    <StackPanel title="Выберите тариф" width="min(1240px,96vw)" onClose={onClose}
+    <StackPanel title="Выберите тариф" width="min(1180px,96vw)" onClose={onClose}
       footer={<Button style={{ width: '100%' }} icon="check" onClick={onApply}>Применить тарифы и продолжить</Button>}>
       <div className="fare-hint"><Icon name="alertCircle" />Стоимость может отличаться для каждого пассажира в зависимости от выбранного тарифа и условий.</div>
 
       <div className="fare-layout">
-        <div className="fare-main">
-          <div className="ap-sc-title">Пассажиры ({pax.length})</div>
-          <div className="fare-pax-tabs">
-            {pax.map((p, i) => (
-              <button key={i} className={'fare-pax-tab' + (activePax === i ? ' sel' : '')} onClick={() => setActivePax(i)}>
-                <div className="n">{i + 1}. {p.name}</div>
-                <div className="r">{p.role}</div>
-              </button>
-            ))}
-            {onAddPax && (
-              <button type="button" className="fare-pax-tab add" onClick={onAddPax}>
-                <Icon name="plus" />Добавить пассажира
-              </button>
-            )}
+        {/* LEFT — passengers / selected fares, grouped by subgroup when the order has them */}
+        <aside className="fare-aside">
+          <div className="ap-sc-title">Выбранные тарифы ({pax.length})</div>
+          <div className="fare-paxgroups">
+            {sections.map((sec) => {
+              if (!sec.name) return <div className="fare-sel-list" key={sec.id}>{sec.members.map((i) => <PaxRow key={i} i={i} />)}</div>;
+              const st = sectionStatus(sec.members);
+              const isCol = !!collapsed[sec.id];
+              return (
+                <div className="fare-paxgroup" key={sec.id}>
+                  <div className="fare-paxgroup-head">
+                    <button type="button" className="fpg-toggle" onClick={() => setCollapsed((c) => ({ ...c, [sec.id]: !c[sec.id] }))}>
+                      <Icon name={isCol ? 'chevRight' : 'chevDown'} />
+                      <span className="fpg-name">{sec.name}</span>
+                      <span className="fpg-cnt">{sec.members.length}</span>
+                    </button>
+                    <Pill tone={st.tone}>{st.label}</Pill>
+                    <button type="button" className="fpg-apply" title="Применить выбранный тариф этой подгруппе" onClick={() => applyTo(sec.members)}><Icon name="users" /></button>
+                  </div>
+                  {!isCol && <div className="fare-sel-list">{sec.members.map((i) => <PaxRow key={i} i={i} />)}</div>}
+                </div>
+              );
+            })}
           </div>
+          {onAddPax && <button type="button" className="ap-sc-add" onClick={onAddPax}><Icon name="plus" style={{ width: 16, height: 16 }} />Добавить пассажира</button>}
+          <div className="fare-total-row"><span>Итого за всех пассажиров</span><b>{rub(total)}</b></div>
+        </aside>
 
+        {/* RIGHT — class + fare selection for the active passenger */}
+        <div className="fare-main">
           <div className="fare-sub-head">
             <span>Выберите тариф для пассажира: <b>{ap.name}</b></span>
             <button type="button" className="fare-applyall" onClick={applyToAll}><Icon name="users" />Применить выбранный тариф для всех</button>
@@ -299,31 +352,6 @@ function FareSelectPanel({ pax, classByPax, setClassByPax, fareByPax, setFareByP
             ))}
           </div>
         </div>
-
-        <aside className="fare-aside">
-          <div className="ap-sc-title">Все доступные классы на рейс</div>
-          <div className="fare-classlist">
-            {AVIA_BOOKING_CLASSES.map((c) => (
-              <div key={c.code} className="fare-classlist-row" onClick={() => setForPax(activePax, { cls: c.code })}>
-                <span className="code">{c.code}</span><span className="cab">{c.cabin}</span>
-                <span className={'left' + (c.seatsLeft <= 2 ? ' low' : '')}>{c.seatsLeft} {c.seatsLeft === 1 ? 'место' : 'мест'}</span>
-                <Icon name="chevRight" />
-              </div>
-            ))}
-          </div>
-
-          <div className="ap-sc-title">Выбранные тарифы</div>
-          <div className="fare-sel-list">
-            {pax.map((p, i) => (
-              <div key={i} className={'fare-sel-row' + (activePax === i ? ' active' : '')} onClick={() => setActivePax(i)}>
-                <div className="nm">{i + 1}. {p.name}</div>
-                <div className="tr">{tierOf(i).name}</div>
-                <div className="pr">{tierOf(i).delta ? '+ ' + rub(tierOf(i).delta) : '0 ₽'}</div>
-              </div>
-            ))}
-          </div>
-          <div className="fare-total-row"><span>Итого за всех пассажиров</span><b>{rub(total)}</b></div>
-        </aside>
       </div>
 
       <div className="fare-footer-toggles">

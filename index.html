@@ -832,9 +832,137 @@ table.tbl tbody tr:last-child td{border-bottom:none}
 /* per-passenger fare selection screen */
 .fare-hint{display:flex;align-items:flex-start;gap:10px;background:var(--blue-soft);color:var(--body);font-size:13px;padding:12px 14px;border-radius:12px;margin-bottom:20px}
 .fare-hint svg{width:16px;height:16px;color:var(--blue);flex:0 0 16px;margin-top:1px}
-.fare-layout{display:flex;gap:26px;align-items:flex-start}
+.fare-layout{display:flex;gap:24px;align-items:flex-start}
 .fare-main{flex:1;min-width:0}
-.fare-aside{width:268px;flex:0 0 268px}
+/* passengers now live on the LEFT as a distinct, self-scrolling panel */
+.fare-aside{width:300px;flex:0 0 300px;background:var(--surface-2);border:1px solid var(--line);border-radius:14px;padding:14px 14px 4px;position:sticky;top:0}
+.fare-aside .ap-sc-title{margin-top:2px}
+.fare-paxgroups{max-height:58vh;overflow:auto;margin:0 -4px;padding:0 4px}
+.fare-paxgroup{margin-bottom:12px}
+.fare-paxgroup-head{display:flex;align-items:center;gap:8px;margin:2px 0 8px}
+.fpg-toggle{flex:1;min-width:0;display:flex;align-items:center;gap:6px;border:none;background:none;font:inherit;cursor:pointer;padding:0;color:var(--ink)}
+.fpg-toggle svg{width:15px;height:15px;color:var(--muted-2);flex:0 0 15px}
+.fpg-name{font-weight:700;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.fpg-cnt{font-size:11.5px;font-weight:700;color:var(--muted);background:var(--gray-bg);border-radius:999px;padding:1px 7px;flex:0 0 auto}
+.fare-paxgroup-head .pill{height:22px;padding:0 9px;font-size:11.5px}
+.fpg-apply{border:none;background:none;cursor:pointer;padding:4px;border-radius:8px;color:var(--muted-2);flex:0 0 auto;display:inline-flex}
+.fpg-apply:hover{background:var(--hover);color:var(--blue)}
+.fpg-apply svg{width:15px;height:15px}
+/* participants subgroup cards (group / corporate orders) */
+.pax-groups{display:flex;flex-direction:column;gap:14px}
+.pax-group{background:#fff;border:1px solid var(--line);border-radius:var(--r-card);box-shadow:var(--shadow-card);padding:6px 16px 10px}
+.pax-group-head{display:flex;align-items:center;gap:10px;padding:12px 2px 10px;border-bottom:1px solid var(--line)}
+.pxg-toggle{flex:1;min-width:0;display:flex;align-items:center;gap:8px;border:none;background:none;font:inherit;cursor:pointer;padding:0;color:var(--ink)}
+.pxg-toggle svg{width:16px;height:16px;color:var(--muted-2);flex:0 0 16px}
+.pxg-name{font-weight:700;font-size:15px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pxg-cnt{font-size:12px;font-weight:700;color:var(--muted);background:var(--gray-bg);border-radius:999px;padding:1px 9px;flex:0 0 auto}
+.pax-group-row{display:flex;align-items:center;gap:12px;padding:10px 2px;border-bottom:1px solid var(--line);cursor:pointer;transition:.14s}
+.pax-group-row:last-of-type{border-bottom:none}
+.pax-group-row:hover{background:var(--hover)}
+.pax-group-row .pxg-num{flex:0 0 22px;text-align:center;font-size:12.5px;font-weight:700;color:var(--muted-2)}
+.pax-group-row .nm{font-weight:600;color:var(--ink);font-size:14px;display:flex;align-items:center}
+.pax-group-row .mt{font-size:12.5px;color:var(--muted);margin-top:2px}
+.pxg-more{border:none;background:none;color:var(--blue);font:inherit;font-size:13px;font-weight:600;cursor:pointer;padding:10px 2px 4px}
+.pxg-more:hover{text-decoration:underline}
+/* ===== RAIL search result row ===== */
+.rail-offer{display:grid;grid-template-columns:1.4fr 1fr 1fr 1fr 1.1fr;align-items:center;gap:16px;background:#fff;border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow-card);padding:16px 18px;margin-bottom:14px}
+.rail-offer .ro-train{display:flex;align-items:center;gap:12px;min-width:0}
+.ro-logo{flex:0 0 auto;display:inline-flex;align-items:center;justify-content:center;height:28px;padding:0 9px;border-radius:7px;font-size:11.5px;font-weight:800;color:#fff;letter-spacing:.02em}
+.ro-logo.rzd{background:#d4111e}
+.ro-logo.alt{background:#2f88aa}
+.ro-no{font-weight:800;color:var(--ink);font-size:15px;display:flex;align-items:baseline;gap:8px}
+.ro-name{font-size:12.5px;font-weight:600;color:var(--muted)}
+.ro-tags{display:flex;flex-wrap:wrap;gap:6px;margin-top:5px}
+.ro-tag{font-size:11px;font-weight:600;color:var(--muted);background:var(--surface-2);border:1px solid var(--line);border-radius:6px;padding:2px 7px}
+.ro-leg .ro-time{font-size:19px;font-weight:800;color:var(--ink)}
+.ro-leg .ro-date{font-size:12px;color:var(--muted);margin-top:1px}
+.ro-leg .ro-city{font-size:13px;color:var(--ink);font-weight:600;margin-top:6px}
+.ro-leg .ro-station{font-size:11.5px;color:var(--muted-2)}
+.ro-mid{text-align:center}
+.ro-mid .ro-dur{font-size:12px;color:var(--muted)}
+.ro-mid .ro-line{height:1px;background:var(--line);position:relative;margin:7px 4px}
+.ro-mid .ro-line span{position:absolute;right:0;top:-3px;width:6px;height:6px;border-radius:50%;background:var(--muted-2)}
+.ro-mid .ro-stops{font-size:12px;color:var(--green);font-weight:600}
+.ro-side{text-align:right;display:flex;flex-direction:column;align-items:flex-end;gap:2px}
+.ro-price{font-size:20px;font-weight:800;color:var(--ink)}
+.ro-per{font-size:11.5px;color:var(--muted)}
+.ro-clsline{font-size:12px;color:var(--muted);margin:2px 0 8px}
+.ro-clsline .ro-free{color:var(--green);font-weight:600}
+.ro-side .btn{width:100%;justify-content:center}
+.ro-more{border:none;background:none;color:var(--blue);font:inherit;font-size:12.5px;font-weight:600;cursor:pointer;padding:6px 0 0}
+.ro-more:hover{text-decoration:underline}
+@media(max-width:1100px){.rail-offer{grid-template-columns:1fr 1fr;row-gap:14px}.ro-side{align-items:flex-start;text-align:left}}
+
+/* ===== RAIL «Выбор вагона и мест» (3 columns) ===== */
+.rail-head{display:flex;align-items:center;gap:12px;margin:0 0 18px;padding-bottom:16px;border-bottom:1px solid var(--line)}
+.rail-head .oc-svc-ic{width:42px;height:42px}
+.rail-head .t{font-weight:700;color:var(--ink);font-size:16px}
+.rail-head .s{font-size:13px;color:var(--muted);margin-top:2px}
+.rail-layout{display:grid;grid-template-columns:300px 240px 1fr;gap:20px;align-items:start}
+@media(max-width:1080px){.rail-layout{grid-template-columns:1fr}}
+.rail-col-h{font-weight:700;color:var(--ink);font-size:14px;margin-bottom:12px}
+.rail-col-sub{font-size:12.5px;color:var(--muted);margin-bottom:10px}
+.rail-wagon-line{font-weight:700;color:var(--ink);font-size:14px;margin-bottom:8px}
+/* col 1 — classes */
+.rail-class-list{display:flex;flex-direction:column;gap:10px}
+.rail-class{display:flex;gap:12px;align-items:flex-start;text-align:left;border:1.5px solid var(--field-line);border-radius:13px;background:#fff;padding:12px 13px;cursor:pointer;font:inherit;transition:.14s}
+.rail-class:hover{border-color:var(--blue)}
+.rail-class.sel{border-color:var(--blue);background:var(--blue-soft)}
+.rail-class .rc-ic{flex:0 0 36px;width:36px;height:36px;border-radius:10px;background:var(--surface-2);display:inline-flex;align-items:center;justify-content:center;color:var(--blue)}
+.rail-class .rc-ic svg{width:18px;height:18px}
+.rail-class .rc-name{font-weight:700;color:var(--ink);font-size:14.5px}
+.rail-class .rc-price{font-weight:800;color:var(--ink);font-size:15px;margin-top:3px}
+.rail-class .rc-per{font-size:11.5px;color:var(--muted)}
+.rail-class .rc-free{font-size:11.5px;color:var(--green);margin-top:5px}
+/* col 2 — wagons */
+.rail-wlist{display:flex;flex-direction:column;gap:2px}
+.rail-wrow{display:flex;align-items:center;gap:10px;border:none;background:none;font:inherit;cursor:pointer;padding:9px 8px;border-radius:9px;transition:.12s;text-align:left}
+.rail-wrow:hover{background:var(--hover)}
+.rail-wrow.sel{background:var(--blue-soft)}
+.rail-wrow .wno{font-weight:700;color:var(--ink);font-size:14px;width:26px}
+.rail-wrow .wtype{flex:1;font-size:12.5px;color:var(--muted)}
+.rail-wrow .wseats{font-size:12.5px;font-weight:700;color:var(--ink)}
+.rail-wrow .wseats.low{color:var(--red-strong)}
+/* col 3 — seat map + assignment */
+.rail-amenities{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:16px}
+.rail-am{display:inline-flex;align-items:center;gap:6px;font-size:12px;color:var(--muted);background:var(--surface-2);border-radius:8px;padding:4px 10px}
+.rail-am svg{width:13px;height:13px;color:var(--green)}
+.rail-car{display:flex;align-items:stretch;gap:6px;border:1px solid var(--line);border-radius:14px;background:var(--surface-2);padding:14px;overflow-x:auto}
+.rail-wc{flex:0 0 34px;display:flex;align-items:center;justify-content:center;writing-mode:vertical-rl;transform:rotate(180deg);font-size:11px;font-weight:700;color:var(--muted-2);border-right:2px dashed var(--line)}
+.rail-comp{position:relative;display:flex;flex-direction:column;gap:6px;padding:6px;border-right:1px dashed var(--line)}
+.rail-comp-row{display:flex;gap:6px}
+.rail-comp-n{text-align:center;font-size:10.5px;color:var(--muted-2);font-weight:700;margin-top:2px}
+.rail-sit-grid{display:grid;grid-template-columns:repeat(10,32px);gap:6px}
+.rail-seat{width:34px;height:34px;border-radius:8px;border:1.5px solid var(--field-line);background:#fff;font:inherit;font-size:12px;font-weight:700;color:var(--ink);cursor:pointer;display:inline-flex;align-items:center;justify-content:center;transition:.12s;padding:0}
+.rail-seat:hover:not(:disabled){border-color:var(--blue)}
+.rail-seat.low{background:var(--green-bg);border-color:transparent;color:var(--green)}
+.rail-seat.up{background:var(--blue-soft);border-color:transparent;color:var(--blue-soft-text)}
+.rail-seat.win{background:var(--green-bg);border-color:transparent;color:var(--green)}
+.rail-seat.aisle{background:var(--gray-bg);border-color:transparent;color:var(--gray-text)}
+.rail-seat.occupied{background:var(--gray-bg);border-color:transparent;color:var(--muted-2);cursor:not-allowed}
+.rail-seat.sel{background:var(--blue)!important;border-color:var(--blue);color:#fff}
+.rail-seat.sel.mine{box-shadow:0 0 0 3px var(--blue-soft)}
+.rail-legend{display:flex;flex-wrap:wrap;gap:16px;margin:14px 0 0;padding-top:14px;border-top:1px solid var(--line)}
+.rail-leg{display:inline-flex;align-items:center;gap:7px;font-size:12.5px;color:var(--muted)}
+.rail-leg .rail-seat{width:18px;height:18px;border-radius:5px;pointer-events:none}
+/* assignment table */
+.rail-assign{margin-top:22px;border-top:1px solid var(--line);padding-top:16px}
+.rail-assign-head{display:flex;align-items:center;gap:14px;margin-bottom:12px;flex-wrap:wrap}
+.rail-assign-head .ttl{font-weight:700;color:var(--ink);font-size:14.5px}
+.rail-assign-head .ok{font-size:12.5px;color:var(--green);font-weight:600}
+.rail-assign-head .warn{font-size:12.5px;color:var(--amber);font-weight:600}
+.rail-ptbl{width:100%;border-collapse:collapse}
+.rail-ptbl th{text-align:left;font-size:11.5px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.02em;padding:8px 10px;border-bottom:1px solid var(--line)}
+.rail-ptbl td{padding:8px 10px;border-bottom:1px solid var(--line);font-size:13.5px;color:var(--ink)}
+.rail-ptbl tr{cursor:pointer}
+.rail-ptbl tr.active td{background:var(--blue-soft)}
+.rail-ptbl .select,.rail-ptbl select{margin:0}
+.rail-clear{border:none;background:none;cursor:pointer;color:var(--muted-2);padding:2px;display:inline-flex}
+.rail-clear:hover{color:var(--red)}
+.rail-clear svg{width:14px;height:14px}
+.rail-link{border:none;background:none;color:var(--blue);font:inherit;font-size:13px;font-weight:600;cursor:pointer;padding:8px 2px 0}
+.rail-link:hover{text-decoration:underline}
+.rail-foot-note{font-size:12px;color:var(--muted)}
 .fare-pax-tabs{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:20px}
 .fare-pax-tab{border:1.5px solid var(--field-line);border-radius:13px;background:#fff;padding:10px 16px;cursor:pointer;font:inherit;text-align:left;transition:.14s}
 .fare-pax-tab:hover{border-color:var(--blue)}

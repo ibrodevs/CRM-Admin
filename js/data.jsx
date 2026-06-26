@@ -758,6 +758,33 @@ const AVIA_GROUPS_SEED = [
   { id: 'g3', name: 'Сопровождение', desc: 'Поддержка и логистика',       fare: 'light',   members: [12, 13, 14, 15, 16, 17, 18, 19] },
 ];
 
+// ============ RAIL (ЖД) — wagon & per-passenger seat selection ============
+// Service classes (обслуживание), prices in ₽. `kinds` drives the seat berth/type per seat:
+// for two-kind classes odd seat → kinds[0], even → kinds[1]; single-kind classes use kinds[0].
+const RAIL_SERVICE_CLASSES = [
+  { id: 'kupe',  name: 'Купе',     type: 'Купейный',    icon: 'idcard',   priceRub: 4560,  freeSeats: 54,  seats: 36, perComp: 4, kinds: ['low', 'up'],   amenities: ['Кондиционер', 'Биотуалет', 'Розетка 220V', 'Индивидуальное освещение'] },
+  { id: 'platz', name: 'Плацкарт', type: 'Плацкартный', icon: 'briefcase', priceRub: 2980, freeSeats: 102, seats: 54, perComp: 4, kinds: ['low', 'up'],   amenities: ['Кондиционер', 'Биотуалет', 'Розетка 220V'] },
+  { id: 'sv',    name: 'СВ',       type: 'СВ',          icon: 'star',     priceRub: 8950,  freeSeats: 18,  seats: 18, perComp: 2, kinds: ['low'],          amenities: ['Кондиционер', 'Биотуалет', 'Розетка 220V', 'Душ'] },
+  { id: 'lux',   name: 'Люкс',     type: 'Люкс',        icon: 'star',     priceRub: 15800, freeSeats: 6,   seats: 8,  perComp: 2, kinds: ['low'],          amenities: ['Кондиционер', 'Душ', 'ТВ', 'Питание включено'] },
+  { id: 'sit',   name: 'Сидячий',  type: 'Сидячий',     icon: 'users',    priceRub: 1860,  freeSeats: 74,  seats: 60, perComp: 0, kinds: ['win', 'aisle'], amenities: ['Кондиционер', 'Wi-Fi', 'Розетка 220V'] },
+];
+// available wagons per service class (no, seatsLeft); type is taken from the class
+const RAIL_WAGONS = {
+  kupe:  [{ no: '02', seatsLeft: 14 }, { no: '03', seatsLeft: 6 }, { no: '04', seatsLeft: 22 }, { no: '05', seatsLeft: 8 }, { no: '06', seatsLeft: 31 }, { no: '07', seatsLeft: 12 }, { no: '08', seatsLeft: 4 }, { no: '09', seatsLeft: 19 }, { no: '10', seatsLeft: 27 }, { no: '11', seatsLeft: 9 }, { no: '12', seatsLeft: 15 }, { no: '13', seatsLeft: 3 }],
+  platz: [{ no: '01', seatsLeft: 28 }, { no: '02', seatsLeft: 41 }, { no: '03', seatsLeft: 12 }, { no: '04', seatsLeft: 7 }],
+  sv:    [{ no: '01', seatsLeft: 6 }, { no: '02', seatsLeft: 2 }, { no: '03', seatsLeft: 10 }],
+  lux:   [{ no: '01', seatsLeft: 4 }, { no: '02', seatsLeft: 2 }],
+  sit:   [{ no: '01', seatsLeft: 22 }, { no: '02', seatsLeft: 38 }, { no: '03', seatsLeft: 14 }],
+};
+// already-sold seats per «class:wagon» (demo)
+const RAIL_OCCUPIED = {
+  'kupe:02': [1, 2, 7, 8, 15, 16, 30], 'kupe:03': [3, 4, 11, 12, 19, 20, 27, 28], 'kupe:04': [5, 6, 17, 28],
+  'platz:01': [10, 11, 22, 33, 41, 50], 'platz:02': [2, 14, 36, 48],
+  'sv:01': [3, 4, 11, 12], 'sv:02': [1, 2, 7, 8, 13, 14],
+  'lux:01': [3, 4], 'lux:02': [1, 2, 7],
+  'sit:01': [3, 5, 12, 20, 27, 41, 55], 'sit:02': [1, 2, 7, 8, 15, 30, 44],
+};
+
 const ORDER_TASKS = [
   { text: 'Выписать билет — тайм-лимит', due: 'сегодня 18:00', urgent: true },
   { text: 'Получить оплату от клиента', due: 'завтра', urgent: false },
@@ -928,15 +955,48 @@ const NOTIF_SETTINGS = [
 // Единая форма строки реестра: { no, order, main, sub, date, qty, status, sum }
 const SVC_DATA = {
   rail: {
+    // structured rail offers (Москва ↔ Санкт-Петербург) — prices in ₽; cost = тариф/место
     offers: [
-      { id: 'R1', title: 'Поезд 027Щ «Киргизия»', sub: 'Бишкек → Москва', info: [{ l: 'Отправление', v: '22:40 · 24.06' }, { l: 'Прибытие', v: '10:15 · 27.06' }, { l: 'В пути', v: '2 д 11 ч' }], tags: ['Купе', 'Постель включена'], supplier: 'КЖД (API)', cost: 120, fee: 8 },
-      { id: 'R2', title: 'Поезд 305Ф', sub: 'Бишкек → Москва', info: [{ l: 'Отправление', v: '14:10 · 24.06' }, { l: 'Прибытие', v: '06:40 · 27.06' }, { l: 'В пути', v: '2 д 16 ч' }], tags: ['Плацкарт', 'Без пересадок'], supplier: 'РЖД (GDS)', cost: 86, fee: 6 },
-      { id: 'R3', title: 'Поезд 008Ц', sub: 'Бишкек → Москва', info: [{ l: 'Отправление', v: '09:20 · 25.06' }, { l: 'Прибытие', v: '23:55 · 27.06' }, { l: 'В пути', v: '2 д 14 ч' }], tags: ['СВ', '2-местное купе'], supplier: 'РЖД (GDS)', cost: 240, fee: 14 },
+      { id: 'R1', number: '752А', name: 'САПСАН', carrier: 'РЖД',
+        dep: { time: '07:30', date: '20 июн, сб', city: 'Москва', station: 'Казанский вокзал' },
+        arr: { time: '11:15', date: '20 июн, сб', city: 'Санкт-Петербург', station: 'Московский вокзал' },
+        dur: '3 ч 45 мин', stops: 'Прямой', priceRub: 4560, cls: 'Купе', freeSeats: 54,
+        tags: ['Купейный', 'РЖД'], supplier: 'РЖД (GDS)', currency: 'RUB', cost: 4560, fee: 250,
+        title: 'Поезд 752А «САПСАН»', sub: 'Москва → Санкт-Петербург',
+        info: [{ l: 'Отправление', v: '07:30 · 20 июн' }, { l: 'Прибытие', v: '11:15 · 20 июн' }, { l: 'В пути', v: '3 ч 45 мин' }] },
+      { id: 'R2', number: '770А', name: 'Ласточка', carrier: 'РЖД',
+        dep: { time: '08:40', date: '20 июн, сб', city: 'Москва', station: 'Ленинградский вокзал' },
+        arr: { time: '12:30', date: '20 июн, сб', city: 'Санкт-Петербург', station: 'Московский вокзал' },
+        dur: '3 ч 50 мин', stops: 'Прямой', priceRub: 3250, cls: 'Сидячий', freeSeats: 112,
+        tags: ['Сидячий', 'РЖД'], supplier: 'РЖД (GDS)', currency: 'RUB', cost: 3250, fee: 220,
+        title: 'Поезд 770А «Ласточка»', sub: 'Москва → Санкт-Петербург',
+        info: [{ l: 'Отправление', v: '08:40 · 20 июн' }, { l: 'Прибытие', v: '12:30 · 20 июн' }, { l: 'В пути', v: '3 ч 50 мин' }] },
+      { id: 'R3', number: '028А', name: 'Гранд Экспресс', carrier: 'ТКС',
+        dep: { time: '22:10', date: '20 июн, сб', city: 'Москва', station: 'Ленинградский вокзал' },
+        arr: { time: '08:30', date: '21 июн, вс', city: 'Санкт-Петербург', station: 'Московский вокзал' },
+        dur: '10 ч 20 мин', stops: 'Прямой', priceRub: 8950, cls: 'СВ', freeSeats: 18,
+        tags: ['СВ', 'ТКС'], supplier: 'ТКС (API)', currency: 'RUB', cost: 8950, fee: 400,
+        title: 'Поезд 028А «Гранд Экспресс»', sub: 'Москва → Санкт-Петербург',
+        info: [{ l: 'Отправление', v: '22:10 · 20 июн' }, { l: 'Прибытие', v: '08:30 · 21 июн' }, { l: 'В пути', v: '10 ч 20 мин' }] },
+      { id: 'R4', number: '016А', name: 'Экспресс', carrier: 'РЖД',
+        dep: { time: '13:50', date: '20 июн, сб', city: 'Москва', station: 'Ленинградский вокзал' },
+        arr: { time: '23:05', date: '20 июн, сб', city: 'Санкт-Петербург', station: 'Московский вокзал' },
+        dur: '9 ч 15 мин', stops: 'Прямой', priceRub: 2980, cls: 'Плацкарт', freeSeats: 102,
+        tags: ['Плацкартный', 'РЖД'], supplier: 'РЖД (GDS)', currency: 'RUB', cost: 2980, fee: 180,
+        title: 'Поезд 016А', sub: 'Москва → Санкт-Петербург',
+        info: [{ l: 'Отправление', v: '13:50 · 20 июн' }, { l: 'Прибытие', v: '23:05 · 20 июн' }, { l: 'В пути', v: '9 ч 15 мин' }] },
+      { id: 'R5', number: '004А', name: 'САПСАН', carrier: 'РЖД',
+        dep: { time: '19:30', date: '20 июн, сб', city: 'Москва', station: 'Казанский вокзал' },
+        arr: { time: '23:25', date: '20 июн, сб', city: 'Санкт-Петербург', station: 'Московский вокзал' },
+        dur: '3 ч 55 мин', stops: 'Прямой', priceRub: 15800, cls: 'Люкс', freeSeats: 6,
+        tags: ['Люкс', 'РЖД'], supplier: 'РЖД (GDS)', currency: 'RUB', cost: 15800, fee: 600,
+        title: 'Поезд 004А «САПСАН»', sub: 'Москва → Санкт-Петербург',
+        info: [{ l: 'Отправление', v: '19:30 · 20 июн' }, { l: 'Прибытие', v: '23:25 · 20 июн' }, { l: 'В пути', v: '3 ч 55 мин' }] },
     ],
     registry: [
-      { no: 'RW-51201', order: 51162, main: 'Бишкек → Москва', sub: 'Поезд 027Щ · Купе', date: '24.06.26', qty: 2, status: 'Забронировано', sum: 256 },
-      { no: 'RW-51188', order: 51156, main: 'Бишкек → Алматы', sub: 'Поезд 011 · Плацкарт', date: '26.06.26', qty: 4, status: 'Выписано', sum: 184 },
-      { no: 'RW-51177', order: 51170, main: 'Москва → СПб', sub: 'Сапсан 758А · Эконом', date: '02.07.26', qty: 6, status: 'Поиск', sum: 0 },
+      { no: 'RW-51201', order: 51162, main: 'Москва → Санкт-Петербург', sub: 'Сапсан 752А · Купе', date: '20.06.26', qty: 2, status: 'Забронировано', sum: 9620, currency: 'RUB' },
+      { no: 'RW-51188', order: 51156, main: 'Москва → Санкт-Петербург', sub: 'Ласточка 770А · Сидячий', date: '26.06.26', qty: 4, status: 'Выписано', sum: 13880, currency: 'RUB' },
+      { no: 'RW-51177', order: 51170, main: 'Москва → Санкт-Петербург', sub: 'Сапсан 754А · Купе', date: '02.07.26', qty: 6, status: 'Поиск', sum: 0, currency: 'RUB' },
     ],
   },
   hotels: {
@@ -1211,6 +1271,7 @@ Object.assign(window, {
   AVIA_INSURANCE_PLANS, AVIA_INSURANCE_INCLUDES, AVIA_COMFORT_GROUPS, AVIA_SEATMAP,
   SERVICE_KIND, SERVICE_STATUS, PAX_DOC_KIND, ORDER_SERVICES, KP_STATUS, KP_STATUS_FLOW, PROPOSALS, ORDER_PARTICIPANTS, ORDER_TASKS,
   GROUP_PAX, ORDER_GROUPS, ORDER_SERVICE_EXTRAS, ORDER_BOOKING_FLOW, AVIA_GROUPS_SEED,
+  RAIL_SERVICE_CLASSES, RAIL_WAGONS, RAIL_OCCUPIED,
   ORDER_STAGES, FIN_OP_STATUS, FIN_OPS, DOC_KIND, DOC_STATUS2, DOCS2, FULFILLMENT,
   RETURN_FLOW, RETURN_STATUS, RETURN_TYPE, RETURNS,
   NOTIF_PRIORITY, NOTIF_PRIO_RANK, NOTIF_SOURCE, NOTIFICATIONS, NOTIF_SETTINGS,

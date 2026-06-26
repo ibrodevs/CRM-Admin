@@ -360,7 +360,49 @@ function DocCell({ p }) {
   );
 }
 
-function TabParticipants({ list, isGroup, fresh, onPassport, onAdd }) {
+/* one collapsible subgroup card in the participants list (group / corporate orders) */
+function PaxGroupCard({ index, name, members, onPassport }) {
+  const [open, setOpen] = useState(true);
+  const [showAll, setShowAll] = useState(false);
+  const isChild = (p) => /реб[её]н|child|инфант|infant/i.test(p.role || '');
+  const err = members.filter(({ p }) => p.docStatus === 'check').length;
+  const status = members.length && members.every(({ p }) => isChild(p))
+    ? { label: 'Дети', tone: 'blue' }
+    : err ? { label: err + (err === 1 ? ' требует проверки' : ' требуют проверки'), tone: 'amber' }
+          : { label: 'Документы готовы', tone: 'green' };
+  const LIMIT = 6;
+  const shown = open ? (showAll ? members : members.slice(0, LIMIT)) : [];
+  return (
+    <div className="pax-group">
+      <div className="pax-group-head">
+        <button type="button" className="pxg-toggle" onClick={() => setOpen((v) => !v)}>
+          <Icon name={open ? 'chevDown' : 'chevRight'} />
+          <span className="pxg-name">{index != null ? `Группа ${index}. ${name}` : name}</span>
+          <span className="pxg-cnt">{members.length}</span>
+        </button>
+        <Pill tone={status.tone}>{status.label}</Pill>
+      </div>
+      {shown.map(({ p, i }) => (
+        <div key={i} className="pax-group-row" onClick={() => onPassport(p.name)}>
+          <span className="pxg-num">{i + 1}</span>
+          <Avatar name={p.name} size={30} />
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div className="nm">{p.name} {p.lead && <span className="pill pill-blue" style={{ marginLeft: 4, height: 20, padding: '0 8px', fontSize: 11.5 }}>Лид</span>}</div>
+            <div className="mt">{p.role} · {p.doc}</div>
+          </div>
+          <Pill tone={p.docStatus === 'check' ? 'amber' : 'green'}>{p.docStatus === 'check' ? 'Требует проверки' : 'Без ошибок'}</Pill>
+        </div>
+      ))}
+      {open && members.length > LIMIT && (
+        <button type="button" className="pxg-more" onClick={() => setShowAll((v) => !v)}>
+          {showAll ? 'Свернуть' : `+ ещё ${members.length - LIMIT} ${members.length - LIMIT === 1 ? 'пассажир' : 'пассажиров'}`}
+        </button>
+      )}
+    </div>
+  );
+}
+
+function TabParticipants({ list, isGroup, groups, fresh, onPassport, onAdd }) {
   if (!list.length) return (
     <div className="fade-in">
       <EmptyState icon="users" title="Участников пока нет" sub="Добавьте пассажиров поездки и их документы здесь" />
@@ -394,24 +436,40 @@ function TabParticipants({ list, isGroup, fresh, onPassport, onAdd }) {
       <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 14 }}>
         <Button icon="plus" onClick={onAdd}>Добавить участника</Button>
       </div>
-      <div className="table-card">
-        <table className="tbl">
-          <thead><tr><th>Участник</th><th>Тип</th><th>Документ</th><th>Дата рожд.</th><th>Телефон</th><th>Документы</th><th></th></tr></thead>
-          <tbody>
-            {list.map((p, i) => (
-              <tr key={i} style={{ cursor: 'pointer' }} onClick={() => onPassport(p.name)}>
-                <td className="t-strong">{p.name} {p.lead && <span className="pill pill-blue" style={{ marginLeft: 6 }}>Лид</span>}</td>
-                <td>{p.role}</td><td><DocCell p={p} /></td><td>{p.dob || '—'}</td><td>{p.phone || '—'}</td>
-                <td><Pill tone={p.docStatus === 'check' ? 'amber' : 'green'}>{p.docStatus === 'check' ? 'Требует проверки' : 'Без ошибок'}</Pill></td>
-                <td onClick={(e) => e.stopPropagation()}>
-                  <ActionMenu trigger={<button className="btn btn-ghost btn-icon btn-sm"><Icon name="more" /></button>}
-                    items={[{ icon: 'idcard', label: 'Документы', onClick: () => onPassport(p.name) }, { icon: 'edit', label: 'Изменить' }, { sep: true }, { icon: 'trash', label: 'Удалить', danger: true }]} />
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+      {(() => {
+        // grouped view (subgroups / company internal list) when the order has groups
+        const secs = (isGroup && groups && groups.length) ? (() => {
+          const used = new Set();
+          const out = groups.map((g, gi) => {
+            const members = (g.members || []).filter((i) => i < list.length && !used.has(i)).map((i) => { used.add(i); return { p: list[i], i }; });
+            return { id: g.id, index: gi + 1, name: g.name, members };
+          }).filter((s) => s.members.length);
+          const rest = list.map((p, i) => ({ p, i })).filter(({ i }) => !used.has(i));
+          if (rest.length) out.push({ id: '__rest', index: null, name: 'Без подгруппы', members: rest });
+          return out;
+        })() : null;
+        if (secs) return <div className="pax-groups">{secs.map((s) => <PaxGroupCard key={s.id} index={s.index} name={s.name} members={s.members} onPassport={onPassport} />)}</div>;
+        return (
+          <div className="table-card">
+            <table className="tbl">
+              <thead><tr><th>Участник</th><th>Тип</th><th>Документ</th><th>Дата рожд.</th><th>Телефон</th><th>Документы</th><th></th></tr></thead>
+              <tbody>
+                {list.map((p, i) => (
+                  <tr key={i} style={{ cursor: 'pointer' }} onClick={() => onPassport(p.name)}>
+                    <td className="t-strong">{p.name} {p.lead && <span className="pill pill-blue" style={{ marginLeft: 6 }}>Лид</span>}</td>
+                    <td>{p.role}</td><td><DocCell p={p} /></td><td>{p.dob || '—'}</td><td>{p.phone || '—'}</td>
+                    <td><Pill tone={p.docStatus === 'check' ? 'amber' : 'green'}>{p.docStatus === 'check' ? 'Требует проверки' : 'Без ошибок'}</Pill></td>
+                    <td onClick={(e) => e.stopPropagation()}>
+                      <ActionMenu trigger={<button className="btn btn-ghost btn-icon btn-sm"><Icon name="more" /></button>}
+                        items={[{ icon: 'idcard', label: 'Документы', onClick: () => onPassport(p.name) }, { icon: 'edit', label: 'Изменить' }, { sep: true }, { icon: 'trash', label: 'Удалить', danger: true }]} />
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        );
+      })()}
     </div>
   );
 }
@@ -484,8 +542,10 @@ function ServiceListRow({ s, paxCount, isGroup, onOpen }) {
 
 /* shared totals used by both the list and the always-pinned footer bar below it */
 function serviceTotals(services) {
+  // order total is shown in $, so normalize ₽-priced services (e.g. ЖД) at ≈90 ₽/$
+  const toUsd = (x) => { const t = svcCalc(x).total; return (x.currency === 'RUB' || x.currency === '₽') ? t / 90 : t; };
   return {
-    total: services.reduce((s, x) => s + svcCalc(x).total, 0),
+    total: services.reduce((s, x) => s + toUsd(x), 0),
     confirmedSvc: services.filter((s) => s.status === 'Подтверждено' || s.status === 'Выписано').length,
     awaitingSvc: services.filter((s) => s.status === 'Забронировано' || s.status === 'Согласование' || s.status === 'Предложение').length,
     actionSvc: services.filter((s) => s.status === 'Поиск' || s.status === 'Возврат' || s.status === 'Отменено').length,
@@ -605,8 +665,10 @@ function AviaFilters({ flt, setFlt, bounds }) {
     <aside className="hp-filters">
       <div className="hp-filters-head">
         <span>Фильтры</span>
-        <button className="hp-reset" onClick={() => setFlt({ stops: [], air: [], sup: [], bagOnly: false, refundOnly: false, priceMax: bounds.max })}>Сбросить всё</button>
+        <button className="hp-reset" onClick={() => setFlt({ stops: [], air: [], sup: [], bagOnly: false, refundOnly: false, priceMax: bounds.max, flightNo: '' })}>Сбросить всё</button>
       </div>
+      <SearchBox value={flt.flightNo || ''} onChange={(v) => setFlt((f) => ({ ...f, flightNo: v }))}
+        placeholder="Поиск по номеру рейса" style={{ minWidth: 0, width: '100%', height: 42, margin: '4px 0 6px' }} />
       <div className="hp-filter-block">
         <div className="hp-filter-title">Цена</div>
         <div className="hp-price-range">
@@ -644,17 +706,39 @@ function AviaFilters({ flt, setFlt, bounds }) {
   );
 }
 
+/* flight card row in the «Подбор авиаперелёта» card style (reference sheet) — same markup as
+   AviaPicker's ApFlightRow, but prices in the order's currency (USD) instead of ₽ */
+function AviaCardRow({ opt, sel, onSelect }) {
+  const leg = opt.leg;
+  return (
+    <div className={'ap-flight' + (sel ? ' sel' : '')} onClick={() => onSelect(opt)}>
+      <AirlineLogo code={opt.airline} size="sm" />
+      <div className="ap-fl-time">{leg.dep}<div className="ap">{leg.from}</div></div>
+      <div className="ap-fl-mid">
+        <div className="d">{leg.dur}</div>
+        <div className="line" />
+        <div className={'st ' + (leg.stops ? 'via' : 'direct')}>{leg.stops ? leg.stopText.split('·')[0].trim() : 'Прямой'}</div>
+      </div>
+      <div className="ap-fl-time">{leg.arr}<div className="ap">{leg.to}</div></div>
+      <div className="ap-fl-pr"><div className="v">{money(opt.price, 'USD')}</div><div className="c">{AIRLINES[opt.airline].name}</div></div>
+      <Radio on={sel} onChange={() => onSelect(opt)} />
+    </div>
+  );
+}
+
 function AviaSearchPanel({ params, setParams, paxCount, onAdd }) {
   const p = params;
   const set = (patch) => setParams({ ...p, ...patch });
   const swap = () => set({ from: p.to, to: p.from });
   const aviaBounds = aviaPriceBounds();
-  const [flt, setFlt] = useState({ stops: [], air: [], sup: [], bagOnly: false, refundOnly: false, priceMax: aviaBounds.max });
+  const [flt, setFlt] = useState({ stops: [], air: [], sup: [], bagOnly: false, refundOnly: false, priceMax: aviaBounds.max, flightNo: '' });
   const [visible, setVisible] = useState(5);
   const [legs, setLegs] = useState({}); // { out: optKey, back: optKey, seg1: optKey, seg2: optKey }
 
+  const flightNoMatch = (o, q) => { const n = q.replace(/\s+/g, '').toLowerCase(); return [o.out, o.back].some((l) => l && l.flightNo && l.flightNo.replace(/\s+/g, '').toLowerCase().includes(n)); };
   let pool = FLIGHT_OFFERS.filter((o) => {
     const st = o.out.stops >= 2 ? '2plus' : String(o.out.stops || 0);
+    if (flt.flightNo && flt.flightNo.trim() && !flightNoMatch(o, flt.flightNo)) return false;
     if (flt.stops.length && !flt.stops.includes(st)) return false;
     if (flt.air.length && !flt.air.includes(o.airline)) return false;
     if (flt.sup.length && !flt.sup.includes(o.supplier)) return false;
@@ -667,12 +751,22 @@ function AviaSearchPanel({ params, setParams, paxCount, onAdd }) {
 
   const outOpts = pool.map((o) => ({ key: o.id + '-o', airline: o.airline, leg: o.out, supplier: o.supplier, price: Math.round((o.fare + o.fee) * 0.6) }));
   const backOpts = pool.filter((o) => o.back).map((o) => ({ key: o.id + '-b', airline: o.airline, leg: o.back, supplier: o.supplier, price: Math.round((o.fare + o.fee) * 0.4) }));
+  // paired round-trip combos (same offer both ways), cheapest first — matches the reference sheet
+  const sortedOutOpts = outOpts;
+  const rtCombos = pool.filter((o) => o.back).map((o) => ({
+    id: o.id,
+    out: { key: o.id + '-o', airline: o.airline, leg: o.out, supplier: o.supplier, price: Math.round((o.fare + o.fee) * 0.6) },
+    back: { key: o.id + '-b', airline: o.airline, leg: o.back, supplier: o.supplier, price: Math.round((o.fare + o.fee) * 0.4) },
+  })).sort((a, b) => (a.out.price + a.back.price) - (b.out.price + b.back.price));
 
   const segKeys = p.trip === 'mc' ? ['out', 'seg1', 'seg2'] : p.trip === 'rt' ? ['out', 'back'] : ['out'];
   const segPool = (k) => (k === 'back' ? backOpts : outOpts);
   const findOpt = (k) => segPool(k).find((o) => o.key === legs[k]);
   const allPicked = segKeys.every((k) => legs[k]);
   const pickedOpts = segKeys.map(findOpt).filter(Boolean);
+  // which of the three route sections is active (others dim), like in AviaPicker
+  const activeRoute = Object.keys(legs).length ? p.trip : null;
+  const sectionInactive = (type) => activeRoute && activeRoute !== type;
 
   const totalPrice = pickedOpts.reduce((s, o) => s + o.price, 0);
   const layoverMin = (i) => 50 + i * 40; // demo layover between segments i and i+1
@@ -698,11 +792,6 @@ function AviaSearchPanel({ params, setParams, paxCount, onAdd }) {
       </div>
 
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14 }}>
-        <div className="trip-toggle">
-          {[['ow', 'В одну сторону'], ['rt', 'Туда и обратно'], ['mc', 'Сложный маршрут']].map(([k, l]) => (
-            <button key={k} className={p.trip === k ? 'on' : ''} onClick={() => { set({ trip: k }); setLegs({}); }}>{l}</button>
-          ))}
-        </div>
         <div style={{ flex: 1 }} />
         <span style={{ color: 'var(--muted)', fontSize: 13.5 }}>Найдено {pool.length}</span>
         <div style={{ minWidth: 190 }}><Select options={[{ value: 'price', label: 'Сортировка: Цена' }]} value="price" onChange={() => {}} /></div>
@@ -711,77 +800,81 @@ function AviaSearchPanel({ params, setParams, paxCount, onAdd }) {
       <div className="hp-layout">
         <AviaFilters flt={flt} setFlt={setFlt} bounds={aviaBounds} />
         <div style={{ minWidth: 0 }}>
-      {/* 1. one-way — a flat radio list */}
-      {p.trip === 'ow' && (
-        <>
-          <div className="svcp-section-h">1. Маршрут туда</div>
-          {visibleOpts(outOpts).map((o) => (
-            <RadioFlightRow key={o.key} opt={o} selected={legs.out === o.key} onSelect={() => setLegs({ out: o.key })} />
-          ))}
-        </>
-      )}
-
-      {/* 2. round-trip — outbound list, a swap divider, return list, then a savings summary */}
-      {p.trip === 'rt' && (
-        <>
-          <div className="svcp-section-h">2. Туда и обратно</div>
-          <div className="svcf-group">
-            {visibleOpts(outOpts).map((o) => (
-              <RadioFlightRow key={o.key} opt={o} selected={legs.out === o.key} onSelect={() => setLegs((c) => ({ ...c, out: o.key }))} />
-            ))}
-            <div className="svcf-swap-mid"><span className="ic"><Icon name="swap" /></span></div>
-            {visibleOpts(backOpts).map((o) => (
-              <RadioFlightRow key={o.key} opt={o} selected={legs.back === o.key} onSelect={() => setLegs((c) => ({ ...c, back: o.key }))} />
-            ))}
+          {/* 1. Маршрут туда — one-way flight cards */}
+          <div className={'ap-route-section' + (sectionInactive('ow') ? ' inactive' : '')}>
+            <div className="ap-route-title">1. Маршрут туда</div>
+            {visibleOpts(sortedOutOpts).map((o) => {
+              const sel = activeRoute === 'ow' && legs.out === o.key;
+              return (
+                <div key={o.key} className={'ap-route-card' + (sel ? ' sel' : '')}>
+                  <AviaCardRow opt={o} sel={sel} onSelect={() => { set({ trip: 'ow' }); setLegs({ out: o.key }); }} />
+                </div>
+              );
+            })}
           </div>
-          {allPicked && (
-            <div className="svcf-summary">
-              <span className="ic"><Icon name="route" /></span>
-              <div className="grp"><span className="l">Общая продолжительность</span><span className="v">{fmtDur(totalDurMin)}</span></div>
-              <div className="grp"><span className="l">Итого за маршрут</span><span className="v big">{money(totalPrice, 'USD')}</span></div>
-              <div style={{ flex: 1 }} />
-              {maxCombo > totalPrice && <span className="pill pill-teal"><Icon name="zap" style={{ width: 13, height: 13 }} />Выгоднее на {money(maxCombo - totalPrice, 'USD')}</span>}
-            </div>
-          )}
-        </>
-      )}
 
-      {/* 3. multi-city — numbered timeline with layover tags, then a route summary */}
-      {p.trip === 'mc' && (
-        <>
-          <div className="svcp-section-h">3. Сложный маршрут</div>
-          <div className="svcf-mc">
-            <div className="svcf-mc-rail">{segKeys.map((k, i) => <span key={k} className="dot">{i + 1}</span>)}</div>
-            <div className="svcf-mc-body">
-              {segKeys.map((k, i) => (
-                <React.Fragment key={k}>
-                  {visibleOpts(segPool(k)).map((o) => (
-                    <RadioFlightRow key={o.key} opt={o} selected={legs[k] === o.key} onSelect={() => setLegs((c) => ({ ...c, [k]: o.key }))} />
-                  ))}
-                  {i < segKeys.length - 1 && <span className="svcf-mc-layover">Пересадка {fmtDur(layoverMin(i))}</span>}
-                </React.Fragment>
-              ))}
+          {/* 2. Туда и обратно — paired out/back cards with swap + route summary */}
+          <div className={'ap-route-section' + (sectionInactive('rt') ? ' inactive' : '')}>
+            <div className="ap-route-title">2. Туда и обратно</div>
+            {visibleOpts(rtCombos).map((c) => {
+              const total = c.out.price + c.back.price;
+              const dur = fmtDur(durMin(c.out.leg.dur) + durMin(c.back.leg.dur));
+              const savings = Math.round(total * 0.045);
+              const sel = activeRoute === 'rt' && legs.out === c.out.key && legs.back === c.back.key;
+              const pick = () => { set({ trip: 'rt' }); setLegs({ out: c.out.key, back: c.back.key }); };
+              return (
+                <div key={c.id} className={'ap-route-card' + (sel ? ' sel' : '')}>
+                  <AviaCardRow opt={c.out} sel={sel} onSelect={pick} />
+                  <span className="ap-route-swap"><Icon name="swap" /></span>
+                  <AviaCardRow opt={c.back} sel={sel} onSelect={pick} />
+                  <div className="ap-route-totals">
+                    <div className="rt-block"><Icon name="route" /><div><div className="l">Общая продолжительность</div><div className="v">{dur}</div></div></div>
+                    <div className="rt-price"><div className="l">Итого за маршрут</div><div className="v">{money(total, 'USD')}</div></div>
+                    <span className="pill pill-green rt-badge"><Icon name="zap" />Выгоднее на {money(savings, 'USD')}</span>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          {/* 3. Сложный маршрут — numbered chain of legs with layover tags + summary */}
+          <div className={'ap-route-section' + (sectionInactive('mc') ? ' inactive' : '')}>
+            <div className="ap-route-title">3. Сложный маршрут</div>
+            <div className={'ap-route-card chain' + (activeRoute === 'mc' ? ' sel' : '')}>
+              <div className="ap-route-chain">
+                {['out', 'seg1', 'seg2'].map((k, i) => (
+                  <React.Fragment key={k}>
+                    <div className="ap-route-chain-row">
+                      <div className="ap-route-chain-num"><span>{i + 1}</span>{i < 2 && <i />}</div>
+                      <div className="ap-route-chain-leg" style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                        {segPool(k).slice(0, 3).map((o) => {
+                          const sel = p.trip === 'mc' && legs[k] === o.key;
+                          return <AviaCardRow key={o.key} opt={o} sel={sel}
+                            onSelect={() => { if (p.trip !== 'mc') { set({ trip: 'mc' }); setLegs({ [k]: o.key }); } else setLegs((c) => ({ ...c, [k]: o.key })); }} />;
+                        })}
+                      </div>
+                    </div>
+                    {i < 2 && <div style={{ marginLeft: 36 }}><span className="ap-route-chain-layover">Пересадка {fmtDur(layoverMin(i))}</span></div>}
+                  </React.Fragment>
+                ))}
+              </div>
+              {p.trip === 'mc' && allPicked && (
+                <div className="ap-route-totals">
+                  <div className="rt-block"><Icon name="route" /><div><div className="l">Общая продолжительность (с учётом пересадок)</div><div className="v">{fmtDur(totalDurMin)}</div></div></div>
+                  <div className="rt-price"><div className="l">Итого за маршрут</div><div className="v">{money(totalPrice, 'USD')}</div></div>
+                  <span className="pill pill-blue rt-badge"><Icon name="star" />Оптимальный маршрут</span>
+                </div>
+              )}
             </div>
           </div>
-          {allPicked && (
-            <div className="svcf-summary">
-              <span className="ic"><Icon name="route" /></span>
-              <div className="grp"><span className="l">Общая продолжительность</span><span className="v">{fmtDur(totalDurMin)} (с учётом пересадок)</span></div>
-              <div className="grp"><span className="l">Итого за маршрут</span><span className="v big">{money(totalPrice, 'USD')}</span></div>
-              <div style={{ flex: 1 }} />
-              <span className="pill pill-blue"><Icon name="star" style={{ width: 13, height: 13 }} />Оптимальный маршрут</span>
-            </div>
+
+          {visible < outOpts.length && (
+            <button className="svcf-more" onClick={() => setVisible((v) => v + 15)}>
+              Показать ещё {Math.min(15, outOpts.length - visible)} рейсов <Icon name="chevDown" style={{ width: 15, height: 15 }} />
+            </button>
           )}
-        </>
-      )}
 
-      {visible < outOpts.length && (
-        <button className="svcf-more" onClick={() => setVisible((v) => v + 15)}>
-          Показать ещё {Math.min(15, outOpts.length - visible)} рейсов <Icon name="chevDown" style={{ width: 15, height: 15 }} />
-        </button>
-      )}
-
-      <Button icon="check" disabled={!allPicked} style={{ marginTop: 14 }} onClick={submit}>Добавить в заказ</Button>
+          <Button icon="check" disabled={!allPicked} style={{ marginTop: 14 }} onClick={submit}>Добавить в заказ</Button>
         </div>
       </div>
     </div>
@@ -831,8 +924,9 @@ function AddServicePanel({ kind, setKind, aviaParams, setAviaParams, paxCount, p
       {/* Гостиницы — полноценный модуль подбора с фильтром слева, выбором номера,
           составом гостей, групповым размещением и подтверждением бронирования */}
       {kind === 'Гостиница' && <HotelPicker participants={participants} group={isGroup} onApply={(offer) => onAddOther(offer, 'Гостиница')} onCancel={() => {}} />}
-      {kind !== 'Авиа' && kind !== 'Гостиница' && cat.routeKey && <ServiceAddFlow routeKey={cat.routeKey} onAdd={onAddOther} />}
-      {kind !== 'Авиа' && kind !== 'Гостиница' && !cat.routeKey && <QuickAddForm kind={kind} onAdd={onAddOther} />}
+      {kind === 'ЖД' && <RailAddFlow participants={participants} groups={isGroup ? AVIA_GROUPS_SEED : null} onAdd={onAddOther} />}
+      {kind !== 'Авиа' && kind !== 'Гостиница' && kind !== 'ЖД' && cat.routeKey && <ServiceAddFlow routeKey={cat.routeKey} onAdd={onAddOther} />}
+      {kind !== 'Авиа' && kind !== 'Гостиница' && kind !== 'ЖД' && !cat.routeKey && <QuickAddForm kind={kind} onAdd={onAddOther} />}
     </div>
   );
 }
@@ -1078,7 +1172,7 @@ function OrderCard({ order, onBack, initTab, initSvcSearch, fresh, onOpenChat })
     switch (tab) {
       case 'overview': return <TabOverview order={order} />;
       case 'clients': return <TabClients order={order} onOpenChat={onOpenChat} />;
-      case 'participants': return <TabParticipants list={participants} isGroup={requestType === 'Групповая'} fresh={fresh} onPassport={setPassport} onAdd={() => setPaxOpen(true)} />;
+      case 'participants': return <TabParticipants list={participants} isGroup={requestType === 'Групповая'} groups={requestType === 'Групповая' ? AVIA_GROUPS_SEED : null} fresh={fresh} onPassport={setPassport} onAdd={() => setPaxOpen(true)} />;
       case 'route': return <TabRoute services={services} />;
       case 'services': return renderServicesArea();
       case 'offers': return <KPModule order={order} services={services} participants={participants}
@@ -1186,7 +1280,8 @@ function OrderCard({ order, onBack, initTab, initSvcSearch, fresh, onOpenChat })
 
       {/* per-passenger tariff screen, opened after a route is picked in AviaSearchPanel and before it's added to the order */}
       {pendingAviaRoute && (
-        <FareSelectPanel pax={participants} classByPax={aviaClassByPax} setClassByPax={setAviaClassByPax}
+        <FareSelectPanel pax={participants} groups={requestType === 'Групповая' ? AVIA_GROUPS_SEED : undefined}
+          classByPax={aviaClassByPax} setClassByPax={setAviaClassByPax}
           fareByPax={aviaFareByPax} setFareByPax={setAviaFareByPax}
           individualMode={aviaIndividualMode} setIndividualMode={setAviaIndividualMode}
           onClose={() => setPendingAviaRoute(null)} onApply={finalizeAviaFare} />

@@ -297,6 +297,11 @@ function FilterRail({ flt, setFlt }) {
     <div className="flt-rail">
       <div className="card card-pad" style={{ padding: '8px 20px' }}>
         <div className="flt-block">
+          <div className="flt-h">Поиск рейса</div>
+          <SearchBox value={flt.flightNo || ''} onChange={(v) => setFlt({ ...flt, flightNo: v })}
+            placeholder="Номер рейса, напр. KC 131" style={{ minWidth: 0, width: '100%', height: 42 }} />
+        </div>
+        <div className="flt-block">
           <div className="flt-h">Пересадки</div>
           {[['0', 'Без пересадок'], ['1', '1 пересадка']].map(([v, l]) => (
             <label key={v} className="flt-opt"><Checkbox on={flt.stops.includes(v)} onChange={() => tg('stops', v)} />{l}</label>
@@ -363,14 +368,16 @@ function CompareModal({ open, offers, onClose, onSelect }) {
 function FlightResults({ params, onSelect, onBackToSearch }) {
   const [loading, setLoading] = useState(true);
   const [sort, setSort] = useState('best');
-  const [flt, setFlt] = useState({ stops: [], air: [], sup: [], bagOnly: false, refundOnly: false });
+  const [flt, setFlt] = useState({ stops: [], air: [], sup: [], bagOnly: false, refundOnly: false, flightNo: '' });
   const [compare, setCompare] = useState([]);
   const [cmpOpen, setCmpOpen] = useState(false);
   const toast = useToast();
 
   useEffect(() => { setLoading(true); const t = setTimeout(() => setLoading(false), 1100); return () => clearTimeout(t); }, []);
 
+  const flightNoMatch = (o, q) => { const n = q.replace(/\s+/g, '').toLowerCase(); return [o.out, o.back].some((l) => l && l.flightNo && l.flightNo.replace(/\s+/g, '').toLowerCase().includes(n)); };
   let offers = FLIGHT_OFFERS.filter((o) => {
+    if (flt.flightNo && flt.flightNo.trim() && !flightNoMatch(o, flt.flightNo)) return false;
     if (flt.stops.length && !flt.stops.includes(String(o.out.stops))) return false;
     if (flt.air.length && !flt.air.includes(o.airline)) return false;
     if (flt.sup.length && !flt.sup.includes(o.supplier)) return false;
