@@ -63,9 +63,124 @@ const PAX_DEFAULT_OPTIONS = { sameClass: true, allowDiffClasses: false, seekSubs
 
 function paxTotal(pax) { return pax.adt + pax.chd + pax.infNoSeat + pax.infSeat; }
 
+/* per-type / per-category visuals so the picker looks identical everywhere it's used */
+const PAX_BASE_TYPES = [
+  { k: 'adt', label: 'Взрослые', sub: 'от 12 лет', icon: 'user', tone: 'blue', min: 1 },
+  { k: 'chd', label: 'Дети', sub: '2–11 лет', icon: 'baby', tone: 'green', min: 0 },
+  { k: 'infNoSeat', label: 'Младенцы без места', sub: 'до 2 лет', icon: 'baby', tone: 'violet', min: 0 },
+  { k: 'infSeat', label: 'Младенцы с местом', sub: 'до 2 лет', icon: 'baby', tone: 'amber', min: 0 },
+];
+const SPECIAL_PAX_ICONS = { youth: 'user', seniorM: 'user', seniorF: 'user', largeFamily: 'users', disabled: 'user', disabledEscort: 'users', disabledChild: 'baby' };
+const SPECIAL_PAX_INFO = {
+  largeFamily: 'Льгота для семей с тремя и более детьми', disabled: 'Требуется подтверждающий документ',
+  disabledChild: 'Требуется подтверждающий документ', disabledEscort: 'Сопровождающий лица с инвалидностью',
+};
+const SUBSIDIZED_PAX_ICONS = { dvoResident: 'mapPin', dvoChild: 'baby', kldResident: 'building', kldChild: 'baby' };
+const CABIN_ICONS = { 'Эконом': 'user', 'Комфорт': 'coffee', 'Бизнес': 'briefcase', 'Первый': 'sparkles' };
+const PAX_OPTION_META = [
+  { k: 'sameClass', label: 'Все пассажиры одного класса', icon: 'users', info: 'Все места будут забронированы в одном классе обслуживания' },
+  { k: 'allowDiffClasses', label: 'Разрешить разные классы', icon: 'idcard', info: 'Можно назначить разным пассажирам разные классы' },
+  { k: 'seekSubsidized', label: 'Подобрать субсидированные тарифы', icon: 'finance', info: 'Поиск с учётом субсидированных программ' },
+  { k: 'seekGroupFares', label: 'Искать групповые тарифы авиакомпаний', icon: 'users', info: 'Специальные тарифы для групп от 10 человек' },
+];
+
+function PaxStepper({ val, min = 0, onChange }) {
+  return (
+    <div className="pcp-stepper">
+      <button type="button" disabled={val <= min} onClick={() => onChange(Math.max(min, val - 1))}>−</button>
+      <span className="n">{val}</span>
+      <button type="button" onClick={() => onChange(val + 1)}>+</button>
+    </div>
+  );
+}
+
+/* единый компонент выбора пассажиров и класса — используется во всех авиапоисках */
+function PaxClassPicker({ pax, setPax, cabin, setCabin, options = PAX_DEFAULT_OPTIONS, setOptions }) {
+  const [specialOpen, setSpecialOpen] = useState(false);
+  const [paxOpen, setPaxOpen] = useState(true);
+  const total = paxTotal(pax);
+  const setBase = (k, min) => (v) => setPax({ ...pax, [k]: Math.max(min, v) });
+  const setGrp = (grp, k) => (v) => setPax({ ...pax, [grp]: { ...(pax[grp] || {}), [k]: Math.max(0, v) } });
+  const specialCount = Object.values(pax.special || {}).reduce((a, n) => a + (n || 0), 0)
+    + Object.values(pax.subsidized || {}).reduce((a, n) => a + (n || 0), 0);
+  const opt = (k) => () => setOptions && setOptions({ [k]: !options[k] });
+
+  return (
+    <div className="pcp">
+      <div className="pcp-sec-head">
+        <span className="t">Пассажиры</span>
+        <span className="pcp-total">Всего: {total}</span>
+        <div style={{ flex: 1 }} />
+        <button type="button" className="pcp-link" onClick={() => setPaxOpen((o) => !o)}>{paxOpen ? 'Свернуть' : 'Развернуть'}<Icon name={paxOpen ? 'chevUp' : 'chevDown'} style={{ width: 14, height: 14 }} /></button>
+      </div>
+
+      {paxOpen && PAX_BASE_TYPES.map((t) => (
+        <div className="pcp-row" key={t.k}>
+          <span className={'pcp-ic ' + t.tone}><Icon name={t.icon} /></span>
+          <div className="pcp-row-body"><div className="l">{t.label}</div><div className="s">{t.sub}</div></div>
+          <PaxStepper val={pax[t.k] || 0} min={t.min} onChange={setBase(t.k, t.min)} />
+        </div>
+      ))}
+
+      <button type="button" className={'pcp-special-toggle' + (specialOpen ? ' open' : '')} onClick={() => setSpecialOpen((o) => !o)}>
+        <span className="pm">{specialOpen ? '−' : '+'}</span>Специальные категории
+        {specialCount > 0 && <span className="tab-count">{specialCount}</span>}
+        <span style={{ flex: 1 }} />
+        <Icon name={specialOpen ? 'chevUp' : 'chevDown'} style={{ width: 16, height: 16 }} />
+      </button>
+      {specialOpen && (
+        <div className="pcp-special">
+          <div className="pcp-special-col">
+            <div className="pcp-col-h">Льготные категории</div>
+            {SPECIAL_PAX_CATEGORIES.map((c) => (
+              <div className="pcp-srow" key={c.key}>
+                <span className="pcp-sic"><Icon name={SPECIAL_PAX_ICONS[c.key] || 'user'} /></span>
+                <span className="pcp-slabel">{c.label}{SPECIAL_PAX_INFO[c.key] && <Icon name="alertCircle" className="pcp-info" title={SPECIAL_PAX_INFO[c.key]} />}</span>
+                <PaxStepper val={(pax.special || {})[c.key] || 0} onChange={setGrp('special', c.key)} />
+              </div>
+            ))}
+          </div>
+          <div className="pcp-special-col">
+            <div className="pcp-col-h">Субсидированные программы</div>
+            {SUBSIDIZED_PAX_PROGRAMS.map((c) => (
+              <div className="pcp-srow" key={c.key}>
+                <span className="pcp-sic"><Icon name={SUBSIDIZED_PAX_ICONS[c.key] || 'mapPin'} /></span>
+                <span className="pcp-slabel">{c.label}</span>
+                <PaxStepper val={(pax.subsidized || {})[c.key] || 0} onChange={setGrp('subsidized', c.key)} />
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      <div className="pcp-block-h">Класс обслуживания</div>
+      <div className="pcp-class-grid">
+        {CABIN_CLASSES.map((c) => (
+          <button type="button" key={c} className={'pcp-class' + (cabin === c ? ' sel' : '')} onClick={() => setCabin(c)}>
+            {cabin === c && <span className="pcp-class-check"><Icon name="check" /></span>}
+            <span className="pcp-class-ic"><Icon name={CABIN_ICONS[c] || 'user'} /></span>
+            <span className="pcp-class-l">{c}</span>
+          </button>
+        ))}
+      </div>
+
+      <div className="pcp-block-h">Дополнительные параметры</div>
+      <div className="pcp-opts">
+        {PAX_OPTION_META.map((o) => (
+          <label key={o.k} className={'pcp-opt' + (options[o.k] ? ' on' : '')}>
+            <Checkbox on={!!options[o.k]} onChange={opt(o.k)} />
+            <Icon name={o.icon} className="pcp-opt-ic" />
+            <span className="pcp-opt-l">{o.label}</span>
+            <Icon name="alertCircle" className="pcp-info" title={o.info} />
+          </label>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function PaxField({ pax, setPax, cabin, setCabin, options = PAX_DEFAULT_OPTIONS, setOptions }) {
   const [open, setOpen] = useState(false);
-  const [specialOpen, setSpecialOpen] = useState(false);
   const ref = useRef(null);
   useEffect(() => {
     const h = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); };
@@ -74,22 +189,6 @@ function PaxField({ pax, setPax, cabin, setCabin, options = PAX_DEFAULT_OPTIONS,
   }, []);
   const total = paxTotal(pax);
   const plural = (n) => n === 1 ? 'пассажир' : (n < 5 ? 'пассажира' : 'пассажиров');
-  const specialCount = Object.values(pax.special || {}).reduce((a, n) => a + (n || 0), 0)
-    + Object.values(pax.subsidized || {}).reduce((a, n) => a + (n || 0), 0);
-  const Step = ({ label, sub, val, set, min = 0 }) => (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 0' }}>
-      <div style={{ flex: 1 }}>
-        <div style={{ fontWeight: 600, fontSize: 14.5 }}>{label}</div>
-        {sub && <div style={{ fontSize: 12.5, color: 'var(--muted)' }}>{sub}</div>}
-      </div>
-      <button className="btn btn-secondary btn-icon btn-sm" disabled={val <= min} onClick={() => set(val - 1)}>−</button>
-      <span style={{ width: 22, textAlign: 'center', fontWeight: 700 }}>{val}</span>
-      <button className="btn btn-secondary btn-icon btn-sm" onClick={() => set(val + 1)}>+</button>
-    </div>
-  );
-  const setBase = (k, min = 0) => (v) => setPax({ ...pax, [k]: Math.max(min, v) });
-  const setSpecial = (group, k) => (v) => setPax({ ...pax, [group]: { ...(pax[group] || {}), [k]: Math.max(0, v) } });
-  const opt = (k) => (e) => setOptions && setOptions({ [k]: e.target ? e.target.checked : e });
   return (
     <div className="av-field" style={{ position: 'relative', width: 230 }} ref={ref}>
       <span className="label">Пассажиры и класс</span>
@@ -99,64 +198,8 @@ function PaxField({ pax, setPax, cabin, setCabin, options = PAX_DEFAULT_OPTIONS,
         <Icon name="chevDown" style={{ width: 16, height: 16, color: 'var(--muted-2)' }} />
       </div>
       {open && (
-        <div className="dropdown scroll" style={{ top: 74, left: 0, width: 320, maxHeight: 520, overflowY: 'auto', padding: 14 }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
-            <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--ink)', textTransform: 'uppercase', letterSpacing: '.02em' }}>Пассажиры</span>
-            <Pill tone="blue">Всего {total}</Pill>
-          </div>
-          <Step label="Взрослые" sub="от 12 лет" val={pax.adt} set={setBase('adt', 1)} min={1} />
-          <Step label="Дети" sub="2–11 лет" val={pax.chd} set={setBase('chd')} />
-          <Step label="Младенцы без места" sub="до 2 лет" val={pax.infNoSeat} set={setBase('infNoSeat')} />
-          <Step label="Младенцы с местом" sub="до 2 лет" val={pax.infSeat} set={setBase('infSeat')} />
-
-          <button className="dropdown-sep" style={{ width: '100%', border: 'none', background: 'none', padding: 0, margin: '10px 0', cursor: 'pointer' }}
-            onClick={() => setSpecialOpen((o) => !o)}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderTop: '1px solid var(--line)', paddingTop: 12 }}>
-              <span style={{ display: 'flex', alignItems: 'center', gap: 8, fontWeight: 600, color: 'var(--ink)', fontSize: 14 }}>
-                <Icon name="plus" style={{ width: 14, height: 14 }} />Специальные категории{specialCount > 0 && <span className="tab-count">{specialCount}</span>}
-              </span>
-              <Icon name={specialOpen ? 'chevUp' : 'chevDown'} style={{ width: 16, height: 16, color: 'var(--muted-2)' }} />
-            </div>
-          </button>
-
-          {specialOpen && (
-            <>
-              <div style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--muted)', margin: '4px 0 2px' }}>Льготные категории</div>
-              {SPECIAL_PAX_CATEGORIES.map((c) => (
-                <Step key={c.key} label={c.label} val={(pax.special || {})[c.key] || 0} set={setSpecial('special', c.key)} />
-              ))}
-              <div style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--muted)', margin: '10px 0 2px' }}>Субсидированные программы</div>
-              {SUBSIDIZED_PAX_PROGRAMS.map((c) => (
-                <Step key={c.key} label={c.label} val={(pax.subsidized || {})[c.key] || 0} set={setSpecial('subsidized', c.key)} />
-              ))}
-            </>
-          )}
-
-          <div className="dropdown-sep" />
-          <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--ink)', margin: '8px 0' }}>Класс обслуживания</div>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-            {CABIN_CLASSES.map((c) => (
-              <button key={c} className={'tab' + (cabin === c ? ' active' : '')} style={{ justifyContent: 'center' }}
-                onClick={() => setCabin(c)}>{c}</button>
-            ))}
-          </div>
-
-          <div className="dropdown-sep" />
-          <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--ink)', margin: '8px 0' }}>Дополнительные параметры</div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-            <label style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer', fontSize: 13.5 }}>
-              <Checkbox on={options.sameClass} onChange={() => setOptions && setOptions({ sameClass: !options.sameClass })} />Все пассажиры одного класса
-            </label>
-            <label style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer', fontSize: 13.5 }}>
-              <Checkbox on={options.allowDiffClasses} onChange={() => setOptions && setOptions({ allowDiffClasses: !options.allowDiffClasses })} />Разрешить разные классы
-            </label>
-            <label style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer', fontSize: 13.5 }}>
-              <Checkbox on={options.seekSubsidized} onChange={() => setOptions && setOptions({ seekSubsidized: !options.seekSubsidized })} />Подобрать субсидированные тарифы
-            </label>
-            <label style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer', fontSize: 13.5 }}>
-              <Checkbox on={options.seekGroupFares} onChange={() => setOptions && setOptions({ seekGroupFares: !options.seekGroupFares })} />Искать групповые тарифы авиакомпаний
-            </label>
-          </div>
+        <div className="dropdown scroll pcp-pop" style={{ top: 74, left: 0, width: 'min(620px,86vw)', maxHeight: 560, overflowY: 'auto', padding: 16 }}>
+          <PaxClassPicker pax={pax} setPax={setPax} cabin={cabin} setCabin={setCabin} options={options} setOptions={setOptions} />
         </div>
       )}
     </div>

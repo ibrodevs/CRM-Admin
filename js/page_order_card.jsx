@@ -202,14 +202,12 @@ function OrderAside({ order, status, onStatusChange, services, participants, req
       </div>
 
       <div className="card card-pad">
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14, gap: 8 }}>
-          <h3 className="card-title" style={{ fontSize: 17, margin: 0 }}>Ответственный оператор</h3>
-          <Button variant="secondary" size="sm" icon="users" onClick={onReassign}>Переназначить</Button>
-        </div>
-        <div className="oc-aside-resp">
+        <h3 className="card-title" style={{ fontSize: 17, marginBottom: 14 }}>Ответственный</h3>
+        <div className="oc-aside-resp" style={{ marginBottom: 12 }}>
           <Avatar name={operator || order.operator} size={40} />
-          <div><div className="nm">{operator || order.operator}</div><div className="rl">Оператор · {order.operatorRole || 'Оператор'}</div></div>
+          <div><div className="nm">{operator || order.operator}</div><div className="rl">{order.operatorRole || 'Оператор'}</div></div>
         </div>
+        <Button variant="secondary" size="sm" icon="users" style={{ width: '100%' }} onClick={onReassign}>Переназначить</Button>
       </div>
     </div>
   );
@@ -851,22 +849,8 @@ function AviaPaxPanel({ params, setParams, participants = [], groups, onClose })
   const p = params;
   const pax = p.pax;
   const set = (patch) => setParams({ ...p, ...patch });
-  const [specialOpen, setSpecialOpen] = useState(false);
-  const setBase = (k, min = 0) => (v) => set({ pax: { ...pax, [k]: Math.max(min, v) } });
-  const setGroup = (grp, k) => (v) => set({ pax: { ...pax, [grp]: { ...(pax[grp] || {}), [k]: Math.max(0, v) } } });
   const total = paxTotal(pax);
   const plural = (n) => n === 1 ? 'пассажир' : (n % 10 >= 2 && n % 10 <= 4 && (n % 100 < 10 || n % 100 >= 20) ? 'пассажира' : 'пассажиров');
-  const specialCount = Object.values(pax.special || {}).reduce((a, n) => a + (n || 0), 0)
-    + Object.values(pax.subsidized || {}).reduce((a, n) => a + (n || 0), 0);
-
-  const Step = ({ label, sub, val, set: setV, min = 0 }) => (
-    <div className="avia-pax-step">
-      <div style={{ flex: 1 }}><div className="t">{label}</div>{sub && <div className="s">{sub}</div>}</div>
-      <button className="btn btn-secondary btn-icon btn-sm" disabled={val <= min} onClick={() => setV(val - 1)}>−</button>
-      <span className="n">{val}</span>
-      <button className="btn btn-secondary btn-icon btn-sm" onClick={() => setV(val + 1)}>+</button>
-    </div>
-  );
 
   const sections = (() => {
     if (groups && groups.length && participants.length) {
@@ -884,40 +868,11 @@ function AviaPaxPanel({ params, setParams, participants = [], groups, onClose })
   })();
 
   return (
-    <StackPanel title="Пассажиры и класс" width="min(560px,94vw)" onClose={onClose}
+    <StackPanel title="Пассажиры и класс" width="min(620px,95vw)" onClose={onClose}
       footer={<Button style={{ width: '100%' }} icon="check" onClick={onClose}>Готово · {total} {plural(total)}</Button>}>
-      <div className="avia-pax-grid">
-        <Step label="Взрослые" sub="от 12 лет" val={pax.adt} set={setBase('adt', 1)} min={1} />
-        <Step label="Дети" sub="2–11 лет" val={pax.chd} set={setBase('chd')} />
-        <Step label="Младенцы без места" sub="до 2 лет" val={pax.infNoSeat} set={setBase('infNoSeat')} />
-        <Step label="Младенцы с местом" sub="до 2 лет" val={pax.infSeat} set={setBase('infSeat')} />
-      </div>
-
-      <button type="button" className="avia-pax-more" onClick={() => setSpecialOpen((o) => !o)}>
-        <Icon name="plus" style={{ width: 14, height: 14 }} />Специальные категории
-        {specialCount > 0 && <span className="tab-count">{specialCount}</span>}
-        <span style={{ flex: 1 }} />
-        <Icon name={specialOpen ? 'chevUp' : 'chevDown'} style={{ width: 16, height: 16 }} />
-      </button>
-      {specialOpen && (
-        <div className="avia-pax-grid">
-          <div className="avia-pax-subh">Льготные категории</div>
-          {SPECIAL_PAX_CATEGORIES.map((c) => (
-            <Step key={c.key} label={c.label} val={(pax.special || {})[c.key] || 0} set={setGroup('special', c.key)} />
-          ))}
-          <div className="avia-pax-subh">Субсидированные программы</div>
-          {SUBSIDIZED_PAX_PROGRAMS.map((c) => (
-            <Step key={c.key} label={c.label} val={(pax.subsidized || {})[c.key] || 0} set={setGroup('subsidized', c.key)} />
-          ))}
-        </div>
-      )}
-
-      <div className="avia-pax-subh" style={{ marginTop: 18 }}>Класс обслуживания</div>
-      <div className="avia-cabin-grid">
-        {CABIN_CLASSES.map((c) => (
-          <button key={c} className={'tab' + (p.cabin === c ? ' active' : '')} style={{ justifyContent: 'center' }} onClick={() => set({ cabin: c })}>{c}</button>
-        ))}
-      </div>
+      {/* единый компонент выбора пассажиров и класса (как на макете), общий для всех авиапоисков */}
+      <PaxClassPicker pax={pax} setPax={(v) => set({ pax: v })} cabin={p.cabin} setCabin={(v) => set({ cabin: v })}
+        options={p} setOptions={(patch) => set(patch)} />
 
       {sections && (
         <>

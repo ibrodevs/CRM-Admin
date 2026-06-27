@@ -47,13 +47,17 @@ function HotelResultCard({ h, saved, onSave, onPick }) {
 }
 
 /* ---------- левый фильтр (общий для всех видов услуг) ---------- */
-function HotelFilters({ priceMax, setPriceMax, stars, toggleStar, starCounts, districts, distSel, toggleDist, count, onReset }) {
+function HotelFilters({ priceMax, setPriceMax, stars, toggleStar, starCounts, districts, distSel, toggleDist, count, onReset, query, setQuery }) {
+  const selCount = Object.values(stars).filter(Boolean).length + Object.values(distSel).filter(Boolean).length + (priceMax < 50000 ? 1 : 0) + (query && query.trim() ? 1 : 0);
   return (
     <aside className="hp-filters">
       <div className="hp-filters-head">
-        <span>Фильтры</span>
-        <button className="hp-reset" onClick={onReset}>Сбросить всё</button>
+        <span>Фильтры{selCount > 0 && <span className="flt-count">{selCount}</span>}</span>
+        <button className="hp-reset" onClick={onReset}>Очистить</button>
       </div>
+
+      {/* поиск по отелям — как «Номер рейса» у авиа и «Номер поезда» у ЖД */}
+      <SearchBox value={query || ''} onChange={setQuery} placeholder="Поиск отелей" style={{ minWidth: 0, width: '100%', height: 42, margin: '4px 0 10px' }} />
 
       <div className="hp-filter-block">
         <div className="hp-filter-title">Цена за ночь</div>
@@ -112,6 +116,7 @@ function HotelPicker({ participants, group = false, onApply, onCancel }) {
   const [priceMax, setPriceMax] = useState(50000);
   const [stars, setStars] = useState({});
   const [distSel, setDistSel] = useState({});
+  const [hotelQ, setHotelQ] = useState('');
   const [sort, setSort] = useState('rec');
 
   // --- сессия бронирования ---
@@ -145,9 +150,11 @@ function HotelPicker({ participants, group = false, onApply, onCancel }) {
   const starCounts = HOTELS.reduce((a, h) => { a[h.stars] = (a[h.stars] || 0) + 1; return a; }, {});
   const anyStar = Object.values(stars).some(Boolean);
   const anyDist = Object.values(distSel).some(Boolean);
+  const hq = hotelQ.trim().toLowerCase();
   let list = HOTELS.filter((h) => h.base <= priceMax
     && (!anyStar || stars[h.stars])
     && (!anyDist || distSel[h.district])
+    && (!hq || `${h.name} ${h.district || ''} ${h.city || ''}`.toLowerCase().includes(hq))
     && (!freeCancelOnly || h.freeCancel));
   list = [...list].sort((a, b) => {
     if (sort === 'cheap') return a.base - b.base;
@@ -156,7 +163,7 @@ function HotelPicker({ participants, group = false, onApply, onCancel }) {
     if (sort === 'rating') return b.rating - a.rating;
     return b.rating - a.rating; // рекомендуемые
   });
-  const resetFilters = () => { setPriceMax(50000); setStars({}); setDistSel({}); setFreeCancelOnly(false); };
+  const resetFilters = () => { setPriceMax(50000); setStars({}); setDistSel({}); setFreeCancelOnly(false); setHotelQ(''); };
 
   /* ---- открытие отеля ---- */
   const openHotel = (h) => {
@@ -338,6 +345,7 @@ function HotelPicker({ participants, group = false, onApply, onCancel }) {
           priceMax={priceMax} setPriceMax={setPriceMax}
           stars={stars} toggleStar={(s) => setStars((p) => ({ ...p, [s]: !p[s] }))} starCounts={starCounts}
           districts={HOTEL_DISTRICTS} distSel={distSel} toggleDist={(d) => setDistSel((p) => ({ ...p, [d]: !p[d] }))}
+          query={hotelQ} setQuery={setHotelQ}
           count={list.length} onReset={resetFilters} />
 
         <div className="hp-results">
