@@ -436,6 +436,7 @@ const AIR_STATS = [
 // Fare tiers shown in step 2 «Выберите тариф». delta = price difference vs the base fare.
 const AVIA_FARE_TIERS = [
   { id: 'light', name: 'Эконом Лайт', delta: 0, recommended: false,
+    desc: 'Базовый тариф для поездок налегке: только ручная кладь, без багажа. Изменения и возврат не предусмотрены. Выбор места — за доплату. Подходит для коротких поездок без багажа.',
     features: [
       { ok: true,  text: 'Ручная кладь 10 кг' },
       { ok: false, text: 'Багаж не включён' },
@@ -443,6 +444,7 @@ const AVIA_FARE_TIERS = [
       { ok: false, text: 'Платный выбор места' },
     ] },
   { id: 'optimum', name: 'Эконом Оптимум', delta: 1900, recommended: true,
+    desc: 'Оптимальный баланс цены и гибкости: включён багаж 23 кг и выбор места, возврат возможен со штрафом. Лучший выбор для большинства поездок.',
     features: [
       { ok: true,  text: 'Ручная кладь 10 кг' },
       { ok: true,  text: 'Багаж 1 место 23 кг' },
@@ -450,6 +452,7 @@ const AVIA_FARE_TIERS = [
       { ok: true,  text: 'Выбор места включён' },
     ] },
   { id: 'max', name: 'Эконом Максимум', delta: 4300, recommended: false,
+    desc: 'Максимально гибкий эконом: два места багажа по 23 кг, свободный возврат и обмен без штрафов, выбор места и питание включены. Для тех, кому важна свобода изменений.',
     features: [
       { ok: true,  text: 'Ручная кладь 10 кг' },
       { ok: true,  text: 'Багаж 2 места 23 кг' },
@@ -461,6 +464,7 @@ const AVIA_FARE_TIERS = [
 // Business-cabin fare tiers (used when the passenger's booking class is C/J/D)
 const AVIA_FARE_TIERS_BUSINESS = [
   { id: 'biz-lite', name: 'Бизнес Лайт', delta: 8000, recommended: false,
+    desc: 'Вход в бизнес-класс по выгодной цене: повышенный багаж 2×32 кг, доступ в бизнес-зал и выбор места. Возврат возможен со штрафом.',
     features: [
       { ok: true,  text: 'Багаж 2 места 32 кг' },
       { ok: true,  text: 'Бизнес-зал в аэропорту' },
@@ -468,6 +472,7 @@ const AVIA_FARE_TIERS_BUSINESS = [
       { ok: true,  text: 'Выбор места включён' },
     ] },
   { id: 'biz-flex', name: 'Бизнес Флекс', delta: 14000, recommended: true,
+    desc: 'Полноценный бизнес с максимальной гибкостью: свободный возврат и обмен, выбор места и питание, доступ в бизнес-зал. Оптимальный выбор для деловых поездок.',
     features: [
       { ok: true,  text: 'Багаж 2 места 32 кг' },
       { ok: true,  text: 'Бизнес-зал в аэропорту' },
@@ -475,6 +480,7 @@ const AVIA_FARE_TIERS_BUSINESS = [
       { ok: true,  text: 'Выбор места + питание' },
     ] },
   { id: 'biz-premium', name: 'Бизнес Премиум', delta: 22000, recommended: false,
+    desc: 'Премиальный бизнес: увеличенный багаж 3×32 кг, VIP-зал и фаст-трек, свободный возврат и персональный ассистент на всех этапах поездки.',
     features: [
       { ok: true,  text: 'Багаж 3 места 32 кг' },
       { ok: true,  text: 'VIP-зал и фаст-трек' },

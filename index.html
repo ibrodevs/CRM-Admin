@@ -1060,6 +1060,14 @@ table.tbl tbody tr:last-child td{border-bottom:none}
 .fare-sel-row .pr{font-size:12.5px;color:var(--muted);margin-top:2px;font-weight:600}
 .fare-total-row{display:flex;align-items:center;justify-content:space-between;padding:14px 0 0;border-top:1px solid var(--line);font-size:14px;color:var(--ink);font-weight:700}
 .fare-total-row b{font-size:19px}
+/* «О тарифе» — раскрываемое описание тарифа, кнопка выбора остаётся под ним */
+.fare-info-btn{display:inline-flex;align-items:center;gap:6px;border:none;background:none;color:var(--blue);font:inherit;font-size:12.5px;font-weight:600;cursor:pointer;padding:7px 0 4px}
+.fare-desc{font-size:12.5px;line-height:1.45;color:var(--muted);background:var(--surface-2);border:1px solid var(--line);border-radius:9px;padding:9px 11px;margin:0 0 10px}
+/* итоговые блоки: цена не должна слипаться с подписью */
+.ft-total b{margin-left:8px}
+.ap-footer .ft-total b{margin-left:0}
+.fare-total-foot{font-size:13px;color:var(--muted);display:inline-flex;align-items:baseline;gap:8px}
+.fare-total-foot b{color:var(--ink);font-size:18px}
 .fare-footer-toggles{display:flex;gap:14px;flex-wrap:wrap;margin-top:26px;padding-top:18px;border-top:1px solid var(--line)}
 .fare-toggle-card{flex:1;min-width:240px;display:flex;align-items:flex-start;gap:12px;border:1px solid var(--line);border-radius:13px;padding:13px 14px;cursor:pointer}
 .fare-toggle-card svg{width:18px;height:18px;color:var(--blue);flex:0 0 18px;margin-top:2px}

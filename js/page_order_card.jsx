@@ -890,6 +890,7 @@ function FlightFarePanel({ route, paxCount, cabin, onClose, onAdd, onPerPax }) {
   // booking class first, then the fare grid for that class — exactly like the full order-creation
   // flow (клиент: «в выборке тарифов отсутствует выборка классов»).
   const [clsCode, setClsCode] = useState('Y');
+  const [infoId, setInfoId] = useState(null);   // какой тариф раскрыт по «О тарифе»
   const tiers = fareTiersForClass(clsCode);
   const [fareId, setFareId] = useState((tiers.find((f) => f.recommended) || tiers[0]).id);
   const tier = tiers.find((f) => f.id === fareId) || (tiers.find((f) => f.recommended) || tiers[0]);
@@ -948,6 +949,12 @@ function FlightFarePanel({ route, paxCount, cabin, onClose, onAdd, onPerPax }) {
               {f.features.map((ft, k) => (
                 <div key={k} className={'fare-feat ' + (ft.ok ? 'ok' : 'no')}><Icon name={ft.ok ? 'check' : 'x'} />{ft.text}</div>
               ))}
+              {f.desc && (
+                <button type="button" className="fare-info-btn" onClick={(e) => { e.stopPropagation(); setInfoId(infoId === f.id ? null : f.id); }}>
+                  <Icon name={infoId === f.id ? 'chevUp' : 'alertCircle'} style={{ width: 14, height: 14 }} />О тарифе
+                </button>
+              )}
+              {infoId === f.id && f.desc && <div className="fare-desc">{f.desc}</div>}
               <Button variant="secondary" size="sm" className="fare-pick-btn" icon={sel ? 'check' : undefined}
                 onClick={(e) => { e.stopPropagation(); setFareId(f.id); }}>{sel ? 'Выбран' : 'Выбрать тариф'}</Button>
             </div>
