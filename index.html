@@ -615,6 +615,19 @@ table.tbl tbody tr:last-child td{border-bottom:none}
 .avia-search-bar .avia-find-btn{flex:0 0 auto}
 .avia-pax-field{cursor:pointer}
 @media(max-width:720px){.avia-search-bar .av-field{flex:1 1 46%}}
+/* ТЗ — сложный маршрут: многострочная маска сегментов (Откуда / Куда / Дата) с add/remove */
+.avia-mc-mask{background:var(--surface-2);border:1px solid var(--line);border-radius:14px;padding:14px 16px;margin-bottom:18px}
+.avia-mc-head{display:flex;gap:12px;margin-bottom:4px;padding-right:0}
+.avia-mc-head .l{font-size:13px;color:var(--muted);font-weight:600}
+.avia-mc-row{display:flex;align-items:flex-end;gap:12px;margin-bottom:10px}
+.avia-mc-row .av-field{flex:1 1 0;min-width:0;width:auto}
+.avia-mc-row .av-swap{flex:0 0 40px}
+.avia-mc-row .avia-mc-date{flex:0 0 168px}
+.avia-mc-row .avia-mc-del{flex:0 0 34px;border:none;background:none;cursor:pointer;color:var(--red);display:flex;align-items:center;justify-content:center;height:42px;border-radius:8px;transition:.12s}
+.avia-mc-row .avia-mc-del:hover:not(:disabled){background:rgba(220,53,69,.1)}
+.avia-mc-row .avia-mc-del:disabled{color:var(--muted-2);opacity:.4;cursor:not-allowed}
+.avia-mc-foot{display:flex;align-items:flex-end;gap:12px;margin-top:6px;flex-wrap:wrap}
+.avia-mc-foot .avia-pax-field{flex:1 1 180px;min-width:0}
 /* ТЗ #3 — flight rows read as «click to open fares», like hotel room cards */
 .avia-result{cursor:pointer;border-radius:12px;transition:.12s}
 .avia-result:not(.embedded):hover{background:var(--blue-soft)}

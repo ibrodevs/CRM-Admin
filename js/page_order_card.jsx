@@ -953,12 +953,33 @@ function AviaSearchPanel({ params, setParams, paxCount, participants = [], isGro
     out: { key: o.id + '-o', airline: o.airline, leg: o.out, supplier: o.supplier, price: Math.round((o.fare + o.fee) * 0.6) },
     back: { key: o.id + '-b', airline: o.airline, leg: o.back, supplier: o.supplier, price: Math.round((o.fare + o.fee) * 0.4) },
   })).sort((a, b) => (a.out.price + a.back.price) - (b.out.price + b.back.price));
-  // complex demo route — three sequential legs assembled from the cheapest offers
-  const mcLegs = outOpts.slice(0, 3);
+  // «Сложный маршрут» (ТЗ): маска превращается в список сегментов Откуда/Куда/Дата вылета.
+  // Сегменты можно добавлять до максимума и удалять лишние (крестик у строки).
+  const MC_MAX = 6;
+  const segs = (p.segments && p.segments.length >= 2) ? p.segments : [
+    { from: p.from, to: p.to, date: p.depDate },
+    { from: p.to, to: '', date: null },
+  ];
+  const setSegs = (next) => set({ segments: next });
+  const updateSeg = (i, patch) => setSegs(segs.map((s, idx) => (idx === i ? { ...s, ...patch } : s)));
+  const addSeg = () => { if (segs.length < MC_MAX) setSegs([...segs, { from: segs[segs.length - 1].to || '', to: '', date: null }]); };
+  const removeSeg = (i) => { if (segs.length > 2) setSegs(segs.filter((_, idx) => idx !== i)); };
+  // demo legs for the results chain — one per entered segment
+  const mcLegs = outOpts.length ? segs.map((_, i) => outOpts[i % outOpts.length]) : [];
   const mcTotal = mcLegs.reduce((s, o) => s + o.price, 0);
 
   const openFare = (route) => setFareRoute(route);
   const paxLabel = `${seats} ${plural(seats)} · ${p.cabin}`;
+  const paxFieldNode = (
+    <div className="av-field avia-pax-field" onClick={() => setPaxPanel(true)}>
+      <span className="label">Пассажиры и класс</span>
+      <div className="input" style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 9 }}>
+        <Icon name="users" style={{ width: 17, height: 17, color: 'var(--muted-2)', flexShrink: 0 }} />
+        <span style={{ flex: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{paxLabel}</span>
+        <Icon name="chevDown" style={{ width: 16, height: 16, color: 'var(--muted-2)' }} />
+      </div>
+    </div>
+  );
   const foundCount = p.trip === 'rt' ? rtCombos.length : p.trip === 'mc' ? 1 : outOpts.length;
 
   return (
@@ -970,34 +991,57 @@ function AviaSearchPanel({ params, setParams, paxCount, participants = [], isGro
         ))}
       </div>
 
-      {/* ТЗ #6 — flexible fields keep the whole mask on one line, like the other services */}
-      <div className="svcp-search-bar avia-search-bar">
-        <AirportField label="Откуда" value={p.from} onChange={(v) => set({ from: v })} />
-        <button className="av-swap" onClick={swap} title="Поменять местами"><Icon name="swap" style={{ width: 18, height: 18 }} /></button>
-        <AirportField label="Куда" value={p.to} onChange={(v) => set({ to: v })} />
-        {p.trip === 'rt' ? (
-          <div className="av-field">
-            {/* ТЗ #10 — single range field with the «от — до» line; «Только туда» turns it into one-way */}
-            <DateRangeField label="Даты поездки" startVal={p.depDate} endVal={p.retDate} rangeStartLabel="Только туда"
-              placeholder="Туда — обратно"
-              onChange={(s, e) => { if (e === null || e === undefined) set({ trip: 'ow', depDate: s, retDate: null }); else set({ depDate: s, retDate: e }); }} />
+      {p.trip === 'mc' ? (
+        /* ТЗ — сложный маршрут: многострочная маска сегментов с добавлением/удалением точек */
+        <div className="avia-mc-mask">
+          <div className="avia-mc-head">
+            <span className="l" style={{ flex: '1 1 0' }}>Откуда</span>
+            <span style={{ flex: '0 0 40px' }} />
+            <span className="l" style={{ flex: '1 1 0' }}>Куда</span>
+            <span className="l" style={{ flex: '0 0 168px' }}>Дата вылета</span>
+            <span style={{ flex: '0 0 34px' }} />
           </div>
-        ) : (
-          <div className="av-field">
-            <DateField label={p.trip === 'mc' ? 'Первый вылет' : 'Дата вылета'} value={p.depDate} onChange={(d) => set({ depDate: d })} placeholder="Выбрать" />
-          </div>
-        )}
-        {/* ТЗ #7 — passengers open in a side panel instead of a pop-over */}
-        <div className="av-field avia-pax-field" onClick={() => setPaxPanel(true)}>
-          <span className="label">Пассажиры и класс</span>
-          <div className="input" style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 9 }}>
-            <Icon name="users" style={{ width: 17, height: 17, color: 'var(--muted-2)', flexShrink: 0 }} />
-            <span style={{ flex: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{paxLabel}</span>
-            <Icon name="chevDown" style={{ width: 16, height: 16, color: 'var(--muted-2)' }} />
+          {segs.map((s, i) => (
+            <div className="avia-mc-row" key={i}>
+              <AirportField value={s.from} onChange={(v) => updateSeg(i, { from: v })} />
+              <button className="av-swap" onClick={() => updateSeg(i, { from: s.to, to: s.from })} title="Поменять местами"><Icon name="swap" style={{ width: 18, height: 18 }} /></button>
+              <AirportField value={s.to} onChange={(v) => updateSeg(i, { to: v })} />
+              <div className="av-field avia-mc-date"><DateField value={s.date} onChange={(d) => updateSeg(i, { date: d })} placeholder="Дата" /></div>
+              <button className="avia-mc-del" disabled={segs.length <= 2} title={segs.length <= 2 ? 'Минимум 2 сегмента' : 'Удалить сегмент'} onClick={() => removeSeg(i)}><Icon name="x" style={{ width: 16, height: 16 }} /></button>
+            </div>
+          ))}
+          <div className="avia-mc-foot">
+            <Button variant="secondary" icon="plus" disabled={segs.length >= MC_MAX} onClick={addSeg}>
+              {segs.length >= MC_MAX ? 'Добавлено максимальное кол-во маршрутов' : 'Добавить маршрут'}
+            </Button>
+            <div style={{ flex: 1 }} />
+            {paxFieldNode}
+            <Button icon="search" className="avia-find-btn" style={{ height: 46, marginBottom: 0 }}>Найти</Button>
           </div>
         </div>
-        <Button icon="search" className="avia-find-btn" style={{ height: 46, marginBottom: 0 }}>Найти</Button>
-      </div>
+      ) : (
+        /* ТЗ #6 — flexible fields keep the whole mask on one line, like the other services */
+        <div className="svcp-search-bar avia-search-bar">
+          <AirportField label="Откуда" value={p.from} onChange={(v) => set({ from: v })} />
+          <button className="av-swap" onClick={swap} title="Поменять местами"><Icon name="swap" style={{ width: 18, height: 18 }} /></button>
+          <AirportField label="Куда" value={p.to} onChange={(v) => set({ to: v })} />
+          {p.trip === 'rt' ? (
+            <div className="av-field">
+              {/* ТЗ #10 — single range field with the «от — до» line; «Только туда» turns it into one-way */}
+              <DateRangeField label="Даты поездки" startVal={p.depDate} endVal={p.retDate} rangeStartLabel="Только туда"
+                placeholder="Туда — обратно"
+                onChange={(s, e) => { if (e === null || e === undefined) set({ trip: 'ow', depDate: s, retDate: null }); else set({ depDate: s, retDate: e }); }} />
+            </div>
+          ) : (
+            <div className="av-field">
+              <DateField label="Дата вылета" value={p.depDate} onChange={(d) => set({ depDate: d })} placeholder="Выбрать" />
+            </div>
+          )}
+          {/* ТЗ #7 — passengers open in a side panel instead of a pop-over */}
+          {paxFieldNode}
+          <Button icon="search" className="avia-find-btn" style={{ height: 46, marginBottom: 0 }}>Найти</Button>
+        </div>
+      )}
 
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, margin: '0 0 14px' }}>
         <div style={{ flex: 1 }} />

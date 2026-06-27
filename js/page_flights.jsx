@@ -30,7 +30,7 @@ function AirportField({ label, value, onChange, placeholder = 'Город или
   const list = AIRPORTS.filter((a) => !s || a.city.toLowerCase().includes(s) || a.code.toLowerCase().includes(s) || a.name.toLowerCase().includes(s));
   return (
     <div className="av-field" style={{ position: 'relative', width: 196 }} ref={ref}>
-      <span className="label">{label}</span>
+      {label && <span className="label">{label}</span>}
       <div className="input" style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 9 }}
         onClick={() => setOpen((o) => !o)}>
         <Icon name="plane" style={{ width: 17, height: 17, color: 'var(--muted-2)', flexShrink: 0 }} />
