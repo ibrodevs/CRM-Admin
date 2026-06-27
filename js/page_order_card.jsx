@@ -729,6 +729,45 @@ function AviaCardRow({ opt, sel, onSelect }) {
 /* one flight in the results list — clicking the row (or «Тарифы») opens its fare families,
    the same way picking a hotel opens its rooms (ТЗ #3). `embedded` rows live inside a larger
    round-trip / multi-city card whose parent handles the click. */
+/* per-leg segments — connecting legs carry an explicit `segs`/`layovers`; direct legs fall back
+   to a single segment built from the leg itself. Lets us show flight numbers per segment and the
+   leg1 / пересадка / leg2 breakdown like Aviasales/Tutu (запрос клиента). */
+function legSegments(leg) {
+  if (leg.segs && leg.segs.length) return leg.segs;
+  return [{ from: leg.from, to: leg.to, dep: leg.dep, arr: leg.arr, dur: leg.dur, flightNo: leg.flightNo }];
+}
+function legFlightNos(leg) { return legSegments(leg).map((s) => s.flightNo).filter(Boolean).join(' · '); }
+
+/* Aviasales-style detailed timeline for one leg: each flight segment with its number + duration,
+   and a «Пересадка Xч в AAA» band between segments. */
+function LegTimeline({ opt, title }) {
+  const leg = opt.leg;
+  const segs = legSegments(leg);
+  const lays = leg.layovers || [];
+  const air = AIRLINES[opt.airline] || { name: opt.airline };
+  return (
+    <div className="leg-tl">
+      {title && <div className="leg-tl-head"><AirlineLogo code={opt.airline} size="sm" /><span>{title}</span><span className="leg-tl-total">{leg.dur} · {segs.length > 1 ? (segs.length - 1) + ' пересадка' : 'прямой'}</span></div>}
+      {segs.map((s, i) => (
+        <React.Fragment key={i}>
+          <div className="leg-seg">
+            <div className="leg-seg-time"><div className="t">{s.dep}</div><div className="ap">{s.from}</div></div>
+            <div className="leg-seg-mid">
+              <div className="d">{s.dur}</div>
+              <div className="line" />
+              <div className="fn">{air.name} · рейс {s.flightNo}</div>
+            </div>
+            <div className="leg-seg-time"><div className="t">{s.arr}</div><div className="ap">{s.to}</div></div>
+          </div>
+          {i < segs.length - 1 && (
+            <div className="leg-layover"><Icon name="clock" style={{ width: 14, height: 14 }} />Пересадка {(lays[i] && lays[i].dur) || ''} в {(lays[i] && lays[i].at) || s.to}</div>
+          )}
+        </React.Fragment>
+      ))}
+    </div>
+  );
+}
+
 function AviaResultRow({ opt, onView, embedded }) {
   const leg = opt.leg;
   return (
@@ -738,7 +777,8 @@ function AviaResultRow({ opt, onView, embedded }) {
       <div className="ap-fl-mid">
         <div className="d">{leg.dur}</div>
         <div className="line" />
-        <div className={'st ' + (leg.stops ? 'via' : 'direct')}>{leg.stops ? leg.stopText.split('·')[0].trim() : 'Прямой'}</div>
+        <div className={'st ' + (leg.stops ? 'via' : 'direct')}>{leg.stops ? leg.stopText.replace('1 пересадка · ', 'через ') : 'Прямой'}</div>
+        <div className="fn">рейс {legFlightNos(leg)}</div>
       </div>
       <div className="ap-fl-time">{leg.arr}<div className="ap">{leg.to}</div></div>
       <div className="ap-fl-pr"><div className="v">{money(opt.price, 'USD')}</div><div className="c">{AIRLINES[opt.airline].name}</div></div>
@@ -878,7 +918,7 @@ function FlightFarePanel({ route, paxCount, cabin, onClose, onAdd, onPerPax }) {
           <div style={{ fontWeight: 700, color: 'var(--ink)' }}>{routeTitle}</div>
           <span className="pill pill-gray" style={{ marginLeft: 'auto' }}>{fareCabinLabel(clsCode)} · класс {clsCode}</span>
         </div>
-        {legs.map((l, i) => <AviaResultRow key={i} opt={l} embedded />)}
+        {legs.map((l, i) => <LegTimeline key={i} opt={l} title={legs.length > 1 ? (i === 0 ? 'Маршрут туда' : i === 1 ? 'Обратно' : 'Сегмент ' + (i + 1)) : null} />)}
       </div>
 
       {/* 1. класс бронирования */}
