@@ -1,5 +1,5 @@
 // ===== Shared UI primitives =====
-const { useState, useEffect, useRef, createContext, useContext, useCallback } = React;
+const { useState, useEffect, useRef, createContext, useContext, useCallback, useMemo } = React;
 
 /* ---------- Toast system ---------- */
 const ToastCtx = createContext(() => {});
@@ -415,23 +415,28 @@ function CalendarPicker({ mode = 'range', startVal = null, endVal = null, onConf
   const prevMo = () => { if (month === 0) { setMonth(11); setYear(y => y - 1); } else setMonth(m => m - 1); };
   const nextMo = () => { if (month === 11) { setMonth(0); setYear(y => y + 1); } else setMonth(m => m + 1); };
 
-  // Build 42-cell grid (6 rows × 7 cols), week starts Sunday
-  const cells = [];
-  const firstDow   = new Date(year, month, 1).getDay();   // 0=Sun
-  const daysInMo   = new Date(year, month + 1, 0).getDate();
-  const prevMonDays = new Date(year, month, 0).getDate();
-  for (let i = firstDow - 1; i >= 0; i--) {
-    const pm = month === 0 ? 11 : month - 1;
-    const py = month === 0 ? year - 1 : year;
-    cells.push({ d: new Date(py, pm, prevMonDays - i), cur: false });
-  }
-  for (let d = 1; d <= daysInMo; d++) cells.push({ d: new Date(year, month, d), cur: true });
-  let nxt = 1;
-  while (cells.length < 42) {
-    const nm = month === 11 ? 0 : month + 1;
-    const ny = month === 11 ? year + 1 : year;
-    cells.push({ d: new Date(ny, nm, nxt++), cur: false });
-  }
+  // Build 42-cell grid (6 rows × 7 cols), week starts Sunday.
+  // Memoized on month/year so selecting/hovering dates doesn't rebuild 42 Date objects each render
+  // (keeps date picking snappy on slower machines — ТЗ: «календарь подвисает при выборе дат»).
+  const cells = useMemo(() => {
+    const out = [];
+    const firstDow = new Date(year, month, 1).getDay();   // 0=Sun
+    const daysInMo = new Date(year, month + 1, 0).getDate();
+    const prevMonDays = new Date(year, month, 0).getDate();
+    for (let i = firstDow - 1; i >= 0; i--) {
+      const pm = month === 0 ? 11 : month - 1;
+      const py = month === 0 ? year - 1 : year;
+      out.push({ d: new Date(py, pm, prevMonDays - i), cur: false });
+    }
+    for (let d = 1; d <= daysInMo; d++) out.push({ d: new Date(year, month, d), cur: true });
+    let nxt = 1;
+    while (out.length < 42) {
+      const nm = month === 11 ? 0 : month + 1;
+      const ny = month === 11 ? year + 1 : year;
+      out.push({ d: new Date(ny, nm, nxt++), cur: false });
+    }
+    return out;
+  }, [year, month]);
 
   // Effective range (includes hover preview)
   const effEnd = selE || (mode === 'range' && phase === 'end' && selS && hover ? hover : null);
@@ -482,8 +487,9 @@ function CalendarPicker({ mode = 'range', startVal = null, endVal = null, onConf
         ))}
       </div>
 
-      {/* Days */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7,1fr)' }}>
+      {/* Days — one onMouseLeave on the grid (instead of 42 per-cell) clears the range preview */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7,1fr)' }}
+        onMouseLeave={() => { if (hover) setHover(null); }}>
         {cells.map(({ d, cur }, i) => {
           const isSt  = cur && rS && sameDayEq(d, rS);
           const isEn  = cur && rE && sameDayEq(d, rE);
@@ -499,8 +505,7 @@ function CalendarPicker({ mode = 'range', startVal = null, endVal = null, onConf
           return (
             <div key={i}
               onClick={() => handleClick({ d, cur })}
-              onMouseEnter={() => { if (cur && mode === 'range' && phase === 'end' && selS) setHover(new Date(d)); }}
-              onMouseLeave={() => setHover(null)}
+              onMouseEnter={() => { if (cur && mode === 'range' && phase === 'end' && selS && !sameDayEq(hover, d)) setHover(new Date(d)); }}
               style={{ height: 38, display: 'flex', alignItems: 'center', justifyContent: 'center', background: cellBg, cursor: cur ? 'pointer' : 'default' }}>
               <div style={{
                 width: 34, height: 34, borderRadius: '50%',
@@ -559,7 +564,16 @@ function DateField({ label, value, onChange, placeholder = 'Выбрать да�
   const toggle = () => {
     if (!open && ref.current) {
       const r = ref.current.getBoundingClientRect();
-      setPos({ top: r.bottom + 6, left: r.left });
+      // открываем вниз; если снизу не помещается — вверх; если и там тесно — прижимаем к нижнему
+      // краю экрана, чтобы календарь всегда был полностью виден и не обрезался
+      const calH = 460, calW = 312, vh = window.innerHeight;
+      let top = r.bottom + 6;
+      if (top + calH > vh - 8) {
+        const above = r.top - calH - 6;
+        top = above >= 8 ? above : Math.max(8, vh - calH - 8);
+      }
+      const left = Math.max(8, Math.min(r.left, window.innerWidth - calW - 8));
+      setPos({ top, left });
     }
     setOpen(o => !o);
   };
@@ -605,7 +619,16 @@ function DateRangeField({ label, startVal, endVal, onChange, placeholder = 'Вы
   const toggle = () => {
     if (!open && ref.current) {
       const r = ref.current.getBoundingClientRect();
-      setPos({ top: r.bottom + 6, left: r.left });
+      // открываем вниз; если снизу не помещается — вверх; если и там тесно — прижимаем к нижнему
+      // краю экрана, чтобы календарь всегда был полностью виден и не обрезался
+      const calH = 460, calW = 312, vh = window.innerHeight;
+      let top = r.bottom + 6;
+      if (top + calH > vh - 8) {
+        const above = r.top - calH - 6;
+        top = above >= 8 ? above : Math.max(8, vh - calH - 8);
+      }
+      const left = Math.max(8, Math.min(r.left, window.innerWidth - calW - 8));
+      setPos({ top, left });
     }
     setOpen(o => !o);
   };
