@@ -847,18 +847,26 @@ function AviaPaxPanel({ params, setParams, participants = [], groups, onClose })
    reviewed before booking (ТЗ #3, #8). The StackPanel footer keeps the subtotal + book button
    pinned in view (ТЗ #1) instead of being buried beneath the flight list. */
 function FlightFarePanel({ route, paxCount, cabin, onClose, onAdd, onPerPax }) {
-  const tiers = AVIA_FARE_TIERS;
+  // booking class first, then the fare grid for that class — exactly like the full order-creation
+  // flow (клиент: «в выборке тарифов отсутствует выборка классов»).
+  const [clsCode, setClsCode] = useState('Y');
+  const tiers = fareTiersForClass(clsCode);
   const [fareId, setFareId] = useState((tiers.find((f) => f.recommended) || tiers[0]).id);
-  const tier = tiers.find((f) => f.id === fareId) || tiers[0];
+  const tier = tiers.find((f) => f.id === fareId) || (tiers.find((f) => f.recommended) || tiers[0]);
+  const changeClass = (code) => {
+    setClsCode(code);
+    const t = fareTiersForClass(code);
+    setFareId((t.find((f) => f.recommended) || t[0]).id);
+  };
   const fareUsd = Math.round(tier.delta / RUB_PER_USD); // тарифные дельты в данных в ₽ → приводим к $
   const seats = Math.max(1, paxCount);
   const grand = (route.total + fareUsd) * seats;
   const legs = route.legs;
   const routeTitle = legs[0].leg.from + legs.map((l) => ' → ' + l.leg.to).join('');
   const plural = (n) => n === 1 ? 'пассажир' : (n % 10 >= 2 && n % 10 <= 4 && (n % 100 < 10 || n % 100 >= 20) ? 'пассажира' : 'пассажиров');
-  const add = () => onAdd({ ...route, fareName: tier.name, fareDeltaUsd: fareUsd });
+  const add = () => onAdd({ ...route, cls: clsCode, cabin: fareCabinLabel(clsCode), fareName: tier.name, fareDeltaUsd: fareUsd });
   return (
-    <StackPanel title="Тарифы по рейсу" width="min(940px,95vw)" onClose={onClose}
+    <StackPanel title="Класс и тариф по рейсу" width="min(940px,95vw)" onClose={onClose}
       footer={<>
         <div className="ft-total" style={{ marginRight: 'auto' }}>Итого · {seats} {plural(seats)}<b style={{ fontSize: 18 }}>{money(grand, 'USD')}</b></div>
         {onPerPax && <Button variant="secondary" icon="users" onClick={() => onPerPax(route)}>Тарифы по пассажирам</Button>}
@@ -868,16 +876,30 @@ function FlightFarePanel({ route, paxCount, cabin, onClose, onAdd, onPerPax }) {
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
           <AirlineLogo code={legs[0].airline} size="sm" />
           <div style={{ fontWeight: 700, color: 'var(--ink)' }}>{routeTitle}</div>
-          <span className="pill pill-gray" style={{ marginLeft: 'auto' }}>{cabin}</span>
+          <span className="pill pill-gray" style={{ marginLeft: 'auto' }}>{fareCabinLabel(clsCode)} · класс {clsCode}</span>
         </div>
         {legs.map((l, i) => <AviaResultRow key={i} opt={l} embedded />)}
       </div>
 
-      <div className="ap-sc-title">Доступные тарифы — ознакомьтесь перед бронированием</div>
+      {/* 1. класс бронирования */}
+      <div className="ap-sc-title">1. Выберите класс бронирования</div>
+      <div className="fare-class-grid">
+        {AVIA_BOOKING_CLASSES.map((c) => (
+          <div key={c.code} className={'fare-class-tile' + (clsCode === c.code ? ' sel' : '')} onClick={() => changeClass(c.code)}>
+            {clsCode === c.code && <Icon name="check" className="ic-sel" />}
+            <div className="code">{c.code}</div>
+            <div className="cab">{c.cabin}</div>
+            <div className="left">Осталось мест: {c.seatsLeft}</div>
+          </div>
+        ))}
+      </div>
+
+      {/* 2. тариф в выбранном классе */}
+      <div className="ap-sc-title">2. Выберите тариф в классе {clsCode} ({fareCabinLabel(clsCode)}) — ознакомьтесь перед бронированием</div>
       <div className="fare-grid">
         {tiers.map((f) => {
           const u = Math.round(f.delta / RUB_PER_USD);
-          const sel = fareId === f.id;
+          const sel = tier.id === f.id;
           return (
             <div key={f.id} className={'fare-card' + (sel ? ' sel' : '')} onClick={() => setFareId(f.id)}>
               {f.recommended && <span className="fc-badge">Рекомендуем</span>}
@@ -1295,7 +1317,7 @@ function OrderCard({ order, onBack, initTab, initSvcSearch, fresh, onOpenChat })
     const title = legs[0].leg.from + legs.map((l) => ' → ' + l.leg.to).join('');
     const airlineNames = [...new Set(legs.map((l) => AIRLINES[l.airline].name))].join(' / ');
     const sv = { id, kind: 'Авиа', title,
-      sub: `${airlineNames} · ${participants.length} пасс. · ${route.fareName || aviaParams.cabin}`,
+      sub: `${airlineNames} · ${participants.length} пасс. · ${route.fareName || aviaParams.cabin}${route.cls ? ' · класс ' + route.cls : ''}`,
       status: 'Предложение', sum: route.total * participants.length + fareDeltaSum, currency: 'USD', date: legs[0].leg.date, supplier: legs[0].supplier };
     setServices((cur) => [...cur, sv]);
     setSvcView(null);
@@ -1310,7 +1332,7 @@ function OrderCard({ order, onBack, initTab, initSvcSearch, fresh, onOpenChat })
       const tiers = fareTiersForClass(cls);
       const fid = aviaFareByPax[i] || (tiers.find((f) => f.recommended) || tiers[0]).id;
       const t = tiers.find((f) => f.id === fid) || tiers[0];
-      return s + t.delta;
+      return s + Math.round((t.delta || 0) / RUB_PER_USD); // ₽-дельта тарифа → $ (заказ в USD)
     }, 0);
     addAviaSimple(pendingAviaRoute, fareDeltaSum);
     setPendingAviaRoute(null);

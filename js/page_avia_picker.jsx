@@ -214,7 +214,7 @@ function fareCabinLabel(code) { return (AVIA_BOOKING_CLASSES.find((c) => c.code 
 
 function paxIsChild(p) { return /реб[её]н|child|инфант|infant/i.test(p.role || ''); }
 
-function FareSelectPanel({ pax, groups, classByPax, setClassByPax, fareByPax, setFareByPax, individualMode, setIndividualMode, onAddPax, onClose, onApply }) {
+function FareSelectPanel({ pax, groups, classByPax, setClassByPax, fareByPax, setFareByPax, individualMode, setIndividualMode, onAddPax, onClose, onApply, routeHeader, applyLabel = 'Применить тарифы и продолжить' }) {
   const [activePax, setActivePax] = useState(0);
   const [collapsed, setCollapsed] = useState({}); // groupId -> bool (left-list subgroup folding)
   const classOf = (i) => classByPax[i] || 'Y';
@@ -281,8 +281,13 @@ function FareSelectPanel({ pax, groups, classByPax, setClassByPax, fareByPax, se
   );
 
   return (
-    <StackPanel title="Выберите тариф" width="min(1180px,96vw)" onClose={onClose}
-      footer={<Button style={{ width: '100%' }} icon="check" onClick={onApply}>Применить тарифы и продолжить</Button>}>
+    <StackPanel title="Выберите класс и тариф" width="min(1180px,96vw)" onClose={onClose}
+      footer={<>
+        <div className="fare-total-foot">Итого по тарифам<b>{rub(total)}</b></div>
+        <div style={{ flex: 1 }} />
+        <Button icon="check" onClick={onApply}>{applyLabel}</Button>
+      </>}>
+      {routeHeader}
       <div className="fare-hint"><Icon name="alertCircle" />Стоимость может отличаться для каждого пассажира в зависимости от выбранного тарифа и условий.</div>
 
       <div className="fare-layout">
