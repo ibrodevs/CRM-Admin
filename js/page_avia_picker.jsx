@@ -111,26 +111,121 @@ function PaxOptionBlock({ pax, options, value, onChange, render }) {
   );
 }
 
-/* ---------- additional services (step 4) ---------- */
+/* ---------- additional services (step 4) — по макету: покарточный выбор по каждому пассажиру ---------- */
+function xtrShortName(p, i) {
+  const parts = (p.name || ('Пассажир ' + (i + 1))).split(' ');
+  return (i + 1) + '. ' + parts[0] + (parts[1] ? ' ' + parts[1][0] + '.' : '');
+}
+
+/* per-passenger option cards used by Багаж / Питание / Страхование */
+function XtrPaxBlock({ pax, options, value, onChange, kind }) {
+  const def = options[0].id;
+  return (
+    <>
+      {pax.map((p, i) => {
+        const sel = value[i] || def;
+        const selOpt = options.find((o) => o.id === sel) || options[0];
+        const selPrice = selOpt.price ? '+ ' + rub(selOpt.price) : (selOpt.incl ? 'включено' : '0 ₽');
+        return (
+          <div className="xtr-pax" key={i}>
+            <div className="xtr-pax-head">
+              <span className="ic"><Icon name="user" /></span>
+              <div className="who"><div className="n">{(i + 1) + '. ' + p.name}</div>{(p.tariff || p.role) && <span className="xtr-tariff">{p.tariff ? 'Тариф: ' + p.tariff : p.role}</span>}</div>
+            </div>
+            <div className={'xtr-cards' + (kind === 'meal' ? ' meal' : kind === 'insurance' ? ' ins' : '')}>
+              {options.map((o) => {
+                const on = sel === o.id;
+                return (
+                  <button type="button" key={o.id} className={'xtr-card' + (on ? ' sel' : '')} onClick={() => onChange({ ...value, [i]: o.id })}>
+                    <span className="xtr-radio">{on && <span />}</span>
+                    <div className="xtr-card-t">{o.label}</div>
+                    {kind === 'insurance' && o.sub && <div className="xtr-card-s">{o.sub}</div>}
+                    {kind === 'insurance' && o.cover && <div className="xtr-card-s">{o.cover}</div>}
+                    {kind === 'meal' && o.id !== 'none' && <span className="xtr-meal-img" style={{ background: o.color || 'var(--surface-2)' }}><Icon name="utensils" /></span>}
+                    <div className="xtr-card-p">{o.price ? '+ ' + rub(o.price) : (o.incl ? 'Включено' : '0 ₽')}</div>
+                  </button>
+                );
+              })}
+            </div>
+            <div className="xtr-pax-foot"><span>Выбрано: {selOpt.label}</span><b>{selPrice}</b></div>
+          </div>
+        );
+      })}
+    </>
+  );
+}
+
+/* «Комфорт и сервис» — матрица: услуги по строкам, пассажиры по колонкам */
+function ComfortMatrix({ pax, state, set }) {
+  const sel = state.comfort || {};
+  const toggle = (id, i) => set({ ...state, comfort: { ...sel, [id + ':' + i]: !sel[id + ':' + i] } });
+  const minW = 220 + pax.length * 74 + 104;
+  const gt = { display: 'grid', gridTemplateColumns: '220px repeat(' + pax.length + ', 74px) 104px', alignItems: 'center', gap: 8, minWidth: minW };
+  return (
+    <div className="xtr-cm">
+      <div className="xtr-cm-note"><Icon name="alertCircle" />Доступность услуг зависит от авиакомпании, рейса и тарифа.</div>
+      <div className="xtr-cm-scroll">
+      <div className="xtr-cm-headrow" style={gt}>
+        <span className="svc">Пассажиры</span>
+        {pax.map((p, i) => <span className="pax" key={i}>{xtrShortName(p, i)}</span>)}
+        <span className="pr">Стоимость для 1 пассажира</span>
+      </div>
+      {AVIA_COMFORT_GROUPS.map((g) => {
+        const groupSelCount = g.items.reduce((a, it) => a + pax.filter((_, i) => sel[it.id + ':' + i]).length, 0);
+        const groupTotal = g.items.reduce((a, it) => a + it.price * pax.filter((_, i) => sel[it.id + ':' + i]).length, 0);
+        return (
+          <div className="xtr-cm-group" key={g.group} style={{ minWidth: minW }}>
+            <div className="xtr-cm-grouphead">
+              <span className="ic"><Icon name={g.icon} /></span>
+              <div className="who"><div className="n">{g.group}</div><div className="s">{g.sub}</div></div>
+              <span className="cnt">Выбрано: {groupSelCount} услуг</span>
+            </div>
+            {g.items.map((it) => (
+              <div className="xtr-cm-row" key={it.id} style={gt}>
+                <span className="svc"><span className="ic"><Icon name={it.icon} /></span><span className="lbl"><span className="t">{it.label}</span><span className="s">{it.sub}</span></span></span>
+                {pax.map((_, i) => (
+                  <span className="pax" key={i}><label className="xtr-cb"><Checkbox on={!!sel[it.id + ':' + i]} onChange={() => toggle(it.id, i)} /><span className="p">+ {rub(it.price)}</span></label></span>
+                ))}
+                <span className="pr">{rub(it.price)}<Icon name="alertCircle" className="pcp-info" /></span>
+              </div>
+            ))}
+            <div className="xtr-cm-grouptotal"><span>Итого по категории</span><b>{groupTotal ? '+ ' + rub(groupTotal) : '0 ₽'}</b></div>
+          </div>
+        );
+      })}
+      </div>
+    </div>
+  );
+}
+
 function ExtrasTabs({ pax, state, set, embedded }) {
-  const [tab, setTab] = useState('seats');
+  const [tab, setTab] = useState('baggage');
   const TABS = [
     { key: 'seats', label: 'Места', icon: 'idcard' },
     { key: 'baggage', label: 'Багаж', icon: 'luggage' },
-    { key: 'meal', label: 'Питание', icon: 'briefcase' },
-    { key: 'insurance', label: 'Страхование', icon: 'check' },
-    { key: 'comfort', label: 'Комфорт', icon: 'star' },
+    { key: 'meal', label: 'Питание', icon: 'utensils' },
+    { key: 'insurance', label: 'Страхование', icon: 'shield' },
+    { key: 'comfort', label: 'Комфорт и сервис', icon: 'star' },
   ];
   const cnt = {
     seats: Object.values(state.seats).filter(Boolean).length,
-    baggage: Object.values(state.baggage).filter((v) => v && v !== 'none').length,
-    meal: Object.values(state.meal).filter((v) => v && v !== 'standard' && v !== 'none').length,
-    insurance: Object.values(state.insurance).filter((v) => v && v !== 'none').length,
+    baggage: pax.filter((_, i) => (state.baggage[i] || 'none') !== 'none').length,
+    meal: pax.filter((_, i) => { const m = state.meal[i] || 'standard'; return m !== 'standard' && m !== 'none'; }).length,
+    insurance: pax.filter((_, i) => (state.insurance[i] || 'basic') !== 'none').length,
     comfort: Object.keys(state.comfort).filter((k) => state.comfort[k]).length,
   };
-  const toggleComfort = (key) => set({ ...state, comfort: { ...state.comfort, [key]: !state.comfort[key] } });
+  const seatPrice = (id) => { if (!id) return 0; const row = +String(id).match(/\d+/)[0]; const kind = AVIA_SEATMAP.rowKind[row] || 'std'; return AVIA_SEATMAP.price[kind] || 0; };
+  const seatsTotal = Object.values(state.seats).reduce((a, id) => a + seatPrice(id), 0);
+  const baggageTotal = pax.reduce((a, _, i) => a + ((AVIA_BAGGAGE_OPTIONS.find((o) => o.id === (state.baggage[i] || 'none')) || {}).price || 0), 0)
+    + Object.entries(state.special || {}).reduce((a, [id, n]) => a + (n ? n * ((AVIA_SPECIAL_BAGGAGE.find((b) => b.id === id) || {}).from || 0) : 0), 0);
+  const mealTotal = pax.reduce((a, _, i) => a + ((AVIA_MEALS.find((o) => o.id === (state.meal[i] || 'standard')) || {}).price || 0), 0);
+  const insTotal = pax.reduce((a, _, i) => a + ((AVIA_INSURANCE_PLANS.find((o) => o.id === (state.insurance[i] || 'basic')) || {}).price || 0), 0);
+  const comfortTotal = AVIA_COMFORT_GROUPS.reduce((a, g) => a + g.items.reduce((s, it) => s + it.price * pax.filter((_, i) => state.comfort[it.id + ':' + i]).length, 0), 0);
+  const tabTotal = { seats: seatsTotal, baggage: baggageTotal, meal: mealTotal, insurance: insTotal, comfort: comfortTotal };
+  const setSpecial = (id, n) => set({ ...state, special: { ...(state.special || {}), [id]: Math.max(0, n) } });
+
   return (
-    <div>
+    <div className="xtr">
       <div className="ap-svc-tabs">
         {TABS.map((t) => (
           <button key={t.key} className={'ap-svc-tab' + (tab === t.key ? ' active' : '')} onClick={() => setTab(t.key)}>
@@ -139,70 +234,41 @@ function ExtrasTabs({ pax, state, set, embedded }) {
         ))}
       </div>
 
+      <div className="xtr-sec-head"><Icon name={(TABS.find((t) => t.key === tab) || {}).icon} /><span>{(TABS.find((t) => t.key === tab) || {}).label}</span></div>
+
       {tab === 'seats' && <SeatSelector seats={state.seats} setSeats={(s) => set({ ...state, seats: s })} pax={pax} />}
 
-      {tab === 'baggage' && (
-        <>
-          <PaxOptionBlock pax={pax} options={AVIA_BAGGAGE_OPTIONS} value={state.baggage} onChange={(v) => set({ ...state, baggage: v })} />
-          <div className="ap-sc-title" style={{ marginTop: 18 }}>Специальный багаж</div>
-          {AVIA_SPECIAL_BAGGAGE.map((b) => (
-            <div key={b.id} className={'ap-list-row' + (state.special[b.id] ? ' sel' : '')}
-              onClick={() => set({ ...state, special: { ...state.special, [b.id]: !state.special[b.id] } })}>
-              <span className="ic"><Icon name={b.icon} /></span>
-              <div style={{ flex: 1 }}><div className="t">{b.label}</div><div className="s">оплачивается отдельно</div></div>
-              <span className="pr">от {rub(b.from)}</span>
-              <Checkbox on={!!state.special[b.id]} onChange={() => {}} />
-            </div>
-          ))}
-        </>
-      )}
-
-      {tab === 'meal' && (
-        <PaxOptionBlock pax={pax} options={AVIA_MEALS} value={state.meal} onChange={(v) => set({ ...state, meal: v })}
-          render={(o) => <span className={'op' + (o.price ? '' : ' free')}>{o.note || (o.price ? '+ ' + rub(o.price) : 'бесплатно')}</span>} />
-      )}
-
-      {tab === 'insurance' && (
-        <>
-          <PaxOptionBlock pax={pax} options={AVIA_INSURANCE_PLANS} value={state.insurance} onChange={(v) => set({ ...state, insurance: v })}
-            render={(o) => <span className={'op' + (o.price ? '' : ' free')}>{o.price ? '+ ' + rub(o.price) : '—'}<br /><span style={{ fontSize: 11.5 }}>{o.cover}</span></span>} />
-          <div className="ap-sc-title" style={{ marginTop: 18 }}>Что входит в покрытие</div>
-          <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-            {AVIA_INSURANCE_INCLUDES.map((c) => (
-              <span key={c.title} className="pill pill-gray" style={{ display: 'inline-flex', alignItems: 'center', gap: 7 }}>
-                <Icon name={c.icon} style={{ width: 14, height: 14 }} />{c.title}</span>
-            ))}
+      {tab === 'baggage' && (<>
+        <XtrPaxBlock pax={pax} options={AVIA_BAGGAGE_OPTIONS} value={state.baggage} onChange={(v) => set({ ...state, baggage: v })} kind="baggage" />
+        <div className="ap-sc-title" style={{ marginTop: 18 }}>Специальный багаж</div>
+        <div className="xtr-note-line">Оплачивается за место. Стоимость за 1 единицу.</div>
+        {AVIA_SPECIAL_BAGGAGE.map((b) => (
+          <div className="xtr-special-row" key={b.id}>
+            <span className="ic"><Icon name={b.icon} /></span>
+            <span className="t">{b.label}</span>
+            <span className="from">от {rub(b.from)}</span>
+            <PaxStepper val={(state.special || {})[b.id] || 0} onChange={(n) => setSpecial(b.id, n)} />
           </div>
-        </>
-      )}
+        ))}
+        <div className="xtr-info-box"><Icon name="alertCircle" />Спецбагаж подтверждается авиакомпанией. Возможны ограничения по весу и габаритам.</div>
+      </>)}
 
-      {tab === 'comfort' && (
-        AVIA_COMFORT_GROUPS.map((g) => (
-          <div key={g.group} style={{ marginBottom: 18 }}>
-            <div className="ap-sc-title">{g.group}</div>
-            {g.items.map((it) => {
-              const anySel = pax.some((_, i) => state.comfort[it.id + ':' + i]);
-              return (
-                <div key={it.id} className={'ap-list-row' + (anySel ? ' sel' : '')} style={{ alignItems: 'flex-start' }}>
-                  <span className="ic"><Icon name="zap" /></span>
-                  <div style={{ flex: 1 }}>
-                    <div className="t">{it.label} <span className="pr" style={{ fontWeight: 700 }}>· {rub(it.price)}</span></div>
-                    <div className="s">{it.sub}</div>
-                    <div style={{ display: 'flex', gap: 14, marginTop: 8, flexWrap: 'wrap' }}>
-                      {pax.map((p, i) => (
-                        <label key={i} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, cursor: 'pointer' }}>
-                          <Checkbox on={!!state.comfort[it.id + ':' + i]} onChange={() => toggleComfort(it.id + ':' + i)} />
-                          {p.name.split(' ')[0]}
-                        </label>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        ))
-      )}
+      {tab === 'meal' && (<>
+        <XtrPaxBlock pax={pax} options={AVIA_MEALS} value={state.meal} onChange={(v) => set({ ...state, meal: v })} kind="meal" />
+        <div className="xtr-info-box"><Icon name="alertCircle" />Питание предоставляется на рейсах продолжительностью более 2 часов. На некоторых рейсах нужна заявка не менее чем за 24 часа до вылета.</div>
+      </>)}
+
+      {tab === 'insurance' && (<>
+        <XtrPaxBlock pax={pax} options={AVIA_INSURANCE_PLANS} value={state.insurance} onChange={(v) => set({ ...state, insurance: v })} kind="insurance" />
+        <div className="ap-sc-title" style={{ marginTop: 18 }}>Что входит в страховое покрытие</div>
+        <div className="xtr-incl">
+          {AVIA_INSURANCE_INCLUDES.map((c) => (<div className="xtr-incl-item" key={c.title}><span className="ic"><Icon name={c.icon} /></span><div><div className="t">{c.title}</div><div className="s">{c.sub}</div></div></div>))}
+        </div>
+      </>)}
+
+      {tab === 'comfort' && <ComfortMatrix pax={pax} state={state} set={set} />}
+
+      <div className="xtr-total"><span>Итого по разделу «{(TABS.find((t) => t.key === tab) || {}).label}»</span><b>{tabTotal[tab] ? '+ ' + rub(tabTotal[tab]) : '0 ₽'}</b></div>
     </div>
   );
 }

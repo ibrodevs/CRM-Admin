@@ -508,59 +508,68 @@ const AVIA_BOOKING_CLASSES = [
 
 // Baggage options per passenger (step 4 → Багаж)
 const AVIA_BAGGAGE_OPTIONS = [
-  { id: 'none', label: 'Без багажа',     price: 0 },
-  { id: 'b23',  label: '1 место · 23 кг', price: 1800 },
-  { id: 'b23x2',label: '2 места · 23 кг', price: 3300 },
-  { id: 'b32',  label: '1 место · 32 кг', price: 2600 },
+  { id: 'none', label: 'Без багажа',      price: 0 },
+  { id: 'b23',  label: '1 место 23 кг',   price: 1800 },
+  { id: 'b23x2',label: '2 места по 23 кг', price: 3600 },
+  { id: 'b32',  label: '1 место 32 кг',   price: 2800 },
 ];
 const AVIA_SPECIAL_BAGGAGE = [
-  { id: 'bike',  label: 'Велосипед',             icon: 'route',     from: 3500 },
-  { id: 'ski',   label: 'Лыжи / сноуборд',       icon: 'zap',       from: 3000 },
-  { id: 'music', label: 'Музыкальный инструмент', icon: 'template',  from: 2500 },
-  { id: 'sport', label: 'Спортивный инвентарь',   icon: 'briefcase', from: 2800 },
-  { id: 'animal',label: 'Животное в салоне',      icon: 'paperclip', from: 5000 },
+  { id: 'bike',  label: 'Велосипед',              icon: 'route',     from: 3500 },
+  { id: 'ski',   label: 'Лыжи / сноуборд',        icon: 'snowflake', from: 3000 },
+  { id: 'music', label: 'Музыкальный инструмент', icon: 'template',  from: 4000 },
+  { id: 'sport', label: 'Спортивный инвентарь',   icon: 'dumbbell',  from: 3500 },
+  { id: 'animalc',label: 'Животное в салоне',     icon: 'heart',     from: 5000 },
+  { id: 'animalh',label: 'Животное в багажном отсеке', icon: 'heart', from: 6000 },
 ];
 
 // Meals per passenger (step 4 → Питание)
 const AVIA_MEALS = [
-  { id: 'standard', label: 'Стандартное питание',  price: 0,    note: 'Включено в тариф' },
-  { id: 'light',    label: 'Лёгкое питание',       price: 600 },
-  { id: 'kids',     label: 'Детское питание',      price: 600 },
-  { id: 'veg',      label: 'Вегетарианское',       price: 800 },
+  { id: 'standard', label: 'Стандартное питание',  price: 0,   incl: true, color: '#e9c46a' },
+  { id: 'light',    label: 'Лёгкое питание',       price: 400, color: '#8ab17d' },
+  { id: 'kids',     label: 'Детское питание',      price: 400, color: '#e76f51' },
+  { id: 'veg',      label: 'Вегетарианское питание', price: 400, color: '#52b788' },
   { id: 'none',     label: 'Без питания',          price: 0 },
 ];
 
 // Insurance plans per passenger (step 4 → Страхование)
 const AVIA_INSURANCE_PLANS = [
-  { id: 'none',    label: 'Без страховки', price: 0,    cover: '—' },
-  { id: 'basic',   label: 'Базовая',       price: 600,  cover: 'Медрасходы до 30 000 $' },
-  { id: 'standard',label: 'Стандарт',      price: 900,  cover: 'Медрасходы до 50 000 $ · багаж' },
-  { id: 'premium', label: 'Премиум',       price: 1400, cover: 'Медрасходы до 100 000 $ · отмена · багаж' },
+  { id: 'basic',   label: 'Базовая',  price: 600,  sub: 'Страховка на время поездки', cover: 'Покрытие до 100 000 €' },
+  { id: 'standard',label: 'Стандарт', price: 900,  sub: 'Расширенное покрытие',       cover: 'Покрытие до 300 000 €' },
+  { id: 'premium', label: 'Премиум',  price: 1400, sub: 'Максимальное покрытие',      cover: 'Покрытие до 500 000 €' },
+  { id: 'none',    label: 'Без страхования', price: 0, sub: 'Не оформлять страховку', cover: '—' },
 ];
 const AVIA_INSURANCE_INCLUDES = [
-  { icon: 'plus',  title: 'Медицинские расходы' },
-  { icon: 'luggage', title: 'Потеря багажа' },
-  { icon: 'calendar', title: 'Отмена поездки' },
-  { icon: 'clock', title: 'Задержка рейса' },
+  { icon: 'shield', title: 'Медицинские расходы', sub: 'Лечение за рубежом' },
+  { icon: 'heart',  title: 'Несчастный случай',   sub: 'Выплаты при травмах' },
+  { icon: 'clock',  title: 'Задержка рейса',       sub: 'Компенсация расходов' },
+  { icon: 'luggage', title: 'Утрата багажа',       sub: 'Возмещение расходов' },
+  { icon: 'calendar', title: 'Отмена поездки',     sub: 'Возврат затрат' },
 ];
 
-// Comfort & service add-ons (step 4 → Комфорт и сервис), grouped
+// Comfort & service add-ons (step 4 → Комфорт и сервис), grouped — passenger matrix
 const AVIA_COMFORT_GROUPS = [
-  { group: 'Комфорт в перелёте', items: [
-    { id: 'fasttrack', label: 'Fast Track в аэропорту', sub: 'Ускоренное прохождение контроля', price: 2200 },
-    { id: 'lounge',    label: 'Бизнес-зал',             sub: 'Доступ в зал ожидания', price: 3500 },
-    { id: 'priority',  label: 'Приоритетная посадка',   sub: 'Посадка вне очереди', price: 1200 },
-    { id: 'vip',       label: 'VIP-сопровождение',      sub: 'Персональный ассистент', price: 6000 },
+  { group: 'Комфорт в аэропорту', icon: 'idcard', sub: 'Услуги для более комфортного прохождения аэропортовых процедур', items: [
+    { id: 'fasttrack', label: 'Fast Track (ускоренное прохождение)', sub: 'Отдельный проход через контроль', icon: 'star',     price: 1200 },
+    { id: 'lounge',    label: 'Бизнес-зал',                          sub: 'Доступ в бизнес-зал аэропорта',    icon: 'idcard',   price: 2500 },
+    { id: 'escort',    label: 'Сопровождение в аэропорту',           sub: 'Помощь сотрудника аэропорта',      icon: 'user',     price: 1500 },
+    { id: 'vip',       label: 'VIP-зал',                             sub: 'Персональный зал повышенной комфортности', icon: 'star', price: 5000 },
+    { id: 'priority',  label: 'Приоритетная посадка',                sub: 'Приоритетная посадка на борт самолёта', icon: 'arrowUpRight', price: 600 },
   ] },
-  { group: 'Связь и развлечения', items: [
-    { id: 'wifi',  label: 'Wi-Fi на борту',     sub: 'Интернет в течение всего полёта', price: 900 },
-    { id: 'power', label: 'Розетка у кресла',   sub: 'Гарантированное питание устройств', price: 400 },
-    { id: 'media', label: 'Мультимедиа премиум', sub: 'Расширенный пакет контента', price: 600 },
+  { group: 'Связь в путешествии', icon: 'wifi', sub: 'Услуги для связи во время полёта и в поездке', items: [
+    { id: 'wifi', label: 'Wi-Fi на борту',           sub: 'Доступ в интернет на борту самолёта', icon: 'wifi',  price: 800 },
+    { id: 'esim', label: 'eSIM для путешествий',      sub: 'Мобильный интернет в стране прибытия', icon: 'phone', price: 490 },
+    { id: 'roam', label: 'Мобильный интернет (роуминг)', sub: 'Интернет в роуминге',              icon: 'globe', price: 390 },
   ] },
-  { group: 'Дополнительный сервис', items: [
-    { id: 'meetgreet', label: 'Встреча с табличкой', sub: 'В аэропорту прилёта', price: 2500 },
-    { id: 'transferb', label: 'Трансфер до отеля',   sub: 'Индивидуальный автомобиль', price: 3200 },
-    { id: 'sim',       label: 'Туристическая SIM',    sub: 'Интернет в стране назначения', price: 800 },
+  { group: 'Дополнительный сервис', icon: 'bell', sub: 'Индивидуальные услуги и приятные дополнения', items: [
+    { id: 'flowers',  label: 'Цветы к прилёту',  sub: 'Букет для встречи в аэропорту', icon: 'heart',    price: 2000 },
+    { id: 'meetgreet',label: 'Табличка с именем', sub: 'Встреча с табличкой в аэропорту', icon: 'idcard', price: 800 },
+    { id: 'assistant',label: 'Личный помощник',   sub: 'Индивидуальный ассистент в поездке', icon: 'user', price: 3500 },
+    { id: 'interpreter', label: 'Переводчик',     sub: 'Услуги переводчика на встрече',  icon: 'chat',     price: 1500 },
+    { id: 'concierge',label: 'Консьерж-сервис',   sub: 'Помощь в бронировании и организации', icon: 'bell', price: 2500 },
+  ] },
+  { group: 'Документы и справки', icon: 'docs', sub: 'Оформление необходимых документов', items: [
+    { id: 'visa',  label: 'Помощь с визой',        sub: 'Подготовка пакета документов', icon: 'visa', price: 3000 },
+    { id: 'cert',  label: 'Справка для посольства', sub: 'Документ о бронировании',      icon: 'docs', price: 700 },
   ] },
 ];
 

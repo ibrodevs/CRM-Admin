@@ -1007,8 +1007,11 @@ function FlightFarePanel({ route, paxCount, cabin, pax = [], onClose, onAdd, onP
     </StackPanel>
     {infoFare && <FareInfoPanel fare={infoFare} onClose={() => setInfoFare(null)} onSelect={() => { setFareId(infoFare.id); setInfoFare(null); }} />}
     {extrasOpen && (
-      <StackPanel title="Доп. услуги и места" width="min(820px,92vw)" onClose={() => setExtrasOpen(false)}
-        footer={<Button icon="check" style={{ width: '100%' }} onClick={() => setExtrasOpen(false)}>Готово{extrasCount ? ' · выбрано ' + extrasCount : ''}</Button>}>
+      <StackPanel title="Дополнительные услуги" width="min(1040px,96vw)" onClose={() => setExtrasOpen(false)}
+        footer={<>
+          <Button variant="secondary" style={{ flex: 1 }} onClick={() => setExtrasOpen(false)}>Отмена</Button>
+          <Button icon="check" style={{ flex: 2 }} onClick={() => setExtrasOpen(false)}>Применить{extrasCount ? ' · выбрано ' + extrasCount : ''}</Button>
+        </>}>
         <ExtrasTabs pax={extrasPax} state={extras} set={setExtras} embedded />
       </StackPanel>
     )}

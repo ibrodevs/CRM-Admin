@@ -506,6 +506,9 @@ function SegmentRow({ leg }) {
 function FlightCard({ svc, offer, onBack }) {
   const toast = useToast();
   const [tab, setTab] = useState('segments');
+  // доп. услуги авиакомпании доступны и в карточке услуги — до и после выписки (боковое окно)
+  const [extrasOpen, setExtrasOpen] = useState(false);
+  const [extras, setExtras] = useState({ seats: {}, baggage: {}, meal: {}, insurance: {}, special: {}, comfort: {} });
   const air = svc ? svc.airline : (offer ? offer.airline : 'TK');
   const out = offer ? offer.out : { from: 'FRU', to: 'IST', dep: '04:15', arr: '08:40', date: '24 июн', dur: '6ч 25м', stopText: 'Прямой', flightNo: air + ' 131' };
   const back = offer ? offer.back : null;
@@ -530,7 +533,9 @@ function FlightCard({ svc, offer, onBack }) {
     { name: 'Аттокурова Айгерим', type: 'Взрослый', doc: 'ID AC7654321', dob: '02.08.1992', ticket: '—' },
   ].slice(0, svc ? Math.min(svc.pax, 2) : 1);
 
+  const extrasPax = passengers.map((p) => ({ name: p.name, role: p.type }));
   return (
+    <>
     <div className="fade-in">
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 18 }}>
         <Button variant="secondary" size="sm" icon="chevLeft" onClick={onBack}>Назад</Button>
@@ -554,6 +559,7 @@ function FlightCard({ svc, offer, onBack }) {
         <div style={{ display: 'flex', gap: 8 }}>
           {status === 'Предложение' && <Button icon="check" onClick={() => toast('Отправлено на бронирование')}>Забронировать</Button>}
           {status === 'Забронировано' && <Button icon="ticket" onClick={() => toast('Билет выписан')}>Выписать билет</Button>}
+          <Button variant="secondary" icon="briefcase" onClick={() => setExtrasOpen(true)}>Доп. услуги</Button>
           <ActionMenu trigger={<button className="btn btn-secondary btn-icon"><Icon name="more" /></button>}
             items={[
               { icon: 'template', label: 'В коммерческое предложение', onClick: () => toast('Добавлено в КП') },
@@ -664,6 +670,16 @@ function FlightCard({ svc, offer, onBack }) {
         </div>
       )}
     </div>
+    {extrasOpen && (
+      <StackPanel title="Дополнительные услуги" width="min(1040px,96vw)" onClose={() => setExtrasOpen(false)}
+        footer={<>
+          <Button variant="secondary" style={{ flex: 1 }} onClick={() => setExtrasOpen(false)}>Отмена</Button>
+          <Button icon="check" style={{ flex: 2 }} onClick={() => { setExtrasOpen(false); toast('Доп. услуги сохранены', 'ok'); }}>Применить</Button>
+        </>}>
+        <ExtrasTabs pax={extrasPax} state={extras} set={setExtras} embedded />
+      </StackPanel>
+    )}
+    </>
   );
 }
 
