@@ -289,20 +289,19 @@ function ChatsNav({ threads, activeId, onSelect, search, setSearch, mode, setMod
     const tMeta = chatTypeMeta(t.type);
     const u = threadUnread(t);
     return (
-      <div key={t.id} onClick={() => onSelect(t.id)}
-        style={{ display: 'flex', gap: 9, padding: '7px 8px', borderRadius: 10, cursor: 'pointer', background: t.id === activeId ? 'var(--hover)' : 'transparent', marginBottom: 1 }}>
+      <div key={t.id} onClick={() => onSelect(t.id)} className={'chat-row' + (t.id === activeId ? ' active' : '')}>
         {t.type === 'system'
-          ? <span className="oc-svc-ic" style={{ background: 'var(--amber)', width: 33, height: 33, flexShrink: 0 }}><Icon name="bell" style={{ width: 15, height: 15 }} /></span>
-          : <Avatar name={t.name} size={33} />}
+          ? <span className="oc-svc-ic" style={{ background: 'var(--amber)', width: 40, height: 40, flexShrink: 0 }}><Icon name="bell" style={{ width: 18, height: 18 }} /></span>
+          : <Avatar name={t.name} size={40} />}
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, alignItems: 'center' }}>
-            <span style={{ fontWeight: 600, fontSize: 13.5, color: 'var(--ink)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', display: 'flex', alignItems: 'center', gap: 5 }}>
+            <span style={{ fontWeight: 600, fontSize: 14, color: 'var(--ink)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', display: 'flex', alignItems: 'center', gap: 5 }}>
               {t.pinned && <Icon name="star" style={{ width: 12, height: 12, color: 'var(--amber)' }} />}{t.name}
             </span>
-            <span style={{ fontSize: 11, color: 'var(--muted-2)', whiteSpace: 'nowrap' }}>№{t.order}</span>
+            <span style={{ fontSize: 11.5, color: 'var(--muted-2)', whiteSpace: 'nowrap', flexShrink: 0 }}>№{t.order}</span>
           </div>
-          <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, alignItems: 'center', marginTop: 1 }}>
-            <span style={{ fontSize: 12.5, color: 'var(--muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: 5, minWidth: 0 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, alignItems: 'center', marginTop: 5 }}>
+            <span style={{ fontSize: 13, color: 'var(--muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: 6, minWidth: 0 }}>
               <ChannelBadge channel={t.channel} sm />
               <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{lastMessage(t)}</span>
             </span>
@@ -386,7 +385,7 @@ function ChatsPage({ onOpenOrder }) {
   return (
     <div className="fade-in" style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
       <div className="content" style={{ flex: 1, minHeight: 0, padding: '20px 20px 20px' }}>
-        <div style={{ display: 'grid', gridTemplateColumns: '268px 1fr 252px', gap: 10, height: 'calc(100vh - 100px)' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: '340px 1fr 252px', gap: 10, height: 'calc(100vh - 100px)' }}>
           <ChatsNav threads={threads} activeId={activeId} onSelect={setActiveId} search={search} setSearch={setSearch} mode={mode} setMode={setMode} />
 
           {/* conversation */}

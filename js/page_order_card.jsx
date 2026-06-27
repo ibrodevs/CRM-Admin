@@ -96,7 +96,7 @@ function financeSnapshot(orderNo, services) {
   };
 }
 
-function OrderAside({ order, status, onStatusChange, services, participants, requestType, aviaParams, onOpenTab, onOpenTasks }) {
+function OrderAside({ order, status, onStatusChange, services, participants, requestType, aviaParams, onOpenTab, onOpenTasks, operator, onReassign }) {
   const urgent = ORDER_TASKS.filter((t) => t.urgent);
   const fin = financeSnapshot(order.no, services);
   const trip = tripFromServices(services, aviaParams);
@@ -202,13 +202,39 @@ function OrderAside({ order, status, onStatusChange, services, participants, req
       </div>
 
       <div className="card card-pad">
-        <h3 className="card-title" style={{ fontSize: 17, marginBottom: 14 }}>Ответственный</h3>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14, gap: 8 }}>
+          <h3 className="card-title" style={{ fontSize: 17, margin: 0 }}>Ответственный оператор</h3>
+          <Button variant="secondary" size="sm" icon="users" onClick={onReassign}>Переназначить</Button>
+        </div>
         <div className="oc-aside-resp">
-          <Avatar name={order.operator} size={40} />
-          <div><div className="nm">{order.operator}</div><div className="rl">{requestType} · {aviaParams.cabin}</div></div>
+          <Avatar name={operator || order.operator} size={40} />
+          <div><div className="nm">{operator || order.operator}</div><div className="rl">Оператор · {order.operatorRole || 'Оператор'}</div></div>
         </div>
       </div>
     </div>
+  );
+}
+
+/* operator reassignment — выбор/переназначение ответственного оператора заказа */
+function ReassignOperatorDrawer({ open, current, onClose, onPick }) {
+  return (
+    <Drawer open={open} onClose={onClose} title="Ответственный оператор"
+      footer={<Button variant="secondary" style={{ width: '100%' }} onClick={onClose}>Закрыть</Button>}>
+      <div style={{ color: 'var(--muted)', fontSize: 13.5, marginBottom: 14 }}>Выберите сотрудника, ответственного за работу над заказом.</div>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+        {OPERATORS.map((op) => {
+          const sel = op === current;
+          return (
+            <button key={op} type="button" className={'oce-client' + (sel ? ' sel' : '')} style={{ cursor: 'pointer', width: '100%', textAlign: 'left', border: '1px solid ' + (sel ? 'var(--blue)' : 'var(--line)'), background: sel ? 'var(--blue-soft)' : '#fff', borderRadius: 12, padding: '10px 12px' }}
+              onClick={() => onPick(op)}>
+              <Avatar name={op} size={34} />
+              <div style={{ flex: 1, minWidth: 0 }}><div className="nm">{op}</div><div className="mt">Оператор</div></div>
+              {sel ? <Pill tone="blue">Текущий</Pill> : <Icon name="chevRight" style={{ width: 18, height: 18, color: 'var(--muted-2)' }} />}
+            </button>
+          );
+        })}
+      </div>
+    </Drawer>
   );
 }
 
@@ -1422,6 +1448,8 @@ function OrderCard({ order, onBack, initTab, initSvcSearch, fresh, onOpenChat })
   // booking wizard progress lives here (not inside BookingWizard) so it survives the operator
   // switching to other order tabs mid-flow, and can be resumed later as a draft
   const [bookingDraft, setBookingDraft] = useState(null); // null | { step, method, pay }
+  const [operator, setOperator] = useState(order.operator); // ответственный оператор (переназначаемый)
+  const [reassignOpen, setReassignOpen] = useState(false);
   const [activeAvia, setActiveAvia] = useState(null);
   const [addKind, setAddKind] = useState('Авиа');   // active category tab inside the add-service panel
   const [activeSvc, setActiveSvc] = useState(null); // non-avia service being viewed
@@ -1559,6 +1587,7 @@ function OrderCard({ order, onBack, initTab, initSvcSearch, fresh, onOpenChat })
     { icon: 'plus', label: 'Добавить услугу', onClick: () => { setTab('services'); goAddType('Авиа'); } },
     { icon: 'zap', label: bookingDraft ? 'Продолжить бронирование' : 'Начать бронирование', onClick: () => { setTab('services'); setSvcView('booking'); } },
     { icon: 'template', label: 'КП', onClick: () => setTab('offers') },
+    { icon: 'users', label: 'Переназначить оператора', onClick: () => setReassignOpen(true) },
     { icon: 'send', label: 'Отправить клиенту', onClick: () => setSendOpen(true) },
   ];
   return (
@@ -1618,7 +1647,8 @@ function OrderCard({ order, onBack, initTab, initSvcSearch, fresh, onOpenChat })
             <OrderAside order={order} status={status} onStatusChange={(s) => { setStatus(s); toast('Статус: ' + s, 'ok'); }}
               services={services} participants={participants} requestType={requestType} aviaParams={aviaParams}
               onOpenTab={(k) => { setTab(k); if (k !== 'services' && svcView !== 'booking') setSvcView(null); }}
-              onOpenTasks={() => toast('Список задач по заказу', 'info')} />
+              onOpenTasks={() => toast('Список задач по заказу', 'info')}
+              operator={operator} onReassign={() => setReassignOpen(true)} />
           )}
         </div>
 
@@ -1633,6 +1663,8 @@ function OrderCard({ order, onBack, initTab, initSvcSearch, fresh, onOpenChat })
       </div>
 
       {/* drawers / modals reused from order_extras */}
+      <ReassignOperatorDrawer open={reassignOpen} current={operator} onClose={() => setReassignOpen(false)}
+        onPick={(op) => { setOperator(op); setReassignOpen(false); toast('Ответственный оператор: ' + op, 'ok'); }} />
       {paxOpen && <PassengerDrawer open={paxOpen} onClose={() => setPaxOpen(false)} />}
       {feeOpen && <FeeDrawer open={feeOpen} onClose={() => setFeeOpen(false)} />}
       {passport && <PassportModal passenger={passport} participants={participants} onClose={() => setPassport(null)} />}
