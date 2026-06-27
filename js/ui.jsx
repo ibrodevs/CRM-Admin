@@ -403,7 +403,7 @@ function sameDayEq(a, b) {
   return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
 }
 
-function CalendarPicker({ mode = 'range', startVal = null, endVal = null, onConfirm, onClose }) {
+function CalendarPicker({ mode = 'range', startVal = null, endVal = null, onConfirm, onClose, autoConfirm = false, rangeStartLabel = 'Далее' }) {
   const now = new Date();
   const [month, setMonth] = useState(startVal ? startVal.getMonth() : now.getMonth());
   const [year,  setYear]  = useState(startVal ? startVal.getFullYear() : now.getFullYear());
@@ -440,13 +440,20 @@ function CalendarPicker({ mode = 'range', startVal = null, endVal = null, onConf
 
   const handleClick = ({ d, cur }) => {
     if (!cur) return;
-    if (mode === 'single') { setSelS(new Date(d)); setSelE(null); return; }
+    // ТЗ #10 — a click on a day drops it straight into the field; no extra «Выбрать» press needed
+    if (mode === 'single') {
+      setSelS(new Date(d)); setSelE(null);
+      if (autoConfirm) onConfirm(new Date(d));
+      return;
+    }
     if (phase === 'start' || !selS) {
       setSelS(new Date(d)); setSelE(null); setPhase('end');
     } else {
-      if (d < selS) { setSelE(new Date(selS)); setSelS(new Date(d)); }
-      else            { setSelE(new Date(d)); }
-      setPhase('start');
+      let s = selS, e = new Date(d);
+      if (e < s) { const t = s; s = e; e = t; }
+      setSelS(new Date(s)); setSelE(new Date(e)); setPhase('start');
+      // second click closes the range range automatically when auto-confirm is on
+      if (autoConfirm) onConfirm(new Date(s), new Date(e));
     }
   };
 
@@ -513,12 +520,18 @@ function CalendarPicker({ mode = 'range', startVal = null, endVal = null, onConf
         {periodText ? (mode === 'range' ? `Выбранный период: ${periodText}` : periodText) : ' '}
       </div>
 
-      {/* Buttons */}
-      <Button variant="primary" style={{ width: '100%', marginBottom: 8 }}
-        onClick={() => selS && onConfirm(selS, mode === 'range' ? selE : undefined)}
-        disabled={!selS}>
-        Далее
-      </Button>
+      {/* Buttons — for a range, picking only the «туда» date offers «Только туда» (ТЗ #10) */}
+      {(() => {
+        const rangeOnlyStart = mode === 'range' && selS && !selE;
+        const label = rangeOnlyStart ? rangeStartLabel : 'Далее';
+        return (
+          <Button variant="primary" style={{ width: '100%', marginBottom: 8 }}
+            onClick={() => { if (!selS) return; rangeOnlyStart ? onConfirm(selS, null) : onConfirm(selS, mode === 'range' ? selE : undefined); }}
+            disabled={!selS}>
+            {label}
+          </Button>
+        );
+      })()}
       <button type="button" onClick={onClose}
         style={{ width: '100%', border: 'none', background: 'none', color: 'var(--muted)', cursor: 'pointer', fontSize: 15, padding: '6px 0', fontFamily: 'inherit' }}>
         Закрыть
@@ -528,7 +541,7 @@ function CalendarPicker({ mode = 'range', startVal = null, endVal = null, onConf
 }
 
 /* Single date picker field */
-function DateField({ label, value, onChange, placeholder = 'Выбрать дату', required, error, style }) {
+function DateField({ label, value, onChange, placeholder = 'Выбрать дату', required, error, style, autoConfirm = true }) {
   const [open, setOpen] = useState(false);
   const [pos, setPos] = useState({ top: 0, left: 0 });
   const ref = useRef(null);
@@ -564,7 +577,7 @@ function DateField({ label, value, onChange, placeholder = 'Выбрать да�
       {error && <div className="err-text"><Icon name="alertCircle" style={{ width: 14, height: 14 }} />{error}</div>}
       {open && ReactDOM.createPortal(
         <div id="__cal_portal__" style={{ position: 'fixed', top: pos.top, left: pos.left, zIndex: 9999 }}>
-          <CalendarPicker mode="single" startVal={value || null}
+          <CalendarPicker mode="single" startVal={value || null} autoConfirm={autoConfirm}
             onConfirm={(d) => { onChange(d); setOpen(false); }}
             onClose={() => setOpen(false)} />
         </div>,
@@ -575,7 +588,7 @@ function DateField({ label, value, onChange, placeholder = 'Выбрать да�
 }
 
 /* Date range picker field */
-function DateRangeField({ label, startVal, endVal, onChange, placeholder = 'Выбрать период', style }) {
+function DateRangeField({ label, startVal, endVal, onChange, placeholder = 'Выбрать период', style, autoConfirm = true, rangeStartLabel = 'Далее' }) {
   const [open, setOpen] = useState(false);
   const [pos, setPos] = useState({ top: 0, left: 0 });
   const ref = useRef(null);
@@ -613,6 +626,7 @@ function DateRangeField({ label, startVal, endVal, onChange, placeholder = 'Вы
       {open && ReactDOM.createPortal(
         <div id="__calr_portal__" style={{ position: 'fixed', top: pos.top, left: pos.left, zIndex: 9999 }}>
           <CalendarPicker mode="range" startVal={startVal || null} endVal={endVal || null}
+            autoConfirm={autoConfirm} rangeStartLabel={rangeStartLabel}
             onConfirm={(s, e) => { onChange(s, e); setOpen(false); }}
             onClose={() => setOpen(false)} />
         </div>,

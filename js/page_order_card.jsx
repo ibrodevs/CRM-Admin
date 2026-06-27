@@ -668,7 +668,7 @@ function AviaFilters({ flt, setFlt, bounds }) {
         <button className="hp-reset" onClick={() => setFlt({ stops: [], air: [], sup: [], bagOnly: false, refundOnly: false, priceMax: bounds.max, flightNo: '' })}>Сбросить всё</button>
       </div>
       <SearchBox value={flt.flightNo || ''} onChange={(v) => setFlt((f) => ({ ...f, flightNo: v }))}
-        placeholder="Поиск по номеру рейса" style={{ minWidth: 0, width: '100%', height: 42, margin: '4px 0 6px' }} />
+        placeholder="Номер рейса" style={{ minWidth: 0, width: '100%', height: 42, margin: '4px 0 6px' }} />
       <div className="hp-filter-block">
         <div className="hp-filter-title">Цена</div>
         <div className="hp-price-range">
@@ -726,14 +726,190 @@ function AviaCardRow({ opt, sel, onSelect }) {
   );
 }
 
-function AviaSearchPanel({ params, setParams, paxCount, onAdd }) {
+/* one flight in the results list — clicking the row (or «Тарифы») opens its fare families,
+   the same way picking a hotel opens its rooms (ТЗ #3). `embedded` rows live inside a larger
+   round-trip / multi-city card whose parent handles the click. */
+function AviaResultRow({ opt, onView, embedded }) {
+  const leg = opt.leg;
+  return (
+    <div className={'ap-flight avia-result' + (embedded ? ' embedded' : '')} onClick={!embedded && onView ? onView : undefined}>
+      <AirlineLogo code={opt.airline} size="sm" />
+      <div className="ap-fl-time">{leg.dep}<div className="ap">{leg.from}</div></div>
+      <div className="ap-fl-mid">
+        <div className="d">{leg.dur}</div>
+        <div className="line" />
+        <div className={'st ' + (leg.stops ? 'via' : 'direct')}>{leg.stops ? leg.stopText.split('·')[0].trim() : 'Прямой'}</div>
+      </div>
+      <div className="ap-fl-time">{leg.arr}<div className="ap">{leg.to}</div></div>
+      <div className="ap-fl-pr"><div className="v">{money(opt.price, 'USD')}</div><div className="c">{AIRLINES[opt.airline].name}</div></div>
+      {!embedded && <Button size="sm" variant="secondary" iconRight="chevRight" onClick={(e) => { e.stopPropagation(); onView(); }}>Тарифы</Button>}
+    </div>
+  );
+}
+
+/* passengers + class as a side panel (ТЗ #7) — replaces the cramped pop-over that pushed the
+   page and scrolled. When the order has real participants we also show them by subgroup (ТЗ #9). */
+function AviaPaxPanel({ params, setParams, participants = [], groups, onClose }) {
+  const p = params;
+  const pax = p.pax;
+  const set = (patch) => setParams({ ...p, ...patch });
+  const [specialOpen, setSpecialOpen] = useState(false);
+  const setBase = (k, min = 0) => (v) => set({ pax: { ...pax, [k]: Math.max(min, v) } });
+  const setGroup = (grp, k) => (v) => set({ pax: { ...pax, [grp]: { ...(pax[grp] || {}), [k]: Math.max(0, v) } } });
+  const total = paxTotal(pax);
+  const plural = (n) => n === 1 ? 'пассажир' : (n % 10 >= 2 && n % 10 <= 4 && (n % 100 < 10 || n % 100 >= 20) ? 'пассажира' : 'пассажиров');
+  const specialCount = Object.values(pax.special || {}).reduce((a, n) => a + (n || 0), 0)
+    + Object.values(pax.subsidized || {}).reduce((a, n) => a + (n || 0), 0);
+
+  const Step = ({ label, sub, val, set: setV, min = 0 }) => (
+    <div className="avia-pax-step">
+      <div style={{ flex: 1 }}><div className="t">{label}</div>{sub && <div className="s">{sub}</div>}</div>
+      <button className="btn btn-secondary btn-icon btn-sm" disabled={val <= min} onClick={() => setV(val - 1)}>−</button>
+      <span className="n">{val}</span>
+      <button className="btn btn-secondary btn-icon btn-sm" onClick={() => setV(val + 1)}>+</button>
+    </div>
+  );
+
+  const sections = (() => {
+    if (groups && groups.length && participants.length) {
+      const used = new Set();
+      const secs = groups.map((g) => {
+        const m = (g.members || []).filter((i) => i < participants.length && !used.has(i));
+        m.forEach((i) => used.add(i));
+        return { id: g.id, name: g.name, desc: g.desc, members: m };
+      }).filter((s) => s.members.length);
+      const rest = participants.map((_, i) => i).filter((i) => !used.has(i));
+      if (rest.length) secs.push({ id: '__rest', name: 'Без подгруппы', members: rest });
+      return secs;
+    }
+    return null;
+  })();
+
+  return (
+    <StackPanel title="Пассажиры и класс" width="min(560px,94vw)" onClose={onClose}
+      footer={<Button style={{ width: '100%' }} icon="check" onClick={onClose}>Готово · {total} {plural(total)}</Button>}>
+      <div className="avia-pax-grid">
+        <Step label="Взрослые" sub="от 12 лет" val={pax.adt} set={setBase('adt', 1)} min={1} />
+        <Step label="Дети" sub="2–11 лет" val={pax.chd} set={setBase('chd')} />
+        <Step label="Младенцы без места" sub="до 2 лет" val={pax.infNoSeat} set={setBase('infNoSeat')} />
+        <Step label="Младенцы с местом" sub="до 2 лет" val={pax.infSeat} set={setBase('infSeat')} />
+      </div>
+
+      <button type="button" className="avia-pax-more" onClick={() => setSpecialOpen((o) => !o)}>
+        <Icon name="plus" style={{ width: 14, height: 14 }} />Специальные категории
+        {specialCount > 0 && <span className="tab-count">{specialCount}</span>}
+        <span style={{ flex: 1 }} />
+        <Icon name={specialOpen ? 'chevUp' : 'chevDown'} style={{ width: 16, height: 16 }} />
+      </button>
+      {specialOpen && (
+        <div className="avia-pax-grid">
+          <div className="avia-pax-subh">Льготные категории</div>
+          {SPECIAL_PAX_CATEGORIES.map((c) => (
+            <Step key={c.key} label={c.label} val={(pax.special || {})[c.key] || 0} set={setGroup('special', c.key)} />
+          ))}
+          <div className="avia-pax-subh">Субсидированные программы</div>
+          {SUBSIDIZED_PAX_PROGRAMS.map((c) => (
+            <Step key={c.key} label={c.label} val={(pax.subsidized || {})[c.key] || 0} set={setGroup('subsidized', c.key)} />
+          ))}
+        </div>
+      )}
+
+      <div className="avia-pax-subh" style={{ marginTop: 18 }}>Класс обслуживания</div>
+      <div className="avia-cabin-grid">
+        {CABIN_CLASSES.map((c) => (
+          <button key={c} className={'tab' + (p.cabin === c ? ' active' : '')} style={{ justifyContent: 'center' }} onClick={() => set({ cabin: c })}>{c}</button>
+        ))}
+      </div>
+
+      {sections && (
+        <>
+          <div className="avia-pax-subh" style={{ marginTop: 18 }}>Состав по подгруппам</div>
+          {sections.map((sec) => (
+            <div className="avia-subgroup" key={sec.id}>
+              <div className="avia-subgroup-h">
+                <span className="nm">{sec.name}</span><span className="cnt">{sec.members.length}</span>
+                {sec.desc && <span className="ds">{sec.desc}</span>}
+              </div>
+              <div className="avia-subgroup-people">
+                {sec.members.map((i) => (
+                  <span key={i} className="avia-chip">{participants[i].name}{participants[i].role ? ' · ' + participants[i].role : ''}</span>
+                ))}
+              </div>
+            </div>
+          ))}
+        </>
+      )}
+    </StackPanel>
+  );
+}
+
+/* fare families for the clicked flight — opens like «номера в отеле» so the fare grid can be
+   reviewed before booking (ТЗ #3, #8). The StackPanel footer keeps the subtotal + book button
+   pinned in view (ТЗ #1) instead of being buried beneath the flight list. */
+function FlightFarePanel({ route, paxCount, cabin, onClose, onAdd, onPerPax }) {
+  const tiers = AVIA_FARE_TIERS;
+  const [fareId, setFareId] = useState((tiers.find((f) => f.recommended) || tiers[0]).id);
+  const tier = tiers.find((f) => f.id === fareId) || tiers[0];
+  const fareUsd = Math.round(tier.delta / RUB_PER_USD); // тарифные дельты в данных в ₽ → приводим к $
+  const seats = Math.max(1, paxCount);
+  const grand = (route.total + fareUsd) * seats;
+  const legs = route.legs;
+  const routeTitle = legs[0].leg.from + legs.map((l) => ' → ' + l.leg.to).join('');
+  const plural = (n) => n === 1 ? 'пассажир' : (n % 10 >= 2 && n % 10 <= 4 && (n % 100 < 10 || n % 100 >= 20) ? 'пассажира' : 'пассажиров');
+  const add = () => onAdd({ ...route, fareName: tier.name, fareDeltaUsd: fareUsd });
+  return (
+    <StackPanel title="Тарифы по рейсу" width="min(940px,95vw)" onClose={onClose}
+      footer={<>
+        <div className="ft-total" style={{ marginRight: 'auto' }}>Итого · {seats} {plural(seats)}<b style={{ fontSize: 18 }}>{money(grand, 'USD')}</b></div>
+        {onPerPax && <Button variant="secondary" icon="users" onClick={() => onPerPax(route)}>Тарифы по пассажирам</Button>}
+        <Button icon="check" onClick={add}>Добавить в заказ</Button>
+      </>}>
+      <div className="card card-pad" style={{ marginBottom: 16, display: 'flex', flexDirection: 'column', gap: 10 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <AirlineLogo code={legs[0].airline} size="sm" />
+          <div style={{ fontWeight: 700, color: 'var(--ink)' }}>{routeTitle}</div>
+          <span className="pill pill-gray" style={{ marginLeft: 'auto' }}>{cabin}</span>
+        </div>
+        {legs.map((l, i) => <AviaResultRow key={i} opt={l} embedded />)}
+      </div>
+
+      <div className="ap-sc-title">Доступные тарифы — ознакомьтесь перед бронированием</div>
+      <div className="fare-grid">
+        {tiers.map((f) => {
+          const u = Math.round(f.delta / RUB_PER_USD);
+          const sel = fareId === f.id;
+          return (
+            <div key={f.id} className={'fare-card' + (sel ? ' sel' : '')} onClick={() => setFareId(f.id)}>
+              {f.recommended && <span className="fc-badge">Рекомендуем</span>}
+              <div className="fc-name">{f.name}</div>
+              <div className="fc-price">{u ? '+ ' + money(u, 'USD') : 'без доплаты'}<small>{u ? ' / пассажир' : ''}</small></div>
+              {f.features.map((ft, k) => (
+                <div key={k} className={'fare-feat ' + (ft.ok ? 'ok' : 'no')}><Icon name={ft.ok ? 'check' : 'x'} />{ft.text}</div>
+              ))}
+              <Button variant="secondary" size="sm" className="fare-pick-btn" icon={sel ? 'check' : undefined}
+                onClick={(e) => { e.stopPropagation(); setFareId(f.id); }}>{sel ? 'Выбран' : 'Выбрать тариф'}</Button>
+            </div>
+          );
+        })}
+      </div>
+    </StackPanel>
+  );
+}
+
+function AviaSearchPanel({ params, setParams, paxCount, participants = [], isGroup, onAdd, onAddPerPax }) {
   const p = params;
   const set = (patch) => setParams({ ...p, ...patch });
   const swap = () => set({ from: p.to, to: p.from });
   const aviaBounds = aviaPriceBounds();
   const [flt, setFlt] = useState({ stops: [], air: [], sup: [], bagOnly: false, refundOnly: false, priceMax: aviaBounds.max, flightNo: '' });
-  const [visible, setVisible] = useState(5);
-  const [legs, setLegs] = useState({}); // { out: optKey, back: optKey, seg1: optKey, seg2: optKey }
+  const [visible, setVisible] = useState(6);
+  const [paxPanel, setPaxPanel] = useState(false);
+  const [fareRoute, setFareRoute] = useState(null);   // route awaiting fare selection → opens FlightFarePanel
+  const groups = isGroup ? AVIA_GROUPS_SEED : null;
+  const seats = participants.length || paxTotal(p.pax);
+  const plural = (n) => n === 1 ? 'пассажир' : (n % 10 >= 2 && n % 10 <= 4 && (n % 100 < 10 || n % 100 >= 20) ? 'пассажира' : 'пассажиров');
+
+  const TRIPS = [['rt', 'Туда-обратно'], ['ow', 'В одну сторону'], ['mc', 'Сложный маршрут']];
 
   const flightNoMatch = (o, q) => { const n = q.replace(/\s+/g, '').toLowerCase(); return [o.out, o.back].some((l) => l && l.flightNo && l.flightNo.replace(/\s+/g, '').toLowerCase().includes(n)); };
   let pool = FLIGHT_OFFERS.filter((o) => {
@@ -750,133 +926,141 @@ function AviaSearchPanel({ params, setParams, paxCount, onAdd }) {
   pool = [...pool].sort((a, b) => (a.fare + a.fee) - (b.fare + b.fee));
 
   const outOpts = pool.map((o) => ({ key: o.id + '-o', airline: o.airline, leg: o.out, supplier: o.supplier, price: Math.round((o.fare + o.fee) * 0.6) }));
-  const backOpts = pool.filter((o) => o.back).map((o) => ({ key: o.id + '-b', airline: o.airline, leg: o.back, supplier: o.supplier, price: Math.round((o.fare + o.fee) * 0.4) }));
-  // paired round-trip combos (same offer both ways), cheapest first — matches the reference sheet
-  const sortedOutOpts = outOpts;
   const rtCombos = pool.filter((o) => o.back).map((o) => ({
     id: o.id,
     out: { key: o.id + '-o', airline: o.airline, leg: o.out, supplier: o.supplier, price: Math.round((o.fare + o.fee) * 0.6) },
     back: { key: o.id + '-b', airline: o.airline, leg: o.back, supplier: o.supplier, price: Math.round((o.fare + o.fee) * 0.4) },
   })).sort((a, b) => (a.out.price + a.back.price) - (b.out.price + b.back.price));
+  // complex demo route — three sequential legs assembled from the cheapest offers
+  const mcLegs = outOpts.slice(0, 3);
+  const mcTotal = mcLegs.reduce((s, o) => s + o.price, 0);
 
-  const segKeys = p.trip === 'mc' ? ['out', 'seg1', 'seg2'] : p.trip === 'rt' ? ['out', 'back'] : ['out'];
-  const segPool = (k) => (k === 'back' ? backOpts : outOpts);
-  const findOpt = (k) => segPool(k).find((o) => o.key === legs[k]);
-  const allPicked = segKeys.every((k) => legs[k]);
-  const pickedOpts = segKeys.map(findOpt).filter(Boolean);
-  // which of the three route sections is active (others dim), like in AviaPicker
-  const activeRoute = Object.keys(legs).length ? p.trip : null;
-  const sectionInactive = (type) => activeRoute && activeRoute !== type;
-
-  const totalPrice = pickedOpts.reduce((s, o) => s + o.price, 0);
-  const layoverMin = (i) => 50 + i * 40; // demo layover between segments i and i+1
-  const legDurMin = pickedOpts.reduce((s, o) => s + durMin(o.leg.dur), 0);
-  const layoversMin = p.trip === 'mc' ? segKeys.slice(0, -1).reduce((s, _, i) => s + layoverMin(i), 0) : 0;
-  const totalDurMin = legDurMin + layoversMin;
-  const maxCombo = segKeys.reduce((s, k) => s + Math.max(0, ...segPool(k).map((o) => o.price)), 0);
-
-  const submit = () => { if (allPicked) onAdd({ legs: pickedOpts, total: totalPrice }); };
-
-  const visibleOpts = (opts) => opts.slice(0, visible);
+  const openFare = (route) => setFareRoute(route);
+  const paxLabel = `${seats} ${plural(seats)} · ${p.cabin}`;
+  const foundCount = p.trip === 'rt' ? rtCombos.length : p.trip === 'mc' ? 1 : outOpts.length;
 
   return (
     <div>
-      <div className="svcp-search-bar">
+      {/* ТЗ #2 — trip type toggle that reshapes the search mask */}
+      <div className="trip-toggle" style={{ marginBottom: 14 }}>
+        {TRIPS.map(([k, l]) => (
+          <button key={k} className={p.trip === k ? 'on' : ''} onClick={() => set({ trip: k })}>{l}</button>
+        ))}
+      </div>
+
+      {/* ТЗ #6 — flexible fields keep the whole mask on one line, like the other services */}
+      <div className="svcp-search-bar avia-search-bar">
         <AirportField label="Откуда" value={p.from} onChange={(v) => set({ from: v })} />
         <button className="av-swap" onClick={swap} title="Поменять местами"><Icon name="swap" style={{ width: 18, height: 18 }} /></button>
         <AirportField label="Куда" value={p.to} onChange={(v) => set({ to: v })} />
-        <div className="av-field" style={{ width: 148 }}><DateField label="Туда" value={p.depDate} onChange={(d) => set({ depDate: d })} placeholder="Дата" /></div>
-        {p.trip === 'rt' && <div className="av-field" style={{ width: 148 }}><DateField label="Обратно" value={p.retDate} onChange={(d) => set({ retDate: d })} placeholder="Дата" /></div>}
-        <PaxField pax={p.pax} setPax={(v) => set({ pax: v })} cabin={p.cabin} setCabin={(v) => set({ cabin: v })} options={p} setOptions={(patch) => set(patch)} />
-        <Button icon="search" style={{ height: 46, marginBottom: 0 }}>Найти</Button>
+        {p.trip === 'rt' ? (
+          <div className="av-field">
+            {/* ТЗ #10 — single range field with the «от — до» line; «Только туда» turns it into one-way */}
+            <DateRangeField label="Даты поездки" startVal={p.depDate} endVal={p.retDate} rangeStartLabel="Только туда"
+              placeholder="Туда — обратно"
+              onChange={(s, e) => { if (e === null || e === undefined) set({ trip: 'ow', depDate: s, retDate: null }); else set({ depDate: s, retDate: e }); }} />
+          </div>
+        ) : (
+          <div className="av-field">
+            <DateField label={p.trip === 'mc' ? 'Первый вылет' : 'Дата вылета'} value={p.depDate} onChange={(d) => set({ depDate: d })} placeholder="Выбрать" />
+          </div>
+        )}
+        {/* ТЗ #7 — passengers open in a side panel instead of a pop-over */}
+        <div className="av-field avia-pax-field" onClick={() => setPaxPanel(true)}>
+          <span className="label">Пассажиры и класс</span>
+          <div className="input" style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 9 }}>
+            <Icon name="users" style={{ width: 17, height: 17, color: 'var(--muted-2)', flexShrink: 0 }} />
+            <span style={{ flex: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{paxLabel}</span>
+            <Icon name="chevDown" style={{ width: 16, height: 16, color: 'var(--muted-2)' }} />
+          </div>
+        </div>
+        <Button icon="search" className="avia-find-btn" style={{ height: 46, marginBottom: 0 }}>Найти</Button>
       </div>
 
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, margin: '0 0 14px' }}>
         <div style={{ flex: 1 }} />
-        <span style={{ color: 'var(--muted)', fontSize: 13.5 }}>Найдено {pool.length}</span>
+        <span style={{ color: 'var(--muted)', fontSize: 13.5 }}>Найдено {foundCount}</span>
         <div style={{ minWidth: 190 }}><Select options={[{ value: 'price', label: 'Сортировка: Цена' }]} value="price" onChange={() => {}} /></div>
       </div>
 
       <div className="hp-layout">
         <AviaFilters flt={flt} setFlt={setFlt} bounds={aviaBounds} />
         <div style={{ minWidth: 0 }}>
-          {/* 1. Маршрут туда — one-way flight cards */}
-          <div className={'ap-route-section' + (sectionInactive('ow') ? ' inactive' : '')}>
-            <div className="ap-route-title">1. Маршрут туда</div>
-            {visibleOpts(sortedOutOpts).map((o) => {
-              const sel = activeRoute === 'ow' && legs.out === o.key;
-              return (
-                <div key={o.key} className={'ap-route-card' + (sel ? ' sel' : '')}>
-                  <AviaCardRow opt={o} sel={sel} onSelect={() => { set({ trip: 'ow' }); setLegs({ out: o.key }); }} />
+          {p.trip === 'ow' && (
+            <div className="ap-route-section">
+              <div className="ap-route-title">Рейсы туда — нажмите рейс, чтобы открыть тарифы</div>
+              {outOpts.slice(0, visible).map((o) => (
+                <div key={o.key} className="ap-route-card">
+                  <AviaResultRow opt={o} onView={() => openFare({ legs: [o], total: o.price })} />
                 </div>
-              );
-            })}
-          </div>
-
-          {/* 2. Туда и обратно — paired out/back cards with swap + route summary */}
-          <div className={'ap-route-section' + (sectionInactive('rt') ? ' inactive' : '')}>
-            <div className="ap-route-title">2. Туда и обратно</div>
-            {visibleOpts(rtCombos).map((c) => {
-              const total = c.out.price + c.back.price;
-              const dur = fmtDur(durMin(c.out.leg.dur) + durMin(c.back.leg.dur));
-              const savings = Math.round(total * 0.045);
-              const sel = activeRoute === 'rt' && legs.out === c.out.key && legs.back === c.back.key;
-              const pick = () => { set({ trip: 'rt' }); setLegs({ out: c.out.key, back: c.back.key }); };
-              return (
-                <div key={c.id} className={'ap-route-card' + (sel ? ' sel' : '')}>
-                  <AviaCardRow opt={c.out} sel={sel} onSelect={pick} />
-                  <span className="ap-route-swap"><Icon name="swap" /></span>
-                  <AviaCardRow opt={c.back} sel={sel} onSelect={pick} />
-                  <div className="ap-route-totals">
-                    <div className="rt-block"><Icon name="route" /><div><div className="l">Общая продолжительность</div><div className="v">{dur}</div></div></div>
-                    <div className="rt-price"><div className="l">Итого за маршрут</div><div className="v">{money(total, 'USD')}</div></div>
-                    <span className="pill pill-green rt-badge"><Icon name="zap" />Выгоднее на {money(savings, 'USD')}</span>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-
-          {/* 3. Сложный маршрут — numbered chain of legs with layover tags + summary */}
-          <div className={'ap-route-section' + (sectionInactive('mc') ? ' inactive' : '')}>
-            <div className="ap-route-title">3. Сложный маршрут</div>
-            <div className={'ap-route-card chain' + (activeRoute === 'mc' ? ' sel' : '')}>
-              <div className="ap-route-chain">
-                {['out', 'seg1', 'seg2'].map((k, i) => (
-                  <React.Fragment key={k}>
-                    <div className="ap-route-chain-row">
-                      <div className="ap-route-chain-num"><span>{i + 1}</span>{i < 2 && <i />}</div>
-                      <div className="ap-route-chain-leg" style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                        {segPool(k).slice(0, 3).map((o) => {
-                          const sel = p.trip === 'mc' && legs[k] === o.key;
-                          return <AviaCardRow key={o.key} opt={o} sel={sel}
-                            onSelect={() => { if (p.trip !== 'mc') { set({ trip: 'mc' }); setLegs({ [k]: o.key }); } else setLegs((c) => ({ ...c, [k]: o.key })); }} />;
-                        })}
-                      </div>
-                    </div>
-                    {i < 2 && <div style={{ marginLeft: 36 }}><span className="ap-route-chain-layover">Пересадка {fmtDur(layoverMin(i))}</span></div>}
-                  </React.Fragment>
-                ))}
-              </div>
-              {p.trip === 'mc' && allPicked && (
-                <div className="ap-route-totals">
-                  <div className="rt-block"><Icon name="route" /><div><div className="l">Общая продолжительность (с учётом пересадок)</div><div className="v">{fmtDur(totalDurMin)}</div></div></div>
-                  <div className="rt-price"><div className="l">Итого за маршрут</div><div className="v">{money(totalPrice, 'USD')}</div></div>
-                  <span className="pill pill-blue rt-badge"><Icon name="star" />Оптимальный маршрут</span>
-                </div>
-              )}
+              ))}
             </div>
-          </div>
-
-          {visible < outOpts.length && (
-            <button className="svcf-more" onClick={() => setVisible((v) => v + 15)}>
-              Показать ещё {Math.min(15, outOpts.length - visible)} рейсов <Icon name="chevDown" style={{ width: 15, height: 15 }} />
-            </button>
           )}
 
-          <Button icon="check" disabled={!allPicked} style={{ marginTop: 14 }} onClick={submit}>Добавить в заказ</Button>
+          {p.trip === 'rt' && (
+            <div className="ap-route-section">
+              <div className="ap-route-title">Туда и обратно — нажмите вариант, чтобы открыть тарифы</div>
+              {rtCombos.slice(0, visible).map((c) => {
+                const total = c.out.price + c.back.price;
+                const dur = fmtDur(durMin(c.out.leg.dur) + durMin(c.back.leg.dur));
+                const savings = Math.round(total * 0.045);
+                const view = () => openFare({ legs: [c.out, c.back], total });
+                return (
+                  <div key={c.id} className="ap-route-card avia-rt-card" onClick={view}>
+                    <AviaResultRow opt={c.out} embedded />
+                    <span className="ap-route-swap"><Icon name="swap" /></span>
+                    <AviaResultRow opt={c.back} embedded />
+                    <div className="ap-route-totals">
+                      <div className="rt-block"><Icon name="route" /><div><div className="l">Общая продолжительность</div><div className="v">{dur}</div></div></div>
+                      <div className="rt-price"><div className="l">Итого за маршрут</div><div className="v">{money(total, 'USD')}</div></div>
+                      <span className="pill pill-green rt-badge"><Icon name="zap" />Выгоднее на {money(savings, 'USD')}</span>
+                      <Button size="sm" iconRight="chevRight" onClick={(e) => { e.stopPropagation(); view(); }}>Тарифы</Button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
+          {p.trip === 'mc' && (
+            <div className="ap-route-section">
+              <div className="ap-route-title">Сложный маршрут — нажмите, чтобы открыть тарифы</div>
+              <div className="ap-route-card chain">
+                <div className="ap-route-chain">
+                  {mcLegs.map((o, i) => (
+                    <React.Fragment key={o.key}>
+                      <div className="ap-route-chain-row">
+                        <div className="ap-route-chain-num"><span>{i + 1}</span>{i < mcLegs.length - 1 && <i />}</div>
+                        <div className="ap-route-chain-leg"><AviaResultRow opt={o} embedded /></div>
+                      </div>
+                      {i < mcLegs.length - 1 && <div style={{ marginLeft: 36 }}><span className="ap-route-chain-layover">Пересадка {fmtDur(60 + i * 40)}</span></div>}
+                    </React.Fragment>
+                  ))}
+                </div>
+                <div className="ap-route-totals">
+                  <div className="rt-block"><Icon name="route" /><div><div className="l">Итого за маршрут</div><div className="v">{money(mcTotal, 'USD')}</div></div></div>
+                  <div style={{ flex: 1 }} />
+                  <Button size="sm" iconRight="chevRight" onClick={() => openFare({ legs: mcLegs, total: mcTotal })}>Тарифы</Button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {p.trip !== 'mc' && visible < (p.trip === 'rt' ? rtCombos.length : outOpts.length) && (
+            <button className="svcf-more" onClick={() => setVisible((v) => v + 10)}>
+              Показать ещё рейсы <Icon name="chevDown" style={{ width: 15, height: 15 }} />
+            </button>
+          )}
         </div>
       </div>
+
+      {paxPanel && <AviaPaxPanel params={p} setParams={setParams} participants={participants} groups={groups} onClose={() => setPaxPanel(false)} />}
+      {fareRoute && (
+        <FlightFarePanel route={fareRoute} paxCount={seats} cabin={p.cabin}
+          onClose={() => setFareRoute(null)}
+          onAdd={(r) => { setFareRoute(null); onAdd(r); }}
+          onPerPax={onAddPerPax ? (r) => { setFareRoute(null); onAddPerPax(r); } : null} />
+      )}
     </div>
   );
 }
@@ -909,7 +1093,7 @@ function QuickAddForm({ kind, onAdd }) {
   );
 }
 
-function AddServicePanel({ kind, setKind, aviaParams, setAviaParams, paxCount, participants, isGroup, onAddAvia, onAddOther }) {
+function AddServicePanel({ kind, setKind, aviaParams, setAviaParams, paxCount, participants, isGroup, onAddAvia, onAddAviaPerPax, onAddOther }) {
   const cat = ADD_SVC_CATS.find((c) => c.kind === kind) || ADD_SVC_CATS[0];
   return (
     <div className="fade-in">
@@ -920,7 +1104,8 @@ function AddServicePanel({ kind, setKind, aviaParams, setAviaParams, paxCount, p
           </button>
         ))}
       </div>
-      {kind === 'Авиа' && <AviaSearchPanel params={aviaParams} setParams={setAviaParams} paxCount={paxCount} onAdd={onAddAvia} />}
+      {kind === 'Авиа' && <AviaSearchPanel params={aviaParams} setParams={setAviaParams} paxCount={paxCount}
+        participants={participants || []} isGroup={isGroup} onAdd={onAddAvia} onAddPerPax={onAddAviaPerPax} />}
       {/* Гостиницы — полноценный модуль подбора с фильтром слева, выбором номера,
           составом гостей, групповым размещением и подтверждением бронирования */}
       {kind === 'Гостиница' && <HotelPicker participants={participants} group={isGroup} onApply={(offer) => onAddOther(offer, 'Гостиница')} onCancel={() => {}} />}
@@ -1110,7 +1295,7 @@ function OrderCard({ order, onBack, initTab, initSvcSearch, fresh, onOpenChat })
     const title = legs[0].leg.from + legs.map((l) => ' → ' + l.leg.to).join('');
     const airlineNames = [...new Set(legs.map((l) => AIRLINES[l.airline].name))].join(' / ');
     const sv = { id, kind: 'Авиа', title,
-      sub: `${airlineNames} · ${participants.length} пасс. · ${aviaParams.cabin}`,
+      sub: `${airlineNames} · ${participants.length} пасс. · ${route.fareName || aviaParams.cabin}`,
       status: 'Предложение', sum: route.total * participants.length + fareDeltaSum, currency: 'USD', date: legs[0].leg.date, supplier: legs[0].supplier };
     setServices((cur) => [...cur, sv]);
     setSvcView(null);
@@ -1158,7 +1343,8 @@ function OrderCard({ order, onBack, initTab, initSvcSearch, fresh, onOpenChat })
         </div>
         <AddServicePanel kind={addKind} setKind={setAddKind} aviaParams={aviaParams} setAviaParams={setAviaParams}
           paxCount={participants.length} participants={participants} isGroup={requestType === 'Групповая'}
-          onAddAvia={startAviaFareStep} onAddOther={addSvcOffer} />
+          onAddAvia={(route) => addAviaSimple(route, Math.round(route.fareDeltaUsd || 0) * participants.length)}
+          onAddAviaPerPax={startAviaFareStep} onAddOther={addSvcOffer} />
       </div>
     );
     return <TabServices orderNo={order.no} services={services} participants={participants} requestType={requestType}

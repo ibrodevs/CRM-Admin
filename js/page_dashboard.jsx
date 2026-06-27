@@ -7,7 +7,7 @@ function DetailedSearchPanel({ onClose }) {
   const [kind, setKind] = useState('Авиа');
   const [aviaParams, setAviaParams] = useState({ trip: 'rt', from: 'FRU', to: 'IST', depDate: null, retDate: null, pax: { adt: 1, chd: 0, infNoSeat: 0, infSeat: 0, special: {}, subsidized: {} }, cabin: 'Эконом', baggage: false, flex: false, direct: false, airline: '', ...PAX_DEFAULT_OPTIONS });
   return (
-    <StackPanel title="Детальный поиск услуг" width="min(1320px,96vw)" onClose={onClose}>
+    <StackPanel title="Поиск услуг" width="min(1320px,96vw)" onClose={onClose}>
       <AddServicePanel kind={kind} setKind={setKind} aviaParams={aviaParams} setAviaParams={setAviaParams}
         paxCount={aviaParams.pax.adt + aviaParams.pax.chd}
         onAddAvia={() => toast('Перелёт найден. Откройте нужный заказ, чтобы добавить его в сценарий', 'ok')}
@@ -46,7 +46,7 @@ function DashboardPage({ onNavigate, onAddOrder, onOpenOrder }) {
       <Topbar title="Добрый день, Айсулуу">
         <div className="topbar-spacer" />
         <SearchBox value={search} onChange={setSearch} placeholder="Поиск" style={{ width: 260 }} />
-        <Button variant="secondary" icon="search" onClick={() => setSearchOpen(true)}>Детальный поиск</Button>
+        <Button variant="secondary" icon="search" onClick={() => setSearchOpen(true)}>Поиск услуг</Button>
         <Button variant="primary" icon="plus" onClick={onAddOrder}>Добавить заказ</Button>
       </Topbar>
 
