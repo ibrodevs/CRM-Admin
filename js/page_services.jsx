@@ -66,20 +66,37 @@ function SvcOfferCard({ o, kind, onSelect, onSave, selectLabel }) {
   );
 }
 
-/* ---------- service card ---------- */
-function SvcCard({ item, kind, onBack }) {
+/* ---------- service card — единая структура с авиа-карточкой (вкладки: участники / детали /
+   поставщик / финансы / документы / комментарии / история), чтобы все услуги выглядели одинаково ---------- */
+function SvcCard({ item, kind, participants = [], onBack }) {
   const toast = useToast();
-  const k = SERVICE_KIND[kind];
+  const [tab, setTab] = useState('details');
+  const k = SERVICE_KIND[kind] || { icon: 'briefcase', color: 'var(--blue)' };
   const isOffer = !!item.cost;
   const cur = item.currency || (item.svcOffer && item.svcOffer.currency);
   const fmt = (n) => (cur === 'RUB' || cur === '₽') ? rub(n) : svM(n);
   const title = item.title || item.main;
   const sub = item.sub;
-  const status = isOffer ? 'Предложение' : item.status;
+  const status = item.status || (isOffer ? 'Предложение' : '—');
   const total = isOffer ? item.cost + item.fee : item.sum;
-  const info = item.info || [{ l: 'Детали', v: item.sub }, { l: 'Дата', v: item.date }, { l: 'Количество', v: item.qty }];
+  const info = (item.info || [{ l: 'Описание', v: item.sub }, { l: 'Дата', v: item.date }, { l: 'Количество', v: item.qty }]).filter((r) => r.v != null);
   const supplier = item.supplier || '—';
-  const no = item.no || (kind.slice(0, 2).toUpperCase() + '-' + Math.floor(10000 + Math.random() * 90000));
+  const no = item.no || item.id || (String(kind).slice(0, 2).toUpperCase() + '-00000');
+  const calc = item.calc || {};
+  const tariff = calc.tariff != null ? calc.tariff : (isOffer ? item.cost : total);
+  const fee = calc.fee != null ? calc.fee : (isOffer ? item.fee : 0);
+  const isHotel = kind === 'Гостиница';
+  const paxLabel = isHotel ? 'Гости' : 'Участники';
+
+  const TABS = [
+    { key: 'pax', label: paxLabel, count: participants.length || undefined },
+    { key: 'details', label: 'Детали' },
+    { key: 'supplier', label: 'Поставщик' },
+    { key: 'finance', label: 'Финансы' },
+    { key: 'docs', label: 'Документы' },
+    { key: 'comments', label: 'Комментарии' },
+    { key: 'history', label: 'История' },
+  ];
 
   return (
     <div className="fade-in">
@@ -87,52 +104,101 @@ function SvcCard({ item, kind, onBack }) {
         <Button variant="secondary" size="sm" icon="chevLeft" onClick={onBack}>Назад</Button>
         <span style={{ color: 'var(--muted)', fontSize: 14 }}>{SVC_CFG_TITLE(kind)} / {no}</span>
       </div>
+
+      {/* header — 1-в-1 со структурой авиа-карточки */}
       <div className="card card-pad" style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 18, flexWrap: 'wrap' }}>
         <span className="oc-svc-ic" style={{ background: k.color }}><Icon name={k.icon} /></span>
         <div style={{ flex: 1, minWidth: 200 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}><h2 className="card-title">{title}</h2><Pill tone={SERVICE_STATUS[status] || 'gray'}>{status}</Pill></div>
-          <div style={{ color: 'var(--muted)', fontSize: 14, marginTop: 4 }}>{sub} · {supplier}</div>
+          <div style={{ color: 'var(--muted)', fontSize: 14, marginTop: 4 }}>{sub}{supplier && supplier !== '—' ? ' · ' + supplier : ''}</div>
         </div>
-        <div style={{ textAlign: 'right' }}><div style={{ fontSize: 13, color: 'var(--muted)' }}>Стоимость</div><div style={{ fontSize: 24, fontWeight: 800, color: 'var(--ink)' }}>{total ? fmt(total) : '—'}</div></div>
+        <div style={{ textAlign: 'right' }}><div style={{ fontSize: 13, color: 'var(--muted)' }}>Итого к оплате</div><div style={{ fontSize: 24, fontWeight: 800, color: 'var(--ink)' }}>{total ? fmt(total) : '—'}</div></div>
         {status === 'Предложение' && <Button icon="check" onClick={() => toast('Отправлено на бронирование', 'ok')}>Забронировать</Button>}
         {status === 'Забронировано' && <Button icon="check" onClick={() => toast('Услуга оформлена', 'ok')}>Оформить</Button>}
       </div>
 
-      <div className="grid-2" style={{ alignItems: 'start' }}>
-        <div className="card card-pad">
-          <h3 className="card-title" style={{ fontSize: 17, marginBottom: 14 }}>Детали услуги</h3>
-          <div className="kv">{info.map((r, i) => (<div className="kv-row" key={i}><span className="k">{r.l}</span><span className="v">{r.v}</span></div>))}{item.tags && <div className="kv-row"><span className="k">Включено</span><span className="v">{item.tags.join(', ')}</span></div>}
-            {item.railSeats && (
-              <>
-                <div className="kv-row"><span className="k">Обслуживание</span><span className="v">{item.railSeats.clsName} · вагон {item.railSeats.wagonNo}</span></div>
-                {(item.railSeats.list || []).map((r, i) => (
-                  <div className="kv-row" key={'seat' + i}><span className="k">{r.name}</span>
-                    <span className="v">{r.seat ? 'место ' + r.seat + ' · ' + (RAIL_SEAT_LABEL[r.kind] || '') : '—'}</span></div>
-                ))}
-              </>
-            )}
-          </div>
-        </div>
-        <div className="card card-pad">
-          <h3 className="card-title" style={{ fontSize: 17, marginBottom: 14 }}>Поставщик и финансы</h3>
-          <div className="kv">
-            <div className="kv-row"><span className="k">Поставщик</span><span className="v">{supplier}</span></div>
-            <div className="kv-row"><span className="k">Тариф</span><span className="v">{fmt(isOffer ? item.cost : total)}</span></div>
-            <div className="kv-row"><span className="k">Сервисный сбор</span><span className="v">{fmt(isOffer ? item.fee : 0)}</span></div>
-            <div className="kv-row"><span className="k">Итого</span><span className="v" style={{ fontSize: 17 }}>{total ? fmt(total) : '—'}</span></div>
-          </div>
-        </div>
-      </div>
+      <div style={{ marginBottom: 18, overflowX: 'auto' }}><Tabs tabs={TABS} value={tab} onChange={setTab} /></div>
 
-      <h3 className="section-title" style={{ fontSize: 20, margin: '24px 0 14px' }}>Документы</h3>
-      <div className="grid-4">
-        {['Ваучер / билет', 'Счёт на оплату', 'Подтверждение'].map((d) => (<button key={d} className="doc-chip"><span style={{ display: 'flex', alignItems: 'center', gap: 8 }}><Icon name="docs" />{d}</span><Icon name="download" /></button>))}
-        <button className="doc-chip" style={{ borderStyle: 'dashed', color: 'var(--blue)' }} onClick={() => toast('Загрузка', 'info')}><span style={{ display: 'flex', alignItems: 'center', gap: 8 }}><Icon name="plus" />Загрузить</span></button>
-      </div>
+      {tab === 'pax' && (
+        <div className="table-card">
+          {participants.length ? (
+            <table className="tbl">
+              <thead><tr><th>{isHotel ? 'Гость' : 'Участник'}</th><th>Тип</th><th>Документ</th><th>Дата рожд.</th></tr></thead>
+              <tbody>{participants.map((p, i) => (
+                <tr key={i}><td style={{ fontWeight: 600 }}>{p.name}</td><td>{p.role || 'Взрослый'}</td><td>{p.doc || '—'}</td><td>{p.dob || '—'}</td></tr>
+              ))}</tbody>
+            </table>
+          ) : <EmptyState icon="users" title="Участники не указаны" sub="Добавьте участников во вкладке «Пассажиры» заказа" />}
+        </div>
+      )}
+
+      {tab === 'details' && (
+        <div className="card card-pad" style={{ maxWidth: 640 }}>
+          <div className="kv">
+            {info.map((r, i) => (<div className="kv-row" key={i}><span className="k">{r.l}</span><span className="v">{r.v}</span></div>))}
+            {item.tags && item.tags.length > 0 && <div className="kv-row"><span className="k">Включено</span><span className="v">{item.tags.join(', ')}</span></div>}
+            {item.railSeats && (<>
+              <div className="kv-row"><span className="k">Обслуживание</span><span className="v">{item.railSeats.clsName} · вагон {item.railSeats.wagonNo}</span></div>
+              {(item.railSeats.list || []).map((r, i) => (<div className="kv-row" key={'seat' + i}><span className="k">{r.name}</span><span className="v">{r.seat ? 'место ' + r.seat + ' · ' + (RAIL_SEAT_LABEL[r.kind] || '') : '—'}</span></div>))}
+            </>)}
+          </div>
+        </div>
+      )}
+
+      {tab === 'supplier' && (
+        <div className="grid-2" style={{ alignItems: 'start' }}>
+          <div className="card card-pad"><div className="kv">
+            <div className="kv-row"><span className="k">Поставщик</span><span className="v">{supplier}</span></div>
+            <div className="kv-row"><span className="k">Канал</span><span className="v">{(item.svcOffer && item.svcOffer.channel) || 'API / B2B'}</span></div>
+            <div className="kv-row"><span className="k">Номер брони</span><span className="v">{no}</span></div>
+            <div className="kv-row"><span className="k">Даты</span><span className="v">{item.date || '—'}</span></div>
+          </div></div>
+          <div className="card card-pad"><div className="kv">
+            <div className="kv-row"><span className="k">Статус оплаты поставщику</span><span className="v"><Pill tone="amber">Ожидает</Pill></span></div>
+            <div className="kv-row"><span className="k">Тайм-лимит</span><span className="v"><TimeLimitBadge>сегодня 18:00</TimeLimitBadge></span></div>
+          </div></div>
+        </div>
+      )}
+
+      {tab === 'finance' && (
+        <div className="card card-pad" style={{ maxWidth: 520 }}><div className="kv">
+          <div className="kv-row"><span className="k">Тариф</span><span className="v">{fmt(tariff)}</span></div>
+          {calc.taxes ? <div className="kv-row"><span className="k">Таксы и сборы</span><span className="v">{fmt(calc.taxes)}</span></div> : null}
+          <div className="kv-row"><span className="k">Сервисный сбор агентства</span><span className="v">{fmt(fee)}</span></div>
+          {calc.commission ? <div className="kv-row"><span className="k">Комиссия поставщика</span><span className="v" style={{ color: 'var(--green)' }}>+ {fmt(calc.commission)}</span></div> : null}
+          <div className="kv-row"><span className="k" style={{ fontWeight: 700, color: 'var(--ink)' }}>Итого клиенту</span><span className="v" style={{ fontSize: 18 }}>{total ? fmt(total) : '—'}</span></div>
+        </div></div>
+      )}
+
+      {tab === 'docs' && (
+        <div className="grid-4">
+          {[isHotel ? 'Ваучер на отель' : 'Ваучер / билет', 'Счёт на оплату', 'Подтверждение'].map((d) => (<button key={d} className="doc-chip"><span style={{ display: 'flex', alignItems: 'center', gap: 8 }}><Icon name="docs" />{d}</span><Icon name="download" /></button>))}
+          <button className="doc-chip" style={{ borderStyle: 'dashed', color: 'var(--blue)' }} onClick={() => toast('Загрузка', 'info')}><span style={{ display: 'flex', alignItems: 'center', gap: 8 }}><Icon name="plus" />Загрузить</span></button>
+        </div>
+      )}
+
+      {tab === 'comments' && (
+        <div className="card card-pad" style={{ maxWidth: 680 }}>
+          <div style={{ display: 'flex', gap: 10 }}>
+            <Input placeholder="Внутренний комментарий…" style={{ flex: 1 }} />
+            <Button icon="send" onClick={() => toast('Комментарий добавлен')}>Отправить</Button>
+          </div>
+        </div>
+      )}
+
+      {tab === 'history' && (
+        <div className="card card-pad" style={{ maxWidth: 680 }}>
+          <div className="timeline">
+            {[['14:32', 'Услуга добавлена в заказ'], ['14:40', 'Запрос отправлен поставщику'], ['15:10', 'Получено подтверждение']].map(([t, txt], i) => (
+              <div className="tl-item" key={i}><span className="tl-dot" /><span className="tl-line" /><div><div className="tl-time">{t}</div><div className="tl-text">{txt}</div></div></div>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
-function SVC_CFG_TITLE(kind) { return Object.values(SVC_CFG).find((c) => c.kind === kind).title; }
+function SVC_CFG_TITLE(kind) { const c = Object.values(SVC_CFG).find((x) => x.kind === kind); return c ? c.title : kind; }
 
 /* ---------- левый фильтр выдачи (как у гостиниц): цена / поставщик / особенности ---------- */
 function svcPriceBounds(offers) {

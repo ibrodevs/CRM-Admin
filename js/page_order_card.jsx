@@ -944,11 +944,21 @@ function AviaPaxPanel({ params, setParams, participants = [], groups, onClose })
 /* fare families for the clicked flight — opens like «номера в отеле» so the fare grid can be
    reviewed before booking (ТЗ #3, #8). The StackPanel footer keeps the subtotal + book button
    pinned in view (ТЗ #1) instead of being buried beneath the flight list. */
-function FlightFarePanel({ route, paxCount, cabin, onClose, onAdd, onPerPax }) {
+function FlightFarePanel({ route, paxCount, cabin, pax = [], onClose, onAdd, onPerPax }) {
   // booking class first, then the fare grid for that class — exactly like the full order-creation
   // flow (клиент: «в выборке тарифов отсутствует выборка классов»).
   const [clsCode, setClsCode] = useState('Y');
   const [infoFare, setInfoFare] = useState(null);   // тариф, открытый в боковом окне «О тарифе» (ТЗ #1)
+  // доп. услуги авиакомпании (багаж / места / питание / страховка) — добавляются вместе с перелётом
+  const [extras, setExtras] = useState({ seats: {}, baggage: {}, meal: {}, insurance: {}, special: {}, comfort: {} });
+  const [extrasOpen, setExtrasOpen] = useState(false);
+  const extrasCount = Object.values(extras.seats).filter(Boolean).length
+    + Object.values(extras.baggage).filter((v) => v && v !== 'none').length
+    + Object.values(extras.meal).filter((v) => v && v !== 'standard' && v !== 'none').length
+    + Object.values(extras.insurance).filter((v) => v && v !== 'none').length
+    + Object.keys(extras.comfort).filter((kk) => extras.comfort[kk]).length
+    + Object.keys(extras.special).filter((kk) => extras.special[kk]).length;
+  const extrasPax = pax && pax.length ? pax : [{ name: 'Пассажир 1', role: 'Взрослый' }];
   const tiers = fareTiersForClass(clsCode);
   const [fareId, setFareId] = useState((tiers.find((f) => f.recommended) || tiers[0]).id);
   const tier = tiers.find((f) => f.id === fareId) || (tiers.find((f) => f.recommended) || tiers[0]);
@@ -1027,8 +1037,26 @@ function FlightFarePanel({ route, paxCount, cabin, onClose, onAdd, onPerPax }) {
           );
         })}
       </div>
+
+      {/* доп. услуги авиакомпании — багаж, места, питание, страховка (запрос клиента: где добавить доп.услуги по авиакомпаниям) */}
+      <div className="ap-sc-title" style={{ marginTop: 18 }}>3. Доп. услуги и места</div>
+      <div className="ap-list-row ap-sum-row" style={{ cursor: 'pointer' }} onClick={() => setExtrasOpen(true)}>
+        <span className="ic"><Icon name="briefcase" /></span>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div className="t">Багаж, выбор места, питание, страховка</div>
+          <div className="s">{extrasCount ? 'Выбрано доп. услуг: ' + extrasCount : 'Доп. услуги авиакомпании — по желанию'}</div>
+        </div>
+        <span className="pr">{extrasCount ? extrasCount + ' шт.' : 'Добавить'}</span>
+        <Icon name="chevRight" style={{ width: 18, height: 18, color: 'var(--muted-2)', flex: '0 0 18px' }} />
+      </div>
     </StackPanel>
     {infoFare && <FareInfoPanel fare={infoFare} onClose={() => setInfoFare(null)} onSelect={() => { setFareId(infoFare.id); setInfoFare(null); }} />}
+    {extrasOpen && (
+      <StackPanel title="Доп. услуги и места" width="min(820px,92vw)" onClose={() => setExtrasOpen(false)}
+        footer={<Button icon="check" style={{ width: '100%' }} onClick={() => setExtrasOpen(false)}>Готово{extrasCount ? ' · выбрано ' + extrasCount : ''}</Button>}>
+        <ExtrasTabs pax={extrasPax} state={extras} set={setExtras} embedded />
+      </StackPanel>
+    )}
     </>
   );
 }
@@ -1259,7 +1287,7 @@ function AviaSearchPanel({ params, setParams, paxCount, participants = [], isGro
 
       {paxPanel && <AviaPaxPanel params={p} setParams={setParams} participants={participants} groups={groups} onClose={() => setPaxPanel(false)} />}
       {fareRoute && (
-        <FlightFarePanel route={fareRoute} paxCount={seats} cabin={p.cabin}
+        <FlightFarePanel route={fareRoute} paxCount={seats} cabin={p.cabin} pax={participants}
           onClose={() => setFareRoute(null)}
           onAdd={(r) => { setFareRoute(null); onAdd(r); }}
           onPerPax={onAddPerPax ? (r) => { setFareRoute(null); onAddPerPax(r); } : null} />
@@ -1537,7 +1565,7 @@ function OrderCard({ order, onBack, initTab, initSvcSearch, fresh, onOpenChat })
       onSaveDraft={setBookingDraft} onClose={() => setSvcView(null)}
       onComplete={() => { setStatus('Оплачено'); setStageIdx(4); setBookingDraft(null); }} />;
     if (svcView === 'avia-card') return <FlightCard svc={activeAvia} offer={activeAvia ? activeAvia.offer : null} onBack={() => setSvcView(null)} />;
-    if (svcView === 'svc-card') return <SvcCard item={activeSvc} kind={activeSvc.kind} onBack={() => setSvcView(null)} />;
+    if (svcView === 'svc-card') return <SvcCard item={activeSvc} kind={activeSvc.kind} participants={participants} onBack={() => setSvcView(null)} />;
     if (svcView === 'add-service') return (
       <div className="fade-in">
         <BackRow label="К списку услуг" onBack={() => setSvcView(null)} />
@@ -1555,7 +1583,7 @@ function OrderCard({ order, onBack, initTab, initSvcSearch, fresh, onOpenChat })
     return <TabServices orderNo={order.no} services={services} participants={participants} requestType={requestType}
       onOpenPicker={() => goAddType(addKind)}
       onOpenAvia={(s) => { const match = AIR_SERVICES.find((a) => a.no === s.avia) || { no: s.avia || s.id, airline: (s.offer ? s.offer.airline : 'KC'), status: s.status, supplier: s.supplier, pax: 2, sum: s.sum, currency: s.currency, route: s.title, pnr: '—', ticket: '—', dep: s.date }; setActiveAvia(s.offer ? { ...match, offer: s.offer } : match); setSvcView('avia-card'); }}
-      onOpenOther={(s) => { if (s.svcOffer) { setActiveSvc({ ...s.svcOffer, kind: s.kind, status: s.status }); setSvcView('svc-card'); } else { setOtherSvc(s); } }} />;
+      onOpenOther={(s) => { setActiveSvc(s.svcOffer ? { ...s.svcOffer, kind: s.kind, status: s.status, date: s.svcOffer.date || s.date, calc: s.calc } : { ...s }); setSvcView('svc-card'); }} />;
   };
 
   const tabContent = () => {
