@@ -615,15 +615,15 @@ function TabServices({ orderNo, services, participants, requestType, onOpenAvia,
    search/results (matching the reference) or the existing av-bar search
    flow / a quick manual form for categories without a search backend.
    ==================================================================== */
+// Порядок и состав категорий по запросу клиента — всё умещается в одну линию.
+// Виза и VIP-зал на этом этапе уезжают блоками внутрь «Доп. услуги».
 const ADD_SVC_CATS = [
   { kind: 'Авиа', label: 'Авиабилеты', icon: 'plane' },
+  { kind: 'ЖД', label: 'ЖД билеты', icon: 'train', routeKey: 'rail' },
   { kind: 'Гостиница', label: 'Отели', icon: 'building', routeKey: 'hotels' },
   { kind: 'Трансфер', label: 'Трансферы', icon: 'car', routeKey: 'transfers' },
-  { kind: 'Страховка', label: 'Страховка', icon: 'shield' },
-  { kind: 'Виза', label: 'Виза', icon: 'visa' },
-  { kind: 'ЖД', label: 'ЖД билеты', icon: 'train', routeKey: 'rail' },
   { kind: 'Автобус', label: 'Автобус', icon: 'bus', routeKey: 'buses' },
-  { kind: 'VIP-зал', label: 'VIP-зал', icon: 'star' },
+  { kind: 'Страховка', label: 'Страховка', icon: 'shield' },
   { kind: 'Доп. услуга', label: 'Доп. услуга', icon: 'briefcase' },
 ];
 
