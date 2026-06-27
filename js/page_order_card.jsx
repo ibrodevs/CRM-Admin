@@ -661,11 +661,12 @@ function AviaFilters({ flt, setFlt, bounds }) {
   const airlines = [...new Set(FLIGHT_OFFERS.map((o) => o.airline))];
   const suppliers = [...new Set(FLIGHT_OFFERS.map((o) => o.supplier))];
   const tg = (key, val) => setFlt((f) => ({ ...f, [key]: f[key].includes(val) ? f[key].filter((x) => x !== val) : [...f[key], val] }));
+  const selCount = flt.stops.length + flt.air.length + flt.sup.length + (flt.bagOnly ? 1 : 0) + (flt.refundOnly ? 1 : 0) + (flt.flightNo && flt.flightNo.trim() ? 1 : 0) + ((flt.priceMax != null && flt.priceMax < bounds.max) ? 1 : 0);
   return (
     <aside className="hp-filters">
       <div className="hp-filters-head">
-        <span>Фильтры</span>
-        <button className="hp-reset" onClick={() => setFlt({ stops: [], air: [], sup: [], bagOnly: false, refundOnly: false, priceMax: bounds.max, flightNo: '' })}>Сбросить всё</button>
+        <span>Фильтры{selCount > 0 && <span className="flt-count">{selCount}</span>}</span>
+        <button className="hp-reset" onClick={() => setFlt({ stops: [], air: [], sup: [], bagOnly: false, refundOnly: false, priceMax: bounds.max, flightNo: '' })}>Очистить</button>
       </div>
       <SearchBox value={flt.flightNo || ''} onChange={(v) => setFlt((f) => ({ ...f, flightNo: v }))}
         placeholder="Номер рейса" style={{ minWidth: 0, width: '100%', height: 42, margin: '4px 0 6px' }} />
@@ -768,20 +769,51 @@ function LegTimeline({ opt, title }) {
   );
 }
 
+/* horizontal flight «scale bar»: each segment carries its flight number + duration over the line,
+   the connection point shows «Пересадка Xч» above and the via-airport below (как у Aviasales/Tutu). */
+function FlightScaleBar({ leg }) {
+  const segs = legSegments(leg);
+  const lays = leg.layovers || [];
+  return (
+    <div className="fsb">
+      <div className="fsb-track">
+        {segs.map((s, i) => (
+          <React.Fragment key={i}>
+            <div className="fsb-seg"><span className="fsb-flno">{s.flightNo} · {s.dur}</span></div>
+            {i < segs.length - 1 && (
+              <div className="fsb-stop">
+                <span className="fsb-lay">Пересадка {(lays[i] && lays[i].dur) || ''}</span>
+                <span className="fsb-dot" />
+                <span className="fsb-via">{(lays[i] && lays[i].at) || s.to}</span>
+              </div>
+            )}
+          </React.Fragment>
+        ))}
+      </div>
+      <div className={'fsb-bot ' + (leg.stops ? 'via' : 'direct')}>{leg.dur} · {leg.stops ? (leg.stops === 1 ? '1 пересадка' : leg.stops + ' пересадки') : 'прямой'}</div>
+    </div>
+  );
+}
+
+/* unified supplier caption — same look across all services (авиа / отели / ЖД): «поставщики
+   разные, подпись одна» (ТЗ #8) */
+function SupplierTag({ name }) {
+  return <div className="svc-supplier"><Icon name="api" style={{ width: 12, height: 12 }} />{name}</div>;
+}
+
 function AviaResultRow({ opt, onView, embedded }) {
   const leg = opt.leg;
   return (
     <div className={'ap-flight avia-result' + (embedded ? ' embedded' : '')} onClick={!embedded && onView ? onView : undefined}>
       <AirlineLogo code={opt.airline} size="sm" />
       <div className="ap-fl-time">{leg.dep}<div className="ap">{leg.from}</div></div>
-      <div className="ap-fl-mid">
-        <div className="d">{leg.dur}</div>
-        <div className="line" />
-        <div className={'st ' + (leg.stops ? 'via' : 'direct')}>{leg.stops ? leg.stopText.replace('1 пересадка · ', 'через ') : 'Прямой'}</div>
-        <div className="fn">рейс {legFlightNos(leg)}</div>
-      </div>
+      <FlightScaleBar leg={leg} />
       <div className="ap-fl-time">{leg.arr}<div className="ap">{leg.to}</div></div>
-      <div className="ap-fl-pr"><div className="v">{money(opt.price, 'USD')}</div><div className="c">{AIRLINES[opt.airline].name}</div></div>
+      <div className="ap-fl-pr">
+        <div className="v">{money(opt.price, 'USD')}</div>
+        <div className="c">{AIRLINES[opt.airline].name}</div>
+        {opt.supplier && <SupplierTag name={opt.supplier} />}
+      </div>
       {!embedded && <Button size="sm" variant="secondary" iconRight="chevRight" onClick={(e) => { e.stopPropagation(); onView(); }}>Тарифы</Button>}
     </div>
   );
@@ -890,7 +922,7 @@ function FlightFarePanel({ route, paxCount, cabin, onClose, onAdd, onPerPax }) {
   // booking class first, then the fare grid for that class — exactly like the full order-creation
   // flow (клиент: «в выборке тарифов отсутствует выборка классов»).
   const [clsCode, setClsCode] = useState('Y');
-  const [infoId, setInfoId] = useState(null);   // какой тариф раскрыт по «О тарифе»
+  const [infoFare, setInfoFare] = useState(null);   // тариф, открытый в боковом окне «О тарифе» (ТЗ #1)
   const tiers = fareTiersForClass(clsCode);
   const [fareId, setFareId] = useState((tiers.find((f) => f.recommended) || tiers[0]).id);
   const tier = tiers.find((f) => f.id === fareId) || (tiers.find((f) => f.recommended) || tiers[0]);
@@ -907,6 +939,7 @@ function FlightFarePanel({ route, paxCount, cabin, onClose, onAdd, onPerPax }) {
   const plural = (n) => n === 1 ? 'пассажир' : (n % 10 >= 2 && n % 10 <= 4 && (n % 100 < 10 || n % 100 >= 20) ? 'пассажира' : 'пассажиров');
   const add = () => onAdd({ ...route, cls: clsCode, cabin: fareCabinLabel(clsCode), fareName: tier.name, fareDeltaUsd: fareUsd });
   return (
+    <>
     <StackPanel title="Класс и тариф по рейсу" width="min(940px,95vw)" onClose={onClose}
       footer={<>
         <div className="ft-total" style={{ marginRight: 'auto' }}>Итого · {seats} {plural(seats)}<b style={{ fontSize: 18 }}>{money(grand, 'USD')}</b></div>
@@ -944,23 +977,53 @@ function FlightFarePanel({ route, paxCount, cabin, onClose, onAdd, onPerPax }) {
           return (
             <div key={f.id} className={'fare-card' + (sel ? ' sel' : '')} onClick={() => setFareId(f.id)}>
               {f.recommended && <span className="fc-badge">Рекомендуем</span>}
-              <div className="fc-name">{f.name}</div>
+              <div className="fc-name">{f.name}
+                <button type="button" className="fc-info" title="О тарифе" onClick={(e) => { e.stopPropagation(); setInfoFare(f); }}><Icon name="alertCircle" style={{ width: 15, height: 15 }} /></button>
+              </div>
               <div className="fc-price">{u ? '+ ' + money(u, 'USD') : 'без доплаты'}<small>{u ? ' / пассажир' : ''}</small></div>
               {f.features.map((ft, k) => (
                 <div key={k} className={'fare-feat ' + (ft.ok ? 'ok' : 'no')}><Icon name={ft.ok ? 'check' : 'x'} />{ft.text}</div>
               ))}
+              {f.rules && (
+                <div className="fare-rules">
+                  <div className="fare-rules-h">Правила тарифа</div>
+                  {f.rules.map((r, k) => (<div key={k} className="fare-rule"><span className="rk">{r.k}</span><span className={'rv ' + (r.tone || '')}>{r.v}</span></div>))}
+                </div>
+              )}
               {f.desc && (
-                <button type="button" className="fare-info-btn" onClick={(e) => { e.stopPropagation(); setInfoId(infoId === f.id ? null : f.id); }}>
-                  <Icon name={infoId === f.id ? 'chevUp' : 'alertCircle'} style={{ width: 14, height: 14 }} />О тарифе
+                <button type="button" className="fare-info-btn" onClick={(e) => { e.stopPropagation(); setInfoFare(f); }}>
+                  <Icon name="alertCircle" style={{ width: 14, height: 14 }} />О тарифе
                 </button>
               )}
-              {infoId === f.id && f.desc && <div className="fare-desc">{f.desc}</div>}
               <Button variant="secondary" size="sm" className="fare-pick-btn" icon={sel ? 'check' : undefined}
                 onClick={(e) => { e.stopPropagation(); setFareId(f.id); }}>{sel ? 'Выбран' : 'Выбрать тариф'}</Button>
             </div>
           );
         })}
       </div>
+    </StackPanel>
+    {infoFare && <FareInfoPanel fare={infoFare} onClose={() => setInfoFare(null)} onSelect={() => { setFareId(infoFare.id); setInfoFare(null); }} />}
+    </>
+  );
+}
+
+/* «О тарифе» — детальная информация в боковом окне внахлёст над панелью тарифов (ТЗ #1) */
+function FareInfoPanel({ fare, onClose, onSelect }) {
+  const u = Math.round((fare.delta || 0) / RUB_PER_USD);
+  return (
+    <StackPanel title={'Тариф · ' + fare.name} width="min(540px,92vw)" onClose={onClose}
+      footer={<>
+        <Button variant="secondary" style={{ flex: 1 }} onClick={onClose}>Закрыть</Button>
+        <Button style={{ flex: 1 }} icon="check" onClick={onSelect}>Выбрать этот тариф</Button>
+      </>}>
+      <div style={{ fontSize: 22, fontWeight: 800, color: 'var(--ink)', marginBottom: 10 }}>{u ? '+ ' + money(u, 'USD') : 'без доплаты'}<span style={{ fontSize: 13, fontWeight: 500, color: 'var(--muted)' }}>{u ? ' / пассажир' : ''}</span></div>
+      {fare.desc && <p style={{ color: 'var(--muted)', lineHeight: 1.55, margin: '0 0 8px' }}>{fare.desc}</p>}
+      <div className="ap-sc-title" style={{ marginTop: 14 }}>Что включено</div>
+      {fare.features.map((ft, k) => (<div key={k} className={'fare-feat ' + (ft.ok ? 'ok' : 'no')}><Icon name={ft.ok ? 'check' : 'x'} />{ft.text}</div>))}
+      {fare.rules && <>
+        <div className="ap-sc-title" style={{ marginTop: 16 }}>Правила тарифа</div>
+        <div className="kv">{fare.rules.map((r, k) => (<div className="kv-row" key={k}><span className="k">{r.k}</span><span className={'v fare-rule-v ' + (r.tone || '')}>{r.v}</span></div>))}</div>
+      </>}
     </StackPanel>
   );
 }
@@ -978,7 +1041,8 @@ function AviaSearchPanel({ params, setParams, paxCount, participants = [], isGro
   const seats = participants.length || paxTotal(p.pax);
   const plural = (n) => n === 1 ? 'пассажир' : (n % 10 >= 2 && n % 10 <= 4 && (n % 100 < 10 || n % 100 >= 20) ? 'пассажира' : 'пассажиров');
 
-  const TRIPS = [['rt', 'Туда-обратно'], ['ow', 'В одну сторону'], ['mc', 'Сложный маршрут']];
+  // порядок по ТЗ #5: сначала «в одну сторону», затем «туда-обратно», затем «сложный маршрут»
+  const TRIPS = [['ow', 'В одну сторону'], ['rt', 'Туда-обратно'], ['mc', 'Сложный маршрут']];
 
   const flightNoMatch = (o, q) => { const n = q.replace(/\s+/g, '').toLowerCase(); return [o.out, o.back].some((l) => l && l.flightNo && l.flightNo.replace(/\s+/g, '').toLowerCase().includes(n)); };
   let pool = FLIGHT_OFFERS.filter((o) => {

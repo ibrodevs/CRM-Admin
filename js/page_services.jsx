@@ -144,11 +144,12 @@ function SvcFilters({ allOffers, flt, setFlt, bounds, facetLabel }) {
   const supCount = (s) => allOffers.filter((o) => o.supplier === s).length;
   const tags = [...new Set(allOffers.flatMap((o) => o.tags || []))];
   const tg = (key, val) => setFlt((f) => ({ ...f, [key]: f[key].includes(val) ? f[key].filter((x) => x !== val) : [...f[key], val] }));
+  const selCount = flt.sup.length + flt.tags.length + ((flt.priceMax != null && flt.priceMax < bounds.max) ? 1 : 0);
   return (
     <aside className="hp-filters">
       <div className="hp-filters-head">
-        <span>Фильтры</span>
-        <button className="hp-reset" onClick={() => setFlt({ sup: [], tags: [], priceMax: bounds.max })}>Сбросить всё</button>
+        <span>Фильтры{selCount > 0 && <span className="flt-count">{selCount}</span>}</span>
+        <button className="hp-reset" onClick={() => setFlt({ sup: [], tags: [], priceMax: bounds.max })}>Очистить</button>
       </div>
       <div className="hp-filter-block">
         <div className="hp-filter-title">Цена</div>
@@ -334,8 +335,19 @@ function ServiceAddFlow({ routeKey, onAdd }) {
 
       {view === 'search' && (
         <>
+          {/* ТЗ #4/#5 — у трансфера и автобуса: в одну сторону / туда и обратно */}
+          {(cfg.kind === 'Трансфер' || cfg.kind === 'Автобус') && (
+            <div className="trip-toggle" style={{ marginBottom: 12 }}>
+              {[['ow', 'В одну сторону'], ['rt', 'Туда и обратно']].map(([k, l]) => (
+                <button key={k} className={(form.trip || 'ow') === k ? 'on' : ''} onClick={() => setF('trip', k)}>{l}</button>
+              ))}
+            </div>
+          )}
           <div className="av-bar">
             {cfg.fields.map((f) => <SvcField key={f.k} f={f} form={form} set={setF} />)}
+            {(cfg.kind === 'Трансфер' || cfg.kind === 'Автобус') && form.trip === 'rt' && (
+              <div className="av-field" style={{ width: 156 }}><span className="label">Обратно</span><DateField value={form.retDate} onChange={(d) => setF('retDate', d)} placeholder="Дата" /></div>
+            )}
             <Button icon="search" style={{ height: 46, marginBottom: 0 }} onClick={runSearch}>Найти</Button>
           </div>
           <div style={{ marginTop: 14, display: 'flex', alignItems: 'center', gap: 8, color: 'var(--muted)', fontSize: 13.5 }}>
@@ -433,12 +445,15 @@ function RailFilters({ flt, setFlt, bounds }) {
   const carriers = [...new Set(SVC_DATA.rail.offers.map((o) => o.carrier))];
   const classes = [...new Set(SVC_DATA.rail.offers.map((o) => o.cls))];
   const tg = (key, val) => setFlt((f) => ({ ...f, [key]: f[key].includes(val) ? f[key].filter((x) => x !== val) : [...f[key], val] }));
+  const selCount = flt.times.length + flt.classes.length + flt.carriers.length + (flt.trainNo && flt.trainNo.trim() ? 1 : 0) + ((flt.priceMax != null && flt.priceMax < bounds.max) ? 1 : 0);
   return (
     <aside className="hp-filters">
       <div className="hp-filters-head">
-        <span>Фильтры</span>
-        <button className="hp-reset" onClick={() => setFlt({ priceMax: bounds.max, times: [], classes: [], carriers: [] })}>Сбросить всё</button>
+        <span>Фильтры{selCount > 0 && <span className="flt-count">{selCount}</span>}</span>
+        <button className="hp-reset" onClick={() => setFlt({ priceMax: bounds.max, times: [], classes: [], carriers: [], trainNo: '' })}>Очистить</button>
       </div>
+      {/* ТЗ #2 — строка поиска по номеру поезда, как «Номер рейса» у авиа */}
+      <SearchBox value={flt.trainNo || ''} onChange={(v) => setFlt((f) => ({ ...f, trainNo: v }))} placeholder="Номер поезда" style={{ minWidth: 0, width: '100%', height: 42, margin: '4px 0 10px' }} />
       <div className="hp-filter-block">
         <div className="hp-filter-title">Цена</div>
         <div className="hp-price-range"><span className="hp-pr-from">от {rub(bounds.min)}</span><span className="hp-pr-to">{rub(flt.priceMax == null ? bounds.max : flt.priceMax)}</span></div>
@@ -474,13 +489,16 @@ function RailAddFlow({ participants = [], groups, onAdd }) {
   const toast = useToast();
   const offersAll = SVC_DATA.rail.offers;
   const bounds = { min: Math.floor(Math.min(...offersAll.map((o) => o.priceRub))), max: Math.ceil(Math.max(...offersAll.map((o) => o.priceRub))) };
-  const [form, setForm] = useState({ from: 'Москва', to: 'Санкт-Петербург', dep: null, ret: null, pax: Math.max(1, participants.length) });
+  const [form, setForm] = useState({ trip: 'ow', from: 'Москва', to: 'Санкт-Петербург', dep: null, ret: null, pax: Math.max(1, participants.length) });
   const [sort, setSort] = useState('best');
-  const [flt, setFlt] = useState({ priceMax: bounds.max, times: [], classes: [], carriers: [] });
+  const [flt, setFlt] = useState({ priceMax: bounds.max, times: [], classes: [], carriers: [], trainNo: '' });
   const [seatOffer, setSeatOffer] = useState(null);
   const setF = (k, v) => setForm((f) => ({ ...f, [k]: v }));
+  const swap = () => setForm((f) => ({ ...f, from: f.to, to: f.from }));
 
+  const trainNoMatch = (o, q) => { const n = q.replace(/\s+/g, '').toLowerCase(); return `${o.number} ${o.name}`.replace(/\s+/g, '').toLowerCase().includes(n); };
   let offers = offersAll.filter((o) => {
+    if (flt.trainNo && flt.trainNo.trim() && !trainNoMatch(o, flt.trainNo)) return false;
     if (flt.priceMax != null && o.priceRub > flt.priceMax) return false;
     if (flt.times.length && !flt.times.includes(railTimeBucket(o.dep.time))) return false;
     if (flt.classes.length && !flt.classes.includes(o.cls)) return false;
@@ -499,11 +517,19 @@ function RailAddFlow({ participants = [], groups, onAdd }) {
   return (
     <div className="fade-in">
       <div style={{ fontWeight: 600, color: 'var(--ink)', marginBottom: 12 }}>Поиск железнодорожных билетов</div>
+      {/* ТЗ #5 — у ЖД: в одну сторону / туда и обратно */}
+      <div className="trip-toggle" style={{ marginBottom: 12 }}>
+        {[['ow', 'В одну сторону'], ['rt', 'Туда и обратно']].map(([k, l]) => (
+          <button key={k} className={form.trip === k ? 'on' : ''} onClick={() => setF('trip', k)}>{l}</button>
+        ))}
+      </div>
       <div className="av-bar">
         <div className="av-field" style={{ width: 190 }}><span className="label">Откуда</span><Input value={form.from} onChange={(e) => setF('from', e.target.value)} /></div>
+        {/* ТЗ #4 — стрелка переключения городов, как у авиа */}
+        <button className="av-swap" onClick={swap} title="Поменять местами" style={{ alignSelf: 'flex-end', marginBottom: 0 }}><Icon name="swap" style={{ width: 18, height: 18 }} /></button>
         <div className="av-field" style={{ width: 190 }}><span className="label">Куда</span><Input value={form.to} onChange={(e) => setF('to', e.target.value)} /></div>
-        <div className="av-field" style={{ width: 150 }}><span className="label">Туда</span><DateField value={form.dep} onChange={(d) => setF('dep', d)} placeholder="Дата" /></div>
-        <div className="av-field" style={{ width: 150 }}><span className="label">Обратно</span><DateField value={form.ret} onChange={(d) => setF('ret', d)} placeholder="—" /></div>
+        <div className="av-field" style={{ width: 150 }}><span className="label">{form.trip === 'rt' ? 'Туда' : 'Дата'}</span><DateField value={form.dep} onChange={(d) => setF('dep', d)} placeholder="Дата" /></div>
+        {form.trip === 'rt' && <div className="av-field" style={{ width: 150 }}><span className="label">Обратно</span><DateField value={form.ret} onChange={(d) => setF('ret', d)} placeholder="—" /></div>}
         <div className="av-field" style={{ width: 130 }}><span className="label">Пассажиры</span>
           <div className="input" style={{ display: 'flex', alignItems: 'center', gap: 8, justifyContent: 'space-between' }}>
             <button className="btn btn-secondary btn-icon btn-sm" disabled={form.pax <= 1} onClick={() => setF('pax', form.pax - 1)}>−</button>

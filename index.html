@@ -400,7 +400,9 @@ table.tbl tbody tr:last-child td{border-bottom:none}
 .nav-subitem.active svg{color:#fff}
 
 /* ============ AVIA / FLIGHTS ============ */
-.av-bar{display:flex;align-items:flex-end;gap:14px;background:#fff;border:1px solid var(--line);border-radius:var(--r-card);padding:18px 20px;box-shadow:var(--shadow-card);flex-wrap:wrap}
+.av-bar{display:flex;align-items:flex-end;gap:14px;background:var(--surface-2);border:1px solid var(--line);border-radius:var(--r-card);padding:18px 20px;flex-wrap:wrap}
+/* счётчик выбранных фильтров (ТЗ #6) */
+.flt-count{display:inline-flex;align-items:center;justify-content:center;min-width:18px;height:18px;padding:0 5px;margin-left:7px;border-radius:9px;background:var(--blue);color:#fff;font-size:11px;font-weight:700;vertical-align:middle}
 .av-field{display:flex;flex-direction:column;gap:7px;min-width:0}
 .av-field .label{font-size:13px;color:var(--muted);font-weight:600}
 .av-swap{width:42px;height:46px;border:1px solid var(--field-line);border-radius:11px;background:#fff;color:var(--blue);display:flex;align-items:center;justify-content:center;cursor:pointer;flex:0 0 42px;margin-bottom:1px;transition:.14s}
@@ -826,6 +828,21 @@ table.tbl tbody tr:last-child td{border-bottom:none}
 .ap-fl-pr .c{font-size:11.5px;color:var(--muted)}
 /* flight number(s) under the route line in result rows */
 .ap-fl-mid .fn{font-size:11px;color:var(--muted-2);margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+/* horizontal flight scale bar with per-segment flight numbers + layover marker (ТЗ #3/#8/#9) */
+.fsb{flex:1;min-width:0;padding:0 6px}
+.fsb-track{display:flex;align-items:center;height:30px;position:relative}
+.fsb-seg{flex:1;min-width:20px;height:2px;background:var(--field-line);position:relative}
+.fsb-seg .fsb-flno{position:absolute;left:0;right:0;bottom:6px;text-align:center;font-size:10.5px;font-weight:600;color:var(--blue);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.fsb-stop{position:relative;flex:0 0 auto;display:flex;align-items:center;height:2px;background:var(--field-line);width:2px}
+.fsb-stop .fsb-dot{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:9px;height:9px;border-radius:50%;background:#fff;border:2px solid var(--amber);z-index:1}
+.fsb-stop .fsb-lay{position:absolute;left:50%;transform:translateX(-50%);bottom:9px;white-space:nowrap;font-size:10px;font-weight:600;color:var(--amber)}
+.fsb-stop .fsb-via{position:absolute;left:50%;transform:translateX(-50%);top:9px;white-space:nowrap;font-size:10px;font-weight:600;color:var(--muted)}
+.fsb-bot{font-size:10.5px;font-weight:600;text-align:center;margin-top:4px}
+.fsb-bot.direct{color:var(--green)}
+.fsb-bot.via{color:var(--amber)}
+/* unified supplier caption across services */
+.svc-supplier{display:inline-flex;align-items:center;gap:5px;font-size:11px;color:var(--muted);margin-top:4px;white-space:nowrap}
+.svc-supplier svg{color:var(--muted-2);flex-shrink:0}
 /* Aviasales/Tutu-style per-segment timeline in the fare card (номера рейсов + отрезки + пересадка) */
 .leg-tl{border:1px solid var(--line);border-radius:12px;padding:12px 14px;background:var(--surface-2)}
 .leg-tl+.leg-tl{margin-top:10px}
@@ -1063,6 +1080,20 @@ table.tbl tbody tr:last-child td{border-bottom:none}
 /* «О тарифе» — раскрываемое описание тарифа, кнопка выбора остаётся под ним */
 .fare-info-btn{display:inline-flex;align-items:center;gap:6px;border:none;background:none;color:var(--blue);font:inherit;font-size:12.5px;font-weight:600;cursor:pointer;padding:7px 0 4px}
 .fare-desc{font-size:12.5px;line-height:1.45;color:var(--muted);background:var(--surface-2);border:1px solid var(--line);border-radius:9px;padding:9px 11px;margin:0 0 10px}
+/* «i» рядом с названием тарифа — открывает боковое окно с деталями */
+.fc-name{display:flex;align-items:center;gap:6px}
+.fc-info{border:none;background:none;padding:0;margin-left:2px;cursor:pointer;color:var(--muted-2);display:inline-flex;line-height:0}
+.fc-info:hover{color:var(--blue)}
+/* «Правила тарифа» — компактная таблица условий в карточке */
+.fare-rules{margin:8px 0 4px;border-top:1px dashed var(--line);padding-top:8px}
+.fare-rules-h{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.02em;color:var(--muted-2);margin-bottom:5px}
+.fare-rule{display:flex;align-items:center;justify-content:space-between;font-size:12px;padding:2px 0}
+.fare-rule .rk{color:var(--muted)}
+.fare-rule .rv{font-weight:600;color:var(--ink)}
+.fare-rule .rv.green,.fare-rule-v.green{color:var(--green)}
+.fare-rule .rv.amber,.fare-rule-v.amber{color:var(--amber)}
+.fare-rule .rv.red,.fare-rule-v.red{color:var(--red)}
+.fare-rule-v{font-weight:700}
 /* итоговые блоки: цена не должна слипаться с подписью */
 .ft-total b{margin-left:8px}
 .ap-footer .ft-total b{margin-left:0}
@@ -1287,7 +1318,12 @@ table.tbl tbody tr:last-child td{border-bottom:none}
 /* --- search mask --- */
 .hp-searchbar{background:#fff;border:1px solid var(--line);border-radius:var(--r-card);box-shadow:var(--shadow-card);padding:16px 18px;display:flex;flex-direction:column;gap:14px}
 .hp-search-row{display:flex;align-items:flex-end;gap:12px;flex-wrap:wrap}
-.hp-search-row-2{align-items:center}
+/* ТЗ #7 — вторая строка поиска отелей: выравниваем все контролы по нижней линии, чтобы строка
+   не «прыгала» (поле с подписью было выше табов питания и чекбоксов) */
+.hp-search-row-2{align-items:flex-end}
+.hp-search-row-2 .hp-inline-check{height:44px}
+.hp-search-row-2 .hp-meal-tabs{height:44px;align-items:center}
+.hp-search-row-2 .hp-meal-tab{height:44px}
 .hp-field{display:flex;flex-direction:column;gap:6px;position:relative}
 .hp-flabel{font-size:12px;font-weight:600;color:var(--muted)}
 .hp-field-dest{flex:1;min-width:230px}

@@ -170,7 +170,7 @@ function FlightSearch({ params, setParams, onSearch, onBack }) {
   const p = params;
   const set = (patch) => setParams({ ...p, ...patch });
   const swap = () => set({ from: p.to, to: p.from });
-  const TRIPS = [['rt', 'Туда-обратно'], ['ow', 'В одну сторону'], ['mc', 'Сложный маршрут']];
+  const TRIPS = [['ow', 'В одну сторону'], ['rt', 'Туда-обратно'], ['mc', 'Сложный маршрут']];
   return (
     <div className="fade-in">
       <div style={{ marginBottom: 16 }}>
