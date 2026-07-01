@@ -1040,6 +1040,50 @@ function FareInfoPanel({ fare, onClose, onSelect }) {
   );
 }
 
+/* Компактный табличный вид выдачи рейсов (запрос клиента: «отображение рейсов списком для более
+   удобного поиска») — плотная сортируемая таблица, как в B2B-системах: вылет / прилёт / перевозчик /
+   рейс / в пути / пересадки / поставщик / стоимость. Клик по строке открывает тарифы. */
+function aviaDepMin(t) { const m = (t || '').match(/(\d{1,2}):(\d{2})/); return m ? (+m[1]) * 60 + (+m[2]) : 0; }
+function AviaListTable({ rows }) {
+  const { sort, onSort, apply } = useSort({ col: 'price', dir: 'asc' });
+  const sorted = apply(rows, { dep: (r) => aviaDepMin(r.leg.dep), arr: (r) => aviaDepMin(r.leg.arr), dur: (r) => durMin(r.leg.dur), stops: (r) => r.leg.stops || 0, price: (r) => r.price });
+  return (
+    <div className="table-card avia-list" style={{ overflowX: 'auto' }}>
+      <table className="tbl">
+        <thead><tr>
+          <Th label="Вылет" col="dep" sort={sort} onSort={onSort} />
+          <Th label="Прилёт" col="arr" sort={sort} onSort={onSort} />
+          <th>Перевозчик</th>
+          <th>Рейс</th>
+          <Th label="В пути" col="dur" sort={sort} onSort={onSort} />
+          <Th label="Пересадки" col="stops" sort={sort} onSort={onSort} />
+          <th>Поставщик</th>
+          <Th label="Стоимость" col="price" sort={sort} onSort={onSort} style={{ textAlign: 'right' }} />
+          <th></th>
+        </tr></thead>
+        <tbody>
+          {sorted.map((r) => {
+            const leg = r.leg; const air = AIRLINES[r.airline] || { name: r.airline };
+            return (
+              <tr key={r.id} style={{ cursor: 'pointer' }} onClick={r.view}>
+                <td><span style={{ fontWeight: 700 }}>{leg.dep}</span> <span style={{ color: 'var(--muted-2)', fontSize: 12.5 }}>{leg.from}</span></td>
+                <td><span style={{ fontWeight: 700 }}>{leg.arr}</span> <span style={{ color: 'var(--muted-2)', fontSize: 12.5 }}>{leg.to}</span>{r.roundtrip && <span style={{ color: 'var(--blue)', fontSize: 12 }}> · +обр</span>}</td>
+                <td><span style={{ display: 'flex', alignItems: 'center', gap: 8, whiteSpace: 'nowrap' }}><AirlineLogo code={r.airline} size="sm" />{air.name}</span></td>
+                <td style={{ whiteSpace: 'nowrap' }}>{r.flightNo || '—'}</td>
+                <td style={{ whiteSpace: 'nowrap' }}>{leg.dur}</td>
+                <td>{leg.stops ? (leg.stops === 1 ? '1 пересадка' : leg.stops + ' пересадки') : <span style={{ color: 'var(--green)' }}>Прямой</span>}</td>
+                <td style={{ color: 'var(--muted)', fontSize: 13, whiteSpace: 'nowrap' }}>{r.supplier}</td>
+                <td style={{ textAlign: 'right', fontWeight: 700, whiteSpace: 'nowrap' }}>{money(r.price, 'USD')}</td>
+                <td onClick={(e) => e.stopPropagation()}><Button size="sm" variant="secondary" iconRight="chevRight" onClick={r.view}>Тарифы</Button></td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
 function AviaSearchPanel({ params, setParams, paxCount, participants = [], isGroup, onAdd, onAddPerPax }) {
   const p = params;
   const set = (patch) => setParams({ ...p, ...patch });
@@ -1047,6 +1091,7 @@ function AviaSearchPanel({ params, setParams, paxCount, participants = [], isGro
   const aviaBounds = aviaPriceBounds();
   const [flt, setFlt] = useState({ stops: [], air: [], sup: [], bagOnly: false, refundOnly: false, priceMax: aviaBounds.max, flightNo: '' });
   const [visible, setVisible] = useState(6);
+  const [view, setView] = useState('cards'); // cards | list — отображение выдачи рейсов
   const [paxPanel, setPaxPanel] = useState(false);
   const [fareRoute, setFareRoute] = useState(null);   // route awaiting fare selection → opens FlightFarePanel
   const groups = isGroup ? AVIA_GROUPS_SEED : null;
@@ -1092,6 +1137,14 @@ function AviaSearchPanel({ params, setParams, paxCount, participants = [], isGro
   const mcTotal = mcLegs.reduce((s, o) => s + o.price, 0);
 
   const openFare = (route) => setFareRoute(route);
+
+  // Плоский список строк для табличного вида — по текущему типу маршрута
+  const listRows = p.trip === 'rt'
+    ? rtCombos.map((c) => ({ id: c.id, airline: c.out.airline, leg: c.out.leg, flightNo: c.out.leg.flightNo, supplier: c.out.supplier, price: c.out.price + c.back.price, roundtrip: true, view: () => openFare({ legs: [c.out, c.back], total: c.out.price + c.back.price }) }))
+    : p.trip === 'mc'
+      ? (mcLegs.length ? [{ id: 'mc', airline: mcLegs[0].airline, leg: mcLegs[0].leg, flightNo: mcLegs[0].leg.flightNo, supplier: mcLegs[0].supplier, price: mcTotal, view: () => openFare({ legs: mcLegs, total: mcTotal }) }] : [])
+      : outOpts.map((o) => ({ id: o.key, airline: o.airline, leg: o.leg, flightNo: o.leg.flightNo, supplier: o.supplier, price: o.price, view: () => openFare({ legs: [o], total: o.price }) }));
+
   const paxLabel = `${seats} ${plural(seats)} · ${p.cabin}`;
   const paxFieldNode = (
     <div className="av-field avia-pax-field" onClick={() => setPaxPanel(true)}>
@@ -1169,12 +1222,28 @@ function AviaSearchPanel({ params, setParams, paxCount, participants = [], isGro
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, margin: '0 0 14px' }}>
         <div style={{ flex: 1 }} />
         <span style={{ color: 'var(--muted)', fontSize: 13.5 }}>Найдено {foundCount}</span>
-        <div style={{ minWidth: 190 }}><Select options={[{ value: 'price', label: 'Сортировка: Цена' }]} value="price" onChange={() => {}} /></div>
+        {/* переключатель вида выдачи: карточки / список */}
+        <div className="avia-view-toggle">
+          <button className={view === 'cards' ? 'on' : ''} title="Карточки" onClick={() => setView('cards')}><Icon name="grid" style={{ width: 16, height: 16 }} />Карточки</button>
+          <button className={view === 'list' ? 'on' : ''} title="Список" onClick={() => setView('list')}><Icon name="orders" style={{ width: 16, height: 16 }} />Список</button>
+        </div>
+        {view === 'cards' && <div style={{ minWidth: 190 }}><Select options={[{ value: 'price', label: 'Сортировка: Цена' }]} value="price" onChange={() => {}} /></div>}
       </div>
 
       <div className="hp-layout">
         <AviaFilters flt={flt} setFlt={setFlt} bounds={aviaBounds} />
         <div style={{ minWidth: 0 }}>
+          {view === 'list' ? (
+            <div className="ap-route-section">
+              <div className="ap-route-title">Рейсы списком — нажмите строку, чтобы открыть тарифы</div>
+              <AviaListTable rows={listRows.slice(0, p.trip === 'mc' ? listRows.length : visible)} />
+              {p.trip !== 'mc' && visible < listRows.length && (
+                <button className="svcf-more" onClick={() => setVisible((v) => v + 10)}>
+                  Показать ещё рейсы <Icon name="chevDown" style={{ width: 15, height: 15 }} />
+                </button>
+              )}
+            </div>
+          ) : (<>
           {p.trip === 'ow' && (
             <div className="ap-route-section">
               <div className="ap-route-title">Рейсы туда — нажмите рейс, чтобы открыть тарифы</div>
@@ -1240,6 +1309,7 @@ function AviaSearchPanel({ params, setParams, paxCount, participants = [], isGro
               Показать ещё рейсы <Icon name="chevDown" style={{ width: 15, height: 15 }} />
             </button>
           )}
+          </>)}
         </div>
       </div>
 

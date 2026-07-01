@@ -1,17 +1,68 @@
 // ===== Dashboard (Главное) =====
 
-/* «Детальный поиск» — reuses the same category-tab service picker that lives inside an order's
-   «Добавить услугу» flow, but standalone: no order to attach to yet, so results are informational. */
+/* Финализация свободного бронирования (ТЗ #1): по подобранным без привязки к заказу услугам можно
+   сформировать КП, привязать к существующему заказу или к физ.лицу. */
+function FreeBookingFinalize({ draft, onClose, onDone }) {
+  const toast = useToast();
+  const svcTitle = (x) => x.title || x.route || x.fareName || (x.from && x.to ? x.from + ' → ' + x.to : x.kind || 'Услуга');
+  const svcSum = (x) => x.fareDeltaUsd || x.total || x.cost || x.price || x.sum || 0;
+  const total = draft.reduce((s, x) => s + svcSum(x), 0);
+  const finish = (msg) => { toast(msg, 'ok'); onDone(); };
+  return (
+    <Drawer open onClose={onClose} title="Оформление свободного бронирования"
+      footer={<Button variant="secondary" style={{ width: '100%' }} onClick={onClose}>Закрыть</Button>}>
+      <div style={{ color: 'var(--muted)', fontSize: 13.5, marginBottom: 14 }}>
+        В подборке {draft.length} {plural(draft.length, ['услуга', 'услуги', 'услуг'])}. Выберите, что сделать дальше.
+      </div>
+      <div className="card card-pad" style={{ marginBottom: 18 }}>
+        {draft.map((x, i) => (
+          <div key={i} style={{ display: 'flex', justifyContent: 'space-between', gap: 12, padding: '8px 0', borderBottom: i < draft.length - 1 ? '1px solid var(--line)' : 'none' }}>
+            <div><div style={{ fontWeight: 600, color: 'var(--ink)' }}>{svcTitle(x)}</div><div style={{ fontSize: 12.5, color: 'var(--muted)' }}>{x.kind || 'Авиа'}{x.supplier ? ' · ' + x.supplier : ''}</div></div>
+            <div style={{ fontWeight: 600, whiteSpace: 'nowrap' }}>{svcSum(x) ? svcSum(x).toLocaleString('ru-RU') + ' $' : '—'}</div>
+          </div>
+        ))}
+        {total > 0 && (
+          <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 10, paddingTop: 10, borderTop: '1px solid var(--line)', fontWeight: 700, color: 'var(--ink)' }}>
+            <span>Итого</span><span>{total.toLocaleString('ru-RU')} $</span>
+          </div>
+        )}
+      </div>
+      <PanelSub style={{ marginTop: 0 }}>Итог</PanelSub>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+        <Button icon="template" style={{ width: '100%' }} onClick={() => finish('Коммерческое предложение сформировано')}>Сформировать КП</Button>
+        <Button variant="secondary" icon="briefcase" style={{ width: '100%' }} onClick={() => finish('Услуги привязаны к заказу')}>Привязать к заказу</Button>
+        <Button variant="secondary" icon="user" style={{ width: '100%' }} onClick={() => finish('Услуги привязаны к физ. лицу')}>Привязать к физ. лицу</Button>
+      </div>
+    </Drawer>
+  );
+}
+
+/* «Свободное бронирование» — поиск услуг без привязки к заказу (ТЗ #1). Подобранные услуги
+   собираются в подборку, затем оформляются: КП / привязка к заказу / привязка к физ.лицу. */
 function DetailedSearchPanel({ onClose }) {
   const toast = useToast();
   const [kind, setKind] = useState('Авиа');
   const [aviaParams, setAviaParams] = useState({ trip: 'rt', from: 'FRU', to: 'IST', depDate: null, retDate: null, pax: { adt: 1, chd: 0, infNoSeat: 0, infSeat: 0, special: {}, subsidized: {} }, cabin: 'Эконом', baggage: false, flex: false, direct: false, airline: '', ...PAX_DEFAULT_OPTIONS });
+  const [draft, setDraft] = useState([]);
+  const [finalize, setFinalize] = useState(false);
+  const add = (svc, k) => { setDraft((d) => [...d, { kind: k || 'Авиа', ...(svc || {}) }]); toast('Добавлено в свободное бронирование', 'ok'); };
   return (
-    <StackPanel title="Поиск услуг" width="min(1320px,96vw)" onClose={onClose}>
+    <StackPanel title="Свободное бронирование" width="min(1320px,96vw)" onClose={onClose}
+      footer={draft.length ? (
+        <>
+          <div style={{ flex: 1, alignSelf: 'center', color: 'var(--muted)', fontSize: 14 }}>В подборке: <b style={{ color: 'var(--ink)' }}>{draft.length}</b> {plural(draft.length, ['услуга', 'услуги', 'услуг'])}</div>
+          <Button variant="secondary" onClick={() => setDraft([])}>Очистить</Button>
+          <Button icon="check" onClick={() => setFinalize(true)}>Оформить</Button>
+        </>
+      ) : null}>
+      <div style={{ fontSize: 13.5, color: 'var(--muted)', marginBottom: 12 }}>
+        Поиск без привязки к заказу. Можно добавить несколько услуг, затем сформировать КП, привязать к заказу или к физ. лицу.
+      </div>
       <AddServicePanel kind={kind} setKind={setKind} aviaParams={aviaParams} setAviaParams={setAviaParams}
         paxCount={aviaParams.pax.adt + aviaParams.pax.chd}
-        onAddAvia={() => toast('Перелёт найден. Откройте нужный заказ, чтобы добавить его в сценарий', 'ok')}
-        onAddOther={() => toast('Услуга найдена. Откройте нужный заказ, чтобы добавить её в сценарий', 'ok')} />
+        onAddAvia={(r) => add(r, 'Авиа')}
+        onAddOther={(o, k) => add(o, k)} />
+      {finalize && <FreeBookingFinalize draft={draft} onClose={() => setFinalize(false)} onDone={() => { setFinalize(false); onClose(); }} />}
     </StackPanel>
   );
 }

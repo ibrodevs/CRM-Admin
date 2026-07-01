@@ -503,24 +503,616 @@ function SegmentRow({ leg }) {
   );
 }
 
-function FlightCard({ svc, offer, onBack }) {
+/* ====================================================================
+   FLIGHT SERVICE CARD — helpers (ТЗ пп. 2–6)
+   ==================================================================== */
+/* статус услуги → удобные булевы флаги для ветвления интерфейса */
+function flightStatusFlags(status, svc, offer) {
+  const issued = status === 'Выписано' || status === 'Возврат' || status === 'Обмен';
+  const booked = status === 'Забронировано';
+  const offered = status === 'Предложение' || status === 'Согласование' || status === 'Поиск';
+  const free = !svc && !!offer; // свободный поиск: карточка открыта из выдачи, не привязана к заказу
+  return { issued, booked, offered, free };
+}
+
+/* Пассажиры с индивидуальным набором данных (ТЗ #5): свой № билета, PNR и документы у каждого. */
+function flightPassengers(svc, offer, status) {
+  const { issued } = flightStatusFlags(status, svc, offer);
+  const air = svc ? svc.airline : (offer ? offer.airline : 'KC');
+  const pnr = (svc && svc.pnr && svc.pnr !== '—') ? svc.pnr : 'A7H5KD';
+  const base = [
+    { name: 'Аттокуров Эрбол',    type: 'Взрослый', doc: 'ID AC1234567',       dob: '14.03.1990', tkt: '2410567890' },
+    { name: 'Аттокурова Айгерим', type: 'Взрослый', doc: 'ID AC7654321',       dob: '02.08.1992', tkt: '2410567891' },
+    { name: 'Аттокуров Тимур',    type: 'Ребёнок',  doc: 'Св-во IV-АБ 553012', dob: '11.09.2016', tkt: '2410567892' },
+    { name: 'Аттокурова Амина',   type: 'Ребёнок',  doc: 'Св-во IV-АБ 553013', dob: '04.02.2019', tkt: '2410567893' },
+    { name: 'Джумабеков Нурлан',  type: 'Взрослый', doc: 'ID AC2233445',       dob: '20.07.1985', tkt: '2410567894' },
+    { name: 'Осмонова Гульнара',  type: 'Взрослый', doc: 'ID AC5566778',       dob: '30.11.1988', tkt: '2410567895' },
+  ];
+  const n = Math.max(1, svc ? svc.pax : 1);
+  return base.slice(0, Math.min(n, base.length)).map((p) => ({
+    ...p, airline: air, pnr,
+    ticket: issued ? ('465-' + p.tkt) : '—',
+    docs: issued
+      ? ['Маршрут-квитанция', 'Электронный билет', 'Посадочный талон']
+      : ['Подтверждение брони (PNR)'],
+  }));
+}
+
+/* Панель «Возврат» (ТЗ #4): тип (добровольный/вынужденный), объём (полный/частичный),
+   расчёт суммы возврата и подтверждение. */
+function RefundPanel({ passengers, base, currency, onClose, onDone }) {
+  const toast = useToast();
+  const [voluntary, setVoluntary] = useState(true);
+  const [scope, setScope] = useState('full');            // full | partial
+  const [sel, setSel] = useState(passengers.map((_, i) => i));
+  const [calc, setCalc] = useState(null);
+  const perTicket = base / Math.max(1, passengers.length);
+  const chosen = scope === 'full' ? passengers.map((_, i) => i) : sel;
+  const toggle = (i) => setSel((s) => s.includes(i) ? s.filter((x) => x !== i) : [...s, i]);
+  const doCalc = () => {
+    const cnt = chosen.length;
+    if (!cnt) { toast('Выберите хотя бы одного пассажира', 'err'); return; }
+    const gross = Math.round(perTicket * cnt);
+    const penalty = voluntary ? Math.round(gross * 0.15) : 0; // вынужденный возврат — без штрафа
+    const fee = voluntary ? 15 : 0;                           // сервисный сбор агентства
+    setCalc({ cnt, gross, penalty, fee, refund: Math.max(0, gross - penalty - fee) });
+  };
+  useEffect(() => { setCalc(null); }, [voluntary, scope, sel]);
+  const cur = ' ' + (currency === 'USD' ? '$' : currency);
+  return (
+    <StackPanel title="Оформление возврата" width="min(680px,96vw)" onClose={onClose}
+      footer={<>
+        <Button variant="secondary" style={{ flex: 1 }} onClick={doCalc}>Рассчитать сумму возврата</Button>
+        <Button icon="check" style={{ flex: 1 }} disabled={!calc}
+          onClick={() => { if (!calc) return; onDone && onDone(); toast('Возврат подтверждён и отправлен поставщику', 'ok'); onClose(); }}>
+          Подтвердить возврат
+        </Button>
+      </>}>
+      <PanelSub style={{ marginTop: 0 }}>Тип возврата</PanelSub>
+      <div className="seg-toggle">
+        <button className={'seg-btn' + (voluntary ? ' active' : '')} onClick={() => setVoluntary(true)}>Добровольный</button>
+        <button className={'seg-btn' + (!voluntary ? ' active' : '')} onClick={() => setVoluntary(false)}>Вынужденный</button>
+      </div>
+      <div style={{ fontSize: 12.5, color: 'var(--muted)', marginTop: 6 }}>
+        {voluntary ? 'Удерживается штраф авиакомпании и сервисный сбор.' : 'Вынужденный возврат — по правилам без штрафа (болезнь, отмена рейса и т.п.).'}
+      </div>
+
+      <PanelSub>Объём</PanelSub>
+      <div className="seg-toggle">
+        <button className={'seg-btn' + (scope === 'full' ? ' active' : '')} onClick={() => setScope('full')}>Полный возврат</button>
+        <button className={'seg-btn' + (scope === 'partial' ? ' active' : '')} onClick={() => setScope('partial')}>Частичный возврат</button>
+      </div>
+      {scope === 'partial' && (
+        <div style={{ marginTop: 12, display: 'flex', flexDirection: 'column', gap: 8 }}>
+          {passengers.map((p, i) => (
+            <label key={i} className="hp-check-row" style={{ border: '1px solid var(--line)', borderRadius: 10, padding: '8px 12px' }}>
+              <Checkbox on={sel.includes(i)} onChange={() => toggle(i)} />
+              <span className="hp-check-label" style={{ flex: 1 }}>{p.name}</span>
+              <span style={{ fontSize: 12.5, color: 'var(--muted)' }}>{p.ticket}</span>
+            </label>
+          ))}
+        </div>
+      )}
+
+      {calc && (
+        <div className="card card-pad" style={{ marginTop: 18 }}>
+          <div className="kv">
+            <div className="kv-row"><span className="k">Билетов к возврату</span><span className="v">{calc.cnt}</span></div>
+            <div className="kv-row"><span className="k">Стоимость билетов</span><span className="v">{calc.gross.toLocaleString('ru-RU')}{cur}</span></div>
+            <div className="kv-row"><span className="k">Штраф авиакомпании</span><span className="v" style={{ color: calc.penalty ? 'var(--red)' : 'var(--muted)' }}>− {calc.penalty.toLocaleString('ru-RU')}{cur}</span></div>
+            <div className="kv-row"><span className="k">Сервисный сбор</span><span className="v" style={{ color: calc.fee ? 'var(--red)' : 'var(--muted)' }}>− {calc.fee.toLocaleString('ru-RU')}{cur}</span></div>
+            <div className="kv-row"><span className="k" style={{ fontWeight: 700, color: 'var(--ink)' }}>К возврату клиенту</span><span className="v" style={{ fontSize: 18, color: 'var(--green)' }}>{calc.refund.toLocaleString('ru-RU')}{cur}</span></div>
+          </div>
+        </div>
+      )}
+    </StackPanel>
+  );
+}
+
+/* Панель «Обмен» (ТЗ #4): тип (добровольный/вынужденный), сценарий (доплата/возврат разницы),
+   расчёт стоимости обмена и подтверждение. */
+function ExchangePanel({ passengers, base, currency, onClose, onDone }) {
+  const toast = useToast();
+  const [voluntary, setVoluntary] = useState(true);
+  const [mode, setMode] = useState('surcharge');   // surcharge | refundDiff
+  const [newFare, setNewFare] = useState('');
+  const [calc, setCalc] = useState(null);
+  const cur = ' ' + (currency === 'USD' ? '$' : currency);
+  const doCalc = () => {
+    const nf = parseFloat(newFare);
+    if (isNaN(nf)) { toast('Укажите стоимость нового тарифа', 'err'); return; }
+    const diff = Math.round(nf - base);
+    const penalty = voluntary ? 25 : 0;             // сбор за обмен
+    if (mode === 'surcharge') {
+      setCalc({ diff, penalty, payable: Math.max(0, diff) + penalty, refundable: 0 });
+    } else {
+      setCalc({ diff, penalty, payable: penalty, refundable: Math.max(0, -diff) });
+    }
+  };
+  useEffect(() => { setCalc(null); }, [voluntary, mode, newFare]);
+  return (
+    <StackPanel title="Обмен билета" width="min(680px,96vw)" onClose={onClose}
+      footer={<>
+        <Button variant="secondary" style={{ flex: 1 }} onClick={doCalc}>Рассчитать стоимость обмена</Button>
+        <Button icon="check" style={{ flex: 1 }} disabled={!calc}
+          onClick={() => { if (!calc) return; onDone && onDone(); toast('Обмен подтверждён и отправлен поставщику', 'ok'); onClose(); }}>
+          Подтвердить обмен
+        </Button>
+      </>}>
+      <PanelSub style={{ marginTop: 0 }}>Тип обмена</PanelSub>
+      <div className="seg-toggle">
+        <button className={'seg-btn' + (voluntary ? ' active' : '')} onClick={() => setVoluntary(true)}>Добровольный</button>
+        <button className={'seg-btn' + (!voluntary ? ' active' : '')} onClick={() => setVoluntary(false)}>Вынужденный</button>
+      </div>
+
+      <PanelSub>Сценарий</PanelSub>
+      <div className="seg-toggle">
+        <button className={'seg-btn' + (mode === 'surcharge' ? ' active' : '')} onClick={() => setMode('surcharge')}>Обмен с доплатой</button>
+        <button className={'seg-btn' + (mode === 'refundDiff' ? ' active' : '')} onClick={() => setMode('refundDiff')}>Обмен с возвратом разницы</button>
+      </div>
+
+      <div style={{ marginTop: 16 }}>
+        <Field label="Стоимость нового тарифа" hint={'Текущий тариф: ' + base.toLocaleString('ru-RU') + cur}>
+          <Input type="number" value={newFare} onChange={(e) => setNewFare(e.target.value)} placeholder="0" />
+        </Field>
+      </div>
+
+      {calc && (
+        <div className="card card-pad" style={{ marginTop: 8 }}>
+          <div className="kv">
+            <div className="kv-row"><span className="k">Разница тарифа</span><span className="v" style={{ color: calc.diff >= 0 ? 'var(--red)' : 'var(--green)' }}>{calc.diff >= 0 ? '+ ' : '− '}{Math.abs(calc.diff).toLocaleString('ru-RU')}{cur}</span></div>
+            <div className="kv-row"><span className="k">Сбор за обмен</span><span className="v">{calc.penalty ? '+ ' + calc.penalty.toLocaleString('ru-RU') + cur : '—'}</span></div>
+            <div className="kv-row"><span className="k" style={{ fontWeight: 700, color: 'var(--ink)' }}>К доплате клиентом</span><span className="v" style={{ fontSize: 18 }}>{calc.payable.toLocaleString('ru-RU')}{cur}</span></div>
+            {calc.refundable > 0 && <div className="kv-row"><span className="k">К возврату клиенту</span><span className="v" style={{ color: 'var(--green)' }}>{calc.refundable.toLocaleString('ru-RU')}{cur}</span></div>}
+          </div>
+        </div>
+      )}
+    </StackPanel>
+  );
+}
+
+/* ====================================================================
+   МОДУЛЬ «КОРРЕКТИРОВКА ДОКУМЕНТОВ» (ТЗ #6, расширенная постановка клиента)
+   Формирует клиентскую версию документа на фирменном бланке агентства на основе
+   документа поставщика. Оригинал поставщика не меняется. Поддерживает индивидуальную
+   и групповую корректировку, выбор шаблона, живой предпросмотр, проверку перед
+   сохранением, версионирование и действия после сохранения.
+   ==================================================================== */
+const DOC_TEMPLATES = [
+  { id: 'agency', name: 'Фирменный бланк агентства', logo: true },
+  { id: 'client', name: 'Фирменный бланк клиента', logo: true },
+  { id: 'nologo', name: 'Без логотипа', logo: false },
+  { id: 'custom', name: 'Пользовательский шаблон', logo: true },
+];
+const AGENCY_ENTITIES = ['ОсОО «ПСЦ Travel Hub»', 'ОсОО «Гранд Лимитед»', 'ИП Акимова А.Т.'];
+// Поля, доступные для изменения в клиентской версии (отображение документа)
+const CORR_FIELDS = [
+  { key: 'baseFare',    label: 'Базовый тариф' },
+  { key: 'taxes',       label: 'Таксы' },
+  { key: 'agentMarkup', label: 'Агентская надбавка' },
+  { key: 'serviceFee',  label: 'Сервисный сбор' },
+  { key: 'discount',    label: 'Скидка' },
+];
+const corrCur = (c) => (c === 'USD' ? '$' : c);
+const corrComputed = (d) => d.baseFare + d.taxes + d.agentMarkup + d.serviceFee - d.discount;
+const corrTotal = (d) => (d.totalOverride != null ? d.totalOverride : corrComputed(d));
+function corrChanges(d) {
+  const chg = [];
+  CORR_FIELDS.forEach((f) => { if (d[f.key] !== d.src[f.key]) chg.push(f.label); });
+  if (corrTotal(d) !== d.src.total) chg.push('Итоговая стоимость');
+  if ((d.comment || '').trim()) chg.push('Комментарий');
+  return chg;
+}
+
+/* Живой предпросмотр итогового документа (как PDF-лист) — обновляется мгновенно, без сохранения. */
+function CorrectionPreview({ doc, template, entity, currency }) {
+  const tpl = DOC_TEMPLATES.find((t) => t.id === template) || DOC_TEMPLATES[0];
+  const cur = corrCur(currency);
+  const rows = [
+    ['Базовый тариф', doc.baseFare], ['Таксы и сборы', doc.taxes],
+    ['Агентская надбавка', doc.agentMarkup], ['Сервисный сбор', doc.serviceFee],
+  ];
+  if (doc.discount) rows.push(['Скидка', -doc.discount]);
+  return (
+    <div style={{ background: '#fff', border: '1px solid var(--line)', borderRadius: 10, boxShadow: 'var(--shadow-card)', padding: '22px 24px', fontSize: 13 }}>
+      {/* шапка бланка */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingBottom: 14, borderBottom: '2px solid var(--ink)' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          {tpl.logo && <span style={{ width: 34, height: 34, borderRadius: 8, background: 'var(--blue)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontWeight: 800 }}>P</span>}
+          <div>
+            <div style={{ fontWeight: 800, color: 'var(--ink)', fontSize: 14 }}>{tpl.id === 'client' ? 'Клиентский бланк' : (tpl.logo ? entity : 'Документ без логотипа')}</div>
+            <div style={{ color: 'var(--muted)', fontSize: 11.5 }}>Маршрут-квитанция электронного билета</div>
+          </div>
+        </div>
+        <div style={{ textAlign: 'right', color: 'var(--muted)', fontSize: 11.5 }}>Клиентская версия<br />{new Date().toLocaleDateString('ru-RU')}</div>
+      </div>
+      {/* неизменяемые данные поставщика */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px 18px', margin: '14px 0' }}>
+        {[['Пассажир', doc.name], ['Номер билета', doc.ticket], ['PNR', doc.pnr], ['Маршрут', doc.route], ['Авиакомпания', doc.airlineName], ['Дата вылета', doc.dates]].map(([k, v]) => (
+          <div key={k}><span style={{ color: 'var(--muted)' }}>{k}: </span><span style={{ fontWeight: 600, color: 'var(--ink)' }}>{v}</span></div>
+        ))}
+      </div>
+      {/* финансовая таблица (клиентская версия) */}
+      <div style={{ borderTop: '1px solid var(--line)', paddingTop: 10 }}>
+        {rows.map(([k, v]) => (
+          <div key={k} style={{ display: 'flex', justifyContent: 'space-between', padding: '3px 0' }}>
+            <span style={{ color: 'var(--muted)' }}>{k}</span><span style={{ color: v < 0 ? 'var(--green)' : 'var(--ink)' }}>{v < 0 ? '− ' : ''}{Math.abs(v).toLocaleString('ru-RU')} {cur}</span>
+          </div>
+        ))}
+        <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 8, paddingTop: 8, borderTop: '2px solid var(--ink)', fontWeight: 800, fontSize: 15, color: 'var(--ink)' }}>
+          <span>Итого к оплате</span><span>{corrTotal(doc).toLocaleString('ru-RU')} {cur}</span>
+        </div>
+      </div>
+      {doc.comment && doc.comment.trim() && <div style={{ marginTop: 12, padding: '8px 10px', background: 'var(--surface-2)', borderRadius: 8, color: 'var(--body)' }}>{doc.comment}</div>}
+      <div style={{ marginTop: 14, paddingTop: 10, borderTop: '1px solid var(--line)', color: 'var(--muted)', fontSize: 11 }}>{tpl.logo ? entity : ''} · Документ сформирован в PSC Travel Hub</div>
+    </div>
+  );
+}
+
+/* История версий документа. */
+function CorrectionHistoryDrawer({ open, versions, onClose }) {
+  const toast = useToast();
+  return (
+    <Drawer open={open} onClose={onClose} title="История корректировок"
+      footer={<Button variant="secondary" style={{ width: '100%' }} onClick={onClose}>Закрыть</Button>}>
+      <div className="timeline">
+        {versions.map((v, i) => (
+          <div className="tl-item" key={i}>
+            <span className="tl-dot" /><span className="tl-line" />
+            <div style={{ paddingBottom: 6 }}>
+              <div className="tl-time">{v.date} · {v.user}</div>
+              <div className="tl-text" style={{ fontWeight: 600 }}>{v.title}</div>
+              <div style={{ fontSize: 12.5, color: 'var(--muted)', margin: '2px 0' }}>{v.fields.join(', ')}</div>
+              {v.comment && <div style={{ fontSize: 12.5, color: 'var(--body)' }}>«{v.comment}»</div>}
+              <div style={{ display: 'flex', gap: 8, marginTop: 6 }}>
+                <button className="btn btn-ghost btn-sm" onClick={() => toast('Версия ' + v.title + ' открыта')}>Открыть</button>
+                <button className="btn btn-ghost btn-sm" onClick={() => toast('Скачивание версии ' + v.title)}>Скачать</button>
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+    </Drawer>
+  );
+}
+
+function DocCorrectionPanel({ passengers, offer, svc, currency, orderNo, onClose }) {
+  const toast = useToast();
+  const air = svc ? svc.airline : (offer ? offer.airline : 'KC');
+  const airlineName = (AIRLINES[air] || { name: air }).name;
+  const supplier = svc ? svc.supplier : (offer ? offer.supplier : '—');
+  const route = svc ? svc.route : (offer ? (offer.out.from + ' → ' + offer.out.to + (offer.back ? ' → ' + offer.back.to : '')) : '—');
+  const dates = svc ? svc.dep : (offer ? offer.out.date : '—');
+  const baseFareTotal = offer ? offer.fare : (svc ? svc.sum : 0);
+  const farePerPax = Math.round(baseFareTotal / Math.max(1, passengers.length));
+
+  // Источник данных (данные поставщика) заполняется автоматически, оригинал неизменяем.
+  const buildDoc = (p) => {
+    const src = { baseFare: farePerPax, taxes: 45, agentMarkup: 0, serviceFee: 0, discount: 0, total: farePerPax + 45 };
+    return { id: p.ticket + p.name, name: p.name, ticket: p.ticket, pnr: p.pnr, supplier, route, airlineName, dates,
+      src, baseFare: src.baseFare, taxes: src.taxes, agentMarkup: 20, serviceFee: 15, discount: 0, totalOverride: null, comment: '' };
+  };
+  const [docs, setDocs] = useState(() => passengers.map(buildDoc));
+  const [mode, setMode] = useState(passengers.length > 1 ? 'group' : 'single'); // индивидуальная | групповая
+  const [sel, setSel] = useState(() => passengers.map((_, i) => i));   // выбранные для групповой
+  const [active, setActive] = useState(0);                              // активная строка для предпросмотра
+  const [template, setTemplate] = useState('agency');
+  const [entity, setEntity] = useState(AGENCY_ENTITIES[0]);
+  const [view, setView] = useState('edit');                            // edit | confirm | done
+  const [historyOpen, setHistoryOpen] = useState(false);
+  const [massField, setMassField] = useState('agentMarkup');
+  const [massVal, setMassVal] = useState('');
+  const [versions, setVersions] = useState([
+    { date: '20.06.2026 14:10', user: 'Акимова Айсулуу', title: 'v1 · Оригинал поставщика', fields: ['Импортирован бланк поставщика (' + supplier + ')'], comment: '' },
+  ]);
+
+  const cur = corrCur(currency);
+  const setField = (i, key, v) => setDocs((ds) => ds.map((d, j) => (j === i ? { ...d, [key]: (parseFloat(v) || 0) } : d)));
+  const setTotal = (i, v) => setDocs((ds) => ds.map((d, j) => (j === i ? { ...d, totalOverride: v === '' ? null : (parseFloat(v) || 0) } : d)));
+  const setComment = (i, v) => setDocs((ds) => ds.map((d, j) => (j === i ? { ...d, comment: v } : d)));
+  const toggleSel = (i) => setSel((s) => s.includes(i) ? s.filter((x) => x !== i) : [...s, i]);
+  const allSel = sel.length === docs.length;
+
+  // Массовые действия — применяют значение сразу ко всем выбранным документам
+  const applyMass = () => {
+    if (!sel.length) { toast('Не выбрано ни одного документа', 'err'); return; }
+    if (massField === 'sameAsActive') {
+      const a = docs[active];
+      setDocs((ds) => ds.map((d, j) => sel.includes(j) ? { ...d, baseFare: a.baseFare, taxes: a.taxes, agentMarkup: a.agentMarkup, serviceFee: a.serviceFee, discount: a.discount, totalOverride: a.totalOverride } : d));
+      toast('Значения активной строки применены к выбранным', 'ok'); return;
+    }
+    const v = parseFloat(massVal); if (isNaN(v)) { toast('Укажите значение', 'err'); return; }
+    setDocs((ds) => ds.map((d, j) => sel.includes(j) ? (massField === 'total' ? { ...d, totalOverride: v } : { ...d, [massField]: v }) : d));
+    toast('Изменения применены к ' + sel.length + ' документам', 'ok');
+  };
+
+  // Итог проверки перед сохранением
+  const changedDocs = docs.filter((d) => corrChanges(d).length);
+  const tplChanged = template !== 'agency';
+  const changeSummary = [...new Set(changedDocs.flatMap((d) => corrChanges(d)))];
+
+  const doSave = () => {
+    const now = new Date().toLocaleString('ru-RU', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+    const fields = [...changeSummary]; if (tplChanged) fields.push('Шаблон: ' + (DOC_TEMPLATES.find((t) => t.id === template) || {}).name);
+    setVersions((vs) => [{ date: now, user: 'Акимова Айсулуу', title: 'v' + (vs.length + 1) + ' · Клиентская версия', fields: fields.length ? fields : ['Без изменений'], comment: (docs[active].comment || '').trim() }, ...vs]);
+    setView('done');
+    toast('Клиентская версия документа сохранена', 'ok');
+  };
+
+  const activeDoc = docs[active] || docs[0];
+
+  // ---- Экран результата после сохранения ----
+  if (view === 'done') {
+    const actions = [
+      ['Предпросмотр', 'eye', () => toast('Предпросмотр документа')],
+      ['Скачать PDF', 'download', () => toast('Скачивание PDF')],
+      ['Скачать все документы', 'download', () => toast('Скачивание всех документов')],
+      ['Отправить пассажиру', 'send', () => toast('Отправлено пассажиру', 'ok')],
+      ['Отправить заказчику', 'send', () => toast('Отправлено заказчику', 'ok')],
+      ['Распечатать', 'clipboard', () => toast('Отправлено на печать')],
+      ['Создать новую корректировку', 'edit', () => { setView('edit'); }],
+      ['Открыть историю корректировок', 'clock', () => setHistoryOpen(true)],
+    ];
+    return (
+      <StackPanel title="Корректировка сохранена" width="min(680px,96vw)" onClose={onClose}
+        footer={<Button style={{ width: '100%' }} icon="check" onClick={onClose}>Готово</Button>}>
+        <div className="card card-pad" style={{ display: 'flex', alignItems: 'center', gap: 14, borderLeft: '4px solid var(--green)', marginBottom: 18 }}>
+          <span className="oc-svc-ic" style={{ background: 'var(--green)' }}><Icon name="checkCircle" /></span>
+          <div>
+            <div style={{ fontWeight: 700, color: 'var(--ink)' }}>Создана новая клиентская версия документа</div>
+            <div style={{ fontSize: 13, color: 'var(--muted)', marginTop: 2 }}>Оригинал поставщика сохранён без изменений. Обе версии хранятся в заказе {orderNo ? '№ ' + orderNo : ''}.</div>
+          </div>
+        </div>
+        <PanelSub style={{ marginTop: 0 }}>Доступные действия</PanelSub>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+          {actions.map(([label, icon, on]) => (
+            <button key={label} className="doc-chip" style={{ width: '100%' }} onClick={on}>
+              <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}><Icon name={icon} style={{ width: 15, height: 15 }} />{label}</span>
+              <Icon name="chevRight" style={{ width: 15, height: 15 }} />
+            </button>
+          ))}
+        </div>
+        <CorrectionHistoryDrawer open={historyOpen} versions={versions} onClose={() => setHistoryOpen(false)} />
+      </StackPanel>
+    );
+  }
+
+  // ---- Экран проверки перед сохранением ----
+  if (view === 'confirm') {
+    return (
+      <StackPanel title="Проверка перед сохранением" width="min(680px,96vw)" onClose={onClose}
+        footer={<>
+          <Button variant="secondary" style={{ flex: 1 }} onClick={() => setView('edit')}>Назад</Button>
+          <Button icon="check" style={{ flex: 1 }} onClick={doSave}>Сохранить версию</Button>
+        </>}>
+        <div className="card card-pad" style={{ marginBottom: 16 }}>
+          <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--ink)' }}>Будет создана клиентская версия</div>
+          <div style={{ display: 'flex', gap: 24, marginTop: 12 }}>
+            <div><div style={{ fontSize: 12, color: 'var(--muted)' }}>Изменённых документов</div><div style={{ fontSize: 22, fontWeight: 800, color: 'var(--ink)' }}>{changedDocs.length} / {docs.length}</div></div>
+            <div><div style={{ fontSize: 12, color: 'var(--muted)' }}>Шаблон</div><div style={{ fontWeight: 700, color: 'var(--ink)', marginTop: 4 }}>{(DOC_TEMPLATES.find((t) => t.id === template) || {}).name}</div></div>
+          </div>
+        </div>
+        <PanelSub style={{ marginTop: 0 }}>Что было изменено</PanelSub>
+        {changeSummary.length || tplChanged ? (
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+            {changeSummary.map((c) => <Pill key={c} tone="blue">{c}</Pill>)}
+            {tplChanged && <Pill tone="teal">Выбран новый шаблон</Pill>}
+          </div>
+        ) : <div style={{ color: 'var(--muted)' }}>Изменений в отображаемых данных нет.</div>}
+        <PanelSub>Документы</PanelSub>
+        <div className="table-card">
+          <table className="tbl">
+            <thead><tr><th>Пассажир</th><th>Билет</th><th>Изменения</th><th style={{ textAlign: 'right' }}>Итог</th></tr></thead>
+            <tbody>
+              {changedDocs.map((d) => (
+                <tr key={d.id}><td style={{ fontWeight: 600 }}>{d.name}</td><td style={{ fontSize: 13 }}>{d.ticket}</td>
+                  <td style={{ fontSize: 12.5, color: 'var(--muted)' }}>{corrChanges(d).join(', ')}</td>
+                  <td style={{ textAlign: 'right', fontWeight: 600 }}>{corrTotal(d).toLocaleString('ru-RU')} {cur}</td></tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </StackPanel>
+    );
+  }
+
+  // ---- Основной экран корректировки ----
+  const singleFieldEditor = (i) => (
+    <div className="form-grid" style={{ gridTemplateColumns: '1fr 1fr' }}>
+      {CORR_FIELDS.map((f) => (
+        <Field key={f.key} label={f.label}>
+          <Input type="number" value={docs[i][f.key]} onChange={(e) => setField(i, f.key, e.target.value)} />
+        </Field>
+      ))}
+      <Field label={'Итоговая стоимость (' + cur + ')'} hint={docs[i].totalOverride != null ? 'Задано вручную' : 'Авто: ' + corrComputed(docs[i]).toLocaleString('ru-RU')}>
+        <Input type="number" value={docs[i].totalOverride != null ? docs[i].totalOverride : corrComputed(docs[i])} onChange={(e) => setTotal(i, e.target.value)} />
+      </Field>
+    </div>
+  );
+
+  const footer = (
+    <>
+      <Button variant="secondary" onClick={onClose}>Отмена</Button>
+      <div style={{ flex: 1 }} />
+      <Button variant="secondary" icon="clock" onClick={() => setHistoryOpen(true)}>История</Button>
+      <Button variant="secondary" icon="download" onClick={() => toast('Скачивание PDF предпросмотра')}>Скачать PDF</Button>
+      <Button icon="check" onClick={() => setView('confirm')}>Сохранить</Button>
+    </>
+  );
+
+  return (
+    <StackPanel title="Корректировка документов" width={mode === 'group' ? 'min(1200px,97vw)' : 'min(1040px,96vw)'} onClose={onClose} footer={footer}>
+      <div style={{ fontSize: 13.5, color: 'var(--muted)', marginBottom: 12 }}>
+        Формирование клиентской версии документа на фирменном бланке. Данные поставщика неизменяемы —
+        корректируется только отображение (тариф, таксы, надбавка, сбор, скидка, итог, комментарий, реквизиты).
+      </div>
+
+      <PanelSub style={{ marginTop: 0 }}>Вид корректировки</PanelSub>
+      <div className="seg-toggle" style={{ maxWidth: 360 }}>
+        <button className={'seg-btn' + (mode === 'single' ? ' active' : '')} onClick={() => setMode('single')}>Индивидуальная</button>
+        <button className={'seg-btn' + (mode === 'group' ? ' active' : '')} onClick={() => setMode('group')}>Групповая</button>
+      </div>
+
+      {/* 1. Исходный документ (данные поставщика) */}
+      <PanelSub>Исходный документ · данные поставщика</PanelSub>
+      <div className="card card-pad" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '8px 20px' }}>
+        {[['Поставщик', supplier], ['PNR', activeDoc.pnr], ['Номер билета', activeDoc.ticket], ['Маршрут', route], ['Пассажир', activeDoc.name], ['Авиакомпания', airlineName], ['Базовый тариф', farePerPax.toLocaleString('ru-RU') + ' ' + cur], ['Таксы', activeDoc.src.taxes.toLocaleString('ru-RU') + ' ' + cur], ['Валюта', currency]].map(([k, v]) => (
+          <div key={k}><div style={{ fontSize: 12, color: 'var(--muted)' }}>{k}</div><div style={{ fontWeight: 600, color: 'var(--ink)' }}>{v}</div></div>
+        ))}
+      </div>
+
+      {/* 3. Выбор фирменного шаблона + реквизиты */}
+      <PanelSub>Шаблон и реквизиты</PanelSub>
+      <div className="form-grid" style={{ gridTemplateColumns: '1fr 1fr' }}>
+        <Field label="Фирменный шаблон">
+          <Select options={DOC_TEMPLATES.map((t) => ({ value: t.id, label: t.name }))} value={template} onChange={(e) => setTemplate(e.target.value)} />
+        </Field>
+        <Field label="Реквизиты агентства (юр. лицо)">
+          <Select options={AGENCY_ENTITIES} value={entity} onChange={(e) => setEntity(e.target.value)} />
+        </Field>
+      </div>
+
+      {/* 2. Настройки корректировки */}
+      {mode === 'single' ? (
+        <>
+          {docs.length > 1 && (
+            <div style={{ marginTop: 14 }}>
+              <Field label="Документ пассажира">
+                <Select options={docs.map((d, i) => ({ value: String(i), label: d.name + ' · ' + d.ticket }))} value={String(active)} onChange={(e) => setActive(+e.target.value)} />
+              </Field>
+            </div>
+          )}
+          <PanelSub>Настройки корректировки</PanelSub>
+          <div className="grid-2" style={{ alignItems: 'start' }}>
+            <div>
+              {singleFieldEditor(active)}
+              <Field label="Комментарий" style={{ marginTop: 6 }}>
+                <textarea className="input" style={{ minHeight: 70, resize: 'vertical', padding: '10px 12px' }} value={activeDoc.comment} onChange={(e) => setComment(active, e.target.value)} placeholder="Комментарий к документу…" />
+              </Field>
+            </div>
+            {/* 4. Предпросмотр */}
+            <div>
+              <div style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 8 }}>Предпросмотр (обновляется мгновенно)</div>
+              <CorrectionPreview doc={activeDoc} template={template} entity={entity} currency={currency} />
+            </div>
+          </div>
+        </>
+      ) : (
+        <>
+          <PanelSub>Массовые действия</PanelSub>
+          <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'flex-end', background: 'var(--surface-2)', padding: 12, borderRadius: 12 }}>
+            <div style={{ minWidth: 220 }}>
+              <div style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 4 }}>Действие</div>
+              <Select value={massField} onChange={(e) => setMassField(e.target.value)}
+                options={[...CORR_FIELDS.map((f) => ({ value: f.key, label: 'Изменить: ' + f.label })), { value: 'total', label: 'Изменить итоговую сумму' }, { value: 'sameAsActive', label: 'Применить одинаковые значения' }]} />
+            </div>
+            {massField !== 'sameAsActive' && (
+              <div style={{ width: 150 }}>
+                <div style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 4 }}>Значение ({cur})</div>
+                <Input type="number" value={massVal} onChange={(e) => setMassVal(e.target.value)} placeholder="0" />
+              </div>
+            )}
+            <Button icon="check" onClick={applyMass}>Применить к выбранным ({sel.length})</Button>
+          </div>
+
+          {/* Таблица массовой корректировки */}
+          <div className="table-card" style={{ marginTop: 14, overflowX: 'auto' }}>
+            <table className="tbl">
+              <thead><tr>
+                <th style={{ width: 34 }}><Checkbox on={allSel} onChange={() => setSel(allSel ? [] : docs.map((_, i) => i))} /></th>
+                <th>Пассажир</th><th>Номер билета</th><th>Поставщик</th>
+                <th style={{ width: 110 }}>Базовый тариф</th><th style={{ width: 90 }}>Таксы</th>
+                <th style={{ width: 110 }}>Агент. надбавка</th><th style={{ width: 100 }}>Серв. сбор</th>
+                <th style={{ textAlign: 'right' }}>Итог</th><th style={{ width: 34 }}></th>
+              </tr></thead>
+              <tbody>
+                {docs.map((d, i) => (
+                  <tr key={d.id} style={{ background: active === i ? 'var(--blue-soft)' : undefined }}>
+                    <td><Checkbox on={sel.includes(i)} onChange={() => toggleSel(i)} /></td>
+                    <td style={{ fontWeight: 600 }}>{d.name}</td>
+                    <td style={{ fontSize: 13 }}>{d.ticket}</td>
+                    <td style={{ fontSize: 12.5, color: 'var(--muted)' }}>{d.supplier}</td>
+                    <td><Input type="number" value={d.baseFare} onChange={(e) => setField(i, 'baseFare', e.target.value)} style={{ height: 32, padding: '4px 6px' }} /></td>
+                    <td><Input type="number" value={d.taxes} onChange={(e) => setField(i, 'taxes', e.target.value)} style={{ height: 32, padding: '4px 6px' }} /></td>
+                    <td><Input type="number" value={d.agentMarkup} onChange={(e) => setField(i, 'agentMarkup', e.target.value)} style={{ height: 32, padding: '4px 6px' }} /></td>
+                    <td><Input type="number" value={d.serviceFee} onChange={(e) => setField(i, 'serviceFee', e.target.value)} style={{ height: 32, padding: '4px 6px' }} /></td>
+                    <td style={{ textAlign: 'right', fontWeight: 700 }}>{corrTotal(d).toLocaleString('ru-RU')} {cur}</td>
+                    <td><button className="btn btn-ghost btn-icon btn-sm" title="Предпросмотр" onClick={() => setActive(i)}><Icon name="eye" /></button></td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          {/* Предпросмотр активной строки */}
+          <PanelSub>Предпросмотр · {activeDoc.name}</PanelSub>
+          <div style={{ maxWidth: 560 }}><CorrectionPreview doc={activeDoc} template={template} entity={entity} currency={currency} /></div>
+        </>
+      )}
+
+      <CorrectionHistoryDrawer open={historyOpen} versions={versions} onClose={() => setHistoryOpen(false)} />
+    </StackPanel>
+  );
+}
+
+/* Панель «Отправить пассажиру» (ТЗ #4) — выбор канала и документов для отправки. */
+function SendToPaxDrawer({ open, passengers, onClose }) {
+  const toast = useToast();
+  const [channel, setChannel] = useState('email');
+  const CHANNELS = [['email', 'E-mail', 'mail'], ['whatsapp', 'WhatsApp', 'chat'], ['telegram', 'Telegram', 'send']];
+  return (
+    <Drawer open={open} onClose={onClose} title="Отправить пассажиру"
+      footer={<><Button variant="secondary" onClick={onClose}>Отмена</Button><Button icon="send" onClick={() => { toast('Документы отправлены пассажиру', 'ok'); onClose(); }}>Отправить</Button></>}>
+      <PanelSub style={{ marginTop: 0 }}>Канал отправки</PanelSub>
+      <div style={{ display: 'flex', gap: 8 }}>
+        {CHANNELS.map(([k, label, icon]) => (
+          <button key={k} type="button" className={'seg-btn' + (channel === k ? ' active' : '')} style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, padding: '10px' }} onClick={() => setChannel(k)}>
+            <Icon name={icon} style={{ width: 15, height: 15 }} />{label}
+          </button>
+        ))}
+      </div>
+      <PanelSub>Получатели</PanelSub>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+        {passengers.map((p, i) => (
+          <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 10, border: '1px solid var(--line)', borderRadius: 10, padding: '8px 12px' }}>
+            <Avatar name={p.name} size={30} />
+            <div style={{ flex: 1 }}><div style={{ fontWeight: 600 }}>{p.name}</div><div style={{ fontSize: 12.5, color: 'var(--muted)' }}>{p.ticket !== '—' ? 'Билет ' + p.ticket : 'Бронь ' + p.pnr}</div></div>
+            <Pill tone="blue">{p.docs.length} док.</Pill>
+          </div>
+        ))}
+      </div>
+    </Drawer>
+  );
+}
+
+function FlightCard({ svc, offer, onBack, onFormKp, onAttachOrder, onAttachPerson }) {
   const toast = useToast();
   const [tab, setTab] = useState('segments');
   // доп. услуги авиакомпании доступны и в карточке услуги — до и после выписки (боковое окно)
   const [extrasOpen, setExtrasOpen] = useState(false);
   const [extras, setExtras] = useState({ seats: {}, baggage: {}, meal: {}, insurance: {}, special: {}, comfort: {} });
+  const [refundOpen, setRefundOpen] = useState(false);
+  const [exchangeOpen, setExchangeOpen] = useState(false);
+  const [brandedOpen, setBrandedOpen] = useState(false);
+  const [sendOpen, setSendOpen] = useState(false);
   const air = svc ? svc.airline : (offer ? offer.airline : 'TK');
   const out = offer ? offer.out : { from: 'FRU', to: 'IST', dep: '04:15', arr: '08:40', date: '24 июн', dur: '6ч 25м', stopText: 'Прямой', flightNo: air + ' 131' };
   const back = offer ? offer.back : null;
-  const status = svc ? svc.status : 'Предложение';
+  const [status, setStatus] = useState(svc ? svc.status : 'Предложение');
   const no = svc ? svc.no : 'AV-' + Math.floor(10000 + Math.random() * 90000);
-  const pnr = svc ? svc.pnr : '—';
-  const ticket = svc ? svc.ticket : '—';
   const fare = offer ? offer.fare : (svc ? svc.sum : 0);
   const fee = offer ? offer.fee : 0;
+  const currency = (svc && svc.currency) || (offer && offer.currency) || 'USD';
+
+  const { issued, booked, offered, free } = flightStatusFlags(status, svc, offer);
+  const passengers = flightPassengers(svc, offer, status);
+  const pnr = passengers[0] ? passengers[0].pnr : (svc ? svc.pnr : '—');
+  const supplier = svc ? svc.supplier : (offer ? offer.supplier : '—');
+  // тайминг выписки для забронированной услуги (ТЗ #2)
+  const ticketingDeadline = 'сегодня 18:00';
 
   const TABS = [
-    { key: 'pax', label: 'Пассажиры', count: svc ? svc.pax : (offer ? 1 : 1) },
+    { key: 'pax', label: 'Пассажиры / билеты', count: svc ? svc.pax : (offer ? 1 : 1) },
     { key: 'segments', label: 'Сегменты' },
     { key: 'supplier', label: 'Поставщик / PNR' },
     { key: 'finance', label: 'Финансы' },
@@ -528,12 +1120,43 @@ function FlightCard({ svc, offer, onBack }) {
     { key: 'comments', label: 'Комментарии' },
     { key: 'history', label: 'История' },
   ];
-  const passengers = [
-    { name: 'Аттокуров Эрбол', type: 'Взрослый', doc: 'ID AC1234567', dob: '14.03.1990', ticket: ticket },
-    { name: 'Аттокурова Айгерим', type: 'Взрослый', doc: 'ID AC7654321', dob: '02.08.1992', ticket: '—' },
-  ].slice(0, svc ? Math.min(svc.pax, 2) : 1);
 
   const extrasPax = passengers.map((p) => ({ name: p.name, role: p.type }));
+
+  // Пункты выпадающего меню, зависящие от статуса услуги (ТЗ #4)
+  const bookedMenu = [
+    { icon: 'luggage', label: 'Снять места', onClick: () => toast('Места сняты') },
+    { icon: 'loader', label: 'Обновить статус бронирования', onClick: () => toast('Статус брони обновлён') },
+    { icon: 'api', label: 'Запросить статус у поставщика', onClick: () => toast('Запрос статуса отправлен') },
+    { icon: 'edit', label: 'Изменить бронирование', onClick: () => toast('Изменение бронирования') },
+    { icon: 'swap', label: 'Сменить поставщика', onClick: () => toast('Смена поставщика') },
+    { icon: 'user', label: 'Изменить пассажира (до выписки)', onClick: () => toast('Изменение пассажира') },
+    { icon: 'template', label: 'Добавить в коммерческое предложение', onClick: () => toast('Добавлено в КП') },
+    { icon: 'clock', label: 'История изменений', onClick: () => setTab('history') },
+    { sep: true },
+    { icon: 'trash', label: 'Аннулировать бронирование', danger: true, onClick: () => { setStatus('Аннуляция'); toast('Бронь аннулирована', 'err'); } },
+  ];
+  const issuedMenu = [
+    { icon: 'refund', label: 'Добровольный возврат', onClick: () => setRefundOpen(true) },
+    { icon: 'refund', label: 'Вынужденный возврат', onClick: () => setRefundOpen(true) },
+    { icon: 'refund', label: 'Частичный возврат', onClick: () => setRefundOpen(true) },
+    { icon: 'refund', label: 'Полный возврат', onClick: () => setRefundOpen(true) },
+    { sep: true },
+    { icon: 'swap', label: 'Добровольный обмен', onClick: () => setExchangeOpen(true) },
+    { icon: 'swap', label: 'Вынужденный обмен', onClick: () => setExchangeOpen(true) },
+    { sep: true },
+    { icon: 'template', label: 'Корректировка документов', onClick: () => setBrandedOpen(true) },
+    { icon: 'loader', label: 'Обновить статус билета', onClick: () => toast('Статус билета обновлён') },
+    { icon: 'api', label: 'Запросить статус у поставщика', onClick: () => toast('Запрос статуса отправлен') },
+    { sep: true },
+    { icon: 'trash', label: 'Аннулировать', danger: true, onClick: () => { setStatus('Аннуляция'); toast('Билет аннулирован', 'err'); } },
+  ];
+  const offerMenu = [
+    { icon: 'template', label: 'В коммерческое предложение', onClick: () => (onFormKp ? onFormKp() : toast('Добавлено в КП')) },
+    { icon: 'download', label: 'Скачать маршрут-квитанцию', onClick: () => toast('Загрузка…') },
+    { sep: true },
+    { icon: 'trash', label: 'Аннулировать', danger: true, onClick: () => toast('Предложение снято', 'err') },
+  ];
   return (
     <>
     <div className="fade-in">
@@ -543,32 +1166,62 @@ function FlightCard({ svc, offer, onBack }) {
       </div>
 
       {/* header card */}
-      <div className="card card-pad" style={{ display: 'flex', alignItems: 'center', gap: 18, marginBottom: 18 }}>
-        <AirlineLogo code={air} />
-        <div style={{ flex: 1 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <h2 className="card-title">{out.from} → {out.to}{back ? ' → ' + back.to : ''}</h2>
-            <Pill tone={AIR_STATUS[status] || 'gray'}>{status}</Pill>
+      <div className="card card-pad" style={{ marginBottom: 18 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 18, flexWrap: 'wrap' }}>
+          <AirlineLogo code={air} />
+          <div style={{ flex: '1 1 220px', minWidth: 0 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <h2 className="card-title" style={{ whiteSpace: 'nowrap' }}>{out.from} → {out.to}{back ? ' → ' + back.to : ''}</h2>
+              <Pill tone={AIR_STATUS[status] || 'gray'}>{status}</Pill>
+            </div>
+            <div style={{ color: 'var(--muted)', fontSize: 14, marginTop: 4 }}>{AIRLINES[air].name} · {out.flightNo} · вылет {out.date}</div>
           </div>
-          <div style={{ color: 'var(--muted)', fontSize: 14, marginTop: 4 }}>{AIRLINES[air].name} · {out.flightNo} · вылет {out.date}</div>
+          <div style={{ textAlign: 'right', flex: '0 0 auto' }}>
+            <div style={{ fontSize: 13, color: 'var(--muted)' }}>Итого к оплате</div>
+            <div style={{ fontSize: 26, fontWeight: 800, color: 'var(--ink)', whiteSpace: 'nowrap' }}>{(fare + fee).toLocaleString('ru-RU')} $</div>
+          </div>
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+            {/* Свободное бронирование (ТЗ #1): сформировать КП / привязать к заказу / к физлицу */}
+            {free && (<>
+              <Button icon="template" onClick={() => (onFormKp ? onFormKp() : toast('КП сформировано'))}>Сформировать КП</Button>
+              <ActionMenu trigger={<button className="btn btn-secondary">Привязать <Icon name="chevDown" style={{ width: 14, height: 14 }} /></button>}
+                items={[
+                  { icon: 'briefcase', label: 'Привязать к заказу', onClick: () => (onAttachOrder ? onAttachOrder() : toast('Привязано к заказу', 'ok')) },
+                  { icon: 'user', label: 'Привязать к физ. лицу', onClick: () => (onAttachPerson ? onAttachPerson() : toast('Привязано к физ. лицу', 'ok')) },
+                ]} />
+            </>)}
+            {/* Предложение → бронирование */}
+            {!free && offered && <Button icon="check" onClick={() => { setStatus('Забронировано'); toast('Забронировано, PNR создан', 'ok'); }}>Забронировать</Button>}
+            {/* Забронировано (ТЗ #4): выписать / доп.услуги / отправить + меню */}
+            {booked && (<>
+              <Button icon="ticket" onClick={() => { setStatus('Выписано'); toast('Билет выписан', 'ok'); }}>Выписать билет</Button>
+              <Button variant="secondary" icon="briefcase" onClick={() => setExtrasOpen(true)}>Доп. услуги</Button>
+              <Button variant="secondary" icon="send" onClick={() => setSendOpen(true)}>Отправить пассажиру</Button>
+              <ActionMenu trigger={<button className="btn btn-secondary btn-icon"><Icon name="more" /></button>} items={bookedMenu} />
+            </>)}
+            {/* Выписано (ТЗ #4): обмен / возврат / доп.услуги / отправить + меню */}
+            {issued && (<>
+              <Button icon="swap" onClick={() => setExchangeOpen(true)}>Обменять билет</Button>
+              <Button variant="secondary" icon="refund" onClick={() => setRefundOpen(true)}>Возврат</Button>
+              <Button variant="secondary" icon="briefcase" onClick={() => setExtrasOpen(true)}>Доп. услуги</Button>
+              <Button variant="secondary" icon="send" onClick={() => setSendOpen(true)}>Отправить пассажиру</Button>
+              <ActionMenu trigger={<button className="btn btn-secondary btn-icon"><Icon name="more" /></button>} items={issuedMenu} />
+            </>)}
+            {/* Предложение / прочие статусы — базовое меню */}
+            {!free && offered && <ActionMenu trigger={<button className="btn btn-secondary btn-icon"><Icon name="more" /></button>} items={offerMenu} />}
+          </div>
         </div>
-        <div style={{ textAlign: 'right' }}>
-          <div style={{ fontSize: 13, color: 'var(--muted)' }}>Итого к оплате</div>
-          <div style={{ fontSize: 26, fontWeight: 800, color: 'var(--ink)' }}>{(fare + fee).toLocaleString('ru-RU')} $</div>
-        </div>
-        <div style={{ display: 'flex', gap: 8 }}>
-          {status === 'Предложение' && <Button icon="check" onClick={() => toast('Отправлено на бронирование')}>Забронировать</Button>}
-          {status === 'Забронировано' && <Button icon="ticket" onClick={() => toast('Билет выписан')}>Выписать билет</Button>}
-          <Button variant="secondary" icon="briefcase" onClick={() => setExtrasOpen(true)}>Доп. услуги</Button>
-          <ActionMenu trigger={<button className="btn btn-secondary btn-icon"><Icon name="more" /></button>}
-            items={[
-              { icon: 'template', label: 'В коммерческое предложение', onClick: () => toast('Добавлено в КП') },
-              { icon: 'download', label: 'Скачать маршрут-квитанцию', onClick: () => toast('Загрузка…') },
-              { icon: 'refund', label: 'Оформить возврат', onClick: () => toast('Открыт модуль возврата') },
-              { sep: true },
-              { icon: 'trash', label: 'Аннулировать', danger: true, onClick: () => toast('Бронь аннулирована', 'err') },
-            ]} />
-        </div>
+
+        {/* Под маршрутом: PNR, № билета, поставщик + тайминг выписки (ТЗ #2, #3) */}
+        {(booked || issued) && (
+          <div className="fc-meta" style={{ display: 'flex', flexWrap: 'wrap', gap: '10px 28px', marginTop: 16, paddingTop: 16, borderTop: '1px solid var(--line)' }}>
+            <div className="fc-meta-item"><div style={{ fontSize: 12, color: 'var(--muted)' }}>Рейс</div><div style={{ fontWeight: 600, color: 'var(--ink)' }}>{AIRLINES[air].name} • {out.flightNo}</div></div>
+            <div className="fc-meta-item"><div style={{ fontSize: 12, color: 'var(--muted)' }}>PNR (код брони)</div><div style={{ fontWeight: 600, color: 'var(--ink)', fontFamily: 'monospace', letterSpacing: '.03em' }}>{pnr}</div></div>
+            {issued && <div className="fc-meta-item"><div style={{ fontSize: 12, color: 'var(--muted)' }}>Пассажир / билет</div><div style={{ fontWeight: 600, color: 'var(--ink)' }}>{passengers[0].name.split(' ')[0]} · {passengers[0].ticket}</div></div>}
+            <div className="fc-meta-item"><div style={{ fontSize: 12, color: 'var(--muted)' }}>Поставщик</div><div style={{ fontWeight: 600, color: 'var(--ink)' }}>{supplier}</div></div>
+            {booked && <div className="fc-meta-item"><div style={{ fontSize: 12, color: 'var(--muted)' }}>Тайминг выписки</div><TimeLimitBadge>{ticketingDeadline}</TimeLimitBadge></div>}
+          </div>
+        )}
       </div>
 
       <div style={{ marginBottom: 18, overflowX: 'auto' }}>
@@ -595,15 +1248,52 @@ function FlightCard({ svc, offer, onBack }) {
         </div>
       )}
 
+      {/* ТЗ #5 — у каждого пассажира свой набор: № билета, PNR, документы и действия с билетом */}
       {tab === 'pax' && (
-        <div className="table-card">
-          <table className="tbl">
-            <thead><tr><th>Пассажир</th><th>Тип</th><th>Документ</th><th>Дата рожд.</th><th>Номер билета</th></tr></thead>
-            <tbody>{passengers.map((p, i) => (
-              <tr key={i}><td style={{ fontWeight: 600 }}>{p.name}</td><td>{p.type}</td><td>{p.doc}</td><td>{p.dob}</td>
-                <td>{p.ticket === '—' ? <span style={{ color: 'var(--muted-2)' }}>не выписан</span> : p.ticket}</td></tr>
-            ))}</tbody>
-          </table>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+          {passengers.map((p, i) => {
+            const paxActions = issued
+              ? [
+                  { icon: 'download', label: 'Маршрут-квитанция', onClick: () => toast('Маршрут-квитанция ' + p.name) },
+                  { icon: 'ticket', label: 'Электронный билет', onClick: () => toast('Электронный билет ' + p.name) },
+                  { sep: true },
+                  { icon: 'refund', label: 'Возврат билета', onClick: () => setRefundOpen(true) },
+                  { icon: 'swap', label: 'Обмен билета', onClick: () => setExchangeOpen(true) },
+                ]
+              : [
+                  { icon: 'user', label: 'Изменить пассажира', onClick: () => toast('Изменение пассажира') },
+                  { icon: 'download', label: 'Подтверждение брони', onClick: () => toast('Подтверждение брони ' + p.name) },
+                ];
+            return (
+              <div key={i} className="card card-pad">
+                <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 14 }}>
+                  <Avatar name={p.name} size={40} />
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontWeight: 700, color: 'var(--ink)' }}>{p.name}</div>
+                    <div style={{ fontSize: 13, color: 'var(--muted)' }}>{p.type} · {p.doc} · {p.dob}</div>
+                  </div>
+                  <Pill tone={p.ticket === '—' ? 'amber' : 'green'}>{p.ticket === '—' ? 'Ожидает выписки' : 'Билет выписан'}</Pill>
+                  <ActionMenu trigger={<button className="btn btn-secondary btn-sm">Действия с билетом <Icon name="chevDown" style={{ width: 14, height: 14 }} /></button>} items={paxActions} />
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12, paddingTop: 12, borderTop: '1px solid var(--line)' }}>
+                  <div><div style={{ fontSize: 12, color: 'var(--muted)' }}>Номер билета</div><div style={{ fontWeight: 600, color: p.ticket === '—' ? 'var(--muted-2)' : 'var(--ink)' }}>{p.ticket === '—' ? 'не выписан' : p.ticket}</div></div>
+                  <div><div style={{ fontSize: 12, color: 'var(--muted)' }}>PNR (код брони)</div><div style={{ fontWeight: 600, fontFamily: 'monospace', color: 'var(--ink)' }}>{p.pnr}</div></div>
+                  <div><div style={{ fontSize: 12, color: 'var(--muted)' }}>Тип</div><div style={{ fontWeight: 600, color: 'var(--ink)' }}>{p.type}</div></div>
+                </div>
+                <div style={{ marginTop: 12 }}>
+                  <div style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 6 }}>Документы</div>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                    {p.docs.map((d) => (
+                      <button key={d} className="doc-chip" style={{ width: 'auto', flex: '0 0 auto' }} onClick={() => toast('Документ: ' + d)}>
+                        <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}><Icon name="docs" style={{ width: 15, height: 15 }} />{d}</span>
+                        <Icon name="download" style={{ width: 15, height: 15 }} />
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            );
+          })}
         </div>
       )}
 
@@ -679,6 +1369,10 @@ function FlightCard({ svc, offer, onBack }) {
         <ExtrasTabs pax={extrasPax} state={extras} set={setExtras} embedded />
       </StackPanel>
     )}
+    {refundOpen && <RefundPanel passengers={passengers} base={fare + fee} currency={currency} onClose={() => setRefundOpen(false)} onDone={() => setStatus('Возврат')} />}
+    {exchangeOpen && <ExchangePanel passengers={passengers} base={fare + fee} currency={currency} onClose={() => setExchangeOpen(false)} onDone={() => setStatus('Обмен')} />}
+    {brandedOpen && <DocCorrectionPanel passengers={passengers} offer={offer} svc={svc} currency={currency} orderNo={svc ? svc.order : null} onClose={() => setBrandedOpen(false)} />}
+    <SendToPaxDrawer open={sendOpen} passengers={passengers} onClose={() => setSendOpen(false)} />
     </>
   );
 }
