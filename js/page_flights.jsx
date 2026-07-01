@@ -1107,6 +1107,7 @@ function FlightCard({ svc, offer, onBack, onFormKp, onAttachOrder, onAttachPerso
   const { issued, booked, offered, free } = flightStatusFlags(status, svc, offer);
   const passengers = flightPassengers(svc, offer, status);
   const pnr = passengers[0] ? passengers[0].pnr : (svc ? svc.pnr : '—');
+  const ticket = passengers[0] ? passengers[0].ticket : (svc ? svc.ticket : '—');
   const supplier = svc ? svc.supplier : (offer ? offer.supplier : '—');
   // тайминг выписки для забронированной услуги (ТЗ #2)
   const ticketingDeadline = 'сегодня 18:00';
