@@ -310,6 +310,9 @@ function OfferCard({ o, picked, onPick, onSelect, onSave, onCompare, compared })
           <span className={'off-tag ' + (o.refundable ? 'ok' : 'no')}><Icon name={o.refundable ? 'refund' : 'x'} />{o.refundable ? 'Возвратный' : 'Невозвратный'}</span>
           {o.seatsLeft <= 5 && <span className="off-tag no"><Icon name="alertCircle" />Осталось {o.seatsLeft} мест</span>}
         </div>
+        <div style={{ marginTop: 10 }}>
+          <FareRulesInfo airline={o.airline} fareName={o.fareName} refundable={o.refundable} baggage={o.baggage} />
+        </div>
       </div>
       <div className="off-side">
         <div>
@@ -499,6 +502,43 @@ function SegmentRow({ leg }) {
         <div style={{ fontSize: 13.5, color: 'var(--muted)', margin: '3px 0' }}>{leg.flightNo} · {leg.dur} · {leg.stopText}</div>
         <div style={{ fontSize: 13.5, color: 'var(--ink)' }}>Прибытие {leg.arr}, {leg.date}</div>
       </div>
+    </div>
+  );
+}
+
+/* Блок «Правила тарифа» — публикуемые авиакомпанией условия применённого тарифа.
+   Разворачивается в описании тарифа перелёта (напоминание клиента). Данные — от авиакомпании. */
+function FareRulesInfo({ airline, fareName, refundable = true, baggage = '23 кг' }) {
+  const [open, setOpen] = useState(false);
+  const air = airline && AIRLINES[airline];
+  const name = fareName || 'Economy';
+  const pub = [
+    { k: 'Обмен', v: refundable ? 'разрешён, сбор от 25 $' : 'платно, по правилам тарифа', tone: refundable ? 'green' : 'amber' },
+    { k: 'Возврат', v: refundable ? 'разрешён со сбором' : 'невозвратный', tone: refundable ? 'green' : 'red' },
+    { k: 'Ручная кладь', v: '10 кг' },
+    { k: 'Багаж', v: baggage },
+    { k: 'Срок действия билета', v: 'до 12 месяцев с даты оформления' },
+    { k: 'Тайм-лимит на выписку', v: 'до 24 часов после бронирования' },
+    { k: 'Класс бронирования', v: 'по применённому тарифу' },
+  ];
+  return (
+    <div className={'fare-rules' + (open ? ' open' : '')} onClick={(e) => e.stopPropagation()}>
+      <button type="button" className="fare-rules-head" onClick={() => setOpen((o) => !o)}>
+        <Icon name="docs" style={{ width: 14, height: 14 }} />
+        <span>Правила тарифа</span>
+        <Icon name={open ? 'chevUp' : 'chevDown'} style={{ width: 14, height: 14, marginLeft: 'auto' }} />
+      </button>
+      {open && (
+        <div className="fare-rules-body">
+          <div className="fare-rules-src"><Icon name="api" style={{ width: 12, height: 12 }} />{(air ? air.name : 'Авиакомпания')} · публикуемые условия тарифа «{name}»</div>
+          {pub.map((r, i) => (
+            <div className="fare-rules-row" key={i}>
+              <span className="frr-k">{r.k}</span>
+              <span className={'frr-v' + (r.tone ? ' t-' + r.tone : '')}>{r.v}</span>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
@@ -1603,6 +1643,11 @@ function FlightCard({ svc, offer, onBack, onFormKp, onAttachOrder, onAttachPerso
               <div className="kv-row"><span className="k">Багаж</span><span className="v">{offer ? offer.baggage : '23 кг'}</span></div>
               <div className="kv-row"><span className="k">Возврат</span><span className="v">{offer ? (offer.refundable ? 'Возвратный' : 'Невозвратный') : '—'}</span></div>
               <div className="kv-row"><span className="k">Тайм-лимит</span><span className="v"><TimeLimitBadge>сегодня 18:00</TimeLimitBadge></span></div>
+            </div>
+            {/* Правила тарифа — публикуемые авиакомпанией условия (напоминание клиента) */}
+            <div style={{ marginTop: 12 }}>
+              <FareRulesInfo airline={air} fareName={offer ? offer.fareName : 'Economy'}
+                refundable={offer ? offer.refundable : true} baggage={offer ? offer.baggage : '23 кг'} />
             </div>
           </div>
         </div>
