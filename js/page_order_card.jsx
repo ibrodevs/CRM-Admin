@@ -442,7 +442,6 @@ function TabParticipants({ list, isGroup, groups, fresh, onPassport, onAdd }) {
           <div style={{ flex: 1, fontSize: 13.5, color: 'var(--body)' }}>
             <b style={{ color: 'var(--ink)' }}>Новый заказ.</b> Добавьте участников и их документы здесь — это нужно для выписки билетов и проверки виз.
           </div>
-          <Button size="sm" icon="plus" onClick={onAdd}>Добавить участника</Button>
         </div>
       )}
       {isGroup && (
