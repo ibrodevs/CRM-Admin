@@ -4,10 +4,57 @@
    сформировать КП, привязать к существующему заказу или к физ.лицу. */
 function FreeBookingFinalize({ draft, onClose, onDone }) {
   const toast = useToast();
+  const [step, setStep] = useState('menu');   // menu | order | person | kp
+  const [q, setQ] = useState('');
   const svcTitle = (x) => x.title || x.route || x.fareName || (x.from && x.to ? x.from + ' → ' + x.to : x.kind || 'Услуга');
   const svcSum = (x) => x.fareDeltaUsd || x.total || x.cost || x.price || x.sum || 0;
   const total = draft.reduce((s, x) => s + svcSum(x), 0);
   const finish = (msg) => { toast(msg, 'ok'); onDone(); };
+
+  // Выбор существующего заказа для привязки
+  if (step === 'order') {
+    const rows = ORDERS.filter((o) => `${o.no} ${o.client}`.toLowerCase().includes(q.toLowerCase())).slice(0, 20);
+    return (
+      <Drawer open onClose={onClose} title="Привязать к заказу"
+        footer={<Button variant="secondary" style={{ width: '100%' }} onClick={() => setStep('menu')}>Назад</Button>}>
+        <SearchBox value={q} onChange={setQ} placeholder="Поиск: № заказа или клиент" style={{ width: '100%', marginBottom: 12 }} />
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          {rows.map((o) => (
+            <button key={o.id} type="button" className="oce-client" style={{ cursor: 'pointer', width: '100%', textAlign: 'left', border: '1px solid var(--line)', background: '#fff', borderRadius: 12, padding: '10px 12px', display: 'flex', alignItems: 'center', gap: 12 }}
+              onClick={() => finish('Услуги привязаны к заказу № ' + o.no)}>
+              <span className="oc-svc-ic" style={{ background: 'var(--blue)', width: 34, height: 34 }}><Icon name="briefcase" /></span>
+              <div style={{ flex: 1, minWidth: 0 }}><div className="nm" style={{ fontWeight: 600 }}>Заказ № {o.no}</div><div className="mt" style={{ fontSize: 12.5, color: 'var(--muted)' }}>{o.client} · {o.requestType}</div></div>
+              <Icon name="chevRight" style={{ width: 18, height: 18, color: 'var(--muted-2)' }} />
+            </button>
+          ))}
+          {!rows.length && <EmptyState icon="briefcase" title="Заказы не найдены" />}
+        </div>
+      </Drawer>
+    );
+  }
+
+  // Выбор физ. лица (клиента) для привязки
+  if (step === 'person') {
+    const list = CLIENTS.filter((c) => c.toLowerCase().includes(q.toLowerCase()));
+    return (
+      <Drawer open onClose={onClose} title="Привязать к физ. лицу"
+        footer={<Button variant="secondary" style={{ width: '100%' }} onClick={() => setStep('menu')}>Назад</Button>}>
+        <SearchBox value={q} onChange={setQ} placeholder="Поиск клиента" style={{ width: '100%', marginBottom: 12 }} />
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          {list.map((c) => (
+            <button key={c} type="button" style={{ cursor: 'pointer', width: '100%', textAlign: 'left', border: '1px solid var(--line)', background: '#fff', borderRadius: 12, padding: '10px 12px', display: 'flex', alignItems: 'center', gap: 12 }}
+              onClick={() => finish('Услуги привязаны к клиенту: ' + c)}>
+              <Avatar name={c} size={34} />
+              <div style={{ flex: 1, minWidth: 0, fontWeight: 600, color: 'var(--ink)' }}>{c}</div>
+              <Icon name="chevRight" style={{ width: 18, height: 18, color: 'var(--muted-2)' }} />
+            </button>
+          ))}
+          {!list.length && <EmptyState icon="user" title="Клиенты не найдены" />}
+        </div>
+      </Drawer>
+    );
+  }
+
   return (
     <Drawer open onClose={onClose} title="Оформление свободного бронирования"
       footer={<Button variant="secondary" style={{ width: '100%' }} onClick={onClose}>Закрыть</Button>}>
@@ -29,9 +76,9 @@ function FreeBookingFinalize({ draft, onClose, onDone }) {
       </div>
       <PanelSub style={{ marginTop: 0 }}>Итог</PanelSub>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-        <Button icon="template" style={{ width: '100%' }} onClick={() => finish('Коммерческое предложение сформировано')}>Сформировать КП</Button>
-        <Button variant="secondary" icon="briefcase" style={{ width: '100%' }} onClick={() => finish('Услуги привязаны к заказу')}>Привязать к заказу</Button>
-        <Button variant="secondary" icon="user" style={{ width: '100%' }} onClick={() => finish('Услуги привязаны к физ. лицу')}>Привязать к физ. лицу</Button>
+        <Button icon="template" style={{ width: '100%' }} onClick={() => finish('Коммерческое предложение КП-' + (1040 + Math.floor(Math.random() * 60)) + ' сформировано')}>Сформировать КП</Button>
+        <Button variant="secondary" icon="briefcase" style={{ width: '100%' }} onClick={() => { setQ(''); setStep('order'); }}>Привязать к заказу</Button>
+        <Button variant="secondary" icon="user" style={{ width: '100%' }} onClick={() => { setQ(''); setStep('person'); }}>Привязать к физ. лицу</Button>
       </div>
     </Drawer>
   );

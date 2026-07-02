@@ -543,21 +543,24 @@ function flightPassengers(svc, offer, status) {
 function RefundPanel({ passengers, base, currency, onClose, onDone }) {
   const toast = useToast();
   const [voluntary, setVoluntary] = useState(true);
-  const [scope, setScope] = useState('full');            // full | partial
-  const [sel, setSel] = useState(passengers.map((_, i) => i));
+  const [sel, setSel] = useState(passengers.map((_, i) => i));   // выбор пассажиров для возврата (ответ клиента)
+  const [docs, setDocs] = useState([]);                          // подгружаемые документы (вынужденный возврат)
   const [calc, setCalc] = useState(null);
   const perTicket = base / Math.max(1, passengers.length);
-  const chosen = scope === 'full' ? passengers.map((_, i) => i) : sel;
   const toggle = (i) => setSel((s) => s.includes(i) ? s.filter((x) => x !== i) : [...s, i]);
+  const allSel = sel.length === passengers.length;
+  const scope = allSel ? 'полный' : 'частичный';
+  const addDoc = () => setDocs((d) => [...d, { name: 'Документ ' + (d.length + 1) + '.pdf' }]);
   const doCalc = () => {
-    const cnt = chosen.length;
+    const cnt = sel.length;
     if (!cnt) { toast('Выберите хотя бы одного пассажира', 'err'); return; }
+    if (!voluntary && !docs.length) { toast('Приложите документ-основание для вынужденного возврата', 'err'); return; }
     const gross = Math.round(perTicket * cnt);
     const penalty = voluntary ? Math.round(gross * 0.15) : 0; // вынужденный возврат — без штрафа
     const fee = voluntary ? 15 : 0;                           // сервисный сбор агентства
     setCalc({ cnt, gross, penalty, fee, refund: Math.max(0, gross - penalty - fee) });
   };
-  useEffect(() => { setCalc(null); }, [voluntary, scope, sel]);
+  useEffect(() => { setCalc(null); }, [voluntary, sel, docs]);
   const cur = ' ' + (currency === 'USD' ? '$' : currency);
   return (
     <StackPanel title="Оформление возврата" width="min(680px,96vw)" onClose={onClose}
@@ -577,21 +580,43 @@ function RefundPanel({ passengers, base, currency, onClose, onDone }) {
         {voluntary ? 'Удерживается штраф авиакомпании и сервисный сбор.' : 'Вынужденный возврат — по правилам без штрафа (болезнь, отмена рейса и т.п.).'}
       </div>
 
-      <PanelSub>Объём</PanelSub>
-      <div className="seg-toggle">
-        <button className={'seg-btn' + (scope === 'full' ? ' active' : '')} onClick={() => setScope('full')}>Полный возврат</button>
-        <button className={'seg-btn' + (scope === 'partial' ? ' active' : '')} onClick={() => setScope('partial')}>Частичный возврат</button>
+      {/* Выбор пассажиров, на кого оформляется возврат (ответ клиента #2) */}
+      <PanelSub>Пассажиры <span style={{ fontWeight: 400, textTransform: 'none', letterSpacing: 0 }}>· {scope} возврат</span></PanelSub>
+      <label className="hp-check-row" style={{ marginBottom: 6 }}>
+        <Checkbox on={allSel} onChange={() => setSel(allSel ? [] : passengers.map((_, i) => i))} />
+        <span className="hp-check-label" style={{ flex: 1, fontWeight: 600 }}>Выбрать всех</span>
+      </label>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+        {passengers.map((p, i) => (
+          <label key={i} className="hp-check-row" style={{ border: '1px solid ' + (sel.includes(i) ? 'var(--blue)' : 'var(--line)'), borderRadius: 10, padding: '8px 12px' }}>
+            <Checkbox on={sel.includes(i)} onChange={() => toggle(i)} />
+            <span className="hp-check-label" style={{ flex: 1 }}>{p.name}</span>
+            <span style={{ fontSize: 12.5, color: 'var(--muted)' }}>{p.ticket}</span>
+          </label>
+        ))}
       </div>
-      {scope === 'partial' && (
-        <div style={{ marginTop: 12, display: 'flex', flexDirection: 'column', gap: 8 }}>
-          {passengers.map((p, i) => (
-            <label key={i} className="hp-check-row" style={{ border: '1px solid var(--line)', borderRadius: 10, padding: '8px 12px' }}>
-              <Checkbox on={sel.includes(i)} onChange={() => toggle(i)} />
-              <span className="hp-check-label" style={{ flex: 1 }}>{p.name}</span>
-              <span style={{ fontSize: 12.5, color: 'var(--muted)' }}>{p.ticket}</span>
-            </label>
-          ))}
-        </div>
+
+      {/* Загрузка документов-оснований при вынужденном возврате (ответ клиента #2) */}
+      {!voluntary && (
+        <>
+          <PanelSub>Документы-основания</PanelSub>
+          <div className="card" style={{ padding: 14, borderLeft: '3px solid var(--amber)', background: 'var(--amber-soft, #fff8ec)', marginBottom: 10, display: 'flex', gap: 10 }}>
+            <Icon name="alertCircle" style={{ width: 18, height: 18, color: 'var(--amber)', flexShrink: 0 }} />
+            <div style={{ fontSize: 12.5, color: 'var(--body)' }}>Приложите справки/подтверждающие документы. <b>Ознакомьтесь с правилами авиакомпании по документам</b> для вынужденного возврата (мед. справка, свидетельство и т.п.).</div>
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            {docs.map((d, i) => (
+              <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8, border: '1px solid var(--line)', borderRadius: 10, padding: '8px 12px' }}>
+                <Icon name="docs" style={{ width: 16, height: 16, color: 'var(--blue)' }} />
+                <span style={{ flex: 1, fontSize: 13.5 }}>{d.name}</span>
+                <button className="btn btn-ghost btn-icon btn-sm" onClick={() => setDocs((x) => x.filter((_, j) => j !== i))}><Icon name="trash" /></button>
+              </div>
+            ))}
+            <button className="doc-chip" style={{ borderStyle: 'dashed', color: 'var(--blue)', width: '100%' }} onClick={addDoc}>
+              <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}><Icon name="plus" style={{ width: 15, height: 15 }} />Загрузить документ</span>
+            </button>
+          </div>
+        </>
       )}
 
       {calc && (
@@ -611,32 +636,37 @@ function RefundPanel({ passengers, base, currency, onClose, onDone }) {
 
 /* Панель «Обмен» (ТЗ #4): тип (добровольный/вынужденный), сценарий (доплата/возврат разницы),
    расчёт стоимости обмена и подтверждение. */
-function ExchangePanel({ passengers, base, currency, onClose, onDone }) {
+function ExchangePanel({ passengers, base, currency, origin, dest, onClose, onDone }) {
   const toast = useToast();
   const [voluntary, setVoluntary] = useState(true);
   const [mode, setMode] = useState('surcharge');   // surcharge | refundDiff
+  const [reqMode, setReqMode] = useState('request'); // request (запросить у АК) | now (провести сразу)
+  const [sel, setSel] = useState(passengers.map((_, i) => i)); // на кого производится обмен (ответ клиента)
+  const [nf, setNf] = useState({ from: origin || '', to: dest || '', date: null, flightNo: '' }); // новый рейс — форма как при поиске перелёта, без выбора пассажира
   const [newFare, setNewFare] = useState('');
   const [calc, setCalc] = useState(null);
+  const toggle = (i) => setSel((s) => s.includes(i) ? s.filter((x) => x !== i) : [...s, i]);
+  const allSel = sel.length === passengers.length;
   const cur = ' ' + (currency === 'USD' ? '$' : currency);
   const doCalc = () => {
-    const nf = parseFloat(newFare);
-    if (isNaN(nf)) { toast('Укажите стоимость нового тарифа', 'err'); return; }
-    const diff = Math.round(nf - base);
-    const penalty = voluntary ? 25 : 0;             // сбор за обмен
-    if (mode === 'surcharge') {
-      setCalc({ diff, penalty, payable: Math.max(0, diff) + penalty, refundable: 0 });
-    } else {
-      setCalc({ diff, penalty, payable: penalty, refundable: Math.max(0, -diff) });
-    }
+    if (!sel.length) { toast('Выберите пассажиров для обмена', 'err'); return; }
+    if (!nf.to || !nf.date) { toast('Заполните новый рейс (направление и дату)', 'err'); return; }
+    const f = parseFloat(newFare);
+    if (isNaN(f)) { toast('Укажите стоимость нового тарифа', 'err'); return; }
+    const diff = Math.round((f - base) * (sel.length / Math.max(1, passengers.length)));
+    const penalty = (voluntary ? 25 : 0) * sel.length;             // сбор за обмен
+    if (mode === 'surcharge') setCalc({ cnt: sel.length, diff, penalty, payable: Math.max(0, diff) + penalty, refundable: 0 });
+    else setCalc({ cnt: sel.length, diff, penalty, payable: penalty, refundable: Math.max(0, -diff) });
   };
-  useEffect(() => { setCalc(null); }, [voluntary, mode, newFare]);
+  useEffect(() => { setCalc(null); }, [voluntary, mode, newFare, sel, nf]);
+  const confirmLabel = reqMode === 'request' ? 'Запросить обмен у авиакомпании' : 'Провести обмен';
   return (
-    <StackPanel title="Обмен билета" width="min(680px,96vw)" onClose={onClose}
+    <StackPanel title="Обмен билета" width="min(720px,96vw)" onClose={onClose}
       footer={<>
         <Button variant="secondary" style={{ flex: 1 }} onClick={doCalc}>Рассчитать стоимость обмена</Button>
         <Button icon="check" style={{ flex: 1 }} disabled={!calc}
-          onClick={() => { if (!calc) return; onDone && onDone(); toast('Обмен подтверждён и отправлен поставщику', 'ok'); onClose(); }}>
-          Подтвердить обмен
+          onClick={() => { if (!calc) return; onDone && onDone(); toast(reqMode === 'request' ? 'Запрос на обмен отправлен авиакомпании' : 'Обмен проведён', 'ok'); onClose(); }}>
+          {confirmLabel}
         </Button>
       </>}>
       <PanelSub style={{ marginTop: 0 }}>Тип обмена</PanelSub>
@@ -644,14 +674,48 @@ function ExchangePanel({ passengers, base, currency, onClose, onDone }) {
         <button className={'seg-btn' + (voluntary ? ' active' : '')} onClick={() => setVoluntary(true)}>Добровольный</button>
         <button className={'seg-btn' + (!voluntary ? ' active' : '')} onClick={() => setVoluntary(false)}>Вынужденный</button>
       </div>
-
-      <PanelSub>Сценарий</PanelSub>
-      <div className="seg-toggle">
-        <button className={'seg-btn' + (mode === 'surcharge' ? ' active' : '')} onClick={() => setMode('surcharge')}>Обмен с доплатой</button>
-        <button className={'seg-btn' + (mode === 'refundDiff' ? ' active' : '')} onClick={() => setMode('refundDiff')}>Обмен с возвратом разницы</button>
+      <div className="card" style={{ padding: 12, borderLeft: '3px solid var(--amber)', marginTop: 8, display: 'flex', gap: 10 }}>
+        <Icon name="alertCircle" style={{ width: 18, height: 18, color: 'var(--amber)', flexShrink: 0 }} />
+        <div style={{ fontSize: 12.5, color: 'var(--body)' }}>Проверьте <b>правила авиакомпании по обмену</b>: допустимость изменения даты/маршрута, сбор за обмен и разница тарифа зависят от условий применённого тарифа.</div>
       </div>
 
-      <div style={{ marginTop: 16 }}>
+      {/* Выбор пассажиров для обмена (ответ клиента #2) */}
+      <PanelSub>Пассажиры</PanelSub>
+      <label className="hp-check-row" style={{ marginBottom: 6 }}>
+        <Checkbox on={allSel} onChange={() => setSel(allSel ? [] : passengers.map((_, i) => i))} />
+        <span className="hp-check-label" style={{ flex: 1, fontWeight: 600 }}>Выбрать всех</span>
+      </label>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+        {passengers.map((p, i) => (
+          <label key={i} className="hp-check-row" style={{ border: '1px solid ' + (sel.includes(i) ? 'var(--blue)' : 'var(--line)'), borderRadius: 10, padding: '8px 12px' }}>
+            <Checkbox on={sel.includes(i)} onChange={() => toggle(i)} />
+            <span className="hp-check-label" style={{ flex: 1 }}>{p.name}</span>
+            <span style={{ fontSize: 12.5, color: 'var(--muted)' }}>{p.ticket}</span>
+          </label>
+        ))}
+      </div>
+
+      {/* Новый рейс — та же форма заполнения перелёта, но без выбора пассажира (ответ клиента #2) */}
+      <PanelSub>Новый рейс</PanelSub>
+      <div className="svcp-search-bar" style={{ flexWrap: 'wrap', gap: 10 }}>
+        <AirportField label="Откуда" value={nf.from} onChange={(v) => setNf((s) => ({ ...s, from: v }))} />
+        <AirportField label="Куда" value={nf.to} onChange={(v) => setNf((s) => ({ ...s, to: v }))} />
+        <div className="av-field" style={{ minWidth: 150 }}><DateField label="Дата вылета" value={nf.date} onChange={(d) => setNf((s) => ({ ...s, date: d }))} placeholder="Выбрать" /></div>
+        <div className="av-field" style={{ minWidth: 140 }}><span className="label">Рейс (если известен)</span><Input value={nf.flightNo} onChange={(e) => setNf((s) => ({ ...s, flightNo: e.target.value }))} placeholder="напр. KC 132" /></div>
+      </div>
+
+      <PanelSub>Как оформить</PanelSub>
+      <div className="seg-toggle">
+        <button className={'seg-btn' + (reqMode === 'request' ? ' active' : '')} onClick={() => setReqMode('request')}>Запросить у авиакомпании</button>
+        <button className={'seg-btn' + (reqMode === 'now' ? ' active' : '')} onClick={() => setReqMode('now')}>Провести сразу</button>
+      </div>
+
+      <PanelSub>Расчёт</PanelSub>
+      <div className="seg-toggle">
+        <button className={'seg-btn' + (mode === 'surcharge' ? ' active' : '')} onClick={() => setMode('surcharge')}>С доплатой</button>
+        <button className={'seg-btn' + (mode === 'refundDiff' ? ' active' : '')} onClick={() => setMode('refundDiff')}>С возвратом разницы</button>
+      </div>
+      <div style={{ marginTop: 12 }}>
         <Field label="Стоимость нового тарифа" hint={'Текущий тариф: ' + base.toLocaleString('ru-RU') + cur}>
           <Input type="number" value={newFare} onChange={(e) => setNewFare(e.target.value)} placeholder="0" />
         </Field>
@@ -660,6 +724,7 @@ function ExchangePanel({ passengers, base, currency, onClose, onDone }) {
       {calc && (
         <div className="card card-pad" style={{ marginTop: 8 }}>
           <div className="kv">
+            <div className="kv-row"><span className="k">Билетов к обмену</span><span className="v">{calc.cnt}</span></div>
             <div className="kv-row"><span className="k">Разница тарифа</span><span className="v" style={{ color: calc.diff >= 0 ? 'var(--red)' : 'var(--green)' }}>{calc.diff >= 0 ? '+ ' : '− '}{Math.abs(calc.diff).toLocaleString('ru-RU')}{cur}</span></div>
             <div className="kv-row"><span className="k">Сбор за обмен</span><span className="v">{calc.penalty ? '+ ' + calc.penalty.toLocaleString('ru-RU') + cur : '—'}</span></div>
             <div className="kv-row"><span className="k" style={{ fontWeight: 700, color: 'var(--ink)' }}>К доплате клиентом</span><span className="v" style={{ fontSize: 18 }}>{calc.payable.toLocaleString('ru-RU')}{cur}</span></div>
@@ -687,19 +752,21 @@ const DOC_TEMPLATES = [
 const AGENCY_ENTITIES = ['ОсОО «ПСЦ Travel Hub»', 'ОсОО «Гранд Лимитед»', 'ИП Акимова А.Т.'];
 // Словарь по типам услуг — корректировка применима не только к авиа, но и к другим услугам.
 // Задаёт подписи полей источника (у отеля «Гость/Ваучер/Код брони», у ЖД «Пассажир/Билет/Заказ» и т.д.).
+// mode: 'avia' — детальные таксы + закрытие тарифа на IT; 'rail' — чёткий перенос бланка + цена;
+//       'hotel' — редактирование описания бланка + цена; 'other' — описание + стоимость.
 const DOC_CORR_KINDS = {
-  'Авиа':      { subjectLabel: 'Пассажир',      docNoLabel: 'Номер билета', refLabel: 'PNR',       carrierLabel: 'Авиакомпания', docTitle: 'Маршрут-квитанция электронного билета' },
-  'Гостиница': { subjectLabel: 'Гость',         docNoLabel: 'Ваучер №',     refLabel: 'Код брони', carrierLabel: 'Отель',        docTitle: 'Ваучер на проживание' },
-  'ЖД':        { subjectLabel: 'Пассажир',      docNoLabel: 'Билет №',      refLabel: 'Заказ №',   carrierLabel: 'Перевозчик',   docTitle: 'Проездной документ (ЖД)' },
-  'Трансфер':  { subjectLabel: 'Пассажир',      docNoLabel: 'Ваучер №',     refLabel: 'Заказ №',   carrierLabel: 'Перевозчик',   docTitle: 'Ваучер на трансфер' },
-  'Автобус':   { subjectLabel: 'Пассажир',      docNoLabel: 'Билет №',      refLabel: 'Заказ №',   carrierLabel: 'Перевозчик',   docTitle: 'Автобусный билет' },
-  'Страховка': { subjectLabel: 'Застрахованный',docNoLabel: 'Полис №',      refLabel: 'Договор №', carrierLabel: 'Страховщик',   docTitle: 'Страховой полис' },
-  'Виза':      { subjectLabel: 'Заявитель',     docNoLabel: 'Заявка №',     refLabel: 'Досье №',   carrierLabel: 'Визовый центр',docTitle: 'Визовый документ' },
-  'Тур':       { subjectLabel: 'Турист',        docNoLabel: 'Ваучер №',     refLabel: 'Код брони', carrierLabel: 'Туроператор',  docTitle: 'Ваучер на тур' },
-  'Группа':    { subjectLabel: 'Турист',        docNoLabel: 'Ваучер №',     refLabel: 'Код брони', carrierLabel: 'Туроператор',  docTitle: 'Ваучер на тур' },
+  'Авиа':      { mode: 'avia',  subjectLabel: 'Пассажир',      docNoLabel: 'Номер билета', refLabel: 'PNR',       carrierLabel: 'Авиакомпания', docTitle: 'Маршрут-квитанция электронного билета' },
+  'Гостиница': { mode: 'hotel', subjectLabel: 'Гость',         docNoLabel: 'Ваучер №',     refLabel: 'Код брони', carrierLabel: 'Отель',        docTitle: 'Ваучер на проживание' },
+  'ЖД':        { mode: 'rail',  subjectLabel: 'Пассажир',      docNoLabel: 'Билет №',      refLabel: 'Заказ №',   carrierLabel: 'Перевозчик',   docTitle: 'Проездной документ (ЖД)' },
+  'Трансфер':  { mode: 'other', subjectLabel: 'Пассажир',      docNoLabel: 'Ваучер №',     refLabel: 'Заказ №',   carrierLabel: 'Перевозчик',   docTitle: 'Ваучер на трансфер' },
+  'Автобус':   { mode: 'other', subjectLabel: 'Пассажир',      docNoLabel: 'Билет №',      refLabel: 'Заказ №',   carrierLabel: 'Перевозчик',   docTitle: 'Автобусный билет' },
+  'Страховка': { mode: 'other', subjectLabel: 'Застрахованный',docNoLabel: 'Полис №',      refLabel: 'Договор №', carrierLabel: 'Страховщик',   docTitle: 'Страховой полис' },
+  'Виза':      { mode: 'other', subjectLabel: 'Заявитель',     docNoLabel: 'Заявка №',     refLabel: 'Досье №',   carrierLabel: 'Визовый центр',docTitle: 'Визовый документ' },
+  'Тур':       { mode: 'other', subjectLabel: 'Турист',        docNoLabel: 'Ваучер №',     refLabel: 'Код брони', carrierLabel: 'Туроператор',  docTitle: 'Ваучер на тур' },
+  'Группа':    { mode: 'other', subjectLabel: 'Турист',        docNoLabel: 'Ваучер №',     refLabel: 'Код брони', carrierLabel: 'Туроператор',  docTitle: 'Ваучер на тур' },
 };
 function docCorrKind(kind) {
-  return DOC_CORR_KINDS[kind] || { subjectLabel: 'Клиент', docNoLabel: 'Документ №', refLabel: 'Код брони', carrierLabel: 'Поставщик', docTitle: 'Документ' };
+  return DOC_CORR_KINDS[kind] || { mode: 'other', subjectLabel: 'Клиент', docNoLabel: 'Документ №', refLabel: 'Код брони', carrierLabel: 'Поставщик', docTitle: 'Документ' };
 }
 // Поля, доступные для изменения в клиентской версии (отображение документа)
 const CORR_FIELDS = [
@@ -716,20 +783,18 @@ function corrChanges(d) {
   const chg = [];
   CORR_FIELDS.forEach((f) => { if (d[f.key] !== d.src[f.key]) chg.push(f.label); });
   if (corrTotal(d) !== d.src.total) chg.push('Итоговая стоимость');
+  if (d.fareIT) chg.push('Тариф закрыт (IT)');
+  if ((d.description || '') !== (d.src.description || '')) chg.push('Описание');
   if ((d.comment || '').trim()) chg.push('Комментарий');
   return chg;
 }
 
 /* Живой предпросмотр итогового документа (как PDF-лист) — обновляется мгновенно, без сохранения. */
-function CorrectionPreview({ doc, template, entity, currency, cfg }) {
+function CorrectionPreview({ doc, template, entity, currency, cfg, itinerary = [] }) {
   cfg = cfg || docCorrKind('Авиа');
   const tpl = DOC_TEMPLATES.find((t) => t.id === template) || DOC_TEMPLATES[0];
   const cur = corrCur(currency);
-  const rows = [
-    ['Базовый тариф', doc.baseFare], ['Таксы и сборы', doc.taxes],
-    ['Агентская надбавка', doc.agentMarkup], ['Сервисный сбор', doc.serviceFee],
-  ];
-  if (doc.discount) rows.push(['Скидка', -doc.discount]);
+  const money = (v) => (v < 0 ? '− ' : '') + Math.abs(v).toLocaleString('ru-RU') + ' ' + cur;
   return (
     <div style={{ background: '#fff', border: '1px solid var(--line)', borderRadius: 10, boxShadow: 'var(--shadow-card)', padding: '22px 24px', fontSize: 13 }}>
       {/* шапка бланка */}
@@ -801,14 +866,23 @@ function DocCorrectionPanel({ subjects, meta, currency, orderNo, onClose }) {
   const dates = meta.dates;
   const carrierName = meta.carrierName;
   const baseFareTotal = meta.baseFareTotal || 0;
+  const docMode = cfg.mode || 'other';
+  const itinerary = meta.itinerary || [];
   const passengers = subjects;                                          // «субъекты» документа: пассажиры/гости/туристы
   const farePerPax = Math.round(baseFareTotal / Math.max(1, passengers.length));
 
   // Источник данных (данные поставщика) заполняется автоматически, оригинал неизменяем.
   const buildDoc = (p) => {
-    const src = { baseFare: farePerPax, taxes: 45, agentMarkup: 0, serviceFee: 0, discount: 0, total: farePerPax + 45 };
+    // Детальная разбивка такс (для авиа — каждый сбор отдельно, корректируется точечно, ответ клиента #6)
+    const taxList = docMode === 'avia'
+      ? [{ code: 'YQ', label: 'Топливный сбор', amount: 20 }, { code: 'YR', label: 'Сбор авиакомпании', amount: 10 }, { code: 'RI', label: 'Аэропортовый сбор', amount: 15 }]
+      : null;
+    const taxes = taxList ? taxList.reduce((s, t) => s + t.amount, 0) : 45;
+    const desc = meta.description || '';
+    const src = { baseFare: farePerPax, taxes, agentMarkup: 0, serviceFee: 0, discount: 0, total: farePerPax + taxes, description: desc };
     return { id: (p.docNo || '') + p.name, name: p.name, type: p.type, ticket: p.docNo, pnr: p.ref, supplier, route, carrierName, dates,
-      src, baseFare: src.baseFare, taxes: src.taxes, agentMarkup: 20, serviceFee: 15, discount: 0, totalOverride: null, comment: '' };
+      src, baseFare: src.baseFare, taxes, taxList, fareIT: false, description: desc,
+      agentMarkup: 20, serviceFee: 15, discount: 0, totalOverride: null, comment: '' };
   };
   const [docs, setDocs] = useState(() => passengers.map(buildDoc));
   const [mode, setMode] = useState(passengers.length > 1 ? 'group' : 'single'); // индивидуальная | групповая
@@ -828,6 +902,14 @@ function DocCorrectionPanel({ subjects, meta, currency, orderNo, onClose }) {
   const setField = (i, key, v) => setDocs((ds) => ds.map((d, j) => (j === i ? { ...d, [key]: (parseFloat(v) || 0) } : d)));
   const setTotal = (i, v) => setDocs((ds) => ds.map((d, j) => (j === i ? { ...d, totalOverride: v === '' ? null : (parseFloat(v) || 0) } : d)));
   const setComment = (i, v) => setDocs((ds) => ds.map((d, j) => (j === i ? { ...d, comment: v } : d)));
+  const setDescription = (i, v) => setDocs((ds) => ds.map((d, j) => (j === i ? { ...d, description: v } : d)));
+  const setIT = (i, v) => setDocs((ds) => ds.map((d, j) => (j === i ? { ...d, fareIT: v } : d)));
+  // корректировка отдельной таксы → сумма такс и итог пересчитываются автоматически (ответ клиента #6)
+  const setTax = (i, ti, v) => setDocs((ds) => ds.map((d, j) => {
+    if (j !== i || !d.taxList) return d;
+    const taxList = d.taxList.map((t, k) => (k === ti ? { ...t, amount: parseFloat(v) || 0 } : t));
+    return { ...d, taxList, taxes: taxList.reduce((s, t) => s + t.amount, 0) };
+  }));
   const toggleSel = (i) => setSel((s) => s.includes(i) ? s.filter((x) => x !== i) : [...s, i]);
   const allSel = sel.length === docs.length;
 
@@ -836,8 +918,12 @@ function DocCorrectionPanel({ subjects, meta, currency, orderNo, onClose }) {
     if (!sel.length) { toast('Не выбрано ни одного документа', 'err'); return; }
     if (massField === 'sameAsActive') {
       const a = docs[active];
-      setDocs((ds) => ds.map((d, j) => sel.includes(j) ? { ...d, baseFare: a.baseFare, taxes: a.taxes, agentMarkup: a.agentMarkup, serviceFee: a.serviceFee, discount: a.discount, totalOverride: a.totalOverride } : d));
+      setDocs((ds) => ds.map((d, j) => sel.includes(j) ? { ...d, baseFare: a.baseFare, taxes: a.taxes, taxList: a.taxList ? a.taxList.map((t) => ({ ...t })) : d.taxList, agentMarkup: a.agentMarkup, serviceFee: a.serviceFee, discount: a.discount, totalOverride: a.totalOverride } : d));
       toast('Значения активной строки применены к выбранным', 'ok'); return;
+    }
+    if (massField === 'closeFareIT') { // групповое закрытие тарифа на «IT» (ответ клиента #6)
+      setDocs((ds) => ds.map((d, j) => sel.includes(j) ? { ...d, fareIT: true } : d));
+      toast('Тариф закрыт на IT для ' + sel.length + ' документов', 'ok'); return;
     }
     const v = parseFloat(massVal); if (isNaN(v)) { toast('Укажите значение', 'err'); return; }
     setDocs((ds) => ds.map((d, j) => sel.includes(j) ? (massField === 'total' ? { ...d, totalOverride: v } : { ...d, [massField]: v }) : d));
@@ -935,18 +1021,55 @@ function DocCorrectionPanel({ subjects, meta, currency, orderNo, onClose }) {
   }
 
   // ---- Основной экран корректировки ----
-  const singleFieldEditor = (i) => (
-    <div className="form-grid" style={{ gridTemplateColumns: '1fr 1fr' }}>
-      {CORR_FIELDS.map((f) => (
-        <Field key={f.key} label={f.label}>
-          <Input type="number" value={docs[i][f.key]} onChange={(e) => setField(i, f.key, e.target.value)} />
-        </Field>
-      ))}
-      <Field label={'Итоговая стоимость (' + cur + ')'} hint={docs[i].totalOverride != null ? 'Задано вручную' : 'Авто: ' + corrComputed(docs[i]).toLocaleString('ru-RU')}>
-        <Input type="number" value={docs[i].totalOverride != null ? docs[i].totalOverride : corrComputed(docs[i])} onChange={(e) => setTotal(i, e.target.value)} />
-      </Field>
-    </div>
-  );
+  const singleFieldEditor = (i) => {
+    const d = docs[i];
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+        <div className="form-grid" style={{ gridTemplateColumns: '1fr 1fr' }}>
+          <Field label="Базовый тариф"><Input type="number" value={d.baseFare} onChange={(e) => setField(i, 'baseFare', e.target.value)} /></Field>
+          {docMode !== 'avia' && <Field label="Таксы"><Input type="number" value={d.taxes} onChange={(e) => setField(i, 'taxes', e.target.value)} /></Field>}
+          <Field label="Агентская надбавка"><Input type="number" value={d.agentMarkup} onChange={(e) => setField(i, 'agentMarkup', e.target.value)} /></Field>
+          <Field label="Сервисный сбор"><Input type="number" value={d.serviceFee} onChange={(e) => setField(i, 'serviceFee', e.target.value)} /></Field>
+          <Field label="Скидка"><Input type="number" value={d.discount} onChange={(e) => setField(i, 'discount', e.target.value)} /></Field>
+          <Field label={'Итоговая стоимость (' + cur + ')'} hint={d.totalOverride != null ? 'Задано вручную' : 'Авто: ' + corrComputed(d).toLocaleString('ru-RU')}>
+            <Input type="number" value={d.totalOverride != null ? d.totalOverride : corrComputed(d)} onChange={(e) => setTotal(i, e.target.value)} />
+          </Field>
+        </div>
+
+        {/* Авиа: детальная корректировка такс — итог пересчитывается автоматически (ответ клиента #6) */}
+        {docMode === 'avia' && d.taxList && (
+          <div className="card card-pad" style={{ padding: '12px 14px' }}>
+            <div style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--muted)', marginBottom: 8 }}>Детализация такс</div>
+            {d.taxList.map((t, ti) => (
+              <div key={t.code} style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
+                <span style={{ width: 40, fontFamily: 'monospace', fontWeight: 700, color: 'var(--ink)' }}>{t.code}</span>
+                <span style={{ flex: 1, fontSize: 13, color: 'var(--muted)' }}>{t.label}</span>
+                <Input type="number" value={t.amount} onChange={(e) => setTax(i, ti, e.target.value)} style={{ width: 110, height: 34, padding: '4px 8px' }} />
+              </div>
+            ))}
+            <div style={{ display: 'flex', justifyContent: 'space-between', paddingTop: 8, borderTop: '1px solid var(--line)', fontWeight: 700, color: 'var(--ink)' }}>
+              <span>Итого такс</span><span>{d.taxes.toLocaleString('ru-RU')} {cur}</span>
+            </div>
+          </div>
+        )}
+
+        {/* Авиа: закрыть тариф на IT — в документе вместо суммы тарифа выводится «IT» */}
+        {docMode === 'avia' && (
+          <label className="hp-check-row" style={{ border: '1px solid var(--line)', borderRadius: 10, padding: '10px 12px' }}>
+            <Checkbox on={d.fareIT} onChange={(v) => setIT(i, v)} />
+            <span className="hp-check-label" style={{ flex: 1 }}>Закрыть тариф на «IT» <span style={{ color: 'var(--muted)' }}>— скрыть стоимость тарифа в документе (Inclusive Tour)</span></span>
+          </label>
+        )}
+
+        {/* Отели / прочие услуги: редактирование описания бланка (ответ клиента #6) */}
+        {(docMode === 'hotel' || docMode === 'other') && (
+          <Field label="Описание в бланке">
+            <textarea className="input" style={{ minHeight: 70, resize: 'vertical', padding: '10px 12px' }} value={d.description} onChange={(e) => setDescription(i, e.target.value)} placeholder="Описание услуги в документе для клиента…" />
+          </Field>
+        )}
+      </div>
+    );
+  };
 
   const footer = (
     <>
@@ -1022,9 +1145,9 @@ function DocCorrectionPanel({ subjects, meta, currency, orderNo, onClose }) {
             <div style={{ minWidth: 220 }}>
               <div style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 4 }}>Действие</div>
               <Select value={massField} onChange={(e) => setMassField(e.target.value)}
-                options={[...CORR_FIELDS.map((f) => ({ value: f.key, label: 'Изменить: ' + f.label })), { value: 'total', label: 'Изменить итоговую сумму' }, { value: 'sameAsActive', label: 'Применить одинаковые значения' }]} />
+                options={[...CORR_FIELDS.map((f) => ({ value: f.key, label: 'Изменить: ' + f.label })), { value: 'total', label: 'Изменить итоговую сумму' }, { value: 'sameAsActive', label: 'Применить одинаковые значения' }, ...(docMode === 'avia' ? [{ value: 'closeFareIT', label: 'Закрыть тариф на IT' }] : [])]} />
             </div>
-            {massField !== 'sameAsActive' && (
+            {massField !== 'sameAsActive' && massField !== 'closeFareIT' && (
               <div style={{ width: 150 }}>
                 <div style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 4 }}>Значение ({cur})</div>
                 <Input type="number" value={massVal} onChange={(e) => setMassVal(e.target.value)} placeholder="0" />
@@ -1113,6 +1236,10 @@ function FlightCard({ svc, offer, onBack, onFormKp, onAttachOrder, onAttachPerso
   const [exchangeOpen, setExchangeOpen] = useState(false);
   const [brandedOpen, setBrandedOpen] = useState(false);
   const [sendOpen, setSendOpen] = useState(false);
+  // Модалка подтверждения — чтобы искоренить случайные действия оператора (ответ клиента #2)
+  const [confirm, setConfirm] = useState(null);
+  const ask = (title, message, onConfirm, confirmLabel = 'Подтвердить', confirmVariant = 'danger') =>
+    setConfirm({ title, message, onConfirm, confirmLabel, confirmVariant });
   const air = svc ? svc.airline : (offer ? offer.airline : 'TK');
   const out = offer ? offer.out : { from: 'FRU', to: 'IST', dep: '04:15', arr: '08:40', date: '24 июн', dur: '6ч 25м', stopText: 'Прямой', flightNo: air + ' 131' };
   const back = offer ? offer.back : null;
@@ -1144,16 +1271,16 @@ function FlightCard({ svc, offer, onBack, onFormKp, onAttachOrder, onAttachPerso
 
   // Пункты выпадающего меню, зависящие от статуса услуги (ТЗ #4)
   const bookedMenu = [
-    { icon: 'luggage', label: 'Снять места', onClick: () => toast('Места сняты') },
+    { icon: 'luggage', label: 'Снять места', onClick: () => ask('Снять места?', 'Места по брони ' + pnr + ' будут сняты. Действие может быть необратимым.', () => toast('Места сняты'), 'Снять места') },
     { icon: 'loader', label: 'Обновить статус бронирования', onClick: () => toast('Статус брони обновлён') },
     { icon: 'api', label: 'Запросить статус у поставщика', onClick: () => toast('Запрос статуса отправлен') },
     { icon: 'edit', label: 'Изменить бронирование', onClick: () => toast('Изменение бронирования') },
-    { icon: 'swap', label: 'Сменить поставщика', onClick: () => toast('Смена поставщика') },
+    { icon: 'swap', label: 'Сменить поставщика', onClick: () => ask('Сменить поставщика?', 'Бронирование будет переоформлено у другого поставщика.', () => toast('Смена поставщика'), 'Сменить') },
     { icon: 'user', label: 'Изменить пассажира (до выписки)', onClick: () => toast('Изменение пассажира') },
     { icon: 'template', label: 'Добавить в коммерческое предложение', onClick: () => toast('Добавлено в КП') },
     { icon: 'clock', label: 'История изменений', onClick: () => setTab('history') },
     { sep: true },
-    { icon: 'trash', label: 'Аннулировать бронирование', danger: true, onClick: () => { setStatus('Аннуляция'); toast('Бронь аннулирована', 'err'); } },
+    { icon: 'trash', label: 'Аннулировать бронирование', danger: true, onClick: () => ask('Аннулировать бронирование?', 'Бронь ' + pnr + ' будет аннулирована. Отменить действие будет нельзя.', () => { setStatus('Аннуляция'); toast('Бронь аннулирована', 'err'); }, 'Аннулировать') },
   ];
   const issuedMenu = [
     { icon: 'refund', label: 'Добровольный возврат', onClick: () => setRefundOpen(true) },
@@ -1168,7 +1295,7 @@ function FlightCard({ svc, offer, onBack, onFormKp, onAttachOrder, onAttachPerso
     { icon: 'loader', label: 'Обновить статус билета', onClick: () => toast('Статус билета обновлён') },
     { icon: 'api', label: 'Запросить статус у поставщика', onClick: () => toast('Запрос статуса отправлен') },
     { sep: true },
-    { icon: 'trash', label: 'Аннулировать', danger: true, onClick: () => { setStatus('Аннуляция'); toast('Билет аннулирован', 'err'); } },
+    { icon: 'trash', label: 'Аннулировать', danger: true, onClick: () => ask('Аннулировать билет?', 'Билет ' + ticket + ' будет аннулирован. Отменить действие будет нельзя.', () => { setStatus('Аннуляция'); toast('Билет аннулирован', 'err'); }, 'Аннулировать') },
   ];
   const offerMenu = [
     { icon: 'template', label: 'В коммерческое предложение', onClick: () => (onFormKp ? onFormKp() : toast('Добавлено в КП')) },
@@ -1210,10 +1337,10 @@ function FlightCard({ svc, offer, onBack, onFormKp, onAttachOrder, onAttachPerso
                 ]} />
             </>)}
             {/* Предложение → бронирование */}
-            {!free && offered && <Button icon="check" onClick={() => { setStatus('Забронировано'); toast('Забронировано, PNR создан', 'ok'); }}>Забронировать</Button>}
+            {!free && offered && <Button icon="check" onClick={() => ask('Забронировать?', 'Будет отправлен запрос на бронирование поставщику и создан PNR.', () => { setStatus('Забронировано'); toast('Забронировано, PNR создан', 'ok'); }, 'Забронировать', 'primary')}>Забронировать</Button>}
             {/* Забронировано (ТЗ #4): выписать / доп.услуги / отправить + меню */}
             {booked && (<>
-              <Button icon="ticket" onClick={() => { setStatus('Выписано'); toast('Билет выписан', 'ok'); }}>Выписать билет</Button>
+              <Button icon="ticket" onClick={() => ask('Выписать билет?', 'Билет по брони ' + pnr + ' будет выписан. Стоимость спишется у поставщика.', () => { setStatus('Выписано'); toast('Билет выписан', 'ok'); }, 'Выписать', 'primary')}>Выписать билет</Button>
               <Button variant="secondary" icon="briefcase" onClick={() => setExtrasOpen(true)}>Доп. услуги</Button>
               <Button variant="secondary" icon="send" onClick={() => setSendOpen(true)}>Отправить пассажиру</Button>
               <ActionMenu trigger={<button className="btn btn-secondary btn-icon"><Icon name="more" /></button>} items={bookedMenu} />
@@ -1236,7 +1363,11 @@ function FlightCard({ svc, offer, onBack, onFormKp, onAttachOrder, onAttachPerso
           <div className="fc-meta" style={{ display: 'flex', flexWrap: 'wrap', gap: '10px 28px', marginTop: 16, paddingTop: 16, borderTop: '1px solid var(--line)' }}>
             <div className="fc-meta-item"><div style={{ fontSize: 12, color: 'var(--muted)' }}>Рейс</div><div style={{ fontWeight: 600, color: 'var(--ink)' }}>{AIRLINES[air].name} • {out.flightNo}</div></div>
             <div className="fc-meta-item"><div style={{ fontSize: 12, color: 'var(--muted)' }}>PNR (код брони)</div><div style={{ fontWeight: 600, color: 'var(--ink)', fontFamily: 'monospace', letterSpacing: '.03em' }}>{pnr}</div></div>
-            {issued && <div className="fc-meta-item"><div style={{ fontSize: 12, color: 'var(--muted)' }}>Пассажир / билет</div><div style={{ fontWeight: 600, color: 'var(--ink)' }}>{passengers[0].name.split(' ')[0]} · {passengers[0].ticket}</div></div>}
+            {issued && <div className="fc-meta-item"><div style={{ fontSize: 12, color: 'var(--muted)' }}>{passengers.length > 1 ? 'Пассажиры / билеты' : 'Пассажир / билет'}</div><div style={{ fontWeight: 600, color: 'var(--ink)' }}>
+              {passengers.length > 1
+                ? <button type="button" onClick={() => setTab('pax')} style={{ border: 'none', background: 'none', padding: 0, cursor: 'pointer', color: 'var(--blue)', fontWeight: 600, fontSize: 14 }}>{passengers.length} пассажиров · {passengers.length} билетов →</button>
+                : (passengers[0].name.split(' ')[0] + ' · ' + passengers[0].ticket)}
+            </div></div>}
             <div className="fc-meta-item"><div style={{ fontSize: 12, color: 'var(--muted)' }}>Поставщик</div><div style={{ fontWeight: 600, color: 'var(--ink)' }}>{supplier}</div></div>
             {booked && <div className="fc-meta-item"><div style={{ fontSize: 12, color: 'var(--muted)' }}>Тайминг выписки</div><TimeLimitBadge>{ticketingDeadline}</TimeLimitBadge></div>}
           </div>
@@ -1389,12 +1520,16 @@ function FlightCard({ svc, offer, onBack, onFormKp, onAttachOrder, onAttachPerso
       </StackPanel>
     )}
     {refundOpen && <RefundPanel passengers={passengers} base={fare + fee} currency={currency} onClose={() => setRefundOpen(false)} onDone={() => setStatus('Возврат')} />}
-    {exchangeOpen && <ExchangePanel passengers={passengers} base={fare + fee} currency={currency} onClose={() => setExchangeOpen(false)} onDone={() => setStatus('Обмен')} />}
+    {exchangeOpen && <ExchangePanel passengers={passengers} base={fare + fee} currency={currency} origin={out.from} dest={out.to} onClose={() => setExchangeOpen(false)} onDone={() => setStatus('Обмен')} />}
     {brandedOpen && <DocCorrectionPanel
       subjects={passengers.map((pp) => ({ name: pp.name, type: pp.type, docNo: pp.ticket, ref: pp.pnr }))}
       meta={{ cfg: docCorrKind('Авиа'), supplier, route: out.from + ' → ' + out.to + (back ? ' → ' + back.to : ''), dates: out.date, carrierName: AIRLINES[air].name, baseFareTotal: fare }}
       currency={currency} orderNo={svc ? svc.order : null} onClose={() => setBrandedOpen(false)} />}
     <SendToPaxDrawer open={sendOpen} passengers={passengers} onClose={() => setSendOpen(false)} />
+    <ConfirmDialog open={!!confirm} title={confirm && confirm.title} message={confirm && confirm.message}
+      confirmLabel={confirm && confirm.confirmLabel} confirmVariant={confirm && confirm.confirmVariant}
+      onConfirm={() => { const c = confirm; setConfirm(null); c && c.onConfirm && c.onConfirm(); }}
+      onCancel={() => setConfirm(null)} />
     </>
   );
 }
