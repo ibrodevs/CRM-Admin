@@ -135,6 +135,9 @@ function AgreementEditor({ open, agreement, onClose, onSave }) {
   const [tpl, setTpl] = useState(agreement ? agreement.template : 'standard');
   const [fees, setFees] = useState(() => (agreement ? JSON.parse(JSON.stringify(agreement.fees)) : feesFromTemplate('standard')));
   const [descs, setDescs] = useState(() => (agreement ? { ...agreement.descs } : descsFromDefaults()));
+  const [tplName, setTplName] = useState('');       // имя создаваемого шаблона
+  const [tplNameOpen, setTplNameOpen] = useState(false);
+  const [tplTick, setTplTick] = useState(0);        // чтобы Select перечитал список шаблонов
   const toast = useToast();
   useEffect(() => {
     if (open && agreement) { setTpl(agreement.template); setFees(JSON.parse(JSON.stringify(agreement.fees))); setDescs({ ...agreement.descs }); setTab(FEE_SERVICE_TYPES[0]); }
@@ -142,6 +145,13 @@ function AgreementEditor({ open, agreement, onClose, onSave }) {
   if (!open) return null;
 
   const applyTpl = (id) => { setTpl(id); setFees(feesFromTemplate(id)); toast('Применён шаблон «' + feeTemplate(id).name + '»', 'ok'); };
+  const saveAsTemplate = () => {
+    const name = tplName.trim();
+    if (!name) { toast('Введите название шаблона', 'info'); return; }
+    const id = registerFeeTemplate(name, fees);
+    setTpl(id); setTplName(''); setTplNameOpen(false); setTplTick((t) => t + 1);
+    toast('Создан шаблон «' + name + '»', 'ok');
+  };
   const setFee = (svc, key, patch) => setFees((f) => ({ ...f, [svc]: { ...f[svc], [key]: { ...f[svc][key], ...patch } } }));
   const setDesc = (svc, v) => setDescs((d) => ({ ...d, [svc]: v }));
 
@@ -170,13 +180,26 @@ function AgreementEditor({ open, agreement, onClose, onSave }) {
       <div className="modal-pad">
         <ModalHeader title={'Редактирование ' + agreement.no} sub="Сохранение создаёт новую версию доп. соглашения" onClose={onClose} />
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap', marginBottom: 16 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap', marginBottom: tplNameOpen ? 10 : 16 }}>
           <span style={{ fontSize: 13, color: 'var(--muted)' }}>Шаблон сборов:</span>
-          <div style={{ maxWidth: 260 }}>
-            <Select options={FEE_TEMPLATES.map((t) => ({ value: t.id, label: t.name }))} value={tpl} onChange={(e) => applyTpl(e.target.value)} />
+          <div style={{ maxWidth: 260 }} key={tplTick}>
+            <Select options={FEE_TEMPLATES.map((t) => ({ value: t.id, label: t.name + (t.custom ? ' (индивид.)' : '') }))} value={tpl} onChange={(e) => applyTpl(e.target.value)} />
           </div>
           <span style={{ fontSize: 12.5, color: 'var(--muted)' }}>можно донастроить вручную ниже</span>
+          <div style={{ flex: 1 }} />
+          <Button variant="ghost" size="sm" icon="plus" onClick={() => setTplNameOpen((v) => !v)}>Сохранить как шаблон</Button>
         </div>
+        {tplNameOpen && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', marginBottom: 16, padding: '10px 12px', background: 'var(--surface-2)', borderRadius: 10 }}>
+            <span style={{ fontSize: 12.5, color: 'var(--muted)' }}>Название нового шаблона:</span>
+            <div style={{ width: 240 }}>
+              <Input value={tplName} onChange={(e) => setTplName(e.target.value)} placeholder="напр. «Корп. клиент 2026»"
+                onKeyDown={(e) => { if (e.key === 'Enter') saveAsTemplate(); }} />
+            </div>
+            <Button size="sm" icon="check" onClick={saveAsTemplate}>Создать</Button>
+            <span style={{ fontSize: 12, color: 'var(--muted)' }}>Текущие сборы по всем услугам сохранятся как переиспользуемый шаблон.</span>
+          </div>
+        )}
 
         <Tabs tabs={FEE_SERVICE_TYPES.map((s) => ({ key: s, label: s }))} value={tab} onChange={setTab} />
 

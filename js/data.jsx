@@ -1332,17 +1332,30 @@ const FEE_TEMPLATES = [
   { id: 'zero',     name: 'Без сборов', builtIn: true, values: { service: { type: 'fixed', value: 0 }, markup: { type: 'fixed', value: 0 }, issue: { type: 'fixed', value: 0 }, exchange: { type: 'fixed', value: 0 }, refund: { type: 'fixed', value: 0 }, supplier: { type: 'fixed', value: 0 } } },
 ];
 function feeTemplate(id) { return FEE_TEMPLATES.find((t) => t.id === id) || FEE_TEMPLATES[0]; }
-// Разворачивает шаблон в набор сборов по всем видам услуг
+// Разворачивает шаблон в набор сборов по всем видам услуг.
+// Шаблон может задавать сборы либо плоско (values по ключу сбора — общие для всех услуг),
+// либо детально по каждой услуге (fees — так хранятся создаваемые/индивидуальные шаблоны).
 function feesFromTemplate(tplId) {
   const t = feeTemplate(tplId);
   const out = {};
   FEE_SERVICE_TYPES.forEach((svc) => {
     out[svc] = {};
-    FEE_SCHEMA[svc].forEach((f) => { const v = t.values[f.key] || { type: 'fixed', value: 0 }; out[svc][f.key] = { ...v }; });
+    const detailed = t.fees && t.fees[svc];
+    FEE_SCHEMA[svc].forEach((f) => {
+      const v = (detailed && detailed[f.key]) || (t.values && t.values[f.key]) || { type: 'fixed', value: 0 };
+      out[svc][f.key] = { ...v };
+    });
   });
   return out;
 }
 function descsFromDefaults() { return { ...SERVICE_DESC_DEFAULTS }; }
+// Регистрирует создаваемый (индивидуальный) шаблон сборов на основе детального набора по услугам.
+// Возвращает id нового шаблона; хранится в рантайме на время сессии (ТЗ: «...и создаваемые»).
+function registerFeeTemplate(name, feesObj) {
+  const id = 'custom-' + Date.now().toString(36) + Math.random().toString(36).slice(2, 5);
+  FEE_TEMPLATES.push({ id, name: name || 'Индивидуальный', builtIn: false, custom: true, fees: JSON.parse(JSON.stringify(feesObj)) });
+  return id;
+}
 
 // Данные финансовых условий по компаниям
 const COMPANY_FINANCE = {
@@ -1443,10 +1456,41 @@ function companyBalanceShort(fin) {
   return { kind: 'предоплата', label: 'Предоплата', value: 0, tone: 'gray' };
 }
 
+// Финансовая сводка по всем клиентам для дашборда (ТЗ: балансы, пропущенные оплаты по срокам,
+// срочные документы для оплат «в дашборде и иных местах»).
+function financeOverview() {
+  let deposits = 0, debt = 0, overdue = 0, overdueCount = 0;
+  const urgent = [];
+  COMPANIES_DB.forEach((co) => {
+    if (co.status === 'Архив') return;
+    const fin = companyFinance(co.id);
+    if (!fin) return;
+    if (fin.settlement === 'депозит' && fin.deposit) {
+      const avail = depositAvailable(fin.deposit);
+      deposits += avail;
+      if (avail <= 0) urgent.push({ id: co.id, co: co.name, kind: 'депозит', text: 'Депозит исчерпан — требуется пополнение', tone: 'red', value: avail });
+      else if (avail < fin.deposit.reserved) urgent.push({ id: co.id, co: co.name, kind: 'депозит', text: 'Низкий остаток депозита под резерв', tone: 'amber', value: avail });
+    }
+    if (fin.settlement === 'отсрочка' && fin.credit) {
+      debt += fin.credit.debt;
+      if (fin.credit.overdue > 0) {
+        overdue += fin.credit.overdue; overdueCount++;
+        urgent.push({ id: co.id, co: co.name, kind: 'отсрочка', text: 'Просроченная задолженность · срок отсрочки ' + fin.credit.termDays + ' дн.', tone: 'red', value: fin.credit.overdue });
+      } else {
+        const avail = creditAvailable(fin.credit);
+        if (avail < fin.credit.limit * 0.15) urgent.push({ id: co.id, co: co.name, kind: 'отсрочка', text: 'Кредитный лимит почти исчерпан', tone: 'amber', value: avail });
+      }
+    }
+  });
+  // сортировка: сначала критичные (красные), затем по сумме
+  urgent.sort((a, b) => (a.tone === b.tone ? Math.abs(b.value) - Math.abs(a.value) : (a.tone === 'red' ? -1 : 1)));
+  return { deposits, debt, overdue, overdueCount, urgent };
+}
+
 Object.assign(window, {
   SETTLEMENT_TYPES, SETTLEMENT_TONE, FEE_SCHEMA, FEE_SERVICE_TYPES, SERVICE_DESC_DEFAULTS,
-  FEE_TEMPLATES, feeTemplate, feesFromTemplate, descsFromDefaults, COMPANY_FINANCE, companyFinance,
-  depositAvailable, creditAvailable, activeContract, activeAgreement, feeAmount, applyAgreementFees, companyBalanceShort,
+  FEE_TEMPLATES, feeTemplate, feesFromTemplate, registerFeeTemplate, descsFromDefaults, COMPANY_FINANCE, companyFinance,
+  depositAvailable, creditAvailable, activeContract, activeAgreement, feeAmount, applyAgreementFees, companyBalanceShort, financeOverview,
   CURRENT_USER, ORDER_STATUS, SERVICE_TYPE, REQUEST_TYPE, SUPPLIER_STATUS,
   FIN_STATUS, DOC_STATUS, DOC_STAGE, DOC_TYPE, ORG_TYPE, CLIENTS, OPERATORS,
   ORDERS, SUPPLIERS, FINANCE, FIN_STATS, DOCUMENTS, CHATS, CHAT_CHANNELS, CHAT_TYPES, CHAT_TYPE_LABEL, CHAT_CHANNEL_TONE, CHAT_THREADS, SVC_DATA,

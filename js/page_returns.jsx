@@ -33,15 +33,51 @@ function NewReturnModal({ open, order, services, onClose, onCreate }) {
   const [type, setType] = useState('Возврат билета');
   const [svc, setSvc] = useState('');
   const [reason, setReason] = useState('');
-  useEffect(() => { if (open) { setType('Возврат билета'); setSvc(''); setReason(''); } }, [open]);
+  const [voluntary, setVoluntary] = useState(true);          // добровольный / вынужденный
+  const [pax, setPax] = useState([]);                        // выбранные пассажиры (индексы)
+  const [docs, setDocs] = useState([]);                      // документы-основания (вынужденный)
+  const [nf, setNf] = useState({ from: '', to: '', date: null, flightNo: '' }); // новый рейс для обмена
+  const [reqMode, setReqMode] = useState('request');         // запросить у АК / провести сразу
+  const [confirm, setConfirm] = useState(false);
+  useEffect(() => { if (open) { setType('Возврат билета'); setSvc(''); setReason(''); setVoluntary(true); setPax([]); setDocs([]); setNf({ from: '', to: '', date: null, flightNo: '' }); setReqMode('request'); setConfirm(false); } }, [open]);
   if (!open) return null;
+
+  const roster = (order && order.participants && order.participants.length ? order.participants.map((n) => ({ name: n, role: '' })) : ORDER_PARTICIPANTS);
   const svcOptions = (services && services.length ? services : ORDER_SERVICES).map((s) => `${s.kind} · ${s.title}`);
-  // rough auto-estimate from the chosen service price
   const base = (services || ORDER_SERVICES).find((s) => `${s.kind} · ${s.title}` === svc);
   const original = base ? base.sum : 0;
-  const penalty = type === 'Аннуляция бронирования' ? original : Math.round(original * 0.2);
-  const fee = type === 'Оформление справки' ? 10 : 14;
-  const refund = Math.max(0, original - penalty - fee);
+  const isRefund = type === 'Возврат билета';
+  const isExchange = type === 'Обмен билета';
+  const isAnnul = type === 'Аннуляция бронирования';
+  const needsPax = isRefund || isExchange;                   // выборка пассажира — для возврата и обмена
+  const paxCount = Math.max(1, pax.length || (needsPax ? 0 : 1));
+  const perUnit = original / Math.max(1, roster.length);
+  const scoped = needsPax && pax.length ? Math.round(perUnit * pax.length) : original;
+  const penalty = isAnnul ? scoped : (voluntary ? Math.round(scoped * 0.2) : 0); // вынужденный — без штрафа
+  const fee = type === 'Оформление справки' ? 10 : (voluntary || isAnnul ? 14 : 0);
+  const refund = Math.max(0, scoped - penalty - fee);
+  const togglePax = (i) => setPax((s) => s.includes(i) ? s.filter((x) => x !== i) : [...s, i]);
+  const addDoc = () => setDocs((d) => [...d, { name: 'Документ ' + (d.length + 1) + '.pdf' }]);
+
+  // Проверки перед подтверждением — искореняют случайные/неполные действия оператора (ответ клиента #2)
+  const validate = () => {
+    if (!svc) { toast('Выберите услугу заказа', 'err'); return false; }
+    if (needsPax && !pax.length) { toast('Выберите, на кого оформляется ' + (isExchange ? 'обмен' : 'возврат'), 'err'); return false; }
+    if (isRefund && !voluntary && !docs.length) { toast('Приложите документ-основание для вынужденного возврата', 'err'); return false; }
+    if (isExchange && (!nf.to || !nf.date)) { toast('Заполните новый рейс (направление и дату)', 'err'); return false; }
+    return true;
+  };
+  const submit = () => {
+    onCreate({ type, svc, reason, original, penalty, fee, refund, voluntary,
+      participants: pax.map((i) => roster[i].name), docs: docs.map((d) => d.name),
+      newFlight: isExchange ? nf : null, reqMode: isExchange ? reqMode : null });
+  };
+
+  const confirmMsg = isAnnul
+    ? 'Бронирование по услуге «' + svc + '» будет аннулировано. Действие необратимо.'
+    : isExchange
+      ? (reqMode === 'request' ? 'Будет отправлен запрос на обмен авиакомпании' : 'Обмен будет проведён') + ' для ' + pax.length + ' пасс. Новый рейс: ' + (nf.from || '—') + ' → ' + (nf.to || '—') + '.'
+      : 'Будет создан ' + (voluntary ? 'добровольный' : 'вынужденный') + ' возврат для ' + pax.length + ' пасс. на сумму ' + rUsd(refund) + '.';
 
   return (
     <Modal open={open} onClose={onClose}>
@@ -50,30 +86,115 @@ function NewReturnModal({ open, order, services, onClose, onCreate }) {
         <div className="kp-sec-h" style={{ marginTop: 0 }}>Тип операции</div>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 18 }}>
           {Object.keys(RETURN_TYPE).map((t) => (
-            <button key={t} className={'add-svc-card' + (type === t ? '' : '')} style={{ flexDirection: 'row', justifyContent: 'flex-start', gap: 12, borderColor: type === t ? 'var(--blue)' : 'var(--line)', background: type === t ? 'var(--blue-soft)' : '#fff' }} onClick={() => setType(t)}>
+            <button key={t} className="add-svc-card" style={{ flexDirection: 'row', justifyContent: 'flex-start', gap: 12, borderColor: type === t ? 'var(--blue)' : 'var(--line)', background: type === t ? 'var(--blue-soft)' : '#fff' }} onClick={() => setType(t)}>
               <span className="ic" style={{ width: 36, height: 36, background: 'var(--blue)' }}><Icon name={RETURN_TYPE[t].icon} style={{ width: 18, height: 18 }} /></span>
               <span className="nm">{t}</span>
             </button>
           ))}
         </div>
         <Field label="Услуга"><Select placeholder="Выберите услугу заказа" options={svcOptions} value={svc} onChange={(e) => setSvc(e.target.value)} /></Field>
+
+        {/* Добровольный / вынужденный — для возврата и обмена */}
+        {(isRefund || isExchange) && (
+          <>
+            <div className="kp-sec-h">Характер {isExchange ? 'обмена' : 'возврата'}</div>
+            <div className="seg-toggle" style={{ maxWidth: 360 }}>
+              <button className={'seg-btn' + (voluntary ? ' active' : '')} onClick={() => setVoluntary(true)}>Добровольный</button>
+              <button className={'seg-btn' + (!voluntary ? ' active' : '')} onClick={() => setVoluntary(false)}>Вынужденный</button>
+            </div>
+          </>
+        )}
+
+        {/* Выборка пассажиров, на кого оформляется возврат/обмен (ответ клиента #2) */}
+        {needsPax && (
+          <>
+            <div className="kp-sec-h">На кого оформляется {isExchange ? 'обмен' : 'возврат'}</div>
+            <label className="hp-check-row" style={{ marginBottom: 6 }}>
+              <Checkbox on={pax.length === roster.length} onChange={() => setPax(pax.length === roster.length ? [] : roster.map((_, i) => i))} />
+              <span className="hp-check-label" style={{ flex: 1, fontWeight: 600 }}>Выбрать всех ({roster.length})</span>
+            </label>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              {roster.map((p, i) => (
+                <label key={i} className="hp-check-row" style={{ border: '1px solid ' + (pax.includes(i) ? 'var(--blue)' : 'var(--line)'), borderRadius: 10, padding: '8px 12px' }}>
+                  <Checkbox on={pax.includes(i)} onChange={() => togglePax(i)} />
+                  <span className="hp-check-label" style={{ flex: 1 }}>{p.name}</span>
+                  {p.role && <span style={{ fontSize: 12.5, color: 'var(--muted)' }}>{p.role}</span>}
+                </label>
+              ))}
+            </div>
+          </>
+        )}
+
+        {/* Загрузка документов-оснований при вынужденном возврате (ответ клиента #2) */}
+        {isRefund && !voluntary && (
+          <>
+            <div className="kp-sec-h">Документы-основания</div>
+            <div className="card" style={{ padding: 14, borderLeft: '3px solid var(--amber)', background: 'var(--amber-soft, #fff8ec)', marginBottom: 10, display: 'flex', gap: 10 }}>
+              <Icon name="alertCircle" style={{ width: 18, height: 18, color: 'var(--amber)', flexShrink: 0 }} />
+              <div style={{ fontSize: 12.5, color: 'var(--body)' }}>Приложите справки/подтверждающие документы. <b>Ознакомьтесь с правилами авиакомпании по документам</b> для вынужденного возврата (мед. справка, свидетельство и т.п.).</div>
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              {docs.map((d, i) => (
+                <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8, border: '1px solid var(--line)', borderRadius: 10, padding: '8px 12px' }}>
+                  <Icon name="docs" style={{ width: 16, height: 16, color: 'var(--blue)' }} />
+                  <span style={{ flex: 1, fontSize: 13.5 }}>{d.name}</span>
+                  <button className="btn btn-ghost btn-icon btn-sm" onClick={() => setDocs((x) => x.filter((_, j) => j !== i))}><Icon name="trash" /></button>
+                </div>
+              ))}
+              <button className="doc-chip" style={{ borderStyle: 'dashed', color: 'var(--blue)', width: '100%' }} onClick={addDoc}>
+                <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}><Icon name="plus" style={{ width: 15, height: 15 }} />Загрузить документ</span>
+              </button>
+            </div>
+          </>
+        )}
+
+        {/* Обмен: форма нового рейса (как при поиске перелёта, без выбора пассажира) + способ (ответ клиента #2) */}
+        {isExchange && (
+          <>
+            <div className="card" style={{ padding: 12, borderLeft: '3px solid var(--amber)', marginTop: 8, display: 'flex', gap: 10 }}>
+              <Icon name="alertCircle" style={{ width: 18, height: 18, color: 'var(--amber)', flexShrink: 0 }} />
+              <div style={{ fontSize: 12.5, color: 'var(--body)' }}>Проверьте <b>правила авиакомпании по обмену</b>: допустимость изменения даты/маршрута, сбор за обмен и разница тарифа зависят от условий применённого тарифа.</div>
+            </div>
+            <div className="kp-sec-h">Новый рейс для запроса обмена</div>
+            <div className="svcp-search-bar" style={{ flexWrap: 'wrap', gap: 10 }}>
+              <AirportField label="Откуда" value={nf.from} onChange={(v) => setNf((s) => ({ ...s, from: v }))} />
+              <AirportField label="Куда" value={nf.to} onChange={(v) => setNf((s) => ({ ...s, to: v }))} />
+              <div className="av-field" style={{ minWidth: 150 }}><DateField label="Дата вылета" value={nf.date} onChange={(d) => setNf((s) => ({ ...s, date: d }))} placeholder="Выбрать" /></div>
+              <div className="av-field" style={{ minWidth: 140 }}><span className="label">Рейс (если известен)</span><Input value={nf.flightNo} onChange={(e) => setNf((s) => ({ ...s, flightNo: e.target.value }))} placeholder="напр. KC 132" /></div>
+            </div>
+            <div className="kp-sec-h">Как оформить</div>
+            <div className="seg-toggle" style={{ maxWidth: 420 }}>
+              <button className={'seg-btn' + (reqMode === 'request' ? ' active' : '')} onClick={() => setReqMode('request')}>Запросить у авиакомпании</button>
+              <button className={'seg-btn' + (reqMode === 'now' ? ' active' : '')} onClick={() => setReqMode('now')}>Провести сразу</button>
+            </div>
+          </>
+        )}
+
         <div style={{ height: 12 }} />
         <Field label="Причина обращения"><Input placeholder="Кратко опишите причину…" value={reason} onChange={(e) => setReason(e.target.value)} /></Field>
 
         {svc && type !== 'Оформление справки' && (
           <div className="card card-pad" style={{ margin: '16px 0 4px', background: 'var(--surface-2)' }}>
-            <div className="amt-row"><span className="k">Первоначальная стоимость</span><span className="v">{rUsd(original)}</span></div>
+            <div className="amt-row"><span className="k">{needsPax && pax.length ? 'Стоимость выбранных (' + pax.length + ')' : 'Первоначальная стоимость'}</span><span className="v">{rUsd(scoped)}</span></div>
             <div className="amt-row minus"><span className="k">Предв. штраф поставщика</span><span className="v">− {rUsd(penalty)}</span></div>
             <div className="amt-row minus"><span className="k">Сервисный сбор</span><span className="v">− {rUsd(fee)}</span></div>
-            <div className="amt-row total"><span className="k">{type === 'Обмен билета' ? 'Предв. доплата/возврат' : 'Предв. сумма к возврату'}</span><span className="v">{rUsd(refund)}</span></div>
+            <div className="amt-row total"><span className="k">{isExchange ? 'Предв. доплата/возврат' : 'Предв. сумма к возврату'}</span><span className="v">{rUsd(refund)}</span></div>
           </div>
         )}
 
         <div className="modal-actions">
           <Button variant="secondary" onClick={onClose}>Отмена</Button>
-          <Button icon="plus" disabled={!svc} onClick={() => { onCreate({ type, svc, reason, original, penalty, fee, refund }); }}>Создать запрос</Button>
+          <Button icon={isAnnul ? 'trash' : 'plus'} variant={isAnnul ? 'danger' : 'primary'} disabled={!svc} onClick={() => { if (validate()) setConfirm(true); }}>
+            {isExchange ? (reqMode === 'request' ? 'Запросить обмен' : 'Провести обмен') : isAnnul ? 'Аннулировать' : 'Создать запрос'}
+          </Button>
         </div>
       </div>
+
+      {/* Подтверждение действия — всегда перед созданием (ответ клиента #2) */}
+      <ConfirmDialog open={confirm} title={'Подтвердите: ' + type + '?'} message={confirmMsg}
+        confirmLabel={isAnnul ? 'Аннулировать' : isExchange ? (reqMode === 'request' ? 'Запросить' : 'Провести') : 'Создать'}
+        confirmVariant={isAnnul ? 'danger' : 'primary'}
+        onConfirm={() => { setConfirm(false); submit(); }} onCancel={() => setConfirm(false)} />
     </Modal>
   );
 }
@@ -86,8 +207,11 @@ function ReturnCard({ op, onBack, onChange }) {
   const isExchange = op.type === 'Обмен билета';
   const terminal = isTerminal(op.status);
 
+  // Модалка подтверждения на аннуляцию и прочие критичные действия (ответ клиента #2)
+  const [confirm, setConfirm] = useState(null);
+  const ask = (title, message, onConfirm, confirmLabel = 'Подтвердить', confirmVariant = 'danger') => setConfirm({ title, message, onConfirm, confirmLabel, confirmVariant });
   const setStatus = (s) => onChange(op.no, { status: s }, `Статус изменён: ${s}`);
-  const advance = () => {
+  const doAdvance = () => {
     const ns = nextStatus(op.status);
     if (ns === 'Завершено') {
       onChange(op.no, { status: 'Завершено', finOp: 'F-' + Math.floor(2050 + Math.random() * 40) },
@@ -97,6 +221,15 @@ function ReturnCard({ op, onBack, onChange }) {
       onChange(op.no, { status: ns }, `Статус: ${ns}`);
       toast('Статус: ' + ns, 'info');
     }
+  };
+  // Финальный/необратимый шаг требует подтверждения; промежуточные — сразу
+  const advance = () => {
+    const ns = nextStatus(op.status);
+    if (ns === 'Завершено') {
+      ask(isExchange ? 'Переоформить обмен?' : 'Исполнить возврат?',
+        isExchange ? 'Обмен будет переоформлен, заказ обновлён. Действие необратимо.' : `Будет создана фин. операция «Возврат» на ${rUsd(refund)}. Действие необратимо.`,
+        doAdvance, isExchange ? 'Переоформить' : 'Исполнить', 'primary');
+    } else { doAdvance(); }
   };
   const primaryLabel = {
     'Создано': 'Отправить на проверку', 'На проверке': 'Запросить согласование',
@@ -128,7 +261,10 @@ function ReturnCard({ op, onBack, onChange }) {
         </div>
         {!terminal && primaryLabel && <Button icon="arrowRight" onClick={advance}>{primaryLabel}</Button>}
         {!terminal && <ActionMenu trigger={<button className="btn btn-secondary btn-icon"><Icon name="more" /></button>}
-          items={[{ icon: 'x', label: 'Отклонить', danger: true, onClick: () => setStatus('Отклонено') }, { icon: 'trash', label: 'Отменить', danger: true, onClick: () => setStatus('Отменено') }]} />}
+          items={[
+            { icon: 'x', label: 'Отклонить', danger: true, onClick: () => ask('Отклонить запрос?', 'Запрос ' + op.no + ' будет отклонён. Дальнейшие действия по нему станут недоступны.', () => setStatus('Отклонено'), 'Отклонить') },
+            { icon: 'trash', label: 'Отменить', danger: true, onClick: () => ask('Отменить операцию?', 'Операция ' + op.no + ' будет отменена. Действие необратимо.', () => setStatus('Отменено'), 'Отменить') },
+          ]} />}
       </div>
 
       {terminal ? (
@@ -238,6 +374,11 @@ function ReturnCard({ op, onBack, onChange }) {
           <Input placeholder="Комментарий сотрудника…" style={{ flex: 1 }} /><Button icon="send" onClick={() => toast('Комментарий добавлен')}>Добавить</Button>
         </div>
       </div>
+
+      <ConfirmDialog open={!!confirm} title={confirm && confirm.title} message={confirm && confirm.message}
+        confirmLabel={confirm && confirm.confirmLabel} confirmVariant={confirm && confirm.confirmVariant}
+        onConfirm={() => { const c = confirm; setConfirm(null); c && c.onConfirm && c.onConfirm(); }}
+        onCancel={() => setConfirm(null)} />
     </div>
   );
 }
@@ -261,10 +402,13 @@ function ReturnsModule({ scopeOrder, onOpenOrder, compact, order }) {
   const updateOp = (no, patch, histText) => setOps((cur) => cur.map((o) => o.no === no ? { ...o, ...patch, history: histText ? [...o.history, { t: 'сейчас', text: histText, who: 'Даниель' }] : o.history } : o));
   const createOp = (d) => {
     const no = 'R-' + Math.floor(7030 + Math.random() * 60);
-    const np = { no, order: order ? order.no : (scopeOrder || 51162), client: order ? order.client : 'Клиент', type: d.type, service: d.svc, supplier: '—', initiator: 'Оператор', resp: 'Даниель', status: 'Создано', created: '15.06.2026', deadline: '18.06.2026', currency: 'USD', finOp: null, participants: ['—'],
+    const parts = d.participants && d.participants.length ? d.participants : ['—'];
+    const nf = d.newFlight;
+    const np = { no, order: order ? order.no : (scopeOrder || 51162), client: order ? order.client : 'Клиент', type: d.type, service: d.svc, supplier: '—', initiator: 'Оператор', resp: 'Даниель', status: 'Создано', created: '15.06.2026', deadline: '18.06.2026', currency: 'USD', finOp: null, participants: parts,
       fin: { original: d.original, supplierPenalty: d.penalty, serviceFee: d.fee, extraHold: 0, refund: d.refund },
-      exchange: d.type === 'Обмен билета' ? { oldP: { route: d.svc, date: '—', fare: '—', price: d.original }, newP: { route: '—', date: '—', fare: '—', price: d.original }, diff: 0 } : undefined,
-      documents: [], history: [{ t: 'сейчас', text: 'Запрос создан', who: 'Даниель' }] };
+      exchange: d.type === 'Обмен билета' ? { oldP: { route: d.svc, date: '—', fare: d.voluntary ? 'Добровольный' : 'Вынужденный', price: d.original }, newP: { route: (nf && (nf.from || nf.to)) ? ((nf.from || '—') + ' → ' + (nf.to || '—')) : '—', date: nf && nf.date ? fmtDate(nf.date) : '—', fare: nf && nf.flightNo ? nf.flightNo : '—', price: d.original }, diff: 0 } : undefined,
+      documents: (d.docs || []).map((n) => ({ name: n, kind: 'Основание', status: 'Загружен', v: 1 })),
+      history: [{ t: 'сейчас', text: 'Запрос создан' + (parts[0] !== '—' ? ' · ' + parts.length + ' пасс.' : '') + (d.voluntary === false ? ' · вынужденный' : ''), who: 'Даниель' }] };
     setOps((cur) => [np, ...cur]); setNewOpen(false); setActiveNo(no); setView('card');
     toast('Запрос ' + no + ' создан', 'ok');
   };

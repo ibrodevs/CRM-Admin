@@ -1262,6 +1262,111 @@ function SendToPaxDrawer({ open, passengers, onClose }) {
   );
 }
 
+/* Привязка свободного бронирования к заказу / физ. лицу (ответ клиента #1) — после выбора
+   выполняется реальное действие и показывается подтверждение, а не «пустой» тост. */
+function AttachFlightDrawer({ mode, svcTitle, onClose, onDone }) {
+  const toast = useToast();
+  const [q, setQ] = useState('');
+  const [picked, setPicked] = useState(null);   // выбранный заказ/клиент
+  const isOrder = mode === 'order';
+  const orders = ORDERS.filter((o) => `${o.no} ${o.client}`.toLowerCase().includes(q.toLowerCase())).slice(0, 20);
+  const clients = CLIENTS.filter((c) => c.toLowerCase().includes(q.toLowerCase())).slice(0, 20);
+  const confirm = () => {
+    if (!picked) { toast('Выберите ' + (isOrder ? 'заказ' : 'физ. лицо'), 'err'); return; }
+    onDone(isOrder ? ('Услуга «' + svcTitle + '» привязана к заказу № ' + picked.no) : ('Услуга «' + svcTitle + '» привязана к клиенту: ' + picked));
+    onClose();
+  };
+  return (
+    <Drawer open onClose={onClose} title={isOrder ? 'Привязать к заказу' : 'Привязать к физ. лицу'}
+      footer={<><Button variant="secondary" onClick={onClose}>Отмена</Button>
+        <Button icon="check" disabled={!picked} onClick={confirm}>Привязать</Button></>}>
+      <SearchBox value={q} onChange={setQ} placeholder={isOrder ? 'Поиск: № заказа или клиент' : 'Поиск клиента'} style={{ width: '100%', marginBottom: 12 }} />
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+        {isOrder ? orders.map((o) => {
+          const on = picked && picked.id === o.id;
+          return (
+            <button key={o.id} type="button" onClick={() => setPicked(o)}
+              style={{ cursor: 'pointer', width: '100%', textAlign: 'left', border: '1px solid ' + (on ? 'var(--blue)' : 'var(--line)'), background: on ? 'var(--blue-soft)' : '#fff', borderRadius: 12, padding: '10px 12px', display: 'flex', alignItems: 'center', gap: 12 }}>
+              <span className="oc-svc-ic" style={{ background: 'var(--blue)', width: 34, height: 34 }}><Icon name="briefcase" /></span>
+              <div style={{ flex: 1, minWidth: 0 }}><div style={{ fontWeight: 600 }}>Заказ № {o.no}</div><div style={{ fontSize: 12.5, color: 'var(--muted)' }}>{o.client} · {o.requestType}</div></div>
+              {on && <Icon name="check" style={{ width: 18, height: 18, color: 'var(--blue)' }} />}
+            </button>
+          );
+        }) : clients.map((c) => {
+          const on = picked === c;
+          return (
+            <button key={c} type="button" onClick={() => setPicked(c)}
+              style={{ cursor: 'pointer', width: '100%', textAlign: 'left', border: '1px solid ' + (on ? 'var(--blue)' : 'var(--line)'), background: on ? 'var(--blue-soft)' : '#fff', borderRadius: 12, padding: '10px 12px', display: 'flex', alignItems: 'center', gap: 12 }}>
+              <Avatar name={c} size={34} />
+              <div style={{ flex: 1, minWidth: 0, fontWeight: 600, color: 'var(--ink)' }}>{c}</div>
+              {on && <Icon name="check" style={{ width: 18, height: 18, color: 'var(--blue)' }} />}
+            </button>
+          );
+        })}
+        {isOrder && !orders.length && <EmptyState icon="briefcase" title="Заказы не найдены" />}
+        {!isOrder && !clients.length && <EmptyState icon="user" title="Клиенты не найдены" />}
+      </div>
+    </Drawer>
+  );
+}
+
+/* Предпросмотр маршрут-квитанции (ответ клиента #6): в квитанции присутствует сама услуга,
+   перелёт (сегменты), пассажир, PNR/билет и расчёт стоимости — точный перенос бланка поставщика. */
+function FlightReceiptDrawer({ open, passengers, pax, legs, air, supplier, fare, fee, currency, onClose }) {
+  const toast = useToast();
+  const list = pax ? [pax] : passengers;
+  const cur = currency === 'USD' ? '$' : currency;
+  const money = (v) => Math.round(v).toLocaleString('ru-RU') + ' ' + cur;
+  const perPax = (fare + fee) / Math.max(1, passengers.length);
+  const taxRows = [{ code: 'YQ', label: 'Топливный сбор', amount: 20 }, { code: 'RI', label: 'Аэропортовый сбор', amount: 15 }];
+  const taxes = taxRows.reduce((s, t) => s + t.amount, 0);
+  const baseFare = Math.max(0, perPax - taxes - fee / Math.max(1, passengers.length));
+  return (
+    <Drawer open={open} onClose={onClose} title={pax ? 'Маршрут-квитанция · ' + pax.name : 'Маршрут-квитанция'}
+      footer={<><Button variant="secondary" onClick={onClose}>Закрыть</Button>
+        <Button icon="download" onClick={() => { toast('Маршрут-квитанция скачана', 'ok'); onClose(); }}>Скачать PDF</Button></>}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+        {list.map((p, i) => (
+          <div key={i} style={{ background: '#fff', border: '1px solid var(--line)', borderRadius: 10, boxShadow: 'var(--shadow-card)', padding: '20px 22px', fontSize: 13 }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingBottom: 12, borderBottom: '2px solid var(--ink)' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <AirlineLogo code={air} size="sm" />
+                <div><div style={{ fontWeight: 800, color: 'var(--ink)' }}>{AIRLINES[air].name}</div><div style={{ color: 'var(--muted)', fontSize: 11.5 }}>Маршрут-квитанция электронного билета</div></div>
+              </div>
+              <div style={{ textAlign: 'right', color: 'var(--muted)', fontSize: 11.5 }}>Поставщик<br /><b style={{ color: 'var(--ink)' }}>{supplier}</b></div>
+            </div>
+            {/* услуга / пассажир / PNR / билет — данные, которых не хватало в квитанции (ответ клиента #6) */}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px 18px', margin: '14px 0' }}>
+              {[['Услуга', 'Авиаперевозка'], ['Пассажир', p.name], ['Документ', p.doc], ['PNR', p.pnr], ['Билет', p.ticket]].map(([k, v]) => (
+                <div key={k}><span style={{ color: 'var(--muted)' }}>{k}: </span><span style={{ fontWeight: 600, color: 'var(--ink)' }}>{v}</span></div>
+              ))}
+            </div>
+            {/* сам перелёт — сегменты маршрута */}
+            <div style={{ borderTop: '1px solid var(--line)', paddingTop: 10, marginBottom: 8 }}>
+              <div style={{ fontWeight: 700, color: 'var(--ink)', marginBottom: 6 }}>Маршрут</div>
+              {legs.map((leg, k) => (
+                <div key={k} style={{ display: 'flex', justifyContent: 'space-between', padding: '3px 0', color: 'var(--body)' }}>
+                  <span style={{ fontWeight: 600, color: 'var(--ink)' }}>{leg.from} → {leg.to}</span>
+                  <span style={{ color: 'var(--muted)' }}>{[leg.date, leg.flightNo].filter(Boolean).join(' · ')}</span>
+                </div>
+              ))}
+            </div>
+            {/* расчёт стоимости — детально по таксам */}
+            <div style={{ borderTop: '1px solid var(--line)', paddingTop: 10 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', padding: '3px 0' }}><span style={{ color: 'var(--muted)' }}>Базовый тариф</span><span style={{ color: 'var(--ink)' }}>{money(baseFare)}</span></div>
+              {taxRows.map((t) => (
+                <div key={t.code} style={{ display: 'flex', justifyContent: 'space-between', padding: '3px 0 3px 14px' }}><span style={{ color: 'var(--muted)' }}>Такса {t.code} · {t.label}</span><span style={{ color: 'var(--ink)' }}>{money(t.amount)}</span></div>
+              ))}
+              <div style={{ display: 'flex', justifyContent: 'space-between', padding: '3px 0' }}><span style={{ color: 'var(--muted)' }}>Сервисный сбор</span><span style={{ color: 'var(--ink)' }}>{money(fee / Math.max(1, passengers.length))}</span></div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 8, paddingTop: 8, borderTop: '2px solid var(--ink)', fontWeight: 800, fontSize: 15, color: 'var(--ink)' }}><span>Итого</span><span>{money(perPax)}</span></div>
+            </div>
+          </div>
+        ))}
+      </div>
+    </Drawer>
+  );
+}
+
 function FlightCard({ svc, offer, onBack, onFormKp, onAttachOrder, onAttachPerson }) {
   const toast = useToast();
   const [tab, setTab] = useState('segments');
@@ -1272,6 +1377,9 @@ function FlightCard({ svc, offer, onBack, onFormKp, onAttachOrder, onAttachPerso
   const [exchangeOpen, setExchangeOpen] = useState(false);
   const [brandedOpen, setBrandedOpen] = useState(false);
   const [sendOpen, setSendOpen] = useState(false);
+  const [attach, setAttach] = useState(null);   // null | 'order' | 'person' — привязка своб. брони (ответ клиента #1)
+  const [receiptOpen, setReceiptOpen] = useState(false);   // предпросмотр маршрут-квитанции (ответ клиента #6)
+  const [receiptPax, setReceiptPax] = useState(null);      // конкретный пассажир для квитанции (null = все)
   // Модалка подтверждения — чтобы искоренить случайные действия оператора (ответ клиента #2)
   const [confirm, setConfirm] = useState(null);
   const ask = (title, message, onConfirm, confirmLabel = 'Подтвердить', confirmVariant = 'danger') =>
@@ -1334,10 +1442,12 @@ function FlightCard({ svc, offer, onBack, onFormKp, onAttachOrder, onAttachPerso
     { icon: 'trash', label: 'Аннулировать', danger: true, onClick: () => ask('Аннулировать билет?', 'Билет ' + ticket + ' будет аннулирован. Отменить действие будет нельзя.', () => { setStatus('Аннуляция'); toast('Билет аннулирован', 'err'); }, 'Аннулировать') },
   ];
   const offerMenu = [
-    { icon: 'template', label: 'В коммерческое предложение', onClick: () => (onFormKp ? onFormKp() : toast('Добавлено в КП')) },
-    { icon: 'download', label: 'Скачать маршрут-квитанцию', onClick: () => toast('Загрузка…') },
+    { icon: 'template', label: 'В коммерческое предложение', onClick: () => (onFormKp ? onFormKp() : setAttach('order')) },
+    { icon: 'briefcase', label: 'Привязать к заказу', onClick: () => setAttach('order') },
+    { icon: 'user', label: 'Привязать к физ. лицу', onClick: () => setAttach('person') },
+    { icon: 'download', label: 'Скачать маршрут-квитанцию', onClick: () => setReceiptOpen(true) },
     { sep: true },
-    { icon: 'trash', label: 'Аннулировать', danger: true, onClick: () => toast('Предложение снято', 'err') },
+    { icon: 'trash', label: 'Аннулировать', danger: true, onClick: () => ask('Снять предложение?', 'Подобранное предложение будет снято. Действие необратимо.', () => toast('Предложение снято', 'err'), 'Снять') },
   ];
   return (
     <>
@@ -1365,11 +1475,11 @@ function FlightCard({ svc, offer, onBack, onFormKp, onAttachOrder, onAttachPerso
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
             {/* Свободное бронирование (ТЗ #1): сформировать КП / привязать к заказу / к физлицу */}
             {free && (<>
-              <Button icon="template" onClick={() => (onFormKp ? onFormKp() : toast('КП сформировано'))}>Сформировать КП</Button>
+              <Button icon="template" onClick={() => (onFormKp ? onFormKp() : ask('Сформировать КП?', 'По подобранной услуге «' + out.from + ' → ' + out.to + (back ? ' → ' + back.to : '') + '» будет сформировано коммерческое предложение.', () => toast('Коммерческое предложение КП-' + Math.floor(1040 + Math.random() * 60) + ' сформировано', 'ok'), 'Сформировать', 'primary'))}>Сформировать КП</Button>
               <ActionMenu trigger={<button className="btn btn-secondary">Привязать <Icon name="chevDown" style={{ width: 14, height: 14 }} /></button>}
                 items={[
-                  { icon: 'briefcase', label: 'Привязать к заказу', onClick: () => (onAttachOrder ? onAttachOrder() : toast('Привязано к заказу', 'ok')) },
-                  { icon: 'user', label: 'Привязать к физ. лицу', onClick: () => (onAttachPerson ? onAttachPerson() : toast('Привязано к физ. лицу', 'ok')) },
+                  { icon: 'briefcase', label: 'Привязать к заказу', onClick: () => (onAttachOrder ? onAttachOrder() : setAttach('order')) },
+                  { icon: 'user', label: 'Привязать к физ. лицу', onClick: () => (onAttachPerson ? onAttachPerson() : setAttach('person')) },
                 ]} />
             </>)}
             {/* Предложение → бронирование */}
@@ -1399,11 +1509,19 @@ function FlightCard({ svc, offer, onBack, onFormKp, onAttachOrder, onAttachPerso
           <div className="fc-meta" style={{ display: 'flex', flexWrap: 'wrap', gap: '10px 28px', marginTop: 16, paddingTop: 16, borderTop: '1px solid var(--line)' }}>
             <div className="fc-meta-item"><div style={{ fontSize: 12, color: 'var(--muted)' }}>Рейс</div><div style={{ fontWeight: 600, color: 'var(--ink)' }}>{AIRLINES[air].name} • {out.flightNo}</div></div>
             <div className="fc-meta-item"><div style={{ fontSize: 12, color: 'var(--muted)' }}>PNR (код брони)</div><div style={{ fontWeight: 600, color: 'var(--ink)', fontFamily: 'monospace', letterSpacing: '.03em' }}>{pnr}</div></div>
-            {issued && <div className="fc-meta-item"><div style={{ fontSize: 12, color: 'var(--muted)' }}>{passengers.length > 1 ? 'Пассажиры / билеты' : 'Пассажир / билет'}</div><div style={{ fontWeight: 600, color: 'var(--ink)' }}>
-              {passengers.length > 1
-                ? <button type="button" onClick={() => setTab('pax')} style={{ border: 'none', background: 'none', padding: 0, cursor: 'pointer', color: 'var(--blue)', fontWeight: 600, fontSize: 14 }}>{passengers.length} пассажиров · {passengers.length} билетов →</button>
-                : (passengers[0].name.split(' ')[0] + ' · ' + passengers[0].ticket)}
-            </div></div>}
+            {/* Общее описание услуги: пассажиры устойчиво к 1 / 4 / 10+ (ответ клиента #3) —
+                первый пассажир + счётчик «и ещё N», клик открывает полный список во вкладке «Пассажиры». */}
+            <div className="fc-meta-item"><div style={{ fontSize: 12, color: 'var(--muted)' }}>{passengers.length > 1 ? (issued ? 'Пассажиры / билеты' : 'Пассажиры') : (issued ? 'Пассажир / билет' : 'Пассажир')}</div>
+              <div style={{ fontWeight: 600, color: 'var(--ink)' }}>
+                {passengers.length === 1
+                  ? passengers[0].name + (issued ? ' · ' + passengers[0].ticket : '')
+                  : (
+                    <button type="button" onClick={() => setTab('pax')} style={{ border: 'none', background: 'none', padding: 0, cursor: 'pointer', color: 'var(--blue)', fontWeight: 600, fontSize: 14, textAlign: 'left' }}>
+                      {passengers[0].name.split(' ').slice(0, 2).join(' ')} <span style={{ color: 'var(--muted)' }}>и ещё {passengers.length - 1}</span> · {passengers.length} {plural(passengers.length, ['пассажир', 'пассажира', 'пассажиров'])} →
+                    </button>
+                  )}
+              </div>
+            </div>
             <div className="fc-meta-item"><div style={{ fontSize: 12, color: 'var(--muted)' }}>Поставщик</div><div style={{ fontWeight: 600, color: 'var(--ink)' }}>{supplier}</div></div>
             {booked && <div className="fc-meta-item"><div style={{ fontSize: 12, color: 'var(--muted)' }}>Тайминг выписки</div><TimeLimitBadge>{ticketingDeadline}</TimeLimitBadge></div>}
           </div>
@@ -1437,11 +1555,16 @@ function FlightCard({ svc, offer, onBack, onFormKp, onAttachOrder, onAttachPerso
       {/* ТЗ #5 — у каждого пассажира свой набор: № билета, PNR, документы и действия с билетом */}
       {tab === 'pax' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <div style={{ fontWeight: 700, color: 'var(--ink)', fontSize: 15 }}>Пассажиры</div>
+            <Pill tone="blue">{passengers.length} {plural(passengers.length, ['пассажир', 'пассажира', 'пассажиров'])}</Pill>
+            {issued && <Pill tone="green">{passengers.filter((p) => p.ticket !== '—').length} билетов</Pill>}
+          </div>
           {passengers.map((p, i) => {
             const paxActions = issued
               ? [
-                  { icon: 'download', label: 'Маршрут-квитанция', onClick: () => toast('Маршрут-квитанция ' + p.name) },
-                  { icon: 'ticket', label: 'Электронный билет', onClick: () => toast('Электронный билет ' + p.name) },
+                  { icon: 'download', label: 'Маршрут-квитанция', onClick: () => { setReceiptPax(p); setReceiptOpen(true); } },
+                  { icon: 'ticket', label: 'Электронный билет', onClick: () => { setReceiptPax(p); setReceiptOpen(true); } },
                   { sep: true },
                   { icon: 'refund', label: 'Возврат билета', onClick: () => setRefundOpen(true) },
                   { icon: 'swap', label: 'Обмен билета', onClick: () => setExchangeOpen(true) },
@@ -1563,6 +1686,12 @@ function FlightCard({ svc, offer, onBack, onFormKp, onAttachOrder, onAttachPerso
         itinerary: [{ from: out.from, to: out.to, date: out.date, flightNo: out.flightNo }, ...(back ? [{ from: back.from, to: back.to, date: back.date, flightNo: back.flightNo }] : [])] }}
       currency={currency} orderNo={svc ? svc.order : null} onClose={() => setBrandedOpen(false)} />}
     <SendToPaxDrawer open={sendOpen} passengers={passengers} onClose={() => setSendOpen(false)} />
+    {attach && <AttachFlightDrawer mode={attach} svcTitle={out.from + ' → ' + out.to + (back ? ' → ' + back.to : '')}
+      onClose={() => setAttach(null)} onDone={(msg) => toast(msg, 'ok')} />}
+    <FlightReceiptDrawer open={receiptOpen} passengers={passengers} pax={receiptPax}
+      legs={[{ from: out.from, to: out.to, date: out.date, flightNo: out.flightNo }, ...(back ? [{ from: back.from, to: back.to, date: back.date, flightNo: back.flightNo }] : [])]}
+      air={air} supplier={supplier} fare={fare} fee={fee} currency={currency}
+      onClose={() => { setReceiptOpen(false); setReceiptPax(null); }} />
     <ConfirmDialog open={!!confirm} title={confirm && confirm.title} message={confirm && confirm.message}
       confirmLabel={confirm && confirm.confirmLabel} confirmVariant={confirm && confirm.confirmVariant}
       onConfirm={() => { const c = confirm; setConfirm(null); c && c.onConfirm && c.onConfirm(); }}

@@ -6,6 +6,8 @@ function FreeBookingFinalize({ draft, onClose, onDone }) {
   const toast = useToast();
   const [step, setStep] = useState('menu');   // menu | order | person | kp
   const [q, setQ] = useState('');
+  const [recipient, setRecipient] = useState('');   // получатель КП (необязательно)
+  const [kpNo] = useState(() => 'КП-' + (1040 + Math.floor(Math.random() * 60)));
   const svcTitle = (x) => x.title || x.route || x.fareName || (x.from && x.to ? x.from + ' → ' + x.to : x.kind || 'Услуга');
   const svcSum = (x) => x.fareDeltaUsd || x.total || x.cost || x.price || x.sum || 0;
   const total = draft.reduce((s, x) => s + svcSum(x), 0);
@@ -55,6 +57,65 @@ function FreeBookingFinalize({ draft, onClose, onDone }) {
     );
   }
 
+  // Формирование КП — боковое окно с составом, получателем, суммой и действиями
+  if (step === 'kp') {
+    return (
+      <Drawer open onClose={onClose} title="Коммерческое предложение"
+        footer={<>
+          <Button variant="secondary" onClick={() => setStep('menu')}>Назад</Button>
+          <Button icon="send" style={{ flex: 1 }} onClick={() => finish(kpNo + ' сформировано' + (recipient ? ' и отправлено: ' + recipient : ''))}>
+            {recipient ? 'Отправить клиенту' : 'Сформировать КП'}
+          </Button>
+        </>}>
+        {/* шапка КП */}
+        <div className="card card-pad" style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>
+          <span className="oc-svc-ic" style={{ background: 'var(--blue)', width: 40, height: 40, borderRadius: 11 }}><Icon name="template" style={{ width: 19, height: 19 }} /></span>
+          <div style={{ flex: 1 }}>
+            <div style={{ fontWeight: 700, color: 'var(--ink)' }}>{kpNo}</div>
+            <div style={{ fontSize: 12.5, color: 'var(--muted)' }}>{draft.length} {plural(draft.length, ['услуга', 'услуги', 'услуг'])} · черновик</div>
+          </div>
+          <Pill tone="amber">Черновик</Pill>
+        </div>
+
+        <PanelSub style={{ marginTop: 0 }}>Получатель</PanelSub>
+        <SearchBox value={recipient} onChange={setRecipient} placeholder="Клиент или организация (необязательно)" style={{ width: '100%', marginBottom: 6 }} />
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 14 }}>
+          {CLIENTS.slice(0, 4).map((c) => (
+            <button key={c} type="button" className="chip" style={{ cursor: 'pointer' }} onClick={() => setRecipient(c)}>{c}</button>
+          ))}
+        </div>
+
+        <PanelSub>Состав предложения</PanelSub>
+        <div className="card card-pad" style={{ marginBottom: 16 }}>
+          {draft.map((x, i) => (
+            <div key={i} style={{ display: 'flex', justifyContent: 'space-between', gap: 12, padding: '8px 0', borderBottom: i < draft.length - 1 ? '1px solid var(--line)' : 'none' }}>
+              <div><div style={{ fontWeight: 600, color: 'var(--ink)' }}>{svcTitle(x)}</div><div style={{ fontSize: 12.5, color: 'var(--muted)' }}>{x.kind || 'Авиа'}{x.supplier ? ' · ' + x.supplier : ''}</div></div>
+              <div style={{ fontWeight: 600, whiteSpace: 'nowrap' }}>{svcSum(x) ? svcSum(x).toLocaleString('ru-RU') + ' $' : '—'}</div>
+            </div>
+          ))}
+          {total > 0 && (
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 10, paddingTop: 10, borderTop: '1px solid var(--line)', fontWeight: 700, color: 'var(--ink)' }}>
+              <span>Итого</span><span>{total.toLocaleString('ru-RU')} $</span>
+            </div>
+          )}
+        </div>
+
+        <PanelSub>Действия с КП</PanelSub>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+          {[['Скачать PDF', 'download', () => toast(kpNo + ': PDF скачан', 'ok')],
+            ['Открыть в разделе КП', 'template', () => finish(kpNo + ' создано — открыто в разделе «Ком. предложения»')],
+            ['Копировать ссылку', 'docs', () => toast('Ссылка на ' + kpNo + ' скопирована', 'ok')],
+            ['Печать', 'clipboard', () => toast(kpNo + ' отправлено на печать')]].map(([label, icon, on]) => (
+            <button key={label} className="doc-chip" style={{ width: '100%' }} onClick={on}>
+              <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}><Icon name={icon} style={{ width: 15, height: 15 }} />{label}</span>
+              <Icon name="chevRight" style={{ width: 15, height: 15 }} />
+            </button>
+          ))}
+        </div>
+      </Drawer>
+    );
+  }
+
   return (
     <Drawer open onClose={onClose} title="Оформление свободного бронирования"
       footer={<Button variant="secondary" style={{ width: '100%' }} onClick={onClose}>Закрыть</Button>}>
@@ -76,7 +137,7 @@ function FreeBookingFinalize({ draft, onClose, onDone }) {
       </div>
       <PanelSub style={{ marginTop: 0 }}>Итог</PanelSub>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-        <Button icon="template" style={{ width: '100%' }} onClick={() => finish('Коммерческое предложение КП-' + (1040 + Math.floor(Math.random() * 60)) + ' сформировано')}>Сформировать КП</Button>
+        <Button icon="template" style={{ width: '100%' }} onClick={() => { setQ(''); setStep('kp'); }}>Сформировать КП</Button>
         <Button variant="secondary" icon="briefcase" style={{ width: '100%' }} onClick={() => { setQ(''); setStep('order'); }}>Привязать к заказу</Button>
         <Button variant="secondary" icon="user" style={{ width: '100%' }} onClick={() => { setQ(''); setStep('person'); }}>Привязать к физ. лицу</Button>
       </div>
@@ -111,6 +172,64 @@ function DetailedSearchPanel({ onClose }) {
         onAddOther={(o, k) => add(o, k)} />
       {finalize && <FreeBookingFinalize draft={draft} onClose={() => setFinalize(false)} onDone={() => { setFinalize(false); onClose(); }} />}
     </StackPanel>
+  );
+}
+
+/* Финансовое состояние клиентов на дашборде (ТЗ: балансы, пропущенные оплаты по срокам,
+   срочные документы для оплат — «в дашборде и иных местах»). */
+function FinanceOverviewBlock({ onNavigate }) {
+  const ov = financeOverview();
+  const money = (n) => Math.round(n || 0).toLocaleString('ru-RU') + ' $';
+  return (
+    <div style={{ marginBottom: 32 }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+        <h2 className="section-title" style={{ margin: 0 }}>Финансовое состояние клиентов</h2>
+        <Button variant="secondary" size="sm" icon="building" onClick={() => onNavigate('companies')}>Все компании</Button>
+      </div>
+      <div className="grid-4" style={{ marginBottom: ov.urgent.length ? 16 : 0 }}>
+        <div className="stat-card" style={{ cursor: 'pointer' }} onClick={() => onNavigate('companies')}>
+          <div className="s-label">Депозиты (доступно)</div>
+          <div className="s-value" style={{ fontSize: 28, color: 'var(--green)' }}>{money(ov.deposits)}</div>
+        </div>
+        <div className="stat-card" style={{ cursor: 'pointer' }} onClick={() => onNavigate('companies')}>
+          <div className="s-label">Задолженность (отсрочка)</div>
+          <div className="s-value" style={{ fontSize: 28, color: 'var(--amber)' }}>{money(ov.debt)}</div>
+        </div>
+        <div className="stat-card" style={{ cursor: 'pointer' }} onClick={() => onNavigate('finance')}>
+          <div className="s-label">Просрочено</div>
+          <div className="s-value" style={{ fontSize: 28, color: ov.overdue > 0 ? 'var(--red)' : 'var(--muted)' }}>{money(ov.overdue)}</div>
+        </div>
+        <div className="stat-card" style={{ cursor: 'pointer' }} onClick={() => onNavigate('finance')}>
+          <div className="s-label">Клиентов с просрочкой</div>
+          <div className="s-value" style={{ fontSize: 28, color: ov.overdueCount > 0 ? 'var(--red)' : 'var(--muted)' }}>{ov.overdueCount}</div>
+        </div>
+      </div>
+
+      {!!ov.urgent.length && (
+        <div className="card card-pad">
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+            <Icon name="alertCircle" style={{ width: 18, height: 18, color: 'var(--amber)' }} />
+            <h3 className="card-title" style={{ fontSize: 15, margin: 0 }}>Срочные оплаты и внимание к балансам</h3>
+            <Pill tone="amber">{ov.urgent.length}</Pill>
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            {ov.urgent.map((u, i) => (
+              <button key={i} type="button" onClick={() => onNavigate('companies')}
+                style={{ cursor: 'pointer', width: '100%', textAlign: 'left', border: '1px solid var(--line)', borderLeft: '3px solid var(--' + u.tone + ')', background: '#fff', borderRadius: 12, padding: '10px 12px', display: 'flex', alignItems: 'center', gap: 12 }}>
+                <span className="oc-svc-ic" style={{ background: 'var(--' + u.tone + ')', width: 34, height: 34, opacity: .9 }}><Icon name="bank" style={{ width: 16, height: 16 }} /></span>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div className="nm" style={{ fontWeight: 600, color: 'var(--ink)' }}>{u.co}</div>
+                  <div className="mt" style={{ fontSize: 12.5, color: 'var(--muted)' }}>{u.text}</div>
+                </div>
+                <Pill tone={u.tone}>{u.kind}</Pill>
+                <span style={{ fontWeight: 700, whiteSpace: 'nowrap', color: 'var(--' + u.tone + ')' }}>{money(u.value)}</span>
+                <Icon name="chevRight" style={{ width: 18, height: 18, color: 'var(--muted-2)' }} />
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -162,6 +281,9 @@ function DashboardPage({ onNavigate, onAddOrder, onOpenOrder }) {
         <div style={{ marginBottom: 32 }}>
           <ActivityFeed onNavigate={onNavigate} onOpenOrder={onOpenOrder} />
         </div>
+
+        {/* финансовое состояние клиентов */}
+        <FinanceOverviewBlock onNavigate={onNavigate} />
 
         {/* order statistics */}
         <h2 className="section-title" style={{ marginBottom: 16 }}>Статистика заказов</h2>
