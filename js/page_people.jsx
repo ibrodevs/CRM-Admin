@@ -177,8 +177,11 @@ function ClientsPage({ onOpenOrder, intent, onConsume }) {
    ==================================================================== */
 function CompanyCard({ co, onBack, onOpenOrder }) {
   const toast = useToast();
+  const [tab, setTab] = useState('overview');
   const orders = ordersOf(co.name);
   const contacts = [{ name: co.dir, role: 'Директор', phone: co.phone, email: co.email }, { name: 'Бухгалтерия', role: 'Финансы', phone: co.phone, email: 'buh@' + co.email.split('@')[1] }].slice(0, co.contacts);
+  const fin = companyFinance(co.id);
+  const bal = companyBalanceShort(fin);
   return (
     <div className="fade-in">
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>
@@ -189,13 +192,26 @@ function CompanyCard({ co, onBack, onOpenOrder }) {
       <div className="card card-pad" style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 18, flexWrap: 'wrap' }}>
         <span className="oc-svc-ic" style={{ background: '#2566ff', width: 56, height: 56, borderRadius: 16 }}><Icon name="building" style={{ width: 26, height: 26 }} /></span>
         <div style={{ flex: 1, minWidth: 200 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}><h2 className="card-title">{co.name}</h2><Pill tone={COMPANY_STATUS[co.status]}>{co.status}</Pill></div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}><h2 className="card-title">{co.name}</h2><Pill tone={COMPANY_STATUS[co.status]}>{co.status}</Pill>{fin && <Pill tone={SETTLEMENT_TONE[fin.settlement]}>{fin.settlement}</Pill>}</div>
           <div style={{ color: 'var(--muted)', fontSize: 14, marginTop: 4 }}>{co.type} · ИНН {co.inn} · директор {co.dir}</div>
         </div>
-        <Button variant="secondary" icon="docs" onClick={() => toast('Открываю договор', 'info')}>Договор</Button>
+        {bal && bal.kind !== 'предоплата' && (
+          <div style={{ textAlign: 'right' }}>
+            <div style={{ fontSize: 12, color: 'var(--muted)' }}>{bal.label}</div>
+            <div style={{ fontSize: 20, fontWeight: 700, color: 'var(--' + (bal.tone === 'red' ? 'red' : bal.tone === 'green' ? 'green' : 'ink') + ')' }}>{Math.round(bal.value).toLocaleString('ru-RU')} $</div>
+            {bal.overdue > 0 && <div style={{ fontSize: 12, color: 'var(--red)' }}>просрочено {Math.round(bal.overdue).toLocaleString('ru-RU')} $</div>}
+          </div>
+        )}
         <Button icon="plus" onClick={() => toast('Создание заказа', 'info')}>Новый заказ</Button>
       </div>
 
+      <div style={{ marginBottom: 18 }}>
+        <Tabs tabs={[{ key: 'overview', label: 'Обзор' }, { key: 'finance', label: 'Финансы и договоры' }]} value={tab} onChange={setTab} />
+      </div>
+
+      {tab === 'finance' && <CompanyFinanceBlock co={co} />}
+
+      {tab === 'overview' && <>
       <div className="grid-2" style={{ alignItems: 'start' }}>
         <div className="card card-pad">
           <h3 className="card-title" style={{ fontSize: 17, marginBottom: 14 }}>Реквизиты</h3>
@@ -244,6 +260,7 @@ function CompanyCard({ co, onBack, onOpenOrder }) {
           </table>
         ) : <EmptyState icon="orders" title="Заказов пока нет" />}
       </div>
+      </>}
     </div>
   );
 }
@@ -273,17 +290,30 @@ function CompaniesPage({ onOpenOrder }) {
         <div className="table-card">
           {rows.length ? (
             <table className="tbl">
-              <thead><tr><th>ID</th><Th label="Компания" col="name" sort={sort} onSort={onSort} /><th>Тип</th><th>ИНН</th><th>Директор</th><Th label="Заказов" col="orders" sort={sort} onSort={onSort} /><Th label="Оборот" col="turnover" sort={sort} onSort={onSort} style={{ textAlign: 'right' }} /><th>Статус</th></tr></thead>
+              <thead><tr><th>ID</th><Th label="Компания" col="name" sort={sort} onSort={onSort} /><th>Тип</th><th>Взаиморасчёты</th><th style={{ textAlign: 'right' }}>Баланс / долг</th><Th label="Заказов" col="orders" sort={sort} onSort={onSort} /><Th label="Оборот" col="turnover" sort={sort} onSort={onSort} style={{ textAlign: 'right' }} /><th>Статус</th></tr></thead>
               <tbody>
-                {rows.map((c) => (
+                {rows.map((c) => {
+                  const bal = companyBalanceShort(companyFinance(c.id));
+                  return (
                   <tr key={c.id} style={{ cursor: 'pointer' }} onClick={() => { setActive(c); setView('card'); }}>
                     <td className="t-strong">{c.id}</td>
                     <td><span style={{ display: 'flex', alignItems: 'center', gap: 10 }}><span className="airline-logo sm" style={{ background: '#2566ff', width: 30, height: 30, borderRadius: 8 }}><Icon name="building" style={{ width: 16, height: 16 }} /></span><span style={{ fontWeight: 600 }}>{c.name}</span></span></td>
-                    <td>{c.type}</td><td className="t-muted">{c.inn}</td><td>{c.dir}</td><td>{c.orders}</td>
+                    <td>{c.type}</td>
+                    <td>{bal ? <Pill tone={SETTLEMENT_TONE[bal.kind] || 'gray'}>{bal.kind}</Pill> : <span className="t-muted">—</span>}</td>
+                    <td style={{ textAlign: 'right' }}>
+                      {bal && bal.kind !== 'предоплата' ? (
+                        <span style={{ fontWeight: 600, color: bal.tone === 'red' ? 'var(--red)' : bal.tone === 'green' ? 'var(--green)' : 'var(--ink)' }}>
+                          {Math.round(bal.value).toLocaleString('ru-RU')} $
+                          {bal.overdue > 0 && <span style={{ display: 'block', fontSize: 11.5, color: 'var(--red)', fontWeight: 500 }}>просрочено {Math.round(bal.overdue).toLocaleString('ru-RU')} $</span>}
+                        </span>
+                      ) : <span className="t-muted">—</span>}
+                    </td>
+                    <td>{c.orders}</td>
                     <td style={{ textAlign: 'right', fontWeight: 600 }}>{pUsd(c.turnover)}</td>
                     <td><Pill tone={COMPANY_STATUS[c.status]}>{c.status}</Pill></td>
                   </tr>
-                ))}
+                  );
+                })}
               </tbody>
             </table>
           ) : <EmptyState icon="building" title="Компаний не найдено" />}

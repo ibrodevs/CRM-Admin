@@ -493,6 +493,24 @@ function OrderCreateModal({ open, onClose, onCreated }) {
                   <span className="oce-svc-ic" style={{ width: 36, height: 36, borderRadius: 10, background: 'var(--blue-soft)', color: 'var(--blue)', display: 'flex', alignItems: 'center', justifyContent: 'center', flex: '0 0 36px' }}><Icon name="building" style={{ width: 18, height: 18 }} /></span>
                   <div style={{ flex: 1, minWidth: 0 }}><div className="nm">{company.name}</div><div className="mt">ИНН {company.inn} · {company.dir}</div></div>
                 </div>
+                {/* Автоопределение действующего договора и доп.соглашения клиента — сборы применяются автоматически (ТЗ) */}
+                {(() => {
+                  const fin = companyFinance(company.id); if (!fin) return null;
+                  const c = activeContract(fin); const a = activeAgreement(fin); if (!a) return null;
+                  const bal = companyBalanceShort(fin);
+                  return (
+                    <div className="card" style={{ marginTop: 10, padding: '11px 13px', borderLeft: '3px solid var(--green)', background: 'var(--green-bg, #eafaf0)' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                        <Icon name="checkCircle" style={{ width: 16, height: 16, color: 'var(--green)' }} />
+                        <span style={{ fontSize: 13, color: 'var(--ink)', fontWeight: 600 }}>Договор {c.no} · {a.no}</span>
+                        <Pill tone={SETTLEMENT_TONE[fin.settlement]}>{fin.settlement}</Pill>
+                        {bal && bal.kind === 'депозит' && <Pill tone={bal.tone}>депозит {Math.round(bal.value).toLocaleString('ru-RU')} $</Pill>}
+                        {bal && bal.kind === 'отсрочка' && <Pill tone={bal.tone}>долг {Math.round(bal.value).toLocaleString('ru-RU')} ${bal.overdue > 0 ? ' · просрочка' : ''}</Pill>}
+                      </div>
+                      <div style={{ fontSize: 12.5, color: 'var(--body)', marginTop: 5 }}>Сборы по услугам применяются автоматически из «{feeTemplate(a.template).name}» шаблона доп. соглашения — без ручного ввода.</div>
+                    </div>
+                  );
+                })()}
                 <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '.02em', margin: '16px 2px 10px' }}>Сотрудники в поездке</div>
                 {employees.map((c) => (
                   <div key={c.id} className="oce-client">

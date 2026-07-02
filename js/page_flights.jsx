@@ -814,17 +814,53 @@ function CorrectionPreview({ doc, template, entity, currency, cfg, itinerary = [
           <div key={k}><span style={{ color: 'var(--muted)' }}>{k}: </span><span style={{ fontWeight: 600, color: 'var(--ink)' }}>{v}</span></div>
         ))}
       </div>
+      {/* маршрут / состав услуги — перенос из бланка поставщика (ответ клиента #6) */}
+      {itinerary && itinerary.length > 0 && (
+        <div style={{ borderTop: '1px solid var(--line)', paddingTop: 10, marginBottom: 4 }}>
+          <div style={{ fontWeight: 700, color: 'var(--ink)', marginBottom: 6 }}>{cfg.mode === 'hotel' ? 'Проживание' : 'Маршрут'}</div>
+          {itinerary.map((leg, i) => (
+            <div key={i} style={{ display: 'flex', justifyContent: 'space-between', padding: '2px 0', color: 'var(--body)' }}>
+              <span>{leg.route || ((leg.from || '') + ' → ' + (leg.to || ''))}</span>
+              <span style={{ color: 'var(--muted)' }}>{[leg.date, leg.flightNo].filter(Boolean).join(' · ')}</span>
+            </div>
+          ))}
+        </div>
+      )}
       {/* финансовая таблица (клиентская версия) */}
       <div style={{ borderTop: '1px solid var(--line)', paddingTop: 10 }}>
-        {rows.map(([k, v]) => (
+        {/* базовый тариф — число либо «IT» при закрытом тарифе (групповая выписка, ответ клиента #6) */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', padding: '3px 0' }}>
+          <span style={{ color: 'var(--muted)' }}>Базовый тариф</span>
+          <span style={{ color: 'var(--ink)' }}>{doc.fareIT ? 'IT' : (doc.baseFare.toLocaleString('ru-RU') + ' ' + cur)}</span>
+        </div>
+        {/* таксы: для авиа — детально по каждой (корректируются точечно); иначе одной строкой */}
+        {cfg.mode === 'avia' && doc.taxList ? doc.taxList.map((t, i) => (
+          <div key={i} style={{ display: 'flex', justifyContent: 'space-between', padding: '3px 0 3px 14px' }}>
+            <span style={{ color: 'var(--muted)' }}>Такса {t.code}{t.label ? ' · ' + t.label : ''}</span>
+            <span style={{ color: 'var(--ink)' }}>{t.amount.toLocaleString('ru-RU')} {cur}</span>
+          </div>
+        )) : (
+          <div style={{ display: 'flex', justifyContent: 'space-between', padding: '3px 0' }}>
+            <span style={{ color: 'var(--muted)' }}>Таксы</span>
+            <span style={{ color: 'var(--ink)' }}>{doc.taxes.toLocaleString('ru-RU')} {cur}</span>
+          </div>
+        )}
+        {[['Агентская надбавка', doc.agentMarkup], ['Сервисный сбор', doc.serviceFee], ['Скидка', -doc.discount]].filter(([, v]) => v).map(([k, v]) => (
           <div key={k} style={{ display: 'flex', justifyContent: 'space-between', padding: '3px 0' }}>
-            <span style={{ color: 'var(--muted)' }}>{k}</span><span style={{ color: v < 0 ? 'var(--green)' : 'var(--ink)' }}>{v < 0 ? '− ' : ''}{Math.abs(v).toLocaleString('ru-RU')} {cur}</span>
+            <span style={{ color: 'var(--muted)' }}>{k}</span><span style={{ color: v < 0 ? 'var(--green)' : 'var(--ink)' }}>{money(v)}</span>
           </div>
         ))}
         <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 8, paddingTop: 8, borderTop: '2px solid var(--ink)', fontWeight: 800, fontSize: 15, color: 'var(--ink)' }}>
-          <span>Итого к оплате</span><span>{corrTotal(doc).toLocaleString('ru-RU')} {cur}</span>
+          <span>Итого к оплате</span><span>{doc.fareIT ? 'IT' : (corrTotal(doc).toLocaleString('ru-RU') + ' ' + cur)}</span>
         </div>
       </div>
+      {/* описание услуги — для отелей/прочих услуг редактируемый бланк (ответ клиента #6) */}
+      {(cfg.mode === 'hotel' || cfg.mode === 'other') && doc.description && doc.description.trim() && (
+        <div style={{ marginTop: 12, paddingTop: 10, borderTop: '1px solid var(--line)' }}>
+          <div style={{ fontWeight: 700, color: 'var(--ink)', marginBottom: 4 }}>Описание услуги</div>
+          <div style={{ color: 'var(--body)', whiteSpace: 'pre-wrap' }}>{doc.description}</div>
+        </div>
+      )}
       {doc.comment && doc.comment.trim() && <div style={{ marginTop: 12, padding: '8px 10px', background: 'var(--surface-2)', borderRadius: 8, color: 'var(--body)' }}>{doc.comment}</div>}
       <div style={{ marginTop: 14, paddingTop: 10, borderTop: '1px solid var(--line)', color: 'var(--muted)', fontSize: 11 }}>{tpl.logo ? entity : ''} · Документ сформирован в PSC Travel Hub</div>
     </div>
@@ -1134,7 +1170,7 @@ function DocCorrectionPanel({ subjects, meta, currency, orderNo, onClose }) {
             {/* 4. Предпросмотр */}
             <div>
               <div style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 8 }}>Предпросмотр (обновляется мгновенно)</div>
-              <CorrectionPreview doc={activeDoc} template={template} entity={entity} currency={currency} cfg={cfg} />
+              <CorrectionPreview doc={activeDoc} template={template} entity={entity} currency={currency} cfg={cfg} itinerary={itinerary} />
             </div>
           </div>
         </>
@@ -1187,7 +1223,7 @@ function DocCorrectionPanel({ subjects, meta, currency, orderNo, onClose }) {
 
           {/* Предпросмотр активной строки */}
           <PanelSub>Предпросмотр · {activeDoc.name}</PanelSub>
-          <div style={{ maxWidth: 560 }}><CorrectionPreview doc={activeDoc} template={template} entity={entity} currency={currency} cfg={cfg} /></div>
+          <div style={{ maxWidth: 560 }}><CorrectionPreview doc={activeDoc} template={template} entity={entity} currency={currency} cfg={cfg} itinerary={itinerary} /></div>
         </>
       )}
 
@@ -1523,7 +1559,8 @@ function FlightCard({ svc, offer, onBack, onFormKp, onAttachOrder, onAttachPerso
     {exchangeOpen && <ExchangePanel passengers={passengers} base={fare + fee} currency={currency} origin={out.from} dest={out.to} onClose={() => setExchangeOpen(false)} onDone={() => setStatus('Обмен')} />}
     {brandedOpen && <DocCorrectionPanel
       subjects={passengers.map((pp) => ({ name: pp.name, type: pp.type, docNo: pp.ticket, ref: pp.pnr }))}
-      meta={{ cfg: docCorrKind('Авиа'), supplier, route: out.from + ' → ' + out.to + (back ? ' → ' + back.to : ''), dates: out.date, carrierName: AIRLINES[air].name, baseFareTotal: fare }}
+      meta={{ cfg: docCorrKind('Авиа'), supplier, route: out.from + ' → ' + out.to + (back ? ' → ' + back.to : ''), dates: out.date, carrierName: AIRLINES[air].name, baseFareTotal: fare,
+        itinerary: [{ from: out.from, to: out.to, date: out.date, flightNo: out.flightNo }, ...(back ? [{ from: back.from, to: back.to, date: back.date, flightNo: back.flightNo }] : [])] }}
       currency={currency} orderNo={svc ? svc.order : null} onClose={() => setBrandedOpen(false)} />}
     <SendToPaxDrawer open={sendOpen} passengers={passengers} onClose={() => setSendOpen(false)} />
     <ConfirmDialog open={!!confirm} title={confirm && confirm.title} message={confirm && confirm.message}
