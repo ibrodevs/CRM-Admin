@@ -623,6 +623,511 @@ function DocCenterPage() {
 }
 
 /* ====================================================================
+   ИМПОРТ МАРШРУТ-КВИТАНЦИЙ  (мастер: Загрузка → Распознавание → Проверка → Заказ)
+   Менеджер загружает квитанции (авиа/ЖД/отель/…), система пошагово распознаёт
+   наполнение, данные редактируются и привязываются к заказу.
+   Демонстрационное распознавание: наполнение построено на реальных бланках
+   из папки «Маршрутки» (Смартавиа, Red Wings, Алроса) — сеть не задействуется.
+   ==================================================================== */
+const REC_TYPES = [
+  { key: 'Авиа',      doc: 'Маршрутная квитанция', icon: 'plane', color: '#2566ff', legLabel: 'Рейс',    docNoLabel: 'Номер билета', refLabel: 'PNR' },
+  { key: 'ЖД',        doc: 'Маршрутная квитанция', icon: 'train', color: '#5a5af0', legLabel: 'Поезд',   docNoLabel: 'Билет №',      refLabel: 'Заказ №' },
+  { key: 'Гостиница', doc: 'Ваучер',               icon: 'bed',   color: '#1f9d57', legLabel: 'Проживание', docNoLabel: 'Ваучер №',  refLabel: 'Код брони' },
+  { key: 'Трансфер',  doc: 'Ваучер',               icon: 'car',   color: '#c47e22', legLabel: 'Трансфер', docNoLabel: 'Ваучер №',    refLabel: 'Заказ №' },
+  { key: 'Прочее',    doc: 'Прочее',               icon: 'paperclip', color: '#9aa3b2', legLabel: 'Услуга', docNoLabel: 'Документ №', refLabel: 'Код' },
+];
+const recType = (key) => REC_TYPES.find((t) => t.key === key) || REC_TYPES[0];
+const RECOG_STEPS = ['Извлечение текста', 'Пассажир и документ', 'Маршрут и рейсы', 'Тарифы и таксы', 'Проверка данных'];
+
+// Типы маршрута — как в ТЗ клиента: «в одну сторону», «туда-обратно», «сложный маршрут».
+// dir у сегмента: 'out' — туда, 'back' — обратно, 'seg' — плечо сложного маршрута.
+const TRIP_TYPES = {
+  oneway:    { label: 'В одну сторону',  arrow: '→' },
+  roundtrip: { label: 'Туда-обратно',    arrow: '⇄' },
+  complex:   { label: 'Сложный маршрут', arrow: '→' },
+};
+const tripLabel = (p) => (TRIP_TYPES[p.tripType] || TRIP_TYPES.oneway).label;
+const legCode = (l, side) => (side === 'to' ? (l.toCode || l.to) : (l.fromCode || l.from)) || '';
+function routeSummary(p) {
+  if (!p.legs || !p.legs.length) return '—';
+  if (p.tripType === 'roundtrip') {
+    const out = p.legs.find((l) => l.dir !== 'back') || p.legs[0];
+    return legCode(out, 'from') + ' ⇄ ' + legCode(out, 'to');
+  }
+  return p.legs.map((l) => legCode(l, 'from')).concat([legCode(p.legs[p.legs.length - 1], 'to')]).join(' → ');
+}
+
+// Пул «распознанных» данных по типу услуги — построен на реальных бланках поставщиков.
+const PARSE_POOL = {
+  'Авиа': [
+    // в одну сторону (Смартавиа, Телегин)
+    { carrier: 'Смартавиа', carrierCode: '5N', passenger: 'TELEGIN IVAN KONSTANTINOVICH', dob: '18.05.1993', docNo: 'ПС 2213067219', ticketNo: '316 2445197354', ref: 'V942WP', cls: 'ECONOMY', fareBasis: 'MLTOW', baggage: '0 PC', handBaggage: '10 кг', issueDate: '01.07.2026', tripType: 'oneway',
+      legs: [{ from: 'Нижний Новгород · Стригино', fromCode: 'GOJ', to: 'Санкт-Петербург · Пулково Т1', toCode: 'LED', date: '19.07.2026', dep: '17:15', arr: '19:00', flightNo: '5N-1510', dir: 'out' }],
+      currency: 'RUB', fare: 25328, taxes: 120, total: 25448 },
+    // туда-обратно (S7)
+    { carrier: 'S7 Airlines', carrierCode: 'S7', passenger: 'NESTEROVA IRINA IVANOVNA', dob: '04.09.1990', docNo: 'ПС 4501234567', ticketNo: '421 2135356261', ref: 'KJ7T2L', cls: 'ECONOMY', fareBasis: 'BLR', baggage: '1 PC', handBaggage: '10 кг', issueDate: '20.06.2026', tripType: 'roundtrip',
+      legs: [
+        { from: 'Москва · Домодедово', fromCode: 'DME', to: 'Сочи · Адлер', toCode: 'AER', date: '10.07.2026', dep: '08:40', arr: '11:25', flightNo: 'S7 1135', dir: 'out' },
+        { from: 'Сочи · Адлер', fromCode: 'AER', to: 'Москва · Домодедово', toCode: 'DME', date: '17.07.2026', dep: '19:10', arr: '21:55', flightNo: 'S7 1136', dir: 'back' },
+      ],
+      currency: 'RUB', fare: 14200, taxes: 3160, total: 17360 },
+    // в одну сторону (Red Wings, Арутюнов)
+    { carrier: 'Red Wings', carrierCode: 'WZ', passenger: 'ARUTIUNOV / GEVORK B', dob: '—', docNo: 'PSP756864778', ticketNo: '309 6111220993', ref: 'V8LG5G', cls: 'Economy / N', fareBasis: 'NSTOW', baggage: '1 PC', handBaggage: '1 место', issueDate: '30.06.2026', tripType: 'oneway',
+      legs: [{ from: 'Нижний Новгород · Стригино', fromCode: 'GOJ', to: 'Ереван · Звартноц', toCode: 'EVN', date: '19.07.2026', dep: '08:20', arr: '12:45', flightNo: 'WZ 1347', dir: 'out' }],
+      currency: 'RUB', fare: 30305, taxes: 1855, total: 32160 },
+    // сложный маршрут с пересадкой (Алроса, Чувашов): Москва → Новосибирск → Мирный
+    { carrier: 'Алроса', carrierCode: '6R', passenger: 'ЧУВАШОВ / ВЛАДИМИР Г', dob: '—', docNo: 'ПС 9814572697', ticketNo: '67A 6110494206', ref: 'BCPFR1', cls: 'Эконом / N', fareBasis: 'NLTOW', baggage: 'Нет', handBaggage: '1 место', issueDate: '07.06.2026', tripType: 'complex',
+      legs: [
+        { from: 'Москва · Внуково A', fromCode: 'VKO', to: 'Новосибирск · Толмачёво', toCode: 'OVB', date: '09.06.2026', dep: '15:45', arr: '23:45', flightNo: '6R 544', dir: 'seg' },
+        { from: 'Новосибирск · Толмачёво', fromCode: 'OVB', to: 'Мирный', toCode: 'MJZ', date: '10.06.2026', dep: '08:30', arr: '11:15', flightNo: '6R 590', dir: 'seg' },
+      ],
+      currency: 'RUB', fare: 18000, taxes: 2400, total: 20400 },
+  ],
+  'ЖД': [
+    { carrier: 'РЖД', carrierCode: 'РЖД', passenger: 'ИВАНОВ ИВАН ИВАНОВИЧ', dob: '12.03.1988', docNo: '2213 №667788', ticketNo: '70 1234567890', ref: 'RZD-4471', cls: 'Купе', fareBasis: '—', baggage: '—', handBaggage: '—', issueDate: '28.06.2026', tripType: 'oneway',
+      legs: [{ from: 'Москва · Казанский', fromCode: 'MOW', to: 'Казань', toCode: 'KZN', date: '12.07.2026', dep: '22:10', arr: '09:30', flightNo: 'Поезд 024Й · ваг 07, м 12', dir: 'out' }],
+      currency: 'RUB', fare: 3200, taxes: 0, total: 3200 },
+  ],
+  'Гостиница': [
+    { carrier: 'Jannat Hotel 4*', carrierCode: '', passenger: 'ПЕТРОВ СЕРГЕЙ', dob: '—', docNo: 'V-778210', ticketNo: 'V-778210', ref: 'BK-90312', cls: 'Standard DBL', fareBasis: 'BB (завтрак)', baggage: '—', handBaggage: '—', issueDate: '25.06.2026', tripType: 'stay',
+      legs: [{ from: 'Заезд 12.07.2026 14:00', fromCode: '', to: 'Выезд 15.07.2026 12:00', toCode: '', date: '3 ночи', dep: '', arr: '', flightNo: 'DBL · Завтрак включён', dir: 'out' }],
+      currency: 'USD', fare: 240, taxes: 18, total: 258 },
+  ],
+  'Трансфер': [
+    { carrier: 'Karimov Transfer', carrierCode: '', passenger: 'ПЕТРОВ СЕРГЕЙ', dob: '—', docNo: 'TR-5521', ticketNo: 'TR-5521', ref: 'TRF-118', cls: 'Седан', fareBasis: '—', baggage: '2 места', handBaggage: '—', issueDate: '01.07.2026', tripType: 'oneway',
+      legs: [{ from: 'Аэропорт Манас', fromCode: '', to: 'Отель Jannat', toCode: '', date: '12.07.2026', dep: '15:30', arr: '', flightNo: 'Toyota Camry · 1-4 pax', dir: 'out' }],
+      currency: 'USD', fare: 30, taxes: 0, total: 30 },
+  ],
+  'Прочее': [
+    { carrier: 'Поставщик', carrierCode: '', passenger: 'Клиент', dob: '—', docNo: '—', ticketNo: '—', ref: '—', cls: '—', fareBasis: '—', baggage: '—', handBaggage: '—', issueDate: '—', tripType: 'oneway',
+      legs: [{ from: 'Услуга', fromCode: '', to: '', toCode: '', date: '—', dep: '', arr: '', flightNo: '', dir: 'out' }],
+      currency: 'USD', fare: 0, taxes: 0, total: 0 },
+  ],
+};
+let RID = 0;
+function mockParse(file) {
+  const pool = PARSE_POOL[file.type] || PARSE_POOL['Прочее'];
+  const src = pool[file.poolIx % pool.length];
+  return JSON.parse(JSON.stringify(src)); // независимая редактируемая копия
+}
+function guessType(name) {
+  const n = (name || '').toLowerCase();
+  if (/(hotel|отел|voucher|ваучер|room|гостиниц)/.test(n)) return 'Гостиница';
+  if (/(train|ржд|поезд|rail|жд)/.test(n)) return 'ЖД';
+  if (/(transfer|трансфер|car)/.test(n)) return 'Трансфер';
+  return 'Авиа';
+}
+const recMoney = (v, c) => (v < 0 ? '− ' : '') + Math.abs(v).toLocaleString('ru-RU') + ' ' + (c === 'USD' ? '$' : c);
+const recComputed = (p) => (Number(p.fare) || 0) + (Number(p.taxes) || 0);
+// Строка одного плеча маршрута (город → город · дата · время · рейс).
+function LegLine({ l }) {
+  return (
+    <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, padding: '3px 0', fontSize: 12.5, color: 'var(--body)' }}>
+      <span style={{ fontWeight: 600, color: 'var(--ink)' }}>{l.from}{l.to ? ' → ' + l.to : ''}</span>
+      <span style={{ color: 'var(--muted)', whiteSpace: 'nowrap' }}>{[l.date, [l.dep, l.arr].filter(Boolean).join('–'), l.flightNo].filter(Boolean).join(' · ')}</span>
+    </div>
+  );
+}
+// Блок маршрута с учётом типа: в одну сторону / туда-обратно (Туда/Обратно) / сложный (плечи с пересадками).
+function RouteView({ p, isStay }) {
+  if (isStay) {
+    return (<div style={{ borderTop: '1px solid var(--line)', paddingTop: 8 }}>
+      <div style={{ fontWeight: 700, color: 'var(--ink)', fontSize: 12.5, marginBottom: 4 }}>Проживание</div>
+      {p.legs.map((l, i) => <LegLine key={i} l={l} />)}
+    </div>);
+  }
+  const tt = p.tripType || 'oneway';
+  const Group = ({ title, legs }) => (
+    <div style={{ marginBottom: 6 }}>
+      <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--blue)', textTransform: 'uppercase', letterSpacing: '.03em', margin: '4px 0 2px' }}>{title}</div>
+      {legs.map((l, i) => <LegLine key={i} l={l} />)}
+    </div>
+  );
+  return (
+    <div style={{ borderTop: '1px solid var(--line)', paddingTop: 8 }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
+        <span style={{ fontWeight: 700, color: 'var(--ink)', fontSize: 12.5 }}>Маршрут</span>
+        <Pill tone="blue">{tripLabel(p)}</Pill>
+      </div>
+      {tt === 'roundtrip' ? (
+        <>
+          <Group title="Туда" legs={p.legs.filter((l) => l.dir !== 'back')} />
+          <Group title="Обратно" legs={p.legs.filter((l) => l.dir === 'back')} />
+        </>
+      ) : p.legs.map((l, i) => (
+        <React.Fragment key={i}>
+          <LegLine l={l} />
+          {tt === 'complex' && i < p.legs.length - 1 && (
+            <div style={{ fontSize: 11, color: 'var(--muted)', padding: '0 0 2px 2px' }}>↳ пересадка{legCode(l, 'to') ? ' · ' + legCode(l, 'to') : ''}</div>
+          )}
+        </React.Fragment>
+      ))}
+    </div>
+  );
+}
+function RSub({ children, style }) {
+  return <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '.02em', margin: '20px 2px 10px', ...style }}>{children}</div>;
+}
+
+/* Компактный предпросмотр распознанной квитанции (шаг «Проверка»). */
+function ReceiptPreview({ type, p }) {
+  const t = recType(type);
+  const total = Number(p.total) || recComputed(p);
+  return (
+    <div style={{ background: '#fff', border: '1px solid var(--line)', borderRadius: 12, boxShadow: 'var(--shadow-card)', overflow: 'hidden' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '13px 16px', borderBottom: '2px solid var(--ink)' }}>
+        <span style={{ width: 34, height: 34, borderRadius: 8, background: t.color, display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}><Icon name={t.icon} style={{ width: 18, height: 18, color: '#fff' }} /></span>
+        <div style={{ flex: 1 }}>
+          <div style={{ fontWeight: 800, color: 'var(--ink)', fontSize: 14 }}>{p.carrier || '—'}</div>
+          <div style={{ color: 'var(--muted)', fontSize: 11.5 }}>{t.doc}</div>
+        </div>
+        <div style={{ textAlign: 'right', color: 'var(--muted)', fontSize: 11 }}>{t.refLabel}<br /><span style={{ fontWeight: 700, color: 'var(--ink)' }}>{p.ref || '—'}</span></div>
+      </div>
+      <div style={{ padding: '12px 16px' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '4px 16px', fontSize: 12.5, marginBottom: 10 }}>
+          {[[t.legLabel === 'Проживание' ? 'Гость' : 'Пассажир', p.passenger], [t.docNoLabel, p.ticketNo], ['Класс/тариф', [p.cls, p.fareBasis].filter((x) => x && x !== '—').join(' · ') || '—'], ['Багаж', p.baggage]].map(([k, v]) => (
+            <div key={k}><span style={{ color: 'var(--muted)' }}>{k}: </span><span style={{ fontWeight: 600, color: 'var(--ink)' }}>{v || '—'}</span></div>
+          ))}
+        </div>
+        <RouteView p={p} isStay={t.legLabel === 'Проживание'} />
+        <div style={{ borderTop: '1px solid var(--line)', marginTop: 8, paddingTop: 8, fontSize: 12.5 }}>
+          {[['Тариф', p.fare], ['Таксы и сборы', p.taxes]].map(([k, v]) => (
+            <div key={k} style={{ display: 'flex', justifyContent: 'space-between', padding: '2px 0' }}><span style={{ color: 'var(--muted)' }}>{k}</span><span style={{ color: 'var(--ink)' }}>{recMoney(Number(v) || 0, p.currency)}</span></div>
+          ))}
+          <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 6, paddingTop: 6, borderTop: '2px solid var(--ink)', fontWeight: 800, fontSize: 15, color: 'var(--ink)' }}>
+            <span>Итого</span><span>{recMoney(total, p.currency)}</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* Редактируемая форма распознанной квитанции. */
+function ReceiptEditForm({ type, p, onChange }) {
+  const t = recType(type);
+  const isStay = t.legLabel === 'Проживание';
+  const canTrip = type === 'Авиа' || type === 'ЖД';
+  const set = (k, v) => onChange({ ...p, [k]: v });
+  const setLeg = (i, k, v) => onChange({ ...p, legs: p.legs.map((l, ix) => (ix === i ? { ...l, [k]: v } : l)) });
+  const addLeg = () => {
+    const tt = p.tripType === 'roundtrip' ? 'roundtrip' : 'complex';
+    const dir = p.tripType === 'roundtrip' ? 'back' : 'seg';
+    const legs = p.tripType === 'oneway' ? p.legs.map((l) => ({ ...l, dir: 'seg' })) : p.legs;
+    onChange({ ...p, tripType: tt, legs: [...legs, { from: '', fromCode: '', to: '', toCode: '', date: '', dep: '', arr: '', flightNo: '', dir }] });
+  };
+  const delLeg = (i) => onChange({ ...p, legs: p.legs.filter((_, ix) => ix !== i) });
+  const setTrip = (tt) => {
+    let legs = p.legs.map((l) => ({ ...l }));
+    if (tt === 'oneway') { legs = [{ ...(legs[0] || {}), dir: 'out' }]; }
+    else if (tt === 'roundtrip') {
+      const out = { ...(legs[0] || {}), dir: 'out' };
+      const b = legs.find((l) => l.dir === 'back') || legs[1] || {};
+      legs = [out, { ...b, dir: 'back', from: b.from || out.to, fromCode: b.fromCode || out.toCode, to: b.to || out.from, toCode: b.toCode || out.fromCode, date: b.date || '', dep: b.dep || '', arr: b.arr || '', flightNo: b.flightNo || '' }];
+    } else { legs = legs.map((l) => ({ ...l, dir: 'seg' })); if (legs.length < 2) legs.push({ from: '', fromCode: '', to: '', toCode: '', date: '', dep: '', arr: '', flightNo: '', dir: 'seg' }); }
+    onChange({ ...p, tripType: tt, legs });
+  };
+  const legTitle = (i) => {
+    if (p.tripType === 'roundtrip') return p.legs[i].dir === 'back' ? 'Обратно' : 'Туда';
+    if (p.tripType === 'complex') return 'Плечо ' + (i + 1);
+    return t.legLabel;
+  };
+  return (
+    <div>
+      <RSub style={{ marginTop: 0 }}>{recType(type).legLabel === 'Проживание' ? 'Гость и бронь' : 'Пассажир и документ'}</RSub>
+      <div className="form-grid">
+        <Field label={t.legLabel === 'Проживание' ? 'Гость' : 'Пассажир'}><Input value={p.passenger} onChange={(e) => set('passenger', e.target.value)} /></Field>
+        <Field label="Дата рождения"><Input value={p.dob} onChange={(e) => set('dob', e.target.value)} /></Field>
+        <Field label="Документ"><Input value={p.docNo} onChange={(e) => set('docNo', e.target.value)} /></Field>
+        <Field label={t.docNoLabel}><Input value={p.ticketNo} onChange={(e) => set('ticketNo', e.target.value)} /></Field>
+        <Field label={t.refLabel}><Input value={p.ref} onChange={(e) => set('ref', e.target.value)} /></Field>
+        <Field label="Перевозчик / поставщик"><Input value={p.carrier} onChange={(e) => set('carrier', e.target.value)} /></Field>
+        <Field label="Класс"><Input value={p.cls} onChange={(e) => set('cls', e.target.value)} /></Field>
+        <Field label="Тариф (fare basis)"><Input value={p.fareBasis} onChange={(e) => set('fareBasis', e.target.value)} /></Field>
+        <Field label="Багаж"><Input value={p.baggage} onChange={(e) => set('baggage', e.target.value)} /></Field>
+        <Field label="Ручная кладь"><Input value={p.handBaggage} onChange={(e) => set('handBaggage', e.target.value)} /></Field>
+      </div>
+
+      <RSub style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <span>{isStay ? 'Проживание' : 'Маршрут'}</span>
+        <button className="btn btn-ghost btn-sm" onClick={addLeg}><Icon name="plus" style={{ width: 14, height: 14 }} /> {p.tripType === 'roundtrip' ? 'Плечо' : 'Сегмент'}</button>
+      </RSub>
+      {canTrip && (
+        <div className="trip-toggle" style={{ display: 'inline-flex', marginBottom: 12 }}>
+          {Object.keys(TRIP_TYPES).map((k) => (
+            <button key={k} className={(p.tripType || 'oneway') === k ? 'on' : ''} onClick={() => setTrip(k)}>{TRIP_TYPES[k].label}</button>
+          ))}
+        </div>
+      )}
+      {p.legs.map((l, i) => (
+        <div key={i} className="card card-pad" style={{ marginBottom: 10, background: 'var(--surface-2)' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+            <span style={{ fontWeight: 700, fontSize: 12.5, color: 'var(--muted)' }}>{isStay ? t.legLabel : legTitle(i)}</span>
+            {p.legs.length > 1 && <button className="btn btn-ghost btn-sm" onClick={() => delLeg(i)}><Icon name="trash" style={{ width: 14, height: 14 }} /></button>}
+          </div>
+          <div className="form-grid">
+            <Field label="Откуда"><Input value={l.from} onChange={(e) => setLeg(i, 'from', e.target.value)} /></Field>
+            <Field label="Куда"><Input value={l.to} onChange={(e) => setLeg(i, 'to', e.target.value)} /></Field>
+            <Field label="Дата"><Input value={l.date} onChange={(e) => setLeg(i, 'date', e.target.value)} /></Field>
+            <Field label={t.legLabel === 'Проживание' ? 'Условия' : 'Рейс / поезд'}><Input value={l.flightNo} onChange={(e) => setLeg(i, 'flightNo', e.target.value)} /></Field>
+            <Field label="Вылет / заезд"><Input value={l.dep} onChange={(e) => setLeg(i, 'dep', e.target.value)} /></Field>
+            <Field label="Прилёт / выезд"><Input value={l.arr} onChange={(e) => setLeg(i, 'arr', e.target.value)} /></Field>
+          </div>
+        </div>
+      ))}
+
+      <RSub>Стоимость</RSub>
+      <div className="form-grid">
+        <Field label="Валюта"><Select options={['RUB', 'USD', 'EUR', 'KGS', 'KZT']} value={p.currency} onChange={(e) => set('currency', e.target.value)} /></Field>
+        <Field label="Тариф"><Input type="number" value={p.fare} onChange={(e) => set('fare', e.target.value)} /></Field>
+        <Field label="Таксы и сборы"><Input type="number" value={p.taxes} onChange={(e) => set('taxes', e.target.value)} /></Field>
+        <Field label="Итого"><Input type="number" value={p.total} onChange={(e) => set('total', e.target.value)} /></Field>
+      </div>
+      <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: -6 }}>
+        <button className="btn btn-ghost btn-sm" onClick={() => set('total', recComputed(p))}><Icon name="calc" style={{ width: 14, height: 14 }} /> Пересчитать итог (тариф + таксы)</button>
+      </div>
+    </div>
+  );
+}
+
+/* Верхний степпер мастера импорта. */
+/* Статусы сверки квитанции (паттерн клиента: «Импорт списка пассажиров»). */
+const REC_STATUS = {
+  'Распознано':       { tone: 'green', action: 'Проверить' },
+  'Требует проверки': { tone: 'amber', action: 'Заполнить'  },
+  'Возможный дубль':  { tone: 'red',   action: 'Пропустить' },
+  'Ошибка':           { tone: 'gray',  action: 'Повторить'  },
+};
+// Статус выводится из распознанных данных: дубль по номеру билета, нехватка ключевых полей и т.д.
+function receiptStatus(parsed, seen) {
+  if (!parsed) return 'Ошибка';
+  const tno = (parsed.ticketNo || '').trim();
+  if (tno && seen.has(tno)) return 'Возможный дубль';
+  if (tno) seen.add(tno);
+  if (!parsed.passenger || !(Number(parsed.total) > 0)) return 'Ошибка';
+  if (parsed.dob === '—' || parsed.docNo === '—') return 'Требует проверки';
+  return 'Распознано';
+}
+
+/* Боковой редактор одной квитанции — открывается по действию «Проверить». */
+function ReceiptEditDrawer({ open, file, onClose, onChange }) {
+  if (!open || !file) return null;
+  return (
+    <Drawer open={open} onClose={onClose} title={'Проверка · ' + (file.parsed.passenger || 'квитанция')}
+      footer={<Button style={{ width: '100%' }} icon="check" onClick={onClose}>Готово</Button>}>
+      <div style={{ marginBottom: 16 }}><ReceiptPreview type={file.type} p={file.parsed} /></div>
+      <ReceiptEditForm type={file.type} p={file.parsed} onChange={(p) => onChange(file.id, p)} />
+    </Drawer>
+  );
+}
+
+/* ====================================================================
+   ИМПОРТ МАРШРУТ-КВИТАНЦИЙ — модальная панель по паттерну клиента
+   («Импорт списка пассажиров», Авиа (подбор)/Импорт группы.png):
+   загрузка → блок «Квитанции обработаны» со счётчиками → таблица сверки
+   со статусом и действием по каждой квитанции → настройка → «Добавить в заказ».
+   ==================================================================== */
+const ORDER_OPTIONS = ORDERS.map((o) => '№ ' + o.no + ' · ' + o.client);
+function ReceiptImportModal({ open, onClose, onDone }) {
+  const toast = useToast();
+  const [files, setFiles] = useState([]);      // { id, name, size, type, poolIx, status:'queued'|'scanning'|'done', parsed }
+  const [excluded, setExcluded] = useState({}); // id -> true (пропущенные вручную/дубли)
+  const [editId, setEditId] = useState(null);
+  const [orderPick, setOrderPick] = useState('Новый заказ');
+  const [optAddIncomplete, setOptAddIncomplete] = useState(false);
+  const [optCreateServices, setOptCreateServices] = useState(true);
+  const fileRef = useRef(null);
+  const poolCounter = useRef({});
+
+  useEffect(() => { if (open) { setFiles([]); setExcluded({}); setEditId(null); setOrderPick('Новый заказ'); setOptAddIncomplete(false); setOptCreateServices(true); poolCounter.current = {}; } }, [open]);
+
+  const fmtSize = (b) => (b / 1024 < 1024 ? Math.max(1, Math.round(b / 1024)) + ' КБ' : (b / 1048576).toFixed(1) + ' МБ');
+  const addFiles = (list) => {
+    setFiles((cur) => {
+      const pending = cur.filter((f) => f.status !== 'done').length;
+      const add = Array.from(list).map((f, i) => {
+        const type = guessType(f.name);
+        poolCounter.current[type] = poolCounter.current[type] || 0;
+        const poolIx = poolCounter.current[type]++;
+        const id = 'rf' + (RID++);
+        const order = pending + i;
+        // последовательное «распознавание»: сначала статус «сканируется», затем данные
+        setTimeout(() => setFiles((c) => c.map((x) => (x.id === id ? { ...x, status: 'scanning' } : x))), 250 + order * 650);
+        setTimeout(() => setFiles((c) => c.map((x) => (x.id === id ? { ...x, status: 'done', parsed: mockParse(x) } : x))), 250 + order * 650 + 600);
+        return { id, name: f.name, size: fmtSize(f.size || 40000), type, poolIx, status: 'queued', parsed: null };
+      });
+      return [...cur, ...add];
+    });
+  };
+  const onPick = (e) => { if (e.target.files && e.target.files.length) addFiles(e.target.files); e.target.value = ''; };
+  const onDrop = (e) => { e.preventDefault(); if (e.dataTransfer.files && e.dataTransfer.files.length) addFiles(e.dataTransfer.files); };
+  const setType = (id, type) => setFiles((cur) => cur.map((f) => (f.id === id ? { ...f, type, parsed: f.parsed ? mockParse({ ...f, type }) : null } : f)));
+  const updateParsed = (id, parsed) => setFiles((cur) => cur.map((f) => (f.id === id ? { ...f, parsed } : f)));
+  const remove = (id) => { setFiles((cur) => cur.filter((f) => f.id !== id)); setExcluded((e) => { const n = { ...e }; delete n[id]; return n; }); };
+
+  const processing = files.some((f) => f.status !== 'done');
+  const done = files.filter((f) => f.status === 'done');
+
+  // сверка: статус по каждой готовой квитанции (в порядке загрузки — для детекции дублей)
+  const rows = React.useMemo(() => {
+    const seen = new Set();
+    return done.map((f) => ({ f, status: receiptStatus(f.parsed, seen) }));
+  }, [done.map((f) => f.id + (f.parsed ? f.parsed.ticketNo : '')).join(',')]);
+
+  // дубли по умолчанию исключаются из добавления
+  useEffect(() => {
+    setExcluded((cur) => {
+      const next = { ...cur };
+      rows.forEach((r) => { if (r.status === 'Возможный дубль' && next[r.f.id] === undefined) next[r.f.id] = true; });
+      return next;
+    });
+  }, [rows.map((r) => r.f.id + r.status).join(',')]);
+
+  const counts = rows.reduce((a, r) => { a[r.status] = (a[r.status] || 0) + 1; return a; }, {});
+  const isEligible = (r) => !excluded[r.f.id] && r.status !== 'Ошибка' && (r.status !== 'Требует проверки' || optAddIncomplete);
+  const toAdd = rows.filter(isEligible);
+  const editFile = files.find((f) => f.id === editId) || null;
+
+  const finish = () => {
+    if (!toAdd.length) { toast('Нет квитанций для добавления', 'err'); return; }
+    const now = new Date().toLocaleDateString('ru-RU');
+    const isNew = orderPick === 'Новый заказ';
+    const orderNo = isNew ? 'новый' : Number(orderPick.replace(/[^0-9]/g, '').slice(0, 5));
+    const docs = toAdd.map((r) => {
+      const t = recType(r.f.type); const p = r.f.parsed;
+      return {
+        no: 'D-' + Math.floor(3200 + Math.random() * 800),
+        name: t.doc + ' ' + (p.carrier || '') + ' · ' + (p.passenger || '').split(/[\/ ]/)[0],
+        type: t.doc, order: orderNo, participant: p.passenger || '—', service: r.f.type + ' · распознано',
+        finOp: '—', status: 'Черновик', version: 1, date: now, size: r.f.size, parsed: p, recType: r.f.type,
+        versions: [{ v: 1, date: now, who: (window.CURRENT_USER && CURRENT_USER.name) || 'Оператор', note: 'Импорт из квитанции' }],
+        history: [{ t: now, text: 'Распознано и привязано к заказу ' + orderNo, who: (window.CURRENT_USER && CURRENT_USER.name) || 'Оператор' }],
+      };
+    });
+    onDone(docs);
+    toast(isNew ? toAdd.length + ' квитанц. добавлено в новый заказ' : toAdd.length + ' квитанц. добавлено в заказ № ' + orderNo, 'ok');
+  };
+
+  const Stat = ({ label, value, tone }) => (
+    <div style={{ flex: 1, textAlign: 'center' }}>
+      <div style={{ fontSize: 26, fontWeight: 800, color: value ? 'var(--' + tone + ')' : 'var(--muted-2)' }}>{value || 0}</div>
+      <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 2 }}>{label}</div>
+    </div>
+  );
+
+  return (
+    <Modal open={open} onClose={onClose}>
+      <div style={{ padding: '22px 24px 24px' }}>
+        <div className="modal-head" style={{ marginBottom: 6 }}>
+          <div>
+            <h2 className="modal-title">Импорт маршрут-квитанций</h2>
+            <div className="modal-sub">Квитанции распознаются, сверяются и привязываются к заказу. Оригиналы поставщиков не меняются.</div>
+          </div>
+          <button className="modal-close" onClick={onClose}><Icon name="x" /></button>
+        </div>
+
+        <input ref={fileRef} type="file" multiple style={{ display: 'none' }} onChange={onPick} accept=".pdf,.jpg,.jpeg,.png" />
+
+        {/* Загрузка квитанций */}
+        <RSub style={{ marginTop: 14 }}>Загрузка квитанций</RSub>
+        <div onClick={() => fileRef.current && fileRef.current.click()} onDrop={onDrop} onDragOver={(e) => e.preventDefault()}
+          style={{ border: '2px dashed var(--field-line)', borderRadius: 14, padding: '26px 20px', textAlign: 'center', cursor: 'pointer', background: 'var(--surface-2)' }}>
+          <span style={{ width: 46, height: 46, borderRadius: 12, background: 'var(--blue-soft)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}><Icon name="download" style={{ width: 22, height: 22, color: 'var(--blue)' }} /></span>
+          <div style={{ marginTop: 10, fontWeight: 700, color: 'var(--ink)' }}>Перетащите файлы сюда</div>
+          <div style={{ margin: '8px 0' }}><Button variant="secondary" size="sm">Выбрать файлы</Button></div>
+          <div style={{ fontSize: 12, color: 'var(--muted)' }}>Авиа, ЖД, отели, трансферы · PDF, JPG, PNG · до 15 МБ</div>
+        </div>
+
+        {files.length > 0 && (
+          <>
+            {/* Квитанции обработаны — счётчики */}
+            <RSub>Квитанции обработаны</RSub>
+            <div className="card card-pad" style={{ display: 'flex', alignItems: 'center' }}>
+              {processing ? (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10, color: 'var(--muted)', fontSize: 13.5, padding: '4px 0' }}>
+                  <Icon name="loader" style={{ width: 16, height: 16, animation: 'spin 1s linear infinite' }} /> Распознаём квитанции… {done.length}/{files.length}
+                </div>
+              ) : (
+                <>
+                  <Stat label="Распознано" value={counts['Распознано']} tone="green" />
+                  <Stat label="Требует проверки" value={counts['Требует проверки']} tone="amber" />
+                  <Stat label="Дубли" value={counts['Возможный дубль']} tone="red" />
+                  <Stat label="Ошибка" value={counts['Ошибка']} tone="muted-2" />
+                </>
+              )}
+            </div>
+
+            {/* Сверка квитанций */}
+            {rows.length > 0 && (
+              <>
+                <RSub>Сверка квитанций</RSub>
+                <div className="table-card">
+                  <table className="tbl">
+                    <thead><tr><th>Квитанция</th><th>Маршрут / сумма</th><th style={{ width: 150 }}>Статус</th><th style={{ width: 130 }}>Действие</th><th style={{ width: 40 }}></th></tr></thead>
+                    <tbody>
+                      {rows.map((r) => {
+                        const t = recType(r.f.type); const p = r.f.parsed; const st = REC_STATUS[r.status];
+                        const skipped = !!excluded[r.f.id];
+                        const routeStr = routeSummary(p);
+                        const isStayRow = t.legLabel === 'Проживание';
+                        return (
+                          <tr key={r.f.id} style={{ opacity: skipped ? 0.5 : 1 }}>
+                            <td>
+                              <span style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                                <span style={{ width: 30, height: 30, borderRadius: 8, background: t.color, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', flex: '0 0 30px' }}><Icon name={t.icon} style={{ width: 16, height: 16, color: '#fff' }} /></span>
+                                <span><span style={{ display: 'block', fontWeight: 600, color: 'var(--ink)' }}>{p.passenger}</span><span style={{ fontSize: 12, color: 'var(--muted)' }}>{p.carrier} · {r.f.type}</span></span>
+                              </span>
+                            </td>
+                            <td>
+                              <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}><span style={{ color: 'var(--body)' }}>{routeStr}</span>{!isStayRow && <Pill tone="blue">{tripLabel(p)}</Pill>}</span>
+                              <span style={{ fontSize: 12, color: 'var(--muted)' }}>{recMoney(Number(p.total) || 0, p.currency)}</span>
+                            </td>
+                            <td><Pill tone={st.tone}>{r.status}</Pill></td>
+                            <td>
+                              {r.status === 'Возможный дубль'
+                                ? <button className="btn btn-ghost btn-sm" onClick={() => setExcluded((e) => ({ ...e, [r.f.id]: !e[r.f.id] }))}>{skipped ? 'Вернуть' : 'Пропустить'}</button>
+                                : <button className="btn btn-ghost btn-sm" style={{ color: 'var(--blue)' }} onClick={() => setEditId(r.f.id)}>{st.action}</button>}
+                            </td>
+                            <td><button className="btn btn-ghost btn-sm" onClick={() => remove(r.f.id)}><Icon name="trash" style={{ width: 15, height: 15 }} /></button></td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </>
+            )}
+
+            {/* Настройка добавления */}
+            <RSub>Настройка добавления</RSub>
+            <div style={{ display: 'grid', gap: 10 }}>
+              <label style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 14, color: 'var(--body)' }}>
+                <span style={{ fontWeight: 600, color: 'var(--muted)', minWidth: 150 }}>Заказ для привязки</span>
+                <Select options={['Новый заказ', ...ORDER_OPTIONS]} value={orderPick} onChange={(e) => setOrderPick(e.target.value)} style={{ flex: 1 }} />
+              </label>
+              <label style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 14, color: 'var(--body)', cursor: 'pointer' }}>
+                <Checkbox on={optCreateServices} onChange={() => setOptCreateServices((v) => !v)} /> Создавать услуги в заказе по квитанциям
+              </label>
+              <label style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 14, color: 'var(--body)', cursor: 'pointer' }}>
+                <Checkbox on={optAddIncomplete} onChange={() => setOptAddIncomplete((v) => !v)} /> Добавлять квитанции с неполными данными
+              </label>
+            </div>
+          </>
+        )}
+
+        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 12, marginTop: 24 }}>
+          <Button variant="secondary" onClick={onClose}>Отмена</Button>
+          <Button icon="check" disabled={processing || !toAdd.length} onClick={finish}>Добавить в заказ{toAdd.length ? ' (' + toAdd.length + ')' : ''}</Button>
+        </div>
+      </div>
+
+      <ReceiptEditDrawer open={!!editFile} file={editFile} onClose={() => setEditId(null)} onChange={updateParsed} />
+    </Modal>
+  );
+}
+
+
+/* ====================================================================
    РЕДАКТОР КВИТАНЦИЙ (пункт бокового меню)
    Список маршрут-квитанций из всех заказов → открытие клиентского редактора
    (DocCorrectionPanel) с данными выбранной квитанции.
@@ -630,8 +1135,11 @@ function DocCenterPage() {
 function ReceiptEditorPage() {
   const [q, setQ] = useState('');
   const [edit, setEdit] = useState(null);   // выбранная квитанция для редактора
-  const receipts = DOCS2.filter((d) => d.type === 'Маршрутная квитанция'
-    && (!q || `${d.no} ${d.name} ${d.order} ${d.participant}`.toLowerCase().includes(q.toLowerCase())));
+  const [importing, setImporting] = useState(false);   // открыт мастер импорта
+  const [imported, setImported] = useState([]);         // квитанции, добавленные через импорт
+  const all = [...imported, ...DOCS2.filter((d) => d.type === 'Маршрутная квитанция')];
+  const receipts = all.filter((d) => (!q || `${d.no} ${d.name} ${d.order} ${d.participant}`.toLowerCase().includes(q.toLowerCase())));
+
   return (
     <>
       <Topbar title="Редактор квитанций" />
@@ -640,10 +1148,11 @@ function ReceiptEditorPage() {
           <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16, flexWrap: 'wrap' }}>
             <div style={{ flex: 1, minWidth: 200 }}>
               <div style={{ fontSize: 13.5, color: 'var(--muted)' }}>
-                Клиентская версия маршрут-квитанции на фирменном бланке. Оригинал поставщика не меняется.
+                Загрузите маршрут-квитанции — система пошагово распознает наполнение, вы отредактируете данные и привяжете их к заказу.
               </div>
             </div>
             <SearchBox value={q} onChange={setQ} placeholder="Поиск квитанции…" style={{ width: 250 }} />
+            <Button icon="download" onClick={() => setImporting(true)}>Импорт квитанций</Button>
           </div>
 
           {receipts.length ? (
@@ -673,12 +1182,30 @@ function ReceiptEditorPage() {
         </div>
       </div>
 
-      {edit && (
-        <DocCorrectionPanel
-          subjects={[{ name: edit.participant !== '—' ? edit.participant : 'Пассажир', type: 'Взрослый', docNo: edit.no, ref: '—' }]}
-          meta={{ cfg: docCorrKind('Авиа'), supplier: 'Поставщик', route: edit.name, dates: edit.date, carrierName: '—', baseFareTotal: 1600, itinerary: [] }}
-          currency="USD" orderNo={edit.order} onClose={() => setEdit(null)} />
-      )}
+      {edit && (() => {
+        const p = edit.parsed;   // распознанные квитанции несут разобранные данные
+        if (p) {
+          return (
+            <DocCorrectionPanel
+              subjects={[{ name: p.passenger || edit.participant, type: 'Взрослый', docNo: p.ticketNo || edit.no, ref: p.ref || '—' }]}
+              meta={{ cfg: docCorrKind(edit.recType || 'Авиа'), supplier: p.carrier || 'Поставщик',
+                route: routeSummary(p) + (p.tripType && p.tripType !== 'oneway' && p.tripType !== 'stay' ? ' · ' + tripLabel(p) : ''),
+                dates: (p.legs[0] && p.legs[0].date) || edit.date, carrierName: p.carrier || '—',
+                baseFareTotal: Number(p.fare) || 0,
+                itinerary: p.legs.map((l) => ({ route: (p.tripType === 'roundtrip' ? (l.dir === 'back' ? 'Обратно · ' : 'Туда · ') : '') + l.from + (l.to ? ' → ' + l.to : ''), date: l.date, flightNo: l.flightNo })) }}
+              currency={p.currency || 'USD'} orderNo={edit.order} onClose={() => setEdit(null)} />
+          );
+        }
+        return (
+          <DocCorrectionPanel
+            subjects={[{ name: edit.participant !== '—' ? edit.participant : 'Пассажир', type: 'Взрослый', docNo: edit.no, ref: '—' }]}
+            meta={{ cfg: docCorrKind('Авиа'), supplier: 'Поставщик', route: edit.name, dates: edit.date, carrierName: '—', baseFareTotal: 1600, itinerary: [] }}
+            currency="USD" orderNo={edit.order} onClose={() => setEdit(null)} />
+        );
+      })()}
+
+      <ReceiptImportModal open={importing} onClose={() => setImporting(false)}
+        onDone={(docs) => { setImported((cur) => [...docs, ...cur]); setImporting(false); }} />
     </>
   );
 }
