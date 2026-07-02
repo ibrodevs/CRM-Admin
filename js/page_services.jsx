@@ -71,6 +71,7 @@ function SvcOfferCard({ o, kind, onSelect, onSave, selectLabel }) {
 function SvcCard({ item, kind, participants = [], onBack }) {
   const toast = useToast();
   const [tab, setTab] = useState('details');
+  const [corrOpen, setCorrOpen] = useState(false);
   const k = SERVICE_KIND[kind] || { icon: 'briefcase', color: 'var(--blue)' };
   const isOffer = !!item.cost;
   const cur = item.currency || (item.svcOffer && item.svcOffer.currency);
@@ -87,6 +88,15 @@ function SvcCard({ item, kind, participants = [], onBack }) {
   const fee = calc.fee != null ? calc.fee : (isOffer ? item.fee : 0);
   const isHotel = kind === 'Гостиница';
   const paxLabel = isHotel ? 'Гости' : 'Участники';
+
+  // Корректировка документов доступна не только для авиа, но и для прочих услуг (запрос клиента).
+  const corrCfg = docCorrKind(kind);
+  const corrSubjects = (participants.length ? participants : [{ name: 'Основной заказчик', role: '—' }]).map((pp, i) => ({
+    name: pp.name, type: pp.role || 'Взрослый',
+    docNo: (no || 'DOC') + '-' + String(i + 1).padStart(2, '0'),
+    ref: item.pnr || item.ref || (no || '—'),
+  }));
+  const corrMeta = { cfg: corrCfg, supplier, route: sub || title, dates: item.date || '—', carrierName: supplier && supplier !== '—' ? supplier : title, baseFareTotal: isOffer ? item.cost : (item.sum || tariff || 0) };
 
   const TABS = [
     { key: 'pax', label: paxLabel, count: participants.length || undefined },
@@ -115,6 +125,12 @@ function SvcCard({ item, kind, participants = [], onBack }) {
         <div style={{ textAlign: 'right' }}><div style={{ fontSize: 13, color: 'var(--muted)' }}>Итого к оплате</div><div style={{ fontSize: 24, fontWeight: 800, color: 'var(--ink)' }}>{total ? fmt(total) : '—'}</div></div>
         {status === 'Предложение' && <Button icon="check" onClick={() => toast('Отправлено на бронирование', 'ok')}>Забронировать</Button>}
         {status === 'Забронировано' && <Button icon="check" onClick={() => toast('Услуга оформлена', 'ok')}>Оформить</Button>}
+        <ActionMenu trigger={<button className="btn btn-secondary btn-icon"><Icon name="more" /></button>}
+          items={[
+            { icon: 'template', label: 'Корректировка документов', onClick: () => setCorrOpen(true) },
+            { icon: 'download', label: 'Скачать документы', onClick: () => toast('Загрузка…') },
+            { icon: 'send', label: 'Отправить пассажиру', onClick: () => toast('Отправлено пассажиру', 'ok') },
+          ]} />
       </div>
 
       <div style={{ marginBottom: 18, overflowX: 'auto' }}><Tabs tabs={TABS} value={tab} onChange={setTab} /></div>
@@ -195,6 +211,8 @@ function SvcCard({ item, kind, participants = [], onBack }) {
           </div>
         </div>
       )}
+
+      {corrOpen && <DocCorrectionPanel subjects={corrSubjects} meta={corrMeta} currency={cur || 'USD'} orderNo={item.order || null} onClose={() => setCorrOpen(false)} />}
     </div>
   );
 }

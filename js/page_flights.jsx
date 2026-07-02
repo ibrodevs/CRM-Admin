@@ -685,6 +685,22 @@ const DOC_TEMPLATES = [
   { id: 'custom', name: 'Пользовательский шаблон', logo: true },
 ];
 const AGENCY_ENTITIES = ['ОсОО «ПСЦ Travel Hub»', 'ОсОО «Гранд Лимитед»', 'ИП Акимова А.Т.'];
+// Словарь по типам услуг — корректировка применима не только к авиа, но и к другим услугам.
+// Задаёт подписи полей источника (у отеля «Гость/Ваучер/Код брони», у ЖД «Пассажир/Билет/Заказ» и т.д.).
+const DOC_CORR_KINDS = {
+  'Авиа':      { subjectLabel: 'Пассажир',      docNoLabel: 'Номер билета', refLabel: 'PNR',       carrierLabel: 'Авиакомпания', docTitle: 'Маршрут-квитанция электронного билета' },
+  'Гостиница': { subjectLabel: 'Гость',         docNoLabel: 'Ваучер №',     refLabel: 'Код брони', carrierLabel: 'Отель',        docTitle: 'Ваучер на проживание' },
+  'ЖД':        { subjectLabel: 'Пассажир',      docNoLabel: 'Билет №',      refLabel: 'Заказ №',   carrierLabel: 'Перевозчик',   docTitle: 'Проездной документ (ЖД)' },
+  'Трансфер':  { subjectLabel: 'Пассажир',      docNoLabel: 'Ваучер №',     refLabel: 'Заказ №',   carrierLabel: 'Перевозчик',   docTitle: 'Ваучер на трансфер' },
+  'Автобус':   { subjectLabel: 'Пассажир',      docNoLabel: 'Билет №',      refLabel: 'Заказ №',   carrierLabel: 'Перевозчик',   docTitle: 'Автобусный билет' },
+  'Страховка': { subjectLabel: 'Застрахованный',docNoLabel: 'Полис №',      refLabel: 'Договор №', carrierLabel: 'Страховщик',   docTitle: 'Страховой полис' },
+  'Виза':      { subjectLabel: 'Заявитель',     docNoLabel: 'Заявка №',     refLabel: 'Досье №',   carrierLabel: 'Визовый центр',docTitle: 'Визовый документ' },
+  'Тур':       { subjectLabel: 'Турист',        docNoLabel: 'Ваучер №',     refLabel: 'Код брони', carrierLabel: 'Туроператор',  docTitle: 'Ваучер на тур' },
+  'Группа':    { subjectLabel: 'Турист',        docNoLabel: 'Ваучер №',     refLabel: 'Код брони', carrierLabel: 'Туроператор',  docTitle: 'Ваучер на тур' },
+};
+function docCorrKind(kind) {
+  return DOC_CORR_KINDS[kind] || { subjectLabel: 'Клиент', docNoLabel: 'Документ №', refLabel: 'Код брони', carrierLabel: 'Поставщик', docTitle: 'Документ' };
+}
 // Поля, доступные для изменения в клиентской версии (отображение документа)
 const CORR_FIELDS = [
   { key: 'baseFare',    label: 'Базовый тариф' },
@@ -705,7 +721,8 @@ function corrChanges(d) {
 }
 
 /* Живой предпросмотр итогового документа (как PDF-лист) — обновляется мгновенно, без сохранения. */
-function CorrectionPreview({ doc, template, entity, currency }) {
+function CorrectionPreview({ doc, template, entity, currency, cfg }) {
+  cfg = cfg || docCorrKind('Авиа');
   const tpl = DOC_TEMPLATES.find((t) => t.id === template) || DOC_TEMPLATES[0];
   const cur = corrCur(currency);
   const rows = [
@@ -721,14 +738,14 @@ function CorrectionPreview({ doc, template, entity, currency }) {
           {tpl.logo && <span style={{ width: 34, height: 34, borderRadius: 8, background: 'var(--blue)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontWeight: 800 }}>P</span>}
           <div>
             <div style={{ fontWeight: 800, color: 'var(--ink)', fontSize: 14 }}>{tpl.id === 'client' ? 'Клиентский бланк' : (tpl.logo ? entity : 'Документ без логотипа')}</div>
-            <div style={{ color: 'var(--muted)', fontSize: 11.5 }}>Маршрут-квитанция электронного билета</div>
+            <div style={{ color: 'var(--muted)', fontSize: 11.5 }}>{cfg.docTitle}</div>
           </div>
         </div>
         <div style={{ textAlign: 'right', color: 'var(--muted)', fontSize: 11.5 }}>Клиентская версия<br />{new Date().toLocaleDateString('ru-RU')}</div>
       </div>
       {/* неизменяемые данные поставщика */}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px 18px', margin: '14px 0' }}>
-        {[['Пассажир', doc.name], ['Номер билета', doc.ticket], ['PNR', doc.pnr], ['Маршрут', doc.route], ['Авиакомпания', doc.airlineName], ['Дата вылета', doc.dates]].map(([k, v]) => (
+        {[[cfg.subjectLabel, doc.name], [cfg.docNoLabel, doc.ticket], [cfg.refLabel, doc.pnr], ['Описание', doc.route], [cfg.carrierLabel, doc.carrierName], ['Дата', doc.dates]].map(([k, v]) => (
           <div key={k}><span style={{ color: 'var(--muted)' }}>{k}: </span><span style={{ fontWeight: 600, color: 'var(--ink)' }}>{v}</span></div>
         ))}
       </div>
@@ -776,20 +793,21 @@ function CorrectionHistoryDrawer({ open, versions, onClose }) {
   );
 }
 
-function DocCorrectionPanel({ passengers, offer, svc, currency, orderNo, onClose }) {
+function DocCorrectionPanel({ subjects, meta, currency, orderNo, onClose }) {
   const toast = useToast();
-  const air = svc ? svc.airline : (offer ? offer.airline : 'KC');
-  const airlineName = (AIRLINES[air] || { name: air }).name;
-  const supplier = svc ? svc.supplier : (offer ? offer.supplier : '—');
-  const route = svc ? svc.route : (offer ? (offer.out.from + ' → ' + offer.out.to + (offer.back ? ' → ' + offer.back.to : '')) : '—');
-  const dates = svc ? svc.dep : (offer ? offer.out.date : '—');
-  const baseFareTotal = offer ? offer.fare : (svc ? svc.sum : 0);
+  const cfg = meta.cfg;
+  const supplier = meta.supplier;
+  const route = meta.route;
+  const dates = meta.dates;
+  const carrierName = meta.carrierName;
+  const baseFareTotal = meta.baseFareTotal || 0;
+  const passengers = subjects;                                          // «субъекты» документа: пассажиры/гости/туристы
   const farePerPax = Math.round(baseFareTotal / Math.max(1, passengers.length));
 
   // Источник данных (данные поставщика) заполняется автоматически, оригинал неизменяем.
   const buildDoc = (p) => {
     const src = { baseFare: farePerPax, taxes: 45, agentMarkup: 0, serviceFee: 0, discount: 0, total: farePerPax + 45 };
-    return { id: p.ticket + p.name, name: p.name, ticket: p.ticket, pnr: p.pnr, supplier, route, airlineName, dates,
+    return { id: (p.docNo || '') + p.name, name: p.name, type: p.type, ticket: p.docNo, pnr: p.ref, supplier, route, carrierName, dates,
       src, baseFare: src.baseFare, taxes: src.taxes, agentMarkup: 20, serviceFee: 15, discount: 0, totalOverride: null, comment: '' };
   };
   const [docs, setDocs] = useState(() => passengers.map(buildDoc));
@@ -902,7 +920,7 @@ function DocCorrectionPanel({ passengers, offer, svc, currency, orderNo, onClose
         <PanelSub>Документы</PanelSub>
         <div className="table-card">
           <table className="tbl">
-            <thead><tr><th>Пассажир</th><th>Билет</th><th>Изменения</th><th style={{ textAlign: 'right' }}>Итог</th></tr></thead>
+            <thead><tr><th>{cfg.subjectLabel}</th><th>{cfg.docNoLabel}</th><th>Изменения</th><th style={{ textAlign: 'right' }}>Итог</th></tr></thead>
             <tbody>
               {changedDocs.map((d) => (
                 <tr key={d.id}><td style={{ fontWeight: 600 }}>{d.name}</td><td style={{ fontSize: 13 }}>{d.ticket}</td>
@@ -956,7 +974,7 @@ function DocCorrectionPanel({ passengers, offer, svc, currency, orderNo, onClose
       {/* 1. Исходный документ (данные поставщика) */}
       <PanelSub>Исходный документ · данные поставщика</PanelSub>
       <div className="card card-pad" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '8px 20px' }}>
-        {[['Поставщик', supplier], ['PNR', activeDoc.pnr], ['Номер билета', activeDoc.ticket], ['Маршрут', route], ['Пассажир', activeDoc.name], ['Авиакомпания', airlineName], ['Базовый тариф', farePerPax.toLocaleString('ru-RU') + ' ' + cur], ['Таксы', activeDoc.src.taxes.toLocaleString('ru-RU') + ' ' + cur], ['Валюта', currency]].map(([k, v]) => (
+        {[['Поставщик', supplier], [cfg.refLabel, activeDoc.pnr], [cfg.docNoLabel, activeDoc.ticket], ['Описание', route], [cfg.subjectLabel, activeDoc.name], [cfg.carrierLabel, carrierName], ['Базовый тариф', farePerPax.toLocaleString('ru-RU') + ' ' + cur], ['Таксы', activeDoc.src.taxes.toLocaleString('ru-RU') + ' ' + cur], ['Валюта', currency]].map(([k, v]) => (
           <div key={k}><div style={{ fontSize: 12, color: 'var(--muted)' }}>{k}</div><div style={{ fontWeight: 600, color: 'var(--ink)' }}>{v}</div></div>
         ))}
       </div>
@@ -977,7 +995,7 @@ function DocCorrectionPanel({ passengers, offer, svc, currency, orderNo, onClose
         <>
           {docs.length > 1 && (
             <div style={{ marginTop: 14 }}>
-              <Field label="Документ пассажира">
+              <Field label={'Документ · ' + cfg.subjectLabel}>
                 <Select options={docs.map((d, i) => ({ value: String(i), label: d.name + ' · ' + d.ticket }))} value={String(active)} onChange={(e) => setActive(+e.target.value)} />
               </Field>
             </div>
@@ -993,7 +1011,7 @@ function DocCorrectionPanel({ passengers, offer, svc, currency, orderNo, onClose
             {/* 4. Предпросмотр */}
             <div>
               <div style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 8 }}>Предпросмотр (обновляется мгновенно)</div>
-              <CorrectionPreview doc={activeDoc} template={template} entity={entity} currency={currency} />
+              <CorrectionPreview doc={activeDoc} template={template} entity={entity} currency={currency} cfg={cfg} />
             </div>
           </div>
         </>
@@ -1020,7 +1038,7 @@ function DocCorrectionPanel({ passengers, offer, svc, currency, orderNo, onClose
             <table className="tbl">
               <thead><tr>
                 <th style={{ width: 34 }}><Checkbox on={allSel} onChange={() => setSel(allSel ? [] : docs.map((_, i) => i))} /></th>
-                <th>Пассажир</th><th>Номер билета</th><th>Поставщик</th>
+                <th>{cfg.subjectLabel}</th><th>{cfg.docNoLabel}</th><th>Поставщик</th>
                 <th style={{ width: 110 }}>Базовый тариф</th><th style={{ width: 90 }}>Таксы</th>
                 <th style={{ width: 110 }}>Агент. надбавка</th><th style={{ width: 100 }}>Серв. сбор</th>
                 <th style={{ textAlign: 'right' }}>Итог</th><th style={{ width: 34 }}></th>
@@ -1046,7 +1064,7 @@ function DocCorrectionPanel({ passengers, offer, svc, currency, orderNo, onClose
 
           {/* Предпросмотр активной строки */}
           <PanelSub>Предпросмотр · {activeDoc.name}</PanelSub>
-          <div style={{ maxWidth: 560 }}><CorrectionPreview doc={activeDoc} template={template} entity={entity} currency={currency} /></div>
+          <div style={{ maxWidth: 560 }}><CorrectionPreview doc={activeDoc} template={template} entity={entity} currency={currency} cfg={cfg} /></div>
         </>
       )}
 
@@ -1372,7 +1390,10 @@ function FlightCard({ svc, offer, onBack, onFormKp, onAttachOrder, onAttachPerso
     )}
     {refundOpen && <RefundPanel passengers={passengers} base={fare + fee} currency={currency} onClose={() => setRefundOpen(false)} onDone={() => setStatus('Возврат')} />}
     {exchangeOpen && <ExchangePanel passengers={passengers} base={fare + fee} currency={currency} onClose={() => setExchangeOpen(false)} onDone={() => setStatus('Обмен')} />}
-    {brandedOpen && <DocCorrectionPanel passengers={passengers} offer={offer} svc={svc} currency={currency} orderNo={svc ? svc.order : null} onClose={() => setBrandedOpen(false)} />}
+    {brandedOpen && <DocCorrectionPanel
+      subjects={passengers.map((pp) => ({ name: pp.name, type: pp.type, docNo: pp.ticket, ref: pp.pnr }))}
+      meta={{ cfg: docCorrKind('Авиа'), supplier, route: out.from + ' → ' + out.to + (back ? ' → ' + back.to : ''), dates: out.date, carrierName: AIRLINES[air].name, baseFareTotal: fare }}
+      currency={currency} orderNo={svc ? svc.order : null} onClose={() => setBrandedOpen(false)} />}
     <SendToPaxDrawer open={sendOpen} passengers={passengers} onClose={() => setSendOpen(false)} />
     </>
   );
