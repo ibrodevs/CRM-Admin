@@ -9,6 +9,7 @@ const NAV_ITEMS = [
   { key: 'offers', label: 'Ком. предложения', icon: 'template' },
   { key: 'finance', label: 'Финансы', icon: 'finance' },
   { key: 'documents', label: 'Документы', icon: 'docs' },
+  { key: 'receipts', label: 'Редактор квитанций', icon: 'route' },
   { key: 'fulfillment', label: 'Оформление', icon: 'clipboard' },
   { key: 'chats', label: 'Чаты', icon: 'chat' },
   { key: 'notifications', label: 'Уведомления', icon: 'bell' },

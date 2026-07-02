@@ -1825,4 +1825,4 @@ function FlightsPage() {
   );
 }
 
-Object.assign(window, { FlightsPage, AirlineLogo, FlightSearch, FlightResults, FlightCard, paxTotal, PAX_DEFAULT_OPTIONS });
+Object.assign(window, { FlightsPage, AirlineLogo, FlightSearch, FlightResults, FlightCard, paxTotal, PAX_DEFAULT_OPTIONS, DocCorrectionPanel, docCorrKind });

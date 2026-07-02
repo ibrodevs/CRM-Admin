@@ -63,6 +63,7 @@ function App() {
       {route === 'chats' && <ChatsPage onOpenOrder={openOrder} />}
       {route === 'finance' && <FinancePageNew />}
       {route === 'documents' && <DocCenterPage />}
+      {route === 'receipts' && <ReceiptEditorPage />}
       {route === 'fulfillment' && <FulfillmentPage onOpenOrder={openOrder} />}
       {route === 'settings' && <SettingsPage />}
       {route === 'profile' && <ProfilePage onNavigate={navigate} />}

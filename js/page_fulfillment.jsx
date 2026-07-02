@@ -407,6 +407,98 @@ function DocPassengerGroup({ name, role, docs, onOpen, onUpload }) {
   );
 }
 
+/* Строит «субъектов» (пассажиров) для редактора квитанций из ростера заказа.
+   onlyName — ограничить одним пассажиром (когда грузим квитанцию для конкретного). */
+function correctionSubjects(participants, onlyName) {
+  const list = (participants || []).filter((p) => !onlyName || p.name === onlyName);
+  const base = list.length ? list : [{ name: onlyName || 'Пассажир', role: 'Взрослый' }];
+  return base.map((p) => ({ name: p.name, type: p.role || 'Взрослый', docNo: p.doc || '—', ref: '—' }));
+}
+
+/* Окно загрузки документа в заказ. Демонстрационное: файл выбирается через системный
+   диалог, но не отправляется на сервер. Маршрут-квитанция уходит не в список, а в редактор. */
+const DOC_UPLOAD_TYPES = Object.keys(DOC_KIND);
+function DocUploadModal({ open, scopeOrder, participants = [], defaultParticipant, onClose, onUploaded, onRouteToEditor }) {
+  const fileRef = useRef(null);
+  const [file, setFile] = useState(null);      // { name, size } | null
+  const [type, setType] = useState('Билет');
+  const [participant, setParticipant] = useState('—');
+  // при каждом открытии — сброс к контексту вызова
+  useEffect(() => {
+    if (open) { setFile(null); setType('Билет'); setParticipant(defaultParticipant || '—'); }
+  }, [open, defaultParticipant]);
+
+  const isReceipt = type === 'Маршрутная квитанция';
+  const pickFile = () => fileRef.current && fileRef.current.click();
+  const onFile = (e) => {
+    const f = e.target.files && e.target.files[0];
+    if (f) setFile({ name: f.name, size: (f.size / 1024 < 1024 ? Math.max(1, Math.round(f.size / 1024)) + ' КБ' : (f.size / 1048576).toFixed(1) + ' МБ') });
+    e.target.value = '';
+  };
+
+  const submit = () => {
+    const payload = { file, type, participant: participant !== '—' ? participant : '—' };
+    if (isReceipt) { onRouteToEditor(payload); return; }
+    const now = new Date().toLocaleDateString('ru-RU');
+    const doc = {
+      no: 'D-' + Math.floor(3200 + Math.random() * 800),
+      name: (file && file.name) || (type + ' (загружен)'),
+      type, order: scopeOrder || '—', participant: payload.participant, service: '—', finOp: '—',
+      status: 'Черновик', version: 1, date: now, size: (file && file.size) || '— КБ',
+      versions: [{ v: 1, date: now, who: (window.CURRENT_USER && CURRENT_USER.name) || 'Оператор', note: 'Загружен вручную' }],
+      history: [{ t: now, text: 'Документ загружен', who: (window.CURRENT_USER && CURRENT_USER.name) || 'Оператор' }],
+    };
+    onUploaded(doc);
+  };
+
+  const k = DOC_KIND[type] || DOC_KIND['Прочее'];
+  const paxOptions = ['—', ...participants.map((p) => p.name)];
+  return (
+    <Modal open={open} onClose={onClose}>
+      <ModalHeader title="Загрузка документа" sub={scopeOrder ? 'Заказ № ' + scopeOrder : 'Документ вне заказа'} onClose={onClose} />
+      <div style={{ padding: '4px 22px 22px' }}>
+        <input ref={fileRef} type="file" style={{ display: 'none' }} onChange={onFile} />
+        {/* зона выбора файла */}
+        <button type="button" className="doc-preview" onClick={pickFile}
+          style={{ width: '100%', cursor: 'pointer', border: '1px dashed var(--line)', textAlign: 'center' }}>
+          <Icon name={file ? k.icon : 'plus'} style={{ width: 40, height: 40 }} strokeWidth={1.4} />
+          <span style={{ fontSize: 13.5, color: file ? 'var(--ink)' : 'var(--blue)', fontWeight: 600 }}>
+            {file ? file.name : 'Выберите файл или перетащите сюда'}
+          </span>
+          <span style={{ fontSize: 12, color: 'var(--muted)' }}>{file ? file.size : 'PDF, JPG, PNG · до 15 МБ'}</span>
+        </button>
+
+        <div style={{ display: 'grid', gridTemplateColumns: participants.length ? '1fr 1fr' : '1fr', gap: 12, marginTop: 16 }}>
+          <div>
+            <label className="lbl" style={{ display: 'block', marginBottom: 6 }}>Тип документа</label>
+            <Select options={DOC_UPLOAD_TYPES} value={type} onChange={(e) => setType(e.target.value)} />
+          </div>
+          {participants.length > 0 && (
+            <div>
+              <label className="lbl" style={{ display: 'block', marginBottom: 6 }}>Пассажир</label>
+              <Select options={paxOptions} value={participant} onChange={(e) => setParticipant(e.target.value)} />
+            </div>
+          )}
+        </div>
+
+        {isReceipt && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 16, padding: '12px 14px', borderRadius: 12, background: 'var(--blue-weak, #eef3ff)', color: 'var(--blue)', fontSize: 13 }}>
+            <Icon name="route" style={{ width: 18, height: 18, flexShrink: 0 }} />
+            Маршрут-квитанция откроется в редакторе — сформируете клиентскую версию на фирменном бланке перед сохранением.
+          </div>
+        )}
+
+        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 12, marginTop: 24 }}>
+          <Button variant="secondary" onClick={onClose}>Отмена</Button>
+          <Button icon={isReceipt ? 'template' : 'plus'} disabled={!file} onClick={submit}>
+            {isReceipt ? 'Далее: редактор квитанции' : 'Загрузить'}
+          </Button>
+        </div>
+      </div>
+    </Modal>
+  );
+}
+
 function DocCenter({ scopeOrder, participants, onOpenDoc }) {
   const toast = useToast();
   const [q, setQ] = useState('');
@@ -419,6 +511,8 @@ function DocCenter({ scopeOrder, participants, onOpenDoc }) {
   const [docs, setDocs] = useState(() => (scopeOrder ? DOCS2.filter((d) => d.order === scopeOrder) : DOCS2));
   const updateDoc = (no, patch) => setDocs((cur) => cur.map((d) => (d.no === no ? { ...d, ...patch } : d)));
   const card = docs.find((d) => d.no === openNo) || null;
+  const [uploadFor, setUploadFor] = useState(null);   // null | { participant? } — открыто окно загрузки
+  const [editorFor, setEditorFor] = useState(null);   // null | { participant? } — открыт редактор квитанции
 
   const TYPE_TABS = [
     { key: 'all', label: 'Все', test: () => true },
@@ -454,13 +548,13 @@ function DocCenter({ scopeOrder, participants, onOpenDoc }) {
         <div style={{ flex: 1 }} />
         <SearchBox value={q} onChange={setQ} placeholder={view === 'byPassenger' ? 'Поиск пассажира или документа…' : 'Поиск документа…'} style={{ width: 230 }} />
         <FilterChip label="Статус" value={fStatus} onChange={setFStatus} options={Object.keys(DOC_STATUS2)} />
-        <Button icon="plus" onClick={() => toast('Загрузка документа', 'info')}>Загрузить</Button>
+        <Button icon="plus" onClick={() => setUploadFor({})}>Загрузить</Button>
       </div>
 
       {view === 'byPassenger' ? (
         <>
           {paxList.length ? paxList.map((p) => (
-            <DocPassengerGroup key={p.name} name={p.name} role={p.role} docs={paxDocs(p.name)} onOpen={open} onUpload={() => toast('Загрузка документа · ' + p.name, 'info')} />
+            <DocPassengerGroup key={p.name} name={p.name} role={p.role} docs={paxDocs(p.name)} onOpen={open} onUpload={() => setUploadFor({ participant: p.name })} />
           )) : <EmptyState icon="users" title="Пассажиры не найдены" />}
 
           <h3 className="section-title" style={{ fontSize: 17, margin: '22px 0 12px' }}>Документы по заказу · бухгалтерия</h3>
@@ -507,12 +601,86 @@ function DocCenter({ scopeOrder, participants, onOpenDoc }) {
         </div>
       )}
       {card && <DocCard doc={card} onClose={() => setOpenNo(null)} onChange={updateDoc} />}
+
+      <DocUploadModal open={!!uploadFor} scopeOrder={scopeOrder} participants={participants || []}
+        defaultParticipant={uploadFor && uploadFor.participant}
+        onClose={() => setUploadFor(null)}
+        onUploaded={(doc) => { setDocs((cur) => [doc, ...cur]); setUploadFor(null); toast('Документ загружен', 'ok'); }}
+        onRouteToEditor={(info) => { setUploadFor(null); setEditorFor({ participant: info.participant !== '—' ? info.participant : null }); }} />
+
+      {editorFor && (
+        <DocCorrectionPanel
+          subjects={correctionSubjects(participants, editorFor.participant)}
+          meta={{ cfg: docCorrKind('Авиа'), supplier: 'Поставщик', route: 'Маршрут по заказу', dates: new Date().toLocaleDateString('ru-RU'), carrierName: '—', baseFareTotal: 1600, itinerary: [] }}
+          currency="USD" orderNo={scopeOrder || null} onClose={() => setEditorFor(null)} />
+      )}
     </div>
   );
 }
 
 function DocCenterPage() {
   return (<><Topbar title="Документы" /><div className="content"><DocCenter /></div></>);
+}
+
+/* ====================================================================
+   РЕДАКТОР КВИТАНЦИЙ (пункт бокового меню)
+   Список маршрут-квитанций из всех заказов → открытие клиентского редактора
+   (DocCorrectionPanel) с данными выбранной квитанции.
+   ==================================================================== */
+function ReceiptEditorPage() {
+  const [q, setQ] = useState('');
+  const [edit, setEdit] = useState(null);   // выбранная квитанция для редактора
+  const receipts = DOCS2.filter((d) => d.type === 'Маршрутная квитанция'
+    && (!q || `${d.no} ${d.name} ${d.order} ${d.participant}`.toLowerCase().includes(q.toLowerCase())));
+  return (
+    <>
+      <Topbar title="Редактор квитанций" />
+      <div className="content">
+        <div className="fade-in">
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16, flexWrap: 'wrap' }}>
+            <div style={{ flex: 1, minWidth: 200 }}>
+              <div style={{ fontSize: 13.5, color: 'var(--muted)' }}>
+                Клиентская версия маршрут-квитанции на фирменном бланке. Оригинал поставщика не меняется.
+              </div>
+            </div>
+            <SearchBox value={q} onChange={setQ} placeholder="Поиск квитанции…" style={{ width: 250 }} />
+          </div>
+
+          {receipts.length ? (
+            <div className="table-card">
+              <table className="tbl">
+                <thead><tr><th style={{ width: 90 }}>№</th><th>Квитанция</th><th>Заказ</th><th>Пассажир</th><th>Версия</th><th>Дата</th><th>Статус</th><th></th></tr></thead>
+                <tbody>
+                  {receipts.map((d) => {
+                    const k = DOC_KIND[d.type];
+                    return (
+                      <tr key={d.no} style={{ cursor: 'pointer' }} onClick={() => setEdit(d)}>
+                        <td className="t-strong">{d.no}</td>
+                        <td><span style={{ display: 'flex', alignItems: 'center', gap: 10 }}><span className="airline-logo sm" style={{ background: k.color, width: 30, height: 30, borderRadius: 8 }}><Icon name={k.icon} style={{ width: 16, height: 16 }} /></span><span style={{ fontWeight: 600 }}>{d.name}</span></span></td>
+                        <td><span style={{ color: 'var(--blue)', fontWeight: 600 }}>№ {d.order}</span></td>
+                        <td className="t-muted">{d.participant}</td>
+                        <td>v{d.version}</td>
+                        <td>{d.date}</td>
+                        <td><Pill tone={DOC_STATUS2[d.status]}>{d.status}</Pill></td>
+                        <td><Button size="sm" variant="secondary" icon="template" onClick={(e) => { e.stopPropagation(); setEdit(d); }}>Редактор</Button></td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          ) : <EmptyState icon="route" title="Маршрут-квитанции не найдены" sub="Загрузите квитанцию в заказе — она откроется здесь для редактирования." />}
+        </div>
+      </div>
+
+      {edit && (
+        <DocCorrectionPanel
+          subjects={[{ name: edit.participant !== '—' ? edit.participant : 'Пассажир', type: 'Взрослый', docNo: edit.no, ref: '—' }]}
+          meta={{ cfg: docCorrKind('Авиа'), supplier: 'Поставщик', route: edit.name, dates: edit.date, carrierName: '—', baseFareTotal: 1600, itinerary: [] }}
+          currency="USD" orderNo={edit.order} onClose={() => setEdit(null)} />
+      )}
+    </>
+  );
 }
 
 /* ====================================================================
@@ -574,6 +742,6 @@ function FulfillmentPage({ onOpenOrder }) {
 
 Object.assign(window, {
   OrderStageBar, FinanceOpCard, FinanceRegistry, FinancePageNew,
-  DocCard, DocCenter, DocCenterPage, FulfillmentRegistry, FulfillmentPage,
+  DocCard, DocCenter, DocCenterPage, DocUploadModal, ReceiptEditorPage, FulfillmentRegistry, FulfillmentPage,
   fUsd, finPayable, finDebt,
 });
