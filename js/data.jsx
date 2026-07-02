@@ -309,6 +309,50 @@ const AIR_STATUS = {
   'Забронировано': 'blue', 'Выписано': 'green', 'Возврат': 'red', 'Обмен': 'teal', 'Аннуляция': 'red',
 };
 
+// ---- АВИА-НАДБАВКИ ПОСТАВЩИКОВ (расширенная постановка клиента) ----
+// Иерархия: поставщик → авиакомпания → маршрут. У авиакомпании две базовые строки
+// (внутри РФ / международные) плюс список точечных маршрутов (from→to) с отдельной надбавкой.
+// Надбавка применяется к базовой цене тарифа и отражается в поиске уже с наценкой.
+function isRuAirport(code) { const a = AIRPORTS.find((x) => x.code === code); return !!a && a.country === 'Россия'; }
+function isDomesticRu(from, to) { return isRuAirport(from) && isRuAirport(to); }
+// type: 'percent' — % от базовой стоимости; 'fixed' — фиксированная сумма (в валюте тарифа).
+// Хранится в рантайме; редактируется в карточке поставщика (вкладка «Надбавки»).
+const AVIA_MARKUPS = {
+  'Emirates': {
+    EK: { domestic: { type: 'percent', value: 0 }, intl: { type: 'percent', value: 5 }, routes: [{ from: 'FRU', to: 'DXB', type: 'fixed', value: 15 }] },
+  },
+  'S7 Airlines': {
+    S7: { domestic: { type: 'percent', value: 2 }, intl: { type: 'percent', value: 4 }, routes: [] },
+  },
+  'Utair Airlines': {
+    UT: { domestic: { type: 'percent', value: 3 }, intl: { type: 'percent', value: 6 }, routes: [] },
+  },
+};
+function aviaMarkupsFor(supplierName) {
+  if (!AVIA_MARKUPS[supplierName]) AVIA_MARKUPS[supplierName] = {};
+  return AVIA_MARKUPS[supplierName];
+}
+// Резолвит надбавку по авиакомпании и маршруту среди всех настроенных поставщиков.
+// Приоритет: точечный маршрут → внутри РФ / международный. Возвращает {type,value,scope,supplier} | null.
+function aviaMarkupResolve(airlineCode, from, to) {
+  for (const sup in AVIA_MARKUPS) {
+    const byAir = AVIA_MARKUPS[sup][airlineCode];
+    if (!byAir) continue;
+    const rt = (byAir.routes || []).find((r) => r.from === from && r.to === to && r.value);
+    if (rt) return { supplier: sup, scope: 'route', type: rt.type, value: rt.value };
+    const dom = isDomesticRu(from, to);
+    const bucket = dom ? byAir.domestic : byAir.intl;
+    if (bucket && bucket.value) return { supplier: sup, scope: dom ? 'domestic' : 'intl', type: bucket.type, value: bucket.value };
+    return null; // авиакомпания настроена, но надбавка нулевая
+  }
+  return null;
+}
+function aviaMarkupAmount(airlineCode, from, to, base) {
+  const m = aviaMarkupResolve(airlineCode, from, to);
+  if (!m) return 0;
+  return m.type === 'percent' ? Math.round(base * m.value / 100) : m.value;
+}
+
 const CABIN_CLASSES = ['Эконом', 'Комфорт', 'Бизнес', 'Первый'];
 
 // Discount / subsidized passenger categories shown under "Специальные категории"
@@ -1322,6 +1366,30 @@ const SERVICE_DESC_DEFAULTS = {
   'Тур':       'Услуги по организации туристического обслуживания',
 };
 
+// Формулировки сборов по умолчанию для закрывающих документов — каждая строка сбора
+// (сервисный, агентская надбавка, сборы поставщика и т.д.) печатается в акте/счёте/УПД
+// отдельной позицией со своим описанием (расширенная постановка клиента).
+const FEE_DESC_DEFAULTS = {
+  service:  'Сервисный сбор агентства',
+  markup:   'Агентская надбавка',
+  issue:    'Сбор за оформление',
+  exchange: 'Сбор за обмен',
+  refund:   'Сбор за возврат',
+  supplier: 'Сборы поставщика',
+};
+// Разворачивает пустой набор описаний сборов по всем услугам (по умолчанию).
+function feeDescsFromDefaults() {
+  const out = {};
+  FEE_SERVICE_TYPES.forEach((svc) => { out[svc] = {}; FEE_SCHEMA[svc].forEach((f) => { out[svc][f.key] = FEE_DESC_DEFAULTS[f.key] || f.label; }); });
+  return out;
+}
+// Формулировка конкретного сбора в соглашении (fallback → дефолт → метка схемы).
+function feeDescOf(agreement, svc, key) {
+  const fromAgr = agreement && agreement.feeDescs && agreement.feeDescs[svc] && agreement.feeDescs[svc][key];
+  if (fromAgr != null && String(fromAgr).trim()) return fromAgr;
+  return FEE_DESC_DEFAULTS[key] || key;
+}
+
 // Именованные шаблоны сборов. values задают ставку по ключу сбора; при применении
 // к конкретной услуге берутся только те ключи, что есть в её схеме (FEE_SCHEMA).
 // type: 'percent' — % от базовой стоимости; 'fixed' — фиксированная сумма.
@@ -1489,6 +1557,7 @@ function financeOverview() {
 
 Object.assign(window, {
   SETTLEMENT_TYPES, SETTLEMENT_TONE, FEE_SCHEMA, FEE_SERVICE_TYPES, SERVICE_DESC_DEFAULTS,
+  FEE_DESC_DEFAULTS, feeDescsFromDefaults, feeDescOf,
   FEE_TEMPLATES, feeTemplate, feesFromTemplate, registerFeeTemplate, descsFromDefaults, COMPANY_FINANCE, companyFinance,
   depositAvailable, creditAvailable, activeContract, activeAgreement, feeAmount, applyAgreementFees, companyBalanceShort, financeOverview,
   CURRENT_USER, ORDER_STATUS, SERVICE_TYPE, REQUEST_TYPE, SUPPLIER_STATUS,
@@ -1498,6 +1567,7 @@ Object.assign(window, {
   USERS, USER_STATUS, ROLES, PERMISSIONS,
   DASH_STATS, ORDER_BREAKDOWN, RECENT_CHANGES, API_ACCESS, CURRENCIES,
   AIRLINES, AIR_STATUS, CABIN_CLASSES, SPECIAL_PAX_CATEGORIES, SUBSIDIZED_PAX_PROGRAMS, AIRPORTS, FLIGHT_OFFERS, AIR_SERVICES, AIR_STATS,
+  AVIA_MARKUPS, aviaMarkupsFor, aviaMarkupResolve, aviaMarkupAmount, isRuAirport, isDomesticRu,
   AVIA_FARE_TIERS, AVIA_FARE_TIERS_BUSINESS, AVIA_BOOKING_CLASSES, AVIA_BAGGAGE_OPTIONS, AVIA_SPECIAL_BAGGAGE, AVIA_MEALS,
   AVIA_INSURANCE_PLANS, AVIA_INSURANCE_INCLUDES, AVIA_COMFORT_GROUPS, AVIA_SEATMAP,
   SERVICE_KIND, SERVICE_STATUS, PAX_DOC_KIND, ORDER_SERVICES, KP_STATUS, KP_STATUS_FLOW, PROPOSALS, ORDER_PARTICIPANTS, ORDER_TASKS,

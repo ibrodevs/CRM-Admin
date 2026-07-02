@@ -644,7 +644,23 @@ function ExchangePanel({ passengers, base, currency, origin, dest, onClose, onDo
   const [sel, setSel] = useState(passengers.map((_, i) => i)); // на кого производится обмен (ответ клиента)
   const [nf, setNf] = useState({ from: origin || '', to: dest || '', date: null, flightNo: '' }); // новый рейс — форма как при поиске перелёта, без выбора пассажира
   const [newFare, setNewFare] = useState('');
+  const [variants, setVariants] = useState(null); // результаты подбора нового рейса
+  const [pickedVar, setPickedVar] = useState(null); // выбранный вариант обмена
+  const [manualFare, setManualFare] = useState(false); // ручной ввод стоимости (исключение)
   const [calc, setCalc] = useState(null);
+  // Подбор вариантов нового рейса — система сама сравнивает стоимость на момент обращения
+  // (расширенная постановка клиента): тариф подгружается из поиска, а не вводится вручную.
+  const searchNew = () => {
+    if (!nf.to || !nf.date) { toast('Заполните направление и дату нового рейса', 'err'); return; }
+    const opts = FLIGHT_OFFERS.map((o) => {
+      const baseUsd = o.fare + o.fee;
+      const mk = aviaMarkupAmount(o.airline, o.out.from, o.out.to, baseUsd);
+      return { id: o.id, airline: o.airline, leg: o.out, fareUsd: baseUsd + mk, markupUsd: mk, supplier: o.supplier };
+    });
+    const filtered = opts.filter((o) => (!nf.to || o.leg.to === nf.to) && (!nf.from || o.leg.from === nf.from));
+    setVariants(filtered.length ? filtered : opts);
+  };
+  const pickVariant = (v) => { setPickedVar(v); setNewFare(String(v.fareUsd)); setManualFare(false); };
   const toggle = (i) => setSel((s) => s.includes(i) ? s.filter((x) => x !== i) : [...s, i]);
   const allSel = sel.length === passengers.length;
   const cur = ' ' + (currency === 'USD' ? '$' : currency);
@@ -652,13 +668,15 @@ function ExchangePanel({ passengers, base, currency, origin, dest, onClose, onDo
     if (!sel.length) { toast('Выберите пассажиров для обмена', 'err'); return; }
     if (!nf.to || !nf.date) { toast('Заполните новый рейс (направление и дату)', 'err'); return; }
     const f = parseFloat(newFare);
-    if (isNaN(f)) { toast('Укажите стоимость нового тарифа', 'err'); return; }
+    if (isNaN(f)) { toast('Подберите новый рейс или укажите стоимость вручную', 'err'); return; }
     const diff = Math.round((f - base) * (sel.length / Math.max(1, passengers.length)));
     const penalty = (voluntary ? 25 : 0) * sel.length;             // сбор за обмен
     if (mode === 'surcharge') setCalc({ cnt: sel.length, diff, penalty, payable: Math.max(0, diff) + penalty, refundable: 0 });
     else setCalc({ cnt: sel.length, diff, penalty, payable: penalty, refundable: Math.max(0, -diff) });
   };
   useEffect(() => { setCalc(null); }, [voluntary, mode, newFare, sel, nf]);
+  // смена маршрута/даты нового рейса сбрасывает подбор и авто-тариф
+  useEffect(() => { setVariants(null); setPickedVar(null); if (!manualFare) setNewFare(''); }, [nf.from, nf.to, nf.date]);
   const confirmLabel = reqMode === 'request' ? 'Запросить обмен у авиакомпании' : 'Провести обмен';
   return (
     <StackPanel title="Обмен билета" width="min(720px,96vw)" onClose={onClose}
@@ -702,7 +720,31 @@ function ExchangePanel({ passengers, base, currency, origin, dest, onClose, onDo
         <AirportField label="Куда" value={nf.to} onChange={(v) => setNf((s) => ({ ...s, to: v }))} />
         <div className="av-field" style={{ minWidth: 150 }}><DateField label="Дата вылета" value={nf.date} onChange={(d) => setNf((s) => ({ ...s, date: d }))} placeholder="Выбрать" /></div>
         <div className="av-field" style={{ minWidth: 140 }}><span className="label">Рейс (если известен)</span><Input value={nf.flightNo} onChange={(e) => setNf((s) => ({ ...s, flightNo: e.target.value }))} placeholder="напр. KC 132" /></div>
+        <Button variant="secondary" icon="search" style={{ alignSelf: 'flex-end' }} onClick={searchNew}>Подобрать рейс</Button>
       </div>
+
+      {/* Система подбирает варианты и сама подставляет стоимость нового тарифа (расширенная постановка клиента) */}
+      {variants && (
+        <div style={{ marginTop: 10 }}>
+          <div style={{ fontSize: 12.5, color: 'var(--muted)', marginBottom: 8 }}>Варианты для обмена на {nf.date ? '' : 'выбранную дату'} · стоимость рассчитана на момент обращения:</div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            {variants.map((v) => (
+              <button type="button" key={v.id} onClick={() => pickVariant(v)}
+                style={{ display: 'flex', alignItems: 'center', gap: 12, textAlign: 'left', border: '1px solid ' + (pickedVar && pickedVar.id === v.id ? 'var(--blue)' : 'var(--line)'), borderRadius: 10, padding: '10px 12px', background: pickedVar && pickedVar.id === v.id ? 'var(--blue-weak, #eef3ff)' : '#fff', cursor: 'pointer' }}>
+                <AirlineLogo code={v.airline} size="sm" />
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontWeight: 600, color: 'var(--ink)', fontSize: 13.5 }}>{v.leg.from} → {v.leg.to} · {v.leg.flightNo}</div>
+                  <div style={{ fontSize: 12, color: 'var(--muted)' }}>{AIRLINES[v.airline].name} · {v.leg.dep}–{v.leg.arr}{v.markupUsd > 0 ? ' · вкл. надбавку' : ''}</div>
+                </div>
+                <div style={{ textAlign: 'right' }}>
+                  <div style={{ fontWeight: 700, color: 'var(--ink)' }}>{v.fareUsd.toLocaleString('ru-RU')}{cur}</div>
+                  {pickedVar && pickedVar.id === v.id && <div style={{ fontSize: 11.5, color: 'var(--blue)' }}>Выбрано</div>}
+                </div>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
 
       <PanelSub>Как оформить</PanelSub>
       <div className="seg-toggle">
@@ -717,7 +759,21 @@ function ExchangePanel({ passengers, base, currency, origin, dest, onClose, onDo
       </div>
       <div style={{ marginTop: 12 }}>
         <Field label="Стоимость нового тарифа" hint={'Текущий тариф: ' + base.toLocaleString('ru-RU') + cur}>
-          <Input type="number" value={newFare} onChange={(e) => setNewFare(e.target.value)} placeholder="0" />
+          {pickedVar && !manualFare ? (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px', border: '1px solid var(--line)', borderRadius: 10, background: 'var(--surface-2)' }}>
+              <Icon name="zap" style={{ width: 16, height: 16, color: 'var(--blue)' }} />
+              <div style={{ flex: 1 }}>
+                <span style={{ fontWeight: 700, color: 'var(--ink)' }}>{parseFloat(newFare).toLocaleString('ru-RU')}{cur}</span>
+                <span style={{ fontSize: 12, color: 'var(--muted)', marginLeft: 8 }}>подставлено из подбора · {pickedVar.leg.from}→{pickedVar.leg.to} {pickedVar.leg.flightNo}</span>
+              </div>
+              <button type="button" className="link-btn" style={{ background: 'none', border: 'none', color: 'var(--blue)', cursor: 'pointer', fontSize: 12.5, fontFamily: 'inherit' }} onClick={() => setManualFare(true)}>изменить вручную</button>
+            </div>
+          ) : (
+            <div>
+              <Input type="number" value={newFare} onChange={(e) => { setNewFare(e.target.value); setManualFare(true); }} placeholder={variants ? 'Выберите вариант выше или введите вручную' : 'Подберите рейс кнопкой «Подобрать рейс»'} />
+              {manualFare && pickedVar && <button type="button" style={{ background: 'none', border: 'none', color: 'var(--blue)', cursor: 'pointer', fontSize: 12.5, marginTop: 6, fontFamily: 'inherit', padding: 0 }} onClick={() => { setManualFare(false); setNewFare(String(pickedVar.fareUsd)); }}>← вернуть авто-стоимость</button>}
+            </div>
+          )}
         </Field>
       </div>
 

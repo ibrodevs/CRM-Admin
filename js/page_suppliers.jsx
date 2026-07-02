@@ -20,11 +20,98 @@ function MiniLineChart() {
 const SUP_TABS = [
   { key: 'general', label: 'Общие данные', icon: 'user' },
   { key: 'contacts', label: 'Контакты', icon: 'contacts' },
+  { key: 'markups', label: 'Надбавки / таксы', icon: 'finance', airlineOnly: true },
   { key: 'analytics', label: 'Аналитика', icon: 'pie' },
   { key: 'api', label: 'Интеграция / API', icon: 'api' },
   { key: 'sla', label: 'SLA', icon: 'sla' },
   { key: 'docs', label: 'Документы', icon: 'docs' },
 ];
+
+/* Редактор авиа-надбавок поставщика: авиакомпания → (внутри РФ / международные) + точечные маршруты.
+   Наценка применяется к базовой цене тарифа и отражается в поиске. */
+function AviaMarkupEditor({ supplierName }) {
+  const toast = useToast();
+  const [cfg, setCfg] = useState(() => JSON.parse(JSON.stringify(aviaMarkupsFor(supplierName))));
+  const [addAir, setAddAir] = useState('');
+  const airCodes = Object.keys(cfg);
+  const available = Object.keys(AIRLINES).filter((c) => !cfg[c]);
+
+  const persist = (next) => { setCfg(next); AVIA_MARKUPS[supplierName] = JSON.parse(JSON.stringify(next)); };
+  const addAirline = () => { if (!addAir) return; persist({ ...cfg, [addAir]: { domestic: { type: 'percent', value: 0 }, intl: { type: 'percent', value: 0 }, routes: [] } }); setAddAir(''); toast('Добавлена ' + AIRLINES[addAir].name, 'ok'); };
+  const removeAirline = (code) => { const n = { ...cfg }; delete n[code]; persist(n); };
+  const setBucket = (code, bucket, patch) => persist({ ...cfg, [code]: { ...cfg[code], [bucket]: { ...cfg[code][bucket], ...patch } } });
+  const addRoute = (code) => persist({ ...cfg, [code]: { ...cfg[code], routes: [...(cfg[code].routes || []), { from: '', to: '', type: 'fixed', value: 0 }] } });
+  const setRoute = (code, i, patch) => persist({ ...cfg, [code]: { ...cfg[code], routes: cfg[code].routes.map((r, j) => (j === i ? { ...r, ...patch } : r)) } });
+  const removeRoute = (code, i) => persist({ ...cfg, [code]: { ...cfg[code], routes: cfg[code].routes.filter((_, j) => j !== i) } });
+
+  // inline-рендер (не компонент) — чтобы поля не теряли фокус при перерисовке
+  const bucketRow = (code, bucket, label) => {
+    const b = cfg[code][bucket];
+    return (
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+        <span style={{ flex: 1, minWidth: 130, fontSize: 13, color: 'var(--body)' }}>{label}</span>
+        <div className="seg-toggle" style={{ width: 150 }}>
+          <button className={'seg-btn' + (b.type === 'percent' ? ' active' : '')} onClick={() => setBucket(code, bucket, { type: 'percent' })}>%</button>
+          <button className={'seg-btn' + (b.type === 'fixed' ? ' active' : '')} onClick={() => setBucket(code, bucket, { type: 'fixed' })}>Фикс.</button>
+        </div>
+        <div style={{ width: 110 }}><Input type="number" value={b.value} onChange={(e) => setBucket(code, bucket, { value: parseFloat(e.target.value) || 0 })} /></div>
+        <span style={{ width: 18, color: 'var(--muted)', fontSize: 13 }}>{b.type === 'percent' ? '%' : '$'}</span>
+      </div>
+    );
+  };
+
+  return (
+    <div>
+      <div style={{ fontSize: 13, color: 'var(--muted)', marginBottom: 14 }}>
+        Наценка задаётся по авиакомпании и маршруту. Базовые строки — внутри РФ и международные; точечные маршруты имеют приоритет. Наценка отражается в поиске уже с надбавкой.
+      </div>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+        {airCodes.length === 0 && <div className="card card-pad" style={{ color: 'var(--muted)' }}>Надбавки не заданы. Добавьте авиакомпанию ниже.</div>}
+        {airCodes.map((code) => (
+          <div className="card card-pad" key={code}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
+              <AirlineLogo code={code} size="sm" />
+              <div style={{ flex: 1, fontWeight: 700, color: 'var(--ink)' }}>{AIRLINES[code].name}</div>
+              <Button variant="ghost" size="sm" icon="trash" onClick={() => removeAirline(code)}>Убрать</Button>
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              {bucketRow(code, 'domestic', 'Внутри РФ')}
+              {bucketRow(code, 'intl', 'Международные')}
+            </div>
+            <div style={{ marginTop: 12, paddingTop: 10, borderTop: '1px solid var(--line)' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+                <span style={{ fontSize: 12.5, fontWeight: 600, color: 'var(--muted)' }}>Точечные маршруты</span>
+                <Button variant="ghost" size="sm" icon="plus" onClick={() => addRoute(code)}>Маршрут</Button>
+              </div>
+              {(cfg[code].routes || []).length === 0 && <div style={{ fontSize: 12, color: 'var(--muted-2)' }}>Нет точечных маршрутов.</div>}
+              {(cfg[code].routes || []).map((r, i) => (
+                <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8, flexWrap: 'wrap' }}>
+                  <div style={{ width: 74 }}><Input value={r.from} onChange={(e) => setRoute(code, i, { from: e.target.value.toUpperCase() })} placeholder="FRU" /></div>
+                  <Icon name="chevRight" style={{ width: 14, height: 14, color: 'var(--muted-2)' }} />
+                  <div style={{ width: 74 }}><Input value={r.to} onChange={(e) => setRoute(code, i, { to: e.target.value.toUpperCase() })} placeholder="IST" /></div>
+                  <div className="seg-toggle" style={{ width: 130 }}>
+                    <button className={'seg-btn' + (r.type === 'percent' ? ' active' : '')} onClick={() => setRoute(code, i, { type: 'percent' })}>%</button>
+                    <button className={'seg-btn' + (r.type === 'fixed' ? ' active' : '')} onClick={() => setRoute(code, i, { type: 'fixed' })}>Фикс.</button>
+                  </div>
+                  <div style={{ width: 90 }}><Input type="number" value={r.value} onChange={(e) => setRoute(code, i, { value: parseFloat(e.target.value) || 0 })} /></div>
+                  <button className="icon-btn" onClick={() => removeRoute(code, i)}><Icon name="trash" /></button>
+                </div>
+              ))}
+            </div>
+          </div>
+        ))}
+      </div>
+      {available.length > 0 && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 14 }}>
+          <div style={{ width: 240 }}>
+            <Select placeholder="Добавить авиакомпанию…" options={available.map((c) => ({ value: c, label: AIRLINES[c].name }))} value={addAir} onChange={(e) => setAddAir(e.target.value)} />
+          </div>
+          <Button variant="secondary" size="sm" icon="plus" disabled={!addAir} onClick={addAirline}>Добавить</Button>
+        </div>
+      )}
+    </div>
+  );
+}
 
 function SupplierModal({ supplier, onClose, onDelete }) {
   const toast = useToast();
@@ -36,7 +123,9 @@ function SupplierModal({ supplier, onClose, onDelete }) {
   const periodChipRef = useRef(null);
   if (!supplier) return null;
   const s = supplier;
-  const tabMeta = SUP_TABS.find((t) => t.key === tab);
+  const isAirline = s.orgType === 'Авиакомпания';
+  const tabs = SUP_TABS.filter((t) => !t.airlineOnly || isAirline);
+  const tabMeta = tabs.find((t) => t.key === tab) || tabs[0];
 
   const header = (
     <div style={{ display: 'flex', alignItems: 'center', gap: 18, paddingBottom: 18, borderBottom: '1px solid var(--line)', marginBottom: 20 }}>
@@ -55,7 +144,7 @@ function SupplierModal({ supplier, onClose, onDelete }) {
         <ModalHeader title="Информация поставщика" sub={tabMeta.label} onClose={onClose} />
         <div style={{ display: 'grid', gridTemplateColumns: '232px 1fr', gap: 36 }}>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-            {SUP_TABS.map((t) => (
+            {tabs.map((t) => (
               <button key={t.key} onClick={() => setTab(t.key)}
                 style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '13px 15px', borderRadius: 13, border: '1px solid var(--field-line)', background: '#fff', cursor: 'pointer', fontSize: 15, fontWeight: 500, color: 'var(--ink)', textAlign: 'left' }}>
                 <Icon name={t.icon} style={{ width: 19, height: 19, color: 'var(--blue)' }} />
@@ -80,6 +169,7 @@ function SupplierModal({ supplier, onClose, onDelete }) {
                 ))}
               </div>
             )}
+            {tab === 'markups' && isAirline && <AviaMarkupEditor supplierName={s.name} />}
             {tab === 'analytics' && (
               <div>
                 <div className="kv" style={{ marginBottom: 16 }}>

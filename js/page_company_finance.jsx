@@ -135,12 +135,13 @@ function AgreementEditor({ open, agreement, onClose, onSave }) {
   const [tpl, setTpl] = useState(agreement ? agreement.template : 'standard');
   const [fees, setFees] = useState(() => (agreement ? JSON.parse(JSON.stringify(agreement.fees)) : feesFromTemplate('standard')));
   const [descs, setDescs] = useState(() => (agreement ? { ...agreement.descs } : descsFromDefaults()));
+  const [feeDescs, setFeeDescs] = useState(() => (agreement && agreement.feeDescs ? JSON.parse(JSON.stringify(agreement.feeDescs)) : feeDescsFromDefaults()));
   const [tplName, setTplName] = useState('');       // имя создаваемого шаблона
   const [tplNameOpen, setTplNameOpen] = useState(false);
   const [tplTick, setTplTick] = useState(0);        // чтобы Select перечитал список шаблонов
   const toast = useToast();
   useEffect(() => {
-    if (open && agreement) { setTpl(agreement.template); setFees(JSON.parse(JSON.stringify(agreement.fees))); setDescs({ ...agreement.descs }); setTab(FEE_SERVICE_TYPES[0]); }
+    if (open && agreement) { setTpl(agreement.template); setFees(JSON.parse(JSON.stringify(agreement.fees))); setDescs({ ...agreement.descs }); setFeeDescs(agreement.feeDescs ? JSON.parse(JSON.stringify(agreement.feeDescs)) : feeDescsFromDefaults()); setTab(FEE_SERVICE_TYPES[0]); }
   }, [open, agreement]);
   if (!open) return null;
 
@@ -154,6 +155,7 @@ function AgreementEditor({ open, agreement, onClose, onSave }) {
   };
   const setFee = (svc, key, patch) => setFees((f) => ({ ...f, [svc]: { ...f[svc], [key]: { ...f[svc][key], ...patch } } }));
   const setDesc = (svc, v) => setDescs((d) => ({ ...d, [svc]: v }));
+  const setFeeDesc = (svc, key, v) => setFeeDescs((d) => ({ ...d, [svc]: { ...d[svc], [key]: v } }));
 
   // какие поля изменились относительно исходного соглашения — для истории
   const diffFields = () => {
@@ -162,6 +164,8 @@ function AgreementEditor({ open, agreement, onClose, onSave }) {
       FEE_SCHEMA[svc].forEach((f) => {
         const a = fees[svc][f.key], b = agreement.fees[svc] && agreement.fees[svc][f.key];
         if (!b || a.type !== b.type || a.value !== b.value) out.push(f.label + ' (' + svc + ')');
+        const fdA = feeDescOf({ feeDescs }, svc, f.key), fdB = feeDescOf(agreement, svc, f.key);
+        if (fdA !== fdB) out.push('Формулировка «' + f.label + '» (' + svc + ')');
       });
       if ((descs[svc] || '') !== (agreement.descs[svc] || '')) out.push('Описание (' + svc + ')');
     });
@@ -171,7 +175,7 @@ function AgreementEditor({ open, agreement, onClose, onSave }) {
   const save = () => {
     const fields = diffFields();
     if (!fields.length && tpl === agreement.template) { toast('Изменений нет', 'info'); return; }
-    onSave({ template: tpl, fees, descs }, fields.length ? fields : ['Применён шаблон «' + feeTemplate(tpl).name + '»']);
+    onSave({ template: tpl, fees, descs, feeDescs }, fields.length ? fields : ['Применён шаблон «' + feeTemplate(tpl).name + '»']);
     onClose();
   };
 
@@ -209,27 +213,36 @@ function AgreementEditor({ open, agreement, onClose, onSave }) {
             {FEE_SCHEMA[tab].map((f) => {
               const fee = fees[tab][f.key];
               return (
-                <div key={f.key} style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
-                  <span style={{ flex: 1, minWidth: 160, fontSize: 13.5, color: 'var(--body)' }}>{f.label}</span>
-                  <div className="seg-toggle" style={{ width: 168 }}>
-                    <button className={'seg-btn' + (fee.type === 'percent' ? ' active' : '')} onClick={() => setFee(tab, f.key, { type: 'percent' })}>%</button>
-                    <button className={'seg-btn' + (fee.type === 'fixed' ? ' active' : '')} onClick={() => setFee(tab, f.key, { type: 'fixed' })}>Фикс.</button>
+                <div key={f.key} style={{ display: 'flex', flexDirection: 'column', gap: 6, padding: '8px 0', borderBottom: '1px solid var(--line)' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+                    <span style={{ flex: 1, minWidth: 160, fontSize: 13.5, color: 'var(--body)' }}>{f.label}</span>
+                    <div className="seg-toggle" style={{ width: 168 }}>
+                      <button className={'seg-btn' + (fee.type === 'percent' ? ' active' : '')} onClick={() => setFee(tab, f.key, { type: 'percent' })}>%</button>
+                      <button className={'seg-btn' + (fee.type === 'fixed' ? ' active' : '')} onClick={() => setFee(tab, f.key, { type: 'fixed' })}>Фикс.</button>
+                    </div>
+                    <div style={{ width: 130 }}>
+                      <Input type="number" value={fee.value} onChange={(e) => setFee(tab, f.key, { value: parseFloat(e.target.value) || 0 })} />
+                    </div>
+                    <span style={{ width: 20, color: 'var(--muted)', fontSize: 13 }}>{fee.type === 'percent' ? '%' : '$'}</span>
                   </div>
-                  <div style={{ width: 130 }}>
-                    <Input type="number" value={fee.value} onChange={(e) => setFee(tab, f.key, { value: parseFloat(e.target.value) || 0 })}
-                      trailIcon={fee.type === 'percent' ? undefined : undefined} />
+                  {/* формулировка сбора для акта/счёта/УПД — отдельной позицией */}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <Icon name="template" style={{ width: 13, height: 13, color: 'var(--muted-2)', flexShrink: 0 }} />
+                    <input className="input" style={{ height: 32, padding: '4px 8px', fontSize: 12.5 }}
+                      value={(feeDescs[tab] && feeDescs[tab][f.key]) || ''} onChange={(e) => setFeeDesc(tab, f.key, e.target.value)}
+                      placeholder={FEE_DESC_DEFAULTS[f.key] || 'Формулировка в документе…'} />
                   </div>
-                  <span style={{ width: 20, color: 'var(--muted)', fontSize: 13 }}>{fee.type === 'percent' ? '%' : '$'}</span>
                 </div>
               );
             })}
           </div>
+          <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 6 }}>Формулировка каждого сбора печатается в акте / счёте / УПД отдельной позицией.</div>
 
-          <div style={{ fontWeight: 700, color: 'var(--ink)', margin: '18px 0 8px' }}>Описание услуги для закрывающих документов · {tab}</div>
+          <div style={{ fontWeight: 700, color: 'var(--ink)', margin: '18px 0 8px' }}>Общее описание услуги для закрывающих документов · {tab}</div>
           <textarea className="input" style={{ minHeight: 64, resize: 'vertical', padding: '10px 12px', width: '100%' }}
             value={descs[tab] || ''} onChange={(e) => setDesc(tab, e.target.value)}
             placeholder={SERVICE_DESC_DEFAULTS[tab] || 'Описание услуги…'} />
-          <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 4 }}>Подставляется в акт / счёт / УПД. По умолчанию: «{SERVICE_DESC_DEFAULTS[tab] || '—'}»</div>
+          <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 4 }}>Заголовок услуги в документе. По умолчанию: «{SERVICE_DESC_DEFAULTS[tab] || '—'}»</div>
         </div>
 
         <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 12, marginTop: 24 }}>
@@ -278,7 +291,7 @@ function CompanyContracts({ fin, coName, onFinChange, onOpenClosing }) {
     a.status = 'Архив';
     const created = {
       id: cfUid('A'), no: 'ДС № ' + newVersion, date: cfNow().split(' ')[0], version: newVersion, status: 'Действующий',
-      template: patch.template, fees: patch.fees, descs: patch.descs,
+      template: patch.template, fees: patch.fees, descs: patch.descs, feeDescs: patch.feeDescs,
       history: [...a.history, { date: cfNow(), user: (window.CURRENT_USER && CURRENT_USER.name) || 'Оператор', title: 'ДС № ' + newVersion + ' · изменение условий', fields }],
     };
     c.agreements.push(created);
@@ -362,15 +375,21 @@ function ClosingDocsPreview({ open, agreement, coName, co, onClose }) {
   if (!open) return null;
 
   const vatRate = co && co.vat && /\d/.test(co.vat) ? parseFloat(co.vat) : 0;
-  const calc = rows.map((r) => {
+  const vatOf = (sum) => Math.round(sum * vatRate / (100 + vatRate));
+  // каждая услуга разворачивается в позиции документа: базовая услуга + каждый сбор
+  // отдельной строкой со своей формулировкой из доп. соглашения (расширенная постановка клиента).
+  const positions = [];
+  rows.forEach((r, ri) => {
+    positions.push({ svc: r.svc, kind: 'service', desc: r.desc, amount: r.base, rowIndex: ri });
     const f = applyAgreementFees(agreement, r.svc, r.base);
-    const sum = r.base + f.total;
-    const vat = Math.round(sum * vatRate / (100 + vatRate));
-    return { ...r, fees: f.fees, feeTotal: f.total, sum, vat };
+    FEE_SCHEMA[r.svc].forEach((fs) => {
+      const amt = f.fees[fs.key] || 0;
+      if (amt > 0) positions.push({ svc: r.svc, kind: 'fee', desc: feeDescOf(agreement, r.svc, fs.key), amount: amt });
+    });
   });
-  const total = calc.reduce((s, r) => s + r.sum, 0);
-  const totalVat = calc.reduce((s, r) => s + r.vat, 0);
-  const totalFees = calc.reduce((s, r) => s + r.feeTotal, 0);
+  const total = positions.reduce((s, p) => s + p.amount, 0);
+  const totalVat = positions.reduce((s, p) => s + vatOf(p.amount), 0);
+  const totalFees = positions.filter((p) => p.kind === 'fee').reduce((s, p) => s + p.amount, 0);
 
   const setDesc = (i, v) => setRows((rs) => rs.map((r, j) => (j === i ? { ...r, desc: v } : r)));
 
@@ -395,27 +414,34 @@ function ClosingDocsPreview({ open, agreement, coName, co, onClose }) {
           </div>
         </div>
 
-        {/* Таблица услуг с редактируемым описанием (ручная корректировка перед отправкой) */}
+        {/* Позиции документа: базовая услуга + каждый сбор отдельной строкой со своей формулировкой */}
         <div className="table-card" style={{ marginBottom: 6 }}>
           <table className="tbl">
-            <thead><tr><th>Описание услуги</th><th style={{ textAlign: 'right' }}>Стоимость</th><th style={{ textAlign: 'right' }}>Сборы</th><th style={{ textAlign: 'right' }}>Сумма</th><th style={{ textAlign: 'right' }}>в т.ч. НДС</th></tr></thead>
+            <thead><tr><th>Позиция / описание</th><th style={{ textAlign: 'right' }}>Сумма</th><th style={{ textAlign: 'right' }}>в т.ч. НДС</th></tr></thead>
             <tbody>
-              {calc.map((r, i) => (
-                <tr key={i}>
-                  <td style={{ minWidth: 260 }}>
-                    <input className="input" style={{ height: 34, padding: '4px 8px' }} value={r.desc} onChange={(e) => setDesc(i, e.target.value)} />
-                    <div style={{ fontSize: 11.5, color: 'var(--muted)', marginTop: 2 }}>{r.svc}</div>
+              {positions.map((p, i) => (
+                <tr key={i} style={p.kind === 'fee' ? { background: 'var(--surface-2)' } : null}>
+                  <td style={{ minWidth: 300 }}>
+                    {p.kind === 'service' ? (
+                      <>
+                        <input className="input" style={{ height: 34, padding: '4px 8px', fontWeight: 600 }} value={p.desc} onChange={(e) => setDesc(p.rowIndex, e.target.value)} />
+                        <div style={{ fontSize: 11.5, color: 'var(--muted)', marginTop: 2 }}>{p.svc} · основная услуга</div>
+                      </>
+                    ) : (
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, paddingLeft: 12 }}>
+                        <Icon name="chevRight" style={{ width: 13, height: 13, color: 'var(--muted-2)' }} />
+                        <span style={{ fontSize: 13, color: 'var(--body)' }}>{p.desc}</span>
+                      </div>
+                    )}
                   </td>
-                  <td style={{ textAlign: 'right' }}>{fM(r.base)}</td>
-                  <td style={{ textAlign: 'right', color: 'var(--muted)' }}>{fM(r.feeTotal)}</td>
-                  <td style={{ textAlign: 'right', fontWeight: 600 }}>{fM(r.sum)}</td>
-                  <td style={{ textAlign: 'right', color: 'var(--muted)' }}>{vatRate ? fM(r.vat) : '—'}</td>
+                  <td style={{ textAlign: 'right', fontWeight: p.kind === 'service' ? 600 : 400, color: p.kind === 'fee' ? 'var(--muted)' : 'var(--ink)' }}>{fM(p.amount)}</td>
+                  <td style={{ textAlign: 'right', color: 'var(--muted)' }}>{vatRate ? fM(vatOf(p.amount)) : '—'}</td>
                 </tr>
               ))}
             </tbody>
           </table>
         </div>
-        <div style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 12 }}>Описание можно скорректировать разово перед отправкой — шаблон в доп. соглашении не изменится.</div>
+        <div style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 12 }}>Заголовок услуги можно скорректировать разово перед отправкой. Формулировки сборов берутся из доп. соглашения.</div>
 
         {/* Чек-лист проверки */}
         <div className="card card-pad" style={{ marginBottom: 14 }}>

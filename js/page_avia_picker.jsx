@@ -25,6 +25,7 @@ function ApFlightRow({ opt, sel, onSelect }) {
       <div className="ap-fl-pr">
         <div className="v">{rub(opt.price)}</div>
         <div className="c">{AIRLINES[opt.airline].name}</div>
+        {opt.markup > 0 && <span className="sup-badge" style={{ background: 'var(--blue-weak, #eef3ff)', color: 'var(--blue)' }} title="Цена включает надбавку поставщика">↑ надбавка +{rub(opt.markup)}</span>}
         {opt.supplier && <span className="sup-badge"><Icon name="api" />{opt.supplier}</span>}
       </div>
       <Radio on={sel} onChange={() => onSelect(opt)} />
@@ -521,9 +522,15 @@ function AviaPicker({ params, setParams, services = [], onApply, onCancel, onAdd
   const [groups, setGroups] = useState(() => AVIA_GROUPS_SEED.map((g) => ({ ...g, members: [...g.members] })));
   const [extras, setExtras] = useState({ seats: {}, baggage: {}, meal: {}, insurance: {}, special: {}, comfort: {} });
 
-  // leg option lists derived from FLIGHT_OFFERS
-  const outOpts = FLIGHT_OFFERS.map((o) => ({ key: o.id + '-o', airline: o.airline, leg: o.out, supplier: o.supplier, price: (o.fare + o.fee) * 90 * 0.6 }));
-  const backOpts = FLIGHT_OFFERS.filter((o) => o.back).map((o) => ({ key: o.id + '-b', airline: o.airline, leg: o.back, supplier: o.supplier, price: (o.fare + o.fee) * 90 * 0.4 }));
+  // leg option lists derived from FLIGHT_OFFERS.
+  // Цена включает надбавку поставщика по авиакомпании и маршруту (расширенная постановка клиента).
+  const legOpt = (o, leg, portion, suffix) => {
+    const baseUsd = (o.fare + o.fee) * portion;
+    const mkUsd = aviaMarkupAmount(o.airline, leg.from, leg.to, baseUsd);
+    return { key: o.id + suffix, airline: o.airline, leg, supplier: o.supplier, price: (baseUsd + mkUsd) * 90, markup: mkUsd * 90 };
+  };
+  const outOpts = FLIGHT_OFFERS.map((o) => legOpt(o, o.out, 0.6, '-o'));
+  const backOpts = FLIGHT_OFFERS.filter((o) => o.back).map((o) => legOpt(o, o.back, 0.4, '-b'));
 
   const trip = params.trip;
   const segKeys = trip === 'rt' ? ['out', 'back'] : trip === 'ow' ? ['out'] : ['out', 'seg1', 'seg2'];
@@ -538,14 +545,17 @@ function AviaPicker({ params, setParams, services = [], onApply, onCancel, onAdd
   const sortedOutOpts = [...outOpts].sort((a, b) => a.price - b.price).filter((o) => supOk(o.supplier));
   const rtCombos = FLIGHT_OFFERS.filter((o) => o.back).map((o) => ({
     id: o.id, supplier: o.supplier,
-    out: { key: o.id + '-o', airline: o.airline, leg: o.out, supplier: o.supplier, price: (o.fare + o.fee) * 90 * 0.6 },
-    back: { key: o.id + '-b', airline: o.airline, leg: o.back, supplier: o.supplier, price: (o.fare + o.fee) * 90 * 0.4 },
+    out: legOpt(o, o.out, 0.6, '-o'),
+    back: legOpt(o, o.back, 0.4, '-b'),
   })).sort((a, b) => (a.out.price + a.back.price) - (b.out.price + b.back.price)).filter((c) => supOk(c.supplier));
-  const complexOpts = AVIA_COMPLEX_ROUTE.legs.map((l, i) => ({
-    key: 'mc-' + i, airline: l.airline, price: l.price, supplier: l.supplier || supOptions[0],
-    leg: { from: l.from, to: l.to, dep: l.dep, arr: l.arr, dur: l.dur, stops: 0, stopText: 'Прямой' },
-  }));
-  const complexTotal = AVIA_COMPLEX_ROUTE.legs.reduce((s, l) => s + l.price, 0);
+  const complexOpts = AVIA_COMPLEX_ROUTE.legs.map((l, i) => {
+    const mk = aviaMarkupAmount(l.airline, l.from, l.to, l.price);
+    return {
+      key: 'mc-' + i, airline: l.airline, price: l.price + mk, markup: mk, supplier: l.supplier || supOptions[0],
+      leg: { from: l.from, to: l.to, dep: l.dep, arr: l.arr, dur: l.dur, stops: 0, stopText: 'Прямой' },
+    };
+  });
+  const complexTotal = complexOpts.reduce((s, o) => s + o.price, 0);
   const complexDur = fmtDurMin(
     AVIA_COMPLEX_ROUTE.legs.reduce((s, l) => s + parseDurMin(l.dur), 0) +
     AVIA_COMPLEX_ROUTE.layovers.reduce((s, lo) => s + lo.min, 0)
