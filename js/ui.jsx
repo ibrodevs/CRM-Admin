@@ -164,7 +164,7 @@ function ModalHeader({ title, sub, onClose }) {
 }
 
 /* ---------- Drawer (slide-over) ---------- */
-function Drawer({ open, onClose, title, children, footer }) {
+function Drawer({ open, onClose, title, sub, children, footer, width }) {
   useEffect(() => {
     if (!open) return;
     const h = (e) => { if (e.key === 'Escape') onClose && onClose(); };
@@ -174,9 +174,12 @@ function Drawer({ open, onClose, title, children, footer }) {
   if (!open) return null;
   return (
     <div className="drawer-overlay" onMouseDown={(e) => { if (e.target === e.currentTarget) onClose && onClose(); }}>
-      <div className="drawer scroll">
+      <div className="drawer scroll" style={width ? { width } : null}>
         <div className="drawer-head">
-          <h2 className="modal-title" style={{ fontSize: 24 }}>{title}</h2>
+          <div>
+            <h2 className="modal-title" style={{ fontSize: 24 }}>{title}</h2>
+            {sub && <div className="modal-sub">{sub}</div>}
+          </div>
           <button className="modal-close" onClick={onClose}><Icon name="x" /></button>
         </div>
         <div className="drawer-body">{children}</div>

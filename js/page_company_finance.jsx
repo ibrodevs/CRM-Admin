@@ -179,11 +179,15 @@ function AgreementEditor({ open, agreement, onClose, onSave }) {
     onClose();
   };
 
+  // Боковое окно (ТЗ): настройка сборов и описаний услуг для документов ведётся в drawer, а не в модалке.
   return (
-    <Modal open={open} onClose={onClose} className="cf-agr-modal">
-      <div className="modal-pad">
-        <ModalHeader title={'Редактирование ' + agreement.no} sub="Сохранение создаёт новую версию доп. соглашения" onClose={onClose} />
-
+    <Drawer open={open} onClose={onClose} width="min(820px,96vw)"
+      title={'Редактирование ' + agreement.no} sub="Сохранение создаёт новую версию доп. соглашения"
+      footer={<>
+        <Button variant="secondary" onClick={onClose}>Отмена</Button>
+        <Button icon="check" onClick={save}>Сохранить как новую версию</Button>
+      </>}>
+      <div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap', marginBottom: tplNameOpen ? 10 : 16 }}>
           <span style={{ fontSize: 13, color: 'var(--muted)' }}>Шаблон сборов:</span>
           <div style={{ maxWidth: 260 }} key={tplTick}>
@@ -244,13 +248,8 @@ function AgreementEditor({ open, agreement, onClose, onSave }) {
             placeholder={SERVICE_DESC_DEFAULTS[tab] || 'Описание услуги…'} />
           <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 4 }}>Заголовок услуги в документе. По умолчанию: «{SERVICE_DESC_DEFAULTS[tab] || '—'}»</div>
         </div>
-
-        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 12, marginTop: 24 }}>
-          <Button variant="secondary" onClick={onClose}>Отмена</Button>
-          <Button icon="check" onClick={save}>Сохранить как новую версию</Button>
-        </div>
       </div>
-    </Modal>
+    </Drawer>
   );
 }
 

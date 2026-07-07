@@ -194,6 +194,7 @@ function NotificationsModal({ open, onClose }) {
 
 function UsersTab({ onAdd }) {
   const toast = useToast();
+  const [motUser, setMotUser] = useState(null); // оператор, чью мотивацию настраиваем
   return (
     <div className="fade-in">
       <div style={{ display: 'flex', alignItems: 'center', marginBottom: 16 }}>
@@ -212,12 +213,19 @@ function UsersTab({ onAdd }) {
                 <td>{u.last}</td>
                 <td><Pill tone={USER_STATUS[u.status]}>{u.status}</Pill></td>
                 <td><ActionMenu trigger={<button className="btn btn-ghost btn-icon btn-sm"><Icon name="more" /></button>}
-                  items={[{ icon: 'edit', label: 'Изменить роль', onClick: () => toast('Изменение роли', 'info') }, { icon: 'mail', label: 'Сбросить пароль', onClick: () => toast('Письмо отправлено', 'ok') }, { sep: true }, { icon: 'lock', label: u.status === 'Заблокированный' ? 'Разблокировать' : 'Заблокировать', danger: u.status !== 'Заблокированный', onClick: () => toast('Готово', 'ok') }]} /></td>
+                  items={[
+                    { icon: 'edit', label: 'Изменить роль', onClick: () => toast('Изменение роли', 'info') },
+                    ...(u.role === 'Оператор' ? [{ icon: 'finance', label: 'Мотивация оператора', onClick: () => setMotUser(u.name) }] : []),
+                    { icon: 'mail', label: 'Сбросить пароль', onClick: () => toast('Письмо отправлено', 'ok') },
+                    { sep: true },
+                    { icon: 'lock', label: u.status === 'Заблокированный' ? 'Разблокировать' : 'Заблокировать', danger: u.status !== 'Заблокированный', onClick: () => toast('Готово', 'ok') },
+                  ]} /></td>
               </tr>
             ))}
           </tbody>
         </table>
       </div>
+      <MotivationDrawer open={!!motUser} operator={motUser} onClose={() => setMotUser(null)} />
     </div>
   );
 }

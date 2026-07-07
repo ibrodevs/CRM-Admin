@@ -170,6 +170,7 @@ function GlobalTopbar({ route, ctxOrder, onNavigate, onOpenOrder, onCreateClient
       <div style={{ flex: 1 }} />
       <GlobalSearch onOpenOrder={onOpenOrder} onNavigate={onNavigate} />
       <div className="gtop-actions">
+        <ShiftControl role={role} />
         <RoleSwitcher role={role} onRole={onRole} />
         <QuickCreate onCreateOrder={() => onOpenOrder('__create__')} onCreateClient={onCreateClient} onCreateKP={onCreateKP} onNavigate={onNavigate} role={role} />
         <button className="icon-btn gtop-ic" title="Чат" onClick={onOpenChat}>
