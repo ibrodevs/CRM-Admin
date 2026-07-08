@@ -268,9 +268,9 @@ function HotelPicker({ participants, group = false, onApply, onCancel }) {
       <div className="hp-searchbar">
         <div className="hp-search-row" style={{ rowGap: 26, marginBottom: 6 }}>
           <div className="hp-field hp-field-dest">
-            <span className="hp-flabel">Локация</span>
-            <Input value={dest} onChange={(e) => setDest(e.target.value)} placeholder="Например: Красная площадь или ООО «Ромашка», Москва, ул. Ленина, 15" leadIcon="mapPin" />
-            <span className="hp-fhint">Адрес, организация, достопримечательность или точка на карте</span>
+            <span className="hp-flabel">Локация или отель</span>
+            <Input value={dest} onChange={(e) => setDest(e.target.value)} placeholder="Название отеля, город, адрес, организация или достопримечательность" leadIcon="mapPin" />
+            <span className="hp-fhint">Название отеля, адрес, организация, достопримечательность или точка на карте</span>
           </div>
           <div className="hp-field hp-field-radius">
             <span className="hp-flabel">Радиус</span>
