@@ -1,6 +1,13 @@
 // ===== Mock data layer =====
 
-const CURRENT_USER = { name: 'Акимова Айсулуу', role: 'Админ', email: 'akimova@psc-travelhub.kg', phone: '+996 (700) 12-34-56', avatar: 'assets/avatar-aisuluu.png', position: 'Администратор системы', dept: 'Управление', joined: '10.09.2024' };
+const CURRENT_USER = {
+  name: 'Акимова Айсулуу', role: 'Админ', email: 'akimova@psc-travelhub.kg', phone: '+996 (700) 12-34-56',
+  avatar: 'assets/avatar-aisuluu.png', position: 'Администратор системы', dept: 'Управление', joined: '10.09.2024',
+  // расширенный профиль (ТЗ): рабочие контакты, оргструктура, режим, локаль
+  manager: '—', workEmail: 'akimova@psc-travelhub.kg', workPhone: '+996 (700) 12-34-56', internalPhone: '101',
+  telegram: '@akimova_psc', hired: '10.09.2024', workStatus: 'Работает', presence: 'Онлайн',
+  tz: '(GMT+6) Бишкек', lang: 'Русский', lastLogin: 'Сегодня, 09:14', slaResponseMin: 15,
+};
 
 // ---- enums / option sets ----
 const ORDER_STATUS = {

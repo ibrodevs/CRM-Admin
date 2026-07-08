@@ -247,6 +247,40 @@ function StatCardDash({ s, onGo }) {
   );
 }
 
+/* Отклик операторов на заявки (Блок A ТЗ): норматив в минутах, просрочка / накал тайминга */
+function SlaResponseWidget({ onOpenOrder }) {
+  const rows = SLA_QUEUE.map((q) => ({ ...q, tone: slaTone(q.waited, q.limit) }));
+  const overdue = rows.filter((r) => r.tone === 'red').length;
+  const heating = rows.filter((r) => r.tone === 'amber').length;
+  return (
+    <div style={{ marginBottom: 32 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 14, flexWrap: 'wrap' }}>
+        <h2 className="section-title" style={{ margin: 0 }}>Отклик на заявки</h2>
+        {overdue > 0 && <Pill tone="red">Просрочено: {overdue}</Pill>}
+        {heating > 0 && <Pill tone="amber">Накал тайминга: {heating}</Pill>}
+        {!overdue && !heating && <Pill tone="green">Все в норме</Pill>}
+      </div>
+      <div className="table-card">
+        <table className="tbl">
+          <thead><tr><th>Заявка</th><th>Клиент</th><th>Оператор</th><th>Ожидает</th><th>Норматив</th><th>Статус</th></tr></thead>
+          <tbody>
+            {rows.map((r, i) => (
+              <tr key={i} style={{ cursor: 'pointer' }} onClick={() => { const o = ORDERS.find((x) => x.no === r.no); o && onOpenOrder && onOpenOrder(o); }}>
+                <td className="t-strong">№ {r.no}</td>
+                <td>{r.client}</td>
+                <td>{r.operator}</td>
+                <td style={{ fontWeight: 600, color: r.tone === 'red' ? 'var(--red)' : r.tone === 'amber' ? 'var(--amber)' : 'var(--ink)' }}>{r.waited} мин</td>
+                <td className="t-muted">{r.limit} мин</td>
+                <td><Pill tone={r.tone}>{slaLabel(r.tone)}</Pill></td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
 function DashboardPage({ onNavigate, onAddOrder, onOpenOrder }) {
   const [period, setPeriod] = useState('today');
   const [search, setSearch] = useState('');
@@ -281,6 +315,9 @@ function DashboardPage({ onNavigate, onAddOrder, onOpenOrder }) {
         <div style={{ marginBottom: 32 }}>
           <ActivityFeed onNavigate={onNavigate} onOpenOrder={onOpenOrder} />
         </div>
+
+        {/* отклик операторов на заявки — просрочки / накал тайминга */}
+        <SlaResponseWidget onOpenOrder={onOpenOrder} />
 
         {/* финансовое состояние клиентов */}
         <FinanceOverviewBlock onNavigate={onNavigate} />

@@ -206,10 +206,11 @@ function CompanyCard({ co, onBack, onOpenOrder }) {
       </div>
 
       <div style={{ marginBottom: 18 }}>
-        <Tabs tabs={[{ key: 'overview', label: 'Обзор' }, { key: 'finance', label: 'Финансы и договоры' }]} value={tab} onChange={setTab} />
+        <Tabs tabs={[{ key: 'overview', label: 'Обзор' }, { key: 'finance', label: 'Финансы и договоры' }, { key: 'policy', label: 'Тревел-политика' }]} value={tab} onChange={setTab} />
       </div>
 
       {tab === 'finance' && <CompanyFinanceBlock co={co} />}
+      {tab === 'policy' && <TravelPolicyBlock co={co} />}
 
       {tab === 'overview' && <>
       <div className="grid-2" style={{ alignItems: 'start' }}>

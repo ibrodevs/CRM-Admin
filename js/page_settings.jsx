@@ -192,9 +192,35 @@ function NotificationsModal({ open, onClose }) {
   );
 }
 
+/* Настройки оператора: доступ по видам услуг + норматив отклика на заявку (ТЗ) */
+function OperatorAccessDrawer({ open, operator, onClose }) {
+  const toast = useToast();
+  const [sla, setSla] = useState(() => (operator ? operatorSla(operator) : 15));
+  useEffect(() => { if (open && operator) setSla(operatorSla(operator)); }, [open, operator]);
+  if (!open || !operator) return null;
+  return (
+    <Drawer open={open} onClose={onClose} title="Доступ и нормативы оператора" sub={operator} width="min(720px,96vw)"
+      footer={<Button variant="secondary" style={{ width: '100%' }} onClick={onClose}>Закрыть</Button>}>
+      <div className="card card-pad" style={{ marginBottom: 16, display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap' }}>
+        <div style={{ flex: 1, minWidth: 200 }}>
+          <div style={{ fontWeight: 700, color: 'var(--ink)' }}>Отклик на заявку</div>
+          <div style={{ fontSize: 12.5, color: 'var(--muted)' }}>Норматив первого отклика. При превышении на дашборде — просрочка / накал тайминга.</div>
+        </div>
+        <div style={{ width: 110 }}><Input type="number" min="1" value={sla} onChange={(e) => setSla(Math.max(1, parseInt(e.target.value) || 1))} /></div>
+        <span style={{ color: 'var(--muted)', fontSize: 13 }}>минут</span>
+        <Button size="sm" icon="check" onClick={() => { OPERATOR_SLA[operator] = sla; toast('Норматив сохранён: ' + sla + ' мин', 'ok'); }}>Сохранить</Button>
+      </div>
+      <h3 className="card-title" style={{ fontSize: 16, marginBottom: 4 }}>Доступ по видам услуг</h3>
+      <div style={{ fontSize: 12.5, color: 'var(--muted)', marginBottom: 12 }}>Область ответственности оператора в заказах.</div>
+      <ServiceAccessEditor operator={operator} />
+    </Drawer>
+  );
+}
+
 function UsersTab({ onAdd }) {
   const toast = useToast();
   const [motUser, setMotUser] = useState(null); // оператор, чью мотивацию настраиваем
+  const [accUser, setAccUser] = useState(null); // оператор, чьи доступы/нормативы настраиваем
   return (
     <div className="fade-in">
       <div style={{ display: 'flex', alignItems: 'center', marginBottom: 16 }}>
@@ -215,7 +241,10 @@ function UsersTab({ onAdd }) {
                 <td><ActionMenu trigger={<button className="btn btn-ghost btn-icon btn-sm"><Icon name="more" /></button>}
                   items={[
                     { icon: 'edit', label: 'Изменить роль', onClick: () => toast('Изменение роли', 'info') },
-                    ...(u.role === 'Оператор' ? [{ icon: 'finance', label: 'Мотивация оператора', onClick: () => setMotUser(u.name) }] : []),
+                    ...(u.role === 'Оператор' ? [
+                      { icon: 'finance', label: 'Мотивация оператора', onClick: () => setMotUser(u.name) },
+                      { icon: 'sla', label: 'Доступ и нормативы', onClick: () => setAccUser(u.name) },
+                    ] : []),
                     { icon: 'mail', label: 'Сбросить пароль', onClick: () => toast('Письмо отправлено', 'ok') },
                     { sep: true },
                     { icon: 'lock', label: u.status === 'Заблокированный' ? 'Разблокировать' : 'Заблокировать', danger: u.status !== 'Заблокированный', onClick: () => toast('Готово', 'ok') },
@@ -226,6 +255,7 @@ function UsersTab({ onAdd }) {
         </table>
       </div>
       <MotivationDrawer open={!!motUser} operator={motUser} onClose={() => setMotUser(null)} />
+      <OperatorAccessDrawer open={!!accUser} operator={accUser} onClose={() => setAccUser(null)} />
     </div>
   );
 }
@@ -282,7 +312,7 @@ function SettingsPage() {
     { title: 'Общие настройки', items: [['Настройки уведомления', () => setModal('notif')]] },
     { title: 'API / интеграции', items: [['Доступы к API', () => setModal('apiaccess')], ['Сгенерировать API ключ', () => setModal('apikey')], ['Убрать доступ к API', () => setModal('apiaccess')], ['Настройки SLA', () => toast('Настройки SLA', 'info')]] },
     { title: 'Шаблоны документов', items: [['Добавить шаблон', () => toast('Добавление шаблона', 'info')], ['Изменить шаблон', () => toast('Изменение шаблона', 'info')]] },
-    { title: 'Справочники', items: [['Аэропорты и города', () => toast('Справочник', 'info')], ['Типы услуг', () => toast('Справочник', 'info')]] },
+    { title: 'Справочники', items: [['Аэропорты и города', () => toast('Справочник', 'info')], ['Типы услуг', () => toast('Справочник', 'info')], ['Справочник доп. услуг', () => setModal('extras')]] },
   ];
   const TABS = [{ key: 'users', label: 'Пользователи', count: USERS.length }, { key: 'roles', label: 'Роли и права' }, { key: 'params', label: 'Параметры системы' }];
   return (
@@ -305,6 +335,7 @@ function SettingsPage() {
           </div>
         )}
       </div>
+      <ExtrasCatalogModal open={modal === 'extras'} onClose={() => setModal(null)} />
       <CurrencyModal open={modal === 'currency'} onClose={() => setModal(null)} />
       <ApiKeyModal open={modal === 'apikey'} onClose={() => setModal(null)} />
       <ApiAccessModal open={modal === 'apiaccess'} onClose={() => setModal(null)} />

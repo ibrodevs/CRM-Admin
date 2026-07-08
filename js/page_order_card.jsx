@@ -1541,6 +1541,8 @@ function OrderCard({ order, onBack, initTab, initSvcSearch, fresh, onOpenChat })
   const MORE_TABS = [
     { key: 'overview', label: 'Общая информация', icon: 'clipboard' },
     { key: 'clients', label: 'Клиенты', icon: 'contacts' },
+    { key: 'responsibles', label: 'Ответственные', icon: 'users', count: orderResponsibles(order.no).length || null },
+    { key: 'extras', label: 'Доп. услуги', icon: 'sparkles' },
     { key: 'offers', label: 'КП', icon: 'template', count: PROPOSALS.filter((p) => p.order === order.no).length, locked: stageIdx < 2 },
     { key: 'aftersale', label: 'Постпродажа', icon: 'refund', count: RETURNS.filter((r) => r.order === order.no).length || null, locked: stageIdx < 2 },
   ];
@@ -1623,6 +1625,8 @@ function OrderCard({ order, onBack, initTab, initSvcSearch, fresh, onOpenChat })
       case 'services': return renderServicesArea();
       case 'offers': return <KPModule order={order} services={services} participants={participants}
         onApprove={() => { setStageIdx((i) => Math.max(i, 2)); toast('Созданы финансовые записи и задачи по выпуску документов', 'ok'); }} />;
+      case 'responsibles': return <OrderResponsiblesTab order={order} />;
+      case 'extras': return <DynamicExtrasPanel order={order} />;
       case 'documents': return <DocCenter scopeOrder={order.no} participants={participants} />;
       case 'finance': return <FinanceRegistry scopeOrder={order.no} />;
       case 'aftersale': return <ReturnsModule scopeOrder={order.no} order={order} compact />;
