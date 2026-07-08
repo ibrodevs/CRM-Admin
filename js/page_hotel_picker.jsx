@@ -9,6 +9,8 @@ const HP_SORT_OPTS = [
   ['stars', 'По звёздам'], ['rating', 'По рейтингу'],
 ];
 const HP_SORT_LABEL = HP_SORT_OPTS.reduce((m, [k, l]) => (m[k] = l, m), {});
+// Радиус поиска вокруг локации (адрес / организация / достопримечательность / POI)
+const HP_RADIUS_OPTS = ['500 м', '1 км', '2 км', '5 км', '10 км', 'Без ограничений'];
 
 function hpM(n) { return Math.round(n).toLocaleString('ru-RU') + ' ₽'; }
 function hpStars(n) { return '★★★★★'.slice(0, n); }
@@ -109,6 +111,7 @@ function HotelPicker({ participants, group = false, onApply, onCancel }) {
 
   // --- поисковая маска ---
   const [dest, setDest] = useState('Москва');
+  const [radius, setRadius] = useState('2 км'); // радиус поиска вокруг локации (POI / адрес / организация)
   const [checkin, setCheckin] = useState(new Date(2026, 5, 20));
   const [checkout, setCheckout] = useState(new Date(2026, 5, 21));
   const [searchRooms, setSearchRooms] = useState(group ? Math.ceil(PAX.length / 2) : 1);
@@ -263,10 +266,15 @@ function HotelPicker({ participants, group = false, onApply, onCancel }) {
     <div className="fade-in hp-root">
       {/* ----- поисковая маска ----- */}
       <div className="hp-searchbar">
-        <div className="hp-search-row">
+        <div className="hp-search-row" style={{ rowGap: 26, marginBottom: 6 }}>
           <div className="hp-field hp-field-dest">
-            <span className="hp-flabel">Направление</span>
-            <Input value={dest} onChange={(e) => setDest(e.target.value)} placeholder="Город, отель или аэропорт" leadIcon="mapPin" />
+            <span className="hp-flabel">Локация</span>
+            <Input value={dest} onChange={(e) => setDest(e.target.value)} placeholder="Например: Красная площадь или ООО «Ромашка», Москва, ул. Ленина, 15" leadIcon="mapPin" />
+            <span className="hp-fhint">Адрес, организация, достопримечательность или точка на карте</span>
+          </div>
+          <div className="hp-field hp-field-radius">
+            <span className="hp-flabel">Радиус</span>
+            <Select options={HP_RADIUS_OPTS} value={radius} onChange={(e) => setRadius(e.target.value)} />
           </div>
           <div className="hp-field hp-field-date">
             <span className="hp-flabel">Заезд</span>
