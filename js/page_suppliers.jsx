@@ -20,6 +20,28 @@ function MiniLineChart() {
 /* ====================================================================
    Справочники расширенной карточки поставщика (ТЗ)
    ==================================================================== */
+// Цветной бейдж поставщика (как «Островок» в отелях) — брендовая рамка, цвет стабилен по имени
+const SUP_BRAND_COLORS = [
+  { fg: '#0e9f6e', bg: '#e6f6ee', bd: '#a5ddc4' },
+  { fg: '#2566ff', bg: '#e9f0ff', bd: '#bcd2ff' },
+  { fg: '#b45309', bg: '#fdf1dd', bd: '#f1d09c' },
+  { fg: '#7c3aed', bg: '#f2ebfe', bd: '#d6c2f8' },
+  { fg: '#db2777', bg: '#fde8f1', bd: '#f7bcd6' },
+  { fg: '#0891b2', bg: '#e2f5fa', bd: '#abe1ed' },
+  { fg: '#4f46e5', bg: '#ecebfd', bd: '#c5c2f6' },
+];
+function supBrand(name) { let h = 0; const s = String(name || ''); for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) >>> 0; return SUP_BRAND_COLORS[h % SUP_BRAND_COLORS.length]; }
+function SupplierBadge({ name, icon = 'suppliers', size = 'md' }) {
+  const c = supBrand(name);
+  const pad = size === 'sm' ? '3px 8px' : '5px 11px';
+  const fs = size === 'sm' ? 12 : 13.5;
+  return (
+    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: pad, borderRadius: 9, fontSize: fs, fontWeight: 600, color: c.fg, background: c.bg, border: '1px solid ' + c.bd, width: 'fit-content', lineHeight: 1.2 }}>
+      <Icon name={icon} style={{ width: 13, height: 13 }} />{name}
+    </span>
+  );
+}
+
 const SUPPLIER_TYPES = ['API', 'Локальный', 'Консолидатор', 'GDS'];
 const SUP_SERVICE_KINDS = ['Авиа', 'ЖД', 'Гостиницы', 'Трансферы', 'Автобусы', 'Страхование', 'Визы', 'Прочее'];
 const SUP_COMM_METHODS = ['Telegram', 'WhatsApp', 'Email', 'Телефон', 'Чат', 'Макс'];
@@ -863,7 +885,7 @@ function SuppliersPage({ intent, onConsume, suppliers, addSupplier }) {
                     return (
                       <tr key={i} style={{ cursor: 'pointer' }} onClick={() => setModal(s)}>
                         <td className="t-strong">{s.no}</td>
-                        <td className="t-strong">{s.name}{ext.useDefault && <Pill tone="blue" >по умолч.</Pill>}</td>
+                        <td><span style={{ display: 'inline-flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}><SupplierBadge name={s.name} />{ext.useDefault && <Pill tone="blue">по умолч.</Pill>}</span></td>
                         <td><Pill tone={ext.supType === 'Локальный' ? 'gray' : 'teal'}>{ext.supType}</Pill></td>
                         <td><Pill tone={SUPPLIER_STATUS[s.status]}>{s.status}</Pill></td>
                         <td>{ext.kinds.join(', ')}</td>
@@ -890,4 +912,4 @@ function SuppliersPage({ intent, onConsume, suppliers, addSupplier }) {
   );
 }
 
-Object.assign(window, { SuppliersPage, SupplierModal, SupplierAddDrawer, SearchPriorityModal, supExt, SUP_SERVICE_KINDS });
+Object.assign(window, { SuppliersPage, SupplierModal, SupplierAddDrawer, SearchPriorityModal, supExt, SUP_SERVICE_KINDS, SupplierBadge, supBrand });
