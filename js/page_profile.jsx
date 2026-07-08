@@ -198,6 +198,7 @@ function ProfilePage({ onNavigate, initialTab }) {
   const [showPw, setShowPw] = useState(false);
   const [pwErr, setPwErr] = useState({});
   const [notif, setNotif] = useState({ email: true, telegram: true, push: true, desktop: false, newReq: true, exchRet: true, overdue: true, chat: true, orderChg: false });
+  const [rolesOpen, setRolesOpen] = useState(false); // матрица прав — боковым окном, без ухода со страницы
   const [prefs, setPrefs] = useState({ theme: 'Светлая', dateFmt: 'ДД.ММ.ГГГГ', timeFmt: '24 часа', currency: 'USD', lang: u.lang, pageSize: '25', startPage: 'Главное' });
 
   const setField = (k) => (e) => setPf((p) => ({ ...p, [k]: e.target.value }));
@@ -386,7 +387,7 @@ function ProfilePage({ onNavigate, initialTab }) {
                 <div className="kv-row"><span className="k">Доступные компании</span><span className="v">Все</span></div>
                 <div className="kv-row"><span className="k">Доступные виды услуг</span><span className="v">{operatorKindsLabel(u.name)}</span></div>
               </div>
-              <Button variant="secondary" size="sm" icon="settings" onClick={() => onNavigate('settings')}>Матрица прав по ролям</Button>
+              <Button variant="secondary" size="sm" icon="settings" onClick={() => setRolesOpen(true)}>Матрица прав по ролям</Button>
             </div>
             <div className="card card-pad">
               <h3 className="card-title" style={{ fontSize: 16, marginBottom: 4 }}>Доступ по видам услуг</h3>
@@ -401,6 +402,12 @@ function ProfilePage({ onNavigate, initialTab }) {
         {tab === 'stats' && <ProfileStats operator={u.name} />}
         {tab === 'worktime' && <ProfileWorkTime operator={u.name} />}
       </div>
+
+      {/* Матрица прав по ролям — боковым окном, чтобы не терять текущую страницу профиля */}
+      <Drawer open={rolesOpen} onClose={() => setRolesOpen(false)} title="Матрица прав по ролям" sub="Права доступа по ролям" width="min(940px,97vw)"
+        footer={<Button variant="secondary" style={{ width: '100%' }} onClick={() => setRolesOpen(false)}>Закрыть</Button>}>
+        <RolesTab />
+      </Drawer>
     </div>
   );
 }
