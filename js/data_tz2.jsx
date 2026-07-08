@@ -26,7 +26,22 @@ function slaLabel(t) { return t === 'red' ? 'Просрочено' : t === 'ambe
 const TP_SCOPES = ['Вся компания', 'Подразделение', 'Должность', 'Сотрудник'];
 const TP_CLASSES_AVIA = ['Эконом', 'Премиум-эконом', 'Бизнес', 'Первый'];
 const TP_RAIL_CLASSES = ['Сидячий', 'Плацкарт', 'Купе', 'СВ'];
-const TP_APPROVERS = ['Руководитель подразделения', 'Финансовый директор', 'Тревел-координатор', 'Генеральный директор'];
+// Справочники для выпадающих списков (без рукописного ввода) — по замечаниям клиента
+const TP_AIRLINES = (typeof AIRLINES !== 'undefined')
+  ? Object.values(AIRLINES).map((a) => a.name)
+  : ['S7 Airlines', 'Turkish Airlines', 'Emirates', 'Aeroflot', 'Air Astana', 'Qatar Airways', 'Utair', 'Lufthansa', 'Pegasus'];
+const TP_RAIL_TYPES = ['Сидячий', 'Плацкарт', 'Купе', 'СВ', 'Люкс'];
+const TP_HOTEL_CHAINS = ['Hilton', 'Marriott', 'Radisson', 'Hyatt', 'Accor', 'InterContinental', 'Wyndham', 'Best Western', 'Локальные отели'];
+const TP_HOTEL_CATEGORIES = ['3★', '4★', '5★'];
+const TP_BOARD = ['Без питания', 'Завтрак', 'Полупансион', 'Полный пансион', 'All Inclusive'];
+const TP_CAR_CLASSES = ['Эконом', 'Комфорт', 'Бизнес', 'Минивэн', 'VIP'];
+const TP_CURRENCIES = (typeof CURRENCIES !== 'undefined') ? CURRENCIES.map((c) => c.code) : ['USD', 'EUR', 'RUB', 'KGS'];
+// Список сотрудников для поиска согласующих (как поиск пассажира)
+const TP_EMPLOYEES = [...new Set([
+  ...(typeof USERS !== 'undefined' ? USERS.map((u) => u.name) : []),
+  ...(typeof OPERATORS !== 'undefined' ? OPERATORS : []),
+  'Нуралиев Данияр', 'Каримов Икрам', 'Сагынбеков Икрам',
+])];
 // Статусы контроля соответствия при подборе
 const TP_COMPLIANCE = {
   ok: { label: 'Соответствует тревел-политике', tone: 'green', icon: 'checkCircle' },
@@ -35,21 +50,33 @@ const TP_COMPLIANCE = {
   supplier: { label: 'Запрещённый поставщик', tone: 'red', icon: 'alertCircle' },
   approval: { label: 'Требуется согласование', tone: 'amber', icon: 'sla' },
 };
-// Политика по умолчанию для карточки компании
+// Политика по умолчанию для карточки компании (списки — массивы, не строки)
 function defaultTravelPolicy() {
   return {
     scope: 'Вся компания', scopeValue: '',
     avia: {
-      classAllowed: 'Бизнес', airlinesAllowed: 'S7, Turkish Airlines, Emirates', airlinesForbidden: '',
+      classAllowed: 'Бизнес', airlinesAllowed: ['S7 Airlines', 'Turkish Airlines', 'Emirates'], airlinesForbidden: [],
       stops: true, maxStops: 1, maxLayoverH: 6, minLayoverMin: 60,
-      maxPrice: 1200, deviationPct: 20, nonRefundable: false, extrasAllowed: true, minLeadDays: 3,
+      maxPrice: 1200, maxPriceCur: 'USD', deviationPct: 20, nonRefundable: false, extrasAllowed: true, minLeadDays: 3,
     },
-    rail: { wagonClass: 'Купе', wagonTypes: 'Купе, СВ', maxPrice: 250, svAllowed: true, kupeAllowed: true, highSpeed: true, minLeadDays: 2 },
-    hotels: { maxNight: 150, maxCategory: '4★', chainsAllowed: 'Hilton, Marriott, Radisson', forbidden: '', maxDistanceKm: 5, boardAllowed: 'Завтрак, Полупансион', earlyCheckIn: true, lateCheckOut: false, upgrade: false },
-    transfers: { carClasses: 'Эконом, Комфорт', individual: true, taxi: true, maxPrice: 80 },
+    rail: { wagonClass: 'Купе', wagonTypes: ['Купе', 'СВ'], maxPrice: 250, maxPriceCur: 'USD', svAllowed: true, kupeAllowed: true, highSpeed: true, minLeadDays: 2 },
+    hotels: { maxNight: 150, maxNightCur: 'USD', maxCategory: '4★', chainsAllowed: ['Hilton', 'Marriott', 'Radisson'], forbidden: [], maxDistanceKm: 5, boardAllowed: ['Завтрак', 'Полупансион'], earlyCheckIn: true, lateCheckOut: false, upgrade: false },
+    transfers: { carClasses: ['Эконом', 'Комфорт'], individual: true, taxi: true, maxPrice: 80, maxPriceCur: 'USD' },
     extras: { insurance: true, visa: true, vipLounge: false, fastTrack: false, airportExtra: true },
-    approval: { required: true, approver: 'Руководитель подразделения', onOverLimit: true, autoIfCompliant: true, allowWithout: false },
+    // цепочка согласующих — список сотрудников по порядку
+    approval: { required: true, approvers: ['Акимова Айсулуу'], onOverLimit: true, autoIfCompliant: true, allowWithout: false },
   };
+}
+// Подразделения компании + приглашённые в них сотрудники (создаются в тревел-политике)
+const TP_DEPARTMENTS = window.TP_DEPARTMENTS || (window.TP_DEPARTMENTS = {});
+function departmentsFor(companyId) {
+  if (!TP_DEPARTMENTS[companyId]) {
+    TP_DEPARTMENTS[companyId] = [
+      { id: 'd1', name: 'Коммерческий отдел', head: 'Нуралиев Данияр', employees: ['Нуралиев Данияр', 'Каримов Икрам'] },
+      { id: 'd2', name: 'Финансовый отдел', head: 'Сагынбеков Икрам', employees: ['Сагынбеков Икрам'] },
+    ];
+  }
+  return TP_DEPARTMENTS[companyId];
 }
 // Пер-компанийные политики + история изменений
 const TRAVEL_POLICIES = window.TRAVEL_POLICIES || (window.TRAVEL_POLICIES = {});
@@ -180,7 +207,8 @@ function extrasFromSupplier(stage, supplierHasApi, issued) {
 
 Object.assign(window, {
   OPERATOR_SLA, operatorSla, SLA_QUEUE, slaTone, slaLabel,
-  TP_SCOPES, TP_CLASSES_AVIA, TP_RAIL_CLASSES, TP_APPROVERS, TP_COMPLIANCE, defaultTravelPolicy, TRAVEL_POLICIES, travelPolicyFor,
+  TP_SCOPES, TP_CLASSES_AVIA, TP_RAIL_CLASSES, TP_AIRLINES, TP_RAIL_TYPES, TP_HOTEL_CHAINS, TP_HOTEL_CATEGORIES, TP_BOARD, TP_CAR_CLASSES, TP_CURRENCIES, TP_EMPLOYEES,
+  TP_COMPLIANCE, defaultTravelPolicy, TRAVEL_POLICIES, travelPolicyFor, TP_DEPARTMENTS, departmentsFor,
   SVC_ACCESS_KINDS, SVC_ACCESS_RIGHTS, fullRights, noRights, OPERATOR_SVC_ACCESS, operatorSvcAccess, operatorKindsLabel,
   ORDER_SVC_RESPONSIBLES, orderResponsibles, ORDER_RESP_HISTORY, ORDER_ACTION_LOG, orderActionLog,
   EXTRA_STAGES, EXTRA_AVAIL, EXTRA_STATUS, EXTRA_SVC_CATALOG, extraCatalogItem, extrasFromSupplier,
