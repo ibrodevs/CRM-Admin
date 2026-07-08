@@ -23,6 +23,31 @@ function MiniLineChart() {
 const SUPPLIER_TYPES = ['API', 'Локальный', 'Консолидатор', 'GDS'];
 const SUP_SERVICE_KINDS = ['Авиа', 'ЖД', 'Гостиницы', 'Трансферы', 'Автобусы', 'Страхование', 'Визы', 'Прочее'];
 const SUP_COMM_METHODS = ['Telegram', 'WhatsApp', 'Email', 'Телефон', 'Чат', 'Макс'];
+// Страна/город — выпадающие списки (справочники); города зависят от выбранной страны
+const SUP_COUNTRIES = ['Кыргызстан', 'Казахстан', 'Россия', 'Узбекистан', 'Таджикистан', 'Турция', 'ОАЭ', 'Другое'];
+const SUP_CITIES = {
+  'Кыргызстан': ['Бишкек', 'Ош', 'Джалал-Абад', 'Каракол', 'Токмок'],
+  'Казахстан': ['Алматы', 'Астана', 'Шымкент', 'Караганда'],
+  'Россия': ['Москва', 'Санкт-Петербург', 'Казань', 'Новосибирск', 'Екатеринбург'],
+  'Узбекистан': ['Ташкент', 'Самарканд', 'Бухара'],
+  'Таджикистан': ['Душанбе', 'Худжанд'],
+  'Турция': ['Стамбул', 'Анкара', 'Анталья'],
+  'ОАЭ': ['Дубай', 'Абу-Даби', 'Шарджа'],
+  'Другое': ['—'],
+};
+function supCitiesFor(country) { return SUP_CITIES[country] || ['—']; }
+// Часы работы — выборка (roll)
+const SUP_WORK_HOURS = ['Круглосуточно', 'Пн–Пт 09:00–18:00', 'Пн–Сб 09:00–19:00', 'Пн–Вс 08:00–22:00', 'Пн–Пт 10:00–19:00'];
+// Привязка мессенджеров: после отметки способа связи появляется поле привязки.
+// Через привязанный канал сообщения из чата CRM уходят поставщику и ответы возвращаются в тот же тред.
+const SUP_COMM_CONFIG = {
+  'Telegram': { field: 'Аккаунт / бот', placeholder: '@username или номер', hint: 'Сообщения из чата уходят в Telegram через бота, ответы возвращаются в тред CRM.' },
+  'WhatsApp': { field: 'Номер WhatsApp', placeholder: '+996 700 000 000', hint: 'Через WhatsApp Business API — переписка синхронизируется с чатом заказа.' },
+  'Email': { field: 'E-mail', placeholder: 'mail@example.com', hint: 'Письма дублируются в тред чата, ответы подтягиваются обратно.' },
+  'Телефон': { field: 'Номер телефона', placeholder: '+996 700 000 000', hint: 'Голосовой канал — звонки фиксируются в истории заказа.' },
+  'Чат': { field: null, placeholder: '', hint: 'Внутренний чат CRM — привязка не требуется, поставщик отвечает прямо в системе.' },
+  'Макс': { field: 'ID / номер в MAX', placeholder: 'ID или номер в MAX', hint: 'Мессенджер MAX через API — сообщения маршрутизируются в тред чата CRM.' },
+};
 const SUP_OPS = ['Бронирование', 'Выписка', 'Возврат', 'Обмен', 'Аннуляция', 'Дополнительные услуги'];
 const SUP_DOC_KINDS = ['Договор', 'Дополнительные соглашения', 'Реквизиты', 'Сертификаты', 'Прочие файлы'];
 const SUP_COMM_TYPES = ['%', 'Фиксированная', 'Смешанная'];
@@ -87,8 +112,8 @@ function supExt(s) {
         apiKey: 'sk_' + String(s.no) + 'a9f3', login: 'psc_travelhub', password: '••••••••', token: 'tok_' + String(s.no) + 'x7',
         version: 'v2.4', status: seed === 3 ? 'Ошибка' : 'Подключено', lastSync: '05.07.2026 09:3' + seed,
       },
-      local: { contact: 'Меркель Александр', comm: ['Telegram', 'Email', 'Телефон'], processing: '30–60 мин', hours: 'Пн–Сб 09:00–19:00' },
-      fin: { currency: s.currency, commType: '%', commValue: 8 + seed, vat: seed % 2 ? '12%' : 'Без НДС', settlement: SUP_SETTLEMENTS[seed % SUP_SETTLEMENTS.length], payTerm: (5 + seed * 2) + ' дн.', perService: fin },
+      local: { contact: 'Меркель Александр', comm: ['Telegram', 'Email', 'Телефон'], commBind: { 'Telegram': '@' + s.org.toLowerCase().replace(/[^a-z0-9]/g, ''), 'Email': 'sales@' + s.org.toLowerCase().replace(/[^a-z]/g, '') + '.com', 'Телефон': '+996 (555) 123-456' }, processing: 30 + seed * 10, hours: 'Пн–Сб 09:00–19:00' },
+      fin: { currency: s.currency, commType: '%', commValue: 8 + seed, vat: seed % 2 ? '12%' : 'Без НДС', settlement: SUP_SETTLEMENTS[seed % SUP_SETTLEMENTS.length], payTerm: 5 + seed * 2, perService: fin },
       ops: { 'Бронирование': true, 'Выписка': true, 'Возврат': seed !== 2, 'Обмен': seed !== 4, 'Аннуляция': true, 'Дополнительные услуги': seed % 2 === 0 },
       automation: seed === 3 ? 'reserve' : 'auto',
       searchPriority: kinds.reduce((m, k) => (SUP_PRIORITY_SERVICES.includes(k) ? (m[k] = 1 + seed, m) : m), {}),
@@ -212,7 +237,7 @@ function SupplierFinEditor({ ext, onSaved }) {
         <Field label="Размер комиссии"><Input type="number" value={fin.commValue} onChange={(e) => setBase('commValue', parseFloat(e.target.value) || 0)} /></Field>
         <Field label="НДС"><Select options={['Без НДС', '12%', '20%']} value={fin.vat} onChange={(e) => setBase('vat', e.target.value)} /></Field>
         <Field label="Способ взаиморасчетов"><Select options={SUP_SETTLEMENTS} value={fin.settlement} onChange={(e) => setBase('settlement', e.target.value)} /></Field>
-        <Field label="Срок оплаты"><Input value={fin.payTerm} onChange={(e) => setBase('payTerm', e.target.value)} placeholder="напр. 10 дн." /></Field>
+        <Field label="Срок оплаты" hint="дней"><Input type="number" min="0" value={typeof fin.payTerm === 'number' ? fin.payTerm : parseInt(fin.payTerm) || 0} onChange={(e) => setBase('payTerm', parseInt(e.target.value) || 0)} placeholder="напр. 10" /></Field>
       </div>
 
       <div style={{ fontWeight: 700, color: 'var(--ink)', marginBottom: 6 }}>Сборы по видам услуг</div>
@@ -393,13 +418,33 @@ function SupplierModal({ supplier, onClose, onDelete }) {
               </div>
             )}
             {tab === 'contacts' && (
-              <div className="kv">
-                {[['Контактное лицо', ext.local.contact], ['Способы коммуникации', ext.local.comm.join(', ')],
-                  ['Время обработки заявок', ext.local.processing], ['Часы работы', ext.local.hours],
-                  ['Телефон', '+996 (555) 123-456'], ['Email', 'sales@' + s.org.toLowerCase().replace(/[^a-z]/g, '') + '.com'],
-                  ['Адрес', ext.city + ', ул. Киевская 124']].map(([k, v], i) => (
-                  <div className="kv-row" key={i}><span className="k">{k}</span><span className="v" style={{ maxWidth: 260 }}>{v}</span></div>
-                ))}
+              <div>
+                <div className="kv">
+                  {[['Контактное лицо', ext.local.contact],
+                    ['Время обработки заявок', (typeof ext.local.processing === 'number' ? ext.local.processing + ' мин' : ext.local.processing)],
+                    ['Часы работы', ext.local.hours],
+                    ['Адрес', ext.city + ', ул. Киевская 124']].map(([k, v], i) => (
+                    <div className="kv-row" key={i}><span className="k">{k}</span><span className="v">{v}</span></div>
+                  ))}
+                </div>
+                <div style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--muted)', margin: '16px 0 8px' }}>Каналы связи (привязка мессенджеров)</div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  {ext.local.comm.map((m) => {
+                    const cfg = SUP_COMM_CONFIG[m] || {};
+                    const bind = (ext.local.commBind && ext.local.commBind[m]) || (cfg.field ? '—' : 'встроенный чат CRM');
+                    return (
+                      <div key={m} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 12px', borderRadius: 10, border: '1px solid var(--field-line)' }}>
+                        <span style={{ width: 90, fontSize: 13, fontWeight: 600, color: 'var(--ink)' }}>{m}</span>
+                        <span style={{ flex: 1, fontSize: 13, color: 'var(--body)' }}>{bind}</span>
+                        <Pill tone="green">подключён</Pill>
+                      </div>
+                    );
+                  })}
+                </div>
+                <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 8, display: 'flex', gap: 6, alignItems: 'flex-start' }}>
+                  <Icon name="chat" style={{ width: 14, height: 14, color: 'var(--blue)', flexShrink: 0, marginTop: 1 }} />
+                  Сообщения из чата заказа уходят поставщику через привязанный канал, ответы возвращаются в тот же тред CRM.
+                </div>
               </div>
             )}
             {tab === 'finance' && <SupplierFinEditor ext={ext} />}
@@ -441,7 +486,7 @@ function SupplierModal({ supplier, onClose, onDelete }) {
             )}
             {tab === 'sla' && (
               <div className="kv">
-                {[['Время ответа (мин)', '30 мин.'], ['Дедлайн подтверждения (часы)', '6 ч.'], ['Каналы уведомлений', ext.local.comm.join(', ')], ['Приоритет поставщика', String(ext.priority)], ['Условия оплаты', ext.fin.settlement + ' · ' + ext.fin.payTerm]].map(([k, v], i) => (
+                {[['Время ответа (мин)', '30 мин.'], ['Дедлайн подтверждения (часы)', '6 ч.'], ['Каналы уведомлений', ext.local.comm.join(', ')], ['Приоритет поставщика', String(ext.priority)], ['Условия оплаты', ext.fin.settlement + ' · ' + (typeof ext.fin.payTerm === 'number' ? ext.fin.payTerm + ' дн.' : ext.fin.payTerm)]].map(([k, v], i) => (
                   <div className="kv-row" key={i}><span className="k">{k}</span><span className="v" style={{ maxWidth: 240 }}>{v}</span></div>
                 ))}
               </div>
@@ -499,7 +544,7 @@ function SupplierAddDrawer({ open, onClose, onCreated }) {
     name: '', org: '', supType: 'API', kinds: [], priority: 1, useDefault: false, country: 'Кыргызстан', city: 'Бишкек',
     status: 'Активный', orgType: 'Другое',
     api: { url: '', apiKey: '', login: '', password: '', token: '', version: '' },
-    local: { contact: '', comm: [], processing: '', hours: '' },
+    local: { contact: '', comm: [], commBind: {}, processing: '', hours: SUP_WORK_HOURS[2] },
     fin: { currency: 'USD', commType: '%', commValue: 0, vat: 'Без НДС', settlement: 'Предоплата', payTerm: '', perService: supEmptyFin(SUP_SERVICE_KINDS) },
     ops: { 'Бронирование': true, 'Выписка': true, 'Возврат': false, 'Обмен': false, 'Аннуляция': false, 'Дополнительные услуги': false },
     automation: 'auto',
@@ -547,8 +592,8 @@ function SupplierAddDrawer({ open, onClose, onCreated }) {
     const ext = {
       supType: f.supType, kinds: f.kinds, priority: f.priority, useDefault: f.useDefault, country: f.country, city: f.city,
       api: { ...f.api, status: conn === 'ok' ? 'Подключено' : 'Не проверено', lastSync: '—' },
-      local: { ...f.local, comm: f.local.comm.length ? f.local.comm : ['Email'] },
-      fin: JSON.parse(JSON.stringify(f.fin)),
+      local: { ...f.local, comm: f.local.comm.length ? f.local.comm : ['Email'], commBind: { ...(f.local.commBind || {}) }, processing: f.local.processing === '' ? 0 : f.local.processing },
+      fin: { ...JSON.parse(JSON.stringify(f.fin)), payTerm: f.fin.payTerm === '' ? 0 : f.fin.payTerm },
       ops: { ...f.ops }, automation: f.automation, searchPriority: { ...f.searchPriority },
       stats: { bookings: 0, issues: 0, refunds: 0, avgResponse: '—', successRate: '—', lastUsed: '—' },
       docs: SUP_DOC_KINDS.reduce((m, k) => (m[k] = [], m), {}),
@@ -593,8 +638,8 @@ function SupplierAddDrawer({ open, onClose, onCreated }) {
           </div>
           <Field label="Приоритет поставщика"><Input type="number" min="1" value={f.priority} onChange={(e) => set('priority')(Math.max(1, parseInt(e.target.value) || 1))} /></Field>
           <Field label="Статус"><Select options={Object.keys(SUPPLIER_STATUS)} value={f.status} onChange={set('status')} /></Field>
-          <Field label="Страна"><Input value={f.country} onChange={set('country')} /></Field>
-          <Field label="Город"><Input value={f.city} onChange={set('city')} /></Field>
+          <Field label="Страна"><Select options={SUP_COUNTRIES} value={f.country} onChange={(e) => setF((p) => ({ ...p, country: e.target.value, city: supCitiesFor(e.target.value)[0] }))} /></Field>
+          <Field label="Город"><Select options={supCitiesFor(f.country)} value={f.city} onChange={set('city')} /></Field>
           <div className="full" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '6px 0' }}>
             <div><div style={{ fontWeight: 600, color: 'var(--ink)', fontSize: 14.5 }}>Использовать по умолчанию</div><div style={{ fontSize: 12.5, color: 'var(--muted)' }}>Предлагается первым при ручном выборе поставщика</div></div>
             <Toggle on={f.useDefault} onChange={(v) => set('useDefault')(v)} />
@@ -630,17 +675,41 @@ function SupplierAddDrawer({ open, onClose, onCreated }) {
             <div className="full"><Field label="Контактное лицо" required error={errs.contact}><Input placeholder="ФИО" value={f.local.contact} onChange={(e) => setSub('local', 'contact', e.target.value)} error={errs.contact} /></Field></div>
             <div className="full">
               <Field label="Способы коммуникации">
-                <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap' }}>
+                <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap', marginBottom: f.local.comm.length ? 12 : 0 }}>
                   {SUP_COMM_METHODS.map((m) => (
                     <label key={m} style={{ display: 'inline-flex', alignItems: 'center', gap: 7, cursor: 'pointer', fontSize: 13.5, color: 'var(--body)' }}>
                       <Checkbox on={f.local.comm.includes(m)} onChange={() => toggleComm(m)} />{m}
                     </label>
                   ))}
                 </div>
+                {/* Привязка мессенджеров: после отметки способа связи появляется поле привязки + пояснение */}
+                {f.local.comm.length > 0 && (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 10, padding: '12px 14px', background: 'var(--surface-2)', borderRadius: 12 }}>
+                    {f.local.comm.map((m) => {
+                      const cfg = SUP_COMM_CONFIG[m] || {};
+                      return (
+                        <div key={m}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                            <span style={{ width: 92, flexShrink: 0, fontSize: 13, fontWeight: 600, color: 'var(--ink)' }}>{m}</span>
+                            {cfg.field
+                              ? <div style={{ flex: 1 }}><Input placeholder={cfg.placeholder} value={(f.local.commBind && f.local.commBind[m]) || ''}
+                                  onChange={(e) => setSub('local', 'commBind', { ...(f.local.commBind || {}), [m]: e.target.value })} /></div>
+                              : <span style={{ flex: 1, fontSize: 13, color: 'var(--muted)' }}>Привязка не требуется — встроенный чат CRM</span>}
+                          </div>
+                          <div style={{ fontSize: 11.5, color: 'var(--muted)', marginLeft: 102, marginTop: 3 }}>{cfg.hint}</div>
+                        </div>
+                      );
+                    })}
+                    <div style={{ display: 'flex', gap: 6, alignItems: 'flex-start', paddingTop: 8, borderTop: '1px solid var(--line)' }}>
+                      <Icon name="chat" style={{ width: 15, height: 15, color: 'var(--blue)', flexShrink: 0, marginTop: 1 }} />
+                      <span style={{ fontSize: 12, color: 'var(--body)' }}>Как работает чат: сообщения из треда заказа отправляются поставщику через привязанный канал (бот/API мессенджера), а его ответы автоматически возвращаются в тот же чат CRM — оператор ведёт всю переписку в одном окне.</span>
+                    </div>
+                  </div>
+                )}
               </Field>
             </div>
-            <Field label="Время обработки заявок"><Input placeholder="напр. 30–60 мин" value={f.local.processing} onChange={(e) => setSub('local', 'processing', e.target.value)} /></Field>
-            <Field label="Часы работы"><Input placeholder="напр. Пн–Сб 09:00–19:00" value={f.local.hours} onChange={(e) => setSub('local', 'hours', e.target.value)} /></Field>
+            <Field label="Время обработки заявок" hint="минут"><Input type="number" min="0" placeholder="напр. 60" value={f.local.processing} onChange={(e) => setSub('local', 'processing', e.target.value === '' ? '' : (parseInt(e.target.value) || 0))} /></Field>
+            <Field label="Часы работы"><Select options={SUP_WORK_HOURS} value={f.local.hours} onChange={(e) => setSub('local', 'hours', e.target.value)} /></Field>
           </div>
         </SupSection>
       )}
@@ -653,7 +722,7 @@ function SupplierAddDrawer({ open, onClose, onCreated }) {
           <Field label="Размер комиссии"><Input type="number" value={f.fin.commValue} onChange={(e) => setSub('fin', 'commValue', parseFloat(e.target.value) || 0)} /></Field>
           <Field label="НДС"><Select options={['Без НДС', '12%', '20%']} value={f.fin.vat} onChange={(e) => setSub('fin', 'vat', e.target.value)} /></Field>
           <Field label="Способ взаиморасчетов"><Select options={SUP_SETTLEMENTS} value={f.fin.settlement} onChange={(e) => setSub('fin', 'settlement', e.target.value)} /></Field>
-          <Field label="Срок оплаты"><Input placeholder="напр. 10 дн." value={f.fin.payTerm} onChange={(e) => setSub('fin', 'payTerm', e.target.value)} /></Field>
+          <Field label="Срок оплаты" hint="дней"><Input type="number" min="0" placeholder="напр. 10" value={f.fin.payTerm} onChange={(e) => setSub('fin', 'payTerm', e.target.value === '' ? '' : (parseInt(e.target.value) || 0))} /></Field>
         </div>
         {finKinds.length > 0 ? (
           <div style={{ marginTop: 14 }}>

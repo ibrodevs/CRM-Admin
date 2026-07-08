@@ -217,36 +217,45 @@ function AgreementEditor({ open, agreement, onClose, onSave }) {
             {FEE_SCHEMA[tab].map((f) => {
               const fee = fees[tab][f.key];
               return (
-                <div key={f.key} style={{ display: 'flex', flexDirection: 'column', gap: 6, padding: '8px 0', borderBottom: '1px solid var(--line)' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
-                    <span style={{ flex: 1, minWidth: 160, fontSize: 13.5, color: 'var(--body)' }}>{f.label}</span>
-                    <div className="seg-toggle" style={{ width: 168 }}>
-                      <button className={'seg-btn' + (fee.type === 'percent' ? ' active' : '')} onClick={() => setFee(tab, f.key, { type: 'percent' })}>%</button>
-                      <button className={'seg-btn' + (fee.type === 'fixed' ? ' active' : '')} onClick={() => setFee(tab, f.key, { type: 'fixed' })}>Фикс.</button>
-                    </div>
-                    <div style={{ width: 130 }}>
-                      <Input type="number" value={fee.value} onChange={(e) => setFee(tab, f.key, { value: parseFloat(e.target.value) || 0 })} />
-                    </div>
-                    <span style={{ width: 20, color: 'var(--muted)', fontSize: 13 }}>{fee.type === 'percent' ? '%' : '$'}</span>
+                <div key={f.key} style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap', padding: '8px 0', borderBottom: '1px solid var(--line)' }}>
+                  <span style={{ flex: 1, minWidth: 160, fontSize: 13.5, color: 'var(--body)' }}>{f.label}</span>
+                  <div className="seg-toggle" style={{ width: 168 }}>
+                    <button className={'seg-btn' + (fee.type === 'percent' ? ' active' : '')} onClick={() => setFee(tab, f.key, { type: 'percent' })}>%</button>
+                    <button className={'seg-btn' + (fee.type === 'fixed' ? ' active' : '')} onClick={() => setFee(tab, f.key, { type: 'fixed' })}>Фикс.</button>
                   </div>
-                  {/* формулировка сбора для акта/счёта/УПД — отдельной позицией */}
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <Icon name="template" style={{ width: 13, height: 13, color: 'var(--muted-2)', flexShrink: 0 }} />
-                    <input className="input" style={{ height: 32, padding: '4px 8px', fontSize: 12.5 }}
-                      value={(feeDescs[tab] && feeDescs[tab][f.key]) || ''} onChange={(e) => setFeeDesc(tab, f.key, e.target.value)}
-                      placeholder={FEE_DESC_DEFAULTS[f.key] || 'Формулировка в документе…'} />
+                  <div style={{ width: 130 }}>
+                    <Input type="number" value={fee.value} onChange={(e) => setFee(tab, f.key, { value: parseFloat(e.target.value) || 0 })} />
                   </div>
+                  <span style={{ width: 20, color: 'var(--muted)', fontSize: 13 }}>{fee.type === 'percent' ? '%' : '$'}</span>
                 </div>
               );
             })}
           </div>
-          <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 6 }}>Формулировка каждого сбора печатается в акте / счёте / УПД отдельной позицией.</div>
 
-          <div style={{ fontWeight: 700, color: 'var(--ink)', margin: '18px 0 8px' }}>Общее описание услуги для закрывающих документов · {tab}</div>
-          <textarea className="input" style={{ minHeight: 64, resize: 'vertical', padding: '10px 12px', width: '100%' }}
+          {/* Описание услуги и всех сборов (в т.ч. сборов поставщиков) для акта / счёта / УПД — всё в одном блоке */}
+          <div style={{ fontWeight: 700, color: 'var(--ink)', margin: '20px 0 4px' }}>Описание услуги и сборов для закрывающих документов · {tab}</div>
+          <div style={{ fontSize: 12.5, color: 'var(--muted)', marginBottom: 12 }}>Общее описание услуги — заголовок позиции в акте / счёте / УПД. Описания сборов и сборов поставщиков печатаются отдельными строками под ним.</div>
+
+          <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--body)', marginBottom: 5 }}>Общее описание услуги</div>
+          <textarea className="input" style={{ minHeight: 60, resize: 'vertical', padding: '10px 12px', width: '100%' }}
             value={descs[tab] || ''} onChange={(e) => setDesc(tab, e.target.value)}
             placeholder={SERVICE_DESC_DEFAULTS[tab] || 'Описание услуги…'} />
-          <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 4 }}>Заголовок услуги в документе. По умолчанию: «{SERVICE_DESC_DEFAULTS[tab] || '—'}»</div>
+          <div style={{ fontSize: 12, color: 'var(--muted)', margin: '4px 0 14px' }}>По умолчанию: «{SERVICE_DESC_DEFAULTS[tab] || '—'}»</div>
+
+          <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--body)', marginBottom: 8 }}>Описания сборов (отдельные позиции документа)</div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            {FEE_SCHEMA[tab].map((f) => (
+              <div key={f.key} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <span style={{ width: 168, flexShrink: 0, fontSize: 12.5, color: 'var(--muted)' }}>{f.key === 'supplier' ? 'Сборы поставщиков' : f.label}</span>
+                <div className="input-wrap" style={{ flex: 1 }}>
+                  <input className="input" style={{ height: 36, padding: '6px 10px', fontSize: 13 }}
+                    value={(feeDescs[tab] && feeDescs[tab][f.key]) || ''} onChange={(e) => setFeeDesc(tab, f.key, e.target.value)}
+                    placeholder={FEE_DESC_DEFAULTS[f.key] || 'Формулировка в документе…'} />
+                </div>
+              </div>
+            ))}
+          </div>
+          <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 8 }}>Каждая формулировка (включая сборы поставщиков) печатается в закрывающем документе отдельной строкой.</div>
         </div>
       </div>
     </Drawer>

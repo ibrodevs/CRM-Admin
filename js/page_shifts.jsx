@@ -161,10 +161,16 @@ function MotivationDrawer({ open, operator, onClose }) {
 }
 
 /* ---------- Отчёт по смене (метрики + детализация + история пересчётов) ---------- */
-function ShiftReportDrawer({ open, onClose, operator, shift, closing, onConfirmClose }) {
+function ShiftReportDrawer({ open, onClose, operator, shift, closing, onConfirmClose, onOpenOrder }) {
   const toast = useToast();
   const [detailOp, setDetailOp] = useState(null);
   if (!open || !shift) return null;
+  const sendTo = (who) => toast('Отчёт по смене отправлен ' + who, 'ok');
+  const openOrderNo = (no) => {
+    const ord = (window.ORDERS || []).find((o) => o.no === no);
+    if (ord && onOpenOrder) { onClose(); onOpenOrder(ord); }
+    else toast('Заказ № ' + no + ' не найден в реестре', 'info');
+  };
   const mot = motivationFor(operator);
   const ops = shift.ops;
   const t = shiftTotals(ops, mot);
@@ -188,7 +194,14 @@ function ShiftReportDrawer({ open, onClose, operator, shift, closing, onConfirmC
     <Drawer open={open} onClose={onClose} title={closing ? 'Закрытие смены' : 'Отчёт по смене'} sub={'Оператор: ' + operator} width="min(900px,97vw)"
       footer={closing
         ? <><Button variant="secondary" onClick={onClose}>Отмена</Button><Button variant="danger" icon="clock" onClick={onConfirmClose}>Закрыть смену</Button></>
-        : <><Button variant="secondary" icon="download" onClick={() => toast('Отчёт выгружен (PDF)', 'ok')}>Скачать отчёт</Button><Button variant="secondary" onClick={onClose}>Закрыть</Button></>}>
+        : <Button variant="secondary" onClick={onClose}>Закрыть</Button>}>
+
+      {/* Действия по отчёту: выгрузка + отправка администратору / бухгалтеру */}
+      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 16 }}>
+        <Button variant="secondary" size="sm" icon="download" onClick={() => toast('Отчёт выгружен (PDF)', 'ok')}>Скачать PDF</Button>
+        <Button variant="secondary" size="sm" icon="send" onClick={() => sendTo('администратору')}>Отправить администратору</Button>
+        <Button variant="secondary" size="sm" icon="send" onClick={() => sendTo('бухгалтеру')}>Отправить бухгалтеру</Button>
+      </div>
 
       {/* Метрики смены */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 10, marginBottom: 16 }}>
@@ -230,25 +243,31 @@ function ShiftReportDrawer({ open, onClose, operator, shift, closing, onConfirmC
 
       {/* Детализация по операциям */}
       <div style={{ fontWeight: 700, color: 'var(--ink)', marginBottom: 8 }}>Детализация по операциям</div>
-      <div className="table-card" style={{ marginBottom: 8 }}>
-        <table className="tbl">
+      <div className="table-card" style={{ marginBottom: 8, overflowX: 'auto' }}>
+        <table className="tbl" style={{ minWidth: 860 }}>
           <thead><tr><th>Время</th><th>Заказ</th><th>Услуга</th><th>Поставщик</th><th>Операция</th>
-            <th style={{ textAlign: 'right' }}>Серв. сбор</th><th style={{ textAlign: 'right' }}>Надбавка</th><th style={{ textAlign: 'right' }}>Комиссия</th><th style={{ textAlign: 'right' }}>Оператору</th><th /></tr></thead>
+            <th style={{ textAlign: 'right' }}>Серв. сбор</th><th style={{ textAlign: 'right' }}>Надбавка</th><th style={{ textAlign: 'right' }}>Комиссия</th><th style={{ textAlign: 'right' }}>Оператору</th><th style={{ width: 40 }} /></tr></thead>
           <tbody>
             {ops.map((op, i) => {
               const earn = operatorEarn(op, mot);
               return (
-                <tr key={i} style={{ cursor: op.history ? 'pointer' : 'default' }} onClick={() => op.history && setDetailOp(op)}>
+                <tr key={i}>
                   <td className="t-muted">{op.time}</td>
-                  <td><span style={{ color: 'var(--blue)', fontWeight: 600 }}>№ {op.order}</span></td>
-                  <td><div style={{ fontWeight: 600 }}>{op.svc}</div><div style={{ fontSize: 12, color: 'var(--muted)' }}>{op.title}</div></td>
+                  <td><span style={{ color: 'var(--blue)', fontWeight: 600, cursor: 'pointer' }} onClick={() => openOrderNo(op.order)}>№ {op.order}</span></td>
+                  <td>
+                    {/* услуга кликабельна — открывает заказ */}
+                    <span style={{ cursor: 'pointer' }} onClick={() => openOrderNo(op.order)}>
+                      <span style={{ fontWeight: 600, color: 'var(--blue)', display: 'inline-flex', alignItems: 'center', gap: 5 }}>{op.svc}<Icon name="arrowUpRight" style={{ width: 12, height: 12 }} /></span>
+                      <div style={{ fontSize: 12, color: 'var(--muted)' }}>{op.title}</div>
+                    </span>
+                  </td>
                   <td>{op.supplier}</td>
                   <td><Pill tone={op.type === 'Возврат' ? 'red' : op.type === 'Обмен' ? 'amber' : 'green'}>{op.type}</Pill></td>
                   <td style={{ textAlign: 'right' }}>{shPct(op.serviceFee)}</td>
                   <td style={{ textAlign: 'right', color: op.markup < 0 ? 'var(--red)' : 'inherit' }}>{shPct(op.markup)}</td>
                   <td style={{ textAlign: 'right', color: op.commission < 0 ? 'var(--red)' : 'inherit' }}>{shPct(op.commission)}</td>
                   <td style={{ textAlign: 'right', fontWeight: 700, color: 'var(--blue)' }}>{shPct(earn)}</td>
-                  <td>{op.history && <Icon name="clock" style={{ width: 15, height: 15, color: 'var(--muted-2)' }} title="История пересчёта" />}</td>
+                  <td style={{ textAlign: 'center' }}>{op.history && <button className="icon-btn" title="История пересчёта" onClick={() => setDetailOp(op)}><Icon name="clock" style={{ width: 15, height: 15 }} /></button>}</td>
                 </tr>
               );
             })}
@@ -256,7 +275,7 @@ function ShiftReportDrawer({ open, onClose, operator, shift, closing, onConfirmC
         </table>
       </div>
       <div style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 8 }}>
-        Начисления прозрачны и пересчитываются автоматически при обмене, возврате или изменении стоимости — нажмите на строку с <Icon name="clock" style={{ width: 12, height: 12, verticalAlign: -2 }} />, чтобы увидеть историю изменений.
+        Услуга и номер заказа кликабельны — открывают карточку заказа. Начисления пересчитываются автоматически при обмене, возврате или изменении стоимости — нажмите на <Icon name="clock" style={{ width: 12, height: 12, verticalAlign: -2 }} />, чтобы увидеть историю изменений.
       </div>
 
       {/* История пересчёта по операции */}
@@ -324,7 +343,7 @@ function FeesReportDrawer({ open, onClose, operator, shift }) {
 }
 
 /* ---------- Управление сменой в глобальной шапке ---------- */
-function ShiftControl({ role }) {
+function ShiftControl({ role, onOpenOrder }) {
   const toast = useToast();
   const operator = CURRENT_USER.name;
   const [shift, setShift] = useState(window.SHIFT_STATE || null);
@@ -372,7 +391,7 @@ function ShiftControl({ role }) {
           ]} />
       )}
       <ShiftReportDrawer open={panel === 'report' || panel === 'close'} closing={panel === 'close'}
-        operator={operator} shift={shift} onClose={() => setPanel(null)} onConfirmClose={confirmClose} />
+        operator={operator} shift={shift} onClose={() => setPanel(null)} onConfirmClose={confirmClose} onOpenOrder={onOpenOrder} />
       <FeesReportDrawer open={panel === 'fees'} operator={operator} shift={shift} onClose={() => setPanel(null)} />
     </>
   );
