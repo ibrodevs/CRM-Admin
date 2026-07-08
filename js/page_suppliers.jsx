@@ -389,11 +389,17 @@ function SupplierModal({ supplier, onClose, onDelete }) {
     </div>
   );
 
+  // Боковое окно (единообразно с формой добавления), а не модалка по центру.
   return (
-    <Modal open onClose={onClose} className="">
-      <div className="modal-pad">
-        <ModalHeader title="Информация поставщика" sub={tabMeta.label} onClose={onClose} />
-        <div style={{ display: 'grid', gridTemplateColumns: '232px 1fr', gap: 36 }}>
+    <Drawer open onClose={onClose} width="min(940px,97vw)"
+      title="Информация поставщика" sub={tabMeta.label}
+      footer={<>
+        <Button variant="secondary" icon="edit" onClick={() => toast('Редактирование поставщика', 'info')}>Редактировать</Button>
+        <Button variant="secondary" icon="trash" onClick={onDelete}>Удалить</Button>
+        <Button variant="secondary" icon="share" onClick={() => toast('Ссылка скопирована', 'ok')}>Поделиться</Button>
+      </>}>
+      <div>
+        <div style={{ display: 'grid', gridTemplateColumns: '232px 1fr', gap: 32 }}>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
             {tabs.map((t) => (
               <button key={t.key} onClick={() => setTab(t.key)}
@@ -510,13 +516,8 @@ function SupplierModal({ supplier, onClose, onDelete }) {
             )}
           </div>
         </div>
-        <div className="modal-actions">
-          <Button variant="secondary" icon="edit" onClick={() => toast('Редактирование поставщика', 'info')}>Редактировать</Button>
-          <Button variant="secondary" icon="trash" onClick={onDelete}>Удалить</Button>
-          <Button variant="secondary" icon="share" onClick={() => toast('Ссылка скопирована', 'ok')}>Поделиться</Button>
-        </div>
       </div>
-    </Modal>
+    </Drawer>
   );
 }
 
