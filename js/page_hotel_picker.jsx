@@ -4,6 +4,12 @@
 //         размещения, матрицы расселения, доп.услуг и подтверждения открываются
 //         боковыми панелями (StackPanel) поверх экрана.
 
+const HP_SORT_OPTS = [
+  ['rec', 'Рекомендуемые'], ['cheap', 'Сначала дешёвые'], ['pricey', 'Сначала дорогие'],
+  ['stars', 'По звёздам'], ['rating', 'По рейтингу'],
+];
+const HP_SORT_LABEL = HP_SORT_OPTS.reduce((m, [k, l]) => (m[k] = l, m), {});
+
 function hpM(n) { return Math.round(n).toLocaleString('ru-RU') + ' ₽'; }
 function hpStars(n) { return '★★★★★'.slice(0, n); }
 function hpNights(ci, co) {
@@ -328,13 +334,9 @@ function HotelPicker({ participants, group = false, onApply, onCancel }) {
         <div className="hp-results-tools">
           <div className="hp-sort">
             <span>Сортировка:</span>
-            <select value={sort} onChange={(e) => setSort(e.target.value)}>
-              <option value="rec">Рекомендуемые</option>
-              <option value="cheap">Сначала дешёвые</option>
-              <option value="pricey">Сначала дорогие</option>
-              <option value="stars">По звёздам</option>
-              <option value="rating">По рейтингу</option>
-            </select>
+            <ActionMenu
+              trigger={<button className="hp-sort-btn"><span>{HP_SORT_LABEL[sort]}</span><Icon name="chevDown" /></button>}
+              items={HP_SORT_OPTS.map(([k, l]) => ({ icon: sort === k ? 'check' : undefined, label: l, onClick: () => setSort(k) }))} />
           </div>
           <button className="hp-map-btn" onClick={() => toast('Карта появится в следующем релизе', 'info')}><Icon name="mapPin" />Карта</button>
         </div>
