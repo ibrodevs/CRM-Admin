@@ -313,6 +313,7 @@ function SettingsPage() {
     { title: 'API / интеграции', items: [['Доступы к API', () => setModal('apiaccess')], ['Сгенерировать API ключ', () => setModal('apikey')], ['Убрать доступ к API', () => setModal('apiaccess')], ['Настройки SLA', () => toast('Настройки SLA', 'info')]] },
     { title: 'Шаблоны документов', items: [['Добавить шаблон', () => toast('Добавление шаблона', 'info')], ['Изменить шаблон', () => toast('Изменение шаблона', 'info')]] },
     { title: 'Справочники', items: [['Аэропорты и города', () => toast('Справочник', 'info')], ['Типы услуг', () => toast('Справочник', 'info')], ['Справочник доп. услуг', () => setModal('extras')]] },
+    { title: 'Карточки услуг', items: [['Видимость полей для клиента', () => setModal('cardvis')]] },
   ];
   const TABS = [{ key: 'users', label: 'Пользователи', count: USERS.length }, { key: 'roles', label: 'Роли и права' }, { key: 'params', label: 'Параметры системы' }];
   return (
@@ -336,6 +337,7 @@ function SettingsPage() {
         )}
       </div>
       <ExtrasCatalogModal open={modal === 'extras'} onClose={() => setModal(null)} />
+      <CardVisibilityModal open={modal === 'cardvis'} onClose={() => setModal(null)} />
       <CurrencyModal open={modal === 'currency'} onClose={() => setModal(null)} />
       <ApiKeyModal open={modal === 'apikey'} onClose={() => setModal(null)} />
       <ApiAccessModal open={modal === 'apiaccess'} onClose={() => setModal(null)} />
@@ -345,4 +347,45 @@ function SettingsPage() {
   );
 }
 
-Object.assign(window, { SettingsPage, UsersTab, RolesTab });
+/* ---------- Видимость полей карточки услуги для клиента (настройка компании) ----------
+   Управляет объектом CARD_CLIENT_VISIBILITY: какие финансовые поля клиент видит в карточке/КП.
+   Неотмеченные остаются внутренними (клиенту не отправляются). */
+const CARD_VIS_FIELDS = [
+  ['clientTotal', 'Итоговая стоимость для клиента'],
+  ['serviceFee', 'Сервисный сбор'],
+  ['supplierPrice', 'Цена поставщика'],
+  ['commission', 'Комиссия поставщика'],
+  ['markup', 'Наценка'],
+  ['profit', 'Прибыль'],
+  ['cost', 'Себестоимость'],
+];
+function CardVisibilityModal({ open, onClose }) {
+  const toast = useToast();
+  const [vis, setVis] = useState(() => ({ ...(window.CARD_CLIENT_VISIBILITY || {}) }));
+  useEffect(() => { if (open) setVis({ ...(window.CARD_CLIENT_VISIBILITY || {}) }); }, [open]);
+  if (!open) return null;
+  const tg = (k) => setVis((v) => ({ ...v, [k]: !v[k] }));
+  const save = () => { Object.assign(window.CARD_CLIENT_VISIBILITY, vis); toast('Настройки видимости сохранены', 'ok'); onClose(); };
+  return (
+    <Modal open={open} onClose={onClose} size="sm">
+      <div className="modal-pad">
+        <ModalHeader title="Видимость полей карточки для клиента" sub="Отметьте, какие поля клиент видит в карточке услуги и КП. Неотмеченные остаются внутренними и клиенту не отправляются." onClose={onClose} />
+        <div style={{ display: 'flex', flexDirection: 'column' }}>
+          {CARD_VIS_FIELDS.map(([k, label]) => (
+            <label key={k} className="hp-check-row" style={{ padding: '11px 4px', borderBottom: '1px solid var(--line)' }}>
+              <Checkbox on={!!vis[k]} onChange={() => tg(k)} />
+              <span className="hp-check-label" style={{ flex: 1 }}>{label}</span>
+              {vis[k] ? <Pill tone="green">видно клиенту</Pill> : <Pill tone="gray">внутреннее</Pill>}
+            </label>
+          ))}
+        </div>
+        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 12, marginTop: 20 }}>
+          <Button variant="secondary" onClick={onClose}>Отмена</Button>
+          <Button icon="check" onClick={save}>Сохранить</Button>
+        </div>
+      </div>
+    </Modal>
+  );
+}
+
+Object.assign(window, { SettingsPage, UsersTab, RolesTab, CardVisibilityModal });

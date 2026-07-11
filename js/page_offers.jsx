@@ -282,6 +282,7 @@ function KPModule({ order, services, participants, onApprove }) {
   const [activeVar, setActiveVar] = useState(null);
   const [fixOpen, setFixOpen] = useState(false);
   const [histOpen, setHistOpen] = useState(false);
+  const [sendTarget, setSendTarget] = useState(null); // КП, выбранное для отправки клиенту
   const [templates, setTemplates] = useState(KP_TEMPLATES);
   const [pdfBusy, setPdfBusy] = useState(false);
   const docRef = useRef(null);
@@ -341,7 +342,12 @@ function KPModule({ order, services, participants, onApprove }) {
 
   const setStatus = (s) => patch(active.id, (p) => withHist({ ...p, status: s }, 'Статус изменён: ' + s));
   const setField = (f, val) => patch(active.id, (p) => ({ ...p, [f]: val }));
-  const sendToClient = () => { patch(active.id, (p) => withHist({ ...p, status: 'Отправлено клиенту' }, 'Отправлено клиенту')); toast('КП отправлено клиенту', 'ok'); };
+  const sendToClient = () => setSendTarget(active);
+  const doSendProposal = (p, channel) => {
+    patch(p.id, (x) => withHist({ ...x, status: 'Отправлено клиенту', sentChannel: channel }, 'Отправлено клиенту · канал «' + channel + '»'));
+    setSendTarget(null); toast('КП ' + p.id + ' отправлено клиенту по каналу «' + channel + '»', 'ok');
+  };
+  const sendPanel = sendTarget && <ProposalSendPanel proposal={sendTarget} participants={participants} onSend={(ch) => doSendProposal(sendTarget, ch)} onClose={() => setSendTarget(null)} />;
   const fixVariant = (vid) => {
     const vname = (pVariants(active).find((v) => v.id === vid) || {}).name;
     patch(active.id, (p) => withHist({ ...p, status: 'Согласовано', approvedVariant: vid }, 'Зафиксирован вариант: ' + vname));
@@ -429,12 +435,13 @@ function KPModule({ order, services, participants, onApprove }) {
                 <Button variant="secondary" size="sm" icon="edit" onClick={() => openEdit(p)}>Открыть</Button>
                 <Button variant="secondary" size="sm" icon="eye" onClick={() => openPreview(p)}>Предпросмотр</Button>
                 <ActionMenu trigger={<button className="btn btn-ghost btn-icon btn-sm"><Icon name="more" /></button>}
-                  items={[{ icon: 'clock', label: 'История', onClick: () => { setActiveId(p.id); setHistOpen(true); } }, { icon: 'send', label: 'Отправить клиенту', onClick: () => { setActiveId(p.id); setProposals((ps) => ps.map((x) => x.id === p.id ? withHist({ ...x, status: 'Отправлено клиенту' }, 'Отправлено клиенту') : x)); toast('Отправлено клиенту', 'ok'); } }, { sep: true }, { icon: 'inbox', label: 'Архивировать', onClick: () => { setProposals((ps) => ps.map((x) => x.id === p.id ? { ...x, status: 'Архивировано' } : x)); } }]} />
+                  items={[{ icon: 'clock', label: 'История', onClick: () => { setActiveId(p.id); setHistOpen(true); } }, { icon: 'send', label: 'Отправить клиенту', onClick: () => { setActiveId(p.id); setSendTarget(p); } }, { sep: true }, { icon: 'inbox', label: 'Архивировать', onClick: () => { setProposals((ps) => ps.map((x) => x.id === p.id ? { ...x, status: 'Архивировано' } : x)); } }]} />
               </div>
             </div>
           ))}
         </div>
         <KPHistoryDrawer open={histOpen} proposal={active} onClose={() => setHistOpen(false)} />
+        {sendPanel}
       </div>
     );
   }
@@ -450,9 +457,10 @@ function KPModule({ order, services, participants, onApprove }) {
             setPdfBusy(true);
             exportKpToPdf(docRef.current, active.id + '.pdf', (ok) => { setPdfBusy(false); toast(ok ? 'PDF сохранён' : 'Не удалось сформировать PDF', ok ? 'ok' : 'err'); });
           }}>{pdfBusy ? 'Формируем…' : 'Скачать PDF'}</Button>
-          <Button icon="send" onClick={() => { sendToClient(); setView('list'); }}>Отправить клиенту</Button>
+          <Button icon="send" onClick={() => setSendTarget(active)}>Отправить клиенту</Button>
         </div>
         <div ref={docRef}>{active.docType === 'train' ? <KPTrainPreviewDoc proposal={active} /> : <KPPreviewDoc proposal={active} participants={participants} />}</div>
+        {sendPanel}
       </div>
     );
   }
@@ -671,6 +679,7 @@ function KPModule({ order, services, participants, onApprove }) {
 
         <FixVariantModal open={fixOpen} proposal={active} onClose={() => setFixOpen(false)} onFix={fixVariant} />
         <KPHistoryDrawer open={histOpen} proposal={active} onClose={() => setHistOpen(false)} />
+        {sendPanel}
       </div>
     );
   }
@@ -739,24 +748,91 @@ function KPCreateModal({ open, onClose, onCreated, onOpenOrder }) {
   };
   if (!open) return null;
   return (
-    <Modal open={open} onClose={onClose}>
-      <div className="modal-pad">
-        <ModalHeader title="Новое коммерческое предложение" sub="КП привязывается к заказу — далее редактируется в конструкторе" onClose={onClose} />
-        <div className="form-grid">
-          <Field label="Заказ" required error={errs.order} ><Select options={orderOpts} placeholder="Выберите заказ" value={orderNo} onChange={(e) => setOrderNo(e.target.value)} error={errs.order} /></Field>
-          <Field label="Тип КП"><Select options={KP_DOC_TYPES} value={docType} onChange={(e) => setDocType(e.target.value)} /></Field>
-          {docType !== 'train' && <Field label="Название варианта"><Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Вариант A · Прямые рейсы" /></Field>}
-          <Field label="Валюта"><Select options={CURRENCIES.map((c) => ({ value: c.code, label: `${c.code} · ${c.name}` }))} value={currency} onChange={(e) => setCurrency(e.target.value)} /></Field>
-          <Field label="Действует до"><Input value={valid} onChange={(e) => setValid(e.target.value)} leadIcon="calendar" /></Field>
-          {docType !== 'train' && <Field label="Наполнение варианта"><Select options={baseOpts} value={base} onChange={(e) => setBase(e.target.value)} /></Field>}
+    <Drawer open={open} onClose={onClose} title="Новое коммерческое предложение"
+      sub="КП привязывается к заказу — далее редактируется в конструкторе"
+      footer={<>
+        <Button variant="secondary" onClick={onClose}>Отмена</Button>
+        <Button variant="secondary" icon="check" onClick={() => submit(false)}>Создать черновик</Button>
+        <Button iconRight="arrowRight" onClick={() => submit(true)}>Создать и открыть заказ</Button>
+      </>}>
+      <div className="form-grid">
+        <Field label="Заказ" required error={errs.order} ><Select options={orderOpts} placeholder="Выберите заказ" value={orderNo} onChange={(e) => setOrderNo(e.target.value)} error={errs.order} /></Field>
+        <Field label="Тип КП"><Select options={KP_DOC_TYPES} value={docType} onChange={(e) => setDocType(e.target.value)} /></Field>
+        {docType !== 'train' && <Field label="Название варианта"><Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Вариант A · Прямые рейсы" /></Field>}
+        <Field label="Валюта"><Select options={CURRENCIES.map((c) => ({ value: c.code, label: `${c.code} · ${c.name}` }))} value={currency} onChange={(e) => setCurrency(e.target.value)} /></Field>
+        <Field label="Действует до"><Input value={valid} onChange={(e) => setValid(e.target.value)} leadIcon="calendar" /></Field>
+        {docType !== 'train' && <Field label="Наполнение варианта"><Select options={baseOpts} value={base} onChange={(e) => setBase(e.target.value)} /></Field>}
+      </div>
+    </Drawer>
+  );
+}
+
+/* ---------- Отправка КП клиенту по закреплённому каналу (как у карточки услуги) ----------
+   КП — контейнер карточек: показываем варианты и услуги, отправляем по каналу заказа. */
+function ProposalSendPanel({ proposal, participants = [], onSend, onClose }) {
+  const defChannel = orderClientChannel(proposal.order);
+  const [channel, setChannel] = useState(defChannel);
+  const meta = sendChannelMeta(channel);
+  const cur = proposal.currency || 'USD';
+  const variants = proposal.variants || [];
+  const multi = variants.length > 1;
+  return (
+    <StackPanel title={'Отправка КП ' + proposal.id + ' клиенту'} width="min(1020px,96vw)" onClose={onClose}
+      footer={<>
+        <div style={{ fontSize: 12.5, color: 'var(--muted)', display: 'flex', alignItems: 'center', gap: 6 }}>
+          <Icon name="lock" style={{ width: 14, height: 14 }} />Внутренние расчёты клиенту не отправляются
         </div>
-        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 12, marginTop: 26 }}>
-          <Button variant="secondary" onClick={onClose}>Отмена</Button>
-          <Button variant="secondary" icon="check" onClick={() => submit(false)}>Создать черновик</Button>
-          <Button icon="arrowRight" iconRight="arrowRight" onClick={() => submit(true)}>Создать и открыть заказ</Button>
+        <div style={{ flex: 1 }} />
+        <Button variant="secondary" onClick={onClose}>Отмена</Button>
+        <Button icon="send" onClick={() => onSend(channel)}>Отправить по каналу «{channel}»</Button>
+      </>}>
+      {/* канал, закреплённый за заказом */}
+      <div className="card card-pad" style={{ marginBottom: 16 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+          <div style={{ flex: 1, minWidth: 200 }}>
+            <div style={{ fontSize: 12.5, color: 'var(--muted)' }}>Канал связи, закреплённый за заказом № {proposal.order}</div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 4 }}>
+              <Pill tone={meta.tone}><Icon name={meta.icon} style={{ width: 13, height: 13, verticalAlign: -2 }} /> {channel}</Pill>
+              <span style={{ fontSize: 13, color: 'var(--muted)' }}>· {meta.adapt}</span>
+            </div>
+          </div>
+          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+            {Object.keys(SEND_CHANNELS).map((c) => (
+              <button key={c} type="button" className={'seg-btn' + (channel === c ? ' active' : '')} style={{ padding: '7px 11px', fontSize: 13 }} onClick={() => setChannel(c)}>{c}</button>
+            ))}
+          </div>
         </div>
       </div>
-    </Modal>
+
+      <div style={{ fontSize: 13, color: 'var(--muted)', marginBottom: 10 }}>
+        {multi ? 'Клиент получит альтернативные варианты и сможет выбрать один.' : 'Клиент получит комплект услуг одной поездки.'} Срок действия — до {proposal.validUntil}.
+      </div>
+
+      {proposal.docType === 'train'
+        ? <div className="card card-pad">Документ «Поезд + Проживание» · заказ № {proposal.order}</div>
+        : variants.map((vr) => (
+          <div className="card card-pad" key={vr.id} style={{ marginBottom: 12 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
+              <h3 className="card-title" style={{ fontSize: 15, margin: 0 }}>{vr.name}</h3>
+              <Pill tone="blue">{(vr.items || []).length} карточек услуг</Pill>
+              <div style={{ flex: 1 }} />
+              <span style={{ fontWeight: 800, color: 'var(--ink)' }}>{kpM(varTotal(vr), cur)}</span>
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+              {(vr.items || []).map((it) => {
+                const k = SERVICE_KIND[it.kind] || SERVICE_KIND['Авиа'];
+                return (
+                  <div key={it.id} style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
+                    <span className="airline-logo sm" style={{ background: k.color, width: 26, height: 26, borderRadius: 7 }}><Icon name={k.icon} style={{ width: 14, height: 14 }} /></span>
+                    <span style={{ flex: 1, minWidth: 0 }}>{it.title}{it.sub ? <span style={{ color: 'var(--muted)', fontSize: 12.5 }}> · {it.sub}</span> : ''}</span>
+                    <span style={{ fontWeight: 600 }}>{kpM(it.cost + it.fee, cur)}</span>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        ))}
+    </StackPanel>
   );
 }
 
@@ -770,7 +846,13 @@ function OffersRegistry({ onOpenOrder, intent, onConsume }) {
   const [preview, setPreview] = useState(null);
   const [proposals, setProposals] = useState(() => PROPOSALS.slice()); // copy: КПCreateModal also unshifts into PROPOSALS for the order card
   const [createOpen, setCreateOpen] = useState(false);
+  const [sendTarget, setSendTarget] = useState(null);
   const [pdfBusy, setPdfBusy] = useState(false);
+  const kpNow2 = () => (typeof kpNow === 'function' ? kpNow() : new Date().toLocaleString('ru-RU'));
+  const doSendProposal = (p, channel) => {
+    setProposals((ps) => ps.map((x) => x.id === p.id ? { ...x, status: 'Отправлено клиенту', sentChannel: channel, history: [...(x.history || []), { t: kpNow2(), text: 'Отправлено клиенту · канал «' + channel + '»', who: 'Даниель' }] } : x));
+    setSendTarget(null); toast('КП ' + p.id + ' отправлено клиенту по каналу «' + channel + '»', 'ok');
+  };
   const previewDocRef = useRef(null);
   const { sort, onSort, apply } = useSort({ col: 'created', dir: 'desc' });
 
@@ -826,7 +908,7 @@ function OffersRegistry({ onOpenOrder, intent, onConsume }) {
                   <td><Pill tone={KP_STATUS[p.status]}>{p.status}</Pill></td>
                   <td onClick={(e) => e.stopPropagation()}>
                     <ActionMenu trigger={<button className="btn btn-ghost btn-icon btn-sm"><Icon name="more" /></button>}
-                      items={[{ icon: 'eye', label: 'Предпросмотр', onClick: () => setPreview(p) }, { icon: 'orders', label: 'Перейти в заказ', onClick: () => { const o = (ORDERS.find((x) => x.no === p.order)) || { no: p.order, client: p.client, requestType: 'Индивидуальная', status: 'В работе', operator: 'Даниель', date: '15.06.25' }; onOpenOrder(o); } }]} />
+                      items={[{ icon: 'eye', label: 'Предпросмотр', onClick: () => setPreview(p) }, { icon: 'send', label: 'Отправить клиенту', onClick: () => setSendTarget(p) }, { icon: 'orders', label: 'Перейти в заказ', onClick: () => { const o = (ORDERS.find((x) => x.no === p.order)) || { no: p.order, client: p.client, requestType: 'Индивидуальная', status: 'В работе', operator: 'Даниель', date: '15.06.25' }; onOpenOrder(o); } }]} />
                   </td>
                 </tr>
               ))}
@@ -852,6 +934,7 @@ function OffersRegistry({ onOpenOrder, intent, onConsume }) {
 
       <KPCreateModal open={createOpen} onClose={() => setCreateOpen(false)}
         onCreated={(np) => setProposals((ps) => [np, ...ps])} onOpenOrder={onOpenOrder} />
+      {sendTarget && <ProposalSendPanel proposal={sendTarget} onSend={(ch) => doSendProposal(sendTarget, ch)} onClose={() => setSendTarget(null)} />}
     </div>
   );
 }
@@ -865,4 +948,4 @@ function OffersPage({ onOpenOrder, intent, onConsume }) {
   );
 }
 
-Object.assign(window, { KPModule, KPPreviewDoc, KPCreateModal, OffersRegistry, OffersPage, FixVariantModal, KPHistoryDrawer });
+Object.assign(window, { KPModule, KPPreviewDoc, KPCreateModal, ProposalSendPanel, OffersRegistry, OffersPage, FixVariantModal, KPHistoryDrawer });

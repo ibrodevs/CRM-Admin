@@ -541,7 +541,7 @@ const SVC_FILTER_CHIPS = [
   { kind: 'Автобус', label: 'Автобус' },
 ];
 
-function ServiceListRow({ s, paxCount, isGroup, onOpen, orderNo, participants = [] }) {
+function ServiceListRow({ s, paxCount, isGroup, onOpen, orderNo, participants = [], selected, onSel }) {
   const toast = useToast();
   const k = SERVICE_KIND[s.kind] || { icon: 'briefcase', color: 'var(--blue)' };
   const cat = (SVC_FILTER_CHIPS.find((c) => c.kind === s.kind) || {}).label || s.kind;
@@ -559,7 +559,8 @@ function ServiceListRow({ s, paxCount, isGroup, onOpen, orderNo, participants = 
     setTimeout(() => setCardSt('viewed'), 2200);
   };
   return (
-    <div className="oc-svc-row">
+    <div className={'oc-svc-row' + (selected ? ' sel' : '')}>
+      {onSel && <span onClick={(e) => e.stopPropagation()} style={{ display: 'inline-flex', alignItems: 'center', paddingRight: 4 }}><Checkbox on={!!selected} onChange={onSel} /></span>}
       <span className="ic" style={{ background: k.color }}><Icon name={k.icon} /></span>
       <div className="body" onClick={() => onOpen(s)}>
         <div className="cat">{cat}</div>
@@ -613,20 +614,30 @@ function ServicesFooterBar({ services, participants, bookingDraft, onStartBookin
   );
 }
 
-function TabServices({ orderNo, services, participants, requestType, onOpenAvia, onOpenOther, onOpenPicker }) {
+function TabServices({ orderNo, services, participants, requestType, onOpenAvia, onOpenOther, onOpenPicker, onAssembleKP }) {
   const [filter, setFilter] = useState(null);
+  const [selMode, setSelMode] = useState(false);
+  const [sel, setSel] = useState(() => new Set());
   const isGroup = requestType === 'Групповая';
   const counts = {};
   services.forEach((s) => { counts[s.kind] = (counts[s.kind] || 0) + 1; });
   const shown = filter ? services.filter((s) => s.kind === filter) : services;
   const openItem = (s) => (s.kind === 'Авиа' ? onOpenAvia(s) : onOpenOther(s));
+  const toggleSel = (id) => setSel((cur) => { const n = new Set(cur); n.has(id) ? n.delete(id) : n.add(id); return n; });
+  const assemble = () => { const chosen = services.filter((s) => sel.has(s.id)); onAssembleKP && onAssembleKP(chosen); setSelMode(false); setSel(new Set()); };
 
   return (
     <div className="fade-in">
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16, flexWrap: 'wrap', gap: 12 }}>
         <h3 className="card-title" style={{ fontSize: 19 }}>Добавленные услуги</h3>
-        <Button icon="plus" onClick={onOpenPicker}>Добавить услугу</Button>
+        <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+          {!selMode && <Button variant="secondary" icon="template" onClick={() => setSelMode(true)}>Собрать КП из карточек</Button>}
+          {selMode && <Button variant="secondary" onClick={() => { setSelMode(false); setSel(new Set()); }}>Отмена</Button>}
+          {selMode && <Button icon="template" disabled={sel.size === 0} onClick={assemble}>Собрать КП ({sel.size})</Button>}
+          <Button icon="plus" onClick={onOpenPicker}>Добавить услугу</Button>
+        </div>
       </div>
+      {selMode && <div style={{ fontSize: 13, color: 'var(--muted)', marginBottom: 12, display: 'flex', alignItems: 'center', gap: 6 }}><Icon name="template" style={{ width: 15, height: 15 }} />Отметьте карточки услуг, которые нужно объединить в одно коммерческое предложение.</div>}
 
       <div className="oc-svc-filters" style={{ marginBottom: 16 }}>
         {SVC_FILTER_CHIPS.filter((c) => !c.kind || counts[c.kind]).map((c) => (
@@ -642,7 +653,7 @@ function TabServices({ orderNo, services, participants, requestType, onOpenAvia,
         <EmptyState icon="briefcase" title="Услуги не добавлены" sub="Добавьте авиабилеты, отели, трансферы и другие услуги в заказ" />
       ) : (
         <div className="card" style={{ padding: '4px 18px' }}>
-          {shown.map((s) => <ServiceListRow key={s.id} s={s} paxCount={participants.length} isGroup={isGroup} onOpen={openItem} orderNo={orderNo} participants={participants} />)}
+          {shown.map((s) => <ServiceListRow key={s.id} s={s} paxCount={participants.length} isGroup={isGroup} onOpen={openItem} orderNo={orderNo} participants={participants} selected={sel.has(s.id)} onSel={selMode ? () => toggleSel(s.id) : null} />)}
         </div>
       )}
     </div>
@@ -1604,6 +1615,19 @@ function OrderCard({ order, onBack, initTab, initSvcSearch, fresh, onOpenChat })
     toast(kind + ': услуга добавлена в заказ', 'ok');
   };
 
+  // Собрать КП из выбранных карточек услуг: создаём КП-контейнер и открываем раздел КП.
+  const assembleKPFromCards = (chosen) => {
+    if (!chosen || !chosen.length) { toast('Выберите хотя бы одну карточку', 'err'); return; }
+    const uid = (p) => p + Math.random().toString(36).slice(2, 7);
+    const items = chosen.map((s) => { const t = svcCalc(s).total || 0; return { id: uid('i'), kind: s.kind, title: s.title, sub: s.sub, cost: Math.round(t * 0.95), fee: Math.round(t * 0.05) }; });
+    const np = { id: 'КП-' + (1060 + PROPOSALS.length), order: order.no, client: order.client, status: 'Черновик', currency: 'USD', validUntil: '25.06.2026', created: '15.06.2026', approvedVariant: null,
+      variants: [{ id: uid('v'), name: 'Вариант A · из карточек', items }],
+      history: [{ t: new Date().toLocaleString('ru-RU'), text: 'КП собрано из ' + items.length + ' карточек услуг заказа № ' + order.no, who: (CURRENT_USER && CURRENT_USER.name) || 'Оператор' }] };
+    PROPOSALS.unshift(np);
+    setSvcView(null); setTab('offers');
+    toast('КП собрано из ' + items.length + ' карточек — открыт раздел «КП»', 'ok');
+  };
+
   // --- inside the Services tab, a sub-flow (viewing an existing service, adding a new one, the
   // booking wizard) takes over the main column only — the tab strip and the right-hand aside
   // stay exactly where they are, matching the reference card. ---
@@ -1629,6 +1653,7 @@ function OrderCard({ order, onBack, initTab, initSvcSearch, fresh, onOpenChat })
     );
     return <TabServices orderNo={order.no} services={services} participants={participants} requestType={requestType}
       onOpenPicker={() => goAddType(addKind)}
+      onAssembleKP={assembleKPFromCards}
       onOpenAvia={(s) => { const match = AIR_SERVICES.find((a) => a.no === s.avia) || { no: s.avia || s.id, airline: (s.offer ? s.offer.airline : 'KC'), status: s.status, supplier: s.supplier, pax: 2, sum: s.sum, currency: s.currency, route: s.title, pnr: '—', ticket: '—', dep: s.date }; setActiveAvia(s.offer ? { ...match, offer: s.offer } : match); setSvcView('avia-card'); }}
       onOpenOther={(s) => { setActiveSvc(s.svcOffer ? { ...s.svcOffer, kind: s.kind, status: s.status, date: s.svcOffer.date || s.date, calc: s.calc, order: order.no } : { ...s, order: order.no }); setSvcView('svc-card'); }} />;
   };

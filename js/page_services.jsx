@@ -80,6 +80,19 @@ function SvcOfferCard({ o, kind, onSelect, onSave, selectLabel }) {
 
 /* ---------- service card — единая структура с авиа-карточкой (вкладки: участники / детали /
    поставщик / финансы / документы / комментарии / история), чтобы все услуги выглядели одинаково ---------- */
+/* Строки внутренних финполей, которые компания РАЗРЕШИЛА показывать клиенту (настройка видимости). */
+function clientFinRows(fin, vis, fmt) {
+  const rows = [
+    ['supplierPrice', 'Цена поставщика', fin.supplierPrice],
+    ['cost', 'Себестоимость', fin.cost],
+    ['commission', 'Комиссия поставщика', fin.commission],
+    ['serviceFee', 'Сервисный сбор', fin.fee],
+    ['markup', 'Наценка', fin.markup],
+    ['profit', 'Прибыль', fin.profit],
+  ].filter(([k]) => vis && vis[k]);
+  return rows.map(([k, label, val]) => (<div className="kv-row" key={k}><span className="k">{label}</span><span className="v">{fmt(val)}</span></div>));
+}
+
 /* ---------- Карточка услуги: индикатор жизненного цикла (создана → … → оформлена) ---------- */
 function CardLifecycle({ current }) {
   const done = CARD_STATUS_FLOW.indexOf(current);
@@ -162,7 +175,8 @@ function ServiceCardSendPanel({ item, kind, participants = [], orderNo, currency
             {extras.length > 0 && <div className="kv-row"><span className="k">Доп. услуги / условия</span><span className="v">{extras.join(', ')}</span></div>}
             {participants.length > 0 && <div className="kv-row"><span className="k">{kind === 'Гостиница' ? 'Гости' : 'Пассажиры'}</span><span className="v">{participants.map((p) => p.name).join(', ')}</span></div>}
             <div className="kv-row"><span className="k">Срок действия предложения</span><span className="v">{validity}</span></div>
-            <div className="kv-row"><span className="k" style={{ fontWeight: 700, color: 'var(--ink)' }}>Итоговая стоимость</span><span className="v" style={{ fontSize: 17, fontWeight: 800 }}>{fmt(fin.clientTotal)}</span></div>
+            {clientFinRows(fin, vis, fmt)}
+            {vis.clientTotal !== false && <div className="kv-row"><span className="k" style={{ fontWeight: 700, color: 'var(--ink)' }}>Итоговая стоимость</span><span className="v" style={{ fontSize: 17, fontWeight: 800 }}>{fmt(fin.clientTotal)}</span></div>}
           </div>
         </div>
 
@@ -181,7 +195,7 @@ function ServiceCardSendPanel({ item, kind, participants = [], orderNo, currency
             {fin.markup ? <div className="kv-row"><span className="k">Наценка</span><span className="v">{fmt(fin.markup)}</span></div> : null}
             <div className="kv-row"><span className="k" style={{ fontWeight: 700, color: 'var(--ink)' }}>Прибыль</span><span className="v" style={{ fontWeight: 800, color: 'var(--green)' }}>{fmt(fin.profit)}</span></div>
           </div>
-          <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 10 }}>Клиент получит только разрешённые настройками компании поля. Сейчас видна только итоговая стоимость{vis.serviceFee ? ' и сервисный сбор' : ''}.</div>
+          <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 10 }}>Клиент получит только разрешённые настройками компании поля (Настройки → Карточки услуг → «Видимость полей для клиента»).</div>
         </div>
       </div>
     </StackPanel>
@@ -244,6 +258,13 @@ function SvcCard({ item, kind, participants = [], onBack }) {
     setCardSt('price_changed');
     setCardLog((l) => [...l, { t: 'сейчас', txt: 'Изменены параметры — создана версия v' + nv + ' (прежняя сохранена)' }]);
     toast('Создана новая версия карточки v' + nv + ' — прежняя сохранена в истории', 'ok');
+  };
+  // Ручная простановка статуса (в проде часть приходит из канала/по таймеру — здесь кнопки-симуляции).
+  const markCard = (key) => {
+    const st = cardStatus(key);
+    setCardSt(key);
+    setCardLog((l) => [...l, { t: 'сейчас', txt: 'Статус карточки: ' + st.label }]);
+    toast('Статус карточки: ' + st.label, key === 'declined' || key === 'unavailable' || key === 'expired' ? 'info' : 'ok');
   };
 
   const TABS = [
@@ -339,6 +360,18 @@ function SvcCard({ item, kind, participants = [], onBack }) {
                 <Icon name="lock" style={{ width: 13, height: 13 }} />Внутренние расчёты (себестоимость, комиссия, прибыль) клиенту не отправляются.
               </div>
             </div>
+            {/* Смена статуса карточки. В проде «выбрана/отклонена» приходят из канала, «срок истёк» — по таймеру. */}
+            <div className="card card-pad" style={{ marginTop: 16 }}>
+              <h3 className="card-title" style={{ fontSize: 14, marginBottom: 4 }}>Ответ клиента / статус</h3>
+              <div style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 10 }}>В реальной работе приходит из канала связи или по таймеру. Здесь — вручную.</div>
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                <Button size="sm" variant="secondary" icon="check" onClick={() => markCard('chosen')}>Клиент выбрал</Button>
+                <Button size="sm" variant="secondary" icon="x" onClick={() => markCard('declined')}>Отклонил</Button>
+                <Button size="sm" variant="secondary" icon="clock" onClick={() => markCard('expired')}>Срок истёк</Button>
+                <Button size="sm" variant="secondary" icon="alertCircle" onClick={() => markCard('unavailable')}>Недоступна</Button>
+                <Button size="sm" variant="secondary" icon="checkCircle" onClick={() => markCard('issued')}>Оформлена</Button>
+              </div>
+            </div>
             {versions.length > 0 && (
               <div className="card card-pad">
                 <h3 className="card-title" style={{ fontSize: 14, marginBottom: 8 }}>История версий</h3>
@@ -385,6 +418,7 @@ function SvcCard({ item, kind, participants = [], onBack }) {
               <h3 className="card-title" style={{ fontSize: 15, margin: 0 }}>Для клиента</h3>
             </div>
             <div className="kv">
+              {clientFinRows(fin, (typeof CARD_CLIENT_VISIBILITY !== 'undefined' ? CARD_CLIENT_VISIBILITY : {}), fmt)}
               <div className="kv-row"><span className="k" style={{ fontWeight: 700, color: 'var(--ink)' }}>Итоговая стоимость</span><span className="v" style={{ fontSize: 18 }}>{fmt(fin.clientTotal)}</span></div>
             </div>
             <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 8 }}>Клиент видит только разрешённые настройками компании поля.</div>
