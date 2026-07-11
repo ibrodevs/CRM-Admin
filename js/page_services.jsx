@@ -80,10 +80,125 @@ function SvcOfferCard({ o, kind, onSelect, onSave, selectLabel }) {
 
 /* ---------- service card — единая структура с авиа-карточкой (вкладки: участники / детали /
    поставщик / финансы / документы / комментарии / история), чтобы все услуги выглядели одинаково ---------- */
+/* ---------- Карточка услуги: индикатор жизненного цикла (создана → … → оформлена) ---------- */
+function CardLifecycle({ current }) {
+  const done = CARD_STATUS_FLOW.indexOf(current);
+  return (
+    <div className="timeline">
+      {CARD_STATUS_FLOW.map((s, i) => {
+        const st = CARD_STATUS[s];
+        const state = i < done ? 'past' : i === done ? 'cur' : 'future';
+        return (
+          <div className="tl-item" key={s}>
+            <span className="tl-dot" style={{ background: state === 'future' ? 'var(--line)' : (state === 'cur' ? 'var(--blue)' : 'var(--green)') }} />
+            {i < CARD_STATUS_FLOW.length - 1 && <span className="tl-line" />}
+            <div><div className="tl-text" style={{ fontWeight: state === 'cur' ? 700 : 500, color: state === 'future' ? 'var(--muted-2)' : 'var(--ink)' }}>
+              {st.label}{state === 'cur' ? ' · текущий' : ''}</div></div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+/* ---------- Отправка карточки услуги клиенту по закреплённому каналу ----------
+   Оператор не пишет сообщение вручную: система формирует карточку и адаптирует её под канал.
+   Слева — что получит клиент; справа — внутренняя информация, которая клиенту НЕ отправляется. */
+function ServiceCardSendPanel({ item, kind, participants = [], orderNo, currency, onSent, onClose }) {
+  const defChannel = orderClientChannel(orderNo || item.order);
+  const [channel, setChannel] = useState(defChannel);
+  const meta = sendChannelMeta(channel);
+  const fmt = (n) => (currency === 'RUB' || currency === '₽') ? rub(n) : svM(n);
+  const fin = cardInternals(item);
+  const vis = (typeof CARD_CLIENT_VISIBILITY !== 'undefined') ? CARD_CLIENT_VISIBILITY : {};
+  const info = (item.info || []).filter((r) => r && r.v != null);
+  const extras = item.tags || [];
+  const validity = item.validUntil || '3 дня с момента отправки';
+  const k = SERVICE_KIND[kind] || { icon: 'briefcase', color: 'var(--blue)' };
+
+  const send = () => { onSent && onSent(channel); onClose && onClose(); };
+
+  return (
+    <StackPanel title="Отправка карточки услуги клиенту" width="min(1080px,96vw)" onClose={onClose}
+      footer={<>
+        <div style={{ fontSize: 12.5, color: 'var(--muted)', display: 'flex', alignItems: 'center', gap: 6 }}>
+          <Icon name="lock" style={{ width: 14, height: 14 }} />Внутренние расчёты клиенту не отправляются
+        </div>
+        <div style={{ flex: 1 }} />
+        <Button variant="secondary" onClick={onClose}>Отмена</Button>
+        <Button icon="send" onClick={send}>Отправить по каналу «{channel}»</Button>
+      </>}>
+      {/* канал, закреплённый за заказом/клиентом */}
+      <div className="card card-pad" style={{ marginBottom: 16 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+          <div style={{ flex: 1, minWidth: 200 }}>
+            <div style={{ fontSize: 12.5, color: 'var(--muted)' }}>Канал связи, закреплённый за заказом</div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 4 }}>
+              <Pill tone={meta.tone}><Icon name={meta.icon} style={{ width: 13, height: 13, verticalAlign: -2 }} /> {channel}</Pill>
+              <span style={{ fontSize: 13, color: 'var(--muted)' }}>· {meta.adapt}</span>
+            </div>
+          </div>
+          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+            {Object.keys(SEND_CHANNELS).map((c) => (
+              <button key={c} type="button" className={'seg-btn' + (channel === c ? ' active' : '')} style={{ padding: '7px 11px', fontSize: 13 }} onClick={() => setChannel(c)}>{c}</button>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      <div className="grid-2" style={{ alignItems: 'start', gap: 16 }}>
+        {/* ЧТО ПОЛУЧИТ КЛИЕНТ */}
+        <div className="card card-pad">
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+            <Icon name="eye" style={{ width: 16, height: 16, color: 'var(--blue)' }} />
+            <h3 className="card-title" style={{ fontSize: 15, margin: 0 }}>Что получит клиент</h3>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
+            <span className="oc-svc-ic" style={{ background: k.color, width: 40, height: 40 }}><Icon name={k.icon} /></span>
+            <div><div style={{ fontWeight: 700, color: 'var(--ink)' }}>{item.title || item.main}</div><div style={{ fontSize: 13, color: 'var(--muted)' }}>{item.sub}</div></div>
+          </div>
+          <div className="kv">
+            {info.map((r, i) => (<div className="kv-row" key={i}><span className="k">{r.l}</span><span className="v">{r.v}</span></div>))}
+            {extras.length > 0 && <div className="kv-row"><span className="k">Доп. услуги / условия</span><span className="v">{extras.join(', ')}</span></div>}
+            {participants.length > 0 && <div className="kv-row"><span className="k">{kind === 'Гостиница' ? 'Гости' : 'Пассажиры'}</span><span className="v">{participants.map((p) => p.name).join(', ')}</span></div>}
+            <div className="kv-row"><span className="k">Срок действия предложения</span><span className="v">{validity}</span></div>
+            <div className="kv-row"><span className="k" style={{ fontWeight: 700, color: 'var(--ink)' }}>Итоговая стоимость</span><span className="v" style={{ fontSize: 17, fontWeight: 800 }}>{fmt(fin.clientTotal)}</span></div>
+          </div>
+        </div>
+
+        {/* ВНУТРЕННЯЯ ИНФОРМАЦИЯ (не для клиента) */}
+        <div className="card card-pad" style={{ background: 'var(--surface-2)' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+            <Icon name="lock" style={{ width: 16, height: 16, color: 'var(--muted)' }} />
+            <h3 className="card-title" style={{ fontSize: 15, margin: 0 }}>Внутренняя информация</h3>
+            <Pill tone="gray">не для клиента</Pill>
+          </div>
+          <div className="kv">
+            <div className="kv-row"><span className="k">Цена поставщика</span><span className="v">{fmt(fin.supplierPrice)}</span></div>
+            <div className="kv-row"><span className="k">Себестоимость</span><span className="v">{fmt(fin.cost)}</span></div>
+            <div className="kv-row"><span className="k">Комиссия поставщика</span><span className="v" style={{ color: 'var(--green)' }}>+ {fmt(fin.commission)}</span></div>
+            <div className="kv-row"><span className="k">Сервисный сбор</span><span className="v">{fmt(fin.fee)}</span></div>
+            {fin.markup ? <div className="kv-row"><span className="k">Наценка</span><span className="v">{fmt(fin.markup)}</span></div> : null}
+            <div className="kv-row"><span className="k" style={{ fontWeight: 700, color: 'var(--ink)' }}>Прибыль</span><span className="v" style={{ fontWeight: 800, color: 'var(--green)' }}>{fmt(fin.profit)}</span></div>
+          </div>
+          <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 10 }}>Клиент получит только разрешённые настройками компании поля. Сейчас видна только итоговая стоимость{vis.serviceFee ? ' и сервисный сбор' : ''}.</div>
+        </div>
+      </div>
+    </StackPanel>
+  );
+}
+
 function SvcCard({ item, kind, participants = [], onBack }) {
   const toast = useToast();
   const [tab, setTab] = useState('details');
   const [corrOpen, setCorrOpen] = useState(false);
+  const [sendOpen, setSendOpen] = useState(false);
+  // Жизненный цикл карточки услуги — свой, независимый от статуса услуги в заказе.
+  const initCard = (item.status === 'Выписано' || item.status === 'Подтверждено') ? 'issued' : (item.cardStatus || 'created');
+  const [cardSt, setCardSt] = useState(initCard);
+  const [version, setVersion] = useState(item.version || 1);
+  const [versions, setVersions] = useState(item.versions || []);
+  const [cardLog, setCardLog] = useState(() => [{ t: 'сейчас', txt: 'Карточка услуги создана' }]);
   const k = SERVICE_KIND[kind] || { icon: 'briefcase', color: 'var(--blue)' };
   const isOffer = !!item.cost;
   const cur = item.currency || (item.svcOffer && item.svcOffer.currency);
@@ -109,10 +224,32 @@ function SvcCard({ item, kind, participants = [], onBack }) {
     ref: item.pnr || item.ref || (no || '—'),
   }));
   const corrMeta = { cfg: corrCfg, supplier, route: sub || title, dates: item.date || '—', carrierName: supplier && supplier !== '—' ? supplier : title, baseFareTotal: isOffer ? item.cost : (item.sum || tariff || 0) };
+  const orderNo = item.order || null;
+  const channel = orderClientChannel(orderNo);
+  const chMeta = sendChannelMeta(channel);
+  const fin = cardInternals(item);
+  const cst = cardStatus(cardSt);
+
+  const sendCard = (ch) => {
+    setCardSt('sent');
+    setCardLog((l) => [...l, { t: 'сейчас', txt: 'Отправлена клиенту · канал «' + ch + '» · v' + version }]);
+    toast('Карточка услуги отправлена клиенту по каналу «' + ch + '»', 'ok');
+    setTimeout(() => { setCardSt('delivered'); setCardLog((l) => [...l, { t: '+1 мин', txt: 'Доставлена клиенту' }]); }, 1000);
+    setTimeout(() => { setCardSt('viewed'); setCardLog((l) => [...l, { t: '+3 мин', txt: 'Просмотрена клиентом' }]); }, 2200);
+  };
+  const bumpVersion = () => {
+    const nv = version + 1;
+    setVersions((vs) => [...vs, { v: version, note: 'Прежняя версия сохранена в истории' }]);
+    setVersion(nv);
+    setCardSt('price_changed');
+    setCardLog((l) => [...l, { t: 'сейчас', txt: 'Изменены параметры — создана версия v' + nv + ' (прежняя сохранена)' }]);
+    toast('Создана новая версия карточки v' + nv + ' — прежняя сохранена в истории', 'ok');
+  };
 
   const TABS = [
     { key: 'pax', label: paxLabel, count: participants.length || undefined },
     { key: 'details', label: 'Детали' },
+    { key: 'card', label: 'Карточка услуги' },
     { key: 'supplier', label: 'Поставщик' },
     { key: 'finance', label: 'Финансы' },
     { key: 'docs', label: 'Документы' },
@@ -131,17 +268,25 @@ function SvcCard({ item, kind, participants = [], onBack }) {
       <div className="card card-pad" style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 18, flexWrap: 'wrap' }}>
         <span className="oc-svc-ic" style={{ background: k.color }}><Icon name={k.icon} /></span>
         <div style={{ flex: 1, minWidth: 200 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}><h2 className="card-title">{title}</h2><Pill tone={SERVICE_STATUS[status] || 'gray'}>{status}</Pill></div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+            <h2 className="card-title">{title}</h2>
+            <Pill tone={SERVICE_STATUS[status] || 'gray'}>{status}</Pill>
+            <Pill tone={cst.tone}><Icon name={cst.icon} style={{ width: 12, height: 12, verticalAlign: -2 }} /> Карточка: {cst.label}</Pill>
+            <span style={{ fontSize: 12, color: 'var(--muted)', fontWeight: 600 }}>v{version}</span>
+          </div>
           <div style={{ color: 'var(--muted)', fontSize: 14, marginTop: 4 }}>{sub}{supplier && supplier !== '—' ? ' · ' + supplier : ''}</div>
         </div>
         <div style={{ textAlign: 'right' }}><div style={{ fontSize: 13, color: 'var(--muted)' }}>Итого к оплате</div><div style={{ fontSize: 24, fontWeight: 800, color: 'var(--ink)' }}>{total ? fmt(total) : '—'}</div></div>
-        {status === 'Предложение' && <Button icon="check" onClick={() => toast('Отправлено на бронирование', 'ok')}>Забронировать</Button>}
-        {status === 'Забронировано' && <Button icon="check" onClick={() => toast('Услуга оформлена', 'ok')}>Оформить</Button>}
+        <Button icon="send" onClick={() => setSendOpen(true)}>Отправить клиенту</Button>
+        {status === 'Предложение' && <Button variant="secondary" icon="check" onClick={() => toast('Отправлено на бронирование', 'ok')}>Забронировать</Button>}
+        {status === 'Забронировано' && <Button variant="secondary" icon="check" onClick={() => toast('Услуга оформлена', 'ok')}>Оформить</Button>}
         <ActionMenu trigger={<button className="btn btn-secondary btn-icon"><Icon name="more" /></button>}
           items={[
+            { icon: 'send', label: 'Отправить карточку клиенту', onClick: () => setSendOpen(true) },
+            { icon: 'edit', label: 'Изменить параметры → новая версия', onClick: bumpVersion },
+            { sep: true },
             { icon: 'template', label: 'Корректировка документов', onClick: () => setCorrOpen(true) },
             { icon: 'download', label: 'Скачать документы', onClick: () => toast('Загрузка…') },
-            { icon: 'send', label: 'Отправить пассажиру', onClick: () => toast('Отправлено пассажиру', 'ok') },
           ]} />
       </div>
 
@@ -173,6 +318,49 @@ function SvcCard({ item, kind, participants = [], onBack }) {
         </div>
       )}
 
+      {tab === 'card' && (
+        <div className="grid-2" style={{ alignItems: 'start', gap: 16 }}>
+          <div>
+            <div className="card card-pad" style={{ marginBottom: 16 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
+                <h3 className="card-title" style={{ fontSize: 15, margin: 0 }}>Отправка клиенту</h3>
+                <Pill tone={cst.tone}>{cst.label}</Pill>
+              </div>
+              <div className="kv">
+                <div className="kv-row"><span className="k">Закреплённый канал</span><span className="v"><Pill tone={chMeta.tone}><Icon name={chMeta.icon} style={{ width: 12, height: 12, verticalAlign: -2 }} /> {channel}</Pill></span></div>
+                <div className="kv-row"><span className="k">Версия карточки</span><span className="v">v{version}</span></div>
+                <div className="kv-row"><span className="k">Итоговая стоимость клиенту</span><span className="v" style={{ fontWeight: 700 }}>{fmt(fin.clientTotal)}</span></div>
+              </div>
+              <div style={{ display: 'flex', gap: 8, marginTop: 12, flexWrap: 'wrap' }}>
+                <Button size="sm" icon="send" onClick={() => setSendOpen(true)}>Отправить клиенту</Button>
+                <Button size="sm" variant="secondary" icon="edit" onClick={bumpVersion}>Новая версия</Button>
+              </div>
+              <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 10, display: 'flex', alignItems: 'center', gap: 6 }}>
+                <Icon name="lock" style={{ width: 13, height: 13 }} />Внутренние расчёты (себестоимость, комиссия, прибыль) клиенту не отправляются.
+              </div>
+            </div>
+            {versions.length > 0 && (
+              <div className="card card-pad">
+                <h3 className="card-title" style={{ fontSize: 14, marginBottom: 8 }}>История версий</h3>
+                <div className="kv">
+                  {versions.map((vv, i) => (<div className="kv-row" key={i}><span className="k">Версия v{vv.v}</span><span className="v" style={{ color: 'var(--muted)' }}>{vv.note}</span></div>))}
+                  <div className="kv-row"><span className="k" style={{ fontWeight: 700 }}>Версия v{version}</span><span className="v"><Pill tone="green">актуальная</Pill></span></div>
+                </div>
+              </div>
+            )}
+          </div>
+          <div className="card card-pad">
+            <h3 className="card-title" style={{ fontSize: 15, marginBottom: 12 }}>Жизненный цикл карточки</h3>
+            <CardLifecycle current={cardSt} />
+            <div style={{ borderTop: '1px solid var(--line)', margin: '14px 0' }} />
+            <h3 className="card-title" style={{ fontSize: 14, marginBottom: 8 }}>Журнал</h3>
+            <div className="timeline">
+              {cardLog.map((l, i) => (<div className="tl-item" key={i}><span className="tl-dot" />{i < cardLog.length - 1 && <span className="tl-line" />}<div><div className="tl-time">{l.t}</div><div className="tl-text">{l.txt}</div></div></div>))}
+            </div>
+          </div>
+        </div>
+      )}
+
       {tab === 'supplier' && (
         <div className="grid-2" style={{ alignItems: 'start' }}>
           <div className="card card-pad"><div className="kv">
@@ -189,13 +377,34 @@ function SvcCard({ item, kind, participants = [], onBack }) {
       )}
 
       {tab === 'finance' && (
-        <div className="card card-pad" style={{ maxWidth: 520 }}><div className="kv">
-          <div className="kv-row"><span className="k">Тариф</span><span className="v">{fmt(tariff)}</span></div>
-          {calc.taxes ? <div className="kv-row"><span className="k">Таксы и сборы</span><span className="v">{fmt(calc.taxes)}</span></div> : null}
-          <div className="kv-row"><span className="k">Сервисный сбор агентства</span><span className="v">{fmt(fee)}</span></div>
-          {calc.commission ? <div className="kv-row"><span className="k">Комиссия поставщика</span><span className="v" style={{ color: 'var(--green)' }}>+ {fmt(calc.commission)}</span></div> : null}
-          <div className="kv-row"><span className="k" style={{ fontWeight: 700, color: 'var(--ink)' }}>Итого клиенту</span><span className="v" style={{ fontSize: 18 }}>{total ? fmt(total) : '—'}</span></div>
-        </div></div>
+        <div className="grid-2" style={{ alignItems: 'start', gap: 16 }}>
+          {/* Для клиента — только разрешённые поля */}
+          <div className="card card-pad">
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
+              <Icon name="eye" style={{ width: 15, height: 15, color: 'var(--blue)' }} />
+              <h3 className="card-title" style={{ fontSize: 15, margin: 0 }}>Для клиента</h3>
+            </div>
+            <div className="kv">
+              <div className="kv-row"><span className="k" style={{ fontWeight: 700, color: 'var(--ink)' }}>Итоговая стоимость</span><span className="v" style={{ fontSize: 18 }}>{fmt(fin.clientTotal)}</span></div>
+            </div>
+            <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 8 }}>Клиент видит только разрешённые настройками компании поля.</div>
+          </div>
+          {/* Внутреннее — не для клиента */}
+          <div className="card card-pad" style={{ background: 'var(--surface-2)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
+              <Icon name="lock" style={{ width: 15, height: 15, color: 'var(--muted)' }} />
+              <h3 className="card-title" style={{ fontSize: 15, margin: 0 }}>Внутреннее — не для клиента</h3>
+            </div>
+            <div className="kv">
+              <div className="kv-row"><span className="k">Цена поставщика</span><span className="v">{fmt(fin.supplierPrice)}</span></div>
+              <div className="kv-row"><span className="k">Себестоимость</span><span className="v">{fmt(fin.cost)}</span></div>
+              {fin.commission ? <div className="kv-row"><span className="k">Комиссия поставщика</span><span className="v" style={{ color: 'var(--green)' }}>+ {fmt(fin.commission)}</span></div> : null}
+              <div className="kv-row"><span className="k">Сервисный сбор</span><span className="v">{fmt(fin.fee)}</span></div>
+              {fin.markup ? <div className="kv-row"><span className="k">Наценка</span><span className="v">{fmt(fin.markup)}</span></div> : null}
+              <div className="kv-row"><span className="k" style={{ fontWeight: 700, color: 'var(--ink)' }}>Прибыль</span><span className="v" style={{ fontWeight: 800, color: 'var(--green)' }}>{fmt(fin.profit)}</span></div>
+            </div>
+          </div>
+        </div>
       )}
 
       {tab === 'docs' && (
@@ -225,6 +434,7 @@ function SvcCard({ item, kind, participants = [], onBack }) {
       )}
 
       {corrOpen && <DocCorrectionPanel subjects={corrSubjects} meta={corrMeta} currency={cur || 'USD'} orderNo={item.order || null} onClose={() => setCorrOpen(false)} />}
+      {sendOpen && <ServiceCardSendPanel item={item} kind={kind} participants={participants} orderNo={orderNo} currency={cur} onSent={sendCard} onClose={() => setSendOpen(false)} />}
     </div>
   );
 }
@@ -920,4 +1130,4 @@ function RailSeatPanel({ offer, participants, groups, onClose, onApply }) {
   );
 }
 
-Object.assign(window, { ServiceFlow, SVC_CFG, ServiceAddFlow, AeroAddFlow, routeKeyForKind, SvcCard, SvcOfferCard, RailSeatPanel, RailAddFlow, RailOfferCard });
+Object.assign(window, { ServiceFlow, SVC_CFG, ServiceAddFlow, AeroAddFlow, routeKeyForKind, SvcCard, SvcOfferCard, ServiceCardSendPanel, CardLifecycle, RailSeatPanel, RailAddFlow, RailOfferCard });

@@ -205,7 +205,70 @@ function extrasFromSupplier(stage, supplierHasApi, issued) {
   });
 }
 
+/* ============================================================
+   БЛОК F — Карточка услуги как самостоятельный объект.
+   Отделена от коммерческого предложения: КП — это лишь контейнер из карточек.
+   Здесь: жизненный цикл карточки, каналы отправки (закреплённые за заказом/клиентом),
+   разделение внутренней (для оператора) и клиентской (разрешённой) информации, версии.
+   ============================================================ */
+
+// Жизненный цикл карточки услуги (свой, независимый от статуса услуги в заказе).
+const CARD_STATUS_FLOW = ['created', 'sent', 'delivered', 'viewed', 'chosen', 'issued'];
+const CARD_STATUS = {
+  created:       { label: 'Создана',           tone: 'gray',  icon: 'template' },
+  sent:          { label: 'Отправлена',        tone: 'blue',  icon: 'send' },
+  delivered:     { label: 'Доставлена',        tone: 'teal',  icon: 'check' },
+  viewed:        { label: 'Просмотрена',       tone: 'blue',  icon: 'eye' },
+  chosen:        { label: 'Выбрана клиентом',  tone: 'green', icon: 'checkCircle' },
+  declined:      { label: 'Отклонена',         tone: 'red',   icon: 'x' },
+  expired:       { label: 'Срок действия истёк', tone: 'amber', icon: 'clock' },
+  price_changed: { label: 'Цена изменилась',   tone: 'amber', icon: 'alertCircle' },
+  unavailable:   { label: 'Недоступна',        tone: 'gray',  icon: 'alertCircle' },
+  issued:        { label: 'Оформлена',         tone: 'green', icon: 'checkCircle' },
+};
+function cardStatus(k) { return CARD_STATUS[k] || CARD_STATUS.created; }
+
+// Каналы отправки. Карточка отправляется по каналу, закреплённому за заказом/клиентом —
+// оператор не пишет сообщение вручную, система адаптирует карточку под возможности канала.
+const SEND_CHANNELS = {
+  'Внутренний чат': { icon: 'chat', tone: 'amber', adapt: 'интерактивная карточка внутри CRM' },
+  'Telegram':       { icon: 'send', tone: 'blue',  adapt: 'карточка + кнопки «Выбрать / Отклонить»' },
+  'WhatsApp':       { icon: 'chat', tone: 'green', adapt: 'сообщение с изображением карточки и ссылкой' },
+  'MAX':            { icon: 'chat', tone: 'blue',  adapt: 'интерактивная карточка мессенджера MAX' },
+  'Email':          { icon: 'mail', tone: 'teal',  adapt: 'письмо с HTML-карточкой услуги' },
+};
+function sendChannelMeta(name) { return SEND_CHANNELS[name] || SEND_CHANNELS['Внутренний чат']; }
+// Канал, закреплённый за заказом (берётся из клиентского треда заказа); по умолчанию — внутренний чат CRM.
+function orderClientChannel(no) {
+  const src = (typeof CHAT_THREADS !== 'undefined') ? CHAT_THREADS : [];
+  const t = src.find((x) => x.order === no && x.type === 'client');
+  const ch = t && t.channel;
+  return SEND_CHANNELS[ch] ? ch : 'Внутренний чат';
+}
+
+// Настройка компании: какие финансовые строки карточки видны клиенту.
+// По умолчанию клиент видит только итоговую стоимость — внутренние расчёты скрыты.
+const CARD_CLIENT_VISIBILITY = window.CARD_CLIENT_VISIBILITY || (window.CARD_CLIENT_VISIBILITY = {
+  clientTotal: true, serviceFee: false, supplierPrice: false, commission: false, markup: false, profit: false, cost: false,
+});
+// Внутренняя раскладка по карточке (видит только оператор): себестоимость, комиссия, сбор, наценка, прибыль.
+function cardInternals(item) {
+  const calc = (item && item.calc) || {};
+  const isOffer = !!item && item.cost != null;
+  const tariff = calc.tariff != null ? calc.tariff : (isOffer ? item.cost : (item.sum || 0));
+  const taxes = calc.taxes || 0;
+  const fee = calc.fee != null ? calc.fee : (isOffer ? (item.fee || 0) : 0);
+  const commission = calc.commission || 0;
+  const markup = calc.markup || 0;
+  const clientTotal = calc.total != null ? calc.total : (isOffer ? (item.cost + (item.fee || 0)) : (item.sum || 0));
+  const cost = Math.max(0, tariff + taxes - commission);      // себестоимость (нетто поставщика)
+  const profit = commission + fee + markup;                    // прибыль агентства
+  return { supplierPrice: tariff + taxes, cost, commission, fee, markup, profit, clientTotal, currency: item && item.currency };
+}
+
 Object.assign(window, {
+  CARD_STATUS, CARD_STATUS_FLOW, cardStatus, SEND_CHANNELS, sendChannelMeta, orderClientChannel,
+  CARD_CLIENT_VISIBILITY, cardInternals,
   OPERATOR_SLA, operatorSla, SLA_QUEUE, slaTone, slaLabel,
   TP_SCOPES, TP_CLASSES_AVIA, TP_RAIL_CLASSES, TP_AIRLINES, TP_RAIL_TYPES, TP_HOTEL_CHAINS, TP_HOTEL_CATEGORIES, TP_BOARD, TP_CAR_CLASSES, TP_CURRENCIES, TP_EMPLOYEES,
   TP_COMPLIANCE, defaultTravelPolicy, TRAVEL_POLICIES, travelPolicyFor, TP_DEPARTMENTS, departmentsFor,

@@ -788,6 +788,13 @@ function OffersRegistry({ onOpenOrder, intent, onConsume }) {
 
   return (
     <div className="fade-in">
+      <div className="card card-pad" style={{ marginBottom: 18, display: 'flex', gap: 12, alignItems: 'flex-start', background: 'var(--blue-soft)' }}>
+        <Icon name="template" style={{ width: 20, height: 20, color: 'var(--blue)', flex: '0 0 20px', marginTop: 2 }} />
+        <div style={{ fontSize: 13.5, color: 'var(--ink)' }}>
+          <b>Коммерческое предложение — контейнер из карточек услуг.</b> Объединяйте несколько услуг одной поездки или альтернативные варианты в один документ.
+          Отдельную <b>карточку услуги</b> можно отправить клиенту напрямую из заказа — без сборки КП (карточка → «Отправить клиенту»).
+        </div>
+      </div>
       <div className="grid-4" style={{ marginBottom: 22 }}>
         {STATS.map(([l, v]) => (<div className="stat-card" key={l}><div className="s-label">{l}</div><div className="s-value">{v}</div></div>))}
       </div>

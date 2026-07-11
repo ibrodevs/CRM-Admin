@@ -541,10 +541,23 @@ const SVC_FILTER_CHIPS = [
   { kind: 'Автобус', label: 'Автобус' },
 ];
 
-function ServiceListRow({ s, paxCount, isGroup, onOpen }) {
+function ServiceListRow({ s, paxCount, isGroup, onOpen, orderNo, participants = [] }) {
+  const toast = useToast();
   const k = SERVICE_KIND[s.kind] || { icon: 'briefcase', color: 'var(--blue)' };
   const cat = (SVC_FILTER_CHIPS.find((c) => c.kind === s.kind) || {}).label || s.kind;
   const pax = isGroup ? paxCount : (s.pax || paxCount);
+  const [sendOpen, setSendOpen] = useState(false);
+  const initCard = (s.status === 'Выписано' || s.status === 'Подтверждено') ? 'issued' : (s.cardStatus || 'created');
+  const [cardSt, setCardSt] = useState(initCard);
+  const cst = cardStatus(cardSt);
+  // карточка услуги: объединяем подбор (svcOffer) с полями заказа, чтобы был предпросмотр и расчёты
+  const cardItem = s.svcOffer ? { ...s.svcOffer, title: s.title, sub: s.sub, kind: s.kind, status: s.status, date: s.date, order: orderNo, calc: s.calc } : { ...s, order: orderNo };
+  const onSent = (ch) => {
+    setCardSt('sent');
+    toast('Карточка услуги отправлена клиенту по каналу «' + ch + '»', 'ok');
+    setTimeout(() => setCardSt('delivered'), 1000);
+    setTimeout(() => setCardSt('viewed'), 2200);
+  };
   return (
     <div className="oc-svc-row">
       <span className="ic" style={{ background: k.color }}><Icon name={k.icon} /></span>
@@ -556,9 +569,12 @@ function ServiceListRow({ s, paxCount, isGroup, onOpen }) {
       <div className="mcol"><span className="l">Пассажиры</span><span className="v">{pax} {s.kind === 'Гостиница' ? 'номеров' : 'человек'}</span></div>
       <div className="mcol"><span className="l">Стоимость</span><span className="v">{ocMoney(svcCalc(s).total, s.currency)}</span></div>
       <div className="mcol"><span className="l">Статус</span><Pill tone={SERVICE_STATUS[s.status] || 'gray'}>{s.status}</Pill></div>
+      <div className="mcol"><span className="l">Карточка</span><Pill tone={cst.tone}>{cst.label}</Pill></div>
+      <Button variant="secondary" size="sm" icon="send" onClick={() => setSendOpen(true)}>Клиенту</Button>
       <Button variant="secondary" size="sm" onClick={() => onOpen(s)}>Детали</Button>
       <ActionMenu trigger={<button className="btn btn-ghost btn-icon btn-sm"><Icon name="more" /></button>}
-        items={[{ icon: 'eye', label: 'Открыть', onClick: () => onOpen(s) }, { sep: true }, { icon: 'trash', label: 'Удалить', danger: true }]} />
+        items={[{ icon: 'eye', label: 'Открыть', onClick: () => onOpen(s) }, { icon: 'send', label: 'Отправить клиенту', onClick: () => setSendOpen(true) }, { sep: true }, { icon: 'trash', label: 'Удалить', danger: true }]} />
+      {sendOpen && <ServiceCardSendPanel item={cardItem} kind={s.kind} participants={participants} orderNo={orderNo} currency={s.currency} onSent={onSent} onClose={() => setSendOpen(false)} />}
     </div>
   );
 }
@@ -626,7 +642,7 @@ function TabServices({ orderNo, services, participants, requestType, onOpenAvia,
         <EmptyState icon="briefcase" title="Услуги не добавлены" sub="Добавьте авиабилеты, отели, трансферы и другие услуги в заказ" />
       ) : (
         <div className="card" style={{ padding: '4px 18px' }}>
-          {shown.map((s) => <ServiceListRow key={s.id} s={s} paxCount={participants.length} isGroup={isGroup} onOpen={openItem} />)}
+          {shown.map((s) => <ServiceListRow key={s.id} s={s} paxCount={participants.length} isGroup={isGroup} onOpen={openItem} orderNo={orderNo} participants={participants} />)}
         </div>
       )}
     </div>
@@ -1614,7 +1630,7 @@ function OrderCard({ order, onBack, initTab, initSvcSearch, fresh, onOpenChat })
     return <TabServices orderNo={order.no} services={services} participants={participants} requestType={requestType}
       onOpenPicker={() => goAddType(addKind)}
       onOpenAvia={(s) => { const match = AIR_SERVICES.find((a) => a.no === s.avia) || { no: s.avia || s.id, airline: (s.offer ? s.offer.airline : 'KC'), status: s.status, supplier: s.supplier, pax: 2, sum: s.sum, currency: s.currency, route: s.title, pnr: '—', ticket: '—', dep: s.date }; setActiveAvia(s.offer ? { ...match, offer: s.offer } : match); setSvcView('avia-card'); }}
-      onOpenOther={(s) => { setActiveSvc(s.svcOffer ? { ...s.svcOffer, kind: s.kind, status: s.status, date: s.svcOffer.date || s.date, calc: s.calc } : { ...s }); setSvcView('svc-card'); }} />;
+      onOpenOther={(s) => { setActiveSvc(s.svcOffer ? { ...s.svcOffer, kind: s.kind, status: s.status, date: s.svcOffer.date || s.date, calc: s.calc, order: order.no } : { ...s, order: order.no }); setSvcView('svc-card'); }} />;
   };
 
   const tabContent = () => {
