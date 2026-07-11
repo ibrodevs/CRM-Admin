@@ -856,6 +856,7 @@ const DOC_CORR_KINDS = {
   'ЖД':        { mode: 'rail',  subjectLabel: 'Пассажир',      docNoLabel: 'Билет №',      refLabel: 'Заказ №',   carrierLabel: 'Перевозчик',   docTitle: 'Проездной документ (ЖД)' },
   'Трансфер':  { mode: 'other', subjectLabel: 'Пассажир',      docNoLabel: 'Ваучер №',     refLabel: 'Заказ №',   carrierLabel: 'Перевозчик',   docTitle: 'Ваучер на трансфер' },
   'Автобус':   { mode: 'other', subjectLabel: 'Пассажир',      docNoLabel: 'Билет №',      refLabel: 'Заказ №',   carrierLabel: 'Перевозчик',   docTitle: 'Автобусный билет' },
+  'Аэроэкспресс': { mode: 'other', subjectLabel: 'Пассажир',   docNoLabel: 'Билет №',      refLabel: 'Заказ №',   carrierLabel: 'Перевозчик',   docTitle: 'Билет Аэроэкспресс' },
   'Страховка': { mode: 'other', subjectLabel: 'Застрахованный',docNoLabel: 'Полис №',      refLabel: 'Договор №', carrierLabel: 'Страховщик',   docTitle: 'Страховой полис' },
   'Виза':      { mode: 'other', subjectLabel: 'Заявитель',     docNoLabel: 'Заявка №',     refLabel: 'Досье №',   carrierLabel: 'Визовый центр',docTitle: 'Визовый документ' },
   'Тур':       { mode: 'other', subjectLabel: 'Турист',        docNoLabel: 'Ваучер №',     refLabel: 'Код брони', carrierLabel: 'Туроператор',  docTitle: 'Ваучер на тур' },

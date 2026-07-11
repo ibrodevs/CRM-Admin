@@ -646,6 +646,7 @@ const ADD_SVC_CATS = [
   { kind: 'Гостиница', label: 'Отели', icon: 'building', routeKey: 'hotels' },
   { kind: 'Трансфер', label: 'Трансферы', icon: 'car', routeKey: 'transfers' },
   { kind: 'Автобус', label: 'Автобус', icon: 'bus', routeKey: 'buses' },
+  { kind: 'Аэроэкспресс', label: 'Аэроэкспресс', icon: 'zap', routeKey: 'aero' },
   { kind: 'Страховка', label: 'Страховка', icon: 'shield' },
   { kind: 'Доп. услуга', label: 'Доп. услуга', icon: 'briefcase' },
 ];
@@ -1368,8 +1369,9 @@ function AddServicePanel({ kind, setKind, aviaParams, setAviaParams, paxCount, p
           составом гостей, групповым размещением и подтверждением бронирования */}
       {kind === 'Гостиница' && <HotelPicker participants={participants} group={isGroup} onApply={(offer) => onAddOther(offer, 'Гостиница')} onCancel={() => {}} />}
       {kind === 'ЖД' && <RailAddFlow participants={participants} groups={isGroup ? AVIA_GROUPS_SEED : null} onAdd={onAddOther} />}
-      {kind !== 'Авиа' && kind !== 'Гостиница' && kind !== 'ЖД' && cat.routeKey && <ServiceAddFlow routeKey={cat.routeKey} onAdd={onAddOther} />}
-      {kind !== 'Авиа' && kind !== 'Гостиница' && kind !== 'ЖД' && !cat.routeKey && <QuickAddForm kind={kind} onAdd={onAddOther} />}
+      {kind === 'Аэроэкспресс' && <AeroAddFlow onAdd={onAddOther} />}
+      {kind !== 'Авиа' && kind !== 'Гостиница' && kind !== 'ЖД' && kind !== 'Аэроэкспресс' && cat.routeKey && <ServiceAddFlow routeKey={cat.routeKey} onAdd={onAddOther} />}
+      {kind !== 'Авиа' && kind !== 'Гостиница' && kind !== 'ЖД' && kind !== 'Аэроэкспресс' && !cat.routeKey && <QuickAddForm kind={kind} onAdd={onAddOther} />}
     </div>
   );
 }

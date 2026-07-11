@@ -3,6 +3,15 @@
 
 function svM(n) { return Math.round(n).toLocaleString('ru-RU') + ' $'; }
 
+/* Аэроэкспресс — направления (аэропорт ⇄ городской терминал) и вариации проезда.
+   Тариф флотовый: от направления не зависит, отличается видом проезда (разово / туда-обратно / абонемент). */
+const AERO_DIRS = [
+  { id: 'svo', label: 'Шереметьево (SVO) ⇄ Белорусский вокзал' },
+  { id: 'dme', label: 'Домодедово (DME) ⇄ Павелецкий вокзал' },
+  { id: 'vko', label: 'Внуково (VKO) ⇄ Киевский вокзал' },
+];
+const AERO_FARES = [['single', 'Разовый'], ['rt', 'Туда и обратно'], ['pass', 'Абонемент']];
+
 const SVC_CFG = {
   rail: { title: 'ЖД билеты', kind: 'ЖД', searchTitle: 'Поиск ЖД билетов', mainLabel: 'Маршрут', qtyLabel: 'Пасс.',
     fields: [{ k: 'from', l: 'Откуда', t: 'text', w: 190 }, { k: 'to', l: 'Куда', t: 'text', w: 190 }, { k: 'date', l: 'Дата', t: 'date', w: 156 }, { k: 'pax', l: 'Пассажиры', t: 'stepper', w: 150 }, { k: 'cls', l: 'Класс', t: 'select', w: 150, o: ['Плацкарт', 'Купе', 'СВ'] }] },
@@ -14,6 +23,8 @@ const SVC_CFG = {
     fields: [{ k: 'from', l: 'Откуда', t: 'text', w: 210 }, { k: 'to', l: 'Куда', t: 'text', w: 210 }, { k: 'date', l: 'Дата', t: 'date', w: 156 }, { k: 'pax', l: 'Пассажиров', t: 'stepper', w: 150 }] },
   tours: { title: 'Групповые поездки', kind: 'Группа', searchTitle: 'Подбор тура', mainLabel: 'Тур', qtyLabel: 'Чел.',
     fields: [{ k: 'dest', l: 'Направление', t: 'text', w: 230 }, { k: 'dates', l: 'Даты', t: 'daterange', w: 230 }, { k: 'pax', l: 'Туристов', t: 'stepper', w: 150 }, { k: 'board', l: 'Питание', t: 'select', w: 170, o: ['Завтрак', 'Полупансион', 'All Inclusive'] }] },
+  aero: { title: 'Аэроэкспресс', kind: 'Аэроэкспресс', searchTitle: 'Поиск билетов Аэроэкспресс', mainLabel: 'Направление', qtyLabel: 'Пасс.',
+    fields: [{ k: 'dir', l: 'Направление', t: 'select', w: 300, o: AERO_DIRS.map((d) => d.label) }, { k: 'date', l: 'Дата', t: 'date', w: 156 }, { k: 'pax', l: 'Пассажиров', t: 'stepper', w: 150 }] },
 };
 
 /* ---------- search field renderer ---------- */
@@ -38,6 +49,7 @@ function SvcField({ f, form, set }) {
 function SvcOfferCard({ o, kind, onSelect, onSave, selectLabel }) {
   const k = SERVICE_KIND[kind];
   const total = o.cost + o.fee;
+  const fmt = o.currency === 'RUB' ? rub : svM;
   return (
     <div className="off-card" style={{ marginBottom: 14 }}>
       <div className="off-main">
@@ -53,9 +65,9 @@ function SvcOfferCard({ o, kind, onSelect, onSave, selectLabel }) {
       <div className="off-side">
         <div>
           <div className="off-supplier"><Icon name="api" style={{ width: 13, height: 13, verticalAlign: -2 }} /> {o.supplier}</div>
-          <div className="off-price-line"><span>Тариф</span><span>{svM(o.cost)}</span></div>
-          <div className="off-price-line"><span>Сервисный сбор</span><span>{svM(o.fee)}</span></div>
-          <div className="off-total">{Math.round(total).toLocaleString('ru-RU')} <small>$</small></div>
+          <div className="off-price-line"><span>Тариф</span><span>{fmt(o.cost)}</span></div>
+          <div className="off-price-line"><span>Сервисный сбор</span><span>{fmt(o.fee)}</span></div>
+          <div className="off-total">{Math.round(total).toLocaleString('ru-RU')} <small>{o.currency === 'RUB' ? '₽' : '$'}</small></div>
         </div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
           <Button size="sm" onClick={() => onSelect(o)}>{selectLabel || 'Выбрать'}</Button>
@@ -462,6 +474,95 @@ function ServiceAddFlow({ routeKey, onAdd }) {
   );
 }
 
+/* ---------- Аэроэкспресс add-flow (доп. услуга) ----------
+   Направление (аэропорт ⇄ вокзал) + вариация проезда: разово / туда-обратно / абонемент.
+   Выдача тарифов фильтруется под выбранную вариацию — как на крупных тревел-платформах. */
+function AeroAddFlow({ onAdd }) {
+  const toast = useToast();
+  const data = SVC_DATA.aero;
+  const [view, setView] = useState('search');
+  const [fare, setFare] = useState('single');
+  const [dir, setDir] = useState(AERO_DIRS[0].label);
+  const [date, setDate] = useState(null);
+  const [retDate, setRetDate] = useState(null);
+  const [start, setStart] = useState(null);
+  const [pax, setPax] = useState(1);
+  const [loading, setLoading] = useState(false);
+  const runSearch = () => { setView('results'); setLoading(true); setTimeout(() => setLoading(false), 800); };
+
+  const offers = data.offers.filter((o) => o.fareType === fare);
+  const fareLabel = (AERO_FARES.find(([k]) => k === fare) || [])[1];
+
+  const addOffer = (o) => {
+    const route = fare === 'single' ? dir.replace('⇄', '→') : dir;
+    const info = fare === 'pass'
+      ? [{ l: 'Направление', v: dir }, { l: 'Тариф', v: o.title }, { l: 'Начало действия', v: start ? fmtDate(start) : '—' }]
+      : [{ l: 'Направление', v: route }, { l: 'Тариф', v: o.title }, { l: 'Дата', v: date ? fmtDate(date) : '—' }]
+          .concat(fare === 'rt' ? [{ l: 'Обратно', v: retDate ? fmtDate(retDate) : '—' }] : [])
+          .concat([{ l: 'Пассажиров', v: pax }]);
+    onAdd({ ...o, sub: route + ' · ' + fareLabel, info }, 'Аэроэкспресс');
+  };
+
+  return (
+    <div className="fade-in">
+      <div style={{ marginBottom: 14, display: 'flex', gap: 10, alignItems: 'center' }}>
+        {view === 'results' && <Button variant="secondary" size="sm" icon="chevLeft" onClick={() => setView('search')}>Изменить поиск</Button>}
+        <span style={{ fontWeight: 600, color: 'var(--ink)' }}>Аэроэкспресс — билеты и абонементы</span>
+      </div>
+
+      {view === 'search' && (
+        <>
+          {/* вариация проезда: разово / туда-обратно / абонемент */}
+          <div className="trip-toggle" style={{ marginBottom: 12 }}>
+            {AERO_FARES.map(([k, l]) => (
+              <button key={k} className={fare === k ? 'on' : ''} onClick={() => setFare(k)}>{l}</button>
+            ))}
+          </div>
+          <div className="av-bar">
+            <div className="av-field" style={{ width: 320 }}><span className="label">Направление</span>
+              <Select options={AERO_DIRS.map((d) => d.label)} value={dir} onChange={(e) => setDir(e.target.value)} /></div>
+            {fare === 'pass' ? (
+              <div className="av-field" style={{ width: 156 }}><span className="label">Начало действия</span>
+                <DateField value={start} onChange={setStart} placeholder="Дата" /></div>
+            ) : (
+              <>
+                <div className="av-field" style={{ width: 156 }}><span className="label">{fare === 'rt' ? 'Туда' : 'Дата'}</span>
+                  <DateField value={date} onChange={setDate} placeholder="Дата" /></div>
+                {fare === 'rt' && <div className="av-field" style={{ width: 156 }}><span className="label">Обратно</span>
+                  <DateField value={retDate} onChange={setRetDate} placeholder="Дата" /></div>}
+                <div className="av-field" style={{ width: 150 }}><span className="label">Пассажиров</span>
+                  <div className="input" style={{ display: 'flex', alignItems: 'center', gap: 8, justifyContent: 'space-between' }}>
+                    <button className="btn btn-secondary btn-icon btn-sm" disabled={pax <= 1} onClick={() => setPax(pax - 1)}>−</button>
+                    <span style={{ fontWeight: 700 }}>{pax}</span>
+                    <button className="btn btn-secondary btn-icon btn-sm" onClick={() => setPax(pax + 1)}>+</button>
+                  </div>
+                </div>
+              </>
+            )}
+            <Button icon="search" style={{ height: 46, marginBottom: 0 }} onClick={runSearch}>Найти</Button>
+          </div>
+          <div style={{ marginTop: 14, display: 'flex', alignItems: 'center', gap: 8, color: 'var(--muted)', fontSize: 13.5 }}>
+            <Icon name="api" style={{ width: 16, height: 16 }} />Билеты и абонементы Аэроэкспресс · цены в ₽
+          </div>
+        </>
+      )}
+
+      {view === 'results' && (
+        <>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>
+            <span style={{ color: 'var(--muted)', fontSize: 14 }}>{dir} · {fareLabel}</span>
+            <div style={{ flex: 1 }} />
+            <span style={{ color: 'var(--muted)', fontSize: 14 }}>{loading ? 'Поиск…' : `Найдено ${offers.length}`}</span>
+          </div>
+          {loading
+            ? [0, 1, 2].map((i) => (<div key={i} className="off-card" style={{ marginBottom: 14 }}><div className="off-main"><div className="sk" style={{ height: 44, width: '55%' }} /><div className="sk" style={{ height: 26, width: '85%' }} /></div><div className="off-side"><div className="sk" style={{ height: 56 }} /></div></div>))
+            : offers.map((o) => <SvcOfferCard key={o.id} o={o} kind="Аэроэкспресс" onSelect={addOffer} onSave={() => toast('Предложение сохранено', 'ok')} />)}
+        </>
+      )}
+    </div>
+  );
+}
+
 /* ====================================================================
    RAIL «Выбор вагона и мест» — class → wagon → per-passenger seat assignment.
    Opens as a side panel after a train is picked in the order's ЖД add-flow.
@@ -819,4 +920,4 @@ function RailSeatPanel({ offer, participants, groups, onClose, onApply }) {
   );
 }
 
-Object.assign(window, { ServiceFlow, SVC_CFG, ServiceAddFlow, routeKeyForKind, SvcCard, SvcOfferCard, RailSeatPanel, RailAddFlow, RailOfferCard });
+Object.assign(window, { ServiceFlow, SVC_CFG, ServiceAddFlow, AeroAddFlow, routeKeyForKind, SvcCard, SvcOfferCard, RailSeatPanel, RailAddFlow, RailOfferCard });
