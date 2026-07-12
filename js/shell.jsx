@@ -194,13 +194,13 @@ function NotificationDrawer({ open, onClose, onNavigate, onOpenOrder }) {
   if (!open) return null;
   return (
     <div className="drawer-overlay" onMouseDown={(e) => { if (e.target === e.currentTarget) onClose(); }}>
-      <div className="shell-drawer" style={{ width: 'min(580px,96vw)' }}>
+      <div className="shell-drawer" style={{ width: 'min(760px,97vw)' }}>
         <div className="drawer-head" style={{ padding: '20px 26px' }}>
           <h2 className="modal-title" style={{ fontSize: 22 }}>Уведомления</h2>
           <button className="modal-close" onClick={onClose}><Icon name="x" /></button>
         </div>
-        <div className="scroll" style={{ flex: 1, overflowY: 'auto', padding: '18px 22px' }}>
-          <NotificationsCenter
+        <div className="scroll" style={{ flex: 1, overflowY: 'auto', padding: '18px 24px' }}>
+          <NotificationsCenter compact
             onNavigate={(r) => { onClose(); onNavigate(r); }}
             onOpenOrder={(o, tab) => { onClose(); onOpenOrder(o, tab); }} />
         </div>

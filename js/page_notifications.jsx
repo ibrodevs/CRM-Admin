@@ -108,7 +108,7 @@ function ErrorCodesDrawer({ open, focusCode, onClose }) {
 /* ====================================================================
    NOTIFICATIONS CENTER
    ==================================================================== */
-function NotificationsCenter({ onNavigate, onOpenOrder }) {
+function NotificationsCenter({ onNavigate, onOpenOrder, compact }) {
   const toast = useToast();
   const [list, setList] = useState(NOTIFICATIONS);
   const [q, setQ] = useState('');
@@ -148,9 +148,12 @@ function NotificationsCenter({ onNavigate, onOpenOrder }) {
 
   return (
     <div className="fade-in">
-      <div className="grid-4" style={{ marginBottom: 22 }}>
-        {STATS.map((s) => (<div className="stat-card" key={s.l}><div className="s-label">{s.l}</div><div className="s-value" style={s.tone === 'red' && s.v ? { color: 'var(--red)' } : null}>{s.v}</div></div>))}
-      </div>
+      {/* Крупные счётчики — только на полной странице; в боковой панели градация видна по вкладкам и приоритетам строк */}
+      {!compact && (
+        <div className="grid-4" style={{ marginBottom: 22 }}>
+          {STATS.map((s) => (<div className="stat-card" key={s.l}><div className="s-label">{s.l}</div><div className="s-value" style={s.tone === 'red' && s.v ? { color: 'var(--red)' } : null}>{s.v}</div></div>))}
+        </div>
+      )}
 
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16, flexWrap: 'wrap' }}>
         <Tabs tabs={TABS} value={tab} onChange={setTab} />
