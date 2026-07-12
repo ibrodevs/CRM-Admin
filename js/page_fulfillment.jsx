@@ -1162,11 +1162,12 @@ function ReceiptImportModal({ open, onClose, onDone }) {
                         const skipped = !!excluded[r.f.id];
                         if (r.pending) {
                           return (
-                            <tr key={r.f.id} style={{ height: 58 }}>
+                            // одинаковая высота и структура со «готовой» строкой — статусы обновляются на месте, строки не прыгают (ТЗ #2)
+                            <tr key={r.f.id} style={{ height: 72 }}>
                               <td></td>
                               <td><span style={{ display: 'flex', alignItems: 'center', gap: 10 }}><span style={{ width: 30, height: 30, borderRadius: 8, background: 'var(--surface-2)', flex: '0 0 30px' }} /><span style={{ flex: 1 }}><div className="sk" style={{ height: 12, width: 120, marginBottom: 6 }} /><div className="sk" style={{ height: 10, width: 80 }} /></span></span></td>
-                              <td><div className="sk" style={{ height: 12, width: 140 }} /></td>
-                              <td><div className="sk" style={{ height: 12, width: 90 }} /></td>
+                              <td><div className="sk" style={{ height: 12, width: 140, marginBottom: 6 }} /><div className="sk" style={{ height: 10, width: 90 }} /></td>
+                              <td><div className="sk" style={{ height: 12, width: 90, marginBottom: 6 }} /><div className="sk" style={{ height: 10, width: 70 }} /></td>
                               <td><Pill tone={r.status === 'Сканируется' ? 'blue' : 'gray'}>{r.status}</Pill></td>
                               <td colSpan={2}></td>
                             </tr>
@@ -1176,7 +1177,7 @@ function ReceiptImportModal({ open, onClose, onDone }) {
                         const routeStr = routeSummary(p);
                         const isStayRow = t.legLabel === 'Проживание';
                         return (
-                          <tr key={r.f.id} style={{ opacity: skipped ? 0.5 : 1 }}>
+                          <tr key={r.f.id} style={{ height: 72, opacity: skipped ? 0.5 : 1 }}>
                             <td><Checkbox on={!!sel[r.f.id]} onChange={() => setSel((s) => ({ ...s, [r.f.id]: !s[r.f.id] }))} /></td>
                             <td>
                               <span style={{ display: 'flex', alignItems: 'center', gap: 10 }}>

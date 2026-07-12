@@ -1464,7 +1464,7 @@ function FlightReceiptDrawer({ open, passengers, pax, legs, air, supplier, fare,
   );
 }
 
-function FlightCard({ svc, offer, onBack, onFormKp, onAttachOrder, onAttachPerson }) {
+function FlightCard({ svc, offer, no: noProp, hideBackRow, onBack, onFormKp, onAttachOrder, onAttachPerson }) {
   const toast = useToast();
   const [tab, setTab] = useState('segments');
   // доп. услуги авиакомпании доступны и в карточке услуги — до и после выписки (боковое окно)
@@ -1485,13 +1485,17 @@ function FlightCard({ svc, offer, onBack, onFormKp, onAttachOrder, onAttachPerso
   const out = offer ? offer.out : { from: 'FRU', to: 'IST', dep: '04:15', arr: '08:40', date: '24 июн', dur: '6ч 25м', stopText: 'Прямой', flightNo: air + ' 131' };
   const back = offer ? offer.back : null;
   const [status, setStatus] = useState(svc ? svc.status : 'Предложение');
-  const no = svc ? svc.no : 'AV-' + Math.floor(10000 + Math.random() * 90000);
+  const no = noProp || (svc ? svc.no : 'AV-' + Math.floor(10000 + Math.random() * 90000));
   const fare = offer ? offer.fare : (svc ? svc.sum : 0);
   const fee = offer ? offer.fee : 0;
   const currency = (svc && svc.currency) || (offer && offer.currency) || 'USD';
 
   const { issued, booked, offered, free } = flightStatusFlags(status, svc, offer);
-  const passengers = flightPassengers(svc, offer, status);
+  const [addPaxOpen, setAddPaxOpen] = useState(false);     // боковая форма «Добавить пассажира» (ТЗ #5)
+  const [extraPax, setExtraPax] = useState([]);            // пассажиры, добавленные вручную из карточки
+  const [uploadOpen, setUploadOpen] = useState(false);     // боковое окно загрузки документов (ТЗ #6)
+  const [uploadedDocs, setUploadedDocs] = useState([]);    // вручную загруженные документы карточки
+  const passengers = [...flightPassengers(svc, offer, status), ...extraPax];
   const pnr = passengers[0] ? passengers[0].pnr : (svc ? svc.pnr : '—');
   const ticket = passengers[0] ? passengers[0].ticket : (svc ? svc.ticket : '—');
   const supplier = svc ? svc.supplier : (offer ? offer.supplier : '—');
@@ -1549,10 +1553,12 @@ function FlightCard({ svc, offer, onBack, onFormKp, onAttachOrder, onAttachPerso
   return (
     <>
     <div className="fade-in">
-      <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 18 }}>
-        <Button variant="secondary" size="sm" icon="chevLeft" onClick={onBack}>Назад</Button>
-        <span style={{ color: 'var(--muted)', fontSize: 14 }}>Авиабилеты / {no}</span>
-      </div>
+      {!hideBackRow && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 18 }}>
+          <Button variant="secondary" size="sm" icon="chevLeft" onClick={onBack}>Назад</Button>
+          <span style={{ color: 'var(--muted)', fontSize: 14 }}>Авиабилеты / {no}</span>
+        </div>
+      )}
 
       {/* header card */}
       <div className="card card-pad" style={{ marginBottom: 18 }}>
@@ -1661,6 +1667,8 @@ function FlightCard({ svc, offer, onBack, onFormKp, onAttachOrder, onAttachPerso
             <div style={{ fontWeight: 700, color: 'var(--ink)', fontSize: 15 }}>Пассажиры</div>
             <Pill tone="blue">{passengers.length} {plural(passengers.length, ['пассажир', 'пассажира', 'пассажиров'])}</Pill>
             {issued && <Pill tone="green">{passengers.filter((p) => p.ticket !== '—').length} билетов</Pill>}
+            <div style={{ flex: 1 }} />
+            <Button size="sm" icon="plus" onClick={() => setAddPaxOpen(true)}>Добавить пассажира</Button>
           </div>
           {passengers.map((p, i) => {
             const paxActions = issued
@@ -1709,19 +1717,30 @@ function FlightCard({ svc, offer, onBack, onFormKp, onAttachOrder, onAttachPerso
       )}
 
       {tab === 'supplier' && (
-        <div className="grid-2">
-          <div className="card card-pad"><div className="kv">
-            <div className="kv-row"><span className="k">Поставщик</span><span className="v">{svc ? svc.supplier : (offer ? offer.supplier : '—')}</span></div>
-            <div className="kv-row"><span className="k">Канал</span><span className="v">API / GDS</span></div>
-            <div className="kv-row"><span className="k">PNR (локатор)</span><span className="v">{pnr}</span></div>
-            <div className="kv-row"><span className="k">Номер билета</span><span className="v">{ticket}</span></div>
-            <div className="kv-row"><span className="k">Дата брони</span><span className="v">14.06.2026</span></div>
-          </div></div>
-          <div className="card card-pad"><div className="kv">
-            <div className="kv-row"><span className="k">Статус оплаты поставщику</span><span className="v"><Pill tone="amber">Ожидает</Pill></span></div>
-            <div className="kv-row"><span className="k">Комиссия</span><span className="v">8% + 15 EUR</span></div>
-            <div className="kv-row"><span className="k">Тайм-лимит выписки</span><span className="v"><TimeLimitBadge>сегодня 18:00</TimeLimitBadge></span></div>
-          </div></div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+          {/* Бланк поставщика: оригинал сохраняется, клиентская версия — правка математики + закрытие тарифа на IT (ТЗ #3/#8) */}
+          <div className="card card-pad" style={{ display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap', borderLeft: '4px solid var(--blue)' }}>
+            <span className="oc-svc-ic" style={{ background: 'var(--blue)', flex: '0 0 auto' }}><Icon name="template" /></span>
+            <div style={{ flex: 1, minWidth: 220 }}>
+              <div style={{ fontWeight: 700, color: 'var(--ink)' }}>Бланк поставщика</div>
+              <div style={{ fontSize: 13, color: 'var(--muted)', marginTop: 2 }}>Оригинал сохраняется без изменений (v1). Клиентская версия — с правкой тарифа/такс/сборов, закрытием тарифа на «IT», единично или группово.</div>
+            </div>
+            <Button icon="edit" onClick={() => setBrandedOpen(true)}>Корректировать бланк</Button>
+          </div>
+          <div className="grid-2">
+            <div className="card card-pad"><div className="kv">
+              <div className="kv-row"><span className="k">Поставщик</span><span className="v">{svc ? svc.supplier : (offer ? offer.supplier : '—')}</span></div>
+              <div className="kv-row"><span className="k">Канал</span><span className="v">API / GDS</span></div>
+              <div className="kv-row"><span className="k">PNR (локатор)</span><span className="v">{pnr}</span></div>
+              <div className="kv-row"><span className="k">Номер билета</span><span className="v">{ticket}</span></div>
+              <div className="kv-row"><span className="k">Дата брони</span><span className="v">14.06.2026</span></div>
+            </div></div>
+            <div className="card card-pad"><div className="kv">
+              <div className="kv-row"><span className="k">Статус оплаты поставщику</span><span className="v"><Pill tone="amber">Ожидает</Pill></span></div>
+              <div className="kv-row"><span className="k">Комиссия</span><span className="v">8% + 15 EUR</span></div>
+              <div className="kv-row"><span className="k">Тайм-лимит выписки</span><span className="v"><TimeLimitBadge>сегодня 18:00</TimeLimitBadge></span></div>
+            </div></div>
+          </div>
         </div>
       )}
 
@@ -1740,9 +1759,24 @@ function FlightCard({ svc, offer, onBack, onFormKp, onAttachOrder, onAttachPerso
       {tab === 'docs' && (
         <div className="grid-4">
           {['Маршрут-квитанция', 'Электронный билет', 'Счёт на оплату'].map((d) => (
-            <button key={d} className="doc-chip"><span style={{ display: 'flex', alignItems: 'center', gap: 8 }}><Icon name="docs" />{d}</span><Icon name="download" /></button>
+            <button key={d} className="doc-chip" onClick={() => toast('Скачивание · ' + d)}><span style={{ display: 'flex', alignItems: 'center', gap: 8 }}><Icon name="docs" />{d}</span><Icon name="download" /></button>
           ))}
-          <button className="doc-chip" style={{ borderStyle: 'dashed', color: 'var(--blue)' }}><span style={{ display: 'flex', alignItems: 'center', gap: 8 }}><Icon name="plus" />Загрузить</span></button>
+          {uploadedDocs.map((d) => (
+            <div key={d.id} className="doc-chip" title={d.name}>
+              <span style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
+                <Icon name="docs" style={{ flexShrink: 0 }} />
+                <span style={{ display: 'flex', flexDirection: 'column', minWidth: 0 }}>
+                  <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{d.name}</span>
+                  <span style={{ fontSize: 11.5, color: 'var(--muted)' }}>{d.type}{d.size ? ' · ' + d.size : ''}</span>
+                </span>
+              </span>
+              <span style={{ display: 'flex', alignItems: 'center', gap: 4, flexShrink: 0 }}>
+                <button className="icon-btn" onClick={() => toast('Скачивание · ' + d.name)} title="Скачать"><Icon name="download" /></button>
+                <button className="icon-btn" onClick={() => { setUploadedDocs((cur) => cur.filter((x) => x.id !== d.id)); toast('Документ удалён'); }} title="Удалить"><Icon name="trash" /></button>
+              </span>
+            </div>
+          ))}
+          <button className="doc-chip" style={{ borderStyle: 'dashed', color: 'var(--blue)' }} onClick={() => setUploadOpen(true)}><span style={{ display: 'flex', alignItems: 'center', gap: 8 }}><Icon name="plus" />Загрузить</span></button>
         </div>
       )}
 
@@ -1788,6 +1822,10 @@ function FlightCard({ svc, offer, onBack, onFormKp, onAttachOrder, onAttachPerso
         itinerary: [{ from: out.from, to: out.to, date: out.date, flightNo: out.flightNo }, ...(back ? [{ from: back.from, to: back.to, date: back.date, flightNo: back.flightNo }] : [])] }}
       currency={currency} orderNo={svc ? svc.order : null} onClose={() => setBrandedOpen(false)} />}
     <SendToPaxDrawer open={sendOpen} passengers={passengers} onClose={() => setSendOpen(false)} />
+    <SvcAddPaxDrawer open={addPaxOpen} isHotel={false} onClose={() => setAddPaxOpen(false)}
+      onAdd={(person) => { setExtraPax((cur) => [...cur, { name: person.name, type: person.role, doc: person.doc, dob: person.dob, ticket: '—', pnr: pnr, docs: [] }]); setAddPaxOpen(false); toast('Пассажир добавлен', 'ok'); }} />
+    <SvcDocUploadDrawer open={uploadOpen} isHotel={false} participants={passengers.map((p) => ({ name: p.name }))} orderNo={svc ? svc.order : null} onClose={() => setUploadOpen(false)}
+      onUploaded={(doc) => { setUploadedDocs((cur) => [...cur, doc]); setUploadOpen(false); toast('Документ загружен', 'ok'); }} />
     {attach && <AttachFlightDrawer mode={attach} svcTitle={out.from + ' → ' + out.to + (back ? ' → ' + back.to : '')}
       onClose={() => setAttach(null)} onDone={(msg) => toast(msg, 'ok')} />}
     <FlightReceiptDrawer open={receiptOpen} passengers={passengers} pax={receiptPax}
@@ -1890,6 +1928,7 @@ function FlightsPage() {
   const [view, setView] = useState('registry'); // registry | search | results | card
   const [svc, setSvc] = useState(null);
   const [offer, setOffer] = useState(null);
+  const [cardNo, setCardNo] = useState(null);    // № открытой карточки — для подзаголовка/подписи
   const toast = useToast();
   const [params, setParams] = useState({
     trip: 'rt', from: 'FRU', to: 'IST', depDate: null, retDate: null,
@@ -1902,14 +1941,15 @@ function FlightsPage() {
 
   return (
     <>
-      <Topbar title={TITLES[view]}>
+      <Topbar title={TITLES[view]} sub={view === 'card' && cardNo ? 'Авиабилеты · ' + cardNo : undefined}>
         <div className="topbar-spacer" />
         {view === 'registry' && <Button icon="search" onClick={() => setView('search')}>Новый поиск</Button>}
+        {view === 'card' && <Button variant="secondary" icon="chevLeft" onClick={() => setView(svc ? 'registry' : 'results')}>{svc ? 'К реестру' : 'К результатам'}</Button>}
       </Topbar>
       <div className="content">
         {view === 'registry' && (
           <FlightsRegistry onNew={() => setView('search')}
-            onOpen={(r) => { setSvc(r); setOffer(null); setView('card'); }} />
+            onOpen={(r) => { setSvc(r); setOffer(null); setCardNo(r.no); setView('card'); }} />
         )}
         {view === 'search' && (
           <FlightSearch params={params} setParams={setParams} onSearch={() => setView('results')} />
@@ -1917,10 +1957,10 @@ function FlightsPage() {
         {view === 'results' && (
           <FlightResults params={params}
             onBackToSearch={() => setView('search')}
-            onSelect={(o) => { setOffer(o); setSvc(null); setView('card'); toast('Предложение добавлено в заказ'); }} />
+            onSelect={(o) => { setOffer(o); setSvc(null); setCardNo('AV-' + Math.floor(10000 + Math.random() * 90000)); setView('card'); toast('Предложение добавлено в заказ'); }} />
         )}
         {view === 'card' && (
-          <FlightCard svc={svc} offer={offer} onBack={() => setView(svc ? 'registry' : 'results')} />
+          <FlightCard svc={svc} offer={offer} no={cardNo} hideBackRow onBack={() => setView(svc ? 'registry' : 'results')} />
         )}
       </div>
     </>

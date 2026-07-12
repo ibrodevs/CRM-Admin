@@ -344,12 +344,13 @@ function useSort(initial) {
 }
 
 /* ---------- Empty / Skeleton ---------- */
-function EmptyState({ icon = 'inbox', title = 'Нет данных', sub }) {
+function EmptyState({ icon = 'inbox', title = 'Нет данных', sub, action }) {
   return (
     <div className="empty">
       <Icon name={icon} strokeWidth={1.5} />
       <div className="e-title">{title}</div>
       {sub && <div className="e-sub">{sub}</div>}
+      {action && <div style={{ marginTop: 14 }}>{action}</div>}
     </div>
   );
 }

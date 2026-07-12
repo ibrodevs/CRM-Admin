@@ -202,11 +202,79 @@ function ServiceCardSendPanel({ item, kind, participants = [], orderNo, currency
   );
 }
 
-function SvcCard({ item, kind, participants = [], onBack }) {
+/* Боковое окно загрузки документа в карточку услуги. Демонстрационное: файл выбирается через
+   системный диалог (или перетаскивается), но не отправляется на сервер. */
+function SvcDocUploadDrawer({ open, isHotel, participants = [], orderNo, onClose, onUploaded }) {
+  const fileRef = useRef(null);
+  const [file, setFile] = useState(null);        // { name, size } | null
+  const docTypes = [isHotel ? 'Ваучер на отель' : 'Ваучер / билет', 'Счёт на оплату', 'Подтверждение', 'Прочее'];
+  const [type, setType] = useState(docTypes[0]);
+  const [participant, setParticipant] = useState('—');
+  const [drag, setDrag] = useState(false);
+  // при каждом открытии — сброс формы
+  useEffect(() => { if (open) { setFile(null); setType(docTypes[0]); setParticipant('—'); setDrag(false); } }, [open, isHotel]);
+
+  const fmtSize = (bytes) => (bytes / 1024 < 1024 ? Math.max(1, Math.round(bytes / 1024)) + ' КБ' : (bytes / 1048576).toFixed(1) + ' МБ');
+  const takeFile = (f) => { if (f) setFile({ name: f.name, size: fmtSize(f.size) }); };
+  const onFile = (e) => { takeFile(e.target.files && e.target.files[0]); e.target.value = ''; };
+  const onDrop = (e) => { e.preventDefault(); setDrag(false); takeFile(e.dataTransfer.files && e.dataTransfer.files[0]); };
+  const pickFile = () => fileRef.current && fileRef.current.click();
+
+  const submit = () => {
+    if (!file) return;
+    onUploaded({
+      id: 'u' + Date.now() + '-' + Math.floor(Math.random() * 1000),
+      name: file.name, size: file.size, type,
+      participant: participant !== '—' ? participant : null,
+      date: new Date().toLocaleDateString('ru-RU'),
+    });
+  };
+
+  const paxOptions = ['—', ...participants.map((p) => p.name)];
+  return (
+    <Drawer open={open} onClose={onClose} title="Загрузка документа" sub={orderNo ? 'Заказ № ' + orderNo : 'Документ карточки услуги'}
+      footer={<>
+        <Button variant="secondary" onClick={onClose}>Отмена</Button>
+        <Button icon="plus" disabled={!file} onClick={submit}>Загрузить</Button>
+      </>}>
+      <div>
+        <input ref={fileRef} type="file" style={{ display: 'none' }} onChange={onFile} />
+        <button type="button" className="doc-preview" onClick={pickFile}
+          onDragOver={(e) => { e.preventDefault(); setDrag(true); }} onDragLeave={() => setDrag(false)} onDrop={onDrop}
+          style={{ width: '100%', cursor: 'pointer', border: '1px dashed ' + (drag ? 'var(--blue)' : 'var(--line)'), background: drag ? 'var(--hover)' : undefined, textAlign: 'center' }}>
+          <Icon name={file ? 'docs' : 'plus'} style={{ width: 40, height: 40 }} strokeWidth={1.4} />
+          <span style={{ fontSize: 13.5, color: file ? 'var(--ink)' : 'var(--blue)', fontWeight: 600 }}>
+            {file ? file.name : 'Выберите файл или перетащите сюда'}
+          </span>
+          <span style={{ fontSize: 12, color: 'var(--muted)' }}>{file ? file.size : 'PDF, JPG, PNG · до 15 МБ'}</span>
+        </button>
+
+        <div style={{ display: 'grid', gridTemplateColumns: participants.length ? '1fr 1fr' : '1fr', gap: 12, marginTop: 16 }}>
+          <div>
+            <label className="lbl" style={{ display: 'block', marginBottom: 6 }}>Тип документа</label>
+            <Select options={docTypes} value={type} onChange={(e) => setType(e.target.value)} />
+          </div>
+          {participants.length > 0 && (
+            <div>
+              <label className="lbl" style={{ display: 'block', marginBottom: 6 }}>Участник</label>
+              <Select options={paxOptions} value={participant} onChange={(e) => setParticipant(e.target.value)} />
+            </div>
+          )}
+        </div>
+      </div>
+    </Drawer>
+  );
+}
+
+function SvcCard({ item, kind, participants = [], hideBackRow, onBack }) {
   const toast = useToast();
   const [tab, setTab] = useState('details');
   const [corrOpen, setCorrOpen] = useState(false);
   const [sendOpen, setSendOpen] = useState(false);
+  const [uploadOpen, setUploadOpen] = useState(false);
+  const [uploadedDocs, setUploadedDocs] = useState([]);   // документы, загруженные вручную в карточку услуги
+  const [pax, setPax] = useState(participants);           // участники/гости услуги — можно добавлять прямо из карточки (ТЗ #5)
+  const [addPaxOpen, setAddPaxOpen] = useState(false);    // боковая форма «Добавить пассажира»
   // Жизненный цикл карточки услуги — свой, независимый от статуса услуги в заказе.
   const initCard = (item.status === 'Выписано' || item.status === 'Подтверждено') ? 'issued' : (item.cardStatus || 'created');
   const [cardSt, setCardSt] = useState(initCard);
@@ -232,7 +300,7 @@ function SvcCard({ item, kind, participants = [], onBack }) {
 
   // Корректировка документов доступна не только для авиа, но и для прочих услуг (запрос клиента).
   const corrCfg = docCorrKind(kind);
-  const corrSubjects = (participants.length ? participants : [{ name: 'Основной заказчик', role: '—' }]).map((pp, i) => ({
+  const corrSubjects = (pax.length ? pax : [{ name: 'Основной заказчик', role: '—' }]).map((pp, i) => ({
     name: pp.name, type: pp.role || 'Взрослый',
     docNo: (no || 'DOC') + '-' + String(i + 1).padStart(2, '0'),
     ref: item.pnr || item.ref || (no || '—'),
@@ -268,7 +336,7 @@ function SvcCard({ item, kind, participants = [], onBack }) {
   };
 
   const TABS = [
-    { key: 'pax', label: paxLabel, count: participants.length || undefined },
+    { key: 'pax', label: paxLabel, count: pax.length || undefined },
     { key: 'details', label: 'Детали' },
     { key: 'card', label: 'Карточка услуги' },
     { key: 'supplier', label: 'Поставщик' },
@@ -280,10 +348,12 @@ function SvcCard({ item, kind, participants = [], onBack }) {
 
   return (
     <div className="fade-in">
-      <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>
-        <Button variant="secondary" size="sm" icon="chevLeft" onClick={onBack}>Назад</Button>
-        <span style={{ color: 'var(--muted)', fontSize: 14 }}>{SVC_CFG_TITLE(kind)} / {no}</span>
-      </div>
+      {!hideBackRow && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>
+          <Button variant="secondary" size="sm" icon="chevLeft" onClick={onBack}>Назад</Button>
+          <span style={{ color: 'var(--muted)', fontSize: 14 }}>{SVC_CFG_TITLE(kind)} / {no}</span>
+        </div>
+      )}
 
       {/* header — 1-в-1 со структурой авиа-карточки */}
       <div className="card card-pad" style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 18, flexWrap: 'wrap' }}>
@@ -314,15 +384,24 @@ function SvcCard({ item, kind, participants = [], onBack }) {
       <div style={{ marginBottom: 18, overflowX: 'auto' }}><Tabs tabs={TABS} value={tab} onChange={setTab} /></div>
 
       {tab === 'pax' && (
-        <div className="table-card">
-          {participants.length ? (
-            <table className="tbl">
-              <thead><tr><th>{isHotel ? 'Гость' : 'Участник'}</th><th>Тип</th><th>Документ</th><th>Дата рожд.</th></tr></thead>
-              <tbody>{participants.map((p, i) => (
-                <tr key={i}><td style={{ fontWeight: 600 }}>{p.name}</td><td>{p.role || 'Взрослый'}</td><td>{p.doc || '—'}</td><td>{p.dob || '—'}</td></tr>
-              ))}</tbody>
-            </table>
-          ) : <EmptyState icon="users" title="Участники не указаны" sub="Добавьте участников во вкладке «Пассажиры» заказа" />}
+        <div>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12, gap: 12, flexWrap: 'wrap' }}>
+            <div style={{ fontSize: 14, color: 'var(--muted)' }}>{pax.length ? pax.length + (isHotel ? ' гост.' : ' участ.') + ' в услуге' : (isHotel ? 'Гости не указаны' : 'Участники не указаны')}</div>
+            <Button size="sm" icon="plus" onClick={() => setAddPaxOpen(true)}>{isHotel ? 'Добавить гостя' : 'Добавить пассажира'}</Button>
+          </div>
+          <div className="table-card">
+            {pax.length ? (
+              <table className="tbl">
+                <thead><tr><th>{isHotel ? 'Гость' : 'Участник'}</th><th>Тип</th><th>Документ</th><th>Дата рожд.</th></tr></thead>
+                <tbody>{pax.map((p, i) => (
+                  <tr key={i}><td style={{ fontWeight: 600 }}>{p.name}</td><td>{p.role || 'Взрослый'}</td><td>{p.doc || '—'}</td><td>{p.dob || '—'}</td></tr>
+                ))}</tbody>
+              </table>
+            ) : (
+              <EmptyState icon="users" title={isHotel ? 'Гости не указаны' : 'Участники не указаны'} sub="Добавьте их прямо здесь — кнопкой справа сверху — или во вкладке «Пассажиры» заказа."
+                action={<Button size="sm" icon="plus" onClick={() => setAddPaxOpen(true)}>{isHotel ? 'Добавить гостя' : 'Добавить пассажира'}</Button>} />
+            )}
+          </div>
         </div>
       )}
 
@@ -395,17 +474,31 @@ function SvcCard({ item, kind, participants = [], onBack }) {
       )}
 
       {tab === 'supplier' && (
-        <div className="grid-2" style={{ alignItems: 'start' }}>
-          <div className="card card-pad"><div className="kv">
-            <div className="kv-row"><span className="k">Поставщик</span><span className="v">{supplier}</span></div>
-            <div className="kv-row"><span className="k">Канал</span><span className="v">{(item.svcOffer && item.svcOffer.channel) || 'API / B2B'}</span></div>
-            <div className="kv-row"><span className="k">Номер брони</span><span className="v">{no}</span></div>
-            <div className="kv-row"><span className="k">Даты</span><span className="v">{item.date || '—'}</span></div>
-          </div></div>
-          <div className="card card-pad"><div className="kv">
-            <div className="kv-row"><span className="k">Статус оплаты поставщику</span><span className="v"><Pill tone="amber">Ожидает</Pill></span></div>
-            <div className="kv-row"><span className="k">Тайм-лимит</span><span className="v"><TimeLimitBadge>сегодня 18:00</TimeLimitBadge></span></div>
-          </div></div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+          {/* Бланк поставщика: сохранить оригинал + корректировать математику (единично/группово), закрыть тариф на IT (авиа) */}
+          <div className="card card-pad" style={{ display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap', borderLeft: '4px solid var(--blue)' }}>
+            <span className="oc-svc-ic" style={{ background: 'var(--blue)', flex: '0 0 auto' }}><Icon name="template" /></span>
+            <div style={{ flex: 1, minWidth: 220 }}>
+              <div style={{ fontWeight: 700, color: 'var(--ink)' }}>Бланк поставщика</div>
+              <div style={{ fontSize: 13, color: 'var(--muted)', marginTop: 2 }}>
+                Оригинал сохраняется без изменений (v1). Клиентская версия — с правкой математики{corrCfg.mode === 'avia' ? ', закрытием тарифа на «IT»' : ''} единично или группово.
+              </div>
+            </div>
+            <Button icon="edit" onClick={() => setCorrOpen(true)}>Корректировать бланк</Button>
+            <Button variant="secondary" icon="clock" onClick={() => setCorrOpen(true)}>Версии</Button>
+          </div>
+          <div className="grid-2" style={{ alignItems: 'start' }}>
+            <div className="card card-pad"><div className="kv">
+              <div className="kv-row"><span className="k">Поставщик</span><span className="v">{supplier}</span></div>
+              <div className="kv-row"><span className="k">Канал</span><span className="v">{(item.svcOffer && item.svcOffer.channel) || 'API / B2B'}</span></div>
+              <div className="kv-row"><span className="k">Номер брони</span><span className="v">{no}</span></div>
+              <div className="kv-row"><span className="k">Даты</span><span className="v">{item.date || '—'}</span></div>
+            </div></div>
+            <div className="card card-pad"><div className="kv">
+              <div className="kv-row"><span className="k">Статус оплаты поставщику</span><span className="v"><Pill tone="amber">Ожидает</Pill></span></div>
+              <div className="kv-row"><span className="k">Тайм-лимит</span><span className="v"><TimeLimitBadge>сегодня 18:00</TimeLimitBadge></span></div>
+            </div></div>
+          </div>
         </div>
       )}
 
@@ -443,8 +536,23 @@ function SvcCard({ item, kind, participants = [], onBack }) {
 
       {tab === 'docs' && (
         <div className="grid-4">
-          {[isHotel ? 'Ваучер на отель' : 'Ваучер / билет', 'Счёт на оплату', 'Подтверждение'].map((d) => (<button key={d} className="doc-chip"><span style={{ display: 'flex', alignItems: 'center', gap: 8 }}><Icon name="docs" />{d}</span><Icon name="download" /></button>))}
-          <button className="doc-chip" style={{ borderStyle: 'dashed', color: 'var(--blue)' }} onClick={() => toast('Загрузка', 'info')}><span style={{ display: 'flex', alignItems: 'center', gap: 8 }}><Icon name="plus" />Загрузить</span></button>
+          {[isHotel ? 'Ваучер на отель' : 'Ваучер / билет', 'Счёт на оплату', 'Подтверждение'].map((d) => (<button key={d} className="doc-chip" onClick={() => toast('Скачивание · ' + d)}><span style={{ display: 'flex', alignItems: 'center', gap: 8 }}><Icon name="docs" />{d}</span><Icon name="download" /></button>))}
+          {uploadedDocs.map((d) => (
+            <div key={d.id} className="doc-chip" title={d.name}>
+              <span style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
+                <Icon name="docs" style={{ flexShrink: 0 }} />
+                <span style={{ display: 'flex', flexDirection: 'column', minWidth: 0 }}>
+                  <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{d.name}</span>
+                  <span style={{ fontSize: 11.5, color: 'var(--muted)' }}>{d.type}{d.size ? ' · ' + d.size : ''}</span>
+                </span>
+              </span>
+              <span style={{ display: 'flex', alignItems: 'center', gap: 4, flexShrink: 0 }}>
+                <button className="icon-btn" onClick={() => toast('Скачивание · ' + d.name)} title="Скачать"><Icon name="download" /></button>
+                <button className="icon-btn" onClick={() => { setUploadedDocs((cur) => cur.filter((x) => x.id !== d.id)); toast('Документ удалён'); }} title="Удалить"><Icon name="trash" /></button>
+              </span>
+            </div>
+          ))}
+          <button className="doc-chip" style={{ borderStyle: 'dashed', color: 'var(--blue)' }} onClick={() => setUploadOpen(true)}><span style={{ display: 'flex', alignItems: 'center', gap: 8 }}><Icon name="plus" />Загрузить</span></button>
         </div>
       )}
 
@@ -468,8 +576,36 @@ function SvcCard({ item, kind, participants = [], onBack }) {
       )}
 
       {corrOpen && <DocCorrectionPanel subjects={corrSubjects} meta={corrMeta} currency={cur || 'USD'} orderNo={item.order || null} onClose={() => setCorrOpen(false)} />}
-      {sendOpen && <ServiceCardSendPanel item={item} kind={kind} participants={participants} orderNo={orderNo} currency={cur} onSent={sendCard} onClose={() => setSendOpen(false)} />}
+      {sendOpen && <ServiceCardSendPanel item={item} kind={kind} participants={pax} orderNo={orderNo} currency={cur} onSent={sendCard} onClose={() => setSendOpen(false)} />}
+      <SvcDocUploadDrawer open={uploadOpen} isHotel={isHotel} participants={pax} orderNo={orderNo} onClose={() => setUploadOpen(false)}
+        onUploaded={(doc) => { setUploadedDocs((cur) => [...cur, doc]); setUploadOpen(false); toast('Документ загружен', 'ok'); }} />
+      <SvcAddPaxDrawer open={addPaxOpen} isHotel={isHotel} onClose={() => setAddPaxOpen(false)}
+        onAdd={(person) => { setPax((cur) => [...cur, person]); setAddPaxOpen(false); toast((isHotel ? 'Гость' : 'Пассажир') + ' добавлен', 'ok'); }} />
     </div>
+  );
+}
+
+/* Боковая форма добавления участника/гостя прямо из карточки услуги (ТЗ #5). */
+function SvcAddPaxDrawer({ open, isHotel, onClose, onAdd }) {
+  const toast = useToast();
+  const ROLES = ['Взрослый', 'Ребёнок', 'Младенец'];
+  const [f, setF] = useState({ name: '', role: 'Взрослый', doc: '', dob: '' });
+  const set = (k, v) => setF((s) => ({ ...s, [k]: v }));
+  useEffect(() => { if (open) setF({ name: '', role: 'Взрослый', doc: '', dob: '' }); }, [open]);
+  const submit = () => {
+    if (!f.name.trim()) { toast('Укажите ФИО', 'err'); return; }
+    onAdd({ name: f.name.trim(), role: f.role, doc: f.doc.trim() || '—', dob: f.dob.trim() || '—' });
+  };
+  return (
+    <Drawer open={open} onClose={onClose} title={isHotel ? 'Добавить гостя' : 'Добавить пассажира'}
+      footer={<><Button variant="secondary" onClick={onClose}>Отмена</Button><Button icon="check" onClick={submit}>Добавить</Button></>}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+        <Field label="ФИО"><Input value={f.name} onChange={(e) => set('name', e.target.value)} placeholder="Фамилия Имя Отчество" autoFocus /></Field>
+        <Field label="Тип"><Select options={ROLES.map((r) => ({ value: r, label: r }))} value={f.role} onChange={(e) => set('role', e.target.value)} /></Field>
+        <Field label="Документ"><Input value={f.doc} onChange={(e) => set('doc', e.target.value)} placeholder="Паспорт / ID" /></Field>
+        <Field label="Дата рождения"><Input value={f.dob} onChange={(e) => set('dob', e.target.value)} placeholder="ДД.ММ.ГГГГ" /></Field>
+      </div>
+    </Drawer>
   );
 }
 function SVC_CFG_TITLE(kind) { const c = Object.values(SVC_CFG).find((x) => x.kind === kind); return c ? c.title : kind; }
@@ -562,9 +698,10 @@ function ServiceFlow({ routeKey }) {
 
   return (
     <>
-      <Topbar title={TITLES[view]}>
+      <Topbar title={TITLES[view]} sub={view === 'card' && item ? cfg.title + ' · ' + (item.no || item.id || '') : undefined}>
         <div className="topbar-spacer" />
         {view === 'registry' && <Button icon="search" onClick={() => setView('search')}>{cfg.searchTitle === 'Подбор тура' ? 'Подобрать тур' : 'Новый поиск'}</Button>}
+        {view === 'card' && item && <Button variant="secondary" icon="chevLeft" onClick={() => setView(item.cost ? 'results' : 'registry')}>{item.cost ? 'К результатам' : 'К реестру'}</Button>}
       </Topbar>
       <div className="content">
         {view === 'registry' && (
@@ -635,7 +772,7 @@ function ServiceFlow({ routeKey }) {
           </div>
         )}
 
-        {view === 'card' && item && <SvcCard item={item} kind={cfg.kind} onBack={() => setView(item.cost ? 'results' : 'registry')} />}
+        {view === 'card' && item && <SvcCard item={item} kind={cfg.kind} hideBackRow onBack={() => setView(item.cost ? 'results' : 'registry')} />}
       </div>
     </>
   );

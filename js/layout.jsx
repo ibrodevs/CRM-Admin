@@ -132,11 +132,14 @@ function AppShell({ route, onNavigate, onLogout, role, topbar, overlays, childre
   );
 }
 
-// Page header (title + optional right-side controls + filter row)
-function Topbar({ title, children }) {
+// Page header (title + optional subtitle + optional right-side controls + filter row)
+function Topbar({ title, sub, children }) {
   return (
     <div className="topbar">
-      <h1 className="page-title">{title}</h1>
+      <div style={{ minWidth: 0 }}>
+        <h1 className="page-title">{title}</h1>
+        {sub && <div style={{ fontSize: 14, color: 'var(--muted)', marginTop: 4, fontWeight: 500 }}>{sub}</div>}
+      </div>
       {children}
     </div>
   );
