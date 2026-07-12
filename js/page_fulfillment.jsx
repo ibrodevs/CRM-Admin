@@ -1100,15 +1100,10 @@ function ReceiptImportModal({ open, onClose, onDone }) {
   );
 
   return (
-    <Modal open={open} onClose={onClose}>
-      <div style={{ padding: '22px 24px 24px' }}>
-        <div className="modal-head" style={{ marginBottom: 6 }}>
-          <div>
-            <h2 className="modal-title">Импорт маршрут-квитанций</h2>
-            <div className="modal-sub">Квитанции распознаются, сверяются и привязываются к заказу. Оригиналы поставщиков не меняются.</div>
-          </div>
-          <button className="modal-close" onClick={onClose}><Icon name="x" /></button>
-        </div>
+    <Drawer open={open} onClose={onClose} title="Импорт маршрут-квитанций"
+      sub="Квитанции сверяются и привязываются к заказу. Оригиналы поставщиков не меняются."
+      width="min(1180px,98vw)">
+      <div>
 
         <input ref={fileRef} type="file" multiple style={{ display: 'none' }} onChange={onPick} accept=".pdf,.jpg,.jpeg,.png" />
 
@@ -1165,11 +1160,11 @@ function ReceiptImportModal({ open, onClose, onDone }) {
                   </div>
                 )}
 
-                <div className="table-card">
-                  <table className="tbl">
+                <div className="table-card" style={{ overflowX: 'auto' }}>
+                  <table className="tbl" style={{ minWidth: 980 }}>
                     <thead><tr>
                       <th style={{ width: 34 }}>{doneRows.length > 0 && <Checkbox on={allSel} onChange={() => setSel(allSel ? {} : Object.fromEntries(doneRows.map((r) => [r.f.id, true])))} />}</th>
-                      <th>Квитанция</th><th>Маршрут / сумма</th><th style={{ width: 150 }}>Финансы (клиенту)</th><th style={{ width: 130 }}>Статус</th><th style={{ width: 200 }}>Действие</th><th style={{ width: 40 }}></th>
+                      <th>Квитанция</th><th>Маршрут / сумма</th><th style={{ width: 150 }}>Финансы (клиенту)</th><th style={{ width: 130 }}>Статус</th><th style={{ width: 190, position: 'sticky', right: 40, background: 'var(--surface-2)', zIndex: 2 }}>Действие</th><th style={{ width: 40, position: 'sticky', right: 0, background: 'var(--surface-2)', zIndex: 2 }}></th>
                     </tr></thead>
                     <tbody>
                       {rows.map((r) => {
@@ -1184,7 +1179,7 @@ function ReceiptImportModal({ open, onClose, onDone }) {
                               <td><div className="sk" style={{ height: 12, width: 140, marginBottom: 6 }} /><div className="sk" style={{ height: 10, width: 90 }} /></td>
                               <td><div className="sk" style={{ height: 12, width: 90, marginBottom: 6 }} /><div className="sk" style={{ height: 10, width: 70 }} /></td>
                               <td><Pill tone={r.status === 'Сканируется' ? 'blue' : 'gray'}>{r.status}</Pill></td>
-                              <td colSpan={2}></td>
+                              <td colSpan={2} style={{ position: 'sticky', right: 0, background: '#fff' }}></td>
                             </tr>
                           );
                         }
@@ -1194,7 +1189,7 @@ function ReceiptImportModal({ open, onClose, onDone }) {
                         return (
                           <tr key={r.f.id} style={{ height: 72, opacity: skipped ? 0.5 : 1 }}>
                             <td><Checkbox on={!!sel[r.f.id]} onChange={() => setSel((s) => ({ ...s, [r.f.id]: !s[r.f.id] }))} /></td>
-                            <td>
+                            <td style={{ position: 'sticky', right: 40, background: '#fff', zIndex: 1 }}>
                               <span style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                                 <span style={{ width: 30, height: 30, borderRadius: 8, background: t.color, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', flex: '0 0 30px' }}><Icon name={t.icon} style={{ width: 16, height: 16, color: '#fff' }} /></span>
                                 <span><span style={{ display: 'block', fontWeight: 600, color: 'var(--ink)' }}>{p.passenger}</span><span style={{ fontSize: 12, color: 'var(--muted)' }}>{p.carrier} · {r.f.type}</span></span>
@@ -1221,7 +1216,7 @@ function ReceiptImportModal({ open, onClose, onDone }) {
                                   </div>
                                 )}
                             </td>
-                            <td><button className="btn btn-ghost btn-sm" onClick={() => remove(r.f.id)}><Icon name="trash" style={{ width: 15, height: 15 }} /></button></td>
+                            <td style={{ position: 'sticky', right: 0, background: '#fff', zIndex: 1 }}><button className="btn btn-ghost btn-sm" onClick={() => remove(r.f.id)}><Icon name="trash" style={{ width: 15, height: 15 }} /></button></td>
                           </tr>
                         );
                       })}
@@ -1274,7 +1269,7 @@ function ReceiptImportModal({ open, onClose, onDone }) {
             currency={p.currency || 'RUB'} orderNo={orderPick !== 'Новый заказ' ? orderPick : null} onClose={() => setBrandId(null)} />
         );
       })()}
-    </Modal>
+    </Drawer>
   );
 }
 
