@@ -56,7 +56,7 @@ function App() {
       role={role} topbar={topbar} overlays={overlays} sidebarCollapsed={!!ctxOrder || route.split('/')[0] === 'chats'}>
       {blocked && <AccessDenied onNavigate={navigate} />}
       {!blocked && <>
-      {route === 'dashboard' && <DashboardPage onNavigate={navigate} onAddOrder={createOrder} onOpenOrder={openOrder} />}
+      {route === 'dashboard' && <DashboardPage role={role} onNavigate={navigate} onAddOrder={createOrder} onOpenOrder={openOrder} />}
       {route === 'orders' && <OrdersPage intent={intent} onConsume={() => setIntent(null)} orders={orders} addOrder={addOrder} onDetailChange={setCtxOrder} onOpenChat={() => setChatOpen(true)} />}
       {route === 'flights' && <FlightsPage />}
       {route === 'suppliers' && <SuppliersPage intent={intent} onConsume={() => setIntent(null)} suppliers={suppliers} addSupplier={addSupplier} />}

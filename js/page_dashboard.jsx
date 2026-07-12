@@ -316,145 +316,264 @@ function DashDetailEmpty({ title }) {
   );
 }
 
-function DashboardPage({ onNavigate, onAddOrder, onOpenOrder }) {
+/* ---------- Демо-данные для показателей дашборда (в проде — из API/БД) ---------- */
+const SUPPLIER_STATS = [
+  { name: 'Amadeus GDS',      apiErrors: 3, failed: 2, avgResp: '1.8 с', tone: 'red' },
+  { name: 'Sirena',          apiErrors: 0, failed: 0, avgResp: '0.9 с', tone: 'green' },
+  { name: 'Ratehawk',        apiErrors: 1, failed: 0, avgResp: '2.4 с', tone: 'amber' },
+  { name: 'Air Astana (NDC)', apiErrors: 0, failed: 1, avgResp: '1.2 с', tone: 'green' },
+  { name: 'Qatar (API)',     apiErrors: 2, failed: 1, avgResp: '3.1 с', tone: 'amber' },
+];
+const OPERATORS_WORK = [
+  { name: 'Даниель',           handled: 21, orders: 6, issued: 8, earn: 142, profit: 470, sla: 'ok' },
+  { name: 'Куба',              handled: 17, orders: 4, issued: 5, earn: 96,  profit: 320, sla: 'red' },
+  { name: 'Адилет Медербеков',  handled: 14, orders: 5, issued: 6, earn: 88,  profit: 260, sla: 'ok' },
+  { name: 'Кими Райкконен',     handled: 9,  orders: 2, issued: 3, earn: 54,  profit: 140, sla: 'amber' },
+];
+const TODAY_TRIPS = [
+  { type: 'Вылет',     icon: 'plane',    main: 'FRU → IST · Turkish TK 4521',   sub: 'Нуралиев Данияр · 09:40',   order: 51162 },
+  { type: 'Заселение', icon: 'building', main: 'Jannat Hotel · 3 ночи',          sub: 'Аттокуров Эрбол · заезд 14:00', order: 51163 },
+  { type: 'Трансфер',  icon: 'car',      main: 'Аэропорт Манас → отель',         sub: 'Группа · подача 12:30',      order: 51154 },
+  { type: 'Поездка',   icon: 'train',    main: 'Москва → СПб · Купе',            sub: 'Сагынбеков Икрам · 11:05',   order: 51156 },
+  { type: 'Вылет',     icon: 'plane',    main: 'FRU → DXB · Air Astana',         sub: 'Асылов Айбек · 18:20',       order: 51171 },
+];
+const MY_TASKS = [
+  { title: 'Выписать билеты по заказу № 51170', due: 'до 18:00',  tone: 'red',   order: 51170 },
+  { title: 'Ответить клиенту в чате · Гранд лимитед', due: '15 мин', tone: 'red', order: 51162 },
+  { title: 'Согласовать КП-1033 с клиентом', due: 'сегодня', tone: 'amber', order: 51156 },
+  { title: 'Загрузить паспорт · Аттокуров Эрбол', due: 'до 15.06', tone: 'amber', order: 51163 },
+];
+
+function DashboardPage({ role, onNavigate, onAddOrder, onOpenOrder }) {
   const [search, setSearch] = useState('');
   const [searchOpen, setSearchOpen] = useState(false);
-  const [sel, setSel] = useState('overdue');       // выбранный виджет
-  const [errCodeOpen, setErrCodeOpen] = useState(null); // код ошибки в справочнике
+  const [errCodeOpen, setErrCodeOpen] = useState(null);
+  const [, tick] = useState(0); // перерисовка по смене/таймеру (длительность смены)
+
+  const isMgr = role === 'Админ' || role === 'Менеджер';
+  const [sel, setSel] = useState(isMgr ? 'overdue' : 'mytasks');
+  const shift = window.SHIFT_STATE || null;
+
+  useEffect(() => {
+    const onShift = () => tick((t) => t + 1);
+    window.addEventListener('shift-change', onShift);
+    const id = setInterval(() => tick((t) => t + 1), 60000);
+    return () => { window.removeEventListener('shift-change', onShift); clearInterval(id); };
+  }, []);
+  // при смене категории роли выбранный виджет может исчезнуть — вернуть к дефолтному
+  useEffect(() => { setSel(isMgr ? 'overdue' : 'mytasks'); }, [isMgr]);
 
   const money = (n) => Math.round(n || 0).toLocaleString('ru-RU') + ' $';
   const fin = financeOverview();
   const slaRows = SLA_QUEUE.map((q) => ({ ...q, tone: slaTone(q.waited, q.limit) }));
   const slaOverdue = slaRows.filter((r) => r.tone === 'red').length;
-  const slaHeating = slaRows.filter((r) => r.tone === 'amber').length;
   const errNotifs = NOTIFICATIONS.filter((n) => n.source === 'Интеграции');
-  const errUnread = errNotifs.filter((n) => !n.read).length;
-  const attention = NOTIFICATIONS.filter((n) => (n.priority === 'Критический' || n.priority === 'Высокий') && !n.read);
-  const debtRows = fin.urgent.filter((u) => u.kind === 'отсрочка');
+  const supErrTotal = SUPPLIER_STATS.reduce((s, x) => s + x.apiErrors, 0);
 
-  const WIDGETS = [
-    { key: 'attention', label: 'Требуют внимания', value: attention.length, tone: attention.length ? 'red' : 'green', icon: 'bell' },
-    { key: 'overdue',   label: 'Просрочки оплат',  value: fin.overdueCount, sub: fin.overdue > 0 ? money(fin.overdue) : null, tone: fin.overdue > 0 ? 'red' : 'green', icon: 'finance' },
-    { key: 'sla',       label: 'Отклик на заявки', value: slaOverdue, sub: slaHeating ? 'накал ' + slaHeating : (slaOverdue ? null : 'в норме'), tone: slaOverdue ? 'red' : slaHeating ? 'amber' : 'green', icon: 'clock' },
-    { key: 'errors',    label: 'Ошибки интеграций', value: errUnread, tone: errUnread ? 'red' : 'green', icon: 'api' },
-    { key: 'debt',      label: 'Задолженность',    value: money(fin.debt), tone: fin.debt > 0 ? 'amber' : 'green', icon: 'bank', small: true },
-    { key: 'orders',    label: 'Заказы в работе',  value: ORDERS.length, tone: 'blue', icon: 'orders' },
+  // сегодняшние операции (смена оператора → показатели «за сегодня»)
+  const shOps = shift ? shift.ops : SHIFT_DEMO_OPS;
+  const shT = shiftTotals(shOps, motivationFor('Даниель'));
+  const issuedToday = shOps.filter((o) => o.type === 'Выписка').length;
+  const salesToday = shOps.reduce((s, o) => s + Math.max(0, o.cost), 0);
+
+  const isActive = (s) => s !== 'Завершено' && s !== 'Отменено' && s !== 'Отклонено';
+  const returnsActive = RETURNS.filter((r) => isActive(r.status));
+  const approvals = [
+    ...PROPOSALS.filter((p) => p.status === 'На согласовании' || p.status === 'Отправлено клиенту').map((p) => ({ label: p.id, who: p.client, kind: 'КП', order: p.order })),
+    ...RETURNS.filter((r) => r.status === 'Ожидает согласования клиента').map((r) => ({ label: r.no + ' · ' + r.type, who: r.client, kind: 'Возврат', order: r.order })),
+  ];
+  const deadlines = [
+    ...returnsActive.map((r) => ({ label: r.type + ' · ' + r.no, who: r.client, date: r.deadline, tone: 'red', order: r.order, icon: 'refund' })),
+    ...PROPOSALS.filter((p) => p.validUntil && p.status !== 'Согласовано' && p.status !== 'Отклонено').map((p) => ({ label: 'Срок КП · ' + p.id, who: p.client, date: p.validUntil, tone: 'amber', order: p.order, icon: 'template' })),
   ];
 
   const openErr = (code) => setErrCodeOpen(code || '');
+  const goOrder = (no) => { const o = ORDERS.find((x) => x.no === no); o ? onOpenOrder(o) : onNavigate('orders'); };
 
-  /* ------- контент детали под выбранный виджет ------- */
+  // Роль-адаптивный набор виджетов: руководитель — по компании, оператор — свои
+  const WIDGETS = isMgr ? [
+    { key: 'newreq',    label: 'Новые заявки',      value: SLA_QUEUE.length, tone: 'blue', icon: 'inbox' },
+    { key: 'ordersToday', label: 'Заказы сегодня',  value: shT.orders, tone: 'blue', icon: 'orders' },
+    { key: 'issued',    label: 'Выписано услуг',    value: issuedToday, tone: 'green', icon: 'check' },
+    { key: 'sales',     label: 'Продажи сегодня',   value: money(salesToday), small: true, tone: 'blue', icon: 'finance' },
+    { key: 'profit',    label: 'Прибыль сегодня',   value: money(shT.profit), small: true, tone: 'green', icon: 'bank' },
+    { key: 'returns',   label: 'Возвраты и обмены', value: returnsActive.length, tone: returnsActive.length ? 'amber' : 'green', icon: 'refund' },
+    { key: 'approvals', label: 'Согласования',      value: approvals.length, tone: approvals.length ? 'amber' : 'green', icon: 'template' },
+    { key: 'deadlines', label: 'Дедлайны',          value: deadlines.length, tone: deadlines.length ? 'red' : 'green', icon: 'clock' },
+    { key: 'overdue',   label: 'Просрочки оплат',   value: fin.overdueCount, sub: fin.overdue > 0 ? money(fin.overdue) : null, tone: fin.overdue > 0 ? 'red' : 'green', icon: 'alertCircle' },
+    { key: 'risk',      label: 'Депозит / лимит',   value: fin.urgent.length, tone: fin.urgent.length ? 'amber' : 'green', icon: 'bank' },
+    { key: 'operators', label: 'Работа операторов', value: OPERATORS_WORK.length, tone: 'blue', icon: 'users' },
+    { key: 'suppliers', label: 'Поставщики (API)',  value: supErrTotal, sub: 'ошибок', tone: supErrTotal ? 'red' : 'green', icon: 'api' },
+    { key: 'trips',     label: 'Вылеты и заезды',   value: TODAY_TRIPS.length, tone: 'blue', icon: 'plane' },
+    { key: 'activity',  label: 'Активность',        value: RECENT_CHANGES.length, tone: 'blue', icon: 'clock' },
+  ] : [
+    { key: 'mytasks',   label: 'Мои задачи',        value: MY_TASKS.length, tone: MY_TASKS.length ? 'amber' : 'green', icon: 'clipboard' },
+    { key: 'newreq',    label: 'Мои новые заявки',  value: SLA_QUEUE.length, tone: 'blue', icon: 'inbox' },
+    { key: 'ordersToday', label: 'Заказы сегодня',  value: shT.orders, tone: 'blue', icon: 'orders' },
+    { key: 'issued',    label: 'Выписано услуг',    value: issuedToday, tone: 'green', icon: 'check' },
+    { key: 'myearn',    label: 'Заработок сегодня', value: money(shT.earn), small: true, tone: 'blue', icon: 'finance' },
+    { key: 'approvals', label: 'Мои согласования',  value: approvals.length, tone: approvals.length ? 'amber' : 'green', icon: 'template' },
+    { key: 'deadlines', label: 'Мои дедлайны',      value: deadlines.length, tone: deadlines.length ? 'red' : 'green', icon: 'clock' },
+    { key: 'returns',   label: 'Возвраты и обмены', value: returnsActive.length, tone: returnsActive.length ? 'amber' : 'green', icon: 'refund' },
+  ];
+
+  const DTITLE = {
+    newreq: 'Новые заявки · отклик', ordersToday: 'Заказы за сегодня', issued: 'Выписанные услуги за сегодня',
+    sales: 'Продажи за сегодня', profit: 'Финансовые показатели за сегодня', returns: 'Возвраты и обмены в обработке',
+    approvals: 'Открытые согласования', deadlines: 'Ближайшие дедлайны', overdue: 'Просрочки оплат по клиентам',
+    risk: 'Клиенты: депозит и лимит отсрочки', operators: 'Работа операторов', suppliers: 'Статистика по поставщикам',
+    trips: 'Вылеты, заселения и поездки сегодня', activity: 'Активность пользователей', mytasks: 'Мои задачи', myearn: 'Мой заработок за смену',
+  };
+
+  // компактная строка-ссылка
+  const Row = ({ icon, iconBg, title, sub, right, tone, onClick }) => (
+    <button type="button" onClick={onClick} style={{ cursor: onClick ? 'pointer' : 'default', textAlign: 'left', width: '100%', border: '1px solid var(--line)', borderLeft: '3px solid var(--' + (tone || 'line-strong') + ')', background: '#fff', borderRadius: 12, padding: '10px 12px', display: 'flex', alignItems: 'center', gap: 12 }}>
+      {icon && <span className="oc-svc-ic" style={{ background: iconBg || 'var(--blue)', width: 32, height: 32 }}><Icon name={icon} style={{ width: 16, height: 16 }} /></span>}
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ fontWeight: 600, color: 'var(--ink)' }}>{title}</div>
+        {sub && <div style={{ fontSize: 12.5, color: 'var(--muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{sub}</div>}
+      </div>
+      {right}
+      {onClick && <Icon name="chevRight" style={{ width: 18, height: 18, color: 'var(--muted-2)' }} />}
+    </button>
+  );
+  const List = ({ children }) => <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>{children}</div>;
+
+  /* ------- деталь выбранного виджета ------- */
   const renderDetail = () => {
-    if (sel === 'attention') {
-      if (!attention.length) return <DashDetailEmpty title="Нет срочных уведомлений" />;
-      return (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-          {attention.map((n) => {
-            const src = NOTIF_SOURCE[n.source] || NOTIF_SOURCE['Система'];
-            return (
-              <button key={n.id} type="button" onClick={() => notifGo(n, onNavigate, onOpenOrder)}
-                style={{ cursor: 'pointer', textAlign: 'left', width: '100%', border: '1px solid var(--line)', borderLeft: '3px solid var(--' + (NOTIF_PRIORITY[n.priority] || 'blue') + ')', background: '#fff', borderRadius: 12, padding: '10px 12px', display: 'flex', alignItems: 'center', gap: 12 }}>
-                <span className="oc-svc-ic" style={{ background: src.color, width: 32, height: 32 }}><Icon name={src.icon} style={{ width: 16, height: 16 }} /></span>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontWeight: 600, color: 'var(--ink)' }}>{n.title}</div>
-                  <div style={{ fontSize: 12.5, color: 'var(--muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{n.desc}</div>
-                </div>
-                <Pill tone={NOTIF_PRIORITY[n.priority]}>{n.priority}</Pill>
-                <span style={{ fontSize: 12, color: 'var(--muted-2)', whiteSpace: 'nowrap' }}>{n.time}</span>
-                <Icon name="chevRight" style={{ width: 18, height: 18, color: 'var(--muted-2)' }} />
-              </button>
-            );
-          })}
-        </div>
-      );
-    }
-    if (sel === 'overdue' || sel === 'debt') {
-      const list = sel === 'overdue' ? fin.urgent : debtRows;
-      if (!list.length) return <DashDetailEmpty title={sel === 'overdue' ? 'Просрочек по оплатам нет' : 'Задолженностей нет'} />;
-      return (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-          {list.map((u, i) => (
-            <button key={i} type="button" onClick={() => onNavigate('companies')}
-              style={{ cursor: 'pointer', width: '100%', textAlign: 'left', border: '1px solid var(--line)', borderLeft: '3px solid var(--' + u.tone + ')', background: '#fff', borderRadius: 12, padding: '10px 12px', display: 'flex', alignItems: 'center', gap: 12 }}>
-              <span className="oc-svc-ic" style={{ background: 'var(--' + u.tone + ')', width: 32, height: 32, opacity: .9 }}><Icon name="bank" style={{ width: 16, height: 16 }} /></span>
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontWeight: 600, color: 'var(--ink)' }}>{u.co}</div>
-                <div style={{ fontSize: 12.5, color: 'var(--muted)' }}>{u.text}</div>
-              </div>
-              <Pill tone={u.tone}>{u.kind}</Pill>
-              <span style={{ fontWeight: 700, whiteSpace: 'nowrap', color: 'var(--' + u.tone + ')' }}>{money(u.value)}</span>
-              <Icon name="chevRight" style={{ width: 18, height: 18, color: 'var(--muted-2)' }} />
-            </button>
-          ))}
-        </div>
-      );
-    }
-    if (sel === 'sla') {
-      return (
-        <table className="tbl">
-          <thead><tr><th>Заявка</th><th>Клиент</th><th>Оператор</th><th>Ожидает</th><th>Норматив</th><th>Статус</th></tr></thead>
-          <tbody>
-            {slaRows.map((r, i) => (
-              <tr key={i} style={{ cursor: 'pointer' }} onClick={() => { const o = ORDERS.find((x) => x.no === r.no); o && onOpenOrder && onOpenOrder(o); }}>
+    switch (sel) {
+      case 'newreq':
+        return (
+          <table className="tbl">
+            <thead><tr><th>Заявка</th><th>Клиент</th><th>Оператор</th><th>Ожидает</th><th>Норматив</th><th>Статус</th></tr></thead>
+            <tbody>{slaRows.map((r, i) => (
+              <tr key={i} style={{ cursor: 'pointer' }} onClick={() => goOrder(r.no)}>
                 <td className="t-strong">№ {r.no}</td><td>{r.client}</td><td>{r.operator}</td>
                 <td style={{ fontWeight: 600, color: r.tone === 'red' ? 'var(--red)' : r.tone === 'amber' ? 'var(--amber)' : 'var(--ink)' }}>{r.waited} мин</td>
                 <td className="t-muted">{r.limit} мин</td><td><Pill tone={r.tone}>{slaLabel(r.tone)}</Pill></td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      );
-    }
-    if (sel === 'errors') {
-      if (!errNotifs.length) return <DashDetailEmpty title="Ошибок интеграций нет" />;
-      return (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-          {errNotifs.map((n) => (
-            <div key={n.id} style={{ border: '1px solid var(--line)', borderLeft: '3px solid var(--red)', background: '#fff', borderRadius: 12, padding: '10px 12px', display: 'flex', alignItems: 'center', gap: 12 }}>
-              <span className="oc-svc-ic" style={{ background: 'var(--red)', width: 32, height: 32 }}><Icon name="api" style={{ width: 16, height: 16 }} /></span>
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontWeight: 600, color: 'var(--ink)' }}>{n.title}</div>
-                <div style={{ fontSize: 12.5, color: 'var(--muted)' }}>{n.desc}</div>
-              </div>
-              {n.errCode && <button type="button" className="link-chip" title="Открыть код ошибки" onClick={() => openErr(n.errCode)} style={{ fontFamily: 'ui-monospace, Menlo, monospace', fontWeight: 700 }}><Icon name="api" />{n.errCode}</button>}
-              {n.order && <Button size="sm" variant="secondary" iconRight="arrowRight" onClick={() => notifGo(n, onNavigate, onOpenOrder)}>Заказ</Button>}
-            </div>
-          ))}
-          <button type="button" className="link-chip" style={{ alignSelf: 'flex-start', marginTop: 2 }} onClick={() => openErr('')}>Открыть справочник кодов<Icon name="arrowRight" /></button>
-        </div>
-      );
-    }
-    // orders
-    return (
-      <div>
-        <div className="stackbar" style={{ marginBottom: 6 }}>
-          {ORDER_BREAKDOWN.map((b, i) => (<span key={i} style={{ width: b.pct + '%', background: b.color }} title={`${b.label} ${b.pct}%`} />))}
-        </div>
-        <div className="legend" style={{ marginBottom: 16 }}>
-          {ORDER_BREAKDOWN.map((b, i) => (<div key={i} className="legend-item"><span className="dot" style={{ background: b.color }} />{b.label} ({b.pct}%) <span className="cnt">{b.count}</span></div>))}
-        </div>
-        <table className="tbl">
-          <thead><tr><th style={{ width: 80 }}>№</th><th>Клиент</th><th>Статус</th><th>Ответственный</th><th>Тип</th><th style={{ width: 60 }}></th></tr></thead>
-          <tbody>
-            {ORDERS.filter((o) => o.client.toLowerCase().includes(search.toLowerCase())).slice(0, 8).map((o, i) => (
+              </tr>))}</tbody>
+          </table>
+        );
+      case 'ordersToday':
+        return (
+          <table className="tbl">
+            <thead><tr><th style={{ width: 80 }}>№</th><th>Клиент</th><th>Статус</th><th>Ответственный</th><th>Тип</th><th style={{ width: 50 }}></th></tr></thead>
+            <tbody>{ORDERS.slice(0, 8).map((o, i) => (
               <tr key={i} style={{ cursor: 'pointer' }} onClick={() => onOpenOrder(o)}>
                 <td className="t-strong">{o.no}</td><td className="t-strong">{o.client}</td>
-                <td><Pill tone={ORDER_STATUS[o.status]}>{o.status}</Pill></td>
-                <td>{o.operator}</td><td><Pill tone="blue">{o.requestType}</Pill></td>
-                <td><span className="go-dot"><Icon name="chevRight" /></span></td>
-              </tr>
+                <td><Pill tone={ORDER_STATUS[o.status]}>{o.status}</Pill></td><td>{o.operator}</td>
+                <td><Pill tone="blue">{o.requestType}</Pill></td><td><span className="go-dot"><Icon name="chevRight" /></span></td>
+              </tr>))}</tbody>
+          </table>
+        );
+      case 'issued': case 'sales': case 'myearn':
+        return (
+          <table className="tbl">
+            <thead><tr><th>Время</th><th>Услуга</th><th>Заказ</th><th>Тип</th><th style={{ textAlign: 'right' }}>Стоимость</th><th style={{ textAlign: 'right' }}>{sel === 'myearn' ? 'Заработок' : 'Сборы'}</th></tr></thead>
+            <tbody>{shOps.map((o, i) => (
+              <tr key={i} style={{ cursor: 'pointer' }} onClick={() => goOrder(o.order)}>
+                <td className="t-muted">{o.time}</td><td className="t-strong">{o.title}</td><td>№ {o.order}</td>
+                <td><Pill tone={o.type === 'Выписка' ? 'green' : o.type === 'Обмен' ? 'blue' : 'amber'}>{o.type}</Pill></td>
+                <td style={{ textAlign: 'right' }}>{money(o.cost)}</td>
+                <td style={{ textAlign: 'right', fontWeight: 700, color: 'var(--blue)' }}>{sel === 'myearn' ? money(operatorEarn(o, motivationFor('Даниель'))) : money(o.serviceFee + o.markup + o.commission)}</td>
+              </tr>))}</tbody>
+          </table>
+        );
+      case 'profit':
+        return (
+          <div className="grid-4" style={{ gap: 14 }}>
+            {[['Сервисные сборы', shT.serviceFee, 'blue'], ['Агентские надбавки', shT.markup, 'teal'], ['Комиссионное вознаграждение', shT.commission, 'amber'], ['Заработок операторов', shT.earn, 'gray'], ['Итого сборы', shT.feesTotal, 'blue'], ['Продажи (оборот)', salesToday, 'gray'], ['Прибыль компании', shT.profit, 'green']].map(([l, v, t], i) => (
+              <div key={i} className="stat-card" style={{ borderLeft: '3px solid var(--' + t + ')' }}>
+                <div className="s-label">{l}</div>
+                <div className="s-value" style={{ fontSize: 24, color: t === 'green' ? 'var(--green)' : 'var(--ink)' }}>{money(v)}</div>
+              </div>
             ))}
-          </tbody>
-        </table>
-      </div>
-    );
+          </div>
+        );
+      case 'returns':
+        if (!returnsActive.length) return <DashDetailEmpty title="Возвратов и обменов в обработке нет" />;
+        return <List>{returnsActive.map((r, i) => (
+          <Row key={i} icon={RETURN_TYPE[r.type] ? RETURN_TYPE[r.type].icon : 'refund'} iconBg="var(--blue)" tone="amber"
+            title={r.type + ' · ' + r.no} sub={r.client + ' · ' + r.service}
+            right={<Pill tone={RETURN_STATUS[r.status]}>{r.status}</Pill>} onClick={() => goOrder(r.order)} />
+        ))}</List>;
+      case 'approvals':
+        if (!approvals.length) return <DashDetailEmpty title="Открытых согласований нет" />;
+        return <List>{approvals.map((a, i) => (
+          <Row key={i} icon="template" iconBg="var(--blue)" tone="amber" title={a.label} sub={a.who}
+            right={<Pill tone="gray">{a.kind}</Pill>} onClick={() => goOrder(a.order)} />
+        ))}</List>;
+      case 'deadlines':
+        if (!deadlines.length) return <DashDetailEmpty title="Ближайших дедлайнов нет" />;
+        return <List>{deadlines.map((d, i) => (
+          <Row key={i} icon={d.icon} iconBg={'var(--' + d.tone + ')'} tone={d.tone} title={d.label} sub={d.who}
+            right={<span style={{ fontWeight: 700, color: 'var(--' + d.tone + ')', whiteSpace: 'nowrap' }}>{d.date}</span>} onClick={() => goOrder(d.order)} />
+        ))}</List>;
+      case 'overdue': case 'risk': {
+        const list = sel === 'overdue' ? fin.urgent.filter((u) => u.tone === 'red') : fin.urgent;
+        if (!list.length) return <DashDetailEmpty title={sel === 'overdue' ? 'Просрочек по оплатам нет' : 'Рисков по депозитам и лимитам нет'} />;
+        return <List>{list.map((u, i) => (
+          <Row key={i} icon="bank" iconBg={'var(--' + u.tone + ')'} tone={u.tone} title={u.co} sub={u.text}
+            right={<><Pill tone={u.tone}>{u.kind}</Pill><span style={{ fontWeight: 700, color: 'var(--' + u.tone + ')', whiteSpace: 'nowrap', marginLeft: 8 }}>{money(u.value)}</span></>}
+            onClick={() => onNavigate('companies')} />
+        ))}</List>;
+      }
+      case 'operators':
+        return (
+          <table className="tbl">
+            <thead><tr><th>Оператор</th><th>Заявок</th><th>Заказов</th><th>Услуг</th><th style={{ textAlign: 'right' }}>Заработок</th><th style={{ textAlign: 'right' }}>Прибыль компании</th><th>SLA</th></tr></thead>
+            <tbody>{OPERATORS_WORK.map((o, i) => (
+              <tr key={i}>
+                <td className="t-strong">{o.name}</td><td>{o.handled}</td><td>{o.orders}</td><td>{o.issued}</td>
+                <td style={{ textAlign: 'right', fontWeight: 700, color: 'var(--blue)' }}>{money(o.earn)}</td>
+                <td style={{ textAlign: 'right', fontWeight: 700, color: 'var(--green)' }}>{money(o.profit)}</td>
+                <td><Pill tone={o.sla === 'ok' ? 'green' : o.sla}>{o.sla === 'red' ? 'Просрочка' : o.sla === 'amber' ? 'Накал' : 'В норме'}</Pill></td>
+              </tr>))}</tbody>
+          </table>
+        );
+      case 'suppliers':
+        return (
+          <table className="tbl">
+            <thead><tr><th>Поставщик</th><th>Ошибки API</th><th>Неуспешные брони</th><th>Ср. время ответа</th><th>Статус</th></tr></thead>
+            <tbody>{SUPPLIER_STATS.map((s, i) => (
+              <tr key={i}>
+                <td className="t-strong">{s.name}</td>
+                <td style={{ color: s.apiErrors ? 'var(--red)' : 'var(--muted-2)', fontWeight: s.apiErrors ? 700 : 400 }}>{s.apiErrors}</td>
+                <td style={{ color: s.failed ? 'var(--amber)' : 'var(--muted-2)', fontWeight: s.failed ? 700 : 400 }}>{s.failed}</td>
+                <td>{s.avgResp}</td><td><Pill tone={s.tone}>{s.tone === 'red' ? 'Сбои' : s.tone === 'amber' ? 'Замедления' : 'Стабильно'}</Pill></td>
+              </tr>))}</tbody>
+          </table>
+        );
+      case 'trips':
+        return <List>{TODAY_TRIPS.map((t, i) => (
+          <Row key={i} icon={t.icon} iconBg="var(--blue)" tone="blue" title={t.main} sub={t.sub}
+            right={<Pill tone="blue">{t.type}</Pill>} onClick={() => goOrder(t.order)} />
+        ))}</List>;
+      case 'activity':
+        return <List>{RECENT_CHANGES.map((r, i) => (
+          <Row key={i} icon="clock" iconBg="var(--muted-2)" title={r.desc} sub={r.client + ' · ' + r.resp + ' · ' + r.dept}
+            right={<span style={{ fontSize: 12.5, color: 'var(--muted-2)' }}>{r.time}</span>} />
+        ))}</List>;
+      case 'mytasks':
+        return <List>{MY_TASKS.map((t, i) => (
+          <Row key={i} icon="clipboard" iconBg={'var(--' + t.tone + ')'} tone={t.tone} title={t.title} sub={'Заказ № ' + t.order}
+            right={<span style={{ fontWeight: 700, color: 'var(--' + t.tone + ')', whiteSpace: 'nowrap' }}>{t.due}</span>} onClick={() => goOrder(t.order)} />
+        ))}</List>;
+      default:
+        return <DashDetailEmpty title="Нет данных" />;
+    }
   };
 
-  const detailTitle = { attention: 'Требуют внимания', overdue: 'Просрочки оплат по клиентам', sla: 'Отклик операторов на заявки', errors: 'Ошибки интеграций', debt: 'Задолженность клиентов', orders: 'Заказы и статистика' }[sel];
+  const shiftStat = (l, v, accent) => (
+    <div style={{ flex: '1 1 120px', minWidth: 110 }}>
+      <div style={{ fontSize: 12, color: 'var(--muted)' }}>{l}</div>
+      <div style={{ fontSize: 20, fontWeight: 800, color: accent ? 'var(--' + accent + ')' : 'var(--ink)', letterSpacing: '-.01em' }}>{v}</div>
+    </div>
+  );
 
   return (
     <div className="fade-in" style={{ display: 'flex', flexDirection: 'column', height: '100vh', minHeight: 0 }}>
-      <Topbar title="Добрый день, Айсулуу">
+      <Topbar title={isMgr ? 'Добрый день, Айсулуу' : 'Мой рабочий день'}>
         <div className="topbar-spacer" />
         <SearchBox value={search} onChange={setSearch} placeholder="Поиск" style={{ width: 220 }} />
         <Button variant="secondary" icon="search" onClick={() => setSearchOpen(true)}>Поиск услуг</Button>
@@ -463,21 +582,43 @@ function DashboardPage({ onNavigate, onAddOrder, onOpenOrder }) {
 
       {searchOpen && <DetailedSearchPanel onClose={() => setSearchOpen(false)} />}
 
-      <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', padding: '10px 38px 22px' }}>
-        {/* виджеты — клик переключает деталь ниже */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6, minmax(0, 1fr))', gap: 12, marginBottom: 16 }}>
+      <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', padding: '10px 38px 22px', overflowY: 'auto' }}>
+        {/* Блок «Моя смена» — только при открытой смене */}
+        {shift && (
+          <div className="card card-pad" style={{ marginBottom: 16, borderLeft: '3px solid var(--green)', background: 'var(--green-bg, #f2fbf6)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12, flexWrap: 'wrap' }}>
+              <span style={{ width: 9, height: 9, borderRadius: '50%', background: 'var(--green)' }} />
+              <h3 className="card-title" style={{ fontSize: 16, margin: 0 }}>Моя смена</h3>
+              <Pill tone="green">открыта · с {shiftFmtTime(shift.openedAt)}</Pill>
+              <div style={{ flex: 1 }} />
+              <span style={{ fontSize: 12.5, color: 'var(--muted)' }}>Отчёт и закрытие — в меню смены в шапке</span>
+            </div>
+            <div style={{ display: 'flex', gap: 18, flexWrap: 'wrap' }}>
+              {shiftStat('Продолжительность', shiftDuration(shift.openedAt))}
+              {shiftStat('Обработано заявок', SHIFT_REQUESTS_HANDLED)}
+              {shiftStat('Оформлено заказов', shT.orders)}
+              {shiftStat('Выписано услуг', issuedToday)}
+              {shiftStat('Текущий заработок', money(shT.earn), 'blue')}
+              {shiftStat('Прибыль компании', money(shT.profit), 'green')}
+            </div>
+          </div>
+        )}
+
+        {/* KPI-виджеты — клик переключает деталь ниже */}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))', gap: 12, marginBottom: 16 }}>
           {WIDGETS.map((w) => (<DashTile key={w.key} w={w} active={sel === w.key} onClick={() => setSel(w.key)} />))}
         </div>
 
-        {/* деталь выбранного виджета — заполняет остаток экрана, скролл внутри */}
-        <div className="card" style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+        {/* деталь выбранного виджета */}
+        <div className="card" style={{ flex: 1, minHeight: 320, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '14px 18px', borderBottom: '1px solid var(--line)', flexShrink: 0 }}>
-            <h2 className="card-title" style={{ fontSize: 17, margin: 0 }}>{detailTitle}</h2>
+            <h2 className="card-title" style={{ fontSize: 17, margin: 0 }}>{DTITLE[sel] || ''}</h2>
             <div style={{ flex: 1 }} />
-            {sel === 'errors' && <Button variant="secondary" size="sm" icon="api" onClick={() => openErr('')}>Коды ошибок</Button>}
-            {(sel === 'overdue' || sel === 'debt') && <Button variant="secondary" size="sm" icon="building" onClick={() => onNavigate('companies')}>Все компании</Button>}
-            {sel === 'attention' && <Button variant="secondary" size="sm" icon="bell" onClick={() => onNavigate('notifications')}>Все уведомления</Button>}
-            {sel === 'orders' && <Button variant="secondary" size="sm" icon="orders" onClick={() => onNavigate('orders')}>Все заказы</Button>}
+            {sel === 'suppliers' && <Button variant="secondary" size="sm" icon="suppliers" onClick={() => onNavigate('suppliers')}>Все поставщики</Button>}
+            {(sel === 'overdue' || sel === 'risk') && <Button variant="secondary" size="sm" icon="building" onClick={() => onNavigate('companies')}>Все компании</Button>}
+            {(sel === 'returns') && <Button variant="secondary" size="sm" icon="refund" onClick={() => onNavigate('returns')}>Все возвраты</Button>}
+            {(sel === 'ordersToday' || sel === 'newreq') && <Button variant="secondary" size="sm" icon="orders" onClick={() => onNavigate('orders')}>Все заказы</Button>}
+            {sel === 'activity' && <Button variant="secondary" size="sm" icon="bell" onClick={() => onNavigate('notifications')}>Все события</Button>}
           </div>
           <div className="scroll" style={{ flex: 1, minHeight: 0, overflow: 'auto', padding: 16 }}>
             {renderDetail()}

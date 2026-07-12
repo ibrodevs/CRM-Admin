@@ -197,7 +197,7 @@ function ProfilePage({ onNavigate, initialTab }) {
   const [pw, setPw] = useState({ cur: '', next: '', confirm: '' });
   const [showPw, setShowPw] = useState(false);
   const [pwErr, setPwErr] = useState({});
-  const [notif, setNotif] = useState({ email: true, telegram: true, push: true, desktop: false, newReq: true, exchRet: true, overdue: true, chat: true, orderChg: false });
+  const [notif, setNotif] = useState({ incrm: true, email: true, telegram: true, max: true, whatsapp: false, sms: false, push: true, desktop: false, newReq: true, exchRet: true, overdue: true, chat: true, orderChg: false });
   const [rolesOpen, setRolesOpen] = useState(false); // матрица прав — боковым окном, без ухода со страницы
   const [prefs, setPrefs] = useState({ theme: 'Светлая', dateFmt: 'ДД.ММ.ГГГГ', timeFmt: '24 часа', currency: 'USD', lang: u.lang, pageSize: '25', startPage: 'Главное' });
 
@@ -229,8 +229,14 @@ function ProfilePage({ onNavigate, initialTab }) {
     { time: 'Вчера, 18:02', ip: '212.42.100.7', place: 'Бишкек, KG', ok: true },
     { time: '05.07.2026, 22:41', ip: '95.140.10.3', place: 'Неизвестно', ok: false },
   ];
-  const notifRows = [
-    ['email', 'E-mail'], ['telegram', 'Telegram'], ['push', 'Push'], ['desktop', 'Desktop'],
+  // Каналы доставки уведомлений оператору. «В системе» — центр уведомлений (колокольчик);
+  // MAX — наш мессенджер (наравне с Telegram); WhatsApp/SMS — резервные для критичных.
+  const channelRows = [
+    ['incrm', 'В системе (центр уведомлений)', 'bell'], ['email', 'E-mail', 'mail'],
+    ['telegram', 'Telegram', 'send'], ['max', 'MAX', 'chat'], ['whatsapp', 'WhatsApp', 'chat'],
+    ['sms', 'SMS', 'phone'], ['push', 'Push (моб. приложение)', 'bell'], ['desktop', 'Desktop (браузер)', 'grid'],
+  ];
+  const eventRows = [
     ['newReq', 'По новым заявкам'], ['exchRet', 'По обменам и возвратам'], ['overdue', 'По просроченным задачам'],
     ['chat', 'По сообщениям чата'], ['orderChg', 'По изменениям заказов'],
   ];
@@ -276,7 +282,9 @@ function ProfilePage({ onNavigate, initialTab }) {
               <Field label="Рабочий e-mail"><Input value={pf.workEmail} onChange={setField('workEmail')} leadIcon="mail" /></Field>
               <Field label="Рабочий телефон"><Input value={pf.workPhone} onChange={setField('workPhone')} leadIcon="phone" /></Field>
               <Field label="Внутренний номер"><Input value={pf.internalPhone} onChange={setField('internalPhone')} /></Field>
-              <Field label="Telegram"><Input value={pf.telegram} onChange={setField('telegram')} /></Field>
+              <Field label="Telegram"><Input value={pf.telegram} onChange={setField('telegram')} placeholder="@username" /></Field>
+              <Field label="MAX"><Input value={pf.max || ''} onChange={setField('max')} placeholder="ID или номер" /></Field>
+              <Field label="WhatsApp"><Input value={pf.whatsapp || ''} onChange={setField('whatsapp')} leadIcon="phone" placeholder="+996 700 000 000" /></Field>
               <Field label="Статус"><Select options={WORK_STATUS} value={pf.workStatus} onChange={setField('workStatus')} /></Field>
               <Field label="Часовой пояс"><Select options={['(GMT+6) Бишкек', '(GMT+3) Москва', '(GMT+5) Ташкент']} value={pf.tz} onChange={setField('tz')} /></Field>
               <Field label="Язык интерфейса"><Select options={['Русский', 'Кыргызча', 'English']} value={pf.lang} onChange={setField('lang')} /></Field>
@@ -337,15 +345,20 @@ function ProfilePage({ onNavigate, initialTab }) {
         {/* ---- Уведомления ---- */}
         {tab === 'notif' && (
           <div className="card card-pad fade-in" style={{ maxWidth: 680 }}>
-            <div style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--muted)', marginBottom: 6 }}>Каналы</div>
-            {notifRows.slice(0, 4).map(([k, l]) => (
-              <div key={k} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 0', borderBottom: '1px solid var(--line)' }}>
-                <span style={{ fontSize: 15, color: 'var(--ink)' }}>{l}</span>
-                <Toggle on={notif[k]} onChange={(v) => setNotif((n) => ({ ...n, [k]: v }))} />
-              </div>
-            ))}
-            <div style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--muted)', margin: '16px 0 6px' }}>События</div>
-            {notifRows.slice(4).map(([k, l], i, arr) => (
+            <div style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--muted)', marginBottom: 10 }}>Каналы доставки</div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '4px 22px' }}>
+              {channelRows.map(([k, l, icon]) => (
+                <div key={k} style={{ display: 'flex', alignItems: 'center', gap: 10, justifyContent: 'space-between', padding: '11px 0', borderBottom: '1px solid var(--line)' }}>
+                  <span style={{ display: 'flex', alignItems: 'center', gap: 9, fontSize: 14.5, color: 'var(--ink)' }}>
+                    <Icon name={icon} style={{ width: 16, height: 16, color: 'var(--muted-2)' }} />{l}
+                  </span>
+                  <Toggle on={notif[k]} onChange={(v) => setNotif((n) => ({ ...n, [k]: v }))} />
+                </div>
+              ))}
+            </div>
+            <div style={{ fontSize: 12.5, color: 'var(--muted-2)', margin: '10px 0 0' }}>В системе — центр уведомлений (колокольчик). MAX — основной мессенджер наравне с Telegram; WhatsApp и SMS — резервные для критичных событий.</div>
+            <div style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--muted)', margin: '20px 0 6px' }}>События</div>
+            {eventRows.map(([k, l], i, arr) => (
               <div key={k} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 0', borderBottom: i < arr.length - 1 ? '1px solid var(--line)' : 'none' }}>
                 <span style={{ fontSize: 15, color: 'var(--ink)' }}>{l}</span>
                 <Toggle on={notif[k]} onChange={(v) => setNotif((n) => ({ ...n, [k]: v }))} />

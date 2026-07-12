@@ -360,11 +360,13 @@ function ShiftControl({ role, onOpenOrder }) {
   const openShift = () => {
     const s = { openedAt: new Date(), closedAt: null, ops: SHIFT_DEMO_OPS };
     window.SHIFT_STATE = s; setShift(s);
+    window.dispatchEvent(new CustomEvent('shift-change'));
     toast('Смена открыта · ' + shiftFmtTime(s.openedAt), 'ok');
   };
   const confirmClose = () => {
     const s = { ...shift, closedAt: new Date() };
     window.SHIFT_STATE = null; setShift(null); setPanel(null);
+    window.dispatchEvent(new CustomEvent('shift-change'));
     toast('Смена закрыта · ' + shiftDuration(s.openedAt, s.closedAt), 'ok');
   };
 
