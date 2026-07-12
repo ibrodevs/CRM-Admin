@@ -920,6 +920,42 @@ function ReceiptEditDrawer({ open, file, onClose, onChange }) {
   );
 }
 
+/* Редактор финансовой математики одной квитанции (единично) — бланк поставщика не меняется. */
+function ReceiptMathDrawer({ open, file, math, onSave, onClose }) {
+  const [m, setM] = useState(math || { tariff: 0, fee: 0, markup: 0, commission: 0 });
+  useEffect(() => { if (open && math) setM(math); }, [open, file && file.id]);
+  if (!open || !file) return null;
+  const cur = file.parsed.currency; const sym = cur === 'USD' ? '$' : cur;
+  const num = (v) => Math.round(Number(v) || 0);
+  const client = num(m.tariff) + num(m.fee) + num(m.markup);
+  const fld = (k, l, hint) => (
+    <div>
+      <div style={{ fontSize: 12.5, color: 'var(--muted)', marginBottom: 5 }}>{l}, {sym}{hint && <span style={{ color: 'var(--muted-2)' }}> · {hint}</span>}</div>
+      <input className="input" type="number" min="0" value={m[k] ?? ''} onChange={(e) => setM((s) => ({ ...s, [k]: e.target.value }))} />
+    </div>
+  );
+  return (
+    <Drawer open={open} onClose={onClose} title={'Математика · ' + (file.parsed.passenger || 'квитанция')}
+      sub={'Бланк поставщика: ' + recMoney(Number(file.parsed.total) || 0, cur) + ' — сохраняется без изменений'}
+      width="min(460px,94vw)"
+      footer={<>
+        <Button variant="secondary" onClick={onClose}>Отмена</Button>
+        <Button icon="check" onClick={() => { onSave({ tariff: num(m.tariff), fee: num(m.fee), markup: num(m.markup), commission: num(m.commission) }); onClose(); }}>Сохранить</Button>
+      </>}>
+      <div style={{ display: 'grid', gap: 14 }}>
+        {fld('tariff', 'Тариф поставщика', 'из бланка')}
+        {fld('fee', 'Сервисный сбор')}
+        {fld('markup', 'Агентская надбавка')}
+        {fld('commission', 'Комиссия поставщика')}
+      </div>
+      <div className="card card-pad" style={{ marginTop: 16, background: 'var(--surface-2)' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 700, color: 'var(--ink)' }}><span>Итого клиенту</span><span>{recMoney(client, cur)}</span></div>
+        <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 4 }}>Тариф + сбор + надбавка. Комиссия — вознаграждение от поставщика.</div>
+      </div>
+    </Drawer>
+  );
+}
+
 /* ====================================================================
    ИМПОРТ МАРШРУТ-КВИТАНЦИЙ — модальная панель по паттерну клиента
    («Импорт списка пассажиров», Авиа (подбор)/Импорт группы.png):
@@ -935,10 +971,21 @@ function ReceiptImportModal({ open, onClose, onDone }) {
   const [orderPick, setOrderPick] = useState('Новый заказ');
   const [optAddIncomplete, setOptAddIncomplete] = useState(false);
   const [optCreateServices, setOptCreateServices] = useState(true);
+  // Финансовая математика поверх оригинального бланка поставщика (бланк не меняется)
+  const [math, setMath] = useState({});         // id -> { tariff, fee, markup, commission }
+  const [sel, setSel] = useState({});           // id -> true (для группового применения)
+  const [mathId, setMathId] = useState(null);   // id квитанции в редакторе суммы (единично)
+  const [bulk, setBulk] = useState({ fee: '', markup: '', commission: '' });
+  const [saveBlank, setSaveBlank] = useState(true);
   const fileRef = useRef(null);
   const poolCounter = useRef({});
 
-  useEffect(() => { if (open) { setFiles([]); setExcluded({}); setEditId(null); setOrderPick('Новый заказ'); setOptAddIncomplete(false); setOptCreateServices(true); poolCounter.current = {}; } }, [open]);
+  useEffect(() => { if (open) { setFiles([]); setExcluded({}); setEditId(null); setOrderPick('Новый заказ'); setOptAddIncomplete(false); setOptCreateServices(true); setMath({}); setSel({}); setMathId(null); setBulk({ fee: '', markup: '', commission: '' }); setSaveBlank(true); poolCounter.current = {}; } }, [open]);
+
+  // математика по квитанции: сохранённая правка или дефолт из бланка поставщика
+  const getMath = (id, p) => math[id] || { tariff: Math.round(Number(p && p.total) || 0), fee: 0, markup: 0, commission: 0 };
+  const setMathFor = (id, p, patch) => setMath((m) => ({ ...m, [id]: { ...getMath(id, p), ...patch } }));
+  const clientTotal = (m) => Math.round((Number(m.tariff) || 0) + (Number(m.fee) || 0) + (Number(m.markup) || 0));
 
   const fmtSize = (b) => (b / 1024 < 1024 ? Math.max(1, Math.round(b / 1024)) + ' КБ' : (b / 1048576).toFixed(1) + ' МБ');
   const addFiles = (list) => {
@@ -967,25 +1014,45 @@ function ReceiptImportModal({ open, onClose, onDone }) {
   const processing = files.some((f) => f.status !== 'done');
   const done = files.filter((f) => f.status === 'done');
 
-  // сверка: статус по каждой готовой квитанции (в порядке загрузки — для детекции дублей)
+  // Все квитанции показываем строками сразу (в очереди/сканируется/готово) и обновляем на месте —
+  // строки не «допрыгивают» по мере распознавания. Статус готовых — из распознанных данных.
   const rows = React.useMemo(() => {
     const seen = new Set();
-    return done.map((f) => ({ f, status: receiptStatus(f.parsed, seen) }));
-  }, [done.map((f) => f.id + (f.parsed ? f.parsed.ticketNo : '')).join(',')]);
+    return files.map((f) => ({
+      f,
+      pending: f.status !== 'done',
+      status: f.status === 'done' ? receiptStatus(f.parsed, seen) : (f.status === 'scanning' ? 'Сканируется' : 'В очереди'),
+    }));
+  }, [files.map((f) => f.id + f.status + (f.parsed ? f.parsed.ticketNo : '')).join(',')]);
+  const doneRows = rows.filter((r) => !r.pending);
 
   // дубли по умолчанию исключаются из добавления
   useEffect(() => {
     setExcluded((cur) => {
       const next = { ...cur };
-      rows.forEach((r) => { if (r.status === 'Возможный дубль' && next[r.f.id] === undefined) next[r.f.id] = true; });
+      doneRows.forEach((r) => { if (r.status === 'Возможный дубль' && next[r.f.id] === undefined) next[r.f.id] = true; });
       return next;
     });
-  }, [rows.map((r) => r.f.id + r.status).join(',')]);
+  }, [doneRows.map((r) => r.f.id + r.status).join(',')]);
 
-  const counts = rows.reduce((a, r) => { a[r.status] = (a[r.status] || 0) + 1; return a; }, {});
-  const isEligible = (r) => !excluded[r.f.id] && r.status !== 'Ошибка' && (r.status !== 'Требует проверки' || optAddIncomplete);
-  const toAdd = rows.filter(isEligible);
+  const counts = doneRows.reduce((a, r) => { a[r.status] = (a[r.status] || 0) + 1; return a; }, {});
+  const isEligible = (r) => !r.pending && !excluded[r.f.id] && r.status !== 'Ошибка' && (r.status !== 'Требует проверки' || optAddIncomplete);
+  const toAdd = doneRows.filter(isEligible);
   const editFile = files.find((f) => f.id === editId) || null;
+  const mathFile = files.find((f) => f.id === mathId) || null;
+
+  // групповое применение математики к выбранным (или ко всем готовым, если ничего не выбрано)
+  const selIds = doneRows.filter((r) => sel[r.f.id]).map((r) => r.f.id);
+  const applyBulk = () => {
+    const targets = (selIds.length ? doneRows.filter((r) => sel[r.f.id]) : doneRows);
+    const patch = {};
+    if (bulk.fee !== '') patch.fee = Number(bulk.fee) || 0;
+    if (bulk.markup !== '') patch.markup = Number(bulk.markup) || 0;
+    if (bulk.commission !== '') patch.commission = Number(bulk.commission) || 0;
+    if (!Object.keys(patch).length) { toast('Укажите сбор, надбавку или комиссию', 'err'); return; }
+    setMath((m) => { const n = { ...m }; targets.forEach((r) => { n[r.f.id] = { ...getMath(r.f.id, r.f.parsed), ...patch }; }); return n; });
+    toast('Математика применена к ' + targets.length + ' квитанц.' + (saveBlank ? ' · бланки поставщика сохранены' : ''), 'ok');
+  };
 
   const finish = () => {
     if (!toAdd.length) { toast('Нет квитанций для добавления', 'err'); return; }
@@ -993,12 +1060,15 @@ function ReceiptImportModal({ open, onClose, onDone }) {
     const isNew = orderPick === 'Новый заказ';
     const orderNo = isNew ? 'новый' : Number(orderPick.replace(/[^0-9]/g, '').slice(0, 5));
     const docs = toAdd.map((r) => {
-      const t = recType(r.f.type); const p = r.f.parsed;
+      const t = recType(r.f.type); const p = r.f.parsed; const m = getMath(r.f.id, p);
       return {
         no: 'D-' + Math.floor(3200 + Math.random() * 800),
         name: t.doc + ' ' + (p.carrier || '') + ' · ' + (p.passenger || '').split(/[\/ ]/)[0],
         type: t.doc, order: orderNo, participant: p.passenger || '—', service: r.f.type + ' · распознано',
         finOp: '—', status: 'Черновик', version: 1, date: now, size: r.f.size, parsed: p, recType: r.f.type,
+        // бланк поставщика (оригинал) сохраняется отдельно; math — наша редактируемая математика
+        supplierBlank: saveBlank ? { total: Number(p.total) || 0, currency: p.currency } : null,
+        math: { ...m, clientTotal: clientTotal(m), currency: p.currency },
         versions: [{ v: 1, date: now, who: (window.CURRENT_USER && CURRENT_USER.name) || 'Оператор', note: 'Импорт из квитанции' }],
         history: [{ t: now, text: 'Распознано и привязано к заказу ' + orderNo, who: (window.CURRENT_USER && CURRENT_USER.name) || 'Оператор' }],
       };
@@ -1041,36 +1111,73 @@ function ReceiptImportModal({ open, onClose, onDone }) {
           <>
             {/* Квитанции обработаны — счётчики */}
             <RSub>Квитанции обработаны</RSub>
-            <div className="card card-pad" style={{ display: 'flex', alignItems: 'center' }}>
-              {processing ? (
-                <div style={{ display: 'flex', alignItems: 'center', gap: 10, color: 'var(--muted)', fontSize: 13.5, padding: '4px 0' }}>
-                  <Icon name="loader" style={{ width: 16, height: 16, animation: 'spin 1s linear infinite' }} /> Распознаём квитанции… {done.length}/{files.length}
+            <div className="card card-pad" style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+              <Stat label="Распознано" value={counts['Распознано']} tone="green" />
+              <Stat label="Требует проверки" value={counts['Требует проверки']} tone="amber" />
+              <Stat label="Дубли" value={counts['Возможный дубль']} tone="red" />
+              <Stat label="Ошибка" value={counts['Ошибка']} tone="muted-2" />
+              {processing && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: 'var(--muted)', fontSize: 12.5, whiteSpace: 'nowrap', paddingLeft: 12, borderLeft: '1px solid var(--line)' }}>
+                  <Icon name="loader" style={{ width: 15, height: 15, animation: 'spin 1s linear infinite' }} /> {done.length}/{files.length}
                 </div>
-              ) : (
-                <>
-                  <Stat label="Распознано" value={counts['Распознано']} tone="green" />
-                  <Stat label="Требует проверки" value={counts['Требует проверки']} tone="amber" />
-                  <Stat label="Дубли" value={counts['Возможный дубль']} tone="red" />
-                  <Stat label="Ошибка" value={counts['Ошибка']} tone="muted-2" />
-                </>
               )}
             </div>
 
             {/* Сверка квитанций */}
-            {rows.length > 0 && (
+            {rows.length > 0 && (() => {
+              const allSel = doneRows.length > 0 && doneRows.every((r) => sel[r.f.id]);
+              return (
               <>
                 <RSub>Сверка квитанций</RSub>
+
+                {/* Математика поставщика — групповое применение сбора/надбавки/комиссии */}
+                {doneRows.length > 0 && (
+                  <div className="card card-pad" style={{ marginBottom: 12, display: 'flex', alignItems: 'flex-end', gap: 12, flexWrap: 'wrap' }}>
+                    <div style={{ flex: '0 0 100%', fontSize: 12.5, color: 'var(--muted)', marginBottom: -4 }}>
+                      Математика: применить к {selIds.length ? 'выбранным (' + selIds.length + ')' : 'всем квитанциям'}. Оригинальный бланк поставщика сохраняется.
+                    </div>
+                    {[['fee', 'Сервисный сбор'], ['markup', 'Надбавка'], ['commission', 'Комиссия']].map(([k, l]) => (
+                      <div key={k} style={{ width: 130 }}>
+                        <div style={{ fontSize: 11.5, color: 'var(--muted)', marginBottom: 4 }}>{l}, $</div>
+                        <input className="input" type="number" min="0" placeholder="0" value={bulk[k]} onChange={(e) => setBulk((b) => ({ ...b, [k]: e.target.value }))} />
+                      </div>
+                    ))}
+                    <Button size="sm" icon="calc" onClick={applyBulk}>Применить{selIds.length ? ' (' + selIds.length + ')' : ' ко всем'}</Button>
+                    <div style={{ flex: 1 }} />
+                    <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color: 'var(--body)', cursor: 'pointer' }}>
+                      <Checkbox on={saveBlank} onChange={() => setSaveBlank((v) => !v)} /> Сохранить бланк поставщика
+                    </label>
+                  </div>
+                )}
+
                 <div className="table-card">
                   <table className="tbl">
-                    <thead><tr><th>Квитанция</th><th>Маршрут / сумма</th><th style={{ width: 150 }}>Статус</th><th style={{ width: 130 }}>Действие</th><th style={{ width: 40 }}></th></tr></thead>
+                    <thead><tr>
+                      <th style={{ width: 34 }}>{doneRows.length > 0 && <Checkbox on={allSel} onChange={() => setSel(allSel ? {} : Object.fromEntries(doneRows.map((r) => [r.f.id, true])))} />}</th>
+                      <th>Квитанция</th><th>Маршрут / сумма</th><th style={{ width: 150 }}>Финансы (клиенту)</th><th style={{ width: 130 }}>Статус</th><th style={{ width: 120 }}>Действие</th><th style={{ width: 40 }}></th>
+                    </tr></thead>
                     <tbody>
                       {rows.map((r) => {
-                        const t = recType(r.f.type); const p = r.f.parsed; const st = REC_STATUS[r.status];
+                        const t = recType(r.f.type); const p = r.f.parsed; const st = REC_STATUS[r.status] || { tone: 'gray' };
                         const skipped = !!excluded[r.f.id];
+                        if (r.pending) {
+                          return (
+                            <tr key={r.f.id} style={{ height: 58 }}>
+                              <td></td>
+                              <td><span style={{ display: 'flex', alignItems: 'center', gap: 10 }}><span style={{ width: 30, height: 30, borderRadius: 8, background: 'var(--surface-2)', flex: '0 0 30px' }} /><span style={{ flex: 1 }}><div className="sk" style={{ height: 12, width: 120, marginBottom: 6 }} /><div className="sk" style={{ height: 10, width: 80 }} /></span></span></td>
+                              <td><div className="sk" style={{ height: 12, width: 140 }} /></td>
+                              <td><div className="sk" style={{ height: 12, width: 90 }} /></td>
+                              <td><Pill tone={r.status === 'Сканируется' ? 'blue' : 'gray'}>{r.status}</Pill></td>
+                              <td colSpan={2}></td>
+                            </tr>
+                          );
+                        }
+                        const m = getMath(r.f.id, p);
                         const routeStr = routeSummary(p);
                         const isStayRow = t.legLabel === 'Проживание';
                         return (
                           <tr key={r.f.id} style={{ opacity: skipped ? 0.5 : 1 }}>
+                            <td><Checkbox on={!!sel[r.f.id]} onChange={() => setSel((s) => ({ ...s, [r.f.id]: !s[r.f.id] }))} /></td>
                             <td>
                               <span style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                                 <span style={{ width: 30, height: 30, borderRadius: 8, background: t.color, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', flex: '0 0 30px' }}><Icon name={t.icon} style={{ width: 16, height: 16, color: '#fff' }} /></span>
@@ -1079,7 +1186,13 @@ function ReceiptImportModal({ open, onClose, onDone }) {
                             </td>
                             <td>
                               <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}><span style={{ color: 'var(--body)' }}>{routeStr}</span>{!isStayRow && <Pill tone="blue">{tripLabel(p)}</Pill>}</span>
-                              <span style={{ fontSize: 12, color: 'var(--muted)' }}>{recMoney(Number(p.total) || 0, p.currency)}</span>
+                              <span style={{ fontSize: 12, color: 'var(--muted)' }}>Бланк: {recMoney(Number(p.total) || 0, p.currency)}</span>
+                            </td>
+                            <td>
+                              <button type="button" className="btn btn-ghost btn-sm" style={{ padding: 0, height: 'auto', display: 'block', textAlign: 'left' }} title="Изменить математику" onClick={() => setMathId(r.f.id)}>
+                                <span style={{ display: 'block', fontWeight: 700, color: 'var(--ink)' }}>{recMoney(clientTotal(m), p.currency)}</span>
+                                <span style={{ fontSize: 11.5, color: 'var(--blue)' }}>сбор {m.fee || 0} · надб. {m.markup || 0} · изменить</span>
+                              </button>
                             </td>
                             <td><Pill tone={st.tone}>{r.status}</Pill></td>
                             <td>
@@ -1095,7 +1208,8 @@ function ReceiptImportModal({ open, onClose, onDone }) {
                   </table>
                 </div>
               </>
-            )}
+              );
+            })()}
 
             {/* Настройка добавления */}
             <RSub>Настройка добавления</RSub>
@@ -1121,6 +1235,8 @@ function ReceiptImportModal({ open, onClose, onDone }) {
       </div>
 
       <ReceiptEditDrawer open={!!editFile} file={editFile} onClose={() => setEditId(null)} onChange={updateParsed} />
+      <ReceiptMathDrawer open={!!mathFile} file={mathFile} math={mathFile ? getMath(mathFile.id, mathFile.parsed) : null}
+        onSave={(patch) => { setMathFor(mathFile.id, mathFile.parsed, patch); }} onClose={() => setMathId(null)} />
     </Modal>
   );
 }
