@@ -604,7 +604,7 @@ function DocCenter({ scopeOrder, participants, onOpenDoc }) {
       <DocUploadModal open={!!uploadFor} scopeOrder={scopeOrder} participants={participants || []}
         defaultParticipant={uploadFor && uploadFor.participant}
         onClose={() => setUploadFor(null)}
-        onUploaded={(doc) => { setDocs((cur) => [doc, ...cur]); setUploadFor(null); toast('Документ загружен', 'ok'); }}
+        onUploaded={(doc) => { setDocs((cur) => [doc, ...cur]); setUploadFor(null); toast('Файл добавлен в документы заказа', 'ok', { title: 'Документ загружен', action: { label: 'Открыть «Документы»', route: 'documents' } }); }}
         onRouteToEditor={(info) => { setUploadFor(null); setEditorFor({ participant: info.participant !== '—' ? info.participant : null }); }} />
 
       {editorFor && (

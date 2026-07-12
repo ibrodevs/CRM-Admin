@@ -409,7 +409,7 @@ function ReturnsModule({ scopeOrder, onOpenOrder, compact, order }) {
       documents: (d.docs || []).map((n) => ({ name: n, kind: 'Основание', status: 'Загружен', v: 1 })),
       history: [{ t: 'сейчас', text: 'Запрос создан' + (parts[0] !== '—' ? ' · ' + parts.length + ' пасс.' : '') + (d.voluntary === false ? ' · вынужденный' : ''), who: 'Даниель' }] };
     setOps((cur) => [np, ...cur]); setNewOpen(false); setActiveNo(no); setView('card');
-    toast('Запрос ' + no + ' создан', 'ok');
+    toast(no + ' создан', 'ok', { title: 'Запрос оформлен', action: { label: 'Открыть «Возвраты и обмены»', route: 'returns' } });
   };
 
   if (view === 'card' && active) return (

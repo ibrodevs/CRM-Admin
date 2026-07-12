@@ -19,6 +19,8 @@ function App() {
   const unreadNotif = NOTIFICATIONS.filter((n) => !n.read).length;
 
   const navigate = (r) => { setRoute(r); if (r.split('/')[0] !== 'orders') setCtxOrder(null); };
+  // ссылки-переходы из десктопных уведомлений (тостов)
+  useEffect(() => { window.__toastNav = navigate; }, []);
   // switching role: if current section is now forbidden, fall back to dashboard
   const changeRole = (r) => { setRole(r); if (!roleCanSee(r, route.split('/')[0])) { setRoute('dashboard'); setCtxOrder(null); } };
   const blocked = !roleCanSee(role, route.split('/')[0]);

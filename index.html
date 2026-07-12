@@ -320,18 +320,30 @@ table.tbl tbody tr:last-child td{border-bottom:none}
 .tl-text{font-size:15px;color:var(--ink);font-weight:600;margin-top:1px}
 
 /* toast */
-.toast-wrap{position:fixed;bottom:22px;right:22px;z-index:200;display:flex;flex-direction:column;gap:11px;pointer-events:none}
+.toast-wrap{position:fixed;bottom:22px;right:22px;z-index:200;display:flex;flex-direction:column;align-items:flex-end;gap:11px;pointer-events:none}
 .toast-wrap .toast{pointer-events:auto}
-.toast{display:flex;align-items:center;gap:12px;background:#fff;border:1px solid var(--line-strong);border-left:4px solid var(--blue);border-radius:13px;padding:14px 18px;min-width:290px;max-width:380px;box-shadow:var(--shadow-pop);animation:toastin .26s cubic-bezier(.2,.9,.3,1)}
+.toast-slot{transition:transform .22s cubic-bezier(.2,.9,.3,1),opacity .22s ease;will-change:transform}
+.toast{display:flex;align-items:flex-start;gap:13px;background:#fff;border:1px solid var(--line-strong);border-left:4px solid var(--blue);border-radius:14px;padding:14px 15px 14px 16px;min-width:330px;max-width:400px;box-shadow:var(--shadow-pop);animation:toastin .26s cubic-bezier(.2,.9,.3,1)}
 @keyframes toastin{from{opacity:0;transform:translateX(40px)}to{opacity:1;transform:none}}
-.toast.ok{border-left-color:var(--green)}
-.toast.err{border-left-color:var(--red-strong)}
-.toast.info{border-left-color:var(--blue)}
-.toast .t-ico{width:24px;height:24px;flex:0 0 24px}
-.toast .t-ico.ok{color:var(--green)}
-.toast .t-ico.err{color:var(--red-strong)}
-.toast .t-ico.info{color:var(--blue)}
-.toast .t-msg{font-size:14.5px;color:var(--ink);font-weight:500;flex:1}
+.toast-ic{width:36px;height:36px;flex:0 0 36px;border-radius:10px;display:flex;align-items:center;justify-content:center;background:var(--blue-soft);color:var(--blue)}
+.toast-body{flex:1;min-width:0;padding-top:1px}
+.toast-urgency{font-size:10.5px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;margin-bottom:2px;color:var(--blue)}
+.toast-title{font-size:14px;font-weight:700;color:var(--ink);margin-bottom:2px;line-height:1.25}
+.toast-msg{font-size:13.5px;color:var(--body);font-weight:500;line-height:1.35;word-break:break-word}
+.toast-link{margin-top:9px;display:inline-flex;align-items:center;gap:5px;font-size:13px;font-weight:700;color:var(--blue);background:none;border:none;cursor:pointer;padding:0}
+.toast-link:hover{text-decoration:underline}
+.toast-ring{position:relative;width:26px;height:26px;flex:0 0 26px;border:none;background:none;cursor:pointer;padding:0;opacity:.7;transition:opacity .15s}
+.toast-ring:hover{opacity:1}
+.toast-ring-svg{width:26px;height:26px;display:block}
+.toast-ring-bg{fill:none;stroke:var(--line);stroke-width:2.5}
+.toast-ring-fg{fill:none;stroke:var(--blue);stroke-width:2.5;stroke-dasharray:62.83;stroke-dashoffset:0;transform:rotate(-90deg);transform-origin:center;animation-name:toastring;animation-timing-function:linear;animation-fill-mode:forwards}
+.toast-ring-x{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:12px;height:12px;color:var(--muted-2)}
+@keyframes toastring{to{stroke-dashoffset:62.83}}
+.toast.ok{border-left-color:var(--green)} .toast.ok .toast-ic{background:var(--green-bg);color:var(--green)} .toast.ok .toast-ring-fg{stroke:var(--green)}
+.toast.info{border-left-color:var(--blue)} .toast.info .toast-ic{background:var(--blue-soft);color:var(--blue)} .toast.info .toast-ring-fg{stroke:var(--blue)}
+.toast.warn{border-left-color:var(--amber)} .toast.warn .toast-ic{background:var(--amber-bg);color:var(--amber)} .toast.warn .toast-ring-fg{stroke:var(--amber)} .toast.warn .toast-urgency{color:var(--amber)}
+.toast.err{border-left-color:var(--red-strong)} .toast.err .toast-ic{background:var(--red-bg);color:var(--red-strong)} .toast.err .toast-ring-fg{stroke:var(--red-strong)} .toast.err .toast-urgency{color:var(--red-strong)}
+@media (prefers-reduced-motion:reduce){.toast-ring-fg{animation:none}}
 
 /* skeleton */
 .sk{background:linear-gradient(90deg,#eef0f4 25%,#f6f7f9 50%,#eef0f4 75%);background-size:200% 100%;animation:sh 1.3s infinite;border-radius:8px}
@@ -993,8 +1005,8 @@ table.tbl tbody tr:last-child td{border-bottom:none}
 .fsb-bot.direct{color:var(--green)}
 .fsb-bot.via{color:var(--amber)}
 /* unified supplier caption across services */
-.svc-supplier{display:inline-flex;align-items:center;gap:5px;font-size:11px;color:var(--muted);margin-top:4px;white-space:nowrap}
-.svc-supplier svg{color:var(--muted-2);flex-shrink:0}
+.svc-supplier{display:inline-flex;align-items:center;gap:5px;font-size:10.5px;font-weight:600;color:var(--teal);background:var(--teal-bg);padding:2px 8px;border-radius:7px;margin-top:5px;white-space:nowrap;vertical-align:middle}
+.svc-supplier svg{width:12px;height:12px;color:var(--teal);flex-shrink:0}
 /* Aviasales/Tutu-style per-segment timeline in the fare card (номера рейсов + отрезки + пересадка) */
 .leg-tl{border:1px solid var(--line);border-radius:12px;padding:12px 14px;background:var(--surface-2)}
 .leg-tl+.leg-tl{margin-top:10px}

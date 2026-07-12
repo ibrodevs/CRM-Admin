@@ -342,7 +342,7 @@ function KPModule({ order, services, participants, onApprove }) {
   const sendToClient = () => setSendTarget(active);
   const doSendProposal = (p, channel) => {
     patch(p.id, (x) => withHist({ ...x, status: 'Отправлено клиенту', sentChannel: channel }, 'Отправлено клиенту · канал «' + channel + '»'));
-    setSendTarget(null); toast('КП ' + p.id + ' отправлено клиенту по каналу «' + channel + '»', 'ok');
+    setSendTarget(null); toast(p.id + ' отправлено по каналу «' + channel + '»', 'ok', { title: 'КП отправлено клиенту', action: { label: 'Открыть «Ком. предложения»', route: 'offers' } });
   };
   const sendPanel = sendTarget && <ProposalSendPanel proposal={sendTarget} participants={participants} onSend={(ch) => doSendProposal(sendTarget, ch)} onClose={() => setSendTarget(null)} />;
   const fixVariant = (vid) => {
@@ -848,7 +848,7 @@ function OffersRegistry({ onOpenOrder, intent, onConsume }) {
   const kpNow2 = () => (typeof kpNow === 'function' ? kpNow() : new Date().toLocaleString('ru-RU'));
   const doSendProposal = (p, channel) => {
     setProposals((ps) => ps.map((x) => x.id === p.id ? { ...x, status: 'Отправлено клиенту', sentChannel: channel, history: [...(x.history || []), { t: kpNow2(), text: 'Отправлено клиенту · канал «' + channel + '»', who: 'Даниель' }] } : x));
-    setSendTarget(null); toast('КП ' + p.id + ' отправлено клиенту по каналу «' + channel + '»', 'ok');
+    setSendTarget(null); toast(p.id + ' отправлено по каналу «' + channel + '»', 'ok', { title: 'КП отправлено клиенту', action: { label: 'Открыть «Ком. предложения»', route: 'offers' } });
   };
   const previewDocRef = useRef(null);
   const { sort, onSort, apply } = useSort({ col: 'created', dir: 'desc' });
