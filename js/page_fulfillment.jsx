@@ -704,10 +704,16 @@ const PARSE_POOL = {
   ],
 };
 let RID = 0;
-function mockParse(file) {
-  const pool = PARSE_POOL[file.type] || PARSE_POOL['Прочее'];
-  const src = pool[file.poolIx % pool.length];
-  return JSON.parse(JSON.stringify(src)); // независимая редактируемая копия
+// Пока серверный OCR не вернул данные, создаём пустую структуру для ручной проверки.
+// Важно: никогда не подставляем сведения из другой/демонстрационной квитанции.
+function emptyReceiptParse(file) {
+  return {
+    carrier: '', carrierCode: '', passenger: '', dob: '', docNo: '', ticketNo: '', ref: '',
+    cls: '', fareBasis: '', baggage: '', handBaggage: '', issueDate: '', tripType: file.type === 'Гостиница' ? 'stay' : 'oneway',
+    legs: [{ from: '', fromCode: '', to: '', toCode: '', date: '', dep: '', arr: '', flightNo: '', dir: 'out' }],
+    currency: file.type === 'Гостиница' || file.type === 'Трансфер' ? 'USD' : 'RUB', fare: '', taxes: '', total: '',
+    recognitionPending: true,
+  };
 }
 function guessType(name) {
   const n = (name || '').toLowerCase();
@@ -903,7 +909,7 @@ function receiptStatus(parsed, seen) {
   const tno = (parsed.ticketNo || '').trim();
   if (tno && seen.has(tno)) return 'Возможный дубль';
   if (tno) seen.add(tno);
-  if (!parsed.passenger || !(Number(parsed.total) > 0)) return 'Ошибка';
+  if (parsed.recognitionPending || !parsed.passenger || !(Number(parsed.total) > 0)) return 'Требует проверки';
   if (parsed.dob === '—' || parsed.docNo === '—') return 'Требует проверки';
   return 'Распознано';
 }
@@ -914,6 +920,7 @@ function ReceiptEditDrawer({ open, file, onClose, onChange, onBrand }) {
   return (
     <Drawer open={open} onClose={onClose} title={'Проверка · ' + (file.parsed.passenger || 'квитанция')}
       footer={<>
+        {file.originalUrl && <Button variant="secondary" icon="eye" onClick={() => window.open(file.originalUrl, '_blank')}>Оригинал</Button>}
         {onBrand && <Button variant="secondary" icon="template" onClick={onBrand}>На фирменном бланке</Button>}
         <Button style={{ flex: 1 }} icon="check" onClick={onClose}>Готово</Button>
       </>}>
@@ -981,11 +988,10 @@ function ReceiptImportModal({ open, onClose, onDone }) {
   const [mathId, setMathId] = useState(null);   // id квитанции в редакторе суммы (единично)
   const [brandId, setBrandId] = useState(null); // id квитанции, открытой на фирменном бланке (предпросмотр + сохранение)
   const [bulk, setBulk] = useState({ fee: '', markup: '', commission: '' });
-  const [saveBlank, setSaveBlank] = useState(true);
   const fileRef = useRef(null);
   const poolCounter = useRef({});
 
-  useEffect(() => { if (open) { setFiles([]); setExcluded({}); setEditId(null); setOrderPick('Новый заказ'); setOptAddIncomplete(false); setOptCreateServices(true); setMath({}); setSel({}); setMathId(null); setBrandId(null); setBulk({ fee: '', markup: '', commission: '' }); setSaveBlank(true); poolCounter.current = {}; } }, [open]);
+  useEffect(() => { if (open) { setFiles([]); setExcluded({}); setEditId(null); setOrderPick('Новый заказ'); setOptAddIncomplete(false); setOptCreateServices(true); setMath({}); setSel({}); setMathId(null); setBrandId(null); setBulk({ fee: '', markup: '', commission: '' }); poolCounter.current = {}; } }, [open]);
 
   // математика по квитанции: сохранённая правка или дефолт из бланка поставщика
   const getMath = (id, p) => math[id] || { tariff: Math.round(Number(p && p.total) || 0), fee: 0, markup: 0, commission: 0 };
@@ -1004,16 +1010,18 @@ function ReceiptImportModal({ open, onClose, onDone }) {
         const order = pending + i;
         // последовательное «распознавание»: сначала статус «сканируется», затем данные
         setTimeout(() => setFiles((c) => c.map((x) => (x.id === id ? { ...x, status: 'scanning' } : x))), 250 + order * 650);
-        setTimeout(() => setFiles((c) => c.map((x) => (x.id === id ? { ...x, status: 'done', parsed: mockParse(x) } : x))), 250 + order * 650 + 600);
-        return { id, name: f.name, size: fmtSize(f.size || 40000), type, poolIx, status: 'queued', parsed: null };
+        setTimeout(() => setFiles((c) => c.map((x) => (x.id === id ? { ...x, status: 'done', parsed: emptyReceiptParse(x) } : x))), 250 + order * 650 + 600);
+        return { id, name: f.name, size: fmtSize(f.size || 40000), byteSize: f.size || 0, mime: f.type || '', lastModified: f.lastModified || null,
+          originalUrl: typeof URL !== 'undefined' && URL.createObjectURL ? URL.createObjectURL(f) : null,
+          type, poolIx, status: 'queued', parsed: null };
       });
       return [...cur, ...add];
     });
   };
   const onPick = (e) => { if (e.target.files && e.target.files.length) addFiles(e.target.files); e.target.value = ''; };
   const onDrop = (e) => { e.preventDefault(); if (e.dataTransfer.files && e.dataTransfer.files.length) addFiles(e.dataTransfer.files); };
-  const setType = (id, type) => setFiles((cur) => cur.map((f) => (f.id === id ? { ...f, type, parsed: f.parsed ? mockParse({ ...f, type }) : null } : f)));
-  const updateParsed = (id, parsed) => setFiles((cur) => cur.map((f) => (f.id === id ? { ...f, parsed } : f)));
+  const setType = (id, type) => setFiles((cur) => cur.map((f) => (f.id === id ? { ...f, type, parsed: f.parsed ? { ...f.parsed, ...emptyReceiptParse({ ...f, type }), recognitionPending: true } : null } : f)));
+  const updateParsed = (id, parsed) => setFiles((cur) => cur.map((f) => (f.id === id ? { ...f, parsed: { ...parsed, recognitionPending: false } } : f)));
   const remove = (id) => { setFiles((cur) => cur.filter((f) => f.id !== id)); setExcluded((e) => { const n = { ...e }; delete n[id]; return n; }); };
 
   const processing = files.some((f) => f.status !== 'done');
@@ -1057,7 +1065,7 @@ function ReceiptImportModal({ open, onClose, onDone }) {
     if (bulk.commission !== '') patch.commission = Number(bulk.commission) || 0;
     if (!Object.keys(patch).length) { toast('Укажите сбор, надбавку или комиссию', 'err'); return; }
     setMath((m) => { const n = { ...m }; targets.forEach((r) => { n[r.f.id] = { ...getMath(r.f.id, r.f.parsed), ...patch }; }); return n; });
-    toast('Математика применена к ' + targets.length + ' квитанц.' + (saveBlank ? ' · бланки поставщика сохранены' : ''), 'ok');
+    toast('Математика применена к ' + targets.length + ' квитанц. · оригиналы поставщика сохранены', 'ok');
   };
 
   const finish = () => {
@@ -1073,7 +1081,8 @@ function ReceiptImportModal({ open, onClose, onDone }) {
         type: t.doc, order: orderNo, participant: p.passenger || '—', service: r.f.type + ' · распознано',
         finOp: '—', status: 'Черновик', version: 1, date: now, size: r.f.size, parsed: p, recType: r.f.type,
         // бланк поставщика (оригинал) сохраняется отдельно; math — наша редактируемая математика
-        supplierBlank: saveBlank ? { total: Number(p.total) || 0, currency: p.currency } : null,
+        supplierBlank: { name: r.f.name, size: r.f.size, byteSize: r.f.byteSize, mime: r.f.mime,
+          lastModified: r.f.lastModified, originalUrl: r.f.originalUrl, total: Number(p.total) || 0, currency: p.currency },
         math: { ...m, clientTotal: clientTotal(m), currency: p.currency },
         versions: [{ v: 1, date: now, who: (window.CURRENT_USER && CURRENT_USER.name) || 'Оператор', note: 'Импорт из квитанции' }],
         history: [{ t: now, text: 'Распознано и привязано к заказу ' + orderNo, who: (window.CURRENT_USER && CURRENT_USER.name) || 'Оператор' }],
@@ -1150,9 +1159,9 @@ function ReceiptImportModal({ open, onClose, onDone }) {
                     ))}
                     <Button size="sm" icon="calc" onClick={applyBulk}>Применить{selIds.length ? ' (' + selIds.length + ')' : ' ко всем'}</Button>
                     <div style={{ flex: 1 }} />
-                    <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color: 'var(--body)', cursor: 'pointer' }}>
-                      <Checkbox on={saveBlank} onChange={() => setSaveBlank((v) => !v)} /> Сохранить бланк поставщика
-                    </label>
+                    <span style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color: 'var(--green)' }}>
+                      <Icon name="check" style={{ width: 15, height: 15 }} /> Оригинал поставщика будет сохранён
+                    </span>
                   </div>
                 )}
 
@@ -1260,6 +1269,7 @@ function ReceiptImportModal({ open, onClose, onDone }) {
               route: routeSummary(p) + (p.tripType && p.tripType !== 'oneway' && p.tripType !== 'stay' ? ' · ' + tripLabel(p) : ''),
               dates: (p.legs && p.legs[0] && p.legs[0].date) || '—', carrierName: p.carrier || '—',
               baseFareTotal: Number(m.tariff) || Number(p.fare) || 0,
+              supplierOriginal: { name: brandFile.name, originalUrl: brandFile.originalUrl },
               itinerary: (p.legs || []).map((l) => ({ route: (p.tripType === 'roundtrip' ? (l.dir === 'back' ? 'Обратно · ' : 'Туда · ') : '') + l.from + (l.to ? ' → ' + l.to : ''), date: l.date, flightNo: l.flightNo })) }}
             currency={p.currency || 'RUB'} orderNo={orderPick !== 'Новый заказ' ? orderPick : null} onClose={() => setBrandId(null)} />
         );
@@ -1334,6 +1344,7 @@ function ReceiptEditorPage() {
                 route: routeSummary(p) + (p.tripType && p.tripType !== 'oneway' && p.tripType !== 'stay' ? ' · ' + tripLabel(p) : ''),
                 dates: (p.legs[0] && p.legs[0].date) || edit.date, carrierName: p.carrier || '—',
                 baseFareTotal: Number(p.fare) || 0,
+                supplierOriginal: edit.supplierBlank,
                 itinerary: p.legs.map((l) => ({ route: (p.tripType === 'roundtrip' ? (l.dir === 'back' ? 'Обратно · ' : 'Туда · ') : '') + l.from + (l.to ? ' → ' + l.to : ''), date: l.date, flightNo: l.flightNo })) }}
               currency={p.currency || 'USD'} orderNo={edit.order} onClose={() => setEdit(null)} />
           );

@@ -1002,6 +1002,7 @@ function DocCorrectionPanel({ subjects, meta, currency, orderNo, onClose }) {
   const dates = meta.dates;
   const carrierName = meta.carrierName;
   const baseFareTotal = meta.baseFareTotal || 0;
+  const supplierOriginal = meta.supplierOriginal || null;
   const docMode = cfg.mode || 'other';
   const itinerary = meta.itinerary || [];
   const passengers = subjects;                                          // «субъекты» документа: пассажиры/гости/туристы
@@ -1232,6 +1233,13 @@ function DocCorrectionPanel({ subjects, meta, currency, orderNo, onClose }) {
 
       {/* 1. Исходный документ (данные поставщика) */}
       <PanelSub>Исходный документ · данные поставщика</PanelSub>
+      {supplierOriginal && supplierOriginal.originalUrl && (
+        <div style={{ marginBottom: 10 }}>
+          <Button variant="secondary" size="sm" icon="eye" onClick={() => window.open(supplierOriginal.originalUrl, '_blank')}>
+            Открыть оригинал · {supplierOriginal.name || 'файл поставщика'}
+          </Button>
+        </div>
+      )}
       <div className="card card-pad" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '8px 20px' }}>
         {[['Поставщик', supplier], [cfg.refLabel, activeDoc.pnr], [cfg.docNoLabel, activeDoc.ticket], ['Описание', route], [cfg.subjectLabel, activeDoc.name], [cfg.carrierLabel, carrierName], ['Базовый тариф', farePerPax.toLocaleString('ru-RU') + ' ' + cur], ['Таксы', activeDoc.src.taxes.toLocaleString('ru-RU') + ' ' + cur], ['Валюта', currency]].map(([k, v]) => (
           <div key={k}><div style={{ fontSize: 12, color: 'var(--muted)' }}>{k}</div><div style={{ fontWeight: 600, color: 'var(--ink)' }}>{v}</div></div>
