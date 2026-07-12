@@ -1271,7 +1271,7 @@ function ReceiptEditorPage() {
           </div>
 
           {receipts.length ? (
-            <div className="table-card">
+            <div className="table-card" style={{ overflowX: 'auto' }}>
               <table className="tbl">
                 <thead><tr><th style={{ width: 90 }}>№</th><th>Квитанция</th><th>Заказ</th><th>Пассажир</th><th>Версия</th><th>Дата</th><th>Статус</th><th></th></tr></thead>
                 <tbody>
@@ -1279,12 +1279,12 @@ function ReceiptEditorPage() {
                     const k = DOC_KIND[d.type];
                     return (
                       <tr key={d.no} style={{ cursor: 'pointer' }} onClick={() => setEdit(d)}>
-                        <td className="t-strong">{d.no}</td>
-                        <td><span style={{ display: 'flex', alignItems: 'center', gap: 10 }}><span className="airline-logo sm" style={{ background: k.color, width: 30, height: 30, borderRadius: 8 }}><Icon name={k.icon} style={{ width: 16, height: 16 }} /></span><span style={{ fontWeight: 600 }}>{d.name}</span></span></td>
-                        <td><span style={{ color: 'var(--blue)', fontWeight: 600 }}>№ {d.order}</span></td>
-                        <td className="t-muted">{d.participant}</td>
-                        <td>v{d.version}</td>
-                        <td>{d.date}</td>
+                        <td className="t-strong" style={{ whiteSpace: 'nowrap' }}>{d.no}</td>
+                        <td><span style={{ display: 'flex', alignItems: 'center', gap: 10 }}><span className="airline-logo sm" style={{ background: k.color, width: 30, height: 30, borderRadius: 8, flex: '0 0 30px' }}><Icon name={k.icon} style={{ width: 16, height: 16 }} /></span><span style={{ fontWeight: 600, whiteSpace: 'nowrap' }}>{d.name}</span></span></td>
+                        <td style={{ whiteSpace: 'nowrap' }}><span style={{ color: 'var(--blue)', fontWeight: 600 }}>№ {d.order}</span></td>
+                        <td className="t-muted" style={{ whiteSpace: 'nowrap' }}>{d.participant}</td>
+                        <td style={{ whiteSpace: 'nowrap' }}>v{d.version}</td>
+                        <td style={{ whiteSpace: 'nowrap' }}>{d.date}</td>
                         <td><Pill tone={DOC_STATUS2[d.status]}>{d.status}</Pill></td>
                         <td><Button size="sm" variant="secondary" icon="template" onClick={(e) => { e.stopPropagation(); setEdit(d); }}>Редактор</Button></td>
                       </tr>
