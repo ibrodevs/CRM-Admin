@@ -930,23 +930,26 @@ function CorrectionPreview({ doc, template, entity, currency, cfg, itinerary = [
           <span style={{ color: 'var(--muted)' }}>Базовый тариф</span>
           <span style={{ color: 'var(--ink)' }}>{doc.fareIT ? 'IT' : (doc.baseFare.toLocaleString('ru-RU') + ' ' + cur)}</span>
         </div>
-        {/* таксы: для авиа — детально по каждой (корректируются точечно); иначе одной строкой */}
-        {cfg.mode === 'avia' && doc.taxList ? doc.taxList.map((t, i) => (
-          <div key={i} style={{ display: 'flex', justifyContent: 'space-between', padding: '3px 0 3px 14px' }}>
-            <span style={{ color: 'var(--muted)' }}>Такса {t.code}{t.label ? ' · ' + t.label : ''}</span>
-            <span style={{ color: 'var(--ink)' }}>{t.amount.toLocaleString('ru-RU')} {cur}</span>
-          </div>
-        )) : (
-          <div style={{ display: 'flex', justifyContent: 'space-between', padding: '3px 0' }}>
-            <span style={{ color: 'var(--muted)' }}>Таксы</span>
-            <span style={{ color: 'var(--ink)' }}>{doc.taxes.toLocaleString('ru-RU')} {cur}</span>
-          </div>
-        )}
-        {[['Агентская надбавка', doc.agentMarkup], ['Сервисный сбор', doc.serviceFee], ['Скидка', -doc.discount]].filter(([, v]) => v).map(([k, v]) => (
-          <div key={k} style={{ display: 'flex', justifyContent: 'space-between', padding: '3px 0' }}>
-            <span style={{ color: 'var(--muted)' }}>{k}</span><span style={{ color: v < 0 ? 'var(--green)' : 'var(--ink)' }}>{money(v)}</span>
-          </div>
-        ))}
+        {/* При закрытом IT скрываем всю детализацию стоимости, а не только базовый тариф. */}
+        {!doc.fareIT && <>
+          {/* таксы: для авиа — детально по каждой (корректируются точечно); иначе одной строкой */}
+          {cfg.mode === 'avia' && doc.taxList ? doc.taxList.map((t, i) => (
+            <div key={i} style={{ display: 'flex', justifyContent: 'space-between', padding: '3px 0 3px 14px' }}>
+              <span style={{ color: 'var(--muted)' }}>Такса {t.code}{t.label ? ' · ' + t.label : ''}</span>
+              <span style={{ color: 'var(--ink)' }}>{t.amount.toLocaleString('ru-RU')} {cur}</span>
+            </div>
+          )) : (
+            <div style={{ display: 'flex', justifyContent: 'space-between', padding: '3px 0' }}>
+              <span style={{ color: 'var(--muted)' }}>Таксы</span>
+              <span style={{ color: 'var(--ink)' }}>{doc.taxes.toLocaleString('ru-RU')} {cur}</span>
+            </div>
+          )}
+          {[['Агентская надбавка', doc.agentMarkup], ['Сервисный сбор', doc.serviceFee], ['Скидка', -doc.discount]].filter(([, v]) => v).map(([k, v]) => (
+            <div key={k} style={{ display: 'flex', justifyContent: 'space-between', padding: '3px 0' }}>
+              <span style={{ color: 'var(--muted)' }}>{k}</span><span style={{ color: v < 0 ? 'var(--green)' : 'var(--ink)' }}>{money(v)}</span>
+            </div>
+          ))}
+        </>}
         <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 8, paddingTop: 8, borderTop: '2px solid var(--ink)', fontWeight: 800, fontSize: 15, color: 'var(--ink)' }}>
           <span>Итого к оплате</span><span>{doc.fareIT ? 'IT' : (corrTotal(doc).toLocaleString('ru-RU') + ' ' + cur)}</span>
         </div>
