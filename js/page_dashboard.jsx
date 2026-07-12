@@ -281,182 +281,211 @@ function SlaResponseWidget({ onOpenOrder }) {
   );
 }
 
+/* ---------- Компактная плитка-виджет дашборда ---------- */
+function DashTile({ w, active, onClick }) {
+  const toneColor = w.tone === 'red' ? 'var(--red)' : w.tone === 'amber' ? 'var(--amber)' : w.tone === 'green' ? 'var(--green)' : 'var(--blue)';
+  return (
+    <button type="button" onClick={onClick}
+      style={{
+        textAlign: 'left', cursor: 'pointer', background: active ? 'var(--blue-soft, #eef3ff)' : '#fff',
+        border: '1px solid ' + (active ? 'var(--blue)' : 'var(--line)'), borderRadius: 14, padding: '12px 14px',
+        boxShadow: active ? '0 0 0 1px var(--blue) inset, var(--shadow-card)' : 'var(--shadow-card)',
+        display: 'flex', flexDirection: 'column', gap: 6, minWidth: 0, transition: 'all .14s',
+      }}>
+      <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8, minHeight: 34 }}>
+        <span style={{ width: 26, height: 26, borderRadius: 8, background: toneColor, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+          <Icon name={w.icon} style={{ width: 15, height: 15, color: '#fff' }} />
+        </span>
+        <span style={{ fontSize: 12.5, fontWeight: 600, color: 'var(--muted)', lineHeight: 1.25 }}>{w.label}</span>
+      </div>
+      <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
+        <span style={{ fontSize: w.small ? 20 : 26, fontWeight: 800, letterSpacing: '-.02em', color: w.tone === 'green' ? 'var(--ink)' : toneColor }}>{w.value}</span>
+        {w.sub && <span style={{ fontSize: 12, color: 'var(--muted)' }}>{w.sub}</span>}
+      </div>
+    </button>
+  );
+}
+
+/* ---------- Пустое состояние детали (нет проблем) ---------- */
+function DashDetailEmpty({ title }) {
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', color: 'var(--muted)', gap: 8, padding: 40 }}>
+      <span style={{ width: 46, height: 46, borderRadius: 12, background: 'var(--green)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}><Icon name="check" style={{ width: 24, height: 24, color: '#fff' }} /></span>
+      <div style={{ fontWeight: 600, color: 'var(--ink)' }}>{title}</div>
+    </div>
+  );
+}
+
 function DashboardPage({ onNavigate, onAddOrder, onOpenOrder }) {
-  const [period, setPeriod] = useState('today');
   const [search, setSearch] = useState('');
   const [searchOpen, setSearchOpen] = useState(false);
-  const [showPicker, setShowPicker] = useState(false);
-  const [pickerPos, setPickerPos] = useState({ top: 0, left: 0 });
-  const [customStart, setCustomStart] = useState(null);
-  const [customEnd, setCustomEnd] = useState(null);
-  const pickerBtnRef = useRef(null);
-  const rows = ORDERS.filter((o) => o.client.toLowerCase().includes(search.toLowerCase())).slice(0, 6);
+  const [sel, setSel] = useState('overdue');       // выбранный виджет
+  const [errCodeOpen, setErrCodeOpen] = useState(null); // код ошибки в справочнике
+
+  const money = (n) => Math.round(n || 0).toLocaleString('ru-RU') + ' $';
+  const fin = financeOverview();
+  const slaRows = SLA_QUEUE.map((q) => ({ ...q, tone: slaTone(q.waited, q.limit) }));
+  const slaOverdue = slaRows.filter((r) => r.tone === 'red').length;
+  const slaHeating = slaRows.filter((r) => r.tone === 'amber').length;
+  const errNotifs = NOTIFICATIONS.filter((n) => n.source === 'Интеграции');
+  const errUnread = errNotifs.filter((n) => !n.read).length;
+  const attention = NOTIFICATIONS.filter((n) => (n.priority === 'Критический' || n.priority === 'Высокий') && !n.read);
+  const debtRows = fin.urgent.filter((u) => u.kind === 'отсрочка');
+
+  const WIDGETS = [
+    { key: 'attention', label: 'Требуют внимания', value: attention.length, tone: attention.length ? 'red' : 'green', icon: 'bell' },
+    { key: 'overdue',   label: 'Просрочки оплат',  value: fin.overdueCount, sub: fin.overdue > 0 ? money(fin.overdue) : null, tone: fin.overdue > 0 ? 'red' : 'green', icon: 'finance' },
+    { key: 'sla',       label: 'Отклик на заявки', value: slaOverdue, sub: slaHeating ? 'накал ' + slaHeating : (slaOverdue ? null : 'в норме'), tone: slaOverdue ? 'red' : slaHeating ? 'amber' : 'green', icon: 'clock' },
+    { key: 'errors',    label: 'Ошибки интеграций', value: errUnread, tone: errUnread ? 'red' : 'green', icon: 'api' },
+    { key: 'debt',      label: 'Задолженность',    value: money(fin.debt), tone: fin.debt > 0 ? 'amber' : 'green', icon: 'bank', small: true },
+    { key: 'orders',    label: 'Заказы в работе',  value: ORDERS.length, tone: 'blue', icon: 'orders' },
+  ];
+
+  const openErr = (code) => setErrCodeOpen(code || '');
+
+  /* ------- контент детали под выбранный виджет ------- */
+  const renderDetail = () => {
+    if (sel === 'attention') {
+      if (!attention.length) return <DashDetailEmpty title="Нет срочных уведомлений" />;
+      return (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          {attention.map((n) => {
+            const src = NOTIF_SOURCE[n.source] || NOTIF_SOURCE['Система'];
+            return (
+              <button key={n.id} type="button" onClick={() => notifGo(n, onNavigate, onOpenOrder)}
+                style={{ cursor: 'pointer', textAlign: 'left', width: '100%', border: '1px solid var(--line)', borderLeft: '3px solid var(--' + (NOTIF_PRIORITY[n.priority] || 'blue') + ')', background: '#fff', borderRadius: 12, padding: '10px 12px', display: 'flex', alignItems: 'center', gap: 12 }}>
+                <span className="oc-svc-ic" style={{ background: src.color, width: 32, height: 32 }}><Icon name={src.icon} style={{ width: 16, height: 16 }} /></span>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontWeight: 600, color: 'var(--ink)' }}>{n.title}</div>
+                  <div style={{ fontSize: 12.5, color: 'var(--muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{n.desc}</div>
+                </div>
+                <Pill tone={NOTIF_PRIORITY[n.priority]}>{n.priority}</Pill>
+                <span style={{ fontSize: 12, color: 'var(--muted-2)', whiteSpace: 'nowrap' }}>{n.time}</span>
+                <Icon name="chevRight" style={{ width: 18, height: 18, color: 'var(--muted-2)' }} />
+              </button>
+            );
+          })}
+        </div>
+      );
+    }
+    if (sel === 'overdue' || sel === 'debt') {
+      const list = sel === 'overdue' ? fin.urgent : debtRows;
+      if (!list.length) return <DashDetailEmpty title={sel === 'overdue' ? 'Просрочек по оплатам нет' : 'Задолженностей нет'} />;
+      return (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          {list.map((u, i) => (
+            <button key={i} type="button" onClick={() => onNavigate('companies')}
+              style={{ cursor: 'pointer', width: '100%', textAlign: 'left', border: '1px solid var(--line)', borderLeft: '3px solid var(--' + u.tone + ')', background: '#fff', borderRadius: 12, padding: '10px 12px', display: 'flex', alignItems: 'center', gap: 12 }}>
+              <span className="oc-svc-ic" style={{ background: 'var(--' + u.tone + ')', width: 32, height: 32, opacity: .9 }}><Icon name="bank" style={{ width: 16, height: 16 }} /></span>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontWeight: 600, color: 'var(--ink)' }}>{u.co}</div>
+                <div style={{ fontSize: 12.5, color: 'var(--muted)' }}>{u.text}</div>
+              </div>
+              <Pill tone={u.tone}>{u.kind}</Pill>
+              <span style={{ fontWeight: 700, whiteSpace: 'nowrap', color: 'var(--' + u.tone + ')' }}>{money(u.value)}</span>
+              <Icon name="chevRight" style={{ width: 18, height: 18, color: 'var(--muted-2)' }} />
+            </button>
+          ))}
+        </div>
+      );
+    }
+    if (sel === 'sla') {
+      return (
+        <table className="tbl">
+          <thead><tr><th>Заявка</th><th>Клиент</th><th>Оператор</th><th>Ожидает</th><th>Норматив</th><th>Статус</th></tr></thead>
+          <tbody>
+            {slaRows.map((r, i) => (
+              <tr key={i} style={{ cursor: 'pointer' }} onClick={() => { const o = ORDERS.find((x) => x.no === r.no); o && onOpenOrder && onOpenOrder(o); }}>
+                <td className="t-strong">№ {r.no}</td><td>{r.client}</td><td>{r.operator}</td>
+                <td style={{ fontWeight: 600, color: r.tone === 'red' ? 'var(--red)' : r.tone === 'amber' ? 'var(--amber)' : 'var(--ink)' }}>{r.waited} мин</td>
+                <td className="t-muted">{r.limit} мин</td><td><Pill tone={r.tone}>{slaLabel(r.tone)}</Pill></td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      );
+    }
+    if (sel === 'errors') {
+      if (!errNotifs.length) return <DashDetailEmpty title="Ошибок интеграций нет" />;
+      return (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          {errNotifs.map((n) => (
+            <div key={n.id} style={{ border: '1px solid var(--line)', borderLeft: '3px solid var(--red)', background: '#fff', borderRadius: 12, padding: '10px 12px', display: 'flex', alignItems: 'center', gap: 12 }}>
+              <span className="oc-svc-ic" style={{ background: 'var(--red)', width: 32, height: 32 }}><Icon name="api" style={{ width: 16, height: 16 }} /></span>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontWeight: 600, color: 'var(--ink)' }}>{n.title}</div>
+                <div style={{ fontSize: 12.5, color: 'var(--muted)' }}>{n.desc}</div>
+              </div>
+              {n.errCode && <button type="button" className="link-chip" title="Открыть код ошибки" onClick={() => openErr(n.errCode)} style={{ fontFamily: 'ui-monospace, Menlo, monospace', fontWeight: 700 }}><Icon name="api" />{n.errCode}</button>}
+              {n.order && <Button size="sm" variant="secondary" iconRight="arrowRight" onClick={() => notifGo(n, onNavigate, onOpenOrder)}>Заказ</Button>}
+            </div>
+          ))}
+          <button type="button" className="link-chip" style={{ alignSelf: 'flex-start', marginTop: 2 }} onClick={() => openErr('')}>Открыть справочник кодов<Icon name="arrowRight" /></button>
+        </div>
+      );
+    }
+    // orders
+    return (
+      <div>
+        <div className="stackbar" style={{ marginBottom: 6 }}>
+          {ORDER_BREAKDOWN.map((b, i) => (<span key={i} style={{ width: b.pct + '%', background: b.color }} title={`${b.label} ${b.pct}%`} />))}
+        </div>
+        <div className="legend" style={{ marginBottom: 16 }}>
+          {ORDER_BREAKDOWN.map((b, i) => (<div key={i} className="legend-item"><span className="dot" style={{ background: b.color }} />{b.label} ({b.pct}%) <span className="cnt">{b.count}</span></div>))}
+        </div>
+        <table className="tbl">
+          <thead><tr><th style={{ width: 80 }}>№</th><th>Клиент</th><th>Статус</th><th>Ответственный</th><th>Тип</th><th style={{ width: 60 }}></th></tr></thead>
+          <tbody>
+            {ORDERS.filter((o) => o.client.toLowerCase().includes(search.toLowerCase())).slice(0, 8).map((o, i) => (
+              <tr key={i} style={{ cursor: 'pointer' }} onClick={() => onOpenOrder(o)}>
+                <td className="t-strong">{o.no}</td><td className="t-strong">{o.client}</td>
+                <td><Pill tone={ORDER_STATUS[o.status]}>{o.status}</Pill></td>
+                <td>{o.operator}</td><td><Pill tone="blue">{o.requestType}</Pill></td>
+                <td><span className="go-dot"><Icon name="chevRight" /></span></td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    );
+  };
+
+  const detailTitle = { attention: 'Требуют внимания', overdue: 'Просрочки оплат по клиентам', sla: 'Отклик операторов на заявки', errors: 'Ошибки интеграций', debt: 'Задолженность клиентов', orders: 'Заказы и статистика' }[sel];
 
   return (
-    <div className="fade-in">
+    <div className="fade-in" style={{ display: 'flex', flexDirection: 'column', height: '100vh', minHeight: 0 }}>
       <Topbar title="Добрый день, Айсулуу">
         <div className="topbar-spacer" />
-        <SearchBox value={search} onChange={setSearch} placeholder="Поиск" style={{ width: 260 }} />
+        <SearchBox value={search} onChange={setSearch} placeholder="Поиск" style={{ width: 220 }} />
         <Button variant="secondary" icon="search" onClick={() => setSearchOpen(true)}>Поиск услуг</Button>
         <Button variant="primary" icon="plus" onClick={onAddOrder}>Добавить заказ</Button>
       </Topbar>
 
       {searchOpen && <DetailedSearchPanel onClose={() => setSearchOpen(false)} />}
 
-      <div className="content">
-        {/* stat cards */}
-        <div className="grid-4" style={{ marginBottom: 30 }}>
-          {DASH_STATS.map((s, i) => (
-            <StatCardDash key={i} s={s} onGo={() => onNavigate(s.label === 'Просрочены оплаты' ? 'finance' : 'orders')} />
-          ))}
+      <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', padding: '10px 38px 22px' }}>
+        {/* виджеты — клик переключает деталь ниже */}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6, minmax(0, 1fr))', gap: 12, marginBottom: 16 }}>
+          {WIDGETS.map((w) => (<DashTile key={w.key} w={w} active={sel === w.key} onClick={() => setSel(w.key)} />))}
         </div>
 
-        {/* attention feed */}
-        <div style={{ marginBottom: 32 }}>
-          <ActivityFeed onNavigate={onNavigate} onOpenOrder={onOpenOrder} />
-        </div>
-
-        {/* отклик операторов на заявки — просрочки / накал тайминга */}
-        <SlaResponseWidget onOpenOrder={onOpenOrder} />
-
-        {/* финансовое состояние клиентов */}
-        <FinanceOverviewBlock onNavigate={onNavigate} />
-
-        {/* order statistics */}
-        <h2 className="section-title" style={{ marginBottom: 16 }}>Статистика заказов</h2>
-        <div className="stackbar" style={{ marginBottom: 4 }}>
-          {ORDER_BREAKDOWN.map((b, i) => (
-            <span key={i} style={{ width: b.pct + '%', background: b.color }} title={`${b.label} ${b.pct}%`} />
-          ))}
-        </div>
-        <div className="legend" style={{ marginBottom: 36 }}>
-          {ORDER_BREAKDOWN.map((b, i) => (
-            <div key={i} className="legend-item">
-              <span className="dot" style={{ background: b.color }} />
-              {b.label} ({b.pct}%) <span className="cnt">{b.count}</span>
-            </div>
-          ))}
-        </div>
-
-        {/* order list */}
-        <h2 className="section-title" style={{ marginBottom: 16 }}>Список заказов</h2>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>
-          <span className="chip">Все фильтры<Icon name="chevDown" /></span>
-          <span className="chip">Юр лица, незавершенные +2<button className="chip-x"><Icon name="x" style={{ width: 15, height: 15 }} /></button></span>
-          <div className="topbar-spacer" />
-          <button className="tab"><Icon name="filter" />Фильтр</button>
-        </div>
-
-        <div className="table-card" style={{ marginBottom: 40 }}>
-          <table className="tbl">
-            <thead>
-              <tr>
-                <th style={{ width: 80 }}>№</th>
-                <th>Клиент</th>
-                <th>Статус заказа</th>
-                <th>Ответственное лицо</th>
-                <th style={{ width: 180 }}>Прогресс</th>
-                <th>Тип заказа</th>
-                <th style={{ width: 90 }}>Действие</th>
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map((o, i) => (
-                <tr key={i} style={{ cursor: 'pointer' }} onClick={() => onOpenOrder(o)}>
-                  <td className="t-strong">{o.no}</td>
-                  <td className="t-strong">{o.client}</td>
-                  <td><Pill tone={ORDER_STATUS[o.status]}>{o.status}</Pill></td>
-                  <td>
-                    <div className="t-strong">{o.operator}</div>
-                    <div className="t-sub">{o.operatorRole}</div>
-                  </td>
-                  <td>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                      <span className="info-dot" title="Детали">i</span>
-                      <div className="progress"><span style={{ width: o.progress + '%' }} /></div>
-                    </div>
-                  </td>
-                  <td><Pill tone="blue">{o.requestType}</Pill></td>
-                  <td>
-                    <div className="row-actions">
-                      <button className="icon-btn green" onClick={(e) => { e.stopPropagation(); onOpenOrder(o); }}><Icon name="edit" /></button>
-                      <span className="go-dot" onClick={(e) => { e.stopPropagation(); onOpenOrder(o); }}><Icon name="chevRight" /></span>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-          <Pagination page={10} pages={13} onPage={() => {}} />
-        </div>
-
-        {/* recent changes */}
-        <h2 className="section-title" style={{ marginBottom: 16 }}>Последние изменения</h2>
-        <div style={{ display: 'flex', gap: 10, marginBottom: 16 }}>
-          {[['month', 'Месяц'], ['week', 'Неделя'], ['today', 'Сегодня']].map(([k, l]) => (
-            <button key={k} className={'tab' + (period === k ? ' active' : '')} onClick={() => { setPeriod(k); setCustomStart(null); setCustomEnd(null); }}>{l}</button>
-          ))}
-          <button
-            ref={pickerBtnRef}
-            className={'tab' + (period === 'custom' ? ' active' : '')}
-            style={period !== 'custom' ? { background: 'none', border: 'none', color: 'var(--muted)' } : {}}
-            onClick={() => {
-              if (pickerBtnRef.current) {
-                const r = pickerBtnRef.current.getBoundingClientRect();
-                const calH = 460, calW = 310;
-                const top = (r.bottom + calH > window.innerHeight - 8) ? Math.max(8, r.top - calH) : r.bottom + 6;
-                const left = Math.max(8, Math.min(r.left, window.innerWidth - calW - 8));
-                setPickerPos({ top, left });
-              }
-              setShowPicker(true);
-            }}
-          >
-            {period === 'custom' && customStart
-              ? (customEnd ? `${fmtDate(customStart)} — ${fmtDate(customEnd)}` : fmtDate(customStart))
-              : 'Выбрать период'}
-          </button>
-          {showPicker && ReactDOM.createPortal(
-            <div style={{ position: 'fixed', top: pickerPos.top, left: pickerPos.left, zIndex: 9999 }}>
-              <CalendarPicker
-                mode="range"
-                startVal={customStart}
-                endVal={customEnd}
-                onConfirm={(s, e) => { setCustomStart(s); setCustomEnd(e || null); setPeriod('custom'); setShowPicker(false); }}
-                onClose={() => setShowPicker(false)}
-              />
-            </div>,
-            document.body
-          )}
-        </div>
-        <div className="table-card">
-          <table className="tbl">
-            <thead>
-              <tr>
-                <th style={{ width: 80 }}>№</th><th>Отдел</th><th>Клиент</th>
-                <th>Тип заказа</th><th>Ответственное лицо</th><th>Описание</th><th style={{ width: 90 }}>Действие</th>
-              </tr>
-            </thead>
-            <tbody>
-              {RECENT_CHANGES.map((r, i) => (
-                <tr key={i}>
-                  <td className="t-strong">{r.time}</td>
-                  <td><Pill tone="gray">{r.dept}</Pill></td>
-                  <td className="t-strong">{r.client}</td>
-                  <td><Pill tone="blue">{r.type}</Pill></td>
-                  <td><div className="t-strong">{r.resp}</div><div className="t-sub">Оператор</div></td>
-                  <td className="t-muted">{r.desc}</td>
-                  <td>
-                    <div className="row-actions">
-                      <button className="icon-btn green"><Icon name="edit" /></button>
-                      <span className="go-dot"><Icon name="chevRight" /></span>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+        {/* деталь выбранного виджета — заполняет остаток экрана, скролл внутри */}
+        <div className="card" style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '14px 18px', borderBottom: '1px solid var(--line)', flexShrink: 0 }}>
+            <h2 className="card-title" style={{ fontSize: 17, margin: 0 }}>{detailTitle}</h2>
+            <div style={{ flex: 1 }} />
+            {sel === 'errors' && <Button variant="secondary" size="sm" icon="api" onClick={() => openErr('')}>Коды ошибок</Button>}
+            {(sel === 'overdue' || sel === 'debt') && <Button variant="secondary" size="sm" icon="building" onClick={() => onNavigate('companies')}>Все компании</Button>}
+            {sel === 'attention' && <Button variant="secondary" size="sm" icon="bell" onClick={() => onNavigate('notifications')}>Все уведомления</Button>}
+            {sel === 'orders' && <Button variant="secondary" size="sm" icon="orders" onClick={() => onNavigate('orders')}>Все заказы</Button>}
+          </div>
+          <div className="scroll" style={{ flex: 1, minHeight: 0, overflow: 'auto', padding: 16 }}>
+            {renderDetail()}
+          </div>
         </div>
       </div>
+
+      <ErrorCodesDrawer open={errCodeOpen !== null} focusCode={errCodeOpen} onClose={() => setErrCodeOpen(null)} />
     </div>
   );
 }
