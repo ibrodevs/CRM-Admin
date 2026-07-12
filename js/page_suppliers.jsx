@@ -347,9 +347,11 @@ function SearchPriorityModal({ open, onClose }) {
   });
   const save = () => { Object.assign(SUP_SEARCH_ORDER, JSON.parse(JSON.stringify(order))); toast('Порядок поиска сохранён', 'ok'); onClose(); };
   return (
-    <Modal open={open} onClose={onClose}>
-      <div className="modal-pad">
-        <ModalHeader title="Приоритеты поиска" sub="Порядок, в котором система опрашивает поставщиков при автоматическом подборе" onClose={onClose} />
+    <Drawer open={open} onClose={onClose} title="Приоритеты поиска" sub="Порядок, в котором система опрашивает поставщиков при автоматическом подборе"
+      footer={<>
+        <Button variant="secondary" onClick={onClose}>Отмена</Button>
+        <Button icon="check" onClick={save}>Сохранить порядок</Button>
+      </>}>
         <Tabs tabs={SUP_PRIORITY_SERVICES.map((s) => ({ key: s, label: s }))} value={svc} onChange={setSvc} />
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 16 }}>
           {order[svc].map((name, i) => (
@@ -361,12 +363,7 @@ function SearchPriorityModal({ open, onClose }) {
             </div>
           ))}
         </div>
-        <div className="modal-actions" style={{ justifyContent: 'flex-end' }}>
-          <Button variant="secondary" onClick={onClose}>Отмена</Button>
-          <Button icon="check" onClick={save}>Сохранить порядок</Button>
-        </div>
-      </div>
-    </Modal>
+    </Drawer>
   );
 }
 

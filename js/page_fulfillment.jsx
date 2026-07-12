@@ -454,9 +454,14 @@ function DocUploadModal({ open, scopeOrder, participants = [], defaultParticipan
   const k = DOC_KIND[type] || DOC_KIND['Прочее'];
   const paxOptions = ['—', ...participants.map((p) => p.name)];
   return (
-    <Modal open={open} onClose={onClose}>
-      <ModalHeader title="Загрузка документа" sub={scopeOrder ? 'Заказ № ' + scopeOrder : 'Документ вне заказа'} onClose={onClose} />
-      <div style={{ padding: '4px 22px 22px' }}>
+    <Drawer open={open} onClose={onClose} title="Загрузка документа" sub={scopeOrder ? 'Заказ № ' + scopeOrder : 'Документ вне заказа'}
+      footer={<>
+        <Button variant="secondary" onClick={onClose}>Отмена</Button>
+        <Button icon={isReceipt ? 'template' : 'plus'} disabled={!file} onClick={submit}>
+          {isReceipt ? 'Далее: редактор квитанции' : 'Загрузить'}
+        </Button>
+      </>}>
+      <div>
         <input ref={fileRef} type="file" style={{ display: 'none' }} onChange={onFile} />
         {/* зона выбора файла */}
         <button type="button" className="doc-preview" onClick={pickFile}
@@ -488,14 +493,8 @@ function DocUploadModal({ open, scopeOrder, participants = [], defaultParticipan
           </div>
         )}
 
-        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 12, marginTop: 24 }}>
-          <Button variant="secondary" onClick={onClose}>Отмена</Button>
-          <Button icon={isReceipt ? 'template' : 'plus'} disabled={!file} onClick={submit}>
-            {isReceipt ? 'Далее: редактор квитанции' : 'Загрузить'}
-          </Button>
-        </div>
       </div>
-    </Modal>
+    </Drawer>
   );
 }
 

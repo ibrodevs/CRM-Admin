@@ -5,9 +5,11 @@ function CurrencyModal({ open, onClose }) {
   const [extra, setExtra] = useState(true);
   const [vals, setVals] = useState({});
   return (
-    <Modal open={open} onClose={onClose}>
-      <div className="modal-pad">
-        <ModalHeader title="Курсы валют" sub="Изменение курсов валют" onClose={onClose} />
+    <Drawer open={open} onClose={onClose} title="Курсы валют" sub="Изменение курсов валют"
+      footer={<>
+        <Button variant="secondary" icon="edit" onClick={() => toast('Выбор основной валюты', 'info')}>Выбрать основную валюту</Button>
+        <Button variant="primary" iconRight="arrowRight" onClick={() => { toast('Курсы валют обновлены', 'ok'); onClose(); }}>Применить</Button>
+      </>}>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
           {CURRENCIES.map((c, i) => (
             <div key={i} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 20, padding: '12px 0', borderBottom: '1px solid var(--line)' }}>
@@ -27,12 +29,7 @@ function CurrencyModal({ open, onClose }) {
           </div>
         </div>
         <Button variant="primary" icon="plus" style={{ marginTop: 8 }} onClick={() => toast('Добавление валюты', 'info')}>Добавить валюту</Button>
-        <div className="modal-actions" style={{ justifyContent: 'flex-end' }}>
-          <Button variant="secondary" icon="edit" onClick={() => toast('Выбор основной валюты', 'info')}>Выбрать основную валюту</Button>
-          <Button variant="primary" iconRight="arrowRight" onClick={() => { toast('Курсы валют обновлены', 'ok'); onClose(); }}>Применить</Button>
-        </div>
-      </div>
-    </Modal>
+    </Drawer>
   );
 }
 
@@ -52,10 +49,16 @@ function ApiKeyModal({ open, onClose }) {
     setTimeout(() => setStage('result'), 1500);
   };
   return (
-    <Modal open={open} onClose={onClose}>
-      <div className="modal-pad">
+    <Drawer open={open} onClose={onClose}
+      title={stage === 'result' ? 'Результаты API ключа' : 'Генерация API ключа'}
+      sub={stage === 'result' ? `ОсОО "${org}" ✓` : (stage === 'loading' ? `ОсОО "${org}"` : null)}
+      footer={stage === 'form'
+        ? <Button variant="primary" iconRight="arrowRight" onClick={gen}>Сгенерировать</Button>
+        : stage === 'result'
+          ? <Button variant="primary" onClick={onClose}>Закрыть</Button>
+          : null}>
+      <div>
         {stage === 'form' && <>
-          <ModalHeader title="Генерация API ключа" onClose={onClose} />
           <Field label="Наименование организации" hint="Введите наименование на латинице" error={err}>
             <Input placeholder="Введите значение" value={org} onChange={(e) => { setOrg(e.target.value); setErr(''); }} error={err} />
           </Field>
@@ -74,9 +77,6 @@ function ApiKeyModal({ open, onClose }) {
                 <Toggle on={tg[i]} onChange={(v) => setTg((arr) => arr.map((x, j) => j === i ? v : x))} />
               </div>
             ))}
-          </div>
-          <div className="modal-actions" style={{ justifyContent: 'flex-end' }}>
-            <Button variant="primary" iconRight="arrowRight" onClick={gen}>Сгенерировать</Button>
           </div>
         </>}
         {stage === 'loading' && (
@@ -97,12 +97,9 @@ function ApiKeyModal({ open, onClose }) {
               </div>
             </div>
           ))}
-          <div className="modal-actions" style={{ justifyContent: 'flex-end' }}>
-            <Button variant="primary" onClick={onClose}>Закрыть</Button>
-          </div>
         </>}
       </div>
-    </Modal>
+    </Drawer>
   );
 }
 
@@ -110,9 +107,8 @@ function ApiAccessModal({ open, onClose }) {
   const toast = useToast();
   const [confirm, setConfirm] = useState(null);
   return (
-    <Modal open={open} onClose={onClose} className="">
-      <div className="modal-pad">
-        <ModalHeader title="Доступы к API" onClose={onClose} />
+    <>
+    <Drawer open={open} onClose={onClose} title="Доступы к API" width="min(860px, 96vw)">
         <div className="table-card">
           <table className="tbl">
             <thead><tr><th style={{ width: 70 }}>№</th><th>Организация</th><th>Тип организации</th><th>Дата создания</th><th style={{ width: 100 }}>Действия</th></tr></thead>
@@ -130,10 +126,10 @@ function ApiAccessModal({ open, onClose }) {
             </tbody>
           </table>
         </div>
-      </div>
+    </Drawer>
       <ConfirmDialog open={confirm !== null} message="Данное действие невозможно будет отменить!"
         onCancel={() => setConfirm(null)} onConfirm={() => { setConfirm(null); toast('Доступ удалён', 'ok'); }} />
-    </Modal>
+    </>
   );
 }
 
@@ -173,9 +169,8 @@ function NotificationsModal({ open, onClose }) {
   const [tg, setTg] = useState([true, true, false, true, false, true]);
   const opts = ['Уведомления о новых заказах', 'Уведомления о платежах', 'SMS-уведомления', 'E-mail дайджест', 'Push в Telegram', 'Просрочки и дедлайны SLA'];
   return (
-    <Modal open={open} onClose={onClose} size="sm">
-      <div className="modal-pad">
-        <ModalHeader title="Настройки уведомлений" onClose={onClose} />
+    <Drawer open={open} onClose={onClose} title="Настройки уведомлений" width="min(460px, 94vw)"
+      footer={<Button variant="primary" onClick={() => { toast('Настройки сохранены', 'ok'); onClose(); }}>Сохранить</Button>}>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
           {opts.map((l, i) => (
             <div key={i} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 0', borderBottom: i < opts.length - 1 ? '1px solid var(--line)' : 'none' }}>
@@ -184,11 +179,7 @@ function NotificationsModal({ open, onClose }) {
             </div>
           ))}
         </div>
-        <div className="modal-actions" style={{ justifyContent: 'flex-end' }}>
-          <Button variant="primary" onClick={() => { toast('Настройки сохранены', 'ok'); onClose(); }}>Сохранить</Button>
-        </div>
-      </div>
-    </Modal>
+    </Drawer>
   );
 }
 
@@ -367,9 +358,11 @@ function CardVisibilityModal({ open, onClose }) {
   const tg = (k) => setVis((v) => ({ ...v, [k]: !v[k] }));
   const save = () => { Object.assign(window.CARD_CLIENT_VISIBILITY, vis); toast('Настройки видимости сохранены', 'ok'); onClose(); };
   return (
-    <Modal open={open} onClose={onClose} size="sm">
-      <div className="modal-pad">
-        <ModalHeader title="Видимость полей карточки для клиента" sub="Отметьте, какие поля клиент видит в карточке услуги и КП. Неотмеченные остаются внутренними и клиенту не отправляются." onClose={onClose} />
+    <Drawer open={open} onClose={onClose} title="Видимость полей карточки для клиента" sub="Отметьте, какие поля клиент видит в карточке услуги и КП. Неотмеченные остаются внутренними и клиенту не отправляются." width="min(520px, 94vw)"
+      footer={<>
+        <Button variant="secondary" onClick={onClose}>Отмена</Button>
+        <Button icon="check" onClick={save}>Сохранить</Button>
+      </>}>
         <div style={{ display: 'flex', flexDirection: 'column' }}>
           {CARD_VIS_FIELDS.map(([k, label]) => (
             <label key={k} className="hp-check-row" style={{ padding: '11px 4px', borderBottom: '1px solid var(--line)' }}>
@@ -379,12 +372,7 @@ function CardVisibilityModal({ open, onClose }) {
             </label>
           ))}
         </div>
-        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 12, marginTop: 20 }}>
-          <Button variant="secondary" onClick={onClose}>Отмена</Button>
-          <Button icon="check" onClick={save}>Сохранить</Button>
-        </div>
-      </div>
-    </Modal>
+    </Drawer>
   );
 }
 

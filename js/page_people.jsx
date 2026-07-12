@@ -97,26 +97,23 @@ function ClientCreateModal({ open, onClose, onCreated }) {
   };
   if (!open) return null;
   return (
-    <Modal open={open} onClose={onClose}>
-      <div className="modal-pad">
-        <ModalHeader title="Новый клиент" sub="Контактные и учётные данные" onClose={onClose} />
-        <div className="form-grid">
-          <Field label="ФИО / Наименование" required error={errs.name} ><Input value={f.name} onChange={(e) => upd('name', e.target.value)} placeholder="Иванов Иван Иванович" error={errs.name} /></Field>
-          <Field label="Тип клиента"><Select options={['Физлицо', 'ИП', 'Организация']} value={f.type} onChange={(e) => upd('type', e.target.value)} /></Field>
-          <Field label="Телефон" required error={errs.phone}><Input value={f.phone} onChange={(e) => upd('phone', e.target.value)} placeholder="+996 700 000 000" leadIcon="phone" error={errs.phone} /></Field>
-          <Field label="E-mail" error={errs.email}><Input value={f.email} onChange={(e) => upd('email', e.target.value)} placeholder="mail@example.com" leadIcon="mail" error={errs.email} /></Field>
-          <Field label="Город"><Input value={f.city} onChange={(e) => upd('city', e.target.value)} /></Field>
-          <Field label="Статус"><Select options={Object.keys(CLIENT_STATUS)} value={f.status} onChange={(e) => upd('status', e.target.value)} /></Field>
-          <Field label="Компания"><Input value={f.company} onChange={(e) => upd('company', e.target.value)} placeholder="— (для физлица)" /></Field>
-          <Field label="Документ"><Input value={f.doc} onChange={(e) => upd('doc', e.target.value)} placeholder="ID / Паспорт / ИНН" leadIcon="idcard" /></Field>
-          <Field label="Дата рождения"><Input value={f.dob} onChange={(e) => upd('dob', e.target.value)} placeholder="дд.мм.гггг" leadIcon="calendar" /></Field>
-        </div>
-        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 12, marginTop: 26 }}>
-          <Button variant="secondary" onClick={onClose}>Отмена</Button>
-          <Button icon="check" onClick={submit}>Добавить клиента</Button>
-        </div>
+    <Drawer open={open} onClose={onClose} title="Новый клиент" sub="Контактные и учётные данные"
+      footer={<>
+        <Button variant="secondary" onClick={onClose}>Отмена</Button>
+        <Button icon="check" onClick={submit}>Добавить клиента</Button>
+      </>}>
+      <div className="form-grid">
+        <Field label="ФИО / Наименование" required error={errs.name} ><Input value={f.name} onChange={(e) => upd('name', e.target.value)} placeholder="Иванов Иван Иванович" error={errs.name} /></Field>
+        <Field label="Тип клиента"><Select options={['Физлицо', 'ИП', 'Организация']} value={f.type} onChange={(e) => upd('type', e.target.value)} /></Field>
+        <Field label="Телефон" required error={errs.phone}><Input value={f.phone} onChange={(e) => upd('phone', e.target.value)} placeholder="+996 700 000 000" leadIcon="phone" error={errs.phone} /></Field>
+        <Field label="E-mail" error={errs.email}><Input value={f.email} onChange={(e) => upd('email', e.target.value)} placeholder="mail@example.com" leadIcon="mail" error={errs.email} /></Field>
+        <Field label="Город"><Input value={f.city} onChange={(e) => upd('city', e.target.value)} /></Field>
+        <Field label="Статус"><Select options={Object.keys(CLIENT_STATUS)} value={f.status} onChange={(e) => upd('status', e.target.value)} /></Field>
+        <Field label="Компания"><Input value={f.company} onChange={(e) => upd('company', e.target.value)} placeholder="— (для физлица)" /></Field>
+        <Field label="Документ"><Input value={f.doc} onChange={(e) => upd('doc', e.target.value)} placeholder="ID / Паспорт / ИНН" leadIcon="idcard" /></Field>
+        <Field label="Дата рождения"><Input value={f.dob} onChange={(e) => upd('dob', e.target.value)} placeholder="дд.мм.гггг" leadIcon="calendar" /></Field>
       </div>
-    </Modal>
+    </Drawer>
   );
 }
 

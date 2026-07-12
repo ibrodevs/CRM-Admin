@@ -80,9 +80,14 @@ function NewReturnModal({ open, order, services, onClose, onCreate }) {
       : 'Будет создан ' + (voluntary ? 'добровольный' : 'вынужденный') + ' возврат для ' + pax.length + ' пасс. на сумму ' + rUsd(refund) + '.';
 
   return (
-    <Modal open={open} onClose={onClose}>
-      <div className="modal-pad">
-        <ModalHeader title="Новый запрос" sub={order ? `Заказ № ${order.no} · ${order.client}` : 'Постпродажное обслуживание'} onClose={onClose} />
+    <>
+    <Drawer open={open} onClose={onClose} title="Новый запрос" sub={order ? `Заказ № ${order.no} · ${order.client}` : 'Постпродажное обслуживание'}
+      footer={<>
+        <Button variant="secondary" onClick={onClose}>Отмена</Button>
+        <Button icon={isAnnul ? 'trash' : 'plus'} variant={isAnnul ? 'danger' : 'primary'} disabled={!svc} onClick={() => { if (validate()) setConfirm(true); }}>
+          {isExchange ? (reqMode === 'request' ? 'Запросить обмен' : 'Провести обмен') : isAnnul ? 'Аннулировать' : 'Создать запрос'}
+        </Button>
+      </>}>
         <div className="kp-sec-h" style={{ marginTop: 0 }}>Тип операции</div>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 18 }}>
           {Object.keys(RETURN_TYPE).map((t) => (
@@ -182,20 +187,14 @@ function NewReturnModal({ open, order, services, onClose, onCreate }) {
           </div>
         )}
 
-        <div className="modal-actions">
-          <Button variant="secondary" onClick={onClose}>Отмена</Button>
-          <Button icon={isAnnul ? 'trash' : 'plus'} variant={isAnnul ? 'danger' : 'primary'} disabled={!svc} onClick={() => { if (validate()) setConfirm(true); }}>
-            {isExchange ? (reqMode === 'request' ? 'Запросить обмен' : 'Провести обмен') : isAnnul ? 'Аннулировать' : 'Создать запрос'}
-          </Button>
-        </div>
-      </div>
+    </Drawer>
 
       {/* Подтверждение действия — всегда перед созданием (ответ клиента #2) */}
       <ConfirmDialog open={confirm} title={'Подтвердите: ' + type + '?'} message={confirmMsg}
         confirmLabel={isAnnul ? 'Аннулировать' : isExchange ? (reqMode === 'request' ? 'Запросить' : 'Провести') : 'Создать'}
         confirmVariant={isAnnul ? 'danger' : 'primary'}
         onConfirm={() => { setConfirm(false); submit(); }} onCancel={() => setConfirm(false)} />
-    </Modal>
+    </>
   );
 }
 

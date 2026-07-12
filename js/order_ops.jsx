@@ -199,9 +199,11 @@ function ExtrasCatalogModal({ open, onClose }) {
   const toast = useToast();
   if (!open) return null;
   return (
-    <Modal open={open} onClose={onClose} className="">
-      <div className="modal-pad">
-        <ModalHeader title="Справочник дополнительных услуг" sub="Отображение и правила услуг. Доступность определяется API поставщика, а не справочником." onClose={onClose} />
+    <Drawer open={open} onClose={onClose} title="Справочник дополнительных услуг" sub="Отображение и правила услуг. Доступность определяется API поставщика, а не справочником." width="min(900px, 96vw)"
+      footer={<>
+        <Button variant="secondary" icon="plus" onClick={() => toast('Добавление услуги в справочник', 'info')}>Добавить услугу</Button>
+        <Button variant="primary" onClick={onClose}>Закрыть</Button>
+      </>}>
         <div className="table-card">
           <table className="tbl">
             <thead><tr><th>Услуга</th><th>Категория</th><th>Этапы доступности</th><th>EMD</th><th>Вручную</th><th>Сбор</th></tr></thead>
@@ -219,12 +221,7 @@ function ExtrasCatalogModal({ open, onClose }) {
             </tbody>
           </table>
         </div>
-        <div className="modal-actions" style={{ justifyContent: 'flex-end' }}>
-          <Button variant="secondary" icon="plus" onClick={() => toast('Добавление услуги в справочник', 'info')}>Добавить услугу</Button>
-          <Button variant="primary" onClick={onClose}>Закрыть</Button>
-        </div>
-      </div>
-    </Modal>
+    </Drawer>
   );
 }
 

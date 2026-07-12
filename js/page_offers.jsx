@@ -227,10 +227,12 @@ function FixVariantModal({ open, proposal, onClose, onFix }) {
   if (!open || !proposal) return null;
   const isTrain = proposal.docType === 'train';
   return (
-    <Modal open={open} onClose={onClose} size="sm">
-      <div style={{ padding: '24px 26px' }}>
-        <ModalHeader title="Зафиксировать выбранный вариант" sub="Клиент согласовал предложение" onClose={onClose} />
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 10, margin: '10px 0 20px' }}>
+    <Drawer open={open} onClose={onClose} title="Зафиксировать выбранный вариант" sub="Клиент согласовал предложение" width="min(480px, 94vw)"
+      footer={<>
+        <Button variant="secondary" style={{ flex: 1 }} onClick={onClose}>Отмена</Button>
+        <Button style={{ flex: 1 }} icon="check" onClick={() => onFix(pick)}>Зафиксировать</Button>
+      </>}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
           {vs.map((v) => {
             const rowsCount = isTrain ? proposal.accommodation.variants.find((x) => x.id === v.id).rows.length : proposal.variants.find((x) => x.id === v.id).items.length;
             return (
@@ -242,12 +244,7 @@ function FixVariantModal({ open, proposal, onClose, onFix }) {
             );
           })}
         </div>
-        <div style={{ display: 'flex', gap: 12 }}>
-          <Button variant="secondary" style={{ flex: 1 }} onClick={onClose}>Отмена</Button>
-          <Button style={{ flex: 1 }} icon="check" onClick={() => onFix(pick)}>Зафиксировать</Button>
-        </div>
-      </div>
-    </Modal>
+    </Drawer>
   );
 }
 
