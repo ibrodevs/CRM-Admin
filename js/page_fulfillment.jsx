@@ -909,11 +909,15 @@ function receiptStatus(parsed, seen) {
 }
 
 /* Боковой редактор одной квитанции — открывается по действию «Проверить». */
-function ReceiptEditDrawer({ open, file, onClose, onChange }) {
+function ReceiptEditDrawer({ open, file, onClose, onChange, onBrand }) {
   if (!open || !file) return null;
   return (
     <Drawer open={open} onClose={onClose} title={'Проверка · ' + (file.parsed.passenger || 'квитанция')}
-      footer={<Button style={{ width: '100%' }} icon="check" onClick={onClose}>Готово</Button>}>
+      footer={<>
+        {onBrand && <Button variant="secondary" icon="template" onClick={onBrand}>На фирменном бланке</Button>}
+        <Button style={{ flex: 1 }} icon="check" onClick={onClose}>Готово</Button>
+      </>}>
+      <RSub style={{ marginTop: 0, marginBottom: 8 }}>Предпросмотр распознанного</RSub>
       <div style={{ marginBottom: 16 }}><ReceiptPreview type={file.type} p={file.parsed} /></div>
       <ReceiptEditForm type={file.type} p={file.parsed} onChange={(p) => onChange(file.id, p)} />
     </Drawer>
@@ -975,12 +979,13 @@ function ReceiptImportModal({ open, onClose, onDone }) {
   const [math, setMath] = useState({});         // id -> { tariff, fee, markup, commission }
   const [sel, setSel] = useState({});           // id -> true (для группового применения)
   const [mathId, setMathId] = useState(null);   // id квитанции в редакторе суммы (единично)
+  const [brandId, setBrandId] = useState(null); // id квитанции, открытой на фирменном бланке (предпросмотр + сохранение)
   const [bulk, setBulk] = useState({ fee: '', markup: '', commission: '' });
   const [saveBlank, setSaveBlank] = useState(true);
   const fileRef = useRef(null);
   const poolCounter = useRef({});
 
-  useEffect(() => { if (open) { setFiles([]); setExcluded({}); setEditId(null); setOrderPick('Новый заказ'); setOptAddIncomplete(false); setOptCreateServices(true); setMath({}); setSel({}); setMathId(null); setBulk({ fee: '', markup: '', commission: '' }); setSaveBlank(true); poolCounter.current = {}; } }, [open]);
+  useEffect(() => { if (open) { setFiles([]); setExcluded({}); setEditId(null); setOrderPick('Новый заказ'); setOptAddIncomplete(false); setOptCreateServices(true); setMath({}); setSel({}); setMathId(null); setBrandId(null); setBulk({ fee: '', markup: '', commission: '' }); setSaveBlank(true); poolCounter.current = {}; } }, [open]);
 
   // математика по квитанции: сохранённая правка или дефолт из бланка поставщика
   const getMath = (id, p) => math[id] || { tariff: Math.round(Number(p && p.total) || 0), fee: 0, markup: 0, commission: 0 };
@@ -1040,6 +1045,7 @@ function ReceiptImportModal({ open, onClose, onDone }) {
   const toAdd = doneRows.filter(isEligible);
   const editFile = files.find((f) => f.id === editId) || null;
   const mathFile = files.find((f) => f.id === mathId) || null;
+  const brandFile = files.find((f) => f.id === brandId) || null;
 
   // групповое применение математики к выбранным (или ко всем готовым, если ничего не выбрано)
   const selIds = doneRows.filter((r) => sel[r.f.id]).map((r) => r.f.id);
@@ -1154,7 +1160,7 @@ function ReceiptImportModal({ open, onClose, onDone }) {
                   <table className="tbl">
                     <thead><tr>
                       <th style={{ width: 34 }}>{doneRows.length > 0 && <Checkbox on={allSel} onChange={() => setSel(allSel ? {} : Object.fromEntries(doneRows.map((r) => [r.f.id, true])))} />}</th>
-                      <th>Квитанция</th><th>Маршрут / сумма</th><th style={{ width: 150 }}>Финансы (клиенту)</th><th style={{ width: 130 }}>Статус</th><th style={{ width: 120 }}>Действие</th><th style={{ width: 40 }}></th>
+                      <th>Квитанция</th><th>Маршрут / сумма</th><th style={{ width: 150 }}>Финансы (клиенту)</th><th style={{ width: 130 }}>Статус</th><th style={{ width: 200 }}>Действие</th><th style={{ width: 40 }}></th>
                     </tr></thead>
                     <tbody>
                       {rows.map((r) => {
@@ -1199,7 +1205,12 @@ function ReceiptImportModal({ open, onClose, onDone }) {
                             <td>
                               {r.status === 'Возможный дубль'
                                 ? <button className="btn btn-ghost btn-sm" onClick={() => setExcluded((e) => ({ ...e, [r.f.id]: !e[r.f.id] }))}>{skipped ? 'Вернуть' : 'Пропустить'}</button>
-                                : <button className="btn btn-ghost btn-sm" style={{ color: 'var(--blue)' }} onClick={() => setEditId(r.f.id)}>{st.action}</button>}
+                                : (
+                                  <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
+                                    <button className="btn btn-ghost btn-sm" style={{ color: 'var(--blue)' }} onClick={() => setEditId(r.f.id)}>{st.action}</button>
+                                    <button className="btn btn-ghost btn-sm" style={{ color: 'var(--blue)' }} title="Предпросмотр и сохранение на фирменном бланке" onClick={() => setBrandId(r.f.id)}><Icon name="template" style={{ width: 14, height: 14 }} /> На бланке</button>
+                                  </div>
+                                )}
                             </td>
                             <td><button className="btn btn-ghost btn-sm" onClick={() => remove(r.f.id)}><Icon name="trash" style={{ width: 15, height: 15 }} /></button></td>
                           </tr>
@@ -1235,9 +1246,24 @@ function ReceiptImportModal({ open, onClose, onDone }) {
         </div>
       </div>
 
-      <ReceiptEditDrawer open={!!editFile} file={editFile} onClose={() => setEditId(null)} onChange={updateParsed} />
+      <ReceiptEditDrawer open={!!editFile} file={editFile} onClose={() => setEditId(null)} onChange={updateParsed}
+        onBrand={() => { setBrandId(editId); setEditId(null); }} />
       <ReceiptMathDrawer open={!!mathFile} file={mathFile} math={mathFile ? getMath(mathFile.id, mathFile.parsed) : null}
         onSave={(patch) => { setMathFor(mathFile.id, mathFile.parsed, patch); }} onClose={() => setMathId(null)} />
+      {/* Предпросмотр и сохранение распознанной квитанции на фирменном бланке — прямо из импорта (в т.ч. РЖД) */}
+      {brandFile && (() => {
+        const p = brandFile.parsed; const m = getMath(brandFile.id, p);
+        return (
+          <DocCorrectionPanel
+            subjects={[{ name: p.passenger || 'Пассажир', type: 'Взрослый', docNo: p.ticketNo || brandFile.id, ref: p.ref || '—' }]}
+            meta={{ cfg: docCorrKind(brandFile.type), supplier: p.carrier || 'Поставщик',
+              route: routeSummary(p) + (p.tripType && p.tripType !== 'oneway' && p.tripType !== 'stay' ? ' · ' + tripLabel(p) : ''),
+              dates: (p.legs && p.legs[0] && p.legs[0].date) || '—', carrierName: p.carrier || '—',
+              baseFareTotal: Number(m.tariff) || Number(p.fare) || 0,
+              itinerary: (p.legs || []).map((l) => ({ route: (p.tripType === 'roundtrip' ? (l.dir === 'back' ? 'Обратно · ' : 'Туда · ') : '') + l.from + (l.to ? ' → ' + l.to : ''), date: l.date, flightNo: l.flightNo })) }}
+            currency={p.currency || 'RUB'} orderNo={orderPick !== 'Новый заказ' ? orderPick : null} onClose={() => setBrandId(null)} />
+        );
+      })()}
     </Modal>
   );
 }

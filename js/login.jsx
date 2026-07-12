@@ -2,7 +2,7 @@
 // Split-screen: marketing hero (left) + auth column (right).
 
 const LP_STYLES = `
-.lp-root{height:100vh;overflow:hidden;display:flex;background:#eef0f4;color:var(--body)}
+.lp-root{height:100%;overflow:hidden;display:flex;background:#eef0f4;color:var(--body)}
 .lp-left{flex:1.1;position:relative;overflow:hidden;padding:44px 52px;display:flex;flex-direction:column;background:linear-gradient(155deg,#eef3ff 0%,#e4edff 55%,#eef2ff 100%)}
 .lp-right{width:540px;max-width:100%;display:flex;flex-direction:column;justify-content:safe center;padding:26px 42px;overflow-y:auto;background:var(--surface-2)}
 @media(max-width:1000px){.lp-root{height:auto;min-height:100vh;overflow:visible}.lp-left{display:none}.lp-right{width:100%;padding:26px 20px}}

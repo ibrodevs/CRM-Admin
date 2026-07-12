@@ -47,10 +47,10 @@ input,textarea,select{font-family:inherit}
 .chat-filter-scroll::-webkit-scrollbar-track{background:transparent}
 
 /* ============ APP SHELL ============ */
-#root{height:100vh;overflow:hidden}
-.app{display:flex;height:100vh;background:var(--bg)}
+#root{height:calc(100vh / .95);width:calc(100vw / .95);zoom:.95;overflow:hidden}
+.app{display:flex;height:100%;background:var(--bg)}
 .sidebar{
-  width:var(--sb-w);flex:0 0 var(--sb-w);height:100vh;
+  width:var(--sb-w);flex:0 0 var(--sb-w);height:100%;
   display:flex;flex-direction:column;padding:30px 22px 22px;
   border-right:1px solid var(--line);background:var(--surface);
   transition:width .18s ease,flex-basis .18s ease,padding .18s ease;
@@ -95,7 +95,9 @@ input,textarea,select{font-family:inherit}
 .profile-card .pc-role{font-size:13px;color:var(--muted)}
 .profile-card .chev{margin-left:auto;color:var(--faint);width:20px;height:20px;flex:0 0 20px}
 
-.main{flex:1;height:100vh;overflow-y:auto;display:flex;flex-direction:column}
+.main{flex:1;height:100%;overflow-y:auto;display:flex;flex-direction:column}
+/* «Услуги» pages: an extra 3% smaller than the rest of the app */
+.svc-zoom{zoom:.97}
 .topbar{display:flex;align-items:flex-start;gap:18px;padding:22px 38px 8px;flex-wrap:wrap}
 .page-title{font-size:33px;font-weight:700;letter-spacing:-.025em;color:var(--ink);line-height:1.1;margin:0;white-space:nowrap}
 .topbar-spacer{flex:1}
@@ -269,13 +271,13 @@ table.tbl tbody tr:last-child td{border-bottom:none}
 .modal-actions{display:flex;justify-content:center;gap:14px;margin-top:30px;flex-wrap:wrap}
 
 .drawer-overlay{position:fixed;inset:0;background:rgba(20,27,42,.42);backdrop-filter:blur(2px);z-index:80;display:flex;justify-content:flex-end;animation:fade .18s ease}
-.drawer{background:#fff;width:min(640px,94vw);height:100vh;overflow-y:auto;box-shadow:var(--shadow-modal);animation:slidein .26s cubic-bezier(.2,.9,.3,1);display:flex;flex-direction:column}
+.drawer{background:#fff;width:min(640px,94vw);height:100%;overflow-y:auto;box-shadow:var(--shadow-modal);animation:slidein .26s cubic-bezier(.2,.9,.3,1);display:flex;flex-direction:column}
 @keyframes slidein{from{transform:translateX(40px);opacity:.6}to{transform:none;opacity:1}}
 .drawer-head{display:flex;align-items:center;justify-content:space-between;padding:26px 32px;border-bottom:1px solid var(--line);position:sticky;top:0;background:#fff;z-index:2}
 .drawer-body{padding:28px 32px;flex:1}
 .drawer-foot{display:flex;justify-content:flex-end;gap:13px;padding:20px 32px;border-top:1px solid var(--line);position:sticky;bottom:0;background:#fff}
 /* shell slide-over (chat / notifications) — full-height flex panel */
-.shell-drawer{background:#fff;height:100vh;overflow:hidden;box-shadow:var(--shadow-modal);animation:slidein .26s cubic-bezier(.2,.9,.3,1);display:flex;flex-direction:column}
+.shell-drawer{background:#fff;height:100%;overflow:hidden;box-shadow:var(--shadow-modal);animation:slidein .26s cubic-bezier(.2,.9,.3,1);display:flex;flex-direction:column}
 /* ===== Global Topbar ===== */
 .gtop{position:sticky;top:0;z-index:40;display:flex;align-items:center;gap:16px;row-gap:8px;flex-wrap:wrap;padding:11px 38px;background:rgba(255,255,255,.86);backdrop-filter:blur(10px);border-bottom:1px solid var(--line)}
 .crumbs{display:flex;align-items:center;gap:6px;font-size:14px;color:var(--muted);min-width:0;flex-wrap:wrap;flex-shrink:0}
@@ -587,7 +589,7 @@ table.tbl tbody tr:last-child td{border-bottom:none}
 .oc-svc-chip.active{background:var(--blue-soft);color:var(--blue-soft-text)}
 .oc-svc-chip.active svg{color:var(--blue-soft-text)}
 .oc-svc-chip.active .cnt{background:#fff;color:var(--blue-soft-text)}
-.oc-svc-row{display:flex;align-items:center;gap:14px 18px;padding:16px 4px;border-bottom:1px solid var(--line);flex-wrap:wrap}
+.oc-svc-row{display:flex;align-items:center;gap:14px 18px;padding:16px 4px;border-bottom:1px solid var(--line);flex-wrap:nowrap;overflow-x:auto}
 .oc-svc-row:last-child{border-bottom:none}
 .oc-svc-row .ic{width:40px;height:40px;border-radius:11px;display:flex;align-items:center;justify-content:center;flex:0 0 40px;color:#fff}
 .oc-svc-row .ic svg{width:18px;height:18px}
@@ -1356,7 +1358,7 @@ table.tbl tbody tr:last-child td{border-bottom:none}
 .city-row .code{width:42px;font-weight:700;color:var(--blue)}
 /* stacked drawer (nested over the create drawer) */
 .drawer-stack{position:fixed;inset:0;z-index:90;display:flex;justify-content:flex-end;background:rgba(16,23,38,.28)}
-.drawer-stack-panel{background:#fff;width:min(480px,46vw);height:100vh;overflow:auto;box-shadow:var(--shadow-modal);animation:slidein .24s cubic-bezier(.2,.9,.3,1);display:flex;flex-direction:column}
+.drawer-stack-panel{background:#fff;width:min(480px,46vw);height:100%;overflow:auto;box-shadow:var(--shadow-modal);animation:slidein .24s cubic-bezier(.2,.9,.3,1);display:flex;flex-direction:column}
 
 
 /* ===== BOOKING WIZARD («Начать бронирование») ===== */

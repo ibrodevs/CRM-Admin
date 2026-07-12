@@ -53,11 +53,11 @@ function App() {
     </>
   );
 
-  return (
-    <AppShell route={route} onNavigate={navigate} onLogout={() => { setAuthed(false); setRoute('dashboard'); }}
-      role={role} topbar={topbar} overlays={overlays} sidebarCollapsed={!!ctxOrder || route.split('/')[0] === 'chats'}>
-      {blocked && <AccessDenied onNavigate={navigate} />}
-      {!blocked && <>
+  // «Услуги» pages render 3% smaller than the rest of the app (on top of the global scale)
+  const isServicePage = ['flights', 'rail', 'hotels', 'transfers', 'buses', 'tours'].includes(route.split('/')[0]);
+
+  const page = (
+      <>
       {route === 'dashboard' && <DashboardPage role={role} onNavigate={navigate} onAddOrder={createOrder} onOpenOrder={openOrder} />}
       {route === 'orders' && <OrdersPage intent={intent} onConsume={() => setIntent(null)} orders={orders} addOrder={addOrder} onDetailChange={setCtxOrder} onOpenChat={() => setChatOpen(true)} />}
       {route === 'flights' && <FlightsPage />}
@@ -83,7 +83,14 @@ function App() {
       {route === 'offers' && <OffersPage onOpenOrder={openOrder} intent={intent} onConsume={() => setIntent(null)} />}
       {route === 'notifications' && <NotificationsPage onNavigate={navigate} onOpenOrder={openOrder} />}
       {route === 'returns' && <ReturnsPage onOpenOrder={openOrder} />}
-      </>}
+      </>
+  );
+
+  return (
+    <AppShell route={route} onNavigate={navigate} onLogout={() => { setAuthed(false); setRoute('dashboard'); }}
+      role={role} topbar={topbar} overlays={overlays} sidebarCollapsed={!!ctxOrder || route.split('/')[0] === 'chats'}>
+      {blocked && <AccessDenied onNavigate={navigate} />}
+      {!blocked && (isServicePage ? <div className="svc-zoom">{page}</div> : page)}
     </AppShell>
   );
 }
