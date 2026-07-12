@@ -301,7 +301,7 @@ function SettingsPage() {
   const groups = [
     { title: 'Курсы валют', items: [['Изменить курс валют', () => setModal('currency')], ['Добавить / удалить валюту', () => setModal('currency')]] },
     { title: 'Общие настройки', items: [['Настройки уведомления', () => setModal('notif')]] },
-    { title: 'API / интеграции', items: [['Доступы к API', () => setModal('apiaccess')], ['Сгенерировать API ключ', () => setModal('apikey')], ['Убрать доступ к API', () => setModal('apiaccess')], ['Настройки SLA', () => toast('Настройки SLA', 'info')]] },
+    { title: 'API / интеграции', items: [['Доступы к API', () => setModal('apiaccess')], ['Сгенерировать API ключ', () => setModal('apikey')], ['Коды ошибок интеграций', () => setModal('errcodes')], ['Убрать доступ к API', () => setModal('apiaccess')], ['Настройки SLA', () => toast('Настройки SLA', 'info')]] },
     { title: 'Шаблоны документов', items: [['Добавить шаблон', () => toast('Добавление шаблона', 'info')], ['Изменить шаблон', () => toast('Изменение шаблона', 'info')]] },
     { title: 'Справочники', items: [['Аэропорты и города', () => toast('Справочник', 'info')], ['Типы услуг', () => toast('Справочник', 'info')], ['Справочник доп. услуг', () => setModal('extras')]] },
     { title: 'Карточки услуг', items: [['Видимость полей для клиента', () => setModal('cardvis')]] },
@@ -334,6 +334,7 @@ function SettingsPage() {
       <ApiAccessModal open={modal === 'apiaccess'} onClose={() => setModal(null)} />
       <AddUserDrawer open={modal === 'adduser'} onClose={() => setModal(null)} />
       <NotificationsModal open={modal === 'notif'} onClose={() => setModal(null)} />
+      <ErrorCodesDrawer open={modal === 'errcodes'} onClose={() => setModal(null)} />
     </div>
   );
 }
