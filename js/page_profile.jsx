@@ -345,18 +345,13 @@ function ProfilePage({ onNavigate, initialTab }) {
         {/* ---- Уведомления ---- */}
         {tab === 'notif' && (
           <div className="card card-pad fade-in" style={{ maxWidth: 680 }}>
-            <div style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--muted)', marginBottom: 10 }}>Каналы доставки</div>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '4px 22px' }}>
-              {channelRows.map(([k, l, icon]) => (
-                <div key={k} style={{ display: 'flex', alignItems: 'center', gap: 10, justifyContent: 'space-between', padding: '11px 0', borderBottom: '1px solid var(--line)' }}>
-                  <span style={{ display: 'flex', alignItems: 'center', gap: 9, fontSize: 14.5, color: 'var(--ink)' }}>
-                    <Icon name={icon} style={{ width: 16, height: 16, color: 'var(--muted-2)' }} />{l}
-                  </span>
-                  <Toggle on={notif[k]} onChange={(v) => setNotif((n) => ({ ...n, [k]: v }))} />
-                </div>
-              ))}
-            </div>
-            <div style={{ fontSize: 12.5, color: 'var(--muted-2)', margin: '10px 0 0' }}>В системе — центр уведомлений (колокольчик). MAX — основной мессенджер наравне с Telegram; WhatsApp и SMS — резервные для критичных событий.</div>
+            <div style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--muted)', marginBottom: 6 }}>Каналы доставки</div>
+            {channelRows.map(([k, l], i, arr) => (
+              <div key={k} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 0', borderBottom: i < arr.length - 1 ? '1px solid var(--line)' : 'none' }}>
+                <span style={{ fontSize: 15, color: 'var(--ink)' }}>{l}</span>
+                <Toggle on={notif[k]} onChange={(v) => setNotif((n) => ({ ...n, [k]: v }))} />
+              </div>
+            ))}
             <div style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--muted)', margin: '20px 0 6px' }}>События</div>
             {eventRows.map(([k, l], i, arr) => (
               <div key={k} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 0', borderBottom: i < arr.length - 1 ? '1px solid var(--line)' : 'none' }}>
