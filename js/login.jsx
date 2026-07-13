@@ -2,10 +2,10 @@
 // Split-screen: marketing hero (left) + auth column (right).
 
 const LP_STYLES = `
-.lp-root{height:100%;overflow:hidden;display:flex;background:#eef0f4;color:var(--body)}
-.lp-left{flex:1.1;position:relative;overflow:hidden;padding:44px 52px;display:flex;flex-direction:column;background:linear-gradient(155deg,#eef3ff 0%,#e4edff 55%,#eef2ff 100%)}
-.lp-right{width:540px;max-width:100%;display:flex;flex-direction:column;justify-content:safe center;padding:26px 42px;overflow-y:auto;background:var(--surface-2)}
-@media(max-width:1000px){.lp-root{height:auto;min-height:100vh;overflow:visible}.lp-left{display:none}.lp-right{width:100%;padding:26px 20px}}
+.lp-root{height:100%;overflow:hidden;display:flex;gap:14px;padding:13px 13px 42px;position:relative;background:linear-gradient(135deg,#eceefd,#f6f6fb);color:var(--body)}
+.lp-left{flex:1;min-width:0;position:relative;overflow:hidden;margin-right:-15px;padding:22px 39px;display:flex;flex-direction:column;border-radius:18px;background:linear-gradient(155deg,#f0f2ff 0%,#e8edff 54%,#f4f3ff 100%)}
+.lp-right{width:610px;max-width:100%;flex:0 0 610px;display:flex;flex-direction:column;padding:27px 40px 0 19px;overflow-y:auto;background:transparent}
+@media(max-width:1000px){.lp-root{height:auto;min-height:100vh;overflow:visible;padding:0}.lp-left{display:none}.lp-right{width:100%;flex-basis:100%;padding:26px 20px 70px}}
 
 .lp-brand{display:flex;align-items:center;gap:13px}
 .lp-brand-ic{width:46px;height:46px;border-radius:13px;background:linear-gradient(140deg,#2566ff,#5a5af0);display:flex;align-items:center;justify-content:center;color:#fff;box-shadow:0 8px 20px rgba(37,102,255,.35)}
@@ -13,10 +13,10 @@ const LP_STYLES = `
 .lp-brand-name b{color:var(--blue);font-weight:800}
 .lp-brand-sub{font-size:12.5px;color:var(--muted);margin-top:2px;max-width:250px;line-height:1.4}
 
-.lp-hero-h{font-size:33px;line-height:1.14;font-weight:800;letter-spacing:-.02em;color:var(--ink);margin:22px 0 0;max-width:420px}
-.lp-hero-h span{color:var(--blue)}
+.lp-hero-h{font-size:30px;line-height:1.2;font-weight:800;letter-spacing:-.025em;color:var(--ink);margin:70px 0 0;max-width:410px;position:relative;z-index:2}
+.lp-hero-h span{color:var(--blue);display:block}
 
-.lp-stage{position:relative;flex:1;min-height:280px;margin:14px 0 6px;display:flex;align-items:center;justify-content:center}
+.lp-stage{position:absolute;z-index:1;left:0;right:0;top:133px;bottom:0;display:flex;align-items:flex-start;justify-content:center;pointer-events:none}
 .lp-podium{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:258px;display:flex;flex-direction:column;gap:11px;z-index:2}
 .lp-glass{background:rgba(255,255,255,.85);backdrop-filter:blur(8px);border:1px solid rgba(255,255,255,.95);border-radius:15px;box-shadow:0 18px 40px rgba(37,60,120,.15);padding:12px 15px}
 .lp-pass{display:flex;align-items:center;gap:12px}
@@ -39,7 +39,7 @@ const LP_STYLES = `
 .lp-sla{display:inline-flex;align-items:center;gap:5px;background:#fff;border:1px solid #dde5f5;border-radius:9px;padding:5px 9px;font-size:11.5px;font-weight:700;color:#3a4152;white-space:nowrap}
 .lp-sla svg{width:13px;height:13px;color:var(--blue)}
 
-.lp-card{background:#fff;border:1px solid var(--line);border-radius:var(--r-modal);padding:20px 26px;box-shadow:0 22px 50px rgba(16,23,38,.08)}
+.lp-card{background:rgba(255,255,255,.97);border:1px solid rgba(235,237,242,.9);border-radius:22px;padding:34px 36px 30px;box-shadow:0 16px 42px rgba(16,23,38,.055)}
 .lp-h1{font-size:22px;font-weight:800;letter-spacing:-.02em;color:var(--ink);margin:0}
 .lp-sub{color:var(--muted);font-size:13.5px;margin:4px 0 0;line-height:1.4}
 .lp-lbl{font-size:12.5px;font-weight:600;color:#3a4152;margin-bottom:5px;display:block}
@@ -62,24 +62,24 @@ const LP_STYLES = `
 .lp-btn-out:hover{border-color:#cfd5df;background:var(--hover)}
 .lp-btn-ghost{background:none;border:none;color:var(--muted);font-weight:600;font-family:inherit;cursor:pointer;font-size:14px;display:inline-flex;align-items:center;gap:6px}
 .lp-btn-ghost:hover{color:var(--blue)}
-.lp-or{display:flex;align-items:center;gap:14px;color:#9aa2b2;font-size:13px;margin:9px 0}
+.lp-or{display:flex;align-items:center;gap:14px;color:#9aa2b2;font-size:13px;margin:13px 0}
 .lp-or::before,.lp-or::after{content:'';flex:1;height:1px;background:var(--line)}
 .lp-pill{display:inline-flex;align-items:center;padding:3px 9px;border-radius:7px;background:var(--blue-soft);color:var(--blue-soft-text);font-size:12px;font-weight:700}
 .lp-max-ic{width:27px;height:27px;border-radius:8px;background:#2aa5ff;display:flex;align-items:center;justify-content:center;color:#fff;flex:0 0 27px}
 .lp-cap{text-align:center;color:#9aa2b2;font-size:12.5px;margin:8px 0 0;line-height:1.45}
 
-.lp-demo{margin-top:10px;background:linear-gradient(135deg,#eef3ff,#e4edff);border:1px solid #dbe6ff;border-radius:16px;padding:14px 20px;position:relative;overflow:hidden}
+.lp-demo{margin-top:12px;background:linear-gradient(135deg,#eef2ff,#e7e9ff);border:1px solid #dfe5ff;border-radius:16px;padding:29px 22px 11px;min-height:246px;position:relative;overflow:hidden}
 .lp-demo-h{font-size:16px;font-weight:800;color:var(--ink);margin:0}
 .lp-demo-p{color:#5b6274;font-size:13px;margin:5px 0 9px;max-width:320px;line-height:1.4}
 .lp-check{display:flex;align-items:center;gap:9px;font-size:13px;color:#3a4152;margin:4px 0}
 .lp-check svg{color:var(--green);width:16px;height:16px;flex:0 0 16px}
-.lp-seat{position:absolute;right:0;bottom:0;width:176px;height:138px;overflow:hidden}
-.lp-seat img{width:100%;height:100%;object-fit:cover;display:block}
+.lp-seat{position:absolute;right:-60px;bottom:-4px;width:365px;height:244px;overflow:hidden}
+.lp-seat img{width:100%;height:100%;object-fit:contain;display:block}
 @media(max-width:520px){.lp-seat{display:none}.lp-demo-p{max-width:none}}
 
-.lp-hero-img{width:100%;max-width:540px;max-height:100%;object-fit:contain;filter:drop-shadow(0 26px 42px rgba(37,60,120,.20))}
+.lp-hero-img{width:auto;max-width:none;height:708px;object-fit:contain;flex:0 0 auto;margin-left:110px;display:block}
 
-.lp-foot{display:flex;align-items:center;justify-content:space-between;margin-top:10px;color:#9aa2b2;font-size:12.5px;flex-wrap:wrap;gap:10px}
+.lp-foot{position:absolute;z-index:5;left:51px;right:51px;bottom:12px;display:flex;align-items:center;justify-content:space-between;color:#8d96a8;font-size:12px;gap:10px}
 .lp-foot-links{display:flex;align-items:center;gap:16px}
 .lp-foot a{color:var(--gray-text);cursor:pointer;display:inline-flex;align-items:center;gap:6px}
 .lp-foot a:hover{color:var(--blue)}
@@ -89,6 +89,7 @@ const LP_STYLES = `
 @keyframes lpFloat{0%,100%{transform:translateY(0)}50%{transform:translateY(-9px)}}
 .lp-spin{animation:lpSpin 1s linear infinite}
 @keyframes lpSpin{to{transform:rotate(360deg)}}
+@media(max-height:820px) and (min-width:1001px){.lp-root{padding-bottom:34px}.lp-right{padding-top:16px}.lp-card{padding-top:24px;padding-bottom:24px}.lp-demo{min-height:218px;padding-top:15px;padding-bottom:15px}.lp-foot{bottom:8px}}
 `;
 
 function LoginScreen({ onLogin }) {
@@ -169,23 +170,10 @@ function LoginScreen({ onLogin }) {
           </div>
         </div>
 
-        <h1 className="lp-hero-h">Управляйте поездками вашей компании <span>легко и эффективно</span></h1>
+        <h1 className="lp-hero-h">Управляйте поездками<br />вашей компании <span>легко и эффективно</span></h1>
 
         <div className="lp-stage">
-          <img className="lp-hero-img lp-float" src="assets/login-hero.png" alt="Управление поездками: авиабилеты, отели, документы и маршруты" />
-        </div>
-
-        {/* SLA / trust strip */}
-        <div className="lp-trust">
-          <div className="lp-trust-ic"><Icon name="shield" style={{ width: 20, height: 20 }} /></div>
-          <div>
-            <div className="lp-trust-t">Безопасность данных и соответствие 152-ФЗ</div>
-            <div className="lp-trust-s">Ваши данные под надёжной защитой</div>
-          </div>
-          <div className="lp-sla-row">
-            <span className="lp-sla" title="Гарантия доступности сервиса по SLA"><Icon name="zap" />SLA 99.9%</span>
-            <span className="lp-sla" title="Поддержка по SLA"><Icon name="clock" />Поддержка 24/7</span>
-          </div>
+          <img className="lp-hero-img" src="assets/hero-left-clean.webp" alt="Управление поездками: авиабилеты, отели, документы и маршруты" />
         </div>
       </div>
 
@@ -199,13 +187,13 @@ function LoginScreen({ onLogin }) {
               <div className="lp-card">
                 <h2 className="lp-h1">Вход в систему</h2>
                 <p className="lp-sub">Добро пожаловать! Войдите в свой аккаунт.</p>
-                <form onSubmit={submitLogin} style={{ marginTop: 12 }}>
+                <form onSubmit={submitLogin} style={{ marginTop: 36 }}>
                   <label className="lp-lbl">Email или телефон</label>
                   <input className={'lp-input' + (errs.ident ? ' err' : '')} placeholder="Введите email или телефон"
                     value={ident} onChange={(e) => setIdent(e.target.value)} />
                   {errs.ident && <div className="lp-errtxt"><Icon name="alertCircle" />{errs.ident}</div>}
 
-                  <label className="lp-lbl" style={{ marginTop: 10 }}>Пароль</label>
+                  <label className="lp-lbl" style={{ marginTop: 18 }}>Пароль</label>
                   <div className="lp-input-wrap">
                     <input className={'lp-input' + (errs.pass ? ' err' : '')} type={showPass ? 'text' : 'password'}
                       placeholder="Введите пароль" style={{ paddingRight: 44 }}
@@ -214,10 +202,7 @@ function LoginScreen({ onLogin }) {
                   </div>
                   {errs.pass && <div className="lp-errtxt"><Icon name="alertCircle" />{errs.pass}</div>}
 
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', margin: '9px 0 13px' }}>
-                    <label style={{ display: 'flex', alignItems: 'center', gap: 9, cursor: 'pointer', fontSize: 13.5, color: '#5b6274' }}>
-                      <Checkbox on={remember} onChange={setRemember} /> Запомнить меня
-                    </label>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', margin: '14px 0 22px' }}>
                     <button type="button" className="lp-link" onClick={() => go('forgot')}>Забыли пароль?</button>
                   </div>
 
@@ -233,10 +218,7 @@ function LoginScreen({ onLogin }) {
                   Войти через MAX
                   <span className="lp-pill" style={{ marginLeft: 4 }}>Рекомендуем</span>
                 </button>
-                <p className="lp-cap">
-                  Быстрый и безопасный вход через мессенджер MAX<br />
-                  или <button type="button" className="lp-link" onClick={() => go('sms')}>войдите по SMS-коду</button>
-                </p>
+                <p className="lp-cap">Быстрый и безопасный вход через мессенджер MAX</p>
               </div>
 
               {/* demo promo */}
@@ -246,7 +228,7 @@ function LoginScreen({ onLogin }) {
                 {['Все функции без ограничений', 'Без привязки карты', 'Настройка и помощь на старте', 'Демо-данные для тестирования'].map((t) => (
                   <div className="lp-check" key={t}><Icon name="check" strokeWidth={3} />{t}</div>
                 ))}
-                <button className="lp-btn lp-btn-primary" style={{ marginTop: 10, maxWidth: 240 }} onClick={() => go('demo')}>
+                <button className="lp-btn lp-btn-primary" style={{ marginTop: 10, maxWidth: 225 }} onClick={() => go('demo')}>
                   Получить демо-доступ <Icon name="arrowRight" style={{ width: 17, height: 17 }} />
                 </button>
                 <div className="lp-seat lp-float"><img src="assets/login-seat.png" alt="Комфортное кресло" /></div>
@@ -384,14 +366,15 @@ function LoginScreen({ onLogin }) {
             </div>
           )}
 
-          {/* footer */}
-          <div className="lp-foot">
-            <span>© 2024 ПСЦ Travel Hub. Все права защищены.</span>
-            <div className="lp-foot-links">
-              <a onClick={() => toast('Политика конфиденциальности')}>Политика конфиденциальности</a>
-              <a onClick={() => toast('Техподдержка: support@travelhub.ru')}><Icon name="chat" style={{ width: 14, height: 14 }} />Техподдержка</a>
-            </div>
-          </div>
+        </div>
+      </div>
+
+      <div className="lp-foot">
+        <span>© 2024 ПСЦ Travel Hub. Все права защищены.</span>
+        <div className="lp-foot-links">
+          <a onClick={() => toast('Политика конфиденциальности')}>Политика конфиденциальности</a>
+          <span>·</span>
+          <a onClick={() => toast('Техподдержка: support@travelhub.ru')}><Icon name="headphones" style={{ width: 14, height: 14 }} />Техподдержка</a>
         </div>
       </div>
     </div>

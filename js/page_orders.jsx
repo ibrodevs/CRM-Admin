@@ -399,7 +399,7 @@ function OrderCreateModal({ open, onClose, onCreated }) {
     <>
       <div className="drawer-overlay" style={{ display: 'flex', justifyContent: 'flex-end' }}
         onMouseDown={(e) => { if (e.target === e.currentTarget) onClose(); }}>
-        <div className="scroll" style={{ background: '#fff', width: 'min(560px, 50vw)', height: '100vh',
+        <div className="scroll" style={{ background: '#fff', width: 'min(560px, 50vw)', height: '100%',
           overflow: 'auto', boxShadow: 'var(--shadow-modal)', animation: 'slidein .26s cubic-bezier(.2,.9,.3,1)',
           display: 'flex', flexDirection: 'column' }}>
           {/* Header */}
@@ -999,7 +999,7 @@ function OrdersList({ orders, onOpen, onCreate }) {
                 <tbody>
                   {pageRows.map((o, i) => (
                     <tr key={i} style={{ cursor: 'pointer' }} onClick={() => onOpen(o)}>
-                      <td onClick={(e) => e.stopPropagation()}><Radio on={!!selected && selected.no === o.no} onChange={() => setSelected(o)} /></td>
+                      <td onClick={(e) => e.stopPropagation()}><Radio on={!!selected && selected.no === o.no} onChange={() => setSelected((cur) => (cur && cur.no === o.no ? null : o))} /></td>
                       <td className="t-strong">{o.no}</td>
                       <td className="t-strong">{o.client}</td>
                       <td><Pill tone="blue">{o.requestType}</Pill></td>
