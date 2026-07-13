@@ -385,7 +385,7 @@ function DocCell({ p }) {
 }
 
 /* one collapsible subgroup card in the participants list (group / corporate orders) */
-function PaxGroupCard({ index, name, members, onPassport }) {
+function PaxGroupCard({ index, name, members, onPassport, onEdit, onAddDoc }) {
   const [open, setOpen] = useState(true);
   const [showAll, setShowAll] = useState(false);
   const isChild = (p) => /реб[её]н|child|инфант|infant/i.test(p.role || '');
@@ -415,6 +415,14 @@ function PaxGroupCard({ index, name, members, onPassport }) {
             <div className="mt">{p.role} · {p.doc}</div>
           </div>
           <Pill tone={p.docStatus === 'check' ? 'amber' : 'green'}>{p.docStatus === 'check' ? 'Требует проверки' : 'Без ошибок'}</Pill>
+          <span onClick={(e) => e.stopPropagation()}>
+            <ActionMenu trigger={<button className="btn btn-ghost btn-icon btn-sm"><Icon name="more" /></button>}
+              items={[
+                { icon: 'idcard', label: 'Документы', onClick: () => onPassport(p.name) },
+                { icon: 'docs', label: 'Добавить документ', onClick: () => onAddDoc && onAddDoc(p) },
+                { icon: 'edit', label: 'Изменить данные', onClick: () => onEdit && onEdit(p) },
+              ]} />
+          </span>
         </div>
       ))}
       {open && members.length > LIMIT && (
@@ -426,7 +434,7 @@ function PaxGroupCard({ index, name, members, onPassport }) {
   );
 }
 
-function TabParticipants({ list, isGroup, groups, fresh, onPassport, onAdd }) {
+function TabParticipants({ list, isGroup, groups, fresh, onPassport, onAdd, onEdit, onAddDoc }) {
   if (!list.length) return (
     <div className="fade-in">
       <EmptyState icon="users" title="Участников пока нет" sub="Добавьте пассажиров поездки и их документы здесь" />
@@ -471,7 +479,7 @@ function TabParticipants({ list, isGroup, groups, fresh, onPassport, onAdd }) {
           if (rest.length) out.push({ id: '__rest', index: null, name: 'Без подгруппы', members: rest });
           return out;
         })() : null;
-        if (secs) return <div className="pax-groups">{secs.map((s) => <PaxGroupCard key={s.id} index={s.index} name={s.name} members={s.members} onPassport={onPassport} />)}</div>;
+        if (secs) return <div className="pax-groups">{secs.map((s) => <PaxGroupCard key={s.id} index={s.index} name={s.name} members={s.members} onPassport={onPassport} onEdit={onEdit} onAddDoc={onAddDoc} />)}</div>;
         return (
           <div className="table-card">
             <table className="tbl">
@@ -484,7 +492,12 @@ function TabParticipants({ list, isGroup, groups, fresh, onPassport, onAdd }) {
                     <td><Pill tone={p.docStatus === 'check' ? 'amber' : 'green'}>{p.docStatus === 'check' ? 'Требует проверки' : 'Без ошибок'}</Pill></td>
                     <td onClick={(e) => e.stopPropagation()}>
                       <ActionMenu trigger={<button className="btn btn-ghost btn-icon btn-sm"><Icon name="more" /></button>}
-                        items={[{ icon: 'idcard', label: 'Документы', onClick: () => onPassport(p.name) }, { icon: 'edit', label: 'Изменить' }, { sep: true }, { icon: 'trash', label: 'Удалить', danger: true }]} />
+                        items={[
+                          { icon: 'idcard', label: 'Документы', onClick: () => onPassport(p.name) },
+                          { icon: 'docs', label: 'Добавить документ', onClick: () => onAddDoc && onAddDoc(p) },
+                          { icon: 'edit', label: 'Изменить данные', onClick: () => onEdit && onEdit(p) },
+                          { sep: true }, { icon: 'trash', label: 'Удалить', danger: true },
+                        ]} />
                     </td>
                   </tr>
                 ))}
@@ -614,7 +627,7 @@ function ServicesFooterBar({ services, participants, bookingDraft, onStartBookin
   );
 }
 
-function TabServices({ orderNo, services, participants, requestType, onOpenAvia, onOpenOther, onOpenPicker, onAssembleKP }) {
+function TabServices({ orderNo, services, participants, requestType, onOpenAvia, onOpenOther, onOpenPicker, onAssembleKP, onExportToChat }) {
   const [filter, setFilter] = useState(null);
   const [selMode, setSelMode] = useState(false);
   const [sel, setSel] = useState(() => new Set());
@@ -625,19 +638,22 @@ function TabServices({ orderNo, services, participants, requestType, onOpenAvia,
   const openItem = (s) => (s.kind === 'Авиа' ? onOpenAvia(s) : onOpenOther(s));
   const toggleSel = (id) => setSel((cur) => { const n = new Set(cur); n.has(id) ? n.delete(id) : n.add(id); return n; });
   const assemble = () => { const chosen = services.filter((s) => sel.has(s.id)); onAssembleKP && onAssembleKP(chosen); setSelMode(false); setSel(new Set()); };
+  // Свободная выгрузка подобранных услуг в чат — без формирования КП (ТЗ-2 п.10)
+  const exportChat = () => { const chosen = services.filter((s) => sel.has(s.id)); onExportToChat && onExportToChat(chosen); setSelMode(false); setSel(new Set()); };
 
   return (
     <div className="fade-in">
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16, flexWrap: 'wrap', gap: 12 }}>
         <h3 className="card-title" style={{ fontSize: 18 }}>Добавленные услуги</h3>
         <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-          {!selMode && <Button variant="secondary" icon="template" onClick={() => setSelMode(true)}>Собрать КП из карточек</Button>}
+          {!selMode && <Button variant="secondary" icon="check" onClick={() => setSelMode(true)}>Выбрать услуги</Button>}
           {selMode && <Button variant="secondary" onClick={() => { setSelMode(false); setSel(new Set()); }}>Отмена</Button>}
+          {selMode && <Button variant="secondary" icon="chat" disabled={sel.size === 0} onClick={exportChat}>Выгрузить в чат ({sel.size})</Button>}
           {selMode && <Button icon="template" disabled={sel.size === 0} onClick={assemble}>Собрать КП ({sel.size})</Button>}
           <Button icon="plus" onClick={onOpenPicker}>Добавить услугу</Button>
         </div>
       </div>
-      {selMode && <div style={{ fontSize: 13, color: 'var(--muted)', marginBottom: 12, display: 'flex', alignItems: 'center', gap: 6 }}><Icon name="template" style={{ width: 16, height: 16 }} />Отметьте карточки услуг, которые нужно объединить в одно коммерческое предложение.</div>}
+      {selMode && <div style={{ fontSize: 13, color: 'var(--muted)', marginBottom: 12, display: 'flex', alignItems: 'center', gap: 6 }}><Icon name="check" style={{ width: 16, height: 16 }} />Отметьте услуги — их можно свободно выгрузить в чат клиенту или объединить в коммерческое предложение.</div>}
 
       <div className="oc-svc-filters" style={{ marginBottom: 16 }}>
         {SVC_FILTER_CHIPS.filter((c) => !c.kind || counts[c.kind]).map((c) => (
@@ -1515,7 +1531,8 @@ function OrderCard({ order, onBack, initTab, initSvcSearch, fresh, onOpenChat })
   const requestType = order.requestType;
   const [editOpen, setEditOpen] = useState(false);
   const [sendOpen, setSendOpen] = useState(false);
-  const participants = requestType === 'Групповая' ? GROUP_PAX : ORDER_PARTICIPANTS;
+  const [participants, setParticipants] = useState(requestType === 'Групповая' ? GROUP_PAX : ORDER_PARTICIPANTS);
+  useEffect(() => { setParticipants(requestType === 'Групповая' ? GROUP_PAX : ORDER_PARTICIPANTS); }, [order.no, requestType]);
   const chatUnread = threadUnread(getThreadForOrder(order));
   const initStage = () => {
     if (order.status === 'Оплачено') return 4;
@@ -1549,6 +1566,8 @@ function OrderCard({ order, onBack, initTab, initSvcSearch, fresh, onOpenChat })
   const [passport, setPassport] = useState(null);
   const [paxOpen, setPaxOpen] = useState(false);
   const [feeOpen, setFeeOpen] = useState(false);
+  const [editPax, setEditPax] = useState(null);   // участник для корректировки (единая форма)
+  const [docPax, setDocPax] = useState(null);      // участник для добавления документа (единая форма)
 
   useEffect(() => { setLoading(true); const t = setTimeout(() => setLoading(false), 600); return () => clearTimeout(t); }, [order.no]);
   // deep-link: switch to requested tab even if the card is already mounted (e.g. opened from a notification)
@@ -1628,6 +1647,22 @@ function OrderCard({ order, onBack, initTab, initSvcSearch, fresh, onOpenChat })
     toast('КП собрано из ' + items.length + ' карточек — открыт раздел «КП»', 'ok');
   };
 
+  // Свободная выгрузка подобранных услуг прямо в чат клиенту — без формирования КП (ТЗ-2 п.10)
+  const exportServicesToChat = (chosen) => {
+    if (!chosen || !chosen.length) { toast('Выберите хотя бы одну услугу', 'err'); return; }
+    const lines = chosen.map((s) => {
+      const total = svcCalc(s).total || s.sum || 0;
+      return '• ' + s.title + (s.sub ? ' (' + s.sub + ')' : '') + ' — ' + Math.round(total).toLocaleString('ru-RU') + ' ' + (s.currency || 'USD');
+    });
+    const text = 'Подобранные услуги по заказу № ' + order.no + ':\n' + lines.join('\n');
+    const thread = getThreadForOrder(order);
+    const now = new Date();
+    const time = String(now.getHours()).padStart(2, '0') + ':' + String(now.getMinutes()).padStart(2, '0');
+    thread.messages = [...(thread.messages || []), { from: 'me', author: (window.CURRENT_USER && CURRENT_USER.name) || 'Оператор', text, time, read: false, kind: 'services' }];
+    toast(chosen.length + ' услуг выгружено в чат клиенту', 'ok');
+    onOpenChat && onOpenChat();
+  };
+
   // --- inside the Services tab, a sub-flow (viewing an existing service, adding a new one, the
   // booking wizard) takes over the main column only — the tab strip and the right-hand aside
   // stay exactly where they are, matching the reference card. ---
@@ -1654,6 +1689,7 @@ function OrderCard({ order, onBack, initTab, initSvcSearch, fresh, onOpenChat })
     return <TabServices orderNo={order.no} services={services} participants={participants} requestType={requestType}
       onOpenPicker={() => goAddType(addKind)}
       onAssembleKP={assembleKPFromCards}
+      onExportToChat={exportServicesToChat}
       onOpenAvia={(s) => { const match = AIR_SERVICES.find((a) => a.no === s.avia) || { no: s.avia || s.id, airline: (s.offer ? s.offer.airline : 'KC'), status: s.status, supplier: s.supplier, pax: 2, sum: s.sum, currency: s.currency, route: s.title, pnr: '—', ticket: '—', dep: s.date }; setActiveAvia(s.offer ? { ...match, offer: s.offer } : match); setSvcView('avia-card'); }}
       onOpenOther={(s) => { setActiveSvc(s.svcOffer ? { ...s.svcOffer, kind: s.kind, status: s.status, date: s.svcOffer.date || s.date, calc: s.calc, order: order.no } : { ...s, order: order.no }); setSvcView('svc-card'); }} />;
   };
@@ -1663,7 +1699,7 @@ function OrderCard({ order, onBack, initTab, initSvcSearch, fresh, onOpenChat })
     switch (tab) {
       case 'overview': return <TabOverview order={order} />;
       case 'clients': return <TabClients order={order} onOpenChat={onOpenChat} />;
-      case 'participants': return <TabParticipants list={participants} isGroup={requestType === 'Групповая'} groups={requestType === 'Групповая' ? AVIA_GROUPS_SEED : null} fresh={fresh} onPassport={setPassport} onAdd={() => setPaxOpen(true)} />;
+      case 'participants': return <TabParticipants list={participants} isGroup={requestType === 'Групповая'} groups={requestType === 'Групповая' ? AVIA_GROUPS_SEED : null} fresh={fresh} onPassport={setPassport} onAdd={() => setPaxOpen(true)} onEdit={(p) => setEditPax(p)} onAddDoc={(p) => setDocPax(p)} />;
       case 'route': return <TabRoute services={services} />;
       case 'services': return renderServicesArea();
       case 'offers': return <KPModule order={order} services={services} participants={participants}
@@ -1767,9 +1803,19 @@ function OrderCard({ order, onBack, initTab, initSvcSearch, fresh, onOpenChat })
       {/* drawers / modals reused from order_extras */}
       <ReassignOperatorDrawer open={reassignOpen} current={operator} onClose={() => setReassignOpen(false)}
         onPick={(op) => { setOperator(op); setReassignOpen(false); toast('Ответственный оператор: ' + op, 'ok'); }} />
-      {paxOpen && <PassengerDrawer open={paxOpen} onClose={() => setPaxOpen(false)} />}
+      {paxOpen && <PassengerDrawer open={paxOpen} onClose={() => setPaxOpen(false)}
+        onAdd={(client) => setParticipants((l) => [...l, { name: client.name, role: client.role || 'Взрослый', doc: client.doc, dob: client.dob, phone: client.phone, docStatus: 'ok', documents: client.documents || [] }])} />}
       {feeOpen && <FeeDrawer open={feeOpen} onClose={() => setFeeOpen(false)} />}
-      {passport && <PassportModal passenger={passport} participants={participants} onClose={() => setPassport(null)} />}
+      {passport && <PassportModal passenger={passport} participants={participants} onClose={() => setPassport(null)}
+        onAddDoc={(p) => { setPassport(null); setDocPax(p || { name: passport }); }} />}
+      {/* Единая форма корректировки участника (ТЗ п.5) */}
+      <UnifiedPersonDrawer open={!!editPax} kind="person" mode="edit" showRole initial={editPax || undefined}
+        onClose={() => setEditPax(null)}
+        onSave={(person, client) => { setParticipants((l) => l.map((x) => x.name === (editPax && editPax.name) ? { ...x, name: client.name, role: person.role, doc: client.doc, dob: client.dob, phone: client.phone } : x)); setEditPax(null); toast('Данные участника обновлены', 'ok'); }} />
+      {/* Единая форма добавления документа участнику (ТЗ п.4, ТЗ-2 п.1) */}
+      <UnifiedDocumentDrawer open={!!docPax} person={{ name: docPax && docPax.name, citizenship: docPax && docPax.citizenship }}
+        onClose={() => setDocPax(null)}
+        onSave={(doc) => { setParticipants((l) => l.map((x) => x.name === (docPax && docPax.name) ? { ...x, documents: [...(x.documents || []), doc], docStatus: 'ok' } : x)); setDocPax(null); toast('Документ добавлен участнику', 'ok'); }} />
       <OrderEditDrawer open={editOpen} order={order} status={status} onStatusChange={(s) => { setStatus(s); toast('Статус: ' + s, 'ok'); }}
         services={services} participants={participants}
         onClose={() => setEditOpen(false)}

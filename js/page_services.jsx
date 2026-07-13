@@ -588,26 +588,13 @@ function SvcCard({ item, kind, participants = [], hideBackRow, onBack }) {
 }
 
 /* Боковая форма добавления участника/гостя прямо из карточки услуги (ТЗ #5). */
+// Добавление пассажира/гостя в подборе услуг — единая форма (forms_unified.jsx).
 function SvcAddPaxDrawer({ open, isHotel, onClose, onAdd }) {
-  const toast = useToast();
-  const ROLES = ['Взрослый', 'Ребёнок', 'Младенец'];
-  const [f, setF] = useState({ name: '', role: 'Взрослый', doc: '', dob: '' });
-  const set = (k, v) => setF((s) => ({ ...s, [k]: v }));
-  useEffect(() => { if (open) setF({ name: '', role: 'Взрослый', doc: '', dob: '' }); }, [open]);
-  const submit = () => {
-    if (!f.name.trim()) { toast('Укажите ФИО', 'err'); return; }
-    onAdd({ name: f.name.trim(), role: f.role, doc: f.doc.trim() || '—', dob: f.dob.trim() || '—' });
-  };
   return (
-    <Drawer open={open} onClose={onClose} title={isHotel ? 'Добавить гостя' : 'Добавить пассажира'}
-      footer={<><Button variant="secondary" onClick={onClose}>Отмена</Button><Button icon="check" onClick={submit}>Добавить</Button></>}>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-        <Field label="ФИО"><Input value={f.name} onChange={(e) => set('name', e.target.value)} placeholder="Фамилия Имя Отчество" autoFocus /></Field>
-        <Field label="Тип"><Select options={ROLES.map((r) => ({ value: r, label: r }))} value={f.role} onChange={(e) => set('role', e.target.value)} /></Field>
-        <Field label="Документ"><Input value={f.doc} onChange={(e) => set('doc', e.target.value)} placeholder="Паспорт / ID" /></Field>
-        <Field label="Дата рождения"><Input value={f.dob} onChange={(e) => set('dob', e.target.value)} placeholder="ДД.ММ.ГГГГ" /></Field>
-      </div>
-    </Drawer>
+    <UnifiedPersonDrawer open={open} kind="person" mode="create" showRole
+      title={isHotel ? 'Добавить гостя' : 'Добавить пассажира'}
+      onClose={onClose}
+      onSave={(person, client) => onAdd({ name: client.name, role: person.role, doc: person.docNo || '—', dob: person.dob || '—', documents: person.documents })} />
   );
 }
 function SVC_CFG_TITLE(kind) { const c = Object.values(SVC_CFG).find((x) => x.kind === kind); return c ? c.title : kind; }
@@ -1303,4 +1290,46 @@ function RailSeatPanel({ offer, participants, groups, onClose, onApply }) {
   );
 }
 
-Object.assign(window, { ServiceFlow, SVC_CFG, ServiceAddFlow, AeroAddFlow, routeKeyForKind, SvcCard, SvcOfferCard, ServiceCardSendPanel, CardLifecycle, RailSeatPanel, RailAddFlow, RailOfferCard });
+/* =====================================================================
+   ЕДИНЫЙ ЭКРАН «Подбор услуг» (ТЗ-2 п.4) — раньше пункт меню только
+   раскрывал список раздроблённых услуг и сам по себе не нёс функции.
+   Теперь это осмысленная посадочная страница: выбор вида услуги.
+   ===================================================================== */
+const SERVICES_HUB = [
+  { key: 'flights', icon: 'plane', title: 'Авиабилеты', desc: 'Поиск и бронирование перелётов, тарифы и доп. услуги.' },
+  { key: 'rail', icon: 'train', title: 'ЖД билеты', desc: 'Железнодорожные билеты, выбор вагона и мест.' },
+  { key: 'hotels', icon: 'building', title: 'Гостиницы', desc: 'Подбор отелей, категории, питание и условия.' },
+  { key: 'transfers', icon: 'car', title: 'Трансферы', desc: 'Индивидуальные и групповые трансферы, такси.' },
+  { key: 'buses', icon: 'bus', title: 'Автобусы', desc: 'Автобусные и маршрутные перевозки.' },
+  { key: 'tours', icon: 'users', title: 'Туры и группы', desc: 'Групповые поездки и туристические пакеты.' },
+];
+function ServicesHubPage({ onNavigate, onAddOrder }) {
+  return (
+    <>
+      <Topbar title="Подбор услуг" sub="Выберите вид услуги для поиска и бронирования">
+        <div className="topbar-spacer" />
+        {onAddOrder && <Button icon="plus" onClick={onAddOrder}>Новый заказ</Button>}
+      </Topbar>
+      <div className="content fade-in">
+        <div className="svc-hub-grid">
+          {SERVICES_HUB.map((s) => (
+            <button key={s.key} type="button" className="svc-hub-card" onClick={() => onNavigate(s.key)}>
+              <span className="svc-hub-ic"><Icon name={s.icon} /></span>
+              <span className="svc-hub-body">
+                <span className="svc-hub-t">{s.title}</span>
+                <span className="svc-hub-d">{s.desc}</span>
+              </span>
+              <Icon name="arrowRight" className="svc-hub-go" />
+            </button>
+          ))}
+        </div>
+        <div className="svc-hub-note">
+          <Icon name="alertCircle" style={{ width: 18, height: 18, color: 'var(--blue)', flex: '0 0 18px' }} />
+          <span>Подбор всегда привязан к заказу и клиенту. Услуги можно добавить и внутри карточки заказа на вкладке «Услуги».</span>
+        </div>
+      </div>
+    </>
+  );
+}
+
+Object.assign(window, { ServiceFlow, SVC_CFG, ServiceAddFlow, AeroAddFlow, routeKeyForKind, SvcCard, SvcOfferCard, ServiceCardSendPanel, CardLifecycle, RailSeatPanel, RailAddFlow, RailOfferCard, ServicesHubPage, SERVICES_HUB });

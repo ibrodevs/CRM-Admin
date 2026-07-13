@@ -6,8 +6,13 @@ function ordersOf(name) { return ORDERS.filter((o) => o.client === name); }
 /* ====================================================================
    КЛИЕНТЫ
    ==================================================================== */
-function ClientCard({ c, onBack, onOpenOrder }) {
+function ClientCard({ c: c0, onBack, onOpenOrder, onUpdate }) {
   const toast = useToast();
+  const [c, setC] = useState(c0);
+  const [edit, setEdit] = useState(false);
+  const [docOpen, setDocOpen] = useState(false);
+  const [docs, setDocs] = useState(c0.documents || []);
+  useEffect(() => { setC(c0); setDocs(c0.documents || []); }, [c0]);
   const orders = ordersOf(c.name);
   return (
     <div className="fade-in">
@@ -22,9 +27,13 @@ function ClientCard({ c, onBack, onOpenOrder }) {
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}><h2 className="card-title">{c.name}</h2><Pill tone={CLIENT_STATUS[c.status]}>{c.status}</Pill></div>
           <div style={{ color: 'var(--muted)', fontSize: 14, marginTop: 4 }}>{c.type} · {c.company !== '—' ? c.company : 'частное лицо'} · клиент с {c.since}</div>
         </div>
+        <Button variant="secondary" icon="edit" onClick={() => setEdit(true)}>Изменить</Button>
         <Button variant="secondary" icon="chat" onClick={() => toast('Открываю чат с клиентом', 'info')}>Написать</Button>
         <Button icon="plus" onClick={() => toast('Создание заказа', 'info')}>Новый заказ</Button>
       </div>
+      <ClientCreateModal open={edit} initial={c} onClose={() => setEdit(false)} onCreated={(u) => { setC(u); onUpdate && onUpdate(u); }} />
+      <UnifiedDocumentDrawer open={docOpen} person={{ name: c.name, citizenship: c.citizenship }}
+        onClose={() => setDocOpen(false)} onSave={(d) => { setDocs((cur) => [...cur, d]); setDocOpen(false); toast('Документ добавлен', 'ok'); }} />
 
       <div className="grid-2" style={{ alignItems: 'start' }}>
         <div className="card card-pad">
@@ -68,52 +77,30 @@ function ClientCard({ c, onBack, onOpenOrder }) {
 
       <h3 className="section-title" style={{ fontSize: 20, margin: '24px 0 14px' }}>Документы</h3>
       <div className="grid-4">
+        {docs.map((d, i) => (<button key={'ud' + i} className="doc-chip" onClick={() => setDocOpen(true)}><span style={{ display: 'flex', alignItems: 'center', gap: 8 }}><Icon name="idcard" />{d.docType} · {d.docNo}</span><Icon name="download" /></button>))}
         {['Паспорт / ID', 'Договор', 'Согласие на обработку ПД'].map((d) => (<button key={d} className="doc-chip"><span style={{ display: 'flex', alignItems: 'center', gap: 8 }}><Icon name="idcard" />{d}</span><Icon name="download" /></button>))}
-        <button className="doc-chip" style={{ borderStyle: 'dashed', color: 'var(--blue)' }} onClick={() => toast('Загрузка', 'info')}><span style={{ display: 'flex', alignItems: 'center', gap: 8 }}><Icon name="plus" />Загрузить</span></button>
+        <button className="doc-chip" style={{ borderStyle: 'dashed', color: 'var(--blue)' }} onClick={() => setDocOpen(true)}><span style={{ display: 'flex', alignItems: 'center', gap: 8 }}><Icon name="plus" />Загрузить</span></button>
       </div>
     </div>
   );
 }
 
 /* ---------- Новый клиент (форма добавления) ---------- */
-function ClientCreateModal({ open, onClose, onCreated }) {
+// Единая форма клиента (создание/редактирование) — делегирует UnifiedPersonDrawer.
+// initial (необязательно) — существующий клиент для корректировки.
+function ClientCreateModal({ open, initial, onClose, onCreated }) {
   const toast = useToast();
-  const blank = { name: '', type: 'Физлицо', status: 'Новый', company: '', phone: '', email: '', city: 'Бишкек', doc: '', dob: '' };
-  const [f, setF] = useState(blank);
-  const [errs, setErrs] = useState({});
-  useEffect(() => { if (open) { setF(blank); setErrs({}); } }, [open]);
-  const upd = (k, v) => setF((s) => ({ ...s, [k]: v }));
-  const submit = () => {
-    const er = {};
-    if (!f.name.trim()) er.name = 'Укажите имя клиента';
-    if (!f.phone.trim()) er.phone = 'Укажите телефон';
-    if (f.email && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(f.email)) er.email = 'Некорректный e-mail';
-    setErrs(er);
-    if (Object.keys(er).length) return;
+  const mode = initial ? 'edit' : 'create';
+  const save = (person, client) => {
     const d = new Date();
     const since = `${String(d.getDate()).padStart(2, '0')}.${String(d.getMonth() + 1).padStart(2, '0')}.${d.getFullYear()}`;
-    const c = { id: 'CL-' + (1061 + Math.floor(Math.random() * 8999)), ...f, name: f.name.trim(), company: f.company.trim() || '—', since, orders: 0, spent: 0, debt: 0, doc: f.doc.trim() || '—', dob: f.dob.trim() || '—' };
-    onCreated(c); toast('Клиент «' + c.name + '» добавлен', 'ok'); onClose();
+    const base = initial || { since, orders: 0, spent: 0, debt: 0, company: '—' };
+    const c = { ...base, ...client, company: (initial && initial.company) || '—' };
+    onCreated(c); toast('Клиент «' + c.name + '» ' + (mode === 'edit' ? 'обновлён' : 'добавлен'), 'ok'); onClose();
   };
-  if (!open) return null;
   return (
-    <Drawer open={open} onClose={onClose} title="Новый клиент" sub="Контактные и учётные данные"
-      footer={<>
-        <Button variant="secondary" onClick={onClose}>Отмена</Button>
-        <Button icon="check" onClick={submit}>Добавить клиента</Button>
-      </>}>
-      <div className="form-grid">
-        <Field label="ФИО / Наименование" required error={errs.name} ><Input value={f.name} onChange={(e) => upd('name', e.target.value)} placeholder="Иванов Иван Иванович" error={errs.name} /></Field>
-        <Field label="Тип клиента"><Select options={['Физлицо', 'ИП', 'Организация']} value={f.type} onChange={(e) => upd('type', e.target.value)} /></Field>
-        <Field label="Телефон" required error={errs.phone}><Input value={f.phone} onChange={(e) => upd('phone', e.target.value)} placeholder="+996 700 000 000" leadIcon="phone" error={errs.phone} /></Field>
-        <Field label="E-mail" error={errs.email}><Input value={f.email} onChange={(e) => upd('email', e.target.value)} placeholder="mail@example.com" leadIcon="mail" error={errs.email} /></Field>
-        <Field label="Город"><Input value={f.city} onChange={(e) => upd('city', e.target.value)} /></Field>
-        <Field label="Статус"><Select options={Object.keys(CLIENT_STATUS)} value={f.status} onChange={(e) => upd('status', e.target.value)} /></Field>
-        <Field label="Компания"><Input value={f.company} onChange={(e) => upd('company', e.target.value)} placeholder="— (для физлица)" /></Field>
-        <Field label="Документ"><Input value={f.doc} onChange={(e) => upd('doc', e.target.value)} placeholder="ID / Паспорт / ИНН" leadIcon="idcard" /></Field>
-        <Field label="Дата рождения"><Input value={f.dob} onChange={(e) => upd('dob', e.target.value)} placeholder="дд.мм.гггг" leadIcon="calendar" /></Field>
-      </div>
-    </Drawer>
+    <UnifiedPersonDrawer open={open} kind="person" mode={mode} initial={initial}
+      onClose={onClose} onSave={save} />
   );
 }
 
@@ -128,8 +115,9 @@ function ClientsPage({ onOpenOrder, intent, onConsume }) {
 
   useEffect(() => { if (intent && intent.type === 'create') { setCreateOpen(true); onConsume && onConsume(); } }, [intent]);
   const addClient = (c) => setClients((cur) => [c, ...cur]);
+  const upsertClient = (c) => setClients((cur) => cur.some((x) => x.id === c.id) ? cur.map((x) => x.id === c.id ? c : x) : [c, ...cur]);
 
-  if (view === 'card' && active) return (<><Topbar title="Карточка клиента" /><div className="content"><ClientCard c={active} onBack={() => setView('list')} onOpenOrder={onOpenOrder} /></div></>);
+  if (view === 'card' && active) return (<><Topbar title="Карточка клиента" /><div className="content"><ClientCard c={active} onBack={() => setView('list')} onOpenOrder={onOpenOrder} onUpdate={(u) => { upsertClient(u); setActive(u); }} /></div></>);
 
   let rows = clients.filter((c) => (!fStatus || c.status === fStatus) && (!q || `${c.id} ${c.name} ${c.company} ${c.phone}`.toLowerCase().includes(q.toLowerCase())));
   rows = apply(rows, { name: (r) => r.name, orders: (r) => r.orders, spent: (r) => r.spent, debt: (r) => r.debt });
@@ -173,58 +161,29 @@ function ClientsPage({ onOpenOrder, intent, onConsume }) {
    КОМПАНИИ
    ==================================================================== */
 
-/* ---------- Добавление сотрудника (в компанию / в отдел / в тревел-политику) ---------- */
-function EmployeeCreateDrawer({ open, departments, defaultDept, coName, onClose, onCreate }) {
+/* ---------- Добавление / редактирование сотрудника (единая форма, kind='employee') ---------- */
+function EmployeeCreateDrawer({ open, departments, defaultDept, coName, initial, onClose, onCreate }) {
   const toast = useToast();
-  const firstDept = defaultDept || (departments[0] && departments[0].id) || '';
-  const blank = { name: '', position: '', dept: firstDept, phone: '', email: '', doc: '', dob: '', addToPolicy: true };
-  const [f, setF] = useState(blank);
-  const [errs, setErrs] = useState({});
-  useEffect(() => { if (open) { setF({ ...blank, dept: firstDept }); setErrs({}); } }, [open, defaultDept]);
-  const upd = (k, v) => setF((s) => ({ ...s, [k]: v }));
-  const submit = () => {
-    const er = {};
-    if (!f.name.trim()) er.name = 'Укажите ФИО сотрудника';
-    if (!f.phone.trim()) er.phone = 'Укажите телефон';
-    if (f.email && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(f.email)) er.email = 'Некорректный e-mail';
-    setErrs(er);
-    if (Object.keys(er).length) return;
+  const mode = initial ? 'edit' : 'create';
+  const base = initial ? ufFromClient(initial, 'employee')
+    : { ...ufBlankPerson('employee'), dept: defaultDept || (departments[0] && departments[0].id) || '' };
+  const save = (person, client) => {
+    const dep = departments.find((d) => d.id === person.dept);
     const emp = {
-      id: 'E-' + Math.floor(1000 + Math.random() * 8999), name: f.name.trim(), position: f.position.trim(),
-      dept: f.dept, phone: f.phone.trim(), email: f.email.trim(), doc: f.doc.trim() || '—', dob: f.dob.trim() || '—',
-      inPolicy: f.addToPolicy,
+      id: (initial && initial.id) || 'E-' + Math.floor(1000 + Math.random() * 8999),
+      name: client.name, position: person.position, dept: person.dept,
+      phone: person.phone || '—', email: person.email || '', doc: person.docNo || '—',
+      dob: person.dob || '—', inPolicy: person.inPolicy, documents: person.documents || [],
     };
-    const dep = departments.find((d) => d.id === f.dept);
     onCreate(emp);
-    toast('Сотрудник «' + emp.name + '» добавлен' + (dep ? ' в «' + dep.name + '»' : '') + (f.addToPolicy ? ' · включён в тревел-политику' : ''), 'ok');
+    toast('Сотрудник «' + emp.name + '» ' + (mode === 'edit' ? 'обновлён' : 'добавлен')
+      + (dep && mode !== 'edit' ? ' в «' + dep.name + '»' : '')
+      + (person.inPolicy && mode !== 'edit' ? ' · включён в тревел-политику' : ''), 'ok');
     onClose();
   };
-  if (!open) return null;
   return (
-    <Drawer open onClose={onClose} width="min(560px,96vw)" title="Новый сотрудник" sub={coName}
-      footer={<>
-        <Button variant="secondary" onClick={onClose}>Отмена</Button>
-        <Button icon="check" onClick={submit}>Добавить сотрудника</Button>
-      </>}>
-      <div className="form-grid">
-        <Field label="ФИО" required error={errs.name}><Input value={f.name} onChange={(e) => upd('name', e.target.value)} placeholder="Иванов Иван Иванович" error={errs.name} /></Field>
-        <Field label="Должность"><Input value={f.position} onChange={(e) => upd('position', e.target.value)} placeholder="Менеджер" /></Field>
-        <Field label="Подразделение"><Select options={departments.length ? departments.map((d) => ({ value: d.id, label: d.name })) : [{ value: '', label: '— нет подразделений' }]} value={f.dept} onChange={(e) => upd('dept', e.target.value)} /></Field>
-        <Field label="Телефон" required error={errs.phone}><Input value={f.phone} onChange={(e) => upd('phone', e.target.value)} placeholder="+996 700 000 000" leadIcon="phone" error={errs.phone} /></Field>
-        <Field label="E-mail" error={errs.email}><Input value={f.email} onChange={(e) => upd('email', e.target.value)} placeholder="mail@example.com" leadIcon="mail" error={errs.email} /></Field>
-        <Field label="Документ"><Input value={f.doc} onChange={(e) => upd('doc', e.target.value)} placeholder="ID / Паспорт" leadIcon="idcard" /></Field>
-        <Field label="Дата рождения"><Input value={f.dob} onChange={(e) => upd('dob', e.target.value)} placeholder="дд.мм.гггг" leadIcon="calendar" /></Field>
-      </div>
-      <div role="button" tabIndex={0} onClick={() => upd('addToPolicy', !f.addToPolicy)}
-        style={{ display: 'flex', alignItems: 'center', gap: 12, cursor: 'pointer', marginTop: 6, padding: '12px 14px', border: '1px solid var(--line)', borderRadius: 12, background: f.addToPolicy ? 'var(--blue-soft)' : '#fff' }}>
-        <Icon name="template" style={{ width: 18, height: 18, color: 'var(--blue)' }} />
-        <div style={{ flex: 1 }}>
-          <div style={{ fontWeight: 600, color: 'var(--ink)', fontSize: 14 }}>Добавить в тревел-политику</div>
-          <div className="ty-sub">Применить правила подразделения к поездкам сотрудника</div>
-        </div>
-        <Toggle on={f.addToPolicy} onChange={(v) => upd('addToPolicy', v)} style={{ pointerEvents: 'none' }} />
-      </div>
-    </Drawer>
+    <UnifiedPersonDrawer open={open} kind="employee" mode={mode} initial={base}
+      company={coName} departments={departments} onClose={onClose} onSave={save} />
   );
 }
 
@@ -434,12 +393,15 @@ function CompanyCard({ co, onBack, onOpenOrder }) {
   );
 }
 
-function CompaniesPage({ onOpenOrder }) {
+function CompaniesPage({ onOpenOrder, intent, onConsume }) {
   const [view, setView] = useState('list');
   const [active, setActive] = useState(null);
   const [q, setQ] = useState('');
   const [fStatus, setFStatus] = useState('');
+  const [createOpen, setCreateOpen] = useState(false);
   const { sort, onSort, apply } = useSort(null);
+
+  useEffect(() => { if (intent && intent.type === 'create') { setCreateOpen(true); onConsume && onConsume(); } }, [intent]);
 
   if (view === 'card' && active) return (<><Topbar title="Карточка компании" /><div className="content"><CompanyCard co={active} onBack={() => setView('list')} onOpenOrder={onOpenOrder} /></div></>);
 
@@ -449,7 +411,8 @@ function CompaniesPage({ onOpenOrder }) {
 
   return (
     <>
-      <Topbar title="Компании"><div className="topbar-spacer" /><Button icon="plus">Добавить компанию</Button></Topbar>
+      <Topbar title="Компании"><div className="topbar-spacer" /><Button icon="plus" onClick={() => setCreateOpen(true)}>Добавить компанию</Button></Topbar>
+      <NewOrgDrawer open={createOpen} onClose={() => setCreateOpen(false)} />
       <div className="content fade-in">
         <div className="grid-4" style={{ marginBottom: 22 }}>{STATS.map(([l, v]) => (<div className="stat-card" key={l}><div className="s-label">{l}</div><div className="s-value">{v}</div></div>))}</div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16, flexWrap: 'wrap' }}>

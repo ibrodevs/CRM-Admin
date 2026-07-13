@@ -1915,7 +1915,7 @@ function FlightsRegistry({ onNew, onOpen }) {
                   <td><span style={{ display: 'flex', alignItems: 'center', gap: 9 }}><AirlineLogo code={r.airline} size="sm" />{AIRLINES[r.airline].name}</span></td>
                   <td>{r.pnr === '—' ? <span style={{ color: 'var(--muted-2)' }}>—</span> : r.pnr}</td>
                   <td style={{ fontSize: 13 }}>{r.ticket}</td>
-                  <td style={{ fontSize: 13, color: 'var(--muted)' }}>{r.supplier}</td>
+                  <td>{r.supplier ? <span className="sup-badge" style={{ marginTop: 0 }}><Icon name="api" />{r.supplier}</span> : <span style={{ color: 'var(--muted-2)' }}>—</span>}</td>
                   <td>{r.dep}</td>
                   <td><Pill tone={AIR_STATUS[r.status]}>{r.status}</Pill></td>
                   <td style={{ textAlign: 'right', fontWeight: 600 }}>{r.sum ? money(r.sum, r.currency) : '—'}</td>

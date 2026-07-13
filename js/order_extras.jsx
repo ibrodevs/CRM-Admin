@@ -24,7 +24,7 @@ const PASS_DOCTYPES = [
   { key: 'visa', label: 'Visa', icon: 'users' },
   { key: 'bank', label: 'Банковская выписка', icon: 'bank' },
 ];
-function PassportModal({ passenger, participants, onClose }) {
+function PassportModal({ passenger, participants, onClose, onAddDoc }) {
   const toast = useToast();
   const [docType, setDocType] = useState('pass');
   const [q, setQ] = useState('');
@@ -47,9 +47,10 @@ function PassportModal({ passenger, participants, onClose }) {
     <Drawer open onClose={onClose} width="min(720px,96vw)"
       title="Документация" sub="Заказ № 51162 ОсОО «Гранд лимитед» от 23.12.25"
       footer={<div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', justifyContent: 'flex-end', flex: 1 }}>
+        <Button variant="secondary" icon="plus" onClick={() => onAddDoc && onAddDoc(cur ? { name: cur.name } : null)}>Добавить документ</Button>
+        <div style={{ flex: 1 }} />
         <Button variant="secondary" iconRight="chevRight" onClick={() => toast('Открываю документ', 'info')}>Посмотреть документ</Button>
         <Button variant="secondary" onClick={() => toast('Данные подтверждены', 'ok')}>Подтвердить данные</Button>
-        <Button variant="secondary" onClick={() => toast('Запрос на исправление отправлен', 'info')}>Исправить</Button>
         <Button variant="primary" iconRight="chevRight" onClick={() => { toast('Документ подписан', 'ok'); onClose(); }}>Подписать</Button>
       </div>}>
       {/* тип документа */}
@@ -128,42 +129,13 @@ function FeeDrawer({ open, onClose }) {
 }
 
 /* ---------- Passenger drawer (Добавить пассажира) ---------- */
-function PassengerDrawer({ open, onClose }) {
+// Добавление пассажира — единая форма (forms_unified.jsx).
+function PassengerDrawer({ open, onClose, onAdd }) {
   const toast = useToast();
-  const empty = { fio: '', dob: null, citizenship: '', docType: '', docNo: '', expiry: null, email: '', phone: '', comment: '' };
-  const [f, setF] = useState(empty);
-  const [errs, setErrs] = useState({});
-  const set = (k) => (e) => setF((p) => ({ ...p, [k]: e && e.target ? e.target.value : e }));
-  useEffect(() => { if (open) { setF(empty); setErrs({}); } }, [open]);
-  const submit = () => {
-    const er = {};
-    if (!f.fio.trim()) er.fio = 'Введите ФИО';
-    if (!f.citizenship) er.citizenship = 'Выберите страну';
-    if (!f.docType) er.docType = 'Выберите тип';
-    if (f.email && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(f.email)) er.email = 'Некорректный e-mail';
-    setErrs(er);
-    if (Object.keys(er).length) { toast('Проверьте поля формы', 'err'); return; }
-    toast('Пассажир добавлен', 'ok'); onClose();
-  };
   return (
-    <Drawer open={open} onClose={onClose} title="Добавить пассажира"
-      footer={<><Button variant="secondary" onClick={onClose}>Отмена</Button><Button variant="primary" onClick={submit}>Добавить</Button></>}>
-      <div style={{ fontSize: 18, fontWeight: 700, color: 'var(--ink)', margin: '0 0 16px' }}>Личные данные</div>
-      <div className="form-grid">
-        <Field label="ФИО" required error={errs.fio}><Input placeholder="Введите ФИО" value={f.fio} onChange={set('fio')} error={errs.fio} /></Field>
-        <DateField label="Дата рождения" value={f.dob} onChange={set('dob')} placeholder="Выбрать дату" />
-        <div className="full"><Field label="Гражданство" required error={errs.citizenship}><Select placeholder="Выберите страну" options={['Кыргызстан', 'Казахстан', 'Россия', 'Узбекистан', 'Германия']} value={f.citizenship} onChange={set('citizenship')} error={errs.citizenship} /></Field></div>
-      </div>
-      <div style={{ fontSize: 18, fontWeight: 700, color: 'var(--ink)', margin: '26px 0 16px' }}>Документ и контакты</div>
-      <div className="form-grid">
-        <Field label="Тип документа" required error={errs.docType}><Select placeholder="Выберите тип" options={['Паспорт', 'ID Card', 'Загранпаспорт']} value={f.docType} onChange={set('docType')} error={errs.docType} /></Field>
-        <Field label="Номер документа"><Input placeholder="Введите номер" value={f.docNo} onChange={set('docNo')} /></Field>
-        <DateField label="Срок действия" value={f.expiry} onChange={set('expiry')} placeholder="Выбрать дату" />
-        <Field label="Контактный e-mail" error={errs.email}><Input placeholder="johndoe@mail.com" value={f.email} onChange={set('email')} error={errs.email} /></Field>
-        <Field label="Контактный телефон"><Input placeholder="+996 (___) __-__-__" value={f.phone} onChange={set('phone')} /></Field>
-        <div className="full"><Field label="Комментарий"><textarea className="input" rows={3} placeholder="Descriptions..." value={f.comment} onChange={set('comment')} /></Field></div>
-      </div>
-    </Drawer>
+    <UnifiedPersonDrawer open={open} kind="person" mode="create" showRole title="Добавить пассажира"
+      onClose={onClose}
+      onSave={(person, client) => { onAdd && onAdd(client); toast('Пассажир добавлен', 'ok'); onClose(); }} />
   );
 }
 
@@ -185,7 +157,7 @@ function NewOrgDrawer({ open, onClose }) {
     toast('Организация создана', 'ok'); onClose();
   };
   return (
-    <Drawer open={open} onClose={onClose} title="Новая организация"
+    <Drawer open={open} onClose={onClose} title="Новая организация" width="min(720px,96vw)"
       footer={<><Button variant="secondary" onClick={onClose}>Отмена</Button><Button variant="primary" iconRight="arrowRight" onClick={submit}>Далее</Button></>}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 22 }}>
         <span className="avatar-ph" style={{ width: 54, height: 54 }}><Icon name="user" style={{ width: 24, height: 24 }} /></span>

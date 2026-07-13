@@ -308,6 +308,7 @@ function OrderCreateModal({ open, onClose, onCreated }) {
   const [docFor, setDocFor] = useState(null);       // client для «Добавление документа»
   const [bonusFor, setBonusFor] = useState(null);   // client для «Добавление бонусной карты»
   const [empPick, setEmpPick] = useState(false);    // выбор сотрудников (для организации)
+  const [newPerson, setNewPerson] = useState(false); // создание нового физлица (единая форма)
 
   // Reset on open
   useEffect(() => {
@@ -399,7 +400,7 @@ function OrderCreateModal({ open, onClose, onCreated }) {
     <>
       <div className="drawer-overlay" style={{ display: 'flex', justifyContent: 'flex-end' }}
         onMouseDown={(e) => { if (e.target === e.currentTarget) onClose(); }}>
-        <div className="scroll" style={{ background: '#fff', width: 'min(560px, 50vw)', height: '100%',
+        <div className="scroll" style={{ background: '#fff', width: 'min(640px, 60vw)', height: '100%',
           overflow: 'auto', boxShadow: 'var(--shadow-modal)', animation: 'slidein .26s cubic-bezier(.2,.9,.3,1)',
           display: 'flex', flexDirection: 'column' }}>
           {/* Header */}
@@ -455,8 +456,8 @@ function OrderCreateModal({ open, onClose, onCreated }) {
                       items={personMenu(c, () => setSelClients((l) => l.filter((x) => x.id !== c.id)))} />
                   </div>
                 ))}
-                <button className="oce-add" onClick={() => { const next = CLIENTS_DB.find((c) => !selClients.find((s) => s.id === c.id)); if (next) setSelClients((l) => [...l, next]); }}>
-                  <Icon name="plus" style={{ width: 16, height: 16 }} />Добавить физическое лицо
+                <button className="oce-add" onClick={() => setNewPerson(true)}>
+                  <Icon name="plus" style={{ width: 16, height: 16 }} />Добавить новое физическое лицо
                 </button>
               </Sec>
             ) : (
@@ -608,6 +609,9 @@ function OrderCreateModal({ open, onClose, onCreated }) {
       {docFor && <DocumentPanel client={docFor} onClose={() => setDocFor(null)} onSave={() => { toast('Документ добавлен', 'ok'); setDocFor(null); }} />}
       {bonusFor && <BonusCardPanel client={bonusFor} onClose={() => setBonusFor(null)} onSave={() => { toast('Бонусная карта добавлена', 'ok'); setBonusFor(null); }} />}
       {empPick && <EmployeePanel company={company} selected={employees} onClose={() => setEmpPick(false)} onApply={(list) => { setEmployees(list); setEmpPick(false); }} />}
+      <UnifiedPersonDrawer open={newPerson} kind="person" mode="create"
+        onClose={() => setNewPerson(false)}
+        onSave={(person, client) => { setSelClients((l) => [...l, client]); setNewPerson(false); toast('Физическое лицо добавлено в заказ', 'ok'); }} />
     </>
   );
 }
@@ -689,64 +693,11 @@ function CityPickPanel({ value, onPick, onClose }) {
   );
 }
 
-/* ---- document add ---- */
+/* ---- document add — единая форма (forms_unified.jsx) ---- */
 function DocumentPanel({ client, onClose, onSave }) {
-  const [mode, setMode] = useState('ocr'); // 'ocr' | 'manual'
-  const [scanned, setScanned] = useState(false);
   return (
-    <StackPanel title="Добавление документа" onClose={onClose}
-      footer={<><Button variant="secondary" style={{ flex: 1 }} onClick={onClose}>Отмена</Button><Button style={{ flex: 1 }} icon="check" onClick={onSave}>Сохранить документ</Button></>}>
-      <div className="oce-client" style={{ marginBottom: 16 }}>
-        <Avatar name={client.name} size={32} /><div style={{ flex: 1 }}><div className="nm">{client.name}</div><div className="mt">Владелец документа</div></div>
-      </div>
-      <div style={{ display: 'flex', gap: 10, marginBottom: 18 }}>
-        <Button variant={mode === 'ocr' ? 'primary' : 'secondary'} icon="zap" style={{ flex: 1 }} onClick={() => setMode('ocr')}>Загрузить документ (OCR)</Button>
-        <Button variant={mode === 'manual' ? 'primary' : 'secondary'} icon="edit" style={{ flex: 1 }} onClick={() => setMode('manual')}>Заполнить вручную</Button>
-      </div>
-
-      {mode === 'ocr' && (
-        <>
-          <div onClick={() => setScanned(true)} style={{ border: '1px dashed var(--field-line)', borderRadius: 12, padding: '26px', textAlign: 'center', color: 'var(--muted)', marginBottom: 14, cursor: 'pointer' }}>
-            <Icon name="download" style={{ width: 28, height: 28, color: 'var(--muted-2)' }} />
-            <div style={{ marginTop: 8, fontWeight: 600, color: 'var(--ink)' }}>Перетащите файл сюда</div>
-            <div style={{ margin: '10px 0' }}><Button variant="secondary" size="sm">Выбрать файл</Button></div>
-            <div style={{ fontSize: 12 }}>Поддерживаемые форматы: JPG, PNG, PDF</div>
-            <div style={{ fontSize: 12 }}>Максимальный размер файла: 10 МБ</div>
-          </div>
-          {scanned && (
-            <div style={{ display: 'flex', gap: 9, alignItems: 'flex-start', padding: '11px 13px', borderRadius: 11, background: 'var(--green-bg)', border: '1px solid var(--green)', marginBottom: 18 }}>
-              <Icon name="checkCircle" style={{ width: 18, height: 18, color: 'var(--green)', flex: '0 0 18px', marginTop: 1 }} />
-              <span style={{ fontSize: 13, color: 'var(--body)' }}>Документ распознан системой. Проверьте данные и при необходимости отредактируйте их.</span>
-            </div>
-          )}
-        </>
-      )}
-
-      <PanelSub style={{ marginTop: 6 }}>Данные документа</PanelSub>
-      <div className="form-grid">
-        <Field label="Тип документа"><select className="select"><option>Загранпаспорт</option><option>Паспорт РФ</option><option>ID-карта</option></select></Field>
-        <Field label="Гражданство"><select className="select"><option>Российская Федерация</option><option>Кыргызстан</option><option>Казахстан</option></select></Field>
-        <Field label="Номер документа"><Input placeholder="71 1234567" /></Field>
-        <DateField label="Срок действия" value={null} onChange={() => {}} placeholder="Выбрать дату" />
-      </div>
-
-      <PanelSub>Данные владельца</PanelSub>
-      <div className="form-grid">
-        <Field label="Фамилия (лат.)"><Input placeholder="IVANOV" /></Field>
-        <Field label="Имя (лат.)"><Input placeholder="IVAN" /></Field>
-        <Field label="Отчество (лат.)"><Input placeholder="IVANOVICH" /></Field>
-        <DateField label="Дата рождения" value={null} onChange={() => {}} placeholder="Выбрать дату" />
-      </div>
-
-      <PanelSub>Контактная информация</PanelSub>
-      <div className="form-grid">
-        <Field label="Основной телефон"><Input placeholder="+7 (___) ___-__-__" /></Field>
-        <Field label="Дополнительный телефон"><Input placeholder="+7 (___) ___-__-__" /></Field>
-      </div>
-
-      <PanelSub>Дополнительная информация <span style={{ textTransform: 'none', fontWeight: 400, color: 'var(--faint)' }}>(необязательно)</span></PanelSub>
-      <textarea className="input" rows={3} placeholder="Комментарий к документу" style={{ resize: 'vertical' }} />
-    </StackPanel>
+    <UnifiedDocumentDrawer open person={{ name: client.name, citizenship: client.citizenship }}
+      onClose={onClose} onSave={(doc) => onSave && onSave(doc)} />
   );
 }
 

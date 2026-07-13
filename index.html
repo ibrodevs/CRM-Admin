@@ -325,8 +325,12 @@ table.tbl tbody tr:last-child td{border-bottom:none}
 .gsearch-t{font-weight:600;color:var(--ink);font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .gsearch-s{font-size:12.5px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .shell-drawer .grid-4{grid-template-columns:repeat(2,1fr);gap:14px}
-.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:20px 22px}
+.form-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:20px 22px}
 .form-grid .full{grid-column:1/-1}
+/* Боковые окна и модалки — контейнер для адаптива полей (ТЗ п.8, ТЗ-2 п.11).
+   В узкой панели поля становятся в одну колонку и не сливаются друг с другом. */
+.drawer,.shell-drawer,.modal,.drawer-stack-panel{container-type:inline-size}
+@container (max-width:560px){.form-grid{grid-template-columns:1fr;gap:16px}}
 
 /* info row list (key→value) */
 .kv{display:flex;flex-direction:column}
@@ -491,10 +495,12 @@ table.tbl tbody tr:last-child td{border-bottom:none}
 .off-tag.ok{color:var(--green);background:var(--green-bg-2);border-color:transparent}
 .off-tag.no{color:var(--red);background:var(--red-bg);border-color:transparent}
 .off-side{border-left:1px solid var(--line);padding:20px;display:flex;flex-direction:column;justify-content:space-between;background:var(--surface-2)}
-.off-supplier{display:inline-flex;align-items:center;gap:5px;font-size:11.5px;color:var(--teal);background:var(--teal-bg);font-weight:600;padding:3px 8px;border-radius:7px;margin-bottom:8px;width:fit-content}
+/* Ярлык поставщика (ТЗ-2 п.9): чёткая рамка, чтобы не сливался с общей
+   информацией в авиа и прочих услугах — как обособленный фрейм у отелей. */
+.off-supplier{display:inline-flex;align-items:center;gap:5px;font-size:11.5px;color:var(--teal);background:var(--teal-bg);font-weight:700;padding:3px 9px;border:1px solid var(--teal);border-radius:8px;margin-bottom:8px;width:fit-content;box-shadow:0 1px 2px rgba(13,148,136,.12)}
 .off-supplier svg{width:13px;height:13px}
-/* supplier badge (ярлык поставщика) in avia search rows — same look as hotel «Островок» */
-.sup-badge{display:inline-flex;align-items:center;gap:4px;font-size:10.5px;color:var(--teal);background:var(--teal-bg);font-weight:600;padding:2px 7px;border-radius:6px;margin-top:4px}
+/* supplier badge (ярлык поставщика) in avia search rows — обособленный фрейм */
+.sup-badge{display:inline-flex;align-items:center;gap:5px;font-size:11px;color:var(--teal);background:var(--teal-bg);font-weight:700;padding:3px 9px;border:1px solid var(--teal);border-radius:8px;margin-top:5px;box-shadow:0 1px 2px rgba(13,148,136,.12)}
 .sup-badge svg{width:12px;height:12px}
 /* supplier filter chips in avia search */
 .ap-supfilter{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:0 0 16px}
@@ -1385,7 +1391,45 @@ table.tbl tbody tr:last-child td{border-bottom:none}
 .city-row .code{width:42px;font-weight:700;color:var(--blue)}
 /* stacked drawer (nested over the create drawer) */
 .drawer-stack{position:fixed;inset:0;z-index:90;display:flex;justify-content:flex-end;background:rgba(16,23,38,.28)}
-.drawer-stack-panel{background:#fff;width:min(480px,46vw);height:100%;overflow:auto;box-shadow:var(--shadow-modal);animation:slidein .24s cubic-bezier(.2,.9,.3,1);display:flex;flex-direction:column}
+.drawer-stack-panel{background:#fff;width:min(560px,52vw);height:100%;overflow:auto;box-shadow:var(--shadow-modal);animation:slidein .24s cubic-bezier(.2,.9,.3,1);display:flex;flex-direction:column}
+
+/* ===== ЕДИНЫЕ ФОРМЫ (forms_unified.jsx) ===== */
+/* переключатель способа ввода (OCR / вручную) */
+.uf-seg{display:flex;gap:6px;padding:5px;background:var(--surface-2);border:1px solid var(--line);border-radius:14px}
+.uf-seg button{flex:1;display:flex;align-items:center;justify-content:center;gap:8px;padding:10px 14px;border:none;border-radius:10px;background:none;color:var(--muted);font:inherit;font-weight:600;font-size:14px;cursor:pointer;transition:.14s}
+.uf-seg button svg{width:16px;height:16px}
+.uf-seg button.on{background:#fff;color:var(--blue);box-shadow:var(--shadow-card)}
+/* зона загрузки файла */
+.uf-drop{border:1.5px dashed var(--field-line);border-radius:14px;padding:26px;text-align:center;color:var(--muted);margin-bottom:14px;cursor:pointer;transition:.14s}
+.uf-drop:hover{border-color:var(--blue);background:var(--blue-soft)}
+.uf-drop-t{margin-top:8px;font-weight:600;color:var(--ink)}
+.uf-drop-s{font-size:12px;color:var(--muted)}
+.uf-ocr-ok{display:flex;gap:9px;align-items:flex-start;padding:11px 13px;border-radius:12px;background:var(--green-bg);border:1px solid var(--green);margin-bottom:16px;font-size:13px;color:var(--body)}
+/* переключатель в тревел-политике */
+.uf-toggle-row{display:flex;align-items:center;gap:14px;padding:13px 15px;border:1px solid var(--line);border-radius:13px;background:var(--surface-2);margin-top:4px;cursor:pointer}
+.uf-toggle-t{font-weight:600;color:var(--ink);font-size:14px}
+.uf-toggle-s{font-size:12.5px;color:var(--muted);margin-top:2px}
+/* список документов персоны */
+.uf-doclist{display:flex;flex-direction:column;gap:9px;margin-bottom:11px}
+.uf-doclist-empty{font-size:13.5px;color:var(--faint);padding:6px 2px}
+.uf-doc-row{display:flex;align-items:center;gap:12px;padding:11px 13px;border:1px solid var(--line);border-radius:12px;background:#fff}
+.uf-doc-ic{display:flex;align-items:center;justify-content:center;width:36px;height:36px;flex:0 0 36px;border-radius:10px;background:var(--blue-soft);color:var(--blue)}
+.uf-doc-ic svg{width:18px;height:18px}
+.uf-doc-t{font-weight:600;color:var(--ink);font-size:14px}
+.uf-doc-s{font-size:12.5px;color:var(--muted);margin-top:2px}
+
+/* ===== ЕДИНЫЙ ЭКРАН «Подбор услуг» (ServicesHubPage) ===== */
+.svc-hub-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:16px}
+.svc-hub-card{display:flex;align-items:center;gap:16px;padding:20px 22px;border:1px solid var(--line);border-radius:var(--r-card);background:var(--surface);box-shadow:var(--shadow-card);cursor:pointer;font:inherit;text-align:left;transition:.16s}
+.svc-hub-card:hover{border-color:var(--blue);box-shadow:var(--shadow-modal);transform:translateY(-2px)}
+.svc-hub-ic{display:flex;align-items:center;justify-content:center;width:52px;height:52px;flex:0 0 52px;border-radius:14px;background:var(--blue-soft);color:var(--blue)}
+.svc-hub-ic svg{width:26px;height:26px}
+.svc-hub-body{flex:1;min-width:0;display:flex;flex-direction:column;gap:4px}
+.svc-hub-t{font-weight:700;color:var(--ink);font-size:16.5px}
+.svc-hub-d{font-size:13px;color:var(--muted);line-height:1.4}
+.svc-hub-go{width:20px;height:20px;color:var(--faint);flex:0 0 20px;transition:.16s}
+.svc-hub-card:hover .svc-hub-go{color:var(--blue);transform:translateX(3px)}
+.svc-hub-note{display:flex;align-items:flex-start;gap:10px;margin-top:18px;padding:13px 16px;border-radius:12px;background:var(--blue-soft);color:var(--body);font-size:13.5px;line-height:1.45}
 
 
 /* ===== BOOKING WIZARD («Начать бронирование») ===== */
@@ -1597,7 +1641,7 @@ table.tbl tbody tr:last-child td{border-bottom:none}
 .hp-card-addr{font-size:13px;color:var(--body)}
 .hp-card-loc{display:flex;align-items:center;gap:5px;font-size:12.5px;color:var(--muted)}
 .hp-card-loc svg{width:14px;height:14px}
-.hp-supplier{display:inline-flex;align-items:center;gap:5px;font-size:11.5px;color:var(--teal);background:var(--teal-bg);padding:3px 8px;border-radius:7px;width:fit-content;margin-top:2px}
+.hp-supplier{display:inline-flex;align-items:center;gap:5px;font-size:11.5px;font-weight:700;color:var(--teal);background:var(--teal-bg);padding:3px 9px;border:1px solid var(--teal);border-radius:8px;width:fit-content;margin-top:2px;box-shadow:0 1px 2px rgba(13,148,136,.12)}
 .hp-supplier svg{width:13px;height:13px}
 .hp-card-rate{padding:16px 12px;border-left:1px solid var(--line);display:flex;flex-direction:column;gap:8px}
 .hp-rate-pill{display:flex;align-items:center;gap:8px}
@@ -1861,7 +1905,7 @@ table.hp-matrix{border-collapse:collapse;width:100%;min-width:640px}
    page is still parsing, so Babel-standalone auto-transforms them in order, exactly like static tags. */
 (function () {
   var files = [
-    'js/icons.jsx', 'js/ui.jsx', 'js/data.jsx', 'js/data_tz2.jsx', 'js/layout.jsx', 'js/login.jsx',
+    'js/icons.jsx', 'js/ui.jsx', 'js/data.jsx', 'js/data_tz2.jsx', 'js/forms_unified.jsx', 'js/layout.jsx', 'js/login.jsx',
     'js/page_dashboard.jsx', 'js/page_flights.jsx', 'js/page_avia_picker.jsx', 'js/page_booking.jsx',
     'js/order_extras.jsx', 'js/order_ops.jsx', 'js/page_orders.jsx', 'js/page_order_card.jsx', 'js/page_offers.jsx',
     'js/page_fulfillment.jsx', 'js/page_returns.jsx', 'js/page_notifications.jsx', 'js/page_services.jsx', 'js/page_hotel_picker.jsx',

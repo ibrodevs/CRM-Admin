@@ -6,7 +6,7 @@
 const ROUTE_LABELS = (() => {
   const m = { dashboard: 'Главное', profile: 'Мой профиль', account: 'Настройки аккаунта' };
   NAV_ITEMS.forEach((it) => {
-    if (it.group) it.children.forEach((c) => { m[c.key] = c.label; });
+    if (it.group) { m[it.group] = it.label; it.children.forEach((c) => { m[c.key] = c.label; }); }
     else m[it.key] = it.label;
   });
   return m;
@@ -64,8 +64,9 @@ function AccessDenied({ onNavigate }) {
 function Breadcrumbs({ route, ctxOrder, onNavigate }) {
   const base = (route || 'dashboard').split('/')[0];
   const crumbs = [{ key: 'dashboard', label: 'Главное' }];
-  if (SERVICE_PARENT[base]) crumbs.push({ label: 'Услуги', noNav: true });
-  if (base !== 'dashboard') crumbs.push({ key: base, label: ROUTE_LABELS[base] || base });
+  // «Подбор услуг» — теперь реальный раздел-хаб, крошка кликабельна (ТЗ-2 п.6)
+  if (SERVICE_PARENT[base]) crumbs.push({ key: 'services', label: 'Подбор услуг' });
+  if (base !== 'dashboard' && base !== 'services') crumbs.push({ key: base, label: ROUTE_LABELS[base] || base });
   if (base === 'orders' && ctxOrder) crumbs.push({ label: '№ ' + ctxOrder.no + ' · ' + ctxOrder.client });
   return (
     <div className="crumbs">
@@ -149,12 +150,13 @@ function GlobalSearch({ onOpenOrder, onNavigate }) {
 }
 
 /* ---------- quick create (role-gated) ---------- */
-function QuickCreate({ onCreateOrder, onCreateClient, onCreateKP, onNavigate, role }) {
+function QuickCreate({ onCreateOrder, onCreateClient, onCreateCompany, onCreateKP, onNavigate, role }) {
   const items = [];
   if (roleHasPerm(role, 'Создание и редактирование')) items.push({ icon: 'orders', label: 'Новый заказ', onClick: () => onCreateOrder() });
   items.push({ icon: 'user', label: 'Новый клиент', onClick: () => onCreateClient() });
+  items.push({ icon: 'building', label: 'Новая компания', onClick: () => onCreateCompany() });
   if (roleHasPerm(role, 'Коммерческие предложения')) items.push({ icon: 'template', label: 'Новое КП', onClick: () => onCreateKP() });
-  if (roleHasPerm(role, 'Поиск и бронирование услуг')) { items.push({ sep: true }); items.push({ icon: 'route', label: 'Подобрать услугу', onClick: () => onNavigate('flights') }); }
+  if (roleHasPerm(role, 'Поиск и бронирование услуг')) { items.push({ sep: true }); items.push({ icon: 'route', label: 'Подобрать услугу', onClick: () => onNavigate('services') }); }
   return (
     <ActionMenu
       trigger={<button className="btn btn-primary btn-sm" style={{ height: 36 }}><Icon name="plus" />Создать</button>}
@@ -163,7 +165,7 @@ function QuickCreate({ onCreateOrder, onCreateClient, onCreateKP, onNavigate, ro
 }
 
 /* ---------- the global topbar ---------- */
-function GlobalTopbar({ route, ctxOrder, onNavigate, onOpenOrder, onCreateClient, onCreateKP, onOpenChat, onOpenNotif, unreadChat, unreadNotif, role, onRole }) {
+function GlobalTopbar({ route, ctxOrder, onNavigate, onOpenOrder, onCreateClient, onCreateCompany, onCreateKP, onOpenChat, onOpenNotif, unreadChat, unreadNotif, role, onRole }) {
   return (
     <div className="gtop">
       <Breadcrumbs route={route} ctxOrder={ctxOrder} onNavigate={onNavigate} />
@@ -171,7 +173,7 @@ function GlobalTopbar({ route, ctxOrder, onNavigate, onOpenOrder, onCreateClient
       <div className="gtop-actions">
         <ShiftControl role={role} onOpenOrder={onOpenOrder} />
         <RoleSwitcher role={role} onRole={onRole} />
-        <QuickCreate onCreateOrder={() => onOpenOrder('__create__')} onCreateClient={onCreateClient} onCreateKP={onCreateKP} onNavigate={onNavigate} role={role} />
+        <QuickCreate onCreateOrder={() => onOpenOrder('__create__')} onCreateClient={onCreateClient} onCreateCompany={onCreateCompany} onCreateKP={onCreateKP} onNavigate={onNavigate} role={role} />
         <button className="icon-btn gtop-ic" title="Чат" onClick={onOpenChat}>
           <Icon name="chat" />{unreadChat > 0 && <span className="gtop-badge">{unreadChat}</span>}
         </button>

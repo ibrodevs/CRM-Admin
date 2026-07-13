@@ -29,17 +29,20 @@ const SERVICE_KEYS = ['flights', 'rail', 'hotels', 'transfers', 'buses', 'tours'
 
 function NavGroup({ item, active, onNavigate, collapsed }) {
   const hasActiveChild = item.children.some((c) => c.key === active);
+  const isHubActive = active === item.group; // сам раздел «Подбор услуг» открыт
   const [open, setOpen] = useState(hasActiveChild);
   useEffect(() => { if (hasActiveChild) setOpen(true); }, [hasActiveChild]);
   // collapsed: the flyout is shown purely via CSS :hover, so it's always in the DOM
   const showSub = collapsed ? true : open;
   return (
     <div className="nav-group">
-      <button className={'nav-item' + (hasActiveChild && !open ? ' has-active' : '')} title={item.label}
-        onClick={() => { if (!collapsed) setOpen((o) => !o); }}>
+      {/* Клик по разделу ведёт на единый экран подбора; каретка раскрывает быстрые ссылки. */}
+      <button className={'nav-item' + (isHubActive ? ' active' : (hasActiveChild && !open ? ' has-active' : ''))} title={item.label}
+        onClick={() => { onNavigate(item.group); if (!collapsed) setOpen(true); }}>
         <Icon name={item.icon} />
         <span>{item.label}</span>
-        {!collapsed && <Icon name="chevDown" className={'nav-caret' + (open ? ' open' : '')} />}
+        {!collapsed && <Icon name="chevDown" className={'nav-caret' + (open ? ' open' : '')}
+          onClick={(e) => { e.stopPropagation(); setOpen((o) => !o); }} />}
       </button>
       {showSub && (
         <div className="nav-sub">
