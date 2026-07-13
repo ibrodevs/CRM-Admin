@@ -2,7 +2,7 @@
 
 /* Финализация свободного бронирования (ТЗ #1): по подобранным без привязки к заказу услугам можно
    сформировать КП, привязать к существующему заказу или к физ.лицу. */
-function FreeBookingFinalize({ draft, onClose, onDone }) {
+function FreeBookingFinalize({ draft, onClose, onDone, onOpenOrder }) {
   const toast = useToast();
   const [step, setStep] = useState('menu');   // menu | order | person | kp
   const [q, setQ] = useState('');
@@ -11,7 +11,7 @@ function FreeBookingFinalize({ draft, onClose, onDone }) {
   const svcTitle = (x) => x.title || x.route || x.fareName || (x.from && x.to ? x.from + ' → ' + x.to : x.kind || 'Услуга');
   const svcSum = (x) => x.fareDeltaUsd || x.total || x.cost || x.price || x.sum || 0;
   const total = draft.reduce((s, x) => s + svcSum(x), 0);
-  const finish = (msg) => { toast(msg, 'ok'); onDone(); };
+  const finish = (msg, action) => { toast(msg, 'ok', action ? { action, duration: 7000 } : {}); onDone(); };
   // Список заказов для привязки: фильтр + хронология по дате формирования (сначала новые)
   const orderPickRows = (query) => ORDERS
     .filter((o) => `${o.no} ${o.client}`.toLowerCase().includes(query.toLowerCase()))
@@ -55,7 +55,10 @@ function FreeBookingFinalize({ draft, onClose, onDone }) {
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
           {rows.map((o) => (
             <button key={o.id} type="button" className="oce-client" style={{ cursor: 'pointer', width: '100%', textAlign: 'left', border: '1px solid var(--line)', background: '#fff', borderRadius: 12, padding: '10px 12px', display: 'flex', alignItems: 'center', gap: 12 }}
-              onClick={() => finish('Подборка (' + draft.length + ' ' + plural(draft.length, ['услуга', 'услуги', 'услуг']) + ') отправлена в чат по заказу № ' + o.no)}>
+              onClick={() => finish(
+                'Подборка (' + draft.length + ' ' + plural(draft.length, ['услуга', 'услуги', 'услуг']) + ') отправлена в чат по заказу № ' + o.no,
+                { label: 'Открыть заказ № ' + o.no, onClick: () => onOpenOrder && onOpenOrder(o) }
+              )}>
               <span className="oc-svc-ic" style={{ background: 'var(--green)', width: 34, height: 34 }}><Icon name="chat" /></span>
               <div style={{ flex: 1, minWidth: 0 }}><div className="nm" style={{ fontWeight: 600 }}>Заказ № {o.no}</div><div className="mt" style={{ fontSize: 12, color: 'var(--muted)' }}>{o.client} · {o.requestType}</div></div>
               {o.createdOn && <div style={{ fontSize: 12, color: 'var(--muted)', whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: 5 }}><Icon name="calendar" style={{ width: 13, height: 13 }} />{fmtDate(o.createdOn)}</div>}
@@ -184,7 +187,7 @@ function FreeBookingFinalize({ draft, onClose, onDone }) {
 
 /* «Свободное бронирование» — поиск услуг без привязки к заказу (ТЗ #1). Подобранные услуги
    собираются в подборку, затем оформляются: КП / привязка к заказу / привязка к физ.лицу. */
-function DetailedSearchPanel({ onClose, initialKind }) {
+function DetailedSearchPanel({ onClose, initialKind, onOpenOrder }) {
   const toast = useToast();
   const [kind, setKind] = useState(initialKind || 'Авиа');
   const [aviaParams, setAviaParams] = useState({ trip: 'rt', from: 'FRU', to: 'IST', depDate: null, retDate: null, pax: { adt: 1, chd: 0, infNoSeat: 0, infSeat: 0, special: {}, subsidized: {} }, cabin: 'Эконом', baggage: false, flex: false, direct: false, airline: '', ...PAX_DEFAULT_OPTIONS });
@@ -207,7 +210,7 @@ function DetailedSearchPanel({ onClose, initialKind }) {
         paxCount={aviaParams.pax.adt + aviaParams.pax.chd}
         onAddAvia={(r) => add(r, 'Авиа')}
         onAddOther={(o, k) => add(o, k)} />
-      {finalize && <FreeBookingFinalize draft={draft} onClose={() => setFinalize(false)} onDone={() => { setFinalize(false); onClose(); }} />}
+      {finalize && <FreeBookingFinalize draft={draft} onClose={() => setFinalize(false)} onDone={() => { setFinalize(false); onClose(); }} onOpenOrder={onOpenOrder} />}
     </StackPanel>
   );
 }
@@ -617,7 +620,7 @@ function DashboardPage({ role, onNavigate, onAddOrder, onOpenOrder }) {
         <Button variant="primary" icon="plus" onClick={onAddOrder}>Добавить заказ</Button>
       </Topbar>
 
-      {searchOpen && <DetailedSearchPanel onClose={() => setSearchOpen(false)} />}
+      {searchOpen && <DetailedSearchPanel onClose={() => setSearchOpen(false)} onOpenOrder={onOpenOrder} />}
 
       <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', padding: '10px 38px 22px', overflowY: 'auto' }}>
         {/* Блок «Моя смена» — только при открытой смене */}

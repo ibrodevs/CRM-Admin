@@ -1360,7 +1360,7 @@ function ServiceSearchDrawer({ svc, onClose, onSubmit, onOpenRegistry }) {
 /* Соответствие блока хаба вкладке единой маски бронирования (ADD_SVC_CATS). */
 const HUB_KIND = { flights: 'Авиа', rail: 'ЖД', hotels: 'Гостиница', transfers: 'Трансфер', buses: 'Автобус', tours: 'Доп. услуга' };
 
-function ServicesHubPage({ onNavigate, onAddOrder }) {
+function ServicesHubPage({ onNavigate, onAddOrder, onOpenOrder }) {
   // Единая маска бронирования со вкладками. Клик по блоку открывает её на нужной вкладке.
   const [maskKind, setMaskKind] = useState(null);
   return (
@@ -1388,7 +1388,7 @@ function ServicesHubPage({ onNavigate, onAddOrder }) {
           <span>Все виды услуг — в одной маске бронирования с вкладками. Подбор можно оформить в КП, привязать к заказу, к клиенту или отправить в чат.</span>
         </div>
       </div>
-      {maskKind && <DetailedSearchPanel initialKind={maskKind} onClose={() => setMaskKind(null)} />}
+      {maskKind && <DetailedSearchPanel initialKind={maskKind} onClose={() => setMaskKind(null)} onOpenOrder={onOpenOrder} />}
     </>
   );
 }
