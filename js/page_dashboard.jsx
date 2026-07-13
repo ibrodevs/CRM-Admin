@@ -12,10 +12,16 @@ function FreeBookingFinalize({ draft, onClose, onDone }) {
   const svcSum = (x) => x.fareDeltaUsd || x.total || x.cost || x.price || x.sum || 0;
   const total = draft.reduce((s, x) => s + svcSum(x), 0);
   const finish = (msg) => { toast(msg, 'ok'); onDone(); };
+  // Список заказов для привязки: фильтр + хронология по дате формирования (сначала новые)
+  const orderPickRows = (query) => ORDERS
+    .filter((o) => `${o.no} ${o.client}`.toLowerCase().includes(query.toLowerCase()))
+    .slice()
+    .sort((a, b) => (b.createdOn ? b.createdOn.getTime() : 0) - (a.createdOn ? a.createdOn.getTime() : 0))
+    .slice(0, 20);
 
   // Выбор существующего заказа для привязки
   if (step === 'order') {
-    const rows = ORDERS.filter((o) => `${o.no} ${o.client}`.toLowerCase().includes(q.toLowerCase())).slice(0, 20);
+    const rows = orderPickRows(q);
     return (
       <Drawer open onClose={onClose} title="Привязать к заказу"
         footer={<Button variant="secondary" style={{ width: '100%' }} onClick={() => setStep('menu')}>Назад</Button>}>
@@ -26,6 +32,7 @@ function FreeBookingFinalize({ draft, onClose, onDone }) {
               onClick={() => finish('Услуги привязаны к заказу № ' + o.no)}>
               <span className="oc-svc-ic" style={{ background: 'var(--blue)', width: 34, height: 34 }}><Icon name="briefcase" /></span>
               <div style={{ flex: 1, minWidth: 0 }}><div className="nm" style={{ fontWeight: 600 }}>Заказ № {o.no}</div><div className="mt" style={{ fontSize: 12, color: 'var(--muted)' }}>{o.client} · {o.requestType}</div></div>
+              {o.createdOn && <div style={{ fontSize: 12, color: 'var(--muted)', whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: 5 }}><Icon name="calendar" style={{ width: 13, height: 13 }} />{fmtDate(o.createdOn)}</div>}
               <Icon name="chevRight" style={{ width: 18, height: 18, color: 'var(--muted-2)' }} />
             </button>
           ))}
@@ -37,7 +44,7 @@ function FreeBookingFinalize({ draft, onClose, onDone }) {
 
   // Свободная выгрузка подборки в чат заказа — без формирования КП (ТЗ-2 п.10)
   if (step === 'chat') {
-    const rows = ORDERS.filter((o) => `${o.no} ${o.client}`.toLowerCase().includes(q.toLowerCase())).slice(0, 20);
+    const rows = orderPickRows(q);
     return (
       <Drawer open onClose={onClose} title="Отправить в чат по заказу"
         footer={<Button variant="secondary" style={{ width: '100%' }} onClick={() => setStep('menu')}>Назад</Button>}>
@@ -51,6 +58,7 @@ function FreeBookingFinalize({ draft, onClose, onDone }) {
               onClick={() => finish('Подборка (' + draft.length + ' ' + plural(draft.length, ['услуга', 'услуги', 'услуг']) + ') отправлена в чат по заказу № ' + o.no)}>
               <span className="oc-svc-ic" style={{ background: 'var(--green)', width: 34, height: 34 }}><Icon name="chat" /></span>
               <div style={{ flex: 1, minWidth: 0 }}><div className="nm" style={{ fontWeight: 600 }}>Заказ № {o.no}</div><div className="mt" style={{ fontSize: 12, color: 'var(--muted)' }}>{o.client} · {o.requestType}</div></div>
+              {o.createdOn && <div style={{ fontSize: 12, color: 'var(--muted)', whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: 5 }}><Icon name="calendar" style={{ width: 13, height: 13 }} />{fmtDate(o.createdOn)}</div>}
               <Icon name="chevRight" style={{ width: 18, height: 18, color: 'var(--muted-2)' }} />
             </button>
           ))}
