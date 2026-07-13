@@ -874,7 +874,7 @@ function EmployeePanel({ company, selected, onApply, onClose }) {
 }
 
 /* ===== Orders list ===== */
-function OrdersList({ orders, onOpen, onCreate }) {
+function OrdersList({ orders, onOpen, onCreate, onNavigate }) {
   const toast = useToast();
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
@@ -902,6 +902,10 @@ function OrdersList({ orders, onOpen, onCreate }) {
     <div className="fade-in">
       <Topbar title="Заказы">
         <div className="topbar-spacer" />
+        {/* Операции над заказами (Документы / Оформление / Возвраты) — перенесены сюда из левого меню */}
+        <ActionMenu
+          trigger={<button className="btn btn-secondary btn-sm" style={{ height: 36 }}><Icon name="clipboard" />Операции<Icon name="chevDown" /></button>}
+          items={(typeof ORDER_OPS_SECTIONS !== 'undefined' ? ORDER_OPS_SECTIONS : []).map((s) => ({ icon: s.icon, label: s.label, onClick: () => onNavigate && onNavigate(s.key) }))} />
         <Button variant="secondary" icon="edit" onClick={handleEditClick}>Редактировать</Button>
         <Button variant="secondary" icon="docs" onClick={() => toast('КП сформировано и отправлено', 'ok')}>Сформировать КП</Button>
         <Button variant="primary" icon="plus" onClick={onCreate}>Добавить заказ</Button>
@@ -972,7 +976,7 @@ function OrdersList({ orders, onOpen, onCreate }) {
 }
 
 /* ===== Orders page root ===== */
-function OrdersPage({ intent, onConsume, orders, addOrder, onDetailChange, onOpenChat }) {
+function OrdersPage({ intent, onConsume, orders, addOrder, onDetailChange, onOpenChat, onNavigate }) {
   const [detail, setDetailRaw] = useState(null);
   const [detailTab, setDetailTab] = useState(null);
   const [detailSvc, setDetailSvc] = useState(null); // deep-link: конкретная услуга, которую надо открыть
@@ -996,7 +1000,7 @@ function OrdersPage({ intent, onConsume, orders, addOrder, onDetailChange, onOpe
   if (detail) return <OrderCard order={detail} fresh={fresh} initTab={detailTab} initSvc={detailSvc} initSvcSearch={svcSearch} onBack={() => setDetail(null)} onOpenChat={onOpenChat} />;
   return (
     <>
-      <OrdersList orders={orders} onOpen={setDetail} onCreate={() => setCreateOpen(true)} />
+      <OrdersList orders={orders} onOpen={setDetail} onCreate={() => setCreateOpen(true)} onNavigate={onNavigate} />
       <OrderCreateModal open={createOpen} onClose={() => setCreateOpen(false)} onCreated={handleCreated} />
     </>
   );

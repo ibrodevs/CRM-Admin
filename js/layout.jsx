@@ -9,13 +9,18 @@ const NAV_ITEMS = [
   { key: 'suppliers', label: 'Поставщики', icon: 'suppliers' },
   { key: 'offers', label: 'Ком. предложения', icon: 'template' },
   { key: 'finance', label: 'Финансы', icon: 'finance' },
-  { key: 'documents', label: 'Документы', icon: 'docs' },
   { key: 'receipts', label: 'Редактор квитанций', icon: 'route' },
-  { key: 'fulfillment', label: 'Оформление', icon: 'clipboard' },
   { key: 'chats', label: 'Чаты', icon: 'chat' },
   { key: 'notifications', label: 'Уведомления', icon: 'bell' },
-  { key: 'returns', label: 'Возвраты и обмены', icon: 'refund' },
   { key: 'settings', label: 'Настройки', icon: 'settings' },
+];
+// Разделы «Документы», «Оформление», «Возвраты и обмены» убраны из левого меню —
+// это операции над заказом и доступны логично: внутри карточки заказа (вкладки
+// «Документы» / «Постпродажа», бронирование) и общим списком из раздела «Заказы».
+const ORDER_OPS_SECTIONS = [
+  { key: 'documents', label: 'Документы', icon: 'docs', desc: 'Билеты, ваучеры, счета и договоры по всем заказам' },
+  { key: 'fulfillment', label: 'Оформление', icon: 'clipboard', desc: 'Очередь выписки и оформления услуг' },
+  { key: 'returns', label: 'Возвраты и обмены', icon: 'refund', desc: 'Возвраты, обмены и штрафы' },
 ];
 
 const SERVICE_KEYS = ['flights', 'rail', 'hotels', 'transfers', 'buses', 'tours'];
@@ -71,7 +76,7 @@ function Sidebar({ route, onNavigate, onLogout, role, collapsed }) {
           <NavGroup key={it.group} item={it} active={active} onNavigate={onNavigate} collapsed={collapsed} />
         ) : (
           <button key={it.key} title={it.label}
-            className={'nav-item' + ((active === it.key || (it.key === 'services' && SERVICE_KEYS.includes(active))) ? ' active' : '')}
+            className={'nav-item' + ((active === it.key || (it.key === 'services' && SERVICE_KEYS.includes(active)) || (it.key === 'orders' && ORDER_OPS_SECTIONS.some((s) => s.key === active))) ? ' active' : '')}
             onClick={() => onNavigate(it.key)}>
             <Icon name={it.icon} />
             <span>{it.label}</span>
@@ -171,4 +176,4 @@ function ModulePlaceholder({ title, icon = 'inbox', planned = [] }) {
   );
 }
 
-Object.assign(window, { NAV_ITEMS, SERVICE_KEYS, NavGroup, Sidebar, ProfileCard, AppShell, Topbar, ModulePlaceholder });
+Object.assign(window, { NAV_ITEMS, SERVICE_KEYS, ORDER_OPS_SECTIONS, NavGroup, Sidebar, ProfileCard, AppShell, Topbar, ModulePlaceholder });

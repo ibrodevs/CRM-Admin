@@ -4,8 +4,10 @@
 
 /* ---------- route → label + breadcrumbs ---------- */
 const SERVICE_LABELS = { flights: 'Авиабилеты', rail: 'ЖД билеты', hotels: 'Гостиницы', transfers: 'Трансферы', buses: 'Автобусы', tours: 'Туры' };
+// Операции над заказом, вынесенные из левого меню (доступны из раздела «Заказы»).
+const ORDER_OPS_LABELS = { documents: 'Документы', fulfillment: 'Оформление', returns: 'Возвраты и обмены' };
 const ROUTE_LABELS = (() => {
-  const m = { dashboard: 'Главное', profile: 'Мой профиль', account: 'Настройки аккаунта', ...SERVICE_LABELS };
+  const m = { dashboard: 'Главное', profile: 'Мой профиль', account: 'Настройки аккаунта', ...SERVICE_LABELS, ...ORDER_OPS_LABELS };
   NAV_ITEMS.forEach((it) => {
     if (it.group) { m[it.group] = it.label; it.children.forEach((c) => { m[c.key] = c.label; }); }
     else m[it.key] = it.label;
@@ -13,6 +15,7 @@ const ROUTE_LABELS = (() => {
   return m;
 })();
 const SERVICE_PARENT = { flights: 1, rail: 1, hotels: 1, transfers: 1, buses: 1, tours: 1 };
+const ORDER_OPS_PARENT = { documents: 1, fulfillment: 1, returns: 1 };
 
 /* ---------- role-based access (§6) ---------- */
 const NAV_PERM = {
@@ -67,6 +70,8 @@ function Breadcrumbs({ route, ctxOrder, onNavigate }) {
   const crumbs = [{ key: 'dashboard', label: 'Главное' }];
   // «Подбор услуг» — теперь реальный раздел-хаб, крошка кликабельна (ТЗ-2 п.6)
   if (SERVICE_PARENT[base]) crumbs.push({ key: 'services', label: 'Подбор услуг' });
+  // Документы / Оформление / Возвраты — операции над заказами, живут под «Заказы»
+  if (ORDER_OPS_PARENT[base]) crumbs.push({ key: 'orders', label: 'Заказы' });
   if (base !== 'dashboard' && base !== 'services') crumbs.push({ key: base, label: ROUTE_LABELS[base] || base });
   if (base === 'orders' && ctxOrder) crumbs.push({ label: '№ ' + ctxOrder.no + ' · ' + ctxOrder.client });
   return (
