@@ -1,13 +1,16 @@
 // ===== Order extras: extended detail, passport modal, fee/passenger/org drawers =====
 
 /* ---------- Collapsible card section ---------- */
-function CollapseSection({ title, note, noteWarn, defaultOpen = false, children }) {
+function CollapseSection({ title, note, noteWarn, badge, defaultOpen = false, children }) {
   const [open, setOpen] = useState(defaultOpen);
   return (
     <div className="accordion">
       <div className="acc-head" onClick={() => setOpen((o) => !o)}>
-        <div>
-          <div className="acc-title">{title}</div>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 9, flexWrap: 'wrap' }}>
+            <div className="acc-title">{title}</div>
+            {badge && <span className="pill pill-green" style={{ fontSize: 11 }}><Icon name="checkCircle" style={{ width: 13, height: 13 }} />{badge}</span>}
+          </div>
           {note && <div className={'acc-note' + (noteWarn ? ' warn' : '')}>{note}</div>}
         </div>
         <Icon name="chevDown" className={'acc-chev' + (open ? ' open' : '')} />
@@ -273,38 +276,56 @@ function NewOrgDrawer({ open, onClose, onCreated }) {
             <span className="avatar-ph" style={{ width: 54, height: 54 }}><Icon name="user" style={{ width: 24, height: 24 }} /></span>
             <Button variant="secondary" icon="download" onClick={() => toast('Загрузка логотипа организации', 'info')}>Логотип организации</Button>
           </div>
-          <div className="form-grid">
-            <Field label="Полное название" required error={errs.full}><Input placeholder="Введите название" value={f.full} onChange={set('full')} error={errs.full} /></Field>
-            <Field label="Краткое название"><Input placeholder="Введите название" value={f.short} onChange={set('short')} /></Field>
-            <Field label="Юридический адрес"><Input placeholder="Город, улица, дом" value={f.legalAddr} onChange={setLegalAddress} /></Field>
-            <Field label="Фактический адрес">
-              <div style={{ display: 'flex', alignItems: 'center', gap: 9, marginBottom: 8 }}><Checkbox on={f.sameAddress} onChange={setSameAddress} /><span style={{ fontSize: 13, color: 'var(--body)' }}>Совпадает с юридическим</span></div>
-              {!f.sameAddress && <Input placeholder="Город, улица, дом" value={f.factAddr} onChange={set('factAddr')} />}
-            </Field>
-            <Field label="Руководитель / ФИО для подписи"><Input placeholder="Иванов Иван Иванович" value={f.director} onChange={set('director')} /></Field>
-            <Field label="В лице" hint="Для подстановки в договоры"><Input placeholder="директора Иванова Ивана Ивановича" value={f.signatory} onChange={set('signatory')} /></Field>
-            <Field label="Основная валюта"><Select placeholder="Выберите валюту" options={CURRENCIES.map((c) => c.code)} value={f.currency} onChange={set('currency')} /></Field>
-            <Field label="Тип организации" required error={errs.orgType}><Select placeholder="Выберите тип" options={['Корпоративный клиент', 'Туроператор', 'Турагент', 'Авиакомпания', 'Отель', 'Партнёр', 'Поставщик']} value={f.orgType} onChange={set('orgType')} error={errs.orgType} /></Field>
-            <Field label="Куратор" required error={errs.curator} hint="Главный ответственный за компанию"><Select placeholder="Выберите куратора" options={OPERATORS} value={f.curator} onChange={set('curator')} error={errs.curator} /></Field>
-            <Field label="Оператор"><Select placeholder="Выберите оператора" options={OPERATORS} value={f.operator} onChange={set('operator')} /></Field>
-            <Field label="Бухгалтер"><Select placeholder="Выберите бухгалтера" options={['Иванова А.', 'Петров С.']} value={f.accountant} onChange={set('accountant')} /></Field>
-            <Field label="ИНН" required error={errs.inn}><Input placeholder="Введите ИНН" value={f.inn} onChange={set('inn')} error={errs.inn} /></Field>
-            <Field label="КПП"><Input placeholder="Введите КПП" value={f.kpp} onChange={set('kpp')} /></Field>
-            <Field label="ОГРН"><Input placeholder="Введите ОГРН" value={f.ogrn} onChange={set('ogrn')} /></Field>
-            <Field label="ОКПО"><Input placeholder="Введите ОКПО" value={f.okpo} onChange={set('okpo')} /></Field>
-            <Field label="Контактный e-mail" error={errs.email}><Input placeholder="johndoe@mail.com" value={f.email} onChange={set('email')} error={errs.email} /></Field>
-            <Field label="Контактный телефон"><Input placeholder="+996 (___) __-__-__" value={f.phone} onChange={set('phone')} /></Field>
-            <Field label="Сайт"><Input placeholder="company.kg" value={f.site} onChange={set('site')} /></Field>
-          </div>
-          <div style={{ fontSize: 18, fontWeight: 700, color: 'var(--ink)', margin: '26px 0 16px' }}>Расчетные счета</div>
-          <div className="form-grid">
-            <Field label="Номер счета"><Input placeholder="Введите номер" value={f.account} onChange={set('account')} /></Field>
-            <Field label="Банк"><Input placeholder="БИК банка или название банка" value={f.bank} onChange={set('bank')} /></Field>
-            <Field label="БИК"><Input placeholder="БИК банка" value={f.bik} onChange={set('bik')} /></Field>
-            <Field label="Корр. счет"><Input placeholder="Корреспондентский счет" value={f.corrAccount} onChange={set('corrAccount')} /></Field>
-            <Field label="Статус счета"><Select options={['Действующий', 'Закрытый']} value={f.accountStatus} onChange={set('accountStatus')} /></Field>
-            <Field label="Статус компании"><Select options={['Действующий', 'На паузе', 'Архив']} value={f.status} onChange={set('status')} /></Field>
-            <div className="full"><Field label="Комментарий"><textarea className="input" rows={3} placeholder="Descriptions..." value={f.comment} onChange={set('comment')} /></Field></div>
+          <div style={{ display: 'grid', gap: 12 }}>
+            <CollapseSection title="Основные данные" note="Название, тип и руководитель" badge={lookup === 'found' ? 'Заполнено автоматически' : null} defaultOpen>
+              <div className="form-grid">
+                <Field label="Полное название" required error={errs.full}><Input placeholder="Введите название" value={f.full} onChange={set('full')} error={errs.full} /></Field>
+                <Field label="Краткое название"><Input placeholder="Введите название" value={f.short} onChange={set('short')} /></Field>
+                <Field label="Тип организации" required error={errs.orgType}><Select placeholder="Выберите тип" options={['Корпоративный клиент', 'Туроператор', 'Турагент', 'Авиакомпания', 'Отель', 'Партнёр', 'Поставщик']} value={f.orgType} onChange={set('orgType')} error={errs.orgType} /></Field>
+                <Field label="Руководитель / ФИО для подписи"><Input placeholder="Иванов Иван Иванович" value={f.director} onChange={set('director')} /></Field>
+                <div className="full"><Field label="В лице" hint="Для подстановки в договоры"><Input placeholder="директора Иванова Ивана Ивановича" value={f.signatory} onChange={set('signatory')} /></Field></div>
+              </div>
+            </CollapseSection>
+
+            <CollapseSection title="Регистрационные данные" note="ИНН, КПП, ОГРН, ОКПО и адреса" badge={lookup === 'found' ? 'Заполнено автоматически' : null}>
+              <div className="form-grid">
+                <Field label="ИНН" required error={errs.inn}><Input placeholder="Введите ИНН" value={f.inn} onChange={set('inn')} error={errs.inn} /></Field>
+                <Field label="КПП"><Input placeholder="Введите КПП" value={f.kpp} onChange={set('kpp')} /></Field>
+                <Field label="ОГРН"><Input placeholder="Введите ОГРН" value={f.ogrn} onChange={set('ogrn')} /></Field>
+                <Field label="ОКПО"><Input placeholder="Введите ОКПО" value={f.okpo} onChange={set('okpo')} /></Field>
+                <Field label="Юридический адрес"><Input placeholder="Город, улица, дом" value={f.legalAddr} onChange={setLegalAddress} /></Field>
+                <Field label="Фактический адрес"><div style={{ display: 'flex', alignItems: 'center', gap: 9, marginBottom: 8 }}><Checkbox on={f.sameAddress} onChange={setSameAddress} /><span style={{ fontSize: 13, color: 'var(--body)' }}>Совпадает с юридическим</span></div>{!f.sameAddress && <Input placeholder="Город, улица, дом" value={f.factAddr} onChange={set('factAddr')} />}</Field>
+              </div>
+            </CollapseSection>
+
+            <CollapseSection title="Контакты" note="E-mail, телефон и сайт" badge={lookup === 'found' ? 'Заполнено автоматически' : null}>
+              <div className="form-grid">
+                <Field label="Контактный e-mail" error={errs.email}><Input placeholder="johndoe@mail.com" value={f.email} onChange={set('email')} error={errs.email} /></Field>
+                <Field label="Контактный телефон"><Input placeholder="+996 (___) __-__-__" value={f.phone} onChange={set('phone')} /></Field>
+                <div className="full"><Field label="Сайт"><Input placeholder="company.kg" value={f.site} onChange={set('site')} /></Field></div>
+              </div>
+            </CollapseSection>
+
+            <CollapseSection title="Ответственные и настройки" note="Куратор, оператор, бухгалтерия и статус">
+              <div className="form-grid">
+                <Field label="Основная валюта"><Select placeholder="Выберите валюту" options={CURRENCIES.map((c) => c.code)} value={f.currency} onChange={set('currency')} /></Field>
+                <Field label="Статус компании"><Select options={['Действующий', 'На паузе', 'Архив']} value={f.status} onChange={set('status')} /></Field>
+                <Field label="Куратор" required error={errs.curator} hint="Главный ответственный за компанию"><Select placeholder="Выберите куратора" options={OPERATORS} value={f.curator} onChange={set('curator')} error={errs.curator} /></Field>
+                <Field label="Оператор"><Select placeholder="Выберите оператора" options={OPERATORS} value={f.operator} onChange={set('operator')} /></Field>
+                <Field label="Бухгалтер"><Select placeholder="Выберите бухгалтера" options={['Иванова А.', 'Петров С.']} value={f.accountant} onChange={set('accountant')} /></Field>
+                <div className="full"><Field label="Комментарий"><textarea className="input" rows={3} placeholder="Внутренний комментарий" value={f.comment} onChange={set('comment')} /></Field></div>
+              </div>
+            </CollapseSection>
+
+            <CollapseSection title="Расчётные счета" note="Банк, БИК и номера счетов" badge={lookup === 'found' ? 'Заполнено автоматически' : null}>
+              <div className="form-grid">
+                <Field label="Номер счета"><Input placeholder="Введите номер" value={f.account} onChange={set('account')} /></Field>
+                <Field label="Банк"><Input placeholder="БИК банка или название банка" value={f.bank} onChange={set('bank')} /></Field>
+                <Field label="БИК"><Input placeholder="БИК банка" value={f.bik} onChange={set('bik')} /></Field>
+                <Field label="Корр. счет"><Input placeholder="Корреспондентский счет" value={f.corrAccount} onChange={set('corrAccount')} /></Field>
+                <div className="full"><Field label="Статус счета"><Select options={['Действующий', 'Закрытый']} value={f.accountStatus} onChange={set('accountStatus')} /></Field></div>
+              </div>
+            </CollapseSection>
           </div>
         </>
       )}
