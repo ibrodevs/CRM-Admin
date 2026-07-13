@@ -3,10 +3,12 @@
 // link.type / source → конкретная вкладка карточки заказа (deep-link в контекст записи, а не в раздел)
 const NOTIF_TAB = { finance: 'finance', documents: 'documents', offers: 'offers', returns: 'aftersale', order: 'overview' };
 function notifGo(n, onNavigate, onOpenOrder) {
-  const tab = n.source === 'Чаты' ? 'chat' : (NOTIF_TAB[n.link.type] || 'overview');
+  // если уведомление привязано к конкретной услуге — открываем именно её карточку, а не весь список услуг
+  const svc = n.link && n.link.svc;
+  const tab = n.source === 'Чаты' ? 'chat' : (svc ? 'services' : (NOTIF_TAB[n.link.type] || 'overview'));
   if (n.order && onOpenOrder) {
     const o = ORDERS.find((x) => x.no === n.order) || { no: n.order, client: n.title, requestType: 'Индивидуальная', status: 'В работе', operator: n.resp, date: '15.06.25' };
-    onOpenOrder(o, tab);
+    onOpenOrder(o, tab, svc || null);
   } else onNavigate && onNavigate(n.link.type);
 }
 

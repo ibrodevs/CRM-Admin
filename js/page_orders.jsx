@@ -975,24 +975,25 @@ function OrdersList({ orders, onOpen, onCreate }) {
 function OrdersPage({ intent, onConsume, orders, addOrder, onDetailChange, onOpenChat }) {
   const [detail, setDetailRaw] = useState(null);
   const [detailTab, setDetailTab] = useState(null);
+  const [detailSvc, setDetailSvc] = useState(null); // deep-link: конкретная услуга, которую надо открыть
   const [svcSearch, setSvcSearch] = useState(null);
   const [createOpen, setCreateOpen] = useState(false);
   const [fresh, setFresh] = useState(false); // just-created order → show onboarding hint
-  const setDetail = (o, tab) => { setFresh(false); setDetailRaw(o); setDetailTab(tab || null); setSvcSearch(null); onDetailChange && onDetailChange(o); };
+  const setDetail = (o, tab, svc) => { setFresh(false); setDetailRaw(o); setDetailTab(tab || null); setDetailSvc(svc || null); setSvcSearch(null); onDetailChange && onDetailChange(o); };
   // after "Найти услуги": add the order and land on the full "Услуги" tab
   const handleCreated = (o, searchKind) => {
     addOrder(o); setCreateOpen(false);
-    setFresh(true); setDetailRaw(o); setDetailTab('services'); setSvcSearch(searchKind || null);
+    setFresh(true); setDetailRaw(o); setDetailTab('services'); setDetailSvc(null); setSvcSearch(searchKind || null);
     onDetailChange && onDetailChange(o);
   };
   useEffect(() => {
     if (!intent) return;
     if (intent.type === 'create') setCreateOpen(true);
-    if (intent.type === 'open') setDetail(intent.order, intent.tab);
+    if (intent.type === 'open') setDetail(intent.order, intent.tab, intent.svc);
     onConsume();
   }, [intent]);
 
-  if (detail) return <OrderCard order={detail} fresh={fresh} initTab={detailTab} initSvcSearch={svcSearch} onBack={() => setDetail(null)} onOpenChat={onOpenChat} />;
+  if (detail) return <OrderCard order={detail} fresh={fresh} initTab={detailTab} initSvc={detailSvc} initSvcSearch={svcSearch} onBack={() => setDetail(null)} onOpenChat={onOpenChat} />;
   return (
     <>
       <OrdersList orders={orders} onOpen={setDetail} onCreate={() => setCreateOpen(true)} />

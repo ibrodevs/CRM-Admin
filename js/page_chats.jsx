@@ -418,7 +418,7 @@ function ChatsPage({ onOpenOrder }) {
     else setActiveId(t.id);
   };
   const openOrderFromThread = (t) => { const o = ORDERS.find((x) => x.no === t.order) || { no: t.order, client: t.client || t.name, requestType: 'Индивидуальная', status: 'В работе', operator: t.responsibleOperator || 'Даниель', date: '15.06.25' }; onOpenOrder && onOpenOrder(o); };
-  const openServiceFromThread = (sid) => { const o = ORDERS.find((x) => x.no === active.order) || { no: active.order, client: active.client || active.name, requestType: 'Индивидуальная', status: 'В работе', operator: active.responsibleOperator || 'Даниель', date: '15.06.25' }; onOpenOrder && onOpenOrder(o, 'services'); };
+  const openServiceFromThread = (sid) => { const o = ORDERS.find((x) => x.no === active.order) || { no: active.order, client: active.client || active.name, requestType: 'Индивидуальная', status: 'В работе', operator: active.responsibleOperator || 'Даниель', date: '15.06.25' }; onOpenOrder && onOpenOrder(o, 'services', sid || null); };
 
   return (
     <div className="fade-in" style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>

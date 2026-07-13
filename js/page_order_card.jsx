@@ -1525,7 +1525,7 @@ function TabHistory() {
 /* ====================================================================
    ORDER CARD ROOT
    ==================================================================== */
-function OrderCard({ order, onBack, initTab, initSvcSearch, fresh, onOpenChat }) {
+function OrderCard({ order, onBack, initTab, initSvc, initSvcSearch, fresh, onOpenChat }) {
   const toast = useToast();
   const [tab, setTab] = useState(initTab || (initSvcSearch ? 'services' : 'overview'));
   const [loading, setLoading] = useState(true);
@@ -1565,6 +1565,11 @@ function OrderCard({ order, onBack, initTab, initSvcSearch, fresh, onOpenChat })
   const [aviaIndividualMode, setAviaIndividualMode] = useState(true);
   const [aviaParams, setAviaParams] = useState({ trip: 'rt', from: 'FRU', to: 'IST', depDate: null, retDate: null, pax: { adt: 2, chd: 0, infNoSeat: 0, infSeat: 0, special: {}, subsidized: {} }, cabin: 'Эконом', baggage: false, flex: false, direct: false, airline: '', ...PAX_DEFAULT_OPTIONS });
 
+  // Открыть карточку конкретной услуги (общее для клика по строке и для deep-link из чата/уведомления).
+  const openAviaCard = (s) => { const match = AIR_SERVICES.find((a) => a.no === s.avia) || { no: s.avia || s.id, airline: (s.offer ? s.offer.airline : 'KC'), status: s.status, supplier: s.supplier, pax: 2, sum: s.sum, currency: s.currency, route: s.title, pnr: '—', ticket: '—', dep: s.date }; setActiveAvia(s.offer ? { ...match, offer: s.offer } : match); setSvcView('avia-card'); };
+  const openOtherCard = (s) => { setActiveSvc(s.svcOffer ? { ...s.svcOffer, kind: s.kind, status: s.status, date: s.svcOffer.date || s.date, calc: s.calc, order: order.no } : { ...s, order: order.no }); setSvcView('svc-card'); };
+  const openServiceCard = (s) => (s.kind === 'Авиа' ? openAviaCard(s) : openOtherCard(s));
+
   // modals
   const [passport, setPassport] = useState(null);
   const [paxOpen, setPaxOpen] = useState(false);
@@ -1575,6 +1580,15 @@ function OrderCard({ order, onBack, initTab, initSvcSearch, fresh, onOpenChat })
   useEffect(() => { setLoading(true); const t = setTimeout(() => setLoading(false), 600); return () => clearTimeout(t); }, [order.no]);
   // deep-link: switch to requested tab even if the card is already mounted (e.g. opened from a notification)
   useEffect(() => { if (initTab) setTab(initTab); }, [initTab, order.no]);
+  // deep-link to a specific service: open its card (not the whole «Услуги» list) when a notification/chat
+  // link points to one concrete service. Waits for the async load so the service list is ready.
+  useEffect(() => {
+    if (!initSvc || loading) return;
+    const s = services.find((x) => x.id === initSvc);
+    if (!s) return;
+    setTab('services');
+    openServiceCard(s);
+  }, [initSvc, loading, order.no]);
   // onboarding: new order lands on «Услуги» — point the operator to where passengers & documents go
   useEffect(() => { if (fresh) toast('Заказ создан. Добавьте участников и их документы во вкладке «Участники».', 'info'); }, []);
 
@@ -1693,8 +1707,8 @@ function OrderCard({ order, onBack, initTab, initSvcSearch, fresh, onOpenChat })
       onOpenPicker={() => goAddType(addKind)}
       onAssembleKP={assembleKPFromCards}
       onExportToChat={exportServicesToChat}
-      onOpenAvia={(s) => { const match = AIR_SERVICES.find((a) => a.no === s.avia) || { no: s.avia || s.id, airline: (s.offer ? s.offer.airline : 'KC'), status: s.status, supplier: s.supplier, pax: 2, sum: s.sum, currency: s.currency, route: s.title, pnr: '—', ticket: '—', dep: s.date }; setActiveAvia(s.offer ? { ...match, offer: s.offer } : match); setSvcView('avia-card'); }}
-      onOpenOther={(s) => { setActiveSvc(s.svcOffer ? { ...s.svcOffer, kind: s.kind, status: s.status, date: s.svcOffer.date || s.date, calc: s.calc, order: order.no } : { ...s, order: order.no }); setSvcView('svc-card'); }} />;
+      onOpenAvia={openAviaCard}
+      onOpenOther={openOtherCard} />;
   };
 
   const tabContent = () => {
