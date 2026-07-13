@@ -434,7 +434,8 @@ function PaxGroupCard({ index, name, members, onPassport, onEdit, onAddDoc }) {
   );
 }
 
-function TabParticipants({ list, isGroup, groups, fresh, onPassport, onAdd, onEdit, onAddDoc }) {
+function TabParticipants({ list, isGroup, groups, fresh, orderNo, orderAirline, onPassport, onAdd, onEdit, onAddDoc }) {
+  const [unifyOpen, setUnifyOpen] = useState(false);
   const toast = useToast();
   if (!list.length) return (
     <div className="fade-in">
@@ -465,7 +466,8 @@ function TabParticipants({ list, isGroup, groups, fresh, onPassport, onAdd, onEd
           <Button variant="secondary" size="sm" icon="checkCircle" onClick={() => toast(errCount ? (errCount + ' участник(ов) требуют проверки документов') : 'Список проверен — расхождений не найдено', errCount ? 'warn' : 'ok')}>Проверить список</Button>
         </div>
       )}
-      <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 14 }}>
+      <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginBottom: 14 }}>
+        <Button variant="secondary" icon="idcard" onClick={() => setUnifyOpen(true)}>Унификация списка</Button>
         <Button icon="plus" onClick={onAdd}>Добавить участника</Button>
       </div>
       {(() => {
@@ -484,7 +486,7 @@ function TabParticipants({ list, isGroup, groups, fresh, onPassport, onAdd, onEd
         return (
           <div className="table-card">
             <table className="tbl">
-              <thead><tr><th>Участник</th><th>Тип</th><th>Документ</th><th>Дата рожд.</th><th>Телефон</th><th>Документы</th><th></th></tr></thead>
+              <thead><tr><th>Участник</th><th>Тип</th><th>Документ</th><th>Дата рожд.</th><th>Телефон</th><th>Документы</th><th></th></tr></thead>{/* pax-table */}
               <tbody>
                 {list.map((p, i) => (
                   <tr key={i} style={{ cursor: 'pointer' }} onClick={() => onPassport(p.name)}>
@@ -507,6 +509,7 @@ function TabParticipants({ list, isGroup, groups, fresh, onPassport, onAdd, onEd
           </div>
         );
       })()}
+      {unifyOpen && <PaxUnifyPanel list={list} orderNo={orderNo} autoBind={orderAirline} onClose={() => setUnifyOpen(false)} />}
     </div>
   );
 }
@@ -1716,7 +1719,7 @@ function OrderCard({ order, onBack, initTab, initSvc, initSvcSearch, fresh, onOp
     switch (tab) {
       case 'overview': return <TabOverview order={order} />;
       case 'clients': return <TabClients order={order} onOpenChat={onOpenChat} />;
-      case 'participants': return <TabParticipants list={participants} isGroup={requestType === 'Групповая'} groups={requestType === 'Групповая' ? AVIA_GROUPS_SEED : null} fresh={fresh} onPassport={setPassport} onAdd={() => setPaxOpen(true)} onEdit={(p) => setEditPax(p)} onAddDoc={(p) => setDocPax(p)} />;
+      case 'participants': return <TabParticipants list={participants} isGroup={requestType === 'Групповая'} groups={requestType === 'Групповая' ? AVIA_GROUPS_SEED : null} fresh={fresh} orderNo={order.no} orderAirline={(services.find((s) => s.kind === 'Авиа') || {}).supplier} onPassport={setPassport} onAdd={() => setPaxOpen(true)} onEdit={(p) => setEditPax(p)} onAddDoc={(p) => setDocPax(p)} />;
       case 'route': return <TabRoute services={services} />;
       case 'services': return renderServicesArea();
       case 'offers': return <KPModule order={order} services={services} participants={participants}
