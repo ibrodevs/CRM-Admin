@@ -790,61 +790,45 @@ function BonusCardPanel({ client, onClose, onSave }) {
 
 /* ---- employee picker (org) — department-aware: pick a whole department/group or search by name ---- */
 function EmployeePanel({ company, selected, onApply, onClose }) {
+  const toast = useToast();
   const [q, setQ] = useState('');
   const [deptFilter, setDeptFilter] = useState(''); // '' = all departments
   const [picked, setPicked] = useState(selected.map((c) => c.id));
   const [newMode, setNewMode] = useState(false);
+  const [np, setNp] = useState(null);       // новый сотрудник (единая форма)
+  const [npErr, setNpErr] = useState({});
+  const [extra, setExtra] = useState([]);    // сотрудники, созданные прямо здесь
   const staff = companyStaff(company ? company.id : null);
+  const departments = staff.departments || [];
+  const allEmployees = [...staff.employees, ...extra];
   const s = q.trim().toLowerCase();
-  const list = staff.employees.filter((c) =>
+  const list = allEmployees.filter((c) =>
     (!deptFilter || c.dept === deptFilter) &&
-    (!s || c.name.toLowerCase().includes(s) || c.phone.includes(s)));
+    (!s || c.name.toLowerCase().includes(s) || (c.phone || '').includes(s)));
   const toggle = (id) => setPicked((p) => p.includes(id) ? p.filter((x) => x !== id) : [...p, id]);
   const toggleDept = (deptId) => {
-    const ids = staff.employees.filter((c) => c.dept === deptId).map((c) => c.id);
+    const ids = allEmployees.filter((c) => c.dept === deptId).map((c) => c.id);
     const allIn = ids.every((id) => picked.includes(id));
     setPicked((p) => allIn ? p.filter((id) => !ids.includes(id)) : [...new Set([...p, ...ids])]);
   };
-  const apply = () => onApply(staff.employees.filter((c) => picked.includes(c.id)));
+  const apply = () => onApply(allEmployees.filter((c) => picked.includes(c.id)));
+  const openNew = () => { setNp({ ...ufBlankPerson('employee'), dept: deptFilter || (departments[0] && departments[0].id) || '' }); setNpErr({}); setNewMode(true); };
+  const saveNew = () => {
+    const er = ufValidatePerson(np); setNpErr(er);
+    if (Object.keys(er).length) { toast('Проверьте обязательные поля', 'err'); return; }
+    const c = ufToClient(np);
+    const emp = { id: c.id, name: c.name, phone: np.phone || '—', email: np.email || '', doc: np.docNo || '—', dob: np.dob || '—', dept: np.dept, position: np.position, inPolicy: np.inPolicy, documents: np.documents || [] };
+    setExtra((l) => [...l, emp]); setPicked((p) => [...p, emp.id]); setNewMode(false);
+    toast('Сотрудник «' + emp.name + '» добавлен', 'ok');
+  };
   return (
     <StackPanel title={newMode ? 'Новый сотрудник' : 'Выбор сотрудников'} onClose={onClose}
       footer={newMode
-        ? <><Button variant="secondary" style={{ flex: 1 }} onClick={() => setNewMode(false)}>Назад</Button><Button style={{ flex: 1 }} icon="check" onClick={() => setNewMode(false)}>Добавить</Button></>
+        ? <><Button variant="secondary" style={{ flex: 1 }} onClick={() => setNewMode(false)}>Назад</Button><Button style={{ flex: 1 }} icon="check" onClick={saveNew}>Добавить</Button></>
         : <><Button variant="secondary" style={{ flex: 1 }} onClick={onClose}>Отмена</Button><Button style={{ flex: 1 }} icon="check" onClick={apply}>Применить{picked.length ? ` (${picked.length})` : ''}</Button></>}>
       {newMode ? (
-        <>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '16px', border: '1px dashed var(--field-line)', borderRadius: 12, marginBottom: 4 }}>
-            <span className="avatar-ph" style={{ width: 52, height: 52, fontSize: 18 }}><Icon name="user" style={{ width: 24, height: 24 }} /></span>
-            <div style={{ flex: 1 }}>
-              <div style={{ fontWeight: 600, color: 'var(--ink)', fontSize: 14 }}>Перетащите фото или</div>
-              <Button variant="secondary" size="sm" style={{ marginTop: 6 }}>Выбрать файл</Button>
-            </div>
-          </div>
-
-          <PanelSub>Личные данные</PanelSub>
-          <div className="form-grid">
-            <Field label="Фамилия" required><Input placeholder="Введите значение" /></Field>
-            <Field label="Имя" required><Input placeholder="Введите значение" /></Field>
-            <Field label="Отчество"><Input placeholder="Введите значение" /></Field>
-            <Field label="Пол"><select className="select"><option value="">Не указан</option><option>Мужской</option><option>Женский</option></select></Field>
-            <DateField label="Дата рождения" value={null} onChange={() => {}} placeholder="Выбрать дату" />
-            <Field label="Гражданство"><select className="select"><option>Российская Федерация</option><option>Кыргызстан</option><option>Казахстан</option></select></Field>
-          </div>
-
-          <PanelSub>Контактная информация</PanelSub>
-          <div className="form-grid">
-            <Field label="Телефон"><Input placeholder="+7 (___) ___-__-__" /></Field>
-            <Field label="Email"><Input placeholder="name@company.ru" /></Field>
-            <Field label="Должность"><Input placeholder="Введите должность" /></Field>
-            <Field label="Отдел"><Input placeholder="Введите отдел" /></Field>
-          </div>
-
-          <PanelSub>Документ <span style={{ textTransform: 'none', fontWeight: 400, color: 'var(--faint)' }}>(необязательно)</span></PanelSub>
-          <div className="form-grid">
-            <Field label="Тип документа"><select className="select"><option>Загранпаспорт</option><option>Паспорт РФ</option><option>ID-карта</option></select></Field>
-            <Field label="Номер документа"><Input placeholder="Серия и номер" /></Field>
-          </div>
-        </>
+        /* Единая форма сотрудника (forms_unified.jsx) — тот же состав полей, что и везде */
+        <UnifiedPersonFields value={np} onChange={setNp} errors={npErr} departments={departments} />
       ) : (
         <>
           {staff.departments.length > 0 && (
@@ -882,7 +866,7 @@ function EmployeePanel({ company, selected, onApply, onClose }) {
             ))}
             {!list.length && <EmptyState icon="users" title="Сотрудники не найдены" sub="Измените фильтр или добавьте нового сотрудника" />}
           </div>
-          <button className="oce-add" style={{ marginTop: 6 }} onClick={() => setNewMode(true)}><Icon name="plus" style={{ width: 16, height: 16 }} />Новый сотрудник</button>
+          <button className="oce-add" style={{ marginTop: 6 }} onClick={openNew}><Icon name="plus" style={{ width: 16, height: 16 }} />Новый сотрудник</button>
         </>
       )}
     </StackPanel>

@@ -435,6 +435,7 @@ function PaxGroupCard({ index, name, members, onPassport, onEdit, onAddDoc }) {
 }
 
 function TabParticipants({ list, isGroup, groups, fresh, onPassport, onAdd, onEdit, onAddDoc }) {
+  const toast = useToast();
   if (!list.length) return (
     <div className="fade-in">
       <EmptyState icon="users" title="Участников пока нет" sub="Добавьте пассажиров поездки и их документы здесь" />
@@ -461,7 +462,7 @@ function TabParticipants({ list, isGroup, groups, fresh, onPassport, onAdd, onEd
               Поимённый список: {list.length - errCount} без ошибок{errCount ? `, ${errCount} требуют проверки` : ''}
             </div>
           </div>
-          <Button variant="secondary" size="sm" icon="checkCircle">Проверить список</Button>
+          <Button variant="secondary" size="sm" icon="checkCircle" onClick={() => toast(errCount ? (errCount + ' участник(ов) требуют проверки документов') : 'Список проверен — расхождений не найдено', errCount ? 'warn' : 'ok')}>Проверить список</Button>
         </div>
       )}
       <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 14 }}>
@@ -1128,9 +1129,11 @@ function AviaListTable({ rows }) {
 }
 
 function AviaSearchPanel({ params, setParams, paxCount, participants = [], isGroup, onAdd, onAddPerPax }) {
+  const toast = useToast();
   const p = params;
   const set = (patch) => setParams({ ...p, ...patch });
   const swap = () => set({ from: p.to, to: p.from });
+  const runSearch = () => toast('Поиск обновлён по подключённым поставщикам', 'info');
   const aviaBounds = aviaPriceBounds();
   const [flt, setFlt] = useState({ stops: [], air: [], sup: [], bagOnly: false, refundOnly: false, priceMax: aviaBounds.max, flightNo: '' });
   const [visible, setVisible] = useState(6);
@@ -1235,7 +1238,7 @@ function AviaSearchPanel({ params, setParams, paxCount, participants = [], isGro
             </Button>
             <div style={{ flex: 1 }} />
             {paxFieldNode}
-            <Button icon="search" className="avia-find-btn" style={{ height: 46, marginBottom: 0 }}>Найти</Button>
+            <Button icon="search" className="avia-find-btn" style={{ height: 46, marginBottom: 0 }} onClick={runSearch}>Найти</Button>
           </div>
         </div>
       ) : (
@@ -1258,7 +1261,7 @@ function AviaSearchPanel({ params, setParams, paxCount, participants = [], isGro
           )}
           {/* ТЗ #7 — passengers open in a side panel instead of a pop-over */}
           {paxFieldNode}
-          <Button icon="search" className="avia-find-btn" style={{ height: 46, marginBottom: 0 }}>Найти</Button>
+          <Button icon="search" className="avia-find-btn" style={{ height: 46, marginBottom: 0 }} onClick={runSearch}>Найти</Button>
         </div>
       )}
 

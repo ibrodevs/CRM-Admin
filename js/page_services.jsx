@@ -1092,7 +1092,7 @@ function RailAddFlow({ participants = [], groups, onAdd }) {
             <button className="btn btn-secondary btn-icon btn-sm" onClick={() => setF('pax', form.pax + 1)}>+</button>
           </div>
         </div>
-        <Button icon="search" style={{ height: 46, marginBottom: 0 }}>Найти</Button>
+        <Button icon="search" style={{ height: 46, marginBottom: 0 }} onClick={() => toast('Поиск обновлён по подключённым поставщикам', 'info')}>Найти</Button>
       </div>
 
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, margin: '16px 0 14px' }}>
