@@ -356,7 +356,7 @@ table.tbl tbody tr:last-child td{border-bottom:none}
 .toast-wrap{position:fixed;bottom:22px;right:22px;z-index:200;display:flex;flex-direction:column;align-items:flex-end;gap:11px;pointer-events:none}
 .toast-wrap .toast{pointer-events:auto}
 .toast-slot{transition:transform .22s cubic-bezier(.2,.9,.3,1),opacity .22s ease;will-change:transform}
-.toast{display:flex;align-items:flex-start;gap:13px;background:#fff;border:1px solid var(--line-strong);border-left:4px solid var(--blue);border-radius:14px;padding:14px 15px 14px 16px;min-width:330px;max-width:400px;box-shadow:var(--shadow-pop);animation:toastin .26s cubic-bezier(.2,.9,.3,1)}
+.toast{display:flex;align-items:flex-start;gap:13px;background:#fff;border:1px solid var(--line-strong);border-left:4px solid var(--blue);border-radius:14px;padding:14px 15px 14px 16px;width:370px;max-width:calc(100vw - 44px);min-height:104px;box-shadow:var(--shadow-pop);animation:toastin .26s cubic-bezier(.2,.9,.3,1)}
 @keyframes toastin{from{opacity:0;transform:translateX(40px)}to{opacity:1;transform:none}}
 .toast-ic{width:36px;height:36px;flex:0 0 36px;border-radius:10px;display:flex;align-items:center;justify-content:center;background:var(--blue-soft);color:var(--blue)}
 .toast-body{flex:1;min-width:0;padding-top:1px}
