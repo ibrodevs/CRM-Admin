@@ -175,7 +175,7 @@ function LoginScreen({ onLogin }) {
         <h1 className="lp-hero-h">Управляйте поездками<br />вашей компании <span>легко и эффективно</span></h1>
 
         <div className="lp-stage">
-          <img className="lp-hero-img" src="assets/hero1.png" alt="Управление поездками: авиабилеты, отели, документы и маршруты" />
+          <img className="lp-hero-img" src="assets/hero2.png" alt="Управление поездками: авиабилеты, отели, документы и маршруты" />
         </div>
       </div>
 
