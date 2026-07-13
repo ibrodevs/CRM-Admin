@@ -35,6 +35,31 @@ function FreeBookingFinalize({ draft, onClose, onDone }) {
     );
   }
 
+  // Свободная выгрузка подборки в чат заказа — без формирования КП (ТЗ-2 п.10)
+  if (step === 'chat') {
+    const rows = ORDERS.filter((o) => `${o.no} ${o.client}`.toLowerCase().includes(q.toLowerCase())).slice(0, 20);
+    return (
+      <Drawer open onClose={onClose} title="Отправить в чат по заказу"
+        footer={<Button variant="secondary" style={{ width: '100%' }} onClick={() => setStep('menu')}>Назад</Button>}>
+        <div style={{ color: 'var(--muted)', fontSize: 13, marginBottom: 12 }}>
+          Подборка ({draft.length} {plural(draft.length, ['услуга', 'услуги', 'услуг'])}) уйдёт в чат выбранного заказа без формирования КП.
+        </div>
+        <SearchBox value={q} onChange={setQ} placeholder="Поиск: № заказа или клиент" style={{ width: '100%', marginBottom: 12 }} />
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          {rows.map((o) => (
+            <button key={o.id} type="button" className="oce-client" style={{ cursor: 'pointer', width: '100%', textAlign: 'left', border: '1px solid var(--line)', background: '#fff', borderRadius: 12, padding: '10px 12px', display: 'flex', alignItems: 'center', gap: 12 }}
+              onClick={() => finish('Подборка (' + draft.length + ' ' + plural(draft.length, ['услуга', 'услуги', 'услуг']) + ') отправлена в чат по заказу № ' + o.no)}>
+              <span className="oc-svc-ic" style={{ background: 'var(--green)', width: 34, height: 34 }}><Icon name="chat" /></span>
+              <div style={{ flex: 1, minWidth: 0 }}><div className="nm" style={{ fontWeight: 600 }}>Заказ № {o.no}</div><div className="mt" style={{ fontSize: 12, color: 'var(--muted)' }}>{o.client} · {o.requestType}</div></div>
+              <Icon name="chevRight" style={{ width: 18, height: 18, color: 'var(--muted-2)' }} />
+            </button>
+          ))}
+          {!rows.length && <EmptyState icon="chat" title="Заказы не найдены" />}
+        </div>
+      </Drawer>
+    );
+  }
+
   // Выбор физ. лица (клиента) для привязки
   if (step === 'person') {
     const list = CLIENTS.filter((c) => c.toLowerCase().includes(q.toLowerCase()));
@@ -140,6 +165,10 @@ function FreeBookingFinalize({ draft, onClose, onDone }) {
         <Button icon="template" style={{ width: '100%' }} onClick={() => { setQ(''); setStep('kp'); }}>Сформировать КП</Button>
         <Button variant="secondary" icon="briefcase" style={{ width: '100%' }} onClick={() => { setQ(''); setStep('order'); }}>Привязать к заказу</Button>
         <Button variant="secondary" icon="user" style={{ width: '100%' }} onClick={() => { setQ(''); setStep('person'); }}>Привязать к физ. лицу</Button>
+        <Button variant="secondary" icon="chat" style={{ width: '100%' }} onClick={() => { setQ(''); setStep('chat'); }}>Отправить в чат по заказу</Button>
+      </div>
+      <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 12, textAlign: 'center' }}>
+        «Отправить в чат» выгружает подборку в чат заказа без формирования КП.
       </div>
     </Drawer>
   );
