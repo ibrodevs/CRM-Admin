@@ -128,6 +128,15 @@ function ServiceCardSendPanel({ item, kind, participants = [], orderNo, currency
   const extras = item.tags || [];
   const validity = item.validUntil || '3 дня с момента отправки';
   const k = SERVICE_KIND[kind] || { icon: 'briefcase', color: 'var(--blue)' };
+  const exchangeOp = (item.exchange && { exchange: item.exchange, fin: item.exchangeFin || {} }) ||
+    ((typeof RETURNS !== 'undefined') ? RETURNS.find((r) => r.order === (orderNo || item.order) && r.type === 'Обмен билета' && (!r.service || r.service.indexOf(kind) === 0)) : null);
+  const isExchange = item.status === 'Обмен' || item.operationType === 'exchange' || !!exchangeOp;
+  const ex = exchangeOp && exchangeOp.exchange;
+  const exFin = (exchangeOp && exchangeOp.fin) || {};
+  const exchangeTotal = ex ? (ex.diff || 0) + (exFin.supplierPenalty || 0) + (exFin.serviceFee || 0) + (exFin.extraHold || 0) : 0;
+  const clientTotal = isExchange && ex ? exchangeTotal : fin.clientTotal;
+  const signedMoney = (n) => (n > 0 ? '+ ' : n < 0 ? '− ' : '') + fmt(Math.abs(n || 0));
+  const normalBase = Math.max(0, fin.clientTotal - (fin.fee || 0));
 
   const send = () => { onSent && onSent(channel); onClose && onClose(); };
 
@@ -163,28 +172,63 @@ function ServiceCardSendPanel({ item, kind, participants = [], orderNo, currency
 
       <div className="grid-2" style={{ alignItems: 'start', gap: 16 }}>
         {/* ЧТО ПОЛУЧИТ КЛИЕНТ */}
-        <div className="card card-pad">
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+        <div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, margin: '0 0 10px 2px' }}>
             <Icon name="eye" style={{ width: 16, height: 16, color: 'var(--blue)' }} />
-            <h3 className="card-title" style={{ fontSize: 15, margin: 0 }}>Что получит клиент</h3>
+            <h3 className="card-title" style={{ fontSize: 15, margin: 0 }}>Предпросмотр для клиента</h3>
           </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
-            <span className="oc-svc-ic" style={{ background: k.color, width: 40, height: 40 }}><Icon name={k.icon} /></span>
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-                <span style={{ fontWeight: 700, color: 'var(--ink)' }}>{item.title || item.main}</span>
-                {item.status && <Pill tone={SERVICE_STATUS[item.status] || 'gray'}>{item.status}</Pill>}
-              </div>
-              <div style={{ fontSize: 13, color: 'var(--muted)' }}>{item.sub}</div>
+          <div style={{ background: '#eef3f8', border: '1px solid var(--line)', borderRadius: 16, padding: 14 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10, color: 'var(--muted)', fontSize: 12 }}>
+              <span className="avatar-ph" style={{ width: 26, height: 26, background: 'var(--blue)', color: '#fff', fontSize: 10 }}>TH</span>
+              <span style={{ fontWeight: 600, color: 'var(--ink)' }}>Travel Hub</span>
+              <span>· карточка в канале {channel}</span>
             </div>
-          </div>
-          <div className="kv">
-            {info.map((r, i) => (<div className="kv-row" key={i}><span className="k">{r.l}</span><span className="v">{r.v}</span></div>))}
-            {extras.length > 0 && <div className="kv-row"><span className="k">Доп. услуги / условия</span><span className="v">{extras.join(', ')}</span></div>}
-            {participants.length > 0 && <div className="kv-row"><span className="k">{kind === 'Гостиница' ? 'Гости' : 'Пассажиры'}</span><span className="v">{participants.map((p) => p.name).join(', ')}</span></div>}
-            <div className="kv-row"><span className="k">Срок действия предложения</span><span className="v">{validity}</span></div>
-            {clientFinRows(fin, vis, fmt)}
-            {vis.clientTotal !== false && <div className="kv-row"><span className="k" style={{ fontWeight: 700, color: 'var(--ink)' }}>Итоговая стоимость</span><span className="v" style={{ fontSize: 17, fontWeight: 700 }}>{fmt(fin.clientTotal)}</span></div>}
+            <div className="card" style={{ padding: 16, borderRadius: 15, boxShadow: '0 5px 18px rgba(25,45,80,.08)' }}>
+              {isExchange && (
+                <div style={{ display: 'flex', alignItems: 'flex-start', gap: 9, padding: '10px 12px', marginBottom: 13, borderRadius: 11, background: 'var(--blue-soft)', border: '1px solid #bfd2ff', color: 'var(--blue)' }}>
+                  <Icon name="swap" style={{ width: 18, height: 18, marginTop: 1, flex: '0 0 18px' }} />
+                  <div><div style={{ fontSize: 12, fontWeight: 800, letterSpacing: '.05em' }}>ОБМЕН УСЛУГИ</div><div style={{ fontSize: 12, color: 'var(--body)', marginTop: 2 }}>После подтверждения прежняя услуга будет заменена на новую.</div></div>
+                </div>
+              )}
+              <div style={{ display: 'flex', alignItems: 'center', gap: 11, marginBottom: 14 }}>
+                <span className="oc-svc-ic" style={{ background: k.color, width: 42, height: 42 }}><Icon name={k.icon} /></span>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                    <span style={{ fontWeight: 750, color: 'var(--ink)', fontSize: 15 }}>{item.title || item.main}</span>
+                    {item.status && <Pill tone={SERVICE_STATUS[item.status] || 'gray'}>{item.status}</Pill>}
+                  </div>
+                  <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 2 }}>{item.sub}</div>
+                </div>
+              </div>
+
+              {isExchange && ex && ex.oldP && ex.newP && (
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr auto 1fr', gap: 9, alignItems: 'stretch', marginBottom: 13 }}>
+                  <div style={{ background: 'var(--surface-2)', borderRadius: 10, padding: 10 }}><div style={{ fontSize: 11, color: 'var(--muted)', marginBottom: 4 }}>Было</div><div style={{ fontSize: 12, fontWeight: 700, color: 'var(--ink)' }}>{ex.oldP.route}</div><div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 3 }}>{ex.oldP.date} · {ex.oldP.fare}</div></div>
+                  <Icon name="arrowRight" style={{ width: 17, color: 'var(--blue)', alignSelf: 'center' }} />
+                  <div style={{ background: 'var(--blue-soft)', borderRadius: 10, padding: 10 }}><div style={{ fontSize: 11, color: 'var(--blue)', marginBottom: 4 }}>Станет</div><div style={{ fontSize: 12, fontWeight: 700, color: 'var(--ink)' }}>{ex.newP.route}</div><div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 3 }}>{ex.newP.date} · {ex.newP.fare}</div></div>
+                </div>
+              )}
+
+              <div className="kv">
+                {!isExchange && info.map((r, i) => (<div className="kv-row" key={i}><span className="k">{r.l}</span><span className="v">{r.v}</span></div>))}
+                {extras.length > 0 && <div className="kv-row"><span className="k">Включено</span><span className="v">{extras.join(', ')}</span></div>}
+                {participants.length > 0 && <div className="kv-row"><span className="k">{kind === 'Гостиница' ? 'Гости' : 'Пассажиры'}</span><span className="v">{participants.map((p) => p.name).join(', ')}</span></div>}
+                <div className="kv-row"><span className="k">Предложение действует</span><span className="v">{validity}</span></div>
+              </div>
+
+              <div style={{ borderTop: '1px solid var(--line)', marginTop: 5, paddingTop: 8 }}>
+                {isExchange && ex ? (<>
+                  <div className="kv-row"><span className="k">Разница стоимости</span><span className="v">{signedMoney(ex.diff)}</span></div>
+                  {!!exFin.supplierPenalty && <div className="kv-row"><span className="k">Сбор поставщика</span><span className="v">{fmt(exFin.supplierPenalty)}</span></div>}
+                  {!!exFin.serviceFee && <div className="kv-row"><span className="k">Сбор за обмен</span><span className="v">{fmt(exFin.serviceFee)}</span></div>}
+                </>) : (<>
+                  <div className="kv-row"><span className="k">Стоимость услуги</span><span className="v">{fmt(normalBase)}</span></div>
+                  {!!fin.fee && <div className="kv-row"><span className="k">Сервисный сбор</span><span className="v">{fmt(fin.fee)}</span></div>}
+                </>)}
+                {vis.clientTotal !== false && <div className="kv-row" style={{ paddingTop: 10, marginTop: 3, borderTop: '1px solid var(--line)' }}><span className="k" style={{ fontWeight: 700, color: 'var(--ink)' }}>{isExchange ? (clientTotal >= 0 ? 'Итого к доплате' : 'Итого к возврату') : 'Итоговая стоимость'}</span><span className="v" style={{ fontSize: 18, fontWeight: 800, color: 'var(--ink)' }}>{fmt(Math.abs(clientTotal))}</span></div>}
+              </div>
+              <div style={{ display: 'flex', gap: 8, marginTop: 12 }}><Button size="sm" style={{ flex: 1 }}>{isExchange ? 'Подтвердить обмен' : 'Выбрать'}</Button><Button size="sm" variant="secondary" style={{ flex: 1 }}>Отклонить</Button></div>
+            </div>
           </div>
         </div>
 
