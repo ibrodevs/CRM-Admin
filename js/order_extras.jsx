@@ -40,57 +40,58 @@ function PassportModal({ passenger, participants, onClose }) {
   const initIdx = Math.max(0, pax.findIndex((p) => p.name === passenger));
   const [activePax, setActivePax] = useState(initIdx);
   const cur = pax[activePax] || pax[0];
-  const showSearch = pax.length > 8;
+  const showSearch = pax.length > 6;
   const s = q.trim().toLowerCase();
   const filtered = pax.map((p, i) => ({ p, i })).filter(({ p }) => !s || p.name.toLowerCase().includes(s));
   return (
-    <Modal open onClose={onClose}>
-      <div className="modal-pad">
-        <ModalHeader title="Документация" sub="Заказ № 51162 ОсОО «Гранд лимитед» от 23.12.25" onClose={onClose} />
-        <div style={{ display: 'grid', gridTemplateColumns: '230px 1fr', gap: 30 }}>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-            {PASS_DOCTYPES.map((d) => (
-              <button key={d.key} onClick={() => setDocType(d.key)}
-                style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '15px 16px', borderRadius: 13, border: '1px solid var(--field-line)', background: docType === d.key ? 'var(--blue-soft)' : '#fff', cursor: 'pointer', textAlign: 'left' }}>
-                <Icon name={d.icon} style={{ width: 20, height: 20, color: 'var(--blue)' }} />
-                <span style={{ flex: 1, fontSize: 14.5, fontWeight: 500, color: 'var(--ink)' }}>{d.label}</span>
-                <span className={'radio' + (docType === d.key ? ' on' : '')} />
-              </button>
-            ))}
-          </div>
-          <div>
-            {showSearch && <div style={{ marginBottom: 12 }}><SearchBox value={q} onChange={setQ} placeholder="Поиск пассажира по ФИО" /></div>}
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14, marginBottom: 18, maxHeight: 230, overflowY: 'auto', paddingRight: filtered.length > 6 ? 4 : 0 }}>
-              {filtered.map(({ p, i }) => (
-                <button key={i} onClick={() => setActivePax(i)}
-                  style={{ display: 'flex', alignItems: 'center', gap: 11, padding: '12px 14px', borderRadius: 13, border: '1px solid ' + (activePax === i ? 'var(--blue)' : 'var(--field-line)'), background: activePax === i ? 'var(--blue-soft)' : '#fff', cursor: 'pointer', textAlign: 'left' }}>
-                  <Avatar name={p.name} size={34} />
-                  <div style={{ flex: 1, minWidth: 0 }}><div style={{ fontSize: 14, fontWeight: 600, color: 'var(--ink)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{p.name}</div><div className="t-sub">{p.sub}</div></div>
-                  <span className={'radio' + (activePax === i ? ' on' : '')} />
-                </button>
-              ))}
-              {filtered.length === 0 && <div style={{ color: 'var(--muted)', fontSize: 13.5, gridColumn: '1 / -1' }}>Пассажиры не найдены</div>}
-            </div>
-            <div style={{ position: 'relative', display: 'flex', justifyContent: 'center', paddingTop: 28 }}>
-              <div className="badge-tip" style={{ left: '50%', top: 0, background: cur.expired ? '#ec4444' : '#f5a623' }}>
-                {cur.expired ? 'Просроченный паспорт' : 'До окончания срока: 3 месяца'}
-              </div>
-              <div style={{ width: 250, height: 320, borderRadius: 12, overflow: 'hidden', border: '1px solid var(--line)',
-                background: 'repeating-linear-gradient(45deg, #eef3ee, #eef3ee 11px, #e4ece4 11px, #e4ece4 22px)',
-                display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <span style={{ fontFamily: 'monospace', fontSize: 13, color: '#7c8a7c', letterSpacing: '.04em' }}>скан паспорта</span>
-              </div>
-            </div>
-          </div>
+    <Drawer open onClose={onClose} width="min(720px,96vw)"
+      title="Документация" sub="Заказ № 51162 ОсОО «Гранд лимитед» от 23.12.25"
+      footer={<div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', justifyContent: 'flex-end', flex: 1 }}>
+        <Button variant="secondary" iconRight="chevRight" onClick={() => toast('Открываю документ', 'info')}>Посмотреть документ</Button>
+        <Button variant="secondary" onClick={() => toast('Данные подтверждены', 'ok')}>Подтвердить данные</Button>
+        <Button variant="secondary" onClick={() => toast('Запрос на исправление отправлен', 'info')}>Исправить</Button>
+        <Button variant="primary" iconRight="chevRight" onClick={() => { toast('Документ подписан', 'ok'); onClose(); }}>Подписать</Button>
+      </div>}>
+      {/* тип документа */}
+      <PanelSub style={{ marginTop: 0 }}>Тип документа</PanelSub>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+        {PASS_DOCTYPES.map((d) => (
+          <button key={d.key} onClick={() => setDocType(d.key)}
+            style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '13px 15px', borderRadius: 13, border: '1px solid ' + (docType === d.key ? 'var(--blue)' : 'var(--field-line)'), background: docType === d.key ? 'var(--blue-soft)' : '#fff', cursor: 'pointer', textAlign: 'left' }}>
+            <Icon name={d.icon} style={{ width: 20, height: 20, color: 'var(--blue)' }} />
+            <span style={{ flex: 1, fontSize: 14.5, fontWeight: 500, color: 'var(--ink)' }}>{d.label}</span>
+            <span className={'radio' + (docType === d.key ? ' on' : '')} />
+          </button>
+        ))}
+      </div>
+
+      {/* пассажир */}
+      <PanelSub>Пассажир</PanelSub>
+      {showSearch && <div style={{ marginBottom: 12 }}><SearchBox value={q} onChange={setQ} placeholder="Поиск пассажира по ФИО" /></div>}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, maxHeight: 260, overflowY: 'auto', paddingRight: filtered.length > 6 ? 4 : 0 }}>
+        {filtered.map(({ p, i }) => (
+          <button key={i} onClick={() => setActivePax(i)}
+            style={{ display: 'flex', alignItems: 'center', gap: 11, padding: '12px 14px', borderRadius: 13, border: '1px solid ' + (activePax === i ? 'var(--blue)' : 'var(--field-line)'), background: activePax === i ? 'var(--blue-soft)' : '#fff', cursor: 'pointer', textAlign: 'left' }}>
+            <Avatar name={p.name} size={34} />
+            <div style={{ flex: 1, minWidth: 0 }}><div style={{ fontSize: 14, fontWeight: 600, color: 'var(--ink)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{p.name}</div><div className="t-sub">{p.sub}</div></div>
+            <span className={'radio' + (activePax === i ? ' on' : '')} />
+          </button>
+        ))}
+        {filtered.length === 0 && <div style={{ color: 'var(--muted)', fontSize: 13.5, gridColumn: '1 / -1' }}>Пассажиры не найдены</div>}
+      </div>
+
+      {/* скан документа */}
+      <div style={{ position: 'relative', display: 'flex', justifyContent: 'center', paddingTop: 34, marginTop: 12 }}>
+        <div className="badge-tip" style={{ left: '50%', top: 6, background: cur.expired ? '#ec4444' : '#f5a623' }}>
+          {cur.expired ? 'Просроченный паспорт' : 'До окончания срока: 3 месяца'}
         </div>
-        <div className="modal-actions">
-          <Button variant="secondary" iconRight="chevRight" onClick={() => toast('Открываю документ', 'info')}>Посмотреть документ</Button>
-          <Button variant="secondary" onClick={() => toast('Данные подтверждены', 'ok')}>Подтвердить данные</Button>
-          <Button variant="secondary" onClick={() => toast('Запрос на исправление отправлен', 'info')}>Исправить</Button>
-          <Button variant="primary" iconRight="chevRight" onClick={() => { toast('Документ подписан', 'ok'); onClose(); }}>Подписать</Button>
+        <div style={{ width: 250, height: 320, borderRadius: 12, overflow: 'hidden', border: '1px solid var(--line)',
+          background: 'repeating-linear-gradient(45deg, #eef3ee, #eef3ee 11px, #e4ece4 11px, #e4ece4 22px)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <span style={{ fontFamily: 'monospace', fontSize: 13, color: '#7c8a7c', letterSpacing: '.04em' }}>скан паспорта</span>
         </div>
       </div>
-    </Modal>
+    </Drawer>
   );
 }
 

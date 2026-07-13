@@ -402,10 +402,12 @@ function ClosingDocsPreview({ open, agreement, coName, co, onClose }) {
   const setDesc = (i, v) => setRows((rs) => rs.map((r, j) => (j === i ? { ...r, desc: v } : r)));
 
   return (
-    <Modal open={open} onClose={onClose} className="cf-agr-modal">
-      <div className="modal-pad">
-        <ModalHeader title="Предпросмотр закрывающих документов" sub={coName + ' · перед выгрузкой в онлайн-бухгалтерию'} onClose={onClose} />
-
+    <Drawer open={open} onClose={onClose} width="min(860px,96vw)"
+      title="Предпросмотр закрывающих документов" sub={coName + ' · перед выгрузкой в онлайн-бухгалтерию'}
+      footer={<>
+        <Button variant="secondary" onClick={onClose}>Отмена</Button>
+        <Button icon="send" onClick={() => setConfirmSend(true)}>Передать в «{sys}»</Button>
+      </>}>
         <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap', marginBottom: 16 }}>
           <div style={{ minWidth: 180 }}><Field label="Бухгалтерия"><Select options={ACCOUNTING_SYSTEMS.map((s) => ({ value: s, label: s }))} value={sys} onChange={(e) => setSys(e.target.value)} /></Field></div>
           <div style={{ minWidth: 160 }}><Field label="Тип документа"><Select options={CLOSING_DOC_TYPES.map((s) => ({ value: s, label: s }))} value={docType} onChange={(e) => setDocType(e.target.value)} /></Field></div>
@@ -465,18 +467,12 @@ function ClosingDocsPreview({ open, agreement, coName, co, onClose }) {
           <span style={{ fontSize: 12.5, color: 'var(--body)' }}>Проверьте описание услуг, суммы, сборы, надбавки, реквизиты, НДС и итог. Выгрузка в «{sys}» произойдёт только после подтверждения.</span>
         </div>
 
-        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 12 }}>
-          <Button variant="secondary" onClick={onClose}>Отмена</Button>
-          <Button icon="send" onClick={() => setConfirmSend(true)}>Передать в «{sys}»</Button>
-        </div>
-      </div>
-
       <ConfirmDialog open={confirmSend} title={'Передать документы в «' + sys + '»?'}
         message={'Будет выгружен ' + docType + ' на сумму ' + fM(total) + '. Проверьте данные перед отправкой.'}
         confirmLabel="Передать" confirmVariant="primary"
         onConfirm={() => { setConfirmSend(false); toast(docType + ' передан в «' + sys + '»', 'ok'); onClose(); }}
         onCancel={() => setConfirmSend(false)} />
-    </Modal>
+    </Drawer>
   );
 }
 

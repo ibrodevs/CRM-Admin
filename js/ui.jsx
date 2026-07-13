@@ -236,19 +236,13 @@ function Drawer({ open, onClose, title, sub, children, footer, width }) {
 /* ---------- Confirm dialog ---------- */
 function ConfirmDialog({ open, title = 'Вы уверены?', message, confirmLabel = 'Удалить', confirmVariant = 'danger', onConfirm, onCancel }) {
   return (
-    <Modal open={open} onClose={onCancel} size="sm">
-      <div className="modal-pad" style={{ padding: '26px 28px' }}>
-        <div className="modal-head" style={{ marginBottom: 8 }}>
-          <h2 className="modal-title" style={{ fontSize: 22 }}>{title}</h2>
-          <button className="modal-close" onClick={onCancel}><Icon name="x" /></button>
-        </div>
-        <div style={{ color: 'var(--muted)', fontSize: 15, margin: '0 0 22px' }}>{message}</div>
-        <div style={{ display: 'flex', gap: 12 }}>
-          <Button variant="secondary" onClick={onCancel} style={{ flex: 1 }}>Отменить</Button>
-          <Button variant={confirmVariant} onClick={onConfirm} style={{ flex: 1 }}>{confirmLabel}</Button>
-        </div>
-      </div>
-    </Modal>
+    <Drawer open={open} onClose={onCancel} title={title} width="min(440px,92vw)"
+      footer={<>
+        <Button variant="secondary" onClick={onCancel} style={{ flex: 1 }}>Отменить</Button>
+        <Button variant={confirmVariant} onClick={onConfirm} style={{ flex: 1 }}>{confirmLabel}</Button>
+      </>}>
+      <div style={{ color: 'var(--muted)', fontSize: 15, lineHeight: 1.5 }}>{message}</div>
+    </Drawer>
   );
 }
 

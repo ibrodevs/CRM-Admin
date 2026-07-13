@@ -391,23 +391,21 @@ function CompareModal({ open, offers, onClose, onSelect }) {
     ['Итого', (o) => <b style={{ fontSize: 17 }}>{(o.fare + o.fee).toLocaleString('ru-RU')} $</b>],
   ];
   return (
-    <Modal open={open} onClose={onClose} className="modal-lg">
-      <div style={{ padding: '24px 26px', minWidth: 640 }}>
-        <ModalHeader title="Сравнение предложений" sub={`${offers.length} варианта`} onClose={onClose} />
-        <div style={{ overflowX: 'auto' }}>
-          <table className="tbl" style={{ marginTop: 8 }}>
-            <thead><tr><th></th>{offers.map((o) => <th key={o.id}><AirlineLogo code={o.airline} size="sm" /></th>)}</tr></thead>
-            <tbody>
-              {rows.map(([label, fn]) => (
-                <tr key={label}><td style={{ color: 'var(--muted)', fontWeight: 600 }}>{label}</td>
-                  {offers.map((o) => <td key={o.id}>{fn(o)}</td>)}</tr>
-              ))}
-              <tr><td></td>{offers.map((o) => <td key={o.id}><Button size="sm" onClick={() => onSelect(o)}>Выбрать</Button></td>)}</tr>
-            </tbody>
-          </table>
-        </div>
+    <Drawer open={open} onClose={onClose} width="min(900px,96vw)"
+      title="Сравнение предложений" sub={`${offers.length} варианта`}>
+      <div style={{ overflowX: 'auto' }}>
+        <table className="tbl" style={{ marginTop: 0, minWidth: 560 }}>
+          <thead><tr><th></th>{offers.map((o) => <th key={o.id}><AirlineLogo code={o.airline} size="sm" /></th>)}</tr></thead>
+          <tbody>
+            {rows.map(([label, fn]) => (
+              <tr key={label}><td style={{ color: 'var(--muted)', fontWeight: 600 }}>{label}</td>
+                {offers.map((o) => <td key={o.id}>{fn(o)}</td>)}</tr>
+            ))}
+            <tr><td></td>{offers.map((o) => <td key={o.id}><Button size="sm" onClick={() => onSelect(o)}>Выбрать</Button></td>)}</tr>
+          </tbody>
+        </table>
       </div>
-    </Modal>
+    </Drawer>
   );
 }
 

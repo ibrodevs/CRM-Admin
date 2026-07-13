@@ -916,20 +916,20 @@ function OffersRegistry({ onOpenOrder, intent, onConsume }) {
         ) : <EmptyState icon="template" title="Предложений не найдено" sub="Измените поиск или фильтры" />}
       </div>
 
-      <Modal open={!!preview} onClose={() => setPreview(null)} className={preview && preview.docType === 'train' ? 'kp2-modal-wide' : ''}>
-        <div style={{ padding: 0, maxHeight: '88vh', overflowY: 'auto' }}>
-          <div style={{ display: 'flex', justifyContent: 'flex-end', padding: '14px 16px', position: 'sticky', top: 0, background: '#fff', borderBottom: '1px solid var(--line)', zIndex: 2 }}>
-            {preview && <span style={{ flex: 1, fontWeight: 700, alignSelf: 'center', paddingLeft: 8 }}>{preview.id} · заказ № {preview.order}</span>}
-            <Button variant="secondary" size="sm" icon="download" disabled={pdfBusy} onClick={() => {
+      {preview && (
+        <Drawer open onClose={() => setPreview(null)}
+          width={preview.docType === 'train' ? 'min(1040px,97vw)' : 'min(780px,96vw)'}
+          title={preview.id + ' · заказ № ' + preview.order}
+          footer={<>
+            <Button variant="secondary" icon="download" disabled={pdfBusy} onClick={() => {
               setPdfBusy(true);
               exportKpToPdf(previewDocRef.current, preview.id + '.pdf', (ok) => { setPdfBusy(false); toast(ok ? 'PDF сохранён' : 'Не удалось сформировать PDF', ok ? 'ok' : 'err'); });
             }}>{pdfBusy ? 'Формируем…' : 'Скачать PDF'}</Button>
-            <Button variant="secondary" size="sm" icon="orders" onClick={() => { const o = (ORDERS.find((x) => x.no === preview.order)) || { no: preview.order, client: preview.client, requestType: 'Индивидуальная', status: 'В работе', operator: 'Даниель', date: '15.06.25' }; setPreview(null); onOpenOrder(o); }}>Перейти в заказ</Button>
-            <button className="modal-close" onClick={() => setPreview(null)} style={{ marginLeft: 8 }}><Icon name="x" /></button>
-          </div>
-          <div ref={previewDocRef} style={{ padding: 24, background: 'var(--surface-2)' }}>{preview && (preview.docType === 'train' ? <KPTrainPreviewDoc proposal={preview} /> : <KPPreviewDoc proposal={preview} />)}</div>
-        </div>
-      </Modal>
+            <Button variant="secondary" icon="orders" onClick={() => { const o = (ORDERS.find((x) => x.no === preview.order)) || { no: preview.order, client: preview.client, requestType: 'Индивидуальная', status: 'В работе', operator: 'Даниель', date: '15.06.25' }; setPreview(null); onOpenOrder(o); }}>Перейти в заказ</Button>
+          </>}>
+          <div ref={previewDocRef} style={{ margin: '-28px -32px', padding: 24, background: 'var(--surface-2)' }}>{preview.docType === 'train' ? <KPTrainPreviewDoc proposal={preview} /> : <KPPreviewDoc proposal={preview} />}</div>
+        </Drawer>
+      )}
 
       <KPCreateModal open={createOpen} onClose={() => setCreateOpen(false)}
         onCreated={(np) => setProposals((ps) => [np, ...ps])} onOpenOrder={onOpenOrder} />

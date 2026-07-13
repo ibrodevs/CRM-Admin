@@ -261,44 +261,43 @@ function DocPreviewModal({ doc, company, onClose, onChange }) {
   };
 
   return (
-    <Modal open={!!doc} onClose={onClose}>
-      <div className="modal-pad" style={{ padding: '26px 28px', width: 520 }}>
-        <ModalHeader title="Предпросмотр перед отправкой" sub={doc.no + ' · ' + doc.name} onClose={onClose} />
-
-        <div className="card card-pad" style={{ marginBottom: 16 }}>
-          <div className="kv-row"><span className="k">Контрагент</span><span className="v">{company ? company.name : doc.participant}</span></div>
-          <div className="kv-row"><span className="k">Договор</span><span className="v">{company ? company.contract : '—'}</span></div>
-          <div className="kv-row"><span className="k">Наименование в документе</span><span className="v">{doc.name}</span></div>
-          <div className="kv-row"><span className="k">ЭЦП у контрагента</span><span className="v">{company ? (company.requiresESign ? 'Требуется' : 'Не требуется') : '—'}</span></div>
-        </div>
-
-        {company && company.docCorrections.length > 0 && (
-          <div style={{ marginBottom: 16 }}>
-            <h3 className="card-title" style={{ fontSize: 14, marginBottom: 8 }}>Ранее отмечено по этому контрагенту</h3>
-            {company.docCorrections.map((c, i) => (
-              <div key={i} style={{ fontSize: 13, color: 'var(--muted)', marginBottom: 4, display: 'flex', gap: 6 }}>
-                <Icon name="alertCircle" style={{ width: 14, height: 14, flexShrink: 0, marginTop: 2 }} />{c.note}
-              </div>
-            ))}
-          </div>
-        )}
-
-        {correcting ? (
-          <Field label="Что нужно исправить?">
-            <Input value={note} onChange={(e) => setNote(e.target.value)} placeholder="Например: неверное наименование услуги в акте" />
-            <div style={{ display: 'flex', gap: 10, marginTop: 12 }}>
-              <Button variant="secondary" style={{ flex: 1 }} onClick={() => setCorrecting(false)}>Назад</Button>
-              <Button style={{ flex: 1 }} onClick={sendForCorrection}>Сохранить и вернуть в работу</Button>
-            </div>
-          </Field>
-        ) : (
-          <div style={{ display: 'flex', gap: 10 }}>
-            <Button variant="secondary" style={{ flex: 1 }} icon="edit" onClick={() => setCorrecting(true)}>Откорректировать</Button>
-            <Button style={{ flex: 1 }} icon="send" onClick={sendToAccounting}>Отправить в бухгалтерию</Button>
-          </div>
-        )}
+    <Drawer open={!!doc} onClose={onClose} width="min(560px,94vw)"
+      title="Предпросмотр перед отправкой" sub={doc.no + ' · ' + doc.name}
+      footer={correcting ? (
+        <>
+          <Button variant="secondary" style={{ flex: 1 }} onClick={() => setCorrecting(false)}>Назад</Button>
+          <Button style={{ flex: 1 }} onClick={sendForCorrection}>Сохранить и вернуть в работу</Button>
+        </>
+      ) : (
+        <>
+          <Button variant="secondary" style={{ flex: 1 }} icon="edit" onClick={() => setCorrecting(true)}>Откорректировать</Button>
+          <Button style={{ flex: 1 }} icon="send" onClick={sendToAccounting}>Отправить в бухгалтерию</Button>
+        </>
+      )}>
+      <div className="card card-pad" style={{ marginBottom: 16 }}>
+        <div className="kv-row"><span className="k">Контрагент</span><span className="v">{company ? company.name : doc.participant}</span></div>
+        <div className="kv-row"><span className="k">Договор</span><span className="v">{company ? company.contract : '—'}</span></div>
+        <div className="kv-row"><span className="k">Наименование в документе</span><span className="v">{doc.name}</span></div>
+        <div className="kv-row"><span className="k">ЭЦП у контрагента</span><span className="v">{company ? (company.requiresESign ? 'Требуется' : 'Не требуется') : '—'}</span></div>
       </div>
-    </Modal>
+
+      {company && company.docCorrections.length > 0 && (
+        <div style={{ marginBottom: 16 }}>
+          <h3 className="card-title" style={{ fontSize: 14, marginBottom: 8 }}>Ранее отмечено по этому контрагенту</h3>
+          {company.docCorrections.map((c, i) => (
+            <div key={i} style={{ fontSize: 13, color: 'var(--muted)', marginBottom: 4, display: 'flex', gap: 6 }}>
+              <Icon name="alertCircle" style={{ width: 14, height: 14, flexShrink: 0, marginTop: 2 }} />{c.note}
+            </div>
+          ))}
+        </div>
+      )}
+
+      {correcting && (
+        <Field label="Что нужно исправить?">
+          <Input value={note} onChange={(e) => setNote(e.target.value)} placeholder="Например: неверное наименование услуги в акте" />
+        </Field>
+      )}
+    </Drawer>
   );
 }
 

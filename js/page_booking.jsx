@@ -379,29 +379,27 @@ function BookingWizard({ order, services, draft, onClose, onComplete, onSaveDraf
       </Drawer>
 
       {/* branded offer preview — converts the supplier blanks into our letterhead document */}
-      <Modal open={!!offerPreview} onClose={() => setOfferPreview(null)}>
-        {offerPreview && (() => {
-          const offer = offerFromServices(order, services, total, fee, offerPreview.rec);
-          return (
-            <div style={{ padding: '24px 26px' }}>
-              <ModalHeader title={offerPreview.draft ? 'Ознакомительное КП' : 'Предложение для клиента'} sub={offer.id} onClose={() => setOfferPreview(null)} />
-              <div className={'bw-kp-banner ' + (offerPreview.draft ? 'draft' : 'fixed')}>
-                <Icon name={offerPreview.draft ? 'alertCircle' : 'checkCircle'} />
-                {offerPreview.draft
-                  ? 'Стоимость предварительная и не зафиксирована — может измениться после ответов поставщиков.'
-                  : 'Стоимость зафиксирована по тайм-лимиту.'}
-              </div>
-              <div style={{ background: 'var(--surface-2)', padding: 20, borderRadius: 14 }}>
-                <KPPreviewDoc proposal={offer} />
-              </div>
-              <div className="modal-actions">
-                <Button variant="secondary" icon="download" onClick={() => toast('PDF скачан', 'ok')}>Скачать PDF</Button>
-                <Button icon="send" onClick={() => { toast('Предложение отправлено клиенту', 'ok'); setOfferPreview(null); }}>Отправить клиенту</Button>
-              </div>
+      {offerPreview && (() => {
+        const offer = offerFromServices(order, services, total, fee, offerPreview.rec);
+        return (
+          <Drawer open onClose={() => setOfferPreview(null)} width="min(760px,96vw)"
+            title={offerPreview.draft ? 'Ознакомительное КП' : 'Предложение для клиента'} sub={offer.id}
+            footer={<>
+              <Button variant="secondary" icon="download" onClick={() => toast('PDF скачан', 'ok')}>Скачать PDF</Button>
+              <Button icon="send" onClick={() => { toast('Предложение отправлено клиенту', 'ok'); setOfferPreview(null); }}>Отправить клиенту</Button>
+            </>}>
+            <div className={'bw-kp-banner ' + (offerPreview.draft ? 'draft' : 'fixed')}>
+              <Icon name={offerPreview.draft ? 'alertCircle' : 'checkCircle'} />
+              {offerPreview.draft
+                ? 'Стоимость предварительная и не зафиксирована — может измениться после ответов поставщиков.'
+                : 'Стоимость зафиксирована по тайм-лимиту.'}
             </div>
-          );
-        })()}
-      </Modal>
+            <div style={{ background: 'var(--surface-2)', padding: 20, borderRadius: 14, marginTop: 16 }}>
+              <KPPreviewDoc proposal={offer} />
+            </div>
+          </Drawer>
+        );
+      })()}
     </div>
   );
 }
