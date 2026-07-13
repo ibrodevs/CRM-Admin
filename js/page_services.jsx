@@ -151,9 +151,11 @@ function ServiceCardSendPanel({ item, kind, participants = [], orderNo, currency
               <span style={{ fontSize: 13, color: 'var(--muted)' }}>· {meta.adapt}</span>
             </div>
           </div>
-          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+          <div className="seg-toggle" style={{ flexWrap: 'wrap' }}>
             {Object.keys(SEND_CHANNELS).map((c) => (
-              <button key={c} type="button" className={'seg-btn' + (channel === c ? ' active' : '')} style={{ padding: '7px 11px', fontSize: 13 }} onClick={() => setChannel(c)}>{c}</button>
+              <button key={c} type="button" className={'seg-btn' + (channel === c ? ' active' : '')} style={{ flex: '0 0 auto', display: 'inline-flex', alignItems: 'center', gap: 6, padding: '7px 12px', fontSize: 13 }} onClick={() => setChannel(c)}>
+                <Icon name={SEND_CHANNELS[c].icon} style={{ width: 14, height: 14 }} />{c}
+              </button>
             ))}
           </div>
         </div>

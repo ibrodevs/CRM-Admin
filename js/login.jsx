@@ -4,7 +4,7 @@
 const LP_STYLES = `
 .lp-root{height:100%;overflow:hidden;display:flex;gap:14px;padding:13px 13px 42px;position:relative;background:#eef0fb;color:var(--body)}
 .lp-left{flex:1;min-width:0;position:relative;overflow:hidden;margin-right:-15px;padding:22px 39px;display:flex;flex-direction:column;border-radius:18px;background:transparent}
-.lp-right{width:610px;max-width:100%;flex:0 0 610px;display:flex;flex-direction:column;padding:27px 40px 0 19px;overflow-y:auto;background:transparent}
+.lp-right{width:610px;max-width:100%;flex:0 0 610px;display:flex;flex-direction:column;padding:27px 40px 16px 19px;overflow-y:auto;background:transparent}
 @media(max-width:1000px){.lp-root{height:auto;min-height:100vh;overflow:visible;padding:0}.lp-left{display:none}.lp-right{width:100%;flex-basis:100%;padding:26px 20px 70px}}
 
 .lp-brand{display:flex;align-items:center;gap:13px}
@@ -69,7 +69,7 @@ const LP_STYLES = `
 .lp-max-ic img{width:100%;height:100%;display:block;object-fit:contain}
 .lp-cap{text-align:center;color:#9aa2b2;font-size:12.5px;margin:8px 0 0;line-height:1.45}
 
-.lp-demo{margin-top:12px;background:linear-gradient(135deg,#eef2ff,#e7e9ff);border:1px solid #dfe5ff;border-radius:16px;padding:29px 22px 11px;min-height:246px;position:relative;overflow:hidden}
+.lp-demo{margin-top:12px;background:linear-gradient(135deg,#eef2ff,#e7e9ff);border:1px solid #dfe5ff;border-radius:16px;padding:24px 22px 11px;min-height:210px;position:relative;overflow:hidden}
 .lp-demo-h{font-size:16px;font-weight:800;color:var(--ink);margin:0}
 .lp-demo-p{color:#5b6274;font-size:13px;margin:5px 0 9px;max-width:320px;line-height:1.4}
 .lp-check{display:flex;align-items:center;gap:9px;font-size:13px;color:#3a4152;margin:4px 0}
@@ -90,7 +90,8 @@ const LP_STYLES = `
 @keyframes lpFloat{0%,100%{transform:translateY(0)}50%{transform:translateY(-9px)}}
 .lp-spin{animation:lpSpin 1s linear infinite}
 @keyframes lpSpin{to{transform:rotate(360deg)}}
-@media(max-height:820px) and (min-width:1001px){.lp-root{padding-bottom:34px}.lp-right{padding-top:16px}.lp-card{padding-top:24px;padding-bottom:24px}.lp-demo{min-height:218px;padding-top:15px;padding-bottom:15px}.lp-foot{bottom:8px}}
+@media(max-height:1000px) and (min-width:1001px){.lp-root{padding-bottom:34px}.lp-right{padding-top:16px}.lp-card{padding-top:24px;padding-bottom:24px}.lp-demo{min-height:190px;padding-top:15px;padding-bottom:12px}.lp-foot{bottom:8px}}
+@media(max-height:820px) and (min-width:1001px){.lp-root{padding-bottom:30px}.lp-card{padding-top:20px;padding-bottom:20px}.lp-demo{min-height:170px}}
 `;
 
 function LoginScreen({ onLogin }) {
@@ -174,7 +175,7 @@ function LoginScreen({ onLogin }) {
         <h1 className="lp-hero-h">Управляйте поездками<br />вашей компании <span>легко и эффективно</span></h1>
 
         <div className="lp-stage">
-          <img className="lp-hero-img" src="assets/hero-left-clean.webp" alt="Управление поездками: авиабилеты, отели, документы и маршруты" />
+          <img className="lp-hero-img" src="assets/hero1.png" alt="Управление поездками: авиабилеты, отели, документы и маршруты" />
         </div>
       </div>
 
@@ -232,7 +233,7 @@ function LoginScreen({ onLogin }) {
                 <button className="lp-btn lp-btn-primary" style={{ marginTop: 10, maxWidth: 225 }} onClick={() => go('demo')}>
                   Получить демо-доступ <Icon name="arrowRight" style={{ width: 17, height: 17 }} />
                 </button>
-                <div className="lp-seat lp-float"><img src="assets/login-seat.png" alt="Комфортное кресло" /></div>
+                <div className="lp-seat"><img src="assets/login-seat.png" alt="Комфортное кресло" /></div>
               </div>
             </div>
           )}
