@@ -669,11 +669,44 @@ const PAX_DOC_KIND = {
 
 const ORDER_SERVICES = [
   { id: 'S1', kind: 'Авиа',      title: 'FRU → IST → FRU',       sub: 'Air Astana · KC 131/132 · 2 пасс.', status: 'Выписано',      sum: 1720, currency: 'USD', date: '24.06 – 01.07', avia: 'AV-51162', supplier: 'Air Astana (API)', pax: 2,
-    calc: { tariff: 1280, taxes: 216, fee: 80, commission: 144, total: 1720 } },
+    calc: { tariff: 1280, taxes: 216, fee: 80, commission: 144, total: 1720 },
+    // Структурированные данные карточки авиаперелёта (§8/§10)
+    details: { 'Авиа': {
+      route: 'FRU → IST → FRU', depAirport: 'Бишкек (FRU), Манас', arrAirport: 'Стамбул (IST), Новый аэропорт',
+      terminalDep: '—', terminalArr: 'Терминал 1', airline: 'Air Astana', flightNo: 'KC 131 / KC 132', aircraft: 'Airbus A321neo',
+      depDate: '24.06', depTime: '07:30', arrDate: '24.06', arrTime: '11:15', duration: '4 ч 45 мин', stops: 'Прямой', layover: '',
+      cabin: 'Эконом', bookingClass: 'Q', fare: 'Economy Basic', handLuggage: '1 × 8 кг', baggage: '2 × 23 кг', meal: 'Горячее питание',
+      refund: 'Возврат со сбором 60 $', exchange: 'Обмен со сбором 40 $', extras: 'Выбор места, страховка ВЗР', confirmBy: 'сегодня 18:00',
+      delay: { planned: '24.06 · 07:30', newTime: '24.06 · 10:10', duration: '2 ч 40 мин', reason: 'Позднее прибытие борта', status: 'Задержан', connections: 'Трансфер IST', risk: 'Низкий — трансфер уведомлён' },
+    } } },
   { id: 'S2', kind: 'Гостиница', title: 'Hilton Istanbul · 4★',  sub: 'Standard Double · 7 ночей · BB',     status: 'Забронировано', sum: 980,  currency: 'USD', date: '24.06 – 01.07', supplier: 'Booking B2B', pax: 2,
-    calc: { tariff: 910, taxes: 0, fee: 40, commission: 30, total: 980 } },
+    calc: { tariff: 910, taxes: 0, fee: 40, commission: 30, total: 980 },
+    // Структурированные данные карточки гостиницы (§14)
+    details: { 'Гостиница': {
+      name: 'Hilton Istanbul Bosphorus', category: '4★', address: 'Cumhuriyet Cd. 50, Şişli, Стамбул', location: '1.2 км от центра, 0.3 км от метро',
+      checkIn: '24.06', checkOut: '01.07', nights: '7', roomCategory: 'Standard', roomType: 'Double', bed: '2 раздельные кровати',
+      occupancy: '2 взрослых', board: 'Завтрак «шведский стол» (BB)', checkInTime: '14:00', checkOutTime: '12:00',
+      cancel: 'Бесплатная отмена до 20.06, далее удержание 1 ночи', extras: 'Wi-Fi, бассейн, фитнес', confirmBy: '20.06',
+    } } },
   { id: 'S3', kind: 'Трансфер',  title: 'IST → Hilton Istanbul', sub: 'Минивэн · 2 чел · встреча с табличкой', status: 'Подтверждено', sum: 60,  currency: 'USD', date: '24.06', supplier: 'Karimov Transfer', pax: 2,
-    calc: { tariff: 48, taxes: 0, fee: 6, commission: 6, total: 60 } },
+    calc: { tariff: 48, taxes: 0, fee: 6, commission: 6, total: 60 },
+    // Структурированные данные карточки трансфера (§13)
+    details: { 'Трансфер': {
+      pickup: 'Аэропорт Стамбул (IST), зона прилёта', dropoff: 'Hilton Istanbul Bosphorus', date: '24.06', time: '09:30',
+      linkedFlight: 'KC 131 (прилёт 11:15)', meetPoint: 'Выход A, стойка встречи', sign: '«Гранд лимитед»', waitTime: '60 мин бесплатно',
+      carType: 'Mercedes-Benz Vito', carClass: 'Комфорт (минивэн)', capacity: 'до 6 пассажиров', baggage: '6 мест', carNumber: '34 ABC 34',
+      driver: 'Karimov A.', driverPhone: '+90 5xx xxx xx xx', extra: 'Детское кресло по запросу',
+    } } },
+  { id: 'S4', kind: 'ЖД', title: 'Москва → Санкт-Петербург', sub: '«Сапсан» 754А · купе · 2 пасс.', status: 'Забронировано', sum: 12800, currency: 'RUB', date: '26.06', supplier: 'РЖД (API)', pax: 2,
+    calc: { tariff: 11800, taxes: 0, fee: 600, commission: 400, total: 12800 },
+    // Структурированные данные карточки ЖД (§11/§12)
+    details: { 'ЖД': {
+      route: 'Москва → Санкт-Петербург', depStation: 'Москва, Ленинградский вокзал', arrStation: 'Санкт-Петербург, Московский вокзал',
+      depDate: '26.06', depTime: '13:30', arrDate: '26.06', arrTime: '17:35', trainNo: '754А «Сапсан»', carrier: 'РЖД', trainType: 'Скоростной',
+      cabin: 'Купе', wagon: '№ 5', wagonType: 'Купейный', seat: 'Места 12, 14', meal: 'Включено', bedding: 'Не требуется', extras: 'Розетки, Wi-Fi',
+      refund: 'Возврат со сбором РЖД', confirmBy: '25.06',
+      delay: { planned: '26.06 · 13:30', newTime: '26.06 · 14:05', duration: '35 мин', reason: 'Технические работы на путях', status: 'Задержан', connections: '—', risk: 'Нет' },
+    } } },
 ];
 
 // Commercial proposals (КП). A proposal belongs to an order and holds several variants;

@@ -304,7 +304,7 @@ function SettingsPage() {
     { title: 'API / интеграции', items: [['Доступы к API', () => setModal('apiaccess')], ['Сгенерировать API ключ', () => setModal('apikey')], ['Коды ошибок интеграций', () => setModal('errcodes')], ['Убрать доступ к API', () => setModal('apiaccess')], ['Настройки SLA', () => toast('Настройки SLA', 'info')]] },
     { title: 'Шаблоны документов', items: [['Добавить шаблон', () => toast('Добавление шаблона', 'info')], ['Изменить шаблон', () => toast('Изменение шаблона', 'info')]] },
     { title: 'Справочники', items: [['Аэропорты и города', () => toast('Справочник', 'info')], ['Типы услуг', () => toast('Справочник', 'info')], ['Справочник доп. услуг', () => setModal('extras')]] },
-    { title: 'Карточки услуг', items: [['Видимость полей для клиента', () => setModal('cardvis')]] },
+    { title: 'Карточки услуг', items: [['Настройки карточек услуг', () => setModal('cardadmin')], ['Видимость полей для клиента', () => setModal('cardvis')]] },
   ];
   const TABS = [{ key: 'users', label: 'Пользователи', count: USERS.length }, { key: 'roles', label: 'Роли и права' }, { key: 'params', label: 'Параметры системы' }];
   return (
@@ -329,6 +329,7 @@ function SettingsPage() {
       </div>
       <ExtrasCatalogModal open={modal === 'extras'} onClose={() => setModal(null)} />
       <CardVisibilityModal open={modal === 'cardvis'} onClose={() => setModal(null)} />
+      {modal === 'cardadmin' && <ServiceCardAdminDrawer onClose={() => setModal(null)} />}
       <CurrencyModal open={modal === 'currency'} onClose={() => setModal(null)} />
       <ApiKeyModal open={modal === 'apikey'} onClose={() => setModal(null)} />
       <ApiAccessModal open={modal === 'apiaccess'} onClose={() => setModal(null)} />

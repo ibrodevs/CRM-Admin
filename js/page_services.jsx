@@ -114,143 +114,562 @@ function CardLifecycle({ current }) {
   );
 }
 
-/* ---------- Отправка карточки услуги клиенту по закреплённому каналу ----------
-   Оператор не пишет сообщение вручную: система формирует карточку и адаптирует её под канал.
-   Слева — что получит клиент; справа — внутренняя информация, которая клиенту НЕ отправляется. */
-function ServiceCardSendPanel({ item, kind, participants = [], orderNo, currency, onSent, onClose }) {
-  const defChannel = orderClientChannel(orderNo || item.order);
-  const [channel, setChannel] = useState(defChannel);
-  const meta = sendChannelMeta(channel);
+/* ---------- Универсальный конструктор карточки услуги (ТЗ «Карточки заказа») ----------
+   Карточка собирается из трёх параметров: вид услуги + сценарий + состояние.
+   Оператор не пишет сообщение вручную: выбирает сценарий → система подставляет ярлык,
+   финансовую логику и действия клиента, показывает предпросмотр под конкретный канал.
+   Отправка фиксирует неизменяемую версию, регистрирует доставки и историю. */
+
+// Финансовая модель карточки по сценарию (§7, §9): 'full' | 'exchange' | 'none' | 'refund'.
+function cardFinModel(sc, fin, ex, exFin) {
+  if (sc.fin === 'exchange') {
+    const diff = ex ? (ex.diff || 0) : 0;
+    const penalty = exFin.supplierPenalty || 0;
+    const serviceFee = sc.noAutoFee ? 0 : (exFin.serviceFee || 0); // §9: при вынужденном обмене сбор не добавляется автоматически
+    const total = diff + penalty + serviceFee + (exFin.extraHold || 0);
+    return { mode: 'exchange', diff, penalty, serviceFee, total };
+  }
+  if (sc.fin === 'refund') return { mode: 'refund', refund: (exFin.refund != null ? exFin.refund : fin.clientTotal) };
+  if (sc.fin === 'none') return { mode: 'none' };
+  return { mode: 'full', base: Math.max(0, fin.clientTotal - (fin.fee || 0)), fee: fin.fee || 0, total: fin.clientTotal };
+}
+
+// Финансовый блок карточки (то, что видит клиент) — рендерится в предпросмотре по всем каналам.
+function CardFinancialBlock({ vm, fmt, compact }) {
+  const f = vm.finModel, signed = (n) => (n > 0 ? '+ ' : n < 0 ? '− ' : '') + fmt(Math.abs(n || 0));
+  if (f.mode === 'none') return null;
+  const rows = [];
+  if (f.mode === 'exchange') {
+    rows.push(['Разница стоимости', signed(f.diff)]);
+    if (f.penalty) rows.push(['Сбор поставщика', fmt(f.penalty)]);
+    if (f.serviceFee) rows.push(['Сервисный сбор', fmt(f.serviceFee)]);
+  } else if (f.mode === 'refund') {
+    // основная строка — итог ниже
+  } else {
+    rows.push(['Стоимость услуги', fmt(f.base)]);
+    if (f.fee) rows.push(['Сервисный сбор', fmt(f.fee)]);
+  }
+  const totalLbl = f.mode === 'exchange' ? (f.total >= 0 ? 'Итого к доплате' : 'Итого к возврату')
+    : f.mode === 'refund' ? 'Сумма к возврату' : 'Итоговая стоимость';
+  const totalVal = f.mode === 'exchange' ? Math.abs(f.total) : f.mode === 'refund' ? f.refund : f.total;
+  return (
+    <div style={{ borderTop: '1px solid var(--line)', marginTop: 5, paddingTop: 8 }}>
+      {rows.map(([l, v], i) => (<div className="kv-row" key={i}><span className="k">{l}</span><span className="v">{v}</span></div>))}
+      {vm.showTotal && <div className="kv-row" style={{ paddingTop: 10, marginTop: 3, borderTop: '1px solid var(--line)' }}>
+        <span className="k" style={{ fontWeight: 700, color: 'var(--ink)' }}>{totalLbl}</span>
+        <span className="v" style={{ fontSize: compact ? 15 : 18, fontWeight: 800, color: 'var(--ink)' }}>{fmt(totalVal)}</span></div>}
+    </div>
+  );
+}
+
+// Кнопки действий клиента — по сценарию (§16). primary — акцентная, ghost — текстовая.
+function CardActionButtons({ actions, size = 'sm', asLinks }) {
+  if (!actions || !actions.length) return null;
+  if (asLinks) return (
+    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 12 }}>
+      {actions.map((a) => { const m = cardAction(a); return (
+        <a key={a} href="#" onClick={(e) => e.preventDefault()} style={{ fontSize: 13, fontWeight: 600, color: m.kind === 'primary' ? 'var(--blue)' : 'var(--muted)', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 5 }}>
+          <Icon name={m.icon} style={{ width: 14, height: 14 }} />{m.label}</a>); })}
+    </div>
+  );
+  return (
+    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 12 }}>
+      {actions.map((a) => { const m = cardAction(a); return (
+        <Button key={a} size={size} icon={m.icon} variant={m.kind === 'primary' ? 'primary' : m.kind === 'ghost' ? 'ghost' : 'secondary'} style={{ flex: m.kind === 'primary' ? 1 : '0 0 auto' }}>{m.label}</Button>); })}
+    </div>
+  );
+}
+
+// Ядро карточки — состав данных зависит от вида услуги, наполнение и блоки — от сценария.
+function CardCore({ vm, fmt, kindMeta }) {
+  const sc = vm.sc, showBlock = (b) => sc.blocks.includes(b);
+  return (
+    <div className="card" style={{ padding: 16, borderRadius: 15, boxShadow: '0 5px 18px rgba(25,45,80,.08)' }}>
+      {/* ЯРЛЫК + доп. статусы (§5) */}
+      <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 6, marginBottom: 12 }}>
+        <Pill tone={sc.tone}><Icon name={kindMeta.icon} style={{ width: 13, height: 13, verticalAlign: -2 }} /> {vm.badge}</Pill>
+        {vm.statuses.map((s, i) => <Pill key={i} tone="gray">{s}</Pill>)}
+      </div>
+      {/* Предупреждение форс-мажора / обмена (§15) */}
+      {vm.warning && (
+        <div style={{ display: 'flex', alignItems: 'flex-start', gap: 9, padding: '10px 12px', marginBottom: 13, borderRadius: 11, background: sc.tone === 'red' ? '#fdecec' : 'var(--blue-soft)', border: '1px solid ' + (sc.tone === 'red' ? '#f3c2c2' : '#bfd2ff'), color: sc.tone === 'red' ? 'var(--red)' : 'var(--blue)' }}>
+          <Icon name={sc.tone === 'red' ? 'alertCircle' : 'swap'} style={{ width: 18, height: 18, marginTop: 1, flex: '0 0 18px' }} />
+          <div><div style={{ fontSize: 12, fontWeight: 800, letterSpacing: '.04em' }}>{vm.warning.title}</div><div style={{ fontSize: 12, color: 'var(--body)', marginTop: 2 }}>{vm.warning.text}</div></div>
+        </div>
+      )}
+      {/* Заголовок услуги */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 11, marginBottom: 14 }}>
+        <span className="oc-svc-ic" style={{ background: kindMeta.color, width: 42, height: 42 }}><Icon name={kindMeta.icon} /></span>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ fontWeight: 750, color: 'var(--ink)', fontSize: 15 }}>{vm.title}</div>
+          <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 2 }}>{vm.sub}</div>
+        </div>
+      </div>
+      {/* Сравнение исходного и нового варианта (§9) */}
+      {(showBlock('source_variant') || showBlock('comparison')) && vm.ex && vm.ex.oldP && vm.ex.newP && (
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr auto 1fr', gap: 9, alignItems: 'stretch', marginBottom: 13 }}>
+          <div style={{ background: 'var(--surface-2)', borderRadius: 10, padding: 10 }}><div style={{ fontSize: 11, color: 'var(--muted)', marginBottom: 4 }}>Исходный вариант</div><div style={{ fontSize: 12, fontWeight: 700, color: 'var(--ink)' }}>{vm.ex.oldP.route}</div><div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 3 }}>{vm.ex.oldP.date} · {vm.ex.oldP.fare}</div></div>
+          <Icon name="arrowRight" style={{ width: 17, color: 'var(--blue)', alignSelf: 'center' }} />
+          <div style={{ background: 'var(--blue-soft)', borderRadius: 10, padding: 10 }}><div style={{ fontSize: 11, color: 'var(--blue)', marginBottom: 4 }}>Новый вариант</div><div style={{ fontSize: 12, fontWeight: 700, color: 'var(--ink)' }}>{vm.ex.newP.route}</div><div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 3 }}>{vm.ex.newP.date} · {vm.ex.newP.fare}</div></div>
+        </div>
+      )}
+      {/* Форс-мажорный блок (§15) — структурированное описание события */}
+      {vm.fmRows && vm.fmRows.length > 0 && (
+        <div style={{ marginBottom: 8, padding: '10px 12px', borderRadius: 11, background: '#fdf3f0', border: '1px solid #f3d4c9' }}>
+          <div style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: '.05em', textTransform: 'uppercase', color: 'var(--red)', marginBottom: 4 }}>Форс-мажор</div>
+          <div className="kv">{vm.fmRows.map((r, i) => (<div className="kv-row" key={i}><span className="k">{r.l}</span><span className="v">{r.v}</span></div>))}</div>
+        </div>
+      )}
+      {/* Параметры услуги — состав данных зависит от вида (§8–14), сгруппирован по блокам */}
+      {vm.fieldBlocks && vm.fieldBlocks.map((b, bi) => (
+        <div key={bi} style={{ marginBottom: 6 }}>
+          {b.title && <div style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: '.05em', textTransform: 'uppercase', color: 'var(--muted)', margin: '8px 0 3px' }}>{b.title}</div>}
+          <div className="kv">{b.rows.map((r, i) => (<div className="kv-row" key={i}><span className="k">{r.l}</span><span className="v">{r.v}</span></div>))}</div>
+        </div>
+      ))}
+      <div className="kv">
+        {vm.extras.length > 0 && <div className="kv-row"><span className="k">Включено</span><span className="v">{vm.extras.join(', ')}</span></div>}
+        {vm.passengers.length > 0 && <div className="kv-row"><span className="k">{vm.paxLabel}</span><span className="v">{vm.passengers.join(', ')}</span></div>}
+        <div className="kv-row"><span className="k">Предложение действует</span><span className="v">{vm.validity}</span></div>
+        {vm.responseDeadline && <div className="kv-row"><span className="k">Ответ до</span><span className="v" style={{ color: 'var(--amber-ink,var(--amber))', fontWeight: 600 }}>{vm.responseDeadline}</span></div>}
+      </div>
+      <CardFinancialBlock vm={vm} fmt={fmt} />
+      {vm.accompanyingText && <div style={{ fontSize: 12.5, color: 'var(--body)', marginTop: 12, paddingTop: 10, borderTop: '1px dashed var(--line)' }}>{vm.accompanyingText}</div>}
+      {showBlock('contacts') && <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 10, display: 'flex', alignItems: 'center', gap: 6 }}><Icon name="phone" style={{ width: 13, height: 13 }} />Ваш менеджер: {vm.operator}</div>}
+      {vm.attachments.length > 0 && <div style={{ marginTop: 10, display: 'flex', flexWrap: 'wrap', gap: 6 }}>{vm.attachments.map((a, i) => <Pill key={i} tone="gray"><Icon name="paperclip" style={{ width: 12, height: 12, verticalAlign: -2 }} /> {a.name || a}</Pill>)}</div>}
+      <CardActionButtons actions={vm.actions} />
+    </div>
+  );
+}
+
+// Предпросмотр, адаптированный под канал (§18): internal / messenger / email.
+function ChannelPreview({ mode, channel, vm, fmt, kindMeta }) {
+  if (mode === 'email') {
+    const tpl = cardEmailTemplate(vm.sc.sys);
+    const subst = (s) => (s || '').replace('{label}', vm.badge).replace('{title}', vm.title).replace('{sys}', vm.sc.sys);
+    return (
+      <div style={{ background: '#f1f4f8', border: '1px solid var(--line)', borderRadius: 14, overflow: 'hidden' }}>
+        <div style={{ background: '#fff', borderBottom: '1px solid var(--line)', padding: '12px 16px' }}>
+          <div style={{ fontSize: 11, color: 'var(--muted)' }}>Тема письма</div>
+          <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--ink)' }}>{subst(tpl.subject)}</div>
+          <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 4 }}>от Travel Hub &lt;service@travelhub.app&gt; · кому: клиент</div>
+        </div>
+        <div style={{ padding: 16 }}>
+          <div style={{ fontSize: 13, color: 'var(--body)', marginBottom: 12 }}>{vm.accompanyingText || subst(tpl.body)}</div>
+          <CardCore vm={{ ...vm, accompanyingText: '' }} fmt={fmt} kindMeta={kindMeta} />
+          <div style={{ marginTop: 12 }}><CardActionButtons actions={[]} /></div>
+          <a href="#" onClick={(e) => e.preventDefault()} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, marginTop: 12, fontSize: 13, fontWeight: 600, color: 'var(--blue)', textDecoration: 'none' }}><Icon name="arrowUpRight" style={{ width: 14, height: 14 }} />Открыть и подтвердить на защищённой странице</a>
+        </div>
+      </div>
+    );
+  }
+  if (mode === 'messenger') {
+    const acts = vm.actions.map((a) => cardAction(a));
+    return (
+      <div style={{ background: 'linear-gradient(#e7ebf1,#eef2f6)', border: '1px solid var(--line)', borderRadius: 16, padding: 14, minHeight: 120 }}>
+        <div style={{ maxWidth: 340, marginLeft: 'auto' }}>
+          <div style={{ background: '#fff', borderRadius: '14px 14px 4px 14px', boxShadow: '0 2px 8px rgba(25,45,80,.08)', padding: 12 }}>
+            <div style={{ fontSize: 13, fontWeight: 800, color: sc_tone_color(vm.sc.tone) }}>{vm.badge}</div>
+            {vm.statuses.length > 0 && <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 2 }}>{vm.statuses.join(' · ')}</div>}
+            <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--ink)', marginTop: 8 }}>{vm.title}</div>
+            <div style={{ fontSize: 12, color: 'var(--muted)' }}>{vm.sub}</div>
+            <div style={{ fontSize: 12, color: 'var(--body)', marginTop: 8, whiteSpace: 'pre-line' }}>{messengerBody(vm, fmt)}</div>
+            {vm.attachments.length > 0 && <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 6 }}>📎 {vm.attachments.map((a) => a.name || a).join(', ')}</div>}
+            <div style={{ borderTop: '1px solid var(--line)', marginTop: 10, paddingTop: 8, display: 'flex', flexDirection: 'column', gap: 6 }}>
+              {acts.slice(0, 3).map((m, i) => <button key={i} type="button" style={{ width: '100%', textAlign: 'center', padding: '8px', borderRadius: 9, border: '1px solid ' + (m.kind === 'primary' ? 'var(--blue)' : 'var(--line)'), background: m.kind === 'primary' ? 'var(--blue)' : '#fff', color: m.kind === 'primary' ? '#fff' : 'var(--ink)', fontSize: 13, fontWeight: 600, cursor: 'default' }}>{m.label}</button>)}
+              <a href="#" onClick={(e) => e.preventDefault()} style={{ textAlign: 'center', fontSize: 12, color: 'var(--blue)', textDecoration: 'none', marginTop: 2 }}>Открыть полную карточку →</a>
+            </div>
+          </div>
+          <div style={{ fontSize: 10, color: 'var(--muted)', textAlign: 'right', marginTop: 3 }}>{channel} · адаптированная карточка</div>
+        </div>
+      </div>
+    );
+  }
+  // internal — полноценная интерактивная карточка внутри CRM
+  return (
+    <div style={{ background: '#eef3f8', border: '1px solid var(--line)', borderRadius: 16, padding: 14 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10, color: 'var(--muted)', fontSize: 12 }}>
+        <span className="avatar-ph" style={{ width: 26, height: 26, background: 'var(--blue)', color: '#fff', fontSize: 10 }}>TH</span>
+        <span style={{ fontWeight: 600, color: 'var(--ink)' }}>Travel Hub</span>
+        <span>· интерактивная карточка во внутреннем чате</span>
+      </div>
+      <CardCore vm={vm} fmt={fmt} kindMeta={kindMeta} />
+    </div>
+  );
+}
+function sc_tone_color(t) { return ({ blue: 'var(--blue)', teal: 'var(--teal, var(--blue))', amber: 'var(--amber)', red: 'var(--red)', gray: 'var(--muted)' })[t] || 'var(--blue)'; }
+function messengerBody(vm, fmt) {
+  const lines = [];
+  if (vm.ex && vm.ex.oldP && vm.ex.newP) { lines.push('Было: ' + vm.ex.oldP.route + ' · ' + vm.ex.oldP.date); lines.push('Станет: ' + vm.ex.newP.route + ' · ' + vm.ex.newP.date); }
+  else vm.info.slice(0, 4).forEach((r) => lines.push(r.l + ': ' + r.v));
+  const f = vm.finModel;
+  if (vm.showTotal && f.mode !== 'none') {
+    if (f.mode === 'exchange') lines.push((f.total >= 0 ? 'К доплате: ' : 'К возврату: ') + fmt(Math.abs(f.total)));
+    else if (f.mode === 'refund') lines.push('К возврату: ' + fmt(f.refund));
+    else lines.push('Итого: ' + fmt(f.total));
+  }
+  if (vm.responseDeadline) lines.push('Ответ до ' + vm.responseDeadline);
+  return lines.join('\n');
+}
+
+function ServiceCardSendPanel({ item, kind, participants = [], orderNo, currency, serviceId, onSent, onClose }) {
+  const toast = useToast();
+  const oNo = orderNo || item.order;
+  const svcId = serviceId || item.id || (kind + '-' + (item.title || item.main || ''));
+  const operator = (typeof CURRENT_USER !== 'undefined' && CURRENT_USER.name) || 'Оператор';
   const fmt = (n) => (currency === 'RUB' || currency === '₽') ? rub(n) : svM(n);
+  const kindMeta = SERVICE_KIND[kind] || { icon: 'briefcase', color: 'var(--blue)' };
+
+  // Исходные финансы + данные обмена (связь с исходной услугой, §24)
   const fin = cardInternals(item);
-  const vis = (typeof CARD_CLIENT_VISIBILITY !== 'undefined') ? CARD_CLIENT_VISIBILITY : {};
-  const info = (item.info || []).filter((r) => r && r.v != null);
-  const extras = item.tags || [];
-  const validity = item.validUntil || '3 дня с момента отправки';
-  const k = SERVICE_KIND[kind] || { icon: 'briefcase', color: 'var(--blue)' };
   const exchangeOp = (item.exchange && { exchange: item.exchange, fin: item.exchangeFin || {} }) ||
-    ((typeof RETURNS !== 'undefined') ? RETURNS.find((r) => r.order === (orderNo || item.order) && r.type === 'Обмен билета' && (!r.service || r.service.indexOf(kind) === 0)) : null);
-  const isExchange = item.status === 'Обмен' || item.operationType === 'exchange' || !!exchangeOp;
+    ((typeof RETURNS !== 'undefined') ? RETURNS.find((r) => r.order === oNo && r.type === 'Обмен билета' && (!r.service || r.service.indexOf(kind) === 0)) : null);
   const ex = exchangeOp && exchangeOp.exchange;
   const exFin = (exchangeOp && exchangeOp.fin) || {};
-  const exchangeTotal = ex ? (ex.diff || 0) + (exFin.supplierPenalty || 0) + (exFin.serviceFee || 0) + (exFin.extraHold || 0) : 0;
-  const clientTotal = isExchange && ex ? exchangeTotal : fin.clientTotal;
-  const signedMoney = (n) => (n > 0 ? '+ ' : n < 0 ? '− ' : '') + fmt(Math.abs(n || 0));
-  const normalBase = Math.max(0, fin.clientTotal - (fin.fee || 0));
+  const looksExchange = item.status === 'Обмен' || item.operationType === 'exchange' || !!exchangeOp;
 
-  const send = () => { onSent && onSent(channel); onClose && onClose(); };
+  // Сценарии, доступные для вида услуги; по умолчанию — обмен, если это обмен, иначе новая услуга.
+  const available = scenariosForKind(kind);
+  const defScenario = looksExchange ? (available.includes('voluntary_exchange') ? 'voluntary_exchange' : available[0]) : (available.includes('new_offer') ? 'new_offer' : available[0]);
+  const [scenarioSys, setScenarioSys] = useState(defScenario);
+  const sc = cardScenario(scenarioSys);
+
+  // Настраиваемые в предпросмотре поля (§19). При смене сценария — сброс ярлыка и действий.
+  const [clientLabel, setClientLabel] = useState(scenarioBadge(defScenario, kind));
+  const [actions, setActions] = useState(scenarioActions(defScenario));
+  const changeScenario = (sys) => { setScenarioSys(sys); setClientLabel(scenarioBadge(sys, kind)); setActions(scenarioActions(sys)); };
+
+  const [statuses, setStatuses] = useState(looksExchange ? ['Требуется подтверждение'] : []);
+  const [accompanyingText, setAccompanyingText] = useState('');
+  const [selectedPax, setSelectedPax] = useState(() => new Set(participants.map((p) => p.name)));
+  const [validity, setValidity] = useState(item.validUntil || '3 дня с момента отправки');
+  const [responseDeadline, setResponseDeadline] = useState(looksExchange ? 'сегодня 18:00' : '');
+  const [vis, setVis] = useState(() => ({ ...(window.CARD_CLIENT_VISIBILITY || {}) }));
+  const [attachments, setAttachments] = useState([]);
+  const [channels, setChannels] = useState([orderClientChannel(oNo)]);
+  const [previewMode, setPreviewMode] = useState(channelMode(orderClientChannel(oNo)));
+  const [previewChannel, setPreviewChannel] = useState(orderClientChannel(oNo));
+
+  // §26 — права оператора по карточкам этого вида услуги
+  const rights = operatorCardRights(operator, kind);
+  const readOnly = !rights.clientFields; // без права «изменение клиентских полей» настройки только для чтения
+  // §15 — данные форс-мажорной карточки (если сценарий — форс-мажор)
+  const [fm, setFm] = useState(() => defaultForceMajeure(item, operator));
+  const setFmType = (t) => { setFm((f) => ({ ...f, fmType: t })); setActions(FORCE_MAJEURE_TYPES[t].actions.slice()); };
+
+  const finModel = cardFinModel(sc, fin, ex, exFin);
+  // Состав данных зависит от вида услуги (§8–14): типизированные блоки полей.
+  const cardFields = buildCardFields(kind, item, scenarioSys);
+  const info = cardFields.flat;
+  const paxNames = participants.filter((p) => selectedPax.has(p.name)).map((p) => p.name);
+  const warning = sc.forceMajeure ? { title: 'ВНИМАНИЕ ПО УСЛУГЕ', text: 'Информация от поставщика об изменении. Требуется ваше решение.' }
+    : sc.fin === 'exchange' ? { title: 'ОБМЕН УСЛУГИ', text: 'После подтверждения прежняя услуга будет заменена на новую.' } : null;
+
+  const fmRows = sc.forceMajeure ? buildForceMajeureRows(fm) : [];
+  const vm = {
+    sc, badge: clientLabel, statuses, title: item.title || item.main, sub: item.sub, warning,
+    info, fieldBlocks: cardFields.blocks, fmRows, extras: item.tags || [], passengers: paxNames, paxLabel: (kind === 'Гостиница' || kind === 'Гостиницы') ? 'Гости' : 'Пассажиры',
+    validity, responseDeadline, accompanyingText, attachments, actions, operator,
+    ex, finModel, showTotal: vis.clientTotal !== false,
+  };
+
+  const toggle = (set, val, on) => { const n = new Set(set); on ? n.add(val) : n.delete(val); return n; };
+  const toggleChannel = (c) => setChannels((cs) => cs.includes(c) ? cs.filter((x) => x !== c) : [...cs, c]);
+  const toggleAction = (a) => setActions((as) => as.includes(a) ? as.filter((x) => x !== a) : [...as, a]);
+  const addAttachment = () => setAttachments((a) => [...a, { name: 'Ваучер_' + (a.length + 1) + '.pdf' }]);
+
+  const send = () => {
+    if (!rights.send) { toast('Нет права на отправку карточек по услуге «' + kind + '»', 'err'); return; }
+    if (!channels.length) { toast('Выберите хотя бы один канал отправки', 'warn'); return; }
+    const draft = {
+      kind, scenario: scenarioSys, clientLabel, statuses, accompanyingText, passengers: paxNames,
+      validity, responseDeadline, actions, attachments, visibility: vis, channels,
+      fin: { ...fin, model: finModel }, source: sc.linksSource ? { service: item.title || item.main, ex } : null,
+      forceMajeure: sc.forceMajeure ? fm : null,
+      snapshot: { title: item.title || item.main, info, badge: clientLabel },
+    };
+    const card = sendServiceCard(oNo, svcId, draft, operator);
+    // Демо: имитируем подтверждения каналов (§21) — доставлено → просмотрено.
+    setTimeout(() => channels.forEach((ch) => advanceDelivery(card, ch, 'delivered')), 900);
+    setTimeout(() => channels.forEach((ch) => advanceDelivery(card, ch, 'viewed')), 2100);
+    onSent && onSent(channels.join(', '), card);
+    onClose && onClose();
+  };
+
+  const modeLabel = { internal: 'Внутренний чат', messenger: 'Мессенджер', email: 'Email' };
+  const chanList = enabledChannels();
+
+  // §26 — без права создания карточки конструктор не открывается
+  if (!rights.create) {
+    return (
+      <StackPanel title="Карточка услуги" width="min(560px,96vw)" onClose={onClose}
+        footer={<Button variant="secondary" onClick={onClose}>Закрыть</Button>}>
+        <div className="card card-pad" style={{ textAlign: 'center', padding: '40px 24px' }}>
+          <Icon name="lock" style={{ width: 40, height: 40, color: 'var(--muted-2)' }} strokeWidth={1.4} />
+          <h3 style={{ margin: '14px 0 6px', fontSize: 16 }}>Нет доступа к карточкам по услуге «{kind}»</h3>
+          <div style={{ fontSize: 13, color: 'var(--muted)' }}>Оператор {operator} не имеет права создавать карточки этого вида услуги. Обратитесь к администратору (Настройки → Карточки услуг → Права операторов).</div>
+        </div>
+      </StackPanel>
+    );
+  }
 
   return (
-    <StackPanel title="Отправка карточки услуги клиенту" width="min(1080px,96vw)" onClose={onClose}
+    <StackPanel title="Карточка услуги · предпросмотр перед отправкой" width="min(1180px,97vw)" onClose={onClose}
       footer={<>
         <div style={{ fontSize: 12, color: 'var(--muted)', display: 'flex', alignItems: 'center', gap: 6 }}>
-          <Icon name="lock" style={{ width: 14, height: 14 }} />Внутренние расчёты клиенту не отправляются
+          <Icon name="lock" style={{ width: 14, height: 14 }} />Внутренние расчёты клиенту не отправляются · при отправке фиксируется версия
         </div>
         <div style={{ flex: 1 }} />
         <Button variant="secondary" onClick={onClose}>Отмена</Button>
-        <Button icon="send" onClick={send}>Отправить по каналу «{channel}»</Button>
+        <Button icon="send" onClick={send} disabled={!rights.send} title={!rights.send ? 'Нет права на отправку' : undefined}>Отправить{channels.length > 1 ? ' (' + channels.length + ' канала)' : channels.length === 1 ? ' · ' + channels[0] : ''}</Button>
       </>}>
-      {/* канал, закреплённый за заказом/клиентом */}
-      <div className="card card-pad" style={{ marginBottom: 16 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
-          <div style={{ flex: 1, minWidth: 200 }}>
-            <div style={{ fontSize: 12, color: 'var(--muted)' }}>Канал связи, закреплённый за заказом</div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 4 }}>
-              <Pill tone={meta.tone}><Icon name={meta.icon} style={{ width: 14, height: 14, verticalAlign: -2 }} /> {channel}</Pill>
-              <span style={{ fontSize: 13, color: 'var(--muted)' }}>· {meta.adapt}</span>
+
+      <div className="grid-2" style={{ alignItems: 'start', gap: 16, gridTemplateColumns: '1.05fr .95fr' }}>
+        {/* ЛЕВО — ПРЕДПРОСМОТР ПО КАНАЛУ */}
+        <div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, margin: '0 0 10px 2px', flexWrap: 'wrap' }}>
+            <Icon name="eye" style={{ width: 16, height: 16, color: 'var(--blue)' }} />
+            <h3 className="card-title" style={{ fontSize: 15, margin: 0 }}>Предпросмотр для клиента</h3>
+            <div style={{ flex: 1 }} />
+            <div className="seg-toggle">
+              {['internal', 'messenger', 'email'].map((m) => (
+                <button key={m} type="button" className={'seg-btn' + (previewMode === m ? ' active' : '')} style={{ padding: '6px 11px', fontSize: 12.5 }} onClick={() => setPreviewMode(m)}>{modeLabel[m]}</button>
+              ))}
             </div>
           </div>
-          <div className="seg-toggle" style={{ flexWrap: 'wrap' }}>
-            {Object.keys(SEND_CHANNELS).map((c) => (
-              <button key={c} type="button" className={'seg-btn' + (channel === c ? ' active' : '')} style={{ flex: '0 0 auto', display: 'inline-flex', alignItems: 'center', gap: 6, padding: '7px 12px', fontSize: 13 }} onClick={() => setChannel(c)}>
-                <Icon name={SEND_CHANNELS[c].icon} style={{ width: 14, height: 14 }} />{c}
+          {previewMode === 'messenger' && (
+            <div className="seg-toggle" style={{ marginBottom: 10 }}>
+              {['Telegram', 'WhatsApp', 'MAX'].map((c) => (
+                <button key={c} type="button" className={'seg-btn' + (previewChannel === c ? ' active' : '')} style={{ padding: '5px 10px', fontSize: 12 }} onClick={() => setPreviewChannel(c)}>{c}</button>
+              ))}
+            </div>
+          )}
+          <ChannelPreview mode={previewMode} channel={previewMode === 'messenger' ? previewChannel : (previewMode === 'email' ? 'Email' : 'Внутренний чат')} vm={vm} fmt={fmt} kindMeta={kindMeta} />
+
+          {/* ВНУТРЕННЯЯ ИНФОРМАЦИЯ (не для клиента, §7) */}
+          <div className="card card-pad" style={{ background: 'var(--surface-2)', marginTop: 16 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+              <Icon name="lock" style={{ width: 16, height: 16, color: 'var(--muted)' }} />
+              <h3 className="card-title" style={{ fontSize: 15, margin: 0 }}>Внутренняя информация</h3>
+              <Pill tone="gray">не для клиента</Pill>
+            </div>
+            <div className="kv">
+              <div className="kv-row"><span className="k">Цена поставщика</span><span className="v">{fmt(fin.supplierPrice)}</span></div>
+              <div className="kv-row"><span className="k">Себестоимость</span><span className="v">{fmt(fin.cost)}</span></div>
+              <div className="kv-row"><span className="k">Комиссия поставщика</span><span className="v" style={{ color: 'var(--green)' }}>+ {fmt(fin.commission)}</span></div>
+              <div className="kv-row"><span className="k">Сервисный сбор</span><span className="v">{fmt(fin.fee)}</span></div>
+              {fin.markup ? <div className="kv-row"><span className="k">Наценка</span><span className="v">{fmt(fin.markup)}</span></div> : null}
+              <div className="kv-row"><span className="k" style={{ fontWeight: 700, color: 'var(--ink)' }}>Прибыль</span><span className="v" style={{ fontWeight: 700, color: 'var(--green)' }}>{fmt(fin.profit)}</span></div>
+            </div>
+          </div>
+        </div>
+
+        {/* ПРАВО — НАСТРОЙКИ КАРТОЧКИ (§19) */}
+        <div className="card card-pad">
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
+            <Icon name="settings" style={{ width: 16, height: 16, color: 'var(--blue)' }} />
+            <h3 className="card-title" style={{ fontSize: 15, margin: 0 }}>Настройки карточки</h3>
+            <div style={{ flex: 1 }} />
+            {/* §26 — доступ оператора по этому виду услуги */}
+            <Pill tone={rights.clientFields ? 'green' : 'amber'}><Icon name={rights.clientFields ? 'checkCircle' : 'lock'} style={{ width: 12, height: 12, verticalAlign: -2 }} /> {operator}</Pill>
+          </div>
+          {readOnly && <div style={{ fontSize: 12, color: 'var(--amber)', marginBottom: 12, display: 'flex', gap: 6 }}><Icon name="lock" style={{ width: 13, height: 13 }} />Нет права «изменение клиентских полей» — настройки только для чтения</div>}
+
+          {/* Сценарий */}
+          <label className="lbl" style={{ display: 'block', marginBottom: 6 }}>Сценарий карточки</label>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 12, pointerEvents: readOnly ? 'none' : 'auto', opacity: readOnly ? 0.6 : 1 }}>
+            {available.map((s) => { const scn = cardScenario(s); return (
+              <button key={s} type="button" onClick={() => changeScenario(s)}
+                className={'seg-btn' + (scenarioSys === s ? ' active' : '')} style={{ padding: '6px 10px', fontSize: 12.5, borderRadius: 8 }}>{scn.name}</button>); })}
+          </div>
+
+          {/* §15 — Форс-мажорная карточка: структурированное описание события */}
+          {sc.forceMajeure && (
+            <div className="card card-pad" style={{ background: '#fdf3f0', border: '1px solid #f3d4c9', marginBottom: 14 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
+                <Icon name="alertCircle" style={{ width: 15, height: 15, color: 'var(--red)' }} />
+                <span style={{ fontWeight: 700, fontSize: 13, color: 'var(--ink)' }}>Форс-мажор</span>
+              </div>
+              <label className="lbl" style={{ display: 'block', marginBottom: 6 }}>Тип карточки</label>
+              <Select options={Object.keys(FORCE_MAJEURE_TYPES).map((k) => FORCE_MAJEURE_TYPES[k].label)}
+                value={FORCE_MAJEURE_TYPES[fm.fmType].label}
+                onChange={(e) => setFmType(Object.keys(FORCE_MAJEURE_TYPES).find((k) => FORCE_MAJEURE_TYPES[k].label === e.target.value))} />
+              <div style={{ display: 'grid', gap: 8, marginTop: 8 }}>
+                <Input value={fm.event} onChange={(e) => setFm((f) => ({ ...f, event: e.target.value }))} placeholder="Что произошло (напр. рейс задержан)" />
+                <div className="grid-2" style={{ gap: 8 }}>
+                  <Input value={fm.source} onChange={(e) => setFm((f) => ({ ...f, source: e.target.value }))} placeholder="Источник информации" />
+                  <Input value={fm.affectedPax} onChange={(e) => setFm((f) => ({ ...f, affectedPax: e.target.value }))} placeholder="Затронутые пассажиры" />
+                </div>
+                <Input value={fm.whatChanged} onChange={(e) => setFm((f) => ({ ...f, whatChanged: e.target.value }))} placeholder="Что изменилось" />
+                <Input value={fm.operatorActions} onChange={(e) => setFm((f) => ({ ...f, operatorActions: e.target.value }))} placeholder="Действия оператора" />
+                <Input value={fm.alternatives} onChange={(e) => setFm((f) => ({ ...f, alternatives: e.target.value }))} placeholder="Доступные альтернативы" />
+              </div>
+            </div>
+          )}
+
+          {/* Клиентский ярлык (§5) */}
+          <label className="lbl" style={{ display: 'block', marginBottom: 6 }}>Клиентский ярлык</label>
+          <Select options={[...new Set([clientLabel, ...sc.labels])]} value={clientLabel} onChange={(e) => setClientLabel(e.target.value)} />
+          <div style={{ marginTop: 6 }}><Input value={clientLabel} onChange={(e) => setClientLabel(e.target.value)} placeholder="Свой текст ярлыка" /></div>
+
+          {/* Доп. статусы (§5) */}
+          <label className="lbl" style={{ display: 'block', margin: '12px 0 6px' }}>Дополнительные статусы</label>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+            {['Требуется подтверждение', 'Ответ до ' + (responseDeadline || '18:00'), 'Затронуты ' + (paxNames.length || 1) + ' пасс.', 'Срочно'].map((s) => (
+              <button key={s} type="button" onClick={() => setStatuses((st) => st.includes(s) ? st.filter((x) => x !== s) : [...st, s])}
+                className={'chip' + (statuses.includes(s) ? ' chip-on' : '')} style={{ fontSize: 12, padding: '4px 10px', borderRadius: 20, border: '1px solid var(--line)', background: statuses.includes(s) ? 'var(--blue-soft)' : '#fff', color: statuses.includes(s) ? 'var(--blue)' : 'var(--muted)', cursor: 'pointer' }}>{s}</button>
+            ))}
+          </div>
+
+          {/* Действия клиента (§16) */}
+          <label className="lbl" style={{ display: 'block', margin: '14px 0 6px' }}>Действия клиента <span style={{ color: 'var(--muted)', fontWeight: 400 }}>· по сценарию</span></label>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+            {[...new Set([...sc.actions, ...actions])].map((a) => (
+              <label key={a} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, cursor: 'pointer' }}>
+                <Checkbox on={actions.includes(a)} onChange={() => toggleAction(a)} />
+                <Icon name={cardAction(a).icon} style={{ width: 14, height: 14, color: 'var(--muted)' }} />{cardAction(a).label}
+              </label>
+            ))}
+          </div>
+
+          {/* Пассажиры (§19) */}
+          {participants.length > 0 && (<>
+            <label className="lbl" style={{ display: 'block', margin: '14px 0 6px' }}>{vm.paxLabel}</label>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+              {participants.map((p) => (
+                <label key={p.name} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, cursor: 'pointer' }}>
+                  <Checkbox on={selectedPax.has(p.name)} onChange={(on) => setSelectedPax((s) => toggle(s, p.name, on))} />{p.name}
+                </label>
+              ))}
+            </div>
+          </>)}
+
+          {/* Сроки */}
+          <div className="grid-2" style={{ gap: 10, marginTop: 14 }}>
+            <div><label className="lbl" style={{ display: 'block', marginBottom: 6 }}>Срок действия</label><Input value={validity} onChange={(e) => setValidity(e.target.value)} /></div>
+            <div><label className="lbl" style={{ display: 'block', marginBottom: 6 }}>Срок ответа клиента</label><Input value={responseDeadline} onChange={(e) => setResponseDeadline(e.target.value)} placeholder="напр. сегодня 18:00" /></div>
+          </div>
+
+          {/* Сопровождающий текст */}
+          <label className="lbl" style={{ display: 'block', margin: '14px 0 6px' }}>Сопровождающий текст</label>
+          <textarea className="input" rows={2} value={accompanyingText} onChange={(e) => setAccompanyingText(e.target.value)} placeholder="Необязательный текст к карточке" style={{ width: '100%', resize: 'vertical' }} />
+
+          {/* Видимость итоговой стоимости клиенту (§7) */}
+          <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, marginTop: 14, cursor: 'pointer' }}>
+            <Toggle on={vis.clientTotal !== false} onChange={(on) => setVis((v) => ({ ...v, clientTotal: on }))} />Показывать клиенту итоговую стоимость
+          </label>
+
+          {/* Вложения */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 14, flexWrap: 'wrap' }}>
+            <Button size="sm" variant="secondary" icon="paperclip" onClick={addAttachment}>Добавить вложение</Button>
+            {attachments.map((a, i) => <Pill key={i} tone="gray">{a.name}</Pill>)}
+          </div>
+
+          {/* Каналы отправки (§20) — можно выбрать несколько */}
+          <label className="lbl" style={{ display: 'block', margin: '16px 0 6px' }}>Каналы отправки <span style={{ color: 'var(--muted)', fontWeight: 400 }}>· по умолчанию — закреплённый за заказом</span></label>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+            {chanList.map((c) => (
+              <button key={c} type="button" onClick={() => toggleChannel(c)}
+                className={'seg-btn' + (channels.includes(c) ? ' active' : '')} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '7px 11px', fontSize: 13, borderRadius: 8 }}>
+                <Icon name={SEND_CHANNELS[c].icon} style={{ width: 14, height: 14 }} />{c}{channels.includes(c) && <Icon name="check" style={{ width: 13, height: 13 }} />}
               </button>
             ))}
           </div>
-        </div>
-      </div>
-
-      <div className="grid-2" style={{ alignItems: 'start', gap: 16 }}>
-        {/* ЧТО ПОЛУЧИТ КЛИЕНТ */}
-        <div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, margin: '0 0 10px 2px' }}>
-            <Icon name="eye" style={{ width: 16, height: 16, color: 'var(--blue)' }} />
-            <h3 className="card-title" style={{ fontSize: 15, margin: 0 }}>Предпросмотр для клиента</h3>
-          </div>
-          <div style={{ background: '#eef3f8', border: '1px solid var(--line)', borderRadius: 16, padding: 14 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10, color: 'var(--muted)', fontSize: 12 }}>
-              <span className="avatar-ph" style={{ width: 26, height: 26, background: 'var(--blue)', color: '#fff', fontSize: 10 }}>TH</span>
-              <span style={{ fontWeight: 600, color: 'var(--ink)' }}>Travel Hub</span>
-              <span>· карточка в канале {channel}</span>
-            </div>
-            <div className="card" style={{ padding: 16, borderRadius: 15, boxShadow: '0 5px 18px rgba(25,45,80,.08)' }}>
-              {isExchange && (
-                <div style={{ display: 'flex', alignItems: 'flex-start', gap: 9, padding: '10px 12px', marginBottom: 13, borderRadius: 11, background: 'var(--blue-soft)', border: '1px solid #bfd2ff', color: 'var(--blue)' }}>
-                  <Icon name="swap" style={{ width: 18, height: 18, marginTop: 1, flex: '0 0 18px' }} />
-                  <div><div style={{ fontSize: 12, fontWeight: 800, letterSpacing: '.05em' }}>ОБМЕН УСЛУГИ</div><div style={{ fontSize: 12, color: 'var(--body)', marginTop: 2 }}>После подтверждения прежняя услуга будет заменена на новую.</div></div>
-                </div>
-              )}
-              <div style={{ display: 'flex', alignItems: 'center', gap: 11, marginBottom: 14 }}>
-                <span className="oc-svc-ic" style={{ background: k.color, width: 42, height: 42 }}><Icon name={k.icon} /></span>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-                    <span style={{ fontWeight: 750, color: 'var(--ink)', fontSize: 15 }}>{item.title || item.main}</span>
-                    {item.status && <Pill tone={SERVICE_STATUS[item.status] || 'gray'}>{item.status}</Pill>}
-                  </div>
-                  <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 2 }}>{item.sub}</div>
-                </div>
-              </div>
-
-              {isExchange && ex && ex.oldP && ex.newP && (
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr auto 1fr', gap: 9, alignItems: 'stretch', marginBottom: 13 }}>
-                  <div style={{ background: 'var(--surface-2)', borderRadius: 10, padding: 10 }}><div style={{ fontSize: 11, color: 'var(--muted)', marginBottom: 4 }}>Было</div><div style={{ fontSize: 12, fontWeight: 700, color: 'var(--ink)' }}>{ex.oldP.route}</div><div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 3 }}>{ex.oldP.date} · {ex.oldP.fare}</div></div>
-                  <Icon name="arrowRight" style={{ width: 17, color: 'var(--blue)', alignSelf: 'center' }} />
-                  <div style={{ background: 'var(--blue-soft)', borderRadius: 10, padding: 10 }}><div style={{ fontSize: 11, color: 'var(--blue)', marginBottom: 4 }}>Станет</div><div style={{ fontSize: 12, fontWeight: 700, color: 'var(--ink)' }}>{ex.newP.route}</div><div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 3 }}>{ex.newP.date} · {ex.newP.fare}</div></div>
-                </div>
-              )}
-
-              <div className="kv">
-                {!isExchange && info.map((r, i) => (<div className="kv-row" key={i}><span className="k">{r.l}</span><span className="v">{r.v}</span></div>))}
-                {extras.length > 0 && <div className="kv-row"><span className="k">Включено</span><span className="v">{extras.join(', ')}</span></div>}
-                {participants.length > 0 && <div className="kv-row"><span className="k">{kind === 'Гостиница' ? 'Гости' : 'Пассажиры'}</span><span className="v">{participants.map((p) => p.name).join(', ')}</span></div>}
-                <div className="kv-row"><span className="k">Предложение действует</span><span className="v">{validity}</span></div>
-              </div>
-
-              <div style={{ borderTop: '1px solid var(--line)', marginTop: 5, paddingTop: 8 }}>
-                {isExchange && ex ? (<>
-                  <div className="kv-row"><span className="k">Разница стоимости</span><span className="v">{signedMoney(ex.diff)}</span></div>
-                  {!!exFin.supplierPenalty && <div className="kv-row"><span className="k">Сбор поставщика</span><span className="v">{fmt(exFin.supplierPenalty)}</span></div>}
-                  {!!exFin.serviceFee && <div className="kv-row"><span className="k">Сбор за обмен</span><span className="v">{fmt(exFin.serviceFee)}</span></div>}
-                </>) : (<>
-                  <div className="kv-row"><span className="k">Стоимость услуги</span><span className="v">{fmt(normalBase)}</span></div>
-                  {!!fin.fee && <div className="kv-row"><span className="k">Сервисный сбор</span><span className="v">{fmt(fin.fee)}</span></div>}
-                </>)}
-                {vis.clientTotal !== false && <div className="kv-row" style={{ paddingTop: 10, marginTop: 3, borderTop: '1px solid var(--line)' }}><span className="k" style={{ fontWeight: 700, color: 'var(--ink)' }}>{isExchange ? (clientTotal >= 0 ? 'Итого к доплате' : 'Итого к возврату') : 'Итоговая стоимость'}</span><span className="v" style={{ fontSize: 18, fontWeight: 800, color: 'var(--ink)' }}>{fmt(Math.abs(clientTotal))}</span></div>}
-              </div>
-              <div style={{ display: 'flex', gap: 8, marginTop: 12 }}><Button size="sm" style={{ flex: 1 }}>{isExchange ? 'Подтвердить обмен' : 'Выбрать'}</Button><Button size="sm" variant="secondary" style={{ flex: 1 }}>Отклонить</Button></div>
-            </div>
-          </div>
-        </div>
-
-        {/* ВНУТРЕННЯЯ ИНФОРМАЦИЯ (не для клиента) */}
-        <div className="card card-pad" style={{ background: 'var(--surface-2)' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
-            <Icon name="lock" style={{ width: 16, height: 16, color: 'var(--muted)' }} />
-            <h3 className="card-title" style={{ fontSize: 15, margin: 0 }}>Внутренняя информация</h3>
-            <Pill tone="gray">не для клиента</Pill>
-          </div>
-          <div className="kv">
-            <div className="kv-row"><span className="k">Цена поставщика</span><span className="v">{fmt(fin.supplierPrice)}</span></div>
-            <div className="kv-row"><span className="k">Себестоимость</span><span className="v">{fmt(fin.cost)}</span></div>
-            <div className="kv-row"><span className="k">Комиссия поставщика</span><span className="v" style={{ color: 'var(--green)' }}>+ {fmt(fin.commission)}</span></div>
-            <div className="kv-row"><span className="k">Сервисный сбор</span><span className="v">{fmt(fin.fee)}</span></div>
-            {fin.markup ? <div className="kv-row"><span className="k">Наценка</span><span className="v">{fmt(fin.markup)}</span></div> : null}
-            <div className="kv-row"><span className="k" style={{ fontWeight: 700, color: 'var(--ink)' }}>Прибыль</span><span className="v" style={{ fontWeight: 700, color: 'var(--green)' }}>{fmt(fin.profit)}</span></div>
-          </div>
-          <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 10 }}>Клиент получит только разрешённые настройками компании поля (Настройки → Карточки услуг → «Видимость полей для клиента»).</div>
+          {channels.length > 0 && <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 8 }}>{channels.map((c) => sendChannelMeta(c).adapt).join(' · ')}</div>}
         </div>
       </div>
     </StackPanel>
+  );
+}
+
+/* ---------- История и версии карточки услуги (§23, §25) ----------
+   Отправленные карточки фиксируются неизменяемыми версиями. Значимые изменения создают
+   новую версию, прежняя помечается «неактуальна». Здесь — версии, доставки по каналам,
+   ответы клиента и полный журнал действий. */
+function ServiceCardHistoryDrawer({ orderNo, serviceId, title, onClose }) {
+  const [, force] = useState(0);
+  const rerender = () => force((n) => n + 1);
+  const cards = cardsFor(orderNo, serviceId).slice().sort((a, b) => b.version - a.version);
+  const simDeliver = (card, ch, st) => { advanceDelivery(card, ch, st); rerender(); };
+  const simResponse = (card, act, ch) => { recordCardResponse(card, act, ch); rerender(); };
+
+  return (
+    <Drawer open onClose={onClose} title="История карточки услуги" sub={title} width="min(560px, 96vw)"
+      footer={<Button variant="secondary" onClick={onClose}>Закрыть</Button>}>
+      {cards.length === 0 ? (
+        <EmptyState icon="clock" title="Карточка ещё не отправлялась" sub="После отправки клиенту здесь появятся версии, доставки и ответы." />
+      ) : cards.map((card) => {
+        const sc = cardScenario(card.scenario), cst = cardStatus(card.status === 'sent' ? 'sent' : card.status);
+        return (
+          <div key={card.id} className="card card-pad" style={{ marginBottom: 14, opacity: card.actual ? 1 : 0.85, borderLeft: '3px solid ' + (card.actual ? 'var(--blue)' : 'var(--line)') }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+              <Pill tone={card.actual ? 'blue' : 'gray'}>Версия {card.version}</Pill>
+              <span style={{ fontWeight: 700, color: 'var(--ink)', fontSize: 14 }}>{card.clientLabel}</span>
+              {!card.actual && <Pill tone="amber">неактуальна</Pill>}
+              <div style={{ flex: 1 }} />
+              <Pill tone={cst.tone || 'gray'}>{cardStatus(card.status) ? cardStatus(card.status).label : card.status}</Pill>
+            </div>
+            <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 4 }}>Сценарий: {sc.name} · отправлено {card.sentAt} · {card.operator}</div>
+            {!card.actual && card.staleNote && (
+              <div style={{ marginTop: 8, padding: '8px 10px', borderRadius: 9, background: 'var(--surface-2)', fontSize: 12, color: 'var(--muted)' }}>
+                <Icon name="alertCircle" style={{ width: 13, height: 13, verticalAlign: -2, marginRight: 4 }} />{card.staleNote}
+              </div>
+            )}
+
+            {/* Доставки по каналам (§21) */}
+            <div style={{ marginTop: 10 }}>
+              <div className="lbl" style={{ marginBottom: 6 }}>Доставка по каналам</div>
+              {card.deliveries.map((d, i) => (
+                <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '5px 0', borderTop: i ? '1px solid var(--line)' : 'none' }}>
+                  <Icon name={sendChannelMeta(d.channel).icon} style={{ width: 14, height: 14, color: 'var(--muted)' }} />
+                  <span style={{ fontSize: 13 }}>{d.channel}</span>
+                  <div style={{ flex: 1 }} />
+                  <Pill tone={DELIVERY_TONE[d.status] || 'gray'}>{DELIVERY_STATUS[d.status] || d.status}</Pill>
+                  <span style={{ fontSize: 11, color: 'var(--muted)' }}>{d.at}</span>
+                </div>
+              ))}
+            </div>
+
+            {/* Ответы клиента (§16) */}
+            {card.responses.length > 0 && (
+              <div style={{ marginTop: 10 }}>
+                <div className="lbl" style={{ marginBottom: 6 }}>Ответы клиента</div>
+                {card.responses.map((r, i) => (
+                  <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, padding: '3px 0' }}>
+                    <Icon name={cardAction(r.action).icon} style={{ width: 14, height: 14, color: 'var(--green)' }} />{r.label}
+                    <div style={{ flex: 1 }} /><span style={{ fontSize: 11, color: 'var(--muted)' }}>{r.channel} · {r.at}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Демо-действия: имитация доставки и ответа клиента */}
+            {card.actual && (
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 10 }}>
+                {card.deliveries.some((d) => d.status !== 'viewed') && <Button size="sm" variant="secondary" icon="eye" onClick={() => card.deliveries.forEach((d) => simDeliver(card, d.channel, 'viewed'))}>Отметить просмотр</Button>}
+                {card.responses.length === 0 && card.actions.slice(0, 2).map((a) => (
+                  <Button key={a} size="sm" variant="secondary" icon={cardAction(a).icon} onClick={() => simResponse(card, a, card.channels[0])}>Клиент: {cardAction(a).label}</Button>
+                ))}
+              </div>
+            )}
+
+            {/* Полный журнал действий (§25) */}
+            <details style={{ marginTop: 10 }}>
+              <summary style={{ cursor: 'pointer', fontSize: 12.5, color: 'var(--blue)' }}>Журнал действий ({card.history.length})</summary>
+              <div style={{ marginTop: 8 }}>
+                {card.history.map((h, i) => (
+                  <div key={i} style={{ display: 'flex', gap: 8, fontSize: 12, padding: '4px 0', borderTop: i ? '1px solid var(--line)' : 'none' }}>
+                    <span style={{ color: 'var(--muted)', flex: '0 0 96px' }}>{h.at}</span>
+                    <span style={{ flex: 1 }}>{h.action}{h.channel ? ' · ' + h.channel : ''}{h.note ? ' ' + h.note : ''}</span>
+                    <span style={{ color: 'var(--muted)' }}>{h.user}</span>
+                  </div>
+                ))}
+              </div>
+            </details>
+          </div>
+        );
+      })}
+    </Drawer>
   );
 }
 
@@ -1437,4 +1856,4 @@ function ServicesHubPage({ onNavigate, onAddOrder, onOpenOrder }) {
   );
 }
 
-Object.assign(window, { ServiceFlow, SVC_CFG, ServiceAddFlow, AeroAddFlow, routeKeyForKind, SvcCard, SvcOfferCard, ServiceCardSendPanel, CardLifecycle, RailSeatPanel, RailAddFlow, RailOfferCard, ServicesHubPage, SERVICES_HUB });
+Object.assign(window, { ServiceFlow, SVC_CFG, ServiceAddFlow, AeroAddFlow, routeKeyForKind, SvcCard, SvcOfferCard, ServiceCardSendPanel, ServiceCardHistoryDrawer, CardCore, ChannelPreview, CardActionButtons, CardFinancialBlock, cardFinModel, CardLifecycle, RailSeatPanel, RailAddFlow, RailOfferCard, ServicesHubPage, SERVICES_HUB });

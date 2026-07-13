@@ -564,6 +564,7 @@ function ServiceListRow({ s, paxCount, isGroup, onOpen, orderNo, participants = 
   const cat = (SVC_FILTER_CHIPS.find((c) => c.kind === s.kind) || {}).label || s.kind;
   const pax = isGroup ? paxCount : (s.pax || paxCount);
   const [sendOpen, setSendOpen] = useState(false);
+  const [histOpen, setHistOpen] = useState(false);
   const initCard = (s.status === 'Выписано' || s.status === 'Подтверждено') ? 'issued' : (s.cardStatus || 'created');
   const [cardSt, setCardSt] = useState(initCard);
   const cst = cardStatus(cardSt);
@@ -591,8 +592,9 @@ function ServiceListRow({ s, paxCount, isGroup, onOpen, orderNo, participants = 
       <Button variant="secondary" size="sm" icon="send" onClick={() => setSendOpen(true)}>Клиенту</Button>
       <Button variant="secondary" size="sm" onClick={() => onOpen(s)}>Детали</Button>
       <ActionMenu trigger={<button className="btn btn-ghost btn-icon btn-sm"><Icon name="more" /></button>}
-        items={[{ icon: 'eye', label: 'Открыть', onClick: () => onOpen(s) }, { icon: 'send', label: 'Отправить клиенту', onClick: () => setSendOpen(true) }, { sep: true }, { icon: 'trash', label: 'Удалить', danger: true }]} />
-      {sendOpen && <ServiceCardSendPanel item={cardItem} kind={s.kind} participants={participants} orderNo={orderNo} currency={s.currency} onSent={onSent} onClose={() => setSendOpen(false)} />}
+        items={[{ icon: 'eye', label: 'Открыть', onClick: () => onOpen(s) }, { icon: 'send', label: 'Отправить клиенту', onClick: () => setSendOpen(true) }, { icon: 'clock', label: 'История карточки', onClick: () => setHistOpen(true) }, { sep: true }, { icon: 'trash', label: 'Удалить', danger: true }]} />
+      {sendOpen && <ServiceCardSendPanel item={cardItem} kind={s.kind} participants={participants} orderNo={orderNo} currency={s.currency} serviceId={s.id} onSent={onSent} onClose={() => setSendOpen(false)} />}
+      {histOpen && <ServiceCardHistoryDrawer orderNo={orderNo} serviceId={s.id} title={s.title} onClose={() => setHistOpen(false)} />}
     </div>
   );
 }
