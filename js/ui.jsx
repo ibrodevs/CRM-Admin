@@ -100,7 +100,7 @@ function Pill({ tone = 'gray', children }) {
 function TimeLimitBadge({ tone = 'red', icon = 'clock', children }) {
   return (
     <span className={'pill ' + (PILL_TONE[tone] || 'pill-red')} style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>
-      <Icon name={icon} style={{ width: 13, height: 13 }} />{children}
+      <Icon name={icon} style={{ width: 14, height: 14 }} />{children}
     </span>
   );
 }
@@ -525,7 +525,7 @@ function CalendarPicker({ mode = 'range', startVal = null, endVal = null, onConf
       {/* Weekday headers */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7,1fr)', marginBottom: 2 }}>
         {CAL_DAYS.map(d => (
-          <div key={d} style={{ textAlign: 'center', fontSize: 12.5, fontWeight: 700, color: 'var(--blue)', padding: '3px 0 6px' }}>{d}</div>
+          <div key={d} style={{ textAlign: 'center', fontSize: 12, fontWeight: 700, color: 'var(--blue)', padding: '3px 0 6px' }}>{d}</div>
         ))}
       </div>
 

@@ -33,7 +33,7 @@ function AirportField({ label, value, onChange, placeholder = 'Город или
       {label && <span className="label">{label}</span>}
       <div className="input" style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 9 }}
         onClick={() => setOpen((o) => !o)}>
-        <Icon name="plane" style={{ width: 17, height: 17, color: 'var(--muted-2)', flexShrink: 0 }} />
+        <Icon name="plane" style={{ width: 18, height: 18, color: 'var(--muted-2)', flexShrink: 0 }} />
         <span style={{ color: sel ? 'var(--ink)' : 'var(--faint)', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
           {sel ? `${sel.city} · ${sel.code}` : placeholder}
         </span>
@@ -47,7 +47,7 @@ function AirportField({ label, value, onChange, placeholder = 'Город или
               <span style={{ width: 34, fontWeight: 700, color: 'var(--blue)' }}>{a.code}</span>
               <span style={{ flex: 1 }}>
                 <div style={{ fontWeight: 600 }}>{a.city}</div>
-                <div style={{ fontSize: 12.5, color: 'var(--muted)' }}>{a.name}, {a.country}</div>
+                <div style={{ fontSize: 12, color: 'var(--muted)' }}>{a.name}, {a.country}</div>
               </span>
             </div>
           ))}
@@ -193,7 +193,7 @@ function PaxField({ pax, setPax, cabin, setCabin, options = PAX_DEFAULT_OPTIONS,
     <div className="av-field" style={{ position: 'relative', width: 230 }} ref={ref}>
       <span className="label">Пассажиры и класс</span>
       <div className="input" style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 9 }} onClick={() => setOpen((o) => !o)}>
-        <Icon name="users" style={{ width: 17, height: 17, color: 'var(--muted-2)', flexShrink: 0 }} />
+        <Icon name="users" style={{ width: 18, height: 18, color: 'var(--muted-2)', flexShrink: 0 }} />
         <span style={{ flex: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{total} {plural(total)} · {cabin}</span>
         <Icon name="chevDown" style={{ width: 16, height: 16, color: 'var(--muted-2)' }} />
       </div>
@@ -265,7 +265,7 @@ function FlightSearch({ params, setParams, onSearch, onBack }) {
         </div>
       </div>
 
-      <div style={{ marginTop: 14, display: 'flex', alignItems: 'center', gap: 8, color: 'var(--muted)', fontSize: 13.5 }}>
+      <div style={{ marginTop: 14, display: 'flex', alignItems: 'center', gap: 8, color: 'var(--muted)', fontSize: 13 }}>
         <Icon name="api" style={{ width: 16, height: 16 }} />
         Поиск выполняется одновременно по: Amadeus GDS · Sirena-Travel · Air Astana · Pegasus · Qatar API
       </div>
@@ -299,7 +299,7 @@ function OfferCard({ o, picked, onPick, onSelect, onSave, onCompare, compared })
           <AirlineLogo code={o.airline} />
           <div>
             <div style={{ fontWeight: 700, color: 'var(--ink)' }}>{AIRLINES[o.airline].name}</div>
-            <div style={{ fontSize: 12.5, color: 'var(--muted)' }}>{o.out.flightNo}{o.back ? ' · ' + o.back.flightNo : ''} · {o.fareName}</div>
+            <div style={{ fontSize: 12, color: 'var(--muted)' }}>{o.out.flightNo}{o.back ? ' · ' + o.back.flightNo : ''} · {o.fareName}</div>
           </div>
         </div>
         <OfferLeg leg={o.out} />
@@ -316,7 +316,7 @@ function OfferCard({ o, picked, onPick, onSelect, onSave, onCompare, compared })
       </div>
       <div className="off-side">
         <div>
-          <div className="off-supplier"><Icon name="api" style={{ width: 13, height: 13, verticalAlign: -2 }} /> {o.supplier}</div>
+          <div className="off-supplier"><Icon name="api" style={{ width: 14, height: 14, verticalAlign: -2 }} /> {o.supplier}</div>
           <div className="off-price-line"><span>Тариф</span><span>{money(o.fare, o.currency)}</span></div>
           <div className="off-price-line"><span>Сервисный сбор</span><span>{money(o.fee, o.currency)}</span></div>
           <div className="off-total">{total.toLocaleString('ru-RU')} <small>$</small></div>
@@ -497,8 +497,8 @@ function SegmentRow({ leg }) {
       <div className="seg-rail"><span className="o" /><span className="l" /><span className="o" /></div>
       <div className="seg-body">
         <div style={{ fontWeight: 700, color: 'var(--ink)' }}>{leg.from} → {leg.to}</div>
-        <div style={{ fontSize: 13.5, color: 'var(--muted)', margin: '3px 0' }}>{leg.flightNo} · {leg.dur} · {leg.stopText}</div>
-        <div style={{ fontSize: 13.5, color: 'var(--ink)' }}>Прибытие {leg.arr}, {leg.date}</div>
+        <div style={{ fontSize: 13, color: 'var(--muted)', margin: '3px 0' }}>{leg.flightNo} · {leg.dur} · {leg.stopText}</div>
+        <div style={{ fontSize: 13, color: 'var(--ink)' }}>Прибытие {leg.arr}, {leg.date}</div>
       </div>
     </div>
   );
@@ -614,7 +614,7 @@ function RefundPanel({ passengers, base, currency, onClose, onDone }) {
         <button className={'seg-btn' + (voluntary ? ' active' : '')} onClick={() => setVoluntary(true)}>Добровольный</button>
         <button className={'seg-btn' + (!voluntary ? ' active' : '')} onClick={() => setVoluntary(false)}>Вынужденный</button>
       </div>
-      <div style={{ fontSize: 12.5, color: 'var(--muted)', marginTop: 6 }}>
+      <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 6 }}>
         {voluntary ? 'Удерживается штраф авиакомпании и сервисный сбор.' : 'Вынужденный возврат — по правилам без штрафа (болезнь, отмена рейса и т.п.).'}
       </div>
 
@@ -629,7 +629,7 @@ function RefundPanel({ passengers, base, currency, onClose, onDone }) {
           <label key={i} className="hp-check-row" style={{ border: '1px solid ' + (sel.includes(i) ? 'var(--blue)' : 'var(--line)'), borderRadius: 10, padding: '8px 12px' }}>
             <Checkbox on={sel.includes(i)} onChange={() => toggle(i)} />
             <span className="hp-check-label" style={{ flex: 1 }}>{p.name}</span>
-            <span style={{ fontSize: 12.5, color: 'var(--muted)' }}>{p.ticket}</span>
+            <span style={{ fontSize: 12, color: 'var(--muted)' }}>{p.ticket}</span>
           </label>
         ))}
       </div>
@@ -640,18 +640,18 @@ function RefundPanel({ passengers, base, currency, onClose, onDone }) {
           <PanelSub>Документы-основания</PanelSub>
           <div className="card" style={{ padding: 14, borderLeft: '3px solid var(--amber)', background: 'var(--amber-soft, #fff8ec)', marginBottom: 10, display: 'flex', gap: 10 }}>
             <Icon name="alertCircle" style={{ width: 18, height: 18, color: 'var(--amber)', flexShrink: 0 }} />
-            <div style={{ fontSize: 12.5, color: 'var(--body)' }}>Приложите справки/подтверждающие документы. <b>Ознакомьтесь с правилами авиакомпании по документам</b> для вынужденного возврата (мед. справка, свидетельство и т.п.).</div>
+            <div style={{ fontSize: 12, color: 'var(--body)' }}>Приложите справки/подтверждающие документы. <b>Ознакомьтесь с правилами авиакомпании по документам</b> для вынужденного возврата (мед. справка, свидетельство и т.п.).</div>
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
             {docs.map((d, i) => (
               <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8, border: '1px solid var(--line)', borderRadius: 10, padding: '8px 12px' }}>
                 <Icon name="docs" style={{ width: 16, height: 16, color: 'var(--blue)' }} />
-                <span style={{ flex: 1, fontSize: 13.5 }}>{d.name}</span>
+                <span style={{ flex: 1, fontSize: 13 }}>{d.name}</span>
                 <button className="btn btn-ghost btn-icon btn-sm" onClick={() => setDocs((x) => x.filter((_, j) => j !== i))}><Icon name="trash" /></button>
               </div>
             ))}
             <button className="doc-chip" style={{ borderStyle: 'dashed', color: 'var(--blue)', width: '100%' }} onClick={addDoc}>
-              <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}><Icon name="plus" style={{ width: 15, height: 15 }} />Загрузить документ</span>
+              <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}><Icon name="plus" style={{ width: 16, height: 16 }} />Загрузить документ</span>
             </button>
           </div>
         </>
@@ -732,7 +732,7 @@ function ExchangePanel({ passengers, base, currency, origin, dest, onClose, onDo
       </div>
       <div className="card" style={{ padding: 12, borderLeft: '3px solid var(--amber)', marginTop: 8, display: 'flex', gap: 10 }}>
         <Icon name="alertCircle" style={{ width: 18, height: 18, color: 'var(--amber)', flexShrink: 0 }} />
-        <div style={{ fontSize: 12.5, color: 'var(--body)' }}>Проверьте <b>правила авиакомпании по обмену</b>: допустимость изменения даты/маршрута, сбор за обмен и разница тарифа зависят от условий применённого тарифа.</div>
+        <div style={{ fontSize: 12, color: 'var(--body)' }}>Проверьте <b>правила авиакомпании по обмену</b>: допустимость изменения даты/маршрута, сбор за обмен и разница тарифа зависят от условий применённого тарифа.</div>
       </div>
 
       {/* Выбор пассажиров для обмена (ответ клиента #2) */}
@@ -746,7 +746,7 @@ function ExchangePanel({ passengers, base, currency, origin, dest, onClose, onDo
           <label key={i} className="hp-check-row" style={{ border: '1px solid ' + (sel.includes(i) ? 'var(--blue)' : 'var(--line)'), borderRadius: 10, padding: '8px 12px' }}>
             <Checkbox on={sel.includes(i)} onChange={() => toggle(i)} />
             <span className="hp-check-label" style={{ flex: 1 }}>{p.name}</span>
-            <span style={{ fontSize: 12.5, color: 'var(--muted)' }}>{p.ticket}</span>
+            <span style={{ fontSize: 12, color: 'var(--muted)' }}>{p.ticket}</span>
           </label>
         ))}
       </div>
@@ -764,19 +764,19 @@ function ExchangePanel({ passengers, base, currency, origin, dest, onClose, onDo
       {/* Система подбирает варианты и сама подставляет стоимость нового тарифа (расширенная постановка клиента) */}
       {variants && (
         <div style={{ marginTop: 10 }}>
-          <div style={{ fontSize: 12.5, color: 'var(--muted)', marginBottom: 8 }}>Варианты для обмена на {nf.date ? '' : 'выбранную дату'} · стоимость рассчитана на момент обращения:</div>
+          <div style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 8 }}>Варианты для обмена на {nf.date ? '' : 'выбранную дату'} · стоимость рассчитана на момент обращения:</div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
             {variants.map((v) => (
               <button type="button" key={v.id} onClick={() => pickVariant(v)}
                 style={{ display: 'flex', alignItems: 'center', gap: 12, textAlign: 'left', border: '1px solid ' + (pickedVar && pickedVar.id === v.id ? 'var(--blue)' : 'var(--line)'), borderRadius: 10, padding: '10px 12px', background: pickedVar && pickedVar.id === v.id ? 'var(--blue-weak, #eef3ff)' : '#fff', cursor: 'pointer' }}>
                 <AirlineLogo code={v.airline} size="sm" />
                 <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontWeight: 600, color: 'var(--ink)', fontSize: 13.5 }}>{v.leg.from} → {v.leg.to} · {v.leg.flightNo}</div>
+                  <div style={{ fontWeight: 600, color: 'var(--ink)', fontSize: 13 }}>{v.leg.from} → {v.leg.to} · {v.leg.flightNo}</div>
                   <div style={{ fontSize: 12, color: 'var(--muted)' }}>{AIRLINES[v.airline].name} · {v.leg.dep}–{v.leg.arr}{v.markupUsd > 0 ? ' · вкл. надбавку' : ''}</div>
                 </div>
                 <div style={{ textAlign: 'right' }}>
                   <div style={{ fontWeight: 700, color: 'var(--ink)' }}>{v.fareUsd.toLocaleString('ru-RU')}{cur}</div>
-                  {pickedVar && pickedVar.id === v.id && <div style={{ fontSize: 11.5, color: 'var(--blue)' }}>Выбрано</div>}
+                  {pickedVar && pickedVar.id === v.id && <div style={{ fontSize: 12, color: 'var(--blue)' }}>Выбрано</div>}
                 </div>
               </button>
             ))}
@@ -804,12 +804,12 @@ function ExchangePanel({ passengers, base, currency, origin, dest, onClose, onDo
                 <span style={{ fontWeight: 700, color: 'var(--ink)' }}>{parseFloat(newFare).toLocaleString('ru-RU')}{cur}</span>
                 <span style={{ fontSize: 12, color: 'var(--muted)', marginLeft: 8 }}>подставлено из подбора · {pickedVar.leg.from}→{pickedVar.leg.to} {pickedVar.leg.flightNo}</span>
               </div>
-              <button type="button" className="link-btn" style={{ background: 'none', border: 'none', color: 'var(--blue)', cursor: 'pointer', fontSize: 12.5, fontFamily: 'inherit' }} onClick={() => setManualFare(true)}>изменить вручную</button>
+              <button type="button" className="link-btn" style={{ background: 'none', border: 'none', color: 'var(--blue)', cursor: 'pointer', fontSize: 12, fontFamily: 'inherit' }} onClick={() => setManualFare(true)}>изменить вручную</button>
             </div>
           ) : (
             <div>
               <Input type="number" value={newFare} onChange={(e) => { setNewFare(e.target.value); setManualFare(true); }} placeholder={variants ? 'Выберите вариант выше или введите вручную' : 'Подберите рейс кнопкой «Подобрать рейс»'} />
-              {manualFare && pickedVar && <button type="button" style={{ background: 'none', border: 'none', color: 'var(--blue)', cursor: 'pointer', fontSize: 12.5, marginTop: 6, fontFamily: 'inherit', padding: 0 }} onClick={() => { setManualFare(false); setNewFare(String(pickedVar.fareUsd)); }}>← вернуть авто-стоимость</button>}
+              {manualFare && pickedVar && <button type="button" style={{ background: 'none', border: 'none', color: 'var(--blue)', cursor: 'pointer', fontSize: 12, marginTop: 6, fontFamily: 'inherit', padding: 0 }} onClick={() => { setManualFare(false); setNewFare(String(pickedVar.fareUsd)); }}>← вернуть авто-стоимость</button>}
             </div>
           )}
         </Field>
@@ -895,13 +895,13 @@ function CorrectionPreview({ doc, template, entity, currency, cfg, itinerary = [
       {/* шапка бланка */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingBottom: 14, borderBottom: '2px solid var(--ink)' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          {tpl.logo && <span style={{ width: 34, height: 34, borderRadius: 8, background: 'var(--blue)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontWeight: 800 }}>P</span>}
+          {tpl.logo && <span style={{ width: 34, height: 34, borderRadius: 8, background: 'var(--blue)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontWeight: 700 }}>P</span>}
           <div>
-            <div style={{ fontWeight: 800, color: 'var(--ink)', fontSize: 14 }}>{tpl.id === 'client' ? 'Клиентский бланк' : (tpl.logo ? entity : 'Документ без логотипа')}</div>
-            <div style={{ color: 'var(--muted)', fontSize: 11.5 }}>{cfg.docTitle}</div>
+            <div style={{ fontWeight: 700, color: 'var(--ink)', fontSize: 14 }}>{tpl.id === 'client' ? 'Клиентский бланк' : (tpl.logo ? entity : 'Документ без логотипа')}</div>
+            <div style={{ color: 'var(--muted)', fontSize: 12 }}>{cfg.docTitle}</div>
           </div>
         </div>
-        <div style={{ textAlign: 'right', color: 'var(--muted)', fontSize: 11.5 }}>Клиентская версия<br />{new Date().toLocaleDateString('ru-RU')}</div>
+        <div style={{ textAlign: 'right', color: 'var(--muted)', fontSize: 12 }}>Клиентская версия<br />{new Date().toLocaleDateString('ru-RU')}</div>
       </div>
       {/* неизменяемые данные поставщика */}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px 18px', margin: '14px 0' }}>
@@ -948,7 +948,7 @@ function CorrectionPreview({ doc, template, entity, currency, cfg, itinerary = [
             </div>
           ))}
         </>}
-        <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 8, paddingTop: 8, borderTop: '2px solid var(--ink)', fontWeight: 800, fontSize: 15, color: 'var(--ink)' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 8, paddingTop: 8, borderTop: '2px solid var(--ink)', fontWeight: 700, fontSize: 15, color: 'var(--ink)' }}>
           <span>Итого к оплате</span><span>{doc.fareIT ? 'IT' : (corrTotal(doc).toLocaleString('ru-RU') + ' ' + cur)}</span>
         </div>
       </div>
@@ -978,8 +978,8 @@ function CorrectionHistoryDrawer({ open, versions, onClose }) {
             <div style={{ paddingBottom: 6 }}>
               <div className="tl-time">{v.date} · {v.user}</div>
               <div className="tl-text" style={{ fontWeight: 600 }}>{v.title}</div>
-              <div style={{ fontSize: 12.5, color: 'var(--muted)', margin: '2px 0' }}>{v.fields.join(', ')}</div>
-              {v.comment && <div style={{ fontSize: 12.5, color: 'var(--body)' }}>«{v.comment}»</div>}
+              <div style={{ fontSize: 12, color: 'var(--muted)', margin: '2px 0' }}>{v.fields.join(', ')}</div>
+              {v.comment && <div style={{ fontSize: 12, color: 'var(--body)' }}>«{v.comment}»</div>}
               <div style={{ display: 'flex', gap: 8, marginTop: 6 }}>
                 <button className="btn btn-ghost btn-sm" onClick={() => toast('Версия ' + v.title + ' открыта')}>Открыть</button>
                 <button className="btn btn-ghost btn-sm" onClick={() => toast('Скачивание версии ' + v.title)}>Скачать</button>
@@ -1106,8 +1106,8 @@ function DocCorrectionPanel({ subjects, meta, currency, orderNo, onClose }) {
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
           {actions.map(([label, icon, on]) => (
             <button key={label} className="doc-chip" style={{ width: '100%' }} onClick={on}>
-              <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}><Icon name={icon} style={{ width: 15, height: 15 }} />{label}</span>
-              <Icon name="chevRight" style={{ width: 15, height: 15 }} />
+              <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}><Icon name={icon} style={{ width: 16, height: 16 }} />{label}</span>
+              <Icon name="chevRight" style={{ width: 16, height: 16 }} />
             </button>
           ))}
         </div>
@@ -1127,7 +1127,7 @@ function DocCorrectionPanel({ subjects, meta, currency, orderNo, onClose }) {
         <div className="card card-pad" style={{ marginBottom: 16 }}>
           <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--ink)' }}>Будет создана клиентская версия</div>
           <div style={{ display: 'flex', gap: 24, marginTop: 12 }}>
-            <div><div style={{ fontSize: 12, color: 'var(--muted)' }}>Изменённых документов</div><div style={{ fontSize: 22, fontWeight: 800, color: 'var(--ink)' }}>{changedDocs.length} / {docs.length}</div></div>
+            <div><div style={{ fontSize: 12, color: 'var(--muted)' }}>Изменённых документов</div><div style={{ fontSize: 22, fontWeight: 700, color: 'var(--ink)' }}>{changedDocs.length} / {docs.length}</div></div>
             <div><div style={{ fontSize: 12, color: 'var(--muted)' }}>Шаблон</div><div style={{ fontWeight: 700, color: 'var(--ink)', marginTop: 4 }}>{(DOC_TEMPLATES.find((t) => t.id === template) || {}).name}</div></div>
           </div>
         </div>
@@ -1145,7 +1145,7 @@ function DocCorrectionPanel({ subjects, meta, currency, orderNo, onClose }) {
             <tbody>
               {changedDocs.map((d) => (
                 <tr key={d.id}><td style={{ fontWeight: 600 }}>{d.name}</td><td style={{ fontSize: 13 }}>{d.ticket}</td>
-                  <td style={{ fontSize: 12.5, color: 'var(--muted)' }}>{corrChanges(d).join(', ')}</td>
+                  <td style={{ fontSize: 12, color: 'var(--muted)' }}>{corrChanges(d).join(', ')}</td>
                   <td style={{ textAlign: 'right', fontWeight: 600 }}>{corrTotal(d).toLocaleString('ru-RU')} {cur}</td></tr>
               ))}
             </tbody>
@@ -1174,7 +1174,7 @@ function DocCorrectionPanel({ subjects, meta, currency, orderNo, onClose }) {
         {/* Авиа: детальная корректировка такс — итог пересчитывается автоматически (ответ клиента #6) */}
         {docMode === 'avia' && d.taxList && (
           <div className="card card-pad" style={{ padding: '12px 14px' }}>
-            <div style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--muted)', marginBottom: 8 }}>Детализация такс</div>
+            <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--muted)', marginBottom: 8 }}>Детализация такс</div>
             {d.taxList.map((t, ti) => (
               <div key={t.code} style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
                 <span style={{ width: 40, fontFamily: 'monospace', fontWeight: 700, color: 'var(--ink)' }}>{t.code}</span>
@@ -1218,7 +1218,7 @@ function DocCorrectionPanel({ subjects, meta, currency, orderNo, onClose }) {
 
   return (
     <StackPanel title="Корректировка документов" width={mode === 'group' ? 'min(1200px,97vw)' : 'min(1040px,96vw)'} onClose={onClose} footer={footer}>
-      <div style={{ fontSize: 13.5, color: 'var(--muted)', marginBottom: 12 }}>
+      <div style={{ fontSize: 13, color: 'var(--muted)', marginBottom: 12 }}>
         Формирование клиентской версии документа на фирменном бланке. Данные поставщика неизменяемы —
         корректируется только отображение (тариф, таксы, надбавка, сбор, скидка, итог, комментарий, реквизиты).
       </div>
@@ -1314,7 +1314,7 @@ function DocCorrectionPanel({ subjects, meta, currency, orderNo, onClose }) {
                     <td><Checkbox on={sel.includes(i)} onChange={() => toggleSel(i)} /></td>
                     <td style={{ fontWeight: 600 }}>{d.name}</td>
                     <td style={{ fontSize: 13 }}>{d.ticket}</td>
-                    <td style={{ fontSize: 12.5, color: 'var(--muted)' }}>{d.supplier}</td>
+                    <td style={{ fontSize: 12, color: 'var(--muted)' }}>{d.supplier}</td>
                     <td><Input type="number" value={d.baseFare} onChange={(e) => setField(i, 'baseFare', e.target.value)} style={{ height: 32, padding: '4px 6px' }} /></td>
                     <td><Input type="number" value={d.taxes} onChange={(e) => setField(i, 'taxes', e.target.value)} style={{ height: 32, padding: '4px 6px' }} /></td>
                     <td><Input type="number" value={d.agentMarkup} onChange={(e) => setField(i, 'agentMarkup', e.target.value)} style={{ height: 32, padding: '4px 6px' }} /></td>
@@ -1350,7 +1350,7 @@ function SendToPaxDrawer({ open, passengers, onClose }) {
       <div style={{ display: 'flex', gap: 8 }}>
         {CHANNELS.map(([k, label, icon]) => (
           <button key={k} type="button" className={'seg-btn' + (channel === k ? ' active' : '')} style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, padding: '10px' }} onClick={() => setChannel(k)}>
-            <Icon name={icon} style={{ width: 15, height: 15 }} />{label}
+            <Icon name={icon} style={{ width: 16, height: 16 }} />{label}
           </button>
         ))}
       </div>
@@ -1359,7 +1359,7 @@ function SendToPaxDrawer({ open, passengers, onClose }) {
         {passengers.map((p, i) => (
           <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 10, border: '1px solid var(--line)', borderRadius: 10, padding: '8px 12px' }}>
             <Avatar name={p.name} size={30} />
-            <div style={{ flex: 1 }}><div style={{ fontWeight: 600 }}>{p.name}</div><div style={{ fontSize: 12.5, color: 'var(--muted)' }}>{p.ticket !== '—' ? 'Билет ' + p.ticket : 'Бронь ' + p.pnr}</div></div>
+            <div style={{ flex: 1 }}><div style={{ fontWeight: 600 }}>{p.name}</div><div style={{ fontSize: 12, color: 'var(--muted)' }}>{p.ticket !== '—' ? 'Билет ' + p.ticket : 'Бронь ' + p.pnr}</div></div>
             <Pill tone="blue">{p.docs.length} док.</Pill>
           </div>
         ))}
@@ -1394,7 +1394,7 @@ function AttachFlightDrawer({ mode, svcTitle, onClose, onDone }) {
             <button key={o.id} type="button" onClick={() => setPicked(o)}
               style={{ cursor: 'pointer', width: '100%', textAlign: 'left', border: '1px solid ' + (on ? 'var(--blue)' : 'var(--line)'), background: on ? 'var(--blue-soft)' : '#fff', borderRadius: 12, padding: '10px 12px', display: 'flex', alignItems: 'center', gap: 12 }}>
               <span className="oc-svc-ic" style={{ background: 'var(--blue)', width: 34, height: 34 }}><Icon name="briefcase" /></span>
-              <div style={{ flex: 1, minWidth: 0 }}><div style={{ fontWeight: 600 }}>Заказ № {o.no}</div><div style={{ fontSize: 12.5, color: 'var(--muted)' }}>{o.client} · {o.requestType}</div></div>
+              <div style={{ flex: 1, minWidth: 0 }}><div style={{ fontWeight: 600 }}>Заказ № {o.no}</div><div style={{ fontSize: 12, color: 'var(--muted)' }}>{o.client} · {o.requestType}</div></div>
               {on && <Icon name="check" style={{ width: 18, height: 18, color: 'var(--blue)' }} />}
             </button>
           );
@@ -1437,9 +1437,9 @@ function FlightReceiptDrawer({ open, passengers, pax, legs, air, supplier, fare,
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingBottom: 12, borderBottom: '2px solid var(--ink)' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                 <AirlineLogo code={air} size="sm" />
-                <div><div style={{ fontWeight: 800, color: 'var(--ink)' }}>{AIRLINES[air].name}</div><div style={{ color: 'var(--muted)', fontSize: 11.5 }}>Маршрут-квитанция электронного билета</div></div>
+                <div><div style={{ fontWeight: 700, color: 'var(--ink)' }}>{AIRLINES[air].name}</div><div style={{ color: 'var(--muted)', fontSize: 12 }}>Маршрут-квитанция электронного билета</div></div>
               </div>
-              <div style={{ textAlign: 'right', color: 'var(--muted)', fontSize: 11.5 }}>Поставщик<br /><b style={{ color: 'var(--ink)' }}>{supplier}</b></div>
+              <div style={{ textAlign: 'right', color: 'var(--muted)', fontSize: 12 }}>Поставщик<br /><b style={{ color: 'var(--ink)' }}>{supplier}</b></div>
             </div>
             {/* услуга / пассажир / PNR / билет — данные, которых не хватало в квитанции (ответ клиента #6) */}
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px 18px', margin: '14px 0' }}>
@@ -1464,7 +1464,7 @@ function FlightReceiptDrawer({ open, passengers, pax, legs, air, supplier, fare,
                 <div key={t.code} style={{ display: 'flex', justifyContent: 'space-between', padding: '3px 0 3px 14px' }}><span style={{ color: 'var(--muted)' }}>Такса {t.code} · {t.label}</span><span style={{ color: 'var(--ink)' }}>{money(t.amount)}</span></div>
               ))}
               <div style={{ display: 'flex', justifyContent: 'space-between', padding: '3px 0' }}><span style={{ color: 'var(--muted)' }}>Сервисный сбор</span><span style={{ color: 'var(--ink)' }}>{money(fee / Math.max(1, passengers.length))}</span></div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 8, paddingTop: 8, borderTop: '2px solid var(--ink)', fontWeight: 800, fontSize: 15, color: 'var(--ink)' }}><span>Итого</span><span>{money(perPax)}</span></div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 8, paddingTop: 8, borderTop: '2px solid var(--ink)', fontWeight: 700, fontSize: 15, color: 'var(--ink)' }}><span>Итого</span><span>{money(perPax)}</span></div>
             </div>
           </div>
         ))}
@@ -1582,7 +1582,7 @@ function FlightCard({ svc, offer, no: noProp, hideBackRow, onBack, onFormKp, onA
           </div>
           <div style={{ textAlign: 'right', flex: '0 0 auto' }}>
             <div style={{ fontSize: 13, color: 'var(--muted)' }}>Итого к оплате</div>
-            <div style={{ fontSize: 26, fontWeight: 800, color: 'var(--ink)', whiteSpace: 'nowrap' }}>{(fare + fee).toLocaleString('ru-RU')} $</div>
+            <div style={{ fontSize: 26, fontWeight: 700, color: 'var(--ink)', whiteSpace: 'nowrap' }}>{(fare + fee).toLocaleString('ru-RU')} $</div>
           </div>
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
             {/* Свободное бронирование (ТЗ #1): сформировать КП / привязать к заказу / к физлицу */}
@@ -1713,8 +1713,8 @@ function FlightCard({ svc, offer, no: noProp, hideBackRow, onBack, onFormKp, onA
                   <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
                     {p.docs.map((d) => (
                       <button key={d} className="doc-chip" style={{ width: 'auto', flex: '0 0 auto' }} onClick={() => toast('Документ: ' + d)}>
-                        <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}><Icon name="docs" style={{ width: 15, height: 15 }} />{d}</span>
-                        <Icon name="download" style={{ width: 15, height: 15 }} />
+                        <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}><Icon name="docs" style={{ width: 16, height: 16 }} />{d}</span>
+                        <Icon name="download" style={{ width: 16, height: 16 }} />
                       </button>
                     ))}
                   </div>
@@ -1776,7 +1776,7 @@ function FlightCard({ svc, offer, no: noProp, hideBackRow, onBack, onFormKp, onA
                 <Icon name="docs" style={{ flexShrink: 0 }} />
                 <span style={{ display: 'flex', flexDirection: 'column', minWidth: 0 }}>
                   <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{d.name}</span>
-                  <span style={{ fontSize: 11.5, color: 'var(--muted)' }}>{d.type}{d.size ? ' · ' + d.size : ''}</span>
+                  <span style={{ fontSize: 12, color: 'var(--muted)' }}>{d.type}{d.size ? ' · ' + d.size : ''}</span>
                 </span>
               </span>
               <span style={{ display: 'flex', alignItems: 'center', gap: 4, flexShrink: 0 }}>
@@ -1915,7 +1915,7 @@ function FlightsRegistry({ onNew, onOpen }) {
                   <td><span style={{ display: 'flex', alignItems: 'center', gap: 9 }}><AirlineLogo code={r.airline} size="sm" />{AIRLINES[r.airline].name}</span></td>
                   <td>{r.pnr === '—' ? <span style={{ color: 'var(--muted-2)' }}>—</span> : r.pnr}</td>
                   <td style={{ fontSize: 13 }}>{r.ticket}</td>
-                  <td style={{ fontSize: 13.5, color: 'var(--muted)' }}>{r.supplier}</td>
+                  <td style={{ fontSize: 13, color: 'var(--muted)' }}>{r.supplier}</td>
                   <td>{r.dep}</td>
                   <td><Pill tone={AIR_STATUS[r.status]}>{r.status}</Pill></td>
                   <td style={{ textAlign: 'right', fontWeight: 600 }}>{r.sum ? money(r.sum, r.currency) : '—'}</td>

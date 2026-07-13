@@ -123,7 +123,7 @@ function NewReturnModal({ open, order, services, onClose, onCreate }) {
                 <label key={i} className="hp-check-row" style={{ border: '1px solid ' + (pax.includes(i) ? 'var(--blue)' : 'var(--line)'), borderRadius: 10, padding: '8px 12px' }}>
                   <Checkbox on={pax.includes(i)} onChange={() => togglePax(i)} />
                   <span className="hp-check-label" style={{ flex: 1 }}>{p.name}</span>
-                  {p.role && <span style={{ fontSize: 12.5, color: 'var(--muted)' }}>{p.role}</span>}
+                  {p.role && <span style={{ fontSize: 12, color: 'var(--muted)' }}>{p.role}</span>}
                 </label>
               ))}
             </div>
@@ -136,18 +136,18 @@ function NewReturnModal({ open, order, services, onClose, onCreate }) {
             <div className="kp-sec-h">Документы-основания</div>
             <div className="card" style={{ padding: 14, borderLeft: '3px solid var(--amber)', background: 'var(--amber-soft, #fff8ec)', marginBottom: 10, display: 'flex', gap: 10 }}>
               <Icon name="alertCircle" style={{ width: 18, height: 18, color: 'var(--amber)', flexShrink: 0 }} />
-              <div style={{ fontSize: 12.5, color: 'var(--body)' }}>Приложите справки/подтверждающие документы. <b>Ознакомьтесь с правилами авиакомпании по документам</b> для вынужденного возврата (мед. справка, свидетельство и т.п.).</div>
+              <div style={{ fontSize: 12, color: 'var(--body)' }}>Приложите справки/подтверждающие документы. <b>Ознакомьтесь с правилами авиакомпании по документам</b> для вынужденного возврата (мед. справка, свидетельство и т.п.).</div>
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
               {docs.map((d, i) => (
                 <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8, border: '1px solid var(--line)', borderRadius: 10, padding: '8px 12px' }}>
                   <Icon name="docs" style={{ width: 16, height: 16, color: 'var(--blue)' }} />
-                  <span style={{ flex: 1, fontSize: 13.5 }}>{d.name}</span>
+                  <span style={{ flex: 1, fontSize: 13 }}>{d.name}</span>
                   <button className="btn btn-ghost btn-icon btn-sm" onClick={() => setDocs((x) => x.filter((_, j) => j !== i))}><Icon name="trash" /></button>
                 </div>
               ))}
               <button className="doc-chip" style={{ borderStyle: 'dashed', color: 'var(--blue)', width: '100%' }} onClick={addDoc}>
-                <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}><Icon name="plus" style={{ width: 15, height: 15 }} />Загрузить документ</span>
+                <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}><Icon name="plus" style={{ width: 16, height: 16 }} />Загрузить документ</span>
               </button>
             </div>
           </>
@@ -158,7 +158,7 @@ function NewReturnModal({ open, order, services, onClose, onCreate }) {
           <>
             <div className="card" style={{ padding: 12, borderLeft: '3px solid var(--amber)', marginTop: 8, display: 'flex', gap: 10 }}>
               <Icon name="alertCircle" style={{ width: 18, height: 18, color: 'var(--amber)', flexShrink: 0 }} />
-              <div style={{ fontSize: 12.5, color: 'var(--body)' }}>Проверьте <b>правила авиакомпании по обмену</b>: допустимость изменения даты/маршрута, сбор за обмен и разница тарифа зависят от условий применённого тарифа.</div>
+              <div style={{ fontSize: 12, color: 'var(--body)' }}>Проверьте <b>правила авиакомпании по обмену</b>: допустимость изменения даты/маршрута, сбор за обмен и разница тарифа зависят от условий применённого тарифа.</div>
             </div>
             <div className="kp-sec-h">Новый рейс для запроса обмена</div>
             <div className="svcp-search-bar" style={{ flexWrap: 'wrap', gap: 10 }}>
@@ -249,13 +249,13 @@ function ReturnCard({ op, onBack, onChange }) {
         <div style={{ flex: 1, minWidth: 200 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
             <h2 className="card-title">{op.type}</h2>
-            <ActionMenu trigger={<button style={{ border: 'none', background: 'none', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 6 }}><Pill tone={RETURN_STATUS[op.status]}>{op.status}</Pill><Icon name="chevDown" style={{ width: 15, height: 15, color: 'var(--muted-2)' }} /></button>}
+            <ActionMenu trigger={<button style={{ border: 'none', background: 'none', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 6 }}><Pill tone={RETURN_STATUS[op.status]}>{op.status}</Pill><Icon name="chevDown" style={{ width: 16, height: 16, color: 'var(--muted-2)' }} /></button>}
               items={Object.keys(RETURN_STATUS).map((s) => ({ icon: op.status === s ? 'check' : null, label: s, onClick: () => setStatus(s) }))} />
           </div>
           <div style={{ color: 'var(--muted)', fontSize: 14, marginTop: 4 }}>{op.no} · {op.service} · заказ № {op.order}</div>
         </div>
         <div style={{ textAlign: 'right' }}>
-          <div style={{ fontSize: 12.5, color: 'var(--muted)' }}>Дедлайн исполнения</div>
+          <div style={{ fontSize: 12, color: 'var(--muted)' }}>Дедлайн исполнения</div>
           <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--red)' }}>{op.deadline}</div>
         </div>
         {!terminal && primaryLabel && <Button icon="arrowRight" onClick={advance}>{primaryLabel}</Button>}
@@ -337,7 +337,7 @@ function ReturnCard({ op, onBack, onChange }) {
             <Icon name="swap" style={{ width: 22, height: 22, color: 'var(--blue)' }} />
             <span style={{ fontWeight: 600, color: 'var(--ink)' }}>Разница стоимости</span>
             <div style={{ flex: 1 }} />
-            <span style={{ fontWeight: 800, fontSize: 18, color: op.exchange.diff >= 0 ? 'var(--ink)' : 'var(--green)' }}>{op.exchange.diff >= 0 ? '+ ' : '− '}{rUsd(Math.abs(op.exchange.diff))}{op.exchange.diff >= 0 ? ' (доплата)' : ' (возврат)'}</span>
+            <span style={{ fontWeight: 700, fontSize: 18, color: op.exchange.diff >= 0 ? 'var(--ink)' : 'var(--green)' }}>{op.exchange.diff >= 0 ? '+ ' : '− '}{rUsd(Math.abs(op.exchange.diff))}{op.exchange.diff >= 0 ? ' (доплата)' : ' (возврат)'}</span>
           </div>
         </>
       )}
@@ -348,7 +348,7 @@ function ReturnCard({ op, onBack, onChange }) {
         {op.documents.length ? op.documents.map((d, i) => (
           <div className="ver-row" key={i}>
             <span className="ver-badge" style={{ background: 'var(--blue-soft)' }}><Icon name="docs" style={{ width: 16, height: 16 }} /></span>
-            <div style={{ flex: 1 }}><div style={{ fontWeight: 600, fontSize: 14 }}>{d.name}</div><div style={{ fontSize: 12.5, color: 'var(--muted)' }}>{d.kind} · v{d.v}</div></div>
+            <div style={{ flex: 1 }}><div style={{ fontWeight: 600, fontSize: 14 }}>{d.name}</div><div style={{ fontSize: 12, color: 'var(--muted)' }}>{d.kind} · v{d.v}</div></div>
             <Pill tone={DOC_STATUS2[d.status] || 'gray'}>{d.status}</Pill>
             <button className="icon-btn" onClick={() => toast('Скачивание…', 'info')} style={{ marginLeft: 8 }}><Icon name="download" /></button>
           </div>
@@ -357,7 +357,7 @@ function ReturnCard({ op, onBack, onChange }) {
           <Button variant="secondary" size="sm" icon="plus" onClick={() => toast('Загрузка файла', 'info')}>Загрузить</Button>
           {op.type === 'Оформление справки' && <Button size="sm" icon="docs" onClick={() => toast('Справка сформирована', 'ok')}>Сформировать справку</Button>}
         </div>
-        <div style={{ marginTop: 10, fontSize: 12.5, color: 'var(--muted-2)' }}>Все документы автоматически связываются с операцией {op.no} и заказом № {op.order}.</div>
+        <div style={{ marginTop: 10, fontSize: 12, color: 'var(--muted-2)' }}>Все документы автоматически связываются с операцией {op.no} и заказом № {op.order}.</div>
       </div>
 
       {/* history */}

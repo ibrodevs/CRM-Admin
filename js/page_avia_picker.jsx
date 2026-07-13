@@ -655,7 +655,7 @@ function AviaPicker({ params, setParams, services = [], onApply, onCancel, onAdd
               <Icon name="arrowRight" />
               {(AIRPORTS.find((a) => a.code === params.to) || {}).city || params.to}
             </div>
-            <div style={{ fontSize: 12.5, color: 'var(--muted)', marginTop: 6 }}>
+            <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 6 }}>
               {params.depDate ? fmtDate(params.depDate) : '24.06'}{trip === 'rt' ? ' — ' + (params.retDate ? fmtDate(params.retDate) : '01.07') : ''} · {PAX.length} пасс. · {params.cabin}
             </div>
           </div>
@@ -671,7 +671,7 @@ function AviaPicker({ params, setParams, services = [], onApply, onCancel, onAdd
             </div>
             {services.some((s) => s.currency && s.currency !== '₽' && s.currency !== 'RUB') && (
               <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: 'var(--muted)', margin: '0 0 10px' }}>
-                <Icon name="alertCircle" style={{ width: 13, height: 13 }} />
+                <Icon name="alertCircle" style={{ width: 14, height: 14 }} />
                 Суммы в валюте пересчитаны по курсу ≈ {RUB_PER_USD} ₽/$
               </div>
             )}
@@ -684,7 +684,7 @@ function AviaPicker({ params, setParams, services = [], onApply, onCancel, onAdd
           {/* flight selection — the only thing that lives inline; never collapses, never pushed around */}
           <div className="ap-step done">
             <div className="ap-step-head static">
-              <span className="ap-num"><Icon name="plane" style={{ width: 15, height: 15 }} /></span>
+              <span className="ap-num"><Icon name="plane" style={{ width: 16, height: 16 }} /></span>
               <div className="ap-step-tt"><div className="t">Выберите рейс</div></div>
             </div>
             <div className="ap-step-body">
@@ -903,7 +903,7 @@ function GroupManager({ pax, groups, setGroups, perPax, extras }) {
                 <span className="ap-num" style={{ background: 'var(--blue)', color: '#fff' }}>{g.members.length}</span>
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ fontWeight: 700, color: 'var(--ink)', fontSize: 15 }}>{g.name}</div>
-                  <div style={{ fontSize: 12.5, color: 'var(--muted)' }}>{g.desc || 'Без описания'}</div>
+                  <div style={{ fontSize: 12, color: 'var(--muted)' }}>{g.desc || 'Без описания'}</div>
                 </div>
                 <Button variant="secondary" size="sm" icon="edit" onClick={() => setEditId(g.id)}>Изменить состав</Button>
                 <button className="btn btn-ghost btn-icon btn-sm" onClick={() => removeGroup(g.id)}><Icon name="trash" /></button>
@@ -913,12 +913,12 @@ function GroupManager({ pax, groups, setGroups, perPax, extras }) {
                   <Field label="Тариф группы"><Select options={fareOpts} value={g.fare} onChange={(e) => setGroupFare(g.id, e.target.value)} /></Field>
                 </div>
                 <div style={{ textAlign: 'right' }}>
-                  <div style={{ fontSize: 12.5, color: 'var(--muted)' }}>Стоимость группы</div>
-                  <div style={{ fontWeight: 800, fontSize: 17, color: 'var(--ink)' }}>{rub(g.members.length * (perPax + tierDelta(g.fare)))}</div>
+                  <div style={{ fontSize: 12, color: 'var(--muted)' }}>Стоимость группы</div>
+                  <div style={{ fontWeight: 700, fontSize: 17, color: 'var(--ink)' }}>{rub(g.members.length * (perPax + tierDelta(g.fare)))}</div>
                 </div>
               </div>
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 12 }}>
-                {g.members.map((mi) => <span key={mi} className="pill pill-gray" style={{ height: 26, fontSize: 12.5 }}>{pax[mi].name}</span>)}
+                {g.members.map((mi) => <span key={mi} className="pill pill-gray" style={{ height: 26, fontSize: 12 }}>{pax[mi].name}</span>)}
               </div>
             </div>
           ))}

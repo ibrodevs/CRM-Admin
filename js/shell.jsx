@@ -122,7 +122,7 @@ function GlobalSearch({ onOpenOrder, onNavigate }) {
             <div key={'o' + o.no + o.id} className="gsearch-row" onClick={() => pick(() => onOpenOrder(o))}>
               <span className="gsearch-ic" style={{ background: 'var(--blue-soft)', color: 'var(--blue)' }}><Icon name="orders" /></span>
               <div style={{ flex: 1, minWidth: 0 }}><div className="gsearch-t">№ {o.no} · {o.client}</div><div className="gsearch-s">{o.requestType} · {o.status}</div></div>
-              <Icon name="arrowRight" style={{ width: 15, height: 15, color: 'var(--faint)' }} />
+              <Icon name="arrowRight" style={{ width: 16, height: 16, color: 'var(--faint)' }} />
             </div>
           ))}
           {clientHits.length > 0 && <div className="gsearch-grp">Клиенты</div>}
@@ -130,7 +130,7 @@ function GlobalSearch({ onOpenOrder, onNavigate }) {
             <div key={c.id} className="gsearch-row" onClick={() => pick(() => onNavigate('clients'))}>
               <span className="gsearch-ic" style={{ background: 'var(--green-bg)', color: 'var(--green)' }}><Icon name="user" /></span>
               <div style={{ flex: 1, minWidth: 0 }}><div className="gsearch-t">{c.name}</div><div className="gsearch-s">{c.type} · {c.city} · заказов: {c.orders}</div></div>
-              <Icon name="arrowRight" style={{ width: 15, height: 15, color: 'var(--faint)' }} />
+              <Icon name="arrowRight" style={{ width: 16, height: 16, color: 'var(--faint)' }} />
             </div>
           ))}
           {kpHits.length > 0 && <div className="gsearch-grp">Ком. предложения</div>}
@@ -138,7 +138,7 @@ function GlobalSearch({ onOpenOrder, onNavigate }) {
             <div key={p.id} className="gsearch-row" onClick={() => pick(() => openKP(p))}>
               <span className="gsearch-ic" style={{ background: 'var(--amber-bg)', color: 'var(--amber)' }}><Icon name="template" /></span>
               <div style={{ flex: 1, minWidth: 0 }}><div className="gsearch-t">{p.id} · {p.client}</div><div className="gsearch-s">Заказ № {p.order} · {p.status}</div></div>
-              <Icon name="arrowRight" style={{ width: 15, height: 15, color: 'var(--faint)' }} />
+              <Icon name="arrowRight" style={{ width: 16, height: 16, color: 'var(--faint)' }} />
             </div>
           ))}
           {empty && <div style={{ padding: '18px 16px', color: 'var(--muted)', fontSize: 14 }}>Ничего не найдено по «{q}»</div>}

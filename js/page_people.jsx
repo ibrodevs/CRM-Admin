@@ -172,9 +172,127 @@ function ClientsPage({ onOpenOrder, intent, onConsume }) {
 /* ====================================================================
    КОМПАНИИ
    ==================================================================== */
+
+/* ---------- Добавление сотрудника (в компанию / в отдел / в тревел-политику) ---------- */
+function EmployeeCreateDrawer({ open, departments, defaultDept, coName, onClose, onCreate }) {
+  const toast = useToast();
+  const firstDept = defaultDept || (departments[0] && departments[0].id) || '';
+  const blank = { name: '', position: '', dept: firstDept, phone: '', email: '', doc: '', dob: '', addToPolicy: true };
+  const [f, setF] = useState(blank);
+  const [errs, setErrs] = useState({});
+  useEffect(() => { if (open) { setF({ ...blank, dept: firstDept }); setErrs({}); } }, [open, defaultDept]);
+  const upd = (k, v) => setF((s) => ({ ...s, [k]: v }));
+  const submit = () => {
+    const er = {};
+    if (!f.name.trim()) er.name = 'Укажите ФИО сотрудника';
+    if (!f.phone.trim()) er.phone = 'Укажите телефон';
+    if (f.email && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(f.email)) er.email = 'Некорректный e-mail';
+    setErrs(er);
+    if (Object.keys(er).length) return;
+    const emp = {
+      id: 'E-' + Math.floor(1000 + Math.random() * 8999), name: f.name.trim(), position: f.position.trim(),
+      dept: f.dept, phone: f.phone.trim(), email: f.email.trim(), doc: f.doc.trim() || '—', dob: f.dob.trim() || '—',
+      inPolicy: f.addToPolicy,
+    };
+    const dep = departments.find((d) => d.id === f.dept);
+    onCreate(emp);
+    toast('Сотрудник «' + emp.name + '» добавлен' + (dep ? ' в «' + dep.name + '»' : '') + (f.addToPolicy ? ' · включён в тревел-политику' : ''), 'ok');
+    onClose();
+  };
+  if (!open) return null;
+  return (
+    <Drawer open onClose={onClose} width="min(560px,96vw)" title="Новый сотрудник" sub={coName}
+      footer={<>
+        <Button variant="secondary" onClick={onClose}>Отмена</Button>
+        <Button icon="check" onClick={submit}>Добавить сотрудника</Button>
+      </>}>
+      <div className="form-grid">
+        <Field label="ФИО" required error={errs.name}><Input value={f.name} onChange={(e) => upd('name', e.target.value)} placeholder="Иванов Иван Иванович" error={errs.name} /></Field>
+        <Field label="Должность"><Input value={f.position} onChange={(e) => upd('position', e.target.value)} placeholder="Менеджер" /></Field>
+        <Field label="Подразделение"><Select options={departments.length ? departments.map((d) => ({ value: d.id, label: d.name })) : [{ value: '', label: '— нет подразделений' }]} value={f.dept} onChange={(e) => upd('dept', e.target.value)} /></Field>
+        <Field label="Телефон" required error={errs.phone}><Input value={f.phone} onChange={(e) => upd('phone', e.target.value)} placeholder="+996 700 000 000" leadIcon="phone" error={errs.phone} /></Field>
+        <Field label="E-mail" error={errs.email}><Input value={f.email} onChange={(e) => upd('email', e.target.value)} placeholder="mail@example.com" leadIcon="mail" error={errs.email} /></Field>
+        <Field label="Документ"><Input value={f.doc} onChange={(e) => upd('doc', e.target.value)} placeholder="ID / Паспорт" leadIcon="idcard" /></Field>
+        <Field label="Дата рождения"><Input value={f.dob} onChange={(e) => upd('dob', e.target.value)} placeholder="дд.мм.гггг" leadIcon="calendar" /></Field>
+      </div>
+      <div role="button" tabIndex={0} onClick={() => upd('addToPolicy', !f.addToPolicy)}
+        style={{ display: 'flex', alignItems: 'center', gap: 12, cursor: 'pointer', marginTop: 6, padding: '12px 14px', border: '1px solid var(--line)', borderRadius: 12, background: f.addToPolicy ? 'var(--blue-soft)' : '#fff' }}>
+        <Icon name="template" style={{ width: 18, height: 18, color: 'var(--blue)' }} />
+        <div style={{ flex: 1 }}>
+          <div style={{ fontWeight: 600, color: 'var(--ink)', fontSize: 14 }}>Добавить в тревел-политику</div>
+          <div className="ty-sub">Применить правила подразделения к поездкам сотрудника</div>
+        </div>
+        <Toggle on={f.addToPolicy} onChange={(v) => upd('addToPolicy', v)} style={{ pointerEvents: 'none' }} />
+      </div>
+    </Drawer>
+  );
+}
+
+/* ---------- Профиль сотрудника (данные сотрудника, не клиента) ---------- */
+function EmployeeProfileDrawer({ emp, dept, coName, onClose, onOpenOrder, onRemove }) {
+  const toast = useToast();
+  if (!emp) return null;
+  const trips = ordersOf(emp.name);
+  return (
+    <Drawer open onClose={onClose} width="min(620px,96vw)" title="Профиль сотрудника" sub={coName}
+      footer={<>
+        <Button variant="secondary" icon="chat" onClick={() => toast('Открываю чат с сотрудником', 'info')}>Написать</Button>
+        <div style={{ flex: 1 }} />
+        {onRemove && <Button variant="secondary" icon="trash" onClick={() => { onRemove(emp); onClose(); }}>Убрать</Button>}
+        <Button icon="edit" onClick={() => toast('Редактирование сотрудника', 'info')}>Редактировать</Button>
+      </>}>
+      <div className="card card-pad" style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 16, flexWrap: 'wrap' }}>
+        <Avatar name={emp.name} size={52} />
+        <div style={{ flex: 1, minWidth: 180 }}>
+          <div style={{ fontWeight: 700, color: 'var(--ink)', fontSize: 16 }}>{emp.name}</div>
+          <div className="ty-sub" style={{ marginTop: 2 }}>{emp.position || 'Сотрудник'}{dept ? ' · ' + dept.name : ''}</div>
+        </div>
+        {emp.inPolicy !== false && dept && dept.policy && <Pill tone="blue">{dept.policy}</Pill>}
+      </div>
+
+      <PanelSub style={{ marginTop: 0 }}>Данные сотрудника</PanelSub>
+      <div className="card card-pad">
+        <div className="kv">
+          <div className="kv-row"><span className="k">Подразделение</span><span className="v">{dept ? dept.name : '—'}</span></div>
+          <div className="kv-row"><span className="k">Должность</span><span className="v">{emp.position || '—'}</span></div>
+          <div className="kv-row"><span className="k">Телефон</span><span className="v">{emp.phone || '—'}</span></div>
+          <div className="kv-row"><span className="k">E-mail</span><span className="v">{emp.email || '—'}</span></div>
+          <div className="kv-row"><span className="k">Документ</span><span className="v">{emp.doc || '—'}</span></div>
+          <div className="kv-row"><span className="k">Дата рождения</span><span className="v">{emp.dob || '—'}</span></div>
+          <div className="kv-row"><span className="k">Тревел-политика</span><span className="v">{emp.inPolicy === false ? 'Не применяется' : (dept && dept.policy ? dept.policy : 'По компании')}</span></div>
+        </div>
+      </div>
+
+      <PanelSub>Поездки сотрудника</PanelSub>
+      {trips.length ? (
+        <div className="table-card">
+          <table className="tbl">
+            <thead><tr><th>№</th><th>Статус</th><th>Услуга</th><th style={{ textAlign: 'right' }}>Сумма</th><th></th></tr></thead>
+            <tbody>{trips.map((o, i) => (
+              <tr key={i} style={{ cursor: 'pointer' }} onClick={() => { onOpenOrder && onOpenOrder(o); onClose(); }}>
+                <td className="t-strong">{o.no}</td><td><Pill tone={ORDER_STATUS[o.status]}>{o.status}</Pill></td>
+                <td>{o.service}</td><td style={{ textAlign: 'right', fontWeight: 600 }}>{o.sum} {o.currency}</td>
+                <td><span className="go-dot"><Icon name="chevRight" /></span></td>
+              </tr>
+            ))}</tbody>
+          </table>
+        </div>
+      ) : <EmptyState icon="plane" title="Поездок пока нет" sub="Заказы с этим сотрудником появятся здесь" />}
+    </Drawer>
+  );
+}
+
 function CompanyCard({ co, onBack, onOpenOrder }) {
   const toast = useToast();
   const [tab, setTab] = useState('overview');
+  // единый реестр сотрудников компании — общий с вкладкой «Тревел-политика»
+  const [, setStaffTick] = useState(0);
+  const staff = companyStaffStore(co.id);
+  const [addEmp, setAddEmp] = useState(null);   // { dept? } — открыть форму добавления (опц. в конкретный отдел)
+  const [empView, setEmpView] = useState(null); // сотрудник для просмотра профиля
+  const addEmployee = (emp) => { staff.employees.push(emp); setStaffTick((n) => n + 1); };
+  const removeEmployee = (emp) => { const i = staff.employees.findIndex((e) => e.id === emp.id); if (i >= 0) staff.employees.splice(i, 1); setStaffTick((n) => n + 1); };
+  const deptOf = (emp) => staff.departments.find((d) => d.id === emp.dept);
   const orders = ordersOf(co.name);
   const contacts = [{ name: co.dir, role: 'Директор', phone: co.phone, email: co.email }, { name: 'Бухгалтерия', role: 'Финансы', phone: co.phone, email: 'buh@' + co.email.split('@')[1] }].slice(0, co.contacts);
   const fin = companyFinance(co.id);
@@ -203,11 +321,64 @@ function CompanyCard({ co, onBack, onOpenOrder }) {
       </div>
 
       <div style={{ marginBottom: 18 }}>
-        <Tabs tabs={[{ key: 'overview', label: 'Обзор' }, { key: 'finance', label: 'Финансы и договоры' }, { key: 'policy', label: 'Тревел-политика' }]} value={tab} onChange={setTab} />
+        <Tabs tabs={[{ key: 'overview', label: 'Обзор' }, { key: 'staff', label: 'Сотрудники' }, { key: 'finance', label: 'Финансы и договоры' }, { key: 'policy', label: 'Тревел-политика' }]} value={tab} onChange={setTab} />
       </div>
 
       {tab === 'finance' && <CompanyFinanceBlock co={co} />}
       {tab === 'policy' && <TravelPolicyBlock co={co} />}
+
+      {tab === 'staff' && (() => {
+        const unassigned = staff.employees.filter((e) => !staff.departments.some((d) => d.id === e.dept));
+        const groups = [...staff.departments.map((d) => ({ dept: d, emps: staff.employees.filter((e) => e.dept === d.id) })),
+          ...(unassigned.length ? [{ dept: { id: '', name: 'Без подразделения', policy: '' }, emps: unassigned }] : [])];
+        const empCard = (e) => (
+          <button key={e.id} type="button" onClick={() => setEmpView(e)}
+            style={{ cursor: 'pointer', textAlign: 'left', width: '100%', border: '1px solid var(--line)', background: '#fff', borderRadius: 12, padding: '11px 13px', display: 'flex', alignItems: 'center', gap: 12 }}>
+            <Avatar name={e.name} size={38} />
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontWeight: 600, color: 'var(--ink)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{e.name}</div>
+              <div className="ty-sub" style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{(e.position || 'Сотрудник') + ' · ' + e.phone}</div>
+            </div>
+            {e.inPolicy === false && <Pill tone="gray">вне политики</Pill>}
+            <Icon name="chevRight" style={{ width: 18, height: 18, color: 'var(--muted-2)' }} />
+          </button>
+        );
+        return (
+          <div className="fade-in">
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginBottom: 16, flexWrap: 'wrap' }}>
+              <div>
+                <h3 className="section-title" style={{ margin: 0 }}>Сотрудники компании</h3>
+                <div className="ty-sub" style={{ marginTop: 4 }}>{staff.employees.length} {plural(staff.employees.length, ['сотрудник', 'сотрудника', 'сотрудников'])} · {staff.departments.length} {plural(staff.departments.length, ['подразделение', 'подразделения', 'подразделений'])}</div>
+              </div>
+              <Button icon="plus" onClick={() => setAddEmp({})}>Добавить сотрудника</Button>
+            </div>
+
+            {staff.employees.length === 0 && !staff.departments.length
+              ? <EmptyState icon="users" title="Сотрудников пока нет" sub="Добавьте первого сотрудника компании" />
+              : groups.map((g) => (
+                <div className="card card-pad" key={g.dept.id || 'none'} style={{ marginBottom: 14 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', marginBottom: g.emps.length ? 12 : 0 }}>
+                    <span className="oc-svc-ic" style={{ background: 'var(--blue)', width: 34, height: 34 }}><Icon name="building" style={{ width: 16, height: 16 }} /></span>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontWeight: 700, color: 'var(--ink)' }}>{g.dept.name}</div>
+                      <div className="ty-sub">{g.emps.length} {plural(g.emps.length, ['сотрудник', 'сотрудника', 'сотрудников'])}{g.dept.policy ? ' · политика: ' + g.dept.policy : ''}</div>
+                    </div>
+                    {g.dept.policy && <Pill tone="blue">{g.dept.policy}</Pill>}
+                    {g.dept.id !== '' && <Button variant="secondary" size="sm" icon="plus" onClick={() => setAddEmp({ dept: g.dept.id })}>В отдел</Button>}
+                  </div>
+                  {g.emps.length
+                    ? <div className="grid-2" style={{ gap: 10 }}>{g.emps.map(empCard)}</div>
+                    : <div className="ty-sub">В подразделении пока нет сотрудников.</div>}
+                </div>
+              ))}
+
+            {addEmp && <EmployeeCreateDrawer open departments={staff.departments} defaultDept={addEmp.dept} coName={co.name}
+              onClose={() => setAddEmp(null)} onCreate={addEmployee} />}
+            {empView && <EmployeeProfileDrawer emp={empView} dept={deptOf(empView)} coName={co.name}
+              onClose={() => setEmpView(null)} onOpenOrder={onOpenOrder} onRemove={removeEmployee} />}
+          </div>
+        );
+      })()}
 
       {tab === 'overview' && <>
       <div className="grid-2" style={{ alignItems: 'start' }}>
@@ -302,7 +473,7 @@ function CompaniesPage({ onOpenOrder }) {
                       {bal && bal.kind !== 'предоплата' ? (
                         <span style={{ fontWeight: 600, color: bal.tone === 'red' ? 'var(--red)' : bal.tone === 'green' ? 'var(--green)' : 'var(--ink)' }}>
                           {Math.round(bal.value).toLocaleString('ru-RU')} $
-                          {bal.overdue > 0 && <span style={{ display: 'block', fontSize: 11.5, color: 'var(--red)', fontWeight: 500 }}>просрочено {Math.round(bal.overdue).toLocaleString('ru-RU')} $</span>}
+                          {bal.overdue > 0 && <span style={{ display: 'block', fontSize: 12, color: 'var(--red)', fontWeight: 500 }}>просрочено {Math.round(bal.overdue).toLocaleString('ru-RU')} $</span>}
                         </span>
                       ) : <span className="t-muted">—</span>}
                     </td>

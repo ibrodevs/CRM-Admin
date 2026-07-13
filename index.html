@@ -25,7 +25,34 @@
   --shadow-card:0 1px 2px rgba(16,23,38,.04);
   --shadow-pop:0 12px 40px rgba(16,23,38,.16);
   --shadow-modal:0 30px 80px rgba(16,23,38,.22);
+
+  /* ===== Typography scale (single source of truth) =====
+     Sizes: keep to these steps, no in-between values.
+     Weights: 400 regular · 600 medium/emphasis · 700 bold (titles & numbers). 800 is retired. */
+  --fs-display:30px;  /* hero KPI number */
+  --fs-stat:26px;     /* stat-card number */
+  --fs-h1:32px;       /* page title */
+  --fs-h2:22px;       /* section title */
+  --fs-h3:16px;       /* card title */
+  --fs-lg:18px;       /* large body / emphasised value */
+  --fs-body:14px;     /* default body & tables */
+  --fs-sm:13px;       /* secondary text */
+  --fs-cap:12px;      /* captions, meta, tile labels */
+  --fw-regular:400; --fw-medium:600; --fw-bold:700;
+
+  /* ===== Icon size ladder (glyph width/height) — even steps only ===== */
+  --ic-xs:14px; --ic-sm:16px; --ic-md:18px; --ic-lg:20px; --ic-xl:24px;
 }
+/* Typography utility classes — prefer these over ad-hoc inline font styles */
+.ty-h2{font-size:var(--fs-h2);font-weight:var(--fw-bold);color:var(--ink);letter-spacing:-.02em;margin:0}
+.ty-title{font-size:var(--fs-h3);font-weight:var(--fw-bold);color:var(--ink);letter-spacing:-.01em;margin:0}
+.ty-num{font-weight:var(--fw-bold);letter-spacing:-.02em;line-height:1;color:var(--ink)}
+.ty-num-display{font-size:var(--fs-display);font-weight:var(--fw-bold);letter-spacing:-.02em;line-height:1;color:var(--ink)}
+.ty-num-stat{font-size:var(--fs-stat);font-weight:var(--fw-bold);letter-spacing:-.02em;line-height:1;color:var(--ink)}
+.ty-body{font-size:var(--fs-body);color:var(--body)}
+.ty-label{font-size:var(--fs-cap);font-weight:var(--fw-medium);color:var(--muted)}
+.ty-sub{font-size:var(--fs-cap);color:var(--muted)}
+.ty-meta{font-size:var(--fs-sm);color:var(--muted)}
 *{box-sizing:border-box}
 html,body{margin:0;padding:0}
 body{
@@ -99,7 +126,7 @@ input,textarea,select{font-family:inherit}
 /* «Услуги» pages: an extra 3% smaller than the rest of the app */
 .svc-zoom{zoom:.97}
 .topbar{display:flex;align-items:flex-start;gap:18px;padding:22px 38px 8px;flex-wrap:wrap}
-.page-title{font-size:33px;font-weight:700;letter-spacing:-.025em;color:var(--ink);line-height:1.1;margin:0;white-space:nowrap}
+.page-title{font-size:var(--fs-h1);font-weight:700;letter-spacing:-.025em;color:var(--ink);line-height:1.1;margin:0;white-space:nowrap}
 .topbar-spacer{flex:1}
 .content{padding:18px 38px 60px;flex:1}
 
@@ -205,7 +232,7 @@ textarea.input{height:auto;padding:13px 15px;resize:vertical;line-height:1.5}
 .card{background:var(--surface);border:1px solid var(--line);border-radius:var(--r-card);box-shadow:var(--shadow-card)}
 .card-pad{padding:24px 26px}
 .card-title{font-size:21px;font-weight:700;color:var(--ink);letter-spacing:-.01em;margin:0}
-.section-title{font-size:23px;font-weight:700;color:var(--ink);letter-spacing:-.02em;margin:0}
+.section-title{font-size:var(--fs-h2);font-weight:700;color:var(--ink);letter-spacing:-.02em;margin:0}
 
 /* ============ TABLE ============ */
 .table-card{background:#fff;border:1px solid var(--line);border-radius:var(--r-card);overflow:hidden;box-shadow:var(--shadow-card)}
@@ -362,7 +389,7 @@ table.tbl tbody tr:last-child td{border-bottom:none}
 .grid-2{display:grid;grid-template-columns:1fr 1fr;gap:20px}
 .stat-card{background:#fff;border:1px solid var(--line);border-radius:var(--r-card);padding:22px 24px;box-shadow:var(--shadow-card)}
 .stat-card .s-label{font-size:15px;color:var(--muted);margin-bottom:10px}
-.stat-card .s-value{font-size:31px;font-weight:700;color:var(--ink);letter-spacing:-.02em;line-height:1}
+.stat-card .s-value{font-size:var(--fs-display);font-weight:700;color:var(--ink);letter-spacing:-.02em;line-height:1}
 
 .fade-in{animation:fadeup .3s ease}
 @keyframes fadeup{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}

@@ -55,7 +55,7 @@ function KPStatusControl({ status, onChange }) {
   return (
     <ActionMenu trigger={
       <button style={{ border: 'none', background: 'none', cursor: 'pointer', padding: 0, display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-        <Pill tone={KP_STATUS[status]}>{status}</Pill><Icon name="chevDown" style={{ width: 15, height: 15, color: 'var(--muted-2)' }} />
+        <Pill tone={KP_STATUS[status]}>{status}</Pill><Icon name="chevDown" style={{ width: 16, height: 16, color: 'var(--muted-2)' }} />
       </button>}
       items={KP_STATUS_FLOW.map((s) => ({ icon: status === s ? 'check' : null, label: s, onClick: () => onChange(s) }))} />
   );
@@ -96,7 +96,7 @@ function KPPreviewDoc({ proposal, participants }) {
               return (
                 <div className="kp2-row" key={kind}>
                   <div className="kp2-side">
-                    <div className="kp2-side-label"><Icon name={k.icon} style={{ width: 15, height: 15, marginRight: 6, verticalAlign: 'middle' }} />{kind}</div>
+                    <div className="kp2-side-label"><Icon name={k.icon} style={{ width: 16, height: 16, marginRight: 6, verticalAlign: 'middle' }} />{kind}</div>
                     <div className="kp2-side-total"><div className="kp2-side-total-l">Итого</div><div className="kp2-side-total-v">{kpM(subtotal, p.currency)}</div></div>
                   </div>
                   <div className="kp2-table-wrap">
@@ -372,14 +372,14 @@ function KPModule({ order, services, participants, onApprove }) {
                     <ActionMenu trigger={<button className="btn btn-ghost btn-icon btn-sm"><Icon name="more" /></button>}
                       items={[{ icon: 'trash', label: 'Удалить шаблон', danger: true, onClick: () => delTemplate(t.id) }]} />
                   </div>
-                  <div style={{ color: 'var(--muted)', fontSize: 13.5, marginBottom: 12 }}>{t.desc}</div>
+                  <div style={{ color: 'var(--muted)', fontSize: 13, marginBottom: 12 }}>{t.desc}</div>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 14 }}>
                     {t.items.map((it, i) => {
                       const k = SERVICE_KIND[it.kind] || SERVICE_KIND['Авиа'];
                       return (
                         <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
                           <span className="airline-logo sm" style={{ background: k.color, width: 26, height: 26, borderRadius: 7 }}><Icon name={k.icon} style={{ width: 14, height: 14 }} /></span>
-                          <span style={{ fontSize: 13.5, color: 'var(--body)', flex: 1, minWidth: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{it.title}</span>
+                          <span style={{ fontSize: 13, color: 'var(--body)', flex: 1, minWidth: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{it.title}</span>
                           <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink)' }}>{kpM(it.cost + it.fee)}</span>
                         </div>
                       );
@@ -499,7 +499,7 @@ function KPModule({ order, services, participants, onApprove }) {
         {approved && (
           <div className="kp-bulk">
             <Icon name="checkCircle" style={{ width: 24, height: 24, color: 'var(--green)' }} />
-            <div style={{ flex: 1 }}><div style={{ fontWeight: 700, color: 'var(--ink)' }}>Вариант согласован клиентом</div><div style={{ fontSize: 13.5, color: 'var(--green)' }}>Запустите дальнейшее оформление по выбранным услугам</div></div>
+            <div style={{ flex: 1 }}><div style={{ fontWeight: 700, color: 'var(--ink)' }}>Вариант согласован клиентом</div><div style={{ fontSize: 13, color: 'var(--green)' }}>Запустите дальнейшее оформление по выбранным услугам</div></div>
             <Button size="sm" icon="plane" onClick={() => toast('Запущено бронирование авиа', 'ok')}>Забронировать авиа</Button>
             <Button variant="secondary" size="sm" icon="docs" onClick={() => toast('Документы формируются', 'ok')}>Сформировать документы</Button>
             <Button variant="secondary" size="sm" icon="finance" onClick={() => toast('Открыто финансовое оформление', 'info')}>Открыть финансы</Button>
@@ -540,12 +540,12 @@ function KPModule({ order, services, participants, onApprove }) {
                           <td><input className="kp2-cell kp2-cell-wide" value={t.note} onChange={(e) => updTrip(t.id, 'note', e.target.value)} /></td>
                           <td><input className="kp2-cell" value={t.cls} onChange={(e) => updTrip(t.id, 'cls', e.target.value)} /></td>
                           <td><input className="kp2-cell" value={t.extra} onChange={(e) => updTrip(t.id, 'extra', e.target.value)} /></td>
-                          <td><button className="icon-btn" onClick={() => delTrip(t.id)}><Icon name="trash" style={{ width: 15, height: 15 }} /></button></td>
+                          <td><button className="icon-btn" onClick={() => delTrip(t.id)}><Icon name="trash" style={{ width: 16, height: 16 }} /></button></td>
                         </tr>
                       ))}
                     </tbody>
                   </table>
-                  <button className="btn btn-ghost btn-sm kp2-add-row" onClick={addTrip}><Icon name="plus" style={{ width: 15, height: 15 }} />Рейс</button>
+                  <button className="btn btn-ghost btn-sm kp2-add-row" onClick={addTrip}><Icon name="plus" style={{ width: 16, height: 16 }} />Рейс</button>
                 </div>
               </div>
               <div style={{ marginTop: 12 }}><Field label="Примечание к стоимости"><Input value={active.train.note} onChange={(e) => setTrainField('note', e.target.value)} /></Field></div>
@@ -586,12 +586,12 @@ function KPModule({ order, services, participants, onApprove }) {
                             <td><input className="kp2-cell kp2-cell-wide" value={r.note} onChange={(e) => updAccRow(av.id, r.id, 'note', e.target.value)} /></td>
                             <td><input className="kp2-cell" value={r.meal} onChange={(e) => updAccRow(av.id, r.id, 'meal', e.target.value)} /></td>
                             <td><input className="kp2-cell" value={r.point} onChange={(e) => updAccRow(av.id, r.id, 'point', e.target.value)} /></td>
-                            <td><button className="icon-btn" onClick={() => delAccRow(av.id, r.id)}><Icon name="trash" style={{ width: 15, height: 15 }} /></button></td>
+                            <td><button className="icon-btn" onClick={() => delAccRow(av.id, r.id)}><Icon name="trash" style={{ width: 16, height: 16 }} /></button></td>
                           </tr>
                         ))}
                       </tbody>
                     </table>
-                    <button className="btn btn-ghost btn-sm kp2-add-row" onClick={() => addAccRow(av.id)}><Icon name="plus" style={{ width: 15, height: 15 }} />Номер</button>
+                    <button className="btn btn-ghost btn-sm kp2-add-row" onClick={() => addAccRow(av.id)}><Icon name="plus" style={{ width: 16, height: 16 }} />Номер</button>
                   </div>
                 </div>
               ))}
@@ -637,8 +637,8 @@ function KPModule({ order, services, participants, onApprove }) {
                         return (
                           <tr key={it.id}>
                             <td><div className="row-handle"><button disabled={idx === 0} onClick={() => moveItem(idx, -1)}><Icon name="chevUp" style={{ width: 16, height: 16 }} /></button><button disabled={idx === v.items.length - 1} onClick={() => moveItem(idx, 1)}><Icon name="chevDown" style={{ width: 16, height: 16 }} /></button></div></td>
-                            <td><span style={{ display: 'inline-flex', alignItems: 'center', gap: 7 }}><span className="airline-logo sm" style={{ background: k.color, width: 28, height: 28, borderRadius: 8 }}><Icon name={k.icon} style={{ width: 15, height: 15 }} /></span><Pill tone={k.tone}>{it.kind}</Pill></span></td>
-                            <td><input className="cell-input" value={it.title} onChange={(e) => updItem(it.id, 'title', e.target.value)} style={{ marginBottom: 5 }} /><input className="cell-input" value={it.sub} placeholder="Описание" onChange={(e) => updItem(it.id, 'sub', e.target.value)} style={{ fontSize: 12.5, color: 'var(--muted)' }} /></td>
+                            <td><span style={{ display: 'inline-flex', alignItems: 'center', gap: 7 }}><span className="airline-logo sm" style={{ background: k.color, width: 28, height: 28, borderRadius: 8 }}><Icon name={k.icon} style={{ width: 16, height: 16 }} /></span><Pill tone={k.tone}>{it.kind}</Pill></span></td>
+                            <td><input className="cell-input" value={it.title} onChange={(e) => updItem(it.id, 'title', e.target.value)} style={{ marginBottom: 5 }} /><input className="cell-input" value={it.sub} placeholder="Описание" onChange={(e) => updItem(it.id, 'sub', e.target.value)} style={{ fontSize: 12, color: 'var(--muted)' }} /></td>
                             <td><input className="cell-input cell-num" type="number" value={it.cost} onChange={(e) => updItem(it.id, 'cost', +e.target.value)} /></td>
                             <td><input className="cell-input cell-num" type="number" value={it.fee} onChange={(e) => updItem(it.id, 'fee', +e.target.value)} /></td>
                             <td style={{ textAlign: 'right', fontWeight: 700, color: 'var(--ink)' }}>{kpM(it.cost + it.fee, active.currency)}</td>
@@ -776,7 +776,7 @@ function ProposalSendPanel({ proposal, participants = [], onSend, onClose }) {
   return (
     <StackPanel title={'Отправка КП ' + proposal.id + ' клиенту'} width="min(1020px,96vw)" onClose={onClose}
       footer={<>
-        <div style={{ fontSize: 12.5, color: 'var(--muted)', display: 'flex', alignItems: 'center', gap: 6 }}>
+        <div style={{ fontSize: 12, color: 'var(--muted)', display: 'flex', alignItems: 'center', gap: 6 }}>
           <Icon name="lock" style={{ width: 14, height: 14 }} />Внутренние расчёты клиенту не отправляются
         </div>
         <div style={{ flex: 1 }} />
@@ -787,9 +787,9 @@ function ProposalSendPanel({ proposal, participants = [], onSend, onClose }) {
       <div className="card card-pad" style={{ marginBottom: 16 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
           <div style={{ flex: 1, minWidth: 200 }}>
-            <div style={{ fontSize: 12.5, color: 'var(--muted)' }}>Канал связи, закреплённый за заказом № {proposal.order}</div>
+            <div style={{ fontSize: 12, color: 'var(--muted)' }}>Канал связи, закреплённый за заказом № {proposal.order}</div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 4 }}>
-              <Pill tone={meta.tone}><Icon name={meta.icon} style={{ width: 13, height: 13, verticalAlign: -2 }} /> {channel}</Pill>
+              <Pill tone={meta.tone}><Icon name={meta.icon} style={{ width: 14, height: 14, verticalAlign: -2 }} /> {channel}</Pill>
               <span style={{ fontSize: 13, color: 'var(--muted)' }}>· {meta.adapt}</span>
             </div>
           </div>
@@ -815,7 +815,7 @@ function ProposalSendPanel({ proposal, participants = [], onSend, onClose }) {
               <h3 className="card-title" style={{ fontSize: 15, margin: 0 }}>{vr.name}</h3>
               <Pill tone="blue">{(vr.items || []).length} карточек услуг</Pill>
               <div style={{ flex: 1 }} />
-              <span style={{ fontWeight: 800, color: 'var(--ink)' }}>{kpM(varTotal(vr), cur)}</span>
+              <span style={{ fontWeight: 700, color: 'var(--ink)' }}>{kpM(varTotal(vr), cur)}</span>
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
               {(vr.items || []).map((it) => {
@@ -823,7 +823,7 @@ function ProposalSendPanel({ proposal, participants = [], onSend, onClose }) {
                 return (
                   <div key={it.id} style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
                     <span className="airline-logo sm" style={{ background: k.color, width: 26, height: 26, borderRadius: 7 }}><Icon name={k.icon} style={{ width: 14, height: 14 }} /></span>
-                    <span style={{ flex: 1, minWidth: 0 }}>{it.title}{it.sub ? <span style={{ color: 'var(--muted)', fontSize: 12.5 }}> · {it.sub}</span> : ''}</span>
+                    <span style={{ flex: 1, minWidth: 0 }}>{it.title}{it.sub ? <span style={{ color: 'var(--muted)', fontSize: 12 }}> · {it.sub}</span> : ''}</span>
                     <span style={{ fontWeight: 600 }}>{kpM(it.cost + it.fee, cur)}</span>
                   </div>
                 );
@@ -871,7 +871,7 @@ function OffersRegistry({ onOpenOrder, intent, onConsume }) {
     <div className="fade-in">
       <div className="card card-pad" style={{ marginBottom: 18, display: 'flex', gap: 12, alignItems: 'flex-start', background: 'var(--blue-soft)' }}>
         <Icon name="template" style={{ width: 20, height: 20, color: 'var(--blue)', flex: '0 0 20px', marginTop: 2 }} />
-        <div style={{ fontSize: 13.5, color: 'var(--ink)' }}>
+        <div style={{ fontSize: 13, color: 'var(--ink)' }}>
           <b>Коммерческое предложение — контейнер из карточек услуг.</b> Объединяйте несколько услуг одной поездки или альтернативные варианты в один документ.
           Отдельную <b>карточку услуги</b> можно отправить клиенту напрямую из заказа — без сборки КП (карточка → «Отправить клиенту»).
         </div>

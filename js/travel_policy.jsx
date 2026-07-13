@@ -27,9 +27,9 @@ function ComplianceBadge({ status }) {
 function TpNum({ label, value, onChange, suffix }) {
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '7px 0' }}>
-      <span style={{ flex: 1, fontSize: 13.5, color: 'var(--body)' }}>{label}</span>
+      <span style={{ flex: 1, fontSize: 13, color: 'var(--body)' }}>{label}</span>
       <div style={{ width: 120 }}><Input type="number" min="0" value={value} onChange={(e) => onChange(e.target.value === '' ? '' : (parseFloat(e.target.value) || 0))} /></div>
-      {suffix && <span style={{ width: 46, fontSize: 12.5, color: 'var(--muted)' }}>{suffix}</span>}
+      {suffix && <span style={{ width: 46, fontSize: 12, color: 'var(--muted)' }}>{suffix}</span>}
     </div>
   );
 }
@@ -37,7 +37,7 @@ function TpNum({ label, value, onChange, suffix }) {
 function TpNumCur({ label, value, onChange, cur, onCur }) {
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '7px 0' }}>
-      <span style={{ flex: 1, fontSize: 13.5, color: 'var(--body)' }}>{label}</span>
+      <span style={{ flex: 1, fontSize: 13, color: 'var(--body)' }}>{label}</span>
       <div style={{ width: 120 }}><Input type="number" min="0" value={value} onChange={(e) => onChange(e.target.value === '' ? '' : (parseFloat(e.target.value) || 0))} /></div>
       <div style={{ width: 92 }}><Select options={TP_CURRENCIES} value={cur} onChange={(e) => onCur(e.target.value)} /></div>
     </div>
@@ -46,7 +46,7 @@ function TpNumCur({ label, value, onChange, cur, onCur }) {
 function TpSelect({ label, options, value, onChange }) {
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '7px 0' }}>
-      <span style={{ flex: 1, fontSize: 13.5, color: 'var(--body)' }}>{label}</span>
+      <span style={{ flex: 1, fontSize: 13, color: 'var(--body)' }}>{label}</span>
       <div style={{ width: 200 }}><Select options={options} value={value} onChange={(e) => onChange(e.target.value)} /></div>
     </div>
   );
@@ -54,7 +54,7 @@ function TpSelect({ label, options, value, onChange }) {
 function TpToggle({ label, value, onChange }) {
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '9px 0' }}>
-      <span style={{ flex: 1, fontSize: 13.5, color: 'var(--body)' }}>{label}</span>
+      <span style={{ flex: 1, fontSize: 13, color: 'var(--body)' }}>{label}</span>
       <Toggle on={!!value} onChange={onChange} />
     </div>
   );
@@ -78,7 +78,7 @@ function TpMultiSelect({ label, options, values, onChange, placeholder }) {
         {open && (
           <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, marginTop: 4, zIndex: 60, background: '#fff', border: '1px solid var(--line)', borderRadius: 12, boxShadow: 'var(--shadow-modal)', maxHeight: 260, overflowY: 'auto', padding: 6 }}>
             {options.map((o) => (
-              <div key={o} onClick={() => toggle(o)} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '9px 10px', borderRadius: 8, cursor: 'pointer', fontSize: 13.5, color: 'var(--ink)' }}
+              <div key={o} onClick={() => toggle(o)} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '9px 10px', borderRadius: 8, cursor: 'pointer', fontSize: 13, color: 'var(--ink)' }}
                 onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--surface-2)')} onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}>
                 <Checkbox on={vals.includes(o)} onChange={() => toggle(o)} />{o}
               </div>
@@ -105,7 +105,7 @@ function TpPersonSearch({ placeholder, exclude, onPick }) {
           {list.length ? list.map((n) => (
             <div key={n} onClick={() => { onPick(n); setQ(''); setOpen(false); }} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 10px', borderRadius: 8, cursor: 'pointer' }}
               onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--surface-2)')} onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}>
-              <Avatar name={n} size={26} /><span style={{ fontSize: 13.5, color: 'var(--ink)' }}>{n}</span>
+              <Avatar name={n} size={26} /><span style={{ fontSize: 13, color: 'var(--ink)' }}>{n}</span>
             </div>
           )) : <div style={{ padding: '10px', color: 'var(--muted)', fontSize: 13 }}>Не найдено</div>}
         </div>
@@ -123,12 +123,12 @@ function TpApproverChain({ approvers, onChange }) {
     <div style={{ padding: '7px 0' }}>
       <div style={{ fontSize: 13, color: 'var(--body)', marginBottom: 6 }}>Цепочка согласующих (по порядку)</div>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 10 }}>
-        {list.length === 0 && <div style={{ fontSize: 12.5, color: 'var(--muted-2)' }}>Согласующие не добавлены.</div>}
+        {list.length === 0 && <div style={{ fontSize: 12, color: 'var(--muted-2)' }}>Согласующие не добавлены.</div>}
         {list.map((name, i) => (
           <div key={name} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 12px', borderRadius: 10, border: '1px solid var(--field-line)' }}>
             <span style={{ width: 24, height: 24, borderRadius: 7, background: 'var(--blue)', color: '#fff', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 700 }}>{i + 1}</span>
             <Avatar name={name} size={26} />
-            <span style={{ flex: 1, fontWeight: 600, color: 'var(--ink)', fontSize: 13.5 }}>{name}</span>
+            <span style={{ flex: 1, fontWeight: 600, color: 'var(--ink)', fontSize: 13 }}>{name}</span>
             <button className="icon-btn" disabled={i === 0} onClick={() => move(i, -1)} style={i === 0 ? { opacity: .35 } : null}><Icon name="chevUp" /></button>
             <button className="icon-btn" disabled={i === list.length - 1} onClick={() => move(i, 1)} style={i === list.length - 1 ? { opacity: .35 } : null}><Icon name="chevDown" /></button>
             <button className="icon-btn" onClick={() => remove(i)}><Icon name="x" /></button>
@@ -145,45 +145,55 @@ function DepartmentsManager({ companyId }) {
   const toast = useToast();
   const [, setTick] = useState(0);
   const rerender = () => setTick((n) => n + 1);
-  const depts = departmentsFor(companyId);
+  const store = companyStaffStore(companyId);
+  const depts = store.departments;
+  const empsOf = (d) => store.employees.filter((e) => e.dept === d.id);
   const [newDept, setNewDept] = useState('');
 
   const addDept = () => {
     if (!newDept.trim()) { toast('Введите название подразделения', 'info'); return; }
-    depts.push({ id: 'd' + Date.now(), name: newDept.trim(), head: '', employees: [] });
+    depts.push({ id: 'd' + Date.now(), name: newDept.trim(), head: '', policy: '' });
     setNewDept(''); toast('Подразделение создано', 'ok'); rerender();
   };
-  const removeDept = (id) => { const i = depts.findIndex((d) => d.id === id); if (i >= 0) depts.splice(i, 1); rerender(); };
-  const invite = (dept, name) => { if (!dept.employees.includes(name)) { dept.employees.push(name); toast('Приглашён: ' + name, 'ok'); rerender(); } };
-  const removeEmp = (dept, name) => { dept.employees = dept.employees.filter((n) => n !== name); rerender(); };
+  const removeDept = (id) => {
+    const i = depts.findIndex((d) => d.id === id); if (i >= 0) depts.splice(i, 1);
+    store.employees.forEach((e) => { if (e.dept === id) e.dept = ''; }); // сотрудники остаются в компании (без отдела)
+    rerender();
+  };
+  const invite = (dept, name) => {
+    if (store.employees.some((e) => e.name === name && e.dept === dept.id)) return;
+    store.employees.push({ id: 'E-' + Math.floor(1000 + Math.random() * 8999), name, dept: dept.id, position: '', phone: '', email: '', doc: '—', dob: '—', inPolicy: true });
+    toast('Приглашён: ' + name, 'ok'); rerender();
+  };
+  const removeEmp = (emp) => { const i = store.employees.findIndex((e) => e.id === emp.id); if (i >= 0) store.employees.splice(i, 1); rerender(); };
 
   return (
     <div>
-      <div style={{ fontSize: 12.5, color: 'var(--muted)', marginBottom: 12 }}>Создавайте отделы и подразделения и приглашайте в них сотрудников. На подразделения можно назначать отдельную тревел-политику (область применения «Подразделение»).</div>
+      <div style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 12 }}>Создавайте отделы и подразделения и приглашайте в них сотрудников. Список общий с вкладкой «Сотрудники» компании. На подразделения можно назначать отдельную тревел-политику (область применения «Подразделение»).</div>
       <div style={{ display: 'flex', gap: 10, marginBottom: 16, flexWrap: 'wrap' }}>
         <div style={{ flex: 1, minWidth: 220 }}><Input placeholder="Название подразделения" value={newDept} onChange={(e) => setNewDept(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') addDept(); }} /></div>
         <Button icon="plus" onClick={addDept}>Создать подразделение</Button>
       </div>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-        {depts.map((d) => (
+        {depts.map((d) => { const emps = empsOf(d); return (
           <div className="card card-pad" key={d.id}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
-              <span className="oc-svc-ic" style={{ width: 34, height: 34, background: 'var(--blue-soft)', color: 'var(--blue)' }}><Icon name="building" style={{ width: 17, height: 17 }} /></span>
-              <div style={{ flex: 1 }}><div style={{ fontWeight: 700, color: 'var(--ink)' }}>{d.name}</div><div style={{ fontSize: 12, color: 'var(--muted)' }}>{d.employees.length} сотрудник(ов){d.head ? ' · руководитель ' + d.head : ''}</div></div>
+              <span className="oc-svc-ic" style={{ width: 34, height: 34, background: 'var(--blue-soft)', color: 'var(--blue)' }}><Icon name="building" style={{ width: 18, height: 18 }} /></span>
+              <div style={{ flex: 1 }}><div style={{ fontWeight: 700, color: 'var(--ink)' }}>{d.name}</div><div style={{ fontSize: 12, color: 'var(--muted)' }}>{emps.length} сотрудник(ов){d.policy ? ' · политика: ' + d.policy : (d.head ? ' · руководитель ' + d.head : '')}</div></div>
               <Button variant="ghost" size="sm" icon="trash" onClick={() => removeDept(d.id)}>Удалить</Button>
             </div>
             <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 10 }}>
-              {d.employees.map((e) => (
-                <span key={e} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '5px 8px 5px 5px', borderRadius: 999, border: '1px solid var(--field-line)', fontSize: 12.5 }}>
-                  <Avatar name={e} size={22} />{e}
-                  <button className="icon-btn" style={{ width: 20, height: 20 }} onClick={() => removeEmp(d, e)}><Icon name="x" style={{ width: 12, height: 12 }} /></button>
+              {emps.map((e) => (
+                <span key={e.id} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '5px 8px 5px 5px', borderRadius: 999, border: '1px solid var(--field-line)', fontSize: 12 }}>
+                  <Avatar name={e.name} size={22} />{e.name}
+                  <button className="icon-btn" style={{ width: 20, height: 20 }} onClick={() => removeEmp(e)}><Icon name="x" style={{ width: 12, height: 12 }} /></button>
                 </span>
               ))}
-              {!d.employees.length && <span style={{ fontSize: 12.5, color: 'var(--muted-2)' }}>Сотрудники не приглашены.</span>}
+              {!emps.length && <span style={{ fontSize: 12, color: 'var(--muted-2)' }}>Сотрудники не приглашены.</span>}
             </div>
-            <div style={{ maxWidth: 360 }}><TpPersonSearch placeholder="Пригласить сотрудника…" exclude={d.employees} onPick={(n) => invite(d, n)} /></div>
+            <div style={{ maxWidth: 360 }}><TpPersonSearch placeholder="Пригласить сотрудника…" exclude={emps.map((e) => e.name)} onPick={(n) => invite(d, n)} /></div>
           </div>
-        ))}
+        ); })}
       </div>
     </div>
   );
@@ -196,9 +206,12 @@ function TpImportDrawer({ open, kind, companyId, onClose }) {
   const isEmp = kind === 'employees';
   const doImport = () => {
     if (isEmp) {
-      const depts = departmentsFor(companyId);
-      const target = depts[0] || (depts.push({ id: 'd' + Date.now(), name: 'Импортированные', head: '', employees: [] }), depts[depts.length - 1]);
-      ['Импортов Импорт А.', 'Импортов Импорт Б.'].forEach((n) => { if (!target.employees.includes(n)) target.employees.push(n); });
+      const store = companyStaffStore(companyId);
+      let target = store.departments[0];
+      if (!target) { target = { id: 'd' + Date.now(), name: 'Импортированные', head: '', policy: '' }; store.departments.push(target); }
+      ['Импортов Импорт А.', 'Импортов Импорт Б.'].forEach((n) => {
+        if (!store.employees.some((e) => e.name === n && e.dept === target.id)) store.employees.push({ id: 'E-' + Math.floor(1000 + Math.random() * 8999), name: n, dept: target.id, position: '', phone: '', email: '', doc: '—', dob: '—', inPolicy: true });
+      });
       toast('Сотрудники импортированы в «' + target.name + '»', 'ok');
     } else {
       toast('Тревел-политика импортирована из документа', 'ok');
@@ -255,7 +268,7 @@ function TravelPolicyBlock({ co }) {
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
           <div>
             <h3 className="card-title" style={{ fontSize: 17, margin: 0 }}>Тревел-политика</h3>
-            <div style={{ fontSize: 12.5, color: 'var(--muted)', marginTop: 2 }}>Правила оформления командировок. Проверяются автоматически при подборе и бронировании.</div>
+            <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 2 }}>Правила оформления командировок. Проверяются автоматически при подборе и бронировании.</div>
           </div>
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
             <Button variant="secondary" size="sm" icon="download" onClick={() => setImportKind('employees')}>Импорт сотрудников</Button>
@@ -289,8 +302,8 @@ function TravelPolicyBlock({ co }) {
       {/* Подразделения и сотрудники */}
       <div className="card" style={{ overflow: 'hidden', marginBottom: 16 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '14px 18px', cursor: 'pointer' }} onClick={() => setShowDepts((v) => !v)}>
-          <span className="oc-svc-ic" style={{ width: 34, height: 34, background: 'var(--blue-soft)', color: 'var(--blue)' }}><Icon name="users" style={{ width: 17, height: 17 }} /></span>
-          <div style={{ flex: 1 }}><div style={{ fontWeight: 700, color: 'var(--ink)' }}>Подразделения и сотрудники</div><div style={{ fontSize: 12.5, color: 'var(--muted)' }}>Создание отделов и приглашение сотрудников</div></div>
+          <span className="oc-svc-ic" style={{ width: 34, height: 34, background: 'var(--blue-soft)', color: 'var(--blue)' }}><Icon name="users" style={{ width: 18, height: 18 }} /></span>
+          <div style={{ flex: 1 }}><div style={{ fontWeight: 700, color: 'var(--ink)' }}>Подразделения и сотрудники</div><div style={{ fontSize: 12, color: 'var(--muted)' }}>Создание отделов и приглашение сотрудников</div></div>
           <Icon name={showDepts ? 'chevUp' : 'chevDown'} style={{ width: 18, height: 18, color: 'var(--muted-2)' }} />
         </div>
         {showDepts && <div style={{ borderTop: '1px solid var(--line)', padding: '16px 18px', background: 'var(--surface-2)' }}><DepartmentsManager companyId={co.id} /></div>}
@@ -383,7 +396,7 @@ function TravelPolicyBlock({ co }) {
               <div style={{ paddingBottom: 8 }}>
                 <div className="tl-time">{v.date} · {v.user}</div>
                 <div className="tl-text" style={{ fontWeight: 600 }}>{v.title}</div>
-                <div style={{ fontSize: 12.5, color: 'var(--muted)', marginTop: 2 }}>{v.fields.join(', ')}</div>
+                <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 2 }}>{v.fields.join(', ')}</div>
               </div>
             </div>
           ))}

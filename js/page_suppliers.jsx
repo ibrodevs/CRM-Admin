@@ -37,7 +37,7 @@ function SupplierBadge({ name, icon = 'suppliers', size = 'md' }) {
   const fs = size === 'sm' ? 12 : 13.5;
   return (
     <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: pad, borderRadius: 9, fontSize: fs, fontWeight: 600, color: c.fg, background: c.bg, border: '1px solid ' + c.bd, width: 'fit-content', lineHeight: 1.2 }}>
-      <Icon name={icon} style={{ width: 13, height: 13 }} />{name}
+      <Icon name={icon} style={{ width: 14, height: 14 }} />{name}
     </span>
   );
 }
@@ -202,7 +202,7 @@ function AviaMarkupEditor({ supplierName }) {
             </div>
             <div style={{ marginTop: 12, paddingTop: 10, borderTop: '1px solid var(--line)' }}>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
-                <span style={{ fontSize: 12.5, fontWeight: 600, color: 'var(--muted)' }}>Точечные маршруты</span>
+                <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--muted)' }}>Точечные маршруты</span>
                 <Button variant="ghost" size="sm" icon="plus" onClick={() => addRoute(code)}>Маршрут</Button>
               </div>
               {(cfg[code].routes || []).length === 0 && <div style={{ fontSize: 12, color: 'var(--muted-2)' }}>Нет точечных маршрутов.</div>}
@@ -263,7 +263,7 @@ function SupplierFinEditor({ ext, onSaved }) {
       </div>
 
       <div style={{ fontWeight: 700, color: 'var(--ink)', marginBottom: 6 }}>Сборы по видам услуг</div>
-      <div style={{ fontSize: 12.5, color: 'var(--muted)', marginBottom: 10 }}>Комиссии, сервисные сборы, сборы за обмен и возврат настраиваются отдельно по каждому виду услуг — одна карточка поставщика для всех сценариев.</div>
+      <div style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 10 }}>Комиссии, сервисные сборы, сборы за обмен и возврат настраиваются отдельно по каждому виду услуг — одна карточка поставщика для всех сценариев.</div>
       <div className="tabs" style={{ marginBottom: 12 }}>
         {kinds.map((k) => <button key={k} className={'tab' + (kind === k ? ' active' : '')} onClick={() => setKind(k)}>{k}</button>)}
       </div>
@@ -272,7 +272,7 @@ function SupplierFinEditor({ ext, onSaved }) {
           const fee = fees[f.key];
           return (
             <div key={f.key} style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap', padding: '6px 0', borderBottom: '1px solid var(--line)' }}>
-              <span style={{ flex: 1, minWidth: 170, fontSize: 13.5, color: 'var(--body)' }}>{f.label}</span>
+              <span style={{ flex: 1, minWidth: 170, fontSize: 13, color: 'var(--body)' }}>{f.label}</span>
               <div className="seg-toggle" style={{ width: 150 }}>
                 <button className={'seg-btn' + (fee.type === 'percent' ? ' active' : '')} onClick={() => setFee(kind, f.key, { type: 'percent' })}>%</button>
                 <button className={'seg-btn' + (fee.type === 'fixed' ? ' active' : '')} onClick={() => setFee(kind, f.key, { type: 'fixed' })}>Фикс.</button>
@@ -306,18 +306,18 @@ function SupplierSearchEditor({ ext, supplierName }) {
             <Radio on={auto === a.key} onChange={() => setAuto(a.key)} />
             <div style={{ flex: 1 }}>
               <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--ink)' }}>{a.label}</div>
-              <div style={{ fontSize: 12.5, color: 'var(--muted)' }}>{a.hint}</div>
+              <div style={{ fontSize: 12, color: 'var(--muted)' }}>{a.hint}</div>
             </div>
           </button>
         ))}
       </div>
 
       <div style={{ fontWeight: 700, color: 'var(--ink)', marginBottom: 6 }}>Приоритет поиска по видам услуг</div>
-      <div style={{ fontSize: 12.5, color: 'var(--muted)', marginBottom: 10 }}>1 — наивысший. По этим приоритетам система автоматически выбирает поставщика при поиске.</div>
+      <div style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 10 }}>1 — наивысший. По этим приоритетам система автоматически выбирает поставщика при поиске.</div>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 8, maxWidth: 420 }}>
         {SUP_PRIORITY_SERVICES.map((svc) => (
           <div key={svc} style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-            <span style={{ flex: 1, fontSize: 13.5, color: 'var(--body)' }}>Приоритет по: {svc}</span>
+            <span style={{ flex: 1, fontSize: 13, color: 'var(--body)' }}>Приоритет по: {svc}</span>
             <div style={{ width: 110 }}>
               <Input type="number" min="1" value={prio[svc] != null ? prio[svc] : ''} placeholder="—"
                 onChange={(e) => setPrio((p) => ({ ...p, [svc]: e.target.value === '' ? null : Math.max(1, parseInt(e.target.value) || 1) }))} />
@@ -423,7 +423,7 @@ function SupplierModal({ supplier, onClose, onDelete }) {
             {tabs.map((t) => (
               <button key={t.key} onClick={() => setTab(t.key)}
                 style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '13px 15px', borderRadius: 13, border: '1px solid var(--field-line)', background: '#fff', cursor: 'pointer', fontSize: 15, fontWeight: 500, color: 'var(--ink)', textAlign: 'left' }}>
-                <Icon name={t.icon} style={{ width: 19, height: 19, color: 'var(--blue)' }} />
+                <Icon name={t.icon} style={{ width: 20, height: 20, color: 'var(--blue)' }} />
                 <span style={{ flex: 1 }}>{t.label}</span>
                 <span className={'radio' + (tab === t.key ? ' on' : '')} />
               </button>
@@ -452,7 +452,7 @@ function SupplierModal({ supplier, onClose, onDelete }) {
                     <div className="kv-row" key={i}><span className="k">{k}</span><span className="v">{v}</span></div>
                   ))}
                 </div>
-                <div style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--muted)', margin: '16px 0 8px' }}>Каналы связи (привязка мессенджеров)</div>
+                <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--muted)', margin: '16px 0 8px' }}>Каналы связи (привязка мессенджеров)</div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                   {ext.local.comm.map((m) => {
                     const cfg = SUP_COMM_CONFIG[m] || {};
@@ -520,7 +520,7 @@ function SupplierModal({ supplier, onClose, onDelete }) {
               <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
                 {SUP_DOC_KINDS.map((kind) => (
                   <div key={kind}>
-                    <div style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--muted)', marginBottom: 8 }}>{kind}</div>
+                    <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--muted)', marginBottom: 8 }}>{kind}</div>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                       {(ext.docs[kind] || []).map((d, i) => (
                         <button key={i} className="doc-chip" onClick={() => toast('Открываю: ' + d, 'info')}><span style={{ display: 'flex', alignItems: 'center', gap: 10 }}><Icon name="docs" />{d}</span><Icon name="download" /></button>
@@ -552,7 +552,7 @@ function SupSection({ icon, title, sub, children }) {
         <span style={{ width: 30, height: 30, borderRadius: 9, background: 'var(--blue-soft)', color: 'var(--blue)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}><Icon name={icon} style={{ width: 16, height: 16 }} /></span>
         <span style={{ fontSize: 16, fontWeight: 700, color: 'var(--ink)' }}>{title}</span>
       </div>
-      {sub && <div style={{ fontSize: 12.5, color: 'var(--muted)', margin: '0 0 12px 40px' }}>{sub}</div>}
+      {sub && <div style={{ fontSize: 12, color: 'var(--muted)', margin: '0 0 12px 40px' }}>{sub}</div>}
       <div style={{ marginLeft: 40, marginTop: sub ? 0 : 12 }}>{children}</div>
     </div>
   );
@@ -661,7 +661,7 @@ function SupplierAddDrawer({ open, onClose, onCreated }) {
           <Field label="Страна"><Select options={SUP_COUNTRIES} value={f.country} onChange={(e) => setF((p) => ({ ...p, country: e.target.value, city: supCitiesFor(e.target.value)[0] }))} /></Field>
           <Field label="Город"><Select options={supCitiesFor(f.country)} value={f.city} onChange={set('city')} /></Field>
           <div className="full" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '6px 0' }}>
-            <div><div style={{ fontWeight: 600, color: 'var(--ink)', fontSize: 14.5 }}>Использовать по умолчанию</div><div style={{ fontSize: 12.5, color: 'var(--muted)' }}>Предлагается первым при ручном выборе поставщика</div></div>
+            <div><div style={{ fontWeight: 600, color: 'var(--ink)', fontSize: 14 }}>Использовать по умолчанию</div><div style={{ fontSize: 12, color: 'var(--muted)' }}>Предлагается первым при ручном выборе поставщика</div></div>
             <Toggle on={f.useDefault} onChange={(v) => set('useDefault')(v)} />
           </div>
         </div>
@@ -683,7 +683,7 @@ function SupplierAddDrawer({ open, onClose, onCreated }) {
             <span style={{ fontSize: 13 }}>
               {conn === 'ok' ? <Pill tone="green">Подключено</Pill> : conn === 'checking' ? <Pill tone="amber">Проверка…</Pill> : <Pill tone="gray">Не проверено</Pill>}
             </span>
-            <span style={{ fontSize: 12.5, color: 'var(--muted)' }}>Последняя синхронизация: —</span>
+            <span style={{ fontSize: 12, color: 'var(--muted)' }}>Последняя синхронизация: —</span>
           </div>
         </SupSection>
       )}
@@ -697,7 +697,7 @@ function SupplierAddDrawer({ open, onClose, onCreated }) {
               <Field label="Способы коммуникации">
                 <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap', marginBottom: f.local.comm.length ? 12 : 0 }}>
                   {SUP_COMM_METHODS.map((m) => (
-                    <label key={m} style={{ display: 'inline-flex', alignItems: 'center', gap: 7, cursor: 'pointer', fontSize: 13.5, color: 'var(--body)' }}>
+                    <label key={m} style={{ display: 'inline-flex', alignItems: 'center', gap: 7, cursor: 'pointer', fontSize: 13, color: 'var(--body)' }}>
                       <Checkbox on={f.local.comm.includes(m)} onChange={() => toggleComm(m)} />{m}
                     </label>
                   ))}
@@ -716,12 +716,12 @@ function SupplierAddDrawer({ open, onClose, onCreated }) {
                                   onChange={(e) => setSub('local', 'commBind', { ...(f.local.commBind || {}), [m]: e.target.value })} /></div>
                               : <span style={{ flex: 1, fontSize: 13, color: 'var(--muted)' }}>Привязка не требуется — встроенный чат CRM</span>}
                           </div>
-                          <div style={{ fontSize: 11.5, color: 'var(--muted)', marginLeft: 102, marginTop: 3 }}>{cfg.hint}</div>
+                          <div style={{ fontSize: 12, color: 'var(--muted)', marginLeft: 102, marginTop: 3 }}>{cfg.hint}</div>
                         </div>
                       );
                     })}
                     <div style={{ display: 'flex', gap: 6, alignItems: 'flex-start', paddingTop: 8, borderTop: '1px solid var(--line)' }}>
-                      <Icon name="chat" style={{ width: 15, height: 15, color: 'var(--blue)', flexShrink: 0, marginTop: 1 }} />
+                      <Icon name="chat" style={{ width: 16, height: 16, color: 'var(--blue)', flexShrink: 0, marginTop: 1 }} />
                       <span style={{ fontSize: 12, color: 'var(--body)' }}>Как работает чат: сообщения из треда заказа отправляются поставщику через привязанный канал (бот/API мессенджера), а его ответы автоматически возвращаются в тот же чат CRM — оператор ведёт всю переписку в одном окне.</span>
                     </div>
                   </div>
@@ -754,7 +754,7 @@ function SupplierAddDrawer({ open, onClose, onCreated }) {
               const fee = f.fin.perService[activeFinKind][fk.key];
               return (
                 <div key={fk.key} style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap', padding: '6px 0', borderBottom: '1px solid var(--line)' }}>
-                  <span style={{ flex: 1, minWidth: 160, fontSize: 13.5, color: 'var(--body)' }}>{fk.label}</span>
+                  <span style={{ flex: 1, minWidth: 160, fontSize: 13, color: 'var(--body)' }}>{fk.label}</span>
                   <div className="seg-toggle" style={{ width: 140 }}>
                     <button className={'seg-btn' + (fee.type === 'percent' ? ' active' : '')} onClick={() => setFee(activeFinKind, fk.key, { type: 'percent' })}>%</button>
                     <button className={'seg-btn' + (fee.type === 'fixed' ? ' active' : '')} onClick={() => setFee(activeFinKind, fk.key, { type: 'fixed' })}>Фикс.</button>
@@ -765,14 +765,14 @@ function SupplierAddDrawer({ open, onClose, onCreated }) {
               );
             })}
           </div>
-        ) : <div style={{ fontSize: 12.5, color: 'var(--muted)', marginTop: 10 }}>Выберите вид услуг выше, чтобы настроить сборы по каждому виду отдельно.</div>}
+        ) : <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 10 }}>Выберите вид услуг выше, чтобы настроить сборы по каждому виду отдельно.</div>}
       </SupSection>
 
       {/* ---- Поддерживаемые услуги ---- */}
       <SupSection icon="check" title="Поддерживаемые услуги" sub="Какие операции доступны через этого поставщика">
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px 24px' }}>
           {SUP_OPS.map((op) => (
-            <label key={op} style={{ display: 'inline-flex', alignItems: 'center', gap: 8, cursor: 'pointer', fontSize: 13.5, color: 'var(--body)' }}>
+            <label key={op} style={{ display: 'inline-flex', alignItems: 'center', gap: 8, cursor: 'pointer', fontSize: 13, color: 'var(--body)' }}>
               <Checkbox on={!!f.ops[op]} onChange={() => setF((p) => ({ ...p, ops: { ...p.ops, [op]: !p.ops[op] } }))} />{op}
             </label>
           ))}
@@ -800,7 +800,7 @@ function SupplierAddDrawer({ open, onClose, onCreated }) {
               <Radio on={f.automation === a.key} onChange={() => set('automation')(a.key)} />
               <div style={{ flex: 1 }}>
                 <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--ink)' }}>{a.label}</div>
-                <div style={{ fontSize: 12.5, color: 'var(--muted)' }}>{a.hint}</div>
+                <div style={{ fontSize: 12, color: 'var(--muted)' }}>{a.hint}</div>
               </div>
             </button>
           ))}
@@ -812,7 +812,7 @@ function SupplierAddDrawer({ open, onClose, onCreated }) {
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8, maxWidth: 420 }}>
           {SUP_PRIORITY_SERVICES.map((svc) => (
             <div key={svc} style={{ display: 'flex', alignItems: 'center', gap: 12, opacity: f.kinds.includes(svc) || !f.kinds.length ? 1 : .45 }}>
-              <span style={{ flex: 1, fontSize: 13.5, color: 'var(--body)' }}>Приоритет по: {svc}</span>
+              <span style={{ flex: 1, fontSize: 13, color: 'var(--body)' }}>Приоритет по: {svc}</span>
               <div style={{ width: 110 }}>
                 <Input type="number" min="1" placeholder="—" value={f.searchPriority[svc] != null ? f.searchPriority[svc] : ''}
                   onChange={(e) => setF((p) => ({ ...p, searchPriority: { ...p.searchPriority, [svc]: e.target.value === '' ? null : Math.max(1, parseInt(e.target.value) || 1) } }))} />

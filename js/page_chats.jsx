@@ -58,7 +58,7 @@ function chatRecipients(orderNo, extraThreads) {
 function ChannelBadge({ channel, sm }) {
   if (sm) {
     const tone = CHAT_CHANNEL_TONE[channel] || 'gray';
-    return <span className={'pill pill-' + tone} style={{ height: 18, padding: '0 7px', fontSize: 10.5, flexShrink: 0 }}>{channel}</span>;
+    return <span className={'pill pill-' + tone} style={{ height: 18, padding: '0 7px', fontSize: 11, flexShrink: 0 }}>{channel}</span>;
   }
   return <Pill tone={CHAT_CHANNEL_TONE[channel] || 'gray'}>{channel}</Pill>;
 }
@@ -93,8 +93,8 @@ function ChatThread({ thread, embedded, onOpenOrder, onOpenService, initChannel,
   // «Кому» — switch which contact of this order the composer is writing to (client / operator / supplier / admin)
   const recipientPicker = recipients && onSwitchThread && (
     <ActionMenu trigger={
-      <button className="chip" style={{ height: 32, fontSize: 12.5, padding: '0 11px' }} title="Выбрать получателя">
-        <Icon name="users" style={{ width: 13, height: 13 }} />Кому: {recipientLabel(thread)}<Icon name="chevDown" style={{ width: 13, height: 13 }} />
+      <button className="chip" style={{ height: 32, fontSize: 12, padding: '0 11px' }} title="Выбрать получателя">
+        <Icon name="users" style={{ width: 14, height: 14 }} />Кому: {recipientLabel(thread)}<Icon name="chevDown" style={{ width: 14, height: 14 }} />
       </button>
     } items={recipients.map((r) => ({
       icon: r.isAdmin ? 'user' : chatTypeMeta(r.type).icon,
@@ -125,7 +125,7 @@ function ChatThread({ thread, embedded, onOpenOrder, onOpenService, initChannel,
             {status && <Pill tone={(typeof ORDER_STATUS !== 'undefined' && ORDER_STATUS[status]) || 'blue'}>{status}</Pill>}
             <ChannelBadge channel={thread.channel} />
             <Pill tone={thread.connectionStatus === 'Подключено' ? 'green' : 'red'}>{thread.connectionStatus}</Pill>
-            <span style={{ fontSize: 12.5, color: 'var(--muted)' }}>{thread.name} · отв. {thread.responsibleOperator} · {(thread.participants || []).length} уч.</span>
+            <span style={{ fontSize: 12, color: 'var(--muted)' }}>{thread.name} · отв. {thread.responsibleOperator} · {(thread.participants || []).length} уч.</span>
             <div style={{ flex: 1 }} />
             {recipientPicker}
             <button className="btn btn-secondary btn-icon btn-sm" title="Создать задачу" onClick={() => toast('Создание задачи по чату', 'info')}><Icon name="clipboard" /></button>
@@ -161,7 +161,7 @@ function ChatThread({ thread, embedded, onOpenOrder, onOpenService, initChannel,
                 {!me && m.author && thread.type !== 'client' && <div className="msg-author">{m.author}</div>}
                 {svc && <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12, fontWeight: 600, color: 'var(--blue)', background: 'var(--blue-soft)', borderRadius: 8, padding: '3px 8px', marginBottom: 6 }}><Icon name={(SERVICE_KIND[svc.kind] || {}).icon || 'route'} style={{ width: 12, height: 12 }} />{svc.kind} · {svc.title}</div>}
                 {m.attach
-                  ? <div className="chat-attach" onClick={() => toast('Скачивание ' + m.attach.name, 'info')}><span className="ic"><Icon name="paperclip" /></span><div><div style={{ fontWeight: 600, fontSize: 13.5 }}>{m.attach.name}</div><div style={{ fontSize: 12, color: 'var(--muted)' }}>{m.attach.size}</div></div><Icon name="download" style={{ width: 16, height: 16, color: 'var(--muted-2)' }} /></div>
+                  ? <div className="chat-attach" onClick={() => toast('Скачивание ' + m.attach.name, 'info')}><span className="ic"><Icon name="paperclip" /></span><div><div style={{ fontWeight: 600, fontSize: 13 }}>{m.attach.name}</div><div style={{ fontSize: 12, color: 'var(--muted)' }}>{m.attach.size}</div></div><Icon name="download" style={{ width: 16, height: 16, color: 'var(--muted-2)' }} /></div>
                   : <span>{chatText(m.text)}</span>}
                 <div className="msg-time">{m.time}{me && <Icon name="check" style={{ width: 14, height: 14, color: m.read ? '#2bb96a' : 'var(--muted)' }} />}</div>
               </div>
@@ -173,14 +173,14 @@ function ChatThread({ thread, embedded, onOpenOrder, onOpenService, initChannel,
       {/* composer */}
       <div style={{ padding: '8px 14px', borderTop: '1px solid var(--line)' }}>
         {linked && (() => { const s = chatServiceById(linked); return (
-          <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, fontSize: 12.5, fontWeight: 600, color: 'var(--ink)', background: 'var(--surface-2)', border: '1px solid var(--line)', borderRadius: 999, padding: '5px 10px', marginBottom: 6 }}>
-            <Icon name={(SERVICE_KIND[s.kind] || {}).icon || 'route'} style={{ width: 13, height: 13, color: 'var(--blue)' }} />{s.kind} · {s.title}
-            <button className="icon-btn btn-sm" style={{ width: 20, height: 20 }} onClick={() => setLinked(null)}><Icon name="x" style={{ width: 13, height: 13 }} /></button>
+          <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, fontSize: 12, fontWeight: 600, color: 'var(--ink)', background: 'var(--surface-2)', border: '1px solid var(--line)', borderRadius: 999, padding: '5px 10px', marginBottom: 6 }}>
+            <Icon name={(SERVICE_KIND[s.kind] || {}).icon || 'route'} style={{ width: 14, height: 14, color: 'var(--blue)' }} />{s.kind} · {s.title}
+            <button className="icon-btn btn-sm" style={{ width: 20, height: 20 }} onClick={() => setLinked(null)}><Icon name="x" style={{ width: 14, height: 14 }} /></button>
           </div>
         ); })()}
         <div className="trip-toggle" style={{ display: 'inline-flex', marginBottom: 6 }}>
           <button className={sub === 'message' ? 'on' : ''} onClick={() => setSub('message')}>Сообщение</button>
-          <button className={sub === 'internal' ? 'on' : ''} onClick={() => setSub('internal')}><Icon name="lock" style={{ width: 13, height: 13, verticalAlign: -2, marginRight: 4 }} />Внутренний комментарий</button>
+          <button className={sub === 'internal' ? 'on' : ''} onClick={() => setSub('internal')}><Icon name="lock" style={{ width: 14, height: 14, verticalAlign: -2, marginRight: 4 }} />Внутренний комментарий</button>
         </div>
         <div className="search" style={{ width: '100%', minWidth: 0 }}>
           <button className="icon-btn" onClick={attach} title="Прикрепить"><Icon name="paperclip" /></button>
@@ -235,11 +235,11 @@ function ChatInfoPanel({ thread, onOpenOrder, onOpenService }) {
       <div className="card" style={{ padding: '10px 12px' }}>
         <h3 className="card-title" style={{ fontSize: 13, marginBottom: 3 }}>Информация о чате</h3>
         <div className="kv">
-          <div className="kv-row" style={{ padding: '7px 0' }}><span className="k" style={{ fontSize: 12.5 }}>Тип чата</span><span className="v" style={{ fontSize: 12.5 }}>{tMeta.label}</span></div>
-          <div className="kv-row" style={{ padding: '7px 0' }}><span className="k" style={{ fontSize: 12.5 }}>Канал связи</span><span className="v"><ChannelBadge channel={thread.channel} sm /></span></div>
-          <div className="kv-row" style={{ padding: '7px 0' }}><span className="k" style={{ fontSize: 12.5 }}>Подключение</span><span className="v" style={{ fontSize: 12.5, color: thread.connectionStatus === 'Подключено' ? 'var(--green)' : 'var(--red)' }}>{thread.connectionStatus}</span></div>
-          <div className="kv-row" style={{ padding: '7px 0' }}><span className="k" style={{ fontSize: 12.5 }}>Создан</span><span className="v" style={{ fontSize: 12.5 }}>{thread.createdAt}</span></div>
-          <div className="kv-row" style={{ padding: '7px 0' }}><span className="k" style={{ fontSize: 12.5 }}>Ответственный</span><span className="v" style={{ fontSize: 12.5 }}>{thread.responsibleOperator}</span></div>
+          <div className="kv-row" style={{ padding: '7px 0' }}><span className="k" style={{ fontSize: 12 }}>Тип чата</span><span className="v" style={{ fontSize: 12 }}>{tMeta.label}</span></div>
+          <div className="kv-row" style={{ padding: '7px 0' }}><span className="k" style={{ fontSize: 12 }}>Канал связи</span><span className="v"><ChannelBadge channel={thread.channel} sm /></span></div>
+          <div className="kv-row" style={{ padding: '7px 0' }}><span className="k" style={{ fontSize: 12 }}>Подключение</span><span className="v" style={{ fontSize: 12, color: thread.connectionStatus === 'Подключено' ? 'var(--green)' : 'var(--red)' }}>{thread.connectionStatus}</span></div>
+          <div className="kv-row" style={{ padding: '7px 0' }}><span className="k" style={{ fontSize: 12 }}>Создан</span><span className="v" style={{ fontSize: 12 }}>{thread.createdAt}</span></div>
+          <div className="kv-row" style={{ padding: '7px 0' }}><span className="k" style={{ fontSize: 12 }}>Ответственный</span><span className="v" style={{ fontSize: 12 }}>{thread.responsibleOperator}</span></div>
         </div>
       </div>
 
@@ -252,7 +252,7 @@ function ChatInfoPanel({ thread, onOpenOrder, onOpenService }) {
         {shownPax.map((p, i) => (
           <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
             <Avatar name={p.name} size={25} />
-            <div style={{ flex: 1, minWidth: 0 }}><div style={{ fontWeight: 600, fontSize: 12.5, color: 'var(--ink)' }}>{p.name}</div><div style={{ fontSize: 11, color: 'var(--muted)' }}>{p.role}</div></div>
+            <div style={{ flex: 1, minWidth: 0 }}><div style={{ fontWeight: 600, fontSize: 12, color: 'var(--ink)' }}>{p.name}</div><div style={{ fontSize: 11, color: 'var(--muted)' }}>{p.role}</div></div>
           </div>
         ))}
       </div>
@@ -298,7 +298,7 @@ function ChatsNav({ threads, activeId, onSelect, search, setSearch, mode, setMod
             <span style={{ fontWeight: 600, fontSize: 14, color: 'var(--ink)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', display: 'flex', alignItems: 'center', gap: 5 }}>
               {t.pinned && <Icon name="star" style={{ width: 12, height: 12, color: 'var(--amber)' }} />}{t.name}
             </span>
-            <span style={{ fontSize: 11.5, color: 'var(--muted-2)', whiteSpace: 'nowrap', flexShrink: 0 }}>№{t.order}</span>
+            <span style={{ fontSize: 12, color: 'var(--muted-2)', whiteSpace: 'nowrap', flexShrink: 0 }}>№{t.order}</span>
           </div>
           <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, alignItems: 'center', marginTop: 5 }}>
             <span style={{ fontSize: 13, color: 'var(--muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: 6, minWidth: 0 }}>
@@ -325,7 +325,7 @@ function ChatsNav({ threads, activeId, onSelect, search, setSearch, mode, setMod
         {mode === 'byType' && (
           <div style={{ marginTop: 7 }}>
             <ActionMenu trigger={
-              <button className="chip ghost" style={{ height: 30, fontSize: 12.5, width: '100%', justifyContent: 'space-between' }}>
+              <button className="chip ghost" style={{ height: 30, fontSize: 12, width: '100%', justifyContent: 'space-between' }}>
                 <span style={{ display: 'flex', alignItems: 'center', gap: 6, overflow: 'hidden', textOverflow: 'ellipsis' }}>
                   {TYPE_FILTERS.find((f) => f.key === typeFilter).label}
                   <span style={{ fontWeight: 700, color: 'var(--blue)' }}>{typeFilter === 'all' ? searched.length : typeCount(typeFilter)}</span>
@@ -350,7 +350,7 @@ function ChatsNav({ threads, activeId, onSelect, search, setSearch, mode, setMod
               const s = chatServiceById(sid);
               return (
                 <div key={sid} style={{ marginBottom: 6 }}>
-                  <div style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--ink)', padding: '8px 6px 4px' }}>{s ? s.kind + ' · ' + s.title : 'Без привязки к услуге'}</div>
+                  <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--ink)', padding: '8px 6px 4px' }}>{s ? s.kind + ' · ' + s.title : 'Без привязки к услуге'}</div>
                   {groups[sid].map(Row)}
                 </div>
               );

@@ -142,12 +142,12 @@ function BookingWizard({ order, services, draft, onClose, onComplete, onSaveDraf
               <div className="grid-2" style={{ marginBottom: 22 }}>
                 <div className={'bw-method' + (method === 'ind' ? ' sel' : '')} onClick={() => setMethod('ind')}>
                   <span className="mi"><Icon name="user" /></span>
-                  <div><div style={{ fontWeight: 700, color: 'var(--ink)', fontSize: 15.5 }}>Индивидуальное бронирование</div>
+                  <div><div style={{ fontWeight: 700, color: 'var(--ink)', fontSize: 15 }}>Индивидуальное бронирование</div>
                     <div style={{ fontSize: 13, color: 'var(--muted)', marginTop: 4 }}>Автоматическая отправка запросов поставщикам по каждой услуге</div></div>
                 </div>
                 <div className={'bw-method' + (method === 'group' ? ' sel' : '')} onClick={() => setMethod('group')}>
                   <span className="mi"><Icon name="users" /></span>
-                  <div><div style={{ fontWeight: 700, color: 'var(--ink)', fontSize: 15.5 }}>Групповой запрос</div>
+                  <div><div style={{ fontWeight: 700, color: 'var(--ink)', fontSize: 15 }}>Групповой запрос</div>
                     <div style={{ fontSize: 13, color: 'var(--muted)', marginTop: 4 }}>Единый запрос на группу — ручное подтверждение поставщиком</div></div>
                 </div>
               </div>
@@ -174,7 +174,7 @@ function BookingWizard({ order, services, draft, onClose, onComplete, onSaveDraf
             <Button variant="secondary" size="sm" icon="chat" onClick={() => setSupportOpen(true)}>Написать в поддержку</Button>
             <Button variant="secondary" size="sm" icon="clock" onClick={() => setHistOpen(true)}>История запросов</Button>
           </div>
-          <div style={{ color: 'var(--muted)', fontSize: 13.5, marginBottom: 16 }}>Тайм-лимиты идут по каждой услуге. Продлите лимит или свяжитесь с поставщиком, чтобы ускорить ответ.</div>
+          <div style={{ color: 'var(--muted)', fontSize: 13, marginBottom: 16 }}>Тайм-лимиты идут по каждой услуге. Продлите лимит или свяжитесь с поставщиком, чтобы ускорить ответ.</div>
           {services.map((s, i) => { const v = svcView(s, i); const wait = v.tone === 'amber'; return (
             <BwSvc key={s.id} s={s} status={v.status} tone={v.tone}
               right={<div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
@@ -197,7 +197,7 @@ function BookingWizard({ order, services, draft, onClose, onComplete, onSaveDraf
       case 2: return (
         <div>
           <div className="section-title" style={{ fontSize: 18, marginBottom: 6 }}>Подтверждение услуг</div>
-          <div style={{ color: 'var(--muted)', fontSize: 13.5, marginBottom: 14 }}>Стоимость зафиксирована по тайм-лимиту. КП формируется с фиксированными суммами для согласования с клиентом.</div>
+          <div style={{ color: 'var(--muted)', fontSize: 13, marginBottom: 14 }}>Стоимость зафиксирована по тайм-лимиту. КП формируется с фиксированными суммами для согласования с клиентом.</div>
           {services.map((s) => <BwSvc key={s.id} s={s} status="Подтверждено" tone="green" />)}
           <div className="section-title" style={{ fontSize: 16, margin: '22px 0 6px', display: 'flex', alignItems: 'center', gap: 8 }}>
             КП с фиксированными суммами <Pill tone="green">Цена зафиксирована</Pill>
@@ -207,7 +207,7 @@ function BookingWizard({ order, services, draft, onClose, onComplete, onSaveDraf
             {[['Базовый вариант', total, false], ['Расширенный вариант', total + 61000, true]].map(([title, sum, rec]) => (
               <div key={title} className={'card card-pad' + (rec ? '' : '')} style={{ border: rec ? '1px solid var(--blue)' : null, boxShadow: rec ? '0 0 0 2px var(--blue-soft)' : null }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
-                  <div style={{ fontWeight: 700, color: 'var(--ink)', fontSize: 15.5 }}>{title}</div>
+                  <div style={{ fontWeight: 700, color: 'var(--ink)', fontSize: 15 }}>{title}</div>
                   {rec && <Pill tone="blue">Рекомендуем</Pill>}
                 </div>
                 {services.map((s) => <div key={s.id} className="kv-row"><span className="k">{s.title}</span><span className="v">{ocMoney(s.sum, s.currency)}</span></div>)}
@@ -241,8 +241,8 @@ function BookingWizard({ order, services, draft, onClose, onComplete, onSaveDraf
           <div className="card">
             <div className="bw-done-card">
               <div className="bw-done-ic"><Icon name="check" /></div>
-              <h2 style={{ fontSize: 24, fontWeight: 800, color: 'var(--ink)', margin: '0 0 6px' }}>Заказ успешно завершён</h2>
-              <div style={{ color: 'var(--muted)', fontSize: 14.5 }}>Все услуги забронированы, выписаны и подтверждены</div>
+              <h2 style={{ fontSize: 24, fontWeight: 700, color: 'var(--ink)', margin: '0 0 6px' }}>Заказ успешно завершён</h2>
+              <div style={{ color: 'var(--muted)', fontSize: 14 }}>Все услуги забронированы, выписаны и подтверждены</div>
               <div className="grid-4" style={{ marginTop: 22, textAlign: 'left' }}>
                 {[['Номер заказа', order && order.no ? '№ ' + order.no : '№ 51181'], ['Сумма заказа', bwMoney(total + fee)], ['Услуг', services.length], ['Способ', method === 'group' ? 'Групповой' : 'Индивидуальный']].map(([l, v]) => (
                   <div className="stat-card" key={l}><div className="s-label">{l}</div><div className="s-value" style={{ fontSize: 20 }}>{v}</div></div>

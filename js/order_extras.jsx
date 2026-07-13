@@ -59,7 +59,7 @@ function PassportModal({ passenger, participants, onClose }) {
           <button key={d.key} onClick={() => setDocType(d.key)}
             style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '13px 15px', borderRadius: 13, border: '1px solid ' + (docType === d.key ? 'var(--blue)' : 'var(--field-line)'), background: docType === d.key ? 'var(--blue-soft)' : '#fff', cursor: 'pointer', textAlign: 'left' }}>
             <Icon name={d.icon} style={{ width: 20, height: 20, color: 'var(--blue)' }} />
-            <span style={{ flex: 1, fontSize: 14.5, fontWeight: 500, color: 'var(--ink)' }}>{d.label}</span>
+            <span style={{ flex: 1, fontSize: 14, fontWeight: 500, color: 'var(--ink)' }}>{d.label}</span>
             <span className={'radio' + (docType === d.key ? ' on' : '')} />
           </button>
         ))}
@@ -77,7 +77,7 @@ function PassportModal({ passenger, participants, onClose }) {
             <span className={'radio' + (activePax === i ? ' on' : '')} />
           </button>
         ))}
-        {filtered.length === 0 && <div style={{ color: 'var(--muted)', fontSize: 13.5, gridColumn: '1 / -1' }}>Пассажиры не найдены</div>}
+        {filtered.length === 0 && <div style={{ color: 'var(--muted)', fontSize: 13, gridColumn: '1 / -1' }}>Пассажиры не найдены</div>}
       </div>
 
       {/* скан документа */}

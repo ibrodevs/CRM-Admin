@@ -44,7 +44,7 @@ function StatusControl({ status, onChange }) {
   return (
     <ActionMenu trigger={
       <button style={{ border: 'none', background: 'none', cursor: 'pointer', padding: 0, display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-        <Pill tone={ORDER_STATUS[status]}>{status}</Pill><Icon name="chevDown" style={{ width: 15, height: 15, color: 'var(--muted-2)' }} />
+        <Pill tone={ORDER_STATUS[status]}>{status}</Pill><Icon name="chevDown" style={{ width: 16, height: 16, color: 'var(--muted-2)' }} />
       </button>
     } items={opts.map((s) => ({ icon: status === s ? 'check' : null, label: s, onClick: () => onChange(s) }))} />
   );
@@ -198,7 +198,7 @@ function OrderAside({ order, status, onStatusChange, services, participants, req
             <div><div className="tt">{t.text}</div><div className={'td' + (t.urgent ? ' urgent' : '')}>{t.due}</div></div>
           </div>
         ))}
-        <button onClick={onOpenTasks} style={{ marginTop: 8, border: 'none', background: 'none', padding: 0, color: 'var(--blue)', fontWeight: 600, fontSize: 13.5, cursor: 'pointer' }}>Все дедлайны →</button>
+        <button onClick={onOpenTasks} style={{ marginTop: 8, border: 'none', background: 'none', padding: 0, color: 'var(--blue)', fontWeight: 600, fontSize: 13, cursor: 'pointer' }}>Все дедлайны →</button>
       </div>
 
       <div className="card card-pad">
@@ -218,7 +218,7 @@ function ReassignOperatorDrawer({ open, current, onClose, onPick }) {
   return (
     <Drawer open={open} onClose={onClose} title="Ответственный оператор"
       footer={<Button variant="secondary" style={{ width: '100%' }} onClick={onClose}>Закрыть</Button>}>
-      <div style={{ color: 'var(--muted)', fontSize: 13.5, marginBottom: 14 }}>Выберите сотрудника, ответственного за работу над заказом.</div>
+      <div style={{ color: 'var(--muted)', fontSize: 13, marginBottom: 14 }}>Выберите сотрудника, ответственного за работу над заказом.</div>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
         {OPERATORS.map((op) => {
           const sel = op === current;
@@ -329,7 +329,7 @@ function TabClients({ order, onOpenChat }) {
       <div className="card card-pad">
         <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 18 }}>
           <Avatar name={order.client} size={48} />
-          <div style={{ flex: 1 }}><div style={{ fontWeight: 700, fontSize: 16, color: 'var(--ink)' }}>{order.client}</div><div style={{ color: 'var(--muted)', fontSize: 13.5 }}>Заказчик · Компания</div></div>
+          <div style={{ flex: 1 }}><div style={{ fontWeight: 700, fontSize: 16, color: 'var(--ink)' }}>{order.client}</div><div style={{ color: 'var(--muted)', fontSize: 13 }}>Заказчик · Компания</div></div>
           <Pill tone="green">Активный</Pill>
         </div>
         <div className="kv">
@@ -346,7 +346,7 @@ function TabClients({ order, onOpenChat }) {
           footer={<Button variant="secondary" style={{ width: '100%' }} onClick={() => setCardOpen(false)}>Закрыть</Button>}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 18 }}>
             <Avatar name={order.client} size={48} />
-            <div><div style={{ fontWeight: 700, fontSize: 16, color: 'var(--ink)' }}>{order.client}</div><div style={{ color: 'var(--muted)', fontSize: 13.5 }}>Заказчик · Компания</div></div>
+            <div><div style={{ fontWeight: 700, fontSize: 16, color: 'var(--ink)' }}>{order.client}</div><div style={{ color: 'var(--muted)', fontSize: 13 }}>Заказчик · Компания</div></div>
           </div>
           <div className="kv">
             {clientRows.map(([k, v], i) => (<div className="kv-row" key={i}><span className="k">{k}</span><span className="v">{v}</span></div>))}
@@ -373,12 +373,12 @@ function DocCell({ p }) {
   return (
     <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10 }}>
       <span className="oc-svc-ic" style={{ background: k.color, width: 30, height: 30, borderRadius: 9, flex: '0 0 30px' }}>
-        <Icon name={k.icon} style={{ width: 15, height: 15 }} />
+        <Icon name={k.icon} style={{ width: 16, height: 16 }} />
       </span>
       <div>
         <div style={{ fontWeight: 600, color: 'var(--ink)' }}>{p.docType}</div>
-        <div style={{ fontSize: 12.5, color: 'var(--muted)' }}>№ {p.docNo}</div>
-        {p.docExpiry && <div style={{ fontSize: 12.5, color: 'var(--muted)' }}>до {p.docExpiry}</div>}
+        <div style={{ fontSize: 12, color: 'var(--muted)' }}>№ {p.docNo}</div>
+        {p.docExpiry && <div style={{ fontSize: 12, color: 'var(--muted)' }}>до {p.docExpiry}</div>}
       </div>
     </div>
   );
@@ -411,7 +411,7 @@ function PaxGroupCard({ index, name, members, onPassport }) {
           <span className="pxg-num">{i + 1}</span>
           <Avatar name={p.name} size={30} />
           <div style={{ flex: 1, minWidth: 0 }}>
-            <div className="nm">{p.name} {p.lead && <span className="pill pill-blue" style={{ marginLeft: 4, height: 20, padding: '0 8px', fontSize: 11.5 }}>Лид</span>}</div>
+            <div className="nm">{p.name} {p.lead && <span className="pill pill-blue" style={{ marginLeft: 4, height: 20, padding: '0 8px', fontSize: 12 }}>Лид</span>}</div>
             <div className="mt">{p.role} · {p.doc}</div>
           </div>
           <Pill tone={p.docStatus === 'check' ? 'amber' : 'green'}>{p.docStatus === 'check' ? 'Требует проверки' : 'Без ошибок'}</Pill>
@@ -439,7 +439,7 @@ function TabParticipants({ list, isGroup, groups, fresh, onPassport, onAdd }) {
       {fresh && (
         <div className="card card-pad" style={{ marginBottom: 16, display: 'flex', alignItems: 'center', gap: 12, borderLeft: '4px solid var(--blue)' }}>
           <Icon name="users" style={{ width: 20, height: 20, color: 'var(--blue)' }} />
-          <div style={{ flex: 1, fontSize: 13.5, color: 'var(--body)' }}>
+          <div style={{ flex: 1, fontSize: 13, color: 'var(--body)' }}>
             <b style={{ color: 'var(--ink)' }}>Новый заказ.</b> Добавьте участников и их документы здесь — это нужно для выписки билетов и проверки виз.
           </div>
         </div>
@@ -449,7 +449,7 @@ function TabParticipants({ list, isGroup, groups, fresh, onPassport, onAdd }) {
           <span className="oc-svc-ic" style={{ background: 'var(--blue)' }}><Icon name="users" /></span>
           <div style={{ flex: 1 }}>
             <div style={{ fontWeight: 700, color: 'var(--ink)' }}>{list.length} пассажиров · Групповая поездка</div>
-            <div style={{ fontSize: 13.5, color: errCount ? 'var(--amber)' : 'var(--green)', marginTop: 2 }}>
+            <div style={{ fontSize: 13, color: errCount ? 'var(--amber)' : 'var(--green)', marginTop: 2 }}>
               Поимённый список: {list.length - errCount} без ошибок{errCount ? `, ${errCount} требуют проверки` : ''}
             </div>
           </div>
@@ -629,7 +629,7 @@ function TabServices({ orderNo, services, participants, requestType, onOpenAvia,
   return (
     <div className="fade-in">
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16, flexWrap: 'wrap', gap: 12 }}>
-        <h3 className="card-title" style={{ fontSize: 19 }}>Добавленные услуги</h3>
+        <h3 className="card-title" style={{ fontSize: 18 }}>Добавленные услуги</h3>
         <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
           {!selMode && <Button variant="secondary" icon="template" onClick={() => setSelMode(true)}>Собрать КП из карточек</Button>}
           {selMode && <Button variant="secondary" onClick={() => { setSelMode(false); setSel(new Set()); }}>Отмена</Button>}
@@ -637,7 +637,7 @@ function TabServices({ orderNo, services, participants, requestType, onOpenAvia,
           <Button icon="plus" onClick={onOpenPicker}>Добавить услугу</Button>
         </div>
       </div>
-      {selMode && <div style={{ fontSize: 13, color: 'var(--muted)', marginBottom: 12, display: 'flex', alignItems: 'center', gap: 6 }}><Icon name="template" style={{ width: 15, height: 15 }} />Отметьте карточки услуг, которые нужно объединить в одно коммерческое предложение.</div>}
+      {selMode && <div style={{ fontSize: 13, color: 'var(--muted)', marginBottom: 12, display: 'flex', alignItems: 'center', gap: 6 }}><Icon name="template" style={{ width: 16, height: 16 }} />Отметьте карточки услуг, которые нужно объединить в одно коммерческое предложение.</div>}
 
       <div className="oc-svc-filters" style={{ marginBottom: 16 }}>
         {SVC_FILTER_CHIPS.filter((c) => !c.kind || counts[c.kind]).map((c) => (
@@ -996,7 +996,7 @@ function FlightFarePanel({ route, paxCount, cabin, pax = [], onClose, onAdd, onP
             <div key={f.id} className={'fare-card' + (sel ? ' sel' : '')} onClick={() => setFareId(f.id)}>
               {f.recommended && <span className="fc-badge">Рекомендуем</span>}
               <div className="fc-name">{f.name}
-                <button type="button" className="fc-info" title="О тарифе" onClick={(e) => { e.stopPropagation(); setInfoFare(f); }}><Icon name="alertCircle" style={{ width: 15, height: 15 }} /></button>
+                <button type="button" className="fc-info" title="О тарифе" onClick={(e) => { e.stopPropagation(); setInfoFare(f); }}><Icon name="alertCircle" style={{ width: 16, height: 16 }} /></button>
               </div>
               <div className="fc-price">{u ? '+ ' + money(u, 'USD') : 'без доплаты'}<small>{u ? ' / пассажир' : ''}</small></div>
               {f.features.map((ft, k) => (
@@ -1055,7 +1055,7 @@ function FareInfoPanel({ fare, onClose, onSelect }) {
         <Button variant="secondary" style={{ flex: 1 }} onClick={onClose}>Закрыть</Button>
         <Button style={{ flex: 1 }} icon="check" onClick={onSelect}>Выбрать этот тариф</Button>
       </>}>
-      <div style={{ fontSize: 22, fontWeight: 800, color: 'var(--ink)', marginBottom: 10 }}>{u ? '+ ' + money(u, 'USD') : 'без доплаты'}<span style={{ fontSize: 13, fontWeight: 500, color: 'var(--muted)' }}>{u ? ' / пассажир' : ''}</span></div>
+      <div style={{ fontSize: 22, fontWeight: 700, color: 'var(--ink)', marginBottom: 10 }}>{u ? '+ ' + money(u, 'USD') : 'без доплаты'}<span style={{ fontSize: 13, fontWeight: 500, color: 'var(--muted)' }}>{u ? ' / пассажир' : ''}</span></div>
       {fare.desc && <p style={{ color: 'var(--muted)', lineHeight: 1.55, margin: '0 0 8px' }}>{fare.desc}</p>}
       <div className="ap-sc-title" style={{ marginTop: 14 }}>Что включено</div>
       {fare.features.map((ft, k) => (<div key={k} className={'fare-feat ' + (ft.ok ? 'ok' : 'no')}><Icon name={ft.ok ? 'check' : 'x'} />{ft.text}</div>))}
@@ -1093,8 +1093,8 @@ function AviaListTable({ rows }) {
             const leg = r.leg; const air = AIRLINES[r.airline] || { name: r.airline };
             return (
               <tr key={r.id} style={{ cursor: 'pointer' }} onClick={r.view}>
-                <td><span style={{ fontWeight: 700 }}>{leg.dep}</span> <span style={{ color: 'var(--muted-2)', fontSize: 12.5 }}>{leg.from}</span></td>
-                <td><span style={{ fontWeight: 700 }}>{leg.arr}</span> <span style={{ color: 'var(--muted-2)', fontSize: 12.5 }}>{leg.to}</span>{r.roundtrip && <span style={{ color: 'var(--blue)', fontSize: 12 }}> · +обр</span>}</td>
+                <td><span style={{ fontWeight: 700 }}>{leg.dep}</span> <span style={{ color: 'var(--muted-2)', fontSize: 12 }}>{leg.from}</span></td>
+                <td><span style={{ fontWeight: 700 }}>{leg.arr}</span> <span style={{ color: 'var(--muted-2)', fontSize: 12 }}>{leg.to}</span>{r.roundtrip && <span style={{ color: 'var(--blue)', fontSize: 12 }}> · +обр</span>}</td>
                 <td><span style={{ display: 'flex', alignItems: 'center', gap: 8, whiteSpace: 'nowrap' }}><AirlineLogo code={r.airline} size="sm" />{air.name}</span></td>
                 <td style={{ whiteSpace: 'nowrap' }}>{r.flightNo || '—'}</td>
                 <td style={{ whiteSpace: 'nowrap' }}>{leg.dur}</td>
@@ -1177,7 +1177,7 @@ function AviaSearchPanel({ params, setParams, paxCount, participants = [], isGro
     <div className="av-field avia-pax-field" onClick={() => setPaxPanel(true)}>
       <span className="label">Пассажиры и класс</span>
       <div className="input" style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 9 }}>
-        <Icon name="users" style={{ width: 17, height: 17, color: 'var(--muted-2)', flexShrink: 0 }} />
+        <Icon name="users" style={{ width: 18, height: 18, color: 'var(--muted-2)', flexShrink: 0 }} />
         <span style={{ flex: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{paxLabel}</span>
         <Icon name="chevDown" style={{ width: 16, height: 16, color: 'var(--muted-2)' }} />
       </div>
@@ -1248,7 +1248,7 @@ function AviaSearchPanel({ params, setParams, paxCount, participants = [], isGro
 
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, margin: '0 0 14px' }}>
         <div style={{ flex: 1 }} />
-        <span style={{ color: 'var(--muted)', fontSize: 13.5 }}>Найдено {foundCount}</span>
+        <span style={{ color: 'var(--muted)', fontSize: 13 }}>Найдено {foundCount}</span>
         {/* переключатель вида выдачи: карточки / список */}
         <div className="avia-view-toggle">
           <button className={view === 'cards' ? 'on' : ''} title="Карточки" onClick={() => setView('cards')}><Icon name="grid" style={{ width: 16, height: 16 }} />Карточки</button>
@@ -1266,7 +1266,7 @@ function AviaSearchPanel({ params, setParams, paxCount, participants = [], isGro
               <AviaListTable rows={listRows.slice(0, p.trip === 'mc' ? listRows.length : visible)} />
               {p.trip !== 'mc' && visible < listRows.length && (
                 <button className="svcf-more" onClick={() => setVisible((v) => v + 10)}>
-                  Показать ещё рейсы <Icon name="chevDown" style={{ width: 15, height: 15 }} />
+                  Показать ещё рейсы <Icon name="chevDown" style={{ width: 16, height: 16 }} />
                 </button>
               )}
             </div>
@@ -1333,7 +1333,7 @@ function AviaSearchPanel({ params, setParams, paxCount, participants = [], isGro
 
           {p.trip !== 'mc' && visible < (p.trip === 'rt' ? rtCombos.length : outOpts.length) && (
             <button className="svcf-more" onClick={() => setVisible((v) => v + 10)}>
-              Показать ещё рейсы <Icon name="chevDown" style={{ width: 15, height: 15 }} />
+              Показать ещё рейсы <Icon name="chevDown" style={{ width: 16, height: 16 }} />
             </button>
           )}
           </>)}
@@ -1461,7 +1461,7 @@ function TabFinance({ services, onAddFee }) {
         <Icon name="alertCircle" style={{ width: 22, height: 22, color: 'var(--amber)' }} />
         <div style={{ flex: 1 }}>
           <div style={{ fontWeight: 600, color: 'var(--ink)' }}>Синхронизация с 1С приостановлена</div>
-          <div style={{ color: 'var(--muted)', fontSize: 13.5 }}>Последняя успешная: 14.06 · 12:30</div>
+          <div style={{ color: 'var(--muted)', fontSize: 13 }}>Последняя успешная: 14.06 · 12:30</div>
         </div>
         <Button variant="secondary" size="sm" icon="loader" onClick={() => toast('Повторная синхронизация…', 'info')}>Повторить</Button>
       </div>
@@ -1641,7 +1641,7 @@ function OrderCard({ order, onBack, initTab, initSvcSearch, fresh, onOpenChat })
       <div className="fade-in">
         <BackRow label="К списку услуг" onBack={() => setSvcView(null)} />
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 18, flexWrap: 'wrap', gap: 12 }}>
-          <h3 className="card-title" style={{ fontSize: 19 }}>Добавить услугу / Поиск</h3>
+          <h3 className="card-title" style={{ fontSize: 18 }}>Добавить услугу / Поиск</h3>
           <ActionMenu trigger={<Button variant="secondary" size="sm" iconRight="chevDown">Недавние запросы</Button>}
             items={[{ label: 'Нет недавних запросов' }]} />
         </div>
@@ -1710,7 +1710,7 @@ function OrderCard({ order, onBack, initTab, initSvcSearch, fresh, onOpenChat })
                     <h2>Заказ № {order.no}</h2>
                     <StatusControl status={status} onChange={(s) => { setStatus(s); toast('Статус: ' + s, 'ok'); }} />
                   </div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap', fontSize: 13.5, color: 'var(--muted)' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap', fontSize: 13, color: 'var(--muted)' }}>
                     <span>Создан {order.date} · <b style={{ color: 'var(--ink)', fontWeight: 600 }}>{(participants.find((p) => p.lead) || participants[0] || {}).name || order.client}</b> · {requestType === 'Групповая' ? 'Групповая поездка' : requestType} · {aviaParams.cabin}</span>
                   </div>
                   <div style={{ flex: 1 }} />
@@ -1862,7 +1862,7 @@ function OrderEditDrawer({ open, order, status, onStatusChange, services, partic
           {/* Header */}
           <div style={{ padding: '22px 30px 0', position: 'sticky', top: 0, background: '#fff', zIndex: 3 }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              <h2 style={{ fontSize: 23, fontWeight: 700, color: 'var(--ink)', margin: 0, letterSpacing: '-.02em' }}>Редактирование заказа №{order.no}</h2>
+              <h2 style={{ fontSize: 22, fontWeight: 700, color: 'var(--ink)', margin: 0, letterSpacing: '-.02em' }}>Редактирование заказа №{order.no}</h2>
               <button type="button" className="modal-close" onClick={onClose}><Icon name="x" /></button>
             </div>
             <div className="tabs" style={{ margin: '18px 0 0' }}>
@@ -1950,7 +1950,7 @@ function OrderEditDrawer({ open, order, status, onStatusChange, services, partic
               </div>
               <div className="card card-pad">
                 <h3 className="card-title" style={{ fontSize: 16, marginBottom: 8 }}>Итого по заказу</h3>
-                <div style={{ fontSize: 26, fontWeight: 800, color: 'var(--ink)' }}>{ocMoney(fin.total)}</div>
+                <div style={{ fontSize: 26, fontWeight: 700, color: 'var(--ink)' }}>{ocMoney(fin.total)}</div>
               </div>
               <div className="card card-pad">
                 <h3 className="card-title" style={{ fontSize: 16, marginBottom: 14 }}>Состав заказа</h3>
@@ -1959,9 +1959,9 @@ function OrderEditDrawer({ open, order, status, onStatusChange, services, partic
                   const k = SERVICE_KIND[s.kind] || { icon: 'briefcase', color: 'var(--blue)' };
                   return (
                     <div key={s.id} style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
-                      <span className="oc-svc-ic" style={{ background: k.color, width: 34, height: 34, borderRadius: 10, flex: '0 0 34px' }}><Icon name={k.icon} style={{ width: 15, height: 15 }} /></span>
+                      <span className="oc-svc-ic" style={{ background: k.color, width: 34, height: 34, borderRadius: 10, flex: '0 0 34px' }}><Icon name={k.icon} style={{ width: 16, height: 16 }} /></span>
                       <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ fontWeight: 600, color: 'var(--ink)', fontSize: 13.5, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{s.title}</div>
+                        <div style={{ fontWeight: 600, color: 'var(--ink)', fontSize: 13, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{s.title}</div>
                       </div>
                       <div style={{ fontWeight: 700, color: 'var(--ink)', fontSize: 13, whiteSpace: 'nowrap' }}>{ocMoney(svcCalc(s).total, s.currency)}</div>
                     </div>

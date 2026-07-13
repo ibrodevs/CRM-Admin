@@ -32,7 +32,7 @@ function StepIndicator({ step }) {
   const pct = Math.round((step / labels.length) * 100);
   return (
     <div style={{ marginBottom: 0 }}>
-      <div style={{ fontSize: 13.5, color: 'var(--muted)', fontWeight: 500, marginBottom: 8 }}>
+      <div style={{ fontSize: 13, color: 'var(--muted)', fontWeight: 500, marginBottom: 8 }}>
         {step}. {labels[step - 1]}
       </div>
       <div style={{ height: 3, borderRadius: 999, background: 'var(--line)', overflow: 'hidden' }}>
@@ -198,22 +198,22 @@ function ServiceSection({ svcName, startDate, endDate, selectedFlight, onSelectF
       <div style={{ display: 'flex', alignItems: 'flex-end', gap: 10, marginBottom: 12, flexWrap: 'wrap' }}>
         <div>
           <div style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 4 }}>Начало</div>
-          <input className="input" style={{ height: 40, width: 108, fontSize: 13.5 }} value={startDate instanceof Date ? fmtDate(startDate) : (startDate || '21.01.26')} readOnly />
+          <input className="input" style={{ height: 40, width: 108, fontSize: 13 }} value={startDate instanceof Date ? fmtDate(startDate) : (startDate || '21.01.26')} readOnly />
         </div>
         <div>
           <div style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 4 }}>Конец</div>
-          <input className="input" style={{ height: 40, width: 108, fontSize: 13.5 }} value={endDate instanceof Date ? fmtDate(endDate) : (endDate || '01.02.26')} readOnly />
+          <input className="input" style={{ height: 40, width: 108, fontSize: 13 }} value={endDate instanceof Date ? fmtDate(endDate) : (endDate || '01.02.26')} readOnly />
         </div>
-        <button type="button" style={{ border: 'none', background: 'none', color: 'var(--muted)', fontSize: 13.5, cursor: 'pointer', paddingBottom: 2 }}>Изменить даты</button>
-        <select className="select" style={{ width: 160, height: 40, fontSize: 13.5 }}>
+        <button type="button" style={{ border: 'none', background: 'none', color: 'var(--muted)', fontSize: 13, cursor: 'pointer', paddingBottom: 2 }}>Изменить даты</button>
+        <select className="select" style={{ width: 160, height: 40, fontSize: 13 }}>
           <option value="">Выбрать класс</option>
           <option>Эконом</option><option>Бизнес</option><option>Первый</option>
         </select>
-        <select className="select" style={{ width: 130, height: 40, fontSize: 13.5 }}>
+        <select className="select" style={{ width: 130, height: 40, fontSize: 13 }}>
           <option value="">Выбрать</option>
           <option>Есть</option><option>Нет</option>
         </select>
-        <select className="select" style={{ width: 140, height: 40, fontSize: 13.5 }}>
+        <select className="select" style={{ width: 140, height: 40, fontSize: 13 }}>
           <option value="">Выбрать</option>
           <option>Прямой</option><option>С пересадкой</option>
         </select>
@@ -405,7 +405,7 @@ function OrderCreateModal({ open, onClose, onCreated }) {
           {/* Header */}
           <div style={{ padding: '22px 30px 18px', position: 'sticky', top: 0, background: '#fff', zIndex: 2, borderBottom: '1px solid var(--line)' }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              <h2 style={{ fontSize: 23, fontWeight: 700, color: 'var(--ink)', margin: 0, letterSpacing: '-.02em' }}>Создание заказа</h2>
+              <h2 style={{ fontSize: 22, fontWeight: 700, color: 'var(--ink)', margin: 0, letterSpacing: '-.02em' }}>Создание заказа</h2>
               <button type="button" className="modal-close" onClick={onClose}><Icon name="x" /></button>
             </div>
           </div>
@@ -421,8 +421,8 @@ function OrderCreateModal({ open, onClose, onCreated }) {
               <div role="button" tabIndex={0} onClick={() => setIsGroup((v) => !v)}
                 style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer', marginTop: 12, padding: '11px 13px', border: '1px solid var(--line)', borderRadius: 11, background: isGroup ? 'var(--blue-soft)' : '#fff' }}>
                 <Icon name="users" style={{ width: 18, height: 18, color: 'var(--blue)' }} />
-                <div style={{ flex: 1 }}><div style={{ fontWeight: 600, color: 'var(--ink)', fontSize: 14.5 }}>Групповая поездка</div>
-                  <div style={{ fontSize: 12.5, color: 'var(--muted)' }}>Бронирование на группу пассажиров с управлением группами</div></div>
+                <div style={{ flex: 1 }}><div style={{ fontWeight: 600, color: 'var(--ink)', fontSize: 14 }}>Групповая поездка</div>
+                  <div style={{ fontSize: 12, color: 'var(--muted)' }}>Бронирование на группу пассажиров с управлением группами</div></div>
                 <Toggle on={isGroup} onChange={setIsGroup} style={{ pointerEvents: 'none' }} />
               </div>
             </Sec>
@@ -438,7 +438,7 @@ function OrderCreateModal({ open, onClose, onCreated }) {
                         <div key={c.id} className="dropdown-item" onClick={() => { setSelClients((l) => [...l, c]); setClientQuery(''); }}>
                           <Avatar name={c.name} size={30} />
                           <span style={{ flex: 1 }}><div style={{ fontWeight: 600 }}>{c.name}</div>
-                            <div style={{ fontSize: 12.5, color: 'var(--muted)' }}>{c.phone} · {c.doc}</div></span>
+                            <div style={{ fontSize: 12, color: 'var(--muted)' }}>{c.phone} · {c.doc}</div></span>
                         </div>
                       ))}
                     </div>
@@ -478,7 +478,7 @@ function OrderCreateModal({ open, onClose, onCreated }) {
                               <span className="oce-svc-ic" style={{ width: 32, height: 32, borderRadius: 9, background: 'var(--blue-soft)', color: 'var(--blue)', display: 'flex', alignItems: 'center', justifyContent: 'center', flex: '0 0 32px' }}><Icon name="building" style={{ width: 16, height: 16 }} /></span>
                               <span style={{ flex: 1, minWidth: 0 }}>
                                 <div style={{ fontWeight: 600 }}>{c.name}</div>
-                                <div style={{ fontSize: 12.5, color: 'var(--muted)' }}>ИНН {c.inn} · {c.dir}</div>
+                                <div style={{ fontSize: 12, color: 'var(--muted)' }}>ИНН {c.inn} · {c.dir}</div>
                               </span>
                               {company.id === c.id && <Icon name="check" style={{ width: 16, height: 16, color: 'var(--blue)' }} />}
                             </div>
@@ -507,7 +507,7 @@ function OrderCreateModal({ open, onClose, onCreated }) {
                         {bal && bal.kind === 'депозит' && <Pill tone={bal.tone}>депозит {Math.round(bal.value).toLocaleString('ru-RU')} $</Pill>}
                         {bal && bal.kind === 'отсрочка' && <Pill tone={bal.tone}>долг {Math.round(bal.value).toLocaleString('ru-RU')} ${bal.overdue > 0 ? ' · просрочка' : ''}</Pill>}
                       </div>
-                      <div style={{ fontSize: 12.5, color: 'var(--body)', marginTop: 5 }}>Сборы по услугам применяются автоматически из «{feeTemplate(a.template).name}» шаблона доп. соглашения — без ручного ввода.</div>
+                      <div style={{ fontSize: 12, color: 'var(--body)', marginTop: 5 }}>Сборы по услугам применяются автоматически из «{feeTemplate(a.template).name}» шаблона доп. соглашения — без ручного ввода.</div>
                     </div>
                   );
                 })()}
@@ -623,7 +623,7 @@ function StackPanel({ title, onClose, footer, children, width }) {
     <div className="drawer-stack" onMouseDown={(e) => { if (e.target === e.currentTarget) onClose(); }}>
       <div className="drawer-stack-panel scroll" style={width ? { width } : null}>
         <div style={{ padding: '20px 26px 16px', position: 'sticky', top: 0, background: '#fff', zIndex: 2, borderBottom: '1px solid var(--line)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <h3 style={{ fontSize: 19, fontWeight: 700, color: 'var(--ink)', margin: 0 }}>{title}</h3>
+          <h3 style={{ fontSize: 18, fontWeight: 700, color: 'var(--ink)', margin: 0 }}>{title}</h3>
           <button type="button" className="modal-close" onClick={onClose}><Icon name="x" /></button>
         </div>
         <div style={{ padding: '20px 26px', flex: 1 }}>{children}</div>
@@ -672,8 +672,8 @@ function CityPickPanel({ value, onPick, onClose }) {
       {groups.map((g) => (
         <div key={g.city} style={{ marginBottom: 6 }}>
           <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, padding: '8px 12px 4px' }}>
-            <span style={{ fontWeight: 700, color: 'var(--ink)', fontSize: 14.5 }}>{g.city}</span>
-            <span style={{ fontSize: 12.5, color: 'var(--muted)' }}>{g.country}</span>
+            <span style={{ fontWeight: 700, color: 'var(--ink)', fontSize: 14 }}>{g.city}</span>
+            <span style={{ fontSize: 12, color: 'var(--muted)' }}>{g.country}</span>
           </div>
           {g.items.map((a) => (
             <div key={a.code} className="city-row" onClick={() => onPick(a.code)}>
@@ -710,8 +710,8 @@ function DocumentPanel({ client, onClose, onSave }) {
             <Icon name="download" style={{ width: 28, height: 28, color: 'var(--muted-2)' }} />
             <div style={{ marginTop: 8, fontWeight: 600, color: 'var(--ink)' }}>Перетащите файл сюда</div>
             <div style={{ margin: '10px 0' }}><Button variant="secondary" size="sm">Выбрать файл</Button></div>
-            <div style={{ fontSize: 12.5 }}>Поддерживаемые форматы: JPG, PNG, PDF</div>
-            <div style={{ fontSize: 12.5 }}>Максимальный размер файла: 10 МБ</div>
+            <div style={{ fontSize: 12 }}>Поддерживаемые форматы: JPG, PNG, PDF</div>
+            <div style={{ fontSize: 12 }}>Максимальный размер файла: 10 МБ</div>
           </div>
           {scanned && (
             <div style={{ display: 'flex', gap: 9, alignItems: 'flex-start', padding: '11px 13px', borderRadius: 11, background: 'var(--green-bg)', border: '1px solid var(--green)', marginBottom: 18 }}>
@@ -772,7 +772,7 @@ function BonusCardPanel({ client, onClose, onSave }) {
     return () => document.removeEventListener('mousedown', h);
   }, []);
   const Logo = ({ p }) => (
-    <span style={{ width: 30, height: 30, flex: '0 0 30px', borderRadius: 8, background: 'var(--surface-2)', color: 'var(--blue)', fontSize: 12, fontWeight: 800, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+    <span style={{ width: 30, height: 30, flex: '0 0 30px', borderRadius: 8, background: 'var(--surface-2)', color: 'var(--blue)', fontSize: 12, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
       {p.name.slice(0, 2).toUpperCase()}
     </span>
   );
@@ -819,7 +819,7 @@ function BonusCardPanel({ client, onClose, onSave }) {
       <div role="button" tabIndex={0} onClick={() => setAuto((v) => !v)} style={{ display: 'flex', alignItems: 'flex-start', gap: 10, cursor: 'pointer', marginTop: 12 }}>
         <Checkbox on={auto} onChange={setAuto} style={{ pointerEvents: 'none' }} />
         <span><div style={{ fontWeight: 600, color: 'var(--ink)' }}>Использовать автоматически</div>
-          <div style={{ fontSize: 12.5, color: 'var(--muted)', marginTop: 2 }}>Подставлять карту в бронированиях автоматически</div></span>
+          <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 2 }}>Подставлять карту в бронированиях автоматически</div></span>
       </div>
 
       <button type="button" onClick={() => setExtra((v) => !v)}
@@ -830,8 +830,8 @@ function BonusCardPanel({ client, onClose, onSave }) {
       {extra && <textarea className="input" rows={3} placeholder="Комментарий" style={{ resize: 'vertical', marginTop: 10 }} />}
 
       <div style={{ display: 'flex', gap: 9, alignItems: 'flex-start', padding: '11px 13px', borderRadius: 11, background: 'var(--blue-soft)', marginTop: 18 }}>
-        <Icon name="alertCircle" style={{ width: 17, height: 17, color: 'var(--blue)', flex: '0 0 17px', marginTop: 1 }} />
-        <span style={{ fontSize: 12.5, color: 'var(--body)' }}>Бонусные карты подставляются в подходящие услуги автоматически при бронировании. Их можно изменить в профиле клиента.</span>
+        <Icon name="alertCircle" style={{ width: 18, height: 18, color: 'var(--blue)', flex: '0 0 17px', marginTop: 1 }} />
+        <span style={{ fontSize: 12, color: 'var(--body)' }}>Бонусные карты подставляются в подходящие услуги автоматически при бронировании. Их можно изменить в профиле клиента.</span>
       </div>
     </StackPanel>
   );

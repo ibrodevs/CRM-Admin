@@ -57,7 +57,7 @@ function FinanceOpCard({ op, onClose, onChange }) {
         <Pill tone={SERVICE_KIND[op.source] ? SERVICE_KIND[op.source].tone : 'blue'}>{op.source}</Pill>
         <span style={{ color: 'var(--muted)' }}>{op.type}</span>
         <div style={{ flex: 1 }} />
-        <ActionMenu trigger={<button style={{ border: 'none', background: 'none', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 6 }}><Pill tone={FIN_OP_STATUS[op.status]}>{op.status}</Pill><Icon name="chevDown" style={{ width: 15, height: 15, color: 'var(--muted-2)' }} /></button>}
+        <ActionMenu trigger={<button style={{ border: 'none', background: 'none', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 6 }}><Pill tone={FIN_OP_STATUS[op.status]}>{op.status}</Pill><Icon name="chevDown" style={{ width: 16, height: 16, color: 'var(--muted-2)' }} /></button>}
           items={Object.keys(FIN_OP_STATUS).map((s) => ({ icon: op.status === s ? 'check' : null, label: s, onClick: () => setStatus(s) }))} />
       </div>
 
@@ -169,7 +169,7 @@ function FinanceRegistry({ scopeOrder, onOpenOp }) {
               </div>
             ))}
             {curs.length > 1 && (
-              <div style={{ width: '100%', fontSize: 12.5, color: 'var(--muted)', display: 'flex', alignItems: 'center', gap: 6 }}>
+              <div style={{ width: '100%', fontSize: 12, color: 'var(--muted)', display: 'flex', alignItems: 'center', gap: 6 }}>
                 <Icon name="alertCircle" style={{ width: 14, height: 14 }} />Операции заказа в разных валютах — суммы по валютам не складываются.
               </div>
             )}
@@ -347,7 +347,7 @@ function DocCard({ doc, onClose, onChange }) {
         {doc.versions.map((v) => (
           <div className="ver-row" key={v.v}>
             <span className="ver-badge">v{v.v}</span>
-            <div style={{ flex: 1 }}><div style={{ fontWeight: 600, fontSize: 14 }}>{v.note}</div><div style={{ fontSize: 12.5, color: 'var(--muted)' }}>{v.date} · {v.who}</div></div>
+            <div style={{ flex: 1 }}><div style={{ fontWeight: 600, fontSize: 14 }}>{v.note}</div><div style={{ fontSize: 12, color: 'var(--muted)' }}>{v.date} · {v.who}</div></div>
             <button className="icon-btn" onClick={() => toast('Скачивание v' + v.v, 'info')}><Icon name="download" /></button>
           </div>
         ))}
@@ -385,7 +385,7 @@ function DocPassengerGroup({ name, role, docs, onOpen, onUpload }) {
             return (
               <button key={d.no} className="doc-chip" style={{ width: 'auto' }} onClick={() => onOpen(d)}>
                 <span style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
-                  <span className="airline-logo sm" style={{ background: k.color, width: 28, height: 28, borderRadius: 7, flexShrink: 0 }}><Icon name={k.icon} style={{ width: 15, height: 15 }} /></span>
+                  <span className="airline-logo sm" style={{ background: k.color, width: 28, height: 28, borderRadius: 7, flexShrink: 0 }}><Icon name={k.icon} style={{ width: 16, height: 16 }} /></span>
                   <span style={{ display: 'flex', flexDirection: 'column', minWidth: 0, textAlign: 'left' }}>
                     <span style={{ fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{d.name}</span>
                     <span style={{ fontSize: 12, color: 'var(--muted)' }}>{d.type} · v{d.version}</span>
@@ -397,7 +397,7 @@ function DocPassengerGroup({ name, role, docs, onOpen, onUpload }) {
           })}
         </div>
       ) : (
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 12, padding: '12px 14px', border: '1px dashed var(--line)', borderRadius: 12, color: 'var(--muted)', fontSize: 13.5 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 12, padding: '12px 14px', border: '1px dashed var(--line)', borderRadius: 12, color: 'var(--muted)', fontSize: 13 }}>
           <Icon name="idcard" style={{ width: 18, height: 18, color: 'var(--muted-2)' }} />
           Документы пассажира ещё не загружены — добавьте билеты, ваучеры, визы и страховки.
         </div>
@@ -466,7 +466,7 @@ function DocUploadModal({ open, scopeOrder, participants = [], defaultParticipan
         <button type="button" className="doc-preview" onClick={pickFile}
           style={{ width: '100%', cursor: 'pointer', border: '1px dashed var(--line)', textAlign: 'center' }}>
           <Icon name={file ? k.icon : 'plus'} style={{ width: 40, height: 40 }} strokeWidth={1.4} />
-          <span style={{ fontSize: 13.5, color: file ? 'var(--ink)' : 'var(--blue)', fontWeight: 600 }}>
+          <span style={{ fontSize: 13, color: file ? 'var(--ink)' : 'var(--blue)', fontWeight: 600 }}>
             {file ? file.name : 'Выберите файл или перетащите сюда'}
           </span>
           <span style={{ fontSize: 12, color: 'var(--muted)' }}>{file ? file.size : 'PDF, JPG, PNG · до 15 МБ'}</span>
@@ -726,7 +726,7 @@ const recComputed = (p) => (Number(p.fare) || 0) + (Number(p.taxes) || 0);
 // Строка одного плеча маршрута (город → город · дата · время · рейс).
 function LegLine({ l }) {
   return (
-    <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, padding: '3px 0', fontSize: 12.5, color: 'var(--body)' }}>
+    <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, padding: '3px 0', fontSize: 12, color: 'var(--body)' }}>
       <span style={{ fontWeight: 600, color: 'var(--ink)' }}>{l.from}{l.to ? ' → ' + l.to : ''}</span>
       <span style={{ color: 'var(--muted)', whiteSpace: 'nowrap' }}>{[l.date, [l.dep, l.arr].filter(Boolean).join('–'), l.flightNo].filter(Boolean).join(' · ')}</span>
     </div>
@@ -736,7 +736,7 @@ function LegLine({ l }) {
 function RouteView({ p, isStay }) {
   if (isStay) {
     return (<div style={{ borderTop: '1px solid var(--line)', paddingTop: 8 }}>
-      <div style={{ fontWeight: 700, color: 'var(--ink)', fontSize: 12.5, marginBottom: 4 }}>Проживание</div>
+      <div style={{ fontWeight: 700, color: 'var(--ink)', fontSize: 12, marginBottom: 4 }}>Проживание</div>
       {p.legs.map((l, i) => <LegLine key={i} l={l} />)}
     </div>);
   }
@@ -750,7 +750,7 @@ function RouteView({ p, isStay }) {
   return (
     <div style={{ borderTop: '1px solid var(--line)', paddingTop: 8 }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
-        <span style={{ fontWeight: 700, color: 'var(--ink)', fontSize: 12.5 }}>Маршрут</span>
+        <span style={{ fontWeight: 700, color: 'var(--ink)', fontSize: 12 }}>Маршрут</span>
         <Pill tone="blue">{tripLabel(p)}</Pill>
       </div>
       {tt === 'roundtrip' ? (
@@ -782,23 +782,23 @@ function ReceiptPreview({ type, p }) {
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '13px 16px', borderBottom: '2px solid var(--ink)' }}>
         <span style={{ width: 34, height: 34, borderRadius: 8, background: t.color, display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}><Icon name={t.icon} style={{ width: 18, height: 18, color: '#fff' }} /></span>
         <div style={{ flex: 1 }}>
-          <div style={{ fontWeight: 800, color: 'var(--ink)', fontSize: 14 }}>{p.carrier || '—'}</div>
-          <div style={{ color: 'var(--muted)', fontSize: 11.5 }}>{t.doc}</div>
+          <div style={{ fontWeight: 700, color: 'var(--ink)', fontSize: 14 }}>{p.carrier || '—'}</div>
+          <div style={{ color: 'var(--muted)', fontSize: 12 }}>{t.doc}</div>
         </div>
         <div style={{ textAlign: 'right', color: 'var(--muted)', fontSize: 11 }}>{t.refLabel}<br /><span style={{ fontWeight: 700, color: 'var(--ink)' }}>{p.ref || '—'}</span></div>
       </div>
       <div style={{ padding: '12px 16px' }}>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '4px 16px', fontSize: 12.5, marginBottom: 10 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '4px 16px', fontSize: 12, marginBottom: 10 }}>
           {[[t.legLabel === 'Проживание' ? 'Гость' : 'Пассажир', p.passenger], [t.docNoLabel, p.ticketNo], ['Класс/тариф', [p.cls, p.fareBasis].filter((x) => x && x !== '—').join(' · ') || '—'], ['Багаж', p.baggage]].map(([k, v]) => (
             <div key={k}><span style={{ color: 'var(--muted)' }}>{k}: </span><span style={{ fontWeight: 600, color: 'var(--ink)' }}>{v || '—'}</span></div>
           ))}
         </div>
         <RouteView p={p} isStay={t.legLabel === 'Проживание'} />
-        <div style={{ borderTop: '1px solid var(--line)', marginTop: 8, paddingTop: 8, fontSize: 12.5 }}>
+        <div style={{ borderTop: '1px solid var(--line)', marginTop: 8, paddingTop: 8, fontSize: 12 }}>
           {[['Тариф', p.fare], ['Таксы и сборы', p.taxes]].map(([k, v]) => (
             <div key={k} style={{ display: 'flex', justifyContent: 'space-between', padding: '2px 0' }}><span style={{ color: 'var(--muted)' }}>{k}</span><span style={{ color: 'var(--ink)' }}>{recMoney(Number(v) || 0, p.currency)}</span></div>
           ))}
-          <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 6, paddingTop: 6, borderTop: '2px solid var(--ink)', fontWeight: 800, fontSize: 15, color: 'var(--ink)' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 6, paddingTop: 6, borderTop: '2px solid var(--ink)', fontWeight: 700, fontSize: 15, color: 'var(--ink)' }}>
             <span>Итого</span><span>{recMoney(total, p.currency)}</span>
           </div>
         </div>
@@ -866,7 +866,7 @@ function ReceiptEditForm({ type, p, onChange }) {
       {p.legs.map((l, i) => (
         <div key={i} className="card card-pad" style={{ marginBottom: 10, background: 'var(--surface-2)' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-            <span style={{ fontWeight: 700, fontSize: 12.5, color: 'var(--muted)' }}>{isStay ? t.legLabel : legTitle(i)}</span>
+            <span style={{ fontWeight: 700, fontSize: 12, color: 'var(--muted)' }}>{isStay ? t.legLabel : legTitle(i)}</span>
             {p.legs.length > 1 && <button className="btn btn-ghost btn-sm" onClick={() => delLeg(i)}><Icon name="trash" style={{ width: 14, height: 14 }} /></button>}
           </div>
           <div className="form-grid">
@@ -940,7 +940,7 @@ function ReceiptMathDrawer({ open, file, math, onSave, onClose }) {
   const client = num(m.tariff) + num(m.fee) + num(m.markup);
   const fld = (k, l, hint) => (
     <div>
-      <div style={{ fontSize: 12.5, color: 'var(--muted)', marginBottom: 5 }}>{l}, {sym}{hint && <span style={{ color: 'var(--muted-2)' }}> · {hint}</span>}</div>
+      <div style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 5 }}>{l}, {sym}{hint && <span style={{ color: 'var(--muted-2)' }}> · {hint}</span>}</div>
       <input className="input" type="number" min="0" value={m[k] ?? ''} onChange={(e) => setM((s) => ({ ...s, [k]: e.target.value }))} />
     </div>
   );
@@ -1093,7 +1093,7 @@ function ReceiptImportModal({ open, onClose, onDone }) {
 
   const Stat = ({ label, value, tone }) => (
     <div style={{ flex: 1, textAlign: 'center' }}>
-      <div style={{ fontSize: 26, fontWeight: 800, color: value ? 'var(--' + tone + ')' : 'var(--muted-2)' }}>{value || 0}</div>
+      <div style={{ fontSize: 26, fontWeight: 700, color: value ? 'var(--' + tone + ')' : 'var(--muted-2)' }}>{value || 0}</div>
       <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 2 }}>{label}</div>
     </div>
   );
@@ -1126,8 +1126,8 @@ function ReceiptImportModal({ open, onClose, onDone }) {
               <Stat label="Дубли" value={counts['Возможный дубль']} tone="red" />
               <Stat label="Ошибка" value={counts['Ошибка']} tone="muted-2" />
               {processing && (
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: 'var(--muted)', fontSize: 12.5, whiteSpace: 'nowrap', paddingLeft: 12, borderLeft: '1px solid var(--line)' }}>
-                  <Icon name="loader" style={{ width: 15, height: 15, animation: 'spin 1s linear infinite' }} /> {done.length}/{files.length}
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: 'var(--muted)', fontSize: 12, whiteSpace: 'nowrap', paddingLeft: 12, borderLeft: '1px solid var(--line)' }}>
+                  <Icon name="loader" style={{ width: 16, height: 16, animation: 'spin 1s linear infinite' }} /> {done.length}/{files.length}
                 </div>
               )}
             </div>
@@ -1142,19 +1142,19 @@ function ReceiptImportModal({ open, onClose, onDone }) {
                 {/* Математика поставщика — групповое применение сбора/надбавки/комиссии */}
                 {doneRows.length > 0 && (
                   <div className="card card-pad" style={{ marginBottom: 12, display: 'flex', alignItems: 'flex-end', gap: 12, flexWrap: 'wrap' }}>
-                    <div style={{ flex: '0 0 100%', fontSize: 12.5, color: 'var(--muted)', marginBottom: -4 }}>
+                    <div style={{ flex: '0 0 100%', fontSize: 12, color: 'var(--muted)', marginBottom: -4 }}>
                       Математика: применить к {selIds.length ? 'выбранным (' + selIds.length + ')' : 'всем квитанциям'}. Оригинальный бланк поставщика сохраняется.
                     </div>
                     {[['fee', 'Сервисный сбор'], ['markup', 'Надбавка'], ['commission', 'Комиссия']].map(([k, l]) => (
                       <div key={k} style={{ width: 130 }}>
-                        <div style={{ fontSize: 11.5, color: 'var(--muted)', marginBottom: 4 }}>{l}, $</div>
+                        <div style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 4 }}>{l}, $</div>
                         <input className="input" type="number" min="0" placeholder="0" value={bulk[k]} onChange={(e) => setBulk((b) => ({ ...b, [k]: e.target.value }))} />
                       </div>
                     ))}
                     <Button size="sm" icon="calc" onClick={applyBulk}>Применить{selIds.length ? ' (' + selIds.length + ')' : ' ко всем'}</Button>
                     <div style={{ flex: 1 }} />
                     <span style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color: 'var(--green)' }}>
-                      <Icon name="check" style={{ width: 15, height: 15 }} /> Оригинал поставщика будет сохранён
+                      <Icon name="check" style={{ width: 16, height: 16 }} /> Оригинал поставщика будет сохранён
                     </span>
                   </div>
                 )}
@@ -1202,7 +1202,7 @@ function ReceiptImportModal({ open, onClose, onDone }) {
                             <td>
                               <button type="button" className="btn btn-ghost btn-sm" style={{ padding: 0, height: 'auto', display: 'block', textAlign: 'left' }} title="Изменить математику" onClick={() => setMathId(r.f.id)}>
                                 <span style={{ display: 'block', fontWeight: 700, color: 'var(--ink)' }}>{recMoney(clientTotal(m), p.currency)}</span>
-                                <span style={{ fontSize: 11.5, color: 'var(--blue)' }}>сбор {m.fee || 0} · надб. {m.markup || 0} · изменить</span>
+                                <span style={{ fontSize: 12, color: 'var(--blue)' }}>сбор {m.fee || 0} · надб. {m.markup || 0} · изменить</span>
                               </button>
                             </td>
                             <td><Pill tone={st.tone}>{r.status}</Pill></td>
@@ -1216,7 +1216,7 @@ function ReceiptImportModal({ open, onClose, onDone }) {
                                   </div>
                                 )}
                             </td>
-                            <td style={{ position: 'sticky', right: 0, background: '#fff', zIndex: 1 }}><button className="btn btn-ghost btn-sm" onClick={() => remove(r.f.id)}><Icon name="trash" style={{ width: 15, height: 15 }} /></button></td>
+                            <td style={{ position: 'sticky', right: 0, background: '#fff', zIndex: 1 }}><button className="btn btn-ghost btn-sm" onClick={() => remove(r.f.id)}><Icon name="trash" style={{ width: 16, height: 16 }} /></button></td>
                           </tr>
                         );
                       })}
@@ -1294,7 +1294,7 @@ function ReceiptEditorPage() {
         <div className="fade-in">
           <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16, flexWrap: 'wrap' }}>
             <div style={{ flex: 1, minWidth: 200 }}>
-              <div style={{ fontSize: 13.5, color: 'var(--muted)' }}>
+              <div style={{ fontSize: 13, color: 'var(--muted)' }}>
                 Загрузите маршрут-квитанции — система пошагово распознает наполнение, вы отредактируете данные и привяжете их к заказу.
               </div>
             </div>

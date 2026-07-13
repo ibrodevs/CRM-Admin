@@ -67,17 +67,22 @@ function defaultTravelPolicy() {
     approval: { required: true, approvers: ['Акимова Айсулуу'], onOverLimit: true, autoIfCompliant: true, allowWithout: false },
   };
 }
-// Подразделения компании + приглашённые в них сотрудники (создаются в тревел-политике)
-const TP_DEPARTMENTS = window.TP_DEPARTMENTS || (window.TP_DEPARTMENTS = {});
-function departmentsFor(companyId) {
-  if (!TP_DEPARTMENTS[companyId]) {
-    TP_DEPARTMENTS[companyId] = [
-      { id: 'd1', name: 'Коммерческий отдел', head: 'Нуралиев Данияр', employees: ['Нуралиев Данияр', 'Каримов Икрам'] },
-      { id: 'd2', name: 'Финансовый отдел', head: 'Сагынбеков Икрам', employees: ['Сагынбеков Икрам'] },
-    ];
+// ЕДИНЫЙ стор сотрудников компании — общий источник для вкладки «Сотрудники» и тревел-политики.
+// Сидируется из COMPANY_STAFF (data.jsx) и далее мутируется обеими вкладками, чтобы списки не расходились.
+const COMPANY_STAFF_STORE = window.COMPANY_STAFF_STORE || (window.COMPANY_STAFF_STORE = {});
+function companyStaffStore(companyId) {
+  if (!COMPANY_STAFF_STORE[companyId]) {
+    const seed = (typeof companyStaff === 'function') ? companyStaff(companyId) : { departments: [], employees: [] };
+    COMPANY_STAFF_STORE[companyId] = {
+      departments: (seed.departments || []).map((d) => ({ head: '', policy: '', ...d })),
+      employees: (seed.employees || []).map((e) => ({ position: '', email: '', dob: '—', inPolicy: true, ...e })),
+    };
   }
-  return TP_DEPARTMENTS[companyId];
+  return COMPANY_STAFF_STORE[companyId];
 }
+// Подразделения тревел-политики теперь берутся из единого стора (обратная совместимость по имени функции).
+const TP_DEPARTMENTS = window.TP_DEPARTMENTS || (window.TP_DEPARTMENTS = {});
+function departmentsFor(companyId) { return companyStaffStore(companyId).departments; }
 // Пер-компанийные политики + история изменений
 const TRAVEL_POLICIES = window.TRAVEL_POLICIES || (window.TRAVEL_POLICIES = {});
 function travelPolicyFor(companyId) {
@@ -271,7 +276,7 @@ Object.assign(window, {
   CARD_CLIENT_VISIBILITY, cardInternals,
   OPERATOR_SLA, operatorSla, SLA_QUEUE, slaTone, slaLabel,
   TP_SCOPES, TP_CLASSES_AVIA, TP_RAIL_CLASSES, TP_AIRLINES, TP_RAIL_TYPES, TP_HOTEL_CHAINS, TP_HOTEL_CATEGORIES, TP_BOARD, TP_CAR_CLASSES, TP_CURRENCIES, TP_EMPLOYEES,
-  TP_COMPLIANCE, defaultTravelPolicy, TRAVEL_POLICIES, travelPolicyFor, TP_DEPARTMENTS, departmentsFor,
+  TP_COMPLIANCE, defaultTravelPolicy, TRAVEL_POLICIES, travelPolicyFor, TP_DEPARTMENTS, departmentsFor, COMPANY_STAFF_STORE, companyStaffStore,
   SVC_ACCESS_KINDS, SVC_ACCESS_RIGHTS, fullRights, noRights, OPERATOR_SVC_ACCESS, operatorSvcAccess, operatorKindsLabel,
   ORDER_SVC_RESPONSIBLES, orderResponsibles, ORDER_RESP_HISTORY, ORDER_ACTION_LOG, orderActionLog,
   EXTRA_STAGES, EXTRA_AVAIL, EXTRA_STATUS, EXTRA_SVC_CATALOG, extraCatalogItem, extrasFromSupplier,

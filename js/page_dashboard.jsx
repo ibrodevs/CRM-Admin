@@ -25,7 +25,7 @@ function FreeBookingFinalize({ draft, onClose, onDone }) {
             <button key={o.id} type="button" className="oce-client" style={{ cursor: 'pointer', width: '100%', textAlign: 'left', border: '1px solid var(--line)', background: '#fff', borderRadius: 12, padding: '10px 12px', display: 'flex', alignItems: 'center', gap: 12 }}
               onClick={() => finish('Услуги привязаны к заказу № ' + o.no)}>
               <span className="oc-svc-ic" style={{ background: 'var(--blue)', width: 34, height: 34 }}><Icon name="briefcase" /></span>
-              <div style={{ flex: 1, minWidth: 0 }}><div className="nm" style={{ fontWeight: 600 }}>Заказ № {o.no}</div><div className="mt" style={{ fontSize: 12.5, color: 'var(--muted)' }}>{o.client} · {o.requestType}</div></div>
+              <div style={{ flex: 1, minWidth: 0 }}><div className="nm" style={{ fontWeight: 600 }}>Заказ № {o.no}</div><div className="mt" style={{ fontSize: 12, color: 'var(--muted)' }}>{o.client} · {o.requestType}</div></div>
               <Icon name="chevRight" style={{ width: 18, height: 18, color: 'var(--muted-2)' }} />
             </button>
           ))}
@@ -69,10 +69,10 @@ function FreeBookingFinalize({ draft, onClose, onDone }) {
         </>}>
         {/* шапка КП */}
         <div className="card card-pad" style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>
-          <span className="oc-svc-ic" style={{ background: 'var(--blue)', width: 40, height: 40, borderRadius: 11 }}><Icon name="template" style={{ width: 19, height: 19 }} /></span>
+          <span className="oc-svc-ic" style={{ background: 'var(--blue)', width: 40, height: 40, borderRadius: 11 }}><Icon name="template" style={{ width: 20, height: 20 }} /></span>
           <div style={{ flex: 1 }}>
             <div style={{ fontWeight: 700, color: 'var(--ink)' }}>{kpNo}</div>
-            <div style={{ fontSize: 12.5, color: 'var(--muted)' }}>{draft.length} {plural(draft.length, ['услуга', 'услуги', 'услуг'])} · черновик</div>
+            <div style={{ fontSize: 12, color: 'var(--muted)' }}>{draft.length} {plural(draft.length, ['услуга', 'услуги', 'услуг'])} · черновик</div>
           </div>
           <Pill tone="amber">Черновик</Pill>
         </div>
@@ -89,7 +89,7 @@ function FreeBookingFinalize({ draft, onClose, onDone }) {
         <div className="card card-pad" style={{ marginBottom: 16 }}>
           {draft.map((x, i) => (
             <div key={i} style={{ display: 'flex', justifyContent: 'space-between', gap: 12, padding: '8px 0', borderBottom: i < draft.length - 1 ? '1px solid var(--line)' : 'none' }}>
-              <div><div style={{ fontWeight: 600, color: 'var(--ink)' }}>{svcTitle(x)}</div><div style={{ fontSize: 12.5, color: 'var(--muted)' }}>{x.kind || 'Авиа'}{x.supplier ? ' · ' + x.supplier : ''}</div></div>
+              <div><div style={{ fontWeight: 600, color: 'var(--ink)' }}>{svcTitle(x)}</div><div style={{ fontSize: 12, color: 'var(--muted)' }}>{x.kind || 'Авиа'}{x.supplier ? ' · ' + x.supplier : ''}</div></div>
               <div style={{ fontWeight: 600, whiteSpace: 'nowrap' }}>{svcSum(x) ? svcSum(x).toLocaleString('ru-RU') + ' $' : '—'}</div>
             </div>
           ))}
@@ -107,8 +107,8 @@ function FreeBookingFinalize({ draft, onClose, onDone }) {
             ['Копировать ссылку', 'docs', () => toast('Ссылка на ' + kpNo + ' скопирована', 'ok')],
             ['Печать', 'clipboard', () => toast(kpNo + ' отправлено на печать')]].map(([label, icon, on]) => (
             <button key={label} className="doc-chip" style={{ width: '100%' }} onClick={on}>
-              <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}><Icon name={icon} style={{ width: 15, height: 15 }} />{label}</span>
-              <Icon name="chevRight" style={{ width: 15, height: 15 }} />
+              <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}><Icon name={icon} style={{ width: 16, height: 16 }} />{label}</span>
+              <Icon name="chevRight" style={{ width: 16, height: 16 }} />
             </button>
           ))}
         </div>
@@ -119,13 +119,13 @@ function FreeBookingFinalize({ draft, onClose, onDone }) {
   return (
     <Drawer open onClose={onClose} title="Оформление свободного бронирования"
       footer={<Button variant="secondary" style={{ width: '100%' }} onClick={onClose}>Закрыть</Button>}>
-      <div style={{ color: 'var(--muted)', fontSize: 13.5, marginBottom: 14 }}>
+      <div style={{ color: 'var(--muted)', fontSize: 13, marginBottom: 14 }}>
         В подборке {draft.length} {plural(draft.length, ['услуга', 'услуги', 'услуг'])}. Выберите, что сделать дальше.
       </div>
       <div className="card card-pad" style={{ marginBottom: 18 }}>
         {draft.map((x, i) => (
           <div key={i} style={{ display: 'flex', justifyContent: 'space-between', gap: 12, padding: '8px 0', borderBottom: i < draft.length - 1 ? '1px solid var(--line)' : 'none' }}>
-            <div><div style={{ fontWeight: 600, color: 'var(--ink)' }}>{svcTitle(x)}</div><div style={{ fontSize: 12.5, color: 'var(--muted)' }}>{x.kind || 'Авиа'}{x.supplier ? ' · ' + x.supplier : ''}</div></div>
+            <div><div style={{ fontWeight: 600, color: 'var(--ink)' }}>{svcTitle(x)}</div><div style={{ fontSize: 12, color: 'var(--muted)' }}>{x.kind || 'Авиа'}{x.supplier ? ' · ' + x.supplier : ''}</div></div>
             <div style={{ fontWeight: 600, whiteSpace: 'nowrap' }}>{svcSum(x) ? svcSum(x).toLocaleString('ru-RU') + ' $' : '—'}</div>
           </div>
         ))}
@@ -163,7 +163,7 @@ function DetailedSearchPanel({ onClose }) {
           <Button icon="check" onClick={() => setFinalize(true)}>Оформить</Button>
         </>
       ) : null}>
-      <div style={{ fontSize: 13.5, color: 'var(--muted)', marginBottom: 12 }}>
+      <div style={{ fontSize: 13, color: 'var(--muted)', marginBottom: 12 }}>
         Поиск без привязки к заказу. Можно добавить несколько услуг, затем сформировать КП, привязать к заказу или к физ. лицу.
       </div>
       <AddServicePanel kind={kind} setKind={setKind} aviaParams={aviaParams} setAviaParams={setAviaParams}
@@ -189,19 +189,19 @@ function FinanceOverviewBlock({ onNavigate }) {
       <div className="grid-4" style={{ marginBottom: ov.urgent.length ? 16 : 0 }}>
         <div className="stat-card" style={{ cursor: 'pointer' }} onClick={() => onNavigate('companies')}>
           <div className="s-label">Депозиты (доступно)</div>
-          <div className="s-value" style={{ fontSize: 28, color: 'var(--green)' }}>{money(ov.deposits)}</div>
+          <div className="s-value" style={{ fontSize: 'var(--fs-stat)', color: 'var(--green)' }}>{money(ov.deposits)}</div>
         </div>
         <div className="stat-card" style={{ cursor: 'pointer' }} onClick={() => onNavigate('companies')}>
           <div className="s-label">Задолженность (отсрочка)</div>
-          <div className="s-value" style={{ fontSize: 28, color: 'var(--amber)' }}>{money(ov.debt)}</div>
+          <div className="s-value" style={{ fontSize: 'var(--fs-stat)', color: 'var(--amber)' }}>{money(ov.debt)}</div>
         </div>
         <div className="stat-card" style={{ cursor: 'pointer' }} onClick={() => onNavigate('finance')}>
           <div className="s-label">Просрочено</div>
-          <div className="s-value" style={{ fontSize: 28, color: ov.overdue > 0 ? 'var(--red)' : 'var(--muted)' }}>{money(ov.overdue)}</div>
+          <div className="s-value" style={{ fontSize: 'var(--fs-stat)', color: ov.overdue > 0 ? 'var(--red)' : 'var(--muted)' }}>{money(ov.overdue)}</div>
         </div>
         <div className="stat-card" style={{ cursor: 'pointer' }} onClick={() => onNavigate('finance')}>
           <div className="s-label">Клиентов с просрочкой</div>
-          <div className="s-value" style={{ fontSize: 28, color: ov.overdueCount > 0 ? 'var(--red)' : 'var(--muted)' }}>{ov.overdueCount}</div>
+          <div className="s-value" style={{ fontSize: 'var(--fs-stat)', color: ov.overdueCount > 0 ? 'var(--red)' : 'var(--muted)' }}>{ov.overdueCount}</div>
         </div>
       </div>
 
@@ -219,7 +219,7 @@ function FinanceOverviewBlock({ onNavigate }) {
                 <span className="oc-svc-ic" style={{ background: 'var(--' + u.tone + ')', width: 34, height: 34, opacity: .9 }}><Icon name="bank" style={{ width: 16, height: 16 }} /></span>
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div className="nm" style={{ fontWeight: 600, color: 'var(--ink)' }}>{u.co}</div>
-                  <div className="mt" style={{ fontSize: 12.5, color: 'var(--muted)' }}>{u.text}</div>
+                  <div className="mt" style={{ fontSize: 12, color: 'var(--muted)' }}>{u.text}</div>
                 </div>
                 <Pill tone={u.tone}>{u.kind}</Pill>
                 <span style={{ fontWeight: 700, whiteSpace: 'nowrap', color: 'var(--' + u.tone + ')' }}>{money(u.value)}</span>
@@ -238,9 +238,9 @@ function StatCardDash({ s, onGo }) {
     <div className="stat-card" style={{ cursor: 'pointer' }} onClick={onGo}>
       <div className="s-label">{s.label}</div>
       <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between' }}>
-        <div className="s-value" style={{ fontSize: 34 }}>{s.value}</div>
+        <div className="s-value" style={{ fontSize: 'var(--fs-display)' }}>{s.value}</div>
         {s.cta
-          ? <span className="pill pill-green" style={{ height: 32 }}>{s.cta}<Icon name="arrowRight" style={{ width: 15, height: 15 }} /></span>
+          ? <span className="pill pill-green" style={{ height: 32 }}>{s.cta}<Icon name="arrowRight" style={{ width: 16, height: 16 }} /></span>
           : <span className="go-dot"><Icon name="chevRight" /></span>}
       </div>
     </div>
@@ -294,12 +294,12 @@ function DashTile({ w, active, onClick }) {
       }}>
       <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8, minHeight: 34 }}>
         <span style={{ width: 26, height: 26, borderRadius: 8, background: toneColor, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-          <Icon name={w.icon} style={{ width: 15, height: 15, color: '#fff' }} />
+          <Icon name={w.icon} style={{ width: 16, height: 16, color: '#fff' }} />
         </span>
-        <span style={{ fontSize: 12.5, fontWeight: 600, color: 'var(--muted)', lineHeight: 1.25 }}>{w.label}</span>
+        <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--muted)', lineHeight: 1.25 }}>{w.label}</span>
       </div>
       <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
-        <span style={{ fontSize: w.small ? 20 : 26, fontWeight: 800, letterSpacing: '-.02em', color: w.tone === 'green' ? 'var(--ink)' : toneColor }}>{w.value}</span>
+        <span style={{ fontSize: w.small ? 18 : 22, fontWeight: 700, letterSpacing: '-.02em', color: w.tone === 'green' ? 'var(--ink)' : toneColor }}>{w.value}</span>
         {w.sub && <span style={{ fontSize: 12, color: 'var(--muted)' }}>{w.sub}</span>}
       </div>
     </button>
@@ -431,7 +431,7 @@ function DashboardPage({ role, onNavigate, onAddOrder, onOpenOrder }) {
       {icon && <span className="oc-svc-ic" style={{ background: iconBg || 'var(--blue)', width: 32, height: 32 }}><Icon name={icon} style={{ width: 16, height: 16 }} /></span>}
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ fontWeight: 600, color: 'var(--ink)' }}>{title}</div>
-        {sub && <div style={{ fontSize: 12.5, color: 'var(--muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{sub}</div>}
+        {sub && <div style={{ fontSize: 12, color: 'var(--muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{sub}</div>}
       </div>
       {right}
       {onClick && <Icon name="chevRight" style={{ width: 18, height: 18, color: 'var(--muted-2)' }} />}
@@ -485,7 +485,7 @@ function DashboardPage({ role, onNavigate, onAddOrder, onOpenOrder }) {
             {[['Сервисные сборы', shT.serviceFee, 'blue'], ['Агентские надбавки', shT.markup, 'teal'], ['Комиссионное вознаграждение', shT.commission, 'amber'], ['Заработок операторов', shT.earn, 'gray'], ['Итого сборы', shT.feesTotal, 'blue'], ['Продажи (оборот)', salesToday, 'gray'], ['Прибыль компании', shT.profit, 'green']].map(([l, v, t], i) => (
               <div key={i} className="stat-card" style={{ borderLeft: '3px solid var(--' + t + ')' }}>
                 <div className="s-label">{l}</div>
-                <div className="s-value" style={{ fontSize: 24, color: t === 'green' ? 'var(--green)' : 'var(--ink)' }}>{money(v)}</div>
+                <div className="s-value" style={{ fontSize: 'var(--fs-stat)', color: t === 'green' ? 'var(--green)' : 'var(--ink)' }}>{money(v)}</div>
               </div>
             ))}
           </div>
@@ -552,7 +552,7 @@ function DashboardPage({ role, onNavigate, onAddOrder, onOpenOrder }) {
       case 'activity':
         return <List>{RECENT_CHANGES.map((r, i) => (
           <Row key={i} icon="clock" iconBg="var(--muted-2)" title={r.desc} sub={r.client + ' · ' + r.resp + ' · ' + r.dept}
-            right={<span style={{ fontSize: 12.5, color: 'var(--muted-2)' }}>{r.time}</span>} />
+            right={<span style={{ fontSize: 12, color: 'var(--muted-2)' }}>{r.time}</span>} />
         ))}</List>;
       case 'mytasks':
         return <List>{MY_TASKS.map((t, i) => (
@@ -567,7 +567,7 @@ function DashboardPage({ role, onNavigate, onAddOrder, onOpenOrder }) {
   const shiftStat = (l, v, accent) => (
     <div style={{ flex: '1 1 120px', minWidth: 110 }}>
       <div style={{ fontSize: 12, color: 'var(--muted)' }}>{l}</div>
-      <div style={{ fontSize: 20, fontWeight: 800, color: accent ? 'var(--' + accent + ')' : 'var(--ink)', letterSpacing: '-.01em' }}>{v}</div>
+      <div style={{ fontSize: 'var(--fs-lg)', fontWeight: 700, color: accent ? 'var(--' + accent + ')' : 'var(--ink)', letterSpacing: '-.01em' }}>{v}</div>
     </div>
   );
 
@@ -591,7 +591,7 @@ function DashboardPage({ role, onNavigate, onAddOrder, onOpenOrder }) {
               <h3 className="card-title" style={{ fontSize: 16, margin: 0 }}>Моя смена</h3>
               <Pill tone="green">открыта · с {shiftFmtTime(shift.openedAt)}</Pill>
               <div style={{ flex: 1 }} />
-              <span style={{ fontSize: 12.5, color: 'var(--muted)' }}>Отчёт и закрытие — в меню смены в шапке</span>
+              <span style={{ fontSize: 12, color: 'var(--muted)' }}>Отчёт и закрытие — в меню смены в шапке</span>
             </div>
             <div style={{ display: 'flex', gap: 18, flexWrap: 'wrap' }}>
               {shiftStat('Продолжительность', shiftDuration(shift.openedAt))}

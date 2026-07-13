@@ -27,12 +27,12 @@ function ServiceAccessEditor({ operator }) {
   return (
     <div>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', borderRadius: 12, border: '1px solid var(--field-line)', marginBottom: 14 }}>
-        <div><div style={{ fontWeight: 600, color: 'var(--ink)' }}>Полный доступ ко всем услугам заказа</div><div style={{ fontSize: 12.5, color: 'var(--muted)' }}>Оператор работает со всеми видами услуг без ограничений</div></div>
+        <div><div style={{ fontWeight: 600, color: 'var(--ink)' }}>Полный доступ ко всем услугам заказа</div><div style={{ fontSize: 12, color: 'var(--muted)' }}>Оператор работает со всеми видами услуг без ограничений</div></div>
         <Toggle on={acc.fullAccess} onChange={setFull} />
       </div>
       {!acc.fullAccess && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-          <div style={{ fontSize: 12.5, color: 'var(--muted)' }}>Отметьте виды услуг и настройте права по каждому. Оператор не имеет доступа к невыбранным видам.</div>
+          <div style={{ fontSize: 12, color: 'var(--muted)' }}>Отметьте виды услуг и настройте права по каждому. Оператор не имеет доступа к невыбранным видам.</div>
           {SVC_ACCESS_KINDS.map((k) => {
             const on = kindEnabled(k);
             const isOpen = openKind === k;
@@ -41,7 +41,7 @@ function ServiceAccessEditor({ operator }) {
                 <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 16px' }}>
                   <Checkbox on={on} onChange={() => toggleKind(k)} />
                   <span style={{ flex: 1, fontWeight: 600, color: 'var(--ink)' }}>{k}</span>
-                  {on && <span style={{ fontSize: 12.5, color: 'var(--muted)' }}>{SVC_ACCESS_RIGHTS.filter((r) => acc.kinds[k] && acc.kinds[k][r]).length} из {SVC_ACCESS_RIGHTS.length} прав</span>}
+                  {on && <span style={{ fontSize: 12, color: 'var(--muted)' }}>{SVC_ACCESS_RIGHTS.filter((r) => acc.kinds[k] && acc.kinds[k][r]).length} из {SVC_ACCESS_RIGHTS.length} прав</span>}
                   {on && <button className="icon-btn" onClick={() => setOpenKind(isOpen ? null : k)}><Icon name={isOpen ? 'chevUp' : 'chevDown'} /></button>}
                 </div>
                 {on && isOpen && (
@@ -80,7 +80,7 @@ function ProfileMotivation({ operator }) {
       <div style={{ display: 'flex', alignItems: 'center', marginBottom: 14 }}>
         <div style={{ flex: 1 }}>
           <h3 className="card-title" style={{ fontSize: 17, margin: 0 }}>Система мотивации</h3>
-          <div style={{ fontSize: 12.5, color: 'var(--muted)' }}>{mot.uniform ? 'Единые ставки для всех видов услуг' : 'Индивидуальные ставки по каждому виду услуг'}</div>
+          <div style={{ fontSize: 12, color: 'var(--muted)' }}>{mot.uniform ? 'Единые ставки для всех видов услуг' : 'Индивидуальные ставки по каждому виду услуг'}</div>
         </div>
         <Button variant="secondary" icon="edit" onClick={() => setEditOpen(true)}>Изменить</Button>
       </div>
@@ -129,7 +129,7 @@ function ProfileStats({ operator }) {
           <div className="stat-card" key={i}><div className="s-label">{l}</div><div className="s-value" style={{ fontSize: 22 }}>{v}</div></div>
         ))}
       </div>
-      <div style={{ fontSize: 12.5, color: 'var(--muted)', marginTop: 12 }}>Заработок рассчитан по индивидуальной мотивации оператора и связан с оформленными услугами.</div>
+      <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 12 }}>Заработок рассчитан по индивидуальной мотивации оператора и связан с оформленными услугами.</div>
     </div>
   );
 }
@@ -160,7 +160,7 @@ function ProfileWorkTime({ operator }) {
         <div style={{ display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap' }}>
           <div style={{ flex: 1, minWidth: 220 }}>
             <div style={{ fontWeight: 700, color: 'var(--ink)' }}>Отклик на заявку</div>
-            <div style={{ fontSize: 12.5, color: 'var(--muted)' }}>Норматив времени первого отклика. При превышении на дашборде отображается просрочка / накал тайминга.</div>
+            <div style={{ fontSize: 12, color: 'var(--muted)' }}>Норматив времени первого отклика. При превышении на дашборде отображается просрочка / накал тайминга.</div>
           </div>
           <div style={{ width: 120 }}><Input type="number" min="1" value={sla} onChange={(e) => setSla(Math.max(1, parseInt(e.target.value) || 1))} /></div>
           <span style={{ color: 'var(--muted)', fontSize: 13 }}>минут</span>
@@ -252,7 +252,7 @@ function ProfilePage({ onNavigate, initialTab }) {
         <div className="card card-pad" style={{ display: 'flex', alignItems: 'center', gap: 24, marginBottom: 20, flexWrap: 'wrap' }}>
           <Avatar src={u.avatar} name={u.name} size={92} />
           <div style={{ flex: 1, minWidth: 220 }}>
-            <div style={{ fontSize: 25, fontWeight: 700, color: 'var(--ink)', letterSpacing: '-.02em' }}>{u.name}</div>
+            <div style={{ fontSize: 24, fontWeight: 700, color: 'var(--ink)', letterSpacing: '-.02em' }}>{u.name}</div>
             <div style={{ color: 'var(--muted)', fontSize: 15, marginTop: 3 }}>{u.position} · {u.dept}</div>
             <div style={{ display: 'flex', gap: 10, marginTop: 12, flexWrap: 'wrap' }}>
               <Pill tone="blue">{u.role}</Pill>
@@ -261,7 +261,7 @@ function ProfilePage({ onNavigate, initialTab }) {
             </div>
           </div>
           <div style={{ textAlign: 'right' }}>
-            <div style={{ fontSize: 12.5, color: 'var(--muted)' }}>Последний вход</div>
+            <div style={{ fontSize: 12, color: 'var(--muted)' }}>Последний вход</div>
             <div style={{ fontSize: 15, fontWeight: 600, color: 'var(--ink)' }}>{u.lastLogin}</div>
             <Button variant="secondary" icon="edit" size="sm" style={{ marginTop: 10 }} onClick={() => setTab('profile')}>Редактировать</Button>
           </div>
@@ -321,7 +321,7 @@ function ProfilePage({ onNavigate, initialTab }) {
                   {devices.map((d, i) => (
                     <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 12px', borderRadius: 10, border: '1px solid var(--field-line)' }}>
                       <Icon name="grid" style={{ width: 18, height: 18, color: 'var(--muted)' }} />
-                      <div style={{ flex: 1 }}><div style={{ fontSize: 13.5, fontWeight: 600, color: 'var(--ink)' }}>{d.name}</div><div style={{ fontSize: 12, color: 'var(--muted)' }}>{d.place} · {d.last}</div></div>
+                      <div style={{ flex: 1 }}><div style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink)' }}>{d.name}</div><div style={{ fontSize: 12, color: 'var(--muted)' }}>{d.place} · {d.last}</div></div>
                       {d.current ? <Pill tone="green">Текущее</Pill> : <button className="icon-btn" onClick={() => toast('Сессия завершена', 'ok')}><Icon name="x" /></button>}
                     </div>
                   ))}
@@ -345,14 +345,14 @@ function ProfilePage({ onNavigate, initialTab }) {
         {/* ---- Уведомления ---- */}
         {tab === 'notif' && (
           <div className="card card-pad fade-in" style={{ maxWidth: 680 }}>
-            <div style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--muted)', marginBottom: 6 }}>Каналы доставки</div>
+            <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--muted)', marginBottom: 6 }}>Каналы доставки</div>
             {channelRows.map(([k, l], i, arr) => (
               <div key={k} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 0', borderBottom: i < arr.length - 1 ? '1px solid var(--line)' : 'none' }}>
                 <span style={{ fontSize: 15, color: 'var(--ink)' }}>{l}</span>
                 <Toggle on={notif[k]} onChange={(v) => setNotif((n) => ({ ...n, [k]: v }))} />
               </div>
             ))}
-            <div style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--muted)', margin: '20px 0 6px' }}>События</div>
+            <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--muted)', margin: '20px 0 6px' }}>События</div>
             {eventRows.map(([k, l], i, arr) => (
               <div key={k} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 0', borderBottom: i < arr.length - 1 ? '1px solid var(--line)' : 'none' }}>
                 <span style={{ fontSize: 15, color: 'var(--ink)' }}>{l}</span>
@@ -399,7 +399,7 @@ function ProfilePage({ onNavigate, initialTab }) {
             </div>
             <div className="card card-pad">
               <h3 className="card-title" style={{ fontSize: 16, marginBottom: 4 }}>Доступ по видам услуг</h3>
-              <div style={{ fontSize: 12.5, color: 'var(--muted)', marginBottom: 12 }}>Область ответственности оператора: с какими услугами он работает в заказе.</div>
+              <div style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 12 }}>Область ответственности оператора: с какими услугами он работает в заказе.</div>
               <ServiceAccessEditor operator={u.name} />
             </div>
           </div>

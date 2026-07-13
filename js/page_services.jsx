@@ -58,13 +58,13 @@ function SvcOfferCard({ o, kind, onSelect, onSave, selectLabel }) {
           <div><div style={{ fontWeight: 700, color: 'var(--ink)' }}>{o.title}</div><div style={{ fontSize: 13, color: 'var(--muted)' }}>{o.sub}</div></div>
         </div>
         <div style={{ display: 'flex', gap: 26, flexWrap: 'wrap' }}>
-          {o.info.map((r, i) => (<div key={i}><div style={{ fontSize: 12, color: 'var(--muted)' }}>{r.l}</div><div style={{ fontWeight: 600, color: 'var(--ink)', fontSize: 14.5 }}>{r.v}</div></div>))}
+          {o.info.map((r, i) => (<div key={i}><div style={{ fontSize: 12, color: 'var(--muted)' }}>{r.l}</div><div style={{ fontWeight: 600, color: 'var(--ink)', fontSize: 14 }}>{r.v}</div></div>))}
         </div>
         <div className="off-meta">{o.tags.map((t, i) => <span key={i} className="off-tag">{t}</span>)}</div>
       </div>
       <div className="off-side">
         <div>
-          <div className="off-supplier"><Icon name="api" style={{ width: 13, height: 13, verticalAlign: -2 }} /> {o.supplier}</div>
+          <div className="off-supplier"><Icon name="api" style={{ width: 14, height: 14, verticalAlign: -2 }} /> {o.supplier}</div>
           <div className="off-price-line"><span>Тариф</span><span>{fmt(o.cost)}</span></div>
           <div className="off-price-line"><span>Сервисный сбор</span><span>{fmt(o.fee)}</span></div>
           <div className="off-total">{Math.round(total).toLocaleString('ru-RU')} <small>{o.currency === 'RUB' ? '₽' : '$'}</small></div>
@@ -134,7 +134,7 @@ function ServiceCardSendPanel({ item, kind, participants = [], orderNo, currency
   return (
     <StackPanel title="Отправка карточки услуги клиенту" width="min(1080px,96vw)" onClose={onClose}
       footer={<>
-        <div style={{ fontSize: 12.5, color: 'var(--muted)', display: 'flex', alignItems: 'center', gap: 6 }}>
+        <div style={{ fontSize: 12, color: 'var(--muted)', display: 'flex', alignItems: 'center', gap: 6 }}>
           <Icon name="lock" style={{ width: 14, height: 14 }} />Внутренние расчёты клиенту не отправляются
         </div>
         <div style={{ flex: 1 }} />
@@ -145,9 +145,9 @@ function ServiceCardSendPanel({ item, kind, participants = [], orderNo, currency
       <div className="card card-pad" style={{ marginBottom: 16 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
           <div style={{ flex: 1, minWidth: 200 }}>
-            <div style={{ fontSize: 12.5, color: 'var(--muted)' }}>Канал связи, закреплённый за заказом</div>
+            <div style={{ fontSize: 12, color: 'var(--muted)' }}>Канал связи, закреплённый за заказом</div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 4 }}>
-              <Pill tone={meta.tone}><Icon name={meta.icon} style={{ width: 13, height: 13, verticalAlign: -2 }} /> {channel}</Pill>
+              <Pill tone={meta.tone}><Icon name={meta.icon} style={{ width: 14, height: 14, verticalAlign: -2 }} /> {channel}</Pill>
               <span style={{ fontSize: 13, color: 'var(--muted)' }}>· {meta.adapt}</span>
             </div>
           </div>
@@ -178,7 +178,7 @@ function ServiceCardSendPanel({ item, kind, participants = [], orderNo, currency
             {participants.length > 0 && <div className="kv-row"><span className="k">{kind === 'Гостиница' ? 'Гости' : 'Пассажиры'}</span><span className="v">{participants.map((p) => p.name).join(', ')}</span></div>}
             <div className="kv-row"><span className="k">Срок действия предложения</span><span className="v">{validity}</span></div>
             {clientFinRows(fin, vis, fmt)}
-            {vis.clientTotal !== false && <div className="kv-row"><span className="k" style={{ fontWeight: 700, color: 'var(--ink)' }}>Итоговая стоимость</span><span className="v" style={{ fontSize: 17, fontWeight: 800 }}>{fmt(fin.clientTotal)}</span></div>}
+            {vis.clientTotal !== false && <div className="kv-row"><span className="k" style={{ fontWeight: 700, color: 'var(--ink)' }}>Итоговая стоимость</span><span className="v" style={{ fontSize: 17, fontWeight: 700 }}>{fmt(fin.clientTotal)}</span></div>}
           </div>
         </div>
 
@@ -195,7 +195,7 @@ function ServiceCardSendPanel({ item, kind, participants = [], orderNo, currency
             <div className="kv-row"><span className="k">Комиссия поставщика</span><span className="v" style={{ color: 'var(--green)' }}>+ {fmt(fin.commission)}</span></div>
             <div className="kv-row"><span className="k">Сервисный сбор</span><span className="v">{fmt(fin.fee)}</span></div>
             {fin.markup ? <div className="kv-row"><span className="k">Наценка</span><span className="v">{fmt(fin.markup)}</span></div> : null}
-            <div className="kv-row"><span className="k" style={{ fontWeight: 700, color: 'var(--ink)' }}>Прибыль</span><span className="v" style={{ fontWeight: 800, color: 'var(--green)' }}>{fmt(fin.profit)}</span></div>
+            <div className="kv-row"><span className="k" style={{ fontWeight: 700, color: 'var(--ink)' }}>Прибыль</span><span className="v" style={{ fontWeight: 700, color: 'var(--green)' }}>{fmt(fin.profit)}</span></div>
           </div>
           <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 10 }}>Клиент получит только разрешённые настройками компании поля (Настройки → Карточки услуг → «Видимость полей для клиента»).</div>
         </div>
@@ -245,7 +245,7 @@ function SvcDocUploadDrawer({ open, isHotel, participants = [], orderNo, onClose
           onDragOver={(e) => { e.preventDefault(); setDrag(true); }} onDragLeave={() => setDrag(false)} onDrop={onDrop}
           style={{ width: '100%', cursor: 'pointer', border: '1px dashed ' + (drag ? 'var(--blue)' : 'var(--line)'), background: drag ? 'var(--hover)' : undefined, textAlign: 'center' }}>
           <Icon name={file ? 'docs' : 'plus'} style={{ width: 40, height: 40 }} strokeWidth={1.4} />
-          <span style={{ fontSize: 13.5, color: file ? 'var(--ink)' : 'var(--blue)', fontWeight: 600 }}>
+          <span style={{ fontSize: 13, color: file ? 'var(--ink)' : 'var(--blue)', fontWeight: 600 }}>
             {file ? file.name : 'Выберите файл или перетащите сюда'}
           </span>
           <span style={{ fontSize: 12, color: 'var(--muted)' }}>{file ? file.size : 'PDF, JPG, PNG · до 15 МБ'}</span>
@@ -369,7 +369,7 @@ function SvcCard({ item, kind, participants = [], hideBackRow, onBack }) {
           </div>
           <div style={{ color: 'var(--muted)', fontSize: 14, marginTop: 4 }}>{sub}{supplier && supplier !== '—' ? ' · ' + supplier : ''}</div>
         </div>
-        <div style={{ textAlign: 'right' }}><div style={{ fontSize: 13, color: 'var(--muted)' }}>Итого к оплате</div><div style={{ fontSize: 24, fontWeight: 800, color: 'var(--ink)' }}>{total ? fmt(total) : '—'}</div></div>
+        <div style={{ textAlign: 'right' }}><div style={{ fontSize: 13, color: 'var(--muted)' }}>Итого к оплате</div><div style={{ fontSize: 24, fontWeight: 700, color: 'var(--ink)' }}>{total ? fmt(total) : '—'}</div></div>
         <Button icon="send" onClick={() => setSendOpen(true)}>Отправить клиенту</Button>
         {status === 'Предложение' && <Button variant="secondary" icon="check" onClick={() => toast('Отправлено на бронирование', 'ok')}>Забронировать</Button>}
         {status === 'Забронировано' && <Button variant="secondary" icon="check" onClick={() => toast('Услуга оформлена', 'ok')}>Оформить</Button>}
@@ -438,7 +438,7 @@ function SvcCard({ item, kind, participants = [], hideBackRow, onBack }) {
                 <Button size="sm" variant="secondary" icon="edit" onClick={bumpVersion}>Новая версия</Button>
               </div>
               <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 10, display: 'flex', alignItems: 'center', gap: 6 }}>
-                <Icon name="lock" style={{ width: 13, height: 13 }} />Внутренние расчёты (себестоимость, комиссия, прибыль) клиенту не отправляются.
+                <Icon name="lock" style={{ width: 14, height: 14 }} />Внутренние расчёты (себестоимость, комиссия, прибыль) клиенту не отправляются.
               </div>
             </div>
             {/* Смена статуса карточки. В проде «выбрана/отклонена» приходят из канала, «срок истёк» — по таймеру. */}
@@ -509,7 +509,7 @@ function SvcCard({ item, kind, participants = [], hideBackRow, onBack }) {
           {/* Для клиента — только разрешённые поля */}
           <div className="card card-pad">
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
-              <Icon name="eye" style={{ width: 15, height: 15, color: 'var(--blue)' }} />
+              <Icon name="eye" style={{ width: 16, height: 16, color: 'var(--blue)' }} />
               <h3 className="card-title" style={{ fontSize: 15, margin: 0 }}>Для клиента</h3>
             </div>
             <div className="kv">
@@ -521,7 +521,7 @@ function SvcCard({ item, kind, participants = [], hideBackRow, onBack }) {
           {/* Внутреннее — не для клиента */}
           <div className="card card-pad" style={{ background: 'var(--surface-2)' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
-              <Icon name="lock" style={{ width: 15, height: 15, color: 'var(--muted)' }} />
+              <Icon name="lock" style={{ width: 16, height: 16, color: 'var(--muted)' }} />
               <h3 className="card-title" style={{ fontSize: 15, margin: 0 }}>Внутреннее — не для клиента</h3>
             </div>
             <div className="kv">
@@ -530,7 +530,7 @@ function SvcCard({ item, kind, participants = [], hideBackRow, onBack }) {
               {fin.commission ? <div className="kv-row"><span className="k">Комиссия поставщика</span><span className="v" style={{ color: 'var(--green)' }}>+ {fmt(fin.commission)}</span></div> : null}
               <div className="kv-row"><span className="k">Сервисный сбор</span><span className="v">{fmt(fin.fee)}</span></div>
               {fin.markup ? <div className="kv-row"><span className="k">Наценка</span><span className="v">{fmt(fin.markup)}</span></div> : null}
-              <div className="kv-row"><span className="k" style={{ fontWeight: 700, color: 'var(--ink)' }}>Прибыль</span><span className="v" style={{ fontWeight: 800, color: 'var(--green)' }}>{fmt(fin.profit)}</span></div>
+              <div className="kv-row"><span className="k" style={{ fontWeight: 700, color: 'var(--ink)' }}>Прибыль</span><span className="v" style={{ fontWeight: 700, color: 'var(--green)' }}>{fmt(fin.profit)}</span></div>
             </div>
           </div>
         </div>
@@ -545,7 +545,7 @@ function SvcCard({ item, kind, participants = [], hideBackRow, onBack }) {
                 <Icon name="docs" style={{ flexShrink: 0 }} />
                 <span style={{ display: 'flex', flexDirection: 'column', minWidth: 0 }}>
                   <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{d.name}</span>
-                  <span style={{ fontSize: 11.5, color: 'var(--muted)' }}>{d.type}{d.size ? ' · ' + d.size : ''}</span>
+                  <span style={{ fontSize: 12, color: 'var(--muted)' }}>{d.type}{d.size ? ' · ' + d.size : ''}</span>
                 </span>
               </span>
               <span style={{ display: 'flex', alignItems: 'center', gap: 4, flexShrink: 0 }}>
@@ -743,7 +743,7 @@ function ServiceFlow({ routeKey }) {
               {cfg.fields.map((f) => <SvcField key={f.k} f={f} form={form} set={setF} />)}
               <Button icon="search" style={{ height: 46, marginBottom: 0 }} onClick={runSearch}>Найти</Button>
             </div>
-            <div style={{ marginTop: 14, display: 'flex', alignItems: 'center', gap: 8, color: 'var(--muted)', fontSize: 13.5 }}>
+            <div style={{ marginTop: 14, display: 'flex', alignItems: 'center', gap: 8, color: 'var(--muted)', fontSize: 13 }}>
               <Icon name="api" style={{ width: 16, height: 16 }} />Поиск по подключённым поставщикам · {cfg.title}
             </div>
           </div>
@@ -829,7 +829,7 @@ function ServiceAddFlow({ routeKey, onAdd }) {
             )}
             <Button icon="search" style={{ height: 46, marginBottom: 0 }} onClick={runSearch}>Найти</Button>
           </div>
-          <div style={{ marginTop: 14, display: 'flex', alignItems: 'center', gap: 8, color: 'var(--muted)', fontSize: 13.5 }}>
+          <div style={{ marginTop: 14, display: 'flex', alignItems: 'center', gap: 8, color: 'var(--muted)', fontSize: 13 }}>
             <Icon name="api" style={{ width: 16, height: 16 }} />Поиск по подключённым поставщикам · {cfg.title}
           </div>
         </>
@@ -924,7 +924,7 @@ function AeroAddFlow({ onAdd }) {
             )}
             <Button icon="search" style={{ height: 46, marginBottom: 0 }} onClick={runSearch}>Найти</Button>
           </div>
-          <div style={{ marginTop: 14, display: 'flex', alignItems: 'center', gap: 8, color: 'var(--muted)', fontSize: 13.5 }}>
+          <div style={{ marginTop: 14, display: 'flex', alignItems: 'center', gap: 8, color: 'var(--muted)', fontSize: 13 }}>
             <Icon name="api" style={{ width: 16, height: 16 }} />Билеты и абонементы Аэроэкспресс · цены в ₽
           </div>
         </>

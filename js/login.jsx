@@ -231,7 +231,7 @@ function LoginScreen({ onLogin }) {
                   <div className="lp-check" key={t}><Icon name="check" strokeWidth={3} />{t}</div>
                 ))}
                 <button className="lp-btn lp-btn-primary" style={{ marginTop: 10, maxWidth: 225 }} onClick={() => go('demo')}>
-                  Получить демо-доступ <Icon name="arrowRight" style={{ width: 17, height: 17 }} />
+                  Получить демо-доступ <Icon name="arrowRight" style={{ width: 18, height: 18 }} />
                 </button>
                 <div className="lp-seat"><img src="assets/login-seat.png" alt="Комфортное кресло" /></div>
               </div>
@@ -350,7 +350,7 @@ function LoginScreen({ onLogin }) {
                 <label className="lp-lbl" style={{ marginTop: 18 }}>Телефон <span style={{ color: '#aeb5c4', fontWeight: 500 }}>· необязательно</span></label>
                 <input className="lp-input" type="tel" placeholder="+7 (___) ___-__-__" value={demo.phone} onChange={(e) => setD('phone', e.target.value)} />
                 <button type="submit" className="lp-btn lp-btn-primary" style={{ marginTop: 22 }} disabled={loading}>
-                  {loading ? <><Icon name="loader" className="lp-spin" style={{ width: 18, height: 18 }} />Отправка…</> : <>Получить демо-доступ <Icon name="arrowRight" style={{ width: 17, height: 17 }} /></>}
+                  {loading ? <><Icon name="loader" className="lp-spin" style={{ width: 18, height: 18 }} />Отправка…</> : <>Получить демо-доступ <Icon name="arrowRight" style={{ width: 18, height: 18 }} /></>}
                 </button>
               </form>
             </div>

@@ -118,7 +118,7 @@ function MotivationDrawer({ open, operator, onClose }) {
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '4px 0 16px', borderBottom: '1px solid var(--line)', marginBottom: 18 }}>
         <div>
           <div style={{ fontWeight: 600, color: 'var(--ink)' }}>Единые настройки для всех видов услуг</div>
-          <div style={{ fontSize: 12.5, color: 'var(--muted)' }}>Выключите, чтобы задать разные проценты для каждого вида услуг</div>
+          <div style={{ fontSize: 12, color: 'var(--muted)' }}>Выключите, чтобы задать разные проценты для каждого вида услуг</div>
         </div>
         <Toggle on={mot.uniform} onChange={(v) => setMot((m) => ({ ...m, uniform: v }))} />
       </div>
@@ -127,7 +127,7 @@ function MotivationDrawer({ open, operator, onClose }) {
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12, maxWidth: 420 }}>
           {ROWS.map(([k, label]) => (
             <div key={k} style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-              <span style={{ flex: 1, fontSize: 13.5, color: 'var(--body)' }}>Процент {label}</span>
+              <span style={{ flex: 1, fontSize: 13, color: 'var(--body)' }}>Процент {label}</span>
               {pctInput(mot.base[k], (v) => setBase(k, v))}
             </div>
           ))}
@@ -152,7 +152,7 @@ function MotivationDrawer({ open, operator, onClose }) {
           })}
         </div>
       )}
-      <div style={{ fontSize: 12.5, color: 'var(--muted)', marginTop: 16 }}>
+      <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 16 }}>
         Начисления рассчитываются автоматически после оформления услуги и отображаются в отчёте оператора.
         При обмене, возврате или изменении стоимости заказа начисления пересчитываются с сохранением истории изменений.
       </div>
@@ -206,7 +206,7 @@ function ShiftReportDrawer({ open, onClose, operator, shift, closing, onConfirmC
       {/* Метрики смены */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 10, marginBottom: 16 }}>
         {METRICS.map(([l, v], i) => (
-          <div className="stat-card" key={i}><div className="s-label">{l}</div><div className="s-value" style={{ fontSize: 19 }}>{v}</div></div>
+          <div className="stat-card" key={i}><div className="s-label">{l}</div><div className="s-value" style={{ fontSize: 18 }}>{v}</div></div>
         ))}
       </div>
 
@@ -232,8 +232,8 @@ function ShiftReportDrawer({ open, onClose, operator, shift, closing, onConfirmC
         </div>
         <div className="card card-pad" style={{ background: 'var(--blue-soft)', border: '1px solid var(--blue)' }}>
           <div style={{ fontSize: 13, color: 'var(--muted)' }}>Заработок оператора за смену</div>
-          <div style={{ fontSize: 32, fontWeight: 800, color: 'var(--blue)', margin: '6px 0' }}>{shPct(t.earn)}</div>
-          <div style={{ fontSize: 12.5, color: 'var(--body)' }}>
+          <div style={{ fontSize: 32, fontWeight: 700, color: 'var(--blue)', margin: '6px 0' }}>{shPct(t.earn)}</div>
+          <div style={{ fontSize: 12, color: 'var(--body)' }}>
             Рассчитан по индивидуальной мотивации: {mot.uniform
               ? `${mot.base.service}% от серв. сбора · ${mot.base.markup}% от надбавки · ${mot.base.commission}% от комиссии (единые для всех услуг)`
               : 'проценты заданы отдельно по каждому виду услуг'}
@@ -267,7 +267,7 @@ function ShiftReportDrawer({ open, onClose, operator, shift, closing, onConfirmC
                   <td style={{ textAlign: 'right', color: op.markup < 0 ? 'var(--red)' : 'inherit' }}>{shPct(op.markup)}</td>
                   <td style={{ textAlign: 'right', color: op.commission < 0 ? 'var(--red)' : 'inherit' }}>{shPct(op.commission)}</td>
                   <td style={{ textAlign: 'right', fontWeight: 700, color: 'var(--blue)' }}>{shPct(earn)}</td>
-                  <td style={{ textAlign: 'center' }}>{op.history && <button className="icon-btn" title="История пересчёта" onClick={() => setDetailOp(op)}><Icon name="clock" style={{ width: 15, height: 15 }} /></button>}</td>
+                  <td style={{ textAlign: 'center' }}>{op.history && <button className="icon-btn" title="История пересчёта" onClick={() => setDetailOp(op)}><Icon name="clock" style={{ width: 16, height: 16 }} /></button>}</td>
                 </tr>
               );
             })}
@@ -332,12 +332,12 @@ function FeesReportDrawer({ open, onClose, operator, shift }) {
               <td style={{ textAlign: 'right', fontWeight: 700 }}>{shPct(tot.serviceFee)}</td>
               <td style={{ textAlign: 'right', fontWeight: 700 }}>{shPct(tot.markup)}</td>
               <td style={{ textAlign: 'right', fontWeight: 700 }}>{shPct(tot.commission)}</td>
-              <td style={{ textAlign: 'right', fontWeight: 800, color: 'var(--blue)' }}>{shPct(tot.earn)}</td>
+              <td style={{ textAlign: 'right', fontWeight: 700, color: 'var(--blue)' }}>{shPct(tot.earn)}</td>
             </tr>
           </tbody>
         </table>
       </div>
-      <div style={{ fontSize: 12.5, color: 'var(--muted)', marginTop: 10 }}>Суммы рассчитаны по операциям текущей смены с учётом индивидуальной мотивации оператора.</div>
+      <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 10 }}>Суммы рассчитаны по операциям текущей смены с учётом индивидуальной мотивации оператора.</div>
     </Drawer>
   );
 }

@@ -48,7 +48,7 @@ function CreditCard({ credit }) {
       </div>
       {credit.overdue > 0 && <div className="card" style={{ marginTop: 12, padding: '10px 12px', borderLeft: '3px solid var(--red)', display: 'flex', gap: 8, alignItems: 'center' }}>
         <Icon name="alertCircle" style={{ width: 16, height: 16, color: 'var(--red)' }} />
-        <span style={{ fontSize: 12.5, color: 'var(--body)' }}>Есть просроченная задолженность — оформление новых заказов требует подтверждения.</span>
+        <span style={{ fontSize: 12, color: 'var(--body)' }}>Есть просроченная задолженность — оформление новых заказов требует подтверждения.</span>
       </div>}
     </div>
   );
@@ -115,14 +115,14 @@ function AgreementFeesView({ agreement }) {
     <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
       {FEE_SERVICE_TYPES.map((svc) => (
         <div key={svc}>
-          <div style={{ fontWeight: 700, color: 'var(--ink)', fontSize: 13.5, marginBottom: 6 }}>{svc}</div>
+          <div style={{ fontWeight: 700, color: 'var(--ink)', fontSize: 13, marginBottom: 6 }}>{svc}</div>
           <div className="table-card">
             <table className="tbl">
-              <thead><tr>{FEE_SCHEMA[svc].map((f) => <th key={f.key} style={{ fontSize: 11.5 }}>{f.label}</th>)}</tr></thead>
+              <thead><tr>{FEE_SCHEMA[svc].map((f) => <th key={f.key} style={{ fontSize: 12 }}>{f.label}</th>)}</tr></thead>
               <tbody><tr>{FEE_SCHEMA[svc].map((f) => <td key={f.key}>{feeCellText(agreement.fees[svc] && agreement.fees[svc][f.key])}</td>)}</tr></tbody>
             </table>
           </div>
-          <div style={{ fontSize: 12.5, color: 'var(--muted)', marginTop: 4 }}>Описание для документов: «{agreement.descs[svc] || SERVICE_DESC_DEFAULTS[svc] || '—'}»</div>
+          <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 4 }}>Описание для документов: «{agreement.descs[svc] || SERVICE_DESC_DEFAULTS[svc] || '—'}»</div>
         </div>
       ))}
     </div>
@@ -193,13 +193,13 @@ function AgreementEditor({ open, agreement, onClose, onSave }) {
           <div style={{ maxWidth: 260 }} key={tplTick}>
             <Select options={FEE_TEMPLATES.map((t) => ({ value: t.id, label: t.name + (t.custom ? ' (индивид.)' : '') }))} value={tpl} onChange={(e) => applyTpl(e.target.value)} />
           </div>
-          <span style={{ fontSize: 12.5, color: 'var(--muted)' }}>можно донастроить вручную ниже</span>
+          <span style={{ fontSize: 12, color: 'var(--muted)' }}>можно донастроить вручную ниже</span>
           <div style={{ flex: 1 }} />
           <Button variant="ghost" size="sm" icon="plus" onClick={() => setTplNameOpen((v) => !v)}>Сохранить как шаблон</Button>
         </div>
         {tplNameOpen && (
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', marginBottom: 16, padding: '10px 12px', background: 'var(--surface-2)', borderRadius: 10 }}>
-            <span style={{ fontSize: 12.5, color: 'var(--muted)' }}>Название нового шаблона:</span>
+            <span style={{ fontSize: 12, color: 'var(--muted)' }}>Название нового шаблона:</span>
             <div style={{ width: 240 }}>
               <Input value={tplName} onChange={(e) => setTplName(e.target.value)} placeholder="напр. «Корп. клиент 2026»"
                 onKeyDown={(e) => { if (e.key === 'Enter') saveAsTemplate(); }} />
@@ -218,7 +218,7 @@ function AgreementEditor({ open, agreement, onClose, onSave }) {
               const fee = fees[tab][f.key];
               return (
                 <div key={f.key} style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap', padding: '8px 0', borderBottom: '1px solid var(--line)' }}>
-                  <span style={{ flex: 1, minWidth: 160, fontSize: 13.5, color: 'var(--body)' }}>{f.label}</span>
+                  <span style={{ flex: 1, minWidth: 160, fontSize: 13, color: 'var(--body)' }}>{f.label}</span>
                   <div className="seg-toggle" style={{ width: 168 }}>
                     <button className={'seg-btn' + (fee.type === 'percent' ? ' active' : '')} onClick={() => setFee(tab, f.key, { type: 'percent' })}>%</button>
                     <button className={'seg-btn' + (fee.type === 'fixed' ? ' active' : '')} onClick={() => setFee(tab, f.key, { type: 'fixed' })}>Фикс.</button>
@@ -234,7 +234,7 @@ function AgreementEditor({ open, agreement, onClose, onSave }) {
 
           {/* Описание услуги и всех сборов (в т.ч. сборов поставщиков) для акта / счёта / УПД — всё в одном блоке */}
           <div style={{ fontWeight: 700, color: 'var(--ink)', margin: '20px 0 4px' }}>Описание услуги и сборов для закрывающих документов · {tab}</div>
-          <div style={{ fontSize: 12.5, color: 'var(--muted)', marginBottom: 12 }}>Общее описание услуги — заголовок позиции в акте / счёте / УПД. Описания сборов и сборов поставщиков печатаются отдельными строками под ним.</div>
+          <div style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 12 }}>Общее описание услуги — заголовок позиции в акте / счёте / УПД. Описания сборов и сборов поставщиков печатаются отдельными строками под ним.</div>
 
           <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--body)', marginBottom: 5 }}>Общее описание услуги</div>
           <textarea className="input" style={{ minHeight: 60, resize: 'vertical', padding: '10px 12px', width: '100%' }}
@@ -246,7 +246,7 @@ function AgreementEditor({ open, agreement, onClose, onSave }) {
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
             {FEE_SCHEMA[tab].map((f) => (
               <div key={f.key} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                <span style={{ width: 168, flexShrink: 0, fontSize: 12.5, color: 'var(--muted)' }}>{f.key === 'supplier' ? 'Сборы поставщиков' : f.label}</span>
+                <span style={{ width: 168, flexShrink: 0, fontSize: 12, color: 'var(--muted)' }}>{f.key === 'supplier' ? 'Сборы поставщиков' : f.label}</span>
                 <div className="input-wrap" style={{ flex: 1 }}>
                   <input className="input" style={{ height: 36, padding: '6px 10px', fontSize: 13 }}
                     value={(feeDescs[tab] && feeDescs[tab][f.key]) || ''} onChange={(e) => setFeeDesc(tab, f.key, e.target.value)}
@@ -274,7 +274,7 @@ function AgreementHistoryDrawer({ open, agreement, onClose }) {
             <div style={{ paddingBottom: 8 }}>
               <div className="tl-time">{v.date} · {v.user}</div>
               <div className="tl-text" style={{ fontWeight: 600 }}>{v.title}</div>
-              <div style={{ fontSize: 12.5, color: 'var(--muted)', marginTop: 2 }}>{v.fields.join(', ')}</div>
+              <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 2 }}>{v.fields.join(', ')}</div>
             </div>
           </div>
         ))}
@@ -321,7 +321,7 @@ function CompanyContracts({ fin, coName, onFinChange, onOpenClosing }) {
             <div className="card" key={c.id} style={{ overflow: 'hidden' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '14px 18px', cursor: 'pointer' }}
                 onClick={() => setExpanded((e) => ({ ...e, [c.id]: !e[c.id] }))}>
-                <span className="oc-svc-ic" style={{ background: '#2566ff', width: 40, height: 40, borderRadius: 11 }}><Icon name="docs" style={{ width: 19, height: 19 }} /></span>
+                <span className="oc-svc-ic" style={{ background: '#2566ff', width: 40, height: 40, borderRadius: 11 }}><Icon name="docs" style={{ width: 20, height: 20 }} /></span>
                 <div style={{ flex: 1 }}>
                   <div style={{ fontWeight: 700, color: 'var(--ink)' }}>Договор {c.no}</div>
                   <div style={{ fontSize: 13, color: 'var(--muted)' }}>от {c.date} · {c.agreements.length} доп. соглашение(ий)</div>
@@ -336,7 +336,7 @@ function CompanyContracts({ fin, coName, onFinChange, onOpenClosing }) {
                     <div className="card card-pad" key={a.id} style={{ marginBottom: 12 }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12, flexWrap: 'wrap' }}>
                         <span style={{ fontWeight: 700, color: 'var(--ink)', fontSize: 15 }}>{a.no}</span>
-                        <span style={{ fontSize: 12.5, color: 'var(--muted)' }}>от {a.date} · v{a.version}</span>
+                        <span style={{ fontSize: 12, color: 'var(--muted)' }}>от {a.date} · v{a.version}</span>
                         <Pill tone={a.status === 'Действующий' ? 'green' : 'gray'}>{a.status}</Pill>
                         <Pill tone="blue">Шаблон: {feeTemplate(a.template).name}</Pill>
                         <div style={{ flex: 1 }} />
@@ -435,11 +435,11 @@ function ClosingDocsPreview({ open, agreement, coName, co, onClose }) {
                     {p.kind === 'service' ? (
                       <>
                         <input className="input" style={{ height: 34, padding: '4px 8px', fontWeight: 600 }} value={p.desc} onChange={(e) => setDesc(p.rowIndex, e.target.value)} />
-                        <div style={{ fontSize: 11.5, color: 'var(--muted)', marginTop: 2 }}>{p.svc} · основная услуга</div>
+                        <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 2 }}>{p.svc} · основная услуга</div>
                       </>
                     ) : (
                       <div style={{ display: 'flex', alignItems: 'center', gap: 8, paddingLeft: 12 }}>
-                        <Icon name="chevRight" style={{ width: 13, height: 13, color: 'var(--muted-2)' }} />
+                        <Icon name="chevRight" style={{ width: 14, height: 14, color: 'var(--muted-2)' }} />
                         <span style={{ fontSize: 13, color: 'var(--body)' }}>{p.desc}</span>
                       </div>
                     )}
@@ -464,7 +464,7 @@ function ClosingDocsPreview({ open, agreement, coName, co, onClose }) {
 
         <div className="card" style={{ padding: '10px 12px', borderLeft: '3px solid var(--blue)', marginBottom: 16, display: 'flex', gap: 8, alignItems: 'center' }}>
           <Icon name="eye" style={{ width: 16, height: 16, color: 'var(--blue)' }} />
-          <span style={{ fontSize: 12.5, color: 'var(--body)' }}>Проверьте описание услуг, суммы, сборы, надбавки, реквизиты, НДС и итог. Выгрузка в «{sys}» произойдёт только после подтверждения.</span>
+          <span style={{ fontSize: 12, color: 'var(--body)' }}>Проверьте описание услуг, суммы, сборы, надбавки, реквизиты, НДС и итог. Выгрузка в «{sys}» произойдёт только после подтверждения.</span>
         </div>
 
       <ConfirmDialog open={confirmSend} title={'Передать документы в «' + sys + '»?'}

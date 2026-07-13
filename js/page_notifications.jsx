@@ -84,7 +84,7 @@ function ErrorCodesDrawer({ open, focusCode, onClose }) {
         {rows.map((e) => (
           <div key={e.code} className="card card-pad" style={{ borderLeft: '3px solid var(--' + (ERR_SEVERITY[e.severity] || 'muted') + ')' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-              <code style={{ fontFamily: 'ui-monospace, Menlo, monospace', fontWeight: 700, fontSize: 13.5, background: 'var(--surface-2)', padding: '3px 9px', borderRadius: 6, color: 'var(--ink)' }}>{e.code}</code>
+              <code style={{ fontFamily: 'ui-monospace, Menlo, monospace', fontWeight: 700, fontSize: 13, background: 'var(--surface-2)', padding: '3px 9px', borderRadius: 6, color: 'var(--ink)' }}>{e.code}</code>
               <span style={{ fontWeight: 600, color: 'var(--ink)' }}>{e.title}</span>
               <div style={{ flex: 1 }} />
               <Pill tone={ERR_SEVERITY[e.severity]}>{e.severity}</Pill>
@@ -92,9 +92,9 @@ function ErrorCodesDrawer({ open, focusCode, onClose }) {
             <div style={{ display: 'flex', gap: 8, margin: '9px 0', flexWrap: 'wrap' }}>
               <Pill tone="gray">{e.system}</Pill><Pill tone="gray">{e.category}</Pill>
             </div>
-            <div style={{ fontSize: 13.5, color: 'var(--body)', marginBottom: 8 }}>{e.desc}</div>
+            <div style={{ fontSize: 13, color: 'var(--body)', marginBottom: 8 }}>{e.desc}</div>
             <div style={{ fontSize: 13, color: 'var(--muted)', display: 'flex', gap: 7, alignItems: 'flex-start' }}>
-              <Icon name="check" style={{ width: 15, height: 15, color: 'var(--green)', flexShrink: 0, marginTop: 2 }} />
+              <Icon name="check" style={{ width: 16, height: 16, color: 'var(--green)', flexShrink: 0, marginTop: 2 }} />
               <span><b style={{ color: 'var(--ink)' }}>Что делать:</b> {e.resolution}</span>
             </div>
           </div>

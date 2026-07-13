@@ -15,7 +15,7 @@ function CurrencyModal({ open, onClose }) {
             <div key={i} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 20, padding: '12px 0', borderBottom: '1px solid var(--line)' }}>
               <div>
                 <div style={{ fontSize: 17, fontWeight: 600, color: 'var(--ink)' }}>{c.sym} {c.name}</div>
-                <div style={{ fontSize: 13.5, color: 'var(--muted)' }}>Текущее значение: {c.rate}</div>
+                <div style={{ fontSize: 13, color: 'var(--muted)' }}>Текущее значение: {c.rate}</div>
               </div>
               <input className="input" style={{ width: 230 }} placeholder="Введите значение" value={vals[c.code] || ''} onChange={(e) => setVals((v) => ({ ...v, [c.code]: e.target.value }))} />
             </div>
@@ -23,7 +23,7 @@ function CurrencyModal({ open, onClose }) {
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px 0' }}>
             <div>
               <div style={{ fontSize: 17, fontWeight: 600, color: 'var(--ink)' }}>Показать дополнительный расчет</div>
-              <div style={{ fontSize: 13.5, color: 'var(--muted)' }}>При добавлении новых заказов</div>
+              <div style={{ fontSize: 13, color: 'var(--muted)' }}>При добавлении новых заказов</div>
             </div>
             <Toggle on={extra} onChange={setExtra} />
           </div>
@@ -90,7 +90,7 @@ function ApiKeyModal({ open, onClose }) {
           <ModalHeader title="Результаты API ключа" sub={`ОсОО "${org}" ✓`} onClose={onClose} />
           {[['API', 'Введите его в поле с API', 'KJjhasgdv343uhagha9723545'], ['API-KEY', 'Введите ключ для активации API', '76124536dhg'], ['API-ENDPOINT', 'Введите ENDPOINT для работы с API', 'https://api.amadeus.com/v2/bookings']].map(([t, h, v], i) => (
             <div key={i} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 24, marginBottom: 18 }}>
-              <div><div style={{ fontWeight: 700, color: 'var(--ink)' }}>{t}</div><div style={{ fontSize: 13.5, color: 'var(--muted)' }}>{h}</div></div>
+              <div><div style={{ fontWeight: 700, color: 'var(--ink)' }}>{t}</div><div style={{ fontSize: 13, color: 'var(--muted)' }}>{h}</div></div>
               <div className="input-wrap" style={{ width: 320 }}>
                 <input className="input has-trail" readOnly value={v} style={{ background: 'var(--surface-2)' }} />
                 <Icon name="copy" className="trail" onClick={() => toast('Скопировано', 'ok')} />
@@ -174,7 +174,7 @@ function NotificationsModal({ open, onClose }) {
         <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
           {opts.map((l, i) => (
             <div key={i} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 0', borderBottom: i < opts.length - 1 ? '1px solid var(--line)' : 'none' }}>
-              <span style={{ fontSize: 14.5, color: 'var(--ink)' }}>{l}</span>
+              <span style={{ fontSize: 14, color: 'var(--ink)' }}>{l}</span>
               <Toggle on={tg[i]} onChange={(v) => setTg((arr) => arr.map((x, j) => j === i ? v : x))} />
             </div>
           ))}
@@ -195,14 +195,14 @@ function OperatorAccessDrawer({ open, operator, onClose }) {
       <div className="card card-pad" style={{ marginBottom: 16, display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap' }}>
         <div style={{ flex: 1, minWidth: 200 }}>
           <div style={{ fontWeight: 700, color: 'var(--ink)' }}>Отклик на заявку</div>
-          <div style={{ fontSize: 12.5, color: 'var(--muted)' }}>Норматив первого отклика. При превышении на дашборде — просрочка / накал тайминга.</div>
+          <div style={{ fontSize: 12, color: 'var(--muted)' }}>Норматив первого отклика. При превышении на дашборде — просрочка / накал тайминга.</div>
         </div>
         <div style={{ width: 110 }}><Input type="number" min="1" value={sla} onChange={(e) => setSla(Math.max(1, parseInt(e.target.value) || 1))} /></div>
         <span style={{ color: 'var(--muted)', fontSize: 13 }}>минут</span>
         <Button size="sm" icon="check" onClick={() => { OPERATOR_SLA[operator] = sla; toast('Норматив сохранён: ' + sla + ' мин', 'ok'); }}>Сохранить</Button>
       </div>
       <h3 className="card-title" style={{ fontSize: 16, marginBottom: 4 }}>Доступ по видам услуг</h3>
-      <div style={{ fontSize: 12.5, color: 'var(--muted)', marginBottom: 12 }}>Область ответственности оператора в заказах.</div>
+      <div style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 12 }}>Область ответственности оператора в заказах.</div>
       <ServiceAccessEditor operator={operator} />
     </Drawer>
   );
@@ -270,7 +270,7 @@ function RolesTab() {
           <tbody>
             {matrix.map((g, gi) => (
               <React.Fragment key={g.group}>
-                <tr><td colSpan={5} style={{ background: 'var(--surface-2)', fontWeight: 700, color: 'var(--ink)', fontSize: 13.5 }}>{g.group}</td></tr>
+                <tr><td colSpan={5} style={{ background: 'var(--surface-2)', fontWeight: 700, color: 'var(--ink)', fontSize: 13 }}>{g.group}</td></tr>
                 {g.items.map((it, ii) => (
                   <tr key={it.k}>
                     <td>{it.k}</td>
@@ -318,7 +318,7 @@ function SettingsPage() {
           <div className="fade-in" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '36px 46px', maxWidth: 1100 }}>
             {groups.map((g, i) => (
               <div key={i}>
-                <h3 style={{ fontSize: 19, fontWeight: 700, color: 'var(--ink)', margin: '0 0 14px' }}>{g.title}</h3>
+                <h3 style={{ fontSize: 18, fontWeight: 700, color: 'var(--ink)', margin: '0 0 14px' }}>{g.title}</h3>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
                   {g.items.map(([label, fn], j) => (<button key={j} className="doc-chip" style={{ height: 50, padding: '0 18px' }} onClick={fn}>{label}<Icon name="chevRight" /></button>))}
                 </div>

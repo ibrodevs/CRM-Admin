@@ -157,14 +157,14 @@ function ModulePlaceholder({ title, icon = 'inbox', planned = [] }) {
             <Icon name={icon} style={{ width: 30, height: 30 }} />
           </div>
           <h2 className="card-title" style={{ marginBottom: 8 }}>Модуль «{title}»</h2>
-          <p style={{ color: 'var(--muted)', fontSize: 15.5, margin: '0 0 22px' }}>
+          <p style={{ color: 'var(--muted)', fontSize: 15, margin: '0 0 22px' }}>
             Спроектирован в дизайн-системе и запланирован к реализации в следующей фазе.
           </p>
           {planned.length > 0 && (
             <div style={{ display: 'inline-flex', flexDirection: 'column', gap: 10, textAlign: 'left' }}>
               {planned.map((p) => (
-                <div key={p} style={{ display: 'flex', alignItems: 'center', gap: 10, color: 'var(--body)', fontSize: 14.5 }}>
-                  <Icon name="check" style={{ width: 17, height: 17, color: 'var(--green)' }} />{p}
+                <div key={p} style={{ display: 'flex', alignItems: 'center', gap: 10, color: 'var(--body)', fontSize: 14 }}>
+                  <Icon name="check" style={{ width: 18, height: 18, color: 'var(--green)' }} />{p}
                 </div>
               ))}
             </div>

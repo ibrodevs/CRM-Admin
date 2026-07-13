@@ -41,7 +41,7 @@ function OrderResponsiblesTab({ order }) {
       <div style={{ display: 'flex', alignItems: 'center', marginBottom: 12 }}>
         <div style={{ flex: 1 }}>
           <h3 className="card-title" style={{ fontSize: 18, margin: 0 }}>Ответственные по услугам</h3>
-          <div style={{ fontSize: 12.5, color: 'var(--muted)' }}>Над одним заказом работают несколько операторов — каждый со своими услугами. Вознаграждение считается по своим услугам.</div>
+          <div style={{ fontSize: 12, color: 'var(--muted)' }}>Над одним заказом работают несколько операторов — каждый со своими услугами. Вознаграждение считается по своим услугам.</div>
         </div>
       </div>
 
@@ -100,7 +100,7 @@ function OrderResponsiblesTab({ order }) {
                   </div>
                 ))}
               </div>
-            ) : <div style={{ color: 'var(--muted)', fontSize: 13.5 }}>Переназначений ещё не было.</div>}
+            ) : <div style={{ color: 'var(--muted)', fontSize: 13 }}>Переназначений ещё не было.</div>}
           </div>
         </div>
       </div>
@@ -150,20 +150,20 @@ function DynamicExtrasPanel({ order }) {
       <div style={{ display: 'flex', alignItems: 'center', marginBottom: 12, flexWrap: 'wrap', gap: 12 }}>
         <div style={{ flex: 1, minWidth: 220 }}>
           <h3 className="card-title" style={{ fontSize: 18, margin: 0 }}>Дополнительные услуги</h3>
-          <div style={{ fontSize: 12.5, color: 'var(--muted)' }}>Список формируется динамически: этап оформления → запрос в API поставщика → фильтр по статусу → отображение.</div>
+          <div style={{ fontSize: 12, color: 'var(--muted)' }}>Список формируется динамически: этап оформления → запрос в API поставщика → фильтр по статусу → отображение.</div>
         </div>
       </div>
 
       {/* Этап + тип поставщика */}
       <div className="card card-pad" style={{ marginBottom: 16, display: 'flex', alignItems: 'center', gap: 18, flexWrap: 'wrap' }}>
         <div>
-          <div style={{ fontSize: 12.5, color: 'var(--muted)', marginBottom: 6 }}>Этап оформления</div>
+          <div style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 6 }}>Этап оформления</div>
           <div className="seg-toggle" style={{ width: 300 }}>
             {EXTRA_STAGES.map((st) => <button key={st} className={'seg-btn' + (stage === st ? ' active' : '')} onClick={() => setStage(st)}>{st}</button>)}
           </div>
         </div>
         <div>
-          <div style={{ fontSize: 12.5, color: 'var(--muted)', marginBottom: 6 }}>Поставщик</div>
+          <div style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 6 }}>Поставщик</div>
           <div className="seg-toggle" style={{ width: 260 }}>
             <button className={'seg-btn' + (hasApi ? ' active' : '')} onClick={() => setHasApi(true)}>С API</button>
             <button className={'seg-btn' + (!hasApi ? ' active' : '')} onClick={() => setHasApi(false)}>Локальный (без API)</button>
@@ -171,7 +171,7 @@ function DynamicExtrasPanel({ order }) {
         </div>
         <div style={{ flex: 1 }} />
         <div style={{ fontSize: 12, color: 'var(--muted)', maxWidth: 280, display: 'flex', gap: 6, alignItems: 'flex-start' }}>
-          <Icon name="api" style={{ width: 15, height: 15, color: 'var(--blue)', flexShrink: 0, marginTop: 1 }} />
+          <Icon name="api" style={{ width: 16, height: 16, color: 'var(--blue)', flexShrink: 0, marginTop: 1 }} />
           CRM показывает только то, что вернул поставщик. Если API нет — услуга помечается «ручной запрос».
         </div>
       </div>
@@ -182,7 +182,7 @@ function DynamicExtrasPanel({ order }) {
         return (
           <div key={g.key} style={{ marginBottom: 16 }}>
             <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, marginBottom: 8 }}>
-              <span style={{ fontSize: 13.5, fontWeight: 700, color: 'var(--ink)' }}>{g.title}</span>
+              <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--ink)' }}>{g.title}</span>
               <span style={{ fontSize: 12, color: 'var(--muted)' }}>{g.hint}</span>
               <span style={{ fontSize: 12, color: 'var(--muted-2)' }}>· {items.length}</span>
             </div>
@@ -212,7 +212,7 @@ function ExtrasCatalogModal({ open, onClose }) {
                 <tr key={x.id}>
                   <td><span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}><Icon name={x.icon} style={{ width: 16, height: 16, color: 'var(--blue)' }} />{x.name}</span></td>
                   <td>{x.category}</td>
-                  <td className="t-muted" style={{ fontSize: 12.5 }}>{x.stages.join(', ')}</td>
+                  <td className="t-muted" style={{ fontSize: 12 }}>{x.stages.join(', ')}</td>
                   <td>{x.emd ? <Pill tone="teal">EMD</Pill> : <span className="t-muted">—</span>}</td>
                   <td>{x.manual ? 'Да' : 'Нет'}</td>
                   <td>{x.fee ? (x.feeName || 'Сбор') : '—'}</td>
