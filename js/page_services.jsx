@@ -654,15 +654,22 @@ function SvcFilters({ allOffers, flt, setFlt, bounds, facetLabel }) {
 /* ====================================================================
    FLOW
    ==================================================================== */
-function ServiceFlow({ routeKey }) {
+function ServiceFlow({ routeKey, searchIntent, onConsumeSearch }) {
   const cfg = SVC_CFG[routeKey];
   const data = SVC_DATA[routeKey];
   const k = SERVICE_KIND[cfg.kind];
   const toast = useToast();
-  const [view, setView] = useState('registry');
-  const [form, setForm] = useState({});
+  // Приходим из бокового окна подбора → сразу в выдачу с заполненной маской
+  const [view, setView] = useState(searchIntent ? 'results' : 'registry');
+  const [form, setForm] = useState(searchIntent ? (searchIntent.form || {}) : {});
   const [item, setItem] = useState(null);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(!!searchIntent);
+  useEffect(() => {
+    if (!searchIntent) return;
+    const t = setTimeout(() => setLoading(false), 700);
+    onConsumeSearch && onConsumeSearch();
+    return () => clearTimeout(t);
+  }, []);
   const [sort, setSort] = useState('best');
   const [q, setQ] = useState('');
   const [fStatus, setFStatus] = useState('');
@@ -1303,23 +1310,65 @@ const SERVICES_HUB = [
   { key: 'buses', icon: 'bus', title: 'Автобусы', desc: 'Автобусные и маршрутные перевозки.' },
   { key: 'tours', icon: 'users', title: 'Туры и группы', desc: 'Групповые поездки и туристические пакеты.' },
 ];
-function ServicesHubPage({ onNavigate, onAddOrder }) {
+/* Маска подбора авиабилетов для бокового окна хаба (у авиа нет записи в SVC_CFG). */
+const FLIGHTS_HUB_FIELDS = [
+  { k: 'trip', l: 'Тип поездки', t: 'select', o: ['Туда и обратно', 'В одну сторону'] },
+  { k: 'from', l: 'Откуда', t: 'text' },
+  { k: 'to', l: 'Куда', t: 'text' },
+  { k: 'depDate', l: 'Дата вылета', t: 'date' },
+  { k: 'retDate', l: 'Дата возврата', t: 'date' },
+  { k: 'pax', l: 'Пассажиров', t: 'stepper' },
+  { k: 'cabin', l: 'Класс', t: 'select', o: ['Эконом', 'Комфорт', 'Бизнес', 'Первый'] },
+];
+
+/* Боковое окно с поисковой маской — открывается по клику на блок услуги в хабе.
+   Заполнив маску, менеджер сразу попадает в выдачу выбранного раздела (без реестра). */
+function ServiceSearchDrawer({ svc, onClose, onSubmit, onOpenRegistry }) {
+  const open = !!svc;
+  const [form, setForm] = useState({});
+  const key = svc && svc.key;
+  useEffect(() => { setForm({}); }, [key]);
+  if (!open) return null;
+  const set = (k, v) => setForm((f) => ({ ...f, [k]: v }));
+  const cfg = key === 'flights'
+    ? { title: 'Авиабилеты', fields: FLIGHTS_HUB_FIELDS }
+    : { title: SVC_CFG[key].title, fields: SVC_CFG[key].fields };
+  let fields = cfg.fields;
+  if (key === 'flights' && form.trip === 'В одну сторону') fields = fields.filter((f) => f.k !== 'retDate');
+  return (
+    <Drawer open={open} onClose={onClose} title={'Подбор: ' + cfg.title}
+      sub="Заполните параметры — покажем подходящие варианты" width="min(460px,96vw)"
+      footer={<>
+        <Button variant="ghost" icon="clipboard" onClick={() => onOpenRegistry(key)}>Реестр услуг</Button>
+        <div style={{ flex: 1 }} />
+        <Button variant="secondary" onClick={onClose}>Отмена</Button>
+        <Button variant="primary" icon="search" onClick={() => onSubmit(key, form)}>Найти</Button>
+      </>}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
+        {fields.map((f) => <SvcField key={f.k} f={{ ...f, w: '100%' }} form={form} set={set} />)}
+      </div>
+    </Drawer>
+  );
+}
+
+function ServicesHubPage({ onNavigate, onAddOrder, onSearch }) {
+  const [searchSvc, setSearchSvc] = useState(null);
   return (
     <>
-      <Topbar title="Подбор услуг" sub="Выберите вид услуги для поиска и бронирования">
+      <Topbar title="Подбор услуг" sub="Выберите вид услуги — параметры подбора откроются боковым окном">
         <div className="topbar-spacer" />
         {onAddOrder && <Button icon="plus" onClick={onAddOrder}>Новый заказ</Button>}
       </Topbar>
       <div className="content fade-in">
         <div className="svc-hub-grid">
           {SERVICES_HUB.map((s) => (
-            <button key={s.key} type="button" className="svc-hub-card" onClick={() => onNavigate(s.key)}>
+            <button key={s.key} type="button" className="svc-hub-card" onClick={() => setSearchSvc(s)}>
               <span className="svc-hub-ic"><Icon name={s.icon} /></span>
               <span className="svc-hub-body">
                 <span className="svc-hub-t">{s.title}</span>
                 <span className="svc-hub-d">{s.desc}</span>
               </span>
-              <Icon name="arrowRight" className="svc-hub-go" />
+              <Icon name="search" className="svc-hub-go" />
             </button>
           ))}
         </div>
@@ -1328,6 +1377,10 @@ function ServicesHubPage({ onNavigate, onAddOrder }) {
           <span>Подбор всегда привязан к заказу и клиенту. Услуги можно добавить и внутри карточки заказа на вкладке «Услуги».</span>
         </div>
       </div>
+      <ServiceSearchDrawer svc={searchSvc}
+        onClose={() => setSearchSvc(null)}
+        onOpenRegistry={(key) => { setSearchSvc(null); onNavigate(key); }}
+        onSubmit={(key, form) => { setSearchSvc(null); (onSearch || onNavigate)(key, form); }} />
     </>
   );
 }

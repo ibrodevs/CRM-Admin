@@ -39,6 +39,7 @@ function App() {
   const [authed, setAuthed] = useState(false);
   const [route, setRoute] = useState('dashboard');
   const [intent, setIntent] = useState(null); // cross-page intents for orders/suppliers
+  const [svcSearch, setSvcSearch] = useState(null); // { key, form } — маска подбора из хаба услуг
 
   // shared mutable data
   const [orders, setOrders] = useState(ORDERS);
@@ -68,6 +69,8 @@ function App() {
   const createClient = () => { setRoute('clients'); setIntent({ type: 'create' }); setCtxOrder(null); };
   const createCompany = () => { setRoute('companies'); setIntent({ type: 'create' }); setCtxOrder(null); };
   const createKP = () => { setRoute('offers'); setIntent({ type: 'create' }); setCtxOrder(null); };
+  // Подбор услуг из хаба: боковая маска → переход в выдачу выбранного раздела с параметрами
+  const openServiceSearch = (key, form) => { setRoute(key); setSvcSearch({ key, form }); setCtxOrder(null); };
   const addOrder = (o) => setOrders((cur) => [o, ...cur]);
   const addSupplier = (s) => setSuppliers((cur) => [s, ...cur]);
 
@@ -97,8 +100,8 @@ function App() {
       <>
       {route === 'dashboard' && <DashboardPage role={role} onNavigate={navigate} onAddOrder={createOrder} onOpenOrder={openOrder} />}
       {route === 'orders' && <OrdersPage intent={intent} onConsume={() => setIntent(null)} orders={orders} addOrder={addOrder} onDetailChange={setCtxOrder} onOpenChat={() => setChatOpen(true)} />}
-      {route === 'services' && <ServicesHubPage onNavigate={navigate} onAddOrder={createOrder} />}
-      {route === 'flights' && <FlightsPage />}
+      {route === 'services' && <ServicesHubPage onNavigate={navigate} onAddOrder={createOrder} onSearch={openServiceSearch} />}
+      {route === 'flights' && <FlightsPage searchIntent={svcSearch && svcSearch.key === 'flights' ? svcSearch : null} onConsumeSearch={() => setSvcSearch(null)} />}
       {route === 'suppliers' && <SuppliersPage intent={intent} onConsume={() => setIntent(null)} suppliers={suppliers} addSupplier={addSupplier} />}
       {route === 'chats' && <ChatsPage onOpenOrder={openOrder} />}
       {route === 'finance' && <FinancePageNew />}
@@ -110,11 +113,11 @@ function App() {
       {route === 'account' && <AccountSettingsPage onNavigate={navigate} />}
 
       {/* Service modules — shared framework on the avia template */}
-      {route === 'rail' && <ServiceFlow routeKey="rail" />}
+      {route === 'rail' && <ServiceFlow routeKey="rail" searchIntent={svcSearch && svcSearch.key === 'rail' ? svcSearch : null} onConsumeSearch={() => setSvcSearch(null)} />}
       {route === 'hotels' && <HotelsPage />}
-      {route === 'transfers' && <ServiceFlow routeKey="transfers" />}
-      {route === 'buses' && <ServiceFlow routeKey="buses" />}
-      {route === 'tours' && <ServiceFlow routeKey="tours" />}
+      {route === 'transfers' && <ServiceFlow routeKey="transfers" searchIntent={svcSearch && svcSearch.key === 'transfers' ? svcSearch : null} onConsumeSearch={() => setSvcSearch(null)} />}
+      {route === 'buses' && <ServiceFlow routeKey="buses" searchIntent={svcSearch && svcSearch.key === 'buses' ? svcSearch : null} onConsumeSearch={() => setSvcSearch(null)} />}
+      {route === 'tours' && <ServiceFlow routeKey="tours" searchIntent={svcSearch && svcSearch.key === 'tours' ? svcSearch : null} onConsumeSearch={() => setSvcSearch(null)} />}
 
       {route === 'clients' && <ClientsPage onOpenOrder={openOrder} intent={intent} onConsume={() => setIntent(null)} />}
       {route === 'companies' && <CompaniesPage onOpenOrder={openOrder} intent={intent} onConsume={() => setIntent(null)} />}

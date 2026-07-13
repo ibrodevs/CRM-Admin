@@ -1933,18 +1933,31 @@ function FlightsRegistry({ onNew, onOpen }) {
   );
 }
 
-function FlightsPage() {
-  const [view, setView] = useState('registry'); // registry | search | results | card
+function FlightsPage({ searchIntent, onConsumeSearch }) {
+  const [view, setView] = useState(searchIntent ? 'results' : 'registry'); // registry | search | results | card
   const [svc, setSvc] = useState(null);
   const [offer, setOffer] = useState(null);
   const [cardNo, setCardNo] = useState(null);    // № открытой карточки — для подзаголовка/подписи
   const toast = useToast();
-  const [params, setParams] = useState({
-    trip: 'rt', from: 'FRU', to: 'IST', depDate: null, retDate: null,
-    pax: { adt: 1, chd: 0, infNoSeat: 0, infSeat: 0, special: {}, subsidized: {} }, cabin: 'Эконом',
-    baggage: false, flex: false, direct: false, airline: '',
-    ...PAX_DEFAULT_OPTIONS,
+  const [params, setParams] = useState(() => {
+    const base = {
+      trip: 'rt', from: 'FRU', to: 'IST', depDate: null, retDate: null,
+      pax: { adt: 1, chd: 0, infNoSeat: 0, infSeat: 0, special: {}, subsidized: {} }, cabin: 'Эконом',
+      baggage: false, flex: false, direct: false, airline: '',
+      ...PAX_DEFAULT_OPTIONS,
+    };
+    const s = searchIntent && searchIntent.form;
+    if (!s) return base;
+    return {
+      ...base,
+      trip: s.trip === 'В одну сторону' ? 'ow' : 'rt',
+      from: s.from || base.from, to: s.to || base.to,
+      depDate: s.depDate || base.depDate, retDate: s.retDate || base.retDate,
+      pax: { ...base.pax, adt: s.pax || base.pax.adt },
+      cabin: s.cabin || base.cabin,
+    };
   });
+  useEffect(() => { if (searchIntent) onConsumeSearch && onConsumeSearch(); }, []);
 
   const TITLES = { registry: 'Авиабилеты', search: 'Поиск авиабилетов', results: 'Результаты поиска', card: 'Авиауслуга' };
 

@@ -4,7 +4,7 @@
 const LP_STYLES = `
 .lp-root{height:100%;overflow:hidden;display:flex;gap:14px;padding:13px 13px 42px;position:relative;background:#eef0fb;color:var(--body)}
 .lp-left{flex:1;min-width:0;position:relative;overflow:hidden;margin-right:-15px;padding:22px 39px;display:flex;flex-direction:column;border-radius:18px;background:transparent}
-.lp-right{width:610px;max-width:100%;flex:0 0 610px;display:flex;flex-direction:column;padding:27px 40px 16px 19px;overflow-y:auto;background:transparent}
+.lp-right{width:512px;max-width:100%;flex:0 0 512px;display:flex;flex-direction:column;padding:24px 34px 14px 16px;overflow-y:auto;background:transparent}
 @media(max-width:1000px){.lp-root{height:auto;min-height:100vh;overflow:visible;padding:0}.lp-left{display:none}.lp-right{width:100%;flex-basis:100%;padding:26px 20px 70px}}
 
 .lp-brand{display:flex;align-items:center;gap:13px}
@@ -39,11 +39,11 @@ const LP_STYLES = `
 .lp-sla{display:inline-flex;align-items:center;gap:5px;background:#fff;border:1px solid #dde5f5;border-radius:9px;padding:5px 9px;font-size:11.5px;font-weight:700;color:#3a4152;white-space:nowrap}
 .lp-sla svg{width:13px;height:13px;color:var(--blue)}
 
-.lp-card{background:rgba(255,255,255,.97);border:1px solid rgba(235,237,242,.9);border-radius:22px;padding:34px 36px 30px;box-shadow:0 16px 42px rgba(16,23,38,.055)}
+.lp-card{background:rgba(255,255,255,.97);border:1px solid rgba(235,237,242,.9);border-radius:20px;padding:26px 30px 24px;box-shadow:0 16px 42px rgba(16,23,38,.055)}
 .lp-h1{font-size:22px;font-weight:800;letter-spacing:-.02em;color:var(--ink);margin:0}
 .lp-sub{color:var(--muted);font-size:13.5px;margin:4px 0 0;line-height:1.4}
-.lp-lbl{font-size:12.5px;font-weight:600;color:#3a4152;margin-bottom:5px;display:block}
-.lp-input{width:100%;height:42px;border:1.5px solid var(--field-line);border-radius:var(--r-input);padding:0 15px;font-size:14.5px;font-family:inherit;color:var(--ink);background:#fff;transition:.15s}
+.lp-lbl{font-size:12.5px;font-weight:600;color:#3a4152;margin-bottom:4px;display:block}
+.lp-input{width:100%;height:40px;border:1.5px solid var(--field-line);border-radius:var(--r-input);padding:0 15px;font-size:14.5px;font-family:inherit;color:var(--ink);background:#fff;transition:.15s}
 .lp-input::placeholder{color:#aeb5c4}
 .lp-input:focus{outline:none;border-color:var(--blue);box-shadow:0 0 0 4px rgba(37,102,255,.13)}
 .lp-input.err{border-color:var(--red-strong);box-shadow:0 0 0 4px rgba(239,68,68,.1)}
@@ -53,7 +53,7 @@ const LP_STYLES = `
 .lp-errtxt svg{width:13px;height:13px}
 .lp-link{color:var(--blue);font-weight:600;font-size:13.5px;background:none;border:none;cursor:pointer;font-family:inherit;padding:0}
 .lp-link:hover{text-decoration:underline}
-.lp-btn{width:100%;height:44px;border-radius:var(--r-input);border:none;font-size:14.5px;font-weight:600;font-family:inherit;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:9px;transition:.15s}
+.lp-btn{width:100%;height:42px;border-radius:var(--r-input);border:none;font-size:14.5px;font-weight:600;font-family:inherit;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:9px;transition:.15s}
 .lp-btn-primary{background:var(--blue);color:#fff;box-shadow:0 10px 24px rgba(37,102,255,.28)}
 .lp-btn-primary:hover{background:var(--blue-hover)}
 .lp-btn-primary:active{background:var(--blue-press)}
@@ -62,14 +62,14 @@ const LP_STYLES = `
 .lp-btn-out:hover{border-color:#cfd5df;background:var(--hover)}
 .lp-btn-ghost{background:none;border:none;color:var(--muted);font-weight:600;font-family:inherit;cursor:pointer;font-size:14px;display:inline-flex;align-items:center;gap:6px}
 .lp-btn-ghost:hover{color:var(--blue)}
-.lp-or{display:flex;align-items:center;gap:14px;color:#9aa2b2;font-size:13px;margin:13px 0}
+.lp-or{display:flex;align-items:center;gap:14px;color:#9aa2b2;font-size:13px;margin:11px 0}
 .lp-or::before,.lp-or::after{content:'';flex:1;height:1px;background:var(--line)}
 .lp-pill{display:inline-flex;align-items:center;padding:3px 9px;border-radius:7px;background:var(--blue-soft);color:var(--blue-soft-text);font-size:12px;font-weight:700}
 .lp-max-ic{width:27px;height:27px;border-radius:8px;display:flex;align-items:center;justify-content:center;flex:0 0 27px;overflow:hidden}
 .lp-max-ic img{width:100%;height:100%;display:block;object-fit:contain}
 .lp-cap{text-align:center;color:#9aa2b2;font-size:12.5px;margin:8px 0 0;line-height:1.45}
 
-.lp-demo{margin-top:12px;background:linear-gradient(135deg,#eef2ff,#e7e9ff);border:1px solid #dfe5ff;border-radius:16px;padding:24px 22px 11px;min-height:210px;position:relative;overflow:hidden}
+.lp-demo{margin-top:10px;background:linear-gradient(135deg,#eef2ff,#e7e9ff);border:1px solid #dfe5ff;border-radius:16px;padding:18px 22px 11px;min-height:186px;position:relative;overflow:hidden}
 .lp-demo-h{font-size:16px;font-weight:800;color:var(--ink);margin:0}
 .lp-demo-p{color:#5b6274;font-size:13px;margin:5px 0 9px;max-width:320px;line-height:1.4}
 .lp-check{display:flex;align-items:center;gap:9px;font-size:13px;color:#3a4152;margin:4px 0}
@@ -189,13 +189,13 @@ function LoginScreen({ onLogin }) {
               <div className="lp-card">
                 <h2 className="lp-h1">Вход в систему</h2>
                 <p className="lp-sub">Добро пожаловать! Войдите в свой аккаунт.</p>
-                <form onSubmit={submitLogin} style={{ marginTop: 36 }}>
+                <form onSubmit={submitLogin} style={{ marginTop: 22 }}>
                   <label className="lp-lbl">Email или телефон</label>
                   <input className={'lp-input' + (errs.ident ? ' err' : '')} placeholder="Введите email или телефон"
                     value={ident} onChange={(e) => setIdent(e.target.value)} />
                   {errs.ident && <div className="lp-errtxt"><Icon name="alertCircle" />{errs.ident}</div>}
 
-                  <label className="lp-lbl" style={{ marginTop: 18 }}>Пароль</label>
+                  <label className="lp-lbl" style={{ marginTop: 14 }}>Пароль</label>
                   <div className="lp-input-wrap">
                     <input className={'lp-input' + (errs.pass ? ' err' : '')} type={showPass ? 'text' : 'password'}
                       placeholder="Введите пароль" style={{ paddingRight: 44 }}
@@ -204,7 +204,7 @@ function LoginScreen({ onLogin }) {
                   </div>
                   {errs.pass && <div className="lp-errtxt"><Icon name="alertCircle" />{errs.pass}</div>}
 
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', margin: '14px 0 22px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', margin: '10px 0 16px' }}>
                     <button type="button" className="lp-link" onClick={() => go('forgot')}>Забыли пароль?</button>
                   </div>
 
@@ -344,10 +344,10 @@ function LoginScreen({ onLogin }) {
                     {errs.company && <div className="lp-errtxt"><Icon name="alertCircle" />{errs.company}</div>}
                   </div>
                 </div>
-                <label className="lp-lbl" style={{ marginTop: 18 }}>Рабочий e-mail</label>
+                <label className="lp-lbl" style={{ marginTop: 14 }}>Рабочий e-mail</label>
                 <input className={'lp-input' + (errs.email ? ' err' : '')} type="email" placeholder="you@company.ru" value={demo.email} onChange={(e) => setD('email', e.target.value)} />
                 {errs.email && <div className="lp-errtxt"><Icon name="alertCircle" />{errs.email}</div>}
-                <label className="lp-lbl" style={{ marginTop: 18 }}>Телефон <span style={{ color: '#aeb5c4', fontWeight: 500 }}>· необязательно</span></label>
+                <label className="lp-lbl" style={{ marginTop: 14 }}>Телефон <span style={{ color: '#aeb5c4', fontWeight: 500 }}>· необязательно</span></label>
                 <input className="lp-input" type="tel" placeholder="+7 (___) ___-__-__" value={demo.phone} onChange={(e) => setD('phone', e.target.value)} />
                 <button type="submit" className="lp-btn lp-btn-primary" style={{ marginTop: 22 }} disabled={loading}>
                   {loading ? <><Icon name="loader" className="lp-spin" style={{ width: 18, height: 18 }} />Отправка…</> : <>Получить демо-доступ <Icon name="arrowRight" style={{ width: 18, height: 18 }} /></>}

@@ -3,8 +3,9 @@
 // P0 of the blueprint: the unifying chrome so the user never loses context.
 
 /* ---------- route → label + breadcrumbs ---------- */
+const SERVICE_LABELS = { flights: 'Авиабилеты', rail: 'ЖД билеты', hotels: 'Гостиницы', transfers: 'Трансферы', buses: 'Автобусы', tours: 'Туры' };
 const ROUTE_LABELS = (() => {
-  const m = { dashboard: 'Главное', profile: 'Мой профиль', account: 'Настройки аккаунта' };
+  const m = { dashboard: 'Главное', profile: 'Мой профиль', account: 'Настройки аккаунта', ...SERVICE_LABELS };
   NAV_ITEMS.forEach((it) => {
     if (it.group) { m[it.group] = it.label; it.children.forEach((c) => { m[c.key] = c.label; }); }
     else m[it.key] = it.label;

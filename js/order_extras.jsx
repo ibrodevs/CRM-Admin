@@ -142,7 +142,7 @@ function PassengerDrawer({ open, onClose, onAdd }) {
 /* ---------- New organization drawer (Новая организация) ---------- */
 function NewOrgDrawer({ open, onClose }) {
   const toast = useToast();
-  const empty = { full: '', short: '', email: '', phone: '', currency: '', orgType: '', operator: '', accountant: '', inn: '', kpp: '', ogrn: '', okpo: '', legalAddr: '', factAddr: '', account: '', bank: '', status: '', comment: '' };
+  const empty = { full: '', short: '', email: '', phone: '', currency: '', orgType: '', curator: '', operator: '', accountant: '', inn: '', kpp: '', ogrn: '', okpo: '', legalAddr: '', factAddr: '', account: '', bank: '', status: '', comment: '' };
   const [f, setF] = useState(empty);
   const [errs, setErrs] = useState({});
   const set = (k) => (e) => setF((p) => ({ ...p, [k]: e.target ? e.target.value : e }));
@@ -151,6 +151,7 @@ function NewOrgDrawer({ open, onClose }) {
     const er = {};
     if (!f.full.trim()) er.full = 'Введите название';
     if (!f.orgType) er.orgType = 'Выберите тип';
+    if (!f.curator) er.curator = 'Назначьте куратора';
     if (f.email && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(f.email)) er.email = 'Некорректный e-mail';
     setErrs(er);
     if (Object.keys(er).length) { toast('Проверьте поля формы', 'err'); return; }
@@ -170,6 +171,7 @@ function NewOrgDrawer({ open, onClose }) {
         <Field label="Контактный телефон"><Input placeholder="+996 (___) __-__-__" value={f.phone} onChange={set('phone')} /></Field>
         <Field label="Основная валюта"><Select placeholder="Выберите валюту" options={CURRENCIES.map((c) => c.code)} value={f.currency} onChange={set('currency')} /></Field>
         <Field label="Тип организации" required error={errs.orgType}><Select placeholder="Выберите тип" options={['Туроператор', 'Турагент', 'Авиакомпания', 'Отель']} value={f.orgType} onChange={set('orgType')} error={errs.orgType} /></Field>
+        <Field label="Куратор" required error={errs.curator} hint="Главный ответственный за компанию"><Select placeholder="Выберите куратора" options={OPERATORS} value={f.curator} onChange={set('curator')} error={errs.curator} /></Field>
         <Field label="Оператор"><Select placeholder="Выберите оператора" options={OPERATORS} value={f.operator} onChange={set('operator')} /></Field>
         <Field label="Бухгалтер"><Select placeholder="Выберите бухгалтера" options={['Иванова А.', 'Петров С.']} value={f.accountant} onChange={set('accountant')} /></Field>
         <Field label="ИНН"><Input placeholder="Введите ИНН" value={f.inn} onChange={set('inn')} /></Field>
