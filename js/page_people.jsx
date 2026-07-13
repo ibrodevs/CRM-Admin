@@ -399,20 +399,21 @@ function CompaniesPage({ onOpenOrder, intent, onConsume }) {
   const [q, setQ] = useState('');
   const [fStatus, setFStatus] = useState('');
   const [createOpen, setCreateOpen] = useState(false);
+  const [companies, setCompanies] = useState(COMPANIES_DB);
   const { sort, onSort, apply } = useSort(null);
 
   useEffect(() => { if (intent && intent.type === 'create') { setCreateOpen(true); onConsume && onConsume(); } }, [intent]);
 
   if (view === 'card' && active) return (<><Topbar title="Карточка компании" /><div className="content"><CompanyCard co={active} onBack={() => setView('list')} onOpenOrder={onOpenOrder} /></div></>);
 
-  let rows = COMPANIES_DB.filter((c) => (!fStatus || c.status === fStatus) && (!q || `${c.id} ${c.name} ${c.inn} ${c.dir}`.toLowerCase().includes(q.toLowerCase())));
+  let rows = companies.filter((c) => (!fStatus || c.status === fStatus) && (!q || `${c.id} ${c.name} ${c.inn} ${c.dir}`.toLowerCase().includes(q.toLowerCase())));
   rows = apply(rows, { name: (r) => r.name, orders: (r) => r.orders, turnover: (r) => r.turnover });
-  const STATS = [['Всего компаний', COMPANIES_DB.length], ['Действующие', COMPANIES_DB.filter((c) => c.status === 'Действующий').length], ['Совокупный оборот', pUsd(COMPANIES_DB.reduce((s, c) => s + c.turnover, 0))], ['Заказов', COMPANIES_DB.reduce((s, c) => s + c.orders, 0)]];
+  const STATS = [['Всего компаний', companies.length], ['Действующие', companies.filter((c) => c.status === 'Действующий').length], ['Совокупный оборот', pUsd(companies.reduce((s, c) => s + c.turnover, 0))], ['Заказов', companies.reduce((s, c) => s + c.orders, 0)]];
 
   return (
     <>
       <Topbar title="Компании"><div className="topbar-spacer" /><Button icon="plus" onClick={() => setCreateOpen(true)}>Добавить компанию</Button></Topbar>
-      <NewOrgDrawer open={createOpen} onClose={() => setCreateOpen(false)} />
+      <NewOrgDrawer open={createOpen} onClose={() => setCreateOpen(false)} onCreated={(company) => setCompanies((cur) => [company, ...cur])} />
       <div className="content fade-in">
         <div className="grid-4" style={{ marginBottom: 22 }}>{STATS.map(([l, v]) => (<div className="stat-card" key={l}><div className="s-label">{l}</div><div className="s-value">{v}</div></div>))}</div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16, flexWrap: 'wrap' }}>

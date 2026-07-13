@@ -146,33 +146,38 @@ const ORG_REGISTRY = {
     full: 'ОсОО "Asia Travel"', short: 'Asia Travel', orgType: 'Турагент', currency: 'KGS',
     kpp: '020801001', ogrn: '124047000123', okpo: '2291055',
     legalAddr: 'г. Ош, ул. Курманжан Датка 12', factAddr: 'г. Ош, ул. Курманжан Датка 12',
-    phone: '+996 312 555 444', email: 'office@asia.kg',
-    account: '1090000111223344', bank: 'Оптима Банк · БИК 109018',
+    director: 'Каримов Икрам', signatory: 'директора Каримова Икрама', phone: '+996 312 555 444', email: 'office@asia.kg', site: 'asia.kg',
+    account: '1090000111223344', bank: 'Оптима Банк', bik: '109018', corrAccount: '1090180000000001',
   },
   '07070707070707': {
     full: 'ОсОО "Гранд лимитед"', short: 'Гранд лимитед', orgType: 'Туроператор', currency: 'KGS',
     kpp: '070701001', ogrn: '124047000707', okpo: '8362411',
     legalAddr: 'г. Бишкек, ул. Токтогула 125/1', factAddr: 'г. Бишкек, ул. Токтогула 125/1',
-    phone: '+996 777 777 777', email: 'grandlimited@mail.ru',
-    account: '1240020000123456', bank: 'Демир Банк · БИК 124001',
+    director: 'Нуралиев Данияр', signatory: 'директора Нуралиева Данияра', phone: '+996 777 777 777', email: 'grandlimited@mail.ru', site: 'grandlimited.kg',
+    account: '1240020000123456', bank: 'Демир Банк', bik: '124001', corrAccount: '1240010000000007',
   },
   '12345678901234': {
     full: 'ОсОО "Тянь-Шань Тур"', short: 'Тянь-Шань Тур', orgType: 'Туроператор', currency: 'KGS',
     kpp: '123401001', ogrn: '125047001234', okpo: '4417092',
     legalAddr: 'г. Бишкек, пр. Чуй 155', factAddr: 'г. Бишкек, пр. Чуй 155',
-    phone: '+996 555 220 330', email: 'info@tienshan-tour.kg',
-    account: '1180000445566778', bank: 'РСК Банк · БИК 118001',
+    director: 'Абдыкадыров Тимур', signatory: 'директора Абдыкадырова Тимура', phone: '+996 555 220 330', email: 'info@tienshan-tour.kg', site: 'tienshan-tour.kg',
+    account: '1180000445566778', bank: 'РСК Банк', bik: '118001', corrAccount: '1180010000000012',
   },
 };
 
-function NewOrgDrawer({ open, onClose }) {
+function NewOrgDrawer({ open, onClose, onCreated }) {
   const toast = useToast();
-  const empty = { full: '', short: '', email: '', phone: '', currency: '', orgType: '', curator: '', operator: '', accountant: '', inn: '', kpp: '', ogrn: '', okpo: '', legalAddr: '', factAddr: '', account: '', bank: '', status: '', comment: '' };
+  const empty = { full: '', short: '', email: '', phone: '', site: '', currency: 'KGS', orgType: '', curator: '', operator: '', accountant: '', inn: '', kpp: '', ogrn: '', okpo: '', legalAddr: '', factAddr: '', sameAddress: true, director: '', signatory: '', account: '', bank: '', bik: '', corrAccount: '', accountStatus: 'Действующий', status: 'Действующий', comment: '' };
   const [f, setF] = useState(empty);
   const [errs, setErrs] = useState({});
   const [lookup, setLookup] = useState('idle'); // idle | loading | found | notfound
   const [revealed, setRevealed] = useState(false); // показывать ли остальные поля
   const set = (k) => (e) => setF((p) => ({ ...p, [k]: e.target ? e.target.value : e }));
+  const setLegalAddress = (e) => {
+    const value = e.target.value;
+    setF((p) => ({ ...p, legalAddr: value, factAddr: p.sameAddress ? value : p.factAddr }));
+  };
+  const setSameAddress = (value) => setF((p) => ({ ...p, sameAddress: value, factAddr: value ? p.legalAddr : p.factAddr }));
   useEffect(() => { if (open) { setF(empty); setErrs({}); setLookup('idle'); setRevealed(false); } }, [open]);
 
   // Поиск по ИНН — главный сценарий: реквизиты подтягиваются автоматически.
@@ -198,13 +203,23 @@ function NewOrgDrawer({ open, onClose }) {
 
   const submit = () => {
     const er = {};
+    if (!f.inn.trim()) er.inn = 'Введите ИНН';
     if (!f.full.trim()) er.full = 'Введите название';
     if (!f.orgType) er.orgType = 'Выберите тип';
     if (!f.curator) er.curator = 'Назначьте куратора';
     if (f.email && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(f.email)) er.email = 'Некорректный e-mail';
     setErrs(er);
     if (Object.keys(er).length) { toast('Проверьте поля формы', 'err'); return; }
-    toast('Организация создана', 'ok'); onClose();
+    const company = {
+      id: 'CO-' + Math.floor(2000 + Math.random() * 8000), name: f.full.trim(), shortName: f.short.trim() || f.full.trim(), fullName: f.full.trim(),
+      type: f.orgType, status: f.status, inn: f.inn.replace(/\D/g, ''), kpp: f.kpp, ogrn: f.ogrn, okpo: f.okpo || '—',
+      dir: f.director || '—', phone: f.phone || '—', email: f.email || '—', site: f.site || '—',
+      addr: f.legalAddr || '—', factAddr: f.factAddr || f.legalAddr || '—', bank: f.bank || '—', bik: f.bik || '—',
+      corrAccount: f.corrAccount || '—', account: f.account || '—', contract: 'Не указан', orders: 0, turnover: 0, contacts: f.director ? 1 : 0,
+      vat: '—', requiresESign: false, docCorrections: [], signatory: f.signatory, comment: f.comment,
+    };
+    onCreated && onCreated(company);
+    toast('Компания «' + company.name + '» создана', 'ok'); onClose();
   };
 
   const loading = lookup === 'loading';
@@ -261,25 +276,34 @@ function NewOrgDrawer({ open, onClose }) {
           <div className="form-grid">
             <Field label="Полное название" required error={errs.full}><Input placeholder="Введите название" value={f.full} onChange={set('full')} error={errs.full} /></Field>
             <Field label="Краткое название"><Input placeholder="Введите название" value={f.short} onChange={set('short')} /></Field>
-            <Field label="Контактный e-mail" error={errs.email}><Input placeholder="johndoe@mail.com" value={f.email} onChange={set('email')} error={errs.email} /></Field>
-            <Field label="Контактный телефон"><Input placeholder="+996 (___) __-__-__" value={f.phone} onChange={set('phone')} /></Field>
+            <Field label="Юридический адрес"><Input placeholder="Город, улица, дом" value={f.legalAddr} onChange={setLegalAddress} /></Field>
+            <Field label="Фактический адрес">
+              <div style={{ display: 'flex', alignItems: 'center', gap: 9, marginBottom: 8 }}><Checkbox on={f.sameAddress} onChange={setSameAddress} /><span style={{ fontSize: 13, color: 'var(--body)' }}>Совпадает с юридическим</span></div>
+              {!f.sameAddress && <Input placeholder="Город, улица, дом" value={f.factAddr} onChange={set('factAddr')} />}
+            </Field>
+            <Field label="Руководитель / ФИО для подписи"><Input placeholder="Иванов Иван Иванович" value={f.director} onChange={set('director')} /></Field>
+            <Field label="В лице" hint="Для подстановки в договоры"><Input placeholder="директора Иванова Ивана Ивановича" value={f.signatory} onChange={set('signatory')} /></Field>
             <Field label="Основная валюта"><Select placeholder="Выберите валюту" options={CURRENCIES.map((c) => c.code)} value={f.currency} onChange={set('currency')} /></Field>
-            <Field label="Тип организации" required error={errs.orgType}><Select placeholder="Выберите тип" options={['Туроператор', 'Турагент', 'Авиакомпания', 'Отель']} value={f.orgType} onChange={set('orgType')} error={errs.orgType} /></Field>
+            <Field label="Тип организации" required error={errs.orgType}><Select placeholder="Выберите тип" options={['Корпоративный клиент', 'Туроператор', 'Турагент', 'Авиакомпания', 'Отель', 'Партнёр', 'Поставщик']} value={f.orgType} onChange={set('orgType')} error={errs.orgType} /></Field>
             <Field label="Куратор" required error={errs.curator} hint="Главный ответственный за компанию"><Select placeholder="Выберите куратора" options={OPERATORS} value={f.curator} onChange={set('curator')} error={errs.curator} /></Field>
             <Field label="Оператор"><Select placeholder="Выберите оператора" options={OPERATORS} value={f.operator} onChange={set('operator')} /></Field>
             <Field label="Бухгалтер"><Select placeholder="Выберите бухгалтера" options={['Иванова А.', 'Петров С.']} value={f.accountant} onChange={set('accountant')} /></Field>
-            <Field label="ИНН"><Input placeholder="Введите ИНН" value={f.inn} onChange={set('inn')} /></Field>
+            <Field label="ИНН" required error={errs.inn}><Input placeholder="Введите ИНН" value={f.inn} onChange={set('inn')} error={errs.inn} /></Field>
             <Field label="КПП"><Input placeholder="Введите КПП" value={f.kpp} onChange={set('kpp')} /></Field>
             <Field label="ОГРН"><Input placeholder="Введите ОГРН" value={f.ogrn} onChange={set('ogrn')} /></Field>
             <Field label="ОКПО"><Input placeholder="Введите ОКПО" value={f.okpo} onChange={set('okpo')} /></Field>
-            <Field label="Юр. адрес"><Input placeholder="Введите юр. адрес" value={f.legalAddr} onChange={set('legalAddr')} /></Field>
-            <Field label="Фактический адрес"><Input placeholder="Введите адрес" value={f.factAddr} onChange={set('factAddr')} /></Field>
+            <Field label="Контактный e-mail" error={errs.email}><Input placeholder="johndoe@mail.com" value={f.email} onChange={set('email')} error={errs.email} /></Field>
+            <Field label="Контактный телефон"><Input placeholder="+996 (___) __-__-__" value={f.phone} onChange={set('phone')} /></Field>
+            <Field label="Сайт"><Input placeholder="company.kg" value={f.site} onChange={set('site')} /></Field>
           </div>
           <div style={{ fontSize: 18, fontWeight: 700, color: 'var(--ink)', margin: '26px 0 16px' }}>Расчетные счета</div>
           <div className="form-grid">
             <Field label="Номер счета"><Input placeholder="Введите номер" value={f.account} onChange={set('account')} /></Field>
             <Field label="Банк"><Input placeholder="БИК банка или название банка" value={f.bank} onChange={set('bank')} /></Field>
-            <div className="full"><Field label="Статус"><Select placeholder="Выберите статус" options={['Активный', 'Заблокированный', 'На паузе']} value={f.status} onChange={set('status')} /></Field></div>
+            <Field label="БИК"><Input placeholder="БИК банка" value={f.bik} onChange={set('bik')} /></Field>
+            <Field label="Корр. счет"><Input placeholder="Корреспондентский счет" value={f.corrAccount} onChange={set('corrAccount')} /></Field>
+            <Field label="Статус счета"><Select options={['Действующий', 'Закрытый']} value={f.accountStatus} onChange={set('accountStatus')} /></Field>
+            <Field label="Статус компании"><Select options={['Действующий', 'На паузе', 'Архив']} value={f.status} onChange={set('status')} /></Field>
             <div className="full"><Field label="Комментарий"><textarea className="input" rows={3} placeholder="Descriptions..." value={f.comment} onChange={set('comment')} /></Field></div>
           </div>
         </>
