@@ -2,8 +2,8 @@
 // Split-screen: marketing hero (left) + auth column (right).
 
 const LP_STYLES = `
-.lp-root{height:100%;overflow:hidden;display:flex;gap:14px;padding:13px 13px 42px;position:relative;background:linear-gradient(135deg,#eceefd,#f6f6fb);color:var(--body)}
-.lp-left{flex:1;min-width:0;position:relative;overflow:hidden;margin-right:-15px;padding:22px 39px;display:flex;flex-direction:column;border-radius:18px;background:linear-gradient(155deg,#f0f2ff 0%,#e8edff 54%,#f4f3ff 100%)}
+.lp-root{height:100%;overflow:hidden;display:flex;gap:14px;padding:13px 13px 42px;position:relative;background:#eef0fb;color:var(--body)}
+.lp-left{flex:1;min-width:0;position:relative;overflow:hidden;margin-right:-15px;padding:22px 39px;display:flex;flex-direction:column;border-radius:18px;background:transparent}
 .lp-right{width:610px;max-width:100%;flex:0 0 610px;display:flex;flex-direction:column;padding:27px 40px 0 19px;overflow-y:auto;background:transparent}
 @media(max-width:1000px){.lp-root{height:auto;min-height:100vh;overflow:visible;padding:0}.lp-left{display:none}.lp-right{width:100%;flex-basis:100%;padding:26px 20px 70px}}
 
@@ -65,7 +65,8 @@ const LP_STYLES = `
 .lp-or{display:flex;align-items:center;gap:14px;color:#9aa2b2;font-size:13px;margin:13px 0}
 .lp-or::before,.lp-or::after{content:'';flex:1;height:1px;background:var(--line)}
 .lp-pill{display:inline-flex;align-items:center;padding:3px 9px;border-radius:7px;background:var(--blue-soft);color:var(--blue-soft-text);font-size:12px;font-weight:700}
-.lp-max-ic{width:27px;height:27px;border-radius:8px;background:#2aa5ff;display:flex;align-items:center;justify-content:center;color:#fff;flex:0 0 27px}
+.lp-max-ic{width:27px;height:27px;border-radius:8px;display:flex;align-items:center;justify-content:center;flex:0 0 27px;overflow:hidden}
+.lp-max-ic img{width:100%;height:100%;display:block;object-fit:contain}
 .lp-cap{text-align:center;color:#9aa2b2;font-size:12.5px;margin:8px 0 0;line-height:1.45}
 
 .lp-demo{margin-top:12px;background:linear-gradient(135deg,#eef2ff,#e7e9ff);border:1px solid #dfe5ff;border-radius:16px;padding:29px 22px 11px;min-height:246px;position:relative;overflow:hidden}
@@ -214,7 +215,7 @@ function LoginScreen({ onLogin }) {
                 <div className="lp-or">или</div>
 
                 <button type="button" className="lp-btn lp-btn-out" onClick={startMax}>
-                  <span className="lp-max-ic"><Icon name="chat" style={{ width: 15, height: 15 }} /></span>
+                  <span className="lp-max-ic"><img src="assets/max-logo.png" alt="MAX" /></span>
                   Войти через MAX
                   <span className="lp-pill" style={{ marginLeft: 4 }}>Рекомендуем</span>
                 </button>
