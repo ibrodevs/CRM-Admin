@@ -395,7 +395,7 @@ function BookingWizard({ order, services, draft, onClose, onComplete, onSaveDraf
                 : 'Стоимость зафиксирована по тайм-лимиту.'}
             </div>
             <div style={{ background: 'var(--surface-2)', padding: 20, borderRadius: 14, marginTop: 16 }}>
-              <KPPreviewDoc proposal={offer} />
+              <KPPreviewDoc proposal={offer} compact />
             </div>
           </Drawer>
         );

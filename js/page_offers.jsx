@@ -62,12 +62,12 @@ function KPStatusControl({ status, onChange }) {
 }
 
 /* ---------- client-facing document ---------- */
-function KPPreviewDoc({ proposal, participants }) {
+function KPPreviewDoc({ proposal, participants, compact }) {
   const p = proposal;
   const vids = p.approvedVariant ? [p.approvedVariant] : p.variants.map((v) => v.id);
   const pax = participants || ORDER_PARTICIPANTS;
   return (
-    <div className="kp2-doc">
+    <div className={'kp2-doc' + (compact ? ' kp2-doc-compact' : '')}>
       <div className="kp2-header">
         <div className="kp2-brand"><BrandMark size={30} color="#e8674f" /><div><div className="kp2-brand-name">Пассажирский</div><div className="kp2-brand-name">сервисный</div><div className="kp2-brand-name">центр</div></div></div>
         <div className="kp2-badge"><div className="kp2-badge-l">Заказчик: <b>{p.client}</b></div><div className="kp2-badge-s">№ {p.id} от {p.created} · действует до {p.validUntil}</div></div>
