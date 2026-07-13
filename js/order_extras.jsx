@@ -140,13 +140,62 @@ function PassengerDrawer({ open, onClose, onAdd }) {
 }
 
 /* ---------- New organization drawer (Новая организация) ---------- */
+// Эмуляция автоподгрузки реквизитов организации по ИНН (в проде — запрос к сервису проверки контрагентов).
+const ORG_REGISTRY = {
+  '02208200512345': {
+    full: 'ОсОО "Asia Travel"', short: 'Asia Travel', orgType: 'Турагент', currency: 'KGS',
+    kpp: '020801001', ogrn: '124047000123', okpo: '2291055',
+    legalAddr: 'г. Ош, ул. Курманжан Датка 12', factAddr: 'г. Ош, ул. Курманжан Датка 12',
+    phone: '+996 312 555 444', email: 'office@asia.kg',
+    account: '1090000111223344', bank: 'Оптима Банк · БИК 109018',
+  },
+  '07070707070707': {
+    full: 'ОсОО "Гранд лимитед"', short: 'Гранд лимитед', orgType: 'Туроператор', currency: 'KGS',
+    kpp: '070701001', ogrn: '124047000707', okpo: '8362411',
+    legalAddr: 'г. Бишкек, ул. Токтогула 125/1', factAddr: 'г. Бишкек, ул. Токтогула 125/1',
+    phone: '+996 777 777 777', email: 'grandlimited@mail.ru',
+    account: '1240020000123456', bank: 'Демир Банк · БИК 124001',
+  },
+  '12345678901234': {
+    full: 'ОсОО "Тянь-Шань Тур"', short: 'Тянь-Шань Тур', orgType: 'Туроператор', currency: 'KGS',
+    kpp: '123401001', ogrn: '125047001234', okpo: '4417092',
+    legalAddr: 'г. Бишкек, пр. Чуй 155', factAddr: 'г. Бишкек, пр. Чуй 155',
+    phone: '+996 555 220 330', email: 'info@tienshan-tour.kg',
+    account: '1180000445566778', bank: 'РСК Банк · БИК 118001',
+  },
+};
+
 function NewOrgDrawer({ open, onClose }) {
   const toast = useToast();
   const empty = { full: '', short: '', email: '', phone: '', currency: '', orgType: '', curator: '', operator: '', accountant: '', inn: '', kpp: '', ogrn: '', okpo: '', legalAddr: '', factAddr: '', account: '', bank: '', status: '', comment: '' };
   const [f, setF] = useState(empty);
   const [errs, setErrs] = useState({});
+  const [lookup, setLookup] = useState('idle'); // idle | loading | found | notfound
+  const [revealed, setRevealed] = useState(false); // показывать ли остальные поля
   const set = (k) => (e) => setF((p) => ({ ...p, [k]: e.target ? e.target.value : e }));
-  useEffect(() => { if (open) { setF(empty); setErrs({}); } }, [open]);
+  useEffect(() => { if (open) { setF(empty); setErrs({}); setLookup('idle'); setRevealed(false); } }, [open]);
+
+  // Поиск по ИНН — главный сценарий: реквизиты подтягиваются автоматически.
+  const runLookup = () => {
+    const digits = (f.inn || '').replace(/\D/g, '');
+    if (digits.length < 8) { setErrs((p) => ({ ...p, inn: 'Введите корректный ИНН' })); return; }
+    setErrs((p) => ({ ...p, inn: undefined }));
+    setLookup('loading');
+    setTimeout(() => {
+      const hit = ORG_REGISTRY[digits];
+      if (hit) {
+        setF((p) => ({ ...p, ...hit, inn: digits }));
+        setLookup('found'); setRevealed(true);
+        toast('Реквизиты организации загружены из реестра', 'ok');
+      } else {
+        setLookup('notfound'); setRevealed(true);
+        toast('Организация не найдена — заполните данные вручную', 'info');
+      }
+    }, 800);
+  };
+  // Ручной ввод, если автопоиск недоступен или не требуется.
+  const enterManual = () => { setRevealed(true); if (lookup !== 'found') setLookup('notfound'); };
+
   const submit = () => {
     const er = {};
     if (!f.full.trim()) er.full = 'Введите название';
@@ -157,37 +206,84 @@ function NewOrgDrawer({ open, onClose }) {
     if (Object.keys(er).length) { toast('Проверьте поля формы', 'err'); return; }
     toast('Организация создана', 'ok'); onClose();
   };
+
+  const loading = lookup === 'loading';
   return (
     <Drawer open={open} onClose={onClose} title="Новая организация" width="min(720px,96vw)"
-      footer={<><Button variant="secondary" onClick={onClose}>Отмена</Button><Button variant="primary" iconRight="arrowRight" onClick={submit}>Далее</Button></>}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 22 }}>
-        <span className="avatar-ph" style={{ width: 54, height: 54 }}><Icon name="user" style={{ width: 24, height: 24 }} /></span>
-        <Button variant="secondary" icon="download" onClick={() => toast('Загрузка логотипа организации', 'info')}>Логотип организации</Button>
+      footer={<><Button variant="secondary" onClick={onClose}>Отмена</Button><Button variant="primary" iconRight="arrowRight" onClick={submit} disabled={!revealed}>Далее</Button></>}>
+
+      {/* Главный шаг — поиск по ИНН. Данные подтягиваются автоматически вплоть до банковских реквизитов. */}
+      <div style={{ background: 'var(--blue-soft)', border: '1px solid var(--line)', borderRadius: 14, padding: 18, marginBottom: 22 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+          <span className="airline-logo sm" style={{ background: '#2566ff', width: 36, height: 36, borderRadius: 9, flex: '0 0 36px' }}><Icon name="building" style={{ width: 18, height: 18 }} /></span>
+          <div>
+            <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--ink)' }}>Данные по ИНН</div>
+            <div style={{ fontSize: 13, color: 'var(--body)' }}>Введите ИНН — реквизиты подтянутся автоматически из реестра</div>
+          </div>
+        </div>
+        <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start', marginTop: 14 }}>
+          <div style={{ flex: 1 }}>
+            <Field error={errs.inn}>
+              <Input leadIcon="search" placeholder="Введите ИНН организации" value={f.inn} onChange={set('inn')} error={errs.inn} disabled={loading}
+                onKeyDown={(e) => { if (e.key === 'Enter') runLookup(); }} />
+            </Field>
+          </div>
+          <Button variant="primary" onClick={runLookup} disabled={loading}>
+            {loading
+              ? <><Icon name="loader" style={{ width: 16, height: 16, animation: 'spin .7s linear infinite' }} />Поиск…</>
+              : <><Icon name="search" />Найти</>}
+          </Button>
+        </div>
+
+        {lookup === 'found' && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 12, fontSize: 13, fontWeight: 600, color: 'var(--green)' }}>
+            <Icon name="checkCircle" style={{ width: 16, height: 16 }} />Данные загружены из реестра — проверьте и при необходимости отредактируйте.
+          </div>
+        )}
+        {lookup === 'notfound' && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 12, fontSize: 13, fontWeight: 600, color: 'var(--amber)' }}>
+            <Icon name="alertCircle" style={{ width: 16, height: 16 }} />Автопоиск недоступен — заполните данные вручную ниже.
+          </div>
+        )}
+        {!revealed && !loading && (
+          <button type="button" className="link-btn" style={{ marginTop: 12, background: 'none', border: 'none', padding: 0, cursor: 'pointer', color: 'var(--blue)', fontSize: 13, fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: 6 }} onClick={enterManual}>
+            <Icon name="edit" style={{ width: 14, height: 14 }} />Ввести данные вручную
+          </button>
+        )}
       </div>
-      <div className="form-grid">
-        <Field label="Полное название" required error={errs.full}><Input placeholder="Введите название" value={f.full} onChange={set('full')} error={errs.full} /></Field>
-        <Field label="Краткое название"><Input placeholder="Введите название" value={f.short} onChange={set('short')} /></Field>
-        <Field label="Контактный e-mail" error={errs.email}><Input placeholder="johndoe@mail.com" value={f.email} onChange={set('email')} error={errs.email} /></Field>
-        <Field label="Контактный телефон"><Input placeholder="+996 (___) __-__-__" value={f.phone} onChange={set('phone')} /></Field>
-        <Field label="Основная валюта"><Select placeholder="Выберите валюту" options={CURRENCIES.map((c) => c.code)} value={f.currency} onChange={set('currency')} /></Field>
-        <Field label="Тип организации" required error={errs.orgType}><Select placeholder="Выберите тип" options={['Туроператор', 'Турагент', 'Авиакомпания', 'Отель']} value={f.orgType} onChange={set('orgType')} error={errs.orgType} /></Field>
-        <Field label="Куратор" required error={errs.curator} hint="Главный ответственный за компанию"><Select placeholder="Выберите куратора" options={OPERATORS} value={f.curator} onChange={set('curator')} error={errs.curator} /></Field>
-        <Field label="Оператор"><Select placeholder="Выберите оператора" options={OPERATORS} value={f.operator} onChange={set('operator')} /></Field>
-        <Field label="Бухгалтер"><Select placeholder="Выберите бухгалтера" options={['Иванова А.', 'Петров С.']} value={f.accountant} onChange={set('accountant')} /></Field>
-        <Field label="ИНН"><Input placeholder="Введите ИНН" value={f.inn} onChange={set('inn')} /></Field>
-        <Field label="КПП"><Input placeholder="Введите КПП" value={f.kpp} onChange={set('kpp')} /></Field>
-        <Field label="ОГРН"><Input placeholder="Введите ОГРН" value={f.ogrn} onChange={set('ogrn')} /></Field>
-        <Field label="ОКПО"><Input placeholder="Введите ОКПО" value={f.okpo} onChange={set('okpo')} /></Field>
-        <Field label="Юр. адрес"><Input placeholder="Введите юр. адрес" value={f.legalAddr} onChange={set('legalAddr')} /></Field>
-        <Field label="Фактический адрес"><Input placeholder="Введите адрес" value={f.factAddr} onChange={set('factAddr')} /></Field>
-      </div>
-      <div style={{ fontSize: 18, fontWeight: 700, color: 'var(--ink)', margin: '26px 0 16px' }}>Расчетные счета</div>
-      <div className="form-grid">
-        <Field label="Номер счета"><Input placeholder="Введите номер" value={f.account} onChange={set('account')} /></Field>
-        <Field label="Банк"><Input placeholder="БИК банка или название банка" value={f.bank} onChange={set('bank')} /></Field>
-        <div className="full"><Field label="Статус"><Select placeholder="Выберите статус" options={['Активный', 'Заблокированный', 'На паузе']} value={f.status} onChange={set('status')} /></Field></div>
-        <div className="full"><Field label="Комментарий"><textarea className="input" rows={3} placeholder="Descriptions..." value={f.comment} onChange={set('comment')} /></Field></div>
-      </div>
+
+      {revealed && (
+        <>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 22 }}>
+            <span className="avatar-ph" style={{ width: 54, height: 54 }}><Icon name="user" style={{ width: 24, height: 24 }} /></span>
+            <Button variant="secondary" icon="download" onClick={() => toast('Загрузка логотипа организации', 'info')}>Логотип организации</Button>
+          </div>
+          <div className="form-grid">
+            <Field label="Полное название" required error={errs.full}><Input placeholder="Введите название" value={f.full} onChange={set('full')} error={errs.full} /></Field>
+            <Field label="Краткое название"><Input placeholder="Введите название" value={f.short} onChange={set('short')} /></Field>
+            <Field label="Контактный e-mail" error={errs.email}><Input placeholder="johndoe@mail.com" value={f.email} onChange={set('email')} error={errs.email} /></Field>
+            <Field label="Контактный телефон"><Input placeholder="+996 (___) __-__-__" value={f.phone} onChange={set('phone')} /></Field>
+            <Field label="Основная валюта"><Select placeholder="Выберите валюту" options={CURRENCIES.map((c) => c.code)} value={f.currency} onChange={set('currency')} /></Field>
+            <Field label="Тип организации" required error={errs.orgType}><Select placeholder="Выберите тип" options={['Туроператор', 'Турагент', 'Авиакомпания', 'Отель']} value={f.orgType} onChange={set('orgType')} error={errs.orgType} /></Field>
+            <Field label="Куратор" required error={errs.curator} hint="Главный ответственный за компанию"><Select placeholder="Выберите куратора" options={OPERATORS} value={f.curator} onChange={set('curator')} error={errs.curator} /></Field>
+            <Field label="Оператор"><Select placeholder="Выберите оператора" options={OPERATORS} value={f.operator} onChange={set('operator')} /></Field>
+            <Field label="Бухгалтер"><Select placeholder="Выберите бухгалтера" options={['Иванова А.', 'Петров С.']} value={f.accountant} onChange={set('accountant')} /></Field>
+            <Field label="ИНН"><Input placeholder="Введите ИНН" value={f.inn} onChange={set('inn')} /></Field>
+            <Field label="КПП"><Input placeholder="Введите КПП" value={f.kpp} onChange={set('kpp')} /></Field>
+            <Field label="ОГРН"><Input placeholder="Введите ОГРН" value={f.ogrn} onChange={set('ogrn')} /></Field>
+            <Field label="ОКПО"><Input placeholder="Введите ОКПО" value={f.okpo} onChange={set('okpo')} /></Field>
+            <Field label="Юр. адрес"><Input placeholder="Введите юр. адрес" value={f.legalAddr} onChange={set('legalAddr')} /></Field>
+            <Field label="Фактический адрес"><Input placeholder="Введите адрес" value={f.factAddr} onChange={set('factAddr')} /></Field>
+          </div>
+          <div style={{ fontSize: 18, fontWeight: 700, color: 'var(--ink)', margin: '26px 0 16px' }}>Расчетные счета</div>
+          <div className="form-grid">
+            <Field label="Номер счета"><Input placeholder="Введите номер" value={f.account} onChange={set('account')} /></Field>
+            <Field label="Банк"><Input placeholder="БИК банка или название банка" value={f.bank} onChange={set('bank')} /></Field>
+            <div className="full"><Field label="Статус"><Select placeholder="Выберите статус" options={['Активный', 'Заблокированный', 'На паузе']} value={f.status} onChange={set('status')} /></Field></div>
+            <div className="full"><Field label="Комментарий"><textarea className="input" rows={3} placeholder="Descriptions..." value={f.comment} onChange={set('comment')} /></Field></div>
+          </div>
+        </>
+      )}
     </Drawer>
   );
 }

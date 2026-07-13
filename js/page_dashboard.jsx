@@ -184,9 +184,9 @@ function FreeBookingFinalize({ draft, onClose, onDone }) {
 
 /* «Свободное бронирование» — поиск услуг без привязки к заказу (ТЗ #1). Подобранные услуги
    собираются в подборку, затем оформляются: КП / привязка к заказу / привязка к физ.лицу. */
-function DetailedSearchPanel({ onClose }) {
+function DetailedSearchPanel({ onClose, initialKind }) {
   const toast = useToast();
-  const [kind, setKind] = useState('Авиа');
+  const [kind, setKind] = useState(initialKind || 'Авиа');
   const [aviaParams, setAviaParams] = useState({ trip: 'rt', from: 'FRU', to: 'IST', depDate: null, retDate: null, pax: { adt: 1, chd: 0, infNoSeat: 0, infSeat: 0, special: {}, subsidized: {} }, cabin: 'Эконом', baggage: false, flex: false, direct: false, airline: '', ...PAX_DEFAULT_OPTIONS });
   const [draft, setDraft] = useState([]);
   const [finalize, setFinalize] = useState(false);
@@ -668,4 +668,4 @@ function DashboardPage({ role, onNavigate, onAddOrder, onOpenOrder }) {
   );
 }
 
-Object.assign(window, { DashboardPage });
+Object.assign(window, { DashboardPage, DetailedSearchPanel });

@@ -1357,36 +1357,38 @@ function ServiceSearchDrawer({ svc, onClose, onSubmit, onOpenRegistry }) {
   );
 }
 
-function ServicesHubPage({ onNavigate, onAddOrder, onSearch }) {
-  const [searchSvc, setSearchSvc] = useState(null);
+/* Соответствие блока хаба вкладке единой маски бронирования (ADD_SVC_CATS). */
+const HUB_KIND = { flights: 'Авиа', rail: 'ЖД', hotels: 'Гостиница', transfers: 'Трансфер', buses: 'Автобус', tours: 'Доп. услуга' };
+
+function ServicesHubPage({ onNavigate, onAddOrder }) {
+  // Единая маска бронирования со вкладками. Клик по блоку открывает её на нужной вкладке.
+  const [maskKind, setMaskKind] = useState(null);
   return (
     <>
-      <Topbar title="Подбор услуг" sub="Выберите вид услуги — параметры подбора откроются боковым окном">
+      <Topbar title="Подбор услуг" sub="Единая маска бронирования — выберите вкладку услуги">
         <div className="topbar-spacer" />
+        <Button variant="secondary" icon="search" onClick={() => setMaskKind('Авиа')}>Открыть подбор</Button>
         {onAddOrder && <Button icon="plus" onClick={onAddOrder}>Новый заказ</Button>}
       </Topbar>
       <div className="content fade-in">
         <div className="svc-hub-grid">
           {SERVICES_HUB.map((s) => (
-            <button key={s.key} type="button" className="svc-hub-card" onClick={() => setSearchSvc(s)}>
+            <button key={s.key} type="button" className="svc-hub-card" onClick={() => setMaskKind(HUB_KIND[s.key] || 'Авиа')}>
               <span className="svc-hub-ic"><Icon name={s.icon} /></span>
               <span className="svc-hub-body">
                 <span className="svc-hub-t">{s.title}</span>
                 <span className="svc-hub-d">{s.desc}</span>
               </span>
-              <Icon name="search" className="svc-hub-go" />
+              <Icon name="arrowRight" className="svc-hub-go" />
             </button>
           ))}
         </div>
         <div className="svc-hub-note">
           <Icon name="alertCircle" style={{ width: 18, height: 18, color: 'var(--blue)', flex: '0 0 18px' }} />
-          <span>Подбор всегда привязан к заказу и клиенту. Услуги можно добавить и внутри карточки заказа на вкладке «Услуги».</span>
+          <span>Все виды услуг — в одной маске бронирования с вкладками. Подбор можно оформить в КП, привязать к заказу, к клиенту или отправить в чат.</span>
         </div>
       </div>
-      <ServiceSearchDrawer svc={searchSvc}
-        onClose={() => setSearchSvc(null)}
-        onOpenRegistry={(key) => { setSearchSvc(null); onNavigate(key); }}
-        onSubmit={(key, form) => { setSearchSvc(null); (onSearch || onNavigate)(key, form); }} />
+      {maskKind && <DetailedSearchPanel initialKind={maskKind} onClose={() => setMaskKind(null)} />}
     </>
   );
 }
