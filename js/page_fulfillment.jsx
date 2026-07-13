@@ -1164,7 +1164,7 @@ function ReceiptImportModal({ open, onClose, onDone }) {
                   <table className="tbl" style={{ minWidth: 980 }}>
                     <thead><tr>
                       <th style={{ width: 34 }}>{doneRows.length > 0 && <Checkbox on={allSel} onChange={() => setSel(allSel ? {} : Object.fromEntries(doneRows.map((r) => [r.f.id, true])))} />}</th>
-                      <th>Квитанция</th><th>Маршрут / сумма</th><th style={{ width: 150 }}>Финансы (клиенту)</th><th style={{ width: 130 }}>Статус</th><th style={{ width: 190, position: 'sticky', right: 40, background: 'var(--surface-2)', zIndex: 2 }}>Действие</th><th style={{ width: 40, position: 'sticky', right: 0, background: 'var(--surface-2)', zIndex: 2 }}></th>
+                      <th>Квитанция</th><th>Маршрут / сумма</th><th style={{ width: 150 }}>Финансы (клиенту)</th><th style={{ width: 130 }}>Статус</th><th style={{ width: 250, position: 'sticky', right: 40, background: 'var(--surface-2)', zIndex: 2 }}>Действие</th><th style={{ width: 40, position: 'sticky', right: 0, background: 'var(--surface-2)', zIndex: 2 }}></th>
                     </tr></thead>
                     <tbody>
                       {rows.map((r) => {
@@ -1172,8 +1172,9 @@ function ReceiptImportModal({ open, onClose, onDone }) {
                         const skipped = !!excluded[r.f.id];
                         if (r.pending) {
                           return (
-                            // одинаковая высота и структура со «готовой» строкой — статусы обновляются на месте, строки не прыгают (ТЗ #2)
-                            <tr key={r.f.id} style={{ height: 72 }}>
+                            // строго та же высота 80px, что и у «готовой» строки (действия не переносятся на 2-ю строку),
+                            // статусы обновляются на месте — строки не прыгают и не подрастают при распознавании (ТЗ #2)
+                            <tr key={r.f.id} style={{ height: 80 }}>
                               <td></td>
                               <td><span style={{ display: 'flex', alignItems: 'center', gap: 10 }}><span style={{ width: 30, height: 30, borderRadius: 8, background: 'var(--surface-2)', flex: '0 0 30px' }} /><span style={{ flex: 1 }}><div className="sk" style={{ height: 12, width: 120, marginBottom: 6 }} /><div className="sk" style={{ height: 10, width: 80 }} /></span></span></td>
                               <td><div className="sk" style={{ height: 12, width: 140, marginBottom: 6 }} /><div className="sk" style={{ height: 10, width: 90 }} /></td>
@@ -1187,7 +1188,7 @@ function ReceiptImportModal({ open, onClose, onDone }) {
                         const routeStr = routeSummary(p);
                         const isStayRow = t.legLabel === 'Проживание';
                         return (
-                          <tr key={r.f.id} style={{ height: 72, opacity: skipped ? 0.5 : 1 }}>
+                          <tr key={r.f.id} style={{ height: 80, opacity: skipped ? 0.5 : 1 }}>
                             <td><Checkbox on={!!sel[r.f.id]} onChange={() => setSel((s) => ({ ...s, [r.f.id]: !s[r.f.id] }))} /></td>
                             <td style={{ position: 'sticky', right: 40, background: '#fff', zIndex: 1 }}>
                               <span style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
@@ -1210,9 +1211,9 @@ function ReceiptImportModal({ open, onClose, onDone }) {
                               {r.status === 'Возможный дубль'
                                 ? <button className="btn btn-ghost btn-sm" onClick={() => setExcluded((e) => ({ ...e, [r.f.id]: !e[r.f.id] }))}>{skipped ? 'Вернуть' : 'Пропустить'}</button>
                                 : (
-                                  <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
-                                    <button className="btn btn-ghost btn-sm" style={{ color: 'var(--blue)' }} onClick={() => setEditId(r.f.id)}>{st.action}</button>
-                                    <button className="btn btn-ghost btn-sm" style={{ color: 'var(--blue)' }} title="Предпросмотр и сохранение на фирменном бланке" onClick={() => setBrandId(r.f.id)}><Icon name="template" style={{ width: 14, height: 14 }} /> На бланке</button>
+                                  <div style={{ display: 'flex', gap: 6, flexWrap: 'nowrap' }}>
+                                    <button className="btn btn-ghost btn-sm" style={{ color: 'var(--blue)', whiteSpace: 'nowrap' }} onClick={() => setEditId(r.f.id)}>{st.action}</button>
+                                    <button className="btn btn-ghost btn-sm" style={{ color: 'var(--blue)', whiteSpace: 'nowrap' }} title="Предпросмотр и сохранение на фирменном бланке" onClick={() => setBrandId(r.f.id)}><Icon name="template" style={{ width: 14, height: 14 }} /> На бланке</button>
                                   </div>
                                 )}
                             </td>
