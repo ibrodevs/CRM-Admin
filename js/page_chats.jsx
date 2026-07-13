@@ -18,6 +18,44 @@ function lastMessage(thread) {
 }
 function threadUnread(t) { return typeof t.unread === 'number' ? t.unread : Object.values(t.unread || {}).reduce((s, n) => s + n, 0); }
 function chatServiceById(id) { return (typeof ORDER_SERVICES !== 'undefined' ? ORDER_SERVICES : []).find((s) => s.id === id) || null; }
+function chatMoney(n, cur) {
+  if (n == null) return '—';
+  const sym = { USD: '$', RUB: '₽', EUR: '€', KZT: '₸', KGS: 'сом', USDT: 'USDT' }[cur] || (cur || '');
+  return Math.round(n).toLocaleString('ru-RU') + (sym ? ' ' + sym : '');
+}
+
+/* Карточка услуги в чате — то, что уходит клиенту: все данные «около услуги» + статус.
+   Раньше в сообщении был лишь ярлык «вид · название»; теперь — полноценная карточка. */
+function ChatServiceCard({ svc, me, onOpen }) {
+  const k = (typeof SERVICE_KIND !== 'undefined' && SERVICE_KIND[svc.kind]) || { icon: 'route', color: 'var(--blue)' };
+  const stTone = (typeof SERVICE_STATUS !== 'undefined' && SERVICE_STATUS[svc.status]) || 'gray';
+  const paxLabel = svc.kind === 'Гостиница' ? 'Гостей' : 'Пассажиров';
+  const rows = [
+    svc.date && ['Даты', svc.date],
+    svc.supplier && ['Поставщик', svc.supplier],
+    svc.pax != null && [paxLabel, svc.pax],
+  ].filter(Boolean);
+  return (
+    <div className="chat-svc-card" onClick={onOpen} style={{ cursor: onOpen ? 'pointer' : 'default' }}>
+      <div className="csc-head">
+        <span className="csc-ic" style={{ background: k.color }}><Icon name={k.icon} style={{ width: 15, height: 15 }} /></span>
+        <span className="csc-kind">{svc.kind}</span>
+        {svc.status && <Pill tone={stTone}>{svc.status}</Pill>}
+        <span className="csc-sum">{chatMoney(svc.sum, svc.currency)}</span>
+      </div>
+      <div className="csc-title">{svc.title}</div>
+      {svc.sub && <div className="csc-sub">{svc.sub}</div>}
+      {rows.length > 0 && (
+        <div className="csc-rows">
+          {rows.map(([label, val], i) => (
+            <div className="csc-row" key={i}><span className="csc-k">{label}</span><span className="csc-v">{val}</span></div>
+          ))}
+        </div>
+      )}
+      {onOpen && <div className="csc-open">Открыть карточку услуги<Icon name="chevRight" style={{ width: 14, height: 14 }} /></div>}
+    </div>
+  );
+}
 function chatOrderStatus(no) { const o = (typeof ORDERS !== 'undefined' ? ORDERS : []).find((x) => x.no === no); if (!o) return null; return o.status === 'Нет данных' ? 'Новое' : o.status; }
 function chatTypeMeta(key) { return (CHAT_TYPES.find((t) => t.key === key)) || { key, label: key, icon: 'chat' }; }
 
@@ -159,7 +197,7 @@ function ChatThread({ thread, embedded, onOpenOrder, onOpenService, initChannel,
             <div className={'msg-row ' + (me ? 'me' : 'them')} key={i}>
               <div className={'msg ' + (me ? 'me' : 'them') + (sub === 'internal' ? ' internal' : '')}>
                 {!me && m.author && thread.type !== 'client' && <div className="msg-author">{m.author}</div>}
-                {svc && <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12, fontWeight: 600, color: 'var(--blue)', background: 'var(--blue-soft)', borderRadius: 8, padding: '3px 8px', marginBottom: 6 }}><Icon name={(SERVICE_KIND[svc.kind] || {}).icon || 'route'} style={{ width: 12, height: 12 }} />{svc.kind} · {svc.title}</div>}
+                {svc && <ChatServiceCard svc={svc} me={me} onOpen={() => onOpenService && onOpenService(svc.id)} />}
                 {m.attach
                   ? <div className="chat-attach" onClick={() => toast('Скачивание ' + m.attach.name, 'info')}><span className="ic"><Icon name="paperclip" /></span><div><div style={{ fontWeight: 600, fontSize: 13 }}>{m.attach.name}</div><div style={{ fontSize: 12, color: 'var(--muted)' }}>{m.attach.size}</div></div><Icon name="download" style={{ width: 16, height: 16, color: 'var(--muted-2)' }} /></div>
                   : <span>{chatText(m.text)}</span>}

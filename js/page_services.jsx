@@ -170,7 +170,13 @@ function ServiceCardSendPanel({ item, kind, participants = [], orderNo, currency
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
             <span className="oc-svc-ic" style={{ background: k.color, width: 40, height: 40 }}><Icon name={k.icon} /></span>
-            <div><div style={{ fontWeight: 700, color: 'var(--ink)' }}>{item.title || item.main}</div><div style={{ fontSize: 13, color: 'var(--muted)' }}>{item.sub}</div></div>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                <span style={{ fontWeight: 700, color: 'var(--ink)' }}>{item.title || item.main}</span>
+                {item.status && <Pill tone={SERVICE_STATUS[item.status] || 'gray'}>{item.status}</Pill>}
+              </div>
+              <div style={{ fontSize: 13, color: 'var(--muted)' }}>{item.sub}</div>
+            </div>
           </div>
           <div className="kv">
             {info.map((r, i) => (<div className="kv-row" key={i}><span className="k">{r.l}</span><span className="v">{r.v}</span></div>))}
