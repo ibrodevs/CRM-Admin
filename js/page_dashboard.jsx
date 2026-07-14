@@ -375,6 +375,39 @@ const SUPPLIER_ERRORS = [
   { id: 'E-4824', supplier: 'Ratehawk', service: 'Гостиницы', op: 'Поиск', time: '14.07.2026 11:02', order: null, orderTL: null, client: '—', operator: '—', code: 'RH-503', crmCode: 'SUPPLIER_SLOW', crit: 'Информационная', reason: 'Замедление ответа поставщика (>2.4 с).', tech: 'HTTP 200 · latency=2410ms', repeats: 1, first: '14.07 11:02', last: '14.07 11:02', impact: 'Без влияния на заказ', status: 'Новая' },
   { id: 'E-4825', supplier: 'Amadeus GDS', service: 'Авиа', op: 'Отмена', time: '14.07.2026 10:50', order: 51155, orderTL: null, client: 'ИП Мамажанов', operator: 'Даниель', code: 'AMA-3021', crmCode: 'BOOK_TIMEOUT', crit: 'Важная', reason: 'Тайм-аут при аннуляции — повторите операцию.', tech: 'HTTP 504 Gateway Timeout · reqId=amx-77b2', repeats: 4, first: '14.07 09:05', last: '14.07 10:50', impact: 'Аннуляция не подтверждена', status: 'Отложена' },
 ];
+/* ТЗ #12 — рабочий процесс обработки ошибок: статусная модель + действия,
+   связанные с внутренним механизмом (история, назначение, уведомления, счётчик). */
+const ERR_STATUS_TONE = { 'Новая': 'red', 'В работе': 'blue', 'Отложена': 'amber', 'Решена': 'green' };
+function errNow() { return new Date().toLocaleString('ru-RU', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }); }
+function errCurOp() { return (typeof CURRENT_USER !== 'undefined' && CURRENT_USER.name) || 'Оператор'; }
+function errLog(err, text) { (err.history = err.history || []).push({ t: errNow(), text, who: errCurOp() }); }
+function errActiveCount() { return SUPPLIER_ERRORS.filter((e) => e.status !== 'Решена').length; }
+function errPushNotif(err, title, desc) {
+  if (typeof NOTIFICATIONS === 'undefined') return;
+  // не дублируем одинаковое уведомление по одной ошибке
+  if (NOTIFICATIONS.some((n) => n.link && n.link.errId === err.id && n.title === title)) return;
+  NOTIFICATIONS.unshift({ id: 'NE-' + Math.random().toString(36).slice(2, 6), cat: 'Интеграции', priority: err.crit === 'Критическая' ? 'Критический' : 'Важный',
+    source: 'Интеграции', title, desc, time: 'сейчас', order: err.order || null, resp: err.assignee || err.operator,
+    link: { type: 'error', errId: err.id }, act: 'Открыть ошибку', read: false, pinned: err.crit === 'Критическая' });
+}
+// Ретрай реально меняет счётчик попыток/статус; часть кодов не лечится повтором (нужны иные действия).
+function errRetry(err) {
+  err.attempts = (err.attempts || err.repeats || 0) + 1; err.lastTry = errNow();
+  errLog(err, 'Повторный запрос отправлен поставщику (попытка ' + err.attempts + ')');
+  const unfixable = err.crmCode === 'AUTH_EXPIRED'; // истёкшая авторизация повтором не лечится
+  const success = !unfixable && (err.attempts % 2 === 0 || err.crmCode === 'PRICE_CHANGED' || err.crmCode === 'SUPPLIER_SLOW');
+  if (success) { err.status = 'Решена'; err.resolvedBy = errCurOp(); err.resolvedAt = errNow(); errLog(err, 'Повтор успешен — ошибка закрыта автоматически'); }
+  else { if (err.status === 'Новая') err.status = 'В работе'; errLog(err, unfixable ? 'Повтор не помог: истекла авторизация — требуется переподключение интеграции' : 'Повтор не удался — ошибка остаётся активной'); }
+  return success;
+}
+function errAssign(err, who) { err.assignee = who; if (err.status === 'Новая') err.status = 'В работе'; errLog(err, 'Назначен ответственный: ' + who); errPushNotif(err, 'Вам назначена ошибка ' + err.id, err.reason); }
+function errResolve(err) { err.status = 'Решена'; err.resolvedBy = errCurOp(); err.resolvedAt = errNow(); errLog(err, 'Ошибка отмечена решённой'); }
+function errReopen(err) { err.status = 'В работе'; err.snoozeUntil = null; err.resolvedBy = null; errLog(err, 'Ошибка возвращена в работу'); }
+function errSnooze(err, label) { err.status = 'Отложена'; err.snoozeUntil = label; errLog(err, 'Обработка отложена: ' + label + ' (по истечении вернётся в работу с повышением приоритета)'); }
+function errChooseSupplier(err, sup) { err.altSupplier = sup; if (err.status === 'Новая') err.status = 'В работе'; errLog(err, 'Выбран другой поставщик: ' + sup + ' — операция будет переоформлена через него'); }
+function errSendDev(err) { err.devTicket = err.devTicket || ('DEV-' + (4000 + Math.floor(Math.random() * 900))); errLog(err, 'Передано разработчику · тикет ' + err.devTicket); errPushNotif(err, 'Ошибка ' + err.id + ' передана разработчику', err.crmCode + ' · ' + err.code); }
+function errAltSuppliers(err) { return SUPPLIER_STATS.map((s) => s.name).filter((n) => n !== err.supplier); }
+
 const OPERATORS_WORK = [
   { name: 'Даниель',           handled: 21, orders: 6, issued: 8, earn: 142, profit: 470, sla: 'ok' },
   { name: 'Куба',              handled: 17, orders: 4, issued: 5, earn: 96,  profit: 320, sla: 'red' },
@@ -397,27 +430,48 @@ const MY_TASKS = [
 
 /* ТЗ #12 — разбор ошибок поставщиков: список → карточка ошибки, фильтры,
    группировка, уровни критичности текстом, связь с заказом, действия. */
-function SupplierErrorCard({ err, onClose, onOpenOrder }) {
+function SupplierErrorCard({ err, onClose, onOpenOrder, onChange }) {
   const toast = useToast();
   const [showTech, setShowTech] = useState(false);
+  const [, force] = useState(0);
+  const rerender = () => { force((x) => x + 1); onChange && onChange(); };
+  const resolved = err.status === 'Решена';
+
+  const doRetry = () => { const ok = errRetry(err); rerender(); toast(ok ? 'Повтор успешен — ошибка закрыта' : 'Повтор выполнен — ошибка ещё активна', ok ? 'ok' : 'warn'); };
+  const doAssign = (who) => { errAssign(err, who); rerender(); toast('Назначен: ' + who + ' · создано уведомление', 'ok'); };
+  const doSupplier = (sup) => { errChooseSupplier(err, sup); rerender(); toast('Поставщик переключён: ' + sup, 'ok'); };
+  const doSnooze = (label) => { errSnooze(err, label); rerender(); toast('Отложено: ' + label, 'info'); };
+  const doResolve = () => { errResolve(err); rerender(); toast('Ошибка закрыта и убрана из активных', 'ok'); };
+  const doReopen = () => { errReopen(err); rerender(); toast('Ошибка возвращена в работу', 'info'); };
+  const doDev = () => { errSendDev(err); rerender(); toast('Передано разработчику · тикет ' + err.devTicket, 'ok'); };
+  const doCopy = () => { try { navigator.clipboard.writeText(err.tech || ''); } catch (e) {} errLog(err, 'Скопированы технические данные'); rerender(); toast('Технические данные скопированы', 'ok'); };
+
   const kv = [
-    ['Поставщик', err.supplier], ['Тип услуги', err.service], ['Операция', err.op],
+    ['Поставщик', err.altSupplier ? err.supplier + ' → ' + err.altSupplier : err.supplier], ['Тип услуги', err.service], ['Операция', err.op],
     ['Дата и время', err.time], ['Номер заказа', err.order ? '№ ' + err.order : '—'],
     ['Клиент', err.client], ['Оператор', err.operator],
+    ['Ответственный', err.assignee || 'не назначен'],
     ['Код поставщика', err.code], ['Внутренний код CRM', err.crmCode],
-    ['Повторений', String(err.repeats)], ['Первое возникновение', err.first], ['Последнее', err.last],
-    ['Влияние на заказ', err.impact], ['Статус обработки', err.status],
-  ];
+    ['Попыток повтора', String(err.attempts != null ? err.attempts : err.repeats)], ['Первое возникновение', err.first], ['Последнее', err.last],
+    ['Влияние на заказ', err.impact],
+    err.devTicket ? ['Тех-тикет', err.devTicket] : null,
+    err.snoozeUntil ? ['Отложено', err.snoozeUntil] : null,
+    resolved ? ['Закрыл', (err.resolvedBy || errCurOp()) + ' · ' + (err.resolvedAt || '')] : null,
+  ].filter(Boolean);
+
   return (
     <Drawer open onClose={onClose} width="min(720px,96vw)" title={'Ошибка ' + err.id} sub={err.supplier + ' · ' + err.op}
       footer={<>
-        <Button variant="secondary" icon="zap" onClick={() => toast('Запрос повторён', 'ok')}>Повторить запрос</Button>
+        <Button variant="secondary" icon="zap" disabled={resolved} onClick={doRetry}>Повторить запрос</Button>
         {err.order && <Button variant="secondary" icon="orders" onClick={() => { onOpenOrder && onOpenOrder(err.order); onClose(); }}>Открыть заказ</Button>}
-        <Button variant="primary" icon="check" onClick={() => { toast('Ошибка отмечена решённой', 'ok'); onClose(); }}>Отметить решённой</Button>
+        {resolved
+          ? <Button variant="secondary" icon="refund" onClick={doReopen}>Вернуть в работу</Button>
+          : <Button variant="primary" icon="check" onClick={doResolve}>Отметить решённой</Button>}
       </>}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14, flexWrap: 'wrap' }}>
+        <Pill tone={ERR_STATUS_TONE[err.status] || 'gray'}>Статус: {err.status}</Pill>
         <Pill tone={ERR_CRIT_TONE[err.crit] || 'gray'}>Критичность: {err.crit}</Pill>
-        <Pill tone="gray">Повторений: {err.repeats}</Pill>
+        {err.assignee && <Pill tone="blue">Ответственный: {err.assignee}</Pill>}
         {err.order && <Pill tone="red">Затронут заказ № {err.order}{err.orderTL ? ' · ' + err.orderTL : ''}</Pill>}
       </div>
       <div className="card card-pad" style={{ marginBottom: 14, background: 'var(--surface-2)' }}>
@@ -427,6 +481,21 @@ function SupplierErrorCard({ err, onClose, onOpenOrder }) {
       <div className="kv" style={{ marginBottom: 14 }}>
         {kv.map(([k, v], i) => <div className="kv-row" key={i}><span className="k">{k}</span><span className="v">{v}</span></div>)}
       </div>
+
+      {/* Действия по ошибке — реально меняют состояние (ТЗ #12) */}
+      <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '.03em', marginBottom: 8 }}>Действия</div>
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 16 }}>
+        <Button variant="secondary" size="sm" icon="zap" disabled={resolved} onClick={doRetry}>Повторно проверить цену и наличие</Button>
+        <ActionMenu trigger={<Button variant="secondary" size="sm" icon="suppliers" disabled={resolved}>Выбрать другого поставщика</Button>}
+          items={errAltSuppliers(err).map((s) => ({ icon: 'suppliers', label: s, onClick: () => doSupplier(s) }))} />
+        <ActionMenu trigger={<Button variant="secondary" size="sm" icon="user" disabled={resolved}>Назначить ответственного</Button>}
+          items={(typeof OPERATORS !== 'undefined' ? OPERATORS : ['Оператор']).map((o) => ({ icon: 'user', label: o, onClick: () => doAssign(o) }))} />
+        <ActionMenu trigger={<Button variant="secondary" size="sm" icon="clock" disabled={resolved}>Отложить обработку</Button>}
+          items={['30 минут', '2 часа', 'до завтра'].map((l) => ({ icon: 'clock', label: l, onClick: () => doSnooze(l) }))} />
+        <Button variant="secondary" size="sm" icon="template" onClick={doCopy}>Скопировать технические данные</Button>
+        <Button variant="secondary" size="sm" icon="send" onClick={doDev}>Отправить разработчику</Button>
+      </div>
+
       {/* Технический ответ API — под раскрывающимся блоком, чтобы не перегружать интерфейс */}
       <button className="doc-chip" onClick={() => setShowTech((s) => !s)} style={{ width: '100%' }}>
         <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}><Icon name="template" style={{ width: 16, height: 16 }} />Технический ответ API</span>
@@ -437,11 +506,22 @@ function SupplierErrorCard({ err, onClose, onOpenOrder }) {
           {err.tech}
         </div>
       )}
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 16 }}>
-        {['Повторно проверить цену', 'Выбрать другого поставщика', 'Назначить ответственного', 'Отложить обработку', 'Скопировать технические данные', 'Отправить разработчику'].map((a) => (
-          <Button key={a} variant="secondary" size="sm" onClick={() => toast(a, 'info')}>{a}</Button>
-        ))}
-      </div>
+
+      {/* История обработки — кто что делал, когда (ТЗ #12) */}
+      {err.history && err.history.length > 0 && (
+        <div style={{ marginTop: 16 }}>
+          <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '.03em', marginBottom: 8 }}>История обработки</div>
+          <div style={{ display: 'grid', gap: 7 }}>
+            {err.history.slice().reverse().map((h, i) => (
+              <div key={i} style={{ display: 'flex', gap: 10, fontSize: 12.5 }}>
+                <span style={{ color: 'var(--muted-2)', flexShrink: 0, minWidth: 92 }}>{h.t}</span>
+                <span style={{ color: 'var(--body)', flex: 1 }}>{h.text}</span>
+                <span style={{ color: 'var(--muted)', flexShrink: 0 }}>{h.who}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </Drawer>
   );
 }
@@ -450,6 +530,7 @@ function SupplierErrorsDrawer({ supplier, onClose, onOpenOrder }) {
   const [flt, setFlt] = useState({ supplier: supplier || '', service: '', op: '', crit: '', status: '', activeOnly: false, grouped: true });
   const [sel, setSel] = useState(null);
   const [q, setQ] = useState('');
+  const [, bump] = useState(0); // живое обновление списка/счётчиков после действий по ошибке
   let list = SUPPLIER_ERRORS.filter((e) =>
     (!flt.supplier || e.supplier === flt.supplier) &&
     (!flt.service || e.service === flt.service) &&
@@ -479,8 +560,11 @@ function SupplierErrorsDrawer({ supplier, onClose, onOpenOrder }) {
         <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 2 }}>{e.supplier} · {e.op} · {e.time}{e.order ? ' · заказ № ' + e.order : ''}</div>
       </div>
       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4 }}>
-        <Pill tone={ERR_CRIT_TONE[e.crit] || 'gray'}>{e.crit}</Pill>
-        {e.repeats > 1 && <span style={{ fontSize: 11.5, color: 'var(--muted-2)' }}>×{e.repeats}</span>}
+        <Pill tone={ERR_STATUS_TONE[e.status] || 'gray'}>{e.status}</Pill>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+          {e.assignee && <span style={{ fontSize: 11, color: 'var(--blue)' }}>{e.assignee}</span>}
+          <Pill tone={ERR_CRIT_TONE[e.crit] || 'gray'}>{e.crit}</Pill>
+        </div>
       </div>
     </div>
   );
@@ -525,7 +609,7 @@ function SupplierErrorsDrawer({ supplier, onClose, onOpenOrder }) {
             })}
           </div>
         : <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>{list.map(errRow)}</div>}
-      {sel && <SupplierErrorCard err={sel} onClose={() => setSel(null)} onOpenOrder={onOpenOrder} />}
+      {sel && <SupplierErrorCard err={sel} onClose={() => setSel(null)} onOpenOrder={onOpenOrder} onChange={() => bump((v) => v + 1)} />}
     </Drawer>
   );
 }
@@ -555,7 +639,7 @@ function DashboardPage({ role, onNavigate, onAddOrder, onOpenOrder }) {
   const slaRows = SLA_QUEUE.map((q) => ({ ...q, tone: slaTone(q.waited, q.limit) }));
   const slaOverdue = slaRows.filter((r) => r.tone === 'red').length;
   const errNotifs = NOTIFICATIONS.filter((n) => n.source === 'Интеграции');
-  const supErrTotal = SUPPLIER_STATS.reduce((s, x) => s + x.apiErrors, 0);
+  const supErrTotal = errActiveCount(); // активные нерешённые ошибки — счётчик уменьшается при закрытии (ТЗ #12)
 
   // сегодняшние операции (смена оператора → показатели «за сегодня»)
   const shOps = shift ? shift.ops : SHIFT_DEMO_OPS;
