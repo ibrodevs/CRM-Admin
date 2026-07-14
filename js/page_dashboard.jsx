@@ -357,12 +357,23 @@ function DashDetailEmpty({ title }) {
 }
 
 /* ---------- Демо-данные для показателей дашборда (в проде — из API/БД) ---------- */
+// ТЗ #12 — расширенная статистика по поставщикам (кликабельно → разбор ошибок)
 const SUPPLIER_STATS = [
-  { name: 'Amadeus GDS',      apiErrors: 3, failed: 2, avgResp: '1.8 с', tone: 'red' },
-  { name: 'Sirena',          apiErrors: 0, failed: 0, avgResp: '0.9 с', tone: 'green' },
-  { name: 'Ratehawk',        apiErrors: 1, failed: 0, avgResp: '2.4 с', tone: 'amber' },
-  { name: 'Air Astana (NDC)', apiErrors: 0, failed: 1, avgResp: '1.2 с', tone: 'green' },
-  { name: 'Qatar (API)',     apiErrors: 2, failed: 1, avgResp: '3.1 с', tone: 'amber' },
+  { name: 'Amadeus GDS',      apiErrors: 3, failed: 2, retries: 5, avgResp: '1.8 с', lastOk: '2 мин назад', lastErr: '4 мин назад', services: 'Авиа', integ: 'Частичные ошибки', crit: 'Критическая', ordersAffected: 2, tone: 'red' },
+  { name: 'Sirena',          apiErrors: 0, failed: 0, retries: 0, avgResp: '0.9 с', lastOk: 'только что', lastErr: '—', services: 'Авиа, ЖД', integ: 'Работает стабильно', crit: '—', ordersAffected: 0, tone: 'green' },
+  { name: 'Ratehawk',        apiErrors: 1, failed: 0, retries: 2, avgResp: '2.4 с', lastOk: '1 мин назад', lastErr: '12 мин назад', services: 'Гостиницы', integ: 'Замедление', crit: 'Информационная', ordersAffected: 0, tone: 'amber' },
+  { name: 'Air Astana (NDC)', apiErrors: 0, failed: 1, retries: 1, avgResp: '1.2 с', lastOk: 'только что', lastErr: '38 мин назад', services: 'Авиа', integ: 'Работает стабильно', crit: 'Важная', ordersAffected: 1, tone: 'green' },
+  { name: 'Qatar (API)',     apiErrors: 2, failed: 1, retries: 3, avgResp: '3.1 с', lastOk: '5 мин назад', lastErr: '2 мин назад', services: 'Авиа', integ: 'Авторизация истекла', crit: 'Критическая', ordersAffected: 1, tone: 'amber' },
+];
+const ERR_CRIT_TONE = { 'Критическая': 'red', 'Важная': 'amber', 'Информационная': 'gray' };
+const INTEG_TONE = { 'Работает стабильно': 'green', 'Замедление': 'amber', 'Частичные ошибки': 'amber', 'Недоступен': 'red', 'Авторизация истекла': 'red', 'Технические работы': 'blue', 'Отключён вручную': 'gray' };
+// Активные ошибки поставщиков (разбор по ТЗ #12): группируются одинаковые, связаны с заказами.
+const SUPPLIER_ERRORS = [
+  { id: 'E-4821', supplier: 'Amadeus GDS', service: 'Авиа', op: 'Бронирование', time: '14.07.2026 11:38', order: 51170, orderTL: 'до 18:40', client: 'Гранд лимитед', operator: 'Даниель', code: 'AMA-3021', crmCode: 'BOOK_TIMEOUT', crit: 'Критическая', reason: 'Тайм-аут ответа при подтверждении брони — место удержано до 18:40.', tech: 'HTTP 504 Gateway Timeout · reqId=amx-9f2a11 · endpoint /v2/booking/confirm', repeats: 4, first: '14.07 09:05', last: '14.07 11:38', impact: 'Не завершена выписка билета', status: 'Новая' },
+  { id: 'E-4822', supplier: 'Qatar (API)', service: 'Авиа', op: 'Выписка', time: '14.07.2026 11:36', order: 51171, orderTL: 'до 16:00', client: 'Асылов Айбек', operator: 'Адилет Медербеков', code: 'QR-401', crmCode: 'AUTH_EXPIRED', crit: 'Критическая', reason: 'Токен авторизации истёк — требуется переподключение интеграции.', tech: 'HTTP 401 Unauthorized · reqId=qr-55c1 · token expired', repeats: 28, first: '14.07 08:12', last: '14.07 11:36', impact: 'Выписка невозможна по 6 заказам', status: 'В работе' },
+  { id: 'E-4823', supplier: 'Qatar (API)', service: 'Авиа', op: 'Проверка цены', time: '14.07.2026 11:20', order: null, orderTL: null, client: '—', operator: 'Даниель', code: 'QR-409', crmCode: 'PRICE_CHANGED', crit: 'Важная', reason: 'Стоимость изменилась с момента последнего поиска.', tech: 'HTTP 409 Conflict · priceDelta=+18$', repeats: 3, first: '14.07 10:40', last: '14.07 11:20', impact: 'Требуется переподтверждение цены', status: 'Новая' },
+  { id: 'E-4824', supplier: 'Ratehawk', service: 'Гостиницы', op: 'Поиск', time: '14.07.2026 11:02', order: null, orderTL: null, client: '—', operator: '—', code: 'RH-503', crmCode: 'SUPPLIER_SLOW', crit: 'Информационная', reason: 'Замедление ответа поставщика (>2.4 с).', tech: 'HTTP 200 · latency=2410ms', repeats: 1, first: '14.07 11:02', last: '14.07 11:02', impact: 'Без влияния на заказ', status: 'Новая' },
+  { id: 'E-4825', supplier: 'Amadeus GDS', service: 'Авиа', op: 'Отмена', time: '14.07.2026 10:50', order: 51155, orderTL: null, client: 'ИП Мамажанов', operator: 'Даниель', code: 'AMA-3021', crmCode: 'BOOK_TIMEOUT', crit: 'Важная', reason: 'Тайм-аут при аннуляции — повторите операцию.', tech: 'HTTP 504 Gateway Timeout · reqId=amx-77b2', repeats: 4, first: '14.07 09:05', last: '14.07 10:50', impact: 'Аннуляция не подтверждена', status: 'Отложена' },
 ];
 const OPERATORS_WORK = [
   { name: 'Даниель',           handled: 21, orders: 6, issued: 8, earn: 142, profit: 470, sla: 'ok' },
@@ -384,10 +395,146 @@ const MY_TASKS = [
   { title: 'Загрузить паспорт · Аттокуров Эрбол', due: 'до 15.06', tone: 'amber', order: 51163 },
 ];
 
+/* ТЗ #12 — разбор ошибок поставщиков: список → карточка ошибки, фильтры,
+   группировка, уровни критичности текстом, связь с заказом, действия. */
+function SupplierErrorCard({ err, onClose, onOpenOrder }) {
+  const toast = useToast();
+  const [showTech, setShowTech] = useState(false);
+  const kv = [
+    ['Поставщик', err.supplier], ['Тип услуги', err.service], ['Операция', err.op],
+    ['Дата и время', err.time], ['Номер заказа', err.order ? '№ ' + err.order : '—'],
+    ['Клиент', err.client], ['Оператор', err.operator],
+    ['Код поставщика', err.code], ['Внутренний код CRM', err.crmCode],
+    ['Повторений', String(err.repeats)], ['Первое возникновение', err.first], ['Последнее', err.last],
+    ['Влияние на заказ', err.impact], ['Статус обработки', err.status],
+  ];
+  return (
+    <Drawer open onClose={onClose} width="min(720px,96vw)" title={'Ошибка ' + err.id} sub={err.supplier + ' · ' + err.op}
+      footer={<>
+        <Button variant="secondary" icon="zap" onClick={() => toast('Запрос повторён', 'ok')}>Повторить запрос</Button>
+        {err.order && <Button variant="secondary" icon="orders" onClick={() => { onOpenOrder && onOpenOrder(err.order); onClose(); }}>Открыть заказ</Button>}
+        <Button variant="primary" icon="check" onClick={() => { toast('Ошибка отмечена решённой', 'ok'); onClose(); }}>Отметить решённой</Button>
+      </>}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14, flexWrap: 'wrap' }}>
+        <Pill tone={ERR_CRIT_TONE[err.crit] || 'gray'}>Критичность: {err.crit}</Pill>
+        <Pill tone="gray">Повторений: {err.repeats}</Pill>
+        {err.order && <Pill tone="red">Затронут заказ № {err.order}{err.orderTL ? ' · ' + err.orderTL : ''}</Pill>}
+      </div>
+      <div className="card card-pad" style={{ marginBottom: 14, background: 'var(--surface-2)' }}>
+        <div style={{ fontWeight: 600, color: 'var(--ink)', marginBottom: 4 }}>Причина</div>
+        <div style={{ fontSize: 14, color: 'var(--body)' }}>{err.reason}</div>
+      </div>
+      <div className="kv" style={{ marginBottom: 14 }}>
+        {kv.map(([k, v], i) => <div className="kv-row" key={i}><span className="k">{k}</span><span className="v">{v}</span></div>)}
+      </div>
+      {/* Технический ответ API — под раскрывающимся блоком, чтобы не перегружать интерфейс */}
+      <button className="doc-chip" onClick={() => setShowTech((s) => !s)} style={{ width: '100%' }}>
+        <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}><Icon name="template" style={{ width: 16, height: 16 }} />Технический ответ API</span>
+        <Icon name={showTech ? 'chevUp' : 'chevDown'} />
+      </button>
+      {showTech && (
+        <div style={{ marginTop: 8, padding: 12, borderRadius: 10, background: '#0e1726', color: '#c7d2e0', fontFamily: 'monospace', fontSize: 12.5, whiteSpace: 'pre-wrap', wordBreak: 'break-all' }}>
+          {err.tech}
+        </div>
+      )}
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 16 }}>
+        {['Повторно проверить цену', 'Выбрать другого поставщика', 'Назначить ответственного', 'Отложить обработку', 'Скопировать технические данные', 'Отправить разработчику'].map((a) => (
+          <Button key={a} variant="secondary" size="sm" onClick={() => toast(a, 'info')}>{a}</Button>
+        ))}
+      </div>
+    </Drawer>
+  );
+}
+
+function SupplierErrorsDrawer({ supplier, onClose, onOpenOrder }) {
+  const [flt, setFlt] = useState({ supplier: supplier || '', service: '', op: '', crit: '', status: '', activeOnly: false, grouped: true });
+  const [sel, setSel] = useState(null);
+  const [q, setQ] = useState('');
+  let list = SUPPLIER_ERRORS.filter((e) =>
+    (!flt.supplier || e.supplier === flt.supplier) &&
+    (!flt.service || e.service === flt.service) &&
+    (!flt.op || e.op === flt.op) &&
+    (!flt.crit || e.crit === flt.crit) &&
+    (!flt.status || e.status === flt.status) &&
+    (!flt.activeOnly || !!e.order) &&
+    (!q || (String(e.order || '') + e.code + e.supplier + e.reason).toLowerCase().includes(q.toLowerCase())));
+  // Группировка одинаковых ошибок (по коду поставщика)
+  let groups = null;
+  if (flt.grouped) {
+    const m = {};
+    list.forEach((e) => { (m[e.code] = m[e.code] || []).push(e); });
+    groups = Object.keys(m).map((code) => ({ code, items: m[code] }));
+  }
+  const critOrder = { 'Критическая': 0, 'Важная': 1, 'Информационная': 2 };
+  list = [...list].sort((a, b) => (critOrder[a.crit] - critOrder[b.crit]) || (b.order ? 1 : 0) - (a.order ? 1 : 0));
+
+  const chip = (label, key, opts) => (
+    <FilterChip label={label} options={opts} value={flt[key]} onChange={(v) => setFlt((f) => ({ ...f, [key]: v }))} />
+  );
+  const errRow = (e) => (
+    <div key={e.id} onClick={() => setSel(e)} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 14px', borderRadius: 12, border: '1px solid var(--field-line)', cursor: 'pointer', background: '#fff' }}>
+      <span style={{ width: 8, height: 8, borderRadius: '50%', background: 'var(--' + (ERR_CRIT_TONE[e.crit] || 'gray') + ')', flexShrink: 0 }} />
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ fontWeight: 600, color: 'var(--ink)', fontSize: 14 }}>{e.reason}</div>
+        <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 2 }}>{e.supplier} · {e.op} · {e.time}{e.order ? ' · заказ № ' + e.order : ''}</div>
+      </div>
+      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4 }}>
+        <Pill tone={ERR_CRIT_TONE[e.crit] || 'gray'}>{e.crit}</Pill>
+        {e.repeats > 1 && <span style={{ fontSize: 11.5, color: 'var(--muted-2)' }}>×{e.repeats}</span>}
+      </div>
+    </div>
+  );
+  return (
+    <Drawer open onClose={onClose} width="min(920px,97vw)"
+      title="Ошибки поставщиков" sub={(flt.supplier || 'Все поставщики') + ' · активных: ' + list.filter((e) => e.status !== 'Решена').length}
+      footer={<Button variant="secondary" onClick={onClose}>Закрыть</Button>}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', marginBottom: 14 }}>
+        {chip('Поставщик', 'supplier', [...new Set(SUPPLIER_ERRORS.map((e) => e.supplier))])}
+        {chip('Тип услуги', 'service', [...new Set(SUPPLIER_ERRORS.map((e) => e.service))])}
+        {chip('Операция', 'op', [...new Set(SUPPLIER_ERRORS.map((e) => e.op))])}
+        {chip('Критичность', 'crit', ['Критическая', 'Важная', 'Информационная'])}
+        {chip('Статус', 'status', [...new Set(SUPPLIER_ERRORS.map((e) => e.status))])}
+        <div className="topbar-spacer" />
+        <SearchBox value={q} onChange={setQ} placeholder="Заказ, код, поставщик" style={{ width: 220 }} />
+      </div>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 14 }}>
+        <label style={{ display: 'inline-flex', alignItems: 'center', gap: 8, cursor: 'pointer', fontSize: 13, color: 'var(--body)' }}>
+          <Checkbox on={flt.activeOnly} onChange={() => setFlt((f) => ({ ...f, activeOnly: !f.activeOnly }))} />Только по активным заказам
+        </label>
+        <label style={{ display: 'inline-flex', alignItems: 'center', gap: 8, cursor: 'pointer', fontSize: 13, color: 'var(--body)' }}>
+          <Checkbox on={flt.grouped} onChange={() => setFlt((f) => ({ ...f, grouped: !f.grouped }))} />Группировать одинаковые
+        </label>
+      </div>
+      {list.length === 0 && <EmptyState icon="check" title="Активных ошибок нет" sub="По выбранным фильтрам ошибок не найдено" />}
+      {flt.grouped
+        ? <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+            {groups.filter((g) => g.items.some((e) => list.includes(e))).map((g) => {
+              const items = g.items.filter((e) => list.includes(e));
+              const head = items[0];
+              const totalRepeats = items.reduce((s, e) => s + e.repeats, 0);
+              const ordersAff = new Set(items.filter((e) => e.order).map((e) => e.order)).size;
+              return (
+                <div key={g.code}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8, fontSize: 13, fontWeight: 700, color: 'var(--ink)' }}>
+                    <Pill tone={ERR_CRIT_TONE[head.crit] || 'gray'}>{head.crmCode}</Pill>
+                    {head.reason.split('—')[0].trim()} — {totalRepeats} повторений{ordersAff ? ' · затронуто ' + ordersAff + ' заказ(ов)' : ''}
+                  </div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>{items.map(errRow)}</div>
+                </div>
+              );
+            })}
+          </div>
+        : <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>{list.map(errRow)}</div>}
+      {sel && <SupplierErrorCard err={sel} onClose={() => setSel(null)} onOpenOrder={onOpenOrder} />}
+    </Drawer>
+  );
+}
+
 function DashboardPage({ role, onNavigate, onAddOrder, onOpenOrder }) {
   const [search, setSearch] = useState('');
   const [searchOpen, setSearchOpen] = useState(false);
   const [errCodeOpen, setErrCodeOpen] = useState(null);
+  const [errDrawer, setErrDrawer] = useState(null); // ТЗ #12: null | '' (все) | имя поставщика
   const [, tick] = useState(0); // перерисовка по смене/таймеру (длительность смены)
 
   const isMgr = role === 'Админ' || role === 'Менеджер';
@@ -574,13 +721,17 @@ function DashboardPage({ role, onNavigate, onAddOrder, onOpenOrder }) {
       case 'suppliers':
         return (
           <table className="tbl">
-            <thead><tr><th>Поставщик</th><th>Ошибки API</th><th>Неуспешные брони</th><th>Ср. время ответа</th><th>Статус</th></tr></thead>
+            <thead><tr><th>Поставщик</th><th>Ошибки API</th><th>Неуспешные</th><th>Ср. ответ</th><th>Интеграция</th><th>Критичность</th><th style={{ width: 90 }}>Заказы</th></tr></thead>
             <tbody>{SUPPLIER_STATS.map((s, i) => (
-              <tr key={i}>
+              // ТЗ #12 — вся строка кликабельна, ведёт к разбору ошибок поставщика
+              <tr key={i} style={{ cursor: 'pointer' }} onClick={() => setErrDrawer(s.name)} title="Открыть ошибки поставщика">
                 <td className="t-strong">{s.name}</td>
                 <td style={{ color: s.apiErrors ? 'var(--red)' : 'var(--muted-2)', fontWeight: s.apiErrors ? 700 : 400 }}>{s.apiErrors}</td>
                 <td style={{ color: s.failed ? 'var(--amber)' : 'var(--muted-2)', fontWeight: s.failed ? 700 : 400 }}>{s.failed}</td>
-                <td>{s.avgResp}</td><td><Pill tone={s.tone}>{s.tone === 'red' ? 'Сбои' : s.tone === 'amber' ? 'Замедления' : 'Стабильно'}</Pill></td>
+                <td>{s.avgResp}</td>
+                <td><Pill tone={INTEG_TONE[s.integ] || 'gray'}>{s.integ}</Pill></td>
+                <td>{s.crit === '—' ? <span className="t-muted">—</span> : <Pill tone={ERR_CRIT_TONE[s.crit] || 'gray'}>{s.crit}</Pill>}</td>
+                <td>{s.ordersAffected ? <Pill tone="red">{s.ordersAffected} затронуто</Pill> : <span className="t-muted">—</span>}</td>
               </tr>))}</tbody>
           </table>
         );
@@ -654,6 +805,7 @@ function DashboardPage({ role, onNavigate, onAddOrder, onOpenOrder }) {
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '14px 18px', borderBottom: '1px solid var(--line)', flexShrink: 0 }}>
             <h2 className="card-title" style={{ fontSize: 17, margin: 0 }}>{DTITLE[sel] || ''}</h2>
             <div style={{ flex: 1 }} />
+            {sel === 'suppliers' && <Button variant="secondary" size="sm" icon="alertCircle" onClick={() => setErrDrawer('')}>Разбор ошибок</Button>}
             {sel === 'suppliers' && <Button variant="secondary" size="sm" icon="suppliers" onClick={() => onNavigate('suppliers')}>Все поставщики</Button>}
             {(sel === 'overdue' || sel === 'risk') && <Button variant="secondary" size="sm" icon="building" onClick={() => onNavigate('companies')}>Все компании</Button>}
             {(sel === 'returns') && <Button variant="secondary" size="sm" icon="refund" onClick={() => onNavigate('returns')}>Все возвраты</Button>}
@@ -667,6 +819,7 @@ function DashboardPage({ role, onNavigate, onAddOrder, onOpenOrder }) {
       </div>
 
       <ErrorCodesDrawer open={errCodeOpen !== null} focusCode={errCodeOpen} onClose={() => setErrCodeOpen(null)} />
+      {errDrawer !== null && <SupplierErrorsDrawer supplier={errDrawer || null} onClose={() => setErrDrawer(null)} onOpenOrder={onOpenOrder} />}
     </div>
   );
 }

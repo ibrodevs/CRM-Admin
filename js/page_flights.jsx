@@ -1368,27 +1368,70 @@ function SendToPaxDrawer({ open, passengers, onClose }) {
   );
 }
 
-/* Привязка свободного бронирования к заказу / физ. лицу (ответ клиента #1) — после выбора
-   выполняется реальное действие и показывается подтверждение, а не «пустой» тост. */
+/* Гибкая привязка подобранной услуги/тарифа (ТЗ #17): шаг, где оператор указывает,
+   к какому заказу привязать услугу — в существующий заказ, либо создать новый заказ
+   для юр. лица (компании) или для физ. лица. Ранее этот шаг был упущен. */
+const ATTACH_MODES = [
+  { key: 'order', label: 'В существующий заказ', icon: 'briefcase', hint: 'Добавить услугу в уже созданный заказ' },
+  { key: 'newCompany', label: 'Новый заказ · юр. лицо', icon: 'building', hint: 'Создать новый заказ на компанию (контрагента)' },
+  { key: 'newPerson', label: 'Новый заказ · физ. лицо', icon: 'user', hint: 'Создать новый заказ на частного клиента' },
+];
 function AttachFlightDrawer({ mode, svcTitle, onClose, onDone }) {
   const toast = useToast();
   const [q, setQ] = useState('');
-  const [picked, setPicked] = useState(null);   // выбранный заказ/клиент
-  const isOrder = mode === 'order';
+  const [picked, setPicked] = useState(null);   // выбранный заказ/компания/клиент
+  // допускаем старый режим 'person' как алиас нового 'newPerson'
+  const [m, setM] = useState(mode === 'person' ? 'newPerson' : (mode || 'order'));
+  const isOrder = m === 'order';
+  const isCompany = m === 'newCompany';
   const orders = ORDERS.filter((o) => `${o.no} ${o.client}`.toLowerCase().includes(q.toLowerCase())).slice(0, 20);
+  const companies = (typeof COMPANIES !== 'undefined' ? COMPANIES.map((c) => c.name || c) : ['ОсОО «Гранд лимитед»', 'ОсОО «Asia Travel»', 'ИП Мамажанов'])
+    .filter((c) => String(c).toLowerCase().includes(q.toLowerCase())).slice(0, 20);
   const clients = CLIENTS.filter((c) => c.toLowerCase().includes(q.toLowerCase())).slice(0, 20);
+  useEffect(() => { setPicked(null); setQ(''); }, [m]);
   const confirm = () => {
-    if (!picked) { toast('Выберите ' + (isOrder ? 'заказ' : 'физ. лицо'), 'err'); return; }
-    onDone(isOrder ? ('Услуга «' + svcTitle + '» привязана к заказу № ' + picked.no) : ('Услуга «' + svcTitle + '» привязана к клиенту: ' + picked));
+    if (!picked) { toast('Выберите ' + (isOrder ? 'заказ' : isCompany ? 'компанию' : 'клиента'), 'err'); return; }
+    const newNo = 51190 + Math.floor(Math.random() * 800);
+    const msg = isOrder
+      ? 'Услуга «' + svcTitle + '» добавлена в заказ № ' + picked.no
+      : isCompany
+        ? 'Создан заказ № ' + newNo + ' (юр. лицо: ' + picked + '), услуга «' + svcTitle + '» привязана'
+        : 'Создан заказ № ' + newNo + ' (физ. лицо: ' + picked + '), услуга «' + svcTitle + '» привязана';
+    onDone(msg);
     onClose();
   };
+  const searchPh = isOrder ? 'Поиск: № заказа или клиент' : isCompany ? 'Поиск компании (юр. лицо)' : 'Поиск клиента (физ. лицо)';
   return (
-    <Drawer open onClose={onClose} title={isOrder ? 'Привязать к заказу' : 'Привязать к физ. лицу'}
+    <Drawer open onClose={onClose} title="Привязка услуги к заказу" sub="Куда добавить подобранную услугу"
       footer={<><Button variant="secondary" onClick={onClose}>Отмена</Button>
-        <Button icon="check" disabled={!picked} onClick={confirm}>Привязать</Button></>}>
-      <SearchBox value={q} onChange={setQ} placeholder={isOrder ? 'Поиск: № заказа или клиент' : 'Поиск клиента'} style={{ width: '100%', marginBottom: 12 }} />
+        <Button icon="check" disabled={!picked} onClick={confirm}>{isOrder ? 'Добавить в заказ' : 'Создать заказ и привязать'}</Button></>}>
+      {/* Выбор модели привязки */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 16 }}>
+        {ATTACH_MODES.map((a) => (
+          <button key={a.key} type="button" onClick={() => setM(a.key)}
+            style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '11px 14px', borderRadius: 12, cursor: 'pointer', textAlign: 'left',
+              border: '1px solid ' + (m === a.key ? 'var(--blue)' : 'var(--field-line)'), background: m === a.key ? 'var(--blue-soft)' : '#fff' }}>
+            <Radio on={m === a.key} onChange={() => setM(a.key)} />
+            <span className="oc-svc-ic" style={{ background: 'var(--blue)', width: 32, height: 32, flexShrink: 0 }}><Icon name={a.icon} style={{ width: 16, height: 16 }} /></span>
+            <div style={{ flex: 1 }}><div style={{ fontWeight: 600, color: 'var(--ink)' }}>{a.label}</div><div style={{ fontSize: 12, color: 'var(--muted)' }}>{a.hint}</div></div>
+          </button>
+        ))}
+      </div>
+      <SearchBox value={q} onChange={setQ} placeholder={searchPh} style={{ width: '100%', marginBottom: 12 }} />
       <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-        {isOrder ? orders.map((o) => {
+        {isCompany && companies.map((c) => {
+          const on = picked === c;
+          return (
+            <button key={c} type="button" onClick={() => setPicked(c)}
+              style={{ cursor: 'pointer', width: '100%', textAlign: 'left', border: '1px solid ' + (on ? 'var(--blue)' : 'var(--line)'), background: on ? 'var(--blue-soft)' : '#fff', borderRadius: 12, padding: '10px 12px', display: 'flex', alignItems: 'center', gap: 12 }}>
+              <span className="oc-svc-ic" style={{ background: 'var(--indigo)', width: 34, height: 34 }}><Icon name="building" /></span>
+              <div style={{ flex: 1, minWidth: 0, fontWeight: 600, color: 'var(--ink)' }}>{c}</div>
+              {on && <Icon name="check" style={{ width: 18, height: 18, color: 'var(--blue)' }} />}
+            </button>
+          );
+        })}
+        {isCompany && !companies.length && <EmptyState icon="building" title="Компании не найдены" />}
+        {isOrder && orders.map((o) => {
           const on = picked && picked.id === o.id;
           return (
             <button key={o.id} type="button" onClick={() => setPicked(o)}
@@ -1398,7 +1441,8 @@ function AttachFlightDrawer({ mode, svcTitle, onClose, onDone }) {
               {on && <Icon name="check" style={{ width: 18, height: 18, color: 'var(--blue)' }} />}
             </button>
           );
-        }) : clients.map((c) => {
+        })}
+        {!isOrder && !isCompany && clients.map((c) => {
           const on = picked === c;
           return (
             <button key={c} type="button" onClick={() => setPicked(c)}
@@ -1410,7 +1454,7 @@ function AttachFlightDrawer({ mode, svcTitle, onClose, onDone }) {
           );
         })}
         {isOrder && !orders.length && <EmptyState icon="briefcase" title="Заказы не найдены" />}
-        {!isOrder && !clients.length && <EmptyState icon="user" title="Клиенты не найдены" />}
+        {!isOrder && !isCompany && !clients.length && <EmptyState icon="user" title="Клиенты не найдены" />}
       </div>
     </Drawer>
   );
@@ -1490,6 +1534,8 @@ function FlightCard({ svc, offer, no: noProp, hideBackRow, onBack, onFormKp, onA
   const [confirm, setConfirm] = useState(null);
   const ask = (title, message, onConfirm, confirmLabel = 'Подтвердить', confirmVariant = 'danger') =>
     setConfirm({ title, message, onConfirm, confirmLabel, confirmVariant });
+  // ТЗ #10/#11 — единая модалка подтверждения необратимых операций
+  const [opConfirm, setOpConfirm] = useState(null); // { action, onConfirm }
   const air = svc ? svc.airline : (offer ? offer.airline : 'TK');
   const out = offer ? offer.out : { from: 'FRU', to: 'IST', dep: '04:15', arr: '08:40', date: '24 июн', dur: '6ч 25м', stopText: 'Прямой', flightNo: air + ' 131' };
   const back = offer ? offer.back : null;
@@ -1588,17 +1634,13 @@ function FlightCard({ svc, offer, no: noProp, hideBackRow, onBack, onFormKp, onA
             {/* Свободное бронирование (ТЗ #1): сформировать КП / привязать к заказу / к физлицу */}
             {free && (<>
               <Button icon="template" onClick={() => (onFormKp ? onFormKp() : ask('Сформировать КП?', 'По подобранной услуге «' + out.from + ' → ' + out.to + (back ? ' → ' + back.to : '') + '» будет сформировано коммерческое предложение.', () => toast('Коммерческое предложение КП-' + Math.floor(1040 + Math.random() * 60) + ' сформировано', 'ok'), 'Сформировать', 'primary'))}>Сформировать КП</Button>
-              <ActionMenu trigger={<button className="btn btn-secondary">Привязать <Icon name="chevDown" style={{ width: 14, height: 14 }} /></button>}
-                items={[
-                  { icon: 'briefcase', label: 'Привязать к заказу', onClick: () => (onAttachOrder ? onAttachOrder() : setAttach('order')) },
-                  { icon: 'user', label: 'Привязать к физ. лицу', onClick: () => (onAttachPerson ? onAttachPerson() : setAttach('person')) },
-                ]} />
+              <Button variant="secondary" icon="briefcase" onClick={() => setAttach('order')}>Добавить в заказ</Button>
             </>)}
             {/* Предложение → бронирование */}
-            {!free && offered && <Button icon="check" onClick={() => ask('Забронировать?', 'Будет отправлен запрос на бронирование поставщику и создан PNR.', () => { setStatus('Забронировано'); toast('Забронировано, PNR создан', 'ok'); }, 'Забронировать', 'primary')}>Забронировать</Button>}
+            {!free && offered && <Button icon="check" onClick={() => setOpConfirm({ action: 'book', onConfirm: () => { setStatus('Забронировано'); toast('Забронировано, PNR создан', 'ok'); } })}>Забронировать</Button>}
             {/* Забронировано (ТЗ #4): выписать / доп.услуги / отправить + меню */}
             {booked && (<>
-              <Button icon="ticket" onClick={() => ask('Выписать билет?', 'Билет по брони ' + pnr + ' будет выписан. Стоимость спишется у поставщика.', () => { setStatus('Выписано'); toast('Билет выписан', 'ok'); }, 'Выписать', 'primary')}>Выписать билет</Button>
+              <Button icon="ticket" onClick={() => setOpConfirm({ action: 'issue', onConfirm: () => { setStatus('Выписано'); toast('Билет выписан', 'ok'); } })}>Выписать билет</Button>
               <Button variant="secondary" icon="briefcase" onClick={() => setExtrasOpen(true)}>Доп. услуги</Button>
               <Button variant="secondary" icon="send" onClick={() => setSendOpen(true)}>Отправить пассажиру</Button>
               <ActionMenu trigger={<button className="btn btn-secondary btn-icon"><Icon name="more" /></button>} items={bookedMenu} />
@@ -1845,6 +1887,13 @@ function FlightCard({ svc, offer, no: noProp, hideBackRow, onBack, onFormKp, onA
       confirmLabel={confirm && confirm.confirmLabel} confirmVariant={confirm && confirm.confirmVariant}
       onConfirm={() => { const c = confirm; setConfirm(null); c && c.onConfirm && c.onConfirm(); }}
       onCancel={() => setConfirm(null)} />
+    {opConfirm && (
+      <OperationConfirmModal open action={opConfirm.action} kind="Авиа"
+        service={out.from + ' → ' + out.to + (back ? ' → ' + back.to : '') + ' · ' + AIRLINES[air].name}
+        fin={{ price: fare, fee, total: fare + fee, currency: currency === 'USD' ? '$' : currency }}
+        warnings={[ticketingDeadline ? 'До окончания тайм-лимита бронирования: ' + ticketingDeadline : null, 'Стоимость могла измениться с момента последнего поиска'].filter(Boolean)}
+        onConfirm={opConfirm.onConfirm} onClose={() => setOpConfirm(null)} />
+    )}
     </>
   );
 }

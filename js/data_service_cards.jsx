@@ -407,6 +407,67 @@ function buildForceMajeureRows(fm) {
   return FM_ROWS.map(([l, k]) => ({ l, v: fm[k] })).filter((r) => r.v != null && r.v !== '');
 }
 
+/* Умный подбор альтернатив при отмене/недоступности услуги (ТЗ #1) — как при
+   вынужденном обмене система подставляет варианты, а оператор корректирует/подтверждает.
+   Демо: генерирует 3 близких варианта по виду услуги. */
+function smartAlternatives(item, kind) {
+  const nk = normKind(kind);
+  const base = (item && (item.title || item.main)) || '';
+  const route = (item && item.details && (item.details.route || (item.details[nk] && item.details[nk].route))) || base;
+  const seed = (base.length + nk.length) % 3;
+  const sets = {
+    'Авиа': [
+      { title: route + ' · Turkish Airlines', meta: 'Прямой · 09:20 → 12:40 · багаж 20 кг', price: 312, delta: '+21 $' },
+      { title: route + ' · Air Astana', meta: '1 пересадка · 07:05 → 14:10 · багаж 20 кг', price: 268, delta: '−23 $' },
+      { title: route + ' · S7 Airlines', meta: 'Прямой · 18:35 → 21:55 · ручная кладь', price: 289, delta: '−2 $' },
+    ],
+    'ЖД': [
+      { title: route + ' · поезд 024Ц (купе)', meta: 'Отпр. 21:10 · 1 ночь · бельё вкл.', price: 96, delta: '−4 $' },
+      { title: route + ' · поезд 116А (СВ)', meta: 'Отпр. 19:40 · повышенный комфорт', price: 148, delta: '+48 $' },
+    ],
+    'Гостиница': [
+      { title: 'Hilton Garden Inn · 4★', meta: 'Double · BB · 0.4 км от точки', price: 143, delta: '−8 $' },
+      { title: 'Ramada Encore · 4★', meta: 'Standard · BB · 0.9 км от точки', price: 118, delta: '−33 $' },
+      { title: 'Radisson Blu · 5★', meta: 'Superior · BB · 1.2 км', price: 176, delta: '+25 $' },
+    ],
+    'Трансфер': [
+      { title: 'Комфорт (седан)', meta: 'Встреча с табличкой · 60 мин ожидания', price: 34, delta: '=' },
+      { title: 'Минивэн (до 6 чел.)', meta: 'Встреча с табличкой · багаж +', price: 52, delta: '+18 $' },
+    ],
+  };
+  const list = sets[nk] || sets['Авиа'];
+  // «Умный поиск»: слегка ротируем по seed, чтобы варианты отличались между услугами
+  return list.map((v, i) => ({ id: nk + '-alt-' + i, ...v })).slice(0, 3).map((v, i, arr) => arr[(i + seed) % arr.length]);
+}
+
+/* Затронутая цепочка связанных услуг (ТЗ #2): при сдвиге/отмене рейса система
+   показывает, какие услуги заказа требуют проверки, с их статусом. Общая рамка
+   события — «Изменение рейса повлияло на N услуг». */
+const CHAIN_STATUS = {
+  ok:        { label: 'Без изменений',            tone: 'green' },
+  reconfirm: { label: 'Требуется переподтверждение', tone: 'amber' },
+  retime:    { label: 'Необходимо изменить время',   tone: 'amber' },
+  risk:      { label: 'Риск отмены или доплаты',      tone: 'red' },
+};
+function affectedServiceChain(orderNo, kind) {
+  // связанные услуги, типично зависящие от времени рейса
+  const nk = normKind(kind);
+  const resp = (typeof ORDER_SVC_RESPONSIBLES !== 'undefined' && ORDER_SVC_RESPONSIBLES[orderNo]) || null;
+  if (resp && resp.length) {
+    // из реальных услуг заказа берём все, кроме текущего вида, и присваиваем статус по типу
+    const statusFor = (k) => (k === 'Трансферы' || k === 'Трансфер') ? 'retime' : (k === 'Гостиницы' || k === 'Гостиница') ? 'reconfirm' : (k === 'Страхование') ? 'ok' : 'risk';
+    const out = resp.filter((r) => normKind(r.kind) !== nk).map((r) => ({ kind: r.kind, service: r.service, status: statusFor(r.kind) }));
+    if (out.length) return out;
+  }
+  // демо-цепочка по умолчанию
+  return [
+    { kind: 'Трансфер', service: 'Аэропорт → отель', status: 'retime' },
+    { kind: 'Гостиница', service: 'Заезд в отель', status: 'reconfirm' },
+    { kind: 'Страхование', service: 'Медицинская страховка', status: 'ok' },
+    { kind: 'Доп. услуга', service: 'Стыковочный рейс', status: 'risk' },
+  ];
+}
+
 /* ============================================================
    9. НАСТРОЙКИ АДМИНИСТРАТОРА (§30) — включение видов/каналов, шаблоны email.
    ============================================================ */
@@ -428,7 +489,7 @@ function cardEmailTemplate(sys) { return CARD_EMAIL_TEMPLATES[sys] || { subject:
 
 Object.assign(window, {
   CARD_RIGHT_KEYS, CARD_RIGHT_LABELS, allCardRights, noCardRights, OPERATOR_CARD_ACCESS, operatorCardAccess, operatorCardRights,
-  FORCE_MAJEURE_TYPES, defaultForceMajeure, buildForceMajeureRows, FM_ROWS,
+  FORCE_MAJEURE_TYPES, defaultForceMajeure, buildForceMajeureRows, FM_ROWS, smartAlternatives, CHAIN_STATUS, affectedServiceChain,
   CARD_KINDS_ALL, CARD_KINDS_ENABLED, cardKindEnabled, CARD_CHANNELS_ENABLED, enabledChannels, CARD_EMAIL_TEMPLATES, cardEmailTemplate,
   CARD_ACTION_CATALOG, cardAction, CARD_BLOCK_CATALOG,
   CARD_SCENARIOS, CARD_SCENARIO_ORDER, cardScenario, scenarioBadge, scenariosForKind, scenarioActions,

@@ -225,4 +225,137 @@ function ExtrasCatalogModal({ open, onClose }) {
   );
 }
 
-Object.assign(window, { OrderResponsiblesTab, DynamicExtrasPanel, ExtrasCatalogModal, operatorsForKind, ensureResponsibles });
+/* ================================================================
+   ТЗ #10/#11 — единое модальное окно подтверждения необратимых операций.
+   Последняя контрольная точка перед оформлением / выпиской / обменом /
+   возвратом / отменой. Динамическое наполнение по типу услуги и действию:
+   описание, список операций, автопроверка данных, финблок, предупреждения,
+   формируемые документы и уведомления, поле комментария.
+   ================================================================ */
+const OP_CONFIRM_ACTIONS = {
+  issue:    { title: 'Выписка услуги', verb: 'Выписать', tone: 'primary', irreversible: true,
+    desc: 'После подтверждения услуга будет выписана, стоимость спишется у поставщика.',
+    ops: ['Отправка запроса поставщику', 'Выписка документа (билет/ваучер)', 'Списание стоимости у поставщика', 'Фиксация в заказе'],
+    docs: ['Билет / маршрут-квитанция', 'Счёт'], notifies: ['Уведомление в чат заказа', 'Отправка маршрут-квитанции клиенту'],
+    consequences: ['Повторное оформление возможно только по актуальной стоимости'] },
+  exchange: { title: 'Обмен услуги', verb: 'Подтвердить обмен', tone: 'primary', irreversible: true,
+    desc: 'Прежняя услуга будет заменена на новую. Возможна разница стоимости и штраф.',
+    ops: ['Аннуляция прежней услуги у поставщика', 'Оформление новой услуги', 'Пересчёт стоимости и сборов'],
+    docs: ['Новая маршрут-квитанция', 'Пересчёт счёта'], notifies: ['Уведомление в чат', 'Изменённое КП клиенту'],
+    consequences: ['Предыдущий билет станет недействительным', 'После обмена возможно изменение аэропорта или времени'] },
+  refund:   { title: 'Возврат услуги', verb: 'Оформить возврат', tone: 'danger', irreversible: true,
+    desc: 'Услуга будет возвращена. Возможны удержания согласно правилам тарифа.',
+    ops: ['Запрос на возврат поставщику', 'Расчёт удержаний', 'Формирование суммы к возврату'],
+    docs: ['Заявление на возврат', 'Корректировочный счёт'], notifies: ['Уведомление в чат', 'Расчёт возврата клиенту'],
+    consequences: ['Бронирование будет аннулировано', 'Место будет освобождено'] },
+  cancel:   { title: 'Отмена бронирования', verb: 'Отменить бронь', tone: 'danger', irreversible: true,
+    desc: 'Бронирование будет аннулировано. Действие может быть необратимым.',
+    ops: ['Аннуляция брони у поставщика', 'Освобождение мест/номеров', 'Обновление статуса заказа'],
+    docs: ['Подтверждение аннуляции'], notifies: ['Уведомление в чат'],
+    consequences: ['Бронирование будет аннулировано', 'Повторное оформление — по актуальной стоимости'] },
+  book:     { title: 'Бронирование услуги', verb: 'Забронировать', tone: 'primary', irreversible: false,
+    desc: 'Будет отправлен запрос на бронирование поставщику и создан PNR / код брони.',
+    ops: ['Отправка запроса поставщику', 'Создание PNR / кода брони', 'Установка тайм-лимита'],
+    docs: ['Подтверждение брони'], notifies: ['Уведомление в чат'], consequences: [] },
+};
+// Автопроверки по виду услуги (§ модалки): что система проверяет перед действием.
+const OP_CHECKS_BY_KIND = {
+  'Авиа': ['Корректность данных пассажиров', 'Наличие и срок действия документов', 'Выбранный тариф и класс', 'Багаж и места', 'Тайм-лимит бронирования'],
+  'ЖД': ['Данные пассажиров', 'Поезд, вагон и места', 'Класс обслуживания', 'Штрафы при возврате/обмене'],
+  'Гостиница': ['Даты проживания и число ночей', 'Тип номера и состав гостей', 'Условия отмены и депозит', 'Городские налоги'],
+  'Гостиницы': ['Даты проживания и число ночей', 'Тип номера и состав гостей', 'Условия отмены и депозит', 'Городские налоги'],
+  'Трансфер': ['Маршрут и время подачи', 'Связанный рейс', 'Число пассажиров'],
+  'Трансферы': ['Маршрут и время подачи', 'Связанный рейс', 'Число пассажиров'],
+  'Автобус': ['Перевозчик и маршрут', 'Место и багаж', 'Время отправления'],
+};
+function OperationConfirmModal({ open, action, kind = 'Авиа', service, fin = {}, warnings = [], onConfirm, onClose, needComment }) {
+  const [comment, setComment] = useState('');
+  useEffect(() => { if (open) setComment(''); }, [open, action]);
+  if (!open) return null;
+  const cfg = OP_CONFIRM_ACTIONS[action] || OP_CONFIRM_ACTIONS.issue;
+  const checks = OP_CHECKS_BY_KIND[kind] || OP_CHECKS_BY_KIND['Авиа'];
+  const cur = fin.currency || '$';
+  const fmt = (v) => (v == null ? null : Math.round(v).toLocaleString('ru-RU') + ' ' + cur);
+  const finRows = [
+    ['Стоимость услуги', fin.price], ['Сервисный сбор', fin.fee], ['Комиссия', fin.commission],
+    ['Штраф', fin.penalty], [action === 'refund' ? 'Сумма к возврату' : 'Доплата', action === 'refund' ? fin.refund : fin.surcharge],
+  ].filter((r) => r[1] != null);
+  const total = fin.total != null ? fin.total : null;
+  return (
+    <Modal open onClose={onClose}>
+      <div style={{ width: 'min(640px,94vw)' }}>
+        <ModalHeader title={cfg.title} sub={(service || 'Услуга') + ' · ' + kind} onClose={onClose} />
+        <div style={{ maxHeight: '68vh', overflow: 'auto', paddingRight: 2 }}>
+          <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10, padding: '12px 14px', borderRadius: 12, background: cfg.tone === 'danger' ? 'var(--red-bg)' : 'var(--blue-soft)', marginBottom: 16 }}>
+            <Icon name={cfg.tone === 'danger' ? 'alertCircle' : 'checkCircle'} style={{ width: 18, height: 18, color: cfg.tone === 'danger' ? 'var(--red)' : 'var(--blue)', flexShrink: 0, marginTop: 1 }} />
+            <div style={{ fontSize: 13.5, color: 'var(--body)' }}>{cfg.desc}</div>
+          </div>
+
+          <OpConfSection icon="orders" title="Будут выполнены операции">
+            {cfg.ops.map((o, i) => <div key={i} className="opc-li"><Icon name="chevRight" style={{ width: 13, height: 13, color: 'var(--muted-2)' }} />{o}</div>)}
+          </OpConfSection>
+
+          <OpConfSection icon="check" title="Автоматическая проверка данных">
+            {checks.map((c, i) => <div key={i} className="opc-li"><Icon name="checkCircle" style={{ width: 14, height: 14, color: 'var(--green)' }} />{c}</div>)}
+          </OpConfSection>
+
+          {finRows.length > 0 && (
+            <OpConfSection icon="finance" title="Финансовая информация">
+              <div className="kv">
+                {finRows.map(([k, v], i) => <div className="kv-row" key={i}><span className="k">{k}</span><span className="v" style={{ color: k === 'Штраф' ? 'var(--red)' : k === 'Сумма к возврату' ? 'var(--green)' : 'var(--ink)' }}>{fmt(v)}</span></div>)}
+                {total != null && <div className="kv-row"><span className="k" style={{ fontWeight: 700, color: 'var(--ink)' }}>Итого операции</span><span className="v" style={{ fontWeight: 700 }}>{fmt(total)}</span></div>}
+              </div>
+            </OpConfSection>
+          )}
+
+          {warnings.length > 0 && (
+            <OpConfSection icon="alertCircle" title="Предупреждения" tone="amber">
+              {warnings.map((w, i) => <div key={i} className="opc-li" style={{ color: 'var(--amber)' }}><Icon name="alertCircle" style={{ width: 14, height: 14, color: 'var(--amber)' }} />{w}</div>)}
+            </OpConfSection>
+          )}
+
+          {cfg.consequences.length > 0 && (
+            <OpConfSection icon="alertCircle" title="Последствия" tone="red">
+              {cfg.consequences.map((w, i) => <div key={i} className="opc-li" style={{ color: 'var(--red)' }}><Icon name="chevRight" style={{ width: 13, height: 13, color: 'var(--red)' }} />{w}</div>)}
+            </OpConfSection>
+          )}
+
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: needComment ? 14 : 4 }}>
+            <OpConfSection icon="docs" title="Будут сформированы">
+              {cfg.docs.map((d, i) => <div key={i} className="opc-li"><Icon name="docs" style={{ width: 13, height: 13, color: 'var(--blue)' }} />{d}</div>)}
+            </OpConfSection>
+            <OpConfSection icon="bell" title="Уведомления">
+              {cfg.notifies.map((d, i) => <div key={i} className="opc-li"><Icon name="bell" style={{ width: 13, height: 13, color: 'var(--blue)' }} />{d}</div>)}
+            </OpConfSection>
+          </div>
+
+          {needComment && (
+            <div style={{ marginBottom: 6 }}>
+              <label className="label">Комментарий оператора</label>
+              <textarea className="input" style={{ minHeight: 64, resize: 'vertical', width: '100%' }} value={comment} onChange={(e) => setComment(e.target.value)} placeholder="Причина / примечание к операции" />
+            </div>
+          )}
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, paddingTop: 16 }}>
+          {cfg.irreversible && <span style={{ fontSize: 12, color: 'var(--muted)', display: 'inline-flex', alignItems: 'center', gap: 6 }}><Icon name="lock" style={{ width: 13, height: 13 }} />Действие необратимо</span>}
+          <div style={{ flex: 1 }} />
+          <Button variant="secondary" onClick={onClose}>Отмена</Button>
+          <Button variant={cfg.tone === 'danger' ? 'danger' : 'primary'} icon="check" onClick={() => { onConfirm && onConfirm({ comment }); onClose && onClose(); }}>{cfg.verb}</Button>
+        </div>
+      </div>
+    </Modal>
+  );
+}
+function OpConfSection({ icon, title, tone, children }) {
+  return (
+    <div style={{ marginBottom: 14 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginBottom: 7 }}>
+        <Icon name={icon} style={{ width: 15, height: 15, color: tone ? 'var(--' + tone + ')' : 'var(--muted)' }} />
+        <span style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--ink)' }}>{title}</span>
+      </div>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 6, paddingLeft: 2 }}>{children}</div>
+    </div>
+  );
+}
+
+Object.assign(window, { OrderResponsiblesTab, DynamicExtrasPanel, ExtrasCatalogModal, operatorsForKind, ensureResponsibles, OperationConfirmModal, OP_CONFIRM_ACTIONS });

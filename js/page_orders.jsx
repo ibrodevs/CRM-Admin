@@ -904,7 +904,7 @@ function OrdersList({ orders, onOpen, onCreate, onNavigate }) {
         <div className="topbar-spacer" />
         {/* Операции над заказами (Документы / Оформление / Возвраты) — перенесены сюда из левого меню */}
         <ActionMenu
-          trigger={<button className="btn btn-secondary btn-sm" style={{ height: 36 }}><Icon name="clipboard" />Операции<Icon name="chevDown" /></button>}
+          trigger={<button className="btn btn-secondary"><Icon name="clipboard" />Операции<Icon name="chevDown" /></button>}
           items={(typeof ORDER_OPS_SECTIONS !== 'undefined' ? ORDER_OPS_SECTIONS : []).map((s) => ({ icon: s.icon, label: s.label, onClick: () => onNavigate && onNavigate(s.key) }))} />
         <Button variant="secondary" icon="edit" onClick={handleEditClick}>Редактировать</Button>
         <Button variant="secondary" icon="docs" onClick={() => toast('КП сформировано и отправлено', 'ok')}>Сформировать КП</Button>

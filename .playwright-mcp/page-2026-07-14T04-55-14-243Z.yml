@@ -1,0 +1,134 @@
+- generic [ref=f10e2]:
+  - generic [ref=f10e72]:
+    - complementary [ref=f10e73]:
+      - generic [ref=f10e74] [cursor=pointer]: ПСЦ - Travel Hub
+      - navigation [ref=f10e79]:
+        - button "Главное" [ref=f10e80] [cursor=pointer]
+        - button "Заказы" [ref=f10e85] [cursor=pointer]
+        - button "Подбор услуг" [ref=f10e92] [cursor=pointer]
+        - button "Клиенты" [ref=f10e97] [cursor=pointer]
+        - button "Компании" [ref=f10e102] [cursor=pointer]
+        - button "Поставщики" [ref=f10e107] [cursor=pointer]
+        - button "Ком. предложения" [active] [ref=f10e112] [cursor=pointer]
+        - button "Финансы" [ref=f10e117] [cursor=pointer]
+        - button "Редактор квитанций" [ref=f10e121] [cursor=pointer]
+        - button "Чаты" [ref=f10e126] [cursor=pointer]
+        - button "Уведомления" [ref=f10e130] [cursor=pointer]
+        - button "Настройки" [ref=f10e135] [cursor=pointer]
+      - generic "Акимова Айсулуу" [ref=f10e141] [cursor=pointer]:
+        - img "Акимова Айсулуу" [ref=f10e142]
+        - generic [ref=f10e143]:
+          - generic [ref=f10e144]: Акимова Айсулуу
+          - generic [ref=f10e145]: Админ
+    - main [ref=f10e148]:
+      - generic [ref=f10e149]:
+        - generic [ref=f10e150]:
+          - generic [ref=f10e151] [cursor=pointer]: Главное
+          - generic [ref=f10e154]: Ком. предложения
+        - 'textbox "Поиск: заказы, клиенты, КП… ⌘K" [ref=f10e160]':
+          - /placeholder: "Поиск: заказы, клиенты, КП…   ⌘K"
+        - generic [ref=f10e161]:
+          - button "Открыть смену" [ref=f10e162] [cursor=pointer]
+          - button "Админ" [ref=f10e168] [cursor=pointer]
+          - button "Создать" [ref=f10e176] [cursor=pointer]
+          - button "5" [ref=f10e179] [cursor=pointer]
+          - button "12" [ref=f10e183] [cursor=pointer]
+      - heading "Коммерческие предложения" [level=1] [ref=f10e190]
+      - generic [ref=f10e192]:
+        - generic [ref=f10e193]: Коммерческое предложение — контейнер из карточек услуг. Объединяйте несколько услуг одной поездки или альтернативные варианты в один документ. Отдельную карточку услуги можно отправить клиенту напрямую из заказа — без сборки КП (карточка → «Отправить клиенту»).
+        - generic [ref=f10e198]:
+          - generic [ref=f10e199]:
+            - generic [ref=f10e200]: Всего
+            - generic [ref=f10e201]: "6"
+          - generic [ref=f10e202]:
+            - generic [ref=f10e203]: Отправлено
+            - generic [ref=f10e204]: "2"
+          - generic [ref=f10e205]:
+            - generic [ref=f10e206]: На согласовании
+            - generic [ref=f10e207]: "1"
+          - generic [ref=f10e208]:
+            - generic [ref=f10e209]: Согласовано
+            - generic [ref=f10e210]: "1"
+        - generic [ref=f10e211]:
+          - 'textbox "Поиск: № КП, клиент, заказ…" [ref=f10e216]'
+          - button "Статус" [ref=f10e218] [cursor=pointer]
+          - button "Создать КП" [ref=f10e221] [cursor=pointer]
+        - table [ref=f10e225]:
+          - rowgroup [ref=f10e226]:
+            - row [ref=f10e227]:
+              - columnheader [ref=f10e228] [cursor=pointer]
+              - columnheader [ref=f10e232] [cursor=pointer]
+              - columnheader "Клиент" [ref=f10e236]
+              - columnheader "Вариантов" [ref=f10e237]
+              - columnheader [ref=f10e238] [cursor=pointer]
+              - columnheader "Действует до" [ref=f10e242]
+              - columnheader "Статус" [ref=f10e243]
+              - columnheader [ref=f10e244]
+          - rowgroup [ref=f10e245]:
+            - row [ref=f10e246] [cursor=pointer]:
+              - cell "ГП117" [ref=f10e247]
+              - cell "№ 51190" [ref=f10e248]
+              - cell "Dreamlaser" [ref=f10e250]
+              - cell "3" [ref=f10e251]
+              - cell "954 169 ₸ – 3 088 800 ₸" [ref=f10e252]
+              - cell "25.06.2025" [ref=f10e253]
+              - cell "Отправлено клиенту" [ref=f10e254]
+              - cell [ref=f10e256]:
+                - button [ref=f10e259]
+            - row [ref=f10e264] [cursor=pointer]:
+              - cell "КП-1051" [ref=f10e265]
+              - cell "№ 51163" [ref=f10e266]
+              - cell "Аттокуров Эрбол" [ref=f10e268]
+              - cell "1" [ref=f10e269]
+              - cell "1 980 $" [ref=f10e270]
+              - cell "25.06.2026" [ref=f10e271]
+              - cell "Черновик" [ref=f10e272]
+              - cell [ref=f10e274]:
+                - button [ref=f10e277]
+            - row [ref=f10e282] [cursor=pointer]:
+              - cell "КП-1042" [ref=f10e283]
+              - cell "№ 51162" [ref=f10e284]
+              - cell "ОсОО \"Гранд лимитед\"" [ref=f10e286]
+              - cell "2" [ref=f10e287]
+              - cell "1 384 $ – 2 045 $" [ref=f10e288]
+              - cell "20.06.2026" [ref=f10e289]
+              - cell "Отправлено клиенту" [ref=f10e290]
+              - cell [ref=f10e292]:
+                - button [ref=f10e295]
+            - row [ref=f10e300] [cursor=pointer]:
+              - cell "КП-1039" [ref=f10e301]
+              - cell "№ 51170" [ref=f10e302]
+              - cell "ОсОО \"Asia Travel\"" [ref=f10e304]
+              - cell "1" [ref=f10e305]
+              - cell "4 710 $" [ref=f10e306]
+              - cell "18.06.2026" [ref=f10e307]
+              - cell "Согласовано" [ref=f10e308]
+              - cell [ref=f10e310]:
+                - button [ref=f10e313]
+            - row [ref=f10e318] [cursor=pointer]:
+              - cell "КП-1033" [ref=f10e319]
+              - cell "№ 51156" [ref=f10e320]
+              - cell "Сагынбеков Икрам" [ref=f10e322]
+              - cell "1" [ref=f10e323]
+              - cell "8 500 $" [ref=f10e324]
+              - cell "17.06.2026" [ref=f10e325]
+              - cell "На согласовании" [ref=f10e326]
+              - cell [ref=f10e328]:
+                - button [ref=f10e331]
+            - row [ref=f10e336] [cursor=pointer]:
+              - cell "КП-1028" [ref=f10e337]
+              - cell "№ 51155" [ref=f10e338]
+              - cell "ИП Мамажанов Абдутаир" [ref=f10e340]
+              - cell "1" [ref=f10e341]
+              - cell "220 $" [ref=f10e342]
+              - cell "12.06.2026" [ref=f10e343]
+              - cell "Отклонено" [ref=f10e344]
+              - cell [ref=f10e346]:
+                - button [ref=f10e349]
+  - generic [ref=f10e354]:
+    - generic [ref=f10e359]:
+      - generic [ref=f10e360]: Срочно
+      - generic [ref=f10e361]: Просрочена оплата поставщику
+      - generic [ref=f10e362]: Заказ № 51170 · Qatar · тайм-лимит выписки сегодня 18:00
+      - button "Открыть финансы" [ref=f10e363] [cursor=pointer]
+    - button "Скрыть" [ref=f10e366] [cursor=pointer]

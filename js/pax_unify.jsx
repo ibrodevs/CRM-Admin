@@ -313,6 +313,36 @@ function PaxTemplateEditor({ tpl, onClose, onSave }) {
         ))}
       </div>
       <Button variant="secondary" size="sm" icon="plus" style={{ marginTop: 10 }} onClick={addCol}>Добавить колонку</Button>
+
+      {/* ТЗ #5 — живой предпросмотр шаблона: видно порядок полей и как они отформатируются */}
+      <PanelSub>Предпросмотр шаблона</PanelSub>
+      <div style={{ fontSize: 12, color: 'var(--muted)', margin: '0 0 8px' }}>Колонки идут в том же порядке, что и в файле. Данные показаны на примере двух пассажиров.</div>
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 10 }}>
+        {f.columns.map((c, i) => (
+          <span key={i} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12, fontWeight: 600, color: 'var(--body)', background: 'var(--surface-2)', border: '1px solid var(--field-line)', borderRadius: 8, padding: '4px 9px' }}>
+            <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 18, height: 18, borderRadius: '50%', background: 'var(--blue)', color: '#fff', fontSize: 11 }}>{i + 1}</span>
+            {c.label || PAX_COL_LABELS[c.key] || c.key}{c.req && <span style={{ color: 'var(--red)' }}>*</span>}
+          </span>
+        ))}
+        {f.columns.length === 0 && <span style={{ fontSize: 12, color: 'var(--muted)' }}>Добавьте колонки, чтобы увидеть предпросмотр</span>}
+      </div>
+      {f.columns.length > 0 && (() => {
+        const SAMPLE_PAX = [
+          { name: 'Иванов Иван Иванович', dob: '14.05.1988', docType: 'Загранпаспорт', docNo: '75 1234567', docExpiry: '01.05.2030', phone: '+7 900 111-22-33' },
+          { name: 'Петрова Мария Сергеевна', dob: '03.11.1992', docType: 'Загранпаспорт', docNo: '75 7654321', docExpiry: '20.08.2029', phone: '+7 900 222-33-44' },
+        ];
+        const rows = preparePax(SAMPLE_PAX, f.requiredDoc).map((p) => f.columns.map((c) => paxCell(p, c.key, f)));
+        return (
+          <div className="table-card" style={{ overflowX: 'auto' }}>
+            <table className="tbl">
+              <thead><tr><th style={{ width: 30 }}>#</th>{f.columns.map((c, i) => <th key={i}>{c.label || c.key}</th>)}</tr></thead>
+              <tbody>{rows.map((r, ri) => (
+                <tr key={ri}><td className="t-muted">{ri + 1}</td>{r.map((v, ci) => <td key={ci} className={v ? 't-strong' : 't-muted'}>{v || '—'}</td>)}</tr>
+              ))}</tbody>
+            </table>
+          </div>
+        );
+      })()}
     </Drawer>
   );
 }
@@ -336,6 +366,10 @@ function PaxUnifyPanel({ list, orderNo, autoBind, onClose }) {
   const [routeKey, setRouteKey] = useState('intl');
   const [editorTpl, setEditorTpl] = useState(undefined); // undefined=закрыт, null=новый, obj=редактирование
   const [editorOpen, setEditorOpen] = useState(false);
+  const [edits, setEdits] = useState({});       // ТЗ #5 — ручные корректировки ячеек: 'rowIdx:colKey' → value
+  const [editing, setEditing] = useState(null);  // 'rowIdx:colKey' — ячейка в режиме правки
+  const [docPreview, setDocPreview] = useState(false); // ТЗ #5 — предпросмотр документа перед выгрузкой
+  const cellVal = (pi, p, c) => { const k = pi + ':' + c.key; return edits[k] != null ? edits[k] : paxCell(p, c.key, tpl); };
 
   const tpl = allTpls.find((t) => t.id === tplId) || allTpls[0];
   const route = PAX_ROUTE_OPTS.find((r) => r.key === routeKey);
@@ -349,7 +383,7 @@ function PaxUnifyPanel({ list, orderNo, autoBind, onClose }) {
   const readyCount = pax.length - problems.length;
 
   const header = tpl.columns.map((c) => c.label);
-  const rows = pax.map((p) => tpl.columns.map((c) => paxCell(p, c.key, tpl)));
+  const rows = pax.map((p, pi) => tpl.columns.map((c) => cellVal(pi, p, c)));
 
   const doExport = (fmt) => {
     const baseName = 'Список_пассажиров_' + (tpl.bindTo || tpl.name).replace(/[^\wА-Яа-яЁё-]+/g, '_') + (orderNo ? '_заказ_' + orderNo : '');
@@ -427,9 +461,14 @@ function PaxUnifyPanel({ list, orderNo, autoBind, onClose }) {
         )}
       </div>
 
-      {/* предпросмотр отформатированного списка */}
-      <PanelSub style={{ marginTop: 0 }}>Предпросмотр — формат «{tpl.bindTo || tpl.name}»</PanelSub>
-      <div className="table-card">
+      {/* предпросмотр отформатированного списка — с правкой ячеек (ТЗ #5) */}
+      <div style={{ display: 'flex', alignItems: 'flex-end', gap: 10, flexWrap: 'wrap', margin: '4px 0 8px' }}>
+        <PanelSub style={{ marginTop: 0, marginBottom: 0, flex: 1 }}>Предпросмотр — формат «{tpl.bindTo || tpl.name}»</PanelSub>
+        {Object.keys(edits).length > 0 && <Button variant="ghost" size="sm" icon="refund" onClick={() => setEdits({})}>Сбросить правки ({Object.keys(edits).length})</Button>}
+        <Button variant="secondary" size="sm" icon="eye" onClick={() => setDocPreview(true)}>Предпросмотр документа</Button>
+      </div>
+      <div style={{ fontSize: 12, color: 'var(--muted)', margin: '0 0 8px' }}>Нажмите на ячейку, чтобы внести корректировку перед выгрузкой — правки применятся к документу.</div>
+      <div className="table-card" style={{ overflowX: 'auto' }}>
         <table className="tbl">
           <thead><tr><th style={{ width: 34 }}>#</th>{tpl.columns.map((c) => <th key={c.key}>{c.label}{c.req && <span style={{ color: 'var(--red)' }}> *</span>}</th>)}<th>Проверка</th></tr></thead>
           <tbody>
@@ -438,7 +477,27 @@ function PaxUnifyPanel({ list, orderNo, autoBind, onClose }) {
               return (
                 <tr key={i}>
                   <td className="t-muted">{i + 1}</td>
-                  {tpl.columns.map((c) => { const v = paxCell(p, c.key, tpl); return <td key={c.key} className={v ? 't-strong' : 't-muted'}>{v || '—'}</td>; })}
+                  {tpl.columns.map((c) => {
+                    const key = i + ':' + c.key;
+                    const v = cellVal(i, p, c);
+                    const isEdited = edits[key] != null;
+                    if (editing === key) {
+                      return (
+                        <td key={c.key} style={{ padding: 4 }}>
+                          <input className="input" autoFocus defaultValue={v} style={{ height: 32, fontSize: 13 }}
+                            onBlur={(e) => { setEdits((m) => ({ ...m, [key]: e.target.value })); setEditing(null); }}
+                            onKeyDown={(e) => { if (e.key === 'Enter') { setEdits((m) => ({ ...m, [key]: e.target.value })); setEditing(null); } if (e.key === 'Escape') setEditing(null); }} />
+                        </td>
+                      );
+                    }
+                    return (
+                      <td key={c.key} className={v ? 't-strong' : 't-muted'} title="Нажмите, чтобы изменить"
+                        onClick={() => setEditing(key)}
+                        style={{ cursor: 'text', background: isEdited ? 'var(--amber-bg)' : undefined, position: 'relative' }}>
+                        {v || '—'}{isEdited && <Icon name="edit" style={{ width: 11, height: 11, color: 'var(--amber)', marginLeft: 6, verticalAlign: -1 }} />}
+                      </td>
+                    );
+                  })}
                   <td>{issues.length ? <Pill tone="amber">{issues.length} прим.</Pill> : <Pill tone="green">OK</Pill>}</td>
                 </tr>
               );
@@ -446,6 +505,33 @@ function PaxUnifyPanel({ list, orderNo, autoBind, onClose }) {
           </tbody>
         </table>
       </div>
+
+      {/* ТЗ #5 — предпросмотр итогового документа перед выгрузкой */}
+      {docPreview && (
+        <Modal open onClose={() => setDocPreview(false)}>
+          <div style={{ width: 'min(1000px,94vw)' }}>
+            <ModalHeader title="Предпросмотр документа" sub={'Формат «' + (tpl.bindTo || tpl.name) + '» · ' + tpl.file.toUpperCase() + ' · ' + tpl.encoding} onClose={() => setDocPreview(false)} />
+            <div style={{ background: 'var(--surface-2)', borderRadius: 12, padding: 24, maxHeight: '62vh', overflow: 'auto' }}>
+              <div style={{ background: '#fff', border: '1px solid var(--line)', borderRadius: 8, padding: 24, boxShadow: 'var(--shadow-card)' }}>
+                <div style={{ fontWeight: 700, fontSize: 15, color: 'var(--ink)', marginBottom: 2 }}>Список пассажиров{orderNo ? ' · заказ №' + orderNo : ''}</div>
+                <div style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 16 }}>Назначение: {tpl.bindTo || tpl.name} · документ: {requiredDoc} · {pax.length} пасс.</div>
+                <div style={{ overflowX: 'auto' }}>
+                  <table className="tbl" style={{ fontSize: 13 }}>
+                    <thead><tr><th style={{ width: 30 }}>#</th>{header.map((h, i) => <th key={i}>{h}</th>)}</tr></thead>
+                    <tbody>{rows.map((r, ri) => (
+                      <tr key={ri}><td className="t-muted">{ri + 1}</td>{r.map((v, ci) => <td key={ci} className={v ? 't-strong' : 't-muted'}>{v || '—'}</td>)}</tr>
+                    ))}</tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, padding: '16px 0 2px' }}>
+              <Button variant="secondary" onClick={() => setDocPreview(false)}>Закрыть</Button>
+              <Button icon="download" onClick={() => { setDocPreview(false); doExport('Excel'); }}>Выгрузить Excel</Button>
+            </div>
+          </div>
+        </Modal>
+      )}
 
       {editorOpen && <PaxTemplateEditor tpl={editorTpl} onClose={() => setEditorOpen(false)} onSave={saveTpl} />}
     </StackPanel>

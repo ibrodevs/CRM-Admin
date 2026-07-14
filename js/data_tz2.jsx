@@ -108,6 +108,7 @@ function fullRights() { return SVC_ACCESS_RIGHTS.reduce((m, r) => (m[r] = true, 
 function noRights() { return SVC_ACCESS_RIGHTS.reduce((m, r) => (m[r] = false, m), {}); }
 // Профиль ответственности оператора по видам услуг (демо: специализации из ТЗ)
 const OPERATOR_SVC_ACCESS = window.OPERATOR_SVC_ACCESS || (window.OPERATOR_SVC_ACCESS = {
+  'Акимова Айсулуу': { fullAccess: true, kinds: {} },
   'Даниель': { fullAccess: false, kinds: { 'Авиа': fullRights(), 'ЖД': fullRights() } },
   'Адилет Медербеков': { fullAccess: false, kinds: { 'Гостиницы': fullRights() } },
   'Кими Райкконен': { fullAccess: true, kinds: {} },

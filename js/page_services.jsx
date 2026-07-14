@@ -356,6 +356,21 @@ function ServiceCardSendPanel({ item, kind, participants = [], orderNo, currency
   // §15 — данные форс-мажорной карточки (если сценарий — форс-мажор)
   const [fm, setFm] = useState(() => defaultForceMajeure(item, operator));
   const setFmType = (t) => { setFm((f) => ({ ...f, fmType: t })); setActions(FORCE_MAJEURE_TYPES[t].actions.slice()); };
+  // ТЗ #1 — умный подбор альтернатив при отмене/недоступности (как при вынужденном обмене)
+  const [altOpts, setAltOpts] = useState([]);
+  const [altSel, setAltSel] = useState(() => new Set());
+  const syncAltText = (sel, opts) => {
+    const chosen = opts.filter((o) => sel.has(o.id));
+    setFm((f) => ({ ...f, alternatives: chosen.map((o) => o.title + ' (' + o.delta + ')').join('; ') }));
+  };
+  const findAlternatives = () => {
+    const opts = smartAlternatives(item, kind);
+    setAltOpts(opts);
+    const sel = new Set(opts.map((o) => o.id)); // по умолчанию подставляем все найденные, оператор снимает лишние
+    setAltSel(sel); syncAltText(sel, opts);
+    toast('Подобрано ' + opts.length + ' альтернатив (умный поиск)', 'ok');
+  };
+  const toggleAlt = (id) => { setAltSel((s) => { const n = new Set(s); n.has(id) ? n.delete(id) : n.add(id); syncAltText(n, altOpts); return n; }); };
 
   const finModel = cardFinModel(sc, fin, ex, exFin);
   // Состав данных зависит от вида услуги (§8–14): типизированные блоки полей.
@@ -502,10 +517,70 @@ function ServiceCardSendPanel({ item, kind, participants = [], orderNo, currency
                 </div>
                 <Input value={fm.whatChanged} onChange={(e) => setFm((f) => ({ ...f, whatChanged: e.target.value }))} placeholder="Что изменилось" />
                 <Input value={fm.operatorActions} onChange={(e) => setFm((f) => ({ ...f, operatorActions: e.target.value }))} placeholder="Действия оператора" />
-                <Input value={fm.alternatives} onChange={(e) => setFm((f) => ({ ...f, alternatives: e.target.value }))} placeholder="Доступные альтернативы" />
+                {/* ТЗ #1 — подстановка альтернатив умным поиском (как при вынужденном обмене) */}
+                <div style={{ border: '1px solid var(--field-line)', borderRadius: 12, padding: 12, background: '#fff' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: altOpts.length ? 10 : 0 }}>
+                    <span style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--ink)', flex: 1 }}>Доступные альтернативы</span>
+                    <Button size="sm" variant="secondary" icon="refund" onClick={findAlternatives}>{altOpts.length ? 'Обновить подбор' : 'Подобрать альтернативы'}</Button>
+                  </div>
+                  {altOpts.length === 0
+                    ? <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 8 }}>Нажмите «Подобрать альтернативы» — система умным поиском предложит близкие варианты; вы корректируете и подтверждаете.</div>
+                    : (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                        {altOpts.map((o) => {
+                          const on = altSel.has(o.id);
+                          const cheaper = String(o.delta).startsWith('−');
+                          return (
+                            <label key={o.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '9px 11px', borderRadius: 10, cursor: 'pointer',
+                              border: '1px solid ' + (on ? 'var(--blue)' : 'var(--field-line)'), background: on ? 'var(--blue-soft)' : '#fff' }}>
+                              <Checkbox on={on} onChange={() => toggleAlt(o.id)} />
+                              <div style={{ flex: 1, minWidth: 0 }}>
+                                <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink)' }}>{o.title}</div>
+                                <div style={{ fontSize: 12, color: 'var(--muted)' }}>{o.meta}</div>
+                              </div>
+                              <div style={{ textAlign: 'right' }}>
+                                <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--ink)' }}>{fmt(o.price)}</div>
+                                <div style={{ fontSize: 12, fontWeight: 600, color: o.delta === '=' ? 'var(--muted)' : cheaper ? 'var(--green)' : 'var(--amber)' }}>{o.delta}</div>
+                              </div>
+                            </label>
+                          );
+                        })}
+                        <div style={{ fontSize: 11.5, color: 'var(--muted)' }}>Выбранные альтернативы попадут в карточку клиента. Оператор направляет и подтверждает — ручного ввода минимум.</div>
+                      </div>
+                    )}
+                </div>
               </div>
             </div>
           )}
+
+          {/* ТЗ #2 — затронутая цепочка связанных услуг (общая рамка события) */}
+          {(sc.forceMajeure || sc.fin === 'exchange') && (() => {
+            const chain = affectedServiceChain(oNo, kind);
+            return (
+              <div className="card card-pad" style={{ background: 'var(--surface-2)', border: '1px solid var(--line)', marginBottom: 14 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
+                  <Icon name="route" style={{ width: 16, height: 16, color: 'var(--amber)' }} />
+                  <span style={{ fontWeight: 700, fontSize: 13, color: 'var(--ink)', flex: 1 }}>
+                    Изменение по «{kind}» повлияло на {chain.length} {plural(chain.length, ['услугу', 'услуги', 'услуг'])}
+                  </span>
+                  <Pill tone="gray">не для клиента</Pill>
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  {chain.map((c, i) => {
+                    const st = CHAIN_STATUS[c.status] || CHAIN_STATUS.ok;
+                    return (
+                      <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 10px', borderRadius: 10, border: '1px solid var(--field-line)', background: '#fff' }}>
+                        <span style={{ width: 78, flexShrink: 0, fontSize: 12, fontWeight: 600, color: 'var(--muted)' }}>{c.kind}</span>
+                        <span style={{ flex: 1, minWidth: 0, fontSize: 13, color: 'var(--ink)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.service}</span>
+                        <Pill tone={st.tone}>{st.label}</Pill>
+                      </div>
+                    );
+                  })}
+                </div>
+                <div style={{ fontSize: 11.5, color: 'var(--muted)', marginTop: 8 }}>Оператор проверяет цепочку и обрабатывает её комплексно — трансфер, гостиница, страховка и доп. услуги.</div>
+              </div>
+            );
+          })()}
 
           {/* Клиентский ярлык (§5) */}
           <label className="lbl" style={{ display: 'block', marginBottom: 6 }}>Клиентский ярлык</label>

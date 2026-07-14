@@ -352,13 +352,58 @@ function ProfilePage({ onNavigate, initialTab }) {
                 <Toggle on={notif[k]} onChange={(v) => setNotif((n) => ({ ...n, [k]: v }))} />
               </div>
             ))}
-            <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--muted)', margin: '20px 0 6px' }}>События</div>
+            <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--muted)', margin: '20px 0 6px' }}>Общие события</div>
             {eventRows.map(([k, l], i, arr) => (
               <div key={k} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 0', borderBottom: i < arr.length - 1 ? '1px solid var(--line)' : 'none' }}>
                 <span style={{ fontSize: 15, color: 'var(--ink)' }}>{l}</span>
                 <Toggle on={notif[k]} onChange={(v) => setNotif((n) => ({ ...n, [k]: v }))} />
               </div>
             ))}
+
+            {/* По услугам — согласно доступам оператора (ТЗ #8): состав услуг и действий
+                определяется правами, которые назначил администратор в разделе «Доступы». */}
+            {(() => {
+              const acc = operatorSvcAccess(u.name);
+              const ACTION_EVENTS = ['Бронирование', 'Выписка', 'Обмен', 'Возврат', 'Отмена', 'Корректировка документов', 'Отправка документов клиенту'];
+              const kinds = acc.fullAccess
+                ? SVC_ACCESS_KINDS.map((k) => [k, ACTION_EVENTS])
+                : Object.keys(acc.kinds || {})
+                    .map((k) => [k, ACTION_EVENTS.filter((r) => acc.kinds[k] && acc.kinds[k][r])])
+                    .filter(([, rights]) => rights.length);
+              return (
+                <div style={{ marginTop: 22 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, margin: '0 0 4px' }}>
+                    <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--muted)' }}>По услугам и действиям</span>
+                    <Pill tone="blue">по вашим доступам</Pill>
+                  </div>
+                  <div style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 10, display: 'flex', gap: 6, alignItems: 'flex-start' }}>
+                    <Icon name="lock" style={{ width: 14, height: 14, color: 'var(--muted-2)', flexShrink: 0, marginTop: 1 }} />
+                    Набор услуг и действий определяется вашими доступами — их назначает администратор в разделе «Доступы». Здесь вы включаете уведомления только по тем действиям, которые вам доступны.
+                  </div>
+                  {kinds.length === 0 && <div style={{ fontSize: 13, color: 'var(--muted)', padding: '10px 0' }}>Вам не назначены услуги — обратитесь к администратору.</div>}
+                  {kinds.map(([kind, rights]) => (
+                    <div key={kind} className="card" style={{ overflow: 'hidden', marginBottom: 10 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px', background: 'var(--surface-2)', borderBottom: '1px solid var(--line)' }}>
+                        <Icon name="check" style={{ width: 16, height: 16, color: 'var(--blue)' }} />
+                        <span style={{ fontWeight: 700, color: 'var(--ink)', fontSize: 14 }}>{kind}</span>
+                      </div>
+                      <div style={{ padding: '4px 14px' }}>
+                        {rights.map((r, i) => {
+                          const key = 'svc:' + kind + ':' + r;
+                          return (
+                            <div key={r} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 0', borderBottom: i < rights.length - 1 ? '1px solid var(--line)' : 'none' }}>
+                              <span style={{ fontSize: 14, color: 'var(--body)' }}>{r}</span>
+                              <Toggle on={notif[key] !== false} onChange={(v) => setNotif((n) => ({ ...n, [key]: v }))} />
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              );
+            })()}
+
             <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 18 }}>
               <Button variant="primary" onClick={() => toast('Настройки уведомлений сохранены', 'ok')}>Сохранить</Button>
             </div>

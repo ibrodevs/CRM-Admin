@@ -1,0 +1,42 @@
+- generic [ref=f10e3]:
+  - generic [ref=f10e4]:
+    - generic [ref=f10e10]:
+      - generic [ref=f10e11]: ПСЦ TRAVEL HUB
+      - generic [ref=f10e12]: CRM для управления поездками и командировками
+    - heading "Управляйте поездками вашей компании легко и эффективно" [level=1] [ref=f10e13]:
+      - text: Управляйте поездкамивашей компании
+      - generic [ref=f10e14]: легко и эффективно
+    - generic:
+      - 'img "Управление поездками: авиабилеты, отели, документы и маршруты"'
+  - generic [ref=f10e17]:
+    - generic [ref=f10e18]:
+      - heading "Вход в систему" [level=2] [ref=f10e19]
+      - paragraph [ref=f10e20]: Добро пожаловать! Войдите в свой аккаунт.
+      - generic [ref=f10e21]:
+        - generic [ref=f10e22]: Email или телефон
+        - textbox "Введите email или телефон" [ref=f10e23]
+        - generic [ref=f10e24]: Пароль
+        - textbox "Введите пароль" [ref=f10e26]
+        - button "Забыли пароль?" [ref=f10e31] [cursor=pointer]
+        - button "Войти" [ref=f10e32] [cursor=pointer]
+      - generic [ref=f10e33]: или
+      - button "MAX Войти через MAX Рекомендуем" [ref=f10e34] [cursor=pointer]:
+        - img "MAX" [ref=f10e36]
+        - text: Войти через MAX
+        - generic [ref=f10e37]: Рекомендуем
+      - paragraph [ref=f10e38]: Быстрый и безопасный вход через мессенджер MAX
+    - generic [ref=f10e39]:
+      - heading "Попробуйте Travel Hub бесплатно" [level=3] [ref=f10e40]
+      - paragraph [ref=f10e41]: Полный доступ ко всем возможностям системы на 14 дней без ограничений
+      - generic [ref=f10e42]: Все функции без ограничений
+      - generic [ref=f10e45]: Без привязки карты
+      - generic [ref=f10e48]: Настройка и помощь на старте
+      - generic [ref=f10e51]: Демо-данные для тестирования
+      - button "Получить демо-доступ" [ref=f10e54] [cursor=pointer]
+      - img "Комфортное кресло" [ref=f10e58]
+  - generic [ref=f10e59]:
+    - generic [ref=f10e60]: © 2024 ПСЦ Travel Hub. Все права защищены.
+    - generic [ref=f10e61]:
+      - generic [ref=f10e62] [cursor=pointer]: Политика конфиденциальности
+      - generic [ref=f10e63]: ·
+      - generic [ref=f10e64] [cursor=pointer]: Техподдержка

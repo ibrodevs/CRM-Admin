@@ -17,6 +17,66 @@ function MiniLineChart() {
   );
 }
 
+/* Боковое окно предпросмотра документа с версионностью договора (ТЗ #15).
+   Договор и допсоглашения хранятся в профайле поставщика — здесь показывается
+   текущая версия, история версий и предпросмотр без ухода со страницы. */
+function DocPreviewDrawer({ open, doc, onClose }) {
+  const toast = useToast();
+  const [ver, setVer] = useState(0);
+  useEffect(() => { setVer(0); }, [doc]);
+  if (!open || !doc) return null;
+  // эмуляция истории версий (в проде — из хранилища документов поставщика)
+  const versions = doc.versions || [
+    { v: 'v3', date: '03.2026', author: 'Акимова А.', note: 'Продление на 2026 год', current: true },
+    { v: 'v2', date: '08.2025', author: 'Мамажанов А.', note: 'Изменение реквизитов' },
+    { v: 'v1', date: '01.2025', author: 'Акимова А.', note: 'Первичная редакция' },
+  ];
+  const active = versions[ver] || versions[0];
+  return (
+    <Drawer open={open} onClose={onClose} width="min(760px,96vw)"
+      title={doc.name} sub={doc.kind + ' · версия ' + active.v}
+      footer={<>
+        <Button variant="secondary" icon="download" onClick={() => toast('Скачивание: ' + doc.name + ' (' + active.v + ')', 'info')}>Скачать {active.v}</Button>
+        <Button variant="secondary" icon="plus" onClick={() => toast('Загрузка новой версии договора', 'info')}>Загрузить новую версию</Button>
+      </>}>
+      <div style={{ display: 'grid', gridTemplateColumns: '240px 1fr', gap: 22 }}>
+        {/* история версий */}
+        <div>
+          <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--muted)', marginBottom: 10 }}>ИСТОРИЯ ВЕРСИЙ</div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            {versions.map((vs, i) => (
+              <button key={i} onClick={() => setVer(i)}
+                style={{ textAlign: 'left', padding: '10px 12px', borderRadius: 11, cursor: 'pointer',
+                  border: '1px solid ' + (i === ver ? 'var(--blue)' : 'var(--field-line)'),
+                  background: i === ver ? 'var(--blue-soft)' : '#fff' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <span style={{ fontWeight: 700, color: 'var(--ink)', fontSize: 14 }}>{vs.v}</span>
+                  {vs.current && <Pill tone="green">актуальная</Pill>}
+                </div>
+                <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 3 }}>{vs.date} · {vs.author}</div>
+                <div style={{ fontSize: 12, color: 'var(--body)', marginTop: 2 }}>{vs.note}</div>
+              </button>
+            ))}
+          </div>
+        </div>
+        {/* предпросмотр страницы */}
+        <div>
+          <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--muted)', marginBottom: 10 }}>ПРЕДПРОСМОТР</div>
+          <div style={{ border: '1px solid var(--line)', borderRadius: 12, background: 'var(--surface-2)', padding: 28, minHeight: 420 }}>
+            <div style={{ background: '#fff', border: '1px solid var(--line)', borderRadius: 8, padding: '32px 34px', boxShadow: 'var(--shadow-card)', minHeight: 360 }}>
+              <div style={{ textAlign: 'center', fontWeight: 700, fontSize: 15, color: 'var(--ink)', marginBottom: 4 }}>{doc.name.replace(/\.[a-z]+$/i, '')}</div>
+              <div style={{ textAlign: 'center', fontSize: 12, color: 'var(--muted)', marginBottom: 22 }}>Версия {active.v} · {active.date}</div>
+              {[92, 78, 96, 64, 88, 40, 84, 72].map((wp, i) => (
+                <div key={i} style={{ height: 9, width: wp + '%', borderRadius: 4, background: 'var(--line-strong)', margin: '11px 0' }} />
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+    </Drawer>
+  );
+}
+
 /* ====================================================================
    Справочники расширенной карточки поставщика (ТЗ)
    ==================================================================== */
@@ -383,6 +443,7 @@ function SupplierModal({ supplier, onClose, onDelete }) {
   const toast = useToast();
   const [tab, setTab] = useState('general');
   const [apiStatus, setApiStatus] = useState(null); // null | 'checking' | 'ok'
+  const [previewDoc, setPreviewDoc] = useState(null); // документ для бокового предпросмотра (ТЗ #15)
   if (!supplier) return null;
   const s = supplier;
   const ext = supExt(s);
@@ -410,6 +471,7 @@ function SupplierModal({ supplier, onClose, onDelete }) {
 
   // Боковое окно (единообразно с формой добавления), а не модалка по центру.
   return (
+    <>
     <Drawer open onClose={onClose} width="min(940px,97vw)"
       title="Информация поставщика" sub={tabMeta.label}
       footer={<>
@@ -420,24 +482,35 @@ function SupplierModal({ supplier, onClose, onDelete }) {
       <div>
         <div style={{ display: 'grid', gridTemplateColumns: '232px 1fr', gap: 32 }}>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-            {tabs.map((t) => (
-              <button key={t.key} onClick={() => setTab(t.key)}
-                style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '13px 15px', borderRadius: 13, border: '1px solid var(--field-line)', background: '#fff', cursor: 'pointer', fontSize: 15, fontWeight: 500, color: 'var(--ink)', textAlign: 'left' }}>
-                <Icon name={t.icon} style={{ width: 20, height: 20, color: 'var(--blue)' }} />
-                <span style={{ flex: 1 }}>{t.label}</span>
-                <span className={'radio' + (tab === t.key ? ' on' : '')} />
-              </button>
-            ))}
+            {tabs.map((t) => {
+              const on = tab === t.key;
+              return (
+                <button key={t.key} onClick={() => setTab(t.key)}
+                  style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '13px 15px', borderRadius: 13,
+                    border: '1px solid ' + (on ? 'var(--blue)' : 'var(--field-line)'),
+                    background: on ? 'var(--blue-soft)' : '#fff', cursor: 'pointer', fontSize: 15,
+                    fontWeight: on ? 700 : 500, color: on ? 'var(--blue)' : 'var(--ink)', textAlign: 'left', transition: '.12s' }}>
+                  <Icon name={t.icon} style={{ width: 20, height: 20, color: on ? 'var(--blue)' : 'var(--muted)' }} />
+                  <span style={{ flex: 1 }}>{t.label}</span>
+                  <span className={'radio' + (on ? ' on' : '')} />
+                </button>
+              );
+            })}
           </div>
           <div style={{ minHeight: 320 }}>
             {header}
             {tab === 'general' && (
               <div className="kv">
                 {[['Поставщик', s.name], ['Тип поставщика', ext.supType], ['Вид услуг', ext.kinds.join(', ')],
-                  ['Организация', s.org], ['Страна / город', ext.country + ', ' + ext.city],
+                  ['Организация', s.org], ['Тип организации', s.orgType || '—'],
+                  ['Страна / город', ext.country + ', ' + ext.city],
                   ['Приоритет поставщика', String(ext.priority)],
                   ['Использовать по умолчанию', ext.useDefault ? 'Да' : 'Нет'],
-                  ['Валюта расчета', ext.fin.currency]].map(([k, v], i) => (
+                  ['Статус', s.status],
+                  ['Валюта расчета', ext.fin.currency],
+                  ext.ops ? ['Поддерживаемые операции', Object.keys(ext.ops).filter((o) => ext.ops[o]).join(', ') || '—'] : null,
+                  ext.automation ? ['Автоматизация', (SUP_AUTOMATION.find((a) => a.key === ext.automation) || {}).label || ext.automation] : null,
+                ].filter(Boolean).map(([k, v], i) => (
                   <div className="kv-row" key={i}><span className="k">{k}</span><span className="v">{v}</span></div>
                 ))}
               </div>
@@ -523,7 +596,10 @@ function SupplierModal({ supplier, onClose, onDelete }) {
                     <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--muted)', marginBottom: 8 }}>{kind}</div>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                       {(ext.docs[kind] || []).map((d, i) => (
-                        <button key={i} className="doc-chip" onClick={() => toast('Открываю: ' + d, 'info')}><span style={{ display: 'flex', alignItems: 'center', gap: 10 }}><Icon name="docs" />{d}</span><Icon name="download" /></button>
+                        <button key={i} className="doc-chip" onClick={() => setPreviewDoc({ name: d, kind })} title="Открыть предпросмотр с историей версий">
+                          <span style={{ display: 'flex', alignItems: 'center', gap: 10 }}><Icon name="docs" />{d}</span>
+                          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, color: 'var(--blue)', fontSize: 12.5, fontWeight: 600 }}><Icon name="eye" style={{ width: 15, height: 15 }} />Предпросмотр</span>
+                        </button>
                       ))}
                       <button className="doc-chip" style={{ borderStyle: 'dashed', color: 'var(--blue)' }} onClick={() => toast('Загрузка файла: ' + kind, 'info')}>
                         <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}><Icon name="plus" />Загрузить</span>
@@ -537,6 +613,8 @@ function SupplierModal({ supplier, onClose, onDelete }) {
         </div>
       </div>
     </Drawer>
+    <DocPreviewDrawer open={!!previewDoc} doc={previewDoc} onClose={() => setPreviewDoc(null)} />
+    </>
   );
 }
 
@@ -658,8 +736,8 @@ function SupplierAddDrawer({ open, onClose, onCreated }) {
           </div>
           <Field label="Приоритет поставщика"><Input type="number" min="1" value={f.priority} onChange={(e) => set('priority')(Math.max(1, parseInt(e.target.value) || 1))} /></Field>
           <Field label="Статус"><Select options={Object.keys(SUPPLIER_STATUS)} value={f.status} onChange={set('status')} /></Field>
-          <Field label="Страна"><Select options={SUP_COUNTRIES} value={f.country} onChange={(e) => setF((p) => ({ ...p, country: e.target.value, city: supCitiesFor(e.target.value)[0] }))} /></Field>
-          <Field label="Город"><Select options={supCitiesFor(f.country)} value={f.city} onChange={set('city')} /></Field>
+          <Field label="Страна"><Combobox options={SUP_COUNTRIES} value={f.country} placeholder="Начните вводить страну…" onChange={(v) => setF((p) => ({ ...p, country: v, city: supCitiesFor(v)[0] }))} /></Field>
+          <Field label="Город"><Combobox options={supCitiesFor(f.country)} value={f.city} placeholder="Начните вводить город…" onChange={(v) => set('city')(v)} /></Field>
           <div className="full" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '6px 0' }}>
             <div><div style={{ fontWeight: 600, color: 'var(--ink)', fontSize: 14 }}>Использовать по умолчанию</div><div style={{ fontSize: 12, color: 'var(--muted)' }}>Предлагается первым при ручном выборе поставщика</div></div>
             <Toggle on={f.useDefault} onChange={(v) => set('useDefault')(v)} />
@@ -728,7 +806,7 @@ function SupplierAddDrawer({ open, onClose, onCreated }) {
                 )}
               </Field>
             </div>
-            <Field label="Время обработки заявок" hint="минут"><Input type="number" min="0" placeholder="напр. 60" value={f.local.processing} onChange={(e) => setSub('local', 'processing', e.target.value === '' ? '' : (parseInt(e.target.value) || 0))} /></Field>
+            <Field label="Время обработки заявок (мин)"><Input type="number" min="0" placeholder="напр. 60" value={f.local.processing} onChange={(e) => setSub('local', 'processing', e.target.value === '' ? '' : (parseInt(e.target.value) || 0))} /></Field>
             <Field label="Часы работы"><Select options={SUP_WORK_HOURS} value={f.local.hours} onChange={(e) => setSub('local', 'hours', e.target.value)} /></Field>
           </div>
         </SupSection>
@@ -742,7 +820,7 @@ function SupplierAddDrawer({ open, onClose, onCreated }) {
           <Field label="Размер комиссии"><Input type="number" value={f.fin.commValue} onChange={(e) => setSub('fin', 'commValue', parseFloat(e.target.value) || 0)} /></Field>
           <Field label="НДС"><Select options={['Без НДС', '12%', '20%']} value={f.fin.vat} onChange={(e) => setSub('fin', 'vat', e.target.value)} /></Field>
           <Field label="Способ взаиморасчетов"><Select options={SUP_SETTLEMENTS} value={f.fin.settlement} onChange={(e) => setSub('fin', 'settlement', e.target.value)} /></Field>
-          <Field label="Срок оплаты" hint="дней"><Input type="number" min="0" placeholder="напр. 10" value={f.fin.payTerm} onChange={(e) => setSub('fin', 'payTerm', e.target.value === '' ? '' : (parseInt(e.target.value) || 0))} /></Field>
+          <Field label="Срок оплаты (дней)"><Input type="number" min="0" placeholder="напр. 10" value={f.fin.payTerm} onChange={(e) => setSub('fin', 'payTerm', e.target.value === '' ? '' : (parseInt(e.target.value) || 0))} /></Field>
         </div>
         {finKinds.length > 0 ? (
           <div style={{ marginTop: 14 }}>
@@ -808,17 +886,26 @@ function SupplierAddDrawer({ open, onClose, onCreated }) {
       </SupSection>
 
       {/* ---- Для поиска ---- */}
-      <SupSection icon="search" title="Для поиска" sub="Ключевой блок: по этим приоритетам система автоматически выбирает поставщика при поиске (1 — наивысший)">
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 8, maxWidth: 420 }}>
-          {SUP_PRIORITY_SERVICES.map((svc) => (
-            <div key={svc} style={{ display: 'flex', alignItems: 'center', gap: 12, opacity: f.kinds.includes(svc) || !f.kinds.length ? 1 : .45 }}>
-              <span style={{ flex: 1, fontSize: 13, color: 'var(--body)' }}>Приоритет по: {svc}</span>
-              <div style={{ width: 110 }}>
-                <Input type="number" min="1" placeholder="—" value={f.searchPriority[svc] != null ? f.searchPriority[svc] : ''}
-                  onChange={(e) => setF((p) => ({ ...p, searchPriority: { ...p.searchPriority, [svc]: e.target.value === '' ? null : Math.max(1, parseInt(e.target.value) || 1) } }))} />
+      <SupSection icon="search" title="Для поиска" sub="Ключевой блок: по этим приоритетам система автоматически выбирает поставщика при поиске (1 — наивысший). Доступны только те виды услуг, которые поставщик обслуживает (ТЗ #16).">
+        {!f.kinds.length && <div style={{ fontSize: 12, color: 'var(--amber)', marginBottom: 10 }}>Сначала выберите «Вид услуг» выше — приоритеты станут доступны только для выбранных услуг.</div>}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8, maxWidth: 460 }}>
+          {SUP_PRIORITY_SERVICES.map((svc) => {
+            const served = f.kinds.includes(svc);
+            return (
+              <div key={svc} style={{ display: 'flex', alignItems: 'center', gap: 12, opacity: served ? 1 : .5 }}>
+                <span style={{ flex: 1, fontSize: 13, color: 'var(--body)', display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+                  Приоритет по: {svc}
+                  {!served && f.kinds.length > 0 && <Pill tone="gray">не обслуживается</Pill>}
+                </span>
+                <div style={{ width: 110 }}>
+                  <Input type="number" min="1" placeholder="—" disabled={!served}
+                    title={served ? '' : 'Поставщик не обслуживает этот вид услуг'}
+                    value={served && f.searchPriority[svc] != null ? f.searchPriority[svc] : ''}
+                    onChange={(e) => setF((p) => ({ ...p, searchPriority: { ...p.searchPriority, [svc]: e.target.value === '' ? null : Math.max(1, parseInt(e.target.value) || 1) } }))} />
+                </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       </SupSection>
     </Drawer>
@@ -832,7 +919,6 @@ function SuppliersPage({ intent, onConsume, suppliers, addSupplier }) {
   const [filters, setFilters] = useState({ supType: '', status: '', service: '' });
   const [modal, setModal] = useState(null);
   const [addOpen, setAddOpen] = useState(false);
-  const [orgOpen, setOrgOpen] = useState(false);
   const [prioOpen, setPrioOpen] = useState(false);
   const [confirm, setConfirm] = useState(null);
   const { sort, onSort, apply } = useSort(null);
@@ -854,7 +940,6 @@ function SuppliersPage({ intent, onConsume, suppliers, addSupplier }) {
       <Topbar title="Поставщики">
         <div className="topbar-spacer" />
         <Button variant="secondary" icon="sla" onClick={() => setPrioOpen(true)}>Приоритеты поиска</Button>
-        <Button variant="secondary" icon="building" onClick={() => setOrgOpen(true)}>Добавить организацию</Button>
         <Button variant="primary" icon="plus" onClick={() => setAddOpen(true)}>Добавить поставщика</Button>
       </Topbar>
       <div className="content">
@@ -901,7 +986,6 @@ function SuppliersPage({ intent, onConsume, suppliers, addSupplier }) {
 
       {modal && <SupplierModal supplier={modal} onClose={() => setModal(null)} onDelete={() => { setConfirm(modal); }} />}
       <SupplierAddDrawer open={addOpen} onClose={() => setAddOpen(false)} onCreated={addSupplier} />
-      <NewOrgDrawer open={orgOpen} onClose={() => setOrgOpen(false)} />
       <SearchPriorityModal open={prioOpen} onClose={() => setPrioOpen(false)} />
       <ConfirmDialog open={!!confirm} message="Данное действие невозможно будет отменить!"
         onCancel={() => setConfirm(null)} onConfirm={() => { setConfirm(null); setModal(null); toast('Поставщик удалён', 'ok'); }} />
@@ -909,4 +993,4 @@ function SuppliersPage({ intent, onConsume, suppliers, addSupplier }) {
   );
 }
 
-Object.assign(window, { SuppliersPage, SupplierModal, SupplierAddDrawer, SearchPriorityModal, supExt, SUP_SERVICE_KINDS, SupplierBadge, supBrand });
+Object.assign(window, { SuppliersPage, SupplierModal, SupplierAddDrawer, SearchPriorityModal, DocPreviewDrawer, supExt, SUP_SERVICE_KINDS, SupplierBadge, supBrand });

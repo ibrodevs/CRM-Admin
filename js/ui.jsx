@@ -172,6 +172,45 @@ function SearchBox({ value, onChange, placeholder = 'Поиск', style }) {
     </div>
   );
 }
+/* ---------- Combobox: select с поисковой строкой (ТЗ #15 — страна/город с поиском) ---------- */
+function Combobox({ options, value, onChange, placeholder = 'Начните вводить…', error }) {
+  const [open, setOpen] = useState(false);
+  const [q, setQ] = useState('');
+  const wrapRef = useRef(null);
+  const opts = options.map((o) => (typeof o === 'string' ? { value: o, label: o } : o));
+  useEffect(() => {
+    if (!open) return;
+    const onDown = (e) => { if (wrapRef.current && !wrapRef.current.contains(e.target)) { setOpen(false); setQ(''); } };
+    document.addEventListener('mousedown', onDown);
+    return () => document.removeEventListener('mousedown', onDown);
+  }, [open]);
+  const shown = q.trim() ? opts.filter((o) => o.label.toLowerCase().includes(q.trim().toLowerCase())) : opts;
+  const cur = opts.find((o) => o.value === value);
+  return (
+    <div className="combobox" ref={wrapRef} style={{ position: 'relative' }}>
+      <div className={'select combobox-field' + (error ? ' err' : '')} onClick={() => setOpen((o) => !o)}
+        style={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}>
+        <span style={{ flex: 1, color: cur ? 'var(--ink)' : 'var(--muted-2)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{cur ? cur.label : placeholder}</span>
+        <Icon name="chevDown" style={{ width: 16, height: 16, color: 'var(--muted-2)' }} />
+      </div>
+      {open && (
+        <div className="dropdown" style={{ position: 'absolute', top: '100%', left: 0, right: 0, marginTop: 4, zIndex: 60, maxHeight: 280, overflowY: 'auto', padding: 6 }}>
+          <div className="search" style={{ margin: '2px 2px 6px' }}>
+            <Icon name="search" />
+            <input autoFocus value={q} onChange={(e) => setQ(e.target.value)} placeholder="Поиск…" onClick={(e) => e.stopPropagation()} />
+          </div>
+          {shown.length === 0 && <div style={{ padding: '8px 10px', fontSize: 13, color: 'var(--muted)' }}>Ничего не найдено</div>}
+          {shown.map((o) => (
+            <div key={o.value} className={'dropdown-item' + (o.value === value ? ' active' : '')}
+              onClick={() => { onChange(o.value); setOpen(false); setQ(''); }}>
+              {o.value === value && <Icon name="check" style={{ width: 15, height: 15, color: 'var(--blue)' }} />}{o.label}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
 
 /* ---------- Avatar ---------- */
 function Avatar({ src, name = '', size = 40 }) {
@@ -703,7 +742,7 @@ function DateRangeField({ label, startVal, endVal, onChange, placeholder = 'Вы
 
 Object.assign(window, {
   ToastProvider, useToast, Button, Pill, TimeLimitBadge, plural, Toggle, Checkbox, Radio,
-  Field, Input, Select, SearchBox, Avatar, Modal, ModalHeader, Drawer,
+  Field, Input, Select, SearchBox, Combobox, Avatar, Modal, ModalHeader, Drawer,
   ConfirmDialog, Tabs, FilterChip, Pagination, Th, useSort,
   EmptyState, SkeletonRows, ActionMenu,
   fmtDate, CalendarPicker, DateField, DateRangeField,
