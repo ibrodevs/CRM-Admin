@@ -364,7 +364,7 @@ function ManualAltForm({ onAdd, compact }) {
   );
 }
 
-function ServiceCardSendPanel({ item, kind, participants = [], orderNo, currency, serviceId, onSent, onClose }) {
+function ServiceCardSendPanel({ item, kind, participants = [], orderNo, currency, serviceId, initialScenario, onSent, onClose }) {
   const toast = useToast();
   const oNo = orderNo || item.order;
   const svcId = serviceId || item.id || (kind + '-' + (item.title || item.main || ''));
@@ -382,7 +382,8 @@ function ServiceCardSendPanel({ item, kind, participants = [], orderNo, currency
 
   // Сценарии, доступные для вида услуги; по умолчанию — обмен, если это обмен, иначе новая услуга.
   const available = scenariosForKind(kind);
-  const defScenario = looksExchange ? (available.includes('voluntary_exchange') ? 'voluntary_exchange' : available[0]) : (available.includes('new_offer') ? 'new_offer' : available[0]);
+  const defScenario = (initialScenario && available.includes(initialScenario)) ? initialScenario
+    : looksExchange ? (available.includes('voluntary_exchange') ? 'voluntary_exchange' : available[0]) : (available.includes('new_offer') ? 'new_offer' : available[0]);
   const [scenarioSys, setScenarioSys] = useState(defScenario);
   const sc = cardScenario(scenarioSys);
 
@@ -491,6 +492,23 @@ function ServiceCardSendPanel({ item, kind, participants = [], orderNo, currency
     onClose && onClose();
   };
 
+  // Единый механизм (ТЗ2): из подобранных альтернатив собираем КП одним действием.
+  const buildKpFromAlternatives = () => {
+    if (!altBlocks.length) { toast('Сначала подберите варианты — «Открыть подбор» (авто или вручную)', 'warn'); return; }
+    const client = ((typeof ORDERS !== 'undefined' && ORDERS.find((o) => o.no === oNo)) || {}).client || item.client || '';
+    const uid = (p) => p + Math.random().toString(36).slice(2, 7);
+    const items = altBlocks.map((a) => ({ id: uid('i'), kind, title: a.title, sub: a.meta || a.scope, cost: a.price || 0, fee: 0 }));
+    const np = { id: 'КП-' + (1100 + PROPOSALS.length), order: oNo, client, status: 'Черновик', currency: currency || 'USD',
+      validUntil: '25.06.2026 18:00', created: '15.06.2026', approvedVariant: null, kpType: 'Подбор услуг', responsible: operator,
+      variants: [{ id: uid('v'), name: 'Альтернативы · ' + (item.title || item.main || kind), items }],
+      history: [{ t: (typeof kpNow === 'function' ? kpNow() : ''), text: 'КП собрано из подобранных альтернатив по услуге «' + (item.title || item.main || kind) + '»', who: operator }] };
+    if (typeof PROPOSALS !== 'undefined') PROPOSALS.unshift(np);
+    toast('КП ' + np.id + ' собрано из ' + items.length + ' ' + plural(items.length, ['варианта', 'вариантов', 'вариантов']), 'ok',
+      { title: 'КП создано', action: { label: 'Открыть «Ком. предложения»', route: 'offers' } });
+    onClose && onClose();
+    if (window.__toastNav) window.__toastNav('offers');
+  };
+
   const modeLabel = { internal: 'Внутренний чат', messenger: 'Мессенджер', email: 'Email' };
   const chanList = enabledChannels();
 
@@ -516,6 +534,7 @@ function ServiceCardSendPanel({ item, kind, participants = [], orderNo, currency
         </div>
         <div style={{ flex: 1 }} />
         <Button variant="secondary" onClick={onClose}>Отмена</Button>
+        <Button variant="secondary" icon="template" onClick={buildKpFromAlternatives} title="Собрать КП из подобранных вариантов">Собрать КП{altBlocks.length ? ' (' + altBlocks.length + ')' : ''}</Button>
         <Button icon="send" onClick={send} disabled={!rights.send} title={!rights.send ? 'Нет права на отправку' : undefined}>Отправить{channels.length > 1 ? ' (' + channels.length + ' канала)' : channels.length === 1 ? ' · ' + channels[0] : ''}</Button>
       </>}>
 

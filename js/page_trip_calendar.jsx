@@ -258,6 +258,7 @@ function ControlCenter({ trips, onOpen }) {
 /* ---------- Боковая панель поездки ---------- */
 function TripDetailPanel({ trip, onClose, onOpenOrder }) {
   const toast = useToast();
+  const [cardFor, setCardFor] = useState(null); // единый механизм: подбор → карточка → КП
   if (!trip) return null;
   const events = tripEvents(trip);
   const conflicts = tripConflicts(trip);
@@ -265,7 +266,38 @@ function TripDetailPanel({ trip, onClose, onOpenOrder }) {
   const crit = tripCriticality(trip);
   // единый таймлайн поездки: все услуги по времени старта
   const timeline = trip.services.slice().sort((a, b) => a.start - b.start);
+
+  // Услуга → item для конструктора карточки/КП (переиспользуем ServiceCardSendPanel)
+  const svcToItem = (s) => ({
+    id: (trip.id + '-' + s.kind + '-' + (s.title || '')).replace(/[^0-9A-Za-zА-Яа-я]+/g, '_'),
+    order: trip.orderNo, client: trip.client, title: s.title, sub: s.sub, tags: [], status: s.status,
+    supplier: s.supplier, currency: s.currency || (s.kind === 'Аэроэкспресс' ? 'RUB' : 'USD'),
+    details: { route: (s.from && s.to) ? (s.from + ' → ' + s.to) : (s.title || '') },
+    info: [
+      { l: 'Маршрут', v: (s.from && s.to) ? (s.from + ' → ' + s.to) : (s.title || '') },
+      { l: 'Дата', v: trDayTime(s.start) },
+      { l: 'Поставщик', v: s.supplier },
+      { l: 'Пассажиров', v: s.pax },
+    ].filter((r) => r.v != null && r.v !== ''),
+  });
+  // Сценарий карточки по проблеме услуги — форс-мажорный, чтобы сразу открылся подбор
+  // альтернатив (авто/вручную). Выбор совместим с видом услуги (kinds сценария).
+  const scenarioFor = (s) => {
+    const replace = ['Авиа', 'ЖД', 'Гостиница', 'Трансфер'].includes(s.kind) ? 'service_unavailable' : 'cancellation';
+    const fm = fms.find((f) => f.service === s.title);
+    if (fm) {
+      if (fm.type === 'flight_cancel' || fm.type === 'hotel_cancel') return 'cancellation';
+      if (fm.type === 'flight_delay' || fm.type === 'dep_time_change') return s.kind === 'Гостиница' ? replace : 'delay';
+      return replace; // потеря брони, отказ поставщика, смена терминала/аэропорта и т.д.
+    }
+    if (s.delayed) return s.kind === 'Гостиница' ? replace : 'delay';
+    return replace;
+  };
+  const openCard = (s) => setCardFor({ item: svcToItem(s), kind: s.kind, scenario: scenarioFor(s) });
+  const affectedService = () => (fms[0] && trip.services.find((s) => s.title === fms[0].service)) || trip.services.find((s) => s.delayed) || trip.services[0];
+  const paxObjs = (trip.paxNames || []).filter((n) => !/^…/.test(n)).map((n) => ({ name: n }));
   return (
+    <>
     <Drawer open={!!trip} onClose={onClose} width="min(560px,96vw)"
       title={trip.routeLabel}
       sub={(trip.company && trip.company !== '—' ? trip.company + ' · ' : '') + trip.client + ' · ' + trDay(trip.start) + '–' + trDay(trip.end)}
@@ -333,7 +365,9 @@ function TripDetailPanel({ trip, onClose, onOpenOrder }) {
               <div key={i} className="tc-svc-item">
                 <SvcGlyph kind={s.kind} size={34} />
                 <div className="tc-svc-body">
-                  <div className="tc-svc-title">{s.title} <Pill tone={ORDER_STATUS[s.status] || 'gray'}>{s.status}</Pill></div>
+                  <div className="tc-svc-title">{s.title} <Pill tone={ORDER_STATUS[s.status] || 'gray'}>{s.status}</Pill>
+                    <button type="button" className="tc-svc-replace" onClick={() => openCard(s)} title="Подобрать замену и оформить"><Icon name="refund" style={{ width: 13, height: 13 }} />Заменить</button>
+                  </div>
                   <div className="tc-svc-sub">{s.sub}</div>
                   <div className="tc-svc-meta">
                     <span><Icon name="calendar" style={{ width: 12, height: 12 }} /> {trDayTime(s.start)}{s.end && s.kind !== 'Трансфер' ? ' → ' + (trSameDay(s.start, s.end) ? trTime(s.end) : trDayTime(s.end)) : ''}</span>
@@ -375,11 +409,12 @@ function TripDetailPanel({ trip, onClose, onOpenOrder }) {
           </div>
         )}
 
-        {/* действия оператора */}
+        {/* действия оператора — единый механизм: подбор → карточка предложения → КП → отправка */}
         <div className="tc-panel-sec">
           <div className="tc-panel-sec-h"><Icon name="clipboard" style={{ width: 16, height: 16, color: 'var(--blue)' }} />Действия оператора</div>
+          <div className="tc-action-hint">Подбор альтернатив (авто/вручную), карточка предложения, сборка КП и отправка клиенту — в одном окне.</div>
           <div className="tc-actions">
-            <Button size="sm" variant="secondary" icon="refund" onClick={() => toast('Открыт подбор альтернатив', 'ok')}>Подобрать альтернативу</Button>
+            <Button size="sm" icon="refund" onClick={() => openCard(affectedService())}>Подобрать альтернативу и оформить</Button>
             <Button size="sm" variant="secondary" icon="chat" onClick={() => toast('Уведомление клиенту отправлено', 'ok')}>Уведомить клиента</Button>
             <Button size="sm" variant="secondary" icon="users" onClick={() => toast('Передано стороннему оператору', 'ok')}>Делегировать</Button>
             <Button size="sm" variant="secondary" icon="check" onClick={() => toast('Отмечено обработанным', 'ok')}>Отметить обработанным</Button>
@@ -387,6 +422,14 @@ function TripDetailPanel({ trip, onClose, onOpenOrder }) {
         </div>
       </div>
     </Drawer>
+    {cardFor && (
+      <ServiceCardSendPanel item={cardFor.item} kind={cardFor.kind} participants={paxObjs}
+        orderNo={trip.orderNo} currency={cardFor.item.currency} serviceId={cardFor.item.id}
+        initialScenario={cardFor.scenario}
+        onSent={() => { setCardFor(null); toast('Карточка предложения отправлена клиенту', 'ok'); }}
+        onClose={() => setCardFor(null)} />
+    )}
+    </>
   );
 }
 
