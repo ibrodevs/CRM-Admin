@@ -90,6 +90,27 @@ function ufValidatePerson(p) {
   return er;
 }
 
+/* ---------- Даты в единой форме ----------
+   DateField из ui.jsx работает с Date, а CRM хранит даты строками dd.mm.yyyy.
+   Этот адаптер оставляет пользователю календарь и сохраняет единый строковый формат. */
+function ufParseDate(value) {
+  if (!value || value === '—') return null;
+  if (value instanceof Date && !Number.isNaN(value.getTime())) return value;
+  const m = String(value).match(/^(\d{2})\.(\d{2})\.(\d{2}|\d{4})$/);
+  if (!m) return null;
+  const y = m[3].length === 2 ? 2000 + Number(m[3]) : Number(m[3]);
+  const dt = new Date(y, Number(m[2]) - 1, Number(m[1]));
+  return Number.isNaN(dt.getTime()) ? null : dt;
+}
+function ufDateString(value) {
+  const dt = ufParseDate(value);
+  if (!dt) return '';
+  return `${String(dt.getDate()).padStart(2, '0')}.${String(dt.getMonth() + 1).padStart(2, '0')}.${dt.getFullYear()}`;
+}
+function UFDateField({ value, onChange, ...props }) {
+  return <DateField {...props} value={ufParseDate(value)} onChange={(d) => onChange(ufDateString(d))} />;
+}
+
 /* =====================================================================
    1) ЕДИНЫЙ БЛОК ПОЛЕЙ ПЕРСОНЫ — используется во всех формах
    ===================================================================== */
@@ -104,7 +125,7 @@ function UnifiedPersonFields({ value, onChange, errors = {}, departments = [], s
         <Field label="Фамилия" required error={errors.name}><Input value={p.lastName} onChange={(e) => set('lastName', e.target.value)} placeholder="Иванов" error={errors.name} /></Field>
         <Field label="Имя" required><Input value={p.firstName} onChange={(e) => set('firstName', e.target.value)} placeholder="Иван" /></Field>
         <Field label="Отчество"><Input value={p.middleName} onChange={(e) => set('middleName', e.target.value)} placeholder="Иванович" /></Field>
-        <DateField label="Дата рождения" value={p.dob || null} onChange={(v) => set('dob', v)} placeholder="дд.мм.гггг" />
+        <UFDateField label="Дата рождения" value={p.dob || null} onChange={(v) => set('dob', v)} placeholder="дд.мм.гггг" />
         <Field label="Пол"><Select placeholder="Не указан" options={UF_GENDER} value={p.gender} onChange={(e) => set('gender', e.target.value)} /></Field>
         <Field label="Гражданство"><Select options={UF_CITIZENSHIP} value={p.citizenship} onChange={(e) => set('citizenship', e.target.value)} /></Field>
         {showRole && <Field label="Категория в поездке"><Select options={UF_PAX_ROLES} value={p.role} onChange={(e) => set('role', e.target.value)} /></Field>}
@@ -135,7 +156,7 @@ function UnifiedPersonFields({ value, onChange, errors = {}, departments = [], s
       <div className="form-grid">
         <Field label="Тип документа"><Select options={UF_DOC_TYPES} value={p.docType} onChange={(e) => set('docType', e.target.value)} /></Field>
         <Field label="Номер документа"><Input value={p.docNo} onChange={(e) => set('docNo', e.target.value)} placeholder="AC 1234567" leadIcon="idcard" /></Field>
-        <DateField label="Срок действия" value={p.docExpiry || null} onChange={(v) => set('docExpiry', v)} placeholder="дд.мм.гггг" />
+        <UFDateField label="Срок действия" value={p.docExpiry || null} onChange={(v) => set('docExpiry', v)} placeholder="дд.мм.гггг" />
       </div>
 
       <PanelSub>Контакты</PanelSub>
@@ -298,7 +319,7 @@ function UnifiedDocumentDrawer({ open, person = {}, initial, mode = 'create', on
         <Field label="Тип документа"><Select options={UF_DOC_TYPES} value={d.docType} onChange={(e) => set('docType', e.target.value)} /></Field>
         <Field label="Гражданство"><Select options={UF_CITIZENSHIP} value={d.citizenship} onChange={(e) => set('citizenship', e.target.value)} /></Field>
         <Field label="Номер документа" required><Input value={d.docNo} onChange={(e) => set('docNo', e.target.value)} placeholder="AC 1234567" /></Field>
-        <DateField label="Срок действия" value={d.docExpiry || null} onChange={(v) => set('docExpiry', v)} placeholder="дд.мм.гггг" />
+        <UFDateField label="Срок действия" value={d.docExpiry || null} onChange={(v) => set('docExpiry', v)} placeholder="дд.мм.гггг" />
       </div>
 
       <PanelSub>Данные владельца (латиницей)</PanelSub>
@@ -306,7 +327,7 @@ function UnifiedDocumentDrawer({ open, person = {}, initial, mode = 'create', on
         <Field label="Фамилия (лат.)"><Input value={d.latLast} onChange={(e) => set('latLast', e.target.value)} placeholder="IVANOV" /></Field>
         <Field label="Имя (лат.)"><Input value={d.latFirst} onChange={(e) => set('latFirst', e.target.value)} placeholder="IVAN" /></Field>
         <Field label="Отчество (лат.)"><Input value={d.latMiddle} onChange={(e) => set('latMiddle', e.target.value)} placeholder="IVANOVICH" /></Field>
-        <DateField label="Дата рождения" value={d.dob || null} onChange={(v) => set('dob', v)} placeholder="дд.мм.гггг" />
+        <UFDateField label="Дата рождения" value={d.dob || null} onChange={(v) => set('dob', v)} placeholder="дд.мм.гггг" />
       </div>
 
       <PanelSub>Контакты</PanelSub>
@@ -330,5 +351,6 @@ function translit(s) {
 Object.assign(window, {
   UF_DOC_TYPES, UF_CITIZENSHIP, UF_PAX_ROLES, UF_GENDER, UF_CLIENT_STATUSES,
   ufBlankPerson, ufSplitName, ufFullName, ufFromClient, ufToClient, ufValidatePerson,
+  ufParseDate, ufDateString, UFDateField,
   UnifiedPersonFields, UnifiedPersonDrawer, UnifiedDocumentDrawer, ufBlankDoc, translit,
 });
