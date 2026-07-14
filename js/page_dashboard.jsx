@@ -374,26 +374,61 @@ function SlaResponseWidget({ onOpenOrder }) {
   );
 }
 
-/* ---------- Компактная плитка-виджет дашборда ---------- */
+/* ---------- Тон → цвет (общий помощник маркеров) ---------- */
+function dashToneColor(t) {
+  return t === 'red' ? 'var(--red)' : t === 'amber' ? 'var(--amber)' : t === 'green' ? 'var(--green)' : t === 'teal' ? 'var(--teal, var(--blue))' : t === 'gray' ? 'var(--muted-2)' : 'var(--blue)';
+}
+/* ---------- Плитка-виджет дашборда с контекстом (не голый счётчик) ----------
+   Кроме значения показывает превью самого важного элемента: что · заказ · дедлайн.
+   По клику разворачивает рабочую область ниже. */
 function DashTile({ w, active, onClick }) {
-  const toneColor = w.tone === 'red' ? 'var(--red)' : w.tone === 'amber' ? 'var(--amber)' : w.tone === 'green' ? 'var(--green)' : 'var(--blue)';
+  const toneColor = dashToneColor(w.tone);
+  const pv = w.preview;
   return (
     <button type="button" onClick={onClick}
       style={{
         textAlign: 'left', cursor: 'pointer', background: active ? 'var(--blue-soft, #eef3ff)' : '#fff',
-        border: '1px solid ' + (active ? 'var(--blue)' : 'var(--line)'), borderRadius: 14, padding: '12px 14px',
+        border: '1px solid ' + (active ? 'var(--blue)' : 'var(--line)'), borderLeft: '3px solid ' + toneColor, borderRadius: 14, padding: '11px 13px',
         boxShadow: active ? '0 0 0 1px var(--blue) inset, var(--shadow-card)' : 'var(--shadow-card)',
-        display: 'flex', flexDirection: 'column', gap: 6, minWidth: 0, transition: 'all .14s',
+        display: 'flex', flexDirection: 'column', gap: 7, minWidth: 0, transition: 'all .14s',
       }}>
-      <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8, minHeight: 34 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
         <span style={{ width: 26, height: 26, borderRadius: 8, background: toneColor, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
           <Icon name={w.icon} style={{ width: 16, height: 16, color: '#fff' }} />
         </span>
-        <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--muted)', lineHeight: 1.25 }}>{w.label}</span>
+        <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--muted)', lineHeight: 1.2, flex: 1, minWidth: 0 }}>{w.label}</span>
+        <span style={{ fontSize: w.small ? 16 : 20, fontWeight: 800, letterSpacing: '-.02em', color: w.tone === 'green' ? 'var(--ink)' : toneColor }}>{w.value}</span>
       </div>
-      <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
-        <span style={{ fontSize: w.small ? 18 : 22, fontWeight: 700, letterSpacing: '-.02em', color: w.tone === 'green' ? 'var(--ink)' : toneColor }}>{w.value}</span>
-        {w.sub && <span style={{ fontSize: 12, color: 'var(--muted)' }}>{w.sub}</span>}
+      {pv ? (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6, paddingTop: 7, borderTop: '1px dashed var(--line)' }}>
+          <span style={{ width: 6, height: 6, borderRadius: '50%', background: dashToneColor(pv.tone || w.tone), flexShrink: 0 }} />
+          <span style={{ fontSize: 11.5, color: 'var(--body)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1, minWidth: 0 }}>{pv.text}</span>
+          {pv.right && <span style={{ fontSize: 11, fontWeight: 700, color: dashToneColor(pv.tone || w.tone), whiteSpace: 'nowrap' }}>{pv.right}</span>}
+        </div>
+      ) : (w.sub ? <div style={{ fontSize: 12, color: 'var(--muted)', paddingTop: 7, borderTop: '1px dashed var(--line)' }}>{w.sub}</div> : null)}
+    </button>
+  );
+}
+
+/* ---------- Маркер-карточка «Сейчас требуют внимания» (самое срочное с контекстом) ---------- */
+function AttentionMarker({ a, onClick }) {
+  const c = dashToneColor(a.tone);
+  const badge = a.tone === 'red' ? 'Срочно' : a.tone === 'amber' ? 'Важно' : 'Внимание';
+  return (
+    <button type="button" onClick={onClick}
+      style={{ flex: '0 0 auto', width: 248, textAlign: 'left', cursor: 'pointer', background: '#fff',
+        border: '1px solid var(--line)', borderTop: '3px solid ' + c, borderRadius: 12, padding: '11px 13px',
+        display: 'flex', gap: 10, boxShadow: 'var(--shadow-card)' }}>
+      <span style={{ width: 32, height: 32, borderRadius: 9, background: c, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+        <Icon name={a.icon} style={{ width: 16, height: 16, color: '#fff' }} />
+      </span>
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ fontSize: 10.5, fontWeight: 800, letterSpacing: '.05em', textTransform: 'uppercase', color: c }}>{badge}</div>
+        <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--ink)', lineHeight: 1.25, overflow: 'hidden', textOverflow: 'ellipsis', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}>{a.title}</div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 3 }}>
+          <span style={{ fontSize: 11.5, color: 'var(--muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1, minWidth: 0 }}>{a.sub}</span>
+          {a.right && <span style={{ fontSize: 11.5, fontWeight: 700, color: c, whiteSpace: 'nowrap' }}>{a.right}</span>}
+        </div>
       </div>
     </button>
   );
@@ -747,7 +782,56 @@ function DashboardPage({ role, onNavigate, onAddOrder, onOpenOrder, onCreateOrde
     approvals: 'Открытые согласования', deadlines: 'Ближайшие дедлайны', overdue: 'Просрочки оплат по клиентам',
     risk: 'Клиенты: депозит и лимит отсрочки', operators: 'Работа операторов', suppliers: 'Статистика по поставщикам',
     trips: 'Вылеты, заселения и поездки сегодня', activity: 'Активность пользователей', mytasks: 'Мои задачи', myearn: 'Мой заработок за смену',
+    chats: 'Мои чаты — свежие сообщения',
   };
+
+  // Свежие сообщения из чатов оператора (клиент / поставщик) — оператор сразу видит переписку
+  const dashChats = CHAT_THREADS.filter((t) => t.type === 'client' || t.type === 'supplier').map((t) => {
+    const m = (t.messages || [])[(t.messages || []).length - 1] || {};
+    return { id: t.id, order: t.order, name: t.name, client: t.client, channel: t.channel, type: t.type, unread: t.unread || 0,
+      lastText: m.text || (m.attach ? '📎 ' + m.attach.name : '—'), lastTime: m.time || '', mine: m.from === 'me' };
+  }).sort((a, b) => (b.unread > 0) - (a.unread > 0));
+  const unreadChats = dashChats.filter((c) => c.unread > 0).length;
+  const critErr = (typeof SUPPLIER_ERRORS !== 'undefined' ? SUPPLIER_ERRORS : []).filter((e) => e.crit === 'Критическая');
+  const redRisk = fin.urgent.filter((u) => u.tone === 'red');
+
+  // Превью «самого важного» для каждой плитки — контекст вместо голого числа
+  const previews = {
+    mytasks: MY_TASKS[0] && { text: MY_TASKS[0].title, right: MY_TASKS[0].due, tone: MY_TASKS[0].tone },
+    newreq: slaRows[0] && { text: '№' + slaRows[0].no + ' · ' + slaRows[0].client, right: slaRows[0].waited + ' мин', tone: slaRows[0].tone },
+    deadlines: deadlines[0] && { text: deadlines[0].label, right: deadlines[0].date, tone: deadlines[0].tone },
+    approvals: approvals[0] && { text: approvals[0].label + ' · ' + approvals[0].who, right: approvals[0].kind, tone: 'amber' },
+    returns: returnsActive[0] && { text: returnsActive[0].type + ' · ' + returnsActive[0].no, right: returnsActive[0].client, tone: 'amber' },
+    overdue: redRisk[0] && { text: redRisk[0].co, right: money(redRisk[0].value), tone: 'red' },
+    risk: fin.urgent[0] && { text: fin.urgent[0].co, right: fin.urgent[0].kind, tone: fin.urgent[0].tone },
+    suppliers: critErr[0] && { text: critErr[0].reason, right: critErr[0].order ? '№' + critErr[0].order : critErr[0].supplier, tone: 'red' },
+    trips: TODAY_TRIPS[0] && { text: TODAY_TRIPS[0].main, right: (TODAY_TRIPS[0].sub.split('·').pop() || '').trim(), tone: 'blue' },
+    activity: RECENT_CHANGES[0] && { text: RECENT_CHANGES[0].desc + ' · ' + RECENT_CHANGES[0].client, right: RECENT_CHANGES[0].time, tone: 'gray' },
+    ordersToday: ORDERS[0] && { text: '№' + ORDERS[0].no + ' · ' + ORDERS[0].client, right: ORDERS[0].status, tone: 'blue' },
+    operators: OPERATORS_WORK[0] && { text: OPERATORS_WORK[0].name + ' · ' + OPERATORS_WORK[0].orders + ' заказов', right: money(OPERATORS_WORK[0].profit), tone: 'blue' },
+    chats: dashChats[0] && { text: dashChats[0].name + ': ' + dashChats[0].lastText, right: dashChats[0].unread ? '+' + dashChats[0].unread : dashChats[0].lastTime, tone: dashChats[0].unread ? 'amber' : 'blue' },
+  };
+  const chatsWidget = { key: 'chats', label: 'Мои чаты', value: unreadChats || dashChats.length, sub: unreadChats ? 'новых' : 'диалогов', tone: unreadChats ? 'amber' : 'blue', icon: 'chat' };
+  const tonePri = { red: 0, amber: 1, teal: 2, blue: 3, green: 4, gray: 5 };
+  // Плитки: контекст + сортировка по важности (сначала красные/жёлтые маркеры)
+  const widgets = WIDGETS.concat([chatsWidget]).map((w) => ({ ...w, preview: previews[w.key] || null }))
+    .sort((a, b) => (tonePri[a.tone] - tonePri[b.tone]));
+
+  // Лента «Сейчас требуют внимания» — самое срочное с контекстом, отсортировано по важности
+  const attention = [];
+  if (isMgr) {
+    slaRows.filter((r) => r.tone !== 'green').forEach((r) => attention.push({ icon: 'inbox', tone: r.tone, title: 'Заявка ждёт отклик', sub: '№' + r.no + ' · ' + r.client, right: r.waited + ' мин', order: r.no, cat: 'newreq' }));
+    critErr.forEach((e) => attention.push({ icon: 'api', tone: 'red', title: e.reason, sub: e.supplier + (e.order ? ' · №' + e.order : ''), right: e.orderTL || 'критично', order: e.order, cat: 'suppliers' }));
+    redRisk.forEach((u) => attention.push({ icon: 'bank', tone: 'red', title: u.co, sub: u.text, right: money(u.value), order: null, cat: 'overdue' }));
+    deadlines.filter((d) => d.tone === 'red').forEach((d) => attention.push({ icon: d.icon, tone: 'red', title: d.label, sub: d.who, right: d.date, order: d.order, cat: 'deadlines' }));
+    approvals.slice(0, 2).forEach((a) => attention.push({ icon: 'template', tone: 'amber', title: 'Согласование · ' + a.label, sub: a.who, right: a.kind, order: a.order, cat: 'approvals' }));
+  } else {
+    MY_TASKS.forEach((t) => attention.push({ icon: 'clipboard', tone: t.tone, title: t.title, sub: 'Заказ №' + t.order, right: t.due, order: t.order, cat: 'mytasks' }));
+    dashChats.filter((c) => c.unread > 0).forEach((c) => attention.push({ icon: c.type === 'supplier' ? 'api' : 'chat', tone: 'amber', title: 'Ответить · ' + c.name, sub: c.lastText, right: c.lastTime, order: c.order, cat: 'chats' }));
+    deadlines.forEach((d) => attention.push({ icon: d.icon, tone: d.tone, title: d.label, sub: d.who, right: d.date, order: d.order, cat: 'deadlines' }));
+  }
+  attention.sort((a, b) => tonePri[a.tone] - tonePri[b.tone]);
+  const attTop = attention.slice(0, 8);
 
   // компактная строка-ссылка
   const Row = ({ icon, iconBg, title, sub, right, tone, onClick }) => (
@@ -887,6 +971,15 @@ function DashboardPage({ role, onNavigate, onAddOrder, onOpenOrder, onCreateOrde
           <Row key={i} icon="clipboard" iconBg={'var(--' + t.tone + ')'} tone={t.tone} title={t.title} sub={'Заказ № ' + t.order}
             right={<span style={{ fontWeight: 700, color: 'var(--' + t.tone + ')', whiteSpace: 'nowrap' }}>{t.due}</span>} onClick={() => goOrder(t.order)} />
         ))}</List>;
+      case 'chats':
+        if (!dashChats.length) return <DashDetailEmpty title="Активных чатов нет" />;
+        return <List>{dashChats.map((c, i) => (
+          <Row key={i} icon={c.type === 'supplier' ? 'api' : 'chat'} iconBg={c.unread ? 'var(--amber)' : 'var(--blue)'} tone={c.unread ? 'amber' : 'blue'}
+            title={c.name + (c.channel ? ' · ' + c.channel : '')}
+            sub={(c.mine ? 'Вы: ' : '') + c.lastText}
+            right={<>{c.unread > 0 && <Pill tone="amber">{c.unread} новых</Pill>}<span style={{ fontSize: 12, color: 'var(--muted)', marginLeft: 8 }}>{c.lastTime}</span></>}
+            onClick={() => goOrder(c.order)} />
+        ))}</List>;
       default:
         return <DashDetailEmpty title="Нет данных" />;
     }
@@ -932,9 +1025,27 @@ function DashboardPage({ role, onNavigate, onAddOrder, onOpenOrder, onCreateOrde
           </div>
         )}
 
-        {/* KPI-виджеты — клик переключает деталь ниже */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))', gap: 12, marginBottom: 16 }}>
-          {WIDGETS.map((w) => (<DashTile key={w.key} w={w} active={sel === w.key} onClick={() => setSel(w.key)} />))}
+        {/* Лента «Сейчас требуют внимания» — маркеры самого срочного с контекстом (важное — первым) */}
+        {attTop.length > 0 && (
+          <div style={{ marginBottom: 16 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
+              <span style={{ width: 8, height: 8, borderRadius: '50%', background: 'var(--red)' }} />
+              <h3 className="card-title" style={{ fontSize: 15, margin: 0 }}>Сейчас требуют внимания</h3>
+              <Pill tone="red">{attention.length}</Pill>
+              <div style={{ flex: 1 }} />
+              <span style={{ fontSize: 12, color: 'var(--muted)' }}>Нажмите — откроется рабочая область</span>
+            </div>
+            <div className="scroll" style={{ display: 'flex', gap: 10, overflowX: 'auto', paddingBottom: 4 }}>
+              {attTop.map((a, i) => (
+                <AttentionMarker key={i} a={a} onClick={() => { setSel(a.cat); if (a.order) goOrder(a.order); }} />
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Плитки с контекстом — клик разворачивает рабочую область ниже */}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(210px, 1fr))', gap: 12, marginBottom: 16 }}>
+          {widgets.map((w) => (<DashTile key={w.key} w={w} active={sel === w.key} onClick={() => setSel(w.key)} />))}
         </div>
 
         {/* деталь выбранного виджета */}
@@ -948,6 +1059,7 @@ function DashboardPage({ role, onNavigate, onAddOrder, onOpenOrder, onCreateOrde
             {(sel === 'returns') && <Button variant="secondary" size="sm" icon="refund" onClick={() => onNavigate('returns')}>Все возвраты</Button>}
             {(sel === 'ordersToday' || sel === 'newreq') && <Button variant="secondary" size="sm" icon="orders" onClick={() => onNavigate('orders')}>Все заказы</Button>}
             {sel === 'activity' && <Button variant="secondary" size="sm" icon="bell" onClick={() => onNavigate('notifications')}>Все события</Button>}
+            {sel === 'chats' && <Button variant="secondary" size="sm" icon="chat" onClick={() => onNavigate('chats')}>Все чаты</Button>}
           </div>
           <div className="scroll" style={{ flex: 1, minHeight: 0, overflow: 'auto', padding: 16 }}>
             {renderDetail()}
