@@ -220,6 +220,30 @@ function CardCore({ vm, fmt, kindMeta }) {
           <div className="kv">{vm.fmRows.map((r, i) => (<div className="kv-row" key={i}><span className="k">{r.l}</span><span className="v">{r.v}</span></div>))}</div>
         </div>
       )}
+      {/* Доступные альтернативы — отдельными блоками (ТЗ #1): по основной услуге и по связанным */}
+      {vm.altBlocks && vm.altBlocks.length > 0 && (
+        <div style={{ marginBottom: 8 }}>
+          <div style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: '.05em', textTransform: 'uppercase', color: 'var(--blue)', margin: '8px 0 5px' }}>Доступные альтернативы</div>
+          <div style={{ display: 'grid', gap: 6 }}>
+            {vm.altBlocks.map((a, i) => {
+              const cheaper = String(a.delta).startsWith('−') || String(a.delta).startsWith('-');
+              return (
+                <div key={i} style={{ padding: '9px 11px', borderRadius: 10, border: '1px solid var(--line)', background: '#fff', display: 'flex', alignItems: 'center', gap: 10 }}>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: 10.5, color: 'var(--muted)', marginBottom: 1 }}>{a.scope}</div>
+                    <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--ink)' }}>{a.title}</div>
+                    {a.meta && <div style={{ fontSize: 11.5, color: 'var(--muted)' }}>{a.meta}</div>}
+                  </div>
+                  <div style={{ textAlign: 'right', flexShrink: 0 }}>
+                    {a.price ? <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--ink)' }}>{fmt(a.price)}</div> : null}
+                    {a.delta && a.delta !== '=' && <div style={{ fontSize: 11.5, fontWeight: 600, color: cheaper ? 'var(--green)' : 'var(--amber)' }}>{a.delta}</div>}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
       {/* Параметры услуги — состав данных зависит от вида (§8–14), сгруппирован по блокам */}
       {vm.fieldBlocks && vm.fieldBlocks.map((b, bi) => (
         <div key={bi} style={{ marginBottom: 6 }}>
@@ -312,6 +336,32 @@ function messengerBody(vm, fmt) {
   return lines.join('\n');
 }
 
+/* Ручное добавление конкретной альтернативы (ТЗ #1) — оператор находит и вставляет
+   любой вариант по запросу заказчика, даже если он не попал в авто-подбор. */
+function ManualAltForm({ onAdd, compact }) {
+  const [t, setT] = useState('');
+  const [m, setM] = useState('');
+  const [p, setP] = useState('');
+  const [d, setD] = useState('');
+  const add = () => {
+    if (!t.trim()) return;
+    onAdd({ title: t.trim(), meta: m.trim() || 'Добавлено вручную оператором', price: parseFloat(p) || 0, delta: d.trim() || '=' });
+    setT(''); setM(''); setP(''); setD('');
+  };
+  return (
+    <div style={{ display: 'grid', gap: 6, padding: 10, borderRadius: 10, border: '1px dashed var(--field-line)', background: 'var(--surface-2)' }}>
+      <div style={{ fontSize: 11.5, fontWeight: 700, color: 'var(--muted)' }}>Добавить свой вариант (по запросу клиента)</div>
+      <Input value={t} onChange={(e) => setT(e.target.value)} placeholder="Рейс / вариант (напр. FRU → IST · Turkish TK 371)" />
+      {!compact && <Input value={m} onChange={(e) => setM(e.target.value)} placeholder="Детали (время, багаж, пересадки)" />}
+      <div style={{ display: 'flex', gap: 6 }}>
+        <Input value={p} onChange={(e) => setP(e.target.value)} placeholder="Цена" type="number" style={{ flex: 1 }} />
+        <Input value={d} onChange={(e) => setD(e.target.value)} placeholder="Разница (напр. +21 $)" style={{ flex: 1 }} />
+        <Button size="sm" icon="plus" onClick={add} disabled={!t.trim()}>Добавить</Button>
+      </div>
+    </div>
+  );
+}
+
 function ServiceCardSendPanel({ item, kind, participants = [], orderNo, currency, serviceId, onSent, onClose }) {
   const toast = useToast();
   const oNo = orderNo || item.order;
@@ -358,7 +408,10 @@ function ServiceCardSendPanel({ item, kind, participants = [], orderNo, currency
   const setFmType = (t) => { setFm((f) => ({ ...f, fmType: t })); setActions(FORCE_MAJEURE_TYPES[t].actions.slice()); };
   // ТЗ #1 — умный подбор альтернатив при отмене/недоступности (как при вынужденном обмене)
   const [altOpts, setAltOpts] = useState([]);
+  const [manualAlts, setManualAlts] = useState([]);   // ТЗ #1 — варианты, добавленные оператором вручную
   const [altSel, setAltSel] = useState(() => new Set());
+  const [picksOpen, setPicksOpen] = useState(false);   // ТЗ #2 — вложенная панель подбора (внахлёст)
+  const allAlts = [...altOpts, ...manualAlts];
   const syncAltText = (sel, opts) => {
     const chosen = opts.filter((o) => sel.has(o.id));
     setFm((f) => ({ ...f, alternatives: chosen.map((o) => o.title + ' (' + o.delta + ')').join('; ') }));
@@ -366,11 +419,27 @@ function ServiceCardSendPanel({ item, kind, participants = [], orderNo, currency
   const findAlternatives = () => {
     const opts = smartAlternatives(item, kind);
     setAltOpts(opts);
-    const sel = new Set(opts.map((o) => o.id)); // по умолчанию подставляем все найденные, оператор снимает лишние
-    setAltSel(sel); syncAltText(sel, opts);
+    const sel = new Set([...opts.map((o) => o.id), ...manualAlts.map((o) => o.id)]); // подставляем найденные + сохраняем ручные
+    setAltSel(sel); syncAltText(sel, [...opts, ...manualAlts]);
     toast('Подобрано ' + opts.length + ' альтернатив (умный поиск)', 'ok');
   };
-  const toggleAlt = (id) => { setAltSel((s) => { const n = new Set(s); n.has(id) ? n.delete(id) : n.add(id); syncAltText(n, altOpts); return n; }); };
+  const toggleAlt = (id) => { setAltSel((s) => { const n = new Set(s); n.has(id) ? n.delete(id) : n.add(id); syncAltText(n, [...altOpts, ...manualAlts]); return n; }); };
+  const addManualAlt = (v) => {
+    const alt = { id: 'man-' + Math.random().toString(36).slice(2, 7), manual: true, ...v };
+    setManualAlts((m) => [...m, alt]);
+    setAltSel((s) => { const n = new Set(s); n.add(alt.id); syncAltText(n, [...allAlts, alt]); return n; });
+    toast('Вариант добавлен вручную', 'ok');
+  };
+  const removeManualAlt = (id) => { setManualAlts((m) => m.filter((x) => x.id !== id)); setAltSel((s) => { const n = new Set(s); n.delete(id); return n; }); };
+  // ТЗ #2 — по каждой затронутой услуге свой подбор (авто/ручной) + инфо клиенту
+  const [chain] = useState(() => affectedServiceChain(oNo, kind));
+  const [chainState, setChainState] = useState(() => affectedServiceChain(oNo, kind).map(() => ({ alts: [], sel: new Set(), include: false })));
+  const chainAuto = (i) => setChainState((cs) => cs.map((c, idx) => { if (idx !== i) return c; const alts = smartAlternatives({ title: chain[i].service }, chain[i].kind); return { alts, sel: new Set(alts.map((a) => a.id)), include: true }; }));
+  const chainAddManual = (i, v) => setChainState((cs) => cs.map((c, idx) => { if (idx !== i) return c; const alt = { id: 'cm-' + Math.random().toString(36).slice(2, 7), manual: true, ...v }; const sel = new Set(c.sel); sel.add(alt.id); return { alts: [...c.alts, alt], sel, include: true }; }));
+  const chainToggleAlt = (i, id) => setChainState((cs) => cs.map((c, idx) => { if (idx !== i) return c; const sel = new Set(c.sel); sel.has(id) ? sel.delete(id) : sel.add(id); return { ...c, sel }; }));
+  const chainRemoveManual = (i, id) => setChainState((cs) => cs.map((c, idx) => { if (idx !== i) return c; const sel = new Set(c.sel); sel.delete(id); return { ...c, alts: c.alts.filter((a) => a.id !== id), sel }; }));
+  const chainToggleInclude = (i) => setChainState((cs) => cs.map((c, idx) => idx === i ? { ...c, include: !c.include } : c));
+  const chainPicksCount = chainState.reduce((n, c) => n + (c.include ? c.sel.size : 0), 0);
 
   const finModel = cardFinModel(sc, fin, ex, exFin);
   // Состав данных зависит от вида услуги (§8–14): типизированные блоки полей.
@@ -380,10 +449,19 @@ function ServiceCardSendPanel({ item, kind, participants = [], orderNo, currency
   const warning = sc.forceMajeure ? { title: 'ВНИМАНИЕ ПО УСЛУГЕ', text: 'Информация от поставщика об изменении. Требуется ваше решение.' }
     : sc.fin === 'exchange' ? { title: 'ОБМЕН УСЛУГИ', text: 'После подтверждения прежняя услуга будет заменена на новую.' } : null;
 
-  const fmRows = sc.forceMajeure ? buildForceMajeureRows(fm) : [];
+  // альтернативы уходят клиенту отдельными блоками (ТЗ #1), поэтому убираем дублирующую строку-текст
+  const fmRows = sc.forceMajeure ? buildForceMajeureRows(fm).filter((r) => r.l !== 'Доступные альтернативы') : [];
+  // Структурированные блоки альтернатив для клиента: по основной услуге + по затронутым связанным услугам (ТЗ #1/#2)
+  const selMainAlts = allAlts.filter((a) => altSel.has(a.id));
+  const altBlocks = [
+    ...selMainAlts.map((a) => ({ scope: item.title || item.main || 'Основная услуга', title: a.title, meta: a.meta, price: a.price, delta: a.delta })),
+    ...chain.flatMap((c, i) => (chainState[i] && chainState[i].include)
+      ? chainState[i].alts.filter((a) => chainState[i].sel.has(a.id)).map((a) => ({ scope: c.kind + ' · ' + c.service, title: a.title, meta: a.meta, price: a.price, delta: a.delta }))
+      : []),
+  ];
   const vm = {
     sc, badge: clientLabel, statuses, title: item.title || item.main, sub: item.sub, warning,
-    info, fieldBlocks: cardFields.blocks, fmRows, extras: item.tags || [], passengers: paxNames, paxLabel: (kind === 'Гостиница' || kind === 'Гостиницы') ? 'Гости' : 'Пассажиры',
+    info, fieldBlocks: cardFields.blocks, fmRows, altBlocks, extras: item.tags || [], passengers: paxNames, paxLabel: (kind === 'Гостиница' || kind === 'Гостиницы') ? 'Гости' : 'Пассажиры',
     validity, responseDeadline, accompanyingText, attachments, actions, operator,
     ex, finModel, showTotal: vis.clientTotal !== false,
   };
@@ -517,70 +595,47 @@ function ServiceCardSendPanel({ item, kind, participants = [], orderNo, currency
                 </div>
                 <Input value={fm.whatChanged} onChange={(e) => setFm((f) => ({ ...f, whatChanged: e.target.value }))} placeholder="Что изменилось" />
                 <Input value={fm.operatorActions} onChange={(e) => setFm((f) => ({ ...f, operatorActions: e.target.value }))} placeholder="Действия оператора" />
-                {/* ТЗ #1 — подстановка альтернатив умным поиском (как при вынужденном обмене) */}
+                {/* ТЗ #1/#2 — подбор альтернатив и связанных услуг вынесен в отдельную панель (внахлёст), чтобы не перегружать экран */}
                 <div style={{ border: '1px solid var(--field-line)', borderRadius: 12, padding: 12, background: '#fff' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: altOpts.length ? 10 : 0 }}>
-                    <span style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--ink)', flex: 1 }}>Доступные альтернативы</span>
-                    <Button size="sm" variant="secondary" icon="refund" onClick={findAlternatives}>{altOpts.length ? 'Обновить подбор' : 'Подобрать альтернативы'}</Button>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <span style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--ink)', flex: 1 }}>Альтернативы и связанные услуги</span>
+                    <Button size="sm" icon="refund" onClick={() => setPicksOpen(true)}>Открыть подбор</Button>
                   </div>
-                  {altOpts.length === 0
-                    ? <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 8 }}>Нажмите «Подобрать альтернативы» — система умным поиском предложит близкие варианты; вы корректируете и подтверждаете.</div>
-                    : (
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                        {altOpts.map((o) => {
-                          const on = altSel.has(o.id);
-                          const cheaper = String(o.delta).startsWith('−');
-                          return (
-                            <label key={o.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '9px 11px', borderRadius: 10, cursor: 'pointer',
-                              border: '1px solid ' + (on ? 'var(--blue)' : 'var(--field-line)'), background: on ? 'var(--blue-soft)' : '#fff' }}>
-                              <Checkbox on={on} onChange={() => toggleAlt(o.id)} />
-                              <div style={{ flex: 1, minWidth: 0 }}>
-                                <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink)' }}>{o.title}</div>
-                                <div style={{ fontSize: 12, color: 'var(--muted)' }}>{o.meta}</div>
-                              </div>
-                              <div style={{ textAlign: 'right' }}>
-                                <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--ink)' }}>{fmt(o.price)}</div>
-                                <div style={{ fontSize: 12, fontWeight: 600, color: o.delta === '=' ? 'var(--muted)' : cheaper ? 'var(--green)' : 'var(--amber)' }}>{o.delta}</div>
-                              </div>
-                            </label>
-                          );
-                        })}
-                        <div style={{ fontSize: 11.5, color: 'var(--muted)' }}>Выбранные альтернативы попадут в карточку клиента. Оператор направляет и подтверждает — ручного ввода минимум.</div>
-                      </div>
-                    )}
+                  {(selMainAlts.length + chainPicksCount) > 0
+                    ? <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 8 }}>В письмо клиента: {selMainAlts.length} по основной услуге{chainPicksCount ? ' + ' + chainPicksCount + ' по связанным' : ''}. Изменить — «Открыть подбор».</div>
+                    : <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 8 }}>Подберите варианты авто-поиском или добавьте конкретный рейс вручную — по основной и связанным услугам, не покидая карточку.</div>}
                 </div>
               </div>
             </div>
           )}
 
-          {/* ТЗ #2 — затронутая цепочка связанных услуг (общая рамка события) */}
-          {(sc.forceMajeure || sc.fin === 'exchange') && (() => {
-            const chain = affectedServiceChain(oNo, kind);
-            return (
-              <div className="card card-pad" style={{ background: 'var(--surface-2)', border: '1px solid var(--line)', marginBottom: 14 }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
-                  <Icon name="route" style={{ width: 16, height: 16, color: 'var(--amber)' }} />
-                  <span style={{ fontWeight: 700, fontSize: 13, color: 'var(--ink)', flex: 1 }}>
-                    Изменение по «{kind}» повлияло на {chain.length} {plural(chain.length, ['услугу', 'услуги', 'услуг'])}
-                  </span>
-                  <Pill tone="gray">не для клиента</Pill>
-                </div>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                  {chain.map((c, i) => {
-                    const st = CHAIN_STATUS[c.status] || CHAIN_STATUS.ok;
-                    return (
-                      <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 10px', borderRadius: 10, border: '1px solid var(--field-line)', background: '#fff' }}>
-                        <span style={{ width: 78, flexShrink: 0, fontSize: 12, fontWeight: 600, color: 'var(--muted)' }}>{c.kind}</span>
-                        <span style={{ flex: 1, minWidth: 0, fontSize: 13, color: 'var(--ink)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.service}</span>
-                        <Pill tone={st.tone}>{st.label}</Pill>
-                      </div>
-                    );
-                  })}
-                </div>
-                <div style={{ fontSize: 11.5, color: 'var(--muted)', marginTop: 8 }}>Оператор проверяет цепочку и обрабатывает её комплексно — трансфер, гостиница, страховка и доп. услуги.</div>
+          {/* ТЗ #2 — затронутая цепочка связанных услуг (общая рамка события); подбор по каждой — в панели */}
+          {(sc.forceMajeure || sc.fin === 'exchange') && chain.length > 0 && (
+            <div className="card card-pad" style={{ background: 'var(--surface-2)', border: '1px solid var(--line)', marginBottom: 14 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
+                <Icon name="route" style={{ width: 16, height: 16, color: 'var(--amber)' }} />
+                <span style={{ fontWeight: 700, fontSize: 13, color: 'var(--ink)', flex: 1 }}>
+                  Изменение по «{kind}» повлияло на {chain.length} {plural(chain.length, ['услугу', 'услуги', 'услуг'])}
+                </span>
+                <Button size="sm" variant="secondary" icon="refund" onClick={() => setPicksOpen(true)}>Подбор по цепочке</Button>
               </div>
-            );
-          })()}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                {chain.map((c, i) => {
+                  const st = CHAIN_STATUS[c.status] || CHAIN_STATUS.ok;
+                  const picks = chainState[i] && chainState[i].include ? chainState[i].sel.size : 0;
+                  return (
+                    <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 10px', borderRadius: 10, border: '1px solid var(--field-line)', background: '#fff' }}>
+                      <span style={{ width: 78, flexShrink: 0, fontSize: 12, fontWeight: 600, color: 'var(--muted)' }}>{c.kind}</span>
+                      <span style={{ flex: 1, minWidth: 0, fontSize: 13, color: 'var(--ink)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.service}</span>
+                      {picks > 0 && <Pill tone="blue">{picks} для клиента</Pill>}
+                      <Pill tone={st.tone}>{st.label}</Pill>
+                    </div>
+                  );
+                })}
+              </div>
+              <div style={{ fontSize: 11.5, color: 'var(--muted)', marginTop: 8 }}>По каждой связанной услуге можно подобрать варианты (авто или вручную) и включить их в письмо клиенту — «Подбор по цепочке».</div>
+            </div>
+          )}
 
           {/* Клиентский ярлык (§5) */}
           <label className="lbl" style={{ display: 'block', marginBottom: 6 }}>Клиентский ярлык</label>
@@ -653,6 +708,87 @@ function ServiceCardSendPanel({ item, kind, participants = [], orderNo, currency
           {channels.length > 0 && <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 8 }}>{channels.map((c) => sendChannelMeta(c).adapt).join(' · ')}</div>}
         </div>
       </div>
+
+      {/* ТЗ #1/#2 — вложенная панель подбора (внахлёст): авто + ручной подбор по основной и связанным услугам */}
+      {picksOpen && (
+        <StackPanel title="Подбор альтернатив и связанных услуг" width="min(720px,97vw)" onClose={() => setPicksOpen(false)}
+          footer={<><div style={{ flex: 1, fontSize: 12, color: 'var(--muted)', display: 'flex', alignItems: 'center', gap: 6 }}><Icon name="eye" style={{ width: 14, height: 14 }} />Отмеченные варианты уйдут клиенту отдельными блоками</div><Button icon="check" onClick={() => setPicksOpen(false)}>Готово</Button></>}>
+
+          {/* Основная услуга */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+            <Icon name={kindMeta.icon || 'briefcase'} style={{ width: 16, height: 16, color: 'var(--blue)' }} />
+            <span style={{ fontWeight: 700, fontSize: 14, color: 'var(--ink)' }}>Основная услуга</span>
+          </div>
+          <div style={{ fontSize: 12.5, color: 'var(--muted)', marginBottom: 10 }}>{item.title || item.main}</div>
+          <Button size="sm" variant="secondary" icon="refund" onClick={findAlternatives} style={{ marginBottom: 10 }}>{altOpts.length ? 'Обновить авто-подбор' : 'Подобрать автоматически'}</Button>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 10 }}>
+            {allAlts.length === 0 && <div style={{ fontSize: 12.5, color: 'var(--muted)' }}>Нажмите «Подобрать автоматически» — система предложит близкие варианты; либо добавьте конкретный рейс вручную ниже.</div>}
+            {allAlts.map((o) => {
+              const on = altSel.has(o.id);
+              const cheaper = String(o.delta).startsWith('−') || String(o.delta).startsWith('-');
+              return (
+                <div key={o.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '9px 11px', borderRadius: 10, border: '1px solid ' + (on ? 'var(--blue)' : 'var(--field-line)'), background: on ? 'var(--blue-soft)' : '#fff' }}>
+                  <Checkbox on={on} onChange={() => toggleAlt(o.id)} />
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink)' }}>{o.title}{o.manual && <span style={{ marginLeft: 6 }}><Pill tone="gray">вручную</Pill></span>}</div>
+                    <div style={{ fontSize: 12, color: 'var(--muted)' }}>{o.meta}</div>
+                  </div>
+                  <div style={{ textAlign: 'right' }}>
+                    {o.price ? <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--ink)' }}>{fmt(o.price)}</div> : null}
+                    <div style={{ fontSize: 12, fontWeight: 600, color: o.delta === '=' ? 'var(--muted)' : cheaper ? 'var(--green)' : 'var(--amber)' }}>{o.delta}</div>
+                  </div>
+                  {o.manual && <button type="button" onClick={() => removeManualAlt(o.id)} title="Удалить" style={{ border: 'none', background: 'none', cursor: 'pointer', color: 'var(--muted-2)', padding: 4 }}><Icon name="x" style={{ width: 14, height: 14 }} /></button>}
+                </div>
+              );
+            })}
+          </div>
+          <ManualAltForm onAdd={addManualAlt} />
+
+          {/* Связанные услуги — подбор по каждой (ТЗ #2) */}
+          {chain.length > 0 && <PanelSub style={{ marginTop: 22 }}>Связанные услуги · {chain.length}</PanelSub>}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+            {chain.map((c, i) => {
+              const cs = chainState[i] || { alts: [], sel: new Set(), include: false };
+              const st = CHAIN_STATUS[c.status] || CHAIN_STATUS.ok;
+              return (
+                <div key={i} className="card card-pad" style={{ border: '1px solid var(--line)' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8, flexWrap: 'wrap' }}>
+                    <span style={{ fontWeight: 700, fontSize: 13, color: 'var(--ink)' }}>{c.kind}</span>
+                    <span style={{ flex: 1, minWidth: 0, fontSize: 12.5, color: 'var(--muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.service}</span>
+                    <Pill tone={st.tone}>{st.label}</Pill>
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: cs.alts.length ? 8 : 0, flexWrap: 'wrap' }}>
+                    <Button size="sm" variant="secondary" icon="refund" onClick={() => chainAuto(i)}>{cs.alts.length ? 'Обновить' : 'Подобрать авто'}</Button>
+                    <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12.5, fontWeight: 600, color: cs.include ? 'var(--blue)' : 'var(--muted)', cursor: 'pointer', marginLeft: 'auto' }}>
+                      <Checkbox on={cs.include} onChange={() => chainToggleInclude(i)} />Показать клиенту
+                    </label>
+                  </div>
+                  {cs.alts.length > 0 && (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 8 }}>
+                      {cs.alts.map((a) => {
+                        const on = cs.sel.has(a.id);
+                        const cheaper = String(a.delta).startsWith('−') || String(a.delta).startsWith('-');
+                        return (
+                          <div key={a.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 10px', borderRadius: 9, border: '1px solid ' + (on ? 'var(--blue)' : 'var(--field-line)'), background: on ? 'var(--blue-soft)' : '#fff' }}>
+                            <Checkbox on={on} onChange={() => chainToggleAlt(i, a.id)} />
+                            <div style={{ flex: 1, minWidth: 0 }}>
+                              <div style={{ fontSize: 12.5, fontWeight: 600, color: 'var(--ink)' }}>{a.title}{a.manual && <span style={{ marginLeft: 6 }}><Pill tone="gray">вручную</Pill></span>}</div>
+                              <div style={{ fontSize: 11.5, color: 'var(--muted)' }}>{a.meta}</div>
+                            </div>
+                            {a.price ? <div style={{ fontSize: 12.5, fontWeight: 700, color: cheaper ? 'var(--green)' : 'var(--ink)' }}>{fmt(a.price)}{a.delta && a.delta !== '=' ? ' · ' + a.delta : ''}</div> : null}
+                            {a.manual && <button type="button" onClick={() => chainRemoveManual(i, a.id)} title="Удалить" style={{ border: 'none', background: 'none', cursor: 'pointer', color: 'var(--muted-2)', padding: 3 }}><Icon name="x" style={{ width: 13, height: 13 }} /></button>}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                  <ManualAltForm compact onAdd={(v) => chainAddManual(i, v)} />
+                </div>
+              );
+            })}
+          </div>
+        </StackPanel>
+      )}
     </StackPanel>
   );
 }
