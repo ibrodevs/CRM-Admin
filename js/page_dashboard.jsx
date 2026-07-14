@@ -2,12 +2,29 @@
 
 /* Финализация свободного бронирования (ТЗ #1): по подобранным без привязки к заказу услугам можно
    сформировать КП, привязать к существующему заказу или к физ.лицу. */
-function FreeBookingFinalize({ draft, onClose, onDone, onOpenOrder }) {
+function FreeBookingFinalize({ draft, onClose, onDone, onOpenOrder, onCreateOrder }) {
   const toast = useToast();
-  const [step, setStep] = useState('menu');   // menu | order | person | kp
+  const [step, setStep] = useState('menu');   // menu | order | newOrder | person | kp | chat
+  const [entity, setEntity] = useState('legal'); // тип нового заказа: legal (юр.) | person (физ.)
   const [q, setQ] = useState('');
   const [recipient, setRecipient] = useState('');   // получатель КП (необязательно)
   const [kpNo] = useState(() => 'КП-' + (1040 + Math.floor(Math.random() * 60)));
+  // Создание НОВОГО заказа на выбранное юр./физ. лицо с привязкой подобранных услуг (ТЗ #17).
+  const createNewOrder = (client, requestType) => {
+    const no = Math.max.apply(null, ORDERS.map((o) => o.no).concat(51180)) + 1;
+    const order = {
+      id: 'ord-' + Date.now(), no, client, requestType, status: 'Новое',
+      service: (draft[0] && draft[0].kind) || 'Новое',
+      operator: (typeof CURRENT_USER !== 'undefined' && CURRENT_USER.name) || 'Оператор',
+      operatorRole: (typeof CURRENT_USER !== 'undefined' && CURRENT_USER.role) || 'Оператор',
+      sum: Math.round(total), currency: 'USD', services: draft.length, progress: 0,
+      date: new Date().toLocaleDateString('ru-RU'), createdOn: new Date(),
+    };
+    toast('Создан заказ № ' + no + ' на «' + client + '» · услуг: ' + draft.length, 'ok',
+      onOpenOrder ? { action: { label: 'Открыть заказ № ' + no, onClick: () => onOpenOrder(order) }, duration: 7000 } : {});
+    onDone();
+    if (onCreateOrder) onCreateOrder(order);
+  };
   const svcTitle = (x) => x.title || x.route || x.fareName || (x.from && x.to ? x.from + ' → ' + x.to : x.kind || 'Услуга');
   const svcSum = (x) => x.fareDeltaUsd || x.total || x.cost || x.price || x.sum || 0;
   const total = draft.reduce((s, x) => s + svcSum(x), 0);
@@ -93,6 +110,42 @@ function FreeBookingFinalize({ draft, onClose, onDone, onOpenOrder }) {
     );
   }
 
+  // Создание нового заказа на юр./физ. лицо (ТЗ #17) — подобранные услуги переносятся в новый заказ
+  if (step === 'newOrder') {
+    const legal = entity === 'legal';
+    const list = (legal
+      ? (typeof COMPANIES_DB !== 'undefined' ? COMPANIES_DB.map((c) => c.name) : [])
+      : (typeof CLIENTS !== 'undefined' ? CLIENTS : []))
+      .filter((n) => n.toLowerCase().includes(q.toLowerCase()));
+    return (
+      <Drawer open onClose={onClose} title="Создать новый заказ"
+        footer={<Button variant="secondary" style={{ width: '100%' }} onClick={() => setStep('menu')}>Назад</Button>}>
+        <div style={{ color: 'var(--muted)', fontSize: 13, marginBottom: 12 }}>
+          {draft.length} {plural(draft.length, ['услуга', 'услуги', 'услуг'])} будут перенесены в новый заказ на выбранное лицо.
+        </div>
+        <div className="seg-toggle" style={{ marginBottom: 12 }}>
+          <button type="button" className={'seg-btn' + (legal ? ' active' : '')} onClick={() => { setEntity('legal'); setQ(''); }}>Юридическое лицо</button>
+          <button type="button" className={'seg-btn' + (!legal ? ' active' : '')} onClick={() => { setEntity('person'); setQ(''); }}>Физическое лицо</button>
+        </div>
+        <SearchBox value={q} onChange={setQ} placeholder={legal ? 'Поиск компании' : 'Поиск клиента'} style={{ width: '100%', marginBottom: 12 }} />
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          {list.map((name) => (
+            <button key={name} type="button" style={{ cursor: 'pointer', width: '100%', textAlign: 'left', border: '1px solid var(--line)', background: '#fff', borderRadius: 12, padding: '10px 12px', display: 'flex', alignItems: 'center', gap: 12 }}
+              onClick={() => createNewOrder(name, legal ? 'Корпоративная' : 'Индивидуальная')}>
+              {legal
+                ? <span className="oc-svc-ic" style={{ background: '#2566ff', width: 34, height: 34 }}><Icon name="building" style={{ width: 16, height: 16 }} /></span>
+                : <Avatar name={name} size={34} />}
+              <div style={{ flex: 1, minWidth: 0, fontWeight: 600, color: 'var(--ink)' }}>{name}</div>
+              <span style={{ fontSize: 12, color: 'var(--blue)', fontWeight: 600, whiteSpace: 'nowrap' }}>Создать заказ</span>
+              <Icon name="chevRight" style={{ width: 18, height: 18, color: 'var(--muted-2)' }} />
+            </button>
+          ))}
+          {!list.length && <EmptyState icon={legal ? 'building' : 'user'} title={legal ? 'Компании не найдены' : 'Клиенты не найдены'} />}
+        </div>
+      </Drawer>
+    );
+  }
+
   // Формирование КП — боковое окно с составом, получателем, суммой и действиями
   if (step === 'kp') {
     return (
@@ -173,13 +226,13 @@ function FreeBookingFinalize({ draft, onClose, onDone, onOpenOrder }) {
       </div>
       <PanelSub style={{ marginTop: 0 }}>Итог</PanelSub>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-        <Button icon="template" style={{ width: '100%' }} onClick={() => { setQ(''); setStep('kp'); }}>Сформировать КП</Button>
-        <Button variant="secondary" icon="briefcase" style={{ width: '100%' }} onClick={() => { setQ(''); setStep('order'); }}>Привязать к заказу</Button>
-        <Button variant="secondary" icon="user" style={{ width: '100%' }} onClick={() => { setQ(''); setStep('person'); }}>Привязать к физ. лицу</Button>
+        <Button variant="secondary" icon="briefcase" style={{ width: '100%' }} onClick={() => { setQ(''); setStep('order'); }}>Привязать к существующему заказу</Button>
+        <Button icon="plus" style={{ width: '100%' }} onClick={() => { setQ(''); setEntity('legal'); setStep('newOrder'); }}>Создать новый заказ (юр. / физ. лицо)</Button>
+        <Button variant="secondary" icon="template" style={{ width: '100%' }} onClick={() => { setQ(''); setStep('kp'); }}>Сформировать КП</Button>
         <Button variant="secondary" icon="chat" style={{ width: '100%' }} onClick={() => { setQ(''); setStep('chat'); }}>Отправить в чат по заказу</Button>
       </div>
       <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 12, textAlign: 'center' }}>
-        «Отправить в чат» выгружает подборку в чат заказа без формирования КП.
+        Подбор можно перенести в существующий заказ или сразу создать новый заказ на юридическое / физическое лицо.
       </div>
     </Drawer>
   );
@@ -187,7 +240,7 @@ function FreeBookingFinalize({ draft, onClose, onDone, onOpenOrder }) {
 
 /* «Свободное бронирование» — поиск услуг без привязки к заказу (ТЗ #1). Подобранные услуги
    собираются в подборку, затем оформляются: КП / привязка к заказу / привязка к физ.лицу. */
-function DetailedSearchPanel({ onClose, initialKind, onOpenOrder }) {
+function DetailedSearchPanel({ onClose, initialKind, onOpenOrder, onCreateOrder }) {
   const toast = useToast();
   const [kind, setKind] = useState(initialKind || 'Авиа');
   const [aviaParams, setAviaParams] = useState({ trip: 'rt', from: 'FRU', to: 'IST', depDate: null, retDate: null, pax: { adt: 1, chd: 0, infNoSeat: 0, infSeat: 0, special: {}, subsidized: {} }, cabin: 'Эконом', baggage: false, flex: false, direct: false, airline: '', ...PAX_DEFAULT_OPTIONS });
@@ -210,7 +263,7 @@ function DetailedSearchPanel({ onClose, initialKind, onOpenOrder }) {
         paxCount={aviaParams.pax.adt + aviaParams.pax.chd}
         onAddAvia={(r) => add(r, 'Авиа')}
         onAddOther={(o, k) => add(o, k)} />
-      {finalize && <FreeBookingFinalize draft={draft} onClose={() => setFinalize(false)} onDone={() => { setFinalize(false); onClose(); }} onOpenOrder={onOpenOrder} />}
+      {finalize && <FreeBookingFinalize draft={draft} onClose={() => setFinalize(false)} onDone={() => { setFinalize(false); onClose(); }} onOpenOrder={onOpenOrder} onCreateOrder={onCreateOrder} />}
     </StackPanel>
   );
 }
@@ -614,7 +667,7 @@ function SupplierErrorsDrawer({ supplier, onClose, onOpenOrder }) {
   );
 }
 
-function DashboardPage({ role, onNavigate, onAddOrder, onOpenOrder }) {
+function DashboardPage({ role, onNavigate, onAddOrder, onOpenOrder, onCreateOrder }) {
   const [search, setSearch] = useState('');
   const [searchOpen, setSearchOpen] = useState(false);
   const [errCodeOpen, setErrCodeOpen] = useState(null);
@@ -855,7 +908,7 @@ function DashboardPage({ role, onNavigate, onAddOrder, onOpenOrder }) {
         <Button variant="primary" icon="plus" onClick={onAddOrder}>Добавить заказ</Button>
       </Topbar>
 
-      {searchOpen && <DetailedSearchPanel onClose={() => setSearchOpen(false)} onOpenOrder={onOpenOrder} />}
+      {searchOpen && <DetailedSearchPanel onClose={() => setSearchOpen(false)} onOpenOrder={onOpenOrder} onCreateOrder={onCreateOrder} />}
 
       <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', padding: '10px 38px 22px', overflowY: 'auto' }}>
         {/* Блок «Моя смена» — только при открытой смене */}

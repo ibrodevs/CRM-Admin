@@ -72,6 +72,8 @@ function App() {
   // Подбор услуг из хаба: боковая маска → переход в выдачу выбранного раздела с параметрами
   const openServiceSearch = (key, form) => { setRoute(key); setSvcSearch({ key, form }); setCtxOrder(null); };
   const addOrder = (o) => setOrders((cur) => [o, ...cur]);
+  // Создание заказа из свободного подбора: добавить в список и сразу открыть (ТЗ #17)
+  const createOrderFromPicker = (o) => { addOrder(o); openOrder(o); };
   const addSupplier = (s) => setSuppliers((cur) => [s, ...cur]);
 
   if (!authed) return <LoginScreen onLogin={() => setAuthed(true)} />;
@@ -98,9 +100,9 @@ function App() {
 
   const page = (
       <>
-      {route === 'dashboard' && <DashboardPage role={role} onNavigate={navigate} onAddOrder={createOrder} onOpenOrder={openOrder} />}
+      {route === 'dashboard' && <DashboardPage role={role} onNavigate={navigate} onAddOrder={createOrder} onOpenOrder={openOrder} onCreateOrder={createOrderFromPicker} />}
       {route === 'orders' && <OrdersPage intent={intent} onConsume={() => setIntent(null)} orders={orders} addOrder={addOrder} onDetailChange={setCtxOrder} onOpenChat={() => setChatOpen(true)} onNavigate={navigate} />}
-      {route === 'services' && <ServicesHubPage onNavigate={navigate} onAddOrder={createOrder} onSearch={openServiceSearch} onOpenOrder={openOrder} />}
+      {route === 'services' && <ServicesHubPage onNavigate={navigate} onAddOrder={createOrder} onSearch={openServiceSearch} onOpenOrder={openOrder} onCreateOrder={createOrderFromPicker} />}
       {route === 'flights' && <FlightsPage searchIntent={svcSearch && svcSearch.key === 'flights' ? svcSearch : null} onConsumeSearch={() => setSvcSearch(null)} />}
       {route === 'suppliers' && <SuppliersPage intent={intent} onConsume={() => setIntent(null)} suppliers={suppliers} addSupplier={addSupplier} />}
       {route === 'chats' && <ChatsPage onOpenOrder={openOrder} />}
