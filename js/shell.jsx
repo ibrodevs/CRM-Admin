@@ -137,8 +137,7 @@ function gsOpenOrderOrRoute(no, onOpenOrder, onNavigate, fallback) {
 function gsActiveOrdersFor(name) {
   const n = gsNorm(name);
   return gsSafeArray(typeof ORDERS !== 'undefined' ? ORDERS : []).filter((o) => gsNorm(o.client).includes(n) && !['Отменено', 'Оплачено'].includes(o.status));
-}
-function gsAddResult(list, query, item, fields, weight) {
+}\nfunction gsAddResult(list, query, item, fields, weight) {
   const score = gsScore(query, fields, weight);
   if (score) list.push({ ...item, score });
 }
@@ -356,7 +355,7 @@ function QuickCreate({ onCreateOrder, onCreateClient, onCreateCompany, onCreateK
 function GlobalTopbar({ route, ctxOrder, onNavigate, onOpenOrder, onCreateClient, onCreateCompany, onCreateKP, onOpenChat, onOpenNotif, unreadChat, unreadNotif, role, onRole }) {
   return (
     <div className="gtop">
-      <style>{'.topbar .topbar-spacer + .search:has(input[placeholder="Поиск"]){display:none!important}'}</style>
+      <style>{'.topbar .search[style*="width: 220px"],.topbar .search:has(input[placeholder="Поиск"]){display:none!important}'}</style>
       <Breadcrumbs route={route} ctxOrder={ctxOrder} onNavigate={onNavigate} />
       <GlobalSearch onOpenOrder={onOpenOrder} onNavigate={onNavigate} onOpenChat={onOpenChat} />
       <div className="gtop-actions">
