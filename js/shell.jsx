@@ -258,7 +258,7 @@ function buildGlobalSearchResults(query, handlers) {
   documents.forEach((d, i) => {
     gsAddResult(list, query, {
       id: 'doc-' + d.no + '-' + i,
-      icon: 'document', tone: 'document', title: d.type + ' · заказ №' + d.no, type: 'Документ',
+      icon: 'docs', tone: 'document', title: d.type + ' · заказ №' + d.no, type: 'Документ',
       context: d.client,
       meta: gsJoin([d.org, d.status, d.sum]),
       action: () => gsOpenOrderOrRoute(d.no, onOpenOrder, onNavigate, 'documents'),
