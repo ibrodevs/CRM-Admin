@@ -73,14 +73,26 @@ function ToastProvider({ children }) {
   );
 }
 
-/* ---------- Button ---------- */
-function Button({ variant = 'primary', size, icon, iconRight, children, className = '', ...rest }) {
-  const cls = ['btn', 'btn-' + variant, size === 'sm' ? 'btn-sm' : size === 'lg' ? 'btn-lg' : '', className]
+/* ---------- Button ----------
+   ВАЖНО: пропсы разбираем вручную, а не через `{ ...rest }`-деструктуризацию.
+   Все .jsx-файлы Babel-standalone компилирует в общий global scope, и хелпер
+   `_excluded` (список ключей для object-rest) объявляется в каждом файле, перетирая
+   глобальный. В итоге `_objectWithoutProperties` мог не исключить `className`/`icon`,
+   и переданный className (напр. "hp-find-btn") затирал вычисленные классы `.btn`
+   — кнопка теряла стиль, иконка раздувалась. Ручной разбор + className ПОСЛЕ {...rest}
+   делает компонент независимым от порядка загрузки файлов. */
+const BTN_OWN_PROPS = { variant: 1, size: 1, icon: 1, iconRight: 1, children: 1, className: 1 };
+function Button(props) {
+  const variant = props.variant || 'primary';
+  const { size, icon, iconRight } = props;
+  const cls = ['btn', 'btn-' + variant, size === 'sm' ? 'btn-sm' : size === 'lg' ? 'btn-lg' : '', props.className || '']
     .filter(Boolean).join(' ');
+  const rest = {};
+  for (const k in props) if (!BTN_OWN_PROPS[k]) rest[k] = props[k];
   return (
-    <button className={cls} {...rest}>
+    <button {...rest} className={cls}>
       {icon && <Icon name={icon} />}
-      {children}
+      {props.children}
       {iconRight && <Icon name={iconRight} />}
     </button>
   );

@@ -469,6 +469,134 @@ function UnifiedDocumentDrawer({ open, person = {}, initial, mode = 'create', on
   );
 }
 
+/* =====================================================================
+   4) ЕДИНЫЙ ВЫБОР ПРИВЯЗКИ (ТЗ · п.2–3): один компонент выбора цели, к которой
+      привязывается всё, что создаётся БЕЗ заказа — новый заказ / существующий
+      заказ / физическое лицо. Раньше в каждом месте была своя форма (в импорте
+      маршрут-квитанций — простой Select без даты, в «Свободном бронировании» —
+      богатый список карточек). Теперь одна форма и одинаковая «начинка» везде:
+      карточка заказа с № · клиентом · типом заявки · датой формирования.
+   ===================================================================== */
+// строки существующих заказов: фильтр + хронология (сначала новые) — как в свободном бронировании
+function ufOrderPickRows(query) {
+  const q = String(query || '').toLowerCase();
+  return (typeof ORDERS !== 'undefined' ? ORDERS : [])
+    .filter((o) => `${o.no} ${o.client}`.toLowerCase().includes(q))
+    .slice()
+    .sort((a, b) => (b.createdOn ? b.createdOn.getTime() : 0) - (a.createdOn ? a.createdOn.getTime() : 0))
+    .slice(0, 20);
+}
+const UF_PICK_ROW_STYLE = { cursor: 'pointer', width: '100%', textAlign: 'left', border: '1px solid var(--line)', background: '#fff', borderRadius: 12, padding: '10px 12px', display: 'flex', alignItems: 'center', gap: 12 };
+// единая строка заказа (одна разметка для всех мест привязки)
+function UfOrderRow({ order, icon = 'briefcase', tone = 'var(--blue)', onClick }) {
+  return (
+    <button type="button" className="oce-client" style={UF_PICK_ROW_STYLE} onClick={onClick}>
+      <span className="oc-svc-ic" style={{ background: tone, width: 34, height: 34 }}><Icon name={icon} /></span>
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div className="nm" style={{ fontWeight: 600 }}>Заказ № {order.no}</div>
+        <div className="mt" style={{ fontSize: 12, color: 'var(--muted)' }}>{order.client}{order.requestType ? ' · ' + order.requestType : ''}</div>
+      </div>
+      {order.createdOn && <div style={{ fontSize: 12, color: 'var(--muted)', whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: 5 }}><Icon name="calendar" style={{ width: 13, height: 13 }} />{fmtDate(order.createdOn)}</div>}
+      <Icon name="chevRight" style={{ width: 18, height: 18, color: 'var(--muted-2)' }} />
+    </button>
+  );
+}
+// единая строка физ. лица
+function UfPersonRow({ name, hint, onClick }) {
+  return (
+    <button type="button" style={UF_PICK_ROW_STYLE} onClick={onClick}>
+      <Avatar name={name} size={34} />
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ fontWeight: 600, color: 'var(--ink)' }}>{name}</div>
+        {hint && <div style={{ fontSize: 12, color: 'var(--muted)' }}>{hint}</div>}
+      </div>
+      <Icon name="chevRight" style={{ width: 18, height: 18, color: 'var(--muted-2)' }} />
+    </button>
+  );
+}
+
+const UF_BIND_MODE_LABEL = { new: 'Новый заказ', order: 'Существующий заказ', person: 'Физ. лицо' };
+// нормализованная цель привязки: { mode:'new'|'order'|'person', order?, client?, label }
+function ufBindLabel(t) {
+  if (!t || t.mode === 'new') return 'Новый заказ';
+  if (t.mode === 'order') return t.order ? ('Заказ № ' + t.order.no) : 'Существующий заказ';
+  if (t.mode === 'person') return t.client || 'Физ. лицо';
+  return 'Новый заказ';
+}
+/* Боковое окно выбора цели привязки. modes — подмножество ['new','order','person']. */
+function UnifiedBindPicker({ open, title = 'Куда привязать', sub, modes = ['new', 'order', 'person'], onClose, onPick }) {
+  const [tab, setTab] = useState(modes[0] || 'new');
+  const [q, setQ] = useState('');
+  useEffect(() => { if (open) { setTab(modes[0] || 'new'); setQ(''); } }, [open]);
+  if (!open) return null;
+  const orders = ufOrderPickRows(q);
+  const clients = (typeof CLIENTS !== 'undefined' ? CLIENTS : []).filter((c) => c.toLowerCase().includes(q.toLowerCase()));
+  return (
+    <Drawer open={open} onClose={onClose} title={title} sub={sub}
+      footer={<Button variant="secondary" style={{ width: '100%' }} onClick={onClose}>Отмена</Button>}>
+      {modes.length > 1 && (
+        <div className="seg-toggle" style={{ marginBottom: 14 }}>
+          {modes.map((m) => (
+            <button key={m} type="button" className={'seg-btn' + (tab === m ? ' active' : '')} onClick={() => { setTab(m); setQ(''); }}>{UF_BIND_MODE_LABEL[m]}</button>
+          ))}
+        </div>
+      )}
+
+      {tab === 'new' && (
+        <div className="card card-pad" style={{ textAlign: 'center' }}>
+          <span className="oc-svc-ic" style={{ background: 'var(--blue)', width: 44, height: 44, borderRadius: 12, margin: '0 auto 10px' }}><Icon name="plus" style={{ width: 20, height: 20 }} /></span>
+          <div style={{ fontWeight: 700, color: 'var(--ink)', marginBottom: 4 }}>Создать новый заказ</div>
+          <div style={{ fontSize: 13, color: 'var(--muted)', marginBottom: 14 }}>Будет создан новый заказ, к которому привяжется подобранное.</div>
+          <Button icon="check" style={{ width: '100%' }} onClick={() => onPick({ mode: 'new', label: 'Новый заказ' })}>Выбрать: новый заказ</Button>
+        </div>
+      )}
+
+      {tab === 'order' && (
+        <>
+          <SearchBox value={q} onChange={setQ} placeholder="Поиск: № заказа или клиент" style={{ width: '100%', marginBottom: 12 }} />
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            {orders.map((o) => (
+              <UfOrderRow key={o.id || o.no} order={o} onClick={() => onPick({ mode: 'order', order: o, label: 'Заказ № ' + o.no })} />
+            ))}
+            {!orders.length && <EmptyState icon="briefcase" title="Заказы не найдены" />}
+          </div>
+        </>
+      )}
+
+      {tab === 'person' && (
+        <>
+          <SearchBox value={q} onChange={setQ} placeholder="Поиск клиента" style={{ width: '100%', marginBottom: 12 }} />
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            {clients.map((c) => (
+              <UfPersonRow key={c} name={c} onClick={() => onPick({ mode: 'person', client: c, label: c })} />
+            ))}
+            {!clients.length && <EmptyState icon="user" title="Клиенты не найдены" />}
+          </div>
+        </>
+      )}
+    </Drawer>
+  );
+}
+/* Инлайн-поле привязки (замена «голого» Select) — показывает текущую цель и открывает
+   единое боковое окно выбора. Значение — нормализованная цель ufBind*. */
+function UnifiedBindField({ value, onChange, modes, title, sub, style }) {
+  const [open, setOpen] = useState(false);
+  const t = value || { mode: 'new', label: 'Новый заказ' };
+  const icon = t.mode === 'person' ? 'user' : (t.mode === 'order' ? 'briefcase' : 'plus');
+  return (
+    <>
+      <button type="button" className="select" onClick={() => setOpen(true)}
+        style={{ display: 'flex', alignItems: 'center', gap: 10, textAlign: 'left', cursor: 'pointer', ...(style || {}) }}>
+        <Icon name={icon} style={{ width: 16, height: 16, color: 'var(--muted-2)', flexShrink: 0 }} />
+        <span style={{ flex: 1, color: 'var(--ink)' }}>{ufBindLabel(t)}</span>
+        <Icon name="chevDown" style={{ width: 16, height: 16, color: 'var(--muted-2)' }} />
+      </button>
+      <UnifiedBindPicker open={open} modes={modes} title={title || 'Заказ для привязки'} sub={sub}
+        onClose={() => setOpen(false)} onPick={(next) => { onChange(next); setOpen(false); }} />
+    </>
+  );
+}
+
 /* маленький транслитератор для демо-OCR */
 function translit(s) {
   const map = { а: 'A', б: 'B', в: 'V', г: 'G', д: 'D', е: 'E', ё: 'E', ж: 'ZH', з: 'Z', и: 'I', й: 'I', к: 'K', л: 'L', м: 'M', н: 'N', о: 'O', п: 'P', р: 'R', с: 'S', т: 'T', у: 'U', ф: 'F', х: 'KH', ц: 'TS', ч: 'CH', ш: 'SH', щ: 'SCH', ъ: '', ы: 'Y', ь: '', э: 'E', ю: 'YU', я: 'YA' };
@@ -480,4 +608,5 @@ Object.assign(window, {
   ufBlankPerson, ufSplitName, ufFullName, ufFromClient, ufToClient, ufValidatePerson,
   UF_MONTHS, UF_DAYS, ufParseDate, ufDateString, ufDateIso, ufDateFromIso, UFDateField,
   UnifiedPersonFields, UnifiedPersonDrawer, UnifiedDocumentDrawer, ufBlankDoc, translit,
+  ufOrderPickRows, UfOrderRow, UfPersonRow, ufBindLabel, UnifiedBindPicker, UnifiedBindField,
 });

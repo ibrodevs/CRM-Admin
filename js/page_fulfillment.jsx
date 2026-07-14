@@ -972,13 +972,14 @@ function ReceiptMathDrawer({ open, file, math, onSave, onClose }) {
    загрузка → блок «Квитанции обработаны» со счётчиками → таблица сверки
    со статусом и действием по каждой квитанции → настройка → «Добавить в заказ».
    ==================================================================== */
-const ORDER_OPTIONS = ORDERS.map((o) => '№ ' + o.no + ' · ' + o.client);
 function ReceiptImportModal({ open, onClose, onDone }) {
   const toast = useToast();
   const [files, setFiles] = useState([]);      // { id, name, size, type, poolIx, status:'queued'|'scanning'|'done', parsed }
   const [excluded, setExcluded] = useState({}); // id -> true (пропущенные вручную/дубли)
   const [editId, setEditId] = useState(null);
-  const [orderPick, setOrderPick] = useState('Новый заказ');
+  // Единая цель привязки (ТЗ п.2–3): новый заказ / существующий заказ / физ. лицо —
+  // тем же компонентом, что и в «Свободном бронировании».
+  const [bindTarget, setBindTarget] = useState({ mode: 'new', label: 'Новый заказ' });
   const [optAddIncomplete, setOptAddIncomplete] = useState(false);
   const [optCreateServices, setOptCreateServices] = useState(true);
   // Финансовая математика поверх оригинального бланка поставщика (бланк не меняется)
@@ -990,7 +991,7 @@ function ReceiptImportModal({ open, onClose, onDone }) {
   const fileRef = useRef(null);
   const poolCounter = useRef({});
 
-  useEffect(() => { if (open) { setFiles([]); setExcluded({}); setEditId(null); setOrderPick('Новый заказ'); setOptAddIncomplete(false); setOptCreateServices(true); setMath({}); setSel({}); setMathId(null); setBrandId(null); setBulk({ fee: '', markup: '', commission: '' }); poolCounter.current = {}; } }, [open]);
+  useEffect(() => { if (open) { setFiles([]); setExcluded({}); setEditId(null); setBindTarget({ mode: 'new', label: 'Новый заказ' }); setOptAddIncomplete(false); setOptCreateServices(true); setMath({}); setSel({}); setMathId(null); setBrandId(null); setBulk({ fee: '', markup: '', commission: '' }); poolCounter.current = {}; } }, [open]);
 
   // математика по квитанции: сохранённая правка или дефолт из бланка поставщика
   const getMath = (id, p) => math[id] || { tariff: Math.round(Number(p && p.total) || 0), fee: 0, markup: 0, commission: 0 };
@@ -1070,25 +1071,29 @@ function ReceiptImportModal({ open, onClose, onDone }) {
   const finish = () => {
     if (!toAdd.length) { toast('Нет квитанций для добавления', 'err'); return; }
     const now = new Date().toLocaleDateString('ru-RU');
-    const isNew = orderPick === 'Новый заказ';
-    const orderNo = isNew ? 'новый' : Number(orderPick.replace(/[^0-9]/g, '').slice(0, 5));
+    const isNew = bindTarget.mode === 'new';
+    const isPerson = bindTarget.mode === 'person';
+    const orderNo = bindTarget.mode === 'order' ? bindTarget.order.no : 'новый';
+    const bindText = isPerson ? ('физ. лицу ' + bindTarget.client) : (isNew ? 'новому заказу' : 'заказу № ' + orderNo);
     const docs = toAdd.map((r) => {
       const t = recType(r.f.type); const p = r.f.parsed; const m = getMath(r.f.id, p);
       return {
         no: 'D-' + Math.floor(3200 + Math.random() * 800),
         name: t.doc + ' ' + (p.carrier || '') + ' · ' + (p.passenger || '').split(/[\/ ]/)[0],
-        type: t.doc, order: orderNo, participant: p.passenger || '—', service: r.f.type + ' · распознано',
+        type: t.doc, order: isPerson ? '—' : orderNo, participant: p.passenger || '—', service: r.f.type + ' · распознано',
         finOp: '—', status: 'Черновик', version: 1, date: now, size: r.f.size, parsed: p, recType: r.f.type,
         // бланк поставщика (оригинал) сохраняется отдельно; math — наша редактируемая математика
         supplierBlank: { name: r.f.name, size: r.f.size, byteSize: r.f.byteSize, mime: r.f.mime,
           lastModified: r.f.lastModified, originalUrl: r.f.originalUrl, total: Number(p.total) || 0, currency: p.currency },
         math: { ...m, clientTotal: clientTotal(m), currency: p.currency },
         versions: [{ v: 1, date: now, who: (window.CURRENT_USER && CURRENT_USER.name) || 'Оператор', note: 'Импорт из квитанции' }],
-        history: [{ t: now, text: 'Распознано и привязано к заказу ' + orderNo, who: (window.CURRENT_USER && CURRENT_USER.name) || 'Оператор' }],
+        history: [{ t: now, text: 'Распознано и привязано к ' + bindText, who: (window.CURRENT_USER && CURRENT_USER.name) || 'Оператор' }],
       };
     });
     onDone(docs);
-    toast(isNew ? toAdd.length + ' квитанц. добавлено в новый заказ' : toAdd.length + ' квитанц. добавлено в заказ № ' + orderNo, 'ok');
+    toast(isPerson ? toAdd.length + ' квитанц. привязано к физ. лицу: ' + bindTarget.client
+      : isNew ? toAdd.length + ' квитанц. добавлено в новый заказ'
+      : toAdd.length + ' квитанц. добавлено в заказ № ' + orderNo, 'ok');
   };
 
   const Stat = ({ label, value, tone }) => (
@@ -1230,10 +1235,11 @@ function ReceiptImportModal({ open, onClose, onDone }) {
             {/* Настройка добавления */}
             <RSub>Настройка добавления</RSub>
             <div style={{ display: 'grid', gap: 10 }}>
-              <label style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 14, color: 'var(--body)' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 14, color: 'var(--body)' }}>
                 <span style={{ fontWeight: 600, color: 'var(--muted)', minWidth: 150 }}>Заказ для привязки</span>
-                <Select options={['Новый заказ', ...ORDER_OPTIONS]} value={orderPick} onChange={(e) => setOrderPick(e.target.value)} style={{ flex: 1 }} />
-              </label>
+                {/* Единая форма выбора (ТЗ п.2–3): заказ (с датой) или физ. лицо — как в свободном бронировании */}
+                <UnifiedBindField value={bindTarget} onChange={setBindTarget} modes={['new', 'order', 'person']} style={{ flex: 1 }} />
+              </div>
               <label style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 14, color: 'var(--body)', cursor: 'pointer' }}>
                 <Checkbox on={optCreateServices} onChange={() => setOptCreateServices((v) => !v)} /> Создавать услуги в заказе по квитанциям
               </label>
@@ -1266,7 +1272,7 @@ function ReceiptImportModal({ open, onClose, onDone }) {
               baseFareTotal: Number(m.tariff) || Number(p.fare) || 0,
               supplierOriginal: { name: brandFile.name, originalUrl: brandFile.originalUrl },
               itinerary: (p.legs || []).map((l) => ({ route: (p.tripType === 'roundtrip' ? (l.dir === 'back' ? 'Обратно · ' : 'Туда · ') : '') + l.from + (l.to ? ' → ' + l.to : ''), date: l.date, flightNo: l.flightNo })) }}
-            currency={p.currency || 'RUB'} orderNo={orderPick !== 'Новый заказ' ? orderPick : null} onClose={() => setBrandId(null)} />
+            currency={p.currency || 'RUB'} orderNo={bindTarget.mode === 'order' ? ('№ ' + bindTarget.order.no + ' · ' + bindTarget.order.client) : null} onClose={() => setBrandId(null)} />
         );
       })()}
     </Drawer>

@@ -29,12 +29,8 @@ function FreeBookingFinalize({ draft, onClose, onDone, onOpenOrder, onCreateOrde
   const svcSum = (x) => x.fareDeltaUsd || x.total || x.cost || x.price || x.sum || 0;
   const total = draft.reduce((s, x) => s + svcSum(x), 0);
   const finish = (msg, action) => { toast(msg, 'ok', action ? { action, duration: 7000 } : {}); onDone(); };
-  // Список заказов для привязки: фильтр + хронология по дате формирования (сначала новые)
-  const orderPickRows = (query) => ORDERS
-    .filter((o) => `${o.no} ${o.client}`.toLowerCase().includes(query.toLowerCase()))
-    .slice()
-    .sort((a, b) => (b.createdOn ? b.createdOn.getTime() : 0) - (a.createdOn ? a.createdOn.getTime() : 0))
-    .slice(0, 20);
+  // Список заказов для привязки — единый источник (forms_unified): фильтр + хронология (сначала новые)
+  const orderPickRows = ufOrderPickRows;
 
   // Выбор существующего заказа для привязки
   if (step === 'order') {
@@ -45,13 +41,7 @@ function FreeBookingFinalize({ draft, onClose, onDone, onOpenOrder, onCreateOrde
         <SearchBox value={q} onChange={setQ} placeholder="Поиск: № заказа или клиент" style={{ width: '100%', marginBottom: 12 }} />
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
           {rows.map((o) => (
-            <button key={o.id} type="button" className="oce-client" style={{ cursor: 'pointer', width: '100%', textAlign: 'left', border: '1px solid var(--line)', background: '#fff', borderRadius: 12, padding: '10px 12px', display: 'flex', alignItems: 'center', gap: 12 }}
-              onClick={() => finish('Услуги привязаны к заказу № ' + o.no)}>
-              <span className="oc-svc-ic" style={{ background: 'var(--blue)', width: 34, height: 34 }}><Icon name="briefcase" /></span>
-              <div style={{ flex: 1, minWidth: 0 }}><div className="nm" style={{ fontWeight: 600 }}>Заказ № {o.no}</div><div className="mt" style={{ fontSize: 12, color: 'var(--muted)' }}>{o.client} · {o.requestType}</div></div>
-              {o.createdOn && <div style={{ fontSize: 12, color: 'var(--muted)', whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: 5 }}><Icon name="calendar" style={{ width: 13, height: 13 }} />{fmtDate(o.createdOn)}</div>}
-              <Icon name="chevRight" style={{ width: 18, height: 18, color: 'var(--muted-2)' }} />
-            </button>
+            <UfOrderRow key={o.id} order={o} onClick={() => finish('Услуги привязаны к заказу № ' + o.no)} />
           ))}
           {!rows.length && <EmptyState icon="briefcase" title="Заказы не найдены" />}
         </div>
@@ -71,16 +61,10 @@ function FreeBookingFinalize({ draft, onClose, onDone, onOpenOrder, onCreateOrde
         <SearchBox value={q} onChange={setQ} placeholder="Поиск: № заказа или клиент" style={{ width: '100%', marginBottom: 12 }} />
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
           {rows.map((o) => (
-            <button key={o.id} type="button" className="oce-client" style={{ cursor: 'pointer', width: '100%', textAlign: 'left', border: '1px solid var(--line)', background: '#fff', borderRadius: 12, padding: '10px 12px', display: 'flex', alignItems: 'center', gap: 12 }}
-              onClick={() => finish(
-                'Подборка (' + draft.length + ' ' + plural(draft.length, ['услуга', 'услуги', 'услуг']) + ') отправлена в чат по заказу № ' + o.no,
-                { label: 'Открыть заказ № ' + o.no, onClick: () => onOpenOrder && onOpenOrder(o) }
-              )}>
-              <span className="oc-svc-ic" style={{ background: 'var(--green)', width: 34, height: 34 }}><Icon name="chat" /></span>
-              <div style={{ flex: 1, minWidth: 0 }}><div className="nm" style={{ fontWeight: 600 }}>Заказ № {o.no}</div><div className="mt" style={{ fontSize: 12, color: 'var(--muted)' }}>{o.client} · {o.requestType}</div></div>
-              {o.createdOn && <div style={{ fontSize: 12, color: 'var(--muted)', whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: 5 }}><Icon name="calendar" style={{ width: 13, height: 13 }} />{fmtDate(o.createdOn)}</div>}
-              <Icon name="chevRight" style={{ width: 18, height: 18, color: 'var(--muted-2)' }} />
-            </button>
+            <UfOrderRow key={o.id} order={o} icon="chat" tone="var(--green)" onClick={() => finish(
+              'Подборка (' + draft.length + ' ' + plural(draft.length, ['услуга', 'услуги', 'услуг']) + ') отправлена в чат по заказу № ' + o.no,
+              { label: 'Открыть заказ № ' + o.no, onClick: () => onOpenOrder && onOpenOrder(o) }
+            )} />
           ))}
           {!rows.length && <EmptyState icon="chat" title="Заказы не найдены" />}
         </div>
@@ -97,12 +81,7 @@ function FreeBookingFinalize({ draft, onClose, onDone, onOpenOrder, onCreateOrde
         <SearchBox value={q} onChange={setQ} placeholder="Поиск клиента" style={{ width: '100%', marginBottom: 12 }} />
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
           {list.map((c) => (
-            <button key={c} type="button" style={{ cursor: 'pointer', width: '100%', textAlign: 'left', border: '1px solid var(--line)', background: '#fff', borderRadius: 12, padding: '10px 12px', display: 'flex', alignItems: 'center', gap: 12 }}
-              onClick={() => finish('Услуги привязаны к клиенту: ' + c)}>
-              <Avatar name={c} size={34} />
-              <div style={{ flex: 1, minWidth: 0, fontWeight: 600, color: 'var(--ink)' }}>{c}</div>
-              <Icon name="chevRight" style={{ width: 18, height: 18, color: 'var(--muted-2)' }} />
-            </button>
+            <UfPersonRow key={c} name={c} onClick={() => finish('Услуги привязаны к клиенту: ' + c)} />
           ))}
           {!list.length && <EmptyState icon="user" title="Клиенты не найдены" />}
         </div>
