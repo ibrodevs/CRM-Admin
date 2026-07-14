@@ -68,9 +68,7 @@ function AccessDenied({ onNavigate }) {
 function Breadcrumbs({ route, ctxOrder, onNavigate }) {
   const base = (route || 'dashboard').split('/')[0];
   const crumbs = [{ key: 'dashboard', label: 'Главное' }];
-  // «Подбор услуг» — теперь реальный раздел-хаб, крошка кликабельна (ТЗ-2 п.6)
   if (SERVICE_PARENT[base]) crumbs.push({ key: 'services', label: 'Подбор услуг' });
-  // Документы / Оформление / Возвраты — операции над заказами, живут под «Заказы»
   if (ORDER_OPS_PARENT[base]) crumbs.push({ key: 'orders', label: 'Заказы' });
   if (base !== 'dashboard' && base !== 'services') crumbs.push({ key: base, label: ROUTE_LABELS[base] || base });
   if (base === 'orders' && ctxOrder) crumbs.push({ label: '№ ' + ctxOrder.no + ' · ' + ctxOrder.client });
@@ -137,7 +135,8 @@ function gsOpenOrderOrRoute(no, onOpenOrder, onNavigate, fallback) {
 function gsActiveOrdersFor(name) {
   const n = gsNorm(name);
   return gsSafeArray(typeof ORDERS !== 'undefined' ? ORDERS : []).filter((o) => gsNorm(o.client).includes(n) && !['Отменено', 'Оплачено'].includes(o.status));
-}\nfunction gsAddResult(list, query, item, fields, weight) {
+}
+function gsAddResult(list, query, item, fields, weight) {
   const score = gsScore(query, fields, weight);
   if (score) list.push({ ...item, score });
 }
@@ -401,7 +400,6 @@ function NotificationDrawer({ open, onClose, onNavigate, onOpenOrder }) {
 
 /* ---------- global chat slide-over (context-aware) ---------- */
 function GlobalChatDrawer({ open, onClose, contextOrder, onOpenOrder }) {
-  // extraThreads holds contacts (e.g. «Админ») created on the fly via the «Кому» picker
   const [extraThreads, setExtraThreads] = useState([]);
   const threads = [...CHAT_THREADS, ...extraThreads];
   const initialId = contextOrder ? getThreadForOrder(contextOrder).id : threads[0].id;
@@ -428,11 +426,7 @@ function GlobalChatDrawer({ open, onClose, contextOrder, onOpenOrder }) {
   };
 
   const ord = ORDERS.find((x) => x.no === active.order);
-  const meta = [
-    active.client || active.name,
-    ord && ord.requestType,
-    (ord && ord.operator) && ('отв. ' + ord.operator),
-  ].filter(Boolean);
+  const meta = [active.client || active.name, ord && ord.requestType, (ord && ord.operator) && ('отв. ' + ord.operator)].filter(Boolean);
 
   return (
     <div className="drawer-overlay" onMouseDown={(e) => { if (e.target === e.currentTarget) onClose(); }}>
@@ -443,11 +437,7 @@ function GlobalChatDrawer({ open, onClose, contextOrder, onOpenOrder }) {
               <h2 className="modal-title" style={{ fontSize: 20 }}>Чат</h2>
               <ActionMenu
                 trigger={<button className="chip" style={{ height: 34 }}>№ {active.order}<Icon name="chevDown" /></button>}
-                items={threads.map((t) => ({
-                  icon: 'chat',
-                  label: '№ ' + t.order + ' · ' + t.name + (totalUnread(t) ? '  (' + totalUnread(t) + ')' : ''),
-                  onClick: () => setActiveId(t.id),
-                }))} />
+                items={threads.map((t) => ({ icon: 'chat', label: '№ ' + t.order + ' · ' + t.name + (totalUnread(t) ? '  (' + totalUnread(t) + ')' : ''), onClick: () => setActiveId(t.id) }))} />
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
               <button className="icon-btn" title="Открыть заказ" onClick={() => goOrder(active)}><Icon name="orders" /></button>
@@ -457,10 +447,7 @@ function GlobalChatDrawer({ open, onClose, contextOrder, onOpenOrder }) {
           {meta.length > 0 && (
             <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap', fontSize: 13, color: 'var(--muted)' }}>
               {meta.map((m, i) => (
-                <React.Fragment key={i}>
-                  {i > 0 && <span style={{ color: 'var(--faint)' }}>·</span>}
-                  <span>{m}</span>
-                </React.Fragment>
+                <React.Fragment key={i}>{i > 0 && <span style={{ color: 'var(--faint)' }}>·</span>}<span>{m}</span></React.Fragment>
               ))}
             </div>
           )}
