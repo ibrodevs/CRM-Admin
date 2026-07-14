@@ -836,40 +836,68 @@ const PAX_GROUPS = window.PAX_GROUPS || (window.PAX_GROUPS = [
 /* Форма нового пассажира в группе (может применяться и к компании — общий стор сотрудников) */
 function GroupNewMemberForm({ subgroups, defaultSub, companyId, companyName, onClose, onAdd }) {
   const toast = useToast();
-  const [f, setF] = useState({ name: '', role: '', dob: '', docType: 'Загранпаспорт', docNo: '', docExpiry: '', phone: '', subgroup: defaultSub || '' });
+  // Единая карточка персоны (как «Добавить сотрудника»): те же поля, календарь для дат.
+  const [p, setP] = useState(() => ({ ...ufBlankPerson('person'), role: 'Взрослый' }));
+  const [errs, setErrs] = useState({});
+  const [subgroup, setSubgroup] = useState(defaultSub || '');
   const [toCompany, setToCompany] = useState(false);
-  const set = (k) => (e) => setF((p) => ({ ...p, [k]: e.target.value }));
+  const [docFor, setDocFor] = useState(false);
   const save = () => {
-    if (!f.name.trim()) { toast('Введите ФИО пассажира', 'err'); return; }
-    const m = { ...f, name: f.name.trim(), docStatus: (f.docNo && f.docExpiry) ? 'ok' : 'check' };
+    const er = ufValidatePerson(p);
+    setErrs(er);
+    if (Object.keys(er).length) { toast('Проверьте обязательные поля', 'err'); return; }
+    const name = ufFullName(p);
+    const docStatus = (p.docNo && p.docExpiry) ? 'ok' : 'check';
+    const m = {
+      name, role: p.role, dob: p.dob || '', gender: p.gender, citizenship: p.citizenship,
+      docType: p.docType, docNo: p.docNo, docExpiry: p.docExpiry,
+      phone: p.phone, email: p.email, documents: p.documents || [], subgroup, docStatus,
+    };
     onAdd(m);
     if (toCompany && companyId && typeof companyStaffStore === 'function') {
       const store = companyStaffStore(companyId);
-      store.employees.push({ name: m.name, dept: '', role: m.role || 'Сотрудник', position: m.role || '', email: '', phone: m.phone || '', dob: m.dob || '—', docType: m.docType, docNo: m.docNo, docExpiry: m.docExpiry, inPolicy: true });
+      store.employees.push({
+        id: 'E-' + Math.floor(1000 + Math.random() * 8999), name, dept: '',
+        role: p.role, position: p.position || '', email: p.email || '', phone: p.phone || '',
+        dob: p.dob || '—', doc: p.docNo || '—', docType: p.docType, docNo: p.docNo, docExpiry: p.docExpiry,
+        docStatus, documents: p.documents || [], inPolicy: p.inPolicy !== false,
+      });
       toast('Пассажир добавлен в группу и в сотрудники компании', 'ok');
     } else { toast('Пассажир добавлен в группу', 'ok'); }
     onClose();
   };
   return (
-    <Drawer open onClose={onClose} title="Новый пассажир" sub="Добавляется в группу; при желании — и в сотрудники компании" width="min(520px,96vw)"
-      footer={<><Button variant="secondary" onClick={onClose}>Отмена</Button><Button icon="check" onClick={save}>Добавить</Button></>}>
-      <div className="form-grid">
-        <div className="full"><Field label="ФИО" required><Input placeholder="Фамилия Имя Отчество" value={f.name} onChange={set('name')} /></Field></div>
-        <Field label="Роль / должность"><Input placeholder="Напр. Спортсмен" value={f.role} onChange={set('role')} /></Field>
-        <Field label="Дата рождения"><Input placeholder="дд.мм.гггг" value={f.dob} onChange={set('dob')} /></Field>
-        <Field label="Тип документа"><Select options={['Загранпаспорт', 'Паспорт РФ', 'Свидетельство о рождении', 'ID-карта']} value={f.docType} onChange={set('docType')} /></Field>
-        <Field label="Номер документа"><Input value={f.docNo} onChange={set('docNo')} /></Field>
-        <Field label="Действителен до"><Input placeholder="дд.мм.гггг" value={f.docExpiry} onChange={set('docExpiry')} /></Field>
-        <Field label="Телефон"><Input value={f.phone} onChange={set('phone')} /></Field>
-        {subgroups.length > 0 && <Field label="Подгруппа"><Select options={[{ value: '', label: 'Без подгруппы' }, ...subgroups.map((s) => ({ value: s.id, label: s.name }))]} value={f.subgroup} onChange={set('subgroup')} /></Field>}
-      </div>
-      {companyId && (
-        <label style={{ display: 'flex', alignItems: 'flex-start', gap: 10, marginTop: 16, cursor: 'pointer', fontSize: 13.5 }}>
-          <Checkbox on={toCompany} onChange={() => setToCompany((v) => !v)} />
-          <span>Также добавить в сотрудники компании <b>{companyName}</b><div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 2 }}>Появится в разделе «Сотрудники» компании и будет доступен для будущих заказов</div></span>
-        </label>
-      )}
-    </Drawer>
+    <>
+      <Drawer open onClose={onClose} title="Новый пассажир"
+        sub={'Единая карточка · добавляется в группу' + (companyId ? '; при желании — и в сотрудники компании' : '')} width="min(720px,96vw)"
+        footer={<><Button variant="secondary" onClick={onClose}>Отмена</Button><div style={{ flex: 1 }} /><Button icon="check" onClick={save}>Добавить</Button></>}>
+        <UnifiedPersonFields value={p} onChange={setP} errors={errs} showRole showStatus={false}
+          showDocuments onManageDocs={() => setDocFor(true)} />
+        {subgroups.length > 0 && (
+          <>
+            <PanelSub>Размещение в группе</PanelSub>
+            <div className="form-grid">
+              <Field label="Подгруппа">
+                <Select options={[{ value: '', label: 'Без подгруппы' }, ...subgroups.map((s) => ({ value: s.id, label: s.name }))]}
+                  value={subgroup} onChange={(e) => setSubgroup(e.target.value)} />
+              </Field>
+            </div>
+          </>
+        )}
+        {companyId && (
+          <label className="uf-toggle-row" style={{ marginTop: 16 }}>
+            <div style={{ flex: 1 }}>
+              <div className="uf-toggle-t">Также добавить в сотрудники компании {companyName}</div>
+              <div className="uf-toggle-s">Появится в разделе «Сотрудники» и будет доступен для будущих заказов</div>
+            </div>
+            <Toggle on={toCompany} onChange={setToCompany} />
+          </label>
+        )}
+      </Drawer>
+      <UnifiedDocumentDrawer open={docFor} person={{ name: ufFullName(p), citizenship: p.citizenship }}
+        onClose={() => setDocFor(false)}
+        onSave={(doc) => { setP((cur) => ({ ...cur, documents: [...(cur.documents || []), doc] })); setDocFor(false); toast('Документ добавлен', 'ok'); }} />
+    </>
   );
 }
 
