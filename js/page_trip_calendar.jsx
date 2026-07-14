@@ -1,0 +1,504 @@
+// ===== Календарь поездок / Центр контроля поездок (ТЗ2 §1) =====
+// Не обычный календарь-планировщик, а оперативный центр мониторинга: единая
+// сущность-поездка, события, форс-мажоры, конфликты стыковок, уровни критичности,
+// фильтры, боковая панель и режим «Центр контроля».
+
+const TC_WEEKDAYS = ['ПН', 'ВТ', 'СР', 'ЧТ', 'ПТ', 'СБ', 'ВС'];
+const TC_MONTHS = ['января', 'февраля', 'марта', 'апреля', 'мая', 'июня', 'июля', 'августа', 'сентября', 'октября', 'ноября', 'декабря'];
+const TC_MONTHS_NOM = ['Январь', 'Февраль', 'Март', 'Апрель', 'Май', 'Июнь', 'Июль', 'Август', 'Сентябрь', 'Октябрь', 'Ноябрь', 'Декабрь'];
+
+/* Понедельник недели, содержащей d. */
+function tcWeekStart(d) {
+  const s = trStartOfDay(d);
+  const wd = (s.getDay() + 6) % 7; // 0 = понедельник
+  s.setDate(s.getDate() - wd);
+  return s;
+}
+function tcAddDays(d, n) { const x = new Date(d); x.setDate(x.getDate() + n); return x; }
+function tcTripActiveOn(trip, day) {
+  const d0 = trStartOfDay(day), d1 = tcAddDays(d0, 1);
+  return trip.start < d1 && trip.end >= d0;
+}
+function tcTone(crit) { return TRIP_CRIT[crit] ? TRIP_CRIT[crit].tone : 'gray'; }
+
+/* Маленькая цветная точка критичности. */
+function CritDot({ crit, size = 8 }) {
+  return <span title={TRIP_CRIT[crit] ? TRIP_CRIT[crit].label : ''} style={{ display: 'inline-block', width: size, height: size, borderRadius: '50%', background: 'var(--' + tcTone(crit) + ')', flex: '0 0 auto' }} />;
+}
+
+/* Иконка вида услуги (с фирменной картинкой для Аэроэкспресс). */
+function SvcGlyph({ kind, size = 26 }) {
+  const k = SERVICE_KIND[kind] || { icon: 'route', color: 'var(--muted)' };
+  return (
+    <span className="tc-glyph" style={{ width: size, height: size, background: k.img ? '#fff' : k.color, border: k.img ? '1px solid var(--line)' : 'none' }} title={kind}>
+      {k.img ? <img src={k.img} alt={kind} /> : <Icon name={k.icon} style={{ width: size * 0.55, height: size * 0.55 }} />}
+    </span>
+  );
+}
+
+/* Компактная карточка поездки в календаре. */
+function TripCard({ trip, compact, onOpen }) {
+  const events = tripEvents(trip);
+  const conflicts = tripConflicts(trip);
+  const fms = tripForceMajeures(trip);
+  const crit = tripCriticality(trip);
+  const kinds = Array.from(new Set(trip.services.map((s) => s.kind)));
+  const topEvent = events[0];
+  return (
+    <button type="button" className={'tc-card tone-' + tcTone(crit) + (compact ? ' tc-card-compact' : '')} onClick={() => onOpen(trip)}>
+      <div className="tc-card-head">
+        <span className="tc-card-route">{trip.routeLabel}</span>
+        {crit !== 'info' && <CritDot crit={crit} />}
+      </div>
+      <div className="tc-card-sub">
+        {trip.isGroup || trip.group ? <Icon name="users" style={{ width: 13, height: 13, verticalAlign: -2 }} /> : null}
+        {' '}{trip.company && trip.company !== '—' ? trip.company : trip.client}
+        {trip.group ? ' · группа ' + trip.group.bookings : ' · ' + trip.pax + ' пасс.'}
+      </div>
+      {!compact && (
+        <div className="tc-card-dates">
+          <Icon name="calendar" style={{ width: 12, height: 12 }} /> {trDay(trip.start)}–{trDay(trip.end)}
+          <span className="tc-card-op"><Icon name="user" style={{ width: 12, height: 12 }} /> {trip.operator}</span>
+        </div>
+      )}
+      <div className="tc-card-kinds">
+        {kinds.map((k) => <SvcGlyph key={k} kind={k} size={compact ? 18 : 22} />)}
+        <span className="tc-card-status"><Pill tone={ORDER_STATUS[trip.status] || 'gray'}>{trip.status}</Pill></span>
+      </div>
+      {/* маркеры: форс-мажоры / конфликты / ближайшее событие */}
+      {(fms.length > 0 || conflicts.length > 0 || topEvent) && (
+        <div className="tc-card-markers">
+          {fms.length > 0 && <span className="tc-marker tc-marker-fm"><Icon name={fms[0].icon} style={{ width: 12, height: 12 }} />{fms[0].typeLabel}</span>}
+          {conflicts.length > 0 && <span className="tc-marker tc-marker-conf"><Icon name="alertTriangle" style={{ width: 12, height: 12 }} />Конфликт{conflicts.length > 1 ? ' ×' + conflicts.length : ''}</span>}
+          {topEvent && fms.length === 0 && conflicts.length === 0 && (
+            <span className={'tc-marker tone-' + tcTone(topEvent.crit)}><Icon name={topEvent.icon} style={{ width: 12, height: 12 }} />{topEvent.label} · {trHumanIn(topEvent.at)}</span>
+          )}
+        </div>
+      )}
+    </button>
+  );
+}
+
+/* ---------- Недельный режим (по умолчанию) ---------- */
+function WeekView({ anchor, trips, onOpen }) {
+  const start = tcWeekStart(anchor);
+  const days = Array.from({ length: 7 }, (_, i) => tcAddDays(start, i));
+  return (
+    <div className="tc-week">
+      {days.map((day) => {
+        const isToday = trSameDay(day, TRIP_NOW);
+        const dayTrips = trips.filter((t) => tcTripActiveOn(t, day))
+          .sort((a, b) => TRIP_CRIT[tripCriticality(b)].rank - TRIP_CRIT[tripCriticality(a)].rank);
+        return (
+          <div key={day.toISOString()} className={'tc-week-col' + (isToday ? ' is-today' : '')}>
+            <div className="tc-week-head">
+              <span className="tc-wd">{TC_WEEKDAYS[(day.getDay() + 6) % 7]}</span>
+              <span className="tc-dn">{day.getDate()}</span>
+              {isToday && <span className="tc-today-badge">сегодня</span>}
+            </div>
+            <div className="tc-week-body">
+              {dayTrips.length === 0 && <div className="tc-empty-day">—</div>}
+              {dayTrips.map((t) => <TripCard key={t.id} trip={t} compact onOpen={onOpen} />)}
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+/* ---------- Дневной режим: список поездок + расписание событий ---------- */
+function DayView({ anchor, trips, onOpen }) {
+  const dayTrips = trips.filter((t) => tcTripActiveOn(t, anchor))
+    .sort((a, b) => TRIP_CRIT[tripCriticality(b)].rank - TRIP_CRIT[tripCriticality(a)].rank);
+  // события дня по всем поездкам
+  const schedule = [];
+  dayTrips.forEach((t) => tripEvents(t).forEach((e) => { if (trSameDay(e.at, anchor)) schedule.push({ trip: t, ...e }); }));
+  schedule.sort((a, b) => a.at - b.at);
+  return (
+    <div className="tc-day">
+      <div className="tc-day-list">
+        {dayTrips.length === 0 && <DashDetailEmptyLite title="На этот день поездок нет" />}
+        {dayTrips.map((t) => <TripCard key={t.id} trip={t} onOpen={onOpen} />)}
+      </div>
+      <div className="tc-day-schedule">
+        <div className="tc-day-schedule-h">События дня</div>
+        {schedule.length === 0 && <div className="tc-empty-day" style={{ padding: 14 }}>Событий не запланировано</div>}
+        {schedule.map((e, i) => (
+          <button key={i} type="button" className="tc-sched-row" onClick={() => onOpen(e.trip)}>
+            <span className="tc-sched-time">{trTime(e.at)}</span>
+            <CritDot crit={e.crit} />
+            <span className="tc-sched-ic"><Icon name={e.icon} style={{ width: 15, height: 15 }} /></span>
+            <span className="tc-sched-main"><b>{e.label}</b><span className="tc-sched-sub">{e.trip.routeLabel} · {e.trip.client}</span></span>
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/* ---------- Месячный режим: сетка с индикаторами ---------- */
+function MonthView({ anchor, trips, onOpen, onPickDay }) {
+  const first = new Date(anchor.getFullYear(), anchor.getMonth(), 1);
+  const gridStart = tcWeekStart(first);
+  const cells = Array.from({ length: 42 }, (_, i) => tcAddDays(gridStart, i));
+  return (
+    <div className="tc-month">
+      <div className="tc-month-grid tc-month-head">{TC_WEEKDAYS.map((w) => <div key={w} className="tc-month-wd">{w}</div>)}</div>
+      <div className="tc-month-grid">
+        {cells.map((day) => {
+          const inMonth = day.getMonth() === anchor.getMonth();
+          const isToday = trSameDay(day, TRIP_NOW);
+          const dayTrips = trips.filter((t) => tcTripActiveOn(t, day));
+          const crit = dayTrips.reduce((c, t) => critMax(c, tripCriticality(t)), 'info');
+          return (
+            <button key={day.toISOString()} type="button" className={'tc-month-cell' + (inMonth ? '' : ' is-out') + (isToday ? ' is-today' : '')} onClick={() => onPickDay(day)}>
+              <span className="tc-month-dn">{day.getDate()}</span>
+              {dayTrips.length > 0 && (
+                <span className="tc-month-mini">
+                  {dayTrips.slice(0, 3).map((t) => (
+                    <span key={t.id} className="tc-month-chip" style={{ borderLeft: '3px solid var(--' + tcTone(tripCriticality(t)) + ')' }}
+                      onClick={(e) => { e.stopPropagation(); onOpen(t); }}>{t.routeLabel}</span>
+                  ))}
+                  {dayTrips.length > 3 && <span className="tc-month-more">+{dayTrips.length - 3}</span>}
+                </span>
+              )}
+              {dayTrips.length > 0 && crit !== 'info' && <span className="tc-month-dot"><CritDot crit={crit} size={7} /></span>}
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+/* ---------- Timeline (временная шкала) — Ганта по видимой неделе ---------- */
+function TimelineView({ anchor, trips, onOpen }) {
+  const start = tcWeekStart(anchor);
+  const days = Array.from({ length: 7 }, (_, i) => tcAddDays(start, i));
+  const rangeStart = start, rangeEnd = tcAddDays(start, 7);
+  const totalMs = rangeEnd - rangeStart;
+  const pct = (d) => Math.max(0, Math.min(100, ((d - rangeStart) / totalMs) * 100));
+  const nowPct = pct(TRIP_NOW);
+  const rows = trips.filter((t) => t.start < rangeEnd && t.end >= rangeStart);
+  return (
+    <div className="tc-timeline">
+      <div className="tc-tl-axis">
+        <div className="tc-tl-rowlabel" />
+        <div className="tc-tl-track">
+          {days.map((d) => <div key={d.toISOString()} className={'tc-tl-daycol' + (trSameDay(d, TRIP_NOW) ? ' is-today' : '')}><span>{TC_WEEKDAYS[(d.getDay() + 6) % 7]} {d.getDate()}</span></div>)}
+        </div>
+      </div>
+      <div className="tc-tl-body">
+        {TRIP_NOW >= rangeStart && TRIP_NOW < rangeEnd && <div className="tc-tl-now" style={{ left: 'calc(180px + (100% - 180px) * ' + nowPct / 100 + ')' }} title="Сейчас" />}
+        {rows.length === 0 && <DashDetailEmptyLite title="На этой неделе поездок нет" />}
+        {rows.map((t) => {
+          const crit = tripCriticality(t);
+          const l = pct(t.start < rangeStart ? rangeStart : t.start);
+          const r = pct(t.end > rangeEnd ? rangeEnd : t.end);
+          const events = tripEvents(t).filter((e) => e.at >= rangeStart && e.at < rangeEnd);
+          return (
+            <div key={t.id} className="tc-tl-row">
+              <div className="tc-tl-rowlabel" title={t.routeLabel}>
+                <CritDot crit={crit} />
+                <span className="tc-tl-rl-main">{t.routeLabel}<span className="tc-tl-rl-sub">{t.client}</span></span>
+              </div>
+              <div className="tc-tl-track">
+                {days.map((d, i) => <div key={i} className={'tc-tl-daycol' + (trSameDay(d, TRIP_NOW) ? ' is-today' : '')} />)}
+                <button type="button" className={'tc-tl-bar tone-' + tcTone(crit)} style={{ left: l + '%', width: Math.max(2, r - l) + '%' }} onClick={() => onOpen(t)}>
+                  <span className="tc-tl-bar-lbl">{t.services.map((s) => s.kind === 'Гостиница' ? '🏨' : '').join('')}{trDay(t.start)}–{trDay(t.end)}</span>
+                </button>
+                {events.map((e, i) => <span key={i} className="tc-tl-ev" style={{ left: pct(e.at) + '%', background: 'var(--' + tcTone(e.crit) + ')' }} title={e.label + ' · ' + trTime(e.at)} />)}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+/* ---------- Центр контроля: события ближайших часов ---------- */
+function ControlCenter({ trips, onOpen }) {
+  const feed = controlCenterFeed(trips, TRIP_NOW, 8);
+  const cross = crossTripConflicts(trips);
+  return (
+    <div className="tc-control">
+      <div className="tc-control-head">
+        <Icon name="alertCircle" style={{ width: 18, height: 18, color: 'var(--blue)' }} />
+        <span>Требуют внимания в ближайшие часы — оператору не нужно просматривать календарь вручную.</span>
+      </div>
+      {feed.length === 0 && cross.length === 0 && <DashDetailEmptyLite title="В ближайшие часы событий, требующих внимания, нет" />}
+      <div className="tc-control-list">
+        {feed.map((e, i) => (
+          <button key={i} type="button" className={'tc-control-row tone-' + tcTone(e.crit)} onClick={() => onOpen(e.trip)}>
+            <span className="tc-control-when">{e.when}</span>
+            <span className="tc-control-ic" style={{ background: 'var(--' + tcTone(e.crit) + ')' }}><Icon name={e.icon} style={{ width: 16, height: 16 }} /></span>
+            <span className="tc-control-main">
+              <b>{e.label}</b>
+              <span className="tc-control-sub">{e.trip.routeLabel} · {e.trip.client} · оператор {e.trip.operator}</span>
+            </span>
+            <Pill tone={tcTone(e.crit)}>{TRIP_CRIT[e.crit].label}</Pill>
+            <span className="tc-control-time">{trTime(e.at)}</span>
+          </button>
+        ))}
+        {cross.map((c, i) => (
+          <button key={'x' + i} type="button" className="tc-control-row tone-amber" onClick={() => onOpen(c.a)}>
+            <span className="tc-control-when">конфликт</span>
+            <span className="tc-control-ic" style={{ background: 'var(--amber)' }}><Icon name="alertTriangle" style={{ width: 16, height: 16 }} /></span>
+            <span className="tc-control-main"><b>Пересечение поездок</b><span className="tc-control-sub">{c.text}</span></span>
+            <Pill tone="amber">Высокий</Pill><span className="tc-control-time" />
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/* ---------- Боковая панель поездки ---------- */
+function TripDetailPanel({ trip, onClose, onOpenOrder }) {
+  const toast = useToast();
+  if (!trip) return null;
+  const events = tripEvents(trip);
+  const conflicts = tripConflicts(trip);
+  const fms = tripForceMajeures(trip);
+  const crit = tripCriticality(trip);
+  // единый таймлайн поездки: все услуги по времени старта
+  const timeline = trip.services.slice().sort((a, b) => a.start - b.start);
+  return (
+    <Drawer open={!!trip} onClose={onClose} width="min(560px,96vw)"
+      title={trip.routeLabel}
+      sub={(trip.company && trip.company !== '—' ? trip.company + ' · ' : '') + trip.client + ' · ' + trDay(trip.start) + '–' + trDay(trip.end)}
+      footer={<>
+        <Button variant="ghost" icon="orders" onClick={() => { onClose(); onOpenOrder && onOpenOrder(trip.orderNo); }}>Открыть заказ №{trip.orderNo}</Button>
+        <div style={{ flex: 1 }} />
+        <Button variant="secondary" onClick={onClose}>Закрыть</Button>
+      </>}>
+      <div className="tc-panel">
+        {/* шапка со статусом и критичностью */}
+        <div className="tc-panel-top">
+          <Pill tone={ORDER_STATUS[trip.status] || 'gray'}>{trip.status}</Pill>
+          {crit !== 'info' && <Pill tone={tcTone(crit)}>{TRIP_CRIT[crit].label}</Pill>}
+          <span className="tc-panel-op"><Icon name="user" style={{ width: 14, height: 14 }} /> {trip.operator}</span>
+          <span className="tc-panel-op"><Icon name="users" style={{ width: 14, height: 14 }} /> {trip.group ? 'группа ' + trip.group.bookings : trip.pax + ' пасс.'}</span>
+        </div>
+
+        {/* форс-мажоры — отдельным блоком */}
+        {fms.length > 0 && (
+          <div className="tc-panel-sec tc-panel-fm">
+            <div className="tc-panel-sec-h"><Icon name="alertCircle" style={{ width: 16, height: 16, color: 'var(--red)' }} />Форс-мажоры</div>
+            {fms.map((f, i) => (
+              <div key={i} className="tc-fm-row">
+                <div className="tc-fm-top">
+                  <span className="tc-fm-typeic" style={{ background: 'var(--' + tcTone(f.crit) + ')' }}><Icon name={f.icon} style={{ width: 13, height: 13 }} /></span>
+                  <b>{f.event}</b><Pill tone={tcTone(f.crit)}>{TRIP_CRIT[f.crit].label}</Pill>
+                </div>
+                <div className="tc-fm-type">Вид форс-мажора: <b>{f.typeLabel}</b></div>
+                {f.whatChanged && <div className="tc-fm-body">{f.whatChanged}</div>}
+                <div className="tc-fm-meta">Услуга: {f.service} · получено {trDayTime(f.at)}{f.source ? ' · ' + f.source : ''}</div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* конфликты */}
+        {conflicts.length > 0 && (
+          <div className="tc-panel-sec tc-panel-conf">
+            <div className="tc-panel-sec-h"><Icon name="alertTriangle" style={{ width: 16, height: 16, color: 'var(--amber)' }} />Конфликты и проверки</div>
+            {conflicts.map((c, i) => (
+              <div key={i} className="tc-conf-row"><CritDot crit={c.crit} /><span>{c.text}</span></div>
+            ))}
+          </div>
+        )}
+
+        {/* события */}
+        {events.length > 0 && (
+          <div className="tc-panel-sec">
+            <div className="tc-panel-sec-h"><Icon name="clock" style={{ width: 16, height: 16, color: 'var(--blue)' }} />Ожидаемые события</div>
+            {events.map((e, i) => (
+              <div key={i} className="tc-ev-row">
+                <span className="tc-ev-ic" style={{ background: 'var(--' + tcTone(e.crit) + ')' }}><Icon name={e.icon} style={{ width: 14, height: 14 }} /></span>
+                <span className="tc-ev-main"><b>{e.label}</b><span className="tc-ev-sub">{trDayTime(e.at)} · {trHumanIn(e.at)}</span></span>
+                <Pill tone={tcTone(e.crit)}>{TRIP_CRIT[e.crit].label}</Pill>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* маршрут и таймлайн услуг */}
+        <div className="tc-panel-sec">
+          <div className="tc-panel-sec-h"><Icon name="route" style={{ width: 16, height: 16, color: 'var(--blue)' }} />Маршрут и услуги</div>
+          <div className="tc-svc-timeline">
+            {timeline.map((s, i) => (
+              <div key={i} className="tc-svc-item">
+                <SvcGlyph kind={s.kind} size={34} />
+                <div className="tc-svc-body">
+                  <div className="tc-svc-title">{s.title} <Pill tone={ORDER_STATUS[s.status] || 'gray'}>{s.status}</Pill></div>
+                  <div className="tc-svc-sub">{s.sub}</div>
+                  <div className="tc-svc-meta">
+                    <span><Icon name="calendar" style={{ width: 12, height: 12 }} /> {trDayTime(s.start)}{s.end && s.kind !== 'Трансфер' ? ' → ' + (trSameDay(s.start, s.end) ? trTime(s.end) : trDayTime(s.end)) : ''}</span>
+                    <span><Icon name="api" style={{ width: 12, height: 12 }} /> {s.supplier}</span>
+                    {!s.paid && <Pill tone="amber">Не оплачено</Pill>}
+                    {!s.ticketed && <Pill tone="blue">Не выписано</Pill>}
+                    {s.delayed && <Pill tone="red">Задержка</Pill>}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* пассажиры */}
+        {trip.paxNames && trip.paxNames.length > 0 && (
+          <div className="tc-panel-sec">
+            <div className="tc-panel-sec-h"><Icon name="users" style={{ width: 16, height: 16, color: 'var(--blue)' }} />Пассажиры {trip.group ? '· группа ' + trip.group.bookings : '· ' + trip.pax}</div>
+            <div className="tc-pax-list">
+              {trip.paxNames.map((p, i) => <span key={i} className="tc-pax-chip"><Icon name="user" style={{ width: 12, height: 12 }} />{p}</span>)}
+            </div>
+            {trip.group && (
+              <div className="tc-group-stats">
+                <span>Бронирований: <b>{trip.group.bookings}</b></span>
+                <span>Выписано: <b>{trip.group.issued}</b></span>
+                <span className={trip.group.noSeat ? 'tc-gs-warn' : ''}>Без мест: <b>{trip.group.noSeat}</b></span>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* документы */}
+        {trip.docs && trip.docs.length > 0 && (
+          <div className="tc-panel-sec">
+            <div className="tc-panel-sec-h"><Icon name="docs" style={{ width: 16, height: 16, color: 'var(--blue)' }} />Документы</div>
+            {trip.docs.map((d, i) => (
+              <div key={i} className="tc-doc-row"><Icon name="docs" style={{ width: 14, height: 14, color: 'var(--muted)' }} /><span>{d.name}</span><span className="tc-doc-status">{d.status}</span></div>
+            ))}
+          </div>
+        )}
+
+        {/* действия оператора */}
+        <div className="tc-panel-sec">
+          <div className="tc-panel-sec-h"><Icon name="clipboard" style={{ width: 16, height: 16, color: 'var(--blue)' }} />Действия оператора</div>
+          <div className="tc-actions">
+            <Button size="sm" variant="secondary" icon="refund" onClick={() => toast('Открыт подбор альтернатив', 'ok')}>Подобрать альтернативу</Button>
+            <Button size="sm" variant="secondary" icon="chat" onClick={() => toast('Уведомление клиенту отправлено', 'ok')}>Уведомить клиента</Button>
+            <Button size="sm" variant="secondary" icon="users" onClick={() => toast('Передано стороннему оператору', 'ok')}>Делегировать</Button>
+            <Button size="sm" variant="secondary" icon="check" onClick={() => toast('Отмечено обработанным', 'ok')}>Отметить обработанным</Button>
+          </div>
+        </div>
+      </div>
+    </Drawer>
+  );
+}
+
+/* Мини-заглушка «нет данных» (не тянем dashboard-версию). */
+function DashDetailEmptyLite({ title }) {
+  return <div className="tc-empty"><Icon name="calendar" style={{ width: 30, height: 30, color: 'var(--muted-2)' }} /><div>{title}</div></div>;
+}
+
+/* ---------- Страница «Календарь поездок» ---------- */
+function TripCalendarPage({ role, onOpenOrder }) {
+  const [view, setView] = useState('week');       // day | week | month | timeline
+  const [control, setControl] = useState(false);  // режим «Центр контроля»
+  const [anchor, setAnchor] = useState(new Date(TRIP_NOW));
+  const [sel, setSel] = useState(null);
+  const [f, setF] = useState({ scope: 'all', operator: '', company: '', client: '', kind: '', supplier: '', status: '', onlyFm: false, onlyConflict: false, onlyUnpaid: false, onlyToday: false });
+  const sets = tripFilterSets(TRIPS);
+  const me = (typeof CURRENT_USER !== 'undefined' && CURRENT_USER.name) || 'Даниель';
+
+  const trips = TRIPS.filter((t) => {
+    if (f.scope === 'my' && t.operator !== me && !me.startsWith(t.operator) && !t.operator.startsWith(me.split(' ')[0])) return false;
+    if (f.operator && t.operator !== f.operator) return false;
+    if (f.company && t.company !== f.company) return false;
+    if (f.client && t.client !== f.client) return false;
+    if (f.kind && !t.services.some((s) => s.kind === f.kind)) return false;
+    if (f.supplier && !t.services.some((s) => s.supplier === f.supplier)) return false;
+    if (f.status && t.status !== f.status) return false;
+    if (f.onlyFm && tripForceMajeures(t).length === 0) return false;
+    if (f.onlyConflict && tripConflicts(t).length === 0) return false;
+    if (f.onlyUnpaid && !tripUnpaid(t)) return false;
+    if (f.onlyToday && !tcTripActiveOn(t, TRIP_NOW)) return false;
+    return true;
+  });
+
+  const VIEWS = [['day', 'День'], ['week', 'Неделя'], ['month', 'Месяц'], ['timeline', 'Timeline']];
+  const shift = (dir) => {
+    if (view === 'month') setAnchor((a) => new Date(a.getFullYear(), a.getMonth() + dir, 1));
+    else if (view === 'week' || view === 'timeline') setAnchor((a) => tcAddDays(a, 7 * dir));
+    else setAnchor((a) => tcAddDays(a, dir));
+  };
+  const rangeLabel = () => {
+    if (view === 'month') return TC_MONTHS_NOM[anchor.getMonth()] + ' ' + anchor.getFullYear();
+    if (view === 'day') return anchor.getDate() + ' ' + TC_MONTHS[anchor.getMonth()] + ' ' + anchor.getFullYear();
+    const s = tcWeekStart(anchor), e = tcAddDays(s, 6);
+    return s.getDate() + '–' + e.getDate() + ' ' + TC_MONTHS[e.getMonth()];
+  };
+
+  // сводка критичности по отфильтрованным поездкам
+  const counts = { fm: 0, conf: 0, unpaid: 0, crit: 0 };
+  trips.forEach((t) => { if (tripForceMajeures(t).length) counts.fm++; if (tripConflicts(t).length) counts.conf++; if (tripUnpaid(t)) counts.unpaid++; if (tripCriticality(t) === 'critical') counts.crit++; });
+
+  const toggle = (key) => setF((s) => ({ ...s, [key]: !s[key] }));
+
+  return (
+    <>
+      <Topbar title="Календарь поездок" sub="Единый оперативный центр контроля поездок">
+        <div className="topbar-spacer" />
+        <Button variant={control ? 'primary' : 'secondary'} icon="alertCircle" onClick={() => setControl((c) => !c)}>Центр контроля</Button>
+      </Topbar>
+      <div className="content fade-in tc-page">
+        {/* панель управления: режимы + навигация по датам */}
+        <div className="tc-toolbar">
+          <div className="tc-viewseg">
+            {VIEWS.map(([k, l]) => <button key={k} className={view === k ? 'on' : ''} onClick={() => { setView(k); setControl(false); }}>{l}</button>)}
+          </div>
+          {!control && <>
+            <div className="tc-nav">
+              <button onClick={() => shift(-1)} title="Назад"><Icon name="chevLeft" /></button>
+              <button className="tc-today-btn" onClick={() => setAnchor(new Date(TRIP_NOW))}>Сегодня</button>
+              <button onClick={() => shift(1)} title="Вперёд"><Icon name="chevRight" /></button>
+            </div>
+            <span className="tc-range">{rangeLabel()}</span>
+          </>}
+          <div style={{ flex: 1 }} />
+          {/* сводка */}
+          <div className="tc-summary">
+            {counts.crit > 0 && <span className="tc-sum tone-red"><CritDot crit="critical" />{counts.crit} критич.</span>}
+            {counts.fm > 0 && <span className="tc-sum tone-red"><Icon name="alertCircle" style={{ width: 13, height: 13 }} />{counts.fm} форс-мажор</span>}
+            {counts.conf > 0 && <span className="tc-sum tone-amber"><Icon name="alertTriangle" style={{ width: 13, height: 13 }} />{counts.conf} конфликт</span>}
+            <span className="tc-sum tone-blue"><Icon name="route" style={{ width: 13, height: 13 }} />{trips.length} поездок</span>
+          </div>
+        </div>
+
+        {/* фильтры */}
+        <div className="tc-filters">
+          <div className="tc-scope">
+            <button className={f.scope === 'my' ? 'on' : ''} onClick={() => setF((s) => ({ ...s, scope: 'my' }))}>Мои поездки</button>
+            <button className={f.scope === 'all' ? 'on' : ''} onClick={() => setF((s) => ({ ...s, scope: 'all' }))}>Все поездки</button>
+          </div>
+          <FilterChip label="Оператор" value={f.operator} options={sets.operators} onChange={(v) => setF((s) => ({ ...s, operator: v }))} />
+          <FilterChip label="Компания" value={f.company} options={sets.companies} onChange={(v) => setF((s) => ({ ...s, company: v }))} />
+          <FilterChip label="Клиент" value={f.client} options={sets.clients} onChange={(v) => setF((s) => ({ ...s, client: v }))} />
+          <FilterChip label="Вид услуги" value={f.kind} options={sets.kinds} onChange={(v) => setF((s) => ({ ...s, kind: v }))} />
+          <FilterChip label="Поставщик" value={f.supplier} options={sets.suppliers} onChange={(v) => setF((s) => ({ ...s, supplier: v }))} />
+          <FilterChip label="Статус" value={f.status} options={sets.statuses} onChange={(v) => setF((s) => ({ ...s, status: v }))} />
+          <button className={'tc-toggle' + (f.onlyFm ? ' on' : '')} onClick={() => toggle('onlyFm')}>Форс-мажоры</button>
+          <button className={'tc-toggle' + (f.onlyConflict ? ' on' : '')} onClick={() => toggle('onlyConflict')}>Конфликты</button>
+          <button className={'tc-toggle' + (f.onlyUnpaid ? ' on' : '')} onClick={() => toggle('onlyUnpaid')}>Неоплаченные</button>
+          <button className={'tc-toggle' + (f.onlyToday ? ' on' : '')} onClick={() => toggle('onlyToday')}>Сегодня</button>
+        </div>
+
+        {/* тело */}
+        <div className="tc-viewport">
+          {control ? <ControlCenter trips={trips} onOpen={setSel} />
+            : view === 'week' ? <WeekView anchor={anchor} trips={trips} onOpen={setSel} />
+            : view === 'day' ? <DayView anchor={anchor} trips={trips} onOpen={setSel} />
+            : view === 'month' ? <MonthView anchor={anchor} trips={trips} onOpen={setSel} onPickDay={(d) => { setAnchor(d); setView('day'); }} />
+            : <TimelineView anchor={anchor} trips={trips} onOpen={setSel} />}
+        </div>
+      </div>
+      <TripDetailPanel trip={sel} onClose={() => setSel(null)} onOpenOrder={onOpenOrder} />
+    </>
+  );
+}
+
+Object.assign(window, { TripCalendarPage });

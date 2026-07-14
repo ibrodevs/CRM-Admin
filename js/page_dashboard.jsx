@@ -997,6 +997,7 @@ function DashboardPage({ role, onNavigate, onAddOrder, onOpenOrder, onCreateOrde
       <Topbar title={isMgr ? 'Добрый день, Айсулуу' : 'Мой рабочий день'}>
         <div className="topbar-spacer" />
         <SearchBox value={search} onChange={setSearch} placeholder="Поиск" style={{ width: 220 }} />
+        <Button variant="secondary" icon="calendar" onClick={() => onNavigate('calendar')}>Календарь поездок</Button>
         <Button variant="secondary" icon="search" onClick={() => setSearchOpen(true)}>Поиск услуг</Button>
         <Button variant="primary" icon="plus" onClick={onAddOrder}>Добавить заказ</Button>
       </Topbar>

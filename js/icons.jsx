@@ -4,6 +4,7 @@ const ICON_PATHS = {
   orders: '<rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/>',
   suppliers: '<rect x="3" y="4" width="18" height="16" rx="2.5"/><path d="M8 9l3 3-3 3"/><path d="M14 15h3"/>',
   route: '<circle cx="12" cy="12" r="9"/><path d="M12 12 12 3"/><path d="M12 12l6 4"/>',
+  alertTriangle: '<path d="M12 3.5 21.5 20H2.5L12 3.5Z"/><path d="M12 10v4"/><circle cx="12" cy="17.4" r=".6" fill="currentColor" stroke="none"/>',
   chat: '<rect x="3" y="4" width="18" height="13" rx="2.5"/><path d="M3 8h18"/><path d="M8 4v13"/>',
   finance: '<path d="M12 2v20"/><path d="M17 6.5c0-2-2.2-3-5-3s-5 1-5 3 2.2 2.6 5 3 5 1.2 5 3.2-2.2 3-5 3-5-1-5-3"/>',
   docs: '<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="3.4"/>',
