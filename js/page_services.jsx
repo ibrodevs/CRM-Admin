@@ -827,6 +827,7 @@ function SvcCard({ item, kind, participants = [], hideBackRow, onBack }) {
   const [version, setVersion] = useState(item.version || 1);
   const [versions, setVersions] = useState(item.versions || []);
   const [cardLog, setCardLog] = useState(() => [{ t: 'сейчас', txt: 'Карточка услуги создана' }]);
+  const [opConfirm, setOpConfirm] = useState(null); // ТЗ #11 — подтверждение необратимых операций по услуге
   const k = SERVICE_KIND[kind] || { icon: 'briefcase', color: 'var(--blue)' };
   const isOffer = !!item.cost;
   const cur = item.currency || (item.svcOffer && item.svcOffer.currency);
@@ -915,8 +916,8 @@ function SvcCard({ item, kind, participants = [], hideBackRow, onBack }) {
         </div>
         <div style={{ textAlign: 'right' }}><div style={{ fontSize: 13, color: 'var(--muted)' }}>Итого к оплате</div><div style={{ fontSize: 24, fontWeight: 700, color: 'var(--ink)' }}>{total ? fmt(total) : '—'}</div></div>
         <Button icon="send" onClick={() => setSendOpen(true)}>Отправить клиенту</Button>
-        {status === 'Предложение' && <Button variant="secondary" icon="check" onClick={() => toast('Отправлено на бронирование', 'ok')}>Забронировать</Button>}
-        {status === 'Забронировано' && <Button variant="secondary" icon="check" onClick={() => toast('Услуга оформлена', 'ok')}>Оформить</Button>}
+        {status === 'Предложение' && <Button variant="secondary" icon="check" onClick={() => setOpConfirm({ action: 'book', onConfirm: () => toast('Отправлено на бронирование', 'ok') })}>Забронировать</Button>}
+        {status === 'Забронировано' && <Button variant="secondary" icon="check" onClick={() => setOpConfirm({ action: 'issue', onConfirm: () => toast('Услуга оформлена', 'ok') })}>Оформить</Button>}
         <ActionMenu trigger={<button className="btn btn-secondary btn-icon"><Icon name="more" /></button>}
           items={[
             { icon: 'send', label: 'Отправить карточку клиенту', onClick: () => setSendOpen(true) },
@@ -1127,6 +1128,10 @@ function SvcCard({ item, kind, participants = [], hideBackRow, onBack }) {
         onUploaded={(doc) => { setUploadedDocs((cur) => [...cur, doc]); setUploadOpen(false); toast('Документ загружен', 'ok'); }} />
       <SvcAddPaxDrawer open={addPaxOpen} isHotel={isHotel} onClose={() => setAddPaxOpen(false)}
         onAdd={(person) => { setPax((cur) => [...cur, person]); setAddPaxOpen(false); toast((isHotel ? 'Гость' : 'Пассажир') + ' добавлен', 'ok'); }} />
+      {opConfirm && <OperationConfirmModal open action={opConfirm.action} kind={kind} service={title}
+        fin={{ currency: cur || '$', price: tariff, fee, total }}
+        warnings={opConfirm.action === 'issue' ? ['Проверьте актуальность цены перед выпиской'] : []}
+        onConfirm={opConfirm.onConfirm} onClose={() => setOpConfirm(null)} needComment={opConfirm.action === 'issue'} />}
     </div>
   );
 }

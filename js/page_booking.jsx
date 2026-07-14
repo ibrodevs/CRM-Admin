@@ -79,6 +79,7 @@ function BookingWizard({ order, services, draft, onClose, onComplete, onSaveDraf
   const [supportOpen, setSupportOpen] = useState(false);
   const [offerPreview, setOfferPreview] = useState(null); // { rec, draft } | null
   const [contactSvc, setContactSvc] = useState(null); // service being chased with a supplier
+  const [opConfirm, setOpConfirm] = useState(null); // ТЗ #11 — подтверждение бронирования / выписки в мастере оформления
   // тайм-лимиты ответов поставщиков: базовый дедлайн на услугу + продления оператора
   const startRef = useRef(Date.now());
   const [tlBonus, setTlBonus] = useState({}); // serviceId -> добавленные минуты
@@ -302,10 +303,10 @@ function BookingWizard({ order, services, draft, onClose, onComplete, onSaveDraf
 
   /* ---- footer ---- */
   const footer = () => {
-    if (step === 0) return <><Button variant="secondary" onClick={onClose}>Отмена</Button><div style={{ flex: 1 }} /><Button icon="zap" onClick={() => { toast('Бронирование запущено — запросы отправлены поставщикам', 'ok'); next(); }}>Забронировать</Button></>;
+    if (step === 0) return <><Button variant="secondary" onClick={onClose}>Отмена</Button><div style={{ flex: 1 }} /><Button icon="zap" onClick={() => setOpConfirm({ action: 'book', onConfirm: () => { toast('Бронирование запущено — запросы отправлены поставщикам', 'ok'); next(); } })}>Забронировать</Button></>;
     if (step === 1) return <><Button variant="secondary" icon="chevLeft" onClick={back}>Назад</Button><div style={{ flex: 1 }} /><Button icon="check" onClick={next}>Все ответы получены</Button></>;
     if (step === 2) return <><Button variant="secondary" icon="chevLeft" onClick={back}>Назад</Button><div style={{ flex: 1 }} /><Button variant="secondary" icon="send" onClick={() => toast('КП отправлено клиенту на согласование', 'ok')}>Отправить КП клиенту</Button><Button iconRight="arrowRight" onClick={next}>К выписке и оплате</Button></>;
-    if (step === 3) return <><Button variant="secondary" icon="chevLeft" onClick={back}>Назад</Button><div style={{ flex: 1 }} /><Button icon="check" onClick={() => { toast('Документы выписаны, оплата принята', 'ok'); next(); }}>Выписать и принять оплату</Button></>;
+    if (step === 3) return <><Button variant="secondary" icon="chevLeft" onClick={back}>Назад</Button><div style={{ flex: 1 }} /><Button icon="check" onClick={() => setOpConfirm({ action: 'issue', onConfirm: () => { toast('Документы выписаны, оплата принята', 'ok'); next(); } })}>Выписать и принять оплату</Button></>;
     return <><div style={{ flex: 1 }} /><Button icon="check" onClick={() => { onComplete && onComplete(); onClose(); }}>Готово</Button></>;
   };
 
@@ -400,6 +401,11 @@ function BookingWizard({ order, services, draft, onClose, onComplete, onSaveDraf
           </Drawer>
         );
       })()}
+      {opConfirm && <OperationConfirmModal open action={opConfirm.action} kind={(kinds && kinds[0]) || 'Авиа'}
+        service={'Заказ' + (order && order.no ? ' № ' + order.no : '')}
+        fin={{ currency: (services[0] && services[0].currency) || '$', price: total, fee, total: total + fee }}
+        warnings={opConfirm.action === 'issue' ? ['После выписки повторное оформление возможно только по актуальной стоимости'] : []}
+        onConfirm={opConfirm.onConfirm} onClose={() => setOpConfirm(null)} needComment={opConfirm.action === 'issue'} />}
     </div>
   );
 }

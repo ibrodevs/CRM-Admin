@@ -807,7 +807,7 @@ function SupplierAddDrawer({ open, onClose, onCreated }) {
               </Field>
             </div>
             <Field label="Время обработки заявок (мин)"><Input type="number" min="0" placeholder="напр. 60" value={f.local.processing} onChange={(e) => setSub('local', 'processing', e.target.value === '' ? '' : (parseInt(e.target.value) || 0))} /></Field>
-            <Field label="Часы работы"><Select options={SUP_WORK_HOURS} value={f.local.hours} onChange={(e) => setSub('local', 'hours', e.target.value)} /></Field>
+            <div className="full"><Field label="Режим работы" hint="задаётся циферблатом"><WorkHoursPicker value={f.local.hours} onChange={(v) => setSub('local', 'hours', v)} /></Field></div>
           </div>
         </SupSection>
       )}

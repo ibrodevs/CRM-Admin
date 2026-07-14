@@ -721,9 +721,12 @@ function KPCreateModal({ open, onClose, onCreated, onOpenOrder }) {
   const [responsible, setResponsible] = useState((typeof CURRENT_USER !== 'undefined' && CURRENT_USER.name) || OPERATORS[0]);
   const [currency, setCurrency] = useState('USD');
   const [valid, setValid] = useState('25.06.2026');
+  const [validTime, setValidTime] = useState('18:00');   // ТЗ #9 — точное время окончания
+  const [validTz, setValidTz] = useState('МСК (UTC+3)'); // ТЗ #9 — часовой пояс
+  const [payTerm, setPayTerm] = useState('');            // срок оплаты
   const [base, setBase] = useState('manual'); // manual | services | recognize | copy | empty | tpl:<id>
   const [errs, setErrs] = useState({});
-  useEffect(() => { if (open) { setSource('order'); setOrderNo(''); setKpType(KP_PURPOSE_TYPES[0]); setDocType('generic'); setName(''); setRecipient('Клиент (сам)'); setResponsible((typeof CURRENT_USER !== 'undefined' && CURRENT_USER.name) || OPERATORS[0]); setCurrency('USD'); setValid('25.06.2026'); setBase('manual'); setErrs({}); } }, [open]);
+  useEffect(() => { if (open) { setSource('order'); setOrderNo(''); setKpType(KP_PURPOSE_TYPES[0]); setDocType('generic'); setName(''); setRecipient('Клиент (сам)'); setResponsible((typeof CURRENT_USER !== 'undefined' && CURRENT_USER.name) || OPERATORS[0]); setCurrency('USD'); setValid('25.06.2026'); setValidTime('18:00'); setValidTz('МСК (UTC+3)'); setPayTerm(''); setBase('manual'); setErrs({}); } }, [open]);
   const uid = (p) => p + Math.random().toString(36).slice(2, 7);
   const seen = {};
   const orderOpts = ORDERS.filter((o) => (seen[o.no] ? false : (seen[o.no] = true))).map((o) => ({ value: String(o.no), label: `№ ${o.no} · ${o.client}` }));
@@ -750,7 +753,7 @@ function KPCreateModal({ open, onClose, onCreated, onOpenOrder }) {
   const build = () => {
     const order = ensureOrder();
     if (docType === 'train') {
-      const np = { id: 'КП-' + (1100 + PROPOSALS.length), order: order.no, client: order.client, status: 'Черновик', currency, validUntil: valid, created: '15.06.2026', approvedVariant: null, docType: 'train', kpType, responsible,
+      const np = { id: 'КП-' + (1100 + PROPOSALS.length), order: order.no, client: order.client, status: 'Черновик', currency, validUntil: valid + (validTime ? " " + validTime : ""), created: '15.06.2026', approvedVariant: null, docType: 'train', kpType, responsible,
         train: { passengers: 1, direction: '', note: '', trips: [] },
         accommodation: { guests: 1, location: '', variants: [{ id: uid('av'), name: 'Вариант 1', rows: [] }] },
         history: [{ t: kpNow(), text: 'КП «Поезд + Проживание» создано (' + (KP_SOURCES.find((s) => s.value === source) || {}).label + ')', who: responsible }] };
@@ -760,7 +763,7 @@ function KPCreateModal({ open, onClose, onCreated, onOpenOrder }) {
     let items = [], vname = name || 'Вариант 1';
     if (base === 'services') items = (ORDER_SERVICES || []).map((s) => ({ id: uid('i'), kind: s.kind, title: s.title, sub: s.sub, cost: Math.round((s.sum || 0) * 0.95), fee: Math.round((s.sum || 0) * 0.05) }));
     else if (base.indexOf('tpl:') === 0) { const t = KP_TEMPLATES.find((x) => x.id === base.slice(4)); if (t) { items = t.items.map((s) => ({ id: uid('i'), ...s })); if (!name) vname = t.name; } }
-    const np = { id: 'КП-' + (1100 + PROPOSALS.length), order: order.no, client: order.client, status: 'Черновик', currency, validUntil: valid, created: '15.06.2026', approvedVariant: null, kpType, responsible,
+    const np = { id: 'КП-' + (1100 + PROPOSALS.length), order: order.no, client: order.client, status: 'Черновик', currency, validUntil: valid + (validTime ? " " + validTime : ""), created: '15.06.2026', approvedVariant: null, kpType, responsible,
       variants: [{ id: uid('v'), name: vname, items }], history: [{ t: kpNow(), text: 'КП создано (' + (KP_SOURCES.find((s) => s.value === source) || {}).label + ')', who: responsible }] };
     PROPOSALS.unshift(np);
     return { np, order };
@@ -804,7 +807,10 @@ function KPCreateModal({ open, onClose, onCreated, onOpenOrder }) {
         <Field label="Шаблон КП (структура)"><Select options={KP_DOC_TYPES} value={docType} onChange={(e) => setDocType(e.target.value)} /></Field>
         {docType !== 'train' && <Field label="Название варианта"><Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Вариант 1 · Прямые рейсы" /></Field>}
         <Field label="Валюта"><Select options={CURRENCIES.map((c) => ({ value: c.code, label: `${c.code} · ${c.name}` }))} value={currency} onChange={(e) => setCurrency(e.target.value)} /></Field>
-        <Field label="Действует до"><Input value={valid} onChange={(e) => setValid(e.target.value)} leadIcon="calendar" /></Field>
+        <Field label="Действует до (дата)"><Input value={valid} onChange={(e) => setValid(e.target.value)} leadIcon="calendar" /></Field>
+        <Field label="Время"><Input value={validTime} onChange={(e) => setValidTime(e.target.value)} leadIcon="clock" placeholder="18:00" /></Field>
+        <Field label="Часовой пояс"><Select options={['МСК (UTC+3)', 'Бишкек (UTC+6)', 'Алматы (UTC+5)', 'UTC', 'Дубай (UTC+4)']} value={validTz} onChange={(e) => setValidTz(e.target.value)} /></Field>
+        <Field label="Срок оплаты" hint="необязательно"><Input value={payTerm} onChange={(e) => setPayTerm(e.target.value)} placeholder="напр. до 20.06 или 3 дня" /></Field>
         <Field label="Ответственный за КП"><Select options={OPERATORS} value={responsible} onChange={(e) => setResponsible(e.target.value)} /></Field>
         {docType !== 'train' && <Field label="Наполнение варианта"><Select options={baseOpts} value={base} onChange={(e) => setBase(e.target.value)} /></Field>}
       </div>
@@ -834,6 +840,50 @@ function KPCreateModal({ open, onClose, onCreated, onOpenOrder }) {
           <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 8 }}>Поиск запустится после вашего подтверждения — при переходе к подбору услуг данные подставятся в поисковые формы.</div>
         </div>
       )}
+
+      {/* ТЗ #9 §8 — промежуточная сводка «Будет создано КП» + предупреждения перед конструктором */}
+      {(() => {
+        const srcLabel = (KP_SOURCES.find((s) => s.value === source) || {}).label;
+        const baseLabel = (baseOpts.find((o) => o.value === base) || {}).label;
+        const rows = [
+          ['Клиент / получатель', fromOrder && selOrder ? selOrder.client : recipient],
+          ['Тип КП', kpType],
+          ['Шаблон', (KP_DOC_TYPES.find((d) => d.value === docType) || {}).label],
+          ['Валюта', currency],
+          ['Действует до', valid + (validTime ? ' ' + validTime : '') + ' · ' + validTz + (payTerm ? ' · оплата: ' + payTerm : '')],
+          ['Ответственный', responsible],
+          ['Источник', srcLabel],
+          ['Наполнение', baseLabel],
+        ].filter((r) => r[1]);
+        const warns = [];
+        if (fromOrder && !orderNo) warns.push('Не выбран заказ — привязка обязательна');
+        if (base === 'manual' || base === 'empty') warns.push('Услуги ещё не подобраны — добавите на шаге подбора');
+        if (!payTerm) warns.push('Не указан срок оплаты');
+        if (recognizeSrc) warns.push('Часть данных распознана автоматически — проверьте перед запуском поиска');
+        warns.push('Проверьте паспортные данные пассажиров и соответствие тревел-политике');
+        return (
+          <div className="card card-pad" style={{ marginTop: 14, background: 'var(--surface-2)' }}>
+            <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--ink)', marginBottom: 10, display: 'flex', alignItems: 'center', gap: 8 }}>
+              <Icon name="check" style={{ width: 16, height: 16, color: 'var(--blue)' }} />Будет создано КП
+            </div>
+            <div className="kv" style={{ marginBottom: warns.length ? 12 : 0 }}>
+              {rows.map(([k, v], i) => <div className="kv-row" key={i}><span className="k">{k}</span><span className="v">{v}</span></div>)}
+            </div>
+            {warns.length > 0 && (
+              <div style={{ borderTop: '1px dashed var(--line)', paddingTop: 10 }}>
+                <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--amber)', marginBottom: 6 }}>Обратите внимание</div>
+                <div style={{ display: 'grid', gap: 5 }}>
+                  {warns.map((w, i) => (
+                    <div key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: 7, fontSize: 12.5, color: 'var(--body)' }}>
+                      <Icon name="alertCircle" style={{ width: 14, height: 14, color: 'var(--amber)', flexShrink: 0, marginTop: 1 }} />{w}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        );
+      })()}
     </Drawer>
   );
 }
