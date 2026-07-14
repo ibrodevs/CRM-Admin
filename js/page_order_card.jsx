@@ -434,7 +434,7 @@ function PaxGroupCard({ index, name, members, onPassport, onEdit, onAddDoc }) {
   );
 }
 
-function TabParticipants({ list, isGroup, groups, fresh, orderNo, orderAirline, onPassport, onAdd, onEdit, onAddDoc, onApplyRoster }) {
+function TabParticipants({ list, isGroup, groups, fresh, orderNo, orderAirline, companyId, companyName, onPassport, onAdd, onEdit, onAddDoc, onApplyRoster }) {
   const [unifyOpen, setUnifyOpen] = useState(false);
   const [groupsOpen, setGroupsOpen] = useState(false);
   const toast = useToast();
@@ -514,7 +514,7 @@ function TabParticipants({ list, isGroup, groups, fresh, orderNo, orderAirline, 
         );
       })()}
       {unifyOpen && <PaxUnifyPanel list={list} orderNo={orderNo} autoBind={orderAirline} onApplyRoster={onApplyRoster} onClose={() => setUnifyOpen(false)} />}
-      {groupsOpen && <PaxGroupsDrawer current={list} onAddGroup={addGroup} onClose={() => setGroupsOpen(false)} />}
+      {groupsOpen && <PaxGroupsDrawer current={list} companyId={companyId} companyName={companyName} onAddGroup={addGroup} onClose={() => setGroupsOpen(false)} />}
     </div>
   );
 }
@@ -1880,7 +1880,7 @@ function OrderCard({ order, onBack, initTab, initSvc, initSvcSearch, fresh, onOp
     switch (tab) {
       case 'overview': return <TabOverview order={order} />;
       case 'clients': return <TabClients order={order} onOpenChat={onOpenChat} />;
-      case 'participants': return <TabParticipants list={participants} isGroup={requestType === 'Групповая'} groups={requestType === 'Групповая' ? AVIA_GROUPS_SEED : null} fresh={fresh} orderNo={order.no} orderAirline={(services.find((s) => s.kind === 'Авиа') || {}).supplier} onPassport={setPassport} onAdd={() => setPaxOpen(true)} onEdit={(p) => setEditPax(p)} onAddDoc={(p) => setDocPax(p)} onApplyRoster={setParticipants} />;
+      case 'participants': { const oco = (typeof COMPANIES_DB !== 'undefined') ? COMPANIES_DB.find((c) => c.name === order.client) : null; return <TabParticipants list={participants} isGroup={requestType === 'Групповая'} groups={requestType === 'Групповая' ? AVIA_GROUPS_SEED : null} fresh={fresh} orderNo={order.no} orderAirline={(services.find((s) => s.kind === 'Авиа') || {}).supplier} companyId={oco ? oco.id : null} companyName={oco ? oco.name : order.client} onPassport={setPassport} onAdd={() => setPaxOpen(true)} onEdit={(p) => setEditPax(p)} onAddDoc={(p) => setDocPax(p)} onApplyRoster={setParticipants} />; }
       case 'route': return <TabRoute services={services} />;
       case 'services': return renderServicesArea();
       case 'offers': return <KPModule order={order} services={services} participants={participants}

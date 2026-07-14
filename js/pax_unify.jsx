@@ -537,8 +537,8 @@ function PaxUnifyPanel({ list, orderNo, autoBind, onClose, onApplyRoster }) {
 
       {/* ТЗ #5 — предпросмотр итогового документа перед выгрузкой */}
       {docPreview && (
-        <Modal open onClose={() => setDocPreview(false)}>
-          <div style={{ width: 'min(1000px,94vw)' }}>
+        <Modal open onClose={() => setDocPreview(false)} className="pax-modal-xwide">
+          <div style={{ width: '100%' }}>
             <ModalHeader title="Предпросмотр документа" sub={'Формат «' + (tpl.bindTo || tpl.name) + '» · ' + tpl.file.toUpperCase() + ' · ' + tpl.encoding} onClose={() => setDocPreview(false)} />
             <div style={{ background: 'var(--surface-2)', borderRadius: 12, padding: 24, maxHeight: '62vh', overflow: 'auto' }}>
               <div style={{ background: '#fff', border: '1px solid var(--line)', borderRadius: 8, padding: 24, boxShadow: 'var(--shadow-card)' }}>
@@ -718,10 +718,10 @@ function PaxReconcileModal({ fileName, current, res, onCancel, onConfirm }) {
     unchanged: res.unchanged.length, errors: res.errors.length,
   });
   return (
-    <Modal open onClose={onCancel}>
-      <div style={{ width: 'min(920px,95vw)' }}>
+    <Modal open onClose={onCancel} className="pax-modal-wide">
+      <div style={{ width: '100%' }}>
         <ModalHeader title="Сверка обновлённого списка" sub={'Файл: ' + fileName + ' · сверка по Имя + Отчество + Дата рождения'} onClose={onCancel} />
-        <div style={{ maxHeight: '64vh', overflow: 'auto', padding: '4px 2px' }}>
+        <div style={{ maxHeight: '64vh', overflowY: 'auto', overflowX: 'hidden', padding: '4px 2px' }}>
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 16 }}>
             <Pill tone="blue">Новые: {res.news.length}</Pill>
             <Pill tone="amber">Изменения: {res.changes.length}</Pill>
@@ -807,44 +807,110 @@ function PaxReconcileModal({ fileName, current, res, onCancel, onConfirm }) {
    Группу можно целиком добавить в заказ. Пассажир может состоять в нескольких группах.
    ============================================================ */
 const PAX_GROUP_KINDS = ['Спортивная команда', 'Делегация', 'Семья', 'Корпоративная группа', 'Прочее'];
+// Группы пассажиров с подгруппами (иерархия как отделы компании — ТЗ по группам).
 const PAX_GROUPS = window.PAX_GROUPS || (window.PAX_GROUPS = [
-  { id: 'grp-u17', name: 'Сборная U-17 (футбол)', kind: 'Спортивная команда', members: [
-    { name: 'Асанов Данияр Русланович', role: 'Спортсмен', dob: '12.04.2009', docType: 'Загранпаспорт', docNo: 'AN1002003', docExpiry: '12.04.2030', docStatus: 'ok' },
-    { name: 'Ибраев Тимур Азаматович', role: 'Спортсмен', dob: '03.07.2009', docType: 'Загранпаспорт', docNo: 'AN1002004', docExpiry: '03.07.2030', docStatus: 'ok' },
-    { name: 'Сыдыков Алишер Маратович', role: 'Спортсмен', dob: '21.11.2009', docType: 'Загранпаспорт', docNo: 'AN1002005', docExpiry: '21.11.2030', docStatus: 'ok' },
-    { name: 'Токтосунов Эрлан Бекович', role: 'Спортсмен', dob: '08.02.2010', docType: 'Загранпаспорт', docNo: 'AN1002006', docExpiry: '08.02.2031', docStatus: 'check' },
-    { name: 'Жапаров Нурбек Асанович', role: 'Спортсмен', dob: '30.05.2009', docType: 'Загранпаспорт', docNo: 'AN1002007', docExpiry: '30.05.2030', docStatus: 'ok' },
-    { name: 'Мамбетов Ислам Русланович', role: 'Спортсмен', dob: '17.09.2009', docType: 'Загранпаспорт', docNo: 'AN1002008', docExpiry: '17.09.2030', docStatus: 'ok' },
-    { name: 'Осмонов Кайрат Бакытович', role: 'Тренер', dob: '05.06.1982', docType: 'Загранпаспорт', docNo: 'AN2003001', docExpiry: '05.06.2032', phone: '+996 700 111 222', docStatus: 'ok' },
+  { id: 'grp-u17', name: 'Сборная U-17 (футбол)', kind: 'Спортивная команда',
+    subgroups: [{ id: 'sg-players', name: 'Игроки' }, { id: 'sg-staff', name: 'Тренерский штаб' }], members: [
+    { name: 'Асанов Данияр Русланович', role: 'Спортсмен', dob: '12.04.2009', docType: 'Загранпаспорт', docNo: 'AN1002003', docExpiry: '12.04.2030', docStatus: 'ok', subgroup: 'sg-players' },
+    { name: 'Ибраев Тимур Азаматович', role: 'Спортсмен', dob: '03.07.2009', docType: 'Загранпаспорт', docNo: 'AN1002004', docExpiry: '03.07.2030', docStatus: 'ok', subgroup: 'sg-players' },
+    { name: 'Сыдыков Алишер Маратович', role: 'Спортсмен', dob: '21.11.2009', docType: 'Загранпаспорт', docNo: 'AN1002005', docExpiry: '21.11.2030', docStatus: 'ok', subgroup: 'sg-players' },
+    { name: 'Токтосунов Эрлан Бекович', role: 'Спортсмен', dob: '08.02.2010', docType: 'Загранпаспорт', docNo: 'AN1002006', docExpiry: '08.02.2031', docStatus: 'check', subgroup: 'sg-players' },
+    { name: 'Жапаров Нурбек Асанович', role: 'Спортсмен', dob: '30.05.2009', docType: 'Загранпаспорт', docNo: 'AN1002007', docExpiry: '30.05.2030', docStatus: 'ok', subgroup: 'sg-players' },
+    { name: 'Мамбетов Ислам Русланович', role: 'Спортсмен', dob: '17.09.2009', docType: 'Загранпаспорт', docNo: 'AN1002008', docExpiry: '17.09.2030', docStatus: 'ok', subgroup: 'sg-players' },
+    { name: 'Осмонов Кайрат Бакытович', role: 'Тренер', dob: '05.06.1982', docType: 'Загранпаспорт', docNo: 'AN2003001', docExpiry: '05.06.2032', phone: '+996 700 111 222', docStatus: 'ok', subgroup: 'sg-staff' },
   ] },
-  { id: 'grp-deleg', name: 'Делегация «Иссык-Куль Форум»', kind: 'Делегация', members: [
-    { name: 'Абдырахманов Улан Темирович', role: 'Глава делегации', dob: '14.02.1975', docType: 'Загранпаспорт', docNo: 'DN5001001', docExpiry: '14.02.2031', phone: '+996 700 333 444', docStatus: 'ok' },
-    { name: 'Кыдырова Салтанат Жумабековна', role: 'Секретарь', dob: '22.08.1988', docType: 'Загранпаспорт', docNo: 'DN5001002', docExpiry: '22.08.2032', docStatus: 'ok' },
-    { name: 'Ниязов Марат Асанович', role: 'Советник', dob: '09.12.1980', docType: 'Загранпаспорт', docNo: 'DN5001003', docExpiry: '09.12.2030', docStatus: 'ok' },
-    { name: 'Бейшенова Айгуль Каримовна', role: 'Переводчик', dob: '30.03.1990', docType: 'Загранпаспорт', docNo: 'DN5001004', docExpiry: '30.03.2033', docStatus: 'check' },
-    { name: 'Джолдошев Тилек Нурланович', role: 'Помощник', dob: '11.07.1993', docType: 'Загранпаспорт', docNo: 'DN5001005', docExpiry: '11.07.2031', docStatus: 'ok' },
+  { id: 'grp-deleg', name: 'Делегация «Иссык-Куль Форум»', kind: 'Делегация',
+    subgroups: [{ id: 'sg-lead', name: 'Руководство' }, { id: 'sg-support', name: 'Сопровождение' }], members: [
+    { name: 'Абдырахманов Улан Темирович', role: 'Глава делегации', dob: '14.02.1975', docType: 'Загранпаспорт', docNo: 'DN5001001', docExpiry: '14.02.2031', phone: '+996 700 333 444', docStatus: 'ok', subgroup: 'sg-lead' },
+    { name: 'Кыдырова Салтанат Жумабековна', role: 'Секретарь', dob: '22.08.1988', docType: 'Загранпаспорт', docNo: 'DN5001002', docExpiry: '22.08.2032', docStatus: 'ok', subgroup: 'sg-lead' },
+    { name: 'Ниязов Марат Асанович', role: 'Советник', dob: '09.12.1980', docType: 'Загранпаспорт', docNo: 'DN5001003', docExpiry: '09.12.2030', docStatus: 'ok', subgroup: 'sg-lead' },
+    { name: 'Бейшенова Айгуль Каримовна', role: 'Переводчик', dob: '30.03.1990', docType: 'Загранпаспорт', docNo: 'DN5001004', docExpiry: '30.03.2033', docStatus: 'check', subgroup: 'sg-support' },
+    { name: 'Джолдошев Тилек Нурланович', role: 'Помощник', dob: '11.07.1993', docType: 'Загранпаспорт', docNo: 'DN5001005', docExpiry: '11.07.2031', docStatus: 'ok', subgroup: 'sg-support' },
   ] },
 ]);
 
-/* Боковое окно «Группы пассажиров»: список групп, добавление группы в заказ, создание новой группы */
-function PaxGroupsDrawer({ current = [], onAddGroup, onClose }) {
+/* Форма нового пассажира в группе (может применяться и к компании — общий стор сотрудников) */
+function GroupNewMemberForm({ subgroups, defaultSub, companyId, companyName, onClose, onAdd }) {
+  const toast = useToast();
+  const [f, setF] = useState({ name: '', role: '', dob: '', docType: 'Загранпаспорт', docNo: '', docExpiry: '', phone: '', subgroup: defaultSub || '' });
+  const [toCompany, setToCompany] = useState(false);
+  const set = (k) => (e) => setF((p) => ({ ...p, [k]: e.target.value }));
+  const save = () => {
+    if (!f.name.trim()) { toast('Введите ФИО пассажира', 'err'); return; }
+    const m = { ...f, name: f.name.trim(), docStatus: (f.docNo && f.docExpiry) ? 'ok' : 'check' };
+    onAdd(m);
+    if (toCompany && companyId && typeof companyStaffStore === 'function') {
+      const store = companyStaffStore(companyId);
+      store.employees.push({ name: m.name, dept: '', role: m.role || 'Сотрудник', position: m.role || '', email: '', phone: m.phone || '', dob: m.dob || '—', docType: m.docType, docNo: m.docNo, docExpiry: m.docExpiry, inPolicy: true });
+      toast('Пассажир добавлен в группу и в сотрудники компании', 'ok');
+    } else { toast('Пассажир добавлен в группу', 'ok'); }
+    onClose();
+  };
+  return (
+    <Drawer open onClose={onClose} title="Новый пассажир" sub="Добавляется в группу; при желании — и в сотрудники компании" width="min(520px,96vw)"
+      footer={<><Button variant="secondary" onClick={onClose}>Отмена</Button><Button icon="check" onClick={save}>Добавить</Button></>}>
+      <div className="form-grid">
+        <div className="full"><Field label="ФИО" required><Input placeholder="Фамилия Имя Отчество" value={f.name} onChange={set('name')} /></Field></div>
+        <Field label="Роль / должность"><Input placeholder="Напр. Спортсмен" value={f.role} onChange={set('role')} /></Field>
+        <Field label="Дата рождения"><Input placeholder="дд.мм.гггг" value={f.dob} onChange={set('dob')} /></Field>
+        <Field label="Тип документа"><Select options={['Загранпаспорт', 'Паспорт РФ', 'Свидетельство о рождении', 'ID-карта']} value={f.docType} onChange={set('docType')} /></Field>
+        <Field label="Номер документа"><Input value={f.docNo} onChange={set('docNo')} /></Field>
+        <Field label="Действителен до"><Input placeholder="дд.мм.гггг" value={f.docExpiry} onChange={set('docExpiry')} /></Field>
+        <Field label="Телефон"><Input value={f.phone} onChange={set('phone')} /></Field>
+        {subgroups.length > 0 && <Field label="Подгруппа"><Select options={[{ value: '', label: 'Без подгруппы' }, ...subgroups.map((s) => ({ value: s.id, label: s.name }))]} value={f.subgroup} onChange={set('subgroup')} /></Field>}
+      </div>
+      {companyId && (
+        <label style={{ display: 'flex', alignItems: 'flex-start', gap: 10, marginTop: 16, cursor: 'pointer', fontSize: 13.5 }}>
+          <Checkbox on={toCompany} onChange={() => setToCompany((v) => !v)} />
+          <span>Также добавить в сотрудники компании <b>{companyName}</b><div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 2 }}>Появится в разделе «Сотрудники» компании и будет доступен для будущих заказов</div></span>
+        </label>
+      )}
+    </Drawer>
+  );
+}
+
+/* Боковое окно «Группы пассажиров»: список → детально (редактирование, подгруппы, унификация) */
+function PaxGroupsDrawer({ current = [], companyId, companyName, onAddGroup, onClose }) {
   const toast = useToast();
   const [, force] = useState(0);
-  const [view, setView] = useState('list'); // list | create
-  const [expand, setExpand] = useState(null);
+  const rerender = () => force((v) => v + 1);
+  const [view, setView] = useState('list'); // list | create | detail
+  const [activeId, setActiveId] = useState(null);
   const [name, setName] = useState('');
   const [kind, setKind] = useState(PAX_GROUP_KINDS[0]);
   const [fromOrder, setFromOrder] = useState(current.length > 0);
+  const [newSub, setNewSub] = useState('');
+  const [addOpen, setAddOpen] = useState(null); // null | subgroupId ('' = без подгруппы) — открыть форму нового пассажира
+  const [unifyOpen, setUnifyOpen] = useState(false);
+  const [renaming, setRenaming] = useState(false);
+
+  const active = PAX_GROUPS.find((g) => g.id === activeId) || null;
+  const uid = (p) => p + Math.random().toString(36).slice(2, 7);
 
   const addToOrder = (g) => { const r = onAddGroup(g.members); toast('Группа «' + g.name + '» добавлена: +' + r.added + ' пассажиров' + (r.dup ? ' · ' + r.dup + ' уже были в заказе' : ''), 'ok'); onClose(); };
+  const openGroup = (g) => { setActiveId(g.id); setRenaming(false); setView('detail'); };
   const createGroup = () => {
     if (!name.trim()) { toast('Введите название группы', 'err'); return; }
-    const members = fromOrder ? current.map((p) => ({ ...p })) : [];
-    PAX_GROUPS.push({ id: 'grp-' + Date.now(), name: name.trim(), kind, members });
-    toast('Группа «' + name.trim() + '» создана' + (members.length ? ' · ' + members.length + ' пассажиров' : ' (пустая)'), 'ok');
-    setName(''); setFromOrder(current.length > 0); setView('list'); force((v) => v + 1);
+    const members = fromOrder ? current.map((p) => ({ ...p, subgroup: '' })) : [];
+    const g = { id: 'grp-' + Date.now(), name: name.trim(), kind, subgroups: [], members };
+    PAX_GROUPS.push(g);
+    toast('Группа «' + g.name + '» создана' + (members.length ? ' · ' + members.length + ' пассажиров' : ' (пустая)'), 'ok');
+    setName(''); setFromOrder(current.length > 0); openGroup(g);
   };
+  // мутаторы активной группы
+  const removeMember = (idx) => { active.members.splice(idx, 1); rerender(); };
+  const moveMember = (idx, sg) => { active.members[idx].subgroup = sg; rerender(); };
+  const addExisting = (people) => {
+    const have = new Set(active.members.map((m) => m.name));
+    let added = 0;
+    people.forEach((p) => { if (!have.has(p.name)) { active.members.push({ ...p, subgroup: '' }); added++; } });
+    rerender(); toast(added ? ('Добавлено ' + added + ' пассажир(ов)') : 'Все уже в группе', added ? 'ok' : 'info');
+  };
+  const addSubgroup = () => { if (!newSub.trim()) return; (active.subgroups = active.subgroups || []).push({ id: uid('sg-'), name: newSub.trim() }); setNewSub(''); rerender(); };
+  const removeSubgroup = (sgId) => { active.subgroups = (active.subgroups || []).filter((s) => s.id !== sgId); active.members.forEach((m) => { if (m.subgroup === sgId) m.subgroup = ''; }); rerender(); };
+  const deleteGroup = () => { const i = PAX_GROUPS.findIndex((g) => g.id === activeId); if (i >= 0) PAX_GROUPS.splice(i, 1); toast('Группа удалена', 'info'); setView('list'); };
 
+  // ---------- CREATE ----------
   if (view === 'create') return (
     <Drawer open onClose={onClose} title="Новая группа пассажиров" sub="Например «Сборная U-17» или «Делегация»" width="min(520px,96vw)"
       footer={<><Button variant="secondary" onClick={() => setView('list')}>Назад</Button><Button icon="check" onClick={createGroup}>Создать группу</Button></>}>
@@ -856,40 +922,129 @@ function PaxGroupsDrawer({ current = [], onAddGroup, onClose }) {
           Наполнить из текущих участников заказа ({current.length})
         </label>
       )}
-      <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 14 }}>Группу затем можно целиком добавлять в любой заказ. Один пассажир может состоять в нескольких группах.</div>
+      <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 14 }}>После создания можно добавлять участников, делить на подгруппы (как отделы) и добавлять группу в любой заказ.</div>
     </Drawer>
   );
 
+  // ---------- DETAIL (edit) ----------
+  if (view === 'detail' && active) {
+    const subs = active.subgroups || [];
+    const rowsFor = (pred) => active.members.map((m, idx) => ({ m, idx })).filter(({ m }) => pred(m));
+    const sections = [
+      ...subs.map((sg) => ({ sg, rows: rowsFor((m) => m.subgroup === sg.id) })),
+      { sg: null, rows: rowsFor((m) => !m.subgroup || !subs.some((s) => s.id === m.subgroup)) },
+    ].filter((s) => s.sg || s.rows.length);
+    const companyEmployees = (companyId && typeof companyStaffStore === 'function') ? companyStaffStore(companyId).employees : [];
+
+    const memberRow = ({ m, idx }) => (
+      <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 10px', borderRadius: 10, border: '1px solid var(--field-line)', background: '#fff' }}>
+        <Avatar name={m.name} size={30} />
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ fontWeight: 600, fontSize: 13.5, color: 'var(--ink)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{m.name}</div>
+          <div style={{ fontSize: 12, color: 'var(--muted)' }}>{[m.role, m.dob].filter(Boolean).join(' · ') || '—'}</div>
+        </div>
+        <Pill tone={m.docStatus === 'check' ? 'amber' : 'green'}>{m.docStatus === 'check' ? 'проверить' : 'ок'}</Pill>
+        <ActionMenu trigger={<button className="btn btn-ghost btn-icon btn-sm"><Icon name="more" /></button>}
+          items={[
+            ...subs.map((sg) => ({ icon: 'users', label: 'В подгруппу: ' + sg.name, onClick: () => moveMember(idx, sg.id) })),
+            { icon: 'users', label: 'Без подгруппы', onClick: () => moveMember(idx, '') },
+            { sep: true },
+            { icon: 'trash', label: 'Удалить из группы', danger: true, onClick: () => removeMember(idx) },
+          ]} />
+      </div>
+    );
+
+    return (
+      <Drawer open onClose={onClose} width="min(600px,96vw)"
+        title={active.name} sub={active.kind + ' · ' + active.members.length + ' ' + plural(active.members.length, ['пассажир', 'пассажира', 'пассажиров']) + (subs.length ? ' · ' + subs.length + ' ' + plural(subs.length, ['подгруппа', 'подгруппы', 'подгрупп']) : '')}
+        footer={<>
+          <Button variant="secondary" onClick={() => setView('list')}>Назад</Button>
+          <div style={{ flex: 1 }} />
+          <Button variant="secondary" icon="idcard" onClick={() => setUnifyOpen(true)}>Унификация списка</Button>
+          {onAddGroup && <Button icon="plus" onClick={() => addToOrder(active)}>В заказ</Button>}
+        </>}>
+        {/* Настройки группы */}
+        <div className="card card-pad" style={{ marginBottom: 14, background: 'var(--surface-2)' }}>
+          {renaming ? (
+            <div style={{ display: 'flex', gap: 8, alignItems: 'flex-end', flexWrap: 'wrap' }}>
+              <div style={{ flex: 1, minWidth: 180 }}><Field label="Название"><Input value={active.name} onChange={(e) => { active.name = e.target.value; rerender(); }} /></Field></div>
+              <div style={{ width: 190 }}><Field label="Тип"><Select options={PAX_GROUP_KINDS} value={active.kind} onChange={(e) => { active.kind = e.target.value; rerender(); }} /></Field></div>
+              <Button size="sm" icon="check" onClick={() => setRenaming(false)}>Готово</Button>
+            </div>
+          ) : (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <div style={{ flex: 1 }}><div style={{ fontWeight: 700, color: 'var(--ink)' }}>{active.name}</div><div style={{ fontSize: 12, color: 'var(--muted)' }}>{active.kind}</div></div>
+              <Button variant="ghost" size="sm" icon="edit" onClick={() => setRenaming(true)}>Настройки</Button>
+              <ActionMenu trigger={<button className="btn btn-ghost btn-icon btn-sm"><Icon name="more" /></button>}
+                items={[{ icon: 'trash', label: 'Удалить группу', danger: true, onClick: deleteGroup }]} />
+            </div>
+          )}
+        </div>
+
+        {/* Добавление участников */}
+        <div style={{ display: 'flex', gap: 8, marginBottom: 14, flexWrap: 'wrap' }}>
+          <Button size="sm" icon="plus" onClick={() => setAddOpen('')}>Новый пассажир</Button>
+          {current.length > 0 && <Button variant="secondary" size="sm" icon="users" onClick={() => addExisting(current)}>Из участников заказа ({current.length})</Button>}
+          {companyEmployees.length > 0 && (
+            <ActionMenu trigger={<Button variant="secondary" size="sm" icon="building">Из сотрудников компании</Button>}
+              items={companyEmployees.slice(0, 30).map((e) => ({ icon: 'user', label: e.name, onClick: () => addExisting([e]) }))} />
+          )}
+        </div>
+
+        {/* Подгруппы (иерархия как отделы компании) + участники */}
+        {active.members.length === 0
+          ? <EmptyState icon="users" title="В группе пока нет пассажиров" sub="Добавьте участников кнопками выше" />
+          : <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+              {sections.map((s) => (
+                <div key={s.sg ? s.sg.id : '__rest'}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+                    <Icon name={s.sg ? 'users' : 'user'} style={{ width: 15, height: 15, color: 'var(--muted)' }} />
+                    <span style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--ink)' }}>{s.sg ? s.sg.name : 'Без подгруппы'}</span>
+                    <Pill tone="gray">{s.rows.length}</Pill>
+                    <div style={{ flex: 1 }} />
+                    {s.sg && <button type="button" onClick={() => setAddOpen(s.sg.id)} style={{ border: 'none', background: 'none', cursor: 'pointer', fontSize: 12, color: 'var(--blue)', display: 'inline-flex', alignItems: 'center', gap: 4 }}><Icon name="plus" style={{ width: 12, height: 12 }} />пассажир</button>}
+                    {s.sg && <button type="button" title="Удалить подгруппу" onClick={() => removeSubgroup(s.sg.id)} style={{ border: 'none', background: 'none', cursor: 'pointer', color: 'var(--muted-2)', padding: 2 }}><Icon name="x" style={{ width: 13, height: 13 }} /></button>}
+                  </div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>{s.rows.map(memberRow)}</div>
+                </div>
+              ))}
+            </div>}
+
+        {/* Добавить подгруппу (как отдел) */}
+        <div style={{ display: 'flex', gap: 8, marginTop: 14, alignItems: 'center' }}>
+          <Input placeholder="Название подгруппы (напр. «Тренерский штаб»)" value={newSub} onChange={(e) => setNewSub(e.target.value)} style={{ flex: 1 }} />
+          <Button variant="secondary" size="sm" icon="plus" disabled={!newSub.trim()} onClick={addSubgroup}>Подгруппа</Button>
+        </div>
+        <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 8 }}>Подгруппы работают как отделы в компании: делите состав на игроков/штаб, руководство/сопровождение и т.д.</div>
+
+        {addOpen !== null && <GroupNewMemberForm subgroups={subs} defaultSub={addOpen} companyId={companyId} companyName={companyName}
+          onClose={() => setAddOpen(null)} onAdd={(m) => { active.members.push(m); rerender(); }} />}
+        {unifyOpen && <PaxUnifyPanel list={active.members} orderNo={null} onApplyRoster={(newList) => { active.members = newList.map((m, i) => ({ ...m, subgroup: (active.members[i] && active.members[i].subgroup) || '' })); rerender(); }} onClose={() => setUnifyOpen(false)} />}
+      </Drawer>
+    );
+  }
+
+  // ---------- LIST ----------
   return (
-    <Drawer open onClose={onClose} title="Группы пассажиров" sub="Списки по группам — команды, делегации" width="min(560px,96vw)"
+    <Drawer open onClose={onClose} title="Группы пассажиров" sub="Списки по группам — команды, делегации, с подгруппами" width="min(560px,96vw)"
       footer={<><div style={{ flex: 1 }} /><Button icon="plus" onClick={() => setView('create')}>Новая группа</Button></>}>
       {PAX_GROUPS.length === 0 ? <EmptyState icon="users" title="Групп пока нет" sub="Создайте первую группу пассажиров" /> : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
           {PAX_GROUPS.map((g) => (
-            <div key={g.id} className="card card-pad">
-              <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                <span className="oc-svc-ic" style={{ background: 'var(--blue)', width: 38, height: 38 }}><Icon name="users" style={{ width: 18, height: 18 }} /></span>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontWeight: 700, color: 'var(--ink)' }}>{g.name}</div>
-                  <div style={{ fontSize: 12, color: 'var(--muted)', display: 'flex', alignItems: 'center', gap: 6, marginTop: 2 }}>
-                    <Pill tone="gray">{g.kind}</Pill>{g.members.length} {plural(g.members.length, ['пассажир', 'пассажира', 'пассажиров'])}
-                  </div>
+            <button key={g.id} type="button" className="card card-pad" onClick={() => openGroup(g)}
+              style={{ textAlign: 'left', width: '100%', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 12 }}>
+              <span className="oc-svc-ic" style={{ background: 'var(--blue)', width: 38, height: 38, flexShrink: 0 }}><Icon name="users" style={{ width: 18, height: 18 }} /></span>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontWeight: 700, color: 'var(--ink)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{g.name}</div>
+                <div style={{ fontSize: 12, color: 'var(--muted)', display: 'flex', alignItems: 'center', gap: 6, marginTop: 3, flexWrap: 'wrap' }}>
+                  <Pill tone="gray">{g.kind}</Pill>
+                  <span>{g.members.length} {plural(g.members.length, ['пассажир', 'пассажира', 'пассажиров'])}</span>
+                  {g.subgroups && g.subgroups.length > 0 && <span>· {g.subgroups.length} {plural(g.subgroups.length, ['подгруппа', 'подгруппы', 'подгрупп'])}</span>}
                 </div>
-                <Button variant="ghost" size="sm" icon={expand === g.id ? 'chevUp' : 'chevDown'} onClick={() => setExpand(expand === g.id ? null : g.id)}>Состав</Button>
-                {onAddGroup && <Button size="sm" icon="plus" onClick={() => addToOrder(g)}>В заказ</Button>}
               </div>
-              {expand === g.id && (
-                <div style={{ marginTop: 10, borderTop: '1px solid var(--line)', paddingTop: 10, display: 'flex', flexDirection: 'column', gap: 6 }}>
-                  {g.members.map((m, i) => (
-                    <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 13 }}>
-                      <Avatar name={m.name} size={28} />
-                      <div style={{ flex: 1, minWidth: 0 }}><span style={{ fontWeight: 600 }}>{m.name}</span><span style={{ color: 'var(--muted)' }}> · {m.dob} · {m.role}</span></div>
-                      <Pill tone={m.docStatus === 'check' ? 'amber' : 'green'}>{m.docStatus === 'check' ? 'проверить' : 'ок'}</Pill>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
+              {onAddGroup && <Button size="sm" icon="plus" onClick={(e) => { e.stopPropagation(); addToOrder(g); }}>В заказ</Button>}
+              <Icon name="chevRight" style={{ width: 18, height: 18, color: 'var(--muted-2)', flexShrink: 0 }} />
+            </button>
           ))}
         </div>
       )}

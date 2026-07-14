@@ -249,9 +249,43 @@ function CompanyCard({ co, onBack, onOpenOrder }) {
   const staff = companyStaffStore(co.id);
   const [addEmp, setAddEmp] = useState(null);   // { dept? } — открыть форму добавления (опц. в конкретный отдел)
   const [empView, setEmpView] = useState(null); // сотрудник для просмотра профиля
+  const [unifyOpen, setUnifyOpen] = useState(false);   // унификация списка сотрудников (те же инструменты, что и в заказе)
+  const [groupsOpen, setGroupsOpen] = useState(false); // переиспользуемые группы/списки пассажиров
   const addEmployee = (emp) => { staff.employees.push(emp); setStaffTick((n) => n + 1); };
   const removeEmployee = (emp) => { const i = staff.employees.findIndex((e) => e.id === emp.id); if (i >= 0) staff.employees.splice(i, 1); setStaffTick((n) => n + 1); };
   const deptOf = (emp) => staff.departments.find((d) => d.id === emp.dept);
+  // Сотрудник компании → строка пассажира для унификации (документ разбираем из поля doc «ID AC…»).
+  const empToPax = (e) => {
+    const docNo = (e.docNo || (e.doc ? String(e.doc).replace(/^ID\s+/i, '').trim() : '')) || '';
+    return { name: e.name, role: e.role || 'Взрослый', dob: (e.dob && e.dob !== '—') ? e.dob : '',
+      phone: e.phone || '', docType: e.docType || (docNo ? 'Загранпаспорт' : ''), docNo,
+      docExpiry: e.docExpiry || '', docStatus: e.docStatus || 'ok', _empId: e.id, _dept: e.dept || '' };
+  };
+  const paxList = staff.employees.map(empToPax);
+  // Применение дозагруженного/сверенного списка обратно в реестр сотрудников компании.
+  const applyRosterToStaff = (roster) => {
+    const next = roster.map((p) => {
+      const cur = p._empId && staff.employees.find((e) => e.id === p._empId);
+      const docStr = p.docNo ? ('ID ' + p.docNo) : (cur && cur.doc) || '';
+      if (cur) return { ...cur, name: p.name, phone: p.phone || cur.phone, dob: p.dob || cur.dob,
+        doc: docStr, docType: p.docType || cur.docType, docNo: p.docNo || cur.docNo,
+        docExpiry: p.docExpiry || cur.docExpiry, docStatus: p.docStatus || cur.docStatus };
+      return { id: 'E-' + Math.random().toString(36).slice(2, 8).toUpperCase(), name: p.name, phone: p.phone || '',
+        doc: docStr, docType: p.docType || '', docNo: p.docNo || '', docExpiry: p.docExpiry || '',
+        dob: p.dob || '—', role: p.role || 'Взрослый', docStatus: p.docStatus || 'ok', dept: '', position: '', inPolicy: true };
+    });
+    staff.employees.splice(0, staff.employees.length, ...next);
+    setStaffTick((n) => n + 1);
+  };
+  const addGroupToStaff = (members) => {
+    const r = paxMergeAppend(paxList, members);
+    const added = r.list.slice(paxList.length);
+    added.forEach((m) => staff.employees.push({ id: 'E-' + Math.random().toString(36).slice(2, 8).toUpperCase(),
+      name: m.name, phone: m.phone || '', doc: m.docNo ? ('ID ' + m.docNo) : '', docType: m.docType || '', docNo: m.docNo || '',
+      docExpiry: m.docExpiry || '', dob: m.dob || '—', role: m.role || 'Взрослый', docStatus: m.docStatus || 'ok', dept: '', position: '', inPolicy: true }));
+    setStaffTick((n) => n + 1);
+    return r;
+  };
   const orders = ordersOf(co.name);
   const contacts = [{ name: co.dir, role: 'Директор', phone: co.phone, email: co.email }, { name: 'Бухгалтерия', role: 'Финансы', phone: co.phone, email: 'buh@' + co.email.split('@')[1] }].slice(0, co.contacts);
   const fin = companyFinance(co.id);
@@ -309,7 +343,11 @@ function CompanyCard({ co, onBack, onOpenOrder }) {
                 <h3 className="section-title" style={{ margin: 0 }}>Сотрудники компании</h3>
                 <div className="ty-sub" style={{ marginTop: 4 }}>{staff.employees.length} {plural(staff.employees.length, ['сотрудник', 'сотрудника', 'сотрудников'])} · {staff.departments.length} {plural(staff.departments.length, ['подразделение', 'подразделения', 'подразделений'])}</div>
               </div>
-              <Button icon="plus" onClick={() => setAddEmp({})}>Добавить сотрудника</Button>
+              <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+                <Button variant="secondary" icon="users" onClick={() => setGroupsOpen(true)}>Группы пассажиров</Button>
+                <Button variant="secondary" icon="idcard" disabled={!staff.employees.length} onClick={() => setUnifyOpen(true)}>Унификация списка</Button>
+                <Button icon="plus" onClick={() => setAddEmp({})}>Добавить сотрудника</Button>
+              </div>
             </div>
 
             {staff.employees.length === 0 && !staff.departments.length
@@ -335,6 +373,8 @@ function CompanyCard({ co, onBack, onOpenOrder }) {
               onClose={() => setAddEmp(null)} onCreate={addEmployee} />}
             {empView && <EmployeeProfileDrawer emp={empView} dept={deptOf(empView)} coName={co.name}
               onClose={() => setEmpView(null)} onOpenOrder={onOpenOrder} onRemove={removeEmployee} />}
+            {unifyOpen && <PaxUnifyPanel list={paxList} autoBind={co.name} onApplyRoster={applyRosterToStaff} onClose={() => setUnifyOpen(false)} />}
+            {groupsOpen && <PaxGroupsDrawer current={paxList} companyId={co.id} companyName={co.name} onAddGroup={addGroupToStaff} onClose={() => setGroupsOpen(false)} />}
           </div>
         );
       })()}
