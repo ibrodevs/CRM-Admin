@@ -703,14 +703,16 @@ function PaxReconcileModal({ fileName, current, res, onCancel, onConfirm }) {
   const [accNews, setAccNews] = useState(() => res.news.map(() => true));
   const nAcc = accChanges.filter(Boolean).length + accNews.filter(Boolean).length;
   const tgl = (arr, set, i) => set(arr.map((v, j) => j === i ? !v : v));
-  const Section = ({ tone, icon, title, count, children }) => (
-    <div style={{ marginBottom: 16 }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
-        <Icon name={icon} style={{ width: 16, height: 16, color: 'var(--' + tone + ')' }} />
-        <span style={{ fontWeight: 700, color: 'var(--ink)' }}>{title}</span>
-        <Pill tone={tone}>{count}</Pill>
-      </div>
-      {children}
+  const setAll = (set, arr, val) => set(arr.map(() => val));
+  // Заголовок секции с иконкой, счётчиком и переключателем «выделить/снять все»
+  const SecHead = ({ tone, icon, title, count, allOn, onToggleAll }) => (
+    <div className="pxr-sec-h">
+      <Icon name={icon} style={{ width: 17, height: 17, color: 'var(--' + tone + ')' }} />
+      <span className="t">{title}</span>
+      <Pill tone={tone}>{count}</Pill>
+      {onToggleAll && count > 0 && (
+        <button type="button" className="pxr-selall" onClick={onToggleAll}>{allOn ? 'Снять все' : 'Выделить все'}</button>
+      )}
     </div>
   );
   const confirm = () => onConfirm(applyPaxMerge(current, res, accChanges, accNews), {
@@ -721,29 +723,32 @@ function PaxReconcileModal({ fileName, current, res, onCancel, onConfirm }) {
     <Modal open onClose={onCancel} className="pax-modal-wide">
       <div style={{ width: '100%' }}>
         <ModalHeader title="Сверка обновлённого списка" sub={'Файл: ' + fileName + ' · сверка по Имя + Отчество + Дата рождения'} onClose={onCancel} />
-        <div style={{ maxHeight: '64vh', overflowY: 'auto', overflowX: 'hidden', padding: '4px 2px' }}>
-          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 16 }}>
-            <Pill tone="blue">Новые: {res.news.length}</Pill>
-            <Pill tone="amber">Изменения: {res.changes.length}</Pill>
-            <Pill tone="green">Без изменений: {res.unchanged.length}</Pill>
-            {res.errors.length > 0 && <Pill tone="red">Ошибки и спорные: {res.errors.length}</Pill>}
+        <div style={{ maxHeight: '64vh', overflowY: 'auto', overflowX: 'hidden', padding: '2px 2px 4px' }}>
+          {/* Сводка одним взглядом */}
+          <div className="pxr-sum">
+            <div className="pxr-tile blue"><span className="n">{res.news.length}</span><span className="l"><Icon name="plus" style={{ width: 13, height: 13 }} />Новые</span></div>
+            <div className="pxr-tile amber"><span className="n">{res.changes.length}</span><span className="l"><Icon name="edit" style={{ width: 13, height: 13 }} />Изменения</span></div>
+            <div className="pxr-tile green"><span className="n">{res.unchanged.length}</span><span className="l"><Icon name="checkCircle" style={{ width: 13, height: 13 }} />Без изменений</span></div>
+            {res.errors.length > 0 && <div className="pxr-tile red"><span className="n">{res.errors.length}</span><span className="l"><Icon name="alertCircle" style={{ width: 13, height: 13 }} />Ошибки</span></div>}
           </div>
 
           {res.changes.length > 0 && (
-            <Section tone="amber" icon="edit" title="Изменения (было → стало)" count={res.changes.length}>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            <div className="pxr-sec">
+              <SecHead tone="amber" icon="edit" title="Изменения" count={res.changes.length}
+                allOn={accChanges.every(Boolean)} onToggleAll={() => setAll(setAccChanges, accChanges, !accChanges.every(Boolean))} />
+              <div className="pxr-list">
                 {res.changes.map((ch, i) => (
-                  <div key={i} style={{ border: '1px solid var(--line)', borderRadius: 10, padding: '10px 12px', display: 'flex', gap: 12, alignItems: 'flex-start', opacity: accChanges[i] ? 1 : 0.5 }}>
-                    <span style={{ paddingTop: 2 }}><Checkbox on={accChanges[i]} onChange={() => tgl(accChanges, setAccChanges, i)} /></span>
+                  <div key={i} className={'pxr-card amber' + (accChanges[i] ? '' : ' off')} onClick={() => tgl(accChanges, setAccChanges, i)}>
+                    <span style={{ paddingTop: 1, display: 'flex' }} onClick={(e) => e.stopPropagation()}><Checkbox on={accChanges[i]} onChange={() => tgl(accChanges, setAccChanges, i)} /></span>
                     <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ fontWeight: 600, color: 'var(--ink)', marginBottom: 4 }}>{paxNameParts(ch.inc.name).given} {paxNameParts(ch.inc.name).patronymic} <span style={{ color: 'var(--muted)', fontWeight: 400 }}>· {ch.inc.dob || ch.match.dob || 'без даты'}</span></div>
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+                      <div className="pxr-nm" style={{ marginBottom: 6 }}>{paxNameParts(ch.inc.name).given} {paxNameParts(ch.inc.name).patronymic} <span style={{ color: 'var(--muted)', fontWeight: 400 }}>· {ch.inc.dob || ch.match.dob || 'без даты'}</span></div>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
                         {ch.diffs.map((d, j) => (
-                          <div key={j} style={{ fontSize: 12.5, display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-                            <span style={{ color: 'var(--muted)', minWidth: 120 }}>{d.label}</span>
-                            <span style={{ color: 'var(--muted)', textDecoration: 'line-through' }}>{d.was}</span>
-                            <Icon name="arrowRight" style={{ width: 13, height: 13, color: 'var(--amber)' }} />
-                            <span style={{ fontWeight: 700, color: 'var(--ink)' }}>{d.now}</span>
+                          <div key={j} className="pxr-diff">
+                            <span className="dl">{d.label}</span>
+                            <span className="pxr-was">{d.was}</span>
+                            <Icon name="arrowRight" style={{ width: 13, height: 13, color: 'var(--muted-2)' }} />
+                            <span className="pxr-now">{d.now}</span>
                           </div>
                         ))}
                       </div>
@@ -751,48 +756,52 @@ function PaxReconcileModal({ fileName, current, res, onCancel, onConfirm }) {
                   </div>
                 ))}
               </div>
-            </Section>
+            </div>
           )}
 
           {res.news.length > 0 && (
-            <Section tone="blue" icon="plus" title="Новые пассажиры" count={res.news.length}>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            <div className="pxr-sec">
+              <SecHead tone="blue" icon="plus" title="Новые пассажиры" count={res.news.length}
+                allOn={accNews.every(Boolean)} onToggleAll={() => setAll(setAccNews, accNews, !accNews.every(Boolean))} />
+              <div className="pxr-list">
                 {res.news.map((n, i) => (
-                  <div key={i} style={{ border: '1px solid var(--line)', borderRadius: 10, padding: '10px 12px', display: 'flex', gap: 12, alignItems: 'center', opacity: accNews[i] ? 1 : 0.5 }}>
-                    <Checkbox on={accNews[i]} onChange={() => tgl(accNews, setAccNews, i)} />
+                  <div key={i} className={'pxr-card blue' + (accNews[i] ? '' : ' off')} onClick={() => tgl(accNews, setAccNews, i)} style={{ alignItems: 'center' }}>
+                    <span style={{ display: 'flex' }} onClick={(e) => e.stopPropagation()}><Checkbox on={accNews[i]} onChange={() => tgl(accNews, setAccNews, i)} /></span>
                     <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ fontWeight: 600, color: 'var(--ink)' }}>{n.inc.name}</div>
-                      <div style={{ fontSize: 12, color: 'var(--muted)' }}>{n.inc.dob || 'без даты'} · {n.inc.role || 'Взрослый'} · {n.inc.docType || 'без документа'} {n.inc.docNo || ''}</div>
+                      <div className="pxr-nm">{n.inc.name}</div>
+                      <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 2 }}>{n.inc.dob || 'без даты'} · {n.inc.role || 'Взрослый'} · {n.inc.docType || 'без документа'} {n.inc.docNo || ''}</div>
                     </div>
                     <Pill tone="blue">добавить</Pill>
                   </div>
                 ))}
               </div>
-            </Section>
+            </div>
           )}
 
           {res.errors.length > 0 && (
-            <Section tone="red" icon="alertCircle" title="Ошибки и спорные данные" count={res.errors.length}>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+            <div className="pxr-sec">
+              <SecHead tone="red" icon="alertCircle" title="Ошибки и спорные данные" count={res.errors.length} />
+              <div className="pxr-list">
                 {res.errors.map((e, i) => (
-                  <div key={i} style={{ border: '1px solid #f3c2c2', background: '#fdf3f0', borderRadius: 10, padding: '9px 12px', fontSize: 13 }}>
-                    <span style={{ fontWeight: 600, color: 'var(--ink)' }}>{e.inc.name || '—'}</span>
-                    <span style={{ color: 'var(--red)', marginLeft: 8 }}>{e.reason}</span>
+                  <div key={i} className="pxr-err">
+                    <Icon name="alertCircle" style={{ width: 15, height: 15, color: 'var(--red)', flexShrink: 0, position: 'relative', top: 2 }} />
+                    <div><span style={{ fontWeight: 600, color: 'var(--ink)' }}>{e.inc.name || '—'}</span> <span style={{ color: 'var(--red)' }}>— {e.reason}</span></div>
                   </div>
                 ))}
-                <div style={{ fontSize: 12, color: 'var(--muted)' }}>Ошибочные и спорные строки не сохраняются — исправьте файл или заведите пассажира вручную.</div>
               </div>
-            </Section>
+              <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 8 }}>Ошибочные и спорные строки не сохраняются — исправьте файл или заведите пассажира вручную.</div>
+            </div>
           )}
 
           {res.unchanged.length > 0 && (
-            <Section tone="green" icon="checkCircle" title="Без изменений" count={res.unchanged.length}>
-              <div style={{ fontSize: 12.5, color: 'var(--muted)' }}>{res.unchanged.slice(0, 12).map((u) => u.match.name).join(', ')}{res.unchanged.length > 12 ? ' и ещё ' + (res.unchanged.length - 12) : ''}</div>
-            </Section>
+            <div className="pxr-sec" style={{ marginBottom: 4 }}>
+              <SecHead tone="green" icon="checkCircle" title="Без изменений" count={res.unchanged.length} />
+              <div style={{ fontSize: 12.5, color: 'var(--muted)', lineHeight: 1.6 }}>{res.unchanged.slice(0, 12).map((u) => u.match.name).join(', ')}{res.unchanged.length > 12 ? ' и ещё ' + (res.unchanged.length - 12) : ''}</div>
+            </div>
           )}
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '14px 0 2px', borderTop: '1px solid var(--line)', marginTop: 4 }}>
-          <div style={{ fontSize: 12, color: 'var(--muted)' }}>К сохранению: {nAcc} · снимите галочку, чтобы пропустить запись</div>
+        <div className="pxr-foot">
+          <div style={{ fontSize: 12.5, color: 'var(--muted)' }}>К сохранению: <b style={{ color: 'var(--ink)' }}>{nAcc}</b> из {res.changes.length + res.news.length} · снимите отметку, чтобы пропустить запись</div>
           <div style={{ flex: 1 }} />
           <Button variant="secondary" onClick={onCancel}>Отмена</Button>
           <Button icon="check" disabled={nAcc === 0} onClick={confirm}>Подтвердить и сохранить ({nAcc})</Button>

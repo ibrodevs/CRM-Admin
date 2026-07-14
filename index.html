@@ -1594,6 +1594,33 @@ table.tbl tbody tr:last-child td{border-bottom:none}
 /* Широкие модалки унификации пассажиров — иначе контент шире .modal (860px) и обрезается справа */
 .modal.pax-modal-wide{max-width:min(95vw,960px)}
 .modal.pax-modal-xwide{max-width:min(95vw,1040px)}
+/* ---- Сверка обновлённого списка (reconcile) — сводка, карточки, диффы ---- */
+.pxr-sum{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px;margin-bottom:20px}
+.pxr-tile{border:1px solid var(--line);border-radius:12px;padding:12px 14px;background:var(--surface);display:flex;flex-direction:column;gap:6px}
+.pxr-tile .n{font-size:23px;font-weight:700;line-height:1;letter-spacing:-.02em}
+.pxr-tile .l{font-size:12.5px;color:var(--muted);display:flex;align-items:center;gap:6px}
+.pxr-tile.blue{background:var(--blue-soft)}.pxr-tile.blue .n{color:var(--blue)}
+.pxr-tile.amber{background:var(--amber-bg)}.pxr-tile.amber .n{color:var(--amber)}
+.pxr-tile.green{background:var(--green-bg-2)}.pxr-tile.green .n{color:var(--green)}
+.pxr-tile.red{background:var(--red-bg)}.pxr-tile.red .n{color:var(--red)}
+.pxr-sec{margin-bottom:22px}
+.pxr-sec-h{display:flex;align-items:center;gap:9px;margin-bottom:11px}
+.pxr-sec-h .t{font-weight:700;color:var(--ink);font-size:15px}
+.pxr-selall{margin-left:auto;font-size:12.5px;color:var(--blue);background:none;border:none;cursor:pointer;font-weight:600;padding:4px 6px;border-radius:7px;transition:.14s}
+.pxr-selall:hover{background:var(--blue-soft)}
+.pxr-list{display:flex;flex-direction:column;gap:9px}
+.pxr-card{border:1px solid var(--line);border-left:3px solid var(--line);border-radius:11px;padding:11px 13px;display:flex;gap:12px;align-items:flex-start;cursor:pointer;transition:border-color .14s,box-shadow .14s,opacity .14s;background:var(--surface)}
+.pxr-card:hover{box-shadow:var(--shadow-card)}
+.pxr-card.off{opacity:.45}
+.pxr-card.amber{border-left-color:var(--amber)}.pxr-card.amber:hover{border-color:var(--amber)}
+.pxr-card.blue{border-left-color:var(--blue)}.pxr-card.blue:hover{border-color:var(--blue)}
+.pxr-nm{font-weight:600;color:var(--ink)}
+.pxr-diff{display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:12.5px;padding:2px 0}
+.pxr-diff .dl{color:var(--muted);min-width:132px}
+.pxr-was{color:var(--red);background:var(--red-bg);text-decoration:line-through;padding:1px 8px;border-radius:6px;font-size:12px}
+.pxr-now{color:var(--green);background:var(--green-bg-2);font-weight:700;padding:1px 8px;border-radius:6px;font-size:12px}
+.pxr-err{border:1px solid var(--red-bg);background:#fdf3f0;border-radius:10px;padding:9px 12px;font-size:13px;display:flex;gap:8px;align-items:baseline}
+.pxr-foot{position:sticky;bottom:0;display:flex;align-items:center;gap:12px;padding:14px 2px 2px;border-top:1px solid var(--line);margin-top:6px;background:var(--surface)}
 
 /* ===================== HOTEL PICKER ===================== */
 .hp-root{display:flex;flex-direction:column;gap:16px}
