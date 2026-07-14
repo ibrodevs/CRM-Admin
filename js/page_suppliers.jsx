@@ -439,6 +439,234 @@ const SUP_TABS = [
   { key: 'docs', label: 'Документы', icon: 'docs' },
 ];
 
+/* Тело раздела поставщика — общий рендер вкладок для карточки-страницы и бокового окна. */
+function SupplierTabBody({ s, ext, tab, isAirline, apiStatus, checkConn, setPreviewDoc, toast }) {
+  return (
+    <>
+      {tab === 'general' && (
+        <div className="kv">
+          {[['Поставщик', s.name], ['Тип поставщика', ext.supType], ['Вид услуг', ext.kinds.join(', ')],
+            ['Организация', s.org], ['Тип организации', s.orgType || '—'],
+            ['Страна / город', ext.country + ', ' + ext.city],
+            ['Приоритет поставщика', String(ext.priority)],
+            ['Использовать по умолчанию', ext.useDefault ? 'Да' : 'Нет'],
+            ['Статус', s.status],
+            ['Валюта расчета', ext.fin.currency],
+            ext.ops ? ['Поддерживаемые операции', Object.keys(ext.ops).filter((o) => ext.ops[o]).join(', ') || '—'] : null,
+            ext.automation ? ['Автоматизация', (SUP_AUTOMATION.find((a) => a.key === ext.automation) || {}).label || ext.automation] : null,
+          ].filter(Boolean).map(([k, v], i) => (
+            <div className="kv-row" key={i}><span className="k">{k}</span><span className="v">{v}</span></div>
+          ))}
+        </div>
+      )}
+      {tab === 'contacts' && (
+        <div>
+          <div className="kv">
+            {[['Контактное лицо', ext.local.contact],
+              ['Время обработки заявок', (typeof ext.local.processing === 'number' ? ext.local.processing + ' мин' : ext.local.processing)],
+              ['Часы работы', ext.local.hours],
+              ['Адрес', ext.city + ', ул. Киевская 124']].map(([k, v], i) => (
+              <div className="kv-row" key={i}><span className="k">{k}</span><span className="v">{v}</span></div>
+            ))}
+          </div>
+          <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--muted)', margin: '16px 0 8px' }}>Каналы связи (привязка мессенджеров)</div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            {ext.local.comm.map((m) => {
+              const cfg = SUP_COMM_CONFIG[m] || {};
+              const bind = (ext.local.commBind && ext.local.commBind[m]) || (cfg.field ? '—' : 'встроенный чат CRM');
+              return (
+                <div key={m} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 12px', borderRadius: 10, border: '1px solid var(--field-line)' }}>
+                  <span style={{ width: 90, fontSize: 13, fontWeight: 600, color: 'var(--ink)' }}>{m}</span>
+                  <span style={{ flex: 1, fontSize: 13, color: 'var(--body)' }}>{bind}</span>
+                  <Pill tone="green">подключён</Pill>
+                </div>
+              );
+            })}
+          </div>
+          <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 8, display: 'flex', gap: 6, alignItems: 'flex-start' }}>
+            <Icon name="chat" style={{ width: 14, height: 14, color: 'var(--blue)', flexShrink: 0, marginTop: 1 }} />
+            Сообщения из чата заказа уходят поставщику через привязанный канал, ответы возвращаются в тот же тред CRM.
+          </div>
+        </div>
+      )}
+      {tab === 'finance' && <SupplierFinEditor ext={ext} />}
+      {tab === 'search' && <SupplierSearchEditor ext={ext} supplierName={s.name} />}
+      {tab === 'stats' && (
+        <div>
+          <div className="grid-2" style={{ gap: 12, marginBottom: 16 }}>
+            {[['Бронирований', ext.stats.bookings], ['Выписок', ext.stats.issues], ['Возвратов', ext.stats.refunds],
+              ['Среднее время ответа', ext.stats.avgResponse], ['Успешных бронирований', ext.stats.successRate], ['Последнее использование', ext.stats.lastUsed]].map(([l, v], i) => (
+              <div className="stat-card" key={i}><div className="s-label">{l}</div><div className="s-value" style={{ fontSize: 22 }}>{v}</div></div>
+            ))}
+          </div>
+          <div className="card card-pad">
+            <MiniLineChart />
+            <div className="legend" style={{ marginTop: 8 }}>
+              <div className="legend-item" style={{ fontSize: 14 }}><span className="dot" style={{ background: '#ec4444', borderRadius: '50%' }} />Отмены</div>
+              <div className="legend-item" style={{ fontSize: 14 }}><span className="dot" style={{ background: '#2bb96a', borderRadius: '50%' }} />Успешные</div>
+            </div>
+          </div>
+        </div>
+      )}
+      {tab === 'markups' && isAirline && <AviaMarkupEditor supplierName={s.name} />}
+      {tab === 'api' && (
+        <div>
+          <div className="kv">
+            {[['URL API', ext.api.url], ['API Key', ext.api.apiKey], ['Login', ext.api.login], ['Token', ext.api.token],
+              ['Версия API', ext.api.version], ['Последняя синхронизация', ext.api.lastSync]].map(([k, v], i) => (
+              <div className="kv-row" key={i}><span className="k">{k}</span><span className="v" style={{ maxWidth: 280, wordBreak: 'break-all' }}>{v}</span></div>
+            ))}
+            <div className="kv-row"><span className="k">Статус подключения</span><span className="v">
+              <Pill tone={apiStatus === 'ok' || ext.api.status === 'Подключено' ? 'green' : 'red'}>{apiStatus === 'checking' ? 'Проверка…' : (apiStatus === 'ok' ? 'Подключено' : ext.api.status)}</Pill>
+            </span></div>
+          </div>
+          <div style={{ display: 'flex', gap: 10, marginTop: 18 }}>
+            <Button variant="secondary" icon="zap" disabled={apiStatus === 'checking'} onClick={checkConn}>{apiStatus === 'checking' ? 'Проверка…' : 'Проверить подключение'}</Button>
+            <Button variant="secondary" icon="api" onClick={() => toast('Синхронизация запущена', 'ok')}>Синхронизировать сейчас</Button>
+          </div>
+        </div>
+      )}
+      {tab === 'sla' && (
+        <div className="kv">
+          {[['Время ответа (мин)', '30 мин.'], ['Дедлайн подтверждения (часы)', '6 ч.'], ['Каналы уведомлений', ext.local.comm.join(', ')], ['Приоритет поставщика', String(ext.priority)], ['Условия оплаты', ext.fin.settlement + ' · ' + (typeof ext.fin.payTerm === 'number' ? ext.fin.payTerm + ' дн.' : ext.fin.payTerm)]].map(([k, v], i) => (
+            <div className="kv-row" key={i}><span className="k">{k}</span><span className="v" style={{ maxWidth: 240 }}>{v}</span></div>
+          ))}
+        </div>
+      )}
+      {tab === 'docs' && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+          {SUP_DOC_KINDS.map((kind) => (
+            <div key={kind}>
+              <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--muted)', marginBottom: 8 }}>{kind}</div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                {(ext.docs[kind] || []).map((d, i) => (
+                  <button key={i} className="doc-chip" onClick={() => setPreviewDoc({ name: d, kind })} title="Открыть предпросмотр с историей версий">
+                    <span style={{ display: 'flex', alignItems: 'center', gap: 10 }}><Icon name="docs" />{d}</span>
+                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, color: 'var(--blue)', fontSize: 12.5, fontWeight: 600 }}><Icon name="eye" style={{ width: 15, height: 15 }} />Предпросмотр</span>
+                  </button>
+                ))}
+                <button className="doc-chip" style={{ borderStyle: 'dashed', color: 'var(--blue)' }} onClick={() => toast('Загрузка файла: ' + kind, 'info')}>
+                  <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}><Icon name="plus" />Загрузить</span>
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </>
+  );
+}
+
+/* Карточка поставщика — полностраничный вид, оформлен аналогично карточке компании
+   (шапка → горизонтальная навигация по разделам → обзор из карточек → контакты). */
+function SupplierCard({ supplier, onBack, onOpenOrder }) {
+  const toast = useToast();
+  const s = supplier;
+  const ext = supExt(s);
+  const isAirline = s.orgType === 'Авиакомпания';
+  const isApiType = ext.supType !== 'Локальный';
+  const tabs = SUP_TABS.filter((t) => (!t.airlineOnly || isAirline) && (t.key !== 'api' || isApiType));
+  const [tab, setTab] = useState('general');
+  const [apiStatus, setApiStatus] = useState(null);
+  const [previewDoc, setPreviewDoc] = useState(null);
+  const checkConn = () => {
+    setApiStatus('checking');
+    setTimeout(() => { setApiStatus('ok'); ext.api.status = 'Подключено'; ext.api.lastSync = 'только что'; toast('Подключение успешно', 'ok'); }, 1200);
+  };
+  const brand = supBrand(s.name);
+  const ops = ext.ops ? Object.keys(ext.ops).filter((o) => ext.ops[o]) : [];
+  // контактные лица поставщика (аналог блока «Контактные лица» у компании)
+  const contacts = [
+    { name: ext.local.contact, role: 'Менеджер по продажам', phone: (ext.local.commBind && ext.local.commBind['Телефон']) || '+996 (555) 123-456', email: (ext.local.commBind && ext.local.commBind['Email']) || 'sales@example.com' },
+    { name: 'Бухгалтерия', role: 'Финансы и договоры', phone: '+996 (312) 90-12-34', email: 'buh@example.com' },
+  ];
+
+  return (
+    <div className="fade-in">
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>
+        <Button variant="secondary" size="sm" icon="chevLeft" onClick={onBack}>К реестру</Button>
+        <span style={{ color: 'var(--muted)', fontSize: 14 }}>Поставщики / № {s.no}</span>
+      </div>
+
+      {/* Шапка — как у компании */}
+      <div className="card card-pad" style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 18, flexWrap: 'wrap' }}>
+        <span className="oc-svc-ic" style={{ background: brand, width: 56, height: 56, borderRadius: 16 }}><Icon name="suppliers" style={{ width: 26, height: 26 }} /></span>
+        <div style={{ flex: 1, minWidth: 200 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+            <h2 className="card-title">{s.name}</h2>
+            <Pill tone={SUPPLIER_STATUS[s.status]}>{s.status}</Pill>
+            {ext.useDefault && <Pill tone="blue">По умолчанию</Pill>}
+            <Pill tone={ext.supType === 'Локальный' ? 'gray' : 'teal'}>{ext.supType}</Pill>
+          </div>
+          <div style={{ color: 'var(--muted)', fontSize: 14, marginTop: 4 }}>{ext.kinds.join(', ')} · {s.org} · {ext.country}, {ext.city}</div>
+        </div>
+        <div style={{ textAlign: 'right' }}>
+          <div style={{ fontSize: 12, color: 'var(--muted)' }}>Успешных бронирований</div>
+          <div style={{ fontSize: 20, fontWeight: 700, color: 'var(--green)' }}>{ext.stats.successRate}</div>
+          <div style={{ fontSize: 12, color: 'var(--muted)' }}>{ext.stats.bookings} бронирований</div>
+        </div>
+        {isApiType
+          ? <Button icon="zap" disabled={apiStatus === 'checking'} onClick={checkConn}>{apiStatus === 'checking' ? 'Проверка…' : 'Проверить подключение'}</Button>
+          : <Button icon="chat" onClick={() => toast('Открытие чата с поставщиком', 'info')}>Открыть чат</Button>}
+      </div>
+
+      {/* Горизонтальная навигация по разделам — как у компании */}
+      <div style={{ marginBottom: 18 }}>
+        <Tabs tabs={tabs.map((t) => ({ key: t.key, label: t.key === 'general' ? 'Обзор' : t.label }))} value={tab} onChange={setTab} />
+      </div>
+
+      {/* Обзор — два блока (аналог «Реквизиты» / «Банк и договор») + контактные лица */}
+      {tab === 'general' ? (<>
+        <div className="grid-2" style={{ alignItems: 'start' }}>
+          <div className="card card-pad">
+            <h3 className="card-title" style={{ fontSize: 17, marginBottom: 14 }}>Основные данные</h3>
+            <div className="kv">
+              <div className="kv-row"><span className="k">Поставщик</span><span className="v">{s.name}</span></div>
+              <div className="kv-row"><span className="k">Тип поставщика</span><span className="v">{ext.supType}</span></div>
+              <div className="kv-row"><span className="k">Виды услуг</span><span className="v">{ext.kinds.join(', ')}</span></div>
+              <div className="kv-row"><span className="k">Организация</span><span className="v">{s.org}</span></div>
+              <div className="kv-row"><span className="k">Тип организации</span><span className="v">{s.orgType || '—'}</span></div>
+              <div className="kv-row"><span className="k">Страна / город</span><span className="v">{ext.country}, {ext.city}</span></div>
+              <div className="kv-row"><span className="k">Приоритет</span><span className="v">{ext.priority}</span></div>
+              <div className="kv-row"><span className="k">По умолчанию</span><span className="v">{ext.useDefault ? 'Да' : 'Нет'}</span></div>
+            </div>
+          </div>
+          <div className="card card-pad">
+            <h3 className="card-title" style={{ fontSize: 17, marginBottom: 14 }}>Финансовые условия и операции</h3>
+            <div className="kv">
+              <div className="kv-row"><span className="k">Валюта расчёта</span><span className="v">{ext.fin.currency}</span></div>
+              <div className="kv-row"><span className="k">Комиссия</span><span className="v">{supFinSummary(ext)}</span></div>
+              <div className="kv-row"><span className="k">НДС</span><span className="v">{ext.fin.vat}</span></div>
+              <div className="kv-row"><span className="k">Взаиморасчёты</span><span className="v">{ext.fin.settlement}</span></div>
+              <div className="kv-row"><span className="k">Срок оплаты</span><span className="v">{typeof ext.fin.payTerm === 'number' ? ext.fin.payTerm + ' дн.' : ext.fin.payTerm}</span></div>
+              <div className="kv-row"><span className="k">Операции</span><span className="v" style={{ maxWidth: 280 }}>{ops.join(', ') || '—'}</span></div>
+              <div className="kv-row"><span className="k">Автоматизация</span><span className="v">{(SUP_AUTOMATION.find((a) => a.key === ext.automation) || {}).label || '—'}</span></div>
+            </div>
+          </div>
+        </div>
+
+        <h3 className="section-title" style={{ fontSize: 20, margin: '24px 0 14px' }}>Контактные лица</h3>
+        <div className="grid-2">
+          {contacts.map((p, i) => (
+            <div className="card card-pad" key={i} style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+              <Avatar name={p.name} size={44} />
+              <div style={{ flex: 1 }}><div style={{ fontWeight: 600, color: 'var(--ink)' }}>{p.name}</div><div style={{ fontSize: 13, color: 'var(--muted)' }}>{p.role} · {p.phone}</div></div>
+              <button className="icon-btn"><Icon name="mail" /></button><button className="icon-btn"><Icon name="phone" /></button>
+            </div>
+          ))}
+        </div>
+      </>) : (
+        <div className="card card-pad">
+          <SupplierTabBody s={s} ext={ext} tab={tab} isAirline={isAirline} apiStatus={apiStatus}
+            checkConn={checkConn} setPreviewDoc={setPreviewDoc} toast={toast} />
+        </div>
+      )}
+
+      <DocPreviewDrawer open={!!previewDoc} doc={previewDoc} onClose={() => setPreviewDoc(null)} />
+    </div>
+  );
+}
+
 function SupplierModal({ supplier, onClose, onDelete }) {
   const toast = useToast();
   const [tab, setTab] = useState('general');
@@ -499,116 +727,8 @@ function SupplierModal({ supplier, onClose, onDelete }) {
           </div>
           <div style={{ minHeight: 320 }}>
             {header}
-            {tab === 'general' && (
-              <div className="kv">
-                {[['Поставщик', s.name], ['Тип поставщика', ext.supType], ['Вид услуг', ext.kinds.join(', ')],
-                  ['Организация', s.org], ['Тип организации', s.orgType || '—'],
-                  ['Страна / город', ext.country + ', ' + ext.city],
-                  ['Приоритет поставщика', String(ext.priority)],
-                  ['Использовать по умолчанию', ext.useDefault ? 'Да' : 'Нет'],
-                  ['Статус', s.status],
-                  ['Валюта расчета', ext.fin.currency],
-                  ext.ops ? ['Поддерживаемые операции', Object.keys(ext.ops).filter((o) => ext.ops[o]).join(', ') || '—'] : null,
-                  ext.automation ? ['Автоматизация', (SUP_AUTOMATION.find((a) => a.key === ext.automation) || {}).label || ext.automation] : null,
-                ].filter(Boolean).map(([k, v], i) => (
-                  <div className="kv-row" key={i}><span className="k">{k}</span><span className="v">{v}</span></div>
-                ))}
-              </div>
-            )}
-            {tab === 'contacts' && (
-              <div>
-                <div className="kv">
-                  {[['Контактное лицо', ext.local.contact],
-                    ['Время обработки заявок', (typeof ext.local.processing === 'number' ? ext.local.processing + ' мин' : ext.local.processing)],
-                    ['Часы работы', ext.local.hours],
-                    ['Адрес', ext.city + ', ул. Киевская 124']].map(([k, v], i) => (
-                    <div className="kv-row" key={i}><span className="k">{k}</span><span className="v">{v}</span></div>
-                  ))}
-                </div>
-                <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--muted)', margin: '16px 0 8px' }}>Каналы связи (привязка мессенджеров)</div>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                  {ext.local.comm.map((m) => {
-                    const cfg = SUP_COMM_CONFIG[m] || {};
-                    const bind = (ext.local.commBind && ext.local.commBind[m]) || (cfg.field ? '—' : 'встроенный чат CRM');
-                    return (
-                      <div key={m} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 12px', borderRadius: 10, border: '1px solid var(--field-line)' }}>
-                        <span style={{ width: 90, fontSize: 13, fontWeight: 600, color: 'var(--ink)' }}>{m}</span>
-                        <span style={{ flex: 1, fontSize: 13, color: 'var(--body)' }}>{bind}</span>
-                        <Pill tone="green">подключён</Pill>
-                      </div>
-                    );
-                  })}
-                </div>
-                <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 8, display: 'flex', gap: 6, alignItems: 'flex-start' }}>
-                  <Icon name="chat" style={{ width: 14, height: 14, color: 'var(--blue)', flexShrink: 0, marginTop: 1 }} />
-                  Сообщения из чата заказа уходят поставщику через привязанный канал, ответы возвращаются в тот же тред CRM.
-                </div>
-              </div>
-            )}
-            {tab === 'finance' && <SupplierFinEditor ext={ext} />}
-            {tab === 'search' && <SupplierSearchEditor ext={ext} supplierName={s.name} />}
-            {tab === 'stats' && (
-              <div>
-                <div className="grid-2" style={{ gap: 12, marginBottom: 16 }}>
-                  {[['Бронирований', ext.stats.bookings], ['Выписок', ext.stats.issues], ['Возвратов', ext.stats.refunds],
-                    ['Среднее время ответа', ext.stats.avgResponse], ['Успешных бронирований', ext.stats.successRate], ['Последнее использование', ext.stats.lastUsed]].map(([l, v], i) => (
-                    <div className="stat-card" key={i}><div className="s-label">{l}</div><div className="s-value" style={{ fontSize: 22 }}>{v}</div></div>
-                  ))}
-                </div>
-                <div className="card card-pad">
-                  <MiniLineChart />
-                  <div className="legend" style={{ marginTop: 8 }}>
-                    <div className="legend-item" style={{ fontSize: 14 }}><span className="dot" style={{ background: '#ec4444', borderRadius: '50%' }} />Отмены</div>
-                    <div className="legend-item" style={{ fontSize: 14 }}><span className="dot" style={{ background: '#2bb96a', borderRadius: '50%' }} />Успешные</div>
-                  </div>
-                </div>
-              </div>
-            )}
-            {tab === 'markups' && isAirline && <AviaMarkupEditor supplierName={s.name} />}
-            {tab === 'api' && (
-              <div>
-                <div className="kv">
-                  {[['URL API', ext.api.url], ['API Key', ext.api.apiKey], ['Login', ext.api.login], ['Token', ext.api.token],
-                    ['Версия API', ext.api.version], ['Последняя синхронизация', ext.api.lastSync]].map(([k, v], i) => (
-                    <div className="kv-row" key={i}><span className="k">{k}</span><span className="v" style={{ maxWidth: 280, wordBreak: 'break-all' }}>{v}</span></div>
-                  ))}
-                  <div className="kv-row"><span className="k">Статус подключения</span><span className="v">
-                    <Pill tone={apiStatus === 'ok' || ext.api.status === 'Подключено' ? 'green' : 'red'}>{apiStatus === 'checking' ? 'Проверка…' : (apiStatus === 'ok' ? 'Подключено' : ext.api.status)}</Pill>
-                  </span></div>
-                </div>
-                <div style={{ display: 'flex', gap: 10, marginTop: 18 }}>
-                  <Button variant="secondary" icon="zap" disabled={apiStatus === 'checking'} onClick={checkConn}>{apiStatus === 'checking' ? 'Проверка…' : 'Проверить подключение'}</Button>
-                  <Button variant="secondary" icon="api" onClick={() => toast('Синхронизация запущена', 'ok')}>Синхронизировать сейчас</Button>
-                </div>
-              </div>
-            )}
-            {tab === 'sla' && (
-              <div className="kv">
-                {[['Время ответа (мин)', '30 мин.'], ['Дедлайн подтверждения (часы)', '6 ч.'], ['Каналы уведомлений', ext.local.comm.join(', ')], ['Приоритет поставщика', String(ext.priority)], ['Условия оплаты', ext.fin.settlement + ' · ' + (typeof ext.fin.payTerm === 'number' ? ext.fin.payTerm + ' дн.' : ext.fin.payTerm)]].map(([k, v], i) => (
-                  <div className="kv-row" key={i}><span className="k">{k}</span><span className="v" style={{ maxWidth: 240 }}>{v}</span></div>
-                ))}
-              </div>
-            )}
-            {tab === 'docs' && (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-                {SUP_DOC_KINDS.map((kind) => (
-                  <div key={kind}>
-                    <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--muted)', marginBottom: 8 }}>{kind}</div>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                      {(ext.docs[kind] || []).map((d, i) => (
-                        <button key={i} className="doc-chip" onClick={() => setPreviewDoc({ name: d, kind })} title="Открыть предпросмотр с историей версий">
-                          <span style={{ display: 'flex', alignItems: 'center', gap: 10 }}><Icon name="docs" />{d}</span>
-                          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, color: 'var(--blue)', fontSize: 12.5, fontWeight: 600 }}><Icon name="eye" style={{ width: 15, height: 15 }} />Предпросмотр</span>
-                        </button>
-                      ))}
-                      <button className="doc-chip" style={{ borderStyle: 'dashed', color: 'var(--blue)' }} onClick={() => toast('Загрузка файла: ' + kind, 'info')}>
-                        <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}><Icon name="plus" />Загрузить</span>
-                      </button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
+            <SupplierTabBody s={s} ext={ext} tab={tab} isAirline={isAirline} apiStatus={apiStatus}
+              checkConn={checkConn} setPreviewDoc={setPreviewDoc} toast={toast} />
           </div>
         </div>
       </div>
@@ -917,13 +1037,20 @@ function SuppliersPage({ intent, onConsume, suppliers, addSupplier }) {
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
   const [filters, setFilters] = useState({ supType: '', status: '', service: '' });
-  const [modal, setModal] = useState(null);
+  const [active, setActive] = useState(null); // выбранный поставщик → полностраничная карточка
   const [addOpen, setAddOpen] = useState(false);
   const [prioOpen, setPrioOpen] = useState(false);
-  const [confirm, setConfirm] = useState(null);
   const { sort, onSort, apply } = useSort(null);
 
   useEffect(() => { if (intent && intent.type === 'create') { setAddOpen(true); onConsume(); } }, [intent]);
+  useEffect(() => { setPage(1); }, [search, filters]);
+
+  if (active) return (
+    <div className="fade-in">
+      <Topbar title="Карточка поставщика" />
+      <div className="content"><SupplierCard supplier={active} onBack={() => setActive(null)} /></div>
+    </div>
+  );
 
   let rows = suppliers.filter((s) =>
     (s.name.toLowerCase().includes(search.toLowerCase()) || String(s.no).includes(search)) &&
@@ -933,7 +1060,6 @@ function SuppliersPage({ intent, onConsume, suppliers, addSupplier }) {
   rows = apply(rows, { no: (r) => r.no });
   const pages = Math.max(1, Math.ceil(rows.length / PAGE_SIZE));
   const pageRows = rows.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
-  useEffect(() => { setPage(1); }, [search, filters]);
 
   return (
     <div className="fade-in">
@@ -965,7 +1091,7 @@ function SuppliersPage({ intent, onConsume, suppliers, addSupplier }) {
                   {pageRows.map((s, i) => {
                     const ext = supExt(s);
                     return (
-                      <tr key={i} style={{ cursor: 'pointer' }} onClick={() => setModal(s)}>
+                      <tr key={i} style={{ cursor: 'pointer' }} onClick={() => setActive(s)}>
                         <td className="t-strong">{s.no}</td>
                         <td><span style={{ display: 'inline-flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}><SupplierBadge name={s.name} />{ext.useDefault && <Pill tone="blue">по умолч.</Pill>}</span></td>
                         <td><Pill tone={ext.supType === 'Локальный' ? 'gray' : 'teal'}>{ext.supType}</Pill></td>
@@ -984,13 +1110,10 @@ function SuppliersPage({ intent, onConsume, suppliers, addSupplier }) {
         </div>
       </div>
 
-      {modal && <SupplierModal supplier={modal} onClose={() => setModal(null)} onDelete={() => { setConfirm(modal); }} />}
       <SupplierAddDrawer open={addOpen} onClose={() => setAddOpen(false)} onCreated={addSupplier} />
       <SearchPriorityModal open={prioOpen} onClose={() => setPrioOpen(false)} />
-      <ConfirmDialog open={!!confirm} message="Данное действие невозможно будет отменить!"
-        onCancel={() => setConfirm(null)} onConfirm={() => { setConfirm(null); setModal(null); toast('Поставщик удалён', 'ok'); }} />
     </div>
   );
 }
 
-Object.assign(window, { SuppliersPage, SupplierModal, SupplierAddDrawer, SearchPriorityModal, DocPreviewDrawer, supExt, SUP_SERVICE_KINDS, SupplierBadge, supBrand });
+Object.assign(window, { SuppliersPage, SupplierCard, SupplierTabBody, SupplierModal, SupplierAddDrawer, SearchPriorityModal, DocPreviewDrawer, supExt, SUP_SERVICE_KINDS, SupplierBadge, supBrand });
