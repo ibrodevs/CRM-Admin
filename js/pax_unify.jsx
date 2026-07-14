@@ -568,36 +568,34 @@ function PaxUnifyPanel({ list, orderNo, autoBind, onClose, onApplyRoster }) {
       {recon && <PaxReconcileModal fileName={uploadName} current={list} res={recon}
         onCancel={() => setIncoming(null)} onConfirm={applyMerge} />}
 
-      {/* История дозагрузок по заказу */}
+      {/* История дозагрузок — боковое окно */}
       {histOpen && (
-        <Modal open onClose={() => setHistOpen(false)}>
-          <div style={{ width: 'min(640px,94vw)' }}>
-            <ModalHeader title="История дозагрузок списка" sub={orderNo ? 'Заказ № ' + orderNo : ''} onClose={() => setHistOpen(false)} />
-            <div style={{ maxHeight: '60vh', overflow: 'auto' }}>
-              {mergeHist.length === 0 ? <EmptyState icon="clock" title="Загрузок пока не было" /> : (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                  {mergeHist.map((h, i) => (
-                    <div key={i} style={{ border: '1px solid var(--line)', borderRadius: 10, padding: '10px 12px' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-                        <Icon name="download" style={{ width: 14, height: 14, color: 'var(--blue)' }} />
-                        <span style={{ fontWeight: 600, color: 'var(--ink)' }}>{h.fileName || 'Файл'}</span>
-                        <div style={{ flex: 1 }} />
-                        <span style={{ fontSize: 12, color: 'var(--muted)' }}>{h.at} · {h.user}</span>
-                      </div>
-                      <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 8 }}>
-                        <Pill tone="blue">+{h.added} новых</Pill>
-                        <Pill tone="amber">{h.changed} изменений</Pill>
-                        <Pill tone="green">{h.unchanged} без изменений</Pill>
-                        {h.errors > 0 && <Pill tone="red">{h.errors} с ошибками</Pill>}
-                      </div>
+        <Drawer open onClose={() => setHistOpen(false)} title="История дозагрузок списка"
+          sub={mergeHist.length + ' ' + plural(mergeHist.length, ['загрузка', 'загрузки', 'загрузок']) + (orderNo ? ' · заказ № ' + orderNo : '')}
+          width="min(560px,94vw)"
+          footer={<Button variant="secondary" onClick={() => setHistOpen(false)}>Закрыть</Button>}>
+          {mergeHist.length === 0 ? <EmptyState icon="clock" title="Загрузок пока не было" sub="Здесь появятся дозагрузки обновлённого списка с итогами сверки" /> : (
+            <div className="pxh-list">
+              {mergeHist.map((h, i) => (
+                <div key={i} className="pxh-item">
+                  <span className="pxh-ic"><Icon name="download" style={{ width: 16, height: 16 }} /></span>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, flexWrap: 'wrap' }}>
+                      <span style={{ fontWeight: 600, color: 'var(--ink)', overflow: 'hidden', textOverflow: 'ellipsis' }}>{h.fileName || 'Файл'}</span>
+                      <span style={{ marginLeft: 'auto', fontSize: 12, color: 'var(--muted)', whiteSpace: 'nowrap' }}>{h.at} · {h.user}</span>
                     </div>
-                  ))}
+                    <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 9 }}>
+                      <Pill tone="blue">+{h.added} новых</Pill>
+                      <Pill tone="amber">{h.changed} изменений</Pill>
+                      <Pill tone="green">{h.unchanged} без изменений</Pill>
+                      {h.errors > 0 && <Pill tone="red">{h.errors} с ошибками</Pill>}
+                    </div>
+                  </div>
                 </div>
-              )}
+              ))}
             </div>
-            <div style={{ display: 'flex', justifyContent: 'flex-end', paddingTop: 14 }}><Button variant="secondary" onClick={() => setHistOpen(false)}>Закрыть</Button></div>
-          </div>
-        </Modal>
+          )}
+        </Drawer>
       )}
     </StackPanel>
   );
