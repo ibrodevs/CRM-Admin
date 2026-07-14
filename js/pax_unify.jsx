@@ -356,8 +356,13 @@ const PAX_ROUTE_OPTS = [
 ];
 const PAX_EXPORT_FMTS = [['Excel', 'download'], ['CSV', 'docs'], ['PDF', 'docs'], ['Word', 'docs'], ['Текст', 'docs'], ['XML', 'template'], ['JSON', 'template'], ['API', 'api']];
 
-function PaxUnifyPanel({ list, orderNo, autoBind, onClose }) {
+function PaxUnifyPanel({ list, orderNo, autoBind, onClose, onApplyRoster }) {
   const toast = useToast();
+  const fileRef = useRef(null);
+  const [incoming, setIncoming] = useState(null);   // разобранный загруженный список (ждёт сверки)
+  const [uploadName, setUploadName] = useState(''); // имя загруженного файла
+  const [histOpen, setHistOpen] = useState(false);
+  const mergeHist = (typeof PAX_MERGE_HISTORY !== 'undefined' && PAX_MERGE_HISTORY[orderNo]) || [];
   const [userTpls, setUserTpls] = useState([]);
   const allTpls = [...PAX_TEMPLATE_PRESETS, ...userTpls];
   // авто-подбор шаблона по авиакомпании/поставщику заказа (если передан)
@@ -393,6 +398,18 @@ function PaxUnifyPanel({ list, orderNo, autoBind, onClose }) {
     else toast(fmt + ' формируется на стороне сервера и придёт в «Документы»', 'info');
   };
   const saveTpl = (t) => { setUserTpls((cur) => [...cur.filter((x) => x.id !== t.id), t]); setTplId(t.id); };
+
+  // Дозагрузка обновлённого списка (ТЗ #5): выбор файла → «разбор» → сверка → ручное подтверждение
+  const pickFile = () => fileRef.current && fileRef.current.click();
+  const onFile = (e) => { const f = e.target.files && e.target.files[0]; if (e.target) e.target.value = ''; if (!f) return; setUploadName(f.name); setIncoming(simulateIncomingList(list)); };
+  const applyMerge = (newRoster, summary) => {
+    onApplyRoster && onApplyRoster(newRoster);
+    const store = (typeof PAX_MERGE_HISTORY !== 'undefined') ? PAX_MERGE_HISTORY : {};
+    (store[orderNo] || (store[orderNo] = [])).unshift({ at: paxStamp(), user: (typeof CURRENT_USER !== 'undefined' && CURRENT_USER.name) || 'Оператор', ...summary });
+    setIncoming(null);
+    toast('Список сохранён: +' + summary.added + ' новых · ' + summary.changed + ' изменений' + (summary.errors ? ' · ' + summary.errors + ' с ошибками пропущено' : ''), 'ok');
+  };
+  const recon = incoming ? reconcilePax(list, incoming) : null;
 
   return (
     <StackPanel title="Унификация списка пассажиров" width="min(1180px,97vw)" onClose={onClose}
@@ -435,6 +452,18 @@ function PaxUnifyPanel({ list, orderNo, autoBind, onClose }) {
           <Pill tone="gray">Файл: {tpl.file} · {tpl.encoding}</Pill>
           {autoTpl && autoTpl.id === tpl.id && <Pill tone="green"><Icon name="check" style={{ width: 12, height: 12, verticalAlign: -2 }} /> определён автоматически по заказу</Pill>}
         </div>
+      </div>
+
+      {/* Дозагрузка обновлённого списка (ТЗ #5) — сверка перед сохранением */}
+      <div className="card card-pad" style={{ marginBottom: 16, display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap' }}>
+        <span className="oc-svc-ic" style={{ background: 'var(--blue)', width: 40, height: 40 }}><Icon name="download" style={{ width: 18, height: 18 }} /></span>
+        <div style={{ flex: 1, minWidth: 220 }}>
+          <div style={{ fontWeight: 700, color: 'var(--ink)' }}>Дозагрузка обновлённого списка</div>
+          <div style={{ fontSize: 12.5, color: 'var(--muted)', marginTop: 2 }}>Excel, Word, CSV или скан. Система сверит по <b>Имя + Отчество + Дата рождения</b> и покажет: новые · было → стало · без изменений · ошибки. Изменения сохраняются после подтверждения.</div>
+        </div>
+        {mergeHist.length > 0 && <Button variant="ghost" size="sm" icon="clock" onClick={() => setHistOpen(true)}>История ({mergeHist.length})</Button>}
+        <input ref={fileRef} type="file" accept=".xlsx,.xls,.csv,.doc,.docx,.pdf,image/*" style={{ display: 'none' }} onChange={onFile} />
+        <Button icon="plus" onClick={pickFile}>Загрузить файл</Button>
       </div>
 
       {/* проверка полноты */}
@@ -534,12 +563,344 @@ function PaxUnifyPanel({ list, orderNo, autoBind, onClose }) {
       )}
 
       {editorOpen && <PaxTemplateEditor tpl={editorTpl} onClose={() => setEditorOpen(false)} onSave={saveTpl} />}
+
+      {/* Окно сверки загруженного списка перед сохранением */}
+      {recon && <PaxReconcileModal fileName={uploadName} current={list} res={recon}
+        onCancel={() => setIncoming(null)} onConfirm={applyMerge} />}
+
+      {/* История дозагрузок по заказу */}
+      {histOpen && (
+        <Modal open onClose={() => setHistOpen(false)}>
+          <div style={{ width: 'min(640px,94vw)' }}>
+            <ModalHeader title="История дозагрузок списка" sub={orderNo ? 'Заказ № ' + orderNo : ''} onClose={() => setHistOpen(false)} />
+            <div style={{ maxHeight: '60vh', overflow: 'auto' }}>
+              {mergeHist.length === 0 ? <EmptyState icon="clock" title="Загрузок пока не было" /> : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  {mergeHist.map((h, i) => (
+                    <div key={i} style={{ border: '1px solid var(--line)', borderRadius: 10, padding: '10px 12px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                        <Icon name="download" style={{ width: 14, height: 14, color: 'var(--blue)' }} />
+                        <span style={{ fontWeight: 600, color: 'var(--ink)' }}>{h.fileName || 'Файл'}</span>
+                        <div style={{ flex: 1 }} />
+                        <span style={{ fontSize: 12, color: 'var(--muted)' }}>{h.at} · {h.user}</span>
+                      </div>
+                      <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 8 }}>
+                        <Pill tone="blue">+{h.added} новых</Pill>
+                        <Pill tone="amber">{h.changed} изменений</Pill>
+                        <Pill tone="green">{h.unchanged} без изменений</Pill>
+                        {h.errors > 0 && <Pill tone="red">{h.errors} с ошибками</Pill>}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', paddingTop: 14 }}><Button variant="secondary" onClick={() => setHistOpen(false)}>Закрыть</Button></div>
+          </div>
+        </Modal>
+      )}
     </StackPanel>
+  );
+}
+
+/* ============================================================
+   ДОЗАГРУЗКА / СВЕРКА СПИСКА ПАССАЖИРОВ (ТЗ #5)
+   Идентификация одного пассажира — по НЕИЗМЕННЫМ данным: Имя + Отчество + Дата рождения.
+   Фамилия и документ могут меняться (смена по браку и т.п.) — это фиксируется как изменение.
+   Изменения ВСЕГДА подтверждаются вручную (как модалка подтверждения при авиа-отмене).
+   ============================================================ */
+function paxNorm(s) { return String(s == null ? '' : s).trim().toLowerCase().replace(/\s+/g, ' '); }
+// Один и тот же пассажир: совпадают Имя и Отчество; дата рождения — якорь (если указана у обоих, должна совпадать)
+function paxSamePerson(a, b) {
+  const na = paxNameParts(a.name), nb = paxNameParts(b.name);
+  if (paxNorm(na.given) !== paxNorm(nb.given)) return false;
+  if (paxNorm(na.patronymic) !== paxNorm(nb.patronymic)) return false;
+  if (a.dob && b.dob && paxNorm(a.dob) !== paxNorm(b.dob)) return false;
+  return true;
+}
+// Поля, по которым система сверяет и показывает «было → стало». Имя/Отчество/ДР — неизменны и не правятся.
+const PAX_DIFF_FIELDS = [
+  ['surname', 'Фамилия', (p) => paxNameParts(p.name).surname],
+  ['dob', 'Дата рождения', (p) => p.dob || ''],
+  ['role', 'Тип', (p) => p.role || ''],
+  ['docType', 'Тип документа', (p) => p.docType || ''],
+  ['docNo', 'Номер документа', (p) => p.docNo || ''],
+  ['docExpiry', 'Срок действия', (p) => p.docExpiry || ''],
+  ['phone', 'Телефон', (p) => p.phone || ''],
+];
+// Сверка загруженного списка с текущим: новые / изменения (было→стало) / без изменений / ошибки и спорные
+function reconcilePax(current, incoming) {
+  const res = { news: [], changes: [], unchanged: [], errors: [] };
+  const seen = [];
+  incoming.forEach((inc) => {
+    const parts = paxNameParts(inc.name);
+    if (!parts.given) { res.errors.push({ inc, reason: 'Не распознаны имя/отчество — нечем сверить' }); return; }
+    if (seen.some((s) => paxSamePerson(s, inc))) { res.errors.push({ inc, reason: 'Дубликат внутри загруженного списка' }); return; }
+    seen.push(inc);
+    const match = current.find((c) => paxSamePerson(c, inc));
+    if (!match) {
+      // совпало Имя+Отчество, но отличается дата рождения → возможен однофамилец (спорное)
+      const clash = current.find((c) => { const nc = paxNameParts(c.name); return paxNorm(nc.given) === paxNorm(parts.given) && paxNorm(nc.patronymic) === paxNorm(parts.patronymic) && c.dob && inc.dob && paxNorm(c.dob) !== paxNorm(inc.dob); });
+      if (clash) res.errors.push({ inc, reason: 'Совпадает имя и отчество, но другая дата рождения — проверьте, не однофамилец ли' });
+      else res.news.push({ inc });
+      return;
+    }
+    // сверяем изменяемые поля; пустые значения в файле НЕ затирают существующие данные
+    const diffs = PAX_DIFF_FIELDS.map(([field, label, get]) => {
+      const was = get(match), now = get(inc);
+      return (now && paxNorm(was) !== paxNorm(now)) ? { field, label, was: was || '—', now } : null;
+    }).filter(Boolean);
+    if (diffs.length) res.changes.push({ match, inc, diffs });
+    else res.unchanged.push({ match });
+  });
+  return res;
+}
+// Применение подтверждённых изменений к ростеру (возвращает новый список)
+function applyPaxMerge(current, res, accChanges, accNews) {
+  const out = current.map((p) => ({ ...p }));
+  res.changes.forEach((ch, i) => {
+    if (!accChanges[i]) return;
+    const p = out.find((x) => paxSamePerson(x, ch.inc));
+    if (!p) return;
+    ch.diffs.forEach((d) => {
+      if (d.field === 'surname') { const np = paxNameParts(p.name); p.name = [d.now, np.given, np.patronymic].filter(Boolean).join(' '); }
+      else p[d.field] = d.now;
+      if (d.field === 'docNo' || d.field === 'docType' || d.field === 'docExpiry') p.docStatus = 'ok';
+    });
+  });
+  res.news.forEach((n, i) => { if (accNews[i]) out.push({ ...n.inc, docStatus: n.inc.docStatus || 'ok' }); });
+  return out;
+}
+// Добавление членов группы к участникам заказа без дублей (по неизменному ключу)
+function paxMergeAppend(current, add) {
+  const out = current.slice(); let added = 0, dup = 0;
+  add.forEach((m) => { if (out.some((p) => paxSamePerson(p, m))) dup++; else { out.push({ ...m }); added++; } });
+  return { list: out, added, dup };
+}
+// Детерминированная дата рождения (для демо — «файл дополнил недостающие данные»)
+function paxSynthDob(name) { let h = 0; for (let i = 0; i < name.length; i++) h = (h * 31 + name.charCodeAt(i)) >>> 0; const d = (h % 28) + 1, m = (Math.floor(h / 28) % 12) + 1, y = 1980 + (Math.floor(h / 336) % 21); return String(d).padStart(2, '0') + '.' + String(m).padStart(2, '0') + '.' + y; }
+// Демо-«разбор файла»: из текущего списка формируем обновлённый (смена фамилии, обновление документа,
+// дополнение даты рождения, новые пассажиры и одна ошибочная строка) — чтобы сверка была наглядной.
+function simulateIncomingList(current) {
+  const inc = current.map((p) => ({ ...p }));
+  const femIdx = inc.findIndex((p) => guessPaxSex(p.name) === 'F');
+  const ci = femIdx >= 0 ? femIdx : 0;
+  if (inc[ci]) { const np = paxNameParts(inc[ci].name); inc[ci] = { ...inc[ci], name: ['Асанова', np.given, np.patronymic].filter(Boolean).join(' '), dob: inc[ci].dob || paxSynthDob(inc[ci].name), docType: 'Загранпаспорт', docNo: 'AC7788990', docExpiry: '12.05.2034' }; }
+  if (inc[1] && inc.indexOf(inc[1]) !== ci) inc[1] = { ...inc[1], docNo: 'AC5566778', docExpiry: '30.06.2035' };
+  if (inc[2] && !inc[2].dob) inc[2] = { ...inc[2], dob: paxSynthDob(inc[2].name) }; // файл дополнил дату рождения
+  inc.push({ name: 'Осмонов Тимур Бакытович', role: 'Взрослый', dob: '19.02.1995', docType: 'Загранпаспорт', docNo: 'AC9012345', docExpiry: '19.02.2033', phone: '+996 700 908 070', docStatus: 'ok' });
+  inc.push({ name: 'Осмонова Аружан Тимуровна', role: 'Ребёнок', dob: '05.09.2016', docType: 'Свидетельство о рождении', docNo: 'VII-556677', docExpiry: '05.09.2026', docStatus: 'check' });
+  inc.push({ name: 'Бекова Асель', role: 'Взрослый', dob: '', docType: 'Паспорт РФ', docNo: '4500 111222' }); // ошибка: нет даты рождения
+  return inc;
+}
+function paxStamp() { return (typeof nowStamp === 'function') ? nowStamp() : new Date().toLocaleString('ru-RU'); }
+// История дозагрузок по заказу (сохраняется в системе)
+const PAX_MERGE_HISTORY = window.PAX_MERGE_HISTORY || (window.PAX_MERGE_HISTORY = {});
+
+/* Модальное окно сверки перед сохранением — «что меняется, что исправляется, что сохраняется» */
+function PaxReconcileModal({ fileName, current, res, onCancel, onConfirm }) {
+  const [accChanges, setAccChanges] = useState(() => res.changes.map(() => true));
+  const [accNews, setAccNews] = useState(() => res.news.map(() => true));
+  const nAcc = accChanges.filter(Boolean).length + accNews.filter(Boolean).length;
+  const tgl = (arr, set, i) => set(arr.map((v, j) => j === i ? !v : v));
+  const Section = ({ tone, icon, title, count, children }) => (
+    <div style={{ marginBottom: 16 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+        <Icon name={icon} style={{ width: 16, height: 16, color: 'var(--' + tone + ')' }} />
+        <span style={{ fontWeight: 700, color: 'var(--ink)' }}>{title}</span>
+        <Pill tone={tone}>{count}</Pill>
+      </div>
+      {children}
+    </div>
+  );
+  const confirm = () => onConfirm(applyPaxMerge(current, res, accChanges, accNews), {
+    fileName, added: accNews.filter(Boolean).length, changed: accChanges.filter(Boolean).length,
+    unchanged: res.unchanged.length, errors: res.errors.length,
+  });
+  return (
+    <Modal open onClose={onCancel}>
+      <div style={{ width: 'min(920px,95vw)' }}>
+        <ModalHeader title="Сверка обновлённого списка" sub={'Файл: ' + fileName + ' · сверка по Имя + Отчество + Дата рождения'} onClose={onCancel} />
+        <div style={{ maxHeight: '64vh', overflow: 'auto', padding: '4px 2px' }}>
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 16 }}>
+            <Pill tone="blue">Новые: {res.news.length}</Pill>
+            <Pill tone="amber">Изменения: {res.changes.length}</Pill>
+            <Pill tone="green">Без изменений: {res.unchanged.length}</Pill>
+            {res.errors.length > 0 && <Pill tone="red">Ошибки и спорные: {res.errors.length}</Pill>}
+          </div>
+
+          {res.changes.length > 0 && (
+            <Section tone="amber" icon="edit" title="Изменения (было → стало)" count={res.changes.length}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                {res.changes.map((ch, i) => (
+                  <div key={i} style={{ border: '1px solid var(--line)', borderRadius: 10, padding: '10px 12px', display: 'flex', gap: 12, alignItems: 'flex-start', opacity: accChanges[i] ? 1 : 0.5 }}>
+                    <span style={{ paddingTop: 2 }}><Checkbox on={accChanges[i]} onChange={() => tgl(accChanges, setAccChanges, i)} /></span>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontWeight: 600, color: 'var(--ink)', marginBottom: 4 }}>{paxNameParts(ch.inc.name).given} {paxNameParts(ch.inc.name).patronymic} <span style={{ color: 'var(--muted)', fontWeight: 400 }}>· {ch.inc.dob || ch.match.dob || 'без даты'}</span></div>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+                        {ch.diffs.map((d, j) => (
+                          <div key={j} style={{ fontSize: 12.5, display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                            <span style={{ color: 'var(--muted)', minWidth: 120 }}>{d.label}</span>
+                            <span style={{ color: 'var(--muted)', textDecoration: 'line-through' }}>{d.was}</span>
+                            <Icon name="arrowRight" style={{ width: 13, height: 13, color: 'var(--amber)' }} />
+                            <span style={{ fontWeight: 700, color: 'var(--ink)' }}>{d.now}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </Section>
+          )}
+
+          {res.news.length > 0 && (
+            <Section tone="blue" icon="plus" title="Новые пассажиры" count={res.news.length}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                {res.news.map((n, i) => (
+                  <div key={i} style={{ border: '1px solid var(--line)', borderRadius: 10, padding: '10px 12px', display: 'flex', gap: 12, alignItems: 'center', opacity: accNews[i] ? 1 : 0.5 }}>
+                    <Checkbox on={accNews[i]} onChange={() => tgl(accNews, setAccNews, i)} />
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontWeight: 600, color: 'var(--ink)' }}>{n.inc.name}</div>
+                      <div style={{ fontSize: 12, color: 'var(--muted)' }}>{n.inc.dob || 'без даты'} · {n.inc.role || 'Взрослый'} · {n.inc.docType || 'без документа'} {n.inc.docNo || ''}</div>
+                    </div>
+                    <Pill tone="blue">добавить</Pill>
+                  </div>
+                ))}
+              </div>
+            </Section>
+          )}
+
+          {res.errors.length > 0 && (
+            <Section tone="red" icon="alertCircle" title="Ошибки и спорные данные" count={res.errors.length}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                {res.errors.map((e, i) => (
+                  <div key={i} style={{ border: '1px solid #f3c2c2', background: '#fdf3f0', borderRadius: 10, padding: '9px 12px', fontSize: 13 }}>
+                    <span style={{ fontWeight: 600, color: 'var(--ink)' }}>{e.inc.name || '—'}</span>
+                    <span style={{ color: 'var(--red)', marginLeft: 8 }}>{e.reason}</span>
+                  </div>
+                ))}
+                <div style={{ fontSize: 12, color: 'var(--muted)' }}>Ошибочные и спорные строки не сохраняются — исправьте файл или заведите пассажира вручную.</div>
+              </div>
+            </Section>
+          )}
+
+          {res.unchanged.length > 0 && (
+            <Section tone="green" icon="checkCircle" title="Без изменений" count={res.unchanged.length}>
+              <div style={{ fontSize: 12.5, color: 'var(--muted)' }}>{res.unchanged.slice(0, 12).map((u) => u.match.name).join(', ')}{res.unchanged.length > 12 ? ' и ещё ' + (res.unchanged.length - 12) : ''}</div>
+            </Section>
+          )}
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '14px 0 2px', borderTop: '1px solid var(--line)', marginTop: 4 }}>
+          <div style={{ fontSize: 12, color: 'var(--muted)' }}>К сохранению: {nAcc} · снимите галочку, чтобы пропустить запись</div>
+          <div style={{ flex: 1 }} />
+          <Button variant="secondary" onClick={onCancel}>Отмена</Button>
+          <Button icon="check" disabled={nAcc === 0} onClick={confirm}>Подтвердить и сохранить ({nAcc})</Button>
+        </div>
+      </div>
+    </Modal>
+  );
+}
+
+/* ============================================================
+   ГРУППЫ ПАССАЖИРОВ (ТЗ #5) — переиспользуемые списки (спортивные команды, делегации).
+   Группу можно целиком добавить в заказ. Пассажир может состоять в нескольких группах.
+   ============================================================ */
+const PAX_GROUP_KINDS = ['Спортивная команда', 'Делегация', 'Семья', 'Корпоративная группа', 'Прочее'];
+const PAX_GROUPS = window.PAX_GROUPS || (window.PAX_GROUPS = [
+  { id: 'grp-u17', name: 'Сборная U-17 (футбол)', kind: 'Спортивная команда', members: [
+    { name: 'Асанов Данияр Русланович', role: 'Спортсмен', dob: '12.04.2009', docType: 'Загранпаспорт', docNo: 'AN1002003', docExpiry: '12.04.2030', docStatus: 'ok' },
+    { name: 'Ибраев Тимур Азаматович', role: 'Спортсмен', dob: '03.07.2009', docType: 'Загранпаспорт', docNo: 'AN1002004', docExpiry: '03.07.2030', docStatus: 'ok' },
+    { name: 'Сыдыков Алишер Маратович', role: 'Спортсмен', dob: '21.11.2009', docType: 'Загранпаспорт', docNo: 'AN1002005', docExpiry: '21.11.2030', docStatus: 'ok' },
+    { name: 'Токтосунов Эрлан Бекович', role: 'Спортсмен', dob: '08.02.2010', docType: 'Загранпаспорт', docNo: 'AN1002006', docExpiry: '08.02.2031', docStatus: 'check' },
+    { name: 'Жапаров Нурбек Асанович', role: 'Спортсмен', dob: '30.05.2009', docType: 'Загранпаспорт', docNo: 'AN1002007', docExpiry: '30.05.2030', docStatus: 'ok' },
+    { name: 'Мамбетов Ислам Русланович', role: 'Спортсмен', dob: '17.09.2009', docType: 'Загранпаспорт', docNo: 'AN1002008', docExpiry: '17.09.2030', docStatus: 'ok' },
+    { name: 'Осмонов Кайрат Бакытович', role: 'Тренер', dob: '05.06.1982', docType: 'Загранпаспорт', docNo: 'AN2003001', docExpiry: '05.06.2032', phone: '+996 700 111 222', docStatus: 'ok' },
+  ] },
+  { id: 'grp-deleg', name: 'Делегация «Иссык-Куль Форум»', kind: 'Делегация', members: [
+    { name: 'Абдырахманов Улан Темирович', role: 'Глава делегации', dob: '14.02.1975', docType: 'Загранпаспорт', docNo: 'DN5001001', docExpiry: '14.02.2031', phone: '+996 700 333 444', docStatus: 'ok' },
+    { name: 'Кыдырова Салтанат Жумабековна', role: 'Секретарь', dob: '22.08.1988', docType: 'Загранпаспорт', docNo: 'DN5001002', docExpiry: '22.08.2032', docStatus: 'ok' },
+    { name: 'Ниязов Марат Асанович', role: 'Советник', dob: '09.12.1980', docType: 'Загранпаспорт', docNo: 'DN5001003', docExpiry: '09.12.2030', docStatus: 'ok' },
+    { name: 'Бейшенова Айгуль Каримовна', role: 'Переводчик', dob: '30.03.1990', docType: 'Загранпаспорт', docNo: 'DN5001004', docExpiry: '30.03.2033', docStatus: 'check' },
+    { name: 'Джолдошев Тилек Нурланович', role: 'Помощник', dob: '11.07.1993', docType: 'Загранпаспорт', docNo: 'DN5001005', docExpiry: '11.07.2031', docStatus: 'ok' },
+  ] },
+]);
+
+/* Боковое окно «Группы пассажиров»: список групп, добавление группы в заказ, создание новой группы */
+function PaxGroupsDrawer({ current = [], onAddGroup, onClose }) {
+  const toast = useToast();
+  const [, force] = useState(0);
+  const [view, setView] = useState('list'); // list | create
+  const [expand, setExpand] = useState(null);
+  const [name, setName] = useState('');
+  const [kind, setKind] = useState(PAX_GROUP_KINDS[0]);
+  const [fromOrder, setFromOrder] = useState(current.length > 0);
+
+  const addToOrder = (g) => { const r = onAddGroup(g.members); toast('Группа «' + g.name + '» добавлена: +' + r.added + ' пассажиров' + (r.dup ? ' · ' + r.dup + ' уже были в заказе' : ''), 'ok'); onClose(); };
+  const createGroup = () => {
+    if (!name.trim()) { toast('Введите название группы', 'err'); return; }
+    const members = fromOrder ? current.map((p) => ({ ...p })) : [];
+    PAX_GROUPS.push({ id: 'grp-' + Date.now(), name: name.trim(), kind, members });
+    toast('Группа «' + name.trim() + '» создана' + (members.length ? ' · ' + members.length + ' пассажиров' : ' (пустая)'), 'ok');
+    setName(''); setFromOrder(current.length > 0); setView('list'); force((v) => v + 1);
+  };
+
+  if (view === 'create') return (
+    <Drawer open onClose={onClose} title="Новая группа пассажиров" sub="Например «Сборная U-17» или «Делегация»" width="min(520px,96vw)"
+      footer={<><Button variant="secondary" onClick={() => setView('list')}>Назад</Button><Button icon="check" onClick={createGroup}>Создать группу</Button></>}>
+      <Field label="Название группы" required><Input placeholder="Напр. «Сборная U-17»" value={name} onChange={(e) => setName(e.target.value)} /></Field>
+      <div style={{ marginTop: 14 }}><Field label="Тип группы"><Select options={PAX_GROUP_KINDS} value={kind} onChange={(e) => setKind(e.target.value)} /></Field></div>
+      {current.length > 0 && (
+        <label style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 16, cursor: 'pointer', fontSize: 14 }}>
+          <Checkbox on={fromOrder} onChange={() => setFromOrder((v) => !v)} />
+          Наполнить из текущих участников заказа ({current.length})
+        </label>
+      )}
+      <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 14 }}>Группу затем можно целиком добавлять в любой заказ. Один пассажир может состоять в нескольких группах.</div>
+    </Drawer>
+  );
+
+  return (
+    <Drawer open onClose={onClose} title="Группы пассажиров" sub="Списки по группам — команды, делегации" width="min(560px,96vw)"
+      footer={<><div style={{ flex: 1 }} /><Button icon="plus" onClick={() => setView('create')}>Новая группа</Button></>}>
+      {PAX_GROUPS.length === 0 ? <EmptyState icon="users" title="Групп пока нет" sub="Создайте первую группу пассажиров" /> : (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+          {PAX_GROUPS.map((g) => (
+            <div key={g.id} className="card card-pad">
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                <span className="oc-svc-ic" style={{ background: 'var(--blue)', width: 38, height: 38 }}><Icon name="users" style={{ width: 18, height: 18 }} /></span>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontWeight: 700, color: 'var(--ink)' }}>{g.name}</div>
+                  <div style={{ fontSize: 12, color: 'var(--muted)', display: 'flex', alignItems: 'center', gap: 6, marginTop: 2 }}>
+                    <Pill tone="gray">{g.kind}</Pill>{g.members.length} {plural(g.members.length, ['пассажир', 'пассажира', 'пассажиров'])}
+                  </div>
+                </div>
+                <Button variant="ghost" size="sm" icon={expand === g.id ? 'chevUp' : 'chevDown'} onClick={() => setExpand(expand === g.id ? null : g.id)}>Состав</Button>
+                {onAddGroup && <Button size="sm" icon="plus" onClick={() => addToOrder(g)}>В заказ</Button>}
+              </div>
+              {expand === g.id && (
+                <div style={{ marginTop: 10, borderTop: '1px solid var(--line)', paddingTop: 10, display: 'flex', flexDirection: 'column', gap: 6 }}>
+                  {g.members.map((m, i) => (
+                    <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 13 }}>
+                      <Avatar name={m.name} size={28} />
+                      <div style={{ flex: 1, minWidth: 0 }}><span style={{ fontWeight: 600 }}>{m.name}</span><span style={{ color: 'var(--muted)' }}> · {m.dob} · {m.role}</span></div>
+                      <Pill tone={m.docStatus === 'check' ? 'amber' : 'green'}>{m.docStatus === 'check' ? 'проверить' : 'ок'}</Pill>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+    </Drawer>
   );
 }
 
 Object.assign(window, {
   PaxUnifyPanel, PaxTemplateEditor, PAX_TEMPLATE_PRESETS,
+  paxSamePerson, reconcilePax, applyPaxMerge, paxMergeAppend, simulateIncomingList, PAX_MERGE_HISTORY,
+  PaxReconcileModal, PaxGroupsDrawer, PAX_GROUPS, PAX_GROUP_KINDS,
   paxTranslit, fmtPaxName, fmtPaxDate, fmtPaxSex, fmtPaxNat, guessPaxSex,
   preparePax, paxCell, validatePaxRow, paxExport,
 });

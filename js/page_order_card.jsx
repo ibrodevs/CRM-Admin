@@ -434,9 +434,12 @@ function PaxGroupCard({ index, name, members, onPassport, onEdit, onAddDoc }) {
   );
 }
 
-function TabParticipants({ list, isGroup, groups, fresh, orderNo, orderAirline, onPassport, onAdd, onEdit, onAddDoc }) {
+function TabParticipants({ list, isGroup, groups, fresh, orderNo, orderAirline, onPassport, onAdd, onEdit, onAddDoc, onApplyRoster }) {
   const [unifyOpen, setUnifyOpen] = useState(false);
+  const [groupsOpen, setGroupsOpen] = useState(false);
   const toast = useToast();
+  // Добавление готовой группы пассажиров целиком в заказ (без дублей по неизменному ключу)
+  const addGroup = (members) => { const r = paxMergeAppend(list, members); onApplyRoster && onApplyRoster(r.list); return r; };
   if (!list.length) return (
     <div className="fade-in">
       <EmptyState icon="users" title="Участников пока нет" sub="Добавьте пассажиров поездки и их документы здесь" />
@@ -467,6 +470,7 @@ function TabParticipants({ list, isGroup, groups, fresh, orderNo, orderAirline, 
         </div>
       )}
       <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginBottom: 14 }}>
+        <Button variant="secondary" icon="users" onClick={() => setGroupsOpen(true)}>Группы пассажиров</Button>
         <Button variant="secondary" icon="idcard" onClick={() => setUnifyOpen(true)}>Унификация списка</Button>
         <Button icon="plus" onClick={onAdd}>Добавить участника</Button>
       </div>
@@ -509,7 +513,8 @@ function TabParticipants({ list, isGroup, groups, fresh, orderNo, orderAirline, 
           </div>
         );
       })()}
-      {unifyOpen && <PaxUnifyPanel list={list} orderNo={orderNo} autoBind={orderAirline} onClose={() => setUnifyOpen(false)} />}
+      {unifyOpen && <PaxUnifyPanel list={list} orderNo={orderNo} autoBind={orderAirline} onApplyRoster={onApplyRoster} onClose={() => setUnifyOpen(false)} />}
+      {groupsOpen && <PaxGroupsDrawer current={list} onAddGroup={addGroup} onClose={() => setGroupsOpen(false)} />}
     </div>
   );
 }
@@ -1875,7 +1880,7 @@ function OrderCard({ order, onBack, initTab, initSvc, initSvcSearch, fresh, onOp
     switch (tab) {
       case 'overview': return <TabOverview order={order} />;
       case 'clients': return <TabClients order={order} onOpenChat={onOpenChat} />;
-      case 'participants': return <TabParticipants list={participants} isGroup={requestType === 'Групповая'} groups={requestType === 'Групповая' ? AVIA_GROUPS_SEED : null} fresh={fresh} orderNo={order.no} orderAirline={(services.find((s) => s.kind === 'Авиа') || {}).supplier} onPassport={setPassport} onAdd={() => setPaxOpen(true)} onEdit={(p) => setEditPax(p)} onAddDoc={(p) => setDocPax(p)} />;
+      case 'participants': return <TabParticipants list={participants} isGroup={requestType === 'Групповая'} groups={requestType === 'Групповая' ? AVIA_GROUPS_SEED : null} fresh={fresh} orderNo={order.no} orderAirline={(services.find((s) => s.kind === 'Авиа') || {}).supplier} onPassport={setPassport} onAdd={() => setPaxOpen(true)} onEdit={(p) => setEditPax(p)} onAddDoc={(p) => setDocPax(p)} onApplyRoster={setParticipants} />;
       case 'route': return <TabRoute services={services} />;
       case 'services': return renderServicesArea();
       case 'offers': return <KPModule order={order} services={services} participants={participants}
