@@ -25,6 +25,8 @@ const SVC_CFG = {
     fields: [{ k: 'dest', l: 'Направление', t: 'text', w: 230 }, { k: 'dates', l: 'Даты', t: 'daterange', w: 230 }, { k: 'pax', l: 'Туристов', t: 'stepper', w: 150 }, { k: 'board', l: 'Питание', t: 'select', w: 170, o: ['Завтрак', 'Полупансион', 'All Inclusive'] }] },
   aero: { title: 'Аэроэкспресс', kind: 'Аэроэкспресс', searchTitle: 'Поиск билетов Аэроэкспресс', mainLabel: 'Направление', qtyLabel: 'Пасс.',
     fields: [{ k: 'dir', l: 'Направление', t: 'select', w: 300, o: AERO_DIRS.map((d) => d.label) }, { k: 'date', l: 'Дата', t: 'date', w: 156 }, { k: 'pax', l: 'Пассажиров', t: 'stepper', w: 150 }] },
+  lounge: { title: 'Бизнес-залы', kind: 'Бизнес-зал', searchTitle: 'Поиск бизнес-залов в аэропортах', mainLabel: 'Аэропорт', qtyLabel: 'Гостей',
+    fields: [{ k: 'airport', l: 'Аэропорт', t: 'text', w: 230 }, { k: 'date', l: 'Дата', t: 'date', w: 156 }, { k: 'pax', l: 'Гостей', t: 'stepper', w: 150 }, { k: 'cls', l: 'Класс зала', t: 'select', w: 170, o: ['Комфорт', 'Бизнес', 'Первый класс'] }] },
 };
 
 /* ---------- search field renderer ---------- */
@@ -1569,7 +1571,7 @@ function AeroAddFlow({ onAdd }) {
     <div className="fade-in">
       <div style={{ marginBottom: 14, display: 'flex', gap: 10, alignItems: 'center' }}>
         {view === 'results' && <Button variant="secondary" size="sm" icon="chevLeft" onClick={() => setView('search')}>Изменить поиск</Button>}
-        <img src="assets/Aeroexpress_logo.svg.png" alt="Аэроэкспресс" style={{ height: 22, width: 'auto' }} />
+        <img className="aero-logo" src="assets/Aeroexpress_logo.svg.png" alt="Аэроэкспресс" style={{ height: 22, width: 'auto' }} />
         <span style={{ fontWeight: 600, color: 'var(--ink)' }}>Аэроэкспресс — билеты и абонементы</span>
       </div>
 
@@ -1995,6 +1997,7 @@ const SERVICES_HUB = [
   { key: 'transfers', icon: 'car', title: 'Трансферы', desc: 'Индивидуальные и групповые трансферы, такси.' },
   { key: 'buses', icon: 'bus', title: 'Автобусы', desc: 'Автобусные и маршрутные перевозки.' },
   { key: 'aero', img: 'assets/Aeroexpress_logo.svg.png', title: 'Аэроэкспресс', desc: 'Билеты и абонементы Аэроэкспресс, аэропорт ⇄ город.' },
+  { key: 'lounge', icon: 'lounge', title: 'Бизнес-залы', desc: 'VIP-залы ожидания в аэропортах, доступ по гостям.' },
   { key: 'tours', icon: 'users', title: 'Туры и группы', desc: 'Групповые поездки и туристические пакеты.' },
 ];
 /* Маска подбора авиабилетов для бокового окна хаба (у авиа нет записи в SVC_CFG). */
@@ -2039,7 +2042,7 @@ function ServiceSearchDrawer({ svc, onClose, onSubmit, onOpenRegistry }) {
 }
 
 /* Соответствие блока хаба вкладке единой маски бронирования (ADD_SVC_CATS). */
-const HUB_KIND = { flights: 'Авиа', rail: 'ЖД', hotels: 'Гостиница', transfers: 'Трансфер', buses: 'Автобус', aero: 'Аэроэкспресс', tours: 'Доп. услуга' };
+const HUB_KIND = { flights: 'Авиа', rail: 'ЖД', hotels: 'Гостиница', transfers: 'Трансфер', buses: 'Автобус', aero: 'Аэроэкспресс', lounge: 'Бизнес-зал', tours: 'Доп. услуга' };
 
 function ServicesHubPage({ onNavigate, onAddOrder, onOpenOrder, onCreateOrder }) {
   // Единая маска бронирования со вкладками. Клик по блоку открывает её на нужной вкладке.

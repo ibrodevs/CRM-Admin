@@ -652,6 +652,7 @@ const SERVICE_KIND = {
   'Автобус':   { icon: 'bus',      color: '#6c7686', tone: 'gray' },
   'Группа':    { icon: 'users',    color: '#5a5af0', tone: 'blue' },
   'Аэроэкспресс': { icon: 'zap',   color: '#d21b3c', tone: 'red', img: 'assets/Aeroexpress_logo.svg.png' },
+  'Бизнес-зал': { icon: 'lounge', color: '#7c5cff', tone: 'blue' },
 };
 const SERVICE_STATUS = {
   'Поиск': 'gray', 'Предложение': 'teal', 'Согласование': 'amber',
@@ -1219,6 +1220,27 @@ const SVC_DATA = {
       { no: 'AX-51162', order: 51162, main: 'Шереметьево (SVO) ⇄ город', sub: 'Стандарт · туда-обратно · 2 пасс.', date: '24.06.26', qty: 2, status: 'Забронировано', sum: 2000, currency: 'RUB' },
       { no: 'AX-51170', order: 51170, main: 'Домодедово (DME) → город', sub: 'Бизнес-класс · в одну сторону', date: '28.06.26', qty: 1, status: 'Выписано', sum: 1000, currency: 'RUB' },
       { no: 'AX-51156', order: 51156, main: 'Внуково (VKO) ⇄ город', sub: 'Абонемент · 10 поездок', date: '01.07.26', qty: 1, status: 'Предложение', sum: 2200, currency: 'RUB' },
+    ],
+  },
+  // Бизнес-залы (VIP-lounge) в аэропортах — доп. услуга: доступ в зал ожидания
+  // повышенной комфортности перед вылетом. Оплата за гостя, длительность ожидания.
+  lounge: {
+    offers: [
+      { id: 'L1', title: 'Primeclass Lounge · IST', sub: 'Стамбул (IST) · международная зона вылета', supplier: 'Primeclass', currency: 'USD', cost: 45, fee: 5,
+        info: [{ l: 'Аэропорт', v: 'Стамбул (IST)' }, { l: 'Зона', v: 'Международная' }, { l: 'Ожидание', v: 'до 4 ч' }], tags: ['Wi-Fi', 'Шведский стол', 'Бар', 'Комната отдыха'] },
+      { id: 'L2', title: 'Mastercard Lounge · IST', sub: 'Стамбул (IST) · терминал вылета', supplier: 'DragonPass', currency: 'USD', cost: 38, fee: 4,
+        info: [{ l: 'Аэропорт', v: 'Стамбул (IST)' }, { l: 'Зона', v: 'Международная' }, { l: 'Ожидание', v: 'до 3 ч' }], tags: ['Wi-Fi', 'Горячее питание', 'Душ', 'Пресса'] },
+      { id: 'L3', title: 'Turkish Airlines Lounge · IST', sub: 'Стамбул (IST) · Business / Miles&Smiles', supplier: 'Turkish Airlines', currency: 'USD', cost: 70, fee: 6,
+        info: [{ l: 'Аэропорт', v: 'Стамбул (IST)' }, { l: 'Зона', v: 'Международная' }, { l: 'Ожидание', v: 'до 5 ч' }], tags: ['Премиум', 'Горячее питание', 'Кинозал', 'Душ'] },
+      { id: 'L4', title: 'Manas VIP Lounge · FRU', sub: 'Бишкек (FRU), Манас · зал повышенной комфортности', supplier: 'Manas VIP', currency: 'USD', cost: 30, fee: 3,
+        info: [{ l: 'Аэропорт', v: 'Бишкек (FRU)' }, { l: 'Зона', v: 'Вылет' }, { l: 'Ожидание', v: 'до 3 ч' }], tags: ['Wi-Fi', 'Закуски', 'Напитки', 'Отдельный вход'] },
+      { id: 'L5', title: 'Business Lounge · DXB Concourse B', sub: 'Дубай (DXB) · терминал 3', supplier: 'Marhaba', currency: 'USD', cost: 60, fee: 5,
+        info: [{ l: 'Аэропорт', v: 'Дубай (DXB)' }, { l: 'Зона', v: 'Международная' }, { l: 'Ожидание', v: 'до 4 ч' }], tags: ['Wi-Fi', 'Шведский стол', 'Душ', 'Детская зона'] },
+    ],
+    registry: [
+      { no: 'LG-51162', order: 51162, main: 'Primeclass Lounge · IST', sub: 'Бизнес-зал · 2 гостя', date: '24.06.26', qty: 2, status: 'Подтверждено', sum: 100, currency: 'USD' },
+      { no: 'LG-51170', order: 51170, main: 'Turkish Airlines Lounge · IST', sub: 'Премиум · 1 гость', date: '28.06.26', qty: 1, status: 'Забронировано', sum: 76, currency: 'USD' },
+      { no: 'LG-51155', order: 51155, main: 'Manas VIP Lounge · FRU', sub: 'Бизнес-зал · 2 гостя', date: '27.06.26', qty: 2, status: 'Предложение', sum: 66, currency: 'USD' },
     ],
   },
 };
