@@ -392,9 +392,17 @@ function ShiftControl({ role, onOpenOrder }) {
             { icon: 'clock', label: 'Закрыть смену', danger: true, onClick: () => setPanel('close') },
           ]} />
       )}
-      <ShiftReportDrawer open={panel === 'report' || panel === 'close'} closing={panel === 'close'}
-        operator={operator} shift={shift} onClose={() => setPanel(null)} onConfirmClose={confirmClose} onOpenOrder={onOpenOrder} />
-      <FeesReportDrawer open={panel === 'fees'} operator={operator} shift={shift} onClose={() => setPanel(null)} />
+      {/* Панели смены выводим порталом в body: топбар .gtop имеет backdrop-filter,
+          который делает его containing-block для position:fixed — иначе боковое окно
+          «схлопывается» в шапку и экран выглядит сломанным. */}
+      {ReactDOM.createPortal(
+        <>
+          <ShiftReportDrawer open={panel === 'report' || panel === 'close'} closing={panel === 'close'}
+            operator={operator} shift={shift} onClose={() => setPanel(null)} onConfirmClose={confirmClose} onOpenOrder={onOpenOrder} />
+          <FeesReportDrawer open={panel === 'fees'} operator={operator} shift={shift} onClose={() => setPanel(null)} />
+        </>,
+        document.body
+      )}
     </>
   );
 }
