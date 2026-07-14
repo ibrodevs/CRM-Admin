@@ -633,6 +633,158 @@ function ServicesFooterBar({ services, participants, bookingDraft, onStartBookin
   );
 }
 
+/* ====================================================================
+   КЕЙС ИЗМЕНЕНИЯ ПО ЗАКАЗУ (запрос клиента) — постоянная сущность в заказе.
+   При отмене/сдвиге рейса вся затронутая цепочка фиксируется здесь со
+   статусом обработки по каждой услуге: API-услуги проверяются авто-сверкой,
+   локальные — запросом поставщику. Письмо клиенту — часть кейса, всегда под
+   рукой для корректировок (авто/ручной). Всё пишется в историю кейса.
+   ==================================================================== */
+function OrderChangeCase({ orderNo, services, participants }) {
+  const toast = useToast();
+  const [cs, setCs] = useState(() => getChangeCase(orderNo));
+  const [trigger, setTrigger] = useState(CASE_TRIGGERS[0]);
+  const [letterOpen, setLetterOpen] = useState(false);
+  const [openLog, setOpenLog] = useState(null);
+  const [showHist, setShowHist] = useState(false);
+
+  const flight = (services || []).find((s) => normKind(s.kind) === 'Авиа');
+  const triggerTitle = flight ? (flight.title || flight.main) : 'Рейс заказа';
+  const commit = (next) => { ORDER_CHANGE_CASES[orderNo] = next; setCs({ ...next }); };
+  const logSvc = (base, i, text, patch) => {
+    const t = caseNow();
+    const svcs = base.services.map((s, idx) => idx === i ? { ...s, ...patch, log: [...s.log, { t, text }] } : s);
+    return { ...base, services: svcs, history: [...base.history, { t, text: svcs[i].kind + ' · ' + text }] };
+  };
+
+  const openCase = () => { const c = createChangeCase(orderNo, trigger, triggerTitle, 'Авиа'); setCs({ ...c }); toast('Кейс изменения создан и закреплён за заказом', 'ok'); };
+  const checkDates = (i) => {
+    commit(logSvc(cs, i, 'Запущена авто-сверка новых дат по API', { status: 'checking' }));
+    toast('Сверка дат по API…', 'info');
+    setTimeout(() => {
+      const cur = getChangeCase(orderNo); if (!cur) return;
+      const nk = normKind(cur.services[i].kind);
+      const noRoom = nk === 'Гостиница' || nk === 'Гостиницы';
+      commit(logSvc(cur, i, noRoom ? 'Номер на новые даты недоступен — требуется альтернатива' : 'Новые даты подтверждены поставщиком', { status: noRoom ? 'need_alt' : 'dates_ok' }));
+    }, 1000);
+  };
+  const sendRequest = (i) => {
+    commit(logSvc(cs, i, 'Автоматический запрос отправлен локальному поставщику', { status: 'requested' }));
+    toast('Запрос перевозчику отправлен', 'ok');
+    setTimeout(() => { const cur = getChangeCase(orderNo); if (cur) commit(logSvc(cur, i, 'Поставщик получил запрос — ожидаем подтверждение', { status: 'awaiting' })); }, 1300);
+  };
+  const setSvcStatus = (i, status, text) => commit(logSvc(cs, i, text, { status }));
+  const pickAlt = (i) => {
+    const cur = getChangeCase(orderNo);
+    const alts = smartAlternatives({ title: cur.services[i].title }, cur.services[i].kind);
+    commit(logSvc(cur, i, 'Подобрана альтернатива: ' + (alts[0] ? alts[0].title : '—'), { status: 'resolved', alts }));
+    toast('Альтернатива подобрана и зафиксирована в кейсе', 'ok');
+  };
+  const onLetterSent = (channels) => {
+    const cur = getChangeCase(orderNo); if (!cur) return;
+    const v = cur.letters.length + 1; const t = caseNow();
+    commit({ ...cur, letters: [...cur.letters, { v, sentAt: t, channels }], history: [...cur.history, { t, text: 'Письмо клиенту отправлено (v' + v + ') · ' + channels }] });
+  };
+
+  // ---- нет кейса: предложить зарегистрировать изменение ----
+  if (!cs) {
+    return (
+      <div className="card card-pad" style={{ border: '1px dashed var(--amber)', background: 'var(--surface-2)', marginBottom: 16 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+          <Icon name="alertCircle" style={{ width: 18, height: 18, color: 'var(--amber)' }} />
+          <div style={{ flex: 1, minWidth: 200 }}>
+            <div style={{ fontWeight: 700, color: 'var(--ink)' }}>Изменение по рейсу?</div>
+            <div style={{ fontSize: 12.5, color: 'var(--muted)' }}>Зарегистрируйте кейс — система зафиксирует затронутую цепочку и проведёт по каждой услуге сверку/запрос.</div>
+          </div>
+          <Select options={CASE_TRIGGERS} value={trigger} onChange={(e) => setTrigger(e.target.value)} style={{ width: 'auto', minWidth: 190 }} />
+          <Button icon="refund" onClick={openCase}>Зарегистрировать изменение</Button>
+        </div>
+      </div>
+    );
+  }
+
+  const prog = caseProgress(cs);
+  const triggerItem = flight || { title: cs.triggerTitle, main: cs.triggerTitle, kind: 'Авиа', currency: 'USD', id: 'trig' };
+  return (
+    <div className="card card-pad" style={{ border: '1px solid var(--amber)', marginBottom: 16 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 4, flexWrap: 'wrap' }}>
+        <Icon name="refund" style={{ width: 18, height: 18, color: 'var(--amber)' }} />
+        <span style={{ fontWeight: 800, fontSize: 15, color: 'var(--ink)' }}>Кейс изменения {cs.id}</span>
+        <Pill tone="amber">{cs.trigger}</Pill>
+        <div style={{ flex: 1 }} />
+        <span style={{ fontSize: 12.5, color: prog.pending ? 'var(--amber)' : 'var(--green)', fontWeight: 700 }}>
+          {prog.pending ? 'В работе: ' + prog.done + '/' + prog.total + ' услуг обработано' : 'Все услуги обработаны (' + prog.total + ')'}
+        </span>
+      </div>
+      <div style={{ fontSize: 12.5, color: 'var(--muted)', marginBottom: 14 }}>{cs.triggerTitle} · создан {cs.created} · закреплён за заказом № {orderNo}</div>
+
+      {/* Затронутая цепочка — статус и действия по каждой услуге */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+        {cs.services.map((s, i) => {
+          const st = CASE_SVC_STATUS[s.status] || CASE_SVC_STATUS.idle;
+          const logOpen = openLog === i;
+          return (
+            <div key={s.id} style={{ border: '1px solid var(--line)', borderRadius: 12, padding: '11px 13px', background: '#fff' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+                <span className="oc-svc-ic" style={{ background: (SERVICE_KIND[s.kind] || {}).color || 'var(--blue)', width: 34, height: 34 }}><Icon name={(SERVICE_KIND[s.kind] || {}).icon || 'briefcase'} /></span>
+                <div style={{ flex: 1, minWidth: 150 }}>
+                  <div style={{ fontWeight: 700, fontSize: 13.5, color: 'var(--ink)' }}>{s.kind}</div>
+                  <div style={{ fontSize: 12.5, color: 'var(--muted)' }}>{s.title}</div>
+                </div>
+                <Pill tone={s.channel === 'api' ? 'blue' : 'gray'}><Icon name={s.channel === 'api' ? 'api' : 'contacts'} style={{ width: 12, height: 12, verticalAlign: -2 }} /> {s.channel === 'api' ? 'API' : 'Локальный'}</Pill>
+                <Pill tone={st.tone}>{st.label}</Pill>
+              </div>
+              {/* действия по услуге в зависимости от канала и статуса */}
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 10, alignItems: 'center' }}>
+                {s.channel === 'api' && (s.status === 'idle' || s.status === 'checking') && <Button size="sm" variant="secondary" icon="zap" disabled={s.status === 'checking'} onClick={() => checkDates(i)}>{s.status === 'checking' ? 'Сверка…' : 'Сверить новые даты'}</Button>}
+                {s.channel === 'api' && s.status === 'need_alt' && <Button size="sm" icon="refund" onClick={() => pickAlt(i)}>Подобрать альтернативу</Button>}
+                {s.channel === 'local' && s.status === 'idle' && <Button size="sm" variant="secondary" icon="send" onClick={() => sendRequest(i)}>Отправить запрос перевозчику</Button>}
+                {s.channel === 'local' && s.status === 'requested' && <span style={{ fontSize: 12, color: 'var(--muted)' }}>Запрос отправлен, ожидаем ответ поставщика…</span>}
+                {s.channel === 'local' && s.status === 'awaiting' && <><Button size="sm" variant="secondary" icon="check" onClick={() => setSvcStatus(i, 'confirmed', 'Поставщик подтвердил новые условия')}>Подтверждено</Button><Button size="sm" variant="secondary" icon="x" onClick={() => setSvcStatus(i, 'declined', 'Поставщик отклонил — нужна альтернатива')}>Отклонено</Button></>}
+                {s.channel === 'local' && s.status === 'declined' && <Button size="sm" icon="refund" onClick={() => pickAlt(i)}>Подобрать альтернативу</Button>}
+                {st.done && <span style={{ fontSize: 12, color: 'var(--green)', fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: 5 }}><Icon name="checkCircle" style={{ width: 14, height: 14 }} />Готово</span>}
+                <div style={{ flex: 1 }} />
+                <button type="button" onClick={() => setOpenLog(logOpen ? null : i)} style={{ border: 'none', background: 'none', cursor: 'pointer', fontSize: 12, color: 'var(--muted)', display: 'inline-flex', alignItems: 'center', gap: 4 }}>Лог услуги<Icon name={logOpen ? 'chevUp' : 'chevDown'} style={{ width: 13, height: 13 }} /></button>
+              </div>
+              {s.alts && s.alts.length > 0 && (
+                <div style={{ marginTop: 8, display: 'grid', gap: 5 }}>
+                  {s.alts.map((a) => (
+                    <div key={a.id} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12.5, padding: '6px 9px', borderRadius: 8, background: 'var(--blue-soft)' }}>
+                      <Icon name="checkCircle" style={{ width: 13, height: 13, color: 'var(--blue)' }} />
+                      <span style={{ flex: 1, color: 'var(--ink)' }}>{a.title}</span>
+                      <span style={{ color: 'var(--muted)' }}>{a.meta}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+              {logOpen && (
+                <div style={{ marginTop: 8, borderTop: '1px dashed var(--line)', paddingTop: 8, display: 'grid', gap: 4 }}>
+                  {s.log.map((l, li) => <div key={li} style={{ fontSize: 12, color: 'var(--muted)' }}><span style={{ color: 'var(--muted-2)' }}>{l.t}</span> — {l.text}</div>)}
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Письмо клиенту — часть кейса: всегда можно вернуться и скорректировать */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 14, flexWrap: 'wrap' }}>
+        <Button variant="secondary" icon="send" onClick={() => setLetterOpen(true)}>{cs.letters.length ? 'Открыть письмо · корректировать' : 'Письмо клиенту'}</Button>
+        {cs.letters.length > 0 && <span style={{ fontSize: 12.5, color: 'var(--muted)' }}>Отправлено версий: {cs.letters.length} · последняя {cs.letters[cs.letters.length - 1].sentAt} ({cs.letters[cs.letters.length - 1].channels})</span>}
+        <div style={{ flex: 1 }} />
+        <button type="button" onClick={() => setShowHist((v) => !v)} style={{ border: 'none', background: 'none', cursor: 'pointer', fontSize: 12.5, color: 'var(--muted)', display: 'inline-flex', alignItems: 'center', gap: 5 }}>История кейса<Icon name={showHist ? 'chevUp' : 'chevDown'} style={{ width: 14, height: 14 }} /></button>
+      </div>
+      {showHist && (
+        <div style={{ marginTop: 10, borderTop: '1px solid var(--line)', paddingTop: 10, display: 'grid', gap: 5, maxHeight: 200, overflowY: 'auto' }}>
+          {cs.history.slice().reverse().map((h, i) => <div key={i} style={{ fontSize: 12.5, color: 'var(--body)' }}><span style={{ color: 'var(--muted-2)', marginRight: 6 }}>{h.t}</span>{h.text}</div>)}
+        </div>
+      )}
+
+      {letterOpen && <ServiceCardSendPanel item={triggerItem} kind="Авиа" participants={participants} orderNo={orderNo} currency={triggerItem.currency || 'USD'} serviceId={triggerItem.id} onSent={onLetterSent} onClose={() => setLetterOpen(false)} />}
+    </div>
+  );
+}
+
 function TabServices({ orderNo, services, participants, requestType, onOpenAvia, onOpenOther, onOpenPicker, onAssembleKP, onExportToChat }) {
   const [filter, setFilter] = useState(null);
   const [selMode, setSelMode] = useState(false);
@@ -649,6 +801,8 @@ function TabServices({ orderNo, services, participants, requestType, onOpenAvia,
 
   return (
     <div className="fade-in">
+      {/* Кейс изменения по заказу — фиксирует затронутую цепочку при отмене/сдвиге рейса */}
+      <OrderChangeCase orderNo={orderNo} services={services} participants={participants} />
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16, flexWrap: 'wrap', gap: 12 }}>
         <h3 className="card-title" style={{ fontSize: 18 }}>Добавленные услуги</h3>
         <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>

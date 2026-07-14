@@ -469,6 +469,57 @@ function affectedServiceChain(orderNo, kind) {
 }
 
 /* ============================================================
+   КЕЙС ИЗМЕНЕНИЯ ПО ЗАКАЗУ — постоянная сущность в заказе (запрос клиента).
+   При отмене/сдвиге рейса вся затронутая цепочка фиксируется в заказе со
+   статусом обработки по каждой услуге. API-услуги проверяются автоматически,
+   локальные — через запрос поставщику. Письмо клиенту — часть кейса и всегда
+   доступно для корректировок (авто/ручной). Всё пишется в историю.
+   ============================================================ */
+// Канал обработки услуги: API (авто-сверка/подбор) или локальный поставщик (запрос).
+function caseChannel(kind) {
+  const nk = normKind(kind);
+  return ['Гостиница', 'Гостиницы', 'Авиа', 'ЖД', 'Автобус'].includes(nk) ? 'api' : 'local';
+}
+// Статусы обработки услуги внутри кейса — цветом И текстом (не только цветом).
+const CASE_SVC_STATUS = {
+  idle:      { label: 'Не обработана',           tone: 'gray',  done: false },
+  checking:  { label: 'Сверяется',               tone: 'blue',  done: false },
+  dates_ok:  { label: 'Даты подтверждены',       tone: 'green', done: true },
+  need_alt:  { label: 'Нужна альтернатива',      tone: 'amber', done: false },
+  requested: { label: 'Запрос отправлен',        tone: 'blue',  done: false },
+  awaiting:  { label: 'Ожидает подтверждения',   tone: 'amber', done: false },
+  confirmed: { label: 'Подтверждено',            tone: 'green', done: true },
+  declined:  { label: 'Отклонено поставщиком',   tone: 'red',   done: false },
+  resolved:  { label: 'Альтернатива подобрана',  tone: 'green', done: true },
+};
+const CASE_TRIGGERS = ['Отмена рейса', 'Сдвиг даты вылета', 'Задержка рейса', 'Изменение расписания'];
+// Хранилище кейсов по заказам (persist в рамках сессии).
+const ORDER_CHANGE_CASES = window.ORDER_CHANGE_CASES || (window.ORDER_CHANGE_CASES = {});
+function caseNow() { return new Date().toLocaleString('ru-RU', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }); }
+function getChangeCase(orderNo) { return ORDER_CHANGE_CASES[orderNo] || null; }
+function createChangeCase(orderNo, trigger, triggerTitle, kind) {
+  const chain = affectedServiceChain(orderNo, kind);
+  const t = caseNow();
+  const services = chain.map((c, i) => ({
+    id: 'cs-' + i, kind: c.kind, title: c.service, channel: caseChannel(c.kind),
+    status: 'idle', alts: [], log: [{ t, text: 'Услуга включена в кейс изменения' }],
+  }));
+  const cs = {
+    id: 'CH-' + (1000 + Object.keys(ORDER_CHANGE_CASES).length + Math.floor(Math.random() * 900)),
+    orderNo, trigger, triggerTitle: triggerTitle || 'Рейс', created: t, services, letters: [],
+    history: [{ t, text: 'Кейс изменения создан · ' + trigger + ' · ' + (triggerTitle || 'рейс') }],
+  };
+  ORDER_CHANGE_CASES[orderNo] = cs;
+  return cs;
+}
+function caseProgress(cs) {
+  if (!cs) return { done: 0, total: 0, pending: 0 };
+  const total = cs.services.length;
+  const done = cs.services.filter((s) => (CASE_SVC_STATUS[s.status] || {}).done).length;
+  return { done, total, pending: total - done };
+}
+
+/* ============================================================
    9. НАСТРОЙКИ АДМИНИСТРАТОРА (§30) — включение видов/каналов, шаблоны email.
    ============================================================ */
 const CARD_KINDS_ALL = ['Авиа', 'ЖД', 'Гостиница', 'Трансфер', 'Автобус', 'Такси', 'Доп. услуга', 'Страхование', 'Виза'];
