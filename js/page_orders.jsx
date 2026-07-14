@@ -282,6 +282,18 @@ function ServiceSection({ svcName, startDate, endDate, selectedFlight, onSelectF
 }
 
 /* ===== Main multi-step modal ===== */
+// Секция формы создания заказа — вынесена наружу (ТЗ-2 п.3): если объявлять её внутри
+// компонента, каждый рендер создаёт новый тип и React перемонтирует всё поддерево — из-за
+// этого боковое окно «пружинило вверх» при вводе города / выборе услуг.
+function OceSec({ n, title, children }) {
+  return (
+    <div className="oce-sec">
+      <div className="oce-sec-h"><span className="n">{n}</span><span className="t">{title}</span></div>
+      {children}
+    </div>
+  );
+}
+
 function OrderCreateModal({ open, onClose, onCreated }) {
   const toast = useToast();
 
@@ -385,14 +397,6 @@ function OrderCreateModal({ open, onClose, onCreated }) {
     { icon: 'trash', label: 'Убрать', danger: true, onClick: onRemove },
   ];
 
-  /* ---- Section header ---- */
-  const Sec = ({ n, title, children }) => (
-    <div className="oce-sec">
-      <div className="oce-sec-h"><span className="n">{n}</span><span className="t">{title}</span></div>
-      {children}
-    </div>
-  );
-
   const TRIPS = [['rt', 'Туда-обратно'], ['ow', 'В одну сторону'], ['mc', 'Сложный маршрут']];
   const routePts = trip === 'mc' ? pts : pts.slice(0, 2);
 
@@ -414,7 +418,7 @@ function OrderCreateModal({ open, onClose, onCreated }) {
           {/* Body */}
           <div style={{ padding: '22px 30px', flex: 1 }}>
             {/* 1 — client type */}
-            <Sec n={1} title="Тип клиента">
+            <OceSec n={1} title="Тип клиента">
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
                 <TypeCard iconName="building" label="Юридическое лицо" selected={clientType === 'org'} onClick={() => setClientType('org')} />
                 <TypeCard iconName="user" label="Физическое лицо" selected={clientType === 'person'} onClick={() => setClientType('person')} />
@@ -426,11 +430,11 @@ function OrderCreateModal({ open, onClose, onCreated }) {
                   <div style={{ fontSize: 12, color: 'var(--muted)' }}>Бронирование на группу пассажиров с управлением группами</div></div>
                 <Toggle on={isGroup} onChange={setIsGroup} style={{ pointerEvents: 'none' }} />
               </div>
-            </Sec>
+            </OceSec>
 
             {/* 2 — client */}
             {clientType === 'person' ? (
-              <Sec n={2} title="Физическое лицо">
+              <OceSec n={2} title="Физическое лицо">
                 <div style={{ position: 'relative', marginBottom: 12 }}>
                   <SearchBox value={clientQuery} onChange={setClientQuery} placeholder="Поиск по ФИО, телефону или документу" />
                   {clientMatches.length > 0 && (
@@ -459,9 +463,9 @@ function OrderCreateModal({ open, onClose, onCreated }) {
                 <button className="oce-add" onClick={() => setNewPerson(true)}>
                   <Icon name="plus" style={{ width: 16, height: 16 }} />Добавить новое физическое лицо
                 </button>
-              </Sec>
+              </OceSec>
             ) : (
-              <Sec n={2} title="Компания">
+              <OceSec n={2} title="Компания">
                 <Field label="Организация">
                   <div style={{ position: 'relative' }} ref={companyRef}>
                     <Input leadIcon="search" value={companyOpen ? companyQuery : company.name}
@@ -522,11 +526,11 @@ function OrderCreateModal({ open, onClose, onCreated }) {
                   </div>
                 ))}
                 <button className="oce-add" onClick={() => setEmpPick(true)}><Icon name="users" style={{ width: 16, height: 16 }} />Выберите сотрудников</button>
-              </Sec>
+              </OceSec>
             )}
 
             {/* 3 — route */}
-            <Sec n={3} title="Маршрут">
+            <OceSec n={3} title="Маршрут">
               <div className="trip-toggle" style={{ marginBottom: 14 }}>
                 {TRIPS.map(([k, l]) => <button key={k} className={trip === k ? 'on' : ''} onClick={() => setTrip(k)}>{l}</button>)}
               </div>
@@ -579,10 +583,10 @@ function OrderCreateModal({ open, onClose, onCreated }) {
                 <button className="oce-add" style={{ flex: 1 }} onClick={addPt}><Icon name="plus" style={{ width: 16, height: 16 }} />Добавить город</button>
                 <Button variant="secondary" icon="zap" onClick={() => toast('Маршрут оптимизирован', 'ok')}>Оптимизировать</Button>
               </div>
-            </Sec>
+            </OceSec>
 
             {/* 4 — services */}
-            <Sec n={4} title="Услуги">
+            <OceSec n={4} title="Услуги">
               <div className="oce-svc-grid">
                 {ORDER_SVC.map(([l]) => (
                   <div key={l} role="button" tabIndex={0} onClick={() => setSvc((p) => ({ ...p, [l]: !p[l] }))}>
@@ -590,7 +594,7 @@ function OrderCreateModal({ open, onClose, onCreated }) {
                   </div>
                 ))}
               </div>
-            </Sec>
+            </OceSec>
           </div>
 
           {/* Footer */}

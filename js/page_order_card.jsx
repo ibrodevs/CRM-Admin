@@ -407,7 +407,7 @@ function PaxGroupCard({ index, name, members, onPassport, onEdit, onAddDoc }) {
         <Pill tone={status.tone}>{status.label}</Pill>
       </div>
       {shown.map(({ p, i }) => (
-        <div key={i} className="pax-group-row" onClick={() => onPassport(p.name)}>
+        <div key={i} className="pax-group-row" onClick={() => onEdit && onEdit(p)}>
           <span className="pxg-num">{i + 1}</span>
           <Avatar name={p.name} size={30} />
           <div style={{ flex: 1, minWidth: 0 }}>
@@ -493,7 +493,7 @@ function TabParticipants({ list, isGroup, groups, fresh, orderNo, orderAirline, 
               <thead><tr><th>Участник</th><th>Тип</th><th>Документ</th><th>Дата рожд.</th><th>Телефон</th><th>Документы</th><th></th></tr></thead>{/* pax-table */}
               <tbody>
                 {list.map((p, i) => (
-                  <tr key={i} style={{ cursor: 'pointer' }} onClick={() => onPassport(p.name)}>
+                  <tr key={i} style={{ cursor: 'pointer' }} onClick={() => onEdit && onEdit(p)}>
                     <td className="t-strong">{p.name} {p.lead && <span className="pill pill-blue" style={{ marginLeft: 6 }}>Лид</span>}</td>
                     <td>{p.role}</td><td><DocCell p={p} /></td><td>{p.dob || '—'}</td><td>{p.phone || '—'}</td>
                     <td><Pill tone={p.docStatus === 'check' ? 'amber' : 'green'}>{p.docStatus === 'check' ? 'Требует проверки' : 'Без ошибок'}</Pill></td>
@@ -1991,7 +1991,7 @@ function OrderCard({ order, onBack, initTab, initSvc, initSvcSearch, fresh, onOp
         onAddDoc={(p) => { setPassport(null); setDocPax(p || { name: passport }); }} />}
       {/* Единая форма корректировки участника (ТЗ п.5) */}
       <UnifiedPersonDrawer open={!!editPax} kind="person" mode="edit" showRole initial={editPax || undefined}
-        onClose={() => setEditPax(null)}
+        title="Карточка пассажира" onClose={() => setEditPax(null)}
         onSave={(person, client) => { setParticipants((l) => l.map((x) => x.name === (editPax && editPax.name) ? { ...x, name: client.name, role: person.role, doc: client.doc, dob: client.dob, phone: client.phone } : x)); setEditPax(null); toast('Данные участника обновлены', 'ok'); }} />
       {/* Единая форма добавления документа участнику (ТЗ п.4, ТЗ-2 п.1) */}
       <UnifiedDocumentDrawer open={!!docPax} person={{ name: docPax && docPax.name, citizenship: docPax && docPax.citizenship }}

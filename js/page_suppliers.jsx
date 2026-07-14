@@ -857,7 +857,7 @@ function SupSection({ icon, title, sub, children }) {
 function SupplierAddDrawer({ open, onClose, onCreated }) {
   const toast = useToast();
   const empty = {
-    name: '', org: '', supType: 'API', kinds: [], priority: 1, useDefault: false, country: 'Кыргызстан', city: 'Бишкек',
+    name: '', org: '', inn: '', supType: 'API', kinds: [], priority: 1, useDefault: false, country: 'Кыргызстан', city: 'Бишкек',
     status: 'Активный', orgType: 'Другое',
     api: { url: '', apiKey: '', login: '', password: '', token: '', version: '' },
     local: { contact: '', comm: [], commBind: {}, processing: '', hours: SUP_WORK_HOURS[2] },
@@ -871,7 +871,16 @@ function SupplierAddDrawer({ open, onClose, onCreated }) {
   const [finKind, setFinKind] = useState(null);
   const [errs, setErrs] = useState({});
   const [conn, setConn] = useState(null); // null | 'checking' | 'ok'
-  useEffect(() => { if (open) { setF(JSON.parse(JSON.stringify(empty))); setErrs({}); setConn(null); setFinKind(null); } }, [open]);
+  const [legalOpen, setLegalOpen] = useState(false); // юр. данные свёрнуты по умолчанию (ТЗ-2 п.1)
+  useEffect(() => { if (open) { setF(JSON.parse(JSON.stringify(empty))); setErrs({}); setConn(null); setFinKind(null); setLegalOpen(false); } }, [open]);
+  // Подтягивание юридических данных по ИНН (как при добавлении компании)
+  const lookupInn = () => {
+    const inn = (f.inn || '').trim();
+    if (inn.replace(/\D/g, '').length < 8) { toast('Введите корректный ИНН (мин. 8 цифр)', 'err'); return; }
+    setF((p) => ({ ...p, name: p.name || ('ОсОО по ИНН ' + inn.slice(0, 6)), org: p.org || ('ОсОО по ИНН ' + inn.slice(0, 6)) }));
+    setLegalOpen(true);
+    toast('Юридические данные подтянуты по ИНН', 'ok');
+  };
 
   const set = (k) => (e) => setF((p) => ({ ...p, [k]: e && e.target ? e.target.value : e }));
   const setSub = (grp, k, v) => setF((p) => ({ ...p, [grp]: { ...p[grp], [k]: v } }));
@@ -903,6 +912,7 @@ function SupplierAddDrawer({ open, onClose, onCreated }) {
     if (isApiType && !f.api.url.trim()) er.apiUrl = 'Укажите URL API';
     if (!isApiType && !f.local.contact.trim()) er.contact = 'Укажите контактное лицо';
     setErrs(er);
+    if (er.name) setLegalOpen(true); // раскрыть свёрнутые юр. данные, если не заполнено наименование
     if (Object.keys(er).length) { toast('Проверьте поля формы', 'err'); return; }
     const no = 51190 + Math.floor(Math.random() * 800);
     const ext = {
@@ -928,12 +938,35 @@ function SupplierAddDrawer({ open, onClose, onCreated }) {
       sub="Карточка поставщика: общие данные, интеграция, финансовые условия, приоритеты поиска"
       footer={<><Button variant="secondary" onClick={onClose}>Отмена</Button><Button variant="primary" iconRight="arrowRight" onClick={submit}>Добавить поставщика</Button></>}>
 
-      {/* ---- Общая информация ---- */}
-      <SupSection icon="user" title="Общая информация">
+      {/* ---- Реквизиты по ИНН — ведущее поле, как при добавлении компании (ТЗ-2 п.1) ---- */}
+      <SupSection icon="user" title="Реквизиты поставщика">
+        <div className="full">
+          <Field label="ИНН" hint="ведущее поле — подтянет юридические данные">
+            <div style={{ display: 'flex', gap: 8 }}>
+              <Input placeholder="Введите ИНН" value={f.inn} onChange={set('inn')} style={{ flex: 1 }} />
+              <Button variant="secondary" icon="search" onClick={lookupInn}>Заполнить по ИНН</Button>
+            </div>
+          </Field>
+        </div>
+        {/* Юридические данные — свёрнуты по умолчанию */}
+        <button type="button" onClick={() => setLegalOpen((v) => !v)} className="doc-chip" style={{ width: '100%', marginTop: 12 }}>
+          <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}><Icon name="template" style={{ width: 16, height: 16 }} />Юридические данные{f.name ? ' · ' + f.name : ''}</span>
+          <Icon name={legalOpen ? 'chevUp' : 'chevDown'} />
+        </button>
+        {legalOpen && (
+          <div className="form-grid" style={{ marginTop: 12 }}>
+            <div className="full"><Field label="Наименование" required error={errs.name}><Input placeholder="Введите название" value={f.name} onChange={set('name')} error={errs.name} /></Field></div>
+            <Field label="Организация"><Input placeholder="Организация" value={f.org} onChange={set('org')} /></Field>
+            <Field label="Тип организации"><Select options={Object.keys(ORG_TYPE)} value={f.orgType} onChange={set('orgType')} /></Field>
+            <Field label="Страна"><Combobox options={SUP_COUNTRIES} value={f.country} placeholder="Начните вводить страну…" onChange={(v) => setF((p) => ({ ...p, country: v, city: supCitiesFor(v)[0] }))} /></Field>
+            <Field label="Город"><Combobox options={supCitiesFor(f.country)} value={f.city} placeholder="Начните вводить город…" onChange={(v) => set('city')(v)} /></Field>
+          </div>
+        )}
+      </SupSection>
+
+      {/* ---- Параметры поставщика ---- */}
+      <SupSection icon="suppliers" title="Параметры поставщика">
         <div className="form-grid">
-          <div className="full"><Field label="Наименование" required error={errs.name}><Input placeholder="Введите название" value={f.name} onChange={set('name')} error={errs.name} /></Field></div>
-          <Field label="Организация"><Input placeholder="Организация" value={f.org} onChange={set('org')} /></Field>
-          <Field label="Тип организации"><Select options={Object.keys(ORG_TYPE)} value={f.orgType} onChange={set('orgType')} /></Field>
           <div className="full">
             <Field label="Тип поставщика" required>
               <div className="seg-toggle">
@@ -954,8 +987,6 @@ function SupplierAddDrawer({ open, onClose, onCreated }) {
           </div>
           <Field label="Приоритет поставщика"><Input type="number" min="1" value={f.priority} onChange={(e) => set('priority')(Math.max(1, parseInt(e.target.value) || 1))} /></Field>
           <Field label="Статус"><Select options={Object.keys(SUPPLIER_STATUS)} value={f.status} onChange={set('status')} /></Field>
-          <Field label="Страна"><Combobox options={SUP_COUNTRIES} value={f.country} placeholder="Начните вводить страну…" onChange={(v) => setF((p) => ({ ...p, country: v, city: supCitiesFor(v)[0] }))} /></Field>
-          <Field label="Город"><Combobox options={supCitiesFor(f.country)} value={f.city} placeholder="Начните вводить город…" onChange={(v) => set('city')(v)} /></Field>
           <div className="full" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '6px 0' }}>
             <div><div style={{ fontWeight: 600, color: 'var(--ink)', fontSize: 14 }}>Использовать по умолчанию</div><div style={{ fontSize: 12, color: 'var(--muted)' }}>Предлагается первым при ручном выборе поставщика</div></div>
             <Toggle on={f.useDefault} onChange={(v) => set('useDefault')(v)} />

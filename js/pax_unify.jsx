@@ -720,10 +720,14 @@ function PaxReconcileModal({ fileName, current, res, onCancel, onConfirm }) {
     unchanged: res.unchanged.length, errors: res.errors.length,
   });
   return (
-    <Modal open onClose={onCancel} className="pax-modal-wide">
-      <div style={{ width: '100%' }}>
-        <ModalHeader title="Сверка обновлённого списка" sub={'Файл: ' + fileName + ' · сверка по Имя + Отчество + Дата рождения'} onClose={onCancel} />
-        <div style={{ maxHeight: '64vh', overflowY: 'auto', overflowX: 'hidden', padding: '2px 2px 4px' }}>
+    <Drawer open onClose={onCancel} title="Сверка обновлённого списка"
+      sub={'Файл: ' + fileName + ' · сверка по Имя + Отчество + Дата рождения'} width="min(760px,96vw)"
+      footer={<>
+        <div style={{ marginRight: 'auto', alignSelf: 'center', fontSize: 12.5, color: 'var(--muted)', minWidth: 0 }}>К сохранению: <b style={{ color: 'var(--ink)' }}>{nAcc}</b> из {res.changes.length + res.news.length} · снимите отметку, чтобы пропустить</div>
+        <Button variant="secondary" onClick={onCancel}>Отмена</Button>
+        <Button icon="check" disabled={nAcc === 0} onClick={confirm}>Подтвердить и сохранить ({nAcc})</Button>
+      </>}>
+      <div>
           {/* Сводка одним взглядом */}
           <div className="pxr-sum">
             <div className="pxr-tile blue"><span className="n">{res.news.length}</span><span className="l"><Icon name="plus" style={{ width: 13, height: 13 }} />Новые</span></div>
@@ -799,15 +803,8 @@ function PaxReconcileModal({ fileName, current, res, onCancel, onConfirm }) {
               <div style={{ fontSize: 12.5, color: 'var(--muted)', lineHeight: 1.6 }}>{res.unchanged.slice(0, 12).map((u) => u.match.name).join(', ')}{res.unchanged.length > 12 ? ' и ещё ' + (res.unchanged.length - 12) : ''}</div>
             </div>
           )}
-        </div>
-        <div className="pxr-foot">
-          <div style={{ fontSize: 12.5, color: 'var(--muted)' }}>К сохранению: <b style={{ color: 'var(--ink)' }}>{nAcc}</b> из {res.changes.length + res.news.length} · снимите отметку, чтобы пропустить запись</div>
-          <div style={{ flex: 1 }} />
-          <Button variant="secondary" onClick={onCancel}>Отмена</Button>
-          <Button icon="check" disabled={nAcc === 0} onClick={confirm}>Подтвердить и сохранить ({nAcc})</Button>
-        </div>
       </div>
-    </Modal>
+    </Drawer>
   );
 }
 
