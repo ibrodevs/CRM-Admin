@@ -251,7 +251,7 @@ function FixVariantModal({ open, proposal, onClose, onFix }) {
 const KP_ADD_TYPES = ['Авиа', 'ЖД', 'Гостиница', 'Трансфер', 'Автобус', 'Группа'];
 
 // ----- KP templates (§4.6): reusable item-sets, not bound to an order -----
-const KP_TEMPLATES = [
+const KP_TEMPLATES = window.KP_TEMPLATES || (window.KP_TEMPLATES = [
   { id: 'TPL-01', name: 'Стамбул · пакет «Стандарт»', desc: 'Перелёт + отель 4★ + индивидуальный трансфер', items: [
     { kind: 'Авиа', title: 'Turkish Airlines · FRU–IST–FRU', sub: 'Прямой · эконом', cost: 470, fee: 22 },
     { kind: 'Гостиница', title: 'Hilton Istanbul 4★', sub: '7 ночей · BB', cost: 980, fee: 25 },
@@ -265,7 +265,82 @@ const KP_TEMPLATES = [
     { kind: 'ЖД', title: 'ЖД билеты · купе', sub: 'Туда-обратно', cost: 180, fee: 10 },
     { kind: 'Гостиница', title: 'Отель 3★', sub: '4 ночи · BB', cost: 260, fee: 14 },
   ] },
-];
+  { id: 'TPL-04', name: 'Дубай · отдых 5★', desc: 'Перелёт + отель 5★ «всё включено» + трансфер', items: [
+    { kind: 'Авиа', title: 'flydubai · FRU–DXB–FRU', sub: 'Прямой · эконом', cost: 520, fee: 26 },
+    { kind: 'Гостиница', title: 'Отель 5★ · Марина', sub: '5 ночей · All Inclusive', cost: 1350, fee: 45 },
+    { kind: 'Трансфер', title: 'Индивидуальный трансфер', sub: 'Премиум · встреча', cost: 90, fee: 5 },
+  ] },
+  { id: 'TPL-05', name: 'Групповой тур · команда', desc: 'Групповой перелёт + отель + автобус', items: [
+    { kind: 'Группа', title: 'Групповой блок мест', sub: 'От 10 пассажиров', cost: 4200, fee: 200 },
+    { kind: 'Гостиница', title: 'Отель 4★ · размещение группы', sub: '4 ночи · HB', cost: 2600, fee: 120 },
+    { kind: 'Автобус', title: 'Автобус на группу', sub: 'Трансферы по программе', cost: 480, fee: 20 },
+  ] },
+  { id: 'TPL-06', name: 'Мин. виза + страховка', desc: 'Визовая поддержка и страхование', items: [
+    { kind: 'Доп. услуга', title: 'Визовая поддержка', sub: 'Оформление визы', cost: 120, fee: 20 },
+    { kind: 'Доп. услуга', title: 'Страховка ВЗР', sub: 'Медицинская · на поездку', cost: 25, fee: 5 },
+  ] },
+]);
+
+/* §9 — переиспользуемое боковое окно выбора заказа: заказы по дате оформления (новые сверху),
+   поиск по № или клиенту — чтобы оператор не держал номера в голове. Применяется во всех формах,
+   где заказ является основой действия. */
+function orderDateLabel(o) {
+  if (o.createdOn) return fmtDate(o.createdOn);
+  return o.date || '—';
+}
+function OrderPickerDrawer({ onPick, onClose, title = 'Выбор заказа', sub = 'Заказы по дате оформления — новые сверху' }) {
+  const [q, setQ] = useState('');
+  const seen = {};
+  const rows = (typeof ORDERS !== 'undefined' ? ORDERS : [])
+    .filter((o) => (seen[o.no] ? false : (seen[o.no] = true)))
+    .filter((o) => `${o.no} ${o.client}`.toLowerCase().includes(q.toLowerCase()))
+    .slice().sort((a, b) => (b.createdOn ? b.createdOn.getTime() : 0) - (a.createdOn ? a.createdOn.getTime() : 0));
+  return (
+    <Drawer open onClose={onClose} title={title} sub={sub} width="min(560px,96vw)"
+      footer={<Button variant="secondary" style={{ width: '100%' }} onClick={onClose}>Закрыть</Button>}>
+      <SearchBox value={q} onChange={setQ} placeholder="Поиск: № заказа или клиент" style={{ width: '100%', marginBottom: 12 }} />
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+        {rows.map((o) => (
+          <button key={o.no} type="button" style={{ cursor: 'pointer', width: '100%', textAlign: 'left', border: '1px solid var(--line)', background: '#fff', borderRadius: 12, padding: '10px 12px', display: 'flex', alignItems: 'center', gap: 12 }}
+            onClick={() => { onPick(o); onClose(); }}>
+            <span className="oc-svc-ic" style={{ background: 'var(--blue)', width: 34, height: 34 }}><Icon name="briefcase" style={{ width: 16, height: 16 }} /></span>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontWeight: 600, color: 'var(--ink)' }}>Заказ № {o.no}</div>
+              <div style={{ fontSize: 12, color: 'var(--muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{o.client} · {o.requestType}</div>
+            </div>
+            {o.status && <Pill tone={(typeof ORDER_STATUS !== 'undefined' && ORDER_STATUS[o.status]) || 'gray'}>{o.status}</Pill>}
+            <div style={{ fontSize: 12, color: 'var(--muted)', whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: 5 }}><Icon name="calendar" style={{ width: 13, height: 13 }} />{orderDateLabel(o)}</div>
+            <Icon name="chevRight" style={{ width: 18, height: 18, color: 'var(--muted-2)' }} />
+          </button>
+        ))}
+        {!rows.length && <EmptyState icon="briefcase" title="Заказы не найдены" />}
+      </div>
+    </Drawer>
+  );
+}
+
+/* Подбор услуг для КП (§9) — та же маска подбора, что и в заказе/фрихенде (единая логика).
+   Каждая выбранная услуга сразу добавляется как позиция варианта КП. */
+function KpServicePicker({ participants = [], onAdd, onClose }) {
+  const toast = useToast();
+  const [kind, setKind] = useState('Авиа');
+  const [aviaParams, setAviaParams] = useState({ trip: 'rt', from: 'FRU', to: 'IST', depDate: null, retDate: null, pax: { adt: 1, chd: 0, infNoSeat: 0, infSeat: 0, special: {}, subsidized: {} }, cabin: 'Эконом', baggage: false, flex: false, direct: false, airline: '', ...(typeof PAX_DEFAULT_OPTIONS !== 'undefined' ? PAX_DEFAULT_OPTIONS : {}) });
+  const [added, setAdded] = useState(0);
+  const norm = (o, k) => ({ kind: k, title: o.title || o.main || o.route || (o.from && o.to ? o.from + ' → ' + o.to : k), sub: o.sub || o.fareName || o.fare || '', cost: Math.round(o.cost != null ? o.cost : (o.total || o.price || o.sum || 0)), fee: Math.round(o.fee || 0) });
+  const add = (o, k) => { onAdd(norm(o, k)); setAdded((n) => n + 1); toast('Услуга добавлена в вариант КП', 'ok'); };
+  return (
+    <StackPanel title="Подбор услуг для КП" width="min(1320px,96vw)" onClose={onClose}
+      footer={<>
+        <div style={{ flex: 1, alignSelf: 'center', color: 'var(--muted)', fontSize: 14 }}>Добавлено в вариант: <b style={{ color: 'var(--ink)' }}>{added}</b></div>
+        <Button icon="check" onClick={onClose}>Готово</Button>
+      </>}>
+      <div style={{ fontSize: 13, color: 'var(--muted)', marginBottom: 12 }}>Выбирайте услуги — каждая сразу добавляется в текущий вариант предложения. Маска подбора идентична подбору в заказе.</div>
+      <AddServicePanel kind={kind} setKind={setKind} aviaParams={aviaParams} setAviaParams={setAviaParams}
+        paxCount={(aviaParams.pax.adt || 0) + (aviaParams.pax.chd || 0)} participants={participants}
+        onAddAvia={(r) => add(r, 'Авиа')} onAddOther={(o, k) => add(o, k)} />
+    </StackPanel>
+  );
+}
 
 /* ====================================================================
    KP MODULE — lives inside the order card (КП tab)
@@ -281,6 +356,8 @@ function KPModule({ order, services, participants, onApprove }) {
   const [histOpen, setHistOpen] = useState(false);
   const [sendTarget, setSendTarget] = useState(null); // КП, выбранное для отправки клиенту
   const [templates, setTemplates] = useState(KP_TEMPLATES);
+  const [tplBuilder, setTplBuilder] = useState(undefined); // undefined=закрыт, null=новый, obj=редактирование
+  const [pickerOpen, setPickerOpen] = useState(false);     // §9 — подбор услуг в конструктор КП
   const [pdfBusy, setPdfBusy] = useState(false);
   const docRef = useRef(null);
 
@@ -336,6 +413,8 @@ function KPModule({ order, services, participants, onApprove }) {
   const delItem = (id) => setItems((items) => items.filter((it) => it.id !== id));
   const moveItem = (idx, dir) => setItems((items) => { const a = [...items]; const j = idx + dir; if (j < 0 || j >= a.length) return a; [a[idx], a[j]] = [a[j], a[idx]]; return a; });
   const addItem = (kind) => setItems((items) => [...items, { id: uid('i'), kind, title: 'Новая услуга', sub: '', cost: 0, fee: 0 }]);
+  const addItemFromOffer = (kpItem) => setItems((items) => [...items, { id: uid('i'), ...kpItem }]);
+  const saveTemplateFromBuilder = (t) => { setTemplates((list) => [t, ...list.filter((x) => x.id !== t.id)]); const gi = KP_TEMPLATES.findIndex((x) => x.id === t.id); if (gi >= 0) KP_TEMPLATES[gi] = t; else KP_TEMPLATES.unshift(t); setTplBuilder(undefined); toast('Шаблон «' + t.name + '» сохранён', 'ok'); };
 
   const setStatus = (s) => patch(active.id, (p) => withHist({ ...p, status: s }, 'Статус изменён: ' + s));
   const setField = (f, val) => patch(active.id, (p) => ({ ...p, [f]: val }));
@@ -360,9 +439,11 @@ function KPModule({ order, services, participants, onApprove }) {
           <Button variant="secondary" size="sm" icon="chevLeft" onClick={() => setView('list')}>Все КП</Button>
           <span style={{ fontWeight: 700, color: 'var(--ink)' }}>Шаблоны КП</span>
           <span style={{ color: 'var(--muted)', fontSize: 14 }}>· {templates.length} шаблон(ов)</span>
+          <div style={{ flex: 1 }} />
+          <Button icon="plus" onClick={() => setTplBuilder(null)}>Конструктор шаблона</Button>
         </div>
         {templates.length === 0
-          ? <EmptyState icon="template" title="Шаблонов пока нет" sub="Откройте КП и сохраните вариант как шаблон" />
+          ? <div><EmptyState icon="template" title="Шаблонов пока нет" sub="Соберите шаблон в конструкторе или сохраните вариант КП как шаблон" /><div style={{ display: 'flex', justifyContent: 'center', marginTop: -12 }}><Button icon="plus" onClick={() => setTplBuilder(null)}>Открыть конструктор шаблона</Button></div></div>
           : (
             <div className="grid-2" style={{ alignItems: 'start' }}>
               {templates.map((t) => (
@@ -370,7 +451,7 @@ function KPModule({ order, services, participants, onApprove }) {
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 6 }}>
                     <div style={{ fontWeight: 700, color: 'var(--ink)', fontSize: 16 }}>{t.name}</div>
                     <ActionMenu trigger={<button className="btn btn-ghost btn-icon btn-sm"><Icon name="more" /></button>}
-                      items={[{ icon: 'trash', label: 'Удалить шаблон', danger: true, onClick: () => delTemplate(t.id) }]} />
+                      items={[{ icon: 'edit', label: 'Изменить в конструкторе', onClick: () => setTplBuilder(t) }, { sep: true }, { icon: 'trash', label: 'Удалить шаблон', danger: true, onClick: () => delTemplate(t.id) }]} />
                   </div>
                   <div style={{ color: 'var(--muted)', fontSize: 13, marginBottom: 12 }}>{t.desc}</div>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 14 }}>
@@ -390,6 +471,7 @@ function KPModule({ order, services, participants, onApprove }) {
               ))}
             </div>
           )}
+        {tplBuilder !== undefined && <KPTemplateBuilder template={tplBuilder} onClose={() => setTplBuilder(undefined)} onSave={saveTemplateFromBuilder} />}
       </div>
     );
   }
@@ -621,8 +703,9 @@ function KPModule({ order, services, participants, onApprove }) {
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
                   <input className="cell-input" style={{ maxWidth: 320, fontWeight: 600 }} value={v.name} onChange={(e) => renameVariant(v.id, e.target.value)} />
                   <div style={{ flex: 1 }} />
-                  <ActionMenu trigger={<Button variant="secondary" size="sm" icon="plus">Услуга</Button>}
-                    items={KP_ADD_TYPES.map((t) => ({ icon: SERVICE_KIND[t].icon, label: t, onClick: () => addItem(t) }))} />
+                  <Button size="sm" icon="search" onClick={() => setPickerOpen(true)}>Подобрать услугу</Button>
+                  <ActionMenu trigger={<Button variant="secondary" size="sm" icon="plus">Вручную</Button>}
+                    items={KP_ADD_TYPES.map((t) => ({ icon: SERVICE_KIND[t].icon, label: 'Пустая строка: ' + t, onClick: () => addItem(t) }))} />
                   {active.variants.length > 1 && <Button variant="ghost" size="sm" icon="trash" onClick={() => delVariant(v.id)}>Удалить вариант</Button>}
                 </div>
 
@@ -676,11 +759,65 @@ function KPModule({ order, services, participants, onApprove }) {
 
         <FixVariantModal open={fixOpen} proposal={active} onClose={() => setFixOpen(false)} onFix={fixVariant} />
         <KPHistoryDrawer open={histOpen} proposal={active} onClose={() => setHistOpen(false)} />
+        {pickerOpen && <KpServicePicker participants={participants} onAdd={addItemFromOffer} onClose={() => setPickerOpen(false)} />}
         {sendPanel}
       </div>
     );
   }
   return null;
+}
+
+/* Конструктор шаблона КП в боковом окне (§ шаблоны) — набор позиций, переиспользуемый в любом КП. */
+function KPTemplateBuilder({ template, onClose, onSave }) {
+  const toast = useToast();
+  const uid = (p) => p + Math.random().toString(36).slice(2, 7);
+  const [name, setName] = useState(template ? template.name : '');
+  const [desc, setDesc] = useState(template ? template.desc : '');
+  const [items, setItems] = useState(template ? template.items.map((it) => ({ id: uid('i'), ...it })) : []);
+  const total = items.reduce((s, it) => s + (+it.cost || 0) + (+it.fee || 0), 0);
+  const upd = (id, f, val) => setItems((xs) => xs.map((it) => (it.id === id ? { ...it, [f]: val } : it)));
+  const add = (kind) => setItems((xs) => [...xs, { id: uid('i'), kind, title: 'Новая услуга', sub: '', cost: 0, fee: 0 }]);
+  const del = (id) => setItems((xs) => xs.filter((it) => it.id !== id));
+  const save = () => {
+    if (!name.trim()) { toast('Введите название шаблона', 'err'); return; }
+    onSave({ id: template ? template.id : 'TPL-' + Date.now().toString(36).slice(-4).toUpperCase(), name: name.trim(), desc: desc.trim() || (items.length + ' услуг(и)'), items: items.map((it) => ({ kind: it.kind, title: it.title, sub: it.sub, cost: +it.cost || 0, fee: +it.fee || 0 })) });
+  };
+  return (
+    <StackPanel title={template ? 'Конструктор шаблона · ' + template.name : 'Конструктор шаблона КП'} width="min(1040px,96vw)" onClose={onClose}
+      footer={<><div style={{ flex: 1, alignSelf: 'center', color: 'var(--muted)', fontSize: 13 }}>Позиций: {items.length} · Итого {kpM(total)}</div><Button variant="secondary" onClick={onClose}>Отмена</Button><Button icon="check" onClick={save}>Сохранить шаблон</Button></>}>
+      <div className="form-grid" style={{ marginBottom: 16 }}>
+        <Field label="Название шаблона" required><Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Напр. «Стамбул · пакет Стандарт»" /></Field>
+        <Field label="Описание"><Input value={desc} onChange={(e) => setDesc(e.target.value)} placeholder="Кратко о составе" /></Field>
+      </div>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
+        <PanelSub style={{ margin: 0, flex: 1 }}>Состав шаблона</PanelSub>
+        <ActionMenu trigger={<Button size="sm" icon="plus">Добавить позицию</Button>}
+          items={KP_ADD_TYPES.map((t) => ({ icon: SERVICE_KIND[t].icon, label: t, onClick: () => add(t) }))} />
+      </div>
+      <div className="table-card">
+        <table className="tbl">
+          <thead><tr><th>Тип</th><th>Услуга</th><th style={{ width: 110, textAlign: 'right' }}>Стоимость</th><th style={{ width: 110, textAlign: 'right' }}>Сервис. сбор</th><th style={{ width: 100, textAlign: 'right' }}>Итого</th><th style={{ width: 40 }}></th></tr></thead>
+          <tbody>
+            {items.length === 0
+              ? <tr><td colSpan={6}><EmptyState icon="inbox" title="Позиций нет" sub="Добавьте услуги в шаблон" /></td></tr>
+              : items.map((it) => {
+                const k = SERVICE_KIND[it.kind] || SERVICE_KIND['Авиа'];
+                return (
+                  <tr key={it.id}>
+                    <td><span style={{ display: 'inline-flex', alignItems: 'center', gap: 7 }}><span className="airline-logo sm" style={{ background: k.color, width: 28, height: 28, borderRadius: 8 }}><Icon name={k.icon} style={{ width: 16, height: 16 }} /></span><Pill tone={k.tone}>{it.kind}</Pill></span></td>
+                    <td><input className="cell-input" value={it.title} onChange={(e) => upd(it.id, 'title', e.target.value)} style={{ marginBottom: 5 }} /><input className="cell-input" value={it.sub} placeholder="Описание" onChange={(e) => upd(it.id, 'sub', e.target.value)} style={{ fontSize: 12, color: 'var(--muted)' }} /></td>
+                    <td><input className="cell-input cell-num" type="number" value={it.cost} onChange={(e) => upd(it.id, 'cost', +e.target.value)} /></td>
+                    <td><input className="cell-input cell-num" type="number" value={it.fee} onChange={(e) => upd(it.id, 'fee', +e.target.value)} /></td>
+                    <td style={{ textAlign: 'right', fontWeight: 700, color: 'var(--ink)' }}>{kpM((+it.cost || 0) + (+it.fee || 0))}</td>
+                    <td><button className="icon-btn" onClick={() => del(it.id)}><Icon name="trash" /></button></td>
+                  </tr>
+                );
+              })}
+          </tbody>
+        </table>
+      </div>
+    </StackPanel>
+  );
 }
 
 function KPHistoryDrawer({ open, proposal, onClose }) {
@@ -726,6 +863,7 @@ function KPCreateModal({ open, onClose, onCreated, onOpenOrder }) {
   const [payTerm, setPayTerm] = useState('');            // срок оплаты
   const [base, setBase] = useState('manual'); // manual | services | recognize | copy | empty | tpl:<id>
   const [errs, setErrs] = useState({});
+  const [orderPickerOpen, setOrderPickerOpen] = useState(false); // §9 — выбор заказа боковым окном
   useEffect(() => { if (open) { setSource('order'); setOrderNo(''); setKpType(KP_PURPOSE_TYPES[0]); setDocType('generic'); setName(''); setRecipient('Клиент (сам)'); setResponsible((typeof CURRENT_USER !== 'undefined' && CURRENT_USER.name) || OPERATORS[0]); setCurrency('USD'); setValid('25.06.2026'); setValidTime('18:00'); setValidTz('МСК (UTC+3)'); setPayTerm(''); setBase('manual'); setErrs({}); } }, [open]);
   const uid = (p) => p + Math.random().toString(36).slice(2, 7);
   const seen = {};
@@ -773,7 +911,7 @@ function KPCreateModal({ open, onClose, onCreated, onOpenOrder }) {
     const { np, order } = build();
     onCreated && onCreated(np);
     if (mode === 'pick') { toast('КП ' + np.id + ': переходим к подбору услуг', 'ok'); onClose(); onOpenOrder && onOpenOrder(order, 'services'); }
-    else if (mode === 'builder') { toast('КП ' + np.id + ': открываем конструктор', 'ok'); onClose(); onOpenOrder && onOpenOrder(order, 'kp'); }
+    else if (mode === 'builder') { toast('КП ' + np.id + ': открываем конструктор', 'ok'); onClose(); onOpenOrder && onOpenOrder(order, 'offers'); }
     else { toast('Черновик КП ' + np.id + ' сохранён', 'ok'); onClose(); }
   };
   if (!open) return null;
@@ -800,7 +938,14 @@ function KPCreateModal({ open, onClose, onCreated, onOpenOrder }) {
 
       <div className="form-grid">
         {fromOrder
-          ? <Field label="Заказ" required error={errs.order}><Select options={orderOpts} placeholder="Выберите заказ" value={orderNo} onChange={(e) => setOrderNo(e.target.value)} error={errs.order} /></Field>
+          ? <Field label="Заказ" required error={errs.order}>
+              <button type="button" className={'input' + (errs.order ? ' err' : '')} style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', textAlign: 'left', width: '100%' }} onClick={() => setOrderPickerOpen(true)}>
+                {selOrder
+                  ? <><Icon name="briefcase" style={{ width: 16, height: 16, color: 'var(--blue)' }} /><span style={{ fontWeight: 600, color: 'var(--ink)' }}>№ {selOrder.no}</span><span style={{ color: 'var(--muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>· {selOrder.client} · {orderDateLabel(selOrder)}</span></>
+                  : <span style={{ color: 'var(--muted)' }}>Выбрать заказ…</span>}
+                <div style={{ flex: 1 }} /><Icon name="chevRight" style={{ width: 16, height: 16, color: 'var(--muted-2)' }} />
+              </button>
+            </Field>
           : <Field label="Получатель / клиент"><Input value={recipient} onChange={(e) => setRecipient(e.target.value)} placeholder="Клиент, компания или контактное лицо" /></Field>}
         {fromOrder && <Field label="Получатель КП"><Select options={['Клиент (сам)', 'Контактное лицо компании', 'Несколько сотрудников', 'Сторонний получатель']} value={recipient} onChange={(e) => setRecipient(e.target.value)} /></Field>}
         <Field label="Тип КП (назначение)"><Select options={KP_PURPOSE_TYPES} value={kpType} onChange={(e) => setKpType(e.target.value)} /></Field>
@@ -884,6 +1029,8 @@ function KPCreateModal({ open, onClose, onCreated, onOpenOrder }) {
           </div>
         );
       })()}
+
+      {orderPickerOpen && <OrderPickerDrawer title="Выбор заказа для КП" onPick={(o) => { setOrderNo(String(o.no)); setErrs((e) => ({ ...e, order: undefined })); }} onClose={() => setOrderPickerOpen(false)} />}
     </Drawer>
   );
 }
@@ -1071,4 +1218,4 @@ function OffersPage({ onOpenOrder, intent, onConsume }) {
   );
 }
 
-Object.assign(window, { KPModule, KPPreviewDoc, KPCreateModal, ProposalSendPanel, OffersRegistry, OffersPage, FixVariantModal, KPHistoryDrawer });
+Object.assign(window, { KPModule, KPPreviewDoc, KPCreateModal, ProposalSendPanel, OffersRegistry, OffersPage, FixVariantModal, KPHistoryDrawer, OrderPickerDrawer, KpServicePicker, KPTemplateBuilder, KP_TEMPLATES });

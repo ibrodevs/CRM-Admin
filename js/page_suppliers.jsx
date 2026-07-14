@@ -201,9 +201,35 @@ function supExt(s) {
       searchPriority: kinds.reduce((m, k) => (SUP_PRIORITY_SERVICES.includes(k) ? (m[k] = 1 + seed, m) : m), {}),
       stats: { bookings: 84 + s.no % 200, issues: 61 + s.no % 160, refunds: 3 + seed, avgResponse: (2 + seed) + ' мин', successRate: (91 + seed) + '%', lastUsed: '0' + (5 - (seed % 3)) + '.07.2026' },
       docs: { 'Договор': ['Договор оферты.pdf'], 'Дополнительные соглашения': ['ДС №2 от 03.2026.pdf'], 'Реквизиты': ['Реквизиты.pdf'], 'Сертификаты': s.orgType === 'Авиакомпания' ? ['Сертификат IATA.pdf'] : [], 'Прочие файлы': [] },
+      // §7 — поставщик как компания: юридические данные (ввод по ИНН) + договор/взаиморасчёты
+      legal: {
+        inn: '', kpp: '', ogrn: '', okpo: '', legalName: s.org, legalForm: 'ОсОО',
+        director: '', address: '', phone: '', email: '', vat: seed % 2 ? '12%' : 'Без НДС',
+        bank: '', bik: '', account: '', corr: '',
+        contractNo: '', contractDate: '', signedBy: '', filled: false,
+      },
     };
   }
   return SUP_EXT[s.no];
+}
+// Демо-«заполнение по ИНН»: детерминированный автозаполненный юр-профиль поставщика (§7)
+function supLookupByInn(inn, ext, s) {
+  const bases = [
+    { form: 'ОсОО', bank: 'Демир Банк', bik: '109000', addr: 'Бишкек, ул. Абдрахманова 170' },
+    { form: 'ЗАО', bank: 'Оптима Банк', bik: '109001', addr: 'Бишкек, пр. Чуй 219' },
+    { form: 'ИП', bank: 'РСК Банк', bik: '128005', addr: 'Ош, ул. Курманжан Датка 12' },
+  ];
+  const b = bases[(String(inn).length + (s.no || 0)) % bases.length];
+  const tail = String(inn).replace(/\D/g, '').slice(-6).padStart(6, '0');
+  return {
+    ...ext.legal, inn: String(inn), legalForm: b.form,
+    kpp: tail.slice(0, 3) + '01001', ogrn: '1' + tail + '00' + tail.slice(0, 3), okpo: tail.slice(0, 5) + '1',
+    legalName: b.form + ' «' + s.org + '»', director: 'Директор ' + s.org, address: b.addr,
+    phone: '+996 (312) ' + tail.slice(0, 2) + '-' + tail.slice(2, 4) + '-' + tail.slice(4, 6),
+    email: 'office@' + String(s.org).toLowerCase().replace(/[^a-z0-9]/g, '') + '.kg',
+    bank: b.bank, bik: b.bik, account: '124' + tail + tail.slice(0, 7), corr: '101' + tail + tail.slice(0, 7),
+    filled: true,
+  };
 }
 function supFinSummary(ext) {
   return ext.fin.commType === '%' ? ext.fin.commValue + ' %' : ext.fin.commType === 'Фиксированная' ? ext.fin.commValue + ' ' + ext.fin.currency : ext.fin.commValue + ' % + сборы';
@@ -429,6 +455,7 @@ function SearchPriorityModal({ open, onClose }) {
 
 const SUP_TABS = [
   { key: 'general', label: 'Общие данные', icon: 'user' },
+  { key: 'legal', label: 'Реквизиты', icon: 'bank' },
   { key: 'contacts', label: 'Контакты', icon: 'contacts' },
   { key: 'finance', label: 'Финансовые условия', icon: 'finance' },
   { key: 'search', label: 'Для поиска', icon: 'search' },
@@ -438,6 +465,76 @@ const SUP_TABS = [
   { key: 'sla', label: 'SLA', icon: 'sla' },
   { key: 'docs', label: 'Документы', icon: 'docs' },
 ];
+
+/* §7 — Юридический блок поставщика (поставщик как компания): ввод по ИНН, все юр. поля
+   вплоть до банка/расчётного счёта, договор и взаиморасчёты (формы взаимосвязи). */
+function SupplierLegalEditor({ s, ext }) {
+  const toast = useToast();
+  const [, force] = useState(0);
+  const [f, setF] = useState(() => ({ ...ext.legal }));
+  const [busy, setBusy] = useState(false);
+  const set = (k) => (e) => setF((p) => ({ ...p, [k]: e.target.value }));
+  const lookup = () => {
+    if (!f.inn || String(f.inn).replace(/\D/g, '').length < 6) { toast('Введите ИНН (не менее 6 цифр)', 'err'); return; }
+    setBusy(true);
+    setTimeout(() => { setF(supLookupByInn(f.inn, ext, s)); setBusy(false); toast('Данные подтянуты по ИНН', 'ok'); }, 700);
+  };
+  const save = () => { ext.legal = { ...f, filled: true }; force((v) => v + 1); toast('Реквизиты поставщика сохранены', 'ok'); };
+  const F = ({ label, k, wide, ph }) => (
+    <div style={{ gridColumn: wide ? '1 / -1' : 'auto' }}><Field label={label}><Input value={f[k] || ''} onChange={set(k)} placeholder={ph} /></Field></div>
+  );
+  return (
+    <div>
+      {/* Ввод по ИНН */}
+      <div className="card card-pad" style={{ marginBottom: 16, background: 'var(--surface-2)' }}>
+        <div style={{ display: 'flex', alignItems: 'flex-end', gap: 12, flexWrap: 'wrap' }}>
+          <div style={{ flex: 1, minWidth: 220 }}><Field label="ИНН" hint="первичный ввод — остальные поля заполнятся автоматически"><Input value={f.inn || ''} onChange={set('inn')} leadIcon="bank" placeholder="Напр. 02208201810045" /></Field></div>
+          <Button icon="api" disabled={busy} onClick={lookup}>{busy ? 'Запрос…' : 'Заполнить по ИНН'}</Button>
+          {f.filled && <Pill tone="green"><Icon name="check" style={{ width: 12, height: 12, verticalAlign: -2 }} /> данные получены</Pill>}
+        </div>
+      </div>
+
+      {/* Юридические данные */}
+      <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--muted)', margin: '4px 0 10px' }}>Юридические данные</div>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+        <div><Field label="Форма"><Select options={['ОсОО', 'ЗАО', 'ОАО', 'ИП', 'АО', 'ООО', 'Филиал']} value={f.legalForm || 'ОсОО'} onChange={set('legalForm')} /></Field></div>
+        <F label="Юридическое название" k="legalName" />
+        <F label="КПП" k="kpp" />
+        <F label="ОГРН / ОГРНИП" k="ogrn" />
+        <F label="ОКПО" k="okpo" />
+        <div><Field label="НДС"><Select options={['Без НДС', '12%', '20%']} value={f.vat || 'Без НДС'} onChange={set('vat')} /></Field></div>
+        <F label="Директор / подписант" k="director" />
+        <F label="Юридический адрес" k="address" wide />
+        <F label="Телефон" k="phone" />
+        <F label="E-mail" k="email" />
+      </div>
+
+      {/* Банковские реквизиты */}
+      <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--muted)', margin: '18px 0 10px' }}>Банк и расчётный счёт</div>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+        <F label="Банк" k="bank" />
+        <F label="БИК" k="bik" />
+        <F label="Расчётный счёт" k="account" />
+        <F label="Корреспондентский счёт" k="corr" />
+      </div>
+
+      {/* Формы взаимосвязи: договор + взаиморасчёты */}
+      <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--muted)', margin: '18px 0 10px' }}>Договор и взаиморасчёты</div>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+        <F label="Номер договора" k="contractNo" ph="№ 2025-014" />
+        <F label="Дата договора" k="contractDate" ph="14.01.2025" />
+        <F label="Подписант со стороны компании" k="signedBy" />
+        <div><Field label="Взаиморасчёты"><Select options={['Предоплата', 'Депозит', 'Отсрочка', 'По факту']} value={ext.fin.settlement} onChange={(e) => { ext.fin.settlement = e.target.value; force((v) => v + 1); }} /></Field></div>
+        <div><Field label="Срок оплаты (дней)"><Input value={typeof ext.fin.payTerm === 'number' ? ext.fin.payTerm : (ext.fin.payTerm || '')} onChange={(e) => { ext.fin.payTerm = e.target.value === '' ? '' : (parseInt(e.target.value) || 0); force((v) => v + 1); }} /></Field></div>
+        <div><Field label="Валюта расчёта"><Select options={(typeof CURRENCIES !== 'undefined' ? CURRENCIES.map((c) => c.code) : ['USD', 'EUR', 'RUB', 'KGS'])} value={ext.fin.currency} onChange={(e) => { ext.fin.currency = e.target.value; force((v) => v + 1); }} /></Field></div>
+      </div>
+
+      <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 18 }}>
+        <Button icon="check" onClick={save}>Сохранить реквизиты</Button>
+      </div>
+    </div>
+  );
+}
 
 /* Тело раздела поставщика — общий рендер вкладок для карточки-страницы и бокового окна. */
 function SupplierTabBody({ s, ext, tab, isAirline, apiStatus, checkConn, setPreviewDoc, toast }) {
@@ -459,6 +556,7 @@ function SupplierTabBody({ s, ext, tab, isAirline, apiStatus, checkConn, setPrev
           ))}
         </div>
       )}
+      {tab === 'legal' && <SupplierLegalEditor s={s} ext={ext} />}
       {tab === 'contacts' && (
         <div>
           <div className="kv">

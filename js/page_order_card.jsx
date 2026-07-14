@@ -1772,7 +1772,7 @@ function OrderCard({ order, onBack, initTab, initSvc, initSvcSearch, fresh, onOp
     { key: 'clients', label: 'Клиенты', icon: 'contacts' },
     { key: 'responsibles', label: 'Ответственные', icon: 'users', count: orderResponsibles(order.no).length || null },
     { key: 'extras', label: 'Доп. услуги', icon: 'sparkles' },
-    { key: 'offers', label: 'КП', icon: 'template', count: PROPOSALS.filter((p) => p.order === order.no).length, locked: stageIdx < 2 },
+    { key: 'offers', label: 'КП', icon: 'template', count: PROPOSALS.filter((p) => p.order === order.no).length, locked: stageIdx < 2 && !PROPOSALS.some((p) => p.order === order.no) },
     { key: 'aftersale', label: 'Постпродажа', icon: 'refund', count: RETURNS.filter((r) => r.order === order.no).length || null, locked: stageIdx < 2 },
   ];
   const isTabLocked = (t) => !!t.locked;
