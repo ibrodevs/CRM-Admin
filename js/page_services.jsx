@@ -54,7 +54,7 @@ function SvcOfferCard({ o, kind, onSelect, onSave, selectLabel }) {
     <div className="off-card" style={{ marginBottom: 14 }}>
       <div className="off-main">
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-          <span className="oc-svc-ic" style={{ background: k.color, width: 44, height: 44 }}><Icon name={k.icon} /></span>
+          <span className={'oc-svc-ic' + (k.img ? ' oc-svc-ic-img' : '')} style={{ background: k.img ? '#fff' : k.color, width: 44, height: 44 }}>{k.img ? <img src={k.img} alt={kind} /> : <Icon name={k.icon} />}</span>
           <div><div style={{ fontWeight: 700, color: 'var(--ink)' }}>{o.title}</div><div style={{ fontSize: 13, color: 'var(--muted)' }}>{o.sub}</div></div>
         </div>
         <div style={{ display: 'flex', gap: 26, flexWrap: 'wrap' }}>
@@ -1569,6 +1569,7 @@ function AeroAddFlow({ onAdd }) {
     <div className="fade-in">
       <div style={{ marginBottom: 14, display: 'flex', gap: 10, alignItems: 'center' }}>
         {view === 'results' && <Button variant="secondary" size="sm" icon="chevLeft" onClick={() => setView('search')}>Изменить поиск</Button>}
+        <img src="assets/Aeroexpress_logo.svg.png" alt="Аэроэкспресс" style={{ height: 22, width: 'auto' }} />
         <span style={{ fontWeight: 600, color: 'var(--ink)' }}>Аэроэкспресс — билеты и абонементы</span>
       </div>
 
@@ -1993,6 +1994,7 @@ const SERVICES_HUB = [
   { key: 'hotels', icon: 'building', title: 'Гостиницы', desc: 'Подбор отелей, категории, питание и условия.' },
   { key: 'transfers', icon: 'car', title: 'Трансферы', desc: 'Индивидуальные и групповые трансферы, такси.' },
   { key: 'buses', icon: 'bus', title: 'Автобусы', desc: 'Автобусные и маршрутные перевозки.' },
+  { key: 'aero', img: 'assets/Aeroexpress_logo.svg.png', title: 'Аэроэкспресс', desc: 'Билеты и абонементы Аэроэкспресс, аэропорт ⇄ город.' },
   { key: 'tours', icon: 'users', title: 'Туры и группы', desc: 'Групповые поездки и туристические пакеты.' },
 ];
 /* Маска подбора авиабилетов для бокового окна хаба (у авиа нет записи в SVC_CFG). */
@@ -2037,7 +2039,7 @@ function ServiceSearchDrawer({ svc, onClose, onSubmit, onOpenRegistry }) {
 }
 
 /* Соответствие блока хаба вкладке единой маски бронирования (ADD_SVC_CATS). */
-const HUB_KIND = { flights: 'Авиа', rail: 'ЖД', hotels: 'Гостиница', transfers: 'Трансфер', buses: 'Автобус', tours: 'Доп. услуга' };
+const HUB_KIND = { flights: 'Авиа', rail: 'ЖД', hotels: 'Гостиница', transfers: 'Трансфер', buses: 'Автобус', aero: 'Аэроэкспресс', tours: 'Доп. услуга' };
 
 function ServicesHubPage({ onNavigate, onAddOrder, onOpenOrder, onCreateOrder }) {
   // Единая маска бронирования со вкладками. Клик по блоку открывает её на нужной вкладке.
@@ -2053,7 +2055,7 @@ function ServicesHubPage({ onNavigate, onAddOrder, onOpenOrder, onCreateOrder })
         <div className="svc-hub-grid">
           {SERVICES_HUB.map((s) => (
             <button key={s.key} type="button" className="svc-hub-card" onClick={() => setMaskKind(HUB_KIND[s.key] || 'Авиа')}>
-              <span className="svc-hub-ic"><Icon name={s.icon} /></span>
+              <span className={'svc-hub-ic' + (s.img ? ' svc-hub-ic-img' : '')}>{s.img ? <img src={s.img} alt={s.title} /> : <Icon name={s.icon} />}</span>
               <span className="svc-hub-body">
                 <span className="svc-hub-t">{s.title}</span>
                 <span className="svc-hub-d">{s.desc}</span>

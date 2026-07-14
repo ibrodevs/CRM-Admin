@@ -854,7 +854,7 @@ const ADD_SVC_CATS = [
   { kind: 'Гостиница', label: 'Отели', icon: 'building', routeKey: 'hotels' },
   { kind: 'Трансфер', label: 'Трансферы', icon: 'car', routeKey: 'transfers' },
   { kind: 'Автобус', label: 'Автобус', icon: 'bus', routeKey: 'buses' },
-  { kind: 'Аэроэкспресс', label: 'Аэроэкспресс', icon: 'zap', routeKey: 'aero' },
+  { kind: 'Аэроэкспресс', label: 'Аэроэкспресс', icon: 'zap', img: 'assets/Aeroexpress_logo.svg.png', routeKey: 'aero' },
   { kind: 'Страховка', label: 'Страховка', icon: 'shield' },
   { kind: 'Доп. услуга', label: 'Доп. услуга', icon: 'briefcase' },
 ];
@@ -1569,7 +1569,7 @@ function AddServicePanel({ kind, setKind, aviaParams, setAviaParams, paxCount, p
       <div className="svcp-cattabs">
         {ADD_SVC_CATS.map((c) => (
           <button key={c.kind} className={'svcp-cattab' + (kind === c.kind ? ' active' : '')} onClick={() => setKind(c.kind)}>
-            <Icon name={c.icon} />{c.label}
+            {c.img ? <img className="svcp-cattab-img" src={c.img} alt={c.label} /> : <Icon name={c.icon} />}{c.label}
           </button>
         ))}
       </div>
