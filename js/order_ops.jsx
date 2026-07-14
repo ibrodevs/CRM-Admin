@@ -285,59 +285,73 @@ function OperationConfirmModal({ open, action, kind = 'Авиа', service, fin =
     <Modal open onClose={onClose}>
       <div style={{ width: 'min(640px,94vw)' }}>
         <ModalHeader title={cfg.title} sub={(service || 'Услуга') + ' · ' + kind} onClose={onClose} />
-        <div style={{ maxHeight: '68vh', overflow: 'auto', paddingRight: 2 }}>
-          <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10, padding: '12px 14px', borderRadius: 12, background: cfg.tone === 'danger' ? 'var(--red-bg)' : 'var(--blue-soft)', marginBottom: 16 }}>
-            <Icon name={cfg.tone === 'danger' ? 'alertCircle' : 'checkCircle'} style={{ width: 18, height: 18, color: cfg.tone === 'danger' ? 'var(--red)' : 'var(--blue)', flexShrink: 0, marginTop: 1 }} />
-            <div style={{ fontSize: 13.5, color: 'var(--body)' }}>{cfg.desc}</div>
+        <div style={{ maxHeight: '66vh', overflow: 'auto', padding: '4px 2px 2px', display: 'flex', flexDirection: 'column', gap: 12 }}>
+          {/* Ключевая суть операции — акцентный баннер */}
+          <div style={{ display: 'flex', alignItems: 'flex-start', gap: 11, padding: '13px 15px', borderRadius: 12,
+            background: cfg.tone === 'danger' ? '#fdf0ec' : 'var(--blue-soft)', border: '1px solid ' + (cfg.tone === 'danger' ? '#f2c4b7' : '#cfe0ff') }}>
+            <Icon name={cfg.tone === 'danger' ? 'alertCircle' : 'checkCircle'} style={{ width: 20, height: 20, color: cfg.tone === 'danger' ? 'var(--red)' : 'var(--blue)', flexShrink: 0, marginTop: 1 }} />
+            <div style={{ fontSize: 13.5, color: 'var(--ink)', lineHeight: 1.45 }}>{cfg.desc}</div>
           </div>
 
           <OpConfSection icon="orders" title="Будут выполнены операции">
             {cfg.ops.map((o, i) => <div key={i} className="opc-li"><Icon name="chevRight" style={{ width: 13, height: 13, color: 'var(--muted-2)' }} />{o}</div>)}
           </OpConfSection>
 
-          <OpConfSection icon="check" title="Автоматическая проверка данных">
-            {checks.map((c, i) => <div key={i} className="opc-li"><Icon name="checkCircle" style={{ width: 14, height: 14, color: 'var(--green)' }} />{c}</div>)}
+          <OpConfSection icon="check" title="Автоматическая проверка данных" tone="green">
+            {checks.map((c, i) => <div key={i} className="opc-li"><Icon name="checkCircle" style={{ width: 15, height: 15, color: 'var(--green)' }} />{c}</div>)}
           </OpConfSection>
 
           {finRows.length > 0 && (
             <OpConfSection icon="finance" title="Финансовая информация">
-              <div className="kv">
-                {finRows.map(([k, v], i) => <div className="kv-row" key={i}><span className="k">{k}</span><span className="v" style={{ color: k === 'Штраф' ? 'var(--red)' : k === 'Сумма к возврату' ? 'var(--green)' : 'var(--ink)' }}>{fmt(v)}</span></div>)}
-                {total != null && <div className="kv-row"><span className="k" style={{ fontWeight: 700, color: 'var(--ink)' }}>Итого операции</span><span className="v" style={{ fontWeight: 700 }}>{fmt(total)}</span></div>}
+              <div className="kv" style={{ marginTop: -4 }}>
+                {finRows.map(([k, v], i) => <div className="kv-row" key={i} style={{ padding: '8px 0' }}><span className="k" style={{ fontSize: 13.5 }}>{k}</span><span className="v" style={{ fontSize: 14, color: k === 'Штраф' ? 'var(--red)' : k === 'Сумма к возврату' ? 'var(--green)' : 'var(--ink)' }}>{fmt(v)}</span></div>)}
               </div>
+              {total != null && (
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 10, paddingTop: 11, borderTop: '2px solid var(--line)' }}>
+                  <span style={{ fontWeight: 800, fontSize: 14, color: 'var(--ink)' }}>Итого операции</span>
+                  <span style={{ fontWeight: 800, fontSize: 20, color: action === 'refund' ? 'var(--green)' : 'var(--ink)' }}>{fmt(total)}</span>
+                </div>
+              )}
             </OpConfSection>
           )}
 
           {warnings.length > 0 && (
-            <OpConfSection icon="alertCircle" title="Предупреждения" tone="amber">
-              {warnings.map((w, i) => <div key={i} className="opc-li" style={{ color: 'var(--amber)' }}><Icon name="alertCircle" style={{ width: 14, height: 14, color: 'var(--amber)' }} />{w}</div>)}
+            <OpConfSection icon="alertCircle" title="Важно — проверьте перед подтверждением" tone="amber">
+              {warnings.map((w, i) => <div key={i} className="opc-li" style={{ color: 'var(--amber)', fontWeight: 600 }}><Icon name="alertCircle" style={{ width: 15, height: 15, color: 'var(--amber)' }} />{w}</div>)}
             </OpConfSection>
           )}
 
           {cfg.consequences.length > 0 && (
-            <OpConfSection icon="alertCircle" title="Последствия" tone="red">
-              {cfg.consequences.map((w, i) => <div key={i} className="opc-li" style={{ color: 'var(--red)' }}><Icon name="chevRight" style={{ width: 13, height: 13, color: 'var(--red)' }} />{w}</div>)}
+            <OpConfSection icon="alertCircle" title="Последствия операции" tone="red">
+              {cfg.consequences.map((w, i) => <div key={i} className="opc-li" style={{ color: 'var(--red)', fontWeight: 600 }}><Icon name="chevRight" style={{ width: 14, height: 14, color: 'var(--red)' }} />{w}</div>)}
             </OpConfSection>
           )}
 
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: needComment ? 14 : 4 }}>
-            <OpConfSection icon="docs" title="Будут сформированы">
-              {cfg.docs.map((d, i) => <div key={i} className="opc-li"><Icon name="docs" style={{ width: 13, height: 13, color: 'var(--blue)' }} />{d}</div>)}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+            <OpConfSection icon="docs" title="Будут сформированы" tone="blue">
+              {cfg.docs.map((d, i) => <div key={i} className="opc-li"><Icon name="docs" style={{ width: 14, height: 14, color: 'var(--blue)' }} />{d}</div>)}
             </OpConfSection>
-            <OpConfSection icon="bell" title="Уведомления">
-              {cfg.notifies.map((d, i) => <div key={i} className="opc-li"><Icon name="bell" style={{ width: 13, height: 13, color: 'var(--blue)' }} />{d}</div>)}
+            <OpConfSection icon="bell" title="Уведомления" tone="blue">
+              {cfg.notifies.map((d, i) => <div key={i} className="opc-li"><Icon name="bell" style={{ width: 14, height: 14, color: 'var(--blue)' }} />{d}</div>)}
             </OpConfSection>
           </div>
 
           {needComment && (
-            <div style={{ marginBottom: 6 }}>
-              <label className="label">Комментарий оператора</label>
+            <div>
+              <label className="label" style={{ marginBottom: 6, display: 'block' }}>Комментарий оператора</label>
               <textarea className="input" style={{ minHeight: 64, resize: 'vertical', width: '100%' }} value={comment} onChange={(e) => setComment(e.target.value)} placeholder="Причина / примечание к операции" />
             </div>
           )}
         </div>
+
+        {cfg.irreversible && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 9, padding: '10px 13px', borderRadius: 11, marginTop: 14,
+            background: cfg.tone === 'danger' ? '#fdf0ec' : '#fff7ec', border: '1px solid ' + (cfg.tone === 'danger' ? '#f2c4b7' : '#f0d6a6') }}>
+            <Icon name="lock" style={{ width: 16, height: 16, color: cfg.tone === 'danger' ? 'var(--red)' : 'var(--amber)', flexShrink: 0 }} />
+            <span style={{ fontSize: 12.5, fontWeight: 700, color: cfg.tone === 'danger' ? 'var(--red)' : 'var(--amber)' }}>Действие необратимо — отменить автоматически будет нельзя</span>
+          </div>
+        )}
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, paddingTop: 16 }}>
-          {cfg.irreversible && <span style={{ fontSize: 12, color: 'var(--muted)', display: 'inline-flex', alignItems: 'center', gap: 6 }}><Icon name="lock" style={{ width: 13, height: 13 }} />Действие необратимо</span>}
           <div style={{ flex: 1 }} />
           <Button variant="secondary" onClick={onClose}>Отмена</Button>
           <Button variant={cfg.tone === 'danger' ? 'danger' : 'primary'} icon="check" onClick={() => { onConfirm && onConfirm({ comment }); onClose && onClose(); }}>{cfg.verb}</Button>
@@ -346,14 +360,23 @@ function OperationConfirmModal({ open, action, kind = 'Авиа', service, fin =
     </Modal>
   );
 }
+// Секция модалки подтверждения — выделенный блок с акцентом по важности (ТЗ #10/#11).
+const OPC_TONES = {
+  amber: { bg: '#fff7ec', bd: '#f0d6a6', hd: 'var(--amber)' },
+  red:   { bg: '#fdf0ec', bd: '#f2c4b7', hd: 'var(--red)' },
+  green: { bg: '#eef9f1', bd: '#c3e9d0', hd: 'var(--green)' },
+  blue:  { bg: 'var(--blue-soft)', bd: '#cfe0ff', hd: 'var(--blue)' },
+  plain: { bg: 'var(--surface-2)', bd: 'var(--line)', hd: 'var(--muted)' },
+};
 function OpConfSection({ icon, title, tone, children }) {
+  const s = OPC_TONES[tone] || OPC_TONES.plain;
   return (
-    <div style={{ marginBottom: 14 }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginBottom: 7 }}>
-        <Icon name={icon} style={{ width: 15, height: 15, color: tone ? 'var(--' + tone + ')' : 'var(--muted)' }} />
-        <span style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--ink)' }}>{title}</span>
+    <div style={{ background: s.bg, border: '1px solid ' + s.bd, borderRadius: 12, padding: '12px 14px' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 9 }}>
+        <Icon name={icon} style={{ width: 15, height: 15, color: s.hd }} />
+        <span style={{ fontSize: 11.5, fontWeight: 700, color: s.hd, textTransform: 'uppercase', letterSpacing: '.03em' }}>{title}</span>
       </div>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 6, paddingLeft: 2 }}>{children}</div>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>{children}</div>
     </div>
   );
 }
