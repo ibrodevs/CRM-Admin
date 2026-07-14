@@ -3,7 +3,7 @@
 //  редактирования физического лица, сотрудника компании (юр. лицо) и
 //  документов — из любого раздела система обращается к ним же.
 //  Раньше эти формы дублировались в 7 местах с разным составом полей
-//  (page_people, page_orders, page_services, order_extras …). Теперь —
+//  (page_people, page_orders, order_extras …). Теперь —
 //  один компонент, одинаковая «начинка» и в создании, и в корректировке.
 //  Загружается после data_tz2.jsx, до страниц.
 // =====================================================================
@@ -91,8 +91,8 @@ function ufValidatePerson(p) {
 }
 
 /* ---------- Даты в единой форме ----------
-   DateField из ui.jsx работает с Date, а CRM хранит даты строками dd.mm.yyyy.
-   Этот адаптер оставляет пользователю календарь и сохраняет единый строковый формат. */
+   CRM хранит даты строками dd.mm.yyyy, а пользователь выбирает их календарем.
+   type="date" дает нативный выбор года рождения и не позволяет вводить мусор. */
 function ufParseDate(value) {
   if (!value || value === '—') return null;
   if (value instanceof Date && !Number.isNaN(value.getTime())) return value;
@@ -107,8 +107,32 @@ function ufDateString(value) {
   if (!dt) return '';
   return `${String(dt.getDate()).padStart(2, '0')}.${String(dt.getMonth() + 1).padStart(2, '0')}.${dt.getFullYear()}`;
 }
-function UFDateField({ value, onChange, ...props }) {
-  return <DateField {...props} value={ufParseDate(value)} onChange={(d) => onChange(ufDateString(d))} />;
+function ufDateIso(value) {
+  const dt = ufParseDate(value);
+  if (!dt) return '';
+  return `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, '0')}-${String(dt.getDate()).padStart(2, '0')}`;
+}
+function ufDateFromIso(value) {
+  const m = String(value || '').match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  return m ? `${m[3]}.${m[2]}.${m[1]}` : '';
+}
+function UFDateField({ value, onChange, label, required, error, placeholder = 'дд.мм.гггг', min, max, ...props }) {
+  const isBirthDate = /дата рождения/i.test(label || '');
+  const currentYear = new Date().getFullYear();
+  return (
+    <Field label={label} required={required} error={error}>
+      <Input
+        {...props}
+        type="date"
+        value={ufDateIso(value)}
+        min={min || (isBirthDate ? '1900-01-01' : undefined)}
+        max={max || (isBirthDate ? `${currentYear}-12-31` : undefined)}
+        placeholder={placeholder}
+        error={error}
+        onChange={(e) => onChange(ufDateFromIso(e.target.value))}
+      />
+    </Field>
+  );
 }
 
 /* =====================================================================
@@ -351,6 +375,6 @@ function translit(s) {
 Object.assign(window, {
   UF_DOC_TYPES, UF_CITIZENSHIP, UF_PAX_ROLES, UF_GENDER, UF_CLIENT_STATUSES,
   ufBlankPerson, ufSplitName, ufFullName, ufFromClient, ufToClient, ufValidatePerson,
-  ufParseDate, ufDateString, UFDateField,
+  ufParseDate, ufDateString, ufDateIso, ufDateFromIso, UFDateField,
   UnifiedPersonFields, UnifiedPersonDrawer, UnifiedDocumentDrawer, ufBlankDoc, translit,
 });
