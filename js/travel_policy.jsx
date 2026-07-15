@@ -2,25 +2,144 @@
 //        Доп. услуги / Согласование + Контроль соответствия + подразделения/сотрудники +
 //        импорт документом + история изменений. Все справочники — выпадающими списками. =====
 
-/* Проверка услуги на соответствие тревел-политике (демо). ok | overLimit | class | supplier | approval */
-function checkTravelPolicy(kind, offer, policy) {
-  if (!policy) return 'ok';
-  if (kind === 'Авиа' && policy.avia) {
-    if (offer.airline && (policy.avia.airlinesForbidden || []).includes(offer.airline)) return 'supplier';
-    if (offer.airline && (policy.avia.airlinesAllowed || []).length && !policy.avia.airlinesAllowed.includes(offer.airline)) return 'supplier';
-    if (offer.cls && policy.avia.classAllowed && TP_CLASSES_AVIA.indexOf(offer.cls) > TP_CLASSES_AVIA.indexOf(policy.avia.classAllowed)) return 'class';
-    if (offer.price != null && policy.avia.maxPrice && offer.price > policy.avia.maxPrice) return 'overLimit';
-  }
-  if (kind === 'Гостиницы' && policy.hotels) {
-    if (offer.night != null && policy.hotels.maxNight && offer.night > policy.hotels.maxNight) return 'overLimit';
-  }
-  if (offer.needsApproval) return 'approval';
-  return 'ok';
+function tpArr(v) { return Array.isArray(v) ? v : []; }
+function tpNum(v) { const n = Number(v); return Number.isFinite(n) ? n : null; }
+function tpVal(offer, keys) {
+  for (const k of keys) if (offer && offer[k] !== undefined && offer[k] !== null && offer[k] !== '') return offer[k];
+  return null;
+}
+function tpBool(offer, keys) {
+  const v = tpVal(offer, keys);
+  return v === true || v === 'true' || v === 'Да' || v === 'yes' || v === 1;
+}
+function tpDateDays(v) {
+  if (!v) return null;
+  const d = new Date(v);
+  if (Number.isNaN(d.getTime())) return null;
+  return Math.ceil((d.getTime() - Date.now()) / 86400000);
+}
+function tpPush(out, code, text) { out.push({ code, text }); }
+function tpMax(out, code, fact, limit, text) {
+  const f = tpNum(fact); const l = tpNum(limit);
+  if (f != null && l != null && l > 0 && f > l) tpPush(out, code, text || ('Превышен лимит: ' + f + ' > ' + l));
+}
+function tpAllowed(out, code, fact, allowed, text) {
+  const list = tpArr(allowed);
+  if (fact && list.length && !list.includes(fact)) tpPush(out, code, text || ('Не входит в разрешённый список: ' + fact));
+}
+function tpForbidden(out, code, fact, forbidden, text) {
+  if (fact && tpArr(forbidden).includes(fact)) tpPush(out, code, text || ('Запрещено политикой: ' + fact));
+}
+function tpClassOver(list, fact, allowed) {
+  const i = list.indexOf(fact); const a = list.indexOf(allowed);
+  return fact && allowed && i >= 0 && a >= 0 && i > a;
+}
+function tpStatus(violations, policy) {
+  if (!violations.length) return policy && policy.approval && policy.approval.required && !policy.approval.autoIfCompliant ? 'approval' : 'ok';
+  if (violations.some((v) => v.code === 'supplier')) return 'supplier';
+  if (violations.some((v) => v.code === 'class')) return 'class';
+  if (violations.some((v) => v.code === 'approval')) return 'approval';
+  return 'overLimit';
 }
 
-function ComplianceBadge({ status }) {
+function travelPolicyCompliance(kind, offer, policy) {
+  const p = policy || {};
+  const o = offer || {};
+  const violations = [];
+  const name = String(kind || '').toLowerCase();
+
+  if ((name.includes('авиа') || name.includes('flight') || name.includes('air')) && p.avia) {
+    const av = p.avia;
+    const airline = tpVal(o, ['airline', 'carrier', 'supplier', 'provider']);
+    const cls = tpVal(o, ['cls', 'class', 'serviceClass', 'cabin']);
+    const price = tpVal(o, ['price', 'total', 'amount', 'fare']);
+    const stops = tpNum(tpVal(o, ['stops', 'segmentsStops', 'connections']));
+    const maxLayover = tpVal(o, ['maxLayoverH', 'layoverH', 'connectionHours']);
+    const minLayover = tpVal(o, ['minLayoverMin', 'layoverMin', 'connectionMinutes']);
+    const cheapest = tpNum(tpVal(o, ['cheapest', 'basePrice', 'minPrice']));
+    tpForbidden(violations, 'supplier', airline, av.airlinesForbidden, 'Авиакомпания запрещена тревел-политикой');
+    tpAllowed(violations, 'supplier', airline, av.airlinesAllowed, 'Авиакомпания не входит в разрешённый список');
+    if (tpClassOver(TP_CLASSES_AVIA || [], cls, av.classAllowed)) tpPush(violations, 'class', 'Класс обслуживания выше разрешённого');
+    tpMax(violations, 'overLimit', price, av.maxPrice, 'Стоимость авиабилета выше лимита');
+    if (stops != null && av.stops === false && stops > 0) tpPush(violations, 'overLimit', 'Рейс с пересадкой запрещён политикой');
+    tpMax(violations, 'overLimit', stops, av.maxStops, 'Количество пересадок выше лимита');
+    tpMax(violations, 'overLimit', maxLayover, av.maxLayoverH, 'Продолжительность пересадки выше лимита');
+    const ml = tpNum(minLayover); const minPolicy = tpNum(av.minLayoverMin);
+    if (ml != null && minPolicy != null && minPolicy > 0 && ml < minPolicy) tpPush(violations, 'overLimit', 'Время пересадки меньше минимального');
+    if (tpBool(o, ['nonRefundable', 'isNonRefundable']) && av.nonRefundable === false) tpPush(violations, 'overLimit', 'Невозвратный тариф запрещён');
+    if (tpBool(o, ['extras', 'hasExtras', 'paidExtras']) && av.extrasAllowed === false) tpPush(violations, 'overLimit', 'Дополнительные услуги к авиабилету запрещены');
+    const lead = tpDateDays(tpVal(o, ['date', 'departureDate', 'startDate']));
+    const minLead = tpNum(av.minLeadDays);
+    if (lead != null && minLead != null && minLead > 0 && lead < minLead) tpPush(violations, 'overLimit', 'Срок оформления меньше минимального');
+    const dev = tpNum(av.deviationPct);
+    const pr = tpNum(price);
+    if (dev != null && dev > 0 && cheapest != null && cheapest > 0 && pr != null && pr > cheapest * (1 + dev / 100)) tpPush(violations, 'overLimit', 'Отклонение от самого дешёвого тарифа выше лимита');
+  }
+
+  if ((name.includes('жд') || name.includes('rail') || name.includes('поезд')) && p.rail) {
+    const r = p.rail;
+    const cls = tpVal(o, ['wagonClass', 'cls', 'class']);
+    const type = tpVal(o, ['wagonType', 'type', 'trainType']);
+    tpAllowed(violations, 'class', type, r.wagonTypes, 'Тип вагона не входит в разрешённый список');
+    if (tpClassOver(TP_RAIL_CLASSES || [], cls, r.wagonClass)) tpPush(violations, 'class', 'Класс вагона выше разрешённого');
+    tpMax(violations, 'overLimit', tpVal(o, ['price', 'total', 'amount']), r.maxPrice, 'Стоимость ЖД-билета выше лимита');
+    if ((cls === 'СВ' || type === 'СВ') && r.svAllowed === false) tpPush(violations, 'class', 'СВ запрещён политикой');
+    if ((cls === 'Купе' || type === 'Купе') && r.kupeAllowed === false) tpPush(violations, 'class', 'Купе запрещено политикой');
+    if (tpBool(o, ['highSpeed', 'isHighSpeed']) && r.highSpeed === false) tpPush(violations, 'overLimit', 'Скоростной поезд запрещён политикой');
+    const lead = tpDateDays(tpVal(o, ['date', 'departureDate', 'startDate']));
+    const minLead = tpNum(r.minLeadDays);
+    if (lead != null && minLead != null && minLead > 0 && lead < minLead) tpPush(violations, 'overLimit', 'Срок оформления ЖД меньше минимального');
+  }
+
+  if ((name.includes('гост') || name.includes('hotel') || name.includes('отел')) && p.hotels) {
+    const h = p.hotels;
+    const chain = tpVal(o, ['chain', 'hotelChain', 'supplier', 'provider', 'hotel']);
+    const category = tpVal(o, ['category', 'stars', 'hotelCategory']);
+    const board = tpVal(o, ['board', 'meal', 'mealPlan']);
+    tpMax(violations, 'overLimit', tpVal(o, ['night', 'nightPrice', 'pricePerNight', 'price']), h.maxNight, 'Стоимость ночи выше лимита');
+    if (tpNum(category) != null && tpNum(h.maxCategory) != null && tpNum(category) > tpNum(h.maxCategory)) tpPush(violations, 'class', 'Категория гостиницы выше разрешённой');
+    tpAllowed(violations, 'supplier', chain, h.chainsAllowed, 'Сеть гостиницы не входит в разрешённый список');
+    tpForbidden(violations, 'supplier', chain, h.forbidden, 'Гостиница или сеть запрещена политикой');
+    tpMax(violations, 'overLimit', tpVal(o, ['distanceKm', 'distance', 'toOfficeKm']), h.maxDistanceKm, 'Расстояние до места назначения выше лимита');
+    tpAllowed(violations, 'overLimit', board, h.boardAllowed, 'Тип питания не разрешён политикой');
+    if (tpBool(o, ['earlyCheckIn']) && h.earlyCheckIn === false) tpPush(violations, 'overLimit', 'Раннее заселение запрещено');
+    if (tpBool(o, ['lateCheckOut']) && h.lateCheckOut === false) tpPush(violations, 'overLimit', 'Поздний выезд запрещён');
+    if (tpBool(o, ['upgrade', 'roomUpgrade']) && h.upgrade === false) tpPush(violations, 'class', 'Повышение категории номера запрещено');
+  }
+
+  if ((name.includes('трансфер') || name.includes('transfer') || name.includes('taxi')) && p.transfers) {
+    const t = p.transfers;
+    const cls = tpVal(o, ['carClass', 'class', 'vehicleClass']);
+    tpAllowed(violations, 'class', cls, t.carClasses, 'Класс автомобиля не разрешён политикой');
+    if (tpBool(o, ['individual', 'isIndividual']) && t.individual === false) tpPush(violations, 'overLimit', 'Индивидуальный трансфер запрещён');
+    if (tpBool(o, ['taxi', 'isTaxi']) && t.taxi === false) tpPush(violations, 'overLimit', 'Такси запрещено политикой');
+    tpMax(violations, 'overLimit', tpVal(o, ['price', 'total', 'amount']), t.maxPrice, 'Стоимость трансфера выше лимита');
+  }
+
+  if ((name.includes('доп') || name.includes('extra') || name.includes('услуг')) && p.extras) {
+    const ex = p.extras;
+    const map = [
+      ['insurance', 'Страхование запрещено политикой'], ['visa', 'Визовая поддержка запрещена политикой'],
+      ['vipLounge', 'VIP-зал запрещён политикой'], ['fastTrack', 'Fast Track запрещён политикой'], ['airportExtra', 'Дополнительные услуги аэропорта запрещены политикой']
+    ];
+    map.forEach(([key, text]) => { if (tpBool(o, [key, 'has' + key.charAt(0).toUpperCase() + key.slice(1)]) && ex[key] === false) tpPush(violations, 'overLimit', text); });
+  }
+
+  if (o.needsApproval) tpPush(violations, 'approval', 'Вариант требует ручного согласования');
+  const status = tpStatus(violations, p);
+  const requiresApproval = !!(p.approval && p.approval.required && (o.needsApproval || (violations.length && p.approval.onOverLimit) || status === 'approval'));
+  return { status, reasons: violations.map((v) => v.text), violations, requiresApproval };
+}
+
+/* Проверка услуги на соответствие тревел-политике. ok | overLimit | class | supplier | approval */
+function checkTravelPolicy(kind, offer, policy) {
+  return travelPolicyCompliance(kind, offer, policy).status;
+}
+
+function ComplianceBadge({ status, reasons }) {
   const c = TP_COMPLIANCE[status] || TP_COMPLIANCE.ok;
-  return <Pill tone={c.tone}><Icon name={c.icon} style={{ width: 12, height: 12, verticalAlign: -2, marginRight: 4 }} />{c.label}</Pill>;
+  const title = reasons && reasons.length ? reasons.join('\n') : c.label;
+  return <Pill tone={c.tone} title={title}><Icon name={c.icon} style={{ width: 12, height: 12, verticalAlign: -2, marginRight: 4 }} />{c.label}</Pill>;
 }
 
 /* ---------- Контролы ---------- */
@@ -408,4 +527,4 @@ function TravelPolicyBlock({ co }) {
   );
 }
 
-Object.assign(window, { TravelPolicyBlock, checkTravelPolicy, ComplianceBadge, DepartmentsManager });
+Object.assign(window, { TravelPolicyBlock, travelPolicyCompliance, checkTravelPolicy, ComplianceBadge, DepartmentsManager });
