@@ -56,7 +56,7 @@ function App() {
 
   const navigate = (r) => { setRoute(r); if (r.split('/')[0] !== 'orders') setCtxOrder(null); };
   // ссылки-переходы из десктопных уведомлений (тостов)
-  useEffect(() => { window.__toastNav = navigate; }, []);
+  useEffect(() => { window.__toastNav = navigate; window.__addOrder = addOrder; window.__openOrder = openOrder; }, []);
   // switching role: if current section is now forbidden, fall back to dashboard
   const changeRole = (r) => { setRole(r); if (!roleCanSee(r, route.split('/')[0])) { setRoute('dashboard'); setCtxOrder(null); } };
   const blocked = !roleCanSee(role, route.split('/')[0]);
@@ -107,7 +107,8 @@ function App() {
       {route === 'flights' && <FlightsPage searchIntent={svcSearch && svcSearch.key === 'flights' ? svcSearch : null} onConsumeSearch={() => setSvcSearch(null)} />}
       {route === 'suppliers' && <SuppliersPage intent={intent} onConsume={() => setIntent(null)} suppliers={suppliers} addSupplier={addSupplier} />}
       {route === 'chats' && <ChatsPage onOpenOrder={openOrder} />}
-      {route === 'finance' && <FinancePageNew />}
+      {route === 'finance' && <FinancePage />}
+      {route === 'groups' && <GroupsPage />}
       {route === 'documents' && <DocCenterPage />}
       {route === 'receipts' && <ReceiptEditorPage />}
       {route === 'fulfillment' && <FulfillmentPage onOpenOrder={openOrder} />}

@@ -80,7 +80,7 @@ function TripCard({ trip, compact, onOpen }) {
 }
 
 /* ---------- Недельный режим (по умолчанию) ---------- */
-function WeekView({ anchor, trips, onOpen }) {
+function WeekView({ anchor, trips, onOpen, onPickDay, onOpenEvent, evtTick }) {
   const start = tcWeekStart(anchor);
   const days = Array.from({ length: 7 }, (_, i) => tcAddDays(start, i));
   return (
@@ -89,16 +89,19 @@ function WeekView({ anchor, trips, onOpen }) {
         const isToday = trSameDay(day, TRIP_NOW);
         const dayTrips = trips.filter((t) => tcTripActiveOn(t, day))
           .sort((a, b) => TRIP_CRIT[tripCriticality(b)].rank - TRIP_CRIT[tripCriticality(a)].rank);
+        const dayEvents = calEventsOn(day);
         return (
           <div key={day.toISOString()} className={'tc-week-col' + (isToday ? ' is-today' : '')}>
-            <div className="tc-week-head">
+            <button type="button" className="tc-week-head" title="Клик — создать событие" style={{ cursor: 'pointer', border: 'none', width: '100%', font: 'inherit' }} onClick={(e) => onPickDay(day, e)}>
               <span className="tc-wd">{TC_WEEKDAYS[(day.getDay() + 6) % 7]}</span>
               <span className="tc-dn">{day.getDate()}</span>
               {isToday && <span className="tc-today-badge">сегодня</span>}
-            </div>
+              <Icon name="plus" style={{ width: 13, height: 13, color: 'var(--muted-2)', marginLeft: 'auto' }} />
+            </button>
             <div className="tc-week-body">
-              {dayTrips.length === 0 && <div className="tc-empty-day">—</div>}
+              {dayTrips.length === 0 && dayEvents.length === 0 && <div className="tc-empty-day">—</div>}
               {dayTrips.map((t) => <TripCard key={t.id} trip={t} compact onOpen={onOpen} />)}
+              {dayEvents.map((ev) => <CalEventChip key={ev.id} evt={ev} onOpen={onOpenEvent} />)}
             </div>
           </div>
         );
@@ -108,13 +111,14 @@ function WeekView({ anchor, trips, onOpen }) {
 }
 
 /* ---------- Дневной режим: список поездок + расписание событий ---------- */
-function DayView({ anchor, trips, onOpen }) {
+function DayView({ anchor, trips, onOpen, onPickDay, onOpenEvent, evtTick }) {
   const dayTrips = trips.filter((t) => tcTripActiveOn(t, anchor))
     .sort((a, b) => TRIP_CRIT[tripCriticality(b)].rank - TRIP_CRIT[tripCriticality(a)].rank);
   // события дня по всем поездкам
   const schedule = [];
   dayTrips.forEach((t) => tripEvents(t).forEach((e) => { if (trSameDay(e.at, anchor)) schedule.push({ trip: t, ...e }); }));
   schedule.sort((a, b) => a.at - b.at);
+  const dayEvents = calEventsOn(anchor);
   return (
     <div className="tc-day">
       <div className="tc-day-list">
@@ -122,8 +126,20 @@ function DayView({ anchor, trips, onOpen }) {
         {dayTrips.map((t) => <TripCard key={t.id} trip={t} onOpen={onOpen} />)}
       </div>
       <div className="tc-day-schedule">
-        <div className="tc-day-schedule-h">События дня</div>
-        {schedule.length === 0 && <div className="tc-empty-day" style={{ padding: 14 }}>Событий не запланировано</div>}
+        <div className="tc-day-schedule-h" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>События дня
+          <Button size="sm" variant="secondary" icon="plus" onClick={(e) => onPickDay(anchor, e)}>Создать</Button>
+        </div>
+        {schedule.length === 0 && dayEvents.length === 0 && <div className="tc-empty-day" style={{ padding: 14 }}>Событий не запланировано</div>}
+        {dayEvents.map((ev) => {
+          const t = CAL_EVENT_TYPES[ev.type];
+          return (
+            <button key={ev.id} type="button" className="tc-sched-row" onClick={() => onOpenEvent(ev)} style={{ opacity: ev.done ? 0.55 : 1 }}>
+              <span className="tc-sched-time">{ev.time || '—'}</span>
+              <span className="tc-sched-ic" style={{ color: 'var(--' + t.tone + ')' }}><Icon name={t.icon} style={{ width: 15, height: 15 }} /></span>
+              <span className="tc-sched-main"><b>{ev.title}</b><span className="tc-sched-sub">{t.l}{ev.order ? ' · заказ № ' + ev.order : ''}</span></span>
+            </button>
+          );
+        })}
         {schedule.map((e, i) => (
           <button key={i} type="button" className="tc-sched-row" onClick={() => onOpen(e.trip)}>
             <span className="tc-sched-time">{trTime(e.at)}</span>
@@ -138,7 +154,7 @@ function DayView({ anchor, trips, onOpen }) {
 }
 
 /* ---------- Месячный режим: сетка с индикаторами ---------- */
-function MonthView({ anchor, trips, onOpen, onPickDay }) {
+function MonthView({ anchor, trips, onOpen, onPickDay, onOpenEvent, evtTick }) {
   const first = new Date(anchor.getFullYear(), anchor.getMonth(), 1);
   const gridStart = tcWeekStart(first);
   const cells = Array.from({ length: 42 }, (_, i) => tcAddDays(gridStart, i));
@@ -150,17 +166,19 @@ function MonthView({ anchor, trips, onOpen, onPickDay }) {
           const inMonth = day.getMonth() === anchor.getMonth();
           const isToday = trSameDay(day, TRIP_NOW);
           const dayTrips = trips.filter((t) => tcTripActiveOn(t, day));
+          const dayEvents = calEventsOn(day);
           const crit = dayTrips.reduce((c, t) => critMax(c, tripCriticality(t)), 'info');
           return (
-            <button key={day.toISOString()} type="button" className={'tc-month-cell' + (inMonth ? '' : ' is-out') + (isToday ? ' is-today' : '')} onClick={() => onPickDay(day)}>
+            <button key={day.toISOString()} type="button" title="Клик — создать событие" className={'tc-month-cell' + (inMonth ? '' : ' is-out') + (isToday ? ' is-today' : '')} onClick={(e) => onPickDay(day, e)}>
               <span className="tc-month-dn">{day.getDate()}</span>
-              {dayTrips.length > 0 && (
+              {(dayTrips.length > 0 || dayEvents.length > 0) && (
                 <span className="tc-month-mini">
-                  {dayTrips.slice(0, 3).map((t) => (
+                  {dayTrips.slice(0, 2).map((t) => (
                     <span key={t.id} className="tc-month-chip" style={{ borderLeft: '3px solid var(--' + tcTone(tripCriticality(t)) + ')' }}
                       onClick={(e) => { e.stopPropagation(); onOpen(t); }}>{t.routeLabel}</span>
                   ))}
-                  {dayTrips.length > 3 && <span className="tc-month-more">+{dayTrips.length - 3}</span>}
+                  {dayEvents.slice(0, 3).map((ev) => <CalEventChip key={ev.id} evt={ev} onOpen={onOpenEvent} />)}
+                  {(dayTrips.length + dayEvents.length) > 5 && <span className="tc-month-more">+{dayTrips.length + dayEvents.length - 5}</span>}
                 </span>
               )}
               {dayTrips.length > 0 && crit !== 'info' && <span className="tc-month-dot"><CritDot crit={crit} size={7} /></span>}
@@ -444,7 +462,12 @@ function TripCalendarPage({ role, onOpenOrder }) {
   const [control, setControl] = useState(false);  // режим «Центр контроля»
   const [anchor, setAnchor] = useState(new Date(TRIP_NOW));
   const [sel, setSel] = useState(null);
+  const [dayMenu, setDayMenu] = useState(null);   // { day, pos } — контекстное меню создания
+  const [creator, setCreator] = useState(null);   // { type, day } — форма создания события
+  const [evtSel, setEvtSel] = useState(null);      // выбранное пользовательское событие
+  const [evtTick, setEvtTick] = useState(0);       // ре-рендер при изменении событий
   const [f, setF] = useState({ scope: 'all', operator: '', company: '', client: '', kind: '', supplier: '', status: '', onlyFm: false, onlyConflict: false, onlyUnpaid: false, onlyToday: false });
+  const openDayMenu = (day, e) => setDayMenu({ day, pos: { x: (e && e.clientX) || 200, y: (e && e.clientY) || 200 } });
   const sets = tripFilterSets(TRIPS);
   const me = (typeof CURRENT_USER !== 'undefined' && CURRENT_USER.name) || 'Даниель';
 
@@ -486,6 +509,7 @@ function TripCalendarPage({ role, onOpenOrder }) {
     <>
       <Topbar title="Календарь поездок" sub="Единый оперативный центр контроля поездок">
         <div className="topbar-spacer" />
+        <Button variant="secondary" icon="plus" onClick={(e) => openDayMenu(anchor, e)}>Создать событие</Button>
         <Button variant={control ? 'primary' : 'secondary'} icon="alertCircle" onClick={() => setControl((c) => !c)}>Центр контроля</Button>
       </Topbar>
       <div className="content fade-in tc-page">
@@ -533,13 +557,18 @@ function TripCalendarPage({ role, onOpenOrder }) {
         {/* тело */}
         <div className="tc-viewport">
           {control ? <ControlCenter trips={trips} onOpen={setSel} />
-            : view === 'week' ? <WeekView anchor={anchor} trips={trips} onOpen={setSel} />
-            : view === 'day' ? <DayView anchor={anchor} trips={trips} onOpen={setSel} />
-            : view === 'month' ? <MonthView anchor={anchor} trips={trips} onOpen={setSel} onPickDay={(d) => { setAnchor(d); setView('day'); }} />
+            : view === 'week' ? <WeekView anchor={anchor} trips={trips} onOpen={setSel} onPickDay={openDayMenu} onOpenEvent={setEvtSel} evtTick={evtTick} />
+            : view === 'day' ? <DayView anchor={anchor} trips={trips} onOpen={setSel} onPickDay={openDayMenu} onOpenEvent={setEvtSel} evtTick={evtTick} />
+            : view === 'month' ? <MonthView anchor={anchor} trips={trips} onOpen={setSel} onPickDay={openDayMenu} onOpenEvent={setEvtSel} evtTick={evtTick} />
             : <TimelineView anchor={anchor} trips={trips} onOpen={setSel} />}
         </div>
       </div>
       <TripDetailPanel trip={sel} onClose={() => setSel(null)} onOpenOrder={onOpenOrder} />
+      {dayMenu && <CalDayMenu day={dayMenu.day} pos={dayMenu.pos} onClose={() => setDayMenu(null)}
+        onPick={(type) => { setCreator({ type, day: dayMenu.day }); setDayMenu(null); }} />}
+      {creator && <CalEventCreator type={creator.type} day={creator.day} onClose={() => setCreator(null)}
+        onCreated={(ev) => { setEvtTick((t) => t + 1); setEvtSel(ev); }} />}
+      {evtSel && <CalEventPanel evt={evtSel} onClose={() => setEvtSel(null)} onChanged={() => setEvtTick((t) => t + 1)} onOpenOrder={onOpenOrder} />}
     </>
   );
 }

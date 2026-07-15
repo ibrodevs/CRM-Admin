@@ -652,6 +652,7 @@ function OrderChangeCase({ orderNo, services, participants }) {
   const [letterOpen, setLetterOpen] = useState(false);
   const [openLog, setOpenLog] = useState(null);
   const [showHist, setShowHist] = useState(false);
+  const [picker, setPicker] = useState(null); // ручная выборка альтернатив по услуге: { i, opts:[], sel:Set }
 
   const flight = (services || []).find((s) => normKind(s.kind) === 'Авиа');
   const triggerTitle = flight ? (flight.title || flight.main) : 'Рейс заказа';
@@ -679,11 +680,41 @@ function OrderChangeCase({ orderNo, services, participants }) {
     setTimeout(() => { const cur = getChangeCase(orderNo); if (cur) commit(logSvc(cur, i, 'Поставщик получил запрос — ожидаем подтверждение', { status: 'awaiting' })); }, 1300);
   };
   const setSvcStatus = (i, status, text) => commit(logSvc(cs, i, text, { status }));
-  const pickAlt = (i) => {
+
+  // ---- Единый механизм подбора: авто-поиск + ручная выборка альтернатив, та же связка цепочек ----
+  // Открыть панель подбора по услуге (сохраняем уже зафиксированные варианты как выбранные).
+  const openPicker = (i) => {
     const cur = getChangeCase(orderNo);
-    const alts = smartAlternatives({ title: cur.services[i].title }, cur.services[i].kind);
-    commit(logSvc(cur, i, 'Подобрана альтернатива: ' + (alts[0] ? alts[0].title : '—'), { status: 'resolved', alts }));
-    toast('Альтернатива подобрана и зафиксирована в кейсе', 'ok');
+    const existing = cur.services[i].alts || [];
+    setPicker({ i, opts: existing.slice(), sel: new Set(existing.map((a) => a.id)) });
+    setOpenLog(null);
+  };
+  // Авто-поиск близких вариантов — досыпаем в список и отмечаем (не затирая ручные).
+  const pickerAuto = () => setPicker((p) => {
+    if (!p) return p;
+    const cur = getChangeCase(orderNo);
+    const auto = smartAlternatives({ title: cur.services[p.i].title }, cur.services[p.i].kind);
+    const opts = p.opts.slice(); const sel = new Set(p.sel);
+    auto.forEach((a) => { if (!opts.some((o) => o.id === a.id)) opts.push(a); sel.add(a.id); });
+    return { ...p, opts, sel };
+  });
+  const pickerToggle = (id) => setPicker((p) => { const sel = new Set(p.sel); sel.has(id) ? sel.delete(id) : sel.add(id); return { ...p, sel }; });
+  const pickerAddManual = (v) => setPicker((p) => {
+    const alt = { id: 'man-' + Math.random().toString(36).slice(2, 7), manual: true, ...v };
+    const sel = new Set(p.sel); sel.add(alt.id);
+    return { ...p, opts: [...p.opts, alt], sel };
+  });
+  const pickerRemoveManual = (id) => setPicker((p) => { const sel = new Set(p.sel); sel.delete(id); return { ...p, opts: p.opts.filter((o) => o.id !== id), sel }; });
+  const confirmPicker = () => {
+    const p = picker; if (!p) return;
+    const chosen = p.opts.filter((o) => p.sel.has(o.id));
+    if (!chosen.length) { toast('Выберите вариант из авто-подбора или добавьте свой вручную', 'warn'); return; }
+    const cur = getChangeCase(orderNo);
+    const manual = chosen.some((c) => c.manual);
+    const head = chosen.length > 1 ? 'Подобрано альтернатив: ' + chosen.length : 'Подобрана альтернатива: ' + chosen[0].title;
+    commit(logSvc(cur, p.i, head + (manual ? ' · ручная выборка оператором' : ''), { status: 'resolved', alts: chosen }));
+    setPicker(null);
+    toast('Альтернатива зафиксирована в кейсе' + (manual ? ' (включая ручной выбор)' : ''), 'ok');
   };
   const onLetterSent = (channels) => {
     const cur = getChangeCase(orderNo); if (!cur) return;
@@ -742,24 +773,59 @@ function OrderChangeCase({ orderNo, services, participants }) {
               {/* действия по услуге в зависимости от канала и статуса */}
               <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 10, alignItems: 'center' }}>
                 {s.channel === 'api' && (s.status === 'idle' || s.status === 'checking') && <Button size="sm" variant="secondary" icon="zap" disabled={s.status === 'checking'} onClick={() => checkDates(i)}>{s.status === 'checking' ? 'Сверка…' : 'Сверить новые даты'}</Button>}
-                {s.channel === 'api' && s.status === 'need_alt' && <Button size="sm" icon="refund" onClick={() => pickAlt(i)}>Подобрать альтернативу</Button>}
+                {s.channel === 'api' && s.status === 'need_alt' && <Button size="sm" icon="refund" onClick={() => openPicker(i)}>Подобрать альтернативу</Button>}
                 {s.channel === 'local' && s.status === 'idle' && <Button size="sm" variant="secondary" icon="send" onClick={() => sendRequest(i)}>Отправить запрос перевозчику</Button>}
                 {s.channel === 'local' && s.status === 'requested' && <span style={{ fontSize: 12, color: 'var(--muted)' }}>Запрос отправлен, ожидаем ответ поставщика…</span>}
                 {s.channel === 'local' && s.status === 'awaiting' && <><Button size="sm" variant="secondary" icon="check" onClick={() => setSvcStatus(i, 'confirmed', 'Поставщик подтвердил новые условия')}>Подтверждено</Button><Button size="sm" variant="secondary" icon="x" onClick={() => setSvcStatus(i, 'declined', 'Поставщик отклонил — нужна альтернатива')}>Отклонено</Button></>}
-                {s.channel === 'local' && s.status === 'declined' && <Button size="sm" icon="refund" onClick={() => pickAlt(i)}>Подобрать альтернативу</Button>}
+                {s.channel === 'local' && s.status === 'declined' && <Button size="sm" icon="refund" onClick={() => openPicker(i)}>Подобрать альтернативу</Button>}
+                {s.status === 'resolved' && picker?.i !== i && <Button size="sm" variant="secondary" icon="edit" onClick={() => openPicker(i)}>Скорректировать подбор</Button>}
                 {st.done && <span style={{ fontSize: 12, color: 'var(--green)', fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: 5 }}><Icon name="checkCircle" style={{ width: 14, height: 14 }} />Готово</span>}
                 <div style={{ flex: 1 }} />
                 <button type="button" onClick={() => setOpenLog(logOpen ? null : i)} style={{ border: 'none', background: 'none', cursor: 'pointer', fontSize: 12, color: 'var(--muted)', display: 'inline-flex', alignItems: 'center', gap: 4 }}>Лог услуги<Icon name={logOpen ? 'chevUp' : 'chevDown'} style={{ width: 13, height: 13 }} /></button>
               </div>
-              {s.alts && s.alts.length > 0 && (
+              {s.alts && s.alts.length > 0 && picker?.i !== i && (
                 <div style={{ marginTop: 8, display: 'grid', gap: 5 }}>
                   {s.alts.map((a) => (
                     <div key={a.id} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12.5, padding: '6px 9px', borderRadius: 8, background: 'var(--blue-soft)' }}>
                       <Icon name="checkCircle" style={{ width: 13, height: 13, color: 'var(--blue)' }} />
-                      <span style={{ flex: 1, color: 'var(--ink)' }}>{a.title}</span>
+                      <span style={{ color: 'var(--ink)' }}>{a.title}</span>
+                      {a.manual && <Pill tone="gray">вручную</Pill>}
+                      <span style={{ flex: 1 }} />
                       <span style={{ color: 'var(--muted)' }}>{a.meta}</span>
                     </div>
                   ))}
+                </div>
+              )}
+              {/* Панель подбора: авто-поиск + ручная выборка вариантов — единый механизм */}
+              {picker?.i === i && (
+                <div style={{ marginTop: 10, border: '1px solid var(--line)', borderRadius: 10, padding: 12, background: 'var(--surface-2)', display: 'grid', gap: 8 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                    <span style={{ fontWeight: 700, fontSize: 12.5, color: 'var(--ink)' }}>Подбор альтернативы · {s.kind}</span>
+                    <div style={{ flex: 1 }} />
+                    <Button size="sm" variant="secondary" icon="zap" onClick={pickerAuto}>{picker.opts.some((o) => !o.manual) ? 'Обновить авто-подбор' : 'Подобрать автоматически'}</Button>
+                  </div>
+                  {picker.opts.length === 0 && <div style={{ fontSize: 12, color: 'var(--muted)' }}>Нажмите «Подобрать автоматически» — система предложит близкие варианты; либо добавьте конкретный вариант вручную ниже.</div>}
+                  {picker.opts.map((o) => {
+                    const on = picker.sel.has(o.id);
+                    return (
+                      <div key={o.id} style={{ display: 'flex', alignItems: 'center', gap: 9, padding: '7px 9px', borderRadius: 8, border: '1px solid ' + (on ? 'var(--blue)' : 'var(--line)'), background: on ? 'var(--blue-soft)' : '#fff' }}>
+                        <Checkbox on={on} onChange={() => pickerToggle(o.id)} />
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ fontSize: 12.5, fontWeight: 600, color: 'var(--ink)' }}>{o.title}{o.manual && <span style={{ marginLeft: 6 }}><Pill tone="gray">вручную</Pill></span>}</div>
+                          <div style={{ fontSize: 11.5, color: 'var(--muted)' }}>{o.meta}</div>
+                        </div>
+                        {o.delta && o.delta !== '=' && <span style={{ fontSize: 12, fontWeight: 600, color: /^[−-]/.test(o.delta) ? 'var(--green)' : 'var(--amber)' }}>{o.delta}</span>}
+                        {o.manual && <button type="button" onClick={() => pickerRemoveManual(o.id)} title="Удалить" style={{ border: 'none', background: 'none', cursor: 'pointer', color: 'var(--muted-2)', padding: 4 }}><Icon name="x" style={{ width: 14, height: 14 }} /></button>}
+                      </div>
+                    );
+                  })}
+                  <ManualAltForm compact onAdd={pickerAddManual} />
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 2 }}>
+                    <span style={{ fontSize: 12, color: 'var(--muted)' }}>Выбрано: {picker.sel.size}</span>
+                    <div style={{ flex: 1 }} />
+                    <Button size="sm" variant="secondary" onClick={() => setPicker(null)}>Отмена</Button>
+                    <Button size="sm" icon="check" disabled={picker.sel.size === 0} onClick={confirmPicker}>Зафиксировать выбор</Button>
+                  </div>
                 </div>
               )}
               {logOpen && (
@@ -1625,6 +1691,65 @@ function TabOffers({ onCreate }) {
   );
 }
 
+/* Финансовый блок заказа (ТЗ: «В каждом заказе отдельный блок Финансы»).
+   Тянет данные из финмодуля (FIN_* глобальные) и связывает заказ ↔ контрагент ↔
+   счета/платежи/документы/финоперации ↔ прибыль. */
+function OrderFinanceBlock({ orderNo, order, services }) {
+  const total = services.reduce((s, x) => { const t = svcCalc(x).total; return s + ((x.currency === 'RUB' || x.currency === '₽') ? t / 90 : t); }, 0);
+  const cps = (typeof FIN_COUNTERPARTIES !== 'undefined') ? FIN_COUNTERPARTIES : [];
+  const cp = cps.find((c) => c.type === 'client' && (c.name === order.client || order.client.includes(c.name) || c.name.includes(order.client)));
+  const pays = ((typeof FIN_PAYMENTS !== 'undefined') ? FIN_PAYMENTS : []).filter((p) => p.order === orderNo);
+  const ops = ((typeof FIN_OPS !== 'undefined') ? FIN_OPS : []).filter((o) => o.order === orderNo);
+  const docs = ((typeof DOCS2 !== 'undefined') ? DOCS2 : []).filter((d) => d.order === orderNo && ['Счёт', 'Акт', 'Договор'].includes(d.type));
+  const paid = ops.reduce((s, o) => s + (o.paid || 0), 0) || (cp ? cp.paid : 0);
+  const debt = Math.max(0, Math.round(total) - paid);
+  const profit = Math.round(total * 0.12);
+  const free = cp && cp.limit ? Math.max(0, cp.limit - cp.used) : 0;
+  const hasLimitBar = typeof CreditLimitBar !== 'undefined' && cp && cp.limit;
+  const money = (typeof f$ === 'function') ? f$ : ((n) => ocMoney(n));
+  return (
+    <div className="card card-pad fade-in" style={{ marginBottom: 18, border: '1px solid var(--line)' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
+        <Icon name="finance" style={{ width: 18, height: 18, color: 'var(--green)' }} />
+        <h3 className="card-title" style={{ fontSize: 16 }}>Финансы заказа</h3>
+        <div style={{ flex: 1 }} />
+        <Pill tone={debt > 0 ? 'amber' : 'green'}>{debt > 0 ? 'Есть задолженность' : 'Полностью оплачен'}</Pill>
+      </div>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(150px,1fr))', gap: 10, marginBottom: 16 }}>
+        {[['Стоимость заказа', money(total), null], ['Оплачено', money(paid), 'var(--green)'], ['Остаток', money(debt), debt > 0 ? 'var(--amber)' : 'var(--green)'], ['Прибыль по заказу', money(profit), 'var(--green)']].map(([l, v, c]) => (
+          <div key={l} style={{ padding: '12px 14px', borderRadius: 12, background: 'var(--surface-2)', border: '1px solid var(--line)' }}>
+            <div style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 4 }}>{l}</div>
+            <div style={{ fontSize: 18, fontWeight: 800, color: c || 'var(--ink)' }}>{v}</div>
+          </div>
+        ))}
+      </div>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0 24px' }}>
+        <div>
+          <div style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--muted)', margin: '4px 0 6px' }}>Финансовые условия</div>
+          <div className="kv-row" style={{ padding: '8px 0' }}><span className="k" style={{ fontSize: 13.5 }}>Схема работы</span><span className="v" style={{ fontSize: 13.5 }}>{cp ? cp.scheme : 'Предоплата'}</span></div>
+          <div className="kv-row" style={{ padding: '8px 0' }}><span className="k" style={{ fontSize: 13.5 }}>Отсрочка</span><span className="v" style={{ fontSize: 13.5 }}>{cp && cp.deferralDays ? cp.deferralDays + ' дн. · ' + cp.deferralStart : '—'}</span></div>
+          <div className="kv-row" style={{ padding: '8px 0' }}><span className="k" style={{ fontSize: 13.5 }}>Срок оплаты</span><span className="v" style={{ fontSize: 13.5 }}>{cp && cp.obligations[0] ? cp.obligations[0].due : '28.07.2026'}</span></div>
+          <div className="kv-row" style={{ padding: '8px 0' }}><span className="k" style={{ fontSize: 13.5 }}>Кредитный лимит</span><span className="v" style={{ fontSize: 13.5 }}>{cp && cp.limit ? money(cp.limit) + ' · свободно ' + money(free) : 'не установлен'}</span></div>
+          {hasLimitBar && <div style={{ marginTop: 8 }}><CreditLimitBar used={cp.used} limit={cp.limit} /></div>}
+        </div>
+        <div>
+          <div style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--muted)', margin: '4px 0 6px' }}>Связанные документы и платежи</div>
+          <div style={{ display: 'grid', gap: 5 }}>
+            {docs.map((d) => <div key={d.no} style={{ fontSize: 12.5, color: 'var(--body)' }}><Icon name="finance" style={{ width: 12, height: 12, verticalAlign: -1, color: 'var(--muted-2)' }} /> {d.name} · <span style={{ color: 'var(--muted)' }}>{d.status}</span></div>)}
+            {pays.map((p) => <div key={p.no} style={{ fontSize: 12.5, color: 'var(--body)' }}><Icon name="swap" style={{ width: 12, height: 12, verticalAlign: -1, color: 'var(--muted-2)' }} /> {p.no} · {p.dir === 'in' ? 'входящий' : 'исходящий'} {money(p.sum)} · <span style={{ color: 'var(--muted)' }}>{p.status}</span></div>)}
+            {docs.length === 0 && pays.length === 0 && <div style={{ fontSize: 12.5, color: 'var(--muted)' }}>Пока нет связанных документов/платежей.</div>}
+          </div>
+          <div style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--muted)', margin: '12px 0 6px' }}>История финансовых операций</div>
+          <div style={{ display: 'grid', gap: 4 }}>
+            {ops.length === 0 && <div style={{ fontSize: 12.5, color: 'var(--muted)' }}>Операций по заказу пока нет.</div>}
+            {ops.map((o) => <div key={o.no} style={{ fontSize: 12, color: 'var(--body)' }}><span style={{ color: 'var(--muted-2)' }}>{o.date}</span> · {o.type} · {o.source} · <b>{money(o.paid || opPayable(o))}</b> · <span style={{ color: (FIN_OP_STATUS[o.status] === 'green') ? 'var(--green)' : 'var(--muted)' }}>{o.status}</span></div>)}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function TabFinance({ services, onAddFee }) {
   const toast = useToast();
   const total = services.reduce((s, x) => s + x.sum, 0);
@@ -1889,7 +2014,7 @@ function OrderCard({ order, onBack, initTab, initSvc, initSvcSearch, fresh, onOp
       case 'responsibles': return <OrderResponsiblesTab order={order} />;
       case 'extras': return <DynamicExtrasPanel order={order} />;
       case 'documents': return <DocCenter scopeOrder={order.no} participants={participants} />;
-      case 'finance': return <FinanceRegistry scopeOrder={order.no} />;
+      case 'finance': return (<><OrderFinanceBlock orderNo={order.no} order={order} services={services} /><FinanceRegistry scopeOrder={order.no} /></>);
       case 'aftersale': return <ReturnsModule scopeOrder={order.no} order={order} compact />;
       case 'history': return <TabHistory />;
       default: return null;

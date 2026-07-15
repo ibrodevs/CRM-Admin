@@ -118,7 +118,14 @@ function ufDateFromIso(value) {
   const m = String(value || '').match(/^(\d{4})-(\d{2})-(\d{2})$/);
   return m ? `${m[3]}.${m[2]}.${m[1]}` : '';
 }
-function UFDateField({ value, onChange, label, required, error, placeholder = 'дд.мм.гггг', minYear, maxYear, ...props }) {
+// rest собирается вручную (без `{ ...props }`), чтобы не создавать глобальный хелпер
+// `_excluded`, который в мульти-скрипт babel-сборке перезаписывает одноимённый в ui.jsx.
+function UFDateField(_uf) {
+  const { value, onChange, label, required, error, minYear, maxYear } = _uf;
+  const placeholder = _uf.placeholder != null ? _uf.placeholder : 'дд.мм.гггг';
+  const props = {};
+  const _skip = { value: 1, onChange: 1, label: 1, required: 1, error: 1, placeholder: 1, minYear: 1, maxYear: 1 };
+  for (const k in _uf) { if (!_skip[k]) props[k] = _uf[k]; }
   const isBirthDate = /дата рождения/i.test(label || '');
   const currentYear = new Date().getFullYear();
   const minY = minYear || (isBirthDate ? 1900 : currentYear - 5);

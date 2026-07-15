@@ -152,7 +152,14 @@ function Field({ label, required, hint, error, children }) {
     </div>
   );
 }
-function Input({ error, leadIcon, trailIcon, onTrail, ...rest }) {
+// NB: rest собирается вручную, а не через `{ ...rest }`-деструктуризацию. В сборке из
+// нескольких <script type="text/babel"> хелпер-переменная `_excluded` глобальна и
+// перезаписывается другими файлами (напр. UFDateField), из-за чего placeholder/value/
+// onChange ошибочно вырезались. Ручной сбор rest устраняет зависимость от `_excluded`.
+function Input(props) {
+  const { error, leadIcon, trailIcon, onTrail } = props;
+  const rest = {};
+  for (const k in props) { if (k !== 'error' && k !== 'leadIcon' && k !== 'trailIcon' && k !== 'onTrail') rest[k] = props[k]; }
   if (leadIcon || trailIcon) {
     return (
       <div className="input-wrap">
@@ -164,7 +171,10 @@ function Input({ error, leadIcon, trailIcon, onTrail, ...rest }) {
   }
   return <input className={'input' + (error ? ' err' : '')} {...rest} />;
 }
-function Select({ options, error, placeholder, ...rest }) {
+function Select(props) {
+  const { options, error, placeholder } = props;
+  const rest = {};
+  for (const k in props) { if (k !== 'options' && k !== 'error' && k !== 'placeholder') rest[k] = props[k]; }
   return (
     <select className={'select' + (error ? ' err' : '')} {...rest}>
       {placeholder && <option value="">{placeholder}</option>}
