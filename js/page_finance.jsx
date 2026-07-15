@@ -11,6 +11,26 @@ function fSigned(n) { return (n >= 0 ? '+' : '−') + Math.abs(Math.round(n)).to
 function finNow() { return new Date().toLocaleString('ru-RU', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }); }
 function deltaTone(n) { return n > 0 ? 'var(--green)' : n < 0 ? 'var(--red)' : 'var(--muted)'; }
 
+// Проверка кредитных условий контрагента при оформлении нового заказа (ТЗ «Контроль
+// кредитного лимита»): наличие просрочки, превышение лимита, возможность оформления.
+function finCreditCheck(clientName) {
+  const cps = (typeof FIN_COUNTERPARTIES !== 'undefined') ? FIN_COUNTERPARTIES : [];
+  const cp = cps.find((c) => c.type === 'client' && clientName && (c.name === clientName || clientName.includes(c.name) || c.name.includes(clientName)));
+  if (!cp) return { ok: true, cp: null, problems: [] };
+  const overdue = cp.obligations.filter((o) => o.overdueDays > 0);
+  const overdueSum = overdue.reduce((s, o) => s + o.rest, 0);
+  const free = cp.limit ? Math.max(0, cp.limit - cp.used) : null;
+  const exceeded = cp.limit ? cp.used > cp.limit : false;
+  const problems = [];
+  if (overdueSum > 0) problems.push('просроченная задолженность ' + f$(overdueSum) + ' по ' + overdue.length + ' док.');
+  if (exceeded) problems.push('превышен кредитный лимит');
+  else if (free != null && free < 2000) problems.push('лимит почти исчерпан (свободно ' + f$(free) + ')');
+  // «предупреждать или запрещать в соответствии с настройками»: блок при просрочке/превышении, если включено согласование
+  const block = (overdueSum > 0 || exceeded) && cp.approveOnExceed;
+  const nearestDue = cp.obligations.slice().sort((a, b) => a.due.localeCompare(b.due))[0];
+  return { ok: problems.length === 0, cp, overdueSum, exceeded, free, block, problems, nearestDue };
+}
+
 /* ---------- Мок-данные: баланс организации ---------- */
 const FIN_ACCT_GROUPS = [
   { key: 'Расчётные счета', icon: 'bank' },
@@ -1028,4 +1048,4 @@ function FinancePage() {
   );
 }
 
-Object.assign(window, { FinancePage, FIN_ACCOUNTS, FIN_PAYMENTS, FIN_COUNTERPARTIES });
+Object.assign(window, { FinancePage, FIN_ACCOUNTS, FIN_PAYMENTS, FIN_COUNTERPARTIES, finCreditCheck });

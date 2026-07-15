@@ -133,7 +133,12 @@ function CalEventCreator({ type, day, presetOrder, onClose, onCreated }) {
     scope: 'Себе', respRole: '—', direction: '', services: [], contact: '', comment: '', criterion: '', actionOnProblem: '',
   });
   const [dupChoice, setDupChoice] = useState(null); // null | 'ignore'
+  const [creditAck, setCreditAck] = useState(false); // оформить несмотря на превышение/просрочку
   const set = (k, v) => setF((s) => ({ ...s, [k]: v }));
+  // ТЗ: при оформлении нового заказа система проверяет кредитные условия контрагента
+  const orderClient = (type === 'order' && f.order) ? (calOrderInfo(f.order) || {}).client : null;
+  const credit = (type === 'order' && orderClient && typeof finCreditCheck === 'function') ? finCreditCheck(orderClient) : null;
+  const creditBlocked = credit && credit.block && !creditAck;
   const toggleSvc = (s) => setF((p) => ({ ...p, services: p.services.includes(s) ? p.services.filter((x) => x !== s) : [...p.services, s] }));
 
   const dup = (type === 'reminder' || type === 'task') && f.title && f.order ? calFindDuplicate({ type, title: f.title, order: f.order }) : null;
@@ -141,6 +146,7 @@ function CalEventCreator({ type, day, presetOrder, onClose, onCreated }) {
   const canSave = type === 'order' ? f.direction || f.contact || f.order != null || true : !!f.title.trim();
 
   const submit = () => {
+    if (creditBlocked) { toast('Оформление заблокировано: требуется согласование кредитных условий', 'warn'); return; }
     if (dup && !dupChoice) { setDupChoice('shown'); return; }
     const [dd, mm, yy] = f.dateStr.split('.').map(Number);
     const [hh, mi] = (f.time || '12:00').split(':').map(Number);
@@ -180,7 +186,7 @@ function CalEventCreator({ type, day, presetOrder, onClose, onCreated }) {
     <StackPanel title={t.l} width="min(640px,96vw)" onClose={onClose}
       footer={<>
         <Button variant="secondary" style={{ flex: 1 }} onClick={onClose}>Отмена</Button>
-        <Button style={{ flex: 1 }} icon="check" disabled={!canSave} onClick={submit}>{dup && !dupChoice ? 'Проверить дубли' : 'Создать'}</Button>
+        <Button style={{ flex: 1 }} icon="check" disabled={!canSave || creditBlocked} onClick={submit}>{dup && !dupChoice ? 'Проверить дубли' : 'Создать'}</Button>
       </>}>
       {/* Предупреждение о дублировании */}
       {dup && dupChoice && (
@@ -223,6 +229,27 @@ function CalEventCreator({ type, day, presetOrder, onClose, onCreated }) {
             {CAL_SERVICE_TYPES.map((s) => <button key={s} type="button" onClick={() => toggleSvc(s)} className={'chip' + (f.services.includes(s) ? '' : ' ghost')} style={{ height: 32, fontSize: 12.5 }}>{s}</button>)}
           </div>
         </Field>
+        {/* Автопроверка кредитных условий контрагента при оформлении нового заказа (ТЗ) */}
+        {credit && credit.cp && (credit.problems.length > 0 ? (
+          <div style={{ padding: '12px 14px', borderRadius: 12, background: credit.block ? 'var(--red-bg)' : 'var(--amber-bg)', border: '1px solid ' + (credit.block ? 'var(--red)' : 'var(--amber)') }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
+              <Icon name={credit.block ? 'lock' : 'alertTriangle'} style={{ width: 18, height: 18, color: credit.block ? 'var(--red)' : 'var(--amber)' }} />
+              <b style={{ color: 'var(--ink)', fontSize: 13.5 }}>Проверка кредитных условий · {credit.cp.name}</b>
+            </div>
+            <div style={{ fontSize: 12.5, color: 'var(--body)', marginBottom: 6 }}>{credit.problems.join(' · ')}.</div>
+            <div style={{ fontSize: 12, color: 'var(--muted)' }}>Лимит {credit.cp.limit ? f$(credit.cp.used) + ' / ' + f$(credit.cp.limit) : 'не установлен'}{credit.nearestDue ? ' · ближайшая оплата ' + credit.nearestDue.due : ''} · согласование при превышении: {credit.cp.approveOnExceed ? 'обязательно' : 'не требуется'}</div>
+            {credit.block && (
+              <label style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 10, fontSize: 12.5, cursor: 'pointer' }}>
+                <Checkbox on={creditAck} onChange={() => setCreditAck((v) => !v)} />
+                Оформить под согласование (превышение/просрочка подтверждено)
+              </label>
+            )}
+          </div>
+        ) : (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 14px', borderRadius: 12, background: 'var(--green-bg-2)', fontSize: 12.5, color: 'var(--body)' }}>
+            <Icon name="checkCircle" style={{ width: 16, height: 16, color: 'var(--green)' }} />Кредитные условия в норме — оформление разрешено{credit.free != null ? ' (свободный лимит ' + f$(credit.free) + ')' : ''}.
+          </div>
+        ))}
       </>)}
 
       {type !== 'order' && (<>
