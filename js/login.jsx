@@ -2,10 +2,11 @@
 // Split-screen: marketing hero (left) + auth column (right).
 
 const LP_STYLES = `
-.lp-root{height:100%;overflow:hidden;display:flex;gap:14px;padding:13px 13px 42px;position:relative;background:#eef0fb;color:var(--body)}
+.lp-root{height:100%;overflow:hidden;display:flex;flex-direction:column;padding:13px 13px 6px;position:relative;background:#eef0fb;color:var(--body)}
+.lp-main{flex:1;min-height:0;display:flex;gap:14px;overflow:hidden}
 .lp-left{flex:1;min-width:0;position:relative;overflow:hidden;margin-right:-15px;padding:22px 39px;display:flex;flex-direction:column;border-radius:18px;background:transparent}
 .lp-right{width:512px;max-width:100%;flex:0 0 512px;display:flex;flex-direction:column;padding:24px 34px 14px 16px;overflow-y:auto;background:transparent}
-@media(max-width:1000px){.lp-root{height:auto;min-height:100vh;overflow:visible;padding:0}.lp-left{display:none}.lp-right{width:100%;flex-basis:100%;padding:26px 20px 70px}}
+@media(max-width:1000px){.lp-root{height:auto;min-height:100vh;overflow:visible;padding:0}.lp-main{overflow:visible;display:block}.lp-left{display:none}.lp-right{width:100%;flex-basis:100%;padding:26px 20px 24px}}
 
 .lp-brand{display:flex;align-items:center;gap:13px}
 .lp-brand-ic{width:46px;height:46px;border-radius:13px;background:linear-gradient(140deg,#2566ff,#5a5af0);display:flex;align-items:center;justify-content:center;color:#fff;box-shadow:0 8px 20px rgba(37,102,255,.35)}
@@ -13,10 +14,10 @@ const LP_STYLES = `
 .lp-brand-name b{color:var(--blue);font-weight:800}
 .lp-brand-sub{font-size:12.5px;color:var(--muted);margin-top:2px;max-width:250px;line-height:1.4}
 
-.lp-hero-h{font-size:30px;line-height:1.2;font-weight:800;letter-spacing:-.025em;color:var(--ink);margin:70px 0 0;max-width:410px;position:relative;z-index:2}
+.lp-hero-h{font-size:30px;line-height:1.2;font-weight:800;letter-spacing:-.025em;color:var(--ink);margin:26px 0 0;max-width:410px;position:relative;z-index:2}
 .lp-hero-h span{color:var(--blue);display:block}
 
-.lp-stage{position:absolute;z-index:1;left:0;right:0;top:133px;bottom:0;display:flex;align-items:flex-start;justify-content:center;pointer-events:none}
+.lp-stage{position:absolute;z-index:1;left:0;right:0;top:96px;bottom:0;display:flex;align-items:flex-start;justify-content:center;pointer-events:none}
 .lp-podium{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:258px;display:flex;flex-direction:column;gap:11px;z-index:2}
 .lp-glass{background:rgba(255,255,255,.85);backdrop-filter:blur(8px);border:1px solid rgba(255,255,255,.95);border-radius:15px;box-shadow:0 18px 40px rgba(37,60,120,.15);padding:12px 15px}
 .lp-pass{display:flex;align-items:center;gap:12px}
@@ -69,18 +70,18 @@ const LP_STYLES = `
 .lp-max-ic img{width:100%;height:100%;display:block;object-fit:contain}
 .lp-cap{text-align:center;color:#9aa2b2;font-size:12.5px;margin:8px 0 0;line-height:1.45}
 
-.lp-demo{margin-top:10px;background:linear-gradient(135deg,#eef2ff,#e7e9ff);border:1px solid #dfe5ff;border-radius:16px;padding:18px 22px 11px;min-height:186px;position:relative;overflow:hidden}
+.lp-demo{margin-top:10px;background:#eef0fb;border:1px solid #dde3f2;border-radius:16px;padding:18px 22px 11px;min-height:186px;position:relative;overflow:hidden}
 .lp-demo-h{font-size:16px;font-weight:800;color:var(--ink);margin:0}
 .lp-demo-p{color:#5b6274;font-size:13px;margin:5px 0 9px;max-width:320px;line-height:1.4}
 .lp-check{display:flex;align-items:center;gap:9px;font-size:13px;color:#3a4152;margin:4px 0}
 .lp-check svg{color:var(--green);width:16px;height:16px;flex:0 0 16px}
-.lp-seat{position:absolute;right:-60px;bottom:-4px;width:365px;height:244px;overflow:hidden}
+.lp-seat{position:absolute;right:-8px;bottom:-2px;width:200px;height:152px;overflow:hidden}
 .lp-seat img{width:100%;height:100%;object-fit:contain;display:block}
 @media(max-width:520px){.lp-seat{display:none}.lp-demo-p{max-width:none}}
 
 .lp-hero-img{width:auto;max-width:none;height:708px;object-fit:contain;flex:0 0 auto;margin-left:110px;display:block}
 
-.lp-foot{position:absolute;z-index:5;left:51px;right:51px;bottom:12px;display:flex;align-items:center;justify-content:space-between;color:#8d96a8;font-size:12px;gap:10px}
+.lp-foot{flex:0 0 auto;z-index:5;display:flex;align-items:center;justify-content:space-between;color:#8d96a8;font-size:12px;gap:10px;padding:8px 40px 2px}
 .lp-foot-links{display:flex;align-items:center;gap:16px}
 .lp-foot a{color:var(--gray-text);cursor:pointer;display:inline-flex;align-items:center;gap:6px}
 .lp-foot a:hover{color:var(--blue)}
@@ -90,8 +91,8 @@ const LP_STYLES = `
 @keyframes lpFloat{0%,100%{transform:translateY(0)}50%{transform:translateY(-9px)}}
 .lp-spin{animation:lpSpin 1s linear infinite}
 @keyframes lpSpin{to{transform:rotate(360deg)}}
-@media(max-height:1000px) and (min-width:1001px){.lp-root{padding-bottom:34px}.lp-right{padding-top:16px}.lp-card{padding-top:24px;padding-bottom:24px}.lp-demo{min-height:190px;padding-top:15px;padding-bottom:12px}.lp-foot{bottom:8px}}
-@media(max-height:820px) and (min-width:1001px){.lp-root{padding-bottom:30px}.lp-card{padding-top:20px;padding-bottom:20px}.lp-demo{min-height:170px}}
+@media(max-height:1000px) and (min-width:1001px){.lp-root{padding-bottom:6px}.lp-right{padding-top:16px}.lp-card{padding-top:24px;padding-bottom:24px}.lp-demo{min-height:190px;padding-top:15px;padding-bottom:12px}}
+@media(max-height:820px) and (min-width:1001px){.lp-root{padding-bottom:6px}.lp-card{padding-top:20px;padding-bottom:20px}.lp-demo{min-height:170px}}
 `;
 
 function LoginScreen({ onLogin }) {
@@ -161,6 +162,8 @@ function LoginScreen({ onLogin }) {
   return (
     <div className="lp-root">
       <style dangerouslySetInnerHTML={{ __html: LP_STYLES }} />
+
+      <div className="lp-main">
 
       {/* ================= LEFT · marketing hero ================= */}
       <div className="lp-left">
@@ -370,6 +373,8 @@ function LoginScreen({ onLogin }) {
 
         </div>
       </div>
+
+      </div>{/* /lp-main */}
 
       <div className="lp-foot">
         <span>© 2024 ПСЦ Travel Hub. Все права защищены.</span>
