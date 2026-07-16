@@ -1,3 +1,18 @@
+import { useState, useEffect, useRef } from 'react';
+import { Icon } from './icons';
+import { ActionMenu, Button, Checkbox, DateField, DateRangeField, Drawer, EmptyState, FilterChip, Input, Pill, Radio, SearchBox, Select, Tabs, TimeLimitBadge, Toggle, fmtDate, plural, useToast } from './ui';
+import { CURRENT_USER, ORDERS, PROPOSALS, RAIL_OCCUPIED, RAIL_SERVICE_CLASSES, RAIL_WAGONS, RETURNS, SERVICE_KIND, SERVICE_STATUS, SVC_DATA } from './data';
+import { CARD_CLIENT_VISIBILITY, CARD_STATUS, CARD_STATUS_FLOW, SEND_CHANNELS, cardInternals, cardStatus, orderClientChannel, sendChannelMeta } from './data_tz2';
+import { CHAIN_STATUS, DELIVERY_STATUS, DELIVERY_TONE, FORCE_MAJEURE_TYPES, advanceDelivery, affectedServiceChain, buildCardFields, buildForceMajeureRows, cardAction, cardEmailTemplate, cardScenario, cardsFor, channelMode, defaultForceMajeure, enabledChannels, operatorCardRights, recordCardResponse, scenarioActions, scenarioBadge, scenariosForKind, sendServiceCard, smartAlternatives } from './data_service_cards';
+import { UnifiedPersonDrawer } from './forms_unified';
+import { Topbar } from './layout';
+import { DetailedSearchPanel } from './page_dashboard';
+import { DocCorrectionPanel, docCorrKind } from './page_flights';
+import { rub } from './page_avia_picker';
+import { OperationConfirmModal } from './order_ops';
+import { PanelSub, StackPanel } from './page_orders';
+import { kpNow } from './page_offers';
+
 // ===== Сервисные модули (ЖД / гостиницы / трансферы / автобусы / туры) =====
 // Единый каркас на шаблоне авиамодуля: реестр → поиск → выдача → карточка.
 
@@ -2097,3 +2112,7 @@ function ServicesHubPage({ onNavigate, onAddOrder, onOpenOrder, onCreateOrder })
 }
 
 Object.assign(window, { ServiceFlow, SVC_CFG, ServiceAddFlow, AeroAddFlow, routeKeyForKind, SvcCard, SvcOfferCard, ServiceCardSendPanel, ServiceCardHistoryDrawer, CardCore, ChannelPreview, CardActionButtons, CardFinancialBlock, cardFinModel, CardLifecycle, RailSeatPanel, RailAddFlow, RailOfferCard, ServicesHubPage, SERVICES_HUB });
+
+
+
+export { svM, AERO_DIRS, AERO_FARES, SVC_CFG, SvcField, SvcOfferCard, clientFinRows, CardLifecycle, cardFinModel, CardFinancialBlock, CardActionButtons, CardCore, ChannelPreview, sc_tone_color, messengerBody, ManualAltForm, ServiceCardSendPanel, ServiceCardHistoryDrawer, SvcDocUploadDrawer, SvcCard, SvcAddPaxDrawer, SVC_CFG_TITLE, svcPriceBounds, SvcFilters, ServiceFlow, routeKeyForKind, ServiceAddFlow, AeroAddFlow, RAIL_SEAT_LABEL, railSeatKind, railChunk, railSections, RailOfferCard, RailFilters, railTimeBucket, RailAddFlow, RailSeatPanel, SERVICES_HUB, FLIGHTS_HUB_FIELDS, ServiceSearchDrawer, HUB_KIND, ServicesHubPage };

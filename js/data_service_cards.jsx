@@ -1,3 +1,5 @@
+import { ORDER_SVC_RESPONSIBLES, SEND_CHANNELS } from './data_tz2';
+
 // ===== Универсальная система карточек услуг (ТЗ «Карточки заказа») =====
 // Карточка не «жёсткая под ситуацию», а собирается из трёх параметров:
 //   1) вид услуги (kind) — определяет состав данных;
@@ -549,3 +551,7 @@ Object.assign(window, {
   SERVICE_CARDS_STORE, cardsKey, cardsFor, nextCardId, nowStamp,
   sendServiceCard, advanceDelivery, recordCardResponse, DELIVERY_STATUS, DELIVERY_TONE, RESPONSE_STATUS,
 });
+
+
+
+export { CARD_ACTION_CATALOG, cardAction, CARD_BLOCK_CATALOG, CARD_SCENARIOS, CARD_SCENARIO_ORDER, cardScenario, scenarioBadge, scenariosForKind, scenarioActions, CARD_KIND_FIELDS, CARD_DELAY_FIELDS, join, normKind, buildCardFields, CARD_VERSION_FIELDS, CHANNEL_MODE, channelMode, SERVICE_CARDS_STORE, cardsKey, cardsFor, __cardSeq, nextCardId, nowStamp, sendServiceCard, advanceDelivery, recordCardResponse, DELIVERY_STATUS, DELIVERY_TONE, RESPONSE_STATUS, CARD_RIGHT_KEYS, CARD_RIGHT_LABELS, allCardRights, noCardRights, OPERATOR_CARD_ACCESS, operatorCardAccess, operatorCardRights, FORCE_MAJEURE_TYPES, defaultForceMajeure, FM_ROWS, buildForceMajeureRows, smartAlternatives, CHAIN_STATUS, affectedServiceChain, caseChannel, CASE_SVC_STATUS, CASE_TRIGGERS, ORDER_CHANGE_CASES, caseNow, getChangeCase, createChangeCase, caseProgress, CARD_KINDS_ALL, CARD_KINDS_ENABLED, cardKindEnabled, CARD_CHANNELS_ENABLED, enabledChannels, CARD_EMAIL_TEMPLATES, cardEmailTemplate };

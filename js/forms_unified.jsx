@@ -1,3 +1,10 @@
+import { useState, useEffect, useRef, useMemo } from 'react';
+import ReactDOM from 'react-dom';
+import { Icon } from './icons';
+import { Avatar, Button, Drawer, EmptyState, Field, Input, SearchBox, Select, Toggle, fmtDate, useToast } from './ui';
+import { CLIENTS, CLIENT_STATUS, ORDERS } from './data';
+import { PanelSub } from './page_orders';
+
 // =====================================================================
 //  ЕДИНЫЕ ФОРМЫ (ТЗ · ТЗ-2): один источник правды для добавления и
 //  редактирования физического лица, сотрудника компании (юр. лицо) и
@@ -617,3 +624,7 @@ Object.assign(window, {
   UnifiedPersonFields, UnifiedPersonDrawer, UnifiedDocumentDrawer, ufBlankDoc, translit,
   ufOrderPickRows, UfOrderRow, UfPersonRow, ufBindLabel, UnifiedBindPicker, UnifiedBindField,
 });
+
+
+
+export { UF_DOC_TYPES, UF_CITIZENSHIP, UF_PAX_ROLES, UF_GENDER, UF_CLIENT_STATUSES, ufBlankPerson, ufSplitName, ufFullName, ufFromClient, ufToClient, ufValidatePerson, UF_MONTHS, UF_DAYS, ufParseDate, ufDateString, ufDateIso, ufDateFromIso, UFDateField, UnifiedPersonFields, UnifiedPersonDrawer, ufBlankDoc, UnifiedDocumentDrawer, ufOrderPickRows, UF_PICK_ROW_STYLE, UfOrderRow, UfPersonRow, UF_BIND_MODE_LABEL, ufBindLabel, UnifiedBindPicker, UnifiedBindField, translit };

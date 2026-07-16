@@ -1,3 +1,7 @@
+import { useState } from 'react';
+import { Icon } from './icons';
+import { useToast } from './ui';
+
 // ===== Auth screen: Login · Recovery · Demo · MAX · SMS one-time code =====
 // Split-screen: marketing hero (left) + auth column (right).
 
@@ -389,3 +393,7 @@ function LoginScreen({ onLogin }) {
 }
 
 Object.assign(window, { LoginScreen });
+
+
+
+export { LP_STYLES, LoginScreen };

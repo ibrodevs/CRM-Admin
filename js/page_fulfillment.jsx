@@ -1,3 +1,11 @@
+import React, { useState, useEffect, useRef } from 'react';
+import { Icon } from './icons';
+import { ActionMenu, Avatar, Button, Checkbox, Drawer, EmptyState, Field, FilterChip, Input, Pill, SearchBox, Select, Tabs, Th, plural, useSort, useToast } from './ui';
+import { COMPANIES_DB, CURRENT_USER, DOCS2, DOC_KIND, DOC_STATUS2, FIN_OPS, FIN_OP_STATUS, FULFILLMENT, ORDERS, ORDER_STAGES, SERVICE_KIND } from './data';
+import { UnifiedBindField } from './forms_unified';
+import { Topbar } from './layout';
+import { DocCorrectionPanel, docCorrKind } from './page_flights';
+
 // ===== Оформление и сопровождение: Финансы + Документы (единый процесс) =====
 
 function fUsd(n, c = 'USD') { return Math.round(n).toLocaleString('ru-RU') + ' ' + (c === 'USD' ? '$' : c); }
@@ -1426,3 +1434,7 @@ Object.assign(window, {
   DocCard, DocCenter, DocCenterPage, DocUploadModal, ReceiptEditorPage, FulfillmentRegistry, FulfillmentPage,
   fUsd, finPayable, finDebt,
 });
+
+
+
+export { fUsd, finPayable, finDebt, companyForDoc, OrderStageBar, FinanceOpCard, FinanceRegistry, FinancePageNew, DOC_BOOKKEEPING, now, DocPreviewModal, DocCard, DocPassengerGroup, correctionSubjects, DOC_UPLOAD_TYPES, DocUploadModal, DocCenter, DocCenterPage, REC_TYPES, recType, RECOG_STEPS, TRIP_TYPES, tripLabel, legCode, routeSummary, PARSE_POOL, RID, emptyReceiptParse, guessType, recMoney, recComputed, LegLine, RouteView, RSub, ReceiptPreview, ReceiptEditForm, REC_STATUS, receiptStatus, ReceiptEditDrawer, ReceiptMathDrawer, ReceiptImportModal, ReceiptEditorPage, FulfillmentRegistry, FulfillmentPage };

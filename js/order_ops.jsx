@@ -1,3 +1,9 @@
+import { useState, useEffect } from 'react';
+import { Icon } from './icons';
+import { ActionMenu, Avatar, Button, Drawer, EmptyState, Modal, ModalHeader, Pill, useToast } from './ui';
+import { CURRENT_USER, OPERATORS, SERVICE_TYPE } from './data';
+import { EXTRA_STAGES, EXTRA_STATUS, EXTRA_SVC_CATALOG, ORDER_RESP_HISTORY, ORDER_SVC_RESPONSIBLES, SVC_ACCESS_KINDS, extrasFromSupplier, operatorSvcAccess, orderActionLog } from './data_tz2';
+
 // ===== Заказ: ответственные по видам услуг + журнал действий (Блок D) и
 //        динамические доп. услуги по этапам / API поставщика (Блок E) =====
 
@@ -382,3 +388,7 @@ function OpConfSection({ icon, title, tone, children }) {
 }
 
 Object.assign(window, { OrderResponsiblesTab, DynamicExtrasPanel, ExtrasCatalogModal, operatorsForKind, ensureResponsibles, OperationConfirmModal, OP_CONFIRM_ACTIONS });
+
+
+
+export { operatorsForKind, ensureResponsibles, OrderResponsiblesTab, DynamicExtrasPanel, ExtrasCatalogModal, OP_CONFIRM_ACTIONS, OP_CHECKS_BY_KIND, OperationConfirmModal, OPC_TONES, OpConfSection };

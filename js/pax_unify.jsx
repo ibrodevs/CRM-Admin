@@ -1,3 +1,12 @@
+import { useState, useRef } from 'react';
+import { Icon } from './icons';
+import { ActionMenu, Avatar, Button, Checkbox, Drawer, EmptyState, Field, Input, Modal, ModalHeader, Pill, Select, Toggle, plural, useToast } from './ui';
+import { CURRENT_USER } from './data';
+import { companyStaffStore } from './data_tz2';
+import { nowStamp } from './data_service_cards';
+import { UnifiedDocumentDrawer, UnifiedPersonFields, ufBlankPerson, ufFullName, ufValidatePerson } from './forms_unified';
+import { PanelSub, StackPanel } from './page_orders';
+
 // ===== Унификация списка пассажиров (групповая выписка под требования поставщика/АК) =====
 // Приводит список пассажиров к шаблону конкретной авиакомпании/поставщика/GDS без ручной
 // работы оператора: порядок и состав полей, формат ФИО/дат/пола/гражданства/документов,
@@ -1091,3 +1100,7 @@ Object.assign(window, {
   paxTranslit, fmtPaxName, fmtPaxDate, fmtPaxSex, fmtPaxNat, guessPaxSex,
   preparePax, paxCell, validatePaxRow, paxExport,
 });
+
+
+
+export { PAX_TODAY, PAX_TR, paxTranslit, paxNameParts, paxTitle, paxNamePart, fmtPaxName, PAX_MON_EN, paxParseDate, fmtPaxDate, PAX_FEMALE_NAMES, guessPaxSex, fmtPaxSex, PAX_NAT_MAP, fmtPaxNat, PAX_COL_LABELS, PAX_NAME_STYLES, PAX_DATE_STYLES, PAX_SEX_STYLES, PAX_NAT_STYLES, PAX_DOC_OPTS, PAX_TEMPLATE_PRESETS, paxDocsOf, preparePax, paxCell, validatePaxRow, paxCsvEscape, paxXmlEscape, paxHtmlTable, paxDownload, paxExport, PaxTemplateEditor, PAX_ROUTE_OPTS, PAX_EXPORT_FMTS, PaxUnifyPanel, paxNorm, paxSamePerson, PAX_DIFF_FIELDS, reconcilePax, applyPaxMerge, paxMergeAppend, paxSynthDob, simulateIncomingList, paxStamp, PAX_MERGE_HISTORY, PaxReconcileModal, PAX_GROUP_KINDS, PAX_GROUPS, GroupNewMemberForm, PaxGroupsDrawer };

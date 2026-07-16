@@ -1,3 +1,16 @@
+import { useState, useEffect } from 'react';
+import { Icon } from './icons';
+import { Avatar, Button, Drawer, EmptyState, FilterChip, Pill, SearchBox, Tabs, Th, plural, useSort, useToast } from './ui';
+import { CLIENTS_DB, CLIENT_STATUS, COMPANIES_DB, COMPANY_STATUS, ORDERS, ORDER_STATUS, SETTLEMENT_TONE, companyBalanceShort, companyFinance } from './data';
+import { companyStaffStore } from './data_tz2';
+import { UnifiedDocumentDrawer, UnifiedPersonDrawer, ufBlankPerson, ufFromClient } from './forms_unified';
+import { Topbar } from './layout';
+import { NewOrgDrawer } from './order_extras';
+import { PanelSub } from './page_orders';
+import { PaxGroupsDrawer, PaxUnifyPanel, paxMergeAppend } from './pax_unify';
+import { TravelPolicyBlock } from './travel_policy';
+import { CompanyFinanceBlock } from './page_company_finance';
+
 // ===== Клиенты и Компании (реестры + карточки) =====
 
 function pUsd(n) { return Math.round(n).toLocaleString('ru-RU') + ' $'; }
@@ -497,3 +510,7 @@ function CompaniesPage({ onOpenOrder, intent, onConsume }) {
 }
 
 Object.assign(window, { ClientsPage, ClientCard, ClientCreateModal, CompaniesPage, CompanyCard });
+
+
+
+export { pUsd, ordersOf, ClientCard, ClientCreateModal, ClientsPage, EmployeeCreateDrawer, EmployeeProfileDrawer, CompanyCard, CompaniesPage };

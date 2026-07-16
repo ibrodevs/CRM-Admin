@@ -1,3 +1,11 @@
+import { useState } from 'react';
+import { Icon } from './icons';
+import { Button, Checkbox, Drawer, Field, Input, Pill, Select, useToast } from './ui';
+import { CURRENT_USER, ORDERS } from './data';
+import { trSameDay } from './data_trips';
+import { StackPanel } from './page_orders';
+import { FinRow, f$, finCreditCheck } from './page_finance';
+
 // ===== Календарь: быстрое создание рабочих действий (ТЗ «Дополнение по календарю») =====
 // Клик по дате → контекстное меню: заказ/поездка, напоминание, задача по заказу,
 // событие контроля. Повторяющиеся события, предупреждение о дублировании, связь с
@@ -358,3 +366,7 @@ function CalEventPanel({ evt, onClose, onChanged, onOpenOrder }) {
 }
 
 Object.assign(window, { CAL_EVENTS, CAL_EVENT_TYPES, calEventsOn, calAddEvent, CalDayMenu, CalEventCreator, CalEventChip, CalEventPanel });
+
+
+
+export { CAL_EVENT_TYPES, CAL_PRIORITY, CAL_PRIORITY_TONE, CAL_NOTIFY, CAL_REPEAT, CAL_SCOPE, CAL_RESP_ROLE, CAL_SERVICE_TYPES, CAL_REMINDER_PRESETS, CAL_TASK_PRESETS, CAL_CONTROL_PRESETS, calFmtDay, calNowStr, CAL_EVENTS, calEventsOn, calAddEvent, calFindDuplicate, calOrderInfo, CalDayMenu, CalOrderPicker, CalEventCreator, CalEventChip, CalEventPanel };

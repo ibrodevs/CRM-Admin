@@ -1,3 +1,10 @@
+import { useState } from 'react';
+import { Icon } from './icons';
+import { Button, Checkbox, Input, Pill, Tabs, Toggle, useToast } from './ui';
+import { SEND_CHANNELS } from './data_tz2';
+import { CARD_ACTION_CATALOG, CARD_BLOCK_CATALOG, CARD_KINDS_ALL, CARD_RIGHT_KEYS, CARD_RIGHT_LABELS, CARD_SCENARIO_ORDER, allCardRights, cardAction, cardScenario, noCardRights } from './data_service_cards';
+import { StackPanel } from './page_orders';
+
 // ===== Настройки администратора: карточки услуг (ТЗ §30) =====
 // Единый экран управления универсальной системой карточек: сценарии, ярлыки, блоки и их
 // порядок, действия клиента, включение видов/каналов, шаблоны email, права операторов,
@@ -261,3 +268,7 @@ function RightsTab({ rights, setRights, curOp, setCurOp }) {
 }
 
 Object.assign(window, { ServiceCardAdminDrawer });
+
+
+
+export { clone, ServiceCardAdminDrawer, ScenariosTab, RightsTab };

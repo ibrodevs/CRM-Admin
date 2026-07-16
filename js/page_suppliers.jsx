@@ -1,3 +1,11 @@
+import { useState, useEffect } from 'react';
+import { Icon } from './icons';
+import { Avatar, Button, Checkbox, Combobox, Drawer, EmptyState, Field, FilterChip, Input, Pagination, Pill, Radio, SearchBox, Select, Tabs, Th, Toggle, WorkHoursPicker, useSort, useToast } from './ui';
+import { AIRLINES, AVIA_MARKUPS, CURRENCIES, ORG_TYPE, SUPPLIER_STATUS, aviaMarkupsFor } from './data';
+import { Topbar } from './layout';
+import { AirlineLogo } from './page_flights';
+import { PAGE_SIZE } from './page_orders';
+
 // ===== Suppliers: list + info modal (tabs) + add drawer (расширенная карточка по ТЗ) =====
 
 function MiniLineChart() {
@@ -1246,3 +1254,7 @@ function SuppliersPage({ intent, onConsume, suppliers, addSupplier }) {
 }
 
 Object.assign(window, { SuppliersPage, SupplierCard, SupplierTabBody, SupplierModal, SupplierAddDrawer, SearchPriorityModal, DocPreviewDrawer, supExt, SUP_SERVICE_KINDS, SupplierBadge, supBrand });
+
+
+
+export { MiniLineChart, DocPreviewDrawer, SUP_BRAND_COLORS, supBrand, SupplierBadge, SUPPLIER_TYPES, SUP_SERVICE_KINDS, SUP_COMM_METHODS, SUP_COUNTRIES, SUP_CITIES, supCitiesFor, SUP_WORK_HOURS, SUP_COMM_CONFIG, SUP_OPS, SUP_DOC_KINDS, SUP_COMM_TYPES, SUP_SETTLEMENTS, SUP_AUTOMATION, SUP_AUTOMATION_LABEL, SUP_FIN_KEYS, SUP_PRIORITY_SERVICES, SUP_SEARCH_ORDER, supEmptyFin, SUP_EXT, supExt, supLookupByInn, supFinSummary, AviaMarkupEditor, SupplierFinEditor, SupplierSearchEditor, SearchPriorityModal, SUP_TABS, SupplierLegalEditor, SupplierTabBody, SupplierCard, SupplierModal, SupSection, SupplierAddDrawer, SuppliersPage };

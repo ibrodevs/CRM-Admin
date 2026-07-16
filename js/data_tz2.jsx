@@ -1,3 +1,5 @@
+import { AIRLINES, CHAT_THREADS, CURRENCIES, OPERATORS, USERS, companyStaff } from './data';
+
 // ===== Данные под второй пакет ТЗ: SLA-отклик, тревел-политика, доступ операторов по услугам,
 //        динамические доп. услуги. Загружается сразу после data.jsx. =====
 
@@ -282,3 +284,7 @@ Object.assign(window, {
   ORDER_SVC_RESPONSIBLES, orderResponsibles, ORDER_RESP_HISTORY, ORDER_ACTION_LOG, orderActionLog,
   EXTRA_STAGES, EXTRA_AVAIL, EXTRA_STATUS, EXTRA_SVC_CATALOG, extraCatalogItem, extrasFromSupplier,
 });
+
+
+
+export { OPERATOR_SLA, operatorSla, SLA_QUEUE, slaTone, slaLabel, TP_SCOPES, TP_CLASSES_AVIA, TP_RAIL_CLASSES, TP_AIRLINES, TP_RAIL_TYPES, TP_HOTEL_CHAINS, TP_HOTEL_CATEGORIES, TP_BOARD, TP_CAR_CLASSES, TP_CURRENCIES, TP_EMPLOYEES, TP_COMPLIANCE, defaultTravelPolicy, COMPANY_STAFF_STORE, companyStaffStore, TP_DEPARTMENTS, departmentsFor, TRAVEL_POLICIES, travelPolicyFor, SVC_ACCESS_KINDS, SVC_ACCESS_RIGHTS, fullRights, noRights, OPERATOR_SVC_ACCESS, operatorSvcAccess, operatorKindsLabel, ORDER_SVC_RESPONSIBLES, orderResponsibles, ORDER_RESP_HISTORY, ORDER_ACTION_LOG, orderActionLog, EXTRA_STAGES, EXTRA_AVAIL, EXTRA_STATUS, EXTRA_SVC_CATALOG, extraCatalogItem, extrasFromSupplier, CARD_STATUS_FLOW, CARD_STATUS, cardStatus, SEND_CHANNELS, sendChannelMeta, orderClientChannel, CARD_CLIENT_VISIBILITY, cardInternals };

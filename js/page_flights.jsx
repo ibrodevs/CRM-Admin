@@ -1,3 +1,13 @@
+import { useState, useEffect, useRef } from 'react';
+import { Icon } from './icons';
+import { ActionMenu, Avatar, Button, Checkbox, ConfirmDialog, DateField, DateRangeField, Drawer, EmptyState, Field, FilterChip, Input, Pill, Radio, SearchBox, Select, Tabs, Th, TimeLimitBadge, Toggle, fmtDate, plural, useSort, useToast } from './ui';
+import { AIRLINES, AIRPORTS, AIR_SERVICES, AIR_STATS, AIR_STATUS, CABIN_CLASSES, CLIENTS, FLIGHT_OFFERS, ORDERS, SPECIAL_PAX_CATEGORIES, SUBSIDIZED_PAX_PROGRAMS, aviaMarkupAmount } from './data';
+import { Topbar } from './layout';
+import { ExtrasTabs } from './page_avia_picker';
+import { OperationConfirmModal } from './order_ops';
+import { PanelSub, StackPanel } from './page_orders';
+import { SvcAddPaxDrawer, SvcDocUploadDrawer } from './page_services';
+
 // ===== AVIA module: registry → search → results → service card =====
 
 /* ---------- helpers ---------- */
@@ -2039,3 +2049,7 @@ function FlightsPage({ searchIntent, onConsumeSearch }) {
 }
 
 Object.assign(window, { FlightsPage, AirlineLogo, FlightSearch, FlightResults, FlightCard, paxTotal, PAX_DEFAULT_OPTIONS, DocCorrectionPanel, docCorrKind });
+
+
+
+export { AirlineLogo, durMin, money, AirportField, PAX_DEFAULT_OPTIONS, paxTotal, PAX_BASE_TYPES, SPECIAL_PAX_ICONS, SPECIAL_PAX_INFO, SUBSIDIZED_PAX_ICONS, CABIN_ICONS, PAX_OPTION_META, PaxStepper, PaxClassPicker, PaxField, FlightSearch, OfferLeg, OfferCard, FilterRail, CompareModal, FlightResults, SegmentRow, FareRulesInfo, flightStatusFlags, flightPassengers, RefundPanel, ExchangePanel, DOC_TEMPLATES, AGENCY_ENTITIES, DOC_CORR_KINDS, docCorrKind, CORR_FIELDS, corrCur, corrComputed, corrTotal, corrChanges, CorrectionPreview, CorrectionHistoryDrawer, DocCorrectionPanel, SendToPaxDrawer, ATTACH_MODES, AttachFlightDrawer, FlightReceiptDrawer, FlightCard, FlightsRegistry, FlightsPage };

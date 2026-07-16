@@ -1,3 +1,10 @@
+import { useState, useEffect, useRef } from 'react';
+import { Icon } from './icons';
+import { Avatar, Button, Checkbox, Drawer, Input, Pill, Select, Toggle, useToast } from './ui';
+import { CURRENT_USER } from './data';
+import { TP_AIRLINES, TP_BOARD, TP_CAR_CLASSES, TP_CLASSES_AVIA, TP_COMPLIANCE, TP_CURRENCIES, TP_EMPLOYEES, TP_HOTEL_CATEGORIES, TP_HOTEL_CHAINS, TP_RAIL_CLASSES, TP_RAIL_TYPES, TP_SCOPES, companyStaffStore, departmentsFor, travelPolicyFor } from './data_tz2';
+import { CollapseSection } from './order_extras';
+
 // ===== Тревел-политика компании (ТЗ): разделы Авиа / ЖД / Гостиницы / Трансферы /
 //        Доп. услуги / Согласование + Контроль соответствия + подразделения/сотрудники +
 //        импорт документом + история изменений. Все справочники — выпадающими списками. =====
@@ -528,3 +535,7 @@ function TravelPolicyBlock({ co }) {
 }
 
 Object.assign(window, { TravelPolicyBlock, travelPolicyCompliance, checkTravelPolicy, ComplianceBadge, DepartmentsManager });
+
+
+
+export { tpArr, tpNum, tpVal, tpBool, tpDateDays, tpPush, tpMax, tpAllowed, tpForbidden, tpClassOver, tpStatus, travelPolicyCompliance, checkTravelPolicy, ComplianceBadge, TpNum, TpNumCur, TpSelect, TpToggle, TpMultiSelect, TpPersonSearch, TpApproverChain, DepartmentsManager, TpImportDrawer, TravelPolicyBlock };

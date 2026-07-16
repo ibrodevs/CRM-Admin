@@ -1,3 +1,13 @@
+import { useState, useEffect, useRef } from 'react';
+import { BrandMark, Icon } from './icons';
+import { ActionMenu, Avatar, Button, Drawer, EmptyState, Field, FilterChip, Input, Pill, Radio, SearchBox, Select, Th, fmtDate, plural, useSort, useToast } from './ui';
+import { CURRENCIES, CURRENT_USER, KP_STATUS, KP_STATUS_FLOW, OPERATORS, ORDERS, ORDER_PARTICIPANTS, ORDER_SERVICES, ORDER_STATUS, PROPOSALS, SERVICE_KIND } from './data';
+import { SEND_CHANNELS, orderClientChannel, sendChannelMeta } from './data_tz2';
+import { Topbar } from './layout';
+import { PAX_DEFAULT_OPTIONS } from './page_flights';
+import { PanelSub, StackPanel } from './page_orders';
+import { AddServicePanel } from './page_order_card';
+
 // ===== Commercial Proposals (КП): constructor, preview, approval, registry =====
 
 function kpM(n, c = 'USD') { const sym = (CURRENCIES.find((x) => x.code === c) || {}).sym || c; return Math.round(n).toLocaleString('ru-RU') + ' ' + sym; }
@@ -1219,3 +1229,7 @@ function OffersPage({ onOpenOrder, intent, onConsume }) {
 }
 
 Object.assign(window, { KPModule, KPPreviewDoc, KPCreateModal, ProposalSendPanel, OffersRegistry, OffersPage, FixVariantModal, KPHistoryDrawer, OrderPickerDrawer, KpServicePicker, KPTemplateBuilder, KP_TEMPLATES });
+
+
+
+export { kpM, varCost, varFee, varTotal, kpNow, trainTotal, accRowTotal, accVarTotal, pVariants, proposalSummary, exportKpToPdf, KPStatusControl, KPPreviewDoc, KPTab, TrainTableView, AccTableView, KPTrainPreviewDoc, FixVariantModal, KP_ADD_TYPES, KP_TEMPLATES, orderDateLabel, OrderPickerDrawer, KpServicePicker, KPModule, KPTemplateBuilder, KPHistoryDrawer, KP_DOC_TYPES, KP_SOURCES, KP_PURPOSE_TYPES, KPCreateModal, ProposalSendPanel, OffersRegistry, OffersPage };

@@ -1,3 +1,32 @@
+import html2canvas from 'html2canvas';
+import * as jspdf from 'jspdf';
+if (typeof window !== 'undefined') { window.html2canvas = html2canvas; window.jspdf = jspdf; }
+
+import { useState, useEffect } from 'react';
+import { ToastProvider, useToast } from './ui';
+import { CHAT_THREADS, CURRENT_USER, NOTIFICATIONS, ORDERS, SUPPLIERS } from './data';
+import { AppShell } from './layout';
+import { LoginScreen } from './login';
+import { DashboardPage } from './page_dashboard';
+import { FlightsPage } from './page_flights';
+import { OrdersPage } from './page_orders';
+import { OffersPage } from './page_offers';
+import { DocCenterPage, FulfillmentPage, ReceiptEditorPage } from './page_fulfillment';
+import { FinancePage } from './page_finance';
+import { GroupsPage } from './page_groups';
+import { ReturnsPage } from './page_returns';
+import { NotificationsPage } from './page_notifications';
+import { ServiceFlow, ServicesHubPage } from './page_services';
+import { HotelsPage } from './page_hotel_picker';
+import { ClientsPage, CompaniesPage } from './page_people';
+import { SuppliersPage } from './page_suppliers';
+import { ChatsPage, threadUnread } from './page_chats';
+import { SettingsPage } from './page_settings';
+import { TripCalendarPage } from './page_trip_calendar';
+import { ProfilePage } from './page_profile';
+import { AccountSettingsPage } from './page_account';
+import { AccessDenied, GlobalChatDrawer, GlobalTopbar, NotificationDrawer, roleCanSee } from './shell';
+
 // ===== Main App: auth, routing, shared state =====
 
 /* Десктопные уведомления (ТЗ-2 п.8): всплывают в рамке с цветовой пометкой
@@ -140,6 +169,10 @@ function App() {
   );
 }
 
-ReactDOM.createRoot(document.getElementById('root')).render(
-  <ToastProvider><App /></ToastProvider>
-);
+export default function CRMRoot() {
+  return <ToastProvider><App /></ToastProvider>;
+}
+
+
+
+export { NOTIF_PRIORITY_KIND, DesktopNotifier, App, CRMRoot };

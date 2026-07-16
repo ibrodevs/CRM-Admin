@@ -32,35 +32,39 @@ The repository focuses on product flows and interface behavior. It uses realisti
 
 ## Product architecture
 
-The prototype is split into focused page and system modules instead of one monolithic file:
+The prototype is a Next.js application split into focused page and system modules:
 
 ~~~text
-index.html                  # application shell, tokens, and global styles
+app/layout.jsx              # root layout: fonts, metadata, global styles
+app/globals.css             # design tokens and all application styles
+app/page.jsx                # client-only entry that mounts the CRM
 js/app.jsx                  # authentication, routing, roles, shared state
 js/page_*.jsx               # domain pages and workflows
-js/components*.jsx          # shared UI building blocks
-js/data*.js                 # realistic demonstration data
+js/ui.jsx, js/forms_*.jsx   # shared UI building blocks
+js/data*.jsx                # realistic demonstration data
 ~~~
 
 ## Technology
 
 | Area | Technology |
 |---|---|
-| Interface | React and JSX |
+| Framework | Next.js 14 (App Router), client-side rendering |
+| Interface | React 18 and JSX (ES modules) |
 | Styling | Custom responsive CSS and reusable design tokens |
 | State | React state with shared in-memory demo data |
 | Product model | Role-aware routes and domain-specific modules |
-| Delivery | Static deployment suitable for rapid stakeholder review |
+| Delivery | Vercel / any Node hosting (`next build && next start`) |
 
 ## Running locally
 
 No application secrets or backend services are required for the prototype.
 
 ~~~bash
-python3 -m http.server 8000
+npm install
+npm run dev
 ~~~
 
-Open http://localhost:8000.
+Open http://localhost:3000. For a production build: `npm run build && npm start`.
 
 ## Demo scope
 

@@ -1,3 +1,10 @@
+import { useState } from 'react';
+import { Icon } from './icons';
+import { ActionMenu, Avatar, Button, Checkbox, DateField, EmptyState, Field, Input, Radio, SearchBox, Select, fmtDate, useToast } from './ui';
+import { GROUP_PAX, HOTELS, HOTEL_AMENITIES, HOTEL_DISTRICTS, HOTEL_EXTRAS, HOTEL_MEALS, ORDER_PARTICIPANTS } from './data';
+import { Topbar } from './layout';
+import { StackPanel } from './page_orders';
+
 // ===== HOTEL PICKER: in-order hotel search & booking flow =====
 // Left  — фильтр поиска (цена / звёзды / район) располагается СЛЕВА от выдачи
 // Right — список результатов; выбор номера, тарифа, состава гостей, группового
@@ -1120,3 +1127,7 @@ function HotelsPage() {
 }
 
 Object.assign(window, { HotelPicker, HotelsPage });
+
+
+
+export { HP_SORT_OPTS, HP_SORT_LABEL, HP_RADIUS_OPTS, hpM, hpStars, hpNights, HotelResultCard, HotelFilters, HotelPicker, HotelPanelHead, RoomPanel, PaxPlacementPanel, GroupAccommodationPanel, RoomingMatrixPanel, ConflictsPanel, ExtrasPanel, ConfirmPanel, RoomGroupEditor, GroupCompositionEditor, HotelsPage };

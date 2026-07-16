@@ -1,3 +1,16 @@
+import { useState, useEffect } from 'react';
+import { Icon } from './icons';
+import { ActionMenu, Avatar, Button, Checkbox, Drawer, EmptyState, FilterChip, Pill, SearchBox, plural, useToast } from './ui';
+import { CHAT_THREADS, CLIENTS, COMPANIES_DB, CURRENT_USER, NOTIFICATIONS, OPERATORS, ORDERS, ORDER_STATUS, PROPOSALS, RECENT_CHANGES, RETURNS, RETURN_STATUS, RETURN_TYPE, financeOverview } from './data';
+import { SLA_QUEUE, slaLabel, slaTone } from './data_tz2';
+import { UfOrderRow, UfPersonRow, ufOrderPickRows } from './forms_unified';
+import { Topbar } from './layout';
+import { PAX_DEFAULT_OPTIONS } from './page_flights';
+import { PanelSub, StackPanel } from './page_orders';
+import { AddServicePanel } from './page_order_card';
+import { ErrorCodesDrawer } from './page_notifications';
+import { SHIFT_DEMO_OPS, SHIFT_REQUESTS_HANDLED, motivationFor, operatorEarn, shiftDuration, shiftFmtTime, shiftTotals } from './page_shifts';
+
 // ===== Dashboard (Главное) =====
 
 /* Финализация свободного бронирования (ТЗ #1): по подобранным без привязки к заказу услугам можно
@@ -1054,3 +1067,7 @@ function DashboardPage({ role, onNavigate, onAddOrder, onOpenOrder, onCreateOrde
 }
 
 Object.assign(window, { DashboardPage, DetailedSearchPanel });
+
+
+
+export { FreeBookingFinalize, DetailedSearchPanel, FinanceOverviewBlock, StatCardDash, SlaResponseWidget, dashToneColor, DashTile, AttentionMarker, DashDetailEmpty, SUPPLIER_STATS, ERR_CRIT_TONE, INTEG_TONE, SUPPLIER_ERRORS, ERR_STATUS_TONE, errNow, errCurOp, errLog, errActiveCount, errPushNotif, errRetry, errAssign, errResolve, errReopen, errSnooze, errChooseSupplier, errSendDev, errAltSuppliers, OPERATORS_WORK, TODAY_TRIPS, MY_TASKS, SupplierErrorCard, SupplierErrorsDrawer, DashboardPage };

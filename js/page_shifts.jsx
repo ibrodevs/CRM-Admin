@@ -1,3 +1,9 @@
+import { useState, useEffect } from 'react';
+import ReactDOM from 'react-dom';
+import { Icon } from './icons';
+import { ActionMenu, Button, Drawer, Input, Pill, Toggle, useToast } from './ui';
+import { CURRENT_USER } from './data';
+
 // ===== Смены оператора + мотивационная математика (ТЗ) =====
 // «Открыть смену» / «Закрыть смену» в глобальной шапке, отчёт по смене,
 // отчёт по сборам и индивидуальная система мотивации для каждого оператора.
@@ -411,3 +417,7 @@ Object.assign(window, {
   ShiftControl, ShiftReportDrawer, FeesReportDrawer, MotivationDrawer,
   OPERATOR_MOTIVATION, motivationFor, operatorEarn, MOTIVATION_SERVICES,
 });
+
+
+
+export { shM, shPct, MOTIVATION_SERVICES, MOTIVATION_DEFAULT, OPERATOR_MOTIVATION, motivationFor, motivationRates, operatorEarn, SHIFT_DEMO_OPS, SHIFT_REQUESTS_HANDLED, shiftTotals, shiftFmtTime, shiftDuration, MotivationDrawer, ShiftReportDrawer, FeesReportDrawer, ShiftControl };

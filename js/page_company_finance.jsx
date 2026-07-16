@@ -1,3 +1,8 @@
+import { useState, useEffect } from 'react';
+import { Icon } from './icons';
+import { Button, ConfirmDialog, Drawer, Field, Input, Pill, Select, Tabs, useToast } from './ui';
+import { CURRENT_USER, FEE_DESC_DEFAULTS, FEE_SCHEMA, FEE_SERVICE_TYPES, FEE_TEMPLATES, SERVICE_DESC_DEFAULTS, SETTLEMENT_TYPES, applyAgreementFees, companyFinance, creditAvailable, depositAvailable, descsFromDefaults, feeDescOf, feeDescsFromDefaults, feeTemplate, feesFromTemplate, registerFeeTemplate } from './data';
+
 // ===== Финансовые условия юр. лиц: балансы, договоры, доп.соглашения, сборы, описания, закрывающие документы =====
 
 function fM(n) { return Math.round(n || 0).toLocaleString('ru-RU') + ' $'; }
@@ -499,3 +504,9 @@ Object.assign(window, {
   CompanyFinanceBlock, CompanyFinanceSection, CompanyContracts, AgreementEditor, ClosingDocsPreview,
   DepositCard, CreditCard,
 });
+
+if (typeof window !== 'undefined') window.cfNow = cfNow;
+
+
+
+export { fM, feeCellText, cfUid, cfNow, DepositCard, CreditCard, DepositHistoryDrawer, CompanyFinanceSection, AgreementFeesView, AgreementEditor, AgreementHistoryDrawer, CompanyContracts, ACCOUNTING_SYSTEMS, CLOSING_DOC_TYPES, ClosingDocsPreview, CompanyFinanceBlock };

@@ -1,3 +1,9 @@
+import { useState, useEffect } from 'react';
+import { Icon } from './icons';
+import { ActionMenu, Button, Drawer, EmptyState, FilterChip, Pill, SearchBox, Tabs, Toggle, useToast } from './ui';
+import { ERR_CATEGORIES, ERR_SEVERITY, ERR_SYSTEMS, INTEGRATION_ERROR_CODES, NOTIFICATIONS, NOTIF_PRIORITY, NOTIF_PRIO_RANK, NOTIF_SETTINGS, NOTIF_SOURCE, ORDERS } from './data';
+import { Topbar } from './layout';
+
 // ===== Уведомления: центр управления вниманием + лента активности =====
 
 // link.type / source → конкретная вкладка карточки заказа (deep-link в контекст записи, а не в раздел)
@@ -223,3 +229,7 @@ function ActivityFeed({ onNavigate, onOpenOrder, limit = 6 }) {
 }
 
 Object.assign(window, { NotificationsCenter, NotificationsPage, ActivityFeed, NotificationRow, NotifSettingsDrawer, ErrorCodesDrawer, notifGo });
+
+
+
+export { NOTIF_TAB, notifGo, NotificationRow, NotifSettingsDrawer, ErrorCodesDrawer, NotificationsCenter, NotificationsPage, ActivityFeed };

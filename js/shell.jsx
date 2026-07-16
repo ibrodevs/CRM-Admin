@@ -1,3 +1,14 @@
+import React, { useState, useEffect, useRef } from 'react';
+import { Icon } from './icons';
+import { ActionMenu, Button } from './ui';
+import { AIR_SERVICES, CHAT_THREADS, CHAT_TYPE_LABEL, CLIENTS_DB, COMPANIES_DB, DOCUMENTS, ORDERS, PERMISSIONS, PROPOSALS, ROLES, SUPPLIERS } from './data';
+import { SLA_QUEUE, companyStaffStore } from './data_tz2';
+import { NAV_ITEMS, Topbar } from './layout';
+import { NotificationsCenter } from './page_notifications';
+import { PAX_GROUPS } from './pax_unify';
+import { ChatThread, chatRecipients, getThreadForOrder, threadUnread } from './page_chats';
+import { ShiftControl } from './page_shifts';
+
 // ===== Global Shell: Topbar (breadcrumbs · search · quick-create · bell · chat)
 //        + Notification slide-over + Global Chat slide-over =====
 // P0 of the blueprint: the unifying chrome so the user never loses context.
@@ -465,3 +476,7 @@ Object.assign(window, {
   GlobalTopbar, NotificationDrawer, GlobalChatDrawer,
   NAV_PERM, roleHasPerm, roleCanSee, RoleSwitcher, AccessDenied,
 });
+
+
+
+export { SERVICE_LABELS, ORDER_OPS_LABELS, ROUTE_LABELS, SERVICE_PARENT, ORDER_OPS_PARENT, NAV_PERM, roleIdx, roleHasPerm, roleCanSee, RoleSwitcher, AccessDenied, Breadcrumbs, GSEARCH_TONES, gsSafeArray, gsNorm, gsJoin, gsPlural, gsScore, gsOrder, gsOpenOrderOrRoute, gsActiveOrdersFor, gsAddResult, buildGlobalSearchResults, GlobalSearch, QuickCreate, GlobalTopbar, NotificationDrawer, GlobalChatDrawer };

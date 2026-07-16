@@ -1,3 +1,11 @@
+import { useState } from 'react';
+import { Icon } from './icons';
+import { Button, Field, FilterChip, Input, Modal, ModalHeader, Pill, Select, Tabs, useToast } from './ui';
+import { SERVICE_KIND } from './data';
+import { Topbar } from './layout';
+import { StackPanel } from './page_orders';
+import { FinRow, StatTile, WarnBanner, f$ } from './page_finance';
+
 // ===== Групповые бронирования (ТЗ) =====
 // Два сценария в одной архитектуре: классическое (единый блок/квота) и дроблёное
 // (несколько технических броней). Для клиента это всегда ОДНА поездка, один состав,
@@ -751,3 +759,7 @@ function GroupsPage() {
 }
 
 Object.assign(window, { GroupsPage, GROUP_ORDERS });
+
+
+
+export { GR_CLASSIC_STATUS, GR_SPLIT_STATUS, grStatusTone, GR_PAX_STATUS, GR_PAX_TONE, GR_BOOK_STATE, GR_SCENARIO, GR_SURNAMES, GR_NAMES, GR_PAX, paxTags, computeSplit, GROUP_ORDERS, grAgg, GroupRequestPanel, GR_CLASSIC_STEPS, classicStage, ClassicStepper, ClassicBlockCard, SplitFlow, grIconBtn, GrServiceCard, GrServicesTab, GR_MASS_ACTIONS, GrMassActions, GR_MATRIX_COLS, grMatrixRow, GrMatrixTab, GR_DIFFS, GrDiffTab, GrFinanceTab, GrPaxTab, GrHistoryTab, GrDocsTab, GR_DETAIL_TABS, GroupOrderDetail, GroupsPage };

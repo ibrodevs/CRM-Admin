@@ -422,3 +422,7 @@ Object.assign(window, {
   tripUnpaid, controlCenterFeed, crossTripConflicts, tripFilterSets,
   trTime, trDay, trDayTime, trSameDay, trStartOfDay, trDaysBetween, trHumanIn, critMax,
 });
+
+
+
+export { TRIP_NOW, TRIP_CRIT, critMax, TRIP_FM_CATALOG, D, trTime, trDay, trDayTime, trSameDay, trStartOfDay, trDaysBetween, trMinutes, trHumanIn, TRIPS, tripEvents, tripConflicts, tripForceMajeures, tripCriticality, tripUnpaid, controlCenterFeed, crossTripConflicts, tripFilterSets };

@@ -1,3 +1,8 @@
+import { useState, useEffect, useRef } from 'react';
+import { BrandMark, Icon } from './icons';
+import { Avatar } from './ui';
+import { CURRENT_USER } from './data';
+
 // ===== Layout: sidebar, profile, app shell, page wrapper =====
 
 const NAV_ITEMS = [
@@ -62,7 +67,9 @@ function NavGroup({ item, active, onNavigate, collapsed }) {
 
 function Sidebar({ route, onNavigate, onLogout, role, collapsed }) {
   const active = route.split('/')[0];
-  const can = (k) => (typeof roleCanSee === 'function' ? roleCanSee(role, k) : true);
+  // roleCanSee берём с window (его туда кладёт shell.jsx), чтобы не создавать
+  // циклический импорт layout ↔ shell; guard сохраняет прежнее поведение
+  const can = (k) => (typeof window.roleCanSee === 'function' ? window.roleCanSee(role, k) : true);
   const items = NAV_ITEMS.map((it) => {
     if (it.group) { const children = it.children.filter((c) => can(c.key)); return children.length ? { ...it, children } : null; }
     return can(it.key) ? it : null;
@@ -179,3 +186,7 @@ function ModulePlaceholder({ title, icon = 'inbox', planned = [] }) {
 }
 
 Object.assign(window, { NAV_ITEMS, SERVICE_KEYS, ORDER_OPS_SECTIONS, NavGroup, Sidebar, ProfileCard, AppShell, Topbar, ModulePlaceholder });
+
+
+
+export { NAV_ITEMS, ORDER_OPS_SECTIONS, SERVICE_KEYS, NavGroup, Sidebar, ProfileCard, AppShell, Topbar, ModulePlaceholder };

@@ -1,3 +1,12 @@
+import { useState } from 'react';
+import { Icon } from './icons';
+import { Avatar, Button, Checkbox, Drawer, Field, Input, Pill, Select, Tabs, Toggle, useToast } from './ui';
+import { CURRENCIES, CURRENT_USER } from './data';
+import { OPERATOR_SLA, OPERATOR_SVC_ACCESS, SVC_ACCESS_KINDS, SVC_ACCESS_RIGHTS, fullRights, noRights, operatorKindsLabel, operatorSla, operatorSvcAccess } from './data_tz2';
+import { Topbar } from './layout';
+import { RolesTab } from './page_settings';
+import { MotivationDrawer, motivationFor, shiftDuration, shiftFmtTime } from './page_shifts';
+
 // ===== Профиль пользователя (ТЗ): шапка + вкладки Профиль / Безопасность / Уведомления /
 //        Предпочтения / Доступы / Мотивация / Статистика / Рабочее время =====
 
@@ -466,3 +475,7 @@ function ProfilePage({ onNavigate, initialTab }) {
 }
 
 Object.assign(window, { ProfilePage, ServiceAccessEditor, ProfileMotivation, ProfileStats, ProfileWorkTime });
+
+
+
+export { PRESENCE_TONE, WORK_STATUS, ServiceAccessEditor, ProfileMotivation, ProfileStats, ProfileWorkTime, ProfilePage };

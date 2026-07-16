@@ -1,3 +1,8 @@
+import React, { useState, useEffect, useRef } from 'react';
+import { Icon } from './icons';
+import { ActionMenu, Avatar, Button, EmptyState, Pill, SearchBox, useToast } from './ui';
+import { CHAT_CHANNEL_TONE, CHAT_THREADS, CHAT_TYPES, CURRENT_USER, OPERATORS, ORDERS, ORDER_SERVICES, ORDER_STATUS, SERVICE_KIND, SERVICE_STATUS } from './data';
+
 // ===== Чаты: много независимых чатов (клиент / операторы / поставщики / локальные / события) =====
 // каждый чат привязан к заказу и (опционально) к услуге · вложения · упоминания · системные события
 // внутри чата два под-канала композера: «Сообщение» и «Внутренний комментарий» (закрытый).
@@ -441,3 +446,7 @@ function ChatsPage({ onOpenOrder }) {
 }
 
 Object.assign(window, { ChatsPage, ChatThread, ChatInfoPanel, ChatsNav, getThreadForOrder, threadUnread, lastMessage, chatRecipients, recipientLabel });
+
+
+
+export { chatNow, chatText, lastMessage, threadUnread, chatServiceById, chatMoney, ChatServiceCard, chatOrderStatus, chatTypeMeta, getThreadForOrder, makeAdminThread, recipientLabel, chatRecipients, ChannelBadge, ChatThread, ChatInfoPanel, ChatsNav, ChatsPage };

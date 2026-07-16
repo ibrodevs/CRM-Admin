@@ -1,3 +1,12 @@
+import { useState, useEffect, useRef } from 'react';
+import { Icon } from './icons';
+import { Button, Drawer, Pill, useToast } from './ui';
+import { SERVICE_KIND } from './data';
+import { OperationConfirmModal } from './order_ops';
+import { BackRow, ocMoney, svcCalc } from './page_order_card';
+import { KPPreviewDoc } from './page_offers';
+import { ChatThread, getThreadForOrder } from './page_chats';
+
 // ===== BOOKING WIZARD: «Начать бронирование» (full-page 7-step flow) =====
 
 function bwRub(s) { return (s.currency === 'USD' || s.currency === '$') ? s.sum * 90 : s.sum; }
@@ -411,3 +420,7 @@ function BookingWizard({ order, services, draft, onClose, onComplete, onSaveDraf
 }
 
 Object.assign(window, { BookingWizard, offerFromServices });
+
+
+
+export { bwRub, bwMoney, BwStepper, BwReadiness, BwSvc, offerFromServices, BookingWizard };

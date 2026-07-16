@@ -1,3 +1,15 @@
+import React, { useState, useEffect } from 'react';
+import { Icon } from './icons';
+import { ActionMenu, Avatar, Button, Checkbox, ConfirmDialog, Drawer, Field, Input, ModalHeader, Pill, Select, Tabs, Toggle, useToast } from './ui';
+import { API_ACCESS, CURRENCIES, ORG_TYPE, PERMISSIONS, ROLES, USERS, USER_STATUS } from './data';
+import { OPERATOR_SLA, operatorSla } from './data_tz2';
+import { Topbar } from './layout';
+import { ExtrasCatalogModal } from './order_ops';
+import { ErrorCodesDrawer } from './page_notifications';
+import { MotivationDrawer } from './page_shifts';
+import { ServiceCardAdminDrawer } from './page_card_admin';
+import { ServiceAccessEditor } from './page_profile';
+
 // ===== Settings (Настройки) + modals =====
 
 function CurrencyModal({ open, onClose }) {
@@ -379,3 +391,7 @@ function CardVisibilityModal({ open, onClose }) {
 }
 
 Object.assign(window, { SettingsPage, UsersTab, RolesTab, CardVisibilityModal });
+
+
+
+export { CurrencyModal, ACCESS_TOGGLES, ApiKeyModal, ApiAccessModal, AddUserDrawer, NotificationsModal, OperatorAccessDrawer, UsersTab, RolesTab, SettingsPage, CARD_VIS_FIELDS, CardVisibilityModal };

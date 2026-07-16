@@ -110,3 +110,7 @@ function BrandMark({ size = 26, color = '#2566ff' }) {
 }
 
 Object.assign(window, { Icon, BrandMark, ICON_PATHS });
+
+
+
+export { ICON_PATHS, Icon, BrandMark };
