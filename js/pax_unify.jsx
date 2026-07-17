@@ -2,19 +2,19 @@ import { useState, useRef } from 'react';
 import { Icon } from './icons';
 import { ActionMenu, Avatar, Button, Checkbox, Drawer, EmptyState, Field, Input, Modal, ModalHeader, Pill, Select, Toggle, plural, useToast } from './ui';
 import { CURRENT_USER } from './data';
-import { companyStaffStore } from './data_tz2';
-import { nowStamp } from './data_service_cards';
+import { companyStaffStore } from './data/access-control';
+import { nowStamp } from './data/service-cards';
 import { UnifiedDocumentDrawer, UnifiedPersonFields, ufBlankPerson, ufFullName, ufValidatePerson } from './forms_unified';
-import { PanelSub, StackPanel } from './page_orders';
+import { PanelSub, StackPanel } from './components/shared-panels';
 
-// ===== Унификация списка пассажиров (групповая выписка под требования поставщика/АК) =====
-// Приводит список пассажиров к шаблону конкретной авиакомпании/поставщика/GDS без ручной
-// работы оператора: порядок и состав полей, формат ФИО/дат/пола/гражданства/документов,
-// авто-выбор документа под направление, проверка полноты, экспорт в разные форматы.
 
-const PAX_TODAY = new Date(2026, 6, 13); // «сегодня» системы (13.07.2026)
 
-/* ---------- Транслитерация РУС→LAT (ICAO/ГОСТ, упрощённо) ---------- */
+
+
+
+const PAX_TODAY = new Date(2026, 6, 13);
+
+
 const PAX_TR = { а:'A', б:'B', в:'V', г:'G', д:'D', е:'E', ё:'E', ж:'ZH', з:'Z', и:'I', й:'I', к:'K', л:'L', м:'M', н:'N', о:'O', п:'P', р:'R', с:'S', т:'T', у:'U', ф:'F', х:'KH', ц:'TS', ч:'CH', ш:'SH', щ:'SHCH', ъ:'', ы:'Y', ь:'', э:'E', ю:'IU', я:'IA' };
 function paxTranslit(s) {
   return String(s || '').split('').map((ch) => {
@@ -30,29 +30,29 @@ function paxNameParts(name) {
 }
 function paxTitle(s) { return s ? s[0].toUpperCase() + s.slice(1).toLowerCase() : ''; }
 
-/* Часть ФИО (для колонок «Фамилия»/«Имя») под стиль шаблона */
+
 function paxNamePart(part, style) {
   if (!part) return '';
   switch (style) {
     case 'LAT_SLASH': case 'LAT_SPACE': return paxTranslit(part).toUpperCase();
     case 'LAT_TITLE': return paxTitle(paxTranslit(part));
-    default: return part; // CYR — как есть
+    default: return part;
   }
 }
-/* ФИО одной строкой */
+
 function fmtPaxName(name, style) {
   const { surname, given } = paxNameParts(name);
   const S = paxTranslit(surname).toUpperCase();
   const G = paxTranslit(given).toUpperCase();
   switch (style) {
-    case 'LAT_SLASH': return [S, G].filter(Boolean).join(' / ');   // IVANOV / IVAN
-    case 'LAT_SPACE': return [S, G].filter(Boolean).join(' ');     // IVANOV IVAN
-    case 'LAT_TITLE': return [paxTitle(paxTranslit(surname)), paxTitle(paxTranslit(given))].filter(Boolean).join(' '); // Ivanov Ivan
-    default: return name; // ФИО одной строкой (кириллица)
+    case 'LAT_SLASH': return [S, G].filter(Boolean).join(' / ');
+    case 'LAT_SPACE': return [S, G].filter(Boolean).join(' ');
+    case 'LAT_TITLE': return [paxTitle(paxTranslit(surname)), paxTitle(paxTranslit(given))].filter(Boolean).join(' ');
+    default: return name;
   }
 }
 
-/* ---------- Даты ---------- */
+
 const PAX_MON_EN = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'];
 function paxParseDate(d) {
   const m = String(d || '').match(/(\d{2})\.(\d{2})\.(\d{4})/);
@@ -62,14 +62,14 @@ function fmtPaxDate(d, style) {
   const p = paxParseDate(d);
   if (!p) return d || '';
   switch (style) {
-    case 'ISO': return `${p.y}-${p.m}-${p.d}`;                        // 1990-03-14
-    case 'EN_MON': return `${p.d} ${PAX_MON_EN[+p.m - 1]} ${p.y}`;    // 14 MAR 1990
-    case 'AVIA': return `${p.d}${PAX_MON_EN[+p.m - 1]}${p.y.slice(2)}`; // 14MAR90
-    default: return `${p.d}.${p.m}.${p.y}`;                          // 14.03.1990
+    case 'ISO': return `${p.y}-${p.m}-${p.d}`;
+    case 'EN_MON': return `${p.d} ${PAX_MON_EN[+p.m - 1]} ${p.y}`;
+    case 'AVIA': return `${p.d}${PAX_MON_EN[+p.m - 1]}${p.y.slice(2)}`;
+    default: return `${p.d}.${p.m}.${p.y}`;
   }
 }
 
-/* ---------- Пол (эвристика по ФИО) + форматы ---------- */
+
 const PAX_FEMALE_NAMES = new Set(['айгерим', 'назгуль', 'айпери', 'айсулуу', 'гульнара', 'нургуль', 'бегимай', 'жылдыз', 'алина', 'мария', 'анна']);
 function guessPaxSex(name) {
   const { surname, given } = paxNameParts(name);
@@ -88,7 +88,7 @@ function fmtPaxSex(sex, style) {
   }
 }
 
-/* ---------- Гражданство ---------- */
+
 const PAX_NAT_MAP = {
   RU: { ISO2: 'RU', ISO3: 'RUS', RU: 'Россия', EN: 'Russian' },
   KG: { ISO2: 'KG', ISO3: 'KGZ', RU: 'Кыргызстан', EN: 'Kyrgyz' },
@@ -98,7 +98,7 @@ function fmtPaxNat(nat, style) {
   return m ? (m[style] || m.ISO3) : '';
 }
 
-/* ---------- Шаблоны-пресеты (привязка к АК/поставщику/GDS/корп.клиенту) ---------- */
+
 const PAX_COL_LABELS = {
   surname: 'Фамилия', given: 'Имя', patronymic: 'Отчество', fullname: 'ФИО одной строкой',
   dob: 'Дата рождения', sex: 'Пол', nationality: 'Гражданство',
@@ -174,7 +174,7 @@ const PAX_TEMPLATE_PRESETS = [
   },
 ];
 
-/* ---------- Подготовка пассажира: пол, гражданство, авто-выбор документа ---------- */
+
 function paxDocsOf(p) {
   const docs = [];
   if (p.docType) docs.push({ type: p.docType, no: p.docNo || '', expiry: p.docExpiry || '' });
@@ -191,7 +191,7 @@ function preparePax(list, requiredDoc) {
   });
 }
 
-/* Значение ячейки под колонку шаблона */
+
 function paxCell(p, key, tpl) {
   switch (key) {
     case 'surname': return paxNamePart(paxNameParts(p.name).surname, tpl.nameStyle);
@@ -209,7 +209,7 @@ function paxCell(p, key, tpl) {
   }
 }
 
-/* Проверка полноты данных под шаблон */
+
 function validatePaxRow(p, tpl, requiredDoc) {
   const issues = [];
   const need = new Set(tpl.columns.filter((c) => c.req).map((c) => c.key));
@@ -224,7 +224,7 @@ function validatePaxRow(p, tpl, requiredDoc) {
   return issues;
 }
 
-/* ---------- Экспорт ---------- */
+
 function paxCsvEscape(v, delim) {
   const s = String(v == null ? '' : v);
   return (s.includes(delim) || s.includes('"') || s.includes('\n')) ? '"' + s.replace(/"/g, '""') + '"' : s;
@@ -242,7 +242,7 @@ function paxDownload(filename, content, mime) {
   a.href = url; a.download = filename; document.body.appendChild(a); a.click(); a.remove();
   setTimeout(() => URL.revokeObjectURL(url), 1500);
 }
-// Возвращает true, если файл реально сформирован и скачан; false — если это серверный/API-канал
+
 function paxExport(fmt, tpl, header, rows, baseName) {
   const name = baseName || 'passenger-list';
   const delim = tpl.delimiter || ',';
@@ -265,12 +265,12 @@ function paxExport(fmt, tpl, header, rows, baseName) {
   }
   if (fmt === 'Excel') { paxDownload(name + '.xls', paxHtmlTable(header, rows), 'application/vnd.ms-excel'); return true; }
   if (fmt === 'Word') { paxDownload(name + '.doc', paxHtmlTable(header, rows), 'application/msword'); return true; }
-  return false; // PDF / API — серверный канал в этой демо
+  return false;
 }
 
-/* ==================================================================
-   Редактор шаблона (админ): колонки, форматы, сортировка, файл
-   ================================================================== */
+
+
+
 function PaxTemplateEditor({ tpl, onClose, onSave }) {
   const toast = useToast();
   const base = tpl || { id: 'custom-' + Date.now(), name: '', bind: 'Поставщик', bindTo: '', lang: 'RU', nameStyle: 'CYR', dateStyle: 'RU', sexStyle: 'RU', natStyle: 'ISO3', requiredDoc: 'Загранпаспорт', sort: 'surname', delimiter: ';', encoding: 'UTF-8', file: 'xlsx', columns: [{ key: 'surname', label: 'Фамилия', req: true }, { key: 'given', label: 'Имя', req: true }] };
@@ -323,7 +323,7 @@ function PaxTemplateEditor({ tpl, onClose, onSave }) {
       </div>
       <Button variant="secondary" size="sm" icon="plus" style={{ marginTop: 10 }} onClick={addCol}>Добавить колонку</Button>
 
-      {/* ТЗ #5 — живой предпросмотр шаблона: видно порядок полей и как они отформатируются */}
+
       <PanelSub>Предпросмотр шаблона</PanelSub>
       <div style={{ fontSize: 12, color: 'var(--muted)', margin: '0 0 8px' }}>Колонки идут в том же порядке, что и в файле. Данные показаны на примере двух пассажиров.</div>
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 10 }}>
@@ -336,11 +336,11 @@ function PaxTemplateEditor({ tpl, onClose, onSave }) {
         {f.columns.length === 0 && <span style={{ fontSize: 12, color: 'var(--muted)' }}>Добавьте колонки, чтобы увидеть предпросмотр</span>}
       </div>
       {f.columns.length > 0 && (() => {
-        const SAMPLE_PAX = [
+        const EXPORT_PASSENGERS = [
           { name: 'Иванов Иван Иванович', dob: '14.05.1988', docType: 'Загранпаспорт', docNo: '75 1234567', docExpiry: '01.05.2030', phone: '+7 900 111-22-33' },
           { name: 'Петрова Мария Сергеевна', dob: '03.11.1992', docType: 'Загранпаспорт', docNo: '75 7654321', docExpiry: '20.08.2029', phone: '+7 900 222-33-44' },
         ];
-        const rows = preparePax(SAMPLE_PAX, f.requiredDoc).map((p) => f.columns.map((c) => paxCell(p, c.key, f)));
+        const rows = preparePax(EXPORT_PASSENGERS, f.requiredDoc).map((p) => f.columns.map((c) => paxCell(p, c.key, f)));
         return (
           <div className="table-card" style={{ overflowX: 'auto' }}>
             <table className="tbl">
@@ -356,9 +356,9 @@ function PaxTemplateEditor({ tpl, onClose, onSave }) {
   );
 }
 
-/* ==================================================================
-   Главная панель унификации
-   ================================================================== */
+
+
+
 const PAX_ROUTE_OPTS = [
   { key: 'intl', label: 'Международный', doc: 'Загранпаспорт' },
   { key: 'dom', label: 'Внутренний (РФ)', doc: 'Паспорт РФ' },
@@ -368,26 +368,26 @@ const PAX_EXPORT_FMTS = [['Excel', 'download'], ['CSV', 'docs'], ['PDF', 'docs']
 function PaxUnifyPanel({ list, orderNo, autoBind, onClose, onApplyRoster }) {
   const toast = useToast();
   const fileRef = useRef(null);
-  const [incoming, setIncoming] = useState(null);   // разобранный загруженный список (ждёт сверки)
-  const [uploadName, setUploadName] = useState(''); // имя загруженного файла
+  const [incoming, setIncoming] = useState(null);
+  const [uploadName, setUploadName] = useState('');
   const [histOpen, setHistOpen] = useState(false);
   const mergeHist = (typeof PAX_MERGE_HISTORY !== 'undefined' && PAX_MERGE_HISTORY[orderNo]) || [];
   const [userTpls, setUserTpls] = useState([]);
   const allTpls = [...PAX_TEMPLATE_PRESETS, ...userTpls];
-  // авто-подбор шаблона по авиакомпании/поставщику заказа (если передан)
+
   const autoTpl = autoBind ? allTpls.find((t) => t.bindTo && autoBind.toLowerCase().includes(t.bindTo.toLowerCase())) : null;
   const [tplId, setTplId] = useState((autoTpl || allTpls[0]).id);
   const [routeKey, setRouteKey] = useState('intl');
-  const [editorTpl, setEditorTpl] = useState(undefined); // undefined=закрыт, null=новый, obj=редактирование
+  const [editorTpl, setEditorTpl] = useState(undefined);
   const [editorOpen, setEditorOpen] = useState(false);
-  const [edits, setEdits] = useState({});       // ТЗ #5 — ручные корректировки ячеек: 'rowIdx:colKey' → value
-  const [editing, setEditing] = useState(null);  // 'rowIdx:colKey' — ячейка в режиме правки
-  const [docPreview, setDocPreview] = useState(false); // ТЗ #5 — предпросмотр документа перед выгрузкой
+  const [edits, setEdits] = useState({});
+  const [editing, setEditing] = useState(null);
+  const [docPreview, setDocPreview] = useState(false);
   const cellVal = (pi, p, c) => { const k = pi + ':' + c.key; return edits[k] != null ? edits[k] : paxCell(p, c.key, tpl); };
 
   const tpl = allTpls.find((t) => t.id === tplId) || allTpls[0];
   const route = PAX_ROUTE_OPTS.find((r) => r.key === routeKey);
-  const requiredDoc = tpl.requiredDoc || route.doc; // требование АК приоритетнее направления
+  const requiredDoc = tpl.requiredDoc || route.doc;
 
   let pax = preparePax(list, requiredDoc);
   if (tpl.sort === 'surname') pax = [...pax].sort((a, b) => paxNameParts(a.name).surname.localeCompare(paxNameParts(b.name).surname, 'ru'));
@@ -408,7 +408,7 @@ function PaxUnifyPanel({ list, orderNo, autoBind, onClose, onApplyRoster }) {
   };
   const saveTpl = (t) => { setUserTpls((cur) => [...cur.filter((x) => x.id !== t.id), t]); setTplId(t.id); };
 
-  // Дозагрузка обновлённого списка (ТЗ #5): выбор файла → «разбор» → сверка → ручное подтверждение
+
   const pickFile = () => fileRef.current && fileRef.current.click();
   const onFile = (e) => { const f = e.target.files && e.target.files[0]; if (e.target) e.target.value = ''; if (!f) return; setUploadName(f.name); setIncoming(simulateIncomingList(list)); };
   const applyMerge = (newRoster, summary) => {
@@ -434,7 +434,7 @@ function PaxUnifyPanel({ list, orderNo, autoBind, onClose, onApplyRoster }) {
         ))}
       </>}>
 
-      {/* выбор назначения / шаблона */}
+
       <div className="card card-pad" style={{ marginBottom: 16 }}>
         <div style={{ display: 'flex', alignItems: 'flex-end', gap: 16, flexWrap: 'wrap' }}>
           <div style={{ minWidth: 300, flex: 1 }}>
@@ -463,7 +463,7 @@ function PaxUnifyPanel({ list, orderNo, autoBind, onClose, onApplyRoster }) {
         </div>
       </div>
 
-      {/* Дозагрузка обновлённого списка (ТЗ #5) — сверка перед сохранением */}
+
       <div className="card card-pad" style={{ marginBottom: 16, display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap' }}>
         <span className="oc-svc-ic" style={{ background: 'var(--blue)', width: 40, height: 40 }}><Icon name="download" style={{ width: 18, height: 18 }} /></span>
         <div style={{ flex: 1, minWidth: 220 }}>
@@ -475,7 +475,7 @@ function PaxUnifyPanel({ list, orderNo, autoBind, onClose, onApplyRoster }) {
         <Button icon="plus" onClick={pickFile}>Загрузить файл</Button>
       </div>
 
-      {/* проверка полноты */}
+
       <div className="card card-pad" style={{ marginBottom: 16, borderLeft: '4px solid ' + (problems.length ? 'var(--amber)' : 'var(--green)') }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: problems.length ? 12 : 0 }}>
           <Icon name={problems.length ? 'alertCircle' : 'checkCircle'} style={{ width: 20, height: 20, color: problems.length ? 'var(--amber)' : 'var(--green)' }} />
@@ -499,7 +499,7 @@ function PaxUnifyPanel({ list, orderNo, autoBind, onClose, onApplyRoster }) {
         )}
       </div>
 
-      {/* предпросмотр отформатированного списка — с правкой ячеек (ТЗ #5) */}
+
       <div style={{ display: 'flex', alignItems: 'flex-end', gap: 10, flexWrap: 'wrap', margin: '4px 0 8px' }}>
         <PanelSub style={{ marginTop: 0, marginBottom: 0, flex: 1 }}>Предпросмотр — формат «{tpl.bindTo || tpl.name}»</PanelSub>
         {Object.keys(edits).length > 0 && <Button variant="ghost" size="sm" icon="refund" onClick={() => setEdits({})}>Сбросить правки ({Object.keys(edits).length})</Button>}
@@ -544,7 +544,7 @@ function PaxUnifyPanel({ list, orderNo, autoBind, onClose, onApplyRoster }) {
         </table>
       </div>
 
-      {/* ТЗ #5 — предпросмотр итогового документа перед выгрузкой */}
+
       {docPreview && (
         <Modal open onClose={() => setDocPreview(false)} className="pax-modal-xwide">
           <div style={{ width: '100%' }}>
@@ -573,11 +573,11 @@ function PaxUnifyPanel({ list, orderNo, autoBind, onClose, onApplyRoster }) {
 
       {editorOpen && <PaxTemplateEditor tpl={editorTpl} onClose={() => setEditorOpen(false)} onSave={saveTpl} />}
 
-      {/* Окно сверки загруженного списка перед сохранением */}
+
       {recon && <PaxReconcileModal fileName={uploadName} current={list} res={recon}
         onCancel={() => setIncoming(null)} onConfirm={applyMerge} />}
 
-      {/* История дозагрузок — боковое окно */}
+
       {histOpen && (
         <Drawer open onClose={() => setHistOpen(false)} title="История дозагрузок списка"
           sub={mergeHist.length + ' ' + plural(mergeHist.length, ['загрузка', 'загрузки', 'загрузок']) + (orderNo ? ' · заказ № ' + orderNo : '')}
@@ -610,14 +610,14 @@ function PaxUnifyPanel({ list, orderNo, autoBind, onClose, onApplyRoster }) {
   );
 }
 
-/* ============================================================
-   ДОЗАГРУЗКА / СВЕРКА СПИСКА ПАССАЖИРОВ (ТЗ #5)
-   Идентификация одного пассажира — по НЕИЗМЕННЫМ данным: Имя + Отчество + Дата рождения.
-   Фамилия и документ могут меняться (смена по браку и т.п.) — это фиксируется как изменение.
-   Изменения ВСЕГДА подтверждаются вручную (как модалка подтверждения при авиа-отмене).
-   ============================================================ */
+
+
+
+
+
+
 function paxNorm(s) { return String(s == null ? '' : s).trim().toLowerCase().replace(/\s+/g, ' '); }
-// Один и тот же пассажир: совпадают Имя и Отчество; дата рождения — якорь (если указана у обоих, должна совпадать)
+
 function paxSamePerson(a, b) {
   const na = paxNameParts(a.name), nb = paxNameParts(b.name);
   if (paxNorm(na.given) !== paxNorm(nb.given)) return false;
@@ -625,7 +625,7 @@ function paxSamePerson(a, b) {
   if (a.dob && b.dob && paxNorm(a.dob) !== paxNorm(b.dob)) return false;
   return true;
 }
-// Поля, по которым система сверяет и показывает «было → стало». Имя/Отчество/ДР — неизменны и не правятся.
+
 const PAX_DIFF_FIELDS = [
   ['surname', 'Фамилия', (p) => paxNameParts(p.name).surname],
   ['dob', 'Дата рождения', (p) => p.dob || ''],
@@ -635,7 +635,7 @@ const PAX_DIFF_FIELDS = [
   ['docExpiry', 'Срок действия', (p) => p.docExpiry || ''],
   ['phone', 'Телефон', (p) => p.phone || ''],
 ];
-// Сверка загруженного списка с текущим: новые / изменения (было→стало) / без изменений / ошибки и спорные
+
 function reconcilePax(current, incoming) {
   const res = { news: [], changes: [], unchanged: [], errors: [] };
   const seen = [];
@@ -646,13 +646,13 @@ function reconcilePax(current, incoming) {
     seen.push(inc);
     const match = current.find((c) => paxSamePerson(c, inc));
     if (!match) {
-      // совпало Имя+Отчество, но отличается дата рождения → возможен однофамилец (спорное)
+
       const clash = current.find((c) => { const nc = paxNameParts(c.name); return paxNorm(nc.given) === paxNorm(parts.given) && paxNorm(nc.patronymic) === paxNorm(parts.patronymic) && c.dob && inc.dob && paxNorm(c.dob) !== paxNorm(inc.dob); });
       if (clash) res.errors.push({ inc, reason: 'Совпадает имя и отчество, но другая дата рождения — проверьте, не однофамилец ли' });
       else res.news.push({ inc });
       return;
     }
-    // сверяем изменяемые поля; пустые значения в файле НЕ затирают существующие данные
+
     const diffs = PAX_DIFF_FIELDS.map(([field, label, get]) => {
       const was = get(match), now = get(inc);
       return (now && paxNorm(was) !== paxNorm(now)) ? { field, label, was: was || '—', now } : null;
@@ -662,7 +662,7 @@ function reconcilePax(current, incoming) {
   });
   return res;
 }
-// Применение подтверждённых изменений к ростеру (возвращает новый список)
+
 function applyPaxMerge(current, res, accChanges, accNews) {
   const out = current.map((p) => ({ ...p }));
   res.changes.forEach((ch, i) => {
@@ -678,40 +678,40 @@ function applyPaxMerge(current, res, accChanges, accNews) {
   res.news.forEach((n, i) => { if (accNews[i]) out.push({ ...n.inc, docStatus: n.inc.docStatus || 'ok' }); });
   return out;
 }
-// Добавление членов группы к участникам заказа без дублей (по неизменному ключу)
+
 function paxMergeAppend(current, add) {
   const out = current.slice(); let added = 0, dup = 0;
   add.forEach((m) => { if (out.some((p) => paxSamePerson(p, m))) dup++; else { out.push({ ...m }); added++; } });
   return { list: out, added, dup };
 }
-// Детерминированная дата рождения (для демо — «файл дополнил недостающие данные»)
+
 function paxSynthDob(name) { let h = 0; for (let i = 0; i < name.length; i++) h = (h * 31 + name.charCodeAt(i)) >>> 0; const d = (h % 28) + 1, m = (Math.floor(h / 28) % 12) + 1, y = 1980 + (Math.floor(h / 336) % 21); return String(d).padStart(2, '0') + '.' + String(m).padStart(2, '0') + '.' + y; }
-// Демо-«разбор файла»: из текущего списка формируем обновлённый (смена фамилии, обновление документа,
-// дополнение даты рождения, новые пассажиры и одна ошибочная строка) — чтобы сверка была наглядной.
+
+
 function simulateIncomingList(current) {
   const inc = current.map((p) => ({ ...p }));
   const femIdx = inc.findIndex((p) => guessPaxSex(p.name) === 'F');
   const ci = femIdx >= 0 ? femIdx : 0;
   if (inc[ci]) { const np = paxNameParts(inc[ci].name); inc[ci] = { ...inc[ci], name: ['Асанова', np.given, np.patronymic].filter(Boolean).join(' '), dob: inc[ci].dob || paxSynthDob(inc[ci].name), docType: 'Загранпаспорт', docNo: 'AC7788990', docExpiry: '12.05.2034' }; }
   if (inc[1] && inc.indexOf(inc[1]) !== ci) inc[1] = { ...inc[1], docNo: 'AC5566778', docExpiry: '30.06.2035' };
-  if (inc[2] && !inc[2].dob) inc[2] = { ...inc[2], dob: paxSynthDob(inc[2].name) }; // файл дополнил дату рождения
+  if (inc[2] && !inc[2].dob) inc[2] = { ...inc[2], dob: paxSynthDob(inc[2].name) };
   inc.push({ name: 'Осмонов Тимур Бакытович', role: 'Взрослый', dob: '19.02.1995', docType: 'Загранпаспорт', docNo: 'AC9012345', docExpiry: '19.02.2033', phone: '+996 700 908 070', docStatus: 'ok' });
   inc.push({ name: 'Осмонова Аружан Тимуровна', role: 'Ребёнок', dob: '05.09.2016', docType: 'Свидетельство о рождении', docNo: 'VII-556677', docExpiry: '05.09.2026', docStatus: 'check' });
-  inc.push({ name: 'Бекова Асель', role: 'Взрослый', dob: '', docType: 'Паспорт РФ', docNo: '4500 111222' }); // ошибка: нет даты рождения
+  inc.push({ name: 'Бекова Асель', role: 'Взрослый', dob: '', docType: 'Паспорт РФ', docNo: '4500 111222' });
   return inc;
 }
 function paxStamp() { return (typeof nowStamp === 'function') ? nowStamp() : new Date().toLocaleString('ru-RU'); }
-// История дозагрузок по заказу (сохраняется в системе)
+
 const PAX_MERGE_HISTORY = window.PAX_MERGE_HISTORY || (window.PAX_MERGE_HISTORY = {});
 
-/* Модальное окно сверки перед сохранением — «что меняется, что исправляется, что сохраняется» */
+
 function PaxReconcileModal({ fileName, current, res, onCancel, onConfirm }) {
   const [accChanges, setAccChanges] = useState(() => res.changes.map(() => true));
   const [accNews, setAccNews] = useState(() => res.news.map(() => true));
   const nAcc = accChanges.filter(Boolean).length + accNews.filter(Boolean).length;
   const tgl = (arr, set, i) => set(arr.map((v, j) => j === i ? !v : v));
   const setAll = (set, arr, val) => set(arr.map(() => val));
-  // Заголовок секции с иконкой, счётчиком и переключателем «выделить/снять все»
+
   const SecHead = ({ tone, icon, title, count, allOn, onToggleAll }) => (
     <div className="pxr-sec-h">
       <Icon name={icon} style={{ width: 17, height: 17, color: 'var(--' + tone + ')' }} />
@@ -735,7 +735,7 @@ function PaxReconcileModal({ fileName, current, res, onCancel, onConfirm }) {
         <Button icon="check" disabled={nAcc === 0} onClick={confirm}>Подтвердить и сохранить ({nAcc})</Button>
       </>}>
       <div>
-          {/* Сводка одним взглядом */}
+
           <div className="pxr-sum">
             <div className="pxr-tile blue"><span className="n">{res.news.length}</span><span className="l"><Icon name="plus" style={{ width: 13, height: 13 }} />Новые</span></div>
             <div className="pxr-tile amber"><span className="n">{res.changes.length}</span><span className="l"><Icon name="edit" style={{ width: 13, height: 13 }} />Изменения</span></div>
@@ -815,12 +815,12 @@ function PaxReconcileModal({ fileName, current, res, onCancel, onConfirm }) {
   );
 }
 
-/* ============================================================
-   ГРУППЫ ПАССАЖИРОВ (ТЗ #5) — переиспользуемые списки (спортивные команды, делегации).
-   Группу можно целиком добавить в заказ. Пассажир может состоять в нескольких группах.
-   ============================================================ */
+
+
+
+
 const PAX_GROUP_KINDS = ['Спортивная команда', 'Делегация', 'Семья', 'Корпоративная группа', 'Прочее'];
-// Группы пассажиров с подгруппами (иерархия как отделы компании — ТЗ по группам).
+
 const PAX_GROUPS = window.PAX_GROUPS || (window.PAX_GROUPS = [
   { id: 'grp-u17', name: 'Сборная U-17 (футбол)', kind: 'Спортивная команда',
     subgroups: [{ id: 'sg-players', name: 'Игроки' }, { id: 'sg-staff', name: 'Тренерский штаб' }], members: [
@@ -842,10 +842,10 @@ const PAX_GROUPS = window.PAX_GROUPS || (window.PAX_GROUPS = [
   ] },
 ]);
 
-/* Форма нового пассажира в группе (может применяться и к компании — общий стор сотрудников) */
+
 function GroupNewMemberForm({ subgroups, defaultSub, companyId, companyName, onClose, onAdd }) {
   const toast = useToast();
-  // Единая карточка персоны (как «Добавить сотрудника»): те же поля, календарь для дат.
+
   const [p, setP] = useState(() => ({ ...ufBlankPerson('person'), role: 'Взрослый' }));
   const [errs, setErrs] = useState({});
   const [subgroup, setSubgroup] = useState(defaultSub || '');
@@ -910,18 +910,18 @@ function GroupNewMemberForm({ subgroups, defaultSub, companyId, companyName, onC
   );
 }
 
-/* Боковое окно «Группы пассажиров»: список → детально (редактирование, подгруппы, унификация) */
+
 function PaxGroupsDrawer({ current = [], companyId, companyName, onAddGroup, onClose }) {
   const toast = useToast();
   const [, force] = useState(0);
   const rerender = () => force((v) => v + 1);
-  const [view, setView] = useState('list'); // list | create | detail
+  const [view, setView] = useState('list');
   const [activeId, setActiveId] = useState(null);
   const [name, setName] = useState('');
   const [kind, setKind] = useState(PAX_GROUP_KINDS[0]);
   const [fromOrder, setFromOrder] = useState(current.length > 0);
   const [newSub, setNewSub] = useState('');
-  const [addOpen, setAddOpen] = useState(null); // null | subgroupId ('' = без подгруппы) — открыть форму нового пассажира
+  const [addOpen, setAddOpen] = useState(null);
   const [unifyOpen, setUnifyOpen] = useState(false);
   const [renaming, setRenaming] = useState(false);
 
@@ -938,7 +938,7 @@ function PaxGroupsDrawer({ current = [], companyId, companyName, onAddGroup, onC
     toast('Группа «' + g.name + '» создана' + (members.length ? ' · ' + members.length + ' пассажиров' : ' (пустая)'), 'ok');
     setName(''); setFromOrder(current.length > 0); openGroup(g);
   };
-  // мутаторы активной группы
+
   const removeMember = (idx) => { active.members.splice(idx, 1); rerender(); };
   const moveMember = (idx, sg) => { active.members[idx].subgroup = sg; rerender(); };
   const addExisting = (people) => {
@@ -951,7 +951,7 @@ function PaxGroupsDrawer({ current = [], companyId, companyName, onAddGroup, onC
   const removeSubgroup = (sgId) => { active.subgroups = (active.subgroups || []).filter((s) => s.id !== sgId); active.members.forEach((m) => { if (m.subgroup === sgId) m.subgroup = ''; }); rerender(); };
   const deleteGroup = () => { const i = PAX_GROUPS.findIndex((g) => g.id === activeId); if (i >= 0) PAX_GROUPS.splice(i, 1); toast('Группа удалена', 'info'); setView('list'); };
 
-  // ---------- CREATE ----------
+
   if (view === 'create') return (
     <Drawer open onClose={onClose} title="Новая группа пассажиров" sub="Например «Сборная U-17» или «Делегация»" width="min(520px,96vw)"
       footer={<><Button variant="secondary" onClick={() => setView('list')}>Назад</Button><Button icon="check" onClick={createGroup}>Создать группу</Button></>}>
@@ -967,7 +967,7 @@ function PaxGroupsDrawer({ current = [], companyId, companyName, onAddGroup, onC
     </Drawer>
   );
 
-  // ---------- DETAIL (edit) ----------
+
   if (view === 'detail' && active) {
     const subs = active.subgroups || [];
     const rowsFor = (pred) => active.members.map((m, idx) => ({ m, idx })).filter(({ m }) => pred(m));
@@ -1004,7 +1004,7 @@ function PaxGroupsDrawer({ current = [], companyId, companyName, onAddGroup, onC
           <Button variant="secondary" icon="idcard" onClick={() => setUnifyOpen(true)}>Унификация списка</Button>
           {onAddGroup && <Button icon="plus" onClick={() => addToOrder(active)}>В заказ</Button>}
         </>}>
-        {/* Настройки группы */}
+
         <div className="card card-pad" style={{ marginBottom: 14, background: 'var(--surface-2)' }}>
           {renaming ? (
             <div style={{ display: 'flex', gap: 8, alignItems: 'flex-end', flexWrap: 'wrap' }}>
@@ -1022,7 +1022,7 @@ function PaxGroupsDrawer({ current = [], companyId, companyName, onAddGroup, onC
           )}
         </div>
 
-        {/* Добавление участников */}
+
         <div style={{ display: 'flex', gap: 8, marginBottom: 14, flexWrap: 'wrap' }}>
           <Button size="sm" icon="plus" onClick={() => setAddOpen('')}>Новый пассажир</Button>
           {current.length > 0 && <Button variant="secondary" size="sm" icon="users" onClick={() => addExisting(current)}>Из участников заказа ({current.length})</Button>}
@@ -1032,7 +1032,7 @@ function PaxGroupsDrawer({ current = [], companyId, companyName, onAddGroup, onC
           )}
         </div>
 
-        {/* Подгруппы (иерархия как отделы компании) + участники */}
+
         {active.members.length === 0
           ? <EmptyState icon="users" title="В группе пока нет пассажиров" sub="Добавьте участников кнопками выше" />
           : <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
@@ -1051,7 +1051,7 @@ function PaxGroupsDrawer({ current = [], companyId, companyName, onAddGroup, onC
               ))}
             </div>}
 
-        {/* Добавить подгруппу (как отдел) */}
+
         <div style={{ display: 'flex', gap: 8, marginTop: 14, alignItems: 'center' }}>
           <Input placeholder="Название подгруппы (напр. «Тренерский штаб»)" value={newSub} onChange={(e) => setNewSub(e.target.value)} style={{ flex: 1 }} />
           <Button variant="secondary" size="sm" icon="plus" disabled={!newSub.trim()} onClick={addSubgroup}>Подгруппа</Button>
@@ -1065,7 +1065,7 @@ function PaxGroupsDrawer({ current = [], companyId, companyName, onAddGroup, onC
     );
   }
 
-  // ---------- LIST ----------
+
   return (
     <Drawer open onClose={onClose} title="Группы пассажиров" sub="Списки по группам — команды, делегации, с подгруппами" width="min(560px,96vw)"
       footer={<><div style={{ flex: 1 }} /><Button icon="plus" onClick={() => setView('create')}>Новая группа</Button></>}>

@@ -2,23 +2,23 @@ import { useState, useEffect } from 'react';
 import { Icon } from './icons';
 import { Avatar, Button, Drawer, EmptyState, FilterChip, Pill, SearchBox, Tabs, Th, plural, useSort, useToast } from './ui';
 import { CLIENTS_DB, CLIENT_STATUS, COMPANIES_DB, COMPANY_STATUS, ORDERS, ORDER_STATUS, SETTLEMENT_TONE, companyBalanceShort, companyFinance } from './data';
-import { companyStaffStore } from './data_tz2';
+import { companyStaffStore } from './data/access-control';
 import { UnifiedDocumentDrawer, UnifiedPersonDrawer, ufBlankPerson, ufFromClient } from './forms_unified';
 import { Topbar } from './layout';
 import { NewOrgDrawer } from './order_extras';
-import { PanelSub } from './page_orders';
+import { PanelSub } from './components/shared-panels';
 import { PaxGroupsDrawer, PaxUnifyPanel, paxMergeAppend } from './pax_unify';
 import { TravelPolicyBlock } from './travel_policy';
 import { CompanyFinanceBlock } from './page_company_finance';
 
-// ===== Клиенты и Компании (реестры + карточки) =====
+
 
 function pUsd(n) { return Math.round(n).toLocaleString('ru-RU') + ' $'; }
 function ordersOf(name) { return ORDERS.filter((o) => o.client === name); }
 
-/* ====================================================================
-   КЛИЕНТЫ
-   ==================================================================== */
+
+
+
 function ClientCard({ c: c0, onBack, onOpenOrder, onUpdate }) {
   const toast = useToast();
   const [c, setC] = useState(c0);
@@ -98,9 +98,9 @@ function ClientCard({ c: c0, onBack, onOpenOrder, onUpdate }) {
   );
 }
 
-/* ---------- Новый клиент (форма добавления) ---------- */
-// Единая форма клиента (создание/редактирование) — делегирует UnifiedPersonDrawer.
-// initial (необязательно) — существующий клиент для корректировки.
+
+
+
 function ClientCreateModal({ open, initial, onClose, onCreated }) {
   const toast = useToast();
   const mode = initial ? 'edit' : 'create';
@@ -170,11 +170,11 @@ function ClientsPage({ onOpenOrder, intent, onConsume }) {
   );
 }
 
-/* ====================================================================
-   КОМПАНИИ
-   ==================================================================== */
 
-/* ---------- Добавление / редактирование сотрудника (единая форма, kind='employee') ---------- */
+
+
+
+
 function EmployeeCreateDrawer({ open, departments, defaultDept, coName, initial, onClose, onCreate }) {
   const toast = useToast();
   const mode = initial ? 'edit' : 'create';
@@ -200,7 +200,7 @@ function EmployeeCreateDrawer({ open, departments, defaultDept, coName, initial,
   );
 }
 
-/* ---------- Профиль сотрудника (данные сотрудника, не клиента) ---------- */
+
 function EmployeeProfileDrawer({ emp, dept, coName, onClose, onOpenOrder, onRemove }) {
   const toast = useToast();
   if (!emp) return null;
@@ -257,17 +257,17 @@ function EmployeeProfileDrawer({ emp, dept, coName, onClose, onOpenOrder, onRemo
 function CompanyCard({ co, onBack, onOpenOrder }) {
   const toast = useToast();
   const [tab, setTab] = useState('overview');
-  // единый реестр сотрудников компании — общий с вкладкой «Тревел-политика»
+
   const [, setStaffTick] = useState(0);
   const staff = companyStaffStore(co.id);
-  const [addEmp, setAddEmp] = useState(null);   // { dept? } — открыть форму добавления (опц. в конкретный отдел)
-  const [empView, setEmpView] = useState(null); // сотрудник для просмотра профиля
-  const [unifyOpen, setUnifyOpen] = useState(false);   // унификация списка сотрудников (те же инструменты, что и в заказе)
-  const [groupsOpen, setGroupsOpen] = useState(false); // переиспользуемые группы/списки пассажиров
+  const [addEmp, setAddEmp] = useState(null);
+  const [empView, setEmpView] = useState(null);
+  const [unifyOpen, setUnifyOpen] = useState(false);
+  const [groupsOpen, setGroupsOpen] = useState(false);
   const addEmployee = (emp) => { staff.employees.push(emp); setStaffTick((n) => n + 1); };
   const removeEmployee = (emp) => { const i = staff.employees.findIndex((e) => e.id === emp.id); if (i >= 0) staff.employees.splice(i, 1); setStaffTick((n) => n + 1); };
   const deptOf = (emp) => staff.departments.find((d) => d.id === emp.dept);
-  // Сотрудник компании → строка пассажира для унификации (документ разбираем из поля doc «ID AC…»).
+
   const empToPax = (e) => {
     const docNo = (e.docNo || (e.doc ? String(e.doc).replace(/^ID\s+/i, '').trim() : '')) || '';
     return { name: e.name, role: e.role || 'Взрослый', dob: (e.dob && e.dob !== '—') ? e.dob : '',
@@ -275,7 +275,7 @@ function CompanyCard({ co, onBack, onOpenOrder }) {
       docExpiry: e.docExpiry || '', docStatus: e.docStatus || 'ok', _empId: e.id, _dept: e.dept || '' };
   };
   const paxList = staff.employees.map(empToPax);
-  // Применение дозагруженного/сверенного списка обратно в реестр сотрудников компании.
+
   const applyRosterToStaff = (roster) => {
     const next = roster.map((p) => {
       const cur = p._empId && staff.employees.find((e) => e.id === p._empId);

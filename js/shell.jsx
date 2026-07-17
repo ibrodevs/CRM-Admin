@@ -2,20 +2,20 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Icon } from './icons';
 import { ActionMenu, Button } from './ui';
 import { AIR_SERVICES, CHAT_THREADS, CHAT_TYPE_LABEL, CLIENTS_DB, COMPANIES_DB, DOCUMENTS, ORDERS, PERMISSIONS, PROPOSALS, ROLES, SUPPLIERS } from './data';
-import { SLA_QUEUE, companyStaffStore } from './data_tz2';
+import { SLA_QUEUE, companyStaffStore } from './data/access-control';
 import { NAV_ITEMS, Topbar } from './layout';
 import { NotificationsCenter } from './page_notifications';
 import { PAX_GROUPS } from './pax_unify';
 import { ChatThread, chatRecipients, getThreadForOrder, threadUnread } from './page_chats';
 import { ShiftControl } from './page_shifts';
 
-// ===== Global Shell: Topbar (breadcrumbs · search · quick-create · bell · chat)
-//        + Notification slide-over + Global Chat slide-over =====
-// P0 of the blueprint: the unifying chrome so the user never loses context.
 
-/* ---------- route → label + breadcrumbs ---------- */
+
+
+
+
 const SERVICE_LABELS = { flights: 'Авиабилеты', rail: 'ЖД билеты', hotels: 'Гостиницы', transfers: 'Трансферы', buses: 'Автобусы', tours: 'Туры' };
-// Операции над заказом, вынесенные из левого меню (доступны из раздела «Заказы»).
+
 const ORDER_OPS_LABELS = { documents: 'Документы', fulfillment: 'Оформление', returns: 'Возвраты и обмены' };
 const ROUTE_LABELS = (() => {
   const m = { dashboard: 'Главное', profile: 'Мой профиль', account: 'Настройки аккаунта', ...SERVICE_LABELS, ...ORDER_OPS_LABELS };
@@ -28,7 +28,7 @@ const ROUTE_LABELS = (() => {
 const SERVICE_PARENT = { flights: 1, rail: 1, hotels: 1, transfers: 1, buses: 1, tours: 1 };
 const ORDER_OPS_PARENT = { documents: 1, fulfillment: 1, returns: 1 };
 
-/* ---------- role-based access (§6) ---------- */
+
 const NAV_PERM = {
   orders: 'Просмотр заказов',
   flights: 'Поиск и бронирование услуг', rail: 'Поиск и бронирование услуг', hotels: 'Поиск и бронирование услуг',
@@ -99,7 +99,7 @@ function Breadcrumbs({ route, ctxOrder, onNavigate }) {
   );
 }
 
-/* ---------- global search ---------- */
+
 const GSEARCH_TONES = {
   person: { bg: 'var(--green-bg)', color: 'var(--green)' },
   employee: { bg: 'var(--blue-soft)', color: 'var(--blue)' },
@@ -346,7 +346,7 @@ function GlobalSearch({ onOpenOrder, onNavigate, onOpenChat }) {
   );
 }
 
-/* ---------- quick create (role-gated) ---------- */
+
 function QuickCreate({ onCreateOrder, onCreateClient, onCreateCompany, onCreateKP, onNavigate, role }) {
   const items = [];
   if (roleHasPerm(role, 'Создание и редактирование')) items.push({ icon: 'orders', label: 'Новый заказ', onClick: () => onCreateOrder() });
@@ -361,7 +361,7 @@ function QuickCreate({ onCreateOrder, onCreateClient, onCreateCompany, onCreateK
   );
 }
 
-/* ---------- the global topbar ---------- */
+
 function GlobalTopbar({ route, ctxOrder, onNavigate, onOpenOrder, onCreateClient, onCreateCompany, onCreateKP, onOpenChat, onOpenNotif, unreadChat, unreadNotif, role, onRole }) {
   return (
     <div className="gtop">
@@ -383,7 +383,7 @@ function GlobalTopbar({ route, ctxOrder, onNavigate, onOpenOrder, onCreateClient
   );
 }
 
-/* ---------- notification slide-over ---------- */
+
 function NotificationDrawer({ open, onClose, onNavigate, onOpenOrder }) {
   useEffect(() => {
     if (!open) return;
@@ -409,7 +409,7 @@ function NotificationDrawer({ open, onClose, onNavigate, onOpenOrder }) {
   );
 }
 
-/* ---------- global chat slide-over (context-aware) ---------- */
+
 function GlobalChatDrawer({ open, onClose, contextOrder, onOpenOrder }) {
   const [extraThreads, setExtraThreads] = useState([]);
   const threads = [...CHAT_THREADS, ...extraThreads];

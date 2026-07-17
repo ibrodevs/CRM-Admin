@@ -2,12 +2,12 @@ import { useState, useEffect, useRef } from 'react';
 import { Icon } from './icons';
 import { Avatar, Button, Checkbox, Drawer, Input, Pill, Select, Toggle, useToast } from './ui';
 import { CURRENT_USER } from './data';
-import { TP_AIRLINES, TP_BOARD, TP_CAR_CLASSES, TP_CLASSES_AVIA, TP_COMPLIANCE, TP_CURRENCIES, TP_EMPLOYEES, TP_HOTEL_CATEGORIES, TP_HOTEL_CHAINS, TP_RAIL_CLASSES, TP_RAIL_TYPES, TP_SCOPES, companyStaffStore, departmentsFor, travelPolicyFor } from './data_tz2';
+import { TP_AIRLINES, TP_BOARD, TP_CAR_CLASSES, TP_CLASSES_AVIA, TP_COMPLIANCE, TP_CURRENCIES, TP_EMPLOYEES, TP_HOTEL_CATEGORIES, TP_HOTEL_CHAINS, TP_RAIL_CLASSES, TP_RAIL_TYPES, TP_SCOPES, companyStaffStore, departmentsFor, travelPolicyFor } from './data/access-control';
 import { CollapseSection } from './order_extras';
 
-// ===== Тревел-политика компании (ТЗ): разделы Авиа / ЖД / Гостиницы / Трансферы /
-//        Доп. услуги / Согласование + Контроль соответствия + подразделения/сотрудники +
-//        импорт документом + история изменений. Все справочники — выпадающими списками. =====
+
+
+
 
 function tpArr(v) { return Array.isArray(v) ? v : []; }
 function tpNum(v) { const n = Number(v); return Number.isFinite(n) ? n : null; }
@@ -138,7 +138,7 @@ function travelPolicyCompliance(kind, offer, policy) {
   return { status, reasons: violations.map((v) => v.text), violations, requiresApproval };
 }
 
-/* Проверка услуги на соответствие тревел-политике. ok | overLimit | class | supplier | approval */
+
 function checkTravelPolicy(kind, offer, policy) {
   return travelPolicyCompliance(kind, offer, policy).status;
 }
@@ -149,7 +149,7 @@ function ComplianceBadge({ status, reasons }) {
   return <Pill tone={c.tone} title={title}><Icon name={c.icon} style={{ width: 12, height: 12, verticalAlign: -2, marginRight: 4 }} />{c.label}</Pill>;
 }
 
-/* ---------- Контролы ---------- */
+
 function TpNum({ label, value, onChange, suffix }) {
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '7px 0' }}>
@@ -159,7 +159,7 @@ function TpNum({ label, value, onChange, suffix }) {
     </div>
   );
 }
-// число + валюта (для лимитов стоимости — валюта выбирается, а не хардкод $)
+
 function TpNumCur({ label, value, onChange, cur, onCur }) {
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '7px 0' }}>
@@ -185,7 +185,7 @@ function TpToggle({ label, value, onChange }) {
     </div>
   );
 }
-// множественный выбор из справочника (чипы + дропдаун с чекбоксами) — вместо рукописного ввода
+
 function TpMultiSelect({ label, options, values, onChange, placeholder }) {
   const [open, setOpen] = useState(false);
   const ref = useRef(null);
@@ -215,7 +215,7 @@ function TpMultiSelect({ label, options, values, onChange, placeholder }) {
     </div>
   );
 }
-// поиск человека по вводу (как поиск пассажира) — для согласующих и выбора сотрудника
+
 function TpPersonSearch({ placeholder, exclude, onPick }) {
   const [q, setQ] = useState('');
   const [open, setOpen] = useState(false);
@@ -239,7 +239,7 @@ function TpPersonSearch({ placeholder, exclude, onPick }) {
     </div>
   );
 }
-// цепочка согласующих — упорядоченный список сотрудников
+
 function TpApproverChain({ approvers, onChange }) {
   const list = approvers || [];
   const move = (i, d) => { const j = i + d; if (j < 0 || j >= list.length) return; const n = [...list]; [n[i], n[j]] = [n[j], n[i]]; onChange(n); };
@@ -266,7 +266,7 @@ function TpApproverChain({ approvers, onChange }) {
   );
 }
 
-/* ---------- Подразделения и сотрудники (создаются в тревел-политике) ---------- */
+
 function DepartmentsManager({ companyId }) {
   const toast = useToast();
   const [, setTick] = useState(0);
@@ -283,7 +283,7 @@ function DepartmentsManager({ companyId }) {
   };
   const removeDept = (id) => {
     const i = depts.findIndex((d) => d.id === id); if (i >= 0) depts.splice(i, 1);
-    store.employees.forEach((e) => { if (e.dept === id) e.dept = ''; }); // сотрудники остаются в компании (без отдела)
+    store.employees.forEach((e) => { if (e.dept === id) e.dept = ''; });
     rerender();
   };
   const invite = (dept, name) => {
@@ -325,7 +325,7 @@ function DepartmentsManager({ companyId }) {
   );
 }
 
-/* ---------- Импорт (сотрудники / политика документом) ---------- */
+
 function TpImportDrawer({ open, kind, companyId, onClose }) {
   const toast = useToast();
   if (!open) return null;
@@ -389,7 +389,7 @@ function TravelPolicyBlock({ co }) {
 
   return (
     <div className="fade-in">
-      {/* Заголовок + область применения + импорт */}
+
       <div className="card card-pad" style={{ marginBottom: 16 }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
           <div>
@@ -425,7 +425,7 @@ function TravelPolicyBlock({ co }) {
         </div>
       </div>
 
-      {/* Подразделения и сотрудники */}
+
       <div className="card" style={{ overflow: 'hidden', marginBottom: 16 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '14px 18px', cursor: 'pointer' }} onClick={() => setShowDepts((v) => !v)}>
           <span className="oc-svc-ic" style={{ width: 34, height: 34, background: 'var(--blue-soft)', color: 'var(--blue)' }}><Icon name="users" style={{ width: 18, height: 18 }} /></span>
@@ -435,7 +435,7 @@ function TravelPolicyBlock({ co }) {
         {showDepts && <div style={{ borderTop: '1px solid var(--line)', padding: '16px 18px', background: 'var(--surface-2)' }}><DepartmentsManager companyId={co.id} /></div>}
       </div>
 
-      {/* Авиа */}
+
       <CollapseSection title="Авиа" note="Класс, авиакомпании, пересадки, лимиты стоимости" defaultOpen>
         <TpSelect label="Разрешённый класс обслуживания" options={TP_CLASSES_AVIA} value={pol.avia.classAllowed} onChange={(v) => s('avia', 'classAllowed', v)} />
         <TpMultiSelect label="Разрешённые авиакомпании" options={TP_AIRLINES} values={pol.avia.airlinesAllowed} onChange={(v) => s('avia', 'airlinesAllowed', v)} placeholder="Выберите авиакомпании" />
@@ -451,7 +451,7 @@ function TravelPolicyBlock({ co }) {
         <TpNum label="Мин. срок оформления до вылета" value={pol.avia.minLeadDays} onChange={(v) => s('avia', 'minLeadDays', v)} suffix="дн." />
       </CollapseSection>
 
-      {/* ЖД */}
+
       <CollapseSection title="ЖД" note="Классы вагонов, лимиты, типы поездов">
         <TpSelect label="Разрешённый класс вагона" options={TP_RAIL_CLASSES} value={pol.rail.wagonClass} onChange={(v) => s('rail', 'wagonClass', v)} />
         <TpMultiSelect label="Разрешённые типы вагонов" options={TP_RAIL_TYPES} values={pol.rail.wagonTypes} onChange={(v) => s('rail', 'wagonTypes', v)} placeholder="Выберите типы вагонов" />
@@ -462,7 +462,7 @@ function TravelPolicyBlock({ co }) {
         <TpNum label="Мин. срок оформления" value={pol.rail.minLeadDays} onChange={(v) => s('rail', 'minLeadDays', v)} suffix="дн." />
       </CollapseSection>
 
-      {/* Гостиницы */}
+
       <CollapseSection title="Гостиницы" note="Категория, стоимость за ночь, сети, услуги">
         <TpNumCur label="Максимальная стоимость за ночь" value={pol.hotels.maxNight} onChange={(v) => s('hotels', 'maxNight', v)} cur={pol.hotels.maxNightCur} onCur={(v) => s('hotels', 'maxNightCur', v)} />
         <TpSelect label="Максимальная категория гостиницы" options={TP_HOTEL_CATEGORIES} value={pol.hotels.maxCategory} onChange={(v) => s('hotels', 'maxCategory', v)} />
@@ -475,7 +475,7 @@ function TravelPolicyBlock({ co }) {
         <TpToggle label="Разрешено повышение категории номера" value={pol.hotels.upgrade} onChange={(v) => s('hotels', 'upgrade', v)} />
       </CollapseSection>
 
-      {/* Трансферы */}
+
       <CollapseSection title="Трансферы" note="Классы авто, такси, лимиты">
         <TpMultiSelect label="Разрешённые классы автомобилей" options={TP_CAR_CLASSES} values={pol.transfers.carClasses} onChange={(v) => s('transfers', 'carClasses', v)} placeholder="Выберите классы" />
         <TpToggle label="Разрешены индивидуальные трансферы" value={pol.transfers.individual} onChange={(v) => s('transfers', 'individual', v)} />
@@ -483,7 +483,7 @@ function TravelPolicyBlock({ co }) {
         <TpNumCur label="Максимальная стоимость" value={pol.transfers.maxPrice} onChange={(v) => s('transfers', 'maxPrice', v)} cur={pol.transfers.maxPriceCur} onCur={(v) => s('transfers', 'maxPriceCur', v)} />
       </CollapseSection>
 
-      {/* Доп. услуги */}
+
       <CollapseSection title="Дополнительные услуги" note="Что разрешено оформлять">
         <TpToggle label="Страхование" value={pol.extras.insurance} onChange={(v) => s('extras', 'insurance', v)} />
         <TpToggle label="Визовая поддержка" value={pol.extras.visa} onChange={(v) => s('extras', 'visa', v)} />
@@ -492,7 +492,7 @@ function TravelPolicyBlock({ co }) {
         <TpToggle label="Дополнительные услуги аэропорта" value={pol.extras.airportExtra} onChange={(v) => s('extras', 'airportExtra', v)} />
       </CollapseSection>
 
-      {/* Согласование */}
+
       <CollapseSection title="Согласование" note="Кто и когда согласовывает поездку · цепочка согласующих">
         <TpToggle label="Требуется согласование поездки" value={pol.approval.required} onChange={(v) => s('approval', 'required', v)} />
         <TpApproverChain approvers={pol.approval.approvers} onChange={(v) => s('approval', 'approvers', v)} />
@@ -501,7 +501,7 @@ function TravelPolicyBlock({ co }) {
         <TpToggle label="Возможность оформления без согласования" value={pol.approval.allowWithout} onChange={(v) => s('approval', 'allowWithout', v)} />
       </CollapseSection>
 
-      {/* Контроль */}
+
       <div className="card card-pad" style={{ marginTop: 16 }}>
         <h3 className="card-title" style={{ fontSize: 16, marginBottom: 8 }}>Контроль соответствия при подборе</h3>
         <div style={{ fontSize: 13, color: 'var(--body)', marginBottom: 12 }}>При подборе услуг система автоматически проверяет тревел-политику и помечает каждый вариант. Оформление не блокируется — при нарушении указывается причина и, при необходимости, заявка отправляется по цепочке согласующих.</div>

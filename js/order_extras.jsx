@@ -3,11 +3,11 @@ import { Icon } from './icons';
 import { Avatar, Button, Checkbox, Drawer, Field, Input, SearchBox, Select, useToast } from './ui';
 import { CURRENCIES, OPERATORS } from './data';
 import { UnifiedPersonDrawer } from './forms_unified';
-import { PanelSub } from './page_orders';
+import { PanelSub } from './components/shared-panels';
 
-// ===== Order extras: extended detail, passport modal, fee/passenger/org drawers =====
 
-/* ---------- Collapsible card section ---------- */
+
+
 function CollapseSection({ title, note, noteWarn, badge, defaultOpen = false, children }) {
   const [open, setOpen] = useState(defaultOpen);
   return (
@@ -27,7 +27,7 @@ function CollapseSection({ title, note, noteWarn, badge, defaultOpen = false, ch
   );
 }
 
-/* ---------- Passport / document verification modal ---------- */
+
 const PASS_DOCTYPES = [
   { key: 'id', label: 'ID Card', icon: 'idcard' },
   { key: 'pass', label: 'Паспорт', icon: 'users' },
@@ -38,7 +38,7 @@ function PassportModal({ passenger, participants, onClose, onAddDoc }) {
   const toast = useToast();
   const [docType, setDocType] = useState('pass');
   const [q, setQ] = useState('');
-  // build the passenger list from the real order roster (can be 20+), not a hardcoded pair
+
   const source = (participants && participants.length)
     ? participants
     : [{ name: passenger || 'Меркель Александр', docStatus: 'check' }, { name: 'Аттокуров Эрбол', docStatus: 'ok' }];
@@ -63,7 +63,7 @@ function PassportModal({ passenger, participants, onClose, onAddDoc }) {
         <Button variant="secondary" onClick={() => toast('Данные подтверждены', 'ok')}>Подтвердить данные</Button>
         <Button variant="primary" iconRight="chevRight" onClick={() => { toast('Документ подписан', 'ok'); onClose(); }}>Подписать</Button>
       </div>}>
-      {/* тип документа */}
+
       <PanelSub style={{ marginTop: 0 }}>Тип документа</PanelSub>
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
         {PASS_DOCTYPES.map((d) => (
@@ -76,7 +76,7 @@ function PassportModal({ passenger, participants, onClose, onAddDoc }) {
         ))}
       </div>
 
-      {/* пассажир */}
+
       <PanelSub>Пассажир</PanelSub>
       {showSearch && <div style={{ marginBottom: 12 }}><SearchBox value={q} onChange={setQ} placeholder="Поиск пассажира по ФИО" /></div>}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, maxHeight: 260, overflowY: 'auto', paddingRight: filtered.length > 6 ? 4 : 0 }}>
@@ -91,7 +91,7 @@ function PassportModal({ passenger, participants, onClose, onAddDoc }) {
         {filtered.length === 0 && <div style={{ color: 'var(--muted)', fontSize: 13, gridColumn: '1 / -1' }}>Пассажиры не найдены</div>}
       </div>
 
-      {/* скан документа */}
+
       <div style={{ position: 'relative', display: 'flex', justifyContent: 'center', paddingTop: 34, marginTop: 12 }}>
         <div className="badge-tip" style={{ left: '50%', top: 6, background: cur.expired ? '#ec4444' : '#f5a623' }}>
           {cur.expired ? 'Просроченный паспорт' : 'До окончания срока: 3 месяца'}
@@ -106,7 +106,7 @@ function PassportModal({ passenger, participants, onClose, onAddDoc }) {
   );
 }
 
-/* ---------- Fee drawer (Создание сбора) ---------- */
+
 function FeeDrawer({ open, onClose }) {
   const toast = useToast();
   const empty = { service: '', feeType: '', value: '', tax: '', currency: 'USD', comment: '' };
@@ -138,8 +138,8 @@ function FeeDrawer({ open, onClose }) {
   );
 }
 
-/* ---------- Passenger drawer (Добавить пассажира) ---------- */
-// Добавление пассажира — единая форма (forms_unified.jsx).
+
+
 function PassengerDrawer({ open, onClose, onAdd }) {
   const toast = useToast();
   return (
@@ -149,8 +149,8 @@ function PassengerDrawer({ open, onClose, onAdd }) {
   );
 }
 
-/* ---------- New organization drawer (Новая организация) ---------- */
-// Эмуляция автоподгрузки реквизитов организации по ИНН (в проде — запрос к сервису проверки контрагентов).
+
+
 const ORG_REGISTRY = {
   '02208200512345': {
     full: 'ОсОО "Asia Travel"', short: 'Asia Travel', orgType: 'Турагент', currency: 'KGS',
@@ -180,8 +180,8 @@ function NewOrgDrawer({ open, onClose, onCreated }) {
   const empty = { full: '', short: '', email: '', phone: '', site: '', currency: 'KGS', orgType: '', curator: '', operator: '', accountant: '', inn: '', kpp: '', ogrn: '', okpo: '', legalAddr: '', factAddr: '', sameAddress: true, director: '', signatory: '', account: '', bank: '', bik: '', corrAccount: '', accountStatus: 'Действующий', status: 'Действующий', comment: '' };
   const [f, setF] = useState(empty);
   const [errs, setErrs] = useState({});
-  const [lookup, setLookup] = useState('idle'); // idle | loading | found | notfound
-  const [revealed, setRevealed] = useState(false); // показывать ли остальные поля
+  const [lookup, setLookup] = useState('idle');
+  const [revealed, setRevealed] = useState(false);
   const set = (k) => (e) => setF((p) => ({ ...p, [k]: e.target ? e.target.value : e }));
   const setLegalAddress = (e) => {
     const value = e.target.value;
@@ -190,7 +190,7 @@ function NewOrgDrawer({ open, onClose, onCreated }) {
   const setSameAddress = (value) => setF((p) => ({ ...p, sameAddress: value, factAddr: value ? p.legalAddr : p.factAddr }));
   useEffect(() => { if (open) { setF(empty); setErrs({}); setLookup('idle'); setRevealed(false); } }, [open]);
 
-  // Поиск по ИНН — главный сценарий: реквизиты подтягиваются автоматически.
+
   const runLookup = () => {
     const digits = (f.inn || '').replace(/\D/g, '');
     if (digits.length < 8) { setErrs((p) => ({ ...p, inn: 'Введите корректный ИНН' })); return; }
@@ -208,7 +208,7 @@ function NewOrgDrawer({ open, onClose, onCreated }) {
       }
     }, 800);
   };
-  // Ручной ввод, если автопоиск недоступен или не требуется.
+
   const enterManual = () => { setRevealed(true); if (lookup !== 'found') setLookup('notfound'); };
 
   const submit = () => {
@@ -237,7 +237,7 @@ function NewOrgDrawer({ open, onClose, onCreated }) {
     <Drawer open={open} onClose={onClose} title="Новая организация" width="min(720px,96vw)"
       footer={<><Button variant="secondary" onClick={onClose}>Отмена</Button><Button variant="primary" iconRight="arrowRight" onClick={submit} disabled={!revealed}>Далее</Button></>}>
 
-      {/* Главный шаг — поиск по ИНН. Данные подтягиваются автоматически вплоть до банковских реквизитов. */}
+
       <div style={{ background: 'var(--blue-soft)', border: '1px solid var(--line)', borderRadius: 14, padding: 18, marginBottom: 22 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
           <span className="airline-logo sm" style={{ background: '#2566ff', width: 36, height: 36, borderRadius: 9, flex: '0 0 36px' }}><Icon name="building" style={{ width: 18, height: 18 }} /></span>

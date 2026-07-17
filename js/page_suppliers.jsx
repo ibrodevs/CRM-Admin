@@ -6,10 +6,10 @@ import { Topbar } from './layout';
 import { AirlineLogo } from './page_flights';
 import { PAGE_SIZE } from './page_orders';
 
-// ===== Suppliers: list + info modal (tabs) + add drawer (расширенная карточка по ТЗ) =====
+
 
 function MiniLineChart() {
-  // two smooth lines: Отмены (red), Успешные (green)
+
   const w = 420, h = 150, pad = 6;
   const mk = (pts) => pts.map((p, i) => `${i === 0 ? 'M' : 'L'}${pad + (i / (pts.length - 1)) * (w - pad * 2)},${h - pad - (p / 100) * (h - pad * 2)}`).join(' ');
   const red = [22, 30, 28, 18, 44, 78, 60, 70, 84, 58];
@@ -25,15 +25,15 @@ function MiniLineChart() {
   );
 }
 
-/* Боковое окно предпросмотра документа с версионностью договора (ТЗ #15).
-   Договор и допсоглашения хранятся в профайле поставщика — здесь показывается
-   текущая версия, история версий и предпросмотр без ухода со страницы. */
+
+
+
 function DocPreviewDrawer({ open, doc, onClose }) {
   const toast = useToast();
   const [ver, setVer] = useState(0);
   useEffect(() => { setVer(0); }, [doc]);
   if (!open || !doc) return null;
-  // эмуляция истории версий (в проде — из хранилища документов поставщика)
+
   const versions = doc.versions || [
     { v: 'v3', date: '03.2026', author: 'Акимова А.', note: 'Продление на 2026 год', current: true },
     { v: 'v2', date: '08.2025', author: 'Мамажанов А.', note: 'Изменение реквизитов' },
@@ -48,7 +48,7 @@ function DocPreviewDrawer({ open, doc, onClose }) {
         <Button variant="secondary" icon="plus" onClick={() => toast('Загрузка новой версии договора', 'info')}>Загрузить новую версию</Button>
       </>}>
       <div style={{ display: 'grid', gridTemplateColumns: '240px 1fr', gap: 22 }}>
-        {/* история версий */}
+
         <div>
           <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--muted)', marginBottom: 10 }}>ИСТОРИЯ ВЕРСИЙ</div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
@@ -67,7 +67,7 @@ function DocPreviewDrawer({ open, doc, onClose }) {
             ))}
           </div>
         </div>
-        {/* предпросмотр страницы */}
+
         <div>
           <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--muted)', marginBottom: 10 }}>ПРЕДПРОСМОТР</div>
           <div style={{ border: '1px solid var(--line)', borderRadius: 12, background: 'var(--surface-2)', padding: 28, minHeight: 420 }}>
@@ -85,10 +85,10 @@ function DocPreviewDrawer({ open, doc, onClose }) {
   );
 }
 
-/* ====================================================================
-   Справочники расширенной карточки поставщика (ТЗ)
-   ==================================================================== */
-// Цветной бейдж поставщика (как «Островок» в отелях) — брендовая рамка, цвет стабилен по имени
+
+
+
+
 const SUP_BRAND_COLORS = [
   { fg: '#0e9f6e', bg: '#e6f6ee', bd: '#a5ddc4' },
   { fg: '#2566ff', bg: '#e9f0ff', bd: '#bcd2ff' },
@@ -113,7 +113,7 @@ function SupplierBadge({ name, icon = 'suppliers', size = 'md' }) {
 const SUPPLIER_TYPES = ['API', 'Локальный', 'Консолидатор', 'GDS'];
 const SUP_SERVICE_KINDS = ['Авиа', 'ЖД', 'Гостиницы', 'Трансферы', 'Автобусы', 'Страхование', 'Визы', 'Прочее'];
 const SUP_COMM_METHODS = ['Telegram', 'WhatsApp', 'Email', 'Телефон', 'Чат', 'Макс'];
-// Страна/город — выпадающие списки (справочники); города зависят от выбранной страны
+
 const SUP_COUNTRIES = ['Кыргызстан', 'Казахстан', 'Россия', 'Узбекистан', 'Таджикистан', 'Турция', 'ОАЭ', 'Другое'];
 const SUP_CITIES = {
   'Кыргызстан': ['Бишкек', 'Ош', 'Джалал-Абад', 'Каракол', 'Токмок'],
@@ -126,10 +126,10 @@ const SUP_CITIES = {
   'Другое': ['—'],
 };
 function supCitiesFor(country) { return SUP_CITIES[country] || ['—']; }
-// Часы работы — выборка (roll)
+
 const SUP_WORK_HOURS = ['Круглосуточно', 'Пн–Пт 09:00–18:00', 'Пн–Сб 09:00–19:00', 'Пн–Вс 08:00–22:00', 'Пн–Пт 10:00–19:00'];
-// Привязка мессенджеров: после отметки способа связи появляется поле привязки.
-// Через привязанный канал сообщения из чата CRM уходят поставщику и ответы возвращаются в тот же тред.
+
+
 const SUP_COMM_CONFIG = {
   'Telegram': { field: 'Аккаунт / бот', placeholder: '@username или номер', hint: 'Сообщения из чата уходят в Telegram через бота, ответы возвращаются в тред CRM.' },
   'WhatsApp': { field: 'Номер WhatsApp', placeholder: '+996 700 000 000', hint: 'Через WhatsApp Business API — переписка синхронизируется с чатом заказа.' },
@@ -149,14 +149,14 @@ const SUP_AUTOMATION = [
   { key: 'hidden', label: 'Не показывать при поиске', hint: 'Исключён из выдачи полностью' },
 ];
 const SUP_AUTOMATION_LABEL = SUP_AUTOMATION.reduce((m, a) => (m[a.key] = a.label, m), {});
-// Финансовые условия поставщика — по каждому виду услуг отдельно (заменяет поле «Комиссия/маржа»)
+
 const SUP_FIN_KEYS = [
   { key: 'commission', label: 'Комиссионное вознаграждение' },
   { key: 'service', label: 'Сервисный сбор' },
   { key: 'exchange', label: 'Сбор за обмен' },
   { key: 'refund', label: 'Сбор за возврат' },
 ];
-// Приоритеты поиска (ТЗ: ключевой блок — система выбирает поставщика по этому порядку)
+
 const SUP_PRIORITY_SERVICES = ['Авиа', 'ЖД', 'Гостиницы', 'Трансферы'];
 const SUP_SEARCH_ORDER = window.SUP_SEARCH_ORDER || (window.SUP_SEARCH_ORDER = {
   'Авиа': ['Sirena', 'NDC', 'Sabre', 'S7 Airlines', 'Emirates'],
@@ -174,8 +174,8 @@ function supEmptyFin(kinds) {
   return out;
 }
 
-/* Расширенный профиль поставщика. Существующие демо-записи достраиваются
-   правдоподобными данными один раз и далее редактируются на месте. */
+
+
 const SUP_EXT = window.SUP_EXT || (window.SUP_EXT = {});
 function supExt(s) {
   if (s.ext) return s.ext;
@@ -209,7 +209,7 @@ function supExt(s) {
       searchPriority: kinds.reduce((m, k) => (SUP_PRIORITY_SERVICES.includes(k) ? (m[k] = 1 + seed, m) : m), {}),
       stats: { bookings: 84 + s.no % 200, issues: 61 + s.no % 160, refunds: 3 + seed, avgResponse: (2 + seed) + ' мин', successRate: (91 + seed) + '%', lastUsed: '0' + (5 - (seed % 3)) + '.07.2026' },
       docs: { 'Договор': ['Договор оферты.pdf'], 'Дополнительные соглашения': ['ДС №2 от 03.2026.pdf'], 'Реквизиты': ['Реквизиты.pdf'], 'Сертификаты': s.orgType === 'Авиакомпания' ? ['Сертификат IATA.pdf'] : [], 'Прочие файлы': [] },
-      // §7 — поставщик как компания: юридические данные (ввод по ИНН) + договор/взаиморасчёты
+
       legal: {
         inn: '', kpp: '', ogrn: '', okpo: '', legalName: s.org, legalForm: 'ОсОО',
         director: '', address: '', phone: '', email: '', vat: seed % 2 ? '12%' : 'Без НДС',
@@ -220,7 +220,7 @@ function supExt(s) {
   }
   return SUP_EXT[s.no];
 }
-// Демо-«заполнение по ИНН»: детерминированный автозаполненный юр-профиль поставщика (§7)
+
 function supLookupByInn(inn, ext, s) {
   const bases = [
     { form: 'ОсОО', bank: 'Демир Банк', bik: '109000', addr: 'Бишкек, ул. Абдрахманова 170' },
@@ -243,8 +243,8 @@ function supFinSummary(ext) {
   return ext.fin.commType === '%' ? ext.fin.commValue + ' %' : ext.fin.commType === 'Фиксированная' ? ext.fin.commValue + ' ' + ext.fin.currency : ext.fin.commValue + ' % + сборы';
 }
 
-/* Редактор авиа-надбавок поставщика: авиакомпания → (внутри РФ / международные) + точечные маршруты.
-   Наценка применяется к базовой цене тарифа и отражается в поиске. */
+
+
 function AviaMarkupEditor({ supplierName }) {
   const toast = useToast();
   const [cfg, setCfg] = useState(() => JSON.parse(JSON.stringify(aviaMarkupsFor(supplierName))));
@@ -260,7 +260,7 @@ function AviaMarkupEditor({ supplierName }) {
   const setRoute = (code, i, patch) => persist({ ...cfg, [code]: { ...cfg[code], routes: cfg[code].routes.map((r, j) => (j === i ? { ...r, ...patch } : r)) } });
   const removeRoute = (code, i) => persist({ ...cfg, [code]: { ...cfg[code], routes: cfg[code].routes.filter((_, j) => j !== i) } });
 
-  // inline-рендер (не компонент) — чтобы поля не теряли фокус при перерисовке
+
   const bucketRow = (code, bucket, label) => {
     const b = cfg[code][bucket];
     return (
@@ -329,7 +329,7 @@ function AviaMarkupEditor({ supplierName }) {
   );
 }
 
-/* ---------- Финансовые условия поставщика: сборы по каждому виду услуг (ТЗ) ---------- */
+
 function SupplierFinEditor({ ext, onSaved }) {
   const toast = useToast();
   const kinds = ext.kinds.length ? ext.kinds : SUP_SERVICE_KINDS.slice(0, 1);
@@ -384,7 +384,7 @@ function SupplierFinEditor({ ext, onSaved }) {
   );
 }
 
-/* ---------- «Для поиска»: автоматизация + приоритеты по видам услуг (ТЗ, ключевой блок) ---------- */
+
 function SupplierSearchEditor({ ext, supplierName }) {
   const toast = useToast();
   const [auto, setAuto] = useState(ext.automation);
@@ -426,7 +426,7 @@ function SupplierSearchEditor({ ext, supplierName }) {
   );
 }
 
-/* ---------- Общий порядок опроса поставщиков при поиске (по видам услуг) ---------- */
+
 function SearchPriorityModal({ open, onClose }) {
   const toast = useToast();
   const [svc, setSvc] = useState(SUP_PRIORITY_SERVICES[0]);
@@ -474,8 +474,8 @@ const SUP_TABS = [
   { key: 'docs', label: 'Документы', icon: 'docs' },
 ];
 
-/* §7 — Юридический блок поставщика (поставщик как компания): ввод по ИНН, все юр. поля
-   вплоть до банка/расчётного счёта, договор и взаиморасчёты (формы взаимосвязи). */
+
+
 function SupplierLegalEditor({ s, ext }) {
   const toast = useToast();
   const [, force] = useState(0);
@@ -493,7 +493,7 @@ function SupplierLegalEditor({ s, ext }) {
   );
   return (
     <div>
-      {/* Ввод по ИНН */}
+
       <div className="card card-pad" style={{ marginBottom: 16, background: 'var(--surface-2)' }}>
         <div style={{ display: 'flex', alignItems: 'flex-end', gap: 12, flexWrap: 'wrap' }}>
           <div style={{ flex: 1, minWidth: 220 }}><Field label="ИНН" hint="первичный ввод — остальные поля заполнятся автоматически"><Input value={f.inn || ''} onChange={set('inn')} leadIcon="bank" placeholder="Напр. 02208201810045" /></Field></div>
@@ -502,7 +502,7 @@ function SupplierLegalEditor({ s, ext }) {
         </div>
       </div>
 
-      {/* Юридические данные */}
+
       <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--muted)', margin: '4px 0 10px' }}>Юридические данные</div>
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
         <div><Field label="Форма"><Select options={['ОсОО', 'ЗАО', 'ОАО', 'ИП', 'АО', 'ООО', 'Филиал']} value={f.legalForm || 'ОсОО'} onChange={set('legalForm')} /></Field></div>
@@ -517,7 +517,7 @@ function SupplierLegalEditor({ s, ext }) {
         <F label="E-mail" k="email" />
       </div>
 
-      {/* Банковские реквизиты */}
+
       <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--muted)', margin: '18px 0 10px' }}>Банк и расчётный счёт</div>
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
         <F label="Банк" k="bank" />
@@ -526,7 +526,7 @@ function SupplierLegalEditor({ s, ext }) {
         <F label="Корреспондентский счёт" k="corr" />
       </div>
 
-      {/* Формы взаимосвязи: договор + взаиморасчёты */}
+
       <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--muted)', margin: '18px 0 10px' }}>Договор и взаиморасчёты</div>
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
         <F label="Номер договора" k="contractNo" ph="№ 2025-014" />
@@ -544,7 +544,7 @@ function SupplierLegalEditor({ s, ext }) {
   );
 }
 
-/* Тело раздела поставщика — общий рендер вкладок для карточки-страницы и бокового окна. */
+
 function SupplierTabBody({ s, ext, tab, isAirline, apiStatus, checkConn, setPreviewDoc, toast }) {
   return (
     <>
@@ -663,8 +663,8 @@ function SupplierTabBody({ s, ext, tab, isAirline, apiStatus, checkConn, setPrev
   );
 }
 
-/* Карточка поставщика — полностраничный вид, оформлен аналогично карточке компании
-   (шапка → горизонтальная навигация по разделам → обзор из карточек → контакты). */
+
+
 function SupplierCard({ supplier, onBack, onOpenOrder }) {
   const toast = useToast();
   const s = supplier;
@@ -681,7 +681,7 @@ function SupplierCard({ supplier, onBack, onOpenOrder }) {
   };
   const brand = supBrand(s.name);
   const ops = ext.ops ? Object.keys(ext.ops).filter((o) => ext.ops[o]) : [];
-  // контактные лица поставщика (аналог блока «Контактные лица» у компании)
+
   const contacts = [
     { name: ext.local.contact, role: 'Менеджер по продажам', phone: (ext.local.commBind && ext.local.commBind['Телефон']) || '+996 (555) 123-456', email: (ext.local.commBind && ext.local.commBind['Email']) || 'sales@example.com' },
     { name: 'Бухгалтерия', role: 'Финансы и договоры', phone: '+996 (312) 90-12-34', email: 'buh@example.com' },
@@ -694,7 +694,7 @@ function SupplierCard({ supplier, onBack, onOpenOrder }) {
         <span style={{ color: 'var(--muted)', fontSize: 14 }}>Поставщики / № {s.no}</span>
       </div>
 
-      {/* Шапка — как у компании */}
+
       <div className="card card-pad" style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 18, flexWrap: 'wrap' }}>
         <span className="oc-svc-ic" style={{ background: brand, width: 56, height: 56, borderRadius: 16 }}><Icon name="suppliers" style={{ width: 26, height: 26 }} /></span>
         <div style={{ flex: 1, minWidth: 200 }}>
@@ -716,12 +716,12 @@ function SupplierCard({ supplier, onBack, onOpenOrder }) {
           : <Button icon="chat" onClick={() => toast('Открытие чата с поставщиком', 'info')}>Открыть чат</Button>}
       </div>
 
-      {/* Горизонтальная навигация по разделам — как у компании */}
+
       <div style={{ marginBottom: 18 }}>
         <Tabs tabs={tabs.map((t) => ({ key: t.key, label: t.key === 'general' ? 'Обзор' : t.label }))} value={tab} onChange={setTab} />
       </div>
 
-      {/* Обзор — два блока (аналог «Реквизиты» / «Банк и договор») + контактные лица */}
+
       {tab === 'general' ? (<>
         <div className="grid-2" style={{ alignItems: 'start' }}>
           <div className="card card-pad">
@@ -776,8 +776,8 @@ function SupplierCard({ supplier, onBack, onOpenOrder }) {
 function SupplierModal({ supplier, onClose, onDelete }) {
   const toast = useToast();
   const [tab, setTab] = useState('general');
-  const [apiStatus, setApiStatus] = useState(null); // null | 'checking' | 'ok'
-  const [previewDoc, setPreviewDoc] = useState(null); // документ для бокового предпросмотра (ТЗ #15)
+  const [apiStatus, setApiStatus] = useState(null);
+  const [previewDoc, setPreviewDoc] = useState(null);
   if (!supplier) return null;
   const s = supplier;
   const ext = supExt(s);
@@ -803,7 +803,7 @@ function SupplierModal({ supplier, onClose, onDelete }) {
     </div>
   );
 
-  // Боковое окно (единообразно с формой добавления), а не модалка по центру.
+
   return (
     <>
     <Drawer open onClose={onClose} width="min(940px,97vw)"
@@ -844,11 +844,11 @@ function SupplierModal({ supplier, onClose, onDelete }) {
   );
 }
 
-/* ====================================================================
-   Добавление поставщика — расширенная форма (ТЗ):
-   общая информация, API / локальный, финансовые условия по видам услуг,
-   поддерживаемые операции, документы, автоматизация, приоритеты поиска.
-   ==================================================================== */
+
+
+
+
+
 function SupSection({ icon, title, sub, children }) {
   return (
     <div style={{ marginBottom: 26 }}>
@@ -878,10 +878,10 @@ function SupplierAddDrawer({ open, onClose, onCreated }) {
   const [f, setF] = useState(empty);
   const [finKind, setFinKind] = useState(null);
   const [errs, setErrs] = useState({});
-  const [conn, setConn] = useState(null); // null | 'checking' | 'ok'
-  const [legalOpen, setLegalOpen] = useState(false); // юр. данные свёрнуты по умолчанию (ТЗ-2 п.1)
+  const [conn, setConn] = useState(null);
+  const [legalOpen, setLegalOpen] = useState(false);
   useEffect(() => { if (open) { setF(JSON.parse(JSON.stringify(empty))); setErrs({}); setConn(null); setFinKind(null); setLegalOpen(false); } }, [open]);
-  // Подтягивание юридических данных по ИНН (как при добавлении компании)
+
   const lookupInn = () => {
     const inn = (f.inn || '').trim();
     if (inn.replace(/\D/g, '').length < 8) { toast('Введите корректный ИНН (мин. 8 цифр)', 'err'); return; }
@@ -920,7 +920,7 @@ function SupplierAddDrawer({ open, onClose, onCreated }) {
     if (isApiType && !f.api.url.trim()) er.apiUrl = 'Укажите URL API';
     if (!isApiType && !f.local.contact.trim()) er.contact = 'Укажите контактное лицо';
     setErrs(er);
-    if (er.name) setLegalOpen(true); // раскрыть свёрнутые юр. данные, если не заполнено наименование
+    if (er.name) setLegalOpen(true);
     if (Object.keys(er).length) { toast('Проверьте поля формы', 'err'); return; }
     const no = 51190 + Math.floor(Math.random() * 800);
     const ext = {
@@ -946,7 +946,7 @@ function SupplierAddDrawer({ open, onClose, onCreated }) {
       sub="Карточка поставщика: общие данные, интеграция, финансовые условия, приоритеты поиска"
       footer={<><Button variant="secondary" onClick={onClose}>Отмена</Button><Button variant="primary" iconRight="arrowRight" onClick={submit}>Добавить поставщика</Button></>}>
 
-      {/* ---- Реквизиты по ИНН — ведущее поле, как при добавлении компании (ТЗ-2 п.1) ---- */}
+
       <SupSection icon="user" title="Реквизиты поставщика">
         <div className="full">
           <Field label="ИНН" hint="ведущее поле — подтянет юридические данные">
@@ -956,7 +956,7 @@ function SupplierAddDrawer({ open, onClose, onCreated }) {
             </div>
           </Field>
         </div>
-        {/* Юридические данные — свёрнуты по умолчанию */}
+
         <button type="button" onClick={() => setLegalOpen((v) => !v)} className="doc-chip" style={{ width: '100%', marginTop: 12 }}>
           <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}><Icon name="template" style={{ width: 16, height: 16 }} />Юридические данные{f.name ? ' · ' + f.name : ''}</span>
           <Icon name={legalOpen ? 'chevUp' : 'chevDown'} />
@@ -972,7 +972,7 @@ function SupplierAddDrawer({ open, onClose, onCreated }) {
         )}
       </SupSection>
 
-      {/* ---- Параметры поставщика ---- */}
+
       <SupSection icon="suppliers" title="Параметры поставщика">
         <div className="form-grid">
           <div className="full">
@@ -1002,7 +1002,7 @@ function SupplierAddDrawer({ open, onClose, onCreated }) {
         </div>
       </SupSection>
 
-      {/* ---- API (только для API-типов) ---- */}
+
       {isApiType && (
         <SupSection icon="api" title="API" sub="Параметры подключения — для типов API, Консолидатор и GDS">
           <div className="form-grid">
@@ -1023,7 +1023,7 @@ function SupplierAddDrawer({ open, onClose, onCreated }) {
         </SupSection>
       )}
 
-      {/* ---- Для локального поставщика ---- */}
+
       {!isApiType && (
         <SupSection icon="contacts" title="Локальный поставщик" sub="Контакты и режим работы для ручного взаимодействия">
           <div className="form-grid">
@@ -1037,7 +1037,7 @@ function SupplierAddDrawer({ open, onClose, onCreated }) {
                     </label>
                   ))}
                 </div>
-                {/* Привязка мессенджеров: после отметки способа связи появляется поле привязки + пояснение */}
+
                 {f.local.comm.length > 0 && (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 10, padding: '12px 14px', background: 'var(--surface-2)', borderRadius: 12 }}>
                     {f.local.comm.map((m) => {
@@ -1069,7 +1069,7 @@ function SupplierAddDrawer({ open, onClose, onCreated }) {
         </SupSection>
       )}
 
-      {/* ---- Финансовые условия ---- */}
+
       <SupSection icon="finance" title="Финансовые условия" sub="Заменяет поле «Комиссия/маржа»: комиссии и сборы настраиваются отдельно по каждому виду услуг">
         <div className="form-grid">
           <Field label="Валюта расчетов"><Select options={CURRENCIES.map((c) => c.code)} value={f.fin.currency} onChange={(e) => setSub('fin', 'currency', e.target.value)} /></Field>
@@ -1103,7 +1103,7 @@ function SupplierAddDrawer({ open, onClose, onCreated }) {
         ) : <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 10 }}>Выберите вид услуг выше, чтобы настроить сборы по каждому виду отдельно.</div>}
       </SupSection>
 
-      {/* ---- Поддерживаемые услуги ---- */}
+
       <SupSection icon="check" title="Поддерживаемые услуги" sub="Какие операции доступны через этого поставщика">
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px 24px' }}>
           {SUP_OPS.map((op) => (
@@ -1114,7 +1114,7 @@ function SupplierAddDrawer({ open, onClose, onCreated }) {
         </div>
       </SupSection>
 
-      {/* ---- Документы ---- */}
+
       <SupSection icon="docs" title="Документы" sub="Договор, дополнительные соглашения, реквизиты, сертификаты и прочие файлы">
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
           {SUP_DOC_KINDS.map((d) => (
@@ -1126,7 +1126,7 @@ function SupplierAddDrawer({ open, onClose, onCreated }) {
         </div>
       </SupSection>
 
-      {/* ---- Автоматизация ---- */}
+
       <SupSection icon="zap" title="Автоматизация">
         <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
           {SUP_AUTOMATION.map((a) => (
@@ -1142,8 +1142,8 @@ function SupplierAddDrawer({ open, onClose, onCreated }) {
         </div>
       </SupSection>
 
-      {/* ---- Для поиска ---- */}
-      <SupSection icon="search" title="Для поиска" sub="Ключевой блок: по этим приоритетам система автоматически выбирает поставщика при поиске (1 — наивысший). Доступны только те виды услуг, которые поставщик обслуживает (ТЗ #16).">
+
+      <SupSection icon="search" title="Для поиска" sub="По этим приоритетам система автоматически выбирает поставщика при поиске (1 — наивысший). Доступны только те виды услуг, которые поставщик обслуживает.">
         {!f.kinds.length && <div style={{ fontSize: 12, color: 'var(--amber)', marginBottom: 10 }}>Сначала выберите «Вид услуг» выше — приоритеты станут доступны только для выбранных услуг.</div>}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8, maxWidth: 460 }}>
           {SUP_PRIORITY_SERVICES.map((svc) => {
@@ -1174,7 +1174,7 @@ function SuppliersPage({ intent, onConsume, suppliers, addSupplier }) {
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
   const [filters, setFilters] = useState({ supType: '', status: '', service: '' });
-  const [active, setActive] = useState(null); // выбранный поставщик → полностраничная карточка
+  const [active, setActive] = useState(null);
   const [addOpen, setAddOpen] = useState(false);
   const [prioOpen, setPrioOpen] = useState(false);
   const { sort, onSort, apply } = useSort(null);

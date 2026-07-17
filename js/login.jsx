@@ -2,8 +2,8 @@ import { useState } from 'react';
 import { Icon } from './icons';
 import { useToast } from './ui';
 
-// ===== Auth screen: Login · Recovery · Demo · MAX · SMS one-time code =====
-// Split-screen: marketing hero (left) + auth column (right).
+
+
 
 const LP_STYLES = `
 .lp-root{height:100%;overflow:hidden;display:flex;flex-direction:column;padding:13px 13px 6px;position:relative;background:#eef0fb;color:var(--body)}
@@ -101,15 +101,15 @@ const LP_STYLES = `
 
 function LoginScreen({ onLogin }) {
   const toast = useToast();
-  // login | forgot | sent | demo | demoSent | max | sms | smsCode
+
   const [view, setView] = useState('login');
-  const [ident, setIdent] = useState('');       // email или телефон
+  const [ident, setIdent] = useState('');
   const [pass, setPass] = useState('');
   const [showPass, setShowPass] = useState(false);
   const [remember, setRemember] = useState(true);
-  const [recover, setRecover] = useState('');    // e-mail/телефон для восстановления
-  const [phone, setPhone] = useState('');        // телефон для SMS-входа
-  const [code, setCode] = useState('');          // одноразовый код
+  const [recover, setRecover] = useState('');
+  const [phone, setPhone] = useState('');
+  const [code, setCode] = useState('');
   const [demo, setDemo] = useState({ name: '', company: '', email: '', phone: '' });
   const [errs, setErrs] = useState({});
   const [loading, setLoading] = useState(false);
@@ -117,7 +117,7 @@ function LoginScreen({ onLogin }) {
   const go = (v) => { setErrs({}); setLoading(false); setView(v); };
   const setD = (k, v) => setDemo((d) => ({ ...d, [k]: v }));
 
-  // --- handlers ---
+
   const submitLogin = (e) => {
     e.preventDefault();
     const er = {};
@@ -169,7 +169,7 @@ function LoginScreen({ onLogin }) {
 
       <div className="lp-main">
 
-      {/* ================= LEFT · marketing hero ================= */}
+
       <div className="lp-left">
         <div className="lp-brand">
           <div className="lp-brand-ic"><Icon name="briefcase" style={{ width: 24, height: 24 }} /></div>
@@ -186,11 +186,11 @@ function LoginScreen({ onLogin }) {
         </div>
       </div>
 
-      {/* ================= RIGHT · auth column ================= */}
+
       <div className="lp-right">
         <div style={{ width: '100%', flex: '0 0 auto' }}>
 
-          {/* ---- LOGIN ---- */}
+
           {view === 'login' && (
             <div className="fade-in">
               <div className="lp-card">
@@ -230,7 +230,7 @@ function LoginScreen({ onLogin }) {
                 <p className="lp-cap">Быстрый и безопасный вход через мессенджер MAX</p>
               </div>
 
-              {/* demo promo */}
+
               <div className="lp-demo">
                 <h3 className="lp-demo-h">Попробуйте Travel Hub бесплатно</h3>
                 <p className="lp-demo-p">Полный доступ ко всем возможностям системы на 14 дней без ограничений</p>
@@ -245,7 +245,7 @@ function LoginScreen({ onLogin }) {
             </div>
           )}
 
-          {/* ---- FORGOT ---- */}
+
           {view === 'forgot' && (
             <div className="fade-in lp-card">
               <button type="button" className="lp-btn-ghost" onClick={() => go('login')} style={{ marginBottom: 14 }}><Icon name="chevLeft" style={{ width: 16, height: 16 }} />Ко входу</button>
@@ -263,7 +263,7 @@ function LoginScreen({ onLogin }) {
             </div>
           )}
 
-          {/* ---- SENT (recovery) ---- */}
+
           {view === 'sent' && (
             <div className="fade-in lp-card" style={{ textAlign: 'center' }}>
               <div style={{ width: 70, height: 70, borderRadius: '50%', background: '#e4f7ec', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', marginBottom: 18 }}>
@@ -275,7 +275,7 @@ function LoginScreen({ onLogin }) {
             </div>
           )}
 
-          {/* ---- MAX ---- */}
+
           {view === 'max' && (
             <div className="fade-in lp-card" style={{ textAlign: 'center' }}>
               <div style={{ width: 74, height: 74, borderRadius: 20, background: '#2aa5ff', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', marginBottom: 18, color: '#fff', boxShadow: '0 14px 30px rgba(42,165,255,.35)' }}>
@@ -290,7 +290,7 @@ function LoginScreen({ onLogin }) {
             </div>
           )}
 
-          {/* ---- SMS: phone ---- */}
+
           {view === 'sms' && (
             <div className="fade-in lp-card">
               <button type="button" className="lp-btn-ghost" onClick={() => go('login')} style={{ marginBottom: 14 }}><Icon name="chevLeft" style={{ width: 16, height: 16 }} />Ко входу</button>
@@ -310,7 +310,7 @@ function LoginScreen({ onLogin }) {
             </div>
           )}
 
-          {/* ---- SMS: code ---- */}
+
           {view === 'smsCode' && (
             <div className="fade-in lp-card">
               <button type="button" className="lp-btn-ghost" onClick={() => go('sms')} style={{ marginBottom: 14 }}><Icon name="chevLeft" style={{ width: 16, height: 16 }} />Изменить номер</button>
@@ -332,7 +332,7 @@ function LoginScreen({ onLogin }) {
             </div>
           )}
 
-          {/* ---- DEMO form ---- */}
+
           {view === 'demo' && (
             <div className="fade-in lp-card">
               <button type="button" className="lp-btn-ghost" onClick={() => go('login')} style={{ marginBottom: 14 }}><Icon name="chevLeft" style={{ width: 16, height: 16 }} />Ко входу</button>
@@ -363,7 +363,7 @@ function LoginScreen({ onLogin }) {
             </div>
           )}
 
-          {/* ---- DEMO sent ---- */}
+
           {view === 'demoSent' && (
             <div className="fade-in lp-card" style={{ textAlign: 'center' }}>
               <div style={{ width: 70, height: 70, borderRadius: '50%', background: 'var(--blue-soft)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', marginBottom: 18 }}>
@@ -378,7 +378,7 @@ function LoginScreen({ onLogin }) {
         </div>
       </div>
 
-      </div>{/* /lp-main */}
+      </div>
 
       <div className="lp-foot">
         <span>© 2024 ПСЦ Travel Hub. Все права защищены.</span>

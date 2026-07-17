@@ -2,13 +2,13 @@ import { useState, useEffect, useRef } from 'react';
 import { BrandMark, Icon } from './icons';
 import { ActionMenu, Avatar, Button, Drawer, EmptyState, Field, FilterChip, Input, Pill, Radio, SearchBox, Select, Th, fmtDate, plural, useSort, useToast } from './ui';
 import { CURRENCIES, CURRENT_USER, KP_STATUS, KP_STATUS_FLOW, OPERATORS, ORDERS, ORDER_PARTICIPANTS, ORDER_SERVICES, ORDER_STATUS, PROPOSALS, SERVICE_KIND } from './data';
-import { SEND_CHANNELS, orderClientChannel, sendChannelMeta } from './data_tz2';
+import { SEND_CHANNELS, orderClientChannel, sendChannelMeta } from './data/access-control';
 import { Topbar } from './layout';
 import { PAX_DEFAULT_OPTIONS } from './page_flights';
-import { PanelSub, StackPanel } from './page_orders';
+import { PanelSub, StackPanel } from './components/shared-panels';
 import { AddServicePanel } from './page_order_card';
 
-// ===== Commercial Proposals (КП): constructor, preview, approval, registry =====
+
 
 function kpM(n, c = 'USD') { const sym = (CURRENCIES.find((x) => x.code === c) || {}).sym || c; return Math.round(n).toLocaleString('ru-RU') + ' ' + sym; }
 function varCost(v) { return v.items.reduce((s, i) => s + (+i.cost || 0), 0); }
@@ -16,11 +16,11 @@ function varFee(v) { return v.items.reduce((s, i) => s + (+i.fee || 0), 0); }
 function varTotal(v) { return varCost(v) + varFee(v); }
 function kpNow() { const d = new Date(); const p = (n) => String(n).padStart(2, '0'); return `${p(d.getDate())}.${p(d.getMonth() + 1)} · ${p(d.getHours())}:${p(d.getMinutes())}`; }
 
-/* ----- helpers for the "Поезд + Проживание" (train) КП type ----- */
+
 function trainTotal(train) { return (train.trips || []).reduce((s, t) => s + (+t.cost || 0), 0); }
 function accRowTotal(r) { return +r.cost || 0; }
 function accVarTotal(v) { return (v.rows || []).reduce((s, r) => s + accRowTotal(r), 0); }
-// normalized variant list, regardless of КП type, for summaries/approval UI
+
 function pVariants(p) {
   if (p.docType === 'train') return p.accommodation.variants.map((v) => ({ id: v.id, name: v.name, total: accVarTotal(v) }));
   return p.variants.map((v) => ({ id: v.id, name: v.name, total: varTotal(v) }));
@@ -33,9 +33,9 @@ function proposalSummary(p) {
   return lo === hi ? kpM(lo, p.currency) : `${kpM(lo, p.currency)} – ${kpM(hi, p.currency)}`;
 }
 
-/* ----- export the rendered client document to a PDF file -----
-   Rendered off-screen from a detached clone so wide tables (which scroll
-   horizontally on screen) are captured in full, and the live UI never flashes. */
+
+
+
 async function exportKpToPdf(node, filename, onDone) {
   if (!node || !window.html2canvas || !window.jspdf) { onDone && onDone(false); return; }
   const host = document.createElement('div');
@@ -60,7 +60,7 @@ async function exportKpToPdf(node, filename, onDone) {
   }
 }
 
-/* editable status pill */
+
 function KPStatusControl({ status, onChange }) {
   return (
     <ActionMenu trigger={
@@ -71,7 +71,7 @@ function KPStatusControl({ status, onChange }) {
   );
 }
 
-/* ---------- client-facing document ---------- */
+
 function KPPreviewDoc({ proposal, participants, compact }) {
   const p = proposal;
   const vids = p.approvedVariant ? [p.approvedVariant] : p.variants.map((v) => v.id);
@@ -138,7 +138,7 @@ function KPPreviewDoc({ proposal, participants, compact }) {
   );
 }
 
-/* ---------- client-facing document: "Поезд + Проживание" ---------- */
+
 function KPTab({ tone, emoji, children }) {
   return <div className={'kp2-tab kp2-tab-' + tone}><span className="kp2-tab-emoji">{emoji}</span><div className="kp2-tab-body">{children}</div></div>;
 }
@@ -229,7 +229,7 @@ function KPTrainPreviewDoc({ proposal }) {
   );
 }
 
-/* ---------- fix-variant modal (approval) ---------- */
+
 function FixVariantModal({ open, proposal, onClose, onFix }) {
   const vs = proposal ? pVariants(proposal) : [];
   const [pick, setPick] = useState(vs[0] ? vs[0].id : null);
@@ -260,7 +260,7 @@ function FixVariantModal({ open, proposal, onClose, onFix }) {
 
 const KP_ADD_TYPES = ['Авиа', 'ЖД', 'Гостиница', 'Трансфер', 'Автобус', 'Группа'];
 
-// ----- KP templates (§4.6): reusable item-sets, not bound to an order -----
+
 const KP_TEMPLATES = window.KP_TEMPLATES || (window.KP_TEMPLATES = [
   { id: 'TPL-01', name: 'Стамбул · пакет «Стандарт»', desc: 'Перелёт + отель 4★ + индивидуальный трансфер', items: [
     { kind: 'Авиа', title: 'Turkish Airlines · FRU–IST–FRU', sub: 'Прямой · эконом', cost: 470, fee: 22 },
@@ -291,9 +291,9 @@ const KP_TEMPLATES = window.KP_TEMPLATES || (window.KP_TEMPLATES = [
   ] },
 ]);
 
-/* §9 — переиспользуемое боковое окно выбора заказа: заказы по дате оформления (новые сверху),
-   поиск по № или клиенту — чтобы оператор не держал номера в голове. Применяется во всех формах,
-   где заказ является основой действия. */
+
+
+
 function orderDateLabel(o) {
   if (o.createdOn) return fmtDate(o.createdOn);
   return o.date || '—';
@@ -329,8 +329,8 @@ function OrderPickerDrawer({ onPick, onClose, title = 'Выбор заказа',
   );
 }
 
-/* Подбор услуг для КП (§9) — та же маска подбора, что и в заказе/фрихенде (единая логика).
-   Каждая выбранная услуга сразу добавляется как позиция варианта КП. */
+
+
 function KpServicePicker({ participants = [], onAdd, onClose }) {
   const toast = useToast();
   const [kind, setKind] = useState('Авиа');
@@ -352,22 +352,22 @@ function KpServicePicker({ participants = [], onAdd, onClose }) {
   );
 }
 
-/* ====================================================================
-   KP MODULE — lives inside the order card (КП tab)
-   ==================================================================== */
+
+
+
 function KPModule({ order, services, participants, onApprove }) {
   const toast = useToast();
   const seeded = PROPOSALS.filter((p) => p.order === order.no);
   const [proposals, setProposals] = useState(seeded);
-  const [view, setView] = useState('list'); // list | edit | preview | templates
+  const [view, setView] = useState('list');
   const [activeId, setActiveId] = useState(null);
   const [activeVar, setActiveVar] = useState(null);
   const [fixOpen, setFixOpen] = useState(false);
   const [histOpen, setHistOpen] = useState(false);
-  const [sendTarget, setSendTarget] = useState(null); // КП, выбранное для отправки клиенту
+  const [sendTarget, setSendTarget] = useState(null);
   const [templates, setTemplates] = useState(KP_TEMPLATES);
-  const [tplBuilder, setTplBuilder] = useState(undefined); // undefined=закрыт, null=новый, obj=редактирование
-  const [pickerOpen, setPickerOpen] = useState(false);     // §9 — подбор услуг в конструктор КП
+  const [tplBuilder, setTplBuilder] = useState(undefined);
+  const [pickerOpen, setPickerOpen] = useState(false);
   const [pdfBusy, setPdfBusy] = useState(false);
   const docRef = useRef(null);
 
@@ -386,7 +386,7 @@ function KPModule({ order, services, participants, onApprove }) {
   const openEdit = (p) => { setActiveId(p.id); setActiveVar(p.docType === 'train' ? null : p.variants[0].id); setView('edit'); };
   const openPreview = (p) => { setActiveId(p.id); setView('preview'); };
 
-  // ----- templates (§4.6) -----
+
   const createFromTemplate = (tpl) => {
     const items = tpl.items.map((s) => ({ id: uid('i'), kind: s.kind, title: s.title, sub: s.sub, cost: s.cost, fee: s.fee }));
     const np = { id: 'КП-' + (1052 + proposals.length), order: order.no, client: order.client, status: 'Черновик', currency: 'USD', validUntil: '25.06.2026', created: '15.06.2026', approvedVariant: null,
@@ -402,7 +402,7 @@ function KPModule({ order, services, participants, onApprove }) {
   };
   const delTemplate = (id) => setTemplates((t) => t.filter((x) => x.id !== id));
 
-  // variant ops
+
   const addVariant = (dup) => {
     const nvId = uid('v'); const base = dup ? active.variants.find((v) => v.id === activeVar) : null;
     const nv = { id: nvId, name: 'Вариант ' + String.fromCharCode(65 + active.variants.length), items: base ? base.items.map((it) => ({ ...it, id: uid('i') })) : [] };
@@ -417,7 +417,7 @@ function KPModule({ order, services, participants, onApprove }) {
   };
   const renameVariant = (vid, name) => patch(active.id, (p) => ({ ...p, variants: p.variants.map((v) => (v.id === vid ? { ...v, name } : v)) }));
 
-  // item ops on active variant
+
   const setItems = (fn) => patch(active.id, (p) => ({ ...p, variants: p.variants.map((v) => (v.id === activeVar ? { ...v, items: fn(v.items) } : v)) }));
   const updItem = (id, f, val) => setItems((items) => items.map((it) => (it.id === id ? { ...it, [f]: val } : it)));
   const delItem = (id) => setItems((items) => items.filter((it) => it.id !== id));
@@ -441,7 +441,7 @@ function KPModule({ order, services, participants, onApprove }) {
     onApprove && onApprove(vid);
   };
 
-  /* ----- TEMPLATES (§4.6) ----- */
+
   if (view === 'templates') {
     return (
       <div className="fade-in">
@@ -486,7 +486,7 @@ function KPModule({ order, services, participants, onApprove }) {
     );
   }
 
-  /* ----- LIST ----- */
+
   if (view === 'list') {
     if (!proposals.length) {
       return (
@@ -535,7 +535,7 @@ function KPModule({ order, services, participants, onApprove }) {
     );
   }
 
-  /* ----- PREVIEW ----- */
+
   if (view === 'preview' && active) {
     return (
       <div className="fade-in">
@@ -554,7 +554,7 @@ function KPModule({ order, services, participants, onApprove }) {
     );
   }
 
-  /* ----- train-type mutators (trips / accommodation variants) ----- */
+
   const updTrip = (tripId, f, val) => patch(active.id, (p) => ({ ...p, train: { ...p.train, trips: p.train.trips.map((t) => (t.id === tripId ? { ...t, [f]: val } : t)) } }));
   const addTrip = () => patch(active.id, (p) => ({ ...p, train: { ...p.train, trips: [...p.train.trips, { id: uid('t'), carrier: 'Поезд', number: '', route: '', dateDep: '', timeDep: '', dateArr: '', timeArr: '', price: 0, asb: 0, sa: 0, qty: 1, cost: 0, note: '', cls: '', extra: '' }] } }));
   const delTrip = (tripId) => patch(active.id, (p) => ({ ...p, train: { ...p.train, trips: p.train.trips.filter((t) => t.id !== tripId) } }));
@@ -568,7 +568,7 @@ function KPModule({ order, services, participants, onApprove }) {
   const renameAccVariant = (varId, name) => patch(active.id, (p) => ({ ...p, accommodation: { ...p.accommodation, variants: p.accommodation.variants.map((v) => (v.id === varId ? { ...v, name } : v)) } }));
   const setAccField = (f, val) => patch(active.id, (p) => ({ ...p, accommodation: { ...p.accommodation, [f]: val } }));
 
-  /* ----- EDIT (constructor) ----- */
+
   if (view === 'edit' && active) {
     const isTrain = active.docType === 'train';
     const v = !isTrain ? (active.variants.find((x) => x.id === activeVar) || active.variants[0]) : null;
@@ -777,7 +777,7 @@ function KPModule({ order, services, participants, onApprove }) {
   return null;
 }
 
-/* Конструктор шаблона КП в боковом окне (§ шаблоны) — набор позиций, переиспользуемый в любом КП. */
+
 function KPTemplateBuilder({ template, onClose, onSave }) {
   const toast = useToast();
   const uid = (p) => p + Math.random().toString(36).slice(2, 7);
@@ -845,10 +845,10 @@ function KPHistoryDrawer({ open, proposal, onClose }) {
   );
 }
 
-/* ---------- Новое КП (форма создания, привязка к заказу) ---------- */
+
 const KP_DOC_TYPES = [{ value: 'generic', label: 'Обычное (услуги: авиа, гостиница, трансфер…)' }, { value: 'train', label: 'Поезд + Проживание' }];
 
-// ТЗ #9 — источники создания КП и типы (назначение) отдельно от шаблона (структуры)
+
 const KP_SOURCES = [
   { value: 'order', label: 'Из заказа', icon: 'briefcase' },
   { value: 'request', label: 'Из заявки / обращения', icon: 'inbox' },
@@ -862,18 +862,18 @@ function KPCreateModal({ open, onClose, onCreated, onOpenOrder }) {
   const [source, setSource] = useState('order');
   const [orderNo, setOrderNo] = useState('');
   const [kpType, setKpType] = useState(KP_PURPOSE_TYPES[0]);
-  const [docType, setDocType] = useState('generic'); // «Шаблон КП» — структура/оформление
+  const [docType, setDocType] = useState('generic');
   const [name, setName] = useState('');
   const [recipient, setRecipient] = useState('Клиент (сам)');
   const [responsible, setResponsible] = useState((typeof CURRENT_USER !== 'undefined' && CURRENT_USER.name) || OPERATORS[0]);
   const [currency, setCurrency] = useState('USD');
   const [valid, setValid] = useState('25.06.2026');
-  const [validTime, setValidTime] = useState('18:00');   // ТЗ #9 — точное время окончания
-  const [validTz, setValidTz] = useState('МСК (UTC+3)'); // ТЗ #9 — часовой пояс
-  const [payTerm, setPayTerm] = useState('');            // срок оплаты
-  const [base, setBase] = useState('manual'); // manual | services | recognize | copy | empty | tpl:<id>
+  const [validTime, setValidTime] = useState('18:00');
+  const [validTz, setValidTz] = useState('МСК (UTC+3)');
+  const [payTerm, setPayTerm] = useState('');
+  const [base, setBase] = useState('manual');
   const [errs, setErrs] = useState({});
-  const [orderPickerOpen, setOrderPickerOpen] = useState(false); // §9 — выбор заказа боковым окном
+  const [orderPickerOpen, setOrderPickerOpen] = useState(false);
   useEffect(() => { if (open) { setSource('order'); setOrderNo(''); setKpType(KP_PURPOSE_TYPES[0]); setDocType('generic'); setName(''); setRecipient('Клиент (сам)'); setResponsible((typeof CURRENT_USER !== 'undefined' && CURRENT_USER.name) || OPERATORS[0]); setCurrency('USD'); setValid('25.06.2026'); setValidTime('18:00'); setValidTz('МСК (UTC+3)'); setPayTerm(''); setBase('manual'); setErrs({}); } }, [open]);
   const uid = (p) => p + Math.random().toString(36).slice(2, 7);
   const seen = {};
@@ -892,7 +892,7 @@ function KPCreateModal({ open, onClose, onCreated, onOpenOrder }) {
 
   const ensureOrder = () => {
     if (selOrder) return selOrder;
-    // источник — не существующий заказ: создаём новый заказ-контейнер под КП
+
     const no = 51190 + Math.floor(Math.random() * 800);
     const client = recipient && recipient !== 'Клиент (сам)' ? recipient : 'Новый клиент';
     const o = { no, client, requestType: 'Индивидуальная', status: 'Новое', service: 'Авиа', operator: responsible, operatorRole: 'Оператор', sum: 0, currency, services: 0 };
@@ -916,7 +916,7 @@ function KPCreateModal({ open, onClose, onCreated, onOpenOrder }) {
     PROPOSALS.unshift(np);
     return { np, order };
   };
-  const submit = (mode) => { // 'draft' | 'pick' | 'builder'
+  const submit = (mode) => {
     if (fromOrder && !orderNo) { setErrs({ order: 'Выберите заказ' }); return; }
     const { np, order } = build();
     onCreated && onCreated(np);
@@ -934,7 +934,7 @@ function KPCreateModal({ open, onClose, onCreated, onOpenOrder }) {
         <Button variant="secondary" iconRight="arrowRight" onClick={() => submit('pick')}>Перейти к подбору услуг</Button>
         <Button iconRight="arrowRight" onClick={() => submit('builder')}>Создать и открыть конструктор</Button>
       </>}>
-      {/* Источник данных КП */}
+
       <label className="label" style={{ marginBottom: 8, display: 'block' }}>Источник данных</label>
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 18 }}>
         {KP_SOURCES.map((s) => (
@@ -970,7 +970,7 @@ function KPCreateModal({ open, onClose, onCreated, onOpenOrder }) {
         {docType !== 'train' && <Field label="Наполнение варианта"><Select options={baseOpts} value={base} onChange={(e) => setBase(e.target.value)} /></Field>}
       </div>
 
-      {/* Подсказка при выборе заказа */}
+
       {fromOrder && selOrder && (
         <div className="card card-pad" style={{ marginTop: 14, background: 'var(--surface-2)' }}>
           <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--muted)', marginBottom: 6 }}>Данные подтянуты из заказа</div>
@@ -981,7 +981,7 @@ function KPCreateModal({ open, onClose, onCreated, onOpenOrder }) {
           </div>
         </div>
       )}
-      {/* Экран проверки распознанных данных (чат/текст) */}
+
       {recognizeSrc && (
         <div className="card card-pad" style={{ marginTop: 14, borderLeft: '4px solid var(--blue)' }}>
           <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--ink)', marginBottom: 8, display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -996,7 +996,7 @@ function KPCreateModal({ open, onClose, onCreated, onOpenOrder }) {
         </div>
       )}
 
-      {/* ТЗ #9 §8 — промежуточная сводка «Будет создано КП» + предупреждения перед конструктором */}
+
       {(() => {
         const srcLabel = (KP_SOURCES.find((s) => s.value === source) || {}).label;
         const baseLabel = (baseOpts.find((o) => o.value === base) || {}).label;
@@ -1045,8 +1045,8 @@ function KPCreateModal({ open, onClose, onCreated, onOpenOrder }) {
   );
 }
 
-/* ---------- Отправка КП клиенту по закреплённому каналу (как у карточки услуги) ----------
-   КП — контейнер карточек: показываем варианты и услуги, отправляем по каналу заказа. */
+
+
 function ProposalSendPanel({ proposal, participants = [], onSend, onClose }) {
   const defChannel = orderClientChannel(proposal.order);
   const [channel, setChannel] = useState(defChannel);
@@ -1064,7 +1064,7 @@ function ProposalSendPanel({ proposal, participants = [], onSend, onClose }) {
         <Button variant="secondary" onClick={onClose}>Отмена</Button>
         <Button icon="send" onClick={() => onSend(channel)}>Отправить по каналу «{channel}»</Button>
       </>}>
-      {/* канал, закреплённый за заказом */}
+
       <div className="card card-pad" style={{ marginBottom: 16 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
           <div style={{ flex: 1, minWidth: 200 }}>
@@ -1116,15 +1116,15 @@ function ProposalSendPanel({ proposal, participants = [], onSend, onClose }) {
   );
 }
 
-/* ====================================================================
-   STANDALONE REGISTRY (route 'offers')
-   ==================================================================== */
+
+
+
 function OffersRegistry({ onOpenOrder, intent, onConsume }) {
   const toast = useToast();
   const [q, setQ] = useState('');
   const [fStatus, setFStatus] = useState('');
   const [preview, setPreview] = useState(null);
-  const [proposals, setProposals] = useState(() => PROPOSALS.slice()); // copy: КПCreateModal also unshifts into PROPOSALS for the order card
+  const [proposals, setProposals] = useState(() => PROPOSALS.slice());
   const [createOpen, setCreateOpen] = useState(false);
   const [sendTarget, setSendTarget] = useState(null);
   const [pdfBusy, setPdfBusy] = useState(false);

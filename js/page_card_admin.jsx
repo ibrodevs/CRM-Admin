@@ -1,21 +1,21 @@
 import { useState } from 'react';
 import { Icon } from './icons';
 import { Button, Checkbox, Input, Pill, Tabs, Toggle, useToast } from './ui';
-import { SEND_CHANNELS } from './data_tz2';
-import { CARD_ACTION_CATALOG, CARD_BLOCK_CATALOG, CARD_KINDS_ALL, CARD_RIGHT_KEYS, CARD_RIGHT_LABELS, CARD_SCENARIO_ORDER, allCardRights, cardAction, cardScenario, noCardRights } from './data_service_cards';
-import { StackPanel } from './page_orders';
+import { SEND_CHANNELS } from './data/access-control';
+import { CARD_ACTION_CATALOG, CARD_BLOCK_CATALOG, CARD_KINDS_ALL, CARD_RIGHT_KEYS, CARD_RIGHT_LABELS, CARD_SCENARIO_ORDER, allCardRights, cardAction, cardScenario, noCardRights } from './data/service-cards';
+import { StackPanel } from './components/shared-panels';
 
-// ===== Настройки администратора: карточки услуг (ТЗ §30) =====
-// Единый экран управления универсальной системой карточек: сценарии, ярлыки, блоки и их
-// порядок, действия клиента, включение видов/каналов, шаблоны email, права операторов,
-// видимость клиентских полей. Правит живые объекты конфигурации (window.CARD_*).
+
+
+
+
 
 function clone(o) { return JSON.parse(JSON.stringify(o)); }
 
 function ServiceCardAdminDrawer({ onClose }) {
   const toast = useToast();
   const [tab, setTab] = useState('scenarios');
-  // Рабочие копии конфигурации (применяются по «Сохранить»)
+
   const [scen, setScen] = useState(() => clone(window.CARD_SCENARIOS));
   const [kinds, setKinds] = useState(() => clone(window.CARD_KINDS_ENABLED));
   const [chans, setChans] = useState(() => clone(window.CARD_CHANNELS_ENABLED));
@@ -26,7 +26,7 @@ function ServiceCardAdminDrawer({ onClose }) {
   const [curOp, setCurOp] = useState(Object.keys(window.OPERATOR_CARD_ACCESS)[0]);
 
   const save = () => {
-    // Применяем все изменения к живой конфигурации системы карточек
+
     Object.keys(scen).forEach((k) => Object.assign(window.CARD_SCENARIOS[k], scen[k]));
     Object.assign(window.CARD_KINDS_ENABLED, kinds);
     Object.assign(window.CARD_CHANNELS_ENABLED, chans);
@@ -122,7 +122,7 @@ function ServiceCardAdminDrawer({ onClose }) {
   );
 }
 
-// --- Вкладка «Сценарии и блоки»: клиентское название, ярлык, ярлыки, действия, блоки + порядок ---
+
 function ScenariosTab({ scen, setScen, curSys, setCurSys }) {
   const sc = scen[curSys];
   const upd = (patch) => setScen((s) => ({ ...s, [curSys]: { ...s[curSys], ...patch } }));
@@ -137,7 +137,7 @@ function ScenariosTab({ scen, setScen, curSys, setCurSys }) {
   };
   return (
     <div className="grid-2" style={{ gap: 20, alignItems: 'start', gridTemplateColumns: '260px 1fr' }}>
-      {/* Список сценариев */}
+
       <div className="card card-pad" style={{ padding: 8 }}>
         {CARD_SCENARIO_ORDER.map((sys) => {
           const s = scen[sys];
@@ -153,7 +153,7 @@ function ScenariosTab({ scen, setScen, curSys, setCurSys }) {
         })}
       </div>
 
-      {/* Редактор сценария */}
+
       <div className="card card-pad">
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14 }}>
           <Pill tone={sc.tone}>{sc.badge}</Pill>
@@ -202,7 +202,7 @@ function ScenariosTab({ scen, setScen, curSys, setCurSys }) {
   );
 }
 
-// --- Вкладка «Права операторов»: полный доступ + права по видам услуг (§26) ---
+
 function RightsTab({ rights, setRights, curOp, setCurOp }) {
   const ops = Object.keys(rights);
   const a = rights[curOp] || { fullAccess: false, kinds: {} };

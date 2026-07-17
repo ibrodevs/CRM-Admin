@@ -2,8 +2,8 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Icon } from './icons';
 import { ActionMenu, Avatar, Button, Checkbox, ConfirmDialog, DateField, DateRangeField, Drawer, EmptyState, Field, Input, Pill, Radio, SearchBox, Select, Th, fmtDate, plural, useSort, useToast } from './ui';
 import { AIRLINES, AIRPORTS, AIR_SERVICES, AVIA_BOOKING_CLASSES, AVIA_GROUPS_SEED, COMPANIES_DB, CURRENT_USER, DOCS2, FIN_OPS, FIN_OP_STATUS, FLIGHT_OFFERS, GROUP_PAX, KP_STATUS, OPERATORS, ORDER_PARTICIPANTS, ORDER_SERVICES, ORDER_STATUS, ORDER_TASKS, PAX_DOC_KIND, PROPOSALS, RETURNS, SERVICE_KIND, SERVICE_STATUS } from './data';
-import { cardStatus, orderResponsibles } from './data_tz2';
-import { CASE_SVC_STATUS, CASE_TRIGGERS, ORDER_CHANGE_CASES, caseNow, caseProgress, createChangeCase, getChangeCase, normKind, smartAlternatives } from './data_service_cards';
+import { cardStatus, orderResponsibles } from './data/access-control';
+import { CASE_SVC_STATUS, CASE_TRIGGERS, ORDER_CHANGE_CASES, caseNow, caseProgress, createChangeCase, getChangeCase, normKind, smartAlternatives } from './data/service-cards';
 import { UnifiedDocumentDrawer, UnifiedPersonDrawer } from './forms_unified';
 import { Topbar } from './layout';
 import { AirlineLogo, AirportField, FlightCard, PAX_DEFAULT_OPTIONS, PaxClassPicker, durMin, money, paxTotal } from './page_flights';
@@ -11,7 +11,8 @@ import { ExtrasTabs, FareSelectPanel, RUB_PER_USD, fareCabinLabel, fareTiersForC
 import { BookingWizard } from './page_booking';
 import { FeeDrawer, PassengerDrawer, PassportModal } from './order_extras';
 import { DynamicExtrasPanel, OrderResponsiblesTab } from './order_ops';
-import { CityPickPanel, StackPanel } from './page_orders';
+import { CityPickPanel, StackPanel } from './components/shared-panels';
+import { BackRow } from './components/back-row';
 import { KPModule } from './page_offers';
 import { DocCenter, FinanceRegistry } from './page_fulfillment';
 import { CreditLimitBar, FIN_COUNTERPARTIES, FIN_PAYMENTS, f$ } from './page_finance';
@@ -20,21 +21,10 @@ import { PaxGroupsDrawer, PaxUnifyPanel, paxMergeAppend } from './pax_unify';
 import { AeroAddFlow, ManualAltForm, RailAddFlow, ServiceAddFlow, ServiceCardHistoryDrawer, ServiceCardSendPanel, SvcCard } from './page_services';
 import { HotelPicker } from './page_hotel_picker';
 import { getThreadForOrder, threadUnread } from './page_chats';
+import { financeSnapshot, ocCurrency, ocMoney, opDebt, opPayable, svcCalc } from './features/orders/finance';
 
-// ===== Order Card: the operator's main workspace =====
 
-function ocCurrency(c = 'USD') {
-  if (c === 'USD' || c === '$') return '$';
-  if (c === 'RUB' || c === '₽') return '₽';
-  if (c === 'EUR' || c === '€') return '€';
-  if (c === 'KGS') return 'сом';
-  return c;
-}
-function ocMoney(n, c = 'USD') { return Math.round(n).toLocaleString('ru-RU') + ' ' + ocCurrency(c); }
-function opPayable(op) { return op.tariff + op.taxes + op.fee + op.penalty - op.discount; }
-function opDebt(op) { return Math.max(0, opPayable(op) - op.paid - op.refund); }
 
-/* Reusable async wrapper: loading / error / empty / content */
 function AsyncBlock({ state = 'ok', onRetry, skeletonRows = 4, empty, children }) {
   if (state === 'loading') {
     return (
@@ -61,7 +51,7 @@ function AsyncBlock({ state = 'ok', onRetry, skeletonRows = 4, empty, children }
   return children;
 }
 
-/* Editable status pill in the header */
+
 function StatusControl({ status, onChange }) {
   const opts = Object.keys(ORDER_STATUS);
   return (
@@ -73,58 +63,13 @@ function StatusControl({ status, onChange }) {
   );
 }
 
-/* financial calc helper — every service should carry tariff/taxes/fee/commission/total */
-function svcCalc(s) {
-  if (s.calc) return s.calc;
-  return { tariff: s.sum, taxes: 0, fee: 0, commission: 0, total: s.sum };
-}
-
-/* ---- right info panel ---- */
-function financeSnapshot(orderNo, services) {
-  const ops = FIN_OPS.filter((o) => o.order === orderNo);
-  const byKind = {};
-  services.forEach((s) => {
-    const calc = svcCalc(s);
-    byKind[s.kind] = {
-      total: (byKind[s.kind]?.total || 0) + calc.total,
-      tariff: (byKind[s.kind]?.tariff || 0) + calc.tariff,
-      taxes: (byKind[s.kind]?.taxes || 0) + calc.taxes,
-      fee: (byKind[s.kind]?.fee || 0) + calc.fee,
-      commission: (byKind[s.kind]?.commission || 0) + calc.commission,
-      currency: s.currency || byKind[s.kind]?.currency || 'USD',
-    };
-  });
-  ops.forEach((o) => {
-    byKind[o.source] = {
-      ...(byKind[o.source] || { total: 0, tariff: 0, taxes: 0, fee: 0, commission: 0, currency: o.currency }),
-      paid: (byKind[o.source]?.paid || 0) + o.paid,
-      debt: (byKind[o.source]?.debt || 0) + opDebt(o),
-      margin: (byKind[o.source]?.margin || 0) + o.commission,
-      payable: (byKind[o.source]?.payable || 0) + opPayable(o),
-      refund: (byKind[o.source]?.refund || 0) + o.refund,
-    };
-  });
-  return {
-    byKind,
-    tariffs: services.reduce((s, x) => s + svcCalc(x).tariff, 0),
-    taxes: services.reduce((s, x) => s + svcCalc(x).taxes, 0),
-    fees: services.reduce((s, x) => s + svcCalc(x).fee, 0),
-    margin: ops.length ? ops.reduce((s, x) => s + (x.commission || 0), 0) : services.reduce((s, x) => s + svcCalc(x).commission, 0),
-    total: services.reduce((s, x) => s + svcCalc(x).total, 0),
-    paid: ops.reduce((s, x) => s + x.paid, 0),
-    debt: ops.reduce((s, x) => s + opDebt(x), 0),
-    refund: ops.reduce((s, x) => s + x.refund, 0),
-    hasOps: ops.length > 0,
-    currencies: [...new Set(services.map((s) => s.currency).concat(ops.map((o) => o.currency)).filter(Boolean))],
-  };
-}
 
 function OrderAside({ order, status, onStatusChange, services, participants, requestType, aviaParams, onOpenTab, onOpenTasks, operator, onReassign }) {
   const urgent = ORDER_TASKS.filter((t) => t.urgent);
   const fin = financeSnapshot(order.no, services);
   const trip = tripFromServices(services, aviaParams);
 
-  // route stats — derived from the services actually in the scenario, not hardcoded
+
   const segServices = services.filter((s) => ['Авиа', 'ЖД', 'Трансфер'].includes(s.kind));
   const segCount = Math.max(1, segServices.length || (aviaParams.trip === 'rt' ? 2 : 1));
   const fromAp = AIRPORTS.find((a) => a.code === aviaParams.from);
@@ -236,7 +181,7 @@ function OrderAside({ order, status, onStatusChange, services, participants, req
   );
 }
 
-/* operator reassignment — выбор/переназначение ответственного оператора заказа */
+
 function ReassignOperatorDrawer({ open, current, onClose, onPick }) {
   return (
     <Drawer open={open} onClose={onClose} title="Ответственный оператор"
@@ -259,7 +204,7 @@ function ReassignOperatorDrawer({ open, current, onClose, onPick }) {
   );
 }
 
-/* trip route, computed from the chosen services — used by the right-hand «Маршрут» card */
+
 function tripFromServices(services, aviaParams) {
   const avia = services.find((s) => s.kind === 'Авиа');
   if (avia) {
@@ -271,10 +216,10 @@ function tripFromServices(services, aviaParams) {
   return { from: aviaParams.from, to: aviaParams.to, dates: dep + ret };
 }
 
-/* ====================================================================
-   TAB CONTENTS
-   ==================================================================== */
-/* generic edit drawer for a list of [label, value] rows — really updates the values shown in a kv-stack */
+
+
+
+
 function KvEditDrawer({ open, onClose, title, rows, onSave }) {
   const toast = useToast();
   const [vals, setVals] = useState(() => rows.map((r) => r[1]));
@@ -303,7 +248,7 @@ function TabOverview({ order }) {
     ['Тип заявки', order.requestType], ['Оператор', order.operator], ['Дата создания', order.date], ['Валюта', 'USD'], ['Тип комиссии', 'Процентная (%)'],
     ['Комиссия', '5%'], ['Синхронизация', '1С ✓'], ['Метод округления', 'До 1 USD'], ['Ставка НДС', '12%'], ['Тип расчёта', 'НДС включён'],
   ]);
-  const [edit, setEdit] = useState(null); // 'main' | 'params' | null
+  const [edit, setEdit] = useState(null);
   return (
     <div className="grid-2 fade-in" style={{ alignItems: 'start' }}>
       <div className="card card-pad">
@@ -407,7 +352,7 @@ function DocCell({ p }) {
   );
 }
 
-/* one collapsible subgroup card in the participants list (group / corporate orders) */
+
 function PaxGroupCard({ index, name, members, onPassport, onEdit, onAddDoc }) {
   const [open, setOpen] = useState(true);
   const [showAll, setShowAll] = useState(false);
@@ -461,7 +406,7 @@ function TabParticipants({ list, isGroup, groups, fresh, orderNo, orderAirline, 
   const [unifyOpen, setUnifyOpen] = useState(false);
   const [groupsOpen, setGroupsOpen] = useState(false);
   const toast = useToast();
-  // Добавление готовой группы пассажиров целиком в заказ (без дублей по неизменному ключу)
+
   const addGroup = (members) => { const r = paxMergeAppend(list, members); onApplyRoster && onApplyRoster(r.list); return r; };
   if (!list.length) return (
     <div className="fade-in">
@@ -498,7 +443,7 @@ function TabParticipants({ list, isGroup, groups, fresh, orderNo, orderAirline, 
         <Button icon="plus" onClick={onAdd}>Добавить участника</Button>
       </div>
       {(() => {
-        // grouped view (subgroups / company internal list) when the order has groups
+
         const secs = (isGroup && groups && groups.length) ? (() => {
           const used = new Set();
           const out = groups.map((g, gi) => {
@@ -513,7 +458,7 @@ function TabParticipants({ list, isGroup, groups, fresh, orderNo, orderAirline, 
         return (
           <div className="table-card">
             <table className="tbl">
-              <thead><tr><th>Участник</th><th>Тип</th><th>Документ</th><th>Дата рожд.</th><th>Телефон</th><th>Документы</th><th></th></tr></thead>{/* pax-table */}
+              <thead><tr><th>Участник</th><th>Тип</th><th>Документ</th><th>Дата рожд.</th><th>Телефон</th><th>Документы</th><th></th></tr></thead>
               <tbody>
                 {list.map((p, i) => (
                   <tr key={i} style={{ cursor: 'pointer' }} onClick={() => onEdit && onEdit(p)}>
@@ -569,12 +514,12 @@ function TabRoute({ services }) {
   );
 }
 
-/* ====================================================================
-   ДОБАВЛЕННЫЕ УСЛУГИ — flat list with filter chips + a sticky totals bar,
-   matching the reference card: icon, title/details, pax, price, status,
-   «Детали» / «…». Adding/editing always happens in the side panel (see
-   AddServicePanel below), never inline.
-   ==================================================================== */
+
+
+
+
+
+
 const SVC_FILTER_CHIPS = [
   { kind: null, label: 'Все услуги' },
   { kind: 'Авиа', label: 'Авиабилеты' },
@@ -596,7 +541,7 @@ function ServiceListRow({ s, paxCount, isGroup, onOpen, orderNo, participants = 
   const initCard = (s.status === 'Выписано' || s.status === 'Подтверждено') ? 'issued' : (s.cardStatus || 'created');
   const [cardSt, setCardSt] = useState(initCard);
   const cst = cardStatus(cardSt);
-  // карточка услуги: объединяем подбор (svcOffer) с полями заказа, чтобы был предпросмотр и расчёты
+
   const cardItem = s.svcOffer ? { ...s.svcOffer, title: s.title, sub: s.sub, kind: s.kind, status: s.status, date: s.date, order: orderNo, calc: s.calc } : { ...s, order: orderNo };
   const onSent = (ch) => {
     setCardSt('sent');
@@ -627,9 +572,9 @@ function ServiceListRow({ s, paxCount, isGroup, onOpen, orderNo, participants = 
   );
 }
 
-/* shared totals used by both the list and the always-pinned footer bar below it */
+
 function serviceTotals(services) {
-  // order total is shown in $, so normalize ₽-priced services (e.g. ЖД) at ≈90 ₽/$
+
   const toUsd = (x) => { const t = svcCalc(x).total; return (x.currency === 'RUB' || x.currency === '₽') ? t / 90 : t; };
   return {
     total: services.reduce((s, x) => s + toUsd(x), 0),
@@ -639,10 +584,10 @@ function serviceTotals(services) {
   };
 }
 
-/* totals bar — rendered as a sibling *after* .oc-grid (not nested inside .oc-main) so it can
-   actually stick to the bottom of the page while scrolling, even when the aside is the taller
-   of the two columns. Nesting it inside .oc-main would cap its sticky range to that column's
-   own height, so it would scroll away before the aside finished scrolling into view. */
+
+
+
+
 function ServicesFooterBar({ services, participants, bookingDraft, onStartBooking }) {
   const toast = useToast();
   const { total, confirmedSvc, awaitingSvc, actionSvc } = serviceTotals(services);
@@ -661,13 +606,13 @@ function ServicesFooterBar({ services, participants, bookingDraft, onStartBookin
   );
 }
 
-/* ====================================================================
-   КЕЙС ИЗМЕНЕНИЯ ПО ЗАКАЗУ (запрос клиента) — постоянная сущность в заказе.
-   При отмене/сдвиге рейса вся затронутая цепочка фиксируется здесь со
-   статусом обработки по каждой услуге: API-услуги проверяются авто-сверкой,
-   локальные — запросом поставщику. Письмо клиенту — часть кейса, всегда под
-   рукой для корректировок (авто/ручной). Всё пишется в историю кейса.
-   ==================================================================== */
+
+
+
+
+
+
+
 function OrderChangeCase({ orderNo, services, participants }) {
   const toast = useToast();
   const [cs, setCs] = useState(() => getChangeCase(orderNo));
@@ -675,7 +620,7 @@ function OrderChangeCase({ orderNo, services, participants }) {
   const [letterOpen, setLetterOpen] = useState(false);
   const [openLog, setOpenLog] = useState(null);
   const [showHist, setShowHist] = useState(false);
-  const [picker, setPicker] = useState(null); // ручная выборка альтернатив по услуге: { i, opts:[], sel:Set }
+  const [picker, setPicker] = useState(null);
 
   const flight = (services || []).find((s) => normKind(s.kind) === 'Авиа');
   const triggerTitle = flight ? (flight.title || flight.main) : 'Рейс заказа';
@@ -704,15 +649,15 @@ function OrderChangeCase({ orderNo, services, participants }) {
   };
   const setSvcStatus = (i, status, text) => commit(logSvc(cs, i, text, { status }));
 
-  // ---- Единый механизм подбора: авто-поиск + ручная выборка альтернатив, та же связка цепочек ----
-  // Открыть панель подбора по услуге (сохраняем уже зафиксированные варианты как выбранные).
+
+
   const openPicker = (i) => {
     const cur = getChangeCase(orderNo);
     const existing = cur.services[i].alts || [];
     setPicker({ i, opts: existing.slice(), sel: new Set(existing.map((a) => a.id)) });
     setOpenLog(null);
   };
-  // Авто-поиск близких вариантов — досыпаем в список и отмечаем (не затирая ручные).
+
   const pickerAuto = () => setPicker((p) => {
     if (!p) return p;
     const cur = getChangeCase(orderNo);
@@ -745,7 +690,7 @@ function OrderChangeCase({ orderNo, services, participants }) {
     commit({ ...cur, letters: [...cur.letters, { v, sentAt: t, channels }], history: [...cur.history, { t, text: 'Письмо клиенту отправлено (v' + v + ') · ' + channels }] });
   };
 
-  // ---- нет кейса: предложить зарегистрировать изменение ----
+
   if (!cs) {
     return (
       <div className="card card-pad" style={{ border: '1px dashed var(--amber)', background: 'var(--surface-2)', marginBottom: 16 }}>
@@ -777,7 +722,7 @@ function OrderChangeCase({ orderNo, services, participants }) {
       </div>
       <div style={{ fontSize: 12.5, color: 'var(--muted)', marginBottom: 14 }}>{cs.triggerTitle} · создан {cs.created} · закреплён за заказом № {orderNo}</div>
 
-      {/* Затронутая цепочка — статус и действия по каждой услуге */}
+
       <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
         {cs.services.map((s, i) => {
           const st = CASE_SVC_STATUS[s.status] || CASE_SVC_STATUS.idle;
@@ -793,7 +738,7 @@ function OrderChangeCase({ orderNo, services, participants }) {
                 <Pill tone={s.channel === 'api' ? 'blue' : 'gray'}><Icon name={s.channel === 'api' ? 'api' : 'contacts'} style={{ width: 12, height: 12, verticalAlign: -2 }} /> {s.channel === 'api' ? 'API' : 'Локальный'}</Pill>
                 <Pill tone={st.tone}>{st.label}</Pill>
               </div>
-              {/* действия по услуге в зависимости от канала и статуса */}
+
               <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 10, alignItems: 'center' }}>
                 {s.channel === 'api' && (s.status === 'idle' || s.status === 'checking') && <Button size="sm" variant="secondary" icon="zap" disabled={s.status === 'checking'} onClick={() => checkDates(i)}>{s.status === 'checking' ? 'Сверка…' : 'Сверить новые даты'}</Button>}
                 {s.channel === 'api' && s.status === 'need_alt' && <Button size="sm" icon="refund" onClick={() => openPicker(i)}>Подобрать альтернативу</Button>}
@@ -819,7 +764,7 @@ function OrderChangeCase({ orderNo, services, participants }) {
                   ))}
                 </div>
               )}
-              {/* Панель подбора: авто-поиск + ручная выборка вариантов — единый механизм */}
+
               {picker?.i === i && (
                 <div style={{ marginTop: 10, border: '1px solid var(--line)', borderRadius: 10, padding: 12, background: 'var(--surface-2)', display: 'grid', gap: 8 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
@@ -861,7 +806,7 @@ function OrderChangeCase({ orderNo, services, participants }) {
         })}
       </div>
 
-      {/* Письмо клиенту — часть кейса: всегда можно вернуться и скорректировать */}
+
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 14, flexWrap: 'wrap' }}>
         <Button variant="secondary" icon="send" onClick={() => setLetterOpen(true)}>{cs.letters.length ? 'Открыть письмо · корректировать' : 'Письмо клиенту'}</Button>
         {cs.letters.length > 0 && <span style={{ fontSize: 12.5, color: 'var(--muted)' }}>Отправлено версий: {cs.letters.length} · последняя {cs.letters[cs.letters.length - 1].sentAt} ({cs.letters[cs.letters.length - 1].channels})</span>}
@@ -890,12 +835,12 @@ function TabServices({ orderNo, services, participants, requestType, onOpenAvia,
   const openItem = (s) => (s.kind === 'Авиа' ? onOpenAvia(s) : onOpenOther(s));
   const toggleSel = (id) => setSel((cur) => { const n = new Set(cur); n.has(id) ? n.delete(id) : n.add(id); return n; });
   const assemble = () => { const chosen = services.filter((s) => sel.has(s.id)); onAssembleKP && onAssembleKP(chosen); setSelMode(false); setSel(new Set()); };
-  // Свободная выгрузка подобранных услуг в чат — без формирования КП (ТЗ-2 п.10)
+
   const exportChat = () => { const chosen = services.filter((s) => sel.has(s.id)); onExportToChat && onExportToChat(chosen); setSelMode(false); setSel(new Set()); };
 
   return (
     <div className="fade-in">
-      {/* Кейс изменения по заказу — фиксирует затронутую цепочку при отмене/сдвиге рейса */}
+
       <OrderChangeCase orderNo={orderNo} services={services} participants={participants} />
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16, flexWrap: 'wrap', gap: 12 }}>
         <h3 className="card-title" style={{ fontSize: 18 }}>Добавленные услуги</h3>
@@ -930,13 +875,13 @@ function TabServices({ orderNo, services, participants, requestType, onOpenAvia,
   );
 }
 
-/* ====================================================================
-   ADD SERVICE — side panel: category tabs on top, then either the avia
-   search/results (matching the reference) or the existing av-bar search
-   flow / a quick manual form for categories without a search backend.
-   ==================================================================== */
-// Порядок и состав категорий по запросу клиента — всё умещается в одну линию.
-// Виза и VIP-зал на этом этапе уезжают блоками внутрь «Доп. услуги».
+
+
+
+
+
+
+
 const ADD_SVC_CATS = [
   { kind: 'Авиа', label: 'Авиабилеты', icon: 'plane' },
   { kind: 'ЖД', label: 'ЖД билеты', icon: 'train', routeKey: 'rail' },
@@ -951,8 +896,8 @@ const ADD_SVC_CATS = [
 
 function fmtDur(mins) { return Math.floor(mins / 60) + 'ч ' + (mins % 60) + 'м'; }
 
-/* one selectable leg — logo, times, duration/stops, price + airline, radio (no «Выбрать» button:
-   legs are combined into one route below, committed via a single «Добавить в заказ» action) */
+
+
 function RadioFlightRow({ opt, selected, onSelect }) {
   const leg = opt.leg;
   return (
@@ -971,13 +916,13 @@ function RadioFlightRow({ opt, selected, onSelect }) {
   );
 }
 
-/* ====================================================================
-   Three route layouts (see reference sheet): «1. Маршрут туда» (one-way,
-   a flat radio list), «2. Туда и обратно» (outbound + return paired in one
-   group with a swap icon, then a savings summary) and «3. Сложный маршрут»
-   (numbered timeline of legs with layover tags, then a route summary).
-   ==================================================================== */
-/* левый фильтр выдачи рейсов (как у гостиниц): цена / пересадки / авиакомпании / багаж / поставщики */
+
+
+
+
+
+
+
 function aviaPriceBounds() { const t = FLIGHT_OFFERS.map((o) => o.fare + o.fee); return { min: Math.floor(Math.min(...t)), max: Math.ceil(Math.max(...t)) }; }
 function AviaFilters({ flt, setFlt, bounds }) {
   const airlines = [...new Set(FLIGHT_OFFERS.map((o) => o.airline))];
@@ -1029,8 +974,8 @@ function AviaFilters({ flt, setFlt, bounds }) {
   );
 }
 
-/* flight card row in the «Подбор авиаперелёта» card style (reference sheet) — same markup as
-   AviaPicker's ApFlightRow, but prices in the order's currency (USD) instead of ₽ */
+
+
 function AviaCardRow({ opt, sel, onSelect }) {
   const leg = opt.leg;
   return (
@@ -1049,20 +994,20 @@ function AviaCardRow({ opt, sel, onSelect }) {
   );
 }
 
-/* one flight in the results list — clicking the row (or «Тарифы») opens its fare families,
-   the same way picking a hotel opens its rooms (ТЗ #3). `embedded` rows live inside a larger
-   round-trip / multi-city card whose parent handles the click. */
-/* per-leg segments — connecting legs carry an explicit `segs`/`layovers`; direct legs fall back
-   to a single segment built from the leg itself. Lets us show flight numbers per segment and the
-   leg1 / пересадка / leg2 breakdown like Aviasales/Tutu (запрос клиента). */
+
+
+
+
+
+
 function legSegments(leg) {
   if (leg.segs && leg.segs.length) return leg.segs;
   return [{ from: leg.from, to: leg.to, dep: leg.dep, arr: leg.arr, dur: leg.dur, flightNo: leg.flightNo }];
 }
 function legFlightNos(leg) { return legSegments(leg).map((s) => s.flightNo).filter(Boolean).join(' · '); }
 
-/* Aviasales-style detailed timeline for one leg: each flight segment with its number + duration,
-   and a «Пересадка Xч в AAA» band between segments. */
+
+
 function LegTimeline({ opt, title }) {
   const leg = opt.leg;
   const segs = legSegments(leg);
@@ -1091,8 +1036,8 @@ function LegTimeline({ opt, title }) {
   );
 }
 
-/* horizontal flight «scale bar»: each segment carries its flight number + duration over the line,
-   the connection point shows «Пересадка Xч» above and the via-airport below (как у Aviasales/Tutu). */
+
+
 function FlightScaleBar({ leg }) {
   const segs = legSegments(leg);
   const lays = leg.layovers || [];
@@ -1117,8 +1062,8 @@ function FlightScaleBar({ leg }) {
   );
 }
 
-/* unified supplier caption — same look across all services (авиа / отели / ЖД): «поставщики
-   разные, подпись одна» (ТЗ #8) */
+
+
 function SupplierTag({ name }) {
   return <div className="svc-supplier"><Icon name="api" style={{ width: 12, height: 12 }} />{name}</div>;
 }
@@ -1141,8 +1086,8 @@ function AviaResultRow({ opt, onView, embedded }) {
   );
 }
 
-/* passengers + class as a side panel (ТЗ #7) — replaces the cramped pop-over that pushed the
-   page and scrolled. When the order has real participants we also show them by subgroup (ТЗ #9). */
+
+
 function AviaPaxPanel({ params, setParams, participants = [], groups, onClose }) {
   const p = params;
   const pax = p.pax;
@@ -1168,7 +1113,7 @@ function AviaPaxPanel({ params, setParams, participants = [], groups, onClose })
   return (
     <StackPanel title="Пассажиры и класс" width="min(620px,95vw)" onClose={onClose}
       footer={<Button style={{ width: '100%' }} icon="check" onClick={onClose}>Готово · {total} {plural(total)}</Button>}>
-      {/* единый компонент выбора пассажиров и класса (как на макете), общий для всех авиапоисков */}
+
       <PaxClassPicker pax={pax} setPax={(v) => set({ pax: v })} cabin={p.cabin} setCabin={(v) => set({ cabin: v })}
         options={p} setOptions={(patch) => set(patch)} />
 
@@ -1194,15 +1139,15 @@ function AviaPaxPanel({ params, setParams, participants = [], groups, onClose })
   );
 }
 
-/* fare families for the clicked flight — opens like «номера в отеле» so the fare grid can be
-   reviewed before booking (ТЗ #3, #8). The StackPanel footer keeps the subtotal + book button
-   pinned in view (ТЗ #1) instead of being buried beneath the flight list. */
+
+
+
 function FlightFarePanel({ route, paxCount, cabin, pax = [], onClose, onAdd, onPerPax }) {
-  // booking class first, then the fare grid for that class — exactly like the full order-creation
-  // flow (клиент: «в выборке тарифов отсутствует выборка классов»).
+
+
   const [clsCode, setClsCode] = useState('Y');
-  const [infoFare, setInfoFare] = useState(null);   // тариф, открытый в боковом окне «О тарифе» (ТЗ #1)
-  // доп. услуги авиакомпании (багаж / места / питание / страховка) — добавляются вместе с перелётом
+  const [infoFare, setInfoFare] = useState(null);
+
   const [extras, setExtras] = useState({ seats: {}, baggage: {}, meal: {}, insurance: {}, special: {}, comfort: {} });
   const [extrasOpen, setExtrasOpen] = useState(false);
   const extrasCount = Object.values(extras.seats).filter(Boolean).length
@@ -1220,7 +1165,7 @@ function FlightFarePanel({ route, paxCount, cabin, pax = [], onClose, onAdd, onP
     const t = fareTiersForClass(code);
     setFareId((t.find((f) => f.recommended) || t[0]).id);
   };
-  const fareUsd = Math.round(tier.delta / RUB_PER_USD); // тарифные дельты в данных в ₽ → приводим к $
+  const fareUsd = Math.round(tier.delta / RUB_PER_USD);
   const seats = Math.max(1, paxCount);
   const grand = (route.total + fareUsd) * seats;
   const legs = route.legs;
@@ -1244,7 +1189,7 @@ function FlightFarePanel({ route, paxCount, cabin, pax = [], onClose, onAdd, onP
         {legs.map((l, i) => <LegTimeline key={i} opt={l} title={legs.length > 1 ? (i === 0 ? 'Маршрут туда' : i === 1 ? 'Обратно' : 'Сегмент ' + (i + 1)) : null} />)}
       </div>
 
-      {/* 1. класс бронирования */}
+
       <div className="ap-sc-title">1. Выберите класс бронирования</div>
       <div className="fare-class-grid">
         {AVIA_BOOKING_CLASSES.map((c) => (
@@ -1257,7 +1202,7 @@ function FlightFarePanel({ route, paxCount, cabin, pax = [], onClose, onAdd, onP
         ))}
       </div>
 
-      {/* 2. тариф в выбранном классе */}
+
       <div className="ap-sc-title">2. Выберите тариф в классе {clsCode} ({fareCabinLabel(clsCode)}) — ознакомьтесь перед бронированием</div>
       <div className="fare-grid">
         {tiers.map((f) => {
@@ -1291,7 +1236,7 @@ function FlightFarePanel({ route, paxCount, cabin, pax = [], onClose, onAdd, onP
         })}
       </div>
 
-      {/* доп. услуги авиакомпании — багаж, места, питание, страховка (запрос клиента: где добавить доп.услуги по авиакомпаниям) */}
+
       <div className="ap-sc-title" style={{ marginTop: 18 }}>3. Доп. услуги и места</div>
       <div className="ap-list-row ap-sum-row" style={{ cursor: 'pointer' }} onClick={() => setExtrasOpen(true)}>
         <span className="ic"><Icon name="briefcase" /></span>
@@ -1317,7 +1262,7 @@ function FlightFarePanel({ route, paxCount, cabin, pax = [], onClose, onAdd, onP
   );
 }
 
-/* «О тарифе» — детальная информация в боковом окне внахлёст над панелью тарифов (ТЗ #1) */
+
 function FareInfoPanel({ fare, onClose, onSelect }) {
   const u = Math.round((fare.delta || 0) / RUB_PER_USD);
   return (
@@ -1338,9 +1283,9 @@ function FareInfoPanel({ fare, onClose, onSelect }) {
   );
 }
 
-/* Компактный табличный вид выдачи рейсов (запрос клиента: «отображение рейсов списком для более
-   удобного поиска») — плотная сортируемая таблица, как в B2B-системах: вылет / прилёт / перевозчик /
-   рейс / в пути / пересадки / поставщик / стоимость. Клик по строке открывает тарифы. */
+
+
+
 function aviaDepMin(t) { const m = (t || '').match(/(\d{1,2}):(\d{2})/); return m ? (+m[1]) * 60 + (+m[2]) : 0; }
 function AviaListTable({ rows }) {
   const { sort, onSort, apply } = useSort({ col: 'price', dir: 'asc' });
@@ -1391,14 +1336,14 @@ function AviaSearchPanel({ params, setParams, paxCount, participants = [], isGro
   const aviaBounds = aviaPriceBounds();
   const [flt, setFlt] = useState({ stops: [], air: [], sup: [], bagOnly: false, refundOnly: false, priceMax: aviaBounds.max, flightNo: '' });
   const [visible, setVisible] = useState(6);
-  const [view, setView] = useState('cards'); // cards | list — отображение выдачи рейсов
+  const [view, setView] = useState('cards');
   const [paxPanel, setPaxPanel] = useState(false);
-  const [fareRoute, setFareRoute] = useState(null);   // route awaiting fare selection → opens FlightFarePanel
+  const [fareRoute, setFareRoute] = useState(null);
   const groups = isGroup ? AVIA_GROUPS_SEED : null;
   const seats = participants.length || paxTotal(p.pax);
   const plural = (n) => n === 1 ? 'пассажир' : (n % 10 >= 2 && n % 10 <= 4 && (n % 100 < 10 || n % 100 >= 20) ? 'пассажира' : 'пассажиров');
 
-  // порядок по ТЗ #5: сначала «в одну сторону», затем «туда-обратно», затем «сложный маршрут»
+
   const TRIPS = [['ow', 'В одну сторону'], ['rt', 'Туда-обратно'], ['mc', 'Сложный маршрут']];
 
   const flightNoMatch = (o, q) => { const n = q.replace(/\s+/g, '').toLowerCase(); return [o.out, o.back].some((l) => l && l.flightNo && l.flightNo.replace(/\s+/g, '').toLowerCase().includes(n)); };
@@ -1421,8 +1366,8 @@ function AviaSearchPanel({ params, setParams, paxCount, participants = [], isGro
     out: { key: o.id + '-o', airline: o.airline, leg: o.out, supplier: o.supplier, price: Math.round((o.fare + o.fee) * 0.6) },
     back: { key: o.id + '-b', airline: o.airline, leg: o.back, supplier: o.supplier, price: Math.round((o.fare + o.fee) * 0.4) },
   })).sort((a, b) => (a.out.price + a.back.price) - (b.out.price + b.back.price));
-  // «Сложный маршрут» (ТЗ): маска превращается в список сегментов Откуда/Куда/Дата вылета.
-  // Сегменты можно добавлять до максимума и удалять лишние (крестик у строки).
+
+
   const MC_MAX = 6;
   const segs = (p.segments && p.segments.length >= 2) ? p.segments : [
     { from: p.from, to: p.to, date: p.depDate },
@@ -1432,13 +1377,13 @@ function AviaSearchPanel({ params, setParams, paxCount, participants = [], isGro
   const updateSeg = (i, patch) => setSegs(segs.map((s, idx) => (idx === i ? { ...s, ...patch } : s)));
   const addSeg = () => { if (segs.length < MC_MAX) setSegs([...segs, { from: segs[segs.length - 1].to || '', to: '', date: null }]); };
   const removeSeg = (i) => { if (segs.length > 2) setSegs(segs.filter((_, idx) => idx !== i)); };
-  // demo legs for the results chain — one per entered segment
+
   const mcLegs = outOpts.length ? segs.map((_, i) => outOpts[i % outOpts.length]) : [];
   const mcTotal = mcLegs.reduce((s, o) => s + o.price, 0);
 
   const openFare = (route) => setFareRoute(route);
 
-  // Плоский список строк для табличного вида — по текущему типу маршрута
+
   const listRows = p.trip === 'rt'
     ? rtCombos.map((c) => ({ id: c.id, airline: c.out.airline, leg: c.out.leg, flightNo: c.out.leg.flightNo, supplier: c.out.supplier, price: c.out.price + c.back.price, roundtrip: true, view: () => openFare({ legs: [c.out, c.back], total: c.out.price + c.back.price }) }))
     : p.trip === 'mc'
@@ -1460,7 +1405,7 @@ function AviaSearchPanel({ params, setParams, paxCount, participants = [], isGro
 
   return (
     <div>
-      {/* ТЗ #2 — trip type toggle that reshapes the search mask */}
+
       <div className="trip-toggle" style={{ marginBottom: 14 }}>
         {TRIPS.map(([k, l]) => (
           <button key={k} className={p.trip === k ? 'on' : ''} onClick={() => set({ trip: k })}>{l}</button>
@@ -1468,7 +1413,7 @@ function AviaSearchPanel({ params, setParams, paxCount, participants = [], isGro
       </div>
 
       {p.trip === 'mc' ? (
-        /* ТЗ — сложный маршрут: многострочная маска сегментов с добавлением/удалением точек */
+
         <div className="avia-mc-mask">
           <div className="avia-mc-head">
             <span className="l" style={{ flex: '1 1 0' }}>Откуда</span>
@@ -1496,14 +1441,14 @@ function AviaSearchPanel({ params, setParams, paxCount, participants = [], isGro
           </div>
         </div>
       ) : (
-        /* ТЗ #6 — flexible fields keep the whole mask on one line, like the other services */
+
         <div className="svcp-search-bar avia-search-bar">
           <AirportField label="Откуда" value={p.from} onChange={(v) => set({ from: v })} />
           <button className="av-swap" onClick={swap} title="Поменять местами"><Icon name="swap" style={{ width: 18, height: 18 }} /></button>
           <AirportField label="Куда" value={p.to} onChange={(v) => set({ to: v })} />
           {p.trip === 'rt' ? (
             <div className="av-field">
-              {/* ТЗ #10 — single range field with the «от — до» line; «Только туда» turns it into one-way */}
+
               <DateRangeField label="Даты поездки" startVal={p.depDate} endVal={p.retDate} rangeStartLabel="Только туда"
                 placeholder="Туда — обратно"
                 onChange={(s, e) => { if (e === null || e === undefined) set({ trip: 'ow', depDate: s, retDate: null }); else set({ depDate: s, retDate: e }); }} />
@@ -1513,7 +1458,7 @@ function AviaSearchPanel({ params, setParams, paxCount, participants = [], isGro
               <DateField label="Дата вылета" value={p.depDate} onChange={(d) => set({ depDate: d })} placeholder="Выбрать" />
             </div>
           )}
-          {/* ТЗ #7 — passengers open in a side panel instead of a pop-over */}
+
           {paxFieldNode}
           <Button icon="search" className="avia-find-btn" style={{ height: 46, marginBottom: 0 }} onClick={runSearch}>Найти</Button>
         </div>
@@ -1522,7 +1467,7 @@ function AviaSearchPanel({ params, setParams, paxCount, participants = [], isGro
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, margin: '0 0 14px' }}>
         <div style={{ flex: 1 }} />
         <span style={{ color: 'var(--muted)', fontSize: 13 }}>Найдено {foundCount}</span>
-        {/* переключатель вида выдачи: карточки / список */}
+
         <div className="avia-view-toggle">
           <button className={view === 'cards' ? 'on' : ''} title="Карточки" onClick={() => setView('cards')}><Icon name="grid" style={{ width: 16, height: 16 }} />Карточки</button>
           <button className={view === 'list' ? 'on' : ''} title="Список" onClick={() => setView('list')}><Icon name="orders" style={{ width: 16, height: 16 }} />Список</button>
@@ -1665,8 +1610,7 @@ function AddServicePanel({ kind, setKind, aviaParams, setAviaParams, paxCount, p
       </div>
       {kind === 'Авиа' && <AviaSearchPanel params={aviaParams} setParams={setAviaParams} paxCount={paxCount}
         participants={participants || []} isGroup={isGroup} onAdd={onAddAvia} onAddPerPax={onAddAviaPerPax} />}
-      {/* Гостиницы — полноценный модуль подбора с фильтром слева, выбором номера,
-          составом гостей, групповым размещением и подтверждением бронирования */}
+
       {kind === 'Гостиница' && <HotelPicker participants={participants} group={isGroup} onApply={(offer) => onAddOther(offer, 'Гостиница')} onCancel={() => {}} />}
       {kind === 'ЖД' && <RailAddFlow participants={participants} groups={isGroup ? AVIA_GROUPS_SEED : null} onAdd={onAddOther} />}
       {kind === 'Аэроэкспресс' && <AeroAddFlow onAdd={onAddOther} />}
@@ -1714,9 +1658,9 @@ function TabOffers({ onCreate }) {
   );
 }
 
-/* Финансовый блок заказа (ТЗ: «В каждом заказе отдельный блок Финансы»).
-   Тянет данные из финмодуля (FIN_* глобальные) и связывает заказ ↔ контрагент ↔
-   счета/платежи/документы/финоперации ↔ прибыль. */
+
+
+
 function OrderFinanceBlock({ orderNo, order, services }) {
   const total = services.reduce((s, x) => { const t = svcCalc(x).total; return s + ((x.currency === 'RUB' || x.currency === '₽') ? t / 90 : t); }, 0);
   const cps = (typeof FIN_COUNTERPARTIES !== 'undefined') ? FIN_COUNTERPARTIES : [];
@@ -1788,7 +1732,7 @@ function TabFinance({ services, onAddFee }) {
         ))}
       </div>
 
-      {/* 1C sync — demonstrates the error state pattern */}
+
       <div className="card card-pad" style={{ marginBottom: 18, display: 'flex', alignItems: 'center', gap: 14 }}>
         <Icon name="alertCircle" style={{ width: 22, height: 22, color: 'var(--amber)' }} />
         <div style={{ flex: 1 }}>
@@ -1835,9 +1779,9 @@ function TabHistory() {
   );
 }
 
-/* ====================================================================
-   ORDER CARD ROOT
-   ==================================================================== */
+
+
+
 function OrderCard({ order, onBack, initTab, initSvc, initSvcSearch, fresh, onOpenChat }) {
   const toast = useToast();
   const [tab, setTab] = useState(initTab || (initSvcSearch ? 'services' : 'overview'));
@@ -1860,41 +1804,41 @@ function OrderCard({ order, onBack, initTab, initSvc, initSvcSearch, fresh, onOp
   };
   const [stageIdx, setStageIdx] = useState(initStage());
 
-  // service sub-flow (avia + other service modules)
-  const [svcView, setSvcView] = useState(null); // null | 'add-service' | 'avia-card' | 'svc-card' | 'booking'
-  // booking wizard progress lives here (not inside BookingWizard) so it survives the operator
-  // switching to other order tabs mid-flow, and can be resumed later as a draft
-  const [bookingDraft, setBookingDraft] = useState(null); // null | { step, method, pay }
-  const [operator, setOperator] = useState(order.operator); // ответственный оператор (переназначаемый)
+
+  const [svcView, setSvcView] = useState(null);
+
+
+  const [bookingDraft, setBookingDraft] = useState(null);
+  const [operator, setOperator] = useState(order.operator);
   const [reassignOpen, setReassignOpen] = useState(false);
   const [activeAvia, setActiveAvia] = useState(null);
-  const [addKind, setAddKind] = useState('Авиа');   // active category tab inside the add-service panel
-  const [activeSvc, setActiveSvc] = useState(null); // non-avia service being viewed
+  const [addKind, setAddKind] = useState('Авиа');
+  const [activeSvc, setActiveSvc] = useState(null);
   const [otherSvc, setOtherSvc] = useState(null);
-  // per-passenger fare/class picked for the route awaiting confirmation in the tariff screen
-  const [pendingAviaRoute, setPendingAviaRoute] = useState(null); // { legs, total } | null
+
+  const [pendingAviaRoute, setPendingAviaRoute] = useState(null);
   const [aviaClassByPax, setAviaClassByPax] = useState({});
   const [aviaFareByPax, setAviaFareByPax] = useState({});
   const [aviaIndividualMode, setAviaIndividualMode] = useState(true);
   const [aviaParams, setAviaParams] = useState({ trip: 'rt', from: 'FRU', to: 'IST', depDate: null, retDate: null, pax: { adt: 2, chd: 0, infNoSeat: 0, infSeat: 0, special: {}, subsidized: {} }, cabin: 'Эконом', baggage: false, flex: false, direct: false, airline: '', ...PAX_DEFAULT_OPTIONS });
 
-  // Открыть карточку конкретной услуги (общее для клика по строке и для deep-link из чата/уведомления).
+
   const openAviaCard = (s) => { const match = AIR_SERVICES.find((a) => a.no === s.avia) || { no: s.avia || s.id, airline: (s.offer ? s.offer.airline : 'KC'), status: s.status, supplier: s.supplier, pax: 2, sum: s.sum, currency: s.currency, route: s.title, pnr: '—', ticket: '—', dep: s.date }; setActiveAvia(s.offer ? { ...match, offer: s.offer } : match); setSvcView('avia-card'); };
   const openOtherCard = (s) => { setActiveSvc(s.svcOffer ? { ...s.svcOffer, kind: s.kind, status: s.status, date: s.svcOffer.date || s.date, calc: s.calc, order: order.no } : { ...s, order: order.no }); setSvcView('svc-card'); };
   const openServiceCard = (s) => (s.kind === 'Авиа' ? openAviaCard(s) : openOtherCard(s));
 
-  // modals
+
   const [passport, setPassport] = useState(null);
   const [paxOpen, setPaxOpen] = useState(false);
   const [feeOpen, setFeeOpen] = useState(false);
-  const [editPax, setEditPax] = useState(null);   // участник для корректировки (единая форма)
-  const [docPax, setDocPax] = useState(null);      // участник для добавления документа (единая форма)
+  const [editPax, setEditPax] = useState(null);
+  const [docPax, setDocPax] = useState(null);
 
   useEffect(() => { setLoading(true); const t = setTimeout(() => setLoading(false), 600); return () => clearTimeout(t); }, [order.no]);
-  // deep-link: switch to requested tab even if the card is already mounted (e.g. opened from a notification)
+
   useEffect(() => { if (initTab) setTab(initTab); }, [initTab, order.no]);
-  // deep-link to a specific service: open its card (not the whole «Услуги» list) when a notification/chat
-  // link points to one concrete service. Waits for the async load so the service list is ready.
+
+
   useEffect(() => {
     if (!initSvc || loading) return;
     const s = services.find((x) => x.id === initSvc);
@@ -1902,11 +1846,11 @@ function OrderCard({ order, onBack, initTab, initSvc, initSvcSearch, fresh, onOp
     setTab('services');
     openServiceCard(s);
   }, [initSvc, loading, order.no]);
-  // onboarding: new order lands on «Услуги» — point the operator to where passengers & documents go
+
   useEffect(() => { if (fresh) toast('Заказ создан. Добавьте участников и их документы во вкладке «Участники».', 'info'); }, []);
 
   const docsReady = participants.filter((p) => p.docStatus === 'ok').length;
-  // visible top-level tabs, in the order shown on the reference card
+
   const TABS = [
     { key: 'route', label: 'Маршрут', icon: 'route' },
     { key: 'services', label: 'Услуги', icon: 'briefcase', count: services.length },
@@ -1915,7 +1859,7 @@ function OrderCard({ order, onBack, initTab, initSvc, initSvcSearch, fresh, onOp
     { key: 'finance', label: 'Финансы', icon: 'finance' },
     { key: 'history', label: 'История', icon: 'clock' },
   ];
-  // secondary sections tucked behind the «…» menu so the tab strip stays exactly six items
+
   const MORE_TABS = [
     { key: 'overview', label: 'Общая информация', icon: 'clipboard' },
     { key: 'clients', label: 'Клиенты', icon: 'contacts' },
@@ -1927,8 +1871,8 @@ function OrderCard({ order, onBack, initTab, initSvc, initSvcSearch, fresh, onOp
   const isTabLocked = (t) => !!t.locked;
 
   const goAddType = (type) => { setAddKind(type || 'Авиа'); setSvcView('add-service'); };
-  // applied from AviaSearchPanel — a route made of 1+ selected legs (one-way / round-trip / multi-city).
-  // Routing through the tariff screen first lets the operator set a booking class + fare per passenger.
+
+
   const addAviaSimple = (route, fareDeltaSum = 0) => {
     const id = 'S' + (services.length + 1);
     const legs = route.legs;
@@ -1941,7 +1885,7 @@ function OrderCard({ order, onBack, initTab, initSvc, initSvcSearch, fresh, onOp
     setSvcView(null);
     toast('Перелёт добавлен в сценарий заказа', 'ok');
   };
-  // route picked in AviaSearchPanel → open the per-passenger tariff screen before adding it
+
   const startAviaFareStep = (route) => { setAviaClassByPax({}); setAviaFareByPax({}); setAviaIndividualMode(true); setPendingAviaRoute(route); };
   const finalizeAviaFare = () => {
     if (!pendingAviaRoute) return;
@@ -1950,7 +1894,7 @@ function OrderCard({ order, onBack, initTab, initSvc, initSvcSearch, fresh, onOp
       const tiers = fareTiersForClass(cls);
       const fid = aviaFareByPax[i] || (tiers.find((f) => f.recommended) || tiers[0]).id;
       const t = tiers.find((f) => f.id === fid) || tiers[0];
-      return s + Math.round((t.delta || 0) / RUB_PER_USD); // ₽-дельта тарифа → $ (заказ в USD)
+      return s + Math.round((t.delta || 0) / RUB_PER_USD);
     }, 0);
     addAviaSimple(pendingAviaRoute, fareDeltaSum);
     setPendingAviaRoute(null);
@@ -1964,7 +1908,7 @@ function OrderCard({ order, onBack, initTab, initSvc, initSvcSearch, fresh, onOp
     toast(kind + ': услуга добавлена в заказ', 'ok');
   };
 
-  // Собрать КП из выбранных карточек услуг: создаём КП-контейнер и открываем раздел КП.
+
   const assembleKPFromCards = (chosen) => {
     if (!chosen || !chosen.length) { toast('Выберите хотя бы одну карточку', 'err'); return; }
     const uid = (p) => p + Math.random().toString(36).slice(2, 7);
@@ -1977,7 +1921,7 @@ function OrderCard({ order, onBack, initTab, initSvc, initSvcSearch, fresh, onOp
     toast('КП собрано из ' + items.length + ' карточек — открыт раздел «КП»', 'ok');
   };
 
-  // Свободная выгрузка подобранных услуг прямо в чат клиенту — без формирования КП (ТЗ-2 п.10)
+
   const exportServicesToChat = (chosen) => {
     if (!chosen || !chosen.length) { toast('Выберите хотя бы одну услугу', 'err'); return; }
     const lines = chosen.map((s) => {
@@ -1993,9 +1937,9 @@ function OrderCard({ order, onBack, initTab, initSvc, initSvcSearch, fresh, onOp
     onOpenChat && onOpenChat();
   };
 
-  // --- inside the Services tab, a sub-flow (viewing an existing service, adding a new one, the
-  // booking wizard) takes over the main column only — the tab strip and the right-hand aside
-  // stay exactly where they are, matching the reference card. ---
+
+
+
   const renderServicesArea = () => {
     if (svcView === 'booking') return <BookingWizard order={order} services={services} draft={bookingDraft}
       onSaveDraft={setBookingDraft} onClose={() => setSvcView(null)}
@@ -2044,12 +1988,12 @@ function OrderCard({ order, onBack, initTab, initSvc, initSvcSearch, fresh, onOp
     }
   };
 
-  // true only while the Услуги tab is actually showing a full-width sub-flow (the booking
-  // wizard) — on every other tab the aside/FAB stay visible as usual, even if a booking
-  // draft is parked in the background. Adding a service is a side panel now, not full-width.
+
+
+
   const fullWidthFlow = tab === 'services' && svcView === 'booking';
-  // shared with the aside's own condensed header (Заказ №… + status + ⋮), so both echo the
-  // same actions instead of drifting apart
+
+
   const headerMenuItems = [
     { icon: 'edit', label: 'Редактировать заказ', onClick: () => setEditOpen(true) },
     { icon: 'plus', label: 'Добавить услугу', onClick: () => { setTab('services'); goAddType('Авиа'); } },
@@ -2066,8 +2010,7 @@ function OrderCard({ order, onBack, initTab, initSvc, initSvcSearch, fresh, onOp
       </Topbar>
 
       <div className="content" style={{ paddingTop: 8 }}>
-        {/* header + tabs now live inside the (narrower) main column, so the aside can start
-            at the very top right alongside them instead of being pushed below a full-width bar */}
+
         <div className="oc-grid">
           <div className="oc-main">
             <div className="oc-head">
@@ -2120,17 +2063,14 @@ function OrderCard({ order, onBack, initTab, initSvc, initSvcSearch, fresh, onOp
           )}
         </div>
 
-        {/* always-pinned totals bar — visible across the whole order card, on every tab, not
-            just «Услуги». A sibling of .oc-grid (not nested in .oc-main) so it sticks to the
-            bottom of the page even though the aside is taller. Hidden only for the full-width
-            booking wizard, which has no aside/grid to sit alongside. */}
+
         {!fullWidthFlow && (
           <ServicesFooterBar services={services} participants={participants} bookingDraft={bookingDraft}
             onStartBooking={() => { setTab('services'); setSvcView('booking'); }} />
         )}
       </div>
 
-      {/* drawers / modals reused from order_extras */}
+
       <ReassignOperatorDrawer open={reassignOpen} current={operator} onClose={() => setReassignOpen(false)}
         onPick={(op) => { setOperator(op); setReassignOpen(false); toast('Ответственный оператор: ' + op, 'ok'); }} />
       {paxOpen && <PassengerDrawer open={paxOpen} onClose={() => setPaxOpen(false)}
@@ -2138,11 +2078,11 @@ function OrderCard({ order, onBack, initTab, initSvc, initSvcSearch, fresh, onOp
       {feeOpen && <FeeDrawer open={feeOpen} onClose={() => setFeeOpen(false)} />}
       {passport && <PassportModal passenger={passport} participants={participants} onClose={() => setPassport(null)}
         onAddDoc={(p) => { setPassport(null); setDocPax(p || { name: passport }); }} />}
-      {/* Единая форма корректировки участника (ТЗ п.5) */}
+
       <UnifiedPersonDrawer open={!!editPax} kind="person" mode="edit" showRole initial={editPax || undefined}
         title="Карточка пассажира" onClose={() => setEditPax(null)}
         onSave={(person, client) => { setParticipants((l) => l.map((x) => x.name === (editPax && editPax.name) ? { ...x, name: client.name, role: person.role, doc: client.doc, dob: client.dob, phone: client.phone } : x)); setEditPax(null); toast('Данные участника обновлены', 'ok'); }} />
-      {/* Единая форма добавления документа участнику (ТЗ п.4, ТЗ-2 п.1) */}
+
       <UnifiedDocumentDrawer open={!!docPax} person={{ name: docPax && docPax.name, citizenship: docPax && docPax.citizenship }}
         onClose={() => setDocPax(null)}
         onSave={(doc) => { setParticipants((l) => l.map((x) => x.name === (docPax && docPax.name) ? { ...x, documents: [...(x.documents || []), doc], docStatus: 'ok' } : x)); setDocPax(null); toast('Документ добавлен участнику', 'ok'); }} />
@@ -2151,7 +2091,7 @@ function OrderCard({ order, onBack, initTab, initSvc, initSvcSearch, fresh, onOp
         onClose={() => setEditOpen(false)}
         onAddPassenger={() => { setEditOpen(false); setPaxOpen(true); }} />
 
-      {/* per-passenger tariff screen, opened after a route is picked in AviaSearchPanel and before it's added to the order */}
+
       {pendingAviaRoute && (
         <FareSelectPanel pax={participants} groups={requestType === 'Групповая' ? AVIA_GROUPS_SEED : undefined}
           classByPax={aviaClassByPax} setClassByPax={setAviaClassByPax}
@@ -2160,7 +2100,7 @@ function OrderCard({ order, onBack, initTab, initSvc, initSvcSearch, fresh, onOp
           onClose={() => setPendingAviaRoute(null)} onApply={finalizeAviaFare} />
       )}
 
-      {/* confirm before anything actually leaves for the client */}
+
       <ConfirmDialog open={sendOpen} title="Отправить заказ клиенту?" confirmLabel="Отправить" confirmVariant="primary"
         onCancel={() => setSendOpen(false)}
         onConfirm={() => { setSendOpen(false); toast('Заказ отправлен клиенту', 'ok'); }}
@@ -2174,7 +2114,7 @@ function OrderCard({ order, onBack, initTab, initSvc, initSvcSearch, fresh, onOp
           </>
         } />
 
-      {/* other-service quick drawer */}
+
       <Drawer open={!!otherSvc} onClose={() => setOtherSvc(null)} title={otherSvc ? otherSvc.title : ''}
         footer={otherSvc && <div style={{ display: 'flex', gap: 10 }}><Button variant="secondary" style={{ flex: 1 }} onClick={() => setOtherSvc(null)}>Закрыть</Button><Button style={{ flex: 1 }} icon="edit">Редактировать</Button></div>}>
         {otherSvc && (
@@ -2193,10 +2133,10 @@ function OrderCard({ order, onBack, initTab, initSvc, initSvcSearch, fresh, onOp
   );
 }
 
-/* ====================================================================
-   ORDER EDIT DRAWER — consolidated side panel: passengers / route /
-   services / extra, with an order-summary aside (status, total, composition).
-   ==================================================================== */
+
+
+
+
 const EDIT_TABS = [
   { key: 'pax', n: 1, label: 'Пассажиры' },
   { key: 'route', n: 2, label: 'Маршрут' },
@@ -2235,7 +2175,7 @@ function OrderEditDrawer({ open, order, status, onStatusChange, services, partic
         <div className="scroll" style={{ background: '#fff', width: 'min(980px, 94vw)', height: '100vh',
           overflow: 'auto', boxShadow: 'var(--shadow-modal)', animation: 'slidein .26s cubic-bezier(.2,.9,.3,1)',
           display: 'flex', flexDirection: 'column' }}>
-          {/* Header */}
+
           <div style={{ padding: '22px 30px 0', position: 'sticky', top: 0, background: '#fff', zIndex: 3 }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
               <h2 style={{ fontSize: 22, fontWeight: 700, color: 'var(--ink)', margin: 0, letterSpacing: '-.02em' }}>Редактирование заказа №{order.no}</h2>
@@ -2249,10 +2189,10 @@ function OrderEditDrawer({ open, order, status, onStatusChange, services, partic
             <div style={{ borderBottom: '1px solid var(--line)', marginTop: 18 }} />
           </div>
 
-          {/* Body: form + summary aside */}
+
           <div style={{ display: 'flex', gap: 24, padding: '24px 30px', flex: 1, alignItems: 'flex-start' }}>
             <div style={{ flex: 1, minWidth: 0 }}>
-              {/* 1 — passengers */}
+
               <div ref={(el) => (secRefs.current.pax = el)} className="oce-sec">
                 <div className="oce-sec-h"><span className="n">1</span><span className="t">Пассажиры</span></div>
                 {participants.map((p, i) => (
@@ -2267,7 +2207,7 @@ function OrderEditDrawer({ open, order, status, onStatusChange, services, partic
                 <button className="oce-add" onClick={onAddPassenger}><Icon name="plus" style={{ width: 16, height: 16 }} />Добавить пассажира</button>
               </div>
 
-              {/* 2 — route */}
+
               <div ref={(el) => (secRefs.current.route = el)} className="oce-sec">
                 <div className="oce-sec-h"><span className="n">2</span><span className="t">Маршрут</span></div>
                 <div className="trip-toggle" style={{ marginBottom: 14 }}>
@@ -2297,7 +2237,7 @@ function OrderEditDrawer({ open, order, status, onStatusChange, services, partic
                 </div>
               </div>
 
-              {/* 3 — extra */}
+
               <div ref={(el) => (secRefs.current.extra = el)} className="oce-sec" style={{ marginBottom: 0 }}>
                 <div className="oce-sec-h"><span className="n">3</span><span className="t">Дополнительно</span></div>
                 <div className="form-grid">
@@ -2313,7 +2253,7 @@ function OrderEditDrawer({ open, order, status, onStatusChange, services, partic
               </div>
             </div>
 
-            {/* right summary aside */}
+
             <div style={{ width: 280, flex: '0 0 280px', display: 'flex', flexDirection: 'column', gap: 16, position: 'sticky', top: 0 }}>
               <div className="card card-pad">
                 <h3 className="card-title" style={{ fontSize: 16, marginBottom: 14 }}>Информация о заказе</h3>
@@ -2347,7 +2287,7 @@ function OrderEditDrawer({ open, order, status, onStatusChange, services, partic
             </div>
           </div>
 
-          {/* Footer */}
+
           <div style={{ padding: '16px 30px', borderTop: '1px solid var(--line)', position: 'sticky', bottom: 0, background: '#fff', display: 'flex', alignItems: 'center', gap: 12 }}>
             <Button variant="secondary" onClick={onClose}>Отмена</Button>
             <div style={{ flex: 1 }} />
@@ -2363,12 +2303,8 @@ function OrderEditDrawer({ open, order, status, onStatusChange, services, partic
   );
 }
 
-function BackRow({ label, onBack }) {
-  return <div style={{ marginBottom: 14 }}><Button variant="secondary" size="sm" icon="chevLeft" onClick={onBack}>{label}</Button></div>;
-}
-
 Object.assign(window, { OrderCard, AsyncBlock, OrderEditDrawer });
 
 
 
-export { ocCurrency, ocMoney, opPayable, opDebt, AsyncBlock, StatusControl, svcCalc, financeSnapshot, OrderAside, ReassignOperatorDrawer, tripFromServices, KvEditDrawer, TabOverview, TabClients, DocCell, PaxGroupCard, TabParticipants, TabRoute, SVC_FILTER_CHIPS, ServiceListRow, serviceTotals, ServicesFooterBar, OrderChangeCase, TabServices, ADD_SVC_CATS, fmtDur, RadioFlightRow, aviaPriceBounds, AviaFilters, AviaCardRow, legSegments, legFlightNos, LegTimeline, FlightScaleBar, SupplierTag, AviaResultRow, AviaPaxPanel, FlightFarePanel, FareInfoPanel, aviaDepMin, AviaListTable, AviaSearchPanel, QuickAddForm, AddServicePanel, TabOffers, OrderFinanceBlock, TabFinance, TabHistory, OrderCard, EDIT_TABS, OrderEditDrawer, BackRow };
+export { ocCurrency, ocMoney, opPayable, opDebt, AsyncBlock, StatusControl, svcCalc, financeSnapshot, OrderAside, ReassignOperatorDrawer, tripFromServices, KvEditDrawer, TabOverview, TabClients, DocCell, PaxGroupCard, TabParticipants, TabRoute, SVC_FILTER_CHIPS, ServiceListRow, serviceTotals, ServicesFooterBar, OrderChangeCase, TabServices, ADD_SVC_CATS, fmtDur, RadioFlightRow, aviaPriceBounds, AviaFilters, AviaCardRow, legSegments, legFlightNos, LegTimeline, FlightScaleBar, SupplierTag, AviaResultRow, AviaPaxPanel, FlightFarePanel, FareInfoPanel, aviaDepMin, AviaListTable, AviaSearchPanel, QuickAddForm, AddServicePanel, TabOffers, OrderFinanceBlock, TabFinance, TabHistory, OrderCard, EDIT_TABS, OrderEditDrawer };

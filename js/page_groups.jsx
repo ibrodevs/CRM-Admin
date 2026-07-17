@@ -3,17 +3,17 @@ import { Icon } from './icons';
 import { Button, Field, FilterChip, Input, Modal, ModalHeader, Pill, Select, Tabs, useToast } from './ui';
 import { SERVICE_KIND } from './data';
 import { Topbar } from './layout';
-import { StackPanel } from './page_orders';
+import { StackPanel } from './components/shared-panels';
 import { FinRow, StatTile, WarnBanner, f$ } from './page_finance';
 
-// ===== Групповые бронирования (ТЗ) =====
-// Два сценария в одной архитектуре: классическое (единый блок/квота) и дроблёное
-// (несколько технических броней). Для клиента это всегда ОДНА поездка, один состав,
-// одна финсводка. Три уровня: основной групповой заказ → групповая услуга →
-// бронирования поставщика. Переход классическое↔дроблёное, матрица группы,
-// контроль различий, частичный результат, массовые действия.
 
-/* ---------- статусы ---------- */
+
+
+
+
+
+
+
 const GR_CLASSIC_STATUS = ['Подготовка запроса', 'Запрос отправлен', 'Ожидается ответ', 'Получено предложение', 'Блок подтверждён', 'Ожидается депозит', 'Ожидается список', 'Имена переданы', 'Ожидается оплата', 'Готово к выписке', 'Выписано частично', 'Выписано полностью', 'Блок сокращён', 'Блок аннулирован', 'Требуется вмешательство'];
 const GR_SPLIT_STATUS = ['Подготовка распределения', 'Распределение подтверждено', 'Бронирование выполняется', 'Забронировано частично', 'Забронировано полностью', 'Требуется решение', 'Ожидается оплата', 'Выписано частично', 'Выписано полностью', 'Частично отменено', 'Завершено'];
 function grStatusTone(s) {
@@ -27,7 +27,7 @@ const GR_PAX_TONE = { added: 'gray', assigned: 'blue', checked: 'blue', sent: 't
 const GR_BOOK_STATE = { ok: { l: 'Создано успешно', tone: 'green', icon: 'checkCircle' }, run: { l: 'Выполняется', tone: 'blue', icon: 'loader' }, wait: { l: 'Ожидает', tone: 'gray', icon: 'clock' }, err: { l: 'Ошибка', tone: 'red', icon: 'alertCircle' }, need: { l: 'Требует решения', tone: 'amber', icon: 'alertTriangle' } };
 const GR_SCENARIO = { classic: { l: 'Классический блок', tone: 'blue', icon: 'grid' }, split: { l: 'Дроблёное', tone: 'teal', icon: 'copy' }, mixed: { l: 'Комбинированный', tone: 'amber', icon: 'swap' } };
 
-/* ---------- участники (30 чел.) с атрибутами распределения ---------- */
+
 const GR_SURNAMES = ['Асанов', 'Асанова', 'Асанов', 'Бекова', 'Бек', 'Бекова', 'Иманов', 'Иманова', 'Райымбеков', 'Нургазиева', 'Токтогулов', 'Сыдыков', 'Абдыкадыр', 'Мамытова', 'Жээнбеков', 'Осмонова', 'Курманбек', 'Алиева', 'Дуйшеев', 'Нурланова', 'Байзаков', 'Кыдырова', 'Эргешов', 'Садыкова', 'Молдалиев', 'Турат', 'Исаков', 'Бейшеева', 'Качкын', 'Уметова'];
 const GR_NAMES = ['Тимур', 'Айгерим', 'Данияр', 'Назгуль', 'Бакыт', 'Алина', 'Руслан', 'Жылдыз', 'Эрлан', 'Бегимай', 'Азамат', 'Улан', 'Санжар', 'Айпери', 'Нурлан', 'Гульнара', 'Кубат', 'Анна', 'Марат', 'Нургуль', 'Улукбек', 'Аида', 'Тилек', 'Чолпон', 'Данил', 'Мээрим', 'Бекзат', 'Асель', 'Максат', 'Динара'];
 const GR_PAX = Array.from({ length: 30 }, (_, i) => {
@@ -51,8 +51,8 @@ function paxTags(p) {
   return t;
 }
 
-/* ---------- авто-распределение по техническим ограничениям поставщика ---------- */
-// держим семьи/неразделяемых вместе, дети рядом с сопровождающими, затем добиваем до лимита
+
+
 function computeSplit(pax, maxPer) {
   const groups = [];
   const families = {};
@@ -65,7 +65,7 @@ function computeSplit(pax, maxPer) {
   return groups.map((g, i) => ({ id: 'tb-' + (i + 1), pax: g }));
 }
 
-/* ---------- групповые заказы (мок) ---------- */
+
 const GROUP_ORDERS = [
   {
     no: 51162, client: 'ОсОО "Гранд лимитед"', legal: 'ОсОО «Гранд лимитед»', contact: 'Джээнбеков Азамат · +996 555 12-34-56',
@@ -102,8 +102,8 @@ const GROUP_ORDERS = [
 ];
 function grAgg(o) {
   const total = o.pax.length;
-  // узкое место по услугам, охватывающим всю группу (напр. перелёт нужен всем);
-  // услуги с частичным охватом (квота отеля на часть группы) не занижают показатель
+
+
   const full = o.services.filter((s) => s.requested >= total);
   const confirmed = full.length ? Math.min(...full.map((s) => s.confirmed)) : Math.max(...o.services.map((s) => s.confirmed), 0);
   const issued = full.length ? Math.min(...full.map((s) => s.issued)) : Math.max(...o.services.map((s) => s.issued), 0);
@@ -114,9 +114,9 @@ function grAgg(o) {
   return { total, confirmed, issued, noSeat, bookings, cost, problems };
 }
 
-/* ==================================================================== */
-/* Создание группового запроса                                          */
-/* ==================================================================== */
+
+
+
 function GroupRequestPanel({ onClose }) {
   const toast = useToast();
   const [f, setF] = useState({ kind: 'Авиа', route: '', dateFrom: '', dateTo: '', pax: 30, classCode: 'Эконом', bags: '20 кг', rooms: '', board: 'Завтрак', budget: '', supplier: 'Turkish Airlines', alts: '', notes: '' });
@@ -151,9 +151,9 @@ function GroupRequestPanel({ onClose }) {
   );
 }
 
-/* ==================================================================== */
-/* Услуги: классический блок / дроблёное / авто-split / параллель / частичный */
-/* ==================================================================== */
+
+
+
 const GR_CLASSIC_STEPS = ['Запрос', 'Отправка', 'Предложение', 'Блок', 'Список имён', 'Выписка'];
 function classicStage(status) {
   const map = { 'Подготовка запроса': 0, 'Запрос отправлен': 1, 'Ожидается ответ': 1, 'Получено предложение': 2, 'Блок подтверждён': 3, 'Ожидается депозит': 3, 'Ожидается список': 4, 'Имена переданы': 4, 'Ожидается оплата': 4, 'Готово к выписке': 5, 'Выписано частично': 5, 'Выписано полностью': 5, 'Блок сокращён': 3, 'Требуется вмешательство': 3 };
@@ -208,12 +208,12 @@ function ClassicBlockCard({ s }) {
 }
 function SplitFlow({ s, pax }) {
   const toast = useToast();
-  const [phase, setPhase] = useState('idle'); // idle → preview → running → result
+  const [phase, setPhase] = useState('idle');
   const [split, setSplit] = useState(() => computeSplit(pax, s.maxPer));
   const [states, setStates] = useState({});
   const startSplit = () => { setSplit(computeSplit(pax, s.maxPer)); setPhase('preview'); };
   const move = (fromId, delta) => {
-    // демо ручной корректировки: перекинуть 1 участника в соседнюю бронь
+
     setSplit((gs) => {
       const idx = gs.findIndex((g) => g.id === fromId); const to = idx + delta;
       if (to < 0 || to >= gs.length || gs[idx].pax.length <= 1) return gs;
@@ -314,7 +314,7 @@ function GrServiceCard({ o, s }) {
       </div>
       {open && (
         <div style={{ padding: '0 18px 18px', display: 'grid', gap: 12 }}>
-          {/* переход между сценариями */}
+
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
             <span style={{ fontSize: 12.5, color: 'var(--muted)' }}>Сценарий оформления:</span>
             {Object.entries(GR_SCENARIO).map(([key, v]) => (
@@ -344,7 +344,7 @@ function GrServicesTab({ o }) {
   );
 }
 
-/* ---------- массовые действия ---------- */
+
 const GR_MASS_ACTIONS = [
   { id: 'req', l: 'Запросить блок', icon: 'send' }, { id: 'confirm', l: 'Подтвердить блок', icon: 'check' },
   { id: 'load', l: 'Загрузить список', icon: 'download' }, { id: 'sendlist', l: 'Отправить список', icon: 'mail' },
@@ -396,9 +396,9 @@ function GrMassActions({ o }) {
   );
 }
 
-/* ==================================================================== */
-/* Матрица группы                                                       */
-/* ==================================================================== */
+
+
+
 const GR_MATRIX_COLS = {
   'Авиа': ['Пассажир', 'Подгруппа', 'PNR', 'Рейс', 'Класс', 'Тариф', 'Багаж', 'Место', 'Стоимость', 'Статус'],
   'ЖД': ['Пассажир', 'Подгруппа', 'Номер брони', 'Поезд', 'Вагон', 'Место', 'Класс', 'Стоимость', 'Статус'],
@@ -449,9 +449,9 @@ function GrMatrixTab({ o }) {
   );
 }
 
-/* ==================================================================== */
-/* Контроль различий                                                    */
-/* ==================================================================== */
+
+
+
 const GR_DIFFS = [
   { param: 'Тариф', values: [{ b: 'Бронь #1–3', v: 'Standard' }, { b: 'Бронь #4', v: 'Flex (+18 $)' }], warn: true },
   { param: 'Класс обслуживания', values: [{ b: 'Бронь #1–3', v: 'Эконом' }, { b: 'Бронь #4', v: 'Комфорт' }], warn: true },
@@ -487,9 +487,9 @@ function GrDiffTab() {
   );
 }
 
-/* ==================================================================== */
-/* Финансы группы                                                       */
-/* ==================================================================== */
+
+
+
 function GrFinanceTab({ o }) {
   const agg = grAgg(o);
   const paid = o.services.reduce((s, x) => s + x.paid, 0);
@@ -533,9 +533,9 @@ function GrFinanceTab({ o }) {
   );
 }
 
-/* ==================================================================== */
-/* Участники                                                            */
-/* ==================================================================== */
+
+
+
 function GrPaxTab({ o }) {
   const [sub, setSub] = useState('');
   const subs = [...new Set(o.pax.map((p) => p.sub))];
@@ -591,19 +591,19 @@ function GrHistoryTab({ o }) {
   );
 }
 
-/* ==================================================================== */
-/* Документы группы: массовая загрузка + автосопоставление + комплекты   */
-/* ==================================================================== */
+
+
+
 function GrDocsTab({ o }) {
   const toast = useToast();
-  const [phase, setPhase] = useState('idle'); // idle → matching → done
+  const [phase, setPhase] = useState('idle');
   const [rows, setRows] = useState(() => o.pax.map((p) => ({ p, doc: null, match: null })));
   const upload = () => {
     setPhase('matching');
-    // авто-сопоставление: система распознаёт тип и сопоставляет с участником по ФИО
+
     setTimeout(() => {
       setRows(o.pax.map((p, i) => {
-        const unmatched = i >= o.pax.length - 3; // 3 не сопоставились автоматически (демо)
+        const unmatched = i >= o.pax.length - 3;
         return { p, doc: 'Билет · ' + p.name.split(' ')[0] + '.pdf', match: unmatched ? 'none' : 'auto' };
       }));
       setPhase('done');
@@ -659,9 +659,9 @@ function GrDocsTab({ o }) {
   );
 }
 
-/* ==================================================================== */
-/* Детальный вид группового заказа                                      */
-/* ==================================================================== */
+
+
+
 const GR_DETAIL_TABS = [{ key: 'services', label: 'Услуги' }, { key: 'matrix', label: 'Матрица' }, { key: 'diff', label: 'Различия' }, { key: 'docs', label: 'Документы' }, { key: 'finance', label: 'Финансы' }, { key: 'pax', label: 'Участники' }, { key: 'history', label: 'История' }];
 function GroupOrderDetail({ o, onBack }) {
   const [tab, setTab] = useState('services');
@@ -707,9 +707,9 @@ function GroupOrderDetail({ o, onBack }) {
   );
 }
 
-/* ==================================================================== */
-/* MAIN — список групповых заказов                                      */
-/* ==================================================================== */
+
+
+
 function GroupsPage() {
   const [open, setOpen] = useState(null);
   const [create, setCreate] = useState(false);

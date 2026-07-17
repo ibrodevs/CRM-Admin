@@ -9,7 +9,7 @@ import {
   FIN_PAY_STATUS, FIN_PRIORITY, FIN_PAYMENTS, obl, FIN_COUNTERPARTIES, FIN_SCHEMES,
   FIN_CASHFLOW, FIN_RECEIPTS, FIN_SALARY, FIN_RULES, FIN_RECON_STATUS, FIN_RECON, FIN_ACTIONS,
   FIN_SVC_MODEL, sumK, svcClientTotal, svcSupplierPay, svcModelProfit, FIN_ANALYTICS_SLICES,
-} from './data_finance';
+} from './data/finance';
 
 function StatTile({ label, value, tone, sub, icon, onClick, accent }) {
   return (
@@ -475,8 +475,8 @@ function SupplierSettlements({ cp }) {
     { t: '10.07.2026', kind: 'Возврат', sum: -120, note: 'Возврат за отменённый номер' },
   ]);
   const add = (kind) => {
-    const demo = { 'Аванс': 500, 'Доплата': 180, 'Возврат': -90, 'Взаимозачёт': -260 };
-    setOps((o) => [{ t: finNow().slice(0, 10), kind, sum: demo[kind], note: kind === 'Взаимозачёт' ? 'Зачёт встречных требований' : 'Операция оператора' }, ...o]);
+    const operationAmounts = { 'Аванс': 500, 'Доплата': 180, 'Возврат': -90, 'Взаимозачёт': -260 };
+    setOps((o) => [{ t: finNow().slice(0, 10), kind, sum: operationAmounts[kind], note: kind === 'Взаимозачёт' ? 'Зачёт встречных требований' : 'Операция оператора' }, ...o]);
     toast(kind + ' проведён', 'ok');
   };
   const kindTone = { 'Аванс': 'blue', 'Доплата': 'amber', 'Возврат': 'teal', 'Взаимозачёт': 'gray' };

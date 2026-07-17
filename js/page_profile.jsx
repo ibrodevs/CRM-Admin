@@ -2,79 +2,19 @@ import { useState } from 'react';
 import { Icon } from './icons';
 import { Avatar, Button, Checkbox, Drawer, Field, Input, Pill, Select, Tabs, Toggle, useToast } from './ui';
 import { CURRENCIES, CURRENT_USER } from './data';
-import { OPERATOR_SLA, OPERATOR_SVC_ACCESS, SVC_ACCESS_KINDS, SVC_ACCESS_RIGHTS, fullRights, noRights, operatorKindsLabel, operatorSla, operatorSvcAccess } from './data_tz2';
+import { OPERATOR_SLA, OPERATOR_SVC_ACCESS, SVC_ACCESS_KINDS, SVC_ACCESS_RIGHTS, fullRights, noRights, operatorKindsLabel, operatorSla, operatorSvcAccess } from './data/access-control';
 import { Topbar } from './layout';
 import { RolesTab } from './page_settings';
 import { MotivationDrawer, motivationFor, shiftDuration, shiftFmtTime } from './page_shifts';
+import { ServiceAccessEditor } from './features/settings/service-access-editor';
 
-// ===== Профиль пользователя (ТЗ): шапка + вкладки Профиль / Безопасность / Уведомления /
-//        Предпочтения / Доступы / Мотивация / Статистика / Рабочее время =====
+
+
 
 const PRESENCE_TONE = { 'Онлайн': 'green', 'Не в сети': 'gray', 'В отпуске': 'amber' };
 const WORK_STATUS = ['Работает', 'Отпуск', 'Больничный', 'Уволен'];
 
-/* ---------- Доступ по видам услуг (Блок D) — редактор области ответственности ---------- */
-function ServiceAccessEditor({ operator }) {
-  const toast = useToast();
-  const [acc, setAcc] = useState(() => JSON.parse(JSON.stringify(operatorSvcAccess(operator))));
-  const [openKind, setOpenKind] = useState(null);
-  const setFull = (v) => setAcc((a) => ({ ...a, fullAccess: v }));
-  const kindEnabled = (k) => acc.kinds[k] && Object.values(acc.kinds[k]).some(Boolean);
-  const toggleKind = (k) => setAcc((a) => {
-    const kinds = { ...a.kinds };
-    if (kindEnabled(k)) delete kinds[k]; else kinds[k] = fullRights();
-    return { ...a, kinds };
-  });
-  const toggleRight = (k, r) => setAcc((a) => {
-    const kinds = { ...a.kinds };
-    const cur = kinds[k] ? { ...kinds[k] } : noRights();
-    cur[r] = !cur[r]; kinds[k] = cur;
-    return { ...a, kinds };
-  });
-  const save = () => { OPERATOR_SVC_ACCESS[operator] = JSON.parse(JSON.stringify(acc)); toast('Область ответственности сохранена', 'ok'); };
 
-  return (
-    <div>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', borderRadius: 12, border: '1px solid var(--field-line)', marginBottom: 14 }}>
-        <div><div style={{ fontWeight: 600, color: 'var(--ink)' }}>Полный доступ ко всем услугам заказа</div><div style={{ fontSize: 12, color: 'var(--muted)' }}>Оператор работает со всеми видами услуг без ограничений</div></div>
-        <Toggle on={acc.fullAccess} onChange={setFull} />
-      </div>
-      {!acc.fullAccess && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-          <div style={{ fontSize: 12, color: 'var(--muted)' }}>Отметьте виды услуг и настройте права по каждому. Оператор не имеет доступа к невыбранным видам.</div>
-          {SVC_ACCESS_KINDS.map((k) => {
-            const on = kindEnabled(k);
-            const isOpen = openKind === k;
-            return (
-              <div key={k} className="card" style={{ overflow: 'hidden' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 16px' }}>
-                  <Checkbox on={on} onChange={() => toggleKind(k)} />
-                  <span style={{ flex: 1, fontWeight: 600, color: 'var(--ink)' }}>{k}</span>
-                  {on && <span style={{ fontSize: 12, color: 'var(--muted)' }}>{SVC_ACCESS_RIGHTS.filter((r) => acc.kinds[k] && acc.kinds[k][r]).length} из {SVC_ACCESS_RIGHTS.length} прав</span>}
-                  {on && <button className="icon-btn" onClick={() => setOpenKind(isOpen ? null : k)}><Icon name={isOpen ? 'chevUp' : 'chevDown'} /></button>}
-                </div>
-                {on && isOpen && (
-                  <div style={{ borderTop: '1px solid var(--line)', padding: '12px 16px', background: 'var(--surface-2)', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px 20px' }}>
-                    {SVC_ACCESS_RIGHTS.map((r) => (
-                      <label key={r} style={{ display: 'inline-flex', alignItems: 'center', gap: 8, cursor: 'pointer', fontSize: 13, color: 'var(--body)' }}>
-                        <Checkbox on={!!(acc.kinds[k] && acc.kinds[k][r])} onChange={() => toggleRight(k, r)} />{r}
-                      </label>
-                    ))}
-                  </div>
-                )}
-              </div>
-            );
-          })}
-        </div>
-      )}
-      <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 16 }}>
-        <Button icon="check" onClick={save}>Сохранить доступы</Button>
-      </div>
-    </div>
-  );
-}
-
-/* ---------- Мотивация (read + edit) ---------- */
 function ProfileMotivation({ operator }) {
   const [tick, setTick] = useState(0);
   const [editOpen, setEditOpen] = useState(false);
@@ -118,7 +58,7 @@ function ProfileMotivation({ operator }) {
   );
 }
 
-/* ---------- Статистика ---------- */
+
 function ProfileStats({ operator }) {
   const toast = useToast();
   const stats = [
@@ -143,7 +83,7 @@ function ProfileStats({ operator }) {
   );
 }
 
-/* ---------- Рабочее время (смены + отклик на заявку) ---------- */
+
 function ProfileWorkTime({ operator }) {
   const toast = useToast();
   const [sla, setSla] = useState(operatorSla(operator));
@@ -164,7 +104,7 @@ function ProfileWorkTime({ operator }) {
   ];
   return (
     <div className="fade-in">
-      {/* Блок A — норматив отклика на заявку */}
+
       <div className="card card-pad" style={{ marginBottom: 16 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap' }}>
           <div style={{ flex: 1, minWidth: 220 }}>
@@ -207,7 +147,7 @@ function ProfilePage({ onNavigate, initialTab }) {
   const [showPw, setShowPw] = useState(false);
   const [pwErr, setPwErr] = useState({});
   const [notif, setNotif] = useState({ incrm: true, email: true, telegram: true, max: true, whatsapp: false, sms: false, push: true, desktop: false, newReq: true, exchRet: true, overdue: true, chat: true, orderChg: false });
-  const [rolesOpen, setRolesOpen] = useState(false); // матрица прав — боковым окном, без ухода со страницы
+  const [rolesOpen, setRolesOpen] = useState(false);
   const [prefs, setPrefs] = useState({ theme: 'Светлая', dateFmt: 'ДД.ММ.ГГГГ', timeFmt: '24 часа', currency: 'USD', lang: u.lang, pageSize: '25', startPage: 'Главное' });
 
   const setField = (k) => (e) => setPf((p) => ({ ...p, [k]: e.target.value }));
@@ -238,8 +178,8 @@ function ProfilePage({ onNavigate, initialTab }) {
     { time: 'Вчера, 18:02', ip: '212.42.100.7', place: 'Бишкек, KG', ok: true },
     { time: '05.07.2026, 22:41', ip: '95.140.10.3', place: 'Неизвестно', ok: false },
   ];
-  // Каналы доставки уведомлений оператору. «В системе» — центр уведомлений (колокольчик);
-  // MAX — наш мессенджер (наравне с Telegram); WhatsApp/SMS — резервные для критичных.
+
+
   const channelRows = [
     ['incrm', 'В системе (центр уведомлений)', 'bell'], ['email', 'E-mail', 'mail'],
     ['telegram', 'Telegram', 'send'], ['max', 'MAX', 'chat'], ['whatsapp', 'WhatsApp', 'chat'],
@@ -257,7 +197,7 @@ function ProfilePage({ onNavigate, initialTab }) {
         <Button variant="secondary" icon="chevLeft" onClick={() => onNavigate('dashboard')}>Вернуться</Button>
       </Topbar>
       <div className="content">
-        {/* Шапка профиля */}
+
         <div className="card card-pad" style={{ display: 'flex', alignItems: 'center', gap: 24, marginBottom: 20, flexWrap: 'wrap' }}>
           <Avatar src={u.avatar} name={u.name} size={92} />
           <div style={{ flex: 1, minWidth: 220 }}>
@@ -278,7 +218,7 @@ function ProfilePage({ onNavigate, initialTab }) {
 
         <div style={{ marginBottom: 20, overflowX: 'auto' }}><Tabs tabs={TABS} value={tab} onChange={setTab} /></div>
 
-        {/* ---- Профиль ---- */}
+
         {tab === 'profile' && (
           <div className="card card-pad fade-in" style={{ maxWidth: 900 }}>
             <div className="form-grid">
@@ -304,7 +244,7 @@ function ProfilePage({ onNavigate, initialTab }) {
           </div>
         )}
 
-        {/* ---- Безопасность ---- */}
+
         {tab === 'security' && (
           <div className="fade-in grid-2" style={{ alignItems: 'start' }}>
             <div className="card card-pad">
@@ -351,7 +291,7 @@ function ProfilePage({ onNavigate, initialTab }) {
           </div>
         )}
 
-        {/* ---- Уведомления ---- */}
+
         {tab === 'notif' && (
           <div className="card card-pad fade-in" style={{ maxWidth: 680 }}>
             <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--muted)', marginBottom: 6 }}>Каналы доставки</div>
@@ -369,8 +309,7 @@ function ProfilePage({ onNavigate, initialTab }) {
               </div>
             ))}
 
-            {/* По услугам — согласно доступам оператора (ТЗ #8): состав услуг и действий
-                определяется правами, которые назначил администратор в разделе «Доступы». */}
+
             {(() => {
               const acc = operatorSvcAccess(u.name);
               const ACTION_EVENTS = ['Бронирование', 'Выписка', 'Обмен', 'Возврат', 'Отмена', 'Корректировка документов', 'Отправка документов клиенту'];
@@ -419,7 +358,7 @@ function ProfilePage({ onNavigate, initialTab }) {
           </div>
         )}
 
-        {/* ---- Предпочтения ---- */}
+
         {tab === 'prefs' && (
           <div className="card card-pad fade-in" style={{ maxWidth: 760 }}>
             <div className="form-grid">
@@ -437,7 +376,7 @@ function ProfilePage({ onNavigate, initialTab }) {
           </div>
         )}
 
-        {/* ---- Доступы ---- */}
+
         {tab === 'access' && (
           <div className="fade-in grid-2" style={{ alignItems: 'start' }}>
             <div className="card card-pad">
@@ -459,13 +398,13 @@ function ProfilePage({ onNavigate, initialTab }) {
           </div>
         )}
 
-        {/* ---- Мотивация / Статистика / Рабочее время ---- */}
+
         {tab === 'motivation' && <ProfileMotivation operator={u.name} />}
         {tab === 'stats' && <ProfileStats operator={u.name} />}
         {tab === 'worktime' && <ProfileWorkTime operator={u.name} />}
       </div>
 
-      {/* Матрица прав по ролям — боковым окном, чтобы не терять текущую страницу профиля */}
+
       <Drawer open={rolesOpen} onClose={() => setRolesOpen(false)} title="Матрица прав по ролям" sub="Права доступа по ролям" width="min(940px,97vw)"
         footer={<Button variant="secondary" style={{ width: '100%' }} onClick={() => setRolesOpen(false)}>Закрыть</Button>}>
         <RolesTab />
@@ -474,8 +413,8 @@ function ProfilePage({ onNavigate, initialTab }) {
   );
 }
 
-Object.assign(window, { ProfilePage, ServiceAccessEditor, ProfileMotivation, ProfileStats, ProfileWorkTime });
+Object.assign(window, { ProfilePage, ProfileMotivation, ProfileStats, ProfileWorkTime });
 
 
 
-export { PRESENCE_TONE, WORK_STATUS, ServiceAccessEditor, ProfileMotivation, ProfileStats, ProfileWorkTime, ProfilePage };
+export { PRESENCE_TONE, WORK_STATUS, ProfileMotivation, ProfileStats, ProfileWorkTime, ProfilePage };

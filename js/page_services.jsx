@@ -2,24 +2,24 @@ import { useState, useEffect, useRef } from 'react';
 import { Icon } from './icons';
 import { ActionMenu, Button, Checkbox, DateField, DateRangeField, Drawer, EmptyState, FilterChip, Input, Pill, Radio, SearchBox, Select, Tabs, TimeLimitBadge, Toggle, fmtDate, plural, useToast } from './ui';
 import { CURRENT_USER, ORDERS, PROPOSALS, RAIL_OCCUPIED, RAIL_SERVICE_CLASSES, RAIL_WAGONS, RETURNS, SERVICE_KIND, SERVICE_STATUS, SVC_DATA } from './data';
-import { CARD_CLIENT_VISIBILITY, CARD_STATUS, CARD_STATUS_FLOW, SEND_CHANNELS, cardInternals, cardStatus, orderClientChannel, sendChannelMeta } from './data_tz2';
-import { CHAIN_STATUS, DELIVERY_STATUS, DELIVERY_TONE, FORCE_MAJEURE_TYPES, advanceDelivery, affectedServiceChain, buildCardFields, buildForceMajeureRows, cardAction, cardEmailTemplate, cardScenario, cardsFor, channelMode, defaultForceMajeure, enabledChannels, operatorCardRights, recordCardResponse, scenarioActions, scenarioBadge, scenariosForKind, sendServiceCard, smartAlternatives } from './data_service_cards';
+import { CARD_CLIENT_VISIBILITY, CARD_STATUS, CARD_STATUS_FLOW, SEND_CHANNELS, cardInternals, cardStatus, orderClientChannel, sendChannelMeta } from './data/access-control';
+import { CHAIN_STATUS, DELIVERY_STATUS, DELIVERY_TONE, FORCE_MAJEURE_TYPES, advanceDelivery, affectedServiceChain, buildCardFields, buildForceMajeureRows, cardAction, cardEmailTemplate, cardScenario, cardsFor, channelMode, defaultForceMajeure, enabledChannels, operatorCardRights, recordCardResponse, scenarioActions, scenarioBadge, scenariosForKind, sendServiceCard, smartAlternatives } from './data/service-cards';
 import { UnifiedPersonDrawer } from './forms_unified';
 import { Topbar } from './layout';
 import { DetailedSearchPanel } from './page_dashboard';
 import { DocCorrectionPanel, docCorrKind } from './page_flights';
 import { rub } from './page_avia_picker';
 import { OperationConfirmModal } from './order_ops';
-import { PanelSub, StackPanel } from './page_orders';
+import { PanelSub, StackPanel } from './components/shared-panels';
 import { kpNow } from './page_offers';
 
-// ===== Сервисные модули (ЖД / гостиницы / трансферы / автобусы / туры) =====
-// Единый каркас на шаблоне авиамодуля: реестр → поиск → выдача → карточка.
+
+
 
 function svM(n) { return Math.round(n).toLocaleString('ru-RU') + ' $'; }
 
-/* Аэроэкспресс — направления (аэропорт ⇄ городской терминал) и вариации проезда.
-   Тариф флотовый: от направления не зависит, отличается видом проезда (разово / туда-обратно / абонемент). */
+
+
 const AERO_DIRS = [
   { id: 'svo', label: 'Шереметьево (SVO) ⇄ Белорусский вокзал' },
   { id: 'dme', label: 'Домодедово (DME) ⇄ Павелецкий вокзал' },
@@ -44,7 +44,7 @@ const SVC_CFG = {
     fields: [{ k: 'airport', l: 'Аэропорт', t: 'text', w: 230 }, { k: 'date', l: 'Дата', t: 'date', w: 156 }, { k: 'pax', l: 'Гостей', t: 'stepper', w: 150 }, { k: 'cls', l: 'Класс зала', t: 'select', w: 170, o: ['Комфорт', 'Бизнес', 'Первый класс'] }] },
 };
 
-/* ---------- search field renderer ---------- */
+
 function SvcField({ f, form, set }) {
   const v = form[f.k];
   if (f.t === 'date') return <div className="av-field" style={{ width: f.w }}><span className="label">{f.l}</span><DateField value={v} onChange={(d) => set(f.k, d)} placeholder="Выбрать" /></div>;
@@ -62,7 +62,7 @@ function SvcField({ f, form, set }) {
   return <div className="av-field" style={{ width: f.w }}><span className="label">{f.l}</span><Input value={v || ''} onChange={(e) => set(f.k, e.target.value)} placeholder={f.l} /></div>;
 }
 
-/* ---------- offer card (reuses off-card) ---------- */
+
 function SvcOfferCard({ o, kind, onSelect, onSave, selectLabel }) {
   const k = SERVICE_KIND[kind];
   const total = o.cost + o.fee;
@@ -95,9 +95,9 @@ function SvcOfferCard({ o, kind, onSelect, onSave, selectLabel }) {
   );
 }
 
-/* ---------- service card — единая структура с авиа-карточкой (вкладки: участники / детали /
-   поставщик / финансы / документы / комментарии / история), чтобы все услуги выглядели одинаково ---------- */
-/* Строки внутренних финполей, которые компания РАЗРЕШИЛА показывать клиенту (настройка видимости). */
+
+
+
 function clientFinRows(fin, vis, fmt) {
   const rows = [
     ['supplierPrice', 'Цена поставщика', fin.supplierPrice],
@@ -110,7 +110,7 @@ function clientFinRows(fin, vis, fmt) {
   return rows.map(([k, label, val]) => (<div className="kv-row" key={k}><span className="k">{label}</span><span className="v">{fmt(val)}</span></div>));
 }
 
-/* ---------- Карточка услуги: индикатор жизненного цикла (создана → … → оформлена) ---------- */
+
 function CardLifecycle({ current }) {
   const done = CARD_STATUS_FLOW.indexOf(current);
   return (
@@ -131,18 +131,18 @@ function CardLifecycle({ current }) {
   );
 }
 
-/* ---------- Универсальный конструктор карточки услуги (ТЗ «Карточки заказа») ----------
-   Карточка собирается из трёх параметров: вид услуги + сценарий + состояние.
-   Оператор не пишет сообщение вручную: выбирает сценарий → система подставляет ярлык,
-   финансовую логику и действия клиента, показывает предпросмотр под конкретный канал.
-   Отправка фиксирует неизменяемую версию, регистрирует доставки и историю. */
 
-// Финансовая модель карточки по сценарию (§7, §9): 'full' | 'exchange' | 'none' | 'refund'.
+
+
+
+
+
+
 function cardFinModel(sc, fin, ex, exFin) {
   if (sc.fin === 'exchange') {
     const diff = ex ? (ex.diff || 0) : 0;
     const penalty = exFin.supplierPenalty || 0;
-    const serviceFee = sc.noAutoFee ? 0 : (exFin.serviceFee || 0); // §9: при вынужденном обмене сбор не добавляется автоматически
+    const serviceFee = sc.noAutoFee ? 0 : (exFin.serviceFee || 0);
     const total = diff + penalty + serviceFee + (exFin.extraHold || 0);
     return { mode: 'exchange', diff, penalty, serviceFee, total };
   }
@@ -151,7 +151,7 @@ function cardFinModel(sc, fin, ex, exFin) {
   return { mode: 'full', base: Math.max(0, fin.clientTotal - (fin.fee || 0)), fee: fin.fee || 0, total: fin.clientTotal };
 }
 
-// Финансовый блок карточки (то, что видит клиент) — рендерится в предпросмотре по всем каналам.
+
 function CardFinancialBlock({ vm, fmt, compact }) {
   const f = vm.finModel, signed = (n) => (n > 0 ? '+ ' : n < 0 ? '− ' : '') + fmt(Math.abs(n || 0));
   if (f.mode === 'none') return null;
@@ -160,9 +160,7 @@ function CardFinancialBlock({ vm, fmt, compact }) {
     rows.push(['Разница стоимости', signed(f.diff)]);
     if (f.penalty) rows.push(['Сбор поставщика', fmt(f.penalty)]);
     if (f.serviceFee) rows.push(['Сервисный сбор', fmt(f.serviceFee)]);
-  } else if (f.mode === 'refund') {
-    // основная строка — итог ниже
-  } else {
+  } else if (f.mode !== 'refund') {
     rows.push(['Стоимость услуги', fmt(f.base)]);
     if (f.fee) rows.push(['Сервисный сбор', fmt(f.fee)]);
   }
@@ -179,7 +177,7 @@ function CardFinancialBlock({ vm, fmt, compact }) {
   );
 }
 
-// Кнопки действий клиента — по сценарию (§16). primary — акцентная, ghost — текстовая.
+
 function CardActionButtons({ actions, size = 'sm', asLinks }) {
   if (!actions || !actions.length) return null;
   if (asLinks) return (
@@ -197,24 +195,24 @@ function CardActionButtons({ actions, size = 'sm', asLinks }) {
   );
 }
 
-// Ядро карточки — состав данных зависит от вида услуги, наполнение и блоки — от сценария.
+
 function CardCore({ vm, fmt, kindMeta }) {
   const sc = vm.sc, showBlock = (b) => sc.blocks.includes(b);
   return (
     <div className="card" style={{ padding: 16, borderRadius: 15, boxShadow: '0 5px 18px rgba(25,45,80,.08)' }}>
-      {/* ЯРЛЫК + доп. статусы (§5) */}
+
       <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 6, marginBottom: 12 }}>
         <Pill tone={sc.tone}><Icon name={kindMeta.icon} style={{ width: 13, height: 13, verticalAlign: -2 }} /> {vm.badge}</Pill>
         {vm.statuses.map((s, i) => <Pill key={i} tone="gray">{s}</Pill>)}
       </div>
-      {/* Предупреждение форс-мажора / обмена (§15) */}
+
       {vm.warning && (
         <div style={{ display: 'flex', alignItems: 'flex-start', gap: 9, padding: '10px 12px', marginBottom: 13, borderRadius: 11, background: sc.tone === 'red' ? '#fdecec' : 'var(--blue-soft)', border: '1px solid ' + (sc.tone === 'red' ? '#f3c2c2' : '#bfd2ff'), color: sc.tone === 'red' ? 'var(--red)' : 'var(--blue)' }}>
           <Icon name={sc.tone === 'red' ? 'alertCircle' : 'swap'} style={{ width: 18, height: 18, marginTop: 1, flex: '0 0 18px' }} />
           <div><div style={{ fontSize: 12, fontWeight: 800, letterSpacing: '.04em' }}>{vm.warning.title}</div><div style={{ fontSize: 12, color: 'var(--body)', marginTop: 2 }}>{vm.warning.text}</div></div>
         </div>
       )}
-      {/* Заголовок услуги */}
+
       <div style={{ display: 'flex', alignItems: 'center', gap: 11, marginBottom: 14 }}>
         <span className="oc-svc-ic" style={{ background: kindMeta.color, width: 42, height: 42 }}><Icon name={kindMeta.icon} /></span>
         <div style={{ flex: 1, minWidth: 0 }}>
@@ -222,7 +220,7 @@ function CardCore({ vm, fmt, kindMeta }) {
           <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 2 }}>{vm.sub}</div>
         </div>
       </div>
-      {/* Сравнение исходного и нового варианта (§9) */}
+
       {(showBlock('source_variant') || showBlock('comparison')) && vm.ex && vm.ex.oldP && vm.ex.newP && (
         <div style={{ display: 'grid', gridTemplateColumns: '1fr auto 1fr', gap: 9, alignItems: 'stretch', marginBottom: 13 }}>
           <div style={{ background: 'var(--surface-2)', borderRadius: 10, padding: 10 }}><div style={{ fontSize: 11, color: 'var(--muted)', marginBottom: 4 }}>Исходный вариант</div><div style={{ fontSize: 12, fontWeight: 700, color: 'var(--ink)' }}>{vm.ex.oldP.route}</div><div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 3 }}>{vm.ex.oldP.date} · {vm.ex.oldP.fare}</div></div>
@@ -230,14 +228,14 @@ function CardCore({ vm, fmt, kindMeta }) {
           <div style={{ background: 'var(--blue-soft)', borderRadius: 10, padding: 10 }}><div style={{ fontSize: 11, color: 'var(--blue)', marginBottom: 4 }}>Новый вариант</div><div style={{ fontSize: 12, fontWeight: 700, color: 'var(--ink)' }}>{vm.ex.newP.route}</div><div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 3 }}>{vm.ex.newP.date} · {vm.ex.newP.fare}</div></div>
         </div>
       )}
-      {/* Форс-мажорный блок (§15) — структурированное описание события */}
+
       {vm.fmRows && vm.fmRows.length > 0 && (
         <div style={{ marginBottom: 8, padding: '10px 12px', borderRadius: 11, background: '#fdf3f0', border: '1px solid #f3d4c9' }}>
           <div style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: '.05em', textTransform: 'uppercase', color: 'var(--red)', marginBottom: 4 }}>Форс-мажор</div>
           <div className="kv">{vm.fmRows.map((r, i) => (<div className="kv-row" key={i}><span className="k">{r.l}</span><span className="v">{r.v}</span></div>))}</div>
         </div>
       )}
-      {/* Доступные альтернативы — отдельными блоками (ТЗ #1): по основной услуге и по связанным */}
+
       {vm.altBlocks && vm.altBlocks.length > 0 && (
         <div style={{ marginBottom: 8 }}>
           <div style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: '.05em', textTransform: 'uppercase', color: 'var(--blue)', margin: '8px 0 5px' }}>Доступные альтернативы</div>
@@ -261,7 +259,7 @@ function CardCore({ vm, fmt, kindMeta }) {
           </div>
         </div>
       )}
-      {/* Параметры услуги — состав данных зависит от вида (§8–14), сгруппирован по блокам */}
+
       {vm.fieldBlocks && vm.fieldBlocks.map((b, bi) => (
         <div key={bi} style={{ marginBottom: 6 }}>
           {b.title && <div style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: '.05em', textTransform: 'uppercase', color: 'var(--muted)', margin: '8px 0 3px' }}>{b.title}</div>}
@@ -283,7 +281,7 @@ function CardCore({ vm, fmt, kindMeta }) {
   );
 }
 
-// Предпросмотр, адаптированный под канал (§18): internal / messenger / email.
+
 function ChannelPreview({ mode, channel, vm, fmt, kindMeta }) {
   if (mode === 'email') {
     const tpl = cardEmailTemplate(vm.sc.sys);
@@ -326,7 +324,7 @@ function ChannelPreview({ mode, channel, vm, fmt, kindMeta }) {
       </div>
     );
   }
-  // internal — полноценная интерактивная карточка внутри CRM
+
   return (
     <div style={{ background: '#eef3f8', border: '1px solid var(--line)', borderRadius: 16, padding: 14 }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10, color: 'var(--muted)', fontSize: 12 }}>
@@ -353,8 +351,8 @@ function messengerBody(vm, fmt) {
   return lines.join('\n');
 }
 
-/* Ручное добавление конкретной альтернативы (ТЗ #1) — оператор находит и вставляет
-   любой вариант по запросу заказчика, даже если он не попал в авто-подбор. */
+
+
 function ManualAltForm({ onAdd, compact }) {
   const [t, setT] = useState('');
   const [m, setM] = useState('');
@@ -387,7 +385,7 @@ function ServiceCardSendPanel({ item, kind, participants = [], orderNo, currency
   const fmt = (n) => (currency === 'RUB' || currency === '₽') ? rub(n) : svM(n);
   const kindMeta = SERVICE_KIND[kind] || { icon: 'briefcase', color: 'var(--blue)' };
 
-  // Исходные финансы + данные обмена (связь с исходной услугой, §24)
+
   const fin = cardInternals(item);
   const exchangeOp = (item.exchange && { exchange: item.exchange, fin: item.exchangeFin || {} }) ||
     ((typeof RETURNS !== 'undefined') ? RETURNS.find((r) => r.order === oNo && r.type === 'Обмен билета' && (!r.service || r.service.indexOf(kind) === 0)) : null);
@@ -395,14 +393,14 @@ function ServiceCardSendPanel({ item, kind, participants = [], orderNo, currency
   const exFin = (exchangeOp && exchangeOp.fin) || {};
   const looksExchange = item.status === 'Обмен' || item.operationType === 'exchange' || !!exchangeOp;
 
-  // Сценарии, доступные для вида услуги; по умолчанию — обмен, если это обмен, иначе новая услуга.
+
   const available = scenariosForKind(kind);
   const defScenario = (initialScenario && available.includes(initialScenario)) ? initialScenario
     : looksExchange ? (available.includes('voluntary_exchange') ? 'voluntary_exchange' : available[0]) : (available.includes('new_offer') ? 'new_offer' : available[0]);
   const [scenarioSys, setScenarioSys] = useState(defScenario);
   const sc = cardScenario(scenarioSys);
 
-  // Настраиваемые в предпросмотре поля (§19). При смене сценария — сброс ярлыка и действий.
+
   const [clientLabel, setClientLabel] = useState(scenarioBadge(defScenario, kind));
   const [actions, setActions] = useState(scenarioActions(defScenario));
   const changeScenario = (sys) => { setScenarioSys(sys); setClientLabel(scenarioBadge(sys, kind)); setActions(scenarioActions(sys)); };
@@ -418,17 +416,17 @@ function ServiceCardSendPanel({ item, kind, participants = [], orderNo, currency
   const [previewMode, setPreviewMode] = useState(channelMode(orderClientChannel(oNo)));
   const [previewChannel, setPreviewChannel] = useState(orderClientChannel(oNo));
 
-  // §26 — права оператора по карточкам этого вида услуги
+
   const rights = operatorCardRights(operator, kind);
-  const readOnly = !rights.clientFields; // без права «изменение клиентских полей» настройки только для чтения
-  // §15 — данные форс-мажорной карточки (если сценарий — форс-мажор)
+  const readOnly = !rights.clientFields;
+
   const [fm, setFm] = useState(() => defaultForceMajeure(item, operator));
   const setFmType = (t) => { setFm((f) => ({ ...f, fmType: t })); setActions(FORCE_MAJEURE_TYPES[t].actions.slice()); };
-  // ТЗ #1 — умный подбор альтернатив при отмене/недоступности (как при вынужденном обмене)
+
   const [altOpts, setAltOpts] = useState([]);
-  const [manualAlts, setManualAlts] = useState([]);   // ТЗ #1 — варианты, добавленные оператором вручную
+  const [manualAlts, setManualAlts] = useState([]);
   const [altSel, setAltSel] = useState(() => new Set());
-  const [picksOpen, setPicksOpen] = useState(false);   // ТЗ #2 — вложенная панель подбора (внахлёст)
+  const [picksOpen, setPicksOpen] = useState(false);
   const allAlts = [...altOpts, ...manualAlts];
   const syncAltText = (sel, opts) => {
     const chosen = opts.filter((o) => sel.has(o.id));
@@ -437,7 +435,7 @@ function ServiceCardSendPanel({ item, kind, participants = [], orderNo, currency
   const findAlternatives = () => {
     const opts = smartAlternatives(item, kind);
     setAltOpts(opts);
-    const sel = new Set([...opts.map((o) => o.id), ...manualAlts.map((o) => o.id)]); // подставляем найденные + сохраняем ручные
+    const sel = new Set([...opts.map((o) => o.id), ...manualAlts.map((o) => o.id)]);
     setAltSel(sel); syncAltText(sel, [...opts, ...manualAlts]);
     toast('Подобрано ' + opts.length + ' альтернатив (умный поиск)', 'ok');
   };
@@ -449,7 +447,7 @@ function ServiceCardSendPanel({ item, kind, participants = [], orderNo, currency
     toast('Вариант добавлен вручную', 'ok');
   };
   const removeManualAlt = (id) => { setManualAlts((m) => m.filter((x) => x.id !== id)); setAltSel((s) => { const n = new Set(s); n.delete(id); return n; }); };
-  // ТЗ #2 — по каждой затронутой услуге свой подбор (авто/ручной) + инфо клиенту
+
   const [chain] = useState(() => affectedServiceChain(oNo, kind));
   const [chainState, setChainState] = useState(() => affectedServiceChain(oNo, kind).map(() => ({ alts: [], sel: new Set(), include: false })));
   const chainAuto = (i) => setChainState((cs) => cs.map((c, idx) => { if (idx !== i) return c; const alts = smartAlternatives({ title: chain[i].service }, chain[i].kind); return { alts, sel: new Set(alts.map((a) => a.id)), include: true }; }));
@@ -460,16 +458,16 @@ function ServiceCardSendPanel({ item, kind, participants = [], orderNo, currency
   const chainPicksCount = chainState.reduce((n, c) => n + (c.include ? c.sel.size : 0), 0);
 
   const finModel = cardFinModel(sc, fin, ex, exFin);
-  // Состав данных зависит от вида услуги (§8–14): типизированные блоки полей.
+
   const cardFields = buildCardFields(kind, item, scenarioSys);
   const info = cardFields.flat;
   const paxNames = participants.filter((p) => selectedPax.has(p.name)).map((p) => p.name);
   const warning = sc.forceMajeure ? { title: 'ВНИМАНИЕ ПО УСЛУГЕ', text: 'Информация от поставщика об изменении. Требуется ваше решение.' }
     : sc.fin === 'exchange' ? { title: 'ОБМЕН УСЛУГИ', text: 'После подтверждения прежняя услуга будет заменена на новую.' } : null;
 
-  // альтернативы уходят клиенту отдельными блоками (ТЗ #1), поэтому убираем дублирующую строку-текст
+
   const fmRows = sc.forceMajeure ? buildForceMajeureRows(fm).filter((r) => r.l !== 'Доступные альтернативы') : [];
-  // Структурированные блоки альтернатив для клиента: по основной услуге + по затронутым связанным услугам (ТЗ #1/#2)
+
   const selMainAlts = allAlts.filter((a) => altSel.has(a.id));
   const altBlocks = [
     ...selMainAlts.map((a) => ({ scope: item.title || item.main || 'Основная услуга', title: a.title, meta: a.meta, price: a.price, delta: a.delta })),
@@ -500,14 +498,14 @@ function ServiceCardSendPanel({ item, kind, participants = [], orderNo, currency
       snapshot: { title: item.title || item.main, info, badge: clientLabel },
     };
     const card = sendServiceCard(oNo, svcId, draft, operator);
-    // Демо: имитируем подтверждения каналов (§21) — доставлено → просмотрено.
+
     setTimeout(() => channels.forEach((ch) => advanceDelivery(card, ch, 'delivered')), 900);
     setTimeout(() => channels.forEach((ch) => advanceDelivery(card, ch, 'viewed')), 2100);
     onSent && onSent(channels.join(', '), card);
     onClose && onClose();
   };
 
-  // Единый механизм (ТЗ2): из подобранных альтернатив собираем КП одним действием.
+
   const buildKpFromAlternatives = () => {
     if (!altBlocks.length) { toast('Сначала подберите варианты — «Открыть подбор» (авто или вручную)', 'warn'); return; }
     const client = ((typeof ORDERS !== 'undefined' && ORDERS.find((o) => o.no === oNo)) || {}).client || item.client || '';
@@ -527,7 +525,7 @@ function ServiceCardSendPanel({ item, kind, participants = [], orderNo, currency
   const modeLabel = { internal: 'Внутренний чат', messenger: 'Мессенджер', email: 'Email' };
   const chanList = enabledChannels();
 
-  // §26 — без права создания карточки конструктор не открывается
+
   if (!rights.create) {
     return (
       <StackPanel title="Карточка услуги" width="min(560px,96vw)" onClose={onClose}
@@ -554,7 +552,7 @@ function ServiceCardSendPanel({ item, kind, participants = [], orderNo, currency
       </>}>
 
       <div className="grid-2" style={{ alignItems: 'start', gap: 16, gridTemplateColumns: '1.05fr .95fr' }}>
-        {/* ЛЕВО — ПРЕДПРОСМОТР ПО КАНАЛУ */}
+
         <div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, margin: '0 0 10px 2px', flexWrap: 'wrap' }}>
             <Icon name="eye" style={{ width: 16, height: 16, color: 'var(--blue)' }} />
@@ -575,7 +573,7 @@ function ServiceCardSendPanel({ item, kind, participants = [], orderNo, currency
           )}
           <ChannelPreview mode={previewMode} channel={previewMode === 'messenger' ? previewChannel : (previewMode === 'email' ? 'Email' : 'Внутренний чат')} vm={vm} fmt={fmt} kindMeta={kindMeta} />
 
-          {/* ВНУТРЕННЯЯ ИНФОРМАЦИЯ (не для клиента, §7) */}
+
           <div className="card card-pad" style={{ background: 'var(--surface-2)', marginTop: 16 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
               <Icon name="lock" style={{ width: 16, height: 16, color: 'var(--muted)' }} />
@@ -593,18 +591,18 @@ function ServiceCardSendPanel({ item, kind, participants = [], orderNo, currency
           </div>
         </div>
 
-        {/* ПРАВО — НАСТРОЙКИ КАРТОЧКИ (§19) */}
+
         <div className="card card-pad">
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
             <Icon name="settings" style={{ width: 16, height: 16, color: 'var(--blue)' }} />
             <h3 className="card-title" style={{ fontSize: 15, margin: 0 }}>Настройки карточки</h3>
             <div style={{ flex: 1 }} />
-            {/* §26 — доступ оператора по этому виду услуги */}
+
             <Pill tone={rights.clientFields ? 'green' : 'amber'}><Icon name={rights.clientFields ? 'checkCircle' : 'lock'} style={{ width: 12, height: 12, verticalAlign: -2 }} /> {operator}</Pill>
           </div>
           {readOnly && <div style={{ fontSize: 12, color: 'var(--amber)', marginBottom: 12, display: 'flex', gap: 6 }}><Icon name="lock" style={{ width: 13, height: 13 }} />Нет права «изменение клиентских полей» — настройки только для чтения</div>}
 
-          {/* Сценарий */}
+
           <label className="lbl" style={{ display: 'block', marginBottom: 6 }}>Сценарий карточки</label>
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 12, pointerEvents: readOnly ? 'none' : 'auto', opacity: readOnly ? 0.6 : 1 }}>
             {available.map((s) => { const scn = cardScenario(s); return (
@@ -612,7 +610,7 @@ function ServiceCardSendPanel({ item, kind, participants = [], orderNo, currency
                 className={'seg-btn' + (scenarioSys === s ? ' active' : '')} style={{ padding: '6px 10px', fontSize: 12.5, borderRadius: 8 }}>{scn.name}</button>); })}
           </div>
 
-          {/* §15 — Форс-мажорная карточка: структурированное описание события */}
+
           {sc.forceMajeure && (
             <div className="card card-pad" style={{ background: '#fdf3f0', border: '1px solid #f3d4c9', marginBottom: 14 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
@@ -631,7 +629,7 @@ function ServiceCardSendPanel({ item, kind, participants = [], orderNo, currency
                 </div>
                 <Input value={fm.whatChanged} onChange={(e) => setFm((f) => ({ ...f, whatChanged: e.target.value }))} placeholder="Что изменилось" />
                 <Input value={fm.operatorActions} onChange={(e) => setFm((f) => ({ ...f, operatorActions: e.target.value }))} placeholder="Действия оператора" />
-                {/* ТЗ #1/#2 — подбор альтернатив и связанных услуг вынесен в отдельную панель (внахлёст), чтобы не перегружать экран */}
+
                 <div style={{ border: '1px solid var(--field-line)', borderRadius: 12, padding: 12, background: '#fff' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                     <span style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--ink)', flex: 1 }}>Альтернативы и связанные услуги</span>
@@ -645,7 +643,7 @@ function ServiceCardSendPanel({ item, kind, participants = [], orderNo, currency
             </div>
           )}
 
-          {/* ТЗ #2 — затронутая цепочка связанных услуг (общая рамка события); подбор по каждой — в панели */}
+
           {(sc.forceMajeure || sc.fin === 'exchange') && chain.length > 0 && (
             <div className="card card-pad" style={{ background: 'var(--surface-2)', border: '1px solid var(--line)', marginBottom: 14 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
@@ -673,12 +671,12 @@ function ServiceCardSendPanel({ item, kind, participants = [], orderNo, currency
             </div>
           )}
 
-          {/* Клиентский ярлык (§5) */}
+
           <label className="lbl" style={{ display: 'block', marginBottom: 6 }}>Клиентский ярлык</label>
           <Select options={[...new Set([clientLabel, ...sc.labels])]} value={clientLabel} onChange={(e) => setClientLabel(e.target.value)} />
           <div style={{ marginTop: 6 }}><Input value={clientLabel} onChange={(e) => setClientLabel(e.target.value)} placeholder="Свой текст ярлыка" /></div>
 
-          {/* Доп. статусы (§5) */}
+
           <label className="lbl" style={{ display: 'block', margin: '12px 0 6px' }}>Дополнительные статусы</label>
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
             {['Требуется подтверждение', 'Ответ до ' + (responseDeadline || '18:00'), 'Затронуты ' + (paxNames.length || 1) + ' пасс.', 'Срочно'].map((s) => (
@@ -687,7 +685,7 @@ function ServiceCardSendPanel({ item, kind, participants = [], orderNo, currency
             ))}
           </div>
 
-          {/* Действия клиента (§16) */}
+
           <label className="lbl" style={{ display: 'block', margin: '14px 0 6px' }}>Действия клиента <span style={{ color: 'var(--muted)', fontWeight: 400 }}>· по сценарию</span></label>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
             {[...new Set([...sc.actions, ...actions])].map((a) => (
@@ -698,7 +696,7 @@ function ServiceCardSendPanel({ item, kind, participants = [], orderNo, currency
             ))}
           </div>
 
-          {/* Пассажиры (§19) */}
+
           {participants.length > 0 && (<>
             <label className="lbl" style={{ display: 'block', margin: '14px 0 6px' }}>{vm.paxLabel}</label>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
@@ -710,28 +708,28 @@ function ServiceCardSendPanel({ item, kind, participants = [], orderNo, currency
             </div>
           </>)}
 
-          {/* Сроки */}
+
           <div className="grid-2" style={{ gap: 10, marginTop: 14 }}>
             <div><label className="lbl" style={{ display: 'block', marginBottom: 6 }}>Срок действия</label><Input value={validity} onChange={(e) => setValidity(e.target.value)} /></div>
             <div><label className="lbl" style={{ display: 'block', marginBottom: 6 }}>Срок ответа клиента</label><Input value={responseDeadline} onChange={(e) => setResponseDeadline(e.target.value)} placeholder="напр. сегодня 18:00" /></div>
           </div>
 
-          {/* Сопровождающий текст */}
+
           <label className="lbl" style={{ display: 'block', margin: '14px 0 6px' }}>Сопровождающий текст</label>
           <textarea className="input" rows={2} value={accompanyingText} onChange={(e) => setAccompanyingText(e.target.value)} placeholder="Необязательный текст к карточке" style={{ width: '100%', resize: 'vertical' }} />
 
-          {/* Видимость итоговой стоимости клиенту (§7) */}
+
           <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, marginTop: 14, cursor: 'pointer' }}>
             <Toggle on={vis.clientTotal !== false} onChange={(on) => setVis((v) => ({ ...v, clientTotal: on }))} />Показывать клиенту итоговую стоимость
           </label>
 
-          {/* Вложения */}
+
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 14, flexWrap: 'wrap' }}>
             <Button size="sm" variant="secondary" icon="paperclip" onClick={addAttachment}>Добавить вложение</Button>
             {attachments.map((a, i) => <Pill key={i} tone="gray">{a.name}</Pill>)}
           </div>
 
-          {/* Каналы отправки (§20) — можно выбрать несколько */}
+
           <label className="lbl" style={{ display: 'block', margin: '16px 0 6px' }}>Каналы отправки <span style={{ color: 'var(--muted)', fontWeight: 400 }}>· по умолчанию — закреплённый за заказом</span></label>
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
             {chanList.map((c) => (
@@ -745,12 +743,12 @@ function ServiceCardSendPanel({ item, kind, participants = [], orderNo, currency
         </div>
       </div>
 
-      {/* ТЗ #1/#2 — вложенная панель подбора (внахлёст): авто + ручной подбор по основной и связанным услугам */}
+
       {picksOpen && (
         <StackPanel title="Подбор альтернатив и связанных услуг" width="min(720px,97vw)" onClose={() => setPicksOpen(false)}
           footer={<><div style={{ flex: 1, fontSize: 12, color: 'var(--muted)', display: 'flex', alignItems: 'center', gap: 6 }}><Icon name="eye" style={{ width: 14, height: 14 }} />Отмеченные варианты уйдут клиенту отдельными блоками</div><Button icon="check" onClick={() => setPicksOpen(false)}>Готово</Button></>}>
 
-          {/* Основная услуга */}
+
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
             <Icon name={kindMeta.icon || 'briefcase'} style={{ width: 16, height: 16, color: 'var(--blue)' }} />
             <span style={{ fontWeight: 700, fontSize: 14, color: 'var(--ink)' }}>Основная услуга</span>
@@ -780,7 +778,7 @@ function ServiceCardSendPanel({ item, kind, participants = [], orderNo, currency
           </div>
           <ManualAltForm onAdd={addManualAlt} />
 
-          {/* Связанные услуги — подбор по каждой (ТЗ #2) */}
+
           {chain.length > 0 && <PanelSub style={{ marginTop: 22 }}>Связанные услуги · {chain.length}</PanelSub>}
           <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
             {chain.map((c, i) => {
@@ -829,10 +827,10 @@ function ServiceCardSendPanel({ item, kind, participants = [], orderNo, currency
   );
 }
 
-/* ---------- История и версии карточки услуги (§23, §25) ----------
-   Отправленные карточки фиксируются неизменяемыми версиями. Значимые изменения создают
-   новую версию, прежняя помечается «неактуальна». Здесь — версии, доставки по каналам,
-   ответы клиента и полный журнал действий. */
+
+
+
+
 function ServiceCardHistoryDrawer({ orderNo, serviceId, title, onClose }) {
   const [, force] = useState(0);
   const rerender = () => force((n) => n + 1);
@@ -863,7 +861,7 @@ function ServiceCardHistoryDrawer({ orderNo, serviceId, title, onClose }) {
               </div>
             )}
 
-            {/* Доставки по каналам (§21) */}
+
             <div style={{ marginTop: 10 }}>
               <div className="lbl" style={{ marginBottom: 6 }}>Доставка по каналам</div>
               {card.deliveries.map((d, i) => (
@@ -877,7 +875,7 @@ function ServiceCardHistoryDrawer({ orderNo, serviceId, title, onClose }) {
               ))}
             </div>
 
-            {/* Ответы клиента (§16) */}
+
             {card.responses.length > 0 && (
               <div style={{ marginTop: 10 }}>
                 <div className="lbl" style={{ marginBottom: 6 }}>Ответы клиента</div>
@@ -890,7 +888,7 @@ function ServiceCardHistoryDrawer({ orderNo, serviceId, title, onClose }) {
               </div>
             )}
 
-            {/* Демо-действия: имитация доставки и ответа клиента */}
+
             {card.actual && (
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 10 }}>
                 {card.deliveries.some((d) => d.status !== 'viewed') && <Button size="sm" variant="secondary" icon="eye" onClick={() => card.deliveries.forEach((d) => simDeliver(card, d.channel, 'viewed'))}>Отметить просмотр</Button>}
@@ -900,7 +898,7 @@ function ServiceCardHistoryDrawer({ orderNo, serviceId, title, onClose }) {
               </div>
             )}
 
-            {/* Полный журнал действий (§25) */}
+
             <details style={{ marginTop: 10 }}>
               <summary style={{ cursor: 'pointer', fontSize: 12.5, color: 'var(--blue)' }}>Журнал действий ({card.history.length})</summary>
               <div style={{ marginTop: 8 }}>
@@ -920,16 +918,16 @@ function ServiceCardHistoryDrawer({ orderNo, serviceId, title, onClose }) {
   );
 }
 
-/* Боковое окно загрузки документа в карточку услуги. Демонстрационное: файл выбирается через
-   системный диалог (или перетаскивается), но не отправляется на сервер. */
+
+
 function SvcDocUploadDrawer({ open, isHotel, participants = [], orderNo, onClose, onUploaded }) {
   const fileRef = useRef(null);
-  const [file, setFile] = useState(null);        // { name, size } | null
+  const [file, setFile] = useState(null);
   const docTypes = [isHotel ? 'Ваучер на отель' : 'Ваучер / билет', 'Счёт на оплату', 'Подтверждение', 'Прочее'];
   const [type, setType] = useState(docTypes[0]);
   const [participant, setParticipant] = useState('—');
   const [drag, setDrag] = useState(false);
-  // при каждом открытии — сброс формы
+
   useEffect(() => { if (open) { setFile(null); setType(docTypes[0]); setParticipant('—'); setDrag(false); } }, [open, isHotel]);
 
   const fmtSize = (bytes) => (bytes / 1024 < 1024 ? Math.max(1, Math.round(bytes / 1024)) + ' КБ' : (bytes / 1048576).toFixed(1) + ' МБ');
@@ -990,16 +988,16 @@ function SvcCard({ item, kind, participants = [], hideBackRow, onBack }) {
   const [corrOpen, setCorrOpen] = useState(false);
   const [sendOpen, setSendOpen] = useState(false);
   const [uploadOpen, setUploadOpen] = useState(false);
-  const [uploadedDocs, setUploadedDocs] = useState([]);   // документы, загруженные вручную в карточку услуги
-  const [pax, setPax] = useState(participants);           // участники/гости услуги — можно добавлять прямо из карточки (ТЗ #5)
-  const [addPaxOpen, setAddPaxOpen] = useState(false);    // боковая форма «Добавить пассажира»
-  // Жизненный цикл карточки услуги — свой, независимый от статуса услуги в заказе.
+  const [uploadedDocs, setUploadedDocs] = useState([]);
+  const [pax, setPax] = useState(participants);
+  const [addPaxOpen, setAddPaxOpen] = useState(false);
+
   const initCard = (item.status === 'Выписано' || item.status === 'Подтверждено') ? 'issued' : (item.cardStatus || 'created');
   const [cardSt, setCardSt] = useState(initCard);
   const [version, setVersion] = useState(item.version || 1);
   const [versions, setVersions] = useState(item.versions || []);
   const [cardLog, setCardLog] = useState(() => [{ t: 'сейчас', txt: 'Карточка услуги создана' }]);
-  const [opConfirm, setOpConfirm] = useState(null); // ТЗ #11 — подтверждение необратимых операций по услуге
+  const [opConfirm, setOpConfirm] = useState(null);
   const k = SERVICE_KIND[kind] || { icon: 'briefcase', color: 'var(--blue)' };
   const isOffer = !!item.cost;
   const cur = item.currency || (item.svcOffer && item.svcOffer.currency);
@@ -1017,7 +1015,7 @@ function SvcCard({ item, kind, participants = [], hideBackRow, onBack }) {
   const isHotel = kind === 'Гостиница';
   const paxLabel = isHotel ? 'Гости' : 'Участники';
 
-  // Корректировка документов доступна не только для авиа, но и для прочих услуг (запрос клиента).
+
   const corrCfg = docCorrKind(kind);
   const corrSubjects = (pax.length ? pax : [{ name: 'Основной заказчик', role: '—' }]).map((pp, i) => ({
     name: pp.name, type: pp.role || 'Взрослый',
@@ -1046,7 +1044,7 @@ function SvcCard({ item, kind, participants = [], hideBackRow, onBack }) {
     setCardLog((l) => [...l, { t: 'сейчас', txt: 'Изменены параметры — создана версия v' + nv + ' (прежняя сохранена)' }]);
     toast('Создана новая версия карточки v' + nv + ' — прежняя сохранена в истории', 'ok');
   };
-  // Ручная простановка статуса (в проде часть приходит из канала/по таймеру — здесь кнопки-симуляции).
+
   const markCard = (key) => {
     const st = cardStatus(key);
     setCardSt(key);
@@ -1074,7 +1072,7 @@ function SvcCard({ item, kind, participants = [], hideBackRow, onBack }) {
         </div>
       )}
 
-      {/* header — 1-в-1 со структурой авиа-карточки */}
+
       <div className="card card-pad" style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 18, flexWrap: 'wrap' }}>
         <span className="oc-svc-ic" style={{ background: k.color }}><Icon name={k.icon} /></span>
         <div style={{ flex: 1, minWidth: 200 }}>
@@ -1158,7 +1156,7 @@ function SvcCard({ item, kind, participants = [], hideBackRow, onBack }) {
                 <Icon name="lock" style={{ width: 14, height: 14 }} />Внутренние расчёты (себестоимость, комиссия, прибыль) клиенту не отправляются.
               </div>
             </div>
-            {/* Смена статуса карточки. В проде «выбрана/отклонена» приходят из канала, «срок истёк» — по таймеру. */}
+
             <div className="card card-pad" style={{ marginTop: 16 }}>
               <h3 className="card-title" style={{ fontSize: 14, marginBottom: 4 }}>Ответ клиента / статус</h3>
               <div style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 10 }}>В реальной работе приходит из канала связи или по таймеру. Здесь — вручную.</div>
@@ -1194,7 +1192,7 @@ function SvcCard({ item, kind, participants = [], hideBackRow, onBack }) {
 
       {tab === 'supplier' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-          {/* Бланк поставщика: сохранить оригинал + корректировать математику (единично/группово), закрыть тариф на IT (авиа) */}
+
           <div className="card card-pad" style={{ display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap', borderLeft: '4px solid var(--blue)' }}>
             <span className="oc-svc-ic" style={{ background: 'var(--blue)', flex: '0 0 auto' }}><Icon name="template" /></span>
             <div style={{ flex: 1, minWidth: 220 }}>
@@ -1223,7 +1221,7 @@ function SvcCard({ item, kind, participants = [], hideBackRow, onBack }) {
 
       {tab === 'finance' && (
         <div className="grid-2" style={{ alignItems: 'start', gap: 16 }}>
-          {/* Для клиента — только разрешённые поля */}
+
           <div className="card card-pad">
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
               <Icon name="eye" style={{ width: 16, height: 16, color: 'var(--blue)' }} />
@@ -1235,7 +1233,7 @@ function SvcCard({ item, kind, participants = [], hideBackRow, onBack }) {
             </div>
             <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 8 }}>Клиент видит только разрешённые настройками компании поля.</div>
           </div>
-          {/* Внутреннее — не для клиента */}
+
           <div className="card card-pad" style={{ background: 'var(--surface-2)' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
               <Icon name="lock" style={{ width: 16, height: 16, color: 'var(--muted)' }} />
@@ -1308,8 +1306,8 @@ function SvcCard({ item, kind, participants = [], hideBackRow, onBack }) {
   );
 }
 
-/* Боковая форма добавления участника/гостя прямо из карточки услуги (ТЗ #5). */
-// Добавление пассажира/гостя в подборе услуг — единая форма (forms_unified.jsx).
+
+
 function SvcAddPaxDrawer({ open, isHotel, onClose, onAdd }) {
   return (
     <UnifiedPersonDrawer open={open} kind="person" mode="create" showRole
@@ -1320,7 +1318,7 @@ function SvcAddPaxDrawer({ open, isHotel, onClose, onAdd }) {
 }
 function SVC_CFG_TITLE(kind) { const c = Object.values(SVC_CFG).find((x) => x.kind === kind); return c ? c.title : kind; }
 
-/* ---------- левый фильтр выдачи (как у гостиниц): цена / поставщик / особенности ---------- */
+
 function svcPriceBounds(offers) {
   const totals = offers.map((o) => o.cost + o.fee);
   return { min: Math.floor(Math.min(...totals)), max: Math.ceil(Math.max(...totals)) };
@@ -1372,15 +1370,15 @@ function SvcFilters({ allOffers, flt, setFlt, bounds, facetLabel }) {
   );
 }
 
-/* ====================================================================
-   FLOW
-   ==================================================================== */
+
+
+
 function ServiceFlow({ routeKey, searchIntent, onConsumeSearch }) {
   const cfg = SVC_CFG[routeKey];
   const data = SVC_DATA[routeKey];
   const k = SERVICE_KIND[cfg.kind];
   const toast = useToast();
-  // Приходим из бокового окна подбора → сразу в выдачу с заполненной маской
+
   const [view, setView] = useState(searchIntent ? 'results' : 'registry');
   const [form, setForm] = useState(searchIntent ? (searchIntent.form || {}) : {});
   const [item, setItem] = useState(null);
@@ -1495,7 +1493,7 @@ function ServiceFlow({ routeKey, searchIntent, onConsumeSearch }) {
   );
 }
 
-/* ---------- embeddable add-flow (search → results) for the order card ---------- */
+
 function routeKeyForKind(kind) { return Object.keys(SVC_CFG).find((k) => SVC_CFG[k].kind === kind); }
 
 function ServiceAddFlow({ routeKey, onAdd }) {
@@ -1529,7 +1527,7 @@ function ServiceAddFlow({ routeKey, onAdd }) {
 
       {view === 'search' && (
         <>
-          {/* ТЗ #4/#5 — у трансфера и автобуса: в одну сторону / туда и обратно */}
+
           {(cfg.kind === 'Трансфер' || cfg.kind === 'Автобус') && (
             <div className="trip-toggle" style={{ marginBottom: 12 }}>
               {[['ow', 'В одну сторону'], ['rt', 'Туда и обратно']].map(([k, l]) => (
@@ -1572,9 +1570,9 @@ function ServiceAddFlow({ routeKey, onAdd }) {
   );
 }
 
-/* ---------- Аэроэкспресс add-flow (доп. услуга) ----------
-   Направление (аэропорт ⇄ вокзал) + вариация проезда: разово / туда-обратно / абонемент.
-   Выдача тарифов фильтруется под выбранную вариацию — как на крупных тревел-платформах. */
+
+
+
 function AeroAddFlow({ onAdd }) {
   const toast = useToast();
   const data = SVC_DATA.aero;
@@ -1611,7 +1609,7 @@ function AeroAddFlow({ onAdd }) {
 
       {view === 'search' && (
         <>
-          {/* вариация проезда: разово / туда-обратно / абонемент */}
+
           <div className="trip-toggle" style={{ marginBottom: 12 }}>
             {AERO_FARES.map(([k, l]) => (
               <button key={k} className={fare === k ? 'on' : ''} onClick={() => setFare(k)}>{l}</button>
@@ -1662,11 +1660,11 @@ function AeroAddFlow({ onAdd }) {
   );
 }
 
-/* ====================================================================
-   RAIL «Выбор вагона и мест» — class → wagon → per-passenger seat assignment.
-   Opens as a side panel after a train is picked in the order's ЖД add-flow.
-   Passengers are shown «по спискам» (subgroups) and each gets a specific seat.
-   ==================================================================== */
+
+
+
+
+
 const RAIL_SEAT_LABEL = { low: 'Нижнее', up: 'Верхнее', win: 'У окна', aisle: 'У прохода' };
 function railSeatKind(cls, n) { const ks = cls.kinds; return ks.length === 1 ? ks[0] : (n % 2 === 1 ? ks[0] : ks[1]); }
 function railChunk(arr, n) { const o = []; for (let i = 0; i < arr.length; i += n) o.push(arr.slice(i, i + n)); return o; }
@@ -1685,7 +1683,7 @@ function railSections(pax, groups) {
   return [{ id: '__all', name: null, members: pax.map((_, i) => i) }];
 }
 
-/* search-result row (1-в-1 с экраном ЖД-поиска) */
+
 function RailOfferCard({ o, onSelect }) {
   return (
     <div className="rail-offer">
@@ -1724,7 +1722,7 @@ function RailOfferCard({ o, onSelect }) {
   );
 }
 
-/* left filter rail for ЖД search (price ₽ / время / класс / перевозчик) */
+
 function RailFilters({ flt, setFlt, bounds }) {
   const carriers = [...new Set(SVC_DATA.rail.offers.map((o) => o.carrier))];
   const classes = [...new Set(SVC_DATA.rail.offers.map((o) => o.cls))];
@@ -1736,7 +1734,7 @@ function RailFilters({ flt, setFlt, bounds }) {
         <span>Фильтры{selCount > 0 && <span className="flt-count">{selCount}</span>}</span>
         <button className="hp-reset" onClick={() => setFlt({ priceMax: bounds.max, times: [], classes: [], carriers: [], trainNo: '' })}>Очистить</button>
       </div>
-      {/* ТЗ #2 — строка поиска по номеру поезда, как «Номер рейса» у авиа */}
+
       <SearchBox value={flt.trainNo || ''} onChange={(v) => setFlt((f) => ({ ...f, trainNo: v }))} placeholder="Номер поезда" style={{ minWidth: 0, width: '100%', height: 42, margin: '4px 0 10px' }} />
       <div className="hp-filter-block">
         <div className="hp-filter-title">Цена</div>
@@ -1768,7 +1766,7 @@ function RailFilters({ flt, setFlt, bounds }) {
 
 const railTimeBucket = (t) => { const h = +(t || '0').split(':')[0]; return h < 6 ? 'night' : h < 12 ? 'morning' : h < 18 ? 'day' : 'evening'; };
 
-/* full ЖД add-flow inside the order: search bar + filters + result rows → seat panel */
+
 function RailAddFlow({ participants = [], groups, onAdd }) {
   const toast = useToast();
   const offersAll = SVC_DATA.rail.offers;
@@ -1801,7 +1799,7 @@ function RailAddFlow({ participants = [], groups, onAdd }) {
   return (
     <div className="fade-in">
       <div style={{ fontWeight: 600, color: 'var(--ink)', marginBottom: 12 }}>Поиск железнодорожных билетов</div>
-      {/* ТЗ #5 — у ЖД: в одну сторону / туда и обратно */}
+
       <div className="trip-toggle" style={{ marginBottom: 12 }}>
         {[['ow', 'В одну сторону'], ['rt', 'Туда и обратно']].map(([k, l]) => (
           <button key={k} className={form.trip === k ? 'on' : ''} onClick={() => setF('trip', k)}>{l}</button>
@@ -1809,7 +1807,7 @@ function RailAddFlow({ participants = [], groups, onAdd }) {
       </div>
       <div className="av-bar">
         <div className="av-field" style={{ width: 190 }}><span className="label">Откуда</span><Input value={form.from} onChange={(e) => setF('from', e.target.value)} /></div>
-        {/* ТЗ #4 — стрелка переключения городов, как у авиа */}
+
         <button className="av-swap" onClick={swap} title="Поменять местами" style={{ alignSelf: 'flex-end', marginBottom: 0 }}><Icon name="swap" style={{ width: 18, height: 18 }} /></button>
         <div className="av-field" style={{ width: 190 }}><span className="label">Куда</span><Input value={form.to} onChange={(e) => setF('to', e.target.value)} /></div>
         <div className="av-field" style={{ width: 150 }}><span className="label">{form.trip === 'rt' ? 'Туда' : 'Дата'}</span><DateField value={form.dep} onChange={(d) => setF('dep', d)} placeholder="Дата" /></div>
@@ -1858,7 +1856,7 @@ function RailSeatPanel({ offer, participants, groups, onClose, onApply }) {
   const wagons = RAIL_WAGONS[clsId] || [];
   const [wagonNo, setWagonNo] = useState(wagons[0] ? wagons[0].no : '01');
   const [wagShow, setWagShow] = useState(8);
-  const [seats, setSeats] = useState({});     // paxIdx -> seat number
+  const [seats, setSeats] = useState({});
   const [activePax, setActivePax] = useState(0);
   const [showAll, setShowAll] = useState(false);
 
@@ -1920,7 +1918,7 @@ function RailSeatPanel({ offer, participants, groups, onClose, onApply }) {
       </div>
 
       <div className="rail-layout">
-        {/* 1. класс обслуживания */}
+
         <div className="rail-col">
           <div className="rail-col-h">1. Выберите класс обслуживания</div>
           <div className="rail-class-list">
@@ -1938,7 +1936,7 @@ function RailSeatPanel({ offer, participants, groups, onClose, onApply }) {
           </div>
         </div>
 
-        {/* 2. вагон */}
+
         <div className="rail-col">
           <div className="rail-col-h">2. Выберите вагон</div>
           <div className="rail-col-sub">Вагоны класса {cls.name}</div>
@@ -1955,7 +1953,7 @@ function RailSeatPanel({ offer, participants, groups, onClose, onApply }) {
           </div>
         </div>
 
-        {/* 3. места + назначение пассажирам */}
+
         <div className="rail-col grow">
           <div className="rail-col-h">3. Выберите места и назначьте их пассажирам</div>
           <div className="rail-wagon-line">Вагон {wagonNo} · {cls.type}</div>
@@ -2019,11 +2017,11 @@ function RailSeatPanel({ offer, participants, groups, onClose, onApply }) {
   );
 }
 
-/* =====================================================================
-   ЕДИНЫЙ ЭКРАН «Подбор услуг» (ТЗ-2 п.4) — раньше пункт меню только
-   раскрывал список раздроблённых услуг и сам по себе не нёс функции.
-   Теперь это осмысленная посадочная страница: выбор вида услуги.
-   ===================================================================== */
+
+
+
+
+
 const SERVICES_HUB = [
   { key: 'flights', icon: 'plane', title: 'Авиабилеты', desc: 'Поиск и бронирование перелётов, тарифы и доп. услуги.' },
   { key: 'rail', icon: 'train', title: 'ЖД билеты', desc: 'Железнодорожные билеты, выбор вагона и мест.' },
@@ -2034,7 +2032,7 @@ const SERVICES_HUB = [
   { key: 'lounge', icon: 'lounge', title: 'Бизнес-залы', desc: 'VIP-залы ожидания в аэропортах, доступ по гостям.' },
   { key: 'tours', icon: 'users', title: 'Туры и группы', desc: 'Групповые поездки и туристические пакеты.' },
 ];
-/* Маска подбора авиабилетов для бокового окна хаба (у авиа нет записи в SVC_CFG). */
+
 const FLIGHTS_HUB_FIELDS = [
   { k: 'trip', l: 'Тип поездки', t: 'select', o: ['Туда и обратно', 'В одну сторону'] },
   { k: 'from', l: 'Откуда', t: 'text' },
@@ -2045,8 +2043,8 @@ const FLIGHTS_HUB_FIELDS = [
   { k: 'cabin', l: 'Класс', t: 'select', o: ['Эконом', 'Комфорт', 'Бизнес', 'Первый'] },
 ];
 
-/* Боковое окно с поисковой маской — открывается по клику на блок услуги в хабе.
-   Заполнив маску, менеджер сразу попадает в выдачу выбранного раздела (без реестра). */
+
+
 function ServiceSearchDrawer({ svc, onClose, onSubmit, onOpenRegistry }) {
   const open = !!svc;
   const [form, setForm] = useState({});
@@ -2075,11 +2073,11 @@ function ServiceSearchDrawer({ svc, onClose, onSubmit, onOpenRegistry }) {
   );
 }
 
-/* Соответствие блока хаба вкладке единой маски бронирования (ADD_SVC_CATS). */
+
 const HUB_KIND = { flights: 'Авиа', rail: 'ЖД', hotels: 'Гостиница', transfers: 'Трансфер', buses: 'Автобус', aero: 'Аэроэкспресс', lounge: 'Бизнес-зал', tours: 'Доп. услуга' };
 
 function ServicesHubPage({ onNavigate, onAddOrder, onOpenOrder, onCreateOrder }) {
-  // Единая маска бронирования со вкладками. Клик по блоку открывает её на нужной вкладке.
+
   const [maskKind, setMaskKind] = useState(null);
   return (
     <>

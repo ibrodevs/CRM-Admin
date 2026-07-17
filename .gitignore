@@ -11,5 +11,7 @@
 npm-debug.log*
 
 # local artefacts
+/.claude
 /.playwright-mcp
+/.thumbnail
 /tmp

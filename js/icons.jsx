@@ -1,4 +1,4 @@
-// ===== Icon library (Lucide-style, stroke-based) =====
+
 const ICON_PATHS = {
   home: '<path d="M3 9.5 12 3l9 6.5"/><path d="M5 10v10a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V10"/>',
   orders: '<rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/>',
@@ -98,7 +98,7 @@ function Icon({ name, className, style, strokeWidth = 1.9 }) {
   );
 }
 
-// Brand mark (isometric package — blue)
+
 function BrandMark({ size = 26, color = '#2566ff' }) {
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color}

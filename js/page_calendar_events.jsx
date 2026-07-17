@@ -2,17 +2,17 @@ import { useState } from 'react';
 import { Icon } from './icons';
 import { Button, Checkbox, Drawer, Field, Input, Pill, Select, useToast } from './ui';
 import { CURRENT_USER, ORDERS } from './data';
-import { trSameDay } from './data_trips';
-import { StackPanel } from './page_orders';
+import { trSameDay } from './data/trips';
+import { StackPanel } from './components/shared-panels';
 import { FinRow, f$, finCreditCheck } from './page_finance';
 
-// ===== Календарь: быстрое создание рабочих действий (ТЗ «Дополнение по календарю») =====
-// Клик по дате → контекстное меню: заказ/поездка, напоминание, задача по заказу,
-// событие контроля. Повторяющиеся события, предупреждение о дублировании, связь с
-// заказом через умный поиск, боковая панель с деталями и действиями, история.
-// Все события единого стиля, различаются компактными иконками и подписями.
 
-/* ---------- типы событий + справочники ---------- */
+
+
+
+
+
+
 const CAL_EVENT_TYPES = {
   order: { l: 'Заказ / поездка', short: 'Поездка', icon: 'orders', tone: 'blue' },
   reminder: { l: 'Напоминание', short: 'Напоминание', icon: 'bell', tone: 'amber' },
@@ -33,7 +33,7 @@ const CAL_CONTROL_PRESETS = ['Проверить цену', 'Проверить 
 function calFmtDay(d) { return String(d.getDate()).padStart(2, '0') + '.' + String(d.getMonth() + 1).padStart(2, '0') + '.' + d.getFullYear(); }
 function calNowStr() { return new Date().toLocaleString('ru-RU', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }).replace(',', ' ·'); }
 
-/* ---------- хранилище событий (persist в рамках сессии) ---------- */
+
 const CAL_EVENTS = window.CAL_EVENTS || (window.CAL_EVENTS = (() => {
   const D = (dd, mm, hh, mi) => new Date(2026, mm - 1, dd, hh || 9, mi || 0);
   const who = (window.CURRENT_USER && CURRENT_USER.name) || 'Даниель';
@@ -60,9 +60,9 @@ function calOrderInfo(no) {
   return { no: o.no, client: o.client, company: o.requestType, pax: o.services, services: o.service, operator: o.operator, deadline: 'выписка · сегодня 18:00' };
 }
 
-/* ==================================================================== */
-/* Контекстное меню по клику на дату                                    */
-/* ==================================================================== */
+
+
+
 function CalDayMenu({ day, pos, onPick, onClose }) {
   const items = [
     { type: 'order', desc: 'Новый заказ с уже заполненной датой' },
@@ -91,9 +91,9 @@ function CalDayMenu({ day, pos, onPick, onClose }) {
   );
 }
 
-/* ==================================================================== */
-/* Умный поиск заказа + контекст                                        */
-/* ==================================================================== */
+
+
+
 function CalOrderPicker({ value, onChange }) {
   const [q, setQ] = useState('');
   const [open, setOpen] = useState(false);
@@ -129,9 +129,9 @@ function CalOrderPicker({ value, onChange }) {
   );
 }
 
-/* ==================================================================== */
-/* Создание события (форма по типу)                                     */
-/* ==================================================================== */
+
+
+
 function CalEventCreator({ type, day, presetOrder, onClose, onCreated }) {
   const toast = useToast();
   const t = CAL_EVENT_TYPES[type];
@@ -140,10 +140,10 @@ function CalEventCreator({ type, day, presetOrder, onClose, onCreated }) {
     resp: (window.CURRENT_USER && CURRENT_USER.name) || 'Даниель', priority: 'Средний', notify: CAL_NOTIFY[0], repeat: 'Не повторять',
     scope: 'Себе', respRole: '—', direction: '', services: [], contact: '', comment: '', criterion: '', actionOnProblem: '',
   });
-  const [dupChoice, setDupChoice] = useState(null); // null | 'ignore'
-  const [creditAck, setCreditAck] = useState(false); // оформить несмотря на превышение/просрочку
+  const [dupChoice, setDupChoice] = useState(null);
+  const [creditAck, setCreditAck] = useState(false);
   const set = (k, v) => setF((s) => ({ ...s, [k]: v }));
-  // ТЗ: при оформлении нового заказа система проверяет кредитные условия контрагента
+
   const orderClient = (type === 'order' && f.order) ? (calOrderInfo(f.order) || {}).client : null;
   const credit = (type === 'order' && orderClient && typeof finCreditCheck === 'function') ? finCreditCheck(orderClient) : null;
   const creditBlocked = credit && credit.block && !creditAck;
@@ -162,7 +162,7 @@ function CalEventCreator({ type, day, presetOrder, onClose, onCreated }) {
     const base = { type, date, time: f.time, order: f.order, service: f.service, resp: f.resp, repeat: f.repeat, scope: f.scope, respRole: f.respRole, comment: f.comment };
     let evt;
     if (type === 'order') {
-      // Создаём РЕАЛЬНЫЙ заказ, который появляется в разделе «Заказы» и метится в календаре
+
       const info = f.order ? calOrderInfo(f.order) : null;
       const client = info ? info.client : (f.contact || f.direction || 'Новый клиент');
       const nextNo = (typeof ORDERS !== 'undefined' ? Math.max.apply(null, ORDERS.map((o) => o.no).concat(51000)) : 51000) + 1;
@@ -196,7 +196,7 @@ function CalEventCreator({ type, day, presetOrder, onClose, onCreated }) {
         <Button variant="secondary" style={{ flex: 1 }} onClick={onClose}>Отмена</Button>
         <Button style={{ flex: 1 }} icon="check" disabled={!canSave || creditBlocked} onClick={submit}>{dup && !dupChoice ? 'Проверить дубли' : 'Создать'}</Button>
       </>}>
-      {/* Предупреждение о дублировании */}
+
       {dup && dupChoice && (
         <div style={{ marginBottom: 14, padding: '12px 14px', borderRadius: 12, background: 'var(--amber-bg)', border: '1px solid var(--amber)' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}><Icon name="alertTriangle" style={{ width: 18, height: 18, color: 'var(--amber)' }} /><b style={{ color: 'var(--ink)' }}>Похожее событие уже есть</b></div>
@@ -237,7 +237,7 @@ function CalEventCreator({ type, day, presetOrder, onClose, onCreated }) {
             {CAL_SERVICE_TYPES.map((s) => <button key={s} type="button" onClick={() => toggleSvc(s)} className={'chip' + (f.services.includes(s) ? '' : ' ghost')} style={{ height: 32, fontSize: 12.5 }}>{s}</button>)}
           </div>
         </Field>
-        {/* Автопроверка кредитных условий контрагента при оформлении нового заказа (ТЗ) */}
+
         {credit && credit.cp && (credit.problems.length > 0 ? (
           <div style={{ padding: '12px 14px', borderRadius: 12, background: credit.block ? 'var(--red-bg)' : 'var(--amber-bg)', border: '1px solid ' + (credit.block ? 'var(--red)' : 'var(--amber)') }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
@@ -281,7 +281,7 @@ function CalEventCreator({ type, day, presetOrder, onClose, onCreated }) {
         </div>
       )}
 
-      {/* Повторение + права доступа */}
+
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
         {type !== 'order' && <Field label="Повторение"><Select value={f.repeat} onChange={(e) => set('repeat', e.target.value)} options={CAL_REPEAT} /></Field>}
         {type === 'reminder' && <Field label="Способ уведомления"><Select value={f.notify} onChange={(e) => set('notify', e.target.value)} options={CAL_NOTIFY} /></Field>}
@@ -300,9 +300,9 @@ function CalEventCreator({ type, day, presetOrder, onClose, onCreated }) {
   );
 }
 
-/* ==================================================================== */
-/* Компактный чип события в ячейке календаря                            */
-/* ==================================================================== */
+
+
+
 function CalEventChip({ evt, onOpen }) {
   const t = CAL_EVENT_TYPES[evt.type];
   return (
@@ -314,9 +314,9 @@ function CalEventChip({ evt, onOpen }) {
   );
 }
 
-/* ==================================================================== */
-/* Боковая панель события                                               */
-/* ==================================================================== */
+
+
+
 function CalEventPanel({ evt, onClose, onChanged, onOpenOrder }) {
   const toast = useToast();
   const t = CAL_EVENT_TYPES[evt.type];

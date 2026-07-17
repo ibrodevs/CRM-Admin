@@ -2,12 +2,12 @@ import { useState, useEffect } from 'react';
 import { Icon } from './icons';
 import { ActionMenu, Avatar, Button, Drawer, EmptyState, Modal, ModalHeader, Pill, useToast } from './ui';
 import { CURRENT_USER, OPERATORS, SERVICE_TYPE } from './data';
-import { EXTRA_STAGES, EXTRA_STATUS, EXTRA_SVC_CATALOG, ORDER_RESP_HISTORY, ORDER_SVC_RESPONSIBLES, SVC_ACCESS_KINDS, extrasFromSupplier, operatorSvcAccess, orderActionLog } from './data_tz2';
+import { EXTRA_STAGES, EXTRA_STATUS, EXTRA_SVC_CATALOG, ORDER_RESP_HISTORY, ORDER_SVC_RESPONSIBLES, SVC_ACCESS_KINDS, extrasFromSupplier, operatorSvcAccess, orderActionLog } from './data/access-control';
 
-// ===== Заказ: ответственные по видам услуг + журнал действий (Блок D) и
-//        динамические доп. услуги по этапам / API поставщика (Блок E) =====
 
-/* Операторы, у которых есть доступ к данному виду услуг (для назначения ответственного) */
+
+
+
 function operatorsForKind(kind) {
   return OPERATORS.filter((op) => {
     const a = operatorSvcAccess(op);
@@ -15,7 +15,7 @@ function operatorsForKind(kind) {
   });
 }
 
-/* Гарантирует, что для заказа есть список ответственных по услугам (демо-подстановка) */
+
 function ensureResponsibles(order) {
   if (ORDER_SVC_RESPONSIBLES[order.no]) return ORDER_SVC_RESPONSIBLES[order.no];
   const kindMap = { 'Отель': 'Гостиницы', 'Трансфер': 'Трансферы', 'Виза': 'Визы' };
@@ -24,7 +24,7 @@ function ensureResponsibles(order) {
   return ORDER_SVC_RESPONSIBLES[order.no];
 }
 
-/* ---------- Вкладка «Ответственные» ---------- */
+
 function OrderResponsiblesTab({ order }) {
   const toast = useToast();
   const [, tick] = useState(0);
@@ -73,7 +73,7 @@ function OrderResponsiblesTab({ order }) {
       </div>
 
       <div className="grid-2" style={{ alignItems: 'start' }}>
-        {/* Журнал действий операторов */}
+
         <div>
           <h3 className="card-title" style={{ fontSize: 16, marginBottom: 10 }}>Журнал действий операторов</h3>
           <div className="table-card">
@@ -94,7 +94,7 @@ function OrderResponsiblesTab({ order }) {
           </div>
         </div>
 
-        {/* История переназначений */}
+
         <div>
           <h3 className="card-title" style={{ fontSize: 16, marginBottom: 10 }}>История назначений</h3>
           <div className="card card-pad">
@@ -114,7 +114,7 @@ function OrderResponsiblesTab({ order }) {
   );
 }
 
-/* ---------- Вкладка «Доп. услуги» — динамический список по этапу и API поставщика (Блок E) ---------- */
+
 function DynamicExtrasPanel({ order }) {
   const toast = useToast();
   const [stage, setStage] = useState('Бронирование');
@@ -160,7 +160,7 @@ function DynamicExtrasPanel({ order }) {
         </div>
       </div>
 
-      {/* Этап + тип поставщика */}
+
       <div className="card card-pad" style={{ marginBottom: 16, display: 'flex', alignItems: 'center', gap: 18, flexWrap: 'wrap' }}>
         <div>
           <div style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 6 }}>Этап оформления</div>
@@ -200,7 +200,7 @@ function DynamicExtrasPanel({ order }) {
   );
 }
 
-/* ---------- Справочник доп. услуг для настроек (Блок E) ---------- */
+
 function ExtrasCatalogModal({ open, onClose }) {
   const toast = useToast();
   if (!open) return null;
@@ -231,13 +231,13 @@ function ExtrasCatalogModal({ open, onClose }) {
   );
 }
 
-/* ================================================================
-   ТЗ #10/#11 — единое модальное окно подтверждения необратимых операций.
-   Последняя контрольная точка перед оформлением / выпиской / обменом /
-   возвратом / отменой. Динамическое наполнение по типу услуги и действию:
-   описание, список операций, автопроверка данных, финблок, предупреждения,
-   формируемые документы и уведомления, поле комментария.
-   ================================================================ */
+
+
+
+
+
+
+
 const OP_CONFIRM_ACTIONS = {
   issue:    { title: 'Выписка услуги', verb: 'Выписать', tone: 'primary', irreversible: true,
     desc: 'После подтверждения услуга будет выписана, стоимость спишется у поставщика.',
@@ -264,7 +264,7 @@ const OP_CONFIRM_ACTIONS = {
     ops: ['Отправка запроса поставщику', 'Создание PNR / кода брони', 'Установка тайм-лимита'],
     docs: ['Подтверждение брони'], notifies: ['Уведомление в чат'], consequences: [] },
 };
-// Автопроверки по виду услуги (§ модалки): что система проверяет перед действием.
+
 const OP_CHECKS_BY_KIND = {
   'Авиа': ['Корректность данных пассажиров', 'Наличие и срок действия документов', 'Выбранный тариф и класс', 'Багаж и места', 'Тайм-лимит бронирования'],
   'ЖД': ['Данные пассажиров', 'Поезд, вагон и места', 'Класс обслуживания', 'Штрафы при возврате/обмене'],
@@ -292,7 +292,7 @@ function OperationConfirmModal({ open, action, kind = 'Авиа', service, fin =
       <div style={{ width: 'min(640px,94vw)' }}>
         <ModalHeader title={cfg.title} sub={(service || 'Услуга') + ' · ' + kind} onClose={onClose} />
         <div style={{ maxHeight: '66vh', overflow: 'auto', padding: '4px 2px 2px', display: 'flex', flexDirection: 'column', gap: 12 }}>
-          {/* Ключевая суть операции — акцентный баннер */}
+
           <div style={{ display: 'flex', alignItems: 'flex-start', gap: 11, padding: '13px 15px', borderRadius: 12,
             background: cfg.tone === 'danger' ? '#fdf0ec' : 'var(--blue-soft)', border: '1px solid ' + (cfg.tone === 'danger' ? '#f2c4b7' : '#cfe0ff') }}>
             <Icon name={cfg.tone === 'danger' ? 'alertCircle' : 'checkCircle'} style={{ width: 20, height: 20, color: cfg.tone === 'danger' ? 'var(--red)' : 'var(--blue)', flexShrink: 0, marginTop: 1 }} />
@@ -366,7 +366,7 @@ function OperationConfirmModal({ open, action, kind = 'Авиа', service, fin =
     </Modal>
   );
 }
-// Секция модалки подтверждения — выделенный блок с акцентом по важности (ТЗ #10/#11).
+
 const OPC_TONES = {
   amber: { bg: '#fff7ec', bd: '#f0d6a6', hd: 'var(--amber)' },
   red:   { bg: '#fdf0ec', bd: '#f2c4b7', hd: 'var(--red)' },

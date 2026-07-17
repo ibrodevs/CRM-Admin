@@ -3,9 +3,9 @@ import { Icon } from './icons';
 import { ActionMenu, Avatar, Button, EmptyState, Pill, SearchBox, useToast } from './ui';
 import { CHAT_CHANNEL_TONE, CHAT_THREADS, CHAT_TYPES, CURRENT_USER, OPERATORS, ORDERS, ORDER_SERVICES, ORDER_STATUS, SERVICE_KIND, SERVICE_STATUS } from './data';
 
-// ===== Чаты: много независимых чатов (клиент / операторы / поставщики / локальные / события) =====
-// каждый чат привязан к заказу и (опционально) к услуге · вложения · упоминания · системные события
-// внутри чата два под-канала композера: «Сообщение» и «Внутренний комментарий» (закрытый).
+
+
+
 
 function chatNow() { const d = new Date(); return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`; }
 function chatText(text) {
@@ -29,8 +29,8 @@ function chatMoney(n, cur) {
   return Math.round(n).toLocaleString('ru-RU') + (sym ? ' ' + sym : '');
 }
 
-/* Карточка услуги в чате — то, что уходит клиенту: все данные «около услуги» + статус.
-   Раньше в сообщении был лишь ярлык «вид · название»; теперь — полноценная карточка. */
+
+
 function ChatServiceCard({ svc, me, onOpen }) {
   const k = (typeof SERVICE_KIND !== 'undefined' && SERVICE_KIND[svc.kind]) || { icon: 'route', color: 'var(--blue)' };
   const stTone = (typeof SERVICE_STATUS !== 'undefined' && SERVICE_STATUS[svc.status]) || 'gray';
@@ -64,7 +64,7 @@ function ChatServiceCard({ svc, me, onOpen }) {
 function chatOrderStatus(no) { const o = (typeof ORDERS !== 'undefined' ? ORDERS : []).find((x) => x.no === no); if (!o) return null; return o.status === 'Нет данных' ? 'Новое' : o.status; }
 function chatTypeMeta(key) { return (CHAT_TYPES.find((t) => t.key === key)) || { key, label: key, icon: 'chat' }; }
 
-// default thread for an order (used by the order card & global drawer entry points)
+
 function getThreadForOrder(order) {
   return CHAT_THREADS.find((t) => t.order === order.no && t.type === 'client') ||
     CHAT_THREADS.find((t) => t.order === order.no) ||
@@ -73,9 +73,9 @@ function getThreadForOrder(order) {
       relatedServices: [], participants: [{ name: order.client, role: 'Клиент' }], messages: [], internal: [] };
 }
 
-/* «Кому» — every contact you can address within an order's chat: every existing thread
-   (client / operators / suppliers / system) plus an always-available admin channel, even if
-   no admin thread has been started yet. */
+
+
+
 function makeAdminThread(order) {
   return {
     id: 'admin-' + order.no, order: order.no, type: 'operator', isAdmin: true, channel: 'MAX',
@@ -90,14 +90,14 @@ function recipientLabel(t) {
   if (t.isAdmin) return 'Админ · ' + t.name.replace('Админ · ', '');
   return chatTypeMeta(t.type).label + ' · ' + t.name;
 }
-// existing threads for the order (+ extra ones synthesized this session) + a standing «Админ» option
+
 function chatRecipients(orderNo, extraThreads) {
   const mine = CHAT_THREADS.filter((t) => t.order === orderNo).concat((extraThreads || []).filter((t) => t.order === orderNo));
   if (!mine.some((t) => t.isAdmin)) mine.push({ ...makeAdminThread({ no: orderNo, client: mine[0] && mine[0].client, date: mine[0] && mine[0].createdAt }), virtual: true });
   return mine;
 }
 
-/* small channel badge for list rows & header */
+
 function ChannelBadge({ channel, sm }) {
   if (sm) {
     const tone = CHAT_CHANNEL_TONE[channel] || 'gray';
@@ -106,14 +106,14 @@ function ChannelBadge({ channel, sm }) {
   return <Pill tone={CHAT_CHANNEL_TONE[channel] || 'gray'}>{channel}</Pill>;
 }
 
-/* ---------- reusable conversation panel ---------- */
+
 function ChatThread({ thread, embedded, onOpenOrder, onOpenService, initChannel, recipients, onSwitchThread }) {
   const toast = useToast();
-  const [sub, setSub] = useState('message'); // composer sub-channel: 'message' | 'internal'
+  const [sub, setSub] = useState('message');
   const [msgs, setMsgs] = useState(thread.messages || []);
   const [intl, setIntl] = useState(thread.internal || []);
   const [draft, setDraft] = useState('');
-  const [linked, setLinked] = useState(null); // service id attached to the message being composed
+  const [linked, setLinked] = useState(null);
   const [pinned, setPinned] = useState(!!thread.pinned);
   const scrollRef = useRef(null);
 
@@ -133,7 +133,7 @@ function ChatThread({ thread, embedded, onOpenOrder, onOpenService, initChannel,
   const services = typeof ORDER_SERVICES !== 'undefined' ? ORDER_SERVICES : [];
   const tMeta = chatTypeMeta(thread.type);
 
-  // «Кому» — switch which contact of this order the composer is writing to (client / operator / supplier / admin)
+
   const recipientPicker = recipients && onSwitchThread && (
     <ActionMenu trigger={
       <button className="chip" style={{ height: 32, fontSize: 12, padding: '0 11px' }} title="Выбрать получателя">
@@ -148,7 +148,7 @@ function ChatThread({ thread, embedded, onOpenOrder, onOpenService, initChannel,
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden' }}>
-      {/* header */}
+
       {embedded ? (
         <div style={{ padding: '14px 20px', borderBottom: '1px solid var(--line)' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
@@ -183,7 +183,7 @@ function ChatThread({ thread, embedded, onOpenOrder, onOpenService, initChannel,
         </div>
       )}
 
-      {/* messages */}
+
       <div ref={scrollRef} className="scroll" style={{ flex: 1, overflowY: 'auto', padding: '12px 16px', display: 'flex', flexDirection: 'column', gap: 8, minHeight: 0 }}>
         {sub === 'internal' && <div className="chan-note"><Icon name="lock" style={{ width: 14, height: 14 }} />Внутренний комментарий — виден только сотрудникам агентства</div>}
         {sub === 'message' && thread.type === 'supplier' && <div className="chan-note" style={{ color: 'var(--gray-text)', background: 'var(--gray-bg)' }}><Icon name="suppliers" style={{ width: 14, height: 14 }} />Канал с поставщиком · {thread.supplier || thread.name} · {thread.channel}</div>}
@@ -213,7 +213,7 @@ function ChatThread({ thread, embedded, onOpenOrder, onOpenService, initChannel,
         })}
       </div>
 
-      {/* composer */}
+
       <div style={{ padding: '8px 14px', borderTop: '1px solid var(--line)' }}>
         {linked && (() => { const s = chatServiceById(linked); return (
           <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, fontSize: 12, fontWeight: 600, color: 'var(--ink)', background: 'var(--surface-2)', border: '1px solid var(--line)', borderRadius: 999, padding: '5px 10px', marginBottom: 6 }}>
@@ -240,7 +240,7 @@ function ChatThread({ thread, embedded, onOpenOrder, onOpenService, initChannel,
   );
 }
 
-/* ---------- right info panel ---------- */
+
 function ChatInfoPanel({ thread, onOpenOrder, onOpenService }) {
   const toast = useToast();
   const [allPax, setAllPax] = useState(false);
@@ -256,7 +256,7 @@ function ChatInfoPanel({ thread, onOpenOrder, onOpenService }) {
   ];
   return (
     <div className="scroll" style={{ overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 8, padding: 2 }}>
-      {/* related services */}
+
       <div className="card" style={{ padding: '10px 12px' }}>
         <h3 className="card-title" style={{ fontSize: 13, marginBottom: 7 }}>Связано с услугой</h3>
         {services.length ? services.map((s) => {
@@ -274,7 +274,7 @@ function ChatInfoPanel({ thread, onOpenOrder, onOpenService }) {
         <Button variant="secondary" size="sm" className="btn-block" iconRight="chevRight" onClick={() => onOpenService && onOpenService(services[0] ? services[0].id : null)}>Открыть услугу</Button>
       </div>
 
-      {/* chat info */}
+
       <div className="card" style={{ padding: '10px 12px' }}>
         <h3 className="card-title" style={{ fontSize: 13, marginBottom: 3 }}>Информация о чате</h3>
         <div className="kv">
@@ -286,7 +286,7 @@ function ChatInfoPanel({ thread, onOpenOrder, onOpenService }) {
         </div>
       </div>
 
-      {/* participants */}
+
       <div className="card" style={{ padding: '10px 12px' }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 7 }}>
           <h3 className="card-title" style={{ fontSize: 13 }}>Участники</h3>
@@ -300,7 +300,7 @@ function ChatInfoPanel({ thread, onOpenOrder, onOpenService }) {
         ))}
       </div>
 
-      {/* quick actions */}
+
       <div className="card" style={{ padding: '10px 12px' }}>
         <h3 className="card-title" style={{ fontSize: 13, marginBottom: 7 }}>Быстрые действия</h3>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6 }}>
@@ -313,7 +313,7 @@ function ChatInfoPanel({ thread, onOpenOrder, onOpenService }) {
   );
 }
 
-/* ---------- left navigation ---------- */
+
 function ChatsNav({ threads, activeId, onSelect, search, setSearch, mode, setMode }) {
   const [typeFilter, setTypeFilter] = useState('all');
   const matchesSearch = (t) => {
@@ -323,7 +323,7 @@ function ChatsNav({ threads, activeId, onSelect, search, setSearch, mode, setMod
   const searched = threads.filter(matchesSearch);
   const typeCount = (k) => searched.filter((t) => t.type === k).length;
   const filtered = (mode === 'byType' && typeFilter !== 'all') ? searched.filter((t) => t.type === typeFilter) : searched;
-  // pinned first, then newest (by id desc)
+
   const sorted = [...filtered].sort((a, b) => (b.pinned ? 1 : 0) - (a.pinned ? 1 : 0) || b.id - a.id);
 
   const TYPE_FILTERS = [{ key: 'all', label: 'Все чаты' }].concat(CHAT_TYPES.map((t) => ({ key: t.key, label: t.label })));
@@ -405,11 +405,11 @@ function ChatsNav({ threads, activeId, onSelect, search, setSearch, mode, setMod
   );
 }
 
-/* ---------- standalone Чаты page ---------- */
+
 function ChatsPage({ onOpenOrder }) {
   const toast = useToast();
-  // extraThreads holds contacts (e.g. «Админ») created on the fly via the «Кому» picker,
-  // once you actually pick them — they then show up in the left list like any other chat
+
+
   const [extraThreads, setExtraThreads] = useState([]);
   const threads = [...CHAT_THREADS, ...extraThreads];
   const [activeId, setActiveId] = useState(CHAT_THREADS[0].id);
@@ -431,13 +431,13 @@ function ChatsPage({ onOpenOrder }) {
         <div style={{ display: 'grid', gridTemplateColumns: '340px 1fr 252px', gap: 10, height: 'calc(100vh - 100px)' }}>
           <ChatsNav threads={threads} activeId={activeId} onSelect={setActiveId} search={search} setSearch={setSearch} mode={mode} setMode={setMode} />
 
-          {/* conversation */}
+
           <div className="card" style={{ display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
             {active ? <ChatThread thread={active} onOpenOrder={openOrderFromThread} onOpenService={openServiceFromThread}
               recipients={recipients} onSwitchThread={switchThread} /> : <EmptyState icon="chat" title="Выберите чат" />}
           </div>
 
-          {/* info panel */}
+
           {active && <ChatInfoPanel thread={active} onOpenOrder={openOrderFromThread} onOpenService={openServiceFromThread} />}
         </div>
       </div>

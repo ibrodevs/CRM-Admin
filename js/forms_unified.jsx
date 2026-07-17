@@ -3,39 +3,39 @@ import ReactDOM from 'react-dom';
 import { Icon } from './icons';
 import { Avatar, Button, Drawer, EmptyState, Field, Input, SearchBox, Select, Toggle, fmtDate, useToast } from './ui';
 import { CLIENTS, CLIENT_STATUS, ORDERS } from './data';
-import { PanelSub } from './page_orders';
+import { PanelSub } from './components/shared-panels';
 
-// =====================================================================
-//  ЕДИНЫЕ ФОРМЫ (ТЗ · ТЗ-2): один источник правды для добавления и
-//  редактирования физического лица, сотрудника компании (юр. лицо) и
-//  документов — из любого раздела система обращается к ним же.
-//  Раньше эти формы дублировались в 7 местах с разным составом полей
-//  (page_people, page_orders, order_extras …). Теперь —
-//  один компонент, одинаковая «начинка» и в создании, и в корректировке.
-//  Загружается после data_tz2.jsx, до страниц.
-// =====================================================================
 
-/* ---------- Справочники (единые, без рукописного ввода где не нужно) ---------- */
+
+
+
+
+
+
+
+
+
+
 const UF_DOC_TYPES = ['Загранпаспорт', 'Общегражданский паспорт', 'ID-карта', 'Свидетельство о рождении', 'Вид на жительство', 'Виза'];
 const UF_CITIZENSHIP = ['Кыргызстан', 'Казахстан', 'Россия', 'Узбекистан', 'Таджикистан', 'Туркменистан', 'Азербайджан', 'Турция', 'Германия', 'Китай', 'ОАЭ', 'Другое'];
 const UF_PAX_ROLES = ['Взрослый', 'Ребёнок', 'Младенец'];
 const UF_GENDER = ['Мужской', 'Женский'];
 const UF_CLIENT_STATUSES = (typeof CLIENT_STATUS !== 'undefined') ? Object.keys(CLIENT_STATUS) : ['Новый', 'Активный', 'VIP', 'Неактивный'];
 
-/* ---------- Модель персоны (канонический вид) ----------
-   Совместима с CLIENTS_DB ({name, doc, dob, phone…}) через ufFromClient / ufToClient. */
+
+
 function ufBlankPerson(kind) {
   return {
-    kind: kind || 'person',              // 'person' (физлицо) | 'employee' (сотрудник компании)
+    kind: kind || 'person',
     lastName: '', firstName: '', middleName: '',
     dob: '', gender: '', citizenship: 'Кыргызстан',
-    role: 'Взрослый',                    // для участника поездки
+    role: 'Взрослый',
     docType: 'Загранпаспорт', docNo: '', docExpiry: '',
     phone: '', phone2: '', email: '', city: 'Бишкек',
     status: 'Новый', category: 'Физлицо',
-    dept: '', position: '', inPolicy: true,   // только для сотрудника
+    dept: '', position: '', inPolicy: true,
     comment: '',
-    documents: [],                        // список документов персоны
+    documents: [],
   };
 }
 function ufSplitName(full) {
@@ -47,7 +47,7 @@ function ufFullName(p) {
   const n = [p.lastName, p.firstName, p.middleName].filter(Boolean).join(' ').trim();
   return n || p.name || '';
 }
-// CLIENTS_DB / участник → каноническая персона
+
 function ufFromClient(c, kind) {
   if (!c) return ufBlankPerson(kind);
   const nm = ufSplitName(c.name);
@@ -69,7 +69,7 @@ function ufFromClient(c, kind) {
     comment: c.comment || '',
   };
 }
-// каноническая персона → строка, совместимая с CLIENTS_DB / участником
+
 function ufToClient(p) {
   return {
     id: p.id || ('CL-' + (1061 + Math.floor(Math.random() * 8999))),
@@ -88,7 +88,7 @@ function ufToClient(p) {
     comment: p.comment || '',
   };
 }
-// Проверка персоны. Возвращает {} если ок.
+
 function ufValidatePerson(p) {
   const er = {};
   if (!p.lastName.trim() && !p.firstName.trim()) er.name = 'Укажите фамилию и имя';
@@ -97,9 +97,9 @@ function ufValidatePerson(p) {
   return er;
 }
 
-/* ---------- Даты в единой форме ----------
-   CRM хранит даты строками dd.mm.yyyy, а пользователь выбирает их нашим календарем.
-   Для даты рождения в шапке есть быстрый выбор года, без чужого браузерного UI. */
+
+
+
 const UF_MONTHS = ['Январь', 'Февраль', 'Март', 'Апрель', 'Май', 'Июнь', 'Июль', 'Август', 'Сентябрь', 'Октябрь', 'Ноябрь', 'Декабрь'];
 const UF_DAYS = ['ВС', 'ПН', 'ВТ', 'СР', 'ЧТ', 'ПТ', 'СБ'];
 function ufParseDate(value) {
@@ -125,8 +125,8 @@ function ufDateFromIso(value) {
   const m = String(value || '').match(/^(\d{4})-(\d{2})-(\d{2})$/);
   return m ? `${m[3]}.${m[2]}.${m[1]}` : '';
 }
-// rest собирается вручную (без `{ ...props }`), чтобы не создавать глобальный хелпер
-// `_excluded`, который в мульти-скрипт babel-сборке перезаписывает одноимённый в ui.jsx.
+
+
 function UFDateField(_uf) {
   const { value, onChange, label, required, error, minYear, maxYear } = _uf;
   const placeholder = _uf.placeholder != null ? _uf.placeholder : 'дд.мм.гггг';
@@ -252,9 +252,9 @@ function UFDateField(_uf) {
   );
 }
 
-/* =====================================================================
-   1) ЕДИНЫЙ БЛОК ПОЛЕЙ ПЕРСОНЫ — используется во всех формах
-   ===================================================================== */
+
+
+
 function UnifiedPersonFields({ value, onChange, errors = {}, departments = [], showRole = false, showStatus = true, showDocuments = false, onManageDocs }) {
   const p = value;
   const set = (k, v) => onChange({ ...p, [k]: v });
@@ -336,11 +336,11 @@ function UnifiedPersonFields({ value, onChange, errors = {}, departments = [], s
   );
 }
 
-/* =====================================================================
-   2) ЕДИНАЯ ФОРМА ПЕРСОНЫ (создание / редактирование)
-      kind: 'person' | 'employee'.  mode: 'create' | 'edit'.
-      Одна и та же форма открывается из любого раздела.
-   ===================================================================== */
+
+
+
+
+
 function UnifiedPersonDrawer({ open, kind = 'person', mode = 'create', initial, company, departments = [], showRole = false, title, onClose, onSave }) {
   const toast = useToast();
   const [p, setP] = useState(ufBlankPerson(kind));
@@ -381,10 +381,10 @@ function UnifiedPersonDrawer({ open, kind = 'person', mode = 'create', initial, 
   );
 }
 
-/* =====================================================================
-   3) ЕДИНАЯ ФОРМА ДОКУМЕНТА (OCR / вручную) — для физ и юр, из любого места.
-      Заменяет DocumentPanel (page_orders) и DocUploadModal (page_fulfillment).
-   ===================================================================== */
+
+
+
+
 function ufBlankDoc(person) {
   const nm = ufSplitName(person && person.name);
   return {
@@ -397,7 +397,7 @@ function ufBlankDoc(person) {
 }
 function UnifiedDocumentDrawer({ open, person = {}, initial, mode = 'create', onClose, onSave }) {
   const toast = useToast();
-  const [mth, setMth] = useState('ocr');   // 'ocr' | 'manual'
+  const [mth, setMth] = useState('ocr');
   const [scanned, setScanned] = useState(false);
   const [d, setD] = useState(ufBlankDoc(person));
   const set = (k, v) => setD((s) => ({ ...s, [k]: v }));
@@ -409,7 +409,7 @@ function UnifiedDocumentDrawer({ open, person = {}, initial, mode = 'create', on
   if (!open) return null;
   const runOcr = () => {
     setScanned(true);
-    // демо-распознавание: подставляем данные владельца
+
     const nm = ufSplitName(person.name);
     setD((s) => ({ ...s, docNo: s.docNo || 'AC ' + (1000000 + Math.floor(Math.random() * 8999999)),
       latLast: s.latLast || translit(nm.lastName), latFirst: s.latFirst || translit(nm.firstName),
@@ -483,15 +483,15 @@ function UnifiedDocumentDrawer({ open, person = {}, initial, mode = 'create', on
   );
 }
 
-/* =====================================================================
-   4) ЕДИНЫЙ ВЫБОР ПРИВЯЗКИ (ТЗ · п.2–3): один компонент выбора цели, к которой
-      привязывается всё, что создаётся БЕЗ заказа — новый заказ / существующий
-      заказ / физическое лицо. Раньше в каждом месте была своя форма (в импорте
-      маршрут-квитанций — простой Select без даты, в «Свободном бронировании» —
-      богатый список карточек). Теперь одна форма и одинаковая «начинка» везде:
-      карточка заказа с № · клиентом · типом заявки · датой формирования.
-   ===================================================================== */
-// строки существующих заказов: фильтр + хронология (сначала новые) — как в свободном бронировании
+
+
+
+
+
+
+
+
+
 function ufOrderPickRows(query) {
   const q = String(query || '').toLowerCase();
   return (typeof ORDERS !== 'undefined' ? ORDERS : [])
@@ -501,7 +501,7 @@ function ufOrderPickRows(query) {
     .slice(0, 20);
 }
 const UF_PICK_ROW_STYLE = { cursor: 'pointer', width: '100%', textAlign: 'left', border: '1px solid var(--line)', background: '#fff', borderRadius: 12, padding: '10px 12px', display: 'flex', alignItems: 'center', gap: 12 };
-// единая строка заказа (одна разметка для всех мест привязки)
+
 function UfOrderRow({ order, icon = 'briefcase', tone = 'var(--blue)', onClick }) {
   return (
     <button type="button" className="oce-client" style={UF_PICK_ROW_STYLE} onClick={onClick}>
@@ -515,7 +515,7 @@ function UfOrderRow({ order, icon = 'briefcase', tone = 'var(--blue)', onClick }
     </button>
   );
 }
-// единая строка физ. лица
+
 function UfPersonRow({ name, hint, onClick }) {
   return (
     <button type="button" style={UF_PICK_ROW_STYLE} onClick={onClick}>
@@ -530,14 +530,14 @@ function UfPersonRow({ name, hint, onClick }) {
 }
 
 const UF_BIND_MODE_LABEL = { new: 'Новый заказ', order: 'Существующий заказ', person: 'Физ. лицо' };
-// нормализованная цель привязки: { mode:'new'|'order'|'person', order?, client?, label }
+
 function ufBindLabel(t) {
   if (!t || t.mode === 'new') return 'Новый заказ';
   if (t.mode === 'order') return t.order ? ('Заказ № ' + t.order.no) : 'Существующий заказ';
   if (t.mode === 'person') return t.client || 'Физ. лицо';
   return 'Новый заказ';
 }
-/* Боковое окно выбора цели привязки. modes — подмножество ['new','order','person']. */
+
 function UnifiedBindPicker({ open, title = 'Куда привязать', sub, modes = ['new', 'order', 'person'], onClose, onPick }) {
   const [tab, setTab] = useState(modes[0] || 'new');
   const [q, setQ] = useState('');
@@ -591,8 +591,8 @@ function UnifiedBindPicker({ open, title = 'Куда привязать', sub, m
     </Drawer>
   );
 }
-/* Инлайн-поле привязки (замена «голого» Select) — показывает текущую цель и открывает
-   единое боковое окно выбора. Значение — нормализованная цель ufBind*. */
+
+
 function UnifiedBindField({ value, onChange, modes, title, sub, style }) {
   const [open, setOpen] = useState(false);
   const t = value || { mode: 'new', label: 'Новый заказ' };
@@ -611,7 +611,7 @@ function UnifiedBindField({ value, onChange, modes, title, sub, style }) {
   );
 }
 
-/* маленький транслитератор для демо-OCR */
+
 function translit(s) {
   const map = { а: 'A', б: 'B', в: 'V', г: 'G', д: 'D', е: 'E', ё: 'E', ж: 'ZH', з: 'Z', и: 'I', й: 'I', к: 'K', л: 'L', м: 'M', н: 'N', о: 'O', п: 'P', р: 'R', с: 'S', т: 'T', у: 'U', ф: 'F', х: 'KH', ц: 'TS', ч: 'CH', ш: 'SH', щ: 'SCH', ъ: '', ы: 'Y', ь: '', э: 'E', ю: 'YU', я: 'YA' };
   return String(s || '').toLowerCase().split('').map((c) => map[c] != null ? map[c] : (/[a-z0-9]/.test(c) ? c : '')).join('').toUpperCase();

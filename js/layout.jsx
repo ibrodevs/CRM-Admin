@@ -3,7 +3,7 @@ import { BrandMark, Icon } from './icons';
 import { Avatar } from './ui';
 import { CURRENT_USER } from './data';
 
-// ===== Layout: sidebar, profile, app shell, page wrapper =====
+
 
 const NAV_ITEMS = [
   { key: 'dashboard', label: 'Главное', icon: 'home' },
@@ -21,9 +21,9 @@ const NAV_ITEMS = [
   { key: 'notifications', label: 'Уведомления', icon: 'bell' },
   { key: 'settings', label: 'Настройки', icon: 'settings' },
 ];
-// Разделы «Документы», «Оформление», «Возвраты и обмены» убраны из левого меню —
-// это операции над заказом и доступны логично: внутри карточки заказа (вкладки
-// «Документы» / «Постпродажа», бронирование) и общим списком из раздела «Заказы».
+
+
+
 const ORDER_OPS_SECTIONS = [
   { key: 'documents', label: 'Документы', icon: 'docs', desc: 'Билеты, ваучеры, счета и договоры по всем заказам' },
   { key: 'fulfillment', label: 'Оформление', icon: 'clipboard', desc: 'Очередь выписки и оформления услуг' },
@@ -34,14 +34,14 @@ const SERVICE_KEYS = ['flights', 'rail', 'hotels', 'transfers', 'buses', 'tours'
 
 function NavGroup({ item, active, onNavigate, collapsed }) {
   const hasActiveChild = item.children.some((c) => c.key === active);
-  const isHubActive = active === item.group; // сам раздел «Подбор услуг» открыт
+  const isHubActive = active === item.group;
   const [open, setOpen] = useState(hasActiveChild);
   useEffect(() => { if (hasActiveChild) setOpen(true); }, [hasActiveChild]);
-  // collapsed: the flyout is shown purely via CSS :hover, so it's always in the DOM
+
   const showSub = collapsed ? true : open;
   return (
     <div className="nav-group">
-      {/* Клик по разделу ведёт на единый экран подбора; каретка раскрывает быстрые ссылки. */}
+
       <button className={'nav-item' + (isHubActive ? ' active' : (hasActiveChild && !open ? ' has-active' : ''))} title={item.label}
         onClick={() => { onNavigate(item.group); if (!collapsed) setOpen(true); }}>
         <Icon name={item.icon} />
@@ -67,8 +67,8 @@ function NavGroup({ item, active, onNavigate, collapsed }) {
 
 function Sidebar({ route, onNavigate, onLogout, role, collapsed }) {
   const active = route.split('/')[0];
-  // roleCanSee берём с window (его туда кладёт shell.jsx), чтобы не создавать
-  // циклический импорт layout ↔ shell; guard сохраняет прежнее поведение
+
+
   const can = (k) => (typeof window.roleCanSee === 'function' ? window.roleCanSee(role, k) : true);
   const items = NAV_ITEMS.map((it) => {
     if (it.group) { const children = it.children.filter((c) => can(c.key)); return children.length ? { ...it, children } : null; }
@@ -142,7 +142,7 @@ function AppShell({ route, onNavigate, onLogout, role, topbar, overlays, childre
   );
 }
 
-// Page header (title + optional subtitle + optional right-side controls + filter row)
+
 function Topbar({ title, sub, children }) {
   return (
     <div className="topbar">
@@ -155,8 +155,8 @@ function Topbar({ title, sub, children }) {
   );
 }
 
-// Placeholder for modules planned in the next build phases.
-// Keeps the full information architecture navigable so the product feels whole.
+
+
 function ModulePlaceholder({ title, icon = 'inbox', planned = [] }) {
   return (
     <>

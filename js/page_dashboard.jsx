@@ -2,27 +2,27 @@ import { useState, useEffect } from 'react';
 import { Icon } from './icons';
 import { ActionMenu, Avatar, Button, Checkbox, Drawer, EmptyState, FilterChip, Pill, SearchBox, plural, useToast } from './ui';
 import { CHAT_THREADS, CLIENTS, COMPANIES_DB, CURRENT_USER, NOTIFICATIONS, OPERATORS, ORDERS, ORDER_STATUS, PROPOSALS, RECENT_CHANGES, RETURNS, RETURN_STATUS, RETURN_TYPE, financeOverview } from './data';
-import { SLA_QUEUE, slaLabel, slaTone } from './data_tz2';
+import { SLA_QUEUE, slaLabel, slaTone } from './data/access-control';
 import { UfOrderRow, UfPersonRow, ufOrderPickRows } from './forms_unified';
 import { Topbar } from './layout';
 import { PAX_DEFAULT_OPTIONS } from './page_flights';
-import { PanelSub, StackPanel } from './page_orders';
+import { PanelSub, StackPanel } from './components/shared-panels';
 import { AddServicePanel } from './page_order_card';
 import { ErrorCodesDrawer } from './page_notifications';
 import { SHIFT_DEMO_OPS, SHIFT_REQUESTS_HANDLED, motivationFor, operatorEarn, shiftDuration, shiftFmtTime, shiftTotals } from './page_shifts';
 
-// ===== Dashboard (Главное) =====
 
-/* Финализация свободного бронирования (ТЗ #1): по подобранным без привязки к заказу услугам можно
-   сформировать КП, привязать к существующему заказу или к физ.лицу. */
+
+
+
 function FreeBookingFinalize({ draft, onClose, onDone, onOpenOrder, onCreateOrder }) {
   const toast = useToast();
-  const [step, setStep] = useState('menu');   // menu | order | newOrder | person | kp | chat
-  const [entity, setEntity] = useState('legal'); // тип нового заказа: legal (юр.) | person (физ.)
+  const [step, setStep] = useState('menu');
+  const [entity, setEntity] = useState('legal');
   const [q, setQ] = useState('');
-  const [recipient, setRecipient] = useState('');   // получатель КП (необязательно)
+  const [recipient, setRecipient] = useState('');
   const [kpNo] = useState(() => 'КП-' + (1040 + Math.floor(Math.random() * 60)));
-  // Создание НОВОГО заказа на выбранное юр./физ. лицо с привязкой подобранных услуг (ТЗ #17).
+
   const createNewOrder = (client, requestType) => {
     const no = Math.max.apply(null, ORDERS.map((o) => o.no).concat(51180)) + 1;
     const order = {
@@ -42,10 +42,10 @@ function FreeBookingFinalize({ draft, onClose, onDone, onOpenOrder, onCreateOrde
   const svcSum = (x) => x.fareDeltaUsd || x.total || x.cost || x.price || x.sum || 0;
   const total = draft.reduce((s, x) => s + svcSum(x), 0);
   const finish = (msg, action) => { toast(msg, 'ok', action ? { action, duration: 7000 } : {}); onDone(); };
-  // Список заказов для привязки — единый источник (forms_unified): фильтр + хронология (сначала новые)
+
   const orderPickRows = ufOrderPickRows;
 
-  // Выбор существующего заказа для привязки
+
   if (step === 'order') {
     const rows = orderPickRows(q);
     return (
@@ -62,7 +62,7 @@ function FreeBookingFinalize({ draft, onClose, onDone, onOpenOrder, onCreateOrde
     );
   }
 
-  // Свободная выгрузка подборки в чат заказа — без формирования КП (ТЗ-2 п.10)
+
   if (step === 'chat') {
     const rows = orderPickRows(q);
     return (
@@ -85,7 +85,7 @@ function FreeBookingFinalize({ draft, onClose, onDone, onOpenOrder, onCreateOrde
     );
   }
 
-  // Выбор физ. лица (клиента) для привязки
+
   if (step === 'person') {
     const list = CLIENTS.filter((c) => c.toLowerCase().includes(q.toLowerCase()));
     return (
@@ -102,7 +102,7 @@ function FreeBookingFinalize({ draft, onClose, onDone, onOpenOrder, onCreateOrde
     );
   }
 
-  // Создание нового заказа на юр./физ. лицо (ТЗ #17) — подобранные услуги переносятся в новый заказ
+
   if (step === 'newOrder') {
     const legal = entity === 'legal';
     const list = (legal
@@ -138,7 +138,7 @@ function FreeBookingFinalize({ draft, onClose, onDone, onOpenOrder, onCreateOrde
     );
   }
 
-  // Формирование КП — боковое окно с составом, получателем, суммой и действиями
+
   if (step === 'kp') {
     return (
       <Drawer open onClose={onClose} title="Коммерческое предложение"
@@ -148,7 +148,7 @@ function FreeBookingFinalize({ draft, onClose, onDone, onOpenOrder, onCreateOrde
             {recipient ? 'Отправить клиенту' : 'Сформировать КП'}
           </Button>
         </>}>
-        {/* шапка КП */}
+
         <div className="card card-pad" style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>
           <span className="oc-svc-ic" style={{ background: 'var(--blue)', width: 40, height: 40, borderRadius: 11 }}><Icon name="template" style={{ width: 20, height: 20 }} /></span>
           <div style={{ flex: 1 }}>
@@ -230,8 +230,8 @@ function FreeBookingFinalize({ draft, onClose, onDone, onOpenOrder, onCreateOrde
   );
 }
 
-/* «Свободное бронирование» — поиск услуг без привязки к заказу (ТЗ #1). Подобранные услуги
-   собираются в подборку, затем оформляются: КП / привязка к заказу / привязка к физ.лицу. */
+
+
 function DetailedSearchPanel({ onClose, initialKind, onOpenOrder, onCreateOrder }) {
   const toast = useToast();
   const [kind, setKind] = useState(initialKind || 'Авиа');
@@ -260,8 +260,8 @@ function DetailedSearchPanel({ onClose, initialKind, onOpenOrder, onCreateOrder 
   );
 }
 
-/* Финансовое состояние клиентов на дашборде (ТЗ: балансы, пропущенные оплаты по срокам,
-   срочные документы для оплат — «в дашборде и иных местах»). */
+
+
 function FinanceOverviewBlock({ onNavigate }) {
   const ov = financeOverview();
   const money = (n) => Math.round(n || 0).toLocaleString('ru-RU') + ' $';
@@ -332,7 +332,7 @@ function StatCardDash({ s, onGo }) {
   );
 }
 
-/* Отклик операторов на заявки (Блок A ТЗ): норматив в минутах, просрочка / накал тайминга */
+
 function SlaResponseWidget({ onOpenOrder }) {
   const rows = SLA_QUEUE.map((q) => ({ ...q, tone: slaTone(q.waited, q.limit) }));
   const overdue = rows.filter((r) => r.tone === 'red').length;
@@ -366,13 +366,13 @@ function SlaResponseWidget({ onOpenOrder }) {
   );
 }
 
-/* ---------- Тон → цвет (общий помощник маркеров) ---------- */
+
 function dashToneColor(t) {
   return t === 'red' ? 'var(--red)' : t === 'amber' ? 'var(--amber)' : t === 'green' ? 'var(--green)' : t === 'teal' ? 'var(--teal, var(--blue))' : t === 'gray' ? 'var(--muted-2)' : 'var(--blue)';
 }
-/* ---------- Плитка-виджет дашборда с контекстом (не голый счётчик) ----------
-   Кроме значения показывает превью самого важного элемента: что · заказ · дедлайн.
-   По клику разворачивает рабочую область ниже. */
+
+
+
 function DashTile({ w, active, onClick }) {
   const toneColor = dashToneColor(w.tone);
   const pv = w.preview;
@@ -402,7 +402,7 @@ function DashTile({ w, active, onClick }) {
   );
 }
 
-/* ---------- Маркер-карточка «Сейчас требуют внимания» (самое срочное с контекстом) ---------- */
+
 function AttentionMarker({ a, onClick }) {
   const c = dashToneColor(a.tone);
   const badge = a.tone === 'red' ? 'Срочно' : a.tone === 'amber' ? 'Важно' : 'Внимание';
@@ -426,7 +426,7 @@ function AttentionMarker({ a, onClick }) {
   );
 }
 
-/* ---------- Пустое состояние детали (нет проблем) ---------- */
+
 function DashDetailEmpty({ title }) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', color: 'var(--muted)', gap: 8, padding: 40 }}>
@@ -436,8 +436,8 @@ function DashDetailEmpty({ title }) {
   );
 }
 
-/* ---------- Демо-данные для показателей дашборда (в проде — из API/БД) ---------- */
-// ТЗ #12 — расширенная статистика по поставщикам (кликабельно → разбор ошибок)
+
+
 const SUPPLIER_STATS = [
   { name: 'Amadeus GDS',      apiErrors: 3, failed: 2, retries: 5, avgResp: '1.8 с', lastOk: '2 мин назад', lastErr: '4 мин назад', services: 'Авиа', integ: 'Частичные ошибки', crit: 'Критическая', ordersAffected: 2, tone: 'red' },
   { name: 'Sirena',          apiErrors: 0, failed: 0, retries: 0, avgResp: '0.9 с', lastOk: 'только что', lastErr: '—', services: 'Авиа, ЖД', integ: 'Работает стабильно', crit: '—', ordersAffected: 0, tone: 'green' },
@@ -447,7 +447,7 @@ const SUPPLIER_STATS = [
 ];
 const ERR_CRIT_TONE = { 'Критическая': 'red', 'Важная': 'amber', 'Информационная': 'gray' };
 const INTEG_TONE = { 'Работает стабильно': 'green', 'Замедление': 'amber', 'Частичные ошибки': 'amber', 'Недоступен': 'red', 'Авторизация истекла': 'red', 'Технические работы': 'blue', 'Отключён вручную': 'gray' };
-// Активные ошибки поставщиков (разбор по ТЗ #12): группируются одинаковые, связаны с заказами.
+
 const SUPPLIER_ERRORS = [
   { id: 'E-4821', supplier: 'Amadeus GDS', service: 'Авиа', op: 'Бронирование', time: '14.07.2026 11:38', order: 51170, orderTL: 'до 18:40', client: 'Гранд лимитед', operator: 'Даниель', code: 'AMA-3021', crmCode: 'BOOK_TIMEOUT', crit: 'Критическая', reason: 'Тайм-аут ответа при подтверждении брони — место удержано до 18:40.', tech: 'HTTP 504 Gateway Timeout · reqId=amx-9f2a11 · endpoint /v2/booking/confirm', repeats: 4, first: '14.07 09:05', last: '14.07 11:38', impact: 'Не завершена выписка билета', status: 'Новая' },
   { id: 'E-4822', supplier: 'Qatar (API)', service: 'Авиа', op: 'Выписка', time: '14.07.2026 11:36', order: 51171, orderTL: 'до 16:00', client: 'Асылов Айбек', operator: 'Адилет Медербеков', code: 'QR-401', crmCode: 'AUTH_EXPIRED', crit: 'Критическая', reason: 'Токен авторизации истёк — требуется переподключение интеграции.', tech: 'HTTP 401 Unauthorized · reqId=qr-55c1 · token expired', repeats: 28, first: '14.07 08:12', last: '14.07 11:36', impact: 'Выписка невозможна по 6 заказам', status: 'В работе' },
@@ -455,8 +455,8 @@ const SUPPLIER_ERRORS = [
   { id: 'E-4824', supplier: 'Ratehawk', service: 'Гостиницы', op: 'Поиск', time: '14.07.2026 11:02', order: null, orderTL: null, client: '—', operator: '—', code: 'RH-503', crmCode: 'SUPPLIER_SLOW', crit: 'Информационная', reason: 'Замедление ответа поставщика (>2.4 с).', tech: 'HTTP 200 · latency=2410ms', repeats: 1, first: '14.07 11:02', last: '14.07 11:02', impact: 'Без влияния на заказ', status: 'Новая' },
   { id: 'E-4825', supplier: 'Amadeus GDS', service: 'Авиа', op: 'Отмена', time: '14.07.2026 10:50', order: 51155, orderTL: null, client: 'ИП Мамажанов', operator: 'Даниель', code: 'AMA-3021', crmCode: 'BOOK_TIMEOUT', crit: 'Важная', reason: 'Тайм-аут при аннуляции — повторите операцию.', tech: 'HTTP 504 Gateway Timeout · reqId=amx-77b2', repeats: 4, first: '14.07 09:05', last: '14.07 10:50', impact: 'Аннуляция не подтверждена', status: 'Отложена' },
 ];
-/* ТЗ #12 — рабочий процесс обработки ошибок: статусная модель + действия,
-   связанные с внутренним механизмом (история, назначение, уведомления, счётчик). */
+
+
 const ERR_STATUS_TONE = { 'Новая': 'red', 'В работе': 'blue', 'Отложена': 'amber', 'Решена': 'green' };
 function errNow() { return new Date().toLocaleString('ru-RU', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }); }
 function errCurOp() { return (typeof CURRENT_USER !== 'undefined' && CURRENT_USER.name) || 'Оператор'; }
@@ -464,17 +464,17 @@ function errLog(err, text) { (err.history = err.history || []).push({ t: errNow(
 function errActiveCount() { return SUPPLIER_ERRORS.filter((e) => e.status !== 'Решена').length; }
 function errPushNotif(err, title, desc) {
   if (typeof NOTIFICATIONS === 'undefined') return;
-  // не дублируем одинаковое уведомление по одной ошибке
+
   if (NOTIFICATIONS.some((n) => n.link && n.link.errId === err.id && n.title === title)) return;
   NOTIFICATIONS.unshift({ id: 'NE-' + Math.random().toString(36).slice(2, 6), cat: 'Интеграции', priority: err.crit === 'Критическая' ? 'Критический' : 'Важный',
     source: 'Интеграции', title, desc, time: 'сейчас', order: err.order || null, resp: err.assignee || err.operator,
     link: { type: 'error', errId: err.id }, act: 'Открыть ошибку', read: false, pinned: err.crit === 'Критическая' });
 }
-// Ретрай реально меняет счётчик попыток/статус; часть кодов не лечится повтором (нужны иные действия).
+
 function errRetry(err) {
   err.attempts = (err.attempts || err.repeats || 0) + 1; err.lastTry = errNow();
   errLog(err, 'Повторный запрос отправлен поставщику (попытка ' + err.attempts + ')');
-  const unfixable = err.crmCode === 'AUTH_EXPIRED'; // истёкшая авторизация повтором не лечится
+  const unfixable = err.crmCode === 'AUTH_EXPIRED';
   const success = !unfixable && (err.attempts % 2 === 0 || err.crmCode === 'PRICE_CHANGED' || err.crmCode === 'SUPPLIER_SLOW');
   if (success) { err.status = 'Решена'; err.resolvedBy = errCurOp(); err.resolvedAt = errNow(); errLog(err, 'Повтор успешен — ошибка закрыта автоматически'); }
   else { if (err.status === 'Новая') err.status = 'В работе'; errLog(err, unfixable ? 'Повтор не помог: истекла авторизация — требуется переподключение интеграции' : 'Повтор не удался — ошибка остаётся активной'); }
@@ -508,8 +508,8 @@ const MY_TASKS = [
   { title: 'Загрузить паспорт · Аттокуров Эрбол', due: 'до 15.06', tone: 'amber', order: 51163 },
 ];
 
-/* ТЗ #12 — разбор ошибок поставщиков: список → карточка ошибки, фильтры,
-   группировка, уровни критичности текстом, связь с заказом, действия. */
+
+
 function SupplierErrorCard({ err, onClose, onOpenOrder, onChange }) {
   const toast = useToast();
   const [showTech, setShowTech] = useState(false);
@@ -562,7 +562,7 @@ function SupplierErrorCard({ err, onClose, onOpenOrder, onChange }) {
         {kv.map(([k, v], i) => <div className="kv-row" key={i}><span className="k">{k}</span><span className="v">{v}</span></div>)}
       </div>
 
-      {/* Действия по ошибке — реально меняют состояние (ТЗ #12) */}
+
       <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '.03em', marginBottom: 8 }}>Действия</div>
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 16 }}>
         <Button variant="secondary" size="sm" icon="zap" disabled={resolved} onClick={doRetry}>Повторно проверить цену и наличие</Button>
@@ -576,7 +576,7 @@ function SupplierErrorCard({ err, onClose, onOpenOrder, onChange }) {
         <Button variant="secondary" size="sm" icon="send" onClick={doDev}>Отправить разработчику</Button>
       </div>
 
-      {/* Технический ответ API — под раскрывающимся блоком, чтобы не перегружать интерфейс */}
+
       <button className="doc-chip" onClick={() => setShowTech((s) => !s)} style={{ width: '100%' }}>
         <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}><Icon name="template" style={{ width: 16, height: 16 }} />Технический ответ API</span>
         <Icon name={showTech ? 'chevUp' : 'chevDown'} />
@@ -587,7 +587,7 @@ function SupplierErrorCard({ err, onClose, onOpenOrder, onChange }) {
         </div>
       )}
 
-      {/* История обработки — кто что делал, когда (ТЗ #12) */}
+
       {err.history && err.history.length > 0 && (
         <div style={{ marginTop: 16 }}>
           <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '.03em', marginBottom: 8 }}>История обработки</div>
@@ -610,7 +610,7 @@ function SupplierErrorsDrawer({ supplier, onClose, onOpenOrder }) {
   const [flt, setFlt] = useState({ supplier: supplier || '', service: '', op: '', crit: '', status: '', activeOnly: false, grouped: true });
   const [sel, setSel] = useState(null);
   const [q, setQ] = useState('');
-  const [, bump] = useState(0); // живое обновление списка/счётчиков после действий по ошибке
+  const [, bump] = useState(0);
   let list = SUPPLIER_ERRORS.filter((e) =>
     (!flt.supplier || e.supplier === flt.supplier) &&
     (!flt.service || e.service === flt.service) &&
@@ -619,7 +619,7 @@ function SupplierErrorsDrawer({ supplier, onClose, onOpenOrder }) {
     (!flt.status || e.status === flt.status) &&
     (!flt.activeOnly || !!e.order) &&
     (!q || (String(e.order || '') + e.code + e.supplier + e.reason).toLowerCase().includes(q.toLowerCase())));
-  // Группировка одинаковых ошибок (по коду поставщика)
+
   let groups = null;
   if (flt.grouped) {
     const m = {};
@@ -698,8 +698,8 @@ function DashboardPage({ role, onNavigate, onAddOrder, onOpenOrder, onCreateOrde
   const [search, setSearch] = useState('');
   const [searchOpen, setSearchOpen] = useState(false);
   const [errCodeOpen, setErrCodeOpen] = useState(null);
-  const [errDrawer, setErrDrawer] = useState(null); // ТЗ #12: null | '' (все) | имя поставщика
-  const [, tick] = useState(0); // перерисовка по смене/таймеру (длительность смены)
+  const [errDrawer, setErrDrawer] = useState(null);
+  const [, tick] = useState(0);
 
   const isMgr = role === 'Админ' || role === 'Менеджер';
   const [sel, setSel] = useState(isMgr ? 'overdue' : 'mytasks');
@@ -711,7 +711,7 @@ function DashboardPage({ role, onNavigate, onAddOrder, onOpenOrder, onCreateOrde
     const id = setInterval(() => tick((t) => t + 1), 60000);
     return () => { window.removeEventListener('shift-change', onShift); clearInterval(id); };
   }, []);
-  // при смене категории роли выбранный виджет может исчезнуть — вернуть к дефолтному
+
   useEffect(() => { setSel(isMgr ? 'overdue' : 'mytasks'); }, [isMgr]);
 
   const money = (n) => Math.round(n || 0).toLocaleString('ru-RU') + ' $';
@@ -719,9 +719,9 @@ function DashboardPage({ role, onNavigate, onAddOrder, onOpenOrder, onCreateOrde
   const slaRows = SLA_QUEUE.map((q) => ({ ...q, tone: slaTone(q.waited, q.limit) }));
   const slaOverdue = slaRows.filter((r) => r.tone === 'red').length;
   const errNotifs = NOTIFICATIONS.filter((n) => n.source === 'Интеграции');
-  const supErrTotal = errActiveCount(); // активные нерешённые ошибки — счётчик уменьшается при закрытии (ТЗ #12)
+  const supErrTotal = errActiveCount();
 
-  // сегодняшние операции (смена оператора → показатели «за сегодня»)
+
   const shOps = shift ? shift.ops : SHIFT_DEMO_OPS;
   const shT = shiftTotals(shOps, motivationFor('Даниель'));
   const issuedToday = shOps.filter((o) => o.type === 'Выписка').length;
@@ -741,7 +741,7 @@ function DashboardPage({ role, onNavigate, onAddOrder, onOpenOrder, onCreateOrde
   const openErr = (code) => setErrCodeOpen(code || '');
   const goOrder = (no) => { const o = ORDERS.find((x) => x.no === no); o ? onOpenOrder(o) : onNavigate('orders'); };
 
-  // Роль-адаптивный набор виджетов: руководитель — по компании, оператор — свои
+
   const WIDGETS = isMgr ? [
     { key: 'newreq',    label: 'Новые заявки',      value: SLA_QUEUE.length, tone: 'blue', icon: 'inbox' },
     { key: 'ordersToday', label: 'Заказы сегодня',  value: shT.orders, tone: 'blue', icon: 'orders' },
@@ -777,7 +777,7 @@ function DashboardPage({ role, onNavigate, onAddOrder, onOpenOrder, onCreateOrde
     chats: 'Мои чаты — свежие сообщения',
   };
 
-  // Свежие сообщения из чатов оператора (клиент / поставщик) — оператор сразу видит переписку
+
   const dashChats = CHAT_THREADS.filter((t) => t.type === 'client' || t.type === 'supplier').map((t) => {
     const m = (t.messages || [])[(t.messages || []).length - 1] || {};
     return { id: t.id, order: t.order, name: t.name, client: t.client, channel: t.channel, type: t.type, unread: t.unread || 0,
@@ -787,7 +787,7 @@ function DashboardPage({ role, onNavigate, onAddOrder, onOpenOrder, onCreateOrde
   const critErr = (typeof SUPPLIER_ERRORS !== 'undefined' ? SUPPLIER_ERRORS : []).filter((e) => e.crit === 'Критическая');
   const redRisk = fin.urgent.filter((u) => u.tone === 'red');
 
-  // Превью «самого важного» для каждой плитки — контекст вместо голого числа
+
   const previews = {
     mytasks: MY_TASKS[0] && { text: MY_TASKS[0].title, right: MY_TASKS[0].due, tone: MY_TASKS[0].tone },
     newreq: slaRows[0] && { text: '№' + slaRows[0].no + ' · ' + slaRows[0].client, right: slaRows[0].waited + ' мин', tone: slaRows[0].tone },
@@ -805,11 +805,11 @@ function DashboardPage({ role, onNavigate, onAddOrder, onOpenOrder, onCreateOrde
   };
   const chatsWidget = { key: 'chats', label: 'Мои чаты', value: unreadChats || dashChats.length, sub: unreadChats ? 'новых' : 'диалогов', tone: unreadChats ? 'amber' : 'blue', icon: 'chat' };
   const tonePri = { red: 0, amber: 1, teal: 2, blue: 3, green: 4, gray: 5 };
-  // Плитки: контекст + сортировка по важности (сначала красные/жёлтые маркеры)
+
   const widgets = WIDGETS.concat([chatsWidget]).map((w) => ({ ...w, preview: previews[w.key] || null }))
     .sort((a, b) => (tonePri[a.tone] - tonePri[b.tone]));
 
-  // Лента «Сейчас требуют внимания» — самое срочное с контекстом, отсортировано по важности
+
   const attention = [];
   if (isMgr) {
     slaRows.filter((r) => r.tone !== 'green').forEach((r) => attention.push({ icon: 'inbox', tone: r.tone, title: 'Заявка ждёт отклик', sub: '№' + r.no + ' · ' + r.client, right: r.waited + ' мин', order: r.no, cat: 'newreq' }));
@@ -825,7 +825,7 @@ function DashboardPage({ role, onNavigate, onAddOrder, onOpenOrder, onCreateOrde
   attention.sort((a, b) => tonePri[a.tone] - tonePri[b.tone]);
   const attTop = attention.slice(0, 8);
 
-  // компактная строка-ссылка
+
   const Row = ({ icon, iconBg, title, sub, right, tone, onClick }) => (
     <button type="button" onClick={onClick} style={{ cursor: onClick ? 'pointer' : 'default', textAlign: 'left', width: '100%', border: '1px solid var(--line)', borderLeft: '3px solid var(--' + (tone || 'line-strong') + ')', background: '#fff', borderRadius: 12, padding: '10px 12px', display: 'flex', alignItems: 'center', gap: 12 }}>
       {icon && <span className="oc-svc-ic" style={{ background: iconBg || 'var(--blue)', width: 32, height: 32 }}><Icon name={icon} style={{ width: 16, height: 16 }} /></span>}
@@ -839,7 +839,7 @@ function DashboardPage({ role, onNavigate, onAddOrder, onOpenOrder, onCreateOrde
   );
   const List = ({ children }) => <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>{children}</div>;
 
-  /* ------- деталь выбранного виджета ------- */
+
   const renderDetail = () => {
     switch (sel) {
       case 'newreq':
@@ -936,7 +936,7 @@ function DashboardPage({ role, onNavigate, onAddOrder, onOpenOrder, onCreateOrde
           <table className="tbl">
             <thead><tr><th>Поставщик</th><th>Ошибки API</th><th>Неуспешные</th><th>Ср. ответ</th><th>Интеграция</th><th>Критичность</th><th style={{ width: 90 }}>Заказы</th></tr></thead>
             <tbody>{SUPPLIER_STATS.map((s, i) => (
-              // ТЗ #12 — вся строка кликабельна, ведёт к разбору ошибок поставщика
+
               <tr key={i} style={{ cursor: 'pointer' }} onClick={() => setErrDrawer(s.name)} title="Открыть ошибки поставщика">
                 <td className="t-strong">{s.name}</td>
                 <td style={{ color: s.apiErrors ? 'var(--red)' : 'var(--muted-2)', fontWeight: s.apiErrors ? 700 : 400 }}>{s.apiErrors}</td>
@@ -997,7 +997,7 @@ function DashboardPage({ role, onNavigate, onAddOrder, onOpenOrder, onCreateOrde
       {searchOpen && <DetailedSearchPanel onClose={() => setSearchOpen(false)} onOpenOrder={onOpenOrder} onCreateOrder={onCreateOrder} />}
 
       <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', padding: '10px 38px 22px', overflowY: 'auto' }}>
-        {/* Блок «Моя смена» — только при открытой смене */}
+
         {shift && (
           <div className="card card-pad" style={{ marginBottom: 16, borderLeft: '3px solid var(--green)', background: 'var(--green-bg, #f2fbf6)' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12, flexWrap: 'wrap' }}>
@@ -1018,7 +1018,7 @@ function DashboardPage({ role, onNavigate, onAddOrder, onOpenOrder, onCreateOrde
           </div>
         )}
 
-        {/* Лента «Сейчас требуют внимания» — маркеры самого срочного с контекстом (важное — первым) */}
+
         {attTop.length > 0 && (
           <div style={{ marginBottom: 16 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
@@ -1036,12 +1036,12 @@ function DashboardPage({ role, onNavigate, onAddOrder, onOpenOrder, onCreateOrde
           </div>
         )}
 
-        {/* Плитки с контекстом — клик разворачивает рабочую область ниже */}
+
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(210px, 1fr))', gap: 12, marginBottom: 16 }}>
           {widgets.map((w) => (<DashTile key={w.key} w={w} active={sel === w.key} onClick={() => setSel(w.key)} />))}
         </div>
 
-        {/* деталь выбранного виджета */}
+
         <div className="card" style={{ flex: 1, minHeight: 320, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '14px 18px', borderBottom: '1px solid var(--line)', flexShrink: 0 }}>
             <h2 className="card-title" style={{ fontSize: 17, margin: 0 }}>{DTITLE[sel] || ''}</h2>

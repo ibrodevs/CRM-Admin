@@ -4,12 +4,12 @@ import { ActionMenu, Button, Drawer, EmptyState, FilterChip, Pill, SearchBox, Ta
 import { ERR_CATEGORIES, ERR_SEVERITY, ERR_SYSTEMS, INTEGRATION_ERROR_CODES, NOTIFICATIONS, NOTIF_PRIORITY, NOTIF_PRIO_RANK, NOTIF_SETTINGS, NOTIF_SOURCE, ORDERS } from './data';
 import { Topbar } from './layout';
 
-// ===== Уведомления: центр управления вниманием + лента активности =====
 
-// link.type / source → конкретная вкладка карточки заказа (deep-link в контекст записи, а не в раздел)
+
+
 const NOTIF_TAB = { finance: 'finance', documents: 'documents', offers: 'offers', returns: 'aftersale', order: 'overview' };
 function notifGo(n, onNavigate, onOpenOrder) {
-  // если уведомление привязано к конкретной услуге — открываем именно её карточку, а не весь список услуг
+
   const svc = n.link && n.link.svc;
   const tab = n.source === 'Чаты' ? 'chat' : (svc ? 'services' : (NOTIF_TAB[n.link.type] || 'overview'));
   if (n.order && onOpenOrder) {
@@ -18,7 +18,7 @@ function notifGo(n, onNavigate, onOpenOrder) {
   } else onNavigate && onNavigate(n.link.type);
 }
 
-/* ---------- one notification row ---------- */
+
 function NotificationRow({ n, onAct, onRead, onPin, onDismiss, onOpenCode }) {
   const src = NOTIF_SOURCE[n.source] || NOTIF_SOURCE['Система'];
   return (
@@ -52,7 +52,7 @@ function NotificationRow({ n, onAct, onRead, onPin, onDismiss, onOpenCode }) {
   );
 }
 
-/* ---------- settings drawer ---------- */
+
 function NotifSettingsDrawer({ open, settings, setSettings, onClose }) {
   return (
     <Drawer open={open} onClose={onClose} title="Настройки уведомлений"
@@ -68,7 +68,7 @@ function NotifSettingsDrawer({ open, settings, setSettings, onClose }) {
   );
 }
 
-/* ---------- Справочник кодов ошибок интеграций (drawer) ---------- */
+
 function ErrorCodesDrawer({ open, focusCode, onClose }) {
   const [q, setQ] = useState('');
   const [fSys, setFSys] = useState('');
@@ -113,9 +113,9 @@ function ErrorCodesDrawer({ open, focusCode, onClose }) {
   );
 }
 
-/* ====================================================================
-   NOTIFICATIONS CENTER
-   ==================================================================== */
+
+
+
 function NotificationsCenter({ onNavigate, onOpenOrder, compact }) {
   const toast = useToast();
   const [list, setList] = useState(NOTIFICATIONS);
@@ -125,7 +125,7 @@ function NotificationsCenter({ onNavigate, onOpenOrder, compact }) {
   const [fSource, setFSource] = useState('');
   const [setOpen, setSetOpen] = useState(false);
   const [settings, setSettings] = useState(NOTIF_SETTINGS);
-  const [errOpen, setErrOpen] = useState(null); // null | '' | '<code>' — открыт справочник кодов ошибок
+  const [errOpen, setErrOpen] = useState(null);
 
   const setRead = (id, v) => setList((l) => l.map((n) => n.id === id ? { ...n, read: v != null ? v : !n.read } : n));
   const pin = (id) => setList((l) => l.map((n) => n.id === id ? { ...n, pinned: !n.pinned } : n));
@@ -156,7 +156,7 @@ function NotificationsCenter({ onNavigate, onOpenOrder, compact }) {
 
   return (
     <div className="fade-in">
-      {/* Крупные счётчики — только на полной странице; в боковой панели градация видна по вкладкам и приоритетам строк */}
+
       {!compact && (
         <div className="grid-4" style={{ marginBottom: 22 }}>
           {STATS.map((s) => (<div className="stat-card" key={s.l}><div className="s-label">{s.l}</div><div className="s-value" style={s.tone === 'red' && s.v ? { color: 'var(--red)' } : null}>{s.v}</div></div>))}
@@ -193,9 +193,9 @@ function NotificationsPage({ onNavigate, onOpenOrder }) {
   return (<><Topbar title="Уведомления" /><div className="content"><NotificationsCenter onNavigate={onNavigate} onOpenOrder={onOpenOrder} /></div></>);
 }
 
-/* ====================================================================
-   ACTIVITY FEED (compact, for Dashboard)
-   ==================================================================== */
+
+
+
 function ActivityFeed({ onNavigate, onOpenOrder, limit = 6 }) {
   const items = [...NOTIFICATIONS]
     .sort((a, b) => (NOTIF_PRIO_RANK[a.priority] - NOTIF_PRIO_RANK[b.priority]))

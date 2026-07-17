@@ -3,16 +3,17 @@ import { Icon } from './icons';
 import { Button, Drawer, Pill, useToast } from './ui';
 import { SERVICE_KIND } from './data';
 import { OperationConfirmModal } from './order_ops';
-import { BackRow, ocMoney, svcCalc } from './page_order_card';
+import { BackRow } from './components/back-row';
+import { ocMoney, svcCalc } from './features/orders/finance';
 import { KPPreviewDoc } from './page_offers';
 import { ChatThread, getThreadForOrder } from './page_chats';
 
-// ===== BOOKING WIZARD: «Начать бронирование» (full-page 7-step flow) =====
+
 
 function bwRub(s) { return (s.currency === 'USD' || s.currency === '$') ? s.sum * 90 : s.sum; }
 function bwMoney(n) { return Math.round(n).toLocaleString('ru-RU') + ' ₽'; }
 
-/* shared stepper + top summary */
+
 function BwStepper({ steps, step, onJump }) {
   return (
     <div className="bw-stepper">
@@ -27,7 +28,7 @@ function BwStepper({ steps, step, onJump }) {
   );
 }
 
-/* readiness checklist aside */
+
 function BwReadiness({ items, title = 'Статус готовности' }) {
   return (
     <div className="bw-aside">
@@ -42,7 +43,7 @@ function BwReadiness({ items, title = 'Статус готовности' }) {
   );
 }
 
-/* one service row */
+
 function BwSvc({ s, status, tone, right }) {
   const k = SERVICE_KIND[s.kind] || SERVICE_KIND['Авиа'];
   return (
@@ -58,9 +59,9 @@ function BwSvc({ s, status, tone, right }) {
   );
 }
 
-/* synthesize a КП-shaped proposal from the booking's services so the existing branded
-   KPPreviewDoc (firm letterhead + price breakdown) can render it as a downloadable offer —
-   this is the "convert supplier blank into our branded offer" step. */
+
+
+
 function offerFromServices(order, services, total, fee, rec) {
   const rubOf = (n, s) => (s.currency === 'USD' || s.currency === '$') ? n * 90 : n;
   const items = services.map((s) => { const c = svcCalc(s); const feeRub = rubOf(c.fee || 0, s); return { id: s.id, kind: s.kind, title: s.title, sub: s.sub, cost: bwRub(s) - feeRub, fee: feeRub }; });
@@ -78,28 +79,28 @@ function offerFromServices(order, services, total, fee, rec) {
 
 function BookingWizard({ order, services, draft, onClose, onComplete, onSaveDraft }) {
   const toast = useToast();
-  // групповой сценарий (выбор «индивидуальное / групповое») показываем ТОЛЬКО когда заказ
-  // действительно групповой/корпоративный — для заявок на пару человек он лишний
+
+
   const isGroupOrder = !!(order && (order.requestType === 'Групповая' || order.requestType === 'Корпоративная'));
   const [step, setStep] = useState(draft ? draft.step : 0);
   const [method, setMethod] = useState(isGroupOrder ? (draft ? draft.method : 'ind') : 'ind');
   const [pay, setPay] = useState(draft ? draft.pay : 'invoice');
   const [histOpen, setHistOpen] = useState(false);
   const [supportOpen, setSupportOpen] = useState(false);
-  const [offerPreview, setOfferPreview] = useState(null); // { rec, draft } | null
-  const [contactSvc, setContactSvc] = useState(null); // service being chased with a supplier
-  const [opConfirm, setOpConfirm] = useState(null); // ТЗ #11 — подтверждение бронирования / выписки в мастере оформления
-  // тайм-лимиты ответов поставщиков: базовый дедлайн на услугу + продления оператора
+  const [offerPreview, setOfferPreview] = useState(null);
+  const [contactSvc, setContactSvc] = useState(null);
+  const [opConfirm, setOpConfirm] = useState(null);
+
   const startRef = useRef(Date.now());
-  const [tlBonus, setTlBonus] = useState({}); // serviceId -> добавленные минуты
+  const [tlBonus, setTlBonus] = useState({});
   const [now, setNow] = useState(Date.now());
-  // живой отсчёт тикает только на шаге «Получение ответов», чтобы не нагружать остальные шаги
+
   useEffect(() => {
     if (step !== 1) return;
     const t = setInterval(() => setNow(Date.now()), 1000);
     return () => clearInterval(t);
   }, [step]);
-  // дедлайн тайм-лимита по услуге (первая услуга уже подтверждена, у остальных идёт отсчёт)
+
   const tlDeadline = (s, i) => startRef.current + (45 + i * 20 + (tlBonus[s.id] || 0)) * 60000;
   const tlText = (s, i) => {
     const ms = tlDeadline(s, i) - now;
@@ -108,13 +109,13 @@ function BookingWizard({ order, services, draft, onClose, onComplete, onSaveDraf
     return 'осталось ' + (h ? h + 'ч ' : '') + (m % 60) + 'м';
   };
   const refreshTl = (s) => { setTlBonus((p) => ({ ...p, [s.id]: (p[s.id] || 0) + 30 })); setNow(Date.now()); toast('Тайм-лимит по «' + s.title + '» продлён на 30 мин — запрос отправлен поставщику', 'ok'); };
-  // progress is auto-saved as a draft on every change — the operator can switch to other
-  // sections of the order or close the wizard at any point and resume exactly where they left off
+
+
   useEffect(() => { onSaveDraft && onSaveDraft({ step, method, pay }); }, [step, method, pay]);
   const saveDraftAndExit = () => { toast('Бронирование сохранено как черновик — можно продолжить в любой момент', 'ok'); onClose(); };
 
-  // «Запуск» убран как лишний шаг; формирование КП объединено с «Подтверждением»
-  // (на подтверждении суммы фиксируются по тайм-лимиту)
+
+
   const STEPS = ['Выбор вариантов', 'Получение ответов', 'Подтверждение', 'Выписка и оплата', 'Завершение'];
   const total = services.reduce((a, s) => a + bwRub(s), 0);
   const fee = 1900;
@@ -124,7 +125,7 @@ function BookingWizard({ order, services, draft, onClose, onComplete, onSaveDraf
   const next = () => setStep((s) => Math.min(STEPS.length - 1, s + 1));
   const back = () => setStep((s) => Math.max(0, s - 1));
 
-  // readiness items (vary per step)
+
   const readiness = [
     { tone: 'ok', text: 'Все услуги добавлены в заказ' },
     { tone: 'ok', text: 'Пассажиры и документы заполнены' },
@@ -133,7 +134,7 @@ function BookingWizard({ order, services, draft, onClose, onComplete, onSaveDraf
     { tone: step >= 3 ? 'ok' : 'idle', text: 'Документы выписаны' },
   ];
 
-  // booking-status by step for each service (visual)
+
   const svcView = (s, i) => {
     if (step === 0) return { status: 'Готово к бронированию', tone: 'gray' };
     if (step === 1) return i === 0 ? { status: 'Подтверждено', tone: 'green' } : { status: 'Ожидание ответа', tone: 'amber' };
@@ -141,7 +142,7 @@ function BookingWizard({ order, services, draft, onClose, onComplete, onSaveDraf
     return { status: step >= 4 ? 'Выписано' : 'К выписке', tone: step >= 4 ? 'green' : 'blue' };
   };
 
-  /* ---- per-step main content ---- */
+
   const content = () => {
     switch (step) {
       case 0: return (
@@ -165,7 +166,7 @@ function BookingWizard({ order, services, draft, onClose, onComplete, onSaveDraf
           )}
           <div className="section-title" style={{ fontSize: 16, marginBottom: 12 }}>Услуги к бронированию</div>
           {services.map((s, i) => <BwSvc key={s.id} s={s} />)}
-          {/* на этом этапе можно сформировать ознакомительное КП — стоимость ещё не зафиксирована */}
+
           <div className="card card-pad bw-kp-note" style={{ marginTop: 16, display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap' }}>
             <span className="bw-kp-ic"><Icon name="template" /></span>
             <div style={{ flex: 1, minWidth: 220 }}>
@@ -274,7 +275,7 @@ function BookingWizard({ order, services, draft, onClose, onComplete, onSaveDraf
     }
   };
 
-  /* ---- per-step aside ---- */
+
   const aside = () => {
     if (step === 1) return (
       <div className="bw-aside">
@@ -310,7 +311,7 @@ function BookingWizard({ order, services, draft, onClose, onComplete, onSaveDraf
     return <BwReadiness items={readiness} />;
   };
 
-  /* ---- footer ---- */
+
   const footer = () => {
     if (step === 0) return <><Button variant="secondary" onClick={onClose}>Отмена</Button><div style={{ flex: 1 }} /><Button icon="zap" onClick={() => setOpConfirm({ action: 'book', onConfirm: () => { toast('Бронирование запущено — запросы отправлены поставщикам', 'ok'); next(); } })}>Забронировать</Button></>;
     if (step === 1) return <><Button variant="secondary" icon="chevLeft" onClick={back}>Назад</Button><div style={{ flex: 1 }} /><Button icon="check" onClick={next}>Все ответы получены</Button></>;
@@ -323,7 +324,7 @@ function BookingWizard({ order, services, draft, onClose, onComplete, onSaveDraf
     <div className="fade-in">
       <BackRow label="К услугам заказа" onBack={saveDraftAndExit} />
 
-      {/* top summary */}
+
       <div className="bw-top">
         <div className="bw-route"><Icon name="route" />{route}</div>
         <div style={{ flex: 1 }} />
@@ -344,7 +345,7 @@ function BookingWizard({ order, services, draft, onClose, onComplete, onSaveDraf
 
       <div className="bw-footer">{footer()}</div>
 
-      {/* request history drawer */}
+
       <Drawer open={histOpen} onClose={() => setHistOpen(false)} title="История запросов">
         <div className="timeline">
           {[
@@ -360,14 +361,14 @@ function BookingWizard({ order, services, draft, onClose, onComplete, onSaveDraf
         </div>
       </Drawer>
 
-      {/* support / supplier chat — "Написать в поддержку" */}
+
       <Drawer open={supportOpen} onClose={() => setSupportOpen(false)} title="Поддержка">
         <div style={{ height: 560, display: 'flex', flexDirection: 'column', overflow: 'hidden', margin: '-28px -32px' }}>
           {order && <ChatThread thread={getThreadForOrder(order)} embedded initChannel="supplier" />}
         </div>
       </Drawer>
 
-      {/* связаться с поставщиком по конкретной услуге — ускорение ответа на тайм-лимите */}
+
       <Drawer open={!!contactSvc} onClose={() => setContactSvc(null)} title={contactSvc ? 'Поставщик · ' + contactSvc.supplier : 'Поставщик'}>
         {contactSvc && (
           <div style={{ margin: '-4px 0 14px' }}>
@@ -388,7 +389,7 @@ function BookingWizard({ order, services, draft, onClose, onComplete, onSaveDraf
         )}
       </Drawer>
 
-      {/* branded offer preview — converts the supplier blanks into our letterhead document */}
+
       {offerPreview && (() => {
         const offer = offerFromServices(order, services, total, fee, offerPreview.rec);
         return (

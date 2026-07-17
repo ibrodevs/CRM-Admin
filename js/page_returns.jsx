@@ -5,15 +5,15 @@ import { DOC_STATUS2, ORDERS, ORDER_PARTICIPANTS, ORDER_SERVICES, RETURNS, RETUR
 import { Topbar } from './layout';
 import { AirportField } from './page_flights';
 
-// ===== Возвраты и обмены (постпродажное обслуживание) =====
-// Надстройка над финансами / документами / авиауслугами.
+
+
 
 function rUsd(n, c = 'USD') { return Math.round(n).toLocaleString('ru-RU') + ' ' + (c === 'USD' ? '$' : c); }
 function calcRefund(fin) { return Math.max(0, fin.original - fin.supplierPenalty - fin.serviceFee - fin.extraHold); }
 const isTerminal = (s) => s === 'Отменено' || s === 'Отклонено';
 const nextStatus = (s) => { const i = RETURN_FLOW.indexOf(s); return i >= 0 && i < RETURN_FLOW.length - 1 ? RETURN_FLOW[i + 1] : s; };
 
-/* generic process-flow indicator (reuses stage-bar styles) */
+
 function ProcessFlow({ steps, current }) {
   const idx = steps.indexOf(current);
   return (
@@ -34,17 +34,17 @@ function ProcessFlow({ steps, current }) {
   );
 }
 
-/* ---------- initiation request ---------- */
+
 function NewReturnModal({ open, order, services, onClose, onCreate }) {
   const toast = useToast();
   const [type, setType] = useState('Возврат билета');
   const [svc, setSvc] = useState('');
   const [reason, setReason] = useState('');
-  const [voluntary, setVoluntary] = useState(true);          // добровольный / вынужденный
-  const [pax, setPax] = useState([]);                        // выбранные пассажиры (индексы)
-  const [docs, setDocs] = useState([]);                      // документы-основания (вынужденный)
-  const [nf, setNf] = useState({ from: '', to: '', date: null, flightNo: '' }); // новый рейс для обмена
-  const [reqMode, setReqMode] = useState('request');         // запросить у АК / провести сразу
+  const [voluntary, setVoluntary] = useState(true);
+  const [pax, setPax] = useState([]);
+  const [docs, setDocs] = useState([]);
+  const [nf, setNf] = useState({ from: '', to: '', date: null, flightNo: '' });
+  const [reqMode, setReqMode] = useState('request');
   const [confirm, setConfirm] = useState(false);
   useEffect(() => { if (open) { setType('Возврат билета'); setSvc(''); setReason(''); setVoluntary(true); setPax([]); setDocs([]); setNf({ from: '', to: '', date: null, flightNo: '' }); setReqMode('request'); setConfirm(false); } }, [open]);
   if (!open) return null;
@@ -56,17 +56,17 @@ function NewReturnModal({ open, order, services, onClose, onCreate }) {
   const isRefund = type === 'Возврат билета';
   const isExchange = type === 'Обмен билета';
   const isAnnul = type === 'Аннуляция бронирования';
-  const needsPax = isRefund || isExchange;                   // выборка пассажира — для возврата и обмена
+  const needsPax = isRefund || isExchange;
   const paxCount = Math.max(1, pax.length || (needsPax ? 0 : 1));
   const perUnit = original / Math.max(1, roster.length);
   const scoped = needsPax && pax.length ? Math.round(perUnit * pax.length) : original;
-  const penalty = isAnnul ? scoped : (voluntary ? Math.round(scoped * 0.2) : 0); // вынужденный — без штрафа
+  const penalty = isAnnul ? scoped : (voluntary ? Math.round(scoped * 0.2) : 0);
   const fee = type === 'Оформление справки' ? 10 : (voluntary || isAnnul ? 14 : 0);
   const refund = Math.max(0, scoped - penalty - fee);
   const togglePax = (i) => setPax((s) => s.includes(i) ? s.filter((x) => x !== i) : [...s, i]);
   const addDoc = () => setDocs((d) => [...d, { name: 'Документ ' + (d.length + 1) + '.pdf' }]);
 
-  // Проверки перед подтверждением — искореняют случайные/неполные действия оператора (ответ клиента #2)
+
   const validate = () => {
     if (!svc) { toast('Выберите услугу заказа', 'err'); return false; }
     if (needsPax && !pax.length) { toast('Выберите, на кого оформляется ' + (isExchange ? 'обмен' : 'возврат'), 'err'); return false; }
@@ -106,7 +106,7 @@ function NewReturnModal({ open, order, services, onClose, onCreate }) {
         </div>
         <Field label="Услуга"><Select placeholder="Выберите услугу заказа" options={svcOptions} value={svc} onChange={(e) => setSvc(e.target.value)} /></Field>
 
-        {/* Добровольный / вынужденный — для возврата и обмена */}
+
         {(isRefund || isExchange) && (
           <>
             <div className="kp-sec-h">Характер {isExchange ? 'обмена' : 'возврата'}</div>
@@ -117,7 +117,7 @@ function NewReturnModal({ open, order, services, onClose, onCreate }) {
           </>
         )}
 
-        {/* Выборка пассажиров, на кого оформляется возврат/обмен (ответ клиента #2) */}
+
         {needsPax && (
           <>
             <div className="kp-sec-h">На кого оформляется {isExchange ? 'обмен' : 'возврат'}</div>
@@ -137,7 +137,7 @@ function NewReturnModal({ open, order, services, onClose, onCreate }) {
           </>
         )}
 
-        {/* Загрузка документов-оснований при вынужденном возврате (ответ клиента #2) */}
+
         {isRefund && !voluntary && (
           <>
             <div className="kp-sec-h">Документы-основания</div>
@@ -160,7 +160,7 @@ function NewReturnModal({ open, order, services, onClose, onCreate }) {
           </>
         )}
 
-        {/* Обмен: форма нового рейса (как при поиске перелёта, без выбора пассажира) + способ (ответ клиента #2) */}
+
         {isExchange && (
           <>
             <div className="card" style={{ padding: 12, borderLeft: '3px solid var(--amber)', marginTop: 8, display: 'flex', gap: 10 }}>
@@ -196,7 +196,7 @@ function NewReturnModal({ open, order, services, onClose, onCreate }) {
 
     </Drawer>
 
-      {/* Подтверждение действия — всегда перед созданием (ответ клиента #2) */}
+
       <ConfirmDialog open={confirm} title={'Подтвердите: ' + type + '?'} message={confirmMsg}
         confirmLabel={isAnnul ? 'Аннулировать' : isExchange ? (reqMode === 'request' ? 'Запросить' : 'Провести') : 'Создать'}
         confirmVariant={isAnnul ? 'danger' : 'primary'}
@@ -205,7 +205,7 @@ function NewReturnModal({ open, order, services, onClose, onCreate }) {
   );
 }
 
-/* ---------- full operation card ---------- */
+
 function ReturnCard({ op, onBack, onChange }) {
   const toast = useToast();
   const meta = RETURN_TYPE[op.type] || RETURN_TYPE['Возврат билета'];
@@ -213,7 +213,7 @@ function ReturnCard({ op, onBack, onChange }) {
   const isExchange = op.type === 'Обмен билета';
   const terminal = isTerminal(op.status);
 
-  // Модалка подтверждения на аннуляцию и прочие критичные действия (ответ клиента #2)
+
   const [confirm, setConfirm] = useState(null);
   const ask = (title, message, onConfirm, confirmLabel = 'Подтвердить', confirmVariant = 'danger') => setConfirm({ title, message, onConfirm, confirmLabel, confirmVariant });
   const setStatus = (s) => onChange(op.no, { status: s }, `Статус изменён: ${s}`);
@@ -228,7 +228,7 @@ function ReturnCard({ op, onBack, onChange }) {
       toast('Статус: ' + ns, 'info');
     }
   };
-  // Финальный/необратимый шаг требует подтверждения; промежуточные — сразу
+
   const advance = () => {
     const ns = nextStatus(op.status);
     if (ns === 'Завершено') {
@@ -250,7 +250,7 @@ function ReturnCard({ op, onBack, onChange }) {
         <span style={{ color: 'var(--muted)', fontSize: 14 }}>Возвраты и обмены / {op.no}</span>
       </div>
 
-      {/* header */}
+
       <div className="card card-pad" style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 18, flexWrap: 'wrap' }}>
         <span className="oc-svc-ic" style={{ background: op.status === 'Завершено' ? 'var(--green)' : terminal ? 'var(--red)' : 'var(--blue)' }}><Icon name={meta.icon} /></span>
         <div style={{ flex: 1, minWidth: 200 }}>
@@ -283,7 +283,7 @@ function ReturnCard({ op, onBack, onChange }) {
       )}
 
       <div className="grid-2" style={{ alignItems: 'start' }}>
-        {/* general info */}
+
         <div className="card card-pad">
           <h3 className="card-title" style={{ fontSize: 17, marginBottom: 14 }}>Общая информация</h3>
           <div className="kv">
@@ -297,7 +297,7 @@ function ReturnCard({ op, onBack, onChange }) {
           </div>
         </div>
 
-        {/* financial block */}
+
         <div className="card card-pad">
           <h3 className="card-title" style={{ fontSize: 17, marginBottom: 14 }}>Финансовый расчёт</h3>
           <div className="amt-row"><span className="k">Первоначальная стоимость</span><span className="v">{rUsd(op.fin.original, op.currency)}</span></div>
@@ -313,7 +313,7 @@ function ReturnCard({ op, onBack, onChange }) {
         </div>
       </div>
 
-      {/* exchange comparison */}
+
       {isExchange && (
         <>
           <h3 className="section-title" style={{ fontSize: 20, margin: '26px 0 14px' }}>Параметры обмена</h3>
@@ -349,7 +349,7 @@ function ReturnCard({ op, onBack, onChange }) {
         </>
       )}
 
-      {/* documents */}
+
       <h3 className="section-title" style={{ fontSize: 20, margin: '26px 0 14px' }}>Документы операции</h3>
       <div className="card card-pad">
         {op.documents.length ? op.documents.map((d, i) => (
@@ -367,7 +367,7 @@ function ReturnCard({ op, onBack, onChange }) {
         <div style={{ marginTop: 10, fontSize: 12, color: 'var(--muted-2)' }}>Все документы автоматически связываются с операцией {op.no} и заказом № {op.order}.</div>
       </div>
 
-      {/* history */}
+
       <h3 className="section-title" style={{ fontSize: 20, margin: '26px 0 14px' }}>История изменений</h3>
       <div className="card card-pad" style={{ maxWidth: 680 }}>
         <div className="timeline">
@@ -389,9 +389,9 @@ function ReturnCard({ op, onBack, onChange }) {
   );
 }
 
-/* ====================================================================
-   MODULE: list (registry / compact) + card + new
-   ==================================================================== */
+
+
+
 function ReturnsModule({ scopeOrder, onOpenOrder, compact, order }) {
   const toast = useToast();
   const [ops, setOps] = useState(RETURNS.filter((r) => !scopeOrder || r.order === scopeOrder));
@@ -426,7 +426,7 @@ function ReturnsModule({ scopeOrder, onOpenOrder, compact, order }) {
     </>
   );
 
-  // ----- compact list (inside order card) -----
+
   if (compact) {
     const activeReturns = ops.filter((o) => o.type !== 'Обмен билета' && !isTerminal(o.status) && o.status !== 'Завершено');
     const activeExch = ops.filter((o) => o.type === 'Обмен билета' && !isTerminal(o.status) && o.status !== 'Завершено');
@@ -455,7 +455,7 @@ function ReturnsModule({ scopeOrder, onOpenOrder, compact, order }) {
     );
   }
 
-  // ----- full registry -----
+
   let rows = ops.filter((o) => (!fType || o.type === fType) && (!fStatus || o.status === fStatus) &&
     (!q || `${o.no} ${o.order} ${o.client} ${o.service}`.toLowerCase().includes(q.toLowerCase())));
   rows = apply(rows, { no: (r) => r.no, order: (r) => r.order, refund: (r) => calcRefund(r.fin), created: (r) => r.created });

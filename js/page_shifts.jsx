@@ -4,17 +4,17 @@ import { Icon } from './icons';
 import { ActionMenu, Button, Drawer, Input, Pill, Toggle, useToast } from './ui';
 import { CURRENT_USER } from './data';
 
-// ===== Смены оператора + мотивационная математика (ТЗ) =====
-// «Открыть смену» / «Закрыть смену» в глобальной шапке, отчёт по смене,
-// отчёт по сборам и индивидуальная система мотивации для каждого оператора.
+
+
+
 
 function shM(n) { return Math.round(n).toLocaleString('ru-RU') + ' $'; }
 function shPct(n) { return (Math.round(n * 10) / 10).toLocaleString('ru-RU') + ' $'; }
 
-/* ---------- Мотивация: проценты от сборов по видам услуг ---------- */
+
 const MOTIVATION_SERVICES = ['Авиа', 'ЖД', 'Гостиницы', 'Трансферы', 'Страхование', 'Визы', 'Прочее'];
 const MOTIVATION_DEFAULT = { service: 30, markup: 20, commission: 10 };
-// Индивидуальные настройки мотивации операторов (демо-значения из ТЗ)
+
 const OPERATOR_MOTIVATION = window.OPERATOR_MOTIVATION || (window.OPERATOR_MOTIVATION = {
   'Даниель': {
     uniform: false,
@@ -40,13 +40,13 @@ function motivationFor(name) {
   return OPERATOR_MOTIVATION[name];
 }
 function motivationRates(mot, svc) { return mot.uniform ? mot.base : (mot.perService[svc] || mot.base); }
-// Заработок оператора по операции: % от сервисного сбора + % от агентской надбавки + % от комиссии
+
 function operatorEarn(op, mot) {
   const r = motivationRates(mot, op.svc);
   return op.serviceFee * r.service / 100 + op.markup * r.markup / 100 + op.commission * r.commission / 100;
 }
 
-/* ---------- Демо-операции смены (вкл. обмен и возврат с пересчётом) ---------- */
+
 const SHIFT_DEMO_OPS = [
   { time: '09:12', order: 51162, svc: 'Авиа', title: 'FRU → IST · Turkish Airlines', supplier: 'Sirena', type: 'Выписка', cost: 1640, serviceFee: 82, markup: 49, commission: 33 },
   { time: '09:47', order: 51163, svc: 'Гостиницы', title: 'Jannat Hotel · 3 ночи', supplier: 'Ratehawk', type: 'Выписка', cost: 955, serviceFee: 48, markup: 29, commission: 19 },
@@ -69,7 +69,7 @@ const SHIFT_DEMO_OPS = [
   },
   { time: '16:20', order: 51171, svc: 'Авиа', title: 'FRU → DXB · Air Astana', supplier: 'NDC', type: 'Выписка', cost: 890, serviceFee: 45, markup: 27, commission: 18 },
 ];
-const SHIFT_REQUESTS_HANDLED = 21; // обработанных заявок за смену (демо)
+const SHIFT_REQUESTS_HANDLED = 21;
 
 function shiftTotals(ops, mot) {
   const t = {
@@ -97,7 +97,7 @@ function shiftDuration(from, to) {
   return h + ' ч ' + String(m).padStart(2, '0') + ' мин';
 }
 
-/* ---------- Настройка мотивации оператора (для каждого — индивидуально) ---------- */
+
 function MotivationDrawer({ open, operator, onClose }) {
   const toast = useToast();
   const [mot, setMot] = useState(() => JSON.parse(JSON.stringify(motivationFor(operator || 'Оператор'))));
@@ -166,7 +166,7 @@ function MotivationDrawer({ open, operator, onClose }) {
   );
 }
 
-/* ---------- Отчёт по смене (метрики + детализация + история пересчётов) ---------- */
+
 function ShiftReportDrawer({ open, onClose, operator, shift, closing, onConfirmClose, onOpenOrder }) {
   const toast = useToast();
   const [detailOp, setDetailOp] = useState(null);
@@ -202,21 +202,21 @@ function ShiftReportDrawer({ open, onClose, operator, shift, closing, onConfirmC
         ? <><Button variant="secondary" onClick={onClose}>Отмена</Button><Button variant="danger" icon="clock" onClick={onConfirmClose}>Закрыть смену</Button></>
         : <Button variant="secondary" onClick={onClose}>Закрыть</Button>}>
 
-      {/* Действия по отчёту: выгрузка + отправка администратору / бухгалтеру */}
+
       <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 16 }}>
         <Button variant="secondary" size="sm" icon="download" onClick={() => toast('Отчёт выгружен (PDF)', 'ok')}>Скачать PDF</Button>
         <Button variant="secondary" size="sm" icon="send" onClick={() => sendTo('администратору')}>Отправить администратору</Button>
         <Button variant="secondary" size="sm" icon="send" onClick={() => sendTo('бухгалтеру')}>Отправить бухгалтеру</Button>
       </div>
 
-      {/* Метрики смены */}
+
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 10, marginBottom: 16 }}>
         {METRICS.map(([l, v], i) => (
           <div className="stat-card" key={i}><div className="s-label">{l}</div><div className="s-value" style={{ fontSize: 18 }}>{v}</div></div>
         ))}
       </div>
 
-      {/* Услуги по видам */}
+
       <div className="card card-pad" style={{ marginBottom: 16 }}>
         <div style={{ fontWeight: 700, color: 'var(--ink)', marginBottom: 8 }}>Оформленные услуги по видам</div>
         <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
@@ -226,7 +226,7 @@ function ShiftReportDrawer({ open, onClose, operator, shift, closing, onConfirmC
         </div>
       </div>
 
-      {/* Финансовый итог */}
+
       <div className="grid-2" style={{ alignItems: 'start', marginBottom: 16 }}>
         <div className="card card-pad">
           <div style={{ fontWeight: 700, color: 'var(--ink)', marginBottom: 8 }}>Финансовый итог</div>
@@ -247,7 +247,7 @@ function ShiftReportDrawer({ open, onClose, operator, shift, closing, onConfirmC
         </div>
       </div>
 
-      {/* Детализация по операциям */}
+
       <div style={{ fontWeight: 700, color: 'var(--ink)', marginBottom: 8 }}>Детализация по операциям</div>
       <div className="table-card" style={{ marginBottom: 8, overflowX: 'auto' }}>
         <table className="tbl" style={{ minWidth: 860 }}>
@@ -261,7 +261,7 @@ function ShiftReportDrawer({ open, onClose, operator, shift, closing, onConfirmC
                   <td className="t-muted">{op.time}</td>
                   <td><span style={{ color: 'var(--blue)', fontWeight: 600, cursor: 'pointer' }} onClick={() => openOrderNo(op.order)}>№ {op.order}</span></td>
                   <td>
-                    {/* услуга кликабельна — открывает заказ */}
+
                     <span style={{ cursor: 'pointer' }} onClick={() => openOrderNo(op.order)}>
                       <span style={{ fontWeight: 600, color: 'var(--blue)', display: 'inline-flex', alignItems: 'center', gap: 5 }}>{op.svc}<Icon name="arrowUpRight" style={{ width: 12, height: 12 }} /></span>
                       <div style={{ fontSize: 12, color: 'var(--muted)' }}>{op.title}</div>
@@ -284,7 +284,7 @@ function ShiftReportDrawer({ open, onClose, operator, shift, closing, onConfirmC
         Услуга и номер заказа кликабельны — открывают карточку заказа. Начисления пересчитываются автоматически при обмене, возврате или изменении стоимости — нажмите на <Icon name="clock" style={{ width: 12, height: 12, verticalAlign: -2 }} />, чтобы увидеть историю изменений.
       </div>
 
-      {/* История пересчёта по операции */}
+
       {detailOp && (
         <div className="card card-pad" style={{ marginTop: 8, borderLeft: '3px solid var(--blue)' }}>
           <div style={{ display: 'flex', alignItems: 'center', marginBottom: 10 }}>
@@ -304,7 +304,7 @@ function ShiftReportDrawer({ open, onClose, operator, shift, closing, onConfirmC
   );
 }
 
-/* ---------- Отчёт по сборам (суммы сборов по видам услуг за смену) ---------- */
+
 function FeesReportDrawer({ open, onClose, operator, shift }) {
   const toast = useToast();
   if (!open || !shift) return null;
@@ -348,19 +348,19 @@ function FeesReportDrawer({ open, onClose, operator, shift }) {
   );
 }
 
-/* ---------- Управление сменой в глобальной шапке ---------- */
+
 function ShiftControl({ role, onOpenOrder }) {
   const toast = useToast();
   const operator = CURRENT_USER.name;
   const [shift, setShift] = useState(window.SHIFT_STATE || null);
-  const [panel, setPanel] = useState(null); // null | 'report' | 'fees' | 'close'
+  const [panel, setPanel] = useState(null);
   const [, forceTick] = useState(0);
   useEffect(() => {
     if (!shift || shift.closedAt) return;
     const t = setInterval(() => forceTick((n) => n + 1), 30000);
     return () => clearInterval(t);
   }, [shift]);
-  // Смена доступна операторам и администраторам
+
   if (role !== 'Оператор' && role !== 'Админ') return null;
 
   const openShift = () => {
@@ -398,9 +398,7 @@ function ShiftControl({ role, onOpenOrder }) {
             { icon: 'clock', label: 'Закрыть смену', danger: true, onClick: () => setPanel('close') },
           ]} />
       )}
-      {/* Панели смены выводим порталом в body: топбар .gtop имеет backdrop-filter,
-          который делает его containing-block для position:fixed — иначе боковое окно
-          «схлопывается» в шапку и экран выглядит сломанным. */}
+
       {ReactDOM.createPortal(
         <>
           <ShiftReportDrawer open={panel === 'report' || panel === 'close'} closing={panel === 'close'}

@@ -6,20 +6,20 @@ import { UnifiedBindField } from './forms_unified';
 import { Topbar } from './layout';
 import { DocCorrectionPanel, docCorrKind } from './page_flights';
 
-// ===== Оформление и сопровождение: Финансы + Документы (единый процесс) =====
+
 
 function fUsd(n, c = 'USD') { return Math.round(n).toLocaleString('ru-RU') + ' ' + (c === 'USD' ? '$' : c); }
 function finPayable(op) { return op.tariff + op.taxes + op.fee + op.penalty - op.discount; }
 function finDebt(op) { return Math.max(0, finPayable(op) - op.paid); }
 
-// closing documents (Счёт/Акт/Договор) carry the counterparty's name on `participant` directly;
-// travel documents are linked to a company only through their order.
+
+
 function companyForDoc(doc) {
   const name = doc.participant !== '—' ? doc.participant : ORDERS.find((o) => o.no === doc.order)?.client;
   return COMPANIES_DB.find((c) => c.name === name) || null;
 }
 
-/* ---------- order stage bar ---------- */
+
 function OrderStageBar({ index, compact }) {
   return (
     <div className={'stage-bar' + (compact ? ' compact' : '')}>
@@ -39,9 +39,9 @@ function OrderStageBar({ index, compact }) {
   );
 }
 
-/* ====================================================================
-   FINANCE OPERATION CARD
-   ==================================================================== */
+
+
+
 function FinanceOpCard({ op, onClose, onChange }) {
   const toast = useToast();
   if (!op) return null;
@@ -69,7 +69,7 @@ function FinanceOpCard({ op, onClose, onChange }) {
           items={Object.keys(FIN_OP_STATUS).map((s) => ({ icon: op.status === s ? 'check' : null, label: s, onClick: () => setStatus(s) }))} />
       </div>
 
-      {/* amount breakdown */}
+
       <div className="card card-pad" style={{ marginBottom: 16 }}>
         <h3 className="card-title" style={{ fontSize: 16, marginBottom: 8 }}>Расчёт</h3>
         <div className="amt-row"><span className="k">Тариф</span><span className="v">{fUsd(op.tariff, op.currency)}</span></div>
@@ -80,7 +80,7 @@ function FinanceOpCard({ op, onClose, onChange }) {
         <div className="amt-row total"><span className="k">Сумма к оплате</span><span className="v">{fUsd(payable, op.currency)}</span></div>
       </div>
 
-      {/* payment progress */}
+
       {!isRefund ? (
         <div className="card card-pad" style={{ marginBottom: 16 }}>
           <div className="pay-bar" style={{ marginBottom: 12 }}>
@@ -122,7 +122,7 @@ function FinanceOpCard({ op, onClose, onChange }) {
   );
 }
 
-/* ---------- finance registry ---------- */
+
 function FinanceRegistry({ scopeOrder, onOpenOp }) {
   const [q, setQ] = useState('');
   const [tab, setTab] = useState('all');
@@ -161,7 +161,7 @@ function FinanceRegistry({ scopeOrder, onOpenOp }) {
         </div>
       )}
       {scopeOrder && (() => {
-        // per-currency totals so mixed-currency orders never sum apples and oranges into one number
+
         const curs = [...new Set(ops.map((o) => o.currency))];
         const sumCur = (c, fn) => ops.filter((o) => o.currency === c).reduce((s, o) => s + fn(o), 0);
         return (
@@ -228,14 +228,14 @@ function FinancePageNew() {
   return (<><Topbar title="Финансы" /><div className="content"><FinanceRegistry /></div></>);
 }
 
-/* ====================================================================
-   DOCUMENT CARD + CENTER
-   ==================================================================== */
-// document types that belong to bookkeeping — shown separately, never under a passenger
+
+
+
+
 const DOC_BOOKKEEPING = ['Счёт', 'Акт', 'Договор'];
 const now = () => new Date().toLocaleString('ru-RU', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }).replace(',', ' ·');
 
-/* ---------- preview before sending a closing document (Счёт/Акт/Договор) to accounting ---------- */
+
 function DocPreviewModal({ doc, company, onClose, onChange }) {
   const toast = useToast();
   const [correcting, setCorrecting] = useState(false);
@@ -374,7 +374,7 @@ function DocCard({ doc, onClose, onChange }) {
   );
 }
 
-/* one passenger's travel documents (tickets / boarding / vouchers / insurance / visas) */
+
 function DocPassengerGroup({ name, role, docs, onOpen, onUpload }) {
   return (
     <div className="card card-pad" style={{ marginBottom: 14 }}>
@@ -414,23 +414,23 @@ function DocPassengerGroup({ name, role, docs, onOpen, onUpload }) {
   );
 }
 
-/* Строит «субъектов» (пассажиров) для редактора квитанций из ростера заказа.
-   onlyName — ограничить одним пассажиром (когда грузим квитанцию для конкретного). */
+
+
 function correctionSubjects(participants, onlyName) {
   const list = (participants || []).filter((p) => !onlyName || p.name === onlyName);
   const base = list.length ? list : [{ name: onlyName || 'Пассажир', role: 'Взрослый' }];
   return base.map((p) => ({ name: p.name, type: p.role || 'Взрослый', docNo: p.doc || '—', ref: '—' }));
 }
 
-/* Окно загрузки документа в заказ. Демонстрационное: файл выбирается через системный
-   диалог, но не отправляется на сервер. Маршрут-квитанция уходит не в список, а в редактор. */
+
+
 const DOC_UPLOAD_TYPES = Object.keys(DOC_KIND);
 function DocUploadModal({ open, scopeOrder, participants = [], defaultParticipant, onClose, onUploaded, onRouteToEditor }) {
   const fileRef = useRef(null);
-  const [file, setFile] = useState(null);      // { name, size } | null
+  const [file, setFile] = useState(null);
   const [type, setType] = useState('Билет');
   const [participant, setParticipant] = useState('—');
-  // при каждом открытии — сброс к контексту вызова
+
   useEffect(() => {
     if (open) { setFile(null); setType('Билет'); setParticipant(defaultParticipant || '—'); }
   }, [open, defaultParticipant]);
@@ -470,7 +470,7 @@ function DocUploadModal({ open, scopeOrder, participants = [], defaultParticipan
       </>}>
       <div>
         <input ref={fileRef} type="file" style={{ display: 'none' }} onChange={onFile} />
-        {/* зона выбора файла */}
+
         <button type="button" className="doc-preview" onClick={pickFile}
           style={{ width: '100%', cursor: 'pointer', border: '1px dashed var(--line)', textAlign: 'center' }}>
           <Icon name={file ? k.icon : 'plus'} style={{ width: 40, height: 40 }} strokeWidth={1.4} />
@@ -511,14 +511,14 @@ function DocCenter({ scopeOrder, participants, onOpenDoc }) {
   const [tab, setTab] = useState('all');
   const [fStatus, setFStatus] = useState('');
   const [openNo, setOpenNo] = useState(null);
-  // passenger grouping is only meaningful inside a single order with a known roster
+
   const canGroupByPax = !!scopeOrder && Array.isArray(participants) && participants.length > 0;
-  const [view, setView] = useState('byType'); // 'byType' | 'byPassenger'
+  const [view, setView] = useState('byType');
   const [docs, setDocs] = useState(() => (scopeOrder ? DOCS2.filter((d) => d.order === scopeOrder) : DOCS2));
   const updateDoc = (no, patch) => setDocs((cur) => cur.map((d) => (d.no === no ? { ...d, ...patch } : d)));
   const card = docs.find((d) => d.no === openNo) || null;
-  const [uploadFor, setUploadFor] = useState(null);   // null | { participant? } — открыто окно загрузки
-  const [editorFor, setEditorFor] = useState(null);   // null | { participant? } — открыт редактор квитанции
+  const [uploadFor, setUploadFor] = useState(null);
+  const [editorFor, setEditorFor] = useState(null);
 
   const TYPE_TABS = [
     { key: 'all', label: 'Все', test: () => true },
@@ -534,7 +534,7 @@ function DocCenter({ scopeOrder, participants, onOpenDoc }) {
   let rows = docs.filter((d) => cur.test(d) && (!fStatus || d.status === fStatus) && matchesQ(d));
   const open = (d) => onOpenDoc ? onOpenDoc(d) : setOpenNo(d.no);
 
-  // passenger view data: travel docs grouped per passenger + a separate bookkeeping block
+
   const paxDocs = (name) => docs.filter((d) => d.participant === name && !DOC_BOOKKEEPING.includes(d.type) && (!fStatus || d.status === fStatus) && matchesQ(d));
   const bookkeeping = docs.filter((d) => DOC_BOOKKEEPING.includes(d.type) && (!fStatus || d.status === fStatus) && matchesQ(d));
   const paxList = canGroupByPax
@@ -628,13 +628,13 @@ function DocCenterPage() {
   return (<><Topbar title="Документы" /><div className="content"><DocCenter /></div></>);
 }
 
-/* ====================================================================
-   ИМПОРТ МАРШРУТ-КВИТАНЦИЙ  (мастер: Загрузка → Распознавание → Проверка → Заказ)
-   Менеджер загружает квитанции (авиа/ЖД/отель/…), система пошагово распознаёт
-   наполнение, данные редактируются и привязываются к заказу.
-   Демонстрационное распознавание: наполнение построено на реальных бланках
-   из папки «Маршрутки» (Смартавиа, Red Wings, Алроса) — сеть не задействуется.
-   ==================================================================== */
+
+
+
+
+
+
+
 const REC_TYPES = [
   { key: 'Авиа',      doc: 'Маршрутная квитанция', icon: 'plane', color: '#2566ff', legLabel: 'Рейс',    docNoLabel: 'Номер билета', refLabel: 'PNR' },
   { key: 'ЖД',        doc: 'Маршрутная квитанция', icon: 'train', color: '#5a5af0', legLabel: 'Поезд',   docNoLabel: 'Билет №',      refLabel: 'Заказ №' },
@@ -645,8 +645,8 @@ const REC_TYPES = [
 const recType = (key) => REC_TYPES.find((t) => t.key === key) || REC_TYPES[0];
 const RECOG_STEPS = ['Извлечение текста', 'Пассажир и документ', 'Маршрут и рейсы', 'Тарифы и таксы', 'Проверка данных'];
 
-// Типы маршрута — как в ТЗ клиента: «в одну сторону», «туда-обратно», «сложный маршрут».
-// dir у сегмента: 'out' — туда, 'back' — обратно, 'seg' — плечо сложного маршрута.
+
+
 const TRIP_TYPES = {
   oneway:    { label: 'В одну сторону',  arrow: '→' },
   roundtrip: { label: 'Туда-обратно',    arrow: '⇄' },
@@ -663,25 +663,25 @@ function routeSummary(p) {
   return p.legs.map((l) => legCode(l, 'from')).concat([legCode(p.legs[p.legs.length - 1], 'to')]).join(' → ');
 }
 
-// Пул «распознанных» данных по типу услуги — построен на реальных бланках поставщиков.
+
 const PARSE_POOL = {
   'Авиа': [
-    // в одну сторону (Смартавиа, Телегин)
+
     { carrier: 'Смартавиа', carrierCode: '5N', passenger: 'TELEGIN IVAN KONSTANTINOVICH', dob: '18.05.1993', docNo: 'ПС 2213067219', ticketNo: '316 2445197354', ref: 'V942WP', cls: 'ECONOMY', fareBasis: 'MLTOW', baggage: '0 PC', handBaggage: '10 кг', issueDate: '01.07.2026', tripType: 'oneway',
       legs: [{ from: 'Нижний Новгород · Стригино', fromCode: 'GOJ', to: 'Санкт-Петербург · Пулково Т1', toCode: 'LED', date: '19.07.2026', dep: '17:15', arr: '19:00', flightNo: '5N-1510', dir: 'out' }],
       currency: 'RUB', fare: 25328, taxes: 120, total: 25448 },
-    // туда-обратно (S7)
+
     { carrier: 'S7 Airlines', carrierCode: 'S7', passenger: 'NESTEROVA IRINA IVANOVNA', dob: '04.09.1990', docNo: 'ПС 4501234567', ticketNo: '421 2135356261', ref: 'KJ7T2L', cls: 'ECONOMY', fareBasis: 'BLR', baggage: '1 PC', handBaggage: '10 кг', issueDate: '20.06.2026', tripType: 'roundtrip',
       legs: [
         { from: 'Москва · Домодедово', fromCode: 'DME', to: 'Сочи · Адлер', toCode: 'AER', date: '10.07.2026', dep: '08:40', arr: '11:25', flightNo: 'S7 1135', dir: 'out' },
         { from: 'Сочи · Адлер', fromCode: 'AER', to: 'Москва · Домодедово', toCode: 'DME', date: '17.07.2026', dep: '19:10', arr: '21:55', flightNo: 'S7 1136', dir: 'back' },
       ],
       currency: 'RUB', fare: 14200, taxes: 3160, total: 17360 },
-    // в одну сторону (Red Wings, Арутюнов)
+
     { carrier: 'Red Wings', carrierCode: 'WZ', passenger: 'ARUTIUNOV / GEVORK B', dob: '—', docNo: 'PSP756864778', ticketNo: '309 6111220993', ref: 'V8LG5G', cls: 'Economy / N', fareBasis: 'NSTOW', baggage: '1 PC', handBaggage: '1 место', issueDate: '30.06.2026', tripType: 'oneway',
       legs: [{ from: 'Нижний Новгород · Стригино', fromCode: 'GOJ', to: 'Ереван · Звартноц', toCode: 'EVN', date: '19.07.2026', dep: '08:20', arr: '12:45', flightNo: 'WZ 1347', dir: 'out' }],
       currency: 'RUB', fare: 30305, taxes: 1855, total: 32160 },
-    // сложный маршрут с пересадкой (Алроса, Чувашов): Москва → Новосибирск → Мирный
+
     { carrier: 'Алроса', carrierCode: '6R', passenger: 'ЧУВАШОВ / ВЛАДИМИР Г', dob: '—', docNo: 'ПС 9814572697', ticketNo: '67A 6110494206', ref: 'BCPFR1', cls: 'Эконом / N', fareBasis: 'NLTOW', baggage: 'Нет', handBaggage: '1 место', issueDate: '07.06.2026', tripType: 'complex',
       legs: [
         { from: 'Москва · Внуково A', fromCode: 'VKO', to: 'Новосибирск · Толмачёво', toCode: 'OVB', date: '09.06.2026', dep: '15:45', arr: '23:45', flightNo: '6R 544', dir: 'seg' },
@@ -711,8 +711,8 @@ const PARSE_POOL = {
   ],
 };
 let RID = 0;
-// Пока серверный OCR не вернул данные, создаём пустую структуру для ручной проверки.
-// Важно: никогда не подставляем сведения из другой/демонстрационной квитанции.
+
+
 function emptyReceiptParse(file) {
   return {
     carrier: '', carrierCode: '', passenger: '', dob: '', docNo: '', ticketNo: '', ref: '',
@@ -731,7 +731,7 @@ function guessType(name) {
 }
 const recMoney = (v, c) => (v < 0 ? '− ' : '') + Math.abs(v).toLocaleString('ru-RU') + ' ' + (c === 'USD' ? '$' : c);
 const recComputed = (p) => (Number(p.fare) || 0) + (Number(p.taxes) || 0);
-// Строка одного плеча маршрута (город → город · дата · время · рейс).
+
 function LegLine({ l }) {
   return (
     <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, padding: '3px 0', fontSize: 12, color: 'var(--body)' }}>
@@ -740,7 +740,7 @@ function LegLine({ l }) {
     </div>
   );
 }
-// Блок маршрута с учётом типа: в одну сторону / туда-обратно (Туда/Обратно) / сложный (плечи с пересадками).
+
 function RouteView({ p, isStay }) {
   if (isStay) {
     return (<div style={{ borderTop: '1px solid var(--line)', paddingTop: 8 }}>
@@ -781,7 +781,7 @@ function RSub({ children, style }) {
   return <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '.02em', margin: '20px 2px 10px', ...style }}>{children}</div>;
 }
 
-/* Компактный предпросмотр распознанной квитанции (шаг «Проверка»). */
+
 function ReceiptPreview({ type, p }) {
   const t = recType(type);
   const total = Number(p.total) || recComputed(p);
@@ -815,7 +815,7 @@ function ReceiptPreview({ type, p }) {
   );
 }
 
-/* Редактируемая форма распознанной квитанции. */
+
 function ReceiptEditForm({ type, p, onChange }) {
   const t = recType(type);
   const isStay = t.legLabel === 'Проживание';
@@ -902,15 +902,15 @@ function ReceiptEditForm({ type, p, onChange }) {
   );
 }
 
-/* Верхний степпер мастера импорта. */
-/* Статусы сверки квитанции (паттерн клиента: «Импорт списка пассажиров»). */
+
+
 const REC_STATUS = {
   'Распознано':       { tone: 'green', action: 'Проверить' },
   'Требует проверки': { tone: 'amber', action: 'Заполнить'  },
   'Возможный дубль':  { tone: 'red',   action: 'Пропустить' },
   'Ошибка':           { tone: 'gray',  action: 'Повторить'  },
 };
-// Статус выводится из распознанных данных: дубль по номеру билета, нехватка ключевых полей и т.д.
+
 function receiptStatus(parsed, seen) {
   if (!parsed) return 'Ошибка';
   const tno = (parsed.ticketNo || '').trim();
@@ -921,7 +921,7 @@ function receiptStatus(parsed, seen) {
   return 'Распознано';
 }
 
-/* Боковой редактор одной квитанции — открывается по действию «Проверить». */
+
 function ReceiptEditDrawer({ open, file, onClose, onChange, onBrand }) {
   if (!open || !file) return null;
   return (
@@ -938,7 +938,7 @@ function ReceiptEditDrawer({ open, file, onClose, onChange, onBrand }) {
   );
 }
 
-/* Редактор финансовой математики одной квитанции (единично) — бланк поставщика не меняется. */
+
 function ReceiptMathDrawer({ open, file, math, onSave, onClose }) {
   const [m, setM] = useState(math || { tariff: 0, fee: 0, markup: 0, commission: 0 });
   useEffect(() => { if (open && math) setM(math); }, [open, file && file.id]);
@@ -974,34 +974,34 @@ function ReceiptMathDrawer({ open, file, math, onSave, onClose }) {
   );
 }
 
-/* ====================================================================
-   ИМПОРТ МАРШРУТ-КВИТАНЦИЙ — модальная панель по паттерну клиента
-   («Импорт списка пассажиров», Авиа (подбор)/Импорт группы.png):
-   загрузка → блок «Квитанции обработаны» со счётчиками → таблица сверки
-   со статусом и действием по каждой квитанции → настройка → «Добавить в заказ».
-   ==================================================================== */
+
+
+
+
+
+
 function ReceiptImportModal({ open, onClose, onDone }) {
   const toast = useToast();
-  const [files, setFiles] = useState([]);      // { id, name, size, type, poolIx, status:'queued'|'scanning'|'done', parsed }
-  const [excluded, setExcluded] = useState({}); // id -> true (пропущенные вручную/дубли)
+  const [files, setFiles] = useState([]);
+  const [excluded, setExcluded] = useState({});
   const [editId, setEditId] = useState(null);
-  // Единая цель привязки (ТЗ п.2–3): новый заказ / существующий заказ / физ. лицо —
-  // тем же компонентом, что и в «Свободном бронировании».
+
+
   const [bindTarget, setBindTarget] = useState({ mode: 'new', label: 'Новый заказ' });
   const [optAddIncomplete, setOptAddIncomplete] = useState(false);
   const [optCreateServices, setOptCreateServices] = useState(true);
-  // Финансовая математика поверх оригинального бланка поставщика (бланк не меняется)
-  const [math, setMath] = useState({});         // id -> { tariff, fee, markup, commission }
-  const [sel, setSel] = useState({});           // id -> true (для группового применения)
-  const [mathId, setMathId] = useState(null);   // id квитанции в редакторе суммы (единично)
-  const [brandId, setBrandId] = useState(null); // id квитанции, открытой на фирменном бланке (предпросмотр + сохранение)
+
+  const [math, setMath] = useState({});
+  const [sel, setSel] = useState({});
+  const [mathId, setMathId] = useState(null);
+  const [brandId, setBrandId] = useState(null);
   const [bulk, setBulk] = useState({ fee: '', markup: '', commission: '' });
   const fileRef = useRef(null);
   const poolCounter = useRef({});
 
   useEffect(() => { if (open) { setFiles([]); setExcluded({}); setEditId(null); setBindTarget({ mode: 'new', label: 'Новый заказ' }); setOptAddIncomplete(false); setOptCreateServices(true); setMath({}); setSel({}); setMathId(null); setBrandId(null); setBulk({ fee: '', markup: '', commission: '' }); poolCounter.current = {}; } }, [open]);
 
-  // математика по квитанции: сохранённая правка или дефолт из бланка поставщика
+
   const getMath = (id, p) => math[id] || { tariff: Math.round(Number(p && p.total) || 0), fee: 0, markup: 0, commission: 0 };
   const setMathFor = (id, p, patch) => setMath((m) => ({ ...m, [id]: { ...getMath(id, p), ...patch } }));
   const clientTotal = (m) => Math.round((Number(m.tariff) || 0) + (Number(m.fee) || 0) + (Number(m.markup) || 0));
@@ -1016,7 +1016,7 @@ function ReceiptImportModal({ open, onClose, onDone }) {
         const poolIx = poolCounter.current[type]++;
         const id = 'rf' + (RID++);
         const order = pending + i;
-        // последовательное «распознавание»: сначала статус «сканируется», затем данные
+
         setTimeout(() => setFiles((c) => c.map((x) => (x.id === id ? { ...x, status: 'scanning' } : x))), 250 + order * 650);
         setTimeout(() => setFiles((c) => c.map((x) => (x.id === id ? { ...x, status: 'done', parsed: emptyReceiptParse(x) } : x))), 250 + order * 650 + 600);
         return { id, name: f.name, size: fmtSize(f.size || 40000), byteSize: f.size || 0, mime: f.type || '', lastModified: f.lastModified || null,
@@ -1035,8 +1035,8 @@ function ReceiptImportModal({ open, onClose, onDone }) {
   const processing = files.some((f) => f.status !== 'done');
   const done = files.filter((f) => f.status === 'done');
 
-  // Все квитанции показываем строками сразу (в очереди/сканируется/готово) и обновляем на месте —
-  // строки не «допрыгивают» по мере распознавания. Статус готовых — из распознанных данных.
+
+
   const rows = React.useMemo(() => {
     const seen = new Set();
     return files.map((f) => ({
@@ -1047,7 +1047,7 @@ function ReceiptImportModal({ open, onClose, onDone }) {
   }, [files.map((f) => f.id + f.status + (f.parsed ? f.parsed.ticketNo : '')).join(',')]);
   const doneRows = rows.filter((r) => !r.pending);
 
-  // дубли по умолчанию исключаются из добавления
+
   useEffect(() => {
     setExcluded((cur) => {
       const next = { ...cur };
@@ -1063,7 +1063,7 @@ function ReceiptImportModal({ open, onClose, onDone }) {
   const mathFile = files.find((f) => f.id === mathId) || null;
   const brandFile = files.find((f) => f.id === brandId) || null;
 
-  // групповое применение математики к выбранным (или ко всем готовым, если ничего не выбрано)
+
   const selIds = doneRows.filter((r) => sel[r.f.id]).map((r) => r.f.id);
   const applyBulk = () => {
     const targets = (selIds.length ? doneRows.filter((r) => sel[r.f.id]) : doneRows);
@@ -1090,7 +1090,7 @@ function ReceiptImportModal({ open, onClose, onDone }) {
         name: t.doc + ' ' + (p.carrier || '') + ' · ' + (p.passenger || '').split(/[\/ ]/)[0],
         type: t.doc, order: isPerson ? '—' : orderNo, participant: p.passenger || '—', service: r.f.type + ' · распознано',
         finOp: '—', status: 'Черновик', version: 1, date: now, size: r.f.size, parsed: p, recType: r.f.type,
-        // бланк поставщика (оригинал) сохраняется отдельно; math — наша редактируемая математика
+
         supplierBlank: { name: r.f.name, size: r.f.size, byteSize: r.f.byteSize, mime: r.f.mime,
           lastModified: r.f.lastModified, originalUrl: r.f.originalUrl, total: Number(p.total) || 0, currency: p.currency },
         math: { ...m, clientTotal: clientTotal(m), currency: p.currency },
@@ -1119,7 +1119,7 @@ function ReceiptImportModal({ open, onClose, onDone }) {
 
         <input ref={fileRef} type="file" multiple style={{ display: 'none' }} onChange={onPick} accept=".pdf,.jpg,.jpeg,.png" />
 
-        {/* Загрузка квитанций */}
+
         <RSub style={{ marginTop: 14 }}>Загрузка квитанций</RSub>
         <div onClick={() => fileRef.current && fileRef.current.click()} onDrop={onDrop} onDragOver={(e) => e.preventDefault()}
           style={{ border: '2px dashed var(--field-line)', borderRadius: 14, padding: '26px 20px', textAlign: 'center', cursor: 'pointer', background: 'var(--surface-2)' }}>
@@ -1131,7 +1131,7 @@ function ReceiptImportModal({ open, onClose, onDone }) {
 
         {files.length > 0 && (
           <>
-            {/* Квитанции обработаны — счётчики */}
+
             <RSub>Квитанции обработаны</RSub>
             <div className="card card-pad" style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
               <Stat label="Распознано" value={counts['Распознано']} tone="green" />
@@ -1145,14 +1145,14 @@ function ReceiptImportModal({ open, onClose, onDone }) {
               )}
             </div>
 
-            {/* Сверка квитанций */}
+
             {rows.length > 0 && (() => {
               const allSel = doneRows.length > 0 && doneRows.every((r) => sel[r.f.id]);
               return (
               <>
                 <RSub>Сверка квитанций</RSub>
 
-                {/* Математика поставщика — групповое применение сбора/надбавки/комиссии */}
+
                 {doneRows.length > 0 && (
                   <div className="card card-pad" style={{ marginBottom: 12, display: 'flex', alignItems: 'flex-end', gap: 12, flexWrap: 'wrap' }}>
                     <div style={{ flex: '0 0 100%', fontSize: 12, color: 'var(--muted)', marginBottom: -4 }}>
@@ -1184,8 +1184,8 @@ function ReceiptImportModal({ open, onClose, onDone }) {
                         const skipped = !!excluded[r.f.id];
                         if (r.pending) {
                           return (
-                            // строго та же высота 80px, что и у «готовой» строки (действия не переносятся на 2-ю строку),
-                            // статусы обновляются на месте — строки не прыгают и не подрастают при распознавании (ТЗ #2)
+
+
                             <tr key={r.f.id} style={{ height: 80 }}>
                               <td></td>
                               <td><span style={{ display: 'flex', alignItems: 'center', gap: 10 }}><span style={{ width: 30, height: 30, borderRadius: 8, background: 'var(--surface-2)', flex: '0 0 30px' }} /><span style={{ flex: 1 }}><div className="sk" style={{ height: 12, width: 120, marginBottom: 6 }} /><div className="sk" style={{ height: 10, width: 80 }} /></span></span></td>
@@ -1240,12 +1240,12 @@ function ReceiptImportModal({ open, onClose, onDone }) {
               );
             })()}
 
-            {/* Настройка добавления */}
+
             <RSub>Настройка добавления</RSub>
             <div style={{ display: 'grid', gap: 10 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 14, color: 'var(--body)' }}>
                 <span style={{ fontWeight: 600, color: 'var(--muted)', minWidth: 150 }}>Заказ для привязки</span>
-                {/* Единая форма выбора (ТЗ п.2–3): заказ (с датой) или физ. лицо — как в свободном бронировании */}
+
                 <UnifiedBindField value={bindTarget} onChange={setBindTarget} modes={['new', 'order', 'person']} style={{ flex: 1 }} />
               </div>
               <label style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 14, color: 'var(--body)', cursor: 'pointer' }}>
@@ -1268,7 +1268,7 @@ function ReceiptImportModal({ open, onClose, onDone }) {
         onBrand={() => { setBrandId(editId); setEditId(null); }} />
       <ReceiptMathDrawer open={!!mathFile} file={mathFile} math={mathFile ? getMath(mathFile.id, mathFile.parsed) : null}
         onSave={(patch) => { setMathFor(mathFile.id, mathFile.parsed, patch); }} onClose={() => setMathId(null)} />
-      {/* Предпросмотр и сохранение распознанной квитанции на фирменном бланке — прямо из импорта (в т.ч. РЖД) */}
+
       {brandFile && (() => {
         const p = brandFile.parsed; const m = getMath(brandFile.id, p);
         return (
@@ -1288,16 +1288,16 @@ function ReceiptImportModal({ open, onClose, onDone }) {
 }
 
 
-/* ====================================================================
-   РЕДАКТОР КВИТАНЦИЙ (пункт бокового меню)
-   Список маршрут-квитанций из всех заказов → открытие клиентского редактора
-   (DocCorrectionPanel) с данными выбранной квитанции.
-   ==================================================================== */
+
+
+
+
+
 function ReceiptEditorPage() {
   const [q, setQ] = useState('');
-  const [edit, setEdit] = useState(null);   // выбранная квитанция для редактора
-  const [importing, setImporting] = useState(false);   // открыт мастер импорта
-  const [imported, setImported] = useState([]);         // квитанции, добавленные через импорт
+  const [edit, setEdit] = useState(null);
+  const [importing, setImporting] = useState(false);
+  const [imported, setImported] = useState([]);
   const all = [...imported, ...DOCS2.filter((d) => d.type === 'Маршрутная квитанция')];
   const receipts = all.filter((d) => (!q || `${d.no} ${d.name} ${d.order} ${d.participant}`.toLowerCase().includes(q.toLowerCase())));
 
@@ -1344,7 +1344,7 @@ function ReceiptEditorPage() {
       </div>
 
       {edit && (() => {
-        const p = edit.parsed;   // распознанные квитанции несут разобранные данные
+        const p = edit.parsed;
         if (p) {
           return (
             <DocCorrectionPanel
@@ -1372,9 +1372,9 @@ function ReceiptEditorPage() {
   );
 }
 
-/* ====================================================================
-   FULFILLMENT CONTROL DESK (Реестр оформления)
-   ==================================================================== */
+
+
+
 function FulfillmentRegistry({ onOpenOrder }) {
   const [cat, setCat] = useState('payment');
   const CATS = [

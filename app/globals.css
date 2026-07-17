@@ -16,25 +16,18 @@
   --shadow-card:0 1px 2px rgba(16,23,38,.04);
   --shadow-pop:0 12px 40px rgba(16,23,38,.16);
   --shadow-modal:0 30px 80px rgba(16,23,38,.22);
-
-  /* ===== Typography scale (single source of truth) =====
-     Sizes: keep to these steps, no in-between values.
-     Weights: 400 regular · 600 medium/emphasis · 700 bold (titles & numbers). 800 is retired. */
-  --fs-display:30px;  /* hero KPI number */
-  --fs-stat:26px;     /* stat-card number */
-  --fs-h1:32px;       /* page title */
-  --fs-h2:22px;       /* section title */
-  --fs-h3:16px;       /* card title */
-  --fs-lg:18px;       /* large body / emphasised value */
-  --fs-body:14px;     /* default body & tables */
-  --fs-sm:13px;       /* secondary text */
-  --fs-cap:12px;      /* captions, meta, tile labels */
+  --fs-display:30px;
+  --fs-stat:26px;
+  --fs-h1:32px;
+  --fs-h2:22px;
+  --fs-h3:16px;
+  --fs-lg:18px;
+  --fs-body:14px;
+  --fs-sm:13px;
+  --fs-cap:12px;
   --fw-regular:400; --fw-medium:600; --fw-bold:700;
-
-  /* ===== Icon size ladder (glyph width/height) — even steps only ===== */
   --ic-xs:14px; --ic-sm:16px; --ic-md:18px; --ic-lg:20px; --ic-xl:24px;
 }
-/* Typography utility classes — prefer these over ad-hoc inline font styles */
 .ty-h2{font-size:var(--fs-h2);font-weight:var(--fw-bold);color:var(--ink);letter-spacing:-.02em;margin:0}
 .ty-title{font-size:var(--fs-h3);font-weight:var(--fw-bold);color:var(--ink);letter-spacing:-.01em;margin:0}
 .ty-num{font-weight:var(--fw-bold);letter-spacing:-.02em;line-height:1;color:var(--ink)}
@@ -58,13 +51,10 @@ input,textarea,select{font-family:inherit}
 .scroll::-webkit-scrollbar{width:9px;height:9px}
 .scroll::-webkit-scrollbar-thumb{background:#d9dde5;border-radius:8px;border:2px solid #fff}
 .scroll::-webkit-scrollbar-track{background:transparent}
-/* slim horizontal scrollbar for the chat type-filter row */
 .chat-filter-scroll{scrollbar-width:thin;scrollbar-color:#d9dde5 transparent}
 .chat-filter-scroll::-webkit-scrollbar{height:4px}
 .chat-filter-scroll::-webkit-scrollbar-thumb{background:#d9dde5;border-radius:8px}
 .chat-filter-scroll::-webkit-scrollbar-track{background:transparent}
-
-/* ============ APP SHELL ============ */
 #root{height:calc(100vh / .95);width:calc(100vw / .95);zoom:.95;overflow:hidden}
 .app{display:flex;height:100%;background:var(--bg)}
 .sidebar{
@@ -114,15 +104,11 @@ input,textarea,select{font-family:inherit}
 .profile-card .chev{margin-left:auto;color:var(--faint);width:20px;height:20px;flex:0 0 20px}
 
 .main{flex:1;height:100%;overflow-y:auto;display:flex;flex-direction:column;min-width:0}
-/* «Услуги» pages: an extra 3% smaller than the rest of the app */
 .svc-zoom{zoom:.97}
 .topbar{display:flex;align-items:flex-start;gap:18px;padding:22px 38px 8px;flex-wrap:wrap}
 .page-title{font-size:var(--fs-h1);font-weight:700;letter-spacing:-.025em;color:var(--ink);line-height:1.1;margin:0;white-space:nowrap}
 .topbar-spacer{flex:1}
 .content{padding:18px 38px 60px;flex:1}
-
-/* ТЗ #13 — адаптивность: на узких экранах таблицы прокручиваются целиком
-   (строки не теряются), крупные отступы уменьшаются. */
 @media(max-width:1000px){
   .topbar{padding:16px 20px 8px;gap:12px}
   .content{padding:16px 20px 48px}
@@ -134,11 +120,8 @@ input,textarea,select{font-family:inherit}
   .page-title{font-size:24px}
   .table-card table.tbl{min-width:640px}
 }
-
-/* operation-confirm modal list item (ТЗ #10/#11) */
 .opc-li{display:flex;align-items:flex-start;gap:8px;font-size:13.5px;color:var(--body);line-height:1.4}
 .opc-li svg{flex-shrink:0;margin-top:2px}
-/* ============ BUTTONS ============ */
 .btn{
   display:inline-flex;align-items:center;justify-content:center;gap:8px;
   height:46px;padding:0 20px;border-radius:var(--r-input);font-weight:600;font-size:15px;
@@ -159,8 +142,6 @@ input,textarea,select{font-family:inherit}
 .btn-lg{height:50px;padding:0 26px}
 .btn-icon{width:42px;height:42px;padding:0;border-radius:11px}
 .btn-block{width:100%}
-
-/* ============ CHIPS / FILTERS ============ */
 .chip{
   display:inline-flex;align-items:center;gap:9px;height:42px;padding:0 16px;border-radius:12px;
   background:var(--blue-soft);color:var(--blue-soft-text);font-weight:600;font-size:14.5px;
@@ -172,8 +153,6 @@ input,textarea,select{font-family:inherit}
 .chip.ghost:hover{background:var(--hover)}
 .chip-x{margin-left:2px;display:inline-flex;color:inherit;opacity:.7}
 .chip-x:hover{opacity:1}
-
-/* ============ TABS ============ */
 .tabs{display:flex;gap:12px;flex-wrap:wrap;align-items:center}
 .tab{
   display:inline-flex;align-items:center;gap:9px;height:42px;padding:0 17px;border-radius:12px;
@@ -184,8 +163,6 @@ input,textarea,select{font-family:inherit}
 .tab.active{background:var(--blue);color:#fff;border-color:var(--blue)}
 .tab-count{min-width:24px;height:23px;padding:0 7px;border-radius:999px;background:var(--gray-bg);color:var(--gray-text);font-size:12.5px;font-weight:600;display:inline-flex;align-items:center;justify-content:center}
 .tab.active .tab-count{background:rgba(255,255,255,.24);color:#fff}
-
-/* ============ STATUS PILLS ============ */
 .pill{display:inline-flex;align-items:center;gap:6px;height:30px;padding:0 13px;border-radius:999px;font-size:13.5px;font-weight:600;white-space:nowrap}
 .pill-green{background:var(--green-bg);color:var(--green)}
 .pill-red{background:var(--red-bg);color:var(--red)}
@@ -193,8 +170,6 @@ input,textarea,select{font-family:inherit}
 .pill-amber{background:var(--amber-bg);color:var(--amber)}
 .pill-blue{background:var(--blue-soft);color:var(--blue-soft-text)}
 .pill-gray{background:var(--gray-bg);color:var(--gray-text)}
-
-/* ============ INPUTS ============ */
 .field{display:flex;flex-direction:column;gap:7px}
 .label{font-size:14px;font-weight:500;color:var(--body)}
 .label .req{color:var(--red-strong)}
@@ -222,8 +197,6 @@ textarea.input{height:auto;padding:13px 15px;resize:vertical;line-height:1.5}
 .search svg{width:19px;height:19px;color:var(--muted-2);flex:0 0 19px}
 .search input{border:none;background:none;outline:none;font-size:15px;width:100%;color:var(--ink)}
 .search input::placeholder{color:var(--muted-2)}
-
-/* ============ TOGGLE ============ */
 .toggle{width:46px;height:27px;border-radius:999px;background:#d3d8e0;position:relative;cursor:pointer;transition:.18s;flex:0 0 46px;border:none;padding:0}
 .toggle::after{content:"";position:absolute;top:3px;left:3px;width:21px;height:21px;border-radius:50%;background:#fff;transition:.18s;box-shadow:0 1px 3px rgba(0,0,0,.2)}
 .toggle.on{background:var(--blue)}
@@ -235,14 +208,10 @@ textarea.input{height:auto;padding:13px 15px;resize:vertical;line-height:1.5}
 .radio{width:22px;height:22px;border-radius:50%;border:1.8px solid var(--field-line);cursor:pointer;flex:0 0 22px;display:inline-flex;align-items:center;justify-content:center;transition:.14s}
 .radio.on{border-color:var(--blue)}
 .radio.on::after{content:"";width:11px;height:11px;border-radius:50%;background:var(--blue)}
-
-/* ============ CARD ============ */
 .card{background:var(--surface);border:1px solid var(--line);border-radius:var(--r-card);box-shadow:var(--shadow-card)}
 .card-pad{padding:24px 26px}
 .card-title{font-size:21px;font-weight:700;color:var(--ink);letter-spacing:-.01em;margin:0}
 .section-title{font-size:var(--fs-h2);font-weight:700;color:var(--ink);letter-spacing:-.02em;margin:0}
-
-/* ============ TABLE ============ */
 .table-card{background:#fff;border:1px solid var(--line);border-radius:var(--r-card);overflow-x:auto;overflow-y:hidden;box-shadow:var(--shadow-card)}
 table.tbl{width:100%;border-collapse:collapse}
 table.tbl thead th{
@@ -273,24 +242,16 @@ table.tbl tbody tr:last-child td{border-bottom:none}
 
 .pagination{display:flex;align-items:center;justify-content:space-between;padding:15px 18px;border-top:1px solid var(--line)}
 .pagination .page-info{flex:1;text-align:center;font-size:14.5px;color:var(--body)}
-
-/* progress bar */
 .progress{height:8px;border-radius:999px;background:#e9ecf2;overflow:hidden;min-width:120px}
 .progress>span{display:block;height:100%;border-radius:999px;background:var(--blue)}
-
-/* stacked bar */
 .stackbar{height:18px;border-radius:7px;overflow:hidden;display:flex;width:100%}
 .stackbar>span{height:100%}
 .legend{display:flex;flex-wrap:wrap;gap:10px 26px;margin-top:16px}
 .legend-item{display:flex;align-items:center;gap:8px;font-size:15px;font-weight:600;color:var(--ink)}
 .legend-item .dot{width:13px;height:13px;border-radius:4px}
 .legend-item .cnt{color:var(--muted);font-weight:500;font-size:14px}
-
-/* avatar */
 .avatar{border-radius:50%;object-fit:cover;background:#dde2ea;flex-shrink:0}
 .avatar-ph{border-radius:50%;background:#e3e7ee;display:inline-flex;align-items:center;justify-content:center;color:#9aa3b2;font-weight:600;flex-shrink:0}
-
-/* ============ MODAL / DRAWER ============ */
 .overlay{position:fixed;inset:0;background:rgba(20,27,42,.42);backdrop-filter:blur(2px);z-index:80;display:flex;align-items:center;justify-content:center;padding:24px;animation:fade .18s ease}
 @keyframes fade{from{opacity:0}to{opacity:1}}
 .modal{background:#fff;border-radius:var(--r-modal);box-shadow:var(--shadow-modal);width:100%;max-width:860px;max-height:90vh;overflow-y:auto;animation:pop .2s cubic-bezier(.2,.9,.3,1)}
@@ -311,9 +272,7 @@ table.tbl tbody tr:last-child td{border-bottom:none}
 .drawer-head{display:flex;align-items:center;justify-content:space-between;padding:26px 32px;border-bottom:1px solid var(--line);position:sticky;top:0;background:#fff;z-index:2}
 .drawer-body{padding:28px 32px;flex:1}
 .drawer-foot{display:flex;justify-content:flex-end;gap:13px;padding:20px 32px;border-top:1px solid var(--line);position:sticky;bottom:0;background:#fff}
-/* shell slide-over (chat / notifications) — full-height flex panel */
 .shell-drawer{background:#fff;height:100%;overflow:hidden;box-shadow:var(--shadow-modal);animation:slidein .26s cubic-bezier(.2,.9,.3,1);display:flex;flex-direction:column}
-/* ===== Global Topbar ===== */
 .gtop{position:sticky;top:0;z-index:40;display:flex;align-items:center;gap:16px;row-gap:8px;flex-wrap:wrap;padding:11px 38px;background:rgba(255,255,255,.86);backdrop-filter:blur(10px);border-bottom:1px solid var(--line)}
 .crumbs{display:flex;align-items:center;gap:6px;font-size:14px;color:var(--muted);min-width:0;flex-wrap:wrap;flex-shrink:0}
 .crumb{white-space:nowrap;cursor:pointer;transition:.12s}
@@ -335,12 +294,8 @@ table.tbl tbody tr:last-child td{border-bottom:none}
 .shell-drawer .grid-4{grid-template-columns:repeat(2,1fr);gap:14px}
 .form-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:20px 22px}
 .form-grid .full{grid-column:1/-1}
-/* Боковые окна и модалки — контейнер для адаптива полей (ТЗ п.8, ТЗ-2 п.11).
-   В узкой панели поля становятся в одну колонку и не сливаются друг с другом. */
 .drawer,.shell-drawer,.modal,.drawer-stack-panel{container-type:inline-size}
 @container (max-width:560px){.form-grid{grid-template-columns:1fr;gap:16px}}
-
-/* info row list (key→value) */
 .kv{display:flex;flex-direction:column}
 .kv-row{display:flex;align-items:baseline;justify-content:space-between;gap:18px;padding:11px 0;border-bottom:1px solid var(--line)}
 .kv-row:last-child{border-bottom:none}
@@ -349,8 +304,6 @@ table.tbl tbody tr:last-child td{border-bottom:none}
 .kv-stack .label2{font-size:13.5px;color:var(--muted);margin-bottom:2px}
 .kv-stack .val2{font-size:15.5px;color:var(--ink);font-weight:600}
 .kv-stack>div{margin-bottom:17px}
-
-/* timeline */
 .timeline{display:flex;flex-direction:column;gap:0;position:relative}
 .tl-item{display:flex;gap:15px;padding-bottom:22px;position:relative}
 .tl-item:last-child{padding-bottom:0}
@@ -359,8 +312,6 @@ table.tbl tbody tr:last-child td{border-bottom:none}
 .tl-item:last-child .tl-line{display:none}
 .tl-time{font-size:13px;color:var(--muted)}
 .tl-text{font-size:15px;color:var(--ink);font-weight:600;margin-top:1px}
-
-/* toast */
 .toast-wrap{position:fixed;bottom:22px;right:22px;z-index:200;display:flex;flex-direction:column;align-items:flex-end;gap:11px;pointer-events:none}
 .toast-wrap .toast{pointer-events:auto}
 .toast-slot{transition:transform .22s cubic-bezier(.2,.9,.3,1),opacity .22s ease;will-change:transform}
@@ -385,18 +336,12 @@ table.tbl tbody tr:last-child td{border-bottom:none}
 .toast.warn{border-left-color:var(--amber)} .toast.warn .toast-ic{background:var(--amber-bg);color:var(--amber)} .toast.warn .toast-ring-fg{stroke:var(--amber)} .toast.warn .toast-urgency{color:var(--amber)}
 .toast.err{border-left-color:var(--red-strong)} .toast.err .toast-ic{background:var(--red-bg);color:var(--red-strong)} .toast.err .toast-ring-fg{stroke:var(--red-strong)} .toast.err .toast-urgency{color:var(--red-strong)}
 @media (prefers-reduced-motion:reduce){.toast-ring-fg{animation:none}}
-
-/* skeleton */
 .sk{background:linear-gradient(90deg,#eef0f4 25%,#f6f7f9 50%,#eef0f4 75%);background-size:200% 100%;animation:sh 1.3s infinite;border-radius:8px}
 @keyframes sh{0%{background-position:200% 0}100%{background-position:-200% 0}}
-
-/* empty state */
 .empty{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:70px 20px;text-align:center;color:var(--muted)}
 .empty svg{width:54px;height:54px;color:#c7cdd8;margin-bottom:16px}
 .empty .e-title{font-size:18px;font-weight:600;color:var(--body);margin-bottom:5px}
 .empty .e-sub{font-size:14.5px;color:var(--muted);max-width:340px}
-
-/* misc grids */
 .grid-4{display:grid;grid-template-columns:repeat(4,1fr);gap:20px}
 .grid-2{display:grid;grid-template-columns:1fr 1fr;gap:20px}
 .stat-card{background:#fff;border:1px solid var(--line);border-radius:var(--r-card);padding:22px 24px;box-shadow:var(--shadow-card)}
@@ -432,14 +377,10 @@ table.tbl tbody tr:last-child td{border-bottom:none}
 .doc-chip{display:inline-flex;align-items:center;justify-content:space-between;gap:10px;padding:11px 15px;border:1px solid var(--field-line);border-radius:11px;font-size:14px;color:var(--body);cursor:pointer;background:#fff;transition:.14s;width:100%}
 .doc-chip:hover{border-color:var(--blue);color:var(--blue);background:var(--blue-soft)}
 .doc-chip svg{width:16px;height:16px;flex:0 0 16px}
-
-/* ============ ORDER CREATE MODAL ============ */
 .modal-sm{max-width:480px}
 .order-analysis-icon{width:68px;height:68px;border-radius:50%;display:flex;align-items:center;justify-content:center}
 .order-analysis-icon.red{background:var(--red-bg)}
 .order-analysis-icon.blue{background:var(--blue-soft)}
-
-/* ============ NAV GROUPS ============ */
 .nav-group{display:flex;flex-direction:column}
 .nav-item.has-active{color:var(--blue);background:var(--blue-soft)}
 .nav-item.has-active svg{color:var(--blue)}
@@ -451,12 +392,8 @@ table.tbl tbody tr:last-child td{border-bottom:none}
 .nav-subitem:hover{background:var(--hover)}
 .nav-subitem.active{background:var(--blue);color:#fff;box-shadow:0 6px 14px rgba(37,102,255,.26)}
 .nav-subitem.active svg{color:#fff}
-
-/* ============ AVIA / FLIGHTS ============ */
 .av-bar{display:flex;align-items:flex-end;gap:14px;background:var(--surface-2);border:1px solid var(--line);border-radius:var(--r-card);padding:18px 20px;flex-wrap:wrap}
-/* счётчик выбранных фильтров (ТЗ #6) */
 .flt-count{display:inline-flex;align-items:center;justify-content:center;min-width:18px;height:18px;padding:0 5px;margin-left:7px;border-radius:9px;background:var(--blue);color:#fff;font-size:11px;font-weight:700;vertical-align:middle}
-/* список чатов слева — просторнее и с разделителями, чтобы строки не сливались */
 .chat-row{display:flex;gap:12px;padding:13px 12px;border-radius:12px;cursor:pointer;align-items:center;border-bottom:1px solid var(--line);transition:background .12s}
 .chat-row:hover{background:var(--hover)}
 .chat-row.active{background:var(--blue-soft)}
@@ -475,12 +412,8 @@ table.tbl tbody tr:last-child td{border-bottom:none}
 .avia-view-toggle button{display:inline-flex;align-items:center;gap:6px;border:none;background:none;font:inherit;font-size:13px;font-weight:600;color:var(--muted);padding:7px 12px;border-radius:8px;cursor:pointer;transition:.14s}
 .avia-view-toggle button.on{background:#fff;color:var(--ink);box-shadow:var(--shadow-card)}
 .avia-list .tbl td{padding-top:11px;padding-bottom:11px}
-
-/* airline logo badge */
 .airline-logo{width:44px;height:44px;border-radius:12px;display:flex;align-items:center;justify-content:center;color:#fff;font-weight:800;font-size:13px;letter-spacing:.02em;flex:0 0 44px}
 .airline-logo.sm{width:34px;height:34px;border-radius:9px;font-size:11px;flex:0 0 34px}
-
-/* offer / result card */
 .off-card{background:#fff;border:1px solid var(--line);border-radius:var(--r-card);box-shadow:var(--shadow-card);display:grid;grid-template-columns:1fr 230px;overflow:hidden;transition:border-color .14s,box-shadow .14s}
 .off-card:hover{border-color:#d3dbe8;box-shadow:0 4px 16px rgba(16,23,38,.07)}
 .off-card.sel{border-color:var(--blue);box-shadow:0 0 0 3px var(--blue-soft)}
@@ -503,21 +436,16 @@ table.tbl tbody tr:last-child td{border-bottom:none}
 .off-tag.ok{color:var(--green);background:var(--green-bg-2);border-color:transparent}
 .off-tag.no{color:var(--red);background:var(--red-bg);border-color:transparent}
 .off-side{border-left:1px solid var(--line);padding:20px;display:flex;flex-direction:column;justify-content:space-between;background:var(--surface-2)}
-/* Ярлык поставщика (ТЗ-2 п.9): чёткая рамка, чтобы не сливался с общей
-   информацией в авиа и прочих услугах — как обособленный фрейм у отелей. */
 .off-supplier{display:inline-flex;align-items:center;gap:5px;font-size:11.5px;color:var(--teal);background:var(--teal-bg);font-weight:700;padding:3px 9px;border:1px solid var(--teal);border-radius:8px;margin-bottom:8px;width:fit-content;box-shadow:0 1px 2px rgba(13,148,136,.12)}
 .off-supplier svg{width:13px;height:13px}
-/* supplier badge (ярлык поставщика) in avia search rows — обособленный фрейм */
 .sup-badge{display:inline-flex;align-items:center;gap:5px;font-size:11px;color:var(--teal);background:var(--teal-bg);font-weight:700;padding:3px 9px;border:1px solid var(--teal);border-radius:8px;margin-top:5px;box-shadow:0 1px 2px rgba(13,148,136,.12)}
 .sup-badge svg{width:12px;height:12px}
-/* supplier filter chips in avia search */
 .ap-supfilter{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:0 0 16px}
 .ap-supfilter-lbl{display:inline-flex;align-items:center;gap:5px;font-size:12.5px;font-weight:600;color:var(--muted)}
 .ap-sup-chip{display:inline-flex;align-items:center;gap:5px;font-size:12.5px;font-weight:600;color:var(--gray-text);background:var(--surface-2);border:1px solid var(--line);padding:5px 11px;border-radius:8px;cursor:pointer;transition:.15s}
 .ap-sup-chip:hover{border-color:var(--teal)}
 .ap-sup-chip.active{color:var(--teal);background:var(--teal-bg);border-color:transparent}
 .ap-sup-empty{padding:16px;text-align:center;color:var(--muted);font-size:13.5px}
-/* «Правила тарифа» expandable block inside a fare card */
 .fare-rules{margin:10px 0 0;border-top:1px solid var(--line);padding-top:8px}
 .fare-rules-head{display:flex;align-items:center;gap:6px;width:100%;background:none;border:none;cursor:pointer;font-size:12.5px;font-weight:600;color:var(--blue);padding:2px 0}
 .fare-rules-body{margin-top:8px;background:var(--surface-2);border-radius:9px;padding:10px 12px}
@@ -533,8 +461,6 @@ table.tbl tbody tr:last-child td{border-bottom:none}
 .off-price-line{display:flex;justify-content:space-between;font-size:13px;color:var(--muted);margin-bottom:3px}
 .off-total{font-size:26px;font-weight:800;color:var(--ink);letter-spacing:-.02em;margin:6px 0 12px}
 .off-total small{font-size:14px;font-weight:600;color:var(--muted)}
-
-/* filter rail — залипает при поисковом скролле (ТЗ #14, единообразно с .hp-filters) */
 .flt-rail{width:248px;flex:0 0 248px;position:sticky;top:8px;align-self:flex-start;max-height:calc(100vh - 24px);overflow-y:auto}
 .flt-rail::-webkit-scrollbar{width:7px}
 .flt-block{padding:16px 0;border-bottom:1px solid var(--line)}
@@ -542,11 +468,7 @@ table.tbl tbody tr:last-child td{border-bottom:none}
 .flt-h{font-size:14px;font-weight:700;color:var(--ink);margin-bottom:12px}
 .flt-opt{display:flex;align-items:center;gap:10px;padding:6px 0;font-size:14px;color:var(--body);cursor:pointer}
 .flt-opt .cnt{margin-left:auto;font-size:12.5px;color:var(--muted-2)}
-
-/* compare tray */
 .cmp-tray{position:sticky;bottom:0;background:#fff;border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow-pop);padding:14px 20px;display:flex;align-items:center;gap:16px;margin-top:18px}
-
-/* segment timeline (service card) */
 .seg{display:flex;gap:16px;padding:18px 0;border-bottom:1px solid var(--line)}
 .seg:last-child{border-bottom:none}
 .seg-time{text-align:right;flex:0 0 64px}
@@ -556,8 +478,6 @@ table.tbl tbody tr:last-child td{border-bottom:none}
 .seg-rail .o{width:11px;height:11px;border-radius:50%;border:2.5px solid var(--blue);background:#fff}
 .seg-rail .l{flex:1;width:2px;background:#cfdcff;margin:4px 0;min-height:26px}
 .seg-body{flex:1;padding-bottom:4px}
-
-/* ============ ORDER CARD ============ */
 .oc-head{background:#fff;border:1px solid var(--line);border-radius:var(--r-card);box-shadow:var(--shadow-card);padding:16px 20px;margin-bottom:18px}
 .oc-head-pinned{position:sticky;top:71px;z-index:30}
 .oc-id{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
@@ -569,8 +489,6 @@ table.tbl tbody tr:last-child td{border-bottom:none}
 .oc-grid{display:flex;gap:22px;align-items:flex-start}
 .oc-main{flex:1;min-width:0}
 .oc-aside{width:300px;flex:0 0 300px;position:sticky;top:18px;display:flex;flex-direction:column;gap:14px}
-
-/* simple top tab strip (Маршрут / Услуги / Пассажиры / Документы / Финансы / История + overflow) */
 .oc-tabbar{display:flex;align-items:center;gap:4px;margin-top:14px;padding-top:2px;border-top:1px solid var(--line)}
 .oc-tabbar-scroll{display:flex;align-items:center;gap:4px;overflow-x:auto;scrollbar-width:none;min-width:0}
 .oc-tabbar-scroll::-webkit-scrollbar{display:none}
@@ -605,8 +523,6 @@ table.tbl tbody tr:last-child td{border-bottom:none}
 .oc-task .tt{font-size:14px;color:var(--ink);font-weight:500}
 .oc-task .td{font-size:12.5px;color:var(--muted);margin-top:1px}
 .oc-task .td.urgent{color:var(--red);font-weight:600}
-
-/* ---- right aside: compact clickable info rows (Статус / Маршрут / Пассажиры / Услуги / Документы / Финансы) ---- */
 .oc-aside-card{padding:16px 18px}
 .oc-aside-row{display:flex;align-items:flex-start;gap:12px;cursor:pointer;width:100%;text-align:left;background:none;border:none;font:inherit;padding:0}
 .oc-aside-row .ic{width:34px;height:34px;border-radius:10px;background:var(--surface-2);color:var(--muted-2);display:flex;align-items:center;justify-content:center;flex:0 0 34px}
@@ -623,8 +539,6 @@ table.tbl tbody tr:last-child td{border-bottom:none}
 .oc-aside-resp{display:flex;align-items:center;gap:11px}
 .oc-aside-resp .nm{font-weight:700;color:var(--ink);font-size:14.5px}
 .oc-aside-resp .rl{font-size:12.5px;color:var(--muted);margin-top:1px}
-
-/* ---- services list ("Добавленные услуги") ---- */
 .oc-svc-filters{display:flex;align-items:center;gap:20px;flex-wrap:wrap}
 .oc-svc-chip{display:inline-flex;align-items:center;gap:8px;padding:7px 12px;border-radius:999px;border:none;background:none;font-size:14px;font-weight:600;color:var(--body);cursor:pointer;transition:.14s;white-space:nowrap}
 .oc-svc-chip svg{color:var(--muted-2)}
@@ -652,8 +566,6 @@ table.tbl tbody tr:last-child td{border-bottom:none}
 .oc-svc-footer .grp .v.green{color:var(--green)}
 .oc-svc-footer .grp .v.red{color:var(--red)}
 .oc-svc-footer .grp .v.blue{color:var(--blue)}
-
-/* ---- add-service side panel: category tabs + compact flight rows ---- */
 .svcp-cattabs{display:flex;align-items:center;gap:6px;flex-wrap:nowrap;overflow-x:auto;padding-bottom:14px;margin-bottom:14px;border-bottom:1px solid var(--line)}
 .svcp-cattab{display:flex;align-items:center;gap:7px;padding:8px 13px;border-radius:10px;border:1px solid transparent;background:none;font:inherit;font-size:13.5px;font-weight:600;color:var(--muted);cursor:pointer;transition:.12s;white-space:nowrap}
 .svcp-cattab svg{width:15px;height:15px}
@@ -682,8 +594,6 @@ table.tbl tbody tr:last-child td{border-bottom:none}
 .svcf-row .pr .v{font-weight:800;color:var(--ink);font-size:16px}
 .svcf-row .pr .c{font-size:11.5px;color:var(--muted)}
 .svcf-more{width:100%;display:flex;align-items:center;justify-content:center;gap:8px;padding:11px;border:1px solid var(--line);border-radius:999px;background:#fff;color:var(--body);font:inherit;font-weight:600;cursor:pointer;margin-top:6px}
-
-/* ---- avia route variations: one-way / round-trip / multi-city (see reference sheet) ---- */
 .svcp-section-h{font-size:13.5px;font-weight:700;color:var(--ink);margin:18px 0 10px}
 .svcp-section-h:first-child{margin-top:0}
 .svcf-row.sel-row{cursor:pointer}
@@ -706,13 +616,11 @@ table.tbl tbody tr:last-child td{border-bottom:none}
 .svcf-mc-body{flex:1;min-width:0;display:flex;flex-direction:column;gap:6px}
 .svcf-mc-layover{display:inline-flex;align-self:flex-start;font-size:11.5px;font-weight:600;color:var(--muted);background:var(--surface-2);border-radius:999px;padding:4px 12px;margin:-1px 0}
 .svcp-search-bar{display:flex;align-items:flex-end;gap:12px;background:var(--surface-2);border:1px solid var(--line);border-radius:14px;padding:14px 16px;flex-wrap:wrap;margin-bottom:18px}
-/* ТЗ #6 — avia mask stays on one line: every field flexes/shrinks instead of keeping a fixed width */
 .avia-search-bar .av-field{flex:1 1 150px;min-width:0;width:auto}
 .avia-search-bar .av-swap{flex:0 0 auto}
 .avia-search-bar .avia-find-btn{flex:0 0 auto}
 .avia-pax-field{cursor:pointer}
 @media(max-width:720px){.avia-search-bar .av-field{flex:1 1 46%}}
-/* ТЗ — сложный маршрут: многострочная маска сегментов (Откуда / Куда / Дата) с add/remove */
 .avia-mc-mask{background:var(--surface-2);border:1px solid var(--line);border-radius:14px;padding:14px 16px;margin-bottom:18px}
 .avia-mc-head{display:flex;gap:12px;margin-bottom:4px;padding-right:0}
 .avia-mc-head .l{font-size:13px;color:var(--muted);font-weight:600}
@@ -725,13 +633,11 @@ table.tbl tbody tr:last-child td{border-bottom:none}
 .avia-mc-row .avia-mc-del:disabled{color:var(--muted-2);opacity:.4;cursor:not-allowed}
 .avia-mc-foot{display:flex;align-items:flex-end;gap:12px;margin-top:6px;flex-wrap:wrap}
 .avia-mc-foot .avia-pax-field{flex:1 1 180px;min-width:0}
-/* ТЗ #3 — flight rows read as «click to open fares», like hotel room cards */
 .avia-result{cursor:pointer;border-radius:12px;transition:.12s}
 .avia-result:not(.embedded):hover{background:var(--blue-soft)}
 .avia-result.embedded{cursor:inherit}
 .avia-rt-card{cursor:pointer}
 .avia-rt-card:hover{border-color:var(--blue)}
-/* avia passengers side panel (ТЗ #7) */
 .avia-pax-grid{display:flex;flex-direction:column}
 .avia-pax-step{display:flex;align-items:center;gap:12px;padding:11px 0;border-bottom:1px solid var(--line)}
 .avia-pax-step .t{font-weight:600;font-size:14.5px;color:var(--ink)}
@@ -747,7 +653,6 @@ table.tbl tbody tr:last-child td{border-bottom:none}
 .avia-subgroup-h .ds{font-size:12.5px;color:var(--muted)}
 .avia-subgroup-people{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
 .avia-chip{background:var(--surface-2);border:1px solid var(--line);border-radius:20px;padding:3px 10px;font-size:12.5px;color:var(--ink)}
-/* ===== единый выбор пассажиров и класса (PaxClassPicker) — по макету ===== */
 .pcp{display:flex;flex-direction:column}
 .pcp-sec-head{display:flex;align-items:center;gap:10px;margin-bottom:10px}
 .pcp-sec-head .t{font-weight:700;color:var(--ink);font-size:16px}
@@ -796,7 +701,6 @@ table.tbl tbody tr:last-child td{border-bottom:none}
 .pcp-opt.on{border-color:var(--blue);background:var(--blue-soft)}
 .pcp-opt-ic{width:18px;height:18px;color:var(--muted);flex-shrink:0}
 .pcp-opt-l{flex:1;min-width:0}
-/* ===== доп. услуги авиакомпании (ExtrasTabs) — по макету ===== */
 .xtr-sec-head{display:flex;align-items:center;gap:9px;font-weight:700;color:var(--ink);font-size:16px;margin:6px 0 12px}
 .xtr-sec-head svg{width:18px;height:18px;color:var(--blue)}
 .xtr-pax{border:1px solid var(--line);border-radius:14px;padding:14px;margin-bottom:12px}
@@ -870,8 +774,6 @@ table.tbl tbody tr:last-child td{border-bottom:none}
 .add-svc-card .nm{font-weight:600;color:var(--ink);font-size:14.5px}
 .err-block{display:flex;flex-direction:column;align-items:center;gap:14px;padding:48px 24px;text-align:center}
 .err-block .ic{width:60px;height:60px;border-radius:50%;background:var(--red-bg);color:var(--red);display:flex;align-items:center;justify-content:center}
-
-/* ============ КОММЕРЧЕСКИЕ ПРЕДЛОЖЕНИЯ ============ */
 .kp-edit{display:flex;gap:22px;align-items:flex-start}
 .kp-main{flex:1;min-width:0}
 .kp-aside{width:296px;flex:0 0 296px;position:sticky;top:18px;display:flex;flex-direction:column;gap:16px}
@@ -885,8 +787,6 @@ table.tbl tbody tr:last-child td{border-bottom:none}
 .row-handle button:hover{color:var(--blue)}
 .row-handle button:disabled{opacity:.3;cursor:default}
 .kp-bulk{display:flex;gap:12px;align-items:center;background:var(--green-bg-2);border:1px solid #bfe8cc;border-radius:14px;padding:16px 20px;margin-bottom:18px;flex-wrap:wrap}
-
-/* client document */
 .kp-doc{max-width:840px;margin:0 auto;background:#fff;border:1px solid var(--line);border-radius:16px;box-shadow:var(--shadow-card);overflow:hidden}
 .kp-band{background:linear-gradient(135deg,#2566ff,#1b4fce);color:#fff;padding:30px 42px;display:flex;justify-content:space-between;align-items:flex-start}
 .kp-band h2{margin:0;font-size:24px;font-weight:800;letter-spacing:-.01em}
@@ -900,8 +800,6 @@ table.tbl tbody tr:last-child td{border-bottom:none}
 .kp-li-ic{width:38px;height:38px;border-radius:10px;display:flex;align-items:center;justify-content:center;color:#fff;flex:0 0 38px}
 .kp-li-ic svg{width:19px;height:19px}
 .kp-vtot{display:flex;justify-content:space-between;padding:14px 18px;background:#fbfcfe;font-weight:700;color:var(--ink)}
-
-/* ============ ORDER STAGE BAR ============ */
 .stage-bar{display:flex;align-items:center;flex-wrap:wrap;row-gap:10px}
 .stage{display:flex;align-items:center;gap:9px}
 .stage .dot{width:26px;height:26px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:12.5px;font-weight:700;border:2px solid var(--line-strong);color:var(--muted-2);background:#fff;flex:0 0 26px}
@@ -918,8 +816,6 @@ table.tbl tbody tr:last-child td{border-bottom:none}
 .stage-bar.compact .lbl{font-size:12px}
 .stage-bar.compact .stage-line{width:18px;flex:0 0 18px;margin:0 6px}
 .stage-bar.compact .stage{gap:6px}
-
-/* ============ FINANCE OP CARD ============ */
 .amt-row{display:flex;justify-content:space-between;align-items:baseline;padding:9px 0;font-size:14.5px}
 .amt-row .k{color:var(--muted)}
 .amt-row .v{font-weight:600;color:var(--ink)}
@@ -928,8 +824,6 @@ table.tbl tbody tr:last-child td{border-bottom:none}
 .amt-row.total .k{font-weight:700;color:var(--ink);font-size:15.5px}
 .amt-row.total .v{font-size:20px}
 .pay-bar{height:24px;border-radius:8px;overflow:hidden;display:flex;background:#f0f1f4}
-
-/* ============ DOCUMENT CARD ============ */
 .doc-preview{height:220px;border:1px dashed var(--field-line);border-radius:12px;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:10px;color:var(--muted-2);background:var(--surface-2)}
 .ver-row{display:flex;align-items:center;gap:12px;padding:11px 0;border-bottom:1px solid var(--line)}
 .ver-row:last-child{border-bottom:none}
@@ -937,8 +831,6 @@ table.tbl tbody tr:last-child td{border-bottom:none}
 .link-chip{display:inline-flex;align-items:center;gap:7px;padding:6px 11px;border:1px solid var(--field-line);border-radius:9px;font-size:13px;color:var(--body);background:#fff;cursor:pointer;transition:.14s}
 .link-chip:hover{border-color:var(--blue);color:var(--blue);background:var(--blue-soft)}
 .link-chip svg{width:14px;height:14px}
-
-/* ============ УВЕДОМЛЕНИЯ ============ */
 .ntf{display:flex;gap:14px;padding:15px 18px 15px 20px;border:1px solid var(--line);border-radius:14px;background:#fff;margin-bottom:10px;position:relative;transition:.14s;overflow:hidden}
 .ntf:hover{box-shadow:0 2px 12px rgba(16,23,38,.07)}
 .ntf::before{content:"";position:absolute;left:0;top:0;bottom:0;width:4px;background:transparent}
@@ -961,8 +853,6 @@ table.tbl tbody tr:last-child td{border-bottom:none}
 .feed-ic svg{width:17px;height:17px}
 .feed-t{font-weight:600;font-size:14px;color:var(--ink);transition:color .14s}
 .feed-d{font-size:12.5px;color:var(--muted);margin-top:1px}
-
-/* ============ ЧАТЫ (3-way) ============ */
 .msg{max-width:68%;padding:9px 13px;border-radius:14px;font-size:14px;line-height:1.4;color:var(--ink);position:relative}
 .msg-row{display:flex;flex-direction:column;gap:1px}
 .msg-row.me{align-items:flex-end}
@@ -980,7 +870,6 @@ table.tbl tbody tr:last-child td{border-bottom:none}
 .chat-attach{display:inline-flex;align-items:center;gap:11px;padding:9px 12px;border:1px solid var(--field-line);border-radius:11px;background:#fff;cursor:pointer;margin-top:2px}
 .chat-attach .ic{width:34px;height:34px;border-radius:9px;background:var(--blue-soft);color:var(--blue);display:flex;align-items:center;justify-content:center;flex:0 0 34px}
 .chan-note{display:flex;align-items:center;justify-content:center;gap:7px;font-size:12.5px;color:var(--amber);background:var(--amber-bg);padding:8px;border-radius:10px;margin-bottom:12px}
-/* Карточка услуги в чате — полные данные «около услуги» + статус */
 .chat-svc-card{width:min(320px,74vw);background:#fff;border:1px solid var(--line);border-radius:12px;padding:11px 12px;margin-bottom:6px;display:flex;flex-direction:column;gap:7px}
 .csc-head{display:flex;align-items:center;gap:8px}
 .csc-ic{width:28px;height:28px;border-radius:8px;color:#fff;display:flex;align-items:center;justify-content:center;flex:0 0 28px}
@@ -994,11 +883,8 @@ table.tbl tbody tr:last-child td{border-bottom:none}
 .csc-v{color:var(--ink);font-weight:600;text-align:right}
 .csc-open{display:flex;align-items:center;justify-content:center;gap:4px;font-size:12.5px;font-weight:600;color:var(--blue);border-top:1px solid var(--line);padding-top:7px}
 .chan-tab-badge{min-width:18px;height:18px;padding:0 5px;border-radius:999px;background:#2bb96a;color:#fff;font-size:11px;font-weight:600;display:inline-flex;align-items:center;justify-content:center;margin-left:6px}
-
-/* ===== AVIA PICKER (two-pane in-order flight selection) ===== */
 .avia-picker{display:grid;grid-template-columns:340px 1fr;gap:22px;align-items:start}
 @media(max-width:1180px){.avia-picker{grid-template-columns:1fr}}
-/* left — scenario */
 .ap-scenario{position:sticky;top:8px;background:var(--surface);border:1px solid var(--line);border-radius:var(--r-card);box-shadow:var(--shadow-card);overflow:hidden}
 .ap-sc-head{padding:18px 20px;border-bottom:1px solid var(--line)}
 .ap-sc-route{display:flex;align-items:center;gap:8px;font-weight:700;color:var(--ink);font-size:16px;flex-wrap:wrap}
@@ -1019,7 +905,6 @@ table.tbl tbody tr:last-child td{border-bottom:none}
 .ap-sc-total .l{color:var(--muted);font-size:13.5px}
 .ap-sc-total .v{font-size:24px;font-weight:800;color:var(--ink)}
 .ap-sc-total .v small{font-size:15px;font-weight:700}
-/* right — picker accordion */
 .ap-steps{display:flex;flex-direction:column;gap:14px}
 .ap-step{background:var(--surface);border:1px solid var(--line);border-radius:var(--r-card);box-shadow:var(--shadow-card);overflow:hidden}
 .ap-step.done{border-color:#cfe0d6}
@@ -1033,7 +918,6 @@ table.tbl tbody tr:last-child td{border-bottom:none}
 .ap-step-tt .t{font-weight:700;color:var(--ink);font-size:16px}
 .ap-step-tt .s{font-size:13px;color:var(--muted);margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .ap-step-body{padding:0 20px 20px;border-top:1px solid var(--line);padding-top:18px}
-/* flight rows in step 1 */
 .ap-seg-label{font-size:13px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.02em;margin:14px 2px 10px;display:flex;align-items:center;gap:8px}
 .ap-flight{display:flex;align-items:center;gap:14px;padding:13px 14px;border:1px solid var(--line);border-radius:13px;background:#fff;cursor:pointer;transition:.14s;margin-bottom:10px}
 .ap-flight:hover{border-color:#d3dbe8;box-shadow:0 2px 10px rgba(16,23,38,.06)}
@@ -1050,9 +934,7 @@ table.tbl tbody tr:last-child td{border-bottom:none}
 .ap-fl-pr{text-align:right;white-space:nowrap}
 .ap-fl-pr .v{font-weight:700;color:var(--ink);font-size:15px}
 .ap-fl-pr .c{font-size:11.5px;color:var(--muted)}
-/* flight number(s) under the route line in result rows */
 .ap-fl-mid .fn{font-size:11px;color:var(--muted-2);margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-/* horizontal flight scale bar with per-segment flight numbers + layover marker (ТЗ #3/#8/#9) */
 .fsb{flex:1;min-width:0;padding:0 6px}
 .fsb-track{display:flex;align-items:center;height:30px;position:relative}
 .fsb-seg{flex:1;min-width:20px;height:2px;background:var(--field-line);position:relative}
@@ -1064,10 +946,8 @@ table.tbl tbody tr:last-child td{border-bottom:none}
 .fsb-bot{font-size:10.5px;font-weight:600;text-align:center;margin-top:4px}
 .fsb-bot.direct{color:var(--green)}
 .fsb-bot.via{color:var(--amber)}
-/* unified supplier caption across services */
 .svc-supplier{display:inline-flex;align-items:center;gap:5px;font-size:10.5px;font-weight:600;color:var(--teal);background:var(--teal-bg);padding:2px 8px;border-radius:7px;margin-top:5px;white-space:nowrap;vertical-align:middle}
 .svc-supplier svg{width:12px;height:12px;color:var(--teal);flex-shrink:0}
-/* Aviasales/Tutu-style per-segment timeline in the fare card (номера рейсов + отрезки + пересадка) */
 .leg-tl{border:1px solid var(--line);border-radius:12px;padding:12px 14px;background:var(--surface-2)}
 .leg-tl+.leg-tl{margin-top:10px}
 .leg-tl-head{display:flex;align-items:center;gap:9px;font-weight:700;color:var(--ink);font-size:13.5px;margin-bottom:10px}
@@ -1082,7 +962,6 @@ table.tbl tbody tr:last-child td{border-bottom:none}
 .leg-seg-mid .line::after{content:'';position:absolute;right:0;top:-2px;width:5px;height:5px;border-top:1px solid var(--field-line);border-right:1px solid var(--field-line);transform:rotate(45deg)}
 .leg-seg-mid .fn{font-size:11.5px;font-weight:600;color:var(--blue)}
 .leg-layover{display:flex;align-items:center;justify-content:center;gap:7px;margin:8px 0;padding:6px 10px;font-size:12.5px;font-weight:600;color:var(--amber);background:var(--amber-soft,rgba(245,158,11,.1));border-radius:8px}
-/* 3 alternative route packages — one-way / round-trip / complex */
 .ap-route-section{margin-bottom:22px;transition:opacity .14s}
 .ap-route-section:last-child{margin-bottom:0}
 .ap-route-section.inactive{opacity:.55}
@@ -1113,7 +992,6 @@ table.tbl tbody tr:last-child td{border-bottom:none}
 .ap-route-chain-leg{flex:1;min-width:0;padding-bottom:8px}
 .ap-route-chain-leg .ap-flight{border:1px solid var(--line);border-radius:13px}
 .ap-route-chain-layover{display:inline-flex;align-items:center;font-size:11.5px;color:var(--muted);background:var(--surface-2);border-radius:7px;padding:3px 9px;margin:-2px 0 10px 0}
-/* fare tier cards in step 2 */
 .fare-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
 @media(max-width:720px){.fare-grid{grid-template-columns:1fr}}
 .fare-card{position:relative;border:1px solid var(--line);border-radius:14px;padding:16px;cursor:pointer;background:#fff;transition:.14s}
@@ -1128,12 +1006,10 @@ table.tbl tbody tr:last-child td{border-bottom:none}
 .fare-feat.no{color:var(--muted-2)}
 .fare-feat.ok svg{color:var(--green)}
 .fare-feat.no svg{color:var(--faint)}
-/* per-passenger fare selection screen */
 .fare-hint{display:flex;align-items:flex-start;gap:10px;background:var(--blue-soft);color:var(--body);font-size:13px;padding:12px 14px;border-radius:12px;margin-bottom:20px}
 .fare-hint svg{width:16px;height:16px;color:var(--blue);flex:0 0 16px;margin-top:1px}
 .fare-layout{display:flex;gap:24px;align-items:flex-start}
 .fare-main{flex:1;min-width:0}
-/* passengers now live on the LEFT as a distinct, self-scrolling panel */
 .fare-aside{width:300px;flex:0 0 300px;background:var(--surface-2);border:1px solid var(--line);border-radius:14px;padding:14px 14px 4px;position:sticky;top:0}
 .fare-aside .ap-sc-title{margin-top:2px}
 .fare-paxgroups{max-height:58vh;overflow:auto;margin:0 -4px;padding:0 4px}
@@ -1147,7 +1023,6 @@ table.tbl tbody tr:last-child td{border-bottom:none}
 .fpg-apply{border:none;background:none;cursor:pointer;padding:4px;border-radius:8px;color:var(--muted-2);flex:0 0 auto;display:inline-flex}
 .fpg-apply:hover{background:var(--hover);color:var(--blue)}
 .fpg-apply svg{width:15px;height:15px}
-/* participants subgroup cards (group / corporate orders) */
 .pax-groups{display:flex;flex-direction:column;gap:14px}
 .pax-group{background:#fff;border:1px solid var(--line);border-radius:var(--r-card);box-shadow:var(--shadow-card);padding:6px 16px 10px}
 .pax-group-head{display:flex;align-items:center;gap:10px;padding:12px 2px 10px;border-bottom:1px solid var(--line)}
@@ -1163,7 +1038,6 @@ table.tbl tbody tr:last-child td{border-bottom:none}
 .pax-group-row .mt{font-size:12.5px;color:var(--muted);margin-top:2px}
 .pxg-more{border:none;background:none;color:var(--blue);font:inherit;font-size:13px;font-weight:600;cursor:pointer;padding:10px 2px 4px}
 .pxg-more:hover{text-decoration:underline}
-/* ===== RAIL search result row ===== */
 .rail-offer{display:grid;grid-template-columns:1.4fr 1fr 1fr 1fr 1.1fr;align-items:center;gap:16px;background:#fff;border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow-card);padding:16px 18px;margin-bottom:14px}
 .rail-offer .ro-train{display:flex;align-items:center;gap:12px;min-width:0}
 .ro-logo{flex:0 0 auto;display:inline-flex;align-items:center;justify-content:center;height:28px;padding:0 9px;border-radius:7px;font-size:11.5px;font-weight:800;color:#fff;letter-spacing:.02em}
@@ -1191,8 +1065,6 @@ table.tbl tbody tr:last-child td{border-bottom:none}
 .ro-more{border:none;background:none;color:var(--blue);font:inherit;font-size:12.5px;font-weight:600;cursor:pointer;padding:6px 0 0}
 .ro-more:hover{text-decoration:underline}
 @media(max-width:1100px){.rail-offer{grid-template-columns:1fr 1fr;row-gap:14px}.ro-side{align-items:flex-start;text-align:left}}
-
-/* ===== RAIL «Выбор вагона и мест» (3 columns) ===== */
 .rail-head{display:flex;align-items:center;gap:12px;margin:0 0 18px;padding-bottom:16px;border-bottom:1px solid var(--line)}
 .rail-head .oc-svc-ic{width:42px;height:42px}
 .rail-head .t{font-weight:700;color:var(--ink);font-size:16px}
@@ -1202,7 +1074,6 @@ table.tbl tbody tr:last-child td{border-bottom:none}
 .rail-col-h{font-weight:700;color:var(--ink);font-size:14px;margin-bottom:12px}
 .rail-col-sub{font-size:12.5px;color:var(--muted);margin-bottom:10px}
 .rail-wagon-line{font-weight:700;color:var(--ink);font-size:14px;margin-bottom:8px}
-/* col 1 — classes */
 .rail-class-list{display:flex;flex-direction:column;gap:10px}
 .rail-class{display:flex;gap:12px;align-items:flex-start;text-align:left;border:1.5px solid var(--field-line);border-radius:13px;background:#fff;padding:12px 13px;cursor:pointer;font:inherit;transition:.14s}
 .rail-class:hover{border-color:var(--blue)}
@@ -1213,7 +1084,6 @@ table.tbl tbody tr:last-child td{border-bottom:none}
 .rail-class .rc-price{font-weight:800;color:var(--ink);font-size:15px;margin-top:3px}
 .rail-class .rc-per{font-size:11.5px;color:var(--muted)}
 .rail-class .rc-free{font-size:11.5px;color:var(--green);margin-top:5px}
-/* col 2 — wagons */
 .rail-wlist{display:flex;flex-direction:column;gap:2px}
 .rail-wrow{display:flex;align-items:center;gap:10px;border:none;background:none;font:inherit;cursor:pointer;padding:9px 8px;border-radius:9px;transition:.12s;text-align:left}
 .rail-wrow:hover{background:var(--hover)}
@@ -1222,7 +1092,6 @@ table.tbl tbody tr:last-child td{border-bottom:none}
 .rail-wrow .wtype{flex:1;font-size:12.5px;color:var(--muted)}
 .rail-wrow .wseats{font-size:12.5px;font-weight:700;color:var(--ink)}
 .rail-wrow .wseats.low{color:var(--red-strong)}
-/* col 3 — seat map + assignment */
 .rail-amenities{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:16px}
 .rail-am{display:inline-flex;align-items:center;gap:6px;font-size:12px;color:var(--muted);background:var(--surface-2);border-radius:8px;padding:4px 10px}
 .rail-am svg{width:13px;height:13px;color:var(--green)}
@@ -1244,7 +1113,6 @@ table.tbl tbody tr:last-child td{border-bottom:none}
 .rail-legend{display:flex;flex-wrap:wrap;gap:16px;margin:14px 0 0;padding-top:14px;border-top:1px solid var(--line)}
 .rail-leg{display:inline-flex;align-items:center;gap:7px;font-size:12.5px;color:var(--muted)}
 .rail-leg .rail-seat{width:18px;height:18px;border-radius:5px;pointer-events:none}
-/* assignment table */
 .rail-assign{margin-top:22px;border-top:1px solid var(--line);padding-top:16px}
 .rail-assign-head{display:flex;align-items:center;gap:14px;margin-bottom:12px;flex-wrap:wrap}
 .rail-assign-head .ttl{font-weight:700;color:var(--ink);font-size:14.5px}
@@ -1301,14 +1169,11 @@ table.tbl tbody tr:last-child td{border-bottom:none}
 .fare-sel-row .pr{font-size:12.5px;color:var(--muted);margin-top:2px;font-weight:600}
 .fare-total-row{display:flex;align-items:center;justify-content:space-between;padding:14px 0 0;border-top:1px solid var(--line);font-size:14px;color:var(--ink);font-weight:700}
 .fare-total-row b{font-size:19px}
-/* «О тарифе» — раскрываемое описание тарифа, кнопка выбора остаётся под ним */
 .fare-info-btn{display:inline-flex;align-items:center;gap:6px;border:none;background:none;color:var(--blue);font:inherit;font-size:12.5px;font-weight:600;cursor:pointer;padding:7px 0 4px}
 .fare-desc{font-size:12.5px;line-height:1.45;color:var(--muted);background:var(--surface-2);border:1px solid var(--line);border-radius:9px;padding:9px 11px;margin:0 0 10px}
-/* «i» рядом с названием тарифа — открывает боковое окно с деталями */
 .fc-name{display:flex;align-items:center;gap:6px}
 .fc-info{border:none;background:none;padding:0;margin-left:2px;cursor:pointer;color:var(--muted-2);display:inline-flex;line-height:0}
 .fc-info:hover{color:var(--blue)}
-/* «Правила тарифа» — компактная таблица условий в карточке */
 .fare-rules{margin:8px 0 4px;border-top:1px dashed var(--line);padding-top:8px}
 .fare-rules-h{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.02em;color:var(--muted-2);margin-bottom:5px}
 .fare-rule{display:flex;align-items:center;justify-content:space-between;font-size:12px;padding:2px 0}
@@ -1318,7 +1183,6 @@ table.tbl tbody tr:last-child td{border-bottom:none}
 .fare-rule .rv.amber,.fare-rule-v.amber{color:var(--amber)}
 .fare-rule .rv.red,.fare-rule-v.red{color:var(--red)}
 .fare-rule-v{font-weight:700}
-/* итоговые блоки: цена не должна слипаться с подписью */
 .ft-total b{margin-left:8px}
 .ap-footer .ft-total b{margin-left:0}
 .fare-total-foot{font-size:13px;color:var(--muted);display:inline-flex;align-items:baseline;gap:8px}
@@ -1328,14 +1192,12 @@ table.tbl tbody tr:last-child td{border-bottom:none}
 .fare-toggle-card svg{width:18px;height:18px;color:var(--blue);flex:0 0 18px;margin-top:2px}
 .fare-toggle-card .t{font-weight:600;color:var(--ink);font-size:13.5px}
 .fare-toggle-card .s{font-size:12px;color:var(--muted);margin-top:2px}
-/* inner service tabs (step 4) */
 .ap-svc-tabs{display:flex;gap:6px;border-bottom:1px solid var(--line);margin:-2px -2px 18px;flex-wrap:wrap}
 .ap-svc-tab{display:inline-flex;align-items:center;gap:7px;border:none;background:none;font:inherit;font-size:14px;font-weight:600;color:var(--muted);padding:9px 13px;border-bottom:2px solid transparent;cursor:pointer;transition:.14s}
 .ap-svc-tab svg{width:16px;height:16px}
 .ap-svc-tab:hover{color:var(--ink)}
 .ap-svc-tab.active{color:var(--blue);border-bottom-color:var(--blue)}
 .ap-svc-tab .b{min-width:17px;height:17px;padding:0 4px;border-radius:999px;background:var(--blue);color:#fff;font-size:10.5px;font-weight:700;display:inline-flex;align-items:center;justify-content:center}
-/* per-passenger blocks */
 .ap-pax{border:1px solid var(--line);border-radius:13px;padding:14px;margin-bottom:12px;background:#fff}
 .ap-pax-h{display:flex;align-items:center;gap:10px;margin-bottom:12px}
 .ap-pax-h .n{font-weight:600;color:var(--ink);font-size:14px}
@@ -1349,7 +1211,6 @@ table.tbl tbody tr:last-child td{border-bottom:none}
 .ap-opt .op.free{color:var(--green)}
 .ap-block-total{display:flex;align-items:center;justify-content:space-between;padding-top:14px;margin-top:6px;border-top:1px solid var(--line);font-weight:700;color:var(--ink)}
 .ap-block-total .v{font-size:16px}
-/* special baggage / comfort list rows */
 .ap-list-row{display:flex;align-items:center;gap:12px;padding:11px 12px;border:1px solid var(--line);border-radius:11px;background:#fff;margin-bottom:9px;cursor:pointer;transition:.14s}
 .ap-list-row:hover{border-color:#d3dbe8}
 .ap-list-row.sel{border-color:var(--blue);box-shadow:0 0 0 2px var(--blue-soft)}
@@ -1358,13 +1219,10 @@ table.tbl tbody tr:last-child td{border-bottom:none}
 .ap-list-row .t{font-weight:600;color:var(--ink);font-size:14px}
 .ap-list-row .s{font-size:12.5px;color:var(--muted);margin-top:1px}
 .ap-list-row .pr{font-weight:700;color:var(--ink);white-space:nowrap}
-/* summary rows — open a side panel instead of expanding inline (tariff / extras / passengers) */
 .ap-sum-row{cursor:pointer}
 .ap-sum-row.sel{border-color:#cfe0d6}
 .ap-sum-row.locked{opacity:.55;cursor:not-allowed}
-/* seat map */
 .seatmap-wrap{display:flex;gap:24px;flex-wrap:wrap;align-items:flex-start}
-/* inside the accordion step the seat map scrolls within its own block instead of stretching the whole page */
 .ap-step-body .seatmap-wrap{max-height:430px;overflow-y:auto;padding-right:4px}
 .seatmap{display:inline-block;background:var(--surface-2);border:1px solid var(--line);border-radius:16px;padding:16px}
 .seatmap-cabin{font-size:12px;color:var(--muted);text-align:center;margin-bottom:10px;font-weight:600}
@@ -1381,11 +1239,9 @@ table.tbl tbody tr:last-child td{border-bottom:none}
 .seat-legend{display:flex;flex-direction:column;gap:9px}
 .seat-leg-item{display:flex;align-items:center;gap:9px;font-size:13px;color:var(--ink)}
 .seat-leg-sw{width:20px;height:20px;border-radius:6px;flex:0 0 20px}
-/* sticky footer bar */
 .ap-footer{position:sticky;bottom:0;display:flex;align-items:center;gap:16px;background:var(--surface);border:1px solid var(--line);border-radius:var(--r-card);box-shadow:0 -2px 14px rgba(16,23,38,.06);padding:14px 20px;margin-top:16px}
 .ap-footer .ft-total{font-size:13px;color:var(--muted)}
 .ap-footer .ft-total b{display:block;font-size:22px;font-weight:800;color:var(--ink)}
-/* ===== ORDER CREATE drawer (numbered sections) ===== */
 .oce-sec{margin-bottom:26px}
 .oce-sec-h{display:flex;align-items:center;gap:10px;margin-bottom:14px}
 .oce-sec-h .n{width:25px;height:25px;border-radius:50%;background:var(--blue);color:#fff;font-weight:700;font-size:13px;display:flex;align-items:center;justify-content:center;flex:0 0 25px}
@@ -1407,34 +1263,26 @@ table.tbl tbody tr:last-child td{border-bottom:none}
 .oce-city .ph{color:var(--faint)}
 .oce-svc-grid{display:grid;grid-template-columns:1fr 1fr;gap:11px 20px}
 .oce-svc-grid>div{display:flex;align-items:center;gap:10px;cursor:pointer;font-size:14.5px;color:var(--body)}
-/* popular city chips */
 .city-chip{display:inline-flex;align-items:center;gap:7px;padding:8px 13px;border:1px solid var(--line);border-radius:999px;background:#fff;cursor:pointer;font-size:13.5px;font-weight:500;color:var(--ink);transition:.14s}
 .city-chip:hover{border-color:var(--blue);background:var(--blue-soft)}
 .city-chip.sel{border-color:var(--blue);background:var(--blue);color:#fff}
-.city-row{display:flex;align-items:center;gap:12px;padding:11px 12px;border-radius:11px;cursor:pointer;transition:.12s}
+.city-row{display:flex;align-items:center;gap:12px;width:100%;padding:11px 12px;border:0;border-radius:11px;background:transparent;color:inherit;font:inherit;text-align:left;cursor:pointer;transition:.12s}
 .city-row:hover{background:var(--hover)}
 .city-row .code{width:42px;font-weight:700;color:var(--blue)}
-/* stacked drawer (nested over the create drawer) */
 .drawer-stack{position:fixed;inset:0;z-index:90;display:flex;justify-content:flex-end;background:rgba(16,23,38,.28)}
 .drawer-stack-panel{background:#fff;width:min(560px,52vw);height:100%;overflow:auto;box-shadow:var(--shadow-modal);animation:slidein .24s cubic-bezier(.2,.9,.3,1);display:flex;flex-direction:column}
-
-/* ===== ЕДИНЫЕ ФОРМЫ (forms_unified.jsx) ===== */
-/* переключатель способа ввода (OCR / вручную) */
 .uf-seg{display:flex;gap:6px;padding:5px;background:var(--surface-2);border:1px solid var(--line);border-radius:14px}
 .uf-seg button{flex:1;display:flex;align-items:center;justify-content:center;gap:8px;padding:10px 14px;border:none;border-radius:10px;background:none;color:var(--muted);font:inherit;font-weight:600;font-size:14px;cursor:pointer;transition:.14s}
 .uf-seg button svg{width:16px;height:16px}
 .uf-seg button.on{background:#fff;color:var(--blue);box-shadow:var(--shadow-card)}
-/* зона загрузки файла */
 .uf-drop{border:1.5px dashed var(--field-line);border-radius:14px;padding:26px;text-align:center;color:var(--muted);margin-bottom:14px;cursor:pointer;transition:.14s}
 .uf-drop:hover{border-color:var(--blue);background:var(--blue-soft)}
 .uf-drop-t{margin-top:8px;font-weight:600;color:var(--ink)}
 .uf-drop-s{font-size:12px;color:var(--muted)}
 .uf-ocr-ok{display:flex;gap:9px;align-items:flex-start;padding:11px 13px;border-radius:12px;background:var(--green-bg);border:1px solid var(--green);margin-bottom:16px;font-size:13px;color:var(--body)}
-/* переключатель в тревел-политике */
 .uf-toggle-row{display:flex;align-items:center;gap:14px;padding:13px 15px;border:1px solid var(--line);border-radius:13px;background:var(--surface-2);margin-top:4px;cursor:pointer}
 .uf-toggle-t{font-weight:600;color:var(--ink);font-size:14px}
 .uf-toggle-s{font-size:12.5px;color:var(--muted);margin-top:2px}
-/* список документов персоны */
 .uf-doclist{display:flex;flex-direction:column;gap:9px;margin-bottom:11px}
 .uf-doclist-empty{font-size:13.5px;color:var(--faint);padding:6px 2px}
 .uf-doc-row{display:flex;align-items:center;gap:12px;padding:11px 13px;border:1px solid var(--line);border-radius:12px;background:#fff}
@@ -1442,8 +1290,6 @@ table.tbl tbody tr:last-child td{border-bottom:none}
 .uf-doc-ic svg{width:18px;height:18px}
 .uf-doc-t{font-weight:600;color:var(--ink);font-size:14px}
 .uf-doc-s{font-size:12.5px;color:var(--muted);margin-top:2px}
-
-/* ===== ЕДИНЫЙ ЭКРАН «Подбор услуг» (ServicesHubPage) ===== */
 .svc-hub-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:16px}
 .svc-hub-card{display:flex;align-items:center;gap:16px;padding:20px 22px;border:1px solid var(--line);border-radius:var(--r-card);background:var(--surface);box-shadow:var(--shadow-card);cursor:pointer;font:inherit;text-align:left;transition:.16s}
 .svc-hub-card:hover{border-color:var(--blue);box-shadow:var(--shadow-modal);transform:translateY(-2px)}
@@ -1451,7 +1297,6 @@ table.tbl tbody tr:last-child td{border-bottom:none}
 .svc-hub-ic svg{width:26px;height:26px}
 .svc-hub-ic-img{background:#fff;border:1px solid var(--line);padding:8px}
 .svc-hub-ic-img img{max-width:100%;max-height:100%;object-fit:contain}
-/* Логотип Аэроэкспресс — в сером оттенке (по запросу) во всех местах вывода */
 .svc-hub-ic-img img,.oc-svc-ic-img img,.svcp-cattab-img,.tc-glyph img,.aero-logo{filter:grayscale(1)}
 .svc-hub-body{flex:1;min-width:0;display:flex;flex-direction:column;gap:4px}
 .svc-hub-t{font-weight:700;color:var(--ink);font-size:16.5px}
@@ -1459,12 +1304,9 @@ table.tbl tbody tr:last-child td{border-bottom:none}
 .svc-hub-go{width:20px;height:20px;color:var(--faint);flex:0 0 20px;transition:.16s}
 .svc-hub-card:hover .svc-hub-go{color:var(--blue);transform:translateX(3px)}
 .svc-hub-note{display:flex;align-items:flex-start;gap:10px;margin-top:18px;padding:13px 16px;border-radius:12px;background:var(--blue-soft);color:var(--body);font-size:13.5px;line-height:1.45}
-
-/* ============ Календарь поездок / Центр контроля (ТЗ2 §1) ============ */
 .tc-page{display:flex;flex-direction:column;gap:14px;height:calc(100vh - 120px);min-height:0}
 .tc-glyph{display:inline-flex;align-items:center;justify-content:center;border-radius:8px;color:#fff;flex:0 0 auto;overflow:hidden}
 .tc-glyph img{max-width:82%;max-height:82%;object-fit:contain}
-/* toolbar */
 .tc-toolbar{display:flex;align-items:center;gap:14px;flex-wrap:wrap}
 .tc-viewseg{display:inline-flex;background:var(--surface-2);border:1px solid var(--line);border-radius:11px;padding:3px}
 .tc-viewseg button{border:none;background:none;font:inherit;font-size:13px;font-weight:600;color:var(--muted);padding:6px 14px;border-radius:8px;cursor:pointer;transition:.12s}
@@ -1478,7 +1320,6 @@ table.tbl tbody tr:last-child td{border-bottom:none}
 .tc-summary{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
 .tc-sum{display:inline-flex;align-items:center;gap:5px;font-size:12.5px;font-weight:600;color:var(--muted)}
 .tc-sum.tone-red{color:var(--red)}.tc-sum.tone-amber{color:var(--amber)}.tc-sum.tone-blue{color:var(--blue)}
-/* filters */
 .tc-filters{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
 .tc-scope{display:inline-flex;background:var(--surface-2);border:1px solid var(--line);border-radius:10px;padding:3px}
 .tc-scope button{border:none;background:none;font:inherit;font-size:12.5px;font-weight:600;color:var(--muted);padding:6px 12px;border-radius:7px;cursor:pointer}
@@ -1486,10 +1327,8 @@ table.tbl tbody tr:last-child td{border-bottom:none}
 .tc-toggle{border:1px solid var(--line);background:#fff;font:inherit;font-size:12.5px;font-weight:600;color:var(--muted);padding:7px 12px;border-radius:9px;cursor:pointer;transition:.12s}
 .tc-toggle:hover{background:var(--hover)}
 .tc-toggle.on{background:var(--blue-soft);border-color:var(--blue);color:var(--blue-soft-text)}
-/* viewport */
 .tc-viewport{flex:1;min-height:0;overflow:auto;border:1px solid var(--line);border-radius:var(--r-card);background:var(--surface-2)}
 .tc-empty{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;padding:60px 20px;color:var(--muted);font-size:14px}
-/* trip card */
 .tc-card{display:flex;flex-direction:column;gap:6px;width:100%;text-align:left;border:1px solid var(--line);border-left:3px solid var(--gray);background:#fff;border-radius:12px;padding:10px 12px;cursor:pointer;font:inherit;transition:.14s;box-shadow:var(--shadow-card)}
 .tc-card:hover{border-color:var(--blue);box-shadow:var(--shadow-modal,0 8px 24px rgba(16,23,38,.1));transform:translateY(-1px)}
 .tc-card.tone-red{border-left-color:var(--red)}.tc-card.tone-amber{border-left-color:var(--amber)}.tc-card.tone-blue{border-left-color:var(--blue)}.tc-card.tone-green{border-left-color:var(--green)}
@@ -1507,7 +1346,6 @@ table.tbl tbody tr:last-child td{border-bottom:none}
 .tc-marker-fm{background:var(--red-bg);color:var(--red)}
 .tc-marker-conf{background:var(--amber-bg);color:var(--amber)}
 .tc-marker.tone-red{background:var(--red-bg);color:var(--red)}.tc-marker.tone-amber{background:var(--amber-bg);color:var(--amber)}.tc-marker.tone-blue{background:var(--blue-soft);color:var(--blue-soft-text)}
-/* week */
 .tc-week{display:grid;grid-template-columns:repeat(7,minmax(150px,1fr));gap:0;min-width:1050px;height:100%}
 .tc-week-col{border-right:1px solid var(--line);display:flex;flex-direction:column;min-height:0}
 .tc-week-col:last-child{border-right:none}
@@ -1519,7 +1357,6 @@ table.tbl tbody tr:last-child td{border-bottom:none}
 .tc-today-badge{margin-left:auto;font-size:10px;font-weight:700;color:#fff;background:var(--blue);border-radius:999px;padding:1px 7px}
 .tc-week-body{flex:1;display:flex;flex-direction:column;gap:8px;padding:8px;overflow-y:auto}
 .tc-empty-day{color:var(--faint);text-align:center;font-size:12px;padding:6px}
-/* day */
 .tc-day{display:grid;grid-template-columns:1.4fr 1fr;gap:14px;padding:14px;min-height:100%}
 .tc-day-list{display:flex;flex-direction:column;gap:10px}
 .tc-day-schedule{background:#fff;border:1px solid var(--line);border-radius:12px;overflow:hidden;align-self:start}
@@ -1530,7 +1367,6 @@ table.tbl tbody tr:last-child td{border-bottom:none}
 .tc-sched-ic{width:26px;height:26px;flex:0 0 26px;display:inline-flex;align-items:center;justify-content:center;border-radius:7px;background:var(--surface-2);color:var(--body)}
 .tc-sched-main{display:flex;flex-direction:column;font-size:13px;color:var(--ink)}
 .tc-sched-sub{font-size:11.5px;color:var(--muted)}
-/* month */
 .tc-month{padding:12px}
 .tc-month-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:6px}
 .tc-month-head{margin-bottom:6px}
@@ -1545,7 +1381,6 @@ table.tbl tbody tr:last-child td{border-bottom:none}
 .tc-month-chip:hover{background:var(--blue-soft)}
 .tc-month-more{font-size:10px;color:var(--muted)}
 .tc-month-dot{position:absolute;top:7px;right:7px}
-/* timeline */
 .tc-timeline{padding:12px;min-width:900px;position:relative}
 .tc-tl-axis{display:flex;position:sticky;top:0;z-index:2;background:var(--surface-2)}
 .tc-tl-rowlabel{width:180px;flex:0 0 180px;display:flex;align-items:center;gap:7px;padding:6px 10px;font-size:12px}
@@ -1563,7 +1398,6 @@ table.tbl tbody tr:last-child td{border-bottom:none}
 .tc-tl-bar-lbl{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .tc-tl-ev{position:absolute;width:9px;height:9px;border-radius:50%;border:2px solid #fff;transform:translateX(-50%);top:6px}
 .tc-tl-now{position:absolute;top:0;bottom:0;width:2px;background:var(--red);z-index:3;pointer-events:none}
-/* control center */
 .tc-control{padding:14px;display:flex;flex-direction:column;gap:12px}
 .tc-control-head{display:flex;align-items:center;gap:10px;padding:12px 14px;background:var(--blue-soft);border-radius:11px;font-size:13.5px;color:var(--body)}
 .tc-control-list{display:flex;flex-direction:column;gap:8px}
@@ -1575,7 +1409,6 @@ table.tbl tbody tr:last-child td{border-bottom:none}
 .tc-control-main{flex:1;min-width:0;display:flex;flex-direction:column;color:var(--ink);font-size:13.5px}
 .tc-control-sub{font-size:12px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .tc-control-time{font-weight:700;color:var(--ink);font-size:13px;width:44px;text-align:right}
-/* side panel */
 .tc-panel{display:flex;flex-direction:column;gap:16px}
 .tc-panel-top{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
 .tc-panel-op{display:inline-flex;align-items:center;gap:5px;font-size:12.5px;color:var(--muted);font-weight:600}
@@ -1615,9 +1448,6 @@ table.tbl tbody tr:last-child td{border-bottom:none}
 .tc-svc-replace{display:inline-flex;align-items:center;gap:4px;margin-left:auto;font:inherit;font-size:11.5px;font-weight:600;color:var(--blue);background:var(--blue-soft);border:1px solid transparent;border-radius:999px;padding:3px 9px;cursor:pointer}
 .tc-svc-replace:hover{border-color:var(--blue)}
 .tc-svc-title{flex-wrap:wrap}
-
-
-/* ===== BOOKING WIZARD («Начать бронирование») ===== */
 .bw-top{display:flex;align-items:center;gap:22px;flex-wrap:wrap;padding:14px 18px;background:var(--surface);border:1px solid var(--line);border-radius:var(--r-card);box-shadow:var(--shadow-card);margin-bottom:16px}
 .bw-route{display:flex;align-items:center;gap:8px;font-weight:700;color:var(--ink);font-size:16px}
 .bw-route svg{width:16px;height:16px;color:var(--muted-2)}
@@ -1661,7 +1491,6 @@ table.tbl tbody tr:last-child td{border-bottom:none}
 .bw-done-card{text-align:center;padding:34px 24px}
 .bw-done-ic{width:72px;height:72px;border-radius:50%;background:var(--green-bg);color:var(--green);display:flex;align-items:center;justify-content:center;margin:0 auto 16px}
 .bw-done-ic svg{width:38px;height:38px}
-/* тайм-лимит ответа поставщика + действия по ускорению */
 .bw-tl{display:flex;align-items:center;gap:10px}
 .bw-tl-time{display:inline-flex;align-items:center;gap:6px;font-size:12.5px;font-weight:700;color:var(--amber);white-space:nowrap}
 .bw-tl-time svg{width:14px;height:14px}
@@ -1669,16 +1498,12 @@ table.tbl tbody tr:last-child td{border-bottom:none}
 .bw-tl-btn:hover{filter:brightness(.97)}
 .bw-tl-btn svg{width:13px;height:13px}
 .bw-tl-btn.alt{color:var(--ink);background:var(--surface-2)}
-/* ознакомительное КП — заметка на шаге выбора вариантов */
 .bw-kp-note .bw-kp-ic{width:44px;height:44px;border-radius:12px;flex:0 0 44px;display:flex;align-items:center;justify-content:center;background:var(--blue-soft);color:var(--blue)}
 .bw-kp-note .bw-kp-ic svg{width:22px;height:22px}
-/* баннер фиксации стоимости в превью КП */
 .bw-kp-banner{display:flex;align-items:center;gap:9px;font-size:13px;font-weight:600;padding:11px 14px;border-radius:11px;margin:14px 0}
 .bw-kp-banner svg{width:16px;height:16px;flex:0 0 16px}
 .bw-kp-banner.draft{background:var(--amber-bg,#fff6e6);color:var(--amber)}
 .bw-kp-banner.fixed{background:var(--green-bg);color:var(--green)}
-
-/* ===== KP2: client document "Поезд + Проживание" ===== */
 .kp2-doc{background:#fff;border-radius:18px;padding:32px 36px 40px;max-width:1320px}
 .kp2-doc-edit{padding:0;max-width:none}
 .kp2-header{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:28px;gap:20px;flex-wrap:wrap}
@@ -1731,8 +1556,6 @@ table.tbl tbody tr:last-child td{border-bottom:none}
 .kp2-cell-num{text-align:right}
 .kp2-cell-wide{min-width:160px}
 .kp2-add-row{margin:10px}
-/* Компактный режим КП для узкого бокового окна (просмотр в заказе):
-   служебная карточка становится тонкой полосой сверху, таблица получает всю ширину. */
 .kp2-doc-compact{padding:22px 22px 26px}
 .kp2-doc-compact .kp2-row{flex-direction:column;gap:10px}
 .kp2-doc-compact .kp2-side{flex:0 0 auto;flex-direction:row;align-items:center;justify-content:space-between;padding:12px 16px}
@@ -1745,10 +1568,8 @@ table.tbl tbody tr:last-child td{border-bottom:none}
 
 .kp2-note{margin-top:10px;background:var(--surface-2);border-radius:10px;padding:10px 16px;font-size:12.5px;color:var(--muted);font-style:italic}
 .modal.kp2-modal-wide{max-width:min(96vw,1480px)}
-/* Широкие модалки унификации пассажиров — иначе контент шире .modal (860px) и обрезается справа */
 .modal.pax-modal-wide{max-width:min(95vw,960px)}
 .modal.pax-modal-xwide{max-width:min(95vw,1040px)}
-/* ---- Сверка обновлённого списка (reconcile) — сводка, карточки, диффы ---- */
 .pxr-sum{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px;margin-bottom:20px}
 .pxr-tile{border:1px solid var(--line);border-radius:12px;padding:12px 14px;background:var(--surface);display:flex;flex-direction:column;gap:6px}
 .pxr-tile .n{font-size:23px;font-weight:700;line-height:1;letter-spacing:-.02em}
@@ -1774,19 +1595,13 @@ table.tbl tbody tr:last-child td{border-bottom:none}
 .pxr-was{color:var(--red);background:var(--red-bg);text-decoration:line-through;padding:1px 8px;border-radius:6px;font-size:12px}
 .pxr-now{color:var(--green);background:var(--green-bg-2);font-weight:700;padding:1px 8px;border-radius:6px;font-size:12px}
 .pxr-err{border:1px solid var(--red-bg);background:#fdf3f0;border-radius:10px;padding:9px 12px;font-size:13px;display:flex;gap:8px;align-items:baseline}
-/* История дозагрузок — карточки-события */
 .pxh-list{display:flex;flex-direction:column;gap:10px}
 .pxh-item{border:1px solid var(--line);border-radius:12px;padding:13px 15px;display:flex;gap:13px;align-items:flex-start;background:var(--surface);transition:box-shadow .14s}
 .pxh-item:hover{box-shadow:var(--shadow-card)}
 .pxh-ic{flex-shrink:0;width:36px;height:36px;border-radius:10px;background:var(--blue-soft);color:var(--blue);display:flex;align-items:center;justify-content:center}
-
-/* ===================== HOTEL PICKER ===================== */
 .hp-root{display:flex;flex-direction:column;gap:16px}
-/* --- search mask --- */
 .hp-searchbar{background:#fff;border:1px solid var(--line);border-radius:var(--r-card);box-shadow:var(--shadow-card);padding:16px 18px;display:flex;flex-direction:column;gap:14px}
 .hp-search-row{display:flex;align-items:flex-end;gap:12px;flex-wrap:wrap}
-/* ТЗ #7 — вторая строка поиска отелей: выравниваем все контролы по нижней линии, чтобы строка
-   не «прыгала» (поле с подписью было выше табов питания и чекбоксов) */
 .hp-search-row-2{align-items:flex-end}
 .hp-search-row-2 .hp-inline-check{height:44px}
 .hp-search-row-2 .hp-meal-tabs{height:44px;align-items:center}
@@ -1817,7 +1632,6 @@ table.tbl tbody tr:last-child td{border-bottom:none}
 .hp-meal-tab:hover{border-color:#cdd4e0}
 .hp-meal-tab.active{background:var(--blue);border-color:var(--blue);color:#fff}
 .hp-inline-check{display:flex;align-items:center;gap:8px;font-size:13.5px;color:var(--body);cursor:pointer}
-/* --- results head --- */
 .hp-results-head{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px}
 .hp-results-title{font-size:18px;font-weight:700;color:var(--ink);margin:0}
 .hp-results-title span{color:var(--muted);font-weight:500;font-size:15px}
@@ -1830,7 +1644,6 @@ table.tbl tbody tr:last-child td{border-bottom:none}
 .hp-map-btn{display:inline-flex;align-items:center;gap:7px;height:38px;padding:0 14px;border:1px solid var(--field-line);background:#fff;border-radius:10px;font-size:13.5px;color:var(--ink);cursor:pointer}
 .hp-map-btn svg{width:16px;height:16px}
 .hp-map-btn:hover{border-color:#cdd4e0}
-/* --- layout: filter LEFT + results --- */
 .hp-layout{display:grid;grid-template-columns:248px 1fr;gap:18px;align-items:start}
 @media(max-width:980px){.hp-layout{grid-template-columns:1fr}}
 .hp-filters{background:#fff;border:1px solid var(--line);border-radius:var(--r-card);box-shadow:var(--shadow-card);padding:16px 18px;position:sticky;top:8px;align-self:flex-start;max-height:calc(100vh - 24px);overflow-y:auto}
@@ -1845,7 +1658,6 @@ table.tbl tbody tr:last-child td{border-bottom:none}
 .hp-check-row{display:flex;align-items:center;gap:10px;padding:6px 0;cursor:pointer;font-size:13.5px}
 .hp-check-label{flex:1;color:var(--body)}
 .hp-check-cnt{color:var(--muted-2);font-size:12.5px}
-/* --- result card --- */
 .hp-results{display:flex;flex-direction:column;gap:14px}
 .hp-card{display:grid;grid-template-columns:190px 1fr 200px 190px;gap:0;background:#fff;border:1px solid var(--line);border-radius:var(--r-card);box-shadow:var(--shadow-card);overflow:hidden;transition:.14s}
 .hp-card:hover{border-color:#d3dbe8;box-shadow:0 4px 16px rgba(16,23,38,.07)}
@@ -1890,7 +1702,6 @@ table.tbl tbody tr:last-child td{border-bottom:none}
 .hp-price-night{font-size:11.5px;color:var(--muted);margin-bottom:8px}
 .hp-card-price .btn{width:100%}
 .hp-more-link{background:none;border:none;color:var(--blue);font-size:12px;cursor:pointer;margin-top:6px}
-/* --- panel head --- */
 .hp-panel-head{display:flex;align-items:center;gap:14px;flex-wrap:wrap;padding-bottom:18px;border-bottom:1px solid var(--line);margin-bottom:18px}
 .hp-photo-sm{width:72px;height:56px;border-radius:10px;flex:0 0 72px}
 .hp-ph-info{flex:1;min-width:200px;display:flex;flex-direction:column;gap:3px}
@@ -1902,12 +1713,10 @@ table.tbl tbody tr:last-child td{border-bottom:none}
 .hp-ph-dates b{font-size:13.5px;color:var(--ink)}
 .hp-edit-link{background:none;border:1px solid var(--field-line);border-radius:9px;padding:7px 14px;color:var(--blue);font-weight:600;font-size:13px;cursor:pointer}
 .hp-edit-link:hover{border-color:var(--blue)}
-/* --- column titles --- */
 .hp-col-title{font-weight:700;color:var(--ink);font-size:15px;margin-bottom:12px}
 .hp-col-title .hp-opt{font-weight:500;color:var(--muted);font-size:13px}
 .hp-col-subtitle{font-weight:700;color:var(--ink);font-size:13.5px;margin:18px 0 10px}
 .hp-opt{font-weight:400;color:var(--muted);font-size:12px}
-/* --- room panel --- */
 .hp-room-grid{display:grid;grid-template-columns:1fr 1.1fr 1fr;gap:22px;align-items:start}
 @media(max-width:1100px){.hp-room-grid{grid-template-columns:1fr}}
 .hp-roomcat{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:12px 14px;border:1px solid var(--line);border-radius:12px;margin-bottom:10px;cursor:pointer;transition:.14s}
@@ -1947,7 +1756,6 @@ table.tbl tbody tr:last-child td{border-bottom:none}
 .hp-tariff-feat.no svg{color:var(--muted-2)}
 .hp-tariff-note{font-size:12px;color:var(--muted);margin-bottom:10px}
 .hp-room-footnote{font-size:11.5px;color:var(--muted);margin-top:10px}
-/* --- pax placement --- */
 .hp-pax-grid{display:grid;grid-template-columns:1.15fr 1fr;gap:26px;align-items:start}
 @media(max-width:920px){.hp-pax-grid{grid-template-columns:1fr}}
 .hp-selroom-card{display:flex;align-items:center;justify-content:space-between;gap:14px;border:1px solid var(--line);border-radius:12px;padding:14px 16px;background:var(--surface-2)}
@@ -1991,7 +1799,6 @@ table.tbl tbody tr:last-child td{border-bottom:none}
 .hp-foot-total{display:flex;flex-direction:column;font-size:12px;color:var(--muted);margin-right:8px;text-align:right}
 .hp-foot-total b{font-size:18px;color:var(--ink);font-weight:800}
 .hp-foot-total.big b{font-size:22px}
-/* --- group / banners --- */
 .hp-info-banner{display:flex;align-items:center;gap:9px;background:var(--blue-soft);color:var(--blue-soft-text);font-size:13px;padding:11px 14px;border-radius:11px;margin-bottom:18px}
 .hp-info-banner svg{width:17px;height:17px;flex:0 0 17px}
 .hp-group-grid{display:grid;grid-template-columns:1fr 1fr;gap:26px;align-items:start}
@@ -2016,7 +1823,6 @@ table.tbl tbody tr:last-child td{border-bottom:none}
 .hp-distrib-note svg{width:16px;height:16px;flex:0 0 16px}
 .hp-distrib-note.ok{color:var(--green);background:var(--green-bg-2)}
 .hp-distrib-note.warn{color:var(--amber);background:var(--amber-bg)}
-/* --- matrix --- */
 .hp-conflict-banner{display:flex;align-items:center;gap:9px;background:var(--red-bg);color:var(--red);font-size:13px;padding:11px 14px;border-radius:11px;margin-bottom:16px}
 .hp-conflict-banner svg{width:17px;height:17px;flex:0 0 17px}
 .hp-conflict-banner button{margin-left:auto;background:#fff;border:1px solid var(--red-strong);color:var(--red);border-radius:8px;padding:6px 12px;font-size:12.5px;font-weight:600;cursor:pointer}
@@ -2044,7 +1850,6 @@ table.hp-matrix{border-collapse:collapse;width:100%;min-width:640px}
 .hp-mx-chip{display:inline-flex;align-items:center;gap:5px;background:#fff;border:1px solid var(--green);color:var(--green);font-size:11.5px;font-weight:600;padding:4px 8px;border-radius:8px}
 .hp-mx-cell.over .hp-mx-chip{border-color:var(--red-strong);color:var(--red)}
 .hp-mx-chip svg{width:12px;height:12px;opacity:.6}
-/* --- conflicts --- */
 .hp-conf-tabs{display:flex;gap:8px;flex-wrap:wrap;margin:16px 0}
 .hp-conf-tab{display:inline-flex;align-items:center;gap:7px;height:36px;padding:0 14px;border:1px solid var(--field-line);background:#fff;border-radius:9px;font-size:13px;color:var(--body);cursor:pointer}
 .hp-conf-tab.active{background:var(--ink);border-color:var(--ink);color:#fff}
@@ -2066,7 +1871,6 @@ table.hp-matrix{border-collapse:collapse;width:100%;min-width:640px}
 .hp-conf-tag.capacity{background:var(--amber-bg);color:var(--amber)}
 .hp-conf-tag.multi{background:var(--red-bg);color:var(--red)}
 .hp-conf-tag.unassigned{background:var(--teal-bg);color:var(--teal)}
-/* --- extras --- */
 .hp-extras-grid{display:grid;grid-template-columns:210px 1fr 260px;gap:20px;align-items:start}
 @media(max-width:1100px){.hp-extras-grid{grid-template-columns:1fr}}
 .hp-extras-nav{display:flex;flex-direction:column;gap:4px}
@@ -2088,7 +1892,6 @@ table.hp-matrix{border-collapse:collapse;width:100%;min-width:640px}
 .hp-extra-note{color:var(--muted);font-weight:400}
 .hp-extra-per{font-size:11.5px;color:var(--muted)}
 .hp-extra-price{font-weight:700;color:var(--ink);font-size:13.5px;white-space:nowrap}
-/* --- confirm --- */
 .hp-confirm-grid{display:grid;grid-template-columns:1.3fr 1fr;gap:28px;align-items:start}
 @media(max-width:920px){.hp-confirm-grid{grid-template-columns:1fr}}
 .hp-toggle-link{display:inline-flex;align-items:center;gap:6px;background:none;border:none;color:var(--blue);font-size:12.5px;cursor:pointer;margin-bottom:10px}

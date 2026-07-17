@@ -3,7 +3,7 @@ import { Icon } from './icons';
 import { Button, ConfirmDialog, Drawer, Field, Input, Pill, Select, Tabs, useToast } from './ui';
 import { CURRENT_USER, FEE_DESC_DEFAULTS, FEE_SCHEMA, FEE_SERVICE_TYPES, FEE_TEMPLATES, SERVICE_DESC_DEFAULTS, SETTLEMENT_TYPES, applyAgreementFees, companyFinance, creditAvailable, depositAvailable, descsFromDefaults, feeDescOf, feeDescsFromDefaults, feeTemplate, feesFromTemplate, registerFeeTemplate } from './data';
 
-// ===== Финансовые условия юр. лиц: балансы, договоры, доп.соглашения, сборы, описания, закрывающие документы =====
+
 
 function fM(n) { return Math.round(n || 0).toLocaleString('ru-RU') + ' $'; }
 function feeCellText(fee) {
@@ -16,7 +16,7 @@ function cfNow() {
   return `${p(d.getDate())}.${p(d.getMonth() + 1)}.${d.getFullYear()} ${p(d.getHours())}:${p(d.getMinutes())}`;
 }
 
-/* ---------- Баланс: депозит / кредитный лимит ---------- */
+
 function DepositCard({ deposit }) {
   const avail = depositAvailable(deposit);
   return (
@@ -81,7 +81,7 @@ function DepositHistoryDrawer({ open, deposit, onClose }) {
   );
 }
 
-/* ---------- Раздел «Финансовые условия» ---------- */
+
 function CompanyFinanceSection({ fin, onChangeSettlement }) {
   const toast = useToast();
   const [histOpen, setHistOpen] = useState(false);
@@ -114,7 +114,7 @@ function CompanyFinanceSection({ fin, onChangeSettlement }) {
   );
 }
 
-/* ---------- Просмотр сборов доп.соглашения (только чтение) ---------- */
+
 function AgreementFeesView({ agreement }) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
@@ -134,16 +134,16 @@ function AgreementFeesView({ agreement }) {
   );
 }
 
-/* ---------- Редактор доп.соглашения (сборы + описания + шаблон) ---------- */
+
 function AgreementEditor({ open, agreement, onClose, onSave }) {
   const [tab, setTab] = useState(FEE_SERVICE_TYPES[0]);
   const [tpl, setTpl] = useState(agreement ? agreement.template : 'standard');
   const [fees, setFees] = useState(() => (agreement ? JSON.parse(JSON.stringify(agreement.fees)) : feesFromTemplate('standard')));
   const [descs, setDescs] = useState(() => (agreement ? { ...agreement.descs } : descsFromDefaults()));
   const [feeDescs, setFeeDescs] = useState(() => (agreement && agreement.feeDescs ? JSON.parse(JSON.stringify(agreement.feeDescs)) : feeDescsFromDefaults()));
-  const [tplName, setTplName] = useState('');       // имя создаваемого шаблона
+  const [tplName, setTplName] = useState('');
   const [tplNameOpen, setTplNameOpen] = useState(false);
-  const [tplTick, setTplTick] = useState(0);        // чтобы Select перечитал список шаблонов
+  const [tplTick, setTplTick] = useState(0);
   const toast = useToast();
   useEffect(() => {
     if (open && agreement) { setTpl(agreement.template); setFees(JSON.parse(JSON.stringify(agreement.fees))); setDescs({ ...agreement.descs }); setFeeDescs(agreement.feeDescs ? JSON.parse(JSON.stringify(agreement.feeDescs)) : feeDescsFromDefaults()); setTab(FEE_SERVICE_TYPES[0]); }
@@ -162,7 +162,7 @@ function AgreementEditor({ open, agreement, onClose, onSave }) {
   const setDesc = (svc, v) => setDescs((d) => ({ ...d, [svc]: v }));
   const setFeeDesc = (svc, key, v) => setFeeDescs((d) => ({ ...d, [svc]: { ...d[svc], [key]: v } }));
 
-  // какие поля изменились относительно исходного соглашения — для истории
+
   const diffFields = () => {
     const out = [];
     FEE_SERVICE_TYPES.forEach((svc) => {
@@ -184,7 +184,7 @@ function AgreementEditor({ open, agreement, onClose, onSave }) {
     onClose();
   };
 
-  // Боковое окно (ТЗ): настройка сборов и описаний услуг для документов ведётся в drawer, а не в модалке.
+
   return (
     <Drawer open={open} onClose={onClose} width="min(820px,96vw)"
       title={'Редактирование ' + agreement.no} sub="Сохранение создаёт новую версию доп. соглашения"
@@ -237,7 +237,7 @@ function AgreementEditor({ open, agreement, onClose, onSave }) {
             })}
           </div>
 
-          {/* Описание услуги и всех сборов (в т.ч. сборов поставщиков) для акта / счёта / УПД — всё в одном блоке */}
+
           <div style={{ fontWeight: 700, color: 'var(--ink)', margin: '20px 0 4px' }}>Описание услуги и сборов для закрывающих документов · {tab}</div>
           <div style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 12 }}>Общее описание услуги — заголовок позиции в акте / счёте / УПД. Описания сборов и сборов поставщиков печатаются отдельными строками под ним.</div>
 
@@ -267,7 +267,7 @@ function AgreementEditor({ open, agreement, onClose, onSave }) {
   );
 }
 
-/* ---------- История версий доп.соглашения ---------- */
+
 function AgreementHistoryDrawer({ open, agreement, onClose }) {
   return (
     <Drawer open={open} onClose={onClose} title="История изменений соглашения"
@@ -288,10 +288,10 @@ function AgreementHistoryDrawer({ open, agreement, onClose }) {
   );
 }
 
-/* ---------- Раздел «Договоры» ---------- */
+
 function CompanyContracts({ fin, coName, onFinChange, onOpenClosing }) {
   const toast = useToast();
-  const [editAgr, setEditAgr] = useState(null);     // { contractId, agreement }
+  const [editAgr, setEditAgr] = useState(null);
   const [histAgr, setHistAgr] = useState(null);
   const [expanded, setExpanded] = useState(() => (fin.contracts[0] ? { [fin.contracts[0].id]: true } : {}));
 
@@ -300,7 +300,7 @@ function CompanyContracts({ fin, coName, onFinChange, onOpenClosing }) {
     const c = nextFin.contracts.find((x) => x.id === contractId);
     const a = c.agreements.find((x) => x.id === agr.id);
     const newVersion = Math.max(...c.agreements.map((x) => x.version)) + 1;
-    // предыдущее действующее соглашение уходит в архив, создаётся новая версия
+
     a.status = 'Архив';
     const created = {
       id: cfUid('A'), no: 'ДС № ' + newVersion, date: cfNow().split(' ')[0], version: newVersion, status: 'Действующий',
@@ -316,7 +316,7 @@ function CompanyContracts({ fin, coName, onFinChange, onOpenClosing }) {
     <>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', margin: '0 0 14px' }}>
         <h3 className="section-title" style={{ fontSize: 20, margin: 0 }}>Договоры и доп. соглашения</h3>
-        <Button variant="secondary" size="sm" icon="plus" onClick={() => toast('Добавление договора (демо)', 'info')}>Договор</Button>
+        <Button variant="secondary" size="sm" icon="plus" onClick={() => toast('Добавление договора', 'info')}>Договор</Button>
       </div>
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
@@ -367,7 +367,7 @@ function CompanyContracts({ fin, coName, onFinChange, onOpenClosing }) {
   );
 }
 
-/* ---------- Предпросмотр закрывающих документов перед выгрузкой в бухгалтерию ---------- */
+
 const ACCOUNTING_SYSTEMS = ['Эльба', 'Контур', '1С', 'Мое дело'];
 const CLOSING_DOC_TYPES = ['Акт', 'Счёт', 'УПД'];
 function ClosingDocsPreview({ open, agreement, coName, co, onClose }) {
@@ -375,7 +375,7 @@ function ClosingDocsPreview({ open, agreement, coName, co, onClose }) {
   const [sys, setSys] = useState('Эльба');
   const [docType, setDocType] = useState('Акт');
   const [confirmSend, setConfirmSend] = useState(false);
-  // строки услуг — берём демо-состав заказа и применяем сборы активного соглашения
+
   const baseRows = [
     { svc: 'Авиа', base: 1600 },
     { svc: 'Гостиница', base: 955 },
@@ -389,8 +389,8 @@ function ClosingDocsPreview({ open, agreement, coName, co, onClose }) {
 
   const vatRate = co && co.vat && /\d/.test(co.vat) ? parseFloat(co.vat) : 0;
   const vatOf = (sum) => Math.round(sum * vatRate / (100 + vatRate));
-  // каждая услуга разворачивается в позиции документа: базовая услуга + каждый сбор
-  // отдельной строкой со своей формулировкой из доп. соглашения (расширенная постановка клиента).
+
+
   const positions = [];
   rows.forEach((r, ri) => {
     positions.push({ svc: r.svc, kind: 'service', desc: r.desc, amount: r.base, rowIndex: ri });
@@ -418,7 +418,7 @@ function ClosingDocsPreview({ open, agreement, coName, co, onClose }) {
           <div style={{ minWidth: 160 }}><Field label="Тип документа"><Select options={CLOSING_DOC_TYPES.map((s) => ({ value: s, label: s }))} value={docType} onChange={(e) => setDocType(e.target.value)} /></Field></div>
         </div>
 
-        {/* Реквизиты */}
+
         <div className="card card-pad" style={{ marginBottom: 14 }}>
           <div style={{ fontWeight: 700, color: 'var(--ink)', marginBottom: 8 }}>{docType} · {coName}</div>
           <div className="grid-2" style={{ gap: '2px 24px' }}>
@@ -429,7 +429,7 @@ function ClosingDocsPreview({ open, agreement, coName, co, onClose }) {
           </div>
         </div>
 
-        {/* Позиции документа: базовая услуга + каждый сбор отдельной строкой со своей формулировкой */}
+
         <div className="table-card" style={{ marginBottom: 6 }}>
           <table className="tbl">
             <thead><tr><th>Позиция / описание</th><th style={{ textAlign: 'right' }}>Сумма</th><th style={{ textAlign: 'right' }}>в т.ч. НДС</th></tr></thead>
@@ -458,7 +458,7 @@ function ClosingDocsPreview({ open, agreement, coName, co, onClose }) {
         </div>
         <div style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 12 }}>Заголовок услуги можно скорректировать разово перед отправкой. Формулировки сборов берутся из доп. соглашения.</div>
 
-        {/* Чек-лист проверки */}
+
         <div className="card card-pad" style={{ marginBottom: 14 }}>
           <div className="kv">
             <div className="kv-row"><span className="k">Сервисные сборы и надбавки</span><span className="v">{fM(totalFees)}</span></div>
@@ -481,11 +481,11 @@ function ClosingDocsPreview({ open, agreement, coName, co, onClose }) {
   );
 }
 
-/* ---------- Верхний блок для карточки компании ---------- */
+
 function CompanyFinanceBlock({ co }) {
   const seeded = companyFinance(co.id);
   const [fin, setFin] = useState(() => (seeded ? JSON.parse(JSON.stringify(seeded)) : null));
-  const [closing, setClosing] = useState(null); // agreement
+  const [closing, setClosing] = useState(null);
   if (!fin) return <div className="card card-pad" style={{ color: 'var(--muted)' }}>Финансовые условия для этой организации не заведены.</div>;
 
   const setSettlement = (t) => setFin((f) => ({ ...f, settlement: t }));

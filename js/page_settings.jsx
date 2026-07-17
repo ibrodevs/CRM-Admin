@@ -2,15 +2,15 @@ import React, { useState, useEffect } from 'react';
 import { Icon } from './icons';
 import { ActionMenu, Avatar, Button, Checkbox, ConfirmDialog, Drawer, Field, Input, ModalHeader, Pill, Select, Tabs, Toggle, useToast } from './ui';
 import { API_ACCESS, CURRENCIES, ORG_TYPE, PERMISSIONS, ROLES, USERS, USER_STATUS } from './data';
-import { OPERATOR_SLA, operatorSla } from './data_tz2';
+import { OPERATOR_SLA, operatorSla } from './data/access-control';
 import { Topbar } from './layout';
 import { ExtrasCatalogModal } from './order_ops';
 import { ErrorCodesDrawer } from './page_notifications';
 import { MotivationDrawer } from './page_shifts';
 import { ServiceCardAdminDrawer } from './page_card_admin';
-import { ServiceAccessEditor } from './page_profile';
+import { ServiceAccessEditor } from './features/settings/service-access-editor';
 
-// ===== Settings (Настройки) + modals =====
+
 
 function CurrencyModal({ open, onClose }) {
   const toast = useToast();
@@ -49,7 +49,7 @@ const ACCESS_TOGGLES = ['Получение аналитики', 'Получен
 
 function ApiKeyModal({ open, onClose }) {
   const toast = useToast();
-  const [stage, setStage] = useState('form'); // form | loading | result
+  const [stage, setStage] = useState('form');
   const [org, setOrg] = useState('');
   const [type, setType] = useState('HoReCa');
   const [tg, setTg] = useState([true, false, true, true, true]);
@@ -195,7 +195,7 @@ function NotificationsModal({ open, onClose }) {
   );
 }
 
-/* Настройки оператора: доступ по видам услуг + норматив отклика на заявку (ТЗ) */
+
 function OperatorAccessDrawer({ open, operator, onClose }) {
   const toast = useToast();
   const [sla, setSla] = useState(() => (operator ? operatorSla(operator) : 15));
@@ -222,8 +222,8 @@ function OperatorAccessDrawer({ open, operator, onClose }) {
 
 function UsersTab({ onAdd }) {
   const toast = useToast();
-  const [motUser, setMotUser] = useState(null); // оператор, чью мотивацию настраиваем
-  const [accUser, setAccUser] = useState(null); // оператор, чьи доступы/нормативы настраиваем
+  const [motUser, setMotUser] = useState(null);
+  const [accUser, setAccUser] = useState(null);
   return (
     <div className="fade-in">
       <div style={{ display: 'flex', alignItems: 'center', marginBottom: 16 }}>
@@ -267,7 +267,7 @@ function RolesTab() {
   const toast = useToast();
   const [matrix, setMatrix] = useState(PERMISSIONS);
   const toggle = (gi, ii, ri) => {
-    if (ri === 0) return; // Админ — полный доступ, не редактируется
+    if (ri === 0) return;
     setMatrix((m) => m.map((g, x) => x !== gi ? g : { ...g, items: g.items.map((it, y) => y !== ii ? it : { ...it, r: it.r.map((v, z) => z === ri ? (v ? 0 : 1) : v) }) }));
   };
   return (
@@ -352,9 +352,9 @@ function SettingsPage() {
   );
 }
 
-/* ---------- Видимость полей карточки услуги для клиента (настройка компании) ----------
-   Управляет объектом CARD_CLIENT_VISIBILITY: какие финансовые поля клиент видит в карточке/КП.
-   Неотмеченные остаются внутренними (клиенту не отправляются). */
+
+
+
 const CARD_VIS_FIELDS = [
   ['clientTotal', 'Итоговая стоимость для клиента'],
   ['serviceFee', 'Сервисный сбор'],
