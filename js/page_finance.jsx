@@ -11,9 +11,6 @@ import {
   FIN_SVC_MODEL, sumK, svcClientTotal, svcSupplierPay, svcModelProfit, FIN_ANALYTICS_SLICES,
 } from './data_finance';
 
-/* ==================================================================== */
-/* Общие мелкие компоненты                                              */
-/* ==================================================================== */
 function StatTile({ label, value, tone, sub, icon, onClick, accent }) {
   return (
     <div className="stat-card" style={{ cursor: onClick ? 'pointer' : 'default', padding: '18px 20px', borderColor: accent || 'var(--line)' }} onClick={onClick}>
@@ -40,7 +37,6 @@ function WarnBanner({ tone = 'red', icon = 'alertTriangle', title, text, action 
     </div>
   );
 }
-// SVG-график денежных потоков: приход/расход столбцами + линия остатка
 function CashflowChart({ data, startBalance = 60000 }) {
   const W = 640, H = 190, pad = 28, bw = (W - pad * 2) / data.length;
   const max = Math.max(...data.map((d) => Math.max(d.in, d.out))) * 1.15;
@@ -71,7 +67,6 @@ function CashflowChart({ data, startBalance = 60000 }) {
 function LegendDot({ color, label }) {
   return <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12, color: 'var(--muted)' }}><span style={{ width: 10, height: 10, borderRadius: 3, background: color }} />{label}</span>;
 }
-// строка «ключ — значение» с цветом суммы
 function FinRow({ label, value, tone, strong }) {
   return (
     <div className="kv-row" style={{ padding: '9px 0' }}>
@@ -81,9 +76,6 @@ function FinRow({ label, value, tone, strong }) {
   );
 }
 
-/* ==================================================================== */
-/* 1. ОБЗОР — главный финансовый экран                                  */
-/* ==================================================================== */
 function FinOverview({ onGoTab }) {
   const totalCash = FIN_ACCOUNTS.reduce((s, a) => s + a.balance, 0);
   const inTransit = FIN_ACCOUNTS.filter((a) => a.group === 'Эквайринг').reduce((s, a) => s + a.reserved, 0);
@@ -171,9 +163,6 @@ function FinOverview({ onGoTab }) {
   );
 }
 
-/* ==================================================================== */
-/* 2. БАЛАНС ОРГАНИЗАЦИИ                                                 */
-/* ==================================================================== */
 function FinAccountDrawer({ ac, onClose }) {
   const ops = acctOps(ac);
   return (
@@ -260,9 +249,6 @@ function FinBalance() {
   );
 }
 
-/* ==================================================================== */
-/* 3. ЖУРНАЛ ПЛАТЕЖЕЙ                                                    */
-/* ==================================================================== */
 function FinPaymentDrawer({ p, onClose }) {
   const svcSum = p.services.reduce((s, x) => s + x.sum, 0);
   const feeSum = p.fees.reduce((s, x) => s + x.sum, 0);
@@ -349,9 +335,6 @@ function FinPayments() {
   );
 }
 
-/* ==================================================================== */
-/* 4. КАЗНАЧЕЙСТВО                                                       */
-/* ==================================================================== */
 function FinTreasury() {
   const toast = useToast();
   const startBalance = FIN_ACCOUNTS.filter((a) => a.group !== 'Депозиты').reduce((s, a) => s + a.available, 0);
@@ -363,7 +346,6 @@ function FinTreasury() {
   const forecast = startBalance + totalIn - totalOut;
   const order = { 'Высокий': 0, 'Средний': 1, 'Низкий': 2 };
   const sorted = planned.slice().sort((a, b) => order[prio[a.no]] - order[prio[b.no]] || a.plan.localeCompare(b.plan));
-  // прогноз остатка при последовательном исполнении по приоритету
   let run = startBalance + totalIn;
   const withRunning = sorted.map((p) => { run -= p.sum; return { ...p, after: run }; });
   const gap = withRunning.some((p) => p.after < 0);
@@ -418,9 +400,6 @@ function FinTreasury() {
   );
 }
 
-/* ==================================================================== */
-/* 5. ВЗАИМОРАСЧЁТЫ + отсрочки + кредитные лимиты + график погашения     */
-/* ==================================================================== */
 function CreditLimitBar({ used, limit }) {
   if (!limit) return <div style={{ fontSize: 12, color: 'var(--muted)' }}>Лимит не установлен (работа по факту)</div>;
   const pct = Math.min(100, Math.round((used / limit) * 100));
@@ -488,7 +467,6 @@ function FinCounterpartyDrawer({ cp, onClose }) {
     </Drawer>
   );
 }
-// Расчёты с локальными поставщиками (ТЗ): авансы, доплаты, возвраты, взаимозачёты + комиссии
 function SupplierSettlements({ cp }) {
   const toast = useToast();
   const [ops, setOps] = useState([
@@ -580,9 +558,6 @@ function FinSettlements() {
   );
 }
 
-/* ==================================================================== */
-/* 6. ЭКОНОМИКА — финмодель услуги/заказа, автоначисления, ЗП операторов */
-/* ==================================================================== */
 function ServiceModelCard({ kind }) {
   const rows = FIN_SVC_MODEL[kind];
   const clientTotal = svcClientTotal(rows);
@@ -605,7 +580,6 @@ function ServiceModelCard({ kind }) {
 }
 function FinEconomics() {
   const [kind, setKind] = useState('Авиа');
-  // экономика заказа 51162 — агрегация по услугам
   const orderKinds = ['Авиа', 'Гостиница', 'Трансфер'];
   const orderRows = orderKinds.map((k) => {
     const rows = FIN_SVC_MODEL[k];
@@ -679,9 +653,6 @@ function FinEconomics() {
   );
 }
 
-/* ==================================================================== */
-/* 7. АНАЛИТИКА — ДДС по периодам, срезы, платёжная дисциплина           */
-/* ==================================================================== */
 function FinAnalytics() {
   const [slice, setSlice] = useState('Операторы');
   const [period, setPeriod] = useState('Месяц');
@@ -761,9 +732,6 @@ function FinAnalytics() {
   );
 }
 
-/* ==================================================================== */
-/* 8. ПРАВИЛА — центр финправил, банковская сверка, журнал финдействий   */
-/* ==================================================================== */
 function FinRules() {
   const toast = useToast();
   return (
@@ -821,9 +789,6 @@ function FinRules() {
   );
 }
 
-/* ==================================================================== */
-/* MAIN — страница «Финансы»                                            */
-/* ==================================================================== */
 const FIN_TABS = [
   { key: 'overview', label: 'Обзор' },
   { key: 'balance', label: 'Баланс' },
@@ -855,7 +820,5 @@ function FinancePage() {
 }
 
 Object.assign(window, { FinancePage, FIN_ACCOUNTS, FIN_PAYMENTS, FIN_COUNTERPARTIES, finCreditCheck });
-
-
 
 export { f$, fSigned, finNow, deltaTone, finCreditCheck, FIN_ACCT_GROUPS, FIN_ACCOUNTS, FIN_ACCT_OP_TYPES, acctOps, FIN_PAY_STATUS, FIN_PRIORITY, FIN_PAYMENTS, obl, FIN_COUNTERPARTIES, FIN_SCHEMES, FIN_CASHFLOW, FIN_RECEIPTS, FIN_SALARY, FIN_RULES, FIN_RECON_STATUS, FIN_RECON, FIN_ACTIONS, FIN_SVC_MODEL, sumK, svcClientTotal, svcSupplierPay, svcModelProfit, StatTile, WarnBanner, CashflowChart, LegendDot, FinRow, FinOverview, FinAccountDrawer, FinBalance, FinPaymentDrawer, FinPayments, FinTreasury, CreditLimitBar, FinCounterpartyDrawer, SupplierSettlements, FinSettlements, ServiceModelCard, FinEconomics, FIN_ANALYTICS_SLICES, FinAnalytics, FinRules, FIN_TABS, FinancePage };

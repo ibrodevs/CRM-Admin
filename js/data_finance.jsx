@@ -1,11 +1,8 @@
-/* ---------- helpers ---------- */
 function f$(n) { return Math.round(n).toLocaleString('ru-RU') + ' $'; }
 function fSigned(n) { return (n >= 0 ? '+' : '−') + Math.abs(Math.round(n)).toLocaleString('ru-RU') + ' $'; }
 function finNow() { return new Date().toLocaleString('ru-RU', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }); }
 function deltaTone(n) { return n > 0 ? 'var(--green)' : n < 0 ? 'var(--red)' : 'var(--muted)'; }
 
-// Проверка кредитных условий контрагента при оформлении нового заказа (ТЗ «Контроль
-// кредитного лимита»): наличие просрочки, превышение лимита, возможность оформления.
 function finCreditCheck(clientName) {
   const cps = (typeof FIN_COUNTERPARTIES !== 'undefined') ? FIN_COUNTERPARTIES : [];
   const cp = cps.find((c) => c.type === 'client' && clientName && (c.name === clientName || clientName.includes(c.name) || c.name.includes(clientName)));
@@ -18,13 +15,11 @@ function finCreditCheck(clientName) {
   if (overdueSum > 0) problems.push('просроченная задолженность ' + f$(overdueSum) + ' по ' + overdue.length + ' док.');
   if (exceeded) problems.push('превышен кредитный лимит');
   else if (free != null && free < 2000) problems.push('лимит почти исчерпан (свободно ' + f$(free) + ')');
-  // «предупреждать или запрещать в соответствии с настройками»: блок при просрочке/превышении, если включено согласование
   const block = (overdueSum > 0 || exceeded) && cp.approveOnExceed;
   const nearestDue = cp.obligations.slice().sort((a, b) => a.due.localeCompare(b.due))[0];
   return { ok: problems.length === 0, cp, overdueSum, exceeded, free, block, problems, nearestDue };
 }
 
-/* ---------- Мок-данные: баланс организации ---------- */
 const FIN_ACCT_GROUPS = [
   { key: 'Расчётные счета', icon: 'bank' },
   { key: 'Корпоративные карты', icon: 'finance' },
@@ -43,8 +38,7 @@ const FIN_ACCOUNTS = [
   { id: 'ac-7', group: 'Электронные кошельки', name: 'Balance.kg', bank: '—', number: 'WALLET-118', currency: 'USD', balance: 1870, available: 1870, reserved: 0, unmatched: 0, synced: 'сегодня 08:44' },
   { id: 'ac-8', group: 'Депозиты', name: 'Срочный депозит 6 мес.', bank: 'Демир Банк', number: 'DEP-2026-04', currency: 'USD', balance: 30000, available: 0, reserved: 30000, unmatched: 0, synced: '01.07.2026', note: 'Погашение 04.10.2026 · 12% годовых' },
 ];
-// история операций по счёту (демо-генерация от текущего остатка вниз)
-const FIN_ACCT_OP_TYPES = ['Поступление от клиента', 'Оплата поставщику', 'Возврат клиенту', 'Комиссия банка', 'Инкассация', 'Внутренний перевод'];
+const FIN_ACCT_OP_TYPES =['Поступление от клиента', 'Оплата поставщику', 'Возврат клиенту', 'Комиссия банка', 'Инкассация', 'Внутренний перевод'];
 function acctOps(ac) {
   const rows = [];
   let bal = ac.balance;
@@ -66,7 +60,6 @@ function acctOps(ac) {
   return rows;
 }
 
-/* ---------- Мок-данные: журнал платежей ---------- */
 const FIN_PAY_STATUS = {
   'Черновик': 'gray', 'На согласовании': 'amber', 'Согласовано': 'blue', 'Подготовлено': 'blue',
   'Отправлено': 'teal', 'Исполнено': 'green', 'Отклонено': 'red', 'Отменено': 'gray', 'Возвращено': 'red',
@@ -90,7 +83,6 @@ const FIN_PAYMENTS = [
     services: [{ t: '% от прибыли по 14 заказам', sum: 1240 }], fees: [], docs: ['Расчётная ведомость'], history: [{ t: '18.07 · 12:00', text: 'Сформировано автоматически', who: 'Система' }], approvals: [] },
 ];
 
-/* ---------- Мок-данные: контрагенты (взаиморасчёты, отсрочки, лимиты, дисциплина) ---------- */
 function obl(order, doc, sum, paid, since, due, overdueDays) {
   const rest = sum - paid;
   const status = rest <= 0 ? 'Оплачено' : overdueDays > 0 ? 'Просрочено' : 'Ожидает оплаты';
@@ -125,7 +117,6 @@ const FIN_COUNTERPARTIES = [
 ];
 const FIN_SCHEMES = ['Предоплата', 'Частичная предоплата', 'Постоплата', 'Депозит', 'Кредитный лимит'];
 
-/* ---------- Мок-данные: денежные потоки, поступления, ЗП, правила, сверка, журнал ---------- */
 const FIN_CASHFLOW = [
   { m: 'Фев', in: 62000, out: 48000 }, { m: 'Мар', in: 71000, out: 55000 }, { m: 'Апр', in: 58000, out: 61000 },
   { m: 'Май', in: 83000, out: 59000 }, { m: 'Июн', in: 94000, out: 67000 }, { m: 'Июл', in: 78000, out: 71000 },
@@ -168,11 +159,9 @@ const FIN_ACTIONS = [
   { t: '14.07 · 12:30', user: 'Даниель', action: 'Создан счёт', field: 'Счёт № 6152', oldV: '—', newV: '4 500 $', reason: 'Согласованное КП-1042' },
 ];
 
-/* ---------- Полная финмодель услуги (ТЗ: авиа-пример и др. виды) ----------
-   Категории строк: cost — стоимость поставщика (себестоимость); client — то, что
-   платит клиент (скидка со знаком минус); inc — доход агентства сверх цены клиента
-   (комиссии поставщика/агентские); exp — расходы (со знаком минус).
-   Клиенту = Σ client; Поставщику = cost; Прибыль = Σclient − cost + Σinc + Σexp. */
+// Категории строк финмодели: cost — себестоимость поставщика; client — оплата клиента
+// (скидка со знаком минус); inc — доход агентства сверх цены клиента; exp — расходы (минус).
+// Клиенту = Σclient; Поставщику = cost; Прибыль = Σclient − cost + Σinc + Σexp.
 const FIN_SVC_MODEL = {
   'Авиа': [
     { l: 'Стоимость поставщика', v: 2800, k: 'cost' }, { l: 'Тариф', v: 2600, k: 'client' }, { l: 'Таксы', v: 200, k: 'client' },
