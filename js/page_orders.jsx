@@ -303,7 +303,7 @@ function OceSec({ n, title, children }) {
   );
 }
 
-function OrderCreateModal({ open, onClose, onCreated }) {
+function OrderCreateModal({ open, onClose, onCreated, initialGroup = false }) {
   const toast = useToast();
 
 
@@ -323,7 +323,7 @@ function OrderCreateModal({ open, onClose, onCreated }) {
   const [dragIdx, setDragIdx] = useState(null);
 
   const [svc, setSvc] = useState({});
-  const [isGroup, setIsGroup] = useState(false);
+  const [isGroup, setIsGroup] = useState(initialGroup);
 
   const [cityPick, setCityPick] = useState(null);
   const [docFor, setDocFor] = useState(null);
@@ -336,7 +336,7 @@ function OrderCreateModal({ open, onClose, onCreated }) {
     if (!open) return;
     setClientType('person'); setClientQuery('');
     setSelClients([CLIENTS_DB[0]]); setCompany(COMPANIES_DB[0]); setCompanyQuery(''); setCompanyOpen(false); setEmployees(companyStaff(COMPANIES_DB[0].id).employees.slice(0, 1));
-    setTrip('rt'); setPts(['SVO', 'DXB']); setDepDate(null); setRetDate(null); setSvc({}); setIsGroup(false);
+    setTrip('rt'); setPts(['SVO', 'DXB']); setDepDate(null); setRetDate(null); setSvc({}); setIsGroup(initialGroup);
     setCityPick(null); setDocFor(null); setBonusFor(null); setEmpPick(false);
   }, [open]);
 

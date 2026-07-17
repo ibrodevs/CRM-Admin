@@ -1,9 +1,11 @@
 import { useState } from 'react';
 import { Icon } from './icons';
-import { Button, Field, FilterChip, Input, Modal, ModalHeader, Pill, Select, Tabs, useToast } from './ui';
+import { Button, Drawer, Field, FilterChip, Input, Modal, ModalHeader, Pill, Select, Tabs, useToast } from './ui';
 import { SERVICE_KIND } from './data';
 import { Topbar } from './layout';
-import { StackPanel } from './components/shared-panels';
+import { PanelSub } from './components/shared-panels';
+import { UFDateField } from './forms_unified';
+import { OrderCreateModal } from './page_orders';
 import { FinRow, StatTile, WarnBanner, f$ } from './page_finance';
 
 
@@ -124,30 +126,49 @@ function GroupRequestPanel({ onClose }) {
   const isHotel = f.kind === 'Гостиница';
   const send = (via) => { toast('Групповой запрос отправлен · ' + via + ' · зафиксирован в групповой услуге', 'ok'); onClose(); };
   return (
-    <StackPanel title="Создать групповой запрос" width="min(680px,96vw)" onClose={onClose}
+    <Drawer open onClose={onClose} title="Создать групповой запрос"
+      sub="Единая форма запроса · параметры группы для поставщика" width="min(720px,96vw)"
       footer={<>
-        <Button variant="secondary" style={{ flex: 1 }} icon="mail" onClick={() => send('email')}>Email</Button>
+        <Button variant="secondary" onClick={onClose}>Отмена</Button>
+        <div style={{ flex: 1 }} />
+        <Button variant="secondary" icon="mail" onClick={() => send('email')}>Email</Button>
         <Button variant="secondary" icon="api" onClick={() => send('API')}>API</Button>
         <Button variant="secondary" icon="download" onClick={() => send('файл')}>Выгрузить</Button>
         <Button icon="clipboard" onClick={() => send('задача оператору')}>Задача</Button>
       </>}>
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+      <PanelSub style={{ marginTop: 0 }}>Услуга</PanelSub>
+      <div className="form-grid">
         <Field label="Вид услуги"><Select value={f.kind} onChange={(e) => set('kind', e.target.value)} options={['Авиа', 'ЖД', 'Гостиница', 'Трансфер', 'Автобус']} /></Field>
-        <Field label="Желаемый поставщик"><Input value={f.supplier} onChange={(e) => set('supplier', e.target.value)} /></Field>
-        <Field label="Маршрут"><Input value={f.route} onChange={(e) => set('route', e.target.value)} placeholder="FRU → IST → FRU" /></Field>
-        <Field label="Количество участников"><Input type="number" value={f.pax} onChange={(e) => set('pax', e.target.value)} /></Field>
-        <Field label="Дата начала"><Input value={f.dateFrom} onChange={(e) => set('dateFrom', e.target.value)} placeholder="02.08.2026" /></Field>
-        <Field label="Дата окончания"><Input value={f.dateTo} onChange={(e) => set('dateTo', e.target.value)} placeholder="09.08.2026" /></Field>
+        <Field label="Желаемый поставщик"><Input value={f.supplier} onChange={(e) => set('supplier', e.target.value)} placeholder="Turkish Airlines" /></Field>
+      </div>
+
+      <PanelSub>Маршрут и даты</PanelSub>
+      <div className="form-grid">
+        <Field label="Маршрут"><Input value={f.route} onChange={(e) => set('route', e.target.value)} placeholder="FRU → IST → FRU" leadIcon="plane" /></Field>
+        <Field label="Количество участников"><Input type="number" value={f.pax} onChange={(e) => set('pax', e.target.value)} leadIcon="users" /></Field>
+        <UFDateField label="Дата начала" value={f.dateFrom || null} onChange={(v) => set('dateFrom', v)} placeholder="дд.мм.гггг" />
+        <UFDateField label="Дата окончания" value={f.dateTo || null} onChange={(v) => set('dateTo', v)} placeholder="дд.мм.гггг" />
+      </div>
+
+      <PanelSub>Параметры {isHotel ? 'размещения' : 'перевозки'}</PanelSub>
+      <div className="form-grid">
         {!isHotel && <Field label="Класс обслуживания"><Select value={f.classCode} onChange={(e) => set('classCode', e.target.value)} options={['Эконом', 'Комфорт', 'Бизнес']} /></Field>}
-        {!isHotel && <Field label="Багаж"><Input value={f.bags} onChange={(e) => set('bags', e.target.value)} /></Field>}
+        {!isHotel && <Field label="Багаж"><Input value={f.bags} onChange={(e) => set('bags', e.target.value)} placeholder="20 кг" /></Field>}
         {isHotel && <Field label="Тип размещения / кол-во номеров"><Input value={f.rooms} onChange={(e) => set('rooms', e.target.value)} placeholder="DBL · 15 номеров" /></Field>}
         {isHotel && <Field label="Питание"><Select value={f.board} onChange={(e) => set('board', e.target.value)} options={['Без питания', 'Завтрак', 'Полупансион', 'Всё включено']} /></Field>}
+      </div>
+
+      <PanelSub>Условия и бюджет</PanelSub>
+      <div className="form-grid">
         <Field label="Бюджет (на группу)"><Input value={f.budget} onChange={(e) => set('budget', e.target.value)} placeholder="напр. 9 000 $" /></Field>
         <Field label="Допустимые альтернативы"><Input value={f.alts} onChange={(e) => set('alts', e.target.value)} placeholder="Air Astana, Pegasus" /></Field>
       </div>
-      <Field label="Возрастные категории и доп. требования"><Input value={f.notes} onChange={(e) => set('notes', e.target.value)} placeholder="2 ребёнка, 1 маломобильный, места рядом для семей" /></Field>
-      <div style={{ fontSize: 12.5, color: 'var(--muted)', marginTop: 8 }}>Все исходящие письма и вложения сохраняются внутри групповой услуги. Ответ поставщика автоматически привяжется к заказу.</div>
-    </StackPanel>
+
+      <PanelSub>Возрастные категории и доп. требования <span style={{ textTransform: 'none', fontWeight: 400, color: 'var(--faint)' }}>(необязательно)</span></PanelSub>
+      <textarea className="input" rows={3} value={f.notes} onChange={(e) => set('notes', e.target.value)}
+        placeholder="2 ребёнка, 1 маломобильный, места рядом для семей" style={{ resize: 'vertical', width: '100%' }} />
+      <div style={{ fontSize: 12.5, color: 'var(--muted)', marginTop: 10 }}>Все исходящие письма и вложения сохраняются внутри групповой услуги. Ответ поставщика автоматически привяжется к заказу.</div>
+    </Drawer>
   );
 }
 
@@ -711,8 +732,21 @@ function GroupOrderDetail({ o, onBack }) {
 
 
 function GroupsPage() {
+  const toast = useToast();
   const [open, setOpen] = useState(null);
   const [create, setCreate] = useState(false);
+  const [orders, setOrders] = useState(GROUP_ORDERS);
+  const handleCreated = (o) => {
+    const g = {
+      no: o.no, client: o.client, legal: o.client, contact: '—',
+      route: '—', dateFrom: o.date || '—', dateTo: '—',
+      operators: [o.operator || 'Оператор'],
+      pax: [], status: 'Подготовка запроса', services: [],
+    };
+    setOrders((list) => [g, ...list]);
+    setCreate(false);
+    toast('Групповой заказ № ' + o.no + ' создан', 'ok');
+  };
   if (open) return (<><Topbar title="Групповые бронирования" /><div className="content"><GroupOrderDetail o={open} onBack={() => setOpen(null)} /></div></>);
   return (
     <>
@@ -721,10 +755,10 @@ function GroupsPage() {
         <div style={{ display: 'flex', alignItems: 'center', marginBottom: 16 }}>
           <div style={{ fontSize: 13, color: 'var(--muted)' }}>Основной групповой заказ = одна поездка, один состав, одна финсводка. Различие — только в способе оформления у поставщика.</div>
           <div style={{ flex: 1 }} />
-          <Button icon="plus" onClick={() => setCreate(true)}>Создать групповой запрос</Button>
+          <Button icon="plus" onClick={() => setCreate(true)}>Создать групповой заказ</Button>
         </div>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(420px,1fr))', gap: 14 }}>
-          {GROUP_ORDERS.map((o) => {
+          {orders.map((o) => {
             const agg = grAgg(o);
             return (
               <div key={o.no} className="card card-pad" style={{ cursor: 'pointer' }} onClick={() => setOpen(o)}>
@@ -752,7 +786,7 @@ function GroupsPage() {
             );
           })}
         </div>
-        {create && <GroupRequestPanel onClose={() => setCreate(false)} />}
+        <OrderCreateModal open={create} initialGroup onClose={() => setCreate(false)} onCreated={handleCreated} />
       </div>
     </>
   );
