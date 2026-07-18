@@ -384,7 +384,9 @@ function Drawer({ open, onClose, title, sub, children, footer, width }) {
     return () => window.removeEventListener('keydown', h);
   }, [open, onClose]);
   if (!open) return null;
-  return (
+  // Рендерим порталом в body: иначе вложенный в другую панель (container-type/overflow)
+  // Drawer с position:fixed привязывается к коробке родителя и открывается неправильно.
+  const node = (
     <div className="drawer-overlay" onMouseDown={(e) => { if (e.target === e.currentTarget) onClose && onClose(); }}>
       <div className="drawer scroll" style={width ? { width } : null}>
         <div className="drawer-head">
@@ -399,6 +401,7 @@ function Drawer({ open, onClose, title, sub, children, footer, width }) {
       </div>
     </div>
   );
+  return (typeof document !== 'undefined') ? ReactDOM.createPortal(node, document.body) : node;
 }
 
 

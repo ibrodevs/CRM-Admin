@@ -2,9 +2,8 @@ import { useState } from 'react';
 import { Icon } from './icons';
 import { Avatar, Button, Checkbox, Drawer, Field, Input, Pill, Select, Tabs, SearchBox, TimeField, useToast } from './ui';
 import { UFDateField, UnifiedBindPicker } from './forms_unified';
-import { CLIENTS_DB, CURRENT_USER, OPERATORS, ORDERS } from './data';
+import { CLIENTS_DB, CURRENT_USER, OPERATORS, ORDERS, SUPPLIERS } from './data';
 import { trSameDay } from './data/trips';
-import { StackPanel } from './components/shared-panels';
 import { FinRow, f$, finCreditCheck } from './page_finance';
 
 
@@ -165,13 +164,13 @@ function CalPaxPickDrawer({ order, onPick, onClose }) {
   );
 }
 
-function CalPaxPicker({ value, onChange, order }) {
+function CalPaxPicker({ value, onChange, order, placeholder = 'Выберите' }) {
   const [open, setOpen] = useState(false);
   return (
     <>
       <div className="input" onClick={() => setOpen(true)} style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 10 }}>
         <Icon name="search" style={{ width: 18, height: 18, color: 'var(--muted-2)', flexShrink: 0 }} />
-        <span style={{ color: value ? 'var(--ink)' : 'var(--faint)', fontSize: 15, flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{value || 'Выберите пассажира или сотрудника'}</span>
+        <span style={{ color: value ? 'var(--ink)' : 'var(--faint)', fontSize: 15, flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{value || placeholder}</span>
         {value
           ? <button type="button" onClick={(e) => { e.stopPropagation(); onChange(''); }} style={{ border: 'none', background: 'none', cursor: 'pointer', color: 'var(--muted-2)', display: 'inline-flex' }}><Icon name="x" style={{ width: 16, height: 16 }} /></button>
           : <Icon name="chevRight" style={{ width: 16, height: 16, color: 'var(--muted-2)' }} />}
@@ -243,7 +242,7 @@ function CalEventCreator({ type, day, presetOrder, onClose, onCreated }) {
   const presets = type === 'reminder' ? CAL_REMINDER_PRESETS : type === 'task' ? CAL_TASK_PRESETS : type === 'control' ? CAL_CONTROL_PRESETS : [];
 
   return (
-    <StackPanel title={t.l} width="min(640px,96vw)" onClose={onClose}
+    <Drawer open title={t.l} sub="Заполните поля и создайте событие" width="min(640px,96vw)" onClose={onClose}
       footer={<>
         <Button variant="secondary" style={{ flex: 1 }} onClick={onClose}>Отмена</Button>
         <Button style={{ flex: 1 }} icon="check" disabled={!canSave || creditBlocked} onClick={submit}>{dup && !dupChoice ? 'Проверить дубли' : 'Создать'}</Button>
@@ -279,10 +278,10 @@ function CalEventCreator({ type, day, presetOrder, onClose, onCreated }) {
         </div>
         <Field label="Клиент или компания"><CalOrderPicker value={f.order} onChange={(v) => set('order', v)} /></Field>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-          <Field label="Контактное лицо"><Input value={f.contact} onChange={(e) => set('contact', e.target.value)} /></Field>
-          <Field label="Пассажиры"><Input value={f.pax} onChange={(e) => set('pax', e.target.value)} placeholder="кол-во / имена" /></Field>
+          <Field label="Контактное лицо"><CalPaxPicker value={f.contact} order={f.order} onChange={(v) => set('contact', v)} placeholder="Выберите контакт" /></Field>
+          <Field label="Пассажир"><CalPaxPicker value={f.pax} order={f.order} onChange={(v) => set('pax', v)} placeholder="Выберите пассажира" /></Field>
           <Field label="Направление"><Input value={f.direction} onChange={(e) => set('direction', e.target.value)} placeholder="Москва → Казань" /></Field>
-          <Field label="Ответственный оператор"><Input value={f.resp} onChange={(e) => set('resp', e.target.value)} /></Field>
+          <Field label="Ответственный оператор"><Select value={f.resp} onChange={(e) => set('resp', e.target.value)} options={f.resp && !OPERATORS.includes(f.resp) ? [f.resp, ...OPERATORS] : OPERATORS} /></Field>
         </div>
         <Field label="Типы услуг">
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
@@ -320,8 +319,8 @@ function CalEventCreator({ type, day, presetOrder, onClose, onCreated }) {
         <Field label={type === 'task' ? 'Заказ (обязательно)' : 'Заказ (необязательно)'}><CalOrderPicker value={f.order} onChange={(v) => set('order', v)} /></Field>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
           <Field label="Услуга"><Select value={f.service} onChange={(e) => set('service', e.target.value)} options={['', ...CAL_SERVICE_TYPES]} placeholder="—" /></Field>
-          {type === 'reminder' && <Field label="Пассажир"><CalPaxPicker value={f.pax} order={f.order} onChange={(v) => set('pax', v)} /></Field>}
-          {type === 'reminder' && <Field label="Поставщик"><Input value={f.supplier} onChange={(e) => set('supplier', e.target.value)} placeholder="(необязательно)" /></Field>}
+          {type === 'reminder' && <Field label="Пассажир"><CalPaxPicker value={f.pax} order={f.order} onChange={(v) => set('pax', v)} placeholder="Выберите пассажира" /></Field>}
+          {type === 'reminder' && <Field label="Поставщик"><Select value={f.supplier} onChange={(e) => set('supplier', e.target.value)} options={['', ...SUPPLIERS.map((s) => s.name)]} placeholder="(необязательно)" /></Field>}
           {type !== 'control' && <Field label="Приоритет"><Select value={f.priority} onChange={(e) => set('priority', e.target.value)} options={CAL_PRIORITY} /></Field>}
         </div>
       </>)}
@@ -348,7 +347,7 @@ function CalEventCreator({ type, day, presetOrder, onClose, onCreated }) {
           <div style={{ color: 'var(--muted-2)', marginTop: 4 }}>В будущем — авто-мониторинг через API; пока работает как ручная проверка.</div>
         </div>
       )}
-    </StackPanel>
+    </Drawer>
   );
 }
 
