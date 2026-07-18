@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Icon } from './icons';
-import { ActionMenu, Avatar, Button, Checkbox, Drawer, EmptyState, Field, FilterChip, Input, Pill, SearchBox, Select, Tabs, Th, plural, useSort, useToast } from './ui';
+import { ActionMenu, Avatar, Button, Checkbox, Drawer, EmptyState, Field, FilterChip, Input, Pill, SearchBox, Select, Tabs, Th, TimeField, plural, useSort, useToast } from './ui';
 import { COMPANIES_DB, CURRENT_USER, DOCS2, DOC_KIND, DOC_STATUS2, FIN_OPS, FIN_OP_STATUS, FULFILLMENT, ORDERS, ORDER_STAGES, SERVICE_KIND } from './data';
-import { UnifiedBindField } from './forms_unified';
+import { UnifiedBindField, UFDateField } from './forms_unified';
 import { Topbar } from './layout';
 import { DocCorrectionPanel, docCorrKind } from './page_flights';
 
@@ -849,7 +849,7 @@ function ReceiptEditForm({ type, p, onChange }) {
       <RSub style={{ marginTop: 0 }}>{recType(type).legLabel === 'Проживание' ? 'Гость и бронь' : 'Пассажир и документ'}</RSub>
       <div className="form-grid">
         <Field label={t.legLabel === 'Проживание' ? 'Гость' : 'Пассажир'}><Input value={p.passenger} onChange={(e) => set('passenger', e.target.value)} /></Field>
-        <Field label="Дата рождения"><Input value={p.dob} onChange={(e) => set('dob', e.target.value)} /></Field>
+        <UFDateField label="Дата рождения" value={p.dob && p.dob !== '—' ? p.dob : null} onChange={(v) => set('dob', v)} placeholder="дд.мм.гггг" />
         <Field label="Документ"><Input value={p.docNo} onChange={(e) => set('docNo', e.target.value)} /></Field>
         <Field label={t.docNoLabel}><Input value={p.ticketNo} onChange={(e) => set('ticketNo', e.target.value)} /></Field>
         <Field label={t.refLabel}><Input value={p.ref} onChange={(e) => set('ref', e.target.value)} /></Field>
@@ -880,10 +880,10 @@ function ReceiptEditForm({ type, p, onChange }) {
           <div className="form-grid">
             <Field label="Откуда"><Input value={l.from} onChange={(e) => setLeg(i, 'from', e.target.value)} /></Field>
             <Field label="Куда"><Input value={l.to} onChange={(e) => setLeg(i, 'to', e.target.value)} /></Field>
-            <Field label="Дата"><Input value={l.date} onChange={(e) => setLeg(i, 'date', e.target.value)} /></Field>
+            <UFDateField label="Дата" value={l.date || null} onChange={(v) => setLeg(i, 'date', v)} placeholder="дд.мм.гггг" />
             <Field label={t.legLabel === 'Проживание' ? 'Условия' : 'Рейс / поезд'}><Input value={l.flightNo} onChange={(e) => setLeg(i, 'flightNo', e.target.value)} /></Field>
-            <Field label="Вылет / заезд"><Input value={l.dep} onChange={(e) => setLeg(i, 'dep', e.target.value)} /></Field>
-            <Field label="Прилёт / выезд"><Input value={l.arr} onChange={(e) => setLeg(i, 'arr', e.target.value)} /></Field>
+            <TimeField label="Вылет / заезд" value={l.dep} onChange={(v) => setLeg(i, 'dep', v)} />
+            <TimeField label="Прилёт / выезд" value={l.arr} onChange={(v) => setLeg(i, 'arr', v)} />
           </div>
         </div>
       ))}

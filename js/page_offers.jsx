@@ -1,12 +1,28 @@
 import { useState, useEffect, useRef } from 'react';
 import { BrandMark, Icon } from './icons';
-import { ActionMenu, Avatar, Button, Drawer, EmptyState, Field, FilterChip, Input, Pill, Radio, SearchBox, Select, Th, fmtDate, plural, useSort, useToast } from './ui';
+import { ActionMenu, Avatar, Button, Drawer, EmptyState, Field, FilterChip, Input, Pill, Radio, SearchBox, Select, Th, TimeField, fmtDate, plural, useSort, useToast } from './ui';
+import { UFDateField } from './forms_unified';
 import { CURRENCIES, CURRENT_USER, KP_STATUS, KP_STATUS_FLOW, OPERATORS, ORDERS, ORDER_PARTICIPANTS, ORDER_SERVICES, ORDER_STATUS, PROPOSALS, SERVICE_KIND } from './data';
 import { SEND_CHANNELS, orderClientChannel, sendChannelMeta } from './data/access-control';
 import { Topbar } from './layout';
 import { PAX_DEFAULT_OPTIONS } from './page_flights';
 import { PanelSub, StackPanel } from './components/shared-panels';
 import { AddServicePanel } from './page_order_card';
+
+
+// Срок действия КП = дата + время, оба выбираются шаблонно (без произвольного ввода).
+function ValidUntilField({ value, onChange, label = 'Срок действия предложения' }) {
+  const parts = String(value || '').trim().split(/\s+/);
+  const dpart = parts[0] && /^\d/.test(parts[0]) ? parts[0] : '';
+  const tpart = /^\d{1,2}:\d{2}$/.test(parts[1] || '') ? parts[1] : '';
+  const combine = (d, t) => onChange((d || '') + (t ? ' ' + t : ''));
+  return (
+    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+      <UFDateField label={label} value={dpart || null} onChange={(v) => combine(v, tpart)} placeholder="дд.мм.гггг" />
+      <TimeField label="Время" value={tpart} onChange={(v) => combine(dpart, v)} />
+    </div>
+  );
+}
 
 
 
@@ -693,7 +709,7 @@ function KPModule({ order, services, participants, onApprove }) {
             <div className="card card-pad" style={{ marginTop: 18 }}>
               <Field label="Валюта"><Select options={CURRENCIES.map((c) => ({ value: c.code, label: `${c.code} · ${c.name}` }))} value={active.currency} onChange={(e) => setField('currency', e.target.value)} /></Field>
               <div style={{ height: 14 }} />
-              <Field label="Срок действия предложения"><Input value={active.validUntil} onChange={(e) => setField('validUntil', e.target.value)} leadIcon="calendar" /></Field>
+              <ValidUntilField value={active.validUntil} onChange={(v) => setField('validUntil', v)} />
             </div>
           </div>
         ) : (
@@ -754,7 +770,7 @@ function KPModule({ order, services, participants, onApprove }) {
                 <div className="card card-pad">
                   <Field label="Валюта"><Select options={CURRENCIES.map((c) => ({ value: c.code, label: `${c.code} · ${c.name}` }))} value={active.currency} onChange={(e) => setField('currency', e.target.value)} /></Field>
                   <div style={{ height: 14 }} />
-                  <Field label="Срок действия предложения"><Input value={active.validUntil} onChange={(e) => setField('validUntil', e.target.value)} leadIcon="calendar" /></Field>
+                  <ValidUntilField value={active.validUntil} onChange={(v) => setField('validUntil', v)} />
                 </div>
                 <div className="card card-pad">
                   <h3 className="card-title" style={{ fontSize: 16, marginBottom: 10 }}>Участники</h3>
@@ -962,8 +978,8 @@ function KPCreateModal({ open, onClose, onCreated, onOpenOrder }) {
         <Field label="Шаблон КП (структура)"><Select options={KP_DOC_TYPES} value={docType} onChange={(e) => setDocType(e.target.value)} /></Field>
         {docType !== 'train' && <Field label="Название варианта"><Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Вариант 1 · Прямые рейсы" /></Field>}
         <Field label="Валюта"><Select options={CURRENCIES.map((c) => ({ value: c.code, label: `${c.code} · ${c.name}` }))} value={currency} onChange={(e) => setCurrency(e.target.value)} /></Field>
-        <Field label="Действует до (дата)"><Input value={valid} onChange={(e) => setValid(e.target.value)} leadIcon="calendar" /></Field>
-        <Field label="Время"><Input value={validTime} onChange={(e) => setValidTime(e.target.value)} leadIcon="clock" placeholder="18:00" /></Field>
+        <UFDateField label="Действует до (дата)" value={valid || null} onChange={(v) => setValid(v)} placeholder="дд.мм.гггг" />
+        <TimeField label="Время" value={validTime} onChange={(v) => setValidTime(v)} />
         <Field label="Часовой пояс"><Select options={['МСК (UTC+3)', 'Бишкек (UTC+6)', 'Алматы (UTC+5)', 'UTC', 'Дубай (UTC+4)']} value={validTz} onChange={(e) => setValidTz(e.target.value)} /></Field>
         <Field label="Срок оплаты" hint="необязательно"><Input value={payTerm} onChange={(e) => setPayTerm(e.target.value)} placeholder="напр. до 20.06 или 3 дня" /></Field>
         <Field label="Ответственный за КП"><Select options={OPERATORS} value={responsible} onChange={(e) => setResponsible(e.target.value)} /></Field>

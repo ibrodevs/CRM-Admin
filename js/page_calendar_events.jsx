@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import { Icon } from './icons';
-import { Button, Checkbox, Drawer, Field, Input, Pill, Select, useToast } from './ui';
-import { CURRENT_USER, ORDERS } from './data';
+import { Avatar, Button, Checkbox, Drawer, Field, Input, Pill, Select, Tabs, SearchBox, TimeField, useToast } from './ui';
+import { UFDateField, UnifiedBindPicker } from './forms_unified';
+import { CLIENTS_DB, CURRENT_USER, OPERATORS, ORDERS } from './data';
 import { trSameDay } from './data/trips';
 import { StackPanel } from './components/shared-panels';
 import { FinRow, f$, finCreditCheck } from './page_finance';
@@ -95,29 +96,22 @@ function CalDayMenu({ day, pos, onPick, onClose }) {
 
 
 function CalOrderPicker({ value, onChange }) {
-  const [q, setQ] = useState('');
   const [open, setOpen] = useState(false);
-  const all = (typeof ORDERS !== 'undefined' ? ORDERS : []);
-  const list = q ? all.filter((o) => String(o.no).includes(q) || o.client.toLowerCase().includes(q.toLowerCase())).slice(0, 6) : all.slice(0, 6);
   const info = value ? calOrderInfo(value) : null;
   return (
     <div>
-      <div style={{ position: 'relative' }}>
-        <Input leadIcon="search" value={value ? '№ ' + value + ' · ' + (info ? info.client : '') : q}
-          onChange={(e) => { setQ(e.target.value); onChange(null); setOpen(true); }} onFocus={() => setOpen(true)}
-          placeholder="Умный поиск заказа: № или клиент" />
-        {value && <button type="button" onClick={() => { onChange(null); setQ(''); }} style={{ position: 'absolute', right: 10, top: 13, border: 'none', background: 'none', cursor: 'pointer', color: 'var(--muted-2)' }}><Icon name="x" style={{ width: 16, height: 16 }} /></button>}
-        {open && !value && (
-          <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 5, marginTop: 4, background: '#fff', border: '1px solid var(--line)', borderRadius: 10, boxShadow: '0 8px 24px rgba(16,23,38,.12)', maxHeight: 220, overflowY: 'auto' }}>
-            {list.map((o) => (
-              <button key={o.no + o.client} type="button" onMouseDown={() => { onChange(o.no); setOpen(false); }} style={{ display: 'block', width: '100%', textAlign: 'left', padding: '9px 12px', border: 'none', background: 'none', cursor: 'pointer', borderBottom: '1px solid var(--line)' }}>
-                <span style={{ fontWeight: 600, fontSize: 13 }}>№ {o.no}</span> <span style={{ color: 'var(--muted)', fontSize: 12.5 }}>· {o.client} · {o.operator}</span>
-              </button>
-            ))}
-            {list.length === 0 && <div style={{ padding: 12, fontSize: 12.5, color: 'var(--muted)' }}>Не найдено</div>}
-          </div>
-        )}
-      </div>
+      <button type="button" className="select" onClick={() => setOpen(true)}
+        style={{ display: 'flex', alignItems: 'center', gap: 10, textAlign: 'left', cursor: 'pointer', width: '100%' }}>
+        <Icon name="search" style={{ width: 16, height: 16, color: 'var(--muted-2)', flexShrink: 0 }} />
+        <span style={{ flex: 1, minWidth: 0, color: value ? 'var(--ink)' : 'var(--faint)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+          {value ? '№ ' + value + (info ? ' · ' + info.client : '') : 'Умный поиск заказа: № или клиент'}
+        </span>
+        {value
+          ? <span role="button" tabIndex={0} onClick={(e) => { e.stopPropagation(); onChange(null); }} style={{ border: 'none', background: 'none', cursor: 'pointer', color: 'var(--muted-2)', display: 'inline-flex' }}><Icon name="x" style={{ width: 16, height: 16 }} /></span>
+          : <Icon name="chevDown" style={{ width: 16, height: 16, color: 'var(--muted-2)' }} />}
+      </button>
+      <UnifiedBindPicker open={open} modes={['order']} title="Выбор заказа" sub="Умный поиск по № или клиенту"
+        onClose={() => setOpen(false)} onPick={(t) => { onChange(t.order ? t.order.no : null); setOpen(false); }} />
       {info && (
         <div style={{ marginTop: 8, padding: '10px 12px', borderRadius: 10, background: 'var(--surface-2)', fontSize: 12.5, display: 'grid', gap: 3 }}>
           <div style={{ color: 'var(--muted)' }}>Клиент: <b style={{ color: 'var(--ink)' }}>{info.client}</b> · тип: {info.company}</div>
@@ -126,6 +120,64 @@ function CalOrderPicker({ value, onChange }) {
         </div>
       )}
     </div>
+  );
+}
+
+
+// Боковое окно выбора пассажира/сотрудника — по аналогии с поиском заказа, но в drawer'е.
+function CalPaxPickDrawer({ order, onPick, onClose }) {
+  const [tab, setTab] = useState('pax');
+  const [q, setQ] = useState('');
+  const s = q.trim().toLowerCase();
+  const orderClient = order && typeof calOrderInfo === 'function' ? calOrderInfo(order) : null;
+  const passengers = (typeof CLIENTS_DB !== 'undefined' ? CLIENTS_DB : []).map((c) => ({
+    id: c.id, name: c.name, sub: [c.phone, c.doc].filter(Boolean).join(' · '), tag: c.status, tone: 'blue',
+    fromOrder: !!(orderClient && c.company && orderClient.client && c.company === orderClient.client),
+  }));
+  const employees = (typeof OPERATORS !== 'undefined' ? OPERATORS : []).map((n, i) => ({ id: 'op-' + i, name: n, sub: 'Сотрудник агентства', tag: 'Оператор', tone: 'teal' }));
+  const src = tab === 'pax' ? passengers : employees;
+  let list = s ? src.filter((p) => p.name.toLowerCase().includes(s) || (p.sub || '').toLowerCase().includes(s)) : src;
+  if (tab === 'pax') list = [...list].sort((a, b) => (b.fromOrder ? 1 : 0) - (a.fromOrder ? 1 : 0));
+  return (
+    <Drawer open onClose={onClose} title="Выбор пассажира или сотрудника"
+      sub="Умный поиск по ФИО, телефону или документу" width="min(480px,96vw)"
+      footer={<><Button variant="secondary" onClick={onClose}>Отмена</Button><div style={{ flex: 1 }} /></>}>
+      <div style={{ marginBottom: 12 }}>
+        <Tabs tabs={[{ key: 'pax', label: 'Пассажиры' }, { key: 'emp', label: 'Сотрудники' }]} value={tab} onChange={(k) => { setTab(k); setQ(''); }} />
+      </div>
+      <SearchBox value={q} onChange={setQ} placeholder={tab === 'pax' ? 'Поиск пассажира: ФИО, телефон, документ' : 'Поиск сотрудника'} />
+      <div style={{ marginTop: 12, display: 'flex', flexDirection: 'column', gap: 6 }}>
+        {list.map((p) => (
+          <button key={p.id} type="button" onClick={() => onPick(p.name)}
+            style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 12px', border: '1px solid var(--line)', borderRadius: 12, background: p.fromOrder ? 'var(--blue-soft)' : '#fff', cursor: 'pointer', textAlign: 'left', width: '100%', fontFamily: 'inherit' }}>
+            <Avatar name={p.name} size={34} />
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontWeight: 600, color: 'var(--ink)', fontSize: 14 }}>{p.name}</div>
+              <div style={{ fontSize: 12, color: 'var(--muted)' }}>{p.sub}</div>
+            </div>
+            {p.fromOrder && <Pill tone="blue">из заказа</Pill>}
+            {p.tag && <Pill tone={p.tone}>{p.tag}</Pill>}
+          </button>
+        ))}
+        {list.length === 0 && <div style={{ padding: 16, textAlign: 'center', color: 'var(--muted)', fontSize: 13 }}>Ничего не найдено</div>}
+      </div>
+    </Drawer>
+  );
+}
+
+function CalPaxPicker({ value, onChange, order }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <>
+      <div className="input" onClick={() => setOpen(true)} style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 10 }}>
+        <Icon name="search" style={{ width: 18, height: 18, color: 'var(--muted-2)', flexShrink: 0 }} />
+        <span style={{ color: value ? 'var(--ink)' : 'var(--faint)', fontSize: 15, flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{value || 'Выберите пассажира или сотрудника'}</span>
+        {value
+          ? <button type="button" onClick={(e) => { e.stopPropagation(); onChange(''); }} style={{ border: 'none', background: 'none', cursor: 'pointer', color: 'var(--muted-2)', display: 'inline-flex' }}><Icon name="x" style={{ width: 16, height: 16 }} /></button>
+          : <Icon name="chevRight" style={{ width: 16, height: 16, color: 'var(--muted-2)' }} />}
+      </div>
+      {open && <CalPaxPickDrawer order={order} onClose={() => setOpen(false)} onPick={(name) => { onChange(name); setOpen(false); }} />}
+    </>
   );
 }
 
@@ -221,8 +273,8 @@ function CalEventCreator({ type, day, presetOrder, onClose, onCreated }) {
 
       {type === 'order' && (<>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12 }}>
-          <Field label="Дата начала"><Input value={f.dateStr} onChange={(e) => set('dateStr', e.target.value)} /></Field>
-          <Field label="Дата окончания"><Input value={f.endStr} onChange={(e) => set('endStr', e.target.value)} placeholder="дд.мм.гггг" /></Field>
+          <UFDateField label="Дата начала" value={f.dateStr || null} onChange={(v) => set('dateStr', v)} placeholder="дд.мм.гггг" />
+          <UFDateField label="Дата окончания" value={f.endStr || null} onChange={(v) => set('endStr', v)} placeholder="дд.мм.гггг" />
           <Field label="Продолжительность"><Input value={f.endStr ? '—' : ''} placeholder="авто" disabled /></Field>
         </div>
         <Field label="Клиент или компания"><CalOrderPicker value={f.order} onChange={(v) => set('order', v)} /></Field>
@@ -262,13 +314,13 @@ function CalEventCreator({ type, day, presetOrder, onClose, onCreated }) {
 
       {type !== 'order' && (<>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-          <Field label="Дата"><Input value={f.dateStr} onChange={(e) => set('dateStr', e.target.value)} /></Field>
-          <Field label="Время"><Input value={f.time} onChange={(e) => set('time', e.target.value)} placeholder="чч:мм" /></Field>
+          <UFDateField label="Дата" value={f.dateStr || null} onChange={(v) => set('dateStr', v)} placeholder="дд.мм.гггг" />
+          <TimeField label="Время" value={f.time} onChange={(v) => set('time', v)} />
         </div>
         <Field label={type === 'task' ? 'Заказ (обязательно)' : 'Заказ (необязательно)'}><CalOrderPicker value={f.order} onChange={(v) => set('order', v)} /></Field>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
           <Field label="Услуга"><Select value={f.service} onChange={(e) => set('service', e.target.value)} options={['', ...CAL_SERVICE_TYPES]} placeholder="—" /></Field>
-          {type === 'reminder' && <Field label="Пассажир"><Input value={f.pax} onChange={(e) => set('pax', e.target.value)} placeholder="ФИО (необязательно)" /></Field>}
+          {type === 'reminder' && <Field label="Пассажир"><CalPaxPicker value={f.pax} order={f.order} onChange={(v) => set('pax', v)} /></Field>}
           {type === 'reminder' && <Field label="Поставщик"><Input value={f.supplier} onChange={(e) => set('supplier', e.target.value)} placeholder="(необязательно)" /></Field>}
           {type !== 'control' && <Field label="Приоритет"><Select value={f.priority} onChange={(e) => set('priority', e.target.value)} options={CAL_PRIORITY} /></Field>}
         </div>

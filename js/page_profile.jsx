@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Icon } from './icons';
 import { Avatar, Button, Checkbox, Drawer, Field, Input, Pill, Select, Tabs, Toggle, useToast } from './ui';
+import { UFDateField } from './forms_unified';
 import { CURRENCIES, CURRENT_USER } from './data';
 import { OPERATOR_SLA, OPERATOR_SVC_ACCESS, SVC_ACCESS_KINDS, SVC_ACCESS_RIGHTS, fullRights, noRights, operatorKindsLabel, operatorSla, operatorSvcAccess } from './data/access-control';
 import { Topbar } from './layout';
@@ -227,7 +228,7 @@ function ProfilePage({ onNavigate, initialTab }) {
               <Field label="Подразделение"><Input value={pf.dept} onChange={setField('dept')} /></Field>
               <Field label="Роль в системе"><Input value={pf.role} readOnly /></Field>
               <Field label="Руководитель"><Input value={pf.manager} onChange={setField('manager')} /></Field>
-              <Field label="Дата приёма на работу"><Input value={pf.hired} onChange={setField('hired')} leadIcon="calendar" /></Field>
+              <UFDateField label="Дата приёма на работу" value={pf.hired || null} onChange={(v) => setField('hired')({ target: { value: v } })} placeholder="дд.мм.гггг" />
               <Field label="Рабочий e-mail"><Input value={pf.workEmail} onChange={setField('workEmail')} leadIcon="mail" /></Field>
               <Field label="Рабочий телефон"><Input value={pf.workPhone} onChange={setField('workPhone')} leadIcon="phone" /></Field>
               <Field label="Внутренний номер"><Input value={pf.internalPhone} onChange={setField('internalPhone')} /></Field>
