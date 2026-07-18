@@ -21,6 +21,7 @@ import { PaxGroupsDrawer, PaxUnifyPanel, paxMergeAppend } from './pax_unify';
 import { AeroAddFlow, ManualAltForm, RailAddFlow, ServiceAddFlow, ServiceCardHistoryDrawer, ServiceCardSendPanel, SvcCard } from './page_services';
 import { HotelPicker } from './page_hotel_picker';
 import { getThreadForOrder, threadUnread } from './page_chats';
+import { GROUP_ORDERS, GroupServiceScenario, GrMatrixTab, GrDiffTab } from './page_groups';
 import { financeSnapshot, ocCurrency, ocMoney, opDebt, opPayable, svcCalc } from './features/orders/finance';
 
 
@@ -868,7 +869,14 @@ function TabServices({ orderNo, services, participants, requestType, onOpenAvia,
         <EmptyState icon="briefcase" title="Услуги не добавлены" sub="Добавьте авиабилеты, отели, трансферы и другие услуги в заказ" />
       ) : (
         <div className="card" style={{ padding: '4px 18px' }}>
-          {shown.map((s) => <ServiceListRow key={s.id} s={s} paxCount={participants.length} isGroup={isGroup} onOpen={openItem} orderNo={orderNo} participants={participants} selected={sel.has(s.id)} onSel={selMode ? () => toggleSel(s.id) : null} />)}
+          {shown.map((s) => isGroup ? (
+            <div key={s.id} style={{ padding: '2px 0' }}>
+              <ServiceListRow s={s} paxCount={participants.length} isGroup={isGroup} onOpen={openItem} orderNo={orderNo} participants={participants} selected={sel.has(s.id)} onSel={selMode ? () => toggleSel(s.id) : null} />
+              <GroupServiceScenario s={s} pax={participants} orderNo={orderNo} />
+            </div>
+          ) : (
+            <ServiceListRow key={s.id} s={s} paxCount={participants.length} isGroup={isGroup} onOpen={openItem} orderNo={orderNo} participants={participants} selected={sel.has(s.id)} onSel={selMode ? () => toggleSel(s.id) : null} />
+          ))}
         </div>
       )}
     </div>
@@ -1851,10 +1859,19 @@ function OrderCard({ order, onBack, initTab, initSvc, initSvcSearch, fresh, onOp
 
   const docsReady = participants.filter((p) => p.docStatus === 'ok').length;
 
+  const isGroup = requestType === 'Групповая';
+  // Групповая модель для вкладок, которых нет у обычного заказа (Матрица, Различия).
+  const groupModel = isGroup ? (GROUP_ORDERS.find((g) => String(g.no) === String(order.no)) || GROUP_ORDERS[0]) : null;
+
   const TABS = [
     { key: 'route', label: 'Маршрут', icon: 'route' },
     { key: 'services', label: 'Услуги', icon: 'briefcase', count: services.length },
     { key: 'participants', label: 'Пассажиры', icon: 'users', count: participants.length },
+    // Групповой заказ = та же карточка + доп. вкладки (единый вид группы и сверка условий броней)
+    ...(isGroup ? [
+      { key: 'matrix', label: 'Матрица', icon: 'grid' },
+      { key: 'diff', label: 'Различия', icon: 'swap' },
+    ] : []),
     { key: 'documents', label: 'Документы', icon: 'docs', countText: docsReady + '/' + participants.length },
     { key: 'finance', label: 'Финансы', icon: 'finance' },
     { key: 'history', label: 'История', icon: 'clock' },
@@ -1975,6 +1992,8 @@ function OrderCard({ order, onBack, initTab, initSvc, initSvcSearch, fresh, onOp
       case 'clients': return <TabClients order={order} onOpenChat={onOpenChat} />;
       case 'participants': { const oco = (typeof COMPANIES_DB !== 'undefined') ? COMPANIES_DB.find((c) => c.name === order.client) : null; return <TabParticipants list={participants} isGroup={requestType === 'Групповая'} groups={requestType === 'Групповая' ? AVIA_GROUPS_SEED : null} fresh={fresh} orderNo={order.no} orderAirline={(services.find((s) => s.kind === 'Авиа') || {}).supplier} companyId={oco ? oco.id : null} companyName={oco ? oco.name : order.client} onPassport={setPassport} onAdd={() => setPaxOpen(true)} onEdit={(p) => setEditPax(p)} onAddDoc={(p) => setDocPax(p)} onApplyRoster={setParticipants} />; }
       case 'route': return <TabRoute services={services} />;
+      case 'matrix': return groupModel ? <GrMatrixTab o={groupModel} /> : null;
+      case 'diff': return groupModel ? <GrDiffTab o={groupModel} /> : null;
       case 'services': return renderServicesArea();
       case 'offers': return <KPModule order={order} services={services} participants={participants}
         onApprove={() => { setStageIdx((i) => Math.max(i, 2)); toast('Созданы финансовые записи и задачи по выпуску документов', 'ok'); }} />;

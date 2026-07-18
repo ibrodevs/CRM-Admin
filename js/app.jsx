@@ -137,7 +137,7 @@ function App() {
       {route === 'suppliers' && <SuppliersPage intent={intent} onConsume={() => setIntent(null)} suppliers={suppliers} addSupplier={addSupplier} />}
       {route === 'chats' && <ChatsPage onOpenOrder={openOrder} />}
       {route === 'finance' && <FinancePage />}
-      {route === 'groups' && <GroupsPage />}
+      {route === 'groups' && <GroupsPage onOpenOrder={(o) => openOrder(o)} />}
       {route === 'documents' && <DocCenterPage />}
       {route === 'receipts' && <ReceiptEditorPage />}
       {route === 'fulfillment' && <FulfillmentPage onOpenOrder={openOrder} />}

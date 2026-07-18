@@ -310,6 +310,115 @@ function SplitFlow({ s, pax }) {
 }
 const grIconBtn = { border: '1px solid var(--field-line)', background: '#fff', borderRadius: 8, width: 28, height: 28, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', color: 'var(--muted)' };
 
+
+// Каналы запроса группового блока у поставщика (онлайн, почта и иные каналы связи)
+const GR_CHANNELS = [
+  { id: 'api', l: 'Онлайн / API', icon: 'api', sub: 'GDS · личный кабинет' },
+  { id: 'email', l: 'Почта / Email', icon: 'mail', sub: 'групповой отдел' },
+  { id: 'other', l: 'Иные каналы', icon: 'chat', sub: 'мессенджер · телефон' },
+];
+
+// Приводит обычную услугу заказа к параметрам, которые нужны сценарию группы
+function grSvcModel(s, paxCount) {
+  const per = Math.max(1, paxCount || s.pax || 1);
+  const maxPer = s.kind === 'Гостиница' ? 5 : s.kind === 'Авиа' ? 9 : s.kind === 'ЖД' ? 4 : 30;
+  return {
+    ...s, maxPer,
+    pricePer: Math.max(1, Math.round((Number(s.sum) || 0) / per)) || 100,
+    requested: per, confirmed: 0, issued: 0,
+    block: { no: 'GRP-' + (s.id || ''), pnr: '—', confirmedSeats: 0, blockValid: '—' },
+  };
+}
+
+
+// Per-service сценарий оформления группы: единый блок у поставщика ИЛИ дроблёное бронирование.
+// Выбор услуг делается точно так же, как в обычном заказе; здесь — только способ подачи запроса
+// поставщику и переход к дроблению при невозможности предоставить блок.
+function GroupServiceScenario({ s, pax = [], orderNo }) {
+  const toast = useToast();
+  const paxCount = pax.length || s.pax || 1;
+  const [scenario, setScenario] = useState('block');   // 'block' | 'split'
+  const [open, setOpen] = useState(false);
+  const [req, setReq] = useState('idle');               // idle | sent | confirmed | denied
+  const [channel, setChannel] = useState(null);
+  const supplier = s.supplier || 'поставщик';
+  const gsvc = grSvcModel(s, paxCount);
+
+  const sendRequest = (ch) => {
+    setChannel(ch); setReq('sent');
+    toast('Запрос группового блока отправлен · ' + ch.l + ' · ' + supplier, 'ok');
+    setTimeout(() => setReq('confirmed'), 1400);
+  };
+  const goSplit = () => { setScenario('split'); setOpen(true); toast('Услуга переведена на дроблёное бронирование', 'info'); };
+
+  const summary = scenario === 'split'
+    ? { l: 'Дроблёное бронирование', tone: 'teal', icon: 'copy' }
+    : req === 'confirmed' ? { l: 'Групповой блок подтверждён', tone: 'green', icon: 'checkCircle' }
+    : req === 'sent' ? { l: 'Блок запрошен · ожидаем ответ', tone: 'blue', icon: 'loader' }
+    : req === 'denied' ? { l: 'Блок недоступен', tone: 'amber', icon: 'alertTriangle' }
+    : { l: 'Групповой блок', tone: 'blue', icon: 'grid' };
+
+  return (
+    <div style={{ margin: '0 0 10px 50px', borderLeft: '2px solid var(--field-line)', paddingLeft: 14 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', padding: '2px 0 6px' }}>
+        <Pill tone="blue"><Icon name="users" style={{ width: 12, height: 12, verticalAlign: -2 }} /> Оформление в группе</Pill>
+        <span style={{ fontSize: 12.5, color: 'var(--muted)' }}>Способ:</span>
+        {[['block', 'Групповой блок', 'grid'], ['split', 'Дроблёное', 'copy']].map(([key, label, ic]) => (
+          <button key={key} type="button" onClick={() => { setScenario(key); setOpen(true); }}
+            style={{ padding: '5px 11px', borderRadius: 8, border: '1px solid ' + (scenario === key ? 'var(--blue)' : 'var(--field-line)'), background: scenario === key ? 'var(--blue-soft)' : '#fff', cursor: 'pointer', fontSize: 12.5, fontWeight: 600, color: scenario === key ? 'var(--blue-soft-text)' : 'var(--body)', display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+            <Icon name={ic} style={{ width: 13, height: 13 }} />{label}
+          </button>
+        ))}
+        <Pill tone={summary.tone}><Icon name={summary.icon} style={{ width: 12, height: 12, verticalAlign: -2 }} /> {summary.l}</Pill>
+        <div style={{ flex: 1 }} />
+        <Button size="sm" variant="secondary" icon={open ? 'chevUp' : 'chevDown'} onClick={() => setOpen((v) => !v)}>{open ? 'Свернуть' : 'Настроить'}</Button>
+      </div>
+
+      {open && scenario === 'block' && (
+        <div className="card card-pad" style={{ background: 'var(--surface-2)', marginTop: 4 }}>
+          {req === 'idle' && (<>
+            <div style={{ fontWeight: 700, color: 'var(--ink)', marginBottom: 4 }}>Запрос группового блока у поставщика</div>
+            <div style={{ fontSize: 12.5, color: 'var(--muted)', marginBottom: 12 }}>{supplier} · {paxCount} мест. Выберите канал связи для запроса блока.</div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px,1fr))', gap: 10 }}>
+              {GR_CHANNELS.map((ch) => (
+                <button key={ch.id} type="button" onClick={() => sendRequest(ch)}
+                  style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '12px 14px', border: '1px solid var(--field-line)', borderRadius: 12, background: '#fff', cursor: 'pointer', textAlign: 'left' }}>
+                  <span className="oc-svc-ic" style={{ background: 'var(--blue)', width: 34, height: 34 }}><Icon name={ch.icon} /></span>
+                  <span><div style={{ fontWeight: 700, color: 'var(--ink)', fontSize: 13.5 }}>{ch.l}</div><div style={{ fontSize: 12, color: 'var(--muted)' }}>{ch.sub}</div></span>
+                </button>
+              ))}
+            </div>
+          </>)}
+          {req === 'sent' && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+              <Icon name="loader" style={{ width: 20, height: 20, color: 'var(--blue)', animation: 'spin 1s linear infinite' }} />
+              <div style={{ flex: 1, minWidth: 200 }}><div style={{ fontWeight: 700, color: 'var(--ink)' }}>Запрос отправлен · {channel && channel.l}</div>
+                <div style={{ fontSize: 12.5, color: 'var(--muted)' }}>Ожидаем подтверждение блока от {supplier}. Ответ автоматически привяжется к услуге.</div></div>
+              <Button size="sm" variant="secondary" icon="alertTriangle" onClick={() => setReq('denied')}>Блок недоступен</Button>
+            </div>
+          )}
+          {req === 'confirmed' && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+              <Icon name="checkCircle" style={{ width: 22, height: 22, color: 'var(--green)' }} />
+              <div style={{ flex: 1, minWidth: 200 }}><div style={{ fontWeight: 700, color: 'var(--ink)' }}>Групповой блок подтверждён на {paxCount} мест</div>
+                <div style={{ fontSize: 12.5, color: 'var(--muted)' }}>{supplier} · канал {channel && channel.l}. Дальше — внесение имён и выписка по блоку.</div></div>
+              <Button size="sm" variant="secondary" icon="mail" onClick={() => toast('Запрос повторно отправлен поставщику', 'ok')}>Повторить запрос</Button>
+            </div>
+          )}
+          {req === 'denied' && (
+            <WarnBanner tone="amber" icon="alertTriangle" title="Поставщик не может предоставить единый блок"
+              text={<span>По услуге «{s.title || s.kind}» блок недоступен. Оформите её дроблёным бронированием — система разобьёт {paxCount} участников на несколько технических броней.
+                <span style={{ display: 'block', marginTop: 10 }}><Button size="sm" icon="copy" onClick={goSplit}>Перейти к дроблёному бронированию</Button></span></span>} />
+          )}
+        </div>
+      )}
+
+      {open && scenario === 'split' && <div style={{ marginTop: 4 }}><SplitFlow s={gsvc} pax={pax} /></div>}
+    </div>
+  );
+}
+
+
 function GrServiceCard({ o, s }) {
   const toast = useToast();
   const [open, setOpen] = useState(s.status === 'Требуется решение');
@@ -731,11 +840,30 @@ function GroupOrderDetail({ o, onBack }) {
 
 
 
-function GroupsPage() {
+// Групповой заказ открывается в ТОЙ ЖЕ карточке, что и обычный (OrderCard) — идентичный вид,
+// отличаются только вкладки. Приводим групповую модель к форме заказа реестра.
+function grToOrderShape(o) {
+  const stMap = {
+    'Требуется решение': 'Требует проверки', 'Требуется вмешательство': 'Требует проверки',
+    'Ожидается ответ': 'В работе', 'Ожидается оплата': 'Ожидание оплаты',
+    'Подготовка запроса': 'Новое', 'Подготовка распределения': 'Новое',
+  };
+  return {
+    no: o.no, client: o.client, requestType: 'Групповая', isGroup: true,
+    service: (o.services && o.services[0] && o.services[0].kind) || 'Авиа',
+    status: stMap[o.status] || 'В работе',
+    operator: (o.operators && o.operators[0]) || o.operator || 'Даниель', operatorRole: 'Оператор',
+    sum: grAgg(o).cost || 0, currency: 'USD',
+    services: (o.services && o.services.length) || 1, progress: 0,
+    date: o.dateFrom || o.date || '14.06.26',
+  };
+}
+
+function GroupsPage({ onOpenOrder }) {
   const toast = useToast();
-  const [open, setOpen] = useState(null);
   const [create, setCreate] = useState(false);
   const [orders, setOrders] = useState(GROUP_ORDERS);
+  const openOrder = (o) => { if (onOpenOrder) onOpenOrder(grToOrderShape(o)); };
   const handleCreated = (o) => {
     const g = {
       no: o.no, client: o.client, legal: o.client, contact: '—',
@@ -746,11 +874,11 @@ function GroupsPage() {
     setOrders((list) => [g, ...list]);
     setCreate(false);
     toast('Групповой заказ № ' + o.no + ' создан', 'ok');
+    openOrder(g);
   };
-  if (open) return (<><Topbar title="Групповые бронирования" /><div className="content"><GroupOrderDetail o={open} onBack={() => setOpen(null)} /></div></>);
   return (
     <>
-      <Topbar title="Групповые бронирования" sub="Классическое и дроблёное бронирование в единой архитектуре" />
+      <Topbar title="Групповые бронирования" sub="Те же заказы — карточка как у обычного, отличаются только вкладки" />
       <div className="content">
         <div style={{ display: 'flex', alignItems: 'center', marginBottom: 16 }}>
           <div style={{ fontSize: 13, color: 'var(--muted)' }}>Основной групповой заказ = одна поездка, один состав, одна финсводка. Различие — только в способе оформления у поставщика.</div>
@@ -761,7 +889,7 @@ function GroupsPage() {
           {orders.map((o) => {
             const agg = grAgg(o);
             return (
-              <div key={o.no} className="card card-pad" style={{ cursor: 'pointer' }} onClick={() => setOpen(o)}>
+              <div key={o.no} className="card card-pad" style={{ cursor: 'pointer' }} onClick={() => openOrder(o)}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
                   <span className="oc-svc-ic" style={{ background: '#5a5af0', width: 34, height: 34 }}><Icon name="users" /></span>
                   <div style={{ flex: 1 }}><div style={{ fontWeight: 700, color: 'var(--ink)' }}>№ {o.no} · {o.client}</div><div style={{ fontSize: 12.5, color: 'var(--muted)' }}>{o.route} · {o.dateFrom}–{o.dateTo}</div></div>
@@ -796,4 +924,4 @@ Object.assign(window, { GroupsPage, GROUP_ORDERS });
 
 
 
-export { GR_CLASSIC_STATUS, GR_SPLIT_STATUS, grStatusTone, GR_PAX_STATUS, GR_PAX_TONE, GR_BOOK_STATE, GR_SCENARIO, GR_SURNAMES, GR_NAMES, GR_PAX, paxTags, computeSplit, GROUP_ORDERS, grAgg, GroupRequestPanel, GR_CLASSIC_STEPS, classicStage, ClassicStepper, ClassicBlockCard, SplitFlow, grIconBtn, GrServiceCard, GrServicesTab, GR_MASS_ACTIONS, GrMassActions, GR_MATRIX_COLS, grMatrixRow, GrMatrixTab, GR_DIFFS, GrDiffTab, GrFinanceTab, GrPaxTab, GrHistoryTab, GrDocsTab, GR_DETAIL_TABS, GroupOrderDetail, GroupsPage };
+export { GR_CLASSIC_STATUS, GR_SPLIT_STATUS, grStatusTone, GR_PAX_STATUS, GR_PAX_TONE, GR_BOOK_STATE, GR_SCENARIO, GR_SURNAMES, GR_NAMES, GR_PAX, paxTags, computeSplit, GROUP_ORDERS, grAgg, GroupRequestPanel, GR_CLASSIC_STEPS, classicStage, ClassicStepper, ClassicBlockCard, SplitFlow, grIconBtn, GR_CHANNELS, grSvcModel, GroupServiceScenario, GrServiceCard, GrServicesTab, GR_MASS_ACTIONS, GrMassActions, GR_MATRIX_COLS, grMatrixRow, GrMatrixTab, GR_DIFFS, GrDiffTab, GrFinanceTab, GrPaxTab, GrHistoryTab, GrDocsTab, GR_DETAIL_TABS, GroupOrderDetail, GroupsPage };
