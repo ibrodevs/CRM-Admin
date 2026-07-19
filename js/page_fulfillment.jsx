@@ -236,7 +236,7 @@ const DOC_BOOKKEEPING = ['Счёт', 'Акт', 'Договор'];
 const now = () => new Date().toLocaleString('ru-RU', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }).replace(',', ' ·');
 const DOC_ORIGIN = {
   supplier: { label: 'От поставщика', tone: 'blue' },
-  corrected: { label: 'Скорректированный', tone: 'amber' },
+  corrected: { label: 'Система / скорр.', tone: 'amber' },
   client: { label: 'От клиента', tone: 'teal' },
   system: { label: 'Сформирован системой', tone: 'gray' },
 };
@@ -251,6 +251,27 @@ function docOrigin(doc) {
 function DocOriginPill({ doc }) {
   const o = docOrigin(doc);
   return <Pill tone={o.tone}>{o.label}</Pill>;
+}
+function docSetKey(doc) {
+  const service = doc.service && doc.service !== '—' ? doc.service : doc.type;
+  return [doc.participant || '—', doc.type, service].join('|');
+}
+function docSetTitle(docs) {
+  const first = docs[0] || {};
+  const service = first.service && first.service !== '—' ? first.service : null;
+  return service ? `${first.type} · ${service}` : first.type;
+}
+function groupDocSets(docs) {
+  const map = {};
+  docs.forEach((d) => {
+    const key = docSetKey(d);
+    if (!map[key]) map[key] = [];
+    map[key].push(d);
+  });
+  return Object.entries(map).map(([key, items]) => ({
+    key,
+    docs: items.sort((a, b) => (a.version || 1) - (b.version || 1)),
+  }));
 }
 
 
@@ -402,6 +423,7 @@ function DocCard({ doc, onClose, onChange }) {
 function DocPassengerGroup({ name, role, docs, onOpen, onUpload }) {
   const supplierCount = docs.filter((d) => docOrigin(d).label === DOC_ORIGIN.supplier.label).length;
   const correctedCount = docs.filter((d) => docOrigin(d).label === DOC_ORIGIN.corrected.label).length;
+  const sets = groupDocSets(docs);
   return (
     <div className="card card-pad" style={{ marginBottom: 14 }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
@@ -416,23 +438,33 @@ function DocPassengerGroup({ name, role, docs, onOpen, onUpload }) {
         <Button variant="secondary" size="sm" icon="plus" onClick={onUpload}>Загрузить</Button>
       </div>
       {docs.length ? (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2,1fr)', gap: 10, marginTop: 14 }}>
-          {docs.map((d) => {
-            const k = DOC_KIND[d.type] || DOC_KIND['Прочее'];
+        <div className="doc-set-grid">
+          {sets.map((set) => {
+            const latest = set.docs[set.docs.length - 1];
+            const k = DOC_KIND[latest.type] || DOC_KIND['Прочее'];
+            const needsAction = set.docs.some((d) => ['Черновик', 'На подписи'].includes(d.status));
             return (
-              <button key={d.no} className="doc-chip" style={{ width: 'auto' }} onClick={() => onOpen(d)}>
-                <span style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
-                  <span className="airline-logo sm" style={{ background: k.color, width: 28, height: 28, borderRadius: 7, flexShrink: 0 }}><Icon name={k.icon} style={{ width: 16, height: 16 }} /></span>
-                  <span style={{ display: 'flex', flexDirection: 'column', minWidth: 0, textAlign: 'left' }}>
-                    <span style={{ fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{d.name}</span>
-                    <span style={{ fontSize: 12, color: 'var(--muted)' }}>{d.type} · v{d.version}</span>
-                  </span>
-                </span>
-                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 7, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
-                  <DocOriginPill doc={d} />
-                  <Pill tone={DOC_STATUS2[d.status]}>{d.status}</Pill>
-                </span>
-              </button>
+              <div key={set.key} className="doc-set-card">
+                <div className="doc-set-head">
+                  <span className="airline-logo sm doc-set-ic" style={{ background: k.color }}><Icon name={k.icon} /></span>
+                  <div className="doc-set-main">
+                    <div className="doc-set-title">{docSetTitle(set.docs)}</div>
+                    <div className="doc-set-sub">{set.docs.length} {plural(set.docs.length, ['версия', 'версии', 'версий'])} · последняя v{latest.version}</div>
+                  </div>
+                  <Pill tone={needsAction ? 'amber' : DOC_STATUS2[latest.status]}>{needsAction ? 'Требует действия' : latest.status}</Pill>
+                </div>
+                <div className="doc-version-row">
+                  {set.docs.map((d) => {
+                    const origin = docOrigin(d);
+                    return (
+                      <button key={d.no} type="button" className={'doc-version-pill ' + (d.no === latest.no ? 'latest' : '')} onClick={() => onOpen(d)}>
+                        <span className="v">v{d.version}</span>
+                        <span className={'src ' + origin.tone}>{origin.label}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
             );
           })}
         </div>
