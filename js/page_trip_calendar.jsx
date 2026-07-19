@@ -163,7 +163,44 @@ function DayView({ anchor, trips, onOpen, onPickDay, onOpenEvent, evtTick }) {
 }
 
 
-function MonthView({ anchor, trips, onOpen, onPickDay, onOpenEvent, evtTick }) {
+function DayListPopover({ day, pos, trips, events, onOpenTrip, onOpenEvent, onOpenDayView, onClose }) {
+  const total = trips.length + events.length;
+  const W = 320;
+  const x = Math.min(Math.max(8, pos.x - W / 2), window.innerWidth - W - 8);
+  const y = Math.min(pos.y + 10, window.innerHeight - 420);
+  const dateLabel = day.getDate() + ' ' + TC_MONTHS[day.getMonth()] + ' ' + day.getFullYear();
+  return (
+    <div style={{ position: 'fixed', inset: 0, zIndex: 60 }} onMouseDown={onClose}>
+      <div style={{ position: 'fixed', left: x, top: Math.max(8, y), width: W, maxHeight: 'min(70vh, 460px)', display: 'flex', flexDirection: 'column', background: '#fff', border: '1px solid var(--line)', borderRadius: 14, boxShadow: '0 12px 40px rgba(16,23,38,.18)', overflow: 'hidden' }}
+        onMouseDown={(e) => e.stopPropagation()}>
+        <div style={{ padding: '11px 14px', borderBottom: '1px solid var(--line)', display: 'flex', alignItems: 'center', gap: 8 }}>
+          <span style={{ fontSize: 13.5, fontWeight: 700, color: 'var(--ink)' }}>{dateLabel}</span>
+          <span style={{ fontSize: 12, color: 'var(--muted)' }}>· {total} {trPlural(total)}</span>
+          <div style={{ flex: 1 }} />
+          <button type="button" onClick={onClose} title="Закрыть" style={{ border: 'none', background: 'none', cursor: 'pointer', color: 'var(--muted-2)', display: 'inline-flex' }}><Icon name="x" style={{ width: 16, height: 16 }} /></button>
+        </div>
+        <div style={{ padding: 10, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 8 }}>
+          {trips.map((t) => <TripCard key={t.id} trip={t} compact onOpen={onOpenTrip} />)}
+          {events.map((ev) => <CalEventChip key={ev.id} evt={ev} onOpen={onOpenEvent} />)}
+          {total === 0 && <div style={{ fontSize: 13, color: 'var(--muted)', padding: '10px 4px' }}>Нет событий на этот день</div>}
+        </div>
+        <div style={{ padding: 10, borderTop: '1px solid var(--line)' }}>
+          <Button size="sm" variant="secondary" icon="calendar" style={{ width: '100%' }} onClick={onOpenDayView}>Открыть день целиком</Button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function trPlural(n) {
+  const a = Math.abs(n) % 100, b = a % 10;
+  if (a > 10 && a < 20) return 'событий';
+  if (b > 1 && b < 5) return 'события';
+  if (b === 1) return 'событие';
+  return 'событий';
+}
+
+function MonthView({ anchor, trips, onOpen, onPickDay, onOpenEvent, onOpenDay, evtTick }) {
   const first = new Date(anchor.getFullYear(), anchor.getMonth(), 1);
   const gridStart = tcWeekStart(first);
   const cells = Array.from({ length: 42 }, (_, i) => tcAddDays(gridStart, i));
@@ -187,7 +224,12 @@ function MonthView({ anchor, trips, onOpen, onPickDay, onOpenEvent, evtTick }) {
                       onClick={(e) => { e.stopPropagation(); onOpen(t); }}>{t.routeLabel}</span>
                   ))}
                   {dayEvents.slice(0, 3).map((ev) => <CalEventChip key={ev.id} evt={ev} onOpen={onOpenEvent} />)}
-                  {(dayTrips.length + dayEvents.length) > 5 && <span className="tc-month-more">+{dayTrips.length + dayEvents.length - 5}</span>}
+                  {(dayTrips.length + dayEvents.length) > 5 && (
+                    <span role="button" tabIndex={0} className="tc-month-more" title="Показать все события дня"
+                      onClick={(e) => { e.stopPropagation(); onOpenDay(day, e, dayTrips, dayEvents); }}>
+                      +{dayTrips.length + dayEvents.length - 5}
+                    </span>
+                  )}
                 </span>
               )}
               {dayTrips.length > 0 && crit !== 'info' && <span className="tc-month-dot"><CritDot crit={crit} size={7} /></span>}
@@ -475,8 +517,10 @@ function TripCalendarPage({ role, onOpenOrder }) {
   const [creator, setCreator] = useState(null);
   const [evtSel, setEvtSel] = useState(null);
   const [evtTick, setEvtTick] = useState(0);
+  const [dayList, setDayList] = useState(null);
   const [f, setF] = useState({ scope: 'all', operator: '', company: '', client: '', kind: '', supplier: '', status: '', onlyFm: false, onlyConflict: false, onlyUnpaid: false, onlyToday: false });
   const openDayMenu = (day, e) => setDayMenu({ day, pos: { x: (e && e.clientX) || 200, y: (e && e.clientY) || 200 } });
+  const openDayList = (day, e, dayTrips, dayEvents) => setDayList({ day, pos: { x: (e && e.clientX) || 200, y: (e && e.clientY) || 200 }, trips: dayTrips, events: dayEvents });
   const sets = tripFilterSets(TRIPS);
   const me = (typeof CURRENT_USER !== 'undefined' && CURRENT_USER.name) || 'Даниель';
 
@@ -568,13 +612,18 @@ function TripCalendarPage({ role, onOpenOrder }) {
           {control ? <ControlCenter trips={trips} onOpen={setSel} />
             : view === 'week' ? <WeekView anchor={anchor} trips={trips} onOpen={setSel} onPickDay={openDayMenu} onOpenEvent={setEvtSel} evtTick={evtTick} />
             : view === 'day' ? <DayView anchor={anchor} trips={trips} onOpen={setSel} onPickDay={openDayMenu} onOpenEvent={setEvtSel} evtTick={evtTick} />
-            : view === 'month' ? <MonthView anchor={anchor} trips={trips} onOpen={setSel} onPickDay={openDayMenu} onOpenEvent={setEvtSel} evtTick={evtTick} />
+            : view === 'month' ? <MonthView anchor={anchor} trips={trips} onOpen={setSel} onPickDay={openDayMenu} onOpenEvent={setEvtSel} onOpenDay={openDayList} evtTick={evtTick} />
             : <TimelineView anchor={anchor} trips={trips} onOpen={setSel} />}
         </div>
       </div>
       <TripDetailPanel trip={sel} onClose={() => setSel(null)} onOpenOrder={onOpenOrder} />
       {dayMenu && <CalDayMenu day={dayMenu.day} pos={dayMenu.pos} onClose={() => setDayMenu(null)}
         onPick={(type) => { setCreator({ type, day: dayMenu.day }); setDayMenu(null); }} />}
+      {dayList && <DayListPopover day={dayList.day} pos={dayList.pos} trips={dayList.trips} events={dayList.events}
+        onClose={() => setDayList(null)}
+        onOpenTrip={(t) => { setDayList(null); setSel(t); }}
+        onOpenEvent={(ev) => { setDayList(null); setEvtSel(ev); }}
+        onOpenDayView={() => { setAnchor(new Date(dayList.day)); setView('day'); setControl(false); setDayList(null); }} />}
       {creator && <CalEventCreator type={creator.type} day={creator.day} onClose={() => setCreator(null)}
         onCreated={(ev) => { setEvtTick((t) => t + 1); setEvtSel(ev); }} />}
       {evtSel && <CalEventPanel evt={evtSel} onClose={() => setEvtSel(null)} onChanged={() => setEvtTick((t) => t + 1)} onOpenOrder={onOpenOrder} />}

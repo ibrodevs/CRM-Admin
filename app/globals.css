@@ -1401,7 +1401,8 @@ table.tbl tbody tr:last-child td{border-bottom:none}
 .tc-month-mini{display:flex;flex-direction:column;gap:3px}
 .tc-month-chip{font-size:10.5px;font-weight:600;color:var(--body);background:var(--surface-2);border-radius:5px;padding:2px 5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;cursor:pointer}
 .tc-month-chip:hover{background:var(--blue-soft)}
-.tc-month-more{font-size:10px;color:var(--muted)}
+.tc-month-more{display:inline-block;font-size:10px;font-weight:700;color:var(--blue-soft-text);background:var(--blue-soft);border-radius:5px;padding:2px 6px;cursor:pointer;align-self:flex-start;transition:.12s}
+.tc-month-more:hover{background:var(--blue);color:#fff}
 .tc-month-dot{position:absolute;top:7px;right:7px}
 .tc-timeline{padding:12px;min-width:900px;position:relative}
 .tc-tl-axis{display:flex;position:sticky;top:0;z-index:2;background:var(--surface-2)}
