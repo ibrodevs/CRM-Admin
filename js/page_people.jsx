@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Icon } from './icons';
-import { Avatar, Button, Drawer, EmptyState, FilterChip, Pill, SearchBox, Tabs, Th, plural, useSort, useToast } from './ui';
+import { ActionMenu, Avatar, Button, Drawer, EmptyState, FilterChip, Pill, SearchBox, Tabs, Th, plural, useSort, useToast } from './ui';
 import { CLIENTS_DB, CLIENT_STATUS, COMPANIES_DB, COMPANY_STATUS, ORDERS, ORDER_STATUS, SETTLEMENT_TONE, companyBalanceShort, companyFinance } from './data';
 import { companyStaffStore } from './data/access-control';
 import { UnifiedDocumentDrawer, UnifiedPersonDrawer, ufBlankPerson, ufFromClient } from './forms_unified';
@@ -254,6 +254,56 @@ function EmployeeProfileDrawer({ emp, dept, coName, onClose, onOpenOrder, onRemo
   );
 }
 
+// Отдел компании в едином стиле со списком пассажиров заказа (сворачиваемый, нумерованный список).
+function StaffDeptGroup({ dept, emps, onOpen, onAdd, onRemove }) {
+  const [open, setOpen] = useState(true);
+  const [showAll, setShowAll] = useState(false);
+  const LIMIT = 6;
+  const outCount = emps.filter((e) => e.inPolicy === false).length;
+  const status = emps.length === 0
+    ? null
+    : outCount ? { label: outCount + ' вне политики', tone: 'amber' } : { label: 'Все в политике', tone: 'green' };
+  const shown = open ? (showAll ? emps : emps.slice(0, LIMIT)) : [];
+  return (
+    <div className="pax-group" style={{ marginBottom: 14 }}>
+      <div className="pax-group-head">
+        <button type="button" className="pxg-toggle" onClick={() => setOpen((v) => !v)}>
+          <Icon name={open ? 'chevDown' : 'chevRight'} />
+          <span className="pxg-name">{dept.name}</span>
+          <span className="pxg-cnt">{emps.length}</span>
+        </button>
+        {dept.policy && <Pill tone="blue">{dept.policy}</Pill>}
+        {status && <Pill tone={status.tone}>{status.label}</Pill>}
+        {dept.id !== '' && <Button variant="secondary" size="sm" icon="plus" onClick={() => onAdd(dept.id)}>В отдел</Button>}
+      </div>
+      {open && emps.length === 0 && <div className="ty-sub" style={{ padding: '12px 2px 4px' }}>В подразделении пока нет сотрудников.</div>}
+      {shown.map((e, i) => (
+        <div key={e.id} className="pax-group-row" onClick={() => onOpen(e)}>
+          <span className="pxg-num">{i + 1}</span>
+          <Avatar name={e.name} size={30} />
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div className="nm">{e.name}</div>
+            <div className="mt">{(e.position || 'Сотрудник') + ' · ' + e.phone}</div>
+          </div>
+          <Pill tone={e.inPolicy === false ? 'gray' : 'green'}>{e.inPolicy === false ? 'вне политики' : 'в политике'}</Pill>
+          <span onClick={(ev) => ev.stopPropagation()}>
+            <ActionMenu trigger={<button className="btn btn-ghost btn-icon btn-sm"><Icon name="more" /></button>}
+              items={[
+                { icon: 'user', label: 'Профиль сотрудника', onClick: () => onOpen(e) },
+                { icon: 'trash', label: 'Убрать из компании', danger: true, onClick: () => onRemove(e) },
+              ]} />
+          </span>
+        </div>
+      ))}
+      {open && emps.length > LIMIT && (
+        <button type="button" className="pxg-more" onClick={() => setShowAll((v) => !v)}>
+          {showAll ? 'Свернуть' : `+ ещё ${emps.length - LIMIT} ${plural(emps.length - LIMIT, ['сотрудник', 'сотрудника', 'сотрудников'])}`}
+        </button>
+      )}
+    </div>
+  );
+}
+
 function CompanyCard({ co, onBack, onOpenOrder }) {
   const toast = useToast();
   const [tab, setTab] = useState('overview');
@@ -337,18 +387,6 @@ function CompanyCard({ co, onBack, onOpenOrder }) {
         const unassigned = staff.employees.filter((e) => !staff.departments.some((d) => d.id === e.dept));
         const groups = [...staff.departments.map((d) => ({ dept: d, emps: staff.employees.filter((e) => e.dept === d.id) })),
           ...(unassigned.length ? [{ dept: { id: '', name: 'Без подразделения', policy: '' }, emps: unassigned }] : [])];
-        const empCard = (e) => (
-          <button key={e.id} type="button" onClick={() => setEmpView(e)}
-            style={{ cursor: 'pointer', textAlign: 'left', width: '100%', border: '1px solid var(--line)', background: '#fff', borderRadius: 12, padding: '11px 13px', display: 'flex', alignItems: 'center', gap: 12 }}>
-            <Avatar name={e.name} size={38} />
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ fontWeight: 600, color: 'var(--ink)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{e.name}</div>
-              <div className="ty-sub" style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{(e.position || 'Сотрудник') + ' · ' + e.phone}</div>
-            </div>
-            {e.inPolicy === false && <Pill tone="gray">вне политики</Pill>}
-            <Icon name="chevRight" style={{ width: 18, height: 18, color: 'var(--muted-2)' }} />
-          </button>
-        );
         return (
           <div className="fade-in">
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginBottom: 16, flexWrap: 'wrap' }}>
@@ -366,20 +404,8 @@ function CompanyCard({ co, onBack, onOpenOrder }) {
             {staff.employees.length === 0 && !staff.departments.length
               ? <EmptyState icon="users" title="Сотрудников пока нет" sub="Добавьте первого сотрудника компании" />
               : groups.map((g) => (
-                <div className="card card-pad" key={g.dept.id || 'none'} style={{ marginBottom: 14 }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', marginBottom: g.emps.length ? 12 : 0 }}>
-                    <span className="oc-svc-ic" style={{ background: 'var(--blue)', width: 34, height: 34 }}><Icon name="building" style={{ width: 16, height: 16 }} /></span>
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ fontWeight: 700, color: 'var(--ink)' }}>{g.dept.name}</div>
-                      <div className="ty-sub">{g.emps.length} {plural(g.emps.length, ['сотрудник', 'сотрудника', 'сотрудников'])}{g.dept.policy ? ' · политика: ' + g.dept.policy : ''}</div>
-                    </div>
-                    {g.dept.policy && <Pill tone="blue">{g.dept.policy}</Pill>}
-                    {g.dept.id !== '' && <Button variant="secondary" size="sm" icon="plus" onClick={() => setAddEmp({ dept: g.dept.id })}>В отдел</Button>}
-                  </div>
-                  {g.emps.length
-                    ? <div className="grid-2" style={{ gap: 10 }}>{g.emps.map(empCard)}</div>
-                    : <div className="ty-sub">В подразделении пока нет сотрудников.</div>}
-                </div>
+                <StaffDeptGroup key={g.dept.id || 'none'} dept={g.dept} emps={g.emps}
+                  onOpen={setEmpView} onAdd={(dept) => setAddEmp({ dept })} onRemove={removeEmployee} />
               ))}
 
             {addEmp && <EmployeeCreateDrawer open departments={staff.departments} defaultDept={addEmp.dept} coName={co.name}
