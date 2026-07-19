@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Icon } from './icons';
-import { ActionMenu, Avatar, Button, Drawer, EmptyState, FilterChip, Pill, SearchBox, Tabs, Th, plural, useSort, useToast } from './ui';
+import { ActionMenu, Avatar, Button, Drawer, EmptyState, Field, FilterChip, Input, Pill, SearchBox, Select, Tabs, Th, plural, useSort, useToast } from './ui';
 import { CLIENTS_DB, CLIENT_STATUS, COMPANIES_DB, COMPANY_STATUS, ORDERS, ORDER_STATUS, SETTLEMENT_TONE, companyBalanceShort, companyFinance } from './data';
 import { companyStaffStore } from './data/access-control';
 import { UnifiedDocumentDrawer, UnifiedPersonDrawer, ufBlankPerson, ufFromClient } from './forms_unified';
@@ -254,6 +254,31 @@ function EmployeeProfileDrawer({ emp, dept, coName, onClose, onOpenOrder, onRemo
   );
 }
 
+function DepartmentCreateDrawer({ open, onClose, onCreate }) {
+  const [name, setName] = useState('');
+  const [policy, setPolicy] = useState('');
+  const [err, setErr] = useState('');
+  const submit = () => {
+    if (!name.trim()) { setErr('Укажите название отдела'); return; }
+    onCreate(name.trim(), policy);
+    onClose();
+  };
+  return (
+    <Drawer open={open} onClose={onClose} title="Новый отдел" sub="Подразделение компании" width="min(440px,96vw)"
+      footer={<div style={{ display: 'flex', gap: 10, width: '100%' }}>
+        <Button variant="secondary" style={{ flex: 1 }} onClick={onClose}>Отмена</Button>
+        <Button style={{ flex: 1 }} icon="check" onClick={submit}>Создать отдел</Button>
+      </div>}>
+      <Field label="Название отдела" required error={err}>
+        <Input value={name} onChange={(e) => { setName(e.target.value); setErr(''); }} placeholder="Напр.: Отдел продаж" error={err} />
+      </Field>
+      <Field label="Тревел-политика (необязательно)">
+        <Select value={policy} onChange={(e) => setPolicy(e.target.value)} options={['Эконом', 'Бизнес-класс', 'Смешанная']} placeholder="Не задана" />
+      </Field>
+    </Drawer>
+  );
+}
+
 // Отдел компании в едином стиле со списком пассажиров заказа (сворачиваемый, нумерованный список).
 function StaffDeptGroup({ dept, emps, onOpen, onAdd, onRemove }) {
   const [open, setOpen] = useState(true);
@@ -311,10 +336,17 @@ function CompanyCard({ co, onBack, onOpenOrder }) {
   const [, setStaffTick] = useState(0);
   const staff = companyStaffStore(co.id);
   const [addEmp, setAddEmp] = useState(null);
+  const [addDept, setAddDept] = useState(false);
+  const [empQ, setEmpQ] = useState('');
   const [empView, setEmpView] = useState(null);
   const [unifyOpen, setUnifyOpen] = useState(false);
   const [groupsOpen, setGroupsOpen] = useState(false);
   const addEmployee = (emp) => { staff.employees.push(emp); setStaffTick((n) => n + 1); };
+  const addDepartment = (name, policy) => {
+    staff.departments.push({ id: 'D-' + Math.random().toString(36).slice(2, 8).toUpperCase(), name, head: '', policy: policy || '' });
+    setStaffTick((n) => n + 1);
+    toast('Отдел «' + name + '» создан', 'ok');
+  };
   const removeEmployee = (emp) => { const i = staff.employees.findIndex((e) => e.id === emp.id); if (i >= 0) staff.employees.splice(i, 1); setStaffTick((n) => n + 1); };
   const deptOf = (emp) => staff.departments.find((d) => d.id === emp.dept);
 
@@ -385,8 +417,13 @@ function CompanyCard({ co, onBack, onOpenOrder }) {
 
       {tab === 'staff' && (() => {
         const unassigned = staff.employees.filter((e) => !staff.departments.some((d) => d.id === e.dept));
-        const groups = [...staff.departments.map((d) => ({ dept: d, emps: staff.employees.filter((e) => e.dept === d.id) })),
+        const rawGroups = [...staff.departments.map((d) => ({ dept: d, emps: staff.employees.filter((e) => e.dept === d.id) })),
           ...(unassigned.length ? [{ dept: { id: '', name: 'Без подразделения', policy: '' }, emps: unassigned }] : [])];
+        const ql = empQ.trim().toLowerCase();
+        const match = (e) => !ql || [e.name, e.phone, e.position, e.doc].some((v) => String(v || '').toLowerCase().includes(ql));
+        const groups = ql
+          ? rawGroups.map((g) => ({ ...g, emps: g.emps.filter(match) })).filter((g) => g.emps.length)
+          : rawGroups;
         return (
           <div className="fade-in">
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginBottom: 16, flexWrap: 'wrap' }}>
@@ -395,19 +432,29 @@ function CompanyCard({ co, onBack, onOpenOrder }) {
                 <div className="ty-sub" style={{ marginTop: 4 }}>{staff.employees.length} {plural(staff.employees.length, ['сотрудник', 'сотрудника', 'сотрудников'])} · {staff.departments.length} {plural(staff.departments.length, ['подразделение', 'подразделения', 'подразделений'])}</div>
               </div>
               <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+                <Button variant="secondary" icon="plus" onClick={() => setAddDept(true)}>Создать отдел</Button>
                 <Button variant="secondary" icon="users" onClick={() => setGroupsOpen(true)}>Группы пассажиров</Button>
                 <Button variant="secondary" icon="idcard" disabled={!staff.employees.length} onClick={() => setUnifyOpen(true)}>Унификация списка</Button>
                 <Button icon="plus" onClick={() => setAddEmp({})}>Добавить сотрудника</Button>
               </div>
             </div>
 
+            {!!staff.employees.length && (
+              <div style={{ marginBottom: 16 }}>
+                <SearchBox value={empQ} onChange={setEmpQ} placeholder="Поиск сотрудника: имя, телефон, должность, документ" style={{ maxWidth: 460 }} />
+              </div>
+            )}
+
             {staff.employees.length === 0 && !staff.departments.length
               ? <EmptyState icon="users" title="Сотрудников пока нет" sub="Добавьте первого сотрудника компании" />
-              : groups.map((g) => (
-                <StaffDeptGroup key={g.dept.id || 'none'} dept={g.dept} emps={g.emps}
-                  onOpen={setEmpView} onAdd={(dept) => setAddEmp({ dept })} onRemove={removeEmployee} />
-              ))}
+              : groups.length === 0
+                ? <EmptyState icon="search" title="Сотрудники не найдены" sub={'По запросу «' + empQ + '» ничего нет'} />
+                : groups.map((g) => (
+                  <StaffDeptGroup key={g.dept.id || 'none'} dept={g.dept} emps={g.emps}
+                    onOpen={setEmpView} onAdd={(dept) => setAddEmp({ dept })} onRemove={removeEmployee} />
+                ))}
 
+            {addDept && <DepartmentCreateDrawer open onClose={() => setAddDept(false)} onCreate={addDepartment} />}
             {addEmp && <EmployeeCreateDrawer open departments={staff.departments} defaultDept={addEmp.dept} coName={co.name}
               onClose={() => setAddEmp(null)} onCreate={addEmployee} />}
             {empView && <EmployeeProfileDrawer emp={empView} dept={deptOf(empView)} coName={co.name}
