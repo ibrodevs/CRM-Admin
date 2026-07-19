@@ -268,7 +268,7 @@ function TabOverview({ order }) {
           <h3 className="card-title">Параметры заказа</h3>
           <button className="icon-btn green" title="Редактировать" onClick={() => setEdit('params')}><Icon name="edit" /></button>
         </div>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0 28px' }}>
+        <div className="oc-2col">
           <div className="kv-stack">
             {params.slice(0, 5).map(([k, v], i) => (
               <div key={i}><div className="label2">{k}</div><div className="val2">{v}</div></div>
@@ -1698,7 +1698,7 @@ function OrderFinanceBlock({ orderNo, order, services }) {
           </div>
         ))}
       </div>
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0 24px' }}>
+      <div className="oc-2col" style={{ gap: '0 24px' }}>
         <div>
           <div style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--muted)', margin: '4px 0 6px' }}>Финансовые условия</div>
           <div className="kv-row" style={{ padding: '8px 0' }}><span className="k" style={{ fontSize: 13.5 }}>Схема работы</span><span className="v" style={{ fontSize: 13.5 }}>{cp ? cp.scheme : 'Предоплата'}</span></div>

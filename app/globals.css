@@ -344,6 +344,7 @@ table.tbl tbody tr:last-child td{border-bottom:none}
 .empty .e-sub{font-size:14.5px;color:var(--muted);max-width:340px}
 .grid-4{display:grid;grid-template-columns:repeat(4,1fr);gap:20px}
 .grid-2{display:grid;grid-template-columns:1fr 1fr;gap:20px}
+@media(max-width:760px){.grid-2{grid-template-columns:1fr}}
 .stat-card{background:#fff;border:1px solid var(--line);border-radius:var(--r-card);padding:22px 24px;box-shadow:var(--shadow-card)}
 .stat-card .s-label{font-size:15px;color:var(--muted);margin-bottom:10px}
 .stat-card .s-value{font-size:var(--fs-display);font-weight:700;color:var(--ink);letter-spacing:-.02em;line-height:1}
@@ -489,16 +490,32 @@ table.tbl tbody tr:last-child td{border-bottom:none}
 .oc-grid{display:flex;gap:22px;align-items:flex-start}
 .oc-main{flex:1;min-width:0}
 .oc-aside{width:300px;flex:0 0 300px;position:sticky;top:18px;display:flex;flex-direction:column;gap:14px}
-.oc-tabbar{display:flex;align-items:center;gap:4px;margin-top:14px;padding-top:2px;border-top:1px solid var(--line)}
+.oc-tabbar{display:flex;align-items:center;gap:4px;margin-top:14px;padding-top:2px;border-top:1px solid var(--line);position:relative}
 .oc-tabbar-scroll{display:flex;align-items:center;gap:4px;overflow-x:auto;scrollbar-width:none;min-width:0}
 .oc-tabbar-scroll::-webkit-scrollbar{display:none}
-.oc-tab{display:flex;align-items:center;gap:7px;padding:13px 4px;margin-right:22px;border:none;border-bottom:2px solid transparent;background:none;cursor:pointer;white-space:nowrap;font:inherit;color:var(--muted);font-weight:600;font-size:14.5px;transition:.12s}
+/* индикатор прокрутки: правый край плавно затухает, если табы не помещаются */
+.oc-tabbar::after{content:"";position:absolute;top:2px;bottom:0;right:38px;width:26px;background:linear-gradient(to right,rgba(255,255,255,0),var(--bg));pointer-events:none}
+.oc-tab{display:flex;align-items:center;gap:7px;padding:13px 4px;margin-right:18px;border:none;border-bottom:2px solid transparent;background:none;cursor:pointer;white-space:nowrap;font:inherit;color:var(--muted);font-weight:600;font-size:14.5px;transition:.12s}
 .oc-tab svg{width:16px;height:16px}
 .oc-tab:hover{color:var(--ink)}
 .oc-tab.active{color:var(--blue);border-bottom-color:var(--blue)}
 .oc-tab .cnt{font-size:12px;font-weight:700;color:var(--muted);background:var(--gray-bg);border-radius:999px;padding:1px 7px}
 .oc-tab.active .cnt{background:var(--blue-soft);color:var(--blue-soft-text)}
-.oc-tab-more{margin-left:auto;flex:0 0 auto}
+.oc-tab-more{margin-left:auto;flex:0 0 auto;position:relative;z-index:1}
+.oc-2col{display:grid;grid-template-columns:1fr 1fr;gap:0 28px}
+/* --- Адаптивность карточки заказа --- */
+@media(max-width:1200px){
+  .oc-tab{margin-right:14px;font-size:14px}
+}
+@media(max-width:1080px){
+  .oc-grid{flex-direction:column}
+  .oc-aside{width:100%;flex:1 1 auto;position:static;top:auto}
+}
+@media(max-width:760px){
+  .oc-2col{grid-template-columns:1fr;gap:0}
+  .oc-tab{margin-right:12px}
+  .oc-tabbar::after{right:34px;width:20px}
+}
 
 .oc-kpi{display:flex;justify-content:space-between;align-items:baseline;padding:12px 0;border-bottom:1px solid var(--line)}
 .oc-kpi:last-child{border-bottom:none}
