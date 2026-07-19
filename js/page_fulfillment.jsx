@@ -464,7 +464,7 @@ function DocSetCard({ set, onOpen }) {
 }
 
 // Услуга = раскрывающийся блок: свёрнут показывает сводку, раскрыт — карточки документов.
-function DocServiceGroup({ service, sets, defaultOpen, onOpen }) {
+function DocServiceGroup({ service, desc, sets, defaultOpen, onOpen }) {
   const [open, setOpen] = useState(!!defaultOpen);
   const allDocs = sets.flatMap((s) => s.docs);
   const needsAction = allDocs.some((d) => ['Черновик', 'На подписи'].includes(d.status));
@@ -476,6 +476,7 @@ function DocServiceGroup({ service, sets, defaultOpen, onOpen }) {
         <span className="airline-logo sm doc-set-ic" style={{ background: k.color }}><Icon name={k.icon} /></span>
         <div className="doc-svc-main">
           <div className="doc-svc-title">{service}</div>
+          {desc && <div className="doc-svc-desc">{desc}</div>}
           <div className="doc-svc-sub">{sets.length} {plural(sets.length, ['документ', 'документа', 'документов'])} · {allDocs.length} {plural(allDocs.length, ['версия', 'версии', 'версий'])}</div>
         </div>
         <Pill tone={needsAction ? 'amber' : 'green'}>{needsAction ? 'Требует действия' : 'Готово'}</Pill>
@@ -490,7 +491,7 @@ function DocServiceGroup({ service, sets, defaultOpen, onOpen }) {
   );
 }
 
-function DocPassengerGroup({ name, role, docs, onOpen, onUpload }) {
+function DocPassengerGroup({ name, role, docs, onOpen, onUpload, svcDesc }) {
   const supplierCount = docs.filter((d) => docOrigin(d).label === DOC_ORIGIN.supplier.label).length;
   const correctedCount = docs.filter((d) => docOrigin(d).label === DOC_ORIGIN.corrected.label).length;
   const sets = groupDocSets(docs);
@@ -520,7 +521,7 @@ function DocPassengerGroup({ name, role, docs, onOpen, onUpload }) {
       </div>
       {docs.length ? (
         <div className="doc-svc-list">
-          {svcOrder.map((svc) => <DocServiceGroup key={svc} service={svc} sets={svcMap[svc]} defaultOpen={autoOpen} onOpen={onOpen} />)}
+          {svcOrder.map((svc) => <DocServiceGroup key={svc} service={svc} desc={svcDesc ? svcDesc(svc) : ''} sets={svcMap[svc]} defaultOpen={autoOpen} onOpen={onOpen} />)}
         </div>
       ) : (
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 12, padding: '12px 14px', border: '1px dashed var(--line)', borderRadius: 12, color: 'var(--muted)', fontSize: 13 }}>
@@ -633,7 +634,7 @@ function DocUploadModal({ open, scopeOrder, participants = [], defaultParticipan
   );
 }
 
-function DocCenter({ scopeOrder, participants, onOpenDoc }) {
+function DocCenter({ scopeOrder, participants, services, onOpenDoc }) {
   const toast = useToast();
   const [q, setQ] = useState('');
   const [tab, setTab] = useState('all');
@@ -641,7 +642,17 @@ function DocCenter({ scopeOrder, participants, onOpenDoc }) {
   const [openNo, setOpenNo] = useState(null);
 
   const canGroupByPax = !!scopeOrder && Array.isArray(participants) && participants.length > 0;
-  const [view, setView] = useState('byType');
+  const [view, setView] = useState(canGroupByPax ? 'byService' : 'byType');
+  // Описание услуги (маршрут/даты) по её ярлыку — чтобы различать, напр., 5 разных перелётов.
+  const svcDesc = (label) => {
+    if (!Array.isArray(services) || !services.length || !label || label === 'Без привязки к услуге') return '';
+    const code = label.includes('·') ? label.split('·').pop().trim() : '';
+    const kind = label.split('·')[0].trim();
+    const s = services.find((x) => (code && (x.avia === code || x.code === code || x.id === code)) || (x.title && label.includes(x.title)))
+      || (!code ? services.find((x) => x.kind === kind) : null);
+    if (!s) return '';
+    return [s.title, s.date].filter(Boolean).join(' · ');
+  };
   const [docs, setDocs] = useState(() => (scopeOrder ? DOCS2.filter((d) => d.order === scopeOrder) : DOCS2));
   const updateDoc = (no, patch) => setDocs((cur) => cur.map((d) => (d.no === no ? { ...d, ...patch } : d)));
   const card = docs.find((d) => d.no === openNo) || null;
@@ -669,26 +680,42 @@ function DocCenter({ scopeOrder, participants, onOpenDoc }) {
     ? participants.filter((p) => !q || p.name.toLowerCase().includes(q.toLowerCase()) || paxDocs(p.name).length)
     : [];
 
+  // Группировка по услуге (для представления «По услуге»)
+  const svcGroupOrder = [];
+  const svcGroupMap = {};
+  docs.filter((d) => (!fStatus || d.status === fStatus) && matchesQ(d)).forEach((d) => {
+    const s = d.service && d.service !== '—' ? d.service : 'Без привязки к услуге';
+    if (!svcGroupMap[s]) { svcGroupMap[s] = []; svcGroupOrder.push(s); }
+    svcGroupMap[s].push(d);
+  });
+
   return (
     <div className="fade-in">
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16, flexWrap: 'wrap' }}>
         {canGroupByPax && (
           <div className="trip-toggle" style={{ display: 'inline-flex' }}>
-            <button className={view === 'byType' ? 'on' : ''} onClick={() => setView('byType')}>По типу</button>
+            <button className={view === 'byService' ? 'on' : ''} onClick={() => setView('byService')}>По услуге</button>
             <button className={view === 'byPassenger' ? 'on' : ''} onClick={() => setView('byPassenger')}>По пассажирам</button>
           </div>
         )}
         {view === 'byType' && <Tabs tabs={TYPE_TABS.map((t) => ({ key: t.key, label: t.label, count: docs.filter(t.test).length }))} value={tab} onChange={setTab} />}
         <div style={{ flex: 1 }} />
-        <SearchBox value={q} onChange={setQ} placeholder={view === 'byPassenger' ? 'Поиск пассажира или документа…' : 'Поиск документа…'} style={{ width: 230 }} />
+        <SearchBox value={q} onChange={setQ} placeholder={view === 'byType' ? 'Поиск документа…' : 'Поиск пассажира или документа…'} style={{ width: 230 }} />
         <FilterChip label="Статус" value={fStatus} onChange={setFStatus} options={Object.keys(DOC_STATUS2)} />
         <Button icon="plus" onClick={() => setUploadFor({})}>Загрузить</Button>
       </div>
 
-      {view === 'byPassenger' ? (
+      {view === 'byService' ? (
+        <div className="doc-svc-list">
+          {svcGroupOrder.length ? svcGroupOrder.map((svc) => (
+            <DocServiceGroup key={svc} service={svc} desc={svcDesc(svc)} sets={groupDocSets(svcGroupMap[svc])}
+              defaultOpen={svcGroupOrder.length <= 1} onOpen={open} />
+          )) : <EmptyState icon="briefcase" title="Документы по услугам не найдены" sub={q ? 'Измените запрос поиска' : 'Загрузите документы по услугам заказа'} />}
+        </div>
+      ) : view === 'byPassenger' ? (
         <>
           {paxList.length ? paxList.map((p) => (
-            <DocPassengerGroup key={p.name} name={p.name} role={p.role} docs={paxDocs(p.name)} onOpen={open} onUpload={() => setUploadFor({ participant: p.name })} />
+            <DocPassengerGroup key={p.name} name={p.name} role={p.role} docs={paxDocs(p.name)} svcDesc={svcDesc} onOpen={open} onUpload={() => setUploadFor({ participant: p.name })} />
           )) : <EmptyState icon="users" title="Пассажиры не найдены" />}
 
           <h3 className="section-title" style={{ fontSize: 17, margin: '22px 0 12px' }}>Документы по заказу · бухгалтерия</h3>

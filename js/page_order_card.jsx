@@ -1975,7 +1975,7 @@ function OrderCard({ order, onBack, initTab, initSvc, initSvcSearch, fresh, onOp
         onApprove={() => { setStageIdx((i) => Math.max(i, 2)); toast('Созданы финансовые записи и задачи по выпуску документов', 'ok'); }} />;
       case 'responsibles': return <OrderResponsiblesTab order={order} />;
       case 'extras': return <DynamicExtrasPanel order={order} />;
-      case 'documents': return <DocCenter scopeOrder={order.no} participants={participants} />;
+      case 'documents': return <DocCenter scopeOrder={order.no} participants={participants} services={services} />;
       case 'finance': return (<><OrderFinanceBlock orderNo={order.no} order={order} services={services} /><FinanceRegistry scopeOrder={order.no} /></>);
       case 'aftersale': return <ReturnsModule scopeOrder={order.no} order={order} compact />;
       case 'history': return <TabHistory />;
