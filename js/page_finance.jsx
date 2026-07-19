@@ -678,6 +678,7 @@ function ReconActContent({ cp }) {
   const [to, setTo] = useState('');
   const [kind, setKind] = useState('all');
   const [resp, setResp] = useState('all');
+  const [respPick, setRespPick] = useState(false);
   const [built, setBuilt] = useState(false);
   useEffect(() => { setFrom(reconFmtDate(dmin)); setTo(reconFmtDate(dmax)); setKind('all'); setResp('all'); setBuilt(false); }, [cp]);
   if (!cp) return null;
@@ -714,12 +715,18 @@ function ReconActContent({ cp }) {
               options={[{ value: 'all', label: 'Все услуги' }, ...kindOptions.map((k) => ({ value: k, label: k }))]} />
           </Field>
           <Field label="Сотрудник / отдел">
-            <Select value={resp} onChange={(e) => { setResp(e.target.value); setBuilt(false); }}
-              options={[{ value: 'all', label: 'Вся компания' }, ...respOptions.map((r) => ({ value: r, label: r }))]} />
+            <FinPickerField value={resp === 'all' ? '' : resp} icon="users" placeholder="Вся компания" onOpen={() => setRespPick(true)} />
           </Field>
         </div>
         <Button icon="check" style={{ marginTop: 12 }} onClick={() => setBuilt(true)}>Сформировать акт</Button>
       </div>
+
+      <FinPickerDrawer open={respPick} value={resp === 'all' ? 'Вся компания' : resp}
+        title="Сотрудник / отдел" sub="Ответственные по операциям" placeholder="Поиск сотрудника"
+        rows={[{ name: 'Вся компания', sub: 'все сотрудники и отделы', icon: 'users', tone: 'var(--blue)' },
+          ...respOptions.map((r) => ({ name: r, sub: 'ответственный менеджер', icon: 'user', tone: 'var(--green)' }))]}
+        onClose={() => setRespPick(false)}
+        onPick={(name) => { setResp(name === 'Вся компания' ? 'all' : name); setBuilt(false); setRespPick(false); }} />
 
       {built ? (
         <div className="fade-in">
@@ -781,44 +788,33 @@ function ReconActDrawer({ open, cp, onClose }) {
   );
 }
 
+const FIN_CP_ROWS = FIN_COUNTERPARTIES.map((c) => ({
+  name: c.name,
+  sub: (c.type === 'client' ? 'Клиент' : 'Поставщик') + ' · ' + c.scheme + ' · долг ' + f$(c.debt),
+  icon: c.type === 'client' ? 'user' : 'suppliers',
+  tone: c.type === 'client' ? 'var(--blue)' : 'var(--amber)',
+}));
+
 function FinReconciliation() {
-  const [type, setType] = useState('client');
-  const [cpId, setCpId] = useState('');
-  const [q, setQ] = useState('');
-  const ql = q.trim().toLowerCase();
-  const list = FIN_COUNTERPARTIES.filter((c) => c.type === type)
-    .filter((c) => !ql || (c.name + ' ' + c.legal).toLowerCase().includes(ql));
-  const cp = FIN_COUNTERPARTIES.find((c) => c.id === cpId && c.type === type) || null;
+  const [cpName, setCpName] = useState('');
+  const [pick, setPick] = useState(false);
+  const cp = FIN_COUNTERPARTIES.find((c) => c.name === cpName) || null;
   return (
     <div className="fade-in">
-      <div className="card card-pad" style={{ marginBottom: 14 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12, flexWrap: 'wrap' }}>
-          <Tabs tabs={[{ key: 'client', label: 'Клиенты' }, { key: 'supplier', label: 'Поставщики' }]} value={type} onChange={(v) => { setType(v); setCpId(''); }} />
-          <SearchBox value={q} onChange={setQ} placeholder="Поиск контрагента" style={{ minWidth: 240 }} />
-          <div style={{ flex: 1 }} />
-          <span style={{ fontSize: 12.5, color: 'var(--muted)' }}>Выберите контрагента для акта сверки</span>
-        </div>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(240px,1fr))', gap: 10 }}>
-          {list.map((c) => (
-            <button key={c.id} type="button" onClick={() => setCpId(c.id)}
-              style={{ cursor: 'pointer', textAlign: 'left', border: '1px solid ' + (cpId === c.id ? 'var(--blue)' : 'var(--line)'), background: cpId === c.id ? 'var(--blue-soft)' : '#fff', borderRadius: 12, padding: '11px 13px', display: 'flex', alignItems: 'center', gap: 10 }}>
-              <span className="oc-svc-ic" style={{ background: c.type === 'client' ? 'var(--blue)' : 'var(--amber)', width: 32, height: 32, flex: '0 0 32px' }}><Icon name={c.type === 'client' ? 'user' : 'suppliers'} style={{ width: 16, height: 16 }} /></span>
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontWeight: 600, color: 'var(--ink)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{c.name}</div>
-                <div style={{ fontSize: 12, color: 'var(--muted)' }}>{c.scheme} · долг {f$(c.debt)}</div>
-              </div>
-              {cpId === c.id && <Icon name="check" style={{ width: 16, height: 16, color: 'var(--blue)', flex: '0 0 16px' }} />}
-            </button>
-          ))}
-          {list.length === 0 && <div style={{ fontSize: 13, color: 'var(--muted)' }}>Ничего не найдено</div>}
-        </div>
+      <div className="card card-pad" style={{ marginBottom: 14, maxWidth: 560 }}>
+        <Field label="Контрагент" hint="Клиент или поставщик — выберите из списка в боковом окне">
+          <FinPickerField value={cpName} icon="suppliers" placeholder="Выбрать контрагента или компанию…" onOpen={() => setPick(true)} />
+        </Field>
       </div>
       {cp
         ? <ReconActContent cp={cp} key={cp.id} />
         : <div className="card card-pad" style={{ display: 'flex', alignItems: 'center', gap: 10, color: 'var(--muted)', fontSize: 13 }}>
             <Icon name="finance" style={{ width: 18, height: 18, color: 'var(--muted-2)' }} />
-            Выберите контрагента выше — откроются параметры и формирование акта сверки за период / по услуге / по сотруднику.
+            Выберите контрагента — откроются параметры и формирование акта сверки за период / по услуге / по сотруднику.
           </div>}
+      <FinPickerDrawer open={pick} value={cpName} title="Выбор контрагента" sub="Клиенты и поставщики"
+        placeholder="Поиск контрагента или компании" rows={FIN_CP_ROWS}
+        onClose={() => setPick(false)} onPick={(name) => { setCpName(name); setPick(false); }} />
     </div>
   );
 }
