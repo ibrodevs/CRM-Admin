@@ -930,6 +930,7 @@ function OrdersPage({ intent, onConsume, orders, addOrder, onDetailChange, onOpe
     if (!intent) return;
     if (intent.type === 'create') setCreateOpen(true);
     if (intent.type === 'open') setDetail(intent.order, intent.tab, intent.svc);
+    if (intent.type === 'list') setDetail(null);
     onConsume();
   }, [intent]);
 

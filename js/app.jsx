@@ -82,7 +82,14 @@ function App() {
   const unreadChat = CHAT_THREADS.reduce((s, t) => s + threadUnread(t), 0);
   const unreadNotif = NOTIFICATIONS.filter((n) => !n.read).length;
 
-  const navigate = (r) => { setRoute(r); if (r.split('/')[0] !== 'orders') setCtxOrder(null); };
+  const navigate = (r) => {
+    const b = r.split('/')[0];
+    setRoute(r);
+    setCtxOrder(null);
+    // Явный переход в раздел «Заказы» (меню/хлебные крошки) всегда открывает список,
+    // даже если сейчас открыта карточка заказа.
+    if (b === 'orders') setIntent({ type: 'list' });
+  };
 
   useEffect(() => { window.__toastNav = navigate; window.__addOrder = addOrder; window.__openOrder = openOrder; }, []);
 
