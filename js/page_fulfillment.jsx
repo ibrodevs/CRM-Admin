@@ -234,6 +234,24 @@ function FinancePageNew() {
 
 const DOC_BOOKKEEPING = ['Счёт', 'Акт', 'Договор'];
 const now = () => new Date().toLocaleString('ru-RU', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }).replace(',', ' ·');
+const DOC_ORIGIN = {
+  supplier: { label: 'От поставщика', tone: 'blue' },
+  corrected: { label: 'Скорректированный', tone: 'amber' },
+  client: { label: 'От клиента', tone: 'teal' },
+  system: { label: 'Сформирован системой', tone: 'gray' },
+};
+function docOrigin(doc) {
+  if (doc.origin && DOC_ORIGIN[doc.origin]) return DOC_ORIGIN[doc.origin];
+  const notes = (doc.versions || []).map((v) => `${v.note || ''} ${v.who || ''}`).join(' ').toLowerCase();
+  if (doc.version > 1 || /коррект|итогов|клиентск/.test(notes)) return DOC_ORIGIN.corrected;
+  if (/поставщик|выписк|бронь|ваучер/.test(notes)) return DOC_ORIGIN.supplier;
+  if (/клиент|скан/.test(notes)) return DOC_ORIGIN.client;
+  return DOC_ORIGIN.system;
+}
+function DocOriginPill({ doc }) {
+  const o = docOrigin(doc);
+  return <Pill tone={o.tone}>{o.label}</Pill>;
+}
 
 
 function DocPreviewModal({ doc, company, onClose, onChange }) {
@@ -317,6 +335,7 @@ function DocCard({ doc, onClose, onChange }) {
   const isClosingDoc = DOC_BOOKKEEPING.includes(doc.type);
   const needsPreview = isClosingDoc && !['Подписан', 'Аннулирован'].includes(doc.status);
   const company = companyForDoc(doc);
+  const origin = docOrigin(doc);
   const links = [
     { ic: 'orders', label: 'Заказ № ' + doc.order, on: doc.order },
     { ic: 'user', label: doc.participant, on: doc.participant !== '—' },
@@ -334,6 +353,7 @@ function DocCard({ doc, onClose, onChange }) {
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>
         <span className="oc-svc-ic" style={{ background: k.color }}><Icon name={k.icon} /></span>
         <div style={{ flex: 1 }}><div style={{ fontWeight: 700, color: 'var(--ink)' }}>{doc.name}</div><div style={{ fontSize: 13, color: 'var(--muted)' }}>{doc.type} · {doc.size}</div></div>
+        <Pill tone={origin.tone}>{origin.label}</Pill>
         <Pill tone={DOC_STATUS2[doc.status]}>{doc.status}</Pill>
       </div>
 
@@ -348,6 +368,10 @@ function DocCard({ doc, onClose, onChange }) {
       <h3 className="card-title" style={{ fontSize: 15, marginBottom: 10 }}>Связи</h3>
       <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 18 }}>
         {links.map((l, i) => <span key={i} className="link-chip"><Icon name={l.ic} />{l.label}</span>)}
+      </div>
+      <div className="kv" style={{ marginBottom: 18 }}>
+        <div className="kv-row"><span className="k">Источник документа</span><span className="v"><Pill tone={origin.tone}>{origin.label}</Pill></span></div>
+        <div className="kv-row"><span className="k">Пассажир / привязка</span><span className="v">{doc.participant !== '—' ? doc.participant : doc.service}</span></div>
       </div>
 
       <h3 className="card-title" style={{ fontSize: 15, marginBottom: 8 }}>Версии</h3>
@@ -376,13 +400,18 @@ function DocCard({ doc, onClose, onChange }) {
 
 
 function DocPassengerGroup({ name, role, docs, onOpen, onUpload }) {
+  const supplierCount = docs.filter((d) => docOrigin(d).label === DOC_ORIGIN.supplier.label).length;
+  const correctedCount = docs.filter((d) => docOrigin(d).label === DOC_ORIGIN.corrected.label).length;
   return (
     <div className="card card-pad" style={{ marginBottom: 14 }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
         <Avatar name={name} size={40} />
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ fontWeight: 700, color: 'var(--ink)' }}>{name}</div>
-          <div style={{ fontSize: 13, color: 'var(--muted)' }}>{role || 'Пассажир'} · {docs.length ? docs.length + ' ' + plural(docs.length, ['документ', 'документа', 'документов']) : 'документов нет'}</div>
+          <div style={{ fontSize: 13, color: 'var(--muted)' }}>
+            {role || 'Пассажир'} · {docs.length ? docs.length + ' ' + plural(docs.length, ['документ', 'документа', 'документов']) : 'документов нет'}
+            {docs.length ? ` · ${supplierCount} от поставщика · ${correctedCount} скорр.` : ''}
+          </div>
         </div>
         <Button variant="secondary" size="sm" icon="plus" onClick={onUpload}>Загрузить</Button>
       </div>
@@ -399,7 +428,10 @@ function DocPassengerGroup({ name, role, docs, onOpen, onUpload }) {
                     <span style={{ fontSize: 12, color: 'var(--muted)' }}>{d.type} · v{d.version}</span>
                   </span>
                 </span>
-                <Pill tone={DOC_STATUS2[d.status]}>{d.status}</Pill>
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 7, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+                  <DocOriginPill doc={d} />
+                  <Pill tone={DOC_STATUS2[d.status]}>{d.status}</Pill>
+                </span>
               </button>
             );
           })}
@@ -430,9 +462,10 @@ function DocUploadModal({ open, scopeOrder, participants = [], defaultParticipan
   const [file, setFile] = useState(null);
   const [type, setType] = useState('Билет');
   const [participant, setParticipant] = useState('—');
+  const [origin, setOrigin] = useState('supplier');
 
   useEffect(() => {
-    if (open) { setFile(null); setType('Билет'); setParticipant(defaultParticipant || '—'); }
+    if (open) { setFile(null); setType('Билет'); setParticipant(defaultParticipant || '—'); setOrigin('supplier'); }
   }, [open, defaultParticipant]);
 
   const isReceipt = type === 'Маршрутная квитанция';
@@ -451,8 +484,8 @@ function DocUploadModal({ open, scopeOrder, participants = [], defaultParticipan
       no: 'D-' + Math.floor(3200 + Math.random() * 800),
       name: (file && file.name) || (type + ' (загружен)'),
       type, order: scopeOrder || '—', participant: payload.participant, service: '—', finOp: '—',
-      status: 'Черновик', version: 1, date: now, size: (file && file.size) || '— КБ',
-      versions: [{ v: 1, date: now, who: (window.CURRENT_USER && CURRENT_USER.name) || 'Оператор', note: 'Загружен вручную' }],
+      status: 'Черновик', version: origin === 'corrected' ? 2 : 1, origin, date: now, size: (file && file.size) || '— КБ',
+      versions: [{ v: origin === 'corrected' ? 2 : 1, date: now, who: (window.CURRENT_USER && CURRENT_USER.name) || 'Оператор', note: DOC_ORIGIN[origin].label }],
       history: [{ t: now, text: 'Документ загружен', who: (window.CURRENT_USER && CURRENT_USER.name) || 'Оператор' }],
     };
     onUploaded(doc);
@@ -491,6 +524,15 @@ function DocUploadModal({ open, scopeOrder, participants = [], defaultParticipan
               <Select options={paxOptions} value={participant} onChange={(e) => setParticipant(e.target.value)} />
             </div>
           )}
+          <div>
+            <label className="lbl" style={{ display: 'block', marginBottom: 6 }}>Источник</label>
+            <Select options={[
+              { value: 'supplier', label: 'От поставщика' },
+              { value: 'corrected', label: 'Скорректированный' },
+              { value: 'client', label: 'От клиента' },
+              { value: 'system', label: 'Сформирован системой' },
+            ]} value={origin} onChange={(e) => setOrigin(e.target.value)} />
+          </div>
         </div>
 
         {isReceipt && (
@@ -584,7 +626,7 @@ function DocCenter({ scopeOrder, participants, onOpenDoc }) {
         <div className="table-card">
           {rows.length ? (
             <table className="tbl">
-              <thead><tr><th style={{ width: 90 }}>№</th><th>Документ</th><th>Тип</th><th>Заказ</th><th>Привязка</th><th>Версия</th><th>Дата</th><th>Статус</th></tr></thead>
+              <thead><tr><th style={{ width: 90 }}>№</th><th>Документ</th><th>Тип</th><th>Источник</th><th>Заказ</th><th>Привязка</th><th>Версия</th><th>Дата</th><th>Статус</th></tr></thead>
               <tbody>
                 {rows.map((d) => {
                   const k = DOC_KIND[d.type] || DOC_KIND['Прочее'];
@@ -593,6 +635,7 @@ function DocCenter({ scopeOrder, participants, onOpenDoc }) {
                       <td className="t-strong">{d.no}</td>
                       <td><span style={{ display: 'flex', alignItems: 'center', gap: 10 }}><span className="airline-logo sm" style={{ background: k.color, width: 30, height: 30, borderRadius: 8 }}><Icon name={k.icon} style={{ width: 16, height: 16 }} /></span><span style={{ fontWeight: 600 }}>{d.name}</span></span></td>
                       <td>{d.type}</td>
+                      <td><DocOriginPill doc={d} /></td>
                       <td><span style={{ color: 'var(--blue)', fontWeight: 600 }}>№ {d.order}</span></td>
                       <td className="t-muted">{d.participant !== '—' ? d.participant : d.service !== '—' ? d.service : '—'}</td>
                       <td>v{d.version}</td>
