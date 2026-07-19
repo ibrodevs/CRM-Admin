@@ -454,7 +454,7 @@ function FilterChip({ label, options, value, onChange, icon = 'filter' }) {
             <span style={{ width: 17 }} />Все
           </div>
           <div className="dropdown-sep" />
-          {options.map((o) => {
+          {options.filter((o) => (o?.value ?? o) !== '' && (o?.value ?? o) != null).map((o) => {
             const val = o.value ?? o, lab = o.label ?? o;
             return (
               <div key={val} className="dropdown-item" onClick={() => { onChange(val); setOpen(false); }}>

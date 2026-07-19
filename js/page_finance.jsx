@@ -522,7 +522,7 @@ function FinPayments() {
         <Tabs tabs={[{ key: 'all', label: 'Все' }, { key: 'in', label: 'Входящие' }, { key: 'out', label: 'Исходящие' }]} value={dir} onChange={setDir} />
         <SearchBox value={q} onChange={setQ} placeholder="Поиск: №, контрагент, заказ, назначение" style={{ minWidth: 260 }} />
         <div style={{ flex: 1 }} />
-        <FilterChip label="Статус" value={status} onChange={setStatus} options={['', ...Object.keys(FIN_PAY_STATUS)]} />
+        <FilterChip label="Статус" value={status} onChange={setStatus} options={Object.keys(FIN_PAY_STATUS)} />
         <Button icon="plus" onClick={() => setCreating(true)}>Новый платёж</Button>
       </div>
       <div className="table-card">
@@ -747,7 +747,7 @@ function FinSettlements() {
     .filter((c) => !ql || [c.name, c.legal, ...c.orders.map(String)].some((v) => String(v || '').toLowerCase().includes(ql)))
     .filter((c) => !scheme || c.scheme === scheme)
     .filter((c) => !onlyOverdue || c.obligations.some((o) => o.overdueDays > 0));
-  const schemeOptions = ['', ...Array.from(new Set(FIN_COUNTERPARTIES.map((c) => c.scheme)))];
+  const schemeOptions = Array.from(new Set(FIN_COUNTERPARTIES.map((c) => c.scheme)));
   return (
     <div className="fade-in">
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14, flexWrap: 'wrap' }}>

@@ -678,7 +678,7 @@ function GrPaxTab({ o }) {
         <div style={{ flex: 1 }} />
         {Object.keys(GR_PAX_STATUS).map((k) => <Pill key={k} tone={GR_PAX_TONE[k]}>{GR_PAX_STATUS[k]}: {stCount(k)}</Pill>)}
       </div>
-      <div style={{ marginBottom: 12 }}><FilterChip label="Подгруппа" value={sub} onChange={setSub} options={['', ...subs]} /></div>
+      <div style={{ marginBottom: 12 }}><FilterChip label="Подгруппа" value={sub} onChange={setSub} options={subs} /></div>
       <div className="table-card">
         <table className="tbl">
           <thead><tr><th>Участник</th><th>Пол</th><th>Подгруппа / признаки</th><th>Статус обработки</th></tr></thead>
