@@ -231,6 +231,9 @@ table.tbl tbody td{padding:16px 18px;border-bottom:1px solid var(--line);font-si
 table.tbl tbody tr{transition:background .12s}
 table.tbl tbody tr:hover{background:var(--hover)}
 table.tbl tbody tr:last-child td{border-bottom:none}
+/* Широкие таблицы (много колонок) — держат ширину и прокручиваются в .table-card вместо сжатия/переносов */
+table.tbl.tbl-wide{min-width:1040px}
+table.tbl.tbl-wide thead th,table.tbl.tbl-wide tbody td{white-space:nowrap}
 .t-strong{font-weight:600;color:var(--ink)}
 .t-muted{color:var(--muted)}
 .t-sub{font-size:13px;color:var(--muted)}

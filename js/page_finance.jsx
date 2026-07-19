@@ -526,7 +526,7 @@ function FinPayments() {
         <Button icon="plus" onClick={() => setCreating(true)}>Новый платёж</Button>
       </div>
       <div className="table-card">
-        <table className="tbl">
+        <table className="tbl tbl-wide">
           <thead><tr><th>№</th><th>Дата</th><th>Направление</th><th>Контрагент</th><th>Заказ</th><th>Назначение</th><th>Ответственный</th><th style={{ textAlign: 'right' }}>Сумма</th><th>Приоритет</th><th>Статус</th></tr></thead>
           <tbody>
             {list.map((p) => (
@@ -959,7 +959,7 @@ function FinSettlements() {
         <span style={{ fontSize: 12.5, color: 'var(--muted)' }}>Найдено: <b>{list.length}</b> · задолженность: <b style={{ color: 'var(--amber)' }}>{f$(list.reduce((s, c) => s + c.debt, 0))}</b></span>
       </div>
       <div className="table-card">
-        <table className="tbl">
+        <table className="tbl tbl-wide">
           <thead><tr><th>Контрагент</th><th>Схема</th><th>Отсрочка</th><th>Кредитный лимит</th><th style={{ textAlign: 'right' }}>Задолженность</th><th style={{ textAlign: 'right' }}>Оплачено</th><th>Ближайший срок</th><th>Дисциплина</th></tr></thead>
           <tbody>
             {list.map((c) => {
