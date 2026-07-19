@@ -665,6 +665,7 @@ function TripCalendarPage({ role, onOpenOrder }) {
           <FilterChip label="Вид услуги" value={f.kind} options={sets.kinds} onChange={(v) => setF((s) => ({ ...s, kind: v }))} />
           <FilterChip label="Поставщик" value={f.supplier} options={sets.suppliers} onChange={(v) => setF((s) => ({ ...s, supplier: v }))} />
           <FilterChip label="Статус" value={f.status} options={sets.statuses} onChange={(v) => setF((s) => ({ ...s, status: v }))} />
+          <div style={{ flexBasis: '100%', height: 0 }} />
           <button className={'tc-toggle' + (f.onlyFm ? ' on' : '')} onClick={() => toggle('onlyFm')}>Форс-мажоры</button>
           <button className={'tc-toggle' + (f.onlyConflict ? ' on' : '')} onClick={() => toggle('onlyConflict')}>Конфликты</button>
           <button className={'tc-toggle' + (f.onlyUnpaid ? ' on' : '')} onClick={() => toggle('onlyUnpaid')}>Неоплаченные</button>
