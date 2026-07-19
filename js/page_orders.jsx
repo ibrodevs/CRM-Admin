@@ -823,7 +823,6 @@ function OrdersList({ orders, onOpen, onCreate, onNavigate }) {
     if (!selected) { toast('Выберите заказ для редактирования', 'info'); return; }
     setEditOrder(selected);
   };
-  const isGroupOrder = (o) => o.isGroup || o.requestType === 'Групповая';
 
   let rows = orders.filter((o) =>
     (o.client.toLowerCase().includes(search.toLowerCase()) || String(o.no).includes(search)) &&
@@ -848,7 +847,7 @@ function OrdersList({ orders, onOpen, onCreate, onNavigate }) {
         <Button variant="primary" icon="plus" onClick={onCreate}>Добавить заказ</Button>
       </Topbar>
       <div className="content">
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 18, flexWrap: 'wrap' }}>
+        <div className="orders-filters" style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 18, flexWrap: 'wrap' }}>
           <FilterChip label="Статус" icon="chev" options={Object.keys(ORDER_STATUS)} value={filters.status} onChange={(v) => setFilters((f) => ({ ...f, status: v }))} />
           <FilterChip label="Заказчик" icon="chev" options={CLIENTS} value={filters.client} onChange={(v) => setSearch(v === '' ? '' : v)} />
           <FilterChip label="Тип заявки" icon="chev" options={REQUEST_TYPE} value={filters.requestType} onChange={(v) => setFilters((f) => ({ ...f, requestType: v }))} />
@@ -877,12 +876,7 @@ function OrdersList({ orders, onOpen, onCreate, onNavigate }) {
                     <tr key={i} style={{ cursor: 'pointer' }} onClick={() => onOpen(o)}>
                       <td onClick={(e) => e.stopPropagation()}><Radio on={!!selected && selected.no === o.no} onChange={() => setSelected((cur) => (cur && cur.no === o.no ? null : o))} /></td>
                       <td className="t-strong">{o.no}</td>
-                      <td className="t-strong">
-                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 6 }}>
-                          <span>{o.client}</span>
-                          {isGroupOrder(o) && <Pill tone="teal"><Icon name="users" style={{ width: 14, height: 14 }} />Групповой заказ</Pill>}
-                        </div>
-                      </td>
+                      <td className="t-strong">{o.client}</td>
                       <td><Pill tone="blue">{o.requestType}</Pill></td>
                       <td><Pill tone={ORDER_STATUS[o.status]}>{o.status}</Pill></td>
                       <td><Pill tone={SERVICE_TYPE[o.service]}>{o.service}</Pill></td>

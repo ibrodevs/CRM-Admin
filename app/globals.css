@@ -119,6 +119,11 @@ input,textarea,select{font-family:inherit}
   .content{padding:12px 14px 40px}
   .page-title{font-size:24px}
   .table-card table.tbl{min-width:640px}
+  .orders-filters{gap:8px!important}
+  .orders-filters>div{max-width:100%}
+  .orders-filters .chip{height:38px;padding:0 12px;font-size:13px}
+  .orders-filters .search{width:100%!important;min-width:0;height:42px}
+  .orders-filters .topbar-spacer{display:none}
 }
 .opc-li{display:flex;align-items:flex-start;gap:8px;font-size:13.5px;color:var(--body);line-height:1.4}
 .opc-li svg{flex-shrink:0;margin-top:2px}
