@@ -668,7 +668,7 @@ function reconOperations(cp) {
   return ops.sort((a, b) => (a.date ? a.date.getTime() : 0) - (b.date ? b.date.getTime() : 0));
 }
 
-function ReconActDrawer({ open, cp, onClose }) {
+function ReconActContent({ cp }) {
   const toast = useToast();
   const ops = useMemo(() => reconOperations(cp), [cp]);
   const dts = ops.map((o) => o.date).filter(Boolean).map((d) => d.getTime());
@@ -679,8 +679,8 @@ function ReconActDrawer({ open, cp, onClose }) {
   const [kind, setKind] = useState('all');
   const [resp, setResp] = useState('all');
   const [built, setBuilt] = useState(false);
-  useEffect(() => { if (open) { setFrom(reconFmtDate(dmin)); setTo(reconFmtDate(dmax)); setKind('all'); setResp('all'); setBuilt(false); } }, [open, cp]);
-  if (!open || !cp) return null;
+  useEffect(() => { setFrom(reconFmtDate(dmin)); setTo(reconFmtDate(dmax)); setKind('all'); setResp('all'); setBuilt(false); }, [cp]);
+  if (!cp) return null;
 
   const kindOptions = Array.from(new Set(ops.map((o) => o.kind)));
   const respOptions = Array.from(new Set(ops.map((o) => o.resp).filter(Boolean)));
@@ -703,16 +703,10 @@ function ReconActDrawer({ open, cp, onClose }) {
   const act = (verb) => toast('Акт сверки по «' + cp.name + '» (' + rows.length + ' операций) ' + verb, 'ok');
 
   return (
-    <Drawer open={open} onClose={onClose} title="Акт сверки" sub={cp.name + ' · ' + (cp.type === 'client' ? 'клиент' : 'поставщик')} width="min(760px,97vw)"
-      footer={<div style={{ display: 'flex', gap: 8, width: '100%', flexWrap: 'wrap' }}>
-        <Button variant="secondary" style={{ flex: 1 }} onClick={onClose}>Закрыть</Button>
-        <Button variant="secondary" icon="download" style={{ flex: 1 }} onClick={() => act('сформирован (демо)')}>Скачать</Button>
-        <Button variant="secondary" icon="send" style={{ flex: 1 }} onClick={() => act('отправлен контрагенту (демо)')}>Отправить</Button>
-        <Button icon="send" style={{ flex: 1.2 }} onClick={() => act('передан в 1С:Бухгалтерию (демо)')}>В бухгалтерию</Button>
-      </div>}>
+    <>
       <div className="card card-pad" style={{ marginBottom: 14 }}>
-        <h3 className="card-title" style={{ fontSize: 14, marginBottom: 10 }}>Параметры акта</h3>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+        <h3 className="card-title" style={{ fontSize: 14, marginBottom: 10 }}>Параметры акта · {cp.name}</h3>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(160px,1fr))', gap: 12 }}>
           <UFDateField label="Период с" value={from || null} onChange={(v) => { setFrom(v || ''); setBuilt(false); }} placeholder="дд.мм.гггг" />
           <UFDateField label="Период по" value={to || null} onChange={(v) => { setTo(v || ''); setBuilt(false); }} placeholder="дд.мм.гггг" />
           <Field label="Услуга">
@@ -729,7 +723,7 @@ function ReconActDrawer({ open, cp, onClose }) {
 
       {built ? (
         <div className="fade-in">
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 10, marginBottom: 12 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(160px,1fr))', gap: 10, marginBottom: 12 }}>
             <StatTile label="Дебет (начислено)" value={f$(debit)} />
             <StatTile label="Кредит (оплачено)" value={f$(credit)} tone="var(--green)" />
             <StatTile label="Сальдо (остаток)" value={f$(balance)} tone={balance > 0 ? 'var(--amber)' : 'var(--green)'} />
@@ -761,6 +755,11 @@ function ReconActDrawer({ open, cp, onClose }) {
               )}
             </table>
           </div>
+          <div style={{ display: 'flex', gap: 8, marginTop: 14, flexWrap: 'wrap' }}>
+            <Button variant="secondary" icon="download" onClick={() => act('сформирован (демо)')}>Скачать</Button>
+            <Button variant="secondary" icon="send" onClick={() => act('отправлен контрагенту (демо)')}>Отправить контрагенту</Button>
+            <Button icon="send" onClick={() => act('передан в 1С:Бухгалтерию (демо)')}>В бухгалтерию</Button>
+          </div>
         </div>
       ) : (
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '16px 14px', border: '1px dashed var(--line)', borderRadius: 12, color: 'var(--muted)', fontSize: 13 }}>
@@ -768,7 +767,59 @@ function ReconActDrawer({ open, cp, onClose }) {
           Укажите параметры и нажмите «Сформировать акт» — появится детализация по дебету/кредиту за выбранный период.
         </div>
       )}
+    </>
+  );
+}
+
+function ReconActDrawer({ open, cp, onClose }) {
+  if (!open || !cp) return null;
+  return (
+    <Drawer open={open} onClose={onClose} title="Акт сверки" sub={cp.name + ' · ' + (cp.type === 'client' ? 'клиент' : 'поставщик')} width="min(760px,97vw)"
+      footer={<Button variant="secondary" style={{ width: '100%' }} onClick={onClose}>Закрыть</Button>}>
+      <ReconActContent cp={cp} key={cp.id} />
     </Drawer>
+  );
+}
+
+function FinReconciliation() {
+  const [type, setType] = useState('client');
+  const [cpId, setCpId] = useState('');
+  const [q, setQ] = useState('');
+  const ql = q.trim().toLowerCase();
+  const list = FIN_COUNTERPARTIES.filter((c) => c.type === type)
+    .filter((c) => !ql || (c.name + ' ' + c.legal).toLowerCase().includes(ql));
+  const cp = FIN_COUNTERPARTIES.find((c) => c.id === cpId && c.type === type) || null;
+  return (
+    <div className="fade-in">
+      <div className="card card-pad" style={{ marginBottom: 14 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12, flexWrap: 'wrap' }}>
+          <Tabs tabs={[{ key: 'client', label: 'Клиенты' }, { key: 'supplier', label: 'Поставщики' }]} value={type} onChange={(v) => { setType(v); setCpId(''); }} />
+          <SearchBox value={q} onChange={setQ} placeholder="Поиск контрагента" style={{ minWidth: 240 }} />
+          <div style={{ flex: 1 }} />
+          <span style={{ fontSize: 12.5, color: 'var(--muted)' }}>Выберите контрагента для акта сверки</span>
+        </div>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(240px,1fr))', gap: 10 }}>
+          {list.map((c) => (
+            <button key={c.id} type="button" onClick={() => setCpId(c.id)}
+              style={{ cursor: 'pointer', textAlign: 'left', border: '1px solid ' + (cpId === c.id ? 'var(--blue)' : 'var(--line)'), background: cpId === c.id ? 'var(--blue-soft)' : '#fff', borderRadius: 12, padding: '11px 13px', display: 'flex', alignItems: 'center', gap: 10 }}>
+              <span className="oc-svc-ic" style={{ background: c.type === 'client' ? 'var(--blue)' : 'var(--amber)', width: 32, height: 32, flex: '0 0 32px' }}><Icon name={c.type === 'client' ? 'user' : 'suppliers'} style={{ width: 16, height: 16 }} /></span>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontWeight: 600, color: 'var(--ink)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{c.name}</div>
+                <div style={{ fontSize: 12, color: 'var(--muted)' }}>{c.scheme} · долг {f$(c.debt)}</div>
+              </div>
+              {cpId === c.id && <Icon name="check" style={{ width: 16, height: 16, color: 'var(--blue)', flex: '0 0 16px' }} />}
+            </button>
+          ))}
+          {list.length === 0 && <div style={{ fontSize: 13, color: 'var(--muted)' }}>Ничего не найдено</div>}
+        </div>
+      </div>
+      {cp
+        ? <ReconActContent cp={cp} key={cp.id} />
+        : <div className="card card-pad" style={{ display: 'flex', alignItems: 'center', gap: 10, color: 'var(--muted)', fontSize: 13 }}>
+            <Icon name="finance" style={{ width: 18, height: 18, color: 'var(--muted-2)' }} />
+            Выберите контрагента выше — откроются параметры и формирование акта сверки за период / по услуге / по сотруднику.
+          </div>}
+    </div>
   );
 }
 
@@ -1186,6 +1237,7 @@ const FIN_TABS = [
   { key: 'payments', label: 'Платежи' },
   { key: 'treasury', label: 'Казначейство' },
   { key: 'settlements', label: 'Взаиморасчёты' },
+  { key: 'recon', label: 'Акт сверки' },
   { key: 'economics', label: 'Экономика' },
   { key: 'analytics', label: 'Аналитика' },
   { key: 'rules', label: 'Правила' },
@@ -1202,6 +1254,7 @@ function FinancePage() {
         {tab === 'payments' && <FinPayments />}
         {tab === 'treasury' && <FinTreasury />}
         {tab === 'settlements' && <FinSettlements />}
+        {tab === 'recon' && <FinReconciliation />}
         {tab === 'economics' && <FinEconomics />}
         {tab === 'analytics' && <FinAnalytics />}
         {tab === 'rules' && <FinRules />}
