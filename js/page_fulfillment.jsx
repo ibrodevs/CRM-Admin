@@ -420,10 +420,77 @@ function DocCard({ doc, onClose, onChange }) {
 }
 
 
+function DocSetCard({ set, onOpen }) {
+  const latest = set.docs[set.docs.length - 1];
+  const k = DOC_KIND[latest.type] || DOC_KIND['Прочее'];
+  const needsAction = set.docs.some((d) => ['Черновик', 'На подписи'].includes(d.status));
+  return (
+    <div className="doc-set-card">
+      <div className="doc-set-head">
+        <span className="airline-logo sm doc-set-ic" style={{ background: k.color }}><Icon name={k.icon} /></span>
+        <div className="doc-set-main">
+          <div className="doc-set-title">{docSetTitle(set.docs)}</div>
+          <div className="doc-set-sub">{set.docs.length} {plural(set.docs.length, ['версия', 'версии', 'версий'])} · последняя v{latest.version}</div>
+        </div>
+        <Pill tone={needsAction ? 'amber' : DOC_STATUS2[latest.status]}>{needsAction ? 'Требует действия' : latest.status}</Pill>
+      </div>
+      <div className="doc-version-row">
+        {set.docs.map((d) => {
+          const origin = docOrigin(d);
+          return (
+            <button key={d.no} type="button" className={'doc-version-pill ' + (d.no === latest.no ? 'latest' : '')} onClick={() => onOpen(d)}>
+              <span className="v">v{d.version}</span>
+              <span className={'src ' + origin.tone}>{origin.label}</span>
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+// Услуга = раскрывающийся блок: свёрнут показывает сводку, раскрыт — карточки документов.
+function DocServiceGroup({ service, sets, defaultOpen, onOpen }) {
+  const [open, setOpen] = useState(!!defaultOpen);
+  const allDocs = sets.flatMap((s) => s.docs);
+  const needsAction = allDocs.some((d) => ['Черновик', 'На подписи'].includes(d.status));
+  const first = sets[0].docs[sets[0].docs.length - 1];
+  const k = DOC_KIND[first.type] || DOC_KIND['Прочее'];
+  return (
+    <div className={'doc-svc-group' + (open ? ' is-open' : '')}>
+      <button type="button" className="doc-svc-head" onClick={() => setOpen((o) => !o)}>
+        <span className="airline-logo sm doc-set-ic" style={{ background: k.color }}><Icon name={k.icon} /></span>
+        <div className="doc-svc-main">
+          <div className="doc-svc-title">{service}</div>
+          <div className="doc-svc-sub">{sets.length} {plural(sets.length, ['документ', 'документа', 'документов'])} · {allDocs.length} {plural(allDocs.length, ['версия', 'версии', 'версий'])}</div>
+        </div>
+        <Pill tone={needsAction ? 'amber' : 'green'}>{needsAction ? 'Требует действия' : 'Готово'}</Pill>
+        <Icon name={open ? 'chevUp' : 'chevDown'} className="doc-svc-chev" />
+      </button>
+      {open && (
+        <div className="doc-set-grid" style={{ marginTop: 10 }}>
+          {sets.map((set) => <DocSetCard key={set.key} set={set} onOpen={onOpen} />)}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function DocPassengerGroup({ name, role, docs, onOpen, onUpload }) {
   const supplierCount = docs.filter((d) => docOrigin(d).label === DOC_ORIGIN.supplier.label).length;
   const correctedCount = docs.filter((d) => docOrigin(d).label === DOC_ORIGIN.corrected.label).length;
   const sets = groupDocSets(docs);
+  // Группируем наборы документов по услуге, чтобы каждая услуга была отдельным раскрывающимся блоком.
+  const svcOrder = [];
+  const svcMap = {};
+  sets.forEach((set) => {
+    const s0 = set.docs[0] || {};
+    const svc = s0.service && s0.service !== '—' ? s0.service : 'Без привязки к услуге';
+    if (!svcMap[svc]) { svcMap[svc] = []; svcOrder.push(svc); }
+    svcMap[svc].push(set);
+  });
+  // Простые случаи (одна услуга) — раскрыты сразу; при нескольких услугах свёрнуты для компактности.
+  const autoOpen = svcOrder.length <= 1;
   return (
     <div className="card card-pad" style={{ marginBottom: 14 }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
@@ -432,41 +499,14 @@ function DocPassengerGroup({ name, role, docs, onOpen, onUpload }) {
           <div style={{ fontWeight: 700, color: 'var(--ink)' }}>{name}</div>
           <div style={{ fontSize: 13, color: 'var(--muted)' }}>
             {role || 'Пассажир'} · {docs.length ? docs.length + ' ' + plural(docs.length, ['документ', 'документа', 'документов']) : 'документов нет'}
-            {docs.length ? ` · ${supplierCount} от поставщика · ${correctedCount} скорр.` : ''}
+            {docs.length ? ` · ${svcOrder.length} ${plural(svcOrder.length, ['услуга', 'услуги', 'услуг'])} · ${supplierCount} от поставщика · ${correctedCount} скорр.` : ''}
           </div>
         </div>
         <Button variant="secondary" size="sm" icon="plus" onClick={onUpload}>Загрузить</Button>
       </div>
       {docs.length ? (
-        <div className="doc-set-grid">
-          {sets.map((set) => {
-            const latest = set.docs[set.docs.length - 1];
-            const k = DOC_KIND[latest.type] || DOC_KIND['Прочее'];
-            const needsAction = set.docs.some((d) => ['Черновик', 'На подписи'].includes(d.status));
-            return (
-              <div key={set.key} className="doc-set-card">
-                <div className="doc-set-head">
-                  <span className="airline-logo sm doc-set-ic" style={{ background: k.color }}><Icon name={k.icon} /></span>
-                  <div className="doc-set-main">
-                    <div className="doc-set-title">{docSetTitle(set.docs)}</div>
-                    <div className="doc-set-sub">{set.docs.length} {plural(set.docs.length, ['версия', 'версии', 'версий'])} · последняя v{latest.version}</div>
-                  </div>
-                  <Pill tone={needsAction ? 'amber' : DOC_STATUS2[latest.status]}>{needsAction ? 'Требует действия' : latest.status}</Pill>
-                </div>
-                <div className="doc-version-row">
-                  {set.docs.map((d) => {
-                    const origin = docOrigin(d);
-                    return (
-                      <button key={d.no} type="button" className={'doc-version-pill ' + (d.no === latest.no ? 'latest' : '')} onClick={() => onOpen(d)}>
-                        <span className="v">v{d.version}</span>
-                        <span className={'src ' + origin.tone}>{origin.label}</span>
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-            );
-          })}
+        <div className="doc-svc-list">
+          {svcOrder.map((svc) => <DocServiceGroup key={svc} service={svc} sets={svcMap[svc]} defaultOpen={autoOpen} onOpen={onOpen} />)}
         </div>
       ) : (
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 12, padding: '12px 14px', border: '1px dashed var(--line)', borderRadius: 12, color: 'var(--muted)', fontSize: 13 }}>
