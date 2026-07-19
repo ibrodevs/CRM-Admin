@@ -89,6 +89,31 @@ function TripCard({ trip, compact, onOpen }) {
 }
 
 
+function TripWeekChip({ trip, onOpen }) {
+  const crit = tripCriticality(trip);
+  const kinds = Array.from(new Set(trip.services.map((s) => s.kind)));
+  const fms = tripForceMajeures(trip);
+  const conflicts = tripConflicts(trip);
+  const who = trip.company && trip.company !== '—' ? trip.company : trip.client;
+  const paxLabel = trip.group ? 'группа ' + trip.group.bookings : trip.pax + ' пасс.';
+  return (
+    <button type="button" className={'tc-wchip tone-' + tcTone(crit)} onClick={() => onOpen(trip)} title={trip.routeLabel + ' · ' + who}>
+      <span className="tc-wchip-l1">
+        {crit !== 'info' && <CritDot crit={crit} size={7} />}
+        <span className="tc-wchip-route">{trip.routeLabel}</span>
+        {(fms.length > 0 || conflicts.length > 0) && (
+          <Icon name="alertTriangle" style={{ width: 12, height: 12, color: 'var(--' + (fms.length ? 'red' : 'amber') + ')', flexShrink: 0 }} />
+        )}
+      </span>
+      <span className="tc-wchip-l2">
+        {kinds.slice(0, 4).map((k) => <SvcGlyph key={k} kind={k} size={15} />)}
+        <span className="tc-wchip-sub">{who} · {paxLabel}</span>
+        <span className="tc-wchip-status"><Pill tone={ORDER_STATUS[trip.status] || 'gray'}>{trip.status}</Pill></span>
+      </span>
+    </button>
+  );
+}
+
 function WeekView({ anchor, trips, onOpen, onPickDay, onOpenEvent, evtTick }) {
   const start = tcWeekStart(anchor);
   const days = Array.from({ length: 7 }, (_, i) => tcAddDays(start, i));
@@ -109,7 +134,7 @@ function WeekView({ anchor, trips, onOpen, onPickDay, onOpenEvent, evtTick }) {
             </button>
             <div className="tc-week-body">
               {dayTrips.length === 0 && dayEvents.length === 0 && <div className="tc-empty-day">—</div>}
-              {dayTrips.map((t) => <TripCard key={t.id} trip={t} compact onOpen={onOpen} />)}
+              {dayTrips.map((t) => <TripWeekChip key={t.id} trip={t} onOpen={onOpen} />)}
               {dayEvents.map((ev) => <CalEventChip key={ev.id} evt={ev} onOpen={onOpenEvent} />)}
             </div>
           </div>

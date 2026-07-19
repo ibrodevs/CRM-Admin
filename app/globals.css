@@ -1377,8 +1377,18 @@ table.tbl tbody tr:last-child td{border-bottom:none}
 .tc-wd{font-size:11px;font-weight:700;color:var(--muted-2);text-transform:uppercase}
 .tc-dn{font-weight:700;color:var(--ink);font-size:15px}
 .tc-today-badge{margin-left:auto;font-size:10px;font-weight:700;color:#fff;background:var(--blue);border-radius:999px;padding:1px 7px}
-.tc-week-body{flex:1;display:flex;flex-direction:column;gap:8px;padding:8px;overflow-y:auto}
+.tc-week-body{flex:1;display:flex;flex-direction:column;gap:6px;padding:7px;overflow-y:auto}
 .tc-empty-day{color:var(--faint);text-align:center;font-size:12px;padding:6px}
+/* компактный чип поездки в недельном виде */
+.tc-wchip{display:flex;flex-direction:column;gap:3px;width:100%;text-align:left;border:1px solid var(--line);border-left:3px solid var(--gray);background:#fff;border-radius:9px;padding:6px 8px;cursor:pointer;font:inherit;transition:.12s}
+.tc-wchip:hover{border-color:var(--blue);box-shadow:var(--shadow-card);transform:translateY(-1px)}
+.tc-wchip.tone-red{border-left-color:var(--red)}.tc-wchip.tone-amber{border-left-color:var(--amber)}.tc-wchip.tone-blue{border-left-color:var(--blue)}.tc-wchip.tone-green{border-left-color:var(--green)}
+.tc-wchip-l1{display:flex;align-items:center;gap:5px;min-width:0}
+.tc-wchip-route{flex:1;min-width:0;font-weight:700;font-size:12px;color:var(--ink);line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tc-wchip-l2{display:flex;align-items:center;gap:5px;min-width:0}
+.tc-wchip-sub{flex:1;min-width:0;font-size:11px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tc-wchip-status{flex-shrink:0}
+.tc-wchip-status .pill{font-size:10px;padding:1px 6px;font-weight:700}
 .tc-day{display:grid;grid-template-columns:1.4fr 1fr;gap:14px;padding:14px;min-height:100%}
 .tc-day-list{display:flex;flex-direction:column;gap:10px}
 .tc-day-schedule{background:#fff;border:1px solid var(--line);border-radius:12px;overflow:hidden;align-self:start}

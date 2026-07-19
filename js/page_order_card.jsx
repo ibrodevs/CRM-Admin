@@ -455,32 +455,8 @@ function TabParticipants({ list, isGroup, groups, fresh, orderNo, orderAirline, 
           if (rest.length) out.push({ id: '__rest', index: null, name: 'Без подгруппы', members: rest });
           return out;
         })() : null;
-        if (secs) return <div className="pax-groups">{secs.map((s) => <PaxGroupCard key={s.id} index={s.index} name={s.name} members={s.members} onPassport={onPassport} onEdit={onEdit} onAddDoc={onAddDoc} />)}</div>;
-        return (
-          <div className="table-card">
-            <table className="tbl">
-              <thead><tr><th>Участник</th><th>Тип</th><th>Документ</th><th>Дата рожд.</th><th>Телефон</th><th>Документы</th><th></th></tr></thead>
-              <tbody>
-                {list.map((p, i) => (
-                  <tr key={i} style={{ cursor: 'pointer' }} onClick={() => onEdit && onEdit(p)}>
-                    <td className="t-strong">{p.name} {p.lead && <span className="pill pill-blue" style={{ marginLeft: 6 }}>Лид</span>}</td>
-                    <td>{p.role}</td><td><DocCell p={p} /></td><td>{p.dob || '—'}</td><td>{p.phone || '—'}</td>
-                    <td><Pill tone={p.docStatus === 'check' ? 'amber' : 'green'}>{p.docStatus === 'check' ? 'Требует проверки' : 'Без ошибок'}</Pill></td>
-                    <td onClick={(e) => e.stopPropagation()}>
-                      <ActionMenu trigger={<button className="btn btn-ghost btn-icon btn-sm"><Icon name="more" /></button>}
-                        items={[
-                          { icon: 'idcard', label: 'Документы', onClick: () => onPassport(p.name) },
-                          { icon: 'docs', label: 'Добавить документ', onClick: () => onAddDoc && onAddDoc(p) },
-                          { icon: 'edit', label: 'Изменить данные', onClick: () => onEdit && onEdit(p) },
-                          { sep: true }, { icon: 'trash', label: 'Удалить', danger: true },
-                        ]} />
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        );
+        const cardSections = secs || [{ id: '__standard', index: null, name: 'Пассажиры заказа', members: list.map((p, i) => ({ p, i })) }];
+        return <div className="pax-groups">{cardSections.map((s) => <PaxGroupCard key={s.id} index={s.index} name={s.name} members={s.members} onPassport={onPassport} onEdit={onEdit} onAddDoc={onAddDoc} />)}</div>;
       })()}
       {unifyOpen && <PaxUnifyPanel list={list} orderNo={orderNo} autoBind={orderAirline} onApplyRoster={onApplyRoster} onClose={() => setUnifyOpen(false)} />}
       {groupsOpen && <PaxGroupsDrawer current={list} companyId={companyId} companyName={companyName} onAddGroup={addGroup} onClose={() => setGroupsOpen(false)} />}
