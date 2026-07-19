@@ -2,6 +2,8 @@ import { useState, useEffect } from 'react';
 import { Icon } from './icons';
 import { Button, ConfirmDialog, Drawer, Field, Input, Pill, Select, Tabs, useToast } from './ui';
 import { CURRENT_USER, FEE_DESC_DEFAULTS, FEE_SCHEMA, FEE_SERVICE_TYPES, FEE_TEMPLATES, SERVICE_DESC_DEFAULTS, SETTLEMENT_TYPES, applyAgreementFees, companyFinance, creditAvailable, depositAvailable, descsFromDefaults, feeDescOf, feeDescsFromDefaults, feeTemplate, feesFromTemplate, registerFeeTemplate } from './data';
+import { FIN_COUNTERPARTIES, f$ } from './data/finance';
+import { FinCounterpartyDrawer } from './page_finance';
 
 
 
@@ -482,6 +484,52 @@ function ClosingDocsPreview({ open, agreement, coName, co, onClose }) {
 }
 
 
+function CompanySettlementsBlock({ co }) {
+  const toast = useToast();
+  const [open, setOpen] = useState(false);
+  const cp = FIN_COUNTERPARTIES.find((c) => c.name === co.name || c.legal === co.name
+    || (co.name && (c.name.includes(co.name) || co.name.includes(c.name))));
+  if (!cp) {
+    return (
+      <div className="card card-pad" style={{ color: 'var(--muted)' }}>
+        По этой организации ещё нет проведённых взаиморасчётов. Они появятся после первого счёта или оплаты.
+      </div>
+    );
+  }
+  const debit = cp.obligations.reduce((s, o) => s + o.sum, 0);
+  const credit = cp.obligations.reduce((s, o) => s + o.paid, 0);
+  const overdue = cp.obligations.some((o) => o.overdueDays > 0);
+  const stat = (label, value, tone) => (
+    <div style={{ padding: '12px 14px', border: '1px solid var(--line)', borderRadius: 12, background: '#fff' }}>
+      <div style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 4 }}>{label}</div>
+      <div style={{ fontSize: 20, fontWeight: 700, color: tone || 'var(--ink)' }}>{value}</div>
+    </div>
+  );
+  return (
+    <div className="card card-pad">
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12, flexWrap: 'wrap' }}>
+        <h3 className="card-title" style={{ fontSize: 17, margin: 0 }}>Взаиморасчёты</h3>
+        {overdue && <Pill tone="red">есть просрочка</Pill>}
+        <div style={{ flex: 1 }} />
+        <Button size="sm" icon="finance" onClick={() => setOpen(true)}>Открыть детализацию</Button>
+      </div>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(150px,1fr))', gap: 10, marginBottom: 12 }}>
+        {stat('Дебет (начислено)', f$(debit))}
+        {stat('Кредит (оплачено)', f$(credit), 'var(--green)')}
+        {stat('Сальдо (остаток)', f$(debit - credit), debit - credit > 0 ? 'var(--amber)' : 'var(--green)')}
+        {stat('Свободный лимит', cp.limit ? f$(Math.max(0, cp.limit - cp.used)) : '—')}
+      </div>
+      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+        <Button size="sm" variant="secondary" icon="download" onClick={() => toast('Акт сверки по «' + cp.name + '» сформирован (демо)', 'ok')}>Акт сверки</Button>
+        <Button size="sm" variant="secondary" icon="download" onClick={() => toast('Счёт по «' + cp.name + '» сформирован (демо)', 'ok')}>Счёт</Button>
+        <Button size="sm" variant="secondary" icon="download" onClick={() => toast('УПД по «' + cp.name + '» сформирован (демо)', 'ok')}>УПД</Button>
+        <Button size="sm" variant="secondary" icon="send" onClick={() => toast('Данные переданы в 1С:Бухгалтерию (демо)', 'ok')}>В бухгалтерию</Button>
+      </div>
+      {open && <FinCounterpartyDrawer cp={cp} onClose={() => setOpen(false)} />}
+    </div>
+  );
+}
+
 function CompanyFinanceBlock({ co }) {
   const seeded = companyFinance(co.id);
   const [fin, setFin] = useState(() => (seeded ? JSON.parse(JSON.stringify(seeded)) : null));
@@ -493,6 +541,8 @@ function CompanyFinanceBlock({ co }) {
   return (
     <div className="fade-in">
       <CompanyFinanceSection fin={fin} onChangeSettlement={setSettlement} />
+      <div style={{ height: 8 }} />
+      <CompanySettlementsBlock co={co} />
       <div style={{ height: 8 }} />
       <CompanyContracts fin={fin} coName={co.name} onFinChange={setFin} onOpenClosing={(a) => setClosing(a)} />
       <ClosingDocsPreview open={!!closing} agreement={closing} co={co} coName={co.name} onClose={() => setClosing(null)} />

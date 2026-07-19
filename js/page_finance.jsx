@@ -1,7 +1,8 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Icon } from './icons';
-import { Button, Drawer, FilterChip, Pill, Select, Tabs, useToast } from './ui';
-import { SERVICE_KIND } from './data';
+import { Button, Drawer, EmptyState, Field, FilterChip, Input, Pill, SearchBox, Select, Tabs, useToast } from './ui';
+import { SERVICE_KIND, CLIENTS_DB, COMPANIES_DB, SUPPLIERS } from './data';
+import { UFDateField } from './forms_unified';
 import { Topbar } from './layout';
 import {
   f$, fSigned, finNow, deltaTone, finCreditCheck,
@@ -298,18 +299,231 @@ function FinPaymentDrawer({ p, onClose }) {
     </Drawer>
   );
 }
+const FIN_OPERATORS = ['Даниель', 'Азамат А.', 'Куба', 'Айсулуу', 'Бухгалтерия'];
+const FIN_CURRENCIES = ['USD', 'KGS', 'RUB', 'EUR', 'KZT'];
+let FIN_PMT_SEQ = 5047;
+
+const uniqBy = (arr, key) => { const seen = new Set(); return arr.filter((x) => (seen.has(key(x)) ? false : (seen.add(key(x)), true))); };
+const FIN_CLIENT_ROWS = uniqBy([
+  ...COMPANIES_DB.map((c) => ({ name: c.name, sub: c.type + (c.inn ? ' · ИНН ' + c.inn : ''), icon: 'building', tone: 'var(--blue)' })),
+  ...CLIENTS_DB.map((c) => ({ name: c.name, sub: c.type + (c.city ? ' · ' + c.city : '') + (c.company && c.company !== '—' ? ' · ' + c.company : ''), icon: 'user', tone: 'var(--green)' })),
+], (r) => r.name);
+const FIN_SUPPLIER_ROWS = uniqBy([
+  ...FIN_COUNTERPARTIES.filter((c) => c.type === 'supplier').map((c) => ({ name: c.name, sub: 'Поставщик · ' + c.scheme, icon: 'suppliers', tone: 'var(--amber)' })),
+  ...SUPPLIERS.map((s) => ({ name: s.name, sub: [s.service, s.org].filter((x) => x && x !== s.name).join(' · '), icon: 'suppliers', tone: 'var(--amber)' })),
+], (r) => r.name);
+const FIN_SERVICE_ROWS = Object.entries(SERVICE_KIND).map(([k, v]) => ({ name: k, sub: 'Вид услуги', icon: v.icon, tone: v.color }));
+
+function FinPickerDrawer({ open, title, sub, rows, placeholder, value, onClose, onPick }) {
+  const [q, setQ] = useState('');
+  useEffect(() => { if (open) setQ(''); }, [open]);
+  if (!open) return null;
+  const ql = q.trim().toLowerCase();
+  const shown = rows.filter((r) => !ql || (r.name + ' ' + (r.sub || '')).toLowerCase().includes(ql));
+  return (
+    <Drawer open={open} onClose={onClose} title={title} sub={sub} width="min(520px,96vw)"
+      footer={<Button variant="secondary" style={{ width: '100%' }} onClick={onClose}>Отмена</Button>}>
+      <SearchBox value={q} onChange={setQ} placeholder={placeholder} style={{ width: '100%', marginBottom: 12 }} />
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+        {shown.map((r) => (
+          <button key={r.name} type="button" onClick={() => onPick(r.name)}
+            style={{ cursor: 'pointer', width: '100%', textAlign: 'left', border: '1px solid var(--line)', background: value === r.name ? 'var(--surface-2)' : '#fff', borderRadius: 12, padding: '10px 12px', display: 'flex', alignItems: 'center', gap: 12 }}>
+            <span className="oc-svc-ic" style={{ background: r.tone || 'var(--blue)', width: 34, height: 34, borderRadius: 10, flexShrink: 0 }}><Icon name={r.icon || 'briefcase'} style={{ width: 17, height: 17 }} /></span>
+            <span style={{ flex: 1, minWidth: 0 }}>
+              <span style={{ display: 'block', fontWeight: 600, color: 'var(--ink)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{r.name}</span>
+              {r.sub && <span style={{ display: 'block', fontSize: 12.5, color: 'var(--muted)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{r.sub}</span>}
+            </span>
+            {value === r.name && <Icon name="check" style={{ width: 18, height: 18, color: 'var(--blue)' }} />}
+          </button>
+        ))}
+        {!shown.length && <EmptyState icon="search" title="Ничего не найдено" />}
+      </div>
+    </Drawer>
+  );
+}
+
+function FinPickerField({ value, placeholder, icon, error, onOpen }) {
+  return (
+    <button type="button" className={'select' + (error ? ' err' : '')} onClick={onOpen}
+      style={{ display: 'flex', alignItems: 'center', gap: 10, textAlign: 'left', cursor: 'pointer', width: '100%' }}>
+      <Icon name={icon} style={{ width: 16, height: 16, color: 'var(--muted-2)', flexShrink: 0 }} />
+      <span style={{ flex: 1, color: value ? 'var(--ink)' : 'var(--muted-2)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{value || placeholder}</span>
+      <Icon name="chevRight" style={{ width: 16, height: 16, color: 'var(--muted-2)' }} />
+    </button>
+  );
+}
+
+function NewPaymentDrawer({ open, onClose, onCreate }) {
+  const toast = useToast();
+  const [dir, setDir] = useState('in');
+  const [party, setParty] = useState('');
+  const [sum, setSum] = useState('');
+  const [currency, setCurrency] = useState('USD');
+  const [purpose, setPurpose] = useState('');
+  const [order, setOrder] = useState('');
+  const [plan, setPlan] = useState('');
+  const [resp, setResp] = useState('Даниель');
+  const [priority, setPriority] = useState('Средний');
+  const [status, setStatus] = useState('Черновик');
+  const [services, setServices] = useState([{ t: '', sum: '' }]);
+  const [docs, setDocs] = useState([]);
+  const [docDraft, setDocDraft] = useState('');
+  const [err, setErr] = useState({});
+  const [pickParty, setPickParty] = useState(false);
+  const [pickSvc, setPickSvc] = useState(null);
+
+  const reset = () => {
+    setDir('in'); setParty(''); setSum(''); setCurrency('USD'); setPurpose(''); setOrder('');
+    setPlan(''); setResp('Даниель'); setPriority('Средний'); setStatus('Черновик');
+    setServices([{ t: '', sum: '' }]); setDocs([]); setDocDraft(''); setErr({});
+    setPickParty(false); setPickSvc(null);
+  };
+  const close = () => { reset(); onClose(); };
+
+  const svcSum = services.reduce((s, x) => s + (Number(x.sum) || 0), 0);
+  const total = Number(sum) || svcSum;
+
+  const setSvc = (i, k, v) => setServices((arr) => arr.map((s, idx) => (idx === i ? { ...s, [k]: v } : s)));
+  const addSvc = () => setServices((arr) => [...arr, { t: '', sum: '' }]);
+  const rmSvc = (i) => setServices((arr) => (arr.length > 1 ? arr.filter((_, idx) => idx !== i) : arr));
+  const addDoc = () => { const d = docDraft.trim(); if (!d) return; setDocs((x) => [...x, d]); setDocDraft(''); };
+
+  const submit = () => {
+    const e = {};
+    if (!party.trim()) e.party = 'Укажите контрагента';
+    if (!(total > 0)) e.sum = 'Сумма должна быть больше 0';
+    setErr(e);
+    if (Object.keys(e).length) { toast('Заполните обязательные поля', 'err'); return; }
+    const now = finNow();
+    const stamp = now.slice(0, 5) + ' · ' + now.slice(-5);
+    const filledSvc = services.filter((s) => s.t.trim() || Number(s.sum) > 0)
+      .map((s) => ({ t: s.t.trim() || 'Услуга', sum: Number(s.sum) || 0 }));
+    const needApprove = dir === 'out' && total >= 1000;
+    const pmt = {
+      no: 'PMT-' + FIN_PMT_SEQ++,
+      dir, date: now.slice(0, 10), plan: plan.trim() || now.slice(0, 10),
+      party: party.trim(), requisites: '—', sum: total, currency,
+      purpose: purpose.trim() || (dir === 'in' ? 'Поступление от ' + party.trim() : 'Оплата ' + party.trim()),
+      order: order.trim() || null,
+      supplier: dir === 'out' ? party.trim() : '—', client: dir === 'in' ? party.trim() : '—',
+      resp, priority, status,
+      services: filledSvc.length ? filledSvc : [{ t: purpose.trim() || 'Платёж', sum: total }],
+      fees: [], docs,
+      history: [{ t: stamp, text: 'Платёж создан вручную', who: resp }],
+      approvals: needApprove ? [{ who: 'Старший оператор', at: null, ok: null }, { who: 'Финансовый контроль', at: null, ok: null }] : [],
+    };
+    onCreate(pmt);
+    toast('Платёж ' + pmt.no + ' создан', 'ok');
+    reset();
+    onClose();
+  };
+
+  return (
+    <Drawer open={open} onClose={close} title="Новый платёж" sub="Финансы · Платежи · создание вручную" width="min(720px,96vw)"
+      footer={<div style={{ display: 'flex', gap: 10, width: '100%' }}>
+        <Button variant="secondary" style={{ flex: 1 }} onClick={close}>Отмена</Button>
+        <Button style={{ flex: 2 }} icon="check" onClick={submit}>Создать платёж</Button>
+      </div>}>
+      <Field label="Направление платежа" required>
+        <Tabs tabs={[{ key: 'in', label: 'Входящий (поступление)' }, { key: 'out', label: 'Исходящий (выплата)' }]} value={dir}
+          onChange={(v) => { setDir(v); setParty(''); }} />
+      </Field>
+      <Field label={dir === 'in' ? 'Клиент' : 'Поставщик'} required error={err.party}
+        hint={dir === 'in' ? 'Выберите клиента из справочника' : 'Выберите поставщика из справочника'}>
+        <FinPickerField value={party} error={err.party} icon={dir === 'in' ? 'user' : 'suppliers'}
+          placeholder={dir === 'in' ? 'Выбрать клиента…' : 'Выбрать поставщика…'} onOpen={() => setPickParty(true)} />
+      </Field>
+      <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 12 }}>
+        <Field label="Сумма" required error={err.sum}>
+          <Input type="number" value={sum} onChange={(e) => setSum(e.target.value)} error={err.sum}
+            placeholder={svcSum > 0 ? String(svcSum) + ' (из услуг)' : '0'} />
+        </Field>
+        <Field label="Валюта"><Select value={currency} onChange={(e) => setCurrency(e.target.value)} options={FIN_CURRENCIES} /></Field>
+      </div>
+      <Field label="Назначение платежа">
+        <Input value={purpose} onChange={(e) => setPurpose(e.target.value)} placeholder="Напр.: Оплата по счёту № 6152" />
+      </Field>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+        <Field label="Заказ (необязательно)"><Input value={order} onChange={(e) => setOrder(e.target.value)} placeholder="№ заказа" /></Field>
+        <UFDateField label="Плановая дата" value={plan || null} onChange={(v) => setPlan(v || '')} placeholder="дд.мм.гггг" />
+      </div>
+
+      <Field label="Услуги (можно несколько)" hint="Выберите вид услуги из справочника и укажите сумму">
+        <div style={{ display: 'grid', gap: 8 }}>
+          {services.map((s, i) => (
+            <div key={i} style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+              <div style={{ flex: 1 }}>
+                <FinPickerField value={s.t} icon="briefcase" placeholder="Выбрать услугу…" onOpen={() => setPickSvc(i)} />
+              </div>
+              <Input type="number" value={s.sum} onChange={(e) => setSvc(i, 'sum', e.target.value)} placeholder="Сумма" style={{ width: 120 }} />
+              <Button size="sm" variant="secondary" icon="trash" onClick={() => rmSvc(i)} disabled={services.length <= 1} />
+            </div>
+          ))}
+          <div><Button size="sm" variant="secondary" icon="plus" onClick={addSvc}>Добавить услугу</Button></div>
+          {svcSum > 0 && <div style={{ fontSize: 12.5, color: 'var(--muted)', textAlign: 'right' }}>Сумма услуг: <b style={{ color: 'var(--ink)' }}>{f$(svcSum)}</b></div>}
+        </div>
+      </Field>
+
+      <Field label="Документы-основания">
+        <div style={{ display: 'flex', gap: 8 }}>
+          <Input value={docDraft} onChange={(e) => setDocDraft(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addDoc(); } }}
+            placeholder="Счёт, акт, инвойс, заявление…" style={{ flex: 1 }} />
+          <Button size="sm" variant="secondary" icon="plus" onClick={addDoc}>Добавить</Button>
+        </div>
+        {docs.length > 0 && (
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 8 }}>
+            {docs.map((d, i) => (
+              <span key={i} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12.5, padding: '5px 10px', borderRadius: 8, background: 'var(--surface-2)', border: '1px solid var(--line)' }}>
+                <Icon name="docs" style={{ width: 13, height: 13, color: 'var(--muted-2)' }} />{d}
+                <Icon name="x" style={{ width: 13, height: 13, color: 'var(--muted-2)', cursor: 'pointer' }} onClick={() => setDocs((x) => x.filter((_, idx) => idx !== i))} />
+              </span>
+            ))}
+          </div>
+        )}
+      </Field>
+
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12 }}>
+        <Field label="Ответственный"><Select value={resp} onChange={(e) => setResp(e.target.value)} options={FIN_OPERATORS} /></Field>
+        <Field label="Приоритет"><Select value={priority} onChange={(e) => setPriority(e.target.value)} options={Object.keys(FIN_PRIORITY)} /></Field>
+        <Field label="Статус согласования"><Select value={status} onChange={(e) => setStatus(e.target.value)} options={Object.keys(FIN_PAY_STATUS)} /></Field>
+      </div>
+      <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 2 }}>
+        Итого к {dir === 'in' ? 'поступлению' : 'выплате'}: <b style={{ color: dir === 'in' ? 'var(--green)' : 'var(--ink)' }}>{f$(total)}</b>
+        {dir === 'out' && total >= 1000 ? ' · потребуется согласование' : ''}
+      </div>
+
+      <FinPickerDrawer open={pickParty} value={party}
+        title={dir === 'in' ? 'Выбор клиента' : 'Выбор поставщика'}
+        sub={dir === 'in' ? 'Плательщик по входящему платежу' : 'Получатель исходящего платежа'}
+        placeholder={dir === 'in' ? 'Поиск клиента' : 'Поиск поставщика'}
+        rows={dir === 'in' ? FIN_CLIENT_ROWS : FIN_SUPPLIER_ROWS}
+        onClose={() => setPickParty(false)} onPick={(name) => { setParty(name); setPickParty(false); }} />
+      <FinPickerDrawer open={pickSvc !== null} value={pickSvc !== null ? services[pickSvc].t : ''}
+        title="Выбор услуги" sub="Вид услуги для оплаты" placeholder="Поиск услуги" rows={FIN_SERVICE_ROWS}
+        onClose={() => setPickSvc(null)} onPick={(name) => { setSvc(pickSvc, 't', name); setPickSvc(null); }} />
+    </Drawer>
+  );
+}
+
 function FinPayments() {
   const [open, setOpen] = useState(null);
+  const [creating, setCreating] = useState(false);
+  const [extra, setExtra] = useState([]);
   const [dir, setDir] = useState('all');
   const [status, setStatus] = useState('');
-  const list = FIN_PAYMENTS.filter((p) => (dir === 'all' || p.dir === dir) && (!status || p.status === status));
+  const [q, setQ] = useState('');
+  const all = [...extra, ...FIN_PAYMENTS];
+  const ql = q.trim().toLowerCase();
+  const list = all.filter((p) => (dir === 'all' || p.dir === dir) && (!status || p.status === status)
+    && (!ql || [p.no, p.party, p.purpose, p.order, p.resp].some((v) => String(v || '').toLowerCase().includes(ql))));
   return (
     <div className="fade-in">
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14, flexWrap: 'wrap' }}>
         <Tabs tabs={[{ key: 'all', label: 'Все' }, { key: 'in', label: 'Входящие' }, { key: 'out', label: 'Исходящие' }]} value={dir} onChange={setDir} />
+        <SearchBox value={q} onChange={setQ} placeholder="Поиск: №, контрагент, заказ, назначение" style={{ minWidth: 260 }} />
         <div style={{ flex: 1 }} />
         <FilterChip label="Статус" value={status} onChange={setStatus} options={['', ...Object.keys(FIN_PAY_STATUS)]} />
-        <Button icon="plus">Новый платёж</Button>
+        <Button icon="plus" onClick={() => setCreating(true)}>Новый платёж</Button>
       </div>
       <div className="table-card">
         <table className="tbl">
@@ -331,6 +545,7 @@ function FinPayments() {
         </table>
       </div>
       {open && <FinPaymentDrawer p={open} onClose={() => setOpen(null)} />}
+      <NewPaymentDrawer open={creating} onClose={() => setCreating(false)} onCreate={(p) => setExtra((x) => [p, ...x])} />
     </div>
   );
 }
@@ -414,9 +629,19 @@ function CreditLimitBar({ used, limit }) {
   );
 }
 function FinCounterpartyDrawer({ cp, onClose }) {
+  const toast = useToast();
   const free = Math.max(0, cp.limit - cp.used);
+  const debit = cp.obligations.reduce((s, o) => s + o.sum, 0);
+  const credit = cp.obligations.reduce((s, o) => s + o.paid, 0);
+  const exp = (kind) => toast(kind + ' по «' + cp.name + '» сформирован (демо)', 'ok');
   return (
-    <Drawer open={!!cp} onClose={onClose} title={cp.name} sub={(cp.type === 'client' ? 'Клиент' : 'Поставщик') + ' · ' + cp.legal} width="min(780px,96vw)">
+    <Drawer open={!!cp} onClose={onClose} title={cp.name} sub={(cp.type === 'client' ? 'Клиент' : 'Поставщик') + ' · ' + cp.legal} width="min(780px,96vw)"
+      footer={<div style={{ display: 'flex', gap: 8, width: '100%', flexWrap: 'wrap' }}>
+        <Button variant="secondary" size="sm" icon="download" onClick={() => exp('Акт сверки')} style={{ flex: 1 }}>Акт сверки</Button>
+        <Button variant="secondary" size="sm" icon="download" onClick={() => exp('Счёт')} style={{ flex: 1 }}>Счёт</Button>
+        <Button variant="secondary" size="sm" icon="download" onClick={() => exp('УПД')} style={{ flex: 1 }}>УПД</Button>
+        <Button size="sm" icon="send" onClick={() => toast('Данные переданы в 1С:Бухгалтерию (демо)', 'ok')} style={{ flex: 1.4 }}>В бухгалтерию</Button>
+      </div>}>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 10, marginBottom: 14 }}>
         <StatTile label={cp.type === 'client' ? 'Задолженность клиента' : 'Наш долг поставщику'} value={f$(cp.debt)} tone={cp.debt ? 'var(--amber)' : 'var(--green)'} />
         <StatTile label="Оплачено" value={f$(cp.paid)} />
@@ -430,6 +655,12 @@ function FinCounterpartyDrawer({ cp, onClose }) {
         <FinRow label="Гарантийное письмо" value={cp.guaranteeLetter ? 'требуется' : 'не требуется'} />
         <FinRow label="Согласование при превышении" value={cp.approveOnExceed ? 'обязательно' : 'не требуется'} />
         <div style={{ marginTop: 12 }}><CreditLimitBar used={cp.used} limit={cp.limit} /></div>
+      </div>
+      <div className="card card-pad" style={{ marginBottom: 14 }}>
+        <h3 className="card-title" style={{ fontSize: 14, marginBottom: 10 }}>Детализация по дебету / кредиту</h3>
+        <FinRow label="Дебет (начислено по документам)" value={f$(debit)} />
+        <FinRow label="Кредит (оплачено)" value={f$(credit)} tone="var(--green)" />
+        <FinRow label="Сальдо (остаток)" value={f$(debit - credit)} tone={debit - credit > 0 ? 'var(--amber)' : 'var(--green)'} strong />
       </div>
       <h3 className="card-title" style={{ fontSize: 14, marginBottom: 8 }}>График погашения задолженности</h3>
       <div className="table-card" style={{ boxShadow: 'none', border: '1px solid var(--line)', marginBottom: 14 }}>
@@ -508,13 +739,27 @@ function SupplierSettlements({ cp }) {
 function FinSettlements() {
   const [open, setOpen] = useState(null);
   const [type, setType] = useState('client');
-  const list = FIN_COUNTERPARTIES.filter((c) => c.type === type);
+  const [q, setQ] = useState('');
+  const [scheme, setScheme] = useState('');
+  const [onlyOverdue, setOnlyOverdue] = useState(false);
+  const ql = q.trim().toLowerCase();
+  const list = FIN_COUNTERPARTIES.filter((c) => c.type === type)
+    .filter((c) => !ql || [c.name, c.legal, ...c.orders.map(String)].some((v) => String(v || '').toLowerCase().includes(ql)))
+    .filter((c) => !scheme || c.scheme === scheme)
+    .filter((c) => !onlyOverdue || c.obligations.some((o) => o.overdueDays > 0));
+  const schemeOptions = ['', ...Array.from(new Set(FIN_COUNTERPARTIES.map((c) => c.scheme)))];
   return (
     <div className="fade-in">
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14, flexWrap: 'wrap' }}>
         <Tabs tabs={[{ key: 'client', label: 'Клиенты' }, { key: 'supplier', label: 'Поставщики' }]} value={type} onChange={setType} />
+        <SearchBox value={q} onChange={setQ} placeholder="Поиск по компании, юр. лицу, заказу" style={{ minWidth: 260 }} />
+        <FilterChip label="Схема" value={scheme} onChange={setScheme} options={schemeOptions} />
+        <button type="button" onClick={() => setOnlyOverdue((v) => !v)}
+          style={{ cursor: 'pointer', fontSize: 12.5, padding: '7px 12px', borderRadius: 9, border: '1px solid ' + (onlyOverdue ? 'var(--red)' : 'var(--line)'), background: onlyOverdue ? 'var(--red-bg)' : '#fff', color: onlyOverdue ? 'var(--red)' : 'var(--body)' }}>
+          Только с просрочкой
+        </button>
         <div style={{ flex: 1 }} />
-        <span style={{ fontSize: 12.5, color: 'var(--muted)' }}>Итого задолженность: <b style={{ color: 'var(--amber)' }}>{f$(list.reduce((s, c) => s + c.debt, 0))}</b></span>
+        <span style={{ fontSize: 12.5, color: 'var(--muted)' }}>Найдено: <b>{list.length}</b> · задолженность: <b style={{ color: 'var(--amber)' }}>{f$(list.reduce((s, c) => s + c.debt, 0))}</b></span>
       </div>
       <div className="table-card">
         <table className="tbl">

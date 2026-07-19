@@ -9,7 +9,6 @@ const NAV_ITEMS = [
   { key: 'dashboard', label: 'Главное', icon: 'home' },
   { key: 'calendar', label: 'Календарь поездок', icon: 'calendar' },
   { key: 'orders', label: 'Заказы', icon: 'orders' },
-  { key: 'groups', label: 'Групповые заказы', icon: 'users' },
   { key: 'services', label: 'Подбор услуг', icon: 'route' },
   { key: 'clients', label: 'Клиенты', icon: 'user' },
   { key: 'companies', label: 'Компании', icon: 'building' },

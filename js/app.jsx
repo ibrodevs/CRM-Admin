@@ -13,7 +13,6 @@ import { OrdersPage } from './page_orders';
 import { OffersPage } from './page_offers';
 import { DocCenterPage, FulfillmentPage, ReceiptEditorPage } from './page_fulfillment';
 import { FinancePage } from './page_finance';
-import { GroupsPage } from './page_groups';
 import { ReturnsPage } from './page_returns';
 import { NotificationsPage } from './page_notifications';
 import { ServiceFlow, ServicesHubPage } from './page_services';
@@ -137,7 +136,6 @@ function App() {
       {route === 'suppliers' && <SuppliersPage intent={intent} onConsume={() => setIntent(null)} suppliers={suppliers} addSupplier={addSupplier} />}
       {route === 'chats' && <ChatsPage onOpenOrder={openOrder} />}
       {route === 'finance' && <FinancePage />}
-      {route === 'groups' && <GroupsPage onOpenOrder={(o) => openOrder(o)} />}
       {route === 'documents' && <DocCenterPage />}
       {route === 'receipts' && <ReceiptEditorPage />}
       {route === 'fulfillment' && <FulfillmentPage onOpenOrder={openOrder} />}
