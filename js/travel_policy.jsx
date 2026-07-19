@@ -404,7 +404,7 @@ function TravelPolicyBlock({ co }) {
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginTop: 14, flexWrap: 'wrap' }}>
           <span style={{ fontSize: 13, color: 'var(--muted)' }}>Применяется к:</span>
-          <div className="seg-toggle" style={{ maxWidth: 480 }}>
+          <div className="seg-toggle">
             {TP_SCOPES.map((t) => (
               <button key={t} className={'seg-btn' + (pol.scope === t ? ' active' : '')} onClick={() => setPol((p) => ({ ...p, scope: t, scopeValue: '' }))}>{t}</button>
             ))}
