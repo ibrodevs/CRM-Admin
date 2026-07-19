@@ -3,7 +3,7 @@ import { Icon } from './icons';
 import { Button, ConfirmDialog, Drawer, Field, Input, Pill, Select, Tabs, useToast } from './ui';
 import { CURRENT_USER, FEE_DESC_DEFAULTS, FEE_SCHEMA, FEE_SERVICE_TYPES, FEE_TEMPLATES, SERVICE_DESC_DEFAULTS, SETTLEMENT_TYPES, applyAgreementFees, companyFinance, creditAvailable, depositAvailable, descsFromDefaults, feeDescOf, feeDescsFromDefaults, feeTemplate, feesFromTemplate, registerFeeTemplate } from './data';
 import { FIN_COUNTERPARTIES, f$ } from './data/finance';
-import { FinCounterpartyDrawer } from './page_finance';
+import { FinCounterpartyDrawer, ReconActDrawer } from './page_finance';
 
 
 
@@ -487,6 +487,7 @@ function ClosingDocsPreview({ open, agreement, coName, co, onClose }) {
 function CompanySettlementsBlock({ co }) {
   const toast = useToast();
   const [open, setOpen] = useState(false);
+  const [reconOpen, setReconOpen] = useState(false);
   const cp = FIN_COUNTERPARTIES.find((c) => c.name === co.name || c.legal === co.name
     || (co.name && (c.name.includes(co.name) || co.name.includes(c.name))));
   if (!cp) {
@@ -520,12 +521,13 @@ function CompanySettlementsBlock({ co }) {
         {stat('Свободный лимит', cp.limit ? f$(Math.max(0, cp.limit - cp.used)) : '—')}
       </div>
       <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-        <Button size="sm" variant="secondary" icon="download" onClick={() => toast('Акт сверки по «' + cp.name + '» сформирован (демо)', 'ok')}>Акт сверки</Button>
+        <Button size="sm" variant="secondary" icon="download" onClick={() => setReconOpen(true)}>Акт сверки</Button>
         <Button size="sm" variant="secondary" icon="download" onClick={() => toast('Счёт по «' + cp.name + '» сформирован (демо)', 'ok')}>Счёт</Button>
         <Button size="sm" variant="secondary" icon="download" onClick={() => toast('УПД по «' + cp.name + '» сформирован (демо)', 'ok')}>УПД</Button>
         <Button size="sm" variant="secondary" icon="send" onClick={() => toast('Данные переданы в 1С:Бухгалтерию (демо)', 'ok')}>В бухгалтерию</Button>
       </div>
       {open && <FinCounterpartyDrawer cp={cp} onClose={() => setOpen(false)} />}
+      <ReconActDrawer open={reconOpen} cp={cp} onClose={() => setReconOpen(false)} />
     </div>
   );
 }

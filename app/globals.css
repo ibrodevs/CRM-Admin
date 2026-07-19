@@ -1370,7 +1370,18 @@ table.tbl tbody tr:last-child td{border-bottom:none}
 .tc-nav button svg{width:17px;height:17px}
 .tc-nav button:hover{background:var(--hover)}
 .tc-nav .tc-today-btn{width:auto;padding:0 14px;font:inherit;font-size:13px;font-weight:600}
+.tc-date-range{display:inline-flex;align-items:center;gap:8px;min-width:260px}
+.tc-date-range>svg{width:17px;height:17px;color:var(--muted-2);flex:0 0 17px}
+.tc-date-range>div{flex:1}
+.tc-date-range .input{height:36px;padding:0 12px;font-size:13px;background:#fff;white-space:nowrap}
+.tc-date-range .input>svg{display:none}
+.tc-date-range .input span{font-size:13px!important;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .tc-range{font-weight:700;color:var(--ink);font-size:15.5px;text-transform:capitalize}
+@media(max-width:760px){
+  .tc-date-range{width:100%;min-width:0}
+  .tc-date-range>div{min-width:0}
+  .tc-date-range .input{width:100%}
+}
 .tc-summary{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
 .tc-sum{display:inline-flex;align-items:center;gap:5px;font-size:12.5px;font-weight:600;color:var(--muted)}
 .tc-sum.tone-red{color:var(--red)}.tc-sum.tone-amber{color:var(--amber)}.tc-sum.tone-blue{color:var(--blue)}

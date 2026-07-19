@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Icon } from './icons';
-import { Button, Drawer, FilterChip, Pill, useToast } from './ui';
+import { Button, DateRangeField, Drawer, FilterChip, Pill, useToast } from './ui';
 import { CURRENT_USER, ORDER_STATUS, SERVICE_KIND } from './data';
 import { TRIPS, TRIP_CRIT, TRIP_NOW, controlCenterFeed, critMax, crossTripConflicts, trDay, trDayTime, trHumanIn, trSameDay, trStartOfDay, trTime, tripConflicts, tripCriticality, tripEvents, tripFilterSets, tripForceMajeures, tripUnpaid } from './data/trips';
 import { Topbar } from './layout';
@@ -26,6 +26,12 @@ function tcWeekStart(d) {
 function tcAddDays(d, n) { const x = new Date(d); x.setDate(x.getDate() + n); return x; }
 function tcTripActiveOn(trip, day) {
   const d0 = trStartOfDay(day), d1 = tcAddDays(d0, 1);
+  return trip.start < d1 && trip.end >= d0;
+}
+function tcTripActiveInRange(trip, start, end) {
+  if (!start && !end) return true;
+  const d0 = trStartOfDay(start || end);
+  const d1 = tcAddDays(trStartOfDay(end || start), 1);
   return trip.start < d1 && trip.end >= d0;
 }
 function tcTone(crit) { return TRIP_CRIT[crit] ? TRIP_CRIT[crit].tone : 'gray'; }
@@ -534,9 +540,11 @@ function DashDetailEmptyLite({ title }) {
 
 
 function TripCalendarPage({ role, onOpenOrder }) {
-  const [view, setView] = useState('week');
+  const [view, setView] = useState('day');
   const [control, setControl] = useState(false);
   const [anchor, setAnchor] = useState(new Date(TRIP_NOW));
+  const [dateFrom, setDateFrom] = useState(new Date(TRIP_NOW));
+  const [dateTo, setDateTo] = useState(new Date(TRIP_NOW));
   const [sel, setSel] = useState(null);
   const [dayMenu, setDayMenu] = useState(null);
   const [creator, setCreator] = useState(null);
@@ -561,20 +569,47 @@ function TripCalendarPage({ role, onOpenOrder }) {
     if (f.onlyConflict && tripConflicts(t).length === 0) return false;
     if (f.onlyUnpaid && !tripUnpaid(t)) return false;
     if (f.onlyToday && !tcTripActiveOn(t, TRIP_NOW)) return false;
+    if (!tcTripActiveInRange(t, dateFrom, dateTo)) return false;
     return true;
   });
 
-  const VIEWS = [['day', 'День'], ['week', 'Неделя'], ['month', 'Месяц'], ['timeline', 'Timeline']];
+  const VIEWS = [['day', 'День'], ['month', 'Месяц']];
   const shift = (dir) => {
-    if (view === 'month') setAnchor((a) => new Date(a.getFullYear(), a.getMonth() + dir, 1));
-    else if (view === 'week' || view === 'timeline') setAnchor((a) => tcAddDays(a, 7 * dir));
-    else setAnchor((a) => tcAddDays(a, dir));
+    if (view === 'month') {
+      const next = new Date(anchor.getFullYear(), anchor.getMonth() + dir, 1);
+      const last = new Date(next.getFullYear(), next.getMonth() + 1, 0);
+      setAnchor(next); setDateFrom(next); setDateTo(last);
+    } else {
+      const next = tcAddDays(anchor, dir);
+      setAnchor(next); setDateFrom(next); setDateTo(next);
+    }
+  };
+  const setCalendarRange = (from, to) => {
+    const start = from || to || new Date(TRIP_NOW);
+    setDateFrom(start);
+    setDateTo(to || start);
+    setAnchor(start);
+  };
+  const changeView = (nextView) => {
+    setView(nextView);
+    setControl(false);
+    if (nextView === 'month') {
+      const first = new Date(anchor.getFullYear(), anchor.getMonth(), 1);
+      const last = new Date(anchor.getFullYear(), anchor.getMonth() + 1, 0);
+      setDateFrom(first);
+      setDateTo(last);
+      return;
+    }
+    setDateFrom(anchor);
+    setDateTo(anchor);
+  };
+  const goToday = () => {
+    const today = new Date(TRIP_NOW);
+    setAnchor(today); setDateFrom(today); setDateTo(today);
   };
   const rangeLabel = () => {
     if (view === 'month') return TC_MONTHS_NOM[anchor.getMonth()] + ' ' + anchor.getFullYear();
-    if (view === 'day') return anchor.getDate() + ' ' + TC_MONTHS[anchor.getMonth()] + ' ' + anchor.getFullYear();
-    const s = tcWeekStart(anchor), e = tcAddDays(s, 6);
-    return s.getDate() + '–' + e.getDate() + ' ' + TC_MONTHS[e.getMonth()];
+    return anchor.getDate() + ' ' + TC_MONTHS[anchor.getMonth()] + ' ' + anchor.getFullYear();
   };
 
 
@@ -594,13 +629,17 @@ function TripCalendarPage({ role, onOpenOrder }) {
 
         <div className="tc-toolbar">
           <div className="tc-viewseg">
-            {VIEWS.map(([k, l]) => <button key={k} className={view === k ? 'on' : ''} onClick={() => { setView(k); setControl(false); }}>{l}</button>)}
+            {VIEWS.map(([k, l]) => <button key={k} className={view === k ? 'on' : ''} onClick={() => changeView(k)}>{l}</button>)}
           </div>
           {!control && <>
             <div className="tc-nav">
               <button onClick={() => shift(-1)} title="Назад"><Icon name="chevLeft" /></button>
-              <button className="tc-today-btn" onClick={() => setAnchor(new Date(TRIP_NOW))}>Сегодня</button>
+              <button className="tc-today-btn" onClick={goToday}>Сегодня</button>
               <button onClick={() => shift(1)} title="Вперёд"><Icon name="chevRight" /></button>
+            </div>
+            <div className="tc-date-range">
+              <Icon name="calendar" />
+              <DateRangeField startVal={dateFrom} endVal={dateTo} onChange={setCalendarRange} placeholder="Дата от — до" rangeStartLabel="До" />
             </div>
             <span className="tc-range">{rangeLabel()}</span>
           </>}
@@ -635,10 +674,8 @@ function TripCalendarPage({ role, onOpenOrder }) {
 
         <div className="tc-viewport">
           {control ? <ControlCenter trips={trips} onOpen={setSel} />
-            : view === 'week' ? <WeekView anchor={anchor} trips={trips} onOpen={setSel} onPickDay={openDayMenu} onOpenEvent={setEvtSel} evtTick={evtTick} />
-            : view === 'day' ? <DayView anchor={anchor} trips={trips} onOpen={setSel} onPickDay={openDayMenu} onOpenEvent={setEvtSel} evtTick={evtTick} />
             : view === 'month' ? <MonthView anchor={anchor} trips={trips} onOpen={setSel} onPickDay={openDayMenu} onOpenEvent={setEvtSel} onOpenDay={openDayList} evtTick={evtTick} />
-            : <TimelineView anchor={anchor} trips={trips} onOpen={setSel} />}
+            : <DayView anchor={anchor} trips={trips} onOpen={setSel} onPickDay={openDayMenu} onOpenEvent={setEvtSel} evtTick={evtTick} />}
         </div>
       </div>
       <TripDetailPanel trip={sel} onClose={() => setSel(null)} onOpenOrder={onOpenOrder} />

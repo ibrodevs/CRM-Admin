@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Icon } from './icons';
 import { Button, Drawer, EmptyState, Field, FilterChip, Input, Pill, SearchBox, Select, Tabs, useToast } from './ui';
 import { SERVICE_KIND, CLIENTS_DB, COMPANIES_DB, SUPPLIERS } from './data';
@@ -628,8 +628,153 @@ function CreditLimitBar({ used, limit }) {
     </div>
   );
 }
+// --- Акт сверки: разбор дат, определение услуги, сбор операций ---
+function reconParseDate(s) {
+  const m = String(s || '').match(/(\d{1,2})\.(\d{1,2})(?:\.(\d{2,4}))?/);
+  if (!m) return null;
+  let y = m[3] ? Number(m[3]) : 2026;
+  if (y < 100) y += 2000;
+  return new Date(y, Number(m[2]) - 1, Number(m[1]));
+}
+function reconFmtDate(d) {
+  return d ? String(d.getDate()).padStart(2, '0') + '.' + String(d.getMonth() + 1).padStart(2, '0') + '.' + d.getFullYear() : '';
+}
+function reconKindOf(text) {
+  const t = String(text || '');
+  for (const k of Object.keys(SERVICE_KIND)) if (t.includes(k)) return k;
+  if (/авиа|перел|билет|рейс|блок мест|авиабл/i.test(t)) return 'Авиа';
+  if (/гостин|отел|hotel|номер|ноч|ваучер|hil/i.test(t)) return 'Гостиница';
+  if (/трансфер/i.test(t)) return 'Трансфер';
+  if (/ж\/д|поезд|жд/i.test(t)) return 'ЖД';
+  return 'Прочее';
+}
+function reconOperations(cp) {
+  if (!cp) return [];
+  const ops = [];
+  // Дебет — начисления по документам-обязательствам
+  (cp.obligations || []).forEach((o) => ops.push({
+    date: reconParseDate(o.since), dateLabel: o.since, basis: o.doc, order: o.order,
+    kind: reconKindOf(o.doc), resp: null, debit: o.sum, credit: 0, dir: 'debit',
+  }));
+  // Кредит — оплаты из платежей по этому контрагенту (реальные даты / услуга / ответственный)
+  (typeof FIN_PAYMENTS !== 'undefined' ? FIN_PAYMENTS : []).forEach((p) => {
+    if (p.party !== cp.name) return;
+    const svc = (p.services && p.services[0] && p.services[0].t) || p.purpose;
+    ops.push({
+      date: reconParseDate(p.date), dateLabel: p.date, basis: p.purpose, order: p.order,
+      kind: reconKindOf(svc), resp: p.resp, debit: 0, credit: p.sum, dir: 'credit', doc: p.no,
+    });
+  });
+  return ops.sort((a, b) => (a.date ? a.date.getTime() : 0) - (b.date ? b.date.getTime() : 0));
+}
+
+function ReconActDrawer({ open, cp, onClose }) {
+  const toast = useToast();
+  const ops = useMemo(() => reconOperations(cp), [cp]);
+  const dts = ops.map((o) => o.date).filter(Boolean).map((d) => d.getTime());
+  const dmin = dts.length ? new Date(Math.min(...dts)) : null;
+  const dmax = dts.length ? new Date(Math.max(...dts)) : null;
+  const [from, setFrom] = useState('');
+  const [to, setTo] = useState('');
+  const [kind, setKind] = useState('all');
+  const [resp, setResp] = useState('all');
+  const [built, setBuilt] = useState(false);
+  useEffect(() => { if (open) { setFrom(reconFmtDate(dmin)); setTo(reconFmtDate(dmax)); setKind('all'); setResp('all'); setBuilt(false); } }, [open, cp]);
+  if (!open || !cp) return null;
+
+  const kindOptions = Array.from(new Set(ops.map((o) => o.kind)));
+  const respOptions = Array.from(new Set(ops.map((o) => o.resp).filter(Boolean)));
+  const fromD = reconParseDate(from), toD = reconParseDate(to);
+  const rows = ops.filter((o) => {
+    if (fromD && o.date && o.date < fromD) return false;
+    if (toD && o.date && o.date > new Date(toD.getFullYear(), toD.getMonth(), toD.getDate(), 23, 59)) return false;
+    if (kind !== 'all' && o.kind !== kind) return false;
+    if (resp !== 'all' && (o.resp || '—') !== resp) return false;
+    return true;
+  });
+  const debit = rows.reduce((s, o) => s + o.debit, 0);
+  const credit = rows.reduce((s, o) => s + o.credit, 0);
+  const balance = debit - credit;
+  const paramLine = [
+    from || to ? 'период ' + (from || '…') + ' — ' + (to || '…') : 'весь период',
+    kind !== 'all' ? 'услуга: ' + kind : 'все услуги',
+    resp !== 'all' ? 'сотрудник: ' + resp : 'вся компания',
+  ].join(' · ');
+  const act = (verb) => toast('Акт сверки по «' + cp.name + '» (' + rows.length + ' операций) ' + verb, 'ok');
+
+  return (
+    <Drawer open={open} onClose={onClose} title="Акт сверки" sub={cp.name + ' · ' + (cp.type === 'client' ? 'клиент' : 'поставщик')} width="min(760px,97vw)"
+      footer={<div style={{ display: 'flex', gap: 8, width: '100%', flexWrap: 'wrap' }}>
+        <Button variant="secondary" style={{ flex: 1 }} onClick={onClose}>Закрыть</Button>
+        <Button variant="secondary" icon="download" style={{ flex: 1 }} onClick={() => act('сформирован (демо)')}>Скачать</Button>
+        <Button variant="secondary" icon="send" style={{ flex: 1 }} onClick={() => act('отправлен контрагенту (демо)')}>Отправить</Button>
+        <Button icon="send" style={{ flex: 1.2 }} onClick={() => act('передан в 1С:Бухгалтерию (демо)')}>В бухгалтерию</Button>
+      </div>}>
+      <div className="card card-pad" style={{ marginBottom: 14 }}>
+        <h3 className="card-title" style={{ fontSize: 14, marginBottom: 10 }}>Параметры акта</h3>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+          <UFDateField label="Период с" value={from || null} onChange={(v) => { setFrom(v || ''); setBuilt(false); }} placeholder="дд.мм.гггг" />
+          <UFDateField label="Период по" value={to || null} onChange={(v) => { setTo(v || ''); setBuilt(false); }} placeholder="дд.мм.гггг" />
+          <Field label="Услуга">
+            <Select value={kind} onChange={(e) => { setKind(e.target.value); setBuilt(false); }}
+              options={[{ value: 'all', label: 'Все услуги' }, ...kindOptions.map((k) => ({ value: k, label: k }))]} />
+          </Field>
+          <Field label="Сотрудник / отдел">
+            <Select value={resp} onChange={(e) => { setResp(e.target.value); setBuilt(false); }}
+              options={[{ value: 'all', label: 'Вся компания' }, ...respOptions.map((r) => ({ value: r, label: r }))]} />
+          </Field>
+        </div>
+        <Button icon="check" style={{ marginTop: 12 }} onClick={() => setBuilt(true)}>Сформировать акт</Button>
+      </div>
+
+      {built ? (
+        <div className="fade-in">
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 10, marginBottom: 12 }}>
+            <StatTile label="Дебет (начислено)" value={f$(debit)} />
+            <StatTile label="Кредит (оплачено)" value={f$(credit)} tone="var(--green)" />
+            <StatTile label="Сальдо (остаток)" value={f$(balance)} tone={balance > 0 ? 'var(--amber)' : 'var(--green)'} />
+          </div>
+          <div style={{ fontSize: 12.5, color: 'var(--muted)', marginBottom: 10 }}>Акт сверки с <b style={{ color: 'var(--ink)' }}>{cp.name}</b> · {paramLine} · операций: {rows.length}</div>
+          <div className="table-card" style={{ boxShadow: 'none', border: '1px solid var(--line)' }}>
+            <table className="tbl">
+              <thead><tr><th>Дата</th><th>Основание</th><th>Заказ</th><th>Услуга</th><th>Сотрудник</th><th style={{ textAlign: 'right' }}>Дебет</th><th style={{ textAlign: 'right' }}>Кредит</th></tr></thead>
+              <tbody>
+                {rows.map((o, i) => (
+                  <tr key={i}>
+                    <td>{o.dateLabel}</td>
+                    <td style={{ color: 'var(--body)' }}>{o.basis}</td>
+                    <td>{o.order ? '№ ' + o.order : '—'}</td>
+                    <td>{o.kind}</td>
+                    <td>{o.resp || '—'}</td>
+                    <td style={{ textAlign: 'right' }}>{o.debit ? f$(o.debit) : '—'}</td>
+                    <td style={{ textAlign: 'right', color: 'var(--green)' }}>{o.credit ? f$(o.credit) : '—'}</td>
+                  </tr>
+                ))}
+                {rows.length === 0 && <tr><td colSpan={7} style={{ textAlign: 'center', color: 'var(--muted)', padding: '18px 0' }}>Нет операций под выбранные параметры</td></tr>}
+              </tbody>
+              {rows.length > 0 && (
+                <tfoot><tr style={{ fontWeight: 700 }}>
+                  <td colSpan={5} style={{ textAlign: 'right' }}>Итого:</td>
+                  <td style={{ textAlign: 'right' }}>{f$(debit)}</td>
+                  <td style={{ textAlign: 'right', color: 'var(--green)' }}>{f$(credit)}</td>
+                </tr></tfoot>
+              )}
+            </table>
+          </div>
+        </div>
+      ) : (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '16px 14px', border: '1px dashed var(--line)', borderRadius: 12, color: 'var(--muted)', fontSize: 13 }}>
+          <Icon name="finance" style={{ width: 18, height: 18, color: 'var(--muted-2)' }} />
+          Укажите параметры и нажмите «Сформировать акт» — появится детализация по дебету/кредиту за выбранный период.
+        </div>
+      )}
+    </Drawer>
+  );
+}
+
 function FinCounterpartyDrawer({ cp, onClose }) {
   const toast = useToast();
+  const [reconOpen, setReconOpen] = useState(false);
   const free = Math.max(0, cp.limit - cp.used);
   const debit = cp.obligations.reduce((s, o) => s + o.sum, 0);
   const credit = cp.obligations.reduce((s, o) => s + o.paid, 0);
@@ -637,7 +782,7 @@ function FinCounterpartyDrawer({ cp, onClose }) {
   return (
     <Drawer open={!!cp} onClose={onClose} title={cp.name} sub={(cp.type === 'client' ? 'Клиент' : 'Поставщик') + ' · ' + cp.legal} width="min(780px,96vw)"
       footer={<div style={{ display: 'flex', gap: 8, width: '100%', flexWrap: 'wrap' }}>
-        <Button variant="secondary" size="sm" icon="download" onClick={() => exp('Акт сверки')} style={{ flex: 1 }}>Акт сверки</Button>
+        <Button variant="secondary" size="sm" icon="download" onClick={() => setReconOpen(true)} style={{ flex: 1 }}>Акт сверки</Button>
         <Button variant="secondary" size="sm" icon="download" onClick={() => exp('Счёт')} style={{ flex: 1 }}>Счёт</Button>
         <Button variant="secondary" size="sm" icon="download" onClick={() => exp('УПД')} style={{ flex: 1 }}>УПД</Button>
         <Button size="sm" icon="send" onClick={() => toast('Данные переданы в 1С:Бухгалтерию (демо)', 'ok')} style={{ flex: 1.4 }}>В бухгалтерию</Button>
@@ -695,6 +840,7 @@ function FinCounterpartyDrawer({ cp, onClose }) {
         </div>
       </div>
       {cp.type === 'supplier' && <SupplierSettlements cp={cp} />}
+      <ReconActDrawer open={reconOpen} cp={cp} onClose={() => setReconOpen(false)} />
     </Drawer>
   );
 }
@@ -1066,4 +1212,4 @@ function FinancePage() {
 
 Object.assign(window, { FinancePage, FIN_ACCOUNTS, FIN_PAYMENTS, FIN_COUNTERPARTIES, finCreditCheck });
 
-export { f$, fSigned, finNow, deltaTone, finCreditCheck, FIN_ACCT_GROUPS, FIN_ACCOUNTS, FIN_ACCT_OP_TYPES, acctOps, FIN_PAY_STATUS, FIN_PRIORITY, FIN_PAYMENTS, obl, FIN_COUNTERPARTIES, FIN_SCHEMES, FIN_CASHFLOW, FIN_RECEIPTS, FIN_SALARY, FIN_RULES, FIN_RECON_STATUS, FIN_RECON, FIN_ACTIONS, FIN_SVC_MODEL, sumK, svcClientTotal, svcSupplierPay, svcModelProfit, StatTile, WarnBanner, CashflowChart, LegendDot, FinRow, FinOverview, FinAccountDrawer, FinBalance, FinPaymentDrawer, FinPayments, FinTreasury, CreditLimitBar, FinCounterpartyDrawer, SupplierSettlements, FinSettlements, ServiceModelCard, FinEconomics, FIN_ANALYTICS_SLICES, FinAnalytics, FinRules, FIN_TABS, FinancePage };
+export { f$, fSigned, finNow, deltaTone, finCreditCheck, FIN_ACCT_GROUPS, FIN_ACCOUNTS, FIN_ACCT_OP_TYPES, acctOps, FIN_PAY_STATUS, FIN_PRIORITY, FIN_PAYMENTS, obl, FIN_COUNTERPARTIES, FIN_SCHEMES, FIN_CASHFLOW, FIN_RECEIPTS, FIN_SALARY, FIN_RULES, FIN_RECON_STATUS, FIN_RECON, FIN_ACTIONS, FIN_SVC_MODEL, sumK, svcClientTotal, svcSupplierPay, svcModelProfit, StatTile, WarnBanner, CashflowChart, LegendDot, FinRow, FinOverview, FinAccountDrawer, FinBalance, FinPaymentDrawer, FinPayments, FinTreasury, CreditLimitBar, ReconActDrawer, FinCounterpartyDrawer, SupplierSettlements, FinSettlements, ServiceModelCard, FinEconomics, FIN_ANALYTICS_SLICES, FinAnalytics, FinRules, FIN_TABS, FinancePage };
