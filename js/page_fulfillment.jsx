@@ -248,6 +248,13 @@ function docOrigin(doc) {
   if (/клиент|скан/.test(notes)) return DOC_ORIGIN.client;
   return DOC_ORIGIN.system;
 }
+// Простой ярлык «от кого»: Поставщик / Клиент / СРМ (система)
+function docOriginShort(doc) {
+  const o = docOrigin(doc);
+  if (o === DOC_ORIGIN.supplier) return 'Поставщик';
+  if (o === DOC_ORIGIN.client) return 'Клиент';
+  return 'СРМ';
+}
 function DocOriginPill({ doc }) {
   const o = docOrigin(doc);
   return <Pill tone={o.tone}>{o.label}</Pill>;
@@ -423,7 +430,8 @@ function DocCard({ doc, onClose, onChange }) {
 function DocSetCard({ set, onOpen }) {
   const latest = set.docs[set.docs.length - 1];
   const k = DOC_KIND[latest.type] || DOC_KIND['Прочее'];
-  const needsAction = set.docs.some((d) => ['Черновик', 'На подписи'].includes(d.status));
+  const latestOrigin = docOrigin(latest);
+  const multi = set.docs.length > 1;
   return (
     <div className="doc-set-card">
       <div className="doc-set-head">
@@ -432,19 +440,25 @@ function DocSetCard({ set, onOpen }) {
           <div className="doc-set-title">{docSetTitle(set.docs)}</div>
           <div className="doc-set-sub">{set.docs.length} {plural(set.docs.length, ['версия', 'версии', 'версий'])} · последняя v{latest.version}</div>
         </div>
-        <Pill tone={needsAction ? 'amber' : DOC_STATUS2[latest.status]}>{needsAction ? 'Требует действия' : latest.status}</Pill>
+        {/* Вместо статуса — версия и простой ярлык «от кого» (Поставщик / СРМ), без жирного шрифта */}
+        <button type="button" className="doc-version-pill latest" onClick={() => onOpen(latest)} title="Открыть документ">
+          <span className="v">v{latest.version}</span>
+          <span className={'src ' + latestOrigin.tone}>{docOriginShort(latest)}</span>
+        </button>
       </div>
-      <div className="doc-version-row">
-        {set.docs.map((d) => {
-          const origin = docOrigin(d);
-          return (
-            <button key={d.no} type="button" className={'doc-version-pill ' + (d.no === latest.no ? 'latest' : '')} onClick={() => onOpen(d)}>
-              <span className="v">v{d.version}</span>
-              <span className={'src ' + origin.tone}>{origin.label}</span>
-            </button>
-          );
-        })}
-      </div>
+      {multi && (
+        <div className="doc-version-row">
+          {set.docs.map((d) => {
+            const origin = docOrigin(d);
+            return (
+              <button key={d.no} type="button" className={'doc-version-pill ' + (d.no === latest.no ? 'latest' : '')} onClick={() => onOpen(d)}>
+                <span className="v">v{d.version}</span>
+                <span className={'src ' + origin.tone}>{docOriginShort(d)}</span>
+              </button>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }
