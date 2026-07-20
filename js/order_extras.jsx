@@ -182,6 +182,7 @@ function NewOrgDrawer({ open, onClose, onCreated }) {
   const [errs, setErrs] = useState({});
   const [lookup, setLookup] = useState('idle');
   const [revealed, setRevealed] = useState(false);
+  const [saving, setSaving] = useState(false);
   const set = (k) => (e) => setF((p) => ({ ...p, [k]: e.target ? e.target.value : e }));
   const setLegalAddress = (e) => {
     const value = e.target.value;
@@ -211,7 +212,7 @@ function NewOrgDrawer({ open, onClose, onCreated }) {
 
   const enterManual = () => { setRevealed(true); if (lookup !== 'found') setLookup('notfound'); };
 
-  const submit = () => {
+  const submit = async () => {
     const er = {};
     if (!f.inn.trim()) er.inn = 'Введите ИНН';
     if (!f.full.trim()) er.full = 'Введите название';
@@ -228,14 +229,21 @@ function NewOrgDrawer({ open, onClose, onCreated }) {
       corrAccount: f.corrAccount || '—', account: f.account || '—', contract: 'Не указан', orders: 0, turnover: 0, contacts: f.director ? 1 : 0,
       vat: '—', requiresESign: false, docCorrections: [], signatory: f.signatory, comment: f.comment,
     };
-    onCreated && onCreated(company);
-    toast('Компания «' + company.name + '» создана', 'ok'); onClose();
+    setSaving(true);
+    try {
+      const saved = onCreated ? await onCreated(company) : company;
+      toast('Компания «' + (saved?.name || company.name) + '» создана', 'ok'); onClose();
+    } catch (error) {
+      toast(error.message || 'Не удалось создать компанию', 'err');
+    } finally {
+      setSaving(false);
+    }
   };
 
   const loading = lookup === 'loading';
   return (
     <Drawer open={open} onClose={onClose} title="Новая организация" width="min(720px,96vw)"
-      footer={<><Button variant="secondary" onClick={onClose}>Отмена</Button><Button variant="primary" iconRight="arrowRight" onClick={submit} disabled={!revealed}>Далее</Button></>}>
+      footer={<><Button variant="secondary" onClick={onClose}>Отмена</Button><Button variant="primary" iconRight="arrowRight" onClick={submit} disabled={!revealed || saving}>{saving ? 'Создание…' : 'Далее'}</Button></>}>
 
 
       <div style={{ background: 'var(--blue-soft)', border: '1px solid var(--line)', borderRadius: 14, padding: 18, marginBottom: 22 }}>

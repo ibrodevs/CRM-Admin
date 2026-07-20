@@ -349,17 +349,52 @@ function Avatar({ src, name = '', size = 40 }) {
 }
 
 
-function Modal({ open, onClose, children, size, className = '' }) {
+const MODAL_FOCUSABLE = 'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
+
+function Modal({ open, onClose, children, size, className = '', ariaLabel = 'Диалоговое окно' }) {
+  const modalRef = useRef(null);
   useEffect(() => {
     if (!open) return;
-    const h = (e) => { if (e.key === 'Escape') onClose && onClose(); };
+    const previousFocus = document.activeElement;
+    const frame = window.requestAnimationFrame(() => {
+      modalRef.current?.focus();
+    });
+    const h = (e) => {
+      if (e.key === 'Escape') {
+        onClose && onClose();
+        return;
+      }
+      if (e.key !== 'Tab' || !modalRef.current) return;
+      const controls = Array.from(modalRef.current.querySelectorAll(MODAL_FOCUSABLE));
+      if (!controls.length) {
+        e.preventDefault();
+        modalRef.current.focus();
+        return;
+      }
+      const first = controls[0];
+      const last = controls[controls.length - 1];
+      if (e.shiftKey && (document.activeElement === first || document.activeElement === modalRef.current)) {
+        e.preventDefault();
+        last.focus();
+      } else if (!e.shiftKey && (document.activeElement === last || document.activeElement === modalRef.current)) {
+        e.preventDefault();
+        first.focus();
+      }
+    };
     window.addEventListener('keydown', h);
-    return () => window.removeEventListener('keydown', h);
+    return () => {
+      window.cancelAnimationFrame(frame);
+      window.removeEventListener('keydown', h);
+      previousFocus?.focus?.();
+    };
   }, [open, onClose]);
   if (!open) return null;
+  const sizeClass = size ? 'modal-' + size + ' ' : '';
   return (
     <div className="overlay" onMouseDown={(e) => { if (e.target === e.currentTarget) onClose && onClose(); }}>
-      <div className={'modal ' + (size === 'sm' ? 'modal-sm ' : '') + className}>{children}</div>
+      <div ref={modalRef} className={'modal ' + sizeClass + className} role="dialog" aria-modal="true" aria-label={ariaLabel} tabIndex={-1}>
+        <div className="modal-content scroll">{children}</div>
+      </div>
     </div>
   );
 }
@@ -370,7 +405,7 @@ function ModalHeader({ title, sub, onClose }) {
         <h2 className="modal-title">{title}</h2>
         {sub && <div className="modal-sub">{sub}</div>}
       </div>
-      {onClose && <button className="modal-close" onClick={onClose}><Icon name="x" /></button>}
+      {onClose && <button type="button" className="modal-close" onClick={onClose} aria-label={'Закрыть окно «' + title + '»'}><Icon name="x" /></button>}
     </div>
   );
 }

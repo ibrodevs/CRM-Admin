@@ -2,6 +2,8 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Icon } from './icons';
 import { ActionMenu, Avatar, Button, EmptyState, Pill, SearchBox, useToast } from './ui';
 import { CHAT_CHANNEL_TONE, CHAT_THREADS, CHAT_TYPES, CURRENT_USER, OPERATORS, ORDERS, ORDER_SERVICES, ORDER_STATUS, SERVICE_KIND, SERVICE_STATUS } from './data';
+import { communicationsApi } from './api/resources';
+import { toUiMessage } from './api/adapters';
 
 
 
@@ -107,7 +109,7 @@ function ChannelBadge({ channel, sm }) {
 }
 
 
-function ChatThread({ thread, embedded, onOpenOrder, onOpenService, initChannel, recipients, onSwitchThread }) {
+function ChatThread({ thread, currentUserId, embedded, onOpenOrder, onOpenService, initChannel, recipients, onSwitchThread }) {
   const toast = useToast();
   const [sub, setSub] = useState('message');
   const [msgs, setMsgs] = useState(thread.messages || []);
@@ -115,19 +117,38 @@ function ChatThread({ thread, embedded, onOpenOrder, onOpenService, initChannel,
   const [draft, setDraft] = useState('');
   const [linked, setLinked] = useState(null);
   const [pinned, setPinned] = useState(!!thread.pinned);
+  const [sending, setSending] = useState(false);
   const scrollRef = useRef(null);
 
   useEffect(() => { setMsgs(thread.messages || []); setIntl(thread.internal || []); setSub('message'); setLinked(null); setPinned(!!thread.pinned); }, [thread.id]);
+  useEffect(() => {
+    if (!thread.id || thread.virtual) return undefined;
+    const controller = new AbortController();
+    communicationsApi.messages(thread.id, {}, controller.signal)
+      .then((payload) => {
+        const loaded = (payload.results || []).map((message) => toUiMessage(message, currentUserId));
+        setMsgs(loaded);
+        return communicationsApi.read(thread.id, loaded.length ? { message: loaded[loaded.length - 1].id } : {});
+      })
+      .catch((error) => { if (error.name !== 'AbortError') toast(error.message, 'err'); });
+    return () => controller.abort();
+  }, [thread.id, currentUserId]);
   useEffect(() => { if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight; }, [sub, msgs, intl]);
 
   const feed = sub === 'internal' ? intl : msgs;
   const setFeed = sub === 'internal' ? setIntl : setMsgs;
-  const send = () => {
+  const send = async () => {
     if (!draft.trim()) return;
-    setFeed((c) => [...c, { from: 'me', author: 'Даниель', text: draft, time: chatNow(), read: false, service: linked }]);
-    setDraft('');
+    const text = draft.trim();
+    setSending(true);
+    try {
+      const message = await communicationsApi.send(thread.id, { body: text, type: 'text', internal_note: sub === 'internal' });
+      setFeed((c) => [...c, { ...toUiMessage(message, currentUserId), from: 'me', service: linked }]);
+      setDraft('');
+    } catch (error) { toast(error.message, 'err'); }
+    finally { setSending(false); }
   };
-  const attach = () => { setFeed((c) => [...c, { from: 'me', author: 'Даниель', attach: { name: 'Документ.pdf', size: '128 КБ' }, time: chatNow(), read: false }]); toast('Файл прикреплён', 'ok'); };
+  const attach = () => { toast('Загрузите документ в разделе «Документы», затем отправьте его из карточки заказа', 'info'); };
 
   const status = chatOrderStatus(thread.order);
   const services = typeof ORDER_SERVICES !== 'undefined' ? ORDER_SERVICES : [];
@@ -231,7 +252,7 @@ function ChatThread({ thread, embedded, onOpenOrder, onOpenService, initChannel,
             items={services.length ? services.map((s) => ({ icon: (SERVICE_KIND[s.kind] || {}).icon || 'route', label: s.kind + ' · ' + s.title, onClick: () => { setLinked(s.id); toast('Привязано к услуге: ' + s.title, 'ok'); } })) : [{ icon: 'route', label: 'Нет услуг в заказе', onClick: () => {} }]} />
           <ActionMenu trigger={<button className="icon-btn" title="Упомянуть"><span style={{ fontWeight: 700, fontSize: 16, color: 'var(--muted)' }}>@</span></button>}
             items={OPERATORS.map((o) => ({ icon: 'user', label: o, onClick: () => setDraft((d) => (d ? d + ' ' : '') + '@' + o.split(' ')[0] + ' ') }))} />
-          <input value={draft} onChange={(e) => setDraft(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && send()}
+          <input value={draft} disabled={sending} onChange={(e) => setDraft(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && send()}
             placeholder={sub === 'internal' ? 'Внутренний комментарий…' : 'Сообщение…'} style={{ flex: 1 }} />
           <button className="icon-btn" style={{ color: 'var(--blue)' }} onClick={send}><Icon name="send" /></button>
         </div>
@@ -406,24 +427,25 @@ function ChatsNav({ threads, activeId, onSelect, search, setSearch, mode, setMod
 }
 
 
-function ChatsPage({ onOpenOrder }) {
+function ChatsPage({ initialThreads = [], orders = [], currentUserId, onOpenOrder }) {
   const toast = useToast();
 
 
   const [extraThreads, setExtraThreads] = useState([]);
-  const threads = [...CHAT_THREADS, ...extraThreads];
-  const [activeId, setActiveId] = useState(CHAT_THREADS[0].id);
+  const threads = [...initialThreads, ...extraThreads];
+  const [activeId, setActiveId] = useState(initialThreads[0]?.id || null);
   const [search, setSearch] = useState('');
   const [mode, setMode] = useState('byType');
 
   const active = threads.find((t) => t.id === activeId) || threads[0];
-  const recipients = active ? chatRecipients(active.order, extraThreads) : [];
+  useEffect(() => { if (!activeId && initialThreads[0]) setActiveId(initialThreads[0].id); }, [initialThreads, activeId]);
+  const recipients = active ? threads.filter((thread) => thread.order === active.order) : [];
   const switchThread = (t) => {
     if (t.virtual) { const real = { ...t, virtual: false }; setExtraThreads((cur) => [...cur, real]); setActiveId(real.id); }
     else setActiveId(t.id);
   };
-  const openOrderFromThread = (t) => { const o = ORDERS.find((x) => x.no === t.order) || { no: t.order, client: t.client || t.name, requestType: 'Индивидуальная', status: 'В работе', operator: t.responsibleOperator || 'Даниель', date: '15.06.25' }; onOpenOrder && onOpenOrder(o); };
-  const openServiceFromThread = (sid) => { const o = ORDERS.find((x) => x.no === active.order) || { no: active.order, client: active.client || active.name, requestType: 'Индивидуальная', status: 'В работе', operator: active.responsibleOperator || 'Даниель', date: '15.06.25' }; onOpenOrder && onOpenOrder(o, 'services', sid || null); };
+  const openOrderFromThread = (t) => { const o = orders.find((x) => x.no === t.order); if (o) onOpenOrder && onOpenOrder(o); };
+  const openServiceFromThread = (sid) => { const o = orders.find((x) => x.no === active.order); if (o) onOpenOrder && onOpenOrder(o, 'services', sid || null); };
 
   return (
     <div className="fade-in" style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
@@ -433,7 +455,7 @@ function ChatsPage({ onOpenOrder }) {
 
 
           <div className="card" style={{ display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-            {active ? <ChatThread thread={active} onOpenOrder={openOrderFromThread} onOpenService={openServiceFromThread}
+            {active ? <ChatThread thread={active} currentUserId={currentUserId} onOpenOrder={openOrderFromThread} onOpenService={openServiceFromThread}
               recipients={recipients} onSwitchThread={switchThread} /> : <EmptyState icon="chat" title="Выберите чат" />}
           </div>
 

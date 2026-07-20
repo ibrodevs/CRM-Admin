@@ -4,6 +4,8 @@ import { Button, Drawer, EmptyState, Field, FilterChip, Input, Pill, SearchBox, 
 import { SERVICE_KIND, CLIENTS_DB, COMPANIES_DB, SUPPLIERS } from './data';
 import { UFDateField } from './forms_unified';
 import { Topbar } from './layout';
+import { financeApi } from './api/resources';
+import { resultsOf } from './api/client';
 import {
   f$, fSigned, finNow, deltaTone, finCreditCheck,
   FIN_ACCT_GROUPS, FIN_ACCOUNTS, FIN_ACCT_OP_TYPES, acctOps,
@@ -11,6 +13,108 @@ import {
   FIN_CASHFLOW, FIN_RECEIPTS, FIN_SALARY, FIN_RULES, FIN_RECON_STATUS, FIN_RECON, FIN_ACTIONS,
   FIN_SVC_MODEL, sumK, svcClientTotal, svcSupplierPay, svcModelProfit, FIN_ANALYTICS_SLICES,
 } from './data/finance';
+
+const financeDate = (value) => {
+  if (!value) return '—';
+  const day = String(value).slice(0, 10);
+  const parts = day.split('-');
+  return parts.length === 3 ? parts.reverse().join('.') : new Date(value).toLocaleDateString('ru-RU');
+};
+const saveFinanceBlob = (blob, filename) => {
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url; link.download = filename; link.click();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+};
+const financeStatus = { draft: 'Черновик', pending: 'На согласовании', confirmed: 'Исполнено', failed: 'Отклонено', cancelled: 'Отменено' };
+const financeAccountRow = (account) => ({
+  ...account,
+  group: { bank: 'Расчётные счета', cash: 'Касса', deposit: 'Депозиты' }[account.kind] || 'Расчётные счета',
+  bank: account.company_name || account.supplier_name || '—',
+  number: account.code,
+  balance: Number(account.balance || 0),
+  available: Number(account.balance || 0),
+  reserved: 0,
+  unmatched: 0,
+  synced: 'данные backend',
+  note: '',
+});
+const financePaymentRow = (payment) => {
+  const party = payment.supplier_name || payment.payer_company_name || payment.payer_person_name || 'Контрагент';
+  const status = financeStatus[payment.status] || payment.status || 'Черновик';
+  const date = financeDate(payment.created_at);
+  return {
+    ...payment,
+    no: `PMT-${String(payment.id || '').slice(0, 8).toUpperCase()}`,
+    dir: payment.direction === 'incoming' ? 'in' : 'out',
+    date,
+    plan: date,
+    party,
+    requisites: payment.method || '—',
+    sum: Number(payment.amount || 0),
+    purpose: payment.comment || `Оплата по заказу ${payment.order_number || '—'}`,
+    order: payment.order_number || null,
+    supplier: payment.supplier_name || '—',
+    client: payment.payer_company_name || payment.payer_person_name || '—',
+    resp: 'Backend',
+    priority: payment.status === 'pending' ? 'Высокий' : 'Средний',
+    status,
+    services: [{ t: payment.comment || 'Платёж по заказу', sum: Number(payment.amount || 0) }],
+    fees: [],
+    docs: payment.provider_transaction_id ? [payment.provider_transaction_id] : [],
+    history: [{ t: date, text: `Статус: ${status}`, who: 'Backend' }],
+    approvals: payment.status === 'pending' ? [{ who: 'Финансовый контроль', at: null, ok: null }] : [],
+  };
+};
+const financeReceiptRow = (obligation) => {
+  const due = financeDate(obligation.due_date);
+  const overdue = Boolean(obligation.due_date && new Date(`${obligation.due_date}T23:59:59`) < new Date() && ['open', 'partial'].includes(obligation.status));
+  return {
+    date: due,
+    party: obligation.client_name || `Заказ ${obligation.order_number || '—'}`,
+    basis: `Заказ № ${obligation.order_number || '—'}`,
+    resp: 'Backend',
+    sum: Number(obligation.outstanding || 0),
+    overdue,
+  };
+};
+const financeCounterpartyRow = (obligation) => {
+  const supplier = ['supplier_payable', 'supplier_refund'].includes(obligation.direction);
+  const amount = Number(obligation.original_amount || 0);
+  const paid = Number(obligation.paid_amount || 0);
+  const rest = Number(obligation.outstanding || 0);
+  const dueRaw = obligation.due_date;
+  const dueDate = dueRaw ? new Date(`${dueRaw}T23:59:59`) : null;
+  const overdueDays = dueDate && dueDate < new Date() && ['open', 'partial'].includes(obligation.status)
+    ? Math.max(1, Math.ceil((Date.now() - dueDate.getTime()) / 86400000)) : 0;
+  const order = obligation.order_number || String(obligation.order || '').slice(0, 8);
+  const name = supplier ? (obligation.supplier_name || `Поставщик · заказ ${order}`) : (obligation.client_name || `Клиент · заказ ${order}`);
+  const status = obligation.status === 'settled' ? 'Оплачено' : overdueDays ? 'Просрочено' : 'Ожидает оплаты';
+  const item = { order, doc: `Обязательство ${String(obligation.id || '').slice(0, 8)}`, sum: amount, paid, rest, since: financeDate(obligation.created_at), due: financeDate(dueRaw), daysToDue: overdueDays ? -overdueDays : 0, overdueDays, status };
+  return {
+    id: obligation.id,
+    type: supplier ? 'supplier' : 'client',
+    name,
+    legal: name,
+    scheme: supplier ? 'Постоплата' : 'По договору',
+    deferralDays: 0,
+    deferralStart: 'от даты документа',
+    limit: 0,
+    used: rest,
+    currency: obligation.currency || 'USD',
+    guaranteeLetter: false,
+    approveOnExceed: false,
+    debt: rest,
+    paid,
+    balance: rest,
+    invoices: [item.doc],
+    acts: [],
+    orders: [order],
+    obligations: [item],
+    payHistory: paid ? [{ t: financeDate(obligation.created_at), text: `Оплачено ${f$(paid)}` }] : [],
+    discipline: { avgPayDays: 0, avgOverdue: overdueDays, maxOverdue: overdueDays, overdueSum: overdueDays ? rest : 0, onTimePct: overdueDays ? 50 : 100, rating: overdueDays ? 'C' : 'A' },
+  };
+};
 
 function StatTile({ label, value, tone, sub, icon, onClick, accent }) {
   return (
@@ -39,17 +143,18 @@ function WarnBanner({ tone = 'red', icon = 'alertTriangle', title, text, action 
   );
 }
 function CashflowChart({ data, startBalance = 60000 }) {
-  const W = 640, H = 190, pad = 28, bw = (W - pad * 2) / data.length;
-  const max = Math.max(...data.map((d) => Math.max(d.in, d.out))) * 1.15;
+  const safeData = data.length ? data : [{ m: '—', in: 0, out: 0 }];
+  const W = 640, H = 190, pad = 28, bw = (W - pad * 2) / safeData.length;
+  const max = Math.max(...safeData.map((d) => Math.max(d.in, d.out)), 1) * 1.15;
   let bal = startBalance;
-  const balances = data.map((d) => (bal += d.in - d.out));
+  const balances = safeData.map((d) => (bal += d.in - d.out));
   const bmax = Math.max(...balances) * 1.1, bmin = Math.min(...balances, 0);
-  const by = (v) => H - pad - ((v - bmin) / (bmax - bmin)) * (H - pad * 2);
+  const by = (v) => H - pad - ((v - bmin) / ((bmax - bmin) || 1)) * (H - pad * 2);
   const y = (v) => H - pad - (v / max) * (H - pad * 2);
   return (
     <svg viewBox={'0 0 ' + W + ' ' + H} style={{ width: '100%', height: 'auto', display: 'block' }}>
       <line x1={pad} y1={H - pad} x2={W - pad} y2={H - pad} stroke="var(--line-strong)" />
-      {data.map((d, i) => {
+      {safeData.map((d, i) => {
         const cx = pad + i * bw + bw / 2;
         return (
           <g key={i}>
@@ -77,27 +182,31 @@ function FinRow({ label, value, tone, strong }) {
   );
 }
 
-function FinOverview({ onGoTab }) {
-  const totalCash = FIN_ACCOUNTS.reduce((s, a) => s + a.balance, 0);
-  const inTransit = FIN_ACCOUNTS.filter((a) => a.group === 'Эквайринг').reduce((s, a) => s + a.reserved, 0);
-  const bySrc = (g) => FIN_ACCOUNTS.filter((a) => a.group === g).reduce((s, a) => s + a.balance, 0);
-  const receivable = FIN_COUNTERPARTIES.filter((c) => c.type === 'client').reduce((s, c) => s + c.debt, 0);
-  const payable = FIN_COUNTERPARTIES.filter((c) => c.type === 'supplier').reduce((s, c) => s + c.debt, 0);
-  const expected = FIN_RECEIPTS.filter((r) => !r.overdue).reduce((s, r) => s + r.sum, 0);
-  const planned = FIN_PAYMENTS.filter((p) => p.dir === 'out' && !['Исполнено', 'Отменено', 'Возвращено'].includes(p.status)).reduce((s, p) => s + p.sum, 0);
-  const overdue = FIN_RECEIPTS.filter((r) => r.overdue).reduce((s, r) => s + r.sum, 0);
-  const profit = FIN_CASHFLOW.reduce((s, d) => s + (d.in - d.out), 0);
-  const serviceFees = 2140;
-  const recent = FIN_PAYMENTS.slice(0, 5);
+function FinOverview({ onGoTab, overview, accounts = [], payments = [], receipts = [], counterparties = [] }) {
+  const live = true;
+  const sumMoney = (items) => (items || []).reduce((sum, item) => sum + Number(item.amount || 0), 0);
+  const totalCash = accounts.reduce((s, a) => s + a.balance, 0);
+  const inTransit = accounts.filter((a) => a.group === 'Эквайринг').reduce((s, a) => s + a.reserved, 0);
+  const bySrc = (g) => accounts.filter((a) => a.group === g).reduce((s, a) => s + a.balance, 0);
+  const receivable = sumMoney(overview?.client_receivable) || counterparties.filter((c) => c.type === 'client').reduce((s, c) => s + c.debt, 0);
+  const payable = sumMoney(overview?.supplier_payable) || counterparties.filter((c) => c.type === 'supplier').reduce((s, c) => s + c.debt, 0);
+  const expected = receipts.filter((r) => !r.overdue).reduce((s, r) => s + r.sum, 0);
+  const planned = payments.filter((p) => p.dir === 'out' && !['Исполнено', 'Отменено', 'Возвращено'].includes(p.status)).reduce((s, p) => s + p.sum, 0);
+  const overdue = receipts.filter((r) => r.overdue).reduce((s, r) => s + r.sum, 0);
+  const profit = payments.reduce((sum, payment) => sum + (payment.dir === 'in' ? payment.sum : -payment.sum), 0);
+  const serviceFees = 0;
+  const recent = payments.slice(0, 5);
+  const flowData = recent.slice().reverse().map((payment) => ({ m: payment.date, in: payment.dir === 'in' ? payment.sum : 0, out: payment.dir === 'out' ? payment.sum : 0 }));
+  const calendarRows = [...receipts.map((r) => ({ dir: 'in', date: r.date, party: r.party, sum: r.sum, overdue: r.overdue })), ...payments.filter((p) => p.dir === 'out').map((p) => ({ dir: 'out', date: p.plan, party: p.party, sum: p.sum, overdue: false }))];
 
   return (
     <div className="fade-in">
       {overdue > 0 && <WarnBanner tone="red" title={'Просроченная дебиторская задолженность: ' + f$(overdue)}
         text="2 контрагента вышли за срок оплаты — рекомендуется напоминание и проверка кредитных условий."
         action={<Button size="sm" variant="secondary" onClick={() => onGoTab('settlements')}>К взаиморасчётам</Button>} />}
-      <WarnBanner tone="amber" icon="alertCircle" title="Риск кассового разрыва 20–22 июля"
+      {(!live || planned > expected) && <WarnBanner tone="amber" icon="alertCircle" title="Риск кассового разрыва"
         text={'К выплате ' + f$(planned) + ', ожидаемые поступления ' + f$(expected) + '. Проверьте приоритеты платежей в казначействе.'}
-        action={<Button size="sm" variant="secondary" onClick={() => onGoTab('treasury')}>В казначейство</Button>} />
+        action={<Button size="sm" variant="secondary" onClick={() => onGoTab('treasury')}>В казначейство</Button>} />}
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(210px, 1fr))', gap: 12, marginBottom: 12 }}>
         <StatTile label="Общий остаток ДС" value={f$(totalCash)} icon="finance" accent="var(--green)" sub="по всем источникам" onClick={() => onGoTab('balance')} />
@@ -120,14 +229,12 @@ function FinOverview({ onGoTab }) {
             <h3 className="card-title" style={{ fontSize: 16 }}>Движение денежных средств</h3>
             <div style={{ display: 'flex', gap: 14 }}><LegendDot color="var(--green)" label="Приход" /><LegendDot color="var(--red)" label="Расход" /><LegendDot color="var(--blue-soft-text)" label="Остаток" /></div>
           </div>
-          <CashflowChart data={FIN_CASHFLOW} />
+          <CashflowChart data={flowData} startBalance={live ? 0 : 60000} />
         </div>
         <div className="card card-pad">
           <h3 className="card-title" style={{ fontSize: 16, marginBottom: 10 }}>Платёжный календарь</h3>
           <div style={{ display: 'grid', gap: 8 }}>
-            {[...FIN_RECEIPTS.map((r) => ({ dir: 'in', date: r.date, party: r.party, sum: r.sum, overdue: r.overdue })),
-              ...FIN_PAYMENTS.filter((p) => p.dir === 'out').map((p) => ({ dir: 'out', date: p.plan, party: p.party, sum: p.sum, overdue: false }))]
-              .sort((a, b) => a.date.localeCompare(b.date)).slice(0, 6).map((e, i) => (
+            {calendarRows.sort((a, b) => a.date.localeCompare(b.date)).slice(0, 6).map((e, i) => (
                 <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 12.5 }}>
                   <span style={{ width: 8, height: 8, borderRadius: '50%', background: e.dir === 'in' ? 'var(--green)' : 'var(--red)', flexShrink: 0 }} />
                   <span style={{ color: 'var(--muted-2)', width: 78, flexShrink: 0 }}>{e.date}</span>
@@ -201,21 +308,21 @@ function FinAccountDrawer({ ac, onClose }) {
     </Drawer>
   );
 }
-function FinBalance() {
+function FinBalance({ accounts = [] }) {
   const [open, setOpen] = useState(null);
-  const total = FIN_ACCOUNTS.reduce((s, a) => s + a.balance, 0);
-  const available = FIN_ACCOUNTS.reduce((s, a) => s + a.available, 0);
-  const reserved = FIN_ACCOUNTS.reduce((s, a) => s + a.reserved, 0);
+  const total = accounts.reduce((s, a) => s + a.balance, 0);
+  const available = accounts.reduce((s, a) => s + a.available, 0);
+  const reserved = accounts.reduce((s, a) => s + a.reserved, 0);
   return (
     <div className="fade-in">
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px,1fr))', gap: 12, marginBottom: 16 }}>
         <StatTile label="Всего денежных средств" value={f$(total)} tone="var(--green)" icon="finance" />
         <StatTile label="Доступно" value={f$(available)} icon="check" />
         <StatTile label="Зарезервировано / в пути" value={f$(reserved)} tone="var(--amber)" icon="clock" />
-        <StatTile label="Несопоставлено операций" value={FIN_ACCOUNTS.reduce((s, a) => s + a.unmatched, 0)} tone="var(--amber)" icon="alertCircle" />
+        <StatTile label="Несопоставлено операций" value={accounts.reduce((s, a) => s + a.unmatched, 0)} tone="var(--amber)" icon="alertCircle" />
       </div>
       {FIN_ACCT_GROUPS.map((g) => {
-        const accs = FIN_ACCOUNTS.filter((a) => a.group === g.key);
+        const accs = accounts.filter((a) => a.group === g.key);
         if (!accs.length) return null;
         const sum = accs.reduce((s, a) => s + a.balance, 0);
         return (
@@ -250,14 +357,18 @@ function FinBalance() {
   );
 }
 
-function FinPaymentDrawer({ p, onClose }) {
+function FinPaymentDrawer({ p, onClose, onConfirm }) {
+  const toast = useToast();
   const svcSum = p.services.reduce((s, x) => s + x.sum, 0);
   const feeSum = p.fees.reduce((s, x) => s + x.sum, 0);
   return (
     <Drawer open={!!p} onClose={onClose} title={p.no} sub={(p.dir === 'in' ? 'Входящий' : 'Исходящий') + ' платёж · ' + p.date}
       footer={<div style={{ display: 'flex', gap: 10, width: '100%' }}>
-        <Button variant="secondary" style={{ flex: 1 }} icon="download">Платёжное поручение</Button>
-        <Button style={{ flex: 1 }} icon="check">Провести</Button>
+        <Button variant="secondary" style={{ flex: 1 }} icon="download" onClick={() => {
+          if (!p.id) return toast('Платёж ещё не сохранён в backend', 'err');
+          window.open(financeApi.paymentOrderUrl(p.id), '_blank', 'noopener,noreferrer');
+        }}>Платёжное поручение</Button>
+        <Button style={{ flex: 1 }} icon="check" disabled={p.status === 'Исполнено'} onClick={() => onConfirm(p)}>Провести</Button>
       </div>}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14 }}>
         <span className="s-value" style={{ fontSize: 26, color: p.dir === 'in' ? 'var(--green)' : 'var(--ink)' }}>{p.dir === 'in' ? '+' : '−'}{f$(p.sum)}</span>
@@ -353,7 +464,7 @@ function FinPickerField({ value, placeholder, icon, error, onOpen }) {
   );
 }
 
-function NewPaymentDrawer({ open, onClose, onCreate }) {
+function NewPaymentDrawer({ open, onClose, onCreate, clientRows = [], supplierRows = [] }) {
   const toast = useToast();
   const [dir, setDir] = useState('in');
   const [party, setParty] = useState('');
@@ -388,7 +499,7 @@ function NewPaymentDrawer({ open, onClose, onCreate }) {
   const rmSvc = (i) => setServices((arr) => (arr.length > 1 ? arr.filter((_, idx) => idx !== i) : arr));
   const addDoc = () => { const d = docDraft.trim(); if (!d) return; setDocs((x) => [...x, d]); setDocDraft(''); };
 
-  const submit = () => {
+  const submit = async () => {
     const e = {};
     if (!party.trim()) e.party = 'Укажите контрагента';
     if (!(total > 0)) e.sum = 'Сумма должна быть больше 0';
@@ -412,10 +523,14 @@ function NewPaymentDrawer({ open, onClose, onCreate }) {
       history: [{ t: stamp, text: 'Платёж создан вручную', who: resp }],
       approvals: needApprove ? [{ who: 'Старший оператор', at: null, ok: null }, { who: 'Финансовый контроль', at: null, ok: null }] : [],
     };
-    onCreate(pmt);
-    toast('Платёж ' + pmt.no + ' создан', 'ok');
-    reset();
-    onClose();
+    try {
+      const created = await onCreate(pmt);
+      toast('Платёж ' + (created?.no || pmt.no) + ' создан', 'ok');
+      reset();
+      onClose();
+    } catch (error) {
+      toast(error.message || 'Не удалось создать платёж', 'err');
+    }
   };
 
   return (
@@ -496,7 +611,7 @@ function NewPaymentDrawer({ open, onClose, onCreate }) {
         title={dir === 'in' ? 'Выбор клиента' : 'Выбор поставщика'}
         sub={dir === 'in' ? 'Плательщик по входящему платежу' : 'Получатель исходящего платежа'}
         placeholder={dir === 'in' ? 'Поиск клиента' : 'Поиск поставщика'}
-        rows={dir === 'in' ? FIN_CLIENT_ROWS : FIN_SUPPLIER_ROWS}
+        rows={dir === 'in' ? clientRows : supplierRows}
         onClose={() => setPickParty(false)} onPick={(name) => { setParty(name); setPickParty(false); }} />
       <FinPickerDrawer open={pickSvc !== null} value={pickSvc !== null ? services[pickSvc].t : ''}
         title="Выбор услуги" sub="Вид услуги для оплаты" placeholder="Поиск услуги" rows={FIN_SERVICE_ROWS}
@@ -505,14 +620,16 @@ function NewPaymentDrawer({ open, onClose, onCreate }) {
   );
 }
 
-function FinPayments() {
+function FinPayments({ payments = [], onPaymentCreated, clientRows = [], supplierRows = [] }) {
+  const toast = useToast();
   const [open, setOpen] = useState(null);
   const [creating, setCreating] = useState(false);
   const [extra, setExtra] = useState([]);
+  const [updates, setUpdates] = useState({});
   const [dir, setDir] = useState('all');
   const [status, setStatus] = useState('');
   const [q, setQ] = useState('');
-  const all = [...extra, ...FIN_PAYMENTS];
+  const all = [...extra, ...payments.map((payment) => updates[payment.id] || payment)];
   const ql = q.trim().toLowerCase();
   const list = all.filter((p) => (dir === 'all' || p.dir === dir) && (!status || p.status === status)
     && (!ql || [p.no, p.party, p.purpose, p.order, p.resp].some((v) => String(v || '').toLowerCase().includes(ql))));
@@ -544,18 +661,30 @@ function FinPayments() {
           </tbody>
         </table>
       </div>
-      {open && <FinPaymentDrawer p={open} onClose={() => setOpen(null)} />}
-      <NewPaymentDrawer open={creating} onClose={() => setCreating(false)} onCreate={(p) => setExtra((x) => [p, ...x])} />
+      {open && <FinPaymentDrawer p={open} onClose={() => setOpen(null)} onConfirm={async (payment) => {
+        try {
+          const updated = financePaymentRow(await financeApi.confirmPayment(payment.id, { version: payment.version }));
+          setUpdates((current) => ({ ...current, [payment.id]: updated }));
+          setExtra((current) => current.map((item) => item.id === payment.id ? updated : item));
+          setOpen(updated);
+        } catch (error) { toast(error.message || 'Не удалось провести платёж', 'err'); }
+      }} />}
+      <NewPaymentDrawer open={creating} onClose={() => setCreating(false)} clientRows={clientRows} supplierRows={supplierRows} onCreate={async (p) => {
+        const created = await onPaymentCreated(p);
+        setExtra((x) => [created, ...x]);
+        return created;
+      }} />
     </div>
   );
 }
 
-function FinTreasury() {
+function FinTreasury({ accounts = [], payments = [], receipts = [] }) {
   const toast = useToast();
-  const startBalance = FIN_ACCOUNTS.filter((a) => a.group !== 'Депозиты').reduce((s, a) => s + a.available, 0);
-  const [prio, setPrio] = useState(() => FIN_PAYMENTS.filter((p) => p.dir === 'out').reduce((m, p) => (m[p.no] = p.priority, m), {}));
-  const planned = FIN_PAYMENTS.filter((p) => p.dir === 'out' && !['Исполнено', 'Отменено', 'Возвращено'].includes(p.status));
-  const incoming = FIN_RECEIPTS.slice().sort((a, b) => a.date.localeCompare(b.date));
+  const startBalance = accounts.filter((a) => a.group !== 'Депозиты').reduce((s, a) => s + a.available, 0);
+  const [prio, setPrio] = useState(() => payments.filter((p) => p.dir === 'out').reduce((m, p) => (m[p.no] = p.priority, m), {}));
+  useEffect(() => setPrio(payments.filter((p) => p.dir === 'out').reduce((m, p) => (m[p.no] = p.priority, m), {})), [payments]);
+  const planned = payments.filter((p) => p.dir === 'out' && !['Исполнено', 'Отменено', 'Возвращено'].includes(p.status));
+  const incoming = receipts.slice().sort((a, b) => a.date.localeCompare(b.date));
   const totalOut = planned.reduce((s, p) => s + p.sum, 0);
   const totalIn = incoming.filter((r) => !r.overdue).reduce((s, r) => s + r.sum, 0);
   const forecast = startBalance + totalIn - totalOut;
@@ -701,7 +830,19 @@ function ReconActContent({ cp }) {
     kind !== 'all' ? 'услуга: ' + kind : 'все услуги',
     resp !== 'all' ? 'сотрудник: ' + resp : 'вся компания',
   ].join(' · ');
-  const act = (verb) => toast('Акт сверки по «' + cp.name + '» (' + rows.length + ' операций) ' + verb, 'ok');
+  const act = async (kind) => {
+    try {
+      const result = await financeApi.createDocument({
+        kind,
+        payload: {
+          counterpart: cp.name, period: paramLine, debit, credit, balance,
+          rows: rows.map((row) => ({ date: row.dateLabel, basis: row.basis, order: row.order, kind: row.kind, debit: row.debit, credit: row.credit })),
+        },
+      });
+      if (result instanceof Blob) saveFinanceBlob(result, `Акт-сверки-${cp.name}.txt`);
+      toast(kind === 'accounting_export' ? 'Акт передан в бухгалтерию' : kind === 'reconciliation_send' ? 'Акт отправлен контрагенту' : 'Акт сверки скачан', 'ok');
+    } catch (error) { toast(error.message || 'Не удалось обработать акт сверки', 'err'); }
+  };
 
   return (
     <>
@@ -763,9 +904,9 @@ function ReconActContent({ cp }) {
             </table>
           </div>
           <div style={{ display: 'flex', gap: 8, marginTop: 14, flexWrap: 'wrap' }}>
-            <Button variant="secondary" icon="download" onClick={() => act('сформирован (демо)')}>Скачать</Button>
-            <Button variant="secondary" icon="send" onClick={() => act('отправлен контрагенту (демо)')}>Отправить контрагенту</Button>
-            <Button icon="send" onClick={() => act('передан в 1С:Бухгалтерию (демо)')}>В бухгалтерию</Button>
+            <Button variant="secondary" icon="download" onClick={() => act('reconciliation')}>Скачать</Button>
+            <Button variant="secondary" icon="send" onClick={() => act('reconciliation_send')}>Отправить контрагенту</Button>
+            <Button icon="send" onClick={() => act('accounting_export')}>В бухгалтерию</Button>
           </div>
         </div>
       ) : (
@@ -795,10 +936,16 @@ const FIN_CP_ROWS = FIN_COUNTERPARTIES.map((c) => ({
   tone: c.type === 'client' ? 'var(--blue)' : 'var(--amber)',
 }));
 
-function FinReconciliation() {
+function FinReconciliation({ counterparties = [] }) {
   const [cpName, setCpName] = useState('');
   const [pick, setPick] = useState(false);
-  const cp = FIN_COUNTERPARTIES.find((c) => c.name === cpName) || null;
+  const cp = counterparties.find((c) => c.name === cpName) || null;
+  const rows = counterparties.map((c) => ({
+    name: c.name,
+    sub: (c.type === 'client' ? 'Клиент' : 'Поставщик') + ' · ' + c.scheme + ' · долг ' + f$(c.debt),
+    icon: c.type === 'client' ? 'user' : 'suppliers',
+    tone: c.type === 'client' ? 'var(--blue)' : 'var(--amber)',
+  }));
   return (
     <div className="fade-in">
       <div className="card card-pad" style={{ marginBottom: 14, maxWidth: 560 }}>
@@ -813,7 +960,7 @@ function FinReconciliation() {
             Выберите контрагента — откроются параметры и формирование акта сверки за период / по услуге / по сотруднику.
           </div>}
       <FinPickerDrawer open={pick} value={cpName} title="Выбор контрагента" sub="Клиенты и поставщики"
-        placeholder="Поиск контрагента или компании" rows={FIN_CP_ROWS}
+        placeholder="Поиск контрагента или компании" rows={rows}
         onClose={() => setPick(false)} onPick={(name) => { setCpName(name); setPick(false); }} />
     </div>
   );
@@ -825,14 +972,20 @@ function FinCounterpartyDrawer({ cp, onClose }) {
   const free = Math.max(0, cp.limit - cp.used);
   const debit = cp.obligations.reduce((s, o) => s + o.sum, 0);
   const credit = cp.obligations.reduce((s, o) => s + o.paid, 0);
-  const exp = (kind) => toast(kind + ' по «' + cp.name + '» сформирован (демо)', 'ok');
+  const exp = async (kind) => {
+    try {
+      const result = await financeApi.createDocument({ kind, payload: { counterpart: cp.name, debit, credit, balance: debit - credit } });
+      if (result instanceof Blob) saveFinanceBlob(result, `${kind === 'invoice' ? 'Счёт' : 'УПД'}-${cp.name}.txt`);
+      toast(kind === 'accounting_export' ? 'Данные переданы в бухгалтерию' : 'Документ сформирован', 'ok');
+    } catch (error) { toast(error.message || 'Не удалось сформировать документ', 'err'); }
+  };
   return (
     <Drawer open={!!cp} onClose={onClose} title={cp.name} sub={(cp.type === 'client' ? 'Клиент' : 'Поставщик') + ' · ' + cp.legal} width="min(780px,96vw)"
       footer={<div style={{ display: 'flex', gap: 8, width: '100%', flexWrap: 'wrap' }}>
         <Button variant="secondary" size="sm" icon="download" onClick={() => setReconOpen(true)} style={{ flex: 1 }}>Акт сверки</Button>
-        <Button variant="secondary" size="sm" icon="download" onClick={() => exp('Счёт')} style={{ flex: 1 }}>Счёт</Button>
-        <Button variant="secondary" size="sm" icon="download" onClick={() => exp('УПД')} style={{ flex: 1 }}>УПД</Button>
-        <Button size="sm" icon="send" onClick={() => toast('Данные переданы в 1С:Бухгалтерию (демо)', 'ok')} style={{ flex: 1.4 }}>В бухгалтерию</Button>
+        <Button variant="secondary" size="sm" icon="download" onClick={() => exp('invoice')} style={{ flex: 1 }}>Счёт</Button>
+        <Button variant="secondary" size="sm" icon="download" onClick={() => exp('upd')} style={{ flex: 1 }}>УПД</Button>
+        <Button size="sm" icon="send" onClick={() => exp('accounting_export')} style={{ flex: 1.4 }}>В бухгалтерию</Button>
       </div>}>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 10, marginBottom: 14 }}>
         <StatTile label={cp.type === 'client' ? 'Задолженность клиента' : 'Наш долг поставщику'} value={f$(cp.debt)} tone={cp.debt ? 'var(--amber)' : 'var(--green)'} />
@@ -929,18 +1082,18 @@ function SupplierSettlements({ cp }) {
     </div>
   );
 }
-function FinSettlements() {
+function FinSettlements({ counterparties = [], receipts = [] }) {
   const [open, setOpen] = useState(null);
   const [type, setType] = useState('client');
   const [q, setQ] = useState('');
   const [scheme, setScheme] = useState('');
   const [onlyOverdue, setOnlyOverdue] = useState(false);
   const ql = q.trim().toLowerCase();
-  const list = FIN_COUNTERPARTIES.filter((c) => c.type === type)
+  const list = counterparties.filter((c) => c.type === type)
     .filter((c) => !ql || [c.name, c.legal, ...c.orders.map(String)].some((v) => String(v || '').toLowerCase().includes(ql)))
     .filter((c) => !scheme || c.scheme === scheme)
     .filter((c) => !onlyOverdue || c.obligations.some((o) => o.overdueDays > 0));
-  const schemeOptions = Array.from(new Set(FIN_COUNTERPARTIES.map((c) => c.scheme)));
+  const schemeOptions = Array.from(new Set(counterparties.map((c) => c.scheme)));
   return (
     <div className="fade-in">
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14, flexWrap: 'wrap' }}>
@@ -981,7 +1134,7 @@ function FinSettlements() {
         <table className="tbl">
           <thead><tr><th>Дата</th><th>Контрагент</th><th>Основание</th><th>Ответственный</th><th style={{ textAlign: 'right' }}>Сумма</th><th>Статус</th></tr></thead>
           <tbody>
-            {FIN_RECEIPTS.slice().sort((a, b) => a.date.localeCompare(b.date)).map((r, i) => (
+            {receipts.slice().sort((a, b) => a.date.localeCompare(b.date)).map((r, i) => (
               <tr key={i}>
                 <td>{r.date}</td><td style={{ fontWeight: 600 }}>{r.party}</td><td style={{ color: 'var(--muted)' }}>{r.basis}</td><td>{r.resp}</td>
                 <td style={{ textAlign: 'right', fontWeight: 700, color: r.overdue ? 'var(--red)' : 'var(--green)' }}>+{f$(r.sum)}</td>
@@ -1238,19 +1391,68 @@ const FIN_TABS = [
   { key: 'analytics', label: 'Аналитика' },
   { key: 'rules', label: 'Правила' },
 ];
-function FinancePage() {
+function FinancePage({ overview, transactions = [], clients = [], companies = [], suppliers = [], orders = [] }) {
   const [tab, setTab] = useState('overview');
+  const [accounts, setAccounts] = useState([]);
+  const [payments, setPayments] = useState([]);
+  const [obligations, setObligations] = useState([]);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    Promise.all([
+      financeApi.accounts(controller.signal),
+      financeApi.payments({}, controller.signal),
+      financeApi.obligations({}, controller.signal),
+    ]).then(([accountPayload, paymentPayload, obligationPayload]) => {
+      setAccounts(resultsOf(accountPayload).filter((item) => ['bank', 'cash', 'deposit'].includes(item.kind)).map(financeAccountRow));
+      setPayments(resultsOf(paymentPayload).map(financePaymentRow));
+      setObligations(resultsOf(obligationPayload));
+    }).catch((error) => {
+      if (error.name !== 'AbortError') console.error(error);
+    });
+    return () => controller.abort();
+  }, []);
+
+  const receipts = useMemo(() => obligations
+    .filter((item) => item.direction === 'client_receivable' && ['open', 'partial'].includes(item.status) && Number(item.outstanding || 0) > 0)
+    .map(financeReceiptRow), [obligations]);
+  const counterparties = useMemo(() => obligations
+    .filter((item) => ['client_receivable', 'supplier_payable'].includes(item.direction))
+    .map(financeCounterpartyRow), [obligations]);
+  const clientRows = useMemo(() => [
+    ...companies.map((item) => ({ name: item.name, sub: `${item.type || 'Компания'} · ИНН ${item.inn || '—'}`, icon: 'building', tone: 'var(--blue)' })),
+    ...clients.map((item) => ({ name: item.name, sub: item.type || 'Клиент', icon: 'user', tone: 'var(--green)' })),
+  ], [clients, companies]);
+  const supplierRows = useMemo(() => suppliers.map((item) => ({ name: item.name, sub: item.service || 'Поставщик', icon: 'suppliers', tone: 'var(--amber)' })), [suppliers]);
+  const createPayment = async (payment) => {
+    const company = companies.find((item) => item.name === payment.party);
+    const client = clients.find((item) => item.name === payment.party);
+    const supplier = suppliers.find((item) => item.name === payment.party);
+    const order = orders.find((item) => String(item.no) === String(payment.order));
+    const created = await financeApi.createPayment({
+      direction: payment.dir === 'in' ? 'incoming' : 'outgoing',
+      order: order?.id || null,
+      payer_person: payment.dir === 'in' ? client?.id || null : null,
+      payer_company: payment.dir === 'in' ? company?.id || null : null,
+      supplier: payment.dir === 'out' ? supplier?.id || supplier?.no || null : null,
+      method: 'manual',
+      amount: payment.sum,
+      currency: payment.currency,
+      comment: payment.purpose,
+    });
+    return { ...payment, ...financePaymentRow(created) };
+  };
   return (
     <>
       <Topbar title="Финансы" sub="Управление финансами компании: баланс, платежи, взаиморасчёты, аналитика" />
       <div className="content">
         <div style={{ marginBottom: 18 }}><Tabs tabs={FIN_TABS} value={tab} onChange={setTab} /></div>
-        {tab === 'overview' && <FinOverview onGoTab={setTab} />}
-        {tab === 'balance' && <FinBalance />}
-        {tab === 'payments' && <FinPayments />}
-        {tab === 'treasury' && <FinTreasury />}
-        {tab === 'settlements' && <FinSettlements />}
-        {tab === 'recon' && <FinReconciliation />}
+        {tab === 'overview' && <FinOverview onGoTab={setTab} overview={overview} accounts={accounts} payments={payments} receipts={receipts} counterparties={counterparties} />}
+        {tab === 'balance' && <FinBalance accounts={accounts} />}
+        {tab === 'payments' && <FinPayments payments={payments} onPaymentCreated={createPayment} clientRows={clientRows} supplierRows={supplierRows} />}
+        {tab === 'treasury' && <FinTreasury accounts={accounts} payments={payments} receipts={receipts} />}
+        {tab === 'settlements' && <FinSettlements counterparties={counterparties} receipts={receipts} />}
+        {tab === 'recon' && <FinReconciliation counterparties={counterparties} />}
         {tab === 'economics' && <FinEconomics />}
         {tab === 'analytics' && <FinAnalytics />}
         {tab === 'rules' && <FinRules />}

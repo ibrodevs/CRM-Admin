@@ -538,13 +538,17 @@ function ufBindLabel(t) {
   return 'Новый заказ';
 }
 
-function UnifiedBindPicker({ open, title = 'Куда привязать', sub, modes = ['new', 'order', 'person'], onClose, onPick }) {
+function UnifiedBindPicker({ open, title = 'Куда привязать', sub, modes = ['new', 'order', 'person'], orderOptions, clientOptions, onClose, onPick }) {
   const [tab, setTab] = useState(modes[0] || 'new');
   const [q, setQ] = useState('');
   useEffect(() => { if (open) { setTab(modes[0] || 'new'); setQ(''); } }, [open]);
   if (!open) return null;
-  const orders = ufOrderPickRows(q);
-  const clients = (typeof CLIENTS !== 'undefined' ? CLIENTS : []).filter((c) => c.toLowerCase().includes(q.toLowerCase()));
+  const ql = q.toLowerCase();
+  const orders = Array.isArray(orderOptions)
+    ? orderOptions.filter((order) => `${order.no} ${order.client || ''}`.toLowerCase().includes(ql))
+    : ufOrderPickRows(q);
+  const clients = (Array.isArray(clientOptions) ? clientOptions.map((client) => typeof client === 'string' ? client : client.name) : (typeof CLIENTS !== 'undefined' ? CLIENTS : []))
+    .filter((c) => c.toLowerCase().includes(ql));
   return (
     <Drawer open={open} onClose={onClose} title={title} sub={sub}
       footer={<Button variant="secondary" style={{ width: '100%' }} onClick={onClose}>Отмена</Button>}>
@@ -593,7 +597,7 @@ function UnifiedBindPicker({ open, title = 'Куда привязать', sub, m
 }
 
 
-function UnifiedBindField({ value, onChange, modes, title, sub, style }) {
+function UnifiedBindField({ value, onChange, modes, title, sub, style, orderOptions, clientOptions }) {
   const [open, setOpen] = useState(false);
   const t = value || { mode: 'new', label: 'Новый заказ' };
   const icon = t.mode === 'person' ? 'user' : (t.mode === 'order' ? 'briefcase' : 'plus');
@@ -605,7 +609,7 @@ function UnifiedBindField({ value, onChange, modes, title, sub, style }) {
         <span style={{ flex: 1, color: 'var(--ink)' }}>{ufBindLabel(t)}</span>
         <Icon name="chevDown" style={{ width: 16, height: 16, color: 'var(--muted-2)' }} />
       </button>
-      <UnifiedBindPicker open={open} modes={modes} title={title || 'Заказ для привязки'} sub={sub}
+      <UnifiedBindPicker open={open} modes={modes} title={title || 'Заказ для привязки'} sub={sub} orderOptions={orderOptions} clientOptions={clientOptions}
         onClose={() => setOpen(false)} onPick={(next) => { onChange(next); setOpen(false); }} />
     </>
   );

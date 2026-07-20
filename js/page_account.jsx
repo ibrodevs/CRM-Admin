@@ -5,8 +5,8 @@ import { ProfilePage } from './page_profile';
 
 
 
-function AccountSettingsPage({ onNavigate }) {
-  return <ProfilePage onNavigate={onNavigate} initialTab="security" />;
+function AccountSettingsPage({ user, onNavigate }) {
+  return <ProfilePage user={user} onNavigate={onNavigate} initialTab="security" />;
 }
 
 Object.assign(window, { AccountSettingsPage });

@@ -5,6 +5,8 @@ import { AIRLINES, AVIA_MARKUPS, CURRENCIES, ORG_TYPE, SUPPLIER_STATUS, aviaMark
 import { Topbar } from './layout';
 import { AirlineLogo } from './page_flights';
 import { PAGE_SIZE } from './page_orders';
+import { suppliersApi } from './api/resources';
+import { toUiSupplier } from './api/adapters';
 
 
 
@@ -177,10 +179,14 @@ function supEmptyFin(kinds) {
 
 
 const SUP_EXT = window.SUP_EXT || (window.SUP_EXT = {});
+function supNumericSeed(value) {
+  return Array.from(String(value || '')).reduce((sum, ch) => (sum + ch.charCodeAt(0)) % 10000, 0);
+}
 function supExt(s) {
   if (s.ext) return s.ext;
   if (!SUP_EXT[s.no]) {
-    const seed = s.no % 5;
+    const numericSeed = supNumericSeed(s.no);
+    const seed = numericSeed % 5;
     const isApi = s.type === 'Глобальный' || s.orgType === 'Авиакомпания';
     const kinds = s.service === 'Авиа' ? ['Авиа'] : s.service === 'Отель' ? ['Гостиницы'] : s.service === 'Трансфер' ? ['Трансферы'] : [s.service];
     const fin = supEmptyFin(kinds);
@@ -207,7 +213,7 @@ function supExt(s) {
       ops: { 'Бронирование': true, 'Выписка': true, 'Возврат': seed !== 2, 'Обмен': seed !== 4, 'Аннуляция': true, 'Дополнительные услуги': seed % 2 === 0 },
       automation: seed === 3 ? 'reserve' : 'auto',
       searchPriority: kinds.reduce((m, k) => (SUP_PRIORITY_SERVICES.includes(k) ? (m[k] = 1 + seed, m) : m), {}),
-      stats: { bookings: 84 + s.no % 200, issues: 61 + s.no % 160, refunds: 3 + seed, avgResponse: (2 + seed) + ' мин', successRate: (91 + seed) + '%', lastUsed: '0' + (5 - (seed % 3)) + '.07.2026' },
+      stats: { bookings: 84 + numericSeed % 200, issues: 61 + numericSeed % 160, refunds: 3 + seed, avgResponse: (2 + seed) + ' мин', successRate: (91 + seed) + '%', lastUsed: '0' + (5 - (seed % 3)) + '.07.2026' },
       docs: { 'Договор': ['Договор оферты.pdf'], 'Дополнительные соглашения': ['ДС №2 от 03.2026.pdf'], 'Реквизиты': ['Реквизиты.pdf'], 'Сертификаты': s.orgType === 'Авиакомпания' ? ['Сертификат IATA.pdf'] : [], 'Прочие файлы': [] },
 
       legal: {
@@ -227,7 +233,7 @@ function supLookupByInn(inn, ext, s) {
     { form: 'ЗАО', bank: 'Оптима Банк', bik: '109001', addr: 'Бишкек, пр. Чуй 219' },
     { form: 'ИП', bank: 'РСК Банк', bik: '128005', addr: 'Ош, ул. Курманжан Датка 12' },
   ];
-  const b = bases[(String(inn).length + (s.no || 0)) % bases.length];
+  const b = bases[(String(inn).length + supNumericSeed(s.no)) % bases.length];
   const tail = String(inn).replace(/\D/g, '').slice(-6).padStart(6, '0');
   return {
     ...ext.legal, inn: String(inn), legalForm: b.form,
@@ -880,6 +886,7 @@ function SupplierAddDrawer({ open, onClose, onCreated }) {
   const [errs, setErrs] = useState({});
   const [conn, setConn] = useState(null);
   const [legalOpen, setLegalOpen] = useState(false);
+  const [saving, setSaving] = useState(false);
   useEffect(() => { if (open) { setF(JSON.parse(JSON.stringify(empty))); setErrs({}); setConn(null); setFinKind(null); setLegalOpen(false); } }, [open]);
 
   const lookupInn = () => {
@@ -909,20 +916,21 @@ function SupplierAddDrawer({ open, onClose, onCreated }) {
 
   const checkConn = () => {
     if (!f.api.url.trim()) { toast('Укажите URL API для проверки', 'err'); return; }
-    setConn('checking');
-    setTimeout(() => { setConn('ok'); toast('Подключение успешно', 'ok'); }, 1200);
+    setConn('pending');
+    toast('Подключение будет проверено backend после безопасного сохранения реквизитов', 'info');
   };
 
-  const submit = () => {
+  const submit = async () => {
     const er = {};
+    const adapterKey = process.env.NEXT_PUBLIC_DEFAULT_PROVIDER_ADAPTER || (process.env.NODE_ENV !== 'production' ? 'mock' : '');
     if (!f.name.trim()) er.name = 'Введите название';
     if (!f.kinds.length) er.kinds = 'Выберите хотя бы один вид услуг';
     if (isApiType && !f.api.url.trim()) er.apiUrl = 'Укажите URL API';
+    if (isApiType && !adapterKey) er.adapter = 'Для production укажите NEXT_PUBLIC_DEFAULT_PROVIDER_ADAPTER';
     if (!isApiType && !f.local.contact.trim()) er.contact = 'Укажите контактное лицо';
     setErrs(er);
     if (er.name) setLegalOpen(true);
     if (Object.keys(er).length) { toast('Проверьте поля формы', 'err'); return; }
-    const no = 51190 + Math.floor(Math.random() * 800);
     const ext = {
       supType: f.supType, kinds: f.kinds, priority: f.priority, useDefault: f.useDefault, country: f.country, city: f.city,
       api: { ...f.api, status: conn === 'ok' ? 'Подключено' : 'Не проверено', lastSync: '—' },
@@ -932,19 +940,44 @@ function SupplierAddDrawer({ open, onClose, onCreated }) {
       stats: { bookings: 0, issues: 0, refunds: 0, avgResponse: '—', successRate: '—', lastUsed: '—' },
       docs: SUP_DOC_KINDS.reduce((m, k) => (m[k] = [], m), {}),
     };
-    SUP_EXT[no] = ext;
-    onCreated({
-      no, name: f.name, org: f.org || f.name, status: f.status,
-      service: f.kinds[0] === 'Гостиницы' ? 'Отель' : f.kinds[0] === 'Трансферы' ? 'Трансфер' : f.kinds[0],
-      currency: f.fin.currency, commission: supFinSummary(ext), type: f.supType, orgType: f.orgType,
-    });
-    toast('Поставщик добавлен', 'ok'); onClose();
+    const kindMap = { 'Авиа': 'avia', 'ЖД': 'rail', 'Гостиницы': 'hotel', 'Трансферы': 'transfer', 'Автобусы': 'bus', 'Страхование': 'insurance', 'Визы': 'visa', 'Прочее': 'other' };
+    setSaving(true);
+    try {
+      const created = await suppliersApi.create({
+        name: f.name, legal_name: f.org || f.name, tax_id: f.inn,
+        status: { 'Активный': 'active', 'На паузе': 'paused', 'Заблокированный': 'archived' }[f.status] || 'active',
+        organization_type: f.orgType, is_global: f.supType !== 'Локальный',
+        service_kinds: f.kinds.map((kind) => kindMap[kind] || 'other'),
+        countries: [f.country], cities: [f.city], currencies: [f.fin.currency],
+        communication_methods: f.local.comm, work_hours: f.local.hours,
+        settlement_type: { 'Предоплата': 'prepayment', 'Депозит': 'deposit', 'Отсрочка': 'credit', 'По факту': 'postpayment' }[f.fin.settlement] || '',
+        contact_person: f.local.contact,
+        automation_capabilities: { operations: f.ops, search_mode: f.automation, finance: f.fin, api_url: f.api.url },
+      });
+      SUP_EXT[created.id] = ext;
+      if (isApiType) {
+        const secrets = Object.fromEntries(Object.entries(f.api).filter(([, value]) => value));
+        await suppliersApi.saveCredential(created.id, {
+          provider_adapter: adapterKey,
+          environment: process.env.NODE_ENV === 'production' ? 'production' : 'sandbox',
+          secrets,
+        });
+        await suppliersApi.checkConnection(created.id);
+      }
+      const supplier = toUiSupplier(created);
+      onCreated(supplier);
+      toast('Поставщик добавлен. Проверка интеграции поставлена в очередь.', 'ok'); onClose();
+    } catch (error) {
+      toast(error.message || 'Не удалось добавить поставщика', 'err');
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
     <Drawer open={open} onClose={onClose} title="Добавить поставщика" width="min(820px,96vw)"
       sub="Карточка поставщика: общие данные, интеграция, финансовые условия, приоритеты поиска"
-      footer={<><Button variant="secondary" onClick={onClose}>Отмена</Button><Button variant="primary" iconRight="arrowRight" onClick={submit}>Добавить поставщика</Button></>}>
+      footer={<><Button variant="secondary" onClick={onClose}>Отмена</Button><Button variant="primary" iconRight="arrowRight" onClick={submit} disabled={saving}>{saving ? 'Сохранение…' : 'Добавить поставщика'}</Button></>}>
 
 
       <SupSection icon="user" title="Реквизиты поставщика">

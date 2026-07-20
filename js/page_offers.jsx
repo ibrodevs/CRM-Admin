@@ -8,6 +8,9 @@ import { Topbar } from './layout';
 import { PAX_DEFAULT_OPTIONS } from './page_flights';
 import { PanelSub, StackPanel } from './components/shared-panels';
 import { AddServicePanel } from './page_order_card';
+import { documentsApi, proposalsApi, servicesApi } from './api/resources';
+import { toLegacyProposal } from './api/legacy-adapters';
+import { resultsOf } from './api/client';
 
 
 // Срок действия КП = дата + время, оба выбираются шаблонно (без произвольного ввода).
@@ -307,6 +310,19 @@ const KP_TEMPLATES = window.KP_TEMPLATES || (window.KP_TEMPLATES = [
   ] },
 ]);
 
+function proposalTemplateToUi(template) {
+  let body = {};
+  try { body = JSON.parse(template.body || '{}'); } catch (_) { body = {}; }
+  return {
+    id: template.id,
+    code: template.code,
+    name: template.name,
+    desc: body.desc || `${(body.items || []).length} услуг(и)`,
+    items: Array.isArray(body.items) ? body.items : [],
+    version: template.template_version,
+  };
+}
+
 
 
 
@@ -373,31 +389,48 @@ function KpServicePicker({ participants = [], onAdd, onClose }) {
 
 function KPModule({ order, services, participants, onApprove }) {
   const toast = useToast();
-  const seeded = PROPOSALS.filter((p) => p.order === order.no);
-  const [proposals, setProposals] = useState(seeded);
+  const [proposals, setProposals] = useState([]);
   const [view, setView] = useState('list');
   const [activeId, setActiveId] = useState(null);
   const [activeVar, setActiveVar] = useState(null);
   const [fixOpen, setFixOpen] = useState(false);
   const [histOpen, setHistOpen] = useState(false);
   const [sendTarget, setSendTarget] = useState(null);
-  const [templates, setTemplates] = useState(KP_TEMPLATES);
+  const [templates, setTemplates] = useState([]);
   const [tplBuilder, setTplBuilder] = useState(undefined);
   const [pickerOpen, setPickerOpen] = useState(false);
   const [pdfBusy, setPdfBusy] = useState(false);
   const docRef = useRef(null);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    Promise.all([
+      proposalsApi.list({ order: order.id }, controller.signal),
+      proposalsApi.templates(controller.signal),
+    ]).then(([proposalPayload, templatePayload]) => {
+      setProposals(resultsOf(proposalPayload).map((item) => toLegacyProposal(item, [order])));
+      setTemplates(resultsOf(templatePayload).map(proposalTemplateToUi));
+    }).catch((error) => { if (error.name !== 'AbortError') toast(error.message || 'Не удалось загрузить КП', 'err'); });
+    return () => controller.abort();
+  }, [order.id]);
 
   const active = proposals.find((p) => p.id === activeId);
   const uid = (pre) => pre + Math.random().toString(36).slice(2, 7);
   const patch = (id, fn) => setProposals((ps) => ps.map((p) => (p.id === id ? fn(p) : p)));
   const withHist = (p, text) => ({ ...p, history: [...p.history, { t: kpNow(), text, who: 'Даниель' }] });
 
+  const persistProposal = async (items, name) => {
+    try {
+      const validUntil = new Date(); validUntil.setDate(validUntil.getDate() + 7);
+      const created = await proposalsApi.create({ order: order.id, type: 'standard', purpose: 'Предложение клиенту', currency: 'USD', valid_until: validUntil.toISOString(), variants: [{ name, items: items.map((item) => ({ title: item.title, description: item.sub || '', quantity: 1, price_amount: Number(item.cost || 0) + Number(item.fee || 0), price_currency: 'USD' })) }] });
+      const proposal = toLegacyProposal(created, [order]);
+      setProposals((list) => [proposal, ...list]); setActiveId(proposal.id); setActiveVar(proposal.variants[0]?.id || null); setView('edit');
+      toast('Черновик КП создан', 'ok');
+    } catch (error) { toast(error.message || 'Не удалось создать КП', 'err'); }
+  };
   const createProposal = () => {
     const items = (services.length ? services : ORDER_SERVICES).map((s) => ({ id: uid('i'), kind: s.kind, title: s.title, sub: s.sub, cost: Math.round(s.sum * 0.95), fee: Math.round(s.sum * 0.05) }));
-    const np = { id: 'КП-' + (1052 + proposals.length), order: order.no, client: order.client, status: 'Черновик', currency: 'USD', validUntil: '25.06.2026', created: '15.06.2026', approvedVariant: null,
-      variants: [{ id: uid('v'), name: 'Вариант A', items }], history: [{ t: kpNow(), text: 'КП создано из заказа № ' + order.no, who: 'Даниель' }] };
-    setProposals((ps) => [np, ...ps]); setActiveId(np.id); setActiveVar(np.variants[0].id); setView('edit');
-    toast('Черновик КП создан', 'ok');
+    persistProposal(items, 'Вариант A');
   };
   const openEdit = (p) => { setActiveId(p.id); setActiveVar(p.docType === 'train' ? null : p.variants[0].id); setView('edit'); };
   const openPreview = (p) => { setActiveId(p.id); setView('preview'); };
@@ -405,18 +438,33 @@ function KPModule({ order, services, participants, onApprove }) {
 
   const createFromTemplate = (tpl) => {
     const items = tpl.items.map((s) => ({ id: uid('i'), kind: s.kind, title: s.title, sub: s.sub, cost: s.cost, fee: s.fee }));
-    const np = { id: 'КП-' + (1052 + proposals.length), order: order.no, client: order.client, status: 'Черновик', currency: 'USD', validUntil: '25.06.2026', created: '15.06.2026', approvedVariant: null,
-      variants: [{ id: uid('v'), name: tpl.name, items }], history: [{ t: kpNow(), text: 'КП создано из шаблона «' + tpl.name + '»', who: 'Даниель' }] };
-    setProposals((ps) => [np, ...ps]); setActiveId(np.id); setActiveVar(np.variants[0].id); setView('edit');
-    toast('КП создано из шаблона', 'ok');
+    persistProposal(items, tpl.name);
   };
-  const saveAsTemplate = () => {
+  const persistTemplate = async (template) => {
+    const code = template.code || `kp-${Date.now().toString(36)}`;
+    const created = await proposalsApi.createTemplate({
+      code,
+      name: template.name,
+      body: JSON.stringify({ desc: template.desc, items: template.items }),
+    });
+    return { ...template, id: created.id, code, version: created.template_version };
+  };
+  const saveAsTemplate = async () => {
     const v = active.variants.find((x) => x.id === activeVar) || active.variants[0];
-    const tpl = { id: 'TPL-' + String(templates.length + 1).padStart(2, '0'), name: v.name + ' · ' + active.id, desc: v.items.length + ' услуг(и) · ' + kpM(varTotal(v), active.currency),
+    const tpl = { name: v.name + ' · ' + active.id, desc: v.items.length + ' услуг(и) · ' + kpM(varTotal(v), active.currency),
       items: v.items.map((it) => ({ kind: it.kind, title: it.title, sub: it.sub, cost: it.cost, fee: it.fee })) };
-    setTemplates((t) => [tpl, ...t]); toast('Вариант сохранён как шаблон', 'ok');
+    try {
+      const saved = await persistTemplate(tpl);
+      setTemplates((t) => [saved, ...t]); toast('Вариант сохранён как шаблон', 'ok');
+    } catch (error) { toast(error.message || 'Не удалось сохранить шаблон', 'err'); }
   };
-  const delTemplate = (id) => setTemplates((t) => t.filter((x) => x.id !== id));
+  const delTemplate = async (id) => {
+    try {
+      await proposalsApi.deleteTemplate(id);
+      setTemplates((t) => t.filter((x) => x.id !== id));
+      toast('Шаблон удалён', 'ok');
+    } catch (error) { toast(error.message || 'Не удалось удалить шаблон', 'err'); }
+  };
 
 
   const addVariant = (dup) => {
@@ -440,21 +488,62 @@ function KPModule({ order, services, participants, onApprove }) {
   const moveItem = (idx, dir) => setItems((items) => { const a = [...items]; const j = idx + dir; if (j < 0 || j >= a.length) return a; [a[idx], a[j]] = [a[j], a[idx]]; return a; });
   const addItem = (kind) => setItems((items) => [...items, { id: uid('i'), kind, title: 'Новая услуга', sub: '', cost: 0, fee: 0 }]);
   const addItemFromOffer = (kpItem) => setItems((items) => [...items, { id: uid('i'), ...kpItem }]);
-  const saveTemplateFromBuilder = (t) => { setTemplates((list) => [t, ...list.filter((x) => x.id !== t.id)]); const gi = KP_TEMPLATES.findIndex((x) => x.id === t.id); if (gi >= 0) KP_TEMPLATES[gi] = t; else KP_TEMPLATES.unshift(t); setTplBuilder(undefined); toast('Шаблон «' + t.name + '» сохранён', 'ok'); };
+  const saveTemplateFromBuilder = async (t) => {
+    try {
+      const saved = await persistTemplate(t);
+      if (t.id) await proposalsApi.deleteTemplate(t.id);
+      setTemplates((list) => [saved, ...list.filter((x) => x.id !== t.id)]);
+      setTplBuilder(undefined);
+      toast('Шаблон «' + t.name + '» сохранён', 'ok');
+    } catch (error) { toast(error.message || 'Не удалось сохранить шаблон', 'err'); }
+  };
+
+  const archiveProposal = async (proposal) => {
+    try {
+      const server = await proposalsApi.archive(proposal.serverId, proposal.version);
+      setProposals((list) => list.filter((item) => item.id !== proposal.id));
+      if (activeId === proposal.id) setActiveId(null);
+      toast(`${server.number || proposal.id} архивировано`, 'ok');
+    } catch (error) { toast(error.message || 'Не удалось архивировать КП', 'err'); }
+  };
+  const bookApprovedAvia = async () => {
+    try {
+      const payload = await servicesApi.list({ order: order.id, kind: 'avia' });
+      const candidates = resultsOf(payload).filter((service) => ['proposed', 'approval'].includes(service.status));
+      if (!candidates.length) return toast('Нет авиауслуг, готовых к бронированию', 'info');
+      await Promise.all(candidates.map((service) => servicesApi.transition(service.id, { target_status: 'booked', version: service.version })));
+      toast(`Забронировано авиауслуг: ${candidates.length}`, 'ok');
+    } catch (error) { toast(error.message || 'Не удалось забронировать авиауслуги', 'err'); }
+  };
+  const generateApprovedDocuments = async () => {
+    try {
+      const document = await documentsApi.create({ order: order.id, kind: 'other', title: `Документы по ${active.id}`, source: 'generated' });
+      await documentsApi.generate(document.id, { context: { proposal: active.id, order: order.no } });
+      toast('Документы сформированы в backend', 'ok');
+    } catch (error) { toast(error.message || 'Не удалось сформировать документы', 'err'); }
+  };
 
   const setStatus = (s) => patch(active.id, (p) => withHist({ ...p, status: s }, 'Статус изменён: ' + s));
   const setField = (f, val) => patch(active.id, (p) => ({ ...p, [f]: val }));
   const sendToClient = () => setSendTarget(active);
-  const doSendProposal = (p, channel) => {
-    patch(p.id, (x) => withHist({ ...x, status: 'Отправлено клиенту', sentChannel: channel }, 'Отправлено клиенту · канал «' + channel + '»'));
-    setSendTarget(null); toast(p.id + ' отправлено по каналу «' + channel + '»', 'ok', { title: 'КП отправлено клиенту', action: { label: 'Открыть «Ком. предложения»', route: 'offers' } });
+  const doSendProposal = async (p, channel) => {
+    try {
+      let server = await proposalsApi.detail(p.serverId);
+      if (server.status === 'draft') server = await proposalsApi.prepare(server.id, server.version);
+      if (server.status === 'prepared') server = await proposalsApi.send(server.id, server.version);
+      patch(p.id, () => ({ ...toLegacyProposal(server, [order]), sentChannel: channel }));
+      setSendTarget(null); toast(p.id + ' отправлено по каналу «' + channel + '»', 'ok', { title: 'КП отправлено клиенту', action: { label: 'Открыть «Ком. предложения»', route: 'offers' } });
+    } catch (error) { toast(error.message || 'Не удалось отправить КП', 'err'); }
   };
   const sendPanel = sendTarget && <ProposalSendPanel proposal={sendTarget} participants={participants} onSend={(ch) => doSendProposal(sendTarget, ch)} onClose={() => setSendTarget(null)} />;
-  const fixVariant = (vid) => {
+  const fixVariant = async (vid) => {
     const vname = (pVariants(active).find((v) => v.id === vid) || {}).name;
-    patch(active.id, (p) => withHist({ ...p, status: 'Согласовано', approvedVariant: vid }, 'Зафиксирован вариант: ' + vname));
-    setFixOpen(false); toast('Вариант зафиксирован — услуги готовы к бронированию', 'ok');
-    onApprove && onApprove(vid);
+    try {
+      const server = await proposalsApi.approve(active.serverId, active.version, vid, true);
+      patch(active.id, () => toLegacyProposal(server, [order]));
+      setFixOpen(false); toast('Вариант зафиксирован — услуги готовы к бронированию', 'ok');
+      onApprove && onApprove(vid);
+    } catch (error) { toast(error.message || ('Не удалось зафиксировать вариант ' + vname), 'err'); }
   };
 
 
@@ -540,7 +629,7 @@ function KPModule({ order, services, participants, onApprove }) {
                 <Button variant="secondary" size="sm" icon="edit" onClick={() => openEdit(p)}>Открыть</Button>
                 <Button variant="secondary" size="sm" icon="eye" onClick={() => openPreview(p)}>Предпросмотр</Button>
                 <ActionMenu trigger={<button className="btn btn-ghost btn-icon btn-sm"><Icon name="more" /></button>}
-                  items={[{ icon: 'clock', label: 'История', onClick: () => { setActiveId(p.id); setHistOpen(true); } }, { icon: 'send', label: 'Отправить клиенту', onClick: () => { setActiveId(p.id); setSendTarget(p); } }, { sep: true }, { icon: 'inbox', label: 'Архивировать', onClick: () => { setProposals((ps) => ps.map((x) => x.id === p.id ? { ...x, status: 'Архивировано' } : x)); } }]} />
+                  items={[{ icon: 'clock', label: 'История', onClick: () => { setActiveId(p.id); setHistOpen(true); } }, { icon: 'send', label: 'Отправить клиенту', onClick: () => { setActiveId(p.id); setSendTarget(p); } }, { sep: true }, { icon: 'inbox', label: 'Архивировать', onClick: () => archiveProposal(p) }]} />
               </div>
             </div>
           ))}
@@ -608,9 +697,9 @@ function KPModule({ order, services, participants, onApprove }) {
           <div className="kp-bulk">
             <Icon name="checkCircle" style={{ width: 24, height: 24, color: 'var(--green)' }} />
             <div style={{ flex: 1 }}><div style={{ fontWeight: 700, color: 'var(--ink)' }}>Вариант согласован клиентом</div><div style={{ fontSize: 13, color: 'var(--green)' }}>Запустите дальнейшее оформление по выбранным услугам</div></div>
-            <Button size="sm" icon="plane" onClick={() => toast('Запущено бронирование авиа', 'ok')}>Забронировать авиа</Button>
-            <Button variant="secondary" size="sm" icon="docs" onClick={() => toast('Документы формируются', 'ok')}>Сформировать документы</Button>
-            <Button variant="secondary" size="sm" icon="finance" onClick={() => toast('Открыто финансовое оформление', 'info')}>Открыть финансы</Button>
+            <Button size="sm" icon="plane" onClick={bookApprovedAvia}>Забронировать авиа</Button>
+            <Button variant="secondary" size="sm" icon="docs" onClick={generateApprovedDocuments}>Сформировать документы</Button>
+            <Button variant="secondary" size="sm" icon="finance" onClick={() => window.__toastNav && window.__toastNav('finance')}>Открыть финансы</Button>
           </div>
         )}
 
@@ -955,8 +1044,7 @@ function KPCreateModal({ open, onClose, onCreated, onOpenOrder }) {
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 18 }}>
         {KP_SOURCES.map((s) => (
           <button key={s.value} type="button" onClick={() => setSource(s.value)}
-            className={'seg-btn' + (source === s.value ? ' active' : '')}
-            style={{ display: 'inline-flex', alignItems: 'center', gap: 7, padding: '8px 12px', borderRadius: 10, fontSize: 13 }}>
+            className={'src-btn' + (source === s.value ? ' active' : '')}>
             <Icon name={s.icon} style={{ width: 15, height: 15 }} />{s.label}
           </button>
         ))}
@@ -1135,19 +1223,27 @@ function ProposalSendPanel({ proposal, participants = [], onSend, onClose }) {
 
 
 
-function OffersRegistry({ onOpenOrder, intent, onConsume }) {
+function OffersRegistry({ onOpenOrder, intent, onConsume, initialProposals = [], orders = [] }) {
   const toast = useToast();
   const [q, setQ] = useState('');
   const [fStatus, setFStatus] = useState('');
   const [preview, setPreview] = useState(null);
-  const [proposals, setProposals] = useState(() => PROPOSALS.slice());
+  const [proposals, setProposals] = useState(() => initialProposals.length ? initialProposals.map((item) => toLegacyProposal(item, orders)) : []);
   const [createOpen, setCreateOpen] = useState(false);
   const [sendTarget, setSendTarget] = useState(null);
   const [pdfBusy, setPdfBusy] = useState(false);
   const kpNow2 = () => (typeof kpNow === 'function' ? kpNow() : new Date().toLocaleString('ru-RU'));
-  const doSendProposal = (p, channel) => {
-    setProposals((ps) => ps.map((x) => x.id === p.id ? { ...x, status: 'Отправлено клиенту', sentChannel: channel, history: [...(x.history || []), { t: kpNow2(), text: 'Отправлено клиенту · канал «' + channel + '»', who: 'Даниель' }] } : x));
-    setSendTarget(null); toast(p.id + ' отправлено по каналу «' + channel + '»', 'ok', { title: 'КП отправлено клиенту', action: { label: 'Открыть «Ком. предложения»', route: 'offers' } });
+  useEffect(() => { setProposals(initialProposals.map((item) => toLegacyProposal(item, orders))); }, [initialProposals, orders]);
+  const doSendProposal = async (p, channel) => {
+    try {
+      let server = initialProposals.find((item) => item.id === p.serverId);
+      if (!server) throw new Error('Коммерческое предложение не найдено на сервере');
+      if (server.status === 'draft') server = await proposalsApi.prepare(server.id, server.version);
+      if (server.status === 'prepared') server = await proposalsApi.send(server.id, server.version);
+      const next = toLegacyProposal(server, orders);
+      setProposals((items) => items.map((item) => item.serverId === server.id ? { ...next, sentChannel: channel } : item));
+      setSendTarget(null); toast(p.id + ' отправлено по каналу «' + channel + '»', 'ok', { title: 'КП отправлено клиенту', action: { label: 'Открыть «Ком. предложения»', route: 'offers' } });
+    } catch (error) { toast(error.message, 'err'); }
   };
   const previewDocRef = useRef(null);
   const { sort, onSort, apply } = useSort({ col: 'created', dir: 'desc' });
@@ -1235,11 +1331,11 @@ function OffersRegistry({ onOpenOrder, intent, onConsume }) {
   );
 }
 
-function OffersPage({ onOpenOrder, intent, onConsume }) {
+function OffersPage({ onOpenOrder, intent, onConsume, proposals = [], orders = [] }) {
   return (
     <>
       <Topbar title="Коммерческие предложения" />
-      <div className="content"><OffersRegistry onOpenOrder={onOpenOrder} intent={intent} onConsume={onConsume} /></div>
+      <div className="content"><OffersRegistry initialProposals={proposals} orders={orders} onOpenOrder={onOpenOrder} intent={intent} onConsume={onConsume} /></div>
     </>
   );
 }

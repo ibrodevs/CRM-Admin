@@ -3,13 +3,15 @@ import { Icon } from './icons';
 import { ActionMenu, Avatar, Button, Drawer, EmptyState, Field, FilterChip, Input, Pill, SearchBox, Select, Tabs, Th, plural, useSort, useToast } from './ui';
 import { CLIENTS_DB, CLIENT_STATUS, COMPANIES_DB, COMPANY_STATUS, ORDERS, ORDER_STATUS, SETTLEMENT_TONE, companyBalanceShort, companyFinance } from './data';
 import { companyStaffStore } from './data/access-control';
-import { UnifiedDocumentDrawer, UnifiedPersonDrawer, ufBlankPerson, ufFromClient } from './forms_unified';
+import { UnifiedDocumentDrawer, UnifiedPersonDrawer, ufBlankPerson, ufDateIso, ufFromClient } from './forms_unified';
 import { Topbar } from './layout';
 import { NewOrgDrawer } from './order_extras';
 import { PanelSub } from './components/shared-panels';
 import { PaxGroupsDrawer, PaxUnifyPanel, paxMergeAppend } from './pax_unify';
 import { TravelPolicyBlock } from './travel_policy';
 import { CompanyFinanceBlock } from './page_company_finance';
+import { crmApi } from './api/resources';
+import { toUiClient, toUiCompany } from './api/adapters';
 
 
 
@@ -104,12 +106,35 @@ function ClientCard({ c: c0, onBack, onOpenOrder, onUpdate }) {
 function ClientCreateModal({ open, initial, onClose, onCreated }) {
   const toast = useToast();
   const mode = initial ? 'edit' : 'create';
-  const save = (person, client) => {
-    const d = new Date();
-    const since = `${String(d.getDate()).padStart(2, '0')}.${String(d.getMonth() + 1).padStart(2, '0')}.${d.getFullYear()}`;
-    const base = initial || { since, orders: 0, spent: 0, debt: 0, company: '—' };
-    const c = { ...base, ...client, company: (initial && initial.company) || '—' };
-    onCreated(c); toast('Клиент «' + c.name + '» ' + (mode === 'edit' ? 'обновлён' : 'добавлен'), 'ok'); onClose();
+  const save = async (person) => {
+    const payload = {
+      surname: person.lastName, given_name: person.firstName, middle_name: person.middleName,
+      birth_date: ufDateIso(person.dob) || null,
+      gender: { 'Мужской': 'male', 'Женский': 'female' }[person.gender] || '',
+      citizenship: { 'Кыргызстан': 'KG', 'Казахстан': 'KZ', 'Россия': 'RU', 'Узбекистан': 'UZ', 'Таджикистан': 'TJ', 'Турция': 'TR', 'Германия': 'DE', 'Китай': 'CN', 'ОАЭ': 'AE' }[person.citizenship] || '',
+      phone: person.phone, email: person.email, city: person.city, notes: person.comment,
+      status: { 'Новый': 'new', 'Активный': 'active', VIP: 'vip', 'Неактивный': 'inactive' }[person.status] || 'active',
+    };
+    try {
+      let profile;
+      if (initial) {
+        const updated = await crmApi.updatePerson(initial.id, { ...payload, version: initial.source?.version });
+        profile = toUiClient({ ...initial, id: initial.profileId, person: initial.id, person_detail: updated, created_at: initial.created_at });
+      } else {
+        const created = await crmApi.createClient({ client_type: 'individual', status: 'active', person_data: payload });
+        if (person.docNo) {
+          await crmApi.addPersonDocument(created.person, {
+            type: { 'Загранпаспорт': 'foreign_passport', 'Общегражданский паспорт': 'national_passport', 'ID-карта': 'id_card', 'Свидетельство о рождении': 'birth_certificate', 'Виза': 'visa' }[person.docType] || 'other',
+            number: person.docNo, expires_at: ufDateIso(person.docExpiry) || null,
+            issuing_country: payload.citizenship,
+          });
+        }
+        profile = toUiClient(created);
+      }
+      onCreated(profile); toast('Клиент «' + profile.name + '» ' + (mode === 'edit' ? 'обновлён' : 'добавлен'), 'ok'); onClose();
+    } catch (error) {
+      toast(error.message || 'Не удалось сохранить клиента', 'err');
+    }
   };
   return (
     <UnifiedPersonDrawer open={open} kind="person" mode={mode} initial={initial}
@@ -117,18 +142,25 @@ function ClientCreateModal({ open, initial, onClose, onCreated }) {
   );
 }
 
-function ClientsPage({ onOpenOrder, intent, onConsume }) {
+function ClientsPage({ initialClients = [], onClientsChange, onOpenOrder, intent, onConsume }) {
   const [view, setView] = useState('list');
   const [active, setActive] = useState(null);
   const [q, setQ] = useState('');
   const [fStatus, setFStatus] = useState('');
-  const [clients, setClients] = useState(CLIENTS_DB);
+  const [clients, setClients] = useState(initialClients);
   const [createOpen, setCreateOpen] = useState(false);
   const { sort, onSort, apply } = useSort(null);
 
+  useEffect(() => { setClients(initialClients); }, [initialClients]);
+
   useEffect(() => { if (intent && intent.type === 'create') { setCreateOpen(true); onConsume && onConsume(); } }, [intent]);
-  const addClient = (c) => setClients((cur) => [c, ...cur]);
-  const upsertClient = (c) => setClients((cur) => cur.some((x) => x.id === c.id) ? cur.map((x) => x.id === c.id ? c : x) : [c, ...cur]);
+  const commitClients = (updater) => setClients((current) => {
+    const next = typeof updater === 'function' ? updater(current) : updater;
+    onClientsChange && onClientsChange(next);
+    return next;
+  });
+  const addClient = (c) => commitClients((cur) => [c, ...cur]);
+  const upsertClient = (c) => commitClients((cur) => cur.some((x) => x.id === c.id) ? cur.map((x) => x.id === c.id ? c : x) : [c, ...cur]);
 
   if (view === 'card' && active) return (<><Topbar title="Карточка клиента" /><div className="content"><ClientCard c={active} onBack={() => setView('list')} onOpenOrder={onOpenOrder} onUpdate={(u) => { upsertClient(u); setActive(u); }} /></div></>);
 
@@ -519,14 +551,32 @@ function CompanyCard({ co, onBack, onOpenOrder }) {
   );
 }
 
-function CompaniesPage({ onOpenOrder, intent, onConsume }) {
+function CompaniesPage({ initialCompanies = [], onCompaniesChange, onOpenOrder, intent, onConsume }) {
   const [view, setView] = useState('list');
   const [active, setActive] = useState(null);
   const [q, setQ] = useState('');
   const [fStatus, setFStatus] = useState('');
   const [createOpen, setCreateOpen] = useState(false);
-  const [companies, setCompanies] = useState(COMPANIES_DB);
+  const [companies, setCompanies] = useState(initialCompanies);
   const { sort, onSort, apply } = useSort(null);
+
+  useEffect(() => { setCompanies(initialCompanies); }, [initialCompanies]);
+
+  const createCompany = async (company) => {
+    const created = await crmApi.createCompany({
+      legal_name: company.fullName || company.name, short_name: company.shortName || '',
+      type: company.type, status: 'active', tax_id: company.inn === '—' ? '' : company.inn,
+      okpo: company.okpo === '—' ? '' : company.okpo, legal_address: company.addr === '—' ? '' : company.addr,
+      bank_name: company.bank === '—' ? '' : company.bank, bank_account: company.account === '—' ? '' : company.account,
+      director: company.dir === '—' ? '' : company.dir, phone: company.phone === '—' ? '' : company.phone,
+      email: company.email === '—' ? '' : company.email,
+    });
+    const uiCompany = toUiCompany(created);
+    setCompanies((current) => {
+      const next = [uiCompany, ...current]; onCompaniesChange && onCompaniesChange(next); return next;
+    });
+    return uiCompany;
+  };
 
   useEffect(() => { if (intent && intent.type === 'create') { setCreateOpen(true); onConsume && onConsume(); } }, [intent]);
 
@@ -539,7 +589,7 @@ function CompaniesPage({ onOpenOrder, intent, onConsume }) {
   return (
     <>
       <Topbar title="Компании"><div className="topbar-spacer" /><Button icon="plus" onClick={() => setCreateOpen(true)}>Добавить компанию</Button></Topbar>
-      <NewOrgDrawer open={createOpen} onClose={() => setCreateOpen(false)} onCreated={(company) => setCompanies((cur) => [company, ...cur])} />
+      <NewOrgDrawer open={createOpen} onClose={() => setCreateOpen(false)} onCreated={createCompany} />
       <div className="content fade-in">
         <div className="grid-4" style={{ marginBottom: 22 }}>{STATS.map(([l, v]) => (<div className="stat-card" key={l}><div className="s-label">{l}</div><div className="s-value">{v}</div></div>))}</div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16, flexWrap: 'wrap' }}>

@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Icon } from './icons';
 import { useToast } from './ui';
+import { authApi } from './api/auth';
 
 
 
@@ -99,7 +100,7 @@ const LP_STYLES = `
 @media(max-height:820px) and (min-width:1001px){.lp-root{padding-bottom:6px}.lp-card{padding-top:20px;padding-bottom:20px}.lp-demo{min-height:170px}}
 `;
 
-function LoginScreen({ onLogin }) {
+function LoginScreen({ onLogin, onVerifyTwoFactor, onPasswordReset }) {
   const toast = useToast();
 
   const [view, setView] = useState('login');
@@ -118,7 +119,7 @@ function LoginScreen({ onLogin }) {
   const setD = (k, v) => setDemo((d) => ({ ...d, [k]: v }));
 
 
-  const submitLogin = (e) => {
+  const submitLogin = async (e) => {
     e.preventDefault();
     const er = {};
     if (!ident.trim()) er.ident = 'Введите email или телефон';
@@ -127,31 +128,60 @@ function LoginScreen({ onLogin }) {
     setErrs(er);
     if (Object.keys(er).length) return;
     setLoading(true);
-    setTimeout(() => { toast('Добро пожаловать, Айсулуу!', 'ok'); onLogin(); }, 1000);
+    try {
+      const result = await onLogin(ident.trim(), pass);
+      if (result?.twoFactorRequired) {
+        setCode('');
+        setView('twoFactor');
+      } else {
+        toast('Добро пожаловать!', 'ok');
+      }
+    } catch (error) {
+      setErrs({ form: error.message || 'Не удалось выполнить вход' });
+    } finally {
+      setLoading(false);
+    }
   };
-  const submitForgot = (e) => {
+  const submitForgot = async (e) => {
     e.preventDefault();
-    if (!recover.trim()) { setErrs({ recover: 'Введите email или телефон' }); return; }
+    if (!recover.trim()) { setErrs({ recover: 'Введите email' }); return; }
     setLoading(true);
-    setTimeout(() => { setLoading(false); setView('sent'); }, 800);
+    try {
+      await onPasswordReset(recover.trim());
+      setView('sent');
+    } catch (error) {
+      setErrs({ recover: error.message || 'Не удалось отправить инструкцию' });
+    } finally {
+      setLoading(false);
+    }
   };
   const startMax = () => {
     setView('max');
-    setTimeout(() => { toast('Вход подтверждён в мессенджере MAX', 'ok'); onLogin(); }, 2600);
+    toast('Вход через MAX станет доступен после подключения OAuth-ключей организации', 'info');
   };
   const sendSms = (e) => {
     e.preventDefault();
     if (phone.replace(/\D/g, '').length < 10) { setErrs({ phone: 'Введите номер телефона' }); return; }
-    setLoading(true);
-    setTimeout(() => { setLoading(false); setErrs({}); setCode(''); setView('smsCode'); toast('Код отправлен по SMS', 'ok'); }, 800);
+    toast('Вход по SMS станет доступен после подключения SMS-провайдера', 'info');
   };
   const submitSms = (e) => {
     e.preventDefault();
-    if (code.replace(/\D/g, '').length < 4) { setErrs({ code: 'Введите код из SMS' }); return; }
-    setLoading(true);
-    setTimeout(() => { toast('Вход выполнен', 'ok'); onLogin(); }, 800);
+    toast('Вход по SMS станет доступен после подключения SMS-провайдера', 'info');
   };
-  const submitDemo = (e) => {
+  const submitTwoFactor = async (e) => {
+    e.preventDefault();
+    if (code.replace(/\D/g, '').length < 6) { setErrs({ code: 'Введите 6-значный код' }); return; }
+    setLoading(true);
+    try {
+      await onVerifyTwoFactor(code);
+      toast('Вход подтверждён', 'ok');
+    } catch (error) {
+      setErrs({ code: error.message || 'Неверный код подтверждения' });
+    } finally {
+      setLoading(false);
+    }
+  };
+  const submitDemo = async (e) => {
     e.preventDefault();
     const er = {};
     if (!demo.name.trim()) er.name = 'Укажите имя';
@@ -160,7 +190,14 @@ function LoginScreen({ onLogin }) {
     setErrs(er);
     if (Object.keys(er).length) return;
     setLoading(true);
-    setTimeout(() => { setLoading(false); setView('demoSent'); }, 900);
+    try {
+      await authApi.requestDemoAccess(demo);
+      setView('demoSent');
+    } catch (error) {
+      setErrs({ form: error.message || 'Не удалось отправить заявку' });
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -210,6 +247,7 @@ function LoginScreen({ onLogin }) {
                     <Icon name={showPass ? 'eyeOff' : 'eye'} className="lp-eye" style={{ width: 20, height: 20 }} onClick={() => setShowPass((s) => !s)} />
                   </div>
                   {errs.pass && <div className="lp-errtxt"><Icon name="alertCircle" />{errs.pass}</div>}
+                  {errs.form && <div className="lp-errtxt"><Icon name="alertCircle" />{errs.form}</div>}
 
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', margin: '10px 0 16px' }}>
                     <button type="button" className="lp-link" onClick={() => go('forgot')}>Забыли пароль?</button>
@@ -272,6 +310,24 @@ function LoginScreen({ onLogin }) {
               <h2 className="lp-h1" style={{ fontSize: 22 }}>Инструкция отправлена</h2>
               <p className="lp-sub" style={{ marginBottom: 22 }}>Мы отправили ссылку для сброса пароля на <b style={{ color: '#141a2c' }}>{recover}</b>. Проверьте почту или SMS.</p>
               <button className="lp-btn lp-btn-out" onClick={() => go('login')}>Вернуться ко входу</button>
+            </div>
+          )}
+
+          {view === 'twoFactor' && (
+            <div className="fade-in lp-card">
+              <button type="button" className="lp-btn-ghost" onClick={() => go('login')} style={{ marginBottom: 14 }}><Icon name="chevLeft" style={{ width: 16, height: 16 }} />Ко входу</button>
+              <h2 className="lp-h1">Двухфакторная проверка</h2>
+              <p className="lp-sub">Введите код из приложения-аутентификатора.</p>
+              <form onSubmit={submitTwoFactor} style={{ marginTop: 22 }}>
+                <label className="lp-lbl">Код подтверждения</label>
+                <input className={'lp-input' + (errs.code ? ' err' : '')} inputMode="numeric" autoComplete="one-time-code"
+                  style={{ letterSpacing: '.35em', fontWeight: 700, fontSize: 18, textAlign: 'center' }}
+                  value={code} onChange={(e) => setCode(e.target.value.replace(/\D/g, ''))} maxLength={6} autoFocus />
+                {errs.code && <div className="lp-errtxt"><Icon name="alertCircle" />{errs.code}</div>}
+                <button type="submit" className="lp-btn lp-btn-primary" style={{ marginTop: 20 }} disabled={loading}>
+                  {loading ? <><Icon name="loader" className="lp-spin" style={{ width: 18, height: 18 }} />Проверка…</> : 'Подтвердить вход'}
+                </button>
+              </form>
             </div>
           )}
 
@@ -356,6 +412,7 @@ function LoginScreen({ onLogin }) {
                 {errs.email && <div className="lp-errtxt"><Icon name="alertCircle" />{errs.email}</div>}
                 <label className="lp-lbl" style={{ marginTop: 14 }}>Телефон <span style={{ color: '#aeb5c4', fontWeight: 500 }}>· необязательно</span></label>
                 <input className="lp-input" type="tel" placeholder="+7 (___) ___-__-__" value={demo.phone} onChange={(e) => setD('phone', e.target.value)} />
+                {errs.form && <div className="lp-errtxt"><Icon name="alertCircle" />{errs.form}</div>}
                 <button type="submit" className="lp-btn lp-btn-primary" style={{ marginTop: 22 }} disabled={loading}>
                   {loading ? <><Icon name="loader" className="lp-spin" style={{ width: 18, height: 18 }} />Отправка…</> : <>Получить демо-доступ <Icon name="arrowRight" style={{ width: 18, height: 18 }} /></>}
                 </button>

@@ -5,6 +5,9 @@ import { COMPANIES_DB, CURRENT_USER, DOCS2, DOC_KIND, DOC_STATUS2, FIN_OPS, FIN_
 import { UnifiedBindField, UFDateField } from './forms_unified';
 import { Topbar } from './layout';
 import { DocCorrectionPanel, docCorrKind } from './page_flights';
+import { toLegacyDocument } from './api/legacy-adapters';
+import { documentsApi, financeApi } from './api/resources';
+import { resultsOf } from './api/client';
 
 
 
@@ -123,11 +126,12 @@ function FinanceOpCard({ op, onClose, onChange }) {
 }
 
 
-function FinanceRegistry({ scopeOrder, onOpenOp }) {
+function FinanceRegistry({ scopeOrder, onOpenOp, initialOps }) {
   const [q, setQ] = useState('');
   const [tab, setTab] = useState('all');
   const [fSource, setFSource] = useState('');
-  const [ops, setOps] = useState(scopeOrder ? FIN_OPS.filter((o) => o.order === scopeOrder) : FIN_OPS);
+  const sourceOps = Array.isArray(initialOps) ? initialOps : FIN_OPS;
+  const [ops, setOps] = useState(scopeOrder ? sourceOps.filter((o) => o.order === scopeOrder) : sourceOps);
   const [card, setCard] = useState(null);
   const { sort, onSort, apply } = useSort(null);
 
@@ -358,6 +362,7 @@ function DocPreviewModal({ doc, company, onClose, onChange }) {
 function DocCard({ doc, onClose, onChange }) {
   const toast = useToast();
   const [preview, setPreview] = useState(false);
+  const versionInput = useRef(null);
   if (!doc) return null;
   const k = DOC_KIND[doc.type] || DOC_KIND['Прочее'];
   const isClosingDoc = DOC_BOOKKEEPING.includes(doc.type);
@@ -370,13 +375,32 @@ function DocCard({ doc, onClose, onChange }) {
     { ic: 'plane', label: doc.service, on: doc.service !== '—' },
     { ic: 'finance', label: 'Операция ' + doc.finOp, on: doc.finOp !== '—' },
   ].filter((l) => l.on);
+  const download = (version) => {
+    if (!doc.serverId) return toast('Файл документа не найден в backend', 'err');
+    const suffix = version ? `?file_version=${version}` : '';
+    window.open(documentsApi.downloadUrl(doc.serverId) + suffix, '_blank', 'noopener,noreferrer');
+  };
+  const sign = async () => {
+    try {
+      const updated = await documentsApi.sign(doc.serverId, 'crm-confirmation');
+      onChange && onChange(doc.no, { status: 'Подписан', version: updated.current_version || doc.version });
+      toast('Документ подписан в backend', 'ok');
+    } catch (error) { toast(error.message || 'Не удалось подписать документ', 'err'); }
+  };
+  const addVersion = async (event) => {
+    const file = event.target.files?.[0]; event.target.value = '';
+    if (!file) return;
+    try { await documentsApi.addVersion(doc.serverId, file); toast('Новая версия загружена в backend', 'ok'); }
+    catch (error) { toast(error.message || 'Не удалось загрузить версию', 'err'); }
+  };
   return (
     <>
     <Drawer open={!!doc} onClose={onClose} title={doc.no}
       footer={<div style={{ display: 'flex', gap: 10 }}>
-        <Button style={{ flex: 1 }} icon="download" onClick={() => toast('Скачивание…', 'info')}>Скачать</Button>
-        <Button variant="secondary" icon="plus" onClick={() => toast('Загрузка новой версии', 'info')}>Новая версия</Button>
-        {!isClosingDoc && doc.status !== 'Подписан' && <Button variant="secondary" icon="check" onClick={() => toast('Документ подписан', 'ok')}>Подписать</Button>}
+        <input ref={versionInput} type="file" hidden onChange={addVersion} />
+        <Button style={{ flex: 1 }} icon="download" onClick={() => download()}>Скачать</Button>
+        <Button variant="secondary" icon="plus" onClick={() => versionInput.current?.click()}>Новая версия</Button>
+        {!isClosingDoc && doc.status !== 'Подписан' && <Button variant="secondary" icon="check" onClick={sign}>Подписать</Button>}
       </div>}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>
         <span className="oc-svc-ic" style={{ background: k.color }}><Icon name={k.icon} /></span>
@@ -390,7 +414,7 @@ function DocCard({ doc, onClose, onChange }) {
         <span style={{ fontSize: 13 }}>Предпросмотр документа · v{doc.version}</span>
         {needsPreview
           ? <Button variant="secondary" size="sm" icon="eye" onClick={() => setPreview(true)}>Предпросмотр перед отправкой</Button>
-          : <Button variant="secondary" size="sm" icon="eye" onClick={() => toast('Открываю предпросмотр', 'info')}>Открыть</Button>}
+          : <Button variant="secondary" size="sm" icon="eye" onClick={() => download()}>Открыть</Button>}
       </div>
 
       <h3 className="card-title" style={{ fontSize: 15, marginBottom: 10 }}>Связи</h3>
@@ -408,7 +432,7 @@ function DocCard({ doc, onClose, onChange }) {
           <div className="ver-row" key={v.v}>
             <span className="ver-badge">v{v.v}</span>
             <div style={{ flex: 1 }}><div style={{ fontWeight: 600, fontSize: 14 }}>{v.note}</div><div style={{ fontSize: 12, color: 'var(--muted)' }}>{v.date} · {v.who}</div></div>
-            <button className="icon-btn" onClick={() => toast('Скачивание v' + v.v, 'info')}><Icon name="download" /></button>
+            <button className="icon-btn" onClick={() => download(v.v)}><Icon name="download" /></button>
           </div>
         ))}
       </div>
@@ -559,12 +583,12 @@ function DocUploadModal({ open, scopeOrder, participants = [], defaultParticipan
   const pickFile = () => fileRef.current && fileRef.current.click();
   const onFile = (e) => {
     const f = e.target.files && e.target.files[0];
-    if (f) setFile({ name: f.name, size: (f.size / 1024 < 1024 ? Math.max(1, Math.round(f.size / 1024)) + ' КБ' : (f.size / 1048576).toFixed(1) + ' МБ') });
+    if (f) setFile({ raw: f, name: f.name, size: (f.size / 1024 < 1024 ? Math.max(1, Math.round(f.size / 1024)) + ' КБ' : (f.size / 1048576).toFixed(1) + ' МБ') });
     e.target.value = '';
   };
 
   const submit = () => {
-    const payload = { file, type, participant: participant !== '—' ? participant : '—' };
+    const payload = { file, type, participant: participant !== '—' ? participant : '—', origin };
     if (isReceipt) { onRouteToEditor(payload); return; }
     const now = new Date().toLocaleDateString('ru-RU');
     const doc = {
@@ -634,7 +658,7 @@ function DocUploadModal({ open, scopeOrder, participants = [], defaultParticipan
   );
 }
 
-function DocCenter({ scopeOrder, participants, services, onOpenDoc }) {
+function DocCenter({ scopeOrder, participants, services, onOpenDoc, initialDocuments, orders = [] }) {
   const toast = useToast();
   const [q, setQ] = useState('');
   const [tab, setTab] = useState('all');
@@ -653,7 +677,23 @@ function DocCenter({ scopeOrder, participants, services, onOpenDoc }) {
     if (!s) return '';
     return [s.title, s.date].filter(Boolean).join(' · ');
   };
-  const [docs, setDocs] = useState(() => (scopeOrder ? DOCS2.filter((d) => d.order === scopeOrder) : DOCS2));
+  const liveDocuments = Array.isArray(initialDocuments) ? initialDocuments.map((item) => toLegacyDocument(item, orders)) : (scopeOrder ? [] : DOCS2);
+  const scopedOrderId = orders.find((item) => item.no === scopeOrder)?.id;
+  const [docs, setDocs] = useState(() => (scopeOrder ? liveDocuments.filter((d) => d.order === scopeOrder) : liveDocuments));
+  useEffect(() => {
+    if (!Array.isArray(initialDocuments)) return;
+    const mapped = initialDocuments.map((item) => toLegacyDocument(item, orders));
+    setDocs(scopeOrder ? mapped.filter((d) => d.order === scopeOrder) : mapped);
+  }, [initialDocuments, orders, scopeOrder]);
+  useEffect(() => {
+    if (Array.isArray(initialDocuments) || !scopeOrder) return;
+    if (!scopedOrderId) return;
+    const controller = new AbortController();
+    documentsApi.list({ order: scopedOrderId }, controller.signal)
+      .then((payload) => setDocs(resultsOf(payload).map((item) => toLegacyDocument(item, orders))))
+      .catch((error) => { if (error.name !== 'AbortError') toast(error.message || 'Не удалось загрузить документы', 'err'); });
+    return () => controller.abort();
+  }, [initialDocuments, scopeOrder, scopedOrderId]);
   const updateDoc = (no, patch) => setDocs((cur) => cur.map((d) => (d.no === no ? { ...d, ...patch } : d)));
   const card = docs.find((d) => d.no === openNo) || null;
   const [uploadFor, setUploadFor] = useState(null);
@@ -767,7 +807,17 @@ function DocCenter({ scopeOrder, participants, services, onOpenDoc }) {
       <DocUploadModal open={!!uploadFor} scopeOrder={scopeOrder} participants={participants || []}
         defaultParticipant={uploadFor && uploadFor.participant}
         onClose={() => setUploadFor(null)}
-        onUploaded={(doc) => { setDocs((cur) => [doc, ...cur]); setUploadFor(null); toast('Файл добавлен в документы заказа', 'ok', { title: 'Документ загружен', action: { label: 'Открыть «Документы»', route: 'documents' } }); }}
+        onUploaded={async (doc) => {
+          try {
+            const kind = { 'Маршрутная квитанция': 'itinerary_receipt', 'Билет': 'ticket', 'Ваучер': 'voucher', 'Страховой полис': 'insurance_policy', 'Счёт': 'invoice', 'Акт': 'act', 'Договор': 'contract', 'Паспорт': 'passport', 'Прочее': 'other' }[doc.type] || 'other';
+            const order = orders.find((item) => item.no === scopeOrder);
+            const person = (participants || []).find((item) => item.name === doc.participant);
+            const created = await documentsApi.upload(doc.file.raw, { order: order?.id || null, person: person?.serverId || null, kind, title: doc.file.name, source: doc.origin || 'upload', document_date: new Date().toISOString().slice(0, 10) });
+            setDocs((cur) => [toLegacyDocument(created, orders), ...cur]);
+            setUploadFor(null);
+            toast('Файл добавлен в документы заказа', 'ok', { title: 'Документ загружен', action: { label: 'Открыть «Документы»', route: 'documents' } });
+          } catch (error) { toast(error.message || 'Не удалось загрузить документ', 'err'); }
+        }}
         onRouteToEditor={(info) => { setUploadFor(null); setEditorFor({ participant: info.participant !== '—' ? info.participant : null }); }} />
 
       {editorFor && (
@@ -780,8 +830,8 @@ function DocCenter({ scopeOrder, participants, services, onOpenDoc }) {
   );
 }
 
-function DocCenterPage() {
-  return (<><Topbar title="Документы" /><div className="content"><DocCenter /></div></>);
+function DocCenterPage({ documents = [], orders = [] }) {
+  return (<><Topbar title="Документы" /><div className="content"><DocCenter initialDocuments={documents} orders={orders} /></div></>);
 }
 
 
@@ -1164,22 +1214,31 @@ function ReceiptImportModal({ open, onClose, onDone }) {
 
   const fmtSize = (b) => (b / 1024 < 1024 ? Math.max(1, Math.round(b / 1024)) + ' КБ' : (b / 1048576).toFixed(1) + ' МБ');
   const addFiles = (list) => {
-    setFiles((cur) => {
-      const pending = cur.filter((f) => f.status !== 'done').length;
-      const add = Array.from(list).map((f, i) => {
-        const type = guessType(f.name);
-        poolCounter.current[type] = poolCounter.current[type] || 0;
-        const poolIx = poolCounter.current[type]++;
-        const id = 'rf' + (RID++);
-        const order = pending + i;
-
-        setTimeout(() => setFiles((c) => c.map((x) => (x.id === id ? { ...x, status: 'scanning' } : x))), 250 + order * 650);
-        setTimeout(() => setFiles((c) => c.map((x) => (x.id === id ? { ...x, status: 'done', parsed: emptyReceiptParse(x) } : x))), 250 + order * 650 + 600);
-        return { id, name: f.name, size: fmtSize(f.size || 40000), byteSize: f.size || 0, mime: f.type || '', lastModified: f.lastModified || null,
-          originalUrl: typeof URL !== 'undefined' && URL.createObjectURL ? URL.createObjectURL(f) : null,
-          type, poolIx, status: 'queued', parsed: null };
-      });
-      return [...cur, ...add];
+    const add = Array.from(list).map((raw) => {
+      const type = guessType(raw.name);
+      poolCounter.current[type] = poolCounter.current[type] || 0;
+      const poolIx = poolCounter.current[type]++;
+      return { id: 'rf' + (RID++), raw, name: raw.name, size: fmtSize(raw.size || 40000), byteSize: raw.size || 0, mime: raw.type || '', lastModified: raw.lastModified || null,
+        originalUrl: typeof URL !== 'undefined' && URL.createObjectURL ? URL.createObjectURL(raw) : null,
+        type, poolIx, status: 'queued', parsed: null };
+    });
+    setFiles((cur) => [...cur, ...add]);
+    add.forEach(async (entry) => {
+      setFiles((cur) => cur.map((item) => item.id === entry.id ? { ...item, status: 'scanning' } : item));
+      try {
+        const imported = await documentsApi.importReceipt(entry.raw);
+        const result = await documentsApi.receiptResult(imported.id);
+        const base = emptyReceiptParse(entry);
+        const draft = result.draft || {};
+        const parsed = { ...base, carrier: draft.issuer || base.carrier, passenger: draft.passenger_name || base.passenger,
+          fare: Number(draft.fare || base.fare || 0), taxes: Number(draft.taxes || base.taxes || 0), total: Number(draft.total || base.total || 0),
+          currency: draft.currency || base.currency, legs: draft.segments?.length ? draft.segments : base.legs,
+          recognitionPending: Boolean(result.warnings?.length), backendWarnings: result.warnings || [] };
+        setFiles((cur) => cur.map((item) => item.id === entry.id ? { ...item, status: 'done', importId: imported.id, parsed } : item));
+      } catch (error) {
+        setFiles((cur) => cur.map((item) => item.id === entry.id ? { ...item, status: 'done', error: error.message, parsed: { ...emptyReceiptParse(entry), recognitionPending: true } } : item));
+        toast(error.message || `Не удалось обработать ${entry.name}`, 'err');
+      }
     });
   };
   const onPick = (e) => { if (e.target.files && e.target.files.length) addFiles(e.target.files); e.target.value = ''; };
@@ -1213,7 +1272,7 @@ function ReceiptImportModal({ open, onClose, onDone }) {
   }, [doneRows.map((r) => r.f.id + r.status).join(',')]);
 
   const counts = doneRows.reduce((a, r) => { a[r.status] = (a[r.status] || 0) + 1; return a; }, {});
-  const isEligible = (r) => !r.pending && !excluded[r.f.id] && r.status !== 'Ошибка' && (r.status !== 'Требует проверки' || optAddIncomplete);
+  const isEligible = (r) => !r.pending && r.f.importId && !excluded[r.f.id] && r.status !== 'Ошибка' && (r.status !== 'Требует проверки' || optAddIncomplete);
   const toAdd = doneRows.filter(isEligible);
   const editFile = files.find((f) => f.id === editId) || null;
   const mathFile = files.find((f) => f.id === mathId) || null;
@@ -1232,17 +1291,26 @@ function ReceiptImportModal({ open, onClose, onDone }) {
     toast('Математика применена к ' + targets.length + ' квитанц. · оригиналы поставщика сохранены', 'ok');
   };
 
-  const finish = () => {
+  const finish = async () => {
     if (!toAdd.length) { toast('Нет квитанций для добавления', 'err'); return; }
     const now = new Date().toLocaleDateString('ru-RU');
     const isNew = bindTarget.mode === 'new';
     const isPerson = bindTarget.mode === 'person';
     const orderNo = bindTarget.mode === 'order' ? bindTarget.order.no : 'новый';
     const bindText = isPerson ? ('физ. лицу ' + bindTarget.client) : (isNew ? 'новому заказу' : 'заказу № ' + orderNo);
-    const docs = toAdd.map((r) => {
+    try {
+      const confirmed = await Promise.all(toAdd.map((r) => {
+        const p = r.f.parsed; const m = getMath(r.f.id, p);
+        return documentsApi.confirmReceipt(r.f.importId, {
+          issuer: p.carrier || '', passenger_name: p.passenger || '', segments: p.legs || [],
+          fare: Number(m.tariff || p.fare || 0), taxes: Number(p.taxes || 0), fees: Number(m.fee || 0), currency: p.currency || 'USD',
+          order: bindTarget.mode === 'order' ? bindTarget.order.id : null,
+        });
+      }));
+      const docs = toAdd.map((r, index) => {
       const t = recType(r.f.type); const p = r.f.parsed; const m = getMath(r.f.id, p);
       return {
-        no: 'D-' + Math.floor(3200 + Math.random() * 800),
+        serverId: confirmed[index].document_id, no: 'D-' + String(confirmed[index].document_id).slice(0, 8).toUpperCase(),
         name: t.doc + ' ' + (p.carrier || '') + ' · ' + (p.passenger || '').split(/[\/ ]/)[0],
         type: t.doc, order: isPerson ? '—' : orderNo, participant: p.passenger || '—', service: r.f.type + ' · распознано',
         finOp: '—', status: 'Черновик', version: 1, date: now, size: r.f.size, parsed: p, recType: r.f.type,
@@ -1253,11 +1321,12 @@ function ReceiptImportModal({ open, onClose, onDone }) {
         versions: [{ v: 1, date: now, who: (window.CURRENT_USER && CURRENT_USER.name) || 'Оператор', note: 'Импорт из квитанции' }],
         history: [{ t: now, text: 'Распознано и привязано к ' + bindText, who: (window.CURRENT_USER && CURRENT_USER.name) || 'Оператор' }],
       };
-    });
-    onDone(docs);
-    toast(isPerson ? toAdd.length + ' квитанц. привязано к физ. лицу: ' + bindTarget.client
-      : isNew ? toAdd.length + ' квитанц. добавлено в новый заказ'
-      : toAdd.length + ' квитанц. добавлено в заказ № ' + orderNo, 'ok');
+      });
+      onDone(docs);
+      toast(isPerson ? toAdd.length + ' квитанц. привязано к физ. лицу: ' + bindTarget.client
+        : isNew ? toAdd.length + ' квитанц. добавлено в новый заказ'
+        : toAdd.length + ' квитанц. добавлено в заказ № ' + orderNo, 'ok');
+    } catch (error) { toast(error.message || 'Не удалось сохранить квитанции', 'err'); }
   };
 
   const Stat = ({ label, value, tone }) => (
@@ -1449,12 +1518,12 @@ function ReceiptImportModal({ open, onClose, onDone }) {
 
 
 
-function ReceiptEditorPage() {
+function ReceiptEditorPage({ documents = [], orders = [] }) {
   const [q, setQ] = useState('');
   const [edit, setEdit] = useState(null);
   const [importing, setImporting] = useState(false);
   const [imported, setImported] = useState([]);
-  const all = [...imported, ...DOCS2.filter((d) => d.type === 'Маршрутная квитанция')];
+  const all = [...imported, ...documents.map((item) => toLegacyDocument(item, orders)).filter((d) => d.type === 'Маршрутная квитанция')];
   const receipts = all.filter((d) => (!q || `${d.no} ${d.name} ${d.order} ${d.participant}`.toLowerCase().includes(q.toLowerCase())));
 
   return (
@@ -1531,7 +1600,7 @@ function ReceiptEditorPage() {
 
 
 
-function FulfillmentRegistry({ onOpenOrder }) {
+function FulfillmentRegistry({ onOpenOrder, rows = [], orders = [] }) {
   const [cat, setCat] = useState('payment');
   const CATS = [
     { key: 'payment', label: 'Требуют оплаты', icon: 'finance' },
@@ -1539,15 +1608,15 @@ function FulfillmentRegistry({ onOpenOrder }) {
     { key: 'overdue', label: 'Просрочено', icon: 'clock' },
     { key: 'return', label: 'Возвраты в обработке', icon: 'refund' },
   ];
-  const rows = FULFILLMENT.filter((r) => r.cat === cat);
-  const goOrder = (no, client) => { const o = ORDERS.find((x) => x.no === no) || { no, client, requestType: 'Индивидуальная', status: 'В работе', operator: 'Даниель', date: '15.06.25' }; onOpenOrder(o); };
+  const shownRows = rows.filter((r) => r.cat === cat);
+  const goOrder = (no, client) => { const o = orders.find((x) => x.no === no) || { no, client, requestType: 'Индивидуальная', status: 'В работе', operator: 'Не назначен', date: new Date().toLocaleDateString('ru-RU') }; onOpenOrder(o); };
 
   return (
     <div className="fade-in">
       <div className="grid-4" style={{ marginBottom: 22 }}>
         {CATS.map((c) => {
-          const n = FULFILLMENT.filter((r) => r.cat === c.key).length;
-          const overdue = c.key === 'overdue' || FULFILLMENT.some((r) => r.cat === c.key && r.overdue);
+          const n = rows.filter((r) => r.cat === c.key).length;
+          const overdue = c.key === 'overdue' || rows.some((r) => r.cat === c.key && r.overdue);
           return (
             <div key={c.key} className="stat-card" style={{ cursor: 'pointer', borderColor: cat === c.key ? 'var(--blue)' : 'var(--line)', boxShadow: cat === c.key ? '0 0 0 3px var(--blue-soft)' : 'var(--shadow-card)' }} onClick={() => setCat(c.key)}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}><Icon name={c.icon} style={{ width: 18, height: 18, color: cat === c.key ? 'var(--blue)' : 'var(--muted-2)' }} /><span className="s-label" style={{ margin: 0 }}>{c.label}</span></div>
@@ -1558,11 +1627,11 @@ function FulfillmentRegistry({ onOpenOrder }) {
       </div>
 
       <div className="table-card">
-        {rows.length ? (
+        {shownRows.length ? (
           <table className="tbl">
             <thead><tr><th>Заказ</th><th>Клиент</th><th>Действие</th><th>Сумма</th><th>Срок</th><th>Ответственный</th><th></th></tr></thead>
             <tbody>
-              {rows.map((r, i) => (
+              {shownRows.map((r, i) => (
                 <tr key={i} style={{ cursor: 'pointer' }} onClick={() => goOrder(r.order, r.client)}>
                   <td><span style={{ color: 'var(--blue)', fontWeight: 700 }}>№ {r.order}</span></td>
                   <td className="t-strong">{r.client}</td>
@@ -1581,8 +1650,38 @@ function FulfillmentRegistry({ onOpenOrder }) {
   );
 }
 
-function FulfillmentPage({ onOpenOrder }) {
-  return (<><Topbar title="Оформление" /><div className="content"><FulfillmentRegistry onOpenOrder={onOpenOrder} /></div></>);
+function FulfillmentPage({ onOpenOrder, orders = [], documents = [], returns = [] }) {
+  const [rows, setRows] = useState([]);
+  useEffect(() => {
+    const controller = new AbortController();
+    financeApi.obligations({}, controller.signal).then((payload) => {
+      const obligations = resultsOf(payload).filter((item) => ['open', 'partial'].includes(item.status) && Number(item.outstanding || 0) > 0);
+      const paymentRows = obligations.map((item) => {
+        const order = orders.find((entry) => entry.id === item.order);
+        const overdue = Boolean(item.due_date && new Date(`${item.due_date}T23:59:59`) < new Date());
+        return {
+          cat: overdue ? 'overdue' : 'payment', order: order?.no || item.order_number || String(item.order || '').slice(0, 8),
+          client: item.client_name || item.supplier_name || order?.client || 'Контрагент',
+          detail: item.direction === 'supplier_payable' ? 'Оплатить поставщику' : 'Получить оплату от клиента',
+          amount: fUsd(Number(item.outstanding || 0), item.currency), due: item.due_date ? item.due_date.split('-').reverse().join('.') : '—',
+          resp: order?.operator || 'Не назначен', overdue,
+        };
+      });
+      const documented = new Set(documents.map((item) => item.order).filter(Boolean));
+      const documentRows = orders.filter((order) => order.services > 0 && !documented.has(order.id)).map((order) => ({
+        cat: 'docs', order: order.no, client: order.client, detail: 'Подготовить документы по услугам',
+        amount: fUsd(order.sum || 0, order.currency), due: order.planned_start ? String(order.planned_start).split('-').reverse().join('.') : '—',
+        resp: order.operator, overdue: false,
+      }));
+      const returnRows = returns.filter((item) => !['executed', 'cancelled', 'closed'].includes(item.status)).map((item) => {
+        const order = orders.find((entry) => entry.id === item.order);
+        return { cat: 'return', order: order?.no || String(item.order || '').slice(0, 8), client: order?.client || 'Клиент', detail: item.reason || 'Возврат в обработке', amount: fUsd(Number(item.refund_amount || item.client_refund || 0), item.currency || 'USD'), due: item.created_at ? new Date(item.created_at).toLocaleDateString('ru-RU') : '—', resp: order?.operator || 'Не назначен', overdue: false };
+      });
+      setRows([...paymentRows, ...documentRows, ...returnRows]);
+    }).catch((error) => { if (error.name !== 'AbortError') console.error(error); });
+    return () => controller.abort();
+  }, [documents, orders, returns]);
+  return (<><Topbar title="Оформление" /><div className="content"><FulfillmentRegistry onOpenOrder={onOpenOrder} rows={rows} orders={orders} /></div></>);
 }
 
 Object.assign(window, {

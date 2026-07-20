@@ -10,6 +10,7 @@ import { PanelSub, StackPanel } from './components/shared-panels';
 import { AddServicePanel } from './page_order_card';
 import { ErrorCodesDrawer } from './page_notifications';
 import { SHIFT_DEMO_OPS, SHIFT_REQUESTS_HANDLED, motivationFor, operatorEarn, shiftDuration, shiftFmtTime, shiftTotals } from './page_shifts';
+import { toLegacyProposal, toLegacyReturn } from './api/legacy-adapters';
 
 
 
@@ -380,7 +381,7 @@ function DashTile({ w, active, onClick }) {
     <button type="button" onClick={onClick}
       style={{
         textAlign: 'left', cursor: 'pointer', background: active ? 'var(--blue-soft, #eef3ff)' : '#fff',
-        border: '1px solid ' + (active ? 'var(--blue)' : 'var(--line)'), borderLeft: '3px solid ' + toneColor, borderRadius: 14, padding: '11px 13px',
+        borderTop: '1px solid ' + (active ? 'var(--blue)' : 'var(--line)'), borderRight: '1px solid ' + (active ? 'var(--blue)' : 'var(--line)'), borderBottom: '1px solid ' + (active ? 'var(--blue)' : 'var(--line)'), borderLeft: '3px solid ' + toneColor, borderRadius: 14, padding: '11px 13px',
         boxShadow: active ? '0 0 0 1px var(--blue) inset, var(--shadow-card)' : 'var(--shadow-card)',
         display: 'flex', flexDirection: 'column', gap: 7, minWidth: 0, transition: 'all .14s',
       }}>
@@ -694,7 +695,7 @@ function SupplierErrorsDrawer({ supplier, onClose, onOpenOrder }) {
   );
 }
 
-function DashboardPage({ role, onNavigate, onAddOrder, onOpenOrder, onCreateOrder }) {
+function DashboardPage({ role, orders = [], proposals = [], returns = [], notifications = [], chats = [], dashboard, finance, onNavigate, onAddOrder, onOpenOrder, onCreateOrder }) {
   const [search, setSearch] = useState('');
   const [searchOpen, setSearchOpen] = useState(false);
   const [errCodeOpen, setErrCodeOpen] = useState(null);
@@ -702,6 +703,7 @@ function DashboardPage({ role, onNavigate, onAddOrder, onOpenOrder, onCreateOrde
   const [, tick] = useState(0);
 
   const isMgr = role === 'Админ' || role === 'Менеджер';
+  const backendMode = dashboard !== undefined;
   const [sel, setSel] = useState(isMgr ? 'overdue' : 'mytasks');
   const shift = window.SHIFT_STATE || null;
 
@@ -715,36 +717,59 @@ function DashboardPage({ role, onNavigate, onAddOrder, onOpenOrder, onCreateOrde
   useEffect(() => { setSel(isMgr ? 'overdue' : 'mytasks'); }, [isMgr]);
 
   const money = (n) => Math.round(n || 0).toLocaleString('ru-RU') + ' $';
-  const fin = financeOverview();
-  const slaRows = SLA_QUEUE.map((q) => ({ ...q, tone: slaTone(q.waited, q.limit) }));
+  const liveProposals = proposals.map((item) => toLegacyProposal(item, orders));
+  const liveReturns = returns.map((item) => toLegacyReturn(item, orders));
+  const receivable = dashboard?.finance?.receivable || finance?.client_receivable || [];
+  const fin = backendMode ? {
+    deposits: 0,
+    debt: receivable.reduce((sum, item) => sum + Number(item.amount || 0), 0),
+    overdue: 0,
+    overdueCount: dashboard?.finance?.overdue_obligations || 0,
+    urgent: [],
+  } : financeOverview();
+  const slaSource = backendMode ? orders.filter((order) => order.statusCode === 'new').map((order) => {
+    const waited = Math.max(0, Math.round((Date.now() - new Date(order.created_at || order.createdOn).getTime()) / 60000));
+    return { no: order.no, client: order.client, operator: order.operator, waited, limit: 15 };
+  }) : SLA_QUEUE;
+  const slaRows = slaSource.map((q) => ({ ...q, tone: slaTone(q.waited, q.limit) }));
   const slaOverdue = slaRows.filter((r) => r.tone === 'red').length;
-  const errNotifs = NOTIFICATIONS.filter((n) => n.source === 'Интеграции');
-  const supErrTotal = errActiveCount();
+  const errNotifs = notifications.filter((n) => n.source === 'Интеграции');
+  const supErrTotal = backendMode ? (dashboard?.integration_incidents?.open || 0) : errActiveCount();
+
+  const taskRows = backendMode ? (dashboard?.my_tasks || []).map((task) => {
+    const order = orders.find((item) => item.id === task.order);
+    const due = task.due_at ? new Date(task.due_at) : null;
+    return { title: task.title, due: due ? due.toLocaleString('ru-RU') : 'без срока', tone: task.priority === 'critical' ? 'red' : task.priority === 'high' ? 'amber' : 'blue', order: order?.no || task.order };
+  }) : MY_TASKS;
+  const tripRows = backendMode ? (dashboard?.trips_today || []).map((trip) => ({ type: 'Поездка', icon: 'plane', main: trip.title, sub: new Date(trip.starts_at).toLocaleString('ru-RU'), order: trip.order_number })) : TODAY_TRIPS;
+  const operatorRows = backendMode ? [] : OPERATORS_WORK;
+  const activityRows = backendMode ? [] : RECENT_CHANGES;
+  const supplierRows = backendMode ? [] : SUPPLIER_STATS;
 
 
-  const shOps = shift ? shift.ops : SHIFT_DEMO_OPS;
+  const shOps = shift ? shift.ops : (backendMode ? [] : SHIFT_DEMO_OPS);
   const shT = shiftTotals(shOps, motivationFor('Даниель'));
   const issuedToday = shOps.filter((o) => o.type === 'Выписка').length;
   const salesToday = shOps.reduce((s, o) => s + Math.max(0, o.cost), 0);
 
   const isActive = (s) => s !== 'Завершено' && s !== 'Отменено' && s !== 'Отклонено';
-  const returnsActive = RETURNS.filter((r) => isActive(r.status));
+  const returnsActive = liveReturns.filter((r) => isActive(r.status));
   const approvals = [
-    ...PROPOSALS.filter((p) => p.status === 'На согласовании' || p.status === 'Отправлено клиенту').map((p) => ({ label: p.id, who: p.client, kind: 'КП', order: p.order })),
-    ...RETURNS.filter((r) => r.status === 'Ожидает согласования клиента').map((r) => ({ label: r.no + ' · ' + r.type, who: r.client, kind: 'Возврат', order: r.order })),
+    ...liveProposals.filter((p) => p.status === 'На согласовании' || p.status === 'Отправлено клиенту').map((p) => ({ label: p.id, who: p.client, kind: 'КП', order: p.order })),
+    ...liveReturns.filter((r) => r.status === 'Ожидает согласования клиента').map((r) => ({ label: r.no + ' · ' + r.type, who: r.client, kind: 'Возврат', order: r.order })),
   ];
   const deadlines = [
     ...returnsActive.map((r) => ({ label: r.type + ' · ' + r.no, who: r.client, date: r.deadline, tone: 'red', order: r.order, icon: 'refund' })),
-    ...PROPOSALS.filter((p) => p.validUntil && p.status !== 'Согласовано' && p.status !== 'Отклонено').map((p) => ({ label: 'Срок КП · ' + p.id, who: p.client, date: p.validUntil, tone: 'amber', order: p.order, icon: 'template' })),
+    ...liveProposals.filter((p) => p.validUntil && p.status !== 'Согласовано' && p.status !== 'Отклонено').map((p) => ({ label: 'Срок КП · ' + p.id, who: p.client, date: p.validUntil, tone: 'amber', order: p.order, icon: 'template' })),
   ];
 
   const openErr = (code) => setErrCodeOpen(code || '');
-  const goOrder = (no) => { const o = ORDERS.find((x) => x.no === no); o ? onOpenOrder(o) : onNavigate('orders'); };
+  const goOrder = (no) => { const o = orders.find((x) => x.no === no); o ? onOpenOrder(o) : onNavigate('orders'); };
 
 
   const WIDGETS = isMgr ? [
-    { key: 'newreq',    label: 'Новые заявки',      value: SLA_QUEUE.length, tone: 'blue', icon: 'inbox' },
-    { key: 'ordersToday', label: 'Заказы сегодня',  value: shT.orders, tone: 'blue', icon: 'orders' },
+    { key: 'newreq',    label: 'Новые заявки',      value: dashboard?.sla?.open ?? (backendMode ? 0 : SLA_QUEUE.length), tone: 'blue', icon: 'inbox' },
+    { key: 'ordersToday', label: 'Заказы сегодня',  value: dashboard?.orders?.new_today ?? (backendMode ? 0 : shT.orders), tone: 'blue', icon: 'orders' },
     { key: 'issued',    label: 'Выписано услуг',    value: issuedToday, tone: 'green', icon: 'check' },
     { key: 'sales',     label: 'Продажи сегодня',   value: money(salesToday), small: true, tone: 'blue', icon: 'finance' },
     { key: 'profit',    label: 'Прибыль сегодня',   value: money(shT.profit), small: true, tone: 'green', icon: 'bank' },
@@ -753,14 +778,14 @@ function DashboardPage({ role, onNavigate, onAddOrder, onOpenOrder, onCreateOrde
     { key: 'deadlines', label: 'Дедлайны',          value: deadlines.length, tone: deadlines.length ? 'red' : 'green', icon: 'clock' },
     { key: 'overdue',   label: 'Просрочки оплат',   value: fin.overdueCount, sub: fin.overdue > 0 ? money(fin.overdue) : null, tone: fin.overdue > 0 ? 'red' : 'green', icon: 'alertCircle' },
     { key: 'risk',      label: 'Депозит / лимит',   value: fin.urgent.length, tone: fin.urgent.length ? 'amber' : 'green', icon: 'bank' },
-    { key: 'operators', label: 'Работа операторов', value: OPERATORS_WORK.length, tone: 'blue', icon: 'users' },
-    { key: 'suppliers', label: 'Поставщики (API)',  value: supErrTotal, sub: 'ошибок', tone: supErrTotal ? 'red' : 'green', icon: 'api' },
-    { key: 'trips',     label: 'Вылеты и заезды',   value: TODAY_TRIPS.length, tone: 'blue', icon: 'plane' },
-    { key: 'activity',  label: 'Активность',        value: RECENT_CHANGES.length, tone: 'blue', icon: 'clock' },
+    { key: 'operators', label: 'Работа операторов', value: operatorRows.length, tone: 'blue', icon: 'users' },
+    { key: 'suppliers', label: 'Поставщики (API)',  value: dashboard?.integration_incidents?.open ?? supErrTotal, sub: 'ошибок', tone: (dashboard?.integration_incidents?.open ?? supErrTotal) ? 'red' : 'green', icon: 'api' },
+    { key: 'trips',     label: 'Вылеты и заезды',   value: dashboard?.trips_today?.length ?? (backendMode ? 0 : TODAY_TRIPS.length), tone: 'blue', icon: 'plane' },
+    { key: 'activity',  label: 'Активность',        value: activityRows.length, tone: 'blue', icon: 'clock' },
   ] : [
-    { key: 'mytasks',   label: 'Мои задачи',        value: MY_TASKS.length, tone: MY_TASKS.length ? 'amber' : 'green', icon: 'clipboard' },
-    { key: 'newreq',    label: 'Мои новые заявки',  value: SLA_QUEUE.length, tone: 'blue', icon: 'inbox' },
-    { key: 'ordersToday', label: 'Заказы сегодня',  value: shT.orders, tone: 'blue', icon: 'orders' },
+    { key: 'mytasks',   label: 'Мои задачи',        value: dashboard?.my_tasks?.length ?? (backendMode ? 0 : MY_TASKS.length), tone: (dashboard?.my_tasks?.length ?? (backendMode ? 0 : MY_TASKS.length)) ? 'amber' : 'green', icon: 'clipboard' },
+    { key: 'newreq',    label: 'Мои новые заявки',  value: dashboard?.sla?.open ?? (backendMode ? 0 : SLA_QUEUE.length), tone: 'blue', icon: 'inbox' },
+    { key: 'ordersToday', label: 'Заказы сегодня',  value: dashboard?.orders?.new_today ?? (backendMode ? 0 : shT.orders), tone: 'blue', icon: 'orders' },
     { key: 'issued',    label: 'Выписано услуг',    value: issuedToday, tone: 'green', icon: 'check' },
     { key: 'myearn',    label: 'Заработок сегодня', value: money(shT.earn), small: true, tone: 'blue', icon: 'finance' },
     { key: 'approvals', label: 'Мои согласования',  value: approvals.length, tone: approvals.length ? 'amber' : 'green', icon: 'template' },
@@ -778,18 +803,18 @@ function DashboardPage({ role, onNavigate, onAddOrder, onOpenOrder, onCreateOrde
   };
 
 
-  const dashChats = CHAT_THREADS.filter((t) => t.type === 'client' || t.type === 'supplier').map((t) => {
+  const dashChats = chats.filter((t) => t.type === 'client' || t.type === 'supplier').map((t) => {
     const m = (t.messages || [])[(t.messages || []).length - 1] || {};
     return { id: t.id, order: t.order, name: t.name, client: t.client, channel: t.channel, type: t.type, unread: t.unread || 0,
       lastText: m.text || (m.attach ? '📎 ' + m.attach.name : '—'), lastTime: m.time || '', mine: m.from === 'me' };
   }).sort((a, b) => (b.unread > 0) - (a.unread > 0));
   const unreadChats = dashChats.filter((c) => c.unread > 0).length;
-  const critErr = (typeof SUPPLIER_ERRORS !== 'undefined' ? SUPPLIER_ERRORS : []).filter((e) => e.crit === 'Критическая');
+  const critErr = backendMode ? [] : (typeof SUPPLIER_ERRORS !== 'undefined' ? SUPPLIER_ERRORS : []).filter((e) => e.crit === 'Критическая');
   const redRisk = fin.urgent.filter((u) => u.tone === 'red');
 
 
   const previews = {
-    mytasks: MY_TASKS[0] && { text: MY_TASKS[0].title, right: MY_TASKS[0].due, tone: MY_TASKS[0].tone },
+    mytasks: taskRows[0] && { text: taskRows[0].title, right: taskRows[0].due, tone: taskRows[0].tone },
     newreq: slaRows[0] && { text: '№' + slaRows[0].no + ' · ' + slaRows[0].client, right: slaRows[0].waited + ' мин', tone: slaRows[0].tone },
     deadlines: deadlines[0] && { text: deadlines[0].label, right: deadlines[0].date, tone: deadlines[0].tone },
     approvals: approvals[0] && { text: approvals[0].label + ' · ' + approvals[0].who, right: approvals[0].kind, tone: 'amber' },
@@ -797,10 +822,10 @@ function DashboardPage({ role, onNavigate, onAddOrder, onOpenOrder, onCreateOrde
     overdue: redRisk[0] && { text: redRisk[0].co, right: money(redRisk[0].value), tone: 'red' },
     risk: fin.urgent[0] && { text: fin.urgent[0].co, right: fin.urgent[0].kind, tone: fin.urgent[0].tone },
     suppliers: critErr[0] && { text: critErr[0].reason, right: critErr[0].order ? '№' + critErr[0].order : critErr[0].supplier, tone: 'red' },
-    trips: TODAY_TRIPS[0] && { text: TODAY_TRIPS[0].main, right: (TODAY_TRIPS[0].sub.split('·').pop() || '').trim(), tone: 'blue' },
-    activity: RECENT_CHANGES[0] && { text: RECENT_CHANGES[0].desc + ' · ' + RECENT_CHANGES[0].client, right: RECENT_CHANGES[0].time, tone: 'gray' },
-    ordersToday: ORDERS[0] && { text: '№' + ORDERS[0].no + ' · ' + ORDERS[0].client, right: ORDERS[0].status, tone: 'blue' },
-    operators: OPERATORS_WORK[0] && { text: OPERATORS_WORK[0].name + ' · ' + OPERATORS_WORK[0].orders + ' заказов', right: money(OPERATORS_WORK[0].profit), tone: 'blue' },
+    trips: tripRows[0] && { text: tripRows[0].main, right: (tripRows[0].sub.split('·').pop() || '').trim(), tone: 'blue' },
+    activity: activityRows[0] && { text: activityRows[0].desc + ' · ' + activityRows[0].client, right: activityRows[0].time, tone: 'gray' },
+    ordersToday: orders[0] && { text: '№' + orders[0].no + ' · ' + orders[0].client, right: orders[0].status, tone: 'blue' },
+    operators: operatorRows[0] && { text: operatorRows[0].name + ' · ' + operatorRows[0].orders + ' заказов', right: money(operatorRows[0].profit), tone: 'blue' },
     chats: dashChats[0] && { text: dashChats[0].name + ': ' + dashChats[0].lastText, right: dashChats[0].unread ? '+' + dashChats[0].unread : dashChats[0].lastTime, tone: dashChats[0].unread ? 'amber' : 'blue' },
   };
   const chatsWidget = { key: 'chats', label: 'Мои чаты', value: unreadChats || dashChats.length, sub: unreadChats ? 'новых' : 'диалогов', tone: unreadChats ? 'amber' : 'blue', icon: 'chat' };
@@ -818,7 +843,7 @@ function DashboardPage({ role, onNavigate, onAddOrder, onOpenOrder, onCreateOrde
     deadlines.filter((d) => d.tone === 'red').forEach((d) => attention.push({ icon: d.icon, tone: 'red', title: d.label, sub: d.who, right: d.date, order: d.order, cat: 'deadlines' }));
     approvals.slice(0, 2).forEach((a) => attention.push({ icon: 'template', tone: 'amber', title: 'Согласование · ' + a.label, sub: a.who, right: a.kind, order: a.order, cat: 'approvals' }));
   } else {
-    MY_TASKS.forEach((t) => attention.push({ icon: 'clipboard', tone: t.tone, title: t.title, sub: 'Заказ №' + t.order, right: t.due, order: t.order, cat: 'mytasks' }));
+    taskRows.forEach((t) => attention.push({ icon: 'clipboard', tone: t.tone, title: t.title, sub: 'Заказ №' + t.order, right: t.due, order: t.order, cat: 'mytasks' }));
     dashChats.filter((c) => c.unread > 0).forEach((c) => attention.push({ icon: c.type === 'supplier' ? 'api' : 'chat', tone: 'amber', title: 'Ответить · ' + c.name, sub: c.lastText, right: c.lastTime, order: c.order, cat: 'chats' }));
     deadlines.forEach((d) => attention.push({ icon: d.icon, tone: d.tone, title: d.label, sub: d.who, right: d.date, order: d.order, cat: 'deadlines' }));
   }
@@ -858,7 +883,7 @@ function DashboardPage({ role, onNavigate, onAddOrder, onOpenOrder, onCreateOrde
         return (
           <table className="tbl">
             <thead><tr><th style={{ width: 80 }}>№</th><th>Клиент</th><th>Статус</th><th>Ответственный</th><th>Тип</th><th style={{ width: 50 }}></th></tr></thead>
-            <tbody>{ORDERS.slice(0, 8).map((o, i) => (
+            <tbody>{orders.slice(0, 8).map((o, i) => (
               <tr key={i} style={{ cursor: 'pointer' }} onClick={() => onOpenOrder(o)}>
                 <td className="t-strong">{o.no}</td><td className="t-strong">{o.client}</td>
                 <td><Pill tone={ORDER_STATUS[o.status]}>{o.status}</Pill></td><td>{o.operator}</td>
@@ -922,7 +947,7 @@ function DashboardPage({ role, onNavigate, onAddOrder, onOpenOrder, onCreateOrde
         return (
           <table className="tbl">
             <thead><tr><th>Оператор</th><th>Заявок</th><th>Заказов</th><th>Услуг</th><th style={{ textAlign: 'right' }}>Заработок</th><th style={{ textAlign: 'right' }}>Прибыль компании</th><th>SLA</th></tr></thead>
-            <tbody>{OPERATORS_WORK.map((o, i) => (
+            <tbody>{operatorRows.map((o, i) => (
               <tr key={i}>
                 <td className="t-strong">{o.name}</td><td>{o.handled}</td><td>{o.orders}</td><td>{o.issued}</td>
                 <td style={{ textAlign: 'right', fontWeight: 700, color: 'var(--blue)' }}>{money(o.earn)}</td>
@@ -935,7 +960,7 @@ function DashboardPage({ role, onNavigate, onAddOrder, onOpenOrder, onCreateOrde
         return (
           <table className="tbl">
             <thead><tr><th>Поставщик</th><th>Ошибки API</th><th>Неуспешные</th><th>Ср. ответ</th><th>Интеграция</th><th>Критичность</th><th style={{ width: 90 }}>Заказы</th></tr></thead>
-            <tbody>{SUPPLIER_STATS.map((s, i) => (
+            <tbody>{supplierRows.map((s, i) => (
 
               <tr key={i} style={{ cursor: 'pointer' }} onClick={() => setErrDrawer(s.name)} title="Открыть ошибки поставщика">
                 <td className="t-strong">{s.name}</td>
@@ -949,17 +974,17 @@ function DashboardPage({ role, onNavigate, onAddOrder, onOpenOrder, onCreateOrde
           </table>
         );
       case 'trips':
-        return <List>{TODAY_TRIPS.map((t, i) => (
+        return <List>{tripRows.map((t, i) => (
           <Row key={i} icon={t.icon} iconBg="var(--blue)" tone="blue" title={t.main} sub={t.sub}
             right={<Pill tone="blue">{t.type}</Pill>} onClick={() => goOrder(t.order)} />
         ))}</List>;
       case 'activity':
-        return <List>{RECENT_CHANGES.map((r, i) => (
+        return <List>{activityRows.map((r, i) => (
           <Row key={i} icon="clock" iconBg="var(--muted-2)" title={r.desc} sub={r.client + ' · ' + r.resp + ' · ' + r.dept}
             right={<span style={{ fontSize: 12, color: 'var(--muted-2)' }}>{r.time}</span>} />
         ))}</List>;
       case 'mytasks':
-        return <List>{MY_TASKS.map((t, i) => (
+        return <List>{taskRows.map((t, i) => (
           <Row key={i} icon="clipboard" iconBg={'var(--' + t.tone + ')'} tone={t.tone} title={t.title} sub={'Заказ № ' + t.order}
             right={<span style={{ fontWeight: 700, color: 'var(--' + t.tone + ')', whiteSpace: 'nowrap' }}>{t.due}</span>} onClick={() => goOrder(t.order)} />
         ))}</List>;

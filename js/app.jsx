@@ -4,7 +4,8 @@ if (typeof window !== 'undefined') { window.html2canvas = html2canvas; window.js
 
 import { useState, useEffect } from 'react';
 import { ToastProvider, useToast } from './ui';
-import { CHAT_THREADS, CURRENT_USER, NOTIFICATIONS, ORDERS, SUPPLIERS } from './data';
+import { AuthProvider, useAuth } from './core/auth-context';
+import { WorkspaceProvider, useWorkspace } from './core/workspace-context';
 import { AppShell } from './layout';
 import { LoginScreen } from './login';
 import { DashboardPage } from './page_dashboard';
@@ -32,13 +33,13 @@ import { AccessDenied, GlobalChatDrawer, GlobalTopbar, NotificationDrawer, roleC
 
 
 const NOTIF_PRIORITY_KIND = { 'Критический': 'err', 'Высокий': 'warn', 'Средний': 'info', 'Информационный': 'ok' };
-function DesktopNotifier({ enabled, onNavigate, onOpenOrder }) {
+function DesktopNotifier({ enabled, notifications = [], orders = [], onNavigate, onOpenOrder }) {
   const toast = useToast();
   useEffect(() => {
     if (!enabled) return;
 
     const order = ['Критический', 'Высокий', 'Средний', 'Информационный'];
-    const queue = (typeof NOTIFICATIONS !== 'undefined' ? NOTIFICATIONS : [])
+    const queue = notifications
       .filter((n) => !n.read)
       .sort((a, b) => order.indexOf(a.priority) - order.indexOf(b.priority))
       .slice(0, 6);
@@ -49,7 +50,7 @@ function DesktopNotifier({ enabled, onNavigate, onOpenOrder }) {
       const kind = NOTIF_PRIORITY_KIND[n.priority] || 'info';
       const lt = n.link && n.link.type;
       const action = { label: n.act || 'Открыть' };
-      if (lt === 'order' && n.order) action.onClick = () => onOpenOrder((typeof ORDERS !== 'undefined' && ORDERS.find((o) => o.no === n.order)) || { no: n.order }, n.tab);
+      if (lt === 'order' && n.order) action.onClick = () => onOpenOrder(orders.find((o) => o.no === n.order) || { no: n.order }, n.tab);
       else action.route = ({ finance: 'finance', documents: 'documents', returns: 'returns', offers: 'offers', order: 'orders' })[lt] || 'notifications';
       toast(n.desc, kind, { title: n.title, action, duration: kind === 'err' || kind === 'warn' ? 8000 : 6000 });
     };
@@ -59,28 +60,31 @@ function DesktopNotifier({ enabled, onNavigate, onOpenOrder }) {
       if (idx < queue.length) timers.push(setTimeout(tick, 22000));
     }, 3000));
     return () => timers.forEach(clearTimeout);
-  }, [enabled]);
+  }, [enabled, notifications, orders]);
   return null;
 }
 
 function App() {
-  const [authed, setAuthed] = useState(false);
+  const auth = useAuth();
+  const workspace = useWorkspace();
   const [route, setRoute] = useState('dashboard');
   const [intent, setIntent] = useState(null);
   const [svcSearch, setSvcSearch] = useState(null);
 
 
-  const [orders, setOrders] = useState(ORDERS);
-  const [suppliers, setSuppliers] = useState(SUPPLIERS);
+  const orders = workspace.orders;
+  const suppliers = workspace.suppliers;
 
 
   const [chatOpen, setChatOpen] = useState(false);
   const [notifOpen, setNotifOpen] = useState(false);
   const [ctxOrder, setCtxOrder] = useState(null);
-  const [role, setRole] = useState(CURRENT_USER.role);
+  const [role, setRole] = useState(auth.user?.role || 'Оператор');
 
-  const unreadChat = CHAT_THREADS.reduce((s, t) => s + threadUnread(t), 0);
-  const unreadNotif = NOTIFICATIONS.filter((n) => !n.read).length;
+  useEffect(() => { if (auth.user?.role) setRole(auth.user.role); }, [auth.user?.role]);
+
+  const unreadChat = workspace.chats.reduce((s, t) => s + threadUnread(t), 0);
+  const unreadNotif = workspace.notifications.filter((n) => !n.read).length;
 
   const navigate = (r) => {
     const b = r.split('/')[0];
@@ -106,12 +110,13 @@ function App() {
   const createKP = () => { setRoute('offers'); setIntent({ type: 'create' }); setCtxOrder(null); };
 
   const openServiceSearch = (key, form) => { setRoute(key); setSvcSearch({ key, form }); setCtxOrder(null); };
-  const addOrder = (o) => setOrders((cur) => [o, ...cur]);
+  const addOrder = (o) => workspace.update('orders', (cur) => [o, ...cur]);
 
   const createOrderFromPicker = (o) => { addOrder(o); openOrder(o); };
-  const addSupplier = (s) => setSuppliers((cur) => [s, ...cur]);
+  const addSupplier = (s) => workspace.update('suppliers', (cur) => [s, ...cur]);
 
-  if (!authed) return <LoginScreen onLogin={() => setAuthed(true)} />;
+  if (auth.status === 'loading') return <div className="app-boot"><span className="spinner" />Загрузка Travel Hub…</div>;
+  if (auth.status !== 'authenticated') return <LoginScreen onLogin={auth.login} onVerifyTwoFactor={auth.verifyTwoFactor} onPasswordReset={auth.requestPasswordReset} />;
 
   const topbar = (
     <GlobalTopbar
@@ -124,9 +129,9 @@ function App() {
   );
   const overlays = (
     <>
-      <DesktopNotifier enabled={authed} onNavigate={navigate} onOpenOrder={openOrder} />
-      <NotificationDrawer open={notifOpen} onClose={() => setNotifOpen(false)} onNavigate={navigate} onOpenOrder={openOrder} />
-      <GlobalChatDrawer open={chatOpen} onClose={() => setChatOpen(false)} contextOrder={ctxOrder} onOpenOrder={openOrder} />
+      <DesktopNotifier enabled notifications={workspace.notifications} orders={orders} onNavigate={navigate} onOpenOrder={openOrder} />
+      <NotificationDrawer open={notifOpen} notifications={workspace.notifications} orders={orders} onNotificationsChange={(next) => workspace.update('notifications', next)} onClose={() => setNotifOpen(false)} onNavigate={navigate} onOpenOrder={openOrder} />
+      <GlobalChatDrawer open={chatOpen} onClose={() => setChatOpen(false)} contextOrder={ctxOrder} initialThreads={workspace.chats} orders={orders} currentUserId={auth.user.id} onOpenOrder={openOrder} />
     </>
   );
 
@@ -135,20 +140,20 @@ function App() {
 
   const page = (
       <>
-      {route === 'dashboard' && <DashboardPage role={role} onNavigate={navigate} onAddOrder={createOrder} onOpenOrder={openOrder} onCreateOrder={createOrderFromPicker} />}
-      {route === 'calendar' && <TripCalendarPage role={role} onOpenOrder={(no) => openOrder((typeof ORDERS !== 'undefined' && ORDERS.find((o) => o.no === no)) || { no })} />}
-      {route === 'orders' && <OrdersPage intent={intent} onConsume={() => setIntent(null)} orders={orders} addOrder={addOrder} onDetailChange={setCtxOrder} onOpenChat={() => setChatOpen(true)} onNavigate={navigate} />}
+      {route === 'dashboard' && <DashboardPage role={role} orders={orders} proposals={workspace.proposals} returns={workspace.returns} notifications={workspace.notifications} chats={workspace.chats} dashboard={workspace.dashboard} finance={workspace.finance} onNavigate={navigate} onAddOrder={createOrder} onOpenOrder={openOrder} onCreateOrder={createOrderFromPicker} />}
+      {route === 'calendar' && <TripCalendarPage role={role} feed={workspace.calendar} orders={orders} clients={workspace.clients} companies={workspace.companies} users={workspace.users} onOpenOrder={(no) => openOrder(orders.find((o) => o.no === no) || { no })} />}
+      {route === 'orders' && <OrdersPage intent={intent} onConsume={() => setIntent(null)} orders={orders} clients={workspace.clients} companies={workspace.companies} addOrder={addOrder} onDetailChange={setCtxOrder} onOpenChat={() => setChatOpen(true)} onNavigate={navigate} />}
       {route === 'services' && <ServicesHubPage onNavigate={navigate} onAddOrder={createOrder} onSearch={openServiceSearch} onOpenOrder={openOrder} onCreateOrder={createOrderFromPicker} />}
       {route === 'flights' && <FlightsPage searchIntent={svcSearch && svcSearch.key === 'flights' ? svcSearch : null} onConsumeSearch={() => setSvcSearch(null)} />}
       {route === 'suppliers' && <SuppliersPage intent={intent} onConsume={() => setIntent(null)} suppliers={suppliers} addSupplier={addSupplier} />}
-      {route === 'chats' && <ChatsPage onOpenOrder={openOrder} />}
-      {route === 'finance' && <FinancePage />}
-      {route === 'documents' && <DocCenterPage />}
-      {route === 'receipts' && <ReceiptEditorPage />}
-      {route === 'fulfillment' && <FulfillmentPage onOpenOrder={openOrder} />}
-      {route === 'settings' && <SettingsPage />}
-      {route === 'profile' && <ProfilePage onNavigate={navigate} />}
-      {route === 'account' && <AccountSettingsPage onNavigate={navigate} />}
+      {route === 'chats' && <ChatsPage initialThreads={workspace.chats} orders={orders} currentUserId={auth.user.id} onOpenOrder={openOrder} />}
+      {route === 'finance' && <FinancePage overview={workspace.finance} transactions={workspace.transactions} clients={workspace.clients} companies={workspace.companies} suppliers={workspace.suppliers} orders={orders} />}
+      {route === 'documents' && <DocCenterPage documents={workspace.documents} orders={orders} />}
+      {route === 'receipts' && <ReceiptEditorPage documents={workspace.documents} orders={orders} />}
+      {route === 'fulfillment' && <FulfillmentPage onOpenOrder={openOrder} orders={orders} documents={workspace.documents} returns={workspace.returns} />}
+      {route === 'settings' && <SettingsPage users={workspace.users} onUsersChange={(next) => workspace.update('users', next)} />}
+      {route === 'profile' && <ProfilePage user={auth.user} onNavigate={navigate} />}
+      {route === 'account' && <AccountSettingsPage user={auth.user} onNavigate={navigate} />}
 
 
       {route === 'rail' && <ServiceFlow routeKey="rail" searchIntent={svcSearch && svcSearch.key === 'rail' ? svcSearch : null} onConsumeSearch={() => setSvcSearch(null)} />}
@@ -157,16 +162,16 @@ function App() {
       {route === 'buses' && <ServiceFlow routeKey="buses" searchIntent={svcSearch && svcSearch.key === 'buses' ? svcSearch : null} onConsumeSearch={() => setSvcSearch(null)} />}
       {route === 'tours' && <ServiceFlow routeKey="tours" searchIntent={svcSearch && svcSearch.key === 'tours' ? svcSearch : null} onConsumeSearch={() => setSvcSearch(null)} />}
 
-      {route === 'clients' && <ClientsPage onOpenOrder={openOrder} intent={intent} onConsume={() => setIntent(null)} />}
-      {route === 'companies' && <CompaniesPage onOpenOrder={openOrder} intent={intent} onConsume={() => setIntent(null)} />}
-      {route === 'offers' && <OffersPage onOpenOrder={openOrder} intent={intent} onConsume={() => setIntent(null)} />}
-      {route === 'notifications' && <NotificationsPage onNavigate={navigate} onOpenOrder={openOrder} />}
-      {route === 'returns' && <ReturnsPage onOpenOrder={openOrder} />}
+      {route === 'clients' && <ClientsPage initialClients={workspace.clients} onClientsChange={(next) => workspace.update('clients', next)} onOpenOrder={openOrder} intent={intent} onConsume={() => setIntent(null)} />}
+      {route === 'companies' && <CompaniesPage initialCompanies={workspace.companies} onCompaniesChange={(next) => workspace.update('companies', next)} onOpenOrder={openOrder} intent={intent} onConsume={() => setIntent(null)} />}
+      {route === 'offers' && <OffersPage proposals={workspace.proposals} orders={orders} onOpenOrder={openOrder} intent={intent} onConsume={() => setIntent(null)} />}
+      {route === 'notifications' && <NotificationsPage notifications={workspace.notifications} orders={orders} onChange={(next) => workspace.update('notifications', next)} onNavigate={navigate} onOpenOrder={openOrder} />}
+      {route === 'returns' && <ReturnsPage cases={workspace.returns} orders={orders} onOpenOrder={openOrder} />}
       </>
   );
 
   return (
-    <AppShell route={route} onNavigate={navigate} onLogout={() => { setAuthed(false); setRoute('dashboard'); }}
+    <AppShell route={route} onNavigate={navigate} onLogout={async () => { await auth.logout(); setRoute('dashboard'); }}
       role={role} topbar={topbar} overlays={overlays} sidebarCollapsed={!!ctxOrder || route.split('/')[0] === 'chats'}>
       {blocked && <AccessDenied onNavigate={navigate} />}
       {!blocked && (isServicePage ? <div className="svc-zoom">{page}</div> : page)}
@@ -175,7 +180,7 @@ function App() {
 }
 
 export default function CRMRoot() {
-  return <ToastProvider><App /></ToastProvider>;
+  return <ToastProvider><AuthProvider><WorkspaceProvider><App /></WorkspaceProvider></AuthProvider></ToastProvider>;
 }
 
 

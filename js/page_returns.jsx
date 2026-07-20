@@ -1,5 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { Icon } from './icons';
+import { aftersalesApi } from './api/resources';
+import { toLegacyReturn } from './api/legacy-adapters';
+import { resultsOf } from './api/client';
 import { ActionMenu, Button, Checkbox, ConfirmDialog, DateField, Drawer, EmptyState, Field, FilterChip, Input, Pill, SearchBox, Select, Th, fmtDate, useSort, useToast } from './ui';
 import { DOC_STATUS2, ORDERS, ORDER_PARTICIPANTS, ORDER_SERVICES, RETURNS, RETURN_FLOW, RETURN_STATUS, RETURN_TYPE } from './data';
 import { Topbar } from './layout';
@@ -392,9 +395,20 @@ function ReturnCard({ op, onBack, onChange }) {
 
 
 
-function ReturnsModule({ scopeOrder, onOpenOrder, compact, order }) {
+function ReturnsModule({ scopeOrder, onOpenOrder, compact, order, initialCases, orders = [] }) {
   const toast = useToast();
-  const [ops, setOps] = useState(RETURNS.filter((r) => !scopeOrder || r.order === scopeOrder));
+  const contextOrders = order ? [order, ...orders.filter((item) => item.id !== order.id)] : orders;
+  const mappedCases = () => (initialCases || []).map((item) => toLegacyReturn(item, contextOrders)).filter((item) => !scopeOrder || item.order === scopeOrder);
+  const [ops, setOps] = useState(mappedCases);
+  useEffect(() => { if (Array.isArray(initialCases)) setOps(mappedCases()); }, [initialCases, orders, scopeOrder, order]);
+  useEffect(() => {
+    if (Array.isArray(initialCases) || !order?.id) return;
+    const controller = new AbortController();
+    aftersalesApi.list({ order: order.id }, controller.signal)
+      .then((payload) => setOps(resultsOf(payload).map((item) => toLegacyReturn(item, contextOrders))))
+      .catch((error) => { if (error.name !== 'AbortError') toast(error.message || 'Не удалось загрузить постпродажные операции', 'err'); });
+    return () => controller.abort();
+  }, [initialCases, order?.id]);
   const [view, setView] = useState('list');
   const [activeNo, setActiveNo] = useState(null);
   const [newOpen, setNewOpen] = useState(false);
@@ -405,18 +419,34 @@ function ReturnsModule({ scopeOrder, onOpenOrder, compact, order }) {
   const { sort, onSort, apply } = useSort({ col: 'created', dir: 'desc' });
 
   const active = ops.find((o) => o.no === activeNo);
-  const updateOp = (no, patch, histText) => setOps((cur) => cur.map((o) => o.no === no ? { ...o, ...patch, history: histText ? [...o.history, { t: 'сейчас', text: histText, who: 'Даниель' }] : o.history } : o));
-  const createOp = (d) => {
-    const no = 'R-' + Math.floor(7030 + Math.random() * 60);
+  const updateOp = async (no, patch, histText) => {
+    const current = ops.find((item) => item.no === no);
+    if (!current || !patch.status || !current.serverId) {
+      setOps((cur) => cur.map((item) => item.no === no ? { ...item, ...patch, history: histText ? [...item.history, { t: 'сейчас', text: histText, who: 'Даниель' }] : item.history } : item));
+      return;
+    }
+    const target = { 'Создано': 'created', 'На проверке': 'review', 'Ожидает согласования клиента': 'awaiting_client_approval', 'Передано поставщику': 'submitted_to_supplier', 'В обработке': 'processing', 'Завершено': 'completed', 'Отменено': 'cancelled', 'Отклонено': 'rejected' }[patch.status];
+    try {
+      const updated = target === 'completed'
+        ? await aftersalesApi.execute(current.serverId, { manual_exception: true })
+        : target === 'cancelled'
+          ? await aftersalesApi.cancel(current.serverId, histText || 'Отменено оператором')
+          : await aftersalesApi.transition(current.serverId, target, histText || '');
+      const mapped = { ...current, ...toLegacyReturn(updated, contextOrders) };
+      setOps((items) => items.map((item) => item.no === no ? mapped : item));
+    } catch (error) { toast(error.message || 'Не удалось изменить статус', 'err'); }
+  };
+  const createOp = async (d) => {
+    const selectedOrder = order || orders.find((item) => item.no === scopeOrder) || orders[0];
+    if (!selectedOrder) { toast('Сначала создайте или выберите заказ', 'err'); return; }
     const parts = d.participants && d.participants.length ? d.participants : ['—'];
-    const nf = d.newFlight;
-    const np = { no, order: order ? order.no : (scopeOrder || 51162), client: order ? order.client : 'Клиент', type: d.type, service: d.svc, supplier: '—', initiator: 'Оператор', resp: 'Даниель', status: 'Создано', created: '15.06.2026', deadline: '18.06.2026', currency: 'USD', finOp: null, participants: parts,
-      fin: { original: d.original, supplierPenalty: d.penalty, serviceFee: d.fee, extraHold: 0, refund: d.refund },
-      exchange: d.type === 'Обмен билета' ? { oldP: { route: d.svc, date: '—', fare: d.voluntary ? 'Добровольный' : 'Вынужденный', price: d.original }, newP: { route: (nf && (nf.from || nf.to)) ? ((nf.from || '—') + ' → ' + (nf.to || '—')) : '—', date: nf && nf.date ? fmtDate(nf.date) : '—', fare: nf && nf.flightNo ? nf.flightNo : '—', price: d.original }, diff: 0 } : undefined,
-      documents: (d.docs || []).map((n) => ({ name: n, kind: 'Основание', status: 'Загружен', v: 1 })),
-      history: [{ t: 'сейчас', text: 'Запрос создан' + (parts[0] !== '—' ? ' · ' + parts.length + ' пасс.' : '') + (d.voluntary === false ? ' · вынужденный' : ''), who: 'Даниель' }] };
-    setOps((cur) => [np, ...cur]); setNewOpen(false); setActiveNo(no); setView('card');
-    toast(no + ' создан', 'ok', { title: 'Запрос оформлен', action: { label: 'Открыть «Возвраты и обмены»', route: 'returns' } });
+    const kinds = { 'Возврат билета': 'refund', 'Обмен билета': 'exchange', 'Аннуляция бронирования': 'cancellation', 'Оформление справки': 'certificate' };
+    try {
+      const created = await aftersalesApi.create({ order: selectedOrder.id, type: kinds[d.type] || 'refund', initiator: 'operator', currency: 'USD' });
+      const np = { ...toLegacyReturn(created, contextOrders), participants: parts };
+      setOps((cur) => [np, ...cur]); setNewOpen(false); setActiveNo(np.no); setView('card');
+      toast(np.no + ' создан', 'ok', { title: 'Запрос оформлен', action: { label: 'Открыть «Возвраты и обмены»', route: 'returns' } });
+    } catch (error) { toast(error.message, 'err'); }
   };
 
   if (view === 'card' && active) return (
@@ -531,8 +561,8 @@ function ReturnsModule({ scopeOrder, onOpenOrder, compact, order }) {
   );
 }
 
-function ReturnsPage({ onOpenOrder }) {
-  return (<><Topbar title="Возвраты и обмены" /><div className="content"><ReturnsModule onOpenOrder={onOpenOrder} /></div></>);
+function ReturnsPage({ onOpenOrder, cases = [], orders = [] }) {
+  return (<><Topbar title="Возвраты и обмены" /><div className="content"><ReturnsModule initialCases={cases} orders={orders} onOpenOrder={onOpenOrder} /></div></>);
 }
 
 Object.assign(window, { ReturnsModule, ReturnCard, ReturnsPage, NewReturnModal, ProcessFlow });

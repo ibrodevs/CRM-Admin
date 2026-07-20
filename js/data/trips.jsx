@@ -369,7 +369,7 @@ function tripForceMajeures(trip) {
 
 
 function tripCriticality(trip, now = TRIP_NOW) {
-  let c = 'info';
+  let c = trip.criticality || 'info';
   tripEvents(trip, now).forEach((e) => { c = critMax(c, e.crit); });
   tripConflicts(trip).forEach((k) => { c = critMax(c, k.crit); });
   tripForceMajeures(trip).forEach((f) => { c = critMax(c, f.crit); });

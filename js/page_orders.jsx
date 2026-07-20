@@ -6,6 +6,8 @@ import { UnifiedDocumentDrawer, UnifiedPersonDrawer, UnifiedPersonFields, ufBlan
 import { ORDER_OPS_SECTIONS, Topbar } from './layout';
 import { OrderCard, OrderEditDrawer } from './page_order_card';
 import { CityPickPanel, PanelSub, StackPanel } from './components/shared-panels';
+import { ordersApi } from './api/resources';
+import { toUiOrder } from './api/adapters';
 
 
 
@@ -303,18 +305,33 @@ function OceSec({ n, title, children }) {
   );
 }
 
-function OrderCreateModal({ open, onClose, onCreated, initialGroup = false }) {
+function OrderCreateModal({ open, onClose, onCreated, initialGroup = false, clientOptions = [], companyOptions = [] }) {
   const toast = useToast();
+  const availableClients = clientOptions.map((client) => {
+    const person = client.person_detail || {};
+    return {
+      id: person.id || client.person,
+      name: person.full_name || [person.surname, person.given_name].filter(Boolean).join(' ') || 'Клиент',
+      phone: person.phone || '', email: person.email || '', doc: '', source: client,
+    };
+  });
+  const availableCompanies = companyOptions.map((item) => ({
+    id: item.id, name: item.short_name || item.legal_name, inn: item.tax_id || '—',
+    dir: item.director || '—', source: item,
+  }));
+  const firstClient = availableClients[0] || null;
+  const firstCompany = availableCompanies[0] || null;
 
 
   const [clientType, setClientType] = useState('person');
 
   const [clientQuery, setClientQuery] = useState('');
-  const [selClients, setSelClients] = useState([CLIENTS_DB[0]]);
-  const [company, setCompany] = useState(COMPANIES_DB[0]);
+  const [selClients, setSelClients] = useState(firstClient ? [firstClient] : []);
+  const [company, setCompany] = useState(firstCompany);
   const [companyQuery, setCompanyQuery] = useState('');
   const [companyOpen, setCompanyOpen] = useState(false);
-  const [employees, setEmployees] = useState(companyStaff(COMPANIES_DB[0].id).employees.slice(0, 1));
+  const [employees, setEmployees] = useState([]);
+  const [creating, setCreating] = useState(false);
 
   const [trip, setTrip] = useState('rt');
   const [pts, setPts] = useState(['SVO', 'DXB']);
@@ -335,7 +352,7 @@ function OrderCreateModal({ open, onClose, onCreated, initialGroup = false }) {
   useEffect(() => {
     if (!open) return;
     setClientType('person'); setClientQuery('');
-    setSelClients([CLIENTS_DB[0]]); setCompany(COMPANIES_DB[0]); setCompanyQuery(''); setCompanyOpen(false); setEmployees(companyStaff(COMPANIES_DB[0].id).employees.slice(0, 1));
+    setSelClients(firstClient ? [firstClient] : []); setCompany(firstCompany); setCompanyQuery(''); setCompanyOpen(false); setEmployees([]); setCreating(false);
     setTrip('rt'); setPts(['SVO', 'DXB']); setDepDate(null); setRetDate(null); setSvc({}); setIsGroup(initialGroup);
     setCityPick(null); setDocFor(null); setBonusFor(null); setEmpPick(false);
   }, [open]);
@@ -377,26 +394,47 @@ function OrderCreateModal({ open, onClose, onCreated, initialGroup = false }) {
   });
 
 
-  const findServices = () => {
-    const clientLabel = clientType === 'org' ? company.name : (selClients[0] ? selClients[0].name : 'Новый клиент');
+  const findServices = async () => {
+    const selectedClient = selClients[0];
+    if ((clientType === 'org' && !company) || (clientType === 'person' && !selectedClient)) {
+      toast('Сначала выберите клиента из базы', 'err');
+      return;
+    }
+    if (routePts.some((point) => !point)) {
+      toast('Заполните все точки маршрута', 'err');
+      return;
+    }
     const searchKind = activeServices.map((s) => (ORDER_SVC.find(([l]) => l === s) || [])[1]).find(Boolean) || null;
-    onCreated({
-      no: 51181 + Math.floor(Math.random() * 10),
-      client: clientLabel,
-      requestType: isGroup ? 'Групповая' : (clientType === 'org' ? 'Корпоративная' : 'Индивидуальная'),
-      isGroup,
-      service: activeServices[0] || 'Авиа',
-      status: 'Новое', operator: 'Даниель', operatorRole: 'Оператор',
-      sum: 0, currency: 'USD',
-      services: Math.max(1, activeServices.length),
-      progress: 0, date: '14.06.26',
-    }, searchKind);
-    toast('Заказ создан — подберите услуги', 'ok');
-    onClose();
+    const kind = trip === 'mc' ? 'multi_city' : trip === 'rt' ? 'round_trip' : 'one_way';
+    setCreating(true);
+    try {
+      const created = await ordersApi.create({
+        request_type: isGroup ? 'group' : clientType === 'org' ? 'corporate' : 'individual',
+        ...(clientType === 'org' ? { client_company: company.id } : { client_person: selectedClient.id }),
+        base_currency: 'USD',
+        planned_start: depDate instanceof Date ? depDate.toISOString().slice(0, 10) : null,
+        planned_end: retDate instanceof Date ? retDate.toISOString().slice(0, 10) : null,
+        route: {
+          kind,
+          points: routePts.map((code) => {
+            const airport = AIRPORTS.find((item) => item.code === code);
+            return { location_code: code, location_type: 'airport', location_name: airport?.city || code };
+          }),
+        },
+      });
+      const order = toUiOrder({ ...created, services_count: 0, service_kind: null });
+      onCreated(order, searchKind);
+      toast('Заказ создан — подберите услуги', 'ok');
+      onClose();
+    } catch (error) {
+      toast(error.message || 'Не удалось создать заказ', 'err');
+    } finally {
+      setCreating(false);
+    }
   };
 
   const q = clientQuery.trim().toLowerCase();
-  const clientMatches = q ? CLIENTS_DB.filter((c) => !selClients.find((s) => s.id === c.id) &&
+  const clientMatches = q ? availableClients.filter((c) => !selClients.find((s) => s.id === c.id) &&
     (c.name.toLowerCase().includes(q) || c.phone.includes(q) || (c.doc || '').toLowerCase().includes(q))) : [];
 
   const personMenu = (c, onRemove) => [
@@ -477,13 +515,13 @@ function OrderCreateModal({ open, onClose, onCreated, initialGroup = false }) {
               <OceSec n={2} title="Компания">
                 <Field label="Организация">
                   <div style={{ position: 'relative' }} ref={companyRef}>
-                    <Input leadIcon="search" value={companyOpen ? companyQuery : company.name}
+                    <Input leadIcon="search" value={companyOpen ? companyQuery : (company?.name || '')}
                       onFocus={() => { setCompanyOpen(true); setCompanyQuery(''); }}
                       onChange={(e) => { setCompanyQuery(e.target.value); setCompanyOpen(true); }}
                       placeholder="Поиск по названию или ИНН" />
                     {companyOpen && (() => {
                       const cq = companyQuery.trim().toLowerCase();
-                      const matches = COMPANIES_DB.filter((c) => !cq || c.name.toLowerCase().includes(cq) || c.inn.includes(cq));
+                      const matches = availableCompanies.filter((c) => !cq || c.name.toLowerCase().includes(cq) || c.inn.includes(cq));
                       return (
                         <div className="dropdown scroll" style={{ top: 50, left: 0, right: 0, maxHeight: 260, overflowY: 'auto', padding: 6 }}>
                           {matches.map((c) => (
@@ -494,7 +532,7 @@ function OrderCreateModal({ open, onClose, onCreated, initialGroup = false }) {
                                 <div style={{ fontWeight: 600 }}>{c.name}</div>
                                 <div style={{ fontSize: 12, color: 'var(--muted)' }}>ИНН {c.inn} · {c.dir}</div>
                               </span>
-                              {company.id === c.id && <Icon name="check" style={{ width: 16, height: 16, color: 'var(--blue)' }} />}
+                              {company?.id === c.id && <Icon name="check" style={{ width: 16, height: 16, color: 'var(--blue)' }} />}
                             </div>
                           ))}
                           {!matches.length && <div style={{ padding: 12, color: 'var(--muted)', fontSize: 14 }}>Ничего не найдено</div>}
@@ -505,11 +543,11 @@ function OrderCreateModal({ open, onClose, onCreated, initialGroup = false }) {
                 </Field>
                 <div className="oce-client" style={{ marginTop: 10 }}>
                   <span className="oce-svc-ic" style={{ width: 36, height: 36, borderRadius: 10, background: 'var(--blue-soft)', color: 'var(--blue)', display: 'flex', alignItems: 'center', justifyContent: 'center', flex: '0 0 36px' }}><Icon name="building" style={{ width: 18, height: 18 }} /></span>
-                  <div style={{ flex: 1, minWidth: 0 }}><div className="nm">{company.name}</div><div className="mt">ИНН {company.inn} · {company.dir}</div></div>
+                  <div style={{ flex: 1, minWidth: 0 }}><div className="nm">{company?.name || 'Организация не выбрана'}</div><div className="mt">ИНН {company?.inn || '—'} · {company?.dir || '—'}</div></div>
                 </div>
 
                 {(() => {
-                  const fin = companyFinance(company.id); if (!fin) return null;
+                  const fin = company ? companyFinance(company.id) : null; if (!fin) return null;
                   const c = activeContract(fin); const a = activeAgreement(fin); if (!a) return null;
                   const bal = companyBalanceShort(fin);
                   return (
@@ -610,7 +648,7 @@ function OrderCreateModal({ open, onClose, onCreated, initialGroup = false }) {
           <div style={{ padding: '16px 30px', borderTop: '1px solid var(--line)', position: 'sticky', bottom: 0, background: '#fff', display: 'flex', alignItems: 'center', gap: 12 }}>
             <Button variant="secondary" onClick={onClose}>Отмена</Button>
             <div style={{ flex: 1 }} />
-            <Button variant="primary" icon="search" onClick={findServices}>Найти услуги</Button>
+            <Button variant="primary" icon={creating ? 'loader' : 'search'} onClick={findServices} disabled={creating}>{creating ? 'Создание…' : 'Найти услуги'}</Button>
           </div>
         </div>
       </div>
@@ -912,7 +950,7 @@ function OrdersList({ orders, onOpen, onCreate, onNavigate }) {
 }
 
 
-function OrdersPage({ intent, onConsume, orders, addOrder, onDetailChange, onOpenChat, onNavigate }) {
+function OrdersPage({ intent, onConsume, orders, clients = [], companies = [], addOrder, onDetailChange, onOpenChat, onNavigate }) {
   const [detail, setDetailRaw] = useState(null);
   const [detailTab, setDetailTab] = useState(null);
   const [detailSvc, setDetailSvc] = useState(null);
@@ -934,11 +972,11 @@ function OrdersPage({ intent, onConsume, orders, addOrder, onDetailChange, onOpe
     onConsume();
   }, [intent]);
 
-  if (detail) return <OrderCard order={detail} fresh={fresh} initTab={detailTab} initSvc={detailSvc} initSvcSearch={svcSearch} onBack={() => setDetail(null)} onOpenChat={onOpenChat} />;
+  if (detail) return <OrderCard order={detail} fresh={fresh} initTab={detailTab} initSvc={detailSvc} initSvcSearch={svcSearch} onBack={() => { setDetail(null); onDetailChange && onDetailChange(null); }} onOpenChat={onOpenChat} />;
   return (
     <>
       <OrdersList orders={orders} onOpen={setDetail} onCreate={() => setCreateOpen(true)} onNavigate={onNavigate} />
-      <OrderCreateModal open={createOpen} onClose={() => setCreateOpen(false)} onCreated={handleCreated} />
+      <OrderCreateModal open={createOpen} onClose={() => setCreateOpen(false)} onCreated={handleCreated} clientOptions={clients} companyOptions={companies} />
     </>
   );
 }

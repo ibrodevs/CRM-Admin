@@ -45,6 +45,24 @@ const CAL_EVENTS = window.CAL_EVENTS || (window.CAL_EVENTS = (() => {
     ev({ type: 'reminder', title: 'Проверить тайм-лимит', date: D(24, 6, 17, 0), time: '17:00', order: 51162, service: 'Авиа', resp: 'Азамат А.', priority: 'Высокий', notify: 'Push', repeat: 'Не повторять', scope: 'Другому оператору' }),
   ];
 })());
+const CAL_KIND_FROM_BACKEND = { order_trip: 'order', reminder: 'reminder', task: 'task', control: 'control' };
+const CAL_PRIORITY_FROM_BACKEND = { high: 'Высокий', normal: 'Средний', low: 'Низкий' };
+function calendarEventToUi(item, orders = [], users = []) {
+  const order = orders.find((entry) => entry.id === item.order);
+  const assignee = users.find((entry) => entry.id === item.assignee);
+  const date = new Date(item.starts_at);
+  return {
+    ...item, type: CAL_KIND_FROM_BACKEND[item.kind] || item.kind, date,
+    time: date.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' }),
+    order: order?.no || item.order || null, resp: assignee?.full_name || assignee?.name || 'Сотрудник',
+    priority: CAL_PRIORITY_FROM_BACKEND[item.priority] || item.priority, notify: item.notification_method,
+    repeat: item.recurrence_rule || 'Не повторять', done: item.status === 'done',
+    history: [{ t: calNowStr(), text: `Статус backend: ${item.status}`, who: 'Система' }],
+  };
+}
+function hydrateCalendarEvents(items = [], orders = [], users = []) {
+  CAL_EVENTS.splice(0, CAL_EVENTS.length, ...items.map((item) => calendarEventToUi(item, orders, users)));
+}
 function calEventsOn(day) { return CAL_EVENTS.filter((e) => trSameDay(e.date, day)); }
 function calAddEvent(evt) {
   const who = (window.CURRENT_USER && CURRENT_USER.name) || 'Даниель';
@@ -55,7 +73,8 @@ function calFindDuplicate({ type, title, order }) {
   return CAL_EVENTS.find((e) => e.order === order && order != null && (e.type === type) && e.title.trim().toLowerCase() === (title || '').trim().toLowerCase() && !e.done);
 }
 function calOrderInfo(no) {
-  const o = (typeof ORDERS !== 'undefined' && ORDERS.find((x) => x.no === no)) || null;
+  const source = window.CALENDAR_ORDERS || (typeof ORDERS !== 'undefined' ? ORDERS : []);
+  const o = source.find((x) => x.no === no) || null;
   if (!o) return null;
   return { no: o.no, client: o.client, company: o.requestType, pax: o.services, services: o.service, operator: o.operator, deadline: 'выписка · сегодня 18:00' };
 }
@@ -94,7 +113,7 @@ function CalDayMenu({ day, pos, onPick, onClose }) {
 
 
 
-function CalOrderPicker({ value, onChange }) {
+function CalOrderPicker({ value, onChange, orders = [] }) {
   const [open, setOpen] = useState(false);
   const info = value ? calOrderInfo(value) : null;
   return (
@@ -109,7 +128,7 @@ function CalOrderPicker({ value, onChange }) {
           ? <span role="button" tabIndex={0} onClick={(e) => { e.stopPropagation(); onChange(null); }} style={{ border: 'none', background: 'none', cursor: 'pointer', color: 'var(--muted-2)', display: 'inline-flex' }}><Icon name="x" style={{ width: 16, height: 16 }} /></span>
           : <Icon name="chevDown" style={{ width: 16, height: 16, color: 'var(--muted-2)' }} />}
       </button>
-      <UnifiedBindPicker open={open} modes={['order']} title="Выбор заказа" sub="Умный поиск по № или клиенту"
+      <UnifiedBindPicker open={open} modes={['order']} title="Выбор заказа" sub="Умный поиск по № или клиенту" orderOptions={orders}
         onClose={() => setOpen(false)} onPick={(t) => { onChange(t.order ? t.order.no : null); setOpen(false); }} />
       {info && (
         <div style={{ marginTop: 8, padding: '10px 12px', borderRadius: 10, background: 'var(--surface-2)', fontSize: 12.5, display: 'grid', gap: 3 }}>
@@ -124,16 +143,17 @@ function CalOrderPicker({ value, onChange }) {
 
 
 // Боковое окно выбора пассажира/сотрудника — по аналогии с поиском заказа, но в drawer'е.
-function CalPaxPickDrawer({ order, onPick, onClose }) {
+function CalPaxPickDrawer({ order, onPick, onClose, clients = [], users = [] }) {
   const [tab, setTab] = useState('pax');
   const [q, setQ] = useState('');
   const s = q.trim().toLowerCase();
   const orderClient = order && typeof calOrderInfo === 'function' ? calOrderInfo(order) : null;
-  const passengers = (typeof CLIENTS_DB !== 'undefined' ? CLIENTS_DB : []).map((c) => ({
+  const passengers = (clients.length ? clients : (typeof CLIENTS_DB !== 'undefined' ? CLIENTS_DB : [])).map((c) => ({
     id: c.id, name: c.name, sub: [c.phone, c.doc].filter(Boolean).join(' · '), tag: c.status, tone: 'blue',
     fromOrder: !!(orderClient && c.company && orderClient.client && c.company === orderClient.client),
   }));
-  const employees = (typeof OPERATORS !== 'undefined' ? OPERATORS : []).map((n, i) => ({ id: 'op-' + i, name: n, sub: 'Сотрудник агентства', tag: 'Оператор', tone: 'teal' }));
+  const employees = (users.length ? users.map((user) => ({ id: user.id, name: user.full_name || user.name || user.email })) : (typeof OPERATORS !== 'undefined' ? OPERATORS.map((name, i) => ({ id: 'op-' + i, name })) : []))
+    .map((entry) => ({ id: entry.id, name: entry.name, sub: 'Сотрудник агентства', tag: 'Оператор', tone: 'teal' }));
   const src = tab === 'pax' ? passengers : employees;
   let list = s ? src.filter((p) => p.name.toLowerCase().includes(s) || (p.sub || '').toLowerCase().includes(s)) : src;
   if (tab === 'pax') list = [...list].sort((a, b) => (b.fromOrder ? 1 : 0) - (a.fromOrder ? 1 : 0));
@@ -164,7 +184,7 @@ function CalPaxPickDrawer({ order, onPick, onClose }) {
   );
 }
 
-function CalPaxPicker({ value, onChange, order, placeholder = 'Выберите' }) {
+function CalPaxPicker({ value, onChange, order, placeholder = 'Выберите', clients = [], users = [] }) {
   const [open, setOpen] = useState(false);
   return (
     <>
@@ -175,7 +195,7 @@ function CalPaxPicker({ value, onChange, order, placeholder = 'Выберите'
           ? <button type="button" onClick={(e) => { e.stopPropagation(); onChange(''); }} style={{ border: 'none', background: 'none', cursor: 'pointer', color: 'var(--muted-2)', display: 'inline-flex' }}><Icon name="x" style={{ width: 16, height: 16 }} /></button>
           : <Icon name="chevRight" style={{ width: 16, height: 16, color: 'var(--muted-2)' }} />}
       </div>
-      {open && <CalPaxPickDrawer order={order} onClose={() => setOpen(false)} onPick={(name) => { onChange(name); setOpen(false); }} />}
+      {open && <CalPaxPickDrawer order={order} clients={clients} users={users} onClose={() => setOpen(false)} onPick={(name) => { onChange(name); setOpen(false); }} />}
     </>
   );
 }
@@ -183,7 +203,7 @@ function CalPaxPicker({ value, onChange, order, placeholder = 'Выберите'
 
 
 
-function CalEventCreator({ type, day, presetOrder, onClose, onCreated }) {
+function CalEventCreator({ type, day, presetOrder, orders = [], clients = [], users = [], onClose, onCreated, onPersist }) {
   const toast = useToast();
   const t = CAL_EVENT_TYPES[type];
   const [f, setF] = useState({
@@ -202,9 +222,9 @@ function CalEventCreator({ type, day, presetOrder, onClose, onCreated }) {
 
   const dup = (type === 'reminder' || type === 'task') && f.title && f.order ? calFindDuplicate({ type, title: f.title, order: f.order }) : null;
   const needTitle = type !== 'order';
-  const canSave = type === 'order' ? f.direction || f.contact || f.order != null || true : !!f.title.trim();
+  const canSave = type === 'order' ? Boolean(f.order || f.contact || f.pax) : !!f.title.trim();
 
-  const submit = () => {
+  const submit = async () => {
     if (creditBlocked) { toast('Оформление заблокировано: требуется согласование кредитных условий', 'warn'); return; }
     if (dup && !dupChoice) { setDupChoice('shown'); return; }
     const [dd, mm, yy] = f.dateStr.split('.').map(Number);
@@ -213,30 +233,23 @@ function CalEventCreator({ type, day, presetOrder, onClose, onCreated }) {
     const base = { type, date, time: f.time, order: f.order, service: f.service, resp: f.resp, repeat: f.repeat, scope: f.scope, respRole: f.respRole, comment: f.comment };
     let evt;
     if (type === 'order') {
-
-      const info = f.order ? calOrderInfo(f.order) : null;
-      const client = info ? info.client : (f.contact || f.direction || 'Новый клиент');
-      const nextNo = (typeof ORDERS !== 'undefined' ? Math.max.apply(null, ORDERS.map((o) => o.no).concat(51000)) : 51000) + 1;
-      const orderObj = {
-        id: 'ord-' + Date.now(), no: nextNo, client, requestType: 'Индивидуальная', status: 'Новое',
-        service: f.services[0] || '—', operator: f.resp, operatorRole: 'Оператор', sum: 0, currency: 'USD',
-        services: f.services.length, progress: 0, date: calFmtDay(date), createdOn: date,
-        direction: f.direction, contact: f.contact, pax: f.pax,
-      };
-      if (typeof ORDERS !== 'undefined') ORDERS.unshift(orderObj);
-      if (window.__addOrder) window.__addOrder(orderObj);
-      evt = { ...base, order: nextNo, title: 'Заказ № ' + nextNo + (f.direction ? ' · ' + f.direction : ''), endStr: f.endStr, services: f.services, pax: f.pax };
-      const created = calAddEvent(evt);
-      toast('Заказ № ' + nextNo + ' создан и добавлен в календарь', 'ok', { title: 'Заказ создан', action: { label: 'Открыть в «Заказы»', route: 'orders' } });
-      onCreated && onCreated(created); onClose();
+      try {
+        const created = onPersist ? await onPersist({ ...base, type, form: f, date, endStr: f.endStr }) : calAddEvent({ ...base, title: f.direction || 'Заказ / поездка' });
+        if (!CAL_EVENTS.some((item) => item.id === created.id)) CAL_EVENTS.push(created);
+        toast('Заказ и событие сохранены в backend', 'ok', { title: 'Заказ создан', action: { label: 'Открыть в «Заказы»', route: 'orders' } });
+        onCreated && onCreated(created); onClose();
+      } catch (error) { toast(error.message || 'Не удалось создать заказ и событие', 'err'); }
       return;
     }
     if (type === 'reminder') evt = { ...base, title: f.title, pax: f.pax, supplier: f.supplier, priority: f.priority, notify: f.notify };
     else if (type === 'task') evt = { ...base, title: f.title, priority: f.priority };
     else evt = { ...base, title: f.title, criterion: f.criterion, actionOnProblem: f.actionOnProblem };
-    const created = calAddEvent(evt);
-    toast(t.l + ' создано и добавлено в календарь', 'ok');
-    onCreated && onCreated(created); onClose();
+    try {
+      const created = onPersist ? await onPersist({ ...evt, form: f }) : calAddEvent(evt);
+      if (!CAL_EVENTS.some((item) => item.id === created.id)) CAL_EVENTS.push(created);
+      toast(t.l + ' сохранено в backend', 'ok');
+      onCreated && onCreated(created); onClose();
+    } catch (error) { toast(error.message || 'Не удалось создать событие', 'err'); }
   };
 
   const presets = type === 'reminder' ? CAL_REMINDER_PRESETS : type === 'task' ? CAL_TASK_PRESETS : type === 'control' ? CAL_CONTROL_PRESETS : [];
@@ -276,10 +289,10 @@ function CalEventCreator({ type, day, presetOrder, onClose, onCreated }) {
           <UFDateField label="Дата окончания" value={f.endStr || null} onChange={(v) => set('endStr', v)} placeholder="дд.мм.гггг" />
           <Field label="Продолжительность"><Input value={f.endStr ? '—' : ''} placeholder="авто" disabled /></Field>
         </div>
-        <Field label="Клиент или компания"><CalOrderPicker value={f.order} onChange={(v) => set('order', v)} /></Field>
+        <Field label="Клиент или компания"><CalOrderPicker value={f.order} orders={orders} onChange={(v) => set('order', v)} /></Field>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-          <Field label="Контактное лицо"><CalPaxPicker value={f.contact} order={f.order} onChange={(v) => set('contact', v)} placeholder="Выберите контакт" /></Field>
-          <Field label="Пассажир"><CalPaxPicker value={f.pax} order={f.order} onChange={(v) => set('pax', v)} placeholder="Выберите пассажира" /></Field>
+          <Field label="Контактное лицо"><CalPaxPicker value={f.contact} order={f.order} clients={clients} users={users} onChange={(v) => set('contact', v)} placeholder="Выберите контакт" /></Field>
+          <Field label="Пассажир"><CalPaxPicker value={f.pax} order={f.order} clients={clients} users={users} onChange={(v) => set('pax', v)} placeholder="Выберите пассажира" /></Field>
           <Field label="Направление"><Input value={f.direction} onChange={(e) => set('direction', e.target.value)} placeholder="Москва → Казань" /></Field>
           <Field label="Ответственный оператор"><Select value={f.resp} onChange={(e) => set('resp', e.target.value)} options={f.resp && !OPERATORS.includes(f.resp) ? [f.resp, ...OPERATORS] : OPERATORS} /></Field>
         </div>
@@ -316,10 +329,10 @@ function CalEventCreator({ type, day, presetOrder, onClose, onCreated }) {
           <UFDateField label="Дата" value={f.dateStr || null} onChange={(v) => set('dateStr', v)} placeholder="дд.мм.гггг" />
           <TimeField label="Время" value={f.time} onChange={(v) => set('time', v)} />
         </div>
-        <Field label={type === 'task' ? 'Заказ (обязательно)' : 'Заказ (необязательно)'}><CalOrderPicker value={f.order} onChange={(v) => set('order', v)} /></Field>
+        <Field label={type === 'task' ? 'Заказ (обязательно)' : 'Заказ (необязательно)'}><CalOrderPicker value={f.order} orders={orders} onChange={(v) => set('order', v)} /></Field>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
           <Field label="Услуга"><Select value={f.service} onChange={(e) => set('service', e.target.value)} options={['', ...CAL_SERVICE_TYPES]} placeholder="—" /></Field>
-          {type === 'reminder' && <Field label="Пассажир"><CalPaxPicker value={f.pax} order={f.order} onChange={(v) => set('pax', v)} placeholder="Выберите пассажира" /></Field>}
+          {type === 'reminder' && <Field label="Пассажир"><CalPaxPicker value={f.pax} order={f.order} clients={clients} users={users} onChange={(v) => set('pax', v)} placeholder="Выберите пассажира" /></Field>}
           {type === 'reminder' && <Field label="Поставщик"><Select value={f.supplier} onChange={(e) => set('supplier', e.target.value)} options={['', ...SUPPLIERS.map((s) => s.name)]} placeholder="(необязательно)" /></Field>}
           {type !== 'control' && <Field label="Приоритет"><Select value={f.priority} onChange={(e) => set('priority', e.target.value)} options={CAL_PRIORITY} /></Field>}
         </div>
@@ -344,7 +357,7 @@ function CalEventCreator({ type, day, presetOrder, onClose, onCreated }) {
       {type === 'control' && (f.title || f.criterion) && (
         <div style={{ marginTop: 4, padding: '10px 12px', borderRadius: 10, background: 'var(--surface-2)', fontSize: 12.5, color: 'var(--body)' }}>
           <b>Контроль:</b> {f.title || '—'}{f.order ? ' · заказ № ' + f.order : ''}<br />Проверить {f.dateStr} в {f.time}. {f.criterion ? 'При «' + f.criterion + '» → ' + (f.actionOnProblem || 'уведомить ответственного') + '.' : ''}
-          <div style={{ color: 'var(--muted-2)', marginTop: 4 }}>В будущем — авто-мониторинг через API; пока работает как ручная проверка.</div>
+          <div style={{ color: 'var(--muted-2)', marginTop: 4 }}>Контроль сохраняется в backend и отображается в общем календаре.</div>
         </div>
       )}
     </Drawer>
@@ -368,13 +381,13 @@ function CalEventChip({ evt, onOpen }) {
 
 
 
-function CalEventPanel({ evt, onClose, onChanged, onOpenOrder }) {
+function CalEventPanel({ evt, onClose, onChanged, onOpenOrder, onComplete, onReschedule }) {
   const toast = useToast();
   const t = CAL_EVENT_TYPES[evt.type];
   const info = evt.order ? calOrderInfo(evt.order) : null;
   const log = (text) => { evt.history = [...evt.history, { t: calNowStr(), text, who: (window.CURRENT_USER && CURRENT_USER.name) || 'Даниель' }]; onChanged && onChanged(); };
-  const complete = () => { evt.done = true; log('Событие выполнено'); toast('Событие отмечено выполненным' + (evt.repeat && evt.repeat !== 'Не повторять' ? ' · повторение остановлено' : ''), 'ok'); onChanged && onChanged(); };
-  const move = () => { evt.date = new Date(evt.date.getTime() + 86400000); log('Срок перенесён на +1 день'); toast('Срок перенесён на следующий день', 'info'); onChanged && onChanged(); };
+  const complete = async () => { try { if (onComplete) await onComplete(evt); evt.done = true; log('Событие выполнено'); toast('Событие отмечено выполненным' + (evt.repeat && evt.repeat !== 'Не повторять' ? ' · повторение остановлено' : ''), 'ok'); onChanged && onChanged(); } catch (error) { toast(error.message || 'Не удалось выполнить событие', 'err'); } };
+  const move = async () => { try { const next = new Date(evt.date.getTime() + 86400000); if (onReschedule) await onReschedule(evt, next); evt.date = next; log('Срок перенесён на +1 день'); toast('Срок перенесён на следующий день', 'info'); onChanged && onChanged(); } catch (error) { toast(error.message || 'Не удалось перенести событие', 'err'); } };
   return (
     <Drawer open={!!evt} onClose={onClose} title={evt.title} sub={t.l + ' · ' + calFmtDay(evt.date) + (evt.time ? ' · ' + evt.time : '')}
       footer={<div style={{ display: 'flex', gap: 10, width: '100%' }}>
@@ -420,4 +433,4 @@ Object.assign(window, { CAL_EVENTS, CAL_EVENT_TYPES, calEventsOn, calAddEvent, C
 
 
 
-export { CAL_EVENT_TYPES, CAL_PRIORITY, CAL_PRIORITY_TONE, CAL_NOTIFY, CAL_REPEAT, CAL_SCOPE, CAL_RESP_ROLE, CAL_SERVICE_TYPES, CAL_REMINDER_PRESETS, CAL_TASK_PRESETS, CAL_CONTROL_PRESETS, calFmtDay, calNowStr, CAL_EVENTS, calEventsOn, calAddEvent, calFindDuplicate, calOrderInfo, CalDayMenu, CalOrderPicker, CalEventCreator, CalEventChip, CalEventPanel };
+export { CAL_EVENT_TYPES, CAL_PRIORITY, CAL_PRIORITY_TONE, CAL_NOTIFY, CAL_REPEAT, CAL_SCOPE, CAL_RESP_ROLE, CAL_SERVICE_TYPES, CAL_REMINDER_PRESETS, CAL_TASK_PRESETS, CAL_CONTROL_PRESETS, calFmtDay, calNowStr, CAL_EVENTS, calendarEventToUi, hydrateCalendarEvents, calEventsOn, calAddEvent, calFindDuplicate, calOrderInfo, CalDayMenu, CalOrderPicker, CalEventCreator, CalEventChip, CalEventPanel };

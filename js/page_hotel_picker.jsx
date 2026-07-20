@@ -1,9 +1,12 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Icon } from './icons';
 import { ActionMenu, Avatar, Button, Checkbox, DateField, EmptyState, Field, Input, Radio, SearchBox, Select, fmtDate, useToast } from './ui';
 import { GROUP_PAX, HOTELS, HOTEL_AMENITIES, HOTEL_DISTRICTS, HOTEL_EXTRAS, HOTEL_MEALS, ORDER_PARTICIPANTS } from './data';
 import { Topbar } from './layout';
 import { StackPanel } from './components/shared-panels';
+import { servicesApi } from './api/resources';
+import { resultsOf } from './api/client';
+import { useWorkspace } from './core/workspace-context';
 
 
 
@@ -25,6 +28,42 @@ function hpNights(ci, co) {
   if (!ci || !co) return 1;
   const d = Math.round((co - ci) / 86400000);
   return d > 0 ? d : 1;
+}
+function hotelOfferToUi(offer) {
+  const itinerary = offer.itinerary || {};
+  const usd = Number(offer.price?.amount || 0);
+  const base = Math.max(4000, Math.round(usd * 90));
+  const tariff = (id, name, price, features) => ({ id, name, price, feats: features });
+  const room = (id, name, price, cap) => ({
+    id, name, base: price, beds: cap > 2 ? '2 кровати' : '1 большая кровать', cap, count: 4, area: cap > 2 ? 36 : 24, floor: '2–8',
+    tariffs: [
+      tariff('pop', 'Популярный', price, [{ ok: true, t: itinerary.meal_plan === 'RO' ? 'Без питания' : 'Питание включено' }, { ok: true, t: 'Условия отмены получены от поставщика' }]),
+      tariff('flex', 'Тариф с гибкой отменой', Math.round(price * 1.15), [{ ok: true, t: 'Гибкая отмена' }, { ok: true, t: 'Подтверждение поставщика' }]),
+      tariff('nobreak', 'Базовый тариф', Math.round(price * 0.9), [{ ok: false, t: 'Без питания' }, { ok: false, t: 'Ограниченная отмена' }]),
+    ],
+  });
+  return {
+    ...offer,
+    _backendOfferId: offer.id,
+    id: offer.id,
+    name: itinerary.property_name || `Отель ${offer.external_key || ''}`,
+    stars: Number(itinerary.stars || 3),
+    addr: itinerary.city || '—',
+    addrFull: itinerary.city || '—',
+    city: itinerary.city || '',
+    district: 'Центр города',
+    metro: 0,
+    rating: 8.5,
+    ratingText: 'Рекомендовано',
+    reviews: 0,
+    base,
+    breakfast: itinerary.meal_plan && itinerary.meal_plan !== 'RO',
+    freeCancel: itinerary.check_in || 'по условиям тарифа',
+    payAtHotel: false,
+    supplier: offer.provider_adapter || 'Подключённый поставщик',
+    phone: '', email: '', currency: offer.price?.currency || 'USD',
+    rooms: [room('standard', itinerary.room || 'Standard Double', base, 2), room('family', 'Family Room', Math.round(base * 1.35), 4), room('suite', 'Suite', Math.round(base * 1.8), 2)],
+  };
 }
 
 
@@ -119,8 +158,8 @@ function HotelPicker({ participants, group = false, onApply, onCancel }) {
 
   const [dest, setDest] = useState('Москва');
   const [radius, setRadius] = useState('2 км');
-  const [checkin, setCheckin] = useState(new Date(2026, 5, 20));
-  const [checkout, setCheckout] = useState(new Date(2026, 5, 21));
+  const [checkin, setCheckin] = useState(() => new Date(Date.now() + 7 * 86400000));
+  const [checkout, setCheckout] = useState(() => new Date(Date.now() + 8 * 86400000));
   const [searchRooms, setSearchRooms] = useState(group ? Math.ceil(PAX.length / 2) : 1);
   const [searchGuests, setSearchGuests] = useState(group ? PAX.length : Math.min(2, PAX.length));
   const [meal, setMeal] = useState('BB');
@@ -134,6 +173,7 @@ function HotelPicker({ participants, group = false, onApply, onCancel }) {
   const [distSel, setDistSel] = useState({});
   const [hotelQ, setHotelQ] = useState('');
   const [sort, setSort] = useState('rec');
+  const [liveHotels, setLiveHotels] = useState([]);
 
 
   const [activeHotel, setActiveHotel] = useState(null);
@@ -163,11 +203,11 @@ function HotelPicker({ participants, group = false, onApply, onCancel }) {
   const nights = hpNights(checkin, checkout);
 
 
-  const starCounts = HOTELS.reduce((a, h) => { a[h.stars] = (a[h.stars] || 0) + 1; return a; }, {});
+  const starCounts = liveHotels.reduce((a, h) => { a[h.stars] = (a[h.stars] || 0) + 1; return a; }, {});
   const anyStar = Object.values(stars).some(Boolean);
   const anyDist = Object.values(distSel).some(Boolean);
   const hq = hotelQ.trim().toLowerCase();
-  let list = HOTELS.filter((h) => h.base <= priceMax
+  let list = liveHotels.filter((h) => h.base <= priceMax
     && (!anyStar || stars[h.stars])
     && (!anyDist || distSel[h.district])
     && (!hq || `${h.name} ${h.district || ''} ${h.city || ''}`.toLowerCase().includes(hq))
@@ -180,6 +220,37 @@ function HotelPicker({ participants, group = false, onApply, onCancel }) {
     return b.rating - a.rating;
   });
   const resetFilters = () => { setPriceMax(50000); setStars({}); setDistSel({}); setFreeCancelOnly(false); setHotelQ(''); };
+  const runHotelSearch = async () => {
+    try {
+      const created = await servicesApi.search({
+        kind: 'hotel',
+        criteria: {
+          location: dest,
+          check_in: checkin?.toISOString().slice(0, 10),
+          check_out: checkout?.toISOString().slice(0, 10),
+          guests: searchGuests,
+          rooms: searchRooms,
+          meal_plan: meal,
+          currency: 'USD',
+        },
+      });
+      for (let attempt = 0; attempt < 30; attempt += 1) {
+        const status = await servicesApi.searchStatus(created.search_id);
+        if (['completed', 'partial', 'failed', 'cancelled'].includes(status.status)) {
+          if (status.status === 'failed') throw new Error('Поставщики не вернули варианты гостиниц');
+          const offers = resultsOf(await servicesApi.offers(created.search_id)).map(hotelOfferToUi);
+          setLiveHotels(offers);
+          toast(`Получено вариантов: ${offers.length}`, 'ok');
+          return;
+        }
+        await new Promise((resolve) => setTimeout(resolve, 500));
+      }
+      throw new Error('Поиск занимает больше обычного. Повторите попытку.');
+    } catch (error) {
+      toast(error.message || 'Не удалось выполнить поиск гостиниц', 'err');
+    }
+  };
+  useEffect(() => { runHotelSearch(); }, []);
 
 
   const openHotel = (h) => {
@@ -246,6 +317,7 @@ function HotelPicker({ participants, group = false, onApply, onCancel }) {
 
 
   const buildOffer = (sub) => ({
+    _backendOfferId: activeHotel._backendOfferId,
     title: activeHotel.name + ' · ' + activeHotel.stars + '★',
     sub,
     cost: grandTotal, fee: 0, supplier: activeHotel.supplier,
@@ -319,7 +391,7 @@ function HotelPicker({ participants, group = false, onApply, onCancel }) {
               </div>
             )}
           </div>
-          <Button icon="search" className="hp-find-btn" onClick={() => toast('Поиск обновлён по подключённым поставщикам', 'info')}>Найти</Button>
+          <Button icon="search" className="hp-find-btn" onClick={runHotelSearch}>Найти</Button>
         </div>
 
         <div className="hp-search-row hp-search-row-2">
@@ -1114,11 +1186,13 @@ function GroupCompositionEditor({ hotel, pax, roomGroups, group, catById, onClos
 
 function HotelsPage() {
   const toast = useToast();
+  const { persons } = useWorkspace();
+  const participants = persons.map((person) => ({ id: person.id, name: person.full_name || [person.surname, person.given_name, person.middle_name].filter(Boolean).join(' '), doc: '—' }));
   return (
     <>
       <Topbar title="Гостиницы" />
       <div className="content">
-        <HotelPicker participants={ORDER_PARTICIPANTS} group={false}
+        <HotelPicker participants={participants} group={false}
           onApply={() => toast('Гостиница добавлена. Привязать к заказу можно из карточки заказа.', 'info')}
           onCancel={() => {}} />
       </div>

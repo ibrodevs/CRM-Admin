@@ -7,6 +7,8 @@ import { ExtrasTabs } from './page_avia_picker';
 import { OperationConfirmModal } from './order_ops';
 import { PanelSub, StackPanel } from './components/shared-panels';
 import { SvcAddPaxDrawer, SvcDocUploadDrawer } from './page_services';
+import { aftersalesApi, proposalsApi, servicesApi } from './api/resources';
+import { resultsOf } from './api/client';
 
 
 
@@ -343,8 +345,8 @@ function OfferCard({ o, picked, onPick, onSelect, onSave, onCompare, compared })
   );
 }
 
-function FilterRail({ flt, setFlt }) {
-  const airlines = [...new Set(FLIGHT_OFFERS.map((o) => o.airline))];
+function FilterRail({ flt, setFlt, allOffers = FLIGHT_OFFERS }) {
+  const airlines = [...new Set(allOffers.map((o) => o.airline))];
   const tg = (key, val) => {
     const cur = flt[key];
     setFlt({ ...flt, [key]: cur.includes(val) ? cur.filter((x) => x !== val) : [...cur, val] });
@@ -372,12 +374,12 @@ function FilterRail({ flt, setFlt }) {
           <div className="flt-h">Авиакомпании</div>
           {airlines.map((a) => (
             <label key={a} className="flt-opt"><Checkbox on={flt.air.includes(a)} onChange={() => tg('air', a)} />{AIRLINES[a].name}
-              <span className="cnt">{FLIGHT_OFFERS.filter((o) => o.airline === a).length}</span></label>
+              <span className="cnt">{allOffers.filter((o) => o.airline === a).length}</span></label>
           ))}
         </div>
         <div className="flt-block">
           <div className="flt-h">Поставщики</div>
-          {[...new Set(FLIGHT_OFFERS.map((o) => o.supplier))].map((s) => (
+          {[...new Set(allOffers.map((o) => o.supplier))].map((s) => (
             <label key={s} className="flt-opt"><Checkbox on={flt.sup.includes(s)} onChange={() => tg('sup', s)} />{s}</label>
           ))}
         </div>
@@ -419,18 +421,15 @@ function CompareModal({ open, offers, onClose, onSelect }) {
   );
 }
 
-function FlightResults({ params, onSelect, onBackToSearch }) {
-  const [loading, setLoading] = useState(true);
+function FlightResults({ params, liveOffers = FLIGHT_OFFERS, loading = false, onSelect, onBackToSearch }) {
   const [sort, setSort] = useState('best');
   const [flt, setFlt] = useState({ stops: [], air: [], sup: [], bagOnly: false, refundOnly: false, flightNo: '' });
   const [compare, setCompare] = useState([]);
   const [cmpOpen, setCmpOpen] = useState(false);
   const toast = useToast();
 
-  useEffect(() => { setLoading(true); const t = setTimeout(() => setLoading(false), 1100); return () => clearTimeout(t); }, []);
-
   const flightNoMatch = (o, q) => { const n = q.replace(/\s+/g, '').toLowerCase(); return [o.out, o.back].some((l) => l && l.flightNo && l.flightNo.replace(/\s+/g, '').toLowerCase().includes(n)); };
-  let offers = FLIGHT_OFFERS.filter((o) => {
+  let offers = liveOffers.filter((o) => {
     if (flt.flightNo && flt.flightNo.trim() && !flightNoMatch(o, flt.flightNo)) return false;
     if (flt.stops.length && !flt.stops.includes(String(o.out.stops))) return false;
     if (flt.air.length && !flt.air.includes(o.airline)) return false;
@@ -456,7 +455,7 @@ function FlightResults({ params, onSelect, onBackToSearch }) {
       </div>
 
       <div style={{ display: 'flex', gap: 22, alignItems: 'flex-start' }}>
-        <FilterRail flt={flt} setFlt={setFlt} />
+        <FilterRail flt={flt} setFlt={setFlt} allOffers={liveOffers} />
         <div style={{ flex: 1, minWidth: 0 }}>
 
           <div className="tabs" style={{ marginBottom: 16 }}>
@@ -1567,6 +1566,17 @@ function FlightCard({ svc, offer, no: noProp, hideBackRow, onBack, onFormKp, onA
 
   const ticketingDeadline = 'сегодня 18:00';
 
+  const transitionService = async (target, label) => {
+    if (!svc?.id) return;
+    try {
+      const updated = await servicesApi.transition(svc.id, { target_status: target, version: svc.version });
+      svc.version = updated.version;
+      svc.status = updated.status;
+      setStatus(label);
+      toast(`Статус услуги изменён: ${label}`, 'ok');
+    } catch (error) { toast(error.message || 'Не удалось изменить статус услуги', 'err'); }
+  };
+
   const TABS = [
     { key: 'pax', label: 'Пассажиры / билеты', count: svc ? svc.pax : (offer ? 1 : 1) },
     { key: 'segments', label: 'Сегменты' },
@@ -1647,10 +1657,10 @@ function FlightCard({ svc, offer, no: noProp, hideBackRow, onBack, onFormKp, onA
               <Button variant="secondary" icon="briefcase" onClick={() => setAttach('order')}>Добавить в заказ</Button>
             </>)}
 
-            {!free && offered && <Button icon="check" onClick={() => setOpConfirm({ action: 'book', onConfirm: () => { setStatus('Забронировано'); toast('Забронировано, PNR создан', 'ok'); } })}>Забронировать</Button>}
+            {!free && offered && <Button icon="check" onClick={() => setOpConfirm({ action: 'book', onConfirm: () => transitionService('booked', 'Забронировано') })}>Забронировать</Button>}
 
             {booked && (<>
-              <Button icon="ticket" onClick={() => setOpConfirm({ action: 'issue', onConfirm: () => { setStatus('Выписано'); toast('Билет выписан', 'ok'); } })}>Выписать билет</Button>
+              <Button icon="ticket" onClick={() => setOpConfirm({ action: 'issue', onConfirm: () => transitionService('issued', 'Выписано') })}>Выписать билет</Button>
               <Button variant="secondary" icon="briefcase" onClick={() => setExtrasOpen(true)}>Доп. услуги</Button>
               <Button variant="secondary" icon="send" onClick={() => setSendOpen(true)}>Отправить пассажиру</Button>
               <ActionMenu trigger={<button className="btn btn-secondary btn-icon"><Icon name="more" /></button>} items={bookedMenu} />
@@ -1910,14 +1920,14 @@ function FlightCard({ svc, offer, no: noProp, hideBackRow, onBack, onFormKp, onA
 
 
 
-function FlightsRegistry({ onNew, onOpen }) {
+function FlightsRegistry({ onNew, onOpen, onFormKp, onReturn, liveRows = [] }) {
   const [q, setQ] = useState('');
   const [tab, setTab] = useState('all');
   const [fSup, setFSup] = useState('');
   const { sort, onSort, apply } = useSort({ col: 'dep', dir: 'asc' });
 
   const TAB_MAP = { all: null, search: 'Поиск', booked: 'Забронировано', issued: 'Выписано', refund: 'Возврат' };
-  let rows = AIR_SERVICES.filter((r) => {
+  let rows = liveRows.filter((r) => {
     if (TAB_MAP[tab] && r.status !== TAB_MAP[tab]) return false;
     if (fSup && r.supplier !== fSup) return false;
     if (q && !(`${r.no} ${r.route} ${r.supplier} ${r.pnr}`.toLowerCase().includes(q.toLowerCase()))) return false;
@@ -1925,7 +1935,7 @@ function FlightsRegistry({ onNew, onOpen }) {
   });
   rows = apply(rows, { sum: (r) => r.sum, no: (r) => r.no, dep: (r) => r.dep });
 
-  const counts = (st) => AIR_SERVICES.filter((r) => !st || r.status === st).length;
+  const counts = (st) => liveRows.filter((r) => !st || r.status === st).length;
   const TABS = [
     { key: 'all', label: 'Все', count: counts() },
     { key: 'search', label: 'В поиске', count: counts('Поиск') },
@@ -1937,7 +1947,7 @@ function FlightsRegistry({ onNew, onOpen }) {
   return (
     <div className="fade-in">
       <div className="grid-4" style={{ marginBottom: 22 }}>
-        {AIR_STATS.map((s) => (
+        {AIR_STATS.map((s, index) => ({ ...s, value: [liveRows.filter((r) => ['Забронировано', 'Согласование'].includes(r.status)).length, liveRows.filter((r) => r.status === 'Забронировано').length, liveRows.filter((r) => r.status === 'Согласование').length, liveRows.filter((r) => r.status === 'Возврат').length][index] || 0 })).map((s) => (
           <div className="stat-card" key={s.label}>
             <div className="s-label">{s.label}</div>
             <div className="s-value" style={s.tone === 'red' ? { color: 'var(--red)' } : null}>{s.value}</div>
@@ -1950,7 +1960,7 @@ function FlightsRegistry({ onNew, onOpen }) {
         <div style={{ flex: 1 }} />
         <SearchBox value={q} onChange={setQ} placeholder="Поиск: №, маршрут, PNR…" style={{ width: 260 }} />
         <FilterChip label="Поставщик" value={fSup} onChange={setFSup}
-          options={[...new Set(AIR_SERVICES.map((r) => r.supplier))]} />
+          options={[...new Set(liveRows.map((r) => r.supplier))]} />
       </div>
 
       <div className="table-card">
@@ -1970,7 +1980,7 @@ function FlightsRegistry({ onNew, onOpen }) {
                   <td style={{ fontWeight: 600 }}>{r.no}</td>
                   <td>{r.route}</td>
                   <td>{r.pax}</td>
-                  <td><span style={{ display: 'flex', alignItems: 'center', gap: 9 }}><AirlineLogo code={r.airline} size="sm" />{AIRLINES[r.airline].name}</span></td>
+                  <td><span style={{ display: 'flex', alignItems: 'center', gap: 9 }}><AirlineLogo code={r.airline} size="sm" />{AIRLINES[r.airline]?.name || r.airline}</span></td>
                   <td>{r.pnr === '—' ? <span style={{ color: 'var(--muted-2)' }}>—</span> : r.pnr}</td>
                   <td style={{ fontSize: 13 }}>{r.ticket}</td>
                   <td>{r.supplier ? <span className="sup-badge" style={{ marginTop: 0 }}><Icon name="api" />{r.supplier}</span> : <span style={{ color: 'var(--muted-2)' }}>—</span>}</td>
@@ -1979,7 +1989,7 @@ function FlightsRegistry({ onNew, onOpen }) {
                   <td style={{ textAlign: 'right', fontWeight: 600 }}>{r.sum ? money(r.sum, r.currency) : '—'}</td>
                   <td onClick={(e) => e.stopPropagation()}>
                     <ActionMenu trigger={<button className="btn btn-ghost btn-icon btn-sm"><Icon name="more" /></button>}
-                      items={[{ icon: 'eye', label: 'Открыть', onClick: () => onOpen(r) }, { icon: 'template', label: 'В КП' }, { sep: true }, { icon: 'refund', label: 'Возврат / обмен', danger: true }]} />
+                      items={[{ icon: 'eye', label: 'Открыть', onClick: () => onOpen(r) }, { icon: 'template', label: 'В КП', onClick: () => onFormKp(r) }, { sep: true }, { icon: 'refund', label: 'Возврат / обмен', danger: true, onClick: () => onReturn(r) }]} />
                   </td>
                 </tr>
               ))}
@@ -1991,12 +2001,89 @@ function FlightsRegistry({ onNew, onOpen }) {
   );
 }
 
+function liveFlightLeg(segment) {
+  const dep = segment.departure ? new Date(segment.departure) : null;
+  const arr = segment.arrival ? new Date(segment.arrival) : null;
+  const minutes = dep && arr ? Math.max(0, Math.round((arr - dep) / 60000)) : 0;
+  return {
+    from: segment.origin || '—', to: segment.destination || '—',
+    dep: dep ? dep.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' }) : '—',
+    arr: arr ? arr.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' }) : '—',
+    date: dep ? dep.toLocaleDateString('ru-RU', { day: '2-digit', month: 'short' }) : '—',
+    dur: Math.floor(minutes / 60) + 'ч ' + String(minutes % 60).padStart(2, '0') + 'м',
+    stops: 0, stopText: 'Прямой', flightNo: [segment.airline, segment.flight_number].filter(Boolean).join(' '),
+  };
+}
+function liveFlightOffer(offer) {
+  const segment = offer.itinerary?.segments?.[0] || {};
+  return {
+    ...offer, id: offer.id, _backendOfferId: offer.id, airline: segment.airline || 'TK', supplier: offer.provider_adapter || 'Подключённый поставщик',
+    refundable: Boolean(offer.fare?.refundable), baggage: offer.fare?.baggage === '0PC' ? 'Без багажа' : (offer.fare?.baggage || '—'),
+    cabin: offer.fare?.cabin || 'Эконом', fareName: offer.fare?.booking_class ? `Класс ${offer.fare.booking_class}` : 'Доступный тариф',
+    seatsLeft: Number(offer.availability?.seats || 9), out: liveFlightLeg(segment), back: null,
+    fare: Number(offer.price?.amount || 0), fee: 0, currency: offer.price?.currency || 'USD',
+  };
+}
+function serviceFlightRow(item) {
+  const airline = item.title.match(/·\s*([A-Z0-9]{2})\b/)?.[1] || '—';
+  const status = {
+    searching: 'Поиск', proposed: 'Предложение', approval: 'Согласование', booked: 'Забронировано',
+    confirmed: 'Забронировано', issued: 'Выписано', refund_in_progress: 'Возврат', refunded: 'Возврат',
+    cancelled: 'Отменено', failed: 'Ошибка',
+  }[item.status] || item.status;
+  return {
+    ...item,
+    no: `AV-${String(item.id).slice(0, 8).toUpperCase()}`,
+    order: item.order_number || item.order,
+    route: item.title.split('·')[0].trim(),
+    pax: item.passengers_count || 0,
+    airline,
+    pnr: item.external_id || '—',
+    ticket: item.status === 'issued' ? (item.external_id || 'Выписан') : '—',
+    supplier: item.supplier_name || 'Без поставщика',
+    status,
+    sum: Number(item.client_total || 0),
+    currency: item.currency || 'USD',
+    dep: item.starts_at ? new Date(item.starts_at).toLocaleDateString('ru-RU') : '—',
+  };
+}
+async function loadLiveFlightOffers(params) {
+  const created = await servicesApi.search({
+    kind: 'avia', criteria: {
+      origin: params.from, destination: params.to,
+      date: params.depDate instanceof Date ? params.depDate.toISOString().slice(0, 10) : params.depDate || undefined,
+      return_date: params.retDate instanceof Date ? params.retDate.toISOString().slice(0, 10) : params.retDate || undefined,
+      cabin: { 'Эконом': 'economy', 'Бизнес': 'business', 'Первый': 'first' }[params.cabin] || 'economy',
+      passengers: paxTotal(params.pax), currency: 'USD',
+    },
+  });
+  for (let attempt = 0; attempt < 30; attempt += 1) {
+    const status = await servicesApi.searchStatus(created.search_id);
+    if (['completed', 'partial', 'failed', 'cancelled'].includes(status.status)) {
+      if (status.status === 'failed') throw new Error('Поставщики не вернули варианты перелёта');
+      return resultsOf(await servicesApi.offers(created.search_id)).map(liveFlightOffer);
+    }
+    await new Promise((resolve) => setTimeout(resolve, 500));
+  }
+  throw new Error('Поиск занимает больше обычного. Повторите попытку.');
+}
+
 function FlightsPage({ searchIntent, onConsumeSearch }) {
   const [view, setView] = useState(searchIntent ? 'results' : 'registry');
   const [svc, setSvc] = useState(null);
   const [offer, setOffer] = useState(null);
   const [cardNo, setCardNo] = useState(null);
+  const [liveOffers, setLiveOffers] = useState([]);
+  const [registryRows, setRegistryRows] = useState([]);
+  const [searching, setSearching] = useState(!!searchIntent);
   const toast = useToast();
+  useEffect(() => {
+    const controller = new AbortController();
+    servicesApi.list({ kind: 'avia' }, controller.signal)
+      .then((payload) => setRegistryRows(resultsOf(payload).map(serviceFlightRow)))
+      .catch((error) => { if (error.name !== 'AbortError') toast(error.message || 'Не удалось загрузить авиауслуги', 'err'); });
+    return () => controller.abort();
+  }, []);
   const [params, setParams] = useState(() => {
     const base = {
       trip: 'rt', from: 'FRU', to: 'IST', depDate: null, retDate: null,
@@ -2015,7 +2102,33 @@ function FlightsPage({ searchIntent, onConsumeSearch }) {
       cabin: s.cabin || base.cabin,
     };
   });
-  useEffect(() => { if (searchIntent) onConsumeSearch && onConsumeSearch(); }, []);
+  const runSearch = async () => {
+    setView('results'); setSearching(true); setLiveOffers([]);
+    try { setLiveOffers(await loadLiveFlightOffers(params)); }
+    catch (error) { toast(error.message || 'Не удалось выполнить поиск', 'err'); }
+    finally { setSearching(false); }
+  };
+  const formKp = async (service) => {
+    try {
+      const until = new Date(); until.setDate(until.getDate() + 7);
+      const proposal = await proposalsApi.create({
+        order: service.order, type: 'standard', purpose: 'Предложение по авиауслуге', currency: service.currency || 'USD', valid_until: until.toISOString(),
+        variants: [{ name: 'Вариант A', items: [{ service: service.id, title: service.route, description: service.supplier || '', quantity: 1, price_amount: Number(service.sum || 0), price_currency: service.currency || 'USD' }] }],
+      });
+      toast(`КП ${proposal.number} создано в backend`, 'ok');
+    } catch (error) { toast(error.message || 'Не удалось создать КП', 'err'); }
+  };
+  const createReturn = async (service) => {
+    try {
+      const created = await aftersalesApi.create({ order: service.order, service: service.id, type: 'refund', initiator: 'client', currency: service.currency || 'USD' });
+      toast(`Запрос ${created.number} создан в backend`, 'ok');
+    } catch (error) { toast(error.message || 'Не удалось создать запрос на возврат', 'err'); }
+  };
+  useEffect(() => {
+    if (!searchIntent) return;
+    runSearch();
+    onConsumeSearch && onConsumeSearch();
+  }, []);
 
   const TITLES = { registry: 'Авиабилеты', search: 'Поиск авиабилетов', results: 'Результаты поиска', card: 'Авиауслуга' };
 
@@ -2028,14 +2141,14 @@ function FlightsPage({ searchIntent, onConsumeSearch }) {
       </Topbar>
       <div className="content">
         {view === 'registry' && (
-          <FlightsRegistry onNew={() => setView('search')}
+          <FlightsRegistry liveRows={registryRows} onNew={() => setView('search')} onFormKp={formKp} onReturn={createReturn}
             onOpen={(r) => { setSvc(r); setOffer(null); setCardNo(r.no); setView('card'); }} />
         )}
         {view === 'search' && (
-          <FlightSearch params={params} setParams={setParams} onSearch={() => setView('results')} />
+          <FlightSearch params={params} setParams={setParams} onSearch={runSearch} />
         )}
         {view === 'results' && (
-          <FlightResults params={params}
+          <FlightResults params={params} liveOffers={liveOffers} loading={searching}
             onBackToSearch={() => setView('search')}
             onSelect={(o) => { setOffer(o); setSvc(null); setCardNo('AV-' + Math.floor(10000 + Math.random() * 90000)); setView('card'); toast('Предложение добавлено в заказ'); }} />
         )}
@@ -2051,4 +2164,4 @@ Object.assign(window, { FlightsPage, AirlineLogo, FlightSearch, FlightResults, F
 
 
 
-export { AirlineLogo, durMin, money, AirportField, PAX_DEFAULT_OPTIONS, paxTotal, PAX_BASE_TYPES, SPECIAL_PAX_ICONS, SPECIAL_PAX_INFO, SUBSIDIZED_PAX_ICONS, CABIN_ICONS, PAX_OPTION_META, PaxStepper, PaxClassPicker, PaxField, FlightSearch, OfferLeg, OfferCard, FilterRail, CompareModal, FlightResults, SegmentRow, FareRulesInfo, flightStatusFlags, flightPassengers, RefundPanel, ExchangePanel, DOC_TEMPLATES, AGENCY_ENTITIES, DOC_CORR_KINDS, docCorrKind, CORR_FIELDS, corrCur, corrComputed, corrTotal, corrChanges, CorrectionPreview, CorrectionHistoryDrawer, DocCorrectionPanel, SendToPaxDrawer, ATTACH_MODES, AttachFlightDrawer, FlightReceiptDrawer, FlightCard, FlightsRegistry, FlightsPage };
+export { AirlineLogo, durMin, money, AirportField, PAX_DEFAULT_OPTIONS, paxTotal, PAX_BASE_TYPES, SPECIAL_PAX_ICONS, SPECIAL_PAX_INFO, SUBSIDIZED_PAX_ICONS, CABIN_ICONS, PAX_OPTION_META, PaxStepper, PaxClassPicker, PaxField, FlightSearch, OfferLeg, OfferCard, FilterRail, CompareModal, FlightResults, SegmentRow, FareRulesInfo, flightStatusFlags, flightPassengers, RefundPanel, ExchangePanel, DOC_TEMPLATES, AGENCY_ENTITIES, DOC_CORR_KINDS, docCorrKind, CORR_FIELDS, corrCur, corrComputed, corrTotal, corrChanges, CorrectionPreview, CorrectionHistoryDrawer, DocCorrectionPanel, SendToPaxDrawer, ATTACH_MODES, AttachFlightDrawer, FlightReceiptDrawer, FlightCard, FlightsRegistry, liveFlightOffer, loadLiveFlightOffers, FlightsPage };

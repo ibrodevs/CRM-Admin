@@ -12,6 +12,9 @@ import { rub } from './page_avia_picker';
 import { OperationConfirmModal } from './order_ops';
 import { PanelSub, StackPanel } from './components/shared-panels';
 import { kpNow } from './page_offers';
+import { servicesApi } from './api/resources';
+import { resultsOf } from './api/client';
+import { toLegacyOrderService } from './api/legacy-adapters';
 
 
 
@@ -1321,7 +1324,71 @@ function SVC_CFG_TITLE(kind) { const c = Object.values(SVC_CFG).find((x) => x.ki
 
 function svcPriceBounds(offers) {
   const totals = offers.map((o) => o.cost + o.fee);
+  if (!totals.length) return { min: 0, max: 0 };
   return { min: Math.floor(Math.min(...totals)), max: Math.ceil(Math.max(...totals)) };
+}
+
+const BACKEND_SERVICE_KIND = { rail: 'rail', hotels: 'hotel', transfers: 'transfer', buses: 'bus', tours: 'tour', aero: 'aeroexpress', lounge: 'lounge' };
+const isoDate = (value) => value instanceof Date ? value.toISOString().slice(0, 10) : value || undefined;
+function backendCriteria(routeKey, form) {
+  const common = { currency: 'USD' };
+  if (routeKey === 'hotels') return { ...common, location: form.city, check_in: isoDate(form.dates?.s), check_out: isoDate(form.dates?.e), guests: form.guests || 1, rooms: form.rooms || 1, stars: form.stars };
+  if (routeKey === 'tours') return { ...common, destination: form.dest, date: isoDate(form.dates?.s), return_date: isoDate(form.dates?.e), passengers: form.pax || 1, meal_plan: form.board };
+  return { ...common, origin: form.from || form.dir || form.airport, destination: form.to, date: isoDate(form.date || form.dt), return_date: isoDate(form.retDate), passengers: form.pax || 1, class: form.cls };
+}
+function offerDates(itinerary) {
+  const departure = itinerary?.segments?.[0]?.departure;
+  const arrival = itinerary?.segments?.at?.(-1)?.arrival || itinerary?.segments?.[itinerary?.segments?.length - 1]?.arrival;
+  return { departure: departure ? new Date(departure) : null, arrival: arrival ? new Date(arrival) : null };
+}
+function backendOfferCard(offer, routeKey) {
+  const itinerary = offer.itinerary || {};
+  const segment = itinerary.segments?.[0] || {};
+  const { departure, arrival } = offerDates(itinerary);
+  const supplier = offer.provider_adapter || 'Подключённый поставщик';
+  const amount = Number(offer.price?.amount || 0);
+  const title = itinerary.property_name || itinerary.description || [segment.origin, segment.destination].filter(Boolean).join(' → ') || `Вариант ${offer.external_key || ''}`;
+  const sub = itinerary.room || itinerary.city || [segment.airline, segment.flight_number].filter(Boolean).join(' ') || offer.external_key;
+  const info = routeKey === 'hotels'
+    ? [{ l: 'Заезд', v: itinerary.check_in || '—' }, { l: 'Выезд', v: itinerary.check_out || '—' }, { l: 'Питание', v: itinerary.meal_plan || '—' }]
+    : [{ l: 'Отправление', v: departure ? departure.toLocaleString('ru-RU') : '—' }, { l: 'Прибытие', v: arrival ? arrival.toLocaleString('ru-RU') : '—' }];
+  const generic = { ...offer, _backendOfferId: offer.id, title, sub, supplier, cost: amount, fee: 0, currency: offer.price?.currency || 'USD', info, tags: [offer.availability === 'available' ? 'Доступно' : offer.availability, offer.fare?.refundable ? 'Возвратный' : null].filter(Boolean) };
+  if (routeKey !== 'rail') return generic;
+  const fmtTime = (date) => date ? date.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' }) : '—';
+  const fmtDay = (date) => date ? date.toLocaleDateString('ru-RU') : '—';
+  return { ...generic, carrier: segment.carrier || supplier, number: segment.train_number || offer.external_key, name: title, dep: { time: fmtTime(departure), date: fmtDay(departure), city: segment.origin || '—', station: segment.origin || '—' }, arr: { time: fmtTime(arrival), date: fmtDay(arrival), city: segment.destination || '—', station: segment.destination || '—' }, dur: departure && arrival ? Math.max(1, Math.round((arrival - departure) / 3600000)) + ' ч' : '—', stops: 'прямой', priceRub: generic.currency === 'USD' ? Math.round(amount * 90) : amount, cls: offer.fare?.cabin || 'Класс', freeSeats: Number(offer.availability?.seats || 1) };
+}
+function backendServiceRegistryRow(item) {
+  const service = toLegacyOrderService(item);
+  return {
+    ...service,
+    no: `SV-${String(item.id).slice(0, 8).toUpperCase()}`,
+    order: item.order_number || item.order,
+    main: item.title,
+    sub: item.supplier_name || 'Без поставщика',
+    date: item.starts_at ? new Date(item.starts_at).toLocaleDateString('ru-RU') : '—',
+    qty: item.passengers_count || 0,
+    cost: Number(item.supplier_cost || 0),
+    fee: Number(item.agency_fee || 0) + Number(item.markup || 0),
+    sum: Number(item.client_total || 0),
+    supplier: item.supplier_name || 'Без поставщика',
+    info: [
+      { l: 'Заказ', v: item.order_number || item.order },
+      { l: 'Поставщик', v: item.supplier_name || '—' },
+      { l: 'Начало', v: item.starts_at ? new Date(item.starts_at).toLocaleString('ru-RU') : '—' },
+    ],
+  };
+}
+async function waitForBackendOffers(searchId) {
+  for (let attempt = 0; attempt < 30; attempt += 1) {
+    const session = await servicesApi.searchStatus(searchId);
+    if (['completed', 'partial', 'failed', 'cancelled'].includes(session.status)) {
+      if (session.status === 'failed') throw new Error('Поставщики не вернули варианты');
+      return resultsOf(await servicesApi.offers(searchId));
+    }
+    await new Promise((resolve) => setTimeout(resolve, 500));
+  }
+  throw new Error('Поиск занимает больше обычного. Повторите попытку.');
 }
 function SvcFilters({ allOffers, flt, setFlt, bounds, facetLabel }) {
   const suppliers = [...new Set(allOffers.map((o) => o.supplier))];
@@ -1383,24 +1450,46 @@ function ServiceFlow({ routeKey, searchIntent, onConsumeSearch }) {
   const [form, setForm] = useState(searchIntent ? (searchIntent.form || {}) : {});
   const [item, setItem] = useState(null);
   const [loading, setLoading] = useState(!!searchIntent);
+  const [liveOffers, setLiveOffers] = useState([]);
+  const [liveRegistry, setLiveRegistry] = useState([]);
+  useEffect(() => {
+    const controller = new AbortController();
+    servicesApi.list({ kind: BACKEND_SERVICE_KIND[routeKey] }, controller.signal)
+      .then((payload) => setLiveRegistry(resultsOf(payload).map(backendServiceRegistryRow)))
+      .catch((error) => { if (error.name !== 'AbortError') toast(error.message || 'Не удалось загрузить реестр услуг', 'err'); });
+    return () => controller.abort();
+  }, [routeKey]);
   useEffect(() => {
     if (!searchIntent) return;
-    const t = setTimeout(() => setLoading(false), 700);
+    performSearch(searchIntent.form || {});
     onConsumeSearch && onConsumeSearch();
-    return () => clearTimeout(t);
   }, []);
   const [sort, setSort] = useState('best');
   const [q, setQ] = useState('');
   const [fStatus, setFStatus] = useState('');
-  const bounds = svcPriceBounds(data.offers);
+  const allOffers = liveOffers;
+  const bounds = svcPriceBounds(allOffers);
   const [flt, setFlt] = useState({ sup: [], tags: [], priceMax: bounds.max });
   const setF = (key, val) => setForm((f) => ({ ...f, [key]: val }));
 
   const TITLES = { registry: cfg.title, search: cfg.searchTitle, results: 'Результаты поиска', card: cfg.title };
 
-  const runSearch = () => { setView('results'); setLoading(true); setTimeout(() => setLoading(false), 900); };
+  const performSearch = async (criteriaForm = form) => {
+    setView('results'); setLoading(true); setLiveOffers([]);
+    try {
+      const created = await servicesApi.search({ kind: BACKEND_SERVICE_KIND[routeKey], criteria: backendCriteria(routeKey, criteriaForm) });
+      const offers = (await waitForBackendOffers(created.search_id)).map((offer) => backendOfferCard(offer, routeKey));
+      setLiveOffers(offers);
+      const nextBounds = svcPriceBounds(offers);
+      setFlt({ sup: [], tags: [], priceMax: nextBounds.max });
+    } catch (error) {
+      setLiveOffers([]);
+      toast(error.message || 'Не удалось выполнить поиск', 'err');
+    } finally { setLoading(false); }
+  };
+  const runSearch = () => performSearch(form);
 
-  let offers = data.offers.filter((o) => {
+  let offers = allOffers.filter((o) => {
     if (flt.priceMax != null && (o.cost + o.fee) > flt.priceMax) return false;
     if (flt.sup.length && !flt.sup.includes(o.supplier)) return false;
     if (flt.tags.length && !(o.tags || []).some((t) => flt.tags.includes(t))) return false;
@@ -1409,7 +1498,7 @@ function ServiceFlow({ routeKey, searchIntent, onConsumeSearch }) {
   if (sort === 'cheap') offers = [...offers].sort((a, b) => (a.cost + a.fee) - (b.cost + b.fee));
   if (sort === 'pricey') offers = [...offers].sort((a, b) => (b.cost + b.fee) - (a.cost + a.fee));
 
-  let rows = data.registry.filter((r) => (!fStatus || r.status === fStatus) && (!q || `${r.no} ${r.main} ${r.order}`.toLowerCase().includes(q.toLowerCase())));
+  let rows = liveRegistry.filter((r) => (!fStatus || r.status === fStatus) && (!q || `${r.no} ${r.main} ${r.order}`.toLowerCase().includes(q.toLowerCase())));
 
   return (
     <>
@@ -1423,7 +1512,7 @@ function ServiceFlow({ routeKey, searchIntent, onConsumeSearch }) {
           <div className="fade-in">
             <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16, flexWrap: 'wrap' }}>
               <SearchBox value={q} onChange={setQ} placeholder="Поиск: №, маршрут, заказ…" style={{ width: 280 }} />
-              <FilterChip label="Статус" value={fStatus} onChange={setFStatus} options={[...new Set(data.registry.map((r) => r.status))]} />
+              <FilterChip label="Статус" value={fStatus} onChange={setFStatus} options={[...new Set(liveRegistry.map((r) => r.status))]} />
             </div>
             <div className="table-card">
               {rows.length ? (
@@ -1473,7 +1562,7 @@ function ServiceFlow({ routeKey, searchIntent, onConsumeSearch }) {
               <span style={{ color: 'var(--muted)', fontSize: 14 }}>{loading ? 'Поиск…' : `Найдено ${offers.length}`}</span>
             </div>
             <div className="hp-layout">
-              <SvcFilters allOffers={data.offers} flt={flt} setFlt={setFlt} bounds={bounds} facetLabel={cfg.kind === 'ЖД' ? 'Класс и условия' : 'Особенности'} />
+              <SvcFilters allOffers={allOffers} flt={flt} setFlt={setFlt} bounds={bounds} facetLabel={cfg.kind === 'ЖД' ? 'Класс и условия' : 'Особенности'} />
               <div>
                 {loading
                   ? [0, 1, 2].map((i) => (<div key={i} className="off-card" style={{ marginBottom: 14 }}><div className="off-main"><div className="sk" style={{ height: 44, width: '55%' }} /><div className="sk" style={{ height: 26, width: '85%' }} /></div><div className="off-side"><div className="sk" style={{ height: 56 }} /></div></div>))
@@ -1503,13 +1592,29 @@ function ServiceAddFlow({ routeKey, onAdd }) {
   const [view, setView] = useState('search');
   const [form, setForm] = useState({});
   const [loading, setLoading] = useState(false);
+  const [liveOffers, setLiveOffers] = useState([]);
   const [sort, setSort] = useState('best');
-  const bounds = svcPriceBounds(data.offers);
+  const bounds = svcPriceBounds(liveOffers);
   const [flt, setFlt] = useState({ sup: [], tags: [], priceMax: bounds.max });
   const setF = (k, v) => setForm((f) => ({ ...f, [k]: v }));
-  const runSearch = () => { setView('results'); setLoading(true); setTimeout(() => setLoading(false), 800); };
+  const runSearch = async () => {
+    setView('results');
+    setLoading(true);
+    setLiveOffers([]);
+    try {
+      const created = await servicesApi.search({ kind: BACKEND_SERVICE_KIND[routeKey], criteria: backendCriteria(routeKey, form) });
+      const found = (await waitForBackendOffers(created.search_id)).map((offer) => backendOfferCard(offer, routeKey));
+      setLiveOffers(found);
+      const nextBounds = svcPriceBounds(found);
+      setFlt({ sup: [], tags: [], priceMax: nextBounds.max });
+    } catch (error) {
+      toast(error.message || 'Не удалось выполнить поиск', 'err');
+    } finally {
+      setLoading(false);
+    }
+  };
 
-  let offers = data.offers.filter((o) => {
+  let offers = liveOffers.filter((o) => {
     if (flt.priceMax != null && (o.cost + o.fee) > flt.priceMax) return false;
     if (flt.sup.length && !flt.sup.includes(o.supplier)) return false;
     if (flt.tags.length && !(o.tags || []).some((t) => flt.tags.includes(t))) return false;
@@ -1555,7 +1660,7 @@ function ServiceAddFlow({ routeKey, onAdd }) {
             <div style={{ flex: 1 }} /><span style={{ color: 'var(--muted)', fontSize: 14, alignSelf: 'center' }}>{loading ? 'Поиск…' : `Найдено ${offers.length}`}</span>
           </div>
           <div className="hp-layout">
-            <SvcFilters allOffers={data.offers} flt={flt} setFlt={setFlt} bounds={bounds} facetLabel={cfg.kind === 'ЖД' ? 'Класс и условия' : 'Особенности'} />
+            <SvcFilters allOffers={liveOffers} flt={flt} setFlt={setFlt} bounds={bounds} facetLabel={cfg.kind === 'ЖД' ? 'Класс и условия' : 'Особенности'} />
             <div>
               {loading
                 ? [0, 1, 2].map((i) => (<div key={i} className="off-card" style={{ marginBottom: 14 }}><div className="off-main"><div className="sk" style={{ height: 44, width: '55%' }} /><div className="sk" style={{ height: 26, width: '85%' }} /></div><div className="off-side"><div className="sk" style={{ height: 56 }} /></div></div>))
@@ -1584,9 +1689,18 @@ function AeroAddFlow({ onAdd }) {
   const [start, setStart] = useState(null);
   const [pax, setPax] = useState(1);
   const [loading, setLoading] = useState(false);
-  const runSearch = () => { setView('results'); setLoading(true); setTimeout(() => setLoading(false), 800); };
+  const [liveOffers, setLiveOffers] = useState([]);
+  const runSearch = async () => {
+    setView('results'); setLoading(true); setLiveOffers([]);
+    try {
+      const created = await servicesApi.search({ kind: 'aeroexpress', criteria: { origin: dir, destination: dir, date: isoDate(date || start), return_date: isoDate(retDate), passengers: pax, fare_type: fare, currency: 'RUB' } });
+      setLiveOffers((await waitForBackendOffers(created.search_id)).map((offer) => backendOfferCard(offer, 'aero')));
+    } catch (error) {
+      toast(error.message || 'Не удалось выполнить поиск Аэроэкспресса', 'err');
+    } finally { setLoading(false); }
+  };
 
-  const offers = data.offers.filter((o) => o.fareType === fare);
+  const offers = liveOffers;
   const fareLabel = (AERO_FARES.find(([k]) => k === fare) || [])[1];
 
   const addOffer = (o) => {
@@ -1723,9 +1837,9 @@ function RailOfferCard({ o, onSelect }) {
 }
 
 
-function RailFilters({ flt, setFlt, bounds }) {
-  const carriers = [...new Set(SVC_DATA.rail.offers.map((o) => o.carrier))];
-  const classes = [...new Set(SVC_DATA.rail.offers.map((o) => o.cls))];
+function RailFilters({ flt, setFlt, bounds, offers = [] }) {
+  const carriers = [...new Set(offers.map((o) => o.carrier))];
+  const classes = [...new Set(offers.map((o) => o.cls))];
   const tg = (key, val) => setFlt((f) => ({ ...f, [key]: f[key].includes(val) ? f[key].filter((x) => x !== val) : [...f[key], val] }));
   const selCount = flt.times.length + flt.classes.length + flt.carriers.length + (flt.trainNo && flt.trainNo.trim() ? 1 : 0) + ((flt.priceMax != null && flt.priceMax < bounds.max) ? 1 : 0);
   return (
@@ -1769,14 +1883,28 @@ const railTimeBucket = (t) => { const h = +(t || '0').split(':')[0]; return h < 
 
 function RailAddFlow({ participants = [], groups, onAdd }) {
   const toast = useToast();
-  const offersAll = SVC_DATA.rail.offers;
-  const bounds = { min: Math.floor(Math.min(...offersAll.map((o) => o.priceRub))), max: Math.ceil(Math.max(...offersAll.map((o) => o.priceRub))) };
+  const [offersAll, setOffersAll] = useState([]);
+  const prices = offersAll.map((o) => o.priceRub);
+  const bounds = prices.length ? { min: Math.floor(Math.min(...prices)), max: Math.ceil(Math.max(...prices)) } : { min: 0, max: 0 };
+  const [loading, setLoading] = useState(false);
   const [form, setForm] = useState({ trip: 'ow', from: 'Москва', to: 'Санкт-Петербург', dep: null, ret: null, pax: Math.max(1, participants.length) });
   const [sort, setSort] = useState('best');
   const [flt, setFlt] = useState({ priceMax: bounds.max, times: [], classes: [], carriers: [], trainNo: '' });
   const [seatOffer, setSeatOffer] = useState(null);
   const setF = (k, v) => setForm((f) => ({ ...f, [k]: v }));
   const swap = () => setForm((f) => ({ ...f, from: f.to, to: f.from }));
+  const runSearch = async () => {
+    setLoading(true); setOffersAll([]);
+    try {
+      const created = await servicesApi.search({ kind: 'rail', criteria: { origin: form.from, destination: form.to, date: isoDate(form.dep), return_date: isoDate(form.ret), passengers: form.pax, currency: 'USD' } });
+      const found = (await waitForBackendOffers(created.search_id)).map((offer) => backendOfferCard(offer, 'rail'));
+      setOffersAll(found);
+      const next = found.map((offer) => offer.priceRub);
+      setFlt((current) => ({ ...current, priceMax: next.length ? Math.max(...next) : 0, classes: [], carriers: [] }));
+    } catch (error) {
+      toast(error.message || 'Не удалось выполнить поиск поездов', 'err');
+    } finally { setLoading(false); }
+  };
 
   const trainNoMatch = (o, q) => { const n = q.replace(/\s+/g, '').toLowerCase(); return `${o.number} ${o.name}`.replace(/\s+/g, '').toLowerCase().includes(n); };
   let offers = offersAll.filter((o) => {
@@ -1819,7 +1947,7 @@ function RailAddFlow({ participants = [], groups, onAdd }) {
             <button className="btn btn-secondary btn-icon btn-sm" onClick={() => setF('pax', form.pax + 1)}>+</button>
           </div>
         </div>
-        <Button icon="search" style={{ height: 46, marginBottom: 0 }} onClick={() => toast('Поиск обновлён по подключённым поставщикам', 'info')}>Найти</Button>
+        <Button icon="search" style={{ height: 46, marginBottom: 0 }} onClick={runSearch}>Найти</Button>
       </div>
 
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, margin: '16px 0 14px' }}>
@@ -1829,11 +1957,11 @@ function RailAddFlow({ participants = [], groups, onAdd }) {
           ))}
         </div>
         <div style={{ flex: 1 }} />
-        <span style={{ color: 'var(--muted)', fontSize: 14 }}>Результаты поиска ({offers.length})</span>
+        <span style={{ color: 'var(--muted)', fontSize: 14 }}>{loading ? 'Поиск…' : `Результаты поиска (${offers.length})`}</span>
       </div>
 
       <div className="hp-layout">
-        <RailFilters flt={flt} setFlt={setFlt} bounds={bounds} />
+        <RailFilters flt={flt} setFlt={setFlt} bounds={bounds} offers={offersAll} />
         <div style={{ minWidth: 0 }}>
           {offers.length ? offers.map((o) => <RailOfferCard key={o.id} o={o} onSelect={setSeatOffer} />)
             : <EmptyState icon="train" title="Нет поездов по фильтрам" sub="Смягчите условия фильтрации слева" />}

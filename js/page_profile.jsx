@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Icon } from './icons';
 import { Avatar, Button, Checkbox, Drawer, Field, Input, Pill, Select, Tabs, Toggle, useToast } from './ui';
 import { UFDateField } from './forms_unified';
@@ -8,6 +8,9 @@ import { Topbar } from './layout';
 import { RolesTab } from './page_settings';
 import { MotivationDrawer, motivationFor, shiftDuration, shiftFmtTime } from './page_shifts';
 import { ServiceAccessEditor } from './features/settings/service-access-editor';
+import { accountApi } from './api/resources';
+import { toUiUser } from './api/adapters';
+import { useAuth } from './core/auth-context';
 
 
 
@@ -139,9 +142,10 @@ function ProfileWorkTime({ operator }) {
   );
 }
 
-function ProfilePage({ onNavigate, initialTab }) {
+function ProfilePage({ user, onNavigate, initialTab }) {
   const toast = useToast();
-  const u = CURRENT_USER;
+  const auth = useAuth();
+  const u = user || auth.user || CURRENT_USER;
   const [tab, setTab] = useState(initialTab || 'profile');
   const [pf, setPf] = useState({ ...u });
   const [pw, setPw] = useState({ cur: '', next: '', confirm: '' });
@@ -149,17 +153,92 @@ function ProfilePage({ onNavigate, initialTab }) {
   const [pwErr, setPwErr] = useState({});
   const [notif, setNotif] = useState({ incrm: true, email: true, telegram: true, max: true, whatsapp: false, sms: false, push: true, desktop: false, newReq: true, exchRet: true, overdue: true, chat: true, orderChg: false });
   const [rolesOpen, setRolesOpen] = useState(false);
+  const [devices, setDevices] = useState([]);
+  const [saving, setSaving] = useState(false);
   const [prefs, setPrefs] = useState({ theme: 'Светлая', dateFmt: 'ДД.ММ.ГГГГ', timeFmt: '24 часа', currency: 'USD', lang: u.lang, pageSize: '25', startPage: 'Главное' });
 
+  useEffect(() => { setPf({ ...u }); }, [u.id]);
+  useEffect(() => {
+    const controller = new AbortController();
+    Promise.all([accountApi.preferences(controller.signal), accountApi.sessions(controller.signal)])
+      .then(([preference, sessions]) => {
+        setPrefs({
+          theme: { light: 'Светлая', dark: 'Тёмная', system: 'Системная' }[preference.theme] || 'Светлая',
+          dateFmt: preference.date_format || 'ДД.ММ.ГГГГ', timeFmt: preference.time_format || '24 часа',
+          currency: preference.base_currency || 'USD',
+          lang: { ru: 'Русский', ky: 'Кыргызча', en: 'English' }[preference.language] || 'Русский',
+          pageSize: String(preference.page_size || 25), startPage: preference.start_page || 'Главное',
+        });
+        setNotif((current) => ({ ...current, ...(preference.notification_channels || {}), ...(preference.notification_categories || {}) }));
+        setDevices(sessions.results || []);
+      })
+      .catch((error) => { if (error.name !== 'AbortError') toast(error.message, 'err'); });
+    return () => controller.abort();
+  }, []);
+
   const setField = (k) => (e) => setPf((p) => ({ ...p, [k]: e.target.value }));
-  const savePassword = () => {
+  const savePassword = async () => {
     const er = {};
     if (!pw.cur) er.cur = 'Введите текущий пароль';
-    if (!pw.next) er.next = 'Введите новый пароль'; else if (pw.next.length < 6) er.next = 'Минимум 6 символов';
+    if (!pw.next) er.next = 'Введите новый пароль'; else if (pw.next.length < 10) er.next = 'Минимум 10 символов';
     if (pw.confirm !== pw.next) er.confirm = 'Пароли не совпадают';
     setPwErr(er);
     if (Object.keys(er).length) { toast('Проверьте поля формы', 'err'); return; }
-    setPw({ cur: '', next: '', confirm: '' }); toast('Пароль изменён', 'ok');
+    setSaving(true);
+    try {
+      await accountApi.changePassword(pw.cur, pw.next);
+      setPw({ cur: '', next: '', confirm: '' }); toast('Пароль изменён. Другие сессии завершены.', 'ok');
+    } catch (error) { toast(error.message, 'err'); }
+    finally { setSaving(false); }
+  };
+
+  const saveProfile = async () => {
+    const [lastName = '', firstName = '', ...middle] = pf.name.trim().split(/\s+/);
+    setSaving(true);
+    try {
+      const updated = await accountApi.updateMe({
+        last_name: lastName, first_name: firstName, middle_name: middle.join(' '),
+        work_phone: pf.workPhone, internal_phone: pf.internalPhone, telegram: pf.telegram,
+        timezone: pf.tz.includes('Москва') ? 'Europe/Moscow' : pf.tz.includes('Ташкент') ? 'Asia/Tashkent' : 'Asia/Bishkek',
+        language: { 'Русский': 'ru', 'Кыргызча': 'ky', English: 'en' }[pf.lang] || 'ru',
+        work_status: { 'Работает': 'working', 'Отпуск': 'vacation', 'Больничный': 'sick_leave', 'Выходной': 'day_off' }[pf.workStatus] || 'working',
+      });
+      setPf(toUiUser(updated));
+      await auth.refreshSession();
+      toast('Профиль сохранён', 'ok');
+    } catch (error) { toast(error.message, 'err'); }
+    finally { setSaving(false); }
+  };
+
+  const savePreferences = async () => {
+    setSaving(true);
+    try {
+      await accountApi.updatePreferences({
+        theme: { 'Светлая': 'light', 'Тёмная': 'dark', 'Системная': 'system' }[prefs.theme],
+        date_format: prefs.dateFmt, time_format: prefs.timeFmt, base_currency: prefs.currency,
+        language: { 'Русский': 'ru', 'Кыргызча': 'ky', English: 'en' }[prefs.lang],
+        page_size: Number(prefs.pageSize), start_page: prefs.startPage,
+        notification_channels: notif, notification_categories: notif,
+      });
+      toast('Предпочтения сохранены', 'ok');
+    } catch (error) { toast(error.message, 'err'); }
+    finally { setSaving(false); }
+  };
+
+  const revokeSession = async (id) => {
+    try {
+      await accountApi.revokeSession(id);
+      setDevices((current) => current.filter((item) => item.id !== id));
+      toast('Сессия завершена', 'ok');
+    } catch (error) { toast(error.message, 'err'); }
+  };
+
+  const logoutOtherSessions = async () => {
+    try {
+      await accountApi.logoutAll();
+      setDevices((current) => current.filter((item) => item.is_current));
+      toast('Завершены все сессии кроме текущей', 'ok');
+    } catch (error) { toast(error.message, 'err'); }
   };
 
   const TABS = [
@@ -169,11 +248,6 @@ function ProfilePage({ onNavigate, initialTab }) {
     { key: 'stats', label: 'Статистика' }, { key: 'worktime', label: 'Рабочее время' },
   ];
 
-  const devices = [
-    { name: 'MacBook Pro · Chrome', place: 'Бишкек, KG', last: 'Сейчас', current: true },
-    { name: 'iPhone 15 · Safari', place: 'Бишкек, KG', last: '2 ч назад', current: false },
-    { name: 'Windows · Edge', place: 'Ош, KG', last: 'Вчера, 19:20', current: false },
-  ];
   const logins = [
     { time: 'Сегодня, 09:14', ip: '212.42.100.7', place: 'Бишкек, KG', ok: true },
     { time: 'Вчера, 18:02', ip: '212.42.100.7', place: 'Бишкек, KG', ok: true },
@@ -240,7 +314,7 @@ function ProfilePage({ onNavigate, initialTab }) {
               <Field label="Язык интерфейса"><Select options={['Русский', 'Кыргызча', 'English']} value={pf.lang} onChange={setField('lang')} /></Field>
             </div>
             <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 22 }}>
-              <Button variant="primary" onClick={() => toast('Профиль сохранён', 'ok')}>Сохранить изменения</Button>
+              <Button variant="primary" onClick={saveProfile} disabled={saving}>{saving ? 'Сохранение…' : 'Сохранить изменения'}</Button>
             </div>
           </div>
         )}
@@ -254,7 +328,7 @@ function ProfilePage({ onNavigate, initialTab }) {
                 <Field label="Текущий пароль" error={pwErr.cur}><Input type={showPw ? 'text' : 'password'} value={pw.cur} onChange={(e) => setPw((p) => ({ ...p, cur: e.target.value }))} error={pwErr.cur} trailIcon={showPw ? 'eyeOff' : 'eye'} onTrail={() => setShowPw((s) => !s)} placeholder="••••••••" /></Field>
                 <Field label="Новый пароль" error={pwErr.next}><Input type={showPw ? 'text' : 'password'} value={pw.next} onChange={(e) => setPw((p) => ({ ...p, next: e.target.value }))} error={pwErr.next} placeholder="Минимум 6 символов" /></Field>
                 <Field label="Подтвердите пароль" error={pwErr.confirm}><Input type={showPw ? 'text' : 'password'} value={pw.confirm} onChange={(e) => setPw((p) => ({ ...p, confirm: e.target.value }))} error={pwErr.confirm} placeholder="Повторите новый пароль" /></Field>
-                <Button variant="primary" onClick={savePassword} style={{ alignSelf: 'flex-start' }}>Изменить пароль</Button>
+                <Button variant="primary" onClick={savePassword} disabled={saving} style={{ alignSelf: 'flex-start' }}>Изменить пароль</Button>
               </div>
               <div style={{ borderTop: '1px solid var(--line)', marginTop: 22, paddingTop: 18, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                 <div><div style={{ fontWeight: 600, color: 'var(--ink)' }}>Двухфакторная аутентификация</div><div className="hint">Подтверждение входа через приложение</div></div>
@@ -265,14 +339,14 @@ function ProfilePage({ onNavigate, initialTab }) {
               <div className="card card-pad">
                 <div style={{ display: 'flex', alignItems: 'center', marginBottom: 12 }}>
                   <h3 className="card-title" style={{ fontSize: 16, margin: 0, flex: 1 }}>Активные устройства</h3>
-                  <Button variant="secondary" size="sm" icon="logout" onClick={() => toast('Завершены все сессии кроме текущей', 'ok')}>Выйти со всех</Button>
+                  <Button variant="secondary" size="sm" icon="logout" onClick={logoutOtherSessions}>Выйти со всех</Button>
                 </div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                  {devices.map((d, i) => (
-                    <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 12px', borderRadius: 10, border: '1px solid var(--field-line)' }}>
+                  {devices.map((d) => (
+                    <div key={d.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 12px', borderRadius: 10, border: '1px solid var(--field-line)' }}>
                       <Icon name="grid" style={{ width: 18, height: 18, color: 'var(--muted)' }} />
-                      <div style={{ flex: 1 }}><div style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink)' }}>{d.name}</div><div style={{ fontSize: 12, color: 'var(--muted)' }}>{d.place} · {d.last}</div></div>
-                      {d.current ? <Pill tone="green">Текущее</Pill> : <button className="icon-btn" onClick={() => toast('Сессия завершена', 'ok')}><Icon name="x" /></button>}
+                      <div style={{ flex: 1 }}><div style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink)' }}>{d.user_agent || 'Неизвестное устройство'}</div><div style={{ fontSize: 12, color: 'var(--muted)' }}>{d.ip_address || 'IP не определён'} · {d.last_seen_at ? new Date(d.last_seen_at).toLocaleString('ru-RU') : '—'}</div></div>
+                      {d.is_current ? <Pill tone="green">Текущее</Pill> : <button className="icon-btn" onClick={() => revokeSession(d.id)}><Icon name="x" /></button>}
                     </div>
                   ))}
                 </div>
@@ -372,7 +446,7 @@ function ProfilePage({ onNavigate, initialTab }) {
               <Field label="Стартовая страница после входа"><Select options={['Главное', 'Заказы', 'Оформление', 'Чаты']} value={prefs.startPage} onChange={(e) => setPrefs((p) => ({ ...p, startPage: e.target.value }))} /></Field>
             </div>
             <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 20 }}>
-              <Button variant="primary" onClick={() => toast('Предпочтения сохранены', 'ok')}>Сохранить</Button>
+              <Button variant="primary" onClick={savePreferences} disabled={saving}>{saving ? 'Сохранение…' : 'Сохранить'}</Button>
             </div>
           </div>
         )}

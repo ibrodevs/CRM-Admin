@@ -1,11 +1,13 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Icon } from './icons';
 import { Button, DateRangeField, Drawer, FilterChip, Pill, useToast } from './ui';
 import { CURRENT_USER, ORDER_STATUS, SERVICE_KIND } from './data';
 import { TRIPS, TRIP_CRIT, TRIP_NOW, controlCenterFeed, critMax, crossTripConflicts, trDay, trDayTime, trHumanIn, trSameDay, trStartOfDay, trTime, tripConflicts, tripCriticality, tripEvents, tripFilterSets, tripForceMajeures, tripUnpaid } from './data/trips';
 import { Topbar } from './layout';
 import { ServiceCardSendPanel } from './page_services';
-import { CAL_EVENT_TYPES, CalDayMenu, CalEventChip, CalEventCreator, CalEventPanel, calEventsOn } from './page_calendar_events';
+import { CAL_EVENT_TYPES, CalDayMenu, CalEventChip, CalEventCreator, CalEventPanel, calEventsOn, calendarEventToUi, hydrateCalendarEvents } from './page_calendar_events';
+import { calendarApi, ordersApi } from './api/resources';
+import { toUiOrder } from './api/adapters';
 
 
 
@@ -539,12 +541,32 @@ function DashDetailEmptyLite({ title }) {
 }
 
 
-function TripCalendarPage({ role, onOpenOrder }) {
+function TripCalendarPage({ role, feed, orders = [], clients = [], companies = [], users = [], onOpenOrder }) {
+  const sourceTrips = Array.isArray(feed?.trips) ? feed.trips.map((item) => {
+    const order = orders.find((entry) => entry.id === item.order);
+    return {
+      ...item, id: item.id, orderNo: item.order_number, client: order?.client || '—', company: order?.client || '—',
+      operator: order?.operator || '—', status: item.status, routeLabel: item.title,
+      start: new Date(item.starts_at), end: new Date(item.ends_at || item.starts_at), criticality: item.criticality || 'info',
+      isGroup: order?.requestType === 'Групповая', pax: 0, paxNames: [], services: [], fm: [], docs: [],
+    };
+  }) : TRIPS;
+  const calendarNow = sourceTrips[0]?.start || new Date();
   const [view, setView] = useState('day');
   const [control, setControl] = useState(false);
-  const [anchor, setAnchor] = useState(new Date(TRIP_NOW));
-  const [dateFrom, setDateFrom] = useState(new Date(TRIP_NOW));
-  const [dateTo, setDateTo] = useState(new Date(TRIP_NOW));
+  const [anchor, setAnchor] = useState(new Date(calendarNow));
+  const [dateFrom, setDateFrom] = useState(new Date(calendarNow));
+  const [dateTo, setDateTo] = useState(new Date(calendarNow));
+  useEffect(() => {
+    if (!feed?.trips?.length) return;
+    const first = new Date(feed.trips[0].starts_at);
+    setAnchor(first); setDateFrom(first); setDateTo(first);
+  }, [feed]);
+  useEffect(() => {
+    window.CALENDAR_ORDERS = orders;
+    hydrateCalendarEvents(feed?.events || [], orders, users);
+    setEvtTick((value) => value + 1);
+  }, [feed?.events, orders, users]);
   const [sel, setSel] = useState(null);
   const [dayMenu, setDayMenu] = useState(null);
   const [creator, setCreator] = useState(null);
@@ -554,10 +576,10 @@ function TripCalendarPage({ role, onOpenOrder }) {
   const [f, setF] = useState({ scope: 'all', operator: '', company: '', client: '', kind: '', supplier: '', status: '', onlyFm: false, onlyConflict: false, onlyUnpaid: false, onlyToday: false });
   const openDayMenu = (day, e) => setDayMenu({ day, pos: { x: (e && e.clientX) || 200, y: (e && e.clientY) || 200 } });
   const openDayList = (day, e, dayTrips, dayEvents) => setDayList({ day, pos: { x: (e && e.clientX) || 200, y: (e && e.clientY) || 200 }, trips: dayTrips, events: dayEvents });
-  const sets = tripFilterSets(TRIPS);
+  const sets = tripFilterSets(sourceTrips);
   const me = (typeof CURRENT_USER !== 'undefined' && CURRENT_USER.name) || 'Даниель';
 
-  const trips = TRIPS.filter((t) => {
+  const trips = sourceTrips.filter((t) => {
     if (f.scope === 'my' && t.operator !== me && !me.startsWith(t.operator) && !t.operator.startsWith(me.split(' ')[0])) return false;
     if (f.operator && t.operator !== f.operator) return false;
     if (f.company && t.company !== f.company) return false;
@@ -568,7 +590,7 @@ function TripCalendarPage({ role, onOpenOrder }) {
     if (f.onlyFm && tripForceMajeures(t).length === 0) return false;
     if (f.onlyConflict && tripConflicts(t).length === 0) return false;
     if (f.onlyUnpaid && !tripUnpaid(t)) return false;
-    if (f.onlyToday && !tcTripActiveOn(t, TRIP_NOW)) return false;
+    if (f.onlyToday && !tcTripActiveOn(t, calendarNow)) return false;
     if (!tcTripActiveInRange(t, dateFrom, dateTo)) return false;
     return true;
   });
@@ -585,7 +607,7 @@ function TripCalendarPage({ role, onOpenOrder }) {
     }
   };
   const setCalendarRange = (from, to) => {
-    const start = from || to || new Date(TRIP_NOW);
+    const start = from || to || new Date(calendarNow);
     setDateFrom(start);
     setDateTo(to || start);
     setAnchor(start);
@@ -604,7 +626,7 @@ function TripCalendarPage({ role, onOpenOrder }) {
     setDateTo(anchor);
   };
   const goToday = () => {
-    const today = new Date(TRIP_NOW);
+    const today = new Date(calendarNow);
     setAnchor(today); setDateFrom(today); setDateTo(today);
   };
   const rangeLabel = () => {
@@ -617,6 +639,36 @@ function TripCalendarPage({ role, onOpenOrder }) {
   trips.forEach((t) => { if (tripForceMajeures(t).length) counts.fm++; if (tripConflicts(t).length) counts.conf++; if (tripUnpaid(t)) counts.unpaid++; if (tripCriticality(t) === 'critical') counts.crit++; });
 
   const toggle = (key) => setF((s) => ({ ...s, [key]: !s[key] }));
+  const persistCalendarEvent = async (event) => {
+    const kind = { order: 'order_trip', reminder: 'reminder', task: 'task', control: 'control' }[event.type] || event.type;
+    let linkedOrder = orders.find((item) => item.no === event.order);
+    if (event.type === 'order' && !linkedOrder) {
+      const selectedName = event.form.contact || event.form.pax;
+      const client = clients.find((item) => item.name === selectedName);
+      const company = companies.find((item) => item.name === selectedName);
+      if (!client && !company) throw new Error('Выберите клиента или существующий заказ');
+      const createdOrder = await ordersApi.create({
+        request_type: 'individual', client_person: client?.id || null, client_company: company?.id || null,
+        planned_start: event.date.toISOString().slice(0, 10),
+        planned_end: event.endStr ? event.endStr.split('.').reverse().join('-') : null,
+        purpose: event.form.direction || 'Поездка из календаря', base_currency: 'USD', source: 'calendar',
+      });
+      linkedOrder = toUiOrder(createdOrder);
+      window.__addOrder && window.__addOrder(linkedOrder);
+    }
+    const assignee = users.find((user) => (user.full_name || user.name) === event.resp);
+    const priority = { 'Высокий': 'high', 'Средний': 'normal', 'Низкий': 'low' }[event.form?.priority || event.priority] || 'normal';
+    const saved = await calendarApi.createEvent({
+      kind, title: event.title || (linkedOrder ? `Заказ № ${linkedOrder.no}` : 'Событие календаря'),
+      description: event.comment || '', starts_at: event.date.toISOString(),
+      ends_at: event.endStr ? new Date(event.endStr.split('.').reverse().join('-') + 'T23:59:00').toISOString() : null,
+      timezone: Intl.DateTimeFormat().resolvedOptions().timeZone, order: linkedOrder?.id || null,
+      assignee: assignee?.id || null, scope: event.scope === 'На весь заказ' ? 'tenant' : event.scope?.includes('Группе') ? 'team' : 'personal',
+      priority, notification_method: event.form?.notify || event.notify || '', recurrence_rule: event.repeat === 'Не повторять' ? '' : event.repeat || '',
+      criterion: event.criterion || '', action_on_problem: event.actionOnProblem || '',
+    });
+    return calendarEventToUi(saved, linkedOrder ? [linkedOrder, ...orders] : orders, users);
+  };
 
   return (
     <>
@@ -687,9 +739,11 @@ function TripCalendarPage({ role, onOpenOrder }) {
         onOpenTrip={(t) => { setDayList(null); setSel(t); }}
         onOpenEvent={(ev) => { setDayList(null); setEvtSel(ev); }}
         onOpenDayView={() => { setAnchor(new Date(dayList.day)); setView('day'); setControl(false); setDayList(null); }} />}
-      {creator && <CalEventCreator type={creator.type} day={creator.day} onClose={() => setCreator(null)}
+      {creator && <CalEventCreator type={creator.type} day={creator.day} orders={orders} clients={clients} users={users} onPersist={persistCalendarEvent} onClose={() => setCreator(null)}
         onCreated={(ev) => { setEvtTick((t) => t + 1); setEvtSel(ev); }} />}
-      {evtSel && <CalEventPanel evt={evtSel} onClose={() => setEvtSel(null)} onChanged={() => setEvtTick((t) => t + 1)} onOpenOrder={onOpenOrder} />}
+      {evtSel && <CalEventPanel evt={evtSel} onClose={() => setEvtSel(null)} onChanged={() => setEvtTick((t) => t + 1)} onOpenOrder={onOpenOrder}
+        onComplete={(event) => calendarApi.complete(event.id)}
+        onReschedule={(event, next) => calendarApi.reschedule(event.id, { starts_at: next.toISOString() })} />}
     </>
   );
 }

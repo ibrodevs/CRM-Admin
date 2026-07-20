@@ -3,17 +3,18 @@ import { Icon } from './icons';
 import { ActionMenu, Button, Drawer, EmptyState, FilterChip, Pill, SearchBox, Tabs, Toggle, useToast } from './ui';
 import { ERR_CATEGORIES, ERR_SEVERITY, ERR_SYSTEMS, INTEGRATION_ERROR_CODES, NOTIFICATIONS, NOTIF_PRIORITY, NOTIF_PRIO_RANK, NOTIF_SETTINGS, NOTIF_SOURCE, ORDERS } from './data';
 import { Topbar } from './layout';
+import { notificationsApi } from './api/resources';
 
 
 
 
 const NOTIF_TAB = { finance: 'finance', documents: 'documents', offers: 'offers', returns: 'aftersale', order: 'overview' };
-function notifGo(n, onNavigate, onOpenOrder) {
+function notifGo(n, onNavigate, onOpenOrder, orders = ORDERS) {
 
   const svc = n.link && n.link.svc;
   const tab = n.source === 'Чаты' ? 'chat' : (svc ? 'services' : (NOTIF_TAB[n.link.type] || 'overview'));
   if (n.order && onOpenOrder) {
-    const o = ORDERS.find((x) => x.no === n.order) || { no: n.order, client: n.title, requestType: 'Индивидуальная', status: 'В работе', operator: n.resp, date: '15.06.25' };
+    const o = orders.find((x) => x.no === n.order) || { no: n.order, client: n.title, requestType: 'Индивидуальная', status: 'В работе', operator: n.resp, date: '15.06.25' };
     onOpenOrder(o, tab, svc || null);
   } else onNavigate && onNavigate(n.link.type);
 }
@@ -116,9 +117,9 @@ function ErrorCodesDrawer({ open, focusCode, onClose }) {
 
 
 
-function NotificationsCenter({ onNavigate, onOpenOrder, compact }) {
+function NotificationsCenter({ notifications = [], orders = [], onChange, onNavigate, onOpenOrder, compact }) {
   const toast = useToast();
-  const [list, setList] = useState(NOTIFICATIONS);
+  const [list, setList] = useState(notifications);
   const [q, setQ] = useState('');
   const [tab, setTab] = useState('all');
   const [fPrio, setFPrio] = useState('');
@@ -127,11 +128,30 @@ function NotificationsCenter({ onNavigate, onOpenOrder, compact }) {
   const [settings, setSettings] = useState(NOTIF_SETTINGS);
   const [errOpen, setErrOpen] = useState(null);
 
-  const setRead = (id, v) => setList((l) => l.map((n) => n.id === id ? { ...n, read: v != null ? v : !n.read } : n));
-  const pin = (id) => setList((l) => l.map((n) => n.id === id ? { ...n, pinned: !n.pinned } : n));
-  const dismiss = (id) => { setList((l) => l.filter((n) => n.id !== id)); };
+  useEffect(() => { setList(notifications); }, [notifications]);
+
+  const commit = (updater) => setList((current) => {
+    const next = typeof updater === 'function' ? updater(current) : updater;
+    onChange && onChange(next);
+    return next;
+  });
+
+  const setRead = async (id, v) => {
+    const current = list.find((item) => item.id === id);
+    const nextValue = v != null ? v : !current?.read;
+    try { await notificationsApi.read(id, nextValue); commit((items) => items.map((n) => n.id === id ? { ...n, read: nextValue } : n)); }
+    catch (error) { toast(error.message, 'err'); }
+  };
+  const pin = async (id) => {
+    try { await notificationsApi.pin(id); commit((items) => items.map((n) => n.id === id ? { ...n, pinned: !n.pinned } : n)); }
+    catch (error) { toast(error.message, 'err'); }
+  };
+  const dismiss = async (id) => {
+    try { await notificationsApi.dismiss(id); commit((items) => items.filter((n) => n.id !== id)); }
+    catch (error) { toast(error.message, 'err'); }
+  };
   const openCode = (code) => setErrOpen(code || '');
-  const act = (n) => { setRead(n.id, true); if (n.errCode && !n.order) { openCode(n.errCode); return; } notifGo(n, onNavigate, onOpenOrder); };
+  const act = (n) => { setRead(n.id, true); if (n.errCode && !n.order) { openCode(n.errCode); return; } notifGo(n, onNavigate, onOpenOrder, orders); };
 
   const actionable = (n) => (n.priority === 'Критический' || n.priority === 'Высокий') && !n.read;
   const tabTest = { all: () => true, unread: (n) => !n.read, pinned: (n) => n.pinned, action: actionable };
@@ -172,8 +192,8 @@ function NotificationsCenter({ onNavigate, onOpenOrder, compact }) {
       </div>
 
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
-        <Button variant="secondary" size="sm" icon="check" onClick={() => { setList((l) => l.map((n) => ({ ...n, read: true }))); toast('Все отмечены прочитанными', 'ok'); }}>Прочитать все</Button>
-        <Button variant="secondary" size="sm" icon="trash" onClick={() => { setList((l) => l.filter((n) => !n.read || n.pinned)); toast('Прочитанные закрыты', 'ok'); }}>Закрыть прочитанные</Button>
+        <Button variant="secondary" size="sm" icon="check" onClick={async () => { try { await notificationsApi.readAll(); commit((l) => l.map((n) => ({ ...n, read: true }))); toast('Все отмечены прочитанными', 'ok'); } catch (error) { toast(error.message, 'err'); } }}>Прочитать все</Button>
+        <Button variant="secondary" size="sm" icon="trash" onClick={async () => { try { await notificationsApi.dismissRead(); commit((l) => l.filter((n) => !n.read || n.pinned)); toast('Прочитанные закрыты', 'ok'); } catch (error) { toast(error.message, 'err'); } }}>Закрыть прочитанные</Button>
         <div style={{ flex: 1 }} />
         <Button variant="secondary" size="sm" icon="api" onClick={() => openCode('')}>Коды ошибок</Button>
         <Button variant="secondary" size="sm" icon="settings" onClick={() => setSetOpen(true)}>Настройки</Button>
@@ -189,8 +209,8 @@ function NotificationsCenter({ onNavigate, onOpenOrder, compact }) {
   );
 }
 
-function NotificationsPage({ onNavigate, onOpenOrder }) {
-  return (<><Topbar title="Уведомления" /><div className="content"><NotificationsCenter onNavigate={onNavigate} onOpenOrder={onOpenOrder} /></div></>);
+function NotificationsPage({ notifications, orders, onChange, onNavigate, onOpenOrder }) {
+  return (<><Topbar title="Уведомления" /><div className="content"><NotificationsCenter notifications={notifications} orders={orders} onChange={onChange} onNavigate={onNavigate} onOpenOrder={onOpenOrder} /></div></>);
 }
 
 

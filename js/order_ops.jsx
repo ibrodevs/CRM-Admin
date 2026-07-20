@@ -288,10 +288,10 @@ function OperationConfirmModal({ open, action, kind = 'Авиа', service, fin =
   ].filter((r) => r[1] != null);
   const total = fin.total != null ? fin.total : null;
   return (
-    <Modal open onClose={onClose}>
-      <div style={{ width: 'min(640px,94vw)' }}>
+    <Modal open onClose={onClose} size="md" ariaLabel={cfg.title}>
+      <div className="operation-confirm-modal">
         <ModalHeader title={cfg.title} sub={(service || 'Услуга') + ' · ' + kind} onClose={onClose} />
-        <div style={{ maxHeight: '66vh', overflow: 'auto', padding: '4px 2px 2px', display: 'flex', flexDirection: 'column', gap: 12 }}>
+        <div className="opc-scroll scroll">
 
           <div style={{ display: 'flex', alignItems: 'flex-start', gap: 11, padding: '13px 15px', borderRadius: 12,
             background: cfg.tone === 'danger' ? '#fdf0ec' : 'var(--blue-soft)', border: '1px solid ' + (cfg.tone === 'danger' ? '#f2c4b7' : '#cfe0ff') }}>
@@ -333,7 +333,7 @@ function OperationConfirmModal({ open, action, kind = 'Авиа', service, fin =
             </OpConfSection>
           )}
 
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+          <div className="opc-summary-grid">
             <OpConfSection icon="docs" title="Будут сформированы" tone="blue">
               {cfg.docs.map((d, i) => <div key={i} className="opc-li"><Icon name="docs" style={{ width: 14, height: 14, color: 'var(--blue)' }} />{d}</div>)}
             </OpConfSection>
@@ -357,8 +357,7 @@ function OperationConfirmModal({ open, action, kind = 'Авиа', service, fin =
             <span style={{ fontSize: 12.5, fontWeight: 700, color: cfg.tone === 'danger' ? 'var(--red)' : 'var(--amber)' }}>Действие необратимо — отменить автоматически будет нельзя</span>
           </div>
         )}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10, paddingTop: 16 }}>
-          <div style={{ flex: 1 }} />
+        <div className="opc-action-bar">
           <Button variant="secondary" onClick={onClose}>Отмена</Button>
           <Button variant={cfg.tone === 'danger' ? 'danger' : 'primary'} icon="check" onClick={() => { onConfirm && onConfirm({ comment }); onClose && onClose(); }}>{cfg.verb}</Button>
         </div>

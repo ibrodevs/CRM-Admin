@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Icon } from './icons';
-import { ActionMenu, Button } from './ui';
+import { ActionMenu, Button, EmptyState } from './ui';
 import { AIR_SERVICES, CHAT_THREADS, CHAT_TYPE_LABEL, CLIENTS_DB, COMPANIES_DB, DOCUMENTS, ORDERS, PERMISSIONS, PROPOSALS, ROLES, SUPPLIERS } from './data';
 import { SLA_QUEUE, companyStaffStore } from './data/access-control';
 import { NAV_ITEMS, Topbar } from './layout';
@@ -384,7 +384,7 @@ function GlobalTopbar({ route, ctxOrder, onNavigate, onOpenOrder, onCreateClient
 }
 
 
-function NotificationDrawer({ open, onClose, onNavigate, onOpenOrder }) {
+function NotificationDrawer({ open, notifications, orders, onNotificationsChange, onClose, onNavigate, onOpenOrder }) {
   useEffect(() => {
     if (!open) return;
     const h = (e) => { if (e.key === 'Escape') onClose(); };
@@ -400,7 +400,7 @@ function NotificationDrawer({ open, onClose, onNavigate, onOpenOrder }) {
           <button className="modal-close" onClick={onClose}><Icon name="x" /></button>
         </div>
         <div className="scroll" style={{ flex: 1, overflowY: 'auto', padding: '18px 24px' }}>
-          <NotificationsCenter compact
+          <NotificationsCenter compact notifications={notifications} orders={orders} onChange={onNotificationsChange}
             onNavigate={(r) => { onClose(); onNavigate(r); }}
             onOpenOrder={(o, tab) => { onClose(); onOpenOrder(o, tab); }} />
         </div>
@@ -410,14 +410,15 @@ function NotificationDrawer({ open, onClose, onNavigate, onOpenOrder }) {
 }
 
 
-function GlobalChatDrawer({ open, onClose, contextOrder, onOpenOrder }) {
+function GlobalChatDrawer({ open, onClose, contextOrder, initialThreads = [], orders = [], currentUserId, onOpenOrder }) {
   const [extraThreads, setExtraThreads] = useState([]);
-  const threads = [...CHAT_THREADS, ...extraThreads];
-  const initialId = contextOrder ? getThreadForOrder(contextOrder).id : threads[0].id;
+  const threads = [...initialThreads, ...extraThreads];
+  const initialId = contextOrder ? threads.find((thread) => thread.order === contextOrder.no)?.id : threads[0]?.id;
   const [activeId, setActiveId] = useState(initialId);
   useEffect(() => {
-    if (open && contextOrder) setActiveId(getThreadForOrder(contextOrder).id);
-  }, [open, contextOrder]);
+    if (open && contextOrder) setActiveId(threads.find((thread) => thread.order === contextOrder.no)?.id || threads[0]?.id);
+    else if (open && !activeId) setActiveId(threads[0]?.id);
+  }, [open, contextOrder, initialThreads]);
   useEffect(() => {
     if (!open) return;
     const h = (e) => { if (e.key === 'Escape') onClose(); };
@@ -427,16 +428,21 @@ function GlobalChatDrawer({ open, onClose, contextOrder, onOpenOrder }) {
   if (!open) return null;
 
   const active = threads.find((t) => t.id === activeId) ||
-    (contextOrder ? getThreadForOrder(contextOrder) : threads[0]);
+    threads[0];
+  if (!active) return (
+    <div className="drawer-overlay" onMouseDown={(e) => { if (e.target === e.currentTarget) onClose(); }}>
+      <div className="shell-drawer" style={{ width: 'min(480px,96vw)' }}><button className="modal-close" onClick={onClose}><Icon name="x" /></button><EmptyState icon="chat" title="Чатов пока нет" /></div>
+    </div>
+  );
   const totalUnread = (t) => threadUnread(t);
-  const goOrder = (t) => { const o = ORDERS.find((x) => x.no === t.order); onClose(); o && onOpenOrder(o); };
-  const recipients = chatRecipients(active.order, extraThreads);
+  const goOrder = (t) => { const o = orders.find((x) => x.no === t.order); onClose(); o && onOpenOrder(o); };
+  const recipients = threads.filter((thread) => thread.order === active.order);
   const switchThread = (t) => {
     if (t.virtual) { const real = { ...t, virtual: false }; setExtraThreads((cur) => [...cur, real]); setActiveId(real.id); }
     else setActiveId(t.id);
   };
 
-  const ord = ORDERS.find((x) => x.no === active.order);
+  const ord = orders.find((x) => x.no === active.order);
   const meta = [active.client || active.name, ord && ord.requestType, (ord && ord.operator) && ('отв. ' + ord.operator)].filter(Boolean);
 
   return (
@@ -464,7 +470,7 @@ function GlobalChatDrawer({ open, onClose, contextOrder, onOpenOrder }) {
           )}
         </div>
         <div style={{ flex: 1, minHeight: 0 }}>
-          <ChatThread thread={active} embedded onOpenOrder={() => goOrder(active)} recipients={recipients} onSwitchThread={switchThread} />
+          <ChatThread thread={active} currentUserId={currentUserId} embedded onOpenOrder={() => goOrder(active)} recipients={recipients} onSwitchThread={switchThread} />
         </div>
       </div>
     </div>

@@ -9,6 +9,8 @@ import { ErrorCodesDrawer } from './page_notifications';
 import { MotivationDrawer } from './page_shifts';
 import { ServiceCardAdminDrawer } from './page_card_admin';
 import { ServiceAccessEditor } from './features/settings/service-access-editor';
+import { usersApi } from './api/resources';
+import { toLegacyUser } from './api/legacy-adapters';
 
 
 
@@ -145,14 +147,14 @@ function ApiAccessModal({ open, onClose }) {
   );
 }
 
-function AddUserDrawer({ open, onClose }) {
+function AddUserDrawer({ open, onClose, onCreated }) {
   const toast = useToast();
   const empty = { name: '', email: '', role: '', phone: '', status: 'Активный' };
   const [f, setF] = useState(empty);
   const [errs, setErrs] = useState({});
   const set = (k) => (e) => setF((p) => ({ ...p, [k]: e.target ? e.target.value : e }));
   useEffect(() => { if (open) { setF(empty); setErrs({}); } }, [open]);
-  const submit = () => {
+  const submit = async () => {
     const er = {};
     if (!f.name.trim()) er.name = 'Введите ФИО';
     if (!f.email.trim()) er.email = 'Введите e-mail';
@@ -160,7 +162,21 @@ function AddUserDrawer({ open, onClose }) {
     if (!f.role) er.role = 'Выберите роль';
     setErrs(er);
     if (Object.keys(er).length) { toast('Проверьте поля формы', 'err'); return; }
-    toast('Пользователь добавлен', 'ok'); onClose();
+    try {
+      const parts = f.name.trim().split(/\s+/);
+      const created = await usersApi.create({
+        email: f.email.trim(), phone: f.phone.trim(),
+        last_name: parts.shift() || '', first_name: parts.shift() || '', middle_name: parts.join(' '),
+        timezone: 'Asia/Bishkek', language: 'ru',
+      });
+      const role = { 'Админ': 'admin', 'Оператор': 'operator', 'Бухгалтер': 'accountant', 'Менеджер': 'manager' }[f.role];
+      if (role) await usersApi.setRoles(created.id, [role]);
+      await usersApi.invite(created.id);
+      onCreated?.({ ...created, roles: role ? [role] : created.roles });
+      toast('Пользователь добавлен, приглашение создано', 'ok'); onClose();
+    } catch (error) {
+      toast(error.message || 'Не удалось добавить пользователя', 'err');
+    }
   };
   return (
     <Drawer open={open} onClose={onClose} title="Добавить пользователя"
@@ -220,21 +236,35 @@ function OperatorAccessDrawer({ open, operator, onClose }) {
   );
 }
 
-function UsersTab({ onAdd }) {
+function UsersTab({ onAdd, users = [], onUsersChange }) {
   const toast = useToast();
   const [motUser, setMotUser] = useState(null);
   const [accUser, setAccUser] = useState(null);
+  const liveUsers = users.map(toLegacyUser);
+  const changeAccess = async (user) => {
+    try {
+      if (user.status === 'Заблокированный') {
+        await usersApi.invite(user.serverId);
+        onUsersChange?.(users.map((item) => item.id === user.serverId ? { ...item, status: 'active' } : item));
+        toast('Пользователь разблокирован', 'ok');
+      } else {
+        const updated = await usersApi.suspend(user.serverId, 'Заблокирован администратором');
+        onUsersChange?.(users.map((item) => item.id === user.serverId ? updated : item));
+        toast('Пользователь заблокирован', 'ok');
+      }
+    } catch (error) { toast(error.message || 'Не удалось изменить доступ', 'err'); }
+  };
   return (
     <div className="fade-in">
       <div style={{ display: 'flex', alignItems: 'center', marginBottom: 16 }}>
-        <span style={{ color: 'var(--muted)', fontSize: 14 }}>{USERS.length} пользователей</span>
+        <span style={{ color: 'var(--muted)', fontSize: 14 }}>{liveUsers.length} пользователей</span>
         <div style={{ flex: 1 }} /><Button icon="plus" onClick={onAdd}>Добавить пользователя</Button>
       </div>
       <div className="table-card">
         <table className="tbl">
           <thead><tr><th>Сотрудник</th><th>E-mail</th><th>Роль</th><th>Был активен</th><th>Статус</th><th></th></tr></thead>
           <tbody>
-            {USERS.map((u, i) => (
+            {liveUsers.map((u, i) => (
               <tr key={i}>
                 <td><span style={{ display: 'flex', alignItems: 'center', gap: 10 }}><Avatar src={u.avatar} name={u.name} size={32} /><span style={{ fontWeight: 600 }}>{u.name}</span></span></td>
                 <td className="t-muted">{u.email}</td>
@@ -248,9 +278,9 @@ function UsersTab({ onAdd }) {
                       { icon: 'finance', label: 'Мотивация оператора', onClick: () => setMotUser(u.name) },
                       { icon: 'sla', label: 'Доступ и нормативы', onClick: () => setAccUser(u.name) },
                     ] : []),
-                    { icon: 'mail', label: 'Сбросить пароль', onClick: () => toast('Письмо отправлено', 'ok') },
+                    { icon: 'mail', label: 'Отправить приглашение', onClick: async () => { try { await usersApi.invite(u.serverId); toast('Приглашение создано', 'ok'); } catch (error) { toast(error.message || 'Не удалось создать приглашение', 'err'); } } },
                     { sep: true },
-                    { icon: 'lock', label: u.status === 'Заблокированный' ? 'Разблокировать' : 'Заблокировать', danger: u.status !== 'Заблокированный', onClick: () => toast('Готово', 'ok') },
+                    { icon: 'lock', label: u.status === 'Заблокированный' ? 'Разблокировать' : 'Заблокировать', danger: u.status !== 'Заблокированный', onClick: () => changeAccess(u) },
                   ]} /></td>
               </tr>
             ))}
@@ -306,7 +336,7 @@ function RolesTab() {
   );
 }
 
-function SettingsPage() {
+function SettingsPage({ users = [], onUsersChange }) {
   const toast = useToast();
   const [modal, setModal] = useState(null);
   const [tab, setTab] = useState('users');
@@ -318,13 +348,13 @@ function SettingsPage() {
     { title: 'Справочники', items: [['Аэропорты и города', () => toast('Справочник', 'info')], ['Типы услуг', () => toast('Справочник', 'info')], ['Справочник доп. услуг', () => setModal('extras')]] },
     { title: 'Карточки услуг', items: [['Настройки карточек услуг', () => setModal('cardadmin')], ['Видимость полей для клиента', () => setModal('cardvis')]] },
   ];
-  const TABS = [{ key: 'users', label: 'Пользователи', count: USERS.length }, { key: 'roles', label: 'Роли и права' }, { key: 'params', label: 'Параметры системы' }];
+  const TABS = [{ key: 'users', label: 'Пользователи', count: users.length }, { key: 'roles', label: 'Роли и права' }, { key: 'params', label: 'Параметры системы' }];
   return (
     <div className="fade-in">
       <Topbar title="Настройки" />
       <div className="content">
         <div style={{ marginBottom: 20 }}><Tabs tabs={TABS} value={tab} onChange={setTab} /></div>
-        {tab === 'users' && <UsersTab onAdd={() => setModal('adduser')} />}
+        {tab === 'users' && <UsersTab users={users} onUsersChange={onUsersChange} onAdd={() => setModal('adduser')} />}
         {tab === 'roles' && <RolesTab />}
         {tab === 'params' && (
           <div className="fade-in" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '36px 46px', maxWidth: 1100 }}>
@@ -345,7 +375,7 @@ function SettingsPage() {
       <CurrencyModal open={modal === 'currency'} onClose={() => setModal(null)} />
       <ApiKeyModal open={modal === 'apikey'} onClose={() => setModal(null)} />
       <ApiAccessModal open={modal === 'apiaccess'} onClose={() => setModal(null)} />
-      <AddUserDrawer open={modal === 'adduser'} onClose={() => setModal(null)} />
+      <AddUserDrawer open={modal === 'adduser'} onClose={() => setModal(null)} onCreated={(user) => onUsersChange?.([user, ...users])} />
       <NotificationsModal open={modal === 'notif'} onClose={() => setModal(null)} />
       <ErrorCodesDrawer open={modal === 'errcodes'} onClose={() => setModal(null)} />
     </div>

@@ -4,6 +4,7 @@ import { Button, ConfirmDialog, Drawer, Field, Input, Pill, Select, Tabs, useToa
 import { CURRENT_USER, FEE_DESC_DEFAULTS, FEE_SCHEMA, FEE_SERVICE_TYPES, FEE_TEMPLATES, SERVICE_DESC_DEFAULTS, SETTLEMENT_TYPES, applyAgreementFees, companyFinance, creditAvailable, depositAvailable, descsFromDefaults, feeDescOf, feeDescsFromDefaults, feeTemplate, feesFromTemplate, registerFeeTemplate } from './data';
 import { FIN_COUNTERPARTIES, f$ } from './data/finance';
 import { FinCounterpartyDrawer, ReconActDrawer } from './page_finance';
+import { financeApi } from './api/resources';
 
 
 
@@ -500,6 +501,17 @@ function CompanySettlementsBlock({ co }) {
   const debit = cp.obligations.reduce((s, o) => s + o.sum, 0);
   const credit = cp.obligations.reduce((s, o) => s + o.paid, 0);
   const overdue = cp.obligations.some((o) => o.overdueDays > 0);
+  const requestDoc = async (kind) => {
+    try {
+      const result = await financeApi.createDocument({ kind, payload: { counterpart: cp.name, debit, credit, balance: debit - credit } });
+      if (result instanceof Blob) {
+        const url = URL.createObjectURL(result); const link = document.createElement('a');
+        link.href = url; link.download = `${kind === 'invoice' ? 'Счёт' : 'УПД'}-${cp.name}.txt`; link.click();
+        setTimeout(() => URL.revokeObjectURL(url), 1000);
+      }
+      toast(kind === 'accounting_export' ? 'Данные переданы в бухгалтерию' : 'Документ сформирован', 'ok');
+    } catch (error) { toast(error.message || 'Не удалось сформировать документ', 'err'); }
+  };
   const stat = (label, value, tone) => (
     <div style={{ padding: '12px 14px', border: '1px solid var(--line)', borderRadius: 12, background: '#fff' }}>
       <div style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 4 }}>{label}</div>
@@ -522,9 +534,9 @@ function CompanySettlementsBlock({ co }) {
       </div>
       <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
         <Button size="sm" variant="secondary" icon="download" onClick={() => setReconOpen(true)}>Акт сверки</Button>
-        <Button size="sm" variant="secondary" icon="download" onClick={() => toast('Счёт по «' + cp.name + '» сформирован (демо)', 'ok')}>Счёт</Button>
-        <Button size="sm" variant="secondary" icon="download" onClick={() => toast('УПД по «' + cp.name + '» сформирован (демо)', 'ok')}>УПД</Button>
-        <Button size="sm" variant="secondary" icon="send" onClick={() => toast('Данные переданы в 1С:Бухгалтерию (демо)', 'ok')}>В бухгалтерию</Button>
+        <Button size="sm" variant="secondary" icon="download" onClick={() => requestDoc('invoice')}>Счёт</Button>
+        <Button size="sm" variant="secondary" icon="download" onClick={() => requestDoc('upd')}>УПД</Button>
+        <Button size="sm" variant="secondary" icon="send" onClick={() => requestDoc('accounting_export')}>В бухгалтерию</Button>
       </div>
       {open && <FinCounterpartyDrawer cp={cp} onClose={() => setOpen(false)} />}
       <ReconActDrawer open={reconOpen} cp={cp} onClose={() => setReconOpen(false)} />

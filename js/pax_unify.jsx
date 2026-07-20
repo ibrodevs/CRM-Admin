@@ -546,7 +546,7 @@ function PaxUnifyPanel({ list, orderNo, autoBind, onClose, onApplyRoster }) {
 
 
       {docPreview && (
-        <Modal open onClose={() => setDocPreview(false)} className="pax-modal-xwide">
+        <Modal open onClose={() => setDocPreview(false)} className="pax-modal-xwide" ariaLabel="Предпросмотр документа">
           <div style={{ width: '100%' }}>
             <ModalHeader title="Предпросмотр документа" sub={'Формат «' + (tpl.bindTo || tpl.name) + '» · ' + tpl.file.toUpperCase() + ' · ' + tpl.encoding} onClose={() => setDocPreview(false)} />
             <div style={{ background: 'var(--surface-2)', borderRadius: 12, padding: 24, maxHeight: '62vh', overflow: 'auto' }}>

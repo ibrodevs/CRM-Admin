@@ -504,9 +504,9 @@ function GrMassActions({ o }) {
         ))}
       </div>
       {confirm && (
-        <Modal open onClose={() => setConfirm(null)} size="sm">
+        <Modal open onClose={() => setConfirm(null)} size="sm" ariaLabel={confirm.l}>
           <ModalHeader title={confirm.l + '?'} sub="Проверьте охват и последствия перед выполнением" onClose={() => setConfirm(null)} />
-          <div style={{ padding: '4px 24px 20px' }}>
+          <div style={{ paddingTop: 4 }}>
             <div className="card card-pad" style={{ background: 'var(--surface-2)', marginBottom: 14 }}>
               <FinRow label="Затронуто участников" value={agg.total} />
               <FinRow label="Будет обработано" value={agg.confirmed + ' подтверждённых'} tone="var(--green)" />
