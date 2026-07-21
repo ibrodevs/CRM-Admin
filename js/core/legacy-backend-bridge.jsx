@@ -41,29 +41,45 @@ function enrichCompanies(companies, orders) {
   });
 }
 
+function taskToLegacy(task, order) {
+  const due = task.due_at ? new Date(task.due_at) : null;
+  const overdue = due && due.getTime() < Date.now() && task.status !== 'done';
+  return {
+    ...task,
+    orderId: order.id,
+    order: order.no,
+    text: task.title || task.description || 'Задача по заказу',
+    due: due ? due.toLocaleString('ru-RU') : 'Без срока',
+    urgent: overdue || task.priority === 'urgent' || task.priority === 'high',
+  };
+}
+
 async function loadOrderDetails(orders, signal) {
   const targets = orders.slice(0, 30);
   const settled = await Promise.allSettled(targets.map(async (order) => {
-    const [detail, services] = await Promise.all([
+    const [detail, services, tasks] = await Promise.all([
       ordersApi.detail(order.id, signal),
       ordersApi.services(order.id, signal),
+      ordersApi.tasks(order.id, {}, signal),
     ]);
-    return { order, detail, services: resultsOf(services) };
+    return { order, detail, services: resultsOf(services), tasks: resultsOf(tasks) };
   }));
 
   const orderParticipants = [];
   const orderServices = [];
+  const orderTasks = [];
   settled.forEach((result) => {
     if (result.status !== 'fulfilled') return;
-    const { order, detail, services } = result.value;
+    const { order, detail, services, tasks } = result.value;
     (detail.participants || []).forEach((participant) => {
       orderParticipants.push({ ...toLegacyParticipant(participant), orderId: order.id, order: order.no });
     });
     services.forEach((service) => {
       orderServices.push({ ...toLegacyOrderService(service), orderId: order.id, order: order.no });
     });
+    tasks.forEach((task) => orderTasks.push(taskToLegacy(task, order)));
   });
-  return { orderParticipants, orderServices };
+  return { orderParticipants, orderServices, orderTasks };
 }
 
 async function refreshLegacyData(signal) {
@@ -85,13 +101,14 @@ async function refreshLegacyData(signal) {
   const orders = value(0).map(toUiOrder);
   const clients = enrichClients(value(2).map(toUiClient), orders);
   const companies = enrichCompanies(value(3).map(toUiCompany), orders);
-  const { orderParticipants, orderServices } = await loadOrderDetails(orders, signal);
+  const { orderParticipants, orderServices, orderTasks } = await loadOrderDetails(orders, signal);
   if (signal?.aborted) return;
 
   const workspace = {
     orders,
     orderParticipants,
     orderServices,
+    orderTasks,
     suppliers: value(1).map(toUiSupplier),
     clients,
     companies,
