@@ -11,6 +11,7 @@ import {
   toLegacyReturn,
   toLegacyUser,
 } from '../api/legacy-adapters';
+import { setCurrentOrderContext } from '../api/order-card-runtime';
 import { communicationsApi, crmApi, notificationsApi, ordersApi, suppliersApi, workspaceApi } from '../api/resources';
 import { syncLegacyDataFromWorkspace } from './backend-data-sync';
 
@@ -82,6 +83,30 @@ async function loadOrderDetails(orders, signal) {
   return { orderParticipants, orderServices, orderTasks };
 }
 
+function activeOrderNumber() {
+  if (typeof document === 'undefined') return null;
+  const text = document.body?.innerText || '';
+  const patterns = [
+    /Редактирование заказа\s*№\s*([^\s]+)/i,
+    /Заказ\s*№\s*([^\s]+)/i,
+  ];
+  for (const pattern of patterns) {
+    const match = text.match(pattern);
+    if (match) return String(match[1]).replace(/[.,;:]$/, '');
+  }
+  return null;
+}
+
+function bindActiveOrder(orders) {
+  const number = activeOrderNumber();
+  if (!number) {
+    setCurrentOrderContext(null);
+    return;
+  }
+  const order = orders.find((item) => String(item.no) === number || String(item.number) === number || String(item.id) === number);
+  setCurrentOrderContext(order || null);
+}
+
 async function refreshLegacyData(signal) {
   const calls = await Promise.allSettled([
     ordersApi.list({}, signal),
@@ -119,6 +144,7 @@ async function refreshLegacyData(signal) {
     users: value(8).map(toLegacyUser),
   };
   syncLegacyDataFromWorkspace(workspace);
+  bindActiveOrder(orders);
 }
 
 export default function LegacyBackendBridge() {
@@ -137,15 +163,19 @@ export default function LegacyBackendBridge() {
     const onVisibility = () => {
       if (document.visibilityState === 'visible') run();
     };
+    const onOrderChanged = () => run();
 
     run();
     timer = window.setInterval(run, 30000);
     document.addEventListener('visibilitychange', onVisibility);
+    window.addEventListener('travelhub:order-card-changed', onOrderChanged);
 
     return () => {
       controller.abort();
       window.clearInterval(timer);
       document.removeEventListener('visibilitychange', onVisibility);
+      window.removeEventListener('travelhub:order-card-changed', onOrderChanged);
+      setCurrentOrderContext(null);
     };
   }, []);
 
