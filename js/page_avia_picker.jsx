@@ -683,7 +683,7 @@ function AviaPicker({ params, setParams, services = [], onApply, onCancel, onAdd
                 Суммы в валюте пересчитаны по курсу ≈ {RUB_PER_USD} ₽/$
               </div>
             )}
-            <Button icon="template" style={{ width: '100%' }} onClick={() => toast('Сформировано предложение из сценария', 'ok')}>Сформировать предложение</Button>
+            <Button icon="template" style={{ width: '100%' }} disabled={!onApply} onClick={() => onApply?.({ mode: 'proposal', legs, fare, extras, passengers: PAX, services, total: grand })}>Сформировать предложение</Button>
           </div>
         </aside>
 

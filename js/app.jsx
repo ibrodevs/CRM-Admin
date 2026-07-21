@@ -162,8 +162,8 @@ function App() {
       {route === 'buses' && <ServiceFlow routeKey="buses" searchIntent={svcSearch && svcSearch.key === 'buses' ? svcSearch : null} onConsumeSearch={() => setSvcSearch(null)} />}
       {route === 'tours' && <ServiceFlow routeKey="tours" searchIntent={svcSearch && svcSearch.key === 'tours' ? svcSearch : null} onConsumeSearch={() => setSvcSearch(null)} />}
 
-      {route === 'clients' && <ClientsPage initialClients={workspace.clients} onClientsChange={(next) => workspace.update('clients', next)} onOpenOrder={openOrder} intent={intent} onConsume={() => setIntent(null)} />}
-      {route === 'companies' && <CompaniesPage initialCompanies={workspace.companies} onCompaniesChange={(next) => workspace.update('companies', next)} onOpenOrder={openOrder} intent={intent} onConsume={() => setIntent(null)} />}
+      {route === 'clients' && <ClientsPage initialClients={workspace.clients} onClientsChange={(next) => workspace.update('clients', next)} onOpenOrder={openOrder} onCreateOrder={createOrder} intent={intent} onConsume={() => setIntent(null)} />}
+      {route === 'companies' && <CompaniesPage initialCompanies={workspace.companies} onCompaniesChange={(next) => workspace.update('companies', next)} onOpenOrder={openOrder} onCreateOrder={createOrder} intent={intent} onConsume={() => setIntent(null)} />}
       {route === 'offers' && <OffersPage proposals={workspace.proposals} orders={orders} onOpenOrder={openOrder} intent={intent} onConsume={() => setIntent(null)} />}
       {route === 'notifications' && <NotificationsPage notifications={workspace.notifications} orders={orders} onChange={(next) => workspace.update('notifications', next)} onNavigate={navigate} onOpenOrder={openOrder} />}
       {route === 'returns' && <ReturnsPage cases={workspace.returns} orders={orders} onOpenOrder={openOrder} />}

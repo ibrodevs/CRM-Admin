@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Icon } from './icons';
 import { Button, Drawer, Field, FilterChip, Input, Modal, ModalHeader, Pill, Select, Tabs, useToast } from './ui';
 import { SERVICE_KIND } from './data';
@@ -7,6 +7,8 @@ import { PanelSub } from './components/shared-panels';
 import { UFDateField } from './forms_unified';
 import { OrderCreateModal } from './page_orders';
 import { FinRow, StatTile, WarnBanner, f$ } from './page_finance';
+import { groupsApi, workspaceActionsApi } from './api/resources';
+import { resultsOf } from './api/client';
 
 
 
@@ -229,6 +231,12 @@ function ClassicBlockCard({ s }) {
 }
 function SplitFlow({ s, pax }) {
   const toast = useToast();
+  const saveDecision = async (action, group, patch = {}) => {
+    try {
+      await workspaceActionsApi.execute(action, { resourceType: 'group_booking', resourceId: String(group.id), payload: { passengers: group.pax.map((p) => p.id), service: s.id, ...patch } });
+      toast('Решение сохранено', 'ok');
+    } catch (error) { toast(error.message, 'err'); }
+  };
   const [phase, setPhase] = useState('idle');
   const [split, setSplit] = useState(() => computeSplit(pax, s.maxPer));
   const [states, setStates] = useState({});
@@ -295,10 +303,10 @@ function SplitFlow({ s, pax }) {
               <div style={{ fontSize: 12, color: 'var(--muted-2)', marginTop: 6 }}>{g.pax.map((p) => p.name).join(', ')}</div>
               {phase === 'result' && (states[g.id] === 'need' || states[g.id] === 'err') && (
                 <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 8 }}>
-                  <Button size="sm" variant="secondary" icon="loader" onClick={() => toast('Повторное бронирование только необработанных', 'info')}>Повторить</Button>
-                  <Button size="sm" variant="secondary" icon="swap" onClick={() => toast('Выбор другого тарифа/рейса', 'info')}>Другой тариф/рейс</Button>
-                  <Button size="sm" variant="secondary" icon="users" onClick={() => toast('Раздельное размещение согласовано', 'ok')}>Раздельно</Button>
-                  <Button size="sm" variant="secondary" onClick={() => toast('Участники перераспределены', 'ok')}>Перераспределить</Button>
+                  <Button size="sm" variant="secondary" icon="loader" onClick={() => saveDecision('group.booking.retry', g)}>Повторить</Button>
+                  <Button size="sm" variant="secondary" icon="swap" onClick={() => saveDecision('group.booking.alternative_fare', g)}>Другой тариф/рейс</Button>
+                  <Button size="sm" variant="secondary" icon="users" onClick={() => saveDecision('group.booking.split_approved', g)}>Раздельно</Button>
+                  <Button size="sm" variant="secondary" onClick={() => saveDecision('group.booking.redistribute', g)}>Перераспределить</Button>
                 </div>
               )}
             </div>
@@ -402,7 +410,7 @@ function GroupServiceScenario({ s, pax = [], orderNo }) {
               <Icon name="checkCircle" style={{ width: 22, height: 22, color: 'var(--green)' }} />
               <div style={{ flex: 1, minWidth: 200 }}><div style={{ fontWeight: 700, color: 'var(--ink)' }}>Групповой блок подтверждён на {paxCount} мест</div>
                 <div style={{ fontSize: 12.5, color: 'var(--muted)' }}>{supplier} · канал {channel && channel.l}. Дальше — внесение имён и выписка по блоку.</div></div>
-              <Button size="sm" variant="secondary" icon="mail" onClick={() => toast('Запрос повторно отправлен поставщику', 'ok')}>Повторить запрос</Button>
+              <Button size="sm" variant="secondary" icon="mail" onClick={() => sendRequest(channel || GR_CHANNELS[0])}>Повторить запрос</Button>
             </div>
           )}
           {req === 'denied' && (
@@ -742,6 +750,12 @@ function GrDocsTab({ o }) {
   };
   const manualMatch = (id) => setRows((rs) => rs.map((r) => r.p.id === id ? { ...r, match: 'manual' } : r));
   const matched = rows.filter((r) => r.match === 'auto' || r.match === 'manual').length;
+  const documentAction = async (action, success) => {
+    try {
+      await workspaceActionsApi.execute(action, { resourceType: 'group_order', resourceId: String(o.serverId || o.id), payload: { order_number: o.no, matched, total: rows.length } });
+      toast(success, 'ok');
+    } catch (error) { toast(error.message, 'err'); }
+  };
   const tone = { auto: 'green', manual: 'teal', none: 'amber' };
   const label = { auto: 'Сопоставлено автоматически', manual: 'Сопоставлено вручную', none: 'Не сопоставлено' };
   return (
@@ -757,10 +771,10 @@ function GrDocsTab({ o }) {
         </div>
         {phase === 'done' && (
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 12 }}>
-            <Button size="sm" variant="secondary" icon="template" onClick={() => toast('Сформированы фирменные бланки', 'ok')}>Фирменные бланки</Button>
-            <Button size="sm" variant="secondary" icon="docs" onClick={() => toast('Собран общий комплект на группу', 'ok')}>Общий комплект на группу</Button>
-            <Button size="sm" variant="secondary" icon="users" onClick={() => toast('Собраны комплекты по пассажирам', 'ok')}>Комплекты по пассажирам</Button>
-            <Button size="sm" icon="send" onClick={() => toast('Документы массово отправлены клиенту', 'ok')}>Массовая отправка клиенту</Button>
+            <Button size="sm" variant="secondary" icon="template" onClick={() => documentAction('group.documents.brand_forms', 'Формирование фирменных бланков запущено')}>Фирменные бланки</Button>
+            <Button size="sm" variant="secondary" icon="docs" onClick={() => documentAction('group.documents.bundle', 'Общий комплект поставлен на сборку')}>Общий комплект на группу</Button>
+            <Button size="sm" variant="secondary" icon="users" onClick={() => documentAction('group.documents.passenger_bundles', 'Комплекты по пассажирам поставлены на сборку')}>Комплекты по пассажирам</Button>
+            <Button size="sm" icon="send" onClick={() => documentAction('group.documents.send', 'Документы поставлены на массовую отправку')}>Массовая отправка клиенту</Button>
           </div>
         )}
       </div>
@@ -862,19 +876,35 @@ function grToOrderShape(o) {
 function GroupsPage({ onOpenOrder }) {
   const toast = useToast();
   const [create, setCreate] = useState(false);
-  const [orders, setOrders] = useState(GROUP_ORDERS);
+  const [orders, setOrders] = useState([]);
+  useEffect(() => {
+    const controller = new AbortController();
+    groupsApi.list({}, controller.signal).then((payload) => {
+      setOrders(resultsOf(payload).map((group) => ({
+        ...group, serverId: group.id, id: group.order, no: group.order_number,
+        client: group.group ? `Группа ${String(group.group).slice(0, 8)}` : 'Групповой заказ',
+        legal: '—', contact: '—', route: '—', dateFrom: '—', dateTo: '—', operators: [], pax: [],
+        status: group.status, services: group.blocks.map((block) => ({ id: block.id, kind: 'Авиа', scenario: group.scenario === 'split_individual' ? 'split' : 'classic', bookings: [], cost: Number(block.fare_amount || 0) })),
+      })));
+    }).catch((error) => { if (error.name !== 'AbortError') toast(error.message, 'err'); });
+    return () => controller.abort();
+  }, []);
   const openOrder = (o) => { if (onOpenOrder) onOpenOrder(grToOrderShape(o)); };
-  const handleCreated = (o) => {
+  const handleCreated = async (o) => {
     const g = {
       no: o.no, client: o.client, legal: o.client, contact: '—',
       route: '—', dateFrom: o.date || '—', dateTo: '—',
       operators: [o.operator || 'Оператор'],
       pax: [], status: 'Подготовка запроса', services: [],
     };
-    setOrders((list) => [g, ...list]);
-    setCreate(false);
-    toast('Групповой заказ № ' + o.no + ' создан', 'ok');
-    openOrder(g);
+    try {
+      const created = await groupsApi.create({ order: o.id, scenario: 'classic_block', requested_seats: 0, confirmed_seats: 0 });
+      const saved = { ...g, serverId: created.id, id: o.id };
+      setOrders((list) => [saved, ...list]);
+      setCreate(false);
+      toast('Групповой заказ № ' + o.no + ' создан', 'ok');
+      openOrder(saved);
+    } catch (error) { toast(error.message, 'err'); }
   };
   return (
     <>

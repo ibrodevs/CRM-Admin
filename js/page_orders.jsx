@@ -6,7 +6,7 @@ import { UnifiedDocumentDrawer, UnifiedPersonDrawer, UnifiedPersonFields, ufBlan
 import { ORDER_OPS_SECTIONS, Topbar } from './layout';
 import { OrderCard, OrderEditDrawer } from './page_order_card';
 import { CityPickPanel, PanelSub, StackPanel } from './components/shared-panels';
-import { ordersApi } from './api/resources';
+import { ordersApi, proposalsApi } from './api/resources';
 import { toUiOrder } from './api/adapters';
 
 
@@ -628,7 +628,10 @@ function OrderCreateModal({ open, onClose, onCreated, initialGroup = false, clie
               ))}
               <div style={{ display: 'flex', gap: 10, marginTop: 4 }}>
                 <button className="oce-add" style={{ flex: 1 }} onClick={addPt}><Icon name="plus" style={{ width: 16, height: 16 }} />Добавить город</button>
-                <Button variant="secondary" icon="zap" onClick={() => toast('Маршрут оптимизирован', 'ok')}>Оптимизировать</Button>
+                <Button variant="secondary" icon="zap" onClick={() => {
+                  setPts((points) => points.length <= 2 ? points : [points[0], ...points.slice(1, -1).sort((a, b) => cityLabel(a).localeCompare(cityLabel(b), 'ru')), points.at(-1)]);
+                  toast('Промежуточные точки маршрута упорядочены', 'ok');
+                }}>Оптимизировать</Button>
               </div>
             </OceSec>
 
@@ -861,6 +864,18 @@ function OrdersList({ orders, onOpen, onCreate, onNavigate }) {
     if (!selected) { toast('Выберите заказ для редактирования', 'info'); return; }
     setEditOrder(selected);
   };
+  const createAndSendProposal = async () => {
+    if (!selected) { toast('Выберите заказ для формирования КП', 'info'); return; }
+    try {
+      const proposal = await proposalsApi.create({
+        order: selected.id, type: 'standard', purpose: 'Коммерческое предложение',
+        currency: selected.currency || 'USD', variants: [{ name: 'Основной вариант', items: [] }],
+      });
+      const prepared = await proposalsApi.prepare(proposal.id, proposal.version);
+      await proposalsApi.send(prepared.id, prepared.version);
+      toast(`КП ${proposal.number} сформировано и отправлено`, 'ok');
+    } catch (error) { toast(error.message, 'err'); }
+  };
 
   let rows = orders.filter((o) =>
     (o.client.toLowerCase().includes(search.toLowerCase()) || String(o.no).includes(search)) &&
@@ -881,7 +896,7 @@ function OrdersList({ orders, onOpen, onCreate, onNavigate }) {
           trigger={<button className="btn btn-secondary"><Icon name="clipboard" />Операции<Icon name="chevDown" /></button>}
           items={(typeof ORDER_OPS_SECTIONS !== 'undefined' ? ORDER_OPS_SECTIONS : []).map((s) => ({ icon: s.icon, label: s.label, onClick: () => onNavigate && onNavigate(s.key) }))} />
         <Button variant="secondary" icon="edit" onClick={handleEditClick}>Редактировать</Button>
-        <Button variant="secondary" icon="docs" onClick={() => toast('КП сформировано и отправлено', 'ok')}>Сформировать КП</Button>
+        <Button variant="secondary" icon="docs" onClick={createAndSendProposal}>Сформировать КП</Button>
         <Button variant="primary" icon="plus" onClick={onCreate}>Добавить заказ</Button>
       </Topbar>
       <div className="content">
@@ -923,7 +938,7 @@ function OrdersList({ orders, onOpen, onCreate, onNavigate }) {
                       <td>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                           {o.services} <span className="info-dot">i</span>
-                          <button className="icon-btn" style={{ color: 'var(--amber)' }} onClick={(e) => { e.stopPropagation(); toast('Открываю чат по заказу', 'info'); }}><Icon name="chat" /></button>
+                          <button className="icon-btn" style={{ color: 'var(--amber)' }} onClick={(e) => { e.stopPropagation(); onNavigate && onNavigate('chats'); }}><Icon name="chat" /></button>
                         </div>
                       </td>
                     </tr>

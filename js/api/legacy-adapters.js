@@ -41,6 +41,7 @@ export function toLegacyReturn(item, orders = []) {
   return {
     ...item,
     serverId: item.id,
+    orderId: item.order,
     no: item.number,
     order: order?.no || item.order,
     client: order?.client || '—',
@@ -92,6 +93,7 @@ export function toLegacyOrderService(item) {
   return {
     ...item,
     serverId: item.id,
+    orderId: item.order,
     id: item.id,
     kind: serviceKind[item.kind] || item.kind,
     status: serviceStatus[item.status] || item.status,

@@ -8,9 +8,10 @@ import { Topbar } from './layout';
 import { RolesTab } from './page_settings';
 import { MotivationDrawer, motivationFor, shiftDuration, shiftFmtTime } from './page_shifts';
 import { ServiceAccessEditor } from './features/settings/service-access-editor';
-import { accountApi } from './api/resources';
+import { accountApi, aftersalesApi, ordersApi, servicesApi, usersApi, workforceApi } from './api/resources';
 import { toUiUser } from './api/adapters';
 import { useAuth } from './core/auth-context';
+import { resultsOf } from './api/client';
 
 
 
@@ -63,19 +64,44 @@ function ProfileMotivation({ operator }) {
 }
 
 
-function ProfileStats({ operator }) {
+function ProfileStats({ operator, userId }) {
   const toast = useToast();
-  const stats = [
-    ['Оформлено заказов', '184'], ['Выписано услуг', '512'], ['Обменов', '37'], ['Возвратов', '21'],
-    ['Среднее время обработки заявки', '8 мин'], ['Общая прибыль (для компании)', '42 800 $'],
-    ['Заработок за месяц', '3 120 $'], ['Заработок за период', '9 460 $'],
-  ];
+  const [stats, setStats] = useState([['Оформлено заказов', '—'], ['Выписано услуг', '—'], ['Обменов', '—'], ['Возвратов', '—'], ['Среднее время обработки заявки', '—'], ['Общая прибыль (для компании)', '—'], ['Заработок за месяц', '—'], ['Заработок за период', '—']]);
+  useEffect(() => {
+    const controller = new AbortController();
+    Promise.all([
+      ordersApi.list(userId ? { operator: userId } : {}, controller.signal),
+      servicesApi.list(userId ? { operator: userId } : {}, controller.signal),
+      aftersalesApi.list(userId ? { responsible: userId } : {}, controller.signal),
+      workforceApi.motivationAccruals(userId ? { user: userId } : {}, controller.signal),
+    ]).then(([orderPayload, servicePayload, aftersalesPayload, accrualPayload]) => {
+      const orders = resultsOf(orderPayload), services = resultsOf(servicePayload), cases = resultsOf(aftersalesPayload), accruals = resultsOf(accrualPayload);
+      const issued = services.filter((service) => service.status === 'issued');
+      const profit = services.reduce((sum, service) => sum + Number(service.client_total || 0) - Number(service.supplier_cost || 0), 0);
+      const earnings = accruals.reduce((sum, item) => sum + Number(item.amount || 0), 0);
+      setStats([
+        ['Оформлено заказов', String(orders.length)], ['Выписано услуг', String(issued.length)],
+        ['Обменов', String(cases.filter((item) => item.type === 'exchange').length)], ['Возвратов', String(cases.filter((item) => item.type === 'refund').length)],
+        ['Среднее время обработки заявки', orders.length ? `${Math.round(orders.reduce((sum, item) => sum + Number(item.response_minutes || 0), 0) / orders.length)} мин` : '—'],
+        ['Общая прибыль (для компании)', `${Math.round(profit).toLocaleString('ru-RU')} $`],
+        ['Заработок за месяц', `${Math.round(earnings).toLocaleString('ru-RU')} $`], ['Заработок за период', `${Math.round(earnings).toLocaleString('ru-RU')} $`],
+      ]);
+    }).catch((error) => { if (error.name !== 'AbortError') toast(error.message, 'err'); });
+    return () => controller.abort();
+  }, [userId]);
+  const exportStats = () => {
+    const csv = [['Показатель', 'Значение'], ...stats].map((row) => row.map((cell) => `"${String(cell).replaceAll('"', '""')}"`).join(';')).join('\n');
+    const url = URL.createObjectURL(new Blob([`\uFEFF${csv}`], { type: 'text/csv;charset=utf-8' }));
+    const link = document.createElement('a'); link.href = url; link.download = `statistics-${operator}.csv`; link.click();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+    toast('Статистика выгружена', 'ok');
+  };
   return (
     <div className="fade-in">
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>
         <span className="chip" style={{ cursor: 'default' }}>Период: 01.06.2026 — 07.07.2026 <Icon name="chevDown" /></span>
         <div style={{ flex: 1 }} />
-        <Button variant="secondary" size="sm" icon="download" onClick={() => toast('Статистика выгружена', 'ok')}>Экспорт</Button>
+        <Button variant="secondary" size="sm" icon="download" onClick={exportStats}>Экспорт</Button>
       </div>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12 }}>
         {stats.map(([l, v], i) => (
@@ -88,15 +114,24 @@ function ProfileStats({ operator }) {
 }
 
 
-function ProfileWorkTime({ operator }) {
+function ProfileWorkTime({ user }) {
   const toast = useToast();
-  const [sla, setSla] = useState(operatorSla(operator));
-  const shift = window.SHIFT_STATE;
-  const saveSla = () => { OPERATOR_SLA[operator] = sla; toast('Норматив отклика сохранён: ' + sla + ' мин', 'ok'); };
+  const operator = user.name;
+  const [sla, setSla] = useState(user.slaResponseMin || operatorSla(operator));
+  const [shift, setShift] = useState(null);
+  useEffect(() => {
+    Promise.all([usersApi.sla(user.id), workforceApi.currentShift()])
+      .then(([slaData, shiftData]) => { setSla(slaData.sla_response_minutes || 15); setShift(shiftData.shift); })
+      .catch((error) => toast(error.message, 'err'));
+  }, [user.id]);
+  const saveSla = async () => {
+    try { await usersApi.setSla(user.id, sla); toast('Норматив отклика сохранён: ' + sla + ' мин', 'ok'); }
+    catch (error) { toast(error.message, 'err'); }
+  };
   const metrics = [
-    ['Начало смены', shift ? shiftFmtTime(shift.openedAt) : '09:02'],
+    ['Начало смены', shift ? new Date(shift.started_at).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' }) : '—'],
     ['Окончание смены', shift ? '— (открыта)' : '18:14'],
-    ['Отработанные часы', shift ? shiftDuration(shift.openedAt) : '8 ч 12 мин'],
+    ['Отработанные часы', shift ? shiftDuration(new Date(shift.started_at).getTime()) : '—'],
     ['Активное рабочее время', '7 ч 05 мин'],
     ['Время простоя', '1 ч 07 мин'],
     ['Смен за месяц', '21'],
@@ -428,7 +463,7 @@ function ProfilePage({ user, onNavigate, initialTab }) {
             })()}
 
             <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 18 }}>
-              <Button variant="primary" onClick={() => toast('Настройки уведомлений сохранены', 'ok')}>Сохранить</Button>
+              <Button variant="primary" onClick={savePreferences} disabled={saving}>{saving ? 'Сохранение…' : 'Сохранить'}</Button>
             </div>
           </div>
         )}
@@ -475,8 +510,8 @@ function ProfilePage({ user, onNavigate, initialTab }) {
 
 
         {tab === 'motivation' && <ProfileMotivation operator={u.name} />}
-        {tab === 'stats' && <ProfileStats operator={u.name} />}
-        {tab === 'worktime' && <ProfileWorkTime operator={u.name} />}
+        {tab === 'stats' && <ProfileStats operator={u.name} userId={u.serverId || u.id} />}
+        {tab === 'worktime' && <ProfileWorkTime user={u} />}
       </div>
 
 

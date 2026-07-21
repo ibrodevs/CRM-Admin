@@ -382,7 +382,7 @@ function LoginScreen({ onLogin, onVerifyTwoFactor, onPasswordReset }) {
                   {loading ? <><Icon name="loader" className="lp-spin" style={{ width: 18, height: 18 }} />Проверка…</> : 'Войти'}
                 </button>
                 <p className="lp-cap" style={{ marginTop: 14 }}>
-                  Не пришёл код? <button type="button" className="lp-link" onClick={() => toast('Код отправлен повторно', 'ok')}>Отправить ещё раз</button>
+                  Не пришёл код? <button type="button" className="lp-link" disabled title="Повторная отправка станет доступна после подключения SMS-провайдера">Отправить ещё раз</button>
                 </p>
               </form>
             </div>
@@ -440,9 +440,9 @@ function LoginScreen({ onLogin, onVerifyTwoFactor, onPasswordReset }) {
       <div className="lp-foot">
         <span>© 2024 ПСЦ Travel Hub. Все права защищены.</span>
         <div className="lp-foot-links">
-          <a onClick={() => toast('Политика конфиденциальности')}>Политика конфиденциальности</a>
+          <a href="/privacy-policy.txt" target="_blank" rel="noreferrer">Политика конфиденциальности</a>
           <span>·</span>
-          <a onClick={() => toast('Техподдержка: support@travelhub.ru')}><Icon name="headphones" style={{ width: 14, height: 14 }} />Техподдержка</a>
+          <a href="mailto:support@travelhub.ru"><Icon name="headphones" style={{ width: 14, height: 14 }} />Техподдержка</a>
         </div>
       </div>
     </div>

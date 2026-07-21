@@ -7,6 +7,8 @@ import { BackRow } from './components/back-row';
 import { ocMoney, svcCalc } from './features/orders/finance';
 import { KPPreviewDoc } from './page_offers';
 import { ChatThread, getThreadForOrder } from './page_chats';
+import { bookingApi, documentsApi, proposalsApi, workspaceActionsApi } from './api/resources';
+import { resultsOf } from './api/client';
 
 
 
@@ -90,6 +92,9 @@ function BookingWizard({ order, services, draft, onClose, onComplete, onSaveDraf
   const [offerPreview, setOfferPreview] = useState(null);
   const [contactSvc, setContactSvc] = useState(null);
   const [opConfirm, setOpConfirm] = useState(null);
+  const [workflow, setWorkflow] = useState(draft?.workflow || null);
+  const [serverProposal, setServerProposal] = useState(draft?.serverProposal || null);
+  const [busy, setBusy] = useState(false);
 
   const startRef = useRef(Date.now());
   const [tlBonus, setTlBonus] = useState({});
@@ -111,7 +116,7 @@ function BookingWizard({ order, services, draft, onClose, onComplete, onSaveDraf
   const refreshTl = (s) => { setTlBonus((p) => ({ ...p, [s.id]: (p[s.id] || 0) + 30 })); setNow(Date.now()); toast('Тайм-лимит по «' + s.title + '» продлён на 30 мин — запрос отправлен поставщику', 'ok'); };
 
 
-  useEffect(() => { onSaveDraft && onSaveDraft({ step, method, pay }); }, [step, method, pay]);
+  useEffect(() => { onSaveDraft && onSaveDraft({ step, method, pay, workflow, serverProposal }); }, [step, method, pay, workflow, serverProposal]);
   const saveDraftAndExit = () => { toast('Бронирование сохранено как черновик — можно продолжить в любой момент', 'ok'); onClose(); };
 
 
@@ -124,6 +129,82 @@ function BookingWizard({ order, services, draft, onClose, onComplete, onSaveDraf
 
   const next = () => setStep((s) => Math.min(STEPS.length - 1, s + 1));
   const back = () => setStep((s) => Math.max(0, s - 1));
+  const startBooking = async () => {
+    setBusy(true);
+    try {
+      const created = await bookingApi.create({ order: order.id, services: services.map((service) => service.serverId || service.id) });
+      await bookingApi.preflight(created.id);
+      await bookingApi.start(created.id, true);
+      setWorkflow(created.id);
+      toast('Бронирование запущено — запросы отправлены поставщикам', 'ok');
+      next();
+    } catch (error) { toast(error.message, 'err'); }
+    finally { setBusy(false); }
+  };
+  const refreshWorkflow = async () => {
+    if (!workflow) return;
+    try {
+      const current = await bookingApi.status(workflow);
+      const pending = current.items?.some((item) => ['pending', 'running'].includes(item.status));
+      if (pending) return toast('Ответы поставщиков ещё обрабатываются', 'info');
+      next();
+    } catch (error) { toast(error.message, 'err'); }
+  };
+  const issueWorkflow = async () => {
+    if (!workflow) return toast('Сначала запустите бронирование', 'err');
+    setBusy(true);
+    try {
+      await bookingApi.issue(workflow, {});
+      toast('Выписка поставлена в очередь', 'ok');
+      next();
+    } catch (error) { toast(error.message, 'err'); }
+    finally { setBusy(false); }
+  };
+  const orderDocuments = async () => resultsOf(await documentsApi.list({ order: order.id }));
+  const downloadDocuments = async () => {
+    try {
+      const docs = await orderDocuments();
+      if (!docs.length) return toast('Для заказа пока нет сформированных документов', 'info');
+      docs.forEach((doc, index) => setTimeout(() => window.open(documentsApi.downloadUrl(doc.id), index ? 150 * index : 0), index ? 150 * index : 0));
+      toast(`Открыто документов: ${docs.length}`, 'ok');
+    } catch (error) { toast(error.message, 'err'); }
+  };
+  const sendDocuments = async () => {
+    try {
+      const docs = await orderDocuments();
+      if (!docs.length) return toast('Для заказа пока нет сформированных документов', 'info');
+      await Promise.all(docs.map((doc) => documentsApi.send(doc.id, 'email')));
+      toast(`Отправлено документов: ${docs.length}`, 'ok');
+    } catch (error) { toast(error.message, 'err'); }
+  };
+  const supplierAction = async (action, service) => {
+    try {
+      await workspaceActionsApi.execute(action, { resourceType: 'service', resourceId: String(service.serverId || service.id), payload: { supplier: service.supplier, order: order.no } });
+      toast(action.endsWith('callback') ? 'Запрос звонка поставщику зарегистрирован' : 'Запрос на ускорение отправлен поставщику', 'ok');
+      if (action.endsWith('expedite')) setContactSvc(null);
+    } catch (error) { toast(error.message, 'err'); }
+  };
+  const sendProposal = async () => {
+    setBusy(true);
+    try {
+      let proposal = serverProposal;
+      if (!proposal) {
+        proposal = await proposalsApi.create({
+          order: order.id, type: 'booking', purpose: 'Подтверждение вариантов перед выпиской',
+          currency: services[0]?.currency || 'USD',
+          variants: [{ name: 'Основной вариант', items: services.map((service) => ({
+            service: service.serverId || service.id, title: service.title, description: service.sub || '',
+            quantity: 1, price_amount: service.sum || 0, price_currency: service.currency || 'USD',
+          })) }],
+        });
+        proposal = await proposalsApi.prepare(proposal.id, proposal.version);
+      }
+      proposal = await proposalsApi.send(proposal.id, proposal.version);
+      setServerProposal(proposal);
+      toast(`КП ${proposal.number} отправлено клиенту`, 'ok');
+    } catch (error) { toast(error.message, 'err'); }
+    finally { setBusy(false); }
+  };
 
 
   const readiness = [
@@ -235,7 +316,7 @@ function BookingWizard({ order, services, draft, onClose, onComplete, onSaveDraf
           <div className="section-title" style={{ fontSize: 18, marginBottom: 14 }}>Выписка и оплата</div>
           {services.map((s, i) => { const v = svcView(s, i); return (
             <BwSvc key={s.id} s={s} status={v.status} tone={v.tone}
-              right={<Button size="sm" icon="ticket" variant="secondary" onClick={() => toast('Документ выписан: ' + s.title, 'ok')}>Выписать</Button>} />
+              right={<Button size="sm" icon="ticket" variant="secondary" disabled={busy} onClick={issueWorkflow}>Выписать</Button>} />
           ); })}
           <div className="card card-pad" style={{ marginTop: 8 }}>
             <div style={{ fontWeight: 700, color: 'var(--ink)', marginBottom: 12 }}>Способ оплаты</div>
@@ -264,9 +345,9 @@ function BookingWizard({ order, services, draft, onClose, onComplete, onSaveDraf
           <div className="card card-pad" style={{ marginTop: 16 }}>
             <div style={{ fontWeight: 700, color: 'var(--ink)', marginBottom: 14 }}>Что дальше?</div>
             <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-              <Button variant="secondary" icon="download" onClick={() => toast('Документы скачаны', 'ok')}>Скачать документы</Button>
-              <Button variant="secondary" icon="send" onClick={() => toast('Документы отправлены клиенту', 'ok')}>Отправить клиенту</Button>
-              <Button variant="secondary" icon="finance" onClick={() => toast('Открыты финансы заказа', 'info')}>Открыть финансы</Button>
+              <Button variant="secondary" icon="download" onClick={downloadDocuments}>Скачать документы</Button>
+              <Button variant="secondary" icon="send" onClick={sendDocuments}>Отправить клиенту</Button>
+              <Button variant="secondary" icon="finance" onClick={() => window.__toastNav && window.__toastNav('finance')}>Открыть финансы</Button>
             </div>
           </div>
         </div>
@@ -313,10 +394,10 @@ function BookingWizard({ order, services, draft, onClose, onComplete, onSaveDraf
 
 
   const footer = () => {
-    if (step === 0) return <><Button variant="secondary" onClick={onClose}>Отмена</Button><div style={{ flex: 1 }} /><Button icon="zap" onClick={() => setOpConfirm({ action: 'book', onConfirm: () => { toast('Бронирование запущено — запросы отправлены поставщикам', 'ok'); next(); } })}>Забронировать</Button></>;
-    if (step === 1) return <><Button variant="secondary" icon="chevLeft" onClick={back}>Назад</Button><div style={{ flex: 1 }} /><Button icon="check" onClick={next}>Все ответы получены</Button></>;
-    if (step === 2) return <><Button variant="secondary" icon="chevLeft" onClick={back}>Назад</Button><div style={{ flex: 1 }} /><Button variant="secondary" icon="send" onClick={() => toast('КП отправлено клиенту на согласование', 'ok')}>Отправить КП клиенту</Button><Button iconRight="arrowRight" onClick={next}>К выписке и оплате</Button></>;
-    if (step === 3) return <><Button variant="secondary" icon="chevLeft" onClick={back}>Назад</Button><div style={{ flex: 1 }} /><Button icon="check" onClick={() => setOpConfirm({ action: 'issue', onConfirm: () => { toast('Документы выписаны, оплата принята', 'ok'); next(); } })}>Выписать и принять оплату</Button></>;
+    if (step === 0) return <><Button variant="secondary" onClick={onClose}>Отмена</Button><div style={{ flex: 1 }} /><Button icon="zap" disabled={busy} onClick={() => setOpConfirm({ action: 'book', onConfirm: startBooking })}>Забронировать</Button></>;
+    if (step === 1) return <><Button variant="secondary" icon="chevLeft" onClick={back}>Назад</Button><div style={{ flex: 1 }} /><Button icon="check" onClick={refreshWorkflow}>Проверить ответы</Button></>;
+    if (step === 2) return <><Button variant="secondary" icon="chevLeft" onClick={back}>Назад</Button><div style={{ flex: 1 }} /><Button variant="secondary" icon="send" disabled={busy} onClick={sendProposal}>Отправить КП клиенту</Button><Button iconRight="arrowRight" onClick={next}>К выписке и оплате</Button></>;
+    if (step === 3) return <><Button variant="secondary" icon="chevLeft" onClick={back}>Назад</Button><div style={{ flex: 1 }} /><Button icon="check" disabled={busy} onClick={() => setOpConfirm({ action: 'issue', onConfirm: issueWorkflow })}>Выписать и принять оплату</Button></>;
     return <><div style={{ flex: 1 }} /><Button icon="check" onClick={() => { onComplete && onComplete(); onClose(); }}>Готово</Button></>;
   };
 
@@ -379,8 +460,8 @@ function BookingWizard({ order, services, draft, onClose, onComplete, onSaveDraf
             </div>
             <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginBottom: 14 }}>
               <Button variant="secondary" icon="zap" onClick={() => { refreshTl(contactSvc); }}>Продлить тайм-лимит</Button>
-              <Button variant="secondary" icon="phone" onClick={() => toast('Звонок поставщику ' + contactSvc.supplier, 'info')}>Позвонить</Button>
-              <Button icon="send" onClick={() => { toast('Запрос на ускорение отправлен — ' + contactSvc.supplier, 'ok'); setContactSvc(null); }}>Поторопить</Button>
+              <Button variant="secondary" icon="phone" onClick={() => supplierAction('supplier.callback', contactSvc)}>Позвонить</Button>
+              <Button icon="send" onClick={() => supplierAction('supplier.expedite', contactSvc)}>Поторопить</Button>
             </div>
             <div style={{ height: 460, display: 'flex', flexDirection: 'column', overflow: 'hidden', margin: '0 -32px -28px' }}>
               {order && <ChatThread thread={getThreadForOrder(order)} embedded initChannel="supplier" />}
@@ -396,8 +477,8 @@ function BookingWizard({ order, services, draft, onClose, onComplete, onSaveDraf
           <Drawer open onClose={() => setOfferPreview(null)} width="min(760px,96vw)"
             title={offerPreview.draft ? 'Ознакомительное КП' : 'Предложение для клиента'} sub={offer.id}
             footer={<>
-              <Button variant="secondary" icon="download" onClick={() => toast('PDF скачан', 'ok')}>Скачать PDF</Button>
-              <Button icon="send" onClick={() => { toast('Предложение отправлено клиенту', 'ok'); setOfferPreview(null); }}>Отправить клиенту</Button>
+              <Button variant="secondary" icon="download" disabled={!serverProposal} onClick={() => serverProposal && window.open(proposalsApi.pdfUrl(serverProposal.id, serverProposal.version), '_blank')}>Скачать PDF</Button>
+              <Button icon="send" disabled={busy} onClick={async () => { await sendProposal(); setOfferPreview(null); }}>Отправить клиенту</Button>
             </>}>
             <div className={'bw-kp-banner ' + (offerPreview.draft ? 'draft' : 'fixed')}>
               <Icon name={offerPreview.draft ? 'alertCircle' : 'checkCircle'} />

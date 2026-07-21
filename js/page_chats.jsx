@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Icon } from './icons';
 import { ActionMenu, Avatar, Button, EmptyState, Pill, SearchBox, useToast } from './ui';
 import { CHAT_CHANNEL_TONE, CHAT_THREADS, CHAT_TYPES, CURRENT_USER, OPERATORS, ORDERS, ORDER_SERVICES, ORDER_STATUS, SERVICE_KIND, SERVICE_STATUS } from './data';
-import { communicationsApi } from './api/resources';
+import { communicationsApi, documentsApi, ordersApi, workspaceActionsApi } from './api/resources';
 import { toUiMessage } from './api/adapters';
 
 
@@ -119,6 +119,7 @@ function ChatThread({ thread, currentUserId, embedded, onOpenOrder, onOpenServic
   const [pinned, setPinned] = useState(!!thread.pinned);
   const [sending, setSending] = useState(false);
   const scrollRef = useRef(null);
+  const fileRef = useRef(null);
 
   useEffect(() => { setMsgs(thread.messages || []); setIntl(thread.internal || []); setSub('message'); setLinked(null); setPinned(!!thread.pinned); }, [thread.id]);
   useEffect(() => {
@@ -127,7 +128,8 @@ function ChatThread({ thread, currentUserId, embedded, onOpenOrder, onOpenServic
     communicationsApi.messages(thread.id, {}, controller.signal)
       .then((payload) => {
         const loaded = (payload.results || []).map((message) => toUiMessage(message, currentUserId));
-        setMsgs(loaded);
+        setMsgs(loaded.filter((message) => !message.internal));
+        setIntl(loaded.filter((message) => message.internal));
         return communicationsApi.read(thread.id, loaded.length ? { message: loaded[loaded.length - 1].id } : {});
       })
       .catch((error) => { if (error.name !== 'AbortError') toast(error.message, 'err'); });
@@ -148,7 +150,62 @@ function ChatThread({ thread, currentUserId, embedded, onOpenOrder, onOpenServic
     } catch (error) { toast(error.message, 'err'); }
     finally { setSending(false); }
   };
-  const attach = () => { toast('Загрузите документ в разделе «Документы», затем отправьте его из карточки заказа', 'info'); };
+  const attach = () => fileRef.current?.click();
+  const uploadAttachment = async (event) => {
+    const file = event.target.files?.[0];
+    event.target.value = '';
+    if (!file || !thread.orderId) return;
+    setSending(true);
+    try {
+      const document = await documentsApi.upload(file, {
+        order: thread.orderId,
+        service: linked || null,
+        kind: 'other',
+        title: file.name,
+        source: 'upload',
+      });
+      const versions = await documentsApi.versions(document.id);
+      const version = versions[0];
+      if (!version) throw new Error('Версия загруженного файла не создана');
+      const message = await communicationsApi.send(thread.id, {
+        body: file.name,
+        type: 'file',
+        attachment: version.id,
+        internal_note: sub === 'internal',
+      });
+      setFeed((current) => [...current, { ...toUiMessage(message, currentUserId), from: 'me' }]);
+      toast('Файл отправлен', 'ok');
+    } catch (error) { toast(error.message, 'err'); }
+    finally { setSending(false); }
+  };
+  const createChatTask = async () => {
+    if (!thread.orderId) return toast('Чат не связан с заказом', 'err');
+    try {
+      await ordersApi.createTask(thread.orderId, {
+        title: `Ответить в чате: ${thread.name}`,
+        description: `Чат ${thread.title || thread.name}, заказ № ${thread.order}`,
+        priority: 'normal',
+      });
+      toast('Задача создана в заказе', 'ok');
+    } catch (error) { toast(error.message, 'err'); }
+  };
+  const togglePin = async () => {
+    const next = !pinned;
+    try {
+      const result = await communicationsApi.pin(thread.id, next);
+      setPinned(result.pinned);
+      toast(result.pinned ? 'Чат закреплён' : 'Чат откреплён', 'ok');
+    } catch (error) { toast(error.message, 'err'); }
+  };
+  const queueEmail = async () => {
+    try {
+      await workspaceActionsApi.execute('chat.email.prepare', {
+        resourceType: 'ChatThread', resourceId: thread.id,
+        payload: { thread_id: thread.id, order_id: thread.orderId },
+      });
+      toast('Черновик письма создан на сервере', 'ok');
+    } catch (error) { toast(error.message, 'err'); }
+  };
 
   const status = chatOrderStatus(thread.order);
   const services = typeof ORDER_SERVICES !== 'undefined' ? ORDER_SERVICES : [];
@@ -192,13 +249,13 @@ function ChatThread({ thread, currentUserId, embedded, onOpenOrder, onOpenServic
             <span style={{ fontSize: 12, color: 'var(--muted)' }}>{thread.name} · отв. {thread.responsibleOperator} · {(thread.participants || []).length} уч.</span>
             <div style={{ flex: 1 }} />
             {recipientPicker}
-            <button className="btn btn-secondary btn-icon btn-sm" title="Создать задачу" onClick={() => toast('Создание задачи по чату', 'info')}><Icon name="clipboard" /></button>
-            <button className={'btn btn-icon btn-sm ' + (pinned ? 'btn-primary' : 'btn-secondary')} title={pinned ? 'Открепить чат' : 'Закрепить чат'} onClick={() => { setPinned((p) => !p); toast(pinned ? 'Чат откреплён' : 'Чат закреплён', 'ok'); }}><Icon name="star" /></button>
+            <button className="btn btn-secondary btn-icon btn-sm" title="Создать задачу" onClick={createChatTask}><Icon name="clipboard" /></button>
+            <button className={'btn btn-icon btn-sm ' + (pinned ? 'btn-primary' : 'btn-secondary')} title={pinned ? 'Открепить чат' : 'Закрепить чат'} onClick={togglePin}><Icon name="star" /></button>
             <ActionMenu trigger={<button className="btn btn-secondary btn-icon btn-sm"><Icon name="more" /></button>}
               items={[
                 { icon: 'orders', label: 'Открыть карточку заказа', onClick: () => onOpenOrder && onOpenOrder(thread) },
-                { icon: 'mail', label: 'Отправить email', onClick: () => toast('Черновик письма создан', 'info') },
-                { icon: 'clock', label: 'История изменений', onClick: () => toast('История изменений чата', 'info') },
+                { icon: 'mail', label: 'Отправить email', onClick: queueEmail },
+                { icon: 'clock', label: 'История изменений', onClick: () => window.open(communicationsApi.historyUrl(thread.id), '_blank', 'noopener,noreferrer') },
               ]} />
           </div>
         </div>
@@ -225,7 +282,7 @@ function ChatThread({ thread, currentUserId, embedded, onOpenOrder, onOpenServic
                 {!me && m.author && thread.type !== 'client' && <div className="msg-author">{m.author}</div>}
                 {svc && <ChatServiceCard svc={svc} me={me} onOpen={() => onOpenService && onOpenService(svc.id)} />}
                 {m.attach
-                  ? <div className="chat-attach" onClick={() => toast('Скачивание ' + m.attach.name, 'info')}><span className="ic"><Icon name="paperclip" /></span><div><div style={{ fontWeight: 600, fontSize: 13 }}>{m.attach.name}</div><div style={{ fontSize: 12, color: 'var(--muted)' }}>{m.attach.size}</div></div><Icon name="download" style={{ width: 16, height: 16, color: 'var(--muted-2)' }} /></div>
+                  ? <div className="chat-attach" onClick={() => m.attach.documentId && window.location.assign(documentsApi.downloadUrl(m.attach.documentId))}><span className="ic"><Icon name="paperclip" /></span><div><div style={{ fontWeight: 600, fontSize: 13 }}>{m.attach.name}</div><div style={{ fontSize: 12, color: 'var(--muted)' }}>{m.attach.size}</div></div><Icon name="download" style={{ width: 16, height: 16, color: 'var(--muted-2)' }} /></div>
                   : <span>{chatText(m.text)}</span>}
                 <div className="msg-time">{m.time}{me && <Icon name="check" style={{ width: 14, height: 14, color: m.read ? '#2bb96a' : 'var(--muted)' }} />}</div>
               </div>
@@ -247,6 +304,7 @@ function ChatThread({ thread, currentUserId, embedded, onOpenOrder, onOpenServic
           <button className={sub === 'internal' ? 'on' : ''} onClick={() => setSub('internal')}><Icon name="lock" style={{ width: 14, height: 14, verticalAlign: -2, marginRight: 4 }} />Внутренний комментарий</button>
         </div>
         <div className="search" style={{ width: '100%', minWidth: 0 }}>
+          <input ref={fileRef} type="file" hidden onChange={uploadAttachment} />
           <button className="icon-btn" onClick={attach} title="Прикрепить"><Icon name="paperclip" /></button>
           <ActionMenu trigger={<button className="icon-btn" title="Привязать к услуге"><Icon name="route" /></button>}
             items={services.length ? services.map((s) => ({ icon: (SERVICE_KIND[s.kind] || {}).icon || 'route', label: s.kind + ' · ' + s.title, onClick: () => { setLinked(s.id); toast('Привязано к услуге: ' + s.title, 'ok'); } })) : [{ icon: 'route', label: 'Нет услуг в заказе', onClick: () => {} }]} />
@@ -269,11 +327,31 @@ function ChatInfoPanel({ thread, onOpenOrder, onOpenService }) {
   const tMeta = chatTypeMeta(thread.type);
   const pax = thread.participants || [];
   const shownPax = allPax ? pax : pax.slice(0, 4);
+  const createTask = async () => {
+    if (!thread.orderId) return toast('Чат не связан с заказом', 'err');
+    try {
+      await ordersApi.createTask(thread.orderId, {
+        title: `Ответить в чате: ${thread.name}`,
+        description: `Чат ${thread.title || thread.name}, заказ № ${thread.order}`,
+        priority: 'normal',
+      });
+      toast('Задача создана в заказе', 'ok');
+    } catch (error) { toast(error.message, 'err'); }
+  };
+  const prepareEmail = async () => {
+    try {
+      await workspaceActionsApi.execute('chat.email.prepare', {
+        resourceType: 'ChatThread', resourceId: thread.id,
+        payload: { thread_id: thread.id, order_id: thread.orderId },
+      });
+      toast('Черновик письма создан на сервере', 'ok');
+    } catch (error) { toast(error.message, 'err'); }
+  };
   const quick = [
-    { icon: 'clipboard', label: 'Задача', title: 'Создать задачу', onClick: () => toast('Создание задачи по чату', 'info') },
-    { icon: 'mail', label: 'Email', title: 'Отправить email', onClick: () => toast('Черновик письма создан', 'info') },
+    { icon: 'clipboard', label: 'Задача', title: 'Создать задачу', onClick: createTask },
+    { icon: 'mail', label: 'Email', title: 'Отправить email', onClick: prepareEmail },
     { icon: 'orders', label: 'Заказ', title: 'Открыть карточку заказа', onClick: () => onOpenOrder && onOpenOrder(thread) },
-    { icon: 'clock', label: 'История', title: 'История изменений', onClick: () => toast('История изменений чата', 'info') },
+    { icon: 'clock', label: 'История', title: 'История изменений', onClick: () => window.open(communicationsApi.historyUrl(thread.id), '_blank', 'noopener,noreferrer') },
   ];
   return (
     <div className="scroll" style={{ overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 8, padding: 2 }}>

@@ -3,6 +3,7 @@ import ReactDOM from 'react-dom';
 import { Icon } from './icons';
 import { ActionMenu, Button, Drawer, Input, Pill, Toggle, useToast } from './ui';
 import { CURRENT_USER } from './data';
+import { workspaceActionsApi } from './api/resources';
 
 
 
@@ -171,7 +172,12 @@ function ShiftReportDrawer({ open, onClose, operator, shift, closing, onConfirmC
   const toast = useToast();
   const [detailOp, setDetailOp] = useState(null);
   if (!open || !shift) return null;
-  const sendTo = (who) => toast('Отчёт по смене отправлен ' + who, 'ok');
+  const sendTo = async (who) => {
+    try {
+      await workspaceActionsApi.execute('profile.shift_report.send', { resourceType: 'shift', resourceId: String(shift.serverId || shift.id || operator), payload: { recipient: who, operator } });
+      toast('Отчёт по смене отправлен ' + who, 'ok');
+    } catch (error) { toast(error.message, 'err'); }
+  };
   const openOrderNo = (no) => {
     const ord = (window.ORDERS || []).find((o) => o.no === no);
     if (ord && onOpenOrder) { onClose(); onOpenOrder(ord); }
@@ -204,7 +210,7 @@ function ShiftReportDrawer({ open, onClose, operator, shift, closing, onConfirmC
 
 
       <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 16 }}>
-        <Button variant="secondary" size="sm" icon="download" onClick={() => toast('Отчёт выгружен (PDF)', 'ok')}>Скачать PDF</Button>
+        <Button variant="secondary" size="sm" icon="download" onClick={() => window.print()}>Скачать PDF</Button>
         <Button variant="secondary" size="sm" icon="send" onClick={() => sendTo('администратору')}>Отправить администратору</Button>
         <Button variant="secondary" size="sm" icon="send" onClick={() => sendTo('бухгалтеру')}>Отправить бухгалтеру</Button>
       </div>
@@ -319,7 +325,7 @@ function FeesReportDrawer({ open, onClose, operator, shift }) {
   const tot = list.reduce((a, r) => ({ serviceFee: a.serviceFee + r.serviceFee, markup: a.markup + r.markup, commission: a.commission + r.commission, earn: a.earn + r.earn, ops: a.ops + r.ops }), { serviceFee: 0, markup: 0, commission: 0, earn: 0, ops: 0 });
   return (
     <Drawer open={open} onClose={onClose} title="Отчёт по сборам" sub={'Оператор: ' + operator + ' · текущая смена'} width="min(760px,96vw)"
-      footer={<><Button variant="secondary" icon="download" onClick={() => toast('Отчёт выгружен (PDF)', 'ok')}>Скачать</Button><Button variant="secondary" onClick={onClose}>Закрыть</Button></>}>
+      footer={<><Button variant="secondary" icon="download" onClick={() => window.print()}>Скачать</Button><Button variant="secondary" onClick={onClose}>Закрыть</Button></>}>
       <div className="table-card">
         <table className="tbl">
           <thead><tr><th>Вид услуг</th><th>Операций</th><th style={{ textAlign: 'right' }}>Сервисные сборы</th><th style={{ textAlign: 'right' }}>Агентские надбавки</th><th style={{ textAlign: 'right' }}>Комиссии</th><th style={{ textAlign: 'right' }}>Начислено оператору</th></tr></thead>

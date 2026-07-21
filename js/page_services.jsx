@@ -12,7 +12,7 @@ import { rub } from './page_avia_picker';
 import { OperationConfirmModal } from './order_ops';
 import { PanelSub, StackPanel } from './components/shared-panels';
 import { kpNow } from './page_offers';
-import { servicesApi } from './api/resources';
+import { documentsApi, servicesApi, workspaceActionsApi } from './api/resources';
 import { resultsOf } from './api/client';
 import { toLegacyOrderService } from './api/legacy-adapters';
 
@@ -934,7 +934,7 @@ function SvcDocUploadDrawer({ open, isHotel, participants = [], orderNo, onClose
   useEffect(() => { if (open) { setFile(null); setType(docTypes[0]); setParticipant('—'); setDrag(false); } }, [open, isHotel]);
 
   const fmtSize = (bytes) => (bytes / 1024 < 1024 ? Math.max(1, Math.round(bytes / 1024)) + ' КБ' : (bytes / 1048576).toFixed(1) + ' МБ');
-  const takeFile = (f) => { if (f) setFile({ name: f.name, size: fmtSize(f.size) }); };
+  const takeFile = (f) => { if (f) setFile({ raw: f, name: f.name, size: fmtSize(f.size) }); };
   const onFile = (e) => { takeFile(e.target.files && e.target.files[0]); e.target.value = ''; };
   const onDrop = (e) => { e.preventDefault(); setDrag(false); takeFile(e.dataTransfer.files && e.dataTransfer.files[0]); };
   const pickFile = () => fileRef.current && fileRef.current.click();
@@ -943,7 +943,7 @@ function SvcDocUploadDrawer({ open, isHotel, participants = [], orderNo, onClose
     if (!file) return;
     onUploaded({
       id: 'u' + Date.now() + '-' + Math.floor(Math.random() * 1000),
-      name: file.name, size: file.size, type,
+      file: file.raw, name: file.name, size: file.size, type,
       participant: participant !== '—' ? participant : null,
       date: new Date().toLocaleDateString('ru-RU'),
     });
@@ -992,12 +992,15 @@ function SvcCard({ item, kind, participants = [], hideBackRow, onBack }) {
   const [sendOpen, setSendOpen] = useState(false);
   const [uploadOpen, setUploadOpen] = useState(false);
   const [uploadedDocs, setUploadedDocs] = useState([]);
+  const [comment, setComment] = useState('');
+  const [serviceHistory, setServiceHistory] = useState([]);
   const [pax, setPax] = useState(participants);
   const [addPaxOpen, setAddPaxOpen] = useState(false);
 
   const initCard = (item.status === 'Выписано' || item.status === 'Подтверждено') ? 'issued' : (item.cardStatus || 'created');
   const [cardSt, setCardSt] = useState(initCard);
   const [version, setVersion] = useState(item.version || 1);
+  const [serviceVersion, setServiceVersion] = useState(item.version || 1);
   const [versions, setVersions] = useState(item.versions || []);
   const [cardLog, setCardLog] = useState(() => [{ t: 'сейчас', txt: 'Карточка услуги создана' }]);
   const [opConfirm, setOpConfirm] = useState(null);
@@ -1007,7 +1010,7 @@ function SvcCard({ item, kind, participants = [], hideBackRow, onBack }) {
   const fmt = (n) => (cur === 'RUB' || cur === '₽') ? rub(n) : svM(n);
   const title = item.title || item.main;
   const sub = item.sub;
-  const status = item.status || (isOffer ? 'Предложение' : '—');
+  const [status, setStatus] = useState(item.status || (isOffer ? 'Предложение' : '—'));
   const total = isOffer ? item.cost + item.fee : item.sum;
   const info = (item.info || [{ l: 'Описание', v: item.sub }, { l: 'Дата', v: item.date }, { l: 'Количество', v: item.qty }]).filter((r) => r.v != null);
   const supplier = item.supplier || '—';
@@ -1027,32 +1030,114 @@ function SvcCard({ item, kind, participants = [], hideBackRow, onBack }) {
   }));
   const corrMeta = { cfg: corrCfg, supplier, route: sub || title, dates: item.date || '—', carrierName: supplier && supplier !== '—' ? supplier : title, baseFareTotal: isOffer ? item.cost : (item.sum || tariff || 0) };
   const orderNo = item.order || null;
+  const serviceId = item.serverId || item.id;
   const channel = orderClientChannel(orderNo);
   const chMeta = sendChannelMeta(channel);
   const fin = cardInternals(item);
   const cst = cardStatus(cardSt);
 
-  const sendCard = (ch) => {
-    setCardSt('sent');
-    setCardLog((l) => [...l, { t: 'сейчас', txt: 'Отправлена клиенту · канал «' + ch + '» · v' + version }]);
-    toast('Карточка услуги отправлена клиенту по каналу «' + ch + '»', 'ok');
-    setTimeout(() => { setCardSt('delivered'); setCardLog((l) => [...l, { t: '+1 мин', txt: 'Доставлена клиенту' }]); }, 1000);
-    setTimeout(() => { setCardSt('viewed'); setCardLog((l) => [...l, { t: '+3 мин', txt: 'Просмотрена клиентом' }]); }, 2200);
-  };
-  const bumpVersion = () => {
-    const nv = version + 1;
-    setVersions((vs) => [...vs, { v: version, note: 'Прежняя версия сохранена в истории' }]);
-    setVersion(nv);
-    setCardSt('price_changed');
-    setCardLog((l) => [...l, { t: 'сейчас', txt: 'Изменены параметры — создана версия v' + nv + ' (прежняя сохранена)' }]);
-    toast('Создана новая версия карточки v' + nv + ' — прежняя сохранена в истории', 'ok');
+  useEffect(() => {
+    if (!serviceId) return undefined;
+    const controller = new AbortController();
+    Promise.all([
+      documentsApi.list({ service: serviceId }, controller.signal),
+      workspaceActionsApi.list({ resource_type: 'OrderService', resource_id: serviceId }, controller.signal),
+    ]).then(([documents, actions]) => {
+      setUploadedDocs(resultsOf(documents).map((doc) => ({
+        ...doc, name: doc.title, type: doc.kind, size: '', documentId: doc.id,
+      })));
+      setServiceHistory((actions || []).map((row) => ({
+        t: row.created_at ? new Date(row.created_at).toLocaleString('ru-RU') : '—',
+        txt: row.payload?.comment || row.payload?.label || row.action,
+      })));
+    }).catch((error) => { if (error.name !== 'AbortError') toast(error.message, 'err'); });
+    return () => controller.abort();
+  }, [serviceId]);
+
+  const transitionService = async (target) => {
+    try {
+      const updated = await servicesApi.transition(serviceId, { target_status: target, version: serviceVersion });
+      const labels = { booked: 'Забронировано', issued: 'Выписано' };
+      setStatus(labels[updated.status] || updated.status);
+      setServiceVersion(updated.version);
+      toast(target === 'booked' ? 'Отправлено на бронирование' : 'Услуга оформлена', 'ok');
+    } catch (error) { toast(error.message, 'err'); }
   };
 
-  const markCard = (key) => {
+  const addComment = async () => {
+    const value = comment.trim();
+    if (!value) return;
+    try {
+      const row = await workspaceActionsApi.execute('service.comment.add', {
+        resourceType: 'OrderService', resourceId: serviceId, payload: { comment: value },
+      });
+      setServiceHistory((current) => [{ t: new Date(row.created_at).toLocaleString('ru-RU'), txt: value }, ...current]);
+      setComment('');
+      toast('Комментарий добавлен', 'ok');
+    } catch (error) { toast(error.message, 'err'); }
+  };
+
+  const uploadDocument = async (doc) => {
+    try {
+      const kindMap = { 'Ваучер на отель': 'voucher', 'Ваучер / билет': 'ticket', 'Счёт на оплату': 'invoice', 'Подтверждение': 'supplier_confirmation', 'Прочее': 'other' };
+      const created = await documentsApi.upload(doc.file, {
+        order: item.orderId || item.order,
+        service: serviceId,
+        kind: kindMap[doc.type] || 'other',
+        title: doc.name,
+        source: 'upload',
+      });
+      setUploadedDocs((current) => [...current, { ...created, name: created.title, type: created.kind, documentId: created.id, size: doc.size }]);
+      setUploadOpen(false);
+      toast('Документ загружен', 'ok');
+    } catch (error) { toast(error.message, 'err'); }
+  };
+
+  const voidDocument = async (doc) => {
+    try {
+      await documentsApi.void(doc.documentId || doc.id, 'Удалён из карточки услуги');
+      setUploadedDocs((current) => current.filter((entry) => entry.id !== doc.id));
+      toast('Документ аннулирован', 'ok');
+    } catch (error) { toast(error.message, 'err'); }
+  };
+
+  const sendCard = async (ch) => {
+    try {
+      await workspaceActionsApi.execute('service.card.send', {
+        resourceType: 'OrderService', resourceId: serviceId,
+        payload: { channel: ch, version, label: `Карточка отправлена · ${ch} · v${version}` },
+      });
+      setCardSt('sent');
+      setCardLog((l) => [...l, { t: 'сейчас', txt: 'Отправлена клиенту · канал «' + ch + '» · v' + version }]);
+      toast('Карточка услуги поставлена в очередь отправки по каналу «' + ch + '»', 'ok');
+    } catch (error) { toast(error.message, 'err'); }
+  };
+  const bumpVersion = async () => {
+    const nv = version + 1;
+    try {
+      await workspaceActionsApi.execute('service.card.version.create', {
+        resourceType: 'OrderService', resourceId: serviceId,
+        payload: { previous_version: version, version: nv, label: `Создана версия карточки v${nv}` },
+      });
+      setVersions((vs) => [...vs, { v: version, note: 'Прежняя версия сохранена в истории' }]);
+      setVersion(nv);
+      setCardSt('price_changed');
+      setCardLog((l) => [...l, { t: 'сейчас', txt: 'Изменены параметры — создана версия v' + nv + ' (прежняя сохранена)' }]);
+      toast('Создана новая версия карточки v' + nv + ' — прежняя сохранена в истории', 'ok');
+    } catch (error) { toast(error.message, 'err'); }
+  };
+
+  const markCard = async (key) => {
     const st = cardStatus(key);
-    setCardSt(key);
-    setCardLog((l) => [...l, { t: 'сейчас', txt: 'Статус карточки: ' + st.label }]);
-    toast('Статус карточки: ' + st.label, key === 'declined' || key === 'unavailable' || key === 'expired' ? 'info' : 'ok');
+    try {
+      await workspaceActionsApi.execute('service.card.status.change', {
+        resourceType: 'OrderService', resourceId: serviceId,
+        payload: { status: key, label: `Статус карточки: ${st.label}` },
+      });
+      setCardSt(key);
+      setCardLog((l) => [...l, { t: 'сейчас', txt: 'Статус карточки: ' + st.label }]);
+      toast('Статус карточки: ' + st.label, key === 'declined' || key === 'unavailable' || key === 'expired' ? 'info' : 'ok');
+    } catch (error) { toast(error.message, 'err'); }
   };
 
   const TABS = [
@@ -1089,15 +1174,15 @@ function SvcCard({ item, kind, participants = [], hideBackRow, onBack }) {
         </div>
         <div style={{ textAlign: 'right' }}><div style={{ fontSize: 13, color: 'var(--muted)' }}>Итого к оплате</div><div style={{ fontSize: 24, fontWeight: 700, color: 'var(--ink)' }}>{total ? fmt(total) : '—'}</div></div>
         <Button icon="send" onClick={() => setSendOpen(true)}>Отправить клиенту</Button>
-        {status === 'Предложение' && <Button variant="secondary" icon="check" onClick={() => setOpConfirm({ action: 'book', onConfirm: () => toast('Отправлено на бронирование', 'ok') })}>Забронировать</Button>}
-        {status === 'Забронировано' && <Button variant="secondary" icon="check" onClick={() => setOpConfirm({ action: 'issue', onConfirm: () => toast('Услуга оформлена', 'ok') })}>Оформить</Button>}
+        {(status === 'Предложение' || status === 'Предложено') && <Button variant="secondary" icon="check" onClick={() => setOpConfirm({ action: 'book', onConfirm: () => transitionService('booked') })}>Забронировать</Button>}
+        {status === 'Забронировано' && <Button variant="secondary" icon="check" onClick={() => setOpConfirm({ action: 'issue', onConfirm: () => transitionService('issued') })}>Оформить</Button>}
         <ActionMenu trigger={<button className="btn btn-secondary btn-icon"><Icon name="more" /></button>}
           items={[
             { icon: 'send', label: 'Отправить карточку клиенту', onClick: () => setSendOpen(true) },
             { icon: 'edit', label: 'Изменить параметры → новая версия', onClick: bumpVersion },
             { sep: true },
             { icon: 'template', label: 'Корректировка документов', onClick: () => setCorrOpen(true) },
-            { icon: 'download', label: 'Скачать документы', onClick: () => toast('Загрузка…') },
+            { icon: 'download', label: 'Скачать документы', onClick: () => uploadedDocs.forEach((doc) => window.open(documentsApi.downloadUrl(doc.documentId || doc.id), '_blank', 'noopener,noreferrer')) },
           ]} />
       </div>
 
@@ -1256,7 +1341,6 @@ function SvcCard({ item, kind, participants = [], hideBackRow, onBack }) {
 
       {tab === 'docs' && (
         <div className="grid-4">
-          {[isHotel ? 'Ваучер на отель' : 'Ваучер / билет', 'Счёт на оплату', 'Подтверждение'].map((d) => (<button key={d} className="doc-chip" onClick={() => toast('Скачивание · ' + d)}><span style={{ display: 'flex', alignItems: 'center', gap: 8 }}><Icon name="docs" />{d}</span><Icon name="download" /></button>))}
           {uploadedDocs.map((d) => (
             <div key={d.id} className="doc-chip" title={d.name}>
               <span style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
@@ -1267,8 +1351,8 @@ function SvcCard({ item, kind, participants = [], hideBackRow, onBack }) {
                 </span>
               </span>
               <span style={{ display: 'flex', alignItems: 'center', gap: 4, flexShrink: 0 }}>
-                <button className="icon-btn" onClick={() => toast('Скачивание · ' + d.name)} title="Скачать"><Icon name="download" /></button>
-                <button className="icon-btn" onClick={() => { setUploadedDocs((cur) => cur.filter((x) => x.id !== d.id)); toast('Документ удалён'); }} title="Удалить"><Icon name="trash" /></button>
+                <button className="icon-btn" onClick={() => window.location.assign(documentsApi.downloadUrl(d.documentId || d.id))} title="Скачать"><Icon name="download" /></button>
+                <button className="icon-btn" onClick={() => voidDocument(d)} title="Удалить"><Icon name="trash" /></button>
               </span>
             </div>
           ))}
@@ -1279,8 +1363,8 @@ function SvcCard({ item, kind, participants = [], hideBackRow, onBack }) {
       {tab === 'comments' && (
         <div className="card card-pad" style={{ maxWidth: 680 }}>
           <div style={{ display: 'flex', gap: 10 }}>
-            <Input placeholder="Внутренний комментарий…" style={{ flex: 1 }} />
-            <Button icon="send" onClick={() => toast('Комментарий добавлен')}>Отправить</Button>
+            <Input value={comment} onChange={(event) => setComment(event.target.value)} placeholder="Внутренний комментарий…" style={{ flex: 1 }} />
+            <Button icon="send" onClick={addComment}>Отправить</Button>
           </div>
         </div>
       )}
@@ -1288,7 +1372,7 @@ function SvcCard({ item, kind, participants = [], hideBackRow, onBack }) {
       {tab === 'history' && (
         <div className="card card-pad" style={{ maxWidth: 680 }}>
           <div className="timeline">
-            {[['14:32', 'Услуга добавлена в заказ'], ['14:40', 'Запрос отправлен поставщику'], ['15:10', 'Получено подтверждение']].map(([t, txt], i) => (
+            {serviceHistory.map(({ t, txt }, i) => (
               <div className="tl-item" key={i}><span className="tl-dot" /><span className="tl-line" /><div><div className="tl-time">{t}</div><div className="tl-text">{txt}</div></div></div>
             ))}
           </div>
@@ -1298,7 +1382,7 @@ function SvcCard({ item, kind, participants = [], hideBackRow, onBack }) {
       {corrOpen && <DocCorrectionPanel subjects={corrSubjects} meta={corrMeta} currency={cur || 'USD'} orderNo={item.order || null} onClose={() => setCorrOpen(false)} />}
       {sendOpen && <ServiceCardSendPanel item={item} kind={kind} participants={pax} orderNo={orderNo} currency={cur} onSent={sendCard} onClose={() => setSendOpen(false)} />}
       <SvcDocUploadDrawer open={uploadOpen} isHotel={isHotel} participants={pax} orderNo={orderNo} onClose={() => setUploadOpen(false)}
-        onUploaded={(doc) => { setUploadedDocs((cur) => [...cur, doc]); setUploadOpen(false); toast('Документ загружен', 'ok'); }} />
+        onUploaded={uploadDocument} />
       <SvcAddPaxDrawer open={addPaxOpen} isHotel={isHotel} onClose={() => setAddPaxOpen(false)}
         onAdd={(person) => { setPax((cur) => [...cur, person]); setAddPaxOpen(false); toast((isHotel ? 'Гость' : 'Пассажир') + ' добавлен', 'ok'); }} />
       {opConfirm && <OperationConfirmModal open action={opConfirm.action} kind={kind} service={title}
@@ -1363,6 +1447,7 @@ function backendServiceRegistryRow(item) {
   return {
     ...service,
     no: `SV-${String(item.id).slice(0, 8).toUpperCase()}`,
+    orderId: item.order,
     order: item.order_number || item.order,
     main: item.title,
     sub: item.supplier_name || 'Без поставщика',

@@ -3,6 +3,7 @@ import { Icon } from './icons';
 import { ActionMenu, Avatar, Button, Drawer, EmptyState, Modal, ModalHeader, Pill, useToast } from './ui';
 import { CURRENT_USER, OPERATORS, SERVICE_TYPE } from './data';
 import { EXTRA_STAGES, EXTRA_STATUS, EXTRA_SVC_CATALOG, ORDER_RESP_HISTORY, ORDER_SVC_RESPONSIBLES, SVC_ACCESS_KINDS, extrasFromSupplier, operatorSvcAccess, orderActionLog } from './data/access-control';
+import { workspaceActionsApi } from './api/resources';
 
 
 
@@ -203,18 +204,28 @@ function DynamicExtrasPanel({ order }) {
 
 function ExtrasCatalogModal({ open, onClose }) {
   const toast = useToast();
+  const [catalog, setCatalog] = useState(EXTRA_SVC_CATALOG);
   if (!open) return null;
+  const addCatalogItem = async () => {
+    const name = window.prompt('Название дополнительной услуги');
+    if (!name?.trim()) return;
+    try {
+      const item = { id: `custom-${Date.now()}`, name: name.trim(), category: 'Прочее', stages: ['До выписки'], emd: false, manual: true, fee: '—', icon: 'plus' };
+      await workspaceActionsApi.execute('service.catalog.create', { resourceType: 'service_catalog', resourceId: item.id, payload: item });
+      setCatalog((items) => [...items, item]); toast('Услуга добавлена в справочник', 'ok');
+    } catch (error) { toast(error.message, 'err'); }
+  };
   return (
     <Drawer open={open} onClose={onClose} title="Справочник дополнительных услуг" sub="Отображение и правила услуг. Доступность определяется API поставщика, а не справочником." width="min(900px, 96vw)"
       footer={<>
-        <Button variant="secondary" icon="plus" onClick={() => toast('Добавление услуги в справочник', 'info')}>Добавить услугу</Button>
+        <Button variant="secondary" icon="plus" onClick={addCatalogItem}>Добавить услугу</Button>
         <Button variant="primary" onClick={onClose}>Закрыть</Button>
       </>}>
         <div className="table-card">
           <table className="tbl">
             <thead><tr><th>Услуга</th><th>Категория</th><th>Этапы доступности</th><th>EMD</th><th>Вручную</th><th>Сбор</th></tr></thead>
             <tbody>
-              {EXTRA_SVC_CATALOG.map((x) => (
+              {catalog.map((x) => (
                 <tr key={x.id}>
                   <td><span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}><Icon name={x.icon} style={{ width: 16, height: 16, color: 'var(--blue)' }} />{x.name}</span></td>
                   <td>{x.category}</td>

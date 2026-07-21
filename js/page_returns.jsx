@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Icon } from './icons';
-import { aftersalesApi } from './api/resources';
+import { aftersalesApi, documentsApi, workspaceActionsApi } from './api/resources';
 import { toLegacyReturn } from './api/legacy-adapters';
 import { resultsOf } from './api/client';
 import { ActionMenu, Button, Checkbox, ConfirmDialog, DateField, Drawer, EmptyState, Field, FilterChip, Input, Pill, SearchBox, Select, Th, fmtDate, useSort, useToast } from './ui';
@@ -218,6 +218,52 @@ function ReturnCard({ op, onBack, onChange }) {
 
 
   const [confirm, setConfirm] = useState(null);
+  const [documents, setDocuments] = useState(op.documents || []);
+  const [history, setHistory] = useState(op.history || []);
+  const [comment, setComment] = useState('');
+  const fileRef = useRef(null);
+  useEffect(() => {
+    if (!op.serverId) return undefined;
+    const controller = new AbortController();
+    Promise.all([
+      aftersalesApi.documents(op.serverId, controller.signal),
+      aftersalesApi.history(op.serverId, controller.signal),
+      workspaceActionsApi.list({ action: 'service.aftersale.comment', resource_type: 'AfterSaleCase', resource_id: op.serverId }, controller.signal),
+    ]).then(([docs, events, comments]) => {
+      setDocuments((docs || []).map((doc) => ({ ...doc, name: doc.title, kind: doc.kind, v: doc.current_version, status: doc.status })));
+      const rows = (events || []).map((event) => ({ t: new Date(event.created_at).toLocaleString('ru-RU'), who: event.actor || 'Система', text: event.details?.reason || event.action }));
+      const notes = (comments || []).map((row) => ({ t: new Date(row.created_at).toLocaleString('ru-RU'), who: 'Сотрудник', text: row.payload?.comment || '' }));
+      setHistory([...rows, ...notes].sort((a, b) => String(a.t).localeCompare(String(b.t))));
+    }).catch((error) => { if (error.name !== 'AbortError') toast(error.message, 'err'); });
+    return () => controller.abort();
+  }, [op.serverId]);
+
+  const uploadDocument = async (event) => {
+    const file = event.target.files?.[0]; event.target.value = '';
+    if (!file) return;
+    try {
+      const created = await documentsApi.upload(file, { order: op.orderId, service: op.service || null, kind: 'other', title: file.name, source: 'upload', metadata: { aftersale_case: op.serverId } });
+      setDocuments((current) => [...current, { ...created, name: created.title, kind: created.kind, v: created.current_version, status: created.status }]);
+      toast('Документ загружен', 'ok');
+    } catch (error) { toast(error.message, 'err'); }
+  };
+  const generateCertificate = async () => {
+    try {
+      const created = await documentsApi.create({ order: op.orderId, service: op.service || null, kind: 'certificate', title: `Справка ${op.no}`, source: 'generated', metadata: { aftersale_case: op.serverId } });
+      await documentsApi.generate(created.id, { context: { case_number: op.no, type: op.type } });
+      const refreshed = await aftersalesApi.documents(op.serverId);
+      setDocuments(refreshed.map((doc) => ({ ...doc, name: doc.title, kind: doc.kind, v: doc.current_version, status: doc.status })));
+      toast('Справка сформирована', 'ok');
+    } catch (error) { toast(error.message, 'err'); }
+  };
+  const addComment = async () => {
+    const value = comment.trim(); if (!value) return;
+    try {
+      const row = await workspaceActionsApi.execute('service.aftersale.comment', { resourceType: 'AfterSaleCase', resourceId: op.serverId, payload: { comment: value } });
+      setHistory((current) => [...current, { t: new Date(row.created_at).toLocaleString('ru-RU'), who: 'Сотрудник', text: value }]);
+      setComment(''); toast('Комментарий добавлен', 'ok');
+    } catch (error) { toast(error.message, 'err'); }
+  };
   const ask = (title, message, onConfirm, confirmLabel = 'Подтвердить', confirmVariant = 'danger') => setConfirm({ title, message, onConfirm, confirmLabel, confirmVariant });
   const setStatus = (s) => onChange(op.no, { status: s }, `Статус изменён: ${s}`);
   const doAdvance = () => {
@@ -333,7 +379,7 @@ function ReturnCard({ op, onBack, onChange }) {
             <div className="card card-pad" style={{ borderColor: 'var(--blue)', boxShadow: '0 0 0 3px var(--blue-soft)' }}>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
                 <Pill tone="blue">Новый вариант</Pill>
-                <Button variant="ghost" size="sm" icon="search" onClick={() => toast('Подбор нового варианта (поиск авиа)', 'info')}>Подобрать</Button>
+                <Button variant="ghost" size="sm" icon="search" onClick={() => window.__toastNav && window.__toastNav('services')}>Подобрать</Button>
               </div>
               <div className="kv">
                 <div className="kv-row"><span className="k">Маршрут</span><span className="v">{op.exchange.newP.route}</span></div>
@@ -355,17 +401,18 @@ function ReturnCard({ op, onBack, onChange }) {
 
       <h3 className="section-title" style={{ fontSize: 20, margin: '26px 0 14px' }}>Документы операции</h3>
       <div className="card card-pad">
-        {op.documents.length ? op.documents.map((d, i) => (
+        {documents.length ? documents.map((d, i) => (
           <div className="ver-row" key={i}>
             <span className="ver-badge" style={{ background: 'var(--blue-soft)' }}><Icon name="docs" style={{ width: 16, height: 16 }} /></span>
             <div style={{ flex: 1 }}><div style={{ fontWeight: 600, fontSize: 14 }}>{d.name}</div><div style={{ fontSize: 12, color: 'var(--muted)' }}>{d.kind} · v{d.v}</div></div>
             <Pill tone={DOC_STATUS2[d.status] || 'gray'}>{d.status}</Pill>
-            <button className="icon-btn" onClick={() => toast('Скачивание…', 'info')} style={{ marginLeft: 8 }}><Icon name="download" /></button>
+            <button className="icon-btn" onClick={() => window.location.assign(documentsApi.downloadUrl(d.id))} style={{ marginLeft: 8 }}><Icon name="download" /></button>
           </div>
         )) : <div style={{ color: 'var(--muted-2)', padding: '8px 0' }}>Документы ещё не приложены</div>}
         <div style={{ display: 'flex', gap: 10, marginTop: 14 }}>
-          <Button variant="secondary" size="sm" icon="plus" onClick={() => toast('Загрузка файла', 'info')}>Загрузить</Button>
-          {op.type === 'Оформление справки' && <Button size="sm" icon="docs" onClick={() => toast('Справка сформирована', 'ok')}>Сформировать справку</Button>}
+          <input ref={fileRef} type="file" hidden onChange={uploadDocument} />
+          <Button variant="secondary" size="sm" icon="plus" onClick={() => fileRef.current?.click()}>Загрузить</Button>
+          {op.type === 'Оформление справки' && <Button size="sm" icon="docs" onClick={generateCertificate}>Сформировать справку</Button>}
         </div>
         <div style={{ marginTop: 10, fontSize: 12, color: 'var(--muted-2)' }}>Все документы автоматически связываются с операцией {op.no} и заказом № {op.order}.</div>
       </div>
@@ -374,13 +421,13 @@ function ReturnCard({ op, onBack, onChange }) {
       <h3 className="section-title" style={{ fontSize: 20, margin: '26px 0 14px' }}>История изменений</h3>
       <div className="card card-pad" style={{ maxWidth: 680 }}>
         <div className="timeline">
-          {[...op.history].reverse().map((h, i) => (
+          {[...history].reverse().map((h, i) => (
             <div className="tl-item" key={i}><span className="tl-dot" /><span className="tl-line" />
               <div><div className="tl-time">{h.t} · {h.who}</div><div className="tl-text">{h.text}</div></div></div>
           ))}
         </div>
         <div style={{ display: 'flex', gap: 10, marginTop: 16 }}>
-          <Input placeholder="Комментарий сотрудника…" style={{ flex: 1 }} /><Button icon="send" onClick={() => toast('Комментарий добавлен')}>Добавить</Button>
+          <Input value={comment} onChange={(event) => setComment(event.target.value)} placeholder="Комментарий сотрудника…" style={{ flex: 1 }} /><Button icon="send" onClick={addComment}>Добавить</Button>
         </div>
       </div>
 

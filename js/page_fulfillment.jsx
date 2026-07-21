@@ -6,7 +6,7 @@ import { UnifiedBindField, UFDateField } from './forms_unified';
 import { Topbar } from './layout';
 import { DocCorrectionPanel, docCorrKind } from './page_flights';
 import { toLegacyDocument } from './api/legacy-adapters';
-import { documentsApi, financeApi } from './api/resources';
+import { documentsApi, financeApi, workspaceActionsApi } from './api/resources';
 import { resultsOf } from './api/client';
 
 
@@ -47,6 +47,7 @@ function OrderStageBar({ index, compact }) {
 
 function FinanceOpCard({ op, onClose, onChange }) {
   const toast = useToast();
+  const [comment, setComment] = useState('');
   if (!op) return null;
   const payable = finPayable(op);
   const debt = finDebt(op);
@@ -59,8 +60,14 @@ function FinanceOpCard({ op, onClose, onChange }) {
     <Drawer open={!!op} onClose={onClose} title={'Операция ' + op.no}
       footer={
         <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-          <Button style={{ flex: 1, minWidth: 150 }} icon="finance" onClick={() => { onChange && onChange(op.no, { paid: payable, status: 'Оплачено' }); toast('Платёж добавлен', 'ok'); }}>Добавить платёж</Button>
-          <Button variant="secondary" icon="refund" onClick={() => toast('Открыт модуль возврата', 'info')}>Возврат</Button>
+          <Button style={{ flex: 1, minWidth: 150 }} icon="finance" onClick={async () => {
+            try {
+              if (op.orderId) await financeApi.createPayment({ direction: 'incoming', order: op.orderId, method: 'manual', amount: payable, currency: op.currency, comment: `Операция ${op.no}` });
+              else await workspaceActionsApi.execute('finance.payment.create_request', { resourceType: 'finance_operation', resourceId: op.no, payload: { amount: payable, currency: op.currency, order_number: op.order } });
+              onChange?.(op.no, { paid: payable, status: 'Оплачено' }); toast('Платёж добавлен', 'ok');
+            } catch (error) { toast(error.message, 'err'); }
+          }}>Добавить платёж</Button>
+          <Button variant="secondary" icon="refund" onClick={() => window.__toastNav && window.__toastNav('returns')}>Возврат</Button>
           <Button variant="secondary" icon="check" onClick={() => setStatus('Закрыто')}>Закрыть</Button>
         </div>
       }>
@@ -111,7 +118,11 @@ function FinanceOpCard({ op, onClose, onChange }) {
       <div className="card card-pad" style={{ marginBottom: 16 }}>
         <h3 className="card-title" style={{ fontSize: 15, marginBottom: 10 }}>Комментарий</h3>
         {op.comment ? <p style={{ margin: '0 0 12px', color: 'var(--body)' }}>{op.comment}</p> : <p style={{ margin: '0 0 12px', color: 'var(--muted-2)' }}>Без комментариев</p>}
-        <div style={{ display: 'flex', gap: 8 }}><Input placeholder="Добавить комментарий…" style={{ flex: 1 }} /><Button icon="send" onClick={() => toast('Комментарий добавлен')} /></div>
+        <div style={{ display: 'flex', gap: 8 }}><Input placeholder="Добавить комментарий…" value={comment} onChange={(event) => setComment(event.target.value)} style={{ flex: 1 }} /><Button icon="send" onClick={async () => {
+          if (!comment.trim()) return;
+          try { await workspaceActionsApi.execute('finance.comment.add', { resourceType: 'finance_operation', resourceId: op.no, payload: { comment: comment.trim() } }); setComment(''); toast('Комментарий добавлен', 'ok'); }
+          catch (error) { toast(error.message, 'err'); }
+        }} /></div>
       </div>
 
       <h3 className="card-title" style={{ fontSize: 15, marginBottom: 12 }}>История изменений</h3>

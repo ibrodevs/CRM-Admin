@@ -44,6 +44,10 @@ export const usersApi = {
   roles: (signal) => get('roles/', signal),
   userRoles: (id, signal) => get(`users/${id}/roles/`, signal),
   setRoles: (id, roles) => apiRequest(apiPath(`users/${id}/roles/`), { method: 'PUT', body: { roles } }),
+  serviceAccess: (id, signal) => get(`users/${id}/service-access/`, signal),
+  setServiceAccess: (id, body) => apiRequest(apiPath(`users/${id}/service-access/`), { method: 'PUT', body }),
+  sla: (id, signal) => get(`users/${id}/sla/`, signal),
+  setSla: (id, minutes) => apiRequest(apiPath(`users/${id}/sla/`), { method: 'PUT', body: { sla_response_minutes: minutes } }),
 };
 
 export const ordersApi = {
@@ -80,7 +84,12 @@ export const communicationsApi = {
   messages: (id, params = {}, signal) => list(`chat/threads/${id}/messages/`, params, signal),
   send: (id, body) => create(`chat/threads/${id}/send/`, body),
   read: (id, body = {}) => create(`chat/threads/${id}/read/`, body),
+  pin: (id, pinned) => create(`chat/threads/${id}/pin/`, { pinned }),
+  historyUrl: (id) => apiPath(`chat/threads/${id}/history/`),
   unreadCount: (signal) => get('chat/unread-count/', signal),
+  createThread: (body) => create('chat/threads/', body),
+  participants: (id, signal) => get(`chat/threads/${id}/participants/`, signal),
+  updateParticipants: (id, body) => apiRequest(apiPath(`chat/threads/${id}/participants/`), { method: 'PUT', body }),
 };
 
 export const notificationsApi = {
@@ -90,6 +99,33 @@ export const notificationsApi = {
   dismiss: (id) => create(`notifications/${id}/dismiss/`, {}),
   readAll: () => create('notifications/read-all/', {}),
   dismissRead: () => create('notifications/dismiss-read/', {}),
+  rules: (signal) => get('notification-rules/', signal),
+  setRules: (body) => apiRequest(apiPath('notification-rules/'), { method: 'PUT', body }),
+};
+
+export const integrationsApi = {
+  operations: (params = {}, signal) => list('integration-operations/', { page_size: 100, ...params }, signal),
+  incidents: (params = {}, signal) => list('integration-incidents/', { page_size: 100, ...params }, signal),
+  assign: (id, user) => create(`integration-incidents/${id}/assign/`, { user }),
+  retry: (id) => create(`integration-incidents/${id}/retry/`, {}),
+  snooze: (id, until) => create(`integration-incidents/${id}/snooze/`, { until }),
+  switchSupplier: (id, supplier) => create(`integration-incidents/${id}/switch-supplier/`, { supplier }),
+  resolve: (id) => create(`integration-incidents/${id}/resolve/`, {}),
+  reopen: (id) => create(`integration-incidents/${id}/reopen/`, {}),
+  escalate: (id, body = {}) => create(`integration-incidents/${id}/escalate/`, body),
+  errorCodes: (signal) => get('integration-error-codes/', signal),
+};
+
+export const workforceApi = {
+  queue: (signal) => get('sla/queue/', signal),
+  currentShift: (signal) => get('shifts/current/', signal),
+  startShift: (body = {}) => create('shifts/start/', body),
+  previewClose: (id) => create(`shifts/${id}/preview-close/`, {}),
+  closeShift: (id, body = {}) => create(`shifts/${id}/close/`, body),
+  reportUrl: (id) => apiPath(`shifts/${id}/report/`),
+  motivationRules: (signal) => get('motivation/rules/', signal),
+  saveMotivationRules: (body) => apiRequest(apiPath('motivation/rules/'), { method: 'PUT', body }),
+  motivationAccruals: (params = {}, signal) => list('motivation/accruals/', params, signal),
 };
 
 export const workspaceApi = {
@@ -103,6 +139,18 @@ export const workspaceApi = {
   users: (params = {}, signal) => list('users/', { page_size: 100, ...params }, signal),
   meta: (signal) => get('meta/', signal),
   globalSearch: (q, signal) => list('search/', { q }, signal),
+};
+
+export const workspaceSettingsApi = {
+  get: (namespace, signal) => get(`workspace-settings/${namespace}/`, signal),
+  save: (namespace, value) => patch(`workspace-settings/${namespace}/`, { value }),
+};
+
+export const workspaceActionsApi = {
+  list: (params = {}, signal) => get(`workspace-actions/${queryString(params)}`, signal),
+  execute: (action, { resourceType = '', resourceId = '', payload = {} } = {}) => create('workspace-actions/', {
+    action, resource_type: resourceType, resource_id: resourceId, payload,
+  }),
 };
 
 export const proposalsApi = {
@@ -157,6 +205,29 @@ export const aftersalesApi = {
   execute: (id, body = {}) => create(`after-sales/${id}/execute/`, body),
   cancel: (id, reason) => create(`after-sales/${id}/cancel/`, { reason }),
   history: (id, signal) => get(`after-sales/${id}/history/`, signal),
+  documents: (id, signal) => get(`after-sales/${id}/documents/`, signal),
+};
+
+export const bookingApi = {
+  create: (body) => create('booking-workflows/', body),
+  preflight: (id) => create(`booking-workflows/${id}/preflight/`, {}),
+  start: (id, confirm = false) => create(`booking-workflows/${id}/start/`, { confirm }),
+  status: (id, signal) => get(`booking-workflows/${id}/status/`, signal),
+  issue: (id, body = {}) => create(`booking-workflows/${id}/issue/`, body),
+  inquiry: (id, item) => create(`booking-workflows/${id}/status-inquiry/`, { item }),
+  cancel: (id, reason) => create(`booking-workflows/${id}/cancel/`, { reason }),
+};
+
+export const groupsApi = {
+  list: (params = {}, signal) => list('group-orders/', { page_size: 100, ...params }, signal),
+  create: (body) => create('group-orders/', body),
+  detail: (id, signal) => get(`group-orders/${id}/`, signal),
+  transition: (id, targetStatus) => create(`group-orders/${id}/transition/`, { target_status: targetStatus }),
+  blocks: (id, body) => create(`group-orders/${id}/blocks/`, body),
+  matrix: (id, signal) => get(`group-orders/${id}/matrix/`, signal),
+  massAction: (id, body) => create(`group-orders/${id}/mass-actions/`, body),
+  requests: (id, body) => create(`group-orders/${id}/requests/`, body),
+  responses: (id, signal) => get(`group-orders/${id}/supplier-responses/`, signal),
 };
 
 export const financeApi = {

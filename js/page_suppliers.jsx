@@ -5,8 +5,9 @@ import { AIRLINES, AVIA_MARKUPS, CURRENCIES, ORG_TYPE, SUPPLIER_STATUS, aviaMark
 import { Topbar } from './layout';
 import { AirlineLogo } from './page_flights';
 import { PAGE_SIZE } from './page_orders';
-import { suppliersApi } from './api/resources';
+import { communicationsApi, documentsApi, servicesApi, suppliersApi } from './api/resources';
 import { toUiSupplier } from './api/adapters';
+import { resultsOf } from './api/client';
 
 
 
@@ -27,6 +28,31 @@ function MiniLineChart() {
   );
 }
 
+function useSupplierDocuments(s, ext) {
+  const [, refresh] = useState(0);
+  useEffect(() => {
+    if (!s || !ext) return undefined;
+    const controller = new AbortController();
+    Promise.all([documentsApi.list({}, controller.signal), servicesApi.list({}, controller.signal)]).then(([payload, servicePayload]) => {
+      const grouped = SUP_DOC_KINDS.reduce((result, kind) => ({ ...result, [kind]: [] }), {});
+      resultsOf(payload).filter((doc) => String(doc.metadata?.supplier_id || '') === String(s.serverId || s.id)).forEach((doc) => {
+        const kind = doc.metadata?.supplier_document_kind || 'Прочие файлы';
+        if (!grouped[kind]) grouped[kind] = [];
+        grouped[kind].push({ name: doc.title, documentId: doc.id, kind, versions: [{ v: `v${doc.current_version || 1}`, date: new Date(doc.created_at).toLocaleDateString('ru-RU'), author: 'CRM', note: 'Версия из backend', current: true }] });
+      });
+      const services = resultsOf(servicePayload).filter((service) => String(service.supplier) === String(s.serverId || s.id));
+      const successful = services.filter((service) => ['booked', 'confirmed', 'issued', 'completed'].includes(service.status));
+      ext.docs = grouped;
+      ext.stats = { ...ext.stats, bookings: services.length, issues: services.filter((service) => service.status === 'issued').length,
+        refunds: services.filter((service) => service.status === 'refunded').length,
+        successRate: services.length ? `${Math.round(successful.length / services.length * 100)}%` : '0%',
+        lastUsed: services[0]?.created_at ? new Date(services[0].created_at).toLocaleDateString('ru-RU') : '—' };
+      refresh((value) => value + 1);
+    }).catch(() => {});
+    return () => controller.abort();
+  }, [s?.serverId, s?.id]);
+}
+
 
 
 
@@ -42,12 +68,22 @@ function DocPreviewDrawer({ open, doc, onClose }) {
     { v: 'v1', date: '01.2025', author: 'Акимова А.', note: 'Первичная редакция' },
   ];
   const active = versions[ver] || versions[0];
+  const download = () => {
+    if (doc.documentId) window.open(documentsApi.downloadUrl(doc.documentId), '_blank');
+    else toast('У этого демонстрационного файла нет бинарной версии на сервере', 'info');
+  };
+  const addVersion = async (event) => {
+    const file = event.target.files?.[0]; if (!file || !doc.documentId) return;
+    try { await documentsApi.addVersion(doc.documentId, file, 'Новая версия договора поставщика'); toast('Новая версия загружена', 'ok'); }
+    catch (error) { toast(error.message, 'err'); }
+    finally { event.target.value = ''; }
+  };
   return (
     <Drawer open={open} onClose={onClose} width="min(760px,96vw)"
       title={doc.name} sub={doc.kind + ' · версия ' + active.v}
       footer={<>
-        <Button variant="secondary" icon="download" onClick={() => toast('Скачивание: ' + doc.name + ' (' + active.v + ')', 'info')}>Скачать {active.v}</Button>
-        <Button variant="secondary" icon="plus" onClick={() => toast('Загрузка новой версии договора', 'info')}>Загрузить новую версию</Button>
+        <Button variant="secondary" icon="download" onClick={download}>Скачать {active.v}</Button>
+        <label className={'btn btn-secondary' + (!doc.documentId ? ' disabled' : '')} style={{ cursor: doc.documentId ? 'pointer' : 'not-allowed' }}><Icon name="plus" />Загрузить новую версию<input type="file" hidden disabled={!doc.documentId} onChange={addVersion} /></label>
       </>}>
       <div style={{ display: 'grid', gridTemplateColumns: '240px 1fr', gap: 22 }}>
 
@@ -552,6 +588,16 @@ function SupplierLegalEditor({ s, ext }) {
 
 
 function SupplierTabBody({ s, ext, tab, isAirline, apiStatus, checkConn, setPreviewDoc, toast }) {
+  const [, forceDocs] = useState(0);
+  const uploadDocument = async (kind, event) => {
+    const file = event.target.files?.[0]; if (!file) return;
+    try {
+      const created = await documentsApi.upload(file, { kind: 'contract', title: file.name, source: 'upload', metadata: { supplier_id: s.serverId || s.id, supplier_name: s.name, supplier_document_kind: kind } });
+      ext.docs[kind] = [...(ext.docs[kind] || []), { name: created.title, documentId: created.id, kind, versions: [{ v: `v${created.current_version || 1}`, date: new Date().toLocaleDateString('ru-RU'), author: 'CRM', note: 'Загрузка из карточки поставщика', current: true }] }];
+      forceDocs((value) => value + 1); toast('Документ поставщика загружен', 'ok');
+    } catch (error) { toast(error.message, 'err'); }
+    finally { event.target.value = ''; }
+  };
   return (
     <>
       {tab === 'general' && (
@@ -634,7 +680,7 @@ function SupplierTabBody({ s, ext, tab, isAirline, apiStatus, checkConn, setPrev
           </div>
           <div style={{ display: 'flex', gap: 10, marginTop: 18 }}>
             <Button variant="secondary" icon="zap" disabled={apiStatus === 'checking'} onClick={checkConn}>{apiStatus === 'checking' ? 'Проверка…' : 'Проверить подключение'}</Button>
-            <Button variant="secondary" icon="api" onClick={() => toast('Синхронизация запущена', 'ok')}>Синхронизировать сейчас</Button>
+            <Button variant="secondary" icon="api" onClick={checkConn}>Синхронизировать сейчас</Button>
           </div>
         </div>
       )}
@@ -651,15 +697,17 @@ function SupplierTabBody({ s, ext, tab, isAirline, apiStatus, checkConn, setPrev
             <div key={kind}>
               <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--muted)', marginBottom: 8 }}>{kind}</div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                {(ext.docs[kind] || []).map((d, i) => (
-                  <button key={i} className="doc-chip" onClick={() => setPreviewDoc({ name: d, kind })} title="Открыть предпросмотр с историей версий">
-                    <span style={{ display: 'flex', alignItems: 'center', gap: 10 }}><Icon name="docs" />{d}</span>
+                {(ext.docs[kind] || []).map((d, i) => {
+                  const document = typeof d === 'string' ? { name: d, kind } : d;
+                  return <button key={document.documentId || i} className="doc-chip" onClick={() => setPreviewDoc(document)} title="Открыть предпросмотр с историей версий">
+                    <span style={{ display: 'flex', alignItems: 'center', gap: 10 }}><Icon name="docs" />{document.name}</span>
                     <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, color: 'var(--blue)', fontSize: 12.5, fontWeight: 600 }}><Icon name="eye" style={{ width: 15, height: 15 }} />Предпросмотр</span>
-                  </button>
-                ))}
-                <button className="doc-chip" style={{ borderStyle: 'dashed', color: 'var(--blue)' }} onClick={() => toast('Загрузка файла: ' + kind, 'info')}>
+                  </button>;
+                })}
+                <label className="doc-chip" style={{ borderStyle: 'dashed', color: 'var(--blue)', cursor: 'pointer' }}>
                   <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}><Icon name="plus" />Загрузить</span>
-                </button>
+                  <input type="file" hidden onChange={(event) => uploadDocument(kind, event)} />
+                </label>
               </div>
             </div>
           ))}
@@ -675,15 +723,26 @@ function SupplierCard({ supplier, onBack, onOpenOrder }) {
   const toast = useToast();
   const s = supplier;
   const ext = supExt(s);
+  useSupplierDocuments(s, ext);
   const isAirline = s.orgType === 'Авиакомпания';
   const isApiType = ext.supType !== 'Локальный';
   const tabs = SUP_TABS.filter((t) => (!t.airlineOnly || isAirline) && (t.key !== 'api' || isApiType));
   const [tab, setTab] = useState('general');
   const [apiStatus, setApiStatus] = useState(null);
   const [previewDoc, setPreviewDoc] = useState(null);
-  const checkConn = () => {
+  const checkConn = async () => {
     setApiStatus('checking');
-    setTimeout(() => { setApiStatus('ok'); ext.api.status = 'Подключено'; ext.api.lastSync = 'только что'; toast('Подключение успешно', 'ok'); }, 1200);
+    try {
+      await suppliersApi.checkConnection(s.serverId || s.id);
+      setApiStatus('ok');
+      toast('Подключение успешно', 'ok');
+    } catch (error) { setApiStatus('error'); toast(error.message, 'err'); }
+  };
+  const openSupplierChat = async () => {
+    try {
+      await communicationsApi.createThread({ type: 'supplier', title: s.name, external_channel: 'CRM', status: 'active' });
+      toast('Чат с поставщиком создан', 'ok');
+    } catch (error) { toast(error.message, 'err'); }
   };
   const brand = supBrand(s.name);
   const ops = ext.ops ? Object.keys(ext.ops).filter((o) => ext.ops[o]) : [];
@@ -719,7 +778,7 @@ function SupplierCard({ supplier, onBack, onOpenOrder }) {
         </div>
         {isApiType
           ? <Button icon="zap" disabled={apiStatus === 'checking'} onClick={checkConn}>{apiStatus === 'checking' ? 'Проверка…' : 'Проверить подключение'}</Button>
-          : <Button icon="chat" onClick={() => toast('Открытие чата с поставщиком', 'info')}>Открыть чат</Button>}
+          : <Button icon="chat" onClick={openSupplierChat}>Открыть чат</Button>}
       </div>
 
 
@@ -784,17 +843,22 @@ function SupplierModal({ supplier, onClose, onDelete }) {
   const [tab, setTab] = useState('general');
   const [apiStatus, setApiStatus] = useState(null);
   const [previewDoc, setPreviewDoc] = useState(null);
-  if (!supplier) return null;
   const s = supplier;
-  const ext = supExt(s);
+  const ext = s ? supExt(s) : null;
+  useSupplierDocuments(s, ext);
+  if (!s) return null;
   const isAirline = s.orgType === 'Авиакомпания';
   const isApiType = ext.supType !== 'Локальный';
   const tabs = SUP_TABS.filter((t) => (!t.airlineOnly || isAirline) && (t.key !== 'api' || isApiType));
   const tabMeta = tabs.find((t) => t.key === tab) || tabs[0];
 
-  const checkConn = () => {
+  const checkConn = async () => {
     setApiStatus('checking');
-    setTimeout(() => { setApiStatus('ok'); ext.api.status = 'Подключено'; ext.api.lastSync = 'только что'; toast('Подключение успешно', 'ok'); }, 1200);
+    try {
+      await suppliersApi.checkConnection(s.serverId || s.id);
+      setApiStatus('ok');
+      toast('Подключение успешно', 'ok');
+    } catch (error) { setApiStatus('error'); toast(error.message, 'err'); }
   };
 
   const header = (
@@ -815,9 +879,9 @@ function SupplierModal({ supplier, onClose, onDelete }) {
     <Drawer open onClose={onClose} width="min(940px,97vw)"
       title="Информация поставщика" sub={tabMeta.label}
       footer={<>
-        <Button variant="secondary" icon="edit" onClick={() => toast('Редактирование поставщика', 'info')}>Редактировать</Button>
+        <Button variant="secondary" icon="edit" onClick={() => setTab('general')}>Редактировать</Button>
         <Button variant="secondary" icon="trash" onClick={onDelete}>Удалить</Button>
-        <Button variant="secondary" icon="share" onClick={() => toast('Ссылка скопирована', 'ok')}>Поделиться</Button>
+        <Button variant="secondary" icon="share" onClick={async () => { await navigator.clipboard.writeText(`${window.location.origin}${window.location.pathname}#supplier-${s.serverId || s.id}`); toast('Ссылка скопирована', 'ok'); }}>Поделиться</Button>
       </>}>
       <div>
         <div style={{ display: 'grid', gridTemplateColumns: '232px 1fr', gap: 32 }}>
@@ -887,7 +951,8 @@ function SupplierAddDrawer({ open, onClose, onCreated }) {
   const [conn, setConn] = useState(null);
   const [legalOpen, setLegalOpen] = useState(false);
   const [saving, setSaving] = useState(false);
-  useEffect(() => { if (open) { setF(JSON.parse(JSON.stringify(empty))); setErrs({}); setConn(null); setFinKind(null); setLegalOpen(false); } }, [open]);
+  const [docFiles, setDocFiles] = useState({});
+  useEffect(() => { if (open) { setF(JSON.parse(JSON.stringify(empty))); setErrs({}); setConn(null); setFinKind(null); setLegalOpen(false); setDocFiles({}); } }, [open]);
 
   const lookupInn = () => {
     const inn = (f.inn || '').trim();
@@ -964,6 +1029,10 @@ function SupplierAddDrawer({ open, onClose, onCreated }) {
         });
         await suppliersApi.checkConnection(created.id);
       }
+      await Promise.all(Object.entries(docFiles).map(([kind, file]) => documentsApi.upload(file, {
+        kind: 'contract', title: file.name, source: 'upload',
+        metadata: { supplier_id: created.id, supplier_name: created.name, supplier_document_kind: kind },
+      })));
       const supplier = toUiSupplier(created);
       onCreated(supplier);
       toast('Поставщик добавлен. Проверка интеграции поставлена в очередь.', 'ok'); onClose();
@@ -1151,10 +1220,10 @@ function SupplierAddDrawer({ open, onClose, onCreated }) {
       <SupSection icon="docs" title="Документы" sub="Договор, дополнительные соглашения, реквизиты, сертификаты и прочие файлы">
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
           {SUP_DOC_KINDS.map((d) => (
-            <button key={d} className="doc-chip" style={{ borderStyle: 'dashed', color: f.docsAttached.includes(d) ? 'var(--green)' : 'var(--blue)' }}
-              onClick={() => { setF((p) => ({ ...p, docsAttached: p.docsAttached.includes(d) ? p.docsAttached : [...p.docsAttached, d] })); toast('Файл прикреплён: ' + d, 'ok'); }}>
-              <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}><Icon name={f.docsAttached.includes(d) ? 'check' : 'plus'} />{d}</span>
-            </button>
+            <label key={d} className="doc-chip" style={{ borderStyle: 'dashed', color: docFiles[d] ? 'var(--green)' : 'var(--blue)', cursor: 'pointer' }}>
+              <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}><Icon name={docFiles[d] ? 'check' : 'plus'} />{docFiles[d]?.name || d}</span>
+              <input type="file" hidden onChange={(event) => { const file = event.target.files?.[0]; if (file) setDocFiles((current) => ({ ...current, [d]: file })); }} />
+            </label>
           ))}
         </div>
       </SupSection>

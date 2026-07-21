@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Icon } from './icons';
 import { ActionMenu, Avatar, Button, Checkbox, ConfirmDialog, Drawer, Field, Input, ModalHeader, Pill, Select, Tabs, Toggle, useToast } from './ui';
-import { API_ACCESS, CURRENCIES, ORG_TYPE, PERMISSIONS, ROLES, USERS, USER_STATUS } from './data';
+import { CURRENCIES, ORG_TYPE, PERMISSIONS, ROLES, USERS, USER_STATUS } from './data';
 import { OPERATOR_SLA, operatorSla } from './data/access-control';
 import { Topbar } from './layout';
 import { ExtrasCatalogModal } from './order_ops';
@@ -9,7 +9,7 @@ import { ErrorCodesDrawer } from './page_notifications';
 import { MotivationDrawer } from './page_shifts';
 import { ServiceCardAdminDrawer } from './page_card_admin';
 import { ServiceAccessEditor } from './features/settings/service-access-editor';
-import { usersApi } from './api/resources';
+import { notificationsApi, usersApi, workspaceActionsApi, workspaceSettingsApi } from './api/resources';
 import { toLegacyUser } from './api/legacy-adapters';
 
 
@@ -18,11 +18,22 @@ function CurrencyModal({ open, onClose }) {
   const toast = useToast();
   const [extra, setExtra] = useState(true);
   const [vals, setVals] = useState({});
+  const [baseCurrency, setBaseCurrency] = useState('USD');
+  useEffect(() => {
+    if (!open) return;
+    workspaceSettingsApi.get('finance-currencies').then((data) => {
+      setVals(data.value?.rates || {}); setExtra(data.value?.extraCalculation ?? true); setBaseCurrency(data.value?.base || 'USD');
+    }).catch(() => {});
+  }, [open]);
+  const save = async () => {
+    try { await workspaceSettingsApi.save('finance-currencies', { base: baseCurrency, rates: vals, extraCalculation: extra }); toast('Курсы валют сохранены в backend', 'ok'); onClose(); }
+    catch (error) { toast(error.message || 'Не удалось сохранить курсы', 'err'); }
+  };
   return (
     <Drawer open={open} onClose={onClose} title="Курсы валют" sub="Изменение курсов валют"
       footer={<>
-        <Button variant="secondary" icon="edit" onClick={() => toast('Выбор основной валюты', 'info')}>Выбрать основную валюту</Button>
-        <Button variant="primary" iconRight="arrowRight" onClick={() => { toast('Курсы валют обновлены', 'ok'); onClose(); }}>Применить</Button>
+        <Button variant="secondary" icon="edit" onClick={() => setBaseCurrency(CURRENCIES[(CURRENCIES.findIndex((c) => c.code === baseCurrency) + 1) % CURRENCIES.length].code)}>Основная: {baseCurrency}</Button>
+        <Button variant="primary" iconRight="arrowRight" onClick={save}>Применить</Button>
       </>}>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
           {CURRENCIES.map((c, i) => (
@@ -42,7 +53,7 @@ function CurrencyModal({ open, onClose }) {
             <Toggle on={extra} onChange={setExtra} />
           </div>
         </div>
-        <Button variant="primary" icon="plus" style={{ marginTop: 8 }} onClick={() => toast('Добавление валюты', 'info')}>Добавить валюту</Button>
+        <Button variant="primary" icon="plus" style={{ marginTop: 8 }} onClick={() => workspaceActionsApi.execute('finance.currency.request', { payload: { base: baseCurrency } }).then(() => toast('Запрос на добавление валюты сохранён', 'ok')).catch((error) => toast(error.message, 'err'))}>Добавить валюту</Button>
     </Drawer>
   );
 }
@@ -56,11 +67,15 @@ function ApiKeyModal({ open, onClose }) {
   const [type, setType] = useState('HoReCa');
   const [tg, setTg] = useState([true, false, true, true, true]);
   const [err, setErr] = useState('');
+  const [credentials, setCredentials] = useState(null);
   useEffect(() => { if (open) { setStage('form'); setOrg(''); setErr(''); } }, [open]);
-  const gen = () => {
+  const gen = async () => {
     if (!org.trim()) { setErr('Введите наименование'); return; }
     setStage('loading');
-    setTimeout(() => setStage('result'), 1500);
+    try {
+      const created = await workspaceActionsApi.execute('integration.api_key.generate', { payload: { organization: org.trim(), organization_type: type, access: ACCESS_TOGGLES.filter((_, i) => tg[i]) } });
+      setCredentials(created.result); setStage('result');
+    } catch (error) { setErr(error.message || 'Не удалось создать ключ'); setStage('form'); }
   };
   return (
     <Drawer open={open} onClose={onClose}
@@ -102,12 +117,12 @@ function ApiKeyModal({ open, onClose }) {
         )}
         {stage === 'result' && <>
           <ModalHeader title="Результаты API ключа" sub={`ОсОО "${org}" ✓`} onClose={onClose} />
-          {[['API', 'Введите его в поле с API', 'KJjhasgdv343uhagha9723545'], ['API-KEY', 'Введите ключ для активации API', '76124536dhg'], ['API-ENDPOINT', 'Введите ENDPOINT для работы с API', 'https://api.amadeus.com/v2/bookings']].map(([t, h, v], i) => (
+          {[['API', 'Введите его в поле с API', credentials?.api || ''], ['API-KEY', 'Введите ключ для активации API', credentials?.api_key || ''], ['API-ENDPOINT', 'Введите ENDPOINT для работы с API', credentials?.endpoint || '']].map(([t, h, v], i) => (
             <div key={i} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 24, marginBottom: 18 }}>
               <div><div style={{ fontWeight: 700, color: 'var(--ink)' }}>{t}</div><div style={{ fontSize: 13, color: 'var(--muted)' }}>{h}</div></div>
               <div className="input-wrap" style={{ width: 320 }}>
                 <input className="input has-trail" readOnly value={v} style={{ background: 'var(--surface-2)' }} />
-                <Icon name="copy" className="trail" onClick={() => toast('Скопировано', 'ok')} />
+                <Icon name="copy" className="trail" onClick={async () => { await navigator.clipboard.writeText(v); toast('Скопировано', 'ok'); }} />
               </div>
             </div>
           ))}
@@ -120,6 +135,25 @@ function ApiKeyModal({ open, onClose }) {
 function ApiAccessModal({ open, onClose }) {
   const toast = useToast();
   const [confirm, setConfirm] = useState(null);
+  const [accesses, setAccesses] = useState([]);
+  useEffect(() => {
+    if (!open) return;
+    workspaceActionsApi.list({ action: 'integration.api_key.generate' }).then((rows) => setAccesses(rows.map((row) => ({
+      no: row.id, org: row.payload?.organization || '—', orgType: row.payload?.organization_type || '—',
+      date: new Date(row.created_at).toLocaleDateString('ru-RU'),
+    })))).catch((error) => toast(error.message, 'err'));
+  }, [open]);
+  const editAccess = async (access) => {
+    const org = window.prompt('Организация', access.org);
+    if (!org?.trim()) return;
+    try { await workspaceActionsApi.execute('settings.api_access.update', { resourceType: 'api_access', resourceId: String(access.no), payload: { ...access, org: org.trim() } }); setAccesses((items) => items.map((item) => item.no === access.no ? { ...item, org: org.trim() } : item)); toast('Доступ обновлён', 'ok'); }
+    catch (error) { toast(error.message, 'err'); }
+  };
+  const deleteAccess = async () => {
+    const access = accesses[confirm];
+    try { await workspaceActionsApi.execute('settings.api_access.revoke', { resourceType: 'api_access', resourceId: String(access.no), payload: { org: access.org } }); setAccesses((items) => items.filter((item) => item.no !== access.no)); setConfirm(null); toast('Доступ отозван', 'ok'); }
+    catch (error) { toast(error.message, 'err'); }
+  };
   return (
     <>
     <Drawer open={open} onClose={onClose} title="Доступы к API" width="min(860px, 96vw)">
@@ -127,12 +161,12 @@ function ApiAccessModal({ open, onClose }) {
           <table className="tbl">
             <thead><tr><th style={{ width: 70 }}>№</th><th>Организация</th><th>Тип организации</th><th>Дата создания</th><th style={{ width: 100 }}>Действия</th></tr></thead>
             <tbody>
-              {API_ACCESS.slice(0, 6).map((a, i) => (
+              {accesses.map((a, i) => (
                 <tr key={i}>
                   <td className="t-strong">{a.no}</td><td className="t-strong">{a.org}</td>
                   <td><Pill tone={ORG_TYPE[a.orgType]}>{a.orgType}</Pill></td><td>{a.date}</td>
                   <td><div className="row-actions">
-                    <button className="icon-btn green" onClick={() => toast('Редактирование доступа', 'info')}><Icon name="edit" /></button>
+                    <button className="icon-btn green" onClick={() => editAccess(a)}><Icon name="edit" /></button>
                     <button className="icon-btn red" onClick={() => setConfirm(i)}><Icon name="trash" /></button>
                   </div></td>
                 </tr>
@@ -142,7 +176,7 @@ function ApiAccessModal({ open, onClose }) {
         </div>
     </Drawer>
       <ConfirmDialog open={confirm !== null} message="Данное действие невозможно будет отменить!"
-        onCancel={() => setConfirm(null)} onConfirm={() => { setConfirm(null); toast('Доступ удалён', 'ok'); }} />
+        onCancel={() => setConfirm(null)} onConfirm={deleteAccess} />
     </>
   );
 }
@@ -196,9 +230,14 @@ function NotificationsModal({ open, onClose }) {
   const toast = useToast();
   const [tg, setTg] = useState([true, true, false, true, false, true]);
   const opts = ['Уведомления о новых заказах', 'Уведомления о платежах', 'SMS-уведомления', 'E-mail дайджест', 'Push в Telegram', 'Просрочки и дедлайны SLA'];
+  useEffect(() => { if (open) notificationsApi.rules().then((data) => setTg(opts.map((_, i) => data.find((rule) => rule.event_type === `ui.preference.${i}`)?.is_active ?? tg[i]))).catch(() => {}); }, [open]);
+  const save = async () => {
+    try { await notificationsApi.setRules({ rules: tg }); toast('Настройки сохранены в backend', 'ok'); onClose(); }
+    catch (error) { toast(error.message || 'Не удалось сохранить настройки', 'err'); }
+  };
   return (
     <Drawer open={open} onClose={onClose} title="Настройки уведомлений" width="min(460px, 94vw)"
-      footer={<Button variant="primary" onClick={() => { toast('Настройки сохранены', 'ok'); onClose(); }}>Сохранить</Button>}>
+      footer={<Button variant="primary" onClick={save}>Сохранить</Button>}>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
           {opts.map((l, i) => (
             <div key={i} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 0', borderBottom: i < opts.length - 1 ? '1px solid var(--line)' : 'none' }}>
@@ -214,11 +253,12 @@ function NotificationsModal({ open, onClose }) {
 
 function OperatorAccessDrawer({ open, operator, onClose }) {
   const toast = useToast();
-  const [sla, setSla] = useState(() => (operator ? operatorSla(operator) : 15));
-  useEffect(() => { if (open && operator) setSla(operatorSla(operator)); }, [open, operator]);
+  const operatorName = operator?.name || operator || '';
+  const [sla, setSla] = useState(() => (operatorName ? operatorSla(operatorName) : 15));
+  useEffect(() => { if (open && operatorName) usersApi.sla(operator.serverId).then((data) => setSla(data.sla_response_minutes || operatorSla(operatorName))).catch(() => setSla(operatorSla(operatorName))); }, [open, operatorName]);
   if (!open || !operator) return null;
   return (
-    <Drawer open={open} onClose={onClose} title="Доступ и нормативы оператора" sub={operator} width="min(720px,96vw)"
+    <Drawer open={open} onClose={onClose} title="Доступ и нормативы оператора" sub={operatorName} width="min(720px,96vw)"
       footer={<Button variant="secondary" style={{ width: '100%' }} onClick={onClose}>Закрыть</Button>}>
       <div className="card card-pad" style={{ marginBottom: 16, display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap' }}>
         <div style={{ flex: 1, minWidth: 200 }}>
@@ -227,11 +267,11 @@ function OperatorAccessDrawer({ open, operator, onClose }) {
         </div>
         <div style={{ width: 110 }}><Input type="number" min="1" value={sla} onChange={(e) => setSla(Math.max(1, parseInt(e.target.value) || 1))} /></div>
         <span style={{ color: 'var(--muted)', fontSize: 13 }}>минут</span>
-        <Button size="sm" icon="check" onClick={() => { OPERATOR_SLA[operator] = sla; toast('Норматив сохранён: ' + sla + ' мин', 'ok'); }}>Сохранить</Button>
+        <Button size="sm" icon="check" onClick={async () => { try { await usersApi.setSla(operator.serverId, sla); toast('Норматив сохранён: ' + sla + ' мин', 'ok'); } catch (error) { toast(error.message || 'Не удалось сохранить норматив', 'err'); } }}>Сохранить</Button>
       </div>
       <h3 className="card-title" style={{ fontSize: 16, marginBottom: 4 }}>Доступ по видам услуг</h3>
       <div style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 12 }}>Область ответственности оператора в заказах.</div>
-      <ServiceAccessEditor operator={operator} />
+      <ServiceAccessEditor operator={operatorName} userId={operator.serverId} />
     </Drawer>
   );
 }
@@ -254,6 +294,17 @@ function UsersTab({ onAdd, users = [], onUsersChange }) {
       }
     } catch (error) { toast(error.message || 'Не удалось изменить доступ', 'err'); }
   };
+  const changeRole = async (user) => {
+    try {
+      const roles = await usersApi.roles();
+      const code = window.prompt(`Код роли (${roles.map((role) => role.code).join(', ')})`, roles.find((role) => role.name === user.role)?.code || 'operator');
+      if (!code) return;
+      if (!roles.some((role) => role.code === code)) throw new Error('Неизвестный код роли');
+      await usersApi.setRoles(user.serverId, [code]);
+      onUsersChange?.(users.map((item) => item.id === user.serverId ? { ...item, roles: [code] } : item));
+      toast('Роль пользователя изменена', 'ok');
+    } catch (error) { toast(error.message || 'Не удалось изменить роль', 'err'); }
+  };
   return (
     <div className="fade-in">
       <div style={{ display: 'flex', alignItems: 'center', marginBottom: 16 }}>
@@ -273,10 +324,10 @@ function UsersTab({ onAdd, users = [], onUsersChange }) {
                 <td><Pill tone={USER_STATUS[u.status]}>{u.status}</Pill></td>
                 <td><ActionMenu trigger={<button className="btn btn-ghost btn-icon btn-sm"><Icon name="more" /></button>}
                   items={[
-                    { icon: 'edit', label: 'Изменить роль', onClick: () => toast('Изменение роли', 'info') },
+                    { icon: 'edit', label: 'Изменить роль', onClick: () => changeRole(u) },
                     ...(u.role === 'Оператор' ? [
                       { icon: 'finance', label: 'Мотивация оператора', onClick: () => setMotUser(u.name) },
-                      { icon: 'sla', label: 'Доступ и нормативы', onClick: () => setAccUser(u.name) },
+                      { icon: 'sla', label: 'Доступ и нормативы', onClick: () => setAccUser(u) },
                     ] : []),
                     { icon: 'mail', label: 'Отправить приглашение', onClick: async () => { try { await usersApi.invite(u.serverId); toast('Приглашение создано', 'ok'); } catch (error) { toast(error.message || 'Не удалось создать приглашение', 'err'); } } },
                     { sep: true },
@@ -300,11 +351,13 @@ function RolesTab() {
     if (ri === 0) return;
     setMatrix((m) => m.map((g, x) => x !== gi ? g : { ...g, items: g.items.map((it, y) => y !== ii ? it : { ...it, r: it.r.map((v, z) => z === ri ? (v ? 0 : 1) : v) }) }));
   };
+  useEffect(() => { workspaceSettingsApi.get('role-permissions').then((data) => { if (Array.isArray(data.value?.matrix)) setMatrix(data.value.matrix); }).catch(() => {}); }, []);
+  const save = async () => { try { await workspaceSettingsApi.save('role-permissions', { matrix }); toast('Права сохранены в backend', 'ok'); } catch (error) { toast(error.message || 'Не удалось сохранить права', 'err'); } };
   return (
     <div className="fade-in">
       <div style={{ display: 'flex', alignItems: 'center', marginBottom: 16 }}>
         <span style={{ color: 'var(--muted)', fontSize: 14 }}>Матрица прав доступа по ролям · «Админ» всегда имеет полный доступ</span>
-        <div style={{ flex: 1 }} /><Button variant="secondary" icon="check" onClick={() => toast('Права сохранены', 'ok')}>Сохранить</Button>
+        <div style={{ flex: 1 }} /><Button variant="secondary" icon="check" onClick={save}>Сохранить</Button>
       </div>
       <div className="table-card">
         <table className="tbl">
@@ -397,10 +450,10 @@ const CARD_VIS_FIELDS = [
 function CardVisibilityModal({ open, onClose }) {
   const toast = useToast();
   const [vis, setVis] = useState(() => ({ ...(window.CARD_CLIENT_VISIBILITY || {}) }));
-  useEffect(() => { if (open) setVis({ ...(window.CARD_CLIENT_VISIBILITY || {}) }); }, [open]);
+  useEffect(() => { if (open) workspaceSettingsApi.get('card-client-visibility').then((data) => setVis(data.value || {})).catch(() => setVis({ ...(window.CARD_CLIENT_VISIBILITY || {}) })); }, [open]);
   if (!open) return null;
   const tg = (k) => setVis((v) => ({ ...v, [k]: !v[k] }));
-  const save = () => { Object.assign(window.CARD_CLIENT_VISIBILITY, vis); toast('Настройки видимости сохранены', 'ok'); onClose(); };
+  const save = async () => { try { await workspaceSettingsApi.save('card-client-visibility', vis); Object.assign(window.CARD_CLIENT_VISIBILITY || {}, vis); toast('Настройки видимости сохранены в backend', 'ok'); onClose(); } catch (error) { toast(error.message || 'Не удалось сохранить настройки', 'err'); } };
   return (
     <Drawer open={open} onClose={onClose} title="Видимость полей карточки для клиента" sub="Отметьте, какие поля клиент видит в карточке услуги и КП. Неотмеченные остаются внутренними и клиенту не отправляются." width="min(520px, 94vw)"
       footer={<>

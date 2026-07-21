@@ -4,7 +4,7 @@ import { ActionMenu, Avatar, Button, Checkbox, DateField, EmptyState, Field, Inp
 import { GROUP_PAX, HOTELS, HOTEL_AMENITIES, HOTEL_DISTRICTS, HOTEL_EXTRAS, HOTEL_MEALS, ORDER_PARTICIPANTS } from './data';
 import { Topbar } from './layout';
 import { StackPanel } from './components/shared-panels';
-import { servicesApi } from './api/resources';
+import { servicesApi, workspaceActionsApi } from './api/resources';
 import { resultsOf } from './api/client';
 import { useWorkspace } from './core/workspace-context';
 
@@ -425,7 +425,7 @@ function HotelPicker({ participants, group = false, onApply, onCancel }) {
               trigger={<button className="hp-sort-btn"><span>{HP_SORT_LABEL[sort]}</span><Icon name="chevDown" /></button>}
               items={HP_SORT_OPTS.map(([k, l]) => ({ icon: sort === k ? 'check' : undefined, label: l, onClick: () => setSort(k) }))} />
           </div>
-          <button className="hp-map-btn" onClick={() => toast('Карта появится в следующем релизе', 'info')}><Icon name="mapPin" />Карта</button>
+          <button className="hp-map-btn" onClick={() => window.open(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(dest)}`, '_blank', 'noopener,noreferrer')}><Icon name="mapPin" />Карта</button>
         </div>
       </div>
 
@@ -450,7 +450,13 @@ function HotelPicker({ participants, group = false, onApply, onCancel }) {
       {panel === 'room' && activeHotel && (
         <RoomPanel hotel={activeHotel} selRoom={selRoom} selTariff={selTariff} onPickRoom={pickRoom}
           checkin={checkin} checkout={checkout} guestsLabel={guestsLabel} nights={nights}
-          onClose={closeAll} onProceed={proceedFromRoom} groupMode={groupMode} />
+          onClose={closeAll} onProceed={proceedFromRoom} groupMode={groupMode}
+          onContact={async () => {
+            try {
+              await workspaceActionsApi.execute('supplier.hotel_availability_request', { resourceType: 'hotel_offer', resourceId: String(activeHotel.serverId || activeHotel.id), payload: { hotel: activeHotel.name, room: selRoom?.name, checkin: checkin?.toISOString(), checkout: checkout?.toISOString() } });
+              toast('Запрос наличия отправлен в отель', 'ok');
+            } catch (error) { toast(error.message, 'err'); }
+          }} />
       )}
 
       {panel === 'pax' && activeHotel && (
@@ -545,7 +551,7 @@ function HotelPanelHead({ hotel, checkin, checkout, nights, guestsLabel, guests,
 }
 
 
-function RoomPanel({ hotel, selRoom, selTariff, onPickRoom, checkin, checkout, guestsLabel, nights, onClose, onProceed, groupMode }) {
+function RoomPanel({ hotel, selRoom, selTariff, onPickRoom, checkin, checkout, guestsLabel, nights, onClose, onProceed, groupMode, onContact }) {
   const toast = useToast();
   return (
     <StackPanel title="Выбор номера" width="min(1240px,96vw)" onClose={onClose}>
@@ -565,7 +571,7 @@ function RoomPanel({ hotel, selRoom, selTariff, onPickRoom, checkin, checkout, g
               <div className="hp-rc-price">от {hpM(r.base)}</div>
             </div>
           ))}
-          <div className="hp-room-help">Не нашли подходящий номер? <button onClick={() => toast('Запрос отправлен в отель', 'ok')}>Связаться с отелем</button></div>
+          <div className="hp-room-help">Не нашли подходящий номер? <button onClick={onContact}>Связаться с отелем</button></div>
         </div>
 
 

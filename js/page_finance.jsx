@@ -4,7 +4,7 @@ import { Button, Drawer, EmptyState, Field, FilterChip, Input, Pill, SearchBox, 
 import { SERVICE_KIND, CLIENTS_DB, COMPANIES_DB, SUPPLIERS } from './data';
 import { UFDateField } from './forms_unified';
 import { Topbar } from './layout';
-import { financeApi } from './api/resources';
+import { financeApi, workspaceActionsApi } from './api/resources';
 import { resultsOf } from './api/client';
 import {
   f$, fSigned, finNow, deltaTone, finCreditCheck,
@@ -682,6 +682,7 @@ function FinTreasury({ accounts = [], payments = [], receipts = [] }) {
   const toast = useToast();
   const startBalance = accounts.filter((a) => a.group !== 'Депозиты').reduce((s, a) => s + a.available, 0);
   const [prio, setPrio] = useState(() => payments.filter((p) => p.dir === 'out').reduce((m, p) => (m[p.no] = p.priority, m), {}));
+  const [saving, setSaving] = useState(false);
   useEffect(() => setPrio(payments.filter((p) => p.dir === 'out').reduce((m, p) => (m[p.no] = p.priority, m), {})), [payments]);
   const planned = payments.filter((p) => p.dir === 'out' && !['Исполнено', 'Отменено', 'Возвращено'].includes(p.status));
   const incoming = receipts.slice().sort((a, b) => a.date.localeCompare(b.date));
@@ -720,7 +721,14 @@ function FinTreasury({ accounts = [], payments = [], receipts = [] }) {
               </div>
             ))}
           </div>
-          <Button size="sm" style={{ marginTop: 12 }} icon="check" onClick={() => toast('График платежей сохранён', 'ok')}>Утвердить график</Button>
+          <Button size="sm" style={{ marginTop: 12 }} icon="check" disabled={saving} onClick={async () => {
+            setSaving(true);
+            try {
+              await workspaceActionsApi.execute('finance.payment_schedule.approve', { payload: { priorities: prio, payments: withRunning.map(({ no, plan, after }) => ({ no, plan, after })) } });
+              toast('График платежей сохранён', 'ok');
+            } catch (error) { toast(error.message, 'err'); }
+            finally { setSaving(false); }
+          }}>Утвердить график</Button>
         </div>
         <div className="card card-pad">
           <h3 className="card-title" style={{ fontSize: 16, marginBottom: 10 }}>Прогнозная картина</h3>
@@ -1325,6 +1333,10 @@ function FinAnalytics() {
 
 function FinRules() {
   const toast = useToast();
+  const persistAction = async (action, resourceId, payload = {}) => {
+    try { await workspaceActionsApi.execute(action, { resourceType: 'finance', resourceId, payload }); toast('Действие сохранено в финансовом журнале', 'ok'); }
+    catch (error) { toast(error.message, 'err'); }
+  };
   return (
     <div className="fade-in">
       <WarnBanner tone="amber" icon="alertCircle" title="Изменения применяются только к новым операциям"
@@ -1335,7 +1347,7 @@ function FinRules() {
           <div key={g.group} className="card card-pad">
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
               <h3 className="card-title" style={{ fontSize: 14 }}>{g.group}</h3>
-              <Button size="sm" variant="secondary" icon="edit" onClick={() => toast('Редактирование правил · ' + g.group, 'info')}>Настроить</Button>
+              <Button size="sm" variant="secondary" icon="edit" onClick={() => persistAction('finance.rules.edit_requested', g.group, { rules: g.items })}>Настроить</Button>
             </div>
             {g.items.map((it, i) => <FinRow key={i} label={it.t} value={it.v} />)}
           </div>
@@ -1353,7 +1365,7 @@ function FinRules() {
                 <td style={{ textAlign: 'right', fontWeight: 700 }}>{f$(r.sum)}</td>
                 <td style={{ color: 'var(--muted)' }}>{r.matched}</td>
                 <td><Pill tone={FIN_RECON_STATUS[r.status]}>{r.status}</Pill></td>
-                <td>{(r.status === 'Не найдено соответствие' || r.status === 'Конфликт') && <Button size="sm" variant="secondary" onClick={() => toast('Открываю ручное сопоставление ' + r.id, 'info')}>Сопоставить</Button>}</td>
+                <td>{(r.status === 'Не найдено соответствие' || r.status === 'Конфликт') && <Button size="sm" variant="secondary" onClick={() => persistAction('finance.reconciliation.manual_match', r.id, { transaction: r })}>Сопоставить</Button>}</td>
               </tr>
             ))}
           </tbody>

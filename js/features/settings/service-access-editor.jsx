@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   OPERATOR_SVC_ACCESS,
   SVC_ACCESS_KINDS,
@@ -9,11 +9,29 @@ import {
 } from '../../data/access-control';
 import { Icon } from '../../icons';
 import { Button, Checkbox, Toggle, useToast } from '../../ui';
+import { usersApi } from '../../api/resources';
 
-function ServiceAccessEditor({ operator }) {
+const KIND_CODE = { 'Авиа': 'avia', 'ЖД': 'rail', 'Гостиница': 'hotel', 'Трансфер': 'transfer', 'Автобус': 'bus', 'Тур': 'tour', 'Виза': 'visa', 'Страхование': 'insurance' };
+const RIGHT_CODE = { 'Поиск': 'search', 'Бронирование': 'book', 'Выписка': 'issue', 'Возврат': 'refund', 'Обмен': 'exchange', 'Аннуляция': 'cancel', 'Доп. услуги': 'extras' };
+
+function ServiceAccessEditor({ operator, userId }) {
   const toast = useToast();
   const [access, setAccess] = useState(() => JSON.parse(JSON.stringify(operatorSvcAccess(operator))));
   const [expandedKind, setExpandedKind] = useState(null);
+  useEffect(() => {
+    if (!userId) return;
+    usersApi.serviceAccess(userId).then((rows) => {
+      if (!rows.length) return setAccess({ fullAccess: true, kinds: {} });
+      const kinds = {};
+      rows.forEach((row) => {
+        const kind = Object.keys(KIND_CODE).find((key) => KIND_CODE[key] === row.service_kind);
+        if (!kind) return;
+        kinds[kind] = noRights();
+        row.allowed_actions.forEach((code) => { const right = Object.keys(RIGHT_CODE).find((key) => RIGHT_CODE[key] === code); if (right) kinds[kind][right] = true; });
+      });
+      setAccess({ fullAccess: false, kinds });
+    }).catch(() => {});
+  }, [userId]);
   const kindEnabled = (kind) => access.kinds[kind] && Object.values(access.kinds[kind]).some(Boolean);
 
   const toggleKind = (kind) => setAccess((current) => {
@@ -31,9 +49,13 @@ function ServiceAccessEditor({ operator }) {
     return { ...current, kinds };
   });
 
-  const save = () => {
-    OPERATOR_SVC_ACCESS[operator] = JSON.parse(JSON.stringify(access));
-    toast('Область ответственности сохранена', 'ok');
+  const save = async () => {
+    const body = access.fullAccess ? [] : Object.entries(access.kinds).map(([kind, rights]) => ({
+      service_kind: KIND_CODE[kind] || 'other',
+      allowed_actions: Object.entries(rights).filter(([, enabled]) => enabled).map(([right]) => RIGHT_CODE[right]).filter(Boolean),
+    }));
+    try { await usersApi.setServiceAccess(userId, body); toast('Область ответственности сохранена в backend', 'ok'); }
+    catch (error) { toast(error.message || 'Не удалось сохранить доступы', 'err'); }
   };
 
   return (

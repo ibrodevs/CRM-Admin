@@ -4,6 +4,7 @@ import { Avatar, Button, Checkbox, Drawer, Field, Input, SearchBox, Select, useT
 import { CURRENCIES, OPERATORS } from './data';
 import { UnifiedPersonDrawer } from './forms_unified';
 import { PanelSub } from './components/shared-panels';
+import { documentsApi, workspaceActionsApi } from './api/resources';
 
 
 
@@ -53,15 +54,21 @@ function PassportModal({ passenger, participants, onClose, onAddDoc }) {
   const showSearch = pax.length > 6;
   const s = q.trim().toLowerCase();
   const filtered = pax.map((p, i) => ({ p, i })).filter(({ p }) => !s || p.name.toLowerCase().includes(s));
+  const documentAction = async (action, success, close = false) => {
+    try {
+      await workspaceActionsApi.execute(action, { resourceType: 'person_document', resourceId: cur?.name || passenger || '', payload: { person: cur?.name, document_type: docType } });
+      toast(success, 'ok'); if (close) onClose();
+    } catch (error) { toast(error.message, 'err'); }
+  };
   return (
     <Drawer open onClose={onClose} width="min(720px,96vw)"
       title="Документация" sub="Заказ № 51162 ОсОО «Гранд лимитед» от 23.12.25"
       footer={<div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', justifyContent: 'flex-end', flex: 1 }}>
         <Button variant="secondary" icon="plus" onClick={() => onAddDoc && onAddDoc(cur ? { name: cur.name } : null)}>Добавить документ</Button>
         <div style={{ flex: 1 }} />
-        <Button variant="secondary" iconRight="chevRight" onClick={() => toast('Открываю документ', 'info')}>Посмотреть документ</Button>
-        <Button variant="secondary" onClick={() => toast('Данные подтверждены', 'ok')}>Подтвердить данные</Button>
-        <Button variant="primary" iconRight="chevRight" onClick={() => { toast('Документ подписан', 'ok'); onClose(); }}>Подписать</Button>
+        <Button variant="secondary" iconRight="chevRight" onClick={() => window.print()}>Посмотреть документ</Button>
+        <Button variant="secondary" onClick={() => documentAction('document.person.verify', 'Данные подтверждены')}>Подтвердить данные</Button>
+        <Button variant="primary" iconRight="chevRight" onClick={() => documentAction('document.person.sign', 'Документ подписан', true)}>Подписать</Button>
       </div>}>
 
       <PanelSub style={{ marginTop: 0 }}>Тип документа</PanelSub>
@@ -183,13 +190,14 @@ function NewOrgDrawer({ open, onClose, onCreated }) {
   const [lookup, setLookup] = useState('idle');
   const [revealed, setRevealed] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [logoFile, setLogoFile] = useState(null);
   const set = (k) => (e) => setF((p) => ({ ...p, [k]: e.target ? e.target.value : e }));
   const setLegalAddress = (e) => {
     const value = e.target.value;
     setF((p) => ({ ...p, legalAddr: value, factAddr: p.sameAddress ? value : p.factAddr }));
   };
   const setSameAddress = (value) => setF((p) => ({ ...p, sameAddress: value, factAddr: value ? p.legalAddr : p.factAddr }));
-  useEffect(() => { if (open) { setF(empty); setErrs({}); setLookup('idle'); setRevealed(false); } }, [open]);
+  useEffect(() => { if (open) { setF(empty); setErrs({}); setLookup('idle'); setRevealed(false); setLogoFile(null); } }, [open]);
 
 
   const runLookup = () => {
@@ -232,6 +240,9 @@ function NewOrgDrawer({ open, onClose, onCreated }) {
     setSaving(true);
     try {
       const saved = onCreated ? await onCreated(company) : company;
+      if (logoFile && (saved?.serverId || saved?.id)) {
+        await documentsApi.upload(logoFile, { company: saved.serverId || saved.id, kind: 'other', title: logoFile.name, source: 'upload', metadata: { purpose: 'company_logo' } });
+      }
       toast('Компания «' + (saved?.name || company.name) + '» создана', 'ok'); onClose();
     } catch (error) {
       toast(error.message || 'Не удалось создать компанию', 'err');
@@ -289,7 +300,7 @@ function NewOrgDrawer({ open, onClose, onCreated }) {
         <>
           <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 22 }}>
             <span className="avatar-ph" style={{ width: 54, height: 54 }}><Icon name="user" style={{ width: 24, height: 24 }} /></span>
-            <Button variant="secondary" icon="download" onClick={() => toast('Загрузка логотипа организации', 'info')}>Логотип организации</Button>
+            <label className="btn btn-secondary" style={{ cursor: 'pointer' }}><Icon name="download" />{logoFile ? logoFile.name : 'Логотип организации'}<input type="file" accept="image/*" hidden onChange={(event) => setLogoFile(event.target.files?.[0] || null)} /></label>
           </div>
           <div style={{ display: 'grid', gap: 12 }}>
             <CollapseSection title="Основные данные" note="Название, тип и руководитель" badge={lookup === 'found' ? 'Заполнено автоматически' : null} defaultOpen>

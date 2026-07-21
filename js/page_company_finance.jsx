@@ -4,7 +4,7 @@ import { Button, ConfirmDialog, Drawer, Field, Input, Pill, Select, Tabs, useToa
 import { CURRENT_USER, FEE_DESC_DEFAULTS, FEE_SCHEMA, FEE_SERVICE_TYPES, FEE_TEMPLATES, SERVICE_DESC_DEFAULTS, SETTLEMENT_TYPES, applyAgreementFees, companyFinance, creditAvailable, depositAvailable, descsFromDefaults, feeDescOf, feeDescsFromDefaults, feeTemplate, feesFromTemplate, registerFeeTemplate } from './data';
 import { FIN_COUNTERPARTIES, f$ } from './data/finance';
 import { FinCounterpartyDrawer, ReconActDrawer } from './page_finance';
-import { financeApi } from './api/resources';
+import { financeApi, workspaceActionsApi, workspaceSettingsApi } from './api/resources';
 
 
 
@@ -314,12 +314,23 @@ function CompanyContracts({ fin, coName, onFinChange, onOpenClosing }) {
     onFinChange(nextFin);
     toast('Создана версия ' + created.no, 'ok');
   };
+  const addContract = async () => {
+    const no = window.prompt('Номер договора');
+    if (!no?.trim()) return;
+    const contract = { id: cfUid('C'), no: no.trim(), date: cfNow().split(' ')[0], status: 'Действующий', agreements: [] };
+    try {
+      await workspaceActionsApi.execute('company.contract.create', { resourceType: 'company', resourceId: coName, payload: contract });
+      onFinChange({ ...fin, contracts: [contract, ...fin.contracts] });
+      setExpanded((value) => ({ ...value, [contract.id]: true }));
+      toast('Договор добавлен', 'ok');
+    } catch (error) { toast(error.message, 'err'); }
+  };
 
   return (
     <>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', margin: '0 0 14px' }}>
         <h3 className="section-title" style={{ fontSize: 20, margin: 0 }}>Договоры и доп. соглашения</h3>
-        <Button variant="secondary" size="sm" icon="plus" onClick={() => toast('Добавление договора', 'info')}>Договор</Button>
+        <Button variant="secondary" size="sm" icon="plus" onClick={addContract}>Договор</Button>
       </div>
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
@@ -548,9 +559,19 @@ function CompanyFinanceBlock({ co }) {
   const seeded = companyFinance(co.id);
   const [fin, setFin] = useState(() => (seeded ? JSON.parse(JSON.stringify(seeded)) : null));
   const [closing, setClosing] = useState(null);
+  const namespace = `company-finance-${co.serverId || co.id}`;
+  useEffect(() => {
+    const controller = new AbortController();
+    workspaceSettingsApi.get(namespace, controller.signal).then(async (setting) => {
+      if (setting.value && Object.keys(setting.value).length) setFin(setting.value);
+      else if (seeded) await workspaceSettingsApi.save(namespace, JSON.parse(JSON.stringify(seeded)));
+    }).catch((error) => { if (error.name !== 'AbortError') console.error(error); });
+    return () => controller.abort();
+  }, [namespace]);
   if (!fin) return <div className="card card-pad" style={{ color: 'var(--muted)' }}>Финансовые условия для этой организации не заведены.</div>;
 
-  const setSettlement = (t) => setFin((f) => ({ ...f, settlement: t }));
+  const updateFin = (next) => { setFin(next); workspaceSettingsApi.save(namespace, next).catch(() => {}); };
+  const setSettlement = (t) => updateFin({ ...fin, settlement: t });
 
   return (
     <div className="fade-in">
@@ -558,7 +579,7 @@ function CompanyFinanceBlock({ co }) {
       <div style={{ height: 8 }} />
       <CompanySettlementsBlock co={co} />
       <div style={{ height: 8 }} />
-      <CompanyContracts fin={fin} coName={co.name} onFinChange={setFin} onOpenClosing={(a) => setClosing(a)} />
+      <CompanyContracts fin={fin} coName={co.name} onFinChange={updateFin} onOpenClosing={(a) => setClosing(a)} />
       <ClosingDocsPreview open={!!closing} agreement={closing} co={co} coName={co.name} onClose={() => setClosing(null)} />
     </div>
   );

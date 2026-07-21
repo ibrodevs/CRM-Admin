@@ -10,7 +10,7 @@ import { PanelSub } from './components/shared-panels';
 import { PaxGroupsDrawer, PaxUnifyPanel, paxMergeAppend } from './pax_unify';
 import { TravelPolicyBlock } from './travel_policy';
 import { CompanyFinanceBlock } from './page_company_finance';
-import { crmApi } from './api/resources';
+import { communicationsApi, crmApi } from './api/resources';
 import { toUiClient, toUiCompany } from './api/adapters';
 
 
@@ -21,13 +21,17 @@ function ordersOf(name) { return ORDERS.filter((o) => o.client === name); }
 
 
 
-function ClientCard({ c: c0, onBack, onOpenOrder, onUpdate }) {
+function ClientCard({ c: c0, onBack, onOpenOrder, onUpdate, onCreateOrder }) {
   const toast = useToast();
   const [c, setC] = useState(c0);
   const [edit, setEdit] = useState(false);
   const [docOpen, setDocOpen] = useState(false);
   const [docs, setDocs] = useState(c0.documents || []);
   useEffect(() => { setC(c0); setDocs(c0.documents || []); }, [c0]);
+  const startChat = async () => {
+    try { await communicationsApi.createThread({ type: 'client', title: c.name, status: 'active' }); toast('Чат с клиентом создан', 'ok'); }
+    catch (error) { toast(error.message, 'err'); }
+  };
   const orders = ordersOf(c.name);
   return (
     <div className="fade-in">
@@ -43,8 +47,8 @@ function ClientCard({ c: c0, onBack, onOpenOrder, onUpdate }) {
           <div style={{ color: 'var(--muted)', fontSize: 14, marginTop: 4 }}>{c.type} · {c.company !== '—' ? c.company : 'частное лицо'} · клиент с {c.since}</div>
         </div>
         <Button variant="secondary" icon="edit" onClick={() => setEdit(true)}>Изменить</Button>
-        <Button variant="secondary" icon="chat" onClick={() => toast('Открываю чат с клиентом', 'info')}>Написать</Button>
-        <Button icon="plus" onClick={() => toast('Создание заказа', 'info')}>Новый заказ</Button>
+        <Button variant="secondary" icon="chat" onClick={startChat}>Написать</Button>
+        <Button icon="plus" onClick={onCreateOrder}>Новый заказ</Button>
       </div>
       <ClientCreateModal open={edit} initial={c} onClose={() => setEdit(false)} onCreated={(u) => { setC(u); onUpdate && onUpdate(u); }} />
       <UnifiedDocumentDrawer open={docOpen} person={{ name: c.name, citizenship: c.citizenship }}
@@ -142,7 +146,7 @@ function ClientCreateModal({ open, initial, onClose, onCreated }) {
   );
 }
 
-function ClientsPage({ initialClients = [], onClientsChange, onOpenOrder, intent, onConsume }) {
+function ClientsPage({ initialClients = [], onClientsChange, onOpenOrder, onCreateOrder, intent, onConsume }) {
   const [view, setView] = useState('list');
   const [active, setActive] = useState(null);
   const [q, setQ] = useState('');
@@ -162,7 +166,7 @@ function ClientsPage({ initialClients = [], onClientsChange, onOpenOrder, intent
   const addClient = (c) => commitClients((cur) => [c, ...cur]);
   const upsertClient = (c) => commitClients((cur) => cur.some((x) => x.id === c.id) ? cur.map((x) => x.id === c.id ? c : x) : [c, ...cur]);
 
-  if (view === 'card' && active) return (<><Topbar title="Карточка клиента" /><div className="content"><ClientCard c={active} onBack={() => setView('list')} onOpenOrder={onOpenOrder} onUpdate={(u) => { upsertClient(u); setActive(u); }} /></div></>);
+  if (view === 'card' && active) return (<><Topbar title="Карточка клиента" /><div className="content"><ClientCard c={active} onBack={() => setView('list')} onOpenOrder={onOpenOrder} onCreateOrder={onCreateOrder} onUpdate={(u) => { upsertClient(u); setActive(u); }} /></div></>);
 
   let rows = clients.filter((c) => (!fStatus || c.status === fStatus) && (!q || `${c.id} ${c.name} ${c.company} ${c.phone}`.toLowerCase().includes(q.toLowerCase())));
   rows = apply(rows, { name: (r) => r.name, orders: (r) => r.orders, spent: (r) => r.spent, debt: (r) => r.debt });
@@ -233,17 +237,20 @@ function EmployeeCreateDrawer({ open, departments, defaultDept, coName, initial,
 }
 
 
-function EmployeeProfileDrawer({ emp, dept, coName, onClose, onOpenOrder, onRemove }) {
+function EmployeeProfileDrawer({ emp, dept, coName, onClose, onOpenOrder, onRemove, onEdit }) {
   const toast = useToast();
   if (!emp) return null;
   const trips = ordersOf(emp.name);
   return (
     <Drawer open onClose={onClose} width="min(620px,96vw)" title="Профиль сотрудника" sub={coName}
       footer={<>
-        <Button variant="secondary" icon="chat" onClick={() => toast('Открываю чат с сотрудником', 'info')}>Написать</Button>
+        <Button variant="secondary" icon="chat" onClick={async () => {
+          try { await communicationsApi.createThread({ type: 'client', title: `${emp.name} · ${coName}`, external_channel: 'CRM', status: 'active' }); toast('Чат с сотрудником открыт', 'ok'); }
+          catch (error) { toast(error.message, 'err'); }
+        }}>Написать</Button>
         <div style={{ flex: 1 }} />
         {onRemove && <Button variant="secondary" icon="trash" onClick={() => { onRemove(emp); onClose(); }}>Убрать</Button>}
-        <Button icon="edit" onClick={() => toast('Редактирование сотрудника', 'info')}>Редактировать</Button>
+        <Button icon="edit" onClick={() => { onEdit?.(emp); onClose(); }}>Редактировать</Button>
       </>}>
       <div className="card card-pad" style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 16, flexWrap: 'wrap' }}>
         <Avatar name={emp.name} size={52} />
@@ -361,7 +368,7 @@ function StaffDeptGroup({ dept, emps, onOpen, onAdd, onRemove }) {
   );
 }
 
-function CompanyCard({ co, onBack, onOpenOrder }) {
+function CompanyCard({ co, onBack, onOpenOrder, onCreateOrder }) {
   const toast = useToast();
   const [tab, setTab] = useState('overview');
 
@@ -373,7 +380,11 @@ function CompanyCard({ co, onBack, onOpenOrder }) {
   const [empView, setEmpView] = useState(null);
   const [unifyOpen, setUnifyOpen] = useState(false);
   const [groupsOpen, setGroupsOpen] = useState(false);
-  const addEmployee = (emp) => { staff.employees.push(emp); setStaffTick((n) => n + 1); };
+  const addEmployee = (emp) => {
+    const index = staff.employees.findIndex((item) => item.id === emp.id);
+    if (index >= 0) staff.employees[index] = emp; else staff.employees.push(emp);
+    setStaffTick((n) => n + 1);
+  };
   const addDepartment = (name, policy) => {
     staff.departments.push({ id: 'D-' + Math.random().toString(36).slice(2, 8).toUpperCase(), name, head: '', policy: policy || '' });
     setStaffTick((n) => n + 1);
@@ -437,7 +448,7 @@ function CompanyCard({ co, onBack, onOpenOrder }) {
             {bal.overdue > 0 && <div style={{ fontSize: 12, color: 'var(--red)' }}>просрочено {Math.round(bal.overdue).toLocaleString('ru-RU')} $</div>}
           </div>
         )}
-        <Button icon="plus" onClick={() => toast('Создание заказа', 'info')}>Новый заказ</Button>
+        <Button icon="plus" onClick={onCreateOrder}>Новый заказ</Button>
       </div>
 
       <div style={{ marginBottom: 18 }}>
@@ -487,10 +498,10 @@ function CompanyCard({ co, onBack, onOpenOrder }) {
                 ))}
 
             {addDept && <DepartmentCreateDrawer open onClose={() => setAddDept(false)} onCreate={addDepartment} />}
-            {addEmp && <EmployeeCreateDrawer open departments={staff.departments} defaultDept={addEmp.dept} coName={co.name}
+            {addEmp && <EmployeeCreateDrawer open departments={staff.departments} defaultDept={addEmp.dept} initial={addEmp.initial} coName={co.name}
               onClose={() => setAddEmp(null)} onCreate={addEmployee} />}
             {empView && <EmployeeProfileDrawer emp={empView} dept={deptOf(empView)} coName={co.name}
-              onClose={() => setEmpView(null)} onOpenOrder={onOpenOrder} onRemove={removeEmployee} />}
+              onClose={() => setEmpView(null)} onOpenOrder={onOpenOrder} onRemove={removeEmployee} onEdit={(emp) => setAddEmp({ dept: emp.dept, initial: emp })} />}
             {unifyOpen && <PaxUnifyPanel list={paxList} autoBind={co.name} onApplyRoster={applyRosterToStaff} onClose={() => setUnifyOpen(false)} />}
             {groupsOpen && <PaxGroupsDrawer current={paxList} companyId={co.id} companyName={co.name} onAddGroup={addGroupToStaff} onClose={() => setGroupsOpen(false)} />}
           </div>
@@ -551,7 +562,7 @@ function CompanyCard({ co, onBack, onOpenOrder }) {
   );
 }
 
-function CompaniesPage({ initialCompanies = [], onCompaniesChange, onOpenOrder, intent, onConsume }) {
+function CompaniesPage({ initialCompanies = [], onCompaniesChange, onOpenOrder, onCreateOrder, intent, onConsume }) {
   const [view, setView] = useState('list');
   const [active, setActive] = useState(null);
   const [q, setQ] = useState('');
@@ -580,7 +591,7 @@ function CompaniesPage({ initialCompanies = [], onCompaniesChange, onOpenOrder, 
 
   useEffect(() => { if (intent && intent.type === 'create') { setCreateOpen(true); onConsume && onConsume(); } }, [intent]);
 
-  if (view === 'card' && active) return (<><Topbar title="Карточка компании" /><div className="content"><CompanyCard co={active} onBack={() => setView('list')} onOpenOrder={onOpenOrder} /></div></>);
+  if (view === 'card' && active) return (<><Topbar title="Карточка компании" /><div className="content"><CompanyCard co={active} onBack={() => setView('list')} onOpenOrder={onOpenOrder} onCreateOrder={onCreateOrder} /></div></>);
 
   let rows = companies.filter((c) => (!fStatus || c.status === fStatus) && (!q || `${c.id} ${c.name} ${c.inn} ${c.dir}`.toLowerCase().includes(q.toLowerCase())));
   rows = apply(rows, { name: (r) => r.name, orders: (r) => r.orders, turnover: (r) => r.turnover });

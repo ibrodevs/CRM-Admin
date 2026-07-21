@@ -6,7 +6,7 @@ import { TRIPS, TRIP_CRIT, TRIP_NOW, controlCenterFeed, critMax, crossTripConfli
 import { Topbar } from './layout';
 import { ServiceCardSendPanel } from './page_services';
 import { CAL_EVENT_TYPES, CalDayMenu, CalEventChip, CalEventCreator, CalEventPanel, calEventsOn, calendarEventToUi, hydrateCalendarEvents } from './page_calendar_events';
-import { calendarApi, ordersApi } from './api/resources';
+import { calendarApi, ordersApi, workspaceActionsApi } from './api/resources';
 import { toUiOrder } from './api/adapters';
 
 
@@ -37,6 +37,7 @@ function tcTripActiveInRange(trip, start, end) {
   return trip.start < d1 && trip.end >= d0;
 }
 function tcTone(crit) { return TRIP_CRIT[crit] ? TRIP_CRIT[crit].tone : 'gray'; }
+function tcCrit(crit) { return TRIP_CRIT[crit] || { label: crit && crit !== 'info' ? String(crit) : 'Информация', tone: 'gray', rank: 0 }; }
 
 
 function CritDot({ crit, size = 8 }) {
@@ -130,7 +131,7 @@ function WeekView({ anchor, trips, onOpen, onPickDay, onOpenEvent, evtTick }) {
       {days.map((day) => {
         const isToday = trSameDay(day, TRIP_NOW);
         const dayTrips = trips.filter((t) => tcTripActiveOn(t, day))
-          .sort((a, b) => TRIP_CRIT[tripCriticality(b)].rank - TRIP_CRIT[tripCriticality(a)].rank);
+          .sort((a, b) => tcCrit(tripCriticality(b)).rank - tcCrit(tripCriticality(a)).rank);
         const dayEvents = calEventsOn(day);
         return (
           <div key={day.toISOString()} className={'tc-week-col' + (isToday ? ' is-today' : '')}>
@@ -155,7 +156,7 @@ function WeekView({ anchor, trips, onOpen, onPickDay, onOpenEvent, evtTick }) {
 
 function DayView({ anchor, trips, onOpen, onPickDay, onOpenEvent, evtTick }) {
   const dayTrips = trips.filter((t) => tcTripActiveOn(t, anchor))
-    .sort((a, b) => TRIP_CRIT[tripCriticality(b)].rank - TRIP_CRIT[tripCriticality(a)].rank);
+    .sort((a, b) => tcCrit(tripCriticality(b)).rank - tcCrit(tripCriticality(a)).rank);
 
   const schedule = [];
   dayTrips.forEach((t) => tripEvents(t).forEach((e) => { if (trSameDay(e.at, anchor)) schedule.push({ trip: t, ...e }); }));
@@ -340,7 +341,7 @@ function ControlCenter({ trips, onOpen }) {
               <b>{e.label}</b>
               <span className="tc-control-sub">{e.trip.routeLabel} · {e.trip.client} · оператор {e.trip.operator}</span>
             </span>
-            <Pill tone={tcTone(e.crit)}>{TRIP_CRIT[e.crit].label}</Pill>
+            <Pill tone={tcTone(e.crit)}>{tcCrit(e.crit).label}</Pill>
             <span className="tc-control-time">{trTime(e.at)}</span>
           </button>
         ))}
@@ -361,6 +362,7 @@ function ControlCenter({ trips, onOpen }) {
 function TripDetailPanel({ trip, onClose, onOpenOrder }) {
   const toast = useToast();
   const [cardFor, setCardFor] = useState(null);
+  const [actionBusy, setActionBusy] = useState('');
   if (!trip) return null;
   const events = tripEvents(trip);
   const conflicts = tripConflicts(trip);
@@ -398,6 +400,17 @@ function TripDetailPanel({ trip, onClose, onOpenOrder }) {
   const openCard = (s) => setCardFor({ item: svcToItem(s), kind: s.kind, scenario: scenarioFor(s) });
   const affectedService = () => (fms[0] && trip.services.find((s) => s.title === fms[0].service)) || trip.services.find((s) => s.delayed) || trip.services[0];
   const paxObjs = (trip.paxNames || []).filter((n) => !/^…/.test(n)).map((n) => ({ name: n }));
+  const performTripAction = async (action, success) => {
+    setActionBusy(action);
+    try {
+      await workspaceActionsApi.execute(action, {
+        resourceType: 'trip', resourceId: String(trip.serverId || trip.id),
+        payload: { order_number: trip.orderNo, route: trip.routeLabel, client: trip.client },
+      });
+      toast(success, 'ok');
+    } catch (error) { toast(error.message, 'err'); }
+    finally { setActionBusy(''); }
+  };
   return (
     <>
     <Drawer open={!!trip} onClose={onClose} width="min(560px,96vw)"
@@ -412,7 +425,7 @@ function TripDetailPanel({ trip, onClose, onOpenOrder }) {
 
         <div className="tc-panel-top">
           <Pill tone={ORDER_STATUS[trip.status] || 'gray'}>{trip.status}</Pill>
-          {crit !== 'info' && <Pill tone={tcTone(crit)}>{TRIP_CRIT[crit].label}</Pill>}
+          {crit !== 'info' && <Pill tone={tcTone(crit)}>{tcCrit(crit).label}</Pill>}
           <span className="tc-panel-op"><Icon name="user" style={{ width: 14, height: 14 }} /> {trip.operator}</span>
           <span className="tc-panel-op"><Icon name="users" style={{ width: 14, height: 14 }} /> {trip.group ? 'группа ' + trip.group.bookings : trip.pax + ' пасс.'}</span>
         </div>
@@ -425,7 +438,7 @@ function TripDetailPanel({ trip, onClose, onOpenOrder }) {
               <div key={i} className="tc-fm-row">
                 <div className="tc-fm-top">
                   <span className="tc-fm-typeic" style={{ background: 'var(--' + tcTone(f.crit) + ')' }}><Icon name={f.icon} style={{ width: 13, height: 13 }} /></span>
-                  <b>{f.event}</b><Pill tone={tcTone(f.crit)}>{TRIP_CRIT[f.crit].label}</Pill>
+                  <b>{f.event}</b><Pill tone={tcTone(f.crit)}>{tcCrit(f.crit).label}</Pill>
                 </div>
                 <div className="tc-fm-type">Вид форс-мажора: <b>{f.typeLabel}</b></div>
                 {f.whatChanged && <div className="tc-fm-body">{f.whatChanged}</div>}
@@ -453,7 +466,7 @@ function TripDetailPanel({ trip, onClose, onOpenOrder }) {
               <div key={i} className="tc-ev-row">
                 <span className="tc-ev-ic" style={{ background: 'var(--' + tcTone(e.crit) + ')' }}><Icon name={e.icon} style={{ width: 14, height: 14 }} /></span>
                 <span className="tc-ev-main"><b>{e.label}</b><span className="tc-ev-sub">{trDayTime(e.at)} · {trHumanIn(e.at)}</span></span>
-                <Pill tone={tcTone(e.crit)}>{TRIP_CRIT[e.crit].label}</Pill>
+                <Pill tone={tcTone(e.crit)}>{tcCrit(e.crit).label}</Pill>
               </div>
             ))}
           </div>
@@ -517,9 +530,9 @@ function TripDetailPanel({ trip, onClose, onOpenOrder }) {
           <div className="tc-action-hint">Подбор альтернатив (авто/вручную), карточка предложения, сборка КП и отправка клиенту — в одном окне.</div>
           <div className="tc-actions">
             <Button size="sm" icon="refund" onClick={() => openCard(affectedService())}>Подобрать альтернативу и оформить</Button>
-            <Button size="sm" variant="secondary" icon="chat" onClick={() => toast('Уведомление клиенту отправлено', 'ok')}>Уведомить клиента</Button>
-            <Button size="sm" variant="secondary" icon="users" onClick={() => toast('Передано стороннему оператору', 'ok')}>Делегировать</Button>
-            <Button size="sm" variant="secondary" icon="check" onClick={() => toast('Отмечено обработанным', 'ok')}>Отметить обработанным</Button>
+            <Button size="sm" variant="secondary" icon="chat" disabled={!!actionBusy} onClick={() => performTripAction('travel.notify_client', 'Уведомление клиенту поставлено на отправку')}>Уведомить клиента</Button>
+            <Button size="sm" variant="secondary" icon="users" disabled={!!actionBusy} onClick={() => performTripAction('travel.delegate', 'Поездка передана на делегирование')}>Делегировать</Button>
+            <Button size="sm" variant="secondary" icon="check" disabled={!!actionBusy} onClick={() => performTripAction('travel.processed', 'Поездка отмечена обработанной')}>Отметить обработанным</Button>
           </div>
         </div>
       </div>

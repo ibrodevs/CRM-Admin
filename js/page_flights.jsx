@@ -7,7 +7,7 @@ import { ExtrasTabs } from './page_avia_picker';
 import { OperationConfirmModal } from './order_ops';
 import { PanelSub, StackPanel } from './components/shared-panels';
 import { SvcAddPaxDrawer, SvcDocUploadDrawer } from './page_services';
-import { aftersalesApi, proposalsApi, servicesApi } from './api/resources';
+import { aftersalesApi, documentsApi, proposalsApi, servicesApi, workspaceActionsApi } from './api/resources';
 import { resultsOf } from './api/client';
 
 
@@ -614,7 +614,7 @@ function RefundPanel({ passengers, base, currency, onClose, onDone }) {
       footer={<>
         <Button variant="secondary" style={{ flex: 1 }} onClick={doCalc}>Рассчитать сумму возврата</Button>
         <Button icon="check" style={{ flex: 1 }} disabled={!calc}
-          onClick={() => { if (!calc) return; onDone && onDone(); toast('Возврат подтверждён и отправлен поставщику', 'ok'); onClose(); }}>
+          onClick={async () => { if (!calc) return; try { await onDone?.({ calc, voluntary, passengers: sel }); toast('Запрос на возврат создан', 'ok'); onClose(); } catch (error) { toast(error.message, 'err'); } }}>
           Подтвердить возврат
         </Button>
       </>}>
@@ -730,7 +730,7 @@ function ExchangePanel({ passengers, base, currency, origin, dest, onClose, onDo
       footer={<>
         <Button variant="secondary" style={{ flex: 1 }} onClick={doCalc}>Рассчитать стоимость обмена</Button>
         <Button icon="check" style={{ flex: 1 }} disabled={!calc}
-          onClick={() => { if (!calc) return; onDone && onDone(); toast(reqMode === 'request' ? 'Запрос на обмен отправлен авиакомпании' : 'Обмен проведён', 'ok'); onClose(); }}>
+          onClick={async () => { if (!calc) return; try { await onDone?.({ calc, voluntary, passengers: sel, newFlight: nf, requestMode: reqMode }); toast(reqMode === 'request' ? 'Запрос на обмен создан' : 'Обмен создан', 'ok'); onClose(); } catch (error) { toast(error.message, 'err'); } }}>
           {confirmLabel}
         </Button>
       </>}>
@@ -990,8 +990,8 @@ function CorrectionHistoryDrawer({ open, versions, onClose }) {
               <div style={{ fontSize: 12, color: 'var(--muted)', margin: '2px 0' }}>{v.fields.join(', ')}</div>
               {v.comment && <div style={{ fontSize: 12, color: 'var(--body)' }}>«{v.comment}»</div>}
               <div style={{ display: 'flex', gap: 8, marginTop: 6 }}>
-                <button className="btn btn-ghost btn-sm" onClick={() => toast('Версия ' + v.title + ' открыта')}>Открыть</button>
-                <button className="btn btn-ghost btn-sm" onClick={() => toast('Скачивание версии ' + v.title)}>Скачать</button>
+                <button className="btn btn-ghost btn-sm" onClick={() => window.print()}>Открыть</button>
+                <button className="btn btn-ghost btn-sm" onClick={() => window.print()}>Скачать</button>
               </div>
             </div>
           </div>
@@ -1220,7 +1220,7 @@ function DocCorrectionPanel({ subjects, meta, currency, orderNo, onClose }) {
       <Button variant="secondary" onClick={onClose}>Отмена</Button>
       <div style={{ flex: 1 }} />
       <Button variant="secondary" icon="clock" onClick={() => setHistoryOpen(true)}>История</Button>
-      <Button variant="secondary" icon="download" onClick={() => toast('Скачивание PDF предпросмотра')}>Скачать PDF</Button>
+      <Button variant="secondary" icon="download" onClick={() => window.print()}>Скачать PDF</Button>
       <Button icon="check" onClick={() => setView('confirm')}>Сохранить</Button>
     </>
   );
@@ -1348,13 +1348,13 @@ function DocCorrectionPanel({ subjects, meta, currency, orderNo, onClose }) {
 }
 
 
-function SendToPaxDrawer({ open, passengers, onClose }) {
+function SendToPaxDrawer({ open, passengers, onClose, onSend }) {
   const toast = useToast();
   const [channel, setChannel] = useState('email');
   const CHANNELS = [['email', 'E-mail', 'mail'], ['whatsapp', 'WhatsApp', 'chat'], ['telegram', 'Telegram', 'send']];
   return (
     <Drawer open={open} onClose={onClose} title="Отправить пассажиру"
-      footer={<><Button variant="secondary" onClick={onClose}>Отмена</Button><Button icon="send" onClick={() => { toast('Документы отправлены пассажиру', 'ok'); onClose(); }}>Отправить</Button></>}>
+      footer={<><Button variant="secondary" onClick={onClose}>Отмена</Button><Button icon="send" onClick={async () => { try { await onSend?.(channel, passengers); toast('Документы отправлены пассажиру', 'ok'); onClose(); } catch (error) { toast(error.message, 'err'); } }}>Отправить</Button></>}>
       <PanelSub style={{ marginTop: 0 }}>Канал отправки</PanelSub>
       <div style={{ display: 'flex', gap: 8 }}>
         {CHANNELS.map(([k, label, icon]) => (
@@ -1483,7 +1483,7 @@ function FlightReceiptDrawer({ open, passengers, pax, legs, air, supplier, fare,
   return (
     <Drawer open={open} onClose={onClose} title={pax ? 'Маршрут-квитанция · ' + pax.name : 'Маршрут-квитанция'}
       footer={<><Button variant="secondary" onClick={onClose}>Закрыть</Button>
-        <Button icon="download" onClick={() => { toast('Маршрут-квитанция скачана', 'ok'); onClose(); }}>Скачать PDF</Button></>}>
+        <Button icon="download" onClick={() => window.print()}>Скачать PDF</Button></>}>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
         {list.map((p, i) => (
           <div key={i} style={{ background: '#fff', border: '1px solid var(--line)', borderRadius: 10, boxShadow: 'var(--shadow-card)', padding: '20px 22px', fontSize: 13 }}>
@@ -1559,10 +1559,57 @@ function FlightCard({ svc, offer, no: noProp, hideBackRow, onBack, onFormKp, onA
   const [extraPax, setExtraPax] = useState([]);
   const [uploadOpen, setUploadOpen] = useState(false);
   const [uploadedDocs, setUploadedDocs] = useState([]);
+  const [comment, setComment] = useState('');
+  const [serverHistory, setServerHistory] = useState([]);
   const passengers = [...flightPassengers(svc, offer, status), ...extraPax];
   const pnr = passengers[0] ? passengers[0].pnr : (svc ? svc.pnr : '—');
   const ticket = passengers[0] ? passengers[0].ticket : (svc ? svc.ticket : '—');
   const supplier = svc ? svc.supplier : (offer ? offer.supplier : '—');
+
+  useEffect(() => {
+    if (!svc?.id) return undefined;
+    const controller = new AbortController();
+    Promise.all([
+      documentsApi.list({ service: svc.id }, controller.signal),
+      workspaceActionsApi.list({ resource_type: 'OrderService', resource_id: svc.id }, controller.signal),
+    ]).then(([documents, actions]) => {
+      setUploadedDocs(resultsOf(documents).map((doc) => ({ ...doc, name: doc.title, type: doc.kind, documentId: doc.id })));
+      setServerHistory((actions || []).map((row) => ({ t: new Date(row.created_at).toLocaleString('ru-RU'), txt: row.payload?.comment || row.payload?.label || row.action, who: 'CRM' })));
+    }).catch((error) => { if (error.name !== 'AbortError') toast(error.message, 'err'); });
+    return () => controller.abort();
+  }, [svc?.id]);
+
+  const serviceAction = async (action, payload = {}) => {
+    try {
+      const row = await workspaceActionsApi.execute(action, { resourceType: 'OrderService', resourceId: svc?.id || '', payload });
+      setServerHistory((current) => [{ t: new Date(row.created_at).toLocaleString('ru-RU'), txt: payload.label || action, who: 'CRM' }, ...current]);
+      toast(payload.label || 'Операция принята backend', 'ok');
+    } catch (error) { toast(error.message, 'err'); }
+  };
+  const uploadFlightDocument = async (doc) => {
+    try {
+      const created = await documentsApi.upload(doc.file, { order: svc.orderId || svc.order, service: svc.id, kind: 'other', title: doc.name, source: 'upload' });
+      setUploadedDocs((current) => [...current, { ...created, name: created.title, type: created.kind, documentId: created.id, size: doc.size }]);
+      setUploadOpen(false); toast('Документ загружен', 'ok');
+    } catch (error) { toast(error.message, 'err'); }
+  };
+  const addFlightComment = async () => {
+    const value = comment.trim(); if (!value) return;
+    await serviceAction('service.comment.add', { comment: value, label: value }); setComment('');
+  };
+  const createAftersale = async (type, data) => {
+    if (!svc?.id || !(svc.orderId || svc.order)) throw new Error('Услуга не связана с заказом backend');
+    const created = await aftersalesApi.create({
+      order: svc.orderId || svc.order, service: svc.id, type, initiator: 'operator', currency,
+      financial_snapshot: type === 'refund' ? {
+        original_paid: data.calc.gross, supplier_penalty: data.calc.penalty,
+        agency_service_fee: data.calc.fee, refund_total: data.calc.refund,
+      } : { original_paid: fare + fee, exchange: data },
+    });
+    setServerHistory((current) => [{ t: new Date().toLocaleString('ru-RU'), txt: `Создана операция ${created.number}`, who: 'CRM' }, ...current]);
+    setStatus(type === 'refund' ? 'Возврат' : 'Обмен');
+    return created;
+  };
 
   const ticketingDeadline = 'сегодня 18:00';
 
@@ -1591,16 +1638,16 @@ function FlightCard({ svc, offer, no: noProp, hideBackRow, onBack, onFormKp, onA
 
 
   const bookedMenu = [
-    { icon: 'luggage', label: 'Снять места', onClick: () => ask('Снять места?', 'Места по брони ' + pnr + ' будут сняты. Действие может быть необратимым.', () => toast('Места сняты'), 'Снять места') },
-    { icon: 'loader', label: 'Обновить статус бронирования', onClick: () => toast('Статус брони обновлён') },
-    { icon: 'api', label: 'Запросить статус у поставщика', onClick: () => toast('Запрос статуса отправлен') },
-    { icon: 'edit', label: 'Изменить бронирование', onClick: () => toast('Изменение бронирования') },
-    { icon: 'swap', label: 'Сменить поставщика', onClick: () => ask('Сменить поставщика?', 'Бронирование будет переоформлено у другого поставщика.', () => toast('Смена поставщика'), 'Сменить') },
-    { icon: 'user', label: 'Изменить пассажира (до выписки)', onClick: () => toast('Изменение пассажира') },
-    { icon: 'template', label: 'Добавить в коммерческое предложение', onClick: () => toast('Добавлено в КП') },
+    { icon: 'luggage', label: 'Снять места', onClick: () => ask('Снять места?', 'Места по брони ' + pnr + ' будут сняты. Действие может быть необратимым.', () => serviceAction('service.booking.release', { pnr, label: 'Запрос на снятие мест отправлен' }), 'Снять места') },
+    { icon: 'loader', label: 'Обновить статус бронирования', onClick: () => serviceAction('service.booking.status.refresh', { pnr, label: 'Статус запрошен у поставщика' }) },
+    { icon: 'api', label: 'Запросить статус у поставщика', onClick: () => serviceAction('service.booking.status.inquiry', { pnr, label: 'Запрос статуса отправлен' }) },
+    { icon: 'edit', label: 'Изменить бронирование', onClick: () => setExtrasOpen(true) },
+    { icon: 'swap', label: 'Сменить поставщика', onClick: () => ask('Сменить поставщика?', 'Бронирование будет переоформлено у другого поставщика.', () => serviceAction('service.supplier.change', { supplier, label: 'Запрос смены поставщика создан' }), 'Сменить') },
+    { icon: 'user', label: 'Изменить пассажира (до выписки)', onClick: () => setAddPaxOpen(true) },
+    { icon: 'template', label: 'Добавить в коммерческое предложение', onClick: () => (onFormKp ? onFormKp() : setAttach('order')) },
     { icon: 'clock', label: 'История изменений', onClick: () => setTab('history') },
     { sep: true },
-    { icon: 'trash', label: 'Аннулировать бронирование', danger: true, onClick: () => ask('Аннулировать бронирование?', 'Бронь ' + pnr + ' будет аннулирована. Отменить действие будет нельзя.', () => { setStatus('Аннуляция'); toast('Бронь аннулирована', 'err'); }, 'Аннулировать') },
+    { icon: 'trash', label: 'Аннулировать бронирование', danger: true, onClick: () => ask('Аннулировать бронирование?', 'Бронь ' + pnr + ' будет аннулирована. Отменить действие будет нельзя.', () => transitionService('cancelled', 'Аннулировано'), 'Аннулировать') },
   ];
   const issuedMenu = [
     { icon: 'refund', label: 'Добровольный возврат', onClick: () => setRefundOpen(true) },
@@ -1612,10 +1659,10 @@ function FlightCard({ svc, offer, no: noProp, hideBackRow, onBack, onFormKp, onA
     { icon: 'swap', label: 'Вынужденный обмен', onClick: () => setExchangeOpen(true) },
     { sep: true },
     { icon: 'template', label: 'Корректировка документов', onClick: () => setBrandedOpen(true) },
-    { icon: 'loader', label: 'Обновить статус билета', onClick: () => toast('Статус билета обновлён') },
-    { icon: 'api', label: 'Запросить статус у поставщика', onClick: () => toast('Запрос статуса отправлен') },
+    { icon: 'loader', label: 'Обновить статус билета', onClick: () => serviceAction('service.ticket.status.refresh', { ticket, label: 'Статус билета запрошен' }) },
+    { icon: 'api', label: 'Запросить статус у поставщика', onClick: () => serviceAction('service.ticket.status.inquiry', { ticket, label: 'Запрос статуса отправлен' }) },
     { sep: true },
-    { icon: 'trash', label: 'Аннулировать', danger: true, onClick: () => ask('Аннулировать билет?', 'Билет ' + ticket + ' будет аннулирован. Отменить действие будет нельзя.', () => { setStatus('Аннуляция'); toast('Билет аннулирован', 'err'); }, 'Аннулировать') },
+    { icon: 'trash', label: 'Аннулировать', danger: true, onClick: () => ask('Аннулировать билет?', 'Билет ' + ticket + ' будет аннулирован. Отменить действие будет нельзя.', () => transitionService('cancelled', 'Аннулировано'), 'Аннулировать') },
   ];
   const offerMenu = [
     { icon: 'template', label: 'В коммерческое предложение', onClick: () => (onFormKp ? onFormKp() : setAttach('order')) },
@@ -1653,7 +1700,7 @@ function FlightCard({ svc, offer, no: noProp, hideBackRow, onBack, onFormKp, onA
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
 
             {free && (<>
-              <Button icon="template" onClick={() => (onFormKp ? onFormKp() : ask('Сформировать КП?', 'По подобранной услуге «' + out.from + ' → ' + out.to + (back ? ' → ' + back.to : '') + '» будет сформировано коммерческое предложение.', () => toast('Коммерческое предложение КП-' + Math.floor(1040 + Math.random() * 60) + ' сформировано', 'ok'), 'Сформировать', 'primary'))}>Сформировать КП</Button>
+              <Button icon="template" onClick={() => (onFormKp ? onFormKp() : (window.__toastNav && window.__toastNav('offers')))}>Сформировать КП</Button>
               <Button variant="secondary" icon="briefcase" onClick={() => setAttach('order')}>Добавить в заказ</Button>
             </>)}
 
@@ -1750,8 +1797,8 @@ function FlightCard({ svc, offer, no: noProp, hideBackRow, onBack, onFormKp, onA
                   { icon: 'swap', label: 'Обмен билета', onClick: () => setExchangeOpen(true) },
                 ]
               : [
-                  { icon: 'user', label: 'Изменить пассажира', onClick: () => toast('Изменение пассажира') },
-                  { icon: 'download', label: 'Подтверждение брони', onClick: () => toast('Подтверждение брони ' + p.name) },
+                  { icon: 'user', label: 'Изменить пассажира', onClick: () => setAddPaxOpen(true) },
+                  { icon: 'download', label: 'Подтверждение брони', onClick: () => serviceAction('document.booking_confirmation.generate', { passenger: p.name, pnr: p.pnr, label: 'Подтверждение брони поставлено на формирование' }) },
                 ];
             return (
               <div key={i} className="card card-pad">
@@ -1773,7 +1820,11 @@ function FlightCard({ svc, offer, no: noProp, hideBackRow, onBack, onFormKp, onA
                   <div style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 6 }}>Документы</div>
                   <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
                     {p.docs.map((d) => (
-                      <button key={d} className="doc-chip" style={{ width: 'auto', flex: '0 0 auto' }} onClick={() => toast('Документ: ' + d)}>
+                      <button key={d} className="doc-chip" style={{ width: 'auto', flex: '0 0 auto' }} onClick={() => {
+                        const document = uploadedDocs.find((item) => item.name === d || item.title === d);
+                        if (document) window.open(documentsApi.downloadUrl(document.documentId || document.id), '_blank');
+                        else serviceAction('document.download.request', { passenger: p.name, title: d, label: 'Документ запрошен у поставщика' });
+                      }}>
                         <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}><Icon name="docs" style={{ width: 16, height: 16 }} />{d}</span>
                         <Icon name="download" style={{ width: 16, height: 16 }} />
                       </button>
@@ -1828,9 +1879,6 @@ function FlightCard({ svc, offer, no: noProp, hideBackRow, onBack, onFormKp, onA
 
       {tab === 'docs' && (
         <div className="grid-4">
-          {['Маршрут-квитанция', 'Электронный билет', 'Счёт на оплату'].map((d) => (
-            <button key={d} className="doc-chip" onClick={() => toast('Скачивание · ' + d)}><span style={{ display: 'flex', alignItems: 'center', gap: 8 }}><Icon name="docs" />{d}</span><Icon name="download" /></button>
-          ))}
           {uploadedDocs.map((d) => (
             <div key={d.id} className="doc-chip" title={d.name}>
               <span style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
@@ -1841,8 +1889,8 @@ function FlightCard({ svc, offer, no: noProp, hideBackRow, onBack, onFormKp, onA
                 </span>
               </span>
               <span style={{ display: 'flex', alignItems: 'center', gap: 4, flexShrink: 0 }}>
-                <button className="icon-btn" onClick={() => toast('Скачивание · ' + d.name)} title="Скачать"><Icon name="download" /></button>
-                <button className="icon-btn" onClick={() => { setUploadedDocs((cur) => cur.filter((x) => x.id !== d.id)); toast('Документ удалён'); }} title="Удалить"><Icon name="trash" /></button>
+                <button className="icon-btn" onClick={() => window.location.assign(documentsApi.downloadUrl(d.documentId || d.id))} title="Скачать"><Icon name="download" /></button>
+                <button className="icon-btn" onClick={async () => { try { await documentsApi.void(d.documentId || d.id, 'Аннулирован из карточки авиаперелёта'); setUploadedDocs((cur) => cur.filter((x) => x.id !== d.id)); } catch (error) { toast(error.message, 'err'); } }} title="Удалить"><Icon name="trash" /></button>
               </span>
             </div>
           ))}
@@ -1858,8 +1906,8 @@ function FlightCard({ svc, offer, no: noProp, hideBackRow, onBack, onFormKp, onA
               <div style={{ marginTop: 3 }}>Клиент просит место у окна, передал поставщику.</div></div>
           </div>
           <div style={{ display: 'flex', gap: 10, marginTop: 16 }}>
-            <Input placeholder="Внутренний комментарий…" style={{ flex: 1 }} />
-            <Button icon="send" onClick={() => toast('Комментарий добавлен')}>Отправить</Button>
+            <Input value={comment} onChange={(event) => setComment(event.target.value)} placeholder="Внутренний комментарий…" style={{ flex: 1 }} />
+            <Button icon="send" onClick={addFlightComment}>Отправить</Button>
           </div>
         </div>
       )}
@@ -1867,7 +1915,7 @@ function FlightCard({ svc, offer, no: noProp, hideBackRow, onBack, onFormKp, onA
       {tab === 'history' && (
         <div className="card card-pad" style={{ maxWidth: 680 }}>
           <div className="timeline">
-            {[['14:32', 'Создано предложение из поиска', 'Даниель'], ['14:40', 'Отправлено клиенту в составе КП №КП-1042', 'Даниель'], ['15:10', 'Клиент согласовал вариант', 'Система'], ['15:12', 'Отправлен запрос на бронь поставщику', 'Даниель']].map(([t, txt, who], i) => (
+            {serverHistory.map(({ t, txt, who }, i) => (
               <div className="tl-item" key={i}><span className="tl-dot" /><span className="tl-line" />
                 <div><div className="tl-time">{t} · {who}</div><div className="tl-text">{txt}</div></div></div>
             ))}
@@ -1879,23 +1927,24 @@ function FlightCard({ svc, offer, no: noProp, hideBackRow, onBack, onFormKp, onA
       <StackPanel title="Дополнительные услуги" width="min(1040px,96vw)" onClose={() => setExtrasOpen(false)}
         footer={<>
           <Button variant="secondary" style={{ flex: 1 }} onClick={() => setExtrasOpen(false)}>Отмена</Button>
-          <Button icon="check" style={{ flex: 2 }} onClick={() => { setExtrasOpen(false); toast('Доп. услуги сохранены', 'ok'); }}>Применить</Button>
+          <Button icon="check" style={{ flex: 2 }} onClick={async () => { await serviceAction('service.extras.update', { extras, label: 'Доп. услуги сохранены' }); setExtrasOpen(false); }}>Применить</Button>
         </>}>
         <ExtrasTabs pax={extrasPax} state={extras} set={setExtras} embedded />
       </StackPanel>
     )}
-    {refundOpen && <RefundPanel passengers={passengers} base={fare + fee} currency={currency} onClose={() => setRefundOpen(false)} onDone={() => setStatus('Возврат')} />}
-    {exchangeOpen && <ExchangePanel passengers={passengers} base={fare + fee} currency={currency} origin={out.from} dest={out.to} onClose={() => setExchangeOpen(false)} onDone={() => setStatus('Обмен')} />}
+    {refundOpen && <RefundPanel passengers={passengers} base={fare + fee} currency={currency} onClose={() => setRefundOpen(false)} onDone={(data) => createAftersale('refund', data)} />}
+    {exchangeOpen && <ExchangePanel passengers={passengers} base={fare + fee} currency={currency} origin={out.from} dest={out.to} onClose={() => setExchangeOpen(false)} onDone={(data) => createAftersale('exchange', data)} />}
     {brandedOpen && <DocCorrectionPanel
       subjects={passengers.map((pp) => ({ name: pp.name, type: pp.type, docNo: pp.ticket, ref: pp.pnr }))}
       meta={{ cfg: docCorrKind('Авиа'), supplier, route: out.from + ' → ' + out.to + (back ? ' → ' + back.to : ''), dates: out.date, carrierName: AIRLINES[air].name, baseFareTotal: fare,
         itinerary: [{ from: out.from, to: out.to, date: out.date, flightNo: out.flightNo }, ...(back ? [{ from: back.from, to: back.to, date: back.date, flightNo: back.flightNo }] : [])] }}
       currency={currency} orderNo={svc ? svc.order : null} onClose={() => setBrandedOpen(false)} />}
-    <SendToPaxDrawer open={sendOpen} passengers={passengers} onClose={() => setSendOpen(false)} />
+    <SendToPaxDrawer open={sendOpen} passengers={passengers} onClose={() => setSendOpen(false)}
+      onSend={(channel, recipients) => serviceAction('document.send_passengers', { channel, recipients: recipients.map((p) => p.name), document_ids: uploadedDocs.map((d) => d.documentId || d.id), label: 'Документы переданы на отправку' })} />
     <SvcAddPaxDrawer open={addPaxOpen} isHotel={false} onClose={() => setAddPaxOpen(false)}
       onAdd={(person) => { setExtraPax((cur) => [...cur, { name: person.name, type: person.role, doc: person.doc, dob: person.dob, ticket: '—', pnr: pnr, docs: [] }]); setAddPaxOpen(false); toast('Пассажир добавлен', 'ok'); }} />
     <SvcDocUploadDrawer open={uploadOpen} isHotel={false} participants={passengers.map((p) => ({ name: p.name }))} orderNo={svc ? svc.order : null} onClose={() => setUploadOpen(false)}
-      onUploaded={(doc) => { setUploadedDocs((cur) => [...cur, doc]); setUploadOpen(false); toast('Документ загружен', 'ok'); }} />
+      onUploaded={uploadFlightDocument} />
     {attach && <AttachFlightDrawer mode={attach} svcTitle={out.from + ' → ' + out.to + (back ? ' → ' + back.to : '')}
       onClose={() => setAttach(null)} onDone={(msg) => toast(msg, 'ok')} />}
     <FlightReceiptDrawer open={receiptOpen} passengers={passengers} pax={receiptPax}

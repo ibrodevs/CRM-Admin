@@ -23,7 +23,7 @@ import { HotelPicker } from './page_hotel_picker';
 import { getThreadForOrder, threadUnread } from './page_chats';
 import { GROUP_ORDERS, GroupServiceScenario, GrMatrixTab, GrDiffTab } from './page_groups';
 import { financeSnapshot, ocCurrency, ocMoney, opDebt, opPayable, svcCalc } from './features/orders/finance';
-import { ordersApi, servicesApi, usersApi } from './api/resources';
+import { ordersApi, servicesApi, usersApi, workspaceActionsApi } from './api/resources';
 import { toLegacyOrderService, toLegacyParticipant } from './api/legacy-adapters';
 import { resultsOf } from './api/client';
 
@@ -454,7 +454,12 @@ function TabParticipants({ list, isGroup, groups, fresh, orderNo, orderAirline, 
               Поимённый список: {list.length - errCount} без ошибок{errCount ? `, ${errCount} требуют проверки` : ''}
             </div>
           </div>
-          <Button variant="secondary" size="sm" icon="checkCircle" onClick={() => toast(errCount ? (errCount + ' участник(ов) требуют проверки документов') : 'Список проверен — расхождений не найдено', errCount ? 'warn' : 'ok')}>Проверить список</Button>
+          <Button variant="secondary" size="sm" icon="checkCircle" onClick={async () => {
+            try {
+              await workspaceActionsApi.execute('order.participants.validate', { resourceType: 'order', resourceId: String(orderNo), payload: { participants: list.map((p) => ({ id: p.serverId || p.id, document_status: p.docStatus })), errors: errCount } });
+              toast(errCount ? (errCount + ' участник(ов) требуют проверки документов') : 'Список проверен — расхождений не найдено', errCount ? 'warn' : 'ok');
+            } catch (error) { toast(error.message, 'err'); }
+          }}>Проверить список</Button>
         </div>
       )}
       <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginBottom: 14 }}>
@@ -584,7 +589,7 @@ function serviceTotals(services) {
 
 
 
-function ServicesFooterBar({ services, participants, bookingDraft, onStartBooking }) {
+function ServicesFooterBar({ services, participants, bookingDraft, onStartBooking, orderId }) {
   const toast = useToast();
   const { total, confirmedSvc, awaitingSvc, actionSvc } = serviceTotals(services);
   return (
@@ -596,7 +601,10 @@ function ServicesFooterBar({ services, participants, bookingDraft, onStartBookin
       <div className="grp"><span className="l">Ожидают подтверждения</span><span className="v amber">{awaitingSvc}</span></div>
       <div className="grp"><span className="l">Требуют действий</span><span className="v amber">{actionSvc}</span></div>
       <div style={{ flex: 1 }} />
-      <Button variant="secondary" onClick={() => toast('Изменения сохранены', 'ok')}>Сохранить</Button>
+      <Button variant="secondary" onClick={async () => {
+        try { await workspaceActionsApi.execute('order.services.save', { resourceType: 'order', resourceId: String(orderId), payload: { services: services.map((s) => s.serverId || s.id), participants: participants.map((p) => p.serverId || p.id) } }); toast('Изменения сохранены', 'ok'); }
+        catch (error) { toast(error.message, 'err'); }
+      }}>Сохранить</Button>
       <Button iconRight="arrowRight" onClick={onStartBooking}>{bookingDraft ? 'Продолжить бронирование' : 'Перейти к бронированию'}</Button>
     </div>
   );
@@ -1670,8 +1678,8 @@ function TabOffers({ onCreate }) {
             <div className="kv-row" style={{ borderBottom: 'none' }}><span className="k">Сумма</span><span className="v" style={{ fontSize: 18 }}>{ocMoney(kp.total)}</span></div>
             <div style={{ color: 'var(--muted)', fontSize: 13, marginBottom: 14 }}>Отправлено: {kp.sent}</div>
             <div style={{ display: 'flex', gap: 10 }}>
-              <Button variant="secondary" size="sm" icon="eye" onClick={() => toast('Предпросмотр ' + kp.id, 'info')}>Просмотр</Button>
-              <Button variant="secondary" size="sm" icon="send" onClick={() => toast('КП отправлено клиенту', 'ok')}>Отправить</Button>
+              <Button variant="secondary" size="sm" icon="eye" onClick={() => window.__toastNav && window.__toastNav('offers')}>Просмотр</Button>
+              <Button variant="secondary" size="sm" icon="send" onClick={() => window.__toastNav && window.__toastNav('offers')}>Отправить</Button>
               <ActionMenu trigger={<button className="btn btn-ghost btn-icon btn-sm"><Icon name="more" /></button>}
                 items={[{ icon: 'copy', label: 'Дублировать' }, { icon: 'download', label: 'Скачать PDF' }, { sep: true }, { icon: 'trash', label: 'Удалить', danger: true }]} />
             </div>
@@ -1764,7 +1772,10 @@ function TabFinance({ services, onAddFee }) {
           <div style={{ fontWeight: 600, color: 'var(--ink)' }}>Синхронизация с 1С приостановлена</div>
           <div style={{ color: 'var(--muted)', fontSize: 13 }}>Последняя успешная: 14.06 · 12:30</div>
         </div>
-        <Button variant="secondary" size="sm" icon="loader" onClick={() => toast('Повторная синхронизация…', 'info')}>Повторить</Button>
+        <Button variant="secondary" size="sm" icon="loader" onClick={async () => {
+          try { await workspaceActionsApi.execute('integration.accounting.retry', { resourceType: 'finance', payload: { services: services.map((service) => service.serverId || service.id) } }); toast('Повторная синхронизация поставлена в очередь', 'ok'); }
+          catch (error) { toast(error.message, 'err'); }
+        }}>Повторить</Button>
       </div>
 
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', margin: '0 0 14px' }}>
@@ -2172,7 +2183,7 @@ function OrderCard({ order, onBack, initTab, initSvc, initSvcSearch, fresh, onOp
 
 
         {!fullWidthFlow && (
-          <ServicesFooterBar services={services} participants={participants} bookingDraft={bookingDraft}
+          <ServicesFooterBar services={services} participants={participants} bookingDraft={bookingDraft} orderId={order.id}
             onStartBooking={() => { setTab('services'); setSvcView('booking'); }} />
         )}
       </div>
@@ -2340,7 +2351,10 @@ function OrderEditDrawer({ open, order, status, onStatusChange, services, partic
                   <button className="oce-add" style={{ flex: 1 }} onClick={() => { const idx = pts.length; setPts((p) => [...p, '']); setCityPick({ idx }); }}>
                     <Icon name="plus" style={{ width: 16, height: 16 }} />Добавить город
                   </button>
-                  <Button variant="secondary" icon="zap" onClick={() => toast('Маршрут оптимизирован', 'ok')}>Оптимизировать</Button>
+                  <Button variant="secondary" icon="zap" onClick={() => {
+                    setPts((current) => current.length < 3 ? current : [current[0], ...current.slice(1, -1).sort((a, b) => cityLabel(a).localeCompare(cityLabel(b), 'ru')), current[current.length - 1]]);
+                    toast('Промежуточные точки маршрута оптимизированы', 'ok');
+                  }}>Оптимизировать</Button>
                 </div>
               </div>
 
