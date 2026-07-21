@@ -4,7 +4,13 @@ import { useEffect } from 'react';
 
 import { resultsOf } from '../api/client';
 import { toUiClient, toUiCompany, toUiNotification, toUiOrder, toUiSupplier, toUiThread } from '../api/adapters';
-import { toLegacyProposal, toLegacyReturn, toLegacyUser } from '../api/legacy-adapters';
+import {
+  toLegacyOrderService,
+  toLegacyParticipant,
+  toLegacyProposal,
+  toLegacyReturn,
+  toLegacyUser,
+} from '../api/legacy-adapters';
 import { communicationsApi, crmApi, notificationsApi, ordersApi, suppliersApi, workspaceApi } from '../api/resources';
 import { syncLegacyDataFromWorkspace } from './backend-data-sync';
 
@@ -35,6 +41,31 @@ function enrichCompanies(companies, orders) {
   });
 }
 
+async function loadOrderDetails(orders, signal) {
+  const targets = orders.slice(0, 30);
+  const settled = await Promise.allSettled(targets.map(async (order) => {
+    const [detail, services] = await Promise.all([
+      ordersApi.detail(order.id, signal),
+      ordersApi.services(order.id, signal),
+    ]);
+    return { order, detail, services: resultsOf(services) };
+  }));
+
+  const orderParticipants = [];
+  const orderServices = [];
+  settled.forEach((result) => {
+    if (result.status !== 'fulfilled') return;
+    const { order, detail, services } = result.value;
+    (detail.participants || []).forEach((participant) => {
+      orderParticipants.push({ ...toLegacyParticipant(participant), orderId: order.id, order: order.no });
+    });
+    services.forEach((service) => {
+      orderServices.push({ ...toLegacyOrderService(service), orderId: order.id, order: order.no });
+    });
+  });
+  return { orderParticipants, orderServices };
+}
+
 async function refreshLegacyData(signal) {
   const calls = await Promise.allSettled([
     ordersApi.list({}, signal),
@@ -54,8 +85,13 @@ async function refreshLegacyData(signal) {
   const orders = value(0).map(toUiOrder);
   const clients = enrichClients(value(2).map(toUiClient), orders);
   const companies = enrichCompanies(value(3).map(toUiCompany), orders);
+  const { orderParticipants, orderServices } = await loadOrderDetails(orders, signal);
+  if (signal?.aborted) return;
+
   const workspace = {
     orders,
+    orderParticipants,
+    orderServices,
     suppliers: value(1).map(toUiSupplier),
     clients,
     companies,
