@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { Icon } from './icons';
 import { Button, Drawer, EmptyState, Field, FilterChip, Input, Pill, SearchBox, Select, Tabs, useToast } from './ui';
 import { SERVICE_KIND, CLIENTS_DB, COMPANIES_DB, SUPPLIERS } from './data';
@@ -53,6 +53,7 @@ const financePaymentRow = (payment) => {
     requisites: payment.method || '—',
     sum: Number(payment.amount || 0),
     purpose: payment.comment || `Оплата по заказу ${payment.order_number || '—'}`,
+    orderId: payment.order || null,
     order: payment.order_number || null,
     supplier: payment.supplier_name || '—',
     client: payment.payer_company_name || payment.payer_person_name || '—',
@@ -65,6 +66,25 @@ const financePaymentRow = (payment) => {
     history: [{ t: date, text: `Статус: ${status}`, who: 'Backend' }],
     approvals: payment.status === 'pending' ? [{ who: 'Финансовый контроль', at: null, ok: null }] : [],
   };
+};
+const financeAllocationsForPayment = (payment, obligations = []) => {
+  if (!payment.orderId) return [];
+  const direction = payment.dir === 'in' ? 'client_receivable' : 'supplier_payable';
+  let remaining = Number(payment.sum || 0);
+  return obligations
+    .filter((obligation) => String(obligation.order) === String(payment.orderId)
+      && obligation.direction === direction
+      && ['open', 'partial'].includes(obligation.status)
+      && Number(obligation.outstanding || 0) > 0
+      && (!payment.currency || obligation.currency === payment.currency))
+    .sort((a, b) => String(a.due_date || '').localeCompare(String(b.due_date || '')))
+    .map((obligation) => {
+      if (remaining <= 0) return null;
+      const amount = Math.min(remaining, Number(obligation.outstanding || 0));
+      remaining -= amount;
+      return { obligation: obligation.id, amount: amount.toFixed(2) };
+    })
+    .filter(Boolean);
 };
 const financeReceiptRow = (obligation) => {
   const due = financeDate(obligation.due_date);
@@ -620,7 +640,7 @@ function NewPaymentDrawer({ open, onClose, onCreate, clientRows = [], supplierRo
   );
 }
 
-function FinPayments({ payments = [], onPaymentCreated, clientRows = [], supplierRows = [] }) {
+function FinPayments({ payments = [], obligations = [], onPaymentCreated, onPaymentConfirmed, clientRows = [], supplierRows = [] }) {
   const toast = useToast();
   const [open, setOpen] = useState(null);
   const [creating, setCreating] = useState(false);
@@ -663,10 +683,12 @@ function FinPayments({ payments = [], onPaymentCreated, clientRows = [], supplie
       </div>
       {open && <FinPaymentDrawer p={open} onClose={() => setOpen(null)} onConfirm={async (payment) => {
         try {
-          const updated = financePaymentRow(await financeApi.confirmPayment(payment.id, { version: payment.version }));
+          const allocations = financeAllocationsForPayment(payment, obligations);
+          const updated = financePaymentRow(await financeApi.confirmPayment(payment.id, { version: payment.version, allocations }));
           setUpdates((current) => ({ ...current, [payment.id]: updated }));
           setExtra((current) => current.map((item) => item.id === payment.id ? updated : item));
           setOpen(updated);
+          await onPaymentConfirmed?.();
         } catch (error) { toast(error.message || 'Не удалось провести платёж', 'err'); }
       }} />}
       <NewPaymentDrawer open={creating} onClose={() => setCreating(false)} clientRows={clientRows} supplierRows={supplierRows} onCreate={async (p) => {
@@ -1059,10 +1081,14 @@ function SupplierSettlements({ cp }) {
     { t: '05.07.2026', kind: 'Доплата', sum: 240, note: 'Доплата за доп. номера' },
     { t: '10.07.2026', kind: 'Возврат', sum: -120, note: 'Возврат за отменённый номер' },
   ]);
-  const add = (kind) => {
+  const add = async (kind) => {
     const operationAmounts = { 'Аванс': 500, 'Доплата': 180, 'Возврат': -90, 'Взаимозачёт': -260 };
-    setOps((o) => [{ t: finNow().slice(0, 10), kind, sum: operationAmounts[kind], note: kind === 'Взаимозачёт' ? 'Зачёт встречных требований' : 'Операция оператора' }, ...o]);
-    toast(kind + ' проведён', 'ok');
+    const row = { t: finNow().slice(0, 10), kind, sum: operationAmounts[kind], note: kind === 'Взаимозачёт' ? 'Зачёт встречных требований' : 'Операция оператора' };
+    try {
+      await workspaceActionsApi.execute('finance.supplier_settlement.create', { resourceType: 'counterparty', resourceId: cp.name, payload: row });
+      setOps((o) => [row, ...o]);
+      toast(kind + ' сохранён в финансовом журнале', 'ok');
+    } catch (error) { toast(error.message || 'Не удалось сохранить операцию', 'err'); }
   };
   const kindTone = { 'Аванс': 'blue', 'Доплата': 'amber', 'Возврат': 'teal', 'Взаимозачёт': 'gray' };
   return (
@@ -1409,21 +1435,24 @@ function FinancePage({ overview, transactions = [], clients = [], companies = []
   const [payments, setPayments] = useState([]);
   const [obligations, setObligations] = useState([]);
 
+  const loadFinance = useCallback(async (signal) => {
+    const [accountPayload, paymentPayload, obligationPayload] = await Promise.all([
+      financeApi.accounts(signal),
+      financeApi.payments({}, signal),
+      financeApi.obligations({}, signal),
+    ]);
+    setAccounts(resultsOf(accountPayload).filter((item) => ['bank', 'cash', 'deposit'].includes(item.kind)).map(financeAccountRow));
+    setPayments(resultsOf(paymentPayload).map(financePaymentRow));
+    setObligations(resultsOf(obligationPayload));
+  }, []);
+
   useEffect(() => {
     const controller = new AbortController();
-    Promise.all([
-      financeApi.accounts(controller.signal),
-      financeApi.payments({}, controller.signal),
-      financeApi.obligations({}, controller.signal),
-    ]).then(([accountPayload, paymentPayload, obligationPayload]) => {
-      setAccounts(resultsOf(accountPayload).filter((item) => ['bank', 'cash', 'deposit'].includes(item.kind)).map(financeAccountRow));
-      setPayments(resultsOf(paymentPayload).map(financePaymentRow));
-      setObligations(resultsOf(obligationPayload));
-    }).catch((error) => {
+    loadFinance(controller.signal).catch((error) => {
       if (error.name !== 'AbortError') console.error(error);
     });
     return () => controller.abort();
-  }, []);
+  }, [loadFinance]);
 
   const receipts = useMemo(() => obligations
     .filter((item) => item.direction === 'client_receivable' && ['open', 'partial'].includes(item.status) && Number(item.outstanding || 0) > 0)
@@ -1461,7 +1490,7 @@ function FinancePage({ overview, transactions = [], clients = [], companies = []
         <div style={{ marginBottom: 18 }}><Tabs tabs={FIN_TABS} value={tab} onChange={setTab} /></div>
         {tab === 'overview' && <FinOverview onGoTab={setTab} overview={overview} accounts={accounts} payments={payments} receipts={receipts} counterparties={counterparties} />}
         {tab === 'balance' && <FinBalance accounts={accounts} />}
-        {tab === 'payments' && <FinPayments payments={payments} onPaymentCreated={createPayment} clientRows={clientRows} supplierRows={supplierRows} />}
+        {tab === 'payments' && <FinPayments payments={payments} obligations={obligations} onPaymentCreated={createPayment} onPaymentConfirmed={() => loadFinance()} clientRows={clientRows} supplierRows={supplierRows} />}
         {tab === 'treasury' && <FinTreasury accounts={accounts} payments={payments} receipts={receipts} />}
         {tab === 'settlements' && <FinSettlements counterparties={counterparties} receipts={receipts} />}
         {tab === 'recon' && <FinReconciliation counterparties={counterparties} />}

@@ -11,6 +11,7 @@ export const crmApi = {
   person: (id, signal) => get(`persons/${id}/`, signal),
   createPerson: (body) => create('persons/', body),
   updatePerson: (id, body) => patch(`persons/${id}/`, body),
+  personDocuments: (id, signal) => get(`persons/${id}/documents/`, signal),
   addPersonDocument: (id, body) => create(`persons/${id}/documents/`, body),
   clients: (params = {}, signal) => list('clients/', { page_size: 100, ...params }, signal),
   createClient: (body) => create('clients/', body),
@@ -19,7 +20,13 @@ export const crmApi = {
   createCompany: (body) => create('companies/', body),
   updateCompany: (id, body) => patch(`companies/${id}/`, body),
   companyEmployees: (id, signal) => get(`companies/${id}/employees/`, signal),
+  createCompanyEmployee: (id, body) => create(`companies/${id}/employees/`, body),
+  updateCompanyEmployee: (companyId, employeeId, body) => patch(`companies/${companyId}/employees/${employeeId}/`, body),
+  removeCompanyEmployee: (companyId, employeeId) => remove(`companies/${companyId}/employees/${employeeId}/`),
   companyDepartments: (id, signal) => get(`companies/${id}/departments/`, signal),
+  createCompanyDepartment: (id, body) => create(`companies/${id}/departments/`, body),
+  updateCompanyDepartment: (companyId, departmentId, body) => patch(`companies/${companyId}/departments/${departmentId}/`, body),
+  removeCompanyDepartment: (companyId, departmentId) => remove(`companies/${companyId}/departments/${departmentId}/`),
 };
 
 export const accountApi = {
@@ -29,6 +36,12 @@ export const accountApi = {
   updatePreferences: (body) => patch('me/preferences/', body),
   changePassword: (currentPassword, newPassword) => create('auth/password/change/', {
     current_password: currentPassword, new_password: newPassword,
+  }, { idempotent: false }),
+  twoFactorStatus: (signal) => get('auth/2fa/status/', signal),
+  twoFactorSetup: () => create('auth/2fa/setup/', {}, { idempotent: false }),
+  twoFactorConfirm: (code) => create('auth/2fa/confirm/', { code }, { idempotent: false }),
+  twoFactorDisable: (currentPassword, code) => create('auth/2fa/disable/', {
+    current_password: currentPassword, code,
   }, { idempotent: false }),
   sessions: (signal) => get('auth/sessions/', signal),
   revokeSession: (id) => remove(`auth/sessions/${id}/`),
@@ -42,6 +55,7 @@ export const usersApi = {
   invite: (id) => create(`users/${id}/invite/`, {}),
   suspend: (id, reason = '') => create(`users/${id}/suspend/`, { reason }),
   roles: (signal) => get('roles/', signal),
+  updateRole: (id, permissions) => apiRequest(apiPath(`roles/${id}/`), { method: 'PUT', body: { permissions } }),
   userRoles: (id, signal) => get(`users/${id}/roles/`, signal),
   setRoles: (id, roles) => apiRequest(apiPath(`users/${id}/roles/`), { method: 'PUT', body: { roles } }),
   serviceAccess: (id, signal) => get(`users/${id}/service-access/`, signal),
@@ -61,10 +75,16 @@ export const ordersApi = {
   reassign: (id, body) => create(`orders/${id}/reassign/`, body),
   duplicate: (id) => create(`orders/${id}/duplicate/`, {}),
   addParticipant: (id, body) => create(`orders/${id}/participants/`, body),
+  participants: (id, signal) => get(`orders/${id}/participants/`, signal),
+  updateParticipant: (id, participantId, body) => patch(`orders/${id}/participants/${participantId}/`, body),
   removeParticipant: (id, participantId) => remove(`orders/${id}/participants/${participantId}/`),
+  route: (id, signal) => get(`orders/${id}/route/`, signal),
+  updateRoute: (id, body) => patch(`orders/${id}/route/`, body),
   services: (id, signal) => get(`orders/${id}/services/`, signal),
   tasks: (id, params = {}, signal) => list(`orders/${id}/tasks/`, { page_size: 100, ...params }, signal),
   createTask: (id, body) => create(`orders/${id}/tasks/`, body),
+  updateTask: (id, taskId, body) => patch(`orders/${id}/tasks/${taskId}/`, body),
+  removeTask: (id, taskId) => remove(`orders/${id}/tasks/${taskId}/`),
   history: (id, params = {}, signal) => list(`orders/${id}/history/`, { page_size: 100, ...params }, signal),
 };
 
@@ -157,6 +177,7 @@ export const proposalsApi = {
   list: workspaceApi.proposals,
   create: (body) => create('proposals/', body),
   detail: (id, signal) => get(`proposals/${id}/`, signal),
+  replaceDraft: (id, body) => apiRequest(apiPath(`proposals/${id}/draft/`), { method: 'PUT', body }),
   versions: (id, signal) => get(`proposals/${id}/versions/`, signal),
   prepare: (id, version) => create(`proposals/${id}/prepare/`, { version }),
   send: (id, version) => create(`proposals/${id}/send/`, { version }),
@@ -270,4 +291,8 @@ export const servicesApi = {
   fareRules: (id, signal) => get(`service-offers/${id}/fare-rules/`, signal),
   addToOrder: (orderId, body) => create(`orders/${orderId}/services/`, body),
   transition: (id, body) => create(`services/${id}/transition/`, body),
+  passengers: (id, signal) => get(`services/${id}/passengers/`, signal),
+  updatePassengers: (id, body) => apiRequest(apiPath(`services/${id}/passengers/`), { method: 'PUT', body }),
+  manualBook: (id, body) => create(`services/${id}/manual-book/`, body),
+  manualIssue: (id, body) => create(`services/${id}/manual-issue/`, body),
 };

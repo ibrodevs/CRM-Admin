@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { Icon } from './icons';
 import { ActionMenu, Button, Checkbox, DateField, DateRangeField, Drawer, EmptyState, FilterChip, Input, Pill, Radio, SearchBox, Select, Tabs, TimeLimitBadge, Toggle, fmtDate, plural, useToast } from './ui';
-import { CURRENT_USER, ORDERS, PROPOSALS, RAIL_OCCUPIED, RAIL_SERVICE_CLASSES, RAIL_WAGONS, RETURNS, SERVICE_KIND, SERVICE_STATUS, SVC_DATA } from './data';
+import { CURRENT_USER, ORDERS, RAIL_OCCUPIED, RAIL_SERVICE_CLASSES, RAIL_WAGONS, RETURNS, SERVICE_KIND, SERVICE_STATUS, SVC_DATA } from './data';
 import { CARD_CLIENT_VISIBILITY, CARD_STATUS, CARD_STATUS_FLOW, SEND_CHANNELS, cardInternals, cardStatus, orderClientChannel, sendChannelMeta } from './data/access-control';
 import { CHAIN_STATUS, DELIVERY_STATUS, DELIVERY_TONE, FORCE_MAJEURE_TYPES, advanceDelivery, affectedServiceChain, buildCardFields, buildForceMajeureRows, cardAction, cardEmailTemplate, cardScenario, cardsFor, channelMode, defaultForceMajeure, enabledChannels, operatorCardRights, recordCardResponse, scenarioActions, scenarioBadge, scenariosForKind, sendServiceCard, smartAlternatives } from './data/service-cards';
 import { UnifiedPersonDrawer } from './forms_unified';
@@ -12,7 +12,7 @@ import { rub } from './page_avia_picker';
 import { OperationConfirmModal } from './order_ops';
 import { PanelSub, StackPanel } from './components/shared-panels';
 import { kpNow } from './page_offers';
-import { documentsApi, servicesApi, workspaceActionsApi } from './api/resources';
+import { documentsApi, ordersApi, proposalsApi, servicesApi, workspaceActionsApi } from './api/resources';
 import { resultsOf } from './api/client';
 import { toLegacyOrderService } from './api/legacy-adapters';
 
@@ -447,7 +447,7 @@ function ServiceCardSendPanel({ item, kind, participants = [], orderNo, currency
     const alt = { id: 'man-' + Math.random().toString(36).slice(2, 7), manual: true, ...v };
     setManualAlts((m) => [...m, alt]);
     setAltSel((s) => { const n = new Set(s); n.add(alt.id); syncAltText(n, [...allAlts, alt]); return n; });
-    toast('Вариант добавлен вручную', 'ok');
+    toast('Вариант добавлен в форму подбора', 'info');
   };
   const removeManualAlt = (id) => { setManualAlts((m) => m.filter((x) => x.id !== id)); setAltSel((s) => { const n = new Set(s); n.delete(id); return n; }); };
 
@@ -490,7 +490,7 @@ function ServiceCardSendPanel({ item, kind, participants = [], orderNo, currency
   const toggleAction = (a) => setActions((as) => as.includes(a) ? as.filter((x) => x !== a) : [...as, a]);
   const addAttachment = () => setAttachments((a) => [...a, { name: 'Ваучер_' + (a.length + 1) + '.pdf' }]);
 
-  const send = () => {
+  const send = async () => {
     if (!rights.send) { toast('Нет права на отправку карточек по услуге «' + kind + '»', 'err'); return; }
     if (!channels.length) { toast('Выберите хотя бы один канал отправки', 'warn'); return; }
     const draft = {
@@ -500,29 +500,42 @@ function ServiceCardSendPanel({ item, kind, participants = [], orderNo, currency
       forceMajeure: sc.forceMajeure ? fm : null,
       snapshot: { title: item.title || item.main, info, badge: clientLabel },
     };
-    const card = sendServiceCard(oNo, svcId, draft, operator);
-
-    setTimeout(() => channels.forEach((ch) => advanceDelivery(card, ch, 'delivered')), 900);
-    setTimeout(() => channels.forEach((ch) => advanceDelivery(card, ch, 'viewed')), 2100);
-    onSent && onSent(channels.join(', '), card);
-    onClose && onClose();
+    try {
+      await Promise.resolve(onSent && onSent(channels.join(', '), draft));
+      const card = sendServiceCard(oNo, svcId, draft, operator);
+      setTimeout(() => channels.forEach((ch) => advanceDelivery(card, ch, 'delivered')), 900);
+      setTimeout(() => channels.forEach((ch) => advanceDelivery(card, ch, 'viewed')), 2100);
+      onClose && onClose();
+    } catch (error) { toast(error.message || 'Не удалось отправить карточку услуги', 'err'); }
   };
 
 
-  const buildKpFromAlternatives = () => {
+  const buildKpFromAlternatives = async () => {
     if (!altBlocks.length) { toast('Сначала подберите варианты — «Открыть подбор» (авто или вручную)', 'warn'); return; }
-    const client = ((typeof ORDERS !== 'undefined' && ORDERS.find((o) => o.no === oNo)) || {}).client || item.client || '';
-    const uid = (p) => p + Math.random().toString(36).slice(2, 7);
-    const items = altBlocks.map((a) => ({ id: uid('i'), kind, title: a.title, sub: a.meta || a.scope, cost: a.price || 0, fee: 0 }));
-    const np = { id: 'КП-' + (1100 + PROPOSALS.length), order: oNo, client, status: 'Черновик', currency: currency || 'USD',
-      validUntil: '25.06.2026 18:00', created: '15.06.2026', approvedVariant: null, kpType: 'Подбор услуг', responsible: operator,
-      variants: [{ id: uid('v'), name: 'Альтернативы · ' + (item.title || item.main || kind), items }],
-      history: [{ t: (typeof kpNow === 'function' ? kpNow() : ''), text: 'КП собрано из подобранных альтернатив по услуге «' + (item.title || item.main || kind) + '»', who: operator }] };
-    if (typeof PROPOSALS !== 'undefined') PROPOSALS.unshift(np);
-    toast('КП ' + np.id + ' собрано из ' + items.length + ' ' + plural(items.length, ['варианта', 'вариантов', 'вариантов']), 'ok',
-      { title: 'КП создано', action: { label: 'Открыть «Ком. предложения»', route: 'offers' } });
-    onClose && onClose();
-    if (window.__toastNav) window.__toastNav('offers');
+    const orderId = item.orderId || item.order_id || (/^[0-9a-f-]{32,36}$/i.test(String(item.order || '')) ? item.order : null);
+    if (!orderId) { toast('КП можно создать только из услуги, связанной с backend-заказом', 'err'); return; }
+    const items = altBlocks.map((a) => ({
+      title: a.title,
+      description: a.meta || a.scope || '',
+      quantity: 1,
+      price_amount: String(a.price || 0),
+      price_currency: currency || 'USD',
+    }));
+    try {
+      const validUntil = new Date(Date.now() + 7 * 86400000).toISOString();
+      const proposal = await proposalsApi.create({
+        order: orderId,
+        type: 'standard',
+        purpose: 'Подбор альтернатив по услуге',
+        currency: currency || 'USD',
+        valid_until: validUntil,
+        variants: [{ name: 'Альтернативы · ' + (item.title || item.main || kind), items }],
+      });
+      toast('КП ' + proposal.number + ' собрано из ' + items.length + ' ' + plural(items.length, ['варианта', 'вариантов', 'вариантов']), 'ok',
+        { title: 'КП создано', action: { label: 'Открыть «Ком. предложения»', route: 'offers' } });
+      onClose && onClose();
+      if (window.__toastNav) window.__toastNav('offers');
+    } catch (error) { toast(error.message || 'Не удалось создать КП', 'err'); }
   };
 
   const modeLabel = { internal: 'Внутренний чат', messenger: 'Мессенджер', email: 'Email' };
@@ -994,7 +1007,14 @@ function SvcCard({ item, kind, participants = [], hideBackRow, onBack }) {
   const [uploadedDocs, setUploadedDocs] = useState([]);
   const [comment, setComment] = useState('');
   const [serviceHistory, setServiceHistory] = useState([]);
-  const [pax, setPax] = useState(participants);
+  const initialPax = participants.length ? participants : (item.passengers || []).map((name, index) => ({
+    name,
+    role: 'Участник',
+    participantId: (item.participantIds || [])[index],
+    doc: '—',
+    dob: '—',
+  }));
+  const [pax, setPax] = useState(initialPax);
   const [addPaxOpen, setAddPaxOpen] = useState(false);
 
   const initCard = (item.status === 'Выписано' || item.status === 'Подтверждено') ? 'issued' : (item.cardStatus || 'created');
@@ -1054,13 +1074,36 @@ function SvcCard({ item, kind, participants = [], hideBackRow, onBack }) {
     return () => controller.abort();
   }, [serviceId]);
 
-  const transitionService = async (target) => {
+  const transitionService = async (target, meta = {}) => {
     try {
-      const updated = await servicesApi.transition(serviceId, { target_status: target, version: serviceVersion });
+      if (!serviceId) throw new Error('Для услуги не найден backend ID');
+      let updated;
+      if (target === 'booked') {
+        const supplierReference = window.prompt('Supplier reference / PNR / номер брони');
+        if (!supplierReference) return;
+        updated = await servicesApi.manualBook(serviceId, {
+          version: serviceVersion,
+          supplier_reference: supplierReference,
+          pnr: supplierReference,
+          comment: meta.comment || '',
+        });
+      } else if (target === 'issued') {
+        const documentNumber = window.prompt(isHotel ? 'Номер ваучера' : 'Номер билета / ваучера');
+        if (!documentNumber) return;
+        updated = await servicesApi.manualIssue(serviceId, {
+          version: serviceVersion,
+          document_number: documentNumber,
+          amount: total || null,
+          currency: cur || 'USD',
+          comment: meta.comment || '',
+        });
+      } else {
+        updated = await servicesApi.transition(serviceId, { target_status: target, version: serviceVersion });
+      }
       const labels = { booked: 'Забронировано', issued: 'Выписано' };
       setStatus(labels[updated.status] || updated.status);
       setServiceVersion(updated.version);
-      toast(target === 'booked' ? 'Отправлено на бронирование' : 'Услуга оформлена', 'ok');
+      toast(target === 'booked' ? 'Бронирование сохранено' : 'Услуга оформлена', 'ok');
     } catch (error) { toast(error.message, 'err'); }
   };
 
@@ -1111,6 +1154,39 @@ function SvcCard({ item, kind, participants = [], hideBackRow, onBack }) {
       setCardLog((l) => [...l, { t: 'сейчас', txt: 'Отправлена клиенту · канал «' + ch + '» · v' + version }]);
       toast('Карточка услуги поставлена в очередь отправки по каналу «' + ch + '»', 'ok');
     } catch (error) { toast(error.message, 'err'); }
+  };
+  const addServicePassenger = async (person) => {
+    const orderId = item.orderId || (/^[0-9a-f-]{32,36}$/i.test(String(item.order || '')) ? item.order : null);
+    if (!orderId || !serviceId) { toast('Пассажира можно сохранить только для backend-заказа и backend-услуги', 'err'); return; }
+    try {
+      const createdParticipant = await ordersApi.addParticipant(orderId, {
+        role: 'passenger',
+        guest_snapshot: {
+          name: person.name,
+          role: person.role,
+          dob: person.dob && person.dob !== '—' ? person.dob : '',
+          phone: person.phone || '',
+          email: person.email || '',
+          citizenship: person.citizenship || '',
+          documents: person.documents || [{ type: person.docType, number: person.docNo }].filter((doc) => doc.number),
+        },
+      });
+      const participantIds = pax.map((entry) => entry.participantId || entry.participant).filter(Boolean);
+      const updated = await servicesApi.updatePassengers(serviceId, {
+        version: serviceVersion,
+        participants: [...participantIds, createdParticipant.id],
+      });
+      setServiceVersion(updated.version);
+      setPax((updated.passengers || []).map((row) => ({
+        name: row.name,
+        role: 'Участник',
+        participantId: row.participant,
+        doc: '—',
+        dob: '—',
+      })));
+      setAddPaxOpen(false);
+      toast((isHotel ? 'Гость' : 'Пассажир') + ' добавлен в backend-услугу', 'ok');
+    } catch (error) { toast(error.message || 'Не удалось добавить участника услуги', 'err'); }
   };
   const bumpVersion = async () => {
     const nv = version + 1;
@@ -1174,8 +1250,8 @@ function SvcCard({ item, kind, participants = [], hideBackRow, onBack }) {
         </div>
         <div style={{ textAlign: 'right' }}><div style={{ fontSize: 13, color: 'var(--muted)' }}>Итого к оплате</div><div style={{ fontSize: 24, fontWeight: 700, color: 'var(--ink)' }}>{total ? fmt(total) : '—'}</div></div>
         <Button icon="send" onClick={() => setSendOpen(true)}>Отправить клиенту</Button>
-        {(status === 'Предложение' || status === 'Предложено') && <Button variant="secondary" icon="check" onClick={() => setOpConfirm({ action: 'book', onConfirm: () => transitionService('booked') })}>Забронировать</Button>}
-        {status === 'Забронировано' && <Button variant="secondary" icon="check" onClick={() => setOpConfirm({ action: 'issue', onConfirm: () => transitionService('issued') })}>Оформить</Button>}
+        {(status === 'Предложение' || status === 'Предложено') && <Button variant="secondary" icon="check" onClick={() => setOpConfirm({ action: 'book', onConfirm: (meta) => transitionService('booked', meta) })}>Забронировать</Button>}
+        {status === 'Забронировано' && <Button variant="secondary" icon="check" onClick={() => setOpConfirm({ action: 'issue', onConfirm: (meta) => transitionService('issued', meta) })}>Оформить</Button>}
         <ActionMenu trigger={<button className="btn btn-secondary btn-icon"><Icon name="more" /></button>}
           items={[
             { icon: 'send', label: 'Отправить карточку клиенту', onClick: () => setSendOpen(true) },
@@ -1380,11 +1456,11 @@ function SvcCard({ item, kind, participants = [], hideBackRow, onBack }) {
       )}
 
       {corrOpen && <DocCorrectionPanel subjects={corrSubjects} meta={corrMeta} currency={cur || 'USD'} orderNo={item.order || null} onClose={() => setCorrOpen(false)} />}
-      {sendOpen && <ServiceCardSendPanel item={item} kind={kind} participants={pax} orderNo={orderNo} currency={cur} onSent={sendCard} onClose={() => setSendOpen(false)} />}
+      {sendOpen && <ServiceCardSendPanel item={item} kind={kind} participants={pax} orderNo={orderNo} currency={cur} serviceId={serviceId} onSent={sendCard} onClose={() => setSendOpen(false)} />}
       <SvcDocUploadDrawer open={uploadOpen} isHotel={isHotel} participants={pax} orderNo={orderNo} onClose={() => setUploadOpen(false)}
         onUploaded={uploadDocument} />
       <SvcAddPaxDrawer open={addPaxOpen} isHotel={isHotel} onClose={() => setAddPaxOpen(false)}
-        onAdd={(person) => { setPax((cur) => [...cur, person]); setAddPaxOpen(false); toast((isHotel ? 'Гость' : 'Пассажир') + ' добавлен', 'ok'); }} />
+        onAdd={addServicePassenger} />
       {opConfirm && <OperationConfirmModal open action={opConfirm.action} kind={kind} service={title}
         fin={{ currency: cur || '$', price: tariff, fee, total }}
         warnings={opConfirm.action === 'issue' ? ['Проверьте актуальность цены перед выпиской'] : []}
@@ -1400,7 +1476,18 @@ function SvcAddPaxDrawer({ open, isHotel, onClose, onAdd }) {
     <UnifiedPersonDrawer open={open} kind="person" mode="create" showRole
       title={isHotel ? 'Добавить гостя' : 'Добавить пассажира'}
       onClose={onClose}
-      onSave={(person, client) => onAdd({ name: client.name, role: person.role, doc: person.docNo || '—', dob: person.dob || '—', documents: person.documents })} />
+      onSave={(person, client) => onAdd({
+        name: client.name,
+        role: person.role,
+        doc: person.docNo || '—',
+        docType: person.docType,
+        docNo: person.docNo,
+        dob: person.dob || '—',
+        phone: person.phone,
+        email: person.email,
+        citizenship: person.citizenship,
+        documents: person.documents,
+      })} />
   );
 }
 function SVC_CFG_TITLE(kind) { const c = Object.values(SVC_CFG).find((x) => x.kind === kind); return c ? c.title : kind; }
@@ -1654,7 +1741,7 @@ function ServiceFlow({ routeKey, searchIntent, onConsumeSearch }) {
                   : offers.length
                     ? offers.map((o) => cfg.kind === 'ЖД'
                         ? <RailOfferCard key={o.id} o={o} onSelect={(x) => { setItem(x); setView('card'); toast('Открыто без привязки к заказу — добавить можно из карточки заказа', 'info'); }} />
-                        : <SvcOfferCard key={o.id} o={o} kind={cfg.kind} onSelect={(x) => { setItem(x); setView('card'); toast('Открыто без привязки к заказу — добавить можно из карточки заказа', 'info'); }} onSave={() => toast('Предложение сохранено', 'ok')} />)
+                        : <SvcOfferCard key={o.id} o={o} kind={cfg.kind} onSelect={(x) => { setItem(x); setView('card'); toast('Открыто без привязки к заказу — добавить можно из карточки заказа', 'info'); }} onSave={() => toast('Сохранение предложения доступно после привязки к заказу', 'warn')} />)
                     : <EmptyState icon={k.icon} title="Нет вариантов по фильтрам" sub="Смягчите условия фильтрации слева" />}
               </div>
             </div>
@@ -1750,7 +1837,7 @@ function ServiceAddFlow({ routeKey, onAdd }) {
               {loading
                 ? [0, 1, 2].map((i) => (<div key={i} className="off-card" style={{ marginBottom: 14 }}><div className="off-main"><div className="sk" style={{ height: 44, width: '55%' }} /><div className="sk" style={{ height: 26, width: '85%' }} /></div><div className="off-side"><div className="sk" style={{ height: 56 }} /></div></div>))
                 : offers.length
-                  ? offers.map((o) => <SvcOfferCard key={o.id} o={o} kind={cfg.kind} onSelect={(x) => onAdd(x, cfg.kind)} onSave={() => toast('Предложение сохранено', 'ok')} />)
+                  ? offers.map((o) => <SvcOfferCard key={o.id} o={o} kind={cfg.kind} onSelect={(x) => onAdd(x, cfg.kind)} onSave={() => toast('Добавьте предложение в заказ, чтобы сохранить его в backend', 'warn')} />)
                   : <EmptyState icon={SERVICE_KIND[cfg.kind].icon} title="Нет вариантов по фильтрам" sub="Смягчите условия фильтрации слева" />}
             </div>
           </div>
@@ -1852,7 +1939,7 @@ function AeroAddFlow({ onAdd }) {
           </div>
           {loading
             ? [0, 1, 2].map((i) => (<div key={i} className="off-card" style={{ marginBottom: 14 }}><div className="off-main"><div className="sk" style={{ height: 44, width: '55%' }} /><div className="sk" style={{ height: 26, width: '85%' }} /></div><div className="off-side"><div className="sk" style={{ height: 56 }} /></div></div>))
-            : offers.map((o) => <SvcOfferCard key={o.id} o={o} kind="Аэроэкспресс" onSelect={addOffer} onSave={() => toast('Предложение сохранено', 'ok')} />)}
+            : offers.map((o) => <SvcOfferCard key={o.id} o={o} kind="Аэроэкспресс" onSelect={addOffer} onSave={() => toast('Добавьте предложение в заказ, чтобы сохранить его в backend', 'warn')} />)}
         </>
       )}
     </div>

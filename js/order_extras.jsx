@@ -152,7 +152,15 @@ function PassengerDrawer({ open, onClose, onAdd }) {
   return (
     <UnifiedPersonDrawer open={open} kind="person" mode="create" showRole title="Добавить пассажира"
       onClose={onClose}
-      onSave={(person, client) => { onAdd && onAdd(client); toast('Пассажир добавлен', 'ok'); onClose(); }} />
+      onSave={async (person, client) => {
+        try {
+          if (onAdd) await onAdd(client, person);
+          toast('Пассажир добавлен', 'ok');
+          onClose();
+        } catch (error) {
+          toast(error.message || 'Не удалось добавить пассажира', 'err');
+        }
+      }} />
   );
 }
 

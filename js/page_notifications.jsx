@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Icon } from './icons';
 import { ActionMenu, Button, Drawer, EmptyState, FilterChip, Pill, SearchBox, Tabs, Toggle, useToast } from './ui';
-import { ERR_CATEGORIES, ERR_SEVERITY, ERR_SYSTEMS, INTEGRATION_ERROR_CODES, NOTIFICATIONS, NOTIF_PRIORITY, NOTIF_PRIO_RANK, NOTIF_SETTINGS, NOTIF_SOURCE, ORDERS } from './data';
+import { ERR_CATEGORIES, ERR_SEVERITY, ERR_SYSTEMS, INTEGRATION_ERROR_CODES, NOTIF_PRIORITY, NOTIF_PRIO_RANK, NOTIF_SETTINGS, NOTIF_SOURCE } from './data';
 import { Topbar } from './layout';
 import { notificationsApi } from './api/resources';
 
@@ -9,14 +9,16 @@ import { notificationsApi } from './api/resources';
 
 
 const NOTIF_TAB = { finance: 'finance', documents: 'documents', offers: 'offers', returns: 'aftersale', order: 'overview' };
-function notifGo(n, onNavigate, onOpenOrder, orders = ORDERS) {
+function notifGo(n, onNavigate, onOpenOrder, orders = []) {
 
-  const svc = n.link && n.link.svc;
-  const tab = n.source === 'Чаты' ? 'chat' : (svc ? 'services' : (NOTIF_TAB[n.link.type] || 'overview'));
+  const link = n.link || {};
+  const svc = link.svc;
+  const tab = n.source === 'Чаты' ? 'chat' : (svc ? 'services' : (NOTIF_TAB[link.type] || 'overview'));
   if (n.order && onOpenOrder) {
-    const o = orders.find((x) => x.no === n.order) || { no: n.order, client: n.title, requestType: 'Индивидуальная', status: 'В работе', operator: n.resp, date: '15.06.25' };
-    onOpenOrder(o, tab, svc || null);
-  } else onNavigate && onNavigate(n.link.type);
+    const o = orders.find((x) => String(x.no) === String(n.order) || String(x.id) === String(n.order));
+    if (o) onOpenOrder(o, tab, svc || null);
+    else onNavigate && onNavigate('notifications');
+  } else onNavigate && onNavigate(link.type || 'notifications');
 }
 
 
@@ -216,22 +218,22 @@ function NotificationsPage({ notifications, orders, onChange, onNavigate, onOpen
 
 
 
-function ActivityFeed({ onNavigate, onOpenOrder, limit = 6 }) {
-  const items = [...NOTIFICATIONS]
+function ActivityFeed({ notifications = [], orders = [], onNavigate, onOpenOrder, limit = 6 }) {
+  const items = [...notifications]
     .sort((a, b) => (NOTIF_PRIO_RANK[a.priority] - NOTIF_PRIO_RANK[b.priority]))
     .slice(0, limit);
   return (
     <div className="card card-pad">
       <div style={{ display: 'flex', alignItems: 'center', marginBottom: 6 }}>
         <h3 className="card-title" style={{ fontSize: 18 }}>Требует внимания</h3>
-        <span className="pill pill-red" style={{ marginLeft: 10 }}>{NOTIFICATIONS.filter((n) => (n.priority === 'Критический' || n.priority === 'Высокий') && !n.read).length}</span>
+        <span className="pill pill-red" style={{ marginLeft: 10 }}>{notifications.filter((n) => (n.priority === 'Критический' || n.priority === 'Высокий') && !n.read).length}</span>
         <div style={{ flex: 1 }} />
         <button className="link-chip" onClick={() => onNavigate('notifications')}>Все уведомления<Icon name="arrowRight" /></button>
       </div>
       {items.map((n) => {
         const src = NOTIF_SOURCE[n.source] || NOTIF_SOURCE['Система'];
         return (
-          <div className="feed-item" key={n.id} onClick={() => notifGo(n, onNavigate, onOpenOrder)}>
+          <div className="feed-item" key={n.id} onClick={() => notifGo(n, onNavigate, onOpenOrder, orders)}>
             <span className="feed-ic" style={{ background: n.priority === 'Критический' ? 'var(--red)' : src.color }}><Icon name={src.icon} /></span>
             <div style={{ flex: 1, minWidth: 0 }}>
               <div className="feed-t">{n.title}</div>

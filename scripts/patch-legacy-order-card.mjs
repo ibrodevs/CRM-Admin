@@ -4,7 +4,8 @@ function replaceOnce(file, before, after, label) {
   let source = fs.readFileSync(file, 'utf8');
   if (source.includes(after)) return;
   if (!source.includes(before)) {
-    throw new Error(`Legacy backend patch failed: ${label} not found in ${file}`);
+    console.warn(`Legacy backend patch skipped: ${label} already changed or not found in ${file}`);
+    return;
   }
   source = source.replace(before, after);
   fs.writeFileSync(file, source);

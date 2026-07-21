@@ -9,6 +9,11 @@ const SERVICE_KIND = {
   avia: 'Авиа', rail: 'ЖД', hotel: 'Отель', transfer: 'Трансфер', bus: 'Автобус',
   tour: 'Тур', visa: 'Виза', insurance: 'Страховка', other: 'Другое',
 };
+const TIMEZONE_LABEL = {
+  'Asia/Bishkek': '(GMT+6) Бишкек',
+  'Europe/Moscow': '(GMT+3) Москва',
+  'Asia/Tashkent': '(GMT+5) Ташкент',
+};
 
 export function toUiUser(user) {
   const roleCode = user?.roles?.[0] || 'operator';
@@ -26,7 +31,7 @@ export function toUiUser(user) {
     hired: user?.hired_at || '',
     workStatus: { working: 'Работает', vacation: 'Отпуск', sick_leave: 'Больничный', day_off: 'Выходной' }[user?.work_status] || user?.work_status || '',
     presence: { online: 'Онлайн', away: 'Отошёл', busy: 'Занят', offline: 'Не в сети' }[user?.presence] || user?.presence || '',
-    tz: user?.timezone || 'Asia/Bishkek',
+    tz: TIMEZONE_LABEL[user?.timezone] || user?.timezone || '(GMT+6) Бишкек',
     lang: { ru: 'Русский', ky: 'Кыргызча', en: 'English' }[user?.language] || user?.language || 'Русский',
     slaResponseMin: user?.sla_response_minutes || 15,
   };

@@ -69,6 +69,12 @@ function calAddEvent(evt) {
   const full = { id: 'CE-' + Math.random().toString(36).slice(2, 7), done: false, history: [{ t: calNowStr(), text: 'Событие создано', who }], ...evt };
   CAL_EVENTS.push(full); return full;
 }
+function calUpsertEvent(evt) {
+  const index = CAL_EVENTS.findIndex((item) => item.id === evt.id);
+  if (index >= 0) CAL_EVENTS[index] = evt;
+  else CAL_EVENTS.push(evt);
+  return evt;
+}
 function calFindDuplicate({ type, title, order }) {
   return CAL_EVENTS.find((e) => e.order === order && order != null && (e.type === type) && e.title.trim().toLowerCase() === (title || '').trim().toLowerCase() && !e.done);
 }
@@ -234,8 +240,7 @@ function CalEventCreator({ type, day, presetOrder, orders = [], clients = [], us
     let evt;
     if (type === 'order') {
       try {
-        const created = onPersist ? await onPersist({ ...base, type, form: f, date, endStr: f.endStr }) : calAddEvent({ ...base, title: f.direction || 'Заказ / поездка' });
-        if (!CAL_EVENTS.some((item) => item.id === created.id)) CAL_EVENTS.push(created);
+        const created = onPersist ? calUpsertEvent(await onPersist({ ...base, type, form: f, date, endStr: f.endStr })) : calAddEvent({ ...base, title: f.direction || 'Заказ / поездка' });
         toast('Заказ и событие сохранены в backend', 'ok', { title: 'Заказ создан', action: { label: 'Открыть в «Заказы»', route: 'orders' } });
         onCreated && onCreated(created); onClose();
       } catch (error) { toast(error.message || 'Не удалось создать заказ и событие', 'err'); }
@@ -245,8 +250,7 @@ function CalEventCreator({ type, day, presetOrder, orders = [], clients = [], us
     else if (type === 'task') evt = { ...base, title: f.title, priority: f.priority };
     else evt = { ...base, title: f.title, criterion: f.criterion, actionOnProblem: f.actionOnProblem };
     try {
-      const created = onPersist ? await onPersist({ ...evt, form: f }) : calAddEvent(evt);
-      if (!CAL_EVENTS.some((item) => item.id === created.id)) CAL_EVENTS.push(created);
+      const created = onPersist ? calUpsertEvent(await onPersist({ ...evt, form: f })) : calAddEvent(evt);
       toast(t.l + ' сохранено в backend', 'ok');
       onCreated && onCreated(created); onClose();
     } catch (error) { toast(error.message || 'Не удалось создать событие', 'err'); }

@@ -3,7 +3,7 @@ import { Icon } from './icons';
 import { Avatar, Button, Checkbox, Drawer, Field, Input, Pill, Select, Tabs, Toggle, useToast } from './ui';
 import { UFDateField } from './forms_unified';
 import { CURRENCIES, CURRENT_USER } from './data';
-import { OPERATOR_SLA, OPERATOR_SVC_ACCESS, SVC_ACCESS_KINDS, SVC_ACCESS_RIGHTS, fullRights, noRights, operatorKindsLabel, operatorSla, operatorSvcAccess } from './data/access-control';
+import { SVC_ACCESS_KINDS, operatorKindsLabel, operatorSla, operatorSvcAccess } from './data/access-control';
 import { Topbar } from './layout';
 import { RolesTab } from './page_settings';
 import { MotivationDrawer, motivationFor, shiftDuration, shiftFmtTime } from './page_shifts';
@@ -17,7 +17,7 @@ import { resultsOf } from './api/client';
 
 
 const PRESENCE_TONE = { 'Онлайн': 'green', 'Не в сети': 'gray', 'В отпуске': 'amber' };
-const WORK_STATUS = ['Работает', 'Отпуск', 'Больничный', 'Уволен'];
+const WORK_STATUS = ['Работает', 'Отпуск', 'Больничный', 'Выходной'];
 
 
 function ProfileMotivation({ operator }) {
@@ -181,6 +181,7 @@ function ProfilePage({ user, onNavigate, initialTab }) {
   const toast = useToast();
   const auth = useAuth();
   const u = user || auth.user || CURRENT_USER;
+  const canManageUsers = (auth.user?.permissions || u.permissions || []).includes('users.manage');
   const [tab, setTab] = useState(initialTab || 'profile');
   const [pf, setPf] = useState({ ...u });
   const [pw, setPw] = useState({ cur: '', next: '', confirm: '' });
@@ -191,12 +192,13 @@ function ProfilePage({ user, onNavigate, initialTab }) {
   const [devices, setDevices] = useState([]);
   const [saving, setSaving] = useState(false);
   const [prefs, setPrefs] = useState({ theme: 'Светлая', dateFmt: 'ДД.ММ.ГГГГ', timeFmt: '24 часа', currency: 'USD', lang: u.lang, pageSize: '25', startPage: 'Главное' });
+  const [twoFactor, setTwoFactor] = useState({ enabled: false, confirmedAt: null, setupOpen: false, disableOpen: false, secret: '', uri: '', code: '', password: '' });
 
   useEffect(() => { setPf({ ...u }); }, [u.id]);
   useEffect(() => {
     const controller = new AbortController();
-    Promise.all([accountApi.preferences(controller.signal), accountApi.sessions(controller.signal)])
-      .then(([preference, sessions]) => {
+    Promise.all([accountApi.preferences(controller.signal), accountApi.sessions(controller.signal), accountApi.twoFactorStatus(controller.signal)])
+      .then(([preference, sessions, twoFactorStatus]) => {
         setPrefs({
           theme: { light: 'Светлая', dark: 'Тёмная', system: 'Системная' }[preference.theme] || 'Светлая',
           dateFmt: preference.date_format || 'ДД.ММ.ГГГГ', timeFmt: preference.time_format || '24 часа',
@@ -206,6 +208,7 @@ function ProfilePage({ user, onNavigate, initialTab }) {
         });
         setNotif((current) => ({ ...current, ...(preference.notification_channels || {}), ...(preference.notification_categories || {}) }));
         setDevices(sessions.results || []);
+        setTwoFactor((current) => ({ ...current, enabled: Boolean(twoFactorStatus.enabled), confirmedAt: twoFactorStatus.confirmed_at || null }));
       })
       .catch((error) => { if (error.name !== 'AbortError') toast(error.message, 'err'); });
     return () => controller.abort();
@@ -234,6 +237,7 @@ function ProfilePage({ user, onNavigate, initialTab }) {
       const updated = await accountApi.updateMe({
         last_name: lastName, first_name: firstName, middle_name: middle.join(' '),
         work_phone: pf.workPhone, internal_phone: pf.internalPhone, telegram: pf.telegram,
+        position: pf.position, department: pf.dept, hired_at: pf.hired || null,
         timezone: pf.tz.includes('Москва') ? 'Europe/Moscow' : pf.tz.includes('Ташкент') ? 'Asia/Tashkent' : 'Asia/Bishkek',
         language: { 'Русский': 'ru', 'Кыргызча': 'ky', English: 'en' }[pf.lang] || 'ru',
         work_status: { 'Работает': 'working', 'Отпуск': 'vacation', 'Больничный': 'sick_leave', 'Выходной': 'day_off' }[pf.workStatus] || 'working',
@@ -276,6 +280,37 @@ function ProfilePage({ user, onNavigate, initialTab }) {
     } catch (error) { toast(error.message, 'err'); }
   };
 
+  const startTwoFactorSetup = async () => {
+    setSaving(true);
+    try {
+      const setup = await accountApi.twoFactorSetup();
+      setTwoFactor((current) => ({ ...current, setupOpen: true, secret: setup.secret, uri: setup.provisioning_uri, code: '' }));
+    } catch (error) { toast(error.message || 'Не удалось начать настройку 2FA', 'err'); }
+    finally { setSaving(false); }
+  };
+
+  const confirmTwoFactor = async () => {
+    if (!twoFactor.code.trim()) { toast('Введите код из приложения', 'err'); return; }
+    setSaving(true);
+    try {
+      const status = await accountApi.twoFactorConfirm(twoFactor.code.trim());
+      setTwoFactor((current) => ({ ...current, enabled: Boolean(status.enabled), confirmedAt: status.confirmed_at || null, setupOpen: false, secret: '', uri: '', code: '' }));
+      toast('Двухфакторная аутентификация включена', 'ok');
+    } catch (error) { toast(error.message || 'Не удалось подтвердить 2FA', 'err'); }
+    finally { setSaving(false); }
+  };
+
+  const disableTwoFactor = async () => {
+    if (!twoFactor.password || !twoFactor.code.trim()) { toast('Введите пароль и код подтверждения', 'err'); return; }
+    setSaving(true);
+    try {
+      const status = await accountApi.twoFactorDisable(twoFactor.password, twoFactor.code.trim());
+      setTwoFactor((current) => ({ ...current, enabled: Boolean(status.enabled), confirmedAt: status.confirmed_at || null, disableOpen: false, password: '', code: '' }));
+      toast('Двухфакторная аутентификация отключена', 'ok');
+    } catch (error) { toast(error.message || 'Не удалось отключить 2FA', 'err'); }
+    finally { setSaving(false); }
+  };
+
   const TABS = [
     { key: 'profile', label: 'Профиль' }, { key: 'security', label: 'Безопасность' },
     { key: 'notif', label: 'Уведомления' }, { key: 'prefs', label: 'Предпочтения' },
@@ -283,11 +318,13 @@ function ProfilePage({ user, onNavigate, initialTab }) {
     { key: 'stats', label: 'Статистика' }, { key: 'worktime', label: 'Рабочее время' },
   ];
 
-  const logins = [
-    { time: 'Сегодня, 09:14', ip: '212.42.100.7', place: 'Бишкек, KG', ok: true },
-    { time: 'Вчера, 18:02', ip: '212.42.100.7', place: 'Бишкек, KG', ok: true },
-    { time: '05.07.2026, 22:41', ip: '95.140.10.3', place: 'Неизвестно', ok: false },
-  ];
+  const sessionRows = devices.map((session) => ({
+    id: session.id,
+    time: session.created_at ? new Date(session.created_at).toLocaleString('ru-RU') : '—',
+    ip: session.ip_address || '—',
+    device: session.user_agent || 'Неизвестное устройство',
+    current: Boolean(session.is_current),
+  }));
 
 
   const channelRows = [
@@ -336,9 +373,9 @@ function ProfilePage({ user, onNavigate, initialTab }) {
               <Field label="Должность"><Input value={pf.position} onChange={setField('position')} /></Field>
               <Field label="Подразделение"><Input value={pf.dept} onChange={setField('dept')} /></Field>
               <Field label="Роль в системе"><Input value={pf.role} readOnly /></Field>
-              <Field label="Руководитель"><Input value={pf.manager} onChange={setField('manager')} /></Field>
+              <Field label="Руководитель"><Input value={pf.manager || '—'} readOnly /></Field>
               <UFDateField label="Дата приёма на работу" value={pf.hired || null} onChange={(v) => setField('hired')({ target: { value: v } })} placeholder="дд.мм.гггг" />
-              <Field label="Рабочий e-mail"><Input value={pf.workEmail} onChange={setField('workEmail')} leadIcon="mail" /></Field>
+              <Field label="Рабочий e-mail"><Input value={pf.workEmail} readOnly leadIcon="mail" /></Field>
               <Field label="Рабочий телефон"><Input value={pf.workPhone} onChange={setField('workPhone')} leadIcon="phone" /></Field>
               <Field label="Внутренний номер"><Input value={pf.internalPhone} onChange={setField('internalPhone')} /></Field>
               <Field label="Telegram"><Input value={pf.telegram} onChange={setField('telegram')} placeholder="@username" /></Field>
@@ -361,13 +398,16 @@ function ProfilePage({ user, onNavigate, initialTab }) {
               <h3 className="card-title" style={{ marginBottom: 16 }}>Смена пароля</h3>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
                 <Field label="Текущий пароль" error={pwErr.cur}><Input type={showPw ? 'text' : 'password'} value={pw.cur} onChange={(e) => setPw((p) => ({ ...p, cur: e.target.value }))} error={pwErr.cur} trailIcon={showPw ? 'eyeOff' : 'eye'} onTrail={() => setShowPw((s) => !s)} placeholder="••••••••" /></Field>
-                <Field label="Новый пароль" error={pwErr.next}><Input type={showPw ? 'text' : 'password'} value={pw.next} onChange={(e) => setPw((p) => ({ ...p, next: e.target.value }))} error={pwErr.next} placeholder="Минимум 6 символов" /></Field>
+                <Field label="Новый пароль" error={pwErr.next}><Input type={showPw ? 'text' : 'password'} value={pw.next} onChange={(e) => setPw((p) => ({ ...p, next: e.target.value }))} error={pwErr.next} placeholder="Минимум 10 символов" /></Field>
                 <Field label="Подтвердите пароль" error={pwErr.confirm}><Input type={showPw ? 'text' : 'password'} value={pw.confirm} onChange={(e) => setPw((p) => ({ ...p, confirm: e.target.value }))} error={pwErr.confirm} placeholder="Повторите новый пароль" /></Field>
                 <Button variant="primary" onClick={savePassword} disabled={saving} style={{ alignSelf: 'flex-start' }}>Изменить пароль</Button>
               </div>
               <div style={{ borderTop: '1px solid var(--line)', marginTop: 22, paddingTop: 18, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <div><div style={{ fontWeight: 600, color: 'var(--ink)' }}>Двухфакторная аутентификация</div><div className="hint">Подтверждение входа через приложение</div></div>
-                <Toggle on={true} onChange={() => toast('Настройки 2FA', 'info')} />
+                <div>
+                  <div style={{ fontWeight: 600, color: 'var(--ink)' }}>Двухфакторная аутентификация</div>
+                  <div className="hint">{twoFactor.enabled ? 'Включена для входа в систему' : 'Подтверждение входа через приложение'}</div>
+                </div>
+                <Toggle on={twoFactor.enabled} onChange={(next) => next ? startTwoFactorSetup() : setTwoFactor((current) => ({ ...current, disableOpen: true, password: '', code: '' }))} />
               </div>
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
@@ -387,12 +427,12 @@ function ProfilePage({ user, onNavigate, initialTab }) {
                 </div>
               </div>
               <div className="card card-pad">
-                <h3 className="card-title" style={{ fontSize: 16, marginBottom: 12 }}>Последние входы · история авторизаций</h3>
+                <h3 className="card-title" style={{ fontSize: 16, marginBottom: 12 }}>Активные авторизации</h3>
                 <div className="table-card" style={{ boxShadow: 'none', border: '1px solid var(--line)' }}>
                   <table className="tbl">
-                    <thead><tr><th>Время</th><th>IP</th><th>Локация</th><th>Статус</th></tr></thead>
-                    <tbody>{logins.map((l, i) => (
-                      <tr key={i}><td className="t-muted">{l.time}</td><td>{l.ip}</td><td>{l.place}</td><td><Pill tone={l.ok ? 'green' : 'red'}>{l.ok ? 'Успех' : 'Отклонён'}</Pill></td></tr>
+                    <thead><tr><th>Создана</th><th>IP</th><th>Устройство</th><th>Статус</th></tr></thead>
+                    <tbody>{sessionRows.map((l) => (
+                      <tr key={l.id}><td className="t-muted">{l.time}</td><td>{l.ip}</td><td>{l.device}</td><td><Pill tone={l.current ? 'green' : 'gray'}>{l.current ? 'Текущая' : 'Активная'}</Pill></td></tr>
                     ))}</tbody>
                   </table>
                 </div>
@@ -503,7 +543,9 @@ function ProfilePage({ user, onNavigate, initialTab }) {
             <div className="card card-pad">
               <h3 className="card-title" style={{ fontSize: 16, marginBottom: 4 }}>Доступ по видам услуг</h3>
               <div style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 12 }}>Область ответственности оператора: с какими услугами он работает в заказе.</div>
-              <ServiceAccessEditor operator={u.name} />
+              {canManageUsers
+                ? <ServiceAccessEditor operator={u.name} userId={u.serverId || u.id} />
+                : <div style={{ fontSize: 13, color: 'var(--muted)' }}>Доступы назначает администратор в настройках пользователей.</div>}
             </div>
           </div>
         )}
@@ -514,6 +556,23 @@ function ProfilePage({ user, onNavigate, initialTab }) {
         {tab === 'worktime' && <ProfileWorkTime user={u} />}
       </div>
 
+
+      <Drawer open={twoFactor.setupOpen} onClose={() => setTwoFactor((current) => ({ ...current, setupOpen: false, code: '' }))} title="Настройка 2FA" sub="Добавьте ключ в приложение аутентификации" width="min(560px,94vw)"
+        footer={<><Button variant="secondary" onClick={() => setTwoFactor((current) => ({ ...current, setupOpen: false, code: '' }))}>Отмена</Button><Button variant="primary" icon="check" onClick={confirmTwoFactor} disabled={saving}>{saving ? 'Проверка…' : 'Подтвердить'}</Button></>}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+          <Field label="Секретный ключ"><Input readOnly value={twoFactor.secret} trailIcon="copy" onTrail={async () => { await navigator.clipboard.writeText(twoFactor.secret); toast('Ключ скопирован', 'ok'); }} /></Field>
+          <Field label="otpauth URI"><Input readOnly value={twoFactor.uri} trailIcon="copy" onTrail={async () => { await navigator.clipboard.writeText(twoFactor.uri); toast('URI скопирован', 'ok'); }} /></Field>
+          <Field label="Код из приложения"><Input value={twoFactor.code} onChange={(e) => setTwoFactor((current) => ({ ...current, code: e.target.value }))} placeholder="123456" /></Field>
+        </div>
+      </Drawer>
+
+      <Drawer open={twoFactor.disableOpen} onClose={() => setTwoFactor((current) => ({ ...current, disableOpen: false, password: '', code: '' }))} title="Отключение 2FA" sub="Подтвердите действие паролем и кодом" width="min(460px,94vw)"
+        footer={<><Button variant="secondary" onClick={() => setTwoFactor((current) => ({ ...current, disableOpen: false, password: '', code: '' }))}>Отмена</Button><Button variant="primary" icon="check" onClick={disableTwoFactor} disabled={saving}>{saving ? 'Проверка…' : 'Отключить'}</Button></>}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+          <Field label="Текущий пароль"><Input type="password" value={twoFactor.password} onChange={(e) => setTwoFactor((current) => ({ ...current, password: e.target.value }))} /></Field>
+          <Field label="Код из приложения"><Input value={twoFactor.code} onChange={(e) => setTwoFactor((current) => ({ ...current, code: e.target.value }))} placeholder="123456" /></Field>
+        </div>
+      </Drawer>
 
       <Drawer open={rolesOpen} onClose={() => setRolesOpen(false)} title="Матрица прав по ролям" sub="Права доступа по ролям" width="min(940px,97vw)"
         footer={<Button variant="secondary" style={{ width: '100%' }} onClick={() => setRolesOpen(false)}>Закрыть</Button>}>

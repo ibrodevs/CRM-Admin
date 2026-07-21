@@ -50,6 +50,10 @@ function ServiceAccessEditor({ operator, userId }) {
   });
 
   const save = async () => {
+    if (!userId) {
+      toast('Выберите пользователя, чтобы сохранить доступы', 'err');
+      return;
+    }
     const body = access.fullAccess ? [] : Object.entries(access.kinds).map(([kind, rights]) => ({
       service_kind: KIND_CODE[kind] || 'other',
       allowed_actions: Object.entries(rights).filter(([, enabled]) => enabled).map(([right]) => RIGHT_CODE[right]).filter(Boolean),

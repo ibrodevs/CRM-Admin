@@ -475,7 +475,7 @@ function FlightResults({ params, liveOffers = FLIGHT_OFFERS, loading = false, on
             ))
           ) : offers.length ? offers.map((o) => (
             <OfferCard key={o.id} o={o} compared={!!compare.find((x) => x.id === o.id)}
-              onSelect={onSelect} onSave={(x) => toast('Предложение сохранено: ' + AIRLINES[x.airline].name)}
+              onSelect={onSelect} onSave={() => toast('Добавьте предложение в backend-заказ, чтобы сохранить его', 'warn')}
               onCompare={toggleCompare} />
           )) : <EmptyState icon="search" title="Нет вариантов по фильтрам" sub="Смягчите условия фильтрации слева" />}
         </div>
@@ -1071,7 +1071,7 @@ function DocCorrectionPanel({ subjects, meta, currency, orderNo, onClose }) {
     }
     const v = parseFloat(massVal); if (isNaN(v)) { toast('Укажите значение', 'err'); return; }
     setDocs((ds) => ds.map((d, j) => sel.includes(j) ? (massField === 'total' ? { ...d, totalOverride: v } : { ...d, [massField]: v }) : d));
-    toast('Изменения применены к ' + sel.length + ' документам', 'ok');
+    toast('Изменения применены к ' + sel.length + ' документам в форме. Сохраните корректировку, чтобы зафиксировать backend-журнал.', 'info');
   };
 
 
@@ -1079,12 +1079,19 @@ function DocCorrectionPanel({ subjects, meta, currency, orderNo, onClose }) {
   const tplChanged = template !== 'agency';
   const changeSummary = [...new Set(changedDocs.flatMap((d) => corrChanges(d)))];
 
-  const doSave = () => {
+  const doSave = async () => {
     const now = new Date().toLocaleString('ru-RU', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
     const fields = [...changeSummary]; if (tplChanged) fields.push('Шаблон: ' + (DOC_TEMPLATES.find((t) => t.id === template) || {}).name);
-    setVersions((vs) => [{ date: now, user: 'Акимова Айсулуу', title: 'v' + (vs.length + 1) + ' · Клиентская версия', fields: fields.length ? fields : ['Без изменений'], comment: (docs[active].comment || '').trim() }, ...vs]);
-    setView('done');
-    toast('Клиентская версия документа сохранена', 'ok');
+    try {
+      await workspaceActionsApi.execute('document.correction.save', {
+        resourceType: 'order',
+        resourceId: String(orderNo || ''),
+        payload: { fields: fields.length ? fields : ['Без изменений'], comment: (docs[active].comment || '').trim(), subjects: subjects.map((item) => item.name), currency },
+      });
+      setVersions((vs) => [{ date: now, user: 'CRM', title: 'v' + (vs.length + 1) + ' · Клиентская версия', fields: fields.length ? fields : ['Без изменений'], comment: (docs[active].comment || '').trim() }, ...vs]);
+      setView('done');
+      toast('Корректировка сохранена в backend-журнале', 'ok');
+    } catch (error) { toast(error.message || 'Не удалось сохранить корректировку', 'err'); }
   };
 
   const activeDoc = docs[active] || docs[0];
@@ -1095,8 +1102,8 @@ function DocCorrectionPanel({ subjects, meta, currency, orderNo, onClose }) {
       ['Предпросмотр', 'eye', () => toast('Предпросмотр документа')],
       ['Скачать PDF', 'download', () => toast('Скачивание PDF')],
       ['Скачать все документы', 'download', () => toast('Скачивание всех документов')],
-      ['Отправить пассажиру', 'send', () => toast('Отправлено пассажиру', 'ok')],
-      ['Отправить заказчику', 'send', () => toast('Отправлено заказчику', 'ok')],
+      ['Отправить пассажиру', 'send', () => toast('Отправка документов требует подключенного канала или ручной загрузки в чат', 'warn')],
+      ['Отправить заказчику', 'send', () => toast('Отправка документов требует подключенного канала или ручной загрузки в чат', 'warn')],
       ['Распечатать', 'clipboard', () => toast('Отправлено на печать')],
       ['Создать новую корректировку', 'edit', () => { setView('edit'); }],
       ['Открыть историю корректировок', 'clock', () => setHistoryOpen(true)],
@@ -1942,7 +1949,7 @@ function FlightCard({ svc, offer, no: noProp, hideBackRow, onBack, onFormKp, onA
     <SendToPaxDrawer open={sendOpen} passengers={passengers} onClose={() => setSendOpen(false)}
       onSend={(channel, recipients) => serviceAction('document.send_passengers', { channel, recipients: recipients.map((p) => p.name), document_ids: uploadedDocs.map((d) => d.documentId || d.id), label: 'Документы переданы на отправку' })} />
     <SvcAddPaxDrawer open={addPaxOpen} isHotel={false} onClose={() => setAddPaxOpen(false)}
-      onAdd={(person) => { setExtraPax((cur) => [...cur, { name: person.name, type: person.role, doc: person.doc, dob: person.dob, ticket: '—', pnr: pnr, docs: [] }]); setAddPaxOpen(false); toast('Пассажир добавлен', 'ok'); }} />
+      onAdd={(person) => { setExtraPax((cur) => [...cur, { name: person.name, type: person.role, doc: person.doc, dob: person.dob, ticket: '—', pnr: pnr, docs: [] }]); setAddPaxOpen(false); toast('Пассажир добавлен только в текущий просмотр. Для сохранения добавьте его в карточке заказа.', 'warn'); }} />
     <SvcDocUploadDrawer open={uploadOpen} isHotel={false} participants={passengers.map((p) => ({ name: p.name }))} orderNo={svc ? svc.order : null} onClose={() => setUploadOpen(false)}
       onUploaded={uploadFlightDocument} />
     {attach && <AttachFlightDrawer mode={attach} svcTitle={out.from + ' → ' + out.to + (back ? ' → ' + back.to : '')}
@@ -2199,7 +2206,7 @@ function FlightsPage({ searchIntent, onConsumeSearch }) {
         {view === 'results' && (
           <FlightResults params={params} liveOffers={liveOffers} loading={searching}
             onBackToSearch={() => setView('search')}
-            onSelect={(o) => { setOffer(o); setSvc(null); setCardNo('AV-' + Math.floor(10000 + Math.random() * 90000)); setView('card'); toast('Предложение добавлено в заказ'); }} />
+            onSelect={(o) => { setOffer(o); setSvc(null); setCardNo('AV-' + Math.floor(10000 + Math.random() * 90000)); setView('card'); toast('Предложение открыто без сохранения. Добавление в backend-заказ выполняется из карточки заказа.', 'info'); }} />
         )}
         {view === 'card' && (
           <FlightCard svc={svc} offer={offer} no={cardNo} hideBackRow onBack={() => setView(svc ? 'registry' : 'results')} />

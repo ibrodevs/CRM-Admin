@@ -54,7 +54,12 @@ function FinanceOpCard({ op, onClose, onChange }) {
   const pct = payable ? Math.min(100, Math.round((op.paid / payable) * 100)) : 0;
   const isRefund = op.status === 'Возврат';
 
-  const setStatus = (s) => { onChange && onChange(op.no, { status: s }); toast('Статус: ' + s, 'ok'); };
+  const setStatus = async (s) => {
+    try {
+      await workspaceActionsApi.execute('finance.operation.status.change', { resourceType: 'finance_operation', resourceId: op.no, payload: { status: s } });
+      onChange && onChange(op.no, { status: s }); toast('Статус: ' + s, 'ok');
+    } catch (error) { toast(error.message || 'Не удалось изменить статус операции', 'err'); }
+  };
 
   return (
     <Drawer open={!!op} onClose={onClose} title={'Операция ' + op.no}
@@ -305,28 +310,24 @@ function DocPreviewModal({ doc, company, onClose, onChange }) {
 
   const addHistory = (text, who) => [...doc.history, { t: now(), text, who }];
 
-  const sendForCorrection = () => {
+  const sendForCorrection = async () => {
     if (!note.trim()) return;
-    onChange(doc.no, { status: 'Черновик', history: addHistory('Возвращён на корректировку: ' + note, 'Даниель') });
-    if (company) company.docCorrections = [...company.docCorrections, { date: now(), who: 'Даниель', note }];
-    toast('Замечание сохранено для контрагента, документ — в работу', 'ok');
-    setNote(''); setCorrecting(false); onClose();
+    try {
+      await workspaceActionsApi.execute('document.correction.request', { resourceType: 'document', resourceId: doc.serverId || doc.no, payload: { note, company: company?.name || null } });
+      onChange(doc.no, { status: 'Черновик', history: addHistory('Возвращён на корректировку: ' + note, 'Даниель') });
+      if (company) company.docCorrections = [...company.docCorrections, { date: now(), who: 'Даниель', note }];
+      toast('Замечание сохранено для контрагента, документ — в работу', 'ok');
+      setNote(''); setCorrecting(false); onClose();
+    } catch (error) { toast(error.message || 'Не удалось сохранить замечание', 'err'); }
   };
 
-  const sendToAccounting = () => {
-    onChange(doc.no, { status: 'В бухгалтерии', history: addHistory('Отправлен в онлайн-бухгалтерию', 'Даниель') });
-    toast('Отправлено в бухгалтерию', 'info');
-    onClose();
-    setTimeout(() => {
-      const signed = !!company?.requiresESign;
-      onChange(doc.no, {
-        status: signed ? 'Подписан' : 'Сформирован',
-        version: doc.version + 1,
-        versions: [...doc.versions, { v: doc.version + 1, date: now(), who: 'Бухгалтерия', note: signed ? 'Возвращён подписанным ЭЦП' : 'Принят без ЭЦП' }],
-        history: addHistory(signed ? 'Возвращён из бухгалтерии · подписан ЭЦП' : 'Возвращён из бухгалтерии · без ЭЦП', 'Бухгалтерия'),
-      });
-      toast(signed ? 'Документ подписан ЭЦП и обновлён' : 'Бухгалтерия приняла документ без ЭЦП', 'ok');
-    }, 1600);
+  const sendToAccounting = async () => {
+    try {
+      await workspaceActionsApi.execute('document.accounting.send', { resourceType: 'document', resourceId: doc.serverId || doc.no, payload: { requires_esign: !!company?.requiresESign, company: company?.name || null } });
+      onChange(doc.no, { status: 'В бухгалтерии', history: addHistory('Отправлен в бухгалтерию', 'Даниель') });
+      toast('Задача бухгалтерии создана в backend', 'ok');
+      onClose();
+    } catch (error) { toast(error.message || 'Не удалось отправить в бухгалтерию', 'err'); }
   };
 
   return (
@@ -1299,7 +1300,7 @@ function ReceiptImportModal({ open, onClose, onDone }) {
     if (bulk.commission !== '') patch.commission = Number(bulk.commission) || 0;
     if (!Object.keys(patch).length) { toast('Укажите сбор, надбавку или комиссию', 'err'); return; }
     setMath((m) => { const n = { ...m }; targets.forEach((r) => { n[r.f.id] = { ...getMath(r.f.id, r.f.parsed), ...patch }; }); return n; });
-    toast('Математика применена к ' + targets.length + ' квитанц. · оригиналы поставщика сохранены', 'ok');
+    toast('Математика применена к ' + targets.length + ' квитанц. в форме. Нажмите финальное сохранение, чтобы зафиксировать backend-документы.', 'info');
   };
 
   const finish = async () => {

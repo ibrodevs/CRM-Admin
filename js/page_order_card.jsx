@@ -23,9 +23,10 @@ import { HotelPicker } from './page_hotel_picker';
 import { getThreadForOrder, threadUnread } from './page_chats';
 import { GROUP_ORDERS, GroupServiceScenario, GrMatrixTab, GrDiffTab } from './page_groups';
 import { financeSnapshot, ocCurrency, ocMoney, opDebt, opPayable, svcCalc } from './features/orders/finance';
-import { ordersApi, servicesApi, usersApi, workspaceActionsApi } from './api/resources';
+import { crmApi, ordersApi, proposalsApi, servicesApi, usersApi, workspaceActionsApi } from './api/resources';
 import { toLegacyOrderService, toLegacyParticipant } from './api/legacy-adapters';
 import { resultsOf } from './api/client';
+import { participantPayloadFromUi, routePayloadFromUi } from './api/order-card';
 
 const ORDER_STATUS_CODE = {
   'Новое': 'new',
@@ -40,6 +41,71 @@ const ORDER_STATUS_CODE = {
 };
 
 const ORDER_STATUS_LABEL = Object.fromEntries(Object.entries(ORDER_STATUS_CODE).map(([label, code]) => [code, label]));
+
+function orderDateOnly(value) {
+  if (!value) return null;
+  if (value instanceof Date && !Number.isNaN(value.getTime())) return value.toISOString().slice(0, 10);
+  const text = String(value);
+  const iso = text.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (iso) return `${iso[1]}-${iso[2]}-${iso[3]}`;
+  const ru = text.match(/^(\d{2})\.(\d{2})\.(\d{4})$/);
+  if (ru) return `${ru[3]}-${ru[2]}-${ru[1]}`;
+  return text;
+}
+
+const PERSON_CITIZENSHIP = {
+  'Кыргызстан': 'KG',
+  'Казахстан': 'KZ',
+  'Россия': 'RU',
+  'Узбекистан': 'UZ',
+  'Таджикистан': 'TJ',
+  'Туркменистан': 'TM',
+  'Азербайджан': 'AZ',
+  'Турция': 'TR',
+  'Германия': 'DE',
+  'Китай': 'CN',
+  'ОАЭ': 'AE',
+};
+
+const PERSON_DOC_KIND = {
+  'Загранпаспорт': 'foreign_passport',
+  'Общегражданский паспорт': 'national_passport',
+  'ID-карта': 'id_card',
+  'Свидетельство о рождении': 'birth_certificate',
+  'Вид на жительство': 'other',
+  'Виза': 'visa',
+};
+
+function citizenshipCode(value) {
+  if (!value) return '';
+  const text = String(value);
+  return PERSON_CITIZENSHIP[text] || (text.length === 2 ? text.toUpperCase() : '');
+}
+
+function personPayloadFromUnified(person = {}, client = {}) {
+  return {
+    surname: person.lastName || client.lastName || String(client.name || '').split(/\s+/)[0] || '',
+    given_name: person.firstName || client.firstName || String(client.name || '').split(/\s+/)[1] || '',
+    middle_name: person.middleName || client.middleName || String(client.name || '').split(/\s+/).slice(2).join(' ') || '',
+    birth_date: orderDateOnly(person.dob || client.dob),
+    gender: person.gender === 'Мужской' ? 'male' : person.gender === 'Женский' ? 'female' : '',
+    citizenship: citizenshipCode(person.citizenship || client.citizenship),
+    phone: person.phone || client.phone || '',
+    email: person.email || client.email || '',
+    city: person.city || client.city || '',
+    notes: person.comment || client.comment || '',
+  };
+}
+
+function personDocumentPayloadFromUnified(doc = {}) {
+  return {
+    type: PERSON_DOC_KIND[doc.docType] || 'other',
+    number: doc.docNo || doc.number || '',
+    expires_at: orderDateOnly(doc.docExpiry || doc.expires_at),
+    issuing_country: citizenshipCode(doc.citizenship),
+    nationality: citizenshipCode(doc.citizenship),
+  };
+}
 
 
 
@@ -635,21 +701,26 @@ function OrderChangeCase({ orderNo, services, participants }) {
     return { ...base, services: svcs, history: [...base.history, { t, text: svcs[i].kind + ' · ' + text }] };
   };
 
-  const openCase = () => { const c = createChangeCase(orderNo, trigger, triggerTitle, 'Авиа'); setCs({ ...c }); toast('Кейс изменения создан и закреплён за заказом', 'ok'); };
-  const checkDates = (i) => {
-    commit(logSvc(cs, i, 'Запущена авто-сверка новых дат по API', { status: 'checking' }));
-    toast('Сверка дат по API…', 'info');
-    setTimeout(() => {
-      const cur = getChangeCase(orderNo); if (!cur) return;
-      const nk = normKind(cur.services[i].kind);
-      const noRoom = nk === 'Гостиница' || nk === 'Гостиницы';
-      commit(logSvc(cur, i, noRoom ? 'Номер на новые даты недоступен — требуется альтернатива' : 'Новые даты подтверждены поставщиком', { status: noRoom ? 'need_alt' : 'dates_ok' }));
-    }, 1000);
+  const openCase = async () => {
+    const c = createChangeCase(orderNo, trigger, triggerTitle, 'Авиа');
+    try {
+      await workspaceActionsApi.execute('order.change_case.create', { resourceType: 'order', resourceId: String(order.id || orderNo), payload: c });
+      setCs({ ...c }); toast('Кейс изменения создан и закреплён за заказом', 'ok');
+    } catch (error) { delete ORDER_CHANGE_CASES[orderNo]; toast(error.message || 'Не удалось создать кейс изменения', 'err'); }
   };
-  const sendRequest = (i) => {
-    commit(logSvc(cs, i, 'Автоматический запрос отправлен локальному поставщику', { status: 'requested' }));
-    toast('Запрос перевозчику отправлен', 'ok');
-    setTimeout(() => { const cur = getChangeCase(orderNo); if (cur) commit(logSvc(cur, i, 'Поставщик получил запрос — ожидаем подтверждение', { status: 'awaiting' })); }, 1300);
+  const checkDates = async (i) => {
+    try {
+      await workspaceActionsApi.execute('order.change_case.date_check.request', { resourceType: 'order', resourceId: String(order.id || orderNo), payload: { service: cs.services[i], trigger } });
+      commit(logSvc(cs, i, 'Создана ручная задача сверки новых дат', { status: 'checking' }));
+      toast('Задача сверки дат создана', 'ok');
+    } catch (error) { toast(error.message || 'Не удалось создать задачу сверки', 'err'); }
+  };
+  const sendRequest = async (i) => {
+    try {
+      await workspaceActionsApi.execute('order.change_case.supplier_request', { resourceType: 'order', resourceId: String(order.id || orderNo), payload: { service: cs.services[i], trigger } });
+      commit(logSvc(cs, i, 'Создан ручной запрос поставщику', { status: 'requested' }));
+      toast('Запрос поставщику сохранён как backend-задача', 'ok');
+    } catch (error) { toast(error.message || 'Не удалось создать запрос поставщику', 'err'); }
   };
   const setSvcStatus = (i, status, text) => commit(logSvc(cs, i, text, { status }));
 
@@ -677,16 +748,19 @@ function OrderChangeCase({ orderNo, services, participants }) {
     return { ...p, opts: [...p.opts, alt], sel };
   });
   const pickerRemoveManual = (id) => setPicker((p) => { const sel = new Set(p.sel); sel.delete(id); return { ...p, opts: p.opts.filter((o) => o.id !== id), sel }; });
-  const confirmPicker = () => {
+  const confirmPicker = async () => {
     const p = picker; if (!p) return;
     const chosen = p.opts.filter((o) => p.sel.has(o.id));
     if (!chosen.length) { toast('Выберите вариант из авто-подбора или добавьте свой вручную', 'warn'); return; }
     const cur = getChangeCase(orderNo);
     const manual = chosen.some((c) => c.manual);
     const head = chosen.length > 1 ? 'Подобрано альтернатив: ' + chosen.length : 'Подобрана альтернатива: ' + chosen[0].title;
-    commit(logSvc(cur, p.i, head + (manual ? ' · ручная выборка оператором' : ''), { status: 'resolved', alts: chosen }));
-    setPicker(null);
-    toast('Альтернатива зафиксирована в кейсе' + (manual ? ' (включая ручной выбор)' : ''), 'ok');
+    try {
+      await workspaceActionsApi.execute('order.change_case.alternative.fix', { resourceType: 'order', resourceId: String(order.id || orderNo), payload: { service: cur.services[p.i], alternatives: chosen } });
+      commit(logSvc(cur, p.i, head + (manual ? ' · ручная выборка оператором' : ''), { status: 'resolved', alts: chosen }));
+      setPicker(null);
+      toast('Альтернатива зафиксирована в кейсе' + (manual ? ' (включая ручной выбор)' : ''), 'ok');
+    } catch (error) { toast(error.message || 'Не удалось зафиксировать альтернативу', 'err'); }
   };
   const onLetterSent = (channels) => {
     const cur = getChangeCase(orderNo); if (!cur) return;
@@ -1750,6 +1824,16 @@ function OrderFinanceBlock({ orderNo, order, services, summary }) {
   );
 }
 
+function orderStageIndexForStatus(value) {
+  const status = String(value || '').toLowerCase();
+  if (['cancelled', 'отменено', 'data_missing', 'нет данных'].includes(status)) return 0;
+  if (['paid', 'completed', 'оплачено', 'завершено'].includes(status)) return 4;
+  if (['awaiting_payment', 'ожидает оплаты'].includes(status)) return 3;
+  if (['awaiting_confirmation', 'ожидает подтверж.', 'ожидает подтверждения', 'needs_review', 'требует проверки'].includes(status)) return 2;
+  if (['in_progress', 'в работе'].includes(status)) return 1;
+  return 1;
+}
+
 function TabFinance({ services, onAddFee }) {
   const toast = useToast();
   const total = services.reduce((s, x) => s + x.sum, 0);
@@ -1822,12 +1906,14 @@ function OrderCard({ order, onBack, initTab, initSvc, initSvcSearch, fresh, onOp
   const toast = useToast();
   const [tab, setTab] = useState(initTab || (initSvcSearch ? 'services' : 'overview'));
   const [loading, setLoading] = useState(true);
+  const [cardOrder, setCardOrder] = useState(order);
   const [status, setStatus] = useState(order.status === 'Нет данных' ? 'Новое' : order.status);
   const [services, setServices] = useState(ORDER_SERVICES);
   const [tasks, setTasks] = useState([]);
   const [history, setHistory] = useState([]);
   const [financeSummary, setFinanceSummary] = useState(null);
   const [orderVersion, setOrderVersion] = useState(order.version);
+  const [routeVersion, setRouteVersion] = useState(null);
   const [allowedTransitions, setAllowedTransitions] = useState(null);
   const requestType = order.requestType;
   const [editOpen, setEditOpen] = useState(false);
@@ -1836,12 +1922,7 @@ function OrderCard({ order, onBack, initTab, initSvc, initSvcSearch, fresh, onOp
   useEffect(() => { setParticipants(requestType === 'Групповая' ? GROUP_PAX : ORDER_PARTICIPANTS); }, [order.no, requestType]);
   const chatUnread = threadUnread(getThreadForOrder(order));
   const initStage = () => {
-    if (order.status === 'Оплачено') return 4;
-    if (order.status === 'Отменено') return 0;
-    const ops = FIN_OPS.filter((o) => o.order === order.no);
-    if (ops.length && ops.every((o) => o.status === 'Оплачено' || o.status === 'Закрыто')) return 4;
-    if (ops.length) return 2;
-    return 1;
+    return orderStageIndexForStatus(order.status);
   };
   const [stageIdx, setStageIdx] = useState(initStage());
 
@@ -1876,20 +1957,41 @@ function OrderCard({ order, onBack, initTab, initSvc, initSvcSearch, fresh, onOp
   const [editPax, setEditPax] = useState(null);
   const [docPax, setDocPax] = useState(null);
 
+  const applyOrderSnapshot = (overview, taskPayload, historyPayload) => {
+    const liveOrder = overview.order || {};
+    setCardOrder((current) => ({ ...current, ...liveOrder }));
+    setServices((overview.services || []).map(toLegacyOrderService));
+    setParticipants((liveOrder.participants || []).map(toLegacyParticipant));
+    setOrderVersion(liveOrder.version);
+    setRouteVersion(liveOrder.route?.version || null);
+    setAllowedTransitions(overview.allowed_actions?.transitions || []);
+    setFinanceSummary(overview.finance_summary || null);
+    if (taskPayload) {
+      setTasks(resultsOf(taskPayload).map((task) => ({ ...task, text: task.title, due: task.due_at ? new Date(task.due_at).toLocaleString('ru-RU') : 'без срока', urgent: ['critical', 'high'].includes(task.priority) })));
+    }
+    if (historyPayload) {
+      setHistory(resultsOf(historyPayload).map((entry) => ({ t: new Date(entry.changed_at).toLocaleString('ru-RU'), text: entry.reason || `Статус: ${ORDER_STATUS_LABEL[entry.to_status] || entry.to_status}`, who: entry.changed_by ? 'Пользователь' : 'Система' })));
+    }
+    setStatus(ORDER_STATUS_LABEL[liveOrder.status] || liveOrder.status_display || status);
+    setStageIdx(orderStageIndexForStatus(liveOrder.status || liveOrder.status_display));
+    return liveOrder;
+  };
+
+  const refreshOrderSnapshot = async () => {
+    const [overview, taskPayload, historyPayload] = await Promise.all([
+      ordersApi.overview(order.id),
+      ordersApi.tasks(order.id, { status: 'open' }),
+      ordersApi.history(order.id, {}),
+    ]);
+    return applyOrderSnapshot(overview, taskPayload, historyPayload);
+  };
+
   useEffect(() => {
     const controller = new AbortController();
     setLoading(true);
     Promise.all([ordersApi.overview(order.id, controller.signal), ordersApi.tasks(order.id, { status: 'open' }, controller.signal), ordersApi.history(order.id, {}, controller.signal)])
       .then(([overview, taskPayload, historyPayload]) => {
-        const liveOrder = overview.order || {};
-        setServices((overview.services || []).map(toLegacyOrderService));
-        setParticipants((liveOrder.participants || []).map(toLegacyParticipant));
-        setOrderVersion(liveOrder.version);
-        setAllowedTransitions(overview.allowed_actions?.transitions || []);
-        setFinanceSummary(overview.finance_summary || null);
-        setTasks(resultsOf(taskPayload).map((task) => ({ ...task, text: task.title, due: task.due_at ? new Date(task.due_at).toLocaleString('ru-RU') : 'без срока', urgent: ['critical', 'high'].includes(task.priority) })));
-        setHistory(resultsOf(historyPayload).map((entry) => ({ t: new Date(entry.changed_at).toLocaleString('ru-RU'), text: entry.reason || `Статус: ${ORDER_STATUS_LABEL[entry.to_status] || entry.to_status}`, who: entry.changed_by ? 'Пользователь' : 'Система' })));
-        setStatus(ORDER_STATUS_LABEL[liveOrder.status] || liveOrder.status_display || status);
+        applyOrderSnapshot(overview, taskPayload, historyPayload);
       })
       .catch((error) => {
         if (error.name !== 'AbortError') toast(error.message || 'Не удалось загрузить заказ', 'err');
@@ -1929,6 +2031,59 @@ function OrderCard({ order, onBack, initTab, initSvc, initSvcSearch, fresh, onOp
       setOperator(nextOperator.name); setOrderVersion(updated.version); setReassignOpen(false);
       toast('Ответственный оператор: ' + nextOperator.name, 'ok');
     } catch (error) { toast(error.message || 'Не удалось переназначить оператора', 'err'); }
+  };
+
+  const addParticipantToOrder = async (client, person) => {
+    await ordersApi.addParticipant(order.id, participantPayloadFromUi({ ...client, ...person }));
+    await refreshOrderSnapshot();
+  };
+
+  const updateParticipantInOrder = async (participant, person, client) => {
+    const participantId = participant.serverId || participant.id;
+    if (!participantId) throw new Error('Для пассажира не найден backend ID');
+    if (participant.person) {
+      await crmApi.updatePerson(participant.person, personPayloadFromUnified(person, client));
+    }
+    await ordersApi.updateParticipant(order.id, participantId, participantPayloadFromUi({ ...participant, ...client, ...person }));
+    await refreshOrderSnapshot();
+  };
+
+  const appendParticipantDocumentInOrder = async (participant, document) => {
+    const participantId = participant.serverId || participant.id;
+    if (!participantId) throw new Error('Для пассажира не найден backend ID');
+    if (participant.person) {
+      const created = await crmApi.addPersonDocument(participant.person, personDocumentPayloadFromUnified(document));
+      await ordersApi.updateParticipant(order.id, participantId, participantPayloadFromUi({ ...participant, bookingDocument: created.id }));
+      await refreshOrderSnapshot();
+      return;
+    }
+    const documents = [...(participant.documents || []), document];
+    await ordersApi.updateParticipant(order.id, participantId, participantPayloadFromUi({ ...participant, documents }));
+    await refreshOrderSnapshot();
+  };
+
+  const saveOrderChanges = async (values) => {
+    const operations = [];
+    const points = (values.points || []).filter(Boolean);
+    if (points.length >= 2) {
+      operations.push(ordersApi.updateRoute(order.id, routePayloadFromUi({
+        trip: values.trip,
+        points,
+        depDate: values.depDate || null,
+        retDate: values.retDate || null,
+        version: routeVersion,
+      })));
+    }
+    operations.push(ordersApi.update(order.id, {
+      version: orderVersion,
+      purpose: values.purpose || '',
+      comment: values.comment || '',
+      planned_start: orderDateOnly(values.plannedStart),
+      planned_end: orderDateOnly(values.plannedEnd),
+    }));
+    await Promise.all(operations);
+    await refreshOrderSnapshot();
+    toast('Изменения сохранены', 'ok');
   };
 
   useEffect(() => { if (initTab) setTab(initTab); }, [initTab, order.no]);
@@ -1984,9 +2139,10 @@ function OrderCard({ order, onBack, initTab, initSvc, initSvcSearch, fresh, onOp
     const total = route.total * Math.max(1, participants.length) + fareDeltaSum;
     try {
       const backendOfferId = route.backendOfferId || legs[0]?.backendOfferId;
+      const participantIds = participants.map((p) => p.serverId || p.id).filter(Boolean);
       const created = await servicesApi.addToOrder(order.id, backendOfferId
-        ? { offer_id: backendOfferId }
-        : { kind: 'avia', title, currency: 'USD', supplier_cost: total, client_total: total });
+        ? { offer_id: backendOfferId, participants: participantIds }
+        : { kind: 'avia', title, currency: 'USD', supplier_cost: total, client_total: total, participants: participantIds });
       setServices((cur) => [...cur, toLegacyOrderService(created)]);
       setSvcView(null);
       toast(`Перелёт ${airlineNames} добавлен в заказ`, 'ok');
@@ -2013,8 +2169,8 @@ function OrderCard({ order, onBack, initTab, initSvc, initSvcSearch, fresh, onOp
     const amount = Number(offer.cost || 0) + Number(offer.fee || 0);
     try {
       const body = offer._backendOfferId
-        ? { offer_id: offer._backendOfferId }
-        : { kind: kindCode, title: offer.title || kind, currency: offer.currency || 'USD', supplier_cost: Number(offer.cost || 0), agency_fee: Number(offer.fee || 0), client_total: amount };
+        ? { offer_id: offer._backendOfferId, participants: participants.map((p) => p.serverId || p.id).filter(Boolean) }
+        : { kind: kindCode, title: offer.title || kind, currency: offer.currency || 'USD', supplier_cost: Number(offer.cost || 0), agency_fee: Number(offer.fee || 0), client_total: amount, participants: participants.map((p) => p.serverId || p.id).filter(Boolean) };
       const created = await servicesApi.addToOrder(order.id, body);
       setServices((cur) => [...cur, toLegacyOrderService(created)]);
       setSvcView(null);
@@ -2025,16 +2181,36 @@ function OrderCard({ order, onBack, initTab, initSvc, initSvcSearch, fresh, onOp
   };
 
 
-  const assembleKPFromCards = (chosen) => {
+  const assembleKPFromCards = async (chosen) => {
     if (!chosen || !chosen.length) { toast('Выберите хотя бы одну карточку', 'err'); return; }
-    const uid = (p) => p + Math.random().toString(36).slice(2, 7);
-    const items = chosen.map((s) => { const t = svcCalc(s).total || 0; return { id: uid('i'), kind: s.kind, title: s.title, sub: s.sub, cost: Math.round(t * 0.95), fee: Math.round(t * 0.05) }; });
-    const np = { id: 'КП-' + (1060 + PROPOSALS.length), order: order.no, client: order.client, status: 'Черновик', currency: 'USD', validUntil: '25.06.2026', created: '15.06.2026', approvedVariant: null,
-      variants: [{ id: uid('v'), name: 'Вариант A · из карточек', items }],
-      history: [{ t: new Date().toLocaleString('ru-RU'), text: 'КП собрано из ' + items.length + ' карточек услуг заказа № ' + order.no, who: (CURRENT_USER && CURRENT_USER.name) || 'Оператор' }] };
-    PROPOSALS.unshift(np);
-    setSvcView(null); setTab('offers');
-    toast('КП собрано из ' + items.length + ' карточек — открыт раздел «КП»', 'ok');
+    try {
+      const validUntil = new Date(Date.now() + 10 * 24 * 60 * 60 * 1000);
+      const items = chosen.map((s) => {
+        const total = svcCalc(s).total || s.sum || 0;
+        return {
+          service: s.serverId || s.id,
+          title: s.title,
+          description: s.sub || '',
+          quantity: 1,
+          price_amount: String(total),
+          price_currency: s.currency || 'USD',
+        };
+      });
+      await proposalsApi.create({
+        order: order.id,
+        type: 'standard',
+        purpose: 'КП из карточек услуг',
+        currency: 'USD',
+        valid_until: validUntil.toISOString(),
+        variants: [{ name: 'Вариант A · из карточек', items }],
+      });
+      setSvcView(null);
+      setStageIdx((i) => Math.max(i, 2));
+      setTab('offers');
+      toast('КП собрано из ' + items.length + ' карточек — открыт раздел «КП»', 'ok');
+    } catch (error) {
+      toast(error.message || 'Не удалось создать КП', 'err');
+    }
   };
 
 
@@ -2059,7 +2235,16 @@ function OrderCard({ order, onBack, initTab, initSvc, initSvcSearch, fresh, onOp
   const renderServicesArea = () => {
     if (svcView === 'booking') return <BookingWizard order={order} services={services} draft={bookingDraft}
       onSaveDraft={setBookingDraft} onClose={() => setSvcView(null)}
-      onComplete={() => { setStatus('Оплачено'); setStageIdx(4); setBookingDraft(null); }} />;
+      onComplete={async () => {
+        setBookingDraft(null);
+        setSvcView(null);
+        try {
+          await refreshOrderSnapshot();
+          toast('Бронирование завершено. Оплата фиксируется через финансовый модуль.', 'ok');
+        } catch (error) {
+          toast(error.message || 'Не удалось обновить заказ', 'err');
+        }
+      }} />;
     if (svcView === 'avia-card') return <FlightCard svc={activeAvia} offer={activeAvia ? activeAvia.offer : null} onBack={() => setSvcView(null)} />;
     if (svcView === 'svc-card') return <SvcCard item={activeSvc} kind={activeSvc.kind} participants={participants} onBack={() => setSvcView(null)} />;
     if (svcView === 'add-service') return (
@@ -2100,7 +2285,7 @@ function OrderCard({ order, onBack, initTab, initSvc, initSvcSearch, fresh, onOp
       case 'extras': return <DynamicExtrasPanel order={order} />;
       case 'documents': return <DocCenter scopeOrder={order.no} participants={participants} services={services} orders={[order]} />;
       case 'finance': return (<><OrderFinanceBlock orderNo={order.no} order={order} services={services} summary={financeSummary} /><FinanceRegistry scopeOrder={order.no} initialOps={[]} /></>);
-      case 'aftersale': return <ReturnsModule scopeOrder={order.no} order={order} compact />;
+      case 'aftersale': return <ReturnsModule scopeOrder={order.no} order={order} services={services} participants={participants} compact />;
       case 'history': return <TabHistory liveItems={history} />;
       default: return null;
     }
@@ -2192,21 +2377,38 @@ function OrderCard({ order, onBack, initTab, initSvc, initSvcSearch, fresh, onOp
       <ReassignOperatorDrawer open={reassignOpen} current={operator} options={operatorOptions} onClose={() => setReassignOpen(false)}
         onPick={reassignOperator} />
       {paxOpen && <PassengerDrawer open={paxOpen} onClose={() => setPaxOpen(false)}
-        onAdd={(client) => setParticipants((l) => [...l, { name: client.name, role: client.role || 'Взрослый', doc: client.doc, dob: client.dob, phone: client.phone, docStatus: 'ok', documents: client.documents || [] }])} />}
+        onAdd={addParticipantToOrder} />}
       {feeOpen && <FeeDrawer open={feeOpen} onClose={() => setFeeOpen(false)} />}
       {passport && <PassportModal passenger={passport} participants={participants} onClose={() => setPassport(null)}
         onAddDoc={(p) => { setPassport(null); setDocPax(p || { name: passport }); }} />}
 
       <UnifiedPersonDrawer open={!!editPax} kind="person" mode="edit" showRole initial={editPax || undefined}
         title="Карточка пассажира" onClose={() => setEditPax(null)}
-        onSave={(person, client) => { setParticipants((l) => l.map((x) => x.name === (editPax && editPax.name) ? { ...x, name: client.name, role: person.role, doc: client.doc, dob: client.dob, phone: client.phone } : x)); setEditPax(null); toast('Данные участника обновлены', 'ok'); }} />
+        onSave={async (person, client) => {
+          try {
+            await updateParticipantInOrder(editPax, person, client);
+            setEditPax(null);
+            toast('Данные участника обновлены', 'ok');
+          } catch (error) {
+            toast(error.message || 'Не удалось обновить участника', 'err');
+          }
+        }} />
 
       <UnifiedDocumentDrawer open={!!docPax} person={{ name: docPax && docPax.name, citizenship: docPax && docPax.citizenship }}
         onClose={() => setDocPax(null)}
-        onSave={(doc) => { setParticipants((l) => l.map((x) => x.name === (docPax && docPax.name) ? { ...x, documents: [...(x.documents || []), doc], docStatus: 'ok' } : x)); setDocPax(null); toast('Документ добавлен участнику', 'ok'); }} />
-      <OrderEditDrawer open={editOpen} order={order} status={status} onStatusChange={changeOrderStatus}
+        onSave={async (doc) => {
+          try {
+            await appendParticipantDocumentInOrder(docPax, doc);
+            setDocPax(null);
+            toast('Документ добавлен участнику', 'ok');
+          } catch (error) {
+            toast(error.message || 'Не удалось добавить документ участнику', 'err');
+          }
+        }} />
+      <OrderEditDrawer open={editOpen} order={cardOrder} status={status} onStatusChange={changeOrderStatus}
         services={services} participants={participants}
         onClose={() => setEditOpen(false)}
+        onSave={saveOrderChanges}
         onAddPassenger={() => { setEditOpen(false); setPaxOpen(true); }} />
 
 
@@ -2261,7 +2463,7 @@ const EDIT_TABS = [
   { key: 'extra', n: 3, label: 'Дополнительно' },
 ];
 
-function OrderEditDrawer({ open, order, status, onStatusChange, services, participants, onClose, onAddPassenger }) {
+function OrderEditDrawer({ open, order, status, onStatusChange, services, participants, onClose, onAddPassenger, onSave }) {
   const toast = useToast();
   const [tab, setTab] = useState('pax');
   const secRefs = useRef({});
@@ -2272,6 +2474,7 @@ function OrderEditDrawer({ open, order, status, onStatusChange, services, partic
   const [cityPick, setCityPick] = useState(null);
   const [eventType, setEventType] = useState('');
   const [note, setNote] = useState('');
+  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     if (!open) return;
@@ -2280,12 +2483,51 @@ function OrderEditDrawer({ open, order, status, onStatusChange, services, partic
     return () => window.removeEventListener('keydown', h);
   }, [open]);
 
+  useEffect(() => {
+    if (!open) return;
+    const route = order.route || {};
+    const routePoints = route.points || [];
+    const kindToTrip = { one_way: 'ow', round_trip: 'rt', multi_city: 'mc' };
+    setTrip(kindToTrip[route.kind] || 'rt');
+    setPts(routePoints.length ? routePoints.map((point) => point.location_code || '') : ['FRU', 'IST']);
+    setDepDate(routePoints[0]?.local_datetime || order.planned_start || null);
+    setRetDate(routePoints[routePoints.length - 1]?.local_datetime || order.planned_end || null);
+    setEventType(order.purpose || '');
+    setNote(order.comment || '');
+    setSaving(false);
+  }, [open, order.id]);
+
   if (!open) return null;
 
   const cityLabel = (code) => { const a = AIRPORTS.find((x) => x.code === code); return a ? `${a.city} (${a.code})` : null; };
   const goTab = (key) => { setTab(key); const el = secRefs.current[key]; if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' }); };
   const fin = financeSnapshot(order.no, services);
-  const submit = () => { toast('Изменения сохранены', 'ok'); onClose(); };
+  const submit = async () => {
+    if (pts.filter(Boolean).length < 2) {
+      toast('Маршрут содержит минимум 2 точки', 'err');
+      return;
+    }
+    try {
+      setSaving(true);
+      if (onSave) {
+        await onSave({
+          trip,
+          points: pts,
+          depDate,
+          retDate,
+          plannedStart: depDate,
+          plannedEnd: retDate,
+          purpose: eventType,
+          comment: note,
+        });
+      }
+      onClose();
+    } catch (error) {
+      toast(error.message || 'Не удалось сохранить изменения', 'err');
+    } finally {
+      setSaving(false);
+    }
+  };
 
   return (
     <>
@@ -2410,9 +2652,11 @@ function OrderEditDrawer({ open, order, status, onStatusChange, services, partic
 
 
           <div style={{ padding: '16px 30px', borderTop: '1px solid var(--line)', position: 'sticky', bottom: 0, background: '#fff', display: 'flex', alignItems: 'center', gap: 12 }}>
-            <Button variant="secondary" onClick={onClose}>Отмена</Button>
+            <Button variant="secondary" onClick={onClose} disabled={saving}>Отмена</Button>
             <div style={{ flex: 1 }} />
-            <Button variant="primary" icon="check" onClick={submit}>Сохранить изменения</Button>
+            <Button variant="primary" icon={saving ? 'loader' : 'check'} onClick={submit} disabled={saving}>
+              {saving ? 'Сохранение...' : 'Сохранить изменения'}
+            </Button>
           </div>
         </div>
       </div>

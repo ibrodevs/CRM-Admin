@@ -34,6 +34,14 @@ function varCost(v) { return v.items.reduce((s, i) => s + (+i.cost || 0), 0); }
 function varFee(v) { return v.items.reduce((s, i) => s + (+i.fee || 0), 0); }
 function varTotal(v) { return varCost(v) + varFee(v); }
 function kpNow() { const d = new Date(); const p = (n) => String(n).padStart(2, '0'); return `${p(d.getDate())}.${p(d.getMonth() + 1)} · ${p(d.getHours())}:${p(d.getMinutes())}`; }
+function kpValidUntilIso(value) {
+  if (!value) return null;
+  const raw = String(value).trim();
+  const ru = raw.match(/^(\d{2})\.(\d{2})\.(\d{4})(?:\s+(\d{1,2}):(\d{2}))?/);
+  if (ru) return new Date(`${ru[3]}-${ru[2]}-${ru[1]}T${String(ru[4] || '18').padStart(2, '0')}:${ru[5] || '00'}:00`).toISOString();
+  const parsed = new Date(raw);
+  return Number.isNaN(parsed.getTime()) ? null : parsed.toISOString();
+}
 
 
 function trainTotal(train) { return (train.trips || []).reduce((s, t) => s + (+t.cost || 0), 0); }
@@ -369,7 +377,7 @@ function KpServicePicker({ participants = [], onAdd, onClose }) {
   const [aviaParams, setAviaParams] = useState({ trip: 'rt', from: 'FRU', to: 'IST', depDate: null, retDate: null, pax: { adt: 1, chd: 0, infNoSeat: 0, infSeat: 0, special: {}, subsidized: {} }, cabin: 'Эконом', baggage: false, flex: false, direct: false, airline: '', ...(typeof PAX_DEFAULT_OPTIONS !== 'undefined' ? PAX_DEFAULT_OPTIONS : {}) });
   const [added, setAdded] = useState(0);
   const norm = (o, k) => ({ kind: k, title: o.title || o.main || o.route || (o.from && o.to ? o.from + ' → ' + o.to : k), sub: o.sub || o.fareName || o.fare || '', cost: Math.round(o.cost != null ? o.cost : (o.total || o.price || o.sum || 0)), fee: Math.round(o.fee || 0) });
-  const add = (o, k) => { onAdd(norm(o, k)); setAdded((n) => n + 1); toast('Услуга добавлена в вариант КП', 'ok'); };
+  const add = (o, k) => { onAdd(norm(o, k)); setAdded((n) => n + 1); toast('Услуга добавлена в форму варианта КП', 'info'); };
   return (
     <StackPanel title="Подбор услуг для КП" width="min(1320px,96vw)" onClose={onClose}
       footer={<>
@@ -419,10 +427,52 @@ function KPModule({ order, services, participants, onApprove }) {
   const patch = (id, fn) => setProposals((ps) => ps.map((p) => (p.id === id ? fn(p) : p)));
   const withHist = (p, text) => ({ ...p, history: [...p.history, { t: kpNow(), text, who: 'Даниель' }] });
 
+  const proposalItemPayload = (item, currency) => ({
+    service_kind: item.kind || item.service_kind || '',
+    title: item.title || 'Услуга',
+    description: item.sub || item.description || '',
+    quantity: 1,
+    price_amount: String(Number(item.cost || 0) + Number(item.fee || 0)),
+    price_currency: currency || 'USD',
+  });
+  const proposalTrainVariantsPayload = (proposal) => {
+    const currency = proposal.currency || 'USD';
+    const trainItems = (proposal.train?.trips || []).map((trip) => proposalItemPayload({
+      kind: 'rail',
+      title: [trip.carrier, trip.number, trip.route].filter(Boolean).join(' · ') || 'ЖД переезд',
+      sub: [trip.dep && `отпр. ${trip.dep}`, trip.arr && `приб. ${trip.arr}`, trip.class && `класс ${trip.class}`].filter(Boolean).join(' · '),
+      cost: trip.cost,
+      fee: 0,
+    }, currency));
+    const variants = [];
+    if (trainItems.length) variants.push({ name: 'Поезд', items: trainItems });
+    (proposal.accommodation?.variants || []).forEach((variant) => {
+      variants.push({
+        name: variant.name || 'Проживание',
+        items: (variant.rows || []).map((row) => proposalItemPayload({
+          kind: 'hotel',
+          title: row.hotel || 'Проживание',
+          sub: [row.room, row.dateIn && row.dateOut ? `${row.dateIn} - ${row.dateOut}` : '', row.meal].filter(Boolean).join(' · '),
+          cost: row.cost,
+          fee: 0,
+        }, currency)),
+      });
+    });
+    return variants.length ? variants : [{ name: 'Поезд + проживание', items: [] }];
+  };
+  const proposalDraftPayload = (proposal) => ({
+    version: proposal.version,
+    currency: proposal.currency || 'USD',
+    valid_until: kpValidUntilIso(proposal.validUntil),
+    variants: proposal.docType === 'train' ? proposalTrainVariantsPayload(proposal) : (proposal.variants || []).map((variant) => ({
+      name: variant.name,
+      items: (variant.items || []).map((item) => proposalItemPayload(item, proposal.currency)),
+    })),
+  });
   const persistProposal = async (items, name) => {
     try {
       const validUntil = new Date(); validUntil.setDate(validUntil.getDate() + 7);
-      const created = await proposalsApi.create({ order: order.id, type: 'standard', purpose: 'Предложение клиенту', currency: 'USD', valid_until: validUntil.toISOString(), variants: [{ name, items: items.map((item) => ({ title: item.title, description: item.sub || '', quantity: 1, price_amount: Number(item.cost || 0) + Number(item.fee || 0), price_currency: 'USD' })) }] });
+      const created = await proposalsApi.create({ order: order.id, type: 'standard', purpose: 'Предложение клиенту', currency: 'USD', valid_until: validUntil.toISOString(), variants: [{ name, items: items.map((item) => proposalItemPayload(item, 'USD')) }] });
       const proposal = toLegacyProposal(created, [order]);
       setProposals((list) => [proposal, ...list]); setActiveId(proposal.id); setActiveVar(proposal.variants[0]?.id || null); setView('edit');
       toast('Черновик КП создан', 'ok');
@@ -523,8 +573,20 @@ function KPModule({ order, services, participants, onApprove }) {
     } catch (error) { toast(error.message || 'Не удалось сформировать документы', 'err'); }
   };
 
-  const setStatus = (s) => patch(active.id, (p) => withHist({ ...p, status: s }, 'Статус изменён: ' + s));
+  const setStatus = () => toast('Статус КП меняется через backend-действия: отправка, согласование или архивирование', 'warn');
   const setField = (f, val) => patch(active.id, (p) => ({ ...p, [f]: val }));
+  const saveActiveDraft = async () => {
+    if (!active?.serverId) { toast('Сначала создайте КП в backend', 'err'); return; }
+    try {
+      const activeVariantName = active.variants?.find((variant) => variant.id === activeVar)?.name;
+      const saved = await proposalsApi.replaceDraft(active.serverId, proposalDraftPayload(active));
+      const proposal = toLegacyProposal(saved, [order]);
+      patch(active.id, () => proposal);
+      setActiveId(proposal.id);
+      setActiveVar(proposal.variants.find((variant) => variant.name === activeVariantName)?.id || proposal.variants[0]?.id || null);
+      toast('Изменения КП сохранены в backend', 'ok');
+    } catch (error) { toast(error.message || 'Не удалось сохранить изменения КП', 'err'); }
+  };
   const sendToClient = () => setSendTarget(active);
   const doSendProposal = async (p, channel) => {
     try {
@@ -688,6 +750,7 @@ function KPModule({ order, services, participants, onApprove }) {
           <div style={{ flex: 1 }} />
           <Button variant="secondary" size="sm" icon="clock" onClick={() => setHistOpen(true)}>История</Button>
           {!isTrain && <Button variant="secondary" size="sm" icon="template" onClick={saveAsTemplate}>В шаблон</Button>}
+          {!approved && <Button variant="secondary" size="sm" icon="check" onClick={saveActiveDraft}>Сохранить изменения</Button>}
           <Button variant="secondary" size="sm" icon="eye" onClick={() => setView('preview')}>Предпросмотр</Button>
           {!approved && !canFix && <Button size="sm" icon="send" onClick={sendToClient}>Отправить клиенту</Button>}
           {canFix && <Button size="sm" icon="check" onClick={() => setFixOpen(true)}>Зафиксировать вариант</Button>}
@@ -980,7 +1043,6 @@ function KPCreateModal({ open, onClose, onCreated, onOpenOrder }) {
   const [errs, setErrs] = useState({});
   const [orderPickerOpen, setOrderPickerOpen] = useState(false);
   useEffect(() => { if (open) { setSource('order'); setOrderNo(''); setKpType(KP_PURPOSE_TYPES[0]); setDocType('generic'); setName(''); setRecipient('Клиент (сам)'); setResponsible((typeof CURRENT_USER !== 'undefined' && CURRENT_USER.name) || OPERATORS[0]); setCurrency('USD'); setValid('25.06.2026'); setValidTime('18:00'); setValidTz('МСК (UTC+3)'); setPayTerm(''); setBase('manual'); setErrs({}); } }, [open]);
-  const uid = (p) => p + Math.random().toString(36).slice(2, 7);
   const seen = {};
   const orderOpts = ORDERS.filter((o) => (seen[o.no] ? false : (seen[o.no] = true))).map((o) => ({ value: String(o.no), label: `№ ${o.no} · ${o.client}` }));
   const baseOpts = [
@@ -995,39 +1057,44 @@ function KPCreateModal({ open, onClose, onCreated, onOpenOrder }) {
   const selOrder = ORDERS.find((o) => String(o.no) === String(orderNo));
   const recognizeSrc = base === 'recognize' || source === 'chat' || source === 'email';
 
-  const ensureOrder = () => {
-    if (selOrder) return selOrder;
-
-    const no = 51190 + Math.floor(Math.random() * 800);
-    const client = recipient && recipient !== 'Клиент (сам)' ? recipient : 'Новый клиент';
-    const o = { no, client, requestType: 'Индивидуальная', status: 'Новое', service: 'Авиа', operator: responsible, operatorRole: 'Оператор', sum: 0, currency, services: 0 };
-    return o;
-  };
-  const build = () => {
-    const order = ensureOrder();
-    if (docType === 'train') {
-      const np = { id: 'КП-' + (1100 + PROPOSALS.length), order: order.no, client: order.client, status: 'Черновик', currency, validUntil: valid + (validTime ? " " + validTime : ""), created: '15.06.2026', approvedVariant: null, docType: 'train', kpType, responsible,
-        train: { passengers: 1, direction: '', note: '', trips: [] },
-        accommodation: { guests: 1, location: '', variants: [{ id: uid('av'), name: 'Вариант 1', rows: [] }] },
-        history: [{ t: kpNow(), text: 'КП «Поезд + Проживание» создано (' + (KP_SOURCES.find((s) => s.value === source) || {}).label + ')', who: responsible }] };
-      PROPOSALS.unshift(np);
-      return { np, order };
-    }
+  const build = async () => {
+    const order = selOrder;
+    if (!order?.id) throw new Error('Выберите заказ, загруженный из backend');
     let items = [], vname = name || 'Вариант 1';
-    if (base === 'services') items = (ORDER_SERVICES || []).map((s) => ({ id: uid('i'), kind: s.kind, title: s.title, sub: s.sub, cost: Math.round((s.sum || 0) * 0.95), fee: Math.round((s.sum || 0) * 0.05) }));
-    else if (base.indexOf('tpl:') === 0) { const t = KP_TEMPLATES.find((x) => x.id === base.slice(4)); if (t) { items = t.items.map((s) => ({ id: uid('i'), ...s })); if (!name) vname = t.name; } }
-    const np = { id: 'КП-' + (1100 + PROPOSALS.length), order: order.no, client: order.client, status: 'Черновик', currency, validUntil: valid + (validTime ? " " + validTime : ""), created: '15.06.2026', approvedVariant: null, kpType, responsible,
-      variants: [{ id: uid('v'), name: vname, items }], history: [{ t: kpNow(), text: 'КП создано (' + (KP_SOURCES.find((s) => s.value === source) || {}).label + ')', who: responsible }] };
-    PROPOSALS.unshift(np);
-    return { np, order };
+    if (base === 'services') items = (ORDER_SERVICES || []).map((s) => ({ title: s.title, description: s.sub || '', quantity: 1, price_amount: String(s.sum || 0), price_currency: currency }));
+    else if (base.indexOf('tpl:') === 0) {
+      const t = KP_TEMPLATES.find((x) => x.id === base.slice(4));
+      if (t) {
+        items = t.items.map((s) => ({ title: s.title, description: s.sub || '', quantity: 1, price_amount: String(Number(s.cost || 0) + Number(s.fee || 0)), price_currency: currency }));
+        if (!name) vname = t.name;
+      }
+    }
+    const validIso = (() => {
+      const m = String(valid || '').match(/^(\d{2})\.(\d{2})\.(\d{4})$/);
+      const date = m ? new Date(`${m[3]}-${m[2]}-${m[1]}T${validTime || '18:00'}:00`) : new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+      return date.toISOString();
+    })();
+    const created = await proposalsApi.create({
+      order: order.id,
+      type: docType === 'train' ? 'train' : 'standard',
+      purpose: kpType,
+      currency,
+      valid_until: validIso,
+      variants: [{ name: docType === 'train' ? 'Поезд + проживание' : vname, items }],
+    });
+    return { np: toLegacyProposal(created, [order]), order };
   };
-  const submit = (mode) => {
+  const submit = async (mode) => {
     if (fromOrder && !orderNo) { setErrs({ order: 'Выберите заказ' }); return; }
-    const { np, order } = build();
-    onCreated && onCreated(np);
-    if (mode === 'pick') { toast('КП ' + np.id + ': переходим к подбору услуг', 'ok'); onClose(); onOpenOrder && onOpenOrder(order, 'services'); }
-    else if (mode === 'builder') { toast('КП ' + np.id + ': открываем конструктор', 'ok'); onClose(); onOpenOrder && onOpenOrder(order, 'offers'); }
-    else { toast('Черновик КП ' + np.id + ' сохранён', 'ok'); onClose(); }
+    try {
+      const { np, order } = await build();
+      onCreated && onCreated(np);
+      if (mode === 'pick') { toast('КП ' + np.id + ': переходим к подбору услуг', 'ok'); onClose(); onOpenOrder && onOpenOrder(order, 'services'); }
+      else if (mode === 'builder') { toast('КП ' + np.id + ': открываем конструктор', 'ok'); onClose(); onOpenOrder && onOpenOrder(order, 'offers'); }
+      else { toast('Черновик КП ' + np.id + ' сохранён', 'ok'); onClose(); }
+    } catch (error) {
+      toast(error.message || 'Не удалось создать КП', 'err');
+    }
   };
   if (!open) return null;
   return (

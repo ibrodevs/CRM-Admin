@@ -2,7 +2,6 @@ import { useState, useEffect } from 'react';
 import { Icon } from './icons';
 import { ActionMenu, Avatar, Button, Drawer, EmptyState, Field, FilterChip, Input, Pill, SearchBox, Select, Tabs, Th, plural, useSort, useToast } from './ui';
 import { CLIENTS_DB, CLIENT_STATUS, COMPANIES_DB, COMPANY_STATUS, ORDERS, ORDER_STATUS, SETTLEMENT_TONE, companyBalanceShort, companyFinance } from './data';
-import { companyStaffStore } from './data/access-control';
 import { UnifiedDocumentDrawer, UnifiedPersonDrawer, ufBlankPerson, ufDateIso, ufFromClient } from './forms_unified';
 import { Topbar } from './layout';
 import { NewOrgDrawer } from './order_extras';
@@ -12,11 +11,51 @@ import { TravelPolicyBlock } from './travel_policy';
 import { CompanyFinanceBlock } from './page_company_finance';
 import { communicationsApi, crmApi } from './api/resources';
 import { toUiClient, toUiCompany } from './api/adapters';
+import { resultsOf } from './api/client';
 
 
 
 function pUsd(n) { return Math.round(n).toLocaleString('ru-RU') + ' $'; }
 function ordersOf(name) { return ORDERS.filter((o) => o.client === name); }
+
+const citizenshipCode = (value) => ({ 'Кыргызстан': 'KG', 'Казахстан': 'KZ', 'Россия': 'RU', 'Узбекистан': 'UZ', 'Таджикистан': 'TJ', 'Турция': 'TR', 'Германия': 'DE', 'Китай': 'CN', 'ОАЭ': 'AE' }[value] || value || '');
+const personPayloadFromUnified = (person) => ({
+  surname: person.lastName || '',
+  given_name: person.firstName || '',
+  middle_name: person.middleName || '',
+  birth_date: ufDateIso(person.dob) || null,
+  gender: { 'Мужской': 'male', 'Женский': 'female' }[person.gender] || '',
+  citizenship: citizenshipCode(person.citizenship),
+  phone: person.phone || '',
+  email: person.email || '',
+  city: person.city || '',
+  notes: person.comment || '',
+});
+const toUiDepartment = (department) => ({
+  ...department,
+  id: department.id,
+  name: department.name,
+  policy: department.travel_policy || '',
+});
+const toUiEmployee = (employee) => {
+  const person = employee.person_detail || {};
+  const name = person.full_name || [person.surname, person.given_name, person.middle_name].filter(Boolean).join(' ');
+  return {
+    ...employee,
+    id: employee.id,
+    personId: employee.person,
+    name: name || 'Сотрудник',
+    position: employee.position || '',
+    dept: employee.department || '',
+    phone: person.phone || '—',
+    email: person.email || '',
+    doc: '—',
+    dob: person.birth_date || '—',
+    inPolicy: true,
+    source: employee,
+    personSource: person,
+  };
+};
 
 
 
@@ -27,10 +66,34 @@ function ClientCard({ c: c0, onBack, onOpenOrder, onUpdate, onCreateOrder }) {
   const [edit, setEdit] = useState(false);
   const [docOpen, setDocOpen] = useState(false);
   const [docs, setDocs] = useState(c0.documents || []);
-  useEffect(() => { setC(c0); setDocs(c0.documents || []); }, [c0]);
+  useEffect(() => {
+    setC(c0);
+    setDocs(c0.documents || []);
+    const controller = new AbortController();
+    crmApi.personDocuments(c0.id, controller.signal)
+      .then((rows) => setDocs((rows || []).map((doc) => ({ ...doc, docType: doc.type, docNo: doc.number_masked || '—' }))))
+      .catch((error) => { if (error.name !== 'AbortError') toast(error.message || 'Не удалось загрузить документы', 'err'); });
+    return () => controller.abort();
+  }, [c0.id]);
   const startChat = async () => {
     try { await communicationsApi.createThread({ type: 'client', title: c.name, status: 'active' }); toast('Чат с клиентом создан', 'ok'); }
     catch (error) { toast(error.message, 'err'); }
+  };
+  const saveDocument = async (doc) => {
+    if (!doc.docNo) { toast('Введите номер документа', 'err'); return; }
+    try {
+      const saved = await crmApi.addPersonDocument(c.id, {
+        type: { 'Загранпаспорт': 'foreign_passport', 'Общегражданский паспорт': 'national_passport', 'ID-карта': 'id_card', 'Свидетельство о рождении': 'birth_certificate', 'Виза': 'visa' }[doc.docType] || 'other',
+        number: doc.docNo || '',
+        series: doc.series || '',
+        expires_at: ufDateIso(doc.docExpiry) || null,
+        issuing_country: citizenshipCode(c.citizenship),
+        nationality: citizenshipCode(c.citizenship),
+      });
+      setDocs((cur) => [...cur, { ...saved, docType: doc.docType || saved.type, docNo: saved.number_masked || doc.docNo }]);
+      setDocOpen(false);
+      toast('Документ добавлен в backend', 'ok');
+    } catch (error) { toast(error.message || 'Не удалось добавить документ', 'err'); }
   };
   const orders = ordersOf(c.name);
   return (
@@ -52,7 +115,7 @@ function ClientCard({ c: c0, onBack, onOpenOrder, onUpdate, onCreateOrder }) {
       </div>
       <ClientCreateModal open={edit} initial={c} onClose={() => setEdit(false)} onCreated={(u) => { setC(u); onUpdate && onUpdate(u); }} />
       <UnifiedDocumentDrawer open={docOpen} person={{ name: c.name, citizenship: c.citizenship }}
-        onClose={() => setDocOpen(false)} onSave={(d) => { setDocs((cur) => [...cur, d]); setDocOpen(false); toast('Документ добавлен', 'ok'); }} />
+        onClose={() => setDocOpen(false)} onSave={saveDocument} />
 
       <div className="grid-2" style={{ alignItems: 'start' }}>
         <div className="card card-pad">
@@ -97,7 +160,6 @@ function ClientCard({ c: c0, onBack, onOpenOrder, onUpdate, onCreateOrder }) {
       <h3 className="section-title" style={{ fontSize: 20, margin: '24px 0 14px' }}>Документы</h3>
       <div className="grid-4">
         {docs.map((d, i) => (<button key={'ud' + i} className="doc-chip" onClick={() => setDocOpen(true)}><span style={{ display: 'flex', alignItems: 'center', gap: 8 }}><Icon name="idcard" />{d.docType} · {d.docNo}</span><Icon name="download" /></button>))}
-        {['Паспорт / ID', 'Договор', 'Согласие на обработку ПД'].map((d) => (<button key={d} className="doc-chip"><span style={{ display: 'flex', alignItems: 'center', gap: 8 }}><Icon name="idcard" />{d}</span><Icon name="download" /></button>))}
         <button className="doc-chip" style={{ borderStyle: 'dashed', color: 'var(--blue)' }} onClick={() => setDocOpen(true)}><span style={{ display: 'flex', alignItems: 'center', gap: 8 }}><Icon name="plus" />Загрузить</span></button>
       </div>
     </div>
@@ -216,19 +278,17 @@ function EmployeeCreateDrawer({ open, departments, defaultDept, coName, initial,
   const mode = initial ? 'edit' : 'create';
   const base = initial ? ufFromClient(initial, 'employee')
     : { ...ufBlankPerson('employee'), dept: defaultDept || (departments[0] && departments[0].id) || '' };
-  const save = (person, client) => {
+  const save = async (person, client) => {
     const dep = departments.find((d) => d.id === person.dept);
-    const emp = {
-      id: (initial && initial.id) || 'E-' + Math.floor(1000 + Math.random() * 8999),
-      name: client.name, position: person.position, dept: person.dept,
-      phone: person.phone || '—', email: person.email || '', doc: person.docNo || '—',
-      dob: person.dob || '—', inPolicy: person.inPolicy, documents: person.documents || [],
-    };
-    onCreate(emp);
-    toast('Сотрудник «' + emp.name + '» ' + (mode === 'edit' ? 'обновлён' : 'добавлен')
-      + (dep && mode !== 'edit' ? ' в «' + dep.name + '»' : '')
-      + (person.inPolicy && mode !== 'edit' ? ' · включён в тревел-политику' : ''), 'ok');
-    onClose();
+    try {
+      const emp = await onCreate({ person, client, initial });
+      toast('Сотрудник «' + emp.name + '» ' + (mode === 'edit' ? 'обновлён' : 'добавлен')
+        + (dep && mode !== 'edit' ? ' в «' + dep.name + '»' : '')
+        + (person.inPolicy && mode !== 'edit' ? ' · включён в тревел-политику' : ''), 'ok');
+      onClose();
+    } catch (error) {
+      toast(error.message || 'Не удалось сохранить сотрудника', 'err');
+    }
   };
   return (
     <UnifiedPersonDrawer open={open} kind="employee" mode={mode} initial={base}
@@ -294,13 +354,18 @@ function EmployeeProfileDrawer({ emp, dept, coName, onClose, onOpenOrder, onRemo
 }
 
 function DepartmentCreateDrawer({ open, onClose, onCreate }) {
+  const toast = useToast();
   const [name, setName] = useState('');
   const [policy, setPolicy] = useState('');
   const [err, setErr] = useState('');
-  const submit = () => {
+  const submit = async () => {
     if (!name.trim()) { setErr('Укажите название отдела'); return; }
-    onCreate(name.trim(), policy);
-    onClose();
+    try {
+      await onCreate(name.trim(), policy);
+      onClose();
+    } catch (error) {
+      toast(error.message || 'Не удалось создать отдел', 'err');
+    }
   };
   return (
     <Drawer open={open} onClose={onClose} title="Новый отдел" sub="Подразделение компании" width="min(440px,96vw)"
@@ -372,25 +437,79 @@ function CompanyCard({ co, onBack, onOpenOrder, onCreateOrder }) {
   const toast = useToast();
   const [tab, setTab] = useState('overview');
 
-  const [, setStaffTick] = useState(0);
-  const staff = companyStaffStore(co.id);
+  const [staff, setStaff] = useState({ departments: [], employees: [] });
+  const [staffLoading, setStaffLoading] = useState(false);
   const [addEmp, setAddEmp] = useState(null);
   const [addDept, setAddDept] = useState(false);
   const [empQ, setEmpQ] = useState('');
   const [empView, setEmpView] = useState(null);
   const [unifyOpen, setUnifyOpen] = useState(false);
   const [groupsOpen, setGroupsOpen] = useState(false);
-  const addEmployee = (emp) => {
-    const index = staff.employees.findIndex((item) => item.id === emp.id);
-    if (index >= 0) staff.employees[index] = emp; else staff.employees.push(emp);
-    setStaffTick((n) => n + 1);
+  const loadStaff = async (signal) => {
+    setStaffLoading(true);
+    try {
+      const [departmentPayload, employeePayload] = await Promise.all([
+        crmApi.companyDepartments(co.id, signal),
+        crmApi.companyEmployees(co.id, signal),
+      ]);
+      setStaff({
+        departments: (departmentPayload || []).map(toUiDepartment),
+        employees: resultsOf(employeePayload).map(toUiEmployee),
+      });
+    } catch (error) {
+      if (error.name !== 'AbortError') toast(error.message || 'Не удалось загрузить сотрудников', 'err');
+    } finally {
+      if (!signal?.aborted) setStaffLoading(false);
+    }
   };
-  const addDepartment = (name, policy) => {
-    staff.departments.push({ id: 'D-' + Math.random().toString(36).slice(2, 8).toUpperCase(), name, head: '', policy: policy || '' });
-    setStaffTick((n) => n + 1);
+  useEffect(() => {
+    const controller = new AbortController();
+    loadStaff(controller.signal);
+    return () => controller.abort();
+  }, [co.id]);
+  const addEmployee = async ({ person, initial }) => {
+    const personPayload = personPayloadFromUnified(person);
+    let personId = initial?.personId || initial?.person || null;
+    if (personId) {
+      await crmApi.updatePerson(personId, personPayload);
+    } else {
+      const createdPerson = await crmApi.createPerson(personPayload);
+      personId = createdPerson.id;
+    }
+    const employeePayload = {
+      person: personId,
+      department: person.dept || null,
+      position: person.position || '',
+      status: 'active',
+    };
+    const saved = initial?.id
+      ? await crmApi.updateCompanyEmployee(co.id, initial.id, employeePayload)
+      : await crmApi.createCompanyEmployee(co.id, employeePayload);
+    const ui = toUiEmployee(saved);
+    setStaff((current) => ({
+      ...current,
+      employees: current.employees.some((item) => item.id === ui.id)
+        ? current.employees.map((item) => item.id === ui.id ? ui : item)
+        : [...current.employees, ui],
+    }));
+    return ui;
+  };
+  const addDepartment = async (name) => {
+    const created = await crmApi.createCompanyDepartment(co.id, { name });
+    const ui = toUiDepartment(created);
+    setStaff((current) => ({ ...current, departments: [...current.departments, ui] }));
     toast('Отдел «' + name + '» создан', 'ok');
+    return ui;
   };
-  const removeEmployee = (emp) => { const i = staff.employees.findIndex((e) => e.id === emp.id); if (i >= 0) staff.employees.splice(i, 1); setStaffTick((n) => n + 1); };
+  const removeEmployee = async (emp) => {
+    try {
+      await crmApi.removeCompanyEmployee(co.id, emp.id);
+      setStaff((current) => ({ ...current, employees: current.employees.filter((e) => e.id !== emp.id) }));
+      toast('Сотрудник убран из компании', 'ok');
+    } catch (error) {
+      toast(error.message || 'Не удалось убрать сотрудника', 'err');
+    }
+  };
   const deptOf = (emp) => staff.departments.find((d) => d.id === emp.dept);
 
   const empToPax = (e) => {
@@ -401,27 +520,40 @@ function CompanyCard({ co, onBack, onOpenOrder, onCreateOrder }) {
   };
   const paxList = staff.employees.map(empToPax);
 
-  const applyRosterToStaff = (roster) => {
-    const next = roster.map((p) => {
-      const cur = p._empId && staff.employees.find((e) => e.id === p._empId);
-      const docStr = p.docNo ? ('ID ' + p.docNo) : (cur && cur.doc) || '';
-      if (cur) return { ...cur, name: p.name, phone: p.phone || cur.phone, dob: p.dob || cur.dob,
-        doc: docStr, docType: p.docType || cur.docType, docNo: p.docNo || cur.docNo,
-        docExpiry: p.docExpiry || cur.docExpiry, docStatus: p.docStatus || cur.docStatus };
-      return { id: 'E-' + Math.random().toString(36).slice(2, 8).toUpperCase(), name: p.name, phone: p.phone || '',
-        doc: docStr, docType: p.docType || '', docNo: p.docNo || '', docExpiry: p.docExpiry || '',
-        dob: p.dob || '—', role: p.role || 'Взрослый', docStatus: p.docStatus || 'ok', dept: '', position: '', inPolicy: true };
-    });
-    staff.employees.splice(0, staff.employees.length, ...next);
-    setStaffTick((n) => n + 1);
+  const saveRosterMember = async (member, current) => {
+    const split = String(member.name || '').trim().split(/\s+/);
+    const payload = {
+      surname: split[0] || member.name || 'Сотрудник',
+      given_name: split[1] || ' ',
+      middle_name: split.slice(2).join(' '),
+      birth_date: ufDateIso(member.dob) || null,
+      phone: member.phone || '',
+      citizenship: citizenshipCode(member.citizenship),
+    };
+    let personId = current?.personId || null;
+    if (personId) {
+      await crmApi.updatePerson(personId, payload);
+      const updated = await crmApi.updateCompanyEmployee(co.id, current.id, { position: current.position || '', department: member._dept || current.dept || null, status: 'active' });
+      return toUiEmployee(updated);
+    }
+    const person = await crmApi.createPerson(payload);
+    const employee = await crmApi.createCompanyEmployee(co.id, { person: person.id, department: member._dept || null, position: member.position || '', status: 'active' });
+    return toUiEmployee(employee);
   };
-  const addGroupToStaff = (members) => {
+  const applyRosterToStaff = async (roster) => {
+    const saved = [];
+    for (const p of roster) {
+      const cur = p._empId && staff.employees.find((e) => e.id === p._empId);
+      saved.push(await saveRosterMember(p, cur));
+    }
+    setStaff((current) => ({ ...current, employees: saved }));
+  };
+  const addGroupToStaff = async (members) => {
     const r = paxMergeAppend(paxList, members);
     const added = r.list.slice(paxList.length);
-    added.forEach((m) => staff.employees.push({ id: 'E-' + Math.random().toString(36).slice(2, 8).toUpperCase(),
-      name: m.name, phone: m.phone || '', doc: m.docNo ? ('ID ' + m.docNo) : '', docType: m.docType || '', docNo: m.docNo || '',
-      docExpiry: m.docExpiry || '', dob: m.dob || '—', role: m.role || 'Взрослый', docStatus: m.docStatus || 'ok', dept: '', position: '', inPolicy: true }));
-    setStaffTick((n) => n + 1);
+    const saved = [];
+    for (const member of added) saved.push(await saveRosterMember(member, null));
+    setStaff((current) => ({ ...current, employees: [...current.employees, ...saved] }));
     return r;
   };
   const orders = ordersOf(co.name);

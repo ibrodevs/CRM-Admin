@@ -11,33 +11,43 @@ import { AddServicePanel } from './page_order_card';
 import { ErrorCodesDrawer } from './page_notifications';
 import { SHIFT_DEMO_OPS, SHIFT_REQUESTS_HANDLED, motivationFor, operatorEarn, shiftDuration, shiftFmtTime, shiftTotals } from './page_shifts';
 import { toLegacyProposal, toLegacyReturn } from './api/legacy-adapters';
+import { ordersApi } from './api/resources';
+import { toUiOrder } from './api/adapters';
 
 
 
 
 
-function FreeBookingFinalize({ draft, onClose, onDone, onOpenOrder, onCreateOrder }) {
+function FreeBookingFinalize({ draft, onClose, onDone, onOpenOrder, onCreateOrder, clients = [], companies = [] }) {
   const toast = useToast();
   const [step, setStep] = useState('menu');
   const [entity, setEntity] = useState('legal');
   const [q, setQ] = useState('');
   const [recipient, setRecipient] = useState('');
-  const [kpNo] = useState(() => 'КП-' + (1040 + Math.floor(Math.random() * 60)));
+  const kpNo = 'КП из backend';
 
-  const createNewOrder = (client, requestType) => {
-    const no = Math.max.apply(null, ORDERS.map((o) => o.no).concat(51180)) + 1;
-    const order = {
-      id: 'ord-' + Date.now(), no, client, requestType, status: 'Новое',
-      service: (draft[0] && draft[0].kind) || 'Новое',
-      operator: (typeof CURRENT_USER !== 'undefined' && CURRENT_USER.name) || 'Оператор',
-      operatorRole: (typeof CURRENT_USER !== 'undefined' && CURRENT_USER.role) || 'Оператор',
-      sum: Math.round(total), currency: 'USD', services: draft.length, progress: 0,
-      date: new Date().toLocaleDateString('ru-RU'), createdOn: new Date(),
-    };
-    toast('Создан заказ № ' + no + ' на «' + client + '» · услуг: ' + draft.length, 'ok',
-      onOpenOrder ? { action: { label: 'Открыть заказ № ' + no, onClick: () => onOpenOrder(order) }, duration: 7000 } : {});
-    onDone();
-    if (onCreateOrder) onCreateOrder(order);
+  const createNewOrder = async (clientName, requestType) => {
+    const client = clients.find((item) => item.name === clientName);
+    const company = companies.find((item) => item.name === clientName);
+    if (!client && !company) { toast('Выберите клиента или компанию из backend-списка', 'err'); return; }
+    try {
+      const created = await ordersApi.create({
+        request_type: requestType === 'Корпоративная' ? 'corporate' : 'individual',
+        client_person: client?.id || null,
+        client_company: company?.id || null,
+        purpose: 'Свободное бронирование',
+        base_currency: 'USD',
+        source: 'dashboard',
+      });
+      const order = toUiOrder(created);
+      toast('Создан заказ № ' + order.no + ' на «' + clientName + '» · услуг: ' + draft.length, 'ok',
+        onOpenOrder ? { action: { label: 'Открыть заказ № ' + order.no, onClick: () => onOpenOrder(order) }, duration: 7000 } : {});
+      if (onCreateOrder) onCreateOrder(order);
+      onDone();
+    } catch (error) {
+      toast(error.message || 'Не удалось создать заказ', 'err');
+      return;
+    }
   };
   const svcTitle = (x) => x.title || x.route || x.fareName || (x.from && x.to ? x.from + ' → ' + x.to : x.kind || 'Услуга');
   const svcSum = (x) => x.fareDeltaUsd || x.total || x.cost || x.price || x.sum || 0;
@@ -107,8 +117,8 @@ function FreeBookingFinalize({ draft, onClose, onDone, onOpenOrder, onCreateOrde
   if (step === 'newOrder') {
     const legal = entity === 'legal';
     const list = (legal
-      ? (typeof COMPANIES_DB !== 'undefined' ? COMPANIES_DB.map((c) => c.name) : [])
-      : (typeof CLIENTS !== 'undefined' ? CLIENTS : []))
+      ? companies.map((c) => c.name)
+      : clients.map((c) => c.name))
       .filter((n) => n.toLowerCase().includes(q.toLowerCase()));
     return (
       <Drawer open onClose={onClose} title="Создать новый заказ"
@@ -145,7 +155,7 @@ function FreeBookingFinalize({ draft, onClose, onDone, onOpenOrder, onCreateOrde
       <Drawer open onClose={onClose} title="Коммерческое предложение"
         footer={<>
           <Button variant="secondary" onClick={() => setStep('menu')}>Назад</Button>
-          <Button icon="send" style={{ flex: 1 }} onClick={() => finish(kpNo + ' сформировано' + (recipient ? ' и отправлено: ' + recipient : ''))}>
+          <Button icon="send" style={{ flex: 1 }} onClick={() => toast('Сначала привяжите подборку к заказу: КП создаётся только по backend-заказу', 'err')}>
             {recipient ? 'Отправить клиенту' : 'Сформировать КП'}
           </Button>
         </>}>
@@ -184,10 +194,10 @@ function FreeBookingFinalize({ draft, onClose, onDone, onOpenOrder, onCreateOrde
 
         <PanelSub>Действия с КП</PanelSub>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-          {[['Скачать PDF', 'download', () => toast(kpNo + ': PDF скачан', 'ok')],
-            ['Открыть в разделе КП', 'template', () => finish(kpNo + ' создано — открыто в разделе «Ком. предложения»')],
-            ['Копировать ссылку', 'docs', () => toast('Ссылка на ' + kpNo + ' скопирована', 'ok')],
-            ['Печать', 'clipboard', () => toast(kpNo + ' отправлено на печать')]].map(([label, icon, on]) => (
+          {[['Скачать PDF', 'download', () => toast('PDF доступен после создания КП по заказу', 'err')],
+            ['Открыть в разделе КП', 'template', () => toast('Сначала создайте заказ и КП в backend', 'err')],
+            ['Копировать ссылку', 'docs', () => toast('Ссылка появится после создания backend КП', 'err')],
+            ['Печать', 'clipboard', () => toast('Печать доступна после создания backend КП', 'err')]].map(([label, icon, on]) => (
             <button key={label} className="doc-chip" style={{ width: '100%' }} onClick={on}>
               <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}><Icon name={icon} style={{ width: 16, height: 16 }} />{label}</span>
               <Icon name="chevRight" style={{ width: 16, height: 16 }} />
@@ -233,7 +243,7 @@ function FreeBookingFinalize({ draft, onClose, onDone, onOpenOrder, onCreateOrde
 
 
 
-function DetailedSearchPanel({ onClose, initialKind, onOpenOrder, onCreateOrder }) {
+function DetailedSearchPanel({ onClose, initialKind, onOpenOrder, onCreateOrder, clients = [], companies = [] }) {
   const toast = useToast();
   const [kind, setKind] = useState(initialKind || 'Авиа');
   const [aviaParams, setAviaParams] = useState({ trip: 'rt', from: 'FRU', to: 'IST', depDate: null, retDate: null, pax: { adt: 1, chd: 0, infNoSeat: 0, infSeat: 0, special: {}, subsidized: {} }, cabin: 'Эконом', baggage: false, flex: false, direct: false, airline: '', ...PAX_DEFAULT_OPTIONS });
@@ -256,7 +266,7 @@ function DetailedSearchPanel({ onClose, initialKind, onOpenOrder, onCreateOrder 
         paxCount={aviaParams.pax.adt + aviaParams.pax.chd}
         onAddAvia={(r) => add(r, 'Авиа')}
         onAddOther={(o, k) => add(o, k)} />
-      {finalize && <FreeBookingFinalize draft={draft} onClose={() => setFinalize(false)} onDone={() => { setFinalize(false); onClose(); }} onOpenOrder={onOpenOrder} onCreateOrder={onCreateOrder} />}
+      {finalize && <FreeBookingFinalize draft={draft} onClose={() => setFinalize(false)} onDone={() => { setFinalize(false); onClose(); }} onOpenOrder={onOpenOrder} onCreateOrder={onCreateOrder} clients={clients} companies={companies} />}
     </StackPanel>
   );
 }
@@ -695,7 +705,7 @@ function SupplierErrorsDrawer({ supplier, onClose, onOpenOrder }) {
   );
 }
 
-function DashboardPage({ role, orders = [], proposals = [], returns = [], notifications = [], chats = [], dashboard, finance, onNavigate, onAddOrder, onOpenOrder, onCreateOrder }) {
+function DashboardPage({ role, orders = [], clients = [], companies = [], proposals = [], returns = [], notifications = [], chats = [], dashboard, finance, onNavigate, onAddOrder, onOpenOrder, onCreateOrder }) {
   const [search, setSearch] = useState('');
   const [searchOpen, setSearchOpen] = useState(false);
   const [errCodeOpen, setErrCodeOpen] = useState(null);
@@ -1019,7 +1029,7 @@ function DashboardPage({ role, orders = [], proposals = [], returns = [], notifi
         <Button variant="primary" icon="plus" onClick={onAddOrder}>Добавить заказ</Button>
       </Topbar>
 
-      {searchOpen && <DetailedSearchPanel onClose={() => setSearchOpen(false)} onOpenOrder={onOpenOrder} onCreateOrder={onCreateOrder} />}
+      {searchOpen && <DetailedSearchPanel onClose={() => setSearchOpen(false)} onOpenOrder={onOpenOrder} onCreateOrder={onCreateOrder} clients={clients} companies={companies} />}
 
       <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', padding: '10px 38px 22px', overflowY: 'auto' }}>
 

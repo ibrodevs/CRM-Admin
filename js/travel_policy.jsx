@@ -4,6 +4,7 @@ import { Avatar, Button, Checkbox, Drawer, Input, Pill, Select, Toggle, useToast
 import { CURRENT_USER } from './data';
 import { TP_AIRLINES, TP_BOARD, TP_CAR_CLASSES, TP_CLASSES_AVIA, TP_COMPLIANCE, TP_CURRENCIES, TP_EMPLOYEES, TP_HOTEL_CATEGORIES, TP_HOTEL_CHAINS, TP_RAIL_CLASSES, TP_RAIL_TYPES, TP_SCOPES, companyStaffStore, departmentsFor, travelPolicyFor } from './data/access-control';
 import { CollapseSection } from './order_extras';
+import { workspaceActionsApi } from './api/resources';
 
 
 
@@ -276,20 +277,28 @@ function DepartmentsManager({ companyId }) {
   const empsOf = (d) => store.employees.filter((e) => e.dept === d.id);
   const [newDept, setNewDept] = useState('');
 
-  const addDept = () => {
+  const addDept = async () => {
     if (!newDept.trim()) { toast('Введите название подразделения', 'info'); return; }
-    depts.push({ id: 'd' + Date.now(), name: newDept.trim(), head: '', policy: '' });
-    setNewDept(''); toast('Подразделение создано', 'ok'); rerender();
+    const dept = { id: 'd' + Date.now(), name: newDept.trim(), head: '', policy: '' };
+    try {
+      await workspaceActionsApi.execute('company.department.create_manual', { resourceType: 'company', resourceId: String(companyId), payload: dept });
+      depts.push(dept);
+      setNewDept(''); toast('Подразделение создано', 'ok'); rerender();
+    } catch (error) { toast(error.message || 'Не удалось создать подразделение', 'err'); }
   };
   const removeDept = (id) => {
     const i = depts.findIndex((d) => d.id === id); if (i >= 0) depts.splice(i, 1);
     store.employees.forEach((e) => { if (e.dept === id) e.dept = ''; });
     rerender();
   };
-  const invite = (dept, name) => {
+  const invite = async (dept, name) => {
     if (store.employees.some((e) => e.name === name && e.dept === dept.id)) return;
-    store.employees.push({ id: 'E-' + Math.floor(1000 + Math.random() * 8999), name, dept: dept.id, position: '', phone: '', email: '', doc: '—', dob: '—', inPolicy: true });
-    toast('Приглашён: ' + name, 'ok'); rerender();
+    const employee = { id: 'E-' + Math.floor(1000 + Math.random() * 8999), name, dept: dept.id, position: '', phone: '', email: '', doc: '—', dob: '—', inPolicy: true };
+    try {
+      await workspaceActionsApi.execute('company.employee.invite_manual', { resourceType: 'company', resourceId: String(companyId), payload: employee });
+      store.employees.push(employee);
+      toast('Приглашён: ' + name, 'ok'); rerender();
+    } catch (error) { toast(error.message || 'Не удалось пригласить сотрудника', 'err'); }
   };
   const removeEmp = (emp) => { const i = store.employees.findIndex((e) => e.id === emp.id); if (i >= 0) store.employees.splice(i, 1); rerender(); };
 
@@ -330,16 +339,23 @@ function TpImportDrawer({ open, kind, companyId, onClose }) {
   const toast = useToast();
   if (!open) return null;
   const isEmp = kind === 'employees';
-  const doImport = () => {
+  const doImport = async () => {
     if (isEmp) {
       const store = companyStaffStore(companyId);
       let target = store.departments[0];
       if (!target) { target = { id: 'd' + Date.now(), name: 'Импортированные', head: '', policy: '' }; store.departments.push(target); }
-      ['Импортов Импорт А.', 'Импортов Импорт Б.'].forEach((n) => {
+      const names = ['Импортов Импорт А.', 'Импортов Импорт Б.'];
+      try {
+        await workspaceActionsApi.execute('company.employees.import_manual', { resourceType: 'company', resourceId: String(companyId), payload: { department: target, names } });
+      } catch (error) { toast(error.message || 'Не удалось импортировать сотрудников', 'err'); return; }
+      names.forEach((n) => {
         if (!store.employees.some((e) => e.name === n && e.dept === target.id)) store.employees.push({ id: 'E-' + Math.floor(1000 + Math.random() * 8999), name: n, dept: target.id, position: '', phone: '', email: '', doc: '—', dob: '—', inPolicy: true });
       });
       toast('Сотрудники импортированы в «' + target.name + '»', 'ok');
     } else {
+      try {
+        await workspaceActionsApi.execute('company.travel_policy.import_manual', { resourceType: 'company', resourceId: String(companyId), payload: { source: 'document_upload_placeholder' } });
+      } catch (error) { toast(error.message || 'Не удалось импортировать тревел-политику', 'err'); return; }
       toast('Тревел-политика импортирована из документа', 'ok');
     }
     onClose();
@@ -377,12 +393,15 @@ function TravelPolicyBlock({ co }) {
     if (pol.scope !== base.scope || pol.scopeValue !== base.scopeValue) out.push('Область применения');
     return out;
   };
-  const save = () => {
+  const save = async () => {
     const fields = diffFields();
     if (!fields.length) { toast('Изменений нет', 'info'); return; }
-    store.policy = JSON.parse(JSON.stringify(pol));
-    store.history.push({ date: window.cfNow ? window.cfNow() : new Date().toLocaleString('ru-RU'), user: (CURRENT_USER && CURRENT_USER.name) || 'Оператор', title: 'Изменение тревел-политики', fields });
-    toast('Тревел-политика сохранена (новая версия)', 'ok');
+    try {
+      await workspaceActionsApi.execute('company.travel_policy.update', { resourceType: 'company', resourceId: String(co.id), payload: { policy: pol, fields } });
+      store.policy = JSON.parse(JSON.stringify(pol));
+      store.history.push({ date: window.cfNow ? window.cfNow() : new Date().toLocaleString('ru-RU'), user: (CURRENT_USER && CURRENT_USER.name) || 'Оператор', title: 'Изменение тревел-политики', fields });
+      toast('Тревел-политика сохранена (новая версия)', 'ok');
+    } catch (error) { toast(error.message || 'Не удалось сохранить тревел-политику', 'err'); }
   };
 
   const deptNames = departmentsFor(co.id).map((d) => d.name);

@@ -6,6 +6,7 @@ import { companyStaffStore } from './data/access-control';
 import { nowStamp } from './data/service-cards';
 import { UnifiedDocumentDrawer, UnifiedPersonFields, ufBlankPerson, ufFullName, ufValidatePerson } from './forms_unified';
 import { PanelSub, StackPanel } from './components/shared-panels';
+import { workspaceActionsApi } from './api/resources';
 
 
 
@@ -399,11 +400,16 @@ function PaxUnifyPanel({ list, orderNo, autoBind, onClose, onApplyRoster }) {
   const header = tpl.columns.map((c) => c.label);
   const rows = pax.map((p, pi) => tpl.columns.map((c) => cellVal(pi, p, c)));
 
-  const doExport = (fmt) => {
+  const doExport = async (fmt) => {
     const baseName = 'Список_пассажиров_' + (tpl.bindTo || tpl.name).replace(/[^\wА-Яа-яЁё-]+/g, '_') + (orderNo ? '_заказ_' + orderNo : '');
     const real = paxExport(fmt, tpl, header, rows, baseName);
     if (real) toast('Список выгружен: ' + fmt + ' · шаблон «' + tpl.name + '»', 'ok');
-    else if (fmt === 'API') toast('Список передан по API поставщику «' + (tpl.bindTo || tpl.name) + '»', 'ok');
+    else if (fmt === 'API') {
+      try {
+        await workspaceActionsApi.execute('passengers.roster.export_manual', { resourceType: 'order', resourceId: String(orderNo || ''), payload: { supplier: tpl.bindTo || tpl.name, format: fmt, rows } });
+        toast('Создана ручная задача передачи списка поставщику «' + (tpl.bindTo || tpl.name) + '»', 'ok');
+      } catch (error) { toast(error.message || 'Не удалось создать задачу передачи списка', 'err'); }
+    }
     else toast(fmt + ' формируется на стороне сервера и придёт в «Документы»', 'info');
   };
   const saveTpl = (t) => { setUserTpls((cur) => [...cur.filter((x) => x.id !== t.id), t]); setTplId(t.id); };
@@ -411,8 +417,13 @@ function PaxUnifyPanel({ list, orderNo, autoBind, onClose, onApplyRoster }) {
 
   const pickFile = () => fileRef.current && fileRef.current.click();
   const onFile = (e) => { const f = e.target.files && e.target.files[0]; if (e.target) e.target.value = ''; if (!f) return; setUploadName(f.name); setIncoming(simulateIncomingList(list)); };
-  const applyMerge = (newRoster, summary) => {
-    onApplyRoster && onApplyRoster(newRoster);
+  const applyMerge = async (newRoster, summary) => {
+    try {
+      if (onApplyRoster) await onApplyRoster(newRoster);
+    } catch (error) {
+      toast(error.message || 'Не удалось сохранить список', 'err');
+      return;
+    }
     const store = (typeof PAX_MERGE_HISTORY !== 'undefined') ? PAX_MERGE_HISTORY : {};
     (store[orderNo] || (store[orderNo] = [])).unshift({ at: paxStamp(), user: (typeof CURRENT_USER !== 'undefined' && CURRENT_USER.name) || 'Оператор', ...summary });
     setIncoming(null);
@@ -851,7 +862,7 @@ function GroupNewMemberForm({ subgroups, defaultSub, companyId, companyName, onC
   const [subgroup, setSubgroup] = useState(defaultSub || '');
   const [toCompany, setToCompany] = useState(false);
   const [docFor, setDocFor] = useState(false);
-  const save = () => {
+  const save = async () => {
     const er = ufValidatePerson(p);
     setErrs(er);
     if (Object.keys(er).length) { toast('Проверьте обязательные поля', 'err'); return; }
@@ -862,6 +873,9 @@ function GroupNewMemberForm({ subgroups, defaultSub, companyId, companyName, onC
       docType: p.docType, docNo: p.docNo, docExpiry: p.docExpiry,
       phone: p.phone, email: p.email, documents: p.documents || [], subgroup, docStatus,
     };
+    try {
+      await workspaceActionsApi.execute('passenger.group.member.add', { resourceType: 'company', resourceId: String(companyId || companyName || ''), payload: { member: m, toCompany } });
+    } catch (error) { toast(error.message || 'Не удалось сохранить пассажира группы', 'err'); return; }
     onAdd(m);
     if (toCompany && companyId && typeof companyStaffStore === 'function') {
       const store = companyStaffStore(companyId);
@@ -905,7 +919,7 @@ function GroupNewMemberForm({ subgroups, defaultSub, companyId, companyName, onC
       </Drawer>
       <UnifiedDocumentDrawer open={docFor} person={{ name: ufFullName(p), citizenship: p.citizenship }}
         onClose={() => setDocFor(false)}
-        onSave={(doc) => { setP((cur) => ({ ...cur, documents: [...(cur.documents || []), doc] })); setDocFor(false); toast('Документ добавлен', 'ok'); }} />
+        onSave={(doc) => { setP((cur) => ({ ...cur, documents: [...(cur.documents || []), doc] })); setDocFor(false); toast('Документ добавлен в форму пассажира', 'info'); }} />
     </>
   );
 }
@@ -928,15 +942,26 @@ function PaxGroupsDrawer({ current = [], companyId, companyName, onAddGroup, onC
   const active = PAX_GROUPS.find((g) => g.id === activeId) || null;
   const uid = (p) => p + Math.random().toString(36).slice(2, 7);
 
-  const addToOrder = (g) => { const r = onAddGroup(g.members); toast('Группа «' + g.name + '» добавлена: +' + r.added + ' пассажиров' + (r.dup ? ' · ' + r.dup + ' уже были в заказе' : ''), 'ok'); onClose(); };
+  const addToOrder = async (g) => {
+    try {
+      const r = await onAddGroup(g.members);
+      toast('Группа «' + g.name + '» добавлена: +' + r.added + ' пассажиров' + (r.dup ? ' · ' + r.dup + ' уже были в заказе' : ''), 'ok');
+      onClose();
+    } catch (error) {
+      toast(error.message || 'Не удалось добавить группу', 'err');
+    }
+  };
   const openGroup = (g) => { setActiveId(g.id); setRenaming(false); setView('detail'); };
-  const createGroup = () => {
+  const createGroup = async () => {
     if (!name.trim()) { toast('Введите название группы', 'err'); return; }
     const members = fromOrder ? current.map((p) => ({ ...p, subgroup: '' })) : [];
     const g = { id: 'grp-' + Date.now(), name: name.trim(), kind, subgroups: [], members };
-    PAX_GROUPS.push(g);
-    toast('Группа «' + g.name + '» создана' + (members.length ? ' · ' + members.length + ' пассажиров' : ' (пустая)'), 'ok');
-    setName(''); setFromOrder(current.length > 0); openGroup(g);
+    try {
+      await workspaceActionsApi.execute('passenger.group.create', { resourceType: 'company', resourceId: String(companyId || companyName || ''), payload: g });
+      PAX_GROUPS.push(g);
+      toast('Группа «' + g.name + '» создана' + (members.length ? ' · ' + members.length + ' пассажиров' : ' (пустая)'), 'ok');
+      setName(''); setFromOrder(current.length > 0); openGroup(g);
+    } catch (error) { toast(error.message || 'Не удалось создать группу', 'err'); }
   };
 
   const removeMember = (idx) => { active.members.splice(idx, 1); rerender(); };

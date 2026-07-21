@@ -38,7 +38,7 @@ function ProcessFlow({ steps, current }) {
 }
 
 
-function NewReturnModal({ open, order, services, onClose, onCreate }) {
+function NewReturnModal({ open, order, services, participants = [], onClose, onCreate }) {
   const toast = useToast();
   const [type, setType] = useState('Возврат билета');
   const [svc, setSvc] = useState('');
@@ -52,9 +52,16 @@ function NewReturnModal({ open, order, services, onClose, onCreate }) {
   useEffect(() => { if (open) { setType('Возврат билета'); setSvc(''); setReason(''); setVoluntary(true); setPax([]); setDocs([]); setNf({ from: '', to: '', date: null, flightNo: '' }); setReqMode('request'); setConfirm(false); } }, [open]);
   if (!open) return null;
 
-  const roster = (order && order.participants && order.participants.length ? order.participants.map((n) => ({ name: n, role: '' })) : ORDER_PARTICIPANTS);
-  const svcOptions = (services && services.length ? services : ORDER_SERVICES).map((s) => `${s.kind} · ${s.title}`);
-  const base = (services || ORDER_SERVICES).find((s) => `${s.kind} · ${s.title}` === svc);
+  const roster = (participants && participants.length
+    ? participants
+    : (order && order.participants && order.participants.length ? order.participants : ORDER_PARTICIPANTS)
+  ).map((p) => (typeof p === 'string' ? { name: p, role: '' } : { ...p, id: p.serverId || p.id, name: p.name || p.person_name || p.guest_snapshot?.name || 'Участник' }));
+  const availableServices = services && services.length ? services : ORDER_SERVICES;
+  const serviceOptions = availableServices.map((s) => {
+    const id = s.serverId || s.id;
+    return { value: String(id), label: `${s.kind} · ${s.title}` };
+  });
+  const base = availableServices.find((s) => String(s.serverId || s.id) === String(svc));
   const original = base ? base.sum : 0;
   const isRefund = type === 'Возврат билета';
   const isExchange = type === 'Обмен билета';
@@ -78,8 +85,8 @@ function NewReturnModal({ open, order, services, onClose, onCreate }) {
     return true;
   };
   const submit = () => {
-    onCreate({ type, svc, reason, original, penalty, fee, refund, voluntary,
-      participants: pax.map((i) => roster[i].name), docs: docs.map((d) => d.name),
+    onCreate({ type, serviceId: svc, serviceLabel: serviceOptions.find((item) => item.value === svc)?.label || svc, reason, original, penalty, fee, refund, voluntary,
+      participantIds: pax.map((i) => roster[i].id).filter(Boolean), participants: pax.map((i) => roster[i].name), docs: docs.map((d) => d.name),
       newFlight: isExchange ? nf : null, reqMode: isExchange ? reqMode : null });
   };
 
@@ -107,7 +114,7 @@ function NewReturnModal({ open, order, services, onClose, onCreate }) {
             </button>
           ))}
         </div>
-        <Field label="Услуга"><Select placeholder="Выберите услугу заказа" options={svcOptions} value={svc} onChange={(e) => setSvc(e.target.value)} /></Field>
+        <Field label="Услуга"><Select placeholder="Выберите услугу заказа" options={serviceOptions} value={svc} onChange={(e) => setSvc(e.target.value)} /></Field>
 
 
         {(isRefund || isExchange) && (
@@ -266,15 +273,15 @@ function ReturnCard({ op, onBack, onChange }) {
   };
   const ask = (title, message, onConfirm, confirmLabel = 'Подтвердить', confirmVariant = 'danger') => setConfirm({ title, message, onConfirm, confirmLabel, confirmVariant });
   const setStatus = (s) => onChange(op.no, { status: s }, `Статус изменён: ${s}`);
-  const doAdvance = () => {
+  const doAdvance = async () => {
     const ns = nextStatus(op.status);
     if (ns === 'Завершено') {
-      onChange(op.no, { status: 'Завершено', finOp: 'F-' + Math.floor(2050 + Math.random() * 40) },
+      const updated = await onChange(op.no, { status: 'Завершено' },
         isExchange ? 'Обмен переоформлен · заказ обновлён' : 'Возврат исполнен · создана фин. операция «Возврат»');
-      toast(isExchange ? 'Обмен переоформлен, заказ обновлён' : `Создана фин. операция «Возврат» на ${rUsd(refund)} · задолженность обновлена`, 'ok');
+      if (updated) toast(isExchange ? 'Обмен переоформлен, заказ обновлён' : `Создана фин. операция «Возврат» на ${rUsd(refund)} · задолженность обновлена`, 'ok');
     } else {
-      onChange(op.no, { status: ns }, `Статус: ${ns}`);
-      toast('Статус: ' + ns, 'info');
+      const updated = await onChange(op.no, { status: ns }, `Статус: ${ns}`);
+      if (updated) toast('Статус: ' + updated.status, 'info');
     }
   };
 
@@ -442,20 +449,22 @@ function ReturnCard({ op, onBack, onChange }) {
 
 
 
-function ReturnsModule({ scopeOrder, onOpenOrder, compact, order, initialCases, orders = [] }) {
+function ReturnsModule({ scopeOrder, onOpenOrder, compact, order, initialCases, orders = [], services = [], participants = [] }) {
   const toast = useToast();
-  const contextOrders = order ? [order, ...orders.filter((item) => item.id !== order.id)] : orders;
-  const mappedCases = () => (initialCases || []).map((item) => toLegacyReturn(item, contextOrders)).filter((item) => !scopeOrder || item.order === scopeOrder);
+  const effectiveOrder = order && participants.length ? { ...order, participants } : order;
+  const contextOrders = effectiveOrder ? [effectiveOrder, ...orders.filter((item) => item.id !== effectiveOrder.id)] : orders;
+  const availableServices = services && services.length ? services : ORDER_SERVICES;
+  const mappedCases = () => (initialCases || []).map((item) => toLegacyReturn(item, contextOrders, availableServices)).filter((item) => !scopeOrder || item.order === scopeOrder);
   const [ops, setOps] = useState(mappedCases);
-  useEffect(() => { if (Array.isArray(initialCases)) setOps(mappedCases()); }, [initialCases, orders, scopeOrder, order]);
+  useEffect(() => { if (Array.isArray(initialCases)) setOps(mappedCases()); }, [initialCases, orders, scopeOrder, order, services, participants]);
   useEffect(() => {
     if (Array.isArray(initialCases) || !order?.id) return;
     const controller = new AbortController();
     aftersalesApi.list({ order: order.id }, controller.signal)
-      .then((payload) => setOps(resultsOf(payload).map((item) => toLegacyReturn(item, contextOrders))))
+      .then((payload) => setOps(resultsOf(payload).map((item) => toLegacyReturn(item, contextOrders, availableServices))))
       .catch((error) => { if (error.name !== 'AbortError') toast(error.message || 'Не удалось загрузить постпродажные операции', 'err'); });
     return () => controller.abort();
-  }, [initialCases, order?.id]);
+  }, [initialCases, order?.id, services, participants]);
   const [view, setView] = useState('list');
   const [activeNo, setActiveNo] = useState(null);
   const [newOpen, setNewOpen] = useState(false);
@@ -469,19 +478,33 @@ function ReturnsModule({ scopeOrder, onOpenOrder, compact, order, initialCases, 
   const updateOp = async (no, patch, histText) => {
     const current = ops.find((item) => item.no === no);
     if (!current || !patch.status || !current.serverId) {
-      setOps((cur) => cur.map((item) => item.no === no ? { ...item, ...patch, history: histText ? [...item.history, { t: 'сейчас', text: histText, who: 'Даниель' }] : item.history } : item));
-      return;
+      const local = current ? { ...current, ...patch, history: histText ? [...current.history, { t: 'сейчас', text: histText, who: 'Даниель' }] : current.history } : null;
+      setOps((cur) => cur.map((item) => item.no === no ? local : item));
+      return local;
     }
     const target = { 'Создано': 'created', 'На проверке': 'review', 'Ожидает согласования клиента': 'awaiting_client_approval', 'Передано поставщику': 'submitted_to_supplier', 'В обработке': 'processing', 'Завершено': 'completed', 'Отменено': 'cancelled', 'Отклонено': 'rejected' }[patch.status];
     try {
-      const updated = target === 'completed'
-        ? await aftersalesApi.execute(current.serverId, { manual_exception: true })
-        : target === 'cancelled'
-          ? await aftersalesApi.cancel(current.serverId, histText || 'Отменено оператором')
-          : await aftersalesApi.transition(current.serverId, target, histText || '');
-      const mapped = { ...current, ...toLegacyReturn(updated, contextOrders) };
+      let updated;
+      if (target === 'completed') {
+        updated = await aftersalesApi.execute(current.serverId, current.currentQuoteVersion ? {} : { manual_exception: true, reason: histText || 'Исключение подтверждено оператором' });
+      } else if (target === 'cancelled') {
+        updated = await aftersalesApi.cancel(current.serverId, histText || 'Отменено оператором');
+      } else if (target === 'awaiting_client_approval') {
+        updated = await aftersalesApi.sendForApproval(current.serverId);
+      } else if (target === 'submitted_to_supplier' && ['Возврат билета', 'Обмен билета'].includes(current.type)) {
+        let approvalCase = current;
+        if (current.status !== 'Ожидает согласования клиента') {
+          approvalCase = toLegacyReturn(await aftersalesApi.sendForApproval(current.serverId), contextOrders, availableServices);
+        }
+        if (approvalCase.currentQuoteVersion) await aftersalesApi.clientApprove(current.serverId, approvalCase.currentQuoteVersion);
+        updated = await aftersalesApi.submit(current.serverId);
+      } else {
+        updated = await aftersalesApi.transition(current.serverId, target, histText || '');
+      }
+      const mapped = { ...current, ...toLegacyReturn(updated, contextOrders, availableServices) };
       setOps((items) => items.map((item) => item.no === no ? mapped : item));
-    } catch (error) { toast(error.message || 'Не удалось изменить статус', 'err'); }
+      return mapped;
+    } catch (error) { toast(error.message || 'Не удалось изменить статус', 'err'); return null; }
   };
   const createOp = async (d) => {
     const selectedOrder = order || orders.find((item) => item.no === scopeOrder) || orders[0];
@@ -489,8 +512,37 @@ function ReturnsModule({ scopeOrder, onOpenOrder, compact, order, initialCases, 
     const parts = d.participants && d.participants.length ? d.participants : ['—'];
     const kinds = { 'Возврат билета': 'refund', 'Обмен билета': 'exchange', 'Аннуляция бронирования': 'cancellation', 'Оформление справки': 'certificate' };
     try {
-      const created = await aftersalesApi.create({ order: selectedOrder.id, type: kinds[d.type] || 'refund', initiator: 'operator', currency: 'USD' });
-      const np = { ...toLegacyReturn(created, contextOrders), participants: parts };
+      const created = await aftersalesApi.create({
+        order: selectedOrder.id,
+        service: d.serviceId || null,
+        participants: d.participantIds?.length ? d.participantIds : undefined,
+        type: kinds[d.type] || 'refund',
+        initiator: 'operator',
+        currency: 'USD',
+        external_references: {
+          reason: d.reason || '',
+          voluntary: d.voluntary,
+          requested_documents: d.docs || [],
+          new_flight: d.newFlight || null,
+          exchange_mode: d.reqMode || null,
+        },
+      });
+      let detail = created;
+      if (['Возврат билета', 'Обмен билета'].includes(d.type)) {
+        await aftersalesApi.quote(created.id, {
+          currency: 'USD',
+          original_paid: String(d.original || 0),
+          supplier_penalty: String(d.penalty || 0),
+          agency_service_fee: String(d.fee || 0),
+          other_withholdings: '0',
+          old_itinerary: d.serviceLabel ? { service: d.serviceLabel } : null,
+          new_itinerary: d.newFlight || null,
+          exchange_difference: d.type === 'Обмен билета' ? String(d.refund || 0) : null,
+          details: { reason: d.reason || '', voluntary: d.voluntary },
+        });
+        detail = await aftersalesApi.detail(created.id);
+      }
+      const np = { ...toLegacyReturn(detail, contextOrders, availableServices), participants: parts };
       setOps((cur) => [np, ...cur]); setNewOpen(false); setActiveNo(np.no); setView('card');
       toast(np.no + ' создан', 'ok', { title: 'Запрос оформлен', action: { label: 'Открыть «Возвраты и обмены»', route: 'returns' } });
     } catch (error) { toast(error.message, 'err'); }
@@ -499,7 +551,7 @@ function ReturnsModule({ scopeOrder, onOpenOrder, compact, order, initialCases, 
   if (view === 'card' && active) return (
     <>
       <ReturnCard op={active} onBack={() => setView('list')} onChange={updateOp} />
-      <NewReturnModal open={newOpen} order={order} services={ORDER_SERVICES} onClose={() => setNewOpen(false)} onCreate={createOp} />
+      <NewReturnModal open={newOpen} order={order} services={availableServices} participants={participants} onClose={() => setNewOpen(false)} onCreate={createOp} />
     </>
   );
 
@@ -527,7 +579,7 @@ function ReturnsModule({ scopeOrder, onOpenOrder, compact, order, initialCases, 
         {activeReturns.length > 0 && <><div className="kp-sec-h">Активные возвраты</div>{activeReturns.map(Row)}</>}
         {activeExch.length > 0 && <><div className="kp-sec-h">Активные обмены</div>{activeExch.map(Row)}</>}
         {done.length > 0 && <><div className="kp-sec-h">История завершённых</div>{done.map(Row)}</>}
-        <NewReturnModal open={newOpen} order={order} services={ORDER_SERVICES} onClose={() => setNewOpen(false)} onCreate={createOp} />
+        <NewReturnModal open={newOpen} order={order} services={availableServices} participants={participants} onClose={() => setNewOpen(false)} onCreate={createOp} />
       </div>
     );
   }
@@ -541,7 +593,16 @@ function ReturnsModule({ scopeOrder, onOpenOrder, compact, order, initialCases, 
   const STATS = [['Активные', activeCount], ['Возвраты', ops.filter((o) => o.type === 'Возврат билета').length], ['Обмены', ops.filter((o) => o.type === 'Обмен билета').length], ['Сумма к возврату', rUsd(ops.reduce((s, o) => s + (o.status !== 'Отклонено' && o.status !== 'Отменено' ? calcRefund(o.fin) : 0), 0))]];
 
   const toggleSel = (no) => setSel((s) => s.includes(no) ? s.filter((x) => x !== no) : [...s, no]);
-  const bulkAdvance = () => { setOps((cur) => cur.map((o) => sel.includes(o.no) && !isTerminal(o.status) && o.status !== 'Завершено' ? { ...o, status: nextStatus(o.status) } : o)); toast(`Переведено операций: ${sel.length}`, 'ok'); setSel([]); };
+  const bulkAdvance = async () => {
+    let done = 0;
+    for (const item of ops) {
+      if (!sel.includes(item.no) || isTerminal(item.status) || item.status === 'Завершено') continue;
+      const updated = await updateOp(item.no, { status: nextStatus(item.status) }, 'Массовый перевод на следующий этап');
+      if (updated) done += 1;
+    }
+    toast(`Переведено операций: ${done}`, done === sel.length ? 'ok' : 'warn');
+    setSel([]);
+  };
 
   return (
     <div className="fade-in">
@@ -603,7 +664,7 @@ function ReturnsModule({ scopeOrder, onOpenOrder, compact, order, initialCases, 
           </table>
         ) : <EmptyState icon="refund" title="Операций не найдено" sub="Измените фильтры или создайте запрос" />}
       </div>
-      <NewReturnModal open={newOpen} order={order} services={ORDER_SERVICES} onClose={() => setNewOpen(false)} onCreate={createOp} />
+      <NewReturnModal open={newOpen} order={order} services={availableServices} participants={participants} onClose={() => setNewOpen(false)} onCreate={createOp} />
     </div>
   );
 }

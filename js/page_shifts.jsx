@@ -107,9 +107,16 @@ function MotivationDrawer({ open, operator, onClose }) {
 
   const setBase = (k, v) => setMot((m) => ({ ...m, base: { ...m.base, [k]: v } }));
   const setSvc = (svc, k, v) => setMot((m) => ({ ...m, perService: { ...m.perService, [svc]: { ...(m.perService[svc] || m.base), [k]: v } } }));
-  const save = () => {
-    OPERATOR_MOTIVATION[operator] = JSON.parse(JSON.stringify(mot));
-    toast('Мотивация оператора сохранена', 'ok'); onClose();
+  const save = async () => {
+    try {
+      await workspaceActionsApi.execute('operator.motivation.update', {
+        resourceType: 'operator',
+        resourceId: String(operator),
+        payload: { motivation: mot },
+      });
+      OPERATOR_MOTIVATION[operator] = JSON.parse(JSON.stringify(mot));
+      toast('Мотивация оператора сохранена', 'ok'); onClose();
+    } catch (error) { toast(error.message || 'Не удалось сохранить мотивацию', 'err'); }
   };
   const pctInput = (val, onCh) => (
     <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>

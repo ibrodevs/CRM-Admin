@@ -660,12 +660,12 @@ function OrderCreateModal({ open, onClose, onCreated, initialGroup = false, clie
       {cityPick && <CityPickPanel value={pts[cityPick.idx]}
         onClose={() => setCityPick(null)}
         onPick={(code) => { setPts((p) => { const n = [...p]; n[cityPick.idx] = code; return n; }); setCityPick(null); }} />}
-      {docFor && <DocumentPanel client={docFor} onClose={() => setDocFor(null)} onSave={() => { toast('Документ добавлен', 'ok'); setDocFor(null); }} />}
-      {bonusFor && <BonusCardPanel client={bonusFor} onClose={() => setBonusFor(null)} onSave={() => { toast('Бонусная карта добавлена', 'ok'); setBonusFor(null); }} />}
+      {docFor && <DocumentPanel client={docFor} onClose={() => setDocFor(null)} onSave={() => { toast('Документы загружаются после создания backend-заказа', 'warn'); setDocFor(null); }} />}
+      {bonusFor && <BonusCardPanel client={bonusFor} onClose={() => setBonusFor(null)} onSave={() => { toast('Бонусные карты пока доступны только как справочная информация клиента', 'warn'); setBonusFor(null); }} />}
       {empPick && <EmployeePanel company={company} selected={employees} onClose={() => setEmpPick(false)} onApply={(list) => { setEmployees(list); setEmpPick(false); }} />}
       <UnifiedPersonDrawer open={newPerson} kind="person" mode="create"
         onClose={() => setNewPerson(false)}
-        onSave={(person, client) => { setSelClients((l) => [...l, client]); setNewPerson(false); toast('Физическое лицо добавлено в заказ', 'ok'); }} />
+        onSave={(person, client) => { setSelClients((l) => [...l, client]); setNewPerson(false); toast('Физическое лицо добавлено в черновик заказа', 'info'); }} />
     </>
   );
 }
@@ -796,7 +796,7 @@ function EmployeePanel({ company, selected, onApply, onClose }) {
     const c = ufToClient(np);
     const emp = { id: c.id, name: c.name, phone: np.phone || '—', email: np.email || '', doc: np.docNo || '—', dob: np.dob || '—', dept: np.dept, position: np.position, inPolicy: np.inPolicy, documents: np.documents || [] };
     setExtra((l) => [...l, emp]); setPicked((p) => [...p, emp.id]); setNewMode(false);
-    toast('Сотрудник «' + emp.name + '» добавлен', 'ok');
+    toast('Сотрудник «' + emp.name + '» добавлен в подбор для черновика', 'info');
   };
   return (
     <StackPanel title={newMode ? 'Новый сотрудник' : 'Выбор сотрудников'} onClose={onClose}

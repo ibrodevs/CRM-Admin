@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { Icon } from './icons';
 import { ActionMenu, Avatar, Button, Checkbox, ConfirmDialog, Drawer, Field, Input, ModalHeader, Pill, Select, Tabs, Toggle, useToast } from './ui';
-import { CURRENCIES, ORG_TYPE, PERMISSIONS, ROLES, USERS, USER_STATUS } from './data';
-import { OPERATOR_SLA, operatorSla } from './data/access-control';
+import { CURRENCIES, ORG_TYPE, USER_STATUS } from './data';
+import { operatorSla } from './data/access-control';
 import { Topbar } from './layout';
 import { ExtrasCatalogModal } from './order_ops';
 import { ErrorCodesDrawer } from './page_notifications';
@@ -12,6 +12,15 @@ import { ServiceAccessEditor } from './features/settings/service-access-editor';
 import { notificationsApi, usersApi, workspaceActionsApi, workspaceSettingsApi } from './api/resources';
 import { toLegacyUser } from './api/legacy-adapters';
 
+const ROLE_LABEL = { admin: 'Админ', operator: 'Оператор', accountant: 'Бухгалтер', manager: 'Менеджер' };
+const PERMISSION_GROUPS = [
+  { group: 'Заказы', items: [['orders.view', 'Просмотр заказов'], ['orders.create', 'Создание заказов'], ['orders.change', 'Изменение заказов'], ['orders.delete', 'Архивация заказов'], ['orders.reassign', 'Переназначение ответственного'], ['orders.change_status', 'Смена статуса заказа']] },
+  { group: 'Услуги и КП', items: [['services.search', 'Поиск услуг'], ['services.book', 'Бронирование'], ['services.issue', 'Выписка'], ['services.exchange', 'Обмен'], ['services.refund', 'Возврат'], ['services.cancel', 'Аннуляция'], ['services.correct_document', 'Корректировка документов'], ['services.send_document', 'Отправка документов'], ['offers.view', 'Просмотр КП'], ['offers.create', 'Создание КП'], ['offers.change', 'Изменение КП'], ['offers.send', 'Отправка КП'], ['offers.approve', 'Согласование КП'], ['offers.archive', 'Архивация КП'], ['offers.manage_templates', 'Шаблоны КП']] },
+  { group: 'Финансы', items: [['finance.view', 'Просмотр финансов'], ['finance.create_payment', 'Создание платежа'], ['finance.approve_payment', 'Подтверждение платежа'], ['finance.refund', 'Проведение возврата'], ['finance.reconcile', 'Сверка'], ['finance.export', 'Экспорт финансовых данных']] },
+  { group: 'Документы', items: [['documents.view', 'Просмотр документов'], ['documents.view_sensitive', 'Паспортные и банковские документы'], ['documents.upload', 'Загрузка документов'], ['documents.generate', 'Генерация документов'], ['documents.sign', 'Подписание документов'], ['documents.void', 'Аннулирование документов'], ['documents.send', 'Отправка документов']] },
+  { group: 'CRM и коммуникации', items: [['crm.view', 'Просмотр клиентов и компаний'], ['crm.change', 'Изменение клиентов и компаний'], ['crm.view_person_documents', 'Полные паспортные данные'], ['crm.force_create_duplicate', 'Создание дубля лица'], ['communications.view_internal', 'Внутренние чаты'], ['communications.view_client', 'Клиентские чаты'], ['communications.send', 'Отправка сообщений'], ['communications.moderate', 'Модерация сообщений']] },
+  { group: 'Администрирование', items: [['suppliers.view', 'Просмотр поставщиков'], ['suppliers.change', 'Изменение поставщиков'], ['suppliers.manage_credentials', 'API-доступы поставщиков'], ['suppliers.manage_markup', 'Правила наценок'], ['users.manage', 'Пользователи'], ['roles.manage', 'Роли'], ['settings.manage', 'Настройки'], ['integrations.manage', 'Интеграции'], ['audit.view', 'Аудит']] },
+];
 
 
 function CurrencyModal({ open, onClose }) {
@@ -186,8 +195,14 @@ function AddUserDrawer({ open, onClose, onCreated }) {
   const empty = { name: '', email: '', role: '', phone: '', status: 'Активный' };
   const [f, setF] = useState(empty);
   const [errs, setErrs] = useState({});
+  const [roles, setRoles] = useState([]);
   const set = (k) => (e) => setF((p) => ({ ...p, [k]: e.target ? e.target.value : e }));
-  useEffect(() => { if (open) { setF(empty); setErrs({}); } }, [open]);
+  useEffect(() => {
+    if (open) {
+      setF(empty); setErrs({});
+      usersApi.roles().then(setRoles).catch((error) => toast(error.message || 'Не удалось загрузить роли', 'err'));
+    }
+  }, [open]);
   const submit = async () => {
     const er = {};
     if (!f.name.trim()) er.name = 'Введите ФИО';
@@ -203,10 +218,10 @@ function AddUserDrawer({ open, onClose, onCreated }) {
         last_name: parts.shift() || '', first_name: parts.shift() || '', middle_name: parts.join(' '),
         timezone: 'Asia/Bishkek', language: 'ru',
       });
-      const role = { 'Админ': 'admin', 'Оператор': 'operator', 'Бухгалтер': 'accountant', 'Менеджер': 'manager' }[f.role];
-      if (role) await usersApi.setRoles(created.id, [role]);
+      const role = roles.find((item) => (ROLE_LABEL[item.code] || item.name) === f.role);
+      if (role) await usersApi.setRoles(created.id, [role.code]);
       await usersApi.invite(created.id);
-      onCreated?.({ ...created, roles: role ? [role] : created.roles });
+      onCreated?.({ ...created, roles: role ? [role.code] : created.roles });
       toast('Пользователь добавлен, приглашение создано', 'ok'); onClose();
     } catch (error) {
       toast(error.message || 'Не удалось добавить пользователя', 'err');
@@ -219,7 +234,7 @@ function AddUserDrawer({ open, onClose, onCreated }) {
         <div className="full"><Field label="ФИО" required error={errs.name}><Input placeholder="Введите ФИО" value={f.name} onChange={set('name')} error={errs.name} /></Field></div>
         <Field label="E-mail" required error={errs.email}><Input placeholder="mail@example.com" value={f.email} onChange={set('email')} error={errs.email} /></Field>
         <Field label="Телефон"><Input placeholder="+996 (___) __-__-__" value={f.phone} onChange={set('phone')} /></Field>
-        <Field label="Роль" required error={errs.role}><Select placeholder="Выберите роль" options={['Админ', 'Оператор', 'Бухгалтер', 'Менеджер']} value={f.role} onChange={set('role')} error={errs.role} /></Field>
+        <Field label="Роль" required error={errs.role}><Select placeholder="Выберите роль" options={roles.map((role) => ROLE_LABEL[role.code] || role.name)} value={f.role} onChange={set('role')} error={errs.role} /></Field>
         <Field label="Статус"><Select options={['Активный', 'Заблокированный']} value={f.status} onChange={set('status')} /></Field>
       </div>
     </Drawer>
@@ -297,7 +312,7 @@ function UsersTab({ onAdd, users = [], onUsersChange }) {
   const changeRole = async (user) => {
     try {
       const roles = await usersApi.roles();
-      const code = window.prompt(`Код роли (${roles.map((role) => role.code).join(', ')})`, roles.find((role) => role.name === user.role)?.code || 'operator');
+      const code = window.prompt(`Код роли (${roles.map((role) => role.code).join(', ')})`, roles.find((role) => (ROLE_LABEL[role.code] || role.name) === user.role)?.code || 'operator');
       if (!code) return;
       if (!roles.some((role) => role.code === code)) throw new Error('Неизвестный код роли');
       await usersApi.setRoles(user.serverId, [code]);
@@ -346,42 +361,62 @@ function UsersTab({ onAdd, users = [], onUsersChange }) {
 
 function RolesTab() {
   const toast = useToast();
-  const [matrix, setMatrix] = useState(PERMISSIONS);
-  const toggle = (gi, ii, ri) => {
-    if (ri === 0) return;
-    setMatrix((m) => m.map((g, x) => x !== gi ? g : { ...g, items: g.items.map((it, y) => y !== ii ? it : { ...it, r: it.r.map((v, z) => z === ri ? (v ? 0 : 1) : v) }) }));
+  const [roles, setRoles] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const loadRoles = () => {
+    setLoading(true);
+    usersApi.roles()
+      .then((rows) => setRoles(rows))
+      .catch((error) => toast(error.message || 'Не удалось загрузить роли', 'err'))
+      .finally(() => setLoading(false));
   };
-  useEffect(() => { workspaceSettingsApi.get('role-permissions').then((data) => { if (Array.isArray(data.value?.matrix)) setMatrix(data.value.matrix); }).catch(() => {}); }, []);
-  const save = async () => { try { await workspaceSettingsApi.save('role-permissions', { matrix }); toast('Права сохранены в backend', 'ok'); } catch (error) { toast(error.message || 'Не удалось сохранить права', 'err'); } };
+  const toggle = (roleId, code) => {
+    setRoles((current) => current.map((role) => {
+      if (role.id !== roleId || role.code === 'admin') return role;
+      const enabled = role.permissions.includes(code);
+      return { ...role, permissions: enabled ? role.permissions.filter((item) => item !== code) : [...role.permissions, code].sort() };
+    }));
+  };
+  useEffect(loadRoles, []);
+  const save = async () => {
+    try {
+      const saved = await Promise.all(roles.filter((role) => role.code !== 'admin').map((role) => usersApi.updateRole(role.id, role.permissions)));
+      setRoles((current) => current.map((role) => saved.find((item) => item.id === role.id) || role));
+      toast('Права ролей сохранены в RBAC', 'ok');
+    } catch (error) { toast(error.message || 'Не удалось сохранить права', 'err'); }
+  };
   return (
     <div className="fade-in">
       <div style={{ display: 'flex', alignItems: 'center', marginBottom: 16 }}>
         <span style={{ color: 'var(--muted)', fontSize: 14 }}>Матрица прав доступа по ролям · «Админ» всегда имеет полный доступ</span>
-        <div style={{ flex: 1 }} /><Button variant="secondary" icon="check" onClick={save}>Сохранить</Button>
+        <div style={{ flex: 1 }} /><Button variant="secondary" icon="settings" onClick={loadRoles} disabled={loading}>Обновить</Button><Button variant="secondary" icon="check" onClick={save} disabled={loading}>Сохранить</Button>
       </div>
       <div className="table-card">
         <table className="tbl">
-          <thead><tr><th style={{ minWidth: 260 }}>Право доступа</th>{ROLES.map((r) => <th key={r} style={{ textAlign: 'center' }}>{r}</th>)}</tr></thead>
+          <thead><tr><th style={{ minWidth: 280 }}>Право доступа</th>{roles.map((role) => <th key={role.id} style={{ textAlign: 'center' }}>{ROLE_LABEL[role.code] || role.name}</th>)}</tr></thead>
           <tbody>
-            {matrix.map((g, gi) => (
+            {PERMISSION_GROUPS.map((g) => (
               <React.Fragment key={g.group}>
-                <tr><td colSpan={5} style={{ background: 'var(--surface-2)', fontWeight: 700, color: 'var(--ink)', fontSize: 13 }}>{g.group}</td></tr>
-                {g.items.map((it, ii) => (
-                  <tr key={it.k}>
-                    <td>{it.k}</td>
-                    {it.r.map((v, ri) => (
-                      <td key={ri} style={{ textAlign: 'center' }}>
+                <tr><td colSpan={roles.length + 1} style={{ background: 'var(--surface-2)', fontWeight: 700, color: 'var(--ink)', fontSize: 13 }}>{g.group}</td></tr>
+                {g.items.map(([code, label]) => (
+                  <tr key={code}>
+                    <td>{label}</td>
+                    {roles.map((role) => {
+                      const enabled = role.code === 'admin' || role.permissions.includes(code);
+                      return (
+                      <td key={role.id} style={{ textAlign: 'center' }}>
                         <span style={{ display: 'inline-flex', justifyContent: 'center' }}>
-                          {ri === 0
+                          {role.code === 'admin'
                             ? <span className="checkbox on" style={{ opacity: .55, cursor: 'default' }}><Icon name="check" strokeWidth={3} /></span>
-                            : <Checkbox on={!!v} onChange={() => toggle(gi, ii, ri)} />}
+                            : <Checkbox on={enabled} onChange={() => toggle(role.id, code)} />}
                         </span>
                       </td>
-                    ))}
+                    ); })}
                   </tr>
                 ))}
               </React.Fragment>
             ))}
+            {!roles.length && <tr><td colSpan={2} className="t-muted">{loading ? 'Загрузка ролей…' : 'Роли не найдены'}</td></tr>}
           </tbody>
         </table>
       </div>
@@ -396,9 +431,9 @@ function SettingsPage({ users = [], onUsersChange }) {
   const groups = [
     { title: 'Курсы валют', items: [['Изменить курс валют', () => setModal('currency')], ['Добавить / удалить валюту', () => setModal('currency')]] },
     { title: 'Общие настройки', items: [['Настройки уведомления', () => setModal('notif')]] },
-    { title: 'API / интеграции', items: [['Доступы к API', () => setModal('apiaccess')], ['Сгенерировать API ключ', () => setModal('apikey')], ['Коды ошибок интеграций', () => setModal('errcodes')], ['Убрать доступ к API', () => setModal('apiaccess')], ['Настройки SLA', () => toast('Настройки SLA', 'info')]] },
-    { title: 'Шаблоны документов', items: [['Добавить шаблон', () => toast('Добавление шаблона', 'info')], ['Изменить шаблон', () => toast('Изменение шаблона', 'info')]] },
-    { title: 'Справочники', items: [['Аэропорты и города', () => toast('Справочник', 'info')], ['Типы услуг', () => toast('Справочник', 'info')], ['Справочник доп. услуг', () => setModal('extras')]] },
+    { title: 'API / интеграции', items: [['Доступы к API', () => setModal('apiaccess')], ['Сгенерировать API ключ', () => setModal('apikey')], ['Коды ошибок интеграций', () => setModal('errcodes')], ['Убрать доступ к API', () => setModal('apiaccess')], ['Настройки SLA', () => setTab('users')]] },
+    { title: 'Шаблоны документов', items: [['Добавить шаблон', () => toast('Backend-операция шаблонов документов пока не подключена', 'warn')], ['Изменить шаблон', () => toast('Backend-операция шаблонов документов пока не подключена', 'warn')]] },
+    { title: 'Справочники', items: [['Аэропорты и города', () => toast('Справочник аэропортов пока доступен только для чтения', 'warn')], ['Типы услуг', () => toast('Справочник типов услуг пока доступен только для чтения', 'warn')], ['Справочник доп. услуг', () => setModal('extras')]] },
     { title: 'Карточки услуг', items: [['Настройки карточек услуг', () => setModal('cardadmin')], ['Видимость полей для клиента', () => setModal('cardvis')]] },
   ];
   const TABS = [{ key: 'users', label: 'Пользователи', count: users.length }, { key: 'roles', label: 'Роли и права' }, { key: 'params', label: 'Параметры системы' }];

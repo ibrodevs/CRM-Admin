@@ -8,6 +8,12 @@ const serviceStatus = { searching: 'Поиск', proposed: 'Предложено
 
 function orderFor(orders, id) { return orders.find((order) => order.id === id); }
 function date(value) { return value ? new Date(value).toLocaleDateString('ru-RU') : '—'; }
+function idOf(item) { return item && (item.serverId || item.id || item); }
+function nameOfParticipant(participant) {
+  if (!participant) return '';
+  if (typeof participant === 'string') return participant;
+  return participant.name || participant.person_name || participant.guest_snapshot?.name || participant.guest_snapshot?.full_name || '';
+}
 
 export function toLegacyProposal(item, orders = []) {
   const order = orderFor(orders, item.order);
@@ -35,9 +41,17 @@ export function toLegacyProposal(item, orders = []) {
   };
 }
 
-export function toLegacyReturn(item, orders = []) {
+export function toLegacyReturn(item, orders = [], services = []) {
   const order = orderFor(orders, item.order);
+  const service = services.find((row) => String(idOf(row)) === String(item.service));
+  const quote = (item.quotes || []).find((row) => String(row.id) === String(item.current_quote)) || (item.quotes || []).slice(-1)[0];
   const snapshot = item.financial_snapshot || {};
+  const finSource = quote || snapshot;
+  const participantIds = (item.participants || []).map(String);
+  const participantNames = participantIds.map((id) => {
+    const found = (order?.participants || []).find((participant) => String(idOf(participant)) === id);
+    return nameOfParticipant(found);
+  }).filter(Boolean);
   return {
     ...item,
     serverId: item.id,
@@ -46,21 +60,26 @@ export function toLegacyReturn(item, orders = []) {
     order: order?.no || item.order,
     client: order?.client || '—',
     type: returnType[item.type] || item.type,
-    service: item.service || '—',
-    supplier: item.supplier || '—',
+    serviceId: item.service || null,
+    service: service ? `${service.kind} · ${service.title}` : (item.service || '—'),
+    supplier: service?.supplier || item.supplier || '—',
     initiator: item.initiator === 'client' ? 'Клиент' : 'Оператор',
     resp: item.responsible_name || order?.operator || '—',
     status: returnStatus[item.status] || item.status,
     created: date(item.created_at),
     deadline: date(item.deadline),
-    participants: [], documents: [], history: [],
+    participants: participantNames,
+    documents: [],
+    history: [],
+    currentQuoteVersion: quote?.quote_version || item.client_approved_quote_version || null,
     fin: {
-      original: Number(snapshot.original_paid || 0),
-      supplierPenalty: Number(snapshot.supplier_penalty || 0),
-      serviceFee: Number(snapshot.agency_service_fee || 0),
-      extraHold: Number(snapshot.other_withholdings || 0),
-      refund: Number(snapshot.refund_total || 0),
+      original: Number(finSource.original_paid || 0),
+      supplierPenalty: Number(finSource.supplier_penalty || 0),
+      serviceFee: Number(finSource.agency_service_fee || 0),
+      extraHold: Number(finSource.other_withholdings || 0),
+      refund: Number(finSource.refund_total || snapshot.result || 0),
     },
+    finOp: snapshot.refund_id || snapshot.obligation_id || null,
   };
 }
 
@@ -101,10 +120,32 @@ export function toLegacyOrderService(item) {
     date: item.starts_at ? new Date(item.starts_at).toLocaleString('ru-RU') : '—',
     sum: Number(item.client_total || 0),
     currency: item.currency || 'USD',
+    passengers: (item.passengers || []).map((row) => row.name).filter(Boolean),
+    participantIds: (item.passengers || []).map((row) => row.participant).filter(Boolean),
     calc: { tariff: Number(item.supplier_cost || 0), taxes: Number(item.taxes || 0), fee: Number(item.agency_fee || 0), markup: Number(item.markup || 0), commission: Number(item.commission || 0), discount: Number(item.discount || 0) },
   };
 }
 
 export function toLegacyParticipant(item) {
-  return { ...item, serverId: item.id, id: item.id, name: item.person_name || item.guest_snapshot?.full_name || 'Участник', role: item.role === 'traveler' ? 'Взрослый' : item.role, doc: item.booking_document || '—', docStatus: item.booking_document ? 'ok' : 'missing' };
+  const snapshot = item.guest_snapshot || {};
+  const documents = snapshot.documents || item.documents || [];
+  const primaryDoc = documents[0] || {};
+  const docNo = item.booking_document || primaryDoc.docNo || primaryDoc.no || primaryDoc.number || snapshot.document || '';
+  return {
+    ...item,
+    serverId: item.id,
+    id: item.id,
+    name: item.person_name || snapshot.name || snapshot.full_name || 'Участник',
+    role: snapshot.role || (item.role === 'traveler' || item.role === 'passenger' ? 'Взрослый' : item.role),
+    phone: snapshot.phone || item.phone || '',
+    email: snapshot.email || item.email || '',
+    dob: snapshot.dob || snapshot.birth_date || item.dob || '',
+    citizenship: snapshot.citizenship || item.citizenship || '',
+    documents,
+    doc: docNo || '—',
+    docStatus: docNo ? 'ok' : 'missing',
+    notes: item.notes || snapshot.comment || '',
+    isContact: Boolean(item.is_contact),
+    lead: Boolean(item.is_contact),
+  };
 }

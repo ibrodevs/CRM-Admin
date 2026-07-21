@@ -154,12 +154,15 @@ function AgreementEditor({ open, agreement, onClose, onSave }) {
   if (!open) return null;
 
   const applyTpl = (id) => { setTpl(id); setFees(feesFromTemplate(id)); toast('Применён шаблон «' + feeTemplate(id).name + '»', 'ok'); };
-  const saveAsTemplate = () => {
+  const saveAsTemplate = async () => {
     const name = tplName.trim();
     if (!name) { toast('Введите название шаблона', 'info'); return; }
-    const id = registerFeeTemplate(name, fees);
-    setTpl(id); setTplName(''); setTplNameOpen(false); setTplTick((t) => t + 1);
-    toast('Создан шаблон «' + name + '»', 'ok');
+    try {
+      await workspaceActionsApi.execute('company.fee_template.create', { resourceType: 'company_finance', resourceId: name, payload: { name, fees } });
+      const id = registerFeeTemplate(name, fees);
+      setTpl(id); setTplName(''); setTplNameOpen(false); setTplTick((t) => t + 1);
+      toast('Создан шаблон «' + name + '»', 'ok');
+    } catch (error) { toast(error.message || 'Не удалось создать шаблон', 'err'); }
   };
   const setFee = (svc, key, patch) => setFees((f) => ({ ...f, [svc]: { ...f[svc], [key]: { ...f[svc][key], ...patch } } }));
   const setDesc = (svc, v) => setDescs((d) => ({ ...d, [svc]: v }));
@@ -180,10 +183,10 @@ function AgreementEditor({ open, agreement, onClose, onSave }) {
     return out;
   };
 
-  const save = () => {
+  const save = async () => {
     const fields = diffFields();
     if (!fields.length && tpl === agreement.template) { toast('Изменений нет', 'info'); return; }
-    onSave({ template: tpl, fees, descs, feeDescs }, fields.length ? fields : ['Применён шаблон «' + feeTemplate(tpl).name + '»']);
+    await Promise.resolve(onSave({ template: tpl, fees, descs, feeDescs }, fields.length ? fields : ['Применён шаблон «' + feeTemplate(tpl).name + '»']));
     onClose();
   };
 
@@ -298,7 +301,7 @@ function CompanyContracts({ fin, coName, onFinChange, onOpenClosing }) {
   const [histAgr, setHistAgr] = useState(null);
   const [expanded, setExpanded] = useState(() => (fin.contracts[0] ? { [fin.contracts[0].id]: true } : {}));
 
-  const saveAgreement = (contractId, agr, patch, fields) => {
+  const saveAgreement = async (contractId, agr, patch, fields) => {
     const nextFin = JSON.parse(JSON.stringify(fin));
     const c = nextFin.contracts.find((x) => x.id === contractId);
     const a = c.agreements.find((x) => x.id === agr.id);
@@ -310,9 +313,12 @@ function CompanyContracts({ fin, coName, onFinChange, onOpenClosing }) {
       template: patch.template, fees: patch.fees, descs: patch.descs, feeDescs: patch.feeDescs,
       history: [...a.history, { date: cfNow(), user: (window.CURRENT_USER && CURRENT_USER.name) || 'Оператор', title: 'ДС № ' + newVersion + ' · изменение условий', fields }],
     };
-    c.agreements.push(created);
-    onFinChange(nextFin);
-    toast('Создана версия ' + created.no, 'ok');
+    try {
+      await workspaceActionsApi.execute('company.agreement.version.create', { resourceType: 'company', resourceId: coName, payload: { contractId, agreement: created, fields } });
+      c.agreements.push(created);
+      onFinChange(nextFin);
+      toast('Создана версия ' + created.no, 'ok');
+    } catch (error) { toast(error.message || 'Не удалось создать версию ДС', 'err'); throw error; }
   };
   const addContract = async () => {
     const no = window.prompt('Номер договора');
