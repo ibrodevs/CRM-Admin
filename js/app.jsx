@@ -27,11 +27,6 @@ import { ProfilePage } from './page_profile';
 import { AccountSettingsPage } from './page_account';
 import { AccessDenied, GlobalChatDrawer, GlobalTopbar, NotificationDrawer, roleCanSee } from './shell';
 
-
-
-
-
-
 const NOTIF_PRIORITY_KIND = { 'Критический': 'err', 'Высокий': 'warn', 'Средний': 'info', 'Информационный': 'ok' };
 function DesktopNotifier({ enabled, notifications = [], orders = [], onNavigate, onOpenOrder }) {
   const toast = useToast();
@@ -50,8 +45,11 @@ function DesktopNotifier({ enabled, notifications = [], orders = [], onNavigate,
       const kind = NOTIF_PRIORITY_KIND[n.priority] || 'info';
       const lt = n.link && n.link.type;
       const action = { label: n.act || 'Открыть' };
-      if (lt === 'order' && n.order) action.onClick = () => onOpenOrder(orders.find((o) => o.no === n.order) || { no: n.order }, n.tab);
-      else action.route = ({ finance: 'finance', documents: 'documents', returns: 'returns', offers: 'offers', order: 'orders' })[lt] || 'notifications';
+      if (lt === 'order' && n.order) {
+        const target = orders.find((o) => String(o.no) === String(n.order) || String(o.id) === String(n.order));
+        if (target) action.onClick = () => onOpenOrder(target, n.tab);
+        else action.onClick = () => toast('Связанный заказ не найден или недоступен', 'warn');
+      } else action.route = ({ finance: 'finance', documents: 'documents', returns: 'returns', offers: 'offers', order: 'orders' })[lt] || 'notifications';
       toast(n.desc, kind, { title: n.title, action, duration: kind === 'err' || kind === 'warn' ? 8000 : 6000 });
     };
 
@@ -60,21 +58,20 @@ function DesktopNotifier({ enabled, notifications = [], orders = [], onNavigate,
       if (idx < queue.length) timers.push(setTimeout(tick, 22000));
     }, 3000));
     return () => timers.forEach(clearTimeout);
-  }, [enabled, notifications, orders]);
+  }, [enabled, notifications, orders, onOpenOrder, toast]);
   return null;
 }
 
 function App() {
   const auth = useAuth();
   const workspace = useWorkspace();
+  const toast = useToast();
   const [route, setRoute] = useState('dashboard');
   const [intent, setIntent] = useState(null);
   const [svcSearch, setSvcSearch] = useState(null);
 
-
   const orders = workspace.orders;
   const suppliers = workspace.suppliers;
-
 
   const [chatOpen, setChatOpen] = useState(false);
   const [notifOpen, setNotifOpen] = useState(false);
@@ -90,12 +87,8 @@ function App() {
     const b = r.split('/')[0];
     setRoute(r);
     setCtxOrder(null);
-    // Явный переход в раздел «Заказы» (меню/хлебные крошки) всегда открывает список,
-    // даже если сейчас открыта карточка заказа.
     if (b === 'orders') setIntent({ type: 'list' });
   };
-
-  useEffect(() => { window.__toastNav = navigate; window.__addOrder = addOrder; window.__openOrder = openOrder; }, []);
 
   const changeRole = (r) => { setRole(r); if (!roleCanSee(r, route.split('/')[0])) { setRoute('dashboard'); setCtxOrder(null); } };
   const blocked = !roleCanSee(role, route.split('/')[0]);
@@ -110,10 +103,45 @@ function App() {
   const createKP = () => { setRoute('offers'); setIntent({ type: 'create' }); setCtxOrder(null); };
 
   const openServiceSearch = (key, form) => { setRoute(key); setSvcSearch({ key, form }); setCtxOrder(null); };
-  const addOrder = (o) => workspace.update('orders', (cur) => [o, ...cur]);
 
-  const createOrderFromPicker = (o) => { addOrder(o); openOrder(o); };
-  const addSupplier = (s) => workspace.update('suppliers', (cur) => [s, ...cur]);
+  const addOrder = async (draft) => {
+    try {
+      const created = await workspace.createOrder(draft);
+      toast(`Заказ № ${created.no} сохранён в backend`, 'ok');
+      return created;
+    } catch (error) {
+      toast(error.message || 'Не удалось сохранить заказ', 'err');
+      throw error;
+    }
+  };
+
+  const createOrderFromPicker = async (draft) => {
+    const created = await addOrder(draft);
+    openOrder(created);
+    return created;
+  };
+
+  const addSupplier = async (draft) => {
+    try {
+      const created = await workspace.createSupplier(draft);
+      toast('Поставщик сохранён в backend', 'ok');
+      return created;
+    } catch (error) {
+      toast(error.message || 'Не удалось сохранить поставщика', 'err');
+      throw error;
+    }
+  };
+
+  useEffect(() => {
+    window.__toastNav = navigate;
+    window.__addOrder = addOrder;
+    window.__openOrder = openOrder;
+    return () => {
+      delete window.__toastNav;
+      delete window.__addOrder;
+      delete window.__openOrder;
+    };
+  });
 
   if (auth.status === 'loading') return <div className="app-boot"><span className="spinner" />Загрузка Travel Hub…</div>;
   if (auth.status !== 'authenticated') return <LoginScreen onLogin={auth.login} onVerifyTwoFactor={auth.verifyTwoFactor} onPasswordReset={auth.requestPasswordReset} />;
@@ -135,13 +163,12 @@ function App() {
     </>
   );
 
-
   const isServicePage = ['flights', 'rail', 'hotels', 'transfers', 'buses', 'tours'].includes(route.split('/')[0]);
 
   const page = (
       <>
       {route === 'dashboard' && <DashboardPage role={role} orders={orders} proposals={workspace.proposals} returns={workspace.returns} notifications={workspace.notifications} chats={workspace.chats} dashboard={workspace.dashboard} finance={workspace.finance} onNavigate={navigate} onAddOrder={createOrder} onOpenOrder={openOrder} onCreateOrder={createOrderFromPicker} />}
-      {route === 'calendar' && <TripCalendarPage role={role} feed={workspace.calendar} orders={orders} clients={workspace.clients} companies={workspace.companies} users={workspace.users} onOpenOrder={(no) => openOrder(orders.find((o) => o.no === no) || { no })} />}
+      {route === 'calendar' && <TripCalendarPage role={role} feed={workspace.calendar} orders={orders} clients={workspace.clients} companies={workspace.companies} users={workspace.users} onOpenOrder={(no) => { const target = orders.find((o) => String(o.no) === String(no) || String(o.id) === String(no)); if (target) openOrder(target); else toast('Заказ не найден или недоступен', 'warn'); }} />}
       {route === 'orders' && <OrdersPage intent={intent} onConsume={() => setIntent(null)} orders={orders} clients={workspace.clients} companies={workspace.companies} addOrder={addOrder} onDetailChange={setCtxOrder} onOpenChat={() => setChatOpen(true)} onNavigate={navigate} />}
       {route === 'services' && <ServicesHubPage onNavigate={navigate} onAddOrder={createOrder} onSearch={openServiceSearch} onOpenOrder={openOrder} onCreateOrder={createOrderFromPicker} />}
       {route === 'flights' && <FlightsPage searchIntent={svcSearch && svcSearch.key === 'flights' ? svcSearch : null} onConsumeSearch={() => setSvcSearch(null)} />}
@@ -154,7 +181,6 @@ function App() {
       {route === 'settings' && <SettingsPage users={workspace.users} onUsersChange={(next) => workspace.update('users', next)} />}
       {route === 'profile' && <ProfilePage user={auth.user} onNavigate={navigate} />}
       {route === 'account' && <AccountSettingsPage user={auth.user} onNavigate={navigate} />}
-
 
       {route === 'rail' && <ServiceFlow routeKey="rail" searchIntent={svcSearch && svcSearch.key === 'rail' ? svcSearch : null} onConsumeSearch={() => setSvcSearch(null)} />}
       {route === 'hotels' && <HotelsPage />}
@@ -182,7 +208,5 @@ function App() {
 export default function CRMRoot() {
   return <ToastProvider><AuthProvider><WorkspaceProvider><App /></WorkspaceProvider></AuthProvider></ToastProvider>;
 }
-
-
 
 export { NOTIF_PRIORITY_KIND, DesktopNotifier, App, CRMRoot };
