@@ -1,3 +1,7 @@
 {
-  "framework": "nextjs"
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "framework": "nextjs",
+  "env": {
+    "BACKEND_URL": "https://crmbackend21.pythonanywhere.com"
+  }
 }
