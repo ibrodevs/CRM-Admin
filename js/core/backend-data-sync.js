@@ -5,6 +5,7 @@ import {
   NOTIFICATIONS,
   ORDER_PARTICIPANTS,
   ORDER_SERVICES,
+  ORDER_TASKS,
   ORDERS,
   PROPOSALS,
   RETURNS,
@@ -31,6 +32,7 @@ export function syncLegacyDataFromWorkspace(workspace) {
   replaceArray(ORDERS, workspace.orders || []);
   replaceArray(ORDER_PARTICIPANTS, workspace.orderParticipants || []);
   replaceArray(ORDER_SERVICES, workspace.orderServices || []);
+  replaceArray(ORDER_TASKS, workspace.orderTasks || []);
   replaceArray(CLIENTS_DB, workspace.clients || []);
   replaceArray(COMPANIES_DB, workspace.companies || []);
   replaceArray(SUPPLIERS, workspace.suppliers || []);
