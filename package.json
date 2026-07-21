@@ -3,8 +3,9 @@
   "version": "1.0.0",
   "private": true,
   "scripts": {
-    "dev": "next dev",
-    "build": "next build",
+    "patch:legacy": "node scripts/patch-legacy-order-card.mjs",
+    "dev": "npm run patch:legacy && next dev",
+    "build": "npm run patch:legacy && next build",
     "start": "next start"
   },
   "dependencies": {
