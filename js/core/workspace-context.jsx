@@ -2,6 +2,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState } 
 
 import { resultsOf } from '../api/client';
 import { toUiClient, toUiCompany, toUiNotification, toUiOrder, toUiSupplier, toUiThread } from '../api/adapters';
+import { toLegacyDocument, toLegacyProposal, toLegacyReturn, toLegacyUser } from '../api/legacy-adapters';
 import { communicationsApi, crmApi, notificationsApi, ordersApi, suppliersApi, workspaceApi } from '../api/resources';
 import { useAuth } from './auth-context';
 
@@ -56,14 +57,14 @@ export function WorkspaceProvider({ children }) {
     next.notifications = resultsOf(next.notifications).map(toUiNotification);
     next.chats = resultsOf(next.chats).map(toUiThread);
     next.chats = next.chats.map((thread) => {
-      const order = next.orders.find((item) => item.id === thread.orderId);
+      const order = next.orders.find((item) => sameId(item.id, thread.orderId));
       return { ...thread, order: order?.no || thread.orderId, client: order?.client || thread.name, responsibleOperator: order?.operator || '' };
     });
-    next.proposals = resultsOf(next.proposals);
-    next.documents = resultsOf(next.documents);
-    next.returns = resultsOf(next.returns);
+    next.proposals = resultsOf(next.proposals).map((item) => toLegacyProposal(item, next.orders));
+    next.documents = resultsOf(next.documents).map((item) => toLegacyDocument(item, next.orders));
+    next.returns = resultsOf(next.returns).map((item) => toLegacyReturn(item, next.orders));
     next.transactions = resultsOf(next.transactions);
-    next.users = resultsOf(next.users);
+    next.users = resultsOf(next.users).map(toLegacyUser);
     setData(next);
     setError(failures[0] || null);
     setLoading(false);
