@@ -27,6 +27,14 @@ npm run build
 npm start
 ```
 
+Production smoke после деплоя и reload backend:
+
+```bash
+SMOKE_LOGIN='admin@example.com' SMOKE_PASSWORD='***' npm run smoke:production
+```
+
+По умолчанию smoke проверяет `https://crm-admin-theta.vercel.app`, login cookies, `/api/session`, основные `/api/backend/*` ресурсы и logout. Для другого frontend URL задайте `SMOKE_BASE_URL`; для refresh-проверки можно передать заранее истёкший access token в `SMOKE_EXPIRED_ACCESS`.
+
 ## Структура проекта
 
 ```text
