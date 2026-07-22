@@ -144,6 +144,28 @@ test('session returns 503 and does not clear cookies when backend is unavailable
   assert.equal(cookieHeader(response), '');
 });
 
+test('backend proxy preserves permission denial without clearing cookies', async () => {
+  const { GET } = await import('../app/api/backend/[...path]/route.js');
+  mockFetch((url, init) => {
+    assert.equal(url, 'https://backend.example.com/api/v1/users/');
+    assert.equal(init.headers.get('Authorization'), 'Bearer operator-access');
+    return jsonResponse({ error: { code: 'PERMISSION_DENIED', message: 'Недостаточно прав' } }, 403);
+  });
+
+  const response = await GET(
+    makeRequest({
+      url: 'https://crm.example.com/api/backend/users',
+      cookies: { travelhub_access: 'operator-access', travelhub_refresh: 'operator-refresh' },
+    }),
+    { params: { path: ['users'] } },
+  );
+  const body = await response.json();
+
+  assert.equal(response.status, 403);
+  assert.equal(body.error.code, 'PERMISSION_DENIED');
+  assert.equal(cookieHeader(response), '');
+});
+
 test('backend proxy refreshes once, preserves body, and forwards authorization', async () => {
   const { POST } = await import('../app/api/backend/[...path]/route.js');
   const calls = mockFetch(async (url, init, index) => {

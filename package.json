@@ -4,9 +4,8 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "patch:legacy": "node scripts/patch-legacy-order-card.mjs",
-    "dev": "npm run patch:legacy && next dev",
-    "build": "npm run patch:legacy && next build",
+    "dev": "next dev",
+    "build": "next build",
     "start": "next start",
     "test": "node --experimental-specifier-resolution=node --test test/*.test.mjs"
   },
