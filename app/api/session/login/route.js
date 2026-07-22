@@ -1,6 +1,6 @@
-import { NextResponse } from 'next/server';
+import { NextResponse } from 'next/server.js';
 
-import { assertSameOrigin, backendJson, setSessionCookies } from '../../_lib/backend';
+import { assertSameOrigin, backendJson, setSessionCookies } from '../../_lib/backend.js';
 
 export async function POST(request) {
   const originError = assertSameOrigin(request);
@@ -26,4 +26,3 @@ export async function POST(request) {
     );
   }
 }
-

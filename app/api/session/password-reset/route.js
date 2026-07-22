@@ -1,6 +1,6 @@
-import { NextResponse } from 'next/server';
+import { NextResponse } from 'next/server.js';
 
-import { assertSameOrigin, backendJson } from '../../_lib/backend';
+import { assertSameOrigin, backendJson } from '../../_lib/backend.js';
 
 export async function POST(request) {
   const originError = assertSameOrigin(request);
@@ -17,4 +17,3 @@ export async function POST(request) {
     return NextResponse.json({ error: { code: 'BACKEND_UNAVAILABLE', message: 'Не удалось отправить инструкцию' } }, { status: 503 });
   }
 }
-

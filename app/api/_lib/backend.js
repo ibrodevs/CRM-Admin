@@ -1,4 +1,4 @@
-import { NextResponse } from 'next/server';
+import { NextResponse } from 'next/server.js';
 
 const ACCESS_COOKIE = 'travelhub_access';
 const REFRESH_COOKIE = 'travelhub_refresh';
@@ -9,7 +9,7 @@ const refreshLocks = new Map();
 
 function backendOrigin() {
   const value = process.env.BACKEND_URL || 'http://127.0.0.1:8000';
-  return value.replace(/\/$/, '');
+  return value.replace(/\/+$/, '').replace(/\/api\/v1$/, '');
 }
 
 function backendUrl(pathname, search = '') {
@@ -73,7 +73,7 @@ async function parseBody(response) {
 }
 
 async function refreshTokens(refresh) {
-  if (!refresh) return null;
+  if (!refresh) return { tokens: null, status: 401, clear: true };
   if (refreshLocks.has(refresh)) return refreshLocks.get(refresh);
 
   const pending = (async () => {
@@ -84,10 +84,17 @@ async function refreshTokens(refresh) {
         body: JSON.stringify({ refresh }),
         cache: 'no-store',
       });
-      if (!response.ok) return null;
-      return response.json();
+      if (!response.ok) {
+        return {
+          tokens: null,
+          status: response.status,
+          clear: response.status === 400 || response.status === 401,
+          unavailable: response.status >= 500,
+        };
+      }
+      return { tokens: await response.json(), status: response.status, clear: false };
     } catch {
-      return null;
+      return { tokens: null, status: 503, clear: false, unavailable: true };
     } finally {
       refreshLocks.delete(refresh);
     }
@@ -129,8 +136,16 @@ export async function proxyToBackend(request, pathname) {
 
   try {
     let backendResponse = await perform(request, pathname, tokens.access, body);
+    let refreshResult = null;
     if (backendResponse.status === 401 && tokens.refresh) {
-      freshTokens = await refreshTokens(tokens.refresh);
+      refreshResult = await refreshTokens(tokens.refresh);
+      freshTokens = refreshResult.tokens;
+      if (refreshResult.unavailable) {
+        return NextResponse.json(
+          { error: { code: 'BACKEND_UNAVAILABLE', message: 'Backend временно недоступен' } },
+          { status: 503 },
+        );
+      }
       if (freshTokens?.access) {
         backendResponse = await perform(request, pathname, freshTokens.access, body);
       }
@@ -152,7 +167,9 @@ export async function proxyToBackend(request, pathname) {
         : NextResponse.json(responseBody, { status: backendResponse.status, headers });
 
     if (freshTokens) setSessionCookies(response, freshTokens);
-    if (backendResponse.status === 401 && !freshTokens) clearSessionCookies(response);
+    if (backendResponse.status === 401 && (!tokens.refresh || refreshResult?.clear || freshTokens?.access)) {
+      clearSessionCookies(response);
+    }
     return response;
   } catch {
     return NextResponse.json(
@@ -183,9 +200,29 @@ export async function authenticatedJson(request, pathname) {
 
   let result = await backendJson(pathname, { access: tokens.access });
   let freshTokens = null;
+  let refreshClear = false;
   if (result.response.status === 401 && tokens.refresh) {
-    freshTokens = await refreshTokens(tokens.refresh);
+    const refreshResult = await refreshTokens(tokens.refresh);
+    freshTokens = refreshResult.tokens;
+    refreshClear = refreshResult.clear;
+    if (refreshResult.unavailable) {
+      return {
+        status: 503,
+        data: { error: { code: 'BACKEND_UNAVAILABLE', message: 'Backend временно недоступен' } },
+        tokens: null,
+        refreshClear: false,
+      };
+    }
     if (freshTokens?.access) result = await backendJson(pathname, { access: freshTokens.access });
   }
-  return { status: result.response.status, data: result.data, tokens: freshTokens };
+  return { status: result.response.status, data: result.data, tokens: freshTokens, refreshClear };
 }
+
+export const __authProxyInternals = {
+  ACCESS_COOKIE,
+  REFRESH_COOKIE,
+  backendOrigin,
+  backendUrl,
+  cookieOptions,
+  refreshTokens,
+};

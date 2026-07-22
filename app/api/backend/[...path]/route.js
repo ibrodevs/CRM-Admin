@@ -1,4 +1,4 @@
-import { proxyToBackend } from '../../_lib/backend';
+import { proxyToBackend } from '../../_lib/backend.js';
 
 export const dynamic = 'force-dynamic';
 

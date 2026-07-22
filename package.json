@@ -2,11 +2,13 @@
   "name": "crm-admin",
   "version": "1.0.0",
   "private": true,
+  "type": "module",
   "scripts": {
     "patch:legacy": "node scripts/patch-legacy-order-card.mjs",
     "dev": "npm run patch:legacy && next dev",
     "build": "npm run patch:legacy && next build",
-    "start": "next start"
+    "start": "next start",
+    "test": "node --experimental-specifier-resolution=node --test test/*.test.mjs"
   },
   "dependencies": {
     "html2canvas": "1.4.1",
