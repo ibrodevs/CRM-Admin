@@ -188,4 +188,13 @@ const FIN_ANALYTICS_SLICES = {
   'Виды услуг': [{ n: 'Авиа', profit: 7100, orders: 12 }, { n: 'Гостиницы', profit: 4200, orders: 9 }, { n: 'Трансферы', profit: 800, orders: 6 }, { n: 'Визы', profit: 1200, orders: 3 }],
 };
 
+const ENABLE_DEMO_BUSINESS_DATA = typeof process !== 'undefined' && process.env.NEXT_PUBLIC_DEMO_MODE === 'true';
+if (!ENABLE_DEMO_BUSINESS_DATA) {
+  [
+    FIN_ACCOUNTS, FIN_PAYMENTS, FIN_COUNTERPARTIES, FIN_CASHFLOW,
+    FIN_RECEIPTS, FIN_SALARY, FIN_RECON, FIN_ACTIONS,
+  ].forEach((items) => { if (Array.isArray(items)) items.splice(0, items.length); });
+  Object.keys(FIN_ANALYTICS_SLICES).forEach((key) => { FIN_ANALYTICS_SLICES[key] = []; });
+}
+
 export { f$, fSigned, finNow, deltaTone, finCreditCheck, FIN_ACCT_GROUPS, FIN_ACCOUNTS, FIN_ACCT_OP_TYPES, acctOps, FIN_PAY_STATUS, FIN_PRIORITY, FIN_PAYMENTS, obl, FIN_COUNTERPARTIES, FIN_SCHEMES, FIN_CASHFLOW, FIN_RECEIPTS, FIN_SALARY, FIN_RULES, FIN_RECON_STATUS, FIN_RECON, FIN_ACTIONS, FIN_SVC_MODEL, sumK, svcClientTotal, svcSupplierPay, svcModelProfit, FIN_ANALYTICS_SLICES };

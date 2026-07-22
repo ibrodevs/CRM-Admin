@@ -213,6 +213,11 @@ function financeOverview() {
   return { deposits, debt, overdue, overdueCount, urgent };
 }
 
+const ENABLE_DEMO_BUSINESS_DATA = typeof process !== 'undefined' && process.env.NEXT_PUBLIC_DEMO_MODE === 'true';
+if (!ENABLE_DEMO_BUSINESS_DATA) {
+  Object.keys(COMPANY_FINANCE).forEach((key) => { delete COMPANY_FINANCE[key]; });
+}
+
 Object.assign(window, {
   SETTLEMENT_TYPES, SETTLEMENT_TONE, FEE_SCHEMA, FEE_SERVICE_TYPES, SERVICE_DESC_DEFAULTS,
   FEE_DESC_DEFAULTS, feeDescsFromDefaults, feeDescOf,

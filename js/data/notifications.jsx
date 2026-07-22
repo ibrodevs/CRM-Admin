@@ -60,6 +60,11 @@ const NOTIF_SETTINGS = [
   { key: 'deadlines', label: 'Напоминания о дедлайнах', desc: 'Тайм-лимиты, сроки КП, дедлайны возвратов', on: true },
 ];
 
+const ENABLE_DEMO_BUSINESS_DATA = typeof process !== 'undefined' && process.env.NEXT_PUBLIC_DEMO_MODE === 'true';
+if (!ENABLE_DEMO_BUSINESS_DATA) {
+  NOTIFICATIONS.splice(0, NOTIFICATIONS.length);
+}
+
 export {
   NOTIF_PRIORITY,
   NOTIF_PRIO_RANK,

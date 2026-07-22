@@ -98,7 +98,12 @@ function CompanyFinanceSection({ fin, onChangeSettlement }) {
         <div className="seg-toggle" style={{ maxWidth: 460 }}>
           {SETTLEMENT_TYPES.map((t) => (
             <button key={t} className={'seg-btn' + (fin.settlement === t ? ' active' : '')}
-              onClick={() => { onChangeSettlement(t); toast('Тип взаиморасчётов: ' + t, 'ok'); }}>{t[0].toUpperCase() + t.slice(1)}</button>
+              onClick={async () => {
+                try {
+                  await onChangeSettlement(t);
+                  toast('Тип взаиморасчётов: ' + t, 'ok');
+                } catch (error) { toast(error.message || 'Не удалось сохранить тип взаиморасчётов', 'err'); }
+              }}>{t[0].toUpperCase() + t.slice(1)}</button>
           ))}
         </div>
       </div>
@@ -316,7 +321,7 @@ function CompanyContracts({ fin, coName, onFinChange, onOpenClosing }) {
     try {
       await workspaceActionsApi.execute('company.agreement.version.create', { resourceType: 'company', resourceId: coName, payload: { contractId, agreement: created, fields } });
       c.agreements.push(created);
-      onFinChange(nextFin);
+      await onFinChange(nextFin);
       toast('Создана версия ' + created.no, 'ok');
     } catch (error) { toast(error.message || 'Не удалось создать версию ДС', 'err'); throw error; }
   };
@@ -326,7 +331,7 @@ function CompanyContracts({ fin, coName, onFinChange, onOpenClosing }) {
     const contract = { id: cfUid('C'), no: no.trim(), date: cfNow().split(' ')[0], status: 'Действующий', agreements: [] };
     try {
       await workspaceActionsApi.execute('company.contract.create', { resourceType: 'company', resourceId: coName, payload: contract });
-      onFinChange({ ...fin, contracts: [contract, ...fin.contracts] });
+      await onFinChange({ ...fin, contracts: [contract, ...fin.contracts] });
       setExpanded((value) => ({ ...value, [contract.id]: true }));
       toast('Договор добавлен', 'ok');
     } catch (error) { toast(error.message, 'err'); }
@@ -576,7 +581,10 @@ function CompanyFinanceBlock({ co }) {
   }, [namespace]);
   if (!fin) return <div className="card card-pad" style={{ color: 'var(--muted)' }}>Финансовые условия для этой организации не заведены.</div>;
 
-  const updateFin = (next) => { setFin(next); workspaceSettingsApi.save(namespace, next).catch(() => {}); };
+  const updateFin = async (next) => {
+    await workspaceSettingsApi.save(namespace, next);
+    setFin(next);
+  };
   const setSettlement = (t) => updateFin({ ...fin, settlement: t });
 
   return (

@@ -3,7 +3,8 @@ import * as jspdf from 'jspdf';
 if (typeof window !== 'undefined') { window.html2canvas = html2canvas; window.jspdf = jspdf; }
 
 import { useState, useEffect } from 'react';
-import { ToastProvider, useToast } from './ui';
+import { Button, EmptyState, ToastProvider, useToast } from './ui';
+import { messageForApiError } from './api/client';
 import { AuthProvider, useAuth } from './core/auth-context';
 import { WorkspaceProvider, useWorkspace } from './core/workspace-context';
 import { AppShell } from './layout';
@@ -28,6 +29,52 @@ import { AccountSettingsPage } from './page_account';
 import { AccessDenied, GlobalChatDrawer, GlobalTopbar, NotificationDrawer, roleCanSee } from './shell';
 
 const NOTIF_PRIORITY_KIND = { 'Критический': 'err', 'Высокий': 'warn', 'Средний': 'info', 'Информационный': 'ok' };
+const ROUTE_RESOURCE = {
+  dashboard: 'dashboard',
+  calendar: 'calendar',
+  orders: 'orders',
+  suppliers: 'suppliers',
+  chats: 'chats',
+  finance: 'finance',
+  documents: 'documents',
+  receipts: 'documents',
+  fulfillment: 'documents',
+  settings: 'users',
+  clients: 'clients',
+  companies: 'companies',
+  offers: 'proposals',
+  notifications: 'notifications',
+  returns: 'returns',
+  services: 'orderServices',
+  flights: 'orderServices',
+  rail: 'orderServices',
+  hotels: 'orderServices',
+  transfers: 'orderServices',
+  buses: 'orderServices',
+  tours: 'orderServices',
+};
+
+function WorkspaceResourceGate({ resource, onRetry, children }) {
+  if (!resource) return children;
+  if (resource.status === 'loading' || resource.status === 'idle') {
+    return <div className="card card-pad"><div className="sk" style={{ height: 44, marginBottom: 12 }} /><div className="sk" style={{ height: 180 }} /></div>;
+  }
+  if (resource.status === 'forbidden') {
+    return <EmptyState icon="lock" title="У вас нет доступа к этому разделу" />;
+  }
+  if (resource.status === 'error') {
+    return (
+      <EmptyState
+        icon="alertCircle"
+        title="Не удалось загрузить данные"
+        sub={messageForApiError(resource.error)}
+        action={<Button variant="secondary" icon="loader" onClick={() => onRetry && onRetry()}>Повторить</Button>}
+      />
+    );
+  }
+  return children;
+}
+
 function DesktopNotifier({ enabled, notifications = [], orders = [], onNavigate, onOpenOrder }) {
   const toast = useToast();
   useEffect(() => {
@@ -195,12 +242,18 @@ function App() {
       {route === 'returns' && <ReturnsPage cases={workspace.returns} orders={orders} onOpenOrder={openOrder} />}
       </>
   );
+  const currentResource = workspace.resources?.[ROUTE_RESOURCE[route.split('/')[0]]];
+  const gatedPage = (
+    <WorkspaceResourceGate resource={currentResource} onRetry={() => workspace.reload()}>
+      {page}
+    </WorkspaceResourceGate>
+  );
 
   return (
     <AppShell route={route} onNavigate={navigate} onLogout={async () => { await auth.logout(); setRoute('dashboard'); }}
       role={role} topbar={topbar} overlays={overlays} sidebarCollapsed={!!ctxOrder || route.split('/')[0] === 'chats'}>
       {blocked && <AccessDenied onNavigate={navigate} />}
-      {!blocked && (isServicePage ? <div className="svc-zoom">{page}</div> : page)}
+      {!blocked && (isServicePage ? <div className="svc-zoom">{gatedPage}</div> : gatedPage)}
     </AppShell>
   );
 }

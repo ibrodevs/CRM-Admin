@@ -5,7 +5,7 @@ import { AIRLINES, AVIA_MARKUPS, CURRENCIES, ORG_TYPE, SUPPLIER_STATUS, aviaMark
 import { Topbar } from './layout';
 import { AirlineLogo } from './page_flights';
 import { PAGE_SIZE } from './page_orders';
-import { communicationsApi, documentsApi, servicesApi, suppliersApi } from './api/resources';
+import { communicationsApi, documentsApi, servicesApi, suppliersApi, workspaceSettingsApi } from './api/resources';
 import { toUiSupplier } from './api/adapters';
 import { resultsOf } from './api/client';
 
@@ -372,11 +372,12 @@ function AviaMarkupEditor({ supplierName }) {
 }
 
 
-function SupplierFinEditor({ ext, onSaved }) {
+function SupplierFinEditor({ ext, onSaved, onSaveSettings }) {
   const toast = useToast();
   const kinds = ext.kinds.length ? ext.kinds : SUP_SERVICE_KINDS.slice(0, 1);
   const [kind, setKind] = useState(kinds[0]);
   const [fin, setFin] = useState(() => JSON.parse(JSON.stringify(ext.fin)));
+  const [saving, setSaving] = useState(false);
   const setBase = (k, v) => setFin((f) => ({ ...f, [k]: v }));
   const setFee = (svc, key, patch) => setFin((f) => {
     const per = JSON.parse(JSON.stringify(f.perService));
@@ -384,7 +385,17 @@ function SupplierFinEditor({ ext, onSaved }) {
     per[svc][key] = { ...per[svc][key], ...patch };
     return { ...f, perService: per };
   });
-  const save = () => { ext.fin = JSON.parse(JSON.stringify(fin)); onSaved && onSaved(); toast('Финансовые условия сохранены', 'ok'); };
+  const save = async () => {
+    setSaving(true);
+    try {
+      const next = { ...ext, fin: JSON.parse(JSON.stringify(fin)) };
+      if (onSaveSettings) await onSaveSettings(next);
+      ext.fin = next.fin;
+      onSaved && onSaved();
+      toast('Финансовые условия сохранены', 'ok');
+    } catch (error) { toast(error.message || 'Не удалось сохранить финансовые условия', 'err'); }
+    finally { setSaving(false); }
+  };
   const fees = fin.perService[kind] || supEmptyFin([kind])[kind];
 
   return (
@@ -420,18 +431,29 @@ function SupplierFinEditor({ ext, onSaved }) {
         })}
       </div>
       <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 16 }}>
-        <Button icon="check" onClick={save}>Сохранить условия</Button>
+        <Button icon="check" disabled={saving} onClick={save}>{saving ? 'Сохранение…' : 'Сохранить условия'}</Button>
       </div>
     </div>
   );
 }
 
 
-function SupplierSearchEditor({ ext, supplierName }) {
+function SupplierSearchEditor({ ext, supplierName, onSaveSettings }) {
   const toast = useToast();
   const [auto, setAuto] = useState(ext.automation);
   const [prio, setPrio] = useState({ ...ext.searchPriority });
-  const save = () => { ext.automation = auto; ext.searchPriority = { ...prio }; toast('Настройки поиска сохранены', 'ok'); };
+  const [saving, setSaving] = useState(false);
+  const save = async () => {
+    setSaving(true);
+    try {
+      const next = { ...ext, automation: auto, searchPriority: { ...prio } };
+      if (onSaveSettings) await onSaveSettings(next);
+      ext.automation = next.automation;
+      ext.searchPriority = next.searchPriority;
+      toast('Настройки поиска сохранены', 'ok');
+    } catch (error) { toast(error.message || 'Не удалось сохранить настройки поиска', 'err'); }
+    finally { setSaving(false); }
+  };
   return (
     <div>
       <div style={{ fontWeight: 700, color: 'var(--ink)', marginBottom: 8 }}>Автоматизация</div>
@@ -462,7 +484,7 @@ function SupplierSearchEditor({ ext, supplierName }) {
         ))}
       </div>
       <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 16 }}>
-        <Button icon="check" onClick={save}>Сохранить</Button>
+        <Button icon="check" disabled={saving} onClick={save}>{saving ? 'Сохранение…' : 'Сохранить'}</Button>
       </div>
     </div>
   );
@@ -473,6 +495,17 @@ function SearchPriorityModal({ open, onClose }) {
   const toast = useToast();
   const [svc, setSvc] = useState(SUP_PRIORITY_SERVICES[0]);
   const [order, setOrder] = useState(() => JSON.parse(JSON.stringify(SUP_SEARCH_ORDER)));
+  const [saving, setSaving] = useState(false);
+  useEffect(() => {
+    if (!open) return undefined;
+    const controller = new AbortController();
+    workspaceSettingsApi.get('supplier-search-order', controller.signal)
+      .then((setting) => {
+        if (setting.value && Object.keys(setting.value).length) setOrder(setting.value);
+      })
+      .catch((error) => { if (error.name !== 'AbortError') console.error(error); });
+    return () => controller.abort();
+  }, [open]);
   if (!open) return null;
   const move = (i, d) => setOrder((o) => {
     const list = [...o[svc]];
@@ -481,12 +514,22 @@ function SearchPriorityModal({ open, onClose }) {
     [list[i], list[j]] = [list[j], list[i]];
     return { ...o, [svc]: list };
   });
-  const save = () => { Object.assign(SUP_SEARCH_ORDER, JSON.parse(JSON.stringify(order))); toast('Порядок поиска сохранён', 'ok'); onClose(); };
+  const save = async () => {
+    setSaving(true);
+    try {
+      const next = JSON.parse(JSON.stringify(order));
+      await workspaceSettingsApi.save('supplier-search-order', next);
+      Object.assign(SUP_SEARCH_ORDER, next);
+      toast('Порядок поиска сохранён', 'ok');
+      onClose();
+    } catch (error) { toast(error.message || 'Не удалось сохранить порядок поиска', 'err'); }
+    finally { setSaving(false); }
+  };
   return (
     <Drawer open={open} onClose={onClose} title="Приоритеты поиска" sub="Порядок, в котором система опрашивает поставщиков при автоматическом подборе"
       footer={<>
         <Button variant="secondary" onClick={onClose}>Отмена</Button>
-        <Button icon="check" onClick={save}>Сохранить порядок</Button>
+        <Button icon="check" disabled={saving} onClick={save}>{saving ? 'Сохранение…' : 'Сохранить порядок'}</Button>
       </>}>
         <Tabs tabs={SUP_PRIORITY_SERVICES.map((s) => ({ key: s, label: s }))} value={svc} onChange={setSvc} />
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 16 }}>
@@ -518,18 +561,29 @@ const SUP_TABS = [
 
 
 
-function SupplierLegalEditor({ s, ext }) {
+function SupplierLegalEditor({ s, ext, onSaveSettings }) {
   const toast = useToast();
   const [, force] = useState(0);
   const [f, setF] = useState(() => ({ ...ext.legal }));
   const [busy, setBusy] = useState(false);
+  const [saving, setSaving] = useState(false);
   const set = (k) => (e) => setF((p) => ({ ...p, [k]: e.target.value }));
   const lookup = () => {
     if (!f.inn || String(f.inn).replace(/\D/g, '').length < 6) { toast('Введите ИНН (не менее 6 цифр)', 'err'); return; }
     setBusy(true);
     setTimeout(() => { setF(supLookupByInn(f.inn, ext, s)); setBusy(false); toast('Данные подтянуты по ИНН', 'ok'); }, 700);
   };
-  const save = () => { ext.legal = { ...f, filled: true }; force((v) => v + 1); toast('Реквизиты поставщика сохранены', 'ok'); };
+  const save = async () => {
+    setSaving(true);
+    try {
+      const next = { ...ext, legal: { ...f, filled: true } };
+      if (onSaveSettings) await onSaveSettings(next);
+      ext.legal = next.legal;
+      force((v) => v + 1);
+      toast('Реквизиты поставщика сохранены', 'ok');
+    } catch (error) { toast(error.message || 'Не удалось сохранить реквизиты поставщика', 'err'); }
+    finally { setSaving(false); }
+  };
   const F = ({ label, k, wide, ph }) => (
     <div style={{ gridColumn: wide ? '1 / -1' : 'auto' }}><Field label={label}><Input value={f[k] || ''} onChange={set(k)} placeholder={ph} /></Field></div>
   );
@@ -580,14 +634,14 @@ function SupplierLegalEditor({ s, ext }) {
       </div>
 
       <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 18 }}>
-        <Button icon="check" onClick={save}>Сохранить реквизиты</Button>
+        <Button icon="check" disabled={saving} onClick={save}>{saving ? 'Сохранение…' : 'Сохранить реквизиты'}</Button>
       </div>
     </div>
   );
 }
 
 
-function SupplierTabBody({ s, ext, tab, isAirline, apiStatus, checkConn, setPreviewDoc, toast }) {
+function SupplierTabBody({ s, ext, tab, isAirline, apiStatus, checkConn, setPreviewDoc, toast, onSaveSettings }) {
   const [, forceDocs] = useState(0);
   const uploadDocument = async (kind, event) => {
     const file = event.target.files?.[0]; if (!file) return;
@@ -616,7 +670,7 @@ function SupplierTabBody({ s, ext, tab, isAirline, apiStatus, checkConn, setPrev
           ))}
         </div>
       )}
-      {tab === 'legal' && <SupplierLegalEditor s={s} ext={ext} />}
+      {tab === 'legal' && <SupplierLegalEditor s={s} ext={ext} onSaveSettings={onSaveSettings} />}
       {tab === 'contacts' && (
         <div>
           <div className="kv">
@@ -647,8 +701,8 @@ function SupplierTabBody({ s, ext, tab, isAirline, apiStatus, checkConn, setPrev
           </div>
         </div>
       )}
-      {tab === 'finance' && <SupplierFinEditor ext={ext} />}
-      {tab === 'search' && <SupplierSearchEditor ext={ext} supplierName={s.name} />}
+      {tab === 'finance' && <SupplierFinEditor ext={ext} onSaveSettings={onSaveSettings} />}
+      {tab === 'search' && <SupplierSearchEditor ext={ext} supplierName={s.name} onSaveSettings={onSaveSettings} />}
       {tab === 'stats' && (
         <div>
           <div className="grid-2" style={{ gap: 12, marginBottom: 16 }}>
@@ -724,6 +778,26 @@ function SupplierCard({ supplier, onBack, onOpenOrder }) {
   const s = supplier;
   const ext = supExt(s);
   useSupplierDocuments(s, ext);
+  const [, forceCard] = useState(0);
+  const settingsNamespace = `supplier-ext-${s.serverId || s.id || s.no}`;
+  useEffect(() => {
+    const controller = new AbortController();
+    workspaceSettingsApi.get(settingsNamespace, controller.signal)
+      .then((setting) => {
+        if (setting.value && Object.keys(setting.value).length) {
+          Object.assign(ext, setting.value);
+          forceCard((value) => value + 1);
+        }
+      })
+      .catch((error) => { if (error.name !== 'AbortError') console.error(error); });
+    return () => controller.abort();
+  }, [settingsNamespace]);
+  const saveSettings = async (next) => {
+    const value = JSON.parse(JSON.stringify(next));
+    await workspaceSettingsApi.save(settingsNamespace, value);
+    Object.assign(ext, value);
+    forceCard((current) => current + 1);
+  };
   const isAirline = s.orgType === 'Авиакомпания';
   const isApiType = ext.supType !== 'Локальный';
   const tabs = SUP_TABS.filter((t) => (!t.airlineOnly || isAirline) && (t.key !== 'api' || isApiType));
@@ -829,7 +903,7 @@ function SupplierCard({ supplier, onBack, onOpenOrder }) {
       </>) : (
         <div className="card card-pad">
           <SupplierTabBody s={s} ext={ext} tab={tab} isAirline={isAirline} apiStatus={apiStatus}
-            checkConn={checkConn} setPreviewDoc={setPreviewDoc} toast={toast} />
+            checkConn={checkConn} setPreviewDoc={setPreviewDoc} toast={toast} onSaveSettings={saveSettings} />
         </div>
       )}
 
@@ -843,9 +917,31 @@ function SupplierModal({ supplier, onClose, onDelete }) {
   const [tab, setTab] = useState('general');
   const [apiStatus, setApiStatus] = useState(null);
   const [previewDoc, setPreviewDoc] = useState(null);
+  const [, forceModal] = useState(0);
   const s = supplier;
   const ext = s ? supExt(s) : null;
   useSupplierDocuments(s, ext);
+  const settingsNamespace = s ? `supplier-ext-${s.serverId || s.id || s.no}` : null;
+  useEffect(() => {
+    if (!settingsNamespace || !ext) return undefined;
+    const controller = new AbortController();
+    workspaceSettingsApi.get(settingsNamespace, controller.signal)
+      .then((setting) => {
+        if (setting.value && Object.keys(setting.value).length) {
+          Object.assign(ext, setting.value);
+          forceModal((value) => value + 1);
+        }
+      })
+      .catch((error) => { if (error.name !== 'AbortError') console.error(error); });
+    return () => controller.abort();
+  }, [settingsNamespace]);
+  const saveSettings = async (next) => {
+    if (!settingsNamespace || !ext) return;
+    const value = JSON.parse(JSON.stringify(next));
+    await workspaceSettingsApi.save(settingsNamespace, value);
+    Object.assign(ext, value);
+    forceModal((current) => current + 1);
+  };
   if (!s) return null;
   const isAirline = s.orgType === 'Авиакомпания';
   const isApiType = ext.supType !== 'Локальный';
@@ -904,7 +1000,7 @@ function SupplierModal({ supplier, onClose, onDelete }) {
           <div style={{ minHeight: 320 }}>
             {header}
             <SupplierTabBody s={s} ext={ext} tab={tab} isAirline={isAirline} apiStatus={apiStatus}
-              checkConn={checkConn} setPreviewDoc={setPreviewDoc} toast={toast} />
+              checkConn={checkConn} setPreviewDoc={setPreviewDoc} toast={toast} onSaveSettings={saveSettings} />
           </div>
         </div>
       </div>

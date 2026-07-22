@@ -240,6 +240,11 @@ const TRIPS = [
   },
 ];
 
+const ENABLE_DEMO_BUSINESS_DATA = process.env.NEXT_PUBLIC_DEMO_MODE === 'true';
+if (!ENABLE_DEMO_BUSINESS_DATA) {
+  TRIPS.splice(0, TRIPS.length);
+}
+
 
 
 function tripEvents(trip, now = TRIP_NOW) {

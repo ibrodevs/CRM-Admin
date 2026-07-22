@@ -10,9 +10,22 @@ export class ApiError extends Error {
   }
 }
 
+const STATUS_MESSAGE = {
+  400: 'Проверьте поля формы',
+  401: 'Сессия истекла. Войдите снова',
+  403: 'Недостаточно прав для выполнения действия',
+  404: 'Объект не найден или был удалён',
+  409: 'Данные были изменены другим пользователем. Обновите карточку и повторите действие.',
+  422: 'Операция отклонена бизнес-правилом',
+  429: 'Слишком много запросов. Повторите позже.',
+  500: 'Не удалось выполнить операцию. Попробуйте позже.',
+  502: 'Поставщик или backend временно недоступен',
+  503: 'Backend временно недоступен',
+};
+
 function errorFrom(response, payload) {
   const error = payload?.error || payload || {};
-  return new ApiError(error.message || `Ошибка запроса (${response.status})`, {
+  return new ApiError(error.message || STATUS_MESSAGE[response.status] || `Ошибка запроса (${response.status})`, {
     status: response.status,
     code: error.code || 'REQUEST_FAILED',
     fields: error.fields || {},
@@ -53,6 +66,16 @@ export async function apiRequest(path, options = {}) {
   return payload;
 }
 
+export function resourceStatusFromError(error) {
+  if (error?.status === 403) return 'forbidden';
+  return 'error';
+}
+
+export function messageForApiError(error) {
+  if (!error) return '';
+  return STATUS_MESSAGE[error.status] || error.message || 'Не удалось выполнить запрос';
+}
+
 export function apiPath(path) {
   const normalized = path.startsWith('/') ? path.slice(1) : path;
   return `/api/backend/${normalized}`;
@@ -70,4 +93,3 @@ export function queryString(params = {}) {
 export function resultsOf(payload) {
   return Array.isArray(payload) ? payload : payload?.results || [];
 }
-

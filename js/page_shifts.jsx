@@ -3,7 +3,7 @@ import ReactDOM from 'react-dom';
 import { Icon } from './icons';
 import { ActionMenu, Button, Drawer, Input, Pill, Toggle, useToast } from './ui';
 import { CURRENT_USER } from './data';
-import { workspaceActionsApi } from './api/resources';
+import { workforceApi, workspaceActionsApi } from './api/resources';
 
 
 
@@ -11,6 +11,7 @@ import { workspaceActionsApi } from './api/resources';
 
 function shM(n) { return Math.round(n).toLocaleString('ru-RU') + ' $'; }
 function shPct(n) { return (Math.round(n * 10) / 10).toLocaleString('ru-RU') + ' $'; }
+const ENABLE_DEMO_BUSINESS_DATA = typeof process !== 'undefined' && process.env.NEXT_PUBLIC_DEMO_MODE === 'true';
 
 
 const MOTIVATION_SERVICES = ['Авиа', 'ЖД', 'Гостиницы', 'Трансферы', 'Страхование', 'Визы', 'Прочее'];
@@ -48,7 +49,7 @@ function operatorEarn(op, mot) {
 }
 
 
-const SHIFT_DEMO_OPS = [
+const SHIFT_DEMO_OPS = ENABLE_DEMO_BUSINESS_DATA ? [
   { time: '09:12', order: 51162, svc: 'Авиа', title: 'FRU → IST · Turkish Airlines', supplier: 'Sirena', type: 'Выписка', cost: 1640, serviceFee: 82, markup: 49, commission: 33 },
   { time: '09:47', order: 51163, svc: 'Гостиницы', title: 'Jannat Hotel · 3 ночи', supplier: 'Ratehawk', type: 'Выписка', cost: 955, serviceFee: 48, markup: 29, commission: 19 },
   { time: '10:20', order: 51154, svc: 'Трансферы', title: 'Аэропорт Манас → отель', supplier: 'Karimov Transfer', type: 'Выписка', cost: 60, serviceFee: 6, markup: 4, commission: 2 },
@@ -69,8 +70,8 @@ const SHIFT_DEMO_OPS = [
     ],
   },
   { time: '16:20', order: 51171, svc: 'Авиа', title: 'FRU → DXB · Air Astana', supplier: 'NDC', type: 'Выписка', cost: 890, serviceFee: 45, markup: 27, commission: 18 },
-];
-const SHIFT_REQUESTS_HANDLED = 21;
+] : [];
+const SHIFT_REQUESTS_HANDLED = ENABLE_DEMO_BUSINESS_DATA ? 21 : 0;
 
 function shiftTotals(ops, mot) {
   const t = {
@@ -96,6 +97,19 @@ function shiftDuration(from, to) {
   const ms = Math.max(0, (to || new Date()) - from);
   const h = Math.floor(ms / 3600000), m = Math.floor((ms % 3600000) / 60000);
   return h + ' ч ' + String(m).padStart(2, '0') + ' мин';
+}
+
+function toUiShift(payload) {
+  const row = payload?.shift === undefined ? payload : payload.shift;
+  if (!row) return null;
+  return {
+    serverId: row.id,
+    id: row.id,
+    openedAt: row.started_at ? new Date(row.started_at) : new Date(),
+    closedAt: row.ended_at ? new Date(row.ended_at) : null,
+    ops: ENABLE_DEMO_BUSINESS_DATA ? SHIFT_DEMO_OPS : [],
+    report: row.closing_report || null,
+  };
 }
 
 
@@ -365,9 +379,23 @@ function FeesReportDrawer({ open, onClose, operator, shift }) {
 function ShiftControl({ role, onOpenOrder }) {
   const toast = useToast();
   const operator = CURRENT_USER.name;
-  const [shift, setShift] = useState(window.SHIFT_STATE || null);
+  const [shift, setShift] = useState(null);
+  const [busy, setBusy] = useState(false);
   const [panel, setPanel] = useState(null);
   const [, forceTick] = useState(0);
+  useEffect(() => {
+    let cancelled = false;
+    workforceApi.currentShift()
+      .then((payload) => {
+        if (cancelled) return;
+        const current = toUiShift(payload);
+        window.SHIFT_STATE = current;
+        setShift(current);
+        window.dispatchEvent(new CustomEvent('shift-change'));
+      })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, []);
   useEffect(() => {
     if (!shift || shift.closedAt) return;
     const t = setInterval(() => forceTick((n) => n + 1), 30000);
@@ -376,24 +404,41 @@ function ShiftControl({ role, onOpenOrder }) {
 
   if (role !== 'Оператор' && role !== 'Админ') return null;
 
-  const openShift = () => {
-    const s = { openedAt: new Date(), closedAt: null, ops: SHIFT_DEMO_OPS };
-    window.SHIFT_STATE = s; setShift(s);
-    window.dispatchEvent(new CustomEvent('shift-change'));
-    toast('Смена открыта · ' + shiftFmtTime(s.openedAt), 'ok');
+  const openShift = async () => {
+    setBusy(true);
+    try {
+      const saved = await workforceApi.startShift({});
+      const s = toUiShift(saved);
+      window.SHIFT_STATE = s; setShift(s);
+      window.dispatchEvent(new CustomEvent('shift-change'));
+      toast('Смена открыта · ' + shiftFmtTime(s.openedAt), 'ok');
+    } catch (error) {
+      toast(error.message || 'Не удалось открыть смену', 'err');
+    } finally {
+      setBusy(false);
+    }
   };
-  const confirmClose = () => {
-    const s = { ...shift, closedAt: new Date() };
-    window.SHIFT_STATE = null; setShift(null); setPanel(null);
-    window.dispatchEvent(new CustomEvent('shift-change'));
-    toast('Смена закрыта · ' + shiftDuration(s.openedAt, s.closedAt), 'ok');
+  const confirmClose = async () => {
+    if (!shift?.serverId) { toast('Смена не найдена в backend', 'err'); return; }
+    setBusy(true);
+    try {
+      const saved = await workforceApi.closeShift(shift.serverId, {});
+      const s = toUiShift(saved) || { ...shift, closedAt: new Date() };
+      window.SHIFT_STATE = null; setShift(null); setPanel(null);
+      window.dispatchEvent(new CustomEvent('shift-change'));
+      toast('Смена закрыта · ' + shiftDuration(s.openedAt, s.closedAt), 'ok');
+    } catch (error) {
+      toast(error.message || 'Не удалось закрыть смену', 'err');
+    } finally {
+      setBusy(false);
+    }
   };
 
   return (
     <>
       {!shift ? (
-        <button className="chip" style={{ height: 36 }} title="Открыть смену" onClick={openShift}>
-          <Icon name="clock" />Открыть смену
+        <button className="chip" style={{ height: 36 }} title="Открыть смену" onClick={openShift} disabled={busy}>
+          <Icon name="clock" />{busy ? 'Открываем…' : 'Открыть смену'}
         </button>
       ) : (
         <ActionMenu

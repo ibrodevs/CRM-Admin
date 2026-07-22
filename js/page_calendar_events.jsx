@@ -29,12 +29,14 @@ const CAL_SERVICE_TYPES = ['Авиа', 'ЖД', 'Гостиница', 'Транс
 const CAL_REMINDER_PRESETS = ['Проверить изменение стоимости', 'Запросить ответ у поставщика', 'Проверить подтверждение гостиницы', 'Проверить статус рейса', 'Связаться с клиентом', 'Проверить поступление оплаты', 'Проконтролировать внесение имён', 'Проверить выписку билетов', 'Повторно запросить места', 'Проверить тайм-лимит', 'Уточнить трансфер', 'Отправить документы'];
 const CAL_TASK_PRESETS = ['Выписать билеты', 'Отправить список пассажиров', 'Проверить документы', 'Согласовать КП', 'Подтвердить бронирование', 'Оформить обмен', 'Оформить возврат', 'Проверить расселение группы'];
 const CAL_CONTROL_PRESETS = ['Проверить цену', 'Проверить доступность мест', 'Проверить статус рейса', 'Проверить ответ поставщика', 'Проверить поступление оплаты', 'Проверить отмену или задержку', 'Проверить изменение расписания', 'Проверить срок бесплатной отмены', 'Проверить выпуск документов'];
+const ENABLE_DEMO_BUSINESS_DATA = process.env.NEXT_PUBLIC_DEMO_MODE === 'true';
 
 function calFmtDay(d) { return String(d.getDate()).padStart(2, '0') + '.' + String(d.getMonth() + 1).padStart(2, '0') + '.' + d.getFullYear(); }
 function calNowStr() { return new Date().toLocaleString('ru-RU', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }).replace(',', ' ·'); }
 
 
 const CAL_EVENTS = window.CAL_EVENTS || (window.CAL_EVENTS = (() => {
+  if (!ENABLE_DEMO_BUSINESS_DATA) return [];
   const D = (dd, mm, hh, mi) => new Date(2026, mm - 1, dd, hh || 9, mi || 0);
   const who = (window.CURRENT_USER && CURRENT_USER.name) || 'Даниель';
   const ev = (o) => ({ id: 'CE-' + Math.random().toString(36).slice(2, 7), done: false, history: [{ t: calNowStr(), text: 'Событие создано', who }], ...o });

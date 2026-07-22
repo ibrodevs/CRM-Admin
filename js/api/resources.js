@@ -79,7 +79,7 @@ export const ordersApi = {
   updateParticipant: (id, participantId, body) => patch(`orders/${id}/participants/${participantId}/`, body),
   removeParticipant: (id, participantId) => remove(`orders/${id}/participants/${participantId}/`),
   route: (id, signal) => get(`orders/${id}/route/`, signal),
-  updateRoute: (id, body) => patch(`orders/${id}/route/`, body),
+  updateRoute: (id, body) => apiRequest(apiPath(`orders/${id}/route/`), { method: 'PUT', body }),
   services: (id, signal) => get(`orders/${id}/services/`, signal),
   tasks: (id, params = {}, signal) => list(`orders/${id}/tasks/`, { page_size: 100, ...params }, signal),
   createTask: (id, body) => create(`orders/${id}/tasks/`, body),
@@ -282,7 +282,11 @@ export const calendarApi = {
 
 export const servicesApi = {
   list: (params = {}, signal) => list('services/', { page_size: 100, ...params }, signal),
+  detail: (id, signal) => get(`services/${id}/`, signal),
+  update: (id, body) => patch(`services/${id}/`, body),
+  remove: (id) => remove(`services/${id}/`),
   search: (body) => create('service-searches/', body),
+  searchV1: (body) => create('services/search/', body),
   searchStatus: (id, signal) => get(`service-searches/${id}/`, signal),
   offers: (id, params = {}, signal) => list(`service-searches/${id}/offers/`, params, signal),
   cancelSearch: (id) => create(`service-searches/${id}/cancel/`, {}),
@@ -295,4 +299,8 @@ export const servicesApi = {
   updatePassengers: (id, body) => apiRequest(apiPath(`services/${id}/passengers/`), { method: 'PUT', body }),
   manualBook: (id, body) => create(`services/${id}/manual-book/`, body),
   manualIssue: (id, body) => create(`services/${id}/manual-issue/`, body),
+  revalidateService: (id, body = {}) => create(`services/${id}/revalidate/`, body),
+  book: (id, body = {}) => create(`services/${id}/book/`, body),
+  issue: (id, body = {}) => create(`services/${id}/issue/`, body),
+  cancel: (id, body = {}) => create(`services/${id}/cancel/`, body),
 };

@@ -146,4 +146,9 @@ const CHAT_THREADS = [
     internal: [] },
 ];
 
+const ENABLE_DEMO_BUSINESS_DATA = typeof process !== 'undefined' && process.env.NEXT_PUBLIC_DEMO_MODE === 'true';
+if (!ENABLE_DEMO_BUSINESS_DATA) {
+  [CHATS, CHAT_THREADS].forEach((items) => { if (Array.isArray(items)) items.splice(0, items.length); });
+}
+
 export { CHATS, CHAT_TYPES, CHAT_TYPE_LABEL, CHAT_CHANNEL_TONE, CHAT_CHANNELS, CHAT_THREADS };
