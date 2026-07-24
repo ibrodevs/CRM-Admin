@@ -2,6 +2,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState } 
 
 import { authApi } from '../api/auth';
 import { toUiUser } from '../api/adapters';
+import { syncLegacyCurrentUser } from './backend-data-sync';
 
 const AuthContext = createContext(null);
 
@@ -13,11 +14,14 @@ export function AuthProvider({ children }) {
   const refreshSession = useCallback(async (signal) => {
     try {
       const session = await authApi.session(signal);
-      setUser(toUiUser(session.user));
+      const uiUser = toUiUser(session.user);
+      syncLegacyCurrentUser(uiUser);
+      setUser(uiUser);
       setStatus('authenticated');
       return session;
     } catch (error) {
       if (error.name === 'AbortError') return null;
+      syncLegacyCurrentUser(null);
       setUser(null);
       setStatus(error.status === 503 ? 'unavailable' : 'anonymous');
       return null;
@@ -36,7 +40,9 @@ export function AuthProvider({ children }) {
       setChallengeToken(result.challenge_token);
       return { twoFactorRequired: true };
     }
-    setUser(toUiUser(result.user));
+    const uiUser = toUiUser(result.user);
+    syncLegacyCurrentUser(uiUser);
+    setUser(uiUser);
     setStatus('authenticated');
     return { authenticated: true };
   }, []);
@@ -44,12 +50,15 @@ export function AuthProvider({ children }) {
   const verifyTwoFactor = useCallback(async (code) => {
     const result = await authApi.verifyTwoFactor(challengeToken, code);
     setChallengeToken('');
-    setUser(toUiUser(result.user));
+    const uiUser = toUiUser(result.user);
+    syncLegacyCurrentUser(uiUser);
+    setUser(uiUser);
     setStatus('authenticated');
   }, [challengeToken]);
 
   const logout = useCallback(async () => {
     try { await authApi.logout(); } finally {
+      syncLegacyCurrentUser(null);
       setUser(null);
       setStatus('anonymous');
       setChallengeToken('');
@@ -69,4 +78,3 @@ export function useAuth() {
   if (!value) throw new Error('useAuth must be used inside AuthProvider');
   return value;
 }
-

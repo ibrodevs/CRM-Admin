@@ -2110,7 +2110,7 @@ function OrderCard({ order, onBack, initTab, initSvc, initSvcSearch, fresh, onOp
     { key: 'services', label: 'Услуги', icon: 'briefcase', count: services.length },
     { key: 'participants', label: 'Пассажиры', icon: 'users', count: participants.length },
     // Групповой заказ = та же карточка + доп. вкладки (единый вид группы и сверка условий броней)
-    ...(isGroup ? [
+    ...(isGroup && groupModel ? [
       { key: 'matrix', label: 'Матрица', icon: 'grid' },
       { key: 'diff', label: 'Различия', icon: 'swap' },
     ] : []),

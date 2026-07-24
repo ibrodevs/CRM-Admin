@@ -104,6 +104,8 @@ const GROUP_ORDERS = [
     services: [{ id: 'gs2-rail', kind: 'ЖД', scenario: 'split', supplier: 'РЖД (API)', channel: 'API', system: 'РЖД', status: 'Подготовка распределения', requested: 12, confirmed: 0, issued: 0, pricePer: 96, deposit: 0, paid: 0, currency: 'USD', namesDue: '10.08.2026', payDue: '12.08.2026', ticketDue: '13.08.2026', reduceRule: '—', cancelRule: 'по тарифу', block: { no: '—', pnr: '—', confirmedSeats: 0, blockValid: '—' }, maxPer: 4 }],
   },
 ];
+const ENABLE_DEMO_BUSINESS_DATA = typeof process !== 'undefined' && process.env.NEXT_PUBLIC_DEMO_MODE === 'true';
+if (!ENABLE_DEMO_BUSINESS_DATA) GROUP_ORDERS.splice(0, GROUP_ORDERS.length);
 function grAgg(o) {
   const total = o.pax.length;
 

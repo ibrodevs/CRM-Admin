@@ -236,6 +236,7 @@ function LoginScreen({ onLogin, onVerifyTwoFactor, onPasswordReset }) {
                 <form onSubmit={submitLogin} style={{ marginTop: 22 }}>
                   <label className="lp-lbl">Email или телефон</label>
                   <input className={'lp-input' + (errs.ident ? ' err' : '')} placeholder="Введите email или телефон"
+                    autoComplete="username"
                     value={ident} onChange={(e) => setIdent(e.target.value)} />
                   {errs.ident && <div className="lp-errtxt"><Icon name="alertCircle" />{errs.ident}</div>}
 
@@ -243,6 +244,7 @@ function LoginScreen({ onLogin, onVerifyTwoFactor, onPasswordReset }) {
                   <div className="lp-input-wrap">
                     <input className={'lp-input' + (errs.pass ? ' err' : '')} type={showPass ? 'text' : 'password'}
                       placeholder="Введите пароль" style={{ paddingRight: 44 }}
+                      autoComplete="current-password"
                       value={pass} onChange={(e) => setPass(e.target.value)} />
                     <Icon name={showPass ? 'eyeOff' : 'eye'} className="lp-eye" style={{ width: 20, height: 20 }} onClick={() => setShowPass((s) => !s)} />
                   </div>

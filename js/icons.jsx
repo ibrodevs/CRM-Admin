@@ -38,6 +38,7 @@ const ICON_PATHS = {
   send: '<path d="M22 2 11 13M22 2l-7 20-4-9-9-4Z"/>',
   paperclip: '<path d="M21 11.5 12.5 20a5 5 0 0 1-7-7l8-8a3.5 3.5 0 0 1 5 5l-8 8a2 2 0 0 1-3-3l7.5-7.5"/>',
   more: '<circle cx="12" cy="5" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="12" cy="19" r="1.6"/>',
+  menu: '<path d="M4 7h16M4 12h16M4 17h16"/>',
   pie: '<path d="M12 3v9l7.5 4.3A9 9 0 1 0 12 3Z"/><path d="M12 3a9 9 0 0 1 7.5 13.3"/>',
   api: '<rect x="3" y="4" width="18" height="16" rx="2.5"/><path d="M7 9v6M11 9v6M11 9a2 2 0 0 1 0 4H7"/><path d="M15 15l2-6 2 6M15.5 13h3"/>',
   sla: '<circle cx="9" cy="8" r="3"/><path d="M3 19c0-3 2.7-5 6-5s6 2 6 5"/><circle cx="18" cy="9" r="3.4"/><path d="M18 7.6V9l1 .8"/>',

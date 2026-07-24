@@ -273,6 +273,15 @@ const HOTEL_EXTRAS = [
   ] },
 ];
 
+const ENABLE_DEMO_BUSINESS_DATA = typeof process !== 'undefined' && process.env.NEXT_PUBLIC_DEMO_MODE === 'true';
+if (!ENABLE_DEMO_BUSINESS_DATA) {
+  Object.keys(SVC_DATA).forEach((key) => {
+    if (Array.isArray(SVC_DATA[key]?.offers)) SVC_DATA[key].offers.splice(0, SVC_DATA[key].offers.length);
+    if (Array.isArray(SVC_DATA[key]?.registry)) SVC_DATA[key].registry.splice(0, SVC_DATA[key].registry.length);
+  });
+  HOTELS.splice(0, HOTELS.length);
+}
+
 export {
   SVC_DATA,
   HOTEL_AMENITIES,

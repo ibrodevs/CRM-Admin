@@ -26,8 +26,8 @@ function ProfileMotivation({ operator }) {
   const mot = motivationFor(operator);
   const rows = [['service', 'Процент от сервисного сбора'], ['markup', 'Процент от агентской надбавки'], ['commission', 'Процент от комиссионного вознаграждения']];
   const history = [
-    { date: '01.06.2026', user: 'Акимова Айсулуу', text: 'Установлена базовая мотивация 30 / 20 / 10' },
-    { date: '20.06.2026', user: 'Акимова Айсулуу', text: 'Индивидуальные ставки по видам услуг включены' },
+    { date: '01.06.2026', user: operator || 'Оператор', text: 'Установлена базовая мотивация 30 / 20 / 10' },
+    { date: '20.06.2026', user: operator || 'Оператор', text: 'Индивидуальные ставки по видам услуг включены' },
   ];
   return (
     <div className="fade-in">

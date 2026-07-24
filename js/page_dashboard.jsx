@@ -466,6 +466,11 @@ const SUPPLIER_ERRORS = [
   { id: 'E-4824', supplier: 'Ratehawk', service: 'Гостиницы', op: 'Поиск', time: '14.07.2026 11:02', order: null, orderTL: null, client: '—', operator: '—', code: 'RH-503', crmCode: 'SUPPLIER_SLOW', crit: 'Информационная', reason: 'Замедление ответа поставщика (>2.4 с).', tech: 'HTTP 200 · latency=2410ms', repeats: 1, first: '14.07 11:02', last: '14.07 11:02', impact: 'Без влияния на заказ', status: 'Новая' },
   { id: 'E-4825', supplier: 'Amadeus GDS', service: 'Авиа', op: 'Отмена', time: '14.07.2026 10:50', order: 51155, orderTL: null, client: 'ИП Мамажанов', operator: 'Даниель', code: 'AMA-3021', crmCode: 'BOOK_TIMEOUT', crit: 'Важная', reason: 'Тайм-аут при аннуляции — повторите операцию.', tech: 'HTTP 504 Gateway Timeout · reqId=amx-77b2', repeats: 4, first: '14.07 09:05', last: '14.07 10:50', impact: 'Аннуляция не подтверждена', status: 'Отложена' },
 ];
+const ENABLE_DEMO_BUSINESS_DATA = typeof process !== 'undefined' && process.env.NEXT_PUBLIC_DEMO_MODE === 'true';
+if (!ENABLE_DEMO_BUSINESS_DATA) {
+  SUPPLIER_STATS.splice(0, SUPPLIER_STATS.length);
+  SUPPLIER_ERRORS.splice(0, SUPPLIER_ERRORS.length);
+}
 
 
 const ERR_STATUS_TONE = { 'Новая': 'red', 'В работе': 'blue', 'Отложена': 'amber', 'Решена': 'green' };

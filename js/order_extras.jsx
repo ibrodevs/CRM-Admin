@@ -6,6 +6,7 @@ import { UnifiedPersonDrawer } from './forms_unified';
 import { PanelSub } from './components/shared-panels';
 import { documentsApi, workspaceActionsApi } from './api/resources';
 
+const ENABLE_DEMO_BUSINESS_DATA = typeof process !== 'undefined' && process.env.NEXT_PUBLIC_DEMO_MODE === 'true';
 
 
 
@@ -62,7 +63,7 @@ function PassportModal({ passenger, participants, onClose, onAddDoc }) {
   };
   return (
     <Drawer open onClose={onClose} width="min(720px,96vw)"
-      title="Документация" sub="Заказ № 51162 ОсОО «Гранд лимитед» от 23.12.25"
+      title="Документация" sub={passenger ? `Документы пассажира: ${passenger}` : 'Документы пассажира'}
       footer={<div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', justifyContent: 'flex-end', flex: 1 }}>
         <Button variant="secondary" icon="plus" onClick={() => onAddDoc && onAddDoc(cur ? { name: cur.name } : null)}>Добавить документ</Button>
         <div style={{ flex: 1 }} />
@@ -189,6 +190,7 @@ const ORG_REGISTRY = {
     account: '1180000445566778', bank: 'РСК Банк', bik: '118001', corrAccount: '1180010000000012',
   },
 };
+if (!ENABLE_DEMO_BUSINESS_DATA) Object.keys(ORG_REGISTRY).forEach((key) => { delete ORG_REGISTRY[key]; });
 
 function NewOrgDrawer({ open, onClose, onCreated }) {
   const toast = useToast();

@@ -6,7 +6,6 @@ import { Topbar } from './layout';
 import { StackPanel } from './components/shared-panels';
 import { servicesApi, workspaceActionsApi } from './api/resources';
 import { resultsOf } from './api/client';
-import { useWorkspace } from './core/workspace-context';
 
 
 
@@ -250,9 +249,6 @@ function HotelPicker({ participants, group = false, onApply, onCancel }) {
       toast(error.message || 'Не удалось выполнить поиск гостиниц', 'err');
     }
   };
-  useEffect(() => { runHotelSearch(); }, []);
-
-
   const openHotel = (h) => {
     setActiveHotel(h);
     const r = h.rooms[0];
@@ -1190,9 +1186,8 @@ function GroupCompositionEditor({ hotel, pax, roomGroups, group, catById, onClos
 }
 
 
-function HotelsPage() {
+function HotelsPage({ persons = [] }) {
   const toast = useToast();
-  const { persons } = useWorkspace();
   const participants = persons.map((person) => ({ id: person.id, name: person.full_name || [person.surname, person.given_name, person.middle_name].filter(Boolean).join(' '), doc: '—' }));
   return (
     <>

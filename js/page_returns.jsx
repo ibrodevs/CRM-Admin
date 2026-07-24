@@ -15,6 +15,7 @@ function rUsd(n, c = 'USD') { return Math.round(n).toLocaleString('ru-RU') + ' '
 function calcRefund(fin) { return Math.max(0, fin.original - fin.supplierPenalty - fin.serviceFee - fin.extraHold); }
 const isTerminal = (s) => s === 'Отменено' || s === 'Отклонено';
 const nextStatus = (s) => { const i = RETURN_FLOW.indexOf(s); return i >= 0 && i < RETURN_FLOW.length - 1 ? RETURN_FLOW[i + 1] : s; };
+const EMPTY_LIST = [];
 
 
 function ProcessFlow({ steps, current }) {
@@ -449,7 +450,7 @@ function ReturnCard({ op, onBack, onChange }) {
 
 
 
-function ReturnsModule({ scopeOrder, onOpenOrder, compact, order, initialCases, orders = [], services = [], participants = [] }) {
+function ReturnsModule({ scopeOrder, onOpenOrder, compact, order, initialCases, orders = EMPTY_LIST, services = EMPTY_LIST, participants = EMPTY_LIST }) {
   const toast = useToast();
   const effectiveOrder = order && participants.length ? { ...order, participants } : order;
   const contextOrders = effectiveOrder ? [effectiveOrder, ...orders.filter((item) => item.id !== effectiveOrder.id)] : orders;

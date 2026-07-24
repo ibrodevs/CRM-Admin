@@ -1,9 +1,14 @@
 import { useState, useEffect, useRef } from 'react';
 import { BrandMark, Icon } from './icons';
 import { Avatar } from './ui';
-import { CURRENT_USER } from './data';
 
 
+
+const ORDER_OPS_SECTIONS = [
+  { key: 'documents', label: 'Документы', icon: 'docs', desc: 'Билеты, ваучеры, счета и договоры по всем заказам' },
+  { key: 'fulfillment', label: 'Оформление', icon: 'clipboard', desc: 'Очередь выписки и оформления услуг' },
+  { key: 'returns', label: 'Возвраты и обмены', icon: 'refund', desc: 'Возвраты, обмены и штрафы' },
+];
 
 const NAV_ITEMS = [
   { key: 'dashboard', label: 'Главное', icon: 'home' },
@@ -21,12 +26,6 @@ const NAV_ITEMS = [
 ];
 
 
-
-const ORDER_OPS_SECTIONS = [
-  { key: 'documents', label: 'Документы', icon: 'docs', desc: 'Билеты, ваучеры, счета и договоры по всем заказам' },
-  { key: 'fulfillment', label: 'Оформление', icon: 'clipboard', desc: 'Очередь выписки и оформления услуг' },
-  { key: 'returns', label: 'Возвраты и обмены', icon: 'refund', desc: 'Возвраты, обмены и штрафы' },
-];
 
 const SERVICE_KEYS = ['flights', 'rail', 'hotels', 'transfers', 'buses', 'tours'];
 
@@ -63,7 +62,7 @@ function NavGroup({ item, active, onNavigate, collapsed }) {
   );
 }
 
-function Sidebar({ route, onNavigate, onLogout, role, collapsed }) {
+function Sidebar({ route, onNavigate, onLogout, role, user, collapsed }) {
   const active = route.split('/')[0];
 
 
@@ -91,12 +90,12 @@ function Sidebar({ route, onNavigate, onLogout, role, collapsed }) {
           </button>
         ))}
       </nav>
-      <ProfileCard onLogout={onLogout} onNavigate={onNavigate} collapsed={collapsed} />
+      <ProfileCard user={user} onLogout={onLogout} onNavigate={onNavigate} collapsed={collapsed} />
     </aside>
   );
 }
 
-function ProfileCard({ onLogout, onNavigate, collapsed }) {
+function ProfileCard({ user, onLogout, onNavigate, collapsed }) {
   const [open, setOpen] = useState(false);
   const ref = useRef(null);
   useEffect(() => {
@@ -105,6 +104,7 @@ function ProfileCard({ onLogout, onNavigate, collapsed }) {
     return () => document.removeEventListener('mousedown', h);
   }, []);
   const go = (r) => { setOpen(false); onNavigate && onNavigate(r); };
+  const profile = user || { name: 'Пользователь', role: 'CRM', avatar: null };
   return (
     <div style={{ position: 'relative' }} ref={ref}>
       {open && (
@@ -115,11 +115,11 @@ function ProfileCard({ onLogout, onNavigate, collapsed }) {
           <div className="dropdown-item danger" onClick={onLogout}><Icon name="logout" />Выйти</div>
         </div>
       )}
-      <div className="profile-card" title={CURRENT_USER.name} onClick={() => setOpen((o) => !o)}>
-        <Avatar src={CURRENT_USER.avatar} name={CURRENT_USER.name} size={44} />
+      <div className="profile-card" title={profile.name} onClick={() => setOpen((o) => !o)}>
+        <Avatar src={profile.avatar} name={profile.name} size={44} />
         <div className="pc-info" style={{ minWidth: 0 }}>
-          <div className="pc-name">{CURRENT_USER.name}</div>
-          <div className="pc-role">{CURRENT_USER.role}</div>
+          <div className="pc-name">{profile.name}</div>
+          <div className="pc-role">{profile.role}</div>
         </div>
         <Icon name="chevRight" className="chev" />
       </div>
@@ -127,10 +127,10 @@ function ProfileCard({ onLogout, onNavigate, collapsed }) {
   );
 }
 
-function AppShell({ route, onNavigate, onLogout, role, topbar, overlays, children, sidebarCollapsed }) {
+function AppShell({ route, onNavigate, onLogout, role, user, topbar, overlays, children, sidebarCollapsed }) {
   return (
     <div className="app">
-      <Sidebar route={route} onNavigate={onNavigate} onLogout={onLogout} role={role} collapsed={sidebarCollapsed} />
+      <Sidebar route={route} onNavigate={onNavigate} onLogout={onLogout} role={role} user={user} collapsed={sidebarCollapsed} />
       <main className="main scroll">
         {topbar}
         {children}

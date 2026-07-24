@@ -1039,7 +1039,7 @@ function DocCorrectionPanel({ subjects, meta, currency, orderNo, onClose }) {
   const [massField, setMassField] = useState('agentMarkup');
   const [massVal, setMassVal] = useState('');
   const [versions, setVersions] = useState([
-    { date: '20.06.2026 14:10', user: 'Акимова Айсулуу', title: 'v1 · Оригинал поставщика', fields: ['Импортирован бланк поставщика (' + supplier + ')'], comment: '' },
+    { date: new Date().toLocaleString('ru-RU'), user: (CURRENT_USER && CURRENT_USER.name) || 'Оператор', title: 'v1 · Оригинал поставщика', fields: ['Импортирован бланк поставщика (' + supplier + ')'], comment: '' },
   ]);
 
   const cur = corrCur(currency);
@@ -1392,7 +1392,7 @@ const ATTACH_MODES = [
   { key: 'newCompany', label: 'Новый заказ · юр. лицо', icon: 'building', hint: 'Создать новый заказ на компанию (контрагента)' },
   { key: 'newPerson', label: 'Новый заказ · физ. лицо', icon: 'user', hint: 'Создать новый заказ на частного клиента' },
 ];
-function AttachFlightDrawer({ mode, svcTitle, onClose, onDone }) {
+function AttachFlightDrawer({ mode, svcTitle, orders: orderOptions = ORDERS, clients: clientOptions = CLIENTS, companies: companyOptions = [], onClose, onDone }) {
   const toast = useToast();
   const [q, setQ] = useState('');
   const [picked, setPicked] = useState(null);
@@ -1400,10 +1400,11 @@ function AttachFlightDrawer({ mode, svcTitle, onClose, onDone }) {
   const [m, setM] = useState(mode === 'person' ? 'newPerson' : (mode || 'order'));
   const isOrder = m === 'order';
   const isCompany = m === 'newCompany';
-  const orders = ORDERS.filter((o) => `${o.no} ${o.client}`.toLowerCase().includes(q.toLowerCase())).slice(0, 20);
-  const companies = (typeof COMPANIES !== 'undefined' ? COMPANIES.map((c) => c.name || c) : ['ОсОО «Гранд лимитед»', 'ОсОО «Asia Travel»', 'ИП Мамажанов'])
+  const orders = orderOptions.filter((o) => `${o.no} ${o.client}`.toLowerCase().includes(q.toLowerCase())).slice(0, 20);
+  const companies = companyOptions.map((c) => c.name || c)
     .filter((c) => String(c).toLowerCase().includes(q.toLowerCase())).slice(0, 20);
-  const clients = CLIENTS.filter((c) => c.toLowerCase().includes(q.toLowerCase())).slice(0, 20);
+  const clients = clientOptions.map((c) => typeof c === 'string' ? c : c.name)
+    .filter((c) => String(c).toLowerCase().includes(q.toLowerCase())).slice(0, 20);
   useEffect(() => { setPicked(null); setQ(''); }, [m]);
   const confirm = () => {
     if (!picked) { toast('Выберите ' + (isOrder ? 'заказ' : isCompany ? 'компанию' : 'клиента'), 'err'); return; }
@@ -1533,7 +1534,7 @@ function FlightReceiptDrawer({ open, passengers, pax, legs, air, supplier, fare,
   );
 }
 
-function FlightCard({ svc, offer, no: noProp, hideBackRow, onBack, onFormKp, onAttachOrder, onAttachPerson }) {
+function FlightCard({ svc, offer, no: noProp, hideBackRow, onBack, onFormKp, onAttachOrder, onAttachPerson, orders = ORDERS, clients = CLIENTS, companies = [] }) {
   const toast = useToast();
   const [tab, setTab] = useState('segments');
 
@@ -1953,6 +1954,7 @@ function FlightCard({ svc, offer, no: noProp, hideBackRow, onBack, onFormKp, onA
     <SvcDocUploadDrawer open={uploadOpen} isHotel={false} participants={passengers.map((p) => ({ name: p.name }))} orderNo={svc ? svc.order : null} onClose={() => setUploadOpen(false)}
       onUploaded={uploadFlightDocument} />
     {attach && <AttachFlightDrawer mode={attach} svcTitle={out.from + ' → ' + out.to + (back ? ' → ' + back.to : '')}
+      orders={orders} clients={clients} companies={companies}
       onClose={() => setAttach(null)} onDone={(msg) => toast(msg, 'ok')} />}
     <FlightReceiptDrawer open={receiptOpen} passengers={passengers} pax={receiptPax}
       legs={[{ from: out.from, to: out.to, date: out.date, flightNo: out.flightNo }, ...(back ? [{ from: back.from, to: back.to, date: back.date, flightNo: back.flightNo }] : [])]}
@@ -2124,7 +2126,7 @@ async function loadLiveFlightOffers(params) {
   throw new Error('Поиск занимает больше обычного. Повторите попытку.');
 }
 
-function FlightsPage({ searchIntent, onConsumeSearch }) {
+function FlightsPage({ searchIntent, onConsumeSearch, orders = ORDERS, clients = CLIENTS, companies = [] }) {
   const [view, setView] = useState(searchIntent ? 'results' : 'registry');
   const [svc, setSvc] = useState(null);
   const [offer, setOffer] = useState(null);
@@ -2209,7 +2211,7 @@ function FlightsPage({ searchIntent, onConsumeSearch }) {
             onSelect={(o) => { setOffer(o); setSvc(null); setCardNo('AV-' + Math.floor(10000 + Math.random() * 90000)); setView('card'); toast('Предложение открыто без сохранения. Добавление в backend-заказ выполняется из карточки заказа.', 'info'); }} />
         )}
         {view === 'card' && (
-          <FlightCard svc={svc} offer={offer} no={cardNo} hideBackRow onBack={() => setView(svc ? 'registry' : 'results')} />
+          <FlightCard svc={svc} offer={offer} no={cardNo} hideBackRow onBack={() => setView(svc ? 'registry' : 'results')} orders={orders} clients={clients} companies={companies} />
         )}
       </div>
     </>

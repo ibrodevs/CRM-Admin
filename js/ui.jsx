@@ -643,7 +643,7 @@ const CAL_MONTHS = ['Январь','Февраль','Март','Апрель','�
 const CAL_DAYS  = ['ВС','ПН','ВТ','СР','ЧТ','ПТ','СБ'];
 
 function fmtDate(d) {
-  if (!d || !(d instanceof Date)) return '';
+  if (!d || !(d instanceof Date) || Number.isNaN(d.getTime())) return '';
   return `${String(d.getDate()).padStart(2,'0')}.${String(d.getMonth()+1).padStart(2,'0')}.${String(d.getFullYear()).slice(2)}`;
 }
 function sameDayEq(a, b) {

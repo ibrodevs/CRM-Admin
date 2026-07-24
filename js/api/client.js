@@ -77,7 +77,7 @@ export function messageForApiError(error) {
 }
 
 export function apiPath(path) {
-  const normalized = path.startsWith('/') ? path.slice(1) : path;
+  const normalized = path.replace(/^\/+|\/+$/g, '');
   return `/api/backend/${normalized}`;
 }
 

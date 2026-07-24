@@ -341,6 +341,11 @@ const AVIA_SEATMAP = {
   price: { std: 0, extra: 1500, front: 2200 },
 };
 
+const ENABLE_DEMO_BUSINESS_DATA = typeof process !== 'undefined' && process.env.NEXT_PUBLIC_DEMO_MODE === 'true';
+if (!ENABLE_DEMO_BUSINESS_DATA) {
+  [FLIGHT_OFFERS, AIR_SERVICES, AIR_STATS].forEach((items) => { if (Array.isArray(items)) items.splice(0, items.length); });
+}
+
 export {
   AIRLINES,
   AIR_STATUS,

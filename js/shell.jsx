@@ -8,6 +8,7 @@ import { NotificationsCenter } from './page_notifications';
 import { PAX_GROUPS } from './pax_unify';
 import { ChatThread, chatRecipients, getThreadForOrder, threadUnread } from './page_chats';
 import { ShiftControl } from './page_shifts';
+import { workspaceApi } from './api/resources';
 
 
 
@@ -18,7 +19,7 @@ const SERVICE_LABELS = { flights: 'Авиабилеты', rail: 'ЖД билет
 
 const ORDER_OPS_LABELS = { documents: 'Документы', fulfillment: 'Оформление', returns: 'Возвраты и обмены' };
 const ROUTE_LABELS = (() => {
-  const m = { dashboard: 'Главное', profile: 'Мой профиль', account: 'Настройки аккаунта', ...SERVICE_LABELS, ...ORDER_OPS_LABELS };
+  const m = { dashboard: 'Главное', calendar: 'Календарь поездок', profile: 'Мой профиль', account: 'Настройки аккаунта', ...SERVICE_LABELS, ...ORDER_OPS_LABELS };
   NAV_ITEMS.forEach((it) => {
     if (it.group) { m[it.group] = it.label; it.children.forEach((c) => { m[c.key] = c.label; }); }
     else m[it.key] = it.label;
@@ -49,6 +50,33 @@ function roleHasPerm(role, permKey) {
   return true;
 }
 function roleCanSee(role, navKey) { const p = NAV_PERM[navKey]; return p ? roleHasPerm(role, p) : true; }
+
+const SEARCH_TYPE_META = {
+  order: { icon: 'orders', tone: 'order', label: 'Заказ', route: 'orders' },
+  person: { icon: 'user', tone: 'person', label: 'Физическое лицо', route: 'clients' },
+  company: { icon: 'building', tone: 'company', label: 'Компания', route: 'companies' },
+  supplier: { icon: 'suppliers', tone: 'supplier', label: 'Поставщик', route: 'suppliers' },
+};
+function backendSearchResultToHit(result, handlers) {
+  const meta = SEARCH_TYPE_META[result.type] || { icon: 'search', tone: 'document', label: result.type || 'Результат', route: 'orders' };
+  const openOrder = () => {
+    const order = gsSafeArray(typeof ORDERS !== 'undefined' ? ORDERS : [])
+      .find((item) => String(item.id) === String(result.id) || String(item.no) === String(result.title));
+    if (order && handlers.onOpenOrder) handlers.onOpenOrder(order);
+    else handlers.onNavigate && handlers.onNavigate(meta.route);
+  };
+  return {
+    id: `backend-${result.type}-${result.id}`,
+    icon: meta.icon,
+    tone: meta.tone,
+    title: result.title || result.id,
+    type: meta.label,
+    context: result.subtitle || '',
+    meta: result.deep_link || '',
+    action: result.type === 'order' ? openOrder : () => handlers.onNavigate && handlers.onNavigate(meta.route),
+    score: Number(result.score || 0) + 1000,
+  };
+}
 
 function RoleSwitcher({ role, onRole }) {
   return (
@@ -293,7 +321,13 @@ function buildGlobalSearchResults(query, handlers) {
 function GlobalSearch({ onOpenOrder, onNavigate, onOpenChat }) {
   const [q, setQ] = useState('');
   const [open, setOpen] = useState(false);
+  const [backendHits, setBackendHits] = useState([]);
+  const [backendState, setBackendState] = useState('idle');
   const ref = useRef(null);
+  const handlersRef = useRef({ onOpenOrder, onNavigate, onOpenChat });
+  useEffect(() => {
+    handlersRef.current = { onOpenOrder, onNavigate, onOpenChat };
+  }, [onOpenOrder, onNavigate, onOpenChat]);
   useEffect(() => {
     const h = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); };
     document.addEventListener('mousedown', h);
@@ -306,9 +340,32 @@ function GlobalSearch({ onOpenOrder, onNavigate, onOpenChat }) {
   }, []);
 
   const ql = q.trim();
-  const allHits = ql ? buildGlobalSearchResults(ql, { onOpenOrder, onNavigate, onOpenChat }) : [];
+  useEffect(() => {
+    if (ql.length < 2) {
+      setBackendHits([]);
+      setBackendState('idle');
+      return undefined;
+    }
+    const controller = new AbortController();
+    setBackendState('loading');
+    const timer = setTimeout(() => {
+      workspaceApi.globalSearch(ql, controller.signal)
+        .then((payload) => {
+          setBackendHits(gsSafeArray(payload?.results).map((result) => backendSearchResultToHit(result, handlersRef.current)));
+          setBackendState('success');
+        })
+        .catch((error) => {
+          if (error.name === 'AbortError') return;
+          setBackendHits([]);
+          setBackendState('error');
+        });
+    }, 250);
+    return () => { clearTimeout(timer); controller.abort(); };
+  }, [ql]);
+  const localHits = ql ? buildGlobalSearchResults(ql, { onOpenOrder, onNavigate, onOpenChat }) : [];
+  const allHits = backendHits.length ? backendHits : localHits;
   const hits = allHits.slice(0, 7);
-  const empty = ql && !allHits.length;
+  const empty = ql && backendState !== 'loading' && !allHits.length;
   const pick = (fn) => { if (fn) fn(); setOpen(false); setQ(''); };
 
   return (
@@ -339,6 +396,8 @@ function GlobalSearch({ onOpenOrder, onNavigate, onOpenChat }) {
               Показать все результаты · {allHits.length}
             </div>
           )}
+          {backendState === 'loading' && <div style={{ padding: '14px 16px', color: 'var(--muted)', fontSize: 14 }}>Ищем в backend…</div>}
+          {backendState === 'error' && <div style={{ padding: '14px 16px', color: 'var(--amber)', fontSize: 14 }}>Backend-поиск временно недоступен, показаны локальные совпадения.</div>}
           {empty && <div style={{ padding: '18px 16px', color: 'var(--muted)', fontSize: 14 }}>Совпадений не найдено. Проверьте ФИО, № заказа, телефон или документ.</div>}
         </div>
       )}

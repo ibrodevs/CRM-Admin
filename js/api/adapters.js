@@ -15,6 +15,20 @@ const TIMEZONE_LABEL = {
   'Asia/Tashkent': '(GMT+5) Ташкент',
 };
 
+function asDate(value) {
+  if (!value) return null;
+  const parsed = new Date(value);
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
+}
+function formatDate(value) {
+  const parsed = asDate(value);
+  return parsed ? parsed.toLocaleDateString('ru-RU') : '';
+}
+function formatTime(value) {
+  const parsed = asDate(value);
+  return parsed ? parsed.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' }) : '';
+}
+
 export function toUiUser(user) {
   const roleCode = user?.roles?.[0] || 'operator';
   const role = { admin: 'Админ', operator: 'Оператор', accountant: 'Бухгалтер', manager: 'Руководитель' }[roleCode] || roleCode;
@@ -22,7 +36,7 @@ export function toUiUser(user) {
     ...user,
     name: user?.full_name || [user?.last_name, user?.first_name, user?.middle_name].filter(Boolean).join(' '),
     role,
-    avatar: user?.avatar || 'assets/avatar-aisuluu.png',
+    avatar: user?.avatar || null,
     position: user?.position || role,
     dept: user?.department || '',
     workEmail: user?.email || '',
@@ -38,7 +52,7 @@ export function toUiUser(user) {
 }
 
 export function toUiOrder(order) {
-  const date = order.created_at ? new Date(order.created_at) : new Date();
+  const date = asDate(order.created_at) || new Date();
   return {
     ...order,
     id: order.id,
@@ -101,7 +115,7 @@ export function toUiThread(thread) {
     channel: thread.external_channel || 'CRM',
     pinned: Boolean(thread.pinned),
     connectionStatus: thread.status === 'active' ? 'Подключено' : thread.status,
-    createdAt: thread.created_at ? new Date(thread.created_at).toLocaleDateString('ru-RU') : '',
+    createdAt: formatDate(thread.created_at),
     messages: [], internal: [], participants: [], relatedServices: thread.service ? [thread.service] : [],
   };
 }
@@ -113,7 +127,7 @@ export function toUiMessage(message, currentUserId) {
     author: message.author_name || message.author_external || '',
     text: message.body || '',
     internal: Boolean(message.is_internal),
-    time: message.created_at ? new Date(message.created_at).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' }) : '',
+    time: formatTime(message.created_at),
     read: ['read', 'delivered'].includes(message.delivery_state),
     attach: message.attachment ? {
       id: message.attachment,
@@ -126,7 +140,7 @@ export function toUiMessage(message, currentUserId) {
 
 export function toUiClient(profile) {
   const person = profile.person_detail || {};
-  const created = profile.created_at ? new Date(profile.created_at) : new Date();
+  const created = asDate(profile.created_at) || new Date();
   return {
     ...profile,
     id: person.id || profile.person,

@@ -218,7 +218,7 @@ function App() {
       {route === 'calendar' && <TripCalendarPage role={role} feed={workspace.calendar} orders={orders} clients={workspace.clients} companies={workspace.companies} users={workspace.users} onOpenOrder={(no) => { const target = orders.find((o) => String(o.no) === String(no) || String(o.id) === String(no)); if (target) openOrder(target); else toast('Заказ не найден или недоступен', 'warn'); }} />}
       {route === 'orders' && <OrdersPage intent={intent} onConsume={() => setIntent(null)} orders={orders} clients={workspace.clients} companies={workspace.companies} addOrder={addOrder} onDetailChange={setCtxOrder} onOpenChat={() => setChatOpen(true)} onNavigate={navigate} />}
       {route === 'services' && <ServicesHubPage onNavigate={navigate} onAddOrder={createOrder} onSearch={openServiceSearch} onOpenOrder={openOrder} onCreateOrder={createOrderFromPicker} />}
-      {route === 'flights' && <FlightsPage searchIntent={svcSearch && svcSearch.key === 'flights' ? svcSearch : null} onConsumeSearch={() => setSvcSearch(null)} />}
+      {route === 'flights' && <FlightsPage searchIntent={svcSearch && svcSearch.key === 'flights' ? svcSearch : null} onConsumeSearch={() => setSvcSearch(null)} orders={orders} clients={workspace.clients} companies={workspace.companies} />}
       {route === 'suppliers' && <SuppliersPage intent={intent} onConsume={() => setIntent(null)} suppliers={suppliers} addSupplier={addSupplier} />}
       {route === 'chats' && <ChatsPage initialThreads={workspace.chats} orders={orders} currentUserId={auth.user.id} onOpenOrder={openOrder} />}
       {route === 'finance' && <FinancePage overview={workspace.finance} transactions={workspace.transactions} clients={workspace.clients} companies={workspace.companies} suppliers={workspace.suppliers} orders={orders} />}
@@ -229,11 +229,11 @@ function App() {
       {route === 'profile' && <ProfilePage user={auth.user} onNavigate={navigate} />}
       {route === 'account' && <AccountSettingsPage user={auth.user} onNavigate={navigate} />}
 
-      {route === 'rail' && <ServiceFlow routeKey="rail" searchIntent={svcSearch && svcSearch.key === 'rail' ? svcSearch : null} onConsumeSearch={() => setSvcSearch(null)} />}
-      {route === 'hotels' && <HotelsPage />}
-      {route === 'transfers' && <ServiceFlow routeKey="transfers" searchIntent={svcSearch && svcSearch.key === 'transfers' ? svcSearch : null} onConsumeSearch={() => setSvcSearch(null)} />}
-      {route === 'buses' && <ServiceFlow routeKey="buses" searchIntent={svcSearch && svcSearch.key === 'buses' ? svcSearch : null} onConsumeSearch={() => setSvcSearch(null)} />}
-      {route === 'tours' && <ServiceFlow routeKey="tours" searchIntent={svcSearch && svcSearch.key === 'tours' ? svcSearch : null} onConsumeSearch={() => setSvcSearch(null)} />}
+      {route === 'rail' && <ServiceFlow routeKey="rail" searchIntent={svcSearch && svcSearch.key === 'rail' ? svcSearch : null} onConsumeSearch={() => setSvcSearch(null)} orders={orders} clients={workspace.clients} companies={workspace.companies} services={workspace.orderServices} />}
+      {route === 'hotels' && <HotelsPage persons={workspace.persons} />}
+      {route === 'transfers' && <ServiceFlow routeKey="transfers" searchIntent={svcSearch && svcSearch.key === 'transfers' ? svcSearch : null} onConsumeSearch={() => setSvcSearch(null)} orders={orders} clients={workspace.clients} companies={workspace.companies} services={workspace.orderServices} />}
+      {route === 'buses' && <ServiceFlow routeKey="buses" searchIntent={svcSearch && svcSearch.key === 'buses' ? svcSearch : null} onConsumeSearch={() => setSvcSearch(null)} orders={orders} clients={workspace.clients} companies={workspace.companies} services={workspace.orderServices} />}
+      {route === 'tours' && <ServiceFlow routeKey="tours" searchIntent={svcSearch && svcSearch.key === 'tours' ? svcSearch : null} onConsumeSearch={() => setSvcSearch(null)} orders={orders} clients={workspace.clients} companies={workspace.companies} services={workspace.orderServices} />}
 
       {route === 'clients' && <ClientsPage initialClients={workspace.clients} onClientsChange={(next) => workspace.update('clients', next)} onOpenOrder={openOrder} onCreateOrder={createOrder} intent={intent} onConsume={() => setIntent(null)} />}
       {route === 'companies' && <CompaniesPage initialCompanies={workspace.companies} onCompaniesChange={(next) => workspace.update('companies', next)} onOpenOrder={openOrder} onCreateOrder={createOrder} intent={intent} onConsume={() => setIntent(null)} />}
@@ -251,7 +251,7 @@ function App() {
 
   return (
     <AppShell route={route} onNavigate={navigate} onLogout={async () => { await auth.logout(); setRoute('dashboard'); }}
-      role={role} topbar={topbar} overlays={overlays} sidebarCollapsed={!!ctxOrder || route.split('/')[0] === 'chats'}>
+      role={role} user={auth.user} topbar={topbar} overlays={overlays} sidebarCollapsed={!!ctxOrder || route.split('/')[0] === 'chats'}>
       {blocked && <AccessDenied onNavigate={navigate} />}
       {!blocked && (isServicePage ? <div className="svc-zoom">{gatedPage}</div> : gatedPage)}
     </AppShell>

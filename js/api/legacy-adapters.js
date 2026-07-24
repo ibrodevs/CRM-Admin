@@ -7,7 +7,19 @@ const serviceKind = { avia: 'Авиа', rail: 'ЖД', hotel: 'Гостиница
 const serviceStatus = { searching: 'Поиск', proposed: 'Предложено', approval: 'На согласовании', booked: 'Забронировано', confirmed: 'Подтверждено', issued: 'Выписано', refund_in_progress: 'Возврат', refunded: 'Возвращено', cancelled: 'Отменено', failed: 'Ошибка' };
 
 function orderFor(orders, id) { return orders.find((order) => order.id === id); }
-function date(value) { return value ? new Date(value).toLocaleDateString('ru-RU') : '—'; }
+function asDate(value) {
+  if (!value) return null;
+  const parsed = new Date(value);
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
+}
+function date(value) {
+  const parsed = asDate(value);
+  return parsed ? parsed.toLocaleDateString('ru-RU') : '—';
+}
+function dateTime(value) {
+  const parsed = asDate(value);
+  return parsed ? parsed.toLocaleString('ru-RU') : '—';
+}
 function idOf(item) { return item && (item.serverId || item.id || item); }
 function nameOfParticipant(participant) {
   if (!participant) return '';
@@ -105,7 +117,7 @@ export function toLegacyDocument(item, orders = []) {
 export function toLegacyUser(item) {
   const roleNames = { admin: 'Админ', operator: 'Оператор', accountant: 'Бухгалтер', manager: 'Менеджер' };
   const statuses = { active: 'Активный', invited: 'Приглашён', suspended: 'Заблокированный', archived: 'Заблокированный' };
-  return { ...item, serverId: item.id, name: item.full_name || item.email, role: roleNames[item.roles?.[0]] || item.roles?.[0] || 'Оператор', status: statuses[item.status] || item.status, last: item.last_login ? new Date(item.last_login).toLocaleString('ru-RU') : '—' };
+  return { ...item, serverId: item.id, name: item.full_name || item.email, role: roleNames[item.roles?.[0]] || item.roles?.[0] || 'Оператор', status: statuses[item.status] || item.status, last: dateTime(item.last_login) };
 }
 
 export function toLegacyOrderService(item) {
@@ -117,7 +129,7 @@ export function toLegacyOrderService(item) {
     kind: serviceKind[item.kind] || item.kind,
     status: serviceStatus[item.status] || item.status,
     title: item.title,
-    date: item.starts_at ? new Date(item.starts_at).toLocaleString('ru-RU') : '—',
+    date: dateTime(item.starts_at),
     sum: Number(item.client_total || 0),
     currency: item.currency || 'USD',
     passengers: (item.passengers || []).map((row) => row.name).filter(Boolean),
