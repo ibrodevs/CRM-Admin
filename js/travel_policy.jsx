@@ -337,28 +337,16 @@ function DepartmentsManager({ companyId }) {
 
 function TpImportDrawer({ open, kind, companyId, onClose }) {
   const toast = useToast();
+  const [file, setFile] = useState(null);
+  useEffect(() => { if (open) setFile(null); }, [open, kind]);
   if (!open) return null;
   const isEmp = kind === 'employees';
   const doImport = async () => {
-    if (isEmp) {
-      const store = companyStaffStore(companyId);
-      let target = store.departments[0];
-      if (!target) { target = { id: 'd' + Date.now(), name: 'Импортированные', head: '', policy: '' }; store.departments.push(target); }
-      const names = ['Импортов Импорт А.', 'Импортов Импорт Б.'];
-      try {
-        await workspaceActionsApi.execute('company.employees.import_manual', { resourceType: 'company', resourceId: String(companyId), payload: { department: target, names } });
-      } catch (error) { toast(error.message || 'Не удалось импортировать сотрудников', 'err'); return; }
-      names.forEach((n) => {
-        if (!store.employees.some((e) => e.name === n && e.dept === target.id)) store.employees.push({ id: 'E-' + Math.floor(1000 + Math.random() * 8999), name: n, dept: target.id, position: '', phone: '', email: '', doc: '—', dob: '—', inPolicy: true });
-      });
-      toast('Сотрудники импортированы в «' + target.name + '»', 'ok');
-    } else {
-      try {
-        await workspaceActionsApi.execute('company.travel_policy.import_manual', { resourceType: 'company', resourceId: String(companyId), payload: { source: 'document_upload_placeholder' } });
-      } catch (error) { toast(error.message || 'Не удалось импортировать тревел-политику', 'err'); return; }
-      toast('Тревел-политика импортирована из документа', 'ok');
+    if (!file) {
+      toast('Выберите файл для импорта', 'err');
+      return;
     }
-    onClose();
+    toast('Backend-парсер импорта пока не подключён: данные не изменены', 'warn');
   };
   return (
     <Drawer open={open} onClose={onClose} title={isEmp ? 'Импорт сотрудников' : 'Импорт тревел-политики'} width="min(560px,96vw)"
@@ -368,8 +356,9 @@ function TpImportDrawer({ open, kind, companyId, onClose }) {
       </div>
       <label className="doc-chip" style={{ borderStyle: 'dashed', color: 'var(--blue)', height: 120, flexDirection: 'column', gap: 8, cursor: 'pointer', justifyContent: 'center' }}>
         <Icon name="download" style={{ width: 26, height: 26 }} />
-        <span style={{ fontWeight: 600 }}>Выберите файл или перетащите сюда</span>
+        <span style={{ fontWeight: 600 }}>{file ? file.name : 'Выберите файл или перетащите сюда'}</span>
         <span style={{ fontSize: 12, color: 'var(--muted)' }}>{isEmp ? 'XLSX, CSV — до 5 МБ' : 'PDF, DOCX, XLSX — до 10 МБ'}</span>
+        <input type="file" hidden accept={isEmp ? '.xlsx,.csv' : '.pdf,.docx,.xlsx'} onChange={(event) => setFile(event.target.files?.[0] || null)} />
       </label>
     </Drawer>
   );

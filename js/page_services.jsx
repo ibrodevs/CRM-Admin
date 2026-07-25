@@ -186,14 +186,17 @@ function CardActionButtons({ actions, size = 'sm', asLinks }) {
   if (asLinks) return (
     <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 12 }}>
       {actions.map((a) => { const m = cardAction(a); return (
-        <a key={a} href="#" onClick={(e) => e.preventDefault()} style={{ fontSize: 13, fontWeight: 600, color: m.kind === 'primary' ? 'var(--blue)' : 'var(--muted)', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 5 }}>
-          <Icon name={m.icon} style={{ width: 14, height: 14 }} />{m.label}</a>); })}
+        <span key={a} style={{ fontSize: 13, fontWeight: 600, color: m.kind === 'primary' ? 'var(--blue)' : 'var(--muted)', display: 'inline-flex', alignItems: 'center', gap: 5 }}>
+          <Icon name={m.icon} style={{ width: 14, height: 14 }} />{m.label}</span>); })}
     </div>
   );
   return (
     <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 12 }}>
       {actions.map((a) => { const m = cardAction(a); return (
-        <Button key={a} size={size} icon={m.icon} variant={m.kind === 'primary' ? 'primary' : m.kind === 'ghost' ? 'ghost' : 'secondary'} style={{ flex: m.kind === 'primary' ? 1 : '0 0 auto' }}>{m.label}</Button>); })}
+        <span key={a} className={'btn btn-' + (m.kind === 'primary' ? 'primary' : m.kind === 'ghost' ? 'ghost' : 'secondary') + (size === 'sm' ? ' btn-sm' : '')}
+          style={{ flex: m.kind === 'primary' ? 1 : '0 0 auto', cursor: 'default', pointerEvents: 'none' }}>
+          <Icon name={m.icon} />{m.label}
+        </span>); })}
     </div>
   );
 }
@@ -300,7 +303,7 @@ function ChannelPreview({ mode, channel, vm, fmt, kindMeta }) {
           <div style={{ fontSize: 13, color: 'var(--body)', marginBottom: 12 }}>{vm.accompanyingText || subst(tpl.body)}</div>
           <CardCore vm={{ ...vm, accompanyingText: '' }} fmt={fmt} kindMeta={kindMeta} />
           <div style={{ marginTop: 12 }}><CardActionButtons actions={[]} /></div>
-          <a href="#" onClick={(e) => e.preventDefault()} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, marginTop: 12, fontSize: 13, fontWeight: 600, color: 'var(--blue)', textDecoration: 'none' }}><Icon name="arrowUpRight" style={{ width: 14, height: 14 }} />Открыть и подтвердить на защищённой странице</a>
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, marginTop: 12, fontSize: 13, fontWeight: 600, color: 'var(--blue)' }}><Icon name="arrowUpRight" style={{ width: 14, height: 14 }} />Открыть и подтвердить на защищённой странице</span>
         </div>
       </div>
     );
@@ -318,8 +321,8 @@ function ChannelPreview({ mode, channel, vm, fmt, kindMeta }) {
             <div style={{ fontSize: 12, color: 'var(--body)', marginTop: 8, whiteSpace: 'pre-line' }}>{messengerBody(vm, fmt)}</div>
             {vm.attachments.length > 0 && <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 6 }}>📎 {vm.attachments.map((a) => a.name || a).join(', ')}</div>}
             <div style={{ borderTop: '1px solid var(--line)', marginTop: 10, paddingTop: 8, display: 'flex', flexDirection: 'column', gap: 6 }}>
-              {acts.slice(0, 3).map((m, i) => <button key={i} type="button" style={{ width: '100%', textAlign: 'center', padding: '8px', borderRadius: 9, border: '1px solid ' + (m.kind === 'primary' ? 'var(--blue)' : 'var(--line)'), background: m.kind === 'primary' ? 'var(--blue)' : '#fff', color: m.kind === 'primary' ? '#fff' : 'var(--ink)', fontSize: 13, fontWeight: 600, cursor: 'default' }}>{m.label}</button>)}
-              <a href="#" onClick={(e) => e.preventDefault()} style={{ textAlign: 'center', fontSize: 12, color: 'var(--blue)', textDecoration: 'none', marginTop: 2 }}>Открыть полную карточку →</a>
+              {acts.slice(0, 3).map((m, i) => <span key={i} style={{ width: '100%', textAlign: 'center', padding: '8px', borderRadius: 9, border: '1px solid ' + (m.kind === 'primary' ? 'var(--blue)' : 'var(--line)'), background: m.kind === 'primary' ? 'var(--blue)' : '#fff', color: m.kind === 'primary' ? '#fff' : 'var(--ink)', fontSize: 13, fontWeight: 600 }}>{m.label}</span>)}
+              <span style={{ textAlign: 'center', fontSize: 12, color: 'var(--blue)', marginTop: 2 }}>Открыть полную карточку →</span>
             </div>
           </div>
           <div style={{ fontSize: 10, color: 'var(--muted)', textAlign: 'right', marginTop: 3 }}>{channel} · адаптированная карточка</div>

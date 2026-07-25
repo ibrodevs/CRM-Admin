@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Icon } from './icons';
 import { Button, ConfirmDialog, Drawer, Field, Input, Pill, Select, Tabs, useToast } from './ui';
-import { CURRENT_USER, FEE_DESC_DEFAULTS, FEE_SCHEMA, FEE_SERVICE_TYPES, FEE_TEMPLATES, SERVICE_DESC_DEFAULTS, SETTLEMENT_TYPES, applyAgreementFees, companyFinance, creditAvailable, depositAvailable, descsFromDefaults, feeDescOf, feeDescsFromDefaults, feeTemplate, feesFromTemplate, registerFeeTemplate } from './data';
+import { CURRENT_USER, FEE_DESC_DEFAULTS, FEE_SCHEMA, FEE_SERVICE_TYPES, FEE_TEMPLATES, SERVICE_DESC_DEFAULTS, SETTLEMENT_TYPES, applyAgreementFees, creditAvailable, depositAvailable, descsFromDefaults, feeDescOf, feeDescsFromDefaults, feeTemplate, feesFromTemplate, registerFeeTemplate } from './data';
 import { FIN_COUNTERPARTIES, f$ } from './data/finance';
 import { FinCounterpartyDrawer, ReconActDrawer } from './page_finance';
 import { financeApi, workspaceActionsApi, workspaceSettingsApi } from './api/resources';
@@ -567,15 +567,13 @@ function CompanySettlementsBlock({ co }) {
 }
 
 function CompanyFinanceBlock({ co }) {
-  const seeded = companyFinance(co.id);
-  const [fin, setFin] = useState(() => (seeded ? JSON.parse(JSON.stringify(seeded)) : null));
+  const [fin, setFin] = useState(null);
   const [closing, setClosing] = useState(null);
   const namespace = `company-finance-${co.serverId || co.id}`;
   useEffect(() => {
     const controller = new AbortController();
-    workspaceSettingsApi.get(namespace, controller.signal).then(async (setting) => {
+    workspaceSettingsApi.get(namespace, controller.signal).then((setting) => {
       if (setting.value && Object.keys(setting.value).length) setFin(setting.value);
-      else if (seeded) await workspaceSettingsApi.save(namespace, JSON.parse(JSON.stringify(seeded)));
     }).catch((error) => { if (error.name !== 'AbortError') console.error(error); });
     return () => controller.abort();
   }, [namespace]);

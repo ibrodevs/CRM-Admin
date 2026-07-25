@@ -53,3 +53,31 @@ test('flight attachment drawer does not provide demo company fallbacks', async (
   assert.doesNotMatch(flights, /ИП Мамажанов/);
   assert.match(flights, /companyOptions = \[\]/);
 });
+
+test('supplier cards do not synthesize business credentials or metrics', async () => {
+  const suppliers = await source('js/page_suppliers.jsx');
+  assert.doesNotMatch(suppliers, /https:\/\/api\.'/);
+  assert.doesNotMatch(suppliers, /sk_'\s*\+/);
+  assert.doesNotMatch(suppliers, /tok_'\s*\+/);
+  assert.doesNotMatch(suppliers, /Меркель Александр/);
+  assert.doesNotMatch(suppliers, /Договор оферты/);
+  assert.doesNotMatch(suppliers, /ДС №2/);
+  assert.doesNotMatch(suppliers, /ул\. Киевская 124/);
+  assert.doesNotMatch(suppliers, /MiniLineChart/);
+  assert.doesNotMatch(suppliers, /ОсОО по ИНН/);
+});
+
+test('client previews are not rendered as inert clickable anchors', async () => {
+  const services = await source('js/page_services.jsx');
+  assert.doesNotMatch(services, /href="#"/);
+  assert.doesNotMatch(services, /onClick=\{\(e\) => e\.preventDefault\(\)\}/);
+});
+
+test('manual import and document drawers avoid fake generated people or parser data', async () => {
+  const extras = await source('js/order_extras.jsx');
+  const policy = await source('js/travel_policy.jsx');
+  assert.doesNotMatch(extras, /Меркель Александр/);
+  assert.doesNotMatch(extras, /До окончания срока: 3 месяца/);
+  assert.doesNotMatch(policy, /Импортов Импорт/);
+  assert.doesNotMatch(policy, /document_upload_placeholder/);
+});

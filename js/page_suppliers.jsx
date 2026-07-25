@@ -9,25 +9,6 @@ import { communicationsApi, documentsApi, servicesApi, suppliersApi, workspaceSe
 import { toUiSupplier } from './api/adapters';
 import { resultsOf } from './api/client';
 
-
-
-function MiniLineChart() {
-
-  const w = 420, h = 150, pad = 6;
-  const mk = (pts) => pts.map((p, i) => `${i === 0 ? 'M' : 'L'}${pad + (i / (pts.length - 1)) * (w - pad * 2)},${h - pad - (p / 100) * (h - pad * 2)}`).join(' ');
-  const red = [22, 30, 28, 18, 44, 78, 60, 70, 84, 58];
-  const green = [40, 52, 60, 56, 50, 38, 56, 64, 50, 30];
-  return (
-    <svg viewBox={`0 0 ${w} ${h}`} style={{ width: '100%', height: 170 }}>
-      {[0, 20, 40, 60, 80, 100].map((g, i) => (
-        <line key={i} x1={pad} x2={w - pad} y1={h - pad - (g / 100) * (h - pad * 2)} y2={h - pad - (g / 100) * (h - pad * 2)} stroke="#eef0f4" strokeWidth="1" />
-      ))}
-      <path d={mk(green)} fill="none" stroke="#2bb96a" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" />
-      <path d={mk(red)} fill="none" stroke="#ec4444" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
-  );
-}
-
 function useSupplierDocuments(s, ext) {
   const [, refresh] = useState(0);
   useEffect(() => {
@@ -215,48 +196,51 @@ function supEmptyFin(kinds) {
 
 
 const SUP_EXT = window.SUP_EXT || (window.SUP_EXT = {});
-function supNumericSeed(value) {
-  return Array.from(String(value || '')).reduce((sum, ch) => (sum + ch.charCodeAt(0)) % 10000, 0);
+const SUP_KIND_LABEL = { avia: 'Авиа', rail: 'ЖД', hotel: 'Гостиницы', transfer: 'Трансферы', bus: 'Автобусы', insurance: 'Страхование', visa: 'Визы', other: 'Прочее' };
+function supplierKinds(s) {
+  const raw = Array.isArray(s.service_kinds) && s.service_kinds.length ? s.service_kinds.map((kind) => SUP_KIND_LABEL[kind] || kind) : [s.service];
+  return raw.map((kind) => kind === 'Отель' ? 'Гостиницы' : kind === 'Трансфер' ? 'Трансферы' : kind).filter(Boolean);
 }
 function supExt(s) {
   if (s.ext) return s.ext;
   if (!SUP_EXT[s.no]) {
-    const numericSeed = supNumericSeed(s.no);
-    const seed = numericSeed % 5;
-    const isApi = s.type === 'Глобальный' || s.orgType === 'Авиакомпания';
-    const kinds = s.service === 'Авиа' ? ['Авиа'] : s.service === 'Отель' ? ['Гостиницы'] : s.service === 'Трансфер' ? ['Трансферы'] : [s.service];
+    const automation = s.automation_capabilities || {};
+    const isApi = s.type === 'Глобальный' || Boolean(automation.adapter || automation.api_url);
+    const kinds = supplierKinds(s);
     const fin = supEmptyFin(kinds);
-    kinds.forEach((k) => {
-      fin[k].commission = { type: 'percent', value: 8 + seed };
-      fin[k].service = { type: 'fixed', value: 10 + seed * 2 };
-      fin[k].exchange = { type: 'fixed', value: 20 + seed * 2 };
-      fin[k].refund = { type: 'fixed', value: 15 + seed };
-    });
+    const comm = Array.isArray(s.communication_methods) ? s.communication_methods.filter(Boolean) : [];
+    const commBind = {};
+    if (s.email) commBind.Email = s.email;
+    if (s.phone) commBind['Телефон'] = s.phone;
     SUP_EXT[s.no] = {
       supType: isApi ? 'API' : 'Локальный',
       kinds,
-      priority: 1 + seed,
-      useDefault: seed === 0,
-      country: 'Кыргызстан',
-      city: 'Бишкек',
+      priority: automation.priority || '',
+      useDefault: Boolean(automation.use_default),
+      country: Array.isArray(s.countries) && s.countries[0] ? s.countries[0] : '',
+      city: Array.isArray(s.cities) && s.cities[0] ? s.cities[0] : '',
       api: {
-        url: 'https://api.' + s.org.toLowerCase().replace(/[^a-z0-9]/g, '') + '.com/v2',
-        apiKey: 'sk_' + String(s.no) + 'a9f3', login: 'psc_travelhub', password: '••••••••', token: 'tok_' + String(s.no) + 'x7',
-        version: 'v2.4', status: seed === 3 ? 'Ошибка' : 'Подключено', lastSync: '05.07.2026 09:3' + seed,
+        url: automation.api_url || '',
+        apiKey: '', login: '', password: '', token: '',
+        version: automation.api_version || '', status: automation.adapter ? 'Требует проверки' : 'Не настроено', lastSync: '',
       },
-      local: { contact: 'Меркель Александр', comm: ['Telegram', 'Email', 'Телефон'], commBind: { 'Telegram': '@' + s.org.toLowerCase().replace(/[^a-z0-9]/g, ''), 'Email': 'sales@' + s.org.toLowerCase().replace(/[^a-z]/g, '') + '.com', 'Телефон': '+996 (555) 123-456' }, processing: 30 + seed * 10, hours: 'Пн–Сб 09:00–19:00' },
-      fin: { currency: s.currency, commType: '%', commValue: 8 + seed, vat: seed % 2 ? '12%' : 'Без НДС', settlement: SUP_SETTLEMENTS[seed % SUP_SETTLEMENTS.length], payTerm: 5 + seed * 2, perService: fin },
-      ops: { 'Бронирование': true, 'Выписка': true, 'Возврат': seed !== 2, 'Обмен': seed !== 4, 'Аннуляция': true, 'Дополнительные услуги': seed % 2 === 0 },
-      automation: seed === 3 ? 'reserve' : 'auto',
-      searchPriority: kinds.reduce((m, k) => (SUP_PRIORITY_SERVICES.includes(k) ? (m[k] = 1 + seed, m) : m), {}),
-      stats: { bookings: 84 + numericSeed % 200, issues: 61 + numericSeed % 160, refunds: 3 + seed, avgResponse: (2 + seed) + ' мин', successRate: (91 + seed) + '%', lastUsed: '0' + (5 - (seed % 3)) + '.07.2026' },
-      docs: { 'Договор': ['Договор оферты.pdf'], 'Дополнительные соглашения': ['ДС №2 от 03.2026.pdf'], 'Реквизиты': ['Реквизиты.pdf'], 'Сертификаты': s.orgType === 'Авиакомпания' ? ['Сертификат IATA.pdf'] : [], 'Прочие файлы': [] },
+      local: { contact: s.contact_person || '', comm, commBind, processing: '', hours: s.work_hours || '' },
+      fin: { currency: s.currency, commType: s.settlement_type || '%', commValue: 0, vat: 'Без НДС', settlement: s.settlement_type || '', payTerm: '', perService: fin },
+      ops: SUP_OPS.reduce((result, operation) => ({ ...result, [operation]: Boolean(automation.operations?.[operation]) }), {}),
+      automation: automation.search_mode || 'manual',
+      searchPriority: automation.search_priority || {},
+      sla: {
+        responseMinutes: automation.sla?.response_minutes || '',
+        confirmationHours: automation.sla?.confirmation_hours || '',
+      },
+      stats: { bookings: 0, issues: 0, refunds: 0, avgResponse: '—', successRate: '0%', lastUsed: '—' },
+      docs: SUP_DOC_KINDS.reduce((result, kind) => ({ ...result, [kind]: [] }), {}),
 
       legal: {
-        inn: '', kpp: '', ogrn: '', okpo: '', legalName: s.org, legalForm: 'ОсОО',
-        director: '', address: '', phone: '', email: '', vat: seed % 2 ? '12%' : 'Без НДС',
+        inn: s.tax_id || '', kpp: '', ogrn: '', okpo: '', legalName: s.org, legalForm: s.orgType || '',
+        director: '', address: '', phone: s.phone || '', email: s.email || '', vat: 'Без НДС',
         bank: '', bik: '', account: '', corr: '',
-        contractNo: '', contractDate: '', signedBy: '', filled: false,
+        contractNo: s.contract_number || '', contractDate: '', signedBy: '', filled: Boolean(s.tax_id || s.contract_number || s.phone || s.email),
       },
     };
   }
@@ -264,22 +248,7 @@ function supExt(s) {
 }
 
 function supLookupByInn(inn, ext, s) {
-  const bases = [
-    { form: 'ОсОО', bank: 'Демир Банк', bik: '109000', addr: 'Бишкек, ул. Абдрахманова 170' },
-    { form: 'ЗАО', bank: 'Оптима Банк', bik: '109001', addr: 'Бишкек, пр. Чуй 219' },
-    { form: 'ИП', bank: 'РСК Банк', bik: '128005', addr: 'Ош, ул. Курманжан Датка 12' },
-  ];
-  const b = bases[(String(inn).length + supNumericSeed(s.no)) % bases.length];
-  const tail = String(inn).replace(/\D/g, '').slice(-6).padStart(6, '0');
-  return {
-    ...ext.legal, inn: String(inn), legalForm: b.form,
-    kpp: tail.slice(0, 3) + '01001', ogrn: '1' + tail + '00' + tail.slice(0, 3), okpo: tail.slice(0, 5) + '1',
-    legalName: b.form + ' «' + s.org + '»', director: 'Директор ' + s.org, address: b.addr,
-    phone: '+996 (312) ' + tail.slice(0, 2) + '-' + tail.slice(2, 4) + '-' + tail.slice(4, 6),
-    email: 'office@' + String(s.org).toLowerCase().replace(/[^a-z0-9]/g, '') + '.kg',
-    bank: b.bank, bik: b.bik, account: '124' + tail + tail.slice(0, 7), corr: '101' + tail + tail.slice(0, 7),
-    filled: true,
-  };
+  return { ...ext.legal, inn: String(inn || '') };
 }
 function supFinSummary(ext) {
   return ext.fin.commType === '%' ? ext.fin.commValue + ' %' : ext.fin.commType === 'Фиксированная' ? ext.fin.commValue + ' ' + ext.fin.currency : ext.fin.commValue + ' % + сборы';
@@ -570,8 +539,8 @@ function SupplierLegalEditor({ s, ext, onSaveSettings }) {
   const set = (k) => (e) => setF((p) => ({ ...p, [k]: e.target.value }));
   const lookup = () => {
     if (!f.inn || String(f.inn).replace(/\D/g, '').length < 6) { toast('Введите ИНН (не менее 6 цифр)', 'err'); return; }
-    setBusy(true);
-    setTimeout(() => { setF(supLookupByInn(f.inn, ext, s)); setBusy(false); toast('Данные подтянуты по ИНН', 'ok'); }, 700);
+    setF(supLookupByInn(f.inn, ext, s));
+    toast('Backend-справочник по ИНН не подключён: заполните реквизиты вручную', 'warn');
   };
   const save = async () => {
     setSaving(true);
@@ -592,9 +561,9 @@ function SupplierLegalEditor({ s, ext, onSaveSettings }) {
 
       <div className="card card-pad" style={{ marginBottom: 16, background: 'var(--surface-2)' }}>
         <div style={{ display: 'flex', alignItems: 'flex-end', gap: 12, flexWrap: 'wrap' }}>
-          <div style={{ flex: 1, minWidth: 220 }}><Field label="ИНН" hint="первичный ввод — остальные поля заполнятся автоматически"><Input value={f.inn || ''} onChange={set('inn')} leadIcon="bank" placeholder="Напр. 02208201810045" /></Field></div>
-          <Button icon="api" disabled={busy} onClick={lookup}>{busy ? 'Запрос…' : 'Заполнить по ИНН'}</Button>
-          {f.filled && <Pill tone="green"><Icon name="check" style={{ width: 12, height: 12, verticalAlign: -2 }} /> данные получены</Pill>}
+          <div style={{ flex: 1, minWidth: 220 }}><Field label="ИНН" hint="Введите ИНН; реквизиты сохраняются только после ручной проверки"><Input value={f.inn || ''} onChange={set('inn')} leadIcon="bank" placeholder="Напр. 02208201810045" /></Field></div>
+          <Button icon="api" disabled={busy} onClick={lookup}>{busy ? 'Запрос…' : 'Проверить ИНН'}</Button>
+          {f.filled && <Pill tone="green"><Icon name="check" style={{ width: 12, height: 12, verticalAlign: -2 }} /> данные сохранены</Pill>}
         </div>
       </div>
 
@@ -677,24 +646,25 @@ function SupplierTabBody({ s, ext, tab, isAirline, apiStatus, checkConn, setPrev
             {[['Контактное лицо', ext.local.contact],
               ['Время обработки заявок', (typeof ext.local.processing === 'number' ? ext.local.processing + ' мин' : ext.local.processing)],
               ['Часы работы', ext.local.hours],
-              ['Адрес', ext.city + ', ул. Киевская 124']].map(([k, v], i) => (
-              <div className="kv-row" key={i}><span className="k">{k}</span><span className="v">{v}</span></div>
+              ['Адрес', ext.legal.address]].map(([k, v], i) => (
+              <div className="kv-row" key={i}><span className="k">{k}</span><span className="v">{v || '—'}</span></div>
             ))}
           </div>
           <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--muted)', margin: '16px 0 8px' }}>Каналы связи (привязка мессенджеров)</div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          {ext.local.comm.length ? <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
             {ext.local.comm.map((m) => {
               const cfg = SUP_COMM_CONFIG[m] || {};
               const bind = (ext.local.commBind && ext.local.commBind[m]) || (cfg.field ? '—' : 'встроенный чат CRM');
+              const connected = bind && bind !== '—';
               return (
                 <div key={m} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 12px', borderRadius: 10, border: '1px solid var(--field-line)' }}>
                   <span style={{ width: 90, fontSize: 13, fontWeight: 600, color: 'var(--ink)' }}>{m}</span>
                   <span style={{ flex: 1, fontSize: 13, color: 'var(--body)' }}>{bind}</span>
-                  <Pill tone="green">подключён</Pill>
+                  <Pill tone={connected ? 'green' : 'gray'}>{connected ? 'указан' : 'не указан'}</Pill>
                 </div>
               );
             })}
-          </div>
+          </div> : <EmptyState icon="chat" title="Каналы связи не указаны" sub="Добавьте контакты поставщика в backend или настройках карточки" />}
           <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 8, display: 'flex', gap: 6, alignItems: 'flex-start' }}>
             <Icon name="chat" style={{ width: 14, height: 14, color: 'var(--blue)', flexShrink: 0, marginTop: 1 }} />
             Сообщения из чата заказа уходят поставщику через привязанный канал, ответы возвращаются в тот же тред CRM.
@@ -711,13 +681,7 @@ function SupplierTabBody({ s, ext, tab, isAirline, apiStatus, checkConn, setPrev
               <div className="stat-card" key={i}><div className="s-label">{l}</div><div className="s-value" style={{ fontSize: 22 }}>{v}</div></div>
             ))}
           </div>
-          <div className="card card-pad">
-            <MiniLineChart />
-            <div className="legend" style={{ marginTop: 8 }}>
-              <div className="legend-item" style={{ fontSize: 14 }}><span className="dot" style={{ background: '#ec4444', borderRadius: '50%' }} />Отмены</div>
-              <div className="legend-item" style={{ fontSize: 14 }}><span className="dot" style={{ background: '#2bb96a', borderRadius: '50%' }} />Успешные</div>
-            </div>
-          </div>
+          <EmptyState icon="chart" title="Динамика по дням пока не загружена" sub="График появится после появления временного ряда в backend" />
         </div>
       )}
       {tab === 'markups' && isAirline && <AviaMarkupEditor supplierName={s.name} />}
@@ -729,7 +693,7 @@ function SupplierTabBody({ s, ext, tab, isAirline, apiStatus, checkConn, setPrev
               <div className="kv-row" key={i}><span className="k">{k}</span><span className="v" style={{ maxWidth: 280, wordBreak: 'break-all' }}>{v}</span></div>
             ))}
             <div className="kv-row"><span className="k">Статус подключения</span><span className="v">
-              <Pill tone={apiStatus === 'ok' || ext.api.status === 'Подключено' ? 'green' : 'red'}>{apiStatus === 'checking' ? 'Проверка…' : (apiStatus === 'ok' ? 'Подключено' : ext.api.status)}</Pill>
+              <Pill tone={apiStatus === 'ok' || ext.api.status === 'Подключено' ? 'green' : ext.api.status === 'Не настроено' ? 'gray' : 'red'}>{apiStatus === 'checking' ? 'Проверка…' : (apiStatus === 'ok' ? 'Подключено' : ext.api.status)}</Pill>
             </span></div>
           </div>
           <div style={{ display: 'flex', gap: 10, marginTop: 18 }}>
@@ -740,8 +704,8 @@ function SupplierTabBody({ s, ext, tab, isAirline, apiStatus, checkConn, setPrev
       )}
       {tab === 'sla' && (
         <div className="kv">
-          {[['Время ответа (мин)', '30 мин.'], ['Дедлайн подтверждения (часы)', '6 ч.'], ['Каналы уведомлений', ext.local.comm.join(', ')], ['Приоритет поставщика', String(ext.priority)], ['Условия оплаты', ext.fin.settlement + ' · ' + (typeof ext.fin.payTerm === 'number' ? ext.fin.payTerm + ' дн.' : ext.fin.payTerm)]].map(([k, v], i) => (
-            <div className="kv-row" key={i}><span className="k">{k}</span><span className="v" style={{ maxWidth: 240 }}>{v}</span></div>
+          {[['Время ответа (мин)', ext.sla?.responseMinutes], ['Дедлайн подтверждения (часы)', ext.sla?.confirmationHours], ['Каналы уведомлений', ext.local.comm.join(', ')], ['Приоритет поставщика', String(ext.priority || '')], ['Условия оплаты', [ext.fin.settlement, typeof ext.fin.payTerm === 'number' ? ext.fin.payTerm + ' дн.' : ext.fin.payTerm].filter(Boolean).join(' · ')]].map(([k, v], i) => (
+            <div className="kv-row" key={i}><span className="k">{k}</span><span className="v" style={{ maxWidth: 240 }}>{v || '—'}</span></div>
           ))}
         </div>
       )}
@@ -1053,9 +1017,8 @@ function SupplierAddDrawer({ open, onClose, onCreated }) {
   const lookupInn = () => {
     const inn = (f.inn || '').trim();
     if (inn.replace(/\D/g, '').length < 8) { toast('Введите корректный ИНН (мин. 8 цифр)', 'err'); return; }
-    setF((p) => ({ ...p, name: p.name || ('ОсОО по ИНН ' + inn.slice(0, 6)), org: p.org || ('ОсОО по ИНН ' + inn.slice(0, 6)) }));
     setLegalOpen(true);
-    toast('Юридические данные подтянуты по ИНН', 'ok');
+    toast('Backend-справочник по ИНН не подключён: заполните реквизиты вручную', 'warn');
   };
 
   const set = (k) => (e) => setF((p) => ({ ...p, [k]: e && e.target ? e.target.value : e }));
@@ -1455,4 +1418,4 @@ Object.assign(window, { SuppliersPage, SupplierCard, SupplierTabBody, SupplierMo
 
 
 
-export { MiniLineChart, DocPreviewDrawer, SUP_BRAND_COLORS, supBrand, SupplierBadge, SUPPLIER_TYPES, SUP_SERVICE_KINDS, SUP_COMM_METHODS, SUP_COUNTRIES, SUP_CITIES, supCitiesFor, SUP_WORK_HOURS, SUP_COMM_CONFIG, SUP_OPS, SUP_DOC_KINDS, SUP_COMM_TYPES, SUP_SETTLEMENTS, SUP_AUTOMATION, SUP_AUTOMATION_LABEL, SUP_FIN_KEYS, SUP_PRIORITY_SERVICES, SUP_SEARCH_ORDER, supEmptyFin, SUP_EXT, supExt, supLookupByInn, supFinSummary, AviaMarkupEditor, SupplierFinEditor, SupplierSearchEditor, SearchPriorityModal, SUP_TABS, SupplierLegalEditor, SupplierTabBody, SupplierCard, SupplierModal, SupSection, SupplierAddDrawer, SuppliersPage };
+export { DocPreviewDrawer, SUP_BRAND_COLORS, supBrand, SupplierBadge, SUPPLIER_TYPES, SUP_SERVICE_KINDS, SUP_COMM_METHODS, SUP_COUNTRIES, SUP_CITIES, supCitiesFor, SUP_WORK_HOURS, SUP_COMM_CONFIG, SUP_OPS, SUP_DOC_KINDS, SUP_COMM_TYPES, SUP_SETTLEMENTS, SUP_AUTOMATION, SUP_AUTOMATION_LABEL, SUP_FIN_KEYS, SUP_PRIORITY_SERVICES, SUP_SEARCH_ORDER, supEmptyFin, SUP_EXT, supExt, supLookupByInn, supFinSummary, AviaMarkupEditor, SupplierFinEditor, SupplierSearchEditor, SearchPriorityModal, SUP_TABS, SupplierLegalEditor, SupplierTabBody, SupplierCard, SupplierModal, SupSection, SupplierAddDrawer, SuppliersPage };

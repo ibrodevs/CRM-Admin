@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Icon } from './icons';
-import { Avatar, Button, Checkbox, Drawer, Field, Input, SearchBox, Select, useToast } from './ui';
+import { Avatar, Button, Checkbox, Drawer, EmptyState, Field, Input, SearchBox, Select, useToast } from './ui';
 import { CURRENCIES, OPERATORS } from './data';
 import { UnifiedPersonDrawer } from './forms_unified';
 import { PanelSub } from './components/shared-panels';
@@ -43,7 +43,7 @@ function PassportModal({ passenger, participants, onClose, onAddDoc }) {
 
   const source = (participants && participants.length)
     ? participants
-    : [{ name: passenger || 'Меркель Александр', docStatus: 'check' }, { name: 'Аттокуров Эрбол', docStatus: 'ok' }];
+    : (passenger ? [{ name: passenger, docStatus: 'check' }] : []);
   const pax = source.map((p) => ({
     name: p.name,
     sub: p.docStatus === 'check' ? 'Требует проверки' : (p.doc || 'Документы в порядке'),
@@ -67,9 +67,9 @@ function PassportModal({ passenger, participants, onClose, onAddDoc }) {
       footer={<div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', justifyContent: 'flex-end', flex: 1 }}>
         <Button variant="secondary" icon="plus" onClick={() => onAddDoc && onAddDoc(cur ? { name: cur.name } : null)}>Добавить документ</Button>
         <div style={{ flex: 1 }} />
-        <Button variant="secondary" iconRight="chevRight" onClick={() => window.print()}>Посмотреть документ</Button>
-        <Button variant="secondary" onClick={() => documentAction('document.person.verify', 'Данные подтверждены')}>Подтвердить данные</Button>
-        <Button variant="primary" iconRight="chevRight" onClick={() => documentAction('document.person.sign', 'Документ подписан', true)}>Подписать</Button>
+        <Button variant="secondary" iconRight="chevRight" disabled={!cur} onClick={() => window.print()}>Посмотреть документ</Button>
+        <Button variant="secondary" disabled={!cur} onClick={() => documentAction('document.person.verify', 'Данные подтверждены')}>Подтвердить данные</Button>
+        <Button variant="primary" iconRight="chevRight" disabled={!cur} onClick={() => documentAction('document.person.sign', 'Документ подписан', true)}>Подписать</Button>
       </div>}>
 
       <PanelSub style={{ marginTop: 0 }}>Тип документа</PanelSub>
@@ -96,20 +96,20 @@ function PassportModal({ passenger, participants, onClose, onAddDoc }) {
             <span className={'radio' + (activePax === i ? ' on' : '')} />
           </button>
         ))}
-        {filtered.length === 0 && <div style={{ color: 'var(--muted)', fontSize: 13, gridColumn: '1 / -1' }}>Пассажиры не найдены</div>}
+        {filtered.length === 0 && <div style={{ gridColumn: '1 / -1' }}><EmptyState icon="user" title="Пассажиры не найдены" sub="Добавьте участника заказа, чтобы работать с документами" /></div>}
       </div>
 
 
-      <div style={{ position: 'relative', display: 'flex', justifyContent: 'center', paddingTop: 34, marginTop: 12 }}>
+      {cur && <div style={{ position: 'relative', display: 'flex', justifyContent: 'center', paddingTop: 34, marginTop: 12 }}>
         <div className="badge-tip" style={{ left: '50%', top: 6, background: cur.expired ? '#ec4444' : '#f5a623' }}>
-          {cur.expired ? 'Просроченный паспорт' : 'До окончания срока: 3 месяца'}
+          {cur.expired ? 'Документ требует проверки' : cur.sub}
         </div>
         <div style={{ width: 250, height: 320, borderRadius: 12, overflow: 'hidden', border: '1px solid var(--line)',
-          background: 'repeating-linear-gradient(45deg, #eef3ee, #eef3ee 11px, #e4ece4 11px, #e4ece4 22px)',
+          background: 'var(--surface-2)',
           display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          <span style={{ fontFamily: 'monospace', fontSize: 13, color: '#7c8a7c', letterSpacing: '.04em' }}>скан паспорта</span>
+          <span style={{ fontSize: 13, color: 'var(--muted)', textAlign: 'center', padding: 16 }}>Файл документа появится после загрузки в backend</span>
         </div>
-      </div>
+      </div>}
     </Drawer>
   );
 }
