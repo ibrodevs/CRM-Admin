@@ -461,7 +461,7 @@ function SupplierSearchEditor({ ext, supplierName, onSaveSettings }) {
         {SUP_AUTOMATION.map((a) => (
           <button key={a.key} onClick={() => setAuto(a.key)}
             style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '11px 14px', borderRadius: 12, border: '1px solid ' + (auto === a.key ? 'var(--blue)' : 'var(--field-line)'), background: auto === a.key ? 'var(--blue-soft)' : '#fff', cursor: 'pointer', textAlign: 'left' }}>
-            <Radio on={auto === a.key} onChange={() => setAuto(a.key)} />
+            <Radio on={auto === a.key} interactive={false} />
             <div style={{ flex: 1 }}>
               <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--ink)' }}>{a.label}</div>
               <div style={{ fontSize: 12, color: 'var(--muted)' }}>{a.hint}</div>
@@ -1330,7 +1330,7 @@ function SupplierAddDrawer({ open, onClose, onCreated }) {
           {SUP_AUTOMATION.map((a) => (
             <button key={a.key} onClick={() => set('automation')(a.key)}
               style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 14px', borderRadius: 12, border: '1px solid ' + (f.automation === a.key ? 'var(--blue)' : 'var(--field-line)'), background: f.automation === a.key ? 'var(--blue-soft)' : '#fff', cursor: 'pointer', textAlign: 'left' }}>
-              <Radio on={f.automation === a.key} onChange={() => set('automation')(a.key)} />
+              <Radio on={f.automation === a.key} interactive={false} />
               <div style={{ flex: 1 }}>
                 <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--ink)' }}>{a.label}</div>
                 <div style={{ fontSize: 12, color: 'var(--muted)' }}>{a.hint}</div>

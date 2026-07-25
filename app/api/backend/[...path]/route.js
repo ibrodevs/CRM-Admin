@@ -2,8 +2,9 @@ import { proxyToBackend } from '../../_lib/backend.js';
 
 export const dynamic = 'force-dynamic';
 
-function handler(request, { params }) {
-  const path = Array.isArray(params.path) ? params.path.join('/') : '';
+async function handler(request, { params }) {
+  const resolvedParams = await params;
+  const path = Array.isArray(resolvedParams.path) ? resolvedParams.path.join('/') : '';
   return proxyToBackend(request, `/api/v1/${path}${path.endsWith('/') ? '' : '/'}`);
 }
 

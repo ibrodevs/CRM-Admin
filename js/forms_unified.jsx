@@ -4,18 +4,6 @@ import { Icon } from './icons';
 import { Avatar, Button, Drawer, EmptyState, Field, Input, SearchBox, Select, Toggle, fmtDate, useToast } from './ui';
 import { CLIENTS, CLIENT_STATUS, ORDERS } from './data';
 import { PanelSub } from './components/shared-panels';
-
-
-
-
-
-
-
-
-
-
-
-
 const UF_DOC_TYPES = ['Загранпаспорт', 'Общегражданский паспорт', 'ID-карта', 'Свидетельство о рождении', 'Вид на жительство', 'Виза'];
 const UF_CITIZENSHIP = ['Кыргызстан', 'Казахстан', 'Россия', 'Узбекистан', 'Таджикистан', 'Туркменистан', 'Азербайджан', 'Турция', 'Германия', 'Китай', 'ОАЭ', 'Другое'];
 const UF_PAX_ROLES = ['Взрослый', 'Ребёнок', 'Младенец'];
