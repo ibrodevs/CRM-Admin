@@ -276,17 +276,27 @@ table.tbl tbody tr:last-child td{border-bottom:none}
 /* Широкие таблицы (много колонок) — держат ширину и прокручиваются в .table-card вместо сжатия/переносов */
 table.tbl.tbl-wide{min-width:1040px}
 table.tbl.tbl-wide thead th,table.tbl.tbl-wide tbody td{white-space:nowrap}
-.rec-import-table-card{overflow-x:auto}
-.rec-import-table{min-width:760px;table-layout:fixed}
-.rec-import-table th:nth-child(1){width:44px}
-.rec-import-table th:nth-child(2){width:28%}
-.rec-import-table th:nth-child(3){width:25%}
-.rec-import-table th:nth-child(4){width:17%}
-.rec-import-table th:nth-child(5){width:15%}
-.rec-import-table th:nth-child(6){width:180px}
-.rec-import-table th:nth-child(7){width:52px}
-.rec-import-table tbody tr:hover td{background:var(--hover)}
-.rec-import-table tbody td{background:#fff;overflow-wrap:anywhere;word-break:break-word}
+.rec-import-table-card{overflow:hidden}
+.rec-import-table{width:100%;min-width:0;display:block;table-layout:auto}
+.rec-import-table thead,.rec-import-table tbody{display:block}
+.rec-import-table thead tr,.rec-import-table tbody tr.rec-import-row{
+  display:grid;
+  grid-template-columns:42px minmax(220px,1.35fr) minmax(190px,1fr) minmax(142px,.72fr) minmax(128px,.58fr) minmax(156px,.72fr) 36px;
+  column-gap:12px;
+  align-items:center;
+}
+.rec-import-table thead tr{padding:0 18px;background:var(--surface-2);border-bottom:1px solid var(--line)}
+.rec-import-table thead th{
+  display:flex;align-items:center;min-width:0;height:68px;padding:0!important;
+  white-space:normal;line-height:1.25;overflow-wrap:normal;word-break:normal
+}
+.rec-import-table tbody tr.rec-import-row{padding:16px 18px;border-bottom:1px solid var(--line)}
+.rec-import-table tbody tr.rec-import-row:last-child{border-bottom:none}
+.rec-import-table tbody tr:hover td{background:transparent}
+.rec-import-table tbody td{
+  display:block;min-width:0;padding:0!important;border-bottom:none!important;background:transparent;
+  overflow-wrap:anywhere;word-break:break-word
+}
 .rec-import-file{display:flex;align-items:center;gap:10px;min-width:0}
 .rec-import-icon{width:30px;height:30px;border-radius:8px;display:inline-flex;align-items:center;justify-content:center;flex:0 0 30px;color:#fff}
 .rec-import-icon svg{width:16px;height:16px;color:#fff}
@@ -297,8 +307,31 @@ table.tbl.tbl-wide thead th,table.tbl.tbl-wide tbody td{white-space:nowrap}
 .rec-import-route>span:first-child{color:var(--body);overflow-wrap:anywhere}
 .rec-import-money{padding:0;height:auto;display:block;text-align:left;white-space:normal;background:transparent!important}
 .rec-import-actions{display:flex;gap:6px;flex-wrap:wrap}
-.rec-import-actions .btn{color:var(--blue);white-space:normal;height:auto;min-height:34px;padding:7px 10px}
+.rec-import-actions .btn{color:var(--blue);white-space:normal;height:auto;min-height:34px;padding:7px 10px;justify-content:flex-start;text-align:left}
 .rec-import-remove{width:34px;padding:0}
+@media (max-width:900px){
+  .rec-import-table-card{border:none;background:transparent;box-shadow:none;overflow:visible}
+  .rec-import-table{min-width:0;display:block}
+  .rec-import-table thead{display:none}
+  .rec-import-table tbody{display:grid;gap:10px}
+  .rec-import-table tbody tr.rec-import-row{
+    display:grid;grid-template-columns:1fr;gap:10px;background:#fff;border:1px solid var(--line);
+    border-radius:14px;box-shadow:var(--shadow-card);padding:12px
+  }
+  .rec-import-table tbody td{
+    display:grid;grid-template-columns:112px minmax(0,1fr);gap:10px;align-items:start;
+    border-bottom:none!important;padding:0!important;font-size:13.5px;background:transparent
+  }
+  .rec-import-table tbody td::before{
+    content:attr(data-label);font-size:11.5px;font-weight:700;color:var(--muted);
+    text-transform:uppercase;line-height:1.4
+  }
+  .rec-import-table tbody td[data-label=""]{grid-template-columns:1fr}
+  .rec-import-table tbody td[data-label=""]::before{display:none}
+  .rec-import-actions{justify-content:flex-start}
+  .rec-import-actions .btn{flex:1 1 120px}
+  .rec-import-remove{justify-self:end}
+}
 .t-strong{font-weight:600;color:var(--ink)}
 .t-muted{color:var(--muted)}
 .t-sub{font-size:13px;color:var(--muted)}
