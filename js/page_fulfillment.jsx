@@ -1128,6 +1128,13 @@ const REC_STATUS = {
   'Возможный дубль':  { tone: 'red',   action: 'Пропустить' },
   'Ошибка':           { tone: 'gray',  action: 'Повторить'  },
 };
+const IMPORT_STEPS = [
+  { key: 'upload', label: 'Загрузка' },
+  { key: 'recognize', label: 'Распознавание' },
+  { key: 'verify', label: 'Проверка' },
+  { key: 'pricing', label: 'Данные и бланк' },
+  { key: 'attach', label: 'В заказ' },
+];
 
 function receiptStatus(parsed, seen) {
   if (!parsed) return 'Ошибка';
@@ -1140,14 +1147,14 @@ function receiptStatus(parsed, seen) {
 }
 
 
-function ReceiptEditDrawer({ open, file, onClose, onChange, onBrand }) {
+function ReceiptEditDrawer({ open, file, onClose, onChange, onBrand, onReview }) {
   if (!open || !file) return null;
   return (
     <Drawer open={open} onClose={onClose} title={'Проверка · ' + (file.parsed.passenger || 'квитанция')}
       footer={<>
         {file.originalUrl && <Button variant="secondary" icon="eye" onClick={() => window.open(file.originalUrl, '_blank')}>Оригинал</Button>}
         {onBrand && <Button variant="secondary" icon="template" onClick={onBrand}>На фирменном бланке</Button>}
-        <Button style={{ flex: 1 }} icon="check" onClick={onClose}>Готово</Button>
+        <Button style={{ flex: 1 }} icon="check" onClick={() => { onReview && onReview(file.id); onClose(); }}>Проверено</Button>
       </>}>
       <RSub style={{ marginTop: 0, marginBottom: 8 }}>Предпросмотр распознанного</RSub>
       <div style={{ marginBottom: 16 }}><ReceiptPreview type={file.type} p={file.parsed} /></div>
@@ -1201,7 +1208,9 @@ function ReceiptMathDrawer({ open, file, math, onSave, onClose }) {
 function ReceiptImportModal({ open, onClose, onDone }) {
   const toast = useToast();
   const [files, setFiles] = useState([]);
+  const [step, setStep] = useState(0);
   const [excluded, setExcluded] = useState({});
+  const [reviewed, setReviewed] = useState({});
   const [editId, setEditId] = useState(null);
 
 
@@ -1217,7 +1226,7 @@ function ReceiptImportModal({ open, onClose, onDone }) {
   const fileRef = useRef(null);
   const poolCounter = useRef({});
 
-  useEffect(() => { if (open) { setFiles([]); setExcluded({}); setEditId(null); setBindTarget({ mode: 'new', label: 'Новый заказ' }); setOptAddIncomplete(false); setOptCreateServices(true); setMath({}); setSel({}); setMathId(null); setBrandId(null); setBulk({ fee: '', markup: '', commission: '' }); poolCounter.current = {}; } }, [open]);
+  useEffect(() => { if (open) { setFiles([]); setStep(0); setExcluded({}); setReviewed({}); setEditId(null); setBindTarget({ mode: 'new', label: 'Новый заказ' }); setOptAddIncomplete(false); setOptCreateServices(true); setMath({}); setSel({}); setMathId(null); setBrandId(null); setBulk({ fee: '', markup: '', commission: '' }); poolCounter.current = {}; } }, [open]);
 
 
   const getMath = (id, p) => math[id] || { tariff: Math.round(Number(p && p.total) || 0), fee: 0, markup: 0, commission: 0 };
@@ -1235,6 +1244,7 @@ function ReceiptImportModal({ open, onClose, onDone }) {
         type, poolIx, status: 'queued', parsed: null };
     });
     setFiles((cur) => [...cur, ...add]);
+    setStep(1);
     add.forEach(async (entry) => {
       setFiles((cur) => cur.map((item) => item.id === entry.id ? { ...item, status: 'scanning' } : item));
       try {
@@ -1255,9 +1265,16 @@ function ReceiptImportModal({ open, onClose, onDone }) {
   };
   const onPick = (e) => { if (e.target.files && e.target.files.length) addFiles(e.target.files); e.target.value = ''; };
   const onDrop = (e) => { e.preventDefault(); if (e.dataTransfer.files && e.dataTransfer.files.length) addFiles(e.dataTransfer.files); };
-  const setType = (id, type) => setFiles((cur) => cur.map((f) => (f.id === id ? { ...f, type, parsed: f.parsed ? { ...f.parsed, ...emptyReceiptParse({ ...f, type }), recognitionPending: true } : null } : f)));
-  const updateParsed = (id, parsed) => setFiles((cur) => cur.map((f) => (f.id === id ? { ...f, parsed: { ...parsed, recognitionPending: false } } : f)));
-  const remove = (id) => { setFiles((cur) => cur.filter((f) => f.id !== id)); setExcluded((e) => { const n = { ...e }; delete n[id]; return n; }); };
+  const setType = (id, type) => {
+    setFiles((cur) => cur.map((f) => (f.id === id ? { ...f, type, parsed: f.parsed ? { ...f.parsed, ...emptyReceiptParse({ ...f, type }), recognitionPending: true } : null } : f)));
+    setReviewed((cur) => ({ ...cur, [id]: false }));
+  };
+  const updateParsed = (id, parsed) => {
+    setFiles((cur) => cur.map((f) => (f.id === id ? { ...f, parsed: { ...parsed, recognitionPending: false } } : f)));
+    setReviewed((cur) => ({ ...cur, [id]: true }));
+  };
+  const markReviewed = (id) => setReviewed((cur) => ({ ...cur, [id]: true }));
+  const remove = (id) => { setFiles((cur) => cur.filter((f) => f.id !== id)); setExcluded((e) => { const n = { ...e }; delete n[id]; return n; }); setReviewed((e) => { const n = { ...e }; delete n[id]; return n; }); };
 
   const processing = files.some((f) => f.status !== 'done');
   const done = files.filter((f) => f.status === 'done');
@@ -1273,6 +1290,9 @@ function ReceiptImportModal({ open, onClose, onDone }) {
     }));
   }, [files.map((f) => f.id + f.status + (f.parsed ? f.parsed.ticketNo : '')).join(',')]);
   const doneRows = rows.filter((r) => !r.pending);
+  useEffect(() => {
+    if (files.length && !processing && step === 1) setStep(2);
+  }, [files.length, processing, step]);
 
 
   useEffect(() => {
@@ -1284,16 +1304,24 @@ function ReceiptImportModal({ open, onClose, onDone }) {
   }, [doneRows.map((r) => r.f.id + r.status).join(',')]);
 
   const counts = doneRows.reduce((a, r) => { a[r.status] = (a[r.status] || 0) + 1; return a; }, {});
-  const isEligible = (r) => !r.pending && r.f.importId && !excluded[r.f.id] && r.status !== 'Ошибка' && (r.status !== 'Требует проверки' || optAddIncomplete);
+  const isEligible = (r) => !r.pending && r.f.importId && !excluded[r.f.id] && reviewed[r.f.id] && r.status !== 'Ошибка' && (r.status !== 'Требует проверки' || optAddIncomplete);
   const toAdd = doneRows.filter(isEligible);
+  const pendingReview = doneRows.filter((r) => !excluded[r.f.id] && r.status !== 'Ошибка' && !reviewed[r.f.id]).length;
   const editFile = files.find((f) => f.id === editId) || null;
   const mathFile = files.find((f) => f.id === mathId) || null;
   const brandFile = files.find((f) => f.id === brandId) || null;
+  const canNext = [
+    files.length > 0,
+    files.length > 0 && !processing,
+    doneRows.length > 0 && pendingReview === 0,
+    doneRows.length > 0 && pendingReview === 0,
+    toAdd.length > 0 && !processing,
+  ];
 
 
   const selIds = doneRows.filter((r) => sel[r.f.id]).map((r) => r.f.id);
   const applyBulk = () => {
-    const targets = (selIds.length ? doneRows.filter((r) => sel[r.f.id]) : doneRows);
+    const targets = (selIds.length ? doneRows.filter((r) => sel[r.f.id]) : doneRows.filter((r) => reviewed[r.f.id] && !excluded[r.f.id]));
     const patch = {};
     if (bulk.fee !== '') patch.fee = Number(bulk.fee) || 0;
     if (bulk.markup !== '') patch.markup = Number(bulk.markup) || 0;
@@ -1317,6 +1345,13 @@ function ReceiptImportModal({ open, onClose, onDone }) {
           issuer: p.carrier || '', passenger_name: p.passenger || '', segments: p.legs || [],
           fare: Number(m.tariff || p.fare || 0), taxes: Number(p.taxes || 0), fees: Number(m.fee || 0), currency: p.currency || 'USD',
           order: bindTarget.mode === 'order' ? bindTarget.order.id : null,
+          create_services: optCreateServices,
+          service_type: r.f.type,
+          original_total: Number(p.total) || 0,
+          client_total: clientTotal(m),
+          markup: Number(m.markup || 0),
+          commission: Number(m.commission || 0),
+          supplier_original: { name: r.f.name, size: r.f.size, mime: r.f.mime },
         });
       }));
       const docs = toAdd.map((r, index) => {
@@ -1325,13 +1360,19 @@ function ReceiptImportModal({ open, onClose, onDone }) {
         serverId: confirmed[index].document_id, no: 'D-' + String(confirmed[index].document_id).slice(0, 8).toUpperCase(),
         name: t.doc + ' ' + (p.carrier || '') + ' · ' + (p.passenger || '').split(/[\/ ]/)[0],
         type: t.doc, order: isPerson ? '—' : orderNo, participant: p.passenger || '—', service: r.f.type + (p.recognitionPending ? ' · заполнено вручную' : ' · распознано'),
-        finOp: '—', status: 'Черновик', version: 1, date: now, size: r.f.size, parsed: p, recType: r.f.type,
+        finOp: '—', status: 'Черновик', version: 2, date: now, size: r.f.size, parsed: p, recType: r.f.type, origin: 'corrected',
 
         supplierBlank: { name: r.f.name, size: r.f.size, byteSize: r.f.byteSize, mime: r.f.mime,
           lastModified: r.f.lastModified, originalUrl: r.f.originalUrl, total: Number(p.total) || 0, currency: p.currency },
         math: { ...m, clientTotal: clientTotal(m), currency: p.currency },
-        versions: [{ v: 1, date: now, who: (window.CURRENT_USER && CURRENT_USER.name) || 'Оператор', note: 'Импорт из квитанции' }],
-        history: [{ t: now, text: 'Распознано и привязано к ' + bindText, who: (window.CURRENT_USER && CURRENT_USER.name) || 'Оператор' }],
+        versions: [
+          { v: 1, date: now, who: 'Поставщик', note: 'Оригинальный бланк поставщика — без изменений' },
+          { v: 2, date: now, who: (window.CURRENT_USER && CURRENT_USER.name) || 'Оператор', note: 'Проверенные данные CRM / клиентская версия' },
+        ],
+        history: [
+          { t: now, text: 'Оригинальный бланк поставщика сохранён как v1', who: 'CRM' },
+          { t: now, text: 'Проверено и привязано к ' + bindText + (optCreateServices ? ' · услуги добавлены в заказ' : ''), who: (window.CURRENT_USER && CURRENT_USER.name) || 'Оператор' },
+        ],
       };
       });
       onDone(docs);
@@ -1356,7 +1397,27 @@ function ReceiptImportModal({ open, onClose, onDone }) {
 
         <input ref={fileRef} type="file" multiple style={{ display: 'none' }} onChange={onPick} accept=".pdf,.jpg,.jpeg,.png" />
 
+        <div className="card card-pad" style={{ marginBottom: 14 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5,minmax(110px,1fr))', gap: 8 }}>
+            {IMPORT_STEPS.map((s, i) => {
+              const active = step === i;
+              const doneStep = step > i;
+              return (
+                <button key={s.key} type="button" onClick={() => setStep(i)}
+                  disabled={i > step && !canNext[i - 1]}
+                  style={{ cursor: i > step && !canNext[i - 1] ? 'not-allowed' : 'pointer', border: '1px solid ' + (active ? 'var(--blue)' : doneStep ? 'var(--green)' : 'var(--line)'), background: active ? 'var(--blue-soft)' : '#fff', borderRadius: 10, padding: '10px 8px', textAlign: 'left', opacity: i > step && !canNext[i - 1] ? 0.55 : 1 }}>
+                  <span style={{ width: 22, height: 22, borderRadius: 7, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', marginRight: 7, background: active ? 'var(--blue)' : doneStep ? 'var(--green)' : 'var(--surface-2)', color: active || doneStep ? '#fff' : 'var(--muted)', fontWeight: 800, fontSize: 12 }}>{doneStep ? <Icon name="check" style={{ width: 13, height: 13 }} /> : i + 1}</span>
+                  <span style={{ fontSize: 12.5, fontWeight: 700, color: active ? 'var(--blue)' : 'var(--ink)' }}>{s.label}</span>
+                </button>
+              );
+            })}
+          </div>
+          <div style={{ marginTop: 10, fontSize: 12.5, color: 'var(--muted)', display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+            <Icon name="lock" style={{ width: 15, height: 15 }} /> Оригинальный бланк поставщика сохраняется как v1. Правки данных и клиентская версия создаются отдельно.
+          </div>
+        </div>
 
+        {step === 0 && <>
         <RSub style={{ marginTop: 14 }}>Загрузка квитанций</RSub>
         <div onClick={() => fileRef.current && fileRef.current.click()} onDrop={onDrop} onDragOver={(e) => e.preventDefault()}
           style={{ border: '2px dashed var(--field-line)', borderRadius: 14, padding: '26px 20px', textAlign: 'center', cursor: 'pointer', background: 'var(--surface-2)' }}>
@@ -1365,11 +1426,12 @@ function ReceiptImportModal({ open, onClose, onDone }) {
           <div style={{ margin: '8px 0' }}><Button variant="secondary" size="sm">Выбрать файлы</Button></div>
           <div style={{ fontSize: 12, color: 'var(--muted)' }}>Авиа, ЖД, отели, трансферы · PDF, JPG, PNG · до 15 МБ · сканы требуют ручной проверки</div>
         </div>
+        </>}
 
-        {files.length > 0 && (
+        {files.length > 0 && step > 0 && (
           <>
 
-            <RSub>Квитанции обработаны</RSub>
+            <RSub>{step === 1 ? 'Распознавание бланков' : 'Квитанции обработаны'}</RSub>
             <div className="card card-pad" style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
               <Stat label="Распознано" value={counts['Распознано']} tone="green" />
               <Stat label="Требует проверки" value={counts['Требует проверки']} tone="amber" />
@@ -1381,9 +1443,14 @@ function ReceiptImportModal({ open, onClose, onDone }) {
                 </div>
               )}
             </div>
+            {pendingReview > 0 && step >= 2 && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 10, padding: '10px 12px', borderRadius: 10, background: 'var(--amber-bg)', color: 'var(--amber)', fontSize: 13 }}>
+                <Icon name="alertCircle" style={{ width: 16, height: 16 }} /> Нужно проверить бланков: {pendingReview}. После проверки станет доступно добавление в заказ.
+              </div>
+            )}
 
 
-            {rows.length > 0 && (() => {
+            {rows.length > 0 && step === 2 && (() => {
               const allSel = doneRows.length > 0 && doneRows.every((r) => sel[r.f.id]);
               return (
               <>
@@ -1392,31 +1459,11 @@ function ReceiptImportModal({ open, onClose, onDone }) {
                   Автозаполнение работает только для файлов с текстовым слоем. Если данные не найдены, заполните поля вручную перед добавлением.
                 </div>
 
-
-                {doneRows.length > 0 && (
-                  <div className="card card-pad" style={{ marginBottom: 12, display: 'flex', alignItems: 'flex-end', gap: 12, flexWrap: 'wrap' }}>
-                    <div style={{ flex: '0 0 100%', fontSize: 12, color: 'var(--muted)', marginBottom: -4 }}>
-                      Математика: применить к {selIds.length ? 'выбранным (' + selIds.length + ')' : 'всем квитанциям'}. Оригинальный бланк поставщика сохраняется.
-                    </div>
-                    {[['fee', 'Сервисный сбор'], ['markup', 'Надбавка'], ['commission', 'Комиссия']].map(([k, l]) => (
-                      <div key={k} style={{ width: 130 }}>
-                        <div style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 4 }}>{l}, $</div>
-                        <input className="input" type="number" min="0" placeholder="0" value={bulk[k]} onChange={(e) => setBulk((b) => ({ ...b, [k]: e.target.value }))} />
-                      </div>
-                    ))}
-                    <Button size="sm" icon="calc" onClick={applyBulk}>Применить{selIds.length ? ' (' + selIds.length + ')' : ' ко всем'}</Button>
-                    <div style={{ flex: 1 }} />
-                    <span style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color: 'var(--green)' }}>
-                      <Icon name="check" style={{ width: 16, height: 16 }} /> Оригинал поставщика будет сохранён
-                    </span>
-                  </div>
-                )}
-
                 <div className="table-card" style={{ overflowX: 'auto' }}>
                   <table className="tbl" style={{ minWidth: 980 }}>
                     <thead><tr>
                       <th style={{ width: 34 }}>{doneRows.length > 0 && <Checkbox on={allSel} onChange={() => setSel(allSel ? {} : Object.fromEntries(doneRows.map((r) => [r.f.id, true])))} />}</th>
-                      <th>Квитанция</th><th>Маршрут / сумма</th><th style={{ width: 150 }}>Финансы (клиенту)</th><th style={{ width: 130 }}>Статус</th><th style={{ width: 250, position: 'sticky', right: 40, background: 'var(--surface-2)', zIndex: 2 }}>Действие</th><th style={{ width: 40, position: 'sticky', right: 0, background: 'var(--surface-2)', zIndex: 2 }}></th>
+                      <th>Квитанция</th><th>Маршрут / сумма</th><th style={{ width: 150 }}>Финансы (клиенту)</th><th style={{ width: 130 }}>Статус</th><th style={{ width: 250 }}>Действие</th><th style={{ width: 40 }}></th>
                     </tr></thead>
                     <tbody>
                       {rows.map((r) => {
@@ -1432,7 +1479,7 @@ function ReceiptImportModal({ open, onClose, onDone }) {
                               <td><div className="sk" style={{ height: 12, width: 140, marginBottom: 6 }} /><div className="sk" style={{ height: 10, width: 90 }} /></td>
                               <td><div className="sk" style={{ height: 12, width: 90, marginBottom: 6 }} /><div className="sk" style={{ height: 10, width: 70 }} /></td>
                               <td><Pill tone={r.status === 'Сканируется' ? 'blue' : 'gray'}>{r.status}</Pill></td>
-                              <td colSpan={2} style={{ position: 'sticky', right: 0, background: '#fff' }}></td>
+                              <td colSpan={2}></td>
                             </tr>
                           );
                         }
@@ -1442,7 +1489,7 @@ function ReceiptImportModal({ open, onClose, onDone }) {
                         return (
                           <tr key={r.f.id} style={{ height: 80, opacity: skipped ? 0.5 : 1 }}>
                             <td><Checkbox on={!!sel[r.f.id]} onChange={() => setSel((s) => ({ ...s, [r.f.id]: !s[r.f.id] }))} /></td>
-                            <td style={{ position: 'sticky', right: 40, background: '#fff', zIndex: 1 }}>
+                            <td>
                               <span style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                                 <span style={{ width: 30, height: 30, borderRadius: 8, background: t.color, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', flex: '0 0 30px' }}><Icon name={t.icon} style={{ width: 16, height: 16, color: '#fff' }} /></span>
                                 <span><span style={{ display: 'block', fontWeight: 600, color: 'var(--ink)' }}>{p.passenger}</span><span style={{ fontSize: 12, color: 'var(--muted)' }}>{p.carrier} · {r.f.type}</span></span>
@@ -1458,7 +1505,10 @@ function ReceiptImportModal({ open, onClose, onDone }) {
                                 <span style={{ fontSize: 12, color: 'var(--blue)' }}>сбор {m.fee || 0} · надб. {m.markup || 0} · изменить</span>
                               </button>
                             </td>
-                            <td><Pill tone={st.tone}>{r.status}</Pill></td>
+                            <td>
+                              <Pill tone={st.tone}>{r.status}</Pill>
+                              {reviewed[r.f.id] && <div style={{ marginTop: 5 }}><Pill tone="green">Проверено</Pill></div>}
+                            </td>
                             <td>
                               {r.status === 'Возможный дубль'
                                 ? <button className="btn btn-ghost btn-sm" onClick={() => setExcluded((e) => ({ ...e, [r.f.id]: !e[r.f.id] }))}>{skipped ? 'Вернуть' : 'Пропустить'}</button>
@@ -1469,7 +1519,7 @@ function ReceiptImportModal({ open, onClose, onDone }) {
                                   </div>
                                 )}
                             </td>
-                            <td style={{ position: 'sticky', right: 0, background: '#fff', zIndex: 1 }}><button className="btn btn-ghost btn-sm" onClick={() => remove(r.f.id)}><Icon name="trash" style={{ width: 16, height: 16 }} /></button></td>
+                            <td><button className="btn btn-ghost btn-sm" onClick={() => remove(r.f.id)}><Icon name="trash" style={{ width: 16, height: 16 }} /></button></td>
                           </tr>
                         );
                       })}
@@ -1481,6 +1531,49 @@ function ReceiptImportModal({ open, onClose, onDone }) {
             })()}
 
 
+            {step === 3 && doneRows.length > 0 && (
+              <>
+                <RSub>Данные и клиентская версия</RSub>
+                <div style={{ fontSize: 12, color: 'var(--muted)', margin: '-4px 0 10px' }}>
+                  Здесь меняются только данные CRM и клиентская математика. Исходные файлы поставщиков остаются в v1 без изменений.
+                </div>
+                <div className="card card-pad" style={{ marginBottom: 12, display: 'flex', alignItems: 'flex-end', gap: 12, flexWrap: 'wrap' }}>
+                  <div style={{ flex: '0 0 100%', fontSize: 12, color: 'var(--muted)', marginBottom: -4 }}>
+                    Математика: применить к {selIds.length ? 'выбранным (' + selIds.length + ')' : 'всем проверенным бланкам'}.
+                  </div>
+                  {[['fee', 'Сервисный сбор'], ['markup', 'Надбавка'], ['commission', 'Комиссия']].map(([k, l]) => (
+                    <div key={k} style={{ width: 130 }}>
+                      <div style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 4 }}>{l}, $</div>
+                      <input className="input" type="number" min="0" placeholder="0" value={bulk[k]} onChange={(e) => setBulk((b) => ({ ...b, [k]: e.target.value }))} />
+                    </div>
+                  ))}
+                  <Button size="sm" icon="calc" onClick={applyBulk}>Применить{selIds.length ? ' (' + selIds.length + ')' : ' ко всем'}</Button>
+                  <div style={{ flex: 1 }} />
+                  <span style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color: 'var(--green)' }}>
+                    <Icon name="check" style={{ width: 16, height: 16 }} /> v1 поставщика не меняется
+                  </span>
+                </div>
+                <div className="table-card" style={{ overflowX: 'auto' }}>
+                  <table className="tbl" style={{ minWidth: 860 }}>
+                    <thead><tr><th>Бланк</th><th>Оригинал поставщика</th><th>Клиенту</th><th>Версии</th><th></th></tr></thead>
+                    <tbody>{doneRows.filter((r) => !excluded[r.f.id]).map((r) => {
+                      const p = r.f.parsed; const m = getMath(r.f.id, p); const t = recType(r.f.type);
+                      return (
+                        <tr key={r.f.id}>
+                          <td><span style={{ display: 'flex', alignItems: 'center', gap: 10 }}><span style={{ width: 30, height: 30, borderRadius: 8, background: t.color, display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}><Icon name={t.icon} style={{ width: 16, height: 16, color: '#fff' }} /></span><span><b>{p.passenger || r.f.name}</b><div style={{ fontSize: 12, color: 'var(--muted)' }}>{p.carrier || 'Поставщик'} · {routeSummary(p)}</div></span></span></td>
+                          <td>{recMoney(Number(p.total) || 0, p.currency)}<div style={{ fontSize: 12, color: 'var(--muted)' }}>{r.f.name}</div></td>
+                          <td><button type="button" className="btn btn-ghost btn-sm" style={{ padding: 0, height: 'auto', textAlign: 'left' }} onClick={() => setMathId(r.f.id)}><b>{recMoney(clientTotal(m), p.currency)}</b><div style={{ fontSize: 12, color: 'var(--blue)' }}>изменить математику</div></button></td>
+                          <td><Pill tone="blue">v1 поставщик</Pill> <Pill tone="amber">v2 CRM</Pill></td>
+                          <td><Button size="sm" variant="secondary" icon="template" onClick={() => setBrandId(r.f.id)}>Бланк CRM</Button></td>
+                        </tr>
+                      );
+                    })}</tbody>
+                  </table>
+                </div>
+              </>
+            )}
+
+            {step === 4 && <>
             <RSub>Настройка добавления</RSub>
             <div style={{ display: 'grid', gap: 10 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 14, color: 'var(--body)' }}>
@@ -1495,16 +1588,23 @@ function ReceiptImportModal({ open, onClose, onDone }) {
                 <Checkbox on={optAddIncomplete} onChange={() => setOptAddIncomplete((v) => !v)} /> Добавлять квитанции с неполными данными
               </label>
             </div>
+            <div style={{ marginTop: 12, fontSize: 12.5, color: 'var(--muted)' }}>
+              Будет добавлено в заказ: {toAdd.length}. Непроверенные, ошибки и исключённые дубли не попадут в итог.
+            </div>
+            </>}
           </>
         )}
 
         <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 12, marginTop: 24 }}>
           <Button variant="secondary" onClick={onClose}>Отмена</Button>
-          <Button icon="check" disabled={processing || !toAdd.length} onClick={finish}>Добавить в заказ{toAdd.length ? ' (' + toAdd.length + ')' : ''}</Button>
+          {step > 0 && <Button variant="secondary" icon="chevLeft" onClick={() => setStep((s) => Math.max(0, s - 1))}>Назад</Button>}
+          {step < IMPORT_STEPS.length - 1
+            ? <Button icon="chevRight" disabled={!canNext[step]} onClick={() => setStep((s) => Math.min(IMPORT_STEPS.length - 1, s + 1))}>Далее</Button>
+            : <Button icon="check" disabled={processing || !toAdd.length || pendingReview > 0} onClick={finish}>Добавить в заказ{toAdd.length ? ' (' + toAdd.length + ')' : ''}</Button>}
         </div>
       </div>
 
-      <ReceiptEditDrawer open={!!editFile} file={editFile} onClose={() => setEditId(null)} onChange={updateParsed}
+      <ReceiptEditDrawer open={!!editFile} file={editFile} onClose={() => setEditId(null)} onChange={updateParsed} onReview={markReviewed}
         onBrand={() => { setBrandId(editId); setEditId(null); }} />
       <ReceiptMathDrawer open={!!mathFile} file={mathFile} math={mathFile ? getMath(mathFile.id, mathFile.parsed) : null}
         onSave={(patch) => { setMathFor(mathFile.id, mathFile.parsed, patch); }} onClose={() => setMathId(null)} />
