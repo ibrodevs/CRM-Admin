@@ -1146,16 +1146,18 @@ function KPCreateModal({ open, onClose, onCreated, onOpenOrder }) {
   if (!open) return null;
   return (
     <Drawer open={open} onClose={onClose} title="Новое коммерческое предложение"
+      width="min(860px,96vw)"
       sub="КП создаётся на основе заказа, заявки или чата — далее сразу переходим к подбору услуг"
-      footer={<>
+      footer={<div className="kp-create-footer">
         <Button variant="secondary" onClick={onClose}>Отмена</Button>
         <Button variant="secondary" icon="check" onClick={() => submit('draft')}>Сохранить черновик</Button>
         <Button variant="secondary" iconRight="arrowRight" onClick={() => submit('pick')}>Перейти к подбору услуг</Button>
         <Button iconRight="arrowRight" onClick={() => submit('builder')}>Создать и открыть конструктор</Button>
-      </>}>
+      </div>}>
+      <div className="kp-create-form">
 
       <label className="label" style={{ marginBottom: 8, display: 'block' }}>Источник данных</label>
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 18 }}>
+      <div className="kp-source-grid">
         {KP_SOURCES.map((s) => (
           <button key={s.value} type="button" onClick={() => { setSource(s.value); setBase((KP_SOURCE_FLOW[s.value] || KP_SOURCE_FLOW.order).base); setErrs({}); }}
             className={'src-btn' + (source === s.value ? ' active' : '')}>
@@ -1164,20 +1166,20 @@ function KPCreateModal({ open, onClose, onCreated, onOpenOrder }) {
         ))}
       </div>
 
-      <div className="card card-pad" style={{ marginBottom: 16, background: 'var(--surface-2)' }}>
-        <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12, flexWrap: 'wrap' }}>
-          <span style={{ width: 36, height: 36, borderRadius: 10, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', background: 'var(--blue-soft)', color: 'var(--blue)' }}>
+      <div className="kp-flow-card">
+        <div className="kp-flow-head">
+          <span className="kp-flow-ic">
             <Icon name={(KP_SOURCES.find((s) => s.value === source) || KP_SOURCES[0]).icon} style={{ width: 18, height: 18 }} />
           </span>
-          <div style={{ flex: 1, minWidth: 260 }}>
+          <div>
             <div style={{ fontWeight: 800, color: 'var(--ink)', marginBottom: 4 }}>{sourceFlow.title}</div>
             <div style={{ fontSize: 13, color: 'var(--muted)' }}>{sourceFlow.text}</div>
           </div>
         </div>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,minmax(130px,1fr))', gap: 8, marginTop: 14 }}>
+        <div className="kp-flow-steps">
           {sourceFlow.steps.map((s, i) => (
-            <div key={s} style={{ border: '1px solid var(--line)', borderRadius: 8, background: '#fff', padding: '9px 10px', fontSize: 12.5, color: 'var(--body)', display: 'flex', gap: 8, alignItems: 'center' }}>
-              <span style={{ width: 20, height: 20, borderRadius: 6, background: i === 0 ? 'var(--blue)' : 'var(--surface-2)', color: i === 0 ? '#fff' : 'var(--muted)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, flex: '0 0 20px' }}>{i + 1}</span>
+            <div key={s} className="kp-flow-step">
+              <span className={i === 0 ? 'active' : ''}>{i + 1}</span>
               <span>{s}</span>
             </div>
           ))}
@@ -1287,6 +1289,7 @@ function KPCreateModal({ open, onClose, onCreated, onOpenOrder }) {
       })()}
 
       {orderPickerOpen && <OrderPickerDrawer title="Выбор заказа для КП" onPick={(o) => { setOrderNo(String(o.no)); setErrs((e) => ({ ...e, order: undefined })); }} onClose={() => setOrderPickerOpen(false)} />}
+      </div>
     </Drawer>
   );
 }
