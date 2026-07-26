@@ -1024,10 +1024,53 @@ const KP_SOURCES = [
   { value: 'email', label: 'Из письма / мессенджера', icon: 'mail' },
   { value: 'manual', label: 'Вручную (без исходных данных)', icon: 'edit' },
 ];
+const KP_SOURCE_FLOW = {
+  order: {
+    title: 'Выберите заказ',
+    text: 'Данные клиента и услуги берём из карточки заказа. После создания можно сразу открыть подбор или конструктор КП.',
+    inputLabel: '',
+    inputPlaceholder: '',
+    base: 'services',
+    steps: ['Выбрать заказ', 'Проверить получателя и срок', 'Использовать услуги заказа или открыть подбор', 'Собрать и сохранить КП'],
+  },
+  request: {
+    title: 'Заявка или обращение',
+    text: 'Вставьте краткое содержание обращения и привяжите его к рабочему заказу. Далее проверьте параметры и переходите к подбору услуг.',
+    inputLabel: 'Текст заявки / обращения',
+    inputPlaceholder: 'Например: клиент просит Бишкек — Стамбул на 2 пассажиров, даты 12-18 августа, багаж нужен...',
+    base: 'recognize',
+    steps: ['Вставить текст заявки', 'Выбрать рабочий заказ', 'Проверить распознанные параметры', 'Подобрать услуги и собрать КП'],
+  },
+  chat: {
+    title: 'Чат с клиентом',
+    text: 'Вставьте сообщение или выжимку из чата. CRM покажет, какие данные нужно проверить перед подбором.',
+    inputLabel: 'Сообщение из чата',
+    inputPlaceholder: 'Скопируйте сюда сообщение клиента из чата...',
+    base: 'recognize',
+    steps: ['Вставить сообщение', 'Выбрать рабочий заказ', 'Подтвердить маршрут/даты/пассажиров', 'Перейти к подбору услуг'],
+  },
+  email: {
+    title: 'Письмо или мессенджер',
+    text: 'Вставьте текст письма/сообщения, затем привяжите КП к заказу и проверьте недостающие параметры.',
+    inputLabel: 'Текст письма / сообщения',
+    inputPlaceholder: 'Скопируйте сюда письмо или сообщение из мессенджера...',
+    base: 'recognize',
+    steps: ['Вставить письмо', 'Выбрать рабочий заказ', 'Проверить извлеченные данные', 'Сформировать варианты КП'],
+  },
+  manual: {
+    title: 'Ручное создание',
+    text: 'Заполните задачу своими словами, выберите заказ и переходите к ручному подбору услуг.',
+    inputLabel: 'Что нужно подобрать',
+    inputPlaceholder: 'Например: подобрать авиа + гостиницу для клиента, 1 пассажир, даты ориентировочные...',
+    base: 'manual',
+    steps: ['Описать задачу', 'Выбрать рабочий заказ', 'Вручную подобрать услуги', 'Собрать КП'],
+  },
+};
 const KP_PURPOSE_TYPES = ['Обычное предложение', 'Альтернативный вариант', 'Предложение по обмену', 'После изменения стоимости', 'Повторное предложение', 'По вынужденному изменению', 'По задержке или отмене', 'Комбинированное'];
 function KPCreateModal({ open, onClose, onCreated, onOpenOrder }) {
   const toast = useToast();
   const [source, setSource] = useState('order');
+  const [sourceNote, setSourceNote] = useState('');
   const [orderNo, setOrderNo] = useState('');
   const [kpType, setKpType] = useState(KP_PURPOSE_TYPES[0]);
   const [docType, setDocType] = useState('generic');
@@ -1042,7 +1085,7 @@ function KPCreateModal({ open, onClose, onCreated, onOpenOrder }) {
   const [base, setBase] = useState('manual');
   const [errs, setErrs] = useState({});
   const [orderPickerOpen, setOrderPickerOpen] = useState(false);
-  useEffect(() => { if (open) { setSource('order'); setOrderNo(''); setKpType(KP_PURPOSE_TYPES[0]); setDocType('generic'); setName(''); setRecipient('Клиент (сам)'); setResponsible((typeof CURRENT_USER !== 'undefined' && CURRENT_USER.name) || OPERATORS[0]); setCurrency('USD'); setValid('25.06.2026'); setValidTime('18:00'); setValidTz('МСК (UTC+3)'); setPayTerm(''); setBase('manual'); setErrs({}); } }, [open]);
+  useEffect(() => { if (open) { setSource('order'); setSourceNote(''); setOrderNo(''); setKpType(KP_PURPOSE_TYPES[0]); setDocType('generic'); setName(''); setRecipient('Клиент (сам)'); setResponsible((typeof CURRENT_USER !== 'undefined' && CURRENT_USER.name) || OPERATORS[0]); setCurrency('USD'); setValid('25.06.2026'); setValidTime('18:00'); setValidTz('МСК (UTC+3)'); setPayTerm(''); setBase('services'); setErrs({}); } }, [open]);
   const seen = {};
   const orderOpts = ORDERS.filter((o) => (seen[o.no] ? false : (seen[o.no] = true))).map((o) => ({ value: String(o.no), label: `№ ${o.no} · ${o.client}` }));
   const baseOpts = [
@@ -1054,6 +1097,7 @@ function KPCreateModal({ open, onClose, onCreated, onOpenOrder }) {
     ...KP_TEMPLATES.map((t) => ({ value: 'tpl:' + t.id, label: 'Шаблон: ' + t.name })),
   ];
   const fromOrder = source === 'order';
+  const sourceFlow = KP_SOURCE_FLOW[source] || KP_SOURCE_FLOW.order;
   const selOrder = ORDERS.find((o) => String(o.no) === String(orderNo));
   const recognizeSrc = base === 'recognize' || source === 'chat' || source === 'email';
 
@@ -1085,7 +1129,10 @@ function KPCreateModal({ open, onClose, onCreated, onOpenOrder }) {
     return { np: toLegacyProposal(created, [order]), order };
   };
   const submit = async (mode) => {
-    if (fromOrder && !orderNo) { setErrs({ order: 'Выберите заказ' }); return; }
+    const nextErrs = {};
+    if (!orderNo) nextErrs.order = 'Выберите заказ';
+    if (!fromOrder && !sourceNote.trim()) nextErrs.sourceNote = 'Заполните исходные данные';
+    if (Object.keys(nextErrs).length) { setErrs(nextErrs); return; }
     try {
       const { np, order } = await build();
       onCreated && onCreated(np);
@@ -1110,16 +1157,42 @@ function KPCreateModal({ open, onClose, onCreated, onOpenOrder }) {
       <label className="label" style={{ marginBottom: 8, display: 'block' }}>Источник данных</label>
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 18 }}>
         {KP_SOURCES.map((s) => (
-          <button key={s.value} type="button" onClick={() => setSource(s.value)}
+          <button key={s.value} type="button" onClick={() => { setSource(s.value); setBase((KP_SOURCE_FLOW[s.value] || KP_SOURCE_FLOW.order).base); setErrs({}); }}
             className={'src-btn' + (source === s.value ? ' active' : '')}>
             <Icon name={s.icon} style={{ width: 15, height: 15 }} />{s.label}
           </button>
         ))}
       </div>
 
+      <div className="card card-pad" style={{ marginBottom: 16, background: 'var(--surface-2)' }}>
+        <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12, flexWrap: 'wrap' }}>
+          <span style={{ width: 36, height: 36, borderRadius: 10, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', background: 'var(--blue-soft)', color: 'var(--blue)' }}>
+            <Icon name={(KP_SOURCES.find((s) => s.value === source) || KP_SOURCES[0]).icon} style={{ width: 18, height: 18 }} />
+          </span>
+          <div style={{ flex: 1, minWidth: 260 }}>
+            <div style={{ fontWeight: 800, color: 'var(--ink)', marginBottom: 4 }}>{sourceFlow.title}</div>
+            <div style={{ fontSize: 13, color: 'var(--muted)' }}>{sourceFlow.text}</div>
+          </div>
+        </div>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,minmax(130px,1fr))', gap: 8, marginTop: 14 }}>
+          {sourceFlow.steps.map((s, i) => (
+            <div key={s} style={{ border: '1px solid var(--line)', borderRadius: 8, background: '#fff', padding: '9px 10px', fontSize: 12.5, color: 'var(--body)', display: 'flex', gap: 8, alignItems: 'center' }}>
+              <span style={{ width: 20, height: 20, borderRadius: 6, background: i === 0 ? 'var(--blue)' : 'var(--surface-2)', color: i === 0 ? '#fff' : 'var(--muted)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, flex: '0 0 20px' }}>{i + 1}</span>
+              <span>{s}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {!fromOrder && (
+        <Field label={sourceFlow.inputLabel} required error={errs.sourceNote}>
+          <textarea className={'input' + (errs.sourceNote ? ' err' : '')} value={sourceNote} onChange={(e) => { setSourceNote(e.target.value); setErrs((cur) => ({ ...cur, sourceNote: undefined })); }}
+            placeholder={sourceFlow.inputPlaceholder} rows={4} style={{ height: 96, resize: 'vertical', paddingTop: 10 }} />
+        </Field>
+      )}
+
       <div className="form-grid">
-        {fromOrder
-          ? <Field label="Заказ" required error={errs.order}>
+        <Field label={fromOrder ? 'Заказ' : 'Рабочий заказ для КП'} required error={errs.order}>
               <button type="button" className={'input' + (errs.order ? ' err' : '')} style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', textAlign: 'left', width: '100%' }} onClick={() => setOrderPickerOpen(true)}>
                 {selOrder
                   ? <><Icon name="briefcase" style={{ width: 16, height: 16, color: 'var(--blue)' }} /><span style={{ fontWeight: 600, color: 'var(--ink)' }}>№ {selOrder.no}</span><span style={{ color: 'var(--muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>· {selOrder.client} · {orderDateLabel(selOrder)}</span></>
@@ -1127,8 +1200,9 @@ function KPCreateModal({ open, onClose, onCreated, onOpenOrder }) {
                 <div style={{ flex: 1 }} /><Icon name="chevRight" style={{ width: 16, height: 16, color: 'var(--muted-2)' }} />
               </button>
             </Field>
+        {fromOrder
+          ? <Field label="Получатель КП"><Select options={['Клиент (сам)', 'Контактное лицо компании', 'Несколько сотрудников', 'Сторонний получатель']} value={recipient} onChange={(e) => setRecipient(e.target.value)} /></Field>
           : <Field label="Получатель / клиент"><Input value={recipient} onChange={(e) => setRecipient(e.target.value)} placeholder="Клиент, компания или контактное лицо" /></Field>}
-        {fromOrder && <Field label="Получатель КП"><Select options={['Клиент (сам)', 'Контактное лицо компании', 'Несколько сотрудников', 'Сторонний получатель']} value={recipient} onChange={(e) => setRecipient(e.target.value)} /></Field>}
         <Field label="Тип КП (назначение)"><Select options={KP_PURPOSE_TYPES} value={kpType} onChange={(e) => setKpType(e.target.value)} /></Field>
         <Field label="Шаблон КП (структура)"><Select options={KP_DOC_TYPES} value={docType} onChange={(e) => setDocType(e.target.value)} /></Field>
         {docType !== 'train' && <Field label="Название варианта"><Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Вариант 1 · Прямые рейсы" /></Field>}
@@ -1182,7 +1256,8 @@ function KPCreateModal({ open, onClose, onCreated, onOpenOrder }) {
           ['Наполнение', baseLabel],
         ].filter((r) => r[1]);
         const warns = [];
-        if (fromOrder && !orderNo) warns.push('Не выбран заказ — привязка обязательна');
+        if (!orderNo) warns.push('Не выбран заказ — КП создаётся только в рабочем заказе');
+        if (!fromOrder && !sourceNote.trim()) warns.push('Не заполнен исходный запрос');
         if (base === 'manual' || base === 'empty') warns.push('Услуги ещё не подобраны — добавите на шаге подбора');
         if (!payTerm) warns.push('Не указан срок оплаты');
         if (recognizeSrc) warns.push('Часть данных распознана автоматически — проверьте перед запуском поиска');
