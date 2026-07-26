@@ -346,13 +346,13 @@ function TpImportDrawer({ open, kind, companyId, onClose }) {
       toast('Выберите файл для импорта', 'err');
       return;
     }
-    toast('Backend-парсер импорта пока не подключён: данные не изменены', 'warn');
   };
   return (
     <Drawer open={open} onClose={onClose} title={isEmp ? 'Импорт сотрудников' : 'Импорт тревел-политики'} width="min(560px,96vw)"
-      footer={<><Button variant="secondary" onClick={onClose}>Отмена</Button><Button icon="check" onClick={doImport}>Импортировать</Button></>}>
+      footer={<><Button variant="secondary" onClick={onClose}>Отмена</Button><Button icon="check" disabled title="Импорт будет доступен после подключения backend-парсера" onClick={doImport}>Импорт недоступен</Button></>}>
       <div style={{ fontSize: 13, color: 'var(--muted)', marginBottom: 14 }}>
         {isEmp ? 'Загрузите файл со списком сотрудников (XLSX / CSV). Сотрудники будут добавлены в подразделения компании.' : 'Загрузите документ тревел-политики (PDF / DOCX / XLSX). Параметры будут распознаны и применены к компании.'}
+        <div style={{ marginTop: 8, color: 'var(--amber)' }}>Автоматический импорт сейчас отключён. Файл можно выбрать для проверки формата, но применение данных недоступно.</div>
       </div>
       <label className="doc-chip" style={{ borderStyle: 'dashed', color: 'var(--blue)', height: 120, flexDirection: 'column', gap: 8, cursor: 'pointer', justifyContent: 'center' }}>
         <Icon name="download" style={{ width: 26, height: 26 }} />

@@ -155,18 +155,13 @@ function LoginScreen({ onLogin, onVerifyTwoFactor, onPasswordReset }) {
       setLoading(false);
     }
   };
-  const startMax = () => {
-    setView('max');
-    toast('Вход через MAX станет доступен после подключения OAuth-ключей организации', 'info');
-  };
   const sendSms = (e) => {
     e.preventDefault();
-    if (phone.replace(/\D/g, '').length < 10) { setErrs({ phone: 'Введите номер телефона' }); return; }
-    toast('Вход по SMS станет доступен после подключения SMS-провайдера', 'info');
+    setErrs({ phone: 'Вход по SMS сейчас недоступен' });
   };
   const submitSms = (e) => {
     e.preventDefault();
-    toast('Вход по SMS станет доступен после подключения SMS-провайдера', 'info');
+    setErrs({ code: 'Вход по SMS сейчас недоступен' });
   };
   const submitTwoFactor = async (e) => {
     e.preventDefault();
@@ -262,10 +257,10 @@ function LoginScreen({ onLogin, onVerifyTwoFactor, onPasswordReset }) {
 
                 <div className="lp-or">или</div>
 
-                <button type="button" className="lp-btn lp-btn-out" onClick={startMax}>
+                <button type="button" className="lp-btn lp-btn-out" disabled title="Вход через MAX будет доступен после подключения OAuth-ключей организации">
                   <span className="lp-max-ic"><img src="assets/max-logo.png" alt="MAX" /></span>
                   Войти через MAX
-                  <span className="lp-pill" style={{ marginLeft: 4 }}>Рекомендуем</span>
+                  <span className="lp-pill" style={{ marginLeft: 4 }}>Не подключено</span>
                 </button>
                 <p className="lp-cap">Быстрый и безопасный вход через мессенджер MAX</p>
               </div>

@@ -432,8 +432,8 @@ function SettingsPage({ users = [], onUsersChange }) {
     { title: 'Курсы валют', items: [['Изменить курс валют', () => setModal('currency')], ['Добавить / удалить валюту', () => setModal('currency')]] },
     { title: 'Общие настройки', items: [['Настройки уведомления', () => setModal('notif')]] },
     { title: 'API / интеграции', items: [['Доступы к API', () => setModal('apiaccess')], ['Сгенерировать API ключ', () => setModal('apikey')], ['Коды ошибок интеграций', () => setModal('errcodes')], ['Убрать доступ к API', () => setModal('apiaccess')], ['Настройки SLA', () => setTab('users')]] },
-    { title: 'Шаблоны документов', items: [['Добавить шаблон', () => toast('Backend-операция шаблонов документов пока не подключена', 'warn')], ['Изменить шаблон', () => toast('Backend-операция шаблонов документов пока не подключена', 'warn')]] },
-    { title: 'Справочники', items: [['Аэропорты и города', () => toast('Справочник аэропортов пока доступен только для чтения', 'warn')], ['Типы услуг', () => toast('Справочник типов услуг пока доступен только для чтения', 'warn')], ['Справочник доп. услуг', () => setModal('extras')]] },
+    { title: 'Шаблоны документов', items: [['Добавить шаблон', null, 'Подключается через модуль документов'], ['Изменить шаблон', null, 'Подключается через модуль документов']] },
+    { title: 'Справочники', items: [['Аэропорты и города', null, 'Справочник доступен только для чтения'], ['Типы услуг', null, 'Справочник доступен только для чтения'], ['Справочник доп. услуг', () => setModal('extras')]] },
     { title: 'Карточки услуг', items: [['Настройки карточек услуг', () => setModal('cardadmin')], ['Видимость полей для клиента', () => setModal('cardvis')]] },
   ];
   const TABS = [{ key: 'users', label: 'Пользователи', count: users.length }, { key: 'roles', label: 'Роли и права' }, { key: 'params', label: 'Параметры системы' }];
@@ -450,7 +450,12 @@ function SettingsPage({ users = [], onUsersChange }) {
               <div key={i}>
                 <h3 style={{ fontSize: 18, fontWeight: 700, color: 'var(--ink)', margin: '0 0 14px' }}>{g.title}</h3>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-                  {g.items.map(([label, fn], j) => (<button key={j} className="doc-chip" style={{ height: 50, padding: '0 18px' }} onClick={fn}>{label}<Icon name="chevRight" /></button>))}
+                  {g.items.map(([label, fn, hint], j) => (
+                    <button key={j} className="doc-chip" disabled={!fn} title={hint || ''} style={{ height: 50, padding: '0 18px', opacity: fn ? 1 : 0.55, cursor: fn ? 'pointer' : 'not-allowed' }} onClick={fn || undefined}>
+                      <span>{label}{hint && <span style={{ display: 'block', fontSize: 11, color: 'var(--muted)', fontWeight: 500 }}>{hint}</span>}</span>
+                      {fn && <Icon name="chevRight" />}
+                    </button>
+                  ))}
                 </div>
               </div>
             ))}

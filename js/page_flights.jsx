@@ -336,7 +336,7 @@ function OfferCard({ o, picked, onPick, onSelect, onSave, onCompare, compared })
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
           <Button size="sm" onClick={() => onSelect(o)}>Выбрать</Button>
           <div style={{ display: 'flex', gap: 8 }}>
-            <Button variant="secondary" size="sm" style={{ flex: 1 }} onClick={() => onSave(o)} title="Сохранить"><Icon name="star" /></Button>
+            {onSave && <Button variant="secondary" size="sm" style={{ flex: 1 }} onClick={() => onSave(o)} title="Сохранить"><Icon name="star" /></Button>}
             <Button variant={compared ? 'primary' : 'secondary'} size="sm" style={{ flex: 1 }} onClick={() => onCompare(o)} title="Сравнить"><Icon name="share" /></Button>
           </div>
         </div>
@@ -475,7 +475,7 @@ function FlightResults({ params, liveOffers = FLIGHT_OFFERS, loading = false, on
             ))
           ) : offers.length ? offers.map((o) => (
             <OfferCard key={o.id} o={o} compared={!!compare.find((x) => x.id === o.id)}
-              onSelect={onSelect} onSave={() => toast('Добавьте предложение в backend-заказ, чтобы сохранить его', 'warn')}
+              onSelect={onSelect}
               onCompare={toggleCompare} />
           )) : <EmptyState icon="search" title="Нет вариантов по фильтрам" sub="Смягчите условия фильтрации слева" />}
         </div>
@@ -1095,16 +1095,31 @@ function DocCorrectionPanel({ subjects, meta, currency, orderNo, onClose }) {
   };
 
   const activeDoc = docs[active] || docs[0];
+  const correctionText = (targetDocs = docs) => targetDocs.map((doc) => [
+    'Клиентская версия документа',
+    'Пассажир/гость: ' + doc.name,
+    cfg.docNoLabel + ': ' + (doc.ticket || '—'),
+    cfg.refLabel + ': ' + (doc.pnr || '—'),
+    'Поставщик: ' + (doc.supplier || '—'),
+    'Описание: ' + (doc.route || route || '—'),
+    'Итого: ' + (doc.fareIT ? 'IT' : (corrTotal(doc).toLocaleString('ru-RU') + ' ' + cur)),
+    doc.comment ? 'Комментарий: ' + doc.comment : '',
+  ].filter(Boolean).join('\n')).join('\n\n');
+  const downloadCorrection = (targetDocs = docs, filename = 'corrected-documents.txt') => {
+    const blob = new Blob(['\uFEFF' + correctionText(targetDocs)], { type: 'text/plain;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url; link.download = filename; link.click();
+    URL.revokeObjectURL(url);
+  };
 
 
   if (view === 'done') {
     const actions = [
-      ['Предпросмотр', 'eye', () => toast('Предпросмотр документа')],
-      ['Скачать PDF', 'download', () => toast('Скачивание PDF')],
-      ['Скачать все документы', 'download', () => toast('Скачивание всех документов')],
-      ['Отправить пассажиру', 'send', () => toast('Отправка документов требует подключенного канала или ручной загрузки в чат', 'warn')],
-      ['Отправить заказчику', 'send', () => toast('Отправка документов требует подключенного канала или ручной загрузки в чат', 'warn')],
-      ['Распечатать', 'clipboard', () => toast('Отправлено на печать')],
+      ['Предпросмотр', 'eye', () => setView('confirm')],
+      ['Скачать документ', 'download', () => downloadCorrection([activeDoc], 'corrected-document.txt')],
+      ['Скачать все документы', 'download', () => downloadCorrection(docs, 'corrected-documents.txt')],
+      ['Распечатать', 'clipboard', () => window.print()],
       ['Создать новую корректировку', 'edit', () => { setView('edit'); }],
       ['Открыть историю корректировок', 'clock', () => setHistoryOpen(true)],
     ];
@@ -1950,7 +1965,7 @@ function FlightCard({ svc, offer, no: noProp, hideBackRow, onBack, onFormKp, onA
     <SendToPaxDrawer open={sendOpen} passengers={passengers} onClose={() => setSendOpen(false)}
       onSend={(channel, recipients) => serviceAction('document.send_passengers', { channel, recipients: recipients.map((p) => p.name), document_ids: uploadedDocs.map((d) => d.documentId || d.id), label: 'Документы переданы на отправку' })} />
     <SvcAddPaxDrawer open={addPaxOpen} isHotel={false} onClose={() => setAddPaxOpen(false)}
-      onAdd={(person) => { setExtraPax((cur) => [...cur, { name: person.name, type: person.role, doc: person.doc, dob: person.dob, ticket: '—', pnr: pnr, docs: [] }]); setAddPaxOpen(false); toast('Пассажир добавлен только в текущий просмотр. Для сохранения добавьте его в карточке заказа.', 'warn'); }} />
+      onAdd={(person) => { setExtraPax((cur) => [...cur, { name: person.name, type: person.role, doc: person.doc, dob: person.dob, ticket: '—', pnr: pnr, docs: [] }]); setAddPaxOpen(false); }} />
     <SvcDocUploadDrawer open={uploadOpen} isHotel={false} participants={passengers.map((p) => ({ name: p.name }))} orderNo={svc ? svc.order : null} onClose={() => setUploadOpen(false)}
       onUploaded={uploadFlightDocument} />
     {attach && <AttachFlightDrawer mode={attach} svcTitle={out.from + ' → ' + out.to + (back ? ' → ' + back.to : '')}
@@ -2208,7 +2223,7 @@ function FlightsPage({ searchIntent, onConsumeSearch, orders = ORDERS, clients =
         {view === 'results' && (
           <FlightResults params={params} liveOffers={liveOffers} loading={searching}
             onBackToSearch={() => setView('search')}
-            onSelect={(o) => { setOffer(o); setSvc(null); setCardNo('AV-' + Math.floor(10000 + Math.random() * 90000)); setView('card'); toast('Предложение открыто без сохранения. Добавление в backend-заказ выполняется из карточки заказа.', 'info'); }} />
+            onSelect={(o) => { setOffer(o); setSvc(null); setCardNo('AV-' + Math.floor(10000 + Math.random() * 90000)); setView('card'); }} />
         )}
         {view === 'card' && (
           <FlightCard svc={svc} offer={offer} no={cardNo} hideBackRow onBack={() => setView(svc ? 'registry' : 'results')} orders={orders} clients={clients} companies={companies} />

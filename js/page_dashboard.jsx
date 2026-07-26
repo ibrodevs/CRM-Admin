@@ -155,7 +155,7 @@ function FreeBookingFinalize({ draft, onClose, onDone, onOpenOrder, onCreateOrde
       <Drawer open onClose={onClose} title="Коммерческое предложение"
         footer={<>
           <Button variant="secondary" onClick={() => setStep('menu')}>Назад</Button>
-          <Button icon="send" style={{ flex: 1 }} onClick={() => toast('Сначала привяжите подборку к заказу: КП создаётся только по backend-заказу', 'err')}>
+          <Button icon="send" style={{ flex: 1 }} disabled title="КП создаётся после привязки подборки к backend-заказу">
             {recipient ? 'Отправить клиенту' : 'Сформировать КП'}
           </Button>
         </>}>
@@ -194,13 +194,9 @@ function FreeBookingFinalize({ draft, onClose, onDone, onOpenOrder, onCreateOrde
 
         <PanelSub>Действия с КП</PanelSub>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-          {[['Скачать PDF', 'download', () => toast('PDF доступен после создания КП по заказу', 'err')],
-            ['Открыть в разделе КП', 'template', () => toast('Сначала создайте заказ и КП в backend', 'err')],
-            ['Копировать ссылку', 'docs', () => toast('Ссылка появится после создания backend КП', 'err')],
-            ['Печать', 'clipboard', () => toast('Печать доступна после создания backend КП', 'err')]].map(([label, icon, on]) => (
-            <button key={label} className="doc-chip" style={{ width: '100%' }} onClick={on}>
+          {[['Скачать PDF', 'download'], ['Открыть в разделе КП', 'template'], ['Копировать ссылку', 'docs'], ['Печать', 'clipboard']].map(([label, icon]) => (
+            <button key={label} className="doc-chip" disabled title="Действие доступно после создания КП в заказе" style={{ width: '100%', opacity: 0.55, cursor: 'not-allowed' }}>
               <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}><Icon name={icon} style={{ width: 16, height: 16 }} />{label}</span>
-              <Icon name="chevRight" style={{ width: 16, height: 16 }} />
             </button>
           ))}
         </div>

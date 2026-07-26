@@ -91,7 +91,7 @@ function SvcOfferCard({ o, kind, onSelect, onSave, selectLabel }) {
         </div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
           <Button size="sm" onClick={() => onSelect(o)}>{selectLabel || 'Выбрать'}</Button>
-          <Button variant="secondary" size="sm" icon="star" onClick={() => onSave(o)}>Сохранить</Button>
+          {onSave && <Button variant="secondary" size="sm" icon="star" onClick={() => onSave(o)}>Сохранить</Button>}
         </div>
       </div>
     </div>
@@ -1743,8 +1743,8 @@ function ServiceFlow({ routeKey, searchIntent, onConsumeSearch }) {
                   ? [0, 1, 2].map((i) => (<div key={i} className="off-card" style={{ marginBottom: 14 }}><div className="off-main"><div className="sk" style={{ height: 44, width: '55%' }} /><div className="sk" style={{ height: 26, width: '85%' }} /></div><div className="off-side"><div className="sk" style={{ height: 56 }} /></div></div>))
                   : offers.length
                     ? offers.map((o) => cfg.kind === 'ЖД'
-                        ? <RailOfferCard key={o.id} o={o} onSelect={(x) => { setItem(x); setView('card'); toast('Открыто без привязки к заказу — добавить можно из карточки заказа', 'info'); }} />
-                        : <SvcOfferCard key={o.id} o={o} kind={cfg.kind} onSelect={(x) => { setItem(x); setView('card'); toast('Открыто без привязки к заказу — добавить можно из карточки заказа', 'info'); }} onSave={() => toast('Сохранение предложения доступно после привязки к заказу', 'warn')} />)
+                        ? <RailOfferCard key={o.id} o={o} onSelect={(x) => { setItem(x); setView('card'); }} />
+                        : <SvcOfferCard key={o.id} o={o} kind={cfg.kind} onSelect={(x) => { setItem(x); setView('card'); }} />)
                     : <EmptyState icon={k.icon} title="Нет вариантов по фильтрам" sub="Смягчите условия фильтрации слева" />}
               </div>
             </div>
@@ -1840,7 +1840,7 @@ function ServiceAddFlow({ routeKey, onAdd }) {
               {loading
                 ? [0, 1, 2].map((i) => (<div key={i} className="off-card" style={{ marginBottom: 14 }}><div className="off-main"><div className="sk" style={{ height: 44, width: '55%' }} /><div className="sk" style={{ height: 26, width: '85%' }} /></div><div className="off-side"><div className="sk" style={{ height: 56 }} /></div></div>))
                 : offers.length
-                  ? offers.map((o) => <SvcOfferCard key={o.id} o={o} kind={cfg.kind} onSelect={(x) => onAdd(x, cfg.kind)} onSave={() => toast('Добавьте предложение в заказ, чтобы сохранить его в backend', 'warn')} />)
+                  ? offers.map((o) => <SvcOfferCard key={o.id} o={o} kind={cfg.kind} onSelect={(x) => onAdd(x, cfg.kind)} />)
                   : <EmptyState icon={SERVICE_KIND[cfg.kind].icon} title="Нет вариантов по фильтрам" sub="Смягчите условия фильтрации слева" />}
             </div>
           </div>
@@ -1942,7 +1942,7 @@ function AeroAddFlow({ onAdd }) {
           </div>
           {loading
             ? [0, 1, 2].map((i) => (<div key={i} className="off-card" style={{ marginBottom: 14 }}><div className="off-main"><div className="sk" style={{ height: 44, width: '55%' }} /><div className="sk" style={{ height: 26, width: '85%' }} /></div><div className="off-side"><div className="sk" style={{ height: 56 }} /></div></div>))
-            : offers.map((o) => <SvcOfferCard key={o.id} o={o} kind="Аэроэкспресс" onSelect={addOffer} onSave={() => toast('Добавьте предложение в заказ, чтобы сохранить его в backend', 'warn')} />)}
+            : offers.map((o) => <SvcOfferCard key={o.id} o={o} kind="Аэроэкспресс" onSelect={addOffer} />)}
         </>
       )}
     </div>

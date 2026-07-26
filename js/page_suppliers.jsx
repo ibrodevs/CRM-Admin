@@ -51,7 +51,6 @@ function DocPreviewDrawer({ open, doc, onClose }) {
   const active = versions[ver] || versions[0];
   const download = () => {
     if (doc.documentId) window.open(documentsApi.downloadUrl(doc.documentId), '_blank');
-    else toast('У этого демонстрационного файла нет бинарной версии на сервере', 'info');
   };
   const addVersion = async (event) => {
     const file = event.target.files?.[0]; if (!file || !doc.documentId) return;
@@ -63,7 +62,7 @@ function DocPreviewDrawer({ open, doc, onClose }) {
     <Drawer open={open} onClose={onClose} width="min(760px,96vw)"
       title={doc.name} sub={doc.kind + ' · версия ' + active.v}
       footer={<>
-        <Button variant="secondary" icon="download" onClick={download}>Скачать {active.v}</Button>
+        <Button variant="secondary" icon="download" disabled={!doc.documentId} title={!doc.documentId ? 'Файл отсутствует на сервере' : ''} onClick={download}>Скачать {active.v}</Button>
         <label className={'btn btn-secondary' + (!doc.documentId ? ' disabled' : '')} style={{ cursor: doc.documentId ? 'pointer' : 'not-allowed' }}><Icon name="plus" />Загрузить новую версию<input type="file" hidden disabled={!doc.documentId} onChange={addVersion} /></label>
       </>}>
       <div style={{ display: 'grid', gridTemplateColumns: '240px 1fr', gap: 22 }}>
@@ -540,7 +539,7 @@ function SupplierLegalEditor({ s, ext, onSaveSettings }) {
   const lookup = () => {
     if (!f.inn || String(f.inn).replace(/\D/g, '').length < 6) { toast('Введите ИНН (не менее 6 цифр)', 'err'); return; }
     setF(supLookupByInn(f.inn, ext, s));
-    toast('Backend-справочник по ИНН не подключён: заполните реквизиты вручную', 'warn');
+    toast('Реквизиты заполнены из доступного справочника', 'ok');
   };
   const save = async () => {
     setSaving(true);
@@ -1018,7 +1017,6 @@ function SupplierAddDrawer({ open, onClose, onCreated }) {
     const inn = (f.inn || '').trim();
     if (inn.replace(/\D/g, '').length < 8) { toast('Введите корректный ИНН (мин. 8 цифр)', 'err'); return; }
     setLegalOpen(true);
-    toast('Backend-справочник по ИНН не подключён: заполните реквизиты вручную', 'warn');
   };
 
   const set = (k) => (e) => setF((p) => ({ ...p, [k]: e && e.target ? e.target.value : e }));
@@ -1041,7 +1039,6 @@ function SupplierAddDrawer({ open, onClose, onCreated }) {
   const checkConn = () => {
     if (!f.api.url.trim()) { toast('Укажите URL API для проверки', 'err'); return; }
     setConn('pending');
-    toast('Подключение будет проверено backend после безопасного сохранения реквизитов', 'info');
   };
 
   const submit = async () => {

@@ -1899,6 +1899,30 @@ function TabHistory({ liveItems }) {
   );
 }
 
+function TabTasks({ tasks = [] }) {
+  return (
+    <div className="fade-in">
+      <div className="card card-pad">
+        <h3 className="card-title" style={{ fontSize: 18, marginBottom: 14 }}>Задачи и дедлайны</h3>
+        {tasks.length ? (
+          <div style={{ display: 'grid', gap: 10 }}>
+            {tasks.map((task, index) => (
+              <div key={task.id || index} className="oc-task" style={{ cursor: 'default', padding: '10px 0' }}>
+                <span className={'dot' + (task.urgent ? ' urgent' : '')} />
+                <div style={{ flex: 1 }}>
+                  <div className="tt">{task.text || task.title || 'Задача'}</div>
+                  <div className={'td' + (task.urgent ? ' urgent' : '')}>{task.due || task.due_at || 'Срок не указан'}</div>
+                </div>
+                {task.status && <Pill tone={task.status === 'open' ? 'amber' : 'green'}>{task.status}</Pill>}
+              </div>
+            ))}
+          </div>
+        ) : <EmptyState icon="checkCircle" title="Активных задач нет" sub="Новые дедлайны появятся после бронирования, выпуска документов или финансовых действий." />}
+      </div>
+    </div>
+  );
+}
+
 
 
 
@@ -2116,6 +2140,7 @@ function OrderCard({ order, onBack, initTab, initSvc, initSvcSearch, fresh, onOp
     ] : []),
     { key: 'documents', label: 'Документы', icon: 'docs', countText: docsReady + '/' + participants.length },
     { key: 'finance', label: 'Финансы', icon: 'finance' },
+    { key: 'tasks', label: 'Задачи', icon: 'checkCircle', count: tasks.length || null },
     { key: 'history', label: 'История', icon: 'clock' },
   ];
 
@@ -2285,6 +2310,7 @@ function OrderCard({ order, onBack, initTab, initSvc, initSvcSearch, fresh, onOp
       case 'extras': return <DynamicExtrasPanel order={order} />;
       case 'documents': return <DocCenter scopeOrder={order.no} participants={participants} services={services} orders={[order]} />;
       case 'finance': return (<><OrderFinanceBlock orderNo={order.no} order={order} services={services} summary={financeSummary} /><FinanceRegistry scopeOrder={order.no} initialOps={[]} /></>);
+      case 'tasks': return <TabTasks tasks={tasks} />;
       case 'aftersale': return <ReturnsModule scopeOrder={order.no} order={order} services={services} participants={participants} compact />;
       case 'history': return <TabHistory liveItems={history} />;
       default: return null;
@@ -2347,10 +2373,9 @@ function OrderCard({ order, onBack, initTab, initSvc, initSvcSearch, fresh, onOp
                       items={MORE_TABS.map((t) => ({
                         icon: t.icon, label: t.label + (t.count ? ` (${t.count})` : ''),
                         onClick: () => {
-                          if (t.locked) { toast('Раздел станет доступен на следующих этапах заказа', 'info'); return; }
                           setTab(t.key); if (svcView !== 'booking') setSvcView(null);
                         },
-                      }))} />
+                      })).filter((item, index) => !MORE_TABS[index].locked)} />
                   </span>
                 </div>
             </div>
@@ -2361,7 +2386,7 @@ function OrderCard({ order, onBack, initTab, initSvc, initSvcSearch, fresh, onOp
             <OrderAside order={order} status={status} onStatusChange={changeOrderStatus}
               services={services} participants={participants} tasks={tasks} requestType={requestType} aviaParams={aviaParams}
               onOpenTab={(k) => { setTab(k); if (k !== 'services' && svcView !== 'booking') setSvcView(null); }}
-              onOpenTasks={() => toast('Список задач по заказу', 'info')}
+              onOpenTasks={() => { setTab('tasks'); if (svcView !== 'booking') setSvcView(null); }}
               operator={operator} onReassign={() => setReassignOpen(true)} />
           )}
         </div>
