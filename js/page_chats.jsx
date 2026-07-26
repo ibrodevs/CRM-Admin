@@ -505,7 +505,7 @@ function ChatsNav({ threads, activeId, onSelect, search, setSearch, mode, setMod
 }
 
 
-function ChatsPage({ initialThreads = [], orders = [], currentUserId, onOpenOrder }) {
+function ChatsPage({ initialThreads = [], focusThread = null, orders = [], currentUserId, onOpenOrder }) {
   const toast = useToast();
 
 
@@ -517,6 +517,11 @@ function ChatsPage({ initialThreads = [], orders = [], currentUserId, onOpenOrde
 
   const active = threads.find((t) => t.id === activeId) || threads[0];
   useEffect(() => { if (!activeId && initialThreads[0]) setActiveId(initialThreads[0].id); }, [initialThreads, activeId]);
+  useEffect(() => {
+    if (!focusThread?.id) return;
+    setExtraThreads((cur) => initialThreads.concat(cur).some((thread) => String(thread.id) === String(focusThread.id)) ? cur : [focusThread, ...cur]);
+    setActiveId(focusThread.id);
+  }, [focusThread?.id, initialThreads]);
   const recipients = active ? threads.filter((thread) => thread.order === active.order) : [];
   const switchThread = (t) => {
     if (t.virtual) { const real = { ...t, virtual: false }; setExtraThreads((cur) => [...cur, real]); setActiveId(real.id); }

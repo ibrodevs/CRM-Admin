@@ -27,6 +27,7 @@ import { TripCalendarPage } from './page_trip_calendar';
 import { ProfilePage } from './page_profile';
 import { AccountSettingsPage } from './page_account';
 import { AccessDenied, GlobalChatDrawer, GlobalTopbar, NotificationDrawer, roleCanSee } from './shell';
+import { toUiThread } from './api/adapters';
 
 const NOTIF_PRIORITY_KIND = { 'Критический': 'err', 'Высокий': 'warn', 'Средний': 'info', 'Информационный': 'ok' };
 const ROUTE_RESOURCE = {
@@ -121,6 +122,7 @@ function App() {
   const suppliers = workspace.suppliers;
 
   const [chatOpen, setChatOpen] = useState(false);
+  const [focusedChat, setFocusedChat] = useState(null);
   const [notifOpen, setNotifOpen] = useState(false);
   const [ctxOrder, setCtxOrder] = useState(null);
   const [role, setRole] = useState(auth.user?.role || 'Оператор');
@@ -135,6 +137,11 @@ function App() {
     setRoute(r);
     setCtxOrder(null);
     if (b === 'orders') setIntent({ type: 'list' });
+  };
+  const openChatThread = (thread) => {
+    if (thread) setFocusedChat(thread.id ? toUiThread(thread) : thread);
+    setRoute('chats');
+    setCtxOrder(null);
   };
 
   const changeRole = (r) => { setRole(r); if (!roleCanSee(r, route.split('/')[0])) { setRoute('dashboard'); setCtxOrder(null); } };
@@ -219,8 +226,8 @@ function App() {
       {route === 'orders' && <OrdersPage intent={intent} onConsume={() => setIntent(null)} orders={orders} clients={workspace.clients} companies={workspace.companies} addOrder={addOrder} onDetailChange={setCtxOrder} onOpenChat={() => setChatOpen(true)} onNavigate={navigate} />}
       {route === 'services' && <ServicesHubPage onNavigate={navigate} onAddOrder={createOrder} onSearch={openServiceSearch} onOpenOrder={openOrder} onCreateOrder={createOrderFromPicker} />}
       {route === 'flights' && <FlightsPage searchIntent={svcSearch && svcSearch.key === 'flights' ? svcSearch : null} onConsumeSearch={() => setSvcSearch(null)} orders={orders} clients={workspace.clients} companies={workspace.companies} />}
-      {route === 'suppliers' && <SuppliersPage intent={intent} onConsume={() => setIntent(null)} suppliers={suppliers} addSupplier={addSupplier} />}
-      {route === 'chats' && <ChatsPage initialThreads={workspace.chats} orders={orders} currentUserId={auth.user.id} onOpenOrder={openOrder} />}
+      {route === 'suppliers' && <SuppliersPage intent={intent} onConsume={() => setIntent(null)} suppliers={suppliers} addSupplier={addSupplier} onNavigate={navigate} onOpenChat={openChatThread} />}
+      {route === 'chats' && <ChatsPage initialThreads={workspace.chats} focusThread={focusedChat} orders={orders} currentUserId={auth.user.id} onOpenOrder={openOrder} />}
       {route === 'finance' && <FinancePage overview={workspace.finance} transactions={workspace.transactions} clients={workspace.clients} companies={workspace.companies} suppliers={workspace.suppliers} orders={orders} meta={workspace.meta} />}
       {route === 'documents' && <DocCenterPage documents={workspace.documents} orders={orders} />}
       {route === 'receipts' && <ReceiptEditorPage documents={workspace.documents} orders={orders} />}

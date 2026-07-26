@@ -736,7 +736,7 @@ function SupplierTabBody({ s, ext, tab, isAirline, apiStatus, checkConn, setPrev
 
 
 
-function SupplierCard({ supplier, onBack, onOpenOrder }) {
+function SupplierCard({ supplier, onBack, onOpenOrder, onOpenChat }) {
   const toast = useToast();
   const s = supplier;
   const ext = supExt(s);
@@ -777,8 +777,8 @@ function SupplierCard({ supplier, onBack, onOpenOrder }) {
   };
   const openSupplierChat = async () => {
     try {
-      await communicationsApi.createThread({ type: 'supplier', title: s.name, external_channel: 'CRM', status: 'active' });
-      toast('Чат с поставщиком создан', 'ok');
+      const thread = await communicationsApi.createThread({ type: 'supplier', title: s.name, external_channel: 'CRM', status: 'active' });
+      onOpenChat && onOpenChat(thread);
     } catch (error) { toast(error.message, 'err'); }
   };
   const brand = supBrand(s.name);
@@ -1327,7 +1327,7 @@ function SupplierAddDrawer({ open, onClose, onCreated }) {
   );
 }
 
-function SuppliersPage({ intent, onConsume, suppliers, addSupplier }) {
+function SuppliersPage({ intent, onConsume, suppliers, addSupplier, onNavigate, onOpenChat }) {
   const toast = useToast();
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
@@ -1343,7 +1343,7 @@ function SuppliersPage({ intent, onConsume, suppliers, addSupplier }) {
   if (active) return (
     <div className="fade-in">
       <Topbar title="Карточка поставщика" />
-      <div className="content"><SupplierCard supplier={active} onBack={() => setActive(null)} /></div>
+      <div className="content"><SupplierCard supplier={active} onBack={() => setActive(null)} onOpenChat={onOpenChat || (() => onNavigate && onNavigate('chats'))} /></div>
     </div>
   );
 
