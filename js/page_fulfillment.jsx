@@ -1245,7 +1245,7 @@ function ReceiptImportModal({ open, onClose, onDone }) {
         const parsed = { ...base, carrier: draft.issuer || base.carrier, passenger: draft.passenger_name || base.passenger,
           fare: Number(draft.fare || base.fare || 0), taxes: Number(draft.taxes || base.taxes || 0), total: Number(draft.total || base.total || 0),
           currency: draft.currency || base.currency, legs: draft.segments?.length ? draft.segments : base.legs,
-          recognitionPending: Boolean(result.warnings?.length), backendWarnings: result.warnings || [] };
+          recognitionPending: result.parser_status !== 'parsed', backendWarnings: result.warnings || [] };
         setFiles((cur) => cur.map((item) => item.id === entry.id ? { ...item, status: 'done', importId: imported.id, parsed } : item));
       } catch (error) {
         setFiles((cur) => cur.map((item) => item.id === entry.id ? { ...item, status: 'done', error: error.message, parsed: { ...emptyReceiptParse(entry), recognitionPending: true } } : item));
@@ -1324,7 +1324,7 @@ function ReceiptImportModal({ open, onClose, onDone }) {
       return {
         serverId: confirmed[index].document_id, no: 'D-' + String(confirmed[index].document_id).slice(0, 8).toUpperCase(),
         name: t.doc + ' ' + (p.carrier || '') + ' · ' + (p.passenger || '').split(/[\/ ]/)[0],
-        type: t.doc, order: isPerson ? '—' : orderNo, participant: p.passenger || '—', service: r.f.type + ' · распознано',
+        type: t.doc, order: isPerson ? '—' : orderNo, participant: p.passenger || '—', service: r.f.type + (p.recognitionPending ? ' · заполнено вручную' : ' · распознано'),
         finOp: '—', status: 'Черновик', version: 1, date: now, size: r.f.size, parsed: p, recType: r.f.type,
 
         supplierBlank: { name: r.f.name, size: r.f.size, byteSize: r.f.byteSize, mime: r.f.mime,
@@ -1363,7 +1363,7 @@ function ReceiptImportModal({ open, onClose, onDone }) {
           <span style={{ width: 46, height: 46, borderRadius: 12, background: 'var(--blue-soft)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}><Icon name="download" style={{ width: 22, height: 22, color: 'var(--blue)' }} /></span>
           <div style={{ marginTop: 10, fontWeight: 700, color: 'var(--ink)' }}>Перетащите файлы сюда</div>
           <div style={{ margin: '8px 0' }}><Button variant="secondary" size="sm">Выбрать файлы</Button></div>
-          <div style={{ fontSize: 12, color: 'var(--muted)' }}>Авиа, ЖД, отели, трансферы · PDF, JPG, PNG · до 15 МБ</div>
+          <div style={{ fontSize: 12, color: 'var(--muted)' }}>Авиа, ЖД, отели, трансферы · PDF, JPG, PNG · до 15 МБ · сканы требуют ручной проверки</div>
         </div>
 
         {files.length > 0 && (
@@ -1388,6 +1388,9 @@ function ReceiptImportModal({ open, onClose, onDone }) {
               return (
               <>
                 <RSub>Сверка квитанций</RSub>
+                <div style={{ fontSize: 12, color: 'var(--muted)', margin: '-4px 0 10px' }}>
+                  Автозаполнение работает только для файлов с текстовым слоем. Если данные не найдены, заполните поля вручную перед добавлением.
+                </div>
 
 
                 {doneRows.length > 0 && (
@@ -1546,7 +1549,7 @@ function ReceiptEditorPage({ documents = [], orders = [] }) {
           <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16, flexWrap: 'wrap' }}>
             <div style={{ flex: 1, minWidth: 200 }}>
               <div style={{ fontSize: 13, color: 'var(--muted)' }}>
-                Загрузите маршрут-квитанции — система пошагово распознает наполнение, вы отредактируете данные и привяжете их к заказу.
+                Загрузите маршрут-квитанции — система извлечёт доступный текст, а сканы и неполные данные нужно проверить и заполнить вручную.
               </div>
             </div>
             <SearchBox value={q} onChange={setQ} placeholder="Поиск квитанции…" style={{ width: 250 }} />
