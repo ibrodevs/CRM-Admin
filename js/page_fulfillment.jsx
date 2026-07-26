@@ -1220,6 +1220,9 @@ function ReceiptImportModal({ open, onClose, onDone }) {
           fare: Number(draft.fare || base.fare || 0), taxes: Number(draft.taxes || base.taxes || 0), total: Number(draft.total || base.total || 0),
           ref: extracted.reference || base.ref, ticketNo: extracted.ticket_number || base.ticketNo,
           docNo: extracted.document_number || base.docNo, dob: extracted.date_of_birth || base.dob,
+          issueDate: extracted.issue_date || base.issueDate, cls: extracted.booking_class || base.cls,
+          fareBasis: extracted.fare_basis || base.fareBasis, baggage: extracted.baggage || base.baggage,
+          handBaggage: extracted.hand_baggage || base.handBaggage,
           currency: draft.currency || base.currency, legs: draft.segments?.length ? draft.segments : base.legs,
           recognitionPending: result.parser_status !== 'parsed', backendWarnings: result.warnings || [] };
         setFiles((cur) => cur.map((item) => item.id === entry.id ? { ...item, status: 'done', importId: imported.id, type: detectedType, parsed } : item));
