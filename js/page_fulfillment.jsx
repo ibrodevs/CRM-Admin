@@ -835,7 +835,7 @@ function DocCenter({ scopeOrder, participants, services, onOpenDoc, initialDocum
       {editorFor && (
         <DocCorrectionPanel
           subjects={correctionSubjects(participants, editorFor.participant)}
-          meta={{ cfg: docCorrKind('Авиа'), supplier: 'Поставщик', route: 'Маршрут по заказу', dates: new Date().toLocaleDateString('ru-RU'), carrierName: '—', baseFareTotal: 1600, itinerary: [] }}
+          meta={{ cfg: docCorrKind('Авиа'), supplier: 'Поставщик', route: 'Маршрут по заказу', dates: new Date().toLocaleDateString('ru-RU'), carrierName: '—', baseFareTotal: 0, itinerary: [] }}
           currency="USD" orderNo={scopeOrder || null} onClose={() => setEditorFor(null)} />
       )}
     </div>
@@ -881,53 +881,6 @@ function routeSummary(p) {
   return p.legs.map((l) => legCode(l, 'from')).concat([legCode(p.legs[p.legs.length - 1], 'to')]).join(' → ');
 }
 
-
-const PARSE_POOL = {
-  'Авиа': [
-
-    { carrier: 'Смартавиа', carrierCode: '5N', passenger: 'TELEGIN IVAN KONSTANTINOVICH', dob: '18.05.1993', docNo: 'ПС 2213067219', ticketNo: '316 2445197354', ref: 'V942WP', cls: 'ECONOMY', fareBasis: 'MLTOW', baggage: '0 PC', handBaggage: '10 кг', issueDate: '01.07.2026', tripType: 'oneway',
-      legs: [{ from: 'Нижний Новгород · Стригино', fromCode: 'GOJ', to: 'Санкт-Петербург · Пулково Т1', toCode: 'LED', date: '19.07.2026', dep: '17:15', arr: '19:00', flightNo: '5N-1510', dir: 'out' }],
-      currency: 'RUB', fare: 25328, taxes: 120, total: 25448 },
-
-    { carrier: 'S7 Airlines', carrierCode: 'S7', passenger: 'NESTEROVA IRINA IVANOVNA', dob: '04.09.1990', docNo: 'ПС 4501234567', ticketNo: '421 2135356261', ref: 'KJ7T2L', cls: 'ECONOMY', fareBasis: 'BLR', baggage: '1 PC', handBaggage: '10 кг', issueDate: '20.06.2026', tripType: 'roundtrip',
-      legs: [
-        { from: 'Москва · Домодедово', fromCode: 'DME', to: 'Сочи · Адлер', toCode: 'AER', date: '10.07.2026', dep: '08:40', arr: '11:25', flightNo: 'S7 1135', dir: 'out' },
-        { from: 'Сочи · Адлер', fromCode: 'AER', to: 'Москва · Домодедово', toCode: 'DME', date: '17.07.2026', dep: '19:10', arr: '21:55', flightNo: 'S7 1136', dir: 'back' },
-      ],
-      currency: 'RUB', fare: 14200, taxes: 3160, total: 17360 },
-
-    { carrier: 'Red Wings', carrierCode: 'WZ', passenger: 'ARUTIUNOV / GEVORK B', dob: '—', docNo: 'PSP756864778', ticketNo: '309 6111220993', ref: 'V8LG5G', cls: 'Economy / N', fareBasis: 'NSTOW', baggage: '1 PC', handBaggage: '1 место', issueDate: '30.06.2026', tripType: 'oneway',
-      legs: [{ from: 'Нижний Новгород · Стригино', fromCode: 'GOJ', to: 'Ереван · Звартноц', toCode: 'EVN', date: '19.07.2026', dep: '08:20', arr: '12:45', flightNo: 'WZ 1347', dir: 'out' }],
-      currency: 'RUB', fare: 30305, taxes: 1855, total: 32160 },
-
-    { carrier: 'Алроса', carrierCode: '6R', passenger: 'ЧУВАШОВ / ВЛАДИМИР Г', dob: '—', docNo: 'ПС 9814572697', ticketNo: '67A 6110494206', ref: 'BCPFR1', cls: 'Эконом / N', fareBasis: 'NLTOW', baggage: 'Нет', handBaggage: '1 место', issueDate: '07.06.2026', tripType: 'complex',
-      legs: [
-        { from: 'Москва · Внуково A', fromCode: 'VKO', to: 'Новосибирск · Толмачёво', toCode: 'OVB', date: '09.06.2026', dep: '15:45', arr: '23:45', flightNo: '6R 544', dir: 'seg' },
-        { from: 'Новосибирск · Толмачёво', fromCode: 'OVB', to: 'Мирный', toCode: 'MJZ', date: '10.06.2026', dep: '08:30', arr: '11:15', flightNo: '6R 590', dir: 'seg' },
-      ],
-      currency: 'RUB', fare: 18000, taxes: 2400, total: 20400 },
-  ],
-  'ЖД': [
-    { carrier: 'РЖД', carrierCode: 'РЖД', passenger: 'ИВАНОВ ИВАН ИВАНОВИЧ', dob: '12.03.1988', docNo: '2213 №667788', ticketNo: '70 1234567890', ref: 'RZD-4471', cls: 'Купе', fareBasis: '—', baggage: '—', handBaggage: '—', issueDate: '28.06.2026', tripType: 'oneway',
-      legs: [{ from: 'Москва · Казанский', fromCode: 'MOW', to: 'Казань', toCode: 'KZN', date: '12.07.2026', dep: '22:10', arr: '09:30', flightNo: 'Поезд 024Й · ваг 07, м 12', dir: 'out' }],
-      currency: 'RUB', fare: 3200, taxes: 0, total: 3200 },
-  ],
-  'Гостиница': [
-    { carrier: 'Jannat Hotel 4*', carrierCode: '', passenger: 'ПЕТРОВ СЕРГЕЙ', dob: '—', docNo: 'V-778210', ticketNo: 'V-778210', ref: 'BK-90312', cls: 'Standard DBL', fareBasis: 'BB (завтрак)', baggage: '—', handBaggage: '—', issueDate: '25.06.2026', tripType: 'stay',
-      legs: [{ from: 'Заезд 12.07.2026 14:00', fromCode: '', to: 'Выезд 15.07.2026 12:00', toCode: '', date: '3 ночи', dep: '', arr: '', flightNo: 'DBL · Завтрак включён', dir: 'out' }],
-      currency: 'USD', fare: 240, taxes: 18, total: 258 },
-  ],
-  'Трансфер': [
-    { carrier: 'Karimov Transfer', carrierCode: '', passenger: 'ПЕТРОВ СЕРГЕЙ', dob: '—', docNo: 'TR-5521', ticketNo: 'TR-5521', ref: 'TRF-118', cls: 'Седан', fareBasis: '—', baggage: '2 места', handBaggage: '—', issueDate: '01.07.2026', tripType: 'oneway',
-      legs: [{ from: 'Аэропорт Манас', fromCode: '', to: 'Отель Jannat', toCode: '', date: '12.07.2026', dep: '15:30', arr: '', flightNo: 'Toyota Camry · 1-4 pax', dir: 'out' }],
-      currency: 'USD', fare: 30, taxes: 0, total: 30 },
-  ],
-  'Прочее': [
-    { carrier: 'Поставщик', carrierCode: '', passenger: 'Клиент', dob: '—', docNo: '—', ticketNo: '—', ref: '—', cls: '—', fareBasis: '—', baggage: '—', handBaggage: '—', issueDate: '—', tripType: 'oneway',
-      legs: [{ from: 'Услуга', fromCode: '', to: '', toCode: '', date: '—', dep: '', arr: '', flightNo: '', dir: 'out' }],
-      currency: 'USD', fare: 0, taxes: 0, total: 0 },
-  ],
-};
 let RID = 0;
 
 
@@ -936,7 +889,7 @@ function emptyReceiptParse(file) {
     carrier: '', carrierCode: '', passenger: '', dob: '', docNo: '', ticketNo: '', ref: '',
     cls: '', fareBasis: '', baggage: '', handBaggage: '', issueDate: '', tripType: file.type === 'Гостиница' ? 'stay' : 'oneway',
     legs: [{ from: '', fromCode: '', to: '', toCode: '', date: '', dep: '', arr: '', flightNo: '', dir: 'out' }],
-    currency: file.type === 'Гостиница' || file.type === 'Трансфер' ? 'USD' : 'RUB', fare: '', taxes: '', total: '',
+    currency: '', fare: '', taxes: '', total: '',
     recognitionPending: true,
   };
 }
@@ -1224,9 +1177,8 @@ function ReceiptImportModal({ open, onClose, onDone }) {
   const [brandId, setBrandId] = useState(null);
   const [bulk, setBulk] = useState({ fee: '', markup: '', commission: '' });
   const fileRef = useRef(null);
-  const poolCounter = useRef({});
 
-  useEffect(() => { if (open) { setFiles([]); setStep(0); setExcluded({}); setReviewed({}); setEditId(null); setBindTarget({ mode: 'new', label: 'Новый заказ' }); setOptAddIncomplete(false); setOptCreateServices(true); setMath({}); setSel({}); setMathId(null); setBrandId(null); setBulk({ fee: '', markup: '', commission: '' }); poolCounter.current = {}; } }, [open]);
+  useEffect(() => { if (open) { setFiles([]); setStep(0); setExcluded({}); setReviewed({}); setEditId(null); setBindTarget({ mode: 'new', label: 'Новый заказ' }); setOptAddIncomplete(false); setOptCreateServices(true); setMath({}); setSel({}); setMathId(null); setBrandId(null); setBulk({ fee: '', markup: '', commission: '' }); } }, [open]);
 
 
   const getMath = (id, p) => math[id] || { tariff: Math.round(Number(p && p.total) || 0), fee: 0, markup: 0, commission: 0 };
@@ -1237,11 +1189,9 @@ function ReceiptImportModal({ open, onClose, onDone }) {
   const addFiles = (list) => {
     const add = Array.from(list).map((raw) => {
       const type = guessType(raw.name);
-      poolCounter.current[type] = poolCounter.current[type] || 0;
-      const poolIx = poolCounter.current[type]++;
       return { id: 'rf' + (RID++), raw, name: raw.name, size: fmtSize(raw.size || 40000), byteSize: raw.size || 0, mime: raw.type || '', lastModified: raw.lastModified || null,
         originalUrl: typeof URL !== 'undefined' && URL.createObjectURL ? URL.createObjectURL(raw) : null,
-        type, poolIx, status: 'queued', parsed: null };
+        type, status: 'queued', parsed: null };
     });
     setFiles((cur) => [...cur, ...add]);
     setStep(1);
@@ -1252,8 +1202,11 @@ function ReceiptImportModal({ open, onClose, onDone }) {
         const result = await documentsApi.receiptResult(imported.id);
         const base = emptyReceiptParse(entry);
         const draft = result.draft || {};
+        const extracted = result.extracted || {};
         const parsed = { ...base, carrier: draft.issuer || base.carrier, passenger: draft.passenger_name || base.passenger,
           fare: Number(draft.fare || base.fare || 0), taxes: Number(draft.taxes || base.taxes || 0), total: Number(draft.total || base.total || 0),
+          ref: extracted.reference || base.ref, ticketNo: extracted.ticket_number || base.ticketNo,
+          docNo: extracted.document_number || base.docNo, dob: extracted.date_of_birth || base.dob,
           currency: draft.currency || base.currency, legs: draft.segments?.length ? draft.segments : base.legs,
           recognitionPending: result.parser_status !== 'parsed', backendWarnings: result.warnings || [] };
         setFiles((cur) => cur.map((item) => item.id === entry.id ? { ...item, status: 'done', importId: imported.id, parsed } : item));
@@ -1701,7 +1654,7 @@ function ReceiptEditorPage({ documents = [], orders = [] }) {
         return (
           <DocCorrectionPanel
             subjects={[{ name: edit.participant !== '—' ? edit.participant : 'Пассажир', type: 'Взрослый', docNo: edit.no, ref: '—' }]}
-            meta={{ cfg: docCorrKind('Авиа'), supplier: 'Поставщик', route: edit.name, dates: edit.date, carrierName: '—', baseFareTotal: 1600, itinerary: [] }}
+            meta={{ cfg: docCorrKind('Авиа'), supplier: 'Поставщик', route: edit.name, dates: edit.date, carrierName: '—', baseFareTotal: 0, itinerary: [] }}
             currency="USD" orderNo={edit.order} onClose={() => setEdit(null)} />
         );
       })()}
@@ -1807,4 +1760,4 @@ Object.assign(window, {
 
 
 
-export { fUsd, finPayable, finDebt, companyForDoc, OrderStageBar, FinanceOpCard, FinanceRegistry, FinancePageNew, DOC_BOOKKEEPING, now, DocPreviewModal, DocCard, DocPassengerGroup, correctionSubjects, DOC_UPLOAD_TYPES, DocUploadModal, DocCenter, DocCenterPage, REC_TYPES, recType, RECOG_STEPS, TRIP_TYPES, tripLabel, legCode, routeSummary, PARSE_POOL, RID, emptyReceiptParse, guessType, recMoney, recComputed, LegLine, RouteView, RSub, ReceiptPreview, ReceiptEditForm, REC_STATUS, receiptStatus, ReceiptEditDrawer, ReceiptMathDrawer, ReceiptImportModal, ReceiptEditorPage, FulfillmentRegistry, FulfillmentPage };
+export { fUsd, finPayable, finDebt, companyForDoc, OrderStageBar, FinanceOpCard, FinanceRegistry, FinancePageNew, DOC_BOOKKEEPING, now, DocPreviewModal, DocCard, DocPassengerGroup, correctionSubjects, DOC_UPLOAD_TYPES, DocUploadModal, DocCenter, DocCenterPage, REC_TYPES, recType, RECOG_STEPS, TRIP_TYPES, tripLabel, legCode, routeSummary, RID, emptyReceiptParse, guessType, recMoney, recComputed, LegLine, RouteView, RSub, ReceiptPreview, ReceiptEditForm, REC_STATUS, receiptStatus, ReceiptEditDrawer, ReceiptMathDrawer, ReceiptImportModal, ReceiptEditorPage, FulfillmentRegistry, FulfillmentPage };
