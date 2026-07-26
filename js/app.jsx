@@ -221,7 +221,7 @@ function App() {
       {route === 'flights' && <FlightsPage searchIntent={svcSearch && svcSearch.key === 'flights' ? svcSearch : null} onConsumeSearch={() => setSvcSearch(null)} orders={orders} clients={workspace.clients} companies={workspace.companies} />}
       {route === 'suppliers' && <SuppliersPage intent={intent} onConsume={() => setIntent(null)} suppliers={suppliers} addSupplier={addSupplier} />}
       {route === 'chats' && <ChatsPage initialThreads={workspace.chats} orders={orders} currentUserId={auth.user.id} onOpenOrder={openOrder} />}
-      {route === 'finance' && <FinancePage overview={workspace.finance} transactions={workspace.transactions} clients={workspace.clients} companies={workspace.companies} suppliers={workspace.suppliers} orders={orders} />}
+      {route === 'finance' && <FinancePage overview={workspace.finance} transactions={workspace.transactions} clients={workspace.clients} companies={workspace.companies} suppliers={workspace.suppliers} orders={orders} meta={workspace.meta} />}
       {route === 'documents' && <DocCenterPage documents={workspace.documents} orders={orders} />}
       {route === 'receipts' && <ReceiptEditorPage documents={workspace.documents} orders={orders} />}
       {route === 'fulfillment' && <FulfillmentPage onOpenOrder={openOrder} orders={orders} documents={workspace.documents} returns={workspace.returns} />}

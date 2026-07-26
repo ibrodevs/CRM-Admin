@@ -27,6 +27,27 @@ const saveFinanceBlob = (blob, filename) => {
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 };
 const financeStatus = { draft: 'Черновик', pending: 'На согласовании', confirmed: 'Исполнено', failed: 'Отклонено', cancelled: 'Отменено' };
+const SERVICE_KIND_LABELS = {
+  avia: 'Авиа',
+  rail: 'ЖД',
+  hotel: 'Гостиница',
+  transfer: 'Трансфер',
+  bus: 'Автобус',
+  tour: 'Тур',
+  aeroexpress: 'Аэроэкспресс',
+  lounge: 'Бизнес-зал',
+  insurance: 'Страхование',
+  visa: 'Виза',
+  other: 'Прочее',
+};
+const DEFAULT_RECON_SERVICE_KINDS = ['avia', 'rail', 'hotel', 'transfer', 'bus', 'tour', 'aeroexpress', 'lounge', 'insurance', 'visa', 'other'];
+const reconServiceKindLabel = (kind) => SERVICE_KIND_LABELS[kind] || kind;
+const reconServiceKindOptions = (meta) => {
+  const kinds = Array.isArray(meta?.enums?.service_kinds) && meta.enums.service_kinds.length
+    ? meta.enums.service_kinds
+    : DEFAULT_RECON_SERVICE_KINDS;
+  return kinds.map(reconServiceKindLabel);
+};
 const financeAccountRow = (account) => ({
   ...account,
   group: { bank: 'Расчётные счета', cash: 'Касса', deposit: 'Депозиты' }[account.kind] || 'Расчётные счета',
@@ -827,7 +848,7 @@ function reconOperations(cp) {
   return ops.sort((a, b) => (a.date ? a.date.getTime() : 0) - (b.date ? b.date.getTime() : 0));
 }
 
-function ReconActContent({ cp }) {
+function ReconActContent({ cp, meta }) {
   const toast = useToast();
   const ops = useMemo(() => reconOperations(cp), [cp]);
   const dts = ops.map((o) => o.date).filter(Boolean).map((d) => d.getTime());
@@ -842,7 +863,8 @@ function ReconActContent({ cp }) {
   useEffect(() => { setFrom(reconFmtDate(dmin)); setTo(reconFmtDate(dmax)); setKind('all'); setResp('all'); setBuilt(false); }, [cp]);
   if (!cp) return null;
 
-  const kindOptions = Array.from(new Set(ops.map((o) => o.kind)));
+  const knownKinds = reconServiceKindOptions(meta);
+  const kindOptions = Array.from(new Set([...knownKinds, ...ops.map((o) => o.kind).filter(Boolean)]));
   const respOptions = Array.from(new Set(ops.map((o) => o.resp).filter(Boolean)));
   const fromD = reconParseDate(from), toD = reconParseDate(to);
   const rows = ops.filter((o) => {
@@ -949,12 +971,12 @@ function ReconActContent({ cp }) {
   );
 }
 
-function ReconActDrawer({ open, cp, onClose }) {
+function ReconActDrawer({ open, cp, meta, onClose }) {
   if (!open || !cp) return null;
   return (
     <Drawer open={open} onClose={onClose} title="Акт сверки" sub={cp.name + ' · ' + (cp.type === 'client' ? 'клиент' : 'поставщик')} width="min(760px,97vw)"
       footer={<Button variant="secondary" style={{ width: '100%' }} onClick={onClose}>Закрыть</Button>}>
-      <ReconActContent cp={cp} key={cp.id} />
+      <ReconActContent cp={cp} meta={meta} key={cp.id} />
     </Drawer>
   );
 }
@@ -966,7 +988,7 @@ const FIN_CP_ROWS = FIN_COUNTERPARTIES.map((c) => ({
   tone: c.type === 'client' ? 'var(--blue)' : 'var(--amber)',
 }));
 
-function FinReconciliation({ counterparties = [] }) {
+function FinReconciliation({ counterparties = [], meta }) {
   const [cpName, setCpName] = useState('');
   const [pick, setPick] = useState(false);
   const cp = counterparties.find((c) => c.name === cpName) || null;
@@ -984,7 +1006,7 @@ function FinReconciliation({ counterparties = [] }) {
         </Field>
       </div>
       {cp
-        ? <ReconActContent cp={cp} key={cp.id} />
+        ? <ReconActContent cp={cp} meta={meta} key={cp.id} />
         : <div className="card card-pad" style={{ display: 'flex', alignItems: 'center', gap: 10, color: 'var(--muted)', fontSize: 13 }}>
             <Icon name="finance" style={{ width: 18, height: 18, color: 'var(--muted-2)' }} />
             Выберите контрагента — откроются параметры и формирование акта сверки за период / по услуге / по сотруднику.
@@ -996,7 +1018,7 @@ function FinReconciliation({ counterparties = [] }) {
   );
 }
 
-function FinCounterpartyDrawer({ cp, onClose }) {
+function FinCounterpartyDrawer({ cp, meta, onClose }) {
   const toast = useToast();
   const [reconOpen, setReconOpen] = useState(false);
   const free = Math.max(0, cp.limit - cp.used);
@@ -1070,7 +1092,7 @@ function FinCounterpartyDrawer({ cp, onClose }) {
         </div>
       </div>
       {cp.type === 'supplier' && <SupplierSettlements cp={cp} />}
-      <ReconActDrawer open={reconOpen} cp={cp} onClose={() => setReconOpen(false)} />
+      <ReconActDrawer open={reconOpen} cp={cp} meta={meta} onClose={() => setReconOpen(false)} />
     </Drawer>
   );
 }
@@ -1116,7 +1138,7 @@ function SupplierSettlements({ cp }) {
     </div>
   );
 }
-function FinSettlements({ counterparties = [], receipts = [] }) {
+function FinSettlements({ counterparties = [], receipts = [], meta }) {
   const [open, setOpen] = useState(null);
   const [type, setType] = useState('client');
   const [q, setQ] = useState('');
@@ -1178,7 +1200,7 @@ function FinSettlements({ counterparties = [], receipts = [] }) {
           </tbody>
         </table>
       </div>
-      {open && <FinCounterpartyDrawer cp={open} onClose={() => setOpen(null)} />}
+      {open && <FinCounterpartyDrawer cp={open} meta={meta} onClose={() => setOpen(null)} />}
     </div>
   );
 }
@@ -1429,7 +1451,7 @@ const FIN_TABS = [
   { key: 'analytics', label: 'Аналитика' },
   { key: 'rules', label: 'Правила' },
 ];
-function FinancePage({ overview, transactions = [], clients = [], companies = [], suppliers = [], orders = [] }) {
+function FinancePage({ overview, transactions = [], clients = [], companies = [], suppliers = [], orders = [], meta = null }) {
   const [tab, setTab] = useState('overview');
   const [accounts, setAccounts] = useState([]);
   const [payments, setPayments] = useState([]);
@@ -1492,8 +1514,8 @@ function FinancePage({ overview, transactions = [], clients = [], companies = []
         {tab === 'balance' && <FinBalance accounts={accounts} />}
         {tab === 'payments' && <FinPayments payments={payments} obligations={obligations} onPaymentCreated={createPayment} onPaymentConfirmed={() => loadFinance()} clientRows={clientRows} supplierRows={supplierRows} />}
         {tab === 'treasury' && <FinTreasury accounts={accounts} payments={payments} receipts={receipts} />}
-        {tab === 'settlements' && <FinSettlements counterparties={counterparties} receipts={receipts} />}
-        {tab === 'recon' && <FinReconciliation counterparties={counterparties} />}
+        {tab === 'settlements' && <FinSettlements counterparties={counterparties} receipts={receipts} meta={meta} />}
+        {tab === 'recon' && <FinReconciliation counterparties={counterparties} meta={meta} />}
         {tab === 'economics' && <FinEconomics />}
         {tab === 'analytics' && <FinAnalytics />}
         {tab === 'rules' && <FinRules />}
