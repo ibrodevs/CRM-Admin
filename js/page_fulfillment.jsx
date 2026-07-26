@@ -1416,8 +1416,8 @@ function ReceiptImportModal({ open, onClose, onDone }) {
                   Автозаполнение работает только для файлов с текстовым слоем. Если данные не найдены, заполните поля вручную перед добавлением.
                 </div>
 
-                <div className="table-card" style={{ overflowX: 'auto' }}>
-                  <table className="tbl" style={{ minWidth: 980 }}>
+                <div className="table-card rec-import-table-card">
+                  <table className="tbl rec-import-table">
                     <thead><tr>
                       <th style={{ width: 34 }}>{doneRows.length > 0 && <Checkbox on={allSel} onChange={() => setSel(allSel ? {} : Object.fromEntries(doneRows.map((r) => [r.f.id, true])))} />}</th>
                       <th>Квитанция</th><th>Маршрут / сумма</th><th style={{ width: 150 }}>Финансы (клиенту)</th><th style={{ width: 130 }}>Статус</th><th style={{ width: 250 }}>Действие</th><th style={{ width: 40 }}></th>
@@ -1430,54 +1430,57 @@ function ReceiptImportModal({ open, onClose, onDone }) {
                           return (
 
 
-                            <tr key={r.f.id} style={{ height: 80 }}>
-                              <td></td>
-                              <td><span style={{ display: 'flex', alignItems: 'center', gap: 10 }}><span style={{ width: 30, height: 30, borderRadius: 8, background: 'var(--surface-2)', flex: '0 0 30px' }} /><span style={{ flex: 1 }}><div className="sk" style={{ height: 12, width: 120, marginBottom: 6 }} /><div className="sk" style={{ height: 10, width: 80 }} /></span></span></td>
-                              <td><div className="sk" style={{ height: 12, width: 140, marginBottom: 6 }} /><div className="sk" style={{ height: 10, width: 90 }} /></td>
-                              <td><div className="sk" style={{ height: 12, width: 90, marginBottom: 6 }} /><div className="sk" style={{ height: 10, width: 70 }} /></td>
-                              <td><Pill tone={r.status === 'Сканируется' ? 'blue' : 'gray'}>{r.status}</Pill></td>
-                              <td colSpan={2}></td>
-                            </tr>
+                              <tr key={r.f.id} className="rec-import-row is-pending">
+                                <td data-label=""></td>
+                                <td data-label="Квитанция"><span className="rec-import-file"><span className="rec-import-icon sk" /><span className="rec-import-main"><span className="sk" style={{ height: 12, width: 120, marginBottom: 6 }} /><span className="sk" style={{ height: 10, width: 80 }} /></span></span></td>
+                                <td data-label="Маршрут / сумма"><div className="sk" style={{ height: 12, width: 140, marginBottom: 6 }} /><div className="sk" style={{ height: 10, width: 90 }} /></td>
+                                <td data-label="Финансы"><div className="sk" style={{ height: 12, width: 90, marginBottom: 6 }} /><div className="sk" style={{ height: 10, width: 70 }} /></td>
+                                <td data-label="Статус"><Pill tone={r.status === 'Сканируется' ? 'blue' : 'gray'}>{r.status}</Pill></td>
+                                <td data-label="Действие" colSpan={2}></td>
+                              </tr>
                           );
                         }
-                        const m = getMath(r.f.id, p);
-                        const routeStr = routeSummary(p);
-                        const isStayRow = t.legLabel === 'Проживание';
-                        return (
-                          <tr key={r.f.id} style={{ height: 80, opacity: skipped ? 0.5 : 1 }}>
-                            <td><Checkbox on={!!sel[r.f.id]} onChange={() => setSel((s) => ({ ...s, [r.f.id]: !s[r.f.id] }))} /></td>
-                            <td>
-                              <span style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                                <span style={{ width: 30, height: 30, borderRadius: 8, background: t.color, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', flex: '0 0 30px' }}><Icon name={t.icon} style={{ width: 16, height: 16, color: '#fff' }} /></span>
-                                <span><span style={{ display: 'block', fontWeight: 600, color: 'var(--ink)' }}>{p.passenger}</span><span style={{ fontSize: 12, color: 'var(--muted)' }}>{p.carrier} · {r.f.type}</span></span>
-                              </span>
-                            </td>
-                            <td>
-                              <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}><span style={{ color: 'var(--body)' }}>{routeStr}</span>{!isStayRow && <Pill tone="blue">{tripLabel(p)}</Pill>}</span>
-                              <span style={{ fontSize: 12, color: 'var(--muted)' }}>Бланк: {recMoney(Number(p.total) || 0, p.currency)}</span>
-                            </td>
-                            <td>
-                              <button type="button" className="btn btn-ghost btn-sm" style={{ padding: 0, height: 'auto', display: 'block', textAlign: 'left' }} title="Изменить математику" onClick={() => setMathId(r.f.id)}>
-                                <span style={{ display: 'block', fontWeight: 700, color: 'var(--ink)' }}>{recMoney(clientTotal(m), p.currency)}</span>
-                                <span style={{ fontSize: 12, color: 'var(--blue)' }}>сбор {m.fee || 0} · надб. {m.markup || 0} · изменить</span>
-                              </button>
-                            </td>
-                            <td>
-                              <Pill tone={st.tone}>{r.status}</Pill>
-                              {reviewed[r.f.id] && <div style={{ marginTop: 5 }}><Pill tone="green">Проверено</Pill></div>}
-                            </td>
-                            <td>
-                              {r.status === 'Возможный дубль'
-                                ? <button className="btn btn-ghost btn-sm" onClick={() => setExcluded((e) => ({ ...e, [r.f.id]: !e[r.f.id] }))}>{skipped ? 'Вернуть' : 'Пропустить'}</button>
-                                : (
-                                  <div style={{ display: 'flex', gap: 6, flexWrap: 'nowrap' }}>
-                                    <button className="btn btn-ghost btn-sm" style={{ color: 'var(--blue)', whiteSpace: 'nowrap' }} onClick={() => setEditId(r.f.id)}>{st.action}</button>
-                                    <button className="btn btn-ghost btn-sm" style={{ color: 'var(--blue)', whiteSpace: 'nowrap' }} title="Предпросмотр и сохранение на фирменном бланке" onClick={() => setBrandId(r.f.id)}><Icon name="template" style={{ width: 14, height: 14 }} /> На бланке</button>
-                                  </div>
-                                )}
-                            </td>
-                            <td><button className="btn btn-ghost btn-sm" onClick={() => remove(r.f.id)}><Icon name="trash" style={{ width: 16, height: 16 }} /></button></td>
-                          </tr>
+                          const m = getMath(r.f.id, p);
+                          const routeStr = routeSummary(p);
+                          const routeText = routeStr && routeStr.replace(/[→⇄\s]/g, '') ? routeStr : 'Маршрут не найден';
+                          const passengerText = (p.passenger || '').trim() || 'Данные не найдены';
+                          const carrierText = (p.carrier || '').trim() || r.f.name;
+                          const isStayRow = t.legLabel === 'Проживание';
+                          return (
+                            <tr key={r.f.id} className="rec-import-row" style={{ opacity: skipped ? 0.5 : 1 }}>
+                              <td data-label=""><Checkbox on={!!sel[r.f.id]} onChange={() => setSel((s) => ({ ...s, [r.f.id]: !s[r.f.id] }))} /></td>
+                              <td data-label="Квитанция">
+                                <span className="rec-import-file">
+                                  <span className="rec-import-icon" style={{ background: t.color }}><Icon name={t.icon} /></span>
+                                  <span className="rec-import-main"><span className="rec-import-title">{passengerText}</span><span className="rec-import-meta">{carrierText} · {r.f.type}</span></span>
+                                </span>
+                              </td>
+                              <td data-label="Маршрут / сумма">
+                                <span className="rec-import-route"><span>{routeText}</span>{!isStayRow && <Pill tone="blue">{tripLabel(p)}</Pill>}</span>
+                                <span className="rec-import-meta">Бланк: {recMoney(Number(p.total) || 0, p.currency)}</span>
+                              </td>
+                              <td data-label="Финансы">
+                                <button type="button" className="btn btn-ghost btn-sm rec-import-money" title="Изменить математику" onClick={() => setMathId(r.f.id)}>
+                                  <span style={{ display: 'block', fontWeight: 700, color: 'var(--ink)' }}>{recMoney(clientTotal(m), p.currency)}</span>
+                                  <span style={{ fontSize: 12, color: 'var(--blue)' }}>сбор {m.fee || 0} · надб. {m.markup || 0} · изменить</span>
+                                </button>
+                              </td>
+                              <td data-label="Статус">
+                                <Pill tone={st.tone}>{r.status}</Pill>
+                                {reviewed[r.f.id] && <div style={{ marginTop: 5 }}><Pill tone="green">Проверено</Pill></div>}
+                              </td>
+                              <td data-label="Действие">
+                                {r.status === 'Возможный дубль'
+                                  ? <button className="btn btn-ghost btn-sm" onClick={() => setExcluded((e) => ({ ...e, [r.f.id]: !e[r.f.id] }))}>{skipped ? 'Вернуть' : 'Пропустить'}</button>
+                                  : (
+                                    <div className="rec-import-actions">
+                                      <button className="btn btn-ghost btn-sm" onClick={() => setEditId(r.f.id)}>{st.action}</button>
+                                      <button className="btn btn-ghost btn-sm" title="Предпросмотр и сохранение на фирменном бланке" onClick={() => setBrandId(r.f.id)}><Icon name="template" style={{ width: 14, height: 14 }} /> На бланке</button>
+                                    </div>
+                                  )}
+                              </td>
+                              <td data-label=""><button className="btn btn-ghost btn-sm rec-import-remove" onClick={() => remove(r.f.id)}><Icon name="trash" style={{ width: 16, height: 16 }} /></button></td>
+                            </tr>
                         );
                       })}
                     </tbody>
