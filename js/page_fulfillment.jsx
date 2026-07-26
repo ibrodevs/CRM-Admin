@@ -900,6 +900,15 @@ function guessType(name) {
   if (/(transfer|трансфер|car)/.test(n)) return 'Трансфер';
   return 'Авиа';
 }
+function serviceTypeFromBackend(kind, label, fallback) {
+  const raw = String(kind || label || '').toLowerCase();
+  if (raw === 'avia' || /авиа/.test(raw)) return 'Авиа';
+  if (raw === 'rail' || /жд|ж\/д|поезд|rail/.test(raw)) return 'ЖД';
+  if (raw === 'hotel' || /гостиниц|отел|hotel/.test(raw)) return 'Гостиница';
+  if (raw === 'transfer' || /трансфер|transfer/.test(raw)) return 'Трансфер';
+  if (raw === 'other' || /проч/.test(raw)) return 'Прочее';
+  return fallback || 'Прочее';
+}
 const recMoney = (v, c) => (v < 0 ? '− ' : '') + Math.abs(v).toLocaleString('ru-RU') + ' ' + (c === 'USD' ? '$' : c);
 const recComputed = (p) => (Number(p.fare) || 0) + (Number(p.taxes) || 0);
 
@@ -1203,16 +1212,17 @@ function ReceiptImportModal({ open, onClose, onDone }) {
       try {
         const imported = await documentsApi.importReceipt(entry.raw);
         const result = await documentsApi.receiptResult(imported.id);
-        const base = emptyReceiptParse(entry);
         const draft = result.draft || {};
         const extracted = result.extracted || {};
+        const detectedType = serviceTypeFromBackend(extracted.service_kind, extracted.service_type, entry.type);
+        const base = emptyReceiptParse({ ...entry, type: detectedType });
         const parsed = { ...base, carrier: draft.issuer || base.carrier, passenger: draft.passenger_name || base.passenger,
           fare: Number(draft.fare || base.fare || 0), taxes: Number(draft.taxes || base.taxes || 0), total: Number(draft.total || base.total || 0),
           ref: extracted.reference || base.ref, ticketNo: extracted.ticket_number || base.ticketNo,
           docNo: extracted.document_number || base.docNo, dob: extracted.date_of_birth || base.dob,
           currency: draft.currency || base.currency, legs: draft.segments?.length ? draft.segments : base.legs,
           recognitionPending: result.parser_status !== 'parsed', backendWarnings: result.warnings || [] };
-        setFiles((cur) => cur.map((item) => item.id === entry.id ? { ...item, status: 'done', importId: imported.id, parsed } : item));
+        setFiles((cur) => cur.map((item) => item.id === entry.id ? { ...item, status: 'done', importId: imported.id, type: detectedType, parsed } : item));
       } catch (error) {
         setFiles((cur) => cur.map((item) => item.id === entry.id ? { ...item, status: 'done', error: error.message, parsed: { ...emptyReceiptParse(entry), recognitionPending: true } } : item));
         toast(error.message || `Не удалось обработать ${entry.name}`, 'err');
