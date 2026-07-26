@@ -1167,7 +1167,7 @@ function ReceiptImportModal({ open, onClose, onDone }) {
   const [editId, setEditId] = useState(null);
 
 
-  const [bindTarget, setBindTarget] = useState({ mode: 'new', label: 'Новый заказ' });
+  const [bindTarget, setBindTarget] = useState({ mode: 'order', label: 'Выберите заказ' });
   const [optAddIncomplete, setOptAddIncomplete] = useState(false);
   const [optCreateServices, setOptCreateServices] = useState(true);
 
@@ -1178,7 +1178,10 @@ function ReceiptImportModal({ open, onClose, onDone }) {
   const [bulk, setBulk] = useState({ fee: '', markup: '', commission: '' });
   const fileRef = useRef(null);
 
-  useEffect(() => { if (open) { setFiles([]); setStep(0); setExcluded({}); setReviewed({}); setEditId(null); setBindTarget({ mode: 'new', label: 'Новый заказ' }); setOptAddIncomplete(false); setOptCreateServices(true); setMath({}); setSel({}); setMathId(null); setBrandId(null); setBulk({ fee: '', markup: '', commission: '' }); } }, [open]);
+  useEffect(() => { if (open) { setFiles([]); setStep(0); setExcluded({}); setReviewed({}); setEditId(null); setBindTarget({ mode: 'order', label: 'Выберите заказ' }); setOptAddIncomplete(false); setOptCreateServices(true); setMath({}); setSel({}); setMathId(null); setBrandId(null); setBulk({ fee: '', markup: '', commission: '' }); } }, [open]);
+  useEffect(() => {
+    if (bindTarget.mode !== 'order' && optCreateServices) setOptCreateServices(false);
+  }, [bindTarget.mode, optCreateServices]);
 
 
   const getMath = (id, p) => math[id] || { tariff: Math.round(Number(p && p.total) || 0), fee: 0, markup: 0, commission: 0 };
@@ -1263,12 +1266,14 @@ function ReceiptImportModal({ open, onClose, onDone }) {
   const editFile = files.find((f) => f.id === editId) || null;
   const mathFile = files.find((f) => f.id === mathId) || null;
   const brandFile = files.find((f) => f.id === brandId) || null;
+  const hasOrderTarget = bindTarget.mode === 'order' && bindTarget.order && bindTarget.order.id;
+  const canAttach = toAdd.length > 0 && !processing && (!optCreateServices || hasOrderTarget);
   const canNext = [
     files.length > 0,
     files.length > 0 && !processing,
     doneRows.length > 0 && pendingReview === 0,
     doneRows.length > 0 && pendingReview === 0,
-    toAdd.length > 0 && !processing,
+    canAttach,
   ];
 
 
@@ -1286,19 +1291,19 @@ function ReceiptImportModal({ open, onClose, onDone }) {
 
   const finish = async () => {
     if (!toAdd.length) { toast('Нет квитанций для добавления', 'err'); return; }
+    if (optCreateServices && !hasOrderTarget) { toast('Выберите существующий заказ для создания услуг', 'err'); return; }
     const now = new Date().toLocaleDateString('ru-RU');
-    const isNew = bindTarget.mode === 'new';
     const isPerson = bindTarget.mode === 'person';
-    const orderNo = bindTarget.mode === 'order' ? bindTarget.order.no : 'новый';
-    const bindText = isPerson ? ('физ. лицу ' + bindTarget.client) : (isNew ? 'новому заказу' : 'заказу № ' + orderNo);
+    const orderNo = hasOrderTarget ? bindTarget.order.no : '—';
+    const bindText = isPerson ? ('физ. лицу ' + bindTarget.client) : ('заказу № ' + orderNo);
     try {
       const confirmed = await Promise.all(toAdd.map((r) => {
         const p = r.f.parsed; const m = getMath(r.f.id, p);
         return documentsApi.confirmReceipt(r.f.importId, {
           issuer: p.carrier || '', passenger_name: p.passenger || '', segments: p.legs || [],
           fare: Number(m.tariff || p.fare || 0), taxes: Number(p.taxes || 0), fees: Number(m.fee || 0), currency: p.currency || 'USD',
-          order: bindTarget.mode === 'order' ? bindTarget.order.id : null,
-          create_services: optCreateServices,
+          order: hasOrderTarget ? bindTarget.order.id : null,
+          create_services: optCreateServices && hasOrderTarget,
           service_type: r.f.type,
           original_total: Number(p.total) || 0,
           client_total: clientTotal(m),
@@ -1330,7 +1335,6 @@ function ReceiptImportModal({ open, onClose, onDone }) {
       });
       onDone(docs);
       toast(isPerson ? toAdd.length + ' квитанц. привязано к физ. лицу: ' + bindTarget.client
-        : isNew ? toAdd.length + ' квитанц. добавлено в новый заказ'
         : toAdd.length + ' квитанц. добавлено в заказ № ' + orderNo, 'ok');
     } catch (error) { toast(error.message || 'Не удалось сохранить квитанции', 'err'); }
   };
@@ -1532,10 +1536,10 @@ function ReceiptImportModal({ open, onClose, onDone }) {
               <div style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 14, color: 'var(--body)' }}>
                 <span style={{ fontWeight: 600, color: 'var(--muted)', minWidth: 150 }}>Заказ для привязки</span>
 
-                <UnifiedBindField value={bindTarget} onChange={setBindTarget} modes={['new', 'order', 'person']} style={{ flex: 1 }} />
+                <UnifiedBindField value={bindTarget} onChange={setBindTarget} modes={['order', 'person']} style={{ flex: 1 }} />
               </div>
               <label style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 14, color: 'var(--body)', cursor: 'pointer' }}>
-                <Checkbox on={optCreateServices} onChange={() => setOptCreateServices((v) => !v)} /> Создавать услуги в заказе по квитанциям
+                <Checkbox on={optCreateServices && bindTarget.mode === 'order'} onChange={() => bindTarget.mode === 'order' && setOptCreateServices((v) => !v)} /> Создавать услуги в заказе по квитанциям
               </label>
               <label style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 14, color: 'var(--body)', cursor: 'pointer' }}>
                 <Checkbox on={optAddIncomplete} onChange={() => setOptAddIncomplete((v) => !v)} /> Добавлять квитанции с неполными данными
@@ -1543,6 +1547,7 @@ function ReceiptImportModal({ open, onClose, onDone }) {
             </div>
             <div style={{ marginTop: 12, fontSize: 12.5, color: 'var(--muted)' }}>
               Будет добавлено в заказ: {toAdd.length}. Непроверенные, ошибки и исключённые дубли не попадут в итог.
+              {optCreateServices && !hasOrderTarget ? ' Выберите существующий заказ, чтобы создать услуги.' : ''}
             </div>
             </>}
           </>
@@ -1553,7 +1558,7 @@ function ReceiptImportModal({ open, onClose, onDone }) {
           {step > 0 && <Button variant="secondary" icon="chevLeft" onClick={() => setStep((s) => Math.max(0, s - 1))}>Назад</Button>}
           {step < IMPORT_STEPS.length - 1
             ? <Button icon="chevRight" disabled={!canNext[step]} onClick={() => setStep((s) => Math.min(IMPORT_STEPS.length - 1, s + 1))}>Далее</Button>
-            : <Button icon="check" disabled={processing || !toAdd.length || pendingReview > 0} onClick={finish}>Добавить в заказ{toAdd.length ? ' (' + toAdd.length + ')' : ''}</Button>}
+            : <Button icon="check" disabled={processing || !toAdd.length || pendingReview > 0 || (optCreateServices && !hasOrderTarget)} onClick={finish}>Добавить в заказ{toAdd.length ? ' (' + toAdd.length + ')' : ''}</Button>}
         </div>
       </div>
 
