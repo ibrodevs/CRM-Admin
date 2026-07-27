@@ -150,6 +150,91 @@ function CalOrderPicker({ value, onChange, orders = [] }) {
   );
 }
 
+function calendarOperatorRows(users = []) {
+  const source = users.length
+    ? users
+    : (typeof OPERATORS !== 'undefined' ? OPERATORS.map((name, index) => ({
+        id: `operator-${index}`,
+        name,
+        role: 'Оператор',
+        status: 'Активный',
+      })) : []);
+  return source
+    .map((user, index) => ({
+      id: user.id || user.serverId || `operator-${index}`,
+      name: user.full_name || user.name || user.email || 'Сотрудник',
+      email: user.email || '',
+      role: user.role || (user.roles || []).map((role) => typeof role === 'string' ? role : role.code).join(', ') || 'Оператор',
+      status: user.status || 'Активный',
+      last: user.last || '',
+    }))
+    .filter((user) => {
+      const role = user.role.toLowerCase();
+      const status = user.status.toLowerCase();
+      return (role.includes('оператор') || role.includes('operator'))
+        && !status.includes('заблок')
+        && !status.includes('suspend')
+        && !status.includes('archiv');
+    });
+}
+
+function CalOperatorPickerDrawer({ value, users = [], onPick, onClose }) {
+  const [q, setQ] = useState('');
+  const query = q.trim().toLowerCase();
+  const rows = calendarOperatorRows(users);
+  const shown = rows.filter((operator) => !query || `${operator.name} ${operator.email} ${operator.role}`.toLowerCase().includes(query));
+  return (
+    <Drawer open onClose={onClose} title="Выбор оператора"
+      sub="Выберите сотрудника, которому будет назначено задание" width="min(500px,96vw)"
+      footer={<Button variant="secondary" style={{ width: '100%' }} onClick={onClose}>Отмена</Button>}>
+      <SearchBox value={q} onChange={setQ} placeholder="Поиск оператора по имени или email" style={{ width: '100%', marginBottom: 14 }} />
+      <div className="cal-operator-list">
+        {shown.map((operator) => {
+          const selected = value === operator.name;
+          return (
+            <button key={operator.id} type="button" className={'cal-operator-row' + (selected ? ' selected' : '')}
+              onClick={() => onPick(operator)}>
+              <Avatar name={operator.name} size={38} />
+              <span className="cal-operator-info">
+                <span className="cal-operator-name">{operator.name}</span>
+                <span className="cal-operator-meta">{[operator.email, operator.role, operator.last].filter(Boolean).join(' · ')}</span>
+              </span>
+              <Pill tone={operator.status === 'Активный' || operator.status === 'active' ? 'green' : 'gray'}>{operator.status}</Pill>
+              {selected && <Icon name="check" className="cal-operator-check" />}
+            </button>
+          );
+        })}
+        {!shown.length && (
+          <div className="cal-operator-empty">
+            <Icon name="users" />
+            <b>{query ? 'Операторы не найдены' : 'Нет доступных операторов'}</b>
+            <span>{query ? 'Измените поисковый запрос' : 'Добавьте активного сотрудника с ролью «Оператор» в настройках'}</span>
+          </div>
+        )}
+      </div>
+    </Drawer>
+  );
+}
+
+function CalOperatorPicker({ value, users = [], onChange }) {
+  const [open, setOpen] = useState(false);
+  const selected = calendarOperatorRows(users).find((operator) => operator.name === value);
+  return (
+    <>
+      <button type="button" className="select cal-operator-picker" onClick={() => setOpen(true)}>
+        {selected ? <Avatar name={selected.name} size={28} /> : <Icon name="user" />}
+        <span className={value ? '' : 'placeholder'}>
+          {value || 'Выбрать оператора…'}
+          {selected?.email && <small>{selected.email}</small>}
+        </span>
+        <Icon name="chevRight" />
+      </button>
+      {open && <CalOperatorPickerDrawer value={value} users={users} onClose={() => setOpen(false)}
+        onPick={(operator) => { onChange(operator.name); setOpen(false); }} />}
+    </>
+  );
+}
+
 
 // Боковое окно выбора пассажира/сотрудника — по аналогии с поиском заказа, но в drawer'е.
 function CalPaxPickDrawer({ order, onPick, onClose, clients = [], users = [] }) {
@@ -215,9 +300,10 @@ function CalPaxPicker({ value, onChange, order, placeholder = 'Выберите'
 function CalEventCreator({ type, day, presetOrder, orders = [], clients = [], users = [], onClose, onCreated, onPersist }) {
   const toast = useToast();
   const t = CAL_EVENT_TYPES[type];
+  const currentOperator = (window.CURRENT_USER && CURRENT_USER.name) || 'Даниель';
   const [f, setF] = useState({
     title: '', dateStr: calFmtDay(day), endStr: '', time: '12:00', order: presetOrder || null, service: '', pax: '', supplier: '',
-    resp: (window.CURRENT_USER && CURRENT_USER.name) || 'Даниель', priority: 'Средний', notify: CAL_NOTIFY[0], repeat: 'Не повторять',
+    resp: currentOperator, priority: 'Средний', notify: CAL_NOTIFY[0], repeat: 'Не повторять',
     repeatEvery: '2', repeatUnit: 'День', repeatUntil: '', repeatCondition: '',
     scope: 'Себе', respRole: '—', direction: '', services: [], contact: '', comment: '', criterion: '', actionOnProblem: '',
   });
@@ -229,10 +315,16 @@ function CalEventCreator({ type, day, presetOrder, orders = [], clients = [], us
   const credit = (type === 'order' && orderClient && typeof finCreditCheck === 'function') ? finCreditCheck(orderClient) : null;
   const creditBlocked = credit && credit.block && !creditAck;
   const toggleSvc = (s) => setF((p) => ({ ...p, services: p.services.includes(s) ? p.services.filter((x) => x !== s) : [...p.services, s] }));
+  const changeScope = (scope) => setF((current) => ({
+    ...current,
+    scope,
+    resp: scope === 'Себе' ? currentOperator : scope === 'Другому оператору' ? '' : current.resp,
+  }));
 
   const dup = (type === 'reminder' || type === 'task') && f.title && f.order ? calFindDuplicate({ type, title: f.title, order: f.order }) : null;
   const needTitle = type !== 'order';
-  const canSave = type === 'order' ? Boolean(f.order || f.contact || f.pax) : !!f.title.trim();
+  const assigneeReady = f.scope !== 'Другому оператору' || Boolean(f.resp);
+  const canSave = (type === 'order' ? Boolean(f.order || f.contact || f.pax) : !!f.title.trim()) && assigneeReady;
 
   const submit = async () => {
     if (creditBlocked) { toast('Оформление заблокировано: требуется согласование кредитных условий', 'warn'); return; }
@@ -367,9 +459,14 @@ function CalEventCreator({ type, day, presetOrder, orders = [], clients = [], us
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
         {type !== 'order' && <Field label="Повторение"><Select value={f.repeat} onChange={(e) => set('repeat', e.target.value)} options={CAL_REPEAT} /></Field>}
         {type === 'reminder' && <Field label="Способ уведомления"><Select value={f.notify} onChange={(e) => set('notify', e.target.value)} options={CAL_NOTIFY} /></Field>}
-        <Field label="Назначить"><Select value={f.scope} onChange={(e) => set('scope', e.target.value)} options={CAL_SCOPE} /></Field>
+        <Field label="Назначить"><Select value={f.scope} onChange={(e) => changeScope(e.target.value)} options={CAL_SCOPE} /></Field>
         {f.scope === 'На весь заказ' && <Field label="Ответственный по услуге"><Select value={f.respRole} onChange={(e) => set('respRole', e.target.value)} options={CAL_RESP_ROLE} /></Field>}
       </div>
+      {f.scope === 'Другому оператору' && (
+        <Field label="Ответственный оператор" required hint={!f.resp ? 'выберите сотрудника' : undefined}>
+          <CalOperatorPicker value={f.resp} users={users} onChange={(value) => set('resp', value)} />
+        </Field>
+      )}
       {type !== 'order' && f.repeat === 'Свой интервал' && (
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12 }}>
           <Field label="Каждые">
@@ -470,4 +567,4 @@ Object.assign(window, { CAL_EVENTS, CAL_EVENT_TYPES, calEventsOn, calAddEvent, C
 
 
 
-export { CAL_EVENT_TYPES, CAL_PRIORITY, CAL_PRIORITY_TONE, CAL_NOTIFY, CAL_REPEAT, CAL_SCOPE, CAL_RESP_ROLE, CAL_SERVICE_TYPES, CAL_REMINDER_PRESETS, CAL_TASK_PRESETS, CAL_CONTROL_PRESETS, calFmtDay, calNowStr, CAL_EVENTS, calendarEventToUi, hydrateCalendarEvents, calEventsOn, calAddEvent, calFindDuplicate, calOrderInfo, CalDayMenu, CalOrderPicker, CalEventCreator, CalEventChip, CalEventPanel };
+export { CAL_EVENT_TYPES, CAL_PRIORITY, CAL_PRIORITY_TONE, CAL_NOTIFY, CAL_REPEAT, CAL_SCOPE, CAL_RESP_ROLE, CAL_SERVICE_TYPES, CAL_REMINDER_PRESETS, CAL_TASK_PRESETS, CAL_CONTROL_PRESETS, calFmtDay, calNowStr, CAL_EVENTS, calendarEventToUi, hydrateCalendarEvents, calEventsOn, calAddEvent, calFindDuplicate, calOrderInfo, calendarOperatorRows, CalDayMenu, CalOrderPicker, CalOperatorPickerDrawer, CalOperatorPicker, CalEventCreator, CalEventChip, CalEventPanel };
