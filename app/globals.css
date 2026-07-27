@@ -1506,6 +1506,9 @@ table.tbl.tbl-wide thead th,table.tbl.tbl-wide tbody td{white-space:nowrap}
 .svc-hub-ic-img{background:#fff;border:1px solid var(--line);padding:8px}
 .svc-hub-ic-img img{max-width:100%;max-height:100%;object-fit:contain}
 .svc-hub-ic-img img,.oc-svc-ic-img img,.svcp-cattab-img,.tc-glyph img,.aero-logo{filter:grayscale(1)}
+img[src*="Aeroexpress_logo.svg.png"]{
+  filter:brightness(0) saturate(100%) invert(31%) sepia(88%) saturate(3299%) hue-rotate(221deg) brightness(101%) contrast(102%);
+}
 .svc-hub-body{flex:1;min-width:0;display:flex;flex-direction:column;gap:4px}
 .svc-hub-t{font-weight:700;color:var(--ink);font-size:16.5px}
 .svc-hub-d{font-size:13px;color:var(--muted);line-height:1.4}

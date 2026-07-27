@@ -337,7 +337,7 @@ function CalEventCreator({ type, day, presetOrder, orders = [], clients = [], us
         </div>
         <Field label={type === 'task' ? 'Заказ (обязательно)' : 'Заказ (необязательно)'}><CalOrderPicker value={f.order} orders={orders} onChange={(v) => set('order', v)} /></Field>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-          <Field label="Услуга"><Select value={f.service} onChange={(e) => set('service', e.target.value)} options={['', ...CAL_SERVICE_TYPES]} placeholder="—" /></Field>
+          <Field label="Услуга"><Select value={f.service} onChange={(e) => set('service', e.target.value)} options={CAL_SERVICE_TYPES} placeholder="—" /></Field>
           {type === 'reminder' && <Field label="Пассажир"><CalPaxPicker value={f.pax} order={f.order} clients={clients} users={users} onChange={(v) => set('pax', v)} placeholder="Выберите пассажира" /></Field>}
           {type === 'reminder' && <Field label="Поставщик"><Select value={f.supplier} onChange={(e) => set('supplier', e.target.value)} options={['', ...SUPPLIERS.map((s) => s.name)]} placeholder="(необязательно)" /></Field>}
           {type !== 'control' && <Field label="Приоритет"><Select value={f.priority} onChange={(e) => set('priority', e.target.value)} options={CAL_PRIORITY} /></Field>}

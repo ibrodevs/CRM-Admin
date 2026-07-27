@@ -244,7 +244,7 @@ const SERVICE_KIND = {
   'Трансфер':  { icon: 'car',      color: '#c47e22', tone: 'amber' },
   'Автобус':   { icon: 'bus',      color: '#6c7686', tone: 'gray' },
   'Группа':    { icon: 'users',    color: '#5a5af0', tone: 'blue' },
-  'Аэроэкспресс': { icon: 'zap',   color: '#d21b3c', tone: 'red', img: 'assets/Aeroexpress_logo.svg.png' },
+  'Аэроэкспресс': { icon: 'zap',   color: '#2566ff', tone: 'blue', img: 'assets/Aeroexpress_logo.svg.png' },
   'Бизнес-зал': { icon: 'lounge', color: '#7c5cff', tone: 'blue' },
 };
 const SERVICE_STATUS = {
