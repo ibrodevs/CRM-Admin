@@ -15,3 +15,10 @@ test('задание нельзя создать до выбора другог�
   assert.match(source, /const assigneeReady = f\.scope !== 'Другому оператору' \|\| Boolean\(f\.resp\)/);
   assert.match(source, /scope === 'Другому оператору' \? ''/);
 });
+
+test('свой интервал сразу открывает боковую настройку и остаётся доступен для изменения', () => {
+  assert.match(source, /if \(repeat === 'Свой интервал'\) setRepeatDrawerOpen\(true\)/);
+  assert.match(source, /title="Свой интервал повторения"/);
+  assert.match(source, /Ближайшие повторения/);
+  assert.match(source, /className="cal-repeat-summary"/);
+});
