@@ -27,6 +27,7 @@ import { crmApi, ordersApi, proposalsApi, servicesApi, usersApi, workspaceAction
 import { toLegacyOrderService, toLegacyParticipant } from './api/legacy-adapters';
 import { resultsOf } from './api/client';
 import { participantPayloadFromUi, routePayloadFromUi } from './api/order-card';
+import { toUiOrder } from './api/adapters';
 
 const ORDER_STATUS_CODE = {
   'Новое': 'new',
@@ -325,22 +326,35 @@ function KvEditDrawer({ open, onClose, title, rows, onSave }) {
   );
 }
 
-function TabOverview({ order }) {
-  const [main, setMain] = useState([
-    ['Организация', order.client], ['ИНН/ПИН', '07070707070707'], ['Юридический адрес', 'Бишкек, ул. Токтогула 125/1'],
-    ['Тип организации', 'Туроператор'], ['Телефон', '+996 (777) 777-777'], ['E-mail', 'grandlimited@mail.ru'],
-  ]);
-  const [params, setParams] = useState([
-    ['Тип заявки', order.requestType], ['Оператор', order.operator], ['Дата создания', order.date], ['Валюта', 'USD'], ['Тип комиссии', 'Процентная (%)'],
-    ['Комиссия', '5%'], ['Синхронизация', '1С ✓'], ['Метод округления', 'До 1 USD'], ['Ставка НДС', '12%'], ['Тип расчёта', 'НДС включён'],
-  ]);
-  const [edit, setEdit] = useState(null);
+function visibleValue(value) {
+  return value && value !== '—' ? value : 'Не указано';
+}
+
+function TabOverview({ order, company }) {
+  const main = [
+    ['Организация', company?.name || order.client],
+    ['ИНН/ПИН', visibleValue(company?.inn)],
+    ['Юридический адрес', visibleValue(company?.addr)],
+    ['Тип организации', visibleValue(company?.type)],
+    ['Телефон', visibleValue(company?.phone)],
+    ['E-mail', visibleValue(company?.email)],
+  ];
+  const params = [
+    ['Тип заявки', order.requestType],
+    ['Оператор', order.operator],
+    ['Дата создания', order.date],
+    ['Валюта', order.currency || order.base_currency || 'USD'],
+    ['Назначение', visibleValue(order.purpose)],
+    ['Начало поездки', visibleValue(order.planned_start)],
+    ['Окончание поездки', visibleValue(order.planned_end)],
+    ['Источник', visibleValue(order.source)],
+    ['Канал связи', visibleValue(order.preferred_channel)],
+  ];
   return (
     <div className="grid-2 fade-in" style={{ alignItems: 'start' }}>
       <div className="card card-pad">
         <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 18 }}>
           <h3 className="card-title">Основная информация</h3>
-          <button className="icon-btn green" title="Редактировать" onClick={() => setEdit('main')}><Icon name="edit" /></button>
         </div>
         <div className="kv-stack">
           {main.map(([k, v], i) => (
@@ -351,7 +365,6 @@ function TabOverview({ order }) {
       <div className="card card-pad">
         <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 18 }}>
           <h3 className="card-title">Параметры заказа</h3>
-          <button className="icon-btn green" title="Редактировать" onClick={() => setEdit('params')}><Icon name="edit" /></button>
         </div>
         <div className="oc-2col">
           <div className="kv-stack">
@@ -366,17 +379,18 @@ function TabOverview({ order }) {
           </div>
         </div>
       </div>
-      <KvEditDrawer open={edit === 'main'} onClose={() => setEdit(null)} title="Основная информация" rows={main} onSave={setMain} />
-      <KvEditDrawer open={edit === 'params'} onClose={() => setEdit(null)} title="Параметры заказа" rows={params} onSave={setParams} />
     </div>
   );
 }
 
-function TabClients({ order, onOpenChat }) {
+function TabClients({ order, company, client, onOpenChat }) {
   const [cardOpen, setCardOpen] = useState(false);
   const clientRows = [
-    ['Контактное лицо', 'Нуралиев Данияр'], ['Телефон', '+996 700 123 456'], ['E-mail', 'd.nuraliev@mail.ru'],
-    ['Заказов всего', '12'], ['Юр. лицо', order.client], ['ИНН', '07070707070707'],
+    ['Контактное лицо', visibleValue(client?.name)],
+    ['Телефон', visibleValue(client?.phone)],
+    ['E-mail', visibleValue(client?.email)],
+    ['Юр. лицо', company?.name || order.client],
+    ['ИНН', visibleValue(company?.inn)],
   ];
   return (
     <div className="grid-2 fade-in" style={{ alignItems: 'start' }}>
@@ -387,10 +401,9 @@ function TabClients({ order, onOpenChat }) {
           <Pill tone="green">Активный</Pill>
         </div>
         <div className="kv">
-          <div className="kv-row"><span className="k">Контактное лицо</span><span className="v">Нуралиев Данияр</span></div>
-          <div className="kv-row"><span className="k">Телефон</span><span className="v">+996 700 123 456</span></div>
-          <div className="kv-row"><span className="k">E-mail</span><span className="v">d.nuraliev@mail.ru</span></div>
-          <div className="kv-row"><span className="k">Заказов всего</span><span className="v">12</span></div>
+          <div className="kv-row"><span className="k">Контактное лицо</span><span className="v">{visibleValue(client?.name)}</span></div>
+          <div className="kv-row"><span className="k">Телефон</span><span className="v">{visibleValue(client?.phone)}</span></div>
+          <div className="kv-row"><span className="k">E-mail</span><span className="v">{visibleValue(client?.email)}</span></div>
         </div>
         <div style={{ display: 'flex', gap: 10, marginTop: 16 }}>
           <Button variant="secondary" size="sm" icon="chat" onClick={onOpenChat}>Написать</Button>
@@ -410,11 +423,11 @@ function TabClients({ order, onOpenChat }) {
       <div className="card card-pad">
         <h3 className="card-title" style={{ marginBottom: 16 }}>Реквизиты компании</h3>
         <div className="kv">
-          <div className="kv-row"><span className="k">Юр. лицо</span><span className="v">{order.client}</span></div>
-          <div className="kv-row"><span className="k">ИНН</span><span className="v">07070707070707</span></div>
-          <div className="kv-row"><span className="k">Банк</span><span className="v">Демир Банк</span></div>
-          <div className="kv-row"><span className="k">Счёт</span><span className="v">1240020000123456</span></div>
-          <div className="kv-row"><span className="k">Договор</span><span className="v">№ 2024-118 от 09.09.24</span></div>
+          <div className="kv-row"><span className="k">Юр. лицо</span><span className="v">{company?.name || order.client}</span></div>
+          <div className="kv-row"><span className="k">ИНН</span><span className="v">{visibleValue(company?.inn)}</span></div>
+          <div className="kv-row"><span className="k">Банк</span><span className="v">{visibleValue(company?.bank)}</span></div>
+          <div className="kv-row"><span className="k">Счёт</span><span className="v">{visibleValue(company?.account)}</span></div>
+          <div className="kv-row"><span className="k">Договор</span><span className="v">{visibleValue(company?.contract)}</span></div>
         </div>
       </div>
     </div>
@@ -1926,7 +1939,7 @@ function TabTasks({ tasks = [] }) {
 
 
 
-function OrderCard({ order, onBack, initTab, initSvc, initSvcSearch, fresh, onOpenChat }) {
+function OrderCard({ order, company, clients = [], onBack, initTab, initSvc, initSvcSearch, fresh, onOpenChat }) {
   const toast = useToast();
   const [tab, setTab] = useState(initTab || (initSvcSearch ? 'services' : 'overview'));
   const [loading, setLoading] = useState(true);
@@ -1983,7 +1996,8 @@ function OrderCard({ order, onBack, initTab, initSvc, initSvcSearch, fresh, onOp
 
   const applyOrderSnapshot = (overview, taskPayload, historyPayload) => {
     const liveOrder = overview.order || {};
-    setCardOrder((current) => ({ ...current, ...liveOrder }));
+    const normalizedOrder = toUiOrder(liveOrder);
+    setCardOrder((current) => ({ ...current, ...liveOrder, ...normalizedOrder, route: liveOrder.route }));
     setServices((overview.services || []).map(toLegacyOrderService));
     setParticipants((liveOrder.participants || []).map(toLegacyParticipant));
     setOrderVersion(liveOrder.version);
@@ -2296,9 +2310,10 @@ function OrderCard({ order, onBack, initTab, initSvc, initSvcSearch, fresh, onOp
 
   const tabContent = () => {
     if (loading) return <AsyncBlock state="loading" skeletonRows={5} />;
+    const client = clients.find((item) => String(item.id) === String(cardOrder.contact_person || cardOrder.client_person));
     switch (tab) {
-      case 'overview': return <TabOverview order={order} />;
-      case 'clients': return <TabClients order={order} onOpenChat={onOpenChat} />;
+      case 'overview': return <TabOverview order={cardOrder} company={company} />;
+      case 'clients': return <TabClients order={cardOrder} company={company} client={client} onOpenChat={onOpenChat} />;
       case 'participants': { const oco = (typeof COMPANIES_DB !== 'undefined') ? COMPANIES_DB.find((c) => c.name === order.client) : null; return <TabParticipants list={participants} isGroup={requestType === 'Групповая'} groups={requestType === 'Групповая' ? AVIA_GROUPS_SEED : null} fresh={fresh} orderNo={order.no} orderAirline={(services.find((s) => s.kind === 'Авиа') || {}).supplier} companyId={oco ? oco.id : null} companyName={oco ? oco.name : order.client} onPassport={setPassport} onAdd={() => setPaxOpen(true)} onEdit={(p) => setEditPax(p)} onAddDoc={(p) => setDocPax(p)} onApplyRoster={setParticipants} />; }
       case 'route': return <TabRoute services={services} />;
       case 'matrix': return groupModel ? <GrMatrixTab o={groupModel} /> : null;

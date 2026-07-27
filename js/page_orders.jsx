@@ -987,7 +987,10 @@ function OrdersPage({ intent, onConsume, orders, clients = [], companies = [], a
     onConsume();
   }, [intent]);
 
-  if (detail) return <OrderCard order={detail} fresh={fresh} initTab={detailTab} initSvc={detailSvc} initSvcSearch={svcSearch} onBack={() => { setDetail(null); onDetailChange && onDetailChange(null); }} onOpenChat={onOpenChat} />;
+  if (detail) {
+    const company = companies.find((item) => String(item.id) === String(detail.client_company));
+    return <OrderCard order={detail} company={company} clients={clients} fresh={fresh} initTab={detailTab} initSvc={detailSvc} initSvcSearch={svcSearch} onBack={() => { setDetail(null); onDetailChange && onDetailChange(null); }} onOpenChat={onOpenChat} />;
+  }
   return (
     <>
       <OrdersList orders={orders} onOpen={setDetail} onCreate={() => setCreateOpen(true)} onNavigate={onNavigate} />

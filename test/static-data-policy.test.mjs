@@ -81,3 +81,13 @@ test('manual import and document drawers avoid fake generated people or parser d
   assert.doesNotMatch(policy, /Импортов Импорт/);
   assert.doesNotMatch(policy, /document_upload_placeholder/);
 });
+
+test('order card uses linked company and contact data instead of demo requisites', async () => {
+  const card = await source('js/page_order_card.jsx');
+  assert.doesNotMatch(card, /07070707070707/);
+  assert.doesNotMatch(card, /grandlimited@mail\.ru/);
+  assert.doesNotMatch(card, /Токтогула 125\/1/);
+  assert.doesNotMatch(card, /Нуралиев Данияр/);
+  assert.match(card, /<TabOverview order=\{cardOrder\} company=\{company\}/);
+  assert.match(card, /<TabClients order=\{cardOrder\} company=\{company\} client=\{client\}/);
+});
