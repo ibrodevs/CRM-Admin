@@ -888,7 +888,7 @@ function emptyReceiptParse(file) {
   return {
     carrier: '', carrierCode: '', passenger: '', dob: '', docNo: '', ticketNo: '', ref: '',
     cls: '', fareBasis: '', baggage: '', handBaggage: '', issueDate: '', tripType: file.type === 'Гостиница' ? 'stay' : 'oneway',
-    legs: [{ from: '', fromCode: '', to: '', toCode: '', date: '', dep: '', arr: '', flightNo: '', dir: 'out' }],
+    legs: [{ from: '', fromCode: '', to: '', toCode: '', date: '', endDate: '', dep: '', arr: '', flightNo: '', dir: 'out' }],
     currency: '', fare: '', taxes: '', fees: '', total: '', taxBreakdown: [], feeBreakdown: [],
     recognitionPending: true,
   };
@@ -911,12 +911,15 @@ function serviceTypeFromBackend(kind, label, fallback) {
 }
 const recMoney = (v, c) => (v < 0 ? '− ' : '') + Math.abs(v).toLocaleString('ru-RU') + ' ' + (c === 'USD' ? '$' : c);
 const recComputed = (p) => (Number(p.fare) || 0) + (Number(p.taxes) || 0) + (Number(p.fees) || 0);
+const recHasSourceAmount = (p) => [p && p.fare, p && p.taxes, p && p.fees, p && p.total].some((value) => Math.abs(Number(value) || 0) > 0);
+const recSourceMoney = (p) => recHasSourceAmount(p) ? recMoney(Number(p.total) || recComputed(p), p.currency) : 'Не указано';
 
 function LegLine({ l }) {
+  const dates = l.endDate && l.endDate !== l.date ? `${l.date || '—'}–${l.endDate}` : l.date;
   return (
     <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, padding: '3px 0', fontSize: 12, color: 'var(--body)' }}>
       <span style={{ fontWeight: 600, color: 'var(--ink)' }}>{l.from}{l.to ? ' → ' + l.to : ''}</span>
-      <span style={{ color: 'var(--muted)', whiteSpace: 'nowrap' }}>{[l.date, [l.dep, l.arr].filter(Boolean).join('–'), l.flightNo].filter(Boolean).join(' · ')}</span>
+      <span style={{ color: 'var(--muted)', whiteSpace: 'nowrap' }}>{[dates, [l.dep, l.arr].filter(Boolean).join('–'), l.flightNo].filter(Boolean).join(' · ')}</span>
     </div>
   );
 }
@@ -965,6 +968,7 @@ function RSub({ children, style }) {
 function ReceiptPreview({ type, p }) {
   const t = recType(type);
   const total = Number(p.total) || recComputed(p);
+  const hasFinancials = [p.fare, p.taxes, p.fees, p.total].some((value) => value !== '' && value != null);
   return (
     <div style={{ background: '#fff', border: '1px solid var(--line)', borderRadius: 12, boxShadow: 'var(--shadow-card)', overflow: 'hidden' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '13px 16px', borderBottom: '2px solid var(--ink)' }}>
@@ -982,7 +986,7 @@ function ReceiptPreview({ type, p }) {
           ))}
         </div>
         <RouteView p={p} isStay={t.legLabel === 'Проживание'} />
-        <div style={{ borderTop: '1px solid var(--line)', marginTop: 8, paddingTop: 8, fontSize: 12 }}>
+        {hasFinancials ? <div style={{ borderTop: '1px solid var(--line)', marginTop: 8, paddingTop: 8, fontSize: 12 }}>
           {[['Тариф', p.fare], ['Таксы', p.taxes], ['Сборы', p.fees]].map(([k, v]) => (
             <div key={k} style={{ display: 'flex', justifyContent: 'space-between', padding: '2px 0' }}><span style={{ color: 'var(--muted)' }}>{k}</span><span style={{ color: 'var(--ink)' }}>{recMoney(Number(v) || 0, p.currency)}</span></div>
           ))}
@@ -999,7 +1003,7 @@ function ReceiptPreview({ type, p }) {
           <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 6, paddingTop: 6, borderTop: '2px solid var(--ink)', fontWeight: 700, fontSize: 15, color: 'var(--ink)' }}>
             <span>Итого</span><span>{recMoney(total, p.currency)}</span>
           </div>
-        </div>
+        </div> : <div style={{ borderTop: '1px solid var(--line)', marginTop: 8, paddingTop: 8, fontSize: 12, color: 'var(--muted)' }}>Стоимость в исходном документе не указана</div>}
       </div>
     </div>
   );
@@ -1029,7 +1033,7 @@ function ReceiptEditForm({ type, p, onChange }) {
     const tt = p.tripType === 'roundtrip' ? 'roundtrip' : 'complex';
     const dir = p.tripType === 'roundtrip' ? 'back' : 'seg';
     const legs = p.tripType === 'oneway' ? p.legs.map((l) => ({ ...l, dir: 'seg' })) : p.legs;
-    onChange({ ...p, tripType: tt, legs: [...legs, { from: '', fromCode: '', to: '', toCode: '', date: '', dep: '', arr: '', flightNo: '', dir }] });
+    onChange({ ...p, tripType: tt, legs: [...legs, { from: '', fromCode: '', to: '', toCode: '', date: '', endDate: '', dep: '', arr: '', flightNo: '', dir }] });
   };
   const delLeg = (i) => onChange({ ...p, legs: p.legs.filter((_, ix) => ix !== i) });
   const setTrip = (tt) => {
@@ -1083,7 +1087,8 @@ function ReceiptEditForm({ type, p, onChange }) {
           <div className="form-grid">
             <Field label="Откуда"><Input value={l.from} onChange={(e) => setLeg(i, 'from', e.target.value)} /></Field>
             <Field label="Куда"><Input value={l.to} onChange={(e) => setLeg(i, 'to', e.target.value)} /></Field>
-            <UFDateField label="Дата" value={l.date || null} onChange={(v) => setLeg(i, 'date', v)} placeholder="дд.мм.гггг" />
+            <UFDateField label={isStay ? 'Дата заезда' : 'Дата'} value={l.date || null} onChange={(v) => setLeg(i, 'date', v)} placeholder="дд.мм.гггг" />
+            {isStay && <UFDateField label="Дата выезда" value={l.endDate || null} onChange={(v) => setLeg(i, 'endDate', v)} placeholder="дд.мм.гггг" />}
             <Field label={t.legLabel === 'Проживание' ? 'Условия' : 'Рейс / поезд'}><Input value={l.flightNo} onChange={(e) => setLeg(i, 'flightNo', e.target.value)} /></Field>
             <TimeField label="Вылет / заезд" value={l.dep} onChange={(v) => setLeg(i, 'dep', v)} />
             <TimeField label="Прилёт / выезд" value={l.arr} onChange={(v) => setLeg(i, 'arr', v)} />
@@ -1143,7 +1148,7 @@ const IMPORT_STEPS = [
   { key: 'attach', label: 'В заказ' },
 ];
 
-function receiptStatus(parsed, seen) {
+function receiptStatus(parsed, seen, type) {
   if (!parsed) return 'Ошибка';
   const tno = (parsed.ticketNo || '').trim();
   if (tno && seen.has(tno)) return 'Возможный дубль';
@@ -1151,7 +1156,8 @@ function receiptStatus(parsed, seen) {
   const route = routeSummary(parsed);
   const hasRoute = route && route !== '—' && route.replace(/[→⇄\s]/g, '');
   const hasDateOrTime = (parsed.legs || []).some((l) => l.date || l.dep || l.arr);
-  if (parsed.recognitionPending || !parsed.passenger || !(Number(parsed.total) > 0) || !hasRoute || !hasDateOrTime) return 'Требует проверки';
+  const amountMissing = type !== 'Гостиница' && !(Number(parsed.total) > 0);
+  if (parsed.recognitionPending || !parsed.passenger || amountMissing || !hasRoute || !hasDateOrTime) return 'Требует проверки';
   return 'Распознано';
 }
 
@@ -1309,7 +1315,7 @@ function ReceiptImportModal({ open, onClose, onDone }) {
     return files.map((f) => ({
       f,
       pending: f.status !== 'done',
-      status: f.status === 'done' ? receiptStatus(f.parsed, seen) : (f.status === 'scanning' ? 'Сканируется' : 'В очереди'),
+      status: f.status === 'done' ? receiptStatus(f.parsed, seen, f.type) : (f.status === 'scanning' ? 'Сканируется' : 'В очереди'),
     }));
   }, [files.map((f) => f.id + f.status + (f.parsed ? [f.parsed.ticketNo, f.parsed.passenger, f.parsed.total, routeSummary(f.parsed)].join('|') : '')).join(',')]);
   const doneRows = rows.filter((r) => !r.pending);
@@ -1527,7 +1533,7 @@ function ReceiptImportModal({ open, onClose, onDone }) {
                               </td>
                               <td data-label="Маршрут / сумма">
                                 <span className="rec-import-route"><span>{routeText}</span>{!isStayRow && <Pill tone="blue">{tripLabel(p)}</Pill>}</span>
-                                <span className="rec-import-meta">Бланк: {recMoney(Number(p.total) || 0, p.currency)}</span>
+                                <span className="rec-import-meta">Бланк: {recSourceMoney(p)}</span>
                               </td>
                               <td data-label="Финансы">
                                 <button type="button" className="btn btn-ghost btn-sm rec-import-money" title="Изменить математику" onClick={() => setMathId(r.f.id)}>
@@ -1591,7 +1597,7 @@ function ReceiptImportModal({ open, onClose, onDone }) {
                       return (
                         <tr key={r.f.id}>
                           <td><span style={{ display: 'flex', alignItems: 'center', gap: 10 }}><span style={{ width: 30, height: 30, borderRadius: 8, background: t.color, display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}><Icon name={t.icon} style={{ width: 16, height: 16, color: '#fff' }} /></span><span><b>{p.passenger || r.f.name}</b><div style={{ fontSize: 12, color: 'var(--muted)' }}>{p.carrier || 'Поставщик'} · {routeSummary(p)}</div></span></span></td>
-                          <td>{recMoney(Number(p.total) || 0, p.currency)}<div style={{ fontSize: 12, color: 'var(--muted)' }}>{r.f.name}</div></td>
+                          <td>{recSourceMoney(p)}<div style={{ fontSize: 12, color: 'var(--muted)' }}>{r.f.name}</div></td>
                           <td><button type="button" className="btn btn-ghost btn-sm" style={{ padding: 0, height: 'auto', textAlign: 'left' }} onClick={() => setMathId(r.f.id)}><b>{recMoney(clientTotal(m), p.currency)}</b><div style={{ fontSize: 12, color: 'var(--blue)' }}>изменить математику</div></button></td>
                           <td><Pill tone="blue">v1 поставщик</Pill> <Pill tone="amber">v2 CRM</Pill></td>
                           <td><Button size="sm" variant="secondary" icon="template" onClick={() => setBrandId(r.f.id)}>Бланк CRM</Button></td>
