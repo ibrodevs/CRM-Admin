@@ -543,7 +543,8 @@ table.tbl.tbl-wide thead th,table.tbl.tbl-wide tbody td{white-space:nowrap}
 .src-btn.active{background:var(--blue-soft);border-color:var(--blue);color:var(--blue-soft-text)}
 .src-btn.active svg{color:var(--blue)}
 .kp-create-form{min-width:0}
-.kp-create-form .form-grid{grid-template-columns:repeat(2,minmax(260px,1fr));gap:18px 24px}
+.kp-create-form .field,.kp-create-form .field > *{min-width:0}
+.kp-create-form .form-grid{grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:18px 24px}
 .kp-source-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin-bottom:18px}
 .kp-source-grid .src-btn{width:100%;justify-content:flex-start;min-width:0;white-space:normal;line-height:1.25}
 .kp-flow-card{border:1px solid var(--line);border-radius:16px;background:var(--surface-2);padding:22px 24px;margin-bottom:18px}
@@ -557,7 +558,7 @@ table.tbl.tbl-wide thead th,table.tbl.tbl-wide tbody td{white-space:nowrap}
 .kp-flow-step>span:last-child{min-width:0;overflow-wrap:anywhere}
 .kp-create-footer{display:flex;justify-content:flex-end;gap:12px;flex-wrap:wrap;width:100%}
 .kp-create-footer .btn{min-width:max-content}
-@container (max-width:820px){
+@container (max-width:920px){
   .kp-source-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
   .kp-flow-steps{grid-template-columns:repeat(2,minmax(0,1fr))}
   .kp-create-form .form-grid{grid-template-columns:1fr}

@@ -1146,7 +1146,7 @@ function KPCreateModal({ open, onClose, onCreated, onOpenOrder }) {
   if (!open) return null;
   return (
     <Drawer open={open} onClose={onClose} title="Новое коммерческое предложение"
-      width="min(860px,96vw)"
+      width="min(980px,97vw)"
       sub="КП создаётся на основе заказа, заявки или чата — далее сразу переходим к подбору услуг"
       footer={<div className="kp-create-footer">
         <Button variant="secondary" onClick={onClose}>Отмена</Button>
