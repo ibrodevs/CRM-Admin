@@ -19,7 +19,13 @@ export async function POST(request) {
     const me = await backendJson('/api/v1/me/', { access: data.access });
     const result = NextResponse.json({ authenticated: true, user: me.data }, { status: 200 });
     return setSessionCookies(result, data);
-  } catch {
+  } catch (error) {
+    console.error('[session/login] backend request failed', {
+      name: error?.name,
+      message: error?.message,
+      cause: error?.cause,
+      backendUrl: process.env.BACKEND_URL || '(missing)',
+    });
     return NextResponse.json(
       { error: { code: 'BACKEND_UNAVAILABLE', message: 'Не удалось связаться с backend' } },
       { status: 503 },
