@@ -55,6 +55,10 @@ function extractDates(text) {
   if (numeric.length) return numeric.join(' — ');
   const range = text.match(/\b(?:с\s+)?([0-3]?\d)\s*(?:по|[-–—])\s*([0-3]?\d)\s+([а-яё]+)(?:\s+(\d{4}))?/i);
   if (range) return `${range[1]}–${range[2]} ${range[3]}${range[4] ? ` ${range[4]}` : ''}`;
+  const wordDates = [...text.matchAll(/\b([0-3]?\d)\s+(январ[ья]|феврал[ья]|март[а]?|апрел[ья]|ма[йя]|июн[ья]|июл[ья]|август[а]?|сентябр[ья]|октябр[ья]|ноябр[ья]|декабр[ья])(?:\s+(\d{4}))?/gi)]
+    .slice(0, 2)
+    .map((match) => `${match[1]} ${match[2]}${match[3] ? ` ${match[3]}` : ''}`);
+  if (wordDates.length > 1) return wordDates.join(' — ');
   const single = text.match(/\b(?:на|вылет|заезд|отправление)?\s*([0-3]?\d)\s+(январ[ья]|феврал[ья]|март[а]?|апрел[ья]|ма[йя]|июн[ья]|июл[ья]|август[а]?|сентябр[ья]|октябр[ья]|ноябр[ья]|декабр[ья])(?:\s+(\d{4}))?/i);
   return single ? `${single[1]} ${single[2]}${single[3] ? ` ${single[3]}` : ''}` : '';
 }

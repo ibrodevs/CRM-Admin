@@ -287,6 +287,8 @@ function FixVariantModal({ open, proposal, onClose, onFix }) {
 }
 
 const KP_ADD_TYPES = ['Авиа', 'ЖД', 'Гостиница', 'Трансфер', 'Автобус', 'Группа'];
+const KP_KIND_CODE = { 'Авиа': 'avia', 'ЖД': 'rail', 'Гостиница': 'hotel', 'Трансфер': 'transfer', 'Автобус': 'bus', 'Группа': 'group' };
+const KP_KIND_LABEL = Object.fromEntries(Object.entries(KP_KIND_CODE).map(([label, code]) => [code, label]));
 
 
 const KP_TEMPLATES = window.KP_TEMPLATES || (window.KP_TEMPLATES = [
@@ -429,7 +431,7 @@ function KPModule({ order, services, participants, onApprove }) {
   const withHist = (p, text) => ({ ...p, history: [...p.history, { t: kpNow(), text, who: 'Даниель' }] });
 
   const proposalItemPayload = (item, currency) => ({
-    service_kind: item.kind || item.service_kind || '',
+    service_kind: KP_KIND_CODE[item.kind] || item.kind || item.service_kind || '',
     title: item.title || 'Услуга',
     description: item.sub || item.description || '',
     quantity: 1,
@@ -1387,25 +1389,181 @@ function ProposalSendPanel({ proposal, participants = [], onSend, onClose }) {
 
 
 
-function OffersRegistry({ onOpenOrder, intent, onConsume, initialProposals = [], orders = [] }) {
+function StandaloneKPEditor({ proposal, orders = [], onClose, onSaved, onSend }) {
   const toast = useToast();
+  const [draft, setDraft] = useState(() => JSON.parse(JSON.stringify(proposal)));
+  const [activeVariant, setActiveVariant] = useState(proposal.variants?.[0]?.id || null);
+  const [orderPickerOpen, setOrderPickerOpen] = useState(false);
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    setDraft(JSON.parse(JSON.stringify(proposal)));
+    setActiveVariant(proposal.variants?.[0]?.id || null);
+  }, [proposal.serverId, proposal.version]);
+
+  const uid = (prefix) => `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+  const selectedOrder = orders.find((order) => String(order.no) === String(draft.order) || String(order.id) === String(draft.order));
+  const variant = draft.variants.find((item) => item.id === activeVariant) || draft.variants[0];
+  const editable = ['Черновик', 'Подготовлено'].includes(draft.status);
+  const patch = (values) => setDraft((current) => ({ ...current, ...values }));
+  const patchVariant = (variantId, updater) => setDraft((current) => ({
+    ...current,
+    variants: current.variants.map((item) => item.id === variantId ? updater(item) : item),
+  }));
+  const addVariant = () => {
+    const id = uid('variant');
+    setDraft((current) => ({
+      ...current,
+      variants: [...current.variants, { id, name: `Вариант ${current.variants.length + 1}`, items: [] }],
+    }));
+    setActiveVariant(id);
+  };
+  const removeVariant = (variantId) => {
+    if (draft.variants.length === 1) return toast('В КП должен остаться хотя бы один вариант', 'err');
+    const remaining = draft.variants.filter((item) => item.id !== variantId);
+    patch({ variants: remaining });
+    if (activeVariant === variantId) setActiveVariant(remaining[0].id);
+  };
+  const addItem = (kind = 'Авиа') => patchVariant(variant.id, (current) => ({
+    ...current,
+    items: [...current.items, { id: uid('item'), kind, title: '', sub: '', cost: 0, fee: 0 }],
+  }));
+  const patchItem = (itemId, values) => patchVariant(variant.id, (current) => ({
+    ...current,
+    items: current.items.map((item) => item.id === itemId ? { ...item, ...values } : item),
+  }));
+  const removeItem = (itemId) => patchVariant(variant.id, (current) => ({
+    ...current,
+    items: current.items.filter((item) => item.id !== itemId),
+  }));
+  const save = async () => {
+    if (!editable || saving) return;
+    if (draft.variants.some((item) => !item.name.trim())) return toast('Укажите названия вариантов', 'err');
+    if (draft.variants.some((item) => item.items.some((entry) => !entry.title.trim()))) return toast('Заполните названия всех услуг', 'err');
+    setSaving(true);
+    try {
+      const saved = await proposalsApi.replaceDraft(draft.serverId, {
+        version: draft.version,
+        order: selectedOrder?.id || null,
+        purpose: draft.purpose || '',
+        source: draft.source || 'manual',
+        source_text: draft.source_text || '',
+        recipient: draft.recipient || '',
+        payment_terms: draft.payment_terms || '',
+        brief: draft.brief || {},
+        currency: draft.currency || 'USD',
+        valid_until: kpValidUntilIso(draft.validUntil),
+        variants: draft.variants.map((item) => ({
+          name: item.name,
+          items: item.items.map((entry) => ({
+            service_kind: KP_KIND_CODE[entry.kind] || entry.kind || entry.service_kind || '',
+            title: entry.title,
+            description: entry.sub || entry.description || '',
+            quantity: 1,
+            price_amount: String(Number(entry.cost || 0) + Number(entry.fee || 0)),
+            price_currency: draft.currency || 'USD',
+          })),
+        })),
+      });
+      const normalized = toLegacyProposal(saved, orders);
+      onSaved(normalized);
+      toast('КП сохранено', 'ok');
+    } catch (error) {
+      toast(error.message || 'Не удалось сохранить КП', 'err');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <Drawer open onClose={onClose} title={`Редактирование · ${draft.id}`}
+      sub={selectedOrder ? `Связано с заказом № ${selectedOrder.no}` : 'Самостоятельное КП без обязательной привязки к заказу'}
+      width="min(1120px,98vw)"
+      footer={<>
+        <Button variant="secondary" onClick={onClose}>Закрыть</Button>
+        <Button variant="secondary" icon="send" onClick={() => onSend(draft)}>Отправить клиенту</Button>
+        <Button icon="check" disabled={!editable || saving} onClick={save}>{saving ? 'Сохраняем…' : 'Сохранить изменения'}</Button>
+      </>}>
+      {!editable && <div className="notice warn" style={{ marginBottom: 16 }}>После отправки КП зафиксировано. Для изменений создайте новый вариант предложения.</div>}
+      <div className="form-grid" style={{ marginBottom: 18 }}>
+        <Field label="Получатель"><Input value={draft.recipient || ''} disabled={!editable} onChange={(event) => patch({ recipient: event.target.value, client: event.target.value || 'Без получателя' })} placeholder="Клиент или компания" /></Field>
+        <Field label="Назначение КП"><Input value={draft.purpose || ''} disabled={!editable} onChange={(event) => patch({ purpose: event.target.value })} /></Field>
+        <Field label="Заказ" hint="необязательно">
+          <div className="kp-order-control">
+            <button type="button" className="input kp-order-button" disabled={!editable} onClick={() => setOrderPickerOpen(true)}>
+              <Icon name="briefcase" />{selectedOrder ? <><b>№ {selectedOrder.no}</b><span>· {selectedOrder.client}</span></> : <span>Без заказа — выбрать…</span>}<Icon name="chevRight" />
+            </button>
+            {selectedOrder && editable && <button type="button" className="kp-order-clear" onClick={() => patch({ order: null })}>Отвязать</button>}
+          </div>
+        </Field>
+        <Field label="Валюта"><Select disabled={!editable} options={CURRENCIES.map((item) => ({ value: item.code, label: `${item.code} · ${item.name}` }))} value={draft.currency} onChange={(event) => patch({ currency: event.target.value })} /></Field>
+        <div className="full"><ValidUntilField value={draft.validUntil} onChange={(value) => patch({ validUntil: value })} /></div>
+        <div className="full"><Field label="Условия оплаты" hint="необязательно"><Input disabled={!editable} value={draft.payment_terms || ''} onChange={(event) => patch({ payment_terms: event.target.value })} placeholder="Например: 100% до подтверждения" /></Field></div>
+        <div className="full"><Field label="Исходный запрос / комментарий"><textarea disabled={!editable} className="input kp-source-text" rows={3} value={draft.source_text || ''} onChange={(event) => patch({ source_text: event.target.value })} /></Field></div>
+      </div>
+
+      <div className="kp-var-tabs">
+        {draft.variants.map((item) => (
+          <button key={item.id} type="button" className={'tab' + (item.id === variant?.id ? ' active' : '')} onClick={() => setActiveVariant(item.id)}>
+            {item.name}<span className="tab-count">{kpM(varTotal(item), draft.currency)}</span>
+          </button>
+        ))}
+        {editable && <Button variant="ghost" size="sm" icon="plus" onClick={addVariant}>Вариант</Button>}
+      </div>
+
+      {variant && <div className="card card-pad">
+        <div style={{ display: 'flex', gap: 10, alignItems: 'center', marginBottom: 14 }}>
+          <Input disabled={!editable} value={variant.name} onChange={(event) => patchVariant(variant.id, (item) => ({ ...item, name: event.target.value }))} style={{ maxWidth: 360, fontWeight: 700 }} />
+          <div style={{ flex: 1 }} />
+          {editable && <ActionMenu trigger={<Button size="sm" icon="plus">Добавить услугу</Button>}
+            items={KP_ADD_TYPES.map((kind) => ({ icon: SERVICE_KIND[kind]?.icon, label: kind, onClick: () => addItem(kind) }))} />}
+          {editable && draft.variants.length > 1 && <Button variant="ghost" size="sm" icon="trash" onClick={() => removeVariant(variant.id)}>Удалить вариант</Button>}
+        </div>
+        <div className="table-card">
+          <table className="tbl">
+            <thead><tr><th>Тип</th><th>Услуга и описание</th><th style={{ width: 130 }}>Стоимость</th><th style={{ width: 130 }}>Сервисный сбор</th><th style={{ width: 120, textAlign: 'right' }}>Итого</th><th style={{ width: 42 }} /></tr></thead>
+            <tbody>
+              {variant.items.length ? variant.items.map((item) => (
+                <tr key={item.id}>
+                  <td><Select disabled={!editable} options={KP_ADD_TYPES} value={KP_KIND_LABEL[item.kind] || (KP_ADD_TYPES.includes(item.kind) ? item.kind : 'Авиа')} onChange={(event) => patchItem(item.id, { kind: event.target.value })} /></td>
+                  <td><Input disabled={!editable} value={item.title} onChange={(event) => patchItem(item.id, { title: event.target.value })} placeholder="Название услуги" /><Input disabled={!editable} value={item.sub || ''} onChange={(event) => patchItem(item.id, { sub: event.target.value })} placeholder="Описание, маршрут, условия" style={{ marginTop: 6, fontSize: 12 }} /></td>
+                  <td><Input disabled={!editable} type="number" min="0" value={item.cost} onChange={(event) => patchItem(item.id, { cost: Number(event.target.value) })} /></td>
+                  <td><Input disabled={!editable} type="number" min="0" value={item.fee} onChange={(event) => patchItem(item.id, { fee: Number(event.target.value) })} /></td>
+                  <td style={{ textAlign: 'right', fontWeight: 700 }}>{kpM(Number(item.cost || 0) + Number(item.fee || 0), draft.currency)}</td>
+                  <td>{editable && <button type="button" className="icon-btn" onClick={() => removeItem(item.id)}><Icon name="trash" /></button>}</td>
+                </tr>
+              )) : <tr><td colSpan={6}><EmptyState icon="inbox" title="Вариант пока пуст" sub="Добавьте авиа, ЖД, гостиницу, трансфер или другую услугу" /></td></tr>}
+            </tbody>
+          </table>
+        </div>
+      </div>}
+      {orderPickerOpen && <OrderPickerDrawer title="Связать КП с заказом" onPick={(order) => { patch({ order: order.no, client: order.client }); setOrderPickerOpen(false); }} onClose={() => setOrderPickerOpen(false)} />}
+    </Drawer>
+  );
+}
+
+
+function OffersRegistry({ onOpenOrder, intent, onConsume, initialProposals = [], orders = [], onChanged }) {
+  const toast = useToast();
+  const normalizeProposal = (item) => item?.serverId ? item : toLegacyProposal(item, orders);
   const [q, setQ] = useState('');
   const [fStatus, setFStatus] = useState('');
   const [preview, setPreview] = useState(null);
-  const [proposals, setProposals] = useState(() => initialProposals.length ? initialProposals.map((item) => toLegacyProposal(item, orders)) : []);
+  const [proposals, setProposals] = useState(() => initialProposals.map(normalizeProposal));
   const [createOpen, setCreateOpen] = useState(false);
   const [sendTarget, setSendTarget] = useState(null);
+  const [editTarget, setEditTarget] = useState(null);
   const [pdfBusy, setPdfBusy] = useState(false);
   const kpNow2 = () => (typeof kpNow === 'function' ? kpNow() : new Date().toLocaleString('ru-RU'));
-  useEffect(() => { setProposals(initialProposals.map((item) => toLegacyProposal(item, orders))); }, [initialProposals, orders]);
+  useEffect(() => { setProposals(initialProposals.map(normalizeProposal)); }, [initialProposals, orders]);
   const doSendProposal = async (p, channel) => {
     try {
-      let server = initialProposals.find((item) => item.id === p.serverId);
-      if (!server) throw new Error('Коммерческое предложение не найдено на сервере');
+      let server = await proposalsApi.detail(p.serverId);
       if (server.status === 'draft') server = await proposalsApi.prepare(server.id, server.version);
       if (server.status === 'prepared') server = await proposalsApi.send(server.id, server.version);
       const next = toLegacyProposal(server, orders);
       setProposals((items) => items.map((item) => item.serverId === server.id ? { ...next, sentChannel: channel } : item));
+      onChanged?.(next);
       setSendTarget(null); toast(p.id + ' отправлено по каналу «' + channel + '»', 'ok', { title: 'КП отправлено клиенту', action: { label: 'Открыть «Ком. предложения»', route: 'offers' } });
     } catch (error) { toast(error.message, 'err'); }
   };
@@ -1465,6 +1623,7 @@ function OffersRegistry({ onOpenOrder, intent, onConsume, initialProposals = [],
                   <td onClick={(e) => e.stopPropagation()}>
                     <ActionMenu trigger={<button className="btn btn-ghost btn-icon btn-sm"><Icon name="more" /></button>}
                       items={[
+                        { icon: 'edit', label: 'Редактировать', onClick: () => setEditTarget(p) },
                         { icon: 'eye', label: 'Предпросмотр', onClick: () => setPreview(p) },
                         { icon: 'send', label: 'Отправить клиенту', onClick: () => setSendTarget(p) },
                         ...(p.order ? [{ icon: 'orders', label: 'Перейти в заказ', onClick: () => { const o = (ORDERS.find((x) => x.no === p.order)) || { no: p.order, client: p.client, requestType: 'Индивидуальная', status: 'В работе', operator: 'Даниель', date: '15.06.25' }; onOpenOrder(o); } }] : []),
@@ -1493,17 +1652,28 @@ function OffersRegistry({ onOpenOrder, intent, onConsume, initialProposals = [],
       )}
 
       <KPCreateModal open={createOpen} onClose={() => setCreateOpen(false)}
-        onCreated={(np, mode) => { setProposals((ps) => [np, ...ps]); if (mode === 'draft' && !np.order) setPreview(np); }} onOpenOrder={onOpenOrder} />
+        onCreated={(np, mode) => {
+          setProposals((ps) => [np, ...ps]);
+          if (mode === 'draft' && !np.order) setEditTarget(np);
+          onChanged?.(np);
+        }} onOpenOrder={onOpenOrder} />
+      {editTarget && <StandaloneKPEditor proposal={editTarget} orders={orders} onClose={() => setEditTarget(null)}
+        onSaved={(saved) => {
+          setProposals((items) => items.map((item) => item.serverId === saved.serverId ? saved : item));
+          setEditTarget(saved);
+          onChanged?.(saved);
+        }}
+        onSend={(proposal) => { setEditTarget(null); setSendTarget(proposal); }} />}
       {sendTarget && <ProposalSendPanel proposal={sendTarget} onSend={(ch) => doSendProposal(sendTarget, ch)} onClose={() => setSendTarget(null)} />}
     </div>
   );
 }
 
-function OffersPage({ onOpenOrder, intent, onConsume, proposals = [], orders = [] }) {
+function OffersPage({ onOpenOrder, intent, onConsume, proposals = [], orders = [], onChanged }) {
   return (
     <>
       <Topbar title="Коммерческие предложения" />
-      <div className="content"><OffersRegistry initialProposals={proposals} orders={orders} onOpenOrder={onOpenOrder} intent={intent} onConsume={onConsume} /></div>
+      <div className="content"><OffersRegistry initialProposals={proposals} orders={orders} onOpenOrder={onOpenOrder} intent={intent} onConsume={onConsume} onChanged={onChanged} /></div>
     </>
   );
 }
@@ -1512,4 +1682,4 @@ Object.assign(window, { KPModule, KPPreviewDoc, KPCreateModal, ProposalSendPanel
 
 
 
-export { kpM, varCost, varFee, varTotal, kpNow, trainTotal, accRowTotal, accVarTotal, pVariants, proposalSummary, exportKpToPdf, KPStatusControl, KPPreviewDoc, KPTab, TrainTableView, AccTableView, KPTrainPreviewDoc, FixVariantModal, KP_ADD_TYPES, KP_TEMPLATES, orderDateLabel, OrderPickerDrawer, KpServicePicker, KPModule, KPTemplateBuilder, KPHistoryDrawer, KP_DOC_TYPES, KP_SOURCES, KP_PURPOSE_TYPES, KPCreateModal, ProposalSendPanel, OffersRegistry, OffersPage };
+export { kpM, varCost, varFee, varTotal, kpNow, trainTotal, accRowTotal, accVarTotal, pVariants, proposalSummary, exportKpToPdf, KPStatusControl, KPPreviewDoc, KPTab, TrainTableView, AccTableView, KPTrainPreviewDoc, FixVariantModal, KP_ADD_TYPES, KP_TEMPLATES, orderDateLabel, OrderPickerDrawer, KpServicePicker, KPModule, KPTemplateBuilder, KPHistoryDrawer, KP_DOC_TYPES, KP_SOURCES, KP_PURPOSE_TYPES, KPCreateModal, ProposalSendPanel, StandaloneKPEditor, OffersRegistry, OffersPage };

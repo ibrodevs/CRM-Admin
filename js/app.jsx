@@ -175,15 +175,12 @@ function App() {
     return created;
   };
 
-  const addSupplier = async (draft) => {
-    try {
-      const created = await workspace.createSupplier(draft);
-      toast('Поставщик сохранён в backend', 'ok');
-      return created;
-    } catch (error) {
-      toast(error.message || 'Не удалось сохранить поставщика', 'err');
-      throw error;
-    }
+  const addSupplier = async (supplier) => {
+    workspace.update('suppliers', (current) => [
+      supplier,
+      ...current.filter((item) => String(item.id) !== String(supplier.id)),
+    ]);
+    return supplier;
   };
 
   useEffect(() => {
@@ -230,7 +227,7 @@ function App() {
       {route === 'chats' && <ChatsPage initialThreads={workspace.chats} focusThread={focusedChat} orders={orders} currentUserId={auth.user.id} onOpenOrder={openOrder} />}
       {route === 'finance' && <FinancePage overview={workspace.finance} transactions={workspace.transactions} clients={workspace.clients} companies={workspace.companies} suppliers={workspace.suppliers} orders={orders} meta={workspace.meta} />}
       {route === 'documents' && <DocCenterPage documents={workspace.documents} orders={orders} />}
-      {route === 'receipts' && <ReceiptEditorPage documents={workspace.documents} orders={orders} />}
+      {route === 'receipts' && <ReceiptEditorPage documents={workspace.documents} orders={orders} onChanged={() => workspace.reload()} onOpenOrder={openOrder} />}
       {route === 'fulfillment' && <FulfillmentPage onOpenOrder={openOrder} orders={orders} documents={workspace.documents} returns={workspace.returns} />}
       {route === 'settings' && <SettingsPage users={workspace.users} onUsersChange={(next) => workspace.update('users', next)} />}
       {route === 'profile' && <ProfilePage user={auth.user} onNavigate={navigate} />}
@@ -244,7 +241,11 @@ function App() {
 
       {route === 'clients' && <ClientsPage initialClients={workspace.clients} onClientsChange={(next) => workspace.update('clients', next)} onOpenOrder={openOrder} onCreateOrder={createOrder} intent={intent} onConsume={() => setIntent(null)} />}
       {route === 'companies' && <CompaniesPage initialCompanies={workspace.companies} onCompaniesChange={(next) => workspace.update('companies', next)} onOpenOrder={openOrder} onCreateOrder={createOrder} intent={intent} onConsume={() => setIntent(null)} />}
-      {route === 'offers' && <OffersPage proposals={workspace.proposals} orders={orders} onOpenOrder={openOrder} intent={intent} onConsume={() => setIntent(null)} />}
+      {route === 'offers' && <OffersPage proposals={workspace.proposals} orders={orders} onOpenOrder={openOrder} intent={intent} onConsume={() => setIntent(null)}
+        onChanged={(proposal) => workspace.update('proposals', (current) => [
+          proposal,
+          ...current.filter((item) => String(item.serverId) !== String(proposal.serverId)),
+        ])} />}
       {route === 'notifications' && <NotificationsPage notifications={workspace.notifications} orders={orders} onChange={(next) => workspace.update('notifications', next)} onNavigate={navigate} onOpenOrder={openOrder} />}
       {route === 'returns' && <ReturnsPage cases={workspace.returns} orders={orders} onOpenOrder={openOrder} />}
       </>

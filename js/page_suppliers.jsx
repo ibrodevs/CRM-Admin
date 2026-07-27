@@ -459,24 +459,39 @@ function SupplierSearchEditor({ ext, supplierName, onSaveSettings }) {
 }
 
 
-function SearchPriorityModal({ open, onClose }) {
+const SUP_PRIORITY_KIND_CODE = { 'Авиа': 'avia', 'ЖД': 'rail', 'Гостиницы': 'hotel', 'Трансферы': 'transfer' };
+
+function SearchPriorityModal({ open, onClose, suppliers = [] }) {
   const toast = useToast();
   const [svc, setSvc] = useState(SUP_PRIORITY_SERVICES[0]);
-  const [order, setOrder] = useState(() => JSON.parse(JSON.stringify(SUP_SEARCH_ORDER)));
+  const [order, setOrder] = useState({});
+  const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   useEffect(() => {
     if (!open) return undefined;
     const controller = new AbortController();
-    workspaceSettingsApi.get('supplier-search-order', controller.signal)
-      .then((setting) => {
-        if (setting.value && Object.keys(setting.value).length) setOrder(setting.value);
+    setLoading(true);
+    suppliersApi.searchPriorities(controller.signal)
+      .then((payload) => {
+        const saved = resultsOf(payload);
+        const next = {};
+        SUP_PRIORITY_SERVICES.forEach((service) => {
+          const eligible = suppliers.filter((supplier) => supplier.status === 'Активный' && supplierKinds(supplier).includes(service));
+          const byId = new Map(eligible.map((supplier) => [String(supplier.serverId || supplier.id), supplier]));
+          const configured = saved.find((item) => item.service_kind === SUP_PRIORITY_KIND_CODE[service]);
+          const configuredRows = (configured?.ordered_suppliers || []).map((id) => byId.get(String(id))).filter(Boolean);
+          const configuredIds = new Set(configuredRows.map((supplier) => String(supplier.serverId || supplier.id)));
+          next[service] = [...configuredRows, ...eligible.filter((supplier) => !configuredIds.has(String(supplier.serverId || supplier.id)))];
+        });
+        setOrder(next);
       })
-      .catch((error) => { if (error.name !== 'AbortError') console.error(error); });
+      .catch((error) => { if (error.name !== 'AbortError') toast(error.message || 'Не удалось загрузить приоритеты', 'err'); })
+      .finally(() => setLoading(false));
     return () => controller.abort();
-  }, [open]);
+  }, [open, suppliers]);
   if (!open) return null;
   const move = (i, d) => setOrder((o) => {
-    const list = [...o[svc]];
+    const list = [...(o[svc] || [])];
     const j = i + d;
     if (j < 0 || j >= list.length) return o;
     [list[i], list[j]] = [list[j], list[i]];
@@ -485,9 +500,17 @@ function SearchPriorityModal({ open, onClose }) {
   const save = async () => {
     setSaving(true);
     try {
-      const next = JSON.parse(JSON.stringify(order));
-      await workspaceSettingsApi.save('supplier-search-order', next);
-      Object.assign(SUP_SEARCH_ORDER, next);
+      await Promise.all(SUP_PRIORITY_SERVICES.map((service) => {
+        const rows = order[service] || [];
+        return suppliersApi.saveSearchPriority({
+          service_kind: SUP_PRIORITY_KIND_CODE[service],
+          ordered_suppliers: rows.map((supplier) => supplier.serverId || supplier.id),
+          fallback_supplier: rows.length ? (rows[rows.length - 1].serverId || rows[rows.length - 1].id) : null,
+          conditions: { configured_from: 'crm_ui' },
+          is_active: true,
+        });
+      }));
+      Object.assign(SUP_SEARCH_ORDER, Object.fromEntries(SUP_PRIORITY_SERVICES.map((service) => [service, (order[service] || []).map((supplier) => supplier.name)])));
       toast('Порядок поиска сохранён', 'ok');
       onClose();
     } catch (error) { toast(error.message || 'Не удалось сохранить порядок поиска', 'err'); }
@@ -501,14 +524,15 @@ function SearchPriorityModal({ open, onClose }) {
       </>}>
         <Tabs tabs={SUP_PRIORITY_SERVICES.map((s) => ({ key: s, label: s }))} value={svc} onChange={setSvc} />
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 16 }}>
-          {order[svc].map((name, i) => (
-            <div key={name} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 14px', borderRadius: 12, border: '1px solid var(--field-line)', background: '#fff' }}>
+          {loading ? <div style={{ color: 'var(--muted)' }}>Загрузка поставщиков…</div> : (order[svc] || []).map((supplier, i) => (
+            <div key={supplier.serverId || supplier.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 14px', borderRadius: 12, border: '1px solid var(--field-line)', background: '#fff' }}>
               <span style={{ width: 26, height: 26, borderRadius: 8, background: i === 0 ? 'var(--blue)' : 'var(--surface-2)', color: i === 0 ? '#fff' : 'var(--muted)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, fontWeight: 700 }}>{i + 1}</span>
-              <span style={{ flex: 1, fontWeight: 600, color: 'var(--ink)' }}>{name}</span>
+              <span style={{ flex: 1, fontWeight: 600, color: 'var(--ink)' }}>{supplier.name}</span>
               <button className="icon-btn" disabled={i === 0} onClick={() => move(i, -1)} style={i === 0 ? { opacity: .35 } : null}><Icon name="chevUp" /></button>
-              <button className="icon-btn" disabled={i === order[svc].length - 1} onClick={() => move(i, 1)} style={i === order[svc].length - 1 ? { opacity: .35 } : null}><Icon name="chevDown" /></button>
+              <button className="icon-btn" disabled={i === (order[svc] || []).length - 1} onClick={() => move(i, 1)} style={i === (order[svc] || []).length - 1 ? { opacity: .35 } : null}><Icon name="chevDown" /></button>
             </div>
           ))}
+          {!loading && !(order[svc] || []).length && <EmptyState icon="suppliers" title="Нет активных поставщиков этого типа" sub="Сначала добавьте поставщика и укажите соответствующий вид услуг" />}
         </div>
     </Drawer>
   );
@@ -539,7 +563,7 @@ function SupplierLegalEditor({ s, ext, onSaveSettings }) {
   const lookup = () => {
     if (!f.inn || String(f.inn).replace(/\D/g, '').length < 6) { toast('Введите ИНН (не менее 6 цифр)', 'err'); return; }
     setF(supLookupByInn(f.inn, ext, s));
-    toast('Реквизиты заполнены из доступного справочника', 'ok');
+    toast('ИНН принят. Проверьте и заполните остальные реквизиты вручную.', 'ok');
   };
   const save = async () => {
     setSaving(true);
@@ -561,7 +585,7 @@ function SupplierLegalEditor({ s, ext, onSaveSettings }) {
       <div className="card card-pad" style={{ marginBottom: 16, background: 'var(--surface-2)' }}>
         <div style={{ display: 'flex', alignItems: 'flex-end', gap: 12, flexWrap: 'wrap' }}>
           <div style={{ flex: 1, minWidth: 220 }}><Field label="ИНН" hint="Введите ИНН; реквизиты сохраняются только после ручной проверки"><Input value={f.inn || ''} onChange={set('inn')} leadIcon="bank" placeholder="Напр. 02208201810045" /></Field></div>
-          <Button icon="api" disabled={busy} onClick={lookup}>{busy ? 'Запрос…' : 'Проверить ИНН'}</Button>
+          <Button icon="api" disabled={busy} onClick={lookup}>{busy ? 'Проверка…' : 'Принять ИНН'}</Button>
           {f.filled && <Pill tone="green"><Icon name="check" style={{ width: 12, height: 12, verticalAlign: -2 }} /> данные сохранены</Pill>}
         </div>
       </div>
@@ -695,9 +719,16 @@ function SupplierTabBody({ s, ext, tab, isAirline, apiStatus, checkConn, setPrev
               <Pill tone={apiStatus === 'ok' || ext.api.status === 'Подключено' ? 'green' : ext.api.status === 'Не настроено' ? 'gray' : 'red'}>{apiStatus === 'checking' ? 'Проверка…' : (apiStatus === 'ok' ? 'Подключено' : ext.api.status)}</Pill>
             </span></div>
           </div>
-          <div style={{ display: 'flex', gap: 10, marginTop: 18 }}>
+          <div className="card card-pad" style={{ marginTop: 18, background: 'var(--surface-2)' }}>
+            <div style={{ fontWeight: 700, marginBottom: 8 }}>Как поставщик участвует в работе CRM</div>
+            <div style={{ display: 'grid', gap: 7, fontSize: 13, color: 'var(--body)' }}>
+              <div><b>1.</b> Реквизиты хранятся зашифрованно и не выводятся обратно в интерфейс.</div>
+              <div><b>2.</b> Проверка подтверждает, что адаптер установлен и доступ к нему настроен.</div>
+              <div><b>3.</b> Активный поставщик участвует в поиске согласно вкладке «Поиск и приоритет».</div>
+            </div>
+          </div>
+          <div style={{ display: 'flex', gap: 10, marginTop: 12 }}>
             <Button variant="secondary" icon="zap" disabled={apiStatus === 'checking'} onClick={checkConn}>{apiStatus === 'checking' ? 'Проверка…' : 'Проверить подключение'}</Button>
-            <Button variant="secondary" icon="api" onClick={checkConn}>Синхронизировать сейчас</Button>
           </div>
         </div>
       )}
@@ -784,10 +815,12 @@ function SupplierCard({ supplier, onBack, onOpenOrder, onOpenChat }) {
   const brand = supBrand(s.name);
   const ops = ext.ops ? Object.keys(ext.ops).filter((o) => ext.ops[o]) : [];
 
-  const contacts = [
-    { name: ext.local.contact, role: 'Менеджер по продажам', phone: (ext.local.commBind && ext.local.commBind['Телефон']) || '+996 (555) 123-456', email: (ext.local.commBind && ext.local.commBind['Email']) || 'sales@example.com' },
-    { name: 'Бухгалтерия', role: 'Финансы и договоры', phone: '+996 (312) 90-12-34', email: 'buh@example.com' },
-  ];
+  const contacts = ext.local.contact ? [{
+    name: ext.local.contact,
+    role: 'Контактное лицо поставщика',
+    phone: (ext.local.commBind && ext.local.commBind['Телефон']) || '',
+    email: (ext.local.commBind && ext.local.commBind['Email']) || '',
+  }] : [];
 
   return (
     <div className="fade-in">
@@ -854,15 +887,16 @@ function SupplierCard({ supplier, onBack, onOpenOrder, onOpenChat }) {
         </div>
 
         <h3 className="section-title" style={{ fontSize: 20, margin: '24px 0 14px' }}>Контактные лица</h3>
-        <div className="grid-2">
+        {contacts.length ? <div className="grid-2">
           {contacts.map((p, i) => (
             <div className="card card-pad" key={i} style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
               <Avatar name={p.name} size={44} />
-              <div style={{ flex: 1 }}><div style={{ fontWeight: 600, color: 'var(--ink)' }}>{p.name}</div><div style={{ fontSize: 13, color: 'var(--muted)' }}>{p.role} · {p.phone}</div></div>
-              <button className="icon-btn"><Icon name="mail" /></button><button className="icon-btn"><Icon name="phone" /></button>
+              <div style={{ flex: 1 }}><div style={{ fontWeight: 600, color: 'var(--ink)' }}>{p.name}</div><div style={{ fontSize: 13, color: 'var(--muted)' }}>{[p.role, p.phone, p.email].filter(Boolean).join(' · ')}</div></div>
+              {p.email && <a className="icon-btn" href={`mailto:${p.email}`} title={`Написать ${p.email}`}><Icon name="mail" /></a>}
+              {p.phone && <a className="icon-btn" href={`tel:${p.phone.replace(/[^\d+]/g, '')}`} title={`Позвонить ${p.phone}`}><Icon name="phone" /></a>}
             </div>
           ))}
-        </div>
+        </div> : <EmptyState icon="contacts" title="Контактные лица не указаны" sub="Добавьте контакт и каналы связи в карточке поставщика" />}
       </>) : (
         <div className="card card-pad">
           <SupplierTabBody s={s} ext={ext} tab={tab} isAirline={isAirline} apiStatus={apiStatus}
@@ -1007,11 +1041,10 @@ function SupplierAddDrawer({ open, onClose, onCreated }) {
   const [f, setF] = useState(empty);
   const [finKind, setFinKind] = useState(null);
   const [errs, setErrs] = useState({});
-  const [conn, setConn] = useState(null);
   const [legalOpen, setLegalOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [docFiles, setDocFiles] = useState({});
-  useEffect(() => { if (open) { setF(JSON.parse(JSON.stringify(empty))); setErrs({}); setConn(null); setFinKind(null); setLegalOpen(false); setDocFiles({}); } }, [open]);
+  useEffect(() => { if (open) { setF(JSON.parse(JSON.stringify(empty))); setErrs({}); setFinKind(null); setLegalOpen(false); setDocFiles({}); } }, [open]);
 
   const lookupInn = () => {
     const inn = (f.inn || '').trim();
@@ -1036,11 +1069,6 @@ function SupplierAddDrawer({ open, onClose, onCreated }) {
   const finKinds = f.kinds.length ? f.kinds : [];
   const activeFinKind = finKinds.includes(finKind) ? finKind : finKinds[0];
 
-  const checkConn = () => {
-    if (!f.api.url.trim()) { toast('Укажите URL API для проверки', 'err'); return; }
-    setConn('pending');
-  };
-
   const submit = async () => {
     const er = {};
     const adapterKey = process.env.NEXT_PUBLIC_DEFAULT_PROVIDER_ADAPTER || (process.env.NODE_ENV !== 'production' ? 'mock' : '');
@@ -1054,7 +1082,7 @@ function SupplierAddDrawer({ open, onClose, onCreated }) {
     if (Object.keys(er).length) { toast('Проверьте поля формы', 'err'); return; }
     const ext = {
       supType: f.supType, kinds: f.kinds, priority: f.priority, useDefault: f.useDefault, country: f.country, city: f.city,
-      api: { ...f.api, status: conn === 'ok' ? 'Подключено' : 'Не проверено', lastSync: '—' },
+      api: { ...f.api, status: 'Не проверено', lastSync: '—' },
       local: { ...f.local, comm: f.local.comm.length ? f.local.comm : ['Email'], commBind: { ...(f.local.commBind || {}) }, processing: f.local.processing === '' ? 0 : f.local.processing },
       fin: { ...JSON.parse(JSON.stringify(f.fin)), payTerm: f.fin.payTerm === '' ? 0 : f.fin.payTerm },
       ops: { ...f.ops }, automation: f.automation, searchPriority: { ...f.searchPriority },
@@ -1076,6 +1104,7 @@ function SupplierAddDrawer({ open, onClose, onCreated }) {
         automation_capabilities: { operations: f.ops, search_mode: f.automation, finance: f.fin, api_url: f.api.url },
       });
       SUP_EXT[created.id] = ext;
+      let connectionWarning = '';
       if (isApiType) {
         const secrets = Object.fromEntries(Object.entries(f.api).filter(([, value]) => value));
         await suppliersApi.saveCredential(created.id, {
@@ -1083,7 +1112,14 @@ function SupplierAddDrawer({ open, onClose, onCreated }) {
           environment: process.env.NODE_ENV === 'production' ? 'production' : 'sandbox',
           secrets,
         });
-        await suppliersApi.checkConnection(created.id);
+        try {
+          await suppliersApi.checkConnection(created.id);
+          ext.api.status = 'Подключено';
+          ext.api.lastSync = new Date().toLocaleString('ru-RU');
+        } catch (error) {
+          connectionWarning = error.message || 'Интеграция требует настройки';
+          ext.api.status = 'Требует настройки';
+        }
       }
       await Promise.all(Object.entries(docFiles).map(([kind, file]) => documentsApi.upload(file, {
         kind: 'contract', title: file.name, source: 'upload',
@@ -1091,7 +1127,7 @@ function SupplierAddDrawer({ open, onClose, onCreated }) {
       })));
       const supplier = toUiSupplier(created);
       onCreated(supplier);
-      toast('Поставщик добавлен. Проверка интеграции поставлена в очередь.', 'ok'); onClose();
+      toast(connectionWarning ? `Поставщик добавлен. ${connectionWarning}` : 'Поставщик добавлен и готов к работе.', connectionWarning ? 'warn' : 'ok'); onClose();
     } catch (error) {
       toast(error.message || 'Не удалось добавить поставщика', 'err');
     } finally {
@@ -1107,10 +1143,10 @@ function SupplierAddDrawer({ open, onClose, onCreated }) {
 
       <SupSection icon="user" title="Реквизиты поставщика">
         <div className="full">
-          <Field label="ИНН" hint="ведущее поле — подтянет юридические данные">
+          <Field label="ИНН" hint="используется в карточке и документах поставщика">
             <div style={{ display: 'flex', gap: 8 }}>
               <Input placeholder="Введите ИНН" value={f.inn} onChange={set('inn')} style={{ flex: 1 }} />
-              <Button variant="secondary" icon="search" onClick={lookupInn}>Заполнить по ИНН</Button>
+              <Button variant="secondary" icon="template" onClick={lookupInn}>Открыть реквизиты</Button>
             </div>
           </Field>
         </div>
@@ -1171,12 +1207,9 @@ function SupplierAddDrawer({ open, onClose, onCreated }) {
             <Field label="Password"><Input type="password" value={f.api.password} onChange={(e) => setSub('api', 'password', e.target.value)} /></Field>
             <div className="full"><Field label="Token"><Input value={f.api.token} onChange={(e) => setSub('api', 'token', e.target.value)} /></Field></div>
           </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginTop: 12 }}>
-            <Button variant="secondary" icon="zap" disabled={conn === 'checking'} onClick={checkConn}>{conn === 'checking' ? 'Проверка…' : 'Проверить подключение'}</Button>
-            <span style={{ fontSize: 13 }}>
-              {conn === 'ok' ? <Pill tone="green">Подключено</Pill> : conn === 'checking' ? <Pill tone="amber">Проверка…</Pill> : <Pill tone="gray">Не проверено</Pill>}
-            </span>
-            <span style={{ fontSize: 12, color: 'var(--muted)' }}>Последняя синхронизация: —</span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 12, padding: '10px 12px', borderRadius: 10, background: 'var(--surface-2)', fontSize: 12.5, color: 'var(--body)' }}>
+            <Icon name="api" style={{ width: 16, height: 16, color: 'var(--blue)' }} />
+            Подключение будет проверено автоматически после сохранения поставщика и защищённых реквизитов.
           </div>
         </SupSection>
       )}
@@ -1406,7 +1439,7 @@ function SuppliersPage({ intent, onConsume, suppliers, addSupplier, onNavigate, 
       </div>
 
       <SupplierAddDrawer open={addOpen} onClose={() => setAddOpen(false)} onCreated={addSupplier} />
-      <SearchPriorityModal open={prioOpen} onClose={() => setPrioOpen(false)} />
+      <SearchPriorityModal open={prioOpen} onClose={() => setPrioOpen(false)} suppliers={suppliers} />
     </div>
   );
 }

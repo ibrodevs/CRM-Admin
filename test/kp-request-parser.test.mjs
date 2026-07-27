@@ -26,6 +26,13 @@ test('понимает свободный текст чата и бюджет', 
   assert.ok(result.services.some((item) => item.kind === 'transfer'));
 });
 
+test('распознаёт прямую и обратную даты, написанные словами', () => {
+  const result = parseKpRequest(
+    'Бишкек — Стамбул 12 августа, обратно 19 августа, 2 взрослых. Нужны авиабилеты и отель.',
+  );
+  assert.equal(result.dates, '12 августа — 19 августа');
+});
+
 test('не выдумывает данные, которых нет в тексте', () => {
   const result = parseKpRequest('Нужно подготовить предложение для клиента.');
   assert.equal(result.route, '');

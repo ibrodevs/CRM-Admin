@@ -36,6 +36,7 @@ export function toLegacyProposal(item, orders = []) {
     order: order?.no || item.order || null,
     client: order?.client || item.recipient || 'Без получателя',
     status: proposalStatus[item.status] || item.status,
+    docType: item.type === 'train' ? 'train' : 'generic',
     validUntil: date(item.valid_until),
     created: date(item.created_at),
     approvedVariant: item.approved_variant,

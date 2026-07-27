@@ -672,6 +672,7 @@ function DocUploadModal({ open, scopeOrder, participants = [], defaultParticipan
 
 function DocCenter({ scopeOrder, participants, services, onOpenDoc, initialDocuments, orders = [] }) {
   const toast = useToast();
+  const normalizeDocument = (item) => item?.serverId ? item : toLegacyDocument(item, orders);
   const [q, setQ] = useState('');
   const [tab, setTab] = useState('all');
   const [fStatus, setFStatus] = useState('');
@@ -689,12 +690,12 @@ function DocCenter({ scopeOrder, participants, services, onOpenDoc, initialDocum
     if (!s) return '';
     return [s.title, s.date].filter(Boolean).join(' · ');
   };
-  const liveDocuments = Array.isArray(initialDocuments) ? initialDocuments.map((item) => toLegacyDocument(item, orders)) : (scopeOrder ? [] : DOCS2);
+  const liveDocuments = Array.isArray(initialDocuments) ? initialDocuments.map(normalizeDocument) : (scopeOrder ? [] : DOCS2);
   const scopedOrderId = orders.find((item) => item.no === scopeOrder)?.id;
   const [docs, setDocs] = useState(() => (scopeOrder ? liveDocuments.filter((d) => d.order === scopeOrder) : liveDocuments));
   useEffect(() => {
     if (!Array.isArray(initialDocuments)) return;
-    const mapped = initialDocuments.map((item) => toLegacyDocument(item, orders));
+    const mapped = initialDocuments.map(normalizeDocument);
     setDocs(scopeOrder ? mapped.filter((d) => d.order === scopeOrder) : mapped);
   }, [initialDocuments, orders, scopeOrder]);
   useEffect(() => {
@@ -1409,7 +1410,7 @@ function ReceiptImportModal({ open, onClose, onDone }) {
         ],
       };
       });
-      onDone(docs);
+      await onDone(docs);
       toast(isPerson ? toAdd.length + ' квитанц. привязано к физ. лицу: ' + bindTarget.client
         : toAdd.length + ' квитанц. добавлено в заказ № ' + orderNo, 'ok');
     } catch (error) { toast(error.message || 'Не удалось сохранить квитанции', 'err'); }
@@ -1670,12 +1671,16 @@ function ReceiptImportModal({ open, onClose, onDone }) {
 
 
 
-function ReceiptEditorPage({ documents = [], orders = [] }) {
+function ReceiptEditorPage({ documents = [], orders = [], onChanged, onOpenOrder }) {
   const [q, setQ] = useState('');
   const [edit, setEdit] = useState(null);
   const [importing, setImporting] = useState(false);
   const [imported, setImported] = useState([]);
-  const all = [...imported, ...documents.map((item) => toLegacyDocument(item, orders)).filter((d) => d.type === 'Маршрутная квитанция')];
+  const backendDocuments = documents
+    .map((item) => item?.serverId ? item : toLegacyDocument(item, orders))
+    .filter((document) => document.type === 'Маршрутная квитанция');
+  const all = [...imported, ...backendDocuments]
+    .filter((document, index, rows) => rows.findIndex((item) => String(item.serverId || item.no) === String(document.serverId || document.no)) === index);
   const receipts = all.filter((d) => (!q || `${d.no} ${d.name} ${d.order} ${d.participant}`.toLowerCase().includes(q.toLowerCase())));
 
   return (
@@ -1709,7 +1714,13 @@ function ReceiptEditorPage({ documents = [], orders = [] }) {
                         <td style={{ whiteSpace: 'nowrap' }}>v{d.version}</td>
                         <td style={{ whiteSpace: 'nowrap' }}>{d.date}</td>
                         <td><Pill tone={DOC_STATUS2[d.status]}>{d.status}</Pill></td>
-                        <td><Button size="sm" variant="secondary" icon="template" onClick={(e) => { e.stopPropagation(); setEdit(d); }}>Редактор</Button></td>
+                        <td><div style={{ display: 'flex', gap: 6 }}>
+                          {orders.some((order) => String(order.no) === String(d.order)) && <Button size="sm" variant="ghost" icon="orders" onClick={(e) => {
+                            e.stopPropagation();
+                            onOpenOrder?.(orders.find((order) => String(order.no) === String(d.order)), 'documents');
+                          }}>Заказ</Button>}
+                          <Button size="sm" variant="secondary" icon="template" onClick={(e) => { e.stopPropagation(); setEdit(d); }}>Редактор</Button>
+                        </div></td>
                       </tr>
                     );
                   })}
@@ -1744,7 +1755,11 @@ function ReceiptEditorPage({ documents = [], orders = [] }) {
       })()}
 
       <ReceiptImportModal open={importing} onClose={() => setImporting(false)}
-        onDone={(docs) => { setImported((cur) => [...docs, ...cur]); setImporting(false); }} />
+        onDone={async (docs) => {
+          setImported((cur) => [...docs, ...cur]);
+          setImporting(false);
+          await onChanged?.();
+        }} />
     </>
   );
 }

@@ -97,6 +97,8 @@ export const suppliersApi = {
   checkConnection: (id) => create(`suppliers/${id}/check-connection/`, {}),
   markupRules: (id, signal) => get(`suppliers/${id}/markup-rules/`, signal),
   createMarkupRule: (id, body) => create(`suppliers/${id}/markup-rules/`, body),
+  searchPriorities: (signal) => get('supplier-search-priorities/', signal),
+  saveSearchPriority: (body) => create('supplier-search-priorities/', body),
 };
 
 export const communicationsApi = {
