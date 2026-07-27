@@ -11,6 +11,7 @@ import { AddServicePanel } from './page_order_card';
 import { documentsApi, proposalsApi, servicesApi } from './api/resources';
 import { toLegacyProposal } from './api/legacy-adapters';
 import { resultsOf } from './api/client';
+import { kpBriefItems, parseKpRequest } from './kp_request_parser';
 
 
 // Срок действия КП = дата + время, оба выбираются шаблонно (без произвольного ввода).
@@ -112,7 +113,7 @@ function KPPreviewDoc({ proposal, participants, compact }) {
 
       <div className="kp2-section">
         <div className="kp2-tabs">
-          <KPTab tone="gray" emoji="🧳"><div className="kp2-tab-title">Заказ № {p.order}</div></KPTab>
+          <KPTab tone="gray" emoji="🧳"><div className="kp2-tab-title">{p.order ? `Заказ № ${p.order}` : 'Без привязки к заказу'}</div></KPTab>
           <KPTab tone="amber" emoji=""><div className="kp2-tab-amber-row"><div className="kp2-tab-num">{pax.length}</div><div className="kp2-tab-cap">{plural(pax.length, ['участник', 'участника', 'участников'])}</div></div></KPTab>
           <KPTab tone="coral" emoji=""><div className="kp2-tab-cap kp2-tab-cap-light">валюта предложения</div><div className="kp2-tab-strong">{p.currency}</div></KPTab>
         </div>
@@ -1067,27 +1068,46 @@ const KP_SOURCE_FLOW = {
   },
 };
 const KP_PURPOSE_TYPES = ['Обычное предложение', 'Альтернативный вариант', 'Предложение по обмену', 'После изменения стоимости', 'Повторное предложение', 'По вынужденному изменению', 'По задержке или отмене', 'Комбинированное'];
+function kpDefaultValidDate() {
+  const date = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+  return date.toLocaleDateString('ru-RU');
+}
 function KPCreateModal({ open, onClose, onCreated, onOpenOrder }) {
   const toast = useToast();
-  const [source, setSource] = useState('order');
+  const [source, setSource] = useState('manual');
   const [sourceNote, setSourceNote] = useState('');
   const [orderNo, setOrderNo] = useState('');
   const [kpType, setKpType] = useState(KP_PURPOSE_TYPES[0]);
   const [docType, setDocType] = useState('generic');
   const [name, setName] = useState('');
-  const [recipient, setRecipient] = useState('Клиент (сам)');
+  const [recipient, setRecipient] = useState('');
   const [responsible, setResponsible] = useState((typeof CURRENT_USER !== 'undefined' && CURRENT_USER.name) || OPERATORS[0]);
   const [currency, setCurrency] = useState('USD');
-  const [valid, setValid] = useState('25.06.2026');
+  const [valid, setValid] = useState(kpDefaultValidDate());
   const [validTime, setValidTime] = useState('18:00');
-  const [validTz, setValidTz] = useState('МСК (UTC+3)');
+  const [validTz, setValidTz] = useState('Бишкек (UTC+6)');
   const [payTerm, setPayTerm] = useState('');
   const [base, setBase] = useState('manual');
-  const [errs, setErrs] = useState({});
+  const [busy, setBusy] = useState(false);
   const [orderPickerOpen, setOrderPickerOpen] = useState(false);
-  useEffect(() => { if (open) { setSource('order'); setSourceNote(''); setOrderNo(''); setKpType(KP_PURPOSE_TYPES[0]); setDocType('generic'); setName(''); setRecipient('Клиент (сам)'); setResponsible((typeof CURRENT_USER !== 'undefined' && CURRENT_USER.name) || OPERATORS[0]); setCurrency('USD'); setValid('25.06.2026'); setValidTime('18:00'); setValidTz('МСК (UTC+3)'); setPayTerm(''); setBase('services'); setErrs({}); } }, [open]);
-  const seen = {};
-  const orderOpts = ORDERS.filter((o) => (seen[o.no] ? false : (seen[o.no] = true))).map((o) => ({ value: String(o.no), label: `№ ${o.no} · ${o.client}` }));
+  useEffect(() => {
+    if (!open) return;
+    setSource('manual');
+    setSourceNote('');
+    setOrderNo('');
+    setKpType(KP_PURPOSE_TYPES[0]);
+    setDocType('generic');
+    setName('');
+    setRecipient('');
+    setResponsible((typeof CURRENT_USER !== 'undefined' && CURRENT_USER.name) || OPERATORS[0]);
+    setCurrency('USD');
+    setValid(kpDefaultValidDate());
+    setValidTime('18:00');
+    setValidTz('Бишкек (UTC+6)');
+    setPayTerm('');
+    setBase('manual');
+    setBusy(false);
+  }, [open]);
   const baseOpts = [
     { value: 'manual', label: 'Подобрать услуги вручную' },
     { value: 'services', label: 'Использовать услуги заказа' },
@@ -1096,16 +1116,20 @@ function KPCreateModal({ open, onClose, onCreated, onOpenOrder }) {
     { value: 'empty', label: 'Пустой вариант' },
     ...KP_TEMPLATES.map((t) => ({ value: 'tpl:' + t.id, label: 'Шаблон: ' + t.name })),
   ];
-  const fromOrder = source === 'order';
   const sourceFlow = KP_SOURCE_FLOW[source] || KP_SOURCE_FLOW.order;
   const selOrder = ORDERS.find((o) => String(o.no) === String(orderNo));
-  const recognizeSrc = base === 'recognize' || source === 'chat' || source === 'email';
+  const brief = parseKpRequest(sourceNote);
+  const inputLabel = source === 'manual' ? 'Описание задачи или текст клиента' : (sourceFlow.inputLabel || 'Комментарий к заказу');
+  const inputPlaceholder = sourceFlow.inputPlaceholder || 'Можно вставить текст заявки, переписку или оставить короткий комментарий…';
 
   const build = async () => {
     const order = selOrder;
-    if (!order?.id) throw new Error('Выберите заказ, загруженный из backend');
     let items = [], vname = name || 'Вариант 1';
-    if (base === 'services') items = (ORDER_SERVICES || []).map((s) => ({ title: s.title, description: s.sub || '', quantity: 1, price_amount: String(s.sum || 0), price_currency: currency }));
+    if (base === 'services' && order) items = (ORDER_SERVICES || []).map((s) => ({ title: s.title, description: s.sub || '', quantity: 1, price_amount: String(s.sum || 0), price_currency: currency }));
+    else if (brief.services.length && (base === 'recognize' || ['request', 'chat', 'email'].includes(source))) {
+      items = kpBriefItems(brief, currency, sourceNote);
+      if (!name && brief.route) vname = brief.route;
+    }
     else if (base.indexOf('tpl:') === 0) {
       const t = KP_TEMPLATES.find((x) => x.id === base.slice(4));
       if (t) {
@@ -1119,176 +1143,171 @@ function KPCreateModal({ open, onClose, onCreated, onOpenOrder }) {
       return date.toISOString();
     })();
     const created = await proposalsApi.create({
-      order: order.id,
+      order: order?.id || null,
       type: docType === 'train' ? 'train' : 'standard',
       purpose: kpType,
+      source,
+      source_text: sourceNote.trim(),
+      recipient: (recipient || brief.contact || order?.client || '').trim(),
+      payment_terms: payTerm.trim(),
+      brief: {
+        route: brief.route,
+        dates: brief.dates,
+        passengers: brief.passengers,
+        services: brief.services,
+        budget: brief.budget,
+        currency: brief.currency,
+        preferences: brief.preferences,
+      },
       currency,
       valid_until: validIso,
       variants: [{ name: docType === 'train' ? 'Поезд + проживание' : vname, items }],
     });
-    return { np: toLegacyProposal(created, [order]), order };
+    return { np: toLegacyProposal(created, order ? [order] : []), order };
   };
   const submit = async (mode) => {
-    const nextErrs = {};
-    if (!orderNo) nextErrs.order = 'Выберите заказ';
-    if (!fromOrder && !sourceNote.trim()) nextErrs.sourceNote = 'Заполните исходные данные';
-    if (Object.keys(nextErrs).length) { setErrs(nextErrs); return; }
+    if (busy) return;
+    setBusy(true);
     try {
       const { np, order } = await build();
-      onCreated && onCreated(np);
-      if (mode === 'pick') { toast('КП ' + np.id + ': переходим к подбору услуг', 'ok'); onClose(); onOpenOrder && onOpenOrder(order, 'services'); }
-      else if (mode === 'builder') { toast('КП ' + np.id + ': открываем конструктор', 'ok'); onClose(); onOpenOrder && onOpenOrder(order, 'offers'); }
-      else { toast('Черновик КП ' + np.id + ' сохранён', 'ok'); onClose(); }
+      onCreated && onCreated(np, mode);
+      if (mode === 'pick' && order) {
+        toast('КП ' + np.id + ': переходим к подбору услуг', 'ok');
+        onClose();
+        onOpenOrder && onOpenOrder(order, 'services');
+      } else if (mode === 'builder' && order) {
+        toast('КП ' + np.id + ': открываем конструктор', 'ok');
+        onClose();
+        onOpenOrder && onOpenOrder(order, 'offers');
+      } else {
+        toast('Черновик КП ' + np.id + ' создан' + (order ? '' : ' без привязки к заказу'), 'ok');
+        onClose();
+      }
     } catch (error) {
       toast(error.message || 'Не удалось создать КП', 'err');
+    } finally {
+      setBusy(false);
     }
   };
   if (!open) return null;
   return (
     <Drawer open={open} onClose={onClose} title="Новое коммерческое предложение"
       width="min(980px,97vw)"
-      sub="КП создаётся на основе заказа, заявки или чата — далее сразу переходим к подбору услуг"
+      sub="Начните с любых доступных данных. Заказ, текст заявки и условия можно добавить позже."
       footer={<div className="kp-create-footer">
         <Button variant="secondary" onClick={onClose}>Отмена</Button>
-        <Button variant="secondary" icon="check" onClick={() => submit('draft')}>Сохранить черновик</Button>
-        <Button variant="secondary" iconRight="arrowRight" onClick={() => submit('pick')}>Перейти к подбору услуг</Button>
-        <Button iconRight="arrowRight" onClick={() => submit('builder')}>Создать и открыть конструктор</Button>
+        {selOrder && <Button variant="secondary" iconRight="arrowRight" disabled={busy} onClick={() => submit('pick')}>Создать и перейти к подбору</Button>}
+        <Button iconRight="arrowRight" disabled={busy} onClick={() => submit(selOrder ? 'builder' : 'draft')}>
+          {busy ? 'Создаём…' : (selOrder ? 'Создать и открыть конструктор' : 'Создать КП без заказа')}
+        </Button>
       </div>}>
       <div className="kp-create-form">
-
-      <label className="label" style={{ marginBottom: 8, display: 'block' }}>Источник данных</label>
-      <div className="kp-source-grid">
-        {KP_SOURCES.map((s) => (
-          <button key={s.value} type="button" onClick={() => { setSource(s.value); setBase((KP_SOURCE_FLOW[s.value] || KP_SOURCE_FLOW.order).base); setErrs({}); }}
-            className={'src-btn' + (source === s.value ? ' active' : '')}>
-            <Icon name={s.icon} style={{ width: 15, height: 15 }} />{s.label}
-          </button>
-        ))}
-      </div>
-
-      <div className="kp-flow-card">
-        <div className="kp-flow-head">
-          <span className="kp-flow-ic">
-            <Icon name={(KP_SOURCES.find((s) => s.value === source) || KP_SOURCES[0]).icon} style={{ width: 18, height: 18 }} />
-          </span>
-          <div>
-            <div style={{ fontWeight: 800, color: 'var(--ink)', marginBottom: 4 }}>{sourceFlow.title}</div>
-            <div style={{ fontSize: 13, color: 'var(--muted)' }}>{sourceFlow.text}</div>
-          </div>
-        </div>
-        <div className="kp-flow-steps">
-          {sourceFlow.steps.map((s, i) => (
-            <div key={s} className="kp-flow-step">
-              <span className={i === 0 ? 'active' : ''}>{i + 1}</span>
-              <span>{s}</span>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      {!fromOrder && (
-        <Field label={sourceFlow.inputLabel} required error={errs.sourceNote}>
-          <textarea className={'input' + (errs.sourceNote ? ' err' : '')} value={sourceNote} onChange={(e) => { setSourceNote(e.target.value); setErrs((cur) => ({ ...cur, sourceNote: undefined })); }}
-            placeholder={sourceFlow.inputPlaceholder} rows={4} style={{ height: 96, resize: 'vertical', paddingTop: 10 }} />
-        </Field>
-      )}
-
-      <div className="form-grid">
-        <Field label={fromOrder ? 'Заказ' : 'Рабочий заказ для КП'} required error={errs.order}>
-              <button type="button" className={'input' + (errs.order ? ' err' : '')} style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', textAlign: 'left', width: '100%' }} onClick={() => setOrderPickerOpen(true)}>
-                {selOrder
-                  ? <><Icon name="briefcase" style={{ width: 16, height: 16, color: 'var(--blue)' }} /><span style={{ fontWeight: 600, color: 'var(--ink)' }}>№ {selOrder.no}</span><span style={{ color: 'var(--muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>· {selOrder.client} · {orderDateLabel(selOrder)}</span></>
-                  : <span style={{ color: 'var(--muted)' }}>Выбрать заказ…</span>}
-                <div style={{ flex: 1 }} /><Icon name="chevRight" style={{ width: 16, height: 16, color: 'var(--muted-2)' }} />
+        <section className="kp-create-section">
+          <div className="kp-section-title">1. Откуда берём данные</div>
+          <div className="kp-section-sub">Выбор источника помогает подписать историю КП, но ничего не делает обязательным.</div>
+          <div className="kp-source-grid">
+            {KP_SOURCES.map((item) => (
+              <button key={item.value} type="button" onClick={() => {
+                setSource(item.value);
+                setBase((KP_SOURCE_FLOW[item.value] || KP_SOURCE_FLOW.manual).base);
+              }} className={'src-btn' + (source === item.value ? ' active' : '')}>
+                <Icon name={item.icon} style={{ width: 15, height: 15 }} />{item.label}
               </button>
-            </Field>
-        {fromOrder
-          ? <Field label="Получатель КП"><Select options={['Клиент (сам)', 'Контактное лицо компании', 'Несколько сотрудников', 'Сторонний получатель']} value={recipient} onChange={(e) => setRecipient(e.target.value)} /></Field>
-          : <Field label="Получатель / клиент"><Input value={recipient} onChange={(e) => setRecipient(e.target.value)} placeholder="Клиент, компания или контактное лицо" /></Field>}
-        <Field label="Тип КП (назначение)"><Select options={KP_PURPOSE_TYPES} value={kpType} onChange={(e) => setKpType(e.target.value)} /></Field>
-        <Field label="Шаблон КП (структура)"><Select options={KP_DOC_TYPES} value={docType} onChange={(e) => setDocType(e.target.value)} /></Field>
-        {docType !== 'train' && <Field label="Название варианта"><Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Вариант 1 · Прямые рейсы" /></Field>}
-        <Field label="Валюта"><Select options={CURRENCIES.map((c) => ({ value: c.code, label: `${c.code} · ${c.name}` }))} value={currency} onChange={(e) => setCurrency(e.target.value)} /></Field>
-        <UFDateField label="Действует до (дата)" value={valid || null} onChange={(v) => setValid(v)} placeholder="дд.мм.гггг" />
-        <TimeField label="Время" value={validTime} onChange={(v) => setValidTime(v)} />
-        <Field label="Часовой пояс"><Select options={['МСК (UTC+3)', 'Бишкек (UTC+6)', 'Алматы (UTC+5)', 'UTC', 'Дубай (UTC+4)']} value={validTz} onChange={(e) => setValidTz(e.target.value)} /></Field>
-        <Field label="Срок оплаты" hint="необязательно"><Input value={payTerm} onChange={(e) => setPayTerm(e.target.value)} placeholder="напр. до 20.06 или 3 дня" /></Field>
-        <Field label="Ответственный за КП"><Select options={OPERATORS} value={responsible} onChange={(e) => setResponsible(e.target.value)} /></Field>
-        {docType !== 'train' && <Field label="Наполнение варианта"><Select options={baseOpts} value={base} onChange={(e) => setBase(e.target.value)} /></Field>}
-      </div>
-
-
-      {fromOrder && selOrder && (
-        <div className="card card-pad" style={{ marginTop: 14, background: 'var(--surface-2)' }}>
-          <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--muted)', marginBottom: 6 }}>Данные подтянуты из заказа</div>
-          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-            <Pill tone="blue">Клиент: {selOrder.client}</Pill>
-            <Pill tone="gray">Тип: {selOrder.requestType}</Pill>
-            <Pill tone="gray">Услуга: {selOrder.service}</Pill>
+            ))}
           </div>
-        </div>
-      )}
-
-      {recognizeSrc && (
-        <div className="card card-pad" style={{ marginTop: 14, borderLeft: '4px solid var(--blue)' }}>
-          <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--ink)', marginBottom: 8, display: 'flex', alignItems: 'center', gap: 8 }}>
-            <Icon name="chat" style={{ width: 16, height: 16, color: 'var(--blue)' }} />Проверка распознанных данных
-          </div>
-          <div style={{ display: 'grid', gap: 8 }}>
-            <div><span style={{ fontSize: 12, fontWeight: 700, color: 'var(--green)' }}>Распознано уверенно: </span><span style={{ fontSize: 13 }}>Москва — Иркутск · 16→18 июня · 2 пассажира · багаж</span></div>
-            <div><span style={{ fontSize: 12, fontWeight: 700, color: 'var(--amber)' }}>Требует подтверждения: </span><span style={{ fontSize: 13 }}>предпочтительно без пересадок</span></div>
-            <div><span style={{ fontSize: 12, fontWeight: 700, color: 'var(--muted)' }}>Не указано клиентом: </span><span style={{ fontSize: 13 }}>время вылета, бюджет, класс обслуживания</span></div>
-          </div>
-          <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 8 }}>Поиск запустится после вашего подтверждения — при переходе к подбору услуг данные подставятся в поисковые формы.</div>
-        </div>
-      )}
-
-
-      {(() => {
-        const srcLabel = (KP_SOURCES.find((s) => s.value === source) || {}).label;
-        const baseLabel = (baseOpts.find((o) => o.value === base) || {}).label;
-        const rows = [
-          ['Клиент / получатель', fromOrder && selOrder ? selOrder.client : recipient],
-          ['Тип КП', kpType],
-          ['Шаблон', (KP_DOC_TYPES.find((d) => d.value === docType) || {}).label],
-          ['Валюта', currency],
-          ['Действует до', valid + (validTime ? ' ' + validTime : '') + ' · ' + validTz + (payTerm ? ' · оплата: ' + payTerm : '')],
-          ['Ответственный', responsible],
-          ['Источник', srcLabel],
-          ['Наполнение', baseLabel],
-        ].filter((r) => r[1]);
-        const warns = [];
-        if (!orderNo) warns.push('Не выбран заказ — КП создаётся только в рабочем заказе');
-        if (!fromOrder && !sourceNote.trim()) warns.push('Не заполнен исходный запрос');
-        if (base === 'manual' || base === 'empty') warns.push('Услуги ещё не подобраны — добавите на шаге подбора');
-        if (!payTerm) warns.push('Не указан срок оплаты');
-        if (recognizeSrc) warns.push('Часть данных распознана автоматически — проверьте перед запуском поиска');
-        warns.push('Проверьте паспортные данные пассажиров и соответствие тревел-политике');
-        return (
-          <div className="card card-pad" style={{ marginTop: 14, background: 'var(--surface-2)' }}>
-            <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--ink)', marginBottom: 10, display: 'flex', alignItems: 'center', gap: 8 }}>
-              <Icon name="check" style={{ width: 16, height: 16, color: 'var(--blue)' }} />Будет создано КП
-            </div>
-            <div className="kv" style={{ marginBottom: warns.length ? 12 : 0 }}>
-              {rows.map(([k, v], i) => <div className="kv-row" key={i}><span className="k">{k}</span><span className="v">{v}</span></div>)}
-            </div>
-            {warns.length > 0 && (
-              <div style={{ borderTop: '1px dashed var(--line)', paddingTop: 10 }}>
-                <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--amber)', marginBottom: 6 }}>Обратите внимание</div>
-                <div style={{ display: 'grid', gap: 5 }}>
-                  {warns.map((w, i) => (
-                    <div key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: 7, fontSize: 12.5, color: 'var(--body)' }}>
-                      <Icon name="alertCircle" style={{ width: 14, height: 14, color: 'var(--amber)', flexShrink: 0, marginTop: 1 }} />{w}
-                    </div>
-                  ))}
-                </div>
+          <Field label={inputLabel} hint="необязательно">
+            <textarea
+              className="input kp-source-text"
+              value={sourceNote}
+              onChange={(event) => setSourceNote(event.target.value)}
+              placeholder={inputPlaceholder}
+              rows={5}
+            />
+          </Field>
+          {sourceNote.trim() && (
+            <div className={'kp-recognition ' + (brief.hasData ? 'ok' : 'empty')}>
+              <div className="kp-recognition-head">
+                <span><Icon name={brief.hasData ? 'check' : 'alertCircle'} />{brief.hasData ? 'Данные распознаны' : 'Конкретные параметры пока не найдены'}</span>
+                {brief.hasData && <Pill tone="green">автоматически</Pill>}
               </div>
-            )}
-          </div>
-        );
-      })()}
+              {brief.hasData ? <>
+                <div className="kp-recognition-grid">
+                  {brief.recognized.map((value) => <div key={value}>{value}</div>)}
+                  {brief.preferences.length > 0 && <div>Пожелания: {brief.preferences.join(', ')}</div>}
+                </div>
+                {brief.missing.length > 0 && <div className="kp-recognition-missing">Можно уточнить позже: {brief.missing.join(', ')}</div>}
+                {(brief.contact || brief.currency) && (
+                  <Button size="sm" variant="secondary" onClick={() => {
+                    if (brief.contact) setRecipient(brief.contact);
+                    if (brief.currency) setCurrency(brief.currency);
+                  }}>Подставить найденные данные в форму</Button>
+                )}
+              </> : <div className="kp-recognition-missing">Текст всё равно сохранится в КП. Маршрут, даты и услуги можно заполнить вручную в конструкторе.</div>}
+            </div>
+          )}
+        </section>
 
-      {orderPickerOpen && <OrderPickerDrawer title="Выбор заказа для КП" onPick={(o) => { setOrderNo(String(o.no)); setErrs((e) => ({ ...e, order: undefined })); }} onClose={() => setOrderPickerOpen(false)} />}
+        <section className="kp-create-section">
+          <div className="kp-section-title">2. Клиент и заказ</div>
+          <div className="kp-section-sub">КП можно создать самостоятельно и привязать к заказу в любой момент.</div>
+          <div className="kp-client-grid">
+            <Field label="Получатель / клиент" hint="необязательно">
+              <Input value={recipient} onChange={(event) => setRecipient(event.target.value)} placeholder="Имя, компания или контактное лицо" />
+            </Field>
+            <Field label="Связать с заказом" hint="необязательно">
+              <div className="kp-order-control">
+                <button type="button" className="input kp-order-button" onClick={() => setOrderPickerOpen(true)}>
+                  {selOrder
+                    ? <><Icon name="briefcase" /><b>№ {selOrder.no}</b><span>· {selOrder.client}</span></>
+                    : <><Icon name="briefcase" /><span>Выбрать существующий заказ…</span></>}
+                  <Icon name="chevRight" />
+                </button>
+                {selOrder && <button type="button" className="kp-order-clear" onClick={() => { setOrderNo(''); if (base === 'services') setBase('manual'); }}>Отвязать</button>}
+              </div>
+            </Field>
+          </div>
+          {selOrder && (
+            <div className="kp-order-summary">
+              <Pill tone="blue">Клиент: {selOrder.client}</Pill>
+              <Pill tone="gray">Тип: {selOrder.requestType}</Pill>
+              <Pill tone="gray">Услуга: {selOrder.service}</Pill>
+            </div>
+          )}
+        </section>
+
+        <section className="kp-create-section">
+          <div className="kp-section-title">3. Настройки предложения</div>
+          <div className="kp-settings-grid">
+            <Field label="Тип КП"><Select options={KP_PURPOSE_TYPES} value={kpType} onChange={(event) => setKpType(event.target.value)} /></Field>
+            <Field label="Структура"><Select options={KP_DOC_TYPES} value={docType} onChange={(event) => setDocType(event.target.value)} /></Field>
+            <Field label="Название варианта" hint="необязательно"><Input value={name} onChange={(event) => setName(event.target.value)} placeholder={brief.route || 'Например: Прямые рейсы'} /></Field>
+            <Field label="Валюта"><Select options={CURRENCIES.map((item) => ({ value: item.code, label: `${item.code} · ${item.name}` }))} value={currency} onChange={(event) => setCurrency(event.target.value)} /></Field>
+            <Field label="Наполнение первого варианта">
+              <Select options={baseOpts.filter((option) => option.value !== 'services' || selOrder)} value={base === 'services' && !selOrder ? 'manual' : base} onChange={(event) => setBase(event.target.value)} />
+            </Field>
+            <Field label="Ответственный"><Select options={OPERATORS} value={responsible} onChange={(event) => setResponsible(event.target.value)} /></Field>
+          </div>
+          <div className="kp-deadline-card">
+            <div className="kp-deadline-title">Срок действия и оплата</div>
+            <div className="kp-validity-row">
+              <UFDateField label="Действует до" value={valid || null} onChange={(value) => setValid(value)} placeholder="дд.мм.гггг" />
+              <TimeField label="Время" value={validTime} onChange={(value) => setValidTime(value)} />
+              <Field label="Часовой пояс"><Select options={['Бишкек (UTC+6)', 'Алматы (UTC+5)', 'МСК (UTC+3)', 'Дубай (UTC+4)', 'UTC']} value={validTz} onChange={(event) => setValidTz(event.target.value)} /></Field>
+            </div>
+            <Field label="Условия оплаты" hint="необязательно">
+              <Input value={payTerm} onChange={(event) => setPayTerm(event.target.value)} placeholder="Например: 100% до подтверждения или в течение 3 дней" />
+            </Field>
+          </div>
+        </section>
+
+        <div className="kp-create-ready">
+          <Icon name="check" />
+          <div>
+            <b>Можно создавать</b>
+            <span>{selOrder ? `КП будет связано с заказом № ${selOrder.no}.` : 'КП сохранится как самостоятельный черновик — заказ не требуется.'} {brief.services.length ? `В конструктор добавим позиции: ${brief.services.map((item) => item.title).join(', ')}.` : 'Услуги можно добавить после создания.'}</span>
+          </div>
+        </div>
+        {orderPickerOpen && <OrderPickerDrawer title="Связать КП с заказом" sub="Это необязательно — связь можно изменить позже" onPick={(order) => { setOrderNo(String(order.no)); if (source === 'order') setBase('services'); }} onClose={() => setOrderPickerOpen(false)} />}
       </div>
     </Drawer>
   );
@@ -1297,7 +1316,7 @@ function KPCreateModal({ open, onClose, onCreated, onOpenOrder }) {
 
 
 function ProposalSendPanel({ proposal, participants = [], onSend, onClose }) {
-  const defChannel = orderClientChannel(proposal.order);
+  const defChannel = proposal.order ? orderClientChannel(proposal.order) : 'email';
   const [channel, setChannel] = useState(defChannel);
   const meta = sendChannelMeta(channel);
   const cur = proposal.currency || 'USD';
@@ -1317,7 +1336,7 @@ function ProposalSendPanel({ proposal, participants = [], onSend, onClose }) {
       <div className="card card-pad" style={{ marginBottom: 16 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
           <div style={{ flex: 1, minWidth: 200 }}>
-            <div style={{ fontSize: 12, color: 'var(--muted)' }}>Канал связи, закреплённый за заказом № {proposal.order}</div>
+            <div style={{ fontSize: 12, color: 'var(--muted)' }}>{proposal.order ? `Канал связи, закреплённый за заказом № ${proposal.order}` : 'Выберите канал для самостоятельного КП'}</div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 4 }}>
               <Pill tone={meta.tone}><Icon name={meta.icon} style={{ width: 14, height: 14, verticalAlign: -2 }} /> {channel}</Pill>
               <span style={{ fontSize: 13, color: 'var(--muted)' }}>· {meta.adapt}</span>
@@ -1437,7 +1456,7 @@ function OffersRegistry({ onOpenOrder, intent, onConsume, initialProposals = [],
               {rows.map((p) => (
                 <tr key={p.id} style={{ cursor: 'pointer' }} onClick={() => setPreview(p)}>
                   <td className="t-strong">{p.id}</td>
-                  <td><span style={{ color: 'var(--blue)', fontWeight: 600 }}>№ {p.order}</span></td>
+                  <td>{p.order ? <span style={{ color: 'var(--blue)', fontWeight: 600 }}>№ {p.order}</span> : <span style={{ color: 'var(--muted)' }}>Без заказа</span>}</td>
                   <td>{p.client}</td>
                   <td>{pVariants(p).length}</td>
                   <td style={{ textAlign: 'right', fontWeight: 600 }}>{proposalSummary(p)}</td>
@@ -1445,7 +1464,11 @@ function OffersRegistry({ onOpenOrder, intent, onConsume, initialProposals = [],
                   <td><Pill tone={KP_STATUS[p.status]}>{p.status}</Pill></td>
                   <td onClick={(e) => e.stopPropagation()}>
                     <ActionMenu trigger={<button className="btn btn-ghost btn-icon btn-sm"><Icon name="more" /></button>}
-                      items={[{ icon: 'eye', label: 'Предпросмотр', onClick: () => setPreview(p) }, { icon: 'send', label: 'Отправить клиенту', onClick: () => setSendTarget(p) }, { icon: 'orders', label: 'Перейти в заказ', onClick: () => { const o = (ORDERS.find((x) => x.no === p.order)) || { no: p.order, client: p.client, requestType: 'Индивидуальная', status: 'В работе', operator: 'Даниель', date: '15.06.25' }; onOpenOrder(o); } }]} />
+                      items={[
+                        { icon: 'eye', label: 'Предпросмотр', onClick: () => setPreview(p) },
+                        { icon: 'send', label: 'Отправить клиенту', onClick: () => setSendTarget(p) },
+                        ...(p.order ? [{ icon: 'orders', label: 'Перейти в заказ', onClick: () => { const o = (ORDERS.find((x) => x.no === p.order)) || { no: p.order, client: p.client, requestType: 'Индивидуальная', status: 'В работе', operator: 'Даниель', date: '15.06.25' }; onOpenOrder(o); } }] : []),
+                      ]} />
                   </td>
                 </tr>
               ))}
@@ -1457,20 +1480,20 @@ function OffersRegistry({ onOpenOrder, intent, onConsume, initialProposals = [],
       {preview && (
         <Drawer open onClose={() => setPreview(null)}
           width={preview.docType === 'train' ? 'min(1040px,97vw)' : 'min(780px,96vw)'}
-          title={preview.id + ' · заказ № ' + preview.order}
+          title={preview.id + (preview.order ? ' · заказ № ' + preview.order : ' · без заказа')}
           footer={<>
             <Button variant="secondary" icon="download" disabled={pdfBusy} onClick={() => {
               setPdfBusy(true);
               exportKpToPdf(previewDocRef.current, preview.id + '.pdf', (ok) => { setPdfBusy(false); toast(ok ? 'PDF сохранён' : 'Не удалось сформировать PDF', ok ? 'ok' : 'err'); });
             }}>{pdfBusy ? 'Формируем…' : 'Скачать PDF'}</Button>
-            <Button variant="secondary" icon="orders" onClick={() => { const o = (ORDERS.find((x) => x.no === preview.order)) || { no: preview.order, client: preview.client, requestType: 'Индивидуальная', status: 'В работе', operator: 'Даниель', date: '15.06.25' }; setPreview(null); onOpenOrder(o); }}>Перейти в заказ</Button>
+            {preview.order && <Button variant="secondary" icon="orders" onClick={() => { const o = (ORDERS.find((x) => x.no === preview.order)) || { no: preview.order, client: preview.client, requestType: 'Индивидуальная', status: 'В работе', operator: 'Даниель', date: '15.06.25' }; setPreview(null); onOpenOrder(o); }}>Перейти в заказ</Button>}
           </>}>
           <div ref={previewDocRef} style={{ margin: '-28px -32px', padding: 24, background: 'var(--surface-2)' }}>{preview.docType === 'train' ? <KPTrainPreviewDoc proposal={preview} /> : <KPPreviewDoc proposal={preview} />}</div>
         </Drawer>
       )}
 
       <KPCreateModal open={createOpen} onClose={() => setCreateOpen(false)}
-        onCreated={(np) => setProposals((ps) => [np, ...ps])} onOpenOrder={onOpenOrder} />
+        onCreated={(np, mode) => { setProposals((ps) => [np, ...ps]); if (mode === 'draft' && !np.order) setPreview(np); }} onOpenOrder={onOpenOrder} />
       {sendTarget && <ProposalSendPanel proposal={sendTarget} onSend={(ch) => doSendProposal(sendTarget, ch)} onClose={() => setSendTarget(null)} />}
     </div>
   );

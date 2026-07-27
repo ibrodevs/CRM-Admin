@@ -23,6 +23,7 @@ const CAL_PRIORITY = ['Высокий', 'Средний', 'Низкий'];
 const CAL_PRIORITY_TONE = { 'Высокий': 'red', 'Средний': 'amber', 'Низкий': 'gray' };
 const CAL_NOTIFY = ['Внутреннее уведомление', 'Email', 'Мессенджер', 'Push'];
 const CAL_REPEAT = ['Не повторять', 'Ежедневно', 'Еженедельно', 'До указанной даты', 'До выполнения условия', 'Свой интервал'];
+const CAL_REPEAT_UNITS = ['Час', 'День', 'Неделя', 'Месяц'];
 const CAL_SCOPE = ['Себе', 'Другому оператору', 'Группе операторов', 'На весь заказ'];
 const CAL_RESP_ROLE = ['—', 'Авиа', 'ЖД', 'Гостиницы', 'Финансы', 'Старший оператор'];
 const CAL_SERVICE_TYPES = ['Авиа', 'ЖД', 'Гостиница', 'Трансфер', 'Автобус', 'Виза', 'Страхование'];
@@ -217,6 +218,7 @@ function CalEventCreator({ type, day, presetOrder, orders = [], clients = [], us
   const [f, setF] = useState({
     title: '', dateStr: calFmtDay(day), endStr: '', time: '12:00', order: presetOrder || null, service: '', pax: '', supplier: '',
     resp: (window.CURRENT_USER && CURRENT_USER.name) || 'Даниель', priority: 'Средний', notify: CAL_NOTIFY[0], repeat: 'Не повторять',
+    repeatEvery: '2', repeatUnit: 'День', repeatUntil: '', repeatCondition: '',
     scope: 'Себе', respRole: '—', direction: '', services: [], contact: '', comment: '', criterion: '', actionOnProblem: '',
   });
   const [dupChoice, setDupChoice] = useState(null);
@@ -238,7 +240,17 @@ function CalEventCreator({ type, day, presetOrder, orders = [], clients = [], us
     const [dd, mm, yy] = f.dateStr.split('.').map(Number);
     const [hh, mi] = (f.time || '12:00').split(':').map(Number);
     const date = new Date(yy || 2026, (mm || 1) - 1, dd || 1, hh || 12, mi || 0);
-    const base = { type, date, time: f.time, order: f.order, service: f.service, resp: f.resp, repeat: f.repeat, scope: f.scope, respRole: f.respRole, comment: f.comment };
+    const repeatLabel = f.repeat === 'Свой интервал'
+      ? `Каждые ${f.repeatEvery || '1'} ${String(f.repeatUnit || 'День').toLowerCase()}${f.repeatUntil ? ' · до ' + f.repeatUntil : ''}`
+      : f.repeat === 'До указанной даты'
+        ? `До указанной даты${f.repeatUntil ? ' · до ' + f.repeatUntil : ''}`
+        : f.repeat === 'До выполнения условия'
+          ? `До выполнения условия${f.repeatCondition ? ' · ' + f.repeatCondition : ''}`
+          : f.repeat;
+    const base = {
+      type, date, time: f.time, order: f.order, service: f.service, resp: f.resp,
+      repeat: repeatLabel, scope: f.scope, respRole: f.respRole, comment: f.comment,
+    };
     let evt;
     if (type === 'order') {
       try {
@@ -358,6 +370,25 @@ function CalEventCreator({ type, day, presetOrder, orders = [], clients = [], us
         <Field label="Назначить"><Select value={f.scope} onChange={(e) => set('scope', e.target.value)} options={CAL_SCOPE} /></Field>
         {f.scope === 'На весь заказ' && <Field label="Ответственный по услуге"><Select value={f.respRole} onChange={(e) => set('respRole', e.target.value)} options={CAL_RESP_ROLE} /></Field>}
       </div>
+      {type !== 'order' && f.repeat === 'Свой интервал' && (
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12 }}>
+          <Field label="Каждые">
+            <Input value={f.repeatEvery} onChange={(e) => set('repeatEvery', e.target.value.replace(/[^\d]/g, '') || '')} placeholder="2" />
+          </Field>
+          <Field label="Единица">
+            <Select value={f.repeatUnit} onChange={(e) => set('repeatUnit', e.target.value)} options={CAL_REPEAT_UNITS} />
+          </Field>
+          <UFDateField label="Повторять до" value={f.repeatUntil || null} onChange={(v) => set('repeatUntil', v)} placeholder="дд.мм.гггг" />
+        </div>
+      )}
+      {type !== 'order' && f.repeat === 'До указанной даты' && (
+        <UFDateField label="Повторять до" value={f.repeatUntil || null} onChange={(v) => set('repeatUntil', v)} placeholder="дд.мм.гггг" />
+      )}
+      {type !== 'order' && f.repeat === 'До выполнения условия' && (
+        <Field label="Условие завершения">
+          <Input value={f.repeatCondition} onChange={(e) => set('repeatCondition', e.target.value)} placeholder="например: после оплаты или подтверждения" />
+        </Field>
+      )}
       <Field label="Комментарий"><Input value={f.comment} onChange={(e) => set('comment', e.target.value)} placeholder="Необязательно" /></Field>
 
       {type === 'control' && (f.title || f.criterion) && (
