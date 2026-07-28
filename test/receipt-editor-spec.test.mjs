@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import test from 'node:test';
+import { toLegacyDocument } from '../js/api/legacy-adapters.js';
 
 const editor = await readFile(new URL('../js/features/receipts/editor.jsx', import.meta.url), 'utf8');
 const page = await readFile(new URL('../js/page_fulfillment.jsx', import.meta.url), 'utf8');
@@ -58,4 +59,43 @@ test('поддержаны три варианта вывода и защита 
   assert.match(editor, /Не показывать стоимость/);
   assert.match(editor, /не попадут стоимость поставщика, наценка, внутренние комиссии и сборы/);
   assert.match(editor, /Печать \/ сохранить PDF/);
+});
+
+test('трансферный ваучер классифицируется как трансфер до общего правила ваучеров', () => {
+  const transferRule = page.indexOf("if (/(transfer|трансфер|pickup|driver|car)/.test(n))");
+  const voucherRule = page.indexOf("if (/(hotel|отел|voucher|ваучер|room|гостиниц)/.test(n))");
+  assert.ok(transferRule >= 0 && voucherRule >= 0 && transferRule < voucherRule);
+});
+
+test('реестр восстанавливает распознанные данные из metadata backend-документа', () => {
+  const document = toLegacyDocument({
+    id: 'b1b1b1b1-1111-2222-3333-444444444444',
+    kind: 'itinerary_receipt',
+    status: 'draft',
+    title: 'Ваучер трансфера.pdf',
+    amount: '4200.00',
+    currency: 'RUB',
+    metadata: {
+      supplier_original: { name: 'Ваучер трансфера.pdf' },
+      receipt_import: {
+        stage: 'confirmed',
+        parser_status: 'parsed',
+        service_kind: 'transfer',
+        service_type: 'Трансфер',
+        corrected_fields: {
+          issuer: 'Transfer Co',
+          passenger_name: 'Сорокина Ольга',
+          segments: [{ from: 'Аэропорт', to: 'Отель', date: '22.05.2025' }],
+          total: '4200.00',
+          currency: 'RUB',
+        },
+      },
+    },
+  });
+  assert.equal(document.service_kind, 'transfer');
+  assert.equal(document.service_type, 'Трансфер');
+  assert.equal(document.parsed.passenger, 'Сорокина Ольга');
+  assert.equal(document.parsed.carrier, 'Transfer Co');
+  assert.equal(document.parsed.legs[0].to, 'Отель');
+  assert.equal(document.parsed.recognitionPending, false);
 });

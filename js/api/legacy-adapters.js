@@ -27,6 +27,50 @@ function nameOfParticipant(participant) {
   return participant.name || participant.person_name || participant.guest_snapshot?.name || participant.guest_snapshot?.full_name || '';
 }
 
+function receiptDraftFromMetadata(item) {
+  const metadata = item?.metadata || {};
+  const receiptImport = metadata.receipt_import || {};
+  const supplierOriginal = metadata.supplier_original || {};
+  const stored = supplierOriginal.verified_data
+    || receiptImport.verified_data
+    || receiptImport.corrected_fields
+    || null;
+  if (!stored || typeof stored !== 'object') return null;
+
+  const passenger = stored.passenger || stored.passenger_name || '';
+  const legs = stored.legs || stored.segments || [];
+  const parserStatus = String(receiptImport.parser_status || '').toLowerCase();
+  const confirmed = receiptImport.stage === 'confirmed';
+  return {
+    ...stored,
+    carrier: stored.carrier || stored.issuer || '',
+    passenger,
+    passengers: stored.passengers || (passenger ? [{
+      name: passenger,
+      dob: stored.dob || stored.date_of_birth || '',
+      document: stored.docNo || stored.document_number || '',
+      ticketNo: stored.ticketNo || stored.ticket_number || '',
+    }] : []),
+    legs,
+    ref: stored.ref || stored.reference || '',
+    ticketNo: stored.ticketNo || stored.ticket_number || '',
+    docNo: stored.docNo || stored.document_number || '',
+    dob: stored.dob || stored.date_of_birth || '',
+    issueDate: stored.issueDate || stored.issue_date || '',
+    cls: stored.cls || stored.booking_class || '',
+    fareBasis: stored.fareBasis || stored.fare_basis || '',
+    handBaggage: stored.handBaggage || stored.hand_baggage || '',
+    tripType: stored.tripType || stored.trip_type || (receiptImport.service_kind === 'hotel' ? 'stay' : 'oneway'),
+    taxBreakdown: stored.taxBreakdown || stored.tax_breakdown || [],
+    feeBreakdown: stored.feeBreakdown || stored.fee_breakdown || [],
+    output: stored.output || supplierOriginal.output_settings,
+    auditLog: stored.auditLog || supplierOriginal.audit_log || [],
+    originalTotal: stored.originalTotal ?? receiptImport.original_total ?? stored.total ?? item.amount ?? 0,
+    recognitionPending: stored.recognitionPending ?? (!confirmed && parserStatus !== 'parsed'),
+    manualCompletion: stored.manualCompletion ?? (confirmed && parserStatus !== 'parsed'),
+  };
+}
+
 export function toLegacyProposal(item, orders = []) {
   const order = orderFor(orders, item.order);
   return {
@@ -98,6 +142,12 @@ export function toLegacyReturn(item, orders = [], services = []) {
 
 export function toLegacyDocument(item, orders = []) {
   const order = orderFor(orders, item.order);
+  const metadata = item.metadata || {};
+  const receiptImport = metadata.receipt_import || {};
+  const supplierOriginal = metadata.supplier_original || {};
+  const parsed = receiptDraftFromMetadata(item);
+  const serviceKindValue = receiptImport.service_kind || parsed?.service_kind || '';
+  const serviceTypeValue = receiptImport.service_type || parsed?.service_type || serviceKind[serviceKindValue] || '';
   return {
     ...item,
     serverId: item.id,
@@ -111,6 +161,13 @@ export function toLegacyDocument(item, orders = []) {
     status: documentStatus[item.status] || item.status,
     version: item.current_version || item.version || 0,
     date: item.document_date || date(item.created_at),
+    parsed,
+    service_kind: serviceKindValue,
+    service_type: serviceTypeValue,
+    supplier_original: {
+      ...supplierOriginal,
+      verified_data: parsed || supplierOriginal.verified_data,
+    },
     size: '—', versions: [], history: [],
   };
 }

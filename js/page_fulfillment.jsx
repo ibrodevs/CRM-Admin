@@ -905,9 +905,9 @@ function emptyReceiptParse(file) {
 }
 function guessType(name) {
   const n = (name || '').toLowerCase();
+  if (/(transfer|трансфер|pickup|driver|car)/.test(n)) return 'Трансфер';
   if (/(hotel|отел|voucher|ваучер|room|гостиниц)/.test(n)) return 'Гостиница';
   if (/(train|ржд|поезд|rail|жд)/.test(n)) return 'ЖД';
-  if (/(transfer|трансфер|car)/.test(n)) return 'Трансфер';
   return 'Авиа';
 }
 function serviceTypeFromBackend(kind, label, fallback) {
@@ -1306,7 +1306,8 @@ function ReceiptImportModal({ open, onClose, onDone }) {
         const detectedType = serviceTypeFromBackend(extracted.service_kind, extracted.service_type, entry.type);
         const base = emptyReceiptParse({ ...entry, type: detectedType });
         const primaryPassenger = draft.passenger_name || extracted.passenger_name || base.passenger;
-        const parsed = normalizeReceiptDraft(detectedType, { ...base, carrier: draft.issuer || extracted.issuer || base.carrier, passenger: primaryPassenger,
+        const parsed = normalizeReceiptDraft(detectedType, { ...base, ...(result.verified_data || {}),
+          carrier: draft.issuer || extracted.issuer || result.verified_data?.carrier || base.carrier, passenger: primaryPassenger,
           passengers: draft.passengers || extracted.passengers || (primaryPassenger ? [{ name: primaryPassenger, dob: extracted.date_of_birth || '', document: extracted.document_number || '', ticketNo: extracted.ticket_number || '' }] : base.passengers),
           fare: Number(draft.fare || base.fare || 0), taxes: Number(draft.taxes || base.taxes || 0), fees: Number(draft.fees || base.fees || 0), total: Number(draft.total || base.total || 0),
           taxBreakdown: draft.tax_breakdown || extracted.tax_breakdown || [], feeBreakdown: draft.fee_breakdown || extracted.fee_breakdown || [],
