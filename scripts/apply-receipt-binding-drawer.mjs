@@ -59,3 +59,16 @@ if (changed) {
 } else {
   console.log('Привязка квитанций через боковые окна уже настроена.');
 }
+
+const bindFieldUrl = new URL('../js/forms_unified.jsx', import.meta.url);
+let bindSource = await readFile(bindFieldUrl, 'utf8');
+const oldBindClass = '<button type="button" className="select" onClick={() => setOpen(true)}';
+const newBindClass = '<button type="button" className="select unified-bind-field" onClick={() => setOpen(true)}';
+if (!bindSource.includes(newBindClass)) {
+  if (!bindSource.includes(oldBindClass)) {
+    throw new Error('Не удалось убрать дублирующую стрелку: поле привязки не найдено');
+  }
+  bindSource = bindSource.replace(oldBindClass, newBindClass);
+  await writeFile(bindFieldUrl, bindSource, 'utf8');
+  console.log('У поля привязки оставлена одна стрелка.');
+}
