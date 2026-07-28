@@ -1,0 +1,91 @@
+name: Apply receipt binding drawer change
+
+on:
+  push:
+    branches:
+      - fix/receipt-binding-drawer
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.head_ref || github.ref_name }}
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Move CRM bindings to side drawers
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          editor_path = Path('js/features/receipts/editor.jsx')
+          source = editor_path.read_text(encoding='utf-8')
+
+          old_import = "import { UFDateField } from '../../forms_unified';"
+          new_import = "import { UFDateField, UnifiedBindField } from '../../forms_unified';"
+          if old_import not in source and new_import not in source:
+              raise SystemExit('forms_unified import was not found')
+          source = source.replace(old_import, new_import, 1)
+
+          old_order = """        <Field label=\"Внутренний номер заказа CRM\"><Input value={p.crmOrderNo || ''} onChange={(e) => set('crmOrderNo', e.target.value, 'Привязка к заказу CRM')} placeholder=\"PSC-2026-000125\" /></Field>"""
+          new_order = """        <Field label=\"Привязка к заказу CRM\">\n          <UnifiedBindField\n            value={p.crmOrderNo\n              ? { mode: 'order', order: { no: p.crmOrderNo }, label: `Заказ № ${p.crmOrderNo}` }\n              : { mode: 'order', label: 'Выберите заказ' }}\n            onChange={(target) => set('crmOrderNo', target?.order?.no || '', 'Привязка к заказу CRM')}\n            modes={['order']}\n            title=\"Привязка к заказу\"\n            sub=\"Выберите заказ, к которому относится документ\"\n            style={{ width: '100%' }}\n          />\n        </Field>"""
+          if old_order not in source and new_order not in source:
+              raise SystemExit('inline CRM order field was not found')
+          source = source.replace(old_order, new_order, 1)
+
+          old_passenger = """            <Field label=\"Привязка к пассажиру CRM\"><Input value={row.crmPassenger} onChange={(e) => setArray('passengers', index, 'crmPassenger', e.target.value, `Привязка участника ${index + 1}`)} placeholder=\"Выберите или укажите ФИО\" /></Field>"""
+          new_passenger = """            <Field label=\"Привязка к пассажиру CRM\">\n              <UnifiedBindField\n                value={row.crmPassenger\n                  ? { mode: 'person', client: row.crmPassenger, label: row.crmPassenger }\n                  : { mode: 'person', label: 'Выберите пассажира CRM' }}\n                onChange={(target) => setArray('passengers', index, 'crmPassenger', target?.client || '', `Привязка участника ${index + 1}`)}\n                modes={['person']}\n                title=\"Привязка к пассажиру\"\n                sub={`Выберите пассажира CRM для ${row.name || `участника ${index + 1}`}`}\n                style={{ width: '100%' }}\n              />\n            </Field>"""
+          if old_passenger not in source and new_passenger not in source:
+              raise SystemExit('inline CRM passenger field was not found')
+          source = source.replace(old_passenger, new_passenger, 1)
+
+          editor_path.write_text(source, encoding='utf-8')
+
+          test_path = Path('test/receipt-editor-spec.test.mjs')
+          tests = test_path.read_text(encoding='utf-8')
+          test_block = """
+
+test('привязка квитанции к заказу и пассажиру открывается в боковом окне', () => {
+  assert.match(editor, /UFDateField, UnifiedBindField/);
+  assert.match(editor, /title=\"Привязка к заказу\"/);
+  assert.match(editor, /modes=\{\['order'\]\}/);
+  assert.match(editor, /title=\"Привязка к пассажиру\"/);
+  assert.match(editor, /modes=\{\['person'\]\}/);
+  assert.doesNotMatch(editor, /placeholder=\"Выберите или укажите ФИО\"/);
+  assert.doesNotMatch(editor, /placeholder=\"PSC-2026-000125\"/);
+});
+"""
+          marker = "\ntest('исходные данные защищены и исправления фиксируются в журнале'"
+          if "привязка квитанции к заказу и пассажиру открывается в боковом окне" not in tests:
+              if marker not in tests:
+                  raise SystemExit('test insertion marker was not found')
+              tests = tests.replace(marker, test_block + marker, 1)
+              test_path.write_text(tests, encoding='utf-8')
+          PY
+
+      - run: npm ci
+      - run: npm test
+
+      - name: Commit source change
+        env:
+          TARGET_BRANCH: ${{ github.head_ref || github.ref_name }}
+        run: |
+          rm -f .github/workflows/apply-receipt-binding-drawer.yml .github/receipt-binding-trigger.txt
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add js/features/receipts/editor.jsx test/receipt-editor-spec.test.mjs .github/workflows/apply-receipt-binding-drawer.yml .github/receipt-binding-trigger.txt
+          git commit -m "feat: move receipt bindings to side drawers"
+          git push origin HEAD:${TARGET_BRANCH}
