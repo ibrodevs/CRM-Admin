@@ -4,9 +4,12 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "predev": "node scripts/apply-receipt-binding-drawer.mjs",
     "dev": "next dev",
+    "prebuild": "node scripts/apply-receipt-binding-drawer.mjs",
     "build": "next build",
     "start": "next start",
+    "pretest": "node scripts/apply-receipt-binding-drawer.mjs",
     "test": "node --experimental-specifier-resolution=node --test test/*.test.mjs",
     "smoke:production": "node scripts/production-smoke.mjs"
   },
