@@ -28,6 +28,8 @@ import { toLegacyOrderService, toLegacyParticipant } from './api/legacy-adapters
 import { resultsOf } from './api/client';
 import { participantPayloadFromUi, routePayloadFromUi } from './api/order-card';
 import { toUiOrder } from './api/adapters';
+import { technicalStopCount, technicalStopLabel, technicalStopsOf } from './features/avia/technical-stops';
+import { TechnicalStopsDetails } from './features/avia/technical-stops.jsx';
 
 const ORDER_STATUS_CODE = {
   'Новое': 'new',
@@ -1005,7 +1007,9 @@ function RadioFlightRow({ opt, selected, onSelect }) {
       <div className="mid">
         <span className="d">{leg.dur}</span>
         <span className="ln" />
-        <span className={'st ' + (leg.stops ? 'via' : 'direct')}>{leg.stops ? leg.stopText : 'Прямой'}</span>
+        <span className={'st ' + (leg.stops || technicalStopCount(leg) ? 'via' : 'direct')}>
+          {leg.stops ? leg.stopText : technicalStopCount(leg) ? `Без пересадок · ${technicalStopLabel(technicalStopCount(leg))}` : 'Прямой'}
+        </span>
       </div>
       <div className="tm">{leg.arr}<div className="ap">{leg.to}</div></div>
       <div className="pr"><div className="v">{money(opt.price, 'USD')}</div><div className="c">{AIRLINES[opt.airline]?.name || opt.airline}</div></div>
@@ -1083,7 +1087,9 @@ function AviaCardRow({ opt, sel, onSelect }) {
       <div className="ap-fl-mid">
         <div className="d">{leg.dur}</div>
         <div className="line" />
-        <div className={'st ' + (leg.stops ? 'via' : 'direct')}>{leg.stops ? leg.stopText.split('·')[0].trim() : 'Прямой'}</div>
+        <div className={'st ' + (leg.stops || technicalStopCount(leg) ? 'via' : 'direct')}>
+          {leg.stops ? leg.stopText.split('·')[0].trim() : technicalStopCount(leg) ? `Без пересадок · ${technicalStopLabel(technicalStopCount(leg))}` : 'Прямой'}
+        </div>
       </div>
       <div className="ap-fl-time">{leg.arr}<div className="ap">{leg.to}</div></div>
       <div className="ap-fl-pr"><div className="v">{money(opt.price, 'USD')}</div><div className="c">{AIRLINES[opt.airline]?.name || opt.airline}</div></div>
@@ -1100,9 +1106,25 @@ function AviaCardRow({ opt, sel, onSelect }) {
 
 function legSegments(leg) {
   if (leg.segs && leg.segs.length) return leg.segs;
-  return [{ from: leg.from, to: leg.to, dep: leg.dep, arr: leg.arr, dur: leg.dur, flightNo: leg.flightNo }];
+  return [{ ...leg }];
 }
 function legFlightNos(leg) { return legSegments(leg).map((s) => s.flightNo).filter(Boolean).join(' · '); }
+
+function connectionLabel(count) {
+  if (count === 1) return '1 пересадка';
+  if (count >= 2 && count <= 4) return `${count} пересадки`;
+  return `${count} пересадок`;
+}
+
+function legRouteSummary(leg) {
+  const connections = Math.max(0, legSegments(leg).length - 1);
+  const technicalStops = technicalStopCount(leg);
+  if (!connections && !technicalStops) return 'прямой';
+  const parts = [];
+  parts.push(connections ? connectionLabel(connections) : 'без пересадок');
+  if (technicalStops) parts.push(technicalStopLabel(technicalStops));
+  return parts.join(' · ');
+}
 
 
 
@@ -1113,9 +1135,9 @@ function LegTimeline({ opt, title }) {
   const air = AIRLINES[opt.airline] || { name: opt.airline };
   return (
     <div className="leg-tl">
-      {title && <div className="leg-tl-head"><AirlineLogo code={opt.airline} size="sm" /><span>{title}</span><span className="leg-tl-total">{leg.dur} · {segs.length > 1 ? (segs.length - 1) + ' пересадка' : 'прямой'}</span></div>}
+      {title && <div className="leg-tl-head"><AirlineLogo code={opt.airline} size="sm" /><span>{title}</span><span className="leg-tl-total">{leg.dur} · {legRouteSummary(leg)}</span></div>}
       {segs.map((s, i) => (
-        <React.Fragment key={i}>
+        <React.Fragment key={`${s.flightNo || 'segment'}-${s.dep || i}`}>
           <div className="leg-seg">
             <div className="leg-seg-time"><div className="t">{s.dep}</div><div className="ap">{s.from}</div></div>
             <div className="leg-seg-mid">
@@ -1125,6 +1147,7 @@ function LegTimeline({ opt, title }) {
             </div>
             <div className="leg-seg-time"><div className="t">{s.arr}</div><div className="ap">{s.to}</div></div>
           </div>
+          <TechnicalStopsDetails stops={technicalStopsOf(s)} />
           {i < segs.length - 1 && (
             <div className="leg-layover"><Icon name="clock" style={{ width: 14, height: 14 }} />Пересадка {(lays[i] && lays[i].dur) || ''} в {(lays[i] && lays[i].at) || s.to}</div>
           )}
@@ -1139,6 +1162,7 @@ function LegTimeline({ opt, title }) {
 function FlightScaleBar({ leg }) {
   const segs = legSegments(leg);
   const lays = leg.layovers || [];
+  const hasNonDirectRouting = segs.length > 1 || technicalStopCount(leg) > 0;
   return (
     <div className="fsb">
       <div className="fsb-track">
@@ -1155,7 +1179,7 @@ function FlightScaleBar({ leg }) {
           </React.Fragment>
         ))}
       </div>
-      <div className={'fsb-bot ' + (leg.stops ? 'via' : 'direct')}>{leg.dur} · {leg.stops ? (leg.stops === 1 ? '1 пересадка' : leg.stops + ' пересадки') : 'прямой'}</div>
+      <div className={'fsb-bot ' + (hasNonDirectRouting ? 'via' : 'direct')}>{leg.dur} · {legRouteSummary(leg)}</div>
     </div>
   );
 }
@@ -1412,7 +1436,11 @@ function AviaListTable({ rows }) {
                 <td><span style={{ display: 'flex', alignItems: 'center', gap: 8, whiteSpace: 'nowrap' }}><AirlineLogo code={r.airline} size="sm" />{air.name}</span></td>
                 <td style={{ whiteSpace: 'nowrap' }}>{r.flightNo || '—'}</td>
                 <td style={{ whiteSpace: 'nowrap' }}>{leg.dur}</td>
-                <td>{leg.stops ? (leg.stops === 1 ? '1 пересадка' : leg.stops + ' пересадки') : <span style={{ color: 'var(--green)' }}>Прямой</span>}</td>
+                <td>{leg.stops
+                  ? connectionLabel(leg.stops)
+                  : technicalStopCount(leg)
+                    ? <span style={{ color: 'var(--amber)' }}>Без пересадок · {technicalStopLabel(technicalStopCount(leg))}</span>
+                    : <span style={{ color: 'var(--green)' }}>Прямой</span>}</td>
                 <td style={{ color: 'var(--muted)', fontSize: 13, whiteSpace: 'nowrap' }}>{r.supplier}</td>
                 <td style={{ textAlign: 'right', fontWeight: 700, whiteSpace: 'nowrap' }}>{money(r.price, 'USD')}</td>
                 <td onClick={(e) => e.stopPropagation()}><Button size="sm" variant="secondary" iconRight="chevRight" onClick={r.view}>Тарифы</Button></td>
@@ -2712,4 +2740,4 @@ Object.assign(window, { OrderCard, AsyncBlock, OrderEditDrawer });
 
 
 
-export { ocCurrency, ocMoney, opPayable, opDebt, AsyncBlock, StatusControl, svcCalc, financeSnapshot, OrderAside, ReassignOperatorDrawer, tripFromServices, KvEditDrawer, TabOverview, TabClients, DocCell, PaxGroupCard, TabParticipants, TabRoute, SVC_FILTER_CHIPS, ServiceListRow, serviceTotals, ServicesFooterBar, OrderChangeCase, TabServices, ADD_SVC_CATS, fmtDur, RadioFlightRow, aviaPriceBounds, AviaFilters, AviaCardRow, legSegments, legFlightNos, LegTimeline, FlightScaleBar, SupplierTag, AviaResultRow, AviaPaxPanel, FlightFarePanel, FareInfoPanel, aviaDepMin, AviaListTable, AviaSearchPanel, QuickAddForm, AddServicePanel, TabOffers, OrderFinanceBlock, TabFinance, TabHistory, OrderCard, EDIT_TABS, OrderEditDrawer };
+export { ocCurrency, ocMoney, opPayable, opDebt, AsyncBlock, StatusControl, svcCalc, financeSnapshot, OrderAside, ReassignOperatorDrawer, tripFromServices, KvEditDrawer, TabOverview, TabClients, DocCell, PaxGroupCard, TabParticipants, TabRoute, SVC_FILTER_CHIPS, ServiceListRow, serviceTotals, ServicesFooterBar, OrderChangeCase, TabServices, ADD_SVC_CATS, fmtDur, RadioFlightRow, aviaPriceBounds, AviaFilters, AviaCardRow, legSegments, legFlightNos, legRouteSummary, LegTimeline, FlightScaleBar, SupplierTag, AviaResultRow, AviaPaxPanel, FlightFarePanel, FareInfoPanel, aviaDepMin, AviaListTable, AviaSearchPanel, QuickAddForm, AddServicePanel, TabOffers, OrderFinanceBlock, TabFinance, TabHistory, OrderCard, EDIT_TABS, OrderEditDrawer };

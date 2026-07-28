@@ -9,6 +9,8 @@ import { PanelSub, StackPanel } from './components/shared-panels';
 import { SvcAddPaxDrawer, SvcDocUploadDrawer } from './page_services';
 import { aftersalesApi, documentsApi, proposalsApi, servicesApi, workspaceActionsApi } from './api/resources';
 import { resultsOf } from './api/client';
+import { technicalStopCount, technicalStopLabel, technicalStopsOf } from './features/avia/technical-stops';
+import { TechnicalStopsDetails } from './features/avia/technical-stops.jsx';
 
 
 
@@ -289,13 +291,19 @@ function FlightSearch({ params, setParams, onSearch, onBack }) {
 
 
 function OfferLeg({ leg }) {
+  const technicalStops = technicalStopCount(leg);
+  const stopText = leg.stops
+    ? leg.stopText
+    : technicalStops
+      ? `Без пересадок · ${technicalStopLabel(technicalStops)}`
+      : leg.stopText;
   return (
     <div className="off-leg">
       <div className="off-time">{leg.dep}<div className="ap">{leg.from} · {leg.date}</div></div>
       <div className="off-mid">
         <div className="off-dur">{leg.dur}</div>
-        <div className="off-route-line">{leg.stops > 0 && <span className="off-stop-dot" />}</div>
-        <div className={'off-stop ' + (leg.stops ? 'via' : 'direct')}>{leg.stopText}</div>
+        <div className="off-route-line">{(leg.stops > 0 || technicalStops > 0) && <span className="off-stop-dot" />}</div>
+        <div className={'off-stop ' + (leg.stops || technicalStops ? 'via' : 'direct')}>{stopText}</div>
       </div>
       <div className="off-time">{leg.arr}<div className="ap">{leg.to} · {leg.date}</div></div>
     </div>
@@ -506,8 +514,11 @@ function SegmentRow({ leg }) {
       <div className="seg-rail"><span className="o" /><span className="l" /><span className="o" /></div>
       <div className="seg-body">
         <div style={{ fontWeight: 700, color: 'var(--ink)' }}>{leg.from} → {leg.to}</div>
-        <div style={{ fontSize: 13, color: 'var(--muted)', margin: '3px 0' }}>{leg.flightNo} · {leg.dur} · {leg.stopText}</div>
+        <div style={{ fontSize: 13, color: 'var(--muted)', margin: '3px 0' }}>
+          {leg.flightNo} · {leg.dur} · {leg.stops ? leg.stopText : technicalStopCount(leg) ? `Без пересадок · ${technicalStopLabel(technicalStopCount(leg))}` : leg.stopText}
+        </div>
         <div style={{ fontSize: 13, color: 'var(--ink)' }}>Прибытие {leg.arr}, {leg.date}</div>
+        <TechnicalStopsDetails stops={technicalStopsOf(leg)} />
       </div>
     </div>
   );
@@ -2084,7 +2095,10 @@ function liveFlightLeg(segment) {
     arr: arr ? arr.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' }) : '—',
     date: dep ? dep.toLocaleDateString('ru-RU', { day: '2-digit', month: 'short' }) : '—',
     dur: Math.floor(minutes / 60) + 'ч ' + String(minutes % 60).padStart(2, '0') + 'м',
-    stops: 0, stopText: 'Прямой', flightNo: [segment.airline, segment.flight_number].filter(Boolean).join(' '),
+    stops: 0,
+    stopText: 'Прямой',
+    flightNo: [segment.airline, segment.flight_number].filter(Boolean).join(' '),
+    technicalStops: technicalStopsOf(segment),
   };
 }
 function liveFlightOffer(offer) {
@@ -2237,4 +2251,4 @@ Object.assign(window, { FlightsPage, AirlineLogo, FlightSearch, FlightResults, F
 
 
 
-export { AirlineLogo, durMin, money, AirportField, PAX_DEFAULT_OPTIONS, paxTotal, PAX_BASE_TYPES, SPECIAL_PAX_ICONS, SPECIAL_PAX_INFO, SUBSIDIZED_PAX_ICONS, CABIN_ICONS, PAX_OPTION_META, PaxStepper, PaxClassPicker, PaxField, FlightSearch, OfferLeg, OfferCard, FilterRail, CompareModal, FlightResults, SegmentRow, FareRulesInfo, flightStatusFlags, flightPassengers, RefundPanel, ExchangePanel, DOC_TEMPLATES, AGENCY_ENTITIES, DOC_CORR_KINDS, docCorrKind, CORR_FIELDS, corrCur, corrComputed, corrTotal, corrChanges, CorrectionPreview, CorrectionHistoryDrawer, DocCorrectionPanel, SendToPaxDrawer, ATTACH_MODES, AttachFlightDrawer, FlightReceiptDrawer, FlightCard, FlightsRegistry, liveFlightOffer, loadLiveFlightOffers, FlightsPage };
+export { AirlineLogo, durMin, money, AirportField, PAX_DEFAULT_OPTIONS, paxTotal, PAX_BASE_TYPES, SPECIAL_PAX_ICONS, SPECIAL_PAX_INFO, SUBSIDIZED_PAX_ICONS, CABIN_ICONS, PAX_OPTION_META, PaxStepper, PaxClassPicker, PaxField, FlightSearch, OfferLeg, OfferCard, FilterRail, CompareModal, FlightResults, SegmentRow, FareRulesInfo, flightStatusFlags, flightPassengers, RefundPanel, ExchangePanel, DOC_TEMPLATES, AGENCY_ENTITIES, DOC_CORR_KINDS, docCorrKind, CORR_FIELDS, corrCur, corrComputed, corrTotal, corrChanges, CorrectionPreview, CorrectionHistoryDrawer, DocCorrectionPanel, SendToPaxDrawer, ATTACH_MODES, AttachFlightDrawer, FlightReceiptDrawer, FlightCard, FlightsRegistry, liveFlightLeg, liveFlightOffer, loadLiveFlightOffers, FlightsPage };

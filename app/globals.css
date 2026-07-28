@@ -1295,6 +1295,23 @@ table.tbl.tbl-wide thead th,table.tbl.tbl-wide tbody td{white-space:nowrap}
 .leg-seg-mid .line::after{content:'';position:absolute;right:0;top:-2px;width:5px;height:5px;border-top:1px solid var(--field-line);border-right:1px solid var(--field-line);transform:rotate(45deg)}
 .leg-seg-mid .fn{font-size:11.5px;font-weight:600;color:var(--blue)}
 .leg-layover{display:flex;align-items:center;justify-content:center;gap:7px;margin:8px 0;padding:6px 10px;font-size:12.5px;font-weight:600;color:var(--amber);background:var(--amber-soft,rgba(245,158,11,.1));border-radius:8px}
+.technical-stops{margin:10px 0 2px;border:1px solid #f1d59d;border-radius:10px;background:#fffaf0;overflow:hidden}
+.technical-stops-head{display:flex;align-items:center;gap:7px;padding:8px 10px;color:#9a5a08;font-size:12.5px;font-weight:700;background:#fff4dc}
+.technical-stops-head svg{width:15px;height:15px;flex:0 0 15px}
+.technical-stops-kind{margin-left:auto;color:var(--muted);font-size:11.5px;font-weight:500}
+.technical-stop{padding:10px}
+.technical-stop+.technical-stop{border-top:1px solid #f1d59d}
+.technical-stop-place{display:flex;align-items:baseline;gap:7px;flex-wrap:wrap;color:var(--ink);font-size:13px}
+.technical-stop-place span{color:var(--muted);font-size:11.5px}
+.technical-stop-facts{display:flex;gap:7px 14px;flex-wrap:wrap;margin-top:7px;color:var(--muted);font-size:11.5px}
+.technical-stop-facts span{display:inline-flex;align-items:center;gap:5px}
+.technical-stop-facts svg{width:13px;height:13px;flex:0 0 13px;color:#b66a09}
+.technical-stop-statuses{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
+.technical-stop-statuses span{padding:3px 7px;border-radius:6px;background:var(--surface-2);color:var(--muted);font-size:10.5px;font-weight:600}
+.technical-stop-statuses span.ok{background:var(--green-bg,#eaf7ef);color:var(--green)}
+.technical-stop-statuses span.warn{background:var(--amber-soft,#fff4dc);color:var(--amber)}
+.technical-stop-note{margin-top:7px;color:var(--muted);font-size:11.5px;line-height:1.4}
+@media(max-width:640px){.technical-stops-kind{display:none}.technical-stop-facts{flex-direction:column;gap:5px}}
 .ap-route-section{margin-bottom:22px;transition:opacity .14s}
 .ap-route-section:last-child{margin-bottom:0}
 .ap-route-section.inactive{opacity:.55}

@@ -107,7 +107,16 @@ const FLIGHT_OFFERS = [
   {
     id: 'OF-2', airline: 'TK', supplier: 'Amadeus GDS', refundable: true, baggage: '2×23 кг', cabin: 'Эконом',
     fareName: 'EcoFly', seatsLeft: 9,
-    out: { from: 'FRU', to: 'IST', dep: '05:50', arr: '09:10', date: '24 июн', dur: '5ч 20м', stops: 0, stopText: 'Прямой', flightNo: 'TK 345' },
+    out: {
+      from: 'FRU', to: 'IST', dep: '05:50', arr: '09:10', date: '24 июн', dur: '5ч 20м',
+      stops: 0, stopText: 'Прямой', flightNo: 'TK 345',
+      technicalStops: [{
+        airportCode: 'TAS', airportName: 'Ислам Каримов', city: 'Ташкент', country: 'Узбекистан',
+        arrival: '07:05', departure: '07:55', durationMinutes: 50, reason: 'refueling',
+        deplane: false, aircraftChange: false,
+        note: 'Самолёт продолжает полёт тем же рейсом после дозаправки.',
+      }],
+    },
     back:{ from: 'IST', to: 'FRU', dep: '01:45', arr: '11:00', date: '01 июл', dur: '5ч 15м', stops: 0, stopText: 'Прямой', flightNo: 'TK 346' },
     fare: 468, fee: 22, currency: 'USD',
   },
