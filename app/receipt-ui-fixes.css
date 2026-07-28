@@ -1,0 +1,18 @@
+/* Receipt editor: keep the service label clear of the native select arrow. */
+.rec-import-type-select {
+  width: 140px;
+  min-width: 140px;
+  max-width: 100%;
+  padding-left: 10px;
+  padding-right: 40px;
+  background-position: right 11px center;
+  background-size: 16px;
+  white-space: nowrap;
+}
+
+@media (max-width: 760px) {
+  .rec-import-type-select {
+    width: min(160px, 100%);
+    min-width: 140px;
+  }
+}
