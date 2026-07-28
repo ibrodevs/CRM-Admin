@@ -1807,7 +1807,9 @@ function ReceiptEditorPage({ documents = [], orders = [], onChanged, onOpenOrder
                   {receipts.map((d) => {
                     const t = recType(d.editorType);
                     const details = receiptDetailsLines(d.editorType, d.parsed);
-                    const recognition = d.parsed.manualCompletion ? 'Заполнено вручную' : d.parsed.recognitionPending ? 'Требует проверки' : 'Распознано';
+                    const recognition = d.parsed.manualCompletion
+                      ? 'Заполнено вручную'
+                      : receiptStatus(d.parsed, new Set(), d.editorType, null);
                     const statusCfg = REC_STATUS[recognition];
                     const clientTotal = receiptFinancialTotal(d.editorType, d.parsed);
                     const supplierTotal = Number(d.parsed.supplierCost || d.parsed.fare || d.supplierBlank?.total || 0);

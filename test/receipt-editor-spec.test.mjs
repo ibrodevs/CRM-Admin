@@ -48,6 +48,7 @@ test('реестр соответствует колонкам и операци
     assert.match(page, new RegExp(action));
   }
   assert.match(page, /\['Маршрутная квитанция', 'Ваучер', 'Билет'\]/);
+  assert.match(page, /receiptStatus\(d\.parsed, new Set\(\), d\.editorType, null\)/);
 });
 
 test('поддержаны три варианта вывода и защита внутренних финансов', () => {
