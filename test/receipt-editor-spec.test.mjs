@@ -100,3 +100,24 @@ test('реестр восстанавливает распознанные да�
   assert.equal(document.parsed.legs[0].to, 'Отель');
   assert.equal(document.parsed.recognitionPending, false);
 });
+
+test('реестр показывает участника из верхнего поля даже при пустом массиве пассажиров', () => {
+  assert.match(editor, /const fallback = String\(draft\.passenger \|\| ''\)\.trim\(\)/);
+  assert.match(editor, /return names\.length \? names : \(fallback \? \[fallback\] : \[\]\)/);
+});
+
+test('зона загрузки даёт явную обратную связь при перетаскивании файлов', () => {
+  assert.match(page, /const \[dragActive, setDragActive\] = useState\(false\)/);
+  assert.match(page, /onDragEnter=\{onDragEnter\}/);
+  assert.match(page, /Отпустите файлы для загрузки/);
+  assert.match(page, /receipt-drop-zone.*is-dragging/);
+});
+
+test('суммы реестра разнесены по строкам, а удаление имеет доступную крупную кнопку', () => {
+  assert.match(page, /rec-import-money-total/);
+  assert.match(page, /rec-import-money-source/);
+  assert.match(page, /rec-import-money-fee/);
+  assert.match(page, /receipt-breakdown-remove/);
+  assert.match(page, /aria-label="Удалить строку"/);
+  assert.match(editor, /aria-label="Удалить строку"/);
+});

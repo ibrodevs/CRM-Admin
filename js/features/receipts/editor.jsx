@@ -1,7 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import { Icon } from '../../icons';
 import { Button, Drawer, Field, Input, Pill, Select, TimeField } from '../../ui';
-import { UFDateField } from '../../forms_unified';
+import { UFDateField, UnifiedBindField } from '../../forms_unified';
 
 const TYPE_META = {
   'Авиа': { icon: 'plane', color: '#2566ff', document: 'Маршрут-квитанция' },
@@ -131,7 +131,9 @@ export function normalizeReceiptDraft(type, value = {}) {
 }
 
 export function receiptParticipantNames(draft) {
-  return (draft.passengers || []).map((row) => row.name).filter(Boolean);
+  const names = (draft.passengers || []).map((row) => String(row.name || '').trim()).filter(Boolean);
+  const fallback = String(draft.passenger || '').trim();
+  return names.length ? names : (fallback ? [fallback] : []);
 }
 
 export function receiptDetailsLines(type, draft) {
@@ -209,7 +211,8 @@ function ListHeader({ title, onAdd, addLabel = 'Добавить' }) {
 }
 
 function RowRemove({ onClick, label = 'Удалить' }) {
-  return <Button type="button" size="sm" variant="ghost" icon="trash" className="receipt-remove" onClick={onClick}>{label}</Button>;
+  return <Button type="button" size="sm" variant="ghost" icon="trash" className="receipt-remove"
+    aria-label="Удалить строку" title="Удалить строку" onClick={onClick}>{label}</Button>;
 }
 
 function AuditLog({ rows }) {
@@ -400,7 +403,18 @@ export function ReceiptSpecializedForm({ type, value, onChange, correctionMode, 
         {(type === 'ЖД' || type === 'Трансфер') && source('Номер заказа поставщика', 'supplierOrderNo')}
         {source('Дата оформления', 'issueDate')}
         {source('Статус бронирования', 'bookingStatus')}
-        <Field label="Внутренний номер заказа CRM"><Input value={p.crmOrderNo || ''} onChange={(e) => set('crmOrderNo', e.target.value, 'Привязка к заказу CRM')} placeholder="PSC-2026-000125" /></Field>
+        <Field label="Привязка к заказу CRM">
+          <UnifiedBindField
+            value={p.crmOrderNo
+              ? { mode: 'order', order: { no: p.crmOrderNo }, label: `Заказ № ${p.crmOrderNo}` }
+              : { mode: 'order', label: 'Выберите заказ' }}
+            onChange={(target) => set('crmOrderNo', target?.order?.no || '', 'Привязка к заказу CRM')}
+            modes={['order']}
+            title="Привязка к заказу"
+            sub="Выберите заказ, к которому относится документ"
+            style={{ width: '100%' }}
+          />
+        </Field>
         <Field label="Валюта"><Select options={['RUB', 'USD', 'EUR', 'KGS', 'KZT', 'CNY']} value={p.currency || 'RUB'} onChange={(e) => set('currency', e.target.value, 'Валюта')} /></Field>
       </div>
     </Section>
@@ -425,7 +439,18 @@ export function ReceiptSpecializedForm({ type, value, onChange, correctionMode, 
             {type === 'Гостиница' && <Field label="Тип гостя"><Select options={['Взрослый', 'Ребёнок']} value={row.guestType} onChange={(e) => setArray('passengers', index, 'guestType', e.target.value, `Тип гостя ${index + 1}`)} /></Field>}
             {type === 'Трансфер' && <Field label="Мобильный телефон"><Input value={row.phone} onChange={(e) => setArray('passengers', index, 'phone', e.target.value, `Телефон пассажира ${index + 1}`)} /></Field>}
             {type === 'Трансфер' && <Field label="Текст на табличке"><Input value={row.signText} onChange={(e) => setArray('passengers', index, 'signText', e.target.value, `Табличка пассажира ${index + 1}`)} /></Field>}
-            <Field label="Привязка к пассажиру CRM"><Input value={row.crmPassenger} onChange={(e) => setArray('passengers', index, 'crmPassenger', e.target.value, `Привязка участника ${index + 1}`)} placeholder="Выберите или укажите ФИО" /></Field>
+            <Field label="Привязка к пассажиру CRM">
+              <UnifiedBindField
+                value={row.crmPassenger
+                  ? { mode: 'person', client: row.crmPassenger, label: row.crmPassenger }
+                  : { mode: 'person', label: 'Выберите пассажира CRM' }}
+                onChange={(target) => setArray('passengers', index, 'crmPassenger', target?.client || '', `Привязка участника ${index + 1}`)}
+                modes={['person']}
+                title="Привязка к пассажиру"
+                sub={`Выберите пассажира CRM для ${row.name || `участника ${index + 1}`}`}
+                style={{ width: '100%' }}
+              />
+            </Field>
           </div>
         </div>
       ))}</div>

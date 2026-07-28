@@ -1127,11 +1127,12 @@ function ReceiptEditForm({ type, p, onChange }) {
               <button className="btn btn-ghost btn-sm" onClick={() => addBreakdown(kind)}><Icon name="plus" style={{ width: 14, height: 14 }} /> Добавить</button>
             </div>
             {rows.length ? rows.map((row, i) => (
-              <div key={i} className="form-grid" style={{ gridTemplateColumns: '1fr 1.2fr 1fr 46px', marginBottom: 8 }}>
+              <div key={i} className="form-grid receipt-breakdown-row">
                 <Field label="Код"><Input value={row.code || ''} onChange={(e) => setBreakdown(kind, i, 'code', e.target.value)} /></Field>
                 <Field label="Название"><Input value={row.label || ''} onChange={(e) => setBreakdown(kind, i, 'label', e.target.value)} /></Field>
                 <Field label="Сумма"><Input type="number" value={row.amount || ''} onChange={(e) => setBreakdown(kind, i, 'amount', e.target.value)} /></Field>
-                <Field label=" "><button className="btn btn-ghost btn-sm" style={{ width: 36, padding: 0 }} onClick={() => delBreakdown(kind, i)}><Icon name="trash" style={{ width: 14, height: 14 }} /></button></Field>
+                <Field label=" "><button type="button" className="btn btn-ghost receipt-breakdown-remove"
+                  aria-label="Удалить строку" title="Удалить строку" onClick={() => delBreakdown(kind, i)}><Icon name="trash" /></button></Field>
               </div>
             )) : <div style={{ fontSize: 12, color: 'var(--muted)' }}>Детализация не найдена</div>}
           </div>
@@ -1269,9 +1270,11 @@ function ReceiptImportModal({ open, onClose, onDone }) {
   const [mathId, setMathId] = useState(null);
   const [brandId, setBrandId] = useState(null);
   const [bulk, setBulk] = useState({ fee: '', markup: '', commission: '' });
+  const [dragActive, setDragActive] = useState(false);
   const fileRef = useRef(null);
+  const dragDepth = useRef(0);
 
-  useEffect(() => { if (open) { setFiles([]); setStep(0); setExcluded({}); setReviewed({}); setEditId(null); setBindTarget({ mode: 'order', label: 'Выберите заказ' }); setOptAddIncomplete(false); setOptCreateServices(true); setMath({}); setSel({}); setMathId(null); setBrandId(null); setBulk({ fee: '', markup: '', commission: '' }); } }, [open]);
+  useEffect(() => { if (open) { setFiles([]); setStep(0); setExcluded({}); setReviewed({}); setEditId(null); setBindTarget({ mode: 'order', label: 'Выберите заказ' }); setOptAddIncomplete(false); setOptCreateServices(true); setMath({}); setSel({}); setMathId(null); setBrandId(null); setBulk({ fee: '', markup: '', commission: '' }); setDragActive(false); dragDepth.current = 0; } }, [open]);
   useEffect(() => {
     if (bindTarget.mode !== 'order' && optCreateServices) setOptCreateServices(false);
   }, [bindTarget.mode, optCreateServices]);
@@ -1336,7 +1339,19 @@ function ReceiptImportModal({ open, onClose, onDone }) {
     });
   };
   const onPick = (e) => { if (e.target.files && e.target.files.length) addFiles(e.target.files); e.target.value = ''; };
-  const onDrop = (e) => { e.preventDefault(); if (e.dataTransfer.files && e.dataTransfer.files.length) addFiles(e.dataTransfer.files); };
+  const onDragEnter = (e) => { e.preventDefault(); dragDepth.current += 1; setDragActive(true); };
+  const onDragOver = (e) => { e.preventDefault(); e.dataTransfer.dropEffect = 'copy'; setDragActive(true); };
+  const onDragLeave = (e) => {
+    e.preventDefault();
+    dragDepth.current = Math.max(0, dragDepth.current - 1);
+    if (dragDepth.current === 0) setDragActive(false);
+  };
+  const onDrop = (e) => {
+    e.preventDefault();
+    dragDepth.current = 0;
+    setDragActive(false);
+    if (e.dataTransfer.files && e.dataTransfer.files.length) addFiles(e.dataTransfer.files);
+  };
   const setType = (id, type) => {
     setFiles((cur) => cur.map((f) => (f.id === id ? { ...f, type, parsed: f.parsed ? normalizeReceiptDraft(type, { ...emptyReceiptParse({ ...f, type }), ...f.parsed, recognitionPending: true }) : null } : f)));
     setReviewed((cur) => ({ ...cur, [id]: false }));
@@ -1504,12 +1519,13 @@ function ReceiptImportModal({ open, onClose, onDone }) {
 
         {step === 0 && <>
         <RSub style={{ marginTop: 14 }}>Загрузка документов</RSub>
-        <div onClick={() => fileRef.current && fileRef.current.click()} onDrop={onDrop} onDragOver={(e) => e.preventDefault()}
-          style={{ border: '2px dashed var(--field-line)', borderRadius: 14, padding: '26px 20px', textAlign: 'center', cursor: 'pointer', background: 'var(--surface-2)' }}>
-          <span style={{ width: 46, height: 46, borderRadius: 12, background: 'var(--blue-soft)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}><Icon name="download" style={{ width: 22, height: 22, color: 'var(--blue)' }} /></span>
-          <div style={{ marginTop: 10, fontWeight: 700, color: 'var(--ink)' }}>Перетащите файлы сюда</div>
+        <div onClick={() => fileRef.current && fileRef.current.click()} onDrop={onDrop}
+          onDragEnter={onDragEnter} onDragOver={onDragOver} onDragLeave={onDragLeave}
+          className={'receipt-drop-zone' + (dragActive ? ' is-dragging' : '')}>
+          <span className="receipt-drop-icon"><Icon name={dragActive ? 'plus' : 'download'} /></span>
+          <div className="receipt-drop-title">{dragActive ? 'Отпустите файлы для загрузки' : 'Перетащите файлы сюда'}</div>
           <div style={{ margin: '8px 0' }}><Button variant="secondary" size="sm">Выбрать файлы</Button></div>
-          <div style={{ fontSize: 12, color: 'var(--muted)' }}>Авиа, ЖД, отели, трансферы · PDF, JPG, PNG · до 15 МБ · сканы требуют ручной проверки</div>
+          <div className="receipt-drop-hint">{dragActive ? 'Файлы будут добавлены в очередь распознавания' : 'Авиа, ЖД, отели, трансферы · PDF, JPG, PNG · до 15 МБ · сканы требуют ручной проверки'}</div>
         </div>
         </>}
 
@@ -1591,9 +1607,9 @@ function ReceiptImportModal({ open, onClose, onDone }) {
                               </td>
                               <td data-label="Стоимость">
                                 <button type="button" className="btn btn-ghost btn-sm rec-import-money" title="Изменить математику" onClick={() => setMathId(r.f.id)}>
-                                  <span style={{ display: 'block', fontWeight: 700, color: 'var(--ink)' }}>{recMoney(clientTotal(m), p.currency)}</span>
-                                  <span style={{ fontSize: 12, color: 'var(--muted)' }}>закупка {recSourceMoney(p)}</span>
-                                  <span style={{ fontSize: 12, color: 'var(--blue)' }}>сбор {m.fee || 0} · изменить</span>
+                                  <span className="rec-import-money-total">{recMoney(clientTotal(m), p.currency)}</span>
+                                  <span className="rec-import-money-source">закупка {recSourceMoney(p)}</span>
+                                  <span className="rec-import-money-fee">сбор {m.fee || 0} · изменить</span>
                                 </button>
                               </td>
                               <td data-label="Проверка">
