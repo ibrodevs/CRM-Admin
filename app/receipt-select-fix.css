@@ -1,0 +1,49 @@
+/* Receipt editor: keep the service label clear of the native select arrow. */
+.rec-import-type-select {
+  width: 140px;
+  min-width: 140px;
+  max-width: 100%;
+  padding-left: 10px;
+  padding-right: 40px;
+  background-position: right 11px center;
+  background-size: 16px;
+  white-space: nowrap;
+}
+
+/* Keep delete actions visible in charge/tax breakdown rows at every app zoom. */
+.receipt-remove.btn {
+  width: 40px !important;
+  min-width: 40px !important;
+  height: 40px !important;
+  min-height: 40px !important;
+  flex: 0 0 40px !important;
+  padding: 0 !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  color: var(--red) !important;
+  opacity: 1 !important;
+  line-height: 1 !important;
+}
+
+.receipt-remove.btn svg {
+  width: 18px !important;
+  min-width: 18px !important;
+  height: 18px !important;
+  min-height: 18px !important;
+  flex: 0 0 18px !important;
+  color: currentColor !important;
+  opacity: 1 !important;
+  stroke-width: 2 !important;
+}
+
+.receipt-remove.btn:hover {
+  background: var(--red-bg) !important;
+}
+
+@media (max-width: 760px) {
+  .rec-import-type-select {
+    width: min(160px, 100%);
+    min-width: 140px;
+  }
+}
