@@ -4,6 +4,9 @@ on:
   push:
     branches:
       - fix/receipt-binding-drawer
+  pull_request:
+    branches:
+      - main
 
 permissions:
   contents: write
@@ -15,7 +18,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: ${{ github.ref_name }}
+          ref: ${{ github.head_ref || github.ref_name }}
           fetch-depth: 0
 
       - uses: actions/setup-node@v4
@@ -77,10 +80,12 @@ test('привязка квитанции к заказу и пассажиру 
       - run: npm test
 
       - name: Commit source change
+        env:
+          TARGET_BRANCH: ${{ github.head_ref || github.ref_name }}
         run: |
           rm -f .github/workflows/apply-receipt-binding-drawer.yml
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add js/features/receipts/editor.jsx test/receipt-editor-spec.test.mjs .github/workflows/apply-receipt-binding-drawer.yml
           git commit -m "feat: move receipt bindings to side drawers"
-          git push origin HEAD:${{ github.ref_name }}
+          git push origin HEAD:${TARGET_BRANCH}
