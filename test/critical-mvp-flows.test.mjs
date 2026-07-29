@@ -26,6 +26,14 @@ test('импорт принимает несколько квитанций и �
   assert.match(app, /<ReceiptEditorPage[^>]+onChanged=\{\(\) => workspace\.reload\(\)\}/);
 });
 
+test('импорт ЖД не затирает распознанную стоимость нулём из пустого draft', () => {
+  assert.match(receipts, /const receiptImportMoney = \(\.\.\.values\)/);
+  assert.match(receipts, /draft\.total, verified\.total, verified\.originalTotal, extracted\.total/);
+  assert.match(receipts, /draft\.ticketCost, draft\.ticket_cost, verified\.ticketCost/);
+  assert.match(receipts, /extracted\.reservedSeatCost, extracted\.reserved_seat_cost/);
+  assert.match(receipts, /priceSource: total > 0 \? 'document' : 'manual'/);
+});
+
 test('поставщик создаётся один раз, а приоритеты сохраняются профильным API', () => {
   assert.doesNotMatch(app, /const addSupplier[\s\S]{0,300}workspace\.createSupplier/);
   assert.match(suppliers, /suppliersApi\.saveSearchPriority/);

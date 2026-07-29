@@ -919,6 +919,13 @@ function serviceTypeFromBackend(kind, label, fallback) {
   if (raw === 'other' || /проч/.test(raw)) return 'Прочее';
   return fallback || 'Прочее';
 }
+const receiptImportMoney = (...values) => {
+  const numbers = values
+    .filter((value) => value !== undefined && value !== null && value !== '')
+    .map(Number)
+    .filter(Number.isFinite);
+  return numbers.find((value) => value !== 0) ?? numbers[0] ?? 0;
+};
 const recMoney = (v, c) => (v < 0 ? '− ' : '') + Math.abs(v).toLocaleString('ru-RU') + ' ' + (c === 'USD' ? '$' : c);
 const recComputed = (p) => (Number(p.fare) || 0) + (Number(p.taxes) || 0) + (Number(p.fees) || 0);
 const recHasSourceAmount = (p) => p && Object.prototype.hasOwnProperty.call(p, 'originalTotal')
@@ -1317,13 +1324,26 @@ function ReceiptImportModal({ open, onClose, onDone }) {
         const result = await waitForReceiptResult(imported.id);
         const draft = result.draft || {};
         const extracted = result.extracted || {};
+        const verified = result.verified_data || {};
         const detectedType = serviceTypeFromBackend(extracted.service_kind, extracted.service_type, entry.type);
         const base = emptyReceiptParse({ ...entry, type: detectedType });
         const primaryPassenger = draft.passenger_name || extracted.passenger_name || base.passenger;
-        const parsed = normalizeReceiptDraft(detectedType, { ...base, ...(result.verified_data || {}),
+        const fare = receiptImportMoney(draft.fare, verified.fare, extracted.fare, base.fare);
+        const taxes = receiptImportMoney(draft.taxes, verified.taxes, extracted.taxes, base.taxes);
+        const fees = receiptImportMoney(draft.fees, verified.fees, extracted.fees, base.fees);
+        const total = receiptImportMoney(draft.total, verified.total, verified.originalTotal, extracted.total, fare + taxes + fees);
+        const parsed = normalizeReceiptDraft(detectedType, { ...base, ...verified,
           carrier: draft.issuer || extracted.issuer || result.verified_data?.carrier || base.carrier, passenger: primaryPassenger,
           passengers: draft.passengers || extracted.passengers || (primaryPassenger ? [{ name: primaryPassenger, dob: extracted.date_of_birth || '', document: extracted.document_number || '', ticketNo: extracted.ticket_number || '' }] : base.passengers),
-          fare: Number(draft.fare || base.fare || 0), taxes: Number(draft.taxes || base.taxes || 0), fees: Number(draft.fees || base.fees || 0), total: Number(draft.total || base.total || 0),
+          fare, taxes, fees, total, originalTotal: receiptImportMoney(verified.originalTotal, extracted.originalTotal, extracted.total, total),
+          ticketCost: receiptImportMoney(draft.ticketCost, draft.ticket_cost, verified.ticketCost, verified.ticket_cost,
+            extracted.ticketCost, extracted.ticket_cost, fare),
+          reservedSeatCost: receiptImportMoney(draft.reservedSeatCost, draft.reserved_seat_cost, verified.reservedSeatCost,
+            verified.reserved_seat_cost, extracted.reservedSeatCost, extracted.reserved_seat_cost),
+          agencyServiceFee: receiptImportMoney(draft.agencyServiceFee, draft.agency_service_fee, verified.agencyServiceFee,
+            verified.agency_service_fee, extracted.agencyServiceFee, extracted.agency_service_fee, fees),
+          additionalFees: receiptImportMoney(draft.additionalFees, draft.additional_fees, verified.additionalFees,
+            verified.additional_fees, extracted.additionalFees, extracted.additional_fees),
           fareBreakdown: draft.fare_breakdown || extracted.fare_breakdown || [],
           taxBreakdown: draft.tax_breakdown || extracted.tax_breakdown || [], feeBreakdown: draft.fee_breakdown || extracted.fee_breakdown || [],
           ref: extracted.reference || base.ref, ticketNo: extracted.ticket_number || base.ticketNo,
@@ -1341,7 +1361,7 @@ function ReceiptImportModal({ open, onClose, onDone }) {
           transferTerms: draft.transferTerms || extracted.transferTerms || result.verified_data?.transferTerms || base.transferTerms,
           extras: draft.extras || extracted.extras || [],
           fareInfo: draft.fare_info || extracted.fare_info || base.fareInfo,
-          priceSource: Number(draft.total || draft.fare || draft.taxes || draft.fees || 0) > 0 ? 'document' : 'manual',
+          priceSource: total > 0 ? 'document' : 'manual',
           recognitionPending: result.parser_status !== 'parsed', backendWarnings: result.warnings || [] });
         setFiles((cur) => cur.map((item) => item.id === entry.id ? { ...item, status: 'done', importId: imported.id, type: detectedType, parsed } : item));
       } catch (error) {
