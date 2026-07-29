@@ -696,7 +696,7 @@ export function ReceiptSpecializedForm({
       <div className="receipt-stack">{p.passengers.map((row, index) => (
         <div className="receipt-subcard" key={index}>
           <div className="receipt-subcard-title"><b>{type === 'Гостиница' ? `Гость ${index + 1}` : `Пассажир ${index + 1}`}</b>
-            {correctionMode && p.passengers.length > 1 && <RowRemove onClick={() => removeRow('passengers', index, 'Удалён участник')} />}</div>
+            {correctionMode && p.passengers.length > 1 && <RowRemove label="" onClick={() => removeRow('passengers', index, 'Удалён участник')} />}</div>
           <div className="receipt-form-grid">
             <Field label="ФИО"><LockedInput correctionMode={correctionMode} value={row.name} onChange={(e) => setArray('passengers', index, 'name', e.target.value, `ФИО участника ${index + 1}`)} /></Field>
             <ProtectedDate correctionMode={correctionMode} label="Дата рождения" value={row.dob}
@@ -735,7 +735,7 @@ export function ReceiptSpecializedForm({
       <div className="receipt-stack">{p.legs.map((leg, index) => (
         <div className="receipt-subcard" key={index}>
           <div className="receipt-subcard-title"><b>{type === 'Гостиница' ? 'Период проживания' : `${type === 'Трансфер' ? 'Поездка' : 'Сегмент'} ${index + 1}`}</b>
-            {correctionMode && p.legs.length > 1 && <RowRemove onClick={() => removeRow('legs', index, 'Удалён сегмент маршрута')} />}</div>
+            {correctionMode && p.legs.length > 1 && <RowRemove label="" onClick={() => removeRow('legs', index, 'Удалён сегмент маршрута')} />}</div>
           <div className="receipt-form-grid">
             {type !== 'Гостиница' && <Field label="Место отправления"><LockedInput correctionMode={correctionMode} value={leg.from} onChange={(e) => setArray('legs', index, 'from', e.target.value, `Отправление сегмента ${index + 1}`)} /></Field>}
             {type !== 'Гостиница' && <Field label="Место назначения"><LockedInput correctionMode={correctionMode} value={leg.to} onChange={(e) => setArray('legs', index, 'to', e.target.value, `Назначение сегмента ${index + 1}`)} /></Field>}
@@ -852,7 +852,7 @@ export function ReceiptSpecializedForm({
     {routeBlock}
     <Section title="4. Размещение по номерам" action={correctionMode ? <Button size="sm" variant="ghost" icon="plus" onClick={() => addRow('rooms', emptyRoom(), 'Добавлен номер размещения')}>Добавить номер</Button> : null}>
       <div className="receipt-stack">{p.rooms.map((room, index) => <div className="receipt-subcard" key={index}>
-        <div className="receipt-subcard-title"><b>Номер {index + 1}</b>{correctionMode && p.rooms.length > 1 && <RowRemove onClick={() => removeRow('rooms', index, 'Удалён номер размещения')} />}</div>
+        <div className="receipt-subcard-title"><b>Номер {index + 1}</b>{correctionMode && p.rooms.length > 1 && <RowRemove label="" onClick={() => removeRow('rooms', index, 'Удалён номер размещения')} />}</div>
         <div className="receipt-form-grid">
           <Field label="Категория номера"><LockedInput correctionMode={correctionMode} value={room.category} onChange={(e) => setArray('rooms', index, 'category', e.target.value, `Категория номера ${index + 1}`)} /></Field>
           <Field label="Название номера"><LockedInput correctionMode={correctionMode} value={room.name} onChange={(e) => setArray('rooms', index, 'name', e.target.value, `Название номера ${index + 1}`)} /></Field>
