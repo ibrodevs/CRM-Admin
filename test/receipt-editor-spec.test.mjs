@@ -201,10 +201,24 @@ test('импорт показывает заметный прогресс заг
 test('групповой ЖД PDF отображает каждый билет отдельной подстрокой', () => {
   assert.match(page, /function receiptImportSubrows\(type, receipts\)/);
   assert.match(page, /subReceipts = receiptImportSubrows\(detectedType, extracted\.receipts\)/);
+  assert.match(page, /function aggregateReceiptSubrows\(parent, subReceipts\)/);
+  assert.match(page, /groupTickets: subReceipts/);
+  assert.match(page, /receiptCount: subReceipts\.length/);
   assert.match(page, /className="rec-import-subrow"/);
   assert.match(page, /Билет \{subIndex \+ 1\} из \{r\.f\.subReceipts\.length\}/);
+  assert.match(page, /вагон \$\{railLeg\.coach\}/);
+  assert.match(page, /место \$\{railLeg\.seat\}/);
+  assert.match(page, /Билет: \{recMoney\(Number\(subReceipt\.ticketCost\)/);
+  assert.match(page, /Плацкарта: \{recMoney\(Number\(subReceipt\.reservedSeatCost\)/);
+  assert.match(page, /Такая же стоимость у \{identicalCostCount\} билетов/);
+  assert.match(page, /Изменить билет/);
+  assert.match(page, /updateSubReceipt\(subEdit\.fileId, subEdit\.index, parsed\)/);
   assert.match(page, /В составе общего PDF/);
+  assert.match(page, /className="receipt-registry-subrow"/);
+  assert.match(page, /Изменить общий бланк/);
   assert.match(styles, /\.rec-import-table tbody tr\.rec-import-subrow/);
+  assert.match(styles, /\.rec-import-subrow-cost/);
+  assert.match(styles, /\.receipt-registry-table tr\.receipt-registry-subrow/);
 });
 
 test('суммы реестра разнесены по строкам, а удаление имеет доступную крупную кнопку', () => {

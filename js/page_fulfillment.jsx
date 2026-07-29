@@ -941,12 +941,52 @@ function receiptImportSubrows(type, receipts) {
     total: receipt.total ?? '',
     ticketCost: receipt.ticketCost ?? receipt.ticket_cost ?? '',
     reservedSeatCost: receipt.reservedSeatCost ?? receipt.reserved_seat_cost ?? '',
+    fareBreakdown: receipt.costBreakdown || receipt.fare_breakdown || [],
+    includedTaxBreakdown: receipt.includedTaxBreakdown || receipt.included_tax_breakdown || [],
     currency: receipt.currency || 'RUB',
     legs: receipt.segments || [],
     tripType: receipt.trip_type || 'oneway',
     recognitionPending: false,
     receiptIndex: index + 1,
   }));
+}
+function aggregateReceiptSubrows(parent, subReceipts) {
+  if (!subReceipts.length) return parent;
+  const sum = (key) => Math.round(subReceipts.reduce((total, receipt) => total + (Number(receipt[key]) || 0), 0) * 100) / 100;
+  const passengers = subReceipts.flatMap((receipt) => receipt.passengers || []).filter((passenger) => passenger.name);
+  const uniqueLegs = [];
+  const seenLegs = new Set();
+  subReceipts.flatMap((receipt) => receipt.legs || []).forEach((leg) => {
+    const key = [leg.from, leg.to, leg.date, leg.dep, leg.arr, leg.flightNo].join('|');
+    if (!seenLegs.has(key)) {
+      seenLegs.add(key);
+      uniqueLegs.push(leg);
+    }
+  });
+  const ticketCost = sum('ticketCost');
+  const reservedSeatCost = sum('reservedSeatCost');
+  const total = sum('total');
+  return normalizeReceiptDraft('ЖД', {
+    ...parent,
+    passenger: passengers.map((passenger) => passenger.name).join(', '),
+    passengers,
+    ticketNo: subReceipts.map((receipt) => receipt.ticketNo).filter(Boolean).join(', '),
+    legs: uniqueLegs.length ? uniqueLegs : parent.legs,
+    fare: total,
+    taxes: sum('taxes'),
+    fees: sum('fees'),
+    total,
+    originalTotal: total,
+    ticketCost,
+    reservedSeatCost,
+    fareBreakdown: [
+      { code: 'TICKET', label: 'Билет', amount: ticketCost, currency: parent.currency || 'RUB' },
+      { code: 'RESERVED_SEAT', label: 'Плацкарта', amount: reservedSeatCost, currency: parent.currency || 'RUB' },
+    ],
+    groupTickets: subReceipts,
+    receiptCount: subReceipts.length,
+    recognitionPending: subReceipts.some((receipt) => receipt.recognitionPending),
+  });
 }
 const receiptImportMoney = (...values) => {
   const numbers = values
@@ -1306,6 +1346,7 @@ function ReceiptImportModal({ open, onClose, onDone }) {
   const [excluded, setExcluded] = useState({});
   const [reviewed, setReviewed] = useState({});
   const [editId, setEditId] = useState(null);
+  const [subEdit, setSubEdit] = useState(null);
 
 
   const [bindTarget, setBindTarget] = useState({ mode: 'order', label: 'Выберите заказ' });
@@ -1321,7 +1362,7 @@ function ReceiptImportModal({ open, onClose, onDone }) {
   const fileRef = useRef(null);
   const dragDepth = useRef(0);
 
-  useEffect(() => { if (open) { setFiles([]); setStep(0); setExcluded({}); setReviewed({}); setEditId(null); setBindTarget({ mode: 'order', label: 'Выберите заказ' }); setOptAddIncomplete(false); setOptCreateServices(true); setMath({}); setSel({}); setMathId(null); setBrandId(null); setBulk({ fee: '', markup: '', commission: '' }); setDragActive(false); dragDepth.current = 0; } }, [open]);
+  useEffect(() => { if (open) { setFiles([]); setStep(0); setExcluded({}); setReviewed({}); setEditId(null); setSubEdit(null); setBindTarget({ mode: 'order', label: 'Выберите заказ' }); setOptAddIncomplete(false); setOptCreateServices(true); setMath({}); setSel({}); setMathId(null); setBrandId(null); setBulk({ fee: '', markup: '', commission: '' }); setDragActive(false); dragDepth.current = 0; } }, [open]);
   useEffect(() => {
     if (bindTarget.mode !== 'order' && optCreateServices) setOptCreateServices(false);
   }, [bindTarget.mode, optCreateServices]);
@@ -1391,6 +1432,8 @@ function ReceiptImportModal({ open, onClose, onDone }) {
           transferTerms: draft.transferTerms || extracted.transferTerms || result.verified_data?.transferTerms || base.transferTerms,
           extras: draft.extras || extracted.extras || [],
           fareInfo: draft.fare_info || extracted.fare_info || base.fareInfo,
+          groupTickets: subReceipts,
+          receiptCount: subReceipts.length || extracted.receipt_count || 1,
           priceSource: total > 0 ? 'document' : 'manual',
           recognitionPending: result.parser_status !== 'parsed', backendWarnings: result.warnings || [] });
         setFiles((cur) => cur.map((item) => item.id === entry.id
@@ -1427,6 +1470,20 @@ function ReceiptImportModal({ open, onClose, onDone }) {
       manualCompletion: Boolean(f.error || f.parsed?.recognitionPending || parsed.manualCompletion),
     }) } : f)));
     setReviewed((cur) => ({ ...cur, [id]: true }));
+  };
+  const updateSubReceipt = (fileId, subIndex, parsed) => {
+    setFiles((cur) => cur.map((file) => {
+      if (file.id !== fileId) return file;
+      const subReceipts = (file.subReceipts || []).map((receipt, index) => (
+        index === subIndex ? normalizeReceiptDraft(file.type, parsed) : receipt
+      ));
+      return {
+        ...file,
+        subReceipts,
+        parsed: aggregateReceiptSubrows(file.parsed, subReceipts),
+      };
+    }));
+    setReviewed((cur) => ({ ...cur, [fileId]: true }));
   };
   const markReviewed = (id) => setReviewed((cur) => ({ ...cur, [id]: true }));
   const remove = (id) => { setFiles((cur) => cur.filter((f) => f.id !== id)); setExcluded((e) => { const n = { ...e }; delete n[id]; return n; }); setReviewed((e) => { const n = { ...e }; delete n[id]; return n; }); };
@@ -1467,6 +1524,8 @@ function ReceiptImportModal({ open, onClose, onDone }) {
   const editFile = files.find((f) => f.id === editId) || null;
   const mathFile = files.find((f) => f.id === mathId) || null;
   const brandFile = files.find((f) => f.id === brandId) || null;
+  const subEditParent = files.find((f) => f.id === subEdit?.fileId) || null;
+  const subEditReceipt = subEditParent?.subReceipts?.[subEdit?.index] || null;
   const hasOrderTarget = bindTarget.mode === 'order' && bindTarget.order && bindTarget.order.id;
   const canAttach = toAdd.length > 0 && !processing && (!optCreateServices || hasOrderTarget);
   const canNext = [
@@ -1726,6 +1785,11 @@ function ReceiptImportModal({ open, onClose, onDone }) {
                             </tr>
                             {(r.f.subReceipts || []).map((subReceipt, subIndex) => {
                               const subDetails = receiptDetailsLines(r.f.type, subReceipt);
+                              const railLeg = subReceipt.legs?.[0] || {};
+                              const identicalCostCount = r.f.subReceipts.filter((candidate) => (
+                                Number(candidate.total) === Number(subReceipt.total)
+                              )).length;
+                              const includedVat = (subReceipt.includedTaxBreakdown || []).filter((row) => Number(row.amount) > 0);
                               return (
                                 <tr key={`${r.f.id}-ticket-${subIndex}`} className="rec-import-subrow" style={{ opacity: skipped ? 0.5 : 1 }}>
                                   <td data-label=""></td>
@@ -1740,11 +1804,31 @@ function ReceiptImportModal({ open, onClose, onDone }) {
                                     </span>
                                   </td>
                                   <td data-label="Маршрут">
-                                    <span className="rec-import-details">{subDetails.slice(0, 3).map((line, index) => <span key={index}>{line}</span>)}</span>
+                                    <span className="rec-import-details">
+                                      {subDetails.slice(0, 2).map((line, index) => <span key={index}>{line}</span>)}
+                                      <span>{[
+                                        railLeg.flightNo ? `Поезд ${railLeg.flightNo}` : '',
+                                        railLeg.coach ? `вагон ${railLeg.coach}` : '',
+                                        railLeg.seat ? `место ${railLeg.seat}` : '',
+                                      ].filter(Boolean).join(' · ') || 'Поезд, вагон и место не распознаны'}</span>
+                                    </span>
                                   </td>
-                                  <td data-label="Стоимость"><b>{recSourceMoney(subReceipt)}</b></td>
+                                  <td data-label="Стоимость">
+                                    <span className="rec-import-subrow-cost">
+                                      <b>{recSourceMoney(subReceipt)}</b>
+                                      <span>Билет: {recMoney(Number(subReceipt.ticketCost) || 0, subReceipt.currency)}</span>
+                                      <span>Плацкарта: {recMoney(Number(subReceipt.reservedSeatCost) || 0, subReceipt.currency)}</span>
+                                      {includedVat.map((row) => <span key={row.code}>{row.label}: {recMoney(Number(row.amount), row.currency || subReceipt.currency)}</span>)}
+                                      {identicalCostCount > 1 && <em>Такая же стоимость у {identicalCostCount} билетов</em>}
+                                    </span>
+                                  </td>
                                   <td data-label="Проверка"><Pill tone="green">Распознано</Pill></td>
-                                  <td data-label="Операции"><span className="rec-import-meta">В составе общего PDF</span></td>
+                                  <td data-label="Операции">
+                                    <button type="button" className="btn btn-ghost btn-sm" onClick={() => setSubEdit({ fileId: r.f.id, index: subIndex })}>
+                                      Изменить билет
+                                    </button>
+                                    <span className="rec-import-meta">В составе общего PDF</span>
+                                  </td>
                                   <td data-label=""></td>
                                 </tr>
                               );
@@ -1836,6 +1920,19 @@ function ReceiptImportModal({ open, onClose, onDone }) {
 
       <ReceiptEditDrawer open={!!editFile} file={editFile} onClose={() => setEditId(null)} onChange={updateParsed} onReview={markReviewed}
         onBrand={() => { setBrandId(editId); setEditId(null); }} />
+      <ReceiptEditDrawer open={!!subEditReceipt} file={subEditReceipt ? {
+        id: `${subEdit.fileId}-ticket-${subEdit.index}`,
+        type: subEditParent.type,
+        parsed: subEditReceipt,
+        originalUrl: subEditParent.originalUrl,
+      } : null}
+        onClose={() => setSubEdit(null)}
+        onChange={(_id, parsed) => updateSubReceipt(subEdit.fileId, subEdit.index, parsed)}
+        onReview={(_id, parsed) => {
+          updateSubReceipt(subEdit.fileId, subEdit.index, parsed);
+          return true;
+        }}
+        onBrand={() => { setBrandId(subEdit.fileId); setSubEdit(null); }} />
       <ReceiptMathDrawer open={!!mathFile} file={mathFile} math={mathFile ? getMath(mathFile.id, mathFile.parsed) : null}
         onSave={(patch) => { setMathFor(mathFile.id, mathFile.parsed, patch); }} onClose={() => setMathId(null)} />
 
@@ -1973,7 +2070,8 @@ function ReceiptEditorPage({ documents = [], orders = [], services = [], onChang
                     const supplierTotal = Number(d.parsed.supplierCost || d.parsed.fare || d.supplierBlank?.total || 0);
                     const order = orders.find((row) => String(row.no) === String(d.order));
                     return (
-                      <tr key={d.serverId || d.no}>
+                      <React.Fragment key={d.serverId || d.no}>
+                      <tr className={d.parsed.groupTickets?.length ? 'has-subrows' : ''}>
                         <td data-label="Документ"><span className="rec-import-file">
                           <span className="rec-import-icon" style={{ background: t.color }}><Icon name={t.icon} /></span>
                           <span className="rec-import-main">
@@ -1997,6 +2095,36 @@ function ReceiptEditorPage({ documents = [], orders = [], services = [], onChang
                           <Button size="sm" variant="ghost" icon="trash" onClick={() => removeReceipt(d)}>Удалить</Button>
                         </div></td>
                       </tr>
+                      {(d.parsed.groupTickets || []).map((ticket, ticketIndex) => {
+                        const ticketLeg = ticket.legs?.[0] || {};
+                        return (
+                          <tr key={`${d.serverId || d.no}-ticket-${ticketIndex}`} className="receipt-registry-subrow">
+                            <td data-label="Билет">
+                              <span className="rec-import-subrow-document">
+                                <span className="rec-import-subrow-branch" aria-hidden="true">↳</span>
+                                <span>
+                                  <b>Билет {ticketIndex + 1} из {d.parsed.groupTickets.length}</b>
+                                  <span>{ticket.passenger}</span>
+                                  <span>№ {ticket.ticketNo}</span>
+                                </span>
+                              </span>
+                            </td>
+                            <td data-label="Маршрут"><span className="rec-import-details">
+                              <span>{routeSummary(ticket)}</span>
+                              <span>{ticketLeg.date} · {ticketLeg.dep}–{ticketLeg.arr}</span>
+                              <span>Поезд {ticketLeg.flightNo} · вагон {ticketLeg.coach} · место {ticketLeg.seat}</span>
+                            </span></td>
+                            <td data-label="Стоимость"><span className="rec-import-subrow-cost">
+                              <b>{recSourceMoney(ticket)}</b>
+                              <span>Билет: {recMoney(Number(ticket.ticketCost) || 0, ticket.currency)}</span>
+                              <span>Плацкарта: {recMoney(Number(ticket.reservedSeatCost) || 0, ticket.currency)}</span>
+                            </span></td>
+                            <td data-label="Проверка"><Pill tone="green">Распознано</Pill></td>
+                            <td data-label="Операции"><Button size="sm" variant="ghost" onClick={() => { editDirty.current = false; setEdit(d); }}>Изменить общий бланк</Button></td>
+                          </tr>
+                        );
+                      })}
+                      </React.Fragment>
                     );
                   })}
                 </tbody>

@@ -302,6 +302,12 @@ table.tbl.tbl-wide thead th,table.tbl.tbl-wide tbody td{white-space:nowrap}
 .rec-import-subrow-document>span:last-child{display:grid;gap:2px;min-width:0;color:var(--muted);font-size:12px;line-height:1.35}
 .rec-import-subrow-document b{color:var(--ink);font-size:12.5px}
 .rec-import-subrow-branch{flex:0 0 auto;color:var(--blue);font-size:18px;font-weight:800;line-height:1}
+.rec-import-subrow-cost{display:grid;gap:2px;color:var(--muted);font-size:11.5px;line-height:1.35}
+.rec-import-subrow-cost b{color:var(--ink);font-size:13px}
+.rec-import-subrow-cost em{margin-top:3px;padding:3px 6px;border-radius:6px;background:var(--blue-soft);color:var(--blue);font-style:normal;font-weight:700}
+.receipt-registry-table tr.has-subrows td{background:#f9fbff}
+.receipt-registry-table tr.receipt-registry-subrow td{background:#f7f9fd;border-bottom-color:#dfe6f5}
+.receipt-registry-table tr.receipt-registry-subrow td:first-child{padding-left:28px}
 .rec-import-table tbody tr:hover td{background:transparent}
 .rec-import-table tbody td{
   display:block;min-width:0;padding:0!important;border-bottom:none!important;background:transparent;
