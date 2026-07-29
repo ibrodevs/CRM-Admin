@@ -18,7 +18,7 @@ const emptyPassenger = () => ({
 const emptyLeg = () => ({
   from: '', fromCode: '', to: '', toCode: '', fromAddress: '', toAddress: '',
   date: '', endDate: '', dep: '', arr: '', duration: '', carrier: '',
-  flightNo: '', cls: '', status: '', dir: 'out',
+  flightNo: '', cls: '', status: '', fareBasis: '', cabin: '', baggage: '', dir: 'out',
 });
 const emptyRoom = () => ({
   category: '', name: '', bedType: '', adults: 1, children: 0, meal: 'Без питания',
@@ -250,7 +250,14 @@ export function normalizeReceiptDraft(type, value = {}) {
   draft.feeBreakdown = Array.isArray(value.feeBreakdown) ? value.feeBreakdown : [];
   draft.extras = Array.isArray(value.extras) ? value.extras : [];
   draft.rooms = asArray(value.rooms, [emptyRoom()]).map((row) => ({ ...emptyRoom(), ...row }));
-  draft.fareInfo = { code: '', name: '', bookingClass: draft.cls || '', exchangeRules: '', refundRules: '', ...(value.fareInfo || {}) };
+  const suppliedFareInfo = value.fareInfo || {};
+  draft.fareInfo = {
+    code: suppliedFareInfo.code || draft.fareBasis || draft.legs.find((leg) => leg.fareBasis)?.fareBasis || '',
+    name: suppliedFareInfo.name || draft.legs.find((leg) => leg.cabin)?.cabin || '',
+    bookingClass: suppliedFareInfo.bookingClass || draft.cls || draft.legs.find((leg) => leg.cls)?.cls || '',
+    exchangeRules: suppliedFareInfo.exchangeRules || '',
+    refundRules: suppliedFareInfo.refundRules || '',
+  };
   draft.hotel = { name: value.carrier || '', category: '', country: '', city: '', address: '', phone: '', email: '', map: '', ...(value.hotel || {}) };
   draft.hotelTerms = { deposit: '', cityTax: '', resortFee: '', registrationFee: '', cancellation: '', noShow: '', amendment: '', important: '', guestComment: '', ...(value.hotelTerms || {}) };
   draft.vehicle = { className: '', category: '', passengers: '', luggage: '', requirements: '', ...(value.vehicle || {}) };
@@ -486,6 +493,11 @@ export function ReceiptBrandDocumentDrawer({ open, type, draft, originalUrl, onC
               <span>{[leg.date, leg.dep, leg.arr, leg.flightNo].filter(Boolean).join(' · ')}</span>
               {(leg.fromAddress || leg.toAddress) && <span>{[leg.fromAddress, leg.toAddress].filter(Boolean).join(' → ')}</span>}
               {type === 'Авиа' && <span>{[leg.carrier || p.carrier, leg.cls, leg.status].filter(Boolean).join(' · ')}</span>}
+              {type === 'Авиа' && (leg.fareBasis || leg.cabin || leg.baggage) && <span>{[
+                leg.fareBasis && `Тариф ${leg.fareBasis}`,
+                leg.cabin,
+                leg.baggage && `Багаж ${leg.baggage}`,
+              ].filter(Boolean).join(' · ')}</span>}
             </div>)}</div>
           </>}
 
@@ -752,6 +764,9 @@ export function ReceiptSpecializedForm({
             {(type === 'Авиа' || type === 'ЖД' || type === 'Трансфер') && <Field label={type === 'ЖД' ? 'Номер поезда' : type === 'Трансфер' ? 'Рейс или поезд' : 'Номер рейса'}><LockedInput correctionMode={correctionMode} value={leg.flightNo} onChange={(e) => setArray('legs', index, 'flightNo', e.target.value, `Рейс/поезд сегмента ${index + 1}`)} /></Field>}
             {type === 'Авиа' && <Field label="Авиакомпания"><LockedInput correctionMode={correctionMode} value={leg.carrier || p.carrier} onChange={(e) => setArray('legs', index, 'carrier', e.target.value, `Авиакомпания сегмента ${index + 1}`)} /></Field>}
             {type === 'Авиа' && <Field label="Класс бронирования"><LockedInput correctionMode={correctionMode} value={leg.cls} onChange={(e) => setArray('legs', index, 'cls', e.target.value, `Класс сегмента ${index + 1}`)} /></Field>}
+            {type === 'Авиа' && <Field label="Код тарифа"><LockedInput correctionMode={correctionMode} value={leg.fareBasis} onChange={(e) => setArray('legs', index, 'fareBasis', e.target.value, `Тариф сегмента ${index + 1}`)} /></Field>}
+            {type === 'Авиа' && <Field label="Класс обслуживания"><LockedInput correctionMode={correctionMode} value={leg.cabin} onChange={(e) => setArray('legs', index, 'cabin', e.target.value, `Класс обслуживания сегмента ${index + 1}`)} /></Field>}
+            {type === 'Авиа' && <Field label="Багаж сегмента"><LockedInput correctionMode={correctionMode} value={leg.baggage} onChange={(e) => setArray('legs', index, 'baggage', e.target.value, `Багаж сегмента ${index + 1}`)} /></Field>}
             {type === 'Авиа' && <Field label="Статус сегмента"><LockedInput correctionMode={correctionMode} value={leg.status} onChange={(e) => setArray('legs', index, 'status', e.target.value, `Статус сегмента ${index + 1}`)} /></Field>}
             {type === 'Трансфер' && <Field label="Время поездки"><LockedInput correctionMode={correctionMode} value={leg.duration} onChange={(e) => setArray('legs', index, 'duration', e.target.value, `Время поездки ${index + 1}`)} /></Field>}
           </div>

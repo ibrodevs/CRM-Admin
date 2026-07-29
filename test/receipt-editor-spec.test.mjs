@@ -75,6 +75,9 @@ test('фирменные бланки авиа, ЖД и отеля получа�
   assert.match(editor, /type === 'Авиа' && <><h4>Расчёт стоимости/);
   assert.match(editor, /taxRows\.map/);
   assert.match(editor, /feeRows\.map/);
+  assert.match(editor, /leg\.fareBasis/);
+  assert.match(editor, /Багаж сегмента/);
+  assert.match(editor, /suppliedFareInfo\.code \|\| draft\.fareBasis/);
   assert.match(editor, /type === 'ЖД' && <><h4>Расчёт стоимости/);
 });
 
