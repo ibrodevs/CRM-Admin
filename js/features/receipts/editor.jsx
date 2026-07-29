@@ -795,7 +795,7 @@ export function ReceiptSpecializedForm({
               onChange={(next) => setArray('legs', index, 'endDate', next, 'Дата выезда')} />}
             {type !== 'Гостиница' && <ProtectedTime correctionMode={correctionMode} label="Время отправления" value={leg.dep}
               onChange={(next) => setArray('legs', index, 'dep', next, `Время отправления ${index + 1}`)} />}
-            {type === 'Авиа' && <ProtectedTime correctionMode={correctionMode} label="Время прибытия" value={leg.arr}
+            {(type === 'Авиа' || type === 'ЖД') && <ProtectedTime correctionMode={correctionMode} label="Время прибытия" value={leg.arr}
               onChange={(next) => setArray('legs', index, 'arr', next, `Время прибытия ${index + 1}`)} />}
             {(type === 'Авиа' || type === 'ЖД' || type === 'Трансфер') && <Field label={type === 'ЖД' ? 'Номер поезда' : type === 'Трансфер' ? 'Рейс или поезд' : 'Номер рейса'}><LockedInput correctionMode={correctionMode} value={leg.flightNo} onChange={(e) => setArray('legs', index, 'flightNo', e.target.value, `Рейс/поезд сегмента ${index + 1}`)} /></Field>}
             {type === 'Авиа' && <Field label="Авиакомпания"><LockedInput correctionMode={correctionMode} value={leg.carrier || p.carrier} onChange={(e) => setArray('legs', index, 'carrier', e.target.value, `Авиакомпания сегмента ${index + 1}`)} /></Field>}
