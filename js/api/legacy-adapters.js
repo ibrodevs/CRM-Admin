@@ -53,6 +53,8 @@ function receiptDraftFromMetadata(item) {
     }] : []),
     legs,
     ref: stored.ref || stored.reference || '',
+    supplierOrderNo: stored.supplierOrderNo || stored.supplier_order_number || '',
+    hotelBookingNo: stored.hotelBookingNo || stored.hotel_booking_number || '',
     ticketNo: stored.ticketNo || stored.ticket_number || '',
     docNo: stored.docNo || stored.document_number || '',
     dob: stored.dob || stored.date_of_birth || '',
@@ -151,6 +153,8 @@ export function toLegacyDocument(item, orders = []) {
   return {
     ...item,
     serverId: item.id,
+    orderId: item.order || null,
+    personId: item.person || null,
     no: item.document_number || `D-${String(item.id).slice(0, 6).toUpperCase()}`,
     name: item.title,
     type: documentKind[item.kind] || item.kind,

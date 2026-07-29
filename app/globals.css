@@ -395,7 +395,7 @@ table.tbl.tbl-wide thead th,table.tbl.tbl-wide tbody td{white-space:nowrap}
 .receipt-brand-document>header>div:nth-child(2)>b{font-size:15px;color:var(--ink)}
 .receipt-brand-document>header span,.receipt-brand-document small{font-size:11.5px;color:var(--muted)}
 .receipt-brand-document>header>div:last-child{display:grid;gap:2px;text-align:right}
-.receipt-brand-meta{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin:14px 0}
+.receipt-brand-meta{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin:14px 0}
 .receipt-brand-meta>div{display:grid;gap:3px}
 .receipt-brand-meta b{color:var(--ink);font-size:12.5px}
 .receipt-brand-document h3{margin:18px 0 4px;color:var(--ink);font-size:18px}
@@ -416,6 +416,16 @@ table.tbl.tbl-wide thead th,table.tbl.tbl-wide tbody td{white-space:nowrap}
 .receipt-brand-terms span{font-size:12px;color:var(--ink);white-space:pre-wrap}
 .receipt-brand-total{display:flex;align-items:center;justify-content:space-between;margin-top:18px;padding-top:12px;border-top:2px solid var(--ink);color:var(--ink);font-size:15px}
 .receipt-brand-document>footer{margin-top:18px;padding-top:10px;border-top:1px solid var(--line);font-size:10.5px;color:var(--muted);text-align:center}
+.receipt-brand-variants{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:7px;margin-bottom:14px;padding:5px;border:1px solid var(--line);border-radius:12px;background:var(--surface-2)}
+.receipt-brand-variants button{min-height:36px;border:0;border-radius:8px;background:transparent;color:var(--muted);font:inherit;font-size:12.5px;font-weight:700;cursor:pointer}
+.receipt-brand-variants button.active{background:#fff;color:var(--blue);box-shadow:0 1px 4px rgba(15,23,42,.12)}
+.receipt-brand-finance{display:grid;gap:0;border:1px solid var(--line);border-radius:10px;overflow:hidden}
+.receipt-brand-finance>div{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:8px 11px;border-bottom:1px solid var(--line);font-size:12px}
+.receipt-brand-finance>div:last-child{border-bottom:0}
+.receipt-brand-finance span{color:var(--body)}
+.receipt-brand-finance b{color:var(--ink);white-space:nowrap}
+.receipt-brand-finance .is-total{background:var(--blue-soft);font-size:13px}
+.receipt-binding-note{margin-top:9px;color:var(--muted);font-size:12px;line-height:1.45}
 @media (max-width:900px){
   .rec-import-table-card{border:none;background:transparent;box-shadow:none;overflow:visible}
   .rec-import-table{min-width:0;display:block}
@@ -447,6 +457,7 @@ table.tbl.tbl-wide thead th,table.tbl.tbl-wide tbody td{white-space:nowrap}
   .receipt-source-notice .btn{width:100%}
   .receipt-brand-document{padding:16px}
   .receipt-brand-meta,.receipt-brand-terms{grid-template-columns:1fr}
+  .receipt-brand-variants{grid-template-columns:1fr}
 }
 @media print{
   body.receipt-printing *{visibility:hidden!important}

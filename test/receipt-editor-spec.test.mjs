@@ -60,6 +60,22 @@ test('поддержаны три варианта вывода и защита 
   assert.match(editor, /Не показывать стоимость/);
   assert.match(editor, /не попадут стоимость поставщика, наценка, внутренние комиссии и сборы/);
   assert.match(editor, /Печать \/ сохранить PDF/);
+  assert.match(editor, /receipt-brand-variants/);
+  assert.match(editor, /Заказ поставщика\/API/);
+  assert.match(editor, /Расчёт стоимости/);
+  assert.match(editor, /Тариф перевозчика/);
+  assert.match(editor, /Стоимость плацкарты/);
+  assert.match(editor, /Заказ в CRM: №/);
+});
+
+test('фирменные бланки авиа, ЖД и отеля получают профильные данные', () => {
+  assert.match(editor, /type === 'Гостиница' && <>/);
+  assert.match(editor, /p\.hotel\.address/);
+  assert.match(editor, /p\.rooms\.map/);
+  assert.match(editor, /type === 'Авиа' && <><h4>Расчёт стоимости/);
+  assert.match(editor, /taxRows\.map/);
+  assert.match(editor, /feeRows\.map/);
+  assert.match(editor, /type === 'ЖД' && <><h4>Расчёт стоимости/);
 });
 
 test('трансферный ваучер классифицируется как трансфер до общего правила ваучеров', () => {
@@ -99,6 +115,31 @@ test('реестр восстанавливает распознанные да�
   assert.equal(document.parsed.carrier, 'Transfer Co');
   assert.equal(document.parsed.legs[0].to, 'Отель');
   assert.equal(document.parsed.recognitionPending, false);
+});
+
+test('реестр не смешивает заказ поставщика с внутренним заказом CRM', () => {
+  const document = toLegacyDocument({
+    id: 'c1c1c1c1-1111-2222-3333-444444444444',
+    order: 'd2d2d2d2-1111-2222-3333-444444444444',
+    kind: 'itinerary_receipt',
+    status: 'draft',
+    title: 'S7.pdf',
+    metadata: {
+      supplier_original: {
+        verified_data: {
+          passenger: 'IVANOV IVAN',
+          supplier_order_number: '5994230',
+          ref: 'NLZF1I',
+          total: '29153',
+          currency: 'RUB',
+        },
+      },
+      receipt_import: { service_kind: 'avia', service_type: 'Авиа', parser_status: 'parsed' },
+    },
+  }, [{ id: 'd2d2d2d2-1111-2222-3333-444444444444', no: 'CRM-125' }]);
+  assert.equal(document.orderId, 'd2d2d2d2-1111-2222-3333-444444444444');
+  assert.equal(document.order, 'CRM-125');
+  assert.equal(document.parsed.supplierOrderNo, '5994230');
 });
 
 test('реестр показывает участника из верхнего поля даже при пустом массиве пассажиров', () => {

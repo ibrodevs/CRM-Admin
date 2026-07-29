@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Icon } from '../../icons';
 import { Button, Drawer, Field, Input, Pill, Select, TimeField } from '../../ui';
 import { UFDateField, UnifiedBindField } from '../../forms_unified';
@@ -85,7 +85,8 @@ export function normalizeReceiptDraft(type, value = {}) {
   const draft = {
     carrier: '', carrierCode: '', passenger: passengers[0]?.name || '', passengers,
     dob: passengers[0]?.dob || '', docNo: passengers[0]?.document || '', ticketNo: passengers[0]?.ticketNo || '',
-    ref: '', supplierOrderNo: '', hotelBookingNo: '', crmOrderNo: '', crmPassenger: '', crmService: '', crmTrip: '',
+    ref: '', supplierOrderNo: '', hotelBookingNo: '', crmBindingMode: 'order',
+    crmOrderId: '', crmOrderNo: '', crmPersonId: '', crmPerson: '', crmPassenger: '', crmService: '', crmTrip: '',
     issueDate: '', bookingStatus: '', currency: 'RUB', tripType: type === 'Гостиница' ? 'stay' : 'oneway',
     legs: [emptyLeg()], fare: '', taxes: '', fees: '', total: '', originalTotal: supplierTotal || '', supplierFees: '',
     ticketCost: value.fare || '', reservedSeatCost: '', agencyServiceFee: value.fees || '',
@@ -122,9 +123,21 @@ export function normalizeReceiptDraft(type, value = {}) {
   draft.transferTerms = { cancellation: '', freeWaiting: '', meetAndGreet: '', baggageHelp: '', supportContacts: '', supplierComment: '', driverComment: '', passengerComment: '', ...(value.transferTerms || {}) };
   draft.output = { mode: 'original', template: '', priceMode: type === 'Гостиница' || type === 'Трансфер' ? 'hidden' : 'total', ...(value.output || {}) };
   draft.auditLog = Array.isArray(value.auditLog) ? value.auditLog : [];
+  draft.supplierOrderNo = value.supplierOrderNo || value.supplier_order_number || value.order_number
+    || ((type === 'ЖД' || type === 'Гостиница' || type === 'Трансфер') ? value.ref || value.reference || '' : '');
+  draft.hotelBookingNo = value.hotelBookingNo || value.hotel_booking_number || '';
+  draft.crmOrderId = value.crmOrderId || value.crm_order_id || '';
+  draft.crmOrderNo = value.crmOrderNo || value.crm_order_no || '';
+  draft.crmPersonId = value.crmPersonId || value.crm_person_id || '';
+  draft.crmPerson = value.crmPerson || value.crm_person || '';
+  draft.crmBindingMode = draft.crmPerson && !draft.crmOrderNo ? 'person' : (value.crmBindingMode || 'order');
   if (value.originalTotal === undefined || value.originalTotal === '') draft.originalTotal = supplierTotal || '';
-  if (type === 'ЖД' && (value.ticketCost === undefined || value.ticketCost === '')) draft.ticketCost = value.fare || '';
-  if (type === 'ЖД' && (value.agencyServiceFee === undefined || value.agencyServiceFee === '')) draft.agencyServiceFee = value.fees || '';
+  if (type === 'ЖД') {
+    draft.ticketCost = value.ticketCost ?? value.ticket_cost ?? value.fare ?? '';
+    draft.reservedSeatCost = value.reservedSeatCost ?? value.reserved_seat_cost ?? '';
+    draft.agencyServiceFee = value.agencyServiceFee ?? value.agency_service_fee ?? value.fees ?? '';
+    draft.additionalFees = value.additionalFees ?? value.additional_fees ?? '';
+  }
   if ((type === 'Гостиница' || type === 'Трансфер') && (value.supplierCost === undefined || value.supplierCost === '')) draft.supplierCost = supplierBase || '';
   if ((type === 'Гостиница' || type === 'Трансфер') && (value.agencyServiceFee === undefined || value.agencyServiceFee === '')) draft.agencyServiceFee = value.fees || '';
   return withFinancialAliases(type, draft);
@@ -250,14 +263,25 @@ export function ReceiptDocumentPreview({ type, draft }) {
 }
 
 export function ReceiptBrandDocumentDrawer({ open, type, draft, originalUrl, onClose }) {
+  const [previewMode, setPreviewMode] = useState('agency');
+  useEffect(() => {
+    if (!open) return;
+    const storedMode = draft?.output?.mode;
+    setPreviewMode(storedMode && storedMode !== 'original' ? storedMode : 'agency');
+  }, [open, draft?.output?.mode, type]);
   if (!open || !draft) return null;
   const p = normalizeReceiptDraft(type, draft);
   const participants = receiptParticipantNames(p);
-  const output = p.output || {};
+  const output = { ...(p.output || {}), mode: previewMode };
   const organization = output.mode === 'saas' ? 'Компания клиента' : 'ПСЦ Travel Hub';
   const outputLabel = output.mode === 'saas' ? 'Фирменный ваучер SaaS-компании' : output.mode === 'agency' ? 'Фирменный бланк агентства' : 'Оригинал поставщика';
   const price = output.priceMode === 'paid' ? 'Оплачено'
     : output.priceMode === 'hidden' ? '' : `${receiptFinancialTotal(type, p).toLocaleString('ru-RU')} ${p.currency || ''}`;
+  const money = (value) => `${roundMoney(value).toLocaleString('ru-RU')} ${p.currency || ''}`.trim();
+  const taxRows = p.taxBreakdown?.length ? p.taxBreakdown
+    : (Number(p.taxes) ? [{ code: 'TAX', label: 'Таксы перевозчика', amount: p.taxes }] : []);
+  const feeRows = p.feeBreakdown?.length ? p.feeBreakdown
+    : (Number(p.fees) ? [{ code: 'FEE', label: 'Сервисный сбор', amount: p.fees }] : []);
   const terms = type === 'Гостиница'
     ? [['Депозит', p.hotelTerms.deposit], ['Городской налог', p.hotelTerms.cityTax], ['Курортный сбор', p.hotelTerms.resortFee],
       ['Условия отмены', p.hotelTerms.cancellation], ['Штраф при незаезде', p.hotelTerms.noShow], ['Важная информация', p.hotelTerms.important],
@@ -280,6 +304,15 @@ export function ReceiptBrandDocumentDrawer({ open, type, draft, originalUrl, onC
         <Button variant="secondary" onClick={onClose}>Закрыть</Button>
         {output.mode !== 'original' && <Button icon="download" onClick={printReceipt}>Печать / сохранить PDF</Button>}
       </>}>
+      <div className="receipt-brand-variants" aria-label="Вариант бланка">
+        {[
+          ['original', 'Оригинал поставщика'],
+          ['agency', 'Бланк агентства'],
+          ['saas', 'Бланк SaaS-компании'],
+        ].map(([mode, label]) => <button type="button" key={mode}
+          className={output.mode === mode ? 'active' : ''} aria-pressed={output.mode === mode}
+          onClick={() => setPreviewMode(mode)}>{label}</button>)}
+      </div>
       {output.mode === 'original' ? (
         <div className="receipt-source-notice"><Icon name="lock" /><div><b>Будет использован оригинал поставщика</b>
           <span>Исходный файл хранится и отправляется без изменений.</span></div></div>
@@ -288,7 +321,9 @@ export function ReceiptBrandDocumentDrawer({ open, type, draft, originalUrl, onC
           <header><div className="receipt-brand-logo">P</div><div><b>{organization}</b><span>{TYPE_META[type]?.document || 'Документ'}</span></div>
             <div><small>Заказ CRM</small><b>{p.crmOrderNo || '—'}</b></div></header>
           <div className="receipt-brand-meta">
-            <div><small>Бронь поставщика</small><b>{p.supplierOrderNo || p.ref || p.ticketNo || '—'}</b></div>
+            <div><small>Заказ поставщика/API</small><b>{p.supplierOrderNo || '—'}</b></div>
+            <div><small>{type === 'Авиа' ? 'PNR / код бронирования' : type === 'Гостиница' ? 'Бронь отеля' : 'Бронь / билет'}</small>
+              <b>{type === 'Гостиница' ? p.hotelBookingNo || p.ref || '—' : p.ref || p.ticketNo || '—'}</b></div>
             <div><small>Дата оформления</small><b>{p.issueDate || '—'}</b></div>
             <div><small>Статус</small><b>{p.bookingStatus || 'Подтверждено'}</b></div>
           </div>
@@ -331,7 +366,27 @@ export function ReceiptBrandDocumentDrawer({ open, type, draft, originalUrl, onC
             <div className="receipt-brand-names">{p.extras.map((row, index) => <span key={index}>{row.name}{row.details ? ` · ${row.details}` : ''}</span>)}</div></>}
           {(type === 'Гостиница' || type === 'Трансфер') && terms.some(([, value]) => value) && <><h4>Условия и важная информация</h4>
             <div className="receipt-brand-terms">{terms.filter(([, value]) => value).map(([label, value]) => <div key={label}><b>{label}</b><span>{value}</span></div>)}</div></>}
-          {price && <div className="receipt-brand-total"><span>{output.priceMode === 'paid' ? 'Статус оплаты' : 'Итого для клиента'}</span><b>{price}</b></div>}
+          {type === 'Авиа' && <><h4>Расчёт стоимости</h4>
+            <div className="receipt-brand-finance">
+              <div><span>Тариф перевозчика</span><b>{money(p.fare)}</b></div>
+              {taxRows.map((row, index) => <div key={`tax-${index}`}><span>{[row.code, row.label].filter(Boolean).join(' · ') || 'Такса'}</span><b>{money(row.amount)}</b></div>)}
+              {feeRows.map((row, index) => <div key={`fee-${index}`}><span>{[row.code, row.label].filter(Boolean).join(' · ') || 'Сбор'}</span><b>{money(row.amount)}</b></div>)}
+              <div className="is-total"><span>Итого для клиента</span><b>{money(receiptFinancialTotal(type, p))}</b></div>
+            </div>
+            {(p.fareInfo.code || p.fareInfo.name || p.fareInfo.bookingClass) && <div className="receipt-brand-callout"><b>Тариф</b>
+              <span>{[p.fareInfo.code, p.fareInfo.name, p.fareInfo.bookingClass].filter(Boolean).join(' · ')}</span></div>}
+          </>}
+          {type === 'ЖД' && <><h4>Расчёт стоимости</h4>
+            <div className="receipt-brand-finance">
+              <div><span>Стоимость билета</span><b>{money(p.ticketCost)}</b></div>
+              <div><span>Стоимость плацкарты</span><b>{money(p.reservedSeatCost)}</b></div>
+              <div><span>Сервисный сбор агентства</span><b>{money(p.agencyServiceFee)}</b></div>
+              <div><span>Дополнительные сборы</span><b>{money(p.additionalFees)}</b></div>
+              <div className="is-total"><span>Итого для клиента</span><b>{money(receiptFinancialTotal(type, p))}</b></div>
+            </div>
+            {p.crmOrderNo && <div className="receipt-rail-footer">Заказ в CRM: № {p.crmOrderNo}</div>}
+          </>}
+          {price && type !== 'Авиа' && type !== 'ЖД' && <div className="receipt-brand-total"><span>{output.priceMode === 'paid' ? 'Статус оплаты' : 'Итого для клиента'}</span><b>{price}</b></div>}
           <footer>{organization} · Сформировано в PSC Travel Hub</footer>
         </article>
       )}
@@ -392,29 +447,58 @@ export function ReceiptSpecializedForm({ type, value, onChange, correctionMode, 
     }
     commit({ ...p, tripType, legs }, 'Тип маршрута', p.tripType, tripType);
   };
+  const bindingTarget = p.crmBindingMode === 'person' || (p.crmPerson && !p.crmOrderNo)
+    ? { mode: 'person', client: p.crmPerson, id: p.crmPersonId, label: p.crmPerson || 'Выберите физ. лицо' }
+    : {
+      mode: 'order',
+      order: p.crmOrderNo ? { id: p.crmOrderId, no: p.crmOrderNo } : null,
+      label: p.crmOrderNo ? `Заказ № ${p.crmOrderNo}` : 'Выберите заказ',
+    };
+  const setBindingTarget = (target) => {
+    const before = p.crmBindingMode === 'person' ? p.crmPerson : p.crmOrderNo;
+    const next = target?.mode === 'person'
+      ? {
+        ...p, crmBindingMode: 'person', crmPerson: target.client || '', crmPersonId: target.id || '',
+        crmOrderNo: '', crmOrderId: '',
+      }
+      : {
+        ...p, crmBindingMode: 'order', crmOrderNo: target?.order?.no || '',
+        crmOrderId: target?.order?.id || '', crmPerson: '', crmPersonId: '',
+      };
+    const after = target?.mode === 'person' ? target.client || '' : target?.order?.no || '';
+    commit(next, 'Привязка квитанции', before, after);
+  };
+
+  const bindingBlock = (
+    <Section title="Привязка квитанции">
+      <div className="receipt-form-grid">
+        <Field label="Заказ CRM или физическое лицо">
+          <UnifiedBindField value={bindingTarget} onChange={setBindingTarget} modes={['order', 'person']}
+            title="Куда привязать квитанцию"
+            sub="Выберите существующий заказ CRM или физическое лицо"
+            style={{ width: '100%' }} />
+        </Field>
+        <Field label={type === 'Гостиница' ? 'Услуга размещения' : type === 'Трансфер' ? 'Услуга трансфера' : 'Услуга'}>
+          <Input value={p.crmService || ''} onChange={(e) => set('crmService', e.target.value, 'Привязка к услуге')} />
+        </Field>
+        {type === 'Авиа' && <Field label="Соответствующий перелёт"><Input value={p.crmTrip || ''}
+          onChange={(e) => set('crmTrip', e.target.value, 'Привязка к перелёту')} /></Field>}
+      </div>
+      <div className="receipt-binding-note">Привязка задаётся один раз здесь. Сопоставление каждого пассажира или гостя с карточкой CRM остаётся в блоке участников.</div>
+    </Section>
+  );
 
   const commonBooking = (
     <Section title="1. Информация о документе">
       <div className="receipt-form-grid">
         {type === 'Авиа' && source('Номер билета', 'ticketNo')}
         {type === 'Авиа' && source('Код бронирования (PNR)', 'ref')}
+        {type === 'Авиа' && source('Номер заказа поставщика/API', 'supplierOrderNo')}
         {type === 'Гостиница' && source('Бронирование поставщика', 'supplierOrderNo')}
         {type === 'Гостиница' && source('Бронирование отеля', 'hotelBookingNo')}
         {(type === 'ЖД' || type === 'Трансфер') && source('Номер заказа поставщика', 'supplierOrderNo')}
         {source('Дата оформления', 'issueDate')}
         {source('Статус бронирования', 'bookingStatus')}
-        <Field label="Привязка к заказу CRM">
-          <UnifiedBindField
-            value={p.crmOrderNo
-              ? { mode: 'order', order: { no: p.crmOrderNo }, label: `Заказ № ${p.crmOrderNo}` }
-              : { mode: 'order', label: 'Выберите заказ' }}
-            onChange={(target) => set('crmOrderNo', target?.order?.no || '', 'Привязка к заказу CRM')}
-            modes={['order']}
-            title="Привязка к заказу"
-            sub="Выберите заказ, к которому относится документ"
-            style={{ width: '100%' }}
-          />
-        </Field>
         <Field label="Валюта"><Select options={['RUB', 'USD', 'EUR', 'KGS', 'KZT', 'CNY']} value={p.currency || 'RUB'} onChange={(e) => set('currency', e.target.value, 'Валюта')} /></Field>
       </div>
     </Section>
@@ -633,15 +717,8 @@ export function ReceiptSpecializedForm({ type, value, onChange, correctionMode, 
     </Section>
   </>;
 
-  const crmAndOutput = <>
-    <Section title={type === 'Гостиница' ? '10. Привязка к CRM' : type === 'Трансфер' ? '7. Привязка к CRM' : type === 'ЖД' ? 'Привязка к заказу CRM' : '9. Привязка к CRM'}>
-      <div className="receipt-form-grid">
-        <Field label="Заказ CRM"><Input value={p.crmOrderNo || ''} onChange={(e) => set('crmOrderNo', e.target.value, 'Заказ CRM')} /></Field>
-        <Field label={type === 'Гостиница' ? 'Услуга размещения' : type === 'Трансфер' ? 'Услуга трансфера' : 'Услуга'}><Input value={p.crmService || ''} onChange={(e) => set('crmService', e.target.value, 'Привязка к услуге')} /></Field>
-        {type === 'Авиа' && <Field label="Соответствующий перелёт"><Input value={p.crmTrip || ''} onChange={(e) => set('crmTrip', e.target.value, 'Привязка к перелёту')} /></Field>}
-      </div>
-    </Section>
-    <Section title={type === 'Гостиница' ? '11. Формирование документа' : type === 'Трансфер' ? '8. Формирование документа' : type === 'ЖД' ? 'Вывод документа' : '10. Вывод документа'}>
+  const outputBlock = (
+    <Section title={type === 'Гостиница' ? '10. Формирование документа' : type === 'Трансфер' ? '7. Формирование документа' : type === 'ЖД' ? 'Вывод документа' : '9. Вывод документа'}>
       <div className="receipt-form-grid">
         <Field label="Вариант документа"><Select options={[
           { value: 'original', label: 'Оригинал поставщика' }, { value: 'agency', label: 'Фирменный бланк агентства' },
@@ -658,17 +735,18 @@ export function ReceiptSpecializedForm({ type, value, onChange, correctionMode, 
       <Field label="Внутренние комментарии"><TextArea value={p.internalComments} onChange={(e) => set('internalComments', e.target.value, 'Внутренний комментарий')} placeholder="Не попадут в клиентский документ" /></Field>
       {(type === 'Гостиница' || type === 'Трансфер') && <div className="receipt-privacy-note"><Icon name="lock" /> В клиентский ваучер не попадут стоимость поставщика, наценка, внутренние комиссии и сборы.</div>}
     </Section>
-  </>;
+  );
 
   return (
     <div className="receipt-editor-form">
       <SourceNotice correctionMode={correctionMode} onToggle={onToggleCorrection} />
+      {bindingBlock}
       {commonBooking}
       {type === 'Авиа' && <>{passengerBlock}{routeBlock}{financeBlock}{aviaBlocks}</>}
       {type === 'ЖД' && <>{passengerBlock}{routeBlock}{financeBlock}</>}
       {hotelBlocks}
       {transferBlocks}
-      {crmAndOutput}
+      {outputBlock}
       <AuditLog rows={p.auditLog} />
     </div>
   );

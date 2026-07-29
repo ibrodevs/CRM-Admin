@@ -591,7 +591,7 @@ function UnifiedBindField({ value, onChange, modes, title, sub, style, orderOpti
   const icon = t.mode === 'person' ? 'user' : (t.mode === 'order' ? 'briefcase' : 'plus');
   return (
     <>
-      <button type="button" className="select" onClick={() => setOpen(true)}
+      <button type="button" className="select unified-bind-field" onClick={() => setOpen(true)}
         style={{ display: 'flex', alignItems: 'center', gap: 10, textAlign: 'left', cursor: 'pointer', ...(style || {}) }}>
         <Icon name={icon} style={{ width: 16, height: 16, color: 'var(--muted-2)', flexShrink: 0 }} />
         <span style={{ flex: 1, color: 'var(--ink)' }}>{ufBindLabel(t)}</span>

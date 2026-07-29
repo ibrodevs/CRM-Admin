@@ -214,6 +214,7 @@ export const documentsApi = {
   importReceipt: (file) => { const body = new FormData(); body.append('file', file); return apiRequest(apiPath('receipt-imports/'), { method: 'POST', body }); },
   receiptResult: (id, signal) => get(`receipt-imports/${id}/result/`, signal),
   confirmReceipt: (id, body) => create(`receipt-imports/${id}/confirm/`, body),
+  updateReceipt: (id, body) => create(`documents/${id}/receipt/`, body),
 };
 
 export const aftersalesApi = {

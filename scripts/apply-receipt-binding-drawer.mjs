@@ -19,40 +19,6 @@ replaceOnce(
   "import { UFDateField, UnifiedBindField } from '../../forms_unified';",
 );
 
-replaceOnce(
-  'привязка к заказу через боковое окно',
-  `        <Field label="Внутренний номер заказа CRM"><Input value={p.crmOrderNo || ''} onChange={(e) => set('crmOrderNo', e.target.value, 'Привязка к заказу CRM')} placeholder="PSC-2026-000125" /></Field>`,
-  `        <Field label="Привязка к заказу CRM">
-          <UnifiedBindField
-            value={p.crmOrderNo
-              ? { mode: 'order', order: { no: p.crmOrderNo }, label: \`Заказ № \${p.crmOrderNo}\` }
-              : { mode: 'order', label: 'Выберите заказ' }}
-            onChange={(target) => set('crmOrderNo', target?.order?.no || '', 'Привязка к заказу CRM')}
-            modes={['order']}
-            title="Привязка к заказу"
-            sub="Выберите заказ, к которому относится документ"
-            style={{ width: '100%' }}
-          />
-        </Field>`,
-);
-
-replaceOnce(
-  'привязка пассажира через боковое окно',
-  `            <Field label="Привязка к пассажиру CRM"><Input value={row.crmPassenger} onChange={(e) => setArray('passengers', index, 'crmPassenger', e.target.value, \`Привязка участника \${index + 1}\`)} placeholder="Выберите или укажите ФИО" /></Field>`,
-  `            <Field label="Привязка к пассажиру CRM">
-              <UnifiedBindField
-                value={row.crmPassenger
-                  ? { mode: 'person', client: row.crmPassenger, label: row.crmPassenger }
-                  : { mode: 'person', label: 'Выберите пассажира CRM' }}
-                onChange={(target) => setArray('passengers', index, 'crmPassenger', target?.client || '', \`Привязка участника \${index + 1}\`)}
-                modes={['person']}
-                title="Привязка к пассажиру"
-                sub={\`Выберите пассажира CRM для \${row.name || \`участника \${index + 1}\`}\`}
-                style={{ width: '100%' }}
-              />
-            </Field>`,
-);
-
 if (changed) {
   await writeFile(editorUrl, source, 'utf8');
   console.log('Привязка квитанций перенесена в боковые окна выбора CRM.');

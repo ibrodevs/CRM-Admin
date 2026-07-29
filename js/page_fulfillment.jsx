@@ -1201,7 +1201,10 @@ function ReceiptEditDrawer({ open, file, onClose, onChange, onBrand, onReview })
       footer={<>
         {file.originalUrl && <Button variant="secondary" icon="eye" onClick={() => window.open(file.originalUrl, '_blank')}>Оригинал</Button>}
         {onBrand && <Button variant="secondary" icon="template" onClick={onBrand}>На фирменном бланке</Button>}
-        <Button style={{ flex: 1 }} icon="check" onClick={() => { onReview && onReview(file.id); onClose(); }}>Проверено</Button>
+        <Button style={{ flex: 1 }} icon="check" onClick={async () => {
+          const saved = await onReview?.(file.id, parsed);
+          if (saved !== false) onClose();
+        }}>Проверено</Button>
       </>}>
       <div style={{ marginBottom: 16 }}><ReceiptDocumentPreview type={file.type} draft={parsed} /></div>
       <ReceiptSpecializedForm type={file.type} value={parsed} onChange={(next) => onChange(file.id, next)}
@@ -1325,8 +1328,8 @@ function ReceiptImportModal({ open, onClose, onDone }) {
           tripType: draft.trip_type || extracted.trip_type || base.tripType,
           hotel: draft.hotel || extracted.hotel || base.hotel, rooms: draft.rooms || extracted.rooms || base.rooms,
           vehicle: draft.vehicle || extracted.vehicle || base.vehicle,
-          hotelTerms: draft.conditions || extracted.conditions || base.hotelTerms,
-          transferTerms: draft.conditions || extracted.conditions || base.transferTerms,
+          hotelTerms: draft.hotelTerms || extracted.hotelTerms || result.verified_data?.hotelTerms || base.hotelTerms,
+          transferTerms: draft.transferTerms || extracted.transferTerms || result.verified_data?.transferTerms || base.transferTerms,
           extras: draft.extras || extracted.extras || [],
           fareInfo: draft.fare_info || extracted.fare_info || base.fareInfo,
           priceSource: Number(draft.total || draft.fare || draft.taxes || draft.fees || 0) > 0 ? 'document' : 'manual',
@@ -1757,10 +1760,14 @@ function ReceiptEditorPage({ documents = [], orders = [], onChanged, onOpenOrder
       const editorType = document.recType || serviceTypeFromBackend(document.service_kind, document.service_type,
         guessType(`${document.name || ''} ${document.service || ''}`));
       const stored = document.parsed || document.supplierBlank?.verified_data || document.supplier_original?.verified_data;
-      const parsed = normalizeReceiptDraft(editorType, stored || {
-        passenger: document.participant !== '—' ? document.participant : '',
-        crmOrderNo: document.order !== '—' ? String(document.order) : '',
-        recognitionPending: true,
+      const parsed = normalizeReceiptDraft(editorType, {
+        ...(stored || {
+          passenger: document.participant !== '—' ? document.participant : '',
+          recognitionPending: true,
+        }),
+        crmOrderId: stored?.crmOrderId || document.orderId || '',
+        crmOrderNo: stored?.crmOrderNo || (document.order !== '—' ? String(document.order) : ''),
+        crmPersonId: stored?.crmPersonId || document.personId || '',
       });
       return {
         ...document,
@@ -1786,6 +1793,24 @@ function ReceiptEditorPage({ documents = [], orders = [], onChanged, onOpenOrder
         ? current.map((row) => String(row.serverId || row.no) === String(source.serverId || source.no) ? next : row)
         : [next, ...current];
     });
+  };
+  const saveReceipt = async (fileId, parsed) => {
+    try {
+      await documentsApi.updateReceipt(fileId, {
+        verified_data: parsed,
+        order: parsed.crmBindingMode === 'order' ? (parsed.crmOrderId || null) : null,
+        person: parsed.crmBindingMode === 'person' ? (parsed.crmPersonId || null) : null,
+        output_settings: parsed.output || { mode: 'original' },
+        audit_log: parsed.auditLog || [],
+      });
+      updateLocalReceipt(fileId, { ...parsed, recognitionPending: false });
+      await onChanged?.();
+      toast('Проверенные данные и настройки бланка сохранены', 'ok');
+      return true;
+    } catch (error) {
+      toast(error.message || 'Не удалось сохранить квитанцию', 'err');
+      return false;
+    }
   };
 
   const removeReceipt = async (document) => {
@@ -1865,11 +1890,8 @@ function ReceiptEditorPage({ documents = [], orders = [], onChanged, onOpenOrder
       </div>
 
       <ReceiptEditDrawer open={!!edit} file={edit ? { ...edit, type: edit.editorType } : null} onClose={() => setEdit(null)}
-        onChange={updateLocalReceipt} onReview={() => {
-          if (!edit) return;
-          updateLocalReceipt(edit.id, { ...edit.parsed, recognitionPending: false });
-          toast('Документ проверен; изменения сохранены в рабочей версии', 'ok');
-        }} onBrand={() => { setBrandEdit(edit); setEdit(null); }} />
+        onChange={updateLocalReceipt} onReview={saveReceipt}
+        onBrand={() => { setBrandEdit(edit); setEdit(null); }} />
 
       <ReceiptBrandDocumentDrawer open={!!brandEdit} type={brandEdit?.editorType} draft={brandEdit?.parsed}
         originalUrl={brandEdit?.originalUrl} onClose={() => setBrandEdit(null)} />
