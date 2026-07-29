@@ -221,7 +221,8 @@ export function normalizeReceiptDraft(type, value = {}) {
   const passengerFallback = value.passenger ? [{ ...emptyPassenger(), name: value.passenger, dob: value.dob || '',
     document: value.docNo || '', ticketNo: value.ticketNo || '' }] : [emptyPassenger()];
   const passengers = asArray(value.passengers, passengerFallback).map((row) => ({ ...emptyPassenger(), ...row }));
-  const supplierTotal = Number(value.total) || ((Number(value.fare) || 0) + (Number(value.taxes) || 0) + (Number(value.fees) || 0));
+  const supplierTotal = Number(value.total) || Number(value.originalTotal)
+    || ((Number(value.fare) || 0) + (Number(value.taxes) || 0) + (Number(value.fees) || 0));
   const supplierBase = Number(value.fare) || supplierTotal;
   const draft = {
     carrier: '', carrierCode: '', passenger: passengers[0]?.name || '', passengers,
@@ -283,10 +284,14 @@ export function normalizeReceiptDraft(type, value = {}) {
   draft.crmBindingMode = draft.crmPerson && !draft.crmOrderNo ? 'person' : (value.crmBindingMode || 'order');
   if (value.originalTotal === undefined || value.originalTotal === '') draft.originalTotal = supplierTotal || '';
   if (type === 'ЖД') {
-    draft.ticketCost = value.ticketCost ?? value.ticket_cost ?? value.fare ?? '';
-    draft.reservedSeatCost = value.reservedSeatCost ?? value.reserved_seat_cost ?? '';
-    draft.agencyServiceFee = value.agencyServiceFee ?? value.agency_service_fee ?? value.fees ?? '';
-    draft.additionalFees = value.additionalFees ?? value.additional_fees ?? '';
+    const firstFinancial = (...values) => values.find((item) => item !== undefined && item !== null && item !== '') ?? '';
+    draft.reservedSeatCost = firstFinancial(value.reservedSeatCost, value.reserved_seat_cost);
+    draft.agencyServiceFee = firstFinancial(value.agencyServiceFee, value.agency_service_fee, value.fees);
+    draft.additionalFees = firstFinancial(value.additionalFees, value.additional_fees);
+    const explicitTicketCost = firstFinancial(value.ticketCost, value.ticket_cost, value.fare);
+    draft.ticketCost = explicitTicketCost !== '' ? explicitTicketCost : roundMoney(Math.max(supplierTotal
+      - (Number(draft.reservedSeatCost) || 0) - (Number(draft.agencyServiceFee) || 0)
+      - (Number(draft.additionalFees) || 0), 0));
   }
   if ((type === 'Гостиница' || type === 'Трансфер') && (value.supplierCost === undefined || value.supplierCost === '')) draft.supplierCost = supplierBase || '';
   if ((type === 'Гостиница' || type === 'Трансфер') && (value.agencyServiceFee === undefined || value.agencyServiceFee === '')) draft.agencyServiceFee = value.fees || '';

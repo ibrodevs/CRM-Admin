@@ -41,6 +41,8 @@ test('стоимость пересчитывается автоматическ
   assert.match(editor, /supplierCost/);
   assert.match(editor, /discount/);
   assert.match(editor, /withFinancialAliases/);
+  assert.match(editor, /Number\(value\.originalTotal\)/);
+  assert.match(editor, /explicitTicketCost !== '' \? explicitTicketCost : roundMoney/);
 });
 
 test('реестр соответствует колонкам и операциям ТЗ', () => {
