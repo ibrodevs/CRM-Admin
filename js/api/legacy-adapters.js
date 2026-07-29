@@ -63,6 +63,7 @@ function receiptDraftFromMetadata(item) {
     fareBasis: stored.fareBasis || stored.fare_basis || '',
     handBaggage: stored.handBaggage || stored.hand_baggage || '',
     tripType: stored.tripType || stored.trip_type || (receiptImport.service_kind === 'hotel' ? 'stay' : 'oneway'),
+    fareBreakdown: stored.fareBreakdown || stored.fare_breakdown || [],
     taxBreakdown: stored.taxBreakdown || stored.tax_breakdown || [],
     feeBreakdown: stored.feeBreakdown || stored.fee_breakdown || [],
     output: stored.output || supplierOriginal.output_settings,

@@ -233,7 +233,7 @@ export function normalizeReceiptDraft(type, value = {}) {
     legs: [emptyLeg()], fare: '', taxes: '', fees: '', total: '', originalTotal: supplierTotal || '', supplierFees: '',
     ticketCost: value.fare || '', reservedSeatCost: '', agencyServiceFee: value.fees || '',
     additionalFees: '', supplierCost: supplierBase || '', markup: '', discount: '',
-    taxBreakdown: [], feeBreakdown: [], extras: [], fareInfo: {
+    fareBreakdown: [], taxBreakdown: [], feeBreakdown: [], extras: [], fareInfo: {
       code: '', name: '', bookingClass: value.cls || '', exchangeRules: '', refundRules: '',
     },
     hotel: { name: value.carrier || '', category: '', country: '', city: '', address: '', phone: '', email: '', map: '' },
@@ -254,6 +254,7 @@ export function normalizeReceiptDraft(type, value = {}) {
   draft.passengers = passengers;
   draft.passenger = passengers[0]?.name || value.passenger || '';
   draft.legs = asArray(value.legs, [emptyLeg()]).map((row) => ({ ...emptyLeg(), ...row }));
+  draft.fareBreakdown = Array.isArray(value.fareBreakdown) ? value.fareBreakdown : [];
   draft.taxBreakdown = Array.isArray(value.taxBreakdown) ? value.taxBreakdown : [];
   draft.feeBreakdown = Array.isArray(value.feeBreakdown) ? value.feeBreakdown : [];
   draft.extras = Array.isArray(value.extras) ? value.extras : [];
@@ -427,6 +428,8 @@ export function ReceiptBrandDocumentDrawer({ open, type, draft, originalUrl, onC
   const price = output.priceMode === 'paid' ? 'Оплачено'
     : output.priceMode === 'hidden' ? '' : `${receiptFinancialTotal(type, p).toLocaleString('ru-RU')} ${p.currency || ''}`;
   const money = (value) => `${roundMoney(value).toLocaleString('ru-RU')} ${p.currency || ''}`.trim();
+  const rowMoney = (row) => `${Number(row.amount || 0).toLocaleString('ru-RU', { maximumFractionDigits: 6 })} ${row.currency || ''}`.trim();
+  const fareRows = p.fareBreakdown?.length ? p.fareBreakdown : [];
   const taxRows = p.taxBreakdown?.length ? p.taxBreakdown
     : (Number(p.taxes) ? [{ code: 'TAX', label: 'Таксы перевозчика', amount: p.taxes }] : []);
   const feeRows = p.feeBreakdown?.length ? p.feeBreakdown
@@ -547,6 +550,7 @@ export function ReceiptBrandDocumentDrawer({ open, type, draft, originalUrl, onC
           {type === 'Авиа' && <><h4>Расчёт стоимости</h4>
             <div className="receipt-brand-finance">
               <div><span>Тариф перевозчика</span><b>{money(p.fare)}</b></div>
+              {fareRows.map((row, index) => <div key={`fare-${index}`}><span>{[row.code, row.label].filter(Boolean).join(' · ') || 'Расчёт тарифа'}</span><b>{rowMoney(row)}</b></div>)}
               {taxRows.map((row, index) => <div key={`tax-${index}`}><span>{[row.code, row.label].filter(Boolean).join(' · ') || 'Такса'}</span><b>{money(row.amount)}</b></div>)}
               {feeRows.map((row, index) => <div key={`fee-${index}`}><span>{[row.code, row.label].filter(Boolean).join(' · ') || 'Сбор'}</span><b>{money(row.amount)}</b></div>)}
               <div className="is-total"><span>Итого для клиента</span><b>{money(receiptFinancialTotal(type, p))}</b></div>
@@ -859,7 +863,13 @@ export function ReceiptSpecializedForm({
         ]} value={p.priceSource} onChange={(e) => set('priceSource', e.target.value, 'Источник стоимости')} /></Field>}
         {p.priceSource === 'crm' && <Field label="Заказ-источник стоимости"><Input value={p.priceSourceOrder || ''} onChange={(e) => set('priceSourceOrder', e.target.value, 'Заказ-источник стоимости')} /></Field>}
       </div>
-      {type === 'Авиа' && <div className="receipt-grid-2 receipt-top-gap">{breakdown('taxBreakdown', 'Разбивка такс', true)}{breakdown('feeBreakdown', 'Разбивка сборов', false)}</div>}
+      {type === 'Авиа' && <>
+        <div className="receipt-grid-2 receipt-top-gap">
+          {breakdown('fareBreakdown', 'Разбивка тарифа', true)}
+          {breakdown('taxBreakdown', 'Разбивка такс', true)}
+        </div>
+        <div className="receipt-top-gap">{breakdown('feeBreakdown', 'Разбивка сборов', false)}</div>
+      </>}
       {type === 'ЖД' && <div className="receipt-top-gap">{breakdown('feeBreakdown', 'Разбивка сервисных сборов', false)}</div>}
     </Section>
   );

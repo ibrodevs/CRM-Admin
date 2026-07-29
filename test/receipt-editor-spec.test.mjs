@@ -15,6 +15,7 @@ test('редактор использует отдельные формы ави
   assert.match(editor, /4\. Автомобиль/);
   assert.match(editor, /Разбивка сервисных сборов/);
   assert.match(editor, /Дополнительные услуги/);
+  assert.match(editor, /Разбивка тарифа/);
 });
 
 test('исходные данные защищены и исправления фиксируются в журнале', () => {
@@ -74,6 +75,7 @@ test('фирменные бланки авиа, ЖД и отеля получа�
   assert.match(editor, /p\.hotel\.address/);
   assert.match(editor, /p\.rooms\.map/);
   assert.match(editor, /type === 'Авиа' && <><h4>Расчёт стоимости/);
+  assert.match(editor, /fareRows\.map/);
   assert.match(editor, /taxRows\.map/);
   assert.match(editor, /feeRows\.map/);
   assert.match(editor, /leg\.fareBasis/);
@@ -140,6 +142,7 @@ test('реестр не смешивает заказ поставщика с в
           ref: 'NLZF1I',
           total: '29153',
           currency: 'RUB',
+          fare_breakdown: [{ code: 'S7', label: 'OVB → DME', amount: '100', currency: 'NUC' }],
         },
       },
       receipt_import: { service_kind: 'avia', service_type: 'Авиа', parser_status: 'parsed' },
@@ -148,6 +151,7 @@ test('реестр не смешивает заказ поставщика с в
   assert.equal(document.orderId, 'd2d2d2d2-1111-2222-3333-444444444444');
   assert.equal(document.order, 'CRM-125');
   assert.equal(document.parsed.supplierOrderNo, '5994230');
+  assert.equal(document.parsed.fareBreakdown[0].label, 'OVB → DME');
 });
 
 test('реестр показывает участника из верхнего поля даже при пустом массиве пассажиров', () => {

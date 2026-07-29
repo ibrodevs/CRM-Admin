@@ -899,7 +899,7 @@ function emptyReceiptParse(file) {
     carrier: '', carrierCode: '', passenger: '', dob: '', docNo: '', ticketNo: '', ref: '',
     cls: '', fareBasis: '', baggage: '', handBaggage: '', issueDate: '', tripType: file.type === 'Гостиница' ? 'stay' : 'oneway',
     legs: [{ from: '', fromCode: '', to: '', toCode: '', date: '', endDate: '', dep: '', arr: '', flightNo: '', dir: 'out' }],
-    currency: '', fare: '', taxes: '', fees: '', total: '', taxBreakdown: [], feeBreakdown: [],
+    currency: '', fare: '', taxes: '', fees: '', total: '', fareBreakdown: [], taxBreakdown: [], feeBreakdown: [],
     recognitionPending: true,
   });
 }
@@ -1002,6 +1002,11 @@ function ReceiptPreview({ type, p }) {
           {[['Тариф', p.fare], ['Таксы', p.taxes], ['Сборы', p.fees]].map(([k, v]) => (
             <div key={k} style={{ display: 'flex', justifyContent: 'space-between', padding: '2px 0' }}><span style={{ color: 'var(--muted)' }}>{k}</span><span style={{ color: 'var(--ink)' }}>{recMoney(Number(v) || 0, p.currency)}</span></div>
           ))}
+          {!!(p.fareBreakdown && p.fareBreakdown.length) && (
+            <div style={{ padding: '2px 0 4px', fontSize: 11.5, color: 'var(--muted)' }}>
+              {p.fareBreakdown.map((row, i) => <span key={i} style={{ marginRight: 8 }}>{row.code || row.label}: {recMoney(Number(row.amount) || 0, row.currency || '')}</span>)}
+            </div>
+          )}
           {!!(p.taxBreakdown && p.taxBreakdown.length) && (
             <div style={{ padding: '2px 0 4px', fontSize: 11.5, color: 'var(--muted)' }}>
               {p.taxBreakdown.map((row, i) => <span key={i} style={{ marginRight: 8 }}>{row.code || row.label}: {recMoney(Number(row.amount) || 0, row.currency || p.currency)}</span>)}
@@ -1028,16 +1033,17 @@ function ReceiptEditForm({ type, p, onChange }) {
   const canTrip = type === 'Авиа' || type === 'ЖД';
   const set = (k, v) => onChange({ ...p, [k]: v });
   const setLeg = (i, k, v) => onChange({ ...p, legs: p.legs.map((l, ix) => (ix === i ? { ...l, [k]: v } : l)) });
+  const breakdownKey = (kind) => ({ fare: 'fareBreakdown', tax: 'taxBreakdown', fee: 'feeBreakdown' }[kind]);
   const setBreakdown = (kind, i, k, v) => {
-    const key = kind === 'tax' ? 'taxBreakdown' : 'feeBreakdown';
+    const key = breakdownKey(kind);
     onChange({ ...p, [key]: (p[key] || []).map((row, ix) => (ix === i ? { ...row, [k]: v } : row)) });
   };
   const addBreakdown = (kind) => {
-    const key = kind === 'tax' ? 'taxBreakdown' : 'feeBreakdown';
+    const key = breakdownKey(kind);
     onChange({ ...p, [key]: [...(p[key] || []), { code: '', label: '', amount: '', currency: p.currency || 'RUB' }] });
   };
   const delBreakdown = (kind, i) => {
-    const key = kind === 'tax' ? 'taxBreakdown' : 'feeBreakdown';
+    const key = breakdownKey(kind);
     onChange({ ...p, [key]: (p[key] || []).filter((_, ix) => ix !== i) });
   };
   const sumRows = (rows) => Math.round((rows || []).reduce((sum, row) => sum + (Number(row.amount) || 0), 0) * 100) / 100;
@@ -1116,12 +1122,13 @@ function ReceiptEditForm({ type, p, onChange }) {
         <Field label="Сборы"><Input type="number" value={p.fees} onChange={(e) => set('fees', e.target.value)} /></Field>
         <Field label="Итого"><Input type="number" value={p.total} onChange={(e) => set('total', e.target.value)} /></Field>
       </div>
-      <div style={{ display: 'grid', gap: 12, marginTop: 10 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 12, marginTop: 10 }}>
         {[
+          ['fare', 'Разбивка тарифа', p.fareBreakdown || []],
           ['tax', 'Разбивка такс', p.taxBreakdown || []],
           ['fee', 'Разбивка сборов', p.feeBreakdown || []],
         ].map(([kind, title, rows]) => (
-          <div key={kind} className="card card-pad" style={{ background: 'var(--surface-2)' }}>
+          <div key={kind} className="card card-pad" style={{ background: 'var(--surface-2)', gridColumn: kind === 'fee' ? '1 / -1' : undefined }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
               <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--muted)' }}>{title}</span>
               <button className="btn btn-ghost btn-sm" onClick={() => addBreakdown(kind)}><Icon name="plus" style={{ width: 14, height: 14 }} /> Добавить</button>
@@ -1317,6 +1324,7 @@ function ReceiptImportModal({ open, onClose, onDone }) {
           carrier: draft.issuer || extracted.issuer || result.verified_data?.carrier || base.carrier, passenger: primaryPassenger,
           passengers: draft.passengers || extracted.passengers || (primaryPassenger ? [{ name: primaryPassenger, dob: extracted.date_of_birth || '', document: extracted.document_number || '', ticketNo: extracted.ticket_number || '' }] : base.passengers),
           fare: Number(draft.fare || base.fare || 0), taxes: Number(draft.taxes || base.taxes || 0), fees: Number(draft.fees || base.fees || 0), total: Number(draft.total || base.total || 0),
+          fareBreakdown: draft.fare_breakdown || extracted.fare_breakdown || [],
           taxBreakdown: draft.tax_breakdown || extracted.tax_breakdown || [], feeBreakdown: draft.fee_breakdown || extracted.fee_breakdown || [],
           ref: extracted.reference || base.ref, ticketNo: extracted.ticket_number || base.ticketNo,
           supplierOrderNo: extracted.supplier_order_number || extracted.order_number || base.supplierOrderNo,
@@ -1442,6 +1450,7 @@ function ReceiptImportModal({ open, onClose, onDone }) {
           issuer: p.carrier || '', passenger_name: p.passenger || '', segments: p.legs || [],
           trip_type: p.tripType || 'oneway',
           fare: Number(p.fare || m.tariff || 0), taxes: Number(p.taxes || 0), fees: Number(m.fee || p.fees || 0), currency: p.currency || 'USD',
+          fare_breakdown: p.fareBreakdown || [],
           tax_breakdown: p.taxBreakdown || [],
           fee_breakdown: p.feeBreakdown || [],
           order: hasOrderTarget ? bindTarget.order.id : null,
