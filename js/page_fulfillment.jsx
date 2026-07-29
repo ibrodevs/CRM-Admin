@@ -1401,6 +1401,8 @@ function ReceiptImportModal({ open, onClose, onDone }) {
 
   const processing = files.some((f) => f.status !== 'done');
   const done = files.filter((f) => f.status === 'done');
+  const importProgress = files.length ? Math.round((done.length / files.length) * 100) : 0;
+  const activeImport = files.find((f) => f.status !== 'done');
 
 
 
@@ -1566,17 +1568,33 @@ function ReceiptImportModal({ open, onClose, onDone }) {
           <>
 
             <RSub>{step === 1 ? 'Распознавание бланков' : 'Квитанции обработаны'}</RSub>
+            <div className={'receipt-upload-progress' + (processing ? ' is-active' : ' is-complete')}
+              role="progressbar" aria-label="Прогресс загрузки и распознавания квитанций"
+              aria-valuemin="0" aria-valuemax="100" aria-valuenow={importProgress}>
+              <div className="receipt-upload-progress-head">
+                <span className="receipt-upload-progress-icon">
+                  <Icon name={processing ? 'loader' : 'check'} />
+                </span>
+                <div>
+                  <b>{processing ? 'Загрузка и распознавание квитанций' : 'Все квитанции обработаны'}</b>
+                  <span>{processing && activeImport ? `Сейчас обрабатывается: ${activeImport.name}` : 'Можно переходить к проверке данных'}</span>
+                </div>
+                <strong>{importProgress}%</strong>
+              </div>
+              <div className="receipt-upload-progress-track" aria-hidden="true">
+                <span style={{ width: `${importProgress}%` }} />
+              </div>
+              <div className="receipt-upload-progress-foot">
+                <span>Обработано <b>{done.length}</b> из <b>{files.length}</b> файлов</span>
+                <span>{files.length - done.length > 0 ? `Осталось: ${files.length - done.length}` : 'Готово'}</span>
+              </div>
+            </div>
             <div className="card card-pad" style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
               <Stat label="Распознано" value={counts['Распознано']} tone="green" />
               <Stat label="Требует проверки" value={counts['Требует проверки']} tone="amber" />
               <Stat label="Заполнено вручную" value={counts['Заполнено вручную']} tone="blue" />
               <Stat label="Дубли" value={counts['Возможный дубль']} tone="red" />
               <Stat label="Ошибка" value={counts['Ошибка']} tone="muted-2" />
-              {processing && (
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: 'var(--muted)', fontSize: 12, whiteSpace: 'nowrap', paddingLeft: 12, borderLeft: '1px solid var(--line)' }}>
-                  <Icon name="loader" style={{ width: 16, height: 16, animation: 'spin 1s linear infinite' }} /> {done.length}/{files.length}
-                </div>
-              )}
             </div>
             {pendingReview > 0 && step >= 2 && (
               <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 10, padding: '10px 12px', borderRadius: 10, background: 'var(--amber-bg)', color: 'var(--amber)', fontSize: 13 }}>

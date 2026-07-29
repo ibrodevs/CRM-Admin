@@ -473,6 +473,11 @@ table.tbl.tbl-wide thead th,table.tbl.tbl-wide tbody td{white-space:nowrap}
 .receipt-relation-option-icon{align-items:center;background:var(--blue-soft);border-radius:9px;color:var(--blue);display:inline-flex;flex:0 0 auto;height:34px;justify-content:center;width:34px}
 .receipt-relation-option-icon svg{height:16px;width:16px}
 @media (max-width:900px){
+  .receipt-upload-progress{padding:14px}
+  .receipt-upload-progress-head{grid-template-columns:auto minmax(0,1fr)}
+  .receipt-upload-progress-head strong{grid-column:1/-1;font-size:22px}
+  .receipt-upload-progress-head span{white-space:normal}
+  .receipt-upload-progress-foot{align-items:flex-start;flex-direction:column;gap:3px}
   .rec-import-table-card{border:none;background:transparent;box-shadow:none;overflow:visible}
   .rec-import-table{min-width:0;display:block}
   .rec-import-table thead{display:none}
@@ -528,6 +533,24 @@ table.tbl.tbl-wide thead th,table.tbl.tbl-wide tbody td{white-space:nowrap}
 .pagination .page-info{flex:1;text-align:center;font-size:14.5px;color:var(--body)}
 .progress{height:8px;border-radius:999px;background:#e9ecf2;overflow:hidden;min-width:120px}
 .progress>span{display:block;height:100%;border-radius:999px;background:var(--blue)}
+.receipt-upload-progress{margin-bottom:12px;padding:16px 18px;border:1px solid #b9caff;border-radius:14px;background:linear-gradient(135deg,#f7f9ff 0%,#eef3ff 100%);box-shadow:0 8px 24px rgba(47,102,246,.09)}
+.receipt-upload-progress.is-complete{border-color:#bce5ce;background:linear-gradient(135deg,#f5fcf8 0%,#eaf8f0 100%)}
+.receipt-upload-progress-head{display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:center;gap:12px}
+.receipt-upload-progress-icon{display:inline-flex;align-items:center;justify-content:center;width:38px;height:38px;border-radius:11px;background:var(--blue);color:#fff}
+.receipt-upload-progress.is-complete .receipt-upload-progress-icon{background:var(--green)}
+.receipt-upload-progress-icon svg{width:19px;height:19px}
+.receipt-upload-progress.is-active .receipt-upload-progress-icon svg{animation:spin 1s linear infinite}
+.receipt-upload-progress-head>div{display:grid;gap:3px;min-width:0}
+.receipt-upload-progress-head b{font-size:14px;color:var(--ink)}
+.receipt-upload-progress-head span{overflow:hidden;color:var(--muted);font-size:12px;text-overflow:ellipsis;white-space:nowrap}
+.receipt-upload-progress-head strong{color:var(--blue);font-size:25px;line-height:1}
+.receipt-upload-progress.is-complete .receipt-upload-progress-head strong{color:var(--green)}
+.receipt-upload-progress-track{height:12px;margin-top:14px;overflow:hidden;border-radius:999px;background:#dce5ff}
+.receipt-upload-progress.is-complete .receipt-upload-progress-track{background:#d5eddf}
+.receipt-upload-progress-track>span{display:block;height:100%;min-width:0;border-radius:inherit;background:linear-gradient(90deg,#2f66f6,#6590ff);transition:width .35s ease}
+.receipt-upload-progress.is-complete .receipt-upload-progress-track>span{background:linear-gradient(90deg,#159455,#3fbd79)}
+.receipt-upload-progress-foot{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:9px;color:var(--muted);font-size:12px}
+.receipt-upload-progress-foot b{color:var(--ink)}
 .stackbar{height:18px;border-radius:7px;overflow:hidden;display:flex;width:100%}
 .stackbar>span{height:100%}
 .legend{display:flex;flex-wrap:wrap;gap:10px 26px;margin-top:16px}

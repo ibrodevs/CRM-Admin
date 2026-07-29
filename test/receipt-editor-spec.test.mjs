@@ -188,6 +188,16 @@ test('зона загрузки даёт явную обратную связь 
   assert.match(page, /receipt-drop-zone.*is-dragging/);
 });
 
+test('импорт показывает заметный прогресс загрузки и распознавания', () => {
+  assert.match(page, /const importProgress = files\.length \? Math\.round/);
+  assert.match(page, /role="progressbar"/);
+  assert.match(page, /aria-valuenow=\{importProgress\}/);
+  assert.match(page, /Загрузка и распознавание квитанций/);
+  assert.match(page, /Обработано <b>\{done\.length\}<\/b> из <b>\{files\.length\}<\/b> файлов/);
+  assert.match(styles, /\.receipt-upload-progress\{/);
+  assert.match(styles, /\.receipt-upload-progress-track/);
+});
+
 test('суммы реестра разнесены по строкам, а удаление имеет доступную крупную кнопку', () => {
   assert.match(page, /rec-import-money-total/);
   assert.match(page, /rec-import-money-source/);
