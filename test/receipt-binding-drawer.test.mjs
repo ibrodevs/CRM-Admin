@@ -16,3 +16,18 @@ test('привязка квитанции объединяет заказ и ф�
   assert.doesNotMatch(editor, /placeholder="Выберите или укажите ФИО"/);
   assert.doesNotMatch(editor, /placeholder="PSC-2026-000125"/);
 });
+
+test('услуга и соответствующий перелёт выбираются в боковых панелях', () => {
+  assert.match(editor, /function ReceiptRelationField/);
+  assert.match(editor, /<Drawer open=\{open\}/);
+  assert.match(editor, /title="Выбор услуги"/);
+  assert.match(editor, /title="Соответствующий перелёт"/);
+  assert.match(editor, /placeholder="Выберите услугу"/);
+  assert.match(editor, /placeholder="Выберите перелёт"/);
+  assert.match(editor, /relationServiceOptions/);
+  assert.match(editor, /relationFlightOptions/);
+  assert.match(editor, /crmServiceId/);
+  assert.match(editor, /crmTripId/);
+  assert.doesNotMatch(editor, /<Input value=\{p\.crmService/);
+  assert.doesNotMatch(editor, /<Input value=\{p\.crmTrip/);
+});

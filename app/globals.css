@@ -426,6 +426,19 @@ table.tbl.tbl-wide thead th,table.tbl.tbl-wide tbody td{white-space:nowrap}
 .receipt-brand-finance b{color:var(--ink);white-space:nowrap}
 .receipt-brand-finance .is-total{background:var(--blue-soft);font-size:13px}
 .receipt-binding-note{margin-top:9px;color:var(--muted);font-size:12px;line-height:1.45}
+.receipt-relation-field{align-items:center;background:#fff;cursor:pointer;display:flex;gap:10px;min-height:48px;text-align:left;width:100%}
+.receipt-relation-field>svg{color:var(--muted-2);flex:0 0 auto;height:16px;width:16px}
+.receipt-relation-field>span{color:var(--ink);flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.receipt-relation-field>span.is-placeholder{color:var(--muted-2)}
+.receipt-relation-options{display:flex;flex-direction:column;gap:8px}
+.receipt-relation-option{align-items:center;background:#fff;border:1px solid var(--line);border-radius:12px;color:var(--ink);cursor:pointer;display:flex;gap:12px;padding:11px 12px;text-align:left;transition:border-color .16s ease,background .16s ease;width:100%}
+.receipt-relation-option:hover{background:var(--blue-soft);border-color:var(--blue)}
+.receipt-relation-option>span:nth-child(2){display:flex;flex:1;flex-direction:column;gap:3px;min-width:0}
+.receipt-relation-option b{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.receipt-relation-option small{color:var(--muted)}
+.receipt-relation-option>svg{color:var(--muted-2);height:17px;width:17px}
+.receipt-relation-option-icon{align-items:center;background:var(--blue-soft);border-radius:9px;color:var(--blue);display:inline-flex;flex:0 0 auto;height:34px;justify-content:center;width:34px}
+.receipt-relation-option-icon svg{height:16px;width:16px}
 @media (max-width:900px){
   .rec-import-table-card{border:none;background:transparent;box-shadow:none;overflow:visible}
   .rec-import-table{min-width:0;display:block}

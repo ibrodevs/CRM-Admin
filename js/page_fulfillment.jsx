@@ -1189,7 +1189,7 @@ async function waitForReceiptResult(importId) {
 }
 
 
-function ReceiptEditDrawer({ open, file, onClose, onChange, onBrand, onReview }) {
+function ReceiptEditDrawer({ open, file, onClose, onChange, onBrand, onReview, orders = [], services = [] }) {
   const [correctionMode, setCorrectionMode] = useState(false);
   useEffect(() => { if (open) setCorrectionMode(false); }, [open, file && file.id]);
   if (!open || !file) return null;
@@ -1208,7 +1208,8 @@ function ReceiptEditDrawer({ open, file, onClose, onChange, onBrand, onReview })
       </>}>
       <div style={{ marginBottom: 16 }}><ReceiptDocumentPreview type={file.type} draft={parsed} /></div>
       <ReceiptSpecializedForm type={file.type} value={parsed} onChange={(next) => onChange(file.id, next)}
-        correctionMode={correctionMode} onToggleCorrection={() => setCorrectionMode((value) => !value)} />
+        correctionMode={correctionMode} onToggleCorrection={() => setCorrectionMode((value) => !value)}
+        orders={orders} services={services} />
     </Drawer>
   );
 }
@@ -1744,7 +1745,7 @@ function ReceiptImportModal({ open, onClose, onDone }) {
 
 
 
-function ReceiptEditorPage({ documents = [], orders = [], onChanged, onOpenOrder }) {
+function ReceiptEditorPage({ documents = [], orders = [], services = [], onChanged, onOpenOrder }) {
   const toast = useToast();
   const [q, setQ] = useState('');
   const [edit, setEdit] = useState(null);
@@ -1891,6 +1892,7 @@ function ReceiptEditorPage({ documents = [], orders = [], onChanged, onOpenOrder
 
       <ReceiptEditDrawer open={!!edit} file={edit ? { ...edit, type: edit.editorType } : null} onClose={() => setEdit(null)}
         onChange={updateLocalReceipt} onReview={saveReceipt}
+        orders={orders} services={services}
         onBrand={() => { setBrandEdit(edit); setEdit(null); }} />
 
       <ReceiptBrandDocumentDrawer open={!!brandEdit} type={brandEdit?.editorType} draft={brandEdit?.parsed}

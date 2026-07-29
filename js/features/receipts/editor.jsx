@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Icon } from '../../icons';
-import { Button, Drawer, Field, Input, Pill, Select, TimeField } from '../../ui';
+import { Button, Drawer, EmptyState, Field, Input, Pill, SearchBox, Select, TimeField } from '../../ui';
 import { UFDateField, UnifiedBindField } from '../../forms_unified';
 
 const TYPE_META = {
@@ -26,6 +26,139 @@ const emptyRoom = () => ({
 });
 const emptyCharge = () => ({ code: '', label: '', amount: '', currency: '' });
 const emptyExtra = () => ({ name: '', details: '', amount: '' });
+
+const RECEIPT_SERVICE_KINDS = {
+  'Авиа': ['авиа', 'avia', 'flight'],
+  'ЖД': ['жд', 'rail', 'train'],
+  'Гостиница': ['гостиница', 'отель', 'hotel'],
+  'Трансфер': ['трансфер', 'transfer'],
+};
+
+function receiptRelationText(value) {
+  return String(value ?? '').trim();
+}
+
+function relationServiceKind(service) {
+  return receiptRelationText(service?.kind || service?.service_kind || service?.serviceType || service?.service_type).toLowerCase();
+}
+
+function relationServiceLabel(service) {
+  return receiptRelationText(service?.title || service?.route || service?.name || service?.description)
+    || [service?.kind, service?.date || service?.starts_at].filter(Boolean).join(' · ')
+    || 'Услуга без названия';
+}
+
+function relationServiceOptions(type, services, draft) {
+  const selectedOrder = receiptRelationText(draft.crmOrderId || draft.crmOrderNo);
+  if (!selectedOrder) return [];
+  const orderServices = (Array.isArray(services) ? services : []).filter((service) => {
+    const serviceOrder = receiptRelationText(service.orderId || service.order || service.order_id || service.orderNo || service.order_number);
+    return serviceOrder === selectedOrder;
+  });
+  const aliases = RECEIPT_SERVICE_KINDS[type] || [];
+  const compatible = orderServices.filter((service) => {
+    const kind = relationServiceKind(service);
+    return aliases.some((alias) => kind.includes(alias));
+  });
+  const rows = compatible.length ? compatible : orderServices;
+  return rows.map((service) => ({
+    id: receiptRelationText(service.serverId || service.id),
+    label: relationServiceLabel(service),
+    hint: [service.kind || service.service_kind, service.status, service.date || service.starts_at].filter(Boolean).join(' · '),
+    raw: service,
+  }));
+}
+
+function relationSegmentArrays(service) {
+  const sources = [
+    service,
+    service?.details,
+    service?.metadata,
+    service?.supplier_data,
+    service?.booking_data,
+    service?.offer_snapshot,
+  ].filter(Boolean);
+  for (const source of sources) {
+    for (const key of ['segments', 'legs', 'flights', 'itinerary']) {
+      if (Array.isArray(source[key]) && source[key].length) return source[key];
+    }
+  }
+  return [];
+}
+
+function relationSegmentLabel(segment, index) {
+  const from = receiptRelationText(segment.fromCode || segment.origin_code || segment.origin || segment.from);
+  const to = receiptRelationText(segment.toCode || segment.destination_code || segment.destination || segment.to);
+  const route = [from, to].filter(Boolean).join(' → ');
+  const flight = receiptRelationText(segment.flightNo || segment.flight_number || segment.number || segment.train_number);
+  return route || flight || `Перелёт ${index + 1}`;
+}
+
+function relationFlightOptions(serviceOptions, selectedServiceId, selectedServiceLabel) {
+  const selected = serviceOptions.find((option) => (selectedServiceId && option.id === selectedServiceId)
+    || (!selectedServiceId && selectedServiceLabel && option.label === selectedServiceLabel));
+  if (!selected) return [];
+  const segments = relationSegmentArrays(selected.raw);
+  if (!segments.length) {
+    return [{
+      id: `${selected.id || selected.label}:1`,
+      label: selected.label,
+      hint: selected.hint,
+    }];
+  }
+  return segments.map((segment, index) => ({
+    id: receiptRelationText(segment.id) || `${selected.id || selected.label}:${index + 1}`,
+    label: relationSegmentLabel(segment, index),
+    hint: [
+      segment.date || segment.departure_date || segment.starts_at,
+      segment.dep || segment.departure_time,
+      segment.flightNo || segment.flight_number || segment.number,
+      segment.carrier || segment.airline,
+    ].filter(Boolean).join(' · '),
+  }));
+}
+
+function ReceiptRelationField({
+  value, placeholder, title, sub, options, emptyTitle, searchPlaceholder, icon = 'briefcase', onPick,
+}) {
+  const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState('');
+  useEffect(() => {
+    if (open) setQuery('');
+  }, [open]);
+  const normalizedQuery = query.trim().toLowerCase();
+  const shown = normalizedQuery
+    ? options.filter((option) => `${option.label} ${option.hint || ''}`.toLowerCase().includes(normalizedQuery))
+    : options;
+  return (
+    <>
+      <button type="button" className="select receipt-relation-field" onClick={() => setOpen(true)}
+        aria-haspopup="dialog" aria-expanded={open}>
+        <Icon name={icon} />
+        <span className={value ? '' : 'is-placeholder'}>{value || placeholder}</span>
+        <Icon name="chevRight" />
+      </button>
+      <Drawer open={open} onClose={() => setOpen(false)} title={title} sub={sub}
+        footer={<Button variant="secondary" style={{ width: '100%' }} onClick={() => setOpen(false)}>Отмена</Button>}>
+        <SearchBox value={query} onChange={setQuery} placeholder={searchPlaceholder} style={{ width: '100%', marginBottom: 12 }} />
+        <div className="receipt-relation-options">
+          {shown.map((option) => (
+            <button type="button" className="receipt-relation-option" key={option.id || option.label}
+              onClick={() => { onPick(option); setOpen(false); }}>
+              <span className="receipt-relation-option-icon"><Icon name={icon} /></span>
+              <span>
+                <b>{option.label}</b>
+                {option.hint && <small>{option.hint}</small>}
+              </span>
+              <Icon name="chevRight" />
+            </button>
+          ))}
+          {!shown.length && <EmptyState icon={icon} title={emptyTitle} />}
+        </div>
+      </Drawer>
+    </>
+  );
+}
 
 function asArray(value, fallback) {
   return Array.isArray(value) && value.length ? value : fallback;
@@ -86,7 +219,8 @@ export function normalizeReceiptDraft(type, value = {}) {
     carrier: '', carrierCode: '', passenger: passengers[0]?.name || '', passengers,
     dob: passengers[0]?.dob || '', docNo: passengers[0]?.document || '', ticketNo: passengers[0]?.ticketNo || '',
     ref: '', supplierOrderNo: '', hotelBookingNo: '', crmBindingMode: 'order',
-    crmOrderId: '', crmOrderNo: '', crmPersonId: '', crmPerson: '', crmPassenger: '', crmService: '', crmTrip: '',
+    crmOrderId: '', crmOrderNo: '', crmPersonId: '', crmPerson: '', crmPassenger: '',
+    crmService: '', crmServiceId: '', crmTrip: '', crmTripId: '',
     issueDate: '', bookingStatus: '', currency: 'RUB', tripType: type === 'Гостиница' ? 'stay' : 'oneway',
     legs: [emptyLeg()], fare: '', taxes: '', fees: '', total: '', originalTotal: supplierTotal || '', supplierFees: '',
     ticketCost: value.fare || '', reservedSeatCost: '', agencyServiceFee: value.fees || '',
@@ -394,7 +528,9 @@ export function ReceiptBrandDocumentDrawer({ open, type, draft, originalUrl, onC
   );
 }
 
-export function ReceiptSpecializedForm({ type, value, onChange, correctionMode, onToggleCorrection }) {
+export function ReceiptSpecializedForm({
+  type, value, onChange, correctionMode, onToggleCorrection, orders = [], services = [],
+}) {
   const p = useMemo(() => normalizeReceiptDraft(type, value), [type, value]);
   const user = (typeof window !== 'undefined' && window.CURRENT_USER?.name) || 'Оператор';
   const commit = (next, label, before, after) => {
@@ -459,14 +595,41 @@ export function ReceiptSpecializedForm({ type, value, onChange, correctionMode, 
     const next = target?.mode === 'person'
       ? {
         ...p, crmBindingMode: 'person', crmPerson: target.client || '', crmPersonId: target.id || '',
-        crmOrderNo: '', crmOrderId: '',
+        crmOrderNo: '', crmOrderId: '', crmService: '', crmServiceId: '', crmTrip: '', crmTripId: '',
       }
       : {
         ...p, crmBindingMode: 'order', crmOrderNo: target?.order?.no || '',
         crmOrderId: target?.order?.id || '', crmPerson: '', crmPersonId: '',
+        crmService: '', crmServiceId: '', crmTrip: '', crmTripId: '',
       };
     const after = target?.mode === 'person' ? target.client || '' : target?.order?.no || '';
     commit(next, 'Привязка квитанции', before, after);
+  };
+  const selectedOrder = orders.find((order) => receiptRelationText(order.id) === receiptRelationText(p.crmOrderId)
+    || receiptRelationText(order.no) === receiptRelationText(p.crmOrderNo));
+  const serviceOptions = useMemo(
+    () => relationServiceOptions(type, services, { crmOrderId: p.crmOrderId || selectedOrder?.id || '', crmOrderNo: p.crmOrderNo }),
+    [type, services, p.crmOrderId, p.crmOrderNo, selectedOrder?.id],
+  );
+  const selectedService = serviceOptions.find((option) => (p.crmServiceId && option.id === p.crmServiceId)
+    || (!p.crmServiceId && p.crmService && option.label === p.crmService));
+  const flightOptions = useMemo(
+    () => relationFlightOptions(serviceOptions, p.crmServiceId, p.crmService),
+    [serviceOptions, p.crmServiceId, p.crmService],
+  );
+  const pickService = (option) => {
+    const next = {
+      ...p,
+      crmService: option.label,
+      crmServiceId: option.id || '',
+      crmTrip: '',
+      crmTripId: '',
+    };
+    commit(next, 'Привязка к услуге', p.crmService, option.label);
+  };
+  const pickFlight = (option) => {
+    commit({ ...p, crmTrip: option.label, crmTripId: option.id || '' },
+      'Привязка к перелёту', p.crmTrip, option.label);
   };
 
   const bindingBlock = (
@@ -479,10 +642,31 @@ export function ReceiptSpecializedForm({ type, value, onChange, correctionMode, 
             style={{ width: '100%' }} />
         </Field>
         <Field label={type === 'Гостиница' ? 'Услуга размещения' : type === 'Трансфер' ? 'Услуга трансфера' : 'Услуга'}>
-          <Input value={p.crmService || ''} onChange={(e) => set('crmService', e.target.value, 'Привязка к услуге')} />
+          <ReceiptRelationField
+            value={p.crmService}
+            placeholder="Выберите услугу"
+            title="Выбор услуги"
+            sub={selectedOrder ? `Заказ № ${selectedOrder.no} · ${selectedOrder.client || ''}` : 'Выберите услугу CRM для этой квитанции'}
+            options={serviceOptions}
+            emptyTitle={p.crmOrderId || p.crmOrderNo ? 'В заказе нет подходящих услуг' : 'Сначала выберите заказ CRM'}
+            searchPlaceholder="Название, маршрут или статус"
+            icon={TYPE_META[type]?.icon || 'briefcase'}
+            onPick={pickService}
+          />
         </Field>
-        {type === 'Авиа' && <Field label="Соответствующий перелёт"><Input value={p.crmTrip || ''}
-          onChange={(e) => set('crmTrip', e.target.value, 'Привязка к перелёту')} /></Field>}
+        {type === 'Авиа' && <Field label="Соответствующий перелёт">
+          <ReceiptRelationField
+            value={p.crmTrip}
+            placeholder="Выберите перелёт"
+            title="Соответствующий перелёт"
+            sub={selectedService ? selectedService.label : 'Сначала выберите услугу, затем нужный перелёт'}
+            options={flightOptions}
+            emptyTitle={selectedService ? 'В услуге нет перелётов' : 'Сначала выберите услугу'}
+            searchPlaceholder="Маршрут, дата или номер рейса"
+            icon="plane"
+            onPick={pickFlight}
+          />
+        </Field>}
       </div>
       <div className="receipt-binding-note">Привязка задаётся один раз здесь. Сопоставление каждого пассажира или гостя с карточкой CRM остаётся в блоке участников.</div>
     </Section>

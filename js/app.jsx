@@ -227,7 +227,8 @@ function App() {
       {route === 'chats' && <ChatsPage initialThreads={workspace.chats} focusThread={focusedChat} orders={orders} currentUserId={auth.user.id} onOpenOrder={openOrder} />}
       {route === 'finance' && <FinancePage overview={workspace.finance} transactions={workspace.transactions} clients={workspace.clients} companies={workspace.companies} suppliers={workspace.suppliers} orders={orders} meta={workspace.meta} />}
       {route === 'documents' && <DocCenterPage documents={workspace.documents} orders={orders} />}
-      {route === 'receipts' && <ReceiptEditorPage documents={workspace.documents} orders={orders} onChanged={() => workspace.reload()} onOpenOrder={openOrder} />}
+      {route === 'receipts' && <ReceiptEditorPage documents={workspace.documents} orders={orders}
+        services={workspace.orderServices} onChanged={() => workspace.reload()} onOpenOrder={openOrder} />}
       {route === 'fulfillment' && <FulfillmentPage onOpenOrder={openOrder} orders={orders} documents={workspace.documents} returns={workspace.returns} />}
       {route === 'settings' && <SettingsPage users={workspace.users} onUsersChange={(next) => workspace.update('users', next)} />}
       {route === 'profile' && <ProfilePage user={auth.user} onNavigate={navigate} />}
