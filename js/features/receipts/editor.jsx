@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { Icon } from '../../icons';
 import { Button, Drawer, EmptyState, Field, Input, Pill, SearchBox, Select, TimeField } from '../../ui';
 import { UFDateField, UnifiedBindField } from '../../forms_unified';
+import { segmentLayoverLabel } from './layover';
 
 const TYPE_META = {
   'Авиа': { icon: 'plane', color: '#2566ff', document: 'Маршрут-квитанция' },
@@ -181,6 +182,13 @@ function nightsBetween(start, end) {
   const to = parseReceiptDate(end);
   if (!from || !to || to <= from) return '';
   return Math.round((to.getTime() - from.getTime()) / 86400000);
+}
+
+function receiptLegPlace(leg, side) {
+  const name = String(leg?.[side] || '').trim();
+  const code = String(leg?.[`${side}Code`] || '').trim();
+  if (!code || name.includes(code)) return name || code || '—';
+  return `${name || code} (${code})`;
 }
 
 export function receiptFinancialTotal(type, draft) {
@@ -485,19 +493,43 @@ export function ReceiptBrandDocumentDrawer({ open, type, draft, originalUrl, onC
             </div>)}</div>
           </>}
 
-          {(type === 'Авиа' || type === 'ЖД' || type === 'Трансфер') && <>
+          {type === 'Авиа' && <>
+            <h3>{receiptDetailsLines(type, p)[0]}</h3>
+            <h4>Маршрут</h4>
+            <div className="receipt-brand-itinerary">{p.legs.map((leg, index) => {
+              const layover = index < p.legs.length - 1 ? segmentLayoverLabel(leg, p.legs[index + 1]) : '';
+              const details = [
+                ['Рейс', leg.flightNo],
+                ['Дата', leg.date],
+                ['Вылет', leg.dep],
+                ['Прилёт', leg.arr],
+                ['Авиакомпания', leg.carrier || p.carrier],
+                ['Класс бронирования', leg.cls],
+                ['Код тарифа', leg.fareBasis],
+                ['Класс обслуживания', leg.cabin],
+                ['Багаж', leg.baggage],
+                ['Статус', leg.status],
+              ];
+              return <React.Fragment key={`${leg.flightNo || 'segment'}-${index}`}>
+                <div className="receipt-brand-segment">
+                  <div className="receipt-brand-segment-title"><small>Сегмент {index + 1}</small>
+                    <b>{receiptLegPlace(leg, 'from')} → {receiptLegPlace(leg, 'to')}</b></div>
+                  <div className="receipt-brand-segment-grid">{details.map(([label, value]) => <div key={label}>
+                    <small>{label}</small><b>{value || '—'}</b>
+                  </div>)}</div>
+                </div>
+                {layover && <div className="receipt-brand-layover">{layover}</div>}
+              </React.Fragment>;
+            })}</div>
+          </>}
+
+          {(type === 'ЖД' || type === 'Трансфер') && <>
             <h3>{receiptDetailsLines(type, p)[0]}</h3>
             <h4>{type === 'Трансфер' ? 'Поездки' : 'Маршрут'}</h4>
             <div className="receipt-brand-list">{p.legs.map((leg, index) => <div key={index}>
               <b>{leg.from || leg.fromCode || '—'} → {leg.to || leg.toCode || '—'}</b>
               <span>{[leg.date, leg.dep, leg.arr, leg.flightNo].filter(Boolean).join(' · ')}</span>
               {(leg.fromAddress || leg.toAddress) && <span>{[leg.fromAddress, leg.toAddress].filter(Boolean).join(' → ')}</span>}
-              {type === 'Авиа' && <span>{[leg.carrier || p.carrier, leg.cls, leg.status].filter(Boolean).join(' · ')}</span>}
-              {type === 'Авиа' && (leg.fareBasis || leg.cabin || leg.baggage) && <span>{[
-                leg.fareBasis && `Тариф ${leg.fareBasis}`,
-                leg.cabin,
-                leg.baggage && `Багаж ${leg.baggage}`,
-              ].filter(Boolean).join(' · ')}</span>}
             </div>)}</div>
           </>}
 

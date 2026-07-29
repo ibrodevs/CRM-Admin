@@ -78,6 +78,8 @@ test('фирменные бланки авиа, ЖД и отеля получа�
   assert.match(editor, /leg\.fareBasis/);
   assert.match(editor, /Багаж сегмента/);
   assert.match(editor, /suppliedFareInfo\.code \|\| draft\.fareBasis/);
+  assert.match(editor, /receipt-brand-segment-grid/);
+  assert.match(editor, /segmentLayoverLabel/);
   assert.match(editor, /type === 'ЖД' && <><h4>Расчёт стоимости/);
 });
 
