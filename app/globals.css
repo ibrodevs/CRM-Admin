@@ -422,6 +422,15 @@ table.tbl.tbl-wide thead th,table.tbl.tbl-wide tbody td{white-space:nowrap}
 .receipt-brand-meta{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin:14px 0}
 .receipt-brand-meta>div{display:grid;gap:3px}
 .receipt-brand-meta b{color:var(--ink);font-size:12.5px}
+.receipt-brand-passengers{margin-top:14px;padding:12px;border:1px solid #dbe4fa;border-radius:11px;background:#f7f9ff}
+.receipt-brand-passengers>h4{margin:0 0 9px}
+.receipt-brand-passenger{break-inside:avoid}
+.receipt-brand-passenger+.receipt-brand-passenger{margin-top:10px;padding-top:10px;border-top:1px solid #dbe4fa}
+.receipt-brand-passenger h5{margin:0 0 8px;color:var(--ink);font-size:12px}
+.receipt-brand-passenger-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px 14px}
+.receipt-brand-passenger-grid>div{display:grid;gap:3px;min-width:0}
+.receipt-brand-passenger-grid small{font-size:10.5px;color:var(--muted)}
+.receipt-brand-passenger-grid b{font-size:12px;color:var(--ink);overflow-wrap:anywhere}
 .receipt-brand-document h3{margin:18px 0 4px;color:var(--ink);font-size:18px}
 .receipt-brand-document h4{margin:16px 0 8px;color:var(--ink);font-size:13px}
 .receipt-brand-document p{margin:3px 0;font-size:12.5px}
@@ -528,7 +537,7 @@ table.tbl.tbl-wide thead th,table.tbl.tbl-wide tbody td{white-space:nowrap}
   .receipt-source-notice{align-items:flex-start;flex-wrap:wrap}
   .receipt-source-notice .btn{width:100%}
   .receipt-brand-document{padding:16px}
-  .receipt-brand-meta,.receipt-brand-terms,.receipt-brand-segment-grid,.receipt-brand-hotel-facts,.receipt-brand-hotel-contacts,.receipt-brand-hotel-room-grid{grid-template-columns:1fr}
+  .receipt-brand-meta,.receipt-brand-terms,.receipt-brand-passenger-grid,.receipt-brand-segment-grid,.receipt-brand-hotel-facts,.receipt-brand-hotel-contacts,.receipt-brand-hotel-room-grid{grid-template-columns:1fr}
   .receipt-brand-variants{grid-template-columns:1fr}
 }
 @media print{

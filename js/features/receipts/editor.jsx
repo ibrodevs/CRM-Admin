@@ -219,7 +219,8 @@ function withFinancialAliases(type, draft) {
 
 export function normalizeReceiptDraft(type, value = {}) {
   const passengerFallback = value.passenger ? [{ ...emptyPassenger(), name: value.passenger, dob: value.dob || '',
-    document: value.docNo || '', ticketNo: value.ticketNo || '' }] : [emptyPassenger()];
+    document: value.docNo || '', ticketNo: value.ticketNo || '',
+    loyaltyCard: value.loyaltyCard || value.loyalty_card || '' }] : [emptyPassenger()];
   const passengers = asArray(value.passengers, passengerFallback).map((row) => ({ ...emptyPassenger(), ...row }));
   const supplierTotal = Number(value.total) || Number(value.originalTotal)
     || ((Number(value.fare) || 0) + (Number(value.taxes) || 0) + (Number(value.fees) || 0));
@@ -486,6 +487,25 @@ export function ReceiptBrandDocumentDrawer({ open, type, draft, originalUrl, onC
         <article className="receipt-brand-document">
           <header><div className="receipt-brand-logo">P</div><div><b>{organization}</b><span>{TYPE_META[type]?.document || 'Документ'}</span></div>
             <div><small>Заказ CRM</small><b>{p.crmOrderNo || '—'}</b></div></header>
+          {type === 'Авиа' && <section className="receipt-brand-passengers">
+            <h4>Пассажиры</h4>
+            {p.passengers.map((passenger, index) => {
+              const details = [
+                ['ФИО', passenger.name],
+                ['Дата рождения', passenger.dob],
+                ['Документ / паспорт', passenger.document],
+                ['Номер билета', passenger.ticketNo || p.ticketNo],
+                ['Код бронирования (PNR)', passenger.ref || p.ref],
+                ['Бонусная карта', passenger.loyaltyCard],
+              ];
+              return <div className="receipt-brand-passenger" key={`${passenger.name || 'passenger'}-${index}`}>
+                {p.passengers.length > 1 && <h5>Пассажир {index + 1}</h5>}
+                <div className="receipt-brand-passenger-grid">{details.map(([label, value]) => <div key={label}>
+                  <small>{label}</small><b>{value || '—'}</b>
+                </div>)}</div>
+              </div>;
+            })}
+          </section>}
           <div className="receipt-brand-meta">
             <div><small>Заказ поставщика/API</small><b>{p.supplierOrderNo || '—'}</b></div>
             <div><small>{type === 'Авиа' ? 'PNR / код бронирования' : type === 'Гостиница' ? 'Бронь отеля' : 'Бронь / билет'}</small>
@@ -572,8 +592,10 @@ export function ReceiptBrandDocumentDrawer({ open, type, draft, originalUrl, onC
             </div>)}</div>
           </>}
 
-          <h4>{type === 'Гостиница' ? 'Гости' : 'Пассажиры'}</h4>
-          <div className="receipt-brand-names">{participants.map((name) => <span key={name}>{name}</span>)}</div>
+          {type !== 'Авиа' && <>
+            <h4>{type === 'Гостиница' ? 'Гости' : 'Пассажиры'}</h4>
+            <div className="receipt-brand-names">{participants.map((name) => <span key={name}>{name}</span>)}</div>
+          </>}
 
           {type === 'Трансфер' && <div className="receipt-brand-callout"><b>Автомобиль</b>
             <span>{[p.vehicle.className, p.vehicle.category, p.vehicle.passengers && `${p.vehicle.passengers} пассаж.`, p.vehicle.luggage && `${p.vehicle.luggage} багажа`].filter(Boolean).join(' · ')}</span>

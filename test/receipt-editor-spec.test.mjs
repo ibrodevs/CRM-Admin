@@ -91,6 +91,19 @@ test('фирменные бланки авиа, ЖД и отеля получа�
   assert.match(styles, /white-space:normal/);
 });
 
+test('паспорт не теряется при пустом массиве пассажиров, а полные данные идут до маршрута', () => {
+  assert.match(page, /const receiptImportPassengers =/);
+  assert.match(page, /verified\.passengers/);
+  assert.match(page, /document: draft\.document_number \|\| verified\.document_number/);
+  assert.match(page, /loyaltyCard: draft\.loyalty_card \|\| verified\.loyalty_card/);
+  for (const label of ['ФИО', 'Дата рождения', 'Документ / паспорт', 'Номер билета', 'Код бронирования \\(PNR\\)', 'Бонусная карта']) {
+    assert.match(editor, new RegExp(`\\['${label}'`));
+  }
+  assert.ok(editor.indexOf('receipt-brand-passengers') < editor.indexOf('<h4>Маршрут</h4>'));
+  assert.match(editor, /type !== 'Авиа' && <>/);
+  assert.match(styles, /\.receipt-brand-passenger-grid\{/);
+});
+
 test('отельный бланк разделяет адрес, контакты и подписанные параметры номера', () => {
   assert.match(editor, /receipt-brand-hotel-address/);
   assert.match(editor, /receipt-brand-hotel-contacts/);

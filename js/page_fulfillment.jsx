@@ -995,6 +995,9 @@ const receiptImportMoney = (...values) => {
     .filter(Number.isFinite);
   return numbers.find((value) => value !== 0) ?? numbers[0] ?? 0;
 };
+const receiptImportPassengers = (...lists) => (
+  lists.find((rows) => Array.isArray(rows) && rows.length > 0) || []
+);
 const recMoney = (v, c) => (v < 0 ? '− ' : '') + Math.abs(v).toLocaleString('ru-RU') + ' ' + (c === 'USD' ? '$' : c);
 const recComputed = (p) => (Number(p.fare) || 0) + (Number(p.taxes) || 0) + (Number(p.fees) || 0);
 const recHasSourceAmount = (p) => p && Object.prototype.hasOwnProperty.call(p, 'originalTotal')
@@ -1398,14 +1401,41 @@ function ReceiptImportModal({ open, onClose, onDone }) {
         const detectedType = serviceTypeFromBackend(extracted.service_kind, extracted.service_type, entry.type);
         const subReceipts = receiptImportSubrows(detectedType, extracted.receipts);
         const base = emptyReceiptParse({ ...entry, type: detectedType });
-        const primaryPassenger = draft.passenger_name || extracted.passenger_name || base.passenger;
+        const primaryPassenger = draft.passenger_name || verified.passenger || verified.passenger_name
+          || extracted.passenger_name || base.passenger;
+        const importedPassengers = receiptImportPassengers(
+          draft.passengers,
+          verified.passengers,
+          extracted.passengers,
+        );
+        const passengerDefaults = {
+          name: primaryPassenger,
+          dob: draft.date_of_birth || verified.date_of_birth || verified.dob || extracted.date_of_birth || '',
+          document: draft.document_number || verified.document_number || verified.docNo
+            || extracted.document_number || '',
+          ticketNo: draft.ticket_number || verified.ticket_number || verified.ticketNo
+            || extracted.ticket_number || '',
+          loyaltyCard: draft.loyalty_card || verified.loyalty_card || verified.loyaltyCard
+            || extracted.loyalty_card || '',
+        };
+        const passengers = importedPassengers.length ? importedPassengers.map((passenger, index) => ({
+          ...passenger,
+          name: passenger.name || passenger.passenger_name || (index === 0 ? passengerDefaults.name : ''),
+          dob: passenger.dob || passenger.date_of_birth || (index === 0 ? passengerDefaults.dob : ''),
+          document: passenger.document || passenger.document_number || passenger.docNo
+            || (index === 0 ? passengerDefaults.document : ''),
+          ticketNo: passenger.ticketNo || passenger.ticket_number
+            || (index === 0 ? passengerDefaults.ticketNo : ''),
+          loyaltyCard: passenger.loyaltyCard || passenger.loyalty_card
+            || (index === 0 ? passengerDefaults.loyaltyCard : ''),
+        })) : (primaryPassenger ? [passengerDefaults] : base.passengers);
         const fare = receiptImportMoney(draft.fare, verified.fare, extracted.fare, base.fare);
         const taxes = receiptImportMoney(draft.taxes, verified.taxes, extracted.taxes, base.taxes);
         const fees = receiptImportMoney(draft.fees, verified.fees, extracted.fees, base.fees);
         const total = receiptImportMoney(draft.total, verified.total, verified.originalTotal, extracted.total, fare + taxes + fees);
         const parsed = normalizeReceiptDraft(detectedType, { ...base, ...verified,
           carrier: draft.issuer || extracted.issuer || result.verified_data?.carrier || base.carrier, passenger: primaryPassenger,
-          passengers: draft.passengers || extracted.passengers || (primaryPassenger ? [{ name: primaryPassenger, dob: extracted.date_of_birth || '', document: extracted.document_number || '', ticketNo: extracted.ticket_number || '' }] : base.passengers),
+          passengers,
           fare, taxes, fees, total, originalTotal: receiptImportMoney(verified.originalTotal, extracted.originalTotal, extracted.total, total),
           ticketCost: receiptImportMoney(draft.ticketCost, draft.ticket_cost, verified.ticketCost, verified.ticket_cost,
             extracted.ticketCost, extracted.ticket_cost, fare),
