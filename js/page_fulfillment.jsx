@@ -1838,7 +1838,7 @@ function ReceiptEditorPage({ documents = [], orders = [], services = [], onChang
       });
       updateLocalReceipt(fileId, { ...parsed, recognitionPending: asDraft });
       editDirty.current = false;
-      await onChanged?.();
+      if (!asDraft) await onChanged?.();
       toast(asDraft ? 'Черновик квитанции сохранён' : 'Проверенные данные и настройки бланка сохранены', 'ok');
       return true;
     } catch (error) {

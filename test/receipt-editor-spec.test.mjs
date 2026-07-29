@@ -105,6 +105,7 @@ test('закрытие изменённого редактора автомат�
   assert.match(page, /const editDirty = useRef\(false\)/);
   assert.match(page, /void saveReceipt\(current\.id, current\.parsed, true\)/);
   assert.match(page, /draft: asDraft/);
+  assert.match(page, /if \(!asDraft\) await onChanged\?\.\(\)/);
   assert.match(page, /Черновик квитанции сохранён/);
   assert.match(page, /onClose=\{closeReceiptEditor\}/);
 });
