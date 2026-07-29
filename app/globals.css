@@ -292,6 +292,16 @@ table.tbl.tbl-wide thead th,table.tbl.tbl-wide tbody td{white-space:nowrap}
 }
 .rec-import-table tbody tr.rec-import-row{padding:16px 18px;border-bottom:1px solid var(--line)}
 .rec-import-table tbody tr.rec-import-row:last-child{border-bottom:none}
+.rec-import-table tbody tr.rec-import-row.has-subrows{border-bottom-color:#cbd8ff;background:#f9fbff}
+.rec-import-table tbody tr.rec-import-subrow{
+  display:grid;grid-template-columns:42px minmax(220px,1.35fr) minmax(190px,1fr) minmax(142px,.72fr) minmax(128px,.58fr) minmax(156px,.72fr) 36px;
+  column-gap:12px;align-items:center;padding:11px 18px;border-bottom:1px solid #dfe6f5;background:#f7f9fd
+}
+.rec-import-table tbody tr.rec-import-subrow:last-child{border-bottom-color:var(--line)}
+.rec-import-subrow-document{display:flex;align-items:flex-start;gap:9px;min-width:0}
+.rec-import-subrow-document>span:last-child{display:grid;gap:2px;min-width:0;color:var(--muted);font-size:12px;line-height:1.35}
+.rec-import-subrow-document b{color:var(--ink);font-size:12.5px}
+.rec-import-subrow-branch{flex:0 0 auto;color:var(--blue);font-size:18px;font-weight:800;line-height:1}
 .rec-import-table tbody tr:hover td{background:transparent}
 .rec-import-table tbody td{
   display:block;min-width:0;padding:0!important;border-bottom:none!important;background:transparent;
@@ -485,6 +495,11 @@ table.tbl.tbl-wide thead th,table.tbl.tbl-wide tbody td{white-space:nowrap}
   .rec-import-table tbody tr.rec-import-row{
     display:grid;grid-template-columns:1fr;gap:10px;background:#fff;border:1px solid var(--line);
     border-radius:14px;box-shadow:var(--shadow-card);padding:12px
+  }
+  .rec-import-table tbody tr.rec-import-row.has-subrows{border-radius:14px 14px 8px 8px}
+  .rec-import-table tbody tr.rec-import-subrow{
+    display:grid;grid-template-columns:1fr;gap:8px;margin:-6px 8px 0;padding:11px 12px;
+    border:1px solid #dbe4fa;border-radius:10px;background:#f7f9fd
   }
   .rec-import-table tbody td{
     display:grid;grid-template-columns:112px minmax(0,1fr);gap:10px;align-items:start;

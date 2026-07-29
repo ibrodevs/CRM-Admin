@@ -919,6 +919,35 @@ function serviceTypeFromBackend(kind, label, fallback) {
   if (raw === 'other' || /проч/.test(raw)) return 'Прочее';
   return fallback || 'Прочее';
 }
+function receiptImportSubrows(type, receipts) {
+  if (!Array.isArray(receipts) || receipts.length < 2) return [];
+  return receipts.map((receipt, index) => normalizeReceiptDraft(type, {
+    carrier: receipt.issuer || '',
+    passenger: receipt.passenger_name || '',
+    passengers: receipt.passenger_name ? [{
+      name: receipt.passenger_name,
+      dob: receipt.date_of_birth || '',
+      document: receipt.document_number || '',
+      ticketNo: receipt.ticket_number || '',
+    }] : [],
+    dob: receipt.date_of_birth || '',
+    docNo: receipt.document_number || '',
+    ticketNo: receipt.ticket_number || '',
+    ref: receipt.reference || '',
+    cls: receipt.booking_class || '',
+    fare: receipt.fare ?? receipt.total ?? '',
+    taxes: receipt.taxes ?? 0,
+    fees: receipt.fees ?? 0,
+    total: receipt.total ?? '',
+    ticketCost: receipt.ticketCost ?? receipt.ticket_cost ?? '',
+    reservedSeatCost: receipt.reservedSeatCost ?? receipt.reserved_seat_cost ?? '',
+    currency: receipt.currency || 'RUB',
+    legs: receipt.segments || [],
+    tripType: receipt.trip_type || 'oneway',
+    recognitionPending: false,
+    receiptIndex: index + 1,
+  }));
+}
 const receiptImportMoney = (...values) => {
   const numbers = values
     .filter((value) => value !== undefined && value !== null && value !== '')
@@ -1326,6 +1355,7 @@ function ReceiptImportModal({ open, onClose, onDone }) {
         const extracted = result.extracted || {};
         const verified = result.verified_data || {};
         const detectedType = serviceTypeFromBackend(extracted.service_kind, extracted.service_type, entry.type);
+        const subReceipts = receiptImportSubrows(detectedType, extracted.receipts);
         const base = emptyReceiptParse({ ...entry, type: detectedType });
         const primaryPassenger = draft.passenger_name || extracted.passenger_name || base.passenger;
         const fare = receiptImportMoney(draft.fare, verified.fare, extracted.fare, base.fare);
@@ -1363,7 +1393,9 @@ function ReceiptImportModal({ open, onClose, onDone }) {
           fareInfo: draft.fare_info || extracted.fare_info || base.fareInfo,
           priceSource: total > 0 ? 'document' : 'manual',
           recognitionPending: result.parser_status !== 'parsed', backendWarnings: result.warnings || [] });
-        setFiles((cur) => cur.map((item) => item.id === entry.id ? { ...item, status: 'done', importId: imported.id, type: detectedType, parsed } : item));
+        setFiles((cur) => cur.map((item) => item.id === entry.id
+          ? { ...item, status: 'done', importId: imported.id, type: detectedType, parsed, subReceipts }
+          : item));
       } catch (error) {
         setFiles((cur) => cur.map((item) => item.id === entry.id ? { ...item, status: 'done', error: error.message, parsed: { ...emptyReceiptParse(entry), recognitionPending: true } } : item));
         toast(error.message || `Не удалось обработать ${entry.name}`, 'err');
@@ -1640,7 +1672,8 @@ function ReceiptImportModal({ open, onClose, onDone }) {
                           const detailLines = receiptDetailsLines(r.f.type, p);
                           const carrierText = (p.carrier || '').trim() || r.f.name;
                           return (
-                            <tr key={r.f.id} className="rec-import-row" style={{ opacity: skipped ? 0.5 : 1 }}>
+                            <React.Fragment key={r.f.id}>
+                            <tr className={'rec-import-row' + (r.f.subReceipts?.length ? ' has-subrows' : '')} style={{ opacity: skipped ? 0.5 : 1 }}>
                               <td data-label=""><Checkbox on={!!sel[r.f.id]} onChange={() => setSel((s) => ({ ...s, [r.f.id]: !s[r.f.id] }))} /></td>
                               <td data-label="Документ">
                                 <span className="rec-import-file">
@@ -1691,6 +1724,32 @@ function ReceiptImportModal({ open, onClose, onDone }) {
                                 if (window.confirm(`Удалить «${r.f.name}» из импорта? Оригинальный файл на компьютере не будет удалён.`)) remove(r.f.id);
                               }}><Icon name="trash" style={{ width: 16, height: 16 }} /></button></td>
                             </tr>
+                            {(r.f.subReceipts || []).map((subReceipt, subIndex) => {
+                              const subDetails = receiptDetailsLines(r.f.type, subReceipt);
+                              return (
+                                <tr key={`${r.f.id}-ticket-${subIndex}`} className="rec-import-subrow" style={{ opacity: skipped ? 0.5 : 1 }}>
+                                  <td data-label=""></td>
+                                  <td data-label="Билет">
+                                    <span className="rec-import-subrow-document">
+                                      <span className="rec-import-subrow-branch" aria-hidden="true">↳</span>
+                                      <span>
+                                        <b>Билет {subIndex + 1} из {r.f.subReceipts.length}</b>
+                                        <span>{subReceipt.passenger || 'Пассажир не распознан'}</span>
+                                        {subReceipt.ticketNo && <span>№ {subReceipt.ticketNo}</span>}
+                                      </span>
+                                    </span>
+                                  </td>
+                                  <td data-label="Маршрут">
+                                    <span className="rec-import-details">{subDetails.slice(0, 3).map((line, index) => <span key={index}>{line}</span>)}</span>
+                                  </td>
+                                  <td data-label="Стоимость"><b>{recSourceMoney(subReceipt)}</b></td>
+                                  <td data-label="Проверка"><Pill tone="green">Распознано</Pill></td>
+                                  <td data-label="Операции"><span className="rec-import-meta">В составе общего PDF</span></td>
+                                  <td data-label=""></td>
+                                </tr>
+                              );
+                            })}
+                            </React.Fragment>
                         );
                       })}
                     </tbody>

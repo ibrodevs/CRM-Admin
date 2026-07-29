@@ -198,6 +198,15 @@ test('импорт показывает заметный прогресс заг
   assert.match(styles, /\.receipt-upload-progress-track/);
 });
 
+test('групповой ЖД PDF отображает каждый билет отдельной подстрокой', () => {
+  assert.match(page, /function receiptImportSubrows\(type, receipts\)/);
+  assert.match(page, /subReceipts = receiptImportSubrows\(detectedType, extracted\.receipts\)/);
+  assert.match(page, /className="rec-import-subrow"/);
+  assert.match(page, /Билет \{subIndex \+ 1\} из \{r\.f\.subReceipts\.length\}/);
+  assert.match(page, /В составе общего PDF/);
+  assert.match(styles, /\.rec-import-table tbody tr\.rec-import-subrow/);
+});
+
 test('суммы реестра разнесены по строкам, а удаление имеет доступную крупную кнопку', () => {
   assert.match(page, /rec-import-money-total/);
   assert.match(page, /rec-import-money-source/);
