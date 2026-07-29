@@ -297,6 +297,12 @@ table.tbl.tbl-wide thead th,table.tbl.tbl-wide tbody td{white-space:nowrap}
   display:block;min-width:0;padding:0!important;border-bottom:none!important;background:transparent;
   overflow-wrap:anywhere;word-break:break-word
 }
+.rec-import-table tbody td[data-label="Проверка"]{overflow:hidden}
+.rec-import-table tbody td[data-label="Проверка"] .pill,
+.receipt-registry-table tbody td[data-label="Проверка"] .pill{
+  display:inline-flex;max-width:100%;height:auto;min-height:30px;padding:6px 10px;
+  white-space:normal;line-height:1.2;text-align:center;overflow-wrap:anywhere
+}
 .rec-import-file{display:flex;align-items:center;gap:10px;min-width:0}
 .rec-import-icon{width:30px;height:30px;border-radius:8px;display:inline-flex;align-items:center;justify-content:center;flex:0 0 30px;color:#fff}
 .rec-import-icon svg{width:16px;height:16px;color:#fff}

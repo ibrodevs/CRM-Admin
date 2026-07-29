@@ -4,6 +4,7 @@ import test from 'node:test';
 import { toLegacyDocument } from '../js/api/legacy-adapters.js';
 
 const editor = await readFile(new URL('../js/features/receipts/editor.jsx', import.meta.url), 'utf8');
+const styles = await readFile(new URL('../app/globals.css', import.meta.url), 'utf8');
 const page = await readFile(new URL('../js/page_fulfillment.jsx', import.meta.url), 'utf8');
 
 test('редактор использует отдельные формы авиа, ЖД, гостиницы и трансфера', () => {
@@ -81,6 +82,8 @@ test('фирменные бланки авиа, ЖД и отеля получа�
   assert.match(editor, /receipt-brand-segment-grid/);
   assert.match(editor, /segmentLayoverLabel/);
   assert.match(editor, /type === 'ЖД' && <><h4>Расчёт стоимости/);
+  assert.match(styles, /td\[data-label="Проверка"\] \.pill/);
+  assert.match(styles, /white-space:normal/);
 });
 
 test('трансферный ваучер классифицируется как трансфер до общего правила ваучеров', () => {
