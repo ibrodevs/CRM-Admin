@@ -409,6 +409,19 @@ table.tbl.tbl-wide thead th,table.tbl.tbl-wide tbody td{white-space:nowrap}
 .receipt-brand-document h3{margin:18px 0 4px;color:var(--ink);font-size:18px}
 .receipt-brand-document h4{margin:16px 0 8px;color:var(--ink);font-size:13px}
 .receipt-brand-document p{margin:3px 0;font-size:12.5px}
+.receipt-brand-hotel-facts{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin-top:12px}
+.receipt-brand-hotel-facts>div,.receipt-brand-hotel-contacts>div{display:grid;gap:3px;min-width:0}
+.receipt-brand-hotel-facts small,.receipt-brand-hotel-address small,.receipt-brand-hotel-contacts small,.receipt-brand-hotel-room-grid small,.receipt-brand-hotel-room-note small{font-size:10.5px;color:var(--muted)}
+.receipt-brand-hotel-facts b,.receipt-brand-hotel-address b,.receipt-brand-hotel-contacts b,.receipt-brand-hotel-room-grid b{font-size:12px;color:var(--ink);overflow-wrap:anywhere}
+.receipt-brand-hotel-address{display:grid;gap:4px;margin-top:10px;padding:11px 12px;border:1px solid var(--line);border-radius:10px;background:var(--surface-2)}
+.receipt-brand-hotel-contacts{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px 16px;margin-top:8px;padding:11px 12px;border:1px solid var(--line);border-radius:10px}
+.receipt-brand-hotel-rooms{display:grid;gap:10px}
+.receipt-brand-hotel-room{padding:12px;border:1px solid var(--line);border-radius:10px;break-inside:avoid}
+.receipt-brand-hotel-room h5{margin:0 0 10px;color:var(--ink);font-size:12.5px}
+.receipt-brand-hotel-room-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px 14px}
+.receipt-brand-hotel-room-grid>div,.receipt-brand-hotel-room-note{display:grid;gap:3px;min-width:0}
+.receipt-brand-hotel-room-note{margin-top:10px;padding-top:9px;border-top:1px solid var(--line)}
+.receipt-brand-hotel-room-note span{font-size:12px;color:var(--body);white-space:pre-wrap}
 .receipt-brand-period{display:flex;align-items:center;justify-content:space-between;margin-top:13px;padding:11px 12px;border-radius:10px;background:var(--blue-soft);color:var(--ink)}
 .receipt-brand-list{display:grid;gap:8px}
 .receipt-brand-list>div{display:grid;gap:3px;padding:10px 11px;border:1px solid var(--line);border-radius:9px}
@@ -489,7 +502,7 @@ table.tbl.tbl-wide thead th,table.tbl.tbl-wide tbody td{white-space:nowrap}
   .receipt-source-notice{align-items:flex-start;flex-wrap:wrap}
   .receipt-source-notice .btn{width:100%}
   .receipt-brand-document{padding:16px}
-  .receipt-brand-meta,.receipt-brand-terms,.receipt-brand-segment-grid{grid-template-columns:1fr}
+  .receipt-brand-meta,.receipt-brand-terms,.receipt-brand-segment-grid,.receipt-brand-hotel-facts,.receipt-brand-hotel-contacts,.receipt-brand-hotel-room-grid{grid-template-columns:1fr}
   .receipt-brand-variants{grid-template-columns:1fr}
 }
 @media print{

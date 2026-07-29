@@ -91,6 +91,24 @@ test('фирменные бланки авиа, ЖД и отеля получа�
   assert.match(styles, /white-space:normal/);
 });
 
+test('отельный бланк разделяет адрес, контакты и подписанные параметры номера', () => {
+  assert.match(editor, /receipt-brand-hotel-address/);
+  assert.match(editor, /receipt-brand-hotel-contacts/);
+  assert.match(editor, /\['Категория номера', room\.category\]/);
+  assert.match(editor, /\['Взрослых', room\.adults \?\? 0\]/);
+  assert.match(editor, /\['Питание', room\.meal\]/);
+  assert.match(editor, /p\.rooms\.length > 1 && !!room\.guestIds\?\.length/);
+  assert.match(styles, /receipt-brand-hotel-room-grid/);
+});
+
+test('закрытие изменённого редактора автоматически сохраняет черновик', () => {
+  assert.match(page, /const editDirty = useRef\(false\)/);
+  assert.match(page, /void saveReceipt\(current\.id, current\.parsed, true\)/);
+  assert.match(page, /draft: asDraft/);
+  assert.match(page, /Черновик квитанции сохранён/);
+  assert.match(page, /onClose=\{closeReceiptEditor\}/);
+});
+
 test('трансферный ваучер классифицируется как трансфер до общего правила ваучеров', () => {
   const transferRule = page.indexOf("if (/(transfer|трансфер|pickup|driver|car)/.test(n))");
   const voucherRule = page.indexOf("if (/(hotel|отел|voucher|ваучер|room|гостиниц)/.test(n))");

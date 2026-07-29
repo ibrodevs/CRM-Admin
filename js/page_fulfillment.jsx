@@ -1778,6 +1778,7 @@ function ReceiptEditorPage({ documents = [], orders = [], services = [], onChang
   const toast = useToast();
   const [q, setQ] = useState('');
   const [edit, setEdit] = useState(null);
+  const editDirty = useRef(false);
   const [brandEdit, setBrandEdit] = useState(null);
   const [importing, setImporting] = useState(false);
   const [imported, setImported] = useState([]);
@@ -1813,6 +1814,7 @@ function ReceiptEditorPage({ documents = [], orders = [], services = [], onChang
   });
 
   const updateLocalReceipt = (fileId, parsed) => {
+    editDirty.current = true;
     setEdit((current) => current && String(current.id) === String(fileId) ? { ...current, parsed } : current);
     setImported((current) => {
       const source = all.find((row) => String(row.id) === String(fileId));
@@ -1824,23 +1826,31 @@ function ReceiptEditorPage({ documents = [], orders = [], services = [], onChang
         : [next, ...current];
     });
   };
-  const saveReceipt = async (fileId, parsed) => {
+  const saveReceipt = async (fileId, parsed, asDraft = false) => {
     try {
       await documentsApi.updateReceipt(fileId, {
+        draft: asDraft,
         verified_data: parsed,
         order: parsed.crmBindingMode === 'order' ? (parsed.crmOrderId || null) : null,
         person: parsed.crmBindingMode === 'person' ? (parsed.crmPersonId || null) : null,
         output_settings: parsed.output || { mode: 'original' },
         audit_log: parsed.auditLog || [],
       });
-      updateLocalReceipt(fileId, { ...parsed, recognitionPending: false });
+      updateLocalReceipt(fileId, { ...parsed, recognitionPending: asDraft });
+      editDirty.current = false;
       await onChanged?.();
-      toast('Проверенные данные и настройки бланка сохранены', 'ok');
+      toast(asDraft ? 'Черновик квитанции сохранён' : 'Проверенные данные и настройки бланка сохранены', 'ok');
       return true;
     } catch (error) {
       toast(error.message || 'Не удалось сохранить квитанцию', 'err');
       return false;
     }
+  };
+  const closeReceiptEditor = () => {
+    const current = edit;
+    setEdit(null);
+    if (!current || !editDirty.current) return;
+    void saveReceipt(current.id, current.parsed, true);
   };
 
   const removeReceipt = async (document) => {
@@ -1903,7 +1913,7 @@ function ReceiptEditorPage({ documents = [], orders = [], services = [], onChang
                           <div className="rec-import-meta">v{d.version || 1} · {d.date || '—'}</div>
                         </td>
                         <td data-label="Операции"><div className="rec-import-actions">
-                          <Button size="sm" variant="ghost" onClick={() => setEdit(d)}>{recognition === 'Требует проверки' ? 'Проверить' : 'Изменить'}</Button>
+                          <Button size="sm" variant="ghost" onClick={() => { editDirty.current = false; setEdit(d); }}>{recognition === 'Требует проверки' ? 'Проверить' : 'Изменить'}</Button>
                           {d.originalUrl && <Button size="sm" variant="ghost" icon="eye" onClick={() => window.open(d.originalUrl, '_blank')}>Оригинал</Button>}
                           <Button size="sm" variant="ghost" icon="template" onClick={() => setBrandEdit(d)}>На бланке</Button>
                           {order && <Button size="sm" variant="ghost" icon="orders" onClick={() => onOpenOrder?.(order, 'documents')}>Заказ</Button>}
@@ -1919,10 +1929,10 @@ function ReceiptEditorPage({ documents = [], orders = [], services = [], onChang
         </div>
       </div>
 
-      <ReceiptEditDrawer open={!!edit} file={edit ? { ...edit, type: edit.editorType } : null} onClose={() => setEdit(null)}
-        onChange={updateLocalReceipt} onReview={saveReceipt}
+      <ReceiptEditDrawer open={!!edit} file={edit ? { ...edit, type: edit.editorType } : null} onClose={closeReceiptEditor}
+        onChange={updateLocalReceipt} onReview={(fileId, parsed) => saveReceipt(fileId, parsed, false)}
         orders={orders} services={services}
-        onBrand={() => { setBrandEdit(edit); setEdit(null); }} />
+        onBrand={() => { setBrandEdit(edit); closeReceiptEditor(); }} />
 
       <ReceiptBrandDocumentDrawer open={!!brandEdit} type={brandEdit?.editorType} draft={brandEdit?.parsed}
         originalUrl={brandEdit?.originalUrl} onClose={() => setBrandEdit(null)} />

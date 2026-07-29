@@ -446,6 +446,15 @@ export function ReceiptBrandDocumentDrawer({ open, type, draft, originalUrl, onC
     : [['Условия отмены', p.transferTerms.cancellation], ['Бесплатное ожидание', p.transferTerms.freeWaiting],
       ['Встреча с табличкой', p.transferTerms.meetAndGreet], ['Помощь с багажом', p.transferTerms.baggageHelp],
       ['Контакты поддержки', p.transferTerms.supportContacts], ['Комментарий пассажиру', p.transferTerms.passengerComment]];
+  const hotelCategory = type === 'Гостиница' && p.hotel.category
+    && !String(p.hotel.name || '').toLowerCase().includes(String(p.hotel.category).toLowerCase())
+    ? p.hotel.category : '';
+  const hotelLocation = type === 'Гостиница'
+    ? [['Категория отеля', hotelCategory], ['Город', p.hotel.city], ['Страна', p.hotel.country]].filter(([, value]) => value)
+    : [];
+  const hotelContacts = type === 'Гостиница'
+    ? [['Телефон', p.hotel.phone], ['Электронная почта', p.hotel.email], ['Карта / координаты', p.hotel.map]].filter(([, value]) => value)
+    : [];
   const printReceipt = () => {
     const cleanup = () => document.body.classList.remove('receipt-printing');
     document.body.classList.add('receipt-printing');
@@ -487,18 +496,40 @@ export function ReceiptBrandDocumentDrawer({ open, type, draft, originalUrl, onC
 
           {type === 'Гостиница' && <>
             <h3>{p.hotel.name || 'Отель'}</h3>
-            <p>{[p.hotel.category, p.hotel.city, p.hotel.country].filter(Boolean).join(' · ')}</p>
-            <p>{p.hotel.address || ''}</p>
-            <p>{[p.hotel.phone, p.hotel.email].filter(Boolean).join(' · ')}</p>
+            {hotelLocation.length > 0 && <div className="receipt-brand-hotel-facts">
+              {hotelLocation.map(([label, value]) => <div key={label}><small>{label}</small><b>{value}</b></div>)}
+            </div>}
+            <section className="receipt-brand-hotel-address">
+              <small>Адрес</small>
+              <b>{p.hotel.address || 'Не указан'}</b>
+            </section>
+            {hotelContacts.length > 0 && <section className="receipt-brand-hotel-contacts">
+              {hotelContacts.map(([label, value]) => <div key={label}><small>{label}</small><b>{value}</b></div>)}
+            </section>}
             <div className="receipt-brand-period"><b>{p.legs[0]?.date || '—'} → {p.legs[0]?.endDate || '—'}</b><span>{p.nights || '—'} ноч.</span></div>
             <h4>Размещение</h4>
-            <div className="receipt-brand-list">{p.rooms.map((room, index) => <div key={index}>
-              <b>{room.category || room.name || `Номер ${index + 1}`}</b>
-              <span>{[room.name, room.bedType, `${room.adults || 0} взр.`, room.children ? `${room.children} дет.` : '', room.meal].filter(Boolean).join(' · ')}</span>
-              {!!room.guestIds?.length && <span>Гости: {room.guestIds.join(', ')}</span>}
-              {(room.earlyCheckIn || room.lateCheckOut) && <span>{[room.earlyCheckIn && `Ранний заезд: ${room.earlyCheckIn}`, room.lateCheckOut && `Поздний выезд: ${room.lateCheckOut}`].filter(Boolean).join(' · ')}</span>}
-              {room.conditions && <span>{room.conditions}</span>}
-            </div>)}</div>
+            <div className="receipt-brand-hotel-rooms">{p.rooms.map((room, index) => {
+              const roomFacts = [
+                ['Категория номера', room.category],
+                ['Название номера', room.name],
+                ['Тип кровати', room.bedType],
+                ['Взрослых', room.adults ?? 0],
+                ['Детей', room.children ?? 0],
+                ['Питание', room.meal],
+                ['Ранний заезд', room.earlyCheckIn],
+                ['Поздний выезд', room.lateCheckOut],
+              ].filter(([, value]) => value !== '' && value !== null && value !== undefined);
+              return <section key={index} className="receipt-brand-hotel-room">
+                <h5>Номер {index + 1}</h5>
+                <div className="receipt-brand-hotel-room-grid">{roomFacts.map(([label, value]) => <div key={label}>
+                  <small>{label}</small><b>{value}</b>
+                </div>)}</div>
+                {p.rooms.length > 1 && !!room.guestIds?.length && <div className="receipt-brand-hotel-room-note">
+                  <small>Гости номера</small><span>{room.guestIds.join(', ')}</span>
+                </div>}
+                {room.conditions && <div className="receipt-brand-hotel-room-note"><small>Дополнительные условия</small><span>{room.conditions}</span></div>}
+              </section>;
+            })}</div>
           </>}
 
           {type === 'Авиа' && <>
