@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { Icon } from '../../icons';
 import { Button, Drawer, EmptyState, Field, Input, Pill, SearchBox, Select, TimeField } from '../../ui';
 import { UFDateField, UnifiedBindField } from '../../forms_unified';
-import { segmentLayoverLabel } from './layover';
+import { segmentConnectionLabel } from './layover';
 
 const TYPE_META = {
   'Авиа': { icon: 'plane', color: '#2566ff', document: 'Маршрут-квитанция' },
@@ -19,7 +19,7 @@ const emptyPassenger = () => ({
 const emptyLeg = () => ({
   from: '', fromCode: '', to: '', toCode: '', fromAddress: '', toAddress: '',
   date: '', endDate: '', dep: '', arr: '', duration: '', carrier: '',
-  flightNo: '', cls: '', status: '', fareBasis: '', cabin: '', baggage: '', dir: 'out',
+  flightNo: '', coach: '', seat: '', cls: '', status: '', fareBasis: '', cabin: '', baggage: '', dir: 'out',
 });
 const emptyRoom = () => ({
   category: '', name: '', bedType: '', adults: 1, children: 0, meal: 'Без питания',
@@ -305,6 +305,11 @@ export function receiptParticipantNames(draft) {
   return names.length ? names : (fallback ? [fallback] : []);
 }
 
+export function receiptParticipantLabel(draft, fallback = 'квитанция') {
+  const names = receiptParticipantNames(draft);
+  return names.length ? `${names[0]}${names.length > 1 ? ` +${names.length - 1}` : ''}` : fallback;
+}
+
 export function receiptDetailsLines(type, draft) {
   const legs = draft.legs || [];
   if (type === 'Гостиница') {
@@ -326,7 +331,12 @@ export function receiptDetailsLines(type, draft) {
       `${receiptParticipantNames(draft).length || draft.vehicle?.passengers || 0} пассаж.`];
   }
   if (type === 'ЖД') {
-    return [route || 'Маршрут не распознан', first.date || 'Дата не распознана', first.flightNo ? `Поезд ${first.flightNo}` : 'Поезд не распознан'];
+    const train = [
+      first.flightNo ? `Поезд ${first.flightNo}` : '',
+      first.coach ? `вагон ${first.coach}` : '',
+      first.seat ? `место ${first.seat}` : '',
+    ].filter(Boolean).join(' · ');
+    return [route || 'Маршрут не распознан', first.date || 'Дата не распознана', train || 'Поезд, вагон и место не распознаны'];
   }
   const dates = [first.date, last.date && last.date !== first.date ? last.date : ''].filter(Boolean).join('–');
   return [route || 'Маршрут не распознан', dates || 'Дата не распознана',
@@ -412,6 +422,11 @@ export function ReceiptDocumentPreview({ type, draft }) {
           <div><small>Валюта</small><b>{draft.currency || '—'}</b></div>
           <div><small>Итого клиенту</small><b>{receiptFinancialTotal(type, draft).toLocaleString('ru-RU')} {draft.currency || ''}</b></div>
         </div>
+        {type === 'ЖД' && <div className="receipt-preview-rail-place">
+          <span>Поезд</span><b>{draft.legs?.[0]?.flightNo || '—'}</b>
+          <span>Вагон</span><b>{draft.legs?.[0]?.coach || '—'}</b>
+          <span>Место</span><b>{draft.legs?.[0]?.seat || '—'}</b>
+        </div>}
         {type === 'ЖД' && draft.crmOrderNo && <div className="receipt-rail-footer">Заказ в CRM: № {draft.crmOrderNo}</div>}
       </div>
     </div>
@@ -461,7 +476,7 @@ export function ReceiptBrandDocumentDrawer({ open, type, draft, originalUrl, onC
     document.body.classList.add('receipt-printing');
     window.addEventListener('afterprint', cleanup, { once: true });
     window.print();
-    cleanup();
+    window.setTimeout(cleanup, 1000);
   };
   return (
     <Drawer open={open} onClose={onClose} title="Предпросмотр клиентского документа"
@@ -556,7 +571,8 @@ export function ReceiptBrandDocumentDrawer({ open, type, draft, originalUrl, onC
             <h3>{receiptDetailsLines(type, p)[0]}</h3>
             <h4>Маршрут</h4>
             <div className="receipt-brand-itinerary">{p.legs.map((leg, index) => {
-              const layover = index < p.legs.length - 1 ? segmentLayoverLabel(leg, p.legs[index + 1]) : '';
+              const layover = index < p.legs.length - 1
+                ? segmentConnectionLabel(leg, p.legs[index + 1], p.tripType) : '';
               const details = [
                 ['Рейс', leg.flightNo],
                 ['Дата', leg.date],
@@ -588,6 +604,10 @@ export function ReceiptBrandDocumentDrawer({ open, type, draft, originalUrl, onC
             <div className="receipt-brand-list">{p.legs.map((leg, index) => <div key={index}>
               <b>{leg.from || leg.fromCode || '—'} → {leg.to || leg.toCode || '—'}</b>
               <span>{[leg.date, leg.dep, leg.arr, leg.flightNo].filter(Boolean).join(' · ')}</span>
+              {type === 'ЖД' && <span>{[
+                leg.coach ? `Вагон ${leg.coach}` : '',
+                leg.seat ? `место ${leg.seat}` : '',
+              ].filter(Boolean).join(' · ') || 'Вагон и место не распознаны'}</span>}
               {(leg.fromAddress || leg.toAddress) && <span>{[leg.fromAddress, leg.toAddress].filter(Boolean).join(' → ')}</span>}
             </div>)}</div>
           </>}
@@ -606,12 +626,20 @@ export function ReceiptBrandDocumentDrawer({ open, type, draft, originalUrl, onC
           {(type === 'Гостиница' || type === 'Трансфер') && terms.some(([, value]) => value) && <><h4>Условия и важная информация</h4>
             <div className="receipt-brand-terms">{terms.filter(([, value]) => value).map(([label, value]) => <div key={label}><b>{label}</b><span>{value}</span></div>)}</div></>}
           {type === 'Авиа' && <><h4>Расчёт стоимости</h4>
-            <div className="receipt-brand-finance">
-              <div><span>Тариф перевозчика</span><b>{money(p.fare)}</b></div>
-              {fareRows.map((row, index) => <div key={`fare-${index}`}><span>{[row.code, row.label].filter(Boolean).join(' · ') || 'Расчёт тарифа'}</span><b>{rowMoney(row)}</b></div>)}
-              {taxRows.map((row, index) => <div key={`tax-${index}`}><span>{[row.code, row.label].filter(Boolean).join(' · ') || 'Такса'}</span><b>{money(row.amount)}</b></div>)}
-              {feeRows.map((row, index) => <div key={`fee-${index}`}><span>{[row.code, row.label].filter(Boolean).join(' · ') || 'Сбор'}</span><b>{money(row.amount)}</b></div>)}
-              <div className="is-total"><span>Итого для клиента</span><b>{money(receiptFinancialTotal(type, p))}</b></div>
+            <div className="receipt-brand-finance-groups">
+              <section><h5>Тариф</h5><div className="receipt-brand-finance">
+                <div><span>Тариф перевозчика</span><b>{money(p.fare)}</b></div>
+                {fareRows.map((row, index) => <div key={`fare-${index}`}><span>{[row.code, row.label].filter(Boolean).join(' · ') || 'Расчёт тарифа'}</span><b>{rowMoney(row)}</b></div>)}
+              </div></section>
+              <section><h5>Таксы</h5><div className="receipt-brand-finance">
+                <div><span>Таксы перевозчика</span><b>{money(p.taxes)}</b></div>
+                {taxRows.map((row, index) => <div key={`tax-${index}`}><span>{[row.code, row.label].filter(Boolean).join(' · ') || 'Такса'}</span><b>{money(row.amount)}</b></div>)}
+              </div></section>
+              <section><h5>Сборы</h5><div className="receipt-brand-finance">
+                <div><span>Сервисный сбор</span><b>{money(p.fees)}</b></div>
+                {feeRows.map((row, index) => <div key={`fee-${index}`}><span>{[row.code, row.label].filter(Boolean).join(' · ') || 'Сбор'}</span><b>{money(row.amount)}</b></div>)}
+              </div></section>
+              <div className="receipt-brand-finance-total"><span>Итого для клиента</span><b>{money(receiptFinancialTotal(type, p))}</b></div>
             </div>
             {(p.fareInfo.code || p.fareInfo.name || p.fareInfo.bookingClass) && <div className="receipt-brand-callout"><b>Тариф</b>
               <span>{[p.fareInfo.code, p.fareInfo.name, p.fareInfo.bookingClass].filter(Boolean).join(' · ')}</span></div>}
@@ -856,6 +884,8 @@ export function ReceiptSpecializedForm({
             {(type === 'Авиа' || type === 'ЖД') && <ProtectedTime correctionMode={correctionMode} label="Время прибытия" value={leg.arr}
               onChange={(next) => setArray('legs', index, 'arr', next, `Время прибытия ${index + 1}`)} />}
             {(type === 'Авиа' || type === 'ЖД' || type === 'Трансфер') && <Field label={type === 'ЖД' ? 'Номер поезда' : type === 'Трансфер' ? 'Рейс или поезд' : 'Номер рейса'}><LockedInput correctionMode={correctionMode} value={leg.flightNo} onChange={(e) => setArray('legs', index, 'flightNo', e.target.value, `Рейс/поезд сегмента ${index + 1}`)} /></Field>}
+            {type === 'ЖД' && <Field label="Вагон"><LockedInput correctionMode={correctionMode} value={leg.coach} onChange={(e) => setArray('legs', index, 'coach', e.target.value, `Вагон сегмента ${index + 1}`)} /></Field>}
+            {type === 'ЖД' && <Field label="Место"><LockedInput correctionMode={correctionMode} value={leg.seat} onChange={(e) => setArray('legs', index, 'seat', e.target.value, `Место сегмента ${index + 1}`)} /></Field>}
             {type === 'Авиа' && <Field label="Авиакомпания"><LockedInput correctionMode={correctionMode} value={leg.carrier || p.carrier} onChange={(e) => setArray('legs', index, 'carrier', e.target.value, `Авиакомпания сегмента ${index + 1}`)} /></Field>}
             {type === 'Авиа' && <Field label="Класс бронирования"><LockedInput correctionMode={correctionMode} value={leg.cls} onChange={(e) => setArray('legs', index, 'cls', e.target.value, `Класс сегмента ${index + 1}`)} /></Field>}
             {type === 'Авиа' && <Field label="Код тарифа"><LockedInput correctionMode={correctionMode} value={leg.fareBasis} onChange={(e) => setArray('legs', index, 'fareBasis', e.target.value, `Тариф сегмента ${index + 1}`)} /></Field>}

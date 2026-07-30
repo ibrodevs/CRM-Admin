@@ -1,7 +1,13 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-import { segmentLayoverLabel, segmentLayoverMinutes } from '../js/features/receipts/layover.js';
+import {
+  roundTripGapDays,
+  roundTripGapLabel,
+  segmentConnectionLabel,
+  segmentLayoverLabel,
+  segmentLayoverMinutes,
+} from '../js/features/receipts/layover.js';
 
 test('рассчитывает ожидание между соседними авиасегментами', () => {
   const first = { date: '26.09.2024', arr: '15:50' };
@@ -20,4 +26,12 @@ test('поддерживает пересадку после полуночи', 
 test('не придумывает время ожидания без полного расписания', () => {
   assert.equal(segmentLayoverMinutes({ arr: '' }, { dep: '17:35' }), null);
   assert.equal(segmentLayoverLabel({ arr: '' }, { dep: '17:35' }), '');
+});
+
+test('для маршрута туда-обратно показывает дни до обратного рейса, а не ожидание', () => {
+  const outbound = { date: '26.09.2024', arr: '15:50' };
+  const inbound = { date: '30.09.2024', dep: '17:35' };
+  assert.equal(roundTripGapDays(outbound, inbound), 4);
+  assert.equal(roundTripGapLabel(outbound, inbound), 'Обратный рейс через 4 дня');
+  assert.equal(segmentConnectionLabel(outbound, inbound, 'roundtrip'), 'Обратный рейс через 4 дня');
 });

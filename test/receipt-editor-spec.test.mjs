@@ -85,7 +85,7 @@ test('фирменные бланки авиа, ЖД и отеля получа�
   assert.match(editor, /Багаж сегмента/);
   assert.match(editor, /suppliedFareInfo\.code \|\| draft\.fareBasis/);
   assert.match(editor, /receipt-brand-segment-grid/);
-  assert.match(editor, /segmentLayoverLabel/);
+  assert.match(editor, /segmentConnectionLabel/);
   assert.match(editor, /type === 'ЖД' && <><h4>Расчёт стоимости/);
   assert.match(styles, /td\[data-label="Проверка"\] \.pill/);
   assert.match(styles, /white-space:normal/);
@@ -114,13 +114,34 @@ test('отельный бланк разделяет адрес, контакт�
   assert.match(styles, /receipt-brand-hotel-room-grid/);
 });
 
-test('закрытие изменённого редактора автоматически сохраняет черновик', () => {
+test('закрытие изменённого редактора предупреждает и предлагает сохранить черновик', () => {
   assert.match(page, /const editDirty = useRef\(false\)/);
-  assert.match(page, /void saveReceipt\(current\.id, current\.parsed, true\)/);
+  assert.match(page, /setConfirmEditorClose\(true\)/);
+  assert.match(page, /confirmLabel="Сохранить черновик"/);
+  assert.match(page, /saveReceipt\(current\.id, current\.parsed, true\)/);
   assert.match(page, /draft: asDraft/);
   assert.match(page, /if \(!asDraft\) await onChanged\?\.\(\)/);
   assert.match(page, /Черновик квитанции сохранён/);
   assert.match(page, /onClose=\{closeReceiptEditor\}/);
+});
+
+test('компактное имя, ЖД-место, live preview и сворачиваемые подбланки реализованы вместе', () => {
+  assert.match(editor, /export function receiptParticipantLabel/);
+  assert.match(editor, /label="Вагон"/);
+  assert.match(editor, /label="Место"/);
+  assert.match(editor, /receipt-preview-rail-place/);
+  assert.match(page, /receipt-edit-layout/);
+  assert.match(page, /Предпросмотр обновляется сразу/);
+  assert.match(page, /receipt-subrows-toggle/);
+  assert.match(page, /expandedReceipts/);
+  assert.match(page, /expandedRegistry/);
+});
+
+test('прогресс импорта защищён подтверждением закрытия и beforeunload', () => {
+  assert.match(page, /const hasImportProgress/);
+  assert.match(page, /title="Закрыть импорт\?"/);
+  assert.match(page, /Закрыть и потерять прогресс/);
+  assert.match(page, /beforeunload/);
 });
 
 test('трансферный ваучер классифицируется как трансфер до общего правила ваучеров', () => {

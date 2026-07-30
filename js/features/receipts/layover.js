@@ -35,3 +35,26 @@ export function segmentLayoverLabel(current, next) {
     .filter(Boolean).join(' ');
   return `Ожидание между рейсами: ${duration}`;
 }
+
+export function roundTripGapDays(current, next) {
+  const arrivalDay = receiptDay(current?.date);
+  const departureDay = receiptDay(next?.date);
+  if (arrivalDay === null || departureDay === null || departureDay < arrivalDay) return null;
+  return departureDay - arrivalDay;
+}
+
+export function roundTripGapLabel(current, next) {
+  const days = roundTripGapDays(current, next);
+  if (days === null) return '';
+  const mod10 = days % 10;
+  const mod100 = days % 100;
+  const noun = mod10 === 1 && mod100 !== 11 ? 'день'
+    : mod10 >= 2 && mod10 <= 4 && (mod100 < 12 || mod100 > 14) ? 'дня' : 'дней';
+  return `Обратный рейс через ${days} ${noun}`;
+}
+
+export function segmentConnectionLabel(current, next, tripType = 'complex') {
+  return tripType === 'roundtrip'
+    ? roundTripGapLabel(current, next)
+    : segmentLayoverLabel(current, next);
+}

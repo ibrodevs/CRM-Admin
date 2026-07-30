@@ -11,13 +11,13 @@ import { notificationsApi } from './api/resources';
 const NOTIF_TAB = { finance: 'finance', documents: 'documents', offers: 'offers', returns: 'aftersale', order: 'overview' };
 function notifGo(n, onNavigate, onOpenOrder, orders = []) {
 
-  const link = n.link || {};
+  const link = typeof n.link === 'string' ? { type: n.link } : (n.link || {});
   const svc = link.svc;
   const tab = n.source === 'Чаты' ? 'chat' : (svc ? 'services' : (NOTIF_TAB[link.type] || 'overview'));
   if (n.order && onOpenOrder) {
     const o = orders.find((x) => String(x.no) === String(n.order) || String(x.id) === String(n.order));
     if (o) onOpenOrder(o, tab, svc || null);
-    else onNavigate && onNavigate('notifications');
+    else onNavigate && onNavigate(link.type || 'orders');
   } else onNavigate && onNavigate(link.type || 'notifications');
 }
 
@@ -35,11 +35,12 @@ function NotificationRow({ n, onAct, onRead, onPin, onDismiss, onOpenCode }) {
           <span>·</span><span>{n.source}</span>
           {n.errCode && <span className="link-chip" title="Открыть код ошибки" onClick={() => onOpenCode && onOpenCode(n.errCode)} style={{ padding: '3px 8px', fontFamily: 'ui-monospace, Menlo, monospace', fontWeight: 700 }}><Icon name="api" />{n.errCode}</span>}
           {n.order && <span className="link-chip" onClick={() => onAct(n)} style={{ padding: '3px 8px' }}><Icon name="orders" />№ {n.order}</span>}
-          <span>·</span><span>{n.resp}</span>
+          <span>·</span><span>Ответственный: {n.resp || 'Не назначен'}</span>
+          <span>·</span><span>Создано: {n.created || n.date || '—'}</span>
         </div>
       </div>
       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 10, flex: '0 0 auto' }}>
-        <span className="ntf-time">{n.time} назад</span>
+        <span className="ntf-time">{n.created || (n.time ? `${n.time} назад` : 'Время не указано')}</span>
         <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
           {n.act && <Button size="sm" iconRight="arrowRight" onClick={() => onAct(n)}>{n.act}</Button>}
           <button className={'icon-btn' + (n.pinned ? ' green' : '')} title="Закрепить" onClick={() => onPin(n.id)}><Icon name="star" /></button>

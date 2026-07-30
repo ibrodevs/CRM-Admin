@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Icon } from './icons';
-import { ActionMenu, Avatar, Button, Checkbox, Drawer, EmptyState, Field, FilterChip, Input, Pill, SearchBox, Select, Tabs, Th, TimeField, plural, useSort, useToast } from './ui';
+import { ActionMenu, Avatar, Button, Checkbox, ConfirmDialog, Drawer, EmptyState, Field, FilterChip, Input, Pill, SearchBox, Select, Tabs, Th, TimeField, plural, useSort, useToast } from './ui';
 import { COMPANIES_DB, CURRENT_USER, DOCS2, DOC_KIND, DOC_STATUS2, FIN_OPS, FIN_OP_STATUS, FULFILLMENT, ORDERS, ORDER_STAGES, SERVICE_KIND } from './data';
 import { UnifiedBindField, UFDateField } from './forms_unified';
 import { Topbar } from './layout';
@@ -16,6 +16,7 @@ import {
   normalizeReceiptDraft,
   receiptDetailsLines,
   receiptFinancialTotal,
+  receiptParticipantLabel,
 } from './features/receipts/editor';
 
 
@@ -1281,7 +1282,7 @@ function ReceiptEditDrawer({ open, file, onClose, onChange, onBrand, onReview, o
   if (!open || !file) return null;
   const parsed = normalizeReceiptDraft(file.type, file.parsed);
   return (
-    <Drawer open={open} onClose={onClose} title={'Проверка · ' + (parsed.passenger || 'квитанция')}
+    <Drawer open={open} onClose={onClose} title={'Проверка · ' + receiptParticipantLabel(parsed)}
       sub={`${recType(file.type).doc} · исходный файл сохраняется без изменений`}
       width="min(980px,98vw)"
       footer={<>
@@ -1292,10 +1293,14 @@ function ReceiptEditDrawer({ open, file, onClose, onChange, onBrand, onReview, o
           if (saved !== false) onClose();
         }}>Проверено</Button>
       </>}>
-      <div style={{ marginBottom: 16 }}><ReceiptDocumentPreview type={file.type} draft={parsed} /></div>
-      <ReceiptSpecializedForm type={file.type} value={parsed} onChange={(next) => onChange(file.id, next)}
-        correctionMode={correctionMode} onToggleCorrection={() => setCorrectionMode((value) => !value)}
-        orders={orders} services={services} />
+      <div className="receipt-edit-layout">
+        <aside className="receipt-edit-preview"><ReceiptDocumentPreview type={file.type} draft={parsed} />
+          <div className="receipt-edit-preview-note"><Icon name="eye" /> Предпросмотр обновляется сразу после каждого изменения.</div>
+        </aside>
+        <ReceiptSpecializedForm type={file.type} value={parsed} onChange={(next) => onChange(file.id, next)}
+          correctionMode={correctionMode} onToggleCorrection={() => setCorrectionMode((value) => !value)}
+          orders={orders} services={services} />
+      </div>
     </Drawer>
   );
 }
@@ -1350,6 +1355,8 @@ function ReceiptImportModal({ open, onClose, onDone }) {
   const [reviewed, setReviewed] = useState({});
   const [editId, setEditId] = useState(null);
   const [subEdit, setSubEdit] = useState(null);
+  const [expandedReceipts, setExpandedReceipts] = useState({});
+  const [confirmClose, setConfirmClose] = useState(false);
 
 
   const [bindTarget, setBindTarget] = useState({ mode: 'order', label: 'Выберите заказ' });
@@ -1365,7 +1372,7 @@ function ReceiptImportModal({ open, onClose, onDone }) {
   const fileRef = useRef(null);
   const dragDepth = useRef(0);
 
-  useEffect(() => { if (open) { setFiles([]); setStep(0); setExcluded({}); setReviewed({}); setEditId(null); setSubEdit(null); setBindTarget({ mode: 'order', label: 'Выберите заказ' }); setOptAddIncomplete(false); setOptCreateServices(true); setMath({}); setSel({}); setMathId(null); setBrandId(null); setBulk({ fee: '', markup: '', commission: '' }); setDragActive(false); dragDepth.current = 0; } }, [open]);
+  useEffect(() => { if (open) { setFiles([]); setStep(0); setExcluded({}); setReviewed({}); setEditId(null); setSubEdit(null); setExpandedReceipts({}); setConfirmClose(false); setBindTarget({ mode: 'order', label: 'Выберите заказ' }); setOptAddIncomplete(false); setOptCreateServices(true); setMath({}); setSel({}); setMathId(null); setBrandId(null); setBulk({ fee: '', markup: '', commission: '' }); setDragActive(false); dragDepth.current = 0; } }, [open]);
   useEffect(() => {
     if (bindTarget.mode !== 'order' && optCreateServices) setOptCreateServices(false);
   }, [bindTarget.mode, optCreateServices]);
@@ -1522,6 +1529,20 @@ function ReceiptImportModal({ open, onClose, onDone }) {
   const done = files.filter((f) => f.status === 'done');
   const importProgress = files.length ? Math.round((done.length / files.length) * 100) : 0;
   const activeImport = files.find((f) => f.status !== 'done');
+  const hasImportProgress = files.length > 0 || step > 0;
+  useEffect(() => {
+    if (!open || !hasImportProgress) return undefined;
+    const guard = (event) => {
+      event.preventDefault();
+      event.returnValue = '';
+    };
+    window.addEventListener('beforeunload', guard);
+    return () => window.removeEventListener('beforeunload', guard);
+  }, [open, hasImportProgress]);
+  const requestClose = () => {
+    if (hasImportProgress) setConfirmClose(true);
+    else onClose();
+  };
 
 
 
@@ -1646,7 +1667,7 @@ function ReceiptImportModal({ open, onClose, onDone }) {
   );
 
   return (
-    <Drawer open={open} onClose={onClose} title="Импорт документов услуг"
+    <Drawer open={open} onClose={requestClose} title="Импорт документов услуг"
       sub="Авиа, ЖД, отели и трансферы сверяются в специализированных формах. Оригиналы поставщиков не меняются."
       width="min(1180px,98vw)">
       <div>
@@ -1768,7 +1789,14 @@ function ReceiptImportModal({ open, onClose, onDone }) {
                                 <span className="rec-import-file">
                                   <span className="rec-import-icon" style={{ background: t.color }}><Icon name={t.icon} /></span>
                                   <span className="rec-import-main">
-                                    <span className="rec-import-title"><ReceiptParticipantSummary draft={p} noun={r.f.type === 'Гостиница' ? 'гостей' : 'пассажиров'} /></span>
+                                    <span className="rec-import-title"><ReceiptParticipantSummary draft={p} noun={r.f.type === 'Гостиница' ? 'гостей' : 'пассажиров'} />
+                                      {!!r.f.subReceipts?.length && <button type="button" className="receipt-subrows-toggle"
+                                        aria-expanded={!!expandedReceipts[r.f.id]}
+                                        onClick={() => setExpandedReceipts((current) => ({ ...current, [r.f.id]: !current[r.f.id] }))}>
+                                        {expandedReceipts[r.f.id] ? 'Скрыть' : 'Показать'} бланки ({r.f.subReceipts.length})
+                                        <Icon name={expandedReceipts[r.f.id] ? 'chevUp' : 'chevDown'} />
+                                      </button>}
+                                    </span>
                                     <span className="rec-import-meta">{carrierText}</span>
                                     <Select aria-label="Тип услуги" options={REC_TYPES.filter((item) => item.key !== 'Прочее').map((item) => item.key)}
                                       value={r.f.type} onChange={(event) => setType(r.f.id, event.target.value)} className="select rec-import-type-select" />
@@ -1813,7 +1841,7 @@ function ReceiptImportModal({ open, onClose, onDone }) {
                                 if (window.confirm(`Удалить «${r.f.name}» из импорта? Оригинальный файл на компьютере не будет удалён.`)) remove(r.f.id);
                               }}><Icon name="trash" style={{ width: 16, height: 16 }} /></button></td>
                             </tr>
-                            {(r.f.subReceipts || []).map((subReceipt, subIndex) => {
+                            {expandedReceipts[r.f.id] && (r.f.subReceipts || []).map((subReceipt, subIndex) => {
                               const subDetails = receiptDetailsLines(r.f.type, subReceipt);
                               const railLeg = subReceipt.legs?.[0] || {};
                               const identicalCostCount = r.f.subReceipts.filter((candidate) => (
@@ -1940,7 +1968,7 @@ function ReceiptImportModal({ open, onClose, onDone }) {
         )}
 
         <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 12, marginTop: 24 }}>
-          <Button variant="secondary" onClick={onClose}>Отмена</Button>
+          <Button variant="secondary" onClick={requestClose}>Отмена</Button>
           {step > 0 && <Button variant="secondary" icon="chevLeft" onClick={() => setStep((s) => Math.max(0, s - 1))}>Назад</Button>}
           {step < IMPORT_STEPS.length - 1
             ? <Button icon="chevRight" disabled={!canNext[step]} onClick={() => setStep((s) => Math.min(IMPORT_STEPS.length - 1, s + 1))}>Далее</Button>
@@ -1968,6 +1996,10 @@ function ReceiptImportModal({ open, onClose, onDone }) {
 
       <ReceiptBrandDocumentDrawer open={!!brandFile} type={brandFile?.type} draft={brandFile?.parsed}
         originalUrl={brandFile?.originalUrl} onClose={() => setBrandId(null)} />
+      <ConfirmDialog open={confirmClose} title="Закрыть импорт?"
+        message={`Загружено файлов: ${files.length}. Текущий прогресс, проверки и несохранённые настройки будут потеряны.`}
+        confirmLabel="Закрыть и потерять прогресс" confirmVariant="danger"
+        onCancel={() => setConfirmClose(false)} onConfirm={() => { setConfirmClose(false); onClose(); }} />
     </Drawer>
   );
 }
@@ -1983,6 +2015,8 @@ function ReceiptEditorPage({ documents = [], orders = [], services = [], onChang
   const [q, setQ] = useState('');
   const [edit, setEdit] = useState(null);
   const editDirty = useRef(false);
+  const [confirmEditorClose, setConfirmEditorClose] = useState(false);
+  const [expandedRegistry, setExpandedRegistry] = useState({});
   const [brandEdit, setBrandEdit] = useState(null);
   const [importing, setImporting] = useState(false);
   const [imported, setImported] = useState([]);
@@ -2051,11 +2085,22 @@ function ReceiptEditorPage({ documents = [], orders = [], services = [], onChang
     }
   };
   const closeReceiptEditor = () => {
-    const current = edit;
+    if (edit && editDirty.current) {
+      setConfirmEditorClose(true);
+      return;
+    }
     setEdit(null);
-    if (!current || !editDirty.current) return;
-    void saveReceipt(current.id, current.parsed, true);
   };
+  useEffect(() => {
+    if (!edit) return undefined;
+    const guard = (event) => {
+      if (!editDirty.current) return;
+      event.preventDefault();
+      event.returnValue = '';
+    };
+    window.addEventListener('beforeunload', guard);
+    return () => window.removeEventListener('beforeunload', guard);
+  }, [edit]);
 
   const removeReceipt = async (document) => {
     if (!window.confirm(`Удалить «${document.name}» из CRM? Оригинальный файл будет помечен как аннулированный.`)) return;
@@ -2105,7 +2150,14 @@ function ReceiptEditorPage({ documents = [], orders = [], services = [], onChang
                         <td data-label="Документ"><span className="rec-import-file">
                           <span className="rec-import-icon" style={{ background: t.color }}><Icon name={t.icon} /></span>
                           <span className="rec-import-main">
-                            <span className="rec-import-title"><ReceiptParticipantSummary draft={d.parsed} noun={d.editorType === 'Гостиница' ? 'гостей' : 'пассажиров'} /></span>
+                            <span className="rec-import-title"><ReceiptParticipantSummary draft={d.parsed} noun={d.editorType === 'Гостиница' ? 'гостей' : 'пассажиров'} />
+                              {!!d.parsed.groupTickets?.length && <button type="button" className="receipt-subrows-toggle"
+                                aria-expanded={!!expandedRegistry[d.id]}
+                                onClick={() => setExpandedRegistry((current) => ({ ...current, [d.id]: !current[d.id] }))}>
+                                {expandedRegistry[d.id] ? 'Скрыть' : 'Показать'} бланки ({d.parsed.groupTickets.length})
+                                <Icon name={expandedRegistry[d.id] ? 'chevUp' : 'chevDown'} />
+                              </button>}
+                            </span>
                             <span className="rec-import-meta">{d.editorType} · {d.no} · {d.name}</span>
                           </span>
                         </span></td>
@@ -2125,7 +2177,7 @@ function ReceiptEditorPage({ documents = [], orders = [], services = [], onChang
                           <Button size="sm" variant="ghost" icon="trash" onClick={() => removeReceipt(d)}>Удалить</Button>
                         </div></td>
                       </tr>
-                      {(d.parsed.groupTickets || []).map((ticket, ticketIndex) => {
+                      {expandedRegistry[d.id] && (d.parsed.groupTickets || []).map((ticket, ticketIndex) => {
                         const ticketLeg = ticket.legs?.[0] || {};
                         return (
                           <tr key={`${d.serverId || d.no}-ticket-${ticketIndex}`} className="receipt-registry-subrow">
@@ -2177,6 +2229,19 @@ function ReceiptEditorPage({ documents = [], orders = [], services = [], onChang
           setImported((cur) => [...docs, ...cur]);
           setImporting(false);
           await onChanged?.();
+        }} />
+      <ConfirmDialog open={confirmEditorClose} title="Сохранить изменения?"
+        message="В квитанции есть несохранённые изменения. Сохраните их как черновик, чтобы продолжить позже."
+        confirmLabel="Сохранить черновик" confirmVariant="primary"
+        onCancel={() => setConfirmEditorClose(false)}
+        onConfirm={async () => {
+          if (!edit) return;
+          const current = edit;
+          const saved = await saveReceipt(current.id, current.parsed, true);
+          if (saved) {
+            setConfirmEditorClose(false);
+            setEdit(null);
+          }
         }} />
     </>
   );
