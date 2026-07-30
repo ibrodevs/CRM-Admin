@@ -281,7 +281,7 @@ table.tbl.tbl-wide thead th,table.tbl.tbl-wide tbody td{white-space:nowrap}
 .rec-import-table thead,.rec-import-table tbody{display:block}
 .rec-import-table thead tr,.rec-import-table tbody tr.rec-import-row{
   display:grid;
-  grid-template-columns:42px minmax(220px,1.35fr) minmax(190px,1fr) minmax(142px,.72fr) minmax(128px,.58fr) minmax(156px,.72fr) 36px;
+  grid-template-columns:42px minmax(220px,1.35fr) minmax(190px,1fr) minmax(142px,.72fr) minmax(170px,.68fr) minmax(156px,.72fr) 36px;
   column-gap:12px;
   align-items:center;
 }
@@ -294,7 +294,7 @@ table.tbl.tbl-wide thead th,table.tbl.tbl-wide tbody td{white-space:nowrap}
 .rec-import-table tbody tr.rec-import-row:last-child{border-bottom:none}
 .rec-import-table tbody tr.rec-import-row.has-subrows{border-bottom-color:#cbd8ff;background:#f9fbff}
 .rec-import-table tbody tr.rec-import-subrow{
-  display:grid;grid-template-columns:42px minmax(220px,1.35fr) minmax(190px,1fr) minmax(142px,.72fr) minmax(128px,.58fr) minmax(156px,.72fr) 36px;
+  display:grid;grid-template-columns:42px minmax(220px,1.35fr) minmax(190px,1fr) minmax(142px,.72fr) minmax(170px,.68fr) minmax(156px,.72fr) 36px;
   column-gap:12px;align-items:center;padding:11px 18px;border-bottom:1px solid #dfe6f5;background:#f7f9fd
 }
 .rec-import-table tbody tr.rec-import-subrow:last-child{border-bottom-color:var(--line)}
@@ -317,7 +317,7 @@ table.tbl.tbl-wide thead th,table.tbl.tbl-wide tbody td{white-space:nowrap}
 .rec-import-table tbody td[data-label="Проверка"] .pill,
 .receipt-registry-table tbody td[data-label="Проверка"] .pill{
   display:inline-flex;max-width:100%;height:auto;min-height:30px;padding:6px 10px;
-  white-space:normal;line-height:1.2;text-align:center;overflow-wrap:anywhere
+  white-space:nowrap;line-height:1.2;text-align:center;overflow-wrap:normal
 }
 .rec-import-file{display:flex;align-items:center;gap:10px;min-width:0}
 .rec-import-icon{width:30px;height:30px;border-radius:8px;display:inline-flex;align-items:center;justify-content:center;flex:0 0 30px;color:#fff}

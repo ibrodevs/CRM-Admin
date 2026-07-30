@@ -88,7 +88,8 @@ test('фирменные бланки авиа, ЖД и отеля получа�
   assert.match(editor, /segmentConnectionLabel/);
   assert.match(editor, /type === 'ЖД' && <><h4>Расчёт стоимости/);
   assert.match(styles, /td\[data-label="Проверка"\] \.pill/);
-  assert.match(styles, /white-space:normal/);
+  assert.match(styles, /minmax\(170px,\.68fr\)/);
+  assert.match(styles, /white-space:nowrap;line-height:1\.2;text-align:center;overflow-wrap:normal/);
 });
 
 test('паспорт не теряется при пустом массиве пассажиров, а полные данные идут до маршрута', () => {
