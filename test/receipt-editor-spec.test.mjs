@@ -127,6 +127,7 @@ test('закрытие изменённого редактора предупр�
 
 test('компактное имя, ЖД-место, live preview и сворачиваемые подбланки реализованы вместе', () => {
   assert.match(editor, /export function receiptParticipantLabel/);
+  assert.match(editor, /receiptParticipantSurname\(names\[0\]\).*receiptBlankWord\(blankCount - 1\)/s);
   assert.match(editor, /label="Вагон"/);
   assert.match(editor, /label="Место"/);
   assert.match(editor, /receipt-preview-rail-place/);

@@ -316,8 +316,29 @@ export function receiptParticipantNames(draft) {
   return resolved;
 }
 
+function receiptBlankCount(draft) {
+  return (draft.groupTickets || []).length || Number(draft.receiptCount) || 0;
+}
+
+function receiptBlankWord(count) {
+  const mod100 = count % 100;
+  const mod10 = count % 10;
+  if (mod100 >= 11 && mod100 <= 14) return 'бланков';
+  if (mod10 === 1) return 'бланк';
+  if (mod10 >= 2 && mod10 <= 4) return 'бланка';
+  return 'бланков';
+}
+
+function receiptParticipantSurname(name) {
+  return String(name || '').trim().split(/[\/\s]+/)[0] || 'Квитанция';
+}
+
 export function receiptParticipantLabel(draft, fallback = 'квитанция') {
   const names = receiptParticipantNames(draft);
+  const blankCount = receiptBlankCount(draft);
+  if (names.length && blankCount > 1) {
+    return `${receiptParticipantSurname(names[0])} +${blankCount - 1} ${receiptBlankWord(blankCount - 1)}`;
+  }
   return names.length ? `${names[0]}${names.length > 1 ? ` +${names.length - 1}` : ''}` : fallback;
 }
 
@@ -1095,7 +1116,17 @@ export function ReceiptSpecializedForm({
 export function ReceiptParticipantSummary({ draft, noun = 'пассажиров' }) {
   const [open, setOpen] = useState(false);
   const names = receiptParticipantNames(draft);
+  const blankCount = receiptBlankCount(draft);
   if (!names.length) return <span>Участники не распознаны</span>;
+  if (blankCount > 1) {
+    const remaining = blankCount - 1;
+    return <span className="receipt-participants">
+      <button type="button" onClick={() => setOpen((value) => !value)}>
+        {receiptParticipantSurname(names[0])} +{remaining} {receiptBlankWord(remaining)} <Icon name={open ? 'chevUp' : 'chevDown'} />
+      </button>
+      {open && <span className="receipt-participant-list">{names.map((name) => <span key={name}>{name}</span>)}</span>}
+    </span>;
+  }
   if (names.length === 1) return <span>{names[0]}</span>;
   return <span className="receipt-participants">
     <button type="button" onClick={() => setOpen((value) => !value)}>{names[0]} +{names.length - 1} {noun} <Icon name={open ? 'chevUp' : 'chevDown'} /></button>
