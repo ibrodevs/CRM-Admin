@@ -400,7 +400,10 @@ table.tbl.tbl-wide thead th,table.tbl.tbl-wide tbody td{white-space:nowrap}
 .receipt-subcard-title .receipt-remove{flex:0 0 38px}
 .receipt-remove{min-width:38px!important;width:38px;height:38px;padding:0!important;color:var(--red)!important}
 .receipt-remove svg{width:18px!important;height:18px!important}
-.receipt-inline-row{display:grid;grid-template-columns:minmax(90px,.8fr) minmax(140px,1.4fr) minmax(100px,.7fr) 38px;gap:8px;align-items:end;margin-bottom:8px}
+.receipt-inline-row{display:grid;grid-template-columns:minmax(0,.8fr) minmax(0,1.35fr) minmax(76px,.8fr) 38px;gap:8px;align-items:end;margin-bottom:8px;min-width:0}
+.receipt-inline-row.is-readonly{grid-template-columns:minmax(0,.75fr) minmax(0,1.2fr) minmax(76px,.8fr)}
+.receipt-inline-row>.field{min-width:0}
+.receipt-inline-row .input{min-width:0;max-width:100%}
 .receipt-inline-row:last-child{margin-bottom:0}
 .receipt-extra-row{grid-template-columns:1fr 1.4fr .7fr 38px}
 .receipt-textarea{width:100%;height:auto;min-height:72px;resize:vertical;padding-top:9px;padding-bottom:9px}

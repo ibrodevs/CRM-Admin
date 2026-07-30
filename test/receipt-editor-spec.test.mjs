@@ -271,3 +271,9 @@ test('суммы реестра разнесены по строкам, а уд�
   assert.match(page, /aria-label="Удалить строку"/);
   assert.match(editor, /aria-label="Удалить строку"/);
 });
+
+test('сумма в разбивке такс не выходит за границы карточки', () => {
+  assert.match(editor, /'is-editable' : 'is-readonly'/);
+  assert.match(styles, /\.receipt-inline-row\.is-readonly\{grid-template-columns:minmax\(0,\.75fr\) minmax\(0,1\.2fr\) minmax\(76px,\.8fr\)\}/);
+  assert.match(styles, /\.receipt-inline-row \.input\{min-width:0;max-width:100%\}/);
+});

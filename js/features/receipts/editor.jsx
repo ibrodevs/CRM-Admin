@@ -939,7 +939,8 @@ export function ReceiptSpecializedForm({
       {(!isTax || correctionMode)
         ? <ListHeader title={title} onAdd={() => addRow(key, { ...emptyCharge(), currency: p.currency }, `Добавлена строка: ${title}`)} />
         : <div className="receipt-list-head"><b>{title}</b><Pill tone="gray">Данные поставщика</Pill></div>}
-      {(p[key] || []).length ? p[key].map((row, index) => <div className="receipt-inline-row" key={index}>
+      {(p[key] || []).length ? p[key].map((row, index) => <div
+        className={`receipt-inline-row ${(!isTax || correctionMode) ? 'is-editable' : 'is-readonly'}`} key={index}>
         <Field label={isTax ? 'Код' : 'Тип сбора'}>{isTax
           ? <LockedInput correctionMode={correctionMode} value={row.code || ''} onChange={(e) => setArray(key, index, 'code', e.target.value, `${title}: код ${index + 1}`)} />
           : <Input value={row.code || ''} onChange={(e) => setArray(key, index, 'code', e.target.value, `${title}: код ${index + 1}`)} />}</Field>
