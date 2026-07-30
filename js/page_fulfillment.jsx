@@ -1279,30 +1279,45 @@ async function waitForReceiptResult(importId) {
 
 function ReceiptEditDrawer({ open, file, onClose, onChange, onBrand, onReview, orders = [], services = [] }) {
   const [correctionMode, setCorrectionMode] = useState(false);
-  useEffect(() => { if (open) setCorrectionMode(false); }, [open, file && file.id]);
+  const [livePreviewOpen, setLivePreviewOpen] = useState(false);
+  useEffect(() => {
+    if (open) {
+      setCorrectionMode(false);
+      setLivePreviewOpen(false);
+    }
+  }, [open, file && file.id]);
   if (!open || !file) return null;
   const parsed = normalizeReceiptDraft(file.type, file.parsed);
   return (
-    <Drawer open={open} onClose={onClose} title={'Проверка · ' + receiptParticipantLabel(parsed)}
-      sub={`${recType(file.type).doc} · исходный файл сохраняется без изменений`}
-      width="min(980px,98vw)"
-      footer={<>
-        {file.originalUrl && <Button variant="secondary" icon="eye" onClick={() => window.open(file.originalUrl, '_blank')}>Оригинал</Button>}
-        {onBrand && <Button variant="secondary" icon="template" onClick={onBrand}>На фирменном бланке</Button>}
-        <Button style={{ flex: 1 }} icon="check" onClick={async () => {
-          const saved = await onReview?.(file.id, parsed);
-          if (saved !== false) onClose();
-        }}>Проверено</Button>
-      </>}>
-      <div className="receipt-edit-layout">
-        <aside className="receipt-edit-preview"><ReceiptDocumentPreview type={file.type} draft={parsed} />
-          <div className="receipt-edit-preview-note"><Icon name="eye" /> Предпросмотр обновляется сразу после каждого изменения.</div>
-        </aside>
-        <ReceiptSpecializedForm type={file.type} value={parsed} onChange={(next) => onChange(file.id, next)}
-          correctionMode={correctionMode} onToggleCorrection={() => setCorrectionMode((value) => !value)}
-          orders={orders} services={services} />
-      </div>
-    </Drawer>
+    <>
+      <Drawer open={open} onClose={onClose} title={'Проверка · ' + receiptParticipantLabel(parsed)}
+        sub={`${recType(file.type).doc} · исходный файл сохраняется без изменений`}
+        width="min(1280px,98vw)"
+        footer={<>
+          {file.originalUrl && <Button variant="secondary" icon="eye" onClick={() => window.open(file.originalUrl, '_blank')}>Оригинал</Button>}
+          {onBrand && <Button variant="secondary" icon="template" onClick={onBrand}>На фирменном бланке</Button>}
+          <Button style={{ flex: 1 }} icon="check" onClick={async () => {
+            const saved = await onReview?.(file.id, parsed);
+            if (saved !== false) onClose();
+          }}>Проверено</Button>
+        </>}>
+        <div className="receipt-edit-layout">
+          <aside className="receipt-edit-preview">
+            <div className="receipt-edit-preview-head">
+              <div><Icon name="eye" /><span><b>Квитанция с корректировками</b><small>Живой предпросмотр</small></span></div>
+              <Button size="sm" variant="secondary" icon="arrowUpRight" onClick={() => setLivePreviewOpen(true)}>Развернуть</Button>
+            </div>
+            <ReceiptDocumentPreview type={file.type} draft={parsed} />
+            <div className="receipt-edit-preview-note"><Icon name="checkCircle" /> Предпросмотр обновляется сразу: каждое введённое значение отражается в квитанции.</div>
+          </aside>
+          <ReceiptSpecializedForm type={file.type} value={parsed} onChange={(next) => onChange(file.id, next)}
+            correctionMode={correctionMode} onToggleCorrection={() => setCorrectionMode((value) => !value)}
+            orders={orders} services={services} />
+        </div>
+      </Drawer>
+      <ReceiptBrandDocumentDrawer open={livePreviewOpen} type={file.type} draft={parsed}
+        originalUrl={file.originalUrl} onClose={() => setLivePreviewOpen(false)} />
+    </>
   );
 }
 

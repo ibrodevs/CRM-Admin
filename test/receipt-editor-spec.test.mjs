@@ -133,6 +133,9 @@ test('компактное имя, ЖД-место, live preview и сворач
   assert.match(editor, /receipt-preview-rail-place/);
   assert.match(page, /receipt-edit-layout/);
   assert.match(page, /Предпросмотр обновляется сразу/);
+  assert.match(page, /Квитанция с корректировками/);
+  assert.match(page, /setLivePreviewOpen\(true\)/);
+  assert.match(page, /width="min\(1280px,98vw\)"/);
   assert.match(page, /receipt-subrows-toggle/);
   assert.match(page, /expandedReceipts/);
   assert.match(page, /expandedRegistry/);
