@@ -1277,10 +1277,14 @@ async function waitForReceiptResult(importId) {
 }
 
 
-function ReceiptEditDrawer({ open, file, onClose, onChange, onBrand, onPreview, onReview, orders = [], services = [] }) {
+function ReceiptEditDrawer({ open, file, onClose, onChange, onBrand, onReview, orders = [], services = [] }) {
   const [correctionMode, setCorrectionMode] = useState(false);
+  const [expandedPreview, setExpandedPreview] = useState(false);
   useEffect(() => {
-    if (open) setCorrectionMode(false);
+    if (open) {
+      setCorrectionMode(false);
+      setExpandedPreview(false);
+    }
   }, [open, file && file.id]);
   if (!open || !file) return null;
   const parsed = normalizeReceiptDraft(file.type, file.parsed);
@@ -1301,7 +1305,7 @@ function ReceiptEditDrawer({ open, file, onClose, onChange, onBrand, onPreview, 
           <aside className="receipt-edit-preview">
             <div className="receipt-edit-preview-head">
               <div><Icon name="eye" /><span><b>Квитанция с корректировками</b><small>Живой предпросмотр</small></span></div>
-              <Button size="sm" variant="secondary" icon="arrowUpRight" onClick={onPreview}>Развернуть</Button>
+              <Button size="sm" variant="secondary" icon="arrowUpRight" onClick={() => setExpandedPreview(true)}>Развернуть</Button>
             </div>
             <ReceiptDocumentPreview type={file.type} draft={parsed} />
             <div className="receipt-edit-preview-note"><Icon name="checkCircle" /> Предпросмотр обновляется сразу: каждое введённое значение отражается в квитанции.</div>
@@ -1311,6 +1315,19 @@ function ReceiptEditDrawer({ open, file, onClose, onChange, onBrand, onPreview, 
             orders={orders} services={services} />
         </div>
       </Drawer>
+      {expandedPreview && (
+        <div className="receipt-corrected-preview-overlay" role="dialog" aria-modal="true"
+          aria-label="Развернутая квитанция с корректировками"
+          onMouseDown={(event) => { if (event.target === event.currentTarget) setExpandedPreview(false); }}>
+          <section className="receipt-corrected-preview-dialog">
+            <header>
+              <div><Icon name="eye" /><span><b>Квитанция с корректировками</b><small>Все несохранённые изменения уже учтены</small></span></div>
+              <Button size="sm" variant="secondary" icon="x" onClick={() => setExpandedPreview(false)}>Закрыть</Button>
+            </header>
+            <ReceiptDocumentPreview type={file.type} draft={parsed} />
+          </section>
+        </div>
+      )}
     </>
   );
 }
@@ -2266,7 +2283,6 @@ function ReceiptEditorPage({ documents = [], orders = [], services = [], onChang
       <ReceiptEditDrawer open={!!edit} file={edit ? { ...edit, type: edit.editorType } : null} onClose={closeReceiptEditor}
         onChange={updateLocalReceipt} onReview={(fileId, parsed) => saveReceipt(fileId, parsed, false)}
         orders={orders} services={services}
-        onPreview={() => setBrandEdit(edit)}
         onBrand={() => { setBrandEdit(edit); closeReceiptEditor(); }} />
 
       <ReceiptBrandDocumentDrawer open={!!brandEdit} type={brandEdit?.editorType} draft={brandEdit?.parsed}

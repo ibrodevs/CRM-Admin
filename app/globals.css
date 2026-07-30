@@ -373,6 +373,14 @@ table.tbl.tbl-wide thead th,table.tbl.tbl-wide tbody td{white-space:nowrap}
 .receipt-edit-preview-head small{font-size:11px;color:var(--blue)}
 .receipt-edit-preview-note{display:flex;align-items:center;gap:7px;padding:9px 11px;border-radius:9px;background:var(--blue-soft);color:var(--blue);font-size:12px}
 .receipt-edit-preview-note svg{width:15px;height:15px;flex:0 0 15px}
+.receipt-corrected-preview-overlay{position:fixed;inset:0;z-index:120;display:grid;place-items:center;padding:24px;background:rgba(20,27,42,.56);backdrop-filter:blur(4px)}
+.receipt-corrected-preview-dialog{width:min(760px,96vw);max-height:94vh;overflow:auto;padding:18px;border-radius:18px;background:#fff;box-shadow:0 24px 80px rgba(10,20,45,.32)}
+.receipt-corrected-preview-dialog>header{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-bottom:14px}
+.receipt-corrected-preview-dialog>header>div{display:flex;align-items:center;gap:10px}
+.receipt-corrected-preview-dialog>header>div>svg{width:22px;height:22px;color:var(--blue)}
+.receipt-corrected-preview-dialog>header span{display:grid;gap:2px}
+.receipt-corrected-preview-dialog>header b{font-size:17px;color:var(--ink)}
+.receipt-corrected-preview-dialog>header small{font-size:12px;color:var(--muted)}
 .receipt-source-notice{display:flex;align-items:center;gap:11px;padding:12px 14px;border:1px solid #bfd0ff;border-radius:12px;background:var(--blue-soft);color:var(--blue)}
 .receipt-source-notice.is-correction{border-color:#efc36d;background:var(--amber-bg);color:var(--amber)}
 .receipt-source-notice>svg{width:20px;height:20px;flex:0 0 20px}
