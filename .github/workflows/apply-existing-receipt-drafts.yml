@@ -1,0 +1,129 @@
+name: Apply existing receipt draft UI
+
+on:
+  push:
+    paths:
+      - .github/workflows/apply-existing-receipt-drafts.yml
+
+permissions:
+  contents: write
+
+jobs:
+  patch-and-verify:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Add existing receipt drafts UI
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          def replace_once(text, before, after, label):
+              count = text.count(before)
+              if count != 1:
+                  raise SystemExit(f"{label}: expected one match, found {count}")
+              return text.replace(before, after, 1)
+
+          page_path = Path('js/page_fulfillment.jsx')
+          page = page_path.read_text()
+
+          page = replace_once(
+              page,
+              "const REC_STATUS = {\n  'Распознано':       { tone: 'green', action: 'Проверить' },",
+              "const REC_STATUS = {\n  'Черновик':         { tone: 'amber', action: 'Продолжить черновик' },\n  'Распознано':       { tone: 'green', action: 'Проверить' },",
+              'draft status config',
+          )
+
+          page = replace_once(
+              page,
+              "  const receipts = all.filter((document) => {\n    const details = receiptDetailsLines(document.editorType, document.parsed).join(' ');\n    return !q || `${document.no} ${document.name} ${document.order} ${document.participant} ${details}`.toLowerCase().includes(q.toLowerCase());\n  });",
+              "  const receipts = all.filter((document) => {\n    const details = receiptDetailsLines(document.editorType, document.parsed).join(' ');\n    return !q || `${document.no} ${document.name} ${document.order} ${document.participant} ${details}`.toLowerCase().includes(q.toLowerCase());\n  });\n  const receiptDrafts = all.filter((document) => document.isReceiptDraft);",
+              'draft collection',
+          )
+
+          page = replace_once(
+              page,
+              "      await documentsApi.updateReceipt(fileId, {\n        draft: asDraft,",
+              "      const savedDocument = await documentsApi.updateReceipt(fileId, {\n        draft: asDraft,",
+              'capture saved document',
+          )
+
+          page = replace_once(
+              page,
+              "      if (!groupEdit) updateLocalReceipt(fileId, { ...verifiedData, recognitionPending: asDraft });\n      editDirty.current = false;",
+              "      if (asDraft) {\n        const savedDraft = toLegacyDocument(savedDocument, orders);\n        setImported((current) => [\n          savedDraft,\n          ...current.filter((row) => String(row.serverId || row.no) !== String(savedDraft.serverId || savedDraft.no)),\n        ]);\n      } else if (!groupEdit) {\n        updateLocalReceipt(fileId, { ...verifiedData, recognitionPending: false });\n      }\n      editDirty.current = false;",
+              'persist saved draft locally',
+          )
+
+          page = replace_once(
+              page,
+              "            <SearchBox value={q} onChange={setQ} placeholder=\"Документ, участник, маршрут…\" style={{ width: 280 }} />\n            {importDraft && <Button variant=\"secondary\" icon=\"edit\" onClick={() => {",
+              "            <SearchBox value={q} onChange={setQ} placeholder=\"Документ, участник, маршрут…\" style={{ width: 280 }} />\n            <Button variant=\"secondary\" icon=\"edit\" disabled={!receiptDrafts.length}\n              title={receiptDrafts.length ? 'Открыть сохранённый черновик квитанции' : 'Нет сохранённых черновиков квитанций'}\n              onClick={() => {\n                if (!receiptDrafts.length) return;\n                editDirty.current = false;\n                setEdit(receiptDrafts[0]);\n              }}>Черновики квитанций ({receiptDrafts.length})</Button>\n            {importDraft && <Button variant=\"secondary\" icon=\"edit\" onClick={() => {",
+              'always visible drafts button',
+          )
+
+          page = replace_once(
+              page,
+              "                    const recognition = d.parsed.manualCompletion\n                      ? 'Заполнено вручную'\n                      : receiptStatus(d.parsed, new Set(), d.editorType, null);",
+              "                    const recognition = d.isReceiptDraft\n                      ? 'Черновик'\n                      : d.parsed.manualCompletion\n                        ? 'Заполнено вручную'\n                        : receiptStatus(d.parsed, new Set(), d.editorType, null);",
+              'draft recognition',
+          )
+
+          page = replace_once(
+              page,
+              "                          <Button size=\"sm\" variant=\"ghost\" onClick={() => { editDirty.current = false; setEdit(d); }}>{recognition === 'Требует проверки' ? 'Проверить' : 'Изменить'}</Button>",
+              "                          <Button size=\"sm\" variant=\"ghost\" onClick={() => { editDirty.current = false; setEdit(d); }}>{d.isReceiptDraft ? 'Продолжить черновик' : recognition === 'Требует проверки' ? 'Проверить' : 'Изменить'}</Button>",
+              'draft row action',
+          )
+
+          page_path.write_text(page)
+
+          adapter_path = Path('js/api/legacy-adapters.js')
+          adapter = adapter_path.read_text()
+          adapter = replace_once(
+              adapter,
+              "    status: documentStatus[item.status] || item.status,\n    version: item.current_version || item.version || 0,",
+              "    status: documentStatus[item.status] || item.status,\n    isReceiptDraft: receiptImport.stage === 'draft',\n    version: item.current_version || item.version || 0,",
+              'adapter draft flag',
+          )
+          adapter_path.write_text(adapter)
+
+          test_path = Path('test/receipt-editor-spec.test.mjs')
+          tests = test_path.read_text()
+          marker = "test('компактное имя, ЖД-место, live preview и сворачиваемые подбланки реализованы вместе', () => {"
+          new_test = """test('существующие квитанции показывают серверные черновики и позволяют продолжить работу', () => {\n  assert.match(page, /const receiptDrafts = all\\.filter\\(\\(document\\) => document\\.isReceiptDraft\\)/);\n  assert.match(page, /Черновики квитанций \\(\\{receiptDrafts\\.length\\}\\)/);\n  assert.match(page, /d\\.isReceiptDraft[\\s\\S]*?'Черновик'/);\n  assert.match(page, /d\\.isReceiptDraft \\? 'Продолжить черновик'/);\n  assert.match(page, /const savedDocument = await documentsApi\\.updateReceipt/);\n  assert.match(page, /const savedDraft = toLegacyDocument\\(savedDocument, orders\\)/);\n  assert.match(await readFile(new URL('../js/api/legacy-adapters.js', import.meta.url), 'utf8'), /isReceiptDraft: receiptImport\\.stage === 'draft'/);\n});\n\n"""
+          if new_test not in tests:
+              if marker not in tests:
+                  raise SystemExit('test insertion marker not found')
+              tests = tests.replace(marker, new_test + marker, 1)
+          test_path.write_text(tests)
+          PY
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run tests
+        run: npm test
+
+      - name: Build application
+        run: npm run build
+
+      - name: Commit verified changes
+        shell: bash
+        run: |
+          rm .github/workflows/apply-existing-receipt-drafts.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add js/page_fulfillment.jsx js/api/legacy-adapters.js test/receipt-editor-spec.test.mjs .github/workflows/apply-existing-receipt-drafts.yml
+          git commit -m "Add drafts for existing receipts"
+          git push origin HEAD:main
