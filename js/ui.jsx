@@ -63,14 +63,11 @@ function ToastProvider({ children }) {
     <ToastCtx.Provider value={push}>
       {children}
       <div className="toast-wrap">
-        {toasts.map((t, i) => {
-          const depth = toasts.length - 1 - i;
-          return (
-            <div key={t.id} className="toast-slot" style={{ transform: 'translateX(' + (-depth * 18) + 'px)', opacity: 1 - depth * 0.08, zIndex: 60 - depth }}>
-              <ToastItem t={t} onClose={remove} onNav={nav} />
-            </div>
-          );
-        })}
+        {toasts.map((t) => (
+          <div key={t.id} className="toast-slot">
+            <ToastItem t={t} onClose={remove} onNav={nav} />
+          </div>
+        ))}
       </div>
     </ToastCtx.Provider>
   );

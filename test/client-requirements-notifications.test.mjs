@@ -5,6 +5,7 @@ import test from 'node:test';
 import { toUiNotification } from '../js/api/adapters.js';
 
 const page = await readFile(new URL('../js/page_notifications.jsx', import.meta.url), 'utf8');
+const ui = await readFile(new URL('../js/ui.jsx', import.meta.url), 'utf8');
 const styles = await readFile(new URL('../app/globals.css', import.meta.url), 'utf8');
 
 test('backend-уведомление сохраняет точное время, ответственного и переход', () => {
@@ -32,4 +33,11 @@ test('центр уведомлений показывает время и от�
   assert.match(page, /Создано:/);
   assert.match(page, /n\.created/);
   assert.match(styles, /\.ntf\{display:grid;grid-template-columns:42px minmax\(0,1fr\) auto/);
+});
+
+test('всплывающие уведомления идут одной ровной колонкой', () => {
+  assert.doesNotMatch(ui, /translateX\(' \+ \(-depth \* 18\)/);
+  assert.match(styles, /\.toast-wrap\{[^}]*align-items:stretch;[^}]*width:min\(370px,calc\(100vw - 44px\)\)/);
+  assert.match(styles, /\.toast-slot\{width:100%\}/);
+  assert.match(styles, /\.toast\{[^}]*width:100%/);
 });
