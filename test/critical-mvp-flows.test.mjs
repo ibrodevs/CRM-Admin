@@ -47,5 +47,5 @@ test('карточка заказа не показывает NaN при backend
   assert.match(orderFinance, /Number\.isFinite\(value\) \? value : 0/);
   assert.match(orderFinance, /const explicitTotal = source\.total \?\? service\.client_total \?\? service\.sum/);
   assert.match(orderFinance, /total: explicitTotal === undefined/);
-  assert.match(legacyAdapters, /discount: Number\(item\.discount \|\| 0\), total: Number\(item\.client_total \|\| 0\)/);
+  assert.match(legacyAdapters, /total: item\.client_total === null .* \? null : Number\(item\.client_total\)/);
 });
