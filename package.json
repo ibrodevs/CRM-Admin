@@ -4,12 +4,12 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "predev": "node scripts/apply-receipt-binding-drawer.mjs && node scripts/apply-avia-receipt-preview-fix.mjs",
+    "predev": "node scripts/apply-receipt-binding-drawer.mjs && node scripts/apply-avia-receipt-preview-fix.mjs && node scripts/apply-avia-preview-layout-fix.mjs",
     "dev": "next dev",
-    "prebuild": "node scripts/apply-receipt-binding-drawer.mjs && node scripts/apply-avia-receipt-preview-fix.mjs && node --experimental-specifier-resolution=node --test test/*.test.mjs",
+    "prebuild": "node scripts/apply-receipt-binding-drawer.mjs && node scripts/apply-avia-receipt-preview-fix.mjs && node scripts/apply-avia-preview-layout-fix.mjs && node --experimental-specifier-resolution=node --test test/*.test.mjs",
     "build": "next build",
     "start": "next start",
-    "pretest": "node scripts/apply-receipt-binding-drawer.mjs && node scripts/apply-avia-receipt-preview-fix.mjs",
+    "pretest": "node scripts/apply-receipt-binding-drawer.mjs && node scripts/apply-avia-receipt-preview-fix.mjs && node scripts/apply-avia-preview-layout-fix.mjs",
     "test": "node --experimental-specifier-resolution=node --test test/*.test.mjs",
     "smoke:production": "node scripts/production-smoke.mjs"
   },
