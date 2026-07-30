@@ -197,7 +197,7 @@ export function toLegacyOrderService(item) {
     currency: item.currency || 'USD',
     passengers: (item.passengers || []).map((row) => row.name).filter(Boolean),
     participantIds: (item.passengers || []).map((row) => row.participant).filter(Boolean),
-    calc: { tariff: Number(item.supplier_cost || 0), taxes: Number(item.taxes || 0), fee: Number(item.agency_fee || 0), markup: Number(item.markup || 0), commission: Number(item.commission || 0), discount: Number(item.discount || 0) },
+    calc: { tariff: Number(item.supplier_cost || 0), taxes: Number(item.taxes || 0), fee: Number(item.agency_fee || 0), markup: Number(item.markup || 0), commission: Number(item.commission || 0), discount: Number(item.discount || 0), total: Number(item.client_total || 0) },
   };
 }
 

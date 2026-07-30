@@ -6,6 +6,8 @@ const offers = await readFile(new URL('../js/page_offers.jsx', import.meta.url),
 const receipts = await readFile(new URL('../js/page_fulfillment.jsx', import.meta.url), 'utf8');
 const suppliers = await readFile(new URL('../js/page_suppliers.jsx', import.meta.url), 'utf8');
 const app = await readFile(new URL('../js/app.jsx', import.meta.url), 'utf8');
+const orderFinance = await readFile(new URL('../js/features/orders/finance.jsx', import.meta.url), 'utf8');
+const legacyAdapters = await readFile(new URL('../js/api/legacy-adapters.js', import.meta.url), 'utf8');
 
 test('свободное КП открывается в редакторе и сохраняется через backend', () => {
   assert.match(offers, /function StandaloneKPEditor/);
@@ -39,4 +41,11 @@ test('поставщик создаётся один раз, а приорите
   assert.match(suppliers, /suppliersApi\.saveSearchPriority/);
   assert.match(suppliers, /suppliersApi\.checkConnection\(created\.id\)/);
   assert.doesNotMatch(suppliers, /Синхронизировать сейчас/);
+});
+
+test('карточка заказа не показывает NaN при backend-услуге без calc.total', () => {
+  assert.match(orderFinance, /Number\.isFinite\(value\) \? value : 0/);
+  assert.match(orderFinance, /const explicitTotal = source\.total \?\? service\.client_total \?\? service\.sum/);
+  assert.match(orderFinance, /total: explicitTotal === undefined/);
+  assert.match(legacyAdapters, /discount: Number\(item\.discount \|\| 0\), total: Number\(item\.client_total \|\| 0\)/);
 });

@@ -9,7 +9,8 @@ function ocCurrency(currency = 'USD') {
 }
 
 function ocMoney(amount, currency = 'USD') {
-  return Math.round(amount).toLocaleString('ru-RU') + ' ' + ocCurrency(currency);
+  const value = Number(amount);
+  return Math.round(Number.isFinite(value) ? value : 0).toLocaleString('ru-RU') + ' ' + ocCurrency(currency);
 }
 
 function opPayable(operation) {
@@ -21,8 +22,31 @@ function opDebt(operation) {
 }
 
 function svcCalc(service) {
-  if (service.calc) return service.calc;
-  return { tariff: service.sum, taxes: 0, fee: 0, commission: 0, total: service.sum };
+  const number = (value) => {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : 0;
+  };
+  const source = service.calc || {};
+  const tariff = number(source.tariff ?? service.supplier_cost ?? service.sum);
+  const taxes = number(source.taxes ?? service.taxes);
+  const fee = number(source.fee ?? service.agency_fee);
+  const markup = number(source.markup ?? service.markup);
+  const discount = number(source.discount ?? service.discount);
+  const commission = number(source.commission ?? service.commission);
+  const calculatedTotal = tariff + taxes + fee + markup - discount;
+  const explicitTotal = source.total ?? service.client_total ?? service.sum;
+  return {
+    ...source,
+    tariff,
+    taxes,
+    fee,
+    markup,
+    discount,
+    commission,
+    total: explicitTotal === undefined || explicitTotal === null || explicitTotal === ''
+      ? calculatedTotal
+      : number(explicitTotal),
+  };
 }
 
 function financeSnapshot(orderNo, services) {
