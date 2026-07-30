@@ -212,7 +212,8 @@ test('реестр не смешивает заказ поставщика с в
 
 test('реестр показывает участника из верхнего поля даже при пустом массиве пассажиров', () => {
   assert.match(editor, /const fallback = String\(draft\.passenger \|\| ''\)\.trim\(\)/);
-  assert.match(editor, /return names\.length \? names : \(fallback \? \[fallback\] : \[\]\)/);
+  assert.match(editor, /const resolved = names\.length \? names : \(fallback \? \[fallback\] : \[\]\)/);
+  assert.match(editor, /Number\(draft\.receiptCount\) > 1/);
 });
 
 test('зона загрузки даёт явную обратную связь при перетаскивании файлов', () => {
@@ -249,7 +250,9 @@ test('групповой ЖД PDF отображает каждый билет �
   assert.match(page, /updateSubReceipt\(subEdit\.fileId, subEdit\.index, parsed\)/);
   assert.match(page, /В составе общего PDF/);
   assert.match(page, /className="receipt-registry-subrow"/);
-  assert.match(page, /Изменить общий бланк/);
+  assert.match(page, /stored\?\.groupTickets \|\| stored\?\.receipts/);
+  assert.match(page, /openGroupTicketEditor\(d, ticketIndex\)/);
+  assert.match(page, /Изменить бланк/);
   assert.match(styles, /\.rec-import-table tbody tr\.rec-import-subrow/);
   assert.match(styles, /\.rec-import-subrow-cost/);
   assert.match(styles, /\.receipt-registry-table tr\.receipt-registry-subrow/);

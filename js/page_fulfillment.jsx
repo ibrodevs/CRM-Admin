@@ -923,19 +923,20 @@ function serviceTypeFromBackend(kind, label, fallback) {
 function receiptImportSubrows(type, receipts) {
   if (!Array.isArray(receipts) || receipts.length < 2) return [];
   return receipts.map((receipt, index) => normalizeReceiptDraft(type, {
-    carrier: receipt.issuer || '',
-    passenger: receipt.passenger_name || '',
-    passengers: receipt.passenger_name ? [{
-      name: receipt.passenger_name,
-      dob: receipt.date_of_birth || '',
-      document: receipt.document_number || '',
-      ticketNo: receipt.ticket_number || '',
-    }] : [],
-    dob: receipt.date_of_birth || '',
-    docNo: receipt.document_number || '',
-    ticketNo: receipt.ticket_number || '',
-    ref: receipt.reference || '',
-    cls: receipt.booking_class || '',
+    ...receipt,
+    carrier: receipt.carrier || receipt.issuer || '',
+    passenger: receipt.passenger || receipt.passenger_name || '',
+    passengers: receipt.passengers || ((receipt.passenger || receipt.passenger_name) ? [{
+      name: receipt.passenger || receipt.passenger_name,
+      dob: receipt.dob || receipt.date_of_birth || '',
+      document: receipt.docNo || receipt.document_number || '',
+      ticketNo: receipt.ticketNo || receipt.ticket_number || '',
+    }] : []),
+    dob: receipt.dob || receipt.date_of_birth || '',
+    docNo: receipt.docNo || receipt.document_number || '',
+    ticketNo: receipt.ticketNo || receipt.ticket_number || '',
+    ref: receipt.ref || receipt.reference || '',
+    cls: receipt.cls || receipt.booking_class || '',
     fare: receipt.fare ?? receipt.total ?? '',
     taxes: receipt.taxes ?? 0,
     fees: receipt.fees ?? 0,
@@ -945,8 +946,8 @@ function receiptImportSubrows(type, receipts) {
     fareBreakdown: receipt.costBreakdown || receipt.fare_breakdown || [],
     includedTaxBreakdown: receipt.includedTaxBreakdown || receipt.included_tax_breakdown || [],
     currency: receipt.currency || 'RUB',
-    legs: receipt.segments || [],
-    tripType: receipt.trip_type || 'oneway',
+    legs: receipt.legs || receipt.segments || [],
+    tripType: receipt.tripType || receipt.trip_type || 'oneway',
     recognitionPending: false,
     receiptIndex: index + 1,
   }));
@@ -2029,7 +2030,7 @@ function ReceiptEditorPage({ documents = [], orders = [], services = [], onChang
       const editorType = document.recType || serviceTypeFromBackend(document.service_kind, document.service_type,
         guessType(`${document.name || ''} ${document.service || ''}`));
       const stored = document.parsed || document.supplierBlank?.verified_data || document.supplier_original?.verified_data;
-      const parsed = normalizeReceiptDraft(editorType, {
+      const normalized = normalizeReceiptDraft(editorType, {
         ...(stored || {
           passenger: document.participant !== '—' ? document.participant : '',
           recognitionPending: true,
@@ -2038,6 +2039,8 @@ function ReceiptEditorPage({ documents = [], orders = [], services = [], onChang
         crmOrderNo: stored?.crmOrderNo || (document.order !== '—' ? String(document.order) : ''),
         crmPersonId: stored?.crmPersonId || document.personId || '',
       });
+      const storedTickets = receiptImportSubrows(editorType, stored?.groupTickets || stored?.receipts);
+      const parsed = storedTickets.length ? aggregateReceiptSubrows(normalized, storedTickets) : normalized;
       return {
         ...document,
         id: document.serverId || document.no,
@@ -2054,6 +2057,7 @@ function ReceiptEditorPage({ documents = [], orders = [], services = [], onChang
   const updateLocalReceipt = (fileId, parsed) => {
     editDirty.current = true;
     setEdit((current) => current && String(current.id) === String(fileId) ? { ...current, parsed } : current);
+    if (edit?.groupTicketIndex !== undefined) return;
     setImported((current) => {
       const source = all.find((row) => String(row.id) === String(fileId));
       if (!source) return current;
@@ -2066,15 +2070,29 @@ function ReceiptEditorPage({ documents = [], orders = [], services = [], onChang
   };
   const saveReceipt = async (fileId, parsed, asDraft = false) => {
     try {
+      const groupEdit = edit && String(edit.id) === String(fileId) && edit.groupTicketIndex !== undefined;
+      let verifiedData = parsed;
+      if (groupEdit) {
+        const tickets = [...(edit.groupParentParsed?.groupTickets || [])];
+        tickets[edit.groupTicketIndex] = parsed;
+        verifiedData = aggregateReceiptSubrows({
+          ...edit.groupParentParsed,
+          output: parsed.output || edit.groupParentParsed.output,
+          crmBindingMode: parsed.crmBindingMode || edit.groupParentParsed.crmBindingMode,
+          crmOrderId: parsed.crmOrderId || edit.groupParentParsed.crmOrderId,
+          crmOrderNo: parsed.crmOrderNo || edit.groupParentParsed.crmOrderNo,
+          crmPersonId: parsed.crmPersonId || edit.groupParentParsed.crmPersonId,
+        }, tickets);
+      }
       await documentsApi.updateReceipt(fileId, {
         draft: asDraft,
-        verified_data: parsed,
-        order: parsed.crmBindingMode === 'order' ? (parsed.crmOrderId || null) : null,
-        person: parsed.crmBindingMode === 'person' ? (parsed.crmPersonId || null) : null,
-        output_settings: parsed.output || { mode: 'original' },
-        audit_log: parsed.auditLog || [],
+        verified_data: verifiedData,
+        order: verifiedData.crmBindingMode === 'order' ? (verifiedData.crmOrderId || null) : null,
+        person: verifiedData.crmBindingMode === 'person' ? (verifiedData.crmPersonId || null) : null,
+        output_settings: verifiedData.output || { mode: 'original' },
+        audit_log: verifiedData.auditLog || [],
       });
-      updateLocalReceipt(fileId, { ...parsed, recognitionPending: asDraft });
+      if (!groupEdit) updateLocalReceipt(fileId, { ...verifiedData, recognitionPending: asDraft });
       editDirty.current = false;
       if (!asDraft) await onChanged?.();
       toast(asDraft ? 'Черновик квитанции сохранён' : 'Проверенные данные и настройки бланка сохранены', 'ok');
@@ -2090,6 +2108,26 @@ function ReceiptEditorPage({ documents = [], orders = [], services = [], onChang
       return;
     }
     setEdit(null);
+  };
+  const openGroupTicketEditor = (document, ticketIndex) => {
+    const ticket = document.parsed.groupTickets[ticketIndex];
+    const parsed = normalizeReceiptDraft(document.editorType, {
+      ...ticket,
+      output: document.parsed.output,
+      crmBindingMode: document.parsed.crmBindingMode,
+      crmOrderId: document.parsed.crmOrderId,
+      crmOrderNo: document.parsed.crmOrderNo,
+      crmPersonId: document.parsed.crmPersonId,
+      groupTickets: [],
+      receiptCount: 1,
+    });
+    editDirty.current = false;
+    setEdit({
+      ...document,
+      parsed,
+      groupParentParsed: document.parsed,
+      groupTicketIndex: ticketIndex,
+    });
   };
   useEffect(() => {
     if (!edit) return undefined;
@@ -2202,7 +2240,7 @@ function ReceiptEditorPage({ documents = [], orders = [], services = [], onChang
                               <span>Плацкарта: {recMoney(Number(ticket.reservedSeatCost) || 0, ticket.currency)}</span>
                             </span></td>
                             <td data-label="Проверка"><Pill tone="green">Распознано</Pill></td>
-                            <td data-label="Операции"><Button size="sm" variant="ghost" onClick={() => { editDirty.current = false; setEdit(d); }}>Изменить общий бланк</Button></td>
+                            <td data-label="Операции"><Button size="sm" variant="ghost" onClick={() => openGroupTicketEditor(d, ticketIndex)}>Изменить бланк</Button></td>
                           </tr>
                         );
                       })}

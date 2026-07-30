@@ -300,9 +300,20 @@ export function normalizeReceiptDraft(type, value = {}) {
 }
 
 export function receiptParticipantNames(draft) {
+  const groupNames = (draft.groupTickets || []).flatMap((ticket) => {
+    const ticketNames = (ticket.passengers || []).map((row) => String(row.name || '').trim()).filter(Boolean);
+    const fallback = String(ticket.passenger || ticket.passenger_name || '').trim();
+    return ticketNames.length ? ticketNames : (fallback ? [fallback] : []);
+  });
+  if (groupNames.length > 1) return [...new Set(groupNames)];
   const names = (draft.passengers || []).map((row) => String(row.name || '').trim()).filter(Boolean);
   const fallback = String(draft.passenger || '').trim();
-  return names.length ? names : (fallback ? [fallback] : []);
+  const resolved = names.length ? names : (fallback ? [fallback] : []);
+  if (resolved.length === 1 && Number(draft.receiptCount) > 1 && resolved[0].includes(',')) {
+    const split = resolved[0].split(/\s*,\s*/).map((name) => name.trim()).filter(Boolean);
+    if (split.length > 1) return split;
+  }
+  return resolved;
 }
 
 export function receiptParticipantLabel(draft, fallback = 'квитанция') {
