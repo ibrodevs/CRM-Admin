@@ -75,4 +75,15 @@ if (!source.includes('ReactDOM.createPortal(')) {
 }
 
 await writeFile(pageUrl, source, 'utf8');
+
+const legacyTestUrl = new URL('../test/receipt-editor-spec.test.mjs', import.meta.url);
+let legacyTests = await readFile(legacyTestUrl, 'utf8');
+const oldPreviewAssertion = String.raw`  assert.match(page, /previewExpanded \? ' is-open' : ''/);`;
+const newPreviewAssertion = String.raw`  assert.match(page, /ReactDOM\.createPortal/);`;
+if (!legacyTests.includes(newPreviewAssertion)) {
+  if (!legacyTests.includes(oldPreviewAssertion)) throw new Error('Не найдена устаревшая проверка expanded preview');
+  legacyTests = legacyTests.replace(oldPreviewAssertion, newPreviewAssertion);
+  await writeFile(legacyTestUrl, legacyTests, 'utf8');
+}
+
 console.log('Развёрнутая квитанция рендерится порталом поверх Drawer.');
