@@ -1277,14 +1277,10 @@ async function waitForReceiptResult(importId) {
 }
 
 
-function ReceiptEditDrawer({ open, file, onClose, onChange, onBrand, onReview, orders = [], services = [] }) {
+function ReceiptEditDrawer({ open, file, onClose, onChange, onBrand, onPreview, onReview, orders = [], services = [] }) {
   const [correctionMode, setCorrectionMode] = useState(false);
-  const [livePreviewOpen, setLivePreviewOpen] = useState(false);
   useEffect(() => {
-    if (open) {
-      setCorrectionMode(false);
-      setLivePreviewOpen(false);
-    }
+    if (open) setCorrectionMode(false);
   }, [open, file && file.id]);
   if (!open || !file) return null;
   const parsed = normalizeReceiptDraft(file.type, file.parsed);
@@ -1305,7 +1301,7 @@ function ReceiptEditDrawer({ open, file, onClose, onChange, onBrand, onReview, o
           <aside className="receipt-edit-preview">
             <div className="receipt-edit-preview-head">
               <div><Icon name="eye" /><span><b>Квитанция с корректировками</b><small>Живой предпросмотр</small></span></div>
-              <Button size="sm" variant="secondary" icon="arrowUpRight" onClick={() => setLivePreviewOpen(true)}>Развернуть</Button>
+              <Button size="sm" variant="secondary" icon="arrowUpRight" onClick={onPreview}>Развернуть</Button>
             </div>
             <ReceiptDocumentPreview type={file.type} draft={parsed} />
             <div className="receipt-edit-preview-note"><Icon name="checkCircle" /> Предпросмотр обновляется сразу: каждое введённое значение отражается в квитанции.</div>
@@ -1315,8 +1311,6 @@ function ReceiptEditDrawer({ open, file, onClose, onChange, onBrand, onReview, o
             orders={orders} services={services} />
         </div>
       </Drawer>
-      <ReceiptBrandDocumentDrawer open={livePreviewOpen} type={file.type} draft={parsed}
-        originalUrl={file.originalUrl} onClose={() => setLivePreviewOpen(false)} />
     </>
   );
 }
@@ -2272,6 +2266,7 @@ function ReceiptEditorPage({ documents = [], orders = [], services = [], onChang
       <ReceiptEditDrawer open={!!edit} file={edit ? { ...edit, type: edit.editorType } : null} onClose={closeReceiptEditor}
         onChange={updateLocalReceipt} onReview={(fileId, parsed) => saveReceipt(fileId, parsed, false)}
         orders={orders} services={services}
+        onPreview={() => setBrandEdit(edit)}
         onBrand={() => { setBrandEdit(edit); closeReceiptEditor(); }} />
 
       <ReceiptBrandDocumentDrawer open={!!brandEdit} type={brandEdit?.editorType} draft={brandEdit?.parsed}
