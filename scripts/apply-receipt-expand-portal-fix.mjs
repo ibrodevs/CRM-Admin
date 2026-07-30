@@ -78,12 +78,24 @@ await writeFile(pageUrl, source, 'utf8');
 
 const legacyTestUrl = new URL('../test/receipt-editor-spec.test.mjs', import.meta.url);
 let legacyTests = await readFile(legacyTestUrl, 'utf8');
+let legacyChanged = false;
+
 const oldPreviewAssertion = String.raw`  assert.match(page, /previewExpanded \? ' is-open' : ''/);`;
 const newPreviewAssertion = String.raw`  assert.match(page, /ReactDOM\.createPortal/);`;
 if (!legacyTests.includes(newPreviewAssertion)) {
   if (!legacyTests.includes(oldPreviewAssertion)) throw new Error('Не найдена устаревшая проверка expanded preview');
   legacyTests = legacyTests.replace(oldPreviewAssertion, newPreviewAssertion);
-  await writeFile(legacyTestUrl, legacyTests, 'utf8');
+  legacyChanged = true;
 }
+
+const oldEscapeAssertion = String.raw`  assert.match(page, /event\.key === 'Escape'/);`;
+const newEscapeAssertion = String.raw`  assert.match(page, /event\.key !== 'Escape'/);`;
+if (!legacyTests.includes(newEscapeAssertion)) {
+  if (!legacyTests.includes(oldEscapeAssertion)) throw new Error('Не найдена устаревшая проверка Escape');
+  legacyTests = legacyTests.replace(oldEscapeAssertion, newEscapeAssertion);
+  legacyChanged = true;
+}
+
+if (legacyChanged) await writeFile(legacyTestUrl, legacyTests, 'utf8');
 
 console.log('Развёрнутая квитанция рендерится порталом поверх Drawer.');
