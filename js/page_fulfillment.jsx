@@ -1279,7 +1279,6 @@ async function waitForReceiptResult(importId) {
 
 function ReceiptEditDrawer({ open, file, onClose, onChange, onBrand, onReview, orders = [], services = [] }) {
   const [correctionMode, setCorrectionMode] = useState(false);
-  const expandedPreviewRef = useRef(null);
   useEffect(() => {
     if (open) setCorrectionMode(false);
   }, [open, file && file.id]);
@@ -1302,8 +1301,9 @@ function ReceiptEditDrawer({ open, file, onClose, onChange, onBrand, onReview, o
           <aside className="receipt-edit-preview">
             <div className="receipt-edit-preview-head">
               <div><Icon name="eye" /><span><b>Квитанция с корректировками</b><small>Живой предпросмотр</small></span></div>
-              <Button type="button" size="sm" variant="secondary" icon="arrowUpRight"
-                onClick={() => expandedPreviewRef.current?.showModal()}>Развернуть</Button>
+              <a className="btn btn-secondary btn-sm" href="#receipt-corrected-preview">
+                <Icon name="arrowUpRight" />Развернуть
+              </a>
             </div>
             <ReceiptDocumentPreview type={file.type} draft={parsed} />
             <div className="receipt-edit-preview-note"><Icon name="checkCircle" /> Предпросмотр обновляется сразу: каждое введённое значение отражается в квитанции.</div>
@@ -1313,15 +1313,16 @@ function ReceiptEditDrawer({ open, file, onClose, onChange, onBrand, onReview, o
             orders={orders} services={services} />
         </div>
       </Drawer>
-      <dialog ref={expandedPreviewRef} className="receipt-corrected-preview-dialog"
-        aria-label="Развернутая квитанция с корректировками">
-        <header>
-          <div><Icon name="eye" /><span><b>Квитанция с корректировками</b><small>Все несохранённые изменения уже учтены</small></span></div>
-          <Button type="button" size="sm" variant="secondary" icon="x"
-            onClick={() => expandedPreviewRef.current?.close()}>Закрыть</Button>
-        </header>
-        <ReceiptDocumentPreview type={file.type} draft={parsed} />
-      </dialog>
+      <div id="receipt-corrected-preview" className="receipt-corrected-preview-overlay"
+        role="dialog" aria-modal="true" aria-label="Развернутая квитанция с корректировками">
+        <section className="receipt-corrected-preview-dialog">
+          <header>
+            <div><Icon name="eye" /><span><b>Квитанция с корректировками</b><small>Все несохранённые изменения уже учтены</small></span></div>
+            <a className="btn btn-secondary btn-sm" href="#"><Icon name="x" />Закрыть</a>
+          </header>
+          <ReceiptDocumentPreview type={file.type} draft={parsed} />
+        </section>
+      </div>
     </>
   );
 }
