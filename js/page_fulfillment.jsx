@@ -1279,9 +1279,21 @@ async function waitForReceiptResult(importId) {
 
 function ReceiptEditDrawer({ open, file, onClose, onChange, onBrand, onReview, orders = [], services = [] }) {
   const [correctionMode, setCorrectionMode] = useState(false);
+  const [previewExpanded, setPreviewExpanded] = useState(false);
   useEffect(() => {
-    if (open) setCorrectionMode(false);
+    if (open) {
+      setCorrectionMode(false);
+      setPreviewExpanded(false);
+    }
   }, [open, file && file.id]);
+  useEffect(() => {
+    if (!previewExpanded) return undefined;
+    const closeOnEscape = (event) => {
+      if (event.key === 'Escape') setPreviewExpanded(false);
+    };
+    window.addEventListener('keydown', closeOnEscape);
+    return () => window.removeEventListener('keydown', closeOnEscape);
+  }, [previewExpanded]);
   if (!open || !file) return null;
   const parsed = normalizeReceiptDraft(file.type, file.parsed);
   return (
@@ -1301,9 +1313,11 @@ function ReceiptEditDrawer({ open, file, onClose, onChange, onBrand, onReview, o
           <aside className="receipt-edit-preview">
             <div className="receipt-edit-preview-head">
               <div><Icon name="eye" /><span><b>Квитанция с корректировками</b><small>Живой предпросмотр</small></span></div>
-              <a className="btn btn-secondary btn-sm" href="#receipt-corrected-preview">
+              <button type="button" className="btn btn-secondary btn-sm"
+                aria-expanded={previewExpanded} aria-controls="receipt-corrected-preview"
+                onClick={() => setPreviewExpanded(true)}>
                 <Icon name="arrowUpRight" />Развернуть
-              </a>
+              </button>
             </div>
             <ReceiptDocumentPreview type={file.type} draft={parsed} />
             <div className="receipt-edit-preview-note"><Icon name="checkCircle" /> Предпросмотр обновляется сразу: каждое введённое значение отражается в квитанции.</div>
@@ -1313,12 +1327,18 @@ function ReceiptEditDrawer({ open, file, onClose, onChange, onBrand, onReview, o
             orders={orders} services={services} />
         </div>
       </Drawer>
-      <div id="receipt-corrected-preview" className="receipt-corrected-preview-overlay"
-        role="dialog" aria-modal="true" aria-label="Развернутая квитанция с корректировками">
+      <div id="receipt-corrected-preview"
+        className={`receipt-corrected-preview-overlay${previewExpanded ? ' is-open' : ''}`}
+        role="dialog" aria-modal="true" aria-hidden={!previewExpanded}
+        aria-label="Развернутая квитанция с корректировками"
+        onMouseDown={(event) => {
+          if (event.target === event.currentTarget) setPreviewExpanded(false);
+        }}>
         <section className="receipt-corrected-preview-dialog">
           <header>
             <div><Icon name="eye" /><span><b>Квитанция с корректировками</b><small>Все несохранённые изменения уже учтены</small></span></div>
-            <a className="btn btn-secondary btn-sm" href="#"><Icon name="x" />Закрыть</a>
+            <button type="button" className="btn btn-secondary btn-sm"
+              onClick={() => setPreviewExpanded(false)}><Icon name="x" />Закрыть</button>
           </header>
           <ReceiptDocumentPreview type={file.type} draft={parsed} />
         </section>

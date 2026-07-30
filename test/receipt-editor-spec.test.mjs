@@ -135,7 +135,11 @@ test('компактное имя, ЖД-место, live preview и сворач
   assert.match(page, /receipt-edit-layout/);
   assert.match(page, /Предпросмотр обновляется сразу/);
   assert.match(page, /Квитанция с корректировками/);
-  assert.match(page, /href="#receipt-corrected-preview"/);
+  assert.match(page, /const \[previewExpanded, setPreviewExpanded\] = useState\(false\)/);
+  assert.match(page, /aria-controls="receipt-corrected-preview"/);
+  assert.match(page, /onClick=\{\(\) => setPreviewExpanded\(true\)\}/);
+  assert.match(page, /previewExpanded \? ' is-open' : ''/);
+  assert.match(page, /event\.key === 'Escape'/);
   assert.match(page, /Развернутая квитанция с корректировками/);
   assert.match(page, /width="min\(1280px,98vw\)"/);
   assert.match(page, /receipt-subrows-toggle/);
