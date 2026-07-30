@@ -308,6 +308,12 @@ table.tbl.tbl-wide thead th,table.tbl.tbl-wide tbody td{white-space:nowrap}
 .receipt-registry-table tr.has-subrows td{background:#f9fbff}
 .receipt-registry-table tr.receipt-registry-subrow td{background:#f7f9fd;border-bottom-color:#dfe6f5}
 .receipt-registry-table tr.receipt-registry-subrow td:first-child{padding-left:28px}
+.receipt-import-draft-banner{display:flex;align-items:center;gap:11px;margin-bottom:14px;padding:12px 14px;border:1px solid #bcd0ff;border-radius:12px;background:#f4f7ff;color:var(--ink)}
+.receipt-import-draft-icon{display:inline-flex;align-items:center;justify-content:center;width:34px;height:34px;flex:0 0 34px;border-radius:9px;background:var(--blue);color:#fff}
+.receipt-import-draft-icon svg{width:17px;height:17px}
+.receipt-import-draft-banner>span:nth-child(2){display:grid;gap:2px;min-width:0;flex:1}
+.receipt-import-draft-banner b{font-size:13.5px}
+.receipt-import-draft-banner small{color:var(--muted);font-size:12px}
 .rec-import-table tbody tr:hover td{background:transparent}
 .rec-import-table tbody td{
   display:block;min-width:0;padding:0!important;border-bottom:none!important;background:transparent;
@@ -529,6 +535,8 @@ table.tbl.tbl-wide thead th,table.tbl.tbl-wide tbody td{white-space:nowrap}
 .receipt-relation-option-icon{align-items:center;background:var(--blue-soft);border-radius:9px;color:var(--blue);display:inline-flex;flex:0 0 auto;height:34px;justify-content:center;width:34px}
 .receipt-relation-option-icon svg{height:16px;width:16px}
 @media (max-width:900px){
+  .receipt-import-draft-banner{align-items:flex-start;flex-wrap:wrap}
+  .receipt-import-draft-banner>span:nth-child(2){flex-basis:calc(100% - 48px)}
   .receipt-upload-progress{padding:14px}
   .receipt-upload-progress-head{grid-template-columns:auto minmax(0,1fr)}
   .receipt-upload-progress-head strong{grid-column:1/-1;font-size:22px}

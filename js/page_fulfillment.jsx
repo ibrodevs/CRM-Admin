@@ -1249,6 +1249,39 @@ const IMPORT_STEPS = [
   { key: 'pricing', label: 'Данные и бланк' },
   { key: 'attach', label: 'В заказ' },
 ];
+const RECEIPT_IMPORT_DRAFT_KEY = 'travelhub.receipt-import-draft.v1';
+
+function readReceiptImportDraft() {
+  if (typeof window === 'undefined') return null;
+  try {
+    const draft = JSON.parse(window.localStorage.getItem(RECEIPT_IMPORT_DRAFT_KEY) || 'null');
+    return draft?.version === 1 && Array.isArray(draft.files) && draft.files.length ? draft : null;
+  } catch {
+    return null;
+  }
+}
+
+function writeReceiptImportDraft(draft) {
+  if (typeof window === 'undefined') return false;
+  try {
+    if (draft) window.localStorage.setItem(RECEIPT_IMPORT_DRAFT_KEY, JSON.stringify(draft));
+    else window.localStorage.removeItem(RECEIPT_IMPORT_DRAFT_KEY);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function serializableReceiptImportFile(file) {
+  const { raw, ...stored } = file;
+  return {
+    ...stored,
+    originalUrl: stored.originalUrl && !String(stored.originalUrl).startsWith('blob:')
+      ? stored.originalUrl
+      : null,
+    status: 'done',
+  };
+}
 
 function receiptStatus(parsed, seen, type, error) {
   if (error) return 'Ошибка';
@@ -1389,7 +1422,7 @@ function ReceiptMathDrawer({ open, file, math, onSave, onClose }) {
 
 
 
-function ReceiptImportModal({ open, onClose, onDone }) {
+function ReceiptImportModal({ open, onClose, onDone, initialDraft, onDraftSaved, onDraftCleared }) {
   const toast = useToast();
   const [files, setFiles] = useState([]);
   const [step, setStep] = useState(0);
@@ -1414,7 +1447,28 @@ function ReceiptImportModal({ open, onClose, onDone }) {
   const fileRef = useRef(null);
   const dragDepth = useRef(0);
 
-  useEffect(() => { if (open) { setFiles([]); setStep(0); setExcluded({}); setReviewed({}); setEditId(null); setSubEdit(null); setExpandedReceipts({}); setConfirmClose(false); setBindTarget({ mode: 'order', label: 'Выберите заказ' }); setOptAddIncomplete(false); setOptCreateServices(true); setMath({}); setSel({}); setMathId(null); setBrandId(null); setBulk({ fee: '', markup: '', commission: '' }); setDragActive(false); dragDepth.current = 0; } }, [open]);
+  useEffect(() => {
+    if (!open) return;
+    const draft = initialDraft?.version === 1 ? initialDraft : null;
+    setFiles(draft?.files || []);
+    setStep(draft ? Math.max(2, Math.min(4, Number(draft.step) || 2)) : 0);
+    setExcluded(draft?.excluded || {});
+    setReviewed(draft?.reviewed || {});
+    setEditId(null);
+    setSubEdit(null);
+    setExpandedReceipts({});
+    setConfirmClose(false);
+    setBindTarget(draft?.bindTarget || { mode: 'order', label: 'Выберите заказ' });
+    setOptAddIncomplete(Boolean(draft?.optAddIncomplete));
+    setOptCreateServices(draft ? Boolean(draft.optCreateServices) : true);
+    setMath(draft?.math || {});
+    setSel(draft?.sel || {});
+    setMathId(null);
+    setBrandId(null);
+    setBulk(draft?.bulk || { fee: '', markup: '', commission: '' });
+    setDragActive(false);
+    dragDepth.current = 0;
+  }, [open]);
   useEffect(() => {
     if (bindTarget.mode !== 'order' && optCreateServices) setOptCreateServices(false);
   }, [bindTarget.mode, optCreateServices]);
@@ -1516,7 +1570,18 @@ function ReceiptImportModal({ open, onClose, onDone }) {
           priceSource: total > 0 ? 'document' : 'manual',
           recognitionPending: result.parser_status !== 'parsed', backendWarnings: result.warnings || [] });
         setFiles((cur) => cur.map((item) => item.id === entry.id
-          ? { ...item, status: 'done', importId: imported.id, type: detectedType, parsed, subReceipts }
+          ? {
+            ...item,
+            status: 'done',
+            importId: imported.id,
+            sourceDocumentId: result.source_document_id || imported.document_id || null,
+            originalUrl: (result.source_document_id || imported.document_id)
+              ? documentsApi.downloadUrl(result.source_document_id || imported.document_id)
+              : item.originalUrl,
+            type: detectedType,
+            parsed,
+            subReceipts,
+          }
           : item));
       } catch (error) {
         setFiles((cur) => cur.map((item) => item.id === entry.id ? { ...item, status: 'done', error: error.message, parsed: { ...emptyReceiptParse(entry), recognitionPending: true } } : item));
@@ -1584,6 +1649,37 @@ function ReceiptImportModal({ open, onClose, onDone }) {
   const requestClose = () => {
     if (hasImportProgress) setConfirmClose(true);
     else onClose();
+  };
+  const saveDraftAndClose = () => {
+    if (processing) {
+      toast('Дождитесь окончания текущего распознавания — затем черновик можно сохранить', 'err');
+      return;
+    }
+    const storedFiles = files.filter((file) => file.status === 'done' && file.importId)
+      .map(serializableReceiptImportFile);
+    if (!storedFiles.length) {
+      toast('Нет обработанных бланков для сохранения', 'err');
+      return;
+    }
+    const draft = {
+      version: 1,
+      savedAt: new Date().toISOString(),
+      step: Math.max(step, 2),
+      files: storedFiles,
+      excluded,
+      reviewed,
+      bindTarget,
+      optAddIncomplete,
+      optCreateServices,
+      math,
+      sel,
+      bulk,
+    };
+    const saved = onDraftSaved?.(draft);
+    if (saved === false) return;
+    setConfirmClose(false);
+    onClose();
+    toast(`Черновик импорта сохранён: ${storedFiles.length} ${plural(storedFiles.length, 'файл', 'файла', 'файлов')}.`, 'ok');
   };
 
 
@@ -1695,6 +1791,7 @@ function ReceiptImportModal({ open, onClose, onDone }) {
         ],
       };
       });
+      onDraftCleared?.();
       await onDone(docs);
       toast(isPerson ? toAdd.length + ' квитанц. привязано к физ. лицу: ' + bindTarget.client
         : toAdd.length + ' квитанц. добавлено в заказ № ' + orderNo, 'ok');
@@ -2038,10 +2135,25 @@ function ReceiptImportModal({ open, onClose, onDone }) {
 
       <ReceiptBrandDocumentDrawer open={!!brandFile} type={brandFile?.type} draft={brandFile?.parsed}
         originalUrl={brandFile?.originalUrl} onClose={() => setBrandId(null)} />
-      <ConfirmDialog open={confirmClose} title="Закрыть импорт?"
-        message={`Загружено файлов: ${files.length}. Текущий прогресс, проверки и несохранённые настройки будут потеряны.`}
-        confirmLabel="Закрыть и потерять прогресс" confirmVariant="danger"
-        onCancel={() => setConfirmClose(false)} onConfirm={() => { setConfirmClose(false); onClose(); }} />
+      <Drawer open={confirmClose} onClose={() => setConfirmClose(false)} title="Закрыть импорт?"
+        width="min(560px,94vw)"
+        footer={<>
+          <Button variant="secondary" onClick={() => setConfirmClose(false)}>Продолжить работу</Button>
+          <Button variant="danger" onClick={() => {
+            onDraftCleared?.();
+            setConfirmClose(false);
+            onClose();
+          }}>Закрыть без сохранения</Button>
+          <Button icon="save" disabled={processing || !done.length} onClick={saveDraftAndClose}>
+            Сохранить черновик и выйти
+          </Button>
+        </>}>
+        <div style={{ display: 'grid', gap: 10, color: 'var(--muted)', fontSize: 15, lineHeight: 1.5 }}>
+          <p style={{ margin: 0 }}>Загружено файлов: {files.length}. Можно сохранить текущую проверку и вернуться к ней из редактора квитанций.</p>
+          {processing && <p style={{ margin: 0, color: 'var(--amber)' }}>Сначала дождитесь окончания распознавания текущего файла.</p>}
+          {!processing && done.length > 0 && <p style={{ margin: 0, color: 'var(--green)' }}>Будут сохранены поля, подстроки, проверки и настройки стоимости.</p>}
+        </div>
+      </Drawer>
     </Drawer>
   );
 }
@@ -2061,7 +2173,22 @@ function ReceiptEditorPage({ documents = [], orders = [], services = [], onChang
   const [expandedRegistry, setExpandedRegistry] = useState({});
   const [brandEdit, setBrandEdit] = useState(null);
   const [importing, setImporting] = useState(false);
+  const [resumeImportDraft, setResumeImportDraft] = useState(false);
+  const [importDraft, setImportDraft] = useState(() => readReceiptImportDraft());
   const [imported, setImported] = useState([]);
+  const saveImportDraft = (draft) => {
+    if (!writeReceiptImportDraft(draft)) {
+      toast('Не удалось сохранить черновик в браузере. Освободите место и попробуйте снова.', 'err');
+      return false;
+    }
+    setImportDraft(draft);
+    return true;
+  };
+  const clearImportDraft = () => {
+    writeReceiptImportDraft(null);
+    setImportDraft(null);
+    setResumeImportDraft(false);
+  };
   const backendDocuments = documents
     .map((item) => item?.serverId ? item : toLegacyDocument(item, orders))
     .filter((document) => ['Маршрутная квитанция', 'Ваучер', 'Билет'].includes(document.type));
@@ -2205,8 +2332,36 @@ function ReceiptEditorPage({ documents = [], orders = [], services = [], onChang
               </div>
             </div>
             <SearchBox value={q} onChange={setQ} placeholder="Документ, участник, маршрут…" style={{ width: 280 }} />
-            <Button icon="download" onClick={() => setImporting(true)}>Импорт документов</Button>
+            {importDraft && <Button variant="secondary" icon="edit" onClick={() => {
+              setResumeImportDraft(true);
+              setImporting(true);
+            }}>Продолжить черновик ({importDraft.files.length})</Button>}
+            <Button icon="download" onClick={() => {
+              setResumeImportDraft(false);
+              setImporting(true);
+            }}>Импорт документов</Button>
           </div>
+
+          {importDraft && (
+            <div className="receipt-import-draft-banner">
+              <span className="receipt-import-draft-icon"><Icon name="save" /></span>
+              <span>
+                <b>Сохранён черновик импорта</b>
+                <small>
+                  {importDraft.files.length} {plural(importDraft.files.length, 'файл', 'файла', 'файлов')} · сохранён {new Date(importDraft.savedAt).toLocaleString('ru-RU')}
+                </small>
+              </span>
+              <Button size="sm" onClick={() => {
+                setResumeImportDraft(true);
+                setImporting(true);
+              }}>Продолжить работу</Button>
+              <Button size="sm" variant="ghost" onClick={() => {
+                if (window.confirm('Удалить сохранённый черновик импорта? Загруженные оригиналы в CRM не удаляются.')) {
+                  clearImportDraft();
+                }
+              }}>Удалить черновик</Button>
+            </div>
+          )}
 
           {receipts.length ? (
             <div className="table-card receipt-registry-card" style={{ overflowX: 'auto' }}>
@@ -2303,8 +2458,14 @@ function ReceiptEditorPage({ documents = [], orders = [], services = [], onChang
       <ReceiptBrandDocumentDrawer open={!!brandEdit} type={brandEdit?.editorType} draft={brandEdit?.parsed}
         originalUrl={brandEdit?.originalUrl} onClose={() => setBrandEdit(null)} />
 
-      <ReceiptImportModal open={importing} onClose={() => setImporting(false)}
+      <ReceiptImportModal open={importing} initialDraft={resumeImportDraft ? importDraft : null}
+        onClose={() => {
+          setImporting(false);
+          setResumeImportDraft(false);
+        }}
+        onDraftSaved={saveImportDraft} onDraftCleared={clearImportDraft}
         onDone={async (docs) => {
+          clearImportDraft();
           setImported((cur) => [...docs, ...cur]);
           setImporting(false);
           await onChanged?.();

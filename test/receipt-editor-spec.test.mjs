@@ -147,10 +147,18 @@ test('компактное имя, ЖД-место, live preview и сворач
   assert.match(page, /expandedRegistry/);
 });
 
-test('прогресс импорта защищён подтверждением закрытия и beforeunload', () => {
+test('прогресс импорта можно сохранить черновиком и продолжить из редактора', () => {
   assert.match(page, /const hasImportProgress/);
   assert.match(page, /title="Закрыть импорт\?"/);
-  assert.match(page, /Закрыть и потерять прогресс/);
+  assert.match(page, /Сохранить черновик и выйти/);
+  assert.match(page, /Продолжить черновик/);
+  assert.match(page, /Продолжить работу/);
+  assert.match(page, /RECEIPT_IMPORT_DRAFT_KEY/);
+  assert.match(page, /window\.localStorage\.setItem/);
+  assert.match(page, /window\.localStorage\.removeItem/);
+  assert.match(page, /serializableReceiptImportFile/);
+  assert.match(page, /sourceDocumentId/);
+  assert.match(page, /initialDraft=\{resumeImportDraft \? importDraft : null\}/);
   assert.match(page, /beforeunload/);
 });
 
