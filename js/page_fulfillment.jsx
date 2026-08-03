@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import ReactDOM from 'react-dom';
 import { Icon } from './icons';
 import { ActionMenu, Avatar, Button, Checkbox, ConfirmDialog, Drawer, EmptyState, Field, FilterChip, Input, Pill, SearchBox, Select, Tabs, Th, TimeField, plural, useSort, useToast } from './ui';
 import { COMPANIES_DB, CURRENT_USER, DOCS2, DOC_KIND, DOC_STATUS2, FIN_OPS, FIN_OP_STATUS, FULFILLMENT, ORDERS, ORDER_STAGES, SERVICE_KIND } from './data';
@@ -1236,6 +1237,7 @@ function ReceiptEditForm({ type, p, onChange }) {
 
 
 const REC_STATUS = {
+  'Черновик':         { tone: 'amber', action: 'Продолжить черновик' },
   'Распознано':       { tone: 'green', action: 'Проверить' },
   'Требует проверки': { tone: 'amber', action: 'Заполнить'  },
   'Заполнено вручную': { tone: 'blue', action: 'Проверить' },
@@ -1322,10 +1324,13 @@ function ReceiptEditDrawer({ open, file, onClose, onChange, onBrand, onReview, o
   useEffect(() => {
     if (!previewExpanded) return undefined;
     const closeOnEscape = (event) => {
-      if (event.key === 'Escape') setPreviewExpanded(false);
+      if (event.key !== 'Escape') return;
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      setPreviewExpanded(false);
     };
-    window.addEventListener('keydown', closeOnEscape);
-    return () => window.removeEventListener('keydown', closeOnEscape);
+    window.addEventListener('keydown', closeOnEscape, true);
+    return () => window.removeEventListener('keydown', closeOnEscape, true);
   }, [previewExpanded]);
   if (!open || !file) return null;
   const parsed = normalizeReceiptDraft(file.type, file.parsed);
@@ -1360,22 +1365,25 @@ function ReceiptEditDrawer({ open, file, onClose, onChange, onBrand, onReview, o
             orders={orders} services={services} />
         </div>
       </Drawer>
-      <div id="receipt-corrected-preview"
-        className={`receipt-corrected-preview-overlay${previewExpanded ? ' is-open' : ''}`}
-        role="dialog" aria-modal="true" aria-hidden={!previewExpanded}
-        aria-label="Развернутая квитанция с корректировками"
-        onMouseDown={(event) => {
-          if (event.target === event.currentTarget) setPreviewExpanded(false);
-        }}>
-        <section className="receipt-corrected-preview-dialog">
-          <header>
-            <div><Icon name="eye" /><span><b>Квитанция с корректировками</b><small>Все несохранённые изменения уже учтены</small></span></div>
-            <button type="button" className="btn btn-secondary btn-sm"
-              onClick={() => setPreviewExpanded(false)}><Icon name="x" />Закрыть</button>
-          </header>
-          <ReceiptDocumentPreview type={file.type} draft={parsed} />
-        </section>
-      </div>
+      {previewExpanded && typeof document !== 'undefined' && ReactDOM.createPortal(
+        <div id="receipt-corrected-preview"
+          className="receipt-corrected-preview-overlay is-open"
+          role="dialog" aria-modal="true"
+          aria-label="Развернутая квитанция с корректировками"
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget) setPreviewExpanded(false);
+          }}>
+          <section className="receipt-corrected-preview-dialog">
+            <header>
+              <div><Icon name="eye" /><span><b>Квитанция с корректировками</b><small>Все несохранённые изменения уже учтены</small></span></div>
+              <button type="button" className="btn btn-secondary btn-sm"
+                onClick={() => setPreviewExpanded(false)}><Icon name="x" />Закрыть</button>
+            </header>
+            <ReceiptDocumentPreview type={file.type} draft={parsed} />
+          </section>
+        </div>,
+        document.body,
+      )}
     </>
   );
 }
@@ -2252,7 +2260,7 @@ function ReceiptEditorPage({ documents = [], orders = [], services = [], onChang
           crmPersonId: parsed.crmPersonId || edit.groupParentParsed.crmPersonId,
         }, tickets);
       }
-      await documentsApi.updateReceipt(fileId, {
+      const savedDocument = await documentsApi.updateReceipt(fileId, {
         draft: asDraft,
         verified_data: verifiedData,
         order: verifiedData.crmBindingMode === 'order' ? (verifiedData.crmOrderId || null) : null,
@@ -2260,7 +2268,15 @@ function ReceiptEditorPage({ documents = [], orders = [], services = [], onChang
         output_settings: verifiedData.output || { mode: 'original' },
         audit_log: verifiedData.auditLog || [],
       });
-      if (!groupEdit) updateLocalReceipt(fileId, { ...verifiedData, recognitionPending: asDraft });
+      if (asDraft) {
+        const savedDraft = toLegacyDocument(savedDocument, orders);
+        setImported((current) => [
+          savedDraft,
+          ...current.filter((row) => String(row.serverId || row.no) !== String(savedDraft.serverId || savedDraft.no)),
+        ]);
+      } else if (!groupEdit) {
+        updateLocalReceipt(fileId, { ...verifiedData, recognitionPending: false });
+      }
       editDirty.current = false;
       if (!asDraft) await onChanged?.();
       toast(asDraft ? 'Черновик квитанции сохранён' : 'Проверенные данные и настройки бланка сохранены', 'ok');
@@ -2371,9 +2387,11 @@ function ReceiptEditorPage({ documents = [], orders = [], services = [], onChang
                   {receipts.map((d) => {
                     const t = recType(d.editorType);
                     const details = receiptDetailsLines(d.editorType, d.parsed);
-                    const recognition = d.parsed.manualCompletion
-                      ? 'Заполнено вручную'
-                      : receiptStatus(d.parsed, new Set(), d.editorType, null);
+                    const recognition = d.isReceiptDraft
+                      ? 'Черновик'
+                      : d.parsed.manualCompletion
+                        ? 'Заполнено вручную'
+                        : receiptStatus(d.parsed, new Set(), d.editorType, null);
                     const statusCfg = REC_STATUS[recognition];
                     const clientTotal = receiptFinancialTotal(d.editorType, d.parsed);
                     const supplierTotal = Number(d.parsed.supplierCost || d.parsed.fare || d.supplierBlank?.total || 0);
@@ -2404,7 +2422,7 @@ function ReceiptEditorPage({ documents = [], orders = [], services = [], onChang
                           <div className="rec-import-meta">v{d.version || 1} · {d.date || '—'}</div>
                         </td>
                         <td data-label="Операции"><div className="rec-import-actions">
-                          <Button size="sm" variant="ghost" onClick={() => { editDirty.current = false; setEdit(d); }}>{recognition === 'Требует проверки' ? 'Проверить' : 'Изменить'}</Button>
+                          <Button size="sm" variant="ghost" onClick={() => { editDirty.current = false; setEdit(d); }}>{d.isReceiptDraft ? 'Продолжить черновик' : recognition === 'Требует проверки' ? 'Проверить' : 'Изменить'}</Button>
                           {d.originalUrl && <Button size="sm" variant="ghost" icon="eye" onClick={() => window.open(d.originalUrl, '_blank')}>Оригинал</Button>}
                           <Button size="sm" variant="ghost" icon="template" onClick={() => setBrandEdit(d)}>На бланке</Button>
                           {order && <Button size="sm" variant="ghost" icon="orders" onClick={() => onOpenOrder?.(order, 'documents')}>Заказ</Button>}

@@ -2522,3 +2522,61 @@ table.hp-matrix{border-collapse:collapse;width:100%;min-width:640px}
 .hp-cond{display:flex;align-items:center;justify-content:space-between;font-size:12.5px;padding:6px 0;border-bottom:1px solid var(--line)}
 .hp-cond span{color:var(--muted)}
 .hp-cond b{color:var(--ink);font-weight:600}
+
+
+/* aviation receipt live preview containment */
+.receipt-edit-preview{
+  align-self:start;
+  max-height:calc(100dvh - 190px);
+  overflow-y:auto;
+  overflow-x:hidden;
+  overscroll-behavior:contain;
+  scrollbar-gutter:stable;
+  padding-right:5px;
+  z-index:0;
+}
+.receipt-edit-preview .receipt-brand-document{
+  min-width:0;
+  padding:16px;
+}
+.receipt-edit-preview .receipt-brand-document>header{
+  flex-wrap:wrap;
+}
+.receipt-edit-preview .receipt-brand-document>header>div:last-child{
+  flex:1 1 100%;
+  text-align:left;
+}
+.receipt-edit-preview .receipt-brand-meta,
+.receipt-edit-preview .receipt-brand-passenger-grid,
+.receipt-edit-preview .receipt-brand-segment-grid,
+.receipt-edit-preview .receipt-brand-terms{
+  grid-template-columns:repeat(2,minmax(0,1fr));
+}
+.receipt-edit-preview .receipt-brand-finance-groups{
+  grid-template-columns:1fr;
+}
+.receipt-edit-preview .receipt-brand-meta>div,
+.receipt-edit-preview .receipt-brand-passenger-grid>div,
+.receipt-edit-preview .receipt-brand-segment-grid>div,
+.receipt-edit-preview .receipt-brand-terms>div{
+  min-width:0;
+  overflow-wrap:anywhere;
+}
+@media(max-width:1000px){
+  .receipt-edit-preview{
+    position:static;
+    top:auto;
+    max-height:none;
+    overflow:visible;
+    padding-right:0;
+    scrollbar-gutter:auto;
+  }
+}
+@media(max-width:560px){
+  .receipt-edit-preview .receipt-brand-meta,
+  .receipt-edit-preview .receipt-brand-passenger-grid,
+  .receipt-edit-preview .receipt-brand-segment-grid,
+  .receipt-edit-preview .receipt-brand-terms{
+    grid-template-columns:1fr;
+  }
+}

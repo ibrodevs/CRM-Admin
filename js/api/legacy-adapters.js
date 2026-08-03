@@ -164,6 +164,7 @@ export function toLegacyDocument(item, orders = []) {
     service: item.service || '—',
     finOp: '—',
     status: documentStatus[item.status] || item.status,
+    isReceiptDraft: receiptImport.stage === 'draft',
     version: item.current_version || item.version || 0,
     date: item.document_date || date(item.created_at),
     parsed,

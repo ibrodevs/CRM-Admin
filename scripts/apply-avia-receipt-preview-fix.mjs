@@ -6,6 +6,20 @@ let changed = false;
 
 function replaceOnce(label, before, after) {
   if (source.includes(after)) return;
+  if (
+    label === 'нормализация полей авиа-сегмента'
+    && source.includes('function firstReceiptValue(...values)')
+    && source.includes('function normalizeReceiptLeg(row = {})')
+  ) return;
+  if (
+    label === 'алиасы бронирования авиа-квитанции'
+    && source.includes("value.passenger_name")
+    && source.includes("draft.ref = firstReceiptValue(value.ref, value.reference, value.pnr, value.booking_reference, draft.ref);")
+  ) return;
+  if (
+    label === 'полный авиа-предпросмотр'
+    && source.includes("if (type === 'Авиа') return <ReceiptAviaDocument draft={draft} />;")
+  ) return;
   if (!source.includes(before)) {
     throw new Error(`Не удалось применить изменение «${label}»: исходный фрагмент не найден`);
   }
