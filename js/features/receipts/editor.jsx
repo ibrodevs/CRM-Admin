@@ -504,10 +504,16 @@ function AuditLog({ rows }) {
   );
 }
 
+function receiptUsesItFare(draft) {
+  return ['it', 'itFare', 'fareIt'].includes(draft?.output?.priceMode);
+}
+
 function ReceiptAviaDocument({ draft, organization = 'ПСЦ Travel Hub' }) {
   const p = normalizeReceiptDraft('Авиа', draft);
   const participants = receiptParticipantNames(p);
   const money = (value) => `${roundMoney(value).toLocaleString('ru-RU')} ${p.currency || ''}`.trim();
+  const fareMoney = () => receiptUsesItFare(p) ? 'IT' : money(p.fare);
+  const fareRowMoney = (row) => receiptUsesItFare(p) ? 'IT' : money(row.amount);
   const fareRows = p.fareBreakdown?.length ? p.fareBreakdown : [];
   const taxRows = p.taxBreakdown?.length ? p.taxBreakdown
     : (Number(p.taxes) ? [{ code: 'TAX', label: 'Таксы перевозчика', amount: p.taxes }] : []);
@@ -586,8 +592,8 @@ function ReceiptAviaDocument({ draft, organization = 'ПСЦ Travel Hub' }) {
       <h4>Расчёт стоимости</h4>
       <div className="receipt-brand-finance-groups">
         <section><h5>Тариф</h5><div className="receipt-brand-finance">
-          <div><span>Тариф перевозчика</span><b>{money(p.fare)}</b></div>
-          {fareRows.map((row, index) => <div key={`fare-${index}`}><span>{[row.code, row.label].filter(Boolean).join(' · ') || 'Расчёт тарифа'}</span><b>{money(row.amount)}</b></div>)}
+          <div><span>Тариф перевозчика</span><b>{fareMoney()}</b></div>
+          {fareRows.map((row, index) => <div key={`fare-${index}`}><span>{[row.code, row.label].filter(Boolean).join(' · ') || 'Расчёт тарифа'}</span><b>{fareRowMoney(row)}</b></div>)}
         </div></section>
         <section><h5>Таксы</h5><div className="receipt-brand-finance">
           <div><span>Таксы перевозчика</span><b>{money(p.taxes)}</b></div>
@@ -1260,6 +1266,9 @@ export function ReceiptSpecializedForm({
         {p.output.mode !== 'original' && <Field label="Шаблон организации"><Select placeholder="Выберите шаблон" options={[
           'Основной фирменный', 'Компактный', 'Корпоративный клиент',
         ]} value={p.output.template} onChange={(e) => setObject('output', 'template', e.target.value, 'Шаблон организации')} /></Field>}
+        {type === 'Авиа' && p.output.mode !== 'original' && <Field label="Стоимость в клиентском документе"><Select options={[
+          { value: 'total', label: 'Показывать суммы полностью' }, { value: 'it', label: 'Закрыть тариф (IT)' },
+        ]} value={p.output.priceMode} onChange={(e) => setObject('output', 'priceMode', e.target.value, 'Отображение стоимости')} /></Field>}
         {(type === 'Гостиница' || type === 'Трансфер') && <Field label="Стоимость в клиентском ваучере"><Select options={[
           { value: 'total', label: 'Показывать итоговую стоимость' }, { value: 'paid', label: 'Показывать только «Оплачено»' },
           { value: 'hidden', label: 'Не показывать стоимость' },

@@ -17,6 +17,10 @@ function replaceOnce(label, before, after) {
     && source.includes("draft.ref = firstReceiptValue(value.ref, value.reference, value.pnr, value.booking_reference, draft.ref);")
   ) return;
   if (
+    label === 'единый детальный авиа-бланк'
+    && source.includes("function ReceiptAviaDocument({ draft, organization = 'ПСЦ Travel Hub' })")
+  ) return;
+  if (
     label === 'полный авиа-предпросмотр'
     && source.includes("if (type === 'Авиа') return <ReceiptAviaDocument draft={draft} />;")
   ) return;
@@ -98,6 +102,8 @@ replaceOnce(
   const p = normalizeReceiptDraft('Авиа', draft);
   const participants = receiptParticipantNames(p);
   const money = (value) => \`${'${roundMoney(value).toLocaleString(\'ru-RU\')} ${p.currency || \'\'}'}\`.trim();
+  const fareMoney = () => ['it', 'itFare', 'fareIt'].includes(p.output?.priceMode) ? 'IT' : money(p.fare);
+  const fareRowMoney = (row) => ['it', 'itFare', 'fareIt'].includes(p.output?.priceMode) ? 'IT' : money(row.amount);
   const fareRows = p.fareBreakdown?.length ? p.fareBreakdown : [];
   const taxRows = p.taxBreakdown?.length ? p.taxBreakdown
     : (Number(p.taxes) ? [{ code: 'TAX', label: 'Таксы перевозчика', amount: p.taxes }] : []);
@@ -176,8 +182,8 @@ replaceOnce(
       <h4>Расчёт стоимости</h4>
       <div className="receipt-brand-finance-groups">
         <section><h5>Тариф</h5><div className="receipt-brand-finance">
-          <div><span>Тариф перевозчика</span><b>{money(p.fare)}</b></div>
-          {fareRows.map((row, index) => <div key={\`fare-${'${index}'}\`}><span>{[row.code, row.label].filter(Boolean).join(' · ') || 'Расчёт тарифа'}</span><b>{money(row.amount)}</b></div>)}
+          <div><span>Тариф перевозчика</span><b>{fareMoney()}</b></div>
+          {fareRows.map((row, index) => <div key={\`fare-${'${index}'}\`}><span>{[row.code, row.label].filter(Boolean).join(' · ') || 'Расчёт тарифа'}</span><b>{fareRowMoney(row)}</b></div>)}
         </div></section>
         <section><h5>Таксы</h5><div className="receipt-brand-finance">
           <div><span>Таксы перевозчика</span><b>{money(p.taxes)}</b></div>
