@@ -11,7 +11,7 @@ test('в карточке компании можно создать финан�
   assert.match(source, /Создать финансовые условия/);
   assert.match(source, /Новые финансовые условия/);
   assert.match(source, /onCreated=\{updateFin\}/);
-  assert.match(source, /crmApi\.saveCompanyFinancialConditions\(companyId, next\)/);
+  assert.match(source, /crmApi\.saveCompanyFinancialConditions\(companyId, prepared\)/);
 });
 
 test('создание условий формирует договор и первое дополнительное соглашение', async () => {
