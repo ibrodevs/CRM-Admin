@@ -1,5 +1,6 @@
 import './globals.css';
 import './receipt-ui-fixes.css';
+import './location-autocomplete.css';
 
 export const metadata = {
   title: 'ПСЦ — Travel Hub · CRM',
