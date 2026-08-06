@@ -236,6 +236,7 @@
 .receipt-close-save-note {
   background: var(--green-bg-2);
   color: var(--green);
+  gap: 0;
 }
 
 .receipt-close-warning {
@@ -243,19 +244,13 @@
   color: var(--amber);
 }
 
-.receipt-close-save-note > span,
-.receipt-close-warning > svg {
-  flex: 0 0 20px;
+/* The decorative save icon was visually empty in some browsers. */
+.receipt-close-save-note > span {
+  display: none !important;
 }
 
-.receipt-close-save-note > span {
-  width: 32px;
-  height: 32px;
-  border-radius: 9px;
-  background: #fff;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
+.receipt-close-warning > svg {
+  flex: 0 0 20px;
 }
 
 .receipt-close-save-note svg,
@@ -267,6 +262,7 @@
 .receipt-close-save-note div {
   display: grid;
   gap: 3px;
+  min-width: 0;
 }
 
 .receipt-close-save-note b,
