@@ -20,7 +20,7 @@ test('финансовые условия загружаются и сохран
 
   assert.match(source, /crmApi\.companyFinancialConditions\(companyId/);
   assert.match(source, /crmApi\.saveCompanyFinancialConditions\(companyId/);
-  assert.match(source, /Однократная миграция данных/);
+  assert.match(source, /Однократная миграция только полноценных старых условий/);
   assert.match(resources, /companies\/\$\{id\}\/financial-conditions\//);
   assert.match(resources, /method: 'PUT'/);
 });
