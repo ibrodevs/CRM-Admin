@@ -1,0 +1,138 @@
+/* Compact + / − controls across CRM search and selection forms. */
+
+/* Generic service counters rendered inside standard input shells. */
+.input:has(> button.btn.btn-icon.btn-sm:first-child + span + button.btn.btn-icon.btn-sm:last-child) {
+  height: 40px;
+  min-height: 40px;
+  padding: 4px 6px !important;
+  gap: 6px !important;
+  overflow: hidden;
+}
+
+.input:has(> button.btn.btn-icon.btn-sm:first-child + span + button.btn.btn-icon.btn-sm:last-child)
+  > button.btn.btn-icon.btn-sm {
+  width: 30px;
+  min-width: 30px;
+  height: 30px;
+  min-height: 30px;
+  flex: 0 0 30px;
+  padding: 0;
+  border-radius: 8px;
+  font-size: 16px;
+  line-height: 1;
+  box-shadow: none;
+}
+
+.input:has(> button.btn.btn-icon.btn-sm:first-child + span + button.btn.btn-icon.btn-sm:last-child)
+  > span {
+  min-width: 24px;
+  text-align: center;
+  line-height: 1;
+}
+
+/* Hotel room and guest counters. */
+.hp-stepper {
+  gap: 6px;
+}
+
+.hp-stepper button {
+  width: 28px;
+  min-width: 28px;
+  height: 28px;
+  min-height: 28px;
+  flex: 0 0 28px;
+  padding: 0;
+  border-radius: 8px;
+  font-size: 16px;
+  line-height: 1;
+  box-shadow: none;
+}
+
+.hp-stepper b {
+  min-width: 22px;
+  line-height: 1;
+}
+
+.hp-stepper.sm {
+  gap: 5px;
+}
+
+.hp-stepper.sm button {
+  width: 24px;
+  min-width: 24px;
+  height: 24px;
+  min-height: 24px;
+  flex-basis: 24px;
+  border-radius: 7px;
+  font-size: 14px;
+}
+
+/* Passenger counters in the aviation picker. */
+.pcp-stepper {
+  gap: 6px;
+}
+
+.pcp-stepper button {
+  width: 30px;
+  min-width: 30px;
+  height: 30px;
+  min-height: 30px;
+  flex: 0 0 30px;
+  padding: 0;
+  border-radius: 8px;
+  font-size: 17px;
+  line-height: 1;
+  box-shadow: none;
+}
+
+.pcp-stepper .n {
+  min-width: 28px;
+  height: 30px;
+  border-radius: 8px;
+  font-size: 14px;
+}
+
+.pcp-srow .pcp-stepper {
+  gap: 5px;
+}
+
+.pcp-srow .pcp-stepper button {
+  width: 26px;
+  min-width: 26px;
+  height: 26px;
+  min-height: 26px;
+  flex-basis: 26px;
+  border-radius: 7px;
+  font-size: 15px;
+}
+
+.pcp-srow .pcp-stepper .n {
+  min-width: 24px;
+  height: 26px;
+  border-radius: 7px;
+  font-size: 13px;
+}
+
+@media (max-width: 760px) {
+  .input:has(> button.btn.btn-icon.btn-sm:first-child + span + button.btn.btn-icon.btn-sm:last-child)
+    > button.btn.btn-icon.btn-sm {
+    width: 28px;
+    min-width: 28px;
+    height: 28px;
+    min-height: 28px;
+    flex-basis: 28px;
+  }
+
+  .pcp-stepper button {
+    width: 28px;
+    min-width: 28px;
+    height: 28px;
+    min-height: 28px;
+    flex-basis: 28px;
+  }
+
+  .pcp-stepper .n {
+    min-width: 26px;
+    height: 28px;
+  }
+}
