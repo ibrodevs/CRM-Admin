@@ -27,3 +27,11 @@ test('редактор не падает при отсутствующем пр�
   assert.match(source, /const fee = \(fees\[tab\] && fees\[tab\]\[f\.key\]\) \|\| \{ type: 'fixed', value: 0 \}/);
   assert.doesNotMatch(source, /const fee = fees\[tab\]\[f\.key\]/);
 });
+
+test('новые условия можно создать поверх старых данных', async () => {
+  const source = await readFile(financeUrl, 'utf8');
+
+  assert.match(source, /Создать новые условия/);
+  assert.match(source, /onClick=\{\(\) => setCreateOpen\(true\)\}/);
+  assert.match(source, /<CompanyFinanceCreateDrawer open=\{createOpen\} co=\{co\}/);
+});
