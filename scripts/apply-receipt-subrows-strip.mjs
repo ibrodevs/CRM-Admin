@@ -15,12 +15,8 @@ const replaceOnce = (from, to, label) => {
 };
 
 replaceOnce(
-`                          const m = getMath(r.f.id, p);
-                          const detailLines = receiptDetailsLines(r.f.type, p);
-                          const carrierText = (p.carrier || '').trim() || r.f.name;`,
-`                          const m = getMath(r.f.id, p);
-                          const detailLines = receiptDetailsLines(r.f.type, p);
-                          const carrierText = (p.carrier || '').trim() || r.f.name;
+`                          const carrierText = (p.carrier || '').trim() || r.f.name;`,
+`                          const carrierText = (p.carrier || '').trim() || r.f.name;
                           const subReceiptCount = r.f.subReceipts?.length || 0;
                           const subPassengerCount = new Set((r.f.subReceipts || [])
                             .map((receipt) => receipt.passenger || receipt.passengers?.[0]?.name || '')
