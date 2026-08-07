@@ -5,32 +5,31 @@ import { readFile } from 'node:fs/promises';
 const pageUrl = new URL('../js/page_fulfillment.jsx', import.meta.url);
 const cssUrl = new URL('../app/receipt-ui-fixes.css', import.meta.url);
 
-test('available receipt blanks render in a full-width compact table strip', async () => {
+test('available receipt blanks live inside the document cell, not a detached table row', async () => {
   const source = await readFile(pageUrl, 'utf8');
 
-  assert.match(source, /className=\{'receipt-subrows-strip-row'/);
-  assert.match(source, /<td colSpan=\{7\}>/);
-  assert.match(source, /<b>Доступные бланки<\/b>/);
-  assert.match(source, /receipt-subrows-toggle-count/);
-  assert.match(source, /expandedReceipts\[r\.f\.id\] \? 'Скрыть' : 'Показать'/);
+  assert.match(source, /receipt-subrows-inline/);
+  assert.match(source, /receipt-subrows-inline-info/);
+  assert.match(source, /receipt-subrows-inline-toggle/);
   assert.match(source, /subPassengerCount/);
   assert.match(source, /subRouteCount/);
+  assert.doesNotMatch(source, /<tr className=\{'receipt-subrows-strip-row'/);
 });
 
-test('blank toggle is no longer squeezed inside participant title', async () => {
+test('blank toggle is not squeezed inside participant title', async () => {
   const source = await readFile(pageUrl, 'utf8');
   const titleMatch = source.match(/<span className="rec-import-title">([\s\S]*?)<\/span>/);
 
   assert.ok(titleMatch, 'participant title should exist');
-  assert.doesNotMatch(titleMatch[1], /receipt-subrows-toggle|Показать/);
-  assert.match(source, /className="receipt-subrows-strip-toggle"/);
+  assert.doesNotMatch(titleMatch[1], /receipt-subrows-inline-toggle|Показать/);
+  assert.match(source, /className="receipt-subrows-inline-toggle"/);
 });
 
-test('blank strip stays compact and keeps its action visible', async () => {
+test('integrated blank control is visually part of the document block', async () => {
   const css = await readFile(cssUrl, 'utf8');
 
-  assert.match(css, /Receipt import: compact integrated blanks toolbar/);
-  assert.match(css, /\.receipt-subrows-strip \{[\s\S]*justify-content: space-between;[\s\S]*min-height: 46px;/);
-  assert.match(css, /\.receipt-subrows-strip-toggle \{[\s\S]*flex: 0 0 auto;[\s\S]*min-height: 32px;/);
-  assert.match(css, /@media \(max-width: 680px\)[\s\S]*\.receipt-subrows-strip \{/);
+  assert.match(css, /Receipt import: blanks integrated inside the document cell/);
+  assert.match(css, /\.receipt-subrows-inline \{[\s\S]*border-top: 1px solid #edf1f6;[\s\S]*display: flex;/);
+  assert.match(css, /\.receipt-subrows-inline-toggle \{[\s\S]*border: 0;[\s\S]*background: transparent;/);
+  assert.match(css, /\.receipt-subrows-strip-row \{[\s\S]*display: none !important;/);
 });
