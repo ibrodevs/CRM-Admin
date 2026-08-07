@@ -67,12 +67,15 @@ ${marker}
   white-space: normal;
 }
 
-.receipt-subrows-strip-row {
+.rec-import-table .receipt-subrows-strip-row {
+  display: table-row !important;
+  width: 100% !important;
   background: #f7f9ff !important;
 }
 
 .receipt-subrows-strip-row > td,
 .rec-import-table .receipt-subrows-strip-row > td {
+  display: table-cell !important;
   width: 100% !important;
   max-width: none !important;
   padding: 0 !important;
