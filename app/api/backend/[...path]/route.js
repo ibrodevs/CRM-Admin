@@ -1,6 +1,7 @@
 import { proxyToBackend } from '../../_lib/backend.js';
 
 export const dynamic = 'force-dynamic';
+export const maxDuration = 60;
 
 async function handler(request, { params }) {
   const resolvedParams = await params;
