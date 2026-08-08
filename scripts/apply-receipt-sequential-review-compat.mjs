@@ -37,5 +37,26 @@ const updateBlock = source.match(/const updateSubReceipt = \(fileId, subIndex, p
 if (!updateBlock) throw new Error('Не найден updateSubReceipt после последовательного patch.');
 if (/setReviewed\(\(cur\)/.test(updateBlock[0])) throw new Error('Отдельный бланк всё ещё преждевременно помечает всю группу проверенной.');
 
+// Important: child reviewStatus changes can leave all parent summary fields unchanged.
+// The old memo depended only on parent ticketNo/passenger/total/route, so rows kept an
+// outdated file snapshot. receiptGroupNeedsSequentialReview then continued to see a
+// pending child and the main «Далее» button stayed disabled after the final review.
+const rowsMarker = '// Group review rows must use the latest child reviewStatus values.';
+if (!source.includes(rowsMarker)) {
+  const rowsPattern = /  const rows = React\.useMemo\(\(\) => \{\n    const seen = new Set\(\);\n    return files\.map\(\(f\) => \(\{\n      f,\n      pending: f\.status !== 'done',\n      status: f\.status === 'done' \? receiptStatus\(f\.parsed, seen, f\.type, f\.error\) : \(f\.status === 'scanning' \? 'Сканируется' : 'В очереди'\),\n    \}\)\);\n  \}, \[files\.map\(\(f\) => f\.id \+ f\.status \+ \(f\.parsed \? \[f\.parsed\.ticketNo, f\.parsed\.passenger, f\.parsed\.total, routeSummary\(f\.parsed\)\]\.join\('\|'\) : ''\)\)\.join\(','\)\]\);/;
+  if (!rowsPattern.test(source)) throw new Error('Не найден memo-блок строк импорта для исправления кнопки «Далее».');
+  source = source.replace(rowsPattern, `  ${rowsMarker}\n  const rows = (() => {\n    const seen = new Set();\n    return files.map((f) => ({\n      f,\n      pending: f.status !== 'done',\n      status: f.status === 'done' ? receiptStatus(f.parsed, seen, f.type, f.error) : (f.status === 'scanning' ? 'Сканируется' : 'В очереди'),\n    }));\n  })();`);
+  changed = true;
+}
+
+for (const token of [
+  rowsMarker,
+  'const rows = (() => {',
+  'receiptGroupNeedsSequentialReview(r.f)',
+  'doneRows.length > 0 && pendingReview === 0',
+]) {
+  if (!source.includes(token)) throw new Error(`Не подтверждено разблокирование «Далее»: ${token}`);
+}
+
 if (changed) await writeFile(pageUrl, source, 'utf8');
-console.log(changed ? 'Совместимость последовательного редактора сохранена.' : 'Совместимость последовательного редактора уже настроена.');
+console.log(changed ? 'Совместимость последовательного редактора сохранена, «Далее» разблокируется после последнего бланка.' : 'Совместимость последовательного редактора уже настроена.');
