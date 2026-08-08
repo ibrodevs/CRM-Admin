@@ -22,7 +22,8 @@ test('blank controls are visually integrated into the document cell', async () =
 
   assert.match(css, /Receipt import: blank count stays inside the document block/);
   assert.match(css, /\.receipt-subrows-inline \{[\s\S]*width: 100%;[\s\S]*border-top: 1px solid #edf1f6;[\s\S]*display: flex;/);
-  assert.match(css, /\.receipt-subrows-inline-count \{[\s\S]*font-size: 11px;/);
+  assert.match(css, /\.receipt-subrows-inline-count \{[\s\S]*align-items: baseline;[\s\S]*font-size: 11px;/);
+  assert.match(css, /\.receipt-subrows-inline-count b \{[\s\S]*font-size: 11px;[\s\S]*line-height: 1\.2;/);
   assert.match(css, /\.receipt-subrows-inline-toggle \{[\s\S]*min-height: 26px;[\s\S]*border: 0;[\s\S]*background: transparent;/);
   assert.match(css, /\.receipt-subrows-strip-row \{[\s\S]*display: none !important;/);
 });
