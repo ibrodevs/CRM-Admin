@@ -43,6 +43,10 @@ css = css.replace(
   /(\.receipt-subrows-inline-count b\s*\{[\s\S]*?font-size:)\s*11\.5px;/,
   '$1 11px;',
 );
+css = css.replace(
+  /(\.receipt-subrows-inline-count b\s*\{[\s\S]*?font-size:\s*11px;)(\s*font-weight:)/,
+  '$1\n  line-height: 1.2;$2',
+);
 if (css !== beforeBaseline) changed = true;
 
 const required = [
@@ -59,8 +63,8 @@ for (const token of required) {
 if (!/\.receipt-subrows-inline-count\s*\{[\s\S]*?align-items:\s*baseline;/.test(css)) {
   throw new Error('Не удалось выровнять количество бланков по базовой линии.');
 }
-if (!/\.receipt-subrows-inline-count b\s*\{[\s\S]*?font-size:\s*11px;/.test(css)) {
-  throw new Error('Не удалось синхронизировать размер цифры количества бланков.');
+if (!/\.receipt-subrows-inline-count b\s*\{[\s\S]*?font-size:\s*11px;[\s\S]*?line-height:\s*1\.2;/.test(css)) {
+  throw new Error('Не удалось синхронизировать размер и line-height цифры количества бланков.');
 }
 
 if (changed) {
