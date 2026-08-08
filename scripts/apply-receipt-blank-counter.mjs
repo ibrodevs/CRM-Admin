@@ -31,6 +31,20 @@ if (!css.includes(cssMarker)) {
   changed = true;
 }
 
+// Final normalization for the inline "Бланков: N" control. The earlier strip
+// patch can generate the same CSS marker first, so this must run at the end of
+// prebuild and normalize the actual generated rules before tests execute.
+const beforeBaseline = css;
+css = css.replace(
+  /(\.receipt-subrows-inline-count\s*\{[\s\S]*?)align-items:\s*center;/,
+  '$1align-items: baseline;',
+);
+css = css.replace(
+  /(\.receipt-subrows-inline-count b\s*\{[\s\S]*?font-size:)\s*11\.5px;/,
+  '$1 11px;',
+);
+if (css !== beforeBaseline) changed = true;
+
 const required = [
   'const processedBlankCount = done.reduce',
   'Array.isArray(file.subReceipts) ? file.subReceipts.length : 0',
@@ -42,10 +56,17 @@ for (const token of required) {
   if (!source.includes(token)) throw new Error(`Не подтверждён счётчик бланков: ${token}`);
 }
 
+if (!/\.receipt-subrows-inline-count\s*\{[\s\S]*?align-items:\s*baseline;/.test(css)) {
+  throw new Error('Не удалось выровнять количество бланков по базовой линии.');
+}
+if (!/\.receipt-subrows-inline-count b\s*\{[\s\S]*?font-size:\s*11px;/.test(css)) {
+  throw new Error('Не удалось синхронизировать размер цифры количества бланков.');
+}
+
 if (changed) {
   await writeFile(fulfillmentUrl, source, 'utf8');
   await writeFile(cssUrl, css, 'utf8');
-  console.log('Добавлен отдельный счётчик бланков в прогресс импорта квитанций.');
+  console.log('Счётчики бланков настроены и выровнены.');
 } else {
-  console.log('Счётчик бланков уже добавлен.');
+  console.log('Счётчики бланков уже настроены.');
 }
