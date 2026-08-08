@@ -7,199 +7,128 @@ let css = await readFile(cssUrl, 'utf8');
 let sourceChanged = false;
 let cssChanged = false;
 
-// Older builds placed the blank summary directly inside the document cell.
-// Remove that compact block: the control now lives in its own row below the
-// main receipt row, where it has enough room and does not look like technical
-// metadata next to the service type.
-const inlineBlock = /\n\s*\{!!subReceiptCount && \(\s*\n\s*<span className=\{'receipt-subrows-inline'[\s\S]*?<\/button>\s*\n\s*<\/span>\s*\n\s*\)\}/;
-if (inlineBlock.test(source)) {
-  source = source.replace(inlineBlock, '');
-  sourceChanged = true;
-}
-
-const simpleStripRow = `
-                            {!!subReceiptCount && (
-                              <tr className={'receipt-subrows-strip-row' + (expandedReceipts[r.f.id] ? ' is-expanded' : '')}
-                                style={{ opacity: skipped ? 0.5 : 1 }}>
-                                <td colSpan={7}>
-                                  <div className="receipt-subrows-strip">
-                                    <span className="receipt-subrows-strip-count">
-                                      Бланков: <b>{subReceiptCount}</b>
-                                    </span>
-                                    <button type="button" className="receipt-subrows-strip-toggle"
-                                      aria-expanded={!!expandedReceipts[r.f.id]}
-                                      onClick={() => setExpandedReceipts((current) => ({ ...current, [r.f.id]: !current[r.f.id] }))}>
-                                      <span>{expandedReceipts[r.f.id] ? 'Скрыть' : 'Показать'}</span>
-                                      <Icon name={expandedReceipts[r.f.id] ? 'chevUp' : 'chevDown'} />
-                                    </button>
-                                  </div>
-                                </td>
-                              </tr>
-                            )}`;
-
-// The v2 patch creates a detached row first. Replace its verbose
-// "blanks/passengers/routes" summary with the simple count requested by the UI.
 const detachedStripRow = /\n\s*\{!!subReceiptCount && \(\s*\n\s*<tr className=\{'receipt-subrows-strip-row'[\s\S]*?<\/tr>\s*\n\s*\)\}/;
-if (!source.includes('className="receipt-subrows-strip-count"') && detachedStripRow.test(source)) {
-  source = source.replace(detachedStripRow, simpleStripRow);
+if (detachedStripRow.test(source)) {
+  source = source.replace(detachedStripRow, '');
   sourceChanged = true;
 }
 
-// Keep the patch resilient when it is applied over a working tree where the
-// previous polish script had already removed the detached row.
-if (!source.includes('className="receipt-subrows-strip-count"')) {
-  const expansionMarker = `                            {expandedReceipts[r.f.id] && (r.f.subReceipts || []).map((subReceipt, subIndex) => {`;
-  if (!source.includes(expansionMarker)) throw new Error('Не найдено место для полосы бланков.');
-  source = source.replace(expansionMarker, `${simpleStripRow}\n${expansionMarker}`);
-  sourceChanged = true;
+const oldInlineBlock = /\n\s*\{!!subReceiptCount && \(\s*\n\s*<span className=\{'receipt-subrows-inline'[\s\S]*?<\/span>\s*\n\s*\)\}/;
+const typeSelect = `                                    <Select aria-label="Тип услуги" options={REC_TYPES.filter((item) => item.key !== 'Прочее').map((item) => item.key)}
+                                      value={r.f.type} onChange={(event) => setType(r.f.id, event.target.value)} className="select rec-import-type-select" />`;
+const inlineBlanks = `
+                                    {!!subReceiptCount && (
+                                      <span className={'receipt-subrows-inline' + (expandedReceipts[r.f.id] ? ' is-expanded' : '')}>
+                                        <span className="receipt-subrows-inline-count">Бланков: <b>{subReceiptCount}</b></span>
+                                        <button type="button" className="receipt-subrows-inline-toggle"
+                                          aria-expanded={!!expandedReceipts[r.f.id]}
+                                          onClick={() => setExpandedReceipts((current) => ({ ...current, [r.f.id]: !current[r.f.id] }))}>
+                                          <span>{expandedReceipts[r.f.id] ? 'Скрыть' : 'Показать'}</span>
+                                          <Icon name={expandedReceipts[r.f.id] ? 'chevUp' : 'chevDown'} />
+                                        </button>
+                                      </span>
+                                    )}`;
+
+if (!source.includes('className="receipt-subrows-inline-count"')) {
+  if (oldInlineBlock.test(source)) {
+    source = source.replace(oldInlineBlock, inlineBlanks);
+    sourceChanged = true;
+  } else {
+    if (!source.includes(typeSelect)) throw new Error('Не найден тип услуги для встроенного блока бланков.');
+    source = source.replace(typeSelect, `${typeSelect}${inlineBlanks}`);
+    sourceChanged = true;
+  }
 }
 
-const marker = '/* Receipt import: blanks live in a dedicated expandable strip below the main row. */';
-if (!css.includes(marker)) {
+const cssMarker = '/* Receipt import: blank count stays inside the document block. */';
+if (!css.includes(cssMarker)) {
   css += `
 
-${marker}
+${cssMarker}
 .receipt-subrows-inline {
-  display: none !important;
-}
-
-.receipt-subrows-strip-row {
-  display: table-row !important;
-}
-
-.receipt-subrows-strip-row > td {
-  padding: 0 !important;
-  border-top: 0 !important;
-  background: transparent !important;
-}
-
-.receipt-subrows-strip-row.is-expanded > td {
-  border-bottom-color: transparent !important;
-}
-
-.receipt-subrows-strip {
+  width: 100%;
   min-width: 0;
-  min-height: 40px;
+  margin-top: 7px;
+  padding-top: 7px;
+  border-top: 1px solid #edf1f6;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
-  padding: 6px 14px 6px 52px;
-  border-top: 1px solid #e7edf7;
-  border-bottom: 1px solid #e7edf7;
-  background: #fafbfe;
+  gap: 8px;
 }
 
-.receipt-subrows-strip-row.is-expanded .receipt-subrows-strip {
-  background: #f6f8ff;
-  border-bottom-color: #d9e3fb;
-}
-
-.receipt-subrows-strip-count {
-  min-width: 0;
+.receipt-subrows-inline-count {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
+  gap: 3px;
   color: var(--muted);
-  font-size: 11.5px;
+  font-size: 11px;
   font-weight: 600;
   line-height: 1.2;
   white-space: nowrap;
 }
 
-.receipt-subrows-strip-count b {
+.receipt-subrows-inline-count b {
   color: #3568d4;
-  font-size: 12px;
+  font-size: 11.5px;
   font-weight: 750;
 }
 
-.receipt-subrows-strip-summary,
-.receipt-subrows-strip-icon,
-.receipt-subrows-strip-copy {
-  display: none !important;
-}
-
-.receipt-subrows-strip-toggle {
+.receipt-subrows-inline-toggle {
   min-width: max-content;
-  min-height: 28px;
+  min-height: 26px;
   flex: 0 0 auto;
   margin-left: auto;
-  padding: 4px 5px 4px 8px;
+  padding: 3px 4px 3px 7px;
   border: 0;
-  border-radius: 7px;
+  border-radius: 6px;
   background: transparent;
   color: #3568d4;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 4px;
+  gap: 3px;
   font: inherit;
-  font-size: 11px;
+  font-size: 10.5px;
   font-weight: 700;
   line-height: 1;
-  white-space: nowrap;
   cursor: pointer;
-  box-shadow: none;
 }
 
-.receipt-subrows-strip-toggle:hover,
-.receipt-subrows-strip-row.is-expanded .receipt-subrows-strip-toggle {
-  background: #eef3ff;
+.receipt-subrows-inline-toggle:hover,
+.receipt-subrows-inline.is-expanded .receipt-subrows-inline-toggle {
+  background: #f1f5ff;
   color: var(--blue);
 }
 
-.receipt-subrows-strip-toggle:focus-visible {
-  outline: 3px solid rgba(37, 102, 255, .18);
-  outline-offset: 2px;
+.receipt-subrows-inline-toggle svg {
+  width: 12px;
+  height: 12px;
+  flex: 0 0 12px;
 }
 
-.receipt-subrows-strip-toggle svg {
-  width: 13px;
-  height: 13px;
-  flex: 0 0 13px;
-}
-
-@media (max-width: 760px) {
-  .rec-import-table tbody tr.receipt-subrows-strip-row {
-    display: block !important;
-  }
-
-  .rec-import-table tbody tr.receipt-subrows-strip-row > td {
-    display: block !important;
-  }
-
-  .rec-import-table tbody tr.receipt-subrows-strip-row > td::before {
-    display: none !important;
-  }
-
-  .receipt-subrows-strip {
-    min-height: 38px;
-    flex-direction: row;
-    align-items: center;
-    gap: 8px;
-    padding: 7px 12px;
-  }
+.receipt-subrows-strip-row {
+  display: none !important;
 }
 `;
   cssChanged = true;
 }
 
 for (const token of [
-  'className="receipt-subrows-strip-count"',
+  'className="receipt-subrows-inline-count"',
   'Бланков: <b>{subReceiptCount}</b>',
+  'className="receipt-subrows-inline-toggle"',
   "expandedReceipts[r.f.id] ? 'Скрыть' : 'Показать'",
-  "<tr className={'receipt-subrows-strip-row'",
-  'colSpan={7}',
 ]) {
-  if (!source.includes(token)) throw new Error(`Не подтверждена полоса бланков: ${token}`);
+  if (!source.includes(token)) throw new Error(`Не подтверждён встроенный блок бланков: ${token}`);
 }
 
-if (source.includes("className={'receipt-subrows-inline'")) {
-  throw new Error('Компактный блок бланков всё ещё находится внутри основной строки.');
+if (source.includes("<tr className={'receipt-subrows-strip-row'")) {
+  throw new Error('Отдельная строка бланков всё ещё присутствует снаружи документа.');
 }
 
 if (sourceChanged) await writeFile(pageUrl, source, 'utf8');
 if (cssChanged) await writeFile(cssUrl, css, 'utf8');
 console.log(sourceChanged || cssChanged
-  ? 'Количество бланков вынесено в отдельную раскрывающуюся полосу под основной строкой.'
-  : 'Полоса количества бланков уже настроена.');
+  ? 'Блок «Бланков: N / Показать» встроен внутрь документа.'
+  : 'Блок бланков уже встроен внутрь документа.');
