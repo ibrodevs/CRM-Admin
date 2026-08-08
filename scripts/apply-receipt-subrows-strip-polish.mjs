@@ -59,7 +59,7 @@ ${cssMarker}
 
 .receipt-subrows-inline-count {
   display: inline-flex;
-  align-items: center;
+  align-items: baseline;
   gap: 3px;
   color: var(--muted);
   font-size: 11px;
@@ -70,8 +70,9 @@ ${cssMarker}
 
 .receipt-subrows-inline-count b {
   color: #3568d4;
-  font-size: 11.5px;
+  font-size: 11px;
   font-weight: 750;
+  line-height: 1.2;
 }
 
 .receipt-subrows-inline-toggle {
