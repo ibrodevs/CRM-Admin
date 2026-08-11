@@ -5,7 +5,8 @@ let source = await readFile(pageUrl, 'utf8');
 let changed = false;
 
 const canonical = `                                      }}>{st.action}</button>`;
-if (!source.includes(canonical)) {
+const sequentialAction = `                                      }}>{(r.f.subReceipts || []).length > 1 ? 'Проверить бланки по очереди' : (displayStatus === 'Требует проверки' ? 'Проверить и заполнить' : st.action)}</button>`;
+if (!source.includes(canonical) && !source.includes(sequentialAction)) {
   const hardened = `                                      }}>{displayStatus === 'Требует проверки' ? 'Проверить и заполнить' : st.action}</button>`;
   if (source.includes(hardened)) {
     source = source.replace(hardened, canonical);

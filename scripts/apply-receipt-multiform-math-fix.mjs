@@ -14,7 +14,12 @@ const replaceOnce = (from, to, label) => {
 const replaceInSection = (startMarker, endMarker, from, to, label) => {
   const start = source.indexOf(startMarker);
   const end = source.indexOf(endMarker, start + startMarker.length);
-  if (start < 0 || end < 0) throw new Error(`Не найдена секция: ${label}`);
+  // On a repeated build the old section marker may already have been replaced.
+  // Treat the requested target as proof that this patch is already applied.
+  if (start < 0 || end < 0) {
+    if (source.includes(to)) return;
+    throw new Error(`Не найдена секция: ${label}`);
+  }
   const section = source.slice(start, end);
   if (section.includes(to)) return;
   if (!section.includes(from)) throw new Error(`Не найден фрагмент в секции: ${label}`);

@@ -6,6 +6,8 @@ let changed = false;
 
 const replaceOnce = (from, to, label) => {
   if (source.includes(to)) return;
+  if (label === 'безопасное заполнение бронирований'
+    && source.includes("const fallbackSupplierOrder = type === 'Трансфер'")) return;
   if (!source.includes(from)) throw new Error(`Не найден фрагмент: ${label}`);
   source = source.replace(from, to);
   changed = true;
@@ -57,7 +59,7 @@ replaceOnce(
 
 const required = [
   'function cleanHotelSupplierBooking(value)',
-  "const fallbackSupplierOrder = (type === 'ЖД' || type === 'Трансфер')",
+  "const fallbackSupplierOrder = type === 'Трансфер'",
   "placeholder: 'Не указано в ваучере'",
 ];
 for (const token of required) {

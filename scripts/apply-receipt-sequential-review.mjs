@@ -9,6 +9,8 @@ let changed = false;
 
 function replaceRequired(source, from, to, label) {
   if (source.includes(to)) return source;
+  if (label === 'явный запуск последовательной проверки'
+    && source.includes("(r.f.subReceipts || []).length > 1 ? 'Проверить бланки по очереди'")) return source;
   if (typeof from === 'string') {
     if (!source.includes(from)) throw new Error(`Не найден фрагмент: ${label}`);
     changed = true;

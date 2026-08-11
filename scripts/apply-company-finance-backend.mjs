@@ -3,9 +3,17 @@ import { readFile, writeFile } from 'node:fs/promises';
 async function patchFile(url, replacements, required) {
   let source = await readFile(url, 'utf8');
   let changed = false;
+  const appliedSentinels = {
+    'загрузка и сохранение через профильный CRM endpoint': [
+      'const normalizedRemote = cfNormalizeFinancialConditions(remote?.value);',
+      'const prepared = cfNormalizeFinancialConditions(next);',
+      'crmApi.saveCompanyFinancialConditions(companyId, prepared)',
+    ],
+  };
 
   for (const [from, to, label] of replacements) {
     if (source.includes(to)) continue;
+    if ((appliedSentinels[label] || []).every((token) => source.includes(token))) continue;
     if (!source.includes(from)) throw new Error(`Не найден фрагмент для изменения: ${label}`);
     source = source.replace(from, to);
     changed = true;
@@ -144,7 +152,7 @@ const financeChanged = await patchFile(
     "DateField value={contractDate}",
     'crmApi.companyFinancialConditions(companyId',
     'crmApi.saveCompanyFinancialConditions(companyId',
-    'Однократная миграция данных',
+    'const normalizedRemote = cfNormalizeFinancialConditions(remote?.value);',
     'a.templateName || feeTemplate(a.template).name',
   ],
 );

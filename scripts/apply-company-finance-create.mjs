@@ -183,7 +183,14 @@ replaceOnce(
   'состояния финансовой вкладки',
 );
 
-replaceOnce(
+const hasConfiguredFinanceEmptyState = [
+  'const [loading, setLoading] = useState(true);',
+  'if (loading) return <div className="card card-pad"',
+  'Создать финансовые условия',
+  'onCreated={updateFin}',
+].every((token) => source.includes(token));
+
+if (!hasConfiguredFinanceEmptyState) replaceOnce(
 `  useEffect(() => {
     const controller = new AbortController();
     workspaceSettingsApi.get(namespace, controller.signal).then((setting) => {

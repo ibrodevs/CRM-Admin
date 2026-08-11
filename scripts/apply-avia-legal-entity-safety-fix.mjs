@@ -6,6 +6,13 @@ let changed = false;
 
 function replaceOnce(label, before, after) {
   if (source.includes(after)) return;
+  const appliedSentinels = {
+    'защита от юридического лица в авиа-полях': [
+      'function isReceiptLegalEntityName(value)',
+      'function firstReceiptAirlineValue(...values)',
+    ],
+  };
+  if ((appliedSentinels[label] || []).every((token) => source.includes(token))) return;
   if (!source.includes(before)) throw new Error(`Не найден фрагмент для изменения «${label}»`);
   source = source.replace(before, after);
   changed = true;
