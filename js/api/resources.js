@@ -213,6 +213,7 @@ export const documentsApi = {
   void: (id, reason) => create(`documents/${id}/void/`, { reason }),
   send: (id, channel = 'email') => create(`documents/${id}/send/`, { channel }),
   downloadUrl: (id) => apiPath(`documents/${id}/download/`),
+  previewUrl: (id) => apiPath(`documents/${id}/download/?disposition=inline`),
   importReceipt: (file, options = {}) => { const body = new FormData(); body.append('file', file); return apiRequest(apiPath('receipt-imports/'), { method: 'POST', body, ...options }); },
   receiptResult: (id, signal) => get(`receipt-imports/${id}/result/`, signal),
   confirmReceipt: (id, body) => create(`receipt-imports/${id}/confirm/`, body),

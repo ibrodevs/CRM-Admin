@@ -192,9 +192,9 @@ const drawerNext = `function ReceiptEditDrawer({ open, file, onClose, onChange, 
         sub={hasTicketGroup
           ? \`Последовательная проверка · \${reviewedCount} из \${groupTickets.length} бланков уже проверено\`
           : \`\${recType(file.type).doc} · исходный файл сохраняется без изменений\`}
-        width="min(1280px,98vw)"
+        width="min(1280px,98vw)" className="receipt-editor-drawer"
         footer={<>
-          {file.originalUrl && <Button variant="secondary" icon="eye" onClick={() => window.open(file.originalUrl, '_blank')}>Оригинал</Button>}
+          {file.originalUrl && <Button variant="secondary" icon="eye" onClick={() => window.open(inlineSupplierDocumentUrl(file.originalUrl), '_blank', 'noopener,noreferrer')}>Оригинал</Button>}
           {onBrand && <Button variant="secondary" icon="template" onClick={onBrand}>На фирменном бланке</Button>}
           {hasTicketGroup ? <>
             <Button variant="secondary" icon="chevLeft" disabled={safeBlankIndex === 0}

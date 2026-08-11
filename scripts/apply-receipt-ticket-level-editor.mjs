@@ -219,9 +219,9 @@ const drawerNext = `function ReceiptEditDrawer({ open, file, onClose, onChange, 
         sub={hasTicketGroup
           ? \`Групповой PDF · \${groupTickets.length} отдельных билета · редактируется выбранный билет\`
           : \`\${recType(file.type).doc} · исходный файл сохраняется без изменений\`}
-        width="min(1280px,98vw)"
+        width="min(1280px,98vw)" className="receipt-editor-drawer"
         footer={<>
-          {file.originalUrl && <Button variant="secondary" icon="eye" onClick={() => window.open(file.originalUrl, '_blank')}>Оригинал</Button>}
+          {file.originalUrl && <Button variant="secondary" icon="eye" onClick={() => window.open(inlineSupplierDocumentUrl(file.originalUrl), '_blank', 'noopener,noreferrer')}>Оригинал</Button>}
           {onBrand && <Button variant="secondary" icon="template" onClick={onBrand}>На фирменном бланке</Button>}
           <Button style={{ flex: 1 }} icon="check" onClick={async () => {
             const saved = await onReview?.(file.id, parsed);

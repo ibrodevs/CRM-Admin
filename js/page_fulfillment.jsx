@@ -33,6 +33,13 @@ function companyForDoc(doc) {
   return COMPANIES_DB.find((c) => c.name === name) || null;
 }
 
+function inlineSupplierDocumentUrl(url) {
+  const value = String(url || '');
+  if (!value || value.startsWith('blob:') || !value.includes('/documents/')
+    || !value.includes('/download/') || value.includes('disposition=')) return value;
+  return `${value}${value.includes('?') ? '&' : '?'}disposition=inline`;
+}
+
 
 function OrderStageBar({ index, compact }) {
   return (
@@ -1531,9 +1538,9 @@ function ReceiptEditDrawer({ open, file, onClose, onChange, onSubChange, onBrand
         sub={hasTicketGroup
           ? `Последовательная проверка · ${reviewedCount} из ${groupTickets.length} бланков уже проверено`
           : `${recType(file.type).doc} · исходный файл сохраняется без изменений`}
-        width="min(1280px,98vw)"
+        width="min(1280px,98vw)" className="receipt-editor-drawer"
         footer={<>
-          {file.originalUrl && <Button variant="secondary" icon="eye" onClick={() => window.open(file.originalUrl, '_blank')}>Оригинал</Button>}
+          {file.originalUrl && <Button variant="secondary" icon="eye" onClick={() => window.open(inlineSupplierDocumentUrl(file.originalUrl), '_blank', 'noopener,noreferrer')}>Оригинал</Button>}
           {onBrand && <Button variant="secondary" icon="template" onClick={onBrand}>На фирменном бланке</Button>}
           {hasTicketGroup ? <>
             <Button variant="secondary" icon="chevLeft" disabled={safeBlankIndex === 0}
@@ -1860,7 +1867,7 @@ function ReceiptImportModal({ open, onClose, onDone, initialDraft, onDraftSaved,
             importId: imported.id,
             sourceDocumentId: result.source_document_id || imported.document_id || null,
             originalUrl: (result.source_document_id || imported.document_id)
-              ? documentsApi.downloadUrl(result.source_document_id || imported.document_id)
+              ? documentsApi.previewUrl(result.source_document_id || imported.document_id)
               : item.originalUrl,
             type: detectedType,
             parsed,
@@ -2325,7 +2332,7 @@ function ReceiptImportModal({ open, onClose, onDone, initialDraft, onDraftSaved,
                                           addFiles([raw]);
                                         } else setEditId(r.f.id);
                                       }}>{(r.f.subReceipts || []).length > 1 ? 'Проверить бланки по очереди' : (displayStatus === 'Требует проверки' ? 'Проверить и заполнить' : st.action)}</button>
-                                      {r.f.originalUrl && <button className="btn btn-ghost btn-sm" onClick={() => window.open(r.f.originalUrl, '_blank')}><Icon name="eye" /> Оригинал</button>}
+                                      {r.f.originalUrl && <button className="btn btn-ghost btn-sm" onClick={() => window.open(inlineSupplierDocumentUrl(r.f.originalUrl), '_blank', 'noopener,noreferrer')}><Icon name="eye" /> Оригинал</button>}
                                       <button className="btn btn-ghost btn-sm" onClick={() => setExcluded((state) => ({ ...state, [r.f.id]: !state[r.f.id] }))}>
                                         <Icon name={!skipped ? 'check' : 'orders'} /> {!skipped ? 'Добавляется' : 'Добавить в заказ'}
                                       </button>
@@ -2633,7 +2640,7 @@ function ReceiptEditorPage({ documents = [], orders = [], services = [], onChang
         id: document.serverId || document.no,
         editorType,
         parsed,
-        originalUrl: document.supplierBlank?.originalUrl || (document.serverId ? documentsApi.downloadUrl(document.serverId) : null),
+        originalUrl: document.supplierBlank?.originalUrl || (document.serverId ? documentsApi.previewUrl(document.serverId) : null),
       };
     });
   const receipts = all.filter((document) => {
@@ -2834,7 +2841,7 @@ function ReceiptEditorPage({ documents = [], orders = [], services = [], onChang
                         </td>
                         <td data-label="Операции"><div className="rec-import-actions">
                           <Button size="sm" variant="ghost" onClick={() => { editDirty.current = false; setEdit(d); }}>{d.isReceiptDraft ? 'Продолжить черновик' : recognition === 'Требует проверки' ? 'Проверить' : 'Изменить'}</Button>
-                          {d.originalUrl && <Button size="sm" variant="ghost" icon="eye" onClick={() => window.open(d.originalUrl, '_blank')}>Оригинал</Button>}
+                          {d.originalUrl && <Button size="sm" variant="ghost" icon="eye" onClick={() => window.open(inlineSupplierDocumentUrl(d.originalUrl), '_blank', 'noopener,noreferrer')}>Оригинал</Button>}
                           <Button size="sm" variant="ghost" icon="template" onClick={() => setBrandEdit(d)}>На бланке</Button>
                           {order && <Button size="sm" variant="ghost" icon="orders" onClick={() => onOpenOrder?.(order, 'documents')}>Заказ</Button>}
                           <Button size="sm" variant="ghost" icon="trash" onClick={() => removeReceipt(d)}>Удалить</Button>

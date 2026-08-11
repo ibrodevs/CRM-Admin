@@ -4,6 +4,8 @@ import test from 'node:test';
 
 const editor = await readFile(new URL('../js/features/receipts/editor.jsx', import.meta.url), 'utf8');
 const css = await readFile(new URL('../app/globals.css', import.meta.url), 'utf8');
+const page = await readFile(new URL('../js/page_fulfillment.jsx', import.meta.url), 'utf8');
+const resources = await readFile(new URL('../js/api/resources.js', import.meta.url), 'utf8');
 
 test('авиа-сегменты сохраняют класс, бронирование, статус и тарифные поля', () => {
   assert.match(editor, /function normalizeReceiptLeg\(row = \{\}\)/);
@@ -36,4 +38,17 @@ test('длинный авиа-предпросмотр прокручивает�
   assert.match(css, /\.receipt-edit-preview \.receipt-brand-segment-grid[\s\S]*?repeat\(2,minmax\(0,1fr\)\)/);
   assert.match(css, /@media\(max-width:1000px\)[\s\S]*?\.receipt-edit-preview\{[\s\S]*?position:static/);
   assert.match(css, /@media\(max-width:1000px\)[\s\S]*?max-height:none/);
+  assert.match(css, /\.receipt-brand-drawer>[\s\S]*?\.drawer-body[\s\S]*?overflow-y:auto/);
+  assert.match(css, /\.receipt-brand-drawer>[\s\S]*?\.drawer-foot[\s\S]*?position:static/);
+  assert.match(page, /className="receipt-editor-drawer"/);
+  assert.match(page, /inlineSupplierDocumentUrl\(file\.originalUrl\)/);
+});
+
+test('авиа-оригинал показывает сохранённые корректировки и открывает исходный PDF во вкладке', () => {
+  assert.match(editor, /type === 'ЖД' \|\| \(type === 'Авиа' && output\.mode === 'original'\)/);
+  assert.match(editor, /Авиа-бланк/);
+  assert.match(editor, /Сохранённые изменения рейсов, тарифа, такс и сборов/);
+  assert.match(editor, /window\.open\(sourcePdfUrl, '_blank', 'noopener,noreferrer'\)/);
+  assert.match(resources, /previewUrl:[\s\S]*?disposition=inline/);
+  assert.match(page, /documentsApi\.previewUrl\(result\.source_document_id \|\| imported\.document_id\)/);
 });

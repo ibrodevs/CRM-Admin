@@ -2535,6 +2535,23 @@ table.hp-matrix{border-collapse:collapse;width:100%;min-width:640px}
   padding-right:5px;
   z-index:0;
 }
+.receipt-editor-drawer,
+.receipt-brand-drawer{
+  overflow:hidden;
+}
+.receipt-editor-drawer>.drawer-body,
+.receipt-brand-drawer>.drawer-body{
+  min-height:0;
+  overflow-y:auto;
+  overscroll-behavior:contain;
+  scroll-padding-bottom:24px;
+  padding-bottom:24px;
+}
+.receipt-editor-drawer>.drawer-foot,
+.receipt-brand-drawer>.drawer-foot{
+  position:static;
+  flex:0 0 auto;
+}
 .receipt-edit-preview .receipt-brand-document{
   min-width:0;
   padding:16px;

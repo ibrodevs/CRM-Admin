@@ -620,7 +620,7 @@ function ModalHeader({ title, sub, onClose }) {
 }
 
 
-function Drawer({ open, onClose, title, sub, children, footer, width }) {
+function Drawer({ open, onClose, title, sub, children, footer, width, className = '' }) {
   useEffect(() => {
     if (!open) return;
     const h = (e) => { if (e.key === 'Escape') onClose && onClose(); };
@@ -632,7 +632,7 @@ function Drawer({ open, onClose, title, sub, children, footer, width }) {
   // Drawer с position:fixed привязывается к коробке родителя и открывается неправильно.
   const node = (
     <div className="drawer-overlay" onMouseDown={(e) => { if (e.target === e.currentTarget) onClose && onClose(); }}>
-      <div className="drawer scroll" style={width ? { width } : null}>
+      <div className={`drawer scroll${className ? ` ${className}` : ''}`} style={width ? { width } : null}>
         <div className="drawer-head">
           <div>
             <h2 className="modal-title" style={{ fontSize: 24 }}>{title}</h2>
