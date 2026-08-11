@@ -27,6 +27,8 @@ export const crmApi = {
   createCompanyDepartment: (id, body) => create(`companies/${id}/departments/`, body),
   updateCompanyDepartment: (companyId, departmentId, body) => patch(`companies/${companyId}/departments/${departmentId}/`, body),
   removeCompanyDepartment: (companyId, departmentId) => remove(`companies/${companyId}/departments/${departmentId}/`),
+  companyFinancialConditions: (id, signal) => get(`companies/${id}/financial-conditions/`, signal),
+  saveCompanyFinancialConditions: (id, body) => apiRequest(apiPath(`companies/${id}/financial-conditions/`), { method: 'PUT', body }),
 };
 
 export const accountApi = {
@@ -211,7 +213,7 @@ export const documentsApi = {
   void: (id, reason) => create(`documents/${id}/void/`, { reason }),
   send: (id, channel = 'email') => create(`documents/${id}/send/`, { channel }),
   downloadUrl: (id) => apiPath(`documents/${id}/download/`),
-  importReceipt: (file) => { const body = new FormData(); body.append('file', file); return apiRequest(apiPath('receipt-imports/'), { method: 'POST', body }); },
+  importReceipt: (file, options = {}) => { const body = new FormData(); body.append('file', file); return apiRequest(apiPath('receipt-imports/'), { method: 'POST', body, ...options }); },
   receiptResult: (id, signal) => get(`receipt-imports/${id}/result/`, signal),
   confirmReceipt: (id, body) => create(`receipt-imports/${id}/confirm/`, body),
   updateReceipt: (id, body) => create(`documents/${id}/receipt/`, body),

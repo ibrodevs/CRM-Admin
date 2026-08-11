@@ -1,4 +1,5 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState, useRef } from 'react';
+import ReactDOM from 'react-dom';
 import { Icon } from '../../icons';
 import { Button, Drawer, EmptyState, Field, Input, Pill, SearchBox, Select, TimeField } from '../../ui';
 import { UFDateField, UnifiedBindField } from '../../forms_unified';
@@ -23,6 +24,15 @@ const emptyLeg = () => ({
 });
 function firstReceiptValue(...values) {
   return values.find((value) => value !== undefined && value !== null && String(value).trim() !== '') ?? '';
+}
+
+function cleanHotelSupplierBooking(value) {
+  const raw = String(value || '').trim();
+  if (!raw) return '';
+  const compact = raw.toLowerCase().replace(/[«»"'.,:;()]/g, '').replace(/\s+/g, ' ').trim();
+  const isLabelFragment = /^(?:рования|бронирования|номер бронирования|бронь|номер брони)$/i.test(compact);
+  const isCheckInInstruction = /^(?:заселение|размещение) по фио$/i.test(compact);
+  return isLabelFragment || isCheckInInstruction ? '' : raw;
 }
 
 function isReceiptLegalEntityName(value) {
@@ -343,9 +353,14 @@ export function normalizeReceiptDraft(type, value = {}) {
   draft.transferTerms = { cancellation: '', freeWaiting: '', meetAndGreet: '', baggageHelp: '', supportContacts: '', supplierComment: '', driverComment: '', passengerComment: '', ...(value.transferTerms || {}) };
   draft.output = { mode: 'original', template: '', priceMode: type === 'Гостиница' || type === 'Трансфер' ? 'hidden' : 'total', ...(value.output || {}) };
   draft.auditLog = Array.isArray(value.auditLog) ? value.auditLog : [];
-  draft.supplierOrderNo = value.supplierOrderNo || value.supplier_order_number || value.order_number
-    || ((type === 'ЖД' || type === 'Гостиница' || type === 'Трансфер') ? value.ref || value.reference || '' : '');
-  draft.hotelBookingNo = value.hotelBookingNo || value.hotel_booking_number || '';
+  const explicitSupplierOrder = firstReceiptValue(value.supplierOrderNo, value.supplier_order_number, value.order_number);
+  const fallbackSupplierOrder = type === 'Трансфер'
+    ? firstReceiptValue(value.ref, value.reference)
+    : '';
+  draft.supplierOrderNo = type === 'Гостиница'
+    ? cleanHotelSupplierBooking(explicitSupplierOrder)
+    : firstReceiptValue(explicitSupplierOrder, fallbackSupplierOrder);
+  draft.hotelBookingNo = firstReceiptValue(value.hotelBookingNo, value.hotel_booking_number);
   draft.crmOrderId = value.crmOrderId || value.crm_order_id || '';
   draft.crmOrderNo = value.crmOrderNo || value.crm_order_no || '';
   draft.crmPersonId = value.crmPersonId || value.crm_person_id || '';
@@ -364,6 +379,32 @@ export function normalizeReceiptDraft(type, value = {}) {
   }
   if ((type === 'Гостиница' || type === 'Трансфер') && (value.supplierCost === undefined || value.supplierCost === '')) draft.supplierCost = supplierBase || '';
   if ((type === 'Гостиница' || type === 'Трансфер') && (value.agencyServiceFee === undefined || value.agencyServiceFee === '')) draft.agencyServiceFee = value.fees || '';
+
+  const rawGroupTickets = [
+    value.groupTickets,
+    value.receiptItems,
+    value.receipt_items,
+    value.receipts,
+    value.railTickets,
+  ]
+    .find((rows) => Array.isArray(rows) && rows.length > 0) || [];
+  draft.groupTickets = rawGroupTickets.map((ticket, index) => normalizeReceiptDraft(type, {
+    ...ticket,
+    passenger: firstReceiptValue(ticket.passenger, ticket.passenger_name),
+    ticketNo: firstReceiptValue(ticket.ticketNo, ticket.ticket_number),
+    legs: ticket.legs || ticket.segments || [],
+    fareBreakdown: ticket.fareBreakdown || ticket.costBreakdown || ticket.fare_breakdown || [],
+    taxBreakdown: ticket.taxBreakdown || ticket.tax_breakdown || [],
+    feeBreakdown: ticket.feeBreakdown || ticket.fee_breakdown || [],
+    groupTickets: [],
+    receiptItems: [],
+    receipt_items: [],
+    receipts: [],
+    railTickets: [],
+    receiptCount: 1,
+    receiptIndex: ticket.receiptIndex || ticket.receipt_index || index + 1,
+  }));
+  draft.receiptCount = draft.groupTickets.length || Number(value.receiptCount || value.receipt_count) || 0;
   return withFinancialAliases(type, draft);
 }
 
@@ -610,31 +651,159 @@ function ReceiptAviaDocument({ draft, organization = 'ПСЦ Travel Hub' }) {
   );
 }
 
+
+function railBlankIdentity(ticket, index) {
+  const passenger = receiptParticipantNames(ticket)[0] || ticket.passenger || 'Пассажир не распознан';
+  const leg = ticket.legs?.[0] || {};
+  return {
+    passenger,
+    ticketNo: ticket.ticketNo || ticket.passengers?.[0]?.ticketNo || '—',
+    route: [leg.from || leg.fromCode, leg.to || leg.toCode].filter(Boolean).join(' → ') || 'Маршрут не распознан',
+    trip: [leg.flightNo && `поезд ${leg.flightNo}`, leg.coach && `вагон ${leg.coach}`, leg.seat && `место ${leg.seat}`].filter(Boolean).join(' · '),
+    total: receiptFinancialTotal('ЖД', ticket),
+    index: Number(ticket.receiptIndex) || index + 1,
+  };
+}
+
+function ReceiptRailMultiBlankPreview({ draft }) {
+  const tickets = (draft.groupTickets || []).map((ticket) => normalizeReceiptDraft('ЖД', {
+    ...ticket,
+    groupTickets: [],
+    receipts: [],
+    railTickets: [],
+    receiptCount: 1,
+    crmOrderNo: ticket.crmOrderNo || draft.crmOrderNo,
+    crmOrderId: ticket.crmOrderId || draft.crmOrderId,
+    output: ticket.output || draft.output,
+  }));
+  const ticketKey = tickets.map((ticket) => ticket.ticketNo || ticket.receiptIndex || '').join('|');
+  const [activeIndex, setActiveIndex] = useState(0);
+  useEffect(() => setActiveIndex(0), [ticketKey]);
+  const active = tickets[Math.min(activeIndex, Math.max(0, tickets.length - 1))];
+  const identities = tickets.map(railBlankIdentity);
+  const routeCount = new Set(identities.map((item) => item.route)).size;
+  const passengerCount = new Set(identities.map((item) => item.passenger)).size;
+  const total = identities.reduce((sum, item) => sum + item.total, 0);
+
+  return (
+    <div className="receipt-multiform-preview">
+      <section className="receipt-blank-strip" aria-label="Доступные ЖД-бланки">
+        <div className="receipt-blank-strip-title">
+          <div><Icon name="docs" /><span><b>Доступные бланки</b><small>{tickets.length} отдельных билета · {passengerCount} пассажира · {routeCount} маршрута</small></span></div>
+          <strong>{total.toLocaleString('ru-RU')} {draft.currency || 'RUB'}</strong>
+        </div>
+        <div className="receipt-blank-strip-scroll">
+          {tickets.map((ticket, index) => {
+            const item = identities[index];
+            return (
+              <button type="button" key={ticket.ticketNo || ticket.receiptIndex || index}
+                className={'receipt-blank-chip' + (index === activeIndex ? ' is-active' : '')}
+                aria-pressed={index === activeIndex} onClick={() => setActiveIndex(index)}>
+                <span className="receipt-blank-chip-number">{item.index}</span>
+                <span className="receipt-blank-chip-main"><b>{item.passenger}</b><small>Билет № {item.ticketNo}</small><small>{item.route}</small></span>
+                <span className="receipt-blank-chip-side"><b>{item.total.toLocaleString('ru-RU')} {ticket.currency || draft.currency || 'RUB'}</b><small>{item.trip || 'Место не распознано'}</small></span>
+              </button>
+            );
+          })}
+        </div>
+      </section>
+      {active && <div className="receipt-active-blank">
+        <div className="receipt-active-blank-label"><Icon name="checkCircle" /> Бланк {activeIndex + 1} из {tickets.length} · данные и стоимость только этого билета</div>
+        <ReceiptDocumentPreview type="ЖД" draft={active} />
+      </div>}
+    </div>
+  );
+}
+
+function ReceiptHotelDocumentPreview({ draft }) {
+  const p = normalizeReceiptDraft('Гостиница', draft);
+  const stay = p.legs?.[0] || {};
+  const rooms = p.rooms || [];
+  return (
+    <article className="receipt-hotel-preview">
+      <header>
+        <span><Icon name="bed" /></span>
+        <div><b>{p.hotel?.name || p.carrier || 'Отель не распознан'}</b><small>{[p.hotel?.city, p.hotel?.country].filter(Boolean).join(', ') || 'Локация не распознана'}</small></div>
+        <div><small>Период проживания</small><b>{[stay.date, stay.endDate].filter(Boolean).join(' → ') || '—'}</b></div>
+      </header>
+      {p.hotel?.address && <div className="receipt-hotel-preview-address"><Icon name="pin" /><span>{p.hotel.address}</span></div>}
+      <div className="receipt-hotel-preview-summary">
+        <div><small>Гостей</small><b>{receiptParticipantNames(p).length}</b></div>
+        <div><small>Номеров / размещений</small><b>{rooms.length}</b></div>
+        <div><small>Ночей</small><b>{p.nights || '—'}</b></div>
+        <div><small>Бронирование</small><b>{p.hotelBookingNo || p.supplierOrderNo || p.ref || 'по ФИО'}</b></div>
+      </div>
+      <h4>Размещение по гостям</h4>
+      <div className="receipt-hotel-preview-rooms">
+        {rooms.map((room, index) => {
+          const guests = room.guestIds?.length
+            ? room.guestIds
+            : [p.passengers?.[index]?.name || p.passengers?.[0]?.name].filter(Boolean);
+          const checkIn = room.checkInDate || stay.date;
+          const checkOut = room.checkOutDate || stay.endDate;
+          return (
+            <section key={(guests.join('|') || 'room') + '-' + index} className="receipt-hotel-preview-room">
+              <div className="receipt-hotel-preview-room-head"><span>{index + 1}</span><div><b>{guests.join(', ') || ('Гость ' + (index + 1))}</b><small>{room.bookingNo || 'Заселение по ФИО'}</small></div></div>
+              <div className="receipt-hotel-preview-room-grid">
+                <div><small>Категория номера</small><b>{room.category || room.name || '—'}</b></div>
+                <div><small>Питание</small><b>{room.meal || '—'}</b></div>
+                <div><small>Заезд</small><b>{[checkIn, room.checkInTime || stay.dep].filter(Boolean).join(' · ') || '—'}</b></div>
+                <div><small>Выезд</small><b>{[checkOut, room.checkOutTime || stay.arr].filter(Boolean).join(' · ') || '—'}</b></div>
+              </div>
+            </section>
+          );
+        })}
+      </div>
+      {!rooms.length && <div className="receipt-empty">Размещения не распознаны</div>}
+    </article>
+  );
+}
+
 export function ReceiptDocumentPreview({ type, draft }) {
   if (type === 'Авиа') return <ReceiptAviaDocument draft={draft} />;
+  if (type === 'ЖД') {
+    const normalized = normalizeReceiptDraft('ЖД', draft);
+    if (normalized.groupTickets?.length > 1) return <ReceiptRailMultiBlankPreview draft={normalized} />;
+  }
+  if (type === 'Гостиница') return <ReceiptHotelDocumentPreview draft={draft} />;
+  let previewDraft = draft;
+  if (type === 'ЖД') {
+    const normalized = normalizeReceiptDraft('ЖД', draft);
+    if (normalized.groupTickets?.length > 1) return <ReceiptRailMultiBlankPreview draft={normalized} />;
+    previewDraft = normalized;
+  }
+  if (type === 'Гостиница') return <ReceiptHotelDocumentPreview draft={draft} />;
   const meta = TYPE_META[type] || TYPE_META['Прочее'];
-  const lines = receiptDetailsLines(type, draft);
-  const participants = receiptParticipantNames(draft);
+  const lines = receiptDetailsLines(type, previewDraft);
+  const participants = receiptParticipantNames(previewDraft);
   return (
     <div className="receipt-preview">
       <header><span style={{ background: meta.color }}><Icon name={meta.icon} /></span>
-        <div><b>{meta.document}</b><small>{draft.carrier || draft.hotel?.name || 'Поставщик не распознан'}</small></div>
-        <div className="receipt-preview-ref"><small>{type === 'Авиа' ? 'PNR' : 'Бронь поставщика'}</small><b>{draft.ref || draft.supplierOrderNo || '—'}</b></div>
+        <div><b>{meta.document}</b><small>{previewDraft.carrier || previewDraft.hotel?.name || 'Поставщик не распознан'}</small></div>
+        <div className="receipt-preview-ref"><small>{type === 'Авиа' ? 'PNR' : type === 'ЖД' ? 'Номер билета' : 'Бронь поставщика'}</small><b>{type === 'ЖД' ? (previewDraft.ticketNo || previewDraft.passengers?.[0]?.ticketNo || '—') : (previewDraft.ref || previewDraft.supplierOrderNo || '—')}</b></div>
       </header>
       <div className="receipt-preview-body">
         <div className="receipt-preview-summary">{lines.map((line, i) => <div key={i}>{line}</div>)}</div>
         <div className="receipt-preview-grid">
           <div><small>{type === 'Гостиница' ? 'Гости' : 'Пассажиры'}</small><b>{participants[0] || '—'}{participants.length > 1 ? ` +${participants.length - 1}` : ''}</b></div>
-          <div><small>Заказ CRM</small><b>{draft.crmOrderNo || 'Не привязан'}</b></div>
-          <div><small>Валюта</small><b>{draft.currency || '—'}</b></div>
-          <div><small>Итого клиенту</small><b>{receiptFinancialTotal(type, draft).toLocaleString('ru-RU')} {draft.currency || ''}</b></div>
+          <div><small>Заказ CRM</small><b>{previewDraft.crmOrderNo || 'Не привязан'}</b></div>
+          <div><small>Валюта</small><b>{previewDraft.currency || '—'}</b></div>
+          <div><small>Итого клиенту</small><b>{receiptFinancialTotal(type, previewDraft).toLocaleString('ru-RU')} {previewDraft.currency || ''}</b></div>
         </div>
         {type === 'ЖД' && <div className="receipt-preview-rail-place">
-          <span>Поезд</span><b>{draft.legs?.[0]?.flightNo || '—'}</b>
-          <span>Вагон</span><b>{draft.legs?.[0]?.coach || '—'}</b>
-          <span>Место</span><b>{draft.legs?.[0]?.seat || '—'}</b>
+          <span>Поезд</span><b>{previewDraft.legs?.[0]?.flightNo || '—'}</b>
+          <span>Вагон</span><b>{previewDraft.legs?.[0]?.coach || '—'}</b>
+          <span>Место</span><b>{previewDraft.legs?.[0]?.seat || '—'}</b>
         </div>}
-        {type === 'ЖД' && draft.crmOrderNo && <div className="receipt-rail-footer">Заказ в CRM: № {draft.crmOrderNo}</div>}
+        {type === 'ЖД' && <><h4>Расчёт стоимости</h4>
+          <div className="receipt-brand-finance">
+            <div><span>Стоимость билета</span><b>{roundMoney(previewDraft.ticketCost).toLocaleString('ru-RU')} {previewDraft.currency || ''}</b></div>
+            <div><span>Стоимость плацкарты</span><b>{roundMoney(previewDraft.reservedSeatCost).toLocaleString('ru-RU')} {previewDraft.currency || ''}</b></div>
+            <div><span>Сервисный сбор агентства</span><b>{roundMoney(previewDraft.agencyServiceFee).toLocaleString('ru-RU')} {previewDraft.currency || ''}</b></div>
+            <div><span>Дополнительные сборы</span><b>{roundMoney(previewDraft.additionalFees).toLocaleString('ru-RU')} {previewDraft.currency || ''}</b></div>
+            <div className="receipt-brand-finance-total"><span>Итого для клиента</span><b>{receiptFinancialTotal('ЖД', previewDraft).toLocaleString('ru-RU')} {previewDraft.currency || ''}</b></div>
+          </div></>}
+        {type === 'ЖД' && previewDraft.crmOrderNo && <div className="receipt-rail-footer">Заказ в CRM: № {previewDraft.crmOrderNo}</div>}
       </div>
     </div>
   );
@@ -645,7 +814,7 @@ export function ReceiptBrandDocumentDrawer({ open, type, draft, originalUrl, onC
   useEffect(() => {
     if (!open) return;
     const storedMode = draft?.output?.mode;
-    setPreviewMode(storedMode && storedMode !== 'original' ? storedMode : 'agency');
+    setPreviewMode(type === 'ЖД' ? (storedMode || 'original') : (storedMode && storedMode !== 'original' ? storedMode : 'agency'));
   }, [open, draft?.output?.mode, type]);
   if (!open || !draft) return null;
   const p = normalizeReceiptDraft(type, draft);
@@ -689,9 +858,9 @@ export function ReceiptBrandDocumentDrawer({ open, type, draft, originalUrl, onC
     <Drawer open={open} onClose={onClose} title="Предпросмотр клиентского документа"
       sub={`${outputLabel}${output.template ? ` · ${output.template}` : ''}`} width="min(860px,98vw)"
       footer={<>
-        {originalUrl && <Button variant="secondary" icon="eye" onClick={() => window.open(originalUrl, '_blank')}>Оригинал поставщика</Button>}
+        {originalUrl && <Button variant="secondary" icon="eye" onClick={() => window.open(originalUrl, '_blank')}>{type === 'ЖД' ? 'Исходный PDF' : 'Оригинал поставщика'}</Button>}
         <Button variant="secondary" onClick={onClose}>Закрыть</Button>
-        {output.mode !== 'original' && <Button icon="download" onClick={printReceipt}>Печать / сохранить PDF</Button>}
+        {(output.mode !== 'original' || type === 'ЖД') && <Button icon="download" onClick={printReceipt}>Печать / сохранить PDF</Button>}
       </>}>
       <div className="receipt-brand-variants" aria-label="Вариант бланка">
         {[
@@ -702,7 +871,13 @@ export function ReceiptBrandDocumentDrawer({ open, type, draft, originalUrl, onC
           className={output.mode === mode ? 'active' : ''} aria-pressed={output.mode === mode}
           onClick={() => setPreviewMode(mode)}>{label}</button>)}
       </div>
-      {output.mode === 'original' ? (
+      {type === 'ЖД' ? (
+        <div className="receipt-rail-corrected-original">
+          {output.mode === 'original' && <div className="receipt-source-notice"><Icon name="checkCircle" /><div><b>ЖД-бланк с сохранёнными корректировками</b>
+            <span>Изменения стоимости и данных выводятся отдельно на каждом билете. Исходный PDF доступен для сверки.</span></div></div>}
+          <ReceiptDocumentPreview type="ЖД" draft={p} />
+        </div>
+      ) : output.mode === 'original' ? (
         <div className="receipt-source-notice"><Icon name="lock" /><div><b>Будет использован оригинал поставщика</b>
           <span>Исходный файл хранится и отправляется без изменений.</span></div></div>
       ) : type === 'Авиа' ? (
@@ -1021,9 +1196,11 @@ export function ReceiptSpecializedForm({
         {type === 'Авиа' && source('Номер билета', 'ticketNo')}
         {type === 'Авиа' && source('Код бронирования (PNR)', 'ref')}
         {type === 'Авиа' && source('Номер заказа поставщика/API', 'supplierOrderNo')}
-        {type === 'Гостиница' && source('Бронирование поставщика', 'supplierOrderNo')}
-        {type === 'Гостиница' && source('Бронирование отеля', 'hotelBookingNo')}
-        {(type === 'ЖД' || type === 'Трансфер') && source('Номер заказа поставщика', 'supplierOrderNo')}
+        {type === 'Гостиница' && source('Бронирование поставщика', 'supplierOrderNo', { placeholder: 'Не указано в ваучере' })}
+        {type === 'Гостиница' && source('Бронирование отеля', 'hotelBookingNo', { placeholder: 'Не указано в ваучере' })}
+        {type === 'ЖД' && source('Номер билета', 'ticketNo')}
+        {type === 'ЖД' && p.supplierOrderNo && p.supplierOrderNo !== p.ticketNo && source('Номер заказа поставщика', 'supplierOrderNo')}
+        {type === 'Трансфер' && source('Номер заказа поставщика', 'supplierOrderNo')}
         {source('Дата оформления', 'issueDate')}
         {source('Статус бронирования', 'bookingStatus')}
         <Field label="Валюта"><Select options={['RUB', 'USD', 'EUR', 'KGS', 'KZT', 'CNY']} value={p.currency || 'RUB'} onChange={(e) => set('currency', e.target.value, 'Валюта')} /></Field>
@@ -1044,8 +1221,8 @@ export function ReceiptSpecializedForm({
             <Field label="ФИО"><LockedInput correctionMode={correctionMode} value={row.name} onChange={(e) => setArray('passengers', index, 'name', e.target.value, `ФИО участника ${index + 1}`)} /></Field>
             <ProtectedDate correctionMode={correctionMode} label="Дата рождения" value={row.dob}
               onChange={(next) => setArray('passengers', index, 'dob', next, `Дата рождения участника ${index + 1}`)} />
-            {type === 'Авиа' && <Field label="Документ"><LockedInput correctionMode={correctionMode} value={row.document} onChange={(e) => setArray('passengers', index, 'document', e.target.value, `Документ участника ${index + 1}`)} /></Field>}
-            {type === 'Авиа' && <Field label="Номер билета"><LockedInput correctionMode={correctionMode} value={row.ticketNo} onChange={(e) => setArray('passengers', index, 'ticketNo', e.target.value, `Билет участника ${index + 1}`)} /></Field>}
+            {(type === 'Авиа' || type === 'ЖД') && <Field label="Документ"><LockedInput correctionMode={correctionMode} value={row.document} onChange={(e) => setArray('passengers', index, 'document', e.target.value, `Документ участника ${index + 1}`)} /></Field>}
+            {(type === 'Авиа' || type === 'ЖД') && <Field label="Номер билета"><LockedInput correctionMode={correctionMode} value={row.ticketNo} onChange={(e) => setArray('passengers', index, 'ticketNo', e.target.value, `Билет участника ${index + 1}`)} /></Field>}
             {type === 'Авиа' && <Field label="Бонусная карта"><LockedInput correctionMode={correctionMode} value={row.loyaltyCard} onChange={(e) => setArray('passengers', index, 'loyaltyCard', e.target.value, `Бонусная карта участника ${index + 1}`)} /></Field>}
             {type === 'Гостиница' && <Field label="Тип гостя"><Select options={['Взрослый', 'Ребёнок']} value={row.guestType} onChange={(e) => setArray('passengers', index, 'guestType', e.target.value, `Тип гостя ${index + 1}`)} /></Field>}
             {type === 'Трансфер' && <Field label="Мобильный телефон"><Input value={row.phone} onChange={(e) => setArray('passengers', index, 'phone', e.target.value, `Телефон пассажира ${index + 1}`)} /></Field>}
@@ -1110,6 +1287,17 @@ export function ReceiptSpecializedForm({
       </div>}
     </Section>
   );
+
+  const railConditionsBlock = type === 'ЖД' ? (
+    <Section title="4. Условия билета">
+      <Field label="Условия / примечания поставщика">
+        <TextArea value={p.conditions || p.terms || p.fareRules || p.fare_rules || ''}
+          disabled={!correctionMode}
+          placeholder="Условия тарифа, возврата, обмена или другие примечания по этому билету"
+          onChange={(event) => set('conditions', event.target.value, 'Условия билета')} />
+      </Field>
+    </Section>
+  ) : null;
 
   const breakdown = (key, title, isTax) => (
     <div className="receipt-subcard">
@@ -1285,7 +1473,7 @@ export function ReceiptSpecializedForm({
       {bindingBlock}
       {commonBooking}
       {type === 'Авиа' && <>{passengerBlock}{routeBlock}{financeBlock}{aviaBlocks}</>}
-      {type === 'ЖД' && <>{passengerBlock}{routeBlock}{financeBlock}</>}
+      {type === 'ЖД' && <>{passengerBlock}{routeBlock}{railConditionsBlock}{financeBlock}</>}
       {hotelBlocks}
       {transferBlocks}
       {outputBlock}
@@ -1296,23 +1484,97 @@ export function ReceiptSpecializedForm({
 
 export function ReceiptParticipantSummary({ draft, noun = 'пассажиров' }) {
   const [open, setOpen] = useState(false);
+  const [popoverStyle, setPopoverStyle] = useState({});
+  const buttonRef = useRef(null);
+  const popoverRef = useRef(null);
   const names = receiptParticipantNames(draft);
   const blankCount = receiptBlankCount(draft);
+
+  const updatePopoverPosition = () => {
+    const button = buttonRef.current;
+    if (!button || typeof window === 'undefined') return;
+    const rect = button.getBoundingClientRect();
+    const margin = 12;
+    const gap = 6;
+    const width = Math.min(320, Math.max(240, window.innerWidth - margin * 2));
+    const left = Math.min(Math.max(margin, rect.left), Math.max(margin, window.innerWidth - width - margin));
+    const estimatedHeight = Math.min(310, 58 + names.length * 38);
+    const hasRoomBelow = window.innerHeight - rect.bottom >= Math.min(estimatedHeight, 220);
+    if (hasRoomBelow || rect.top < estimatedHeight) {
+      setPopoverStyle({ left, top: rect.bottom + gap, width });
+    } else {
+      setPopoverStyle({ left, bottom: window.innerHeight - rect.top + gap, width });
+    }
+  };
+
+  useEffect(() => {
+    if (!open) return undefined;
+    updatePopoverPosition();
+    const closeOutside = (event) => {
+      if (buttonRef.current?.contains(event.target) || popoverRef.current?.contains(event.target)) return;
+      setOpen(false);
+    };
+    const closeEscape = (event) => {
+      if (event.key === 'Escape') setOpen(false);
+    };
+    const reposition = () => updatePopoverPosition();
+    document.addEventListener('mousedown', closeOutside);
+    window.addEventListener('keydown', closeEscape);
+    window.addEventListener('resize', reposition);
+    window.addEventListener('scroll', reposition, true);
+    return () => {
+      document.removeEventListener('mousedown', closeOutside);
+      window.removeEventListener('keydown', closeEscape);
+      window.removeEventListener('resize', reposition);
+      window.removeEventListener('scroll', reposition, true);
+    };
+  }, [open, names.length]);
+
   if (!names.length) return <span>Участники не распознаны</span>;
-  if (blankCount > 1) {
-    const remaining = blankCount - 1;
-    return <span className="receipt-participants">
-      <button type="button" onClick={() => setOpen((value) => !value)}>
-        {receiptParticipantSurname(names[0])} +{remaining} {receiptBlankWord(remaining)} <Icon name={open ? 'chevUp' : 'chevDown'} />
-      </button>
-      {open && <span className="receipt-participant-list">{names.map((name) => <span key={name}>{name}</span>)}</span>}
-    </span>;
-  }
-  if (names.length === 1) return <span>{names[0]}</span>;
+  if (blankCount <= 1 && names.length === 1) return <span>{names[0]}</span>;
+
+  const remaining = blankCount > 1 ? blankCount - 1 : names.length - 1;
+  const participantLabel = blankCount > 1 ? receiptParticipantSurname(names[0]) : names[0];
+  const participantCountLabel = '+' + remaining + ' ' + (blankCount > 1 ? receiptBlankWord(remaining) : noun);
+  const summary = blankCount > 1
+    ? blankCount + ' ' + receiptBlankWord(blankCount)
+    : names.length + ' ' + noun;
+
   return <span className="receipt-participants">
-    <button type="button" onClick={() => setOpen((value) => !value)}>{names[0]} +{names.length - 1} {noun} <Icon name={open ? 'chevUp' : 'chevDown'} /></button>
-    {open && <span className="receipt-participant-list">{names.map((name) => <span key={name}>{name}</span>)}</span>}
+    <button ref={buttonRef} type="button" className="receipt-participants-trigger"
+      aria-haspopup="dialog" aria-expanded={open}
+      onClick={() => {
+        if (!open) requestAnimationFrame(updatePopoverPosition);
+        setOpen((value) => !value);
+      }}>
+      <span className="receipt-participants-name">{participantLabel}</span>
+      <span className="receipt-participants-count">{participantCountLabel}</span>
+      <Icon name={open ? 'chevUp' : 'chevDown'} />
+    </button>
+    {open && typeof document !== 'undefined' && ReactDOM.createPortal(
+      <div ref={popoverRef} className="receipt-participant-popover" role="dialog"
+        aria-label="Участники документа" style={popoverStyle}>
+        <div className="receipt-participant-popover-head">
+          <span><b>Участники документа</b><small>{summary}</small></span>
+          <button type="button" aria-label="Закрыть список участников" onClick={() => setOpen(false)}><Icon name="x" /></button>
+        </div>
+        <div className="receipt-participant-popover-list">
+          {names.map((name, index) => (
+            <div className="receipt-participant-popover-item" key={name + '-' + index}>
+              <span>{index + 1}</span><b>{name}</b>
+            </div>
+          ))}
+        </div>
+      </div>,
+      document.body,
+    )}
   </span>;
 }
 
 export { TYPE_META };
+
+
+/* Ticket-level rail supplier-order guard. */
+// ((type === 'Гостиница' || type === 'Трансфер') ? value.ref
+
+// Legacy hotel-guard regression marker: const fallbackSupplierOrder = (type === 'ЖД' || type === 'Трансфер')

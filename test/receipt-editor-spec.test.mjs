@@ -211,6 +211,38 @@ test('реестр восстанавливает распознанные да�
   assert.equal(document.parsed.recognitionPending, false);
 });
 
+test('сохранённые исправления ЖД имеют приоритет и дочерние билеты не склеиваются', () => {
+  const correctedTickets = [
+    { passenger: 'ВАСЯКИН ДМИТРИЙ АЛЕКСАНДРОВИЧ', ticketNo: '72100000000001', ticketCost: '3868.10', reservedSeatCost: '0', total: '3868.10' },
+    { passenger: 'ВАСЯКИН ДМИТРИЙ АЛЕКСАНДРОВИЧ', ticketNo: '72300000000002', ticketCost: '3786.70', reservedSeatCost: '0', total: '3786.70' },
+  ];
+  const document = toLegacyDocument({
+    id: 'd1d1d1d1-1111-2222-3333-444444444444',
+    kind: 'ticket',
+    status: 'draft',
+    title: 'ЖД туда-обратно.pdf',
+    amount: '7654.80',
+    currency: 'RUB',
+    metadata: {
+      supplier_original: {
+        verified_data: { service_kind: 'rail', ticketCost: '7654.80', total: '7654.80' },
+      },
+      receipt_import: {
+        stage: 'confirmed',
+        parser_status: 'parsed',
+        service_kind: 'rail',
+        service_type: 'ЖД',
+        verified_data: { service_kind: 'rail', receipt_items: correctedTickets, total: '7654.80' },
+      },
+    },
+  });
+
+  assert.equal(document.parsed.receipt_items.length, 2);
+  assert.equal(document.parsed.receipt_items[0].total, '3868.10');
+  assert.equal(document.parsed.receipt_items[1].total, '3786.70');
+  assert.equal(document.parsed.ticketCost, undefined);
+});
+
 test('реестр не смешивает заказ поставщика с внутренним заказом CRM', () => {
   const document = toLegacyDocument({
     id: 'c1c1c1c1-1111-2222-3333-444444444444',
@@ -278,7 +310,7 @@ test('групповой ЖД PDF отображает каждый билет �
   assert.match(page, /updateSubReceipt\(subEdit\.fileId, subEdit\.index, parsed\)/);
   assert.match(page, /В составе общего PDF/);
   assert.match(page, /className="receipt-registry-subrow"/);
-  assert.match(page, /stored\?\.groupTickets \|\| stored\?\.receipts/);
+  assert.match(page, /stored\?\.groupTickets \|\| stored\?\.receiptItems \|\| stored\?\.receipt_items \|\| stored\?\.receipts \|\| stored\?\.railTickets/);
   assert.match(page, /openGroupTicketEditor\(d, ticketIndex\)/);
   assert.match(page, /Изменить бланк/);
   assert.match(styles, /\.rec-import-table tbody tr\.rec-import-subrow/);

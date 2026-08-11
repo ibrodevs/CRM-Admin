@@ -1,10 +1,10 @@
 import { useState, useEffect } from 'react';
 import { Icon } from './icons';
-import { Button, ConfirmDialog, Drawer, Field, Input, Pill, Select, Tabs, useToast } from './ui';
+import { Button, ConfirmDialog, DateField, Drawer, Field, Input, Pill, Select, Tabs, useToast } from './ui';
 import { CURRENT_USER, FEE_DESC_DEFAULTS, FEE_SCHEMA, FEE_SERVICE_TYPES, FEE_TEMPLATES, SERVICE_DESC_DEFAULTS, SETTLEMENT_TYPES, applyAgreementFees, creditAvailable, depositAvailable, descsFromDefaults, feeDescOf, feeDescsFromDefaults, feeTemplate, feesFromTemplate, registerFeeTemplate } from './data';
 import { FIN_COUNTERPARTIES, f$ } from './data/finance';
 import { FinCounterpartyDrawer, ReconActDrawer } from './page_finance';
-import { financeApi, workspaceActionsApi, workspaceSettingsApi } from './api/resources';
+import { crmApi, financeApi, workspaceActionsApi, workspaceSettingsApi } from './api/resources';
 
 
 
@@ -13,6 +13,81 @@ function feeCellText(fee) {
   if (!fee) return '—';
   return fee.type === 'percent' ? (fee.value || 0) + ' %' : fM(fee.value || 0);
 }
+
+function cfNormalizeAgreement(agreement = {}) {
+  const template = agreement && agreement.template ? agreement.template : 'standard';
+  let defaults;
+  try { defaults = feesFromTemplate(template); } catch (_) { defaults = null; }
+  if (!defaults || typeof defaults !== 'object') defaults = feesFromTemplate('standard');
+  const incoming = agreement && agreement.fees && typeof agreement.fees === 'object' ? agreement.fees : {};
+  const fees = {};
+
+  FEE_SERVICE_TYPES.forEach((service) => {
+    fees[service] = {};
+    FEE_SCHEMA[service].forEach((field) => {
+      const fallback = defaults && defaults[service] && defaults[service][field.key]
+        ? defaults[service][field.key]
+        : { type: 'fixed', value: 0 };
+      const raw = incoming[service] && incoming[service][field.key]
+        ? incoming[service][field.key]
+        : fallback;
+      fees[service][field.key] = {
+        type: raw && raw.type === 'percent' ? 'percent' : 'fixed',
+        value: Number(raw && raw.value != null ? raw.value : fallback.value) || 0,
+      };
+    });
+  });
+
+  const defaultDescs = descsFromDefaults();
+  const defaultFeeDescs = feeDescsFromDefaults();
+  const feeDescs = {};
+  FEE_SERVICE_TYPES.forEach((service) => {
+    feeDescs[service] = {
+      ...(defaultFeeDescs[service] || {}),
+      ...((agreement && agreement.feeDescs && agreement.feeDescs[service]) || {}),
+    };
+  });
+
+  return {
+    ...(agreement || {}),
+    template,
+    fees,
+    descs: { ...defaultDescs, ...((agreement && agreement.descs) || {}) },
+    feeDescs,
+    history: Array.isArray(agreement && agreement.history) ? agreement.history : [],
+  };
+}
+
+function cfNormalizeFinancialConditions(value) {
+  if (!value || typeof value !== 'object') return null;
+  const contracts = (Array.isArray(value.contracts) ? value.contracts : [])
+    .filter(Boolean)
+    .map((contract) => ({
+      ...contract,
+      agreements: (Array.isArray(contract.agreements) ? contract.agreements : [])
+        .filter(Boolean)
+        .map(cfNormalizeAgreement),
+    }));
+
+  const configured = contracts.some((contract) =>
+    String(contract.no || '').trim() && contract.agreements.length > 0
+  );
+  if (!configured) return null;
+
+  const settlement = SETTLEMENT_TYPES.includes(value.settlement) ? value.settlement : 'предоплата';
+  return {
+    ...value,
+    settlement,
+    deposit: settlement === 'депозит'
+      ? { balance: 0, reserved: 0, history: [], ...(value.deposit || {}) }
+      : null,
+    credit: settlement === 'отсрочка'
+      ? { limit: 0, termDays: 30, debt: 0, overdue: 0, ...(value.credit || {}) }
+      : null,
+    contracts,
+  };
+}
+
 const cfUid = (p) => p + Math.random().toString(36).slice(2, 7);
 function cfNow() {
   const d = new Date(); const p = (n) => String(n).padStart(2, '0');
@@ -135,7 +210,7 @@ function AgreementFeesView({ agreement }) {
               <tbody><tr>{FEE_SCHEMA[svc].map((f) => <td key={f.key}>{feeCellText(agreement.fees[svc] && agreement.fees[svc][f.key])}</td>)}</tr></tbody>
             </table>
           </div>
-          <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 4 }}>Описание для документов: «{agreement.descs[svc] || SERVICE_DESC_DEFAULTS[svc] || '—'}»</div>
+          <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 4 }}>Описание для документов: «{(agreement.descs && agreement.descs[svc]) || SERVICE_DESC_DEFAULTS[svc] || '—'}»</div>
         </div>
       ))}
     </div>
@@ -145,16 +220,16 @@ function AgreementFeesView({ agreement }) {
 
 function AgreementEditor({ open, agreement, onClose, onSave }) {
   const [tab, setTab] = useState(FEE_SERVICE_TYPES[0]);
-  const [tpl, setTpl] = useState(agreement ? agreement.template : 'standard');
-  const [fees, setFees] = useState(() => (agreement ? JSON.parse(JSON.stringify(agreement.fees)) : feesFromTemplate('standard')));
-  const [descs, setDescs] = useState(() => (agreement ? { ...agreement.descs } : descsFromDefaults()));
-  const [feeDescs, setFeeDescs] = useState(() => (agreement && agreement.feeDescs ? JSON.parse(JSON.stringify(agreement.feeDescs)) : feeDescsFromDefaults()));
+  const [tpl, setTpl] = useState(agreement ? (agreement.template || 'standard') : 'standard');
+  const [fees, setFees] = useState(() => cfNormalizeAgreement(agreement).fees);
+  const [descs, setDescs] = useState(() => cfNormalizeAgreement(agreement).descs);
+  const [feeDescs, setFeeDescs] = useState(() => cfNormalizeAgreement(agreement).feeDescs);
   const [tplName, setTplName] = useState('');
   const [tplNameOpen, setTplNameOpen] = useState(false);
   const [tplTick, setTplTick] = useState(0);
   const toast = useToast();
   useEffect(() => {
-    if (open && agreement) { setTpl(agreement.template); setFees(JSON.parse(JSON.stringify(agreement.fees))); setDescs({ ...agreement.descs }); setFeeDescs(agreement.feeDescs ? JSON.parse(JSON.stringify(agreement.feeDescs)) : feeDescsFromDefaults()); setTab(FEE_SERVICE_TYPES[0]); }
+    if (open && agreement) { const safe = cfNormalizeAgreement(agreement); setTpl(safe.template); setFees(safe.fees); setDescs(safe.descs); setFeeDescs(safe.feeDescs); setTab(FEE_SERVICE_TYPES[0]); }
   }, [open, agreement]);
   if (!open) return null;
 
@@ -169,7 +244,7 @@ function AgreementEditor({ open, agreement, onClose, onSave }) {
       toast('Создан шаблон «' + name + '»', 'ok');
     } catch (error) { toast(error.message || 'Не удалось создать шаблон', 'err'); }
   };
-  const setFee = (svc, key, patch) => setFees((f) => ({ ...f, [svc]: { ...f[svc], [key]: { ...f[svc][key], ...patch } } }));
+  const setFee = (svc, key, patch) => setFees((f) => ({ ...f, [svc]: { ...(f[svc] || {}), [key]: { ...(((f[svc] || {})[key]) || { type: 'fixed', value: 0 }), ...patch } } }));
   const setDesc = (svc, v) => setDescs((d) => ({ ...d, [svc]: v }));
   const setFeeDesc = (svc, key, v) => setFeeDescs((d) => ({ ...d, [svc]: { ...d[svc], [key]: v } }));
 
@@ -178,7 +253,7 @@ function AgreementEditor({ open, agreement, onClose, onSave }) {
     const out = [];
     FEE_SERVICE_TYPES.forEach((svc) => {
       FEE_SCHEMA[svc].forEach((f) => {
-        const a = fees[svc][f.key], b = agreement.fees[svc] && agreement.fees[svc][f.key];
+        const a = (fees[svc] && fees[svc][f.key]) || { type: 'fixed', value: 0 }, b = agreement.fees && agreement.fees[svc] && agreement.fees[svc][f.key];
         if (!b || a.type !== b.type || a.value !== b.value) out.push(f.label + ' (' + svc + ')');
         const fdA = feeDescOf({ feeDescs }, svc, f.key), fdB = feeDescOf(agreement, svc, f.key);
         if (fdA !== fdB) out.push('Формулировка «' + f.label + '» (' + svc + ')');
@@ -231,7 +306,7 @@ function AgreementEditor({ open, agreement, onClose, onSave }) {
           <div style={{ fontWeight: 700, color: 'var(--ink)', marginBottom: 8 }}>Сборы · {tab}</div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
             {FEE_SCHEMA[tab].map((f) => {
-              const fee = fees[tab][f.key];
+              const fee = (fees[tab] && fees[tab][f.key]) || { type: 'fixed', value: 0 };
               return (
                 <div key={f.key} style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap', padding: '8px 0', borderBottom: '1px solid var(--line)' }}>
                   <span style={{ flex: 1, minWidth: 160, fontSize: 13, color: 'var(--body)' }}>{f.label}</span>
@@ -284,7 +359,7 @@ function AgreementHistoryDrawer({ open, agreement, onClose }) {
     <Drawer open={open} onClose={onClose} title="История изменений соглашения"
       footer={<Button variant="secondary" style={{ width: '100%' }} onClick={onClose}>Закрыть</Button>}>
       <div className="timeline">
-        {(agreement ? [...agreement.history].reverse() : []).map((v, i) => (
+        {(agreement ? [...(agreement.history || [])].reverse() : []).map((v, i) => (
           <div className="tl-item" key={i}>
             <span className="tl-dot" /><span className="tl-line" />
             <div style={{ paddingBottom: 8 }}>
@@ -368,7 +443,7 @@ function CompanyContracts({ fin, coName, onFinChange, onOpenClosing }) {
                         <span style={{ fontWeight: 700, color: 'var(--ink)', fontSize: 15 }}>{a.no}</span>
                         <span style={{ fontSize: 12, color: 'var(--muted)' }}>от {a.date} · v{a.version}</span>
                         <Pill tone={a.status === 'Действующий' ? 'green' : 'gray'}>{a.status}</Pill>
-                        <Pill tone="blue">Шаблон: {feeTemplate(a.template).name}</Pill>
+                        <Pill tone="blue">Шаблон: {a.templateName || feeTemplate(a.template).name}</Pill>
                         <div style={{ flex: 1 }} />
                         <Button variant="ghost" size="sm" icon="clock" onClick={() => setHistAgr(a)}>История</Button>
                         {a.status === 'Действующий' && <Button variant="secondary" size="sm" icon="edit" onClick={() => setEditAgr({ contractId: c.id, agreement: a })}>Изменить условия</Button>}
@@ -566,34 +641,272 @@ function CompanySettlementsBlock({ co }) {
   );
 }
 
-function CompanyFinanceBlock({ co }) {
-  const [fin, setFin] = useState(null);
-  const [closing, setClosing] = useState(null);
-  const namespace = `company-finance-${co.serverId || co.id}`;
-  useEffect(() => {
-    const controller = new AbortController();
-    workspaceSettingsApi.get(namespace, controller.signal).then((setting) => {
-      if (setting.value && Object.keys(setting.value).length) setFin(setting.value);
-    }).catch((error) => { if (error.name !== 'AbortError') console.error(error); });
-    return () => controller.abort();
-  }, [namespace]);
-  if (!fin) return <div className="card card-pad" style={{ color: 'var(--muted)' }}>Финансовые условия для этой организации не заведены.</div>;
 
-  const updateFin = async (next) => {
-    await workspaceSettingsApi.save(namespace, next);
-    setFin(next);
+function CompanyFinanceCreateDrawer({ open, co, onClose, onCreated }) {
+  const toast = useToast();
+  const [settlement, setSettlement] = useState('предоплата');
+  const [template, setTemplate] = useState('standard');
+  const [contractNo, setContractNo] = useState('');
+  const [contractDate, setContractDate] = useState(() => new Date());
+  const [initialBalance, setInitialBalance] = useState(0);
+  const [creditLimit, setCreditLimit] = useState(0);
+  const [termDays, setTermDays] = useState(30);
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    if (!open) return;
+    setSettlement('предоплата');
+    setTemplate('standard');
+    setContractNo('');
+    setContractDate(new Date());
+    setInitialBalance(0);
+    setCreditLimit(0);
+    setTermDays(30);
+    setSaving(false);
+  }, [open, co && co.id]);
+
+  const save = async () => {
+    const rawNo = contractNo.trim();
+    if (!rawNo) { toast('Укажите номер договора', 'err'); return; }
+    const balance = Math.max(0, Number(initialBalance) || 0);
+    const limit = Math.max(0, Number(creditLimit) || 0);
+    const days = Math.max(0, Number(termDays) || 0);
+    if (settlement === 'отсрочка' && !limit) { toast('Укажите кредитный лимит', 'err'); return; }
+    if (settlement === 'отсрочка' && !days) { toast('Укажите срок отсрочки', 'err'); return; }
+
+    const date = contractDate instanceof Date && !Number.isNaN(contractDate.getTime())
+      ? `${String(contractDate.getDate()).padStart(2, '0')}.${String(contractDate.getMonth() + 1).padStart(2, '0')}.${contractDate.getFullYear()}`
+      : cfNow().split(' ')[0];
+    const no = rawNo.startsWith('№') ? rawNo : '№ ' + rawNo;
+    const agreement = {
+      id: cfUid('A'), no: 'ДС № 1', date, version: 1, status: 'Действующий', template,
+      fees: feesFromTemplate(template), descs: descsFromDefaults(), feeDescs: feeDescsFromDefaults(),
+      history: [{
+        date: cfNow(), user: (window.CURRENT_USER && CURRENT_USER.name) || 'Оператор',
+        title: 'ДС № 1 · создано', fields: ['Созданы финансовые условия', 'Шаблон «' + feeTemplate(template).name + '»'],
+      }],
+    };
+    const contract = { id: cfUid('C'), no, date, status: 'Действующий', agreements: [agreement] };
+    const next = {
+      settlement,
+      deposit: settlement === 'депозит' ? {
+        balance, reserved: 0,
+        history: balance ? [{ date, type: 'Начальный остаток', amount: balance, note: 'Задан при создании финансовых условий' }] : [],
+      } : null,
+      credit: settlement === 'отсрочка' ? { limit, termDays: days, debt: 0, overdue: 0 } : null,
+      contracts: [contract],
+    };
+
+    try {
+      setSaving(true);
+      await onCreated(next);
+      toast('Финансовые условия для «' + co.name + '» созданы', 'ok');
+      onClose();
+    } catch (error) {
+      toast(error.message || 'Не удалось создать финансовые условия', 'err');
+    } finally {
+      setSaving(false);
+    }
   };
-  const setSettlement = (t) => updateFin({ ...fin, settlement: t });
 
   return (
-    <div className="fade-in">
-      <CompanyFinanceSection fin={fin} onChangeSettlement={setSettlement} />
+    <Drawer open={open} onClose={onClose} width="min(720px,96vw)"
+      title="Новые финансовые условия" sub={co && co.name}
+      footer={<>
+        <Button variant="secondary" onClick={onClose} disabled={saving}>Отмена</Button>
+        <Button icon="check" onClick={save} disabled={saving}>{saving ? 'Сохранение…' : 'Создать условия'}</Button>
+      </>}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
+        <div className="card" style={{ padding: '12px 14px', borderLeft: '3px solid var(--blue)', display: 'flex', gap: 10, alignItems: 'flex-start' }}>
+          <Icon name="finance" style={{ width: 18, height: 18, color: 'var(--blue)', marginTop: 1, flexShrink: 0 }} />
+          <div>
+            <div style={{ fontWeight: 700, color: 'var(--ink)', marginBottom: 3 }}>Настройте условия работы с компанией</div>
+            <div style={{ fontSize: 13, color: 'var(--muted)' }}>Будут созданы тип взаиморасчётов, договор и первое доп. соглашение со сборами по выбранному шаблону.</div>
+          </div>
+        </div>
+
+        <div>
+          <div style={{ fontWeight: 700, color: 'var(--ink)', marginBottom: 9 }}>1. Тип взаиморасчётов</div>
+          <div className="seg-toggle" style={{ width: '100%', maxWidth: 520 }}>
+            {SETTLEMENT_TYPES.map((type) => (
+              <button type="button" key={type} className={'seg-btn' + (settlement === type ? ' active' : '')}
+                onClick={() => setSettlement(type)}>{type[0].toUpperCase() + type.slice(1)}</button>
+            ))}
+          </div>
+        </div>
+
+        {settlement === 'депозит' && (
+          <div className="card card-pad">
+            <div style={{ fontWeight: 700, color: 'var(--ink)', marginBottom: 10 }}>Депозит</div>
+            <label style={{ display: 'block' }}>
+              <span className="label">Начальный баланс, $</span>
+              <Input type="number" min="0" value={initialBalance} onChange={(e) => setInitialBalance(e.target.value)} placeholder="0" />
+            </label>
+            <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 6 }}>Зарезервировано при создании: 0 $. История начнётся с указанного остатка.</div>
+          </div>
+        )}
+
+        {settlement === 'отсрочка' && (
+          <div className="card card-pad">
+            <div style={{ fontWeight: 700, color: 'var(--ink)', marginBottom: 10 }}>Отсрочка платежа</div>
+            <div className="grid-2" style={{ gap: 12 }}>
+              <label style={{ display: 'block' }}>
+                <span className="label">Кредитный лимит, $</span>
+                <Input type="number" min="0" value={creditLimit} onChange={(e) => setCreditLimit(e.target.value)} placeholder="Например, 50000" />
+              </label>
+              <label style={{ display: 'block' }}>
+                <span className="label">Срок отсрочки, дней</span>
+                <Input type="number" min="1" value={termDays} onChange={(e) => setTermDays(e.target.value)} />
+              </label>
+            </div>
+            <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 6 }}>Начальная задолженность и просрочка будут равны 0 $.</div>
+          </div>
+        )}
+
+        <div>
+          <div style={{ fontWeight: 700, color: 'var(--ink)', marginBottom: 9 }}>2. Договор</div>
+          <div className="grid-2" style={{ gap: 12 }}>
+            <label style={{ display: 'block' }}>
+              <span className="label">Номер договора *</span>
+              <Input value={contractNo} onChange={(e) => setContractNo(e.target.value)} placeholder="Например, 2026-001" />
+            </label>
+            <label style={{ display: 'block' }}>
+              <span className="label">Дата договора</span>
+              <DateField value={contractDate} onChange={setContractDate} placeholder="Выберите дату договора" />
+            </label>
+          </div>
+        </div>
+
+        <div>
+          <div style={{ fontWeight: 700, color: 'var(--ink)', marginBottom: 9 }}>3. Сборы и надбавки</div>
+          <label style={{ display: 'block', maxWidth: 360 }}>
+            <span className="label">Шаблон первого доп. соглашения</span>
+            <Select options={FEE_TEMPLATES.map((item) => ({ value: item.id, label: item.name }))}
+              value={template} onChange={(e) => setTemplate(e.target.value)} />
+          </label>
+          <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 6 }}>После создания каждый сбор можно изменить отдельно через кнопку «Изменить условия».</div>
+        </div>
+
+        <div className="card card-pad" style={{ background: 'var(--surface-2)' }}>
+          <div style={{ fontWeight: 700, color: 'var(--ink)', marginBottom: 8 }}>Будет создано</div>
+          <div className="kv">
+            <div className="kv-row"><span className="k">Тип расчётов</span><span className="v">{settlement}</span></div>
+            <div className="kv-row"><span className="k">Договор</span><span className="v">{contractNo.trim() || 'номер не указан'}</span></div>
+            <div className="kv-row"><span className="k">Доп. соглашение</span><span className="v">ДС № 1 · {feeTemplate(template).name}</span></div>
+          </div>
+        </div>
+      </div>
+    </Drawer>
+  );
+}
+
+function CompanyFinanceBlock({ co }) {
+  const [fin, setFin] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [createOpen, setCreateOpen] = useState(false);
+  const [closing, setClosing] = useState(null);
+  const companyId = co.serverId || co.id;
+  const legacyNamespace = `company-finance-${companyId}`;
+  useEffect(() => {
+    const controller = new AbortController();
+    let active = true;
+    setFin(null);
+    setLoading(true);
+
+    const load = async () => {
+      try {
+        const remote = await crmApi.companyFinancialConditions(companyId, controller.signal);
+        const normalizedRemote = cfNormalizeFinancialConditions(remote?.value);
+        if (remote?.configured && normalizedRemote) {
+          if (active) setFin(normalizedRemote);
+          return;
+        }
+
+        // Однократная миграция только полноценных старых условий.
+        const legacy = await workspaceSettingsApi.get(legacyNamespace, controller.signal);
+        const legacyValue = cfNormalizeFinancialConditions(legacy?.value);
+        if (!legacyValue) return;
+        try {
+          const migrated = await crmApi.saveCompanyFinancialConditions(companyId, legacyValue);
+          if (active) setFin(cfNormalizeFinancialConditions(migrated?.value) || legacyValue);
+        } catch (migrationError) {
+          if (migrationError?.status === 404 || migrationError?.status === 405) {
+            if (active) setFin(legacyValue);
+            return;
+          }
+          throw migrationError;
+        }
+      } catch (error) {
+        if (error.name === 'AbortError') return;
+        if (error?.status === 404 || error?.status === 405) {
+          const legacy = await workspaceSettingsApi.get(legacyNamespace, controller.signal);
+          const legacyValue = cfNormalizeFinancialConditions(legacy?.value);
+          if (active) setFin(legacyValue);
+          return;
+        }
+        console.error(error);
+      } finally {
+        if (active) setLoading(false);
+      }
+    };
+
+    load();
+    return () => { active = false; controller.abort(); };
+  }, [companyId, legacyNamespace]);
+
+  const updateFin = async (next) => {
+    const prepared = cfNormalizeFinancialConditions(next);
+    if (!prepared) throw new Error('Добавьте договор и первое дополнительное соглашение');
+    try {
+      const saved = await crmApi.saveCompanyFinancialConditions(companyId, prepared);
+      const value = cfNormalizeFinancialConditions(saved?.value) || prepared;
+      setFin(value);
+      return value;
+    } catch (error) {
+      // Временная совместимость до перезагрузки PythonAnywhere с новым endpoint.
+      if (error?.status !== 404 && error?.status !== 405) throw error;
+      await workspaceSettingsApi.save(legacyNamespace, prepared);
+      setFin(prepared);
+      return prepared;
+    }
+  };
+
+  if (loading) return <div className="card card-pad" style={{ color: 'var(--muted)' }}>Загрузка финансовых условий…</div>;
+  if (!fin) return (
+    <>
+      <div className="card card-pad" style={{ minHeight: 190, display: 'flex', alignItems: 'center', justifyContent: 'center', textAlign: 'center' }}>
+        <div style={{ maxWidth: 520 }}>
+          <span className="oc-svc-ic" style={{ display: 'inline-flex', background: 'var(--blue-soft)', color: 'var(--blue)', width: 52, height: 52, borderRadius: 14, marginBottom: 12 }}><Icon name="finance" /></span>
+          <h3 className="card-title" style={{ fontSize: 19, marginBottom: 7 }}>Финансовые условия не настроены</h3>
+          <div style={{ color: 'var(--muted)', fontSize: 14, marginBottom: 16 }}>Укажите тип взаиморасчётов, параметры депозита или отсрочки, договор и шаблон сборов для этой компании.</div>
+          <Button icon="plus" onClick={() => setCreateOpen(true)}>Создать финансовые условия</Button>
+        </div>
+      </div>
+      <CompanyFinanceCreateDrawer open={createOpen} co={co} onClose={() => setCreateOpen(false)} onCreated={updateFin} />
+    </>
+  );
+  const setSettlement = (t) => {
+    const next = { ...fin, settlement: t };
+    if (t === 'депозит' && !next.deposit) next.deposit = { balance: 0, reserved: 0, history: [] };
+    if (t === 'отсрочка' && !next.credit) next.credit = { limit: 0, termDays: 30, debt: 0, overdue: 0 };
+    return updateFin(next);
+  };
+
+  return (
+    <>
+      <div className="fade-in">
+        <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 12 }}>
+          <Button variant="secondary" size="sm" icon="plus" onClick={() => setCreateOpen(true)}>Создать новые условия</Button>
+        </div>
+        <CompanyFinanceSection fin={fin} onChangeSettlement={setSettlement} />
       <div style={{ height: 8 }} />
       <CompanySettlementsBlock co={co} />
       <div style={{ height: 8 }} />
       <CompanyContracts fin={fin} coName={co.name} onFinChange={updateFin} onOpenClosing={(a) => setClosing(a)} />
-      <ClosingDocsPreview open={!!closing} agreement={closing} co={co} coName={co.name} onClose={() => setClosing(null)} />
-    </div>
+        <ClosingDocsPreview open={!!closing} agreement={closing} co={co} coName={co.name} onClose={() => setClosing(null)} />
+      </div>
+      <CompanyFinanceCreateDrawer open={createOpen} co={co} onClose={() => setCreateOpen(false)} onCreated={updateFin} />
+    </>
   );
 }
 

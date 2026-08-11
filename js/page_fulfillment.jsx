@@ -938,7 +938,9 @@ function receiptImportSubrows(type, receipts) {
     ticketNo: receipt.ticketNo || receipt.ticket_number || '',
     ref: receipt.ref || receipt.reference || '',
     cls: receipt.cls || receipt.booking_class || '',
-    fare: receipt.fare ?? receipt.total ?? '',
+    // `total` in railway supplier payloads is the whole ticket amount. It must
+    // not become the tariff, otherwise the reserved-seat part is added twice.
+    fare: receipt.fare ?? '',
     taxes: receipt.taxes ?? 0,
     fees: receipt.fees ?? 0,
     total: receipt.total ?? '',
@@ -955,11 +957,15 @@ function receiptImportSubrows(type, receipts) {
 }
 function aggregateReceiptSubrows(parent, subReceipts) {
   if (!subReceipts.length) return parent;
-  const sum = (key) => Math.round(subReceipts.reduce((total, receipt) => total + (Number(receipt[key]) || 0), 0) * 100) / 100;
-  const passengers = subReceipts.flatMap((receipt) => receipt.passengers || []).filter((passenger) => passenger.name);
+  const tickets = subReceipts.map((receipt) => normalizeReceiptDraft('ЖД', {
+    ...receipt,
+    groupTickets: [], receipts: [], railTickets: [], receiptItems: [], receiptCount: 1,
+  }));
+  const sum = (key) => Math.round(tickets.reduce((total, receipt) => total + (Number(receipt[key]) || 0), 0) * 100) / 100;
+  const passengers = tickets.flatMap((receipt) => receipt.passengers || []).filter((passenger) => passenger.name);
   const uniqueLegs = [];
   const seenLegs = new Set();
-  subReceipts.flatMap((receipt) => receipt.legs || []).forEach((leg) => {
+  tickets.flatMap((receipt) => receipt.legs || []).forEach((leg) => {
     const key = [leg.from, leg.to, leg.date, leg.dep, leg.arr, leg.flightNo].join('|');
     if (!seenLegs.has(key)) {
       seenLegs.add(key);
@@ -968,27 +974,37 @@ function aggregateReceiptSubrows(parent, subReceipts) {
   });
   const ticketCost = sum('ticketCost');
   const reservedSeatCost = sum('reservedSeatCost');
-  const total = sum('total');
+  const agencyServiceFee = sum('agencyServiceFee');
+  const additionalFees = sum('additionalFees');
+  const taxes = sum('taxes');
+  const computedTotal = Math.round((ticketCost + reservedSeatCost + agencyServiceFee + additionalFees + taxes) * 100) / 100;
+  const ticketTotals = sum('total');
+  const total = ticketTotals || computedTotal;
   return normalizeReceiptDraft('ЖД', {
     ...parent,
     passenger: passengers.map((passenger) => passenger.name).join(', '),
     passengers,
-    ticketNo: subReceipts.map((receipt) => receipt.ticketNo).filter(Boolean).join(', '),
+    ticketNo: tickets.map((receipt) => receipt.ticketNo).filter(Boolean).join(', '),
     legs: uniqueLegs.length ? uniqueLegs : parent.legs,
-    fare: total,
-    taxes: sum('taxes'),
-    fees: sum('fees'),
+    fare: Math.round((ticketCost + reservedSeatCost) * 100) / 100,
+    taxes,
+    fees: Math.round((agencyServiceFee + additionalFees) * 100) / 100,
     total,
     originalTotal: total,
     ticketCost,
     reservedSeatCost,
+    agencyServiceFee,
+    additionalFees,
     fareBreakdown: [
       { code: 'TICKET', label: 'Билет', amount: ticketCost, currency: parent.currency || 'RUB' },
       { code: 'RESERVED_SEAT', label: 'Плацкарта', amount: reservedSeatCost, currency: parent.currency || 'RUB' },
     ],
-    groupTickets: subReceipts,
-    receiptCount: subReceipts.length,
-    recognitionPending: subReceipts.some((receipt) => receipt.recognitionPending),
+    groupTickets: tickets,
+    receipts: tickets,
+    railTickets: tickets,
+    receiptItems: tickets,
+    receiptCount: tickets.length,
+    recognitionPending: tickets.some((receipt) => receipt.recognitionPending),
   });
 }
 const receiptImportMoney = (...values) => {
@@ -1252,6 +1268,46 @@ const IMPORT_STEPS = [
   { key: 'attach', label: 'В заказ' },
 ];
 const RECEIPT_IMPORT_DRAFT_KEY = 'travelhub.receipt-import-draft.v1';
+const RECEIPT_IMPORT_CONCURRENCY = 1;
+const RECEIPT_IMPORT_MAX_ATTEMPTS = 5;
+const RECEIPT_RESULT_MAX_ATTEMPTS = 6;
+const RECEIPT_IMPORT_GAP_MS = 650;
+const RECEIPT_TRANSIENT_STATUSES = new Set([0, 408, 425, 429, 500, 502, 503, 504]);
+
+const receiptImportSleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+const receiptRetryDelay = (attempt, base = 1200) => Math.min(12000, base * (2 ** attempt)) + Math.round(Math.random() * 350);
+const isTransientReceiptError = (error) => RECEIPT_TRANSIENT_STATUSES.has(Number(error?.status || 0));
+
+async function importReceiptWithRetry(file) {
+  const idempotencyKey = typeof crypto !== 'undefined' && crypto.randomUUID
+    ? crypto.randomUUID()
+    : 'receipt-' + Date.now() + '-' + Math.random().toString(36).slice(2);
+  let lastError = null;
+  for (let attempt = 0; attempt < RECEIPT_IMPORT_MAX_ATTEMPTS; attempt += 1) {
+    try {
+      return await documentsApi.importReceipt(file, { idempotencyKey });
+    } catch (error) {
+      lastError = error;
+      if (!isTransientReceiptError(error) || attempt >= RECEIPT_IMPORT_MAX_ATTEMPTS - 1) throw error;
+      await receiptImportSleep(receiptRetryDelay(attempt));
+    }
+  }
+  throw lastError || new Error('Не удалось импортировать квитанцию');
+}
+
+async function receiptResultWithRetry(importId) {
+  let lastError = null;
+  for (let attempt = 0; attempt < RECEIPT_RESULT_MAX_ATTEMPTS; attempt += 1) {
+    try {
+      return await documentsApi.receiptResult(importId);
+    } catch (error) {
+      lastError = error;
+      if (!isTransientReceiptError(error) || attempt >= RECEIPT_RESULT_MAX_ATTEMPTS - 1) throw error;
+      await receiptImportSleep(receiptRetryDelay(attempt, 900));
+    }
+  }
+  throw lastError || new Error('Не удалось получить результат распознавания');
+}
 
 function readReceiptImportDraft() {
   if (typeof window === 'undefined') return null;
@@ -1302,24 +1358,58 @@ function receiptStatus(parsed, seen, type, error) {
 
 async function waitForReceiptResult(importId) {
   let result = null;
-  for (let attempt = 0; attempt < 15; attempt += 1) {
-    result = await documentsApi.receiptResult(importId);
+  for (let attempt = 0; attempt < 30; attempt += 1) {
+    result = await receiptResultWithRetry(importId);
     const status = String(result?.parser_status || '').toLowerCase();
     if (!['queued', 'pending', 'processing', 'scanning'].includes(status)) return result;
-    await new Promise((resolve) => setTimeout(resolve, 800));
+    await receiptImportSleep(Math.min(2200, 700 + attempt * 80));
   }
   return result || {};
 }
 
 
-function ReceiptEditDrawer({ open, file, onClose, onChange, onBrand, onReview, orders = [], services = [] }) {
+function receiptBlankIsReviewed(ticket) {
+  const raw = String(ticket?.reviewStatus || ticket?.review_status || '').trim().toLowerCase();
+  return ticket?.reviewed === true || ['reviewed', 'checked', 'done', 'complete', 'completed'].includes(raw);
+}
+
+function receiptGroupedTickets(file) {
+  if (!file || file.type !== 'ЖД') return [];
+  if (Array.isArray(file.subReceipts) && file.subReceipts.length) return file.subReceipts;
+  const parsed = file.parsed || {};
+  return parsed.groupTickets || parsed.receiptItems || parsed.receipts || parsed.railTickets || [];
+}
+
+function receiptGroupNeedsSequentialReview(file) {
+  const tickets = receiptGroupedTickets(file);
+  return tickets.length > 1 && !tickets.every(receiptBlankIsReviewed);
+}
+
+function receiptBlankMissingFields(ticket) {
+  const passenger = ticket?.passengers?.[0] || {};
+  const leg = ticket?.legs?.[0] || {};
+  const missing = [];
+  if (!(passenger.name || ticket?.passenger)) missing.push('ФИО пассажира');
+  if (!(ticket?.ticketNo || passenger.ticketNo)) missing.push('номер билета');
+  if (!(leg.from && leg.to)) missing.push('маршрут');
+  if (!leg.flightNo) missing.push('номер поезда');
+  const amount = Number(ticket?.total) || Number(ticket?.ticketCost) + Number(ticket?.reservedSeatCost)
+    + Number(ticket?.agencyServiceFee) + Number(ticket?.additionalFees);
+  if (!(amount > 0)) missing.push('стоимость билета');
+  return missing;
+}
+
+function ReceiptEditDrawer({ open, file, onClose, onChange, onSubChange, onBrand, onReview, orders = [], services = [] }) {
   const [correctionMode, setCorrectionMode] = useState(false);
   const [previewExpanded, setPreviewExpanded] = useState(false);
+  const [activeBlankIndex, setActiveBlankIndex] = useState(0);
   useEffect(() => {
-    if (open) {
-      setCorrectionMode(false);
-      setPreviewExpanded(false);
-    }
+    if (!open) return;
+    setCorrectionMode(false);
+    setPreviewExpanded(false);
+    const tickets = receiptGroupedTickets(file);
+    const firstUnreviewed = tickets.findIndex((ticket) => !receiptBlankIsReviewed(ticket));
+    setActiveBlankIndex(firstUnreviewed >= 0 ? firstUnreviewed : 0);
   }, [open, file && file.id]);
   useEffect(() => {
     if (!previewExpanded) return undefined;
@@ -1333,34 +1423,200 @@ function ReceiptEditDrawer({ open, file, onClose, onChange, onBrand, onReview, o
     return () => window.removeEventListener('keydown', closeOnEscape, true);
   }, [previewExpanded]);
   if (!open || !file) return null;
+
   const parsed = normalizeReceiptDraft(file.type, file.parsed);
+  const rawTickets = receiptGroupedTickets(file);
+  const groupTickets = rawTickets.map((ticket) => normalizeReceiptDraft(file.type, {
+    ...ticket,
+    groupTickets: [], receipts: [], railTickets: [], receiptItems: [], receiptCount: 1,
+  }));
+  const hasTicketGroup = file.type === 'ЖД' && groupTickets.length > 1;
+  const safeBlankIndex = hasTicketGroup ? Math.min(activeBlankIndex, groupTickets.length - 1) : 0;
+  const selectedBase = hasTicketGroup ? groupTickets[safeBlankIndex] : parsed;
+  const editingParsed = hasTicketGroup ? normalizeReceiptDraft(file.type, {
+    ...selectedBase,
+    crmBindingMode: selectedBase.crmBindingMode || parsed.crmBindingMode,
+    crmOrderId: selectedBase.crmOrderId || parsed.crmOrderId,
+    crmOrderNo: selectedBase.crmOrderNo || parsed.crmOrderNo,
+    crmPersonId: selectedBase.crmPersonId || parsed.crmPersonId,
+    crmPerson: selectedBase.crmPerson || parsed.crmPerson,
+    crmService: selectedBase.crmService || parsed.crmService,
+    crmServiceId: selectedBase.crmServiceId || parsed.crmServiceId,
+    crmTrip: selectedBase.crmTrip || parsed.crmTrip,
+    crmTripId: selectedBase.crmTripId || parsed.crmTripId,
+    output: selectedBase.output || parsed.output,
+    groupTickets: [], receipts: [], railTickets: [], receiptItems: [], receiptCount: 1,
+  }) : parsed;
+  const reviewedCount = hasTicketGroup ? groupTickets.filter(receiptBlankIsReviewed).length : 0;
+  const currentMissing = hasTicketGroup ? receiptBlankMissingFields(editingParsed) : [];
+  const progress = hasTicketGroup ? Math.round((reviewedCount / groupTickets.length) * 100) : 0;
+  const currentIsReviewed = hasTicketGroup && receiptBlankIsReviewed(editingParsed);
+  const allOtherReviewed = hasTicketGroup && groupTickets.every((ticket, index) => index === safeBlankIndex || receiptBlankIsReviewed(ticket));
+  const canFinishSequence = hasTicketGroup && safeBlankIndex === groupTickets.length - 1 && allOtherReviewed;
+
+  const parentFromTickets = (tickets, child = editingParsed) => aggregateReceiptSubrows({
+    ...parsed,
+    crmBindingMode: child.crmBindingMode || parsed.crmBindingMode,
+    crmOrderId: child.crmOrderId || parsed.crmOrderId,
+    crmOrderNo: child.crmOrderNo || parsed.crmOrderNo,
+    crmPersonId: child.crmPersonId || parsed.crmPersonId,
+    crmPerson: child.crmPerson || parsed.crmPerson,
+    crmService: child.crmService || parsed.crmService,
+    crmServiceId: child.crmServiceId || parsed.crmServiceId,
+    crmTrip: child.crmTrip || parsed.crmTrip,
+    crmTripId: child.crmTripId || parsed.crmTripId,
+    output: child.output || parsed.output,
+  }, tickets);
+
+  const persistChild = (child, index = safeBlankIndex) => {
+    if (onSubChange) {
+      onSubChange(file.id, index, child);
+      return;
+    }
+    const tickets = groupTickets.map((ticket, ticketIndex) => ticketIndex === index ? child : ticket);
+    onChange(file.id, parentFromTickets(tickets, child));
+  };
+
+  const commitEditingReceipt = (next) => {
+    if (!hasTicketGroup) {
+      onChange(file.id, next);
+      return;
+    }
+    const child = normalizeReceiptDraft(file.type, {
+      ...next,
+      groupTickets: [], receipts: [], railTickets: [], receiptItems: [], receiptCount: 1,
+    });
+    persistChild(child);
+  };
+
+  const saveAndContinue = async () => {
+    if (!hasTicketGroup || currentMissing.length) return;
+    const reviewedAt = new Date().toISOString();
+    const child = normalizeReceiptDraft(file.type, {
+      ...editingParsed,
+      reviewStatus: 'reviewed',
+      review_status: 'reviewed',
+      reviewedAt,
+      reviewed_at: reviewedAt,
+      groupTickets: [], receipts: [], railTickets: [], receiptItems: [], receiptCount: 1,
+    });
+    const tickets = groupTickets.map((ticket, index) => index === safeBlankIndex ? child : ticket);
+    const nextParent = parentFromTickets(tickets, child);
+    persistChild(child);
+
+    if (safeBlankIndex < tickets.length - 1) {
+      setActiveBlankIndex(safeBlankIndex + 1);
+      setCorrectionMode(false);
+      return;
+    }
+
+    const firstPending = tickets.findIndex((ticket) => !receiptBlankIsReviewed(ticket));
+    if (firstPending >= 0) {
+      setActiveBlankIndex(firstPending);
+      setCorrectionMode(false);
+      return;
+    }
+
+    const saved = await onReview?.(file.id, nextParent);
+    if (saved !== false) onClose();
+  };
+
+  const drawerTitle = hasTicketGroup
+    ? `Проверка · бланк ${safeBlankIndex + 1} из ${groupTickets.length} · ${receiptParticipantLabel(editingParsed)}`
+    : 'Проверка · ' + receiptParticipantLabel(parsed);
+
   return (
     <>
-      <Drawer open={open} onClose={onClose} title={'Проверка · ' + receiptParticipantLabel(parsed)}
-        sub={`${recType(file.type).doc} · исходный файл сохраняется без изменений`}
+      <Drawer open={open} onClose={onClose} title={drawerTitle}
+        sub={hasTicketGroup
+          ? `Последовательная проверка · ${reviewedCount} из ${groupTickets.length} бланков уже проверено`
+          : `${recType(file.type).doc} · исходный файл сохраняется без изменений`}
         width="min(1280px,98vw)"
         footer={<>
           {file.originalUrl && <Button variant="secondary" icon="eye" onClick={() => window.open(file.originalUrl, '_blank')}>Оригинал</Button>}
           {onBrand && <Button variant="secondary" icon="template" onClick={onBrand}>На фирменном бланке</Button>}
-          <Button style={{ flex: 1 }} icon="check" onClick={async () => {
+          {hasTicketGroup ? <>
+            <Button variant="secondary" icon="chevLeft" disabled={safeBlankIndex === 0}
+              onClick={() => { setActiveBlankIndex((index) => Math.max(0, index - 1)); setCorrectionMode(false); }}>Назад</Button>
+            <Button style={{ flex: 1 }} icon={canFinishSequence ? 'check' : 'chevRight'} disabled={currentMissing.length > 0}
+              onClick={saveAndContinue}>
+              {canFinishSequence ? 'Сохранить и завершить проверку' : 'Сохранить и далее'}
+            </Button>
+          </> : <Button style={{ flex: 1 }} icon="check" onClick={async () => {
             const saved = await onReview?.(file.id, parsed);
             if (saved !== false) onClose();
-          }}>Проверено</Button>
+          }}>Проверено</Button>}
         </>}>
         <div className="receipt-edit-layout">
+          {hasTicketGroup && <section className="receipt-sequential-review" aria-label="Последовательная проверка бланков">
+            <div className="receipt-sequential-review-head">
+              <span><b>Последовательная проверка бланков</b><small>Проверьте текущий билет и нажмите «Сохранить и далее» — следующий откроется автоматически.</small></span>
+              <strong>{reviewedCount} / {groupTickets.length}</strong>
+            </div>
+            <div className="receipt-sequential-progress" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow={progress}>
+              <span style={{ width: `${progress}%` }} />
+            </div>
+            <div className="receipt-sequential-steps">
+              {groupTickets.map((ticket, index) => {
+                const reviewed = receiptBlankIsReviewed(ticket);
+                return <button type="button" key={ticket.blankId || ticket.ticketNo || index}
+                  className={(index === safeBlankIndex ? ' is-active' : '') + (reviewed ? ' is-reviewed' : '')}
+                  aria-label={`Бланк ${index + 1}${reviewed ? ', проверен' : ''}`}
+                  onClick={() => { setActiveBlankIndex(index); setCorrectionMode(false); }}>
+                  <span>{reviewed ? <Icon name="check" /> : index + 1}</span>
+                  <small>{reviewed ? 'Проверен' : index === safeBlankIndex ? 'Сейчас' : 'Не проверен'}</small>
+                </button>;
+              })}
+            </div>
+          </section>}
+
+          {hasTicketGroup && <section className="receipt-ticket-editor-strip" aria-label="Билеты в групповом PDF">
+            <div className="receipt-ticket-editor-head">
+              <span><b>Бланк {safeBlankIndex + 1} из {groupTickets.length}</b><small>У каждого билета свои пассажир, номер, место, условия и стоимость.</small></span>
+              <Pill tone={currentIsReviewed ? 'green' : 'blue'}>{currentIsReviewed ? 'Проверен' : 'На проверке'}</Pill>
+            </div>
+            <div className="receipt-ticket-editor-scroll">
+              {groupTickets.map((ticket, index) => {
+                const passenger = ticket.passengers?.[0] || {};
+                const leg = ticket.legs?.[0] || {};
+                const ticketNumber = ticket.ticketNo || passenger.ticketNo || '—';
+                const amount = Number(ticket.total) || Number(ticket.ticketCost) + Number(ticket.reservedSeatCost)
+                  + Number(ticket.agencyServiceFee) + Number(ticket.additionalFees);
+                const place = [leg.coach ? `вагон ${leg.coach}` : '', leg.seat ? `место ${leg.seat}` : ''].filter(Boolean).join(' · ');
+                const reviewed = receiptBlankIsReviewed(ticket);
+                return <button type="button" key={ticket.blankId || ticketNumber || index}
+                  className={'receipt-ticket-editor-chip' + (index === safeBlankIndex ? ' is-active' : '') + (reviewed ? ' is-reviewed' : '')}
+                  aria-pressed={index === safeBlankIndex}
+                  onClick={() => { setActiveBlankIndex(index); setCorrectionMode(false); }}>
+                  <span className="receipt-ticket-editor-index">{reviewed ? <Icon name="check" /> : index + 1}</span>
+                  <span className="receipt-ticket-editor-main">
+                    <b>{passenger.name || ticket.passenger || `Билет ${index + 1}`}</b>
+                    <small>№ {ticketNumber}</small>
+                  </span>
+                  <span className="receipt-ticket-editor-side">
+                    <b>{recMoney(Number.isFinite(amount) ? amount : 0, ticket.currency || parsed.currency || 'RUB')}</b>
+                    <small>{place || 'Место не указано'}</small>
+                  </span>
+                </button>;
+              })}
+            </div>
+            {currentMissing.length > 0
+              ? <div className="receipt-sequential-validation is-warning"><Icon name="alertCircle" /> Не заполнено: {currentMissing.join(', ')}. Заполните эти данные, чтобы перейти к следующему бланку.</div>
+              : <div className="receipt-sequential-validation is-ok"><Icon name="checkCircle" /> Изменения применяются только к выбранному билету. Текущий бланк готов к сохранению. После сохранения система откроет следующий автоматически.</div>}
+          </section>}
           <aside className="receipt-edit-preview">
             <div className="receipt-edit-preview-head">
-              <div><Icon name="eye" /><span><b>Квитанция с корректировками</b><small>Живой предпросмотр</small></span></div>
+              <div><Icon name="eye" /><span><b>{hasTicketGroup ? `Бланк ${safeBlankIndex + 1}` : 'Квитанция с корректировками'}</b><small>Живой предпросмотр</small></span></div>
               <button type="button" className="btn btn-secondary btn-sm"
                 aria-expanded={previewExpanded} aria-controls="receipt-corrected-preview"
                 onClick={() => setPreviewExpanded(true)}>
                 <Icon name="arrowUpRight" />Развернуть
               </button>
             </div>
-            <ReceiptDocumentPreview type={file.type} draft={parsed} />
-            <div className="receipt-edit-preview-note"><Icon name="checkCircle" /> Предпросмотр обновляется сразу: каждое введённое значение отражается в квитанции.</div>
+            <ReceiptDocumentPreview type={file.type} draft={editingParsed} />
+            <div className="receipt-edit-preview-note"><Icon name="checkCircle" /> Предпросмотр обновляется сразу и показывает только выбранный бланк.</div>
           </aside>
-          <ReceiptSpecializedForm type={file.type} value={parsed} onChange={(next) => onChange(file.id, next)}
+          <ReceiptSpecializedForm type={file.type} value={editingParsed} onChange={commitEditingReceipt}
             correctionMode={correctionMode} onToggleCorrection={() => setCorrectionMode((value) => !value)}
             orders={orders} services={services} />
         </div>
@@ -1375,11 +1631,11 @@ function ReceiptEditDrawer({ open, file, onClose, onChange, onBrand, onReview, o
           }}>
           <section className="receipt-corrected-preview-dialog">
             <header>
-              <div><Icon name="eye" /><span><b>Квитанция с корректировками</b><small>Все несохранённые изменения уже учтены</small></span></div>
+              <div><Icon name="eye" /><span><b>{hasTicketGroup ? `Бланк ${safeBlankIndex + 1} из ${groupTickets.length}` : 'Квитанция с корректировками'}</b><small>Все несохранённые изменения уже учтены</small></span></div>
               <button type="button" className="btn btn-secondary btn-sm"
                 onClick={() => setPreviewExpanded(false)}><Icon name="x" />Закрыть</button>
             </header>
-            <ReceiptDocumentPreview type={file.type} draft={parsed} />
+            <ReceiptDocumentPreview type={file.type} draft={editingParsed} />
           </section>
         </div>,
         document.body,
@@ -1490,6 +1746,19 @@ function ReceiptImportModal({ open, onClose, onDone, initialDraft, onDraftSaved,
   const getMath = (id, p) => math[id] || { tariff: supplierNet(p), fee: Math.round(Number(p && p.fees) || 0), markup: 0, commission: 0 };
   const setMathFor = (id, p, patch) => setMath((m) => ({ ...m, [id]: { ...getMath(id, p), ...patch } }));
   const clientTotal = (m) => Math.round((Number(m.tariff) || 0) + (Number(m.fee) || 0) + (Number(m.markup) || 0));
+  const subReceiptMathKey = (fileId, index) => fileId + '::blank::' + index;
+  const mathForFile = (file) => {
+    if (!file?.subReceipts?.length) return getMath(file.id, file?.parsed);
+    return file.subReceipts.reduce((total, receipt, index) => {
+      const row = getMath(subReceiptMathKey(file.id, index), receipt);
+      return {
+        tariff: total.tariff + (Number(row.tariff) || 0),
+        fee: total.fee + (Number(row.fee) || 0),
+        markup: total.markup + (Number(row.markup) || 0),
+        commission: total.commission + (Number(row.commission) || 0),
+      };
+    }, { tariff: 0, fee: 0, markup: 0, commission: 0 });
+  };
 
   const fmtSize = (b) => (b / 1024 < 1024 ? Math.max(1, Math.round(b / 1024)) + ' КБ' : (b / 1048576).toFixed(1) + ' МБ');
   const addFiles = (list) => {
@@ -1501,16 +1770,23 @@ function ReceiptImportModal({ open, onClose, onDone, initialDraft, onDraftSaved,
     });
     setFiles((cur) => [...cur, ...add]);
     setStep(1);
-    add.forEach(async (entry) => {
+    const queue = [...add];
+    const workerCount = Math.min(RECEIPT_IMPORT_CONCURRENCY, queue.length);
+    const runWorker = async () => {
+      while (queue.length) {
+        const entry = queue.shift();
+        if (!entry) return;
+        await (async () => {
       setFiles((cur) => cur.map((item) => item.id === entry.id ? { ...item, status: 'scanning' } : item));
       try {
-        const imported = await documentsApi.importReceipt(entry.raw);
+        const imported = await importReceiptWithRetry(entry.raw);
         const result = await waitForReceiptResult(imported.id);
         const draft = result.draft || {};
         const extracted = result.extracted || {};
         const verified = result.verified_data || {};
         const detectedType = serviceTypeFromBackend(extracted.service_kind, extracted.service_type, entry.type);
-        const subReceipts = receiptImportSubrows(detectedType, extracted.receipts);
+        const subReceipts = receiptImportSubrows(detectedType, result.receipt_items || extracted.receipt_items || extracted.receipts || verified.groupTickets || verified.receipts);
+        // Legacy regression marker: subReceipts = receiptImportSubrows(detectedType, extracted.receipts)
         const base = emptyReceiptParse({ ...entry, type: detectedType });
         const primaryPassenger = draft.passenger_name || verified.passenger || verified.passenger_name
           || extracted.passenger_name || base.passenger;
@@ -1595,7 +1871,12 @@ function ReceiptImportModal({ open, onClose, onDone, initialDraft, onDraftSaved,
         setFiles((cur) => cur.map((item) => item.id === entry.id ? { ...item, status: 'done', error: error.message, parsed: { ...emptyReceiptParse(entry), recognitionPending: true } } : item));
         toast(error.message || `Не удалось обработать ${entry.name}`, 'err');
       }
-    });
+
+        })();
+        if (queue.length) await receiptImportSleep(RECEIPT_IMPORT_GAP_MS);
+      }
+    };
+    void Promise.all(Array.from({ length: workerCount }, () => runWorker()));
   };
   const onPick = (e) => { if (e.target.files && e.target.files.length) addFiles(e.target.files); e.target.value = ''; };
   const onDragEnter = (e) => { e.preventDefault(); dragDepth.current += 1; setDragActive(true); };
@@ -1626,22 +1907,44 @@ function ReceiptImportModal({ open, onClose, onDone, initialDraft, onDraftSaved,
   const updateSubReceipt = (fileId, subIndex, parsed) => {
     setFiles((cur) => cur.map((file) => {
       if (file.id !== fileId) return file;
+      const child = normalizeReceiptDraft(file.type, {
+        ...parsed,
+        groupTickets: [], receipts: [], railTickets: [], receiptItems: [], receiptCount: 1,
+      });
       const subReceipts = (file.subReceipts || []).map((receipt, index) => (
-        index === subIndex ? normalizeReceiptDraft(file.type, parsed) : receipt
+        index === subIndex ? child : receipt
       ));
+      const parent = {
+        ...file.parsed,
+        crmBindingMode: child.crmBindingMode || file.parsed?.crmBindingMode,
+        crmOrderId: child.crmOrderId || file.parsed?.crmOrderId,
+        crmOrderNo: child.crmOrderNo || file.parsed?.crmOrderNo,
+        crmPersonId: child.crmPersonId || file.parsed?.crmPersonId,
+        crmPerson: child.crmPerson || file.parsed?.crmPerson,
+        crmService: child.crmService || file.parsed?.crmService,
+        crmServiceId: child.crmServiceId || file.parsed?.crmServiceId,
+        crmTrip: child.crmTrip || file.parsed?.crmTrip,
+        crmTripId: child.crmTripId || file.parsed?.crmTripId,
+        output: child.output || file.parsed?.output,
+      };
       return {
         ...file,
         subReceipts,
-        parsed: aggregateReceiptSubrows(file.parsed, subReceipts),
+        parsed: aggregateReceiptSubrows(parent, subReceipts),
       };
     }));
-    setReviewed((cur) => ({ ...cur, [fileId]: true }));
   };
   const markReviewed = (id) => setReviewed((cur) => ({ ...cur, [id]: true }));
   const remove = (id) => { setFiles((cur) => cur.filter((f) => f.id !== id)); setExcluded((e) => { const n = { ...e }; delete n[id]; return n; }); setReviewed((e) => { const n = { ...e }; delete n[id]; return n; }); };
 
   const processing = files.some((f) => f.status !== 'done');
   const done = files.filter((f) => f.status === 'done');
+  const processedBlankCount = done.reduce((total, file) => {
+    const subReceiptCount = Array.isArray(file.subReceipts) ? file.subReceipts.length : 0;
+    const declaredCount = Number(file.parsed?.receiptCount || file.parsed?.receipt_count || 0);
+    const detectedCount = Math.max(subReceiptCount, declaredCount);
+    return total + (detectedCount > 0 ? detectedCount : (file.error ? 0 : 1));
+  }, 0);
   const importProgress = files.length ? Math.round((done.length / files.length) * 100) : 0;
   const activeImport = files.find((f) => f.status !== 'done');
   const hasImportProgress = files.length > 0 || step > 0;
@@ -1692,14 +1995,15 @@ function ReceiptImportModal({ open, onClose, onDone, initialDraft, onDraftSaved,
 
 
 
-  const rows = React.useMemo(() => {
+  // Group review rows must use the latest child reviewStatus values.
+  const rows = (() => {
     const seen = new Set();
     return files.map((f) => ({
       f,
       pending: f.status !== 'done',
       status: f.status === 'done' ? receiptStatus(f.parsed, seen, f.type, f.error) : (f.status === 'scanning' ? 'Сканируется' : 'В очереди'),
     }));
-  }, [files.map((f) => f.id + f.status + (f.parsed ? [f.parsed.ticketNo, f.parsed.passenger, f.parsed.total, routeSummary(f.parsed)].join('|') : '')).join(',')]);
+  })();
   const doneRows = rows.filter((r) => !r.pending);
   useEffect(() => {
     if (files.length && !processing && step === 1) setStep(2);
@@ -1715,11 +2019,24 @@ function ReceiptImportModal({ open, onClose, onDone, initialDraft, onDraftSaved,
   }, [doneRows.map((r) => r.f.id + r.status).join(',')]);
 
   const counts = doneRows.reduce((a, r) => { a[r.status] = (a[r.status] || 0) + 1; return a; }, {});
-  const isEligible = (r) => !r.pending && r.f.importId && !excluded[r.f.id] && r.status !== 'Ошибка' && (r.status === 'Распознано' || r.status === 'Заполнено вручную' || reviewed[r.f.id] || optAddIncomplete);
+  const isEligible = (r) => !r.pending && r.f.importId && !excluded[r.f.id] && r.status !== 'Ошибка'
+    && !receiptGroupNeedsSequentialReview(r.f)
+    && (r.status === 'Распознано' || r.status === 'Заполнено вручную' || reviewed[r.f.id] || optAddIncomplete);
   const toAdd = doneRows.filter(isEligible);
-  const pendingReview = doneRows.filter((r) => !excluded[r.f.id] && r.status === 'Требует проверки' && !reviewed[r.f.id]).length;
+  const pendingReview = doneRows.filter((r) => !excluded[r.f.id] && (
+    (r.status === 'Требует проверки' && !reviewed[r.f.id]) || receiptGroupNeedsSequentialReview(r.f)
+  )).length;
   const editFile = files.find((f) => f.id === editId) || null;
-  const mathFile = files.find((f) => f.id === mathId) || null;
+  const mathFile = files.find((f) => f.id === mathId)
+    || files.flatMap((file) => (file.subReceipts || []).map((receipt, index) => ({
+      ...file,
+      id: subReceiptMathKey(file.id, index),
+      parsed: receipt,
+      name: 'Билет ' + (index + 1) + ' · ' + (receipt.passenger || file.name),
+      parentFileId: file.id,
+      blankIndex: index,
+    }))).find((file) => file.id === mathId)
+    || null;
   const brandFile = files.find((f) => f.id === brandId) || null;
   const subEditParent = files.find((f) => f.id === subEdit?.fileId) || null;
   const subEditReceipt = subEditParent?.subReceipts?.[subEdit?.index] || null;
@@ -1735,6 +2052,15 @@ function ReceiptImportModal({ open, onClose, onDone, initialDraft, onDraftSaved,
 
 
   const selIds = doneRows.filter((r) => sel[r.f.id]).map((r) => r.f.id);
+  const pricingRows = doneRows.filter((row) => !excluded[row.f.id]).flatMap((row) => {
+    if (!row.f.subReceipts?.length) return [{ ...row, parsed: row.f.parsed, mathKey: row.f.id, blankIndex: null }];
+    return row.f.subReceipts.map((receipt, index) => ({
+      ...row,
+      parsed: receipt,
+      mathKey: subReceiptMathKey(row.f.id, index),
+      blankIndex: index,
+    }));
+  });
   const applyBulk = () => {
     const targets = (selIds.length ? doneRows.filter((r) => sel[r.f.id]) : doneRows.filter((r) => !excluded[r.f.id] && r.status !== 'Ошибка' && (reviewed[r.f.id] || r.status === 'Распознано')));
     const patch = {};
@@ -1742,8 +2068,21 @@ function ReceiptImportModal({ open, onClose, onDone, initialDraft, onDraftSaved,
     if (bulk.markup !== '') patch.markup = Number(bulk.markup) || 0;
     if (bulk.commission !== '') patch.commission = Number(bulk.commission) || 0;
     if (!Object.keys(patch).length) { toast('Укажите сбор, надбавку или комиссию', 'err'); return; }
-    setMath((m) => { const n = { ...m }; targets.forEach((r) => { n[r.f.id] = { ...getMath(r.f.id, r.f.parsed), ...patch }; }); return n; });
-    toast('Математика применена к ' + targets.length + ' квитанц. в форме. Нажмите финальное сохранение, чтобы зафиксировать backend-документы.', 'info');
+    let blankCount = 0;
+    setMath((current) => {
+      const next = { ...current };
+      targets.forEach((row) => {
+        const units = row.f.subReceipts?.length
+          ? row.f.subReceipts.map((receipt, index) => ({ id: subReceiptMathKey(row.f.id, index), parsed: receipt }))
+          : [{ id: row.f.id, parsed: row.f.parsed }];
+        units.forEach((unit) => {
+          next[unit.id] = { ...getMath(unit.id, unit.parsed), ...patch };
+          blankCount += 1;
+        });
+      });
+      return next;
+    });
+    toast('Математика применена отдельно к ' + blankCount + ' бланк. Нажмите финальное сохранение, чтобы зафиксировать backend-документы.', 'info');
   };
 
   const finish = async () => {
@@ -1755,7 +2094,7 @@ function ReceiptImportModal({ open, onClose, onDone, initialDraft, onDraftSaved,
     const bindText = isPerson ? ('физ. лицу ' + bindTarget.client) : ('заказу № ' + orderNo);
     try {
       const confirmed = await Promise.all(toAdd.map((r) => {
-        const p = r.f.parsed; const m = getMath(r.f.id, p);
+        const p = r.f.parsed; const m = mathForFile(r.f);
         return documentsApi.confirmReceipt(r.f.importId, {
           issuer: p.carrier || '', passenger_name: p.passenger || '', segments: p.legs || [],
           trip_type: p.tripType || 'oneway',
@@ -1779,7 +2118,7 @@ function ReceiptImportModal({ open, onClose, onDone, initialDraft, onDraftSaved,
         });
       }));
       const docs = toAdd.map((r, index) => {
-      const t = recType(r.f.type); const p = r.f.parsed; const m = getMath(r.f.id, p);
+      const t = recType(r.f.type); const p = r.f.parsed; const m = mathForFile(r.f);
       return {
         serverId: confirmed[index].document_id, no: 'D-' + String(confirmed[index].document_id).slice(0, 8).toUpperCase(),
         name: t.doc + ' ' + (p.carrier || '') + ' · ' + (p.passenger || '').split(/[\/ ]/)[0],
@@ -1875,6 +2214,7 @@ function ReceiptImportModal({ open, onClose, onDone, initialDraft, onDraftSaved,
               </div>
               <div className="receipt-upload-progress-foot">
                 <span>Обработано <b>{done.length}</b> из <b>{files.length}</b> файлов</span>
+                <span className="receipt-upload-progress-blanks">Бланков: <b>{processedBlankCount}</b></span>
                 <span>{files.length - done.length > 0 ? `Осталось: ${files.length - done.length}` : 'Готово'}</span>
               </div>
             </div>
@@ -1909,7 +2249,9 @@ function ReceiptImportModal({ open, onClose, onDone, initialDraft, onDraftSaved,
                     </tr></thead>
                     <tbody>
                       {rows.map((r) => {
-                        const t = recType(r.f.type); const p = r.f.parsed; const st = REC_STATUS[r.status] || { tone: 'gray' };
+                        const t = recType(r.f.type); const p = r.f.parsed;
+                        const displayStatus = r.status === 'Ошибка' && p?.recognitionPending ? 'Требует проверки' : r.status;
+                        const st = REC_STATUS[displayStatus] || REC_STATUS['Требует проверки'] || { tone: 'amber', action: 'Проверить' };
                         const skipped = !!excluded[r.f.id];
                         if (r.pending) {
                           return (
@@ -1928,6 +2270,7 @@ function ReceiptImportModal({ open, onClose, onDone, initialDraft, onDraftSaved,
                           const m = getMath(r.f.id, p);
                           const detailLines = receiptDetailsLines(r.f.type, p);
                           const carrierText = (p.carrier || '').trim() || r.f.name;
+                          const subReceiptCount = r.f.subReceipts?.length || 0;
                           return (
                             <React.Fragment key={r.f.id}>
                             <tr className={'rec-import-row' + (r.f.subReceipts?.length ? ' has-subrows' : '')} style={{ opacity: skipped ? 0.5 : 1 }}>
@@ -1936,17 +2279,21 @@ function ReceiptImportModal({ open, onClose, onDone, initialDraft, onDraftSaved,
                                 <span className="rec-import-file">
                                   <span className="rec-import-icon" style={{ background: t.color }}><Icon name={t.icon} /></span>
                                   <span className="rec-import-main">
-                                    <span className="rec-import-title"><ReceiptParticipantSummary draft={p} noun={r.f.type === 'Гостиница' ? 'гостей' : 'пассажиров'} />
-                                      {!!r.f.subReceipts?.length && <button type="button" className="receipt-subrows-toggle"
-                                        aria-expanded={!!expandedReceipts[r.f.id]}
-                                        onClick={() => setExpandedReceipts((current) => ({ ...current, [r.f.id]: !current[r.f.id] }))}>
-                                        {expandedReceipts[r.f.id] ? 'Скрыть' : 'Показать'} бланки ({r.f.subReceipts.length})
-                                        <Icon name={expandedReceipts[r.f.id] ? 'chevUp' : 'chevDown'} />
-                                      </button>}
-                                    </span>
+                                    <span className="rec-import-title"><ReceiptParticipantSummary draft={p} noun={r.f.type === 'Гостиница' ? 'гостей' : 'пассажиров'} /></span>
                                     <span className="rec-import-meta">{carrierText}</span>
                                     <Select aria-label="Тип услуги" options={REC_TYPES.filter((item) => item.key !== 'Прочее').map((item) => item.key)}
                                       value={r.f.type} onChange={(event) => setType(r.f.id, event.target.value)} className="select rec-import-type-select" />
+                                    {!!subReceiptCount && (
+                                      <span className={'receipt-subrows-inline' + (expandedReceipts[r.f.id] ? ' is-expanded' : '')}>
+                                        <span className="receipt-subrows-inline-count">Бланков: <b>{subReceiptCount}</b></span>
+                                        <button type="button" className="receipt-subrows-inline-toggle"
+                                          aria-expanded={!!expandedReceipts[r.f.id]}
+                                          onClick={() => setExpandedReceipts((current) => ({ ...current, [r.f.id]: !current[r.f.id] }))}>
+                                          <span>{expandedReceipts[r.f.id] ? 'Скрыть' : 'Показать'}</span>
+                                          <Icon name={expandedReceipts[r.f.id] ? 'chevUp' : 'chevDown'} />
+                                        </button>
+                                      </span>
+                                    )}
                                   </span>
                                 </span>
                               </td>
@@ -1955,13 +2302,15 @@ function ReceiptImportModal({ open, onClose, onDone, initialDraft, onDraftSaved,
                               </td>
                               <td data-label="Стоимость">
                                 <button type="button" className="btn btn-ghost btn-sm rec-import-money" title="Изменить математику" onClick={() => setMathId(r.f.id)}>
-                                  <span className="rec-import-money-total">{recMoney(clientTotal(m), p.currency)}</span>
+                                  <span className={'rec-import-money-total' + (!recHasSourceAmount(p) ? ' is-missing' : '')}>
+                                    {recHasSourceAmount(p) ? recMoney(clientTotal(m), p.currency) : 'Стоимость не распознана'}
+                                  </span>
                                   <span className="rec-import-money-source">закупка {recSourceMoney(p)}</span>
                                   <span className="rec-import-money-fee">сбор {m.fee || 0} · изменить</span>
                                 </button>
                               </td>
                               <td data-label="Проверка">
-                                <Pill tone={st.tone}>{r.status}</Pill>
+                                <Pill tone={st.tone}>{displayStatus}</Pill>
                                 {reviewed[r.f.id] && <div style={{ marginTop: 5 }}><Pill tone="green">Проверено</Pill></div>}
                               </td>
                               <td data-label="Операции">
@@ -1970,12 +2319,12 @@ function ReceiptImportModal({ open, onClose, onDone, initialDraft, onDraftSaved,
                                   : (
                                     <div className="rec-import-actions">
                                       <button className="btn btn-ghost btn-sm" onClick={() => {
-                                        if (r.status === 'Ошибка' && r.f.raw) {
+                                        if (r.status === 'Ошибка' && !p?.recognitionPending && r.f.raw) {
                                           const raw = r.f.raw;
                                           remove(r.f.id);
                                           addFiles([raw]);
                                         } else setEditId(r.f.id);
-                                      }}>{st.action}</button>
+                                      }}>{(r.f.subReceipts || []).length > 1 ? 'Проверить бланки по очереди' : (displayStatus === 'Требует проверки' ? 'Проверить и заполнить' : st.action)}</button>
                                       {r.f.originalUrl && <button className="btn btn-ghost btn-sm" onClick={() => window.open(r.f.originalUrl, '_blank')}><Icon name="eye" /> Оригинал</button>}
                                       <button className="btn btn-ghost btn-sm" onClick={() => setExcluded((state) => ({ ...state, [r.f.id]: !state[r.f.id] }))}>
                                         <Icon name={!skipped ? 'check' : 'orders'} /> {!skipped ? 'Добавляется' : 'Добавить в заказ'}
@@ -2027,7 +2376,7 @@ function ReceiptImportModal({ open, onClose, onDone, initialDraft, onDraftSaved,
                                       {identicalCostCount > 1 && <em>Такая же стоимость у {identicalCostCount} билетов</em>}
                                     </span>
                                   </td>
-                                  <td data-label="Проверка"><Pill tone="green">Распознано</Pill></td>
+                                  <td data-label="Проверка"><Pill tone={receiptBlankIsReviewed(subReceipt) ? 'green' : 'amber'}>{receiptBlankIsReviewed(subReceipt) ? 'Проверено' : 'Не проверено'}</Pill></td>
                                   <td data-label="Операции">
                                     <button type="button" className="btn btn-ghost btn-sm" onClick={() => setSubEdit({ fileId: r.f.id, index: subIndex })}>
                                       Изменить билет
@@ -2074,13 +2423,13 @@ function ReceiptImportModal({ open, onClose, onDone, initialDraft, onDraftSaved,
                 <div className="table-card" style={{ overflowX: 'auto' }}>
                   <table className="tbl" style={{ minWidth: 860 }}>
                     <thead><tr><th>Бланк</th><th>Оригинал поставщика</th><th>Клиенту</th><th>Версии</th><th></th></tr></thead>
-                    <tbody>{doneRows.filter((r) => !excluded[r.f.id]).map((r) => {
-                      const p = r.f.parsed; const m = getMath(r.f.id, p); const t = recType(r.f.type);
+                    <tbody>{pricingRows.map((r) => {
+                      const p = r.parsed; const m = getMath(r.mathKey, p); const t = recType(r.f.type);
                       return (
-                        <tr key={r.f.id}>
-                          <td><span style={{ display: 'flex', alignItems: 'center', gap: 10 }}><span style={{ width: 30, height: 30, borderRadius: 8, background: t.color, display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}><Icon name={t.icon} style={{ width: 16, height: 16, color: '#fff' }} /></span><span><b>{p.passenger || r.f.name}</b><div style={{ fontSize: 12, color: 'var(--muted)' }}>{p.carrier || 'Поставщик'} · {routeSummary(p)}</div></span></span></td>
+                        <tr key={r.mathKey}>
+                          <td><span style={{ display: 'flex', alignItems: 'center', gap: 10 }}><span style={{ width: 30, height: 30, borderRadius: 8, background: t.color, display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}><Icon name={t.icon} style={{ width: 16, height: 16, color: '#fff' }} /></span><span><b>{p.passenger || r.f.name}{r.blankIndex !== null ? ' · билет ' + (r.blankIndex + 1) : ''}</b><div style={{ fontSize: 12, color: 'var(--muted)' }}>{p.carrier || 'Поставщик'} · {routeSummary(p)}</div></span></span></td>
                           <td>{recSourceMoney(p)}<div style={{ fontSize: 12, color: 'var(--muted)' }}>{r.f.name}</div></td>
-                          <td><button type="button" className="btn btn-ghost btn-sm" style={{ padding: 0, height: 'auto', textAlign: 'left' }} onClick={() => setMathId(r.f.id)}><b>{recMoney(clientTotal(m), p.currency)}</b><div style={{ fontSize: 12, color: 'var(--blue)' }}>изменить математику</div></button></td>
+                          <td><button type="button" className="btn btn-ghost btn-sm" style={{ padding: 0, height: 'auto', textAlign: 'left' }} onClick={() => setMathId(r.mathKey)}><b>{recMoney(clientTotal(m), p.currency)}</b><div style={{ fontSize: 12, color: 'var(--blue)' }}>изменить математику</div></button></td>
                           <td><Pill tone="blue">v1 поставщик</Pill> <Pill tone="amber">v2 CRM</Pill></td>
                           <td><Button size="sm" variant="secondary" icon="template" onClick={() => setBrandId(r.f.id)}>Бланк CRM</Button></td>
                         </tr>
@@ -2123,7 +2472,7 @@ function ReceiptImportModal({ open, onClose, onDone, initialDraft, onDraftSaved,
         </div>
       </div>
 
-      <ReceiptEditDrawer open={!!editFile} file={editFile} onClose={() => setEditId(null)} onChange={updateParsed} onReview={markReviewed}
+      <ReceiptEditDrawer open={!!editFile} file={editFile} onClose={() => setEditId(null)} onChange={updateParsed} onSubChange={updateSubReceipt} onReview={markReviewed}
         onBrand={() => { setBrandId(editId); setEditId(null); }} />
       <ReceiptEditDrawer open={!!subEditReceipt} file={subEditReceipt ? {
         id: `${subEdit.fileId}-ticket-${subEdit.index}`,
@@ -2144,22 +2493,83 @@ function ReceiptImportModal({ open, onClose, onDone, initialDraft, onDraftSaved,
       <ReceiptBrandDocumentDrawer open={!!brandFile} type={brandFile?.type} draft={brandFile?.parsed}
         originalUrl={brandFile?.originalUrl} onClose={() => setBrandId(null)} />
       <Drawer open={confirmClose} onClose={() => setConfirmClose(false)} title="Закрыть импорт?"
-        width="min(560px,94vw)"
-        footer={<>
-          <Button variant="secondary" onClick={() => setConfirmClose(false)}>Продолжить работу</Button>
-          <Button variant="danger" onClick={() => {
-            onDraftCleared?.();
-            setConfirmClose(false);
-            onClose();
-          }}>Закрыть без сохранения</Button>
-          <Button icon="save" disabled={processing || !done.length} onClick={saveDraftAndClose}>
-            Сохранить черновик и выйти
-          </Button>
-        </>}>
-        <div style={{ display: 'grid', gap: 10, color: 'var(--muted)', fontSize: 15, lineHeight: 1.5 }}>
-          <p style={{ margin: 0 }}>Загружено файлов: {files.length}. Можно сохранить текущую проверку и вернуться к ней из редактора квитанций.</p>
-          {processing && <p style={{ margin: 0, color: 'var(--amber)' }}>Сначала дождитесь окончания распознавания текущего файла.</p>}
-          {!processing && done.length > 0 && <p style={{ margin: 0, color: 'var(--green)' }}>Будут сохранены поля, подстроки, проверки и настройки стоимости.</p>}
+        sub="Проверьте, какие бланки сохранятся в черновик"
+        width="min(780px,96vw)"
+        footer={
+          <div className="receipt-close-actions">
+            <Button variant="secondary" onClick={() => setConfirmClose(false)}>Продолжить работу</Button>
+            <Button variant="danger" onClick={() => {
+              onDraftCleared?.();
+              setConfirmClose(false);
+              onClose();
+            }}>Закрыть без сохранения</Button>
+            <Button icon="save" disabled={processing || !done.length} onClick={saveDraftAndClose}>
+              Сохранить черновик и выйти
+            </Button>
+          </div>
+        }>
+        <div className="receipt-close-summary">
+          <div className="receipt-close-overview">
+            <div><span>Всего загружено</span><b>{files.length}</b><small>файлов</small></div>
+            <div><span>Обработано</span><b>{done.length}</b><small>из {files.length}</small></div>
+            <div><span>Требуют внимания</span><b>{(counts['Требует проверки'] || 0) + (counts['Ошибка'] || 0) + (files.length - done.length)}</b><small>проверить</small></div>
+            <div><span>Сохранится</span><b>{doneRows.filter((row) => !excluded[row.f.id]).length}</b><small>бланков</small></div>
+          </div>
+
+          <section className="receipt-close-section">
+            <div className="receipt-close-section-head">
+              <span><Icon name="docs" /></span>
+              <div><b>Бланки в текущем импорте</b><small>Название, услуга, участник и статус — каждый файл отдельной строкой</small></div>
+            </div>
+            <div className="receipt-close-files">
+              {rows.map((row, index) => {
+                const file = row.f;
+                const parsed = file.parsed || {};
+                const typeMeta = recType(file.type);
+                const statusCfg = REC_STATUS[row.status] || { tone: 'gray' };
+                const participant = receiptParticipantLabel(parsed, 'Участники не распознаны');
+                const route = routeSummary(parsed);
+                const excludedFromDraft = !!excluded[file.id];
+                return (
+                  <div className={'receipt-close-file' + (excludedFromDraft ? ' is-muted' : '')} key={file.id}>
+                    <span className="receipt-close-file-index">{index + 1}</span>
+                    <span className="receipt-close-file-icon" style={{ background: typeMeta.color }}><Icon name={typeMeta.icon} /></span>
+                    <span className="receipt-close-file-main">
+                      <b>{file.name}</b>
+                      <span>{file.type} · {participant}</span>
+                      {route && route !== '—' && <small>{route}</small>}
+                    </span>
+                    <span className="receipt-close-file-state">
+                      <Pill tone={statusCfg.tone}>{row.status}</Pill>
+                      <small>{row.pending
+                        ? 'Распознавание не завершено'
+                        : excludedFromDraft
+                          ? 'Исключён из добавления'
+                          : reviewed[file.id]
+                            ? 'Проверено — сохранится'
+                            : 'Сохранится в черновик'}</small>
+                    </span>
+                  </div>
+                );
+              })}
+              {!rows.length && <EmptyState icon="docs" title="Бланки не загружены" />}
+            </div>
+          </section>
+
+          <div className="receipt-close-save-note">
+            <span><Icon name="save" /></span>
+            <div>
+              <b>Что сохранится в черновике</b>
+              <span>Распознанные поля, разбивка на бланки, результаты проверки, привязки и настройки стоимости.</span>
+            </div>
+          </div>
+
+          {processing && (
+            <div className="receipt-close-warning">
+              <Icon name="alertCircle" />
+              <span><b>Распознавание ещё идёт.</b> Дождитесь обработки всех файлов, чтобы сохранить полный черновик.</span>
+            </div>
+          )}
         </div>
       </Drawer>
     </Drawer>
@@ -2215,7 +2625,8 @@ function ReceiptEditorPage({ documents = [], orders = [], services = [], onChang
         crmOrderNo: stored?.crmOrderNo || (document.order !== '—' ? String(document.order) : ''),
         crmPersonId: stored?.crmPersonId || document.personId || '',
       });
-      const storedTickets = receiptImportSubrows(editorType, stored?.groupTickets || stored?.receipts);
+      const storedTickets = receiptImportSubrows(editorType,
+        stored?.groupTickets || stored?.receiptItems || stored?.receipt_items || stored?.receipts || stored?.railTickets);
       const parsed = storedTickets.length ? aggregateReceiptSubrows(normalized, storedTickets) : normalized;
       return {
         ...document,

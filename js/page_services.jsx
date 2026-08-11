@@ -54,10 +54,10 @@ function SvcField({ f, form, set }) {
   if (f.t === 'daterange') return <div className="av-field" style={{ width: f.w }}><span className="label">{f.l}</span><DateRangeField startVal={v && v.s} endVal={v && v.e} onChange={(s, e) => set(f.k, { s, e })} /></div>;
   if (f.t === 'select') return <div className="av-field" style={{ width: f.w }}><span className="label">{f.l}</span><Select options={f.o} value={v || f.o[0]} onChange={(e) => set(f.k, e.target.value)} /></div>;
   if (f.t === 'stepper') {
-    const n = v == null ? 1 : v;
+    const n = Math.max(0, Number(v == null ? 1 : v) || 0);
     return <div className="av-field" style={{ width: f.w }}><span className="label">{f.l}</span>
       <div className="input" style={{ display: 'flex', alignItems: 'center', gap: 8, justifyContent: 'space-between' }}>
-        <button className="btn btn-secondary btn-icon btn-sm" disabled={n <= 1} onClick={() => set(f.k, n - 1)}>−</button>
+        <button className="btn btn-secondary btn-icon btn-sm" disabled={n <= 0} onClick={() => set(f.k, Math.max(0, n - 1))}>−</button>
         <span style={{ fontWeight: 700 }}>{n}</span>
         <button className="btn btn-secondary btn-icon btn-sm" onClick={() => set(f.k, n + 1)}>+</button>
       </div></div>;
@@ -1506,9 +1506,9 @@ const BACKEND_SERVICE_KIND = { rail: 'rail', hotels: 'hotel', transfers: 'transf
 const isoDate = (value) => value instanceof Date ? value.toISOString().slice(0, 10) : value || undefined;
 function backendCriteria(routeKey, form) {
   const common = { currency: 'USD' };
-  if (routeKey === 'hotels') return { ...common, location: form.city, check_in: isoDate(form.dates?.s), check_out: isoDate(form.dates?.e), guests: form.guests || 1, rooms: form.rooms || 1, stars: form.stars };
-  if (routeKey === 'tours') return { ...common, destination: form.dest, date: isoDate(form.dates?.s), return_date: isoDate(form.dates?.e), passengers: form.pax || 1, meal_plan: form.board };
-  return { ...common, origin: form.from || form.dir || form.airport, destination: form.to, date: isoDate(form.date || form.dt), return_date: isoDate(form.retDate), passengers: form.pax || 1, class: form.cls };
+  if (routeKey === 'hotels') return { ...common, location: form.city, check_in: isoDate(form.dates?.s), check_out: isoDate(form.dates?.e), guests: form.guests ?? 0, rooms: form.rooms ?? 0, stars: form.stars };
+  if (routeKey === 'tours') return { ...common, destination: form.dest, date: isoDate(form.dates?.s), return_date: isoDate(form.dates?.e), passengers: form.pax ?? 0, meal_plan: form.board };
+  return { ...common, origin: form.from || form.dir || form.airport, destination: form.to, date: isoDate(form.date || form.dt), return_date: isoDate(form.retDate), passengers: form.pax ?? 0, class: form.cls };
 }
 function offerDates(itinerary) {
   const departure = itinerary?.segments?.[0]?.departure;
@@ -1918,7 +1918,7 @@ function AeroAddFlow({ onAdd }) {
                   <DateField value={retDate} onChange={setRetDate} placeholder="Дата" /></div>}
                 <div className="av-field" style={{ width: 150 }}><span className="label">Пассажиров</span>
                   <div className="input" style={{ display: 'flex', alignItems: 'center', gap: 8, justifyContent: 'space-between' }}>
-                    <button className="btn btn-secondary btn-icon btn-sm" disabled={pax <= 1} onClick={() => setPax(pax - 1)}>−</button>
+                    <button className="btn btn-secondary btn-icon btn-sm" disabled={pax <= 0} onClick={() => setPax(Math.max(0, pax - 1))}>−</button>
                     <span style={{ fontWeight: 700 }}>{pax}</span>
                     <button className="btn btn-secondary btn-icon btn-sm" onClick={() => setPax(pax + 1)}>+</button>
                   </div>
@@ -2109,15 +2109,29 @@ function RailAddFlow({ participants = [], groups, onAdd }) {
         ))}
       </div>
       <div className="av-bar">
-        <div className="av-field" style={{ width: 190 }}><span className="label">Откуда</span><Input value={form.from} onChange={(e) => setF('from', e.target.value)} /></div>
+        <div className="av-field" style={{ width: 190 }}><span className="label">Откуда</span><Input
+          value={form.from}
+          onChange={(e) => setF('from', e.target.value)}
+          placeholder="Город или вокзал"
+          locationAutocomplete
+          locationScope="rail"
+          data-field-label="Откуда"
+        /></div>
 
         <button className="av-swap" onClick={swap} title="Поменять местами" style={{ alignSelf: 'flex-end', marginBottom: 0 }}><Icon name="swap" style={{ width: 18, height: 18 }} /></button>
-        <div className="av-field" style={{ width: 190 }}><span className="label">Куда</span><Input value={form.to} onChange={(e) => setF('to', e.target.value)} /></div>
+        <div className="av-field" style={{ width: 190 }}><span className="label">Куда</span><Input
+          value={form.to}
+          onChange={(e) => setF('to', e.target.value)}
+          placeholder="Город или вокзал"
+          locationAutocomplete
+          locationScope="rail"
+          data-field-label="Куда"
+        /></div>
         <div className="av-field" style={{ width: 150 }}><span className="label">{form.trip === 'rt' ? 'Туда' : 'Дата'}</span><DateField value={form.dep} onChange={(d) => setF('dep', d)} placeholder="Дата" /></div>
         {form.trip === 'rt' && <div className="av-field" style={{ width: 150 }}><span className="label">Обратно</span><DateField value={form.ret} onChange={(d) => setF('ret', d)} placeholder="—" /></div>}
         <div className="av-field" style={{ width: 130 }}><span className="label">Пассажиры</span>
           <div className="input" style={{ display: 'flex', alignItems: 'center', gap: 8, justifyContent: 'space-between' }}>
-            <button className="btn btn-secondary btn-icon btn-sm" disabled={form.pax <= 1} onClick={() => setF('pax', form.pax - 1)}>−</button>
+            <button className="btn btn-secondary btn-icon btn-sm" disabled={form.pax <= 0} onClick={() => setF('pax', Math.max(0, form.pax - 1))}>−</button>
             <span style={{ fontWeight: 700 }}>{form.pax}</span>
             <button className="btn btn-secondary btn-icon btn-sm" onClick={() => setF('pax', form.pax + 1)}>+</button>
           </div>

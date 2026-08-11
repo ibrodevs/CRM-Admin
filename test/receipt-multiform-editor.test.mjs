@@ -8,7 +8,9 @@ const cssUrl = new URL('../app/receipt-ui-fixes.css', import.meta.url);
 test('backend receipts normalise into separate rail blanks', async () => {
   const source = await readFile(editorUrl, 'utf8');
 
-  assert.match(source, /const rawGroupTickets = \[value\.groupTickets, value\.receipts, value\.railTickets\]/);
+  assert.match(source, /const rawGroupTickets = \[/);
+  assert.match(source, /value\.receiptItems,/);
+  assert.match(source, /value\.receipt_items,/);
   assert.match(source, /draft\.groupTickets = rawGroupTickets\.map/);
   assert.match(source, /receiptIndex: ticket\.receiptIndex \|\| ticket\.receipt_index \|\| index \+ 1/);
 });

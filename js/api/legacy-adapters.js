@@ -31,9 +31,12 @@ function receiptDraftFromMetadata(item) {
   const metadata = item?.metadata || {};
   const receiptImport = metadata.receipt_import || {};
   const supplierOriginal = metadata.supplier_original || {};
-  const stored = supplierOriginal.verified_data
-    || receiptImport.verified_data
+  // Saved operator corrections are the client-facing source of truth.  The
+  // supplier snapshot is only a fallback for documents that were never edited.
+  const stored = receiptImport.verified_data
     || receiptImport.corrected_fields
+    || supplierOriginal.corrected_verified_data
+    || supplierOriginal.verified_data
     || null;
   if (!stored || typeof stored !== 'object') return null;
 

@@ -18,7 +18,13 @@ replaceOnce(
 `  if ((type === 'Гостиница' || type === 'Трансфер') && (value.supplierCost === undefined || value.supplierCost === '')) draft.supplierCost = supplierBase || '';
   if ((type === 'Гостиница' || type === 'Трансфер') && (value.agencyServiceFee === undefined || value.agencyServiceFee === '')) draft.agencyServiceFee = value.fees || '';
 
-  const rawGroupTickets = [value.groupTickets, value.receipts, value.railTickets]
+  const rawGroupTickets = [
+    value.groupTickets,
+    value.receiptItems,
+    value.receipt_items,
+    value.receipts,
+    value.railTickets,
+  ]
     .find((rows) => Array.isArray(rows) && rows.length > 0) || [];
   draft.groupTickets = rawGroupTickets.map((ticket, index) => normalizeReceiptDraft(type, {
     ...ticket,
@@ -29,6 +35,8 @@ replaceOnce(
     taxBreakdown: ticket.taxBreakdown || ticket.tax_breakdown || [],
     feeBreakdown: ticket.feeBreakdown || ticket.fee_breakdown || [],
     groupTickets: [],
+    receiptItems: [],
+    receipt_items: [],
     receipts: [],
     railTickets: [],
     receiptCount: 1,
@@ -170,7 +178,8 @@ replaceOnce(
 );
 
 const required = [
-  'const rawGroupTickets = [value.groupTickets, value.receipts, value.railTickets]',
+  'value.receiptItems,',
+  'value.receipt_items,',
   'function ReceiptRailMultiBlankPreview(',
   'Доступные бланки',
   'данные и стоимость только этого билета',

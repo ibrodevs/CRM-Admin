@@ -335,7 +335,7 @@ function HotelPicker({ participants, group = false, onApply, onCancel }) {
   };
   const closeAll = () => { setPanel(null); setActiveHotel(null); setRoomGroups([]); setEditRoomId(null); setAddRoomOpen(false); };
 
-  const guestsLabel = `${searchRooms} ${searchRooms === 1 ? 'номер' : 'номера'} для ${searchGuests} ${searchGuests === 1 ? 'гостя' : 'гостей'}`;
+  const guestsLabel = `${searchRooms} ${searchRooms === 0 ? 'номеров' : searchRooms === 1 ? 'номер' : 'номера'} для ${searchGuests} ${searchGuests === 1 ? 'гостя' : 'гостей'}`;
 
   return (
     <div className="fade-in hp-root">
@@ -370,7 +370,7 @@ function HotelPicker({ participants, group = false, onApply, onCancel }) {
                 <div className="hp-stepper-row">
                   <span>Номера</span>
                   <div className="hp-stepper">
-                    <button disabled={searchRooms <= 1} onClick={() => setSearchRooms((n) => Math.max(1, n - 1))}>−</button>
+                    <button disabled={searchRooms <= 0} onClick={() => setSearchRooms((n) => Math.max(0, n - 1))}>−</button>
                     <b>{searchRooms}</b>
                     <button onClick={() => setSearchRooms((n) => n + 1)}>+</button>
                   </div>
@@ -378,7 +378,7 @@ function HotelPicker({ participants, group = false, onApply, onCancel }) {
                 <div className="hp-stepper-row">
                   <span>Гостей</span>
                   <div className="hp-stepper">
-                    <button disabled={searchGuests <= 1} onClick={() => setSearchGuests((n) => Math.max(1, n - 1))}>−</button>
+                    <button disabled={searchGuests <= 0} onClick={() => setSearchGuests((n) => Math.max(0, n - 1))}>−</button>
                     <b>{searchGuests}</b>
                     <button onClick={() => setSearchGuests((n) => n + 1)}>+</button>
                   </div>
