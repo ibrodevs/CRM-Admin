@@ -1673,7 +1673,7 @@ function ReceiptMathDrawer({ open, file, math, onSave, onClose }) {
   );
   return (
     <Drawer open={open} onClose={onClose} title={'Математика · ' + (file.parsed.passenger || 'квитанция')}
-      sub={'Бланк поставщика: ' + recMoney(Number(file.parsed.originalTotal) || Number(file.parsed.total) || 0, cur) + ' — сохраняется без изменений'}
+      sub={'Исходный v1: ' + recMoney(Number(file.parsed.originalTotal) || Number(file.parsed.total) || 0, cur) + ' · после финального сохранения сумма переносится в рабочую копию PDF'}
       width="min(460px,94vw)"
       footer={<>
         <Button variant="secondary" onClick={onClose}>Отмена</Button>
@@ -2423,9 +2423,9 @@ function ReceiptImportModal({ open, onClose, onDone, initialDraft, onDraftSaved,
 
             {step === 3 && doneRows.length > 0 && (
               <>
-                <RSub>Данные и клиентская версия</RSub>
+            <RSub>Данные и рабочий оригинал</RSub>
                 <div style={{ fontSize: 12, color: 'var(--muted)', margin: '-4px 0 10px' }}>
-                  Здесь меняются только данные CRM и клиентская математика. Исходные файлы поставщиков остаются в v1 без изменений.
+                  Финансовые изменения переносятся в рабочую копию PDF поставщика. Загруженный исходный v1 хранится отдельно без изменений.
                 </div>
                 <div className="card card-pad" style={{ marginBottom: 12, display: 'flex', alignItems: 'flex-end', gap: 12, flexWrap: 'wrap' }}>
                   <div style={{ flex: '0 0 100%', fontSize: 12, color: 'var(--muted)', marginBottom: -4 }}>
@@ -2440,7 +2440,7 @@ function ReceiptImportModal({ open, onClose, onDone, initialDraft, onDraftSaved,
                   <Button size="sm" icon="calc" onClick={applyBulk}>Применить{selIds.length ? ' (' + selIds.length + ')' : ' ко всем'}</Button>
                   <div style={{ flex: 1 }} />
                   <span style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color: 'var(--green)' }}>
-                    <Icon name="check" style={{ width: 16, height: 16 }} /> v1 поставщика не меняется
+                    <Icon name="check" style={{ width: 16, height: 16 }} /> рабочий PDF обновится после сохранения
                   </span>
                 </div>
                 <div className="table-card" style={{ overflowX: 'auto' }}>

@@ -21,6 +21,9 @@ test('receipt registry and importer use corrected supplier PDF by default', () =
   assert.match(page, /Оригинал с правками/);
   assert.match(page, /Исходный/);
   assert.match(page, /supplier_pdf_correction/);
+  assert.match(page, /после финального сохранения сумма переносится в рабочую копию PDF/);
+  assert.match(page, /рабочий PDF обновится после сохранения/);
+  assert.doesNotMatch(page, /v1 поставщика не меняется/);
 });
 
 test('supplier preview explains corrected copy and keeps source available', () => {

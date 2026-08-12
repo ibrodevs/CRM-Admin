@@ -760,7 +760,7 @@
 .receipt-subrows-inline-count {
   min-width: 0;
   display: inline-flex;
-  align-items: center;
+  align-items: baseline;
   gap: 3px;
   color: var(--muted);
   font-size: 11px;
