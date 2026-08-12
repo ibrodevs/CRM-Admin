@@ -47,10 +47,11 @@ test('длинный авиа-предпросмотр прокручивает�
 test('авиа-оригинал показывает финансовые правки, а исходный PDF остаётся отдельным', () => {
   assert.match(editor, /output\.mode === 'original' \? \(/);
   assert.match(editor, /Оригинал поставщика · с сохранёнными корректировками/);
-  assert.match(editor, /<iframe className="receipt-supplier-original-frame" src=\{sourcePdfUrl\}/);
+  assert.match(editor, /<iframe className="receipt-supplier-original-frame" src=\{displayedSupplierPdfUrl\}/);
   assert.match(editor, /Загруженный оригинал хранится отдельно без изменений/);
-  assert.match(editor, /window\.open\(sourcePdfUrl, '_blank', 'noopener,noreferrer'\)/);
+  assert.match(editor, /window\.open\(freshSupplierPdfUrl\(sourcePdfUrl\), '_blank', 'noopener,noreferrer'\)/);
   assert.match(editor, /sourceOriginalPdfUrl/);
+  assert.match(editor, /supplierPdfNonce/);
   assert.match(resources, /supplierPreviewUrl:[\s\S]*?supplier-pdf\/\?disposition=inline/);
   assert.match(resources, /supplierSourcePreviewUrl:[\s\S]*?source=1&disposition=inline/);
   assert.match(page, /documentsApi\.supplierPreviewUrl\(result\.source_document_id \|\| imported\.document_id\)/);
