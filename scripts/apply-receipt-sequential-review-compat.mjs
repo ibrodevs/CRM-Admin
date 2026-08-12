@@ -60,3 +60,8 @@ for (const token of [
 
 if (changed) await writeFile(pageUrl, source, 'utf8');
 console.log(changed ? 'Совместимость последовательного редактора сохранена, «Далее» разблокируется после последнего бланка.' : 'Совместимость последовательного редактора уже настроена.');
+
+// This compatibility script is deliberately the last receipt patch in all
+// predev/prebuild/pretest chains. Apply the client PDF requirements here so
+// older receipt patches cannot overwrite immutable-original or preview fixes.
+await import('./apply-receipt-client-pdf-requirements.mjs');
