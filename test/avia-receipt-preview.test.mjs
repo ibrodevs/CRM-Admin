@@ -44,12 +44,14 @@ test('длинный авиа-предпросмотр прокручивает�
   assert.match(page, /inlineSupplierDocumentUrl\(file\.originalUrl\)/);
 });
 
-test('авиа-оригинал остаётся исходным PDF, а корректировки живут только в бланке агентства', () => {
+test('авиа-оригинал показывает финансовые правки, а исходный PDF остаётся отдельным', () => {
   assert.match(editor, /output\.mode === 'original' \? \(/);
-  assert.match(editor, /Оригинал поставщика · без корректировок/);
+  assert.match(editor, /Оригинал поставщика · с сохранёнными корректировками/);
   assert.match(editor, /<iframe className="receipt-supplier-original-frame" src=\{sourcePdfUrl\}/);
-  assert.match(editor, /Изменения из редактора применяются только к бланку агентства и не изменяют этот файл/);
+  assert.match(editor, /Загруженный оригинал хранится отдельно без изменений/);
   assert.match(editor, /window\.open\(sourcePdfUrl, '_blank', 'noopener,noreferrer'\)/);
-  assert.match(resources, /originalPreviewUrl:[\s\S]*?file_version=1&disposition=inline/);
-  assert.match(page, /documentsApi\.originalPreviewUrl\(result\.source_document_id \|\| imported\.document_id\)/);
+  assert.match(editor, /sourceOriginalPdfUrl/);
+  assert.match(resources, /supplierPreviewUrl:[\s\S]*?supplier-pdf\/\?disposition=inline/);
+  assert.match(resources, /supplierSourcePreviewUrl:[\s\S]*?source=1&disposition=inline/);
+  assert.match(page, /documentsApi\.supplierPreviewUrl\(result\.source_document_id \|\| imported\.document_id\)/);
 });

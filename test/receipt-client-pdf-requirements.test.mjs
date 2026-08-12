@@ -8,26 +8,29 @@ const editorUrl = new URL('../js/features/receipts/editor.jsx', import.meta.url)
 const cssUrl = new URL('../app/receipt-ui-fixes.css', import.meta.url);
 
 
-test('supplier original always opens immutable version 1 inline', async () => {
+test('supplier working original and immutable source open separately inline', async () => {
   const resources = await readFile(resourcesUrl, 'utf8');
   const page = await readFile(pageUrl, 'utf8');
   const editor = await readFile(editorUrl, 'utf8');
 
-  assert.match(resources, /originalPreviewUrl: \(id\) => apiPath\(`documents\/\$\{id\}\/download\/\?file_version=1&disposition=inline`\)/);
-  assert.match(page, /documentsApi\.originalPreviewUrl\(result\.source_document_id \|\| imported\.document_id\)/);
-  assert.match(editor, /<iframe className="receipt-supplier-original-frame" src=\{sourcePdfUrl\} title="Оригинал поставщика"/);
-  assert.match(editor, /Оригинал поставщика · без корректировок/);
-  assert.match(editor, /Открыть оригинал в новой вкладке/);
-  assert.doesNotMatch(editor, /Авиа-бланк' : 'Авиа-бланк'\} с сохранёнными корректировками/);
+  assert.match(resources, /supplierPreviewUrl: \(id\) => apiPath\(`documents\/\$\{id\}\/supplier-pdf\/\?disposition=inline`\)/);
+  assert.match(resources, /supplierSourcePreviewUrl: \(id\) => apiPath\(`documents\/\$\{id\}\/supplier-pdf\/\?source=1&disposition=inline`\)/);
+  assert.match(page, /documentsApi\.supplierPreviewUrl\(result\.source_document_id \|\| imported\.document_id\)/);
+  assert.match(page, /documentsApi\.supplierSourcePreviewUrl\(result\.source_document_id \|\| imported\.document_id\)/);
+  assert.match(editor, /<iframe className="receipt-supplier-original-frame" src=\{sourcePdfUrl\} title="Оригинал поставщика с правками"/);
+  assert.match(editor, /Оригинал поставщика · с сохранёнными корректировками/);
+  assert.match(editor, /Открыть оригинал с правками/);
+  assert.match(editor, /Исходный оригинал/);
 });
 
 
-test('corrected agency receipt stays separate from the supplier original', async () => {
+test('corrected agency receipt and corrected supplier copy still keep source immutable', async () => {
   const editor = await readFile(editorUrl, 'utf8');
 
   assert.match(editor, /output\.mode === 'original' \? \(/);
   assert.match(editor, /\) : type === 'Авиа' \? \(\s*<ReceiptAviaDocument draft=\{p\} organization=\{organization\} \/>/s);
-  assert.match(editor, /Изменения из редактора применяются только к бланку агентства и не изменяют этот файл/);
+  assert.match(editor, /Загруженный оригинал хранится отдельно без изменений/);
+  assert.match(editor, /sourceOriginalPdfUrl/);
   assert.match(editor, /const taxRows = p\.taxBreakdown\?\.length \? p\.taxBreakdown/);
 });
 
