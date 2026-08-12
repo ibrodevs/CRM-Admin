@@ -27,6 +27,21 @@ test('supplier working original and immutable source open separately inline', as
 });
 
 
+test('corrected supplier PDF hooks stay before the drawer early return', async () => {
+  const editor = await readFile(editorUrl, 'utf8');
+  const drawerStart = editor.indexOf('export function ReceiptBrandDocumentDrawer');
+  const nonceHook = editor.indexOf('const [supplierPdfNonce, setSupplierPdfNonce] = useState(0);', drawerStart);
+  const earlyReturn = editor.indexOf('if (!open || !draft) return null;', drawerStart);
+
+  assert.ok(drawerStart >= 0, 'ReceiptBrandDocumentDrawer must exist');
+  assert.ok(nonceHook > drawerStart, 'supplierPdfNonce hook must exist inside drawer');
+  assert.ok(earlyReturn > nonceHook, 'supplierPdfNonce hook must run before the conditional return');
+
+  const afterReturn = editor.slice(earlyReturn);
+  assert.equal((afterReturn.match(/const \[supplierPdfNonce, setSupplierPdfNonce\] = useState\(0\);/g) || []).length, 0);
+});
+
+
 test('corrected agency receipt and corrected supplier copy still keep source immutable', async () => {
   const editor = await readFile(editorUrl, 'utf8');
 
