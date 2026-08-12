@@ -44,11 +44,12 @@ test('длинный авиа-предпросмотр прокручивает�
   assert.match(page, /inlineSupplierDocumentUrl\(file\.originalUrl\)/);
 });
 
-test('авиа-оригинал показывает сохранённые корректировки и открывает исходный PDF во вкладке', () => {
-  assert.match(editor, /type === 'ЖД' \|\| \(type === 'Авиа' && output\.mode === 'original'\)/);
-  assert.match(editor, /Авиа-бланк/);
-  assert.match(editor, /Сохранённые изменения рейсов, тарифа, такс и сборов/);
+test('авиа-оригинал остаётся исходным PDF, а корректировки живут только в бланке агентства', () => {
+  assert.match(editor, /output\.mode === 'original' \? \(/);
+  assert.match(editor, /Оригинал поставщика · без корректировок/);
+  assert.match(editor, /<iframe className="receipt-supplier-original-frame" src=\{sourcePdfUrl\}/);
+  assert.match(editor, /Изменения из редактора применяются только к бланку агентства и не изменяют этот файл/);
   assert.match(editor, /window\.open\(sourcePdfUrl, '_blank', 'noopener,noreferrer'\)/);
-  assert.match(resources, /previewUrl:[\s\S]*?disposition=inline/);
-  assert.match(page, /documentsApi\.previewUrl\(result\.source_document_id \|\| imported\.document_id\)/);
+  assert.match(resources, /originalPreviewUrl:[\s\S]*?file_version=1&disposition=inline/);
+  assert.match(page, /documentsApi\.originalPreviewUrl\(result\.source_document_id \|\| imported\.document_id\)/);
 });
