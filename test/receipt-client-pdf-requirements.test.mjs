@@ -17,7 +17,10 @@ test('supplier working original and immutable source open separately inline', as
   assert.match(resources, /supplierSourcePreviewUrl: \(id\) => apiPath\(`documents\/\$\{id\}\/supplier-pdf\/\?source=1&disposition=inline`\)/);
   assert.match(page, /documentsApi\.supplierPreviewUrl\(result\.source_document_id \|\| imported\.document_id\)/);
   assert.match(page, /documentsApi\.supplierSourcePreviewUrl\(result\.source_document_id \|\| imported\.document_id\)/);
-  assert.match(editor, /<iframe className="receipt-supplier-original-frame" src=\{sourcePdfUrl\} title="Оригинал поставщика с правками"/);
+  assert.match(editor, /<iframe className="receipt-supplier-original-frame" src=\{displayedSupplierPdfUrl\} title="Оригинал поставщика с правками"/);
+  assert.match(editor, /freshSupplierPdfUrl\(sourcePdfUrl\)/);
+  assert.match(editor, /supplierPdfNonce/);
+  assert.match(page, /freshSupplierDocumentUrl\(d\.originalUrl\)/);
   assert.match(editor, /Оригинал поставщика · с сохранёнными корректировками/);
   assert.match(editor, /Открыть оригинал с правками/);
   assert.match(editor, /Исходный оригинал/);
