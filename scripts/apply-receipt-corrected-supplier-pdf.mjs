@@ -3,10 +3,12 @@ import { readFile, writeFile } from 'node:fs/promises';
 const resourcesUrl = new URL('../js/api/resources.js', import.meta.url);
 const pageUrl = new URL('../js/page_fulfillment.jsx', import.meta.url);
 const editorUrl = new URL('../js/features/receipts/editor.jsx', import.meta.url);
+const cssUrl = new URL('../app/receipt-ui-fixes.css', import.meta.url);
 
 let resources = await readFile(resourcesUrl, 'utf8');
 let page = await readFile(pageUrl, 'utf8');
 let editor = await readFile(editorUrl, 'utf8');
+let css = await readFile(cssUrl, 'utf8');
 let changed = false;
 
 function replaceRequired(source, from, to, label) {
@@ -16,7 +18,7 @@ function replaceRequired(source, from, to, label) {
   return source.replace(from, to);
 }
 
-// The uploaded supplier PDF remains the immutable audit source.  The default
+// The uploaded supplier PDF remains the immutable audit source. The default
 // supplier endpoint returns a derived copy with safe financial corrections;
 // source=1 always returns the originally uploaded PDF.
 const originalApi = "  originalPreviewUrl: (id) => apiPath(`documents/${id}/download/?file_version=1&disposition=inline`),";
@@ -81,10 +83,24 @@ const footerOld = `{sourcePdfUrl && <Button variant="secondary" icon="eye" onCli
 const footerNew = `{sourcePdfUrl && <Button variant="secondary" icon="eye" onClick={() => window.open(sourcePdfUrl, '_blank', 'noopener,noreferrer')}>Открыть оригинал с правками</Button>}\n        {sourceOriginalPdfUrl && <Button variant="ghost" onClick={() => window.open(sourceOriginalPdfUrl, '_blank', 'noopener,noreferrer')}>Исходный оригинал</Button>}`;
 editor = replaceRequired(editor, footerOld, footerNew, 'кнопки PDF в drawer');
 
+// Four footer actions no longer compete for one horizontal row. The dedicated
+// wrapper lets the long corrected-original label wrap instead of being clipped
+// by the Drawer boundary at normal zoom and on narrower screens.
+const footerActionsOld = `footer={<>\n        {sourcePdfUrl && <Button variant="secondary" icon="eye" onClick={() => window.open(sourcePdfUrl, '_blank', 'noopener,noreferrer')}>Открыть оригинал с правками</Button>}\n        {sourceOriginalPdfUrl && <Button variant="ghost" onClick={() => window.open(sourceOriginalPdfUrl, '_blank', 'noopener,noreferrer')}>Исходный оригинал</Button>}\n        <Button variant="secondary" onClick={onClose}>Закрыть</Button>\n        {(output.mode !== 'original' || type === 'ЖД' || type === 'Авиа') && <Button icon="download" onClick={printReceipt}>Печать / сохранить PDF</Button>}\n      </>}>`;
+const footerActionsNew = `footer={<div className="receipt-supplier-footer-actions">\n        {sourcePdfUrl && <Button variant="secondary" icon="eye" onClick={() => window.open(sourcePdfUrl, '_blank', 'noopener,noreferrer')}>Открыть оригинал с правками</Button>}\n        {sourceOriginalPdfUrl && <Button variant="ghost" onClick={() => window.open(sourceOriginalPdfUrl, '_blank', 'noopener,noreferrer')}>Исходный оригинал</Button>}\n        <Button variant="secondary" onClick={onClose}>Закрыть</Button>\n        {(output.mode !== 'original' || type === 'ЖД' || type === 'Авиа') && <Button icon="download" onClick={printReceipt}>Печать / сохранить PDF</Button>}\n      </div>}>`;
+editor = replaceRequired(editor, footerActionsOld, footerActionsNew, 'адаптивный footer PDF');
+
+const cssMarker = '/* Corrected supplier PDF: footer actions must stay inside drawer. */';
+if (!css.includes(cssMarker)) {
+  css += `\n\n${cssMarker}\n.receipt-supplier-footer-actions {\n  width: 100%;\n  min-width: 0;\n  display: grid;\n  grid-template-columns: repeat(2, minmax(0, 1fr));\n  gap: 8px;\n}\n.receipt-supplier-footer-actions > .btn {\n  width: 100%;\n  min-width: 0;\n  max-width: 100%;\n  height: auto;\n  min-height: 40px;\n  padding: 8px 12px;\n  white-space: normal;\n  line-height: 1.2;\n  text-align: center;\n  overflow-wrap: anywhere;\n}\n@media (max-width: 620px) {\n  .receipt-supplier-footer-actions {\n    grid-template-columns: 1fr;\n  }\n}\n`;
+  changed = true;
+}
+
 for (const [source, tokens, label] of [
   [resources, ['supplierPreviewUrl', 'supplierSourcePreviewUrl', 'supplier-pdf/?source=1'], 'API'],
   [page, ['documentsApi.supplierPreviewUrl', 'documentsApi.supplierSourcePreviewUrl', 'Оригинал с правками', 'Исходный', 'supplier_pdf_correction'], 'страница'],
-  [editor, ['sourceOriginalUrl', 'Оригинал поставщика · с сохранёнными корректировками', 'Открыть оригинал с правками', 'Исходный оригинал'], 'предпросмотр'],
+  [editor, ['sourceOriginalUrl', 'Оригинал поставщика · с сохранёнными корректировками', 'Открыть оригинал с правками', 'Исходный оригинал', 'receipt-supplier-footer-actions'], 'предпросмотр'],
+  [css, [cssMarker, 'grid-template-columns: repeat(2, minmax(0, 1fr))', 'white-space: normal'], 'адаптивный footer'],
 ]) {
   for (const token of tokens) {
     if (!source.includes(token)) throw new Error(`Не подтвержден corrected supplier PDF ${label}: ${token}`);
@@ -99,7 +115,8 @@ if (changed) {
   await writeFile(resourcesUrl, resources, 'utf8');
   await writeFile(pageUrl, page, 'utf8');
   await writeFile(editorUrl, editor, 'utf8');
-  console.log('Рабочий оригинал поставщика теперь отражает безопасные финансовые корректировки; исходный v1 хранится отдельно.');
+  await writeFile(cssUrl, css, 'utf8');
+  console.log('Рабочий оригинал поставщика отражает финансовые корректировки, а кнопки PDF не выходят за границы drawer.');
 } else {
-  console.log('Corrected supplier PDF уже настроен.');
+  console.log('Corrected supplier PDF и адаптивные действия уже настроены.');
 }

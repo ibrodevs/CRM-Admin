@@ -44,6 +44,19 @@ test('long receipt preview scrolls completely above the drawer footer', async ()
 });
 
 
+test('corrected supplier PDF footer actions stay inside drawer at every width', async () => {
+  const editor = await readFile(editorUrl, 'utf8');
+  const css = await readFile(cssUrl, 'utf8');
+
+  assert.match(editor, /footer=\{<div className="receipt-supplier-footer-actions">/);
+  assert.match(editor, /receipt-supplier-footer-actions[\s\S]*Открыть оригинал с правками[\s\S]*Исходный оригинал/);
+  assert.match(css, /Corrected supplier PDF: footer actions must stay inside drawer/);
+  assert.match(css, /\.receipt-supplier-footer-actions \{[\s\S]*grid-template-columns: repeat\(2, minmax\(0, 1fr\)\);/);
+  assert.match(css, /\.receipt-supplier-footer-actions > \.btn \{[\s\S]*min-width: 0;[\s\S]*white-space: normal;[\s\S]*overflow-wrap: anywhere;/);
+  assert.match(css, /@media \(max-width: 620px\) \{[\s\S]*\.receipt-supplier-footer-actions \{[\s\S]*grid-template-columns: 1fr;/);
+});
+
+
 test('rail grouped total is explicitly a group summary, child totals stay independent', async () => {
   const editor = await readFile(editorUrl, 'utf8');
 
