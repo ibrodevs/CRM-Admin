@@ -51,7 +51,9 @@ page = replaceRequired(page, savedToastOld, savedToastNew, 'результат �
 
 const rowOriginalOld = `{d.originalUrl && <Button size="sm" variant="ghost" icon="eye" onClick={() => window.open(inlineSupplierDocumentUrl(d.originalUrl), '_blank', 'noopener,noreferrer')}>Оригинал</Button>}`;
 const rowOriginalNew = `{d.originalUrl && <Button size="sm" variant="ghost" icon="eye" onClick={() => window.open(inlineSupplierDocumentUrl(d.originalUrl), '_blank', 'noopener,noreferrer')}>Оригинал с правками</Button>}\n                          {d.sourceOriginalUrl && <Button size="sm" variant="ghost" onClick={() => window.open(inlineSupplierDocumentUrl(d.sourceOriginalUrl), '_blank', 'noopener,noreferrer')}>Исходный</Button>}`;
-page = replaceRequired(page, rowOriginalOld, rowOriginalNew, 'кнопки оригинала в реестре');
+if (!(page.includes('>Оригинал с правками</Button>') && page.includes('>Исходный</Button>'))) {
+  page = replaceRequired(page, rowOriginalOld, rowOriginalNew, 'кнопки оригинала в реестре');
+}
 
 const brandCallOld = `<ReceiptBrandDocumentDrawer open={!!brandEdit} type={brandEdit?.editorType} draft={brandEdit?.parsed}\n        originalUrl={brandEdit?.originalUrl} onClose={() => setBrandEdit(null)} />`;
 const brandCallNew = `<ReceiptBrandDocumentDrawer open={!!brandEdit} type={brandEdit?.editorType} draft={brandEdit?.parsed}\n        originalUrl={brandEdit?.originalUrl} sourceOriginalUrl={brandEdit?.sourceOriginalUrl}\n        onClose={() => setBrandEdit(null)} />`;
@@ -77,18 +79,24 @@ editor = replaceRequired(editor, originalNoticeOld, originalNoticeNew, 'опис
 
 const originalFrameOld = `<iframe className="receipt-supplier-original-frame" src={sourcePdfUrl} title="Оригинал поставщика" />`;
 const originalFrameNew = `<iframe className="receipt-supplier-original-frame" src={sourcePdfUrl} title="Оригинал поставщика с правками" />`;
-editor = replaceRequired(editor, originalFrameOld, originalFrameNew, 'заголовок PDF');
+if (!editor.includes('title="Оригинал поставщика с правками"')) {
+  editor = replaceRequired(editor, originalFrameOld, originalFrameNew, 'заголовок PDF');
+}
 
 const footerOld = `{sourcePdfUrl && <Button variant="secondary" icon="eye" onClick={() => window.open(sourcePdfUrl, '_blank', 'noopener,noreferrer')}>Открыть оригинал в новой вкладке</Button>}`;
 const footerNew = `{sourcePdfUrl && <Button variant="secondary" icon="eye" onClick={() => window.open(sourcePdfUrl, '_blank', 'noopener,noreferrer')}>Открыть оригинал с правками</Button>}\n        {sourceOriginalPdfUrl && <Button variant="ghost" onClick={() => window.open(sourceOriginalPdfUrl, '_blank', 'noopener,noreferrer')}>Исходный оригинал</Button>}`;
-editor = replaceRequired(editor, footerOld, footerNew, 'кнопки PDF в drawer');
+if (!(editor.includes('>Открыть оригинал с правками</Button>') && editor.includes('>Исходный оригинал</Button>'))) {
+  editor = replaceRequired(editor, footerOld, footerNew, 'кнопки PDF в drawer');
+}
 
 // Four footer actions no longer compete for one horizontal row. The dedicated
 // wrapper lets the long corrected-original label wrap instead of being clipped
 // by the Drawer boundary at normal zoom and on narrower screens.
 const footerActionsOld = `footer={<>\n        {sourcePdfUrl && <Button variant="secondary" icon="eye" onClick={() => window.open(sourcePdfUrl, '_blank', 'noopener,noreferrer')}>Открыть оригинал с правками</Button>}\n        {sourceOriginalPdfUrl && <Button variant="ghost" onClick={() => window.open(sourceOriginalPdfUrl, '_blank', 'noopener,noreferrer')}>Исходный оригинал</Button>}\n        <Button variant="secondary" onClick={onClose}>Закрыть</Button>\n        {(output.mode !== 'original' || type === 'ЖД' || type === 'Авиа') && <Button icon="download" onClick={printReceipt}>Печать / сохранить PDF</Button>}\n      </>}>`;
 const footerActionsNew = `footer={<div className="receipt-supplier-footer-actions">\n        {sourcePdfUrl && <Button variant="secondary" icon="eye" onClick={() => window.open(sourcePdfUrl, '_blank', 'noopener,noreferrer')}>Открыть оригинал с правками</Button>}\n        {sourceOriginalPdfUrl && <Button variant="ghost" onClick={() => window.open(sourceOriginalPdfUrl, '_blank', 'noopener,noreferrer')}>Исходный оригинал</Button>}\n        <Button variant="secondary" onClick={onClose}>Закрыть</Button>\n        {(output.mode !== 'original' || type === 'ЖД' || type === 'Авиа') && <Button icon="download" onClick={printReceipt}>Печать / сохранить PDF</Button>}\n      </div>}>`;
-editor = replaceRequired(editor, footerActionsOld, footerActionsNew, 'адаптивный footer PDF');
+if (!editor.includes('footer={<div className="receipt-supplier-footer-actions">')) {
+  editor = replaceRequired(editor, footerActionsOld, footerActionsNew, 'адаптивный footer PDF');
+}
 
 const cssMarker = '/* Corrected supplier PDF: footer actions must stay inside drawer. */';
 if (!css.includes(cssMarker)) {

@@ -102,7 +102,7 @@
 
 .receipt-close-section-head {
   display: flex;
-  align-items: center;
+  align-items: baseline;
   gap: 11px;
   padding: 14px 16px;
   border-bottom: 1px solid var(--line);
@@ -117,7 +117,7 @@
   background: var(--blue-soft);
   color: var(--blue);
   display: inline-flex;
-  align-items: center;
+  align-items: baseline;
   justify-content: center;
 }
 
@@ -154,7 +154,7 @@
 .receipt-close-file {
   display: grid;
   grid-template-columns: 24px 38px minmax(0, 1fr) minmax(150px, auto);
-  align-items: center;
+  align-items: baseline;
   gap: 10px;
   min-width: 0;
   padding: 10px 11px;
@@ -181,7 +181,7 @@
   flex: 0 0 38px;
   border-radius: 10px;
   display: inline-flex;
-  align-items: center;
+  align-items: baseline;
   justify-content: center;
   color: #fff;
 }
@@ -760,7 +760,7 @@
 .receipt-subrows-inline-count {
   min-width: 0;
   display: inline-flex;
-  align-items: baseline;
+  align-items: center;
   gap: 3px;
   color: var(--muted);
   font-size: 11px;
@@ -787,7 +787,7 @@
   background: transparent;
   color: #3568d4;
   display: inline-flex;
-  align-items: baseline;
+  align-items: center;
   justify-content: center;
   gap: 3px;
   font: inherit;
@@ -877,7 +877,7 @@
   min-width: 0;
   max-width: 100%;
   display: inline-flex;
-  align-items: baseline;
+  align-items: center;
 }
 
 .receipt-participants-trigger {
@@ -888,7 +888,7 @@
   background: transparent;
   color: var(--ink);
   display: inline-flex;
-  align-items: baseline;
+  align-items: center;
   gap: 4px;
   font: inherit;
   font-weight: 700;
@@ -995,7 +995,7 @@
   border-radius: 8px;
   display: grid;
   grid-template-columns: 24px minmax(0, 1fr);
-  align-items: center;
+  align-items: baseline;
   gap: 8px;
 }
 
@@ -1010,7 +1010,7 @@
   background: #eef3ff;
   color: #3568d4;
   display: inline-flex;
-  align-items: center;
+  align-items: baseline;
   justify-content: center;
   font-size: 10.5px;
   font-weight: 800;
@@ -1058,7 +1058,7 @@
 .receipt-upload-progress-foot {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
-  align-items: center;
+  align-items: baseline;
   gap: 12px;
 }
 
@@ -1069,7 +1069,7 @@
 .receipt-upload-progress-blanks {
   justify-self: center;
   display: inline-flex;
-  align-items: center;
+  align-items: baseline;
   gap: 5px;
   min-height: 26px;
   padding: 3px 10px;
@@ -1089,7 +1089,7 @@
 @media (max-width: 760px) {
   .receipt-upload-progress-foot {
     grid-template-columns: minmax(0, 1fr) auto;
-    align-items: center;
+    align-items: baseline;
   }
 
   .receipt-upload-progress-blanks {
@@ -1293,11 +1293,81 @@
 .receipt-ticket-editor-chip.is-reviewed:not(.is-active) { border-color:#bfe7ce; background:#f7fcf9; }
 .receipt-ticket-editor-chip.is-reviewed .receipt-ticket-editor-index { background:var(--green); color:#fff; }
 .receipt-ticket-editor-index svg { width:13px; height:13px; }
-.receipt-sequential-validation { display:flex; align-items:flex-start; gap:7px; padding:9px 10px; border-radius:10px; font-size:11.5px; line-height:1.4; }
+.receipt-sequential-validation { display:flex; align-items:flex-start; gap:7px; padding:9px 10px; border-radius:10px; font-size: 11px; line-height:1.4; }
 .receipt-sequential-validation svg { width:15px; height:15px; flex:0 0 15px; margin-top:1px; }
 .receipt-sequential-validation.is-warning { background:var(--amber-bg); color:var(--amber); }
 .receipt-sequential-validation.is-ok { background:#effaf3; color:#347a50; }
 @media (max-width:760px) {
   .receipt-sequential-review-head { align-items:flex-start; }
   .receipt-sequential-steps button { min-width:74px; }
+}
+
+
+/* Client receipt PDF requirements: complete preview scroll and immutable original. */
+.receipt-edit-preview {
+  min-height: 0;
+  max-height: calc(100dvh - 250px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+  padding: 0 5px 96px 0;
+}
+.receipt-edit-preview > :last-child { margin-bottom: 0; }
+.receipt-supplier-original {
+  display: grid;
+  gap: 12px;
+  min-height: 0;
+}
+.receipt-supplier-original-frame {
+  display: block;
+  width: 100%;
+  height: min(70dvh, 900px);
+  min-height: 520px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: #fff;
+}
+.receipt-blank-strip-total {
+  flex: 0 0 auto;
+  display: grid;
+  justify-items: end;
+  gap: 1px;
+  white-space: nowrap;
+}
+.receipt-blank-strip-total small { color: var(--muted); font-size: 10px; font-weight: 600; }
+.receipt-blank-strip-total b { color: var(--ink); font-size: 13px; }
+@media (max-width: 760px) {
+  .receipt-edit-preview {
+    max-height: none;
+    overflow: visible;
+    padding: 8px 0 24px;
+  }
+  .receipt-supplier-original-frame { min-height: 420px; height: 68dvh; }
+}
+
+
+/* Corrected supplier PDF: footer actions must stay inside drawer. */
+.receipt-supplier-footer-actions {
+  width: 100%;
+  min-width: 0;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+.receipt-supplier-footer-actions > .btn {
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+  height: auto;
+  min-height: 40px;
+  padding: 8px 12px;
+  white-space: normal;
+  line-height: 1.2;
+  text-align: center;
+  overflow-wrap: anywhere;
+}
+@media (max-width: 620px) {
+  .receipt-supplier-footer-actions {
+    grid-template-columns: 1fr;
+  }
 }

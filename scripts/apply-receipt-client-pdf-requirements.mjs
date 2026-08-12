@@ -11,6 +11,14 @@ let editor = await readFile(editorUrl, 'utf8');
 let css = await readFile(cssUrl, 'utf8');
 let changed = false;
 
+// This prerequisite runs before the corrected-supplier patch, but predev,
+// pretest and prebuild may also run repeatedly in the same working tree.  Once
+// the final corrected-PDF state is present, do not try to restore the older
+// immutable-only UI just so the following patch can replace it again.
+const correctedSupplierReady = resources.includes('supplierPreviewUrl')
+  && page.includes('documentsApi.supplierPreviewUrl')
+  && editor.includes('Оригинал поставщика · с сохранёнными корректировками');
+
 function replaceRequired(source, from, to, label) {
   if (source.includes(to)) return source;
   if (typeof from === 'string') {
@@ -32,7 +40,9 @@ resources = replaceRequired(resources, previewApi, originalApi, 'URL неизм�
 
 const latestPreview = `            originalUrl: (result.source_document_id || imported.document_id)\n              ? documentsApi.previewUrl(result.source_document_id || imported.document_id)\n              : item.originalUrl,`;
 const v1Preview = `            originalUrl: (result.source_document_id || imported.document_id)\n              ? documentsApi.originalPreviewUrl(result.source_document_id || imported.document_id)\n              : item.originalUrl,`;
-page = replaceRequired(page, latestPreview, v1Preview, 'оригинал v1 после импорта');
+if (!correctedSupplierReady) {
+  page = replaceRequired(page, latestPreview, v1Preview, 'оригинал v1 после импорта');
+}
 
 // Aggregated rail money is a group summary only; make that explicit so it can
 // never look like the subtotal of the currently selected ticket.
@@ -44,11 +54,15 @@ editor = replaceRequired(editor, groupTotalOld, groupTotalNew, 'подпись �
 // reconstruction.  Agency/SaaS modes continue to show the corrected data.
 const oldConditional = `      {type === 'ЖД' || (type === 'Авиа' && output.mode === 'original') ? (\n        <div className="receipt-rail-corrected-original">\n          {output.mode === 'original' && <div className="receipt-source-notice"><Icon name="checkCircle" /><div><b>{type === 'ЖД' ? 'ЖД-бланк' : 'Авиа-бланк'} с сохранёнными корректировками</b>\n            <span>{type === 'ЖД'\n              ? 'Изменения стоимости и данных выводятся отдельно на каждом билете. Исходный PDF доступен для сверки.'\n              : 'Сохранённые изменения рейсов, тарифа, такс и сборов отображаются на итоговом бланке. Исходный PDF доступен для сверки.'}</span></div></div>}\n          <ReceiptDocumentPreview type={type} draft={p} />\n        </div>\n      ) : output.mode === 'original' ? (\n        <div className="receipt-source-notice"><Icon name="lock" /><div><b>Будет использован оригинал поставщика</b>\n          <span>Исходный файл хранится и отправляется без изменений.</span></div></div>\n      ) : type === 'Авиа' ? (`;
 const newConditional = `      {output.mode === 'original' ? (\n        <section className="receipt-supplier-original" aria-label="Оригинал поставщика">\n          <div className="receipt-source-notice"><Icon name="lock" /><div><b>Оригинал поставщика · без корректировок</b>\n            <span>Показывается исходный PDF версии 1. Изменения из редактора применяются только к бланку агентства и не изменяют этот файл.</span></div></div>\n          {sourcePdfUrl\n            ? <iframe className="receipt-supplier-original-frame" src={sourcePdfUrl} title="Оригинал поставщика" />\n            : <div className="receipt-empty">Исходный PDF недоступен для предпросмотра</div>}\n        </section>\n      ) : type === 'Авиа' ? (`;
-editor = replaceRequired(editor, oldConditional, newConditional, 'настоящий оригинал поставщика');
+if (!correctedSupplierReady) {
+  editor = replaceRequired(editor, oldConditional, newConditional, 'настоящий оригинал поставщика');
+}
 
 const footerOriginalOld = `{sourcePdfUrl && <Button variant="secondary" icon="eye" onClick={() => window.open(sourcePdfUrl, '_blank', 'noopener,noreferrer')}>{type === 'ЖД' || type === 'Авиа' ? 'Исходный PDF' : 'Оригинал поставщика'}</Button>}`;
 const footerOriginalNew = `{sourcePdfUrl && <Button variant="secondary" icon="eye" onClick={() => window.open(sourcePdfUrl, '_blank', 'noopener,noreferrer')}>Открыть оригинал в новой вкладке</Button>}`;
-editor = replaceRequired(editor, footerOriginalOld, footerOriginalNew, 'открытие оригинала в новой вкладке');
+if (!correctedSupplierReady) {
+  editor = replaceRequired(editor, footerOriginalOld, footerOriginalNew, 'открытие оригинала в новой вкладке');
+}
 
 // With a long airline calculation the sticky preview previously ended behind
 // the Drawer footer.  Give the preview its own bounded vertical scroll and
@@ -61,8 +75,10 @@ if (!css.includes(cssMarker)) {
 
 for (const [source, tokens, label] of [
   [resources, ['originalPreviewUrl', 'file_version=1&disposition=inline'], 'API оригинала'],
-  [page, ['documentsApi.originalPreviewUrl'], 'импорт оригинала'],
-  [editor, ['receipt-supplier-original-frame', 'Оригинал поставщика · без корректировок', 'Открыть оригинал в новой вкладке', 'Итого по {tickets.length} бланкам'], 'редактор'],
+  [page, [correctedSupplierReady ? 'documentsApi.supplierPreviewUrl' : 'documentsApi.originalPreviewUrl'], 'импорт оригинала'],
+  [editor, correctedSupplierReady
+    ? ['receipt-supplier-original-frame', 'Оригинал поставщика · с сохранёнными корректировками', 'Открыть оригинал с правками', 'Итого по {tickets.length} бланкам']
+    : ['receipt-supplier-original-frame', 'Оригинал поставщика · без корректировок', 'Открыть оригинал в новой вкладке', 'Итого по {tickets.length} бланкам'], 'редактор'],
   [css, [cssMarker, 'max-height: calc(100dvh - 250px)', 'padding: 0 5px 96px 0'], 'стили'],
 ]) {
   for (const token of tokens) {

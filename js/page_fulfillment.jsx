@@ -40,6 +40,12 @@ function inlineSupplierDocumentUrl(url) {
   return `${value}${value.includes('?') ? '&' : '?'}disposition=inline`;
 }
 
+function freshSupplierDocumentUrl(url) {
+  const value = inlineSupplierDocumentUrl(url);
+  if (!value || value.startsWith('blob:')) return value;
+  return `${value}${value.includes('?') ? '&' : '?'}_pdf=${Date.now()}`;
+}
+
 
 function OrderStageBar({ index, compact }) {
   return (
@@ -1867,8 +1873,11 @@ function ReceiptImportModal({ open, onClose, onDone, initialDraft, onDraftSaved,
             importId: imported.id,
             sourceDocumentId: result.source_document_id || imported.document_id || null,
             originalUrl: (result.source_document_id || imported.document_id)
-              ? documentsApi.previewUrl(result.source_document_id || imported.document_id)
+              ? documentsApi.supplierPreviewUrl(result.source_document_id || imported.document_id)
               : item.originalUrl,
+            sourceOriginalUrl: (result.source_document_id || imported.document_id)
+              ? documentsApi.supplierSourcePreviewUrl(result.source_document_id || imported.document_id)
+              : item.sourceOriginalUrl,
             type: detectedType,
             parsed,
             subReceipts,
@@ -2124,6 +2133,10 @@ function ReceiptImportModal({ open, onClose, onDone, initialDraft, onDraftSaved,
           },
         });
       }));
+      const supplierPdfManual = confirmed.filter((result) => result?.supplier_pdf_correction?.status === 'manual_required').length;
+      if (supplierPdfManual) {
+        toast('Данные сохранены. Для ' + supplierPdfManual + ' файл. не удалось безопасно перенести все суммы в PDF поставщика — исходник оставлен без частичных правок.', 'err');
+      }
       const docs = toAdd.map((r, index) => {
       const t = recType(r.f.type); const p = r.f.parsed; const m = mathForFile(r.f);
       return {
@@ -2133,7 +2146,10 @@ function ReceiptImportModal({ open, onClose, onDone, initialDraft, onDraftSaved,
         finOp: '—', status: 'Черновик', version: 2, date: now, size: r.f.size, parsed: p, recType: r.f.type, origin: 'corrected',
 
         supplierBlank: { name: r.f.name, size: r.f.size, byteSize: r.f.byteSize, mime: r.f.mime,
-          lastModified: r.f.lastModified, originalUrl: r.f.originalUrl, total: Number(p.originalTotal) || Number(p.total) || 0, currency: p.currency },
+          lastModified: r.f.lastModified,
+          originalUrl: documentsApi.supplierPreviewUrl(confirmed[index].document_id),
+          sourceOriginalUrl: documentsApi.supplierSourcePreviewUrl(confirmed[index].document_id),
+          total: Number(p.originalTotal) || Number(p.total) || 0, currency: p.currency },
         math: { ...m, clientTotal: clientTotal(m), currency: p.currency },
         versions: [
           { v: 1, date: now, who: 'Поставщик', note: 'Оригинальный бланк поставщика — без изменений' },
@@ -2498,7 +2514,8 @@ function ReceiptImportModal({ open, onClose, onDone, initialDraft, onDraftSaved,
         onSave={(patch) => { setMathFor(mathFile.id, mathFile.parsed, patch); }} onClose={() => setMathId(null)} />
 
       <ReceiptBrandDocumentDrawer open={!!brandFile} type={brandFile?.type} draft={brandFile?.parsed}
-        originalUrl={brandFile?.originalUrl} onClose={() => setBrandId(null)} />
+        originalUrl={brandFile?.originalUrl} sourceOriginalUrl={brandFile?.sourceOriginalUrl}
+        onClose={() => setBrandId(null)} />
       <Drawer open={confirmClose} onClose={() => setConfirmClose(false)} title="Закрыть импорт?"
         sub="Проверьте, какие бланки сохранятся в черновик"
         width="min(780px,96vw)"
@@ -2640,7 +2657,8 @@ function ReceiptEditorPage({ documents = [], orders = [], services = [], onChang
         id: document.serverId || document.no,
         editorType,
         parsed,
-        originalUrl: document.supplierBlank?.originalUrl || (document.serverId ? documentsApi.previewUrl(document.serverId) : null),
+        originalUrl: document.serverId ? documentsApi.supplierPreviewUrl(document.serverId) : document.supplierBlank?.originalUrl,
+        sourceOriginalUrl: document.serverId ? documentsApi.supplierSourcePreviewUrl(document.serverId) : document.supplierBlank?.sourceOriginalUrl,
       };
     });
   const receipts = all.filter((document) => {
@@ -2697,7 +2715,14 @@ function ReceiptEditorPage({ documents = [], orders = [], services = [], onChang
       }
       editDirty.current = false;
       if (!asDraft) await onChanged?.();
-      toast(asDraft ? 'Черновик квитанции сохранён' : 'Проверенные данные и настройки бланка сохранены', 'ok');
+      const supplierPdfCorrection = savedDocument?.supplier_pdf_correction;
+      if (!asDraft && supplierPdfCorrection?.status === 'manual_required') {
+        toast('Данные сохранены, но PDF поставщика не опубликован с частичными правками: одна или несколько сумм не найдены безопасно.', 'err');
+      } else if (!asDraft && supplierPdfCorrection?.status === 'corrected') {
+        toast('Данные сохранены · суммы перенесены в копию оригинала поставщика с исходным шрифтом', 'ok');
+      } else {
+        toast(asDraft ? 'Черновик квитанции сохранён' : 'Проверенные данные и настройки бланка сохранены', 'ok');
+      }
       return true;
     } catch (error) {
       toast(error.message || 'Не удалось сохранить квитанцию', 'err');
@@ -2762,7 +2787,7 @@ function ReceiptEditorPage({ documents = [], orders = [], services = [], onChang
           <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16, flexWrap: 'wrap' }}>
             <div style={{ flex: 1, minWidth: 200 }}>
               <div style={{ fontSize: 13, color: 'var(--muted)' }}>
-                Единый реестр авиа, ЖД, отельных и трансферных документов. Оригиналы поставщиков сохраняются без изменений.
+                Единый реестр авиа, ЖД, отельных и трансферных документов. Исходный PDF хранится отдельно без изменений; финансовые правки переносятся в рабочую копию оригинала поставщика.
               </div>
             </div>
             <SearchBox value={q} onChange={setQ} placeholder="Документ, участник, маршрут…" style={{ width: 280 }} />
@@ -2841,7 +2866,8 @@ function ReceiptEditorPage({ documents = [], orders = [], services = [], onChang
                         </td>
                         <td data-label="Операции"><div className="rec-import-actions">
                           <Button size="sm" variant="ghost" onClick={() => { editDirty.current = false; setEdit(d); }}>{d.isReceiptDraft ? 'Продолжить черновик' : recognition === 'Требует проверки' ? 'Проверить' : 'Изменить'}</Button>
-                          {d.originalUrl && <Button size="sm" variant="ghost" icon="eye" onClick={() => window.open(inlineSupplierDocumentUrl(d.originalUrl), '_blank', 'noopener,noreferrer')}>Оригинал</Button>}
+                          {d.originalUrl && <Button size="sm" variant="ghost" icon="eye" onClick={() => window.open(freshSupplierDocumentUrl(d.originalUrl), '_blank', 'noopener,noreferrer')}>Оригинал с правками</Button>}
+                          {d.sourceOriginalUrl && <Button size="sm" variant="ghost" onClick={() => window.open(inlineSupplierDocumentUrl(d.sourceOriginalUrl), '_blank', 'noopener,noreferrer')}>Исходный</Button>}
                           <Button size="sm" variant="ghost" icon="template" onClick={() => setBrandEdit(d)}>На бланке</Button>
                           {order && <Button size="sm" variant="ghost" icon="orders" onClick={() => onOpenOrder?.(order, 'documents')}>Заказ</Button>}
                           <Button size="sm" variant="ghost" icon="trash" onClick={() => removeReceipt(d)}>Удалить</Button>
@@ -2892,7 +2918,8 @@ function ReceiptEditorPage({ documents = [], orders = [], services = [], onChang
         onBrand={() => { setBrandEdit(edit); closeReceiptEditor(); }} />
 
       <ReceiptBrandDocumentDrawer open={!!brandEdit} type={brandEdit?.editorType} draft={brandEdit?.parsed}
-        originalUrl={brandEdit?.originalUrl} onClose={() => setBrandEdit(null)} />
+        originalUrl={brandEdit?.originalUrl} sourceOriginalUrl={brandEdit?.sourceOriginalUrl}
+        onClose={() => setBrandEdit(null)} />
 
       <ReceiptImportModal open={importing} initialDraft={resumeImportDraft ? importDraft : null}
         onClose={() => {

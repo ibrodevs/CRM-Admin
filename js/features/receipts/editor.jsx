@@ -697,7 +697,7 @@ function ReceiptRailMultiBlankPreview({ draft }) {
       <section className="receipt-blank-strip" aria-label="Доступные ЖД-бланки">
         <div className="receipt-blank-strip-title">
           <div><Icon name="docs" /><span><b>Доступные бланки</b><small>{tickets.length} отдельных билета · {passengerCount} пассажира · {routeCount} маршрута</small></span></div>
-          <strong>{total.toLocaleString('ru-RU')} {draft.currency || 'RUB'}</strong>
+          <strong className="receipt-blank-strip-total"><small>Итого по {tickets.length} бланкам</small><b>{total.toLocaleString('ru-RU')} {draft.currency || 'RUB'}</b></strong>
         </div>
         <div className="receipt-blank-strip-scroll">
           {tickets.map((ticket, index) => {
@@ -816,8 +816,12 @@ export function ReceiptDocumentPreview({ type, draft }) {
   );
 }
 
-export function ReceiptBrandDocumentDrawer({ open, type, draft, originalUrl, onClose }) {
+export function ReceiptBrandDocumentDrawer({ open, type, draft, originalUrl, sourceOriginalUrl, onClose }) {
   const [previewMode, setPreviewMode] = useState('agency');
+  const [supplierPdfNonce, setSupplierPdfNonce] = useState(0);
+  useEffect(() => {
+    if (open) setSupplierPdfNonce(Date.now());
+  }, [open, originalUrl]);
   useEffect(() => {
     if (!open) return;
     const storedMode = draft?.output?.mode;
@@ -858,6 +862,12 @@ export function ReceiptBrandDocumentDrawer({ open, type, draft, originalUrl, onC
     ? [['Телефон', p.hotel.phone], ['Электронная почта', p.hotel.email], ['Карта / координаты', p.hotel.map]].filter(([, value]) => value)
     : [];
   const sourcePdfUrl = inlineSupplierDocumentUrl(originalUrl);
+  const sourceOriginalPdfUrl = inlineSupplierDocumentUrl(sourceOriginalUrl);
+  const freshSupplierPdfUrl = (url, nonce = Date.now()) => {
+    if (!url || url.startsWith('blob:')) return url;
+    return `${url}${url.includes('?') ? '&' : '?'}_pdf=${nonce}`;
+  };
+  const displayedSupplierPdfUrl = sourcePdfUrl ? freshSupplierPdfUrl(sourcePdfUrl, supplierPdfNonce || 'initial') : '';
   const printReceipt = () => {
     const cleanup = () => document.body.classList.remove('receipt-printing');
     document.body.classList.add('receipt-printing');
@@ -869,11 +879,12 @@ export function ReceiptBrandDocumentDrawer({ open, type, draft, originalUrl, onC
     <Drawer open={open} onClose={onClose} title="Предпросмотр клиентского документа"
       sub={`${outputLabel}${output.template ? ` · ${output.template}` : ''}`} width="min(860px,98vw)"
       className="receipt-brand-drawer"
-      footer={<>
-        {sourcePdfUrl && <Button variant="secondary" icon="eye" onClick={() => window.open(sourcePdfUrl, '_blank', 'noopener,noreferrer')}>{type === 'ЖД' || type === 'Авиа' ? 'Исходный PDF' : 'Оригинал поставщика'}</Button>}
+      footer={<div className="receipt-supplier-footer-actions">
+        {sourcePdfUrl && <Button variant="secondary" icon="eye" onClick={() => window.open(freshSupplierPdfUrl(sourcePdfUrl), '_blank', 'noopener,noreferrer')}>Открыть оригинал с правками</Button>}
+        {sourceOriginalPdfUrl && <Button variant="ghost" onClick={() => window.open(sourceOriginalPdfUrl, '_blank', 'noopener,noreferrer')}>Исходный оригинал</Button>}
         <Button variant="secondary" onClick={onClose}>Закрыть</Button>
         {(output.mode !== 'original' || type === 'ЖД' || type === 'Авиа') && <Button icon="download" onClick={printReceipt}>Печать / сохранить PDF</Button>}
-      </>}>
+      </div>}>
       <div className="receipt-brand-variants" aria-label="Вариант бланка">
         {[
           ['original', 'Оригинал поставщика'],
@@ -883,17 +894,14 @@ export function ReceiptBrandDocumentDrawer({ open, type, draft, originalUrl, onC
           className={output.mode === mode ? 'active' : ''} aria-pressed={output.mode === mode}
           onClick={() => setPreviewMode(mode)}>{label}</button>)}
       </div>
-      {type === 'ЖД' || (type === 'Авиа' && output.mode === 'original') ? (
-        <div className="receipt-rail-corrected-original">
-          {output.mode === 'original' && <div className="receipt-source-notice"><Icon name="checkCircle" /><div><b>{type === 'ЖД' ? 'ЖД-бланк' : 'Авиа-бланк'} с сохранёнными корректировками</b>
-            <span>{type === 'ЖД'
-              ? 'Изменения стоимости и данных выводятся отдельно на каждом билете. Исходный PDF доступен для сверки.'
-              : 'Сохранённые изменения рейсов, тарифа, такс и сборов отображаются на итоговом бланке. Исходный PDF доступен для сверки.'}</span></div></div>}
-          <ReceiptDocumentPreview type={type} draft={p} />
-        </div>
-      ) : output.mode === 'original' ? (
-        <div className="receipt-source-notice"><Icon name="lock" /><div><b>Будет использован оригинал поставщика</b>
-          <span>Исходный файл хранится и отправляется без изменений.</span></div></div>
+      {output.mode === 'original' ? (
+        <section className="receipt-supplier-original" aria-label="Оригинал поставщика">
+          <div className="receipt-source-notice"><Icon name="checkCircle" /><div><b>Оригинал поставщика · с сохранёнными корректировками</b>
+            <span>Финансовые изменения перенесены прямо в копию исходного PDF с использованием его встроенного шрифта и исходной верстки. Загруженный оригинал хранится отдельно без изменений.</span></div></div>
+          {sourcePdfUrl
+            ? <iframe className="receipt-supplier-original-frame" src={displayedSupplierPdfUrl} title="Оригинал поставщика с правками" />
+            : <div className="receipt-empty">Исходный PDF недоступен для предпросмотра</div>}
+        </section>
       ) : type === 'Авиа' ? (
         <ReceiptAviaDocument draft={p} organization={organization} />
       ) : (
