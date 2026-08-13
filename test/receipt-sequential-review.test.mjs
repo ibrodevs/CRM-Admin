@@ -59,3 +59,35 @@ test('similar avia and rail files support explicit grouped or ordinary intake', 
 test('correction control stays visible while a long receipt form scrolls', () => {
   assert.match(styles, /\.receipt-editor-form > \.receipt-source-notice \{ position: sticky; top: 0;/);
 });
+
+
+test('multi-page aviation groups use one confirmation and preserve individual tickets', () => {
+  assert.match(page, /!\['Авиа', 'ЖД'\]\.includes\(file\.type\)/);
+  assert.match(page, /const isAviaTicketGroup = file\.type === 'Авиа' && hasTicketGroup/);
+  assert.match(page, /const saveAviaGroup = async/);
+  assert.match(page, /Применить к группе и завершить/);
+  assert.match(page, /Индивидуальные данные пассажиров сохранятся/);
+  assert.match(page, /aggregateReceiptSubrows\(parent, subReceipts, receiptType = 'ЖД'\)/);
+});
+
+
+test('thirty blanks are selected in a vertical grid without horizontal scrolling', () => {
+  assert.match(styles, /\.receipt-ticket-editor-scroll \{[\s\S]*display: grid;[\s\S]*overflow-x: hidden;[\s\S]*overflow-y: auto;/);
+  assert.match(styles, /\.receipt-sequential-steps \{ display:grid;[\s\S]*overflow-x:hidden; overflow-y:auto;/);
+  assert.doesNotMatch(styles, /\.receipt-ticket-editor-scroll \{[\s\S]{0,180}overflow-x: auto;/);
+});
+
+
+test('rail editor defaults to supplier PDF and exposes corrected live view', () => {
+  assert.match(page, /setEditPreviewMode\(file\?\.type === 'ЖД' && file\?\.originalUrl \? 'supplier' : 'corrected'\)/);
+  assert.match(page, />Бланк поставщика<\/button>/);
+  assert.match(page, />С корректировками<\/button>/);
+  assert.match(page, /receipt-edit-supplier-frame/);
+  assert.match(page, /после сохранения изменения переносятся и в PDF поставщика/i);
+});
+
+
+test('desktop operation actions stay on one line', () => {
+  assert.match(styles, /@media \(min-width: 901px\) \{[\s\S]*\.rec-import-actions \{ flex-wrap:nowrap;/);
+  assert.match(page, /<th style=\{\{ width: 420 \}\}>Операции<\/th>/);
+});

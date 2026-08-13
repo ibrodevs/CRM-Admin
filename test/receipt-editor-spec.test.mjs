@@ -296,9 +296,9 @@ test('импорт показывает заметный прогресс заг
 test('групповой ЖД PDF отображает каждый билет отдельной подстрокой', () => {
   assert.match(page, /function receiptImportSubrows\(type, receipts\)/);
   assert.match(page, /subReceipts = receiptImportSubrows\(detectedType, extracted\.receipts\)/);
-  assert.match(page, /function aggregateReceiptSubrows\(parent, subReceipts\)/);
-  assert.match(page, /groupTickets: subReceipts/);
-  assert.match(page, /receiptCount: subReceipts\.length/);
+  assert.match(page, /function aggregateReceiptSubrows\(parent, subReceipts, receiptType = 'ЖД'\)/);
+  assert.match(page, /groupTickets: tickets/);
+  assert.match(page, /receiptCount: tickets\.length/);
   assert.match(page, /className="rec-import-subrow"/);
   assert.match(page, /Билет \{subIndex \+ 1\} из \{r\.f\.subReceipts\.length\}/);
   assert.match(page, /вагон \$\{railLeg\.coach\}/);

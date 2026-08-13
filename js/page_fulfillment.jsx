@@ -968,9 +968,9 @@ function receiptImportSubrows(type, receipts) {
     receiptIndex: index + 1,
   }));
 }
-function aggregateReceiptSubrows(parent, subReceipts) {
+function aggregateReceiptSubrows(parent, subReceipts, receiptType = 'ЖД') {
   if (!subReceipts.length) return parent;
-  const tickets = subReceipts.map((receipt) => normalizeReceiptDraft('ЖД', {
+  const tickets = subReceipts.map((receipt) => normalizeReceiptDraft(receiptType, {
     ...receipt,
     groupTickets: [], receipts: [], railTickets: [], receiptItems: [], receiptCount: 1,
   }));
@@ -990,6 +990,24 @@ function aggregateReceiptSubrows(parent, subReceipts) {
   const agencyServiceFee = sum('agencyServiceFee');
   const additionalFees = sum('additionalFees');
   const taxes = sum('taxes');
+  if (receiptType === 'Авиа') {
+    const fare = sum('fare');
+    const fees = sum('fees');
+    const total = sum('total') || Math.round((fare + taxes + fees) * 100) / 100;
+    return normalizeReceiptDraft('Авиа', {
+      ...parent,
+      passenger: passengers.map((passenger) => passenger.name).join(', '),
+      passengers,
+      ticketNo: tickets.map((receipt) => receipt.ticketNo).filter(Boolean).join(', '),
+      legs: uniqueLegs.length ? uniqueLegs : parent.legs,
+      fare, taxes, fees, total, originalTotal: total,
+      groupTickets: tickets,
+      receipts: tickets,
+      receiptItems: tickets,
+      receiptCount: tickets.length,
+      recognitionPending: tickets.some((receipt) => receipt.recognitionPending),
+    });
+  }
   const computedTotal = Math.round((ticketCost + reservedSeatCost + agencyServiceFee + additionalFees + taxes) * 100) / 100;
   const ticketTotals = sum('total');
   const total = ticketTotals || computedTotal;
@@ -1387,7 +1405,7 @@ function receiptBlankIsReviewed(ticket) {
 }
 
 function receiptGroupedTickets(file) {
-  if (!file || file.type !== 'ЖД') return [];
+  if (!file || !['Авиа', 'ЖД'].includes(file.type)) return [];
   if (Array.isArray(file.subReceipts) && file.subReceipts.length) return file.subReceipts;
   const parsed = file.parsed || {};
   return parsed.groupTickets || parsed.receiptItems || parsed.receipts || parsed.railTickets || [];
@@ -1457,14 +1475,14 @@ function receiptSharedGroupPatch(type, parsed) {
   return shared;
 }
 
-function receiptBlankMissingFields(ticket) {
+function receiptBlankMissingFields(ticket, type = 'ЖД') {
   const passenger = ticket?.passengers?.[0] || {};
   const leg = ticket?.legs?.[0] || {};
   const missing = [];
   if (!(passenger.name || ticket?.passenger)) missing.push('ФИО пассажира');
   if (!(ticket?.ticketNo || passenger.ticketNo)) missing.push('номер билета');
   if (!(leg.from && leg.to)) missing.push('маршрут');
-  if (!leg.flightNo) missing.push('номер поезда');
+  if (!leg.flightNo) missing.push(type === 'Авиа' ? 'номер рейса' : 'номер поезда');
   const amount = Number(ticket?.total) || Number(ticket?.ticketCost) + Number(ticket?.reservedSeatCost)
     + Number(ticket?.agencyServiceFee) + Number(ticket?.additionalFees);
   if (!(amount > 0)) missing.push('стоимость билета');
@@ -1474,12 +1492,14 @@ function receiptBlankMissingFields(ticket) {
 function ReceiptEditDrawer({ open, file, onClose, onChange, onSubChange, onBrand, onReview, groupInfo, orders = [], services = [] }) {
   const [correctionMode, setCorrectionMode] = useState(false);
   const [previewExpanded, setPreviewExpanded] = useState(false);
+  const [editPreviewMode, setEditPreviewMode] = useState('corrected');
   const [activeBlankIndex, setActiveBlankIndex] = useState(0);
   const [applyToGroup, setApplyToGroup] = useState(false);
   useEffect(() => {
     if (!open) return;
     setCorrectionMode(false);
     setPreviewExpanded(false);
+    setEditPreviewMode(file?.type === 'ЖД' && file?.originalUrl ? 'supplier' : 'corrected');
     const tickets = receiptGroupedTickets(file);
     const firstUnreviewed = tickets.findIndex((ticket) => !receiptBlankIsReviewed(ticket));
     setActiveBlankIndex(firstUnreviewed >= 0 ? firstUnreviewed : 0);
@@ -1504,7 +1524,8 @@ function ReceiptEditDrawer({ open, file, onClose, onChange, onSubChange, onBrand
     ...ticket,
     groupTickets: [], receipts: [], railTickets: [], receiptItems: [], receiptCount: 1,
   }));
-  const hasTicketGroup = file.type === 'ЖД' && groupTickets.length > 1;
+  const hasTicketGroup = groupTickets.length > 1;
+  const isAviaTicketGroup = file.type === 'Авиа' && hasTicketGroup;
   const safeBlankIndex = hasTicketGroup ? Math.min(activeBlankIndex, groupTickets.length - 1) : 0;
   const selectedBase = hasTicketGroup ? groupTickets[safeBlankIndex] : parsed;
   const editingParsed = hasTicketGroup ? normalizeReceiptDraft(file.type, {
@@ -1522,11 +1543,12 @@ function ReceiptEditDrawer({ open, file, onClose, onChange, onSubChange, onBrand
     groupTickets: [], receipts: [], railTickets: [], receiptItems: [], receiptCount: 1,
   }) : parsed;
   const reviewedCount = hasTicketGroup ? groupTickets.filter(receiptBlankIsReviewed).length : 0;
-  const currentMissing = hasTicketGroup ? receiptBlankMissingFields(editingParsed) : [];
+  const currentMissing = hasTicketGroup ? receiptBlankMissingFields(editingParsed, file.type) : [];
   const progress = hasTicketGroup ? Math.round((reviewedCount / groupTickets.length) * 100) : 0;
   const currentIsReviewed = hasTicketGroup && receiptBlankIsReviewed(editingParsed);
   const allOtherReviewed = hasTicketGroup && groupTickets.every((ticket, index) => index === safeBlankIndex || receiptBlankIsReviewed(ticket));
   const canFinishSequence = hasTicketGroup && safeBlankIndex === groupTickets.length - 1 && allOtherReviewed;
+  const showSupplierPreview = editPreviewMode === 'supplier' && Boolean(file.originalUrl);
 
   const parentFromTickets = (tickets, child = editingParsed) => aggregateReceiptSubrows({
     ...parsed,
@@ -1540,7 +1562,7 @@ function ReceiptEditDrawer({ open, file, onClose, onChange, onSubChange, onBrand
     crmTrip: child.crmTrip || parsed.crmTrip,
     crmTripId: child.crmTripId || parsed.crmTripId,
     output: child.output || parsed.output,
-  }, tickets);
+  }, tickets, file.type);
 
   const persistChild = (child, index = safeBlankIndex) => {
     if (onSubChange) {
@@ -1595,6 +1617,23 @@ function ReceiptEditDrawer({ open, file, onClose, onChange, onSubChange, onBrand
     if (saved !== false) onClose();
   };
 
+  const saveAviaGroup = async () => {
+    if (!isAviaTicketGroup || currentMissing.length) return;
+    const reviewedAt = new Date().toISOString();
+    const shared = receiptSharedGroupPatch('Авиа', editingParsed);
+    const tickets = groupTickets.map((ticket, index) => normalizeReceiptDraft('Авиа', {
+      ...ticket,
+      ...shared,
+      ...(index === safeBlankIndex ? editingParsed : {}),
+      reviewStatus: 'reviewed', review_status: 'reviewed', reviewedAt, reviewed_at: reviewedAt,
+      groupTickets: [], receipts: [], railTickets: [], receiptItems: [], receiptCount: 1,
+    }));
+    const nextParent = parentFromTickets(tickets, editingParsed);
+    onChange(file.id, nextParent);
+    const saved = await onReview?.(file.id, nextParent);
+    if (saved !== false) onClose();
+  };
+
   const drawerTitle = hasTicketGroup
     ? `Проверка · бланк ${safeBlankIndex + 1} из ${groupTickets.length} · ${receiptParticipantLabel(editingParsed)}`
     : 'Проверка · ' + receiptParticipantLabel(parsed);
@@ -1609,7 +1648,8 @@ function ReceiptEditDrawer({ open, file, onClose, onChange, onSubChange, onBrand
         footer={<>
           {file.originalUrl && <Button variant="secondary" icon="eye" onClick={() => window.open(inlineSupplierDocumentUrl(file.originalUrl), '_blank', 'noopener,noreferrer')}>Оригинал</Button>}
           {onBrand && <Button variant="secondary" icon="template" onClick={onBrand}>На фирменном бланке</Button>}
-          {hasTicketGroup ? <>
+          {isAviaTicketGroup ? <Button style={{ flex: 1 }} icon="check" disabled={currentMissing.length > 0}
+            onClick={saveAviaGroup}>Применить к группе и завершить</Button> : hasTicketGroup ? <>
             <Button variant="secondary" icon="chevLeft" disabled={safeBlankIndex === 0}
               onClick={() => { setActiveBlankIndex((index) => Math.max(0, index - 1)); setCorrectionMode(false); }}>Назад</Button>
             <Button style={{ flex: 1 }} icon={canFinishSequence ? 'check' : 'chevRight'} disabled={currentMissing.length > 0}
@@ -1629,7 +1669,7 @@ function ReceiptEditDrawer({ open, file, onClose, onChange, onSubChange, onBrand
           </section>}
           {hasTicketGroup && <section className="receipt-sequential-review" aria-label="Последовательная проверка бланков">
             <div className="receipt-sequential-review-head">
-              <span><b>Последовательная проверка бланков</b><small>Проверьте текущий билет и нажмите «Сохранить и далее» — следующий откроется автоматически.</small></span>
+              <span><b>{isAviaTicketGroup ? 'Групповой авиабилет' : 'Последовательная проверка бланков'}</b><small>{isAviaTicketGroup ? 'Общие параметры рейса применяются одним подтверждением; пассажиры и номера билетов остаются индивидуальными.' : 'Проверьте текущий билет и нажмите «Сохранить и далее» — следующий откроется автоматически.'}</small></span>
               <strong>{reviewedCount} / {groupTickets.length}</strong>
             </div>
             <div className="receipt-sequential-progress" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow={progress}>
@@ -1680,20 +1720,26 @@ function ReceiptEditDrawer({ open, file, onClose, onChange, onSubChange, onBrand
               })}
             </div>
             {currentMissing.length > 0
-              ? <div className="receipt-sequential-validation is-warning"><Icon name="alertCircle" /> Не заполнено: {currentMissing.join(', ')}. Заполните эти данные, чтобы перейти к следующему бланку.</div>
-              : <div className="receipt-sequential-validation is-ok"><Icon name="checkCircle" /> Изменения применяются только к выбранному билету. Текущий бланк готов к сохранению. После сохранения система откроет следующий автоматически.</div>}
+              ? <div className="receipt-sequential-validation is-warning"><Icon name="alertCircle" /> Не заполнено: {currentMissing.join(', ')}. Заполните эти данные для продолжения.</div>
+              : <div className="receipt-sequential-validation is-ok"><Icon name="checkCircle" /> {isAviaTicketGroup ? 'Общие исправления будут применены ко всем авиабилетам одним подтверждением. Индивидуальные данные пассажиров сохранятся.' : 'Изменения применяются только к выбранному билету. После сохранения система откроет следующий автоматически.'}</div>}
           </section>}
           <aside className="receipt-edit-preview">
             <div className="receipt-edit-preview-head">
-              <div><Icon name="eye" /><span><b>{hasTicketGroup ? `Бланк ${safeBlankIndex + 1}` : 'Квитанция с корректировками'}</b><small>Живой предпросмотр</small></span></div>
+              <div><Icon name="eye" /><span><b>{showSupplierPreview ? 'Бланк поставщика' : (hasTicketGroup ? `Бланк ${safeBlankIndex + 1}` : 'Квитанция с корректировками')}</b><small>{showSupplierPreview ? 'Рабочая копия исходного PDF' : 'Живой предпросмотр'}</small></span></div>
               <button type="button" className="btn btn-secondary btn-sm"
                 aria-expanded={previewExpanded} aria-controls="receipt-corrected-preview"
                 onClick={() => setPreviewExpanded(true)}>
                 <Icon name="arrowUpRight" />Развернуть
               </button>
             </div>
-            <ReceiptDocumentPreview type={file.type} draft={editingParsed} />
-            <div className="receipt-edit-preview-note"><Icon name="checkCircle" /> Предпросмотр обновляется сразу и показывает только выбранный бланк.</div>
+            {file.originalUrl && <div className="receipt-edit-preview-tabs" role="tablist" aria-label="Вид квитанции">
+              <button type="button" role="tab" aria-selected={editPreviewMode === 'supplier'} className={editPreviewMode === 'supplier' ? 'is-active' : ''} onClick={() => setEditPreviewMode('supplier')}>Бланк поставщика</button>
+              <button type="button" role="tab" aria-selected={editPreviewMode === 'corrected'} className={editPreviewMode === 'corrected' ? 'is-active' : ''} onClick={() => setEditPreviewMode('corrected')}>С корректировками</button>
+            </div>}
+            {showSupplierPreview
+              ? <iframe className="receipt-edit-supplier-frame" title="Бланк поставщика" src={inlineSupplierDocumentUrl(file.originalUrl)} />
+              : <ReceiptDocumentPreview type={file.type} draft={editingParsed} />}
+            <div className="receipt-edit-preview-note"><Icon name="checkCircle" /> {showSupplierPreview ? 'После сохранения исправленные суммы и данные появятся в этой рабочей копии PDF поставщика. Исходник остаётся доступен отдельно.' : 'Предпросмотр обновляется сразу; после сохранения изменения переносятся и в PDF поставщика.'}</div>
           </aside>
           <ReceiptSpecializedForm type={file.type} value={editingParsed} onChange={commitEditingReceipt}
             correctionMode={correctionMode} onToggleCorrection={() => setCorrectionMode((value) => !value)}
@@ -1710,11 +1756,13 @@ function ReceiptEditDrawer({ open, file, onClose, onChange, onSubChange, onBrand
           }}>
           <section className="receipt-corrected-preview-dialog">
             <header>
-              <div><Icon name="eye" /><span><b>{hasTicketGroup ? `Бланк ${safeBlankIndex + 1} из ${groupTickets.length}` : 'Квитанция с корректировками'}</b><small>Все несохранённые изменения уже учтены</small></span></div>
+              <div><Icon name="eye" /><span><b>{showSupplierPreview ? 'Бланк поставщика' : (hasTicketGroup ? `Бланк ${safeBlankIndex + 1} из ${groupTickets.length}` : 'Квитанция с корректировками')}</b><small>{showSupplierPreview ? 'Рабочая PDF-копия' : 'Все несохранённые изменения уже учтены'}</small></span></div>
               <button type="button" className="btn btn-secondary btn-sm"
                 onClick={() => setPreviewExpanded(false)}><Icon name="x" />Закрыть</button>
             </header>
-            <ReceiptDocumentPreview type={file.type} draft={editingParsed} />
+            {showSupplierPreview
+              ? <iframe className="receipt-edit-supplier-frame is-expanded" title="Развёрнутый бланк поставщика" src={inlineSupplierDocumentUrl(file.originalUrl)} />
+              : <ReceiptDocumentPreview type={file.type} draft={editingParsed} />}
           </section>
         </div>,
         document.body,
@@ -2038,7 +2086,7 @@ function ReceiptImportModal({ open, onClose, onDone, initialDraft, onDraftSaved,
       return {
         ...file,
         subReceipts,
-        parsed: aggregateReceiptSubrows(parent, subReceipts),
+        parsed: aggregateReceiptSubrows(parent, subReceipts, file.type),
       };
     }));
   };
@@ -2398,7 +2446,7 @@ function ReceiptImportModal({ open, onClose, onDone, initialDraft, onDraftSaved,
                   <table className="tbl rec-import-table">
                     <thead><tr>
                       <th style={{ width: 34 }}>{doneRows.length > 0 && <Checkbox on={allSel} onChange={() => setSel(allSel ? {} : Object.fromEntries(doneRows.map((r) => [r.f.id, true])))} />}</th>
-                      <th>Документ</th><th>Детали услуги</th><th style={{ width: 150 }}>Стоимость</th><th style={{ width: 130 }}>Проверка</th><th style={{ width: 250 }}>Операции</th><th style={{ width: 40 }}></th>
+                      <th>Документ</th><th>Детали услуги</th><th style={{ width: 150 }}>Стоимость</th><th style={{ width: 130 }}>Проверка</th><th style={{ width: 420 }}>Операции</th><th style={{ width: 40 }}></th>
                     </tr></thead>
                     <tbody>
                       {rows.map((r) => {
@@ -2783,7 +2831,7 @@ function ReceiptEditorPage({ documents = [], orders = [], services = [], onChang
       });
       const storedTickets = receiptImportSubrows(editorType,
         stored?.groupTickets || stored?.receiptItems || stored?.receipt_items || stored?.receipts || stored?.railTickets);
-      const parsed = storedTickets.length ? aggregateReceiptSubrows(normalized, storedTickets) : normalized;
+      const parsed = storedTickets.length ? aggregateReceiptSubrows(normalized, storedTickets, editorType) : normalized;
       return {
         ...document,
         id: document.serverId || document.no,
@@ -2826,7 +2874,7 @@ function ReceiptEditorPage({ documents = [], orders = [], services = [], onChang
           crmOrderId: parsed.crmOrderId || edit.groupParentParsed.crmOrderId,
           crmOrderNo: parsed.crmOrderNo || edit.groupParentParsed.crmOrderNo,
           crmPersonId: parsed.crmPersonId || edit.groupParentParsed.crmPersonId,
-        }, tickets);
+        }, tickets, edit.editorType);
       }
       const savedDocument = await documentsApi.updateReceipt(fileId, {
         draft: asDraft,

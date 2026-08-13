@@ -6,7 +6,8 @@ let changed = false;
 
 const oldNote = 'Текущий бланк готов к сохранению. После сохранения система откроет следующий автоматически.';
 const newNote = 'Изменения применяются только к выбранному билету. Текущий бланк готов к сохранению. После сохранения система откроет следующий автоматически.';
-if (!source.includes(newNote)) {
+const groupedNote = 'Общие исправления будут применены ко всем авиабилетам одним подтверждением.';
+if (!source.includes(newNote) && !source.includes(groupedNote)) {
   if (!source.includes(oldNote)) throw new Error('Не найдена подсказка текущего бланка.');
   source = source.replace(oldNote, newNote);
   changed = true;
