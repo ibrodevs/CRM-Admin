@@ -40,3 +40,22 @@ test('sequential review validates critical ticket data and shows progress', () =
   assert.match(styles, /\.receipt-sequential-steps/);
   assert.match(styles, /\.receipt-sequential-validation/);
 });
+
+
+test('similar avia and rail files support explicit grouped or ordinary intake', () => {
+  assert.match(page, /function receiptSimilaritySignature\(file\)/);
+  assert.match(page, /function receiptDetectedGroups\(files, importMode = 'auto'\)/);
+  assert.match(page, /Определить автоматически/);
+  assert.match(page, /Групповое редактирование/);
+  assert.match(page, /Обычное редактирование/);
+  assert.match(page, /Применять общие исправления ко всей группе/);
+  assert.match(page, /receiptSharedGroupPatch\(source\.type, parsed\)/);
+  assert.match(page, /ФИО, документы, номера билетов и стоимость отдельных ЖД-билетов не смешиваются/);
+  assert.match(styles, /\.receipt-import-mode-options/);
+  assert.match(styles, /\.receipt-similar-group-banner/);
+});
+
+
+test('correction control stays visible while a long receipt form scrolls', () => {
+  assert.match(styles, /\.receipt-editor-form > \.receipt-source-notice \{ position: sticky; top: 0;/);
+});

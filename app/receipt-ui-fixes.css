@@ -787,7 +787,7 @@
   background: transparent;
   color: #3568d4;
   display: inline-flex;
-  align-items: center;
+  align-items: baseline;
   justify-content: center;
   gap: 3px;
   font: inherit;
@@ -877,7 +877,7 @@
   min-width: 0;
   max-width: 100%;
   display: inline-flex;
-  align-items: center;
+  align-items: baseline;
 }
 
 .receipt-participants-trigger {
@@ -888,7 +888,7 @@
   background: transparent;
   color: var(--ink);
   display: inline-flex;
-  align-items: center;
+  align-items: baseline;
   gap: 4px;
   font: inherit;
   font-weight: 700;
@@ -1118,7 +1118,7 @@
 .receipt-ticket-editor-head {
   min-width: 0;
   display: flex;
-  align-items: center;
+  align-items: baseline;
   justify-content: space-between;
   gap: 12px;
 }
@@ -1370,4 +1370,64 @@
   .receipt-supplier-footer-actions {
     grid-template-columns: 1fr;
   }
+}
+/* Group receipt intake: explicit mode, automatic similarity and shared edits. */
+.receipt-import-mode {
+  display: grid;
+  gap: 12px;
+  margin: 10px 0 14px;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--surface-2);
+}
+.receipt-import-mode > div:first-child { display: grid; gap: 3px; }
+.receipt-import-mode > div:first-child b { color: var(--ink); font-size: 14px; }
+.receipt-import-mode > div:first-child span { color: var(--muted); font-size: 12px; }
+.receipt-import-mode-options { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+.receipt-import-mode-options button {
+  display: grid;
+  grid-template-columns: 28px minmax(0, 1fr);
+  gap: 2px 9px;
+  align-items: center;
+  min-width: 0;
+  padding: 11px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: #fff;
+  color: var(--body);
+  text-align: left;
+  cursor: pointer;
+}
+.receipt-import-mode-options button > span { grid-row: 1 / span 2; display: grid; place-items: center; width: 28px; height: 28px; border-radius: 9px; background: var(--surface-2); color: var(--muted); }
+.receipt-import-mode-options button svg { width: 15px; height: 15px; }
+.receipt-import-mode-options button b { min-width: 0; color: var(--ink); font-size: 12px; }
+.receipt-import-mode-options button small { min-width: 0; color: var(--muted); font-size: 10px; line-height: 1.35; }
+.receipt-import-mode-options button.is-active { border-color: var(--blue); box-shadow: 0 0 0 2px var(--blue-soft); }
+.receipt-import-mode-options button.is-active > span { background: var(--blue); color: #fff; }
+.receipt-group-review-mode { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin: 0 0 10px; font-size: 12px; color: var(--muted); }
+.receipt-group-review-mode button { border: 1px solid var(--line); border-radius: 999px; background: #fff; color: var(--body); padding: 5px 10px; cursor: pointer; }
+.receipt-group-review-mode button.is-active { border-color: var(--blue); background: var(--blue-soft); color: var(--blue); font-weight: 700; }
+.receipt-group-detected,
+.receipt-similar-group-banner { display: flex; align-items: center; gap: 11px; padding: 11px 13px; border: 1px solid #b9dfca; border-radius: 12px; background: #f0fbf5; color: var(--green); }
+.receipt-group-detected { margin-bottom: 12px; }
+.receipt-group-detected > svg,
+.receipt-similar-group-banner > svg { width: 20px; height: 20px; flex: 0 0 20px; }
+.receipt-group-detected > span,
+.receipt-similar-group-banner > span { display: grid; gap: 2px; min-width: 0; flex: 1; }
+.receipt-group-detected b,
+.receipt-similar-group-banner b { color: var(--ink); font-size: 13px; }
+.receipt-group-detected small,
+.receipt-similar-group-banner small { color: var(--body); font-size: 11px; line-height: 1.4; }
+.receipt-similar-group-banner { grid-column: 1 / -1; flex-wrap: wrap; }
+.receipt-similar-group-banner label { display: inline-flex; align-items: center; gap: 7px; color: var(--body); font-size: 12px; cursor: pointer; }
+.receipt-similar-group-pill { display: inline-flex; width: fit-content; padding: 3px 7px; border-radius: 999px; background: #f0fbf5; color: var(--green); font-size: 10px; font-weight: 700; }
+
+/* The correction switch remains available while the operator reviews long forms. */
+.receipt-editor-form > .receipt-source-notice { position: sticky; top: 0; z-index: 5; box-shadow: 0 6px 18px rgb(30 45 75 / 9%); }
+
+@media (max-width: 760px) {
+  .receipt-import-mode-options { grid-template-columns: 1fr; }
+  .receipt-similar-group-banner { align-items: flex-start; }
+  .receipt-similar-group-banner label { width: 100%; }
 }

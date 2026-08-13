@@ -1398,6 +1398,65 @@ function receiptGroupNeedsSequentialReview(file) {
   return tickets.length > 1 && !tickets.every(receiptBlankIsReviewed);
 }
 
+function receiptGroupToken(value) {
+  return String(value || '').trim().toLocaleUpperCase('ru-RU').replace(/\s+/g, ' ');
+}
+
+function receiptSimilaritySignature(file) {
+  if (!file?.parsed || !['Авиа', 'ЖД'].includes(file.type)) return '';
+  const parsed = normalizeReceiptDraft(file.type, file.parsed);
+  const legs = (parsed.legs || []).map((leg) => [
+    leg.fromCode || leg.from,
+    leg.toCode || leg.to,
+    leg.date,
+    leg.flightNo,
+    leg.cls,
+    leg.fareBasis,
+  ].map(receiptGroupToken).join('~')).join('|');
+  if (!legs) return '';
+  const price = file.type === 'Авиа'
+    ? [parsed.fare, parsed.taxes, parsed.fees].map((value) => Number(value) || 0).join('~')
+    : '';
+  return [file.type, receiptGroupToken(parsed.carrier), legs, price].join('::');
+}
+
+function receiptDetectedGroups(files, importMode = 'auto') {
+  if (importMode === 'ordinary') return [];
+  const buckets = new Map();
+  files.filter((file) => file.status === 'done' && !file.error && ['Авиа', 'ЖД'].includes(file.type)).forEach((file) => {
+    const signature = importMode === 'group' ? file.type : receiptSimilaritySignature(file);
+    if (!signature) return;
+    buckets.set(signature, [...(buckets.get(signature) || []), file]);
+  });
+  return [...buckets.values()].filter((group) => group.length > 1);
+}
+
+function receiptSharedGroupPatch(type, parsed) {
+  const shared = {
+    carrier: parsed.carrier,
+    legs: parsed.legs,
+    tripType: parsed.tripType,
+    currency: parsed.currency,
+    output: parsed.output,
+    fareInfo: parsed.fareInfo,
+  };
+  if (type === 'Авиа') Object.assign(shared, {
+    fare: parsed.fare,
+    taxes: parsed.taxes,
+    fees: parsed.fees,
+    total: parsed.total,
+    originalTotal: parsed.originalTotal,
+    fareBreakdown: parsed.fareBreakdown,
+    taxBreakdown: parsed.taxBreakdown,
+    feeBreakdown: parsed.feeBreakdown,
+    cls: parsed.cls,
+    fareBasis: parsed.fareBasis,
+    baggage: parsed.baggage,
+    handBaggage: parsed.handBaggage,
+  });
+  return shared;
+}
+
 function receiptBlankMissingFields(ticket) {
   const passenger = ticket?.passengers?.[0] || {};
   const leg = ticket?.legs?.[0] || {};
@@ -1412,10 +1471,11 @@ function receiptBlankMissingFields(ticket) {
   return missing;
 }
 
-function ReceiptEditDrawer({ open, file, onClose, onChange, onSubChange, onBrand, onReview, orders = [], services = [] }) {
+function ReceiptEditDrawer({ open, file, onClose, onChange, onSubChange, onBrand, onReview, groupInfo, orders = [], services = [] }) {
   const [correctionMode, setCorrectionMode] = useState(false);
   const [previewExpanded, setPreviewExpanded] = useState(false);
   const [activeBlankIndex, setActiveBlankIndex] = useState(0);
+  const [applyToGroup, setApplyToGroup] = useState(false);
   useEffect(() => {
     if (!open) return;
     setCorrectionMode(false);
@@ -1423,7 +1483,8 @@ function ReceiptEditDrawer({ open, file, onClose, onChange, onSubChange, onBrand
     const tickets = receiptGroupedTickets(file);
     const firstUnreviewed = tickets.findIndex((ticket) => !receiptBlankIsReviewed(ticket));
     setActiveBlankIndex(firstUnreviewed >= 0 ? firstUnreviewed : 0);
-  }, [open, file && file.id]);
+    setApplyToGroup(Boolean(groupInfo?.count > 1));
+  }, [open, file && file.id, groupInfo?.count]);
   useEffect(() => {
     if (!previewExpanded) return undefined;
     const closeOnEscape = (event) => {
@@ -1492,7 +1553,7 @@ function ReceiptEditDrawer({ open, file, onClose, onChange, onSubChange, onBrand
 
   const commitEditingReceipt = (next) => {
     if (!hasTicketGroup) {
-      onChange(file.id, next);
+      onChange(file.id, next, { applyToGroup });
       return;
     }
     const child = normalizeReceiptDraft(file.type, {
@@ -1556,11 +1617,16 @@ function ReceiptEditDrawer({ open, file, onClose, onChange, onSubChange, onBrand
               {canFinishSequence ? 'Сохранить и завершить проверку' : 'Сохранить и далее'}
             </Button>
           </> : <Button style={{ flex: 1 }} icon="check" onClick={async () => {
-            const saved = await onReview?.(file.id, parsed);
+            const saved = await onReview?.(file.id, parsed, { applyToGroup });
             if (saved !== false) onClose();
           }}>Проверено</Button>}
         </>}>
         <div className="receipt-edit-layout">
+          {!hasTicketGroup && groupInfo?.count > 1 && <section className="receipt-similar-group-banner">
+            <Icon name="users" />
+            <span><b>Найдена группа однотипных бланков: {groupInfo.count}</b><small>Маршрут, даты и условия совпадают; пассажиры и номера билетов останутся индивидуальными.</small></span>
+            <label><Checkbox on={applyToGroup} onChange={() => setApplyToGroup((value) => !value)} /> Применять общие исправления ко всей группе</label>
+          </section>}
           {hasTicketGroup && <section className="receipt-sequential-review" aria-label="Последовательная проверка бланков">
             <div className="receipt-sequential-review-head">
               <span><b>Последовательная проверка бланков</b><small>Проверьте текущий билет и нажмите «Сохранить и далее» — следующий откроется автоматически.</small></span>
@@ -1709,6 +1775,7 @@ function ReceiptImportModal({ open, onClose, onDone, initialDraft, onDraftSaved,
   const [subEdit, setSubEdit] = useState(null);
   const [expandedReceipts, setExpandedReceipts] = useState({});
   const [confirmClose, setConfirmClose] = useState(false);
+  const [importMode, setImportMode] = useState('auto');
 
 
   const [bindTarget, setBindTarget] = useState({ mode: 'order', label: 'Выберите заказ' });
@@ -1735,6 +1802,7 @@ function ReceiptImportModal({ open, onClose, onDone, initialDraft, onDraftSaved,
     setSubEdit(null);
     setExpandedReceipts({});
     setConfirmClose(false);
+    setImportMode(draft?.importMode || 'auto');
     setBindTarget(draft?.bindTarget || { mode: 'order', label: 'Выберите заказ' });
     setOptAddIncomplete(Boolean(draft?.optAddIncomplete));
     setOptCreateServices(draft ? Boolean(draft.optCreateServices) : true);
@@ -1912,12 +1980,36 @@ function ReceiptImportModal({ open, onClose, onDone, initialDraft, onDraftSaved,
     setFiles((cur) => cur.map((f) => (f.id === id ? { ...f, type, parsed: f.parsed ? normalizeReceiptDraft(type, { ...emptyReceiptParse({ ...f, type }), ...f.parsed, recognitionPending: true }) : null } : f)));
     setReviewed((cur) => ({ ...cur, [id]: false }));
   };
-  const updateParsed = (id, parsed) => {
-    setFiles((cur) => cur.map((f) => (f.id === id ? { ...f, parsed: normalizeReceiptDraft(f.type, {
-      ...parsed,
-      recognitionPending: false,
-      manualCompletion: Boolean(f.error || f.parsed?.recognitionPending || parsed.manualCompletion),
-    }) } : f)));
+  const updateParsed = (id, parsed, options = {}) => {
+    let groupedIds = [];
+    setFiles((cur) => {
+      const source = cur.find((file) => file.id === id);
+      const group = options.applyToGroup
+        ? receiptDetectedGroups(cur, importMode).find((items) => items.some((file) => file.id === id))
+        : null;
+      groupedIds = group?.map((file) => file.id) || [];
+      const sharedPatch = source ? receiptSharedGroupPatch(source.type, parsed) : {};
+      return cur.map((file) => {
+        if (file.id === id) return { ...file, parsed: normalizeReceiptDraft(file.type, {
+          ...parsed,
+          recognitionPending: false,
+          manualCompletion: Boolean(file.error || file.parsed?.recognitionPending || parsed.manualCompletion),
+        }) };
+        if (!groupedIds.includes(file.id)) return file;
+        return { ...file, parsed: normalizeReceiptDraft(file.type, {
+          ...file.parsed,
+          ...sharedPatch,
+          recognitionPending: false,
+          auditLog: [...(file.parsed?.auditLog || []), {
+            at: new Date().toLocaleString('ru-RU'),
+            user: (typeof window !== 'undefined' && window.CURRENT_USER?.name) || 'Оператор',
+            label: 'Общие исправления однотипной группы',
+            before: 'Индивидуальные данные сохранены',
+            after: `Применено из ${source?.name || 'группового бланка'}`,
+          }],
+        }) };
+      });
+    });
     setReviewed((cur) => ({ ...cur, [id]: true }));
   };
   const updateSubReceipt = (fileId, subIndex, parsed) => {
@@ -1950,7 +2042,11 @@ function ReceiptImportModal({ open, onClose, onDone, initialDraft, onDraftSaved,
       };
     }));
   };
-  const markReviewed = (id) => setReviewed((cur) => ({ ...cur, [id]: true }));
+  const markReviewed = (id, _parsed, options = {}) => setReviewed((cur) => {
+    if (!options.applyToGroup) return { ...cur, [id]: true };
+    const group = receiptDetectedGroups(files, importMode).find((items) => items.some((file) => file.id === id)) || [];
+    return { ...cur, ...Object.fromEntries(group.map((file) => [file.id, true])), [id]: true };
+  });
   const remove = (id) => { setFiles((cur) => cur.filter((f) => f.id !== id)); setExcluded((e) => { const n = { ...e }; delete n[id]; return n; }); setReviewed((e) => { const n = { ...e }; delete n[id]; return n; }); };
 
   const processing = files.some((f) => f.status !== 'done');
@@ -2001,6 +2097,7 @@ function ReceiptImportModal({ open, onClose, onDone, initialDraft, onDraftSaved,
       math,
       sel,
       bulk,
+      importMode,
     };
     const saved = onDraftSaved?.(draft);
     if (saved === false) return;
@@ -2021,6 +2118,12 @@ function ReceiptImportModal({ open, onClose, onDone, initialDraft, onDraftSaved,
     }));
   })();
   const doneRows = rows.filter((r) => !r.pending);
+  const detectedGroups = receiptDetectedGroups(files, importMode);
+  const groupInfoByFile = Object.fromEntries(detectedGroups.flatMap((group, groupIndex) => group.map((file) => [file.id, {
+    index: groupIndex + 1,
+    count: group.length,
+    type: file.type,
+  }])));
   useEffect(() => {
     if (files.length && !processing && step === 1) setStep(2);
   }, [files.length, processing, step]);
@@ -2205,6 +2308,21 @@ function ReceiptImportModal({ open, onClose, onDone, initialDraft, onDraftSaved,
 
         {step === 0 && <>
         <RSub style={{ marginTop: 14 }}>Загрузка документов</RSub>
+        <div className="receipt-import-mode" role="group" aria-label="Режим обработки бланков">
+          <div><b>Как обработать загружаемые бланки?</b><span>Режим можно изменить после распознавания.</span></div>
+          <div className="receipt-import-mode-options">
+            {[
+              ['auto', 'Определить автоматически', 'Система объединит только совпадающие маршрут, даты и условия.'],
+              ['group', 'Групповое редактирование', 'Общие исправления применяются к бланкам одного типа.'],
+              ['ordinary', 'Обычное редактирование', 'Каждый файл проверяется и меняется отдельно.'],
+            ].map(([value, label, hint]) => <button key={value} type="button"
+              className={importMode === value ? 'is-active' : ''} aria-pressed={importMode === value}
+              onClick={() => setImportMode(value)}>
+              <span>{importMode === value ? <Icon name="check" /> : <Icon name={value === 'group' ? 'users' : value === 'ordinary' ? 'docs' : 'sparkles'} />}</span>
+              <b>{label}</b><small>{hint}</small>
+            </button>)}
+          </div>
+        </div>
         <div onClick={() => fileRef.current && fileRef.current.click()} onDrop={onDrop}
           onDragEnter={onDragEnter} onDragOver={onDragOver} onDragLeave={onDragLeave}
           className={'receipt-drop-zone' + (dragActive ? ' is-dragging' : '')}>
@@ -2264,6 +2382,18 @@ function ReceiptImportModal({ open, onClose, onDone, initialDraft, onDraftSaved,
                   Автозаполнение работает только для файлов с текстовым слоем. Если данные не найдены, заполните поля вручную перед добавлением.
                 </div>
 
+                <div className="receipt-group-review-mode">
+                  <span><b>Режим проверки:</b></span>
+                  {[['auto', 'Автоматически'], ['group', 'Групповой'], ['ordinary', 'Обычный']].map(([value, label]) => (
+                    <button key={value} type="button" className={importMode === value ? 'is-active' : ''}
+                      onClick={() => setImportMode(value)}>{label}</button>
+                  ))}
+                </div>
+                {detectedGroups.length > 0 && <div className="receipt-group-detected" role="status">
+                  <Icon name="users" />
+                  <span><b>Обнаружено однотипных групп: {detectedGroups.length}</b><small>{detectedGroups.reduce((sum, group) => sum + group.length, 0)} бланк. будут редактироваться группами. Общие поля переносятся вместе, ФИО, документы, номера билетов и стоимость отдельных ЖД-билетов не смешиваются.</small></span>
+                </div>}
+
                 <div className="table-card rec-import-table-card">
                   <table className="tbl rec-import-table">
                     <thead><tr>
@@ -2304,6 +2434,7 @@ function ReceiptImportModal({ open, onClose, onDone, initialDraft, onDraftSaved,
                                   <span className="rec-import-main">
                                     <span className="rec-import-title"><ReceiptParticipantSummary draft={p} noun={r.f.type === 'Гостиница' ? 'гостей' : 'пассажиров'} /></span>
                                     <span className="rec-import-meta">{carrierText}</span>
+                                    {groupInfoByFile[r.f.id] && <span className="receipt-similar-group-pill">Группа {groupInfoByFile[r.f.id].index} · {groupInfoByFile[r.f.id].count} бланк.</span>}
                                     <Select aria-label="Тип услуги" options={REC_TYPES.filter((item) => item.key !== 'Прочее').map((item) => item.key)}
                                       value={r.f.type} onChange={(event) => setType(r.f.id, event.target.value)} className="select rec-import-type-select" />
                                     {!!subReceiptCount && (
@@ -2496,6 +2627,7 @@ function ReceiptImportModal({ open, onClose, onDone, initialDraft, onDraftSaved,
       </div>
 
       <ReceiptEditDrawer open={!!editFile} file={editFile} onClose={() => setEditId(null)} onChange={updateParsed} onSubChange={updateSubReceipt} onReview={markReviewed}
+        groupInfo={editFile ? groupInfoByFile[editFile.id] : null}
         onBrand={() => { setBrandId(editId); setEditId(null); }} />
       <ReceiptEditDrawer open={!!subEditReceipt} file={subEditReceipt ? {
         id: `${subEdit.fileId}-ticket-${subEdit.index}`,
