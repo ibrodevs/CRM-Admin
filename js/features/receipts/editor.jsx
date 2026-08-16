@@ -44,6 +44,14 @@ function firstReceiptAirlineValue(...values) {
     && String(value).trim() !== '' && !isReceiptLegalEntityName(value)) ?? '';
 }
 
+function receiptCabinFromBookingClass(value) {
+  const normalized = String(value || '').trim().toUpperCase();
+  if (/^(?:ECONOMY|ЭКОНОМ|ЭКОНОМИЧЕСКИЙ)$/.test(normalized)) return 'ECONOMY';
+  if (/^(?:BUSINESS|БИЗНЕС)$/.test(normalized)) return 'BUSINESS';
+  if (/^(?:FIRST|ПЕРВЫЙ)$/.test(normalized)) return 'FIRST';
+  return '';
+}
+
 function normalizeReceiptLeg(row = {}) {
   const source = row && typeof row === 'object' ? row : {};
   const normalized = {
@@ -69,8 +77,10 @@ function normalizeReceiptLeg(row = {}) {
     fareBasis: firstReceiptValue(source.fareBasis, source.fare_basis, source.tariff_code),
     cabin: firstReceiptValue(source.cabin, source.cabinClass, source.cabin_class, source.service_class),
     baggage: firstReceiptValue(source.baggage, source.baggage_allowance, source.checked_baggage),
+    handBaggage: firstReceiptValue(source.handBaggage, source.hand_baggage, source.carryOn, source.carry_on),
     dir: firstReceiptValue(source.dir, source.direction, 'out'),
   };
+  if (!normalized.cabin) normalized.cabin = receiptCabinFromBookingClass(normalized.cls);
   if (isReceiptLegalEntityName(normalized.from) || isReceiptLegalEntityName(normalized.to)) {
     normalized.from = '';
     normalized.fromCode = '';
@@ -612,6 +622,7 @@ function ReceiptAviaDocument({ draft, organization = 'ПСЦ Travel Hub' }) {
           ['Код тарифа', leg.fareBasis || p.fareInfo.code],
           ['Класс обслуживания', leg.cabin || p.fareInfo.name],
           ['Багаж', leg.baggage],
+          ['Ручная кладь', leg.handBaggage || p.handBaggage],
           ['Статус', leg.status || p.bookingStatus],
         ];
         return <React.Fragment key={`${leg.flightNo || 'segment'}-${index}`}>
@@ -1299,6 +1310,7 @@ export function ReceiptSpecializedForm({
             {type === 'Авиа' && <Field label="Код тарифа"><LockedInput correctionMode={correctionMode} value={leg.fareBasis} onChange={(e) => setArray('legs', index, 'fareBasis', e.target.value, `Тариф сегмента ${index + 1}`)} /></Field>}
             {type === 'Авиа' && <Field label="Класс обслуживания"><LockedInput correctionMode={correctionMode} value={leg.cabin} onChange={(e) => setArray('legs', index, 'cabin', e.target.value, `Класс обслуживания сегмента ${index + 1}`)} /></Field>}
             {type === 'Авиа' && <Field label="Багаж сегмента"><LockedInput correctionMode={correctionMode} value={leg.baggage} onChange={(e) => setArray('legs', index, 'baggage', e.target.value, `Багаж сегмента ${index + 1}`)} /></Field>}
+            {type === 'Авиа' && <Field label="Ручная кладь"><LockedInput correctionMode={correctionMode} value={leg.handBaggage || p.handBaggage || ''} onChange={(e) => setArray('legs', index, 'handBaggage', e.target.value, `Ручная кладь сегмента ${index + 1}`)} /></Field>}
             {type === 'Авиа' && <Field label="Статус сегмента"><LockedInput correctionMode={correctionMode} value={leg.status} onChange={(e) => setArray('legs', index, 'status', e.target.value, `Статус сегмента ${index + 1}`)} /></Field>}
             {type === 'Трансфер' && <Field label="Время поездки"><LockedInput correctionMode={correctionMode} value={leg.duration} onChange={(e) => setArray('legs', index, 'duration', e.target.value, `Время поездки ${index + 1}`)} /></Field>}
           </div>
@@ -1476,7 +1488,7 @@ export function ReceiptSpecializedForm({
         {p.output.mode !== 'original' && <Field label="Шаблон организации"><Select placeholder="Выберите шаблон" options={[
           'Основной фирменный', 'Компактный', 'Корпоративный клиент',
         ]} value={p.output.template} onChange={(e) => setObject('output', 'template', e.target.value, 'Шаблон организации')} /></Field>}
-        {type === 'Авиа' && p.output.mode !== 'original' && <Field label="Стоимость в клиентском документе"><Select options={[
+        {type === 'Авиа' && <Field label="Отображение тарифа"><Select options={[
           { value: 'total', label: 'Показывать суммы полностью' }, { value: 'it', label: 'Закрыть тариф (IT)' },
         ]} value={p.output.priceMode} onChange={(e) => setObject('output', 'priceMode', e.target.value, 'Отображение стоимости')} /></Field>}
         {(type === 'Гостиница' || type === 'Трансфер') && <Field label="Стоимость в клиентском ваучере"><Select options={[

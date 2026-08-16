@@ -5,7 +5,6 @@ import { ActionMenu, Avatar, Button, Checkbox, ConfirmDialog, Drawer, EmptyState
 import { COMPANIES_DB, CURRENT_USER, DOCS2, DOC_KIND, DOC_STATUS2, FIN_OPS, FIN_OP_STATUS, FULFILLMENT, ORDERS, ORDER_STAGES, SERVICE_KIND } from './data';
 import { UnifiedBindField, UFDateField } from './forms_unified';
 import { Topbar } from './layout';
-import { DocCorrectionPanel, docCorrKind } from './page_flights';
 import { toLegacyDocument } from './api/legacy-adapters';
 import { documentsApi, financeApi, workspaceActionsApi } from './api/resources';
 import { resultsOf } from './api/client';
@@ -855,13 +854,26 @@ function DocCenter({ scopeOrder, participants, services, onOpenDoc, initialDocum
             toast('Файл добавлен в документы заказа', 'ok', { title: 'Документ загружен', action: { label: 'Открыть «Документы»', route: 'documents' } });
           } catch (error) { toast(error.message || 'Не удалось загрузить документ', 'err'); }
         }}
-        onRouteToEditor={(info) => { setUploadFor(null); setEditorFor({ participant: info.participant !== '—' ? info.participant : null }); }} />
+        onRouteToEditor={(info) => {
+          setUploadFor(null);
+          setEditorFor({ file: info.file?.raw, participant: info.participant !== '—' ? info.participant : null });
+        }} />
 
       {editorFor && (
-        <DocCorrectionPanel
-          subjects={correctionSubjects(participants, editorFor.participant)}
-          meta={{ cfg: docCorrKind('Авиа'), supplier: 'Поставщик', route: 'Маршрут по заказу', dates: new Date().toLocaleDateString('ru-RU'), carrierName: '—', baseFareTotal: 0, itinerary: [] }}
-          currency="USD" orderNo={scopeOrder || null} onClose={() => setEditorFor(null)} />
+        <ReceiptImportModal
+          open
+          initialFiles={editorFor.file ? [editorFor.file] : []}
+          initialBindTarget={scopeOrder ? {
+            mode: 'order',
+            label: `Заказ № ${scopeOrder}`,
+            order: orders.find((item) => item.no === scopeOrder) || { no: scopeOrder, id: scopedOrderId },
+          } : null}
+          onClose={() => setEditorFor(null)}
+          onDone={async (createdDocuments) => {
+            setDocs((current) => [...createdDocuments.map(normalizeDocument), ...current]);
+            setEditorFor(null);
+          }}
+        />
       )}
     </div>
   );
@@ -1813,7 +1825,7 @@ function ReceiptMathDrawer({ open, file, math, onSave, onClose }) {
 
 
 
-function ReceiptImportModal({ open, onClose, onDone, initialDraft, onDraftSaved, onDraftCleared }) {
+function ReceiptImportModal({ open, onClose, onDone, initialDraft, initialFiles = [], initialBindTarget = null, onDraftSaved, onDraftCleared }) {
   const toast = useToast();
   const [files, setFiles] = useState([]);
   const [step, setStep] = useState(0);
@@ -1851,7 +1863,7 @@ function ReceiptImportModal({ open, onClose, onDone, initialDraft, onDraftSaved,
     setExpandedReceipts({});
     setConfirmClose(false);
     setImportMode(draft?.importMode || 'auto');
-    setBindTarget(draft?.bindTarget || { mode: 'order', label: 'Выберите заказ' });
+    setBindTarget(draft?.bindTarget || initialBindTarget || { mode: 'order', label: 'Выберите заказ' });
     setOptAddIncomplete(Boolean(draft?.optAddIncomplete));
     setOptCreateServices(draft ? Boolean(draft.optCreateServices) : true);
     setMath(draft?.math || {});
@@ -1861,6 +1873,7 @@ function ReceiptImportModal({ open, onClose, onDone, initialDraft, onDraftSaved,
     setBulk(draft?.bulk || { fee: '', markup: '', commission: '' });
     setDragActive(false);
     dragDepth.current = 0;
+    if (!draft && initialFiles.length) addFiles(initialFiles);
   }, [open]);
   useEffect(() => {
     if (bindTarget.mode !== 'order' && optCreateServices) setOptCreateServices(false);

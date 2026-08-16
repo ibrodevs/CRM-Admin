@@ -142,11 +142,11 @@ function ClientCard({ c: c0, onBack, onOpenOrder, onUpdate, onCreateOrder }) {
       <div className="table-card">
         {orders.length ? (
           <table className="tbl">
-            <thead><tr><th>№</th><th>Тип</th><th>Статус</th><th>Услуга</th><th style={{ textAlign: 'right' }}>Сумма</th><th></th></tr></thead>
+            <thead><tr><th>№</th><th>Дата</th><th>Тип</th><th>Статус</th><th>Услуга</th><th style={{ textAlign: 'right' }}>Сумма</th><th></th></tr></thead>
             <tbody>
               {orders.map((o, i) => (
                 <tr key={i} style={{ cursor: 'pointer' }} onClick={() => onOpenOrder(o)}>
-                  <td className="t-strong">{o.no}</td><td><Pill tone="blue">{o.requestType}</Pill></td>
+                  <td className="t-strong">{o.no}</td><td>{o.date || '—'}</td><td><Pill tone="blue">{o.requestType}</Pill></td>
                   <td><Pill tone={ORDER_STATUS[o.status]}>{o.status}</Pill></td><td>{o.service}</td>
                   <td style={{ textAlign: 'right', fontWeight: 600 }}>{o.sum} {o.currency}</td>
                   <td><span className="go-dot"><Icon name="chevRight" /></span></td>

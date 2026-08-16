@@ -6,6 +6,7 @@ const resourcesUrl = new URL('../js/api/resources.js', import.meta.url);
 const pageUrl = new URL('../js/page_fulfillment.jsx', import.meta.url);
 const editorUrl = new URL('../js/features/receipts/editor.jsx', import.meta.url);
 const cssUrl = new URL('../app/receipt-ui-fixes.css', import.meta.url);
+const peopleUrl = new URL('../js/page_people.jsx', import.meta.url);
 
 
 test('supplier working original and immutable source open separately inline', async () => {
@@ -94,4 +95,49 @@ test('hotel receipt UI uses structured hotel and room fields rather than a raw O
   assert.match(editor, /room\.meal/);
   assert.match(editor, /room\.guestIds/);
   assert.match(editor, /p\.hotelTerms\.deposit/);
+});
+
+
+test('avia editor separates checked baggage from carry-on baggage', async () => {
+  const editor = await readFile(editorUrl, 'utf8');
+
+  assert.match(editor, /handBaggage: firstReceiptValue\(source\.handBaggage, source\.hand_baggage, source\.carryOn, source\.carry_on\)/);
+  assert.match(editor, /label="Багаж сегмента"/);
+  assert.match(editor, /label="Ручная кладь"/);
+  assert.match(editor, /\['Ручная кладь', leg\.handBaggage \|\| p\.handBaggage\]/);
+});
+
+
+test('explicit economy booking class fills an empty service class safely', async () => {
+  const editor = await readFile(editorUrl, 'utf8');
+
+  assert.match(editor, /function receiptCabinFromBookingClass\(value\)/);
+  assert.match(editor, /ECONOMY\|ЭКОНОМ\|ЭКОНОМИЧЕСКИЙ/);
+  assert.match(editor, /if \(!normalized\.cabin\) normalized\.cabin = receiptCabinFromBookingClass\(normalized\.cls\);/);
+});
+
+
+test('IT fare control is available for supplier and branded avia documents', async () => {
+  const editor = await readFile(editorUrl, 'utf8');
+
+  assert.match(editor, /type === 'Авиа' && <Field label="Отображение тарифа">/);
+  assert.doesNotMatch(editor, /type === 'Авиа' && p\.output\.mode !== 'original' && <Field label="Стоимость в клиентском документе">/);
+});
+
+
+test('every client order row displays the order date', async () => {
+  const people = await readFile(peopleUrl, 'utf8');
+
+  assert.match(people, /<th>№<\/th><th>Дата<\/th><th>Тип<\/th>/);
+  assert.match(people, /<td className="t-strong">\{o\.no\}<\/td><td>\{o\.date \|\| '—'\}<\/td>/);
+});
+
+
+test('receipt uploaded inside an order opens the full receipt import editor and keeps the order binding', async () => {
+  const page = await readFile(pageUrl, 'utf8');
+
+  assert.match(page, /setEditorFor\(\{ file: info\.file\?\.raw, participant:/);
+  assert.match(page, /<ReceiptImportModal\s+open\s+initialFiles=\{editorFor\.file \? \[editorFor\.file\] : \[\]\}/s);
+  assert.match(page, /label: `Заказ № \$\{scopeOrder\}`/);
+  assert.match(page, /if \(!draft && initialFiles\.length\) addFiles\(initialFiles\);/);
 });
