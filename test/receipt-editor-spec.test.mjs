@@ -142,6 +142,7 @@ test('диалог сохранения черновика использует 
   assert.match(ui, /className="confirm-dialog-drawer"/);
   assert.match(styles, /\.confirm-dialog-drawer \.modal-close/);
   assert.match(styles, /\.confirm-dialog-drawer \.drawer-foot \.btn/);
+  assert.match(styles, /\.receipt-import-draft-banner > \.receipt-import-draft-icon \{[\s\S]*align-self: center/);
 });
 
 test('компактное имя, ЖД-место, live preview и сворачиваемые подбланки реализованы вместе', () => {

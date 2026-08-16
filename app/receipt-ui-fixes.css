@@ -1197,6 +1197,8 @@
   font-size: 11px;
   line-height: 1;
   font-weight: 800;
+  align-self: center;
+  justify-self: center;
 }
 
 .receipt-ticket-editor-index svg {
@@ -1207,7 +1209,7 @@
 
 .receipt-ticket-editor-nav {
   display: inline-flex;
-  align-items: center;
+  align-items: baseline;
   gap: 7px;
   flex: 0 0 auto;
 }
@@ -1357,6 +1359,7 @@
   place-items: center;
   align-self: center;
   line-height: 0;
+  margin: 0;
 }
 
 .confirm-dialog-drawer .drawer-foot .btn {
@@ -1364,6 +1367,25 @@
   align-items: center;
   justify-content: center;
   text-align: center;
+}
+
+.receipt-import-draft-banner > .receipt-import-draft-icon {
+  align-self: center;
+  margin: 0;
+  line-height: 0;
+}
+
+/* Final geometry guard: the complete number/check box, not only its glyph,
+   stays centered even if a later receipt patch changes text alignment. */
+.receipt-ticket-editor-scroll > .receipt-ticket-editor-chip {
+  align-items: center !important;
+}
+
+.receipt-ticket-editor-chip > .receipt-ticket-editor-index {
+  align-self: center !important;
+  justify-self: center;
+  margin-block: auto;
+  transform: none;
 }
 
 

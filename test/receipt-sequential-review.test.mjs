@@ -83,6 +83,8 @@ test('active ticket stays visible and ticket status icons remain centered', () =
   assert.match(page, /data-ticket-index=\{index\}/);
   assert.match(styles, /\.receipt-ticket-editor-index \{[\s\S]*place-items: center/);
   assert.match(styles, /\.receipt-sequential-steps button > span \{[\s\S]*place-items:center/);
+  assert.match(styles, /\.receipt-ticket-editor-scroll > \.receipt-ticket-editor-chip \{[\s\S]*align-items: center !important/);
+  assert.match(styles, /\.receipt-ticket-editor-chip > \.receipt-ticket-editor-index \{[\s\S]*align-self: center !important;[\s\S]*margin-block: auto/);
 });
 
 
