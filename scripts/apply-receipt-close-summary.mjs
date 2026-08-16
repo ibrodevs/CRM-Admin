@@ -115,3 +115,26 @@ if (source.includes(marker)) {
   await writeFile(pageUrl, source, 'utf8');
   console.log('Окно закрытия импорта дополнено сводкой и списком бланков.');
 }
+
+// Keep both icon tiles geometrically centered. Earlier CSS used baseline
+// alignment, which pulled the eye/docs and service icons toward the text
+// baseline instead of the middle of their 34/38 px tiles.
+const cssUrl = new URL('../app/receipt-ui-fixes.css', import.meta.url);
+let css = await readFile(cssUrl, 'utf8');
+const iconAlignMarker = '/* Close-import summary icons: center SVGs inside their tiles. */';
+if (!css.includes(iconAlignMarker)) {
+  css += `\n\n${iconAlignMarker}\n.receipt-close-section-head > span,\n.receipt-close-file-icon {\n  align-items: center !important;\n  justify-content: center !important;\n  line-height: 1 !important;\n}\n\n.receipt-close-section-head > span > svg,\n.receipt-close-file-icon > svg {\n  display: block;\n  margin: 0 !important;\n  flex: 0 0 auto;\n  align-self: center;\n}\n`;
+  await writeFile(cssUrl, css, 'utf8');
+  console.log('Иконки в окне закрытия импорта выровнены по центру.');
+} else {
+  console.log('Иконки окна закрытия импорта уже выровнены.');
+}
+
+for (const token of [
+  '.receipt-close-section-head > span,',
+  '.receipt-close-file-icon {',
+  'align-items: center !important;',
+  'align-self: center;',
+]) {
+  if (!css.includes(token)) throw new Error(`Не подтверждено выравнивание иконок: ${token}`);
+}
