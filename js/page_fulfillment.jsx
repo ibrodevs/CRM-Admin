@@ -1507,6 +1507,7 @@ function ReceiptEditDrawer({ open, file, onClose, onChange, onSubChange, onBrand
   const [editPreviewMode, setEditPreviewMode] = useState('corrected');
   const [activeBlankIndex, setActiveBlankIndex] = useState(0);
   const [applyToGroup, setApplyToGroup] = useState(false);
+  const ticketGridRef = useRef(null);
   useEffect(() => {
     if (!open) return;
     setCorrectionMode(false);
@@ -1528,6 +1529,14 @@ function ReceiptEditDrawer({ open, file, onClose, onChange, onSubChange, onBrand
     window.addEventListener('keydown', closeOnEscape, true);
     return () => window.removeEventListener('keydown', closeOnEscape, true);
   }, [previewExpanded]);
+  useEffect(() => {
+    if (!open || !ticketGridRef.current) return undefined;
+    const frame = window.requestAnimationFrame(() => {
+      const activeTicket = ticketGridRef.current?.querySelector(`[data-ticket-index="${activeBlankIndex}"]`);
+      activeTicket?.scrollIntoView({ block: 'nearest', inline: 'nearest', behavior: 'smooth' });
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [open, activeBlankIndex]);
   if (!open || !file) return null;
 
   const parsed = normalizeReceiptDraft(file.type, file.parsed);
@@ -1704,9 +1713,19 @@ function ReceiptEditDrawer({ open, file, onClose, onChange, onSubChange, onBrand
           {hasTicketGroup && <section className="receipt-ticket-editor-strip" aria-label="Билеты в групповом PDF">
             <div className="receipt-ticket-editor-head">
               <span><b>Бланк {safeBlankIndex + 1} из {groupTickets.length}</b><small>У каждого билета свои пассажир, номер, место, условия и стоимость.</small></span>
-              <Pill tone={currentIsReviewed ? 'green' : 'blue'}>{currentIsReviewed ? 'Проверен' : 'На проверке'}</Pill>
+              <div className="receipt-ticket-editor-nav">
+                <button type="button" aria-label="Предыдущий билет" disabled={safeBlankIndex === 0}
+                  onClick={() => { setActiveBlankIndex((index) => Math.max(0, index - 1)); setCorrectionMode(false); }}>
+                  <Icon name="chevLeft" />
+                </button>
+                <Pill tone={currentIsReviewed ? 'green' : 'blue'}>{currentIsReviewed ? 'Проверен' : 'На проверке'}</Pill>
+                <button type="button" aria-label="Следующий билет" disabled={safeBlankIndex >= groupTickets.length - 1}
+                  onClick={() => { setActiveBlankIndex((index) => Math.min(groupTickets.length - 1, index + 1)); setCorrectionMode(false); }}>
+                  <Icon name="chevRight" />
+                </button>
+              </div>
             </div>
-            <div className="receipt-ticket-editor-scroll">
+            <div className="receipt-ticket-editor-scroll" ref={ticketGridRef}>
               {groupTickets.map((ticket, index) => {
                 const passenger = ticket.passengers?.[0] || {};
                 const leg = ticket.legs?.[0] || {};
@@ -1716,6 +1735,7 @@ function ReceiptEditDrawer({ open, file, onClose, onChange, onSubChange, onBrand
                 const place = [leg.coach ? `вагон ${leg.coach}` : '', leg.seat ? `место ${leg.seat}` : ''].filter(Boolean).join(' · ');
                 const reviewed = receiptBlankIsReviewed(ticket);
                 return <button type="button" key={ticket.blankId || ticketNumber || index}
+                  data-ticket-index={index}
                   className={'receipt-ticket-editor-chip' + (index === safeBlankIndex ? ' is-active' : '') + (reviewed ? ' is-reviewed' : '')}
                   aria-pressed={index === safeBlankIndex}
                   onClick={() => { setActiveBlankIndex(index); setCorrectionMode(false); }}>

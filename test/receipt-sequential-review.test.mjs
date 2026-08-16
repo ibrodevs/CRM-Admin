@@ -72,9 +72,17 @@ test('multi-page aviation groups use one confirmation and preserve individual ti
 
 
 test('thirty blanks are selected in a vertical grid without horizontal scrolling', () => {
-  assert.match(styles, /\.receipt-ticket-editor-scroll \{[\s\S]*display: grid;[\s\S]*overflow-x: hidden;[\s\S]*overflow-y: auto;/);
+  assert.match(styles, /\.receipt-ticket-editor-scroll \{[\s\S]*display: grid;[\s\S]*overflow-x: clip;[\s\S]*overflow-y: auto;/);
   assert.match(styles, /\.receipt-sequential-steps \{ display:grid;[\s\S]*overflow-x:hidden; overflow-y:auto;/);
   assert.doesNotMatch(styles, /\.receipt-ticket-editor-scroll \{[\s\S]{0,180}overflow-x: auto;/);
+});
+
+test('active ticket stays visible and ticket status icons remain centered', () => {
+  assert.match(page, /ticketGridRef\.current\?\.querySelector/);
+  assert.match(page, /scrollIntoView\(\{ block: 'nearest', inline: 'nearest', behavior: 'smooth' \}\)/);
+  assert.match(page, /data-ticket-index=\{index\}/);
+  assert.match(styles, /\.receipt-ticket-editor-index \{[\s\S]*place-items: center/);
+  assert.match(styles, /\.receipt-sequential-steps button > span \{[\s\S]*place-items:center/);
 });
 
 

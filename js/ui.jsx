@@ -651,7 +651,7 @@ function Drawer({ open, onClose, title, sub, children, footer, width, className 
 
 function ConfirmDialog({ open, title = 'Вы уверены?', message, confirmLabel = 'Удалить', confirmVariant = 'danger', onConfirm, onCancel }) {
   return (
-    <Drawer open={open} onClose={onCancel} title={title} width="min(440px,92vw)"
+    <Drawer open={open} onClose={onCancel} title={title} width="min(440px,92vw)" className="confirm-dialog-drawer"
       footer={<>
         <Button variant="secondary" onClick={onCancel} style={{ flex: 1 }}>Отменить</Button>
         <Button variant={confirmVariant} onClick={onConfirm} style={{ flex: 1 }}>{confirmLabel}</Button>

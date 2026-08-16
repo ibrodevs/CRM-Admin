@@ -136,6 +136,14 @@ test('закрытие изменённого редактора предупр�
   assert.match(page, /onClose=\{closeReceiptEditor\}/);
 });
 
+test('диалог сохранения черновика использует стабильные контейнеры иконок', async () => {
+  const ui = await readFile(new URL('../js/ui.jsx', import.meta.url), 'utf8');
+  const styles = await readFile(new URL('../app/receipt-ui-fixes.css', import.meta.url), 'utf8');
+  assert.match(ui, /className="confirm-dialog-drawer"/);
+  assert.match(styles, /\.confirm-dialog-drawer \.modal-close/);
+  assert.match(styles, /\.confirm-dialog-drawer \.drawer-foot \.btn/);
+});
+
 test('компактное имя, ЖД-место, live preview и сворачиваемые подбланки реализованы вместе', () => {
   assert.match(editor, /export function receiptParticipantLabel/);
   assert.match(editor, /receiptParticipantSurname\(names\[0\]\).*receiptBlankWord\(blankCount - 1\)/s);
