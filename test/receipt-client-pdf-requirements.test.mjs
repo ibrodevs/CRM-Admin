@@ -23,8 +23,8 @@ test('supplier working original and immutable source open separately inline', as
   assert.match(editor, /supplierPdfNonce/);
   assert.match(page, /freshSupplierDocumentUrl\(d\.originalUrl\)/);
   assert.match(editor, /Оригинал поставщика · с сохранёнными корректировками/);
-  assert.match(editor, /Открыть оригинал с правками/);
-  assert.match(editor, /Исходный оригинал/);
+  assert.match(editor, /Оригинал поставщика с корректировками/);
+  assert.match(editor, /Исходный файл поставщика/);
 });
 
 
@@ -68,7 +68,7 @@ test('corrected supplier PDF footer actions stay inside drawer at every width', 
   const css = await readFile(cssUrl, 'utf8');
 
   assert.match(editor, /footer=\{<div className="receipt-supplier-footer-actions">/);
-  assert.match(editor, /receipt-supplier-footer-actions[\s\S]*Открыть оригинал с правками[\s\S]*Исходный оригинал/);
+  assert.match(editor, /receipt-supplier-footer-actions[\s\S]*Оригинал поставщика с корректировками[\s\S]*Исходный файл поставщика/);
   assert.match(css, /Corrected supplier PDF: footer actions must stay inside drawer/);
   assert.match(css, /\.receipt-supplier-footer-actions \{[\s\S]*grid-template-columns: repeat\(2, minmax\(0, 1fr\)\);/);
   assert.match(css, /\.receipt-supplier-footer-actions > \.btn \{[\s\S]*min-width: 0;[\s\S]*white-space: normal;[\s\S]*overflow-wrap: anywhere;/);
@@ -143,4 +143,26 @@ test('receipt uploaded inside an order opens the full receipt import editor and 
   assert.match(page, /<ReceiptImportModal\s+open\s+initialFiles=\{editorFor\.file \? \[editorFor\.file\] : \[\]\}/s);
   assert.match(page, /label: `Заказ № \$\{scopeOrder\}`/);
   assert.match(page, /if \(!draft && initialFiles\.length\) addFiles\(initialFiles\);/);
+});
+
+
+test('saved receipts can be edited and exported directly inside an order', async () => {
+  const page = await readFile(pageUrl, 'utf8');
+
+  assert.match(page, /setReceiptEdit\(\{/);
+  assert.match(page, /documentsApi\.updateReceipt\(fileId/);
+  assert.match(page, /Квитанция сохранена прямо в документах заказа/);
+  assert.match(page, /<ReceiptBrandDocumentDrawer open=\{!!receiptBrand\}/);
+  assert.match(page, /Оригинал поставщика с корректировками/);
+  assert.match(page, /Фирменный бланк/);
+});
+
+
+test('hotel branded voucher shows all term types and removes exact duplicates', async () => {
+  const editor = await readFile(editorUrl, 'utf8');
+
+  assert.match(editor, /function uniqueReceiptTermRows\(rows\)/);
+  assert.match(editor, /\['Регистрационный сбор', p\.hotelTerms\.registrationFee\]/);
+  assert.match(editor, /\['Условия изменения', p\.hotelTerms\.amendment\]/);
+  assert.match(editor, /const terms = uniqueReceiptTermRows/);
 });

@@ -77,7 +77,7 @@ for (const [source, tokens, label] of [
   [resources, ['originalPreviewUrl', 'file_version=1&disposition=inline'], 'API оригинала'],
   [page, [correctedSupplierReady ? 'documentsApi.supplierPreviewUrl' : 'documentsApi.originalPreviewUrl'], 'импорт оригинала'],
   [editor, correctedSupplierReady
-    ? ['receipt-supplier-original-frame', 'Оригинал поставщика · с сохранёнными корректировками', 'Открыть оригинал с правками', 'Итого по {tickets.length} бланкам']
+    ? ['receipt-supplier-original-frame', 'Оригинал поставщика · с сохранёнными корректировками', 'Оригинал поставщика с корректировками', 'Итого по {tickets.length} бланкам']
     : ['receipt-supplier-original-frame', 'Оригинал поставщика · без корректировок', 'Открыть оригинал в новой вкладке', 'Итого по {tickets.length} бланкам'], 'редактор'],
   [css, [cssMarker, 'max-height: calc(100dvh - 250px)', 'padding: 0 5px 96px 0'], 'стили'],
 ]) {

@@ -30,8 +30,8 @@ test('supplier preview explains corrected copy and keeps source available', () =
   assert.match(editor, /ReceiptBrandDocumentDrawer\(\{ open, type, draft, originalUrl, sourceOriginalUrl, onClose \}\)/);
   assert.match(editor, /Оригинал поставщика · с сохранёнными корректировками/);
   assert.match(editor, /встроенного шрифта и исходной верстки/);
-  assert.match(editor, /Открыть оригинал с правками/);
-  assert.match(editor, /Исходный оригинал/);
+  assert.match(editor, /Оригинал поставщика с корректировками/);
+  assert.match(editor, /Исходный файл поставщика/);
   assert.doesNotMatch(editor, /Изменения из редактора применяются только к бланку агентства и не изменяют этот файл/);
 });
 

@@ -20,7 +20,9 @@ function replaceRequired(source, from, to, label) {
 // also sends no-store headers.
 const pageUrlHelper = `function inlineSupplierDocumentUrl(url) {\n  const value = String(url || '');\n  if (!value || value.startsWith('blob:') || !value.includes('/documents/')\n    || !value.includes('/download/') || value.includes('disposition=')) return value;\n  return \`${'${value}'}${'${value.includes(\'?\') ? \'&\' : \'?\'}'}disposition=inline\`;\n}`;
 const pageFreshHelper = `${pageUrlHelper}\n\nfunction freshSupplierDocumentUrl(url) {\n  const value = inlineSupplierDocumentUrl(url);\n  if (!value || value.startsWith('blob:')) return value;\n  return \`${'${value}'}${'${value.includes(\'?\') ? \'&\' : \'?\'}'}_pdf=${'${Date.now()}'}\`;\n}`;
-page = replaceRequired(page, pageUrlHelper, pageFreshHelper, 'helper URL реестра');
+if (!page.includes('function freshSupplierDocumentUrl(url)')) {
+  page = replaceRequired(page, pageUrlHelper, pageFreshHelper, 'helper URL реестра');
+}
 
 const rowCorrectedStable = `window.open(inlineSupplierDocumentUrl(d.originalUrl), '_blank', 'noopener,noreferrer')`;
 const rowCorrectedFresh = `window.open(freshSupplierDocumentUrl(d.originalUrl), '_blank', 'noopener,noreferrer')`;
@@ -49,8 +51,8 @@ const frameStable = `<iframe className="receipt-supplier-original-frame" src={so
 const frameFresh = `<iframe className="receipt-supplier-original-frame" src={displayedSupplierPdfUrl} title="Оригинал поставщика с правками" />`;
 editor = replaceRequired(editor, frameStable, frameFresh, 'iframe исправленного оригинала');
 
-const buttonStable = `onClick={() => window.open(sourcePdfUrl, '_blank', 'noopener,noreferrer')}>Открыть оригинал с правками</Button>`;
-const buttonFresh = `onClick={() => window.open(freshSupplierPdfUrl(sourcePdfUrl), '_blank', 'noopener,noreferrer')}>Открыть оригинал с правками</Button>`;
+const buttonStable = `onClick={() => window.open(sourcePdfUrl, '_blank', 'noopener,noreferrer')}>Оригинал поставщика с корректировками</Button>`;
+const buttonFresh = `onClick={() => window.open(freshSupplierPdfUrl(sourcePdfUrl), '_blank', 'noopener,noreferrer')}>Оригинал поставщика с корректировками</Button>`;
 editor = replaceRequired(editor, buttonStable, buttonFresh, 'кнопка исправленного оригинала');
 
 for (const [source, tokens, label] of [

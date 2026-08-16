@@ -36,7 +36,7 @@ if (!css.includes(cssMarker)) {
 // prebuild and normalize the actual generated rules before tests execute.
 const beforeBaseline = css;
 css = css.replace(
-  /(\.receipt-subrows-inline-count\s*\{[\s\S]*?)align-items:\s*center;/,
+  /(\.receipt-subrows-inline-count\s*\{[^}]*?)align-items:\s*center;/,
   '$1align-items: baseline;',
 );
 css = css.replace(
@@ -60,7 +60,7 @@ for (const token of required) {
   if (!source.includes(token)) throw new Error(`Не подтверждён счётчик бланков: ${token}`);
 }
 
-if (!/\.receipt-subrows-inline-count\s*\{[\s\S]*?align-items:\s*baseline;/.test(css)) {
+if (!/\.receipt-subrows-inline-count\s*\{[^}]*?align-items:\s*baseline;/.test(css)) {
   throw new Error('Не удалось выровнять количество бланков по базовой линии.');
 }
 if (!/\.receipt-subrows-inline-count b\s*\{[\s\S]*?font-size:\s*11px;[\s\S]*?line-height:\s*1\.2;/.test(css)) {

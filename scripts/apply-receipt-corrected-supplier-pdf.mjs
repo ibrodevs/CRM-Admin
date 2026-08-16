@@ -108,7 +108,7 @@ if (!editor.includes('title="Оригинал поставщика с правк
 
 const footerOld = `{sourcePdfUrl && <Button variant="secondary" icon="eye" onClick={() => window.open(sourcePdfUrl, '_blank', 'noopener,noreferrer')}>Открыть оригинал в новой вкладке</Button>}`;
 const footerNew = `{sourcePdfUrl && <Button variant="secondary" icon="eye" onClick={() => window.open(sourcePdfUrl, '_blank', 'noopener,noreferrer')}>Открыть оригинал с правками</Button>}\n        {sourceOriginalPdfUrl && <Button variant="ghost" onClick={() => window.open(sourceOriginalPdfUrl, '_blank', 'noopener,noreferrer')}>Исходный оригинал</Button>}`;
-if (!(editor.includes('>Открыть оригинал с правками</Button>') && editor.includes('>Исходный оригинал</Button>'))) {
+if (!(editor.includes('>Оригинал поставщика с корректировками</Button>') && editor.includes('>Исходный файл поставщика</Button>'))) {
   editor = replaceRequired(editor, footerOld, footerNew, 'кнопки PDF в drawer');
 }
 
@@ -130,7 +130,7 @@ if (!css.includes(cssMarker)) {
 for (const [source, tokens, label] of [
   [resources, ['supplierPreviewUrl', 'supplierSourcePreviewUrl', 'supplier-pdf/?source=1'], 'API'],
   [page, ['documentsApi.supplierPreviewUrl', 'documentsApi.supplierSourcePreviewUrl', 'Оригинал с правками', 'Исходный', 'supplier_pdf_correction', 'после финального сохранения сумма переносится в рабочую копию PDF', 'рабочий PDF обновится после сохранения'], 'страница'],
-  [editor, ['sourceOriginalUrl', 'Оригинал поставщика · с сохранёнными корректировками', 'Открыть оригинал с правками', 'Исходный оригинал', 'receipt-supplier-footer-actions'], 'предпросмотр'],
+  [editor, ['sourceOriginalUrl', 'Оригинал поставщика · с сохранёнными корректировками', 'Оригинал поставщика с корректировками', 'Исходный файл поставщика', 'receipt-supplier-footer-actions'], 'предпросмотр'],
   [css, [cssMarker, 'grid-template-columns: repeat(2, minmax(0, 1fr))', 'white-space: normal'], 'адаптивный footer'],
 ]) {
   for (const token of tokens) {

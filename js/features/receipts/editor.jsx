@@ -576,6 +576,22 @@ function receiptUsesItFare(draft) {
   return ['it', 'itFare', 'fareIt'].includes(draft?.output?.priceMode);
 }
 
+function uniqueReceiptTermRows(rows) {
+  const unique = new Map();
+  rows.forEach(([label, value]) => {
+    const cleanValue = String(value || '').replace(/\s+/g, ' ').trim();
+    if (!cleanValue) return;
+    const key = cleanValue.toLocaleLowerCase('ru-RU');
+    const existing = unique.get(key);
+    if (existing) {
+      if (!existing[0].split(' / ').includes(label)) existing[0] += ` / ${label}`;
+      return;
+    }
+    unique.set(key, [label, cleanValue]);
+  });
+  return [...unique.values()];
+}
+
 function inlineSupplierDocumentUrl(url) {
   const value = String(url || '');
   if (!value || value.startsWith('blob:') || !value.includes('/documents/')
@@ -863,7 +879,7 @@ export function ReceiptBrandDocumentDrawer({ open, type, draft, originalUrl, sou
   const participants = receiptParticipantNames(p);
   const output = { ...(p.output || {}), mode: previewMode };
   const organization = output.mode === 'saas' ? 'Компания клиента' : 'ПСЦ Travel Hub';
-  const outputLabel = output.mode === 'saas' ? 'Фирменный ваучер SaaS-компании' : output.mode === 'agency' ? 'Фирменный бланк агентства' : 'Оригинал поставщика';
+  const outputLabel = output.mode === 'saas' ? 'Фирменный ваучер SaaS-компании' : output.mode === 'agency' ? 'Фирменный бланк агентства' : 'Оригинал поставщика с корректировками';
   const price = output.priceMode === 'paid' ? 'Оплачено'
     : output.priceMode === 'hidden' ? '' : `${receiptFinancialTotal(type, p).toLocaleString('ru-RU')} ${p.currency || ''}`;
   const money = (value) => `${roundMoney(value).toLocaleString('ru-RU')} ${p.currency || ''}`.trim();
@@ -873,13 +889,14 @@ export function ReceiptBrandDocumentDrawer({ open, type, draft, originalUrl, sou
     : (Number(p.taxes) ? [{ code: 'TAX', label: 'Таксы перевозчика', amount: p.taxes }] : []);
   const feeRows = p.feeBreakdown?.length ? p.feeBreakdown
     : (Number(p.fees) ? [{ code: 'FEE', label: 'Сервисный сбор', amount: p.fees }] : []);
-  const terms = type === 'Гостиница'
+  const terms = uniqueReceiptTermRows(type === 'Гостиница'
     ? [['Депозит', p.hotelTerms.deposit], ['Городской налог', p.hotelTerms.cityTax], ['Курортный сбор', p.hotelTerms.resortFee],
-      ['Условия отмены', p.hotelTerms.cancellation], ['Штраф при незаезде', p.hotelTerms.noShow], ['Важная информация', p.hotelTerms.important],
+      ['Регистрационный сбор', p.hotelTerms.registrationFee], ['Условия отмены', p.hotelTerms.cancellation],
+      ['Штраф при незаезде', p.hotelTerms.noShow], ['Условия изменения', p.hotelTerms.amendment], ['Важная информация', p.hotelTerms.important],
       ['Комментарий для гостя', p.hotelTerms.guestComment]]
     : [['Условия отмены', p.transferTerms.cancellation], ['Бесплатное ожидание', p.transferTerms.freeWaiting],
       ['Встреча с табличкой', p.transferTerms.meetAndGreet], ['Помощь с багажом', p.transferTerms.baggageHelp],
-      ['Контакты поддержки', p.transferTerms.supportContacts], ['Комментарий пассажиру', p.transferTerms.passengerComment]];
+      ['Контакты поддержки', p.transferTerms.supportContacts], ['Комментарий пассажиру', p.transferTerms.passengerComment]]);
   const hotelCategory = type === 'Гостиница' && p.hotel.category
     && !String(p.hotel.name || '').toLowerCase().includes(String(p.hotel.category).toLowerCase())
     ? p.hotel.category : '';
@@ -908,10 +925,10 @@ export function ReceiptBrandDocumentDrawer({ open, type, draft, originalUrl, sou
       sub={`${outputLabel}${output.template ? ` · ${output.template}` : ''}`} width="min(860px,98vw)"
       className="receipt-brand-drawer"
       footer={<div className="receipt-supplier-footer-actions">
-        {sourcePdfUrl && <Button variant="secondary" icon="eye" onClick={() => window.open(freshSupplierPdfUrl(sourcePdfUrl), '_blank', 'noopener,noreferrer')}>Открыть оригинал с правками</Button>}
-        {sourceOriginalPdfUrl && <Button variant="ghost" onClick={() => window.open(sourceOriginalPdfUrl, '_blank', 'noopener,noreferrer')}>Исходный оригинал</Button>}
+        {sourcePdfUrl && <Button variant="secondary" icon="eye" onClick={() => window.open(freshSupplierPdfUrl(sourcePdfUrl), '_blank', 'noopener,noreferrer')}>Оригинал поставщика с корректировками</Button>}
+        {sourceOriginalPdfUrl && <Button variant="ghost" onClick={() => window.open(sourceOriginalPdfUrl, '_blank', 'noopener,noreferrer')}>Исходный файл поставщика</Button>}
         <Button variant="secondary" onClick={onClose}>Закрыть</Button>
-        {(output.mode !== 'original' || type === 'ЖД' || type === 'Авиа') && <Button icon="download" onClick={printReceipt}>Печать / сохранить PDF</Button>}
+        {(output.mode !== 'original' || type === 'ЖД' || type === 'Авиа') && <Button icon="download" onClick={printReceipt}>{output.mode === 'original' ? 'Скачать исправленный PDF' : 'Скачать фирменный PDF'}</Button>}
       </div>}>
       <div className="receipt-brand-variants" aria-label="Вариант бланка">
         {[
@@ -1057,8 +1074,8 @@ export function ReceiptBrandDocumentDrawer({ open, type, draft, originalUrl, sou
           </div>}
           {type === 'Авиа' && p.extras.length > 0 && <><h4>Дополнительные услуги</h4>
             <div className="receipt-brand-names">{p.extras.map((row, index) => <span key={index}>{row.name}{row.details ? ` · ${row.details}` : ''}</span>)}</div></>}
-          {(type === 'Гостиница' || type === 'Трансфер') && terms.some(([, value]) => value) && <><h4>Условия и важная информация</h4>
-            <div className="receipt-brand-terms">{terms.filter(([, value]) => value).map(([label, value]) => <div key={label}><b>{label}</b><span>{value}</span></div>)}</div></>}
+          {(type === 'Гостиница' || type === 'Трансфер') && terms.length > 0 && <><h4>Условия и важная информация</h4>
+            <div className="receipt-brand-terms">{terms.map(([label, value]) => <div key={label}><b>{label}</b><span>{value}</span></div>)}</div></>}
           {type === 'Авиа' && <><h4>Расчёт стоимости</h4>
             <div className="receipt-brand-finance-groups">
               <section><h5>Тариф</h5><div className="receipt-brand-finance">

@@ -41,7 +41,7 @@ test('длинный авиа-предпросмотр прокручивает�
   assert.match(css, /\.receipt-brand-drawer>[\s\S]*?\.drawer-body[\s\S]*?overflow-y:auto/);
   assert.match(css, /\.receipt-brand-drawer>[\s\S]*?\.drawer-foot[\s\S]*?position:static/);
   assert.match(page, /className="receipt-editor-drawer"/);
-  assert.match(page, /inlineSupplierDocumentUrl\(file\.originalUrl\)/);
+  assert.match(page, /supplierDocumentPageUrl\(file\.originalUrl, supplierPageNumber\)/);
 });
 
 test('авиа-оригинал показывает финансовые правки, а исходный PDF остаётся отдельным', () => {

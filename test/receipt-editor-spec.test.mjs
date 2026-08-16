@@ -64,7 +64,8 @@ test('поддержаны три варианта вывода и защита 
   assert.match(editor, /Показывать только «Оплачено»/);
   assert.match(editor, /Не показывать стоимость/);
   assert.match(editor, /не попадут стоимость поставщика, наценка, внутренние комиссии и сборы/);
-  assert.match(editor, /Печать \/ сохранить PDF/);
+  assert.match(editor, /Скачать исправленный PDF/);
+  assert.match(editor, /Скачать фирменный PDF/);
   assert.match(editor, /receipt-brand-variants/);
   assert.match(editor, /Заказ поставщика\/API/);
   assert.match(editor, /Расчёт стоимости/);

@@ -65,7 +65,9 @@ test('multi-page aviation groups use one confirmation and preserve individual ti
   assert.match(page, /!\['Авиа', 'ЖД'\]\.includes\(file\.type\)/);
   assert.match(page, /const isAviaTicketGroup = file\.type === 'Авиа' && hasTicketGroup/);
   assert.match(page, /const saveAviaGroup = async/);
-  assert.match(page, /Применить к группе и завершить/);
+  assert.match(page, /Проверить и применить к \{groupTickets\.length\} бланкам/);
+  assert.match(page, /Применить общие исправления к/);
+  assert.match(page, /confirmLabel="Да, применить и завершить"/);
   assert.match(page, /Индивидуальные данные пассажиров сохранятся/);
   assert.match(page, /aggregateReceiptSubrows\(parent, subReceipts, receiptType = 'ЖД'\)/);
 });
@@ -94,6 +96,8 @@ test('rail editor defaults to supplier PDF and exposes corrected live view', () 
   assert.match(page, />С корректировками<\/button>/);
   assert.match(page, /receipt-edit-supplier-frame/);
   assert.match(page, /после сохранения изменения переносятся и в PDF поставщика/i);
+  assert.match(page, /supplierDocumentPageUrl\(file\.originalUrl, supplierPageNumber\)/);
+  assert.match(page, /receiptIndex \|\| editingParsed\.receipt_index/);
 });
 
 
