@@ -1393,7 +1393,7 @@
   display: grid;
   grid-template-columns: 28px minmax(0, 1fr);
   gap: 2px 9px;
-  align-items: center;
+  align-items: baseline;
   min-width: 0;
   padding: 11px;
   border: 1px solid var(--line);

@@ -52,6 +52,10 @@ function receiptCabinFromBookingClass(value) {
   return '';
 }
 
+function receiptBaggageAllowance(value) {
+  return /^\d+(?:[.,]\d+)?\s*(?:PC|KG|КГ|КМ)$/i.test(String(value || '').trim());
+}
+
 function normalizeReceiptLeg(row = {}) {
   const source = row && typeof row === 'object' ? row : {};
   const normalized = {
@@ -81,6 +85,12 @@ function normalizeReceiptLeg(row = {}) {
     dir: firstReceiptValue(source.dir, source.direction, 'out'),
   };
   if (!normalized.cabin) normalized.cabin = receiptCabinFromBookingClass(normalized.cls);
+  if (!normalized.handBaggage && receiptBaggageAllowance(normalized.fareBasis)
+    && receiptBaggageAllowance(normalized.baggage)) {
+    normalized.handBaggage = normalized.baggage;
+    normalized.baggage = normalized.fareBasis;
+    normalized.fareBasis = '';
+  }
   if (isReceiptLegalEntityName(normalized.from) || isReceiptLegalEntityName(normalized.to)) {
     normalized.from = '';
     normalized.fromCode = '';
@@ -326,6 +336,13 @@ export function normalizeReceiptDraft(type, value = {}) {
   draft.passengers = passengers;
   draft.passenger = passengers[0]?.name || value.passenger || value.passenger_name || '';
   draft.legs = asArray(value.legs || value.segments, [emptyLeg()]).map(normalizeReceiptLeg);
+  const firstAviaLeg = type === 'Авиа' ? draft.legs[0] : null;
+  if (firstAviaLeg && receiptBaggageAllowance(value.fareBasis || value.fare_basis)
+    && !firstAviaLeg.fareBasis && firstAviaLeg.handBaggage) {
+    draft.fareBasis = '';
+    draft.baggage = firstAviaLeg.baggage;
+    draft.handBaggage = firstAviaLeg.handBaggage;
+  }
   draft.ref = firstReceiptValue(value.ref, value.reference, value.pnr, value.booking_reference, draft.ref);
   draft.ticketNo = firstReceiptValue(value.ticketNo, value.ticket_number, value.ticket_no, draft.ticketNo);
   draft.issueDate = firstReceiptValue(value.issueDate, value.issue_date, draft.issueDate);

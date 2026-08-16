@@ -105,6 +105,9 @@ test('avia editor separates checked baggage from carry-on baggage', async () => 
   assert.match(editor, /label="Багаж сегмента"/);
   assert.match(editor, /label="Ручная кладь"/);
   assert.match(editor, /\['Ручная кладь', leg\.handBaggage \|\| p\.handBaggage\]/);
+  assert.match(editor, /function receiptBaggageAllowance\(value\)/);
+  assert.match(editor, /normalized\.handBaggage = normalized\.baggage;\s*normalized\.baggage = normalized\.fareBasis;\s*normalized\.fareBasis = '';/s);
+  assert.match(editor, /draft\.fareBasis = '';\s*draft\.baggage = firstAviaLeg\.baggage;\s*draft\.handBaggage = firstAviaLeg\.handBaggage;/s);
 });
 
 
