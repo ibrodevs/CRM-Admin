@@ -52,7 +52,7 @@ export function toUiUser(user) {
 }
 
 export function toUiOrder(order) {
-  const date = asDate(order.created_at) || new Date();
+  const date = asDate(order.created_at);
   return {
     ...order,
     id: order.id,
@@ -68,7 +68,7 @@ export function toUiOrder(order) {
     currency: order.base_currency || 'USD',
     services: Number(order.services_count || 0),
     progress: order.stage === 'completed' ? 100 : 0,
-    date: date.toLocaleDateString('ru-RU'),
+    date: date ? date.toLocaleDateString('ru-RU') : '',
     createdOn: date,
   };
 }

@@ -130,9 +130,25 @@ test('IT fare control is available for supplier and branded avia documents', asy
 
 test('every client order row displays the order date', async () => {
   const people = await readFile(peopleUrl, 'utf8');
+  const app = await readFile(new URL('../js/app.jsx', import.meta.url), 'utf8');
 
   assert.match(people, /<th>№<\/th><th>Дата<\/th><th>Тип<\/th>/);
-  assert.match(people, /<td className="t-strong">\{o\.no\}<\/td><td>\{o\.date \|\| '—'\}<\/td>/);
+  assert.match(people, /function ordersForClient\(client, orders = ORDERS\)/);
+  assert.match(people, /order\.client_person[\s\S]*String\(client\.id\)/);
+  assert.match(people, /<ClientCard c=\{active\} orders=\{orders\}/);
+  assert.match(people, /<td className="t-strong">\{o\.no\}<\/td><td>\{orderDate\(o\)\}<\/td>/);
+  assert.match(app, /<ClientsPage initialClients=\{workspace\.clients\} orders=\{orders\}/);
+});
+
+
+test('company and employee order histories display the order date too', async () => {
+  const people = await readFile(peopleUrl, 'utf8');
+  const app = await readFile(new URL('../js/app.jsx', import.meta.url), 'utf8');
+
+  assert.match(people, /Поездки сотрудника[\s\S]*<th>№<\/th><th>Дата<\/th>/);
+  assert.match(people, /Заказы компании[\s\S]*<th>№<\/th><th>Дата<\/th>/);
+  assert.match(people, /<CompanyCard co=\{active\} orders=\{orders\}/);
+  assert.match(app, /<CompaniesPage initialCompanies=\{workspace\.companies\} orders=\{orders\}/);
 });
 
 

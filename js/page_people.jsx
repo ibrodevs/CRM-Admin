@@ -17,6 +17,25 @@ import { resultsOf } from './api/client';
 
 function pUsd(n) { return Math.round(n).toLocaleString('ru-RU') + ' $'; }
 function ordersOf(name) { return ORDERS.filter((o) => o.client === name); }
+function ordersForClient(client, orders = ORDERS) {
+  return orders.filter((order) => (
+    (client?.id != null && order.client_person != null && String(order.client_person) === String(client.id))
+    || (client?.name && order.client === client.name)
+  ));
+}
+function ordersForCompany(company, orders = ORDERS) {
+  return orders.filter((order) => (
+    (company?.id != null && order.client_company != null && String(order.client_company) === String(company.id))
+    || (company?.name && order.client === company.name)
+  ));
+}
+function orderDate(order) {
+  if (order?.date) return order.date;
+  const raw = order?.created_at || order?.createdOn;
+  if (!raw) return '—';
+  const parsed = raw instanceof Date ? raw : new Date(raw);
+  return Number.isNaN(parsed.getTime()) ? '—' : parsed.toLocaleDateString('ru-RU');
+}
 
 const citizenshipCode = (value) => ({ 'Кыргызстан': 'KG', 'Казахстан': 'KZ', 'Россия': 'RU', 'Узбекистан': 'UZ', 'Таджикистан': 'TJ', 'Турция': 'TR', 'Германия': 'DE', 'Китай': 'CN', 'ОАЭ': 'AE' }[value] || value || '');
 const personPayloadFromUnified = (person) => ({
@@ -60,7 +79,7 @@ const toUiEmployee = (employee) => {
 
 
 
-function ClientCard({ c: c0, onBack, onOpenOrder, onUpdate, onCreateOrder }) {
+function ClientCard({ c: c0, orders: allOrders = ORDERS, onBack, onOpenOrder, onUpdate, onCreateOrder }) {
   const toast = useToast();
   const [c, setC] = useState(c0);
   const [edit, setEdit] = useState(false);
@@ -95,7 +114,7 @@ function ClientCard({ c: c0, onBack, onOpenOrder, onUpdate, onCreateOrder }) {
       toast('Документ добавлен в backend', 'ok');
     } catch (error) { toast(error.message || 'Не удалось добавить документ', 'err'); }
   };
-  const orders = ordersOf(c.name);
+  const orders = ordersForClient(c, allOrders);
   return (
     <div className="fade-in">
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>
@@ -146,7 +165,7 @@ function ClientCard({ c: c0, onBack, onOpenOrder, onUpdate, onCreateOrder }) {
             <tbody>
               {orders.map((o, i) => (
                 <tr key={i} style={{ cursor: 'pointer' }} onClick={() => onOpenOrder(o)}>
-                  <td className="t-strong">{o.no}</td><td>{o.date || '—'}</td><td><Pill tone="blue">{o.requestType}</Pill></td>
+                  <td className="t-strong">{o.no}</td><td>{orderDate(o)}</td><td><Pill tone="blue">{o.requestType}</Pill></td>
                   <td><Pill tone={ORDER_STATUS[o.status]}>{o.status}</Pill></td><td>{o.service}</td>
                   <td style={{ textAlign: 'right', fontWeight: 600 }}>{o.sum} {o.currency}</td>
                   <td><span className="go-dot"><Icon name="chevRight" /></span></td>
@@ -208,7 +227,7 @@ function ClientCreateModal({ open, initial, onClose, onCreated }) {
   );
 }
 
-function ClientsPage({ initialClients = [], onClientsChange, onOpenOrder, onCreateOrder, intent, onConsume }) {
+function ClientsPage({ initialClients = [], orders = [], onClientsChange, onOpenOrder, onCreateOrder, intent, onConsume }) {
   const [view, setView] = useState('list');
   const [active, setActive] = useState(null);
   const [q, setQ] = useState('');
@@ -228,7 +247,7 @@ function ClientsPage({ initialClients = [], onClientsChange, onOpenOrder, onCrea
   const addClient = (c) => commitClients((cur) => [c, ...cur]);
   const upsertClient = (c) => commitClients((cur) => cur.some((x) => x.id === c.id) ? cur.map((x) => x.id === c.id ? c : x) : [c, ...cur]);
 
-  if (view === 'card' && active) return (<><Topbar title="Карточка клиента" /><div className="content"><ClientCard c={active} onBack={() => setView('list')} onOpenOrder={onOpenOrder} onCreateOrder={onCreateOrder} onUpdate={(u) => { upsertClient(u); setActive(u); }} /></div></>);
+  if (view === 'card' && active) return (<><Topbar title="Карточка клиента" /><div className="content"><ClientCard c={active} orders={orders} onBack={() => setView('list')} onOpenOrder={onOpenOrder} onCreateOrder={onCreateOrder} onUpdate={(u) => { upsertClient(u); setActive(u); }} /></div></>);
 
   let rows = clients.filter((c) => (!fStatus || c.status === fStatus) && (!q || `${c.id} ${c.name} ${c.company} ${c.phone}`.toLowerCase().includes(q.toLowerCase())));
   rows = apply(rows, { name: (r) => r.name, orders: (r) => r.orders, spent: (r) => r.spent, debt: (r) => r.debt });
@@ -338,10 +357,10 @@ function EmployeeProfileDrawer({ emp, dept, coName, onClose, onOpenOrder, onRemo
       {trips.length ? (
         <div className="table-card">
           <table className="tbl">
-            <thead><tr><th>№</th><th>Статус</th><th>Услуга</th><th style={{ textAlign: 'right' }}>Сумма</th><th></th></tr></thead>
+            <thead><tr><th>№</th><th>Дата</th><th>Статус</th><th>Услуга</th><th style={{ textAlign: 'right' }}>Сумма</th><th></th></tr></thead>
             <tbody>{trips.map((o, i) => (
               <tr key={i} style={{ cursor: 'pointer' }} onClick={() => { onOpenOrder && onOpenOrder(o); onClose(); }}>
-                <td className="t-strong">{o.no}</td><td><Pill tone={ORDER_STATUS[o.status]}>{o.status}</Pill></td>
+                <td className="t-strong">{o.no}</td><td>{orderDate(o)}</td><td><Pill tone={ORDER_STATUS[o.status]}>{o.status}</Pill></td>
                 <td>{o.service}</td><td style={{ textAlign: 'right', fontWeight: 600 }}>{o.sum} {o.currency}</td>
                 <td><span className="go-dot"><Icon name="chevRight" /></span></td>
               </tr>
@@ -433,7 +452,7 @@ function StaffDeptGroup({ dept, emps, onOpen, onAdd, onRemove }) {
   );
 }
 
-function CompanyCard({ co, onBack, onOpenOrder, onCreateOrder }) {
+function CompanyCard({ co, orders: allOrders = ORDERS, onBack, onOpenOrder, onCreateOrder }) {
   const toast = useToast();
   const [tab, setTab] = useState('overview');
 
@@ -556,7 +575,7 @@ function CompanyCard({ co, onBack, onOpenOrder, onCreateOrder }) {
     setStaff((current) => ({ ...current, employees: [...current.employees, ...saved] }));
     return r;
   };
-  const orders = ordersOf(co.name);
+  const orders = ordersForCompany(co, allOrders);
   const contacts = [{ name: co.dir, role: 'Директор', phone: co.phone, email: co.email }, { name: 'Бухгалтерия', role: 'Финансы', phone: co.phone, email: 'buh@' + co.email.split('@')[1] }].slice(0, co.contacts);
   const fin = companyFinance(co.id);
   const bal = companyBalanceShort(fin);
@@ -679,10 +698,10 @@ function CompanyCard({ co, onBack, onOpenOrder, onCreateOrder }) {
       <div className="table-card">
         {orders.length ? (
           <table className="tbl">
-            <thead><tr><th>№</th><th>Статус</th><th>Услуга</th><th>Ответственный</th><th style={{ textAlign: 'right' }}>Сумма</th><th></th></tr></thead>
+            <thead><tr><th>№</th><th>Дата</th><th>Статус</th><th>Услуга</th><th>Ответственный</th><th style={{ textAlign: 'right' }}>Сумма</th><th></th></tr></thead>
             <tbody>{orders.map((o, i) => (
               <tr key={i} style={{ cursor: 'pointer' }} onClick={() => onOpenOrder(o)}>
-                <td className="t-strong">{o.no}</td><td><Pill tone={ORDER_STATUS[o.status]}>{o.status}</Pill></td><td>{o.service}</td><td>{o.operator}</td>
+                <td className="t-strong">{o.no}</td><td>{orderDate(o)}</td><td><Pill tone={ORDER_STATUS[o.status]}>{o.status}</Pill></td><td>{o.service}</td><td>{o.operator}</td>
                 <td style={{ textAlign: 'right', fontWeight: 600 }}>{o.sum} {o.currency}</td><td><span className="go-dot"><Icon name="chevRight" /></span></td>
               </tr>
             ))}</tbody>
@@ -694,7 +713,7 @@ function CompanyCard({ co, onBack, onOpenOrder, onCreateOrder }) {
   );
 }
 
-function CompaniesPage({ initialCompanies = [], onCompaniesChange, onOpenOrder, onCreateOrder, intent, onConsume }) {
+function CompaniesPage({ initialCompanies = [], orders = [], onCompaniesChange, onOpenOrder, onCreateOrder, intent, onConsume }) {
   const [view, setView] = useState('list');
   const [active, setActive] = useState(null);
   const [q, setQ] = useState('');
@@ -723,7 +742,7 @@ function CompaniesPage({ initialCompanies = [], onCompaniesChange, onOpenOrder, 
 
   useEffect(() => { if (intent && intent.type === 'create') { setCreateOpen(true); onConsume && onConsume(); } }, [intent]);
 
-  if (view === 'card' && active) return (<><Topbar title="Карточка компании" /><div className="content"><CompanyCard co={active} onBack={() => setView('list')} onOpenOrder={onOpenOrder} onCreateOrder={onCreateOrder} /></div></>);
+  if (view === 'card' && active) return (<><Topbar title="Карточка компании" /><div className="content"><CompanyCard co={active} orders={orders} onBack={() => setView('list')} onOpenOrder={onOpenOrder} onCreateOrder={onCreateOrder} /></div></>);
 
   let rows = companies.filter((c) => (!fStatus || c.status === fStatus) && (!q || `${c.id} ${c.name} ${c.inn} ${c.dir}`.toLowerCase().includes(q.toLowerCase())));
   rows = apply(rows, { name: (r) => r.name, orders: (r) => r.orders, turnover: (r) => r.turnover });
@@ -779,4 +798,4 @@ Object.assign(window, { ClientsPage, ClientCard, ClientCreateModal, CompaniesPag
 
 
 
-export { pUsd, ordersOf, ClientCard, ClientCreateModal, ClientsPage, EmployeeCreateDrawer, EmployeeProfileDrawer, CompanyCard, CompaniesPage };
+export { pUsd, ordersOf, ordersForClient, ordersForCompany, orderDate, ClientCard, ClientCreateModal, ClientsPage, EmployeeCreateDrawer, EmployeeProfileDrawer, CompanyCard, CompaniesPage };
