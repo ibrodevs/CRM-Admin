@@ -1,3 +1,4 @@
+import './apply-receipt-date-normalization.mjs';
 import { readFile, writeFile } from 'node:fs/promises';
 
 const cssUrl = new URL('../app/receipt-ui-fixes.css', import.meta.url);
