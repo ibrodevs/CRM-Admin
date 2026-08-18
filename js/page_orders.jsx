@@ -851,10 +851,10 @@ function EmployeePanel({ company, selected, onApply, onClose }) {
 }
 
 
-function OrdersList({ orders, onOpen, onCreate, onNavigate }) {
+function OrdersList({ orders, onOpen, onCreate, onNavigate, currentUser }) {
   const toast = useToast();
   const [search, setSearch] = useState('');
-  const [page, setPage] = useState(1);
+  const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
   const [filters, setFilters] = useState({ status: '', requestType: '', service: '' });
   const { sort, onSort, apply } = useSort(null);
   const [selected, setSelected] = useState(null);
@@ -883,9 +883,11 @@ function OrdersList({ orders, onOpen, onCreate, onNavigate }) {
     (!filters.requestType || o.requestType === filters.requestType) &&
     (!filters.service || o.service === filters.service));
   rows = apply(rows, { no: (r) => r.no, sum: (r) => r.sum });
-  const pages = Math.max(1, Math.ceil(rows.length / PAGE_SIZE));
-  const pageRows = rows.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
-  useEffect(() => { setPage(1); }, [search, filters]);
+  const pageRows = rows.slice(0, visibleCount);
+  const currentUserName = String(currentUser?.name || currentUser?.full_name || '').trim().toLowerCase();
+  const ownOrders = orders.filter((order) => (currentUser?.id && String(order.operatorId) === String(currentUser.id))
+    || (currentUserName && String(order.operator || '').trim().toLowerCase() === currentUserName)).length;
+  useEffect(() => { setVisibleCount(PAGE_SIZE); }, [search, filters]);
 
   return (
     <div className="fade-in">
@@ -900,6 +902,11 @@ function OrdersList({ orders, onOpen, onCreate, onNavigate }) {
         <Button variant="primary" icon="plus" onClick={onCreate}>Добавить заказ</Button>
       </Topbar>
       <div className="content">
+        <div className="orders-access-summary" aria-label="Количество доступных заказов">
+          <div><span>Доступно по роли</span><b>{orders.length}</b><small>{currentUser?.role || 'Текущая роль'}</small></div>
+          <div><span>Назначено вам</span><b>{ownOrders}</b><small>{currentUser?.name || currentUser?.full_name || 'Текущий оператор'}</small></div>
+          <div><span>По текущему фильтру</span><b>{rows.length}</b><small>из доступных заказов</small></div>
+        </div>
         <div className="orders-filters" style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 18, flexWrap: 'wrap' }}>
           <FilterChip label="Статус" icon="chev" options={Object.keys(ORDER_STATUS)} value={filters.status} onChange={(v) => setFilters((f) => ({ ...f, status: v }))} />
           <FilterChip label="Заказчик" icon="chev" options={CLIENTS} value={filters.client} onChange={(v) => setSearch(v === '' ? '' : v)} />
@@ -915,20 +922,21 @@ function OrdersList({ orders, onOpen, onCreate, onNavigate }) {
               <tr>
                 <th style={{ width: 36 }}></th>
                 <Th label="№" col="no" sort={sort} onSort={onSort} style={{ width: 80 }} />
-                <th>Клиент</th><th>Тип заявки</th><th>Статус заказа</th><th>Тип услуги</th>
+                <th>Дата</th><th>Клиент</th><th>Тип заявки</th><th>Статус заказа</th><th>Тип услуги</th>
                 <th>Ответственное лицо</th>
                 <Th label="Сумма" col="sum" sort={sort} onSort={onSort} />
                 <th>Кол-во услуг</th>
               </tr>
             </thead>
             {pageRows.length === 0
-              ? <tbody><tr><td colSpan={9}><EmptyState title="Заказы не найдены" sub="Измените параметры поиска или фильтры" /></td></tr></tbody>
+              ? <tbody><tr><td colSpan={10}><EmptyState title="Заказы не найдены" sub="Измените параметры поиска или фильтры" /></td></tr></tbody>
               : (
                 <tbody>
                   {pageRows.map((o, i) => (
                     <tr key={i} style={{ cursor: 'pointer' }} onClick={() => onOpen(o)}>
                       <td onClick={(e) => e.stopPropagation()}><Radio on={!!selected && selected.no === o.no} onChange={() => setSelected((cur) => (cur && cur.no === o.no ? null : o))} /></td>
                       <td className="t-strong">{o.no}</td>
+                      <td><span className="order-list-date"><Icon name="calendar" />{o.date || '—'}</span></td>
                       <td className="t-strong">{o.client}</td>
                       <td><Pill tone="blue">{o.requestType}</Pill></td>
                       <td><Pill tone={ORDER_STATUS[o.status]}>{o.status}</Pill></td>
@@ -946,7 +954,12 @@ function OrdersList({ orders, onOpen, onCreate, onNavigate }) {
                 </tbody>
               )}
           </table>
-          <Pagination page={page} pages={pages} onPage={setPage} />
+          {visibleCount < rows.length && <div className="orders-load-more">
+            <Button variant="secondary" icon="chevDown" onClick={() => setVisibleCount((count) => count + PAGE_SIZE)}>
+              Загрузить ещё ({Math.min(PAGE_SIZE, rows.length - visibleCount)})
+            </Button>
+            <span>Показано {Math.min(visibleCount, rows.length)} из {rows.length}</span>
+          </div>}
         </div>
       </div>
 
@@ -965,7 +978,7 @@ function OrdersList({ orders, onOpen, onCreate, onNavigate }) {
 }
 
 
-function OrdersPage({ intent, onConsume, orders, clients = [], companies = [], addOrder, onDetailChange, onOpenChat, onNavigate }) {
+function OrdersPage({ intent, onConsume, orders, clients = [], companies = [], addOrder, onDetailChange, onOpenChat, onNavigate, currentUser }) {
   const [detail, setDetailRaw] = useState(null);
   const [detailTab, setDetailTab] = useState(null);
   const [detailSvc, setDetailSvc] = useState(null);
@@ -993,7 +1006,7 @@ function OrdersPage({ intent, onConsume, orders, clients = [], companies = [], a
   }
   return (
     <>
-      <OrdersList orders={orders} onOpen={setDetail} onCreate={() => setCreateOpen(true)} onNavigate={onNavigate} />
+      <OrdersList orders={orders} onOpen={setDetail} onCreate={() => setCreateOpen(true)} onNavigate={onNavigate} currentUser={currentUser} />
       <OrderCreateModal open={createOpen} onClose={() => setCreateOpen(false)} onCreated={handleCreated} clientOptions={clients} companyOptions={companies} />
     </>
   );

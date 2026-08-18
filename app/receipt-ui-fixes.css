@@ -102,7 +102,7 @@
 
 .receipt-close-section-head {
   display: flex;
-  align-items: baseline;
+  align-items: center;
   gap: 11px;
   padding: 14px 16px;
   border-bottom: 1px solid var(--line);
@@ -154,7 +154,7 @@
 .receipt-close-file {
   display: grid;
   grid-template-columns: 24px 38px minmax(0, 1fr) minmax(150px, auto);
-  align-items: baseline;
+  align-items: center;
   gap: 10px;
   min-width: 0;
   padding: 10px 11px;
@@ -1475,7 +1475,7 @@
   display: grid;
   grid-template-columns: 28px minmax(0, 1fr);
   gap: 2px 9px;
-  align-items: baseline;
+  align-items: center;
   min-width: 0;
   padding: 11px;
   border: 1px solid var(--line);
@@ -1564,4 +1564,76 @@
     min-width: 34px;
     flex: 0 0 34px;
   }
+}
+
+
+/* Close-import summary icons: center SVGs inside their tiles. */
+.receipt-close-section-head > span,
+.receipt-close-file-icon {
+  align-items: center !important;
+  justify-content: center !important;
+  line-height: 1 !important;
+}
+
+.receipt-close-section-head > span > svg,
+.receipt-close-file-icon > svg {
+  display: block;
+  margin: 0 !important;
+  flex: 0 0 auto;
+  align-self: center;
+}
+
+
+/* Receipt import operations: long actions wrap without clipping. */
+.rec-import-actions {
+  overflow: visible !important;
+}
+
+.rec-import-actions .btn {
+  min-width: 0;
+  max-width: 100%;
+  height: auto !important;
+  min-height: 32px;
+  white-space: normal !important;
+  overflow: visible !important;
+  text-overflow: clip !important;
+  overflow-wrap: anywhere;
+  line-height: 1.25;
+}
+
+
+/* Close-import rows: align icon tiles to the complete text block, not its first baseline. */
+.receipt-close-section-head,
+.receipt-close-file {
+  align-items: center !important;
+}
+
+.receipt-close-section-head > span,
+.receipt-close-file-icon,
+.receipt-close-file-index,
+.receipt-close-file-main,
+.receipt-close-file-state {
+  align-self: center;
+}
+
+
+/* Receipt import mode: icon tiles align to the full two-line text block. */
+.receipt-import-mode-options button {
+  align-items: center !important;
+}
+
+.receipt-import-mode-options button > span {
+  align-self: center;
+  display: grid;
+  place-items: center;
+  line-height: 0;
+}
+
+.receipt-import-mode-options button > span svg {
+  display: block;
+}
+
+.receipt-import-mode-options button > b,
+.receipt-import-mode-options button > small {
+  align-self: center;
 }

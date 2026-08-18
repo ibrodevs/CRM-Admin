@@ -33,7 +33,9 @@ page = replaceRequired(page, rowCorrectedStable, rowCorrectedFresh, 'кнопк�
 // count between the closed and opened renders (production error #310).
 const previewModeHook = `  const [previewMode, setPreviewMode] = useState('agency');`;
 const nonceHookBlock = `${previewModeHook}\n  const [supplierPdfNonce, setSupplierPdfNonce] = useState(0);\n  useEffect(() => {\n    if (open) setSupplierPdfNonce(Date.now());\n  }, [open, originalUrl]);`;
-editor = replaceRequired(editor, previewModeHook, nonceHookBlock, 'порядок hooks до раннего return');
+if (!editor.includes('const [supplierPdfNonce, setSupplierPdfNonce] = useState(0);')) {
+  editor = replaceRequired(editor, previewModeHook, nonceHookBlock, 'порядок hooks до раннего return');
+}
 
 const sourceUrlAnchor = `  const sourcePdfUrl = inlineSupplierDocumentUrl(originalUrl);\n  const sourceOriginalPdfUrl = inlineSupplierDocumentUrl(sourceOriginalUrl);`;
 const sourceUrlFresh = `${sourceUrlAnchor}\n  const freshSupplierPdfUrl = (url, nonce = Date.now()) => {\n    if (!url || url.startsWith('blob:')) return url;\n    return \`${'${url}'}${'${url.includes(\'?\') ? \'&\' : \'?\'}'}_pdf=${'${nonce}'}\`;\n  };\n  const displayedSupplierPdfUrl = sourcePdfUrl ? freshSupplierPdfUrl(sourcePdfUrl, supplierPdfNonce || 'initial') : '';`;

@@ -11,7 +11,7 @@ import { AppShell } from './layout';
 import { LoginScreen } from './login';
 import { DashboardPage } from './page_dashboard';
 import { FlightsPage } from './page_flights';
-import { OrdersPage } from './page_orders';
+import { OrderCreateModal, OrdersPage } from './page_orders';
 import { OffersPage } from './page_offers';
 import { DocCenterPage, FulfillmentPage, ReceiptEditorPage } from './page_fulfillment';
 import { FinancePage } from './page_finance';
@@ -126,6 +126,7 @@ function App() {
   const [notifOpen, setNotifOpen] = useState(false);
   const [ctxOrder, setCtxOrder] = useState(null);
   const [role, setRole] = useState(auth.user?.role || 'Оператор');
+  const [receiptOrderRequest, setReceiptOrderRequest] = useState(null);
 
   useEffect(() => { if (auth.user?.role) setRole(auth.user.role); }, [auth.user?.role]);
 
@@ -174,6 +175,12 @@ function App() {
     openOrder(created);
     return created;
   };
+  const requestReceiptOrder = () => new Promise((resolve) => setReceiptOrderRequest({ resolve }));
+  const closeReceiptOrderRequest = (order = null) => {
+    const request = receiptOrderRequest;
+    setReceiptOrderRequest(null);
+    request?.resolve(order);
+  };
 
   const addSupplier = async (supplier) => {
     workspace.update('suppliers', (current) => [
@@ -211,6 +218,11 @@ function App() {
       <DesktopNotifier enabled notifications={workspace.notifications} orders={orders} onNavigate={navigate} onOpenOrder={openOrder} />
       <NotificationDrawer open={notifOpen} notifications={workspace.notifications} orders={orders} onNotificationsChange={(next) => workspace.update('notifications', next)} onClose={() => setNotifOpen(false)} onNavigate={navigate} onOpenOrder={openOrder} />
       <GlobalChatDrawer open={chatOpen} onClose={() => setChatOpen(false)} contextOrder={ctxOrder} initialThreads={workspace.chats} orders={orders} currentUserId={auth.user.id} onOpenOrder={openOrder} />
+      <OrderCreateModal open={!!receiptOrderRequest} clientOptions={workspace.clients} companyOptions={workspace.companies}
+        onClose={() => closeReceiptOrderRequest(null)} onCreated={(order) => {
+          workspace.update('orders', (current) => [order, ...current.filter((item) => String(item.id) !== String(order.id))]);
+          closeReceiptOrderRequest(order);
+        }} />
     </>
   );
 
@@ -220,7 +232,7 @@ function App() {
       <>
       {route === 'dashboard' && <DashboardPage role={role} orders={orders} clients={workspace.clients} companies={workspace.companies} proposals={workspace.proposals} returns={workspace.returns} notifications={workspace.notifications} chats={workspace.chats} dashboard={workspace.dashboard} finance={workspace.finance} onNavigate={navigate} onAddOrder={createOrder} onOpenOrder={openOrder} onCreateOrder={createOrderFromPicker} />}
       {route === 'calendar' && <TripCalendarPage role={role} feed={workspace.calendar} orders={orders} clients={workspace.clients} companies={workspace.companies} users={workspace.users} onOpenOrder={(no) => { const target = orders.find((o) => String(o.no) === String(no) || String(o.id) === String(no)); if (target) openOrder(target); else toast('Заказ не найден или недоступен', 'warn'); }} />}
-      {route === 'orders' && <OrdersPage intent={intent} onConsume={() => setIntent(null)} orders={orders} clients={workspace.clients} companies={workspace.companies} addOrder={addOrder} onDetailChange={setCtxOrder} onOpenChat={() => setChatOpen(true)} onNavigate={navigate} />}
+      {route === 'orders' && <OrdersPage intent={intent} onConsume={() => setIntent(null)} orders={orders} clients={workspace.clients} companies={workspace.companies} addOrder={addOrder} onDetailChange={setCtxOrder} onOpenChat={() => setChatOpen(true)} onNavigate={navigate} currentUser={auth.user} />}
       {route === 'services' && <ServicesHubPage onNavigate={navigate} onAddOrder={createOrder} onSearch={openServiceSearch} onOpenOrder={openOrder} onCreateOrder={createOrderFromPicker} />}
       {route === 'flights' && <FlightsPage searchIntent={svcSearch && svcSearch.key === 'flights' ? svcSearch : null} onConsumeSearch={() => setSvcSearch(null)} orders={orders} clients={workspace.clients} companies={workspace.companies} />}
       {route === 'suppliers' && <SuppliersPage intent={intent} onConsume={() => setIntent(null)} suppliers={suppliers} addSupplier={addSupplier} onNavigate={navigate} onOpenChat={openChatThread} />}
@@ -228,7 +240,7 @@ function App() {
       {route === 'finance' && <FinancePage overview={workspace.finance} transactions={workspace.transactions} clients={workspace.clients} companies={workspace.companies} suppliers={workspace.suppliers} orders={orders} meta={workspace.meta} />}
       {route === 'documents' && <DocCenterPage documents={workspace.documents} orders={orders} />}
       {route === 'receipts' && <ReceiptEditorPage documents={workspace.documents} orders={orders}
-        services={workspace.orderServices} onChanged={() => workspace.reload()} onOpenOrder={openOrder} />}
+        services={workspace.orderServices} onChanged={() => workspace.reload()} onOpenOrder={openOrder} onCreateOrder={requestReceiptOrder} />}
       {route === 'fulfillment' && <FulfillmentPage onOpenOrder={openOrder} orders={orders} documents={workspace.documents} returns={workspace.returns} />}
       {route === 'settings' && <SettingsPage users={workspace.users} onUsersChange={(next) => workspace.update('users', next)} />}
       {route === 'profile' && <ProfilePage user={auth.user} onNavigate={navigate} />}

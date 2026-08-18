@@ -4,6 +4,15 @@ const fileUrl = new URL('../js/page_fulfillment.jsx', import.meta.url);
 let source = await readFile(fileUrl, 'utf8');
 let changed = false;
 
+// The current editor has the ticket-level calculation table plus an explicit
+// confirmation step.  It is a strict superset of this legacy build patch.
+if (source.includes('const pricingRows = doneRows.filter')
+  && source.includes('const mathForFile = (file) =>')
+  && source.includes('const requestBulkApply = () =>')) {
+  console.log('Математика отдельных бланков и подтверждение массового применения уже настроены.');
+  process.exit(0);
+}
+
 const replaceOnce = (from, to, label) => {
   if (source.includes(to)) return;
   if (!source.includes(from)) throw new Error(`Не найден фрагмент для изменения: ${label}`);

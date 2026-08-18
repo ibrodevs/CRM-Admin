@@ -62,6 +62,7 @@ export function toUiOrder(order) {
     status: ORDER_STATUS[order.status] || order.status_display || order.status,
     statusCode: order.status,
     service: order.service_kind ? (SERVICE_KIND[order.service_kind] || order.service_kind) : 'Новое',
+    operatorId: order.operator || null,
     operator: order.operator_name || 'Не назначен',
     operatorRole: 'Оператор',
     sum: Number(order.total_amount || 0),

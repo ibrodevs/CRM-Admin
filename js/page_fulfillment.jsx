@@ -916,6 +916,7 @@ function DocCenter({ scopeOrder, participants, services, onOpenDoc, initialDocum
         <ReceiptImportModal
           open
           initialFiles={editorFor.file ? [editorFor.file] : []}
+          orders={orders}
           initialBindTarget={scopeOrder ? {
             mode: 'order',
             label: `Заказ № ${scopeOrder}`,
@@ -954,7 +955,7 @@ function DocCenterPage({ documents = [], orders = [] }) {
 
 const REC_TYPES = [
   { key: 'Авиа',      doc: 'Маршрутная квитанция', icon: 'plane', color: '#2566ff', legLabel: 'Рейс',    docNoLabel: 'Номер билета', refLabel: 'PNR' },
-  { key: 'ЖД',        doc: 'Маршрутная квитанция', icon: 'train', color: '#5a5af0', legLabel: 'Поезд',   docNoLabel: 'Билет №',      refLabel: 'Заказ №' },
+  { key: 'ЖД',        doc: 'Электронный ЖД-билет', icon: 'train', color: '#5a5af0', legLabel: 'Поезд',   docNoLabel: 'Билет №',      refLabel: 'Заказ №' },
   { key: 'Гостиница', doc: 'Ваучер',               icon: 'bed',   color: '#1f9d57', legLabel: 'Проживание', docNoLabel: 'Ваучер №',  refLabel: 'Код брони' },
   { key: 'Трансфер',  doc: 'Ваучер',               icon: 'car',   color: '#c47e22', legLabel: 'Трансфер', docNoLabel: 'Ваучер №',    refLabel: 'Заказ №' },
   { key: 'Прочее',    doc: 'Прочее',               icon: 'paperclip', color: '#9aa3b2', legLabel: 'Услуга', docNoLabel: 'Документ №', refLabel: 'Код' },
@@ -1633,6 +1634,11 @@ function ReceiptEditDrawer({ open, file, onClose, onChange, onSubChange, onBrand
   const currentIsReviewed = hasTicketGroup && receiptBlankIsReviewed(editingParsed);
   const allOtherReviewed = hasTicketGroup && groupTickets.every((ticket, index) => index === safeBlankIndex || receiptBlankIsReviewed(ticket));
   const canFinishSequence = hasTicketGroup && safeBlankIndex === groupTickets.length - 1 && allOtherReviewed;
+  const firstUnreviewedIndex = hasTicketGroup
+    ? groupTickets.findIndex((ticket) => !receiptBlankIsReviewed(ticket))
+    : -1;
+  const furthestAccessibleIndex = firstUnreviewedIndex >= 0 ? firstUnreviewedIndex : Math.max(0, groupTickets.length - 1);
+  const canOpenBlank = (index) => index <= furthestAccessibleIndex;
   const showSupplierPreview = editPreviewMode === 'supplier' && Boolean(file.originalUrl);
   const supplierPageNumber = Number(editingParsed.receiptIndex || editingParsed.receipt_index)
     || (hasTicketGroup ? safeBlankIndex + 1 : 0);
@@ -1785,6 +1791,7 @@ function ReceiptEditDrawer({ open, file, onClose, onChange, onSubChange, onBrand
                 return <button type="button" key={ticket.blankId || ticket.ticketNo || index}
                   className={(index === safeBlankIndex ? ' is-active' : '') + (reviewed ? ' is-reviewed' : '')}
                   aria-label={`Бланк ${index + 1}${reviewed ? ', проверен' : ''}`}
+                  disabled={!canOpenBlank(index)}
                   onClick={() => { setActiveBlankIndex(index); setCorrectionMode(false); }}>
                   <span>{reviewed ? <Icon name="check" /> : index + 1}</span>
                   <small>{reviewed ? 'Проверен' : index === safeBlankIndex ? 'Сейчас' : 'Не проверен'}</small>
@@ -1802,7 +1809,8 @@ function ReceiptEditDrawer({ open, file, onClose, onChange, onSubChange, onBrand
                   <Icon name="chevLeft" />
                 </button>
                 <Pill tone={currentIsReviewed ? 'green' : 'blue'}>{currentIsReviewed ? 'Проверен' : 'На проверке'}</Pill>
-                <button type="button" aria-label="Следующий билет" disabled={safeBlankIndex >= groupTickets.length - 1}
+                <button type="button" aria-label="Следующий билет"
+                  disabled={safeBlankIndex >= groupTickets.length - 1 || !canOpenBlank(safeBlankIndex + 1)}
                   onClick={() => { setActiveBlankIndex((index) => Math.min(groupTickets.length - 1, index + 1)); setCorrectionMode(false); }}>
                   <Icon name="chevRight" />
                 </button>
@@ -1821,6 +1829,7 @@ function ReceiptEditDrawer({ open, file, onClose, onChange, onSubChange, onBrand
                   data-ticket-index={index}
                   className={'receipt-ticket-editor-chip' + (index === safeBlankIndex ? ' is-active' : '') + (reviewed ? ' is-reviewed' : '')}
                   aria-pressed={index === safeBlankIndex}
+                  disabled={!canOpenBlank(index)}
                   onClick={() => { setActiveBlankIndex(index); setCorrectionMode(false); }}>
                   <span className="receipt-ticket-editor-index">{reviewed ? <Icon name="check" /> : index + 1}</span>
                   <span className="receipt-ticket-editor-main">
@@ -1933,7 +1942,7 @@ function ReceiptMathDrawer({ open, file, math, onSave, onClose }) {
 
 
 
-function ReceiptImportModal({ open, onClose, onDone, initialDraft, initialFiles = [], initialBindTarget = null, onDraftSaved, onDraftCleared }) {
+function ReceiptImportModal({ open, onClose, onDone, initialDraft, initialFiles = [], initialBindTarget = null, onDraftSaved, onDraftCleared, onCreateOrder, orders = [] }) {
   const toast = useToast();
   const [files, setFiles] = useState([]);
   const [step, setStep] = useState(0);
@@ -1952,9 +1961,12 @@ function ReceiptImportModal({ open, onClose, onDone, initialDraft, initialFiles 
 
   const [math, setMath] = useState({});
   const [sel, setSel] = useState({});
+  const [pricingSel, setPricingSel] = useState({});
   const [mathId, setMathId] = useState(null);
   const [brandId, setBrandId] = useState(null);
   const [bulk, setBulk] = useState({ fee: '', markup: '', commission: '' });
+  const [bulkConfirm, setBulkConfirm] = useState(null);
+  const [draftSavedAt, setDraftSavedAt] = useState('');
   const [dragActive, setDragActive] = useState(false);
   const fileRef = useRef(null);
   const dragDepth = useRef(0);
@@ -1976,15 +1988,18 @@ function ReceiptImportModal({ open, onClose, onDone, initialDraft, initialFiles 
     setOptCreateServices(draft ? Boolean(draft.optCreateServices) : true);
     setMath(draft?.math || {});
     setSel(draft?.sel || {});
+    setPricingSel(draft?.pricingSel || {});
     setMathId(null);
     setBrandId(null);
     setBulk(draft?.bulk || { fee: '', markup: '', commission: '' });
+    setBulkConfirm(null);
+    setDraftSavedAt(draft?.savedAt || '');
     setDragActive(false);
     dragDepth.current = 0;
     if (!draft && initialFiles.length) addFiles(initialFiles);
   }, [open]);
   useEffect(() => {
-    if (bindTarget.mode !== 'order' && optCreateServices) setOptCreateServices(false);
+    if (bindTarget.mode === 'person' && optCreateServices) setOptCreateServices(false);
   }, [bindTarget.mode, optCreateServices]);
 
 
@@ -2242,7 +2257,7 @@ function ReceiptImportModal({ open, onClose, onDone, initialDraft, initialFiles 
     if (hasImportProgress) setConfirmClose(true);
     else onClose();
   };
-  const saveDraftAndClose = () => {
+  const saveDraft = (closeAfterSave = false) => {
     if (processing) {
       toast('Дождитесь окончания текущего распознавания — затем черновик можно сохранить', 'err');
       return;
@@ -2265,15 +2280,20 @@ function ReceiptImportModal({ open, onClose, onDone, initialDraft, initialFiles 
       optCreateServices,
       math,
       sel,
+      pricingSel,
       bulk,
       importMode,
     };
     const saved = onDraftSaved?.(draft);
     if (saved === false) return;
-    setConfirmClose(false);
-    onClose();
+    setDraftSavedAt(draft.savedAt);
+    if (closeAfterSave) {
+      setConfirmClose(false);
+      onClose();
+    }
     toast(`Черновик импорта сохранён: ${storedFiles.length} ${plural(storedFiles.length, 'файл', 'файла', 'файлов')}.`, 'ok');
   };
+  const saveDraftAndClose = () => saveDraft(true);
 
 
 
@@ -2329,7 +2349,8 @@ function ReceiptImportModal({ open, onClose, onDone, initialDraft, initialFiles 
   const subEditParent = files.find((f) => f.id === subEdit?.fileId) || null;
   const subEditReceipt = subEditParent?.subReceipts?.[subEdit?.index] || null;
   const hasOrderTarget = bindTarget.mode === 'order' && bindTarget.order && bindTarget.order.id;
-  const canAttach = toAdd.length > 0 && !processing && (!optCreateServices || hasOrderTarget);
+  const canCreateOrderTarget = bindTarget.mode === 'new' && typeof onCreateOrder === 'function';
+  const canAttach = toAdd.length > 0 && !processing && (!optCreateServices || hasOrderTarget || canCreateOrderTarget);
   const canNext = [
     files.length > 0,
     files.length > 0 && !processing,
@@ -2349,40 +2370,67 @@ function ReceiptImportModal({ open, onClose, onDone, initialDraft, initialFiles 
       blankIndex: index,
     }));
   });
-  const applyBulk = () => {
-    const targets = (selIds.length ? doneRows.filter((r) => sel[r.f.id]) : doneRows.filter((r) => !excluded[r.f.id] && r.status !== 'Ошибка' && (reviewed[r.f.id] || r.status === 'Распознано')));
+  const selectedPricingRows = pricingRows.filter((row) => pricingSel[row.mathKey]);
+  const bulkEligibleRows = pricingRows.filter((row) => row.status !== 'Ошибка'
+    && (reviewed[row.f.id] || row.status === 'Распознано' || row.status === 'Заполнено вручную'));
+  const requestBulkApply = () => {
     const patch = {};
     if (bulk.fee !== '') patch.fee = Number(bulk.fee) || 0;
     if (bulk.markup !== '') patch.markup = Number(bulk.markup) || 0;
     if (bulk.commission !== '') patch.commission = Number(bulk.commission) || 0;
     if (!Object.keys(patch).length) { toast('Укажите сбор, надбавку или комиссию', 'err'); return; }
-    let blankCount = 0;
+    const targets = selectedPricingRows.length ? selectedPricingRows : bulkEligibleRows;
+    if (!targets.length) { toast('Нет проверенных бланков для применения расчёта', 'err'); return; }
+    setBulkConfirm({ patch, targetKeys: targets.map((row) => row.mathKey), count: targets.length });
+  };
+  const applyBulk = () => {
+    if (!bulkConfirm) return;
     setMath((current) => {
       const next = { ...current };
-      targets.forEach((row) => {
-        const units = row.f.subReceipts?.length
-          ? row.f.subReceipts.map((receipt, index) => ({ id: subReceiptMathKey(row.f.id, index), parsed: receipt }))
-          : [{ id: row.f.id, parsed: row.f.parsed }];
-        units.forEach((unit) => {
-          next[unit.id] = { ...getMath(unit.id, unit.parsed), ...patch };
-          blankCount += 1;
-        });
+      pricingRows.filter((row) => bulkConfirm.targetKeys.includes(row.mathKey)).forEach((row) => {
+        const baseline = current[row.mathKey] || {
+          tariff: supplierNet(row.parsed), fee: Math.round(Number(row.parsed?.fees) || 0), markup: 0, commission: 0,
+        };
+        next[row.mathKey] = { ...baseline, ...bulkConfirm.patch };
       });
       return next;
     });
-    toast('Математика применена отдельно к ' + blankCount + ' бланк. Нажмите финальное сохранение, чтобы зафиксировать backend-документы.', 'info');
+    toast('Математика применена отдельно к ' + bulkConfirm.count + ' бланк. Исходные тарифы билетов не изменены.', 'info');
+    setBulkConfirm(null);
   };
 
   const finish = async () => {
     if (!toAdd.length) { toast('Нет квитанций для добавления', 'err'); return; }
-    if (optCreateServices && !hasOrderTarget) { toast('Выберите существующий заказ для создания услуг', 'err'); return; }
+    let finalBindTarget = bindTarget;
+    if (bindTarget.mode === 'new') {
+      if (typeof onCreateOrder !== 'function') { toast('Создание нового заказа сейчас недоступно', 'err'); return; }
+      const createdOrder = await onCreateOrder();
+      if (!createdOrder) return;
+      finalBindTarget = { mode: 'order', order: createdOrder, label: 'Заказ № ' + createdOrder.no };
+      setBindTarget(finalBindTarget);
+    }
+    const finalHasOrderTarget = finalBindTarget.mode === 'order' && finalBindTarget.order?.id;
+    if (optCreateServices && !finalHasOrderTarget) { toast('Выберите или создайте заказ для создания услуг', 'err'); return; }
     const now = new Date().toLocaleDateString('ru-RU');
-    const isPerson = bindTarget.mode === 'person';
-    const orderNo = hasOrderTarget ? bindTarget.order.no : '—';
-    const bindText = isPerson ? ('физ. лицу ' + bindTarget.client) : ('заказу № ' + orderNo);
+    const isPerson = finalBindTarget.mode === 'person';
+    const orderNo = finalHasOrderTarget ? finalBindTarget.order.no : '—';
+    const bindText = isPerson ? ('физ. лицу ' + finalBindTarget.client) : ('заказу № ' + orderNo);
     try {
       const confirmed = await Promise.all(toAdd.map((r) => {
         const p = r.f.parsed; const m = mathForFile(r.f);
+        const verifiedForSave = r.f.subReceipts?.length ? {
+          ...p,
+          groupTickets: r.f.subReceipts.map((ticket, index) => {
+            const ticketMath = getMath(subReceiptMathKey(r.f.id, index), ticket);
+            return {
+              ...ticket,
+              agencyServiceFee: Number(ticketMath.fee || 0),
+              markup: Number(ticketMath.markup || 0),
+              commission: Number(ticketMath.commission || 0),
+              clientTotal: clientTotal(ticketMath),
+            };
+          }),
+        } : p;
         return documentsApi.confirmReceipt(r.f.importId, {
           issuer: p.carrier || '', passenger_name: p.passenger || '', segments: p.legs || [],
           trip_type: p.tripType || 'oneway',
@@ -2390,8 +2438,8 @@ function ReceiptImportModal({ open, onClose, onDone, initialDraft, initialFiles 
           fare_breakdown: p.fareBreakdown || [],
           tax_breakdown: p.taxBreakdown || [],
           fee_breakdown: p.feeBreakdown || [],
-          order: hasOrderTarget ? bindTarget.order.id : null,
-          create_services: optCreateServices && hasOrderTarget,
+          order: finalHasOrderTarget ? finalBindTarget.order.id : null,
+          create_services: optCreateServices && finalHasOrderTarget,
           service_type: r.f.type,
           original_total: Number(p.originalTotal) || Number(p.total) || 0,
           client_total: clientTotal(m),
@@ -2399,7 +2447,7 @@ function ReceiptImportModal({ open, onClose, onDone, initialDraft, initialFiles 
           commission: Number(m.commission || 0),
           supplier_original: {
             name: r.f.name, size: r.f.size, mime: r.f.mime,
-            verified_data: p,
+            verified_data: verifiedForSave,
             output_settings: p.output || { mode: 'original' },
             audit_log: p.auditLog || [],
           },
@@ -2413,7 +2461,7 @@ function ReceiptImportModal({ open, onClose, onDone, initialDraft, initialFiles 
       const t = recType(r.f.type); const p = r.f.parsed; const m = mathForFile(r.f);
       return {
         serverId: confirmed[index].document_id, no: 'D-' + String(confirmed[index].document_id).slice(0, 8).toUpperCase(),
-        name: t.doc + ' ' + (p.carrier || '') + ' · ' + (p.passenger || '').split(/[\/ ]/)[0],
+        name: [t.doc, p.passenger || p.carrier || 'Без имени'].filter(Boolean).join(' · '),
         type: t.doc, order: isPerson ? '—' : orderNo, participant: p.passenger || '—', service: r.f.type + (p.manualCompletion ? ' · заполнено вручную' : ' · распознано'),
         finOp: '—', status: 'Черновик', version: 2, date: now, size: r.f.size, parsed: p, recType: r.f.type, origin: 'corrected',
 
@@ -2435,7 +2483,7 @@ function ReceiptImportModal({ open, onClose, onDone, initialDraft, initialFiles 
       });
       onDraftCleared?.();
       await onDone(docs);
-      toast(isPerson ? toAdd.length + ' квитанц. привязано к физ. лицу: ' + bindTarget.client
+      toast(isPerson ? toAdd.length + ' квитанц. привязано к физ. лицу: ' + finalBindTarget.client
         : toAdd.length + ' квитанц. добавлено в заказ № ' + orderNo, 'ok');
     } catch (error) { toast(error.message || 'Не удалось сохранить квитанции', 'err'); }
   };
@@ -2729,7 +2777,8 @@ function ReceiptImportModal({ open, onClose, onDone, initialDraft, initialFiles 
                 </div>
                 <div className="card card-pad" style={{ marginBottom: 12, display: 'flex', alignItems: 'flex-end', gap: 12, flexWrap: 'wrap' }}>
                   <div style={{ flex: '0 0 100%', fontSize: 12, color: 'var(--muted)', marginBottom: -4 }}>
-                    Математика: применить к {selIds.length ? 'выбранным (' + selIds.length + ')' : 'всем проверенным бланкам'}.
+                    Математика: применить к {selectedPricingRows.length ? 'выбранным билетам (' + selectedPricingRows.length + ')' : 'всем проверенным бланкам'}.
+                    Тариф каждого билета всегда остаётся индивидуальным.
                   </div>
                   {[['fee', 'Сервисный сбор'], ['markup', 'Надбавка'], ['commission', 'Комиссия']].map(([k, l]) => (
                     <div key={k} style={{ width: 130 }}>
@@ -2737,24 +2786,34 @@ function ReceiptImportModal({ open, onClose, onDone, initialDraft, initialFiles 
                       <input className="input" type="number" min="0" placeholder="0" value={bulk[k]} onChange={(e) => setBulk((b) => ({ ...b, [k]: e.target.value }))} />
                     </div>
                   ))}
-                  <Button size="sm" icon="calc" onClick={applyBulk}>Применить{selIds.length ? ' (' + selIds.length + ')' : ' ко всем'}</Button>
+                  <Button size="sm" icon="calc" onClick={requestBulkApply}>Применить{selectedPricingRows.length ? ' (' + selectedPricingRows.length + ')' : ' ко всем'}</Button>
+                  {selectedPricingRows.length === 1 && (() => {
+                    const selected = selectedPricingRows[0];
+                    const samePrice = pricingRows.filter((row) => Number(row.parsed?.originalTotal || row.parsed?.total || 0)
+                      === Number(selected.parsed?.originalTotal || selected.parsed?.total || 0)
+                      && String(row.parsed?.currency || '') === String(selected.parsed?.currency || ''));
+                    return samePrice.length > 1 ? <Button size="sm" variant="secondary" onClick={() => setPricingSel(Object.fromEntries(samePrice.map((row) => [row.mathKey, true])))}>
+                      Выбрать с такой же стоимостью ({samePrice.length})
+                    </Button> : null;
+                  })()}
                   <div style={{ flex: 1 }} />
                   <span style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color: 'var(--green)' }}>
                     <Icon name="check" style={{ width: 16, height: 16 }} /> рабочий PDF обновится после сохранения
                   </span>
                 </div>
-                <div className="table-card" style={{ overflowX: 'auto' }}>
-                  <table className="tbl" style={{ minWidth: 860 }}>
-                    <thead><tr><th>Бланк</th><th>Оригинал поставщика</th><th>Клиенту</th><th>Версии</th><th></th></tr></thead>
+                <div className="table-card receipt-pricing-card">
+                  <table className="tbl receipt-pricing-table">
+                    <thead><tr><th aria-label="Выбор"></th><th>Бланк</th><th>Оригинал поставщика</th><th>Клиенту</th><th>Версии</th><th></th></tr></thead>
                     <tbody>{pricingRows.map((r) => {
                       const p = r.parsed; const m = getMath(r.mathKey, p); const t = recType(r.f.type);
                       return (
                         <tr key={r.mathKey}>
-                          <td><span style={{ display: 'flex', alignItems: 'center', gap: 10 }}><span style={{ width: 30, height: 30, borderRadius: 8, background: t.color, display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}><Icon name={t.icon} style={{ width: 16, height: 16, color: '#fff' }} /></span><span><b>{p.passenger || r.f.name}{r.blankIndex !== null ? ' · билет ' + (r.blankIndex + 1) : ''}</b><div style={{ fontSize: 12, color: 'var(--muted)' }}>{p.carrier || 'Поставщик'} · {routeSummary(p)}</div></span></span></td>
-                          <td>{recSourceMoney(p)}<div style={{ fontSize: 12, color: 'var(--muted)' }}>{r.f.name}</div></td>
-                          <td><button type="button" className="btn btn-ghost btn-sm" style={{ padding: 0, height: 'auto', textAlign: 'left' }} onClick={() => setMathId(r.mathKey)}><b>{recMoney(clientTotal(m), p.currency)}</b><div style={{ fontSize: 12, color: 'var(--blue)' }}>изменить математику</div></button></td>
-                          <td><Pill tone="blue">v1 поставщик</Pill> <Pill tone="amber">v2 CRM</Pill></td>
-                          <td><Button size="sm" variant="secondary" icon="template" onClick={() => setBrandId(r.f.id)}>Бланк CRM</Button></td>
+                          <td data-label="Выбор"><Checkbox on={!!pricingSel[r.mathKey]} onChange={() => setPricingSel((current) => ({ ...current, [r.mathKey]: !current[r.mathKey] }))} /></td>
+                          <td data-label="Бланк"><span className="receipt-pricing-document"><span className="rec-import-icon" style={{ background: t.color }}><Icon name={t.icon} /></span><span><b>{p.passenger || r.f.name}{r.blankIndex !== null ? ' · билет ' + (r.blankIndex + 1) : ''}</b><small>{p.carrier || 'Поставщик'} · {routeSummary(p)}</small></span></span></td>
+                          <td data-label="Оригинал поставщика"><b>{recSourceMoney(p)}</b><small className="receipt-pricing-meta">{r.f.name}</small></td>
+                          <td data-label="Клиенту"><button type="button" className="btn btn-ghost btn-sm receipt-pricing-math" onClick={() => setMathId(r.mathKey)}><b>{recMoney(clientTotal(m), p.currency)}</b><small>изменить математику</small></button></td>
+                          <td data-label="Версии"><span className="receipt-pricing-versions"><Pill tone="blue">v1 поставщик</Pill><Pill tone="amber">v2 CRM</Pill></span></td>
+                          <td data-label="Документ"><Button size="sm" variant="secondary" icon="template" onClick={() => setBrandId(r.f.id)}>Бланк CRM</Button></td>
                         </tr>
                       );
                     })}</tbody>
@@ -2769,10 +2828,11 @@ function ReceiptImportModal({ open, onClose, onDone, initialDraft, initialFiles 
               <div style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 14, color: 'var(--body)' }}>
                 <span style={{ fontWeight: 600, color: 'var(--muted)', minWidth: 150 }}>Заказ для привязки</span>
 
-                <UnifiedBindField value={bindTarget} onChange={setBindTarget} modes={['order', 'person']} style={{ flex: 1 }} />
+                <UnifiedBindField value={bindTarget} onChange={setBindTarget} modes={['new', 'order', 'person']}
+                  orderOptions={orders} style={{ flex: 1 }} />
               </div>
               <label style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 14, color: 'var(--body)', cursor: 'pointer' }}>
-                <Checkbox on={optCreateServices && bindTarget.mode === 'order'} onChange={() => bindTarget.mode === 'order' && setOptCreateServices((v) => !v)} /> Создавать услуги в заказе по квитанциям
+                <Checkbox on={optCreateServices && bindTarget.mode !== 'person'} onChange={() => bindTarget.mode !== 'person' && setOptCreateServices((v) => !v)} /> Создавать услуги в заказе по квитанциям
               </label>
               <label style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 14, color: 'var(--body)', cursor: 'pointer' }}>
                 <Checkbox on={optAddIncomplete} onChange={() => setOptAddIncomplete((v) => !v)} /> Добавлять квитанции с неполными данными
@@ -2780,18 +2840,22 @@ function ReceiptImportModal({ open, onClose, onDone, initialDraft, initialFiles 
             </div>
             <div style={{ marginTop: 12, fontSize: 12.5, color: 'var(--muted)' }}>
               Будет добавлено в заказ: {toAdd.length}. Непроверенные, ошибки и исключённые дубли не попадут в итог.
-              {optCreateServices && !hasOrderTarget ? ' Выберите существующий заказ, чтобы создать услуги.' : ''}
+              {bindTarget.mode === 'new' ? ' Перед сохранением откроется форма нового заказа: можно выбрать юридическое лицо или физическое лицо.' : ''}
             </div>
             </>}
           </>
         )}
 
-        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 12, marginTop: 24 }}>
+        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 12, marginTop: 24, flexWrap: 'wrap' }}>
           <Button variant="secondary" onClick={requestClose}>Отмена</Button>
+          {step > 0 && done.length > 0 && <Button variant="secondary" icon="save" disabled={processing} onClick={() => saveDraft(false)}>
+            {draftSavedAt ? 'Сохранить изменения черновика' : 'Сохранить черновик'}
+          </Button>}
           {step > 0 && <Button variant="secondary" icon="chevLeft" onClick={() => setStep((s) => Math.max(0, s - 1))}>Назад</Button>}
           {step < IMPORT_STEPS.length - 1
             ? <Button icon="chevRight" disabled={!canNext[step]} onClick={() => setStep((s) => Math.min(IMPORT_STEPS.length - 1, s + 1))}>Далее</Button>
-            : <Button icon="check" disabled={processing || !toAdd.length || pendingReview > 0 || (optCreateServices && !hasOrderTarget)} onClick={finish}>Добавить в заказ{toAdd.length ? ' (' + toAdd.length + ')' : ''}</Button>}
+            : <Button icon="check" disabled={processing || !toAdd.length || pendingReview > 0 || (optCreateServices && !hasOrderTarget && !canCreateOrderTarget)} onClick={finish}>
+              {bindTarget.mode === 'new' ? 'Создать заказ и добавить' : 'Добавить в заказ'}{toAdd.length ? ' (' + toAdd.length + ')' : ''}</Button>}
         </div>
       </div>
 
@@ -2817,6 +2881,9 @@ function ReceiptImportModal({ open, onClose, onDone, initialDraft, initialFiles 
       <ReceiptBrandDocumentDrawer open={!!brandFile} type={brandFile?.type} draft={brandFile?.parsed}
         originalUrl={brandFile?.originalUrl} sourceOriginalUrl={brandFile?.sourceOriginalUrl}
         onClose={() => setBrandId(null)} />
+      <ConfirmDialog open={!!bulkConfirm} title="Применить расчёт к выбранным бланкам?"
+        message={bulkConfirm ? `Сервисные сборы, надбавка и комиссия будут применены отдельно к ${bulkConfirm.count} бланк. Исходный тариф каждого билета не изменится.` : ''}
+        confirmLabel="Применить" confirmVariant="primary" onConfirm={applyBulk} onCancel={() => setBulkConfirm(null)} />
       <Drawer open={confirmClose} onClose={() => setConfirmClose(false)} title="Закрыть импорт?"
         sub="Проверьте, какие бланки сохранятся в черновик"
         width="min(780px,96vw)"
@@ -2907,7 +2974,7 @@ function ReceiptImportModal({ open, onClose, onDone, initialDraft, initialFiles 
 
 
 
-function ReceiptEditorPage({ documents = [], orders = [], services = [], onChanged, onOpenOrder }) {
+function ReceiptEditorPage({ documents = [], orders = [], services = [], onChanged, onOpenOrder, onCreateOrder }) {
   const toast = useToast();
   const [q, setQ] = useState('');
   const [edit, setEdit] = useState(null);
@@ -3223,6 +3290,7 @@ function ReceiptEditorPage({ documents = [], orders = [], services = [], onChang
         onClose={() => setBrandEdit(null)} />
 
       <ReceiptImportModal open={importing} initialDraft={resumeImportDraft ? importDraft : null}
+        orders={orders} onCreateOrder={onCreateOrder}
         onClose={() => {
           setImporting(false);
           setResumeImportDraft(false);
