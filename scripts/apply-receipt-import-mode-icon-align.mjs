@@ -86,6 +86,11 @@ await patchTextFile('js/page_fulfillment.jsx', [
     after: `        onBrand={() => { setReceiptBrand(receiptEdit); }} />`,
   },
   {
+    label: 'не закрывать реестровый редактор при открытии фирменного бланка',
+    before: `        onBrand={() => { setBrandEdit(edit); closeReceiptEditor(); }} />`,
+    after: `        onBrand={() => { setBrandEdit(edit); }} />`,
+  },
+  {
     label: 'корректное имя маршрут-квитанции в типах импорта',
     before: `const DOC_UPLOAD_TYPES = Object.keys(DOC_KIND);`,
     after: `const DOC_UPLOAD_TYPES = Object.keys(DOC_KIND).filter((type) => type !== 'Маршрутная квитанция');`,
