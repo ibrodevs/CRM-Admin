@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import ReactDOM from 'react-dom';
 import { Icon } from './icons';
 import { ActionMenu, Avatar, Button, Checkbox, DateField, DateRangeField, EmptyState, Field, FilterChip, Input, Pagination, Pill, Radio, SearchBox, Th, Toggle, fmtDate, useSort, useToast } from './ui';
 import { AIRPORTS, CLIENTS, CLIENTS_DB, CLIENT_STATUS, COMPANIES_DB, GROUP_PAX, ORDER_PARTICIPANTS, ORDER_SERVICES, ORDER_STATUS, REQUEST_TYPE, SERVICE_TYPE, SETTLEMENT_TONE, activeAgreement, activeContract, companyBalanceShort, companyFinance, companyStaff, feeTemplate } from './data';
@@ -447,9 +448,9 @@ function OrderCreateModal({ open, onClose, onCreated, initialGroup = false, clie
   const TRIPS = [['rt', 'Туда-обратно'], ['ow', 'В одну сторону'], ['mc', 'Сложный маршрут']];
   const routePts = trip === 'mc' ? pts : pts.slice(0, 2);
 
-  return (
+  const orderCreateNode = (
     <>
-      <div className="drawer-overlay" style={{ display: 'flex', justifyContent: 'flex-end' }}
+      <div className="drawer-overlay order-create-overlay" style={{ display: 'flex', justifyContent: 'flex-end' }}
         onMouseDown={(e) => { if (e.target === e.currentTarget) onClose(); }}>
         <div className="scroll" style={{ background: '#fff', width: 'min(640px, 60vw)', height: '100%',
           overflow: 'auto', boxShadow: 'var(--shadow-modal)', animation: 'slidein .26s cubic-bezier(.2,.9,.3,1)',
@@ -668,6 +669,9 @@ function OrderCreateModal({ open, onClose, onCreated, initialGroup = false, clie
         onSave={(person, client) => { setSelClients((l) => [...l, client]); setNewPerson(false); toast('Физическое лицо добавлено в черновик заказа', 'info'); }} />
     </>
   );
+  // The receipt importer is itself rendered into document.body. Render the
+  // order form there too, after the importer, so it is the active top layer.
+  return typeof document !== 'undefined' ? ReactDOM.createPortal(orderCreateNode, document.body) : orderCreateNode;
 }
 
 

@@ -37,6 +37,8 @@ test('final import step can create a real order with the existing customer form'
   assert.match(fulfillment, /const createdOrder = await onCreateOrder\(\)/);
   assert.match(app, /<OrderCreateModal open=\{!!receiptOrderRequest\}/);
   assert.match(app, /onCreateOrder=\{requestReceiptOrder\}/);
+  assert.match(orders, /ReactDOM\.createPortal\(orderCreateNode, document\.body\)/);
+  assert.match(orders, /drawer-overlay order-create-overlay/);
 });
 
 test('draft action is visible and stores complete ticket calculation state', () => {
