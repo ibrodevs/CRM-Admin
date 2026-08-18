@@ -38,12 +38,14 @@ test('bulk calculation scope is chosen explicitly and preserves every ticket tar
   assert.match(fulfillment, /clientTotal: clientTotal\(ticketMath\)/);
 });
 
-test('opening and closing a printable blank keeps the receipt editor open', () => {
+test('opening and closing a printable blank keeps every receipt editor open', () => {
   assert.match(fulfillment, /onBrand=\{\(\) => \{ setBrandId\(editId\); \}\}/);
   assert.match(fulfillment, /onBrand=\{\(\) => \{ setBrandId\(subEdit\.fileId\); \}\}/);
   assert.match(fulfillment, /onBrand=\{\(\) => \{ setReceiptBrand\(receiptEdit\); \}\}/);
+  assert.match(fulfillment, /onBrand=\{\(\) => \{ setBrandEdit\(edit\); \}\}/);
   assert.doesNotMatch(fulfillment, /setBrandId\(editId\); setEditId\(null\)/);
   assert.doesNotMatch(fulfillment, /setReceiptBrand\(receiptEdit\); setReceiptEdit\(null\)/);
+  assert.doesNotMatch(fulfillment, /setBrandEdit\(edit\); closeReceiptEditor\(\)/);
 });
 
 test('final import step can create a real order with the existing customer form', () => {
