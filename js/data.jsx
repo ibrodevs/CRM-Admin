@@ -522,6 +522,7 @@ const FIN_OPS = [
 ];
 
 const DOC_KIND = {
+  'Маршрут-квитанция':    { icon: 'route',    color: '#2566ff' },
   'Маршрутная квитанция': { icon: 'route',    color: '#2566ff' },
   'Билет':                { icon: 'ticket',   color: '#5a5af0' },
   'Ваучер':               { icon: 'docs',     color: '#1f9d57' },

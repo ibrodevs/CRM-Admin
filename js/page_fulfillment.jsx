@@ -49,7 +49,13 @@ function supplierDocumentPageUrl(url, pageNumber) {
   const value = inlineSupplierDocumentUrl(url);
   const page = Number(pageNumber);
   if (!value || !Number.isFinite(page) || page < 1) return value;
-  return `${value.split('#')[0]}#page=${Math.floor(page)}`;
+  const base = value.split('#')[0];
+  const normalizedPage = Math.floor(page);
+  const separator = base.includes('?') ? '&' : '?';
+  // Chromium's PDF viewer can keep the previous page when only the hash
+  // changes. A deterministic query key makes every ticket page a distinct
+  // document URL; #page then positions the freshly mounted viewer.
+  return `${base}${separator}_receipt_page=${normalizedPage}#page=${normalizedPage}`;
 }
 
 
@@ -609,7 +615,7 @@ function correctionSubjects(participants, onlyName) {
 
 
 
-const DOC_UPLOAD_TYPES = Object.keys(DOC_KIND);
+const DOC_UPLOAD_TYPES = Object.keys(DOC_KIND).filter((type) => type !== 'Маршрутная квитанция');
 function DocUploadModal({ open, scopeOrder, participants = [], defaultParticipant, onClose, onUploaded, onRouteToEditor }) {
   const fileRef = useRef(null);
   const [file, setFile] = useState(null);
@@ -621,7 +627,7 @@ function DocUploadModal({ open, scopeOrder, participants = [], defaultParticipan
     if (open) { setFile(null); setType('Билет'); setParticipant(defaultParticipant || '—'); setOrigin('supplier'); }
   }, [open, defaultParticipant]);
 
-  const isReceipt = type === 'Маршрутная квитанция';
+  const isReceipt = type === 'Маршрут-квитанция' || type === 'Маршрутная квитанция';
   const pickFile = () => fileRef.current && fileRef.current.click();
   const onFile = (e) => {
     const f = e.target.files && e.target.files[0];
@@ -746,7 +752,7 @@ function DocCenter({ scopeOrder, participants, services, onOpenDoc, initialDocum
 
   const TYPE_TABS = [
     { key: 'all', label: 'Все', test: () => true },
-    { key: 'tickets', label: 'Билеты и квитанции', test: (d) => ['Билет', 'Маршрутная квитанция'].includes(d.type) },
+    { key: 'tickets', label: 'Билеты и квитанции', test: (d) => ['Билет', 'Маршрут-квитанция', 'Маршрутная квитанция'].includes(d.type) },
     { key: 'vouchers', label: 'Ваучеры и полисы', test: (d) => ['Ваучер', 'Страховой полис'].includes(d.type) },
     { key: 'fin', label: 'Счета и акты', test: (d) => ['Счёт', 'Акт'].includes(d.type) },
     { key: 'legal', label: 'Договоры', test: (d) => d.type === 'Договор' },
@@ -762,7 +768,7 @@ function DocCenter({ scopeOrder, participants, services, onOpenDoc, initialDocum
     guessType(`${d.name || ''} ${d.service || ''}`),
   );
   const open = (d) => {
-    if (d.parsed && ['Маршрутная квитанция', 'Билет', 'Ваучер'].includes(d.type)) {
+    if (d.parsed && ['Маршрут-квитанция', 'Маршрутная квитанция', 'Билет', 'Ваучер'].includes(d.type)) {
       const editorType = receiptEditorType(d);
       const parsed = normalizeReceiptDraft(editorType, {
         ...d.parsed,
@@ -898,7 +904,7 @@ function DocCenter({ scopeOrder, participants, services, onOpenDoc, initialDocum
         onClose={() => setUploadFor(null)}
         onUploaded={async (doc) => {
           try {
-            const kind = { 'Маршрутная квитанция': 'itinerary_receipt', 'Билет': 'ticket', 'Ваучер': 'voucher', 'Страховой полис': 'insurance_policy', 'Счёт': 'invoice', 'Акт': 'act', 'Договор': 'contract', 'Паспорт': 'passport', 'Прочее': 'other' }[doc.type] || 'other';
+            const kind = { 'Маршрут-квитанция': 'itinerary_receipt', 'Маршрутная квитанция': 'itinerary_receipt', 'Билет': 'ticket', 'Ваучер': 'voucher', 'Страховой полис': 'insurance_policy', 'Счёт': 'invoice', 'Акт': 'act', 'Договор': 'contract', 'Паспорт': 'passport', 'Прочее': 'other' }[doc.type] || 'other';
             const order = orders.find((item) => item.no === scopeOrder);
             const person = (participants || []).find((item) => item.name === doc.participant);
             const created = await documentsApi.upload(doc.file.raw, { order: order?.id || null, person: person?.serverId || null, kind, title: doc.file.name, source: doc.origin || 'upload', document_date: new Date().toISOString().slice(0, 10) });
@@ -934,7 +940,7 @@ function DocCenter({ scopeOrder, participants, services, onOpenDoc, initialDocum
         onClose={() => setReceiptEdit(null)}
         onChange={(fileId, parsed) => setReceiptEdit((current) => current && String(current.id) === String(fileId) ? { ...current, parsed } : current)}
         onReview={saveOrderReceipt} orders={orders} services={services || []}
-        onBrand={() => { setReceiptBrand(receiptEdit); setReceiptEdit(null); }} />
+        onBrand={() => { setReceiptBrand(receiptEdit); }} />
       <ReceiptBrandDocumentDrawer open={!!receiptBrand} type={receiptBrand?.editorType} draft={receiptBrand?.parsed}
         originalUrl={receiptBrand?.originalUrl} sourceOriginalUrl={receiptBrand?.sourceOriginalUrl}
         onClose={() => setReceiptBrand(null)} />
@@ -954,7 +960,7 @@ function DocCenterPage({ documents = [], orders = [] }) {
 
 
 const REC_TYPES = [
-  { key: 'Авиа',      doc: 'Маршрутная квитанция', icon: 'plane', color: '#2566ff', legLabel: 'Рейс',    docNoLabel: 'Номер билета', refLabel: 'PNR' },
+  { key: 'Авиа',      doc: 'Маршрут-квитанция', icon: 'plane', color: '#2566ff', legLabel: 'Рейс',    docNoLabel: 'Номер билета', refLabel: 'PNR' },
   { key: 'ЖД',        doc: 'Электронный ЖД-билет', icon: 'train', color: '#5a5af0', legLabel: 'Поезд',   docNoLabel: 'Билет №',      refLabel: 'Заказ №' },
   { key: 'Гостиница', doc: 'Ваучер',               icon: 'bed',   color: '#1f9d57', legLabel: 'Проживание', docNoLabel: 'Ваучер №',  refLabel: 'Код брони' },
   { key: 'Трансфер',  doc: 'Ваучер',               icon: 'car',   color: '#c47e22', legLabel: 'Трансфер', docNoLabel: 'Ваучер №',    refLabel: 'Заказ №' },
@@ -1643,6 +1649,7 @@ function ReceiptEditDrawer({ open, file, onClose, onChange, onSubChange, onBrand
   const supplierPageNumber = Number(editingParsed.receiptIndex || editingParsed.receipt_index)
     || (hasTicketGroup ? safeBlankIndex + 1 : 0);
   const supplierPreviewUrl = supplierDocumentPageUrl(file.originalUrl, supplierPageNumber);
+  const supplierPreviewKey = `${file.id || file.originalUrl || 'supplier'}-page-${supplierPageNumber}`;
 
   const parentFromTickets = (tickets, child = editingParsed) => aggregateReceiptSubrows({
     ...parsed,
@@ -1861,7 +1868,7 @@ function ReceiptEditDrawer({ open, file, onClose, onChange, onSubChange, onBrand
               <button type="button" role="tab" aria-selected={editPreviewMode === 'corrected'} className={editPreviewMode === 'corrected' ? 'is-active' : ''} onClick={() => setEditPreviewMode('corrected')}>С корректировками</button>
             </div>}
             {showSupplierPreview
-              ? <iframe className="receipt-edit-supplier-frame" title="Бланк поставщика" src={supplierPreviewUrl} />
+              ? <iframe key={`${supplierPreviewKey}-inline`} className="receipt-edit-supplier-frame" title={`Бланк поставщика · страница ${supplierPageNumber}`} src={supplierPreviewUrl} />
               : <ReceiptDocumentPreview type={file.type} draft={editingParsed} />}
             <div className="receipt-edit-preview-note"><Icon name="checkCircle" /> {showSupplierPreview ? 'После сохранения исправленные суммы и данные появятся в этой рабочей копии PDF поставщика. Исходник остаётся доступен отдельно.' : 'Предпросмотр обновляется сразу; после сохранения изменения переносятся и в PDF поставщика.'}</div>
           </aside>
@@ -1885,7 +1892,7 @@ function ReceiptEditDrawer({ open, file, onClose, onChange, onSubChange, onBrand
                 onClick={() => setPreviewExpanded(false)}><Icon name="x" />Закрыть</button>
             </header>
             {showSupplierPreview
-              ? <iframe className="receipt-edit-supplier-frame is-expanded" title="Развёрнутый бланк поставщика" src={supplierPreviewUrl} />
+              ? <iframe key={`${supplierPreviewKey}-expanded`} className="receipt-edit-supplier-frame is-expanded" title={`Развёрнутый бланк поставщика · страница ${supplierPageNumber}`} src={supplierPreviewUrl} />
               : <ReceiptDocumentPreview type={file.type} draft={editingParsed} />}
           </section>
         </div>,
@@ -2373,15 +2380,16 @@ function ReceiptImportModal({ open, onClose, onDone, initialDraft, initialFiles 
   const selectedPricingRows = pricingRows.filter((row) => pricingSel[row.mathKey]);
   const bulkEligibleRows = pricingRows.filter((row) => row.status !== 'Ошибка'
     && (reviewed[row.f.id] || row.status === 'Распознано' || row.status === 'Заполнено вручную'));
-  const requestBulkApply = () => {
+  const requestBulkApply = (scope = 'selected') => {
     const patch = {};
     if (bulk.fee !== '') patch.fee = Number(bulk.fee) || 0;
     if (bulk.markup !== '') patch.markup = Number(bulk.markup) || 0;
     if (bulk.commission !== '') patch.commission = Number(bulk.commission) || 0;
     if (!Object.keys(patch).length) { toast('Укажите сбор, надбавку или комиссию', 'err'); return; }
-    const targets = selectedPricingRows.length ? selectedPricingRows : bulkEligibleRows;
+    const targets = scope === 'all' ? bulkEligibleRows : selectedPricingRows;
+    if (scope === 'selected' && !targets.length) { toast('Сначала отметьте бланки, к которым нужно применить расчёт', 'err'); return; }
     if (!targets.length) { toast('Нет проверенных бланков для применения расчёта', 'err'); return; }
-    setBulkConfirm({ patch, targetKeys: targets.map((row) => row.mathKey), count: targets.length });
+    setBulkConfirm({ patch, targetKeys: targets.map((row) => row.mathKey), count: targets.length, scope });
   };
   const applyBulk = () => {
     if (!bulkConfirm) return;
@@ -2786,7 +2794,8 @@ function ReceiptImportModal({ open, onClose, onDone, initialDraft, initialFiles 
                       <input className="input" type="number" min="0" placeholder="0" value={bulk[k]} onChange={(e) => setBulk((b) => ({ ...b, [k]: e.target.value }))} />
                     </div>
                   ))}
-                  <Button size="sm" icon="calc" onClick={requestBulkApply}>Применить{selectedPricingRows.length ? ' (' + selectedPricingRows.length + ')' : ' ко всем'}</Button>
+                  <Button size="sm" icon="calc" disabled={!selectedPricingRows.length} onClick={() => requestBulkApply('selected')}>Применить к выбранным{selectedPricingRows.length ? ' (' + selectedPricingRows.length + ')' : ''}</Button>
+                  <Button size="sm" variant="secondary" icon="users" onClick={() => requestBulkApply('all')}>Применить ко всем проверенным ({bulkEligibleRows.length})</Button>
                   {selectedPricingRows.length === 1 && (() => {
                     const selected = selectedPricingRows[0];
                     const samePrice = pricingRows.filter((row) => Number(row.parsed?.originalTotal || row.parsed?.total || 0)
@@ -2861,7 +2870,7 @@ function ReceiptImportModal({ open, onClose, onDone, initialDraft, initialFiles 
 
       <ReceiptEditDrawer open={!!editFile} file={editFile} onClose={() => setEditId(null)} onChange={updateParsed} onSubChange={updateSubReceipt} onReview={markReviewed}
         groupInfo={editFile ? groupInfoByFile[editFile.id] : null}
-        onBrand={() => { setBrandId(editId); setEditId(null); }} />
+        onBrand={() => { setBrandId(editId); }} />
       <ReceiptEditDrawer open={!!subEditReceipt} file={subEditReceipt ? {
         id: `${subEdit.fileId}-ticket-${subEdit.index}`,
         type: subEditParent.type,
@@ -2874,16 +2883,17 @@ function ReceiptImportModal({ open, onClose, onDone, initialDraft, initialFiles 
           updateSubReceipt(subEdit.fileId, subEdit.index, parsed);
           return true;
         }}
-        onBrand={() => { setBrandId(subEdit.fileId); setSubEdit(null); }} />
+        onBrand={() => { setBrandId(subEdit.fileId); }} />
       <ReceiptMathDrawer open={!!mathFile} file={mathFile} math={mathFile ? getMath(mathFile.id, mathFile.parsed) : null}
         onSave={(patch) => { setMathFor(mathFile.id, mathFile.parsed, patch); }} onClose={() => setMathId(null)} />
 
       <ReceiptBrandDocumentDrawer open={!!brandFile} type={brandFile?.type} draft={brandFile?.parsed}
         originalUrl={brandFile?.originalUrl} sourceOriginalUrl={brandFile?.sourceOriginalUrl}
         onClose={() => setBrandId(null)} />
-      <ConfirmDialog open={!!bulkConfirm} title="Применить расчёт к выбранным бланкам?"
+      <ConfirmDialog open={!!bulkConfirm}
+        title={bulkConfirm?.scope === 'all' ? 'Применить расчёт ко всем проверенным бланкам?' : 'Применить расчёт к выбранным бланкам?'}
         message={bulkConfirm ? `Сервисные сборы, надбавка и комиссия будут применены отдельно к ${bulkConfirm.count} бланк. Исходный тариф каждого билета не изменится.` : ''}
-        confirmLabel="Применить" confirmVariant="primary" onConfirm={applyBulk} onCancel={() => setBulkConfirm(null)} />
+        confirmLabel={bulkConfirm?.scope === 'all' ? 'Да, применить ко всем' : 'Применить к выбранным'} confirmVariant="primary" onConfirm={applyBulk} onCancel={() => setBulkConfirm(null)} />
       <Drawer open={confirmClose} onClose={() => setConfirmClose(false)} title="Закрыть импорт?"
         sub="Проверьте, какие бланки сохранятся в черновик"
         width="min(780px,96vw)"
@@ -3283,7 +3293,7 @@ function ReceiptEditorPage({ documents = [], orders = [], services = [], onChang
       <ReceiptEditDrawer open={!!edit} file={edit ? { ...edit, type: edit.editorType } : null} onClose={closeReceiptEditor}
         onChange={updateLocalReceipt} onReview={(fileId, parsed) => saveReceipt(fileId, parsed, false)}
         orders={orders} services={services}
-        onBrand={() => { setBrandEdit(edit); closeReceiptEditor(); }} />
+        onBrand={() => { setBrandEdit(edit); }} />
 
       <ReceiptBrandDocumentDrawer open={!!brandEdit} type={brandEdit?.editorType} draft={brandEdit?.parsed}
         originalUrl={brandEdit?.originalUrl} sourceOriginalUrl={brandEdit?.sourceOriginalUrl}

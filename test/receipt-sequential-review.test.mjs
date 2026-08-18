@@ -98,6 +98,11 @@ test('rail editor defaults to supplier PDF and exposes corrected live view', () 
   assert.match(page, /после сохранения изменения переносятся и в PDF поставщика/i);
   assert.match(page, /supplierDocumentPageUrl\(file\.originalUrl, supplierPageNumber\)/);
   assert.match(page, /receiptIndex \|\| editingParsed\.receipt_index/);
+  assert.match(page, /_receipt_page=\$\{normalizedPage\}#page=\$\{normalizedPage\}/);
+  assert.match(page, /const supplierPreviewKey = `\$\{file\.id \|\| file\.originalUrl \|\| 'supplier'\}-page-\$\{supplierPageNumber\}`/);
+  assert.match(page, /key=\{`\$\{supplierPreviewKey\}-inline`\}/);
+  assert.match(page, /key=\{`\$\{supplierPreviewKey\}-expanded`\}/);
+  assert.match(page, /Развёрнутый бланк поставщика · страница \$\{supplierPageNumber\}/);
 });
 
 

@@ -1,7 +1,7 @@
 const proposalStatus = { draft: 'Черновик', prepared: 'Подготовлено', sent: 'Отправлено клиенту', approved: 'Согласовано', rejected: 'Отклонено', archived: 'Архивировано' };
 const returnStatus = { created: 'Создано', review: 'На проверке', awaiting_client_approval: 'Ожидает согласования клиента', submitted_to_supplier: 'Передано поставщику', processing: 'В обработке', completed: 'Завершено', cancelled: 'Отменено', rejected: 'Отклонено' };
 const returnType = { refund: 'Возврат билета', exchange: 'Обмен билета', cancellation: 'Аннуляция бронирования', certificate: 'Оформление справки' };
-const documentKind = { itinerary_receipt: 'Маршрутная квитанция', ticket: 'Билет', voucher: 'Ваучер', insurance_policy: 'Страховой полис', invoice: 'Счёт', act: 'Акт', contract: 'Договор', passport: 'Паспорт', other: 'Прочее' };
+const documentKind = { itinerary_receipt: 'Маршрут-квитанция', ticket: 'Билет', voucher: 'Ваучер', insurance_policy: 'Страховой полис', invoice: 'Счёт', act: 'Акт', contract: 'Договор', passport: 'Паспорт', other: 'Прочее' };
 const documentStatus = { draft: 'Черновик', uploaded: 'Сформирован', generated: 'Сформирован', accounting: 'В бухгалтерии', signing: 'На подписи', signed: 'Подписан', void: 'Аннулирован' };
 const serviceKind = { avia: 'Авиа', rail: 'ЖД', hotel: 'Гостиница', transfer: 'Трансфер', bus: 'Автобус', tour: 'Тур', insurance: 'Страховка', visa: 'Виза', other: 'Прочее' };
 const serviceStatus = { searching: 'Поиск', proposed: 'Предложено', approval: 'На согласовании', booked: 'Забронировано', confirmed: 'Подтверждено', issued: 'Выписано', refund_in_progress: 'Возврат', refunded: 'Возвращено', cancelled: 'Отменено', failed: 'Ошибка' };
