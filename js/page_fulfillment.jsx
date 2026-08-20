@@ -1521,13 +1521,44 @@ function receiptSimilaritySignature(file) {
 
 function receiptDetectedGroups(files, importMode = 'auto') {
   if (importMode === 'ordinary') return [];
-  const buckets = new Map();
-  files.filter((file) => file.status === 'done' && !file.error && ['Авиа', 'ЖД'].includes(file.type)).forEach((file) => {
-    const signature = importMode === 'group' ? file.type : receiptSimilaritySignature(file);
-    if (!signature) return;
-    buckets.set(signature, [...(buckets.get(signature) || []), file]);
+  const candidates = files.filter((file) => file.status === 'done' && !file.error && ['Авиа', 'ЖД'].includes(file.type));
+  if (importMode === 'group') {
+    const buckets = new Map();
+    candidates.forEach((file) => buckets.set(file.type, [...(buckets.get(file.type) || []), file]));
+    return [...buckets.values()].filter((group) => group.length > 1);
+  }
+  const related = (left, right) => {
+    if (left.type !== right.type) return false;
+    const leftSignature = receiptSimilaritySignature(left);
+    if (leftSignature && leftSignature === receiptSimilaritySignature(right)) return true;
+    if (left.type !== 'Авиа') return false;
+    const a = normalizeReceiptDraft(left.type, left.parsed);
+    const b = normalizeReceiptDraft(right.type, right.parsed);
+    const aLeg = a.legs?.[0] || {};
+    const bLeg = b.legs?.[0] || {};
+    const passengerMatches = receiptGroupToken(a.passenger) && receiptGroupToken(a.passenger) === receiptGroupToken(b.passenger);
+    const aFrom = receiptGroupToken(aLeg.fromCode || aLeg.from);
+    const aTo = receiptGroupToken(aLeg.toCode || aLeg.to);
+    const bFrom = receiptGroupToken(bLeg.fromCode || bLeg.from);
+    const bTo = receiptGroupToken(bLeg.toCode || bLeg.to);
+    return passengerMatches && aFrom && aTo && aFrom === bTo && aTo === bFrom;
+  };
+  const groups = [];
+  const visited = new Set();
+  candidates.forEach((file, index) => {
+    if (visited.has(file.id)) return;
+    const group = [file];
+    visited.add(file.id);
+    for (let cursor = index + 1; cursor < candidates.length; cursor += 1) {
+      const candidate = candidates[cursor];
+      if (!visited.has(candidate.id) && group.some((member) => related(member, candidate))) {
+        group.push(candidate);
+        visited.add(candidate.id);
+      }
+    }
+    if (group.length > 1) groups.push(group);
   });
-  return [...buckets.values()].filter((group) => group.length > 1);
+  return groups;
 }
 
 function receiptSharedGroupPatch(type, parsed) {
@@ -1586,7 +1617,9 @@ function ReceiptEditDrawer({ open, file, onClose, onChange, onSubChange, onBrand
     const tickets = receiptGroupedTickets(file);
     const firstUnreviewed = tickets.findIndex((ticket) => !receiptBlankIsReviewed(ticket));
     setActiveBlankIndex(firstUnreviewed >= 0 ? firstUnreviewed : 0);
-    setApplyToGroup(Boolean(groupInfo?.count > 1));
+    // A related return ticket can have its own valid fare and conditions.
+    // Common corrections therefore require an explicit operator choice.
+    setApplyToGroup(false);
     setConfirmGroupApply(false);
   }, [open, file && file.id, groupInfo?.count]);
   useEffect(() => {
@@ -1738,8 +1771,14 @@ function ReceiptEditDrawer({ open, file, onClose, onChange, onSubChange, onBrand
   };
 
   const finishSingleReceipt = async (useGroup = false) => {
-    const saved = await onReview?.(file.id, parsed, { applyToGroup: useGroup });
-    if (saved !== false) onClose();
+    if (useGroup) onChange(file.id, parsed, { applyToGroup: true });
+    const hasNextGroupBlank = Boolean(groupInfo?.count > 1 && groupInfo.position < groupInfo.count);
+    const saved = await onReview?.(file.id, parsed, {
+      applyToGroup: useGroup,
+      continueSequential: hasNextGroupBlank,
+      groupFileIds: groupInfo?.fileIds || [],
+    });
+    if (saved !== false && !hasNextGroupBlank) onClose();
   };
 
   const confirmGroupChanges = async () => {
@@ -1753,14 +1792,18 @@ function ReceiptEditDrawer({ open, file, onClose, onChange, onSubChange, onBrand
 
   const drawerTitle = hasTicketGroup
     ? `Проверка · бланк ${safeBlankIndex + 1} из ${groupTickets.length} · ${receiptParticipantLabel(editingParsed)}`
-    : 'Проверка · ' + receiptParticipantLabel(parsed);
+    : groupInfo?.count > 1
+      ? `Проверка · бланк ${groupInfo.position} из ${groupInfo.count} · ${receiptParticipantLabel(parsed)}`
+      : 'Проверка · ' + receiptParticipantLabel(parsed);
 
   return (
     <>
       <Drawer open={open} onClose={onClose} title={drawerTitle}
         sub={hasTicketGroup
           ? `Последовательная проверка · ${reviewedCount} из ${groupTickets.length} бланков уже проверено`
-          : `${recType(file.type).doc} · исходный файл сохраняется без изменений`}
+          : groupInfo?.count > 1
+            ? `Последовательная проверка группы · ${groupInfo.position} из ${groupInfo.count}`
+            : `${recType(file.type).doc} · исходный файл сохраняется без изменений`}
         width="min(1280px,98vw)" className="receipt-editor-drawer"
         footer={<>
           {file.originalUrl && <Button variant="secondary" icon="eye" onClick={() => window.open(supplierPreviewUrl, '_blank', 'noopener,noreferrer')}>Оригинал поставщика с корректировками</Button>}
@@ -1776,12 +1819,16 @@ function ReceiptEditDrawer({ open, file, onClose, onChange, onSubChange, onBrand
           </> : <Button style={{ flex: 1 }} icon="check" onClick={() => {
             if (applyToGroup && groupInfo?.count > 1) setConfirmGroupApply(true);
             else finishSingleReceipt(false);
-          }}>{applyToGroup && groupInfo?.count > 1 ? `Проверить и применить к ${groupInfo.count} бланкам` : 'Проверено'}</Button>}
+          }}>{groupInfo?.count > 1 && groupInfo.position < groupInfo.count
+              ? 'Сохранить и далее'
+              : applyToGroup && groupInfo?.count > 1
+                ? `Проверить и завершить (${groupInfo.count})`
+                : 'Проверено'}</Button>}
         </>}>
         <div className="receipt-edit-layout">
           {!hasTicketGroup && groupInfo?.count > 1 && <section className="receipt-similar-group-banner">
             <Icon name="users" />
-            <span><b>Найдена группа однотипных бланков: {groupInfo.count}</b><small>Маршрут, даты и условия совпадают; пассажиры и номера билетов останутся индивидуальными.</small></span>
+            <span><b>Последовательная проверка: бланк {groupInfo.position} из {groupInfo.count}</b><small>{groupInfo.position < groupInfo.count ? 'Следующий бланк откроется после сохранения.' : 'Это последний бланк группы.'} Пассажир, номер билета и маршрут остаются индивидуальными.</small></span>
             <label><Checkbox on={applyToGroup} onChange={() => setApplyToGroup((value) => !value)} /> Применять общие исправления ко всей группе</label>
           </section>}
           {hasTicketGroup && <section className="receipt-sequential-review" aria-label="Последовательная проверка бланков">
@@ -1900,8 +1947,8 @@ function ReceiptEditDrawer({ open, file, onClose, onChange, onSubChange, onBrand
       )}
       <ConfirmDialog open={confirmGroupApply}
         title={`Применить общие исправления к ${isAviaTicketGroup ? groupTickets.length : groupInfo?.count || 0} бланкам?`}
-        message="Маршрут, даты, условия, тариф и настройки вывода будут применены ко всей группе. Пассажиры и номера билетов останутся индивидуальными."
-        confirmLabel="Да, применить и завершить" confirmVariant="primary"
+        message="Общие условия, стоимость и настройки вывода будут применены ко всей группе. Встречные маршруты, пассажиры и номера билетов останутся индивидуальными."
+        confirmLabel={groupInfo?.count > 1 && groupInfo.position < groupInfo.count ? 'Да, применить и далее' : 'Да, применить и завершить'} confirmVariant="primary"
         onConfirm={confirmGroupChanges} onCancel={() => setConfirmGroupApply(false)} />
     </>
   );
@@ -2187,9 +2234,17 @@ function ReceiptImportModal({ open, onClose, onDone, initialDraft, initialFiles 
           manualCompletion: Boolean(file.error || file.parsed?.recognitionPending || parsed.manualCompletion),
         }) };
         if (!groupedIds.includes(file.id)) return file;
+        const targetPatch = { ...sharedPatch };
+        if (source?.type === 'Авиа') {
+          const sourceLeg = normalizeReceiptDraft(source.type, parsed).legs?.[0] || {};
+          const targetLeg = normalizeReceiptDraft(file.type, file.parsed).legs?.[0] || {};
+          const sameDirection = receiptGroupToken(sourceLeg.fromCode || sourceLeg.from) === receiptGroupToken(targetLeg.fromCode || targetLeg.from)
+            && receiptGroupToken(sourceLeg.toCode || sourceLeg.to) === receiptGroupToken(targetLeg.toCode || targetLeg.to);
+          if (!sameDirection) delete targetPatch.legs;
+        }
         return { ...file, parsed: normalizeReceiptDraft(file.type, {
           ...file.parsed,
-          ...sharedPatch,
+          ...targetPatch,
           recognitionPending: false,
           auditLog: [...(file.parsed?.auditLog || []), {
             at: new Date().toLocaleString('ru-RU'),
@@ -2233,11 +2288,15 @@ function ReceiptImportModal({ open, onClose, onDone, initialDraft, initialFiles 
       };
     }));
   };
-  const markReviewed = (id, _parsed, options = {}) => setReviewed((cur) => {
-    if (!options.applyToGroup) return { ...cur, [id]: true };
-    const group = receiptDetectedGroups(files, importMode).find((items) => items.some((file) => file.id === id)) || [];
-    return { ...cur, ...Object.fromEntries(group.map((file) => [file.id, true])), [id]: true };
-  });
+  const markReviewed = (id, _parsed, options = {}) => {
+    setReviewed((cur) => ({ ...cur, [id]: true }));
+    if (options.continueSequential) {
+      const groupIds = options.groupFileIds || [];
+      const nextId = groupIds[groupIds.indexOf(id) + 1];
+      if (nextId) setEditId(nextId);
+    }
+    return true;
+  };
   const remove = (id) => { setFiles((cur) => cur.filter((f) => f.id !== id)); setExcluded((e) => { const n = { ...e }; delete n[id]; return n; }); setReviewed((e) => { const n = { ...e }; delete n[id]; return n; }); };
 
   const processing = files.some((f) => f.status !== 'done');
@@ -2319,6 +2378,8 @@ function ReceiptImportModal({ open, onClose, onDone, initialDraft, initialFiles 
     index: groupIndex + 1,
     count: group.length,
     type: file.type,
+    position: group.findIndex((item) => item.id === file.id) + 1,
+    fileIds: group.map((item) => item.id),
   }])));
   useEffect(() => {
     if (files.length && !processing && step === 1) setStep(2);

@@ -8,7 +8,7 @@ let changed = false;
 // confirmation step.  It is a strict superset of this legacy build patch.
 if (source.includes('const pricingRows = doneRows.filter')
   && source.includes('const mathForFile = (file) =>')
-  && source.includes('const requestBulkApply = () =>')) {
+  && source.includes('const requestBulkApply = (')) {
   console.log('Математика отдельных бланков и подтверждение массового применения уже настроены.');
   process.exit(0);
 }

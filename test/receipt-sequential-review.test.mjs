@@ -56,6 +56,15 @@ test('similar avia and rail files support explicit grouped or ordinary intake', 
 });
 
 
+test('opposite avia routes are one sequential group but keep individual routes', () => {
+  assert.match(page, /passengerMatches && aFrom && aTo && aFrom === bTo && aTo === bFrom/);
+  assert.match(page, /continueSequential: hasNextGroupBlank/);
+  assert.match(page, /if \(nextId\) setEditId\(nextId\)/);
+  assert.match(page, /if \(!sameDirection\) delete targetPatch\.legs/);
+  assert.match(page, /Последовательная проверка: бланк \{groupInfo\.position\} из \{groupInfo\.count\}/);
+});
+
+
 test('correction control stays visible while a long receipt form scrolls', () => {
   assert.match(styles, /\.receipt-editor-form > \.receipt-source-notice \{ position: sticky; top: 0;/);
 });
@@ -67,7 +76,7 @@ test('multi-page aviation groups use one confirmation and preserve individual ti
   assert.match(page, /const saveAviaGroup = async/);
   assert.match(page, /Проверить и применить к \{groupTickets\.length\} бланкам/);
   assert.match(page, /Применить общие исправления к/);
-  assert.match(page, /confirmLabel="Да, применить и завершить"/);
+  assert.match(page, /'Да, применить и далее' : 'Да, применить и завершить'/);
   assert.match(page, /Индивидуальные данные пассажиров сохранятся/);
   assert.match(page, /aggregateReceiptSubrows\(parent, subReceipts, receiptType = 'ЖД'\)/);
 });
