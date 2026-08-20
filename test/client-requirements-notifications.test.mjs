@@ -37,7 +37,10 @@ test('центр уведомлений показывает время и от�
 
 test('всплывающие уведомления идут одной ровной колонкой', () => {
   assert.doesNotMatch(ui, /translateX\(' \+ \(-depth \* 18\)/);
-  assert.match(styles, /\.toast-wrap\{[^}]*align-items:stretch;[^}]*width:min\(370px,calc\(100vw - 44px\)\)/);
+  assert.match(styles, /\.toast-wrap\{[^}]*left:calc\(var\(--sb-w\) \+ 22px\);right:auto;[^}]*align-items:stretch/);
+  assert.match(styles, /\.toast\{[^}]*background:rgba\(235,243,255,\.92\);[^}]*backdrop-filter:blur\(16px\)/);
+  assert.match(styles, /@keyframes toastin\{from\{opacity:0;transform:translateX\(-40px\)\}/);
+  assert.match(styles, /@media\(max-width:760px\)\{[\s\S]*?\.toast-wrap[^}]*bottom:88px;[^}]*width:calc\(100vw - 24px\)/);
   assert.match(styles, /\.toast-slot\{width:100%\}/);
   assert.match(styles, /\.toast\{[^}]*width:100%/);
 });
