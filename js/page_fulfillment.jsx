@@ -1125,10 +1125,11 @@ function receiptWithPricing(type, receipt, pricing) {
   const tariffAndTaxes = round(pricing?.tariff);
   const fees = round(pricing?.fee);
   const taxes = round(receipt?.taxes);
+  const clientAmount = round(tariffAndTaxes + fees + Number(pricing?.markup || 0));
   const pricingFields = {
     markup: round(pricing?.markup),
     commission: round(pricing?.commission),
-    clientTotal: round(tariffAndTaxes + fees + Number(pricing?.markup || 0)),
+    clientTotal: clientAmount,
   };
 
   if (type === 'Авиа') {
@@ -1141,7 +1142,7 @@ function receiptWithPricing(type, receipt, pricing) {
       fare,
       taxes,
       fees,
-      total: round(fare + taxes + fees),
+      total: clientAmount,
       fareBreakdown,
       ...pricingFields,
     });
@@ -1158,12 +1159,12 @@ function receiptWithPricing(type, receipt, pricing) {
       reservedSeatCost,
       agencyServiceFee,
       additionalFees,
-      total: round(ticketCost + reservedSeatCost + taxes + agencyServiceFee + additionalFees),
+      total: clientAmount,
       ...pricingFields,
     });
   }
 
-  return normalizeReceiptDraft(type, { ...receipt, ...pricingFields });
+  return normalizeReceiptDraft(type, { ...receipt, total: clientAmount, ...pricingFields });
 }
 const receiptImportMoney = (...values) => {
   const numbers = values
@@ -1647,7 +1648,7 @@ function receiptBlankMissingFields(ticket, type = 'ЖД') {
   return missing;
 }
 
-function ReceiptEditDrawer({ open, file, onClose, onChange, onSubChange, onBrand, onReview, groupInfo, orders = [], services = [] }) {
+function ReceiptEditDrawer({ open, file, onClose, onChange, onSubChange, onBrand, onReview, groupInfo, pdfSyncStatus = '', orders = [], services = [] }) {
   const [correctionMode, setCorrectionMode] = useState(false);
   const [previewExpanded, setPreviewExpanded] = useState(false);
   const [editPreviewMode, setEditPreviewMode] = useState('corrected');
@@ -1731,7 +1732,7 @@ function ReceiptEditDrawer({ open, file, onClose, onChange, onSubChange, onBrand
   )
     || (hasTicketGroup ? safeBlankIndex + 1 : 0);
   const supplierPreviewUrl = supplierDocumentPageUrl(file.originalUrl, supplierPageNumber);
-  const supplierPreviewKey = `${file.id || file.originalUrl || 'supplier'}-page-${supplierPageNumber}`;
+  const supplierPreviewKey = `${file.id || file.originalUrl || 'supplier'}-page-${supplierPageNumber}-revision-${file.supplierPdfRevision || 0}`;
 
   const parentFromTickets = (tickets, child = editingParsed) => aggregateReceiptSubrows({
     ...parsed,
@@ -1966,7 +1967,18 @@ function ReceiptEditDrawer({ open, file, onClose, onChange, onSubChange, onBrand
             {showSupplierPreview
               ? <iframe key={`${supplierPreviewKey}-inline`} className="receipt-edit-supplier-frame" title={`Бланк поставщика · страница ${supplierPageNumber}`} src={supplierPreviewUrl} />
               : <ReceiptDocumentPreview type={file.type} draft={editingParsed} />}
-            <div className="receipt-edit-preview-note"><Icon name="checkCircle" /> {showSupplierPreview ? 'После сохранения исправленные суммы и данные появятся в этой рабочей копии PDF поставщика. Исходник остаётся доступен отдельно.' : 'Предпросмотр обновляется сразу; после сохранения изменения переносятся и в PDF поставщика.'}</div>
+            <div className={'receipt-edit-preview-note' + (pdfSyncStatus === 'error' ? ' is-warning' : '')}>
+              <Icon name={pdfSyncStatus === 'saving' ? 'clock' : pdfSyncStatus === 'error' ? 'alertCircle' : 'checkCircle'} />
+              {pdfSyncStatus === 'saving'
+                ? 'Обновляем рабочую PDF-копию…'
+                : pdfSyncStatus === 'saved'
+                  ? 'Рабочая PDF-копия уже обновлена. Загруженный исходник сохранён отдельно без изменений.'
+                  : pdfSyncStatus === 'error'
+                    ? 'Не удалось безопасно перенести стоимость в PDF. Проверьте предупреждение и исходный бланк.'
+                    : showSupplierPreview
+                      ? 'После изменения стоимости эта рабочая PDF-копия обновится автоматически. Исходник остаётся доступен отдельно.'
+                      : 'Предпросмотр обновляется сразу; рабочий PDF обновляется после изменения стоимости.'}
+            </div>
           </aside>
           <ReceiptSpecializedForm type={file.type} value={editingParsed} onChange={commitEditingReceipt}
             correctionMode={correctionMode} onToggleCorrection={() => setCorrectionMode((value) => !value)}
@@ -2019,7 +2031,7 @@ function ReceiptMathDrawer({ open, file, math, onSave, onClose }) {
   );
   return (
     <Drawer open={open} onClose={onClose} title={'Математика · ' + (file.parsed.passenger || 'квитанция')}
-      sub={'Исходный v1: ' + recMoney(Number(file.parsed.originalTotal) || Number(file.parsed.total) || 0, cur) + ' · после финального сохранения сумма переносится в рабочую копию PDF'}
+      sub={'Исходный v1: ' + recMoney(Number(file.parsed.originalTotal) || Number(file.parsed.total) || 0, cur) + ' · после сохранения сумма сразу переносится в рабочую копию PDF'}
       width="min(460px,94vw)"
       footer={<>
         <Button variant="secondary" onClick={onClose}>Отмена</Button>
@@ -2069,10 +2081,23 @@ function ReceiptImportModal({ open, onClose, onDone, initialDraft, initialFiles 
   const [brandId, setBrandId] = useState(null);
   const [bulk, setBulk] = useState({ fee: '', markup: '', commission: '' });
   const [bulkConfirm, setBulkConfirm] = useState(null);
+  const [pdfSync, setPdfSync] = useState({});
   const [draftSavedAt, setDraftSavedAt] = useState('');
   const [dragActive, setDragActive] = useState(false);
   const fileRef = useRef(null);
   const dragDepth = useRef(0);
+  const filesStateRef = useRef([]);
+  const mathStateRef = useRef({});
+  const pdfSyncTimers = useRef(new Map());
+  const pdfSyncSequence = useRef({});
+  const pdfSyncChains = useRef({});
+
+  useEffect(() => { filesStateRef.current = files; }, [files]);
+  useEffect(() => { mathStateRef.current = math; }, [math]);
+  useEffect(() => () => {
+    pdfSyncTimers.current.forEach((timer) => clearTimeout(timer));
+    pdfSyncTimers.current.clear();
+  }, []);
 
   useEffect(() => {
     if (!open) return;
@@ -2096,6 +2121,7 @@ function ReceiptImportModal({ open, onClose, onDone, initialDraft, initialFiles 
     setBrandId(null);
     setBulk(draft?.bulk || { fee: '', markup: '', commission: '' });
     setBulkConfirm(null);
+    setPdfSync({});
     setDraftSavedAt(draft?.savedAt || '');
     setDragActive(false);
     dragDepth.current = 0;
@@ -2111,14 +2137,21 @@ function ReceiptImportModal({ open, onClose, onDone, initialDraft, initialFiles 
     const taxes = Number(p && p.taxes) || 0;
     return Math.round((fare + taxes || Number(p && p.total) || 0) * 100) / 100;
   };
-  const getMath = (id, p) => math[id] || { tariff: supplierNet(p), fee: Math.round(Number(p && p.fees) || 0), markup: 0, commission: 0 };
-  const setMathFor = (id, p, patch) => setMath((m) => ({ ...m, [id]: { ...getMath(id, p), ...patch } }));
+  const getMathFrom = (mathState, id, p) => mathState[id] || { tariff: supplierNet(p), fee: Math.round(Number(p && p.fees) || 0), markup: 0, commission: 0 };
+  const getMath = (id, p) => getMathFrom(math, id, p);
+  const setMathFor = (id, p, patch) => {
+    const current = mathStateRef.current;
+    const next = { ...current, [id]: { ...getMathFrom(current, id, p), ...patch } };
+    mathStateRef.current = next;
+    setMath(next);
+    queueWorkingPdfSync(String(id).split('::blank::')[0], { mode: 'pricing', delay: 0, announce: true });
+  };
   const clientTotal = (m) => Math.round((Number(m.tariff) || 0) + (Number(m.fee) || 0) + (Number(m.markup) || 0));
   const subReceiptMathKey = (fileId, index) => fileId + '::blank::' + index;
-  const mathForFile = (file) => {
-    if (!file?.subReceipts?.length) return getMath(file.id, file?.parsed);
+  const mathForFileWithState = (file, mathState) => {
+    if (!file?.subReceipts?.length) return getMathFrom(mathState, file.id, file?.parsed);
     return file.subReceipts.reduce((total, receipt, index) => {
-      const row = getMath(subReceiptMathKey(file.id, index), receipt);
+      const row = getMathFrom(mathState, subReceiptMathKey(file.id, index), receipt);
       return {
         tariff: total.tariff + (Number(row.tariff) || 0),
         fee: total.fee + (Number(row.fee) || 0),
@@ -2127,6 +2160,7 @@ function ReceiptImportModal({ open, onClose, onDone, initialDraft, initialFiles 
       };
     }, { tariff: 0, fee: 0, markup: 0, commission: 0 });
   };
+  const mathForFile = (file) => mathForFileWithState(file, math);
 
   const fmtSize = (b) => (b / 1024 < 1024 ? Math.max(1, Math.round(b / 1024)) + ' КБ' : (b / 1048576).toFixed(1) + ' МБ');
   const addFiles = (list) => {
@@ -2325,6 +2359,7 @@ function ReceiptImportModal({ open, onClose, onDone, initialDraft, initialFiles 
     });
     const reviewedIds = options.applyToGroup ? [id, ...(options.groupFileIds || [])] : [id];
     setReviewed((cur) => reviewedIds.reduce((next, fileId) => ({ ...next, [fileId]: true }), cur));
+    [...new Set(reviewedIds)].forEach((fileId) => queueWorkingPdfSync(fileId, { mode: 'review' }));
   };
   const updateSubReceipt = (fileId, subIndex, parsed) => {
     setFiles((cur) => cur.map((file) => {
@@ -2355,6 +2390,7 @@ function ReceiptImportModal({ open, onClose, onDone, initialDraft, initialFiles 
         parsed: aggregateReceiptSubrows(parent, subReceipts, file.type),
       };
     }));
+    queueWorkingPdfSync(fileId, { mode: 'review' });
   };
   const markReviewed = (id, _parsed, options = {}) => {
     const reviewedIds = options.applyToGroup ? [id, ...(options.groupFileIds || [])] : [id];
@@ -2366,7 +2402,15 @@ function ReceiptImportModal({ open, onClose, onDone, initialDraft, initialFiles 
     }
     return true;
   };
-  const remove = (id) => { setFiles((cur) => cur.filter((f) => f.id !== id)); setExcluded((e) => { const n = { ...e }; delete n[id]; return n; }); setReviewed((e) => { const n = { ...e }; delete n[id]; return n; }); };
+  const remove = (id) => {
+    const timer = pdfSyncTimers.current.get(id);
+    if (timer) clearTimeout(timer);
+    pdfSyncTimers.current.delete(id);
+    setFiles((cur) => cur.filter((f) => f.id !== id));
+    setExcluded((e) => { const n = { ...e }; delete n[id]; return n; });
+    setReviewed((e) => { const n = { ...e }; delete n[id]; return n; });
+    setPdfSync((current) => { const next = { ...current }; delete next[id]; return next; });
+  };
 
   const processing = files.some((f) => f.status !== 'done');
   const done = files.filter((f) => f.status === 'done');
@@ -2508,6 +2552,12 @@ function ReceiptImportModal({ open, onClose, onDone, initialDraft, initialFiles 
     }));
   });
   const selectedPricingRows = pricingRows.filter((row) => pricingSel[row.mathKey]);
+  const pricingFileIds = [...new Set(pricingRows.map((row) => row.f.id))];
+  const pricingPdfSyncState = pricingFileIds.some((fileId) => pdfSync[fileId] === 'saving')
+    ? 'saving'
+    : pricingFileIds.some((fileId) => pdfSync[fileId] === 'error')
+      ? 'error'
+      : pricingFileIds.some((fileId) => pdfSync[fileId] === 'saved') ? 'saved' : '';
   const bulkEligibleRows = pricingRows.filter((row) => row.status !== 'Ошибка'
     && (reviewed[row.f.id] || row.status === 'Распознано' || row.status === 'Заполнено вручную'));
   const requestBulkApply = (scope = 'selected') => {
@@ -2523,25 +2573,27 @@ function ReceiptImportModal({ open, onClose, onDone, initialDraft, initialFiles 
   };
   const applyBulk = () => {
     if (!bulkConfirm) return;
-    setMath((current) => {
-      const next = { ...current };
-      pricingRows.filter((row) => bulkConfirm.targetKeys.includes(row.mathKey)).forEach((row) => {
-        const baseline = current[row.mathKey] || {
-          tariff: supplierNet(row.parsed), fee: Math.round(Number(row.parsed?.fees) || 0), markup: 0, commission: 0,
-        };
-        next[row.mathKey] = { ...baseline, ...bulkConfirm.patch };
-      });
-      return next;
+    const confirmation = bulkConfirm;
+    const targetRows = pricingRows.filter((row) => confirmation.targetKeys.includes(row.mathKey));
+    const current = mathStateRef.current;
+    const next = { ...current };
+    targetRows.forEach((row) => {
+      next[row.mathKey] = { ...getMathFrom(current, row.mathKey, row.parsed), ...confirmation.patch };
     });
-    toast('Математика применена отдельно к ' + bulkConfirm.count + ' бланк. Исходные тарифы билетов не изменены.', 'info');
+    mathStateRef.current = next;
+    setMath(next);
     setBulkConfirm(null);
+    [...new Set(targetRows.map((row) => row.f.id))].forEach((fileId) => (
+      queueWorkingPdfSync(fileId, { mode: 'pricing', delay: 0 })
+    ));
+    toast('Математика применена отдельно к ' + confirmation.count + ' бланк. Рабочие PDF обновляются.', 'info');
   };
 
-  const verifiedReceiptForSave = (file) => {
+  const verifiedReceiptForSaveWithMath = (file, mathState) => {
     const parent = file.parsed;
-    if (!file.subReceipts?.length) return receiptWithPricing(file.type, parent, mathForFile(file));
+    if (!file.subReceipts?.length) return receiptWithPricing(file.type, parent, mathForFileWithState(file, mathState));
     const pricedTickets = file.subReceipts.map((ticket, index) => {
-      const ticketMath = getMath(subReceiptMathKey(file.id, index), ticket);
+      const ticketMath = getMathFrom(mathState, subReceiptMathKey(file.id, index), ticket);
       return {
         ...receiptWithPricing(file.type, ticket, ticketMath),
         markup: Number(ticketMath.markup || 0),
@@ -2555,6 +2607,78 @@ function ReceiptImportModal({ open, onClose, onDone, initialDraft, initialFiles 
       groupTickets: pricedTickets,
     };
   };
+  const verifiedReceiptForSave = (file) => verifiedReceiptForSaveWithMath(file, math);
+
+  const verifiedReceiptForReview = (file) => {
+    if (!file.subReceipts?.length) return file.parsed;
+    return {
+      ...aggregateReceiptSubrows(file.parsed, file.subReceipts, file.type),
+      originalTotal: file.parsed?.originalTotal,
+      groupTickets: file.subReceipts,
+    };
+  };
+
+  async function syncWorkingSupplierPdf(fileId, sequence, mode, announce) {
+    const file = filesStateRef.current.find((item) => item.id === fileId);
+    const sourceDocumentId = file?.sourceDocumentId || file?.serverId;
+    if (!file || !sourceDocumentId) return;
+    setPdfSync((current) => ({ ...current, [fileId]: 'saving' }));
+    try {
+      const verifiedData = mode === 'pricing'
+        ? verifiedReceiptForSaveWithMath(file, mathStateRef.current)
+        : verifiedReceiptForReview(file);
+      const saved = await documentsApi.updateReceipt(sourceDocumentId, {
+        draft: true,
+        verified_data: verifiedData,
+        output_settings: verifiedData.output || { mode: 'original' },
+        audit_log: verifiedData.auditLog || [],
+        preview_sync: true,
+      });
+      if (pdfSyncSequence.current[fileId] !== sequence) return;
+      const correction = saved?.supplier_pdf_correction || {};
+      if (['manual_required', 'unsupported'].includes(correction.status)) {
+        setPdfSync((current) => ({ ...current, [fileId]: 'error' }));
+        toast('Стоимость сохранена, но её не удалось безопасно перенести в рабочий PDF. Исходник не изменён.', 'err');
+        return;
+      }
+      const revision = Date.now();
+      setFiles((current) => {
+        const next = current.map((item) => item.id === fileId ? {
+          ...item,
+          originalUrl: freshSupplierDocumentUrl(documentsApi.supplierPreviewUrl(sourceDocumentId)),
+          supplierPdfRevision: revision,
+          supplierPdfCorrection: correction,
+        } : item);
+        filesStateRef.current = next;
+        return next;
+      });
+      setPdfSync((current) => ({ ...current, [fileId]: 'saved' }));
+      if (announce) toast('Стоимость сразу перенесена в рабочую PDF-копию', 'ok');
+    } catch (error) {
+      if (pdfSyncSequence.current[fileId] !== sequence) return;
+      setPdfSync((current) => ({ ...current, [fileId]: 'error' }));
+      toast(error.message || 'Не удалось обновить рабочую PDF-копию', 'err');
+    }
+  }
+
+  function queueWorkingPdfSync(fileId, { mode = 'review', delay = 700, announce = false } = {}) {
+    const existing = pdfSyncTimers.current.get(fileId);
+    if (existing) clearTimeout(existing);
+    const sequence = (pdfSyncSequence.current[fileId] || 0) + 1;
+    pdfSyncSequence.current[fileId] = sequence;
+    const timer = setTimeout(() => {
+      pdfSyncTimers.current.delete(fileId);
+      const previous = pdfSyncChains.current[fileId] || Promise.resolve();
+      const current = previous
+        .catch(() => undefined)
+        .then(() => syncWorkingSupplierPdf(fileId, sequence, mode, announce));
+      pdfSyncChains.current[fileId] = current;
+      void current.finally(() => {
+        if (pdfSyncChains.current[fileId] === current) delete pdfSyncChains.current[fileId];
+      });
+    }, delay);
+    pdfSyncTimers.current.set(fileId, timer);
+  }
 
   const finish = async () => {
     if (!toAdd.length) { toast('Нет квитанций для добавления', 'err'); return; }
@@ -2949,8 +3073,15 @@ function ReceiptImportModal({ open, onClose, onDone, initialDraft, initialFiles 
                     </Button> : null;
                   })()}
                   <div style={{ flex: 1 }} />
-                  <span style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color: 'var(--green)' }}>
-                    <Icon name="check" style={{ width: 16, height: 16 }} /> рабочий PDF обновится после сохранения
+                  <span style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color: pricingPdfSyncState === 'error' ? 'var(--red)' : 'var(--green)' }}>
+                    <Icon name={pricingPdfSyncState === 'saving' ? 'clock' : pricingPdfSyncState === 'error' ? 'alertCircle' : 'check'} style={{ width: 16, height: 16 }} />
+                    {pricingPdfSyncState === 'saving'
+                      ? 'рабочий PDF обновляется…'
+                      : pricingPdfSyncState === 'error'
+                        ? 'часть PDF требует проверки'
+                        : pricingPdfSyncState === 'saved'
+                          ? 'рабочий PDF уже обновлён'
+                          : 'стоимость сразу попадёт в рабочий PDF'}
                   </span>
                 </div>
                 <div className="table-card receipt-pricing-card">
@@ -2964,7 +3095,7 @@ function ReceiptImportModal({ open, onClose, onDone, initialDraft, initialFiles 
                           <td data-label="Бланк"><span className="receipt-pricing-document"><span className="rec-import-icon" style={{ background: t.color }}><Icon name={t.icon} /></span><span><b>{p.passenger || r.f.name}{r.blankIndex !== null ? ' · билет ' + (r.blankIndex + 1) : ''}</b><small>{p.carrier || 'Поставщик'} · {routeSummary(p)}</small></span></span></td>
                           <td data-label="Оригинал поставщика"><b>{recSourceMoney(p)}</b><small className="receipt-pricing-meta">{r.f.name}</small></td>
                           <td data-label="Клиенту"><button type="button" className="btn btn-ghost btn-sm receipt-pricing-math" onClick={() => setMathId(r.mathKey)}><b>{recMoney(clientTotal(m), p.currency)}</b><small>изменить математику</small></button></td>
-                          <td data-label="Версии"><span className="receipt-pricing-versions"><Pill tone="blue">v1 поставщик</Pill><Pill tone="amber">v2 CRM</Pill></span></td>
+                          <td data-label="Версии"><span className="receipt-pricing-versions"><Pill tone="blue">v1 поставщик</Pill><Pill tone="amber">v2 CRM</Pill>{pdfSync[r.f.id] === 'saving' && <Pill tone="blue">PDF обновляется</Pill>}{pdfSync[r.f.id] === 'saved' && <Pill tone="green">PDF обновлён</Pill>}{pdfSync[r.f.id] === 'error' && <Pill tone="red">Проверьте PDF</Pill>}</span></td>
                           <td data-label="Документ"><Button size="sm" variant="secondary" icon="template" onClick={() => setBrandId(r.f.id)}>Бланк CRM</Button></td>
                         </tr>
                       );
@@ -3012,6 +3143,7 @@ function ReceiptImportModal({ open, onClose, onDone, initialDraft, initialFiles 
       </div>
 
       <ReceiptEditDrawer open={!!editFile} file={editFile} onClose={() => setEditId(null)} onChange={updateParsed} onSubChange={updateSubReceipt} onReview={markReviewed}
+        pdfSyncStatus={editFile ? pdfSync[editFile.id] : ''}
         groupInfo={editFile ? groupInfoByFile[editFile.id] : null}
         onBrand={() => { setBrandId(editId); }} />
       <ReceiptEditDrawer open={!!subEditReceipt} file={subEditReceipt ? {
@@ -3019,7 +3151,9 @@ function ReceiptImportModal({ open, onClose, onDone, initialDraft, initialFiles 
         type: subEditParent.type,
         parsed: subEditReceipt,
         originalUrl: subEditParent.originalUrl,
+        supplierPdfRevision: subEditParent.supplierPdfRevision,
       } : null}
+        pdfSyncStatus={subEditParent ? pdfSync[subEditParent.id] : ''}
         onClose={() => setSubEdit(null)}
         onChange={(_id, parsed) => updateSubReceipt(subEdit.fileId, subEdit.index, parsed)}
         onReview={(_id, parsed) => {

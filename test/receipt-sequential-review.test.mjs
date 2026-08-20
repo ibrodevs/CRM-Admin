@@ -119,15 +119,30 @@ test('rail editor defaults to supplier PDF and exposes corrected live view', () 
   assert.match(page, />Бланк поставщика<\/button>/);
   assert.match(page, />С корректировками<\/button>/);
   assert.match(page, /receipt-edit-supplier-frame/);
-  assert.match(page, /после сохранения изменения переносятся и в PDF поставщика/i);
+  assert.match(page, /после изменения стоимости эта рабочая PDF-копия обновится автоматически/i);
   assert.match(page, /supplierDocumentPageUrl\(file\.originalUrl, supplierPageNumber\)/);
   assert.match(page, /receiptPage \|\| editingParsed\.receipt_page/);
   assert.match(page, /receiptIndex \|\| editingParsed\.receipt_index/);
   assert.match(page, /_receipt_page=\$\{normalizedPage\}#page=\$\{normalizedPage\}/);
-  assert.match(page, /const supplierPreviewKey = `\$\{file\.id \|\| file\.originalUrl \|\| 'supplier'\}-page-\$\{supplierPageNumber\}`/);
+  assert.match(page, /const supplierPreviewKey = `\$\{file\.id \|\| file\.originalUrl \|\| 'supplier'\}-page-\$\{supplierPageNumber\}-revision-\$\{file\.supplierPdfRevision \|\| 0\}`/);
   assert.match(page, /key=\{`\$\{supplierPreviewKey\}-inline`\}/);
   assert.match(page, /key=\{`\$\{supplierPreviewKey\}-expanded`\}/);
   assert.match(page, /Развёрнутый бланк поставщика · страница \$\{supplierPageNumber\}/);
+});
+
+
+test('price edits refresh the supplier PDF during review and pricing step', () => {
+  assert.match(page, /const clientAmount = round\(tariffAndTaxes \+ fees \+ Number\(pricing\?\.markup \|\| 0\)\)/);
+  assert.match(page, /total: clientAmount/);
+  assert.match(page, /queueWorkingPdfSync\(fileId, \{ mode: 'review' \}\)/);
+  assert.match(page, /queueWorkingPdfSync\(String\(id\)\.split\('::blank::'\)\[0\], \{ mode: 'pricing', delay: 0, announce: true \}\)/);
+  assert.match(page, /queueWorkingPdfSync\(fileId, \{ mode: 'pricing', delay: 0 \}\)/);
+  assert.match(page, /documentsApi\.updateReceipt\(sourceDocumentId, \{/);
+  assert.match(page, /draft: true,[\s\S]*verified_data: verifiedData,[\s\S]*preview_sync: true/);
+  assert.match(page, /freshSupplierDocumentUrl\(documentsApi\.supplierPreviewUrl\(sourceDocumentId\)\)/);
+  assert.match(page, /supplierPdfRevision: revision/);
+  assert.match(page, /const previous = pdfSyncChains\.current\[fileId\] \|\| Promise\.resolve\(\)/);
+  assert.match(page, /рабочий PDF уже обновлён/);
 });
 
 
