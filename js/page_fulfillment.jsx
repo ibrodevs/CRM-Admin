@@ -1119,6 +1119,52 @@ function aggregateReceiptSubrows(parent, subReceipts, receiptType = 'ЖД') {
     recognitionPending: tickets.some((receipt) => receipt.recognitionPending),
   });
 }
+
+function receiptWithPricing(type, receipt, pricing) {
+  const round = (value) => Math.round((Number(value) || 0) * 100) / 100;
+  const tariffAndTaxes = round(pricing?.tariff);
+  const fees = round(pricing?.fee);
+  const taxes = round(receipt?.taxes);
+  const pricingFields = {
+    markup: round(pricing?.markup),
+    commission: round(pricing?.commission),
+    clientTotal: round(tariffAndTaxes + fees + Number(pricing?.markup || 0)),
+  };
+
+  if (type === 'Авиа') {
+    const fare = Math.max(0, round(tariffAndTaxes - taxes));
+    const fareBreakdown = (receipt?.fareBreakdown || []).length === 1
+      ? receipt.fareBreakdown.map((row) => ({ ...row, amount: fare }))
+      : (receipt?.fareBreakdown || []);
+    return normalizeReceiptDraft(type, {
+      ...receipt,
+      fare,
+      taxes,
+      fees,
+      total: round(fare + taxes + fees),
+      fareBreakdown,
+      ...pricingFields,
+    });
+  }
+
+  if (type === 'ЖД') {
+    const reservedSeatCost = round(receipt?.reservedSeatCost);
+    const additionalFees = round(receipt?.additionalFees);
+    const ticketCost = Math.max(0, round(tariffAndTaxes - taxes - reservedSeatCost));
+    const agencyServiceFee = Math.max(0, round(fees - additionalFees));
+    return normalizeReceiptDraft(type, {
+      ...receipt,
+      ticketCost,
+      reservedSeatCost,
+      agencyServiceFee,
+      additionalFees,
+      total: round(ticketCost + reservedSeatCost + taxes + agencyServiceFee + additionalFees),
+      ...pricingFields,
+    });
+  }
+
+  return normalizeReceiptDraft(type, { ...receipt, ...pricingFields });
+}
 const receiptImportMoney = (...values) => {
   const numbers = values
     .filter((value) => value !== undefined && value !== null && value !== '')
@@ -1679,7 +1725,10 @@ function ReceiptEditDrawer({ open, file, onClose, onChange, onSubChange, onBrand
   const furthestAccessibleIndex = firstUnreviewedIndex >= 0 ? firstUnreviewedIndex : Math.max(0, groupTickets.length - 1);
   const canOpenBlank = (index) => index <= furthestAccessibleIndex;
   const showSupplierPreview = editPreviewMode === 'supplier' && Boolean(file.originalUrl);
-  const supplierPageNumber = Number(editingParsed.receiptIndex || editingParsed.receipt_index)
+  const supplierPageNumber = Number(
+    editingParsed.receiptPage || editingParsed.receipt_page
+    || editingParsed.receiptIndex || editingParsed.receipt_index,
+  )
     || (hasTicketGroup ? safeBlankIndex + 1 : 0);
   const supplierPreviewUrl = supplierDocumentPageUrl(file.originalUrl, supplierPageNumber);
   const supplierPreviewKey = `${file.id || file.originalUrl || 'supplier'}-page-${supplierPageNumber}`;
@@ -1771,7 +1820,7 @@ function ReceiptEditDrawer({ open, file, onClose, onChange, onSubChange, onBrand
   };
 
   const finishSingleReceipt = async (useGroup = false) => {
-    if (useGroup) onChange(file.id, parsed, { applyToGroup: true });
+    if (useGroup) onChange(file.id, parsed, { applyToGroup: true, groupFileIds: groupInfo?.fileIds || [] });
     const hasNextGroupBlank = Boolean(groupInfo?.count > 1 && groupInfo.position < groupInfo.count);
     const saved = await onReview?.(file.id, parsed, {
       applyToGroup: useGroup,
@@ -2219,20 +2268,28 @@ function ReceiptImportModal({ open, onClose, onDone, initialDraft, initialFiles 
     setReviewed((cur) => ({ ...cur, [id]: false }));
   };
   const updateParsed = (id, parsed, options = {}) => {
-    let groupedIds = [];
     setFiles((cur) => {
       const source = cur.find((file) => file.id === id);
       const group = options.applyToGroup
         ? receiptDetectedGroups(cur, importMode).find((items) => items.some((file) => file.id === id))
         : null;
-      groupedIds = group?.map((file) => file.id) || [];
+      const groupedIds = group?.map((file) => file.id) || options.groupFileIds || [];
       const sharedPatch = source ? receiptSharedGroupPatch(source.type, parsed) : {};
       return cur.map((file) => {
-        if (file.id === id) return { ...file, parsed: normalizeReceiptDraft(file.type, {
+        if (file.id === id) {
+          const normalized = normalizeReceiptDraft(file.type, {
           ...parsed,
           recognitionPending: false,
           manualCompletion: Boolean(file.error || file.parsed?.recognitionPending || parsed.manualCompletion),
-        }) };
+          });
+          const subReceipts = normalized.groupTickets?.length
+            ? normalized.groupTickets.map((ticket) => normalizeReceiptDraft(file.type, {
+              ...ticket,
+              groupTickets: [], receipts: [], railTickets: [], receiptItems: [], receiptCount: 1,
+            }))
+            : file.subReceipts;
+          return { ...file, parsed: normalized, ...(subReceipts?.length ? { subReceipts } : {}) };
+        }
         if (!groupedIds.includes(file.id)) return file;
         const targetPatch = { ...sharedPatch };
         if (source?.type === 'Авиа') {
@@ -2242,21 +2299,32 @@ function ReceiptImportModal({ open, onClose, onDone, initialDraft, initialFiles 
             && receiptGroupToken(sourceLeg.toCode || sourceLeg.to) === receiptGroupToken(targetLeg.toCode || targetLeg.to);
           if (!sameDirection) delete targetPatch.legs;
         }
-        return { ...file, parsed: normalizeReceiptDraft(file.type, {
+        const auditEntry = {
+          at: new Date().toLocaleString('ru-RU'),
+          user: (typeof window !== 'undefined' && window.CURRENT_USER?.name) || 'Оператор',
+          label: 'Общие исправления однотипной группы',
+          before: 'Индивидуальные данные сохранены',
+          after: `Применено из ${source?.name || 'группового бланка'}`,
+        };
+        const targetSubReceipts = (file.subReceipts || []).map((ticket) => normalizeReceiptDraft(file.type, {
+          ...ticket,
+          ...targetPatch,
+          groupTickets: [], receipts: [], railTickets: [], receiptItems: [], receiptCount: 1,
+          auditLog: [...(ticket.auditLog || []), auditEntry],
+        }));
+        const targetParent = normalizeReceiptDraft(file.type, {
           ...file.parsed,
           ...targetPatch,
           recognitionPending: false,
-          auditLog: [...(file.parsed?.auditLog || []), {
-            at: new Date().toLocaleString('ru-RU'),
-            user: (typeof window !== 'undefined' && window.CURRENT_USER?.name) || 'Оператор',
-            label: 'Общие исправления однотипной группы',
-            before: 'Индивидуальные данные сохранены',
-            after: `Применено из ${source?.name || 'группового бланка'}`,
-          }],
-        }) };
+          auditLog: [...(file.parsed?.auditLog || []), auditEntry],
+        });
+        return targetSubReceipts.length
+          ? { ...file, subReceipts: targetSubReceipts, parsed: aggregateReceiptSubrows(targetParent, targetSubReceipts, file.type) }
+          : { ...file, parsed: targetParent };
       });
     });
-    setReviewed((cur) => ({ ...cur, [id]: true }));
+    const reviewedIds = options.applyToGroup ? [id, ...(options.groupFileIds || [])] : [id];
+    setReviewed((cur) => reviewedIds.reduce((next, fileId) => ({ ...next, [fileId]: true }), cur));
   };
   const updateSubReceipt = (fileId, subIndex, parsed) => {
     setFiles((cur) => cur.map((file) => {
@@ -2289,7 +2357,8 @@ function ReceiptImportModal({ open, onClose, onDone, initialDraft, initialFiles 
     }));
   };
   const markReviewed = (id, _parsed, options = {}) => {
-    setReviewed((cur) => ({ ...cur, [id]: true }));
+    const reviewedIds = options.applyToGroup ? [id, ...(options.groupFileIds || [])] : [id];
+    setReviewed((cur) => reviewedIds.reduce((next, fileId) => ({ ...next, [fileId]: true }), cur));
     if (options.continueSequential) {
       const groupIds = options.groupFileIds || [];
       const nextId = groupIds[groupIds.indexOf(id) + 1];
@@ -2468,6 +2537,25 @@ function ReceiptImportModal({ open, onClose, onDone, initialDraft, initialFiles 
     setBulkConfirm(null);
   };
 
+  const verifiedReceiptForSave = (file) => {
+    const parent = file.parsed;
+    if (!file.subReceipts?.length) return receiptWithPricing(file.type, parent, mathForFile(file));
+    const pricedTickets = file.subReceipts.map((ticket, index) => {
+      const ticketMath = getMath(subReceiptMathKey(file.id, index), ticket);
+      return {
+        ...receiptWithPricing(file.type, ticket, ticketMath),
+        markup: Number(ticketMath.markup || 0),
+        commission: Number(ticketMath.commission || 0),
+        clientTotal: clientTotal(ticketMath),
+      };
+    });
+    return {
+      ...aggregateReceiptSubrows(parent, pricedTickets, file.type),
+      originalTotal: parent.originalTotal,
+      groupTickets: pricedTickets,
+    };
+  };
+
   const finish = async () => {
     if (!toAdd.length) { toast('Нет квитанций для добавления', 'err'); return; }
     let finalBindTarget = bindTarget;
@@ -2487,26 +2575,20 @@ function ReceiptImportModal({ open, onClose, onDone, initialDraft, initialFiles 
     try {
       const confirmed = await Promise.all(toAdd.map((r) => {
         const p = r.f.parsed; const m = mathForFile(r.f);
-        const verifiedForSave = r.f.subReceipts?.length ? {
-          ...p,
-          groupTickets: r.f.subReceipts.map((ticket, index) => {
-            const ticketMath = getMath(subReceiptMathKey(r.f.id, index), ticket);
-            return {
-              ...ticket,
-              agencyServiceFee: Number(ticketMath.fee || 0),
-              markup: Number(ticketMath.markup || 0),
-              commission: Number(ticketMath.commission || 0),
-              clientTotal: clientTotal(ticketMath),
-            };
-          }),
-        } : p;
+        const verifiedForSave = verifiedReceiptForSave(r.f);
+        const supplierFare = Number(verifiedForSave.fare || 0);
+        const supplierTaxes = Number(verifiedForSave.taxes || 0);
+        const supplierFees = Number(verifiedForSave.fees || 0);
         return documentsApi.confirmReceipt(r.f.importId, {
-          issuer: p.carrier || '', passenger_name: p.passenger || '', segments: p.legs || [],
-          trip_type: p.tripType || 'oneway',
-          fare: Number(p.fare || m.tariff || 0), taxes: Number(p.taxes || 0), fees: Number(m.fee || p.fees || 0), currency: p.currency || 'USD',
-          fare_breakdown: p.fareBreakdown || [],
-          tax_breakdown: p.taxBreakdown || [],
-          fee_breakdown: p.feeBreakdown || [],
+          issuer: verifiedForSave.carrier || '', passenger_name: verifiedForSave.passenger || '', segments: verifiedForSave.legs || [],
+          trip_type: verifiedForSave.tripType || 'oneway',
+          fare: supplierFare,
+          taxes: supplierTaxes,
+          fees: supplierFees,
+          currency: verifiedForSave.currency || 'USD',
+          fare_breakdown: verifiedForSave.fareBreakdown || [],
+          tax_breakdown: verifiedForSave.taxBreakdown || [],
+          fee_breakdown: verifiedForSave.feeBreakdown || [],
           order: finalHasOrderTarget ? finalBindTarget.order.id : null,
           create_services: optCreateServices && finalHasOrderTarget,
           service_type: r.f.type,
@@ -2517,8 +2599,8 @@ function ReceiptImportModal({ open, onClose, onDone, initialDraft, initialFiles 
           supplier_original: {
             name: r.f.name, size: r.f.size, mime: r.f.mime,
             verified_data: verifiedForSave,
-            output_settings: p.output || { mode: 'original' },
-            audit_log: p.auditLog || [],
+            output_settings: verifiedForSave.output || { mode: 'original' },
+            audit_log: verifiedForSave.auditLog || [],
           },
         });
       }));
@@ -2527,7 +2609,7 @@ function ReceiptImportModal({ open, onClose, onDone, initialDraft, initialFiles 
         toast('Данные сохранены. Для ' + supplierPdfManual + ' файл. не удалось безопасно перенести все суммы в PDF поставщика — исходник оставлен без частичных правок.', 'err');
       }
       const docs = toAdd.map((r, index) => {
-      const t = recType(r.f.type); const p = r.f.parsed; const m = mathForFile(r.f);
+      const t = recType(r.f.type); const p = verifiedReceiptForSave(r.f); const m = mathForFile(r.f);
       return {
         serverId: confirmed[index].document_id, no: 'D-' + String(confirmed[index].document_id).slice(0, 8).toUpperCase(),
         name: [t.doc, p.passenger || p.carrier || 'Без имени'].filter(Boolean).join(' · '),

@@ -82,6 +82,21 @@ test('multi-page aviation groups use one confirmation and preserve individual ti
 });
 
 
+test('group corrections update child blank cards and the supplier-PDF save payload', () => {
+  const updateBlock = page.match(/const updateParsed = \(id, parsed, options = \{\}\) => \{[\s\S]*?\n  \};\n  const updateSubReceipt/);
+  assert.ok(updateBlock, 'updateParsed block must exist');
+  assert.match(updateBlock[0], /normalized\.groupTickets\?\.length/);
+  assert.match(updateBlock[0], /return \{ \.\.\.file, parsed: normalized, \.\.\.\(subReceipts\?\.length \? \{ subReceipts \} : \{\}\) \}/);
+  assert.match(updateBlock[0], /targetSubReceipts\.length/);
+  assert.match(updateBlock[0], /parsed: aggregateReceiptSubrows\(targetParent, targetSubReceipts, file\.type\)/);
+
+  assert.match(page, /function receiptWithPricing\(type, receipt, pricing\)/);
+  assert.match(page, /const verifiedReceiptForSave = \(file\) =>/);
+  assert.match(page, /verified_data: verifiedForSave/);
+  assert.match(page, /const p = verifiedReceiptForSave\(r\.f\)/);
+});
+
+
 test('thirty blanks are selected in a vertical grid without horizontal scrolling', () => {
   assert.match(styles, /\.receipt-ticket-editor-scroll \{[\s\S]*display: grid;[\s\S]*overflow-x: clip;[\s\S]*overflow-y: auto;/);
   assert.match(styles, /\.receipt-sequential-steps \{ display:grid;[\s\S]*overflow-x:hidden; overflow-y:auto;/);
@@ -106,6 +121,7 @@ test('rail editor defaults to supplier PDF and exposes corrected live view', () 
   assert.match(page, /receipt-edit-supplier-frame/);
   assert.match(page, /после сохранения изменения переносятся и в PDF поставщика/i);
   assert.match(page, /supplierDocumentPageUrl\(file\.originalUrl, supplierPageNumber\)/);
+  assert.match(page, /receiptPage \|\| editingParsed\.receipt_page/);
   assert.match(page, /receiptIndex \|\| editingParsed\.receipt_index/);
   assert.match(page, /_receipt_page=\$\{normalizedPage\}#page=\$\{normalizedPage\}/);
   assert.match(page, /const supplierPreviewKey = `\$\{file\.id \|\| file\.originalUrl \|\| 'supplier'\}-page-\$\{supplierPageNumber\}`/);
