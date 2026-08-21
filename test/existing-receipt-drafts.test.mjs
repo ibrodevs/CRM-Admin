@@ -11,9 +11,17 @@ test('существующие квитанции показывают серв�
   assert.match(page, /const \[registryView, setRegistryView\] = useState\('active'\)/);
   assert.match(page, /registryView === 'drafts' \? document\.isReceiptDraft : !document\.isReceiptDraft/);
   assert.match(page, /Рабочий список/);
-  assert.match(page, /Черновики \(\{registryDraftCount \+ \(importDraft \? 1 : 0\)\}\)/);
+  assert.match(page, /Черновики \(\{registryDraftCount \+ importDrafts\.length\}\)/);
   assert.match(page, /const savedDocument = await documentsApi\.updateReceipt/);
   assert.match(page, /const savedDraft = toLegacyDocument\(savedDocument, orders\)/);
   assert.match(page, /d\.isReceiptDraft[\s\S]*?\? 'Черновик'/);
   assert.match(page, /d\.isReceiptDraft \? 'Продолжить черновик'/);
+});
+
+test('незавершённые импорты выводятся отдельными черновиками с продолжением редактирования', () => {
+  assert.match(page, /importDrafts\.map\(\(draft\) =>/);
+  assert.match(page, /key=\{draft\.id\}/);
+  assert.match(page, /continueImportDraft\(draft\.id\)/);
+  assert.match(page, />Продолжить редактирование<\/Button>/);
+  assert.match(page, /clearImportDraft\(draft\.id\)/);
 });

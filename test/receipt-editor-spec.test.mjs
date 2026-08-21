@@ -173,13 +173,14 @@ test('прогресс импорта можно сохранить чернов
   assert.match(page, /title="Закрыть импорт\?"/);
   assert.match(page, /Сохранить черновик и выйти/);
   assert.match(page, /Продолжить черновик/);
-  assert.match(page, /Продолжить работу/);
-  assert.match(page, /RECEIPT_IMPORT_DRAFT_KEY/);
-  assert.match(page, /window\.localStorage\.setItem/);
-  assert.match(page, /window\.localStorage\.removeItem/);
+  assert.match(page, /Продолжить редактирование/);
+  assert.match(page, /readReceiptImportDrafts/);
+  assert.match(page, /writeReceiptImportDrafts/);
+  assert.match(page, /upsertReceiptImportDraft/);
+  assert.match(page, /removeReceiptImportDraft/);
   assert.match(page, /serializableReceiptImportFile/);
   assert.match(page, /sourceDocumentId/);
-  assert.match(page, /initialDraft=\{resumeImportDraft \? importDraft : null\}/);
+  assert.match(page, /initialDraft=\{activeImportDraft\}/);
   assert.match(page, /beforeunload/);
 });
 

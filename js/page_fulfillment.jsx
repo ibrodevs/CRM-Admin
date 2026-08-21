@@ -18,6 +18,14 @@ import {
   receiptFinancialTotal,
   receiptParticipantLabel,
 } from './features/receipts/editor';
+import {
+  createReceiptImportDraftId,
+  readReceiptImportDrafts,
+  receiptImportDraftTitle,
+  removeReceiptImportDraft,
+  upsertReceiptImportDraft,
+  writeReceiptImportDrafts,
+} from './features/receipts/import-drafts';
 
 
 
@@ -1451,7 +1459,6 @@ const IMPORT_STEPS = [
   { key: 'pricing', label: 'Данные и бланк' },
   { key: 'attach', label: 'В заказ' },
 ];
-const RECEIPT_IMPORT_DRAFT_KEY = 'travelhub.receipt-import-draft.v1';
 const RECEIPT_IMPORT_CONCURRENCY = 1;
 const RECEIPT_IMPORT_MAX_ATTEMPTS = 5;
 const RECEIPT_RESULT_MAX_ATTEMPTS = 6;
@@ -1491,27 +1498,6 @@ async function receiptResultWithRetry(importId) {
     }
   }
   throw lastError || new Error('Не удалось получить результат распознавания');
-}
-
-function readReceiptImportDraft() {
-  if (typeof window === 'undefined') return null;
-  try {
-    const draft = JSON.parse(window.localStorage.getItem(RECEIPT_IMPORT_DRAFT_KEY) || 'null');
-    return draft?.version === 1 && Array.isArray(draft.files) && draft.files.length ? draft : null;
-  } catch {
-    return null;
-  }
-}
-
-function writeReceiptImportDraft(draft) {
-  if (typeof window === 'undefined') return false;
-  try {
-    if (draft) window.localStorage.setItem(RECEIPT_IMPORT_DRAFT_KEY, JSON.stringify(draft));
-    else window.localStorage.removeItem(RECEIPT_IMPORT_DRAFT_KEY);
-    return true;
-  } catch {
-    return false;
-  }
 }
 
 function serializableReceiptImportFile(file) {
@@ -2146,6 +2132,7 @@ function ReceiptImportModal({ open, onClose, onDone, initialDraft, initialFiles 
   const pdfSyncTimers = useRef(new Map());
   const pdfSyncSequence = useRef({});
   const pdfSyncChains = useRef({});
+  const draftIdRef = useRef(null);
 
   useEffect(() => { filesStateRef.current = files; }, [files]);
   useEffect(() => { mathStateRef.current = math; }, [math]);
@@ -2157,6 +2144,7 @@ function ReceiptImportModal({ open, onClose, onDone, initialDraft, initialFiles 
   useEffect(() => {
     if (!open) return;
     const draft = initialDraft?.version === 1 ? initialDraft : null;
+    draftIdRef.current = draft?.id || null;
     setFiles(draft?.files || []);
     setStep(draft ? Math.max(2, Math.min(4, Number(draft.step) || 2)) : 0);
     setExcluded(draft?.excluded || {});
@@ -2566,6 +2554,7 @@ function ReceiptImportModal({ open, onClose, onDone, initialDraft, initialFiles 
     }
     const draft = {
       version: 1,
+      id: draftIdRef.current || createReceiptImportDraftId(),
       savedAt: new Date().toISOString(),
       step: Math.max(step, 2),
       files: storedFiles,
@@ -2580,6 +2569,7 @@ function ReceiptImportModal({ open, onClose, onDone, initialDraft, initialFiles 
       bulk,
       importMode,
     };
+    draftIdRef.current = draft.id;
     const saved = onDraftSaved?.(draft);
     if (saved === false) return;
     setDraftSavedAt(draft.savedAt);
@@ -2903,7 +2893,7 @@ function ReceiptImportModal({ open, onClose, onDone, initialDraft, initialFiles 
         ],
       };
       });
-      onDraftCleared?.();
+      onDraftCleared?.(draftIdRef.current);
       await onDone(docs);
       toast(isPerson ? toAdd.length + ' квитанц. привязано к физ. лицу: ' + finalBindTarget.client
         : isCompany ? toAdd.length + ' квитанц. привязано к юр. лицу: ' + companyName
@@ -3360,7 +3350,7 @@ function ReceiptImportModal({ open, onClose, onDone, initialDraft, initialFiles 
           <div className="receipt-close-actions">
             <Button variant="secondary" onClick={() => setConfirmClose(false)}>Продолжить работу</Button>
             <Button variant="danger" onClick={() => {
-              onDraftCleared?.();
+              onDraftCleared?.(draftIdRef.current);
               setConfirmClose(false);
               onClose();
             }}>Закрыть без сохранения</Button>
@@ -3452,22 +3442,39 @@ function ReceiptEditorPage({ documents = [], orders = [], services = [], compani
   const [expandedRegistry, setExpandedRegistry] = useState({});
   const [brandEdit, setBrandEdit] = useState(null);
   const [importing, setImporting] = useState(false);
-  const [resumeImportDraft, setResumeImportDraft] = useState(false);
-  const [importDraft, setImportDraft] = useState(() => readReceiptImportDraft());
+  const [resumeImportDraftId, setResumeImportDraftId] = useState(null);
+  const [importDrafts, setImportDrafts] = useState(() => (
+    typeof window === 'undefined' ? [] : readReceiptImportDrafts(window.localStorage)
+  ));
   const [imported, setImported] = useState([]);
   const [registryView, setRegistryView] = useState('active');
+  useEffect(() => {
+    if (typeof window !== 'undefined') setImportDrafts(readReceiptImportDrafts(window.localStorage));
+  }, []);
   const saveImportDraft = (draft) => {
-    if (!writeReceiptImportDraft(draft)) {
+    const next = upsertReceiptImportDraft(importDrafts, draft);
+    if (typeof window === 'undefined' || !writeReceiptImportDrafts(window.localStorage, next)) {
       toast('Не удалось сохранить черновик в браузере. Освободите место и попробуйте снова.', 'err');
       return false;
     }
-    setImportDraft(draft);
+    setImportDrafts(next);
+    setResumeImportDraftId(draft.id);
     return true;
   };
-  const clearImportDraft = () => {
-    writeReceiptImportDraft(null);
-    setImportDraft(null);
-    setResumeImportDraft(false);
+  const clearImportDraft = (draftId) => {
+    if (!draftId) return;
+    const next = removeReceiptImportDraft(importDrafts, draftId);
+    if (typeof window === 'undefined' || !writeReceiptImportDrafts(window.localStorage, next)) {
+      toast('Не удалось удалить черновик из хранилища браузера. Попробуйте ещё раз.', 'err');
+      return;
+    }
+    setImportDrafts(next);
+    setResumeImportDraftId((current) => current === draftId ? null : current);
+  };
+  const activeImportDraft = importDrafts.find((draft) => draft.id === resumeImportDraftId) || null;
+  const continueImportDraft = (draftId) => {
+    setResumeImportDraftId(draftId);
+    setImporting(true);
   };
   const backendDocuments = documents
     .map((item) => item?.serverId ? item : toLegacyDocument(item, orders))
@@ -3650,38 +3657,31 @@ function ReceiptEditorPage({ documents = [], orders = [], services = [], compani
               <button type="button" className={'seg-btn' + (registryView === 'active' ? ' active' : '')}
                 onClick={() => setRegistryView('active')}>Рабочий список</button>
               <button type="button" className={'seg-btn' + (registryView === 'drafts' ? ' active' : '')}
-                onClick={() => setRegistryView('drafts')}>Черновики ({registryDraftCount + (importDraft ? 1 : 0)})</button>
+                onClick={() => setRegistryView('drafts')}>Черновики ({registryDraftCount + importDrafts.length})</button>
             </div>
-            {importDraft && <Button variant="secondary" icon="edit" onClick={() => {
-              setResumeImportDraft(true);
-              setImporting(true);
-            }}>Продолжить черновик ({importDraft.files.length})</Button>}
             <Button icon="download" onClick={() => {
-              setResumeImportDraft(false);
+              setResumeImportDraftId(null);
               setImporting(true);
             }}>Импорт документов</Button>
           </div>
 
-          {importDraft && registryView === 'drafts' && (
-            <div className="receipt-import-draft-banner">
+          {registryView === 'drafts' && importDrafts.map((draft) => (
+            <div className="receipt-import-draft-banner" key={draft.id}>
               <span className="receipt-import-draft-icon"><Icon name="save" /></span>
               <span>
-                <b>Сохранён черновик импорта</b>
+                <b>{receiptImportDraftTitle(draft)}</b>
                 <small>
-                  {importDraft.files.length} {plural(importDraft.files.length, 'файл', 'файла', 'файлов')} · сохранён {new Date(importDraft.savedAt).toLocaleString('ru-RU')}
+                  Черновик импорта · {draft.files.length} {plural(draft.files.length, 'квитанция', 'квитанции', 'квитанций')} · сохранён {new Date(draft.savedAt).toLocaleString('ru-RU')}
                 </small>
               </span>
-              <Button size="sm" onClick={() => {
-                setResumeImportDraft(true);
-                setImporting(true);
-              }}>Продолжить работу</Button>
+              <Button size="sm" icon="edit" onClick={() => continueImportDraft(draft.id)}>Продолжить редактирование</Button>
               <Button size="sm" variant="ghost" onClick={() => {
-                if (window.confirm('Удалить сохранённый черновик импорта? Загруженные оригиналы в CRM не удаляются.')) {
-                  clearImportDraft();
+                if (window.confirm(`Удалить черновик «${receiptImportDraftTitle(draft)}»? Загруженные оригиналы в CRM не удаляются.`)) {
+                  clearImportDraft(draft.id);
                 }
               }}>Удалить черновик</Button>
             </div>
-          )}
+          ))}
 
           {receipts.length ? (
             <div className="table-card receipt-registry-card" style={{ overflowX: 'auto' }}>
@@ -3775,7 +3775,7 @@ function ReceiptEditorPage({ documents = [], orders = [], services = [], compani
                 </tbody>
               </table>
             </div>
-          ) : <EmptyState icon={registryView === 'drafts' ? 'save' : 'route'}
+          ) : registryView === 'drafts' && importDrafts.length ? null : <EmptyState icon={registryView === 'drafts' ? 'save' : 'route'}
             title={registryView === 'drafts' ? 'Черновики не найдены' : 'Документы не найдены'}
             sub={registryView === 'drafts' ? 'Сохранённые черновики появятся в этом списке.' : 'Импортируйте авиа, ЖД, отельный или трансферный документ.'} />}
         </div>
@@ -3790,17 +3790,16 @@ function ReceiptEditorPage({ documents = [], orders = [], services = [], compani
         originalUrl={brandEdit?.originalUrl} sourceOriginalUrl={brandEdit?.sourceOriginalUrl}
         onClose={() => setBrandEdit(null)} />
 
-      <ReceiptImportModal open={importing} initialDraft={resumeImportDraft ? importDraft : null}
+      <ReceiptImportModal open={importing} initialDraft={activeImportDraft}
         orders={orders} companies={companies} onCreateOrder={onCreateOrder}
         onClose={() => {
           setImporting(false);
-          setResumeImportDraft(false);
         }}
         onDraftSaved={saveImportDraft} onDraftCleared={clearImportDraft}
         onDone={async (docs) => {
-          clearImportDraft();
           setImported((cur) => [...docs, ...cur]);
           setImporting(false);
+          setResumeImportDraftId(null);
           await onChanged?.();
         }} />
       <ConfirmDialog open={confirmEditorClose} title="Сохранить изменения?"
