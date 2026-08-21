@@ -13,6 +13,9 @@ function replaceRequired(source, from, to, label) {
   if (source.includes(to)) return source;
   if (label === 'подпись номера ЖД-билета в предпросмотре'
     && source.includes("type === 'ЖД' ? (previewDraft.ticketNo")) return source;
+  if (label === 'источник отдельных бланков'
+    && source.includes('const declaredBlankCount = Number(')
+    && source.includes('result.receipt_items || extracted.receipt_items')) return source;
   if (typeof from === 'string') {
     if (!source.includes(from)) throw new Error(`Не найден фрагмент: ${label}`);
     changed = true;

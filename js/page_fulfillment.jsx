@@ -1015,8 +1015,12 @@ function serviceTypeFromBackend(kind, label, fallback) {
   if (raw === 'other' || /проч/.test(raw)) return 'Прочее';
   return fallback || 'Прочее';
 }
-function receiptImportSubrows(type, receipts) {
-  if (!Array.isArray(receipts) || receipts.length < 2) return [];
+function receiptImportSubrows(type, receipts, expectedCount = 0) {
+  if (!Array.isArray(receipts) || !receipts.length) return [];
+  // A partially recognized group still keeps its successfully parsed child.
+  // The declared count and backend warning make the missing blanks visible,
+  // instead of falling back to one misleading aggregate ticket.
+  if (receipts.length < 2 && Number(expectedCount || 0) < 2) return [];
   return receipts.map((receipt, index) => normalizeReceiptDraft(type, {
     ...receipt,
     carrier: receipt.carrier || receipt.issuer || '',
@@ -1040,13 +1044,20 @@ function receiptImportSubrows(type, receipts) {
     total: receipt.total ?? '',
     ticketCost: receipt.ticketCost ?? receipt.ticket_cost ?? '',
     reservedSeatCost: receipt.reservedSeatCost ?? receipt.reserved_seat_cost ?? '',
+    agencyServiceFee: receipt.agencyServiceFee ?? receipt.agency_service_fee ?? receipt.fees ?? '',
+    additionalFees: receipt.additionalFees ?? receipt.additional_fees ?? '',
     fareBreakdown: receipt.costBreakdown || receipt.fare_breakdown || [],
+    taxBreakdown: receipt.taxBreakdown || receipt.tax_breakdown || [],
+    feeBreakdown: receipt.feeBreakdown || receipt.fee_breakdown || [],
     includedTaxBreakdown: receipt.includedTaxBreakdown || receipt.included_tax_breakdown || [],
     currency: receipt.currency || 'RUB',
     legs: receipt.legs || receipt.segments || [],
     tripType: receipt.tripType || receipt.trip_type || 'oneway',
     recognitionPending: false,
-    receiptIndex: index + 1,
+    receiptIndex: receipt.receiptIndex || receipt.receipt_index || index + 1,
+    sourcePage: receipt.sourcePage || receipt.source_page || '',
+    sourcePages: receipt.sourcePages || receipt.source_pages || [],
+    reviewStatus: receipt.reviewStatus || receipt.review_status || 'pending',
   }));
 }
 function aggregateReceiptSubrows(parent, subReceipts, receiptType = 'ЖД') {
@@ -1503,9 +1514,15 @@ function serializableReceiptImportFile(file) {
 function receiptStatus(parsed, seen, type, error) {
   if (error) return 'Ошибка';
   if (!parsed) return 'Ошибка';
-  const tno = (parsed.ticketNo || '').trim();
-  if (tno && seen.has(tno)) return 'Возможный дубль';
-  if (tno) seen.add(tno);
+  const ticketNumbers = (parsed.groupTickets || parsed.receiptItems || parsed.receipts || [])
+    .map((ticket) => ticket?.ticketNo || ticket?.ticket_number)
+    .concat([parsed.ticketNo])
+    .map((value) => String(value || '').replace(/[^0-9A-ZА-ЯЁ]/gi, '').toUpperCase())
+    .filter(Boolean);
+  const uniqueTicketNumbers = [...new Set(ticketNumbers)];
+  const duplicate = uniqueTicketNumbers.some((ticketNo) => seen.has(ticketNo));
+  uniqueTicketNumbers.forEach((ticketNo) => seen.add(ticketNo));
+  if (duplicate) return 'Возможный дубль';
   const route = routeSummary(parsed);
   const hasRoute = route && route !== '—' && route.replace(/[→⇄\s]/g, '');
   const hasDateOrTime = (parsed.legs || []).some((l) => l.date || l.dep || l.arr);
@@ -1727,7 +1744,8 @@ function ReceiptEditDrawer({ open, file, onClose, onChange, onSubChange, onBrand
   const canOpenBlank = (index) => index <= furthestAccessibleIndex;
   const showSupplierPreview = editPreviewMode === 'supplier' && Boolean(file.originalUrl);
   const supplierPageNumber = Number(
-    editingParsed.receiptPage || editingParsed.receipt_page
+    editingParsed.sourcePage || editingParsed.source_page
+    || editingParsed.receiptPage || editingParsed.receipt_page
     || editingParsed.receiptIndex || editingParsed.receipt_index,
   )
     || (hasTicketGroup ? safeBlankIndex + 1 : 0);
@@ -2186,8 +2204,23 @@ function ReceiptImportModal({ open, onClose, onDone, initialDraft, initialFiles 
         const draft = result.draft || {};
         const extracted = result.extracted || {};
         const verified = result.verified_data || {};
-        const detectedType = serviceTypeFromBackend(extracted.service_kind, extracted.service_type, entry.type);
-        const subReceipts = receiptImportSubrows(detectedType, result.receipt_items || extracted.receipt_items || extracted.receipts || verified.groupTickets || verified.receipts);
+        const detectedType = serviceTypeFromBackend(
+          extracted.service_kind || verified.service_kind || draft.service_kind,
+          extracted.service_type || verified.service_type || draft.service_type,
+          entry.type,
+        );
+        const declaredBlankCount = Number(
+          result.source_blank_count || result.sourceBlankCount
+          || extracted.source_blank_count || extracted.sourceBlankCount
+          || verified.source_blank_count || verified.sourceBlankCount
+          || extracted.receipt_count || extracted.receiptCount || 0,
+        );
+        const subReceipts = receiptImportSubrows(
+          detectedType,
+          result.receipt_items || extracted.receipt_items || extracted.receipts
+            || verified.groupTickets || verified.receipts,
+          declaredBlankCount,
+        );
         // Legacy regression marker: subReceipts = receiptImportSubrows(detectedType, extracted.receipts)
         const base = emptyReceiptParse({ ...entry, type: detectedType });
         const primaryPassenger = draft.passenger_name || verified.passenger || verified.passenger_name
@@ -2252,7 +2285,7 @@ function ReceiptImportModal({ open, onClose, onDone, initialDraft, initialFiles 
           extras: draft.extras || extracted.extras || [],
           fareInfo: draft.fare_info || extracted.fare_info || base.fareInfo,
           groupTickets: subReceipts,
-          receiptCount: subReceipts.length || extracted.receipt_count || 1,
+          receiptCount: Math.max(subReceipts.length, declaredBlankCount, Number(extracted.receipt_count || 0), 1),
           priceSource: total > 0 ? 'document' : 'manual',
           recognitionPending: result.parser_status !== 'parsed', backendWarnings: result.warnings || [] });
         setFiles((cur) => cur.map((item) => item.id === entry.id
@@ -2915,7 +2948,10 @@ function ReceiptImportModal({ open, onClose, onDone, initialDraft, initialFiles 
                           const m = getMath(r.f.id, p);
                           const detailLines = receiptDetailsLines(r.f.type, p);
                           const carrierText = (p.carrier || '').trim() || r.f.name;
-                          const subReceiptCount = r.f.subReceipts?.length || 0;
+                          const subReceiptCount = Math.max(
+                            r.f.subReceipts?.length || 0,
+                            Number(p.receiptCount || p.receipt_count || 0),
+                          );
                           return (
                             <React.Fragment key={r.f.id}>
                             <tr className={'rec-import-row' + (r.f.subReceipts?.length ? ' has-subrows' : '')} style={{ opacity: skipped ? 0.5 : 1 }}>
@@ -2949,9 +2985,11 @@ function ReceiptImportModal({ open, onClose, onDone, initialDraft, initialFiles 
                               <td data-label="Стоимость">
                                 <button type="button" className="btn btn-ghost btn-sm rec-import-money" title="Изменить математику" onClick={() => setMathId(r.f.id)}>
                                   <span className={'rec-import-money-total' + (!recHasSourceAmount(p) ? ' is-missing' : '')}>
-                                    {recHasSourceAmount(p) ? recMoney(clientTotal(m), p.currency) : 'Стоимость не распознана'}
+                                    {recHasSourceAmount(p)
+                                      ? `${subReceiptCount > 1 ? 'Сумма группы: ' : ''}${recMoney(clientTotal(m), p.currency)}`
+                                      : 'Стоимость не распознана'}
                                   </span>
-                                  <span className="rec-import-money-source">закупка {recSourceMoney(p)}</span>
+                                  <span className="rec-import-money-source">{subReceiptCount > 1 ? 'закупка группы' : 'закупка'} {recSourceMoney(p)}</span>
                                   <span className="rec-import-money-fee">сбор {m.fee || 0} · изменить</span>
                                 </button>
                               </td>
@@ -3006,18 +3044,27 @@ function ReceiptImportModal({ open, onClose, onDone, initialDraft, initialFiles 
                                   <td data-label="Маршрут">
                                     <span className="rec-import-details">
                                       {subDetails.slice(0, 2).map((line, index) => <span key={index}>{line}</span>)}
-                                      <span>{[
+                                      <span>{r.f.type === 'ЖД' ? ([
                                         railLeg.flightNo ? `Поезд ${railLeg.flightNo}` : '',
                                         railLeg.coach ? `вагон ${railLeg.coach}` : '',
                                         railLeg.seat ? `место ${railLeg.seat}` : '',
-                                      ].filter(Boolean).join(' · ') || 'Поезд, вагон и место не распознаны'}</span>
+                                      ].filter(Boolean).join(' · ') || 'Поезд, вагон и место не распознаны') : ([
+                                        railLeg.flightNo ? `Рейс ${railLeg.flightNo}` : '',
+                                        railLeg.carrier || subReceipt.carrier || '',
+                                      ].filter(Boolean).join(' · ') || 'Рейс не распознан')}</span>
                                     </span>
                                   </td>
                                   <td data-label="Стоимость">
                                     <span className="rec-import-subrow-cost">
                                       <b>{recSourceMoney(subReceipt)}</b>
-                                      <span>Билет: {recMoney(Number(subReceipt.ticketCost) || 0, subReceipt.currency)}</span>
-                                      <span>Плацкарта: {recMoney(Number(subReceipt.reservedSeatCost) || 0, subReceipt.currency)}</span>
+                                      {r.f.type === 'ЖД' ? <>
+                                        <span>Билет: {recMoney(Number(subReceipt.ticketCost) || 0, subReceipt.currency)}</span>
+                                        <span>Плацкарта: {recMoney(Number(subReceipt.reservedSeatCost) || 0, subReceipt.currency)}</span>
+                                      </> : <>
+                                        <span>Тариф: {recMoney(Number(subReceipt.fare) || 0, subReceipt.currency)}</span>
+                                        <span>Таксы: {recMoney(Number(subReceipt.taxes) || 0, subReceipt.currency)}</span>
+                                        <span>Сборы: {recMoney(Number(subReceipt.fees) || 0, subReceipt.currency)}</span>
+                                      </>}
                                       {includedVat.map((row) => <span key={row.code}>{row.label}: {recMoney(Number(row.amount), row.currency || subReceipt.currency)}</span>)}
                                       {identicalCostCount > 1 && <em>Такая же стоимость у {identicalCostCount} билетов</em>}
                                     </span>

@@ -10,6 +10,8 @@ const replaceOnce = (from, to, label) => {
   if (source.includes(to)) return;
   if (label === 'понятное действие для нераспознанного документа'
     && source.includes("displayStatus === 'Требует проверки' ? 'Проверить и заполнить'")) return;
+  if (label === 'не показывать выдуманный ноль'
+    && source.includes("'Стоимость не распознана'")) return;
   if (!source.includes(from)) throw new Error(`Не найден фрагмент: ${label}`);
   source = source.replace(from, to);
   changed = true;

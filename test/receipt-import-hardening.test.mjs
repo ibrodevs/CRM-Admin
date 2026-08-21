@@ -14,7 +14,7 @@ test('unresolved receipt uses review state instead of terminal error', async () 
 test('missing source amount is never rendered as a real zero', async () => {
   const source = await readFile(pageUrl, 'utf8');
   assert.match(source, /Стоимость не распознана/);
-  assert.match(source, /recHasSourceAmount\(p\) \? recMoney\(clientTotal\(m\), p\.currency\)/);
+  assert.match(source, /recHasSourceAmount\(p\)[\s\S]*recMoney\(clientTotal\(m\), p\.currency\)/);
 });
 
 test('available blanks strip fills the complete table width', async () => {

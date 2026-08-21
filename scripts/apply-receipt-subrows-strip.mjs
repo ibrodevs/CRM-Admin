@@ -14,7 +14,8 @@ const replaceOnce = (from, to, label) => {
   sourceChanged = true;
 };
 
-if (!source.includes('const subReceiptCount = r.f.subReceipts?.length || 0;')) {
+if (!source.includes('const subReceiptCount = r.f.subReceipts?.length || 0;')
+  && !source.includes('const subReceiptCount = Math.max(')) {
   replaceOnce(
     `                          const carrierText = (p.carrier || '').trim() || r.f.name;`,
     `                          const carrierText = (p.carrier || '').trim() || r.f.name;\n                          const subReceiptCount = r.f.subReceipts?.length || 0;`,

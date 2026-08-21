@@ -304,8 +304,8 @@ test('импорт показывает заметный прогресс заг
 });
 
 test('групповой ЖД PDF отображает каждый билет отдельной подстрокой', () => {
-  assert.match(page, /function receiptImportSubrows\(type, receipts\)/);
-  assert.match(page, /subReceipts = receiptImportSubrows\(detectedType, extracted\.receipts\)/);
+  assert.match(page, /function receiptImportSubrows\(type, receipts, expectedCount = 0\)/);
+  assert.match(page, /const subReceipts = receiptImportSubrows\([\s\S]*detectedType,[\s\S]*result\.receipt_items[\s\S]*declaredBlankCount/);
   assert.match(page, /function aggregateReceiptSubrows\(parent, subReceipts, receiptType = 'ЖД'\)/);
   assert.match(page, /groupTickets: tickets/);
   assert.match(page, /receiptCount: tickets\.length/);

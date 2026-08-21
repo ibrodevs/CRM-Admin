@@ -8,6 +8,9 @@ let pageChanged = false;
 let editorChanged = false;
 
 const current = "        const subReceipts = receiptImportSubrows(detectedType, result.receipt_items || extracted.receipt_items || extracted.receipts || verified.groupTickets || verified.receipts);";
+const canonicalGroupedImport = page.includes('const declaredBlankCount = Number(')
+  && page.includes('result.receipt_items || extracted.receipt_items || extracted.receipts')
+  && page.includes('declaredBlankCount,');
 const compatibilityMarker = "        // Legacy regression marker: subReceipts = receiptImportSubrows(detectedType, extracted.receipts)";
 if (page.includes(current) && !page.includes(compatibilityMarker)) {
   page = page.replace(current, `${current}\n${compatibilityMarker}`);
@@ -20,7 +23,7 @@ if (!editor.includes(supplierMarker)) {
   editorChanged = true;
 }
 
-if (!page.includes(current)) throw new Error('Не найден canonical receipt_items import path.');
+if (!page.includes(current) && !canonicalGroupedImport) throw new Error('Не найден canonical receipt_items import path.');
 if (!page.includes(compatibilityMarker)) throw new Error('Не сохранён grouped-PDF legacy regression marker.');
 if (!editor.includes("const fallbackSupplierOrder = type === 'Трансфер'")) {
   throw new Error('Rail ticket number снова может использоваться как supplier order.');
