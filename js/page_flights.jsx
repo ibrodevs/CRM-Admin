@@ -1059,6 +1059,17 @@ function DocCorrectionPanel({ subjects, meta, currency, orderNo, onClose }) {
   const setComment = (i, v) => setDocs((ds) => ds.map((d, j) => (j === i ? { ...d, comment: v } : d)));
   const setDescription = (i, v) => setDocs((ds) => ds.map((d, j) => (j === i ? { ...d, description: v } : d)));
   const setIT = (i, v) => setDocs((ds) => ds.map((d, j) => (j === i ? { ...d, fareIT: v } : d)));
+  const selectedIndexes = mode === 'group' ? (sel.length ? sel : [active]) : [active];
+  const selectedFareIsIT = selectedIndexes.every((index) => docs[index]?.fareIT);
+  const setSelectedFareIT = (value) => {
+    setDocs((current) => current.map((doc, index) => (
+      selectedIndexes.includes(index) ? { ...doc, fareIT: value } : doc
+    )));
+    const documentLabel = plural(selectedIndexes.length, ['документ', 'документа', 'документов']);
+    toast(value
+      ? `Тариф закрыт на IT для ${selectedIndexes.length} ${documentLabel}`
+      : `Отображение тарифа восстановлено для ${selectedIndexes.length} ${documentLabel}`, 'ok');
+  };
 
   const setTax = (i, ti, v) => setDocs((ds) => ds.map((d, j) => {
     if (j !== i || !d.taxList) return d;
@@ -1264,6 +1275,19 @@ function DocCorrectionPanel({ subjects, meta, currency, orderNo, onClose }) {
         Формирование клиентской версии документа на фирменном бланке. Данные поставщика неизменяемы —
         корректируется только отображение (тариф, таксы, надбавка, сбор, скидка, итог, комментарий, реквизиты).
       </div>
+
+      {docMode === 'avia' && (
+        <label className="hp-check-row" style={{ border: '2px solid var(--blue)', borderRadius: 12, padding: '13px 14px', marginBottom: 16, background: 'var(--blue-soft)' }}>
+          <Checkbox on={selectedFareIsIT} onChange={setSelectedFareIT} />
+          <span className="hp-check-label" style={{ flex: 1 }}>
+            <b style={{ display: 'block', color: 'var(--ink)' }}>Закрыть тариф на IT</b>
+            <span style={{ color: 'var(--muted)', fontSize: 12 }}>
+              Вместо суммы тарифа будет показано «IT»; таксы и сборы сохранятся. В групповом режиме применяется к выбранным билетам.
+            </span>
+          </span>
+          <Pill tone={selectedFareIsIT ? 'green' : 'gray'}>{selectedFareIsIT ? 'IT включён' : 'Тариф открыт'}</Pill>
+        </label>
+      )}
 
       <PanelSub style={{ marginTop: 0 }}>Вид корректировки</PanelSub>
       <div className="seg-toggle" style={{ maxWidth: 360 }}>

@@ -6,6 +6,10 @@ const create = (path, body, options) => apiRequest(apiPath(path), { method: 'POS
 const patch = (path, body) => apiRequest(apiPath(path), { method: 'PATCH', body });
 const remove = (path) => apiRequest(apiPath(path), { method: 'DELETE' });
 
+export const jobsApi = {
+  detail: (id, signal) => get(`jobs/${id}/`, signal),
+};
+
 export const crmApi = {
   persons: (params = {}, signal) => list('persons/', { page_size: 100, ...params }, signal),
   person: (id, signal) => get(`persons/${id}/`, signal),

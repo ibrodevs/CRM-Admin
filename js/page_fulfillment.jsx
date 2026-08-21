@@ -6,7 +6,7 @@ import { COMPANIES_DB, CURRENT_USER, DOCS2, DOC_KIND, DOC_STATUS2, FIN_OPS, FIN_
 import { UnifiedBindField, UFDateField } from './forms_unified';
 import { Topbar } from './layout';
 import { toLegacyDocument } from './api/legacy-adapters';
-import { documentsApi, financeApi, workspaceActionsApi } from './api/resources';
+import { documentsApi, financeApi, jobsApi, workspaceActionsApi } from './api/resources';
 import { resultsOf } from './api/client';
 import {
   ReceiptBrandDocumentDrawer,
@@ -43,6 +43,19 @@ function freshSupplierDocumentUrl(url) {
   const value = inlineSupplierDocumentUrl(url);
   if (!value || value.startsWith('blob:')) return value;
   return `${value}${value.includes('?') ? '&' : '?'}_pdf=${Date.now()}`;
+}
+
+async function waitForReceiptPdfJob(jobId, timeoutMs = 5 * 60 * 1000) {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    const job = await jobsApi.detail(jobId);
+    if (job.status === 'succeeded') return job.result || {};
+    if (['failed', 'dead', 'cancelled'].includes(job.status)) {
+      throw new Error(job.error_message || 'Фоновое обновление PDF завершилось с ошибкой');
+    }
+    await new Promise((resolve) => setTimeout(resolve, 1500));
+  }
+  throw new Error('PDF продолжает обновляться в фоне. Откройте документ немного позже.');
 }
 
 function supplierDocumentPageUrl(url, pageNumber) {
@@ -2760,7 +2773,10 @@ function ReceiptImportModal({ open, onClose, onDone, initialDraft, initialFiles 
         preview_sync: true,
       });
       if (pdfSyncSequence.current[fileId] !== sequence) return;
-      const correction = saved?.supplier_pdf_correction || {};
+      let correction = saved?.supplier_pdf_correction || {};
+      if (correction.status === 'queued' && correction.job_id) {
+        correction = await waitForReceiptPdfJob(correction.job_id);
+      }
       if (['manual_required', 'unsupported'].includes(correction.status)) {
         setPdfSync((current) => ({ ...current, [fileId]: 'error' }));
         toast('Стоимость сохранена, но её не удалось безопасно перенести в рабочий PDF. Исходник не изменён.', 'err');
