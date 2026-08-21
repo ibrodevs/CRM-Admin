@@ -11,6 +11,12 @@ const required = [
   "subReceiptCount > 1 ? 'Сумма группы: ' : ''",
   'editingParsed.sourcePage || editingParsed.source_page',
   "if (duplicate) return 'Возможный дубль'",
+  'function receiptRailCostSignature(ticket)',
+  'const reviewAllReadyReceipts = () =>',
+  'Редактировать одинаковую стоимость',
+  "modes={['new', 'order', 'company', 'person']}",
+  "registryView === 'drafts' ? document.isReceiptDraft : !document.isReceiptDraft",
+  'Проверено {reviewedBlankCount} из {subReceiptCount}',
 ];
 
 const legacyRenderDefinitions = source.match(/const subReceiptCount = r\.f\.subReceipts\?\.length \|\| 0;/g) || [];

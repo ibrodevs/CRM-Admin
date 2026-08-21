@@ -159,6 +159,7 @@ export function toLegacyDocument(item, orders = []) {
     serverId: item.id,
     orderId: item.order || null,
     personId: item.person || null,
+    companyId: item.company || null,
     no: item.document_number || `D-${String(item.id).slice(0, 6).toUpperCase()}`,
     name: item.title,
     type: documentKind[item.kind] || item.kind,

@@ -49,7 +49,7 @@ test('opening and closing a printable blank keeps every receipt editor open', ()
 });
 
 test('final import step can create a real order with the existing customer form', () => {
-  assert.match(fulfillment, /modes=\{\['new', 'order', 'person'\]\}/);
+  assert.match(fulfillment, /modes=\{\['new', 'order', 'company', 'person'\]\}/);
   assert.match(fulfillment, /const createdOrder = await onCreateOrder\(\)/);
   assert.match(app, /<OrderCreateModal open=\{!!receiptOrderRequest\}/);
   assert.match(app, /onCreateOrder=\{requestReceiptOrder\}/);

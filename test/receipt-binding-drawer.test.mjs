@@ -4,10 +4,11 @@ import test from 'node:test';
 
 const editor = await readFile(new URL('../js/features/receipts/editor.jsx', import.meta.url), 'utf8');
 
-test('привязка квитанции объединяет заказ и физлицо в одном верхнем блоке', () => {
+test('привязка квитанции объединяет заказ, юрлицо и физлицо в одном верхнем блоке', () => {
   assert.match(editor, /UFDateField, UnifiedBindField/);
   assert.match(editor, /Section title="Привязка квитанции"/);
-  assert.match(editor, /modes=\{\['order', 'person'\]\}/);
+  assert.match(editor, /modes=\{\['order', 'company', 'person'\]\}/);
+  assert.match(editor, /companyOptions=\{companies\}/);
   assert.match(editor, /title="Куда привязать квитанцию"/);
   assert.match(editor, /title="Привязка к пассажиру"/);
   assert.match(editor, /modes=\{\['person'\]\}/);

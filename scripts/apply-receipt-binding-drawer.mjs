@@ -4,8 +4,8 @@ async function patchTextFile(url, replacements, changedMessage, unchangedMessage
   let source = await readFile(url, 'utf8');
   let changed = false;
 
-  for (const { label, before, after } of replacements) {
-    if (source.includes(after)) continue;
+  for (const { label, before, after, satisfied } of replacements) {
+    if (source.includes(after) || (satisfied && source.includes(satisfied))) continue;
     if (!source.includes(before)) {
       throw new Error(`Не удалось применить изменение «${label}»: исходный фрагмент не найден`);
     }
@@ -65,6 +65,7 @@ await patchTextFile(
   [
     {
       label: 'статус черновика квитанции',
+      satisfied: "  'Черновик':         { tone: 'amber', action: 'Продолжить черновик' },",
       before: "const REC_STATUS = {\n  'Распознано':       { tone: 'green', action: 'Проверить' },",
       after: "const REC_STATUS = {\n  'Черновик':         { tone: 'amber', action: 'Продолжить черновик' },\n  'Распознано':       { tone: 'green', action: 'Проверить' },",
     },
@@ -80,6 +81,7 @@ await patchTextFile(
     },
     {
       label: 'отдельное распознавание статуса черновика',
+      satisfied: "                    const recognition = d.isReceiptDraft",
       before: "                    const recognition = d.parsed.manualCompletion\n                      ? 'Заполнено вручную'\n                      : receiptStatus(d.parsed, new Set(), d.editorType, null);",
       after: "                    const recognition = d.isReceiptDraft\n                      ? 'Черновик'\n                      : d.parsed.manualCompletion\n                        ? 'Заполнено вручную'\n                        : receiptStatus(d.parsed, new Set(), d.editorType, null);",
     },

@@ -342,7 +342,7 @@ export function normalizeReceiptDraft(type, value = {}) {
     carrier: '', carrierCode: '', passenger: passengers[0]?.name || '', passengers,
     dob: passengers[0]?.dob || '', docNo: passengers[0]?.document || '', ticketNo: passengers[0]?.ticketNo || '',
     ref: '', supplierOrderNo: '', hotelBookingNo: '', crmBindingMode: 'order',
-    crmOrderId: '', crmOrderNo: '', crmPersonId: '', crmPerson: '', crmPassenger: '',
+    crmOrderId: '', crmOrderNo: '', crmPersonId: '', crmPerson: '', crmCompanyId: '', crmCompany: '', crmPassenger: '',
     crmService: '', crmServiceId: '', crmTrip: '', crmTripId: '',
     issueDate: '', bookingStatus: '', currency: 'RUB', tripType: type === 'Гостиница' ? 'stay' : 'oneway',
     legs: [emptyLeg()], fare: '', taxes: '', fees: '', total: '', originalTotal: supplierTotal || '', supplierFees: '',
@@ -425,7 +425,11 @@ export function normalizeReceiptDraft(type, value = {}) {
   draft.crmOrderNo = value.crmOrderNo || value.crm_order_no || '';
   draft.crmPersonId = value.crmPersonId || value.crm_person_id || '';
   draft.crmPerson = value.crmPerson || value.crm_person || '';
-  draft.crmBindingMode = draft.crmPerson && !draft.crmOrderNo ? 'person' : (value.crmBindingMode || 'order');
+  draft.crmCompanyId = value.crmCompanyId || value.crm_company_id || '';
+  draft.crmCompany = value.crmCompany || value.crm_company || '';
+  draft.crmBindingMode = draft.crmCompany && !draft.crmOrderNo
+    ? 'company'
+    : (draft.crmPerson && !draft.crmOrderNo ? 'person' : (value.crmBindingMode || 'order'));
   if (value.originalTotal === undefined || value.originalTotal === '') draft.originalTotal = supplierTotal || '';
   if (type === 'ЖД') {
     const firstFinancial = (...values) => values.find((item) => item !== undefined && item !== null && item !== '') ?? '';
@@ -1175,7 +1179,7 @@ export function ReceiptBrandDocumentDrawer({ open, type, draft, originalUrl, sou
 }
 
 export function ReceiptSpecializedForm({
-  type, value, onChange, correctionMode, onToggleCorrection, orders = [], services = [],
+  type, value, onChange, correctionMode, onToggleCorrection, orders = [], services = [], companies = [],
 }) {
   const p = useMemo(() => normalizeReceiptDraft(type, value), [type, value]);
   const user = (typeof window !== 'undefined' && window.CURRENT_USER?.name) || 'Оператор';
@@ -1237,7 +1241,9 @@ export function ReceiptSpecializedForm({
     }
     commit({ ...p, tripType, legs }, 'Тип маршрута', p.tripType, tripType);
   };
-  const bindingTarget = p.crmBindingMode === 'person' || (p.crmPerson && !p.crmOrderNo)
+  const bindingTarget = p.crmBindingMode === 'company' || (p.crmCompany && !p.crmOrderNo)
+    ? { mode: 'company', company: { id: p.crmCompanyId, name: p.crmCompany }, label: p.crmCompany || 'Выберите юр. лицо' }
+    : p.crmBindingMode === 'person' || (p.crmPerson && !p.crmOrderNo)
     ? { mode: 'person', client: p.crmPerson, id: p.crmPersonId, label: p.crmPerson || 'Выберите физ. лицо' }
     : {
       mode: 'order',
@@ -1245,18 +1251,25 @@ export function ReceiptSpecializedForm({
       label: p.crmOrderNo ? `Заказ № ${p.crmOrderNo}` : 'Выберите заказ',
     };
   const setBindingTarget = (target) => {
-    const before = p.crmBindingMode === 'person' ? p.crmPerson : p.crmOrderNo;
+    const before = p.crmBindingMode === 'person' ? p.crmPerson : (p.crmBindingMode === 'company' ? p.crmCompany : p.crmOrderNo);
     const next = target?.mode === 'person'
       ? {
         ...p, crmBindingMode: 'person', crmPerson: target.client || '', crmPersonId: target.id || '',
-        crmOrderNo: '', crmOrderId: '', crmService: '', crmServiceId: '', crmTrip: '', crmTripId: '',
+        crmCompany: '', crmCompanyId: '', crmOrderNo: '', crmOrderId: '', crmService: '', crmServiceId: '', crmTrip: '', crmTripId: '',
       }
+      : target?.mode === 'company'
+        ? {
+          ...p, crmBindingMode: 'company', crmCompany: target.company?.name || target.label || '',
+          crmCompanyId: target.company?.id || '', crmPerson: '', crmPersonId: '', crmOrderNo: '', crmOrderId: '',
+          crmService: '', crmServiceId: '', crmTrip: '', crmTripId: '',
+        }
       : {
         ...p, crmBindingMode: 'order', crmOrderNo: target?.order?.no || '',
-        crmOrderId: target?.order?.id || '', crmPerson: '', crmPersonId: '',
+        crmOrderId: target?.order?.id || '', crmPerson: '', crmPersonId: '', crmCompany: '', crmCompanyId: '',
         crmService: '', crmServiceId: '', crmTrip: '', crmTripId: '',
       };
-    const after = target?.mode === 'person' ? target.client || '' : target?.order?.no || '';
+    const after = target?.mode === 'person' ? target.client || ''
+      : target?.mode === 'company' ? target.company?.name || target.label || '' : target?.order?.no || '';
     commit(next, 'Привязка квитанции', before, after);
   };
   const selectedOrder = orders.find((order) => receiptRelationText(order.id) === receiptRelationText(p.crmOrderId)
@@ -1289,10 +1302,11 @@ export function ReceiptSpecializedForm({
   const bindingBlock = (
     <Section title="Привязка квитанции">
       <div className="receipt-form-grid">
-        <Field label="Заказ CRM или физическое лицо">
-          <UnifiedBindField value={bindingTarget} onChange={setBindingTarget} modes={['order', 'person']}
+        <Field label="Заказ CRM, юридическое или физическое лицо">
+          <UnifiedBindField value={bindingTarget} onChange={setBindingTarget} modes={['order', 'company', 'person']}
             title="Куда привязать квитанцию"
-            sub="Выберите существующий заказ CRM или физическое лицо"
+            sub="Выберите существующий заказ, юридическое или физическое лицо"
+            companyOptions={companies}
             style={{ width: '100%' }} />
         </Field>
         <Field label={type === 'Гостиница' ? 'Услуга размещения' : type === 'Трансфер' ? 'Услуга трансфера' : 'Услуга'}>

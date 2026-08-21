@@ -517,16 +517,17 @@ function UfPersonRow({ name, hint, onClick }) {
   );
 }
 
-const UF_BIND_MODE_LABEL = { new: 'Новый заказ', order: 'Существующий заказ', person: 'Физ. лицо' };
+const UF_BIND_MODE_LABEL = { new: 'Новый заказ', order: 'Существующий заказ', company: 'Юр. лицо', person: 'Физ. лицо' };
 
 function ufBindLabel(t) {
   if (!t || t.mode === 'new') return 'Новый заказ';
   if (t.mode === 'order') return t.order ? ('Заказ № ' + t.order.no) : 'Существующий заказ';
+  if (t.mode === 'company') return t.company?.name || t.company?.shortName || t.label || 'Юридическое лицо';
   if (t.mode === 'person') return t.client || 'Физ. лицо';
   return 'Новый заказ';
 }
 
-function UnifiedBindPicker({ open, title = 'Куда привязать', sub, modes = ['new', 'order', 'person'], orderOptions, clientOptions, onClose, onPick }) {
+function UnifiedBindPicker({ open, title = 'Куда привязать', sub, modes = ['new', 'order', 'company', 'person'], orderOptions, clientOptions, companyOptions, onClose, onPick }) {
   const [tab, setTab] = useState(modes[0] || 'new');
   const [q, setQ] = useState('');
   useEffect(() => { if (open) { setTab(modes[0] || 'new'); setQ(''); } }, [open]);
@@ -537,6 +538,8 @@ function UnifiedBindPicker({ open, title = 'Куда привязать', sub, m
     : ufOrderPickRows(q);
   const clients = (Array.isArray(clientOptions) ? clientOptions.map((client) => typeof client === 'string' ? client : client.name) : (typeof CLIENTS !== 'undefined' ? CLIENTS : []))
     .filter((c) => c.toLowerCase().includes(ql));
+  const companies = (Array.isArray(companyOptions) ? companyOptions : [])
+    .filter((company) => `${company.name || ''} ${company.shortName || ''} ${company.fullName || ''} ${company.inn || company.tax_id || ''}`.toLowerCase().includes(ql));
   return (
     <Drawer open={open} onClose={onClose} title={title} sub={sub}
       footer={<Button variant="secondary" style={{ width: '100%' }} onClick={onClose}>Отмена</Button>}>
@@ -580,15 +583,36 @@ function UnifiedBindPicker({ open, title = 'Куда привязать', sub, m
           </div>
         </>
       )}
+
+      {tab === 'company' && (
+        <>
+          <SearchBox value={q} onChange={setQ} placeholder="Поиск по названию или ИНН" style={{ width: '100%', marginBottom: 12 }} />
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            {companies.map((company) => {
+              const name = company.name || company.shortName || company.fullName || company.legal_name || 'Юридическое лицо';
+              const inn = company.inn || company.tax_id || '—';
+              return (
+                <button key={company.id || name} type="button" style={UF_PICK_ROW_STYLE}
+                  onClick={() => onPick({ mode: 'company', company, label: name })}>
+                  <span className="oc-svc-ic" style={{ background: 'var(--blue)', width: 34, height: 34, borderRadius: 10 }}><Icon name="building" style={{ width: 17, height: 17 }} /></span>
+                  <span style={{ flex: 1, minWidth: 0, textAlign: 'left' }}><b style={{ display: 'block', color: 'var(--ink)' }}>{name}</b><small style={{ color: 'var(--muted)' }}>ИНН {inn}</small></span>
+                  <Icon name="chevRight" style={{ width: 18, height: 18, color: 'var(--muted-2)' }} />
+                </button>
+              );
+            })}
+            {!companies.length && <EmptyState icon="building" title="Юридические лица не найдены" />}
+          </div>
+        </>
+      )}
     </Drawer>
   );
 }
 
 
-function UnifiedBindField({ value, onChange, modes, title, sub, style, orderOptions, clientOptions }) {
+function UnifiedBindField({ value, onChange, modes, title, sub, style, orderOptions, clientOptions, companyOptions }) {
   const [open, setOpen] = useState(false);
   const t = value || { mode: 'new', label: 'Новый заказ' };
-  const icon = t.mode === 'person' ? 'user' : (t.mode === 'order' ? 'briefcase' : 'plus');
+  const icon = t.mode === 'person' ? 'user' : (t.mode === 'company' ? 'building' : (t.mode === 'order' ? 'briefcase' : 'plus'));
   return (
     <>
       <button type="button" className="select unified-bind-field" onClick={() => setOpen(true)}
@@ -597,7 +621,7 @@ function UnifiedBindField({ value, onChange, modes, title, sub, style, orderOpti
         <span style={{ flex: 1, color: 'var(--ink)' }}>{ufBindLabel(t)}</span>
         <Icon name="chevDown" style={{ width: 16, height: 16, color: 'var(--muted-2)' }} />
       </button>
-      <UnifiedBindPicker open={open} modes={modes} title={title || 'Заказ для привязки'} sub={sub} orderOptions={orderOptions} clientOptions={clientOptions}
+      <UnifiedBindPicker open={open} modes={modes} title={title || 'Заказ для привязки'} sub={sub} orderOptions={orderOptions} clientOptions={clientOptions} companyOptions={companyOptions}
         onClose={() => setOpen(false)} onPick={(next) => { onChange(next); setOpen(false); }} />
     </>
   );
