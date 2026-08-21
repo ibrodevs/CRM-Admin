@@ -135,14 +135,13 @@ test('price edits refresh the supplier PDF during review and pricing step', () =
   assert.match(page, /const clientAmount = round\(tariffAndTaxes \+ fees \+ Number\(pricing\?\.markup \|\| 0\)\)/);
   assert.match(page, /total: clientAmount/);
   assert.match(page, /queueWorkingPdfSync\(fileId, \{ mode: 'review' \}\)/);
-  assert.match(page, /queueWorkingPdfSync\(String\(id\)\.split\('::blank::'\)\[0\], \{ mode: 'pricing', delay: 0, announce: true \}\)/);
-  assert.match(page, /queueWorkingPdfSync\(fileId, \{ mode: 'pricing', delay: 0 \}\)/);
+  assert.match(page, /safeTargets\.map\(\(row\) => String\(row\.mathKey\)\.split\('::blank::'\)\[0\]\)[\s\S]*queueWorkingPdfSync\(fileId, \{[\s\S]*mode: 'pricing', delay: 0/);
   assert.match(page, /documentsApi\.updateReceipt\(sourceDocumentId, \{/);
   assert.match(page, /draft: true,[\s\S]*verified_data: verifiedData,[\s\S]*preview_sync: true/);
   assert.match(page, /freshSupplierDocumentUrl\(documentsApi\.supplierPreviewUrl\(sourceDocumentId\)\)/);
   assert.match(page, /supplierPdfRevision: revision/);
   assert.match(page, /const previous = pdfSyncChains\.current\[fileId\] \|\| Promise\.resolve\(\)/);
-  assert.match(page, /рабочий PDF уже обновлён/);
+  assert.match(page, /PDF обновлён/);
 });
 
 

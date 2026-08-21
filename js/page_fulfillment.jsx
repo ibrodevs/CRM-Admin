@@ -2057,7 +2057,7 @@ function ReceiptEditDrawer({ open, file, onClose, onChange, onSubChange, onBrand
 }
 
 
-function ReceiptMathDrawer({ open, file, math, onSave, onClose }) {
+function ReceiptMathDrawer({ open, file, math, applyCount = 1, onSave, onClose }) {
   const [m, setM] = useState(math || { tariff: 0, fee: 0, markup: 0, commission: 0 });
   useEffect(() => { if (open && math) setM(math); }, [open, file && file.id]);
   if (!open || !file) return null;
@@ -2072,7 +2072,9 @@ function ReceiptMathDrawer({ open, file, math, onSave, onClose }) {
   );
   return (
     <Drawer open={open} onClose={onClose} title={'Математика · ' + (file.parsed.passenger || 'квитанция')}
-      sub={'Исходный v1: ' + recMoney(Number(file.parsed.originalTotal) || Number(file.parsed.total) || 0, cur) + ' · после сохранения сумма сразу переносится в рабочую копию PDF'}
+      sub={applyCount > 1
+        ? `Сбор, надбавка и комиссия применятся к ${applyCount} выбранным бланкам. Тариф изменится только у текущего билета.`
+        : 'Исходный v1: ' + recMoney(Number(file.parsed.originalTotal) || Number(file.parsed.total) || 0, cur) + ' · после сохранения сумма сразу переносится в рабочую копию PDF'}
       width="min(460px,94vw)"
       footer={<>
         <Button variant="secondary" onClick={onClose}>Отмена</Button>
@@ -2120,8 +2122,6 @@ function ReceiptImportModal({ open, onClose, onDone, initialDraft, initialFiles 
   const [pricingSel, setPricingSel] = useState({});
   const [mathId, setMathId] = useState(null);
   const [brandId, setBrandId] = useState(null);
-  const [bulk, setBulk] = useState({ fee: '', markup: '', commission: '' });
-  const [bulkConfirm, setBulkConfirm] = useState(null);
   const [pdfSync, setPdfSync] = useState({});
   const [draftSavedAt, setDraftSavedAt] = useState('');
   const [dragActive, setDragActive] = useState(false);
@@ -2162,8 +2162,6 @@ function ReceiptImportModal({ open, onClose, onDone, initialDraft, initialFiles 
     setPricingSel(draft?.pricingSel || {});
     setMathId(null);
     setBrandId(null);
-    setBulk(draft?.bulk || { fee: '', markup: '', commission: '' });
-    setBulkConfirm(null);
     setPdfSync({});
     setDraftSavedAt(draft?.savedAt || '');
     setDragActive(false);
@@ -2184,10 +2182,26 @@ function ReceiptImportModal({ open, onClose, onDone, initialDraft, initialFiles 
   const getMath = (id, p) => getMathFrom(math, id, p);
   const setMathFor = (id, p, patch) => {
     const current = mathStateRef.current;
-    const next = { ...current, [id]: { ...getMathFrom(current, id, p), ...patch } };
+    const targets = pricingSel[id]
+      ? pricingRows.filter((row) => pricingSel[row.mathKey])
+      : [{ mathKey: id, parsed: p }];
+    const safeTargets = targets.length ? targets : [{ mathKey: id, parsed: p }];
+    const next = { ...current };
+    safeTargets.forEach((row) => {
+      const sharedPatch = row.mathKey === id
+        ? patch
+        : { fee: patch.fee, markup: patch.markup, commission: patch.commission };
+      next[row.mathKey] = { ...getMathFrom(current, row.mathKey, row.parsed), ...sharedPatch };
+    });
     mathStateRef.current = next;
     setMath(next);
-    queueWorkingPdfSync(String(id).split('::blank::')[0], { mode: 'pricing', delay: 0, announce: true });
+    [...new Set(safeTargets.map((row) => String(row.mathKey).split('::blank::')[0]))]
+      .forEach((fileId) => queueWorkingPdfSync(fileId, {
+        mode: 'pricing', delay: 0, announce: safeTargets.length === 1,
+      }));
+    if (safeTargets.length > 1) {
+      toast(`Сбор, надбавка и комиссия применены к ${safeTargets.length} выбранным бланкам. Рабочие PDF обновляются.`, 'info');
+    }
   };
   const clientTotal = (m) => Math.round((Number(m.tariff) || 0) + (Number(m.fee) || 0) + (Number(m.markup) || 0));
   const subReceiptMathKey = (fileId, index) => fileId + '::blank::' + index;
@@ -2566,7 +2580,6 @@ function ReceiptImportModal({ open, onClose, onDone, initialDraft, initialFiles 
       math,
       sel,
       pricingSel,
-      bulk,
       importMode,
     };
     draftIdRef.current = draft.id;
@@ -2678,43 +2691,8 @@ function ReceiptImportModal({ open, onClose, onDone, initialDraft, initialFiles 
     }
     setPricingSel(Object.fromEntries(matches.map((row) => [row.mathKey, true])));
     setStep(3);
-    toast(`Выбрано ЖД-билетов с одинаковой стоимостью: ${matches.length}. Укажите общие сборы или надбавку.`, 'ok');
-  };
-  const pricingFileIds = [...new Set(pricingRows.map((row) => row.f.id))];
-  const pricingPdfSyncState = pricingFileIds.some((fileId) => pdfSync[fileId] === 'saving')
-    ? 'saving'
-    : pricingFileIds.some((fileId) => pdfSync[fileId] === 'error')
-      ? 'error'
-      : pricingFileIds.some((fileId) => pdfSync[fileId] === 'saved') ? 'saved' : '';
-  const bulkEligibleRows = pricingRows.filter((row) => row.status !== 'Ошибка'
-    && (reviewed[row.f.id] || row.status === 'Распознано' || row.status === 'Заполнено вручную'));
-  const requestBulkApply = (scope = 'selected') => {
-    const patch = {};
-    if (bulk.fee !== '') patch.fee = Number(bulk.fee) || 0;
-    if (bulk.markup !== '') patch.markup = Number(bulk.markup) || 0;
-    if (bulk.commission !== '') patch.commission = Number(bulk.commission) || 0;
-    if (!Object.keys(patch).length) { toast('Укажите сбор, надбавку или комиссию', 'err'); return; }
-    const targets = scope === 'all' ? bulkEligibleRows : selectedPricingRows;
-    if (scope === 'selected' && !targets.length) { toast('Сначала отметьте бланки, к которым нужно применить расчёт', 'err'); return; }
-    if (!targets.length) { toast('Нет проверенных бланков для применения расчёта', 'err'); return; }
-    setBulkConfirm({ patch, targetKeys: targets.map((row) => row.mathKey), count: targets.length, scope });
-  };
-  const applyBulk = () => {
-    if (!bulkConfirm) return;
-    const confirmation = bulkConfirm;
-    const targetRows = pricingRows.filter((row) => confirmation.targetKeys.includes(row.mathKey));
-    const current = mathStateRef.current;
-    const next = { ...current };
-    targetRows.forEach((row) => {
-      next[row.mathKey] = { ...getMathFrom(current, row.mathKey, row.parsed), ...confirmation.patch };
-    });
-    mathStateRef.current = next;
-    setMath(next);
-    setBulkConfirm(null);
-    [...new Set(targetRows.map((row) => row.f.id))].forEach((fileId) => (
-      queueWorkingPdfSync(fileId, { mode: 'pricing', delay: 0 })
-    ));
-    toast('Математика применена отдельно к ' + confirmation.count + ' бланк. Рабочие PDF обновляются.', 'info');
+    setMathId(sourceRow.mathKey);
+    toast(`Выбрано ЖД-билетов с одинаковой стоимостью: ${matches.length}.`, 'ok');
   };
 
   const verifiedReceiptForSaveWithMath = (file, mathState) => {
@@ -3218,42 +3196,6 @@ function ReceiptImportModal({ open, onClose, onDone, initialDraft, initialFiles 
                 <div style={{ fontSize: 12, color: 'var(--muted)', margin: '-4px 0 10px' }}>
                   Финансовые изменения переносятся в рабочую копию PDF поставщика. Загруженный исходный v1 хранится отдельно без изменений.
                 </div>
-                <div className="card card-pad" style={{ marginBottom: 12, display: 'flex', alignItems: 'flex-end', gap: 12, flexWrap: 'wrap' }}>
-                  <div style={{ flex: '0 0 100%', fontSize: 12, color: 'var(--muted)', marginBottom: -4 }}>
-                    Математика: применить к {selectedPricingRows.length ? 'выбранным билетам (' + selectedPricingRows.length + ')' : 'всем проверенным бланкам'}.
-                    Тариф каждого билета всегда остаётся индивидуальным.
-                  </div>
-                  {[['fee', 'Сервисный сбор'], ['markup', 'Надбавка'], ['commission', 'Комиссия']].map(([k, l]) => (
-                    <div key={k} style={{ width: 130 }}>
-                      <div style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 4 }}>{l}, $</div>
-                      <input className="input" type="number" min="0" placeholder="0" value={bulk[k]} onChange={(e) => setBulk((b) => ({ ...b, [k]: e.target.value }))} />
-                    </div>
-                  ))}
-                  <Button size="sm" icon="calc" disabled={!selectedPricingRows.length} onClick={() => requestBulkApply('selected')}>Применить к выбранным{selectedPricingRows.length ? ' (' + selectedPricingRows.length + ')' : ''}</Button>
-                  <Button size="sm" variant="secondary" icon="users" onClick={() => requestBulkApply('all')}>Применить ко всем проверенным ({bulkEligibleRows.length})</Button>
-                  {selectedPricingRows.length === 1 && (() => {
-                    const selected = selectedPricingRows[0];
-                    const samePrice = selected.f.type === 'ЖД'
-                      ? identicalRailPricingRows(selected)
-                      : pricingRows.filter((row) => Number(row.parsed?.originalTotal || row.parsed?.total || 0)
-                        === Number(selected.parsed?.originalTotal || selected.parsed?.total || 0)
-                        && String(row.parsed?.currency || '') === String(selected.parsed?.currency || ''));
-                    return samePrice.length > 1 ? <Button size="sm" variant="secondary" onClick={() => setPricingSel(Object.fromEntries(samePrice.map((row) => [row.mathKey, true])))}>
-                      Выбрать с такой же стоимостью ({samePrice.length})
-                    </Button> : null;
-                  })()}
-                  <div style={{ flex: 1 }} />
-                  <span style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color: pricingPdfSyncState === 'error' ? 'var(--red)' : 'var(--green)' }}>
-                    <Icon name={pricingPdfSyncState === 'saving' ? 'clock' : pricingPdfSyncState === 'error' ? 'alertCircle' : 'check'} style={{ width: 16, height: 16 }} />
-                    {pricingPdfSyncState === 'saving'
-                      ? 'рабочий PDF обновляется…'
-                      : pricingPdfSyncState === 'error'
-                        ? 'часть PDF требует проверки'
-                        : pricingPdfSyncState === 'saved'
-                          ? 'рабочий PDF уже обновлён'
-                          : 'стоимость сразу попадёт в рабочий PDF'}
-                  </span>
-                </div>
                 <div className="table-card receipt-pricing-card">
                   <table className="tbl receipt-pricing-table">
                     <thead><tr><th aria-label="Выбор"></th><th>Бланк</th><th>Оригинал поставщика</th><th>Клиенту</th><th>Версии</th><th></th></tr></thead>
@@ -3334,15 +3276,12 @@ function ReceiptImportModal({ open, onClose, onDone, initialDraft, initialFiles 
         }}
         onBrand={() => { setBrandId(subEdit.fileId); }} />
       <ReceiptMathDrawer open={!!mathFile} file={mathFile} math={mathFile ? getMath(mathFile.id, mathFile.parsed) : null}
+        applyCount={mathFile && pricingSel[mathFile.id] ? selectedPricingRows.length : 1}
         onSave={(patch) => { setMathFor(mathFile.id, mathFile.parsed, patch); }} onClose={() => setMathId(null)} />
 
       <ReceiptBrandDocumentDrawer open={!!brandFile} type={brandFile?.type} draft={brandFile?.parsed}
         originalUrl={brandFile?.originalUrl} sourceOriginalUrl={brandFile?.sourceOriginalUrl}
         onClose={() => setBrandId(null)} />
-      <ConfirmDialog open={!!bulkConfirm}
-        title={bulkConfirm?.scope === 'all' ? 'Применить расчёт ко всем проверенным бланкам?' : 'Применить расчёт к выбранным бланкам?'}
-        message={bulkConfirm ? `Сервисные сборы, надбавка и комиссия будут применены отдельно к ${bulkConfirm.count} бланк. Исходный тариф каждого билета не изменится.` : ''}
-        confirmLabel={bulkConfirm?.scope === 'all' ? 'Да, применить ко всем' : 'Применить к выбранным'} confirmVariant="primary" onConfirm={applyBulk} onCancel={() => setBulkConfirm(null)} />
       <Drawer open={confirmClose} onClose={() => setConfirmClose(false)} title="Закрыть импорт?"
         sub="Проверьте, какие бланки сохранятся в черновик"
         width="min(780px,96vw)"

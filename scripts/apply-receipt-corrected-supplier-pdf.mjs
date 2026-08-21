@@ -51,7 +51,9 @@ page = replaceRequired(page, savedToastOld, savedToastNew, 'результат �
 
 const mathDrawerSourceOld = `      sub={'Бланк поставщика: ' + recMoney(Number(file.parsed.originalTotal) || Number(file.parsed.total) || 0, cur) + ' — сохраняется без изменений'}`;
 const mathDrawerSourceNew = `      sub={'Исходный v1: ' + recMoney(Number(file.parsed.originalTotal) || Number(file.parsed.total) || 0, cur) + ' · после сохранения сумма сразу переносится в рабочую копию PDF'}`;
-page = replaceRequired(page, mathDrawerSourceOld, mathDrawerSourceNew, 'подсказка математики PDF');
+if (!page.includes('после сохранения сумма сразу переносится в рабочую копию PDF')) {
+  page = replaceRequired(page, mathDrawerSourceOld, mathDrawerSourceNew, 'подсказка математики PDF');
+}
 
 page = replaceRequired(
   page,
@@ -65,15 +67,6 @@ page = replaceRequired(
   'Финансовые изменения переносятся в рабочую копию PDF поставщика. Загруженный исходный v1 хранится отдельно без изменений.',
   'описание рабочей копии',
 );
-if (!page.includes('стоимость сразу попадёт в рабочий PDF')) {
-  page = replaceRequired(
-    page,
-    '<Icon name="check" style={{ width: 16, height: 16 }} /> v1 поставщика не меняется',
-    '<Icon name="check" style={{ width: 16, height: 16 }} /> стоимость сразу попадёт в рабочий PDF',
-    'статус рабочей копии',
-  );
-}
-
 const rowOriginalOld = `{d.originalUrl && <Button size="sm" variant="ghost" icon="eye" onClick={() => window.open(inlineSupplierDocumentUrl(d.originalUrl), '_blank', 'noopener,noreferrer')}>Оригинал</Button>}`;
 const rowOriginalNew = `{d.originalUrl && <Button size="sm" variant="ghost" icon="eye" onClick={() => window.open(inlineSupplierDocumentUrl(d.originalUrl), '_blank', 'noopener,noreferrer')}>Оригинал с правками</Button>}\n                          {d.sourceOriginalUrl && <Button size="sm" variant="ghost" onClick={() => window.open(inlineSupplierDocumentUrl(d.sourceOriginalUrl), '_blank', 'noopener,noreferrer')}>Исходный</Button>}`;
 if (!(page.includes('>Оригинал с правками</Button>') && page.includes('>Исходный</Button>'))) {
@@ -131,7 +124,7 @@ if (!css.includes(cssMarker)) {
 
 for (const [source, tokens, label] of [
   [resources, ['supplierPreviewUrl', 'supplierSourcePreviewUrl', 'supplier-pdf/?source=1'], 'API'],
-  [page, ['documentsApi.supplierPreviewUrl', 'documentsApi.supplierSourcePreviewUrl', 'Оригинал с правками', 'Исходный', 'supplier_pdf_correction', 'после сохранения сумма сразу переносится в рабочую копию PDF', 'стоимость сразу попадёт в рабочий PDF'], 'страница'],
+  [page, ['documentsApi.supplierPreviewUrl', 'documentsApi.supplierSourcePreviewUrl', 'Оригинал с правками', 'Исходный', 'supplier_pdf_correction', 'после сохранения сумма сразу переносится в рабочую копию PDF', 'queueWorkingPdfSync', 'PDF обновляется'], 'страница'],
   [editor, ['sourceOriginalUrl', 'Оригинал поставщика · с сохранёнными корректировками', 'Оригинал поставщика с корректировками', 'Исходный файл поставщика', 'receipt-supplier-footer-actions'], 'предпросмотр'],
   [css, [cssMarker, 'grid-template-columns: repeat(2, minmax(0, 1fr))', 'white-space: normal'], 'адаптивный footer'],
 ]) {

@@ -4,12 +4,12 @@ const fileUrl = new URL('../js/page_fulfillment.jsx', import.meta.url);
 let source = await readFile(fileUrl, 'utf8');
 let changed = false;
 
-// The current editor has the ticket-level calculation table plus an explicit
-// confirmation step.  It is a strict superset of this legacy build patch.
+// The current editor keeps ticket-level calculation in the compact per-blank
+// drawer. The former bulk card was intentionally removed from the UI.
 if (source.includes('const pricingRows = doneRows.filter')
   && source.includes('const mathForFile = (file) =>')
-  && source.includes('const requestBulkApply = (')) {
-  console.log('Математика отдельных бланков и подтверждение массового применения уже настроены.');
+  && source.includes('const setMathFor = (id, p, patch) =>')) {
+  console.log('Математика отдельных бланков уже настроена без удалённого массового блока.');
   process.exit(0);
 }
 

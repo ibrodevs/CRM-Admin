@@ -56,21 +56,6 @@ async function patchTextFile(relativePath, replacements) {
 
 await patchTextFile('js/page_fulfillment.jsx', [
   {
-    label: 'явный выбор области массовой математики',
-    before: `  const requestBulkApply = () => {\n    const patch = {};\n    if (bulk.fee !== '') patch.fee = Number(bulk.fee) || 0;\n    if (bulk.markup !== '') patch.markup = Number(bulk.markup) || 0;\n    if (bulk.commission !== '') patch.commission = Number(bulk.commission) || 0;\n    if (!Object.keys(patch).length) { toast('Укажите сбор, надбавку или комиссию', 'err'); return; }\n    const targets = selectedPricingRows.length ? selectedPricingRows : bulkEligibleRows;\n    if (!targets.length) { toast('Нет проверенных бланков для применения расчёта', 'err'); return; }\n    setBulkConfirm({ patch, targetKeys: targets.map((row) => row.mathKey), count: targets.length });\n  };`,
-    after: `  const requestBulkApply = (scope = 'selected') => {\n    const patch = {};\n    if (bulk.fee !== '') patch.fee = Number(bulk.fee) || 0;\n    if (bulk.markup !== '') patch.markup = Number(bulk.markup) || 0;\n    if (bulk.commission !== '') patch.commission = Number(bulk.commission) || 0;\n    if (!Object.keys(patch).length) { toast('Укажите сбор, надбавку или комиссию', 'err'); return; }\n    const targets = scope === 'all' ? bulkEligibleRows : selectedPricingRows;\n    if (scope === 'selected' && !targets.length) { toast('Сначала отметьте бланки, к которым нужно применить расчёт', 'err'); return; }\n    if (!targets.length) { toast('Нет проверенных бланков для применения расчёта', 'err'); return; }\n    setBulkConfirm({ patch, targetKeys: targets.map((row) => row.mathKey), count: targets.length, scope });\n  };`,
-  },
-  {
-    label: 'отдельные кнопки выбранные и все',
-    before: `                  <Button size="sm" icon="calc" onClick={requestBulkApply}>Применить{selectedPricingRows.length ? ' (' + selectedPricingRows.length + ')' : ' ко всем'}</Button>`,
-    after: `                  <Button size="sm" icon="calc" disabled={!selectedPricingRows.length} onClick={() => requestBulkApply('selected')}>Применить к выбранным{selectedPricingRows.length ? ' (' + selectedPricingRows.length + ')' : ''}</Button>\n                  <Button size="sm" variant="secondary" icon="users" onClick={() => requestBulkApply('all')}>Применить ко всем проверенным ({bulkEligibleRows.length})</Button>`,
-  },
-  {
-    label: 'точное подтверждение области массовой математики',
-    before: `      <ConfirmDialog open={!!bulkConfirm} title="Применить расчёт к выбранным бланкам?"\n        message={bulkConfirm ? \`Сервисные сборы, надбавка и комиссия будут применены отдельно к \${bulkConfirm.count} бланк. Исходный тариф каждого билета не изменится.\` : ''}\n        confirmLabel="Применить" confirmVariant="primary" onConfirm={applyBulk} onCancel={() => setBulkConfirm(null)} />`,
-    after: `      <ConfirmDialog open={!!bulkConfirm}\n        title={bulkConfirm?.scope === 'all' ? 'Применить расчёт ко всем проверенным бланкам?' : 'Применить расчёт к выбранным бланкам?'}\n        message={bulkConfirm ? \`Сервисные сборы, надбавка и комиссия будут применены отдельно к \${bulkConfirm.count} бланк. Исходный тариф каждого билета не изменится.\` : ''}\n        confirmLabel={bulkConfirm?.scope === 'all' ? 'Да, применить ко всем' : 'Применить к выбранным'} confirmVariant="primary" onConfirm={applyBulk} onCancel={() => setBulkConfirm(null)} />`,
-  },
-  {
     label: 'не закрывать основной редактор при открытии фирменного бланка',
     before: `        onBrand={() => { setBrandId(editId); setEditId(null); }} />`,
     after: `        onBrand={() => { setBrandId(editId); }} />`,

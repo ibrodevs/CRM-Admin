@@ -25,16 +25,15 @@ test('receipt sections collapse and avia taxes use a searchable catalog', () => 
   assert.match(editor, /Выберите или найдите таксу/);
 });
 
-test('bulk calculation scope is chosen explicitly and preserves every ticket tariff', () => {
-  assert.match(fulfillment, /const requestBulkApply = \(scope = 'selected'\)/);
-  assert.match(fulfillment, /scope === 'all' \? bulkEligibleRows : selectedPricingRows/);
-  assert.match(fulfillment, /requestBulkApply\('selected'\)/);
-  assert.match(fulfillment, /requestBulkApply\('all'\)/);
-  assert.match(fulfillment, /Применить ко всем проверенным/);
-  assert.match(fulfillment, /Да, применить ко всем/);
-  assert.match(fulfillment, /Исходный тариф каждого билета не изменится/);
+test('highlighted bulk calculation block is removed without breaking identical-cost editing', () => {
+  assert.doesNotMatch(fulfillment, /Математика: применить к/);
+  assert.doesNotMatch(fulfillment, /Применить ко всем проверенным/);
+  assert.doesNotMatch(fulfillment, /requestBulkApply/);
+  assert.doesNotMatch(fulfillment, /bulkConfirm/);
   assert.match(fulfillment, /const \[pricingSel, setPricingSel\]/);
-  assert.match(fulfillment, /Выбрать с такой же стоимостью/);
+  assert.match(fulfillment, /setMathId\(sourceRow\.mathKey\)/);
+  assert.match(fulfillment, /applyCount=\{mathFile && pricingSel\[mathFile\.id\] \? selectedPricingRows\.length : 1\}/);
+  assert.match(fulfillment, /row\.mathKey === id[\s\S]*\? patch[\s\S]*fee: patch\.fee, markup: patch\.markup, commission: patch\.commission/);
   assert.match(fulfillment, /clientTotal: clientTotal\(ticketMath\)/);
 });
 

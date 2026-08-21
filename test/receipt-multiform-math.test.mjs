@@ -20,5 +20,6 @@ test('parent total is only a sum of individual blank calculations', async () => 
   assert.match(source, /const mathForFile = \(file\) =>/);
   assert.match(source, /file\.subReceipts\.reduce/);
   assert.match(source, /mathForFile\(r\.f\)/);
-  assert.match(source, /Математика применена отдельно к/);
+  assert.match(source, /safeTargets\.forEach\(\(row\) =>/);
+  assert.match(source, /Сбор, надбавка и комиссия применены к/);
 });
