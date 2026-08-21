@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState, useRef } from 'react';
 import ReactDOM from 'react-dom';
 import { Icon } from '../../icons';
-import { Button, Combobox, Drawer, EmptyState, Field, Input, Pill, SearchBox, Select, TimeField } from '../../ui';
+import { Button, Checkbox, Combobox, Drawer, EmptyState, Field, Input, Pill, SearchBox, Select, TimeField } from '../../ui';
 import { UFDateField, UnifiedBindField } from '../../forms_unified';
 import { segmentConnectionLabel } from './layover';
 import { normalizeReceiptDisplayDate } from './date';
@@ -1601,6 +1601,22 @@ export function ReceiptSpecializedForm({
     </Section>
   </>;
 
+  const aviaItFareControl = type === 'Авиа' && (
+    <label className="hp-check-row" style={{ border: '2px solid var(--blue)', borderRadius: 12, padding: '13px 14px', marginBottom: 16, background: 'var(--blue-soft)' }}>
+      <Checkbox on={receiptUsesItFare(p)}
+        onChange={(enabled) => setObject('output', 'priceMode', enabled ? 'it' : 'total', 'Отображение тарифа')} />
+      <span className="hp-check-label" style={{ flex: 1 }}>
+        <b style={{ display: 'block', color: 'var(--ink)' }}>Закрыть тариф на IT</b>
+        <span style={{ color: 'var(--muted)', fontSize: 12 }}>
+          В клиентской квитанции вместо суммы тарифа будет показано «IT». Таксы и сборы останутся видимыми.
+        </span>
+      </span>
+      <Pill tone={receiptUsesItFare(p) ? 'green' : 'gray'}>
+        {receiptUsesItFare(p) ? 'IT включён' : 'Тариф открыт'}
+      </Pill>
+    </label>
+  );
+
   const outputBlock = (
     <Section title={type === 'Гостиница' ? '10. Формирование документа' : type === 'Трансфер' ? '7. Формирование документа' : type === 'ЖД' ? 'Вывод документа' : '9. Вывод документа'}>
       <div className="receipt-form-grid">
@@ -1611,9 +1627,6 @@ export function ReceiptSpecializedForm({
         {p.output.mode !== 'original' && <Field label="Шаблон организации"><Select placeholder="Выберите шаблон" options={[
           'Основной фирменный', 'Компактный', 'Корпоративный клиент',
         ]} value={p.output.template} onChange={(e) => setObject('output', 'template', e.target.value, 'Шаблон организации')} /></Field>}
-        {type === 'Авиа' && <Field label="Отображение тарифа"><Select options={[
-          { value: 'total', label: 'Показывать суммы полностью' }, { value: 'it', label: 'Закрыть тариф (IT)' },
-        ]} value={p.output.priceMode} onChange={(e) => setObject('output', 'priceMode', e.target.value, 'Отображение стоимости')} /></Field>}
         {(type === 'Гостиница' || type === 'Трансфер') && <Field label="Стоимость в клиентском ваучере"><Select options={[
           { value: 'total', label: 'Показывать итоговую стоимость' }, { value: 'paid', label: 'Показывать только «Оплачено»' },
           { value: 'hidden', label: 'Не показывать стоимость' },
@@ -1627,6 +1640,7 @@ export function ReceiptSpecializedForm({
   return (
     <div className="receipt-editor-form">
       <SourceNotice correctionMode={correctionMode} onToggle={onToggleCorrection} />
+      {aviaItFareControl}
       {bindingBlock}
       {commonBooking}
       {type === 'Авиа' && <>{passengerBlock}{routeBlock}{financeBlock}{aviaBlocks}</>}

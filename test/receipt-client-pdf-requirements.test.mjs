@@ -123,7 +123,9 @@ test('explicit economy booking class fills an empty service class safely', async
 test('IT fare control is available for supplier and branded avia documents', async () => {
   const editor = await readFile(editorUrl, 'utf8');
 
-  assert.match(editor, /type === 'Авиа' && <Field label="Отображение тарифа">/);
+  assert.match(editor, /const aviaItFareControl = type === 'Авиа'/);
+  assert.match(editor, /<b[^>]*>Закрыть тариф на IT<\/b>/);
+  assert.match(editor, /\{aviaItFareControl\}[\s\S]*\{bindingBlock\}/);
   assert.doesNotMatch(editor, /type === 'Авиа' && p\.output\.mode !== 'original' && <Field label="Стоимость в клиентском документе">/);
 });
 

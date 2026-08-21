@@ -6,7 +6,6 @@ const page = await readFile(new URL('../js/page_fulfillment.jsx', import.meta.ur
 const editor = await readFile(new URL('../js/features/receipts/editor.jsx', import.meta.url), 'utf8');
 const bindings = await readFile(new URL('../js/forms_unified.jsx', import.meta.url), 'utf8');
 const app = await readFile(new URL('../js/app.jsx', import.meta.url), 'utf8');
-const flights = await readFile(new URL('../js/page_flights.jsx', import.meta.url), 'utf8');
 const resources = await readFile(new URL('../js/api/resources.js', import.meta.url), 'utf8');
 
 test('identical rail costs can be selected across the complete import list', () => {
@@ -54,10 +53,11 @@ test('supplier PDF preview sync is polled as a background job instead of holding
   assert.match(page, /correction = await waitForReceiptPdfJob\(correction\.job_id\)/);
 });
 
-test('avia document editor keeps the IT fare action permanently visible', () => {
-  assert.match(flights, /<b[^>]*>Закрыть тариф на IT<\/b>/);
-  assert.match(flights, /Вместо суммы тарифа будет показано «IT»; таксы и сборы сохранятся/);
-  assert.match(flights, /const setSelectedFareIT = \(value\) =>/);
-  assert.match(flights, /В групповом режиме применяется к выбранным билетам/);
-  assert.match(flights, /selectedFareIsIT \? 'IT включён' : 'Тариф открыт'/);
+test('receipt editor keeps the avia IT fare action permanently visible', () => {
+  assert.match(editor, /const aviaItFareControl = type === 'Авиа'/);
+  assert.match(editor, /<b[^>]*>Закрыть тариф на IT<\/b>/);
+  assert.match(editor, /В клиентской квитанции вместо суммы тарифа будет показано «IT»/);
+  assert.match(editor, /enabled \? 'it' : 'total'/);
+  assert.match(editor, /\{aviaItFareControl\}[\s\S]*\{bindingBlock\}/);
+  assert.match(editor, /receiptUsesItFare\(p\) \? 'IT включён' : 'Тариф открыт'/);
 });

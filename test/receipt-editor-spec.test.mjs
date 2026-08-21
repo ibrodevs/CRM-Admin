@@ -100,7 +100,8 @@ test('авиа-режим IT закрывает только тариф, так�
   assert.match(editor, /const fareRowMoney = \(row\) => receiptUsesItFare\(p\) \? 'IT' : money\(row\.amount\)/);
   assert.match(editor, /<span>Таксы перевозчика<\/span><b>\{money\(p\.taxes\)\}<\/b>/);
   assert.match(editor, /<span>Сервисный сбор<\/span><b>\{money\(p\.fees\)\}<\/b>/);
-  assert.match(editor, /Закрыть тариф \(IT\)/);
+  assert.match(editor, /Закрыть тариф на IT/);
+  assert.match(editor, /Таксы и сборы останутся видимыми/);
 });
 
 test('паспорт не теряется при пустом массиве пассажиров, а полные данные идут до маршрута', () => {
