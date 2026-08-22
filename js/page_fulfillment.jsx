@@ -66,6 +66,8 @@ async function waitForReceiptPdfJob(jobId, timeoutMs = 5 * 60 * 1000) {
   throw new Error('PDF продолжает обновляться в фоне. Откройте документ немного позже.');
 }
 
+const PDF_SYNC_SUCCESS_NOTICE_MS = 3500;
+
 function supplierDocumentPageUrl(url, pageNumber) {
   const value = inlineSupplierDocumentUrl(url);
   const page = Number(pageNumber);
@@ -2138,6 +2140,7 @@ function ReceiptImportModal({ open, onClose, onDone, initialDraft, initialFiles 
   const filesStateRef = useRef([]);
   const mathStateRef = useRef({});
   const pdfSyncTimers = useRef(new Map());
+  const pdfSyncNoticeTimers = useRef(new Map());
   const pdfSyncSequence = useRef({});
   const pdfSyncChains = useRef({});
   const draftIdRef = useRef(null);
@@ -2147,6 +2150,8 @@ function ReceiptImportModal({ open, onClose, onDone, initialDraft, initialFiles 
   useEffect(() => () => {
     pdfSyncTimers.current.forEach((timer) => clearTimeout(timer));
     pdfSyncTimers.current.clear();
+    pdfSyncNoticeTimers.current.forEach((timer) => clearTimeout(timer));
+    pdfSyncNoticeTimers.current.clear();
   }, []);
 
   useEffect(() => {
@@ -2170,6 +2175,8 @@ function ReceiptImportModal({ open, onClose, onDone, initialDraft, initialFiles 
     setPricingSel(draft?.pricingSel || {});
     setMathId(null);
     setBrandId(null);
+    pdfSyncNoticeTimers.current.forEach((timer) => clearTimeout(timer));
+    pdfSyncNoticeTimers.current.clear();
     setPdfSync({});
     setDraftSavedAt(draft?.savedAt || '');
     setDragActive(false);
@@ -2533,6 +2540,9 @@ function ReceiptImportModal({ open, onClose, onDone, initialDraft, initialFiles 
     const timer = pdfSyncTimers.current.get(id);
     if (timer) clearTimeout(timer);
     pdfSyncTimers.current.delete(id);
+    const noticeTimer = pdfSyncNoticeTimers.current.get(id);
+    if (noticeTimer) clearTimeout(noticeTimer);
+    pdfSyncNoticeTimers.current.delete(id);
     setFiles((cur) => cur.filter((f) => f.id !== id));
     setExcluded((e) => { const n = { ...e }; delete n[id]; return n; });
     setReviewed((e) => { const n = { ...e }; delete n[id]; return n; });
@@ -2736,6 +2746,9 @@ function ReceiptImportModal({ open, onClose, onDone, initialDraft, initialFiles 
     const file = filesStateRef.current.find((item) => item.id === fileId);
     const sourceDocumentId = file?.sourceDocumentId || file?.serverId;
     if (!file || !sourceDocumentId) return;
+    const previousNoticeTimer = pdfSyncNoticeTimers.current.get(fileId);
+    if (previousNoticeTimer) clearTimeout(previousNoticeTimer);
+    pdfSyncNoticeTimers.current.delete(fileId);
     setPdfSync((current) => ({ ...current, [fileId]: 'saving' }));
     try {
       const verifiedData = mode === 'pricing'
@@ -2770,6 +2783,16 @@ function ReceiptImportModal({ open, onClose, onDone, initialDraft, initialFiles 
         return next;
       });
       setPdfSync((current) => ({ ...current, [fileId]: 'saved' }));
+      const noticeTimer = setTimeout(() => {
+        pdfSyncNoticeTimers.current.delete(fileId);
+        setPdfSync((current) => {
+          if (current[fileId] !== 'saved') return current;
+          const next = { ...current };
+          delete next[fileId];
+          return next;
+        });
+      }, PDF_SYNC_SUCCESS_NOTICE_MS);
+      pdfSyncNoticeTimers.current.set(fileId, noticeTimer);
       if (announce) toast('Стоимость сразу перенесена в рабочую PDF-копию', 'ok');
     } catch (error) {
       if (pdfSyncSequence.current[fileId] !== sequence) return;

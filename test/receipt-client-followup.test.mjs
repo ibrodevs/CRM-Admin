@@ -62,6 +62,13 @@ test('supplier PDF sync status stays visible in the upper-right corner', () => {
   assert.match(styles, /@media\(max-width:560px\)\{[\s\S]*\.receipt-edit-preview-note\.is-floating\{top:64px;right:12px/);
 });
 
+test('successful supplier PDF sync notice disappears after confirmation', () => {
+  assert.match(page, /const PDF_SYNC_SUCCESS_NOTICE_MS = 3500/);
+  assert.match(page, /const pdfSyncNoticeTimers = useRef\(new Map\(\)\)/);
+  assert.match(page, /if \(current\[fileId\] !== 'saved'\) return current;[\s\S]*delete next\[fileId\]/);
+  assert.match(page, /}, PDF_SYNC_SUCCESS_NOTICE_MS\)/);
+});
+
 test('receipt editor keeps the avia IT fare action permanently visible', () => {
   assert.match(editor, /const aviaItFareControl = type === 'Авиа'/);
   assert.match(editor, /<b[^>]*>Закрыть тариф на IT<\/b>/);
