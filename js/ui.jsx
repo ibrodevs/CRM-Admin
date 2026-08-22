@@ -428,7 +428,7 @@ function Combobox({ options, value, onChange, placeholder = 'Начните вв
         <Icon name="chevDown" style={{ width: 16, height: 16, color: 'var(--muted-2)' }} />
       </div>
       {open && (
-        <div className="dropdown" style={{ position: 'absolute', top: '100%', left: 0, right: 0, marginTop: 4, zIndex: 60, maxHeight: 280, overflowY: 'auto', padding: 6 }}>
+        <div className="dropdown combobox-dropdown" style={{ position: 'absolute', top: '100%', left: 0, marginTop: 4, zIndex: 60, maxHeight: 280, overflowY: 'auto', padding: 6 }}>
           <div className="search" style={{ margin: '2px 2px 6px' }}>
             <Icon name="search" />
             <input autoFocus value={q} onChange={(e) => setQ(e.target.value)} placeholder="Поиск…" onClick={(e) => e.stopPropagation()} />

@@ -4,6 +4,7 @@ import test from 'node:test';
 import { toLegacyDocument } from '../js/api/legacy-adapters.js';
 
 const editor = await readFile(new URL('../js/features/receipts/editor.jsx', import.meta.url), 'utf8');
+const ui = await readFile(new URL('../js/ui.jsx', import.meta.url), 'utf8');
 const styles = await readFile(new URL('../app/globals.css', import.meta.url), 'utf8');
 const page = await readFile(new URL('../js/page_fulfillment.jsx', import.meta.url), 'utf8');
 
@@ -351,6 +352,9 @@ test('разбивка тарифа и такс использует полно�
   assert.match(styles, /\.receipt-breakdown-grid\{grid-template-columns:minmax\(0,1fr\)\}/);
   assert.match(styles, /\.receipt-breakdown-grid \.receipt-inline-row\{grid-template-columns:minmax\(180px,\.8fr\) minmax\(260px,1\.5fr\) minmax\(160px,\.65fr\) 40px/);
   assert.match(styles, /\.combobox-field\{background-image:none;padding-right:13px\}/);
+  assert.match(ui, /dropdown combobox-dropdown/);
+  assert.match(styles, /\.combobox-dropdown\{\s*width:max-content;min-width:100%;max-width:min\(560px,calc\(100vw - 48px\)\);overflow-x:hidden/);
+  assert.match(styles, /\.combobox-dropdown \.dropdown-item\{\s*min-width:0;max-width:100%;white-space:normal;overflow-wrap:anywhere/);
   assert.match(styles, /\.receipt-breakdown-grid \.receipt-inline-row\.is-following \.label\{display:none\}/);
   assert.match(styles, /\.receipt-breakdown-grid \.receipt-inline-row\.is-readonly\{grid-template-columns:1fr\}/);
 });
