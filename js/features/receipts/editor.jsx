@@ -1456,7 +1456,7 @@ export function ReceiptSpecializedForm({
         ? <ListHeader title={title} onAdd={() => addRow(key, { ...emptyCharge(), currency: p.currency }, `Добавлена строка: ${title}`)} />
         : <div className="receipt-list-head"><b>{title}</b><Pill tone="gray">Данные поставщика</Pill></div>}
       {(p[key] || []).length ? p[key].map((row, index) => <div
-        className={`receipt-inline-row ${(!isTax || correctionMode) ? 'is-editable' : 'is-readonly'}`} key={index}>
+        className={`receipt-inline-row ${index > 0 ? 'is-following ' : ''}${(!isTax || correctionMode) ? 'is-editable' : 'is-readonly'}`} key={index}>
         <Field label={isTax ? 'Код таксы' : 'Тип сбора'}>{isTax
           ? correctionMode
             ? <Combobox options={AVIA_TAX_OPTIONS.some((option) => option.value === row.code) || !row.code
@@ -1507,7 +1507,7 @@ export function ReceiptSpecializedForm({
         {p.priceSource === 'crm' && <Field label="Заказ-источник стоимости"><Input value={p.priceSourceOrder || ''} onChange={(e) => set('priceSourceOrder', e.target.value, 'Заказ-источник стоимости')} /></Field>}
       </div>
       {type === 'Авиа' && <>
-        <div className="receipt-grid-2 receipt-top-gap">
+        <div className="receipt-grid-2 receipt-breakdown-grid receipt-top-gap">
           {breakdown('fareBreakdown', 'Разбивка тарифа', true)}
           {breakdown('taxBreakdown', 'Разбивка такс', true)}
         </div>

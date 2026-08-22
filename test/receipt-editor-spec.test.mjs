@@ -344,3 +344,13 @@ test('сумма в разбивке такс не выходит за гран�
   assert.match(styles, /\.receipt-inline-row\.is-readonly\{grid-template-columns:minmax\(0,\.75fr\) minmax\(0,1\.2fr\) minmax\(76px,\.8fr\)\}/);
   assert.match(styles, /\.receipt-inline-row \.input\{min-width:0;max-width:100%\}/);
 });
+
+test('разбивка тарифа и такс использует полноширинные адаптивные строки без двойной стрелки', () => {
+  assert.match(editor, /receipt-grid-2 receipt-breakdown-grid receipt-top-gap/);
+  assert.match(editor, /index > 0 \? 'is-following ' : ''/);
+  assert.match(styles, /\.receipt-breakdown-grid\{grid-template-columns:minmax\(0,1fr\)\}/);
+  assert.match(styles, /\.receipt-breakdown-grid \.receipt-inline-row\{grid-template-columns:minmax\(180px,\.8fr\) minmax\(260px,1\.5fr\) minmax\(160px,\.65fr\) 40px/);
+  assert.match(styles, /\.combobox-field\{background-image:none;padding-right:13px\}/);
+  assert.match(styles, /\.receipt-breakdown-grid \.receipt-inline-row\.is-following \.label\{display:none\}/);
+  assert.match(styles, /\.receipt-breakdown-grid \.receipt-inline-row\.is-readonly\{grid-template-columns:1fr\}/);
+});

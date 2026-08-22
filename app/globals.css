@@ -236,6 +236,8 @@ textarea.input{height:auto;padding:13px 15px;resize:vertical;line-height:1.5}
 .input-wrap .input{padding-left:42px}
 .input-wrap .input.has-trail{padding-right:42px}
 .select{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%237e889a' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 14px center;background-size:18px;padding-right:42px;cursor:pointer}
+.combobox-field{background-image:none;padding-right:13px}
+.combobox-field>svg{width:16px;height:16px;flex:0 0 16px}
 .search{
   height:48px;border-radius:13px;background:var(--surface-2);border:1px solid transparent;
   display:flex;align-items:center;gap:10px;padding:0 16px;min-width:300px;transition:.14s;
@@ -427,6 +429,10 @@ table.tbl.tbl-wide thead th,table.tbl.tbl-wide tbody td{white-space:nowrap}
 .receipt-inline-row>.field{min-width:0}
 .receipt-inline-row .input{min-width:0;max-width:100%}
 .receipt-inline-row:last-child{margin-bottom:0}
+.receipt-breakdown-grid{grid-template-columns:minmax(0,1fr)}
+.receipt-breakdown-grid .receipt-inline-row{grid-template-columns:minmax(180px,.8fr) minmax(260px,1.5fr) minmax(160px,.65fr) 40px;column-gap:12px}
+.receipt-breakdown-grid .receipt-inline-row.is-readonly{grid-template-columns:minmax(180px,.8fr) minmax(260px,1.5fr) minmax(160px,.65fr)}
+@media (min-width:901px){.receipt-breakdown-grid .receipt-inline-row.is-following .label{display:none}}
 .receipt-extra-row{grid-template-columns:1fr 1.4fr .7fr 38px}
 .receipt-textarea{width:100%;height:auto;min-height:72px;resize:vertical;padding-top:9px;padding-bottom:9px}
 .receipt-locked-input{border-color:var(--line)!important;background:#f6f7f9!important;color:var(--body)!important;cursor:not-allowed}
@@ -589,7 +595,7 @@ table.tbl.tbl-wide thead th,table.tbl.tbl-wide tbody td{white-space:nowrap}
   .receipt-edit-layout{grid-template-columns:1fr}
   .receipt-edit-preview{position:sticky;top:0;padding:8px 0 10px;background:#fff;box-shadow:0 12px 18px -18px rgba(20,40,90,.55)}
   .receipt-form-grid,.receipt-grid-2{grid-template-columns:1fr}
-  .receipt-inline-row,.receipt-extra-row{grid-template-columns:1fr}
+  .receipt-inline-row,.receipt-extra-row,.receipt-breakdown-grid .receipt-inline-row,.receipt-breakdown-grid .receipt-inline-row.is-readonly{grid-template-columns:1fr}
   .receipt-inline-row .receipt-remove{justify-self:end}
   .receipt-audit>div{grid-template-columns:1fr;gap:3px}
   .receipt-source-notice{align-items:flex-start;flex-wrap:wrap}
