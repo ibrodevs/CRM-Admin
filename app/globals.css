@@ -399,6 +399,11 @@ table.tbl.tbl-wide thead th,table.tbl.tbl-wide tbody td{white-space:nowrap}
 .receipt-edit-preview-head small{font-size:11px;color:var(--blue)}
 .receipt-edit-preview-note{display:flex;align-items:center;gap:7px;padding:9px 11px;border-radius:9px;background:var(--blue-soft);color:var(--blue);font-size:12px}
 .receipt-edit-preview-note svg{width:15px;height:15px;flex:0 0 15px}
+.receipt-edit-preview-note.is-floating{
+  position:fixed;top:18px;right:72px;z-index:210;width:max-content;max-width:min(420px,calc(100vw - 96px));
+  border:1px solid #bfd0ff;background:#fff;box-shadow:0 12px 32px rgba(24,48,96,.2)
+}
+.receipt-edit-preview-note.is-floating.is-warning{border-color:#efc36d}
 .receipt-corrected-preview-overlay{display:none;position:fixed;inset:0;z-index:180;place-items:center;padding:24px;background:rgba(20,27,42,.56);backdrop-filter:blur(4px)}
 .receipt-corrected-preview-overlay.is-open{display:grid}
 .receipt-corrected-preview-dialog{width:min(760px,96vw);max-height:94vh;overflow:auto;padding:18px;border-radius:18px;background:#fff;box-shadow:0 24px 80px rgba(10,20,45,.32)}
@@ -2647,6 +2652,7 @@ table.hp-matrix{border-collapse:collapse;width:100%;min-width:640px}
   }
 }
 @media(max-width:560px){
+  .receipt-edit-preview-note.is-floating{top:64px;right:12px;max-width:calc(100vw - 24px)}
   .receipt-edit-preview .receipt-brand-meta,
   .receipt-edit-preview .receipt-brand-passenger-grid,
   .receipt-edit-preview .receipt-brand-segment-grid,

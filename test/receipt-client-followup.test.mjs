@@ -7,6 +7,7 @@ const editor = await readFile(new URL('../js/features/receipts/editor.jsx', impo
 const bindings = await readFile(new URL('../js/forms_unified.jsx', import.meta.url), 'utf8');
 const app = await readFile(new URL('../js/app.jsx', import.meta.url), 'utf8');
 const resources = await readFile(new URL('../js/api/resources.js', import.meta.url), 'utf8');
+const styles = await readFile(new URL('../app/globals.css', import.meta.url), 'utf8');
 
 test('identical rail costs can be selected across the complete import list', () => {
   assert.match(page, /function receiptRailCostSignature\(ticket\)/);
@@ -51,6 +52,14 @@ test('supplier PDF preview sync is polled as a background job instead of holding
   assert.match(page, /async function waitForReceiptPdfJob\(jobId/);
   assert.match(page, /correction\.status === 'queued' && correction\.job_id/);
   assert.match(page, /correction = await waitForReceiptPdfJob\(correction\.job_id\)/);
+});
+
+test('supplier PDF sync status stays visible in the upper-right corner', () => {
+  assert.match(page, /const pdfSyncNote = \(floating = false\) =>/);
+  assert.match(page, /pdfSyncStatus && typeof document !== 'undefined' && ReactDOM\.createPortal\([\s\S]*pdfSyncNote\(true\),[\s\S]*document\.body/);
+  assert.match(page, /role="status" aria-live="polite"/);
+  assert.match(styles, /\.receipt-edit-preview-note\.is-floating\{\s*position:fixed;top:18px;right:72px;z-index:210/);
+  assert.match(styles, /@media\(max-width:560px\)\{[\s\S]*\.receipt-edit-preview-note\.is-floating\{top:64px;right:12px/);
 });
 
 test('receipt editor keeps the avia IT fare action permanently visible', () => {

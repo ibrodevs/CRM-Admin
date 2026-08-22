@@ -1886,6 +1886,21 @@ function ReceiptEditDrawer({ open, file, onClose, onChange, onSubChange, onBrand
     : groupInfo?.count > 1
       ? `Проверка · бланк ${groupInfo.position} из ${groupInfo.count} · ${receiptParticipantLabel(parsed)}`
       : 'Проверка · ' + receiptParticipantLabel(parsed);
+  const pdfSyncNote = (floating = false) => <div className={'receipt-edit-preview-note'
+    + (pdfSyncStatus === 'error' ? ' is-warning' : '')
+    + (floating ? ' is-floating' : '')}
+    role="status" aria-live="polite">
+    <Icon name={pdfSyncStatus === 'saving' ? 'clock' : pdfSyncStatus === 'error' ? 'alertCircle' : 'checkCircle'} />
+    {pdfSyncStatus === 'saving'
+      ? 'Обновляем рабочую PDF-копию…'
+      : pdfSyncStatus === 'saved'
+        ? 'Рабочая PDF-копия уже обновлена. Загруженный исходник сохранён отдельно без изменений.'
+        : pdfSyncStatus === 'error'
+          ? 'Не удалось безопасно перенести стоимость в PDF. Проверьте предупреждение и исходный бланк.'
+          : showSupplierPreview
+            ? 'После изменения стоимости эта рабочая PDF-копия обновится автоматически. Исходник остаётся доступен отдельно.'
+            : 'Предпросмотр обновляется сразу; рабочий PDF обновляется после изменения стоимости.'}
+  </div>;
 
   return (
     <>
@@ -2008,24 +2023,17 @@ function ReceiptEditDrawer({ open, file, onClose, onChange, onSubChange, onBrand
             {showSupplierPreview
               ? <iframe key={`${supplierPreviewKey}-inline`} className="receipt-edit-supplier-frame" title={`Бланк поставщика · страница ${supplierPageNumber}`} src={supplierPreviewUrl} />
               : <ReceiptDocumentPreview type={file.type} draft={editingParsed} />}
-            <div className={'receipt-edit-preview-note' + (pdfSyncStatus === 'error' ? ' is-warning' : '')}>
-              <Icon name={pdfSyncStatus === 'saving' ? 'clock' : pdfSyncStatus === 'error' ? 'alertCircle' : 'checkCircle'} />
-              {pdfSyncStatus === 'saving'
-                ? 'Обновляем рабочую PDF-копию…'
-                : pdfSyncStatus === 'saved'
-                  ? 'Рабочая PDF-копия уже обновлена. Загруженный исходник сохранён отдельно без изменений.'
-                  : pdfSyncStatus === 'error'
-                    ? 'Не удалось безопасно перенести стоимость в PDF. Проверьте предупреждение и исходный бланк.'
-                    : showSupplierPreview
-                      ? 'После изменения стоимости эта рабочая PDF-копия обновится автоматически. Исходник остаётся доступен отдельно.'
-                      : 'Предпросмотр обновляется сразу; рабочий PDF обновляется после изменения стоимости.'}
-            </div>
+            {!pdfSyncStatus && pdfSyncNote()}
           </aside>
           <ReceiptSpecializedForm type={file.type} value={editingParsed} onChange={commitEditingReceipt}
             correctionMode={correctionMode} onToggleCorrection={() => setCorrectionMode((value) => !value)}
             orders={orders} services={services} companies={companies} />
         </div>
       </Drawer>
+      {pdfSyncStatus && typeof document !== 'undefined' && ReactDOM.createPortal(
+        pdfSyncNote(true),
+        document.body,
+      )}
       {previewExpanded && typeof document !== 'undefined' && ReactDOM.createPortal(
         <div id="receipt-corrected-preview"
           className="receipt-corrected-preview-overlay is-open"
