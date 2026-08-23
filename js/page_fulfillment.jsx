@@ -2247,10 +2247,28 @@ function ReceiptImportModal({ open, onClose, onDone, initialDraft, initialFiles 
     });
     mathStateRef.current = next;
     setMath(next);
-    [...new Set(safeTargets.map((row) => String(row.mathKey).split('::blank::')[0]))]
-      .forEach((fileId) => queueWorkingPdfSync(fileId, {
-        mode: 'pricing', delay: 0, announce: safeTargets.length === 1,
+    const affectedFileIds = [...new Set(safeTargets.map((row) => String(row.mathKey).split('::blank::')[0]))];
+    const pricingSnapshots = new Map();
+    const nextFiles = filesStateRef.current.map((file) => {
+      if (!affectedFileIds.includes(file.id)) return file;
+      const verifiedData = verifiedReceiptForSaveWithMath(file, next);
+      pricingSnapshots.set(file.id, verifiedData);
+      if (!receiptHasMultipleSubReceipts(file)) return { ...file, parsed: verifiedData };
+      const subReceipts = (verifiedData.groupTickets || []).map((ticket) => normalizeReceiptDraft(file.type, {
+        ...ticket,
+        groupTickets: [], receipts: [], railTickets: [], receiptItems: [], receiptCount: 1,
       }));
+      return { ...file, parsed: verifiedData, subReceipts };
+    });
+    // Pricing and the receipt form used to be two competing sources of truth.
+    // Persist the priced receipt immediately, so a later review/draft action
+    // cannot restore recognized amounts while the PDF job is still queued.
+    filesStateRef.current = nextFiles;
+    setFiles(nextFiles);
+    affectedFileIds.forEach((fileId) => queueWorkingPdfSync(fileId, {
+      mode: 'pricing', delay: 0, announce: safeTargets.length === 1,
+      verifiedData: pricingSnapshots.get(fileId), financialEdit: true,
+    }));
     if (safeTargets.length > 1) {
       toast(`Сбор, надбавка и комиссия применены к ${safeTargets.length} выбранным бланкам. Рабочие PDF обновляются.`, 'info');
     }
@@ -2443,11 +2461,12 @@ function ReceiptImportModal({ open, onClose, onDone, initialDraft, initialFiles 
   };
   const updateParsed = (id, parsed, options = {}) => {
     const sourceSnapshot = filesStateRef.current.find((file) => file.id === id);
-    if (sourceSnapshot
-      && receiptFinancialFingerprint(sourceSnapshot.parsed) !== receiptFinancialFingerprint(parsed)) {
+    const financialEdit = Boolean(sourceSnapshot
+      && receiptFinancialFingerprint(sourceSnapshot.parsed) !== receiptFinancialFingerprint(parsed));
+    if (financialEdit) {
       syncEditorMath(id, parsed);
     }
-    setFiles((cur) => {
+    const updateFiles = (cur) => {
       const source = cur.find((file) => file.id === id);
       const group = options.applyToGroup
         ? receiptDetectedGroups(cur, importMode).find((items) => items.some((file) => file.id === id))
@@ -2512,12 +2531,21 @@ function ReceiptImportModal({ open, onClose, onDone, initialDraft, initialFiles 
       // PDF sync is debounced, but a quick "Проверено" click can enqueue a
       // request before React runs the effect that mirrors files into the ref.
       // Keep the imperative snapshot current in the same state transaction.
-      filesStateRef.current = next;
       return next;
-    });
+    };
+    const nextFiles = updateFiles(filesStateRef.current);
+    filesStateRef.current = nextFiles;
+    setFiles(nextFiles);
     const reviewedIds = options.applyToGroup ? [id, ...(options.groupFileIds || [])] : [id];
     setReviewed((cur) => reviewedIds.reduce((next, fileId) => ({ ...next, [fileId]: true }), cur));
-    [...new Set(reviewedIds)].forEach((fileId) => queueWorkingPdfSync(fileId, { mode: 'review' }));
+    [...new Set(reviewedIds)].forEach((fileId) => {
+      const changedFile = nextFiles.find((file) => file.id === fileId);
+      queueWorkingPdfSync(fileId, {
+        mode: 'review',
+        verifiedData: changedFile ? verifiedReceiptForReview(changedFile) : null,
+        financialEdit,
+      });
+    });
   };
   const updateSubReceipt = (fileId, subIndex, parsed) => {
     const sourceFile = filesStateRef.current.find((file) => file.id === fileId);
@@ -2526,11 +2554,12 @@ function ReceiptImportModal({ open, onClose, onDone, initialDraft, initialFiles 
       groupTickets: [], receipts: [], railTickets: [], receiptItems: [], receiptCount: 1,
     });
     const sourceChild = sourceFile?.subReceipts?.[subIndex];
-    if (!sourceChild
-      || receiptFinancialFingerprint(sourceChild) !== receiptFinancialFingerprint(editedChild)) {
+    const financialEdit = !sourceChild
+      || receiptFinancialFingerprint(sourceChild) !== receiptFinancialFingerprint(editedChild);
+    if (financialEdit) {
       syncEditorMath(subReceiptMathKey(fileId, subIndex), editedChild);
     }
-    setFiles((cur) => {
+    const updateFiles = (cur) => {
       const next = cur.map((file) => {
         if (file.id !== fileId) return file;
         const child = normalizeReceiptDraft(file.type, editedChild);
@@ -2561,10 +2590,17 @@ function ReceiptImportModal({ open, onClose, onDone, initialDraft, initialFiles 
       // Keep the imperative snapshot used by the debounced PDF request in
       // lockstep with the visible editor state. Waiting for useEffect here can
       // send the previous ticket prices and produce requested=0.
-      filesStateRef.current = next;
       return next;
+    };
+    const nextFiles = updateFiles(filesStateRef.current);
+    filesStateRef.current = nextFiles;
+    setFiles(nextFiles);
+    const changedFile = nextFiles.find((file) => file.id === fileId);
+    queueWorkingPdfSync(fileId, {
+      mode: 'review',
+      verifiedData: changedFile ? verifiedReceiptForReview(changedFile) : null,
+      financialEdit,
     });
-    queueWorkingPdfSync(fileId, { mode: 'review' });
   };
   const markReviewed = (id, _parsed, options = {}) => {
     const reviewedIds = options.applyToGroup ? [id, ...(options.groupFileIds || [])] : [id];
@@ -2829,7 +2865,7 @@ function ReceiptImportModal({ open, onClose, onDone, initialDraft, initialFiles 
     };
   };
 
-  async function syncWorkingSupplierPdf(fileId, sequence, mode, announce) {
+  async function syncWorkingSupplierPdf(fileId, sequence, mode, announce, submittedSnapshot, financialEdit) {
     const file = filesStateRef.current.find((item) => item.id === fileId);
     const sourceDocumentId = file?.sourceDocumentId || file?.serverId;
     if (!file || !sourceDocumentId) return;
@@ -2844,13 +2880,17 @@ function ReceiptImportModal({ open, onClose, onDone, initialDraft, initialFiles 
       // Sending the recognized source amounts from that second request used
       // to make the backend legitimately remove the corrected PDF version,
       // so the price appeared to change and then silently reverted.
-      const verifiedData = verifiedReceiptForSaveWithMath(file, mathStateRef.current);
+      const verifiedData = submittedSnapshot
+        || (mode === 'pricing'
+          ? verifiedReceiptForSaveWithMath(file, mathStateRef.current)
+          : verifiedReceiptForReview(file));
       const saved = await documentsApi.updateReceipt(sourceDocumentId, {
         draft: true,
         verified_data: verifiedData,
         output_settings: verifiedData.output || { mode: 'original' },
         audit_log: verifiedData.auditLog || [],
         preview_sync: true,
+        pdf_financial_edit: Boolean(financialEdit),
       });
       if (pdfSyncSequence.current[fileId] !== sequence) return;
       let correction = saved?.supplier_pdf_correction || {};
@@ -2892,7 +2932,9 @@ function ReceiptImportModal({ open, onClose, onDone, initialDraft, initialFiles 
     }
   }
 
-  function queueWorkingPdfSync(fileId, { mode = 'review', delay = 700, announce = false } = {}) {
+  function queueWorkingPdfSync(fileId, {
+    mode = 'review', delay = 700, announce = false, verifiedData = null, financialEdit = false,
+  } = {}) {
     const existing = pdfSyncTimers.current.get(fileId);
     if (existing) clearTimeout(existing);
     const sequence = (pdfSyncSequence.current[fileId] || 0) + 1;
@@ -2902,7 +2944,7 @@ function ReceiptImportModal({ open, onClose, onDone, initialDraft, initialFiles 
       const previous = pdfSyncChains.current[fileId] || Promise.resolve();
       const current = previous
         .catch(() => undefined)
-        .then(() => syncWorkingSupplierPdf(fileId, sequence, mode, announce));
+        .then(() => syncWorkingSupplierPdf(fileId, sequence, mode, announce, verifiedData, financialEdit));
       pdfSyncChains.current[fileId] = current;
       void current.finally(() => {
         if (pdfSyncChains.current[fileId] === current) delete pdfSyncChains.current[fileId];

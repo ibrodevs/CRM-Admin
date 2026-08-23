@@ -61,7 +61,15 @@ test('direct grouped-ticket edits replace stale pricing state before PDF sync', 
   assert.match(page, /fee: Math\.round\(\(Number\(receipt\?\.fees\) \|\| 0\) \* 100\) \/ 100/);
   assert.match(page, /mathStateRef\.current = next;[\s\S]*setMath\(next\)/);
   assert.match(page, /syncEditorMath\(subReceiptMathKey\(fileId, subIndex\), editedChild\)/);
-  assert.match(page, /filesStateRef\.current = next;[\s\S]*queueWorkingPdfSync\(fileId, \{ mode: 'review' \}\)/);
+  assert.match(page, /const nextFiles = updateFiles\(filesStateRef\.current\);[\s\S]*filesStateRef\.current = nextFiles;[\s\S]*verifiedData: changedFile \? verifiedReceiptForReview\(changedFile\) : null/);
+  assert.match(page, /const verifiedData = submittedSnapshot[\s\S]*mode === 'pricing'[\s\S]*verifiedReceiptForReview\(file\)/);
+  assert.match(page, /pdf_financial_edit: Boolean\(financialEdit\)/);
+});
+
+test('pricing snapshots are persisted before a review can enqueue stale recognized prices', () => {
+  assert.match(page, /const pricingSnapshots = new Map\(\)/);
+  assert.match(page, /const verifiedData = verifiedReceiptForSaveWithMath\(file, next\)/);
+  assert.match(page, /filesStateRef\.current = nextFiles;[\s\S]*setFiles\(nextFiles\);[\s\S]*verifiedData: pricingSnapshots\.get\(fileId\), financialEdit: true/);
 });
 
 test('supplier preview explains corrected copy and keeps source available', () => {
