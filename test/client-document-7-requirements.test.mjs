@@ -38,11 +38,11 @@ test('highlighted bulk calculation block is removed without breaking identical-c
 });
 
 test('opening and closing a printable blank keeps every receipt editor open', () => {
-  assert.match(fulfillment, /onBrand=\{\(\) => \{ setBrandId\(editId\); \}\}/);
-  assert.match(fulfillment, /onBrand=\{\(\) => \{ setBrandId\(subEdit\.fileId\); \}\}/);
+  assert.match(fulfillment, /onBrand=\{\(blankIndex\) => \{ setBrandTarget\(\{ fileId: editId, blankIndex \}\); \}\}/);
+  assert.match(fulfillment, /onBrand=\{\(\) => \{ setBrandTarget\(\{ fileId: subEdit\.fileId, blankIndex: subEdit\.index \}\); \}\}/);
   assert.match(fulfillment, /onBrand=\{\(\) => \{ setReceiptBrand\(receiptEdit\); \}\}/);
-  assert.match(fulfillment, /onBrand=\{\(\) => \{ setBrandEdit\(edit\); \}\}/);
-  assert.doesNotMatch(fulfillment, /setBrandId\(editId\); setEditId\(null\)/);
+  assert.match(fulfillment, /onBrand=\{\(blankIndex\) => \{ setBrandEdit\(receiptBrandFileForBlank\(edit, blankIndex\)\); \}\}/);
+  assert.doesNotMatch(fulfillment, /setBrandTarget\([^\n]+\); setEditId\(null\)/);
   assert.doesNotMatch(fulfillment, /setReceiptBrand\(receiptEdit\); setReceiptEdit\(null\)/);
   assert.doesNotMatch(fulfillment, /setBrandEdit\(edit\); closeReceiptEditor\(\)/);
 });

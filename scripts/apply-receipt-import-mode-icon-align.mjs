@@ -58,12 +58,12 @@ await patchTextFile('js/page_fulfillment.jsx', [
   {
     label: 'не закрывать основной редактор при открытии фирменного бланка',
     before: `        onBrand={() => { setBrandId(editId); setEditId(null); }} />`,
-    after: `        onBrand={() => { setBrandId(editId); }} />`,
+    after: `        onBrand={(blankIndex) => { setBrandTarget({ fileId: editId, blankIndex }); }} />`,
   },
   {
     label: 'не закрывать редактор отдельного билета при открытии фирменного бланка',
     before: `        onBrand={() => { setBrandId(subEdit.fileId); setSubEdit(null); }} />`,
-    after: `        onBrand={() => { setBrandId(subEdit.fileId); }} />`,
+    after: `        onBrand={() => { setBrandTarget({ fileId: subEdit.fileId, blankIndex: subEdit.index }); }} />`,
   },
   {
     label: 'не закрывать редактор документа внутри заказа при открытии фирменного бланка',
@@ -73,7 +73,7 @@ await patchTextFile('js/page_fulfillment.jsx', [
   {
     label: 'не закрывать реестровый редактор при открытии фирменного бланка',
     before: `        onBrand={() => { setBrandEdit(edit); closeReceiptEditor(); }} />`,
-    after: `        onBrand={() => { setBrandEdit(edit); }} />`,
+    after: `        onBrand={(blankIndex) => { setBrandEdit(receiptBrandFileForBlank(edit, blankIndex)); }} />`,
   },
   {
     label: 'корректное имя маршрут-квитанции в типах импорта',

@@ -1569,6 +1569,35 @@ function receiptGroupedTickets(file) {
   return parsed.groupTickets || parsed.receiptItems || parsed.receipts || parsed.railTickets || [];
 }
 
+function receiptBrandFileForBlank(file, blankIndex = 0) {
+  if (!file) return null;
+  const type = file.type || file.editorType || 'ЖД';
+  const tickets = receiptGroupedTickets({ ...file, type });
+  // A one-ticket compatibility wrapper is not a real group; its parent stays
+  // authoritative. Multi-ticket supplier PDFs must always produce one client
+  // document per selected ticket, never a parent aggregate.
+  if (tickets.length <= 1) return file;
+  const index = Math.max(0, Math.min(tickets.length - 1, Number(blankIndex) || 0));
+  const parent = file.parsed || {};
+  const ticket = normalizeReceiptDraft(type, {
+    ...tickets[index],
+    crmBindingMode: tickets[index]?.crmBindingMode || parent.crmBindingMode,
+    crmOrderId: tickets[index]?.crmOrderId || parent.crmOrderId,
+    crmOrderNo: tickets[index]?.crmOrderNo || parent.crmOrderNo,
+    crmPersonId: tickets[index]?.crmPersonId || parent.crmPersonId,
+    crmPerson: tickets[index]?.crmPerson || parent.crmPerson,
+    crmCompanyId: tickets[index]?.crmCompanyId || parent.crmCompanyId,
+    crmCompany: tickets[index]?.crmCompany || parent.crmCompany,
+    crmService: tickets[index]?.crmService || parent.crmService,
+    crmServiceId: tickets[index]?.crmServiceId || parent.crmServiceId,
+    crmTrip: tickets[index]?.crmTrip || parent.crmTrip,
+    crmTripId: tickets[index]?.crmTripId || parent.crmTripId,
+    output: tickets[index]?.output || parent.output,
+    groupTickets: [], receiptItems: [], receipts: [], railTickets: [], receiptCount: 1,
+  });
+  return { ...file, parsed: ticket, subReceipts: [], brandBlankIndex: index };
+}
+
 function receiptHasMultipleSubReceipts(file) {
   return Array.isArray(file?.subReceipts) && file.subReceipts.length > 1;
 }
@@ -1947,7 +1976,7 @@ function ReceiptEditDrawer({ open, file, onClose, onChange, onSubChange, onBrand
         width="min(1280px,98vw)" className="receipt-editor-drawer"
         footer={<>
           {file.originalUrl && <Button variant="secondary" icon="eye" onClick={() => window.open(supplierPreviewUrl, '_blank', 'noopener,noreferrer')}>Оригинал поставщика с корректировками</Button>}
-          {onBrand && <Button variant="secondary" icon="template" onClick={onBrand}>Фирменный бланк</Button>}
+          {onBrand && <Button variant="secondary" icon="template" onClick={() => onBrand(hasTicketGroup ? safeBlankIndex : null)}>Фирменный бланк</Button>}
           {isAviaTicketGroup ? <Button style={{ flex: 1 }} icon="check" disabled={currentMissing.length > 0}
             onClick={() => setConfirmGroupApply(true)}>Проверить и применить к {groupTickets.length} бланкам</Button> : hasTicketGroup ? <>
             <Button variant="secondary" icon="chevLeft" disabled={safeBlankIndex === 0}
@@ -2163,7 +2192,7 @@ function ReceiptImportModal({ open, onClose, onDone, initialDraft, initialFiles 
   const [sel, setSel] = useState({});
   const [pricingSel, setPricingSel] = useState({});
   const [mathId, setMathId] = useState(null);
-  const [brandId, setBrandId] = useState(null);
+  const [brandTarget, setBrandTarget] = useState(null);
   const [pdfSync, setPdfSync] = useState({});
   const [draftSavedAt, setDraftSavedAt] = useState('');
   const [dragActive, setDragActive] = useState(false);
@@ -2206,7 +2235,7 @@ function ReceiptImportModal({ open, onClose, onDone, initialDraft, initialFiles 
     setSel(draft?.sel || {});
     setPricingSel(draft?.pricingSel || {});
     setMathId(null);
-    setBrandId(null);
+    setBrandTarget(null);
     pdfSyncNoticeTimers.current.forEach((timer) => clearTimeout(timer));
     pdfSyncNoticeTimers.current.clear();
     setPdfSync({});
@@ -2785,7 +2814,8 @@ function ReceiptImportModal({ open, onClose, onDone, initialDraft, initialFiles 
       blankIndex: index,
     }))).find((file) => file.id === mathId)
     || null;
-  const brandFile = files.find((f) => f.id === brandId) || null;
+  const brandParentFile = files.find((f) => f.id === brandTarget?.fileId) || null;
+  const brandFile = receiptBrandFileForBlank(brandParentFile, brandTarget?.blankIndex);
   const subEditParent = files.find((f) => f.id === subEdit?.fileId) || null;
   const subEditReceipt = subEditParent?.subReceipts?.[subEdit?.index] || null;
   const hasOrderTarget = bindTarget.mode === 'order' && bindTarget.order && bindTarget.order.id;
@@ -3272,7 +3302,7 @@ function ReceiptImportModal({ open, onClose, onDone, initialDraft, initialFiles 
                                       <button className="btn btn-ghost btn-sm" onClick={() => setExcluded((state) => ({ ...state, [r.f.id]: !state[r.f.id] }))}>
                                         <Icon name={!skipped ? 'check' : 'orders'} /> {!skipped ? 'Добавляется' : 'Добавить в заказ'}
                                       </button>
-                                      <button className="btn btn-ghost btn-sm" title="Предпросмотр и сохранение на фирменном бланке" onClick={() => setBrandId(r.f.id)}><Icon name="template" style={{ width: 14, height: 14 }} /> На бланке</button>
+                                      <button className="btn btn-ghost btn-sm" title="Предпросмотр и сохранение на фирменном бланке" onClick={() => setBrandTarget({ fileId: r.f.id, blankIndex: 0 })}><Icon name="template" style={{ width: 14, height: 14 }} /> На бланке</button>
                                     </div>
                                   )}
                               </td>
@@ -3333,6 +3363,9 @@ function ReceiptImportModal({ open, onClose, onDone, initialDraft, initialFiles 
                                     <button type="button" className="btn btn-ghost btn-sm" onClick={() => setSubEdit({ fileId: r.f.id, index: subIndex })}>
                                       Изменить билет
                                     </button>
+                                    <button type="button" className="btn btn-ghost btn-sm" onClick={() => setBrandTarget({ fileId: r.f.id, blankIndex: subIndex })}>
+                                      На бланке
+                                    </button>
                                     {r.f.type === 'ЖД' && identicalCostCount > 1 && <button type="button" className="btn btn-ghost btn-sm"
                                       onClick={() => selectIdenticalRailPricing(currentPricingRow)}>
                                       Редактировать одинаковую стоимость ({identicalCostCount})
@@ -3372,7 +3405,7 @@ function ReceiptImportModal({ open, onClose, onDone, initialDraft, initialFiles 
                           <td data-label="Оригинал поставщика"><b>{recSourceMoney(p)}</b><small className="receipt-pricing-meta">{r.f.name}</small></td>
                           <td data-label="Клиенту"><button type="button" className="btn btn-ghost btn-sm receipt-pricing-math" onClick={() => setMathId(r.mathKey)}><b>{recMoney(clientTotal(m), p.currency)}</b><small>изменить математику</small></button></td>
                           <td data-label="Версии"><span className="receipt-pricing-versions"><Pill tone="blue">v1 поставщик</Pill><Pill tone="amber">v2 CRM</Pill>{pdfSync[r.f.id] === 'saving' && <Pill tone="blue">PDF обновляется</Pill>}{pdfSync[r.f.id] === 'saved' && <Pill tone="green">PDF обновлён</Pill>}{pdfSync[r.f.id] === 'error' && <Pill tone="red">Проверьте PDF</Pill>}</span></td>
-                          <td data-label="Документ"><Button size="sm" variant="secondary" icon="template" onClick={() => setBrandId(r.f.id)}>Бланк CRM</Button></td>
+                          <td data-label="Документ"><Button size="sm" variant="secondary" icon="template" onClick={() => setBrandTarget({ fileId: r.f.id, blankIndex: r.blankIndex })}>Бланк CRM</Button></td>
                         </tr>
                       );
                     })}</tbody>
@@ -3423,7 +3456,7 @@ function ReceiptImportModal({ open, onClose, onDone, initialDraft, initialFiles 
       <ReceiptEditDrawer open={!!editFile} file={editFile} onClose={() => setEditId(null)} onChange={updateParsed} onSubChange={updateSubReceipt} onReview={markReviewed}
         pdfSyncStatus={editFile ? pdfSync[editFile.id] : ''}
         groupInfo={editFile ? groupInfoByFile[editFile.id] : null}
-        onBrand={() => { setBrandId(editId); }} />
+        onBrand={(blankIndex) => { setBrandTarget({ fileId: editId, blankIndex }); }} />
       <ReceiptEditDrawer open={!!subEditReceipt} file={subEditReceipt ? {
         id: `${subEdit.fileId}-ticket-${subEdit.index}`,
         type: subEditParent.type,
@@ -3438,14 +3471,14 @@ function ReceiptImportModal({ open, onClose, onDone, initialDraft, initialFiles 
           updateSubReceipt(subEdit.fileId, subEdit.index, parsed);
           return true;
         }}
-        onBrand={() => { setBrandId(subEdit.fileId); }} />
+        onBrand={() => { setBrandTarget({ fileId: subEdit.fileId, blankIndex: subEdit.index }); }} />
       <ReceiptMathDrawer open={!!mathFile} file={mathFile} math={mathFile ? getMath(mathFile.id, mathFile.parsed) : null}
         applyCount={mathFile && pricingSel[mathFile.id] ? selectedPricingRows.length : 1}
         onSave={(patch) => { setMathFor(mathFile.id, mathFile.parsed, patch); }} onClose={() => setMathId(null)} />
 
       <ReceiptBrandDocumentDrawer open={!!brandFile} type={brandFile?.type} draft={brandFile?.parsed}
         originalUrl={brandFile?.originalUrl} sourceOriginalUrl={brandFile?.sourceOriginalUrl}
-        onClose={() => setBrandId(null)} />
+        onClose={() => setBrandTarget(null)} />
       <Drawer open={confirmClose} onClose={() => setConfirmClose(false)} title="Закрыть импорт?"
         sub="Проверьте, какие бланки сохранятся в черновик"
         width="min(780px,96vw)"
@@ -3919,7 +3952,7 @@ function ReceiptEditorPage({ documents = [], orders = [], services = [], compani
                           <Button size="sm" variant="ghost" onClick={() => { editDirty.current = false; setEdit(d); }}>{d.isReceiptDraft ? 'Продолжить черновик' : recognition === 'Требует проверки' ? 'Проверить' : 'Изменить'}</Button>
                           {d.originalUrl && <Button size="sm" variant="ghost" icon="eye" onClick={() => window.open(freshSupplierDocumentUrl(d.originalUrl), '_blank', 'noopener,noreferrer')}>Оригинал с правками</Button>}
                           {d.sourceOriginalUrl && <Button size="sm" variant="ghost" onClick={() => window.open(inlineSupplierDocumentUrl(d.sourceOriginalUrl), '_blank', 'noopener,noreferrer')}>Исходный</Button>}
-                          <Button size="sm" variant="ghost" icon="template" onClick={() => setBrandEdit(d)}>На бланке</Button>
+                          <Button size="sm" variant="ghost" icon="template" onClick={() => setBrandEdit(receiptBrandFileForBlank(d, 0))}>На бланке</Button>
                           {order && <Button size="sm" variant="ghost" icon="orders" onClick={() => onOpenOrder?.(order, 'documents')}>Заказ</Button>}
                           <Button size="sm" variant="ghost" icon="trash" onClick={() => removeReceipt(d)}>Удалить</Button>
                         </div></td>
@@ -3951,7 +3984,8 @@ function ReceiptEditorPage({ documents = [], orders = [], services = [], compani
                             <td data-label="Проверка"><Pill tone={receiptBlankIsReviewed(ticket) ? 'green' : 'amber'}>
                               {receiptBlankIsReviewed(ticket) ? 'Проверено' : 'Не проверено'}
                             </Pill></td>
-                            <td data-label="Операции"><Button size="sm" variant="ghost" onClick={() => openGroupTicketEditor(d, ticketIndex)}>Изменить бланк</Button></td>
+                            <td data-label="Операции"><Button size="sm" variant="ghost" onClick={() => openGroupTicketEditor(d, ticketIndex)}>Изменить бланк</Button>
+                              <Button size="sm" variant="ghost" icon="template" onClick={() => setBrandEdit(receiptBrandFileForBlank(d, ticketIndex))}>На бланке</Button></td>
                           </tr>
                         );
                       })}
@@ -3971,7 +4005,7 @@ function ReceiptEditorPage({ documents = [], orders = [], services = [], compani
         onChange={updateLocalReceipt} onReview={(fileId, parsed) => saveReceipt(fileId, parsed, false)}
         pdfSyncStatus={edit ? registryPdfSync[edit.serverId || edit.id] : ''}
         orders={orders} services={services} companies={companies}
-        onBrand={() => { setBrandEdit(edit); }} />
+        onBrand={(blankIndex) => { setBrandEdit(receiptBrandFileForBlank(edit, blankIndex)); }} />
 
       <ReceiptBrandDocumentDrawer open={!!brandEdit} type={brandEdit?.editorType} draft={brandEdit?.parsed}
         originalUrl={brandEdit?.originalUrl} sourceOriginalUrl={brandEdit?.sourceOriginalUrl}
