@@ -1200,10 +1200,29 @@ function receiptWithPricing(type, receipt, pricing) {
 
   return normalizeReceiptDraft(type, { ...receipt, total: clientAmount, ...pricingFields });
 }
+function receiptMoneyNumber(value) {
+  if (typeof value === 'number') return Number.isFinite(value) ? value : NaN;
+  const raw = String(value ?? '').trim();
+  if (!raw) return NaN;
+  const compact = raw.replace(/[\s\u00a0\u202f]/g, '').replace(/[^\d,.+\-]/g, '');
+  const lastComma = compact.lastIndexOf(',');
+  const lastDot = compact.lastIndexOf('.');
+  let normalized = compact;
+  if (lastComma >= 0 && lastDot >= 0) {
+    const decimalSeparator = lastComma > lastDot ? ',' : '.';
+    const thousandsSeparator = decimalSeparator === ',' ? /\./g : /,/g;
+    normalized = compact.replace(thousandsSeparator, '').replace(decimalSeparator, '.');
+  } else if (lastComma >= 0) {
+    normalized = compact.replace(/,/g, '.');
+  }
+  const number = Number(normalized);
+  return Number.isFinite(number) ? number : NaN;
+}
+
 const receiptImportMoney = (...values) => {
   const numbers = values
     .filter((value) => value !== undefined && value !== null && value !== '')
-    .map(Number)
+    .map(receiptMoneyNumber)
     .filter(Number.isFinite);
   return numbers.find((value) => value !== 0) ?? numbers[0] ?? 0;
 };
@@ -1552,14 +1571,43 @@ function receiptBlankIsReviewed(ticket) {
 }
 
 function receiptRailCostSignature(ticket) {
-  const total = Number(ticket?.originalTotal ?? ticket?.original_total ?? ticket?.total);
-  const components = Number(ticket?.ticketCost || ticket?.ticket_cost || 0)
-    + Number(ticket?.reservedSeatCost || ticket?.reserved_seat_cost || 0)
-    + Number(ticket?.agencyServiceFee || ticket?.agency_service_fee || 0)
-    + Number(ticket?.additionalFees || ticket?.additional_fees || 0);
-  const amount = Number.isFinite(total) && total > 0 ? total : components;
+  const componentValues = [
+    ticket?.ticketCost ?? ticket?.ticket_cost,
+    ticket?.reservedSeatCost ?? ticket?.reserved_seat_cost,
+    ticket?.agencyServiceFee ?? ticket?.agency_service_fee,
+    ticket?.additionalFees ?? ticket?.additional_fees,
+  ].map(receiptMoneyNumber);
+  const hasComponents = componentValues.some((value) => Number.isFinite(value) && value !== 0);
+  const components = componentValues.reduce((sum, value) => sum + (Number.isFinite(value) ? value : 0), 0);
+  const total = receiptMoneyNumber(ticket?.originalTotal ?? ticket?.original_total ?? ticket?.total);
+  // Ticket-level components are more reliable for grouped PDFs: some legacy
+  // payloads copied the parent aggregate into every child's originalTotal.
+  const amount = hasComponents ? components : total;
   if (!(amount > 0)) return '';
   return `${String(ticket?.currency || 'RUB').toUpperCase()}::${Math.round(amount * 100)}`;
+}
+
+function receiptRailSignatureAmount(signature) {
+  const cents = Number(String(signature || '').split('::')[1]);
+  return Number.isFinite(cents) ? cents / 100 : 0;
+}
+
+function receiptIdenticalRailPricingGroups(pricingRows, fileId) {
+  const railRows = (pricingRows || []).filter((row) => row?.f?.type === 'ЖД');
+  const rowsBySignature = new Map();
+  railRows.forEach((row) => {
+    const signature = receiptRailCostSignature(row.parsed);
+    if (!signature) return;
+    rowsBySignature.set(signature, [...(rowsBySignature.get(signature) || []), row]);
+  });
+  const seen = new Set();
+  return railRows.filter((row) => row.f.id === fileId).flatMap((sourceRow) => {
+    const signature = receiptRailCostSignature(sourceRow.parsed);
+    if (!signature || seen.has(signature)) return [];
+    seen.add(signature);
+    const matches = rowsBySignature.get(signature) || [];
+    return matches.length > 1 ? [{ signature, sourceRow, matches }] : [];
+  });
 }
 
 function receiptGroupedTickets(file) {
@@ -2852,6 +2900,10 @@ function ReceiptImportModal({ open, onClose, onDone, initialDraft, initialFiles 
     return pricingRows.filter((row) => row.f.type === 'ЖД'
       && receiptRailCostSignature(row.parsed) === signature);
   };
+  const identicalRailPricingGroupsForFile = (file) => {
+    if (file?.type !== 'ЖД') return [];
+    return receiptIdenticalRailPricingGroups(pricingRows, file.id);
+  };
   const selectIdenticalRailPricing = (sourceRow) => {
     const matches = identicalRailPricingRows(sourceRow);
     if (matches.length < 2) {
@@ -3232,8 +3284,7 @@ function ReceiptImportModal({ open, onClose, onDone, initialDraft, initialFiles 
                             Number(p.receiptCount || p.receipt_count || 0),
                           );
                           const reviewedBlankCount = (r.f.subReceipts || []).filter(receiptBlankIsReviewed).length;
-                          const parentPricingRow = pricingRows.find((row) => row.mathKey === r.f.id);
-                          const sameRailParentRows = parentPricingRow ? identicalRailPricingRows(parentPricingRow) : [];
+                          const sameRailGroups = identicalRailPricingGroupsForFile(r.f);
                           return (
                             <React.Fragment key={r.f.id}>
                             <tr className={'rec-import-row' + (r.f.subReceipts?.length ? ' has-subrows' : '')} style={{ opacity: skipped ? 0.5 : 1 }}>
@@ -3294,10 +3345,10 @@ function ReceiptImportModal({ open, onClose, onDone, initialDraft, initialFiles 
                                           addFiles([raw]);
                                         } else setEditId(r.f.id);
                                       }}>{(r.f.subReceipts || []).length > 1 ? 'Проверить бланки по очереди' : (displayStatus === 'Требует проверки' ? 'Проверить и заполнить' : st.action)}</button>
-                                      {sameRailParentRows.length > 1 && <button type="button" className="btn btn-ghost btn-sm"
-                                        onClick={() => selectIdenticalRailPricing(parentPricingRow)}>
-                                        Одинаковая стоимость ({sameRailParentRows.length})
-                                      </button>}
+                                      {sameRailGroups.map((group) => <button type="button" className="btn btn-ghost btn-sm"
+                                        key={group.signature} onClick={() => selectIdenticalRailPricing(group.sourceRow)}>
+                                        Одинаковая стоимость {recMoney(receiptRailSignatureAmount(group.signature), group.sourceRow.parsed.currency)} ({group.matches.length})
+                                      </button>)}
                                       {r.f.originalUrl && <button className="btn btn-ghost btn-sm" onClick={() => window.open(inlineSupplierDocumentUrl(r.f.originalUrl), '_blank', 'noopener,noreferrer')}><Icon name="eye" /> Оригинал</button>}
                                       <button className="btn btn-ghost btn-sm" onClick={() => setExcluded((state) => ({ ...state, [r.f.id]: !state[r.f.id] }))}>
                                         <Icon name={!skipped ? 'check' : 'orders'} /> {!skipped ? 'Добавляется' : 'Добавить в заказ'}
