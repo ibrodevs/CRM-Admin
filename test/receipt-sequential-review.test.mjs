@@ -85,8 +85,8 @@ test('multi-page aviation groups use one confirmation and preserve individual ti
 test('group corrections update child blank cards and the supplier-PDF save payload', () => {
   const updateBlock = page.match(/const updateParsed = \(id, parsed, options = \{\}\) => \{[\s\S]*?\n  \};\n  const updateSubReceipt/);
   assert.ok(updateBlock, 'updateParsed block must exist');
-  assert.match(updateBlock[0], /normalized\.groupTickets\?\.length/);
-  assert.match(updateBlock[0], /return \{ \.\.\.file, parsed: normalized, \.\.\.\(subReceipts\?\.length \? \{ subReceipts \} : \{\}\) \}/);
+  assert.match(updateBlock[0], /normalized\.groupTickets\?\.length > 1/);
+  assert.match(updateBlock[0], /return \{ \.\.\.file, parsed: normalized, subReceipts \}/);
   assert.match(updateBlock[0], /targetSubReceipts\.length/);
   assert.match(updateBlock[0], /parsed: aggregateReceiptSubrows\(targetParent, targetSubReceipts, file\.type\)/);
 
@@ -94,6 +94,29 @@ test('group corrections update child blank cards and the supplier-PDF save paylo
   assert.match(page, /const verifiedReceiptForSave = \(file\) =>/);
   assert.match(page, /verified_data: verifiedForSave/);
   assert.match(page, /const p = verifiedReceiptForSave\(r\.f\)/);
+});
+
+
+test('single rail receipt keeps visible parent prices as the PDF sync source', () => {
+  assert.match(page, /function receiptHasMultipleSubReceipts\(file\)/);
+  assert.match(page, /file\.subReceipts\.length > 1/);
+
+  const updateBlock = page.match(/const updateParsed = \(id, parsed, options = \{\}\) => \{[\s\S]*?\n  \};\n  const updateSubReceipt/);
+  assert.ok(updateBlock, 'updateParsed block must exist');
+  assert.match(updateBlock[0], /compatibility `receipts: \[ticket\]` value is not a real group/);
+  assert.match(updateBlock[0], /receiptHasMultipleSubReceipts\(file\) \? file\.subReceipts : \[\]/);
+
+  const saveBlock = page.match(/const verifiedReceiptForSaveWithMath = \(file, mathState\) => \{[\s\S]*?\n  \};\n  const verifiedReceiptForSave/);
+  assert.ok(saveBlock, 'verifiedReceiptForSaveWithMath block must exist');
+  assert.match(saveBlock[0], /if \(!receiptHasMultipleSubReceipts\(file\)\)/);
+  assert.match(saveBlock[0], /receiptWithPricing\(file\.type, parent, mathForFileWithState\(file, mathState\)\)/);
+
+  const helperSource = page.match(/function receiptHasMultipleSubReceipts\(file\) \{[\s\S]*?\n\}/)?.[0];
+  assert.ok(helperSource, 'receiptHasMultipleSubReceipts helper must exist');
+  const hasMultiple = Function(`${helperSource}; return receiptHasMultipleSubReceipts;`)();
+  assert.equal(hasMultiple({ subReceipts: [{ total: 1225.6 }] }), false);
+  assert.equal(hasMultiple({ subReceipts: [{ total: 100 }, { total: 200 }] }), true);
+  assert.match(updateBlock[0], /filesStateRef\.current = next/);
 });
 
 

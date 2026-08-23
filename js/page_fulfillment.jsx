@@ -1569,6 +1569,10 @@ function receiptGroupedTickets(file) {
   return parsed.groupTickets || parsed.receiptItems || parsed.receipts || parsed.railTickets || [];
 }
 
+function receiptHasMultipleSubReceipts(file) {
+  return Array.isArray(file?.subReceipts) && file.subReceipts.length > 1;
+}
+
 function receiptGroupNeedsSequentialReview(file) {
   const tickets = receiptGroupedTickets(file);
   return tickets.length > 1 && !tickets.every(receiptBlankIsReviewed);
@@ -2221,7 +2225,7 @@ function ReceiptImportModal({ open, onClose, onDone, initialDraft, initialFiles 
   const clientTotal = (m) => Math.round((Number(m.tariff) || 0) + (Number(m.fee) || 0) + (Number(m.markup) || 0));
   const subReceiptMathKey = (fileId, index) => fileId + '::blank::' + index;
   const mathForFileWithState = (file, mathState) => {
-    if (!file?.subReceipts?.length) return getMathFrom(mathState, file.id, file?.parsed);
+    if (!receiptHasMultipleSubReceipts(file)) return getMathFrom(mathState, file.id, file?.parsed);
     return file.subReceipts.reduce((total, receipt, index) => {
       const row = getMathFrom(mathState, subReceiptMathKey(file.id, index), receipt);
       return {
@@ -2396,20 +2400,28 @@ function ReceiptImportModal({ open, onClose, onDone, initialDraft, initialFiles 
         : null;
       const groupedIds = group?.map((file) => file.id) || options.groupFileIds || [];
       const sharedPatch = source ? receiptSharedGroupPatch(source.type, parsed) : {};
-      return cur.map((file) => {
+      const next = cur.map((file) => {
         if (file.id === id) {
           const normalized = normalizeReceiptDraft(file.type, {
           ...parsed,
           recognitionPending: false,
           manualCompletion: Boolean(file.error || file.parsed?.recognitionPending || parsed.manualCompletion),
           });
-          const subReceipts = normalized.groupTickets?.length
+          const normalizedSubReceipts = normalized.groupTickets?.length > 1
             ? normalized.groupTickets.map((ticket) => normalizeReceiptDraft(file.type, {
               ...ticket,
               groupTickets: [], receipts: [], railTickets: [], receiptItems: [], receiptCount: 1,
             }))
-            : file.subReceipts;
-          return { ...file, parsed: normalized, ...(subReceipts?.length ? { subReceipts } : {}) };
+            : [];
+          // A compatibility `receipts: [ticket]` value is not a real group.
+          // Promoting it to subReceipts made PDF sync aggregate the untouched
+          // hidden child and overwrite the prices visible in the single-ticket
+          // editor. Clear legacy singleton state and keep the edited parent as
+          // the financial source of truth.
+          const subReceipts = normalizedSubReceipts.length > 1
+            ? normalizedSubReceipts
+            : (receiptHasMultipleSubReceipts(file) ? file.subReceipts : []);
+          return { ...file, parsed: normalized, subReceipts };
         }
         if (!groupedIds.includes(file.id)) return file;
         const targetPatch = { ...sharedPatch };
@@ -2443,6 +2455,11 @@ function ReceiptImportModal({ open, onClose, onDone, initialDraft, initialFiles 
           ? { ...file, subReceipts: targetSubReceipts, parsed: aggregateReceiptSubrows(targetParent, targetSubReceipts, file.type) }
           : { ...file, parsed: targetParent };
       });
+      // PDF sync is debounced, but a quick "Проверено" click can enqueue a
+      // request before React runs the effect that mirrors files into the ref.
+      // Keep the imperative snapshot current in the same state transaction.
+      filesStateRef.current = next;
+      return next;
     });
     const reviewedIds = options.applyToGroup ? [id, ...(options.groupFileIds || [])] : [id];
     setReviewed((cur) => reviewedIds.reduce((next, fileId) => ({ ...next, [fileId]: true }), cur));
@@ -2655,7 +2672,7 @@ function ReceiptImportModal({ open, onClose, onDone, initialDraft, initialFiles 
   )).length;
   const editFile = files.find((f) => f.id === editId) || null;
   const mathFile = files.find((f) => f.id === mathId)
-    || files.flatMap((file) => (file.subReceipts || []).map((receipt, index) => ({
+    || files.flatMap((file) => (receiptHasMultipleSubReceipts(file) ? file.subReceipts : []).map((receipt, index) => ({
       ...file,
       id: subReceiptMathKey(file.id, index),
       parsed: receipt,
@@ -2685,7 +2702,7 @@ function ReceiptImportModal({ open, onClose, onDone, initialDraft, initialFiles 
 
   const selIds = doneRows.filter((r) => sel[r.f.id]).map((r) => r.f.id);
   const pricingRows = doneRows.filter((row) => !excluded[row.f.id]).flatMap((row) => {
-    if (!row.f.subReceipts?.length) return [{ ...row, parsed: row.f.parsed, mathKey: row.f.id, blankIndex: null }];
+    if (!receiptHasMultipleSubReceipts(row.f)) return [{ ...row, parsed: row.f.parsed, mathKey: row.f.id, blankIndex: null }];
     return row.f.subReceipts.map((receipt, index) => ({
       ...row,
       parsed: receipt,
@@ -2715,7 +2732,9 @@ function ReceiptImportModal({ open, onClose, onDone, initialDraft, initialFiles 
 
   const verifiedReceiptForSaveWithMath = (file, mathState) => {
     const parent = file.parsed;
-    if (!file.subReceipts?.length) return receiptWithPricing(file.type, parent, mathForFileWithState(file, mathState));
+    if (!receiptHasMultipleSubReceipts(file)) {
+      return receiptWithPricing(file.type, parent, mathForFileWithState(file, mathState));
+    }
     const pricedTickets = file.subReceipts.map((ticket, index) => {
       const ticketMath = getMathFrom(mathState, subReceiptMathKey(file.id, index), ticket);
       return {
@@ -2734,7 +2753,7 @@ function ReceiptImportModal({ open, onClose, onDone, initialDraft, initialFiles 
   const verifiedReceiptForSave = (file) => verifiedReceiptForSaveWithMath(file, math);
 
   const verifiedReceiptForReview = (file) => {
-    if (!file.subReceipts?.length) return file.parsed;
+    if (!receiptHasMultipleSubReceipts(file)) return file.parsed;
     return {
       ...aggregateReceiptSubrows(file.parsed, file.subReceipts, file.type),
       originalTotal: file.parsed?.originalTotal,
