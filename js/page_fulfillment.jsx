@@ -2751,9 +2751,13 @@ function ReceiptImportModal({ open, onClose, onDone, initialDraft, initialFiles 
     pdfSyncNoticeTimers.current.delete(fileId);
     setPdfSync((current) => ({ ...current, [fileId]: 'saving' }));
     try {
-      const verifiedData = mode === 'pricing'
-        ? verifiedReceiptForSaveWithMath(file, mathStateRef.current)
-        : verifiedReceiptForReview(file);
+      // Every preview write must include the latest pricing state. A review
+      // request can run immediately after a price request (for example when
+      // the operator fixes recognition and then marks the blank as checked).
+      // Sending the recognized source amounts from that second request used
+      // to make the backend legitimately remove the corrected PDF version,
+      // so the price appeared to change and then silently reverted.
+      const verifiedData = verifiedReceiptForSaveWithMath(file, mathStateRef.current);
       const saved = await documentsApi.updateReceipt(sourceDocumentId, {
         draft: true,
         verified_data: verifiedData,

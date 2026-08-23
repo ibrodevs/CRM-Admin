@@ -203,6 +203,39 @@ test('backend proxy refreshes once, preserves body, and forwards authorization',
   assert.equal(response.headers.get('x-request-id'), 'req-1');
 });
 
+test('backend proxy preserves corrected supplier PDF cache and version headers', async () => {
+  const { GET } = await import('../app/api/backend/[...path]/route.js');
+  mockFetch(() => new Response(new Uint8Array([37, 80, 68, 70]), {
+    status: 200,
+    headers: {
+      'Content-Type': 'application/pdf',
+      'Content-Disposition': 'inline; filename="corrected.pdf"',
+      'Cache-Control': 'private, no-store, no-cache, must-revalidate, max-age=0',
+      Pragma: 'no-cache',
+      Expires: '0',
+      'X-Supplier-PDF-Mode': 'corrected',
+      'X-Supplier-Source-Version': '1',
+      'X-Supplier-Display-Version': '2',
+      'X-Supplier-Correction-Status': 'corrected',
+    },
+  }));
+
+  const response = await GET(
+    makeRequest({
+      url: 'https://crm.example.com/api/backend/documents/doc-1/supplier-pdf',
+      cookies: { travelhub_access: 'valid-access' },
+    }),
+    { params: { path: ['documents', 'doc-1', 'supplier-pdf'] } },
+  );
+
+  assert.equal(response.status, 200);
+  assert.equal(response.headers.get('cache-control'), 'private, no-store, no-cache, must-revalidate, max-age=0');
+  assert.equal(response.headers.get('x-supplier-pdf-mode'), 'corrected');
+  assert.equal(response.headers.get('x-supplier-source-version'), '1');
+  assert.equal(response.headers.get('x-supplier-display-version'), '2');
+  assert.equal(response.headers.get('x-supplier-correction-status'), 'corrected');
+});
+
 test('logout clears both cookies', async () => {
   const { DELETE } = await import('../app/api/session/route.js');
   mockFetch((url, init) => {

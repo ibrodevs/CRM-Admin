@@ -159,6 +159,22 @@ export async function proxyToBackend(request, pathname) {
     if (disposition) headers.set('Content-Disposition', disposition);
     const requestId = backendResponse.headers.get('x-request-id');
     if (requestId) headers.set('X-Request-ID', requestId);
+    // The supplier-PDF endpoint can switch from the immutable upload to a
+    // corrected version at the same authenticated URL. Preserve its cache and
+    // diagnostic headers through the BFF; otherwise a browser/PDF viewer may
+    // keep rendering the earlier source response even after correction.
+    for (const name of [
+      'cache-control',
+      'pragma',
+      'expires',
+      'x-supplier-pdf-mode',
+      'x-supplier-source-version',
+      'x-supplier-display-version',
+      'x-supplier-correction-status',
+    ]) {
+      const value = backendResponse.headers.get(name);
+      if (value) headers.set(name, value);
+    }
 
     const response = responseBody === null
       ? new NextResponse(null, { status: backendResponse.status, headers })

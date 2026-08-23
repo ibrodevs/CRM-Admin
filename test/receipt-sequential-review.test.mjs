@@ -137,6 +137,8 @@ test('price edits refresh the supplier PDF during review and pricing step', () =
   assert.match(page, /queueWorkingPdfSync\(fileId, \{ mode: 'review' \}\)/);
   assert.match(page, /safeTargets\.map\(\(row\) => String\(row\.mathKey\)\.split\('::blank::'\)\[0\]\)[\s\S]*queueWorkingPdfSync\(fileId, \{[\s\S]*mode: 'pricing', delay: 0/);
   assert.match(page, /documentsApi\.updateReceipt\(sourceDocumentId, \{/);
+  assert.match(page, /const verifiedData = verifiedReceiptForSaveWithMath\(file, mathStateRef\.current\)/);
+  assert.doesNotMatch(page, /mode === 'pricing'[\s\S]{0,120}verifiedReceiptForReview\(file\)/);
   assert.match(page, /draft: true,[\s\S]*verified_data: verifiedData,[\s\S]*preview_sync: true/);
   assert.match(page, /freshSupplierDocumentUrl\(documentsApi\.supplierPreviewUrl\(sourceDocumentId\)\)/);
   assert.match(page, /supplierPdfRevision: revision/);
