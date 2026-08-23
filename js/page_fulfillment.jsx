@@ -1573,6 +1573,34 @@ function receiptHasMultipleSubReceipts(file) {
   return Array.isArray(file?.subReceipts) && file.subReceipts.length > 1;
 }
 
+function receiptFinancialFingerprint(receipt) {
+  const money = (value) => {
+    if (value === undefined || value === null || value === '') return null;
+    const number = Number(value);
+    return Number.isFinite(number) ? Math.round(number * 10000) / 10000 : String(value);
+  };
+  const financial = (value) => ({
+    fare: money(value?.fare),
+    taxes: money(value?.taxes),
+    fees: money(value?.fees),
+    total: money(value?.total),
+    ticketCost: money(value?.ticketCost ?? value?.ticket_cost),
+    reservedSeatCost: money(value?.reservedSeatCost ?? value?.reserved_seat_cost),
+    agencyServiceFee: money(value?.agencyServiceFee ?? value?.agency_service_fee),
+    additionalFees: money(value?.additionalFees ?? value?.additional_fees),
+    supplierCost: money(value?.supplierCost ?? value?.supplier_cost),
+    fareBreakdown: (value?.fareBreakdown || value?.fare_breakdown || []).map((row) => [row?.code || '', row?.label || '', money(row?.amount)]),
+    taxBreakdown: (value?.taxBreakdown || value?.tax_breakdown || []).map((row) => [row?.code || '', row?.label || '', money(row?.amount)]),
+    feeBreakdown: (value?.feeBreakdown || value?.fee_breakdown || []).map((row) => [row?.code || '', row?.label || '', money(row?.amount)]),
+  });
+  const group = receipt?.groupTickets || receipt?.receiptItems || receipt?.receipt_items
+    || receipt?.receipts || receipt?.railTickets || [];
+  return JSON.stringify({
+    parent: financial(receipt),
+    tickets: Array.isArray(group) && group.length > 1 ? group.map(financial) : [],
+  });
+}
+
 function receiptGroupNeedsSequentialReview(file) {
   const tickets = receiptGroupedTickets(file);
   return tickets.length > 1 && !tickets.every(receiptBlankIsReviewed);
@@ -3441,8 +3469,19 @@ function ReceiptEditorPage({ documents = [], orders = [], services = [], compani
   ));
   const [imported, setImported] = useState([]);
   const [registryView, setRegistryView] = useState('active');
+  const [registryPdfSync, setRegistryPdfSync] = useState({});
+  const registryPdfSyncTimers = useRef(new Map());
+  const registryPdfSyncNoticeTimers = useRef(new Map());
+  const registryPdfSyncSequence = useRef({});
+  const registryPdfSyncChains = useRef({});
   useEffect(() => {
     if (typeof window !== 'undefined') setImportDrafts(readReceiptImportDrafts(window.localStorage));
+  }, []);
+  useEffect(() => () => {
+    registryPdfSyncTimers.current.forEach((timer) => clearTimeout(timer));
+    registryPdfSyncTimers.current.clear();
+    registryPdfSyncNoticeTimers.current.forEach((timer) => clearTimeout(timer));
+    registryPdfSyncNoticeTimers.current.clear();
   }, []);
   const saveImportDraft = (draft) => {
     const next = upsertReceiptImportDraft(importDrafts, draft);
@@ -3518,9 +3557,81 @@ function ReceiptEditorPage({ documents = [], orders = [], services = [], compani
     return !q || `${document.no} ${document.name} ${document.order} ${document.participant} ${details}`.toLowerCase().includes(q.toLowerCase());
   });
 
+  const syncRegistrySupplierPdf = async (fileId, verifiedData, sequence) => {
+    const previousNoticeTimer = registryPdfSyncNoticeTimers.current.get(fileId);
+    if (previousNoticeTimer) clearTimeout(previousNoticeTimer);
+    registryPdfSyncNoticeTimers.current.delete(fileId);
+    setRegistryPdfSync((current) => ({ ...current, [fileId]: 'saving' }));
+    try {
+      const saved = await documentsApi.updateReceipt(fileId, {
+        draft: false,
+        verified_data: verifiedData,
+        output_settings: verifiedData.output || { mode: 'original' },
+        audit_log: verifiedData.auditLog || [],
+        preview_sync: true,
+      });
+      if (registryPdfSyncSequence.current[fileId] !== sequence) return;
+      let correction = saved?.supplier_pdf_correction || {};
+      if (correction.status === 'queued' && correction.job_id) {
+        correction = await waitForReceiptPdfJob(correction.job_id);
+      }
+      if (correction.status !== 'corrected') {
+        setRegistryPdfSync((current) => ({ ...current, [fileId]: 'error' }));
+        toast('Стоимость сохранена, но рабочий PDF не подтвердил замену цифр. Проверьте журнал supplier_pdf_sync.', 'err');
+        return;
+      }
+      const revision = Date.now();
+      setEdit((current) => current && String(current.id) === String(fileId) ? {
+        ...current,
+        originalUrl: freshSupplierDocumentUrl(documentsApi.supplierPreviewUrl(fileId)),
+        supplierPdfRevision: revision,
+        supplierPdfCorrection: correction,
+      } : current);
+      setRegistryPdfSync((current) => ({ ...current, [fileId]: 'saved' }));
+      const noticeTimer = setTimeout(() => {
+        registryPdfSyncNoticeTimers.current.delete(fileId);
+        setRegistryPdfSync((current) => {
+          if (current[fileId] !== 'saved') return current;
+          const next = { ...current };
+          delete next[fileId];
+          return next;
+        });
+      }, PDF_SYNC_SUCCESS_NOTICE_MS);
+      registryPdfSyncNoticeTimers.current.set(fileId, noticeTimer);
+    } catch (error) {
+      if (registryPdfSyncSequence.current[fileId] !== sequence) return;
+      setRegistryPdfSync((current) => ({ ...current, [fileId]: 'error' }));
+      toast(error.message || 'Не удалось обновить рабочую PDF-копию', 'err');
+    }
+  };
+  const queueRegistrySupplierPdfSync = (fileId, verifiedData) => {
+    const existing = registryPdfSyncTimers.current.get(fileId);
+    if (existing) clearTimeout(existing);
+    const sequence = (registryPdfSyncSequence.current[fileId] || 0) + 1;
+    registryPdfSyncSequence.current[fileId] = sequence;
+    setRegistryPdfSync((current) => ({ ...current, [fileId]: 'saving' }));
+    const timer = setTimeout(() => {
+      registryPdfSyncTimers.current.delete(fileId);
+      const previous = registryPdfSyncChains.current[fileId] || Promise.resolve();
+      const current = previous
+        .catch(() => undefined)
+        .then(() => syncRegistrySupplierPdf(fileId, verifiedData, sequence));
+      registryPdfSyncChains.current[fileId] = current;
+      void current.finally(() => {
+        if (registryPdfSyncChains.current[fileId] === current) delete registryPdfSyncChains.current[fileId];
+      });
+    }, 700);
+    registryPdfSyncTimers.current.set(fileId, timer);
+  };
   const updateLocalReceipt = (fileId, parsed) => {
+    const activeEdit = edit && String(edit.id) === String(fileId) ? edit : null;
+    const financialChanged = activeEdit
+      && receiptFinancialFingerprint(activeEdit.parsed) !== receiptFinancialFingerprint(parsed);
     editDirty.current = true;
     setEdit((current) => current && String(current.id) === String(fileId) ? { ...current, parsed } : current);
+    if (financialChanged && activeEdit?.serverId) {
+      queueRegistrySupplierPdfSync(activeEdit.serverId, parsed);
+    }
     if (edit?.groupTicketIndex !== undefined) return;
     setImported((current) => {
       const source = all.find((row) => String(row.id) === String(fileId));
@@ -3776,6 +3887,7 @@ function ReceiptEditorPage({ documents = [], orders = [], services = [], compani
 
       <ReceiptEditDrawer open={!!edit} file={edit ? { ...edit, type: edit.editorType } : null} onClose={closeReceiptEditor}
         onChange={updateLocalReceipt} onReview={(fileId, parsed) => saveReceipt(fileId, parsed, false)}
+        pdfSyncStatus={edit ? registryPdfSync[edit.serverId || edit.id] : ''}
         orders={orders} services={services} companies={companies}
         onBrand={() => { setBrandEdit(edit); }} />
 

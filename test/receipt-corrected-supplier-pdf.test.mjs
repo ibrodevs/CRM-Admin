@@ -27,6 +27,34 @@ test('receipt registry and importer use corrected supplier PDF by default', () =
   assert.doesNotMatch(page, /v1 поставщика не меняется/);
 });
 
+test('registry group price edits sync every changed child before sequential review completes', () => {
+  assert.match(page, /function receiptFinancialFingerprint\(receipt\)/);
+  assert.match(page, /tickets: Array\.isArray\(group\) && group\.length > 1 \? group\.map\(financial\) : \[\]/);
+  assert.match(page, /const financialChanged = activeEdit[\s\S]*receiptFinancialFingerprint\(activeEdit\.parsed\) !== receiptFinancialFingerprint\(parsed\)/);
+  assert.match(page, /queueRegistrySupplierPdfSync\(activeEdit\.serverId, parsed\)/);
+  assert.match(page, /preview_sync: true/);
+  assert.match(page, /if \(correction\.status !== 'corrected'\)/);
+  assert.match(page, /pdfSyncStatus=\{edit \? registryPdfSync\[edit\.serverId \|\| edit\.id\] : ''\}/);
+
+  const helperSource = page.match(/function receiptFinancialFingerprint\(receipt\) \{[\s\S]*?\n\}/)?.[0];
+  assert.ok(helperSource, 'receiptFinancialFingerprint helper must exist');
+  const fingerprint = Function(`${helperSource}; return receiptFinancialFingerprint;`)();
+  const before = {
+    total: '8308.20',
+    groupTickets: [
+      { ticketCost: '2217.10', reservedSeatCost: '1937.00', total: '4154.10' },
+      { ticketCost: '2217.10', reservedSeatCost: '1937.00', total: '4154.10' },
+    ],
+  };
+  const normalized = structuredClone(before);
+  normalized.groupTickets[0].ticketCost = 2217.1;
+  assert.equal(fingerprint(before), fingerprint(normalized), 'JSON number normalization is not a price edit');
+  const changed = structuredClone(before);
+  changed.groupTickets[0].ticketCost = '2318.11';
+  changed.groupTickets[0].total = '4255.11';
+  assert.notEqual(fingerprint(before), fingerprint(changed), 'one changed child must trigger PDF sync');
+});
+
 test('supplier preview explains corrected copy and keeps source available', () => {
   assert.match(editor, /ReceiptBrandDocumentDrawer\(\{ open, type, draft, originalUrl, sourceOriginalUrl, onClose \}\)/);
   assert.match(editor, /Оригинал поставщика · с сохранёнными корректировками/);
