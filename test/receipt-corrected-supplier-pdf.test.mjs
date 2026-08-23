@@ -55,6 +55,15 @@ test('registry group price edits sync every changed child before sequential revi
   assert.notEqual(fingerprint(before), fingerprint(changed), 'one changed child must trigger PDF sync');
 });
 
+test('direct grouped-ticket edits replace stale pricing state before PDF sync', () => {
+  assert.match(page, /const syncEditorMath = \(mathKey, receipt\) => \{/);
+  assert.match(page, /tariff: supplierNet\(receipt\)/);
+  assert.match(page, /fee: Math\.round\(\(Number\(receipt\?\.fees\) \|\| 0\) \* 100\) \/ 100/);
+  assert.match(page, /mathStateRef\.current = next;[\s\S]*setMath\(next\)/);
+  assert.match(page, /syncEditorMath\(subReceiptMathKey\(fileId, subIndex\), editedChild\)/);
+  assert.match(page, /filesStateRef\.current = next;[\s\S]*queueWorkingPdfSync\(fileId, \{ mode: 'review' \}\)/);
+});
+
 test('supplier preview explains corrected copy and keeps source available', () => {
   assert.match(editor, /ReceiptBrandDocumentDrawer\(\{ open, type, draft, originalUrl, sourceOriginalUrl, onClose \}\)/);
   assert.match(editor, /Оригинал поставщика · с сохранёнными корректировками/);

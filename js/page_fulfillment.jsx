@@ -2225,7 +2225,12 @@ function ReceiptImportModal({ open, onClose, onDone, initialDraft, initialFiles 
     const taxes = Number(p && p.taxes) || 0;
     return Math.round((fare + taxes || Number(p && p.total) || 0) * 100) / 100;
   };
-  const getMathFrom = (mathState, id, p) => mathState[id] || { tariff: supplierNet(p), fee: Math.round(Number(p && p.fees) || 0), markup: 0, commission: 0 };
+  const getMathFrom = (mathState, id, p) => mathState[id] || {
+    tariff: supplierNet(p),
+    fee: Math.round((Number(p && p.fees) || 0) * 100) / 100,
+    markup: 0,
+    commission: 0,
+  };
   const getMath = (id, p) => getMathFrom(math, id, p);
   const setMathFor = (id, p, patch) => {
     const current = mathStateRef.current;
@@ -2252,6 +2257,22 @@ function ReceiptImportModal({ open, onClose, onDone, initialDraft, initialFiles 
   };
   const clientTotal = (m) => Math.round((Number(m.tariff) || 0) + (Number(m.fee) || 0) + (Number(m.markup) || 0));
   const subReceiptMathKey = (fileId, index) => fileId + '::blank::' + index;
+  const syncEditorMath = (mathKey, receipt) => {
+    const current = mathStateRef.current;
+    const next = {
+      ...current,
+      [mathKey]: {
+        ...getMathFrom(current, mathKey, receipt),
+        tariff: supplierNet(receipt),
+        fee: Math.round((Number(receipt?.fees) || 0) * 100) / 100,
+      },
+    };
+    // PDF sync reads this ref outside React's render cycle. Update it before
+    // scheduling the job so direct edits in the receipt form cannot be
+    // overwritten by the older values from the separate pricing step.
+    mathStateRef.current = next;
+    setMath(next);
+  };
   const mathForFileWithState = (file, mathState) => {
     if (!receiptHasMultipleSubReceipts(file)) return getMathFrom(mathState, file.id, file?.parsed);
     return file.subReceipts.reduce((total, receipt, index) => {
@@ -2421,6 +2442,11 @@ function ReceiptImportModal({ open, onClose, onDone, initialDraft, initialFiles 
     setReviewed((cur) => ({ ...cur, [id]: false }));
   };
   const updateParsed = (id, parsed, options = {}) => {
+    const sourceSnapshot = filesStateRef.current.find((file) => file.id === id);
+    if (sourceSnapshot
+      && receiptFinancialFingerprint(sourceSnapshot.parsed) !== receiptFinancialFingerprint(parsed)) {
+      syncEditorMath(id, parsed);
+    }
     setFiles((cur) => {
       const source = cur.find((file) => file.id === id);
       const group = options.applyToGroup
@@ -2494,36 +2520,50 @@ function ReceiptImportModal({ open, onClose, onDone, initialDraft, initialFiles 
     [...new Set(reviewedIds)].forEach((fileId) => queueWorkingPdfSync(fileId, { mode: 'review' }));
   };
   const updateSubReceipt = (fileId, subIndex, parsed) => {
-    setFiles((cur) => cur.map((file) => {
-      if (file.id !== fileId) return file;
-      const child = normalizeReceiptDraft(file.type, {
-        ...parsed,
-        groupTickets: [], receipts: [], railTickets: [], receiptItems: [], receiptCount: 1,
+    const sourceFile = filesStateRef.current.find((file) => file.id === fileId);
+    const editedChild = normalizeReceiptDraft(sourceFile?.type || 'ЖД', {
+      ...parsed,
+      groupTickets: [], receipts: [], railTickets: [], receiptItems: [], receiptCount: 1,
+    });
+    const sourceChild = sourceFile?.subReceipts?.[subIndex];
+    if (!sourceChild
+      || receiptFinancialFingerprint(sourceChild) !== receiptFinancialFingerprint(editedChild)) {
+      syncEditorMath(subReceiptMathKey(fileId, subIndex), editedChild);
+    }
+    setFiles((cur) => {
+      const next = cur.map((file) => {
+        if (file.id !== fileId) return file;
+        const child = normalizeReceiptDraft(file.type, editedChild);
+        const subReceipts = (file.subReceipts || []).map((receipt, index) => (
+          index === subIndex ? child : receipt
+        ));
+        const parent = {
+          ...file.parsed,
+          crmBindingMode: child.crmBindingMode || file.parsed?.crmBindingMode,
+          crmOrderId: child.crmOrderId || file.parsed?.crmOrderId,
+          crmOrderNo: child.crmOrderNo || file.parsed?.crmOrderNo,
+          crmPersonId: child.crmPersonId || file.parsed?.crmPersonId,
+          crmPerson: child.crmPerson || file.parsed?.crmPerson,
+          crmCompanyId: child.crmCompanyId || file.parsed?.crmCompanyId,
+          crmCompany: child.crmCompany || file.parsed?.crmCompany,
+          crmService: child.crmService || file.parsed?.crmService,
+          crmServiceId: child.crmServiceId || file.parsed?.crmServiceId,
+          crmTrip: child.crmTrip || file.parsed?.crmTrip,
+          crmTripId: child.crmTripId || file.parsed?.crmTripId,
+          output: child.output || file.parsed?.output,
+        };
+        return {
+          ...file,
+          subReceipts,
+          parsed: aggregateReceiptSubrows(parent, subReceipts, file.type),
+        };
       });
-      const subReceipts = (file.subReceipts || []).map((receipt, index) => (
-        index === subIndex ? child : receipt
-      ));
-      const parent = {
-        ...file.parsed,
-        crmBindingMode: child.crmBindingMode || file.parsed?.crmBindingMode,
-        crmOrderId: child.crmOrderId || file.parsed?.crmOrderId,
-        crmOrderNo: child.crmOrderNo || file.parsed?.crmOrderNo,
-        crmPersonId: child.crmPersonId || file.parsed?.crmPersonId,
-        crmPerson: child.crmPerson || file.parsed?.crmPerson,
-        crmCompanyId: child.crmCompanyId || file.parsed?.crmCompanyId,
-        crmCompany: child.crmCompany || file.parsed?.crmCompany,
-        crmService: child.crmService || file.parsed?.crmService,
-        crmServiceId: child.crmServiceId || file.parsed?.crmServiceId,
-        crmTrip: child.crmTrip || file.parsed?.crmTrip,
-        crmTripId: child.crmTripId || file.parsed?.crmTripId,
-        output: child.output || file.parsed?.output,
-      };
-      return {
-        ...file,
-        subReceipts,
-        parsed: aggregateReceiptSubrows(parent, subReceipts, file.type),
-      };
-    }));
+      // Keep the imperative snapshot used by the debounced PDF request in
+      // lockstep with the visible editor state. Waiting for useEffect here can
+      // send the previous ticket prices and produce requested=0.
+      filesStateRef.current = next;
+      return next;
+    });
     queueWorkingPdfSync(fileId, { mode: 'review' });
   };
   const markReviewed = (id, _parsed, options = {}) => {

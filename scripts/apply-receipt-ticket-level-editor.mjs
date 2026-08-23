@@ -92,36 +92,66 @@ const newSubRows = "        const subReceipts = receiptImportSubrows(detectedTyp
 page = replaceRequired(page, oldSubRows, newSubRows, 'источник отдельных бланков');
 
 // Replacing one child ticket must also preserve global CRM binding on the parent.
+const editorMathAnchor = "  const subReceiptMathKey = (fileId, index) => fileId + '::blank::' + index;";
+const editorMathHelper = `${editorMathAnchor}
+  const syncEditorMath = (mathKey, receipt) => {
+    const current = mathStateRef.current;
+    const next = {
+      ...current,
+      [mathKey]: {
+        ...getMathFrom(current, mathKey, receipt),
+        tariff: supplierNet(receipt),
+        fee: Math.round((Number(receipt?.fees) || 0) * 100) / 100,
+      },
+    };
+    mathStateRef.current = next;
+    setMath(next);
+  };`;
+if (!page.includes('const syncEditorMath = (mathKey, receipt) => {')) {
+  page = replaceRequired(page, editorMathAnchor, editorMathHelper, 'синхронизация стоимости формы и PDF');
+}
+
 const subReceiptPattern = /  const updateSubReceipt = \(fileId, subIndex, parsed\) => \{[\s\S]*?\n  \};\n  const markReviewed/;
 const subReceiptNext = `  const updateSubReceipt = (fileId, subIndex, parsed) => {
-    setFiles((cur) => cur.map((file) => {
-      if (file.id !== fileId) return file;
-      const child = normalizeReceiptDraft(file.type, {
-        ...parsed,
-        groupTickets: [], receipts: [], railTickets: [], receiptItems: [], receiptCount: 1,
+    const sourceFile = filesStateRef.current.find((file) => file.id === fileId);
+    const editedChild = normalizeReceiptDraft(sourceFile?.type || 'ЖД', {
+      ...parsed,
+      groupTickets: [], receipts: [], railTickets: [], receiptItems: [], receiptCount: 1,
+    });
+    const sourceChild = sourceFile?.subReceipts?.[subIndex];
+    if (!sourceChild
+      || receiptFinancialFingerprint(sourceChild) !== receiptFinancialFingerprint(editedChild)) {
+      syncEditorMath(subReceiptMathKey(fileId, subIndex), editedChild);
+    }
+    setFiles((cur) => {
+      const next = cur.map((file) => {
+        if (file.id !== fileId) return file;
+        const child = normalizeReceiptDraft(file.type, editedChild);
+        const subReceipts = (file.subReceipts || []).map((receipt, index) => (
+          index === subIndex ? child : receipt
+        ));
+        const parent = {
+          ...file.parsed,
+          crmBindingMode: child.crmBindingMode || file.parsed?.crmBindingMode,
+          crmOrderId: child.crmOrderId || file.parsed?.crmOrderId,
+          crmOrderNo: child.crmOrderNo || file.parsed?.crmOrderNo,
+          crmPersonId: child.crmPersonId || file.parsed?.crmPersonId,
+          crmPerson: child.crmPerson || file.parsed?.crmPerson,
+          crmService: child.crmService || file.parsed?.crmService,
+          crmServiceId: child.crmServiceId || file.parsed?.crmServiceId,
+          crmTrip: child.crmTrip || file.parsed?.crmTrip,
+          crmTripId: child.crmTripId || file.parsed?.crmTripId,
+          output: child.output || file.parsed?.output,
+        };
+        return {
+          ...file,
+          subReceipts,
+          parsed: aggregateReceiptSubrows(parent, subReceipts, file.type),
+        };
       });
-      const subReceipts = (file.subReceipts || []).map((receipt, index) => (
-        index === subIndex ? child : receipt
-      ));
-      const parent = {
-        ...file.parsed,
-        crmBindingMode: child.crmBindingMode || file.parsed?.crmBindingMode,
-        crmOrderId: child.crmOrderId || file.parsed?.crmOrderId,
-        crmOrderNo: child.crmOrderNo || file.parsed?.crmOrderNo,
-        crmPersonId: child.crmPersonId || file.parsed?.crmPersonId,
-        crmPerson: child.crmPerson || file.parsed?.crmPerson,
-        crmService: child.crmService || file.parsed?.crmService,
-        crmServiceId: child.crmServiceId || file.parsed?.crmServiceId,
-        crmTrip: child.crmTrip || file.parsed?.crmTrip,
-        crmTripId: child.crmTripId || file.parsed?.crmTripId,
-        output: child.output || file.parsed?.output,
-      };
-      return {
-        ...file,
-        subReceipts,
-        parsed: aggregateReceiptSubrows(parent, subReceipts),
-      };
-    }));
+      filesStateRef.current = next;
+      return next;
+    });
     setReviewed((cur) => ({ ...cur, [fileId]: true }));
   };
   const markReviewed`;
