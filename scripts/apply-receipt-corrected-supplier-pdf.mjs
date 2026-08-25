@@ -11,6 +11,16 @@ let editor = await readFile(editorUrl, 'utf8');
 let css = await readFile(cssUrl, 'utf8');
 let changed = false;
 
+if (resources.includes('supplierSourcePreviewUrl')
+  && page.includes('queueWorkingPdfSync')
+  && page.includes('supplier_pdf_correction')
+  && editor.includes('Оригинал поставщика · с сохранёнными корректировками')
+  && editor.includes('receipt-supplier-footer-actions')
+  && css.includes('/* Corrected supplier PDF: footer actions must stay inside drawer. */')) {
+  console.log('Corrected supplier PDF и адаптивные действия уже настроены.');
+  process.exit(0);
+}
+
 function replaceRequired(source, from, to, label) {
   if (source.includes(to)) return source;
   if (!source.includes(from)) throw new Error(`Не найден фрагмент для corrected supplier PDF: ${label}`);

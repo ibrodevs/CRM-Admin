@@ -359,6 +359,25 @@ table.tbl.tbl-wide thead th,table.tbl.tbl-wide tbody td{white-space:nowrap}
 .receipt-pricing-math{display:grid!important;height:auto!important;padding:3px 0!important;text-align:left!important;justify-items:start}
 .receipt-pricing-math small{color:var(--blue);font-size:12px}
 .receipt-pricing-versions{display:flex;align-items:center;gap:5px;flex-wrap:wrap}
+.receipt-pricing-selection{display:flex;align-items:center;gap:10px;margin:0 0 12px;padding:11px 13px;border:1px solid #bdd2ff;border-radius:12px;background:#f2f6ff;color:var(--blue)}
+.receipt-pricing-selection>svg{width:18px;height:18px;flex:0 0 18px}
+.receipt-pricing-selection>span{display:grid;gap:2px;min-width:0;flex:1}
+.receipt-pricing-selection b{color:var(--ink);font-size:13px}
+.receipt-pricing-selection small{color:var(--muted);font-size:11.5px;line-height:1.35}
+.receipt-internal-math-head{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:16px;padding-bottom:14px;border-bottom:1px solid var(--line)}
+.receipt-internal-math-head>span{color:var(--muted);font-size:12.5px;min-width:0;overflow-wrap:anywhere}
+.receipt-internal-math-head b{color:var(--ink)}
+.receipt-internal-math-fields{display:grid;gap:14px}
+.receipt-internal-math-field{display:grid;gap:6px}
+.receipt-internal-math-field>span{color:var(--muted);font-size:12px}
+.receipt-internal-math-field>span small{color:var(--muted-2);font-size:inherit}
+.receipt-internal-math-field .input{font-size:15px;font-weight:600}
+.receipt-internal-math-summary{display:grid;margin-top:18px;padding:14px;border:1px solid var(--line);border-radius:14px;background:var(--surface-2)}
+.receipt-internal-math-summary>div{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:7px 0;color:var(--body);font-size:12.5px}
+.receipt-internal-math-summary>div b{color:var(--ink);white-space:nowrap}
+.receipt-internal-math-summary>div.is-commission{color:var(--muted);border-bottom:1px solid var(--line);padding-bottom:11px}
+.receipt-internal-math-summary>div.is-total{padding-top:13px;color:var(--ink);font-size:15px;font-weight:800}
+.receipt-internal-math-summary>small{color:var(--muted);font-size:11.5px;line-height:1.45;margin-top:4px}
 .rec-import-actions{display:flex;gap:6px;flex-wrap:wrap}
 .rec-import-actions .btn{color:var(--blue);white-space:normal;height:auto;min-height:34px;padding:7px 10px;justify-content:flex-start;text-align:left}
 .rec-import-remove{width:34px;padding:0}

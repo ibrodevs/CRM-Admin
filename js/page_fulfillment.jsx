@@ -1587,6 +1587,18 @@ function receiptRailCostSignature(ticket) {
   return `${String(ticket?.currency || 'RUB').toUpperCase()}::${Math.round(amount * 100)}`;
 }
 
+function receiptPricingCostSignature(type, receipt) {
+  if (type === 'ЖД') return receiptRailCostSignature(receipt);
+  if (type !== 'Авиа') return '';
+  const componentValues = [receipt?.fare, receipt?.taxes, receipt?.fees].map(receiptMoneyNumber);
+  const hasComponents = componentValues.some((value) => Number.isFinite(value) && value !== 0);
+  const components = componentValues.reduce((sum, value) => sum + (Number.isFinite(value) ? value : 0), 0);
+  const total = receiptMoneyNumber(receipt?.originalTotal ?? receipt?.original_total ?? receipt?.total);
+  const amount = hasComponents ? components : total;
+  if (!(amount > 0)) return '';
+  return `${String(receipt?.currency || 'RUB').toUpperCase()}::${Math.round(amount * 100)}`;
+}
+
 function receiptRailSignatureAmount(signature) {
   const cents = Number(String(signature || '').split('::')[1]);
   return Number.isFinite(cents) ? cents / 100 : 0;
@@ -1603,6 +1615,25 @@ function receiptIdenticalRailPricingGroups(pricingRows, fileId) {
   const seen = new Set();
   return railRows.filter((row) => row.f.id === fileId).flatMap((sourceRow) => {
     const signature = receiptRailCostSignature(sourceRow.parsed);
+    if (!signature || seen.has(signature)) return [];
+    seen.add(signature);
+    const matches = rowsBySignature.get(signature) || [];
+    return matches.length > 1 ? [{ signature, sourceRow, matches }] : [];
+  });
+}
+
+function receiptIdenticalPricingGroups(pricingRows, fileId, type) {
+  if (!['Авиа', 'ЖД'].includes(type)) return [];
+  const serviceRows = (pricingRows || []).filter((row) => row?.f?.type === type);
+  const rowsBySignature = new Map();
+  serviceRows.forEach((row) => {
+    const signature = receiptPricingCostSignature(type, row.parsed);
+    if (!signature) return;
+    rowsBySignature.set(signature, [...(rowsBySignature.get(signature) || []), row]);
+  });
+  const seen = new Set();
+  return serviceRows.filter((row) => row.f.id === fileId).flatMap((sourceRow) => {
+    const signature = receiptPricingCostSignature(type, sourceRow.parsed);
     if (!signature || seen.has(signature)) return [];
     seen.add(signature);
     const matches = rowsBySignature.get(signature) || [];
@@ -2180,34 +2211,55 @@ function ReceiptMathDrawer({ open, file, math, applyCount = 1, onSave, onClose }
   const [m, setM] = useState(math || { tariff: 0, fee: 0, markup: 0, commission: 0 });
   useEffect(() => { if (open && math) setM(math); }, [open, file && file.id]);
   if (!open || !file) return null;
+  const type = file.type || 'Прочее';
   const cur = file.parsed.currency; const sym = cur === 'USD' ? '$' : cur;
-  const num = (v) => Math.round(Number(v) || 0);
-  const client = num(m.tariff) + num(m.fee) + num(m.markup);
+  const num = (v) => Math.round((Number(v) || 0) * 100) / 100;
+  const client = num(num(m.tariff) + num(m.fee) + num(m.markup));
+  const serviceMeta = {
+    'Авиа': { title: 'Авиа', tariff: 'Тариф + таксы поставщика', hint: 'тариф и таксы из авиабилета', fee: 'Сервисный сбор за авиабилет' },
+    'ЖД': { title: 'ЖД', tariff: 'Билет + плацкарта поставщика', hint: 'стоимость билета и плацкарты', fee: 'Сервисный сбор за ЖД-билет' },
+    'Гостиница': { title: 'Гостиница', tariff: 'Стоимость проживания поставщика', hint: 'закупочная стоимость размещения', fee: 'Сервисный сбор за бронирование' },
+    'Трансфер': { title: 'Трансфер', tariff: 'Стоимость трансфера поставщика', hint: 'закупочная стоимость поездки', fee: 'Сервисный сбор за трансфер' },
+  }[type] || { title: type, tariff: 'Стоимость поставщика', hint: 'из бланка', fee: 'Сервисный сбор' };
   const fld = (k, l, hint) => (
-    <div>
-      <div style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 5 }}>{l}, {sym}{hint && <span style={{ color: 'var(--muted-2)' }}> · {hint}</span>}</div>
-      <input className="input" type="number" min="0" value={m[k] ?? ''} onChange={(e) => setM((s) => ({ ...s, [k]: e.target.value }))} />
-    </div>
+    <label className="receipt-internal-math-field">
+      <span>{l}, {sym}{hint && <small> · {hint}</small>}</span>
+      <input className="input" type="number" min="0" step="0.01" inputMode="decimal" value={m[k] ?? ''} onChange={(e) => setM((s) => ({ ...s, [k]: e.target.value }))} />
+    </label>
   );
+  const calculationRows = [
+    [serviceMeta.tariff, num(m.tariff)],
+    [serviceMeta.fee, num(m.fee)],
+    ['Агентская надбавка', num(m.markup)],
+    ['Комиссия поставщика (не входит в итог)', num(m.commission)],
+  ];
+  const selectedLabel = applyCount > 1 ? `${applyCount} бланков выбрано` : 'Текущий бланк';
   return (
-    <Drawer open={open} onClose={onClose} title={'Математика · ' + (file.parsed.passenger || 'квитанция')}
+    <Drawer open={open} onClose={onClose} title={'Внутренняя математика · ' + serviceMeta.title}
       sub={applyCount > 1
-        ? `Сбор, надбавка и комиссия применятся к ${applyCount} выбранным бланкам. Тариф изменится только у текущего билета.`
-        : 'Исходный v1: ' + recMoney(Number(file.parsed.originalTotal) || Number(file.parsed.total) || 0, cur) + ' · после сохранения сумма сразу переносится в рабочую копию PDF'}
-      width="min(460px,94vw)"
+        ? `Сбор, надбавка и комиссия применятся к ${applyCount} выбранным бланкам. База поставщика изменится только у текущего билета.`
+        : 'Отдельная внутренняя форма расчёта · после сохранения сумма сразу переносится в рабочую копию PDF'}
+      width="min(520px,96vw)" className="receipt-internal-math-drawer"
       footer={<>
         <Button variant="secondary" onClick={onClose}>Отмена</Button>
-        <Button icon="check" onClick={() => { onSave({ tariff: num(m.tariff), fee: num(m.fee), markup: num(m.markup), commission: num(m.commission) }); onClose(); }}>Сохранить</Button>
+        <Button icon="check" onClick={() => { onSave({ tariff: num(m.tariff), fee: num(m.fee), markup: num(m.markup), commission: num(m.commission) }); onClose(); }}>Сохранить расчёт</Button>
       </>}>
-      <div style={{ display: 'grid', gap: 14 }}>
-        {fld('tariff', 'Тариф + таксы поставщика', 'из бланка')}
-        {fld('fee', 'Сервисный сбор')}
+      <div className="receipt-internal-math-head">
+        <Pill tone={applyCount > 1 ? 'blue' : 'gray'}>{selectedLabel}</Pill>
+        <span>Бланк: <b>{file.parsed.passenger || file.name || 'без названия'}</b></span>
+      </div>
+      <div className="receipt-internal-math-fields">
+        {fld('tariff', serviceMeta.tariff, serviceMeta.hint)}
+        {fld('fee', serviceMeta.fee)}
         {fld('markup', 'Агентская надбавка')}
         {fld('commission', 'Комиссия поставщика')}
       </div>
-      <div className="card card-pad" style={{ marginTop: 16, background: 'var(--surface-2)' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 700, color: 'var(--ink)' }}><span>Итого клиенту</span><span>{recMoney(client, cur)}</span></div>
-        <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 4 }}>Тариф + сбор + надбавка. Комиссия — вознаграждение от поставщика.</div>
+      <div className="receipt-internal-math-summary">
+        {calculationRows.map(([label, value], index) => <div key={label} className={index === calculationRows.length - 1 ? 'is-commission' : ''}>
+          <span>{label}</span><b>{recMoney(value, cur)}</b>
+        </div>)}
+        <div className="is-total"><span>Итого клиенту</span><b>{recMoney(client, cur)}</b></div>
+        <small>Итого = база поставщика + сервисный сбор + агентская надбавка. Комиссия — внутреннее вознаграждение и сумму клиента не увеличивает.</small>
       </div>
     </Drawer>
   );
@@ -2311,8 +2363,9 @@ function ReceiptImportModal({ open, onClose, onDone, initialDraft, initialFiles 
   const getMath = (id, p) => getMathFrom(math, id, p);
   const setMathFor = (id, p, patch) => {
     const current = mathStateRef.current;
+    const sourcePricingRow = pricingRows.find((row) => row.mathKey === id);
     const targets = pricingSel[id]
-      ? pricingRows.filter((row) => pricingSel[row.mathKey])
+      ? pricingRows.filter((row) => pricingSel[row.mathKey] && row.f.type === sourcePricingRow?.f?.type)
       : [{ mathKey: id, parsed: p }];
     const safeTargets = targets.length ? targets : [{ mathKey: id, parsed: p }];
     const next = { ...current };
@@ -2350,7 +2403,7 @@ function ReceiptImportModal({ open, onClose, onDone, initialDraft, initialFiles 
       toast(`Сбор, надбавка и комиссия применены к ${safeTargets.length} выбранным бланкам. Рабочие PDF обновляются.`, 'info');
     }
   };
-  const clientTotal = (m) => Math.round((Number(m.tariff) || 0) + (Number(m.fee) || 0) + (Number(m.markup) || 0));
+  const clientTotal = (m) => Math.round(((Number(m.tariff) || 0) + (Number(m.fee) || 0) + (Number(m.markup) || 0)) * 100) / 100;
   const subReceiptMathKey = (fileId, index) => fileId + '::blank::' + index;
   const syncEditorMath = (mathKey, receipt) => {
     const current = mathStateRef.current;
@@ -2892,29 +2945,44 @@ function ReceiptImportModal({ open, onClose, onDone, initialDraft, initialFiles 
       blankIndex: index,
     }));
   });
-  const selectedPricingRows = pricingRows.filter((row) => pricingSel[row.mathKey]);
-  const identicalRailPricingRows = (sourceRow) => {
-    if (sourceRow?.f?.type !== 'ЖД') return [];
-    const signature = receiptRailCostSignature(sourceRow.parsed);
+  const selectedPricingRows = pricingRows.filter((row) => pricingSel[row.mathKey]
+    && (!mathFile || row.f.type === mathFile.type));
+  const identicalPricingRows = (sourceRow) => {
+    const type = sourceRow?.f?.type;
+    if (!['Авиа', 'ЖД'].includes(type)) return [];
+    const signature = receiptPricingCostSignature(type, sourceRow.parsed);
     if (!signature) return [];
-    return pricingRows.filter((row) => row.f.type === 'ЖД'
-      && receiptRailCostSignature(row.parsed) === signature);
+    return pricingRows.filter((row) => row.f.type === type
+      && receiptPricingCostSignature(type, row.parsed) === signature);
+  };
+  // Compatibility alias for older rail-only checks; selection is now shared
+  // by railway and aviation receipts.
+  const identicalRailPricingRows = (sourceRow) => {
+    if (sourceRow?.f?.type === 'ЖД') {
+      const signature = receiptRailCostSignature(sourceRow.parsed);
+      return pricingRows.filter((row) => row.f.type === 'ЖД'
+        && receiptRailCostSignature(row.parsed) === signature);
+    }
+    return identicalPricingRows(sourceRow);
   };
   const identicalRailPricingGroupsForFile = (file) => {
-    if (file?.type !== 'ЖД') return [];
-    return receiptIdenticalRailPricingGroups(pricingRows, file.id);
+    if (file?.type === 'ЖД') return receiptIdenticalRailPricingGroups(pricingRows, file.id);
+    if (file?.type !== 'Авиа') return [];
+    return receiptIdenticalPricingGroups(pricingRows, file.id, file.type);
   };
-  const selectIdenticalRailPricing = (sourceRow) => {
-    const matches = identicalRailPricingRows(sourceRow);
+  const selectIdenticalPricing = (sourceRow) => {
+    const type = sourceRow?.f?.type;
+    const matches = identicalPricingRows(sourceRow);
     if (matches.length < 2) {
-      toast('Других ЖД-билетов с идентичной стоимостью не найдено', 'info');
+      toast(`Других ${type === 'Авиа' ? 'авиабилетов' : 'ЖД-билетов'} с идентичной стоимостью не найдено`, 'info');
       return;
     }
     setPricingSel(Object.fromEntries(matches.map((row) => [row.mathKey, true])));
     setStep(3);
     setMathId(sourceRow.mathKey);
-    toast(`Выбрано ЖД-билетов с одинаковой стоимостью: ${matches.length}.`, 'ok');
+    toast(`Выбрано ${type === 'Авиа' ? 'авиабилетов' : 'ЖД-билетов'} с одинаковой стоимостью: ${matches.length}.`, 'ok');
   };
+  const selectIdenticalRailPricing = (sourceRow) => selectIdenticalPricing(sourceRow);
 
   const verifiedReceiptForSaveWithMath = (file, mathState) => {
     const parent = file.parsed;
@@ -3347,7 +3415,7 @@ function ReceiptImportModal({ open, onClose, onDone, initialDraft, initialFiles 
                                       }}>{(r.f.subReceipts || []).length > 1 ? 'Проверить бланки по очереди' : (displayStatus === 'Требует проверки' ? 'Проверить и заполнить' : st.action)}</button>
                                       {sameRailGroups.map((group) => <button type="button" className="btn btn-ghost btn-sm"
                                         key={group.signature} onClick={() => selectIdenticalRailPricing(group.sourceRow)}>
-                                        Одинаковая стоимость {recMoney(receiptRailSignatureAmount(group.signature), group.sourceRow.parsed.currency)} ({group.matches.length})
+                                        Одинаковая стоимость {recMoney(receiptRailSignatureAmount(group.signature), group.sourceRow.parsed.currency)} · {r.f.type} ({group.matches.length})
                                       </button>)}
                                       {r.f.originalUrl && <button className="btn btn-ghost btn-sm" onClick={() => window.open(inlineSupplierDocumentUrl(r.f.originalUrl), '_blank', 'noopener,noreferrer')}><Icon name="eye" /> Оригинал</button>}
                                       <button className="btn btn-ghost btn-sm" onClick={() => setExcluded((state) => ({ ...state, [r.f.id]: !state[r.f.id] }))}>
@@ -3417,7 +3485,7 @@ function ReceiptImportModal({ open, onClose, onDone, initialDraft, initialFiles 
                                     <button type="button" className="btn btn-ghost btn-sm" onClick={() => setBrandTarget({ fileId: r.f.id, blankIndex: subIndex })}>
                                       На бланке
                                     </button>
-                                    {r.f.type === 'ЖД' && identicalCostCount > 1 && <button type="button" className="btn btn-ghost btn-sm"
+                                    {['Авиа', 'ЖД'].includes(r.f.type) && identicalCostCount > 1 && <button type="button" className="btn btn-ghost btn-sm"
                                       onClick={() => selectIdenticalRailPricing(currentPricingRow)}>
                                       Редактировать одинаковую стоимость ({identicalCostCount})
                                     </button>}
@@ -3440,21 +3508,26 @@ function ReceiptImportModal({ open, onClose, onDone, initialDraft, initialFiles 
 
             {step === 3 && doneRows.length > 0 && (
               <>
-            <RSub>Данные и рабочий оригинал</RSub>
+            <RSub>Внутренняя математика по бланкам</RSub>
                 <div style={{ fontSize: 12, color: 'var(--muted)', margin: '-4px 0 10px' }}>
-                  Финансовые изменения переносятся в рабочую копию PDF поставщика. Загруженный исходный v1 хранится отдельно без изменений.
+                  Это вторая форма расчёта, отдельная от редактора данных бланка. Для ЖД база — билет и плацкарта, для авиа — тариф и таксы. Финансовые изменения переносятся в рабочую копию PDF поставщика.
                 </div>
+                {selectedPricingRows.length > 0 && <div className="receipt-pricing-selection" role="status">
+                  <Icon name="checkCircle" />
+                  <span><b>Выбрано бланков: {selectedPricingRows.length}</b><small>Общие сбор, надбавка и комиссия применяются только внутри одного вида услуги. База поставщика остаётся индивидуальной.</small></span>
+                  <Button size="sm" variant="ghost" onClick={() => setPricingSel({})}>Снять выбор</Button>
+                </div>}
                 <div className="table-card receipt-pricing-card">
                   <table className="tbl receipt-pricing-table">
-                    <thead><tr><th aria-label="Выбор"></th><th>Бланк</th><th>Оригинал поставщика</th><th>Клиенту</th><th>Версии</th><th></th></tr></thead>
+                    <thead><tr><th aria-label="Выбор"></th><th>Бланк</th><th>База поставщика</th><th>Внутренняя математика</th><th>Версии</th><th></th></tr></thead>
                     <tbody>{pricingRows.map((r) => {
                       const p = r.parsed; const m = getMath(r.mathKey, p); const t = recType(r.f.type);
                       return (
                         <tr key={r.mathKey}>
                           <td data-label="Выбор"><Checkbox on={!!pricingSel[r.mathKey]} onChange={() => setPricingSel((current) => ({ ...current, [r.mathKey]: !current[r.mathKey] }))} /></td>
                           <td data-label="Бланк"><span className="receipt-pricing-document"><span className="rec-import-icon" style={{ background: t.color }}><Icon name={t.icon} /></span><span><b>{p.passenger || r.f.name}{r.blankIndex !== null ? ' · билет ' + (r.blankIndex + 1) : ''}</b><small>{p.carrier || 'Поставщик'} · {routeSummary(p)}</small></span></span></td>
-                          <td data-label="Оригинал поставщика"><b>{recSourceMoney(p)}</b><small className="receipt-pricing-meta">{r.f.name}</small></td>
-                          <td data-label="Клиенту"><button type="button" className="btn btn-ghost btn-sm receipt-pricing-math" onClick={() => setMathId(r.mathKey)}><b>{recMoney(clientTotal(m), p.currency)}</b><small>изменить математику</small></button></td>
+                          <td data-label="База поставщика"><b>{recMoney(Number(m.tariff) || 0, p.currency)}</b><small className="receipt-pricing-meta">{r.f.type === 'ЖД' ? 'билет + плацкарта' : r.f.type === 'Авиа' ? 'тариф + таксы' : 'закупочная стоимость'}</small></td>
+                          <td data-label="Внутренняя математика"><button type="button" className="btn btn-ghost btn-sm receipt-pricing-math" onClick={() => setMathId(r.mathKey)}><b>{recMoney(clientTotal(m), p.currency)}</b><small>сбор {recMoney(Number(m.fee) || 0, p.currency)} · надбавка {recMoney(Number(m.markup) || 0, p.currency)}</small><small>комиссия {recMoney(Number(m.commission) || 0, p.currency)} · изменить</small></button></td>
                           <td data-label="Версии"><span className="receipt-pricing-versions"><Pill tone="blue">v1 поставщик</Pill><Pill tone="amber">v2 CRM</Pill>{pdfSync[r.f.id] === 'saving' && <Pill tone="blue">PDF обновляется</Pill>}{pdfSync[r.f.id] === 'saved' && <Pill tone="green">PDF обновлён</Pill>}{pdfSync[r.f.id] === 'error' && <Pill tone="red">Проверьте PDF</Pill>}</span></td>
                           <td data-label="Документ"><Button size="sm" variant="secondary" icon="template" onClick={() => setBrandTarget({ fileId: r.f.id, blankIndex: r.blankIndex })}>Бланк CRM</Button></td>
                         </tr>
