@@ -2679,3 +2679,77 @@ table.hp-matrix{border-collapse:collapse;width:100%;min-width:640px}
     grid-template-columns:1fr;
   }
 }
+
+/* Билеты с одинаковой закупочной стоимостью: вкладки под строкой импорта. */
+.rec-import-table tbody tr.rec-import-costtabs-row{display:block;padding:0 18px 12px;background:#f9fbff;border-bottom:1px solid var(--line)}
+.rec-import-table tbody tr.rec-import-costtabs-row.is-open{border-bottom-color:#cbd8ff}
+.rec-import-table tbody tr.rec-import-costtabs-row>td{display:block;grid-template-columns:none}
+.rec-import-table tbody tr.rec-import-costtabs-row>td::before{display:none}
+.receipt-cost-tabs{border:1px solid #cbd8ff;border-radius:12px;background:#fff;overflow:hidden}
+.receipt-cost-tabs-head{display:flex;align-items:center;gap:10px;padding:10px 12px;border-bottom:1px solid #e4ebfa;background:#f4f7ff}
+.receipt-cost-tabs-title{display:flex;align-items:center;gap:9px;min-width:0;flex:1}
+.receipt-cost-tabs-title>svg{width:17px;height:17px;flex:0 0 17px;color:var(--blue)}
+.receipt-cost-tabs-title>span{display:grid;gap:2px;min-width:0}
+.receipt-cost-tabs-title b{color:var(--ink);font-size:13px}
+.receipt-cost-tabs-title small{color:var(--muted);font-size:11.5px;line-height:1.35}
+.receipt-cost-tabs-collapse{flex:0 0 auto}
+.receipt-cost-tablist{display:flex;gap:8px;flex-wrap:wrap;padding:10px 12px}
+.receipt-cost-tab{
+  display:grid;gap:2px;justify-items:flex-start;min-width:132px;padding:8px 12px;cursor:pointer;
+  border:1px solid var(--line);border-radius:10px;background:#fff;text-align:left;
+  transition:border-color .12s,background .12s,box-shadow .12s
+}
+.receipt-cost-tab b{color:var(--ink);font-size:13.5px;line-height:1.2}
+.receipt-cost-tab small{color:var(--muted);font-size:11.5px;line-height:1.3}
+.receipt-cost-tab:hover{border-color:#bdd2ff;background:#f6f9ff}
+.receipt-cost-tab:focus-visible{outline:2px solid var(--blue);outline-offset:2px}
+.receipt-cost-tab.is-active{border-color:var(--blue);background:var(--blue);box-shadow:0 6px 14px -10px rgba(30,70,180,.9)}
+.receipt-cost-tab.is-active b,.receipt-cost-tab.is-active small{color:#fff}
+.receipt-cost-panel{padding:0 12px 12px}
+.receipt-cost-panel-head{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:10px 12px;margin-bottom:10px;border:1px solid #bdd2ff;border-radius:10px;background:#f2f6ff}
+.receipt-cost-panel-head>span{display:grid;gap:2px;min-width:0;flex:1}
+.receipt-cost-panel-head b{color:var(--ink);font-size:13px}
+.receipt-cost-panel-head small{color:var(--muted);font-size:11.5px;line-height:1.35}
+.receipt-cost-ticket-list{display:grid;gap:8px;margin:0;padding:0;list-style:none}
+.receipt-cost-ticket{
+  display:grid;align-items:center;gap:10px;padding:10px 12px;
+  grid-template-columns:26px minmax(150px,1.1fr) minmax(140px,1fr) minmax(130px,.8fr) auto minmax(150px,auto);
+  border:1px solid var(--line);border-radius:10px;background:#fff
+}
+.receipt-cost-ticket:hover{border-color:#cbd8ff;background:#fbfcff}
+.receipt-cost-ticket-index{
+  display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;
+  border-radius:7px;background:var(--blue-soft);color:var(--blue);font-size:12px;font-weight:800
+}
+.receipt-cost-ticket-main,.receipt-cost-ticket-route,.receipt-cost-ticket-money{display:grid;gap:2px;min-width:0}
+.receipt-cost-ticket-main b{color:var(--ink);font-size:13px;overflow-wrap:anywhere}
+.receipt-cost-ticket-route>span{color:var(--body);font-size:12.5px;overflow-wrap:anywhere}
+.receipt-cost-ticket-money b{color:var(--ink);font-size:13px}
+.receipt-cost-ticket small{color:var(--muted);font-size:11.5px;line-height:1.35;overflow-wrap:anywhere}
+.receipt-cost-ticket-source{
+  justify-self:start;margin-top:2px;padding:2px 7px;border-radius:6px;
+  background:var(--blue-soft);color:var(--blue);font-size:11px;font-weight:700
+}
+.receipt-cost-ticket .pill{justify-self:start;white-space:nowrap}
+.receipt-cost-ticket-actions{display:flex;align-items:center;gap:4px;flex-wrap:wrap;justify-content:flex-end}
+.receipt-cost-ticket-actions .btn{white-space:nowrap}
+@media(max-width:1200px){
+  .receipt-cost-ticket{grid-template-columns:26px minmax(150px,1.2fr) minmax(140px,1fr) minmax(130px,.8fr)}
+  .receipt-cost-ticket .pill{grid-column:2/-1;justify-self:start}
+  .receipt-cost-ticket-actions{grid-column:1/-1;justify-content:flex-start}
+}
+@media(max-width:900px){
+  .rec-import-table tbody tr.rec-import-costtabs-row{
+    margin:-6px 8px 0;padding:0;border:1px solid #dbe4fa;border-radius:10px;background:#f7f9fd;overflow:hidden
+  }
+  .rec-import-table tbody tr.rec-import-costtabs-row>td{display:block!important;grid-template-columns:none!important}
+  .receipt-cost-tabs{border:0;border-radius:0;background:transparent}
+  .receipt-cost-tab{flex:1 1 140px;min-width:0}
+  .receipt-cost-ticket{grid-template-columns:26px minmax(0,1fr)}
+  .receipt-cost-ticket-route,.receipt-cost-ticket-money,.receipt-cost-ticket .pill{grid-column:2/-1}
+  .receipt-cost-ticket-actions{grid-column:1/-1}
+  .receipt-cost-ticket-actions .btn{flex:1 1 120px}
+}
+
+/* Наведение на строку таблицы не должно перекрашивать полосу вкладок. */
+.rec-import-table tbody tr.rec-import-costtabs-row:hover{background:#f9fbff}

@@ -58,7 +58,7 @@ test('collapsed group row exposes every repeated rail price from the full import
 
   assert.match(page, /const identicalRailPricingGroupsForFile = \(file\) =>/);
   assert.match(page, /receiptIdenticalRailPricingGroups\(pricingRows, file\.id\)/);
-  assert.match(page, /sameRailGroups\.map\(\(group\) =>/);
-  assert.match(page, /Одинаковая стоимость \{recMoney\(receiptRailSignatureAmount\(group\.signature\)/);
+  assert.match(page, /sameRailGroups\.map\(\(group, groupIndex\) => \{/);
+  assert.match(page, /<b>\{recMoney\(receiptRailSignatureAmount\(group\.signature\), group\.sourceRow\.parsed\.currency\)\}<\/b>/);
   assert.doesNotMatch(page, /const parentPricingRow = pricingRows\.find\(\(row\) => row\.mathKey === r\.f\.id\)/);
 });

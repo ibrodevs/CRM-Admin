@@ -2293,6 +2293,9 @@ function ReceiptImportModal({ open, onClose, onDone, initialDraft, initialFiles 
   const [editId, setEditId] = useState(null);
   const [subEdit, setSubEdit] = useState(null);
   const [expandedReceipts, setExpandedReceipts] = useState({});
+  // Билеты с одинаковой закупочной стоимостью показываются вкладками:
+  // ключ — id документа, значение — подпись активной вкладки ('' — вкладки свёрнуты).
+  const [costTabByFile, setCostTabByFile] = useState({});
   const [confirmClose, setConfirmClose] = useState(false);
   const [importMode, setImportMode] = useState('auto');
 
@@ -2987,6 +2990,31 @@ function ReceiptImportModal({ open, onClose, onDone, initialDraft, initialFiles 
     if (file?.type !== 'Авиа') return [];
     return receiptIdenticalPricingGroups(pricingRows, file.id, file.type);
   };
+  const costTabId = (fileId, index) => `cost-tab-${fileId}-${index}`;
+  const costPanelId = (fileId, index) => `cost-panel-${fileId}-${index}`;
+  // Активная вкладка хранится по подписи стоимости, а не по индексу: после
+  // правки математики набор групп пересобирается, и выбор пользователя должен
+  // пережить пересчёт либо корректно свернуться, если группа исчезла.
+  const activeCostTabGroup = (fileId, groups) => {
+    const signature = costTabByFile[fileId];
+    if (!signature) return null;
+    const index = groups.findIndex((group) => group.signature === signature);
+    return index < 0 ? null : { ...groups[index], index };
+  };
+  const setCostTab = (fileId, signature) => setCostTabByFile((current) => ({ ...current, [fileId]: signature }));
+  const moveCostTabFocus = (event, fileId, groups, index) => {
+    const shift = event.key === 'ArrowRight' ? 1 : event.key === 'ArrowLeft' ? -1 : 0;
+    if (!shift || groups.length < 2) return;
+    event.preventDefault();
+    const next = (index + shift + groups.length) % groups.length;
+    setCostTab(fileId, groups[next].signature);
+    const node = typeof document !== 'undefined' ? document.getElementById(costTabId(fileId, next)) : null;
+    if (node) node.focus();
+  };
+  const openCostTicketEditor = (row) => {
+    if (row.blankIndex === null) setEditId(row.f.id);
+    else setSubEdit({ fileId: row.f.id, index: row.blankIndex });
+  };
   const selectIdenticalPricing = (sourceRow) => {
     const type = sourceRow?.f?.type;
     const matches = identicalPricingRows(sourceRow);
@@ -3370,6 +3398,9 @@ function ReceiptImportModal({ open, onClose, onDone, initialDraft, initialFiles 
                           );
                           const reviewedBlankCount = (r.f.subReceipts || []).filter(receiptBlankIsReviewed).length;
                           const sameRailGroups = identicalRailPricingGroupsForFile(r.f);
+                          const activeCostGroup = activeCostTabGroup(r.f.id, sameRailGroups);
+                          const activeCostSignature = activeCostGroup ? activeCostGroup.signature : '';
+                          const activeCostIndex = activeCostGroup ? activeCostGroup.index : 0;
                           return (
                             <React.Fragment key={r.f.id}>
                             <tr className={'rec-import-row' + (r.f.subReceipts?.length ? ' has-subrows' : '')} style={{ opacity: skipped ? 0.5 : 1 }}>
@@ -3430,10 +3461,6 @@ function ReceiptImportModal({ open, onClose, onDone, initialDraft, initialFiles 
                                           addFiles([raw]);
                                         } else setEditId(r.f.id);
                                       }}>{(r.f.subReceipts || []).length > 1 ? 'Проверить бланки по очереди' : (displayStatus === 'Требует проверки' ? 'Проверить и заполнить' : st.action)}</button>
-                                      {sameRailGroups.map((group) => <button type="button" className="btn btn-ghost btn-sm"
-                                        key={group.signature} onClick={() => selectIdenticalRailPricing(group.sourceRow)}>
-                                        Одинаковая стоимость {recMoney(receiptRailSignatureAmount(group.signature), group.sourceRow.parsed.currency)} · {r.f.type} ({group.matches.length})
-                                      </button>)}
                                       {r.f.originalUrl && <button className="btn btn-ghost btn-sm" onClick={() => window.open(inlineSupplierDocumentUrl(r.f.originalUrl), '_blank', 'noopener,noreferrer')}><Icon name="eye" /> Оригинал</button>}
                                       <button className="btn btn-ghost btn-sm" onClick={() => setExcluded((state) => ({ ...state, [r.f.id]: !state[r.f.id] }))}>
                                         <Icon name={!skipped ? 'check' : 'orders'} /> {!skipped ? 'Добавляется' : 'Добавить в заказ'}
@@ -3446,6 +3473,107 @@ function ReceiptImportModal({ open, onClose, onDone, initialDraft, initialFiles 
                                 if (window.confirm(`Удалить «${r.f.name}» из импорта? Оригинальный файл на компьютере не будет удалён.`)) remove(r.f.id);
                               }}><Icon name="trash" style={{ width: 16, height: 16 }} /></button></td>
                             </tr>
+                            {sameRailGroups.length > 0 && (
+                            <tr className={'rec-import-costtabs-row' + (activeCostGroup ? ' is-open' : '')} style={{ opacity: skipped ? 0.5 : 1 }}>
+                              <td data-label="" colSpan={7}>
+                                <div className="receipt-cost-tabs">
+                                  <div className="receipt-cost-tabs-head">
+                                    <span className="receipt-cost-tabs-title">
+                                      <Icon name="calc" />
+                                      <span>
+                                        <b>Билеты с одинаковой стоимостью</b>
+                                        <small>{sameRailGroups.length} {plural(sameRailGroups.length, ['вариант', 'варианта', 'вариантов'])} цены · откройте вкладку, чтобы просмотреть и отредактировать бланки</small>
+                                      </span>
+                                    </span>
+                                    {activeCostGroup && <button type="button" className="btn btn-ghost btn-sm receipt-cost-tabs-collapse"
+                                      onClick={() => setCostTab(r.f.id, '')}>
+                                      <Icon name="chevUp" /> Свернуть
+                                    </button>}
+                                  </div>
+                                  <div className="receipt-cost-tablist" role="tablist" aria-label="Билеты с одинаковой стоимостью">
+                                    {sameRailGroups.map((group, groupIndex) => {
+                                      const isActiveCostTab = group.signature === activeCostSignature;
+                                      return (
+                                        <button type="button" role="tab" key={group.signature}
+                                          id={costTabId(r.f.id, groupIndex)}
+                                          className={'receipt-cost-tab' + (isActiveCostTab ? ' is-active' : '')}
+                                          aria-selected={isActiveCostTab}
+                                          aria-controls={costPanelId(r.f.id, groupIndex)}
+                                          tabIndex={isActiveCostTab || (!activeCostGroup && groupIndex === 0) ? 0 : -1}
+                                          onKeyDown={(event) => moveCostTabFocus(event, r.f.id, sameRailGroups, groupIndex)}
+                                          onClick={() => setCostTab(r.f.id, isActiveCostTab ? '' : group.signature)}>
+                                          <b>{recMoney(receiptRailSignatureAmount(group.signature), group.sourceRow.parsed.currency)}</b>
+                                          <small>{group.matches.length} {plural(group.matches.length, ['бланк', 'бланка', 'бланков'])}</small>
+                                        </button>
+                                      );
+                                    })}
+                                  </div>
+                                  {activeCostGroup && (
+                                    <div className="receipt-cost-panel" role="tabpanel"
+                                      id={costPanelId(r.f.id, activeCostIndex)}
+                                      aria-labelledby={costTabId(r.f.id, activeCostIndex)}>
+                                      <div className="receipt-cost-panel-head">
+                                        <span>
+                                          <b>{recMoney(receiptRailSignatureAmount(activeCostGroup.signature), activeCostGroup.sourceRow.parsed.currency)} · {activeCostGroup.matches.length} {plural(activeCostGroup.matches.length, ['бланк', 'бланка', 'бланков'])}</b>
+                                          <small>Совпадает только закупочная стоимость. Пассажир, номер билета и маршрут остаются индивидуальными.</small>
+                                        </span>
+                                        <Button size="sm" variant="secondary" icon="calc"
+                                          onClick={() => selectIdenticalRailPricing(activeCostGroup.sourceRow)}>
+                                          Редактировать стоимость группы ({activeCostGroup.matches.length})
+                                        </Button>
+                                      </div>
+                                      <ol className="receipt-cost-ticket-list">
+                                        {activeCostGroup.matches.map((match, matchIndex) => {
+                                          const matchMath = getMath(match.mathKey, match.parsed);
+                                          const matchLeg = match.parsed.legs?.[0] || {};
+                                          const matchReviewed = receiptBlankIsReviewed(match.parsed);
+                                          return (
+                                            <li key={match.mathKey} className="receipt-cost-ticket">
+                                              <span className="receipt-cost-ticket-index">{matchIndex + 1}</span>
+                                              <span className="receipt-cost-ticket-main">
+                                                <b>{match.parsed.passenger || receiptParticipantLabel(match.parsed, match.f.name)}</b>
+                                                <small>{[
+                                                  match.blankIndex !== null ? `Бланк ${match.blankIndex + 1}` : 'Отдельный документ',
+                                                  match.parsed.ticketNo ? `№ ${match.parsed.ticketNo}` : '',
+                                                ].filter(Boolean).join(' · ')}</small>
+                                                {match.f.id !== r.f.id && <span className="receipt-cost-ticket-source">{match.f.name}</span>}
+                                              </span>
+                                              <span className="receipt-cost-ticket-route">
+                                                <span>{routeSummary(match.parsed)}</span>
+                                                <small>{[
+                                                  matchLeg.date || '',
+                                                  matchLeg.flightNo ? (match.f.type === 'ЖД' ? `Поезд ${matchLeg.flightNo}` : `Рейс ${matchLeg.flightNo}`) : '',
+                                                  matchLeg.coach ? `вагон ${matchLeg.coach}` : '',
+                                                  matchLeg.seat ? `место ${matchLeg.seat}` : '',
+                                                ].filter(Boolean).join(' · ') || 'Детали рейса не распознаны'}</small>
+                                              </span>
+                                              <span className="receipt-cost-ticket-money">
+                                                <b>{recSourceMoney(match.parsed)}</b>
+                                                <small>клиенту {recMoney(clientTotal(matchMath), match.parsed.currency)} · сбор {recMoney(Number(matchMath.fee) || 0, match.parsed.currency)}</small>
+                                              </span>
+                                              <Pill tone={matchReviewed ? 'green' : 'amber'}>{matchReviewed ? 'Проверено' : 'Не проверено'}</Pill>
+                                              <span className="receipt-cost-ticket-actions">
+                                                <button type="button" className="btn btn-ghost btn-sm" onClick={() => openCostTicketEditor(match)}>
+                                                  <Icon name="edit" /> Изменить
+                                                </button>
+                                                <button type="button" className="btn btn-ghost btn-sm" onClick={() => setMathId(match.mathKey)}>
+                                                  <Icon name="calc" /> Математика
+                                                </button>
+                                                <button type="button" className="btn btn-ghost btn-sm"
+                                                  onClick={() => setBrandTarget({ fileId: match.f.id, blankIndex: match.blankIndex === null ? 0 : match.blankIndex })}>
+                                                  <Icon name="template" /> На бланке
+                                                </button>
+                                              </span>
+                                            </li>
+                                          );
+                                        })}
+                                      </ol>
+                                    </div>
+                                  )}
+                                </div>
+                              </td>
+                            </tr>
+                            )}
                             {expandedReceipts[r.f.id] && (r.f.subReceipts || []).map((subReceipt, subIndex) => {
                               const subDetails = receiptDetailsLines(r.f.type, subReceipt);
                               const railLeg = subReceipt.legs?.[0] || {};
