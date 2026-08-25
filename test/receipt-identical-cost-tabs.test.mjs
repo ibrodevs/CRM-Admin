@@ -89,3 +89,15 @@ test('price tabs are styled and stay readable on narrow screens', () => {
   ]) assert.ok(styles.includes(token), `globals.css must define ${token}`);
   assert.match(styles, /@media\(max-width:900px\)\{[\s\S]*?\.receipt-cost-ticket\{grid-template-columns:26px minmax\(0,1fr\)\}/);
 });
+
+test('the price tabs band sits above its document row', () => {
+  const band = page.indexOf("{sameRailGroups.length > 0 && (");
+  const row = page.indexOf("<tr className={'rec-import-row' + (r.f.subReceipts?.length ? ' has-subrows' : '')}");
+  const subrows = page.indexOf('{expandedReceipts[r.f.id] && (r.f.subReceipts || []).map(');
+  assert.ok(band > 0 && row > band, 'вкладки рендерятся до строки документа');
+  assert.ok(subrows > row, 'бланки документа остаются под ним');
+  // Полоса не прилипает к строке документа и к колонке операций.
+  assert.match(styles, /\.rec-import-costtabs-row\{display:block;padding:16px 18px 2px/);
+  assert.match(styles, /\.rec-import-costtabs-row \+ tr\.rec-import-row\{padding-top:14px\}/);
+  assert.match(styles, /td\[data-label="Операции"\] \.rec-import-actions\{padding:6px 0\}/);
+});

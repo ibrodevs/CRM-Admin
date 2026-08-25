@@ -3708,76 +3708,6 @@ function ReceiptImportModal({ open, onClose, onDone, initialDraft, initialFiles 
                           const activeCostIndex = activeCostGroup ? activeCostGroup.index : 0;
                           return (
                             <React.Fragment key={r.f.id}>
-                            <tr className={'rec-import-row' + (r.f.subReceipts?.length ? ' has-subrows' : '')} style={{ opacity: skipped ? 0.5 : 1 }}>
-                              <td data-label=""><Checkbox on={!!sel[r.f.id]} onChange={() => setSel((s) => ({ ...s, [r.f.id]: !s[r.f.id] }))} /></td>
-                              <td data-label="Документ">
-                                <span className="rec-import-file">
-                                  <span className="rec-import-icon" style={{ background: t.color }}><Icon name={t.icon} /></span>
-                                  <span className="rec-import-main">
-                                    <span className="rec-import-title"><ReceiptParticipantSummary draft={p} noun={r.f.type === 'Гостиница' ? 'гостей' : 'пассажиров'} /></span>
-                                    <span className="rec-import-meta">{carrierText}</span>
-                                    {groupInfoByFile[r.f.id] && <span className="receipt-similar-group-pill">Группа {groupInfoByFile[r.f.id].index} · {groupInfoByFile[r.f.id].count} бланк.</span>}
-                                    <Select aria-label="Тип услуги" options={REC_TYPES.filter((item) => item.key !== 'Прочее').map((item) => item.key)}
-                                      value={r.f.type} onChange={(event) => setType(r.f.id, event.target.value)} className="select rec-import-type-select" />
-                                    {!!subReceiptCount && (
-                                      <span className={'receipt-subrows-inline' + (expandedReceipts[r.f.id] ? ' is-expanded' : '')}>
-                                        <span className="receipt-subrows-inline-count">Бланков: <b>{subReceiptCount}</b></span>
-                                        <button type="button" className="receipt-subrows-inline-toggle"
-                                          aria-expanded={!!expandedReceipts[r.f.id]}
-                                          onClick={() => setExpandedReceipts((current) => ({ ...current, [r.f.id]: !current[r.f.id] }))}>
-                                          <span>{expandedReceipts[r.f.id] ? 'Скрыть' : 'Показать'}</span>
-                                          <Icon name={expandedReceipts[r.f.id] ? 'chevUp' : 'chevDown'} />
-                                        </button>
-                                      </span>
-                                    )}
-                                  </span>
-                                </span>
-                              </td>
-                              <td data-label="Детали услуги">
-                                <span className="rec-import-details">{detailLines.slice(0, 3).map((line, index) => <span key={index}>{line}</span>)}</span>
-                              </td>
-                              <td data-label="Стоимость">
-                                <button type="button" className="btn btn-ghost btn-sm rec-import-money" title="Изменить математику" onClick={() => setMathId(r.f.id)}>
-                                  <span className={'rec-import-money-total' + (!recHasSourceAmount(p) ? ' is-missing' : '')}>
-                                    {recHasSourceAmount(p)
-                                      ? `${subReceiptCount > 1 ? 'Сумма группы: ' : ''}${recMoney(clientTotal(m), p.currency)}`
-                                      : 'Стоимость не распознана'}
-                                  </span>
-                                  <span className="rec-import-money-source">{subReceiptCount > 1 ? 'закупка группы' : 'закупка'} {recSourceMoney(p)}</span>
-                                  <span className="rec-import-money-fee">сбор {m.fee || 0} · изменить</span>
-                                </button>
-                              </td>
-                              <td data-label="Проверка">
-                                <Pill tone={st.tone}>{displayStatus}</Pill>
-                                {subReceiptCount > 1 && <div style={{ marginTop: 5 }}><Pill tone={reviewedBlankCount === subReceiptCount ? 'green' : 'amber'}>
-                                  Проверено {reviewedBlankCount} из {subReceiptCount}
-                                </Pill></div>}
-                                {reviewed[r.f.id] && subReceiptCount <= 1 && <div style={{ marginTop: 5 }}><Pill tone="green">Проверено</Pill></div>}
-                              </td>
-                              <td data-label="Операции">
-                                {r.status === 'Возможный дубль'
-                                  ? <button className="btn btn-ghost btn-sm" onClick={() => setExcluded((e) => ({ ...e, [r.f.id]: !e[r.f.id] }))}>{skipped ? 'Вернуть' : 'Пропустить'}</button>
-                                  : (
-                                    <div className="rec-import-actions">
-                                      <button className="btn btn-ghost btn-sm" onClick={() => {
-                                        if (r.status === 'Ошибка' && !p?.recognitionPending && r.f.raw) {
-                                          const raw = r.f.raw;
-                                          remove(r.f.id);
-                                          addFiles([raw]);
-                                        } else setEditId(r.f.id);
-                                      }}>{(r.f.subReceipts || []).length > 1 ? 'Проверить бланки по очереди' : (displayStatus === 'Требует проверки' ? 'Проверить и заполнить' : st.action)}</button>
-                                      {r.f.originalUrl && <button className="btn btn-ghost btn-sm" onClick={() => window.open(inlineSupplierDocumentUrl(r.f.originalUrl), '_blank', 'noopener,noreferrer')}><Icon name="eye" /> Оригинал</button>}
-                                      <button className="btn btn-ghost btn-sm" onClick={() => setExcluded((state) => ({ ...state, [r.f.id]: !state[r.f.id] }))}>
-                                        <Icon name={!skipped ? 'check' : 'orders'} /> {!skipped ? 'Добавляется' : 'Добавить в заказ'}
-                                      </button>
-                                      <button className="btn btn-ghost btn-sm" title="Предпросмотр и сохранение на фирменном бланке" onClick={() => setBrandTarget({ fileId: r.f.id, blankIndex: 0 })}><Icon name="template" style={{ width: 14, height: 14 }} /> На бланке</button>
-                                    </div>
-                                  )}
-                              </td>
-                              <td data-label=""><button className="btn btn-ghost btn-sm rec-import-remove" onClick={() => {
-                                if (window.confirm(`Удалить «${r.f.name}» из импорта? Оригинальный файл на компьютере не будет удалён.`)) remove(r.f.id);
-                              }}><Icon name="trash" style={{ width: 16, height: 16 }} /></button></td>
-                            </tr>
                             {sameRailGroups.length > 0 && (
                             <tr className={'rec-import-costtabs-row' + (activeCostGroup ? ' is-open' : '')} style={{ opacity: skipped ? 0.5 : 1 }}>
                               <td data-label="" colSpan={7}>
@@ -3879,6 +3809,76 @@ function ReceiptImportModal({ open, onClose, onDone, initialDraft, initialFiles 
                               </td>
                             </tr>
                             )}
+                            <tr className={'rec-import-row' + (r.f.subReceipts?.length ? ' has-subrows' : '')} style={{ opacity: skipped ? 0.5 : 1 }}>
+                              <td data-label=""><Checkbox on={!!sel[r.f.id]} onChange={() => setSel((s) => ({ ...s, [r.f.id]: !s[r.f.id] }))} /></td>
+                              <td data-label="Документ">
+                                <span className="rec-import-file">
+                                  <span className="rec-import-icon" style={{ background: t.color }}><Icon name={t.icon} /></span>
+                                  <span className="rec-import-main">
+                                    <span className="rec-import-title"><ReceiptParticipantSummary draft={p} noun={r.f.type === 'Гостиница' ? 'гостей' : 'пассажиров'} /></span>
+                                    <span className="rec-import-meta">{carrierText}</span>
+                                    {groupInfoByFile[r.f.id] && <span className="receipt-similar-group-pill">Группа {groupInfoByFile[r.f.id].index} · {groupInfoByFile[r.f.id].count} бланк.</span>}
+                                    <Select aria-label="Тип услуги" options={REC_TYPES.filter((item) => item.key !== 'Прочее').map((item) => item.key)}
+                                      value={r.f.type} onChange={(event) => setType(r.f.id, event.target.value)} className="select rec-import-type-select" />
+                                    {!!subReceiptCount && (
+                                      <span className={'receipt-subrows-inline' + (expandedReceipts[r.f.id] ? ' is-expanded' : '')}>
+                                        <span className="receipt-subrows-inline-count">Бланков: <b>{subReceiptCount}</b></span>
+                                        <button type="button" className="receipt-subrows-inline-toggle"
+                                          aria-expanded={!!expandedReceipts[r.f.id]}
+                                          onClick={() => setExpandedReceipts((current) => ({ ...current, [r.f.id]: !current[r.f.id] }))}>
+                                          <span>{expandedReceipts[r.f.id] ? 'Скрыть' : 'Показать'}</span>
+                                          <Icon name={expandedReceipts[r.f.id] ? 'chevUp' : 'chevDown'} />
+                                        </button>
+                                      </span>
+                                    )}
+                                  </span>
+                                </span>
+                              </td>
+                              <td data-label="Детали услуги">
+                                <span className="rec-import-details">{detailLines.slice(0, 3).map((line, index) => <span key={index}>{line}</span>)}</span>
+                              </td>
+                              <td data-label="Стоимость">
+                                <button type="button" className="btn btn-ghost btn-sm rec-import-money" title="Изменить математику" onClick={() => setMathId(r.f.id)}>
+                                  <span className={'rec-import-money-total' + (!recHasSourceAmount(p) ? ' is-missing' : '')}>
+                                    {recHasSourceAmount(p)
+                                      ? `${subReceiptCount > 1 ? 'Сумма группы: ' : ''}${recMoney(clientTotal(m), p.currency)}`
+                                      : 'Стоимость не распознана'}
+                                  </span>
+                                  <span className="rec-import-money-source">{subReceiptCount > 1 ? 'закупка группы' : 'закупка'} {recSourceMoney(p)}</span>
+                                  <span className="rec-import-money-fee">сбор {m.fee || 0} · изменить</span>
+                                </button>
+                              </td>
+                              <td data-label="Проверка">
+                                <Pill tone={st.tone}>{displayStatus}</Pill>
+                                {subReceiptCount > 1 && <div style={{ marginTop: 5 }}><Pill tone={reviewedBlankCount === subReceiptCount ? 'green' : 'amber'}>
+                                  Проверено {reviewedBlankCount} из {subReceiptCount}
+                                </Pill></div>}
+                                {reviewed[r.f.id] && subReceiptCount <= 1 && <div style={{ marginTop: 5 }}><Pill tone="green">Проверено</Pill></div>}
+                              </td>
+                              <td data-label="Операции">
+                                {r.status === 'Возможный дубль'
+                                  ? <button className="btn btn-ghost btn-sm" onClick={() => setExcluded((e) => ({ ...e, [r.f.id]: !e[r.f.id] }))}>{skipped ? 'Вернуть' : 'Пропустить'}</button>
+                                  : (
+                                    <div className="rec-import-actions">
+                                      <button className="btn btn-ghost btn-sm" onClick={() => {
+                                        if (r.status === 'Ошибка' && !p?.recognitionPending && r.f.raw) {
+                                          const raw = r.f.raw;
+                                          remove(r.f.id);
+                                          addFiles([raw]);
+                                        } else setEditId(r.f.id);
+                                      }}>{(r.f.subReceipts || []).length > 1 ? 'Проверить бланки по очереди' : (displayStatus === 'Требует проверки' ? 'Проверить и заполнить' : st.action)}</button>
+                                      {r.f.originalUrl && <button className="btn btn-ghost btn-sm" onClick={() => window.open(inlineSupplierDocumentUrl(r.f.originalUrl), '_blank', 'noopener,noreferrer')}><Icon name="eye" /> Оригинал</button>}
+                                      <button className="btn btn-ghost btn-sm" onClick={() => setExcluded((state) => ({ ...state, [r.f.id]: !state[r.f.id] }))}>
+                                        <Icon name={!skipped ? 'check' : 'orders'} /> {!skipped ? 'Добавляется' : 'Добавить в заказ'}
+                                      </button>
+                                      <button className="btn btn-ghost btn-sm" title="Предпросмотр и сохранение на фирменном бланке" onClick={() => setBrandTarget({ fileId: r.f.id, blankIndex: 0 })}><Icon name="template" style={{ width: 14, height: 14 }} /> На бланке</button>
+                                    </div>
+                                  )}
+                              </td>
+                              <td data-label=""><button className="btn btn-ghost btn-sm rec-import-remove" onClick={() => {
+                                if (window.confirm(`Удалить «${r.f.name}» из импорта? Оригинальный файл на компьютере не будет удалён.`)) remove(r.f.id);
+                              }}><Icon name="trash" style={{ width: 16, height: 16 }} /></button></td>
+                            </tr>
                             {expandedReceipts[r.f.id] && (r.f.subReceipts || []).map((subReceipt, subIndex) => {
                               const subDetails = receiptDetailsLines(r.f.type, subReceipt);
                               const railLeg = subReceipt.legs?.[0] || {};
