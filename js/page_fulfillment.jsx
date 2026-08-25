@@ -1027,7 +1027,8 @@ function guessType(name) {
   if (/(transfer|трансфер|pickup|driver|car)/.test(n)) return 'Трансфер';
   if (/(hotel|отел|voucher|ваучер|room|гостиниц)/.test(n)) return 'Гостиница';
   if (/(train|ржд|поезд|rail|жд)/.test(n)) return 'ЖД';
-  return 'Авиа';
+  if (/(avia|air|flight|ticket|itinerary|авиа|рейс|маршрут)/.test(n)) return 'Авиа';
+  return 'Прочее';
 }
 function serviceTypeFromBackend(kind, label, fallback) {
   const raw = String(kind || label || '').toLowerCase();
@@ -2624,10 +2625,18 @@ function ReceiptImportModal({ open, onClose, onDone, initialDraft, initialFiles 
     setStep(1);
     const queue = [...add];
     const workerCount = Math.min(RECEIPT_IMPORT_CONCURRENCY, queue.length);
+    let fatalBatchError = null;
+    let fatalBatchNotified = false;
     const runWorker = async () => {
       while (queue.length) {
         const entry = queue.shift();
         if (!entry) return;
+        if (fatalBatchError) {
+          setFiles((cur) => cur.map((item) => item.id === entry.id
+            ? { ...item, status: 'done', error: fatalBatchError.message, parsed: { ...emptyReceiptParse(entry), recognitionPending: true } }
+            : item));
+          continue;
+        }
         await (async () => {
       setFiles((cur) => cur.map((item) => item.id === entry.id ? { ...item, status: 'scanning' } : item));
       try {
@@ -2739,7 +2748,14 @@ function ReceiptImportModal({ open, onClose, onDone, initialDraft, initialFiles 
           : item));
       } catch (error) {
         setFiles((cur) => cur.map((item) => item.id === entry.id ? { ...item, status: 'done', error: error.message, parsed: { ...emptyReceiptParse(entry), recognitionPending: true } } : item));
-        toast(error.message || `Не удалось обработать ${entry.name}`, 'err');
+        const isFatalAccessError = [401, 403].includes(Number(error?.status));
+        if (isFatalAccessError) fatalBatchError = error;
+        if (!isFatalAccessError || !fatalBatchNotified) {
+          toast(isFatalAccessError
+            ? `${error.message || 'Нет доступа к импорту'}. Пакет остановлен, повторные запросы не отправлялись.`
+            : error.message || `Не удалось обработать ${entry.name}`, 'err');
+          if (isFatalAccessError) fatalBatchNotified = true;
+        }
       }
 
         })();
@@ -3651,7 +3667,7 @@ function ReceiptImportModal({ open, onClose, onDone, initialDraft, initialFiles 
               <>
                 <RSub>Сверка квитанций</RSub>
                 <div style={{ fontSize: 12, color: 'var(--muted)', margin: '-4px 0 10px' }}>
-                  Автозаполнение работает только для файлов с текстовым слоем. Если данные не найдены, заполните поля вручную перед добавлением.
+                  PDF с текстовым слоем распознаются сразу. Для сканов используется OCR; если отдельные данные не найдены, проверьте и заполните их вручную.
                 </div>
 
                 <div className="receipt-group-review-mode">
@@ -3818,7 +3834,10 @@ function ReceiptImportModal({ open, onClose, onDone, initialDraft, initialFiles 
                                     <span className="rec-import-title"><ReceiptParticipantSummary draft={p} noun={r.f.type === 'Гостиница' ? 'гостей' : 'пассажиров'} /></span>
                                     <span className="rec-import-meta">{carrierText}</span>
                                     {groupInfoByFile[r.f.id] && <span className="receipt-similar-group-pill">Группа {groupInfoByFile[r.f.id].index} · {groupInfoByFile[r.f.id].count} бланк.</span>}
-                                    <Select aria-label="Тип услуги" options={REC_TYPES.filter((item) => item.key !== 'Прочее').map((item) => item.key)}
+                                    <Select aria-label="Тип услуги" options={[
+                                      { value: 'Прочее', label: 'Тип не определён' },
+                                      ...REC_TYPES.filter((item) => item.key !== 'Прочее').map((item) => item.key),
+                                    ]}
                                       value={r.f.type} onChange={(event) => setType(r.f.id, event.target.value)} className="select rec-import-type-select" />
                                     {!!subReceiptCount && (
                                       <span className={'receipt-subrows-inline' + (expandedReceipts[r.f.id] ? ' is-expanded' : '')}>

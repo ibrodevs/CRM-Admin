@@ -17,6 +17,17 @@ test('receipt batch import limits backend pressure', async () => {
   assert.doesNotMatch(source, /add\.forEach\(async \(entry\) => \{/);
 });
 
+test('receipt batch import stops after one authorization failure', async () => {
+  const source = await readFile(fulfillmentUrl, 'utf8');
+
+  assert.match(source, /let fatalBatchError = null;/);
+  assert.match(source, /if \(fatalBatchError\) \{/);
+  assert.match(source, /\[401, 403\]\.includes\(Number\(error\?\.status\)\)/);
+  assert.match(source, /if \(isFatalAccessError\) fatalBatchError = error;/);
+  assert.match(source, /let fatalBatchNotified = false;/);
+  assert.match(source, /Пакет остановлен, повторные запросы не отправлялись/);
+});
+
 test('temporary backend overload is retried for upload and result', async () => {
   const source = await readFile(fulfillmentUrl, 'utf8');
   const resources = await readFile(resourcesUrl, 'utf8');

@@ -25,7 +25,7 @@ const STATUS_MESSAGE = {
 
 function errorFrom(response, payload) {
   const error = payload?.error || payload || {};
-  return new ApiError(error.message || STATUS_MESSAGE[response.status] || `Ошибка запроса (${response.status})`, {
+  return new ApiError(error.message || error.detail || STATUS_MESSAGE[response.status] || `Ошибка запроса (${response.status})`, {
     status: response.status,
     code: error.code || 'REQUEST_FAILED',
     fields: error.fields || {},
