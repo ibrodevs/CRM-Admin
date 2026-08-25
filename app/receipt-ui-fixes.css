@@ -1550,7 +1550,8 @@
     max-width: 100%;
   }
 
-  .rec-import-table td:last-child {
+  .rec-import-table tr.rec-import-row > td:last-child,
+  .rec-import-table tr.rec-import-subrow > td:last-child {
     width: 48px !important;
     min-width: 48px;
     padding-left: 4px;

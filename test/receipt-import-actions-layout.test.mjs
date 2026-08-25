@@ -11,7 +11,10 @@ test('receipt import actions wrap before reaching the delete column', async () =
 
   assert.match(css, /Receipt import operations: never overlap the delete action/);
   assert.match(css, /\.rec-import-actions \{[\s\S]*?flex-wrap: wrap !important;/);
-  assert.match(css, /\.rec-import-table td:last-child \{[\s\S]*?min-width: 48px;/);
+  // Колонка удаления фиксируется только у строк с данными: строка вкладок
+  // одинаковой стоимости занимает всю ширину одной ячейкой.
+  assert.match(css, /\.rec-import-table tr\.rec-import-row > td:last-child,\n\s+\.rec-import-table tr\.rec-import-subrow > td:last-child \{[\s\S]*?min-width: 48px;/);
+  assert.doesNotMatch(css, /\n  \.rec-import-table td:last-child \{/);
   assert.match(css, /\.rec-import-remove \{[\s\S]*?flex: 0 0 34px;/);
 
   assert.match(script, /Receipt import operations: never overlap the delete action/);

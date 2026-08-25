@@ -2769,3 +2769,11 @@ table.hp-matrix{border-collapse:collapse;width:100%;min-width:640px}
 .receipt-fee-summary small{color:var(--muted);font-size:11.5px;line-height:1.4}
 .receipt-fee-summary.is-contract{border-color:#bfe6cd;background:#f2fbf5}
 .receipt-fee-summary.is-contract>svg{color:var(--green)}
+
+/* Строка вкладок — одна ячейка на всю ширину: правило колонки удаления
+   (td:last-child, 48px) не должно сжимать её в узкий столбик. */
+.rec-import-table tbody tr.rec-import-costtabs-row > td,
+.rec-import-table tbody tr.rec-import-costtabs-row > td:last-child{
+  width:100%!important;min-width:0!important;max-width:100%!important;
+  display:block!important;padding:0!important;position:static
+}
