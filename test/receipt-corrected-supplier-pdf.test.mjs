@@ -30,10 +30,10 @@ test('receipt registry and importer use corrected supplier PDF by default', () =
 test('registry group price edits sync every changed child before sequential review completes', () => {
   assert.match(page, /function receiptFinancialFingerprint\(receipt\)/);
   assert.match(page, /tickets: Array\.isArray\(group\) && group\.length > 1 \? group\.map\(financial\) : \[\]/);
-  assert.match(page, /const financialChanged = activeEdit[\s\S]*receiptFinancialFingerprint\(activeEdit\.parsed\) !== receiptFinancialFingerprint\(parsed\)/);
+  assert.match(page, /const supplierPdfChanged = activeEdit[\s\S]*receiptSupplierPdfFingerprint\(activeEdit\.parsed\) !== receiptSupplierPdfFingerprint\(parsed\)/);
   assert.match(page, /queueRegistrySupplierPdfSync\(activeEdit\.serverId, parsed\)/);
   assert.match(page, /preview_sync: true/);
-  assert.match(page, /if \(correction\.status !== 'corrected'\)/);
+  assert.match(page, /if \(!\['corrected', 'source'\]\.includes\(correction\.status\)\)/);
   assert.match(page, /pdfSyncStatus=\{edit \? registryPdfSync\[edit\.serverId \|\| edit\.id\] : ''\}/);
 
   const helperSource = page.match(/function receiptFinancialFingerprint\(receipt\) \{[\s\S]*?\n\}/)?.[0];
@@ -53,6 +53,25 @@ test('registry group price edits sync every changed child before sequential revi
   changed.groupTickets[0].ticketCost = '2318.11';
   changed.groupTickets[0].total = '4255.11';
   assert.notEqual(fingerprint(before), fingerprint(changed), 'one changed child must trigger PDF sync');
+});
+
+test('avia IT mode triggers supplier PDF sync without changing stored fare numbers', () => {
+  assert.match(page, /function receiptSupplierPdfFingerprint\(receipt\)/);
+  assert.match(page, /priceMode = String\(receipt\?\.output\?\.priceMode/);
+  assert.match(page, /receiptSupplierPdfFingerprint\(sourceSnapshot\.parsed\) !== receiptSupplierPdfFingerprint\(parsed\)/);
+  assert.match(page, /financialEdit: supplierPdfEdit/);
+  assert.match(page, /if \(supplierPdfChanged && activeEdit\?\.serverId\)/);
+  assert.match(page, /!\['corrected', 'source'\]\.includes\(correction\.status\)/);
+  assert.doesNotMatch(page, /fare:\s*['"]IT['"]/);
+
+  const financialSource = page.match(/function receiptFinancialFingerprint\(receipt\) \{[\s\S]*?\n\}/)?.[0];
+  const supplierSource = page.match(/function receiptSupplierPdfFingerprint\(receipt\) \{[\s\S]*?\n\}/)?.[0];
+  assert.ok(financialSource && supplierSource, 'supplier PDF fingerprint helpers must exist');
+  const fingerprint = Function(`${financialSource}; ${supplierSource}; return receiptSupplierPdfFingerprint;`)();
+  const opened = { fare: 13110, taxes: 3690, total: 16800, output: { priceMode: 'total' } };
+  const closed = { ...opened, output: { priceMode: 'it' } };
+  assert.notEqual(fingerprint(opened), fingerprint(closed));
+  assert.equal(closed.fare, 13110, 'IT must remain a display mode, not overwrite the fare');
 });
 
 test('direct grouped-ticket edits replace stale pricing state before PDF sync', () => {

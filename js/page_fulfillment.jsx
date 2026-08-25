@@ -1709,6 +1709,19 @@ function receiptFinancialFingerprint(receipt) {
   });
 }
 
+function receiptSupplierPdfFingerprint(receipt) {
+  const priceMode = String(receipt?.output?.priceMode || receipt?.output?.price_mode || 'total').toLowerCase();
+  const group = receipt?.groupTickets || receipt?.receiptItems || receipt?.receipt_items
+    || receipt?.receipts || receipt?.railTickets || [];
+  return JSON.stringify({
+    financial: receiptFinancialFingerprint(receipt),
+    priceMode,
+    ticketPriceModes: Array.isArray(group) && group.length > 1
+      ? group.map((ticket) => String(ticket?.output?.priceMode || ticket?.output?.price_mode || priceMode).toLowerCase())
+      : [],
+  });
+}
+
 function receiptGroupNeedsSequentialReview(file) {
   const tickets = receiptGroupedTickets(file);
   return tickets.length > 1 && !tickets.every(receiptBlankIsReviewed);
@@ -2593,6 +2606,8 @@ function ReceiptImportModal({ open, onClose, onDone, initialDraft, initialFiles 
     const sourceSnapshot = filesStateRef.current.find((file) => file.id === id);
     const financialEdit = Boolean(sourceSnapshot
       && receiptFinancialFingerprint(sourceSnapshot.parsed) !== receiptFinancialFingerprint(parsed));
+    const supplierPdfEdit = Boolean(sourceSnapshot
+      && receiptSupplierPdfFingerprint(sourceSnapshot.parsed) !== receiptSupplierPdfFingerprint(parsed));
     if (financialEdit) {
       syncEditorMath(id, parsed);
     }
@@ -2673,7 +2688,7 @@ function ReceiptImportModal({ open, onClose, onDone, initialDraft, initialFiles 
       queueWorkingPdfSync(fileId, {
         mode: 'review',
         verifiedData: changedFile ? verifiedReceiptForReview(changedFile) : null,
-        financialEdit,
+        financialEdit: supplierPdfEdit,
       });
     });
   };
@@ -2686,6 +2701,8 @@ function ReceiptImportModal({ open, onClose, onDone, initialDraft, initialFiles 
     const sourceChild = sourceFile?.subReceipts?.[subIndex];
     const financialEdit = !sourceChild
       || receiptFinancialFingerprint(sourceChild) !== receiptFinancialFingerprint(editedChild);
+    const supplierPdfEdit = !sourceChild
+      || receiptSupplierPdfFingerprint(sourceChild) !== receiptSupplierPdfFingerprint(editedChild);
     if (financialEdit) {
       syncEditorMath(subReceiptMathKey(fileId, subIndex), editedChild);
     }
@@ -2729,7 +2746,7 @@ function ReceiptImportModal({ open, onClose, onDone, initialDraft, initialFiles 
     queueWorkingPdfSync(fileId, {
       mode: 'review',
       verifiedData: changedFile ? verifiedReceiptForReview(changedFile) : null,
-      financialEdit,
+      financialEdit: supplierPdfEdit,
     });
   };
   const markReviewed = (id, _parsed, options = {}) => {
@@ -3814,7 +3831,7 @@ function ReceiptEditorPage({ documents = [], orders = [], services = [], compani
       if (correction.status === 'queued' && correction.job_id) {
         correction = await waitForReceiptPdfJob(correction.job_id);
       }
-      if (correction.status !== 'corrected') {
+      if (!['corrected', 'source'].includes(correction.status)) {
         setRegistryPdfSync((current) => ({ ...current, [fileId]: 'error' }));
         toast('Стоимость сохранена, но рабочий PDF не подтвердил замену цифр. Проверьте журнал supplier_pdf_sync.', 'err');
         return;
@@ -3864,11 +3881,11 @@ function ReceiptEditorPage({ documents = [], orders = [], services = [], compani
   };
   const updateLocalReceipt = (fileId, parsed) => {
     const activeEdit = edit && String(edit.id) === String(fileId) ? edit : null;
-    const financialChanged = activeEdit
-      && receiptFinancialFingerprint(activeEdit.parsed) !== receiptFinancialFingerprint(parsed);
+    const supplierPdfChanged = activeEdit
+      && receiptSupplierPdfFingerprint(activeEdit.parsed) !== receiptSupplierPdfFingerprint(parsed);
     editDirty.current = true;
     setEdit((current) => current && String(current.id) === String(fileId) ? { ...current, parsed } : current);
-    if (financialChanged && activeEdit?.serverId) {
+    if (supplierPdfChanged && activeEdit?.serverId) {
       queueRegistrySupplierPdfSync(activeEdit.serverId, parsed);
     }
     if (edit?.groupTicketIndex !== undefined) return;
