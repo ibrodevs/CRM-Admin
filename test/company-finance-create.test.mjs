@@ -32,3 +32,18 @@ test('депозит и отсрочка получают корректные �
   assert.match(source, /if \(t === 'депозит' && !next\.deposit\)/);
   assert.match(source, /if \(t === 'отсрочка' && !next\.credit\)/);
 });
+
+test('валюта финансовых условий задаётся и видна в суммах договора', async () => {
+  const source = await readFile(financeUrl, 'utf8');
+
+  assert.match(source, /const FEE_CURRENCIES = \['USD', 'RUB', 'EUR', 'KZT'\]/);
+  assert.match(source, /const cfCurrency = \(value\) => \{/);
+  assert.match(source, /function fM\(n, currency = 'USD'\)/);
+  assert.match(source, /const \[currency, setCurrency\] = useState\('USD'\)/);
+  assert.match(source, /    const next = \{\n      settlement,\n      currency,/);
+  assert.match(source, /const setCurrency = \(value\) => updateFin\(\{ \.\.\.fin, currency: value \}\)/);
+  assert.match(source, /onChangeCurrency=\{setCurrency\}/);
+  assert.match(source, /feeCellText\(agreement\.fees\[svc\] && agreement\.fees\[svc\]\[f\.key\], currency\)/);
+  // Фиксированный сбор договора действует только в своей валюте — это видно оператору.
+  assert.match(source, /Сервисный сбор подставляется в бланк автоматически, только если валюта бланка совпадает/);
+});

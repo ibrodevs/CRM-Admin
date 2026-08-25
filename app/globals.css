@@ -2753,3 +2753,19 @@ table.hp-matrix{border-collapse:collapse;width:100%;min-width:640px}
 
 /* Наведение на строку таблицы не должно перекрашивать полосу вкладок. */
 .rec-import-table tbody tr.rec-import-costtabs-row:hover{background:#f9fbff}
+
+/* Внутренняя математика: источник сервисного сбора виден оператору. */
+.receipt-internal-math-field.is-contract-fee .input{background:var(--surface-2);color:var(--ink);cursor:not-allowed;opacity:1}
+.receipt-internal-math-note{display:flex;align-items:flex-start;gap:6px;font-size:11.5px;line-height:1.4}
+.receipt-internal-math-note svg{width:13px;height:13px;flex:0 0 13px;margin-top:1px}
+.receipt-internal-math-note.is-contract{color:var(--green)}
+.receipt-internal-math-note.is-manual{color:var(--amber)}
+.receipt-pricing-fee-source{display:block;margin-top:2px;color:var(--green);font-size:11.5px;line-height:1.35;overflow-wrap:anywhere}
+.receipt-pricing-fee-source.is-manual{color:var(--muted)}
+.receipt-fee-summary{display:flex;align-items:flex-start;gap:9px;margin-top:12px;padding:11px 13px;border:1px solid var(--line);border-radius:12px;background:var(--surface-2)}
+.receipt-fee-summary>svg{width:17px;height:17px;flex:0 0 17px;margin-top:1px;color:var(--muted-2)}
+.receipt-fee-summary>span{display:grid;gap:2px;min-width:0}
+.receipt-fee-summary b{color:var(--ink);font-size:13px}
+.receipt-fee-summary small{color:var(--muted);font-size:11.5px;line-height:1.4}
+.receipt-fee-summary.is-contract{border-color:#bfe6cd;background:#f2fbf5}
+.receipt-fee-summary.is-contract>svg{color:var(--green)}

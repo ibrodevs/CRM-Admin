@@ -93,7 +93,7 @@ test('group corrections update child blank cards and the supplier-PDF save paylo
   assert.match(page, /function receiptWithPricing\(type, receipt, pricing\)/);
   assert.match(page, /const verifiedReceiptForSave = \(file\) =>/);
   assert.match(page, /verified_data: verifiedForSave/);
-  assert.match(page, /const p = verifiedReceiptForSave\(r\.f\)/);
+  assert.match(page, /const p = verifiedReceiptForSaveWithMath\(r\.f, mathStateRef\.current\)/);
 });
 
 
@@ -158,7 +158,8 @@ test('price edits refresh the supplier PDF during review and pricing step', () =
   assert.match(page, /const clientAmount = round\(tariffAndTaxes \+ fees \+ Number\(pricing\?\.markup \|\| 0\)\)/);
   assert.match(page, /total: clientAmount/);
   assert.match(page, /queueWorkingPdfSync\(fileId, \{ mode: 'review' \}\)/);
-  assert.match(page, /safeTargets\.map\(\(row\) => String\(row\.mathKey\)\.split\('::blank::'\)\[0\]\)[\s\S]*queueWorkingPdfSync\(fileId, \{[\s\S]*mode: 'pricing', delay: 0/);
+  assert.match(page, /safeTargets\.map\(\(row\) => String\(row\.mathKey\)\.split\('::blank::'\)\[0\]\)[\s\S]*syncPricingSnapshots\(next, affectedFileIds, \{ announce: safeTargets\.length === 1, delay: 0 \}\)/);
+  assert.match(page, /queueWorkingPdfSync\(fileId, \{\n\s+mode: 'pricing', delay, announce,/);
   assert.match(page, /documentsApi\.updateReceipt\(sourceDocumentId, \{/);
   assert.match(page, /const verifiedData = submittedSnapshot[\s\S]*mode === 'pricing'[\s\S]*verifiedReceiptForSaveWithMath\(file, mathStateRef\.current\)[\s\S]*verifiedReceiptForReview\(file\)/);
   assert.match(page, /draft: true,[\s\S]*verified_data: verifiedData,[\s\S]*preview_sync: true/);

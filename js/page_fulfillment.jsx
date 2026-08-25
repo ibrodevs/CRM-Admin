@@ -6,7 +6,7 @@ import { COMPANIES_DB, CURRENT_USER, DOCS2, DOC_KIND, DOC_STATUS2, FIN_OPS, FIN_
 import { UnifiedBindField, UFDateField } from './forms_unified';
 import { Topbar } from './layout';
 import { toLegacyDocument } from './api/legacy-adapters';
-import { documentsApi, financeApi, jobsApi, workspaceActionsApi } from './api/resources';
+import { crmApi, documentsApi, financeApi, jobsApi, workspaceActionsApi } from './api/resources';
 import { resultsOf } from './api/client';
 import {
   ReceiptBrandDocumentDrawer,
@@ -1570,33 +1570,48 @@ function receiptBlankIsReviewed(ticket) {
   return ticket?.reviewed === true || ['reviewed', 'checked', 'done', 'complete', 'completed'].includes(raw);
 }
 
-function receiptRailCostSignature(ticket) {
-  const componentValues = [
-    ticket?.ticketCost ?? ticket?.ticket_cost,
-    ticket?.reservedSeatCost ?? ticket?.reserved_seat_cost,
-    ticket?.agencyServiceFee ?? ticket?.agency_service_fee,
-    ticket?.additionalFees ?? ticket?.additional_fees,
-  ].map(receiptMoneyNumber);
+// База поставщика бланка: для ЖД — билет + плацкарта, для авиа — тариф + таксы.
+// Сервисный сбор агентства, надбавка и комиссия CRM в базу не входят: по ней
+// сравнивается закупочная стоимость и от неё считается внутренняя математика.
+function receiptSupplierBaseAmount(type, receipt) {
+  const componentValues = (type === 'ЖД'
+    ? [
+      receipt?.ticketCost ?? receipt?.ticket_cost,
+      receipt?.reservedSeatCost ?? receipt?.reserved_seat_cost,
+    ]
+    : [receipt?.fare, receipt?.taxes]).map(receiptMoneyNumber);
   const hasComponents = componentValues.some((value) => Number.isFinite(value) && value !== 0);
-  const components = componentValues.reduce((sum, value) => sum + (Number.isFinite(value) ? value : 0), 0);
-  const total = receiptMoneyNumber(ticket?.originalTotal ?? ticket?.original_total ?? ticket?.total);
   // Ticket-level components are more reliable for grouped PDFs: some legacy
   // payloads copied the parent aggregate into every child's originalTotal.
-  const amount = hasComponents ? components : total;
+  if (hasComponents) {
+    const components = componentValues.reduce((sum, value) => sum + (Number.isFinite(value) ? value : 0), 0);
+    return Math.round(components * 100) / 100;
+  }
+  const total = receiptMoneyNumber(receipt?.originalTotal ?? receipt?.original_total ?? receipt?.total);
+  if (!Number.isFinite(total)) return NaN;
+  const feeValues = (type === 'ЖД'
+    ? [
+      receipt?.agencyServiceFee ?? receipt?.agency_service_fee,
+      receipt?.additionalFees ?? receipt?.additional_fees,
+    ]
+    : [receipt?.fees]).map(receiptMoneyNumber);
+  const fees = feeValues.reduce((sum, value) => sum + (Number.isFinite(value) ? value : 0), 0);
+  return Math.round((total - fees) * 100) / 100;
+}
+
+function receiptSupplierBaseSignature(type, receipt) {
+  const amount = receiptSupplierBaseAmount(type, receipt);
   if (!(amount > 0)) return '';
-  return `${String(ticket?.currency || 'RUB').toUpperCase()}::${Math.round(amount * 100)}`;
+  return `${String(receipt?.currency || 'RUB').toUpperCase()}::${Math.round(amount * 100)}`;
+}
+
+function receiptRailCostSignature(ticket) {
+  return receiptSupplierBaseSignature('ЖД', ticket);
 }
 
 function receiptPricingCostSignature(type, receipt) {
-  if (type === 'ЖД') return receiptRailCostSignature(receipt);
-  if (type !== 'Авиа') return '';
-  const componentValues = [receipt?.fare, receipt?.taxes, receipt?.fees].map(receiptMoneyNumber);
-  const hasComponents = componentValues.some((value) => Number.isFinite(value) && value !== 0);
-  const components = componentValues.reduce((sum, value) => sum + (Number.isFinite(value) ? value : 0), 0);
-  const total = receiptMoneyNumber(receipt?.originalTotal ?? receipt?.original_total ?? receipt?.total);
-  const amount = hasComponents ? components : total;
-  if (!(amount > 0)) return '';
-  return `${String(receipt?.currency || 'RUB').toUpperCase()}::${Math.round(amount * 100)}`;
+  if (!['Авиа', 'ЖД'].includes(type)) return '';
+  return receiptSupplierBaseSignature(type, receipt);
 }
 
 function receiptRailSignatureAmount(signature) {
@@ -2220,14 +2235,117 @@ function ReceiptEditDrawer({ open, file, onClose, onChange, onSubChange, onBrand
 }
 
 
-function ReceiptMathDrawer({ open, file, math, applyCount = 1, onSave, onClose }) {
+// Сервисный сбор считает backend по договору контрагента (crm/fee_resolution).
+// Здесь только раскладка ответа и подписи для оператора: нулевой сбор «по
+// умолчанию» не подставляется — если правила нет, поле остаётся ручным.
+const SERVICE_FEE_MANUAL_HINTS = {
+  no_company: 'Условия по договору не найдены — укажите вручную',
+  no_active_contract: 'У контрагента нет действующего договора — укажите сбор вручную',
+  no_applicable_rule: 'В договоре нет правила сервисного сбора для этой услуги — укажите вручную',
+  rule_not_found: 'Правило договора больше не действует — укажите сбор вручную',
+  unknown_service_kind: 'Для этого вида услуги договорные сборы не настроены — укажите вручную',
+  resolve_failed: 'Не удалось получить условия договора — укажите сбор вручную',
+};
+
+function normalizeServiceFeeResolution(raw) {
+  const source = raw?.source === 'contract' ? 'contract' : 'manual';
+  const fee = Number(raw?.fee);
+  return {
+    source,
+    fee: source === 'contract' && Number.isFinite(fee) ? Math.round(fee * 100) / 100 : null,
+    currency: raw?.currency || '',
+    reason: source === 'contract' ? '' : (raw?.reason || 'manual'),
+    calculation: raw?.calculation || '',
+    value: raw?.value || '',
+    ruleId: raw?.rule_id || '',
+    contractId: raw?.contract_id || '',
+    agreementId: raw?.agreement_id || '',
+    contractNumber: raw?.contract_number || '',
+    agreementNumber: raw?.agreement_number || '',
+    contractFee: raw?.contract_fee || '',
+    contractCurrency: raw?.contract_currency || '',
+    serviceKind: raw?.service_kind || '',
+  };
+}
+
+function serviceFeeSourceLabel(info) {
+  if (info?.source !== 'contract') return '';
+  const percent = info.calculation === 'percent' && info.value
+    ? ` · ${Number(info.value)}% от базы поставщика`
+    : '';
+  const contract = String(info.contractNumber || '').trim();
+  return contract
+    ? `Автоматически по договору ${contract}${percent}`
+    : `По условиям контрагента${percent}`;
+}
+
+function serviceFeeManualHint(info) {
+  if (info?.source === 'contract') return '';
+  if (info?.reason === 'currency_mismatch' && info.contractFee) {
+    const contract = String(info.contractNumber || '').trim();
+    return `Сбор по договору ${contract ? contract + ' ' : ''}указан в ${info.contractCurrency} — валюта бланка другая, укажите сумму вручную`;
+  }
+  return SERVICE_FEE_MANUAL_HINTS[info?.reason] || 'Условия по договору не найдены — укажите вручную';
+}
+
+// Контрагент для расчёта: юрлицо напрямую либо заказчик выбранного заказа.
+// Физлицо и новый заказ договорных условий не дают — сбор ручной.
+function receiptFeeBindingContext(bindTarget) {
+  if (bindTarget?.mode === 'company' && bindTarget.company?.id) {
+    return {
+      company: bindTarget.company.id,
+      label: bindTarget.company.name || bindTarget.company.shortName || 'Юр. лицо',
+    };
+  }
+  if (bindTarget?.mode === 'order' && bindTarget.order?.id) {
+    return { order: bindTarget.order.id, label: 'Заказ № ' + (bindTarget.order.no || '') };
+  }
+  return {
+    reason: 'no_company',
+    label: bindTarget?.mode === 'person' ? 'Физлицо' : 'Клиент не выбран',
+  };
+}
+
+
+// Итог по источнику сервисного сбора на шаге привязки: оператор видит, откуда
+// возьмётся сумма, до того как бланки уйдут в заказ.
+function ServiceFeeBindingSummary({ rows = [], info = {}, context = {}, hint = '' }) {
+  if (!rows.length) return null;
+  const resolutions = rows.map((row) => info[row.mathKey]).filter(Boolean);
+  const contractRows = resolutions.filter((item) => item.source === 'contract');
+  const manualRows = resolutions.filter((item) => item.source !== 'contract');
+  const contract = contractRows[0];
+  const allByContract = contractRows.length === rows.length && rows.length > 0;
+  return (
+    <div className={'receipt-fee-summary' + (allByContract ? ' is-contract' : '')}>
+      <Icon name={allByContract ? 'checkCircle' : 'alertCircle'} />
+      <span>
+        <b>{allByContract
+          ? `Сервисный сбор по договору${contract?.contractNumber ? ' ' + contract.contractNumber : ''}: ${contractRows.length} ${plural(contractRows.length, ['бланк', 'бланка', 'бланков'])}`
+          : contractRows.length
+            ? `Договорной сбор: ${contractRows.length} из ${rows.length}, остальные — вручную`
+            : 'Сервисный сбор указывается вручную'}</b>
+        <small>{allByContract
+          ? `Клиент: ${context.label || 'контрагент'}. Сумма подставлена автоматически и пересчитается при смене клиента.`
+          : [serviceFeeManualHint(manualRows[0]), hint].filter(Boolean).join(' ')}</small>
+      </span>
+    </div>
+  );
+}
+
+
+function ReceiptMathDrawer({ open, file, math, applyCount = 1, feeInfo = null, onSave, onClose }) {
   const [m, setM] = useState(math || { tariff: 0, fee: 0, markup: 0, commission: 0 });
   useEffect(() => { if (open && math) setM(math); }, [open, file && file.id]);
   if (!open || !file) return null;
   const type = file.type || 'Прочее';
   const cur = file.parsed.currency; const sym = cur === 'USD' ? '$' : cur;
   const num = (v) => Math.round((Number(v) || 0) * 100) / 100;
-  const client = num(num(m.tariff) + num(m.fee) + num(m.markup));
+  // Договорной сбор редактировать нельзя: он приходит из финансовых условий
+  // контрагента и пересчитывается сервером при смене клиента или базы.
+  const contractFee = feeInfo?.source === 'contract' && feeInfo.fee !== null;
+  const feeAmount = contractFee ? num(feeInfo.fee) : num(m.fee);
+  const client = num(num(m.tariff) + feeAmount + num(m.markup));
   const serviceMeta = {
     'Авиа': { title: 'Авиа', tariff: 'Тариф + таксы поставщика', hint: 'тариф и таксы из авиабилета', fee: 'Сервисный сбор за авиабилет' },
     'ЖД': { title: 'ЖД', tariff: 'Билет + плацкарта поставщика', hint: 'стоимость билета и плацкарты', fee: 'Сервисный сбор за ЖД-билет' },
@@ -2242,11 +2360,13 @@ function ReceiptMathDrawer({ open, file, math, applyCount = 1, onSave, onClose }
   );
   const calculationRows = [
     [serviceMeta.tariff, num(m.tariff)],
-    [serviceMeta.fee, num(m.fee)],
+    [serviceMeta.fee, feeAmount],
     ['Агентская надбавка', num(m.markup)],
     ['Комиссия поставщика (не входит в итог)', num(m.commission)],
   ];
-  const selectedLabel = applyCount > 1 ? `${applyCount} бланков выбрано` : 'Текущий бланк';
+  const selectedLabel = applyCount > 1
+    ? `Выбрано ${applyCount} ${plural(applyCount, ['бланк', 'бланка', 'бланков'])}`
+    : 'Текущий бланк';
   return (
     <Drawer open={open} onClose={onClose} title={'Внутренняя математика · ' + serviceMeta.title}
       sub={applyCount > 1
@@ -2255,7 +2375,7 @@ function ReceiptMathDrawer({ open, file, math, applyCount = 1, onSave, onClose }
       width="min(520px,96vw)" className="receipt-internal-math-drawer"
       footer={<>
         <Button variant="secondary" onClick={onClose}>Отмена</Button>
-        <Button icon="check" onClick={() => { onSave({ tariff: num(m.tariff), fee: num(m.fee), markup: num(m.markup), commission: num(m.commission) }); onClose(); }}>Сохранить расчёт</Button>
+        <Button icon="check" onClick={() => { onSave({ tariff: num(m.tariff), fee: feeAmount, markup: num(m.markup), commission: num(m.commission) }); onClose(); }}>Сохранить расчёт</Button>
       </>}>
       <div className="receipt-internal-math-head">
         <Pill tone={applyCount > 1 ? 'blue' : 'gray'}>{selectedLabel}</Pill>
@@ -2263,7 +2383,24 @@ function ReceiptMathDrawer({ open, file, math, applyCount = 1, onSave, onClose }
       </div>
       <div className="receipt-internal-math-fields">
         {fld('tariff', serviceMeta.tariff, serviceMeta.hint)}
-        {fld('fee', serviceMeta.fee)}
+        {contractFee ? (
+          <div className="receipt-internal-math-field is-contract-fee">
+            <span>{serviceMeta.fee}, {sym}</span>
+            <input className="input" value={feeAmount} readOnly disabled aria-readonly="true" />
+            <small className="receipt-internal-math-note is-contract">
+              <Icon name="checkCircle" /> {serviceFeeSourceLabel(feeInfo)}
+            </small>
+          </div>
+        ) : (
+          <label className="receipt-internal-math-field is-manual-fee">
+            <span>{serviceMeta.fee}, {sym}</span>
+            <input className="input" type="number" min="0" step="0.01" inputMode="decimal"
+              value={m.fee ?? ''} onChange={(e) => setM((s) => ({ ...s, fee: e.target.value }))} />
+            <small className="receipt-internal-math-note is-manual">
+              <Icon name="alertCircle" /> {serviceFeeManualHint(feeInfo)}
+            </small>
+          </label>
+        )}
         {fld('markup', 'Агентская надбавка')}
         {fld('commission', 'Комиссия поставщика')}
       </div>
@@ -2296,6 +2433,8 @@ function ReceiptImportModal({ open, onClose, onDone, initialDraft, initialFiles 
   // Билеты с одинаковой закупочной стоимостью показываются вкладками:
   // ключ — id документа, значение — подпись активной вкладки ('' — вкладки свёрнуты).
   const [costTabByFile, setCostTabByFile] = useState({});
+  // Результат серверного расчёта сервисного сбора по бланкам: mathKey → источник.
+  const [serviceFeeInfo, setServiceFeeInfo] = useState({});
   const [confirmClose, setConfirmClose] = useState(false);
   const [importMode, setImportMode] = useState('auto');
 
@@ -2315,7 +2454,9 @@ function ReceiptImportModal({ open, onClose, onDone, initialDraft, initialFiles 
   const fileRef = useRef(null);
   const dragDepth = useRef(0);
   const filesStateRef = useRef([]);
+  const serviceFeeInfoRef = useRef({});
   const mathStateRef = useRef({});
+  const serviceFeeResolveRef = useRef(null);
   const pdfSyncTimers = useRef(new Map());
   const pdfSyncNoticeTimers = useRef(new Map());
   const pdfSyncSequence = useRef({});
@@ -2348,6 +2489,8 @@ function ReceiptImportModal({ open, onClose, onDone, initialDraft, initialFiles 
     setOptAddIncomplete(Boolean(draft?.optAddIncomplete));
     setOptCreateServices(draft ? Boolean(draft.optCreateServices) : true);
     setMath(draft?.math || {});
+    setServiceFeeInfo(draft?.serviceFeeInfo || {});
+    serviceFeeInfoRef.current = draft?.serviceFeeInfo || {};
     setSel(draft?.sel || {});
     setPricingSel(draft?.pricingSel || {});
     setMathId(null);
@@ -2377,6 +2520,12 @@ function ReceiptImportModal({ open, onClose, onDone, initialDraft, initialFiles 
     commission: 0,
   };
   const getMath = (id, p) => getMathFrom(math, id, p);
+  // Договорной сервисный сбор индивидуален для бланка: массовое применение
+  // математики не должно затирать его сбором исходного билета.
+  const contractServiceFeeFor = (mathKey) => {
+    const info = serviceFeeInfoRef.current[mathKey];
+    return info?.source === 'contract' && info.fee !== null ? Math.round(Number(info.fee) * 100) / 100 : null;
+  };
   const setMathFor = (id, p, patch) => {
     const current = mathStateRef.current;
     const sourcePricingRow = pricingRows.find((row) => row.mathKey === id);
@@ -2389,11 +2538,23 @@ function ReceiptImportModal({ open, onClose, onDone, initialDraft, initialFiles 
       const sharedPatch = row.mathKey === id
         ? patch
         : { fee: patch.fee, markup: patch.markup, commission: patch.commission };
-      next[row.mathKey] = { ...getMathFrom(current, row.mathKey, row.parsed), ...sharedPatch };
+      const contractFee = contractServiceFeeFor(row.mathKey);
+      next[row.mathKey] = {
+        ...getMathFrom(current, row.mathKey, row.parsed),
+        ...sharedPatch,
+        ...(contractFee === null ? {} : { fee: contractFee }),
+      };
     });
     mathStateRef.current = next;
     setMath(next);
     const affectedFileIds = [...new Set(safeTargets.map((row) => String(row.mathKey).split('::blank::')[0]))];
+    syncPricingSnapshots(next, affectedFileIds, { announce: safeTargets.length === 1, delay: 0 });
+    if (safeTargets.length > 1) {
+      toast(`Сбор, надбавка и комиссия применены к ${safeTargets.length} выбранным бланкам. Рабочие PDF обновляются.`, 'info');
+    }
+  };
+  // Перенос новой математики в рабочие копии бланков и в PDF поставщика.
+  const syncPricingSnapshots = (next, affectedFileIds, { announce = false, delay = 0 } = {}) => {
     const pricingSnapshots = new Map();
     const nextFiles = filesStateRef.current.map((file) => {
       if (!affectedFileIds.includes(file.id)) return file;
@@ -2412,23 +2573,23 @@ function ReceiptImportModal({ open, onClose, onDone, initialDraft, initialFiles 
     filesStateRef.current = nextFiles;
     setFiles(nextFiles);
     affectedFileIds.forEach((fileId) => queueWorkingPdfSync(fileId, {
-      mode: 'pricing', delay: 0, announce: safeTargets.length === 1,
+      mode: 'pricing', delay, announce,
       verifiedData: pricingSnapshots.get(fileId), financialEdit: true,
     }));
-    if (safeTargets.length > 1) {
-      toast(`Сбор, надбавка и комиссия применены к ${safeTargets.length} выбранным бланкам. Рабочие PDF обновляются.`, 'info');
-    }
   };
   const clientTotal = (m) => Math.round(((Number(m.tariff) || 0) + (Number(m.fee) || 0) + (Number(m.markup) || 0)) * 100) / 100;
   const subReceiptMathKey = (fileId, index) => fileId + '::blank::' + index;
   const syncEditorMath = (mathKey, receipt) => {
     const current = mathStateRef.current;
+    const contractFee = contractServiceFeeFor(mathKey);
     const next = {
       ...current,
       [mathKey]: {
         ...getMathFrom(current, mathKey, receipt),
         tariff: supplierNet(receipt),
-        fee: Math.round((Number(receipt?.fees) || 0) * 100) / 100,
+        fee: contractFee === null
+          ? Math.round((Number(receipt?.fees) || 0) * 100) / 100
+          : contractFee,
       },
     };
     // PDF sync reads this ref outside React's render cycle. Update it before
@@ -2867,6 +3028,7 @@ function ReceiptImportModal({ open, onClose, onDone, initialDraft, initialFiles 
       optAddIncomplete,
       optCreateServices,
       math,
+      serviceFeeInfo,
       sel,
       pricingSel,
       importMode,
@@ -3029,6 +3191,116 @@ function ReceiptImportModal({ open, onClose, onDone, initialDraft, initialFiles 
   };
   const selectIdenticalRailPricing = (sourceRow) => selectIdenticalPricing(sourceRow);
 
+  // ——— Сервисный сбор по финансовым условиям контрагента ————————————
+  // Правило выбирает backend (POST /service-fee/resolve/). Договорной сбор
+  // подставляется в математику автоматически, при отсутствии правила поле
+  // остаётся ручным — но оператор всегда видит, что источника нет.
+  const feeBindingContext = receiptFeeBindingContext(bindTarget);
+  const feeBindingSignature = JSON.stringify(feeBindingContext);
+  // База процентного правила — база поставщика из математики бланка, а не
+  // итог с уже добавленным сбором: иначе процент считался бы по кругу.
+  const serviceFeeBase = (row) => Math.round((Number(getMathFrom(math, row.mathKey, row.parsed).tariff) || 0) * 100) / 100;
+  const feeRowsSignature = pricingRows
+    .map((row) => [row.mathKey, row.f.type, serviceFeeBase(row), row.parsed?.currency || ''].join(':'))
+    .join('|');
+
+  const applyServiceFeeMath = (rows, feeByKey) => {
+    const current = mathStateRef.current;
+    const targets = rows.filter((row) => feeByKey[row.mathKey] !== undefined
+      && Math.abs((Number(getMathFrom(current, row.mathKey, row.parsed).fee) || 0) - feeByKey[row.mathKey]) > 0.005);
+    if (!targets.length) return [];
+    const next = { ...current };
+    targets.forEach((row) => {
+      next[row.mathKey] = { ...getMathFrom(current, row.mathKey, row.parsed), fee: feeByKey[row.mathKey] };
+    });
+    mathStateRef.current = next;
+    setMath(next);
+    const affectedFileIds = [...new Set(targets.map((row) => String(row.mathKey).split('::blank::')[0]))];
+    syncPricingSnapshots(next, affectedFileIds, { announce: false, delay: 600 });
+    return targets.map((row) => row.mathKey);
+  };
+
+  const announceServiceFeeSource = (rows, previous, next) => {
+    const changed = rows.filter((row) => (previous[row.mathKey]?.source || '') !== (next[row.mathKey]?.source || ''));
+    if (!changed.length) return;
+    const contractRows = changed.filter((row) => next[row.mathKey]?.source === 'contract');
+    if (contractRows.length) {
+      const sample = next[contractRows[0].mathKey];
+      const contract = sample.contractNumber ? `договору ${sample.contractNumber}` : 'условиям контрагента';
+      toast(`Сервисный сбор подставлен по ${contract}: ${contractRows.length} ${plural(contractRows.length, ['бланк', 'бланка', 'бланков'])}.`, 'ok');
+    }
+    // Молча оставлять договорной сбор при смене клиента нельзя: оператор
+    // должен увидеть, что теперь сумма на его ответственности. Новые бланки,
+    // для которых договора и не было, при этом не шумят.
+    const manualRows = changed.filter((row) => next[row.mathKey]?.source !== 'contract'
+      && previous[row.mathKey]?.source === 'contract');
+    if (manualRows.length) {
+      toast(`Клиент изменён: для ${manualRows.length} ${plural(manualRows.length, ['бланка', 'бланков', 'бланков'])} договорных условий нет — проверьте сервисный сбор вручную.`, 'info');
+    }
+  };
+
+  const applyServiceFeeResolutions = (rows, resolutions) => {
+    const previous = serviceFeeInfoRef.current;
+    const next = { ...previous };
+    const feeByKey = {};
+    resolutions.forEach((item) => {
+      if (!item || item.key === undefined) return;
+      const info = normalizeServiceFeeResolution(item);
+      next[item.key] = info;
+      if (info.source === 'contract' && info.fee !== null) feeByKey[item.key] = info.fee;
+    });
+    serviceFeeInfoRef.current = next;
+    setServiceFeeInfo(next);
+    applyServiceFeeMath(rows, feeByKey);
+    announceServiceFeeSource(rows, previous, next);
+  };
+
+  useEffect(() => {
+    if (!open || !pricingRows.length) return undefined;
+    const rows = pricingRows;
+    const items = rows.map((row) => ({
+      key: row.mathKey,
+      service_kind: row.f.type,
+      base_amount: serviceFeeBase(row),
+      currency: row.parsed?.currency || 'RUB',
+    }));
+    const manualFor = (reason) => items.map((item) => ({
+      key: item.key, source: 'manual', fee: null, reason, currency: item.currency, service_kind: item.service_kind,
+    }));
+    if (!feeBindingContext.company && !feeBindingContext.order) {
+      serviceFeeResolveRef.current = null;
+      applyServiceFeeResolutions(rows, manualFor(feeBindingContext.reason || 'no_company'));
+      return undefined;
+    }
+    let active = true;
+    let settle = () => {};
+    const pending = new Promise((resolve) => { settle = resolve; });
+    const release = () => {
+      if (serviceFeeResolveRef.current === pending) serviceFeeResolveRef.current = null;
+      settle();
+    };
+    serviceFeeResolveRef.current = pending;
+    const controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
+    const timer = setTimeout(() => {
+      crmApi.resolveServiceFee({
+        company: feeBindingContext.company || null,
+        order: feeBindingContext.order || null,
+        items,
+      }, controller?.signal)
+        .then((response) => {
+          if (!active) return;
+          applyServiceFeeResolutions(rows, Array.isArray(response?.results) ? response.results : []);
+        })
+        .catch((error) => {
+          if (!active || error?.name === 'AbortError') return;
+          applyServiceFeeResolutions(rows, manualFor('resolve_failed'));
+        })
+        .finally(release);
+    }, 250);
+    return () => { active = false; clearTimeout(timer); controller?.abort(); release(); };
+  }, [open, feeBindingSignature, feeRowsSignature]);
+
+
   const verifiedReceiptForSaveWithMath = (file, mathState) => {
     const parent = file.parsed;
     if (!receiptHasMultipleSubReceipts(file)) {
@@ -3148,8 +3420,40 @@ function ReceiptImportModal({ open, onClose, onDone, initialDraft, initialFiles 
     pdfSyncTimers.current.set(fileId, timer);
   }
 
+  // Источник сервисного сбора документа: договорной только если каждый его
+  // бланк рассчитан по договору. Backend перепроверяет правило при сохранении.
+  const receiptServiceFeePayload = (file, fileMath) => {
+    const rows = pricingRows.filter((row) => row.f.id === file.id);
+    const infos = rows.map((row) => serviceFeeInfo[row.mathKey]).filter(Boolean);
+    const contractInfos = infos.filter((info) => info.source === 'contract');
+    const isContract = infos.length > 0 && contractInfos.length === infos.length;
+    const reference = contractInfos[0] || infos[0] || null;
+    return {
+      amount: Number(fileMath?.fee || 0),
+      currency: file.parsed?.currency || 'RUB',
+      service_kind: file.type,
+      source: isContract ? 'contract' : 'manual',
+      reason: isContract ? '' : (infos.find((info) => info.source !== 'contract')?.reason || 'manual'),
+      blanks: rows.length,
+      rule_id: isContract ? (reference?.ruleId || '') : '',
+      contract_id: isContract ? (reference?.contractId || '') : '',
+      agreement_id: isContract ? (reference?.agreementId || '') : '',
+      contract_number: isContract ? (reference?.contractNumber || '') : '',
+    };
+  };
+
+  // Клиента могли выбрать за секунду до сохранения: сначала дожидаемся
+  // серверного расчёта сбора, иначе в заказ уйдёт устаревшая сумма.
+  const ensureServiceFeesResolved = async () => {
+    for (let attempt = 0; attempt < 3; attempt += 1) {
+      const pending = serviceFeeResolveRef.current;
+      if (!pending) return;
+      try { await pending; } catch { /* ошибка расчёта уже показана оператору */ }
+    }
+  };
   const finish = async () => {
     if (!toAdd.length) { toast('Нет квитанций для добавления', 'err'); return; }
+    await ensureServiceFeesResolved();
     let finalBindTarget = bindTarget;
     if (bindTarget.mode === 'new') {
       if (typeof onCreateOrder !== 'function') { toast('Создание нового заказа сейчас недоступно', 'err'); return; }
@@ -3169,8 +3473,8 @@ function ReceiptImportModal({ open, onClose, onDone, initialDraft, initialFiles 
       : isCompany ? ('юр. лицу ' + companyName) : ('заказу № ' + orderNo);
     try {
       const confirmed = await Promise.all(toAdd.map((r) => {
-        const p = r.f.parsed; const m = mathForFile(r.f);
-        const verifiedForSave = verifiedReceiptForSave(r.f);
+        const p = r.f.parsed; const m = mathForFileWithState(r.f, mathStateRef.current);
+        const verifiedForSave = verifiedReceiptForSaveWithMath(r.f, mathStateRef.current);
         const supplierFare = Number(verifiedForSave.fare || 0);
         const supplierTaxes = Number(verifiedForSave.taxes || 0);
         const supplierFees = Number(verifiedForSave.fees || 0);
@@ -3193,6 +3497,7 @@ function ReceiptImportModal({ open, onClose, onDone, initialDraft, initialFiles 
           client_total: clientTotal(m),
           markup: Number(m.markup || 0),
           commission: Number(m.commission || 0),
+          service_fee: receiptServiceFeePayload(r.f, m),
           supplier_original: {
             name: r.f.name, size: r.f.size, mime: r.f.mime,
             verified_data: verifiedForSave,
@@ -3206,7 +3511,7 @@ function ReceiptImportModal({ open, onClose, onDone, initialDraft, initialFiles 
         toast('Данные сохранены. Для ' + supplierPdfManual + ' файл. не удалось безопасно перенести все суммы в PDF поставщика — исходник оставлен без частичных правок.', 'err');
       }
       const docs = toAdd.map((r, index) => {
-      const t = recType(r.f.type); const p = verifiedReceiptForSave(r.f); const m = mathForFile(r.f);
+      const t = recType(r.f.type); const p = verifiedReceiptForSaveWithMath(r.f, mathStateRef.current); const m = mathForFileWithState(r.f, mathStateRef.current);
       return {
         serverId: confirmed[index].document_id, no: 'D-' + String(confirmed[index].document_id).slice(0, 8).toUpperCase(),
         name: [t.doc, p.passenger || p.carrier || 'Без имени'].filter(Boolean).join(' · '),
@@ -3657,6 +3962,8 @@ function ReceiptImportModal({ open, onClose, onDone, initialDraft, initialFiles 
                 <div style={{ fontSize: 12, color: 'var(--muted)', margin: '-4px 0 10px' }}>
                   Это вторая форма расчёта, отдельная от редактора данных бланка. Для ЖД база — билет и плацкарта, для авиа — тариф и таксы. Финансовые изменения переносятся в рабочую копию PDF поставщика.
                 </div>
+                <ServiceFeeBindingSummary rows={pricingRows} info={serviceFeeInfo} context={feeBindingContext}
+                  hint="Клиент выбирается на шаге «В заказ» — после выбора сбор пересчитается автоматически." />
                 {selectedPricingRows.length > 0 && <div className="receipt-pricing-selection" role="status">
                   <Icon name="checkCircle" />
                   <span><b>Выбрано бланков: {selectedPricingRows.length}</b><small>Общие сбор, надбавка и комиссия применяются только внутри одного вида услуги. База поставщика остаётся индивидуальной.</small></span>
@@ -3672,7 +3979,11 @@ function ReceiptImportModal({ open, onClose, onDone, initialDraft, initialFiles 
                           <td data-label="Выбор"><Checkbox on={!!pricingSel[r.mathKey]} onChange={() => setPricingSel((current) => ({ ...current, [r.mathKey]: !current[r.mathKey] }))} /></td>
                           <td data-label="Бланк"><span className="receipt-pricing-document"><span className="rec-import-icon" style={{ background: t.color }}><Icon name={t.icon} /></span><span><b>{p.passenger || r.f.name}{r.blankIndex !== null ? ' · билет ' + (r.blankIndex + 1) : ''}</b><small>{p.carrier || 'Поставщик'} · {routeSummary(p)}</small></span></span></td>
                           <td data-label="База поставщика"><b>{recMoney(Number(m.tariff) || 0, p.currency)}</b><small className="receipt-pricing-meta">{r.f.type === 'ЖД' ? 'билет + плацкарта' : r.f.type === 'Авиа' ? 'тариф + таксы' : 'закупочная стоимость'}</small></td>
-                          <td data-label="Внутренняя математика"><button type="button" className="btn btn-ghost btn-sm receipt-pricing-math" onClick={() => setMathId(r.mathKey)}><b>{recMoney(clientTotal(m), p.currency)}</b><small>сбор {recMoney(Number(m.fee) || 0, p.currency)} · надбавка {recMoney(Number(m.markup) || 0, p.currency)}</small><small>комиссия {recMoney(Number(m.commission) || 0, p.currency)} · изменить</small></button></td>
+                          <td data-label="Внутренняя математика"><button type="button" className="btn btn-ghost btn-sm receipt-pricing-math" onClick={() => setMathId(r.mathKey)}><b>{recMoney(clientTotal(m), p.currency)}</b><small>сбор {recMoney(Number(m.fee) || 0, p.currency)} · надбавка {recMoney(Number(m.markup) || 0, p.currency)}</small><small>комиссия {recMoney(Number(m.commission) || 0, p.currency)} · изменить</small></button>
+                            {serviceFeeInfo[r.mathKey]?.source === 'contract'
+                              ? <small className="receipt-pricing-fee-source">{serviceFeeSourceLabel(serviceFeeInfo[r.mathKey])}</small>
+                              : <small className="receipt-pricing-fee-source is-manual">{serviceFeeManualHint(serviceFeeInfo[r.mathKey])}</small>}
+                          </td>
                           <td data-label="Версии"><span className="receipt-pricing-versions"><Pill tone="blue">v1 поставщик</Pill><Pill tone="amber">v2 CRM</Pill>{pdfSync[r.f.id] === 'saving' && <Pill tone="blue">PDF обновляется</Pill>}{pdfSync[r.f.id] === 'saved' && <Pill tone="green">PDF обновлён</Pill>}{pdfSync[r.f.id] === 'error' && <Pill tone="red">Проверьте PDF</Pill>}</span></td>
                           <td data-label="Документ"><Button size="sm" variant="secondary" icon="template" onClick={() => setBrandTarget({ fileId: r.f.id, blankIndex: r.blankIndex })}>Бланк CRM</Button></td>
                         </tr>
@@ -3700,6 +4011,7 @@ function ReceiptImportModal({ open, onClose, onDone, initialDraft, initialFiles 
                 <Checkbox on={optAddIncomplete} onChange={() => setOptAddIncomplete((v) => !v)} /> Добавлять квитанции с неполными данными
               </label>
             </div>
+            <ServiceFeeBindingSummary rows={pricingRows} info={serviceFeeInfo} context={feeBindingContext} />
             <div style={{ marginTop: 12, fontSize: 12.5, color: 'var(--muted)' }}>
               Будет добавлено в заказ: {toAdd.length}. Непроверенные, ошибки и исключённые дубли не попадут в итог.
               {bindTarget.mode === 'new' ? ' Перед сохранением откроется форма нового заказа: можно выбрать юридическое лицо или физическое лицо.' : ''}
@@ -3743,6 +4055,7 @@ function ReceiptImportModal({ open, onClose, onDone, initialDraft, initialFiles 
         onBrand={() => { setBrandTarget({ fileId: subEdit.fileId, blankIndex: subEdit.index }); }} />
       <ReceiptMathDrawer open={!!mathFile} file={mathFile} math={mathFile ? getMath(mathFile.id, mathFile.parsed) : null}
         applyCount={mathFile && pricingSel[mathFile.id] ? selectedPricingRows.length : 1}
+        feeInfo={mathFile ? serviceFeeInfo[mathFile.id] : null}
         onSave={(patch) => { setMathFor(mathFile.id, mathFile.parsed, patch); }} onClose={() => setMathId(null)} />
 
       <ReceiptBrandDocumentDrawer open={!!brandFile} type={brandFile?.type} draft={brandFile?.parsed}

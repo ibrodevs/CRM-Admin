@@ -8,10 +8,21 @@ import { crmApi, financeApi, workspaceActionsApi, workspaceSettingsApi } from '.
 
 
 
-function fM(n) { return Math.round(n || 0).toLocaleString('ru-RU') + ' $'; }
-function feeCellText(fee) {
+// Валюта финансовых условий: в ней указаны фиксированные сборы договора,
+// поэтому её же сравнивает серверный расчёт сервисного сбора бланка.
+const FEE_CURRENCIES = ['USD', 'RUB', 'EUR', 'KZT'];
+const cfCurrency = (value) => {
+  const currency = String((value && value.currency) || 'USD').toUpperCase();
+  return FEE_CURRENCIES.includes(currency) ? currency : 'USD';
+};
+function fM(n, currency = 'USD') {
+  const code = String(currency || 'USD').toUpperCase();
+  return Math.round(n || 0).toLocaleString('ru-RU') + ' ' + (code === 'USD' ? '$' : code);
+}
+function cfMoneySymbol(currency) { return String(currency || 'USD').toUpperCase() === 'USD' ? '$' : String(currency).toUpperCase(); }
+function feeCellText(fee, currency = 'USD') {
   if (!fee) return '—';
-  return fee.type === 'percent' ? (fee.value || 0) + ' %' : fM(fee.value || 0);
+  return fee.type === 'percent' ? (fee.value || 0) + ' %' : fM(fee.value || 0, currency);
 }
 
 function cfNormalizeAgreement(agreement = {}) {
@@ -95,7 +106,7 @@ function cfNow() {
 }
 
 
-function DepositCard({ deposit }) {
+function DepositCard({ deposit, currency = 'USD' }) {
   const avail = depositAvailable(deposit);
   return (
     <div className="card card-pad">
@@ -104,17 +115,17 @@ function DepositCard({ deposit }) {
         <h3 className="card-title" style={{ fontSize: 16, margin: 0 }}>Депозитный баланс</h3>
       </div>
       <div className="grid-2" style={{ gap: 12 }}>
-        <div className="stat-card"><div className="s-label">Текущий остаток</div><div className="s-value" style={{ fontSize: 22 }}>{fM(deposit.balance)}</div></div>
-        <div className="stat-card"><div className="s-label">Зарезервировано</div><div className="s-value" style={{ fontSize: 22, color: 'var(--amber)' }}>{fM(deposit.reserved)}</div></div>
+        <div className="stat-card"><div className="s-label">Текущий остаток</div><div className="s-value" style={{ fontSize: 22 }}>{fM(deposit.balance, currency)}</div></div>
+        <div className="stat-card"><div className="s-label">Зарезервировано</div><div className="s-value" style={{ fontSize: 22, color: 'var(--amber)' }}>{fM(deposit.reserved, currency)}</div></div>
       </div>
       <div className="stat-card" style={{ marginTop: 12, background: 'var(--green-bg, #eafaf0)' }}>
         <div className="s-label">Доступный остаток</div>
-        <div className="s-value" style={{ fontSize: 26, color: avail > 0 ? 'var(--green)' : 'var(--red)' }}>{fM(avail)}</div>
+        <div className="s-value" style={{ fontSize: 26, color: avail > 0 ? 'var(--green)' : 'var(--red)' }}>{fM(avail, currency)}</div>
       </div>
     </div>
   );
 }
-function CreditCard({ credit }) {
+function CreditCard({ credit, currency = 'USD' }) {
   const avail = creditAvailable(credit);
   return (
     <div className="card card-pad">
@@ -123,11 +134,11 @@ function CreditCard({ credit }) {
         <h3 className="card-title" style={{ fontSize: 16, margin: 0 }}>Отсрочка платежа</h3>
       </div>
       <div className="kv">
-        <div className="kv-row"><span className="k">Кредитный лимит</span><span className="v">{fM(credit.limit)}</span></div>
+        <div className="kv-row"><span className="k">Кредитный лимит</span><span className="v">{fM(credit.limit, currency)}</span></div>
         <div className="kv-row"><span className="k">Срок отсрочки</span><span className="v">{credit.termDays} дн.</span></div>
-        <div className="kv-row"><span className="k">Текущая задолженность</span><span className="v" style={{ color: 'var(--ink)' }}>{fM(credit.debt)}</span></div>
-        <div className="kv-row"><span className="k">Доступный остаток лимита</span><span className="v" style={{ color: avail > 0 ? 'var(--green)' : 'var(--red)', fontWeight: 700 }}>{fM(avail)}</span></div>
-        <div className="kv-row"><span className="k">Просроченная задолженность</span><span className="v" style={{ color: credit.overdue > 0 ? 'var(--red)' : 'var(--muted)', fontWeight: 700 }}>{fM(credit.overdue)}</span></div>
+        <div className="kv-row"><span className="k">Текущая задолженность</span><span className="v" style={{ color: 'var(--ink)' }}>{fM(credit.debt, currency)}</span></div>
+        <div className="kv-row"><span className="k">Доступный остаток лимита</span><span className="v" style={{ color: avail > 0 ? 'var(--green)' : 'var(--red)', fontWeight: 700 }}>{fM(avail, currency)}</span></div>
+        <div className="kv-row"><span className="k">Просроченная задолженность</span><span className="v" style={{ color: credit.overdue > 0 ? 'var(--red)' : 'var(--muted)', fontWeight: 700 }}>{fM(credit.overdue, currency)}</span></div>
       </div>
       {credit.overdue > 0 && <div className="card" style={{ marginTop: 12, padding: '10px 12px', borderLeft: '3px solid var(--red)', display: 'flex', gap: 8, alignItems: 'center' }}>
         <Icon name="alertCircle" style={{ width: 16, height: 16, color: 'var(--red)' }} />
@@ -136,7 +147,7 @@ function CreditCard({ credit }) {
     </div>
   );
 }
-function DepositHistoryDrawer({ open, deposit, onClose }) {
+function DepositHistoryDrawer({ open, deposit, currency = 'USD', onClose }) {
   return (
     <Drawer open={open} onClose={onClose} title="История депозита"
       footer={<Button variant="secondary" style={{ width: '100%' }} onClick={onClose}>Закрыть</Button>}>
@@ -148,7 +159,7 @@ function DepositHistoryDrawer({ open, deposit, onClose }) {
               <tr key={i}>
                 <td className="t-muted">{h.date}</td>
                 <td><Pill tone={h.amount >= 0 ? 'green' : (h.type === 'Резерв' ? 'amber' : 'red')}>{h.type}</Pill></td>
-                <td style={{ textAlign: 'right', fontWeight: 600, color: h.amount >= 0 ? 'var(--green)' : 'var(--red)' }}>{h.amount >= 0 ? '+ ' : '− '}{fM(Math.abs(h.amount))}</td>
+                <td style={{ textAlign: 'right', fontWeight: 600, color: h.amount >= 0 ? 'var(--green)' : 'var(--red)' }}>{h.amount >= 0 ? '+ ' : '− '}{fM(Math.abs(h.amount), currency)}</td>
                 <td style={{ fontSize: 13, color: 'var(--body)' }}>{h.note}</td>
               </tr>
             ))}
@@ -160,7 +171,7 @@ function DepositHistoryDrawer({ open, deposit, onClose }) {
 }
 
 
-function CompanyFinanceSection({ fin, onChangeSettlement }) {
+function CompanyFinanceSection({ fin, onChangeSettlement, onChangeCurrency }) {
   const toast = useToast();
   const [histOpen, setHistOpen] = useState(false);
   return (
@@ -170,6 +181,7 @@ function CompanyFinanceSection({ fin, onChangeSettlement }) {
           <h3 className="card-title" style={{ fontSize: 17, margin: 0 }}>Тип взаиморасчётов</h3>
           {fin.settlement === 'депозит' && fin.deposit && <Button variant="secondary" size="sm" icon="clock" onClick={() => setHistOpen(true)}>История депозита</Button>}
         </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
         <div className="seg-toggle" style={{ maxWidth: 460 }}>
           {SETTLEMENT_TYPES.map((t) => (
             <button key={t} className={'seg-btn' + (fin.settlement === t ? ' active' : '')}
@@ -181,10 +193,24 @@ function CompanyFinanceSection({ fin, onChangeSettlement }) {
               }}>{t[0].toUpperCase() + t.slice(1)}</button>
           ))}
         </div>
+        {onChangeCurrency && <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color: 'var(--muted)' }}>
+          Валюта условий
+          <Select style={{ width: 110 }} options={FEE_CURRENCIES} value={cfCurrency(fin)}
+            onChange={async (event) => {
+              try {
+                await onChangeCurrency(event.target.value);
+                toast('Валюта финансовых условий: ' + event.target.value, 'ok');
+              } catch (error) { toast(error.message || 'Не удалось сохранить валюту', 'err'); }
+            }} />
+        </label>}
+        </div>
+        <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 8 }}>
+          В этой валюте указаны фиксированные сборы договора. Сервисный сбор подставляется в бланк автоматически, только если валюта бланка совпадает.
+        </div>
       </div>
 
-      {fin.settlement === 'депозит' && fin.deposit && <div style={{ marginBottom: 16 }}><DepositCard deposit={fin.deposit} /></div>}
-      {fin.settlement === 'отсрочка' && fin.credit && <div style={{ marginBottom: 16 }}><CreditCard credit={fin.credit} /></div>}
+      {fin.settlement === 'депозит' && fin.deposit && <div style={{ marginBottom: 16 }}><DepositCard deposit={fin.deposit} currency={cfCurrency(fin)} /></div>}
+      {fin.settlement === 'отсрочка' && fin.credit && <div style={{ marginBottom: 16 }}><CreditCard credit={fin.credit} currency={cfCurrency(fin)} /></div>}
       {fin.settlement === 'предоплата' && (
         <div className="card card-pad" style={{ marginBottom: 16, display: 'flex', gap: 10, alignItems: 'center' }}>
           <Icon name="checkCircle" style={{ width: 20, height: 20, color: 'var(--green)' }} />
@@ -192,13 +218,13 @@ function CompanyFinanceSection({ fin, onChangeSettlement }) {
         </div>
       )}
 
-      <DepositHistoryDrawer open={histOpen} deposit={fin.deposit} onClose={() => setHistOpen(false)} />
+      <DepositHistoryDrawer open={histOpen} deposit={fin.deposit} currency={cfCurrency(fin)} onClose={() => setHistOpen(false)} />
     </>
   );
 }
 
 
-function AgreementFeesView({ agreement }) {
+function AgreementFeesView({ agreement, currency = 'USD' }) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
       {FEE_SERVICE_TYPES.map((svc) => (
@@ -207,7 +233,7 @@ function AgreementFeesView({ agreement }) {
           <div className="table-card">
             <table className="tbl">
               <thead><tr>{FEE_SCHEMA[svc].map((f) => <th key={f.key} style={{ fontSize: 12 }}>{f.label}</th>)}</tr></thead>
-              <tbody><tr>{FEE_SCHEMA[svc].map((f) => <td key={f.key}>{feeCellText(agreement.fees[svc] && agreement.fees[svc][f.key])}</td>)}</tr></tbody>
+              <tbody><tr>{FEE_SCHEMA[svc].map((f) => <td key={f.key}>{feeCellText(agreement.fees[svc] && agreement.fees[svc][f.key], currency)}</td>)}</tr></tbody>
             </table>
           </div>
           <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 4 }}>Описание для документов: «{(agreement.descs && agreement.descs[svc]) || SERVICE_DESC_DEFAULTS[svc] || '—'}»</div>
@@ -218,7 +244,7 @@ function AgreementFeesView({ agreement }) {
 }
 
 
-function AgreementEditor({ open, agreement, onClose, onSave }) {
+function AgreementEditor({ open, agreement, currency = 'USD', onClose, onSave }) {
   const [tab, setTab] = useState(FEE_SERVICE_TYPES[0]);
   const [tpl, setTpl] = useState(agreement ? (agreement.template || 'standard') : 'standard');
   const [fees, setFees] = useState(() => cfNormalizeAgreement(agreement).fees);
@@ -317,7 +343,7 @@ function AgreementEditor({ open, agreement, onClose, onSave }) {
                   <div style={{ width: 130 }}>
                     <Input type="number" value={fee.value} onChange={(e) => setFee(tab, f.key, { value: parseFloat(e.target.value) || 0 })} />
                   </div>
-                  <span style={{ width: 20, color: 'var(--muted)', fontSize: 13 }}>{fee.type === 'percent' ? '%' : '$'}</span>
+                  <span style={{ minWidth: 20, color: 'var(--muted)', fontSize: 13 }}>{fee.type === 'percent' ? '%' : cfMoneySymbol(currency)}</span>
                 </div>
               );
             })}
@@ -449,7 +475,7 @@ function CompanyContracts({ fin, coName, onFinChange, onOpenClosing }) {
                         {a.status === 'Действующий' && <Button variant="secondary" size="sm" icon="edit" onClick={() => setEditAgr({ contractId: c.id, agreement: a })}>Изменить условия</Button>}
                         {a.status === 'Действующий' && <Button size="sm" icon="download" onClick={() => onOpenClosing(a)}>Закрывающие</Button>}
                       </div>
-                      <AgreementFeesView agreement={a} />
+                      <AgreementFeesView agreement={a} currency={cfCurrency(fin)} />
                     </div>
                   ))}
                 </div>
@@ -459,7 +485,7 @@ function CompanyContracts({ fin, coName, onFinChange, onOpenClosing }) {
         })}
       </div>
 
-      <AgreementEditor open={!!editAgr} agreement={editAgr && editAgr.agreement}
+      <AgreementEditor open={!!editAgr} agreement={editAgr && editAgr.agreement} currency={cfCurrency(fin)}
         onClose={() => setEditAgr(null)}
         onSave={(patch, fields) => saveAgreement(editAgr.contractId, editAgr.agreement, patch, fields)} />
       <AgreementHistoryDrawer open={!!histAgr} agreement={histAgr} onClose={() => setHistAgr(null)} />
@@ -470,7 +496,7 @@ function CompanyContracts({ fin, coName, onFinChange, onOpenClosing }) {
 
 const ACCOUNTING_SYSTEMS = ['Эльба', 'Контур', '1С', 'Мое дело'];
 const CLOSING_DOC_TYPES = ['Акт', 'Счёт', 'УПД'];
-function ClosingDocsPreview({ open, agreement, coName, co, onClose }) {
+function ClosingDocsPreview({ open, agreement, coName, co, currency = 'USD', onClose }) {
   const toast = useToast();
   const [sys, setSys] = useState('Эльба');
   const [docType, setDocType] = useState('Акт');
@@ -549,8 +575,8 @@ function ClosingDocsPreview({ open, agreement, coName, co, onClose }) {
                       </div>
                     )}
                   </td>
-                  <td style={{ textAlign: 'right', fontWeight: p.kind === 'service' ? 600 : 400, color: p.kind === 'fee' ? 'var(--muted)' : 'var(--ink)' }}>{fM(p.amount)}</td>
-                  <td style={{ textAlign: 'right', color: 'var(--muted)' }}>{vatRate ? fM(vatOf(p.amount)) : '—'}</td>
+                  <td style={{ textAlign: 'right', fontWeight: p.kind === 'service' ? 600 : 400, color: p.kind === 'fee' ? 'var(--muted)' : 'var(--ink)' }}>{fM(p.amount, currency)}</td>
+                  <td style={{ textAlign: 'right', color: 'var(--muted)' }}>{vatRate ? fM(vatOf(p.amount), currency) : '—'}</td>
                 </tr>
               ))}
             </tbody>
@@ -561,9 +587,9 @@ function ClosingDocsPreview({ open, agreement, coName, co, onClose }) {
 
         <div className="card card-pad" style={{ marginBottom: 14 }}>
           <div className="kv">
-            <div className="kv-row"><span className="k">Сервисные сборы и надбавки</span><span className="v">{fM(totalFees)}</span></div>
-            <div className="kv-row"><span className="k">Итого к оплате</span><span className="v" style={{ fontSize: 18, fontWeight: 700 }}>{fM(total)}</span></div>
-            <div className="kv-row"><span className="k">в том числе НДС ({(co && co.vat) || '—'})</span><span className="v">{vatRate ? fM(totalVat) : 'без НДС'}</span></div>
+            <div className="kv-row"><span className="k">Сервисные сборы и надбавки</span><span className="v">{fM(totalFees, currency)}</span></div>
+            <div className="kv-row"><span className="k">Итого к оплате</span><span className="v" style={{ fontSize: 18, fontWeight: 700 }}>{fM(total, currency)}</span></div>
+            <div className="kv-row"><span className="k">в том числе НДС ({(co && co.vat) || '—'})</span><span className="v">{vatRate ? fM(totalVat, currency) : 'без НДС'}</span></div>
           </div>
         </div>
 
@@ -573,7 +599,7 @@ function ClosingDocsPreview({ open, agreement, coName, co, onClose }) {
         </div>
 
       <ConfirmDialog open={confirmSend} title={'Передать документы в «' + sys + '»?'}
-        message={'Будет выгружен ' + docType + ' на сумму ' + fM(total) + '. Проверьте данные перед отправкой.'}
+        message={'Будет выгружен ' + docType + ' на сумму ' + fM(total, currency) + '. Проверьте данные перед отправкой.'}
         confirmLabel="Передать" confirmVariant="primary"
         onConfirm={() => { setConfirmSend(false); toast(docType + ' передан в «' + sys + '»', 'ok'); onClose(); }}
         onCancel={() => setConfirmSend(false)} />
@@ -645,6 +671,7 @@ function CompanySettlementsBlock({ co }) {
 function CompanyFinanceCreateDrawer({ open, co, onClose, onCreated }) {
   const toast = useToast();
   const [settlement, setSettlement] = useState('предоплата');
+  const [currency, setCurrency] = useState('USD');
   const [template, setTemplate] = useState('standard');
   const [contractNo, setContractNo] = useState('');
   const [contractDate, setContractDate] = useState(() => new Date());
@@ -656,6 +683,7 @@ function CompanyFinanceCreateDrawer({ open, co, onClose, onCreated }) {
   useEffect(() => {
     if (!open) return;
     setSettlement('предоплата');
+    setCurrency('USD');
     setTemplate('standard');
     setContractNo('');
     setContractDate(new Date());
@@ -689,6 +717,7 @@ function CompanyFinanceCreateDrawer({ open, co, onClose, onCreated }) {
     const contract = { id: cfUid('C'), no, date, status: 'Действующий', agreements: [agreement] };
     const next = {
       settlement,
+      currency,
       deposit: settlement === 'депозит' ? {
         balance, reserved: 0,
         history: balance ? [{ date, type: 'Начальный остаток', amount: balance, note: 'Задан при создании финансовых условий' }] : [],
@@ -726,12 +755,19 @@ function CompanyFinanceCreateDrawer({ open, co, onClose, onCreated }) {
         </div>
 
         <div>
-          <div style={{ fontWeight: 700, color: 'var(--ink)', marginBottom: 9 }}>1. Тип взаиморасчётов</div>
+          <div style={{ fontWeight: 700, color: 'var(--ink)', marginBottom: 9 }}>1. Тип взаиморасчётов и валюта</div>
           <div className="seg-toggle" style={{ width: '100%', maxWidth: 520 }}>
             {SETTLEMENT_TYPES.map((type) => (
               <button type="button" key={type} className={'seg-btn' + (settlement === type ? ' active' : '')}
                 onClick={() => setSettlement(type)}>{type[0].toUpperCase() + type.slice(1)}</button>
             ))}
+          </div>
+          <label style={{ display: 'block', maxWidth: 220, marginTop: 10 }}>
+            <span className="label">Валюта условий</span>
+            <Select options={FEE_CURRENCIES} value={currency} onChange={(e) => setCurrency(e.target.value)} />
+          </label>
+          <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 6 }}>
+            В этой валюте задаются фиксированные сборы договора. Для рублёвых бланков выберите RUB — тогда сервисный сбор подставится в квитанцию автоматически.
           </div>
         </div>
 
@@ -739,7 +775,7 @@ function CompanyFinanceCreateDrawer({ open, co, onClose, onCreated }) {
           <div className="card card-pad">
             <div style={{ fontWeight: 700, color: 'var(--ink)', marginBottom: 10 }}>Депозит</div>
             <label style={{ display: 'block' }}>
-              <span className="label">Начальный баланс, $</span>
+              <span className="label">Начальный баланс, {cfMoneySymbol(currency)}</span>
               <Input type="number" min="0" value={initialBalance} onChange={(e) => setInitialBalance(e.target.value)} placeholder="0" />
             </label>
             <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 6 }}>Зарезервировано при создании: 0 $. История начнётся с указанного остатка.</div>
@@ -751,7 +787,7 @@ function CompanyFinanceCreateDrawer({ open, co, onClose, onCreated }) {
             <div style={{ fontWeight: 700, color: 'var(--ink)', marginBottom: 10 }}>Отсрочка платежа</div>
             <div className="grid-2" style={{ gap: 12 }}>
               <label style={{ display: 'block' }}>
-                <span className="label">Кредитный лимит, $</span>
+                <span className="label">Кредитный лимит, {cfMoneySymbol(currency)}</span>
                 <Input type="number" min="0" value={creditLimit} onChange={(e) => setCreditLimit(e.target.value)} placeholder="Например, 50000" />
               </label>
               <label style={{ display: 'block' }}>
@@ -885,6 +921,7 @@ function CompanyFinanceBlock({ co }) {
       <CompanyFinanceCreateDrawer open={createOpen} co={co} onClose={() => setCreateOpen(false)} onCreated={updateFin} />
     </>
   );
+  const setCurrency = (value) => updateFin({ ...fin, currency: value });
   const setSettlement = (t) => {
     const next = { ...fin, settlement: t };
     if (t === 'депозит' && !next.deposit) next.deposit = { balance: 0, reserved: 0, history: [] };
@@ -898,12 +935,12 @@ function CompanyFinanceBlock({ co }) {
         <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 12 }}>
           <Button variant="secondary" size="sm" icon="plus" onClick={() => setCreateOpen(true)}>Создать новые условия</Button>
         </div>
-        <CompanyFinanceSection fin={fin} onChangeSettlement={setSettlement} />
+        <CompanyFinanceSection fin={fin} onChangeSettlement={setSettlement} onChangeCurrency={setCurrency} />
       <div style={{ height: 8 }} />
       <CompanySettlementsBlock co={co} />
       <div style={{ height: 8 }} />
       <CompanyContracts fin={fin} coName={co.name} onFinChange={updateFin} onOpenClosing={(a) => setClosing(a)} />
-        <ClosingDocsPreview open={!!closing} agreement={closing} co={co} coName={co.name} onClose={() => setClosing(null)} />
+        <ClosingDocsPreview open={!!closing} agreement={closing} co={co} coName={co.name} currency={cfCurrency(fin)} onClose={() => setClosing(null)} />
       </div>
       <CompanyFinanceCreateDrawer open={createOpen} co={co} onClose={() => setCreateOpen(false)} onCreated={updateFin} />
     </>

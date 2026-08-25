@@ -4,19 +4,24 @@ import test from 'node:test';
 
 const page = await readFile(new URL('../js/page_fulfillment.jsx', import.meta.url), 'utf8');
 
+function costHelperSource(end) {
+  const start = page.indexOf('function receiptSupplierBaseAmount(type, receipt) {');
+  const stop = page.indexOf(end, start);
+  assert.ok(start >= 0 && stop > start, 'supplier base helpers must be contiguous');
+  return page.slice(start, stop);
+}
+
 function loadRailCostHelpers() {
   const moneyMatch = page.match(/function receiptMoneyNumber\(value\) \{[\s\S]*?\n\}/);
-  const signatureMatch = page.match(/function receiptRailCostSignature\(ticket\) \{[\s\S]*?\n\}/);
   assert.ok(moneyMatch, 'receiptMoneyNumber helper must exist');
-  assert.ok(signatureMatch, 'receiptRailCostSignature helper must exist');
-  return Function(`${moneyMatch[0]}\n${signatureMatch[0]}\nreturn { receiptMoneyNumber, receiptRailCostSignature };`)();
+  const source = costHelperSource('\nfunction receiptRailSignatureAmount');
+  return Function(
+    `${moneyMatch[0]}\n${source}\nreturn { receiptMoneyNumber, receiptSupplierBaseAmount, receiptRailCostSignature, receiptPricingCostSignature };`,
+  )();
 }
 
 function loadRailGroupingHelper() {
-  const signatureStart = page.indexOf('function receiptRailCostSignature(ticket) {');
-  const groupingEnd = page.indexOf('\n\nfunction receiptGroupedTickets', signatureStart);
-  assert.ok(signatureStart >= 0 && groupingEnd > signatureStart, 'rail pricing helpers must be contiguous');
-  const source = page.slice(signatureStart, groupingEnd);
+  const source = costHelperSource('\n\nfunction receiptGroupedTickets');
   const { receiptMoneyNumber } = loadRailCostHelpers();
   return Function('receiptMoneyNumber', `${source}; return receiptIdenticalRailPricingGroups;`)(receiptMoneyNumber);
 }
@@ -37,6 +42,39 @@ test('rail cost matching accepts localized values and ignores stale grouped orig
   };
   assert.equal(receiptRailCostSignature(first), 'RUB::526150');
   assert.equal(receiptRailCostSignature(first), receiptRailCostSignature(third));
+});
+
+test('rail identical cost is the supplier base: ticket + reserved seat only', () => {
+  const { receiptSupplierBaseAmount, receiptRailCostSignature } = loadRailCostHelpers();
+  const base = { currency: 'RUB', ticketCost: '3 167,30', reservedSeatCost: '986,80' };
+
+  assert.equal(receiptSupplierBaseAmount('ЖД', base), 4154.1);
+  const withoutFees = receiptRailCostSignature(base);
+  const withAgencyFee = receiptRailCostSignature({ ...base, agencyServiceFee: 500, additionalFees: 120 });
+  const withCrmPricing = receiptRailCostSignature({ ...base, markup: 300, commission: 90, clientTotal: 4954.1 });
+
+  assert.equal(withoutFees, 'RUB::415410');
+  assert.equal(withAgencyFee, withoutFees, 'сервисный сбор агентства не влияет на закупочную базу');
+  assert.equal(withCrmPricing, withoutFees, 'надбавка и комиссия CRM не влияют на закупочную базу');
+});
+
+test('avia identical cost is fare + taxes without the CRM service fee', () => {
+  const { receiptSupplierBaseAmount, receiptPricingCostSignature } = loadRailCostHelpers();
+  const base = { currency: 'RUB', fare: '25 328', taxes: '1 200' };
+
+  assert.equal(receiptSupplierBaseAmount('Авиа', base), 26528);
+  const plain = receiptPricingCostSignature('Авиа', base);
+  assert.equal(plain, 'RUB::2652800');
+  assert.equal(receiptPricingCostSignature('Авиа', { ...base, fees: 900 }), plain);
+  assert.equal(receiptPricingCostSignature('Авиа', { ...base, markup: 400, commission: 100 }), plain);
+  assert.equal(receiptPricingCostSignature('Гостиница', base), '', 'критерий работает только для Авиа и ЖД');
+});
+
+test('total-only blanks fall back to the supplier base without agency fees', () => {
+  const { receiptSupplierBaseAmount } = loadRailCostHelpers();
+
+  assert.equal(receiptSupplierBaseAmount('ЖД', { currency: 'RUB', total: '4 654,10', agencyServiceFee: '500' }), 4154.1);
+  assert.equal(receiptSupplierBaseAmount('Авиа', { currency: 'RUB', total: '27 428', fees: 900 }), 26528);
 });
 
 test('collapsed group row exposes every repeated rail price from the full import list', () => {
@@ -61,4 +99,20 @@ test('collapsed group row exposes every repeated rail price from the full import
   assert.match(page, /sameRailGroups\.map\(\(group, groupIndex\) => \{/);
   assert.match(page, /<b>\{recMoney\(receiptRailSignatureAmount\(group\.signature\), group\.sourceRow\.parsed\.currency\)\}<\/b>/);
   assert.doesNotMatch(page, /const parentPricingRow = pricingRows\.find\(\(row\) => row\.mathKey === r\.f\.id\)/);
+});
+
+test('tickets inside one grouped PDF are matched by their own supplier base', () => {
+  const groupIdentical = loadRailGroupingHelper();
+  const ticket = (ticketCost, reservedSeatCost, agencyServiceFee = 0) => ({
+    f: { id: 'group-pdf', type: 'ЖД' },
+    parsed: { currency: 'RUB', ticketCost, reservedSeatCost, agencyServiceFee, originalTotal: '20 487,20' },
+  });
+  const pricingRows = [
+    ticket(3167.3, 986.8), ticket(3167.3, 986.8, 500),
+    ticket('3 167,30', '986,80'), ticket(4602.7, 986.8),
+  ];
+
+  const groups = groupIdentical(pricingRows, 'group-pdf');
+
+  assert.deepEqual(groups.map((group) => [group.signature, group.matches.length]), [['RUB::415410', 3]]);
 });

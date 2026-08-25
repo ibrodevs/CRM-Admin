@@ -11,7 +11,12 @@ const replaceOnce = (from, to, label) => {
   changed = true;
 };
 
-replaceOnce(
+// Признак уже применённого патча — сами кнопки, а не дословный фрагмент JSX:
+// иначе любая последующая правка этих строк снова запускала legacy-замену.
+const alreadyReconfigured = source.includes('Создать новые условия')
+  && source.includes('<CompanyFinanceCreateDrawer open={createOpen} co={co}');
+
+if (!alreadyReconfigured) replaceOnce(
 `  return (
     <div className="fade-in">
       <CompanyFinanceSection fin={fin} onChangeSettlement={setSettlement} />`,
@@ -25,7 +30,7 @@ replaceOnce(
   'кнопка повторного создания условий',
 );
 
-replaceOnce(
+if (!alreadyReconfigured) replaceOnce(
 `      <ClosingDocsPreview open={!!closing} agreement={closing} co={co} coName={co.name} onClose={() => setClosing(null)} />
     </div>
   );

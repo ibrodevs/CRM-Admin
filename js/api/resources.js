@@ -33,6 +33,9 @@ export const crmApi = {
   removeCompanyDepartment: (companyId, departmentId) => remove(`companies/${companyId}/departments/${departmentId}/`),
   companyFinancialConditions: (id, signal) => get(`companies/${id}/financial-conditions/`, signal),
   saveCompanyFinancialConditions: (id, body) => apiRequest(apiPath(`companies/${id}/financial-conditions/`), { method: 'PUT', body }),
+  // Сервисный сбор считает backend по договору контрагента: фронт передаёт
+  // только контекст (контрагент, вид услуги, база поставщика).
+  resolveServiceFee: (body, signal) => create('service-fee/resolve/', body, { idempotent: false, signal }),
 };
 
 export const accountApi = {

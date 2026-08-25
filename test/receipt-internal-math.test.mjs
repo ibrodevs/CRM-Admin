@@ -7,10 +7,11 @@ const styles = await readFile(new URL('../app/globals.css', import.meta.url), 'u
 
 function loadSignatureHelpers() {
   const money = page.match(/function receiptMoneyNumber\(value\) \{[\s\S]*?\n\}/)?.[0];
-  const rail = page.match(/function receiptRailCostSignature\(ticket\) \{[\s\S]*?\n\}/)?.[0];
-  const generic = page.match(/function receiptPricingCostSignature\(type, receipt\) \{[\s\S]*?\n\}/)?.[0];
-  assert.ok(money && rail && generic);
-  return Function(`${money}\n${rail}\n${generic}\nreturn { receiptPricingCostSignature };`)();
+  const start = page.indexOf('function receiptSupplierBaseAmount(type, receipt) {');
+  const end = page.indexOf('\nfunction receiptRailSignatureAmount', start);
+  assert.ok(money && start >= 0 && end > start);
+  const helpers = page.slice(start, end);
+  return Function(`${money}\n${helpers}\nreturn { receiptPricingCostSignature, receiptSupplierBaseAmount };`)();
 }
 
 test('identical costs are matched independently for rail and aviation', () => {
@@ -22,6 +23,23 @@ test('identical costs are matched independently for rail and aviation', () => {
     currency: 'RUB', fare: '4 167,30', taxes: '2 422,20', fees: 0,
   }), 'RUB::658950');
   assert.equal(receiptPricingCostSignature('Гостиница', { currency: 'RUB', total: 6589.5 }), '');
+});
+
+test('internal math fees never change the identical supplier cost criterion', () => {
+  const { receiptPricingCostSignature, receiptSupplierBaseAmount } = loadSignatureHelpers();
+  const rail = { currency: 'RUB', ticketCost: '4 167,30', reservedSeatCost: '2 422,20' };
+  const avia = { currency: 'RUB', fare: '4 167,30', taxes: '2 422,20' };
+
+  assert.equal(receiptSupplierBaseAmount('ЖД', rail), 6589.5);
+  assert.equal(receiptSupplierBaseAmount('Авиа', avia), 6589.5);
+  assert.equal(
+    receiptPricingCostSignature('ЖД', { ...rail, agencyServiceFee: 500, additionalFees: 90, markup: 300, commission: 40 }),
+    receiptPricingCostSignature('ЖД', rail),
+  );
+  assert.equal(
+    receiptPricingCostSignature('Авиа', { ...avia, fees: 500, markup: 300, commission: 40 }),
+    receiptPricingCostSignature('Авиа', avia),
+  );
 });
 
 test('internal math has service-specific forms and preserves cents', () => {

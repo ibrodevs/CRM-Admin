@@ -77,7 +77,10 @@ test('avia IT mode triggers supplier PDF sync without changing stored fare numbe
 test('direct grouped-ticket edits replace stale pricing state before PDF sync', () => {
   assert.match(page, /const syncEditorMath = \(mathKey, receipt\) => \{/);
   assert.match(page, /tariff: supplierNet\(receipt\)/);
-  assert.match(page, /fee: Math\.round\(\(Number\(receipt\?\.fees\) \|\| 0\) \* 100\) \/ 100/);
+  // Правки бланка переносят в математику базу поставщика и его собственный сбор,
+  // но договорной сервисный сбор при этом не затирается.
+  assert.match(page, /Math\.round\(\(Number\(receipt\?\.fees\) \|\| 0\) \* 100\) \/ 100/);
+  assert.match(page, /const contractFee = contractServiceFeeFor\(mathKey\);[\s\S]*fee: contractFee === null/);
   assert.match(page, /mathStateRef\.current = next;[\s\S]*setMath\(next\)/);
   assert.match(page, /syncEditorMath\(subReceiptMathKey\(fileId, subIndex\), editedChild\)/);
   assert.match(page, /const nextFiles = updateFiles\(filesStateRef\.current\);[\s\S]*filesStateRef\.current = nextFiles;[\s\S]*verifiedData: changedFile \? verifiedReceiptForReview\(changedFile\) : null/);
