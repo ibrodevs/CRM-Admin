@@ -292,6 +292,46 @@ function receiptLegPlace(leg, side) {
   return `${name || code} (${code})`;
 }
 
+function receiptIsItMarker(value) {
+  return typeof value === 'string' && value.trim().toUpperCase() === 'IT';
+}
+
+function receiptOutputUsesItFare(output) {
+  return ['it', 'itFare', 'fareIt'].includes(output?.priceMode);
+}
+
+function receiptNumericSource(...values) {
+  for (const value of values) {
+    if (value === undefined || value === null || value === '' || receiptIsItMarker(value)) continue;
+    const number = Number(String(value).replace(/\s+/g, '').replace(',', '.'));
+    if (Number.isFinite(number)) return value;
+  }
+  return '';
+}
+
+function receiptBreakdownTotal(rows) {
+  if (!Array.isArray(rows) || !rows.length) return '';
+  let hasAmount = false;
+  const total = rows.reduce((sum, row) => {
+    const raw = row?.amount;
+    if (raw === undefined || raw === null || raw === '' || receiptIsItMarker(raw)) return sum;
+    const number = Number(String(raw).replace(/\s+/g, '').replace(',', '.'));
+    if (!Number.isFinite(number)) return sum;
+    hasAmount = true;
+    return sum + number;
+  }, 0);
+  return hasAmount ? roundMoney(total) : '';
+}
+
+function receiptRestoreAviaAmount(value, sourceValue, rows, sourceRows) {
+  if (!receiptIsItMarker(value)) return value;
+  return receiptNumericSource(
+    sourceValue,
+    receiptBreakdownTotal(rows),
+    receiptBreakdownTotal(sourceRows),
+  );
+}
+
 export function receiptFinancialTotal(type, draft) {
   if (type === 'ЖД') {
     return roundMoney((Number(draft.ticketCost) || 0) + (Number(draft.reservedSeatCost) || 0)
@@ -412,6 +452,28 @@ export function normalizeReceiptDraft(type, value = {}) {
   draft.vehicle = { className: '', category: '', passengers: '', luggage: '', requirements: '', ...(value.vehicle || {}) };
   draft.transferTerms = { cancellation: '', freeWaiting: '', meetAndGreet: '', baggageHelp: '', supportContacts: '', supplierComment: '', driverComment: '', passengerComment: '', ...(value.transferTerms || {}) };
   draft.output = { mode: 'original', template: '', priceMode: type === 'Гостиница' || type === 'Трансфер' ? 'hidden' : 'total', ...(value.output || {}) };
+  if (type === 'Авиа' && receiptOutputUsesItFare(draft.output)) {
+    const sourceFinancials = value.sourceSupplierFinancials || value.source_supplier_financials || {};
+    const snapshot = draft.output?.itFareSnapshot || draft.output?.it_fare_snapshot || {};
+    draft.fare = receiptRestoreAviaAmount(
+      draft.fare,
+      receiptNumericSource(snapshot.fare, sourceFinancials.fare),
+      draft.fareBreakdown,
+      sourceFinancials.fareBreakdown || sourceFinancials.fare_breakdown,
+    );
+    draft.taxes = receiptRestoreAviaAmount(
+      draft.taxes,
+      receiptNumericSource(snapshot.taxes, sourceFinancials.taxes),
+      draft.taxBreakdown,
+      sourceFinancials.taxBreakdown || sourceFinancials.tax_breakdown,
+    );
+    draft.fees = receiptRestoreAviaAmount(
+      draft.fees,
+      receiptNumericSource(snapshot.fees, sourceFinancials.fees),
+      draft.feeBreakdown,
+      sourceFinancials.feeBreakdown || sourceFinancials.fee_breakdown,
+    );
+  }
   draft.auditLog = Array.isArray(value.auditLog) ? value.auditLog : [];
   const explicitSupplierOrder = firstReceiptValue(value.supplierOrderNo, value.supplier_order_number, value.order_number);
   const fallbackSupplierOrder = type === 'Трансфер'
@@ -616,7 +678,7 @@ function AuditLog({ rows }) {
 }
 
 function receiptUsesItFare(draft) {
-  return ['it', 'itFare', 'fareIt'].includes(draft?.output?.priceMode);
+  return receiptOutputUsesItFare(draft?.output);
 }
 
 function uniqueReceiptTermRows(rows) {
@@ -1601,10 +1663,30 @@ export function ReceiptSpecializedForm({
     </Section>
   </>;
 
+  const setAviaItFareMode = (enabled) => {
+    const snapshot = p.output?.itFareSnapshot || {
+      fare: p.fare,
+      taxes: p.taxes,
+      fees: p.fees,
+    };
+    const nextOutput = {
+      ...p.output,
+      priceMode: enabled ? 'it' : 'total',
+      itFareSnapshot: snapshot,
+    };
+    commit({
+      ...p,
+      fare: p.fare,
+      taxes: p.taxes,
+      fees: p.fees,
+      output: nextOutput,
+    }, 'Отображение тарифа', p.output?.priceMode, nextOutput.priceMode);
+  };
+
   const aviaItFareControl = type === 'Авиа' && (
     <label className="hp-check-row" style={{ border: '2px solid var(--blue)', borderRadius: 12, padding: '13px 14px', marginBottom: 16, background: 'var(--blue-soft)' }}>
       <Checkbox on={receiptUsesItFare(p)}
-        onChange={(enabled) => setObject('output', 'priceMode', enabled ? 'it' : 'total', 'Отображение тарифа')} />
+        onChange={setAviaItFareMode} />
       <span className="hp-check-label" style={{ flex: 1 }}>
         <b style={{ display: 'block', color: 'var(--ink)' }}>Закрыть тариф на IT</b>
         <span style={{ color: 'var(--muted)', fontSize: 12 }}>
