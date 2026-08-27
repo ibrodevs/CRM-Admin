@@ -1939,41 +1939,31 @@ function receiptRailSignatureAmount(signature) {
   return Number.isFinite(cents) ? cents / 100 : 0;
 }
 
-function receiptIdenticalRailPricingGroups(pricingRows, fileId) {
-  const railRows = (pricingRows || []).filter((row) => row?.f?.type === 'ЖД');
-  const rowsBySignature = new Map();
-  railRows.forEach((row) => {
-    const signature = receiptRailCostSignature(row.parsed);
-    if (!signature) return;
-    rowsBySignature.set(signature, [...(rowsBySignature.get(signature) || []), row]);
-  });
-  const seen = new Set();
-  return railRows.filter((row) => row.f.id === fileId).flatMap((sourceRow) => {
-    const signature = receiptRailCostSignature(sourceRow.parsed);
-    if (!signature || seen.has(signature)) return [];
-    seen.add(signature);
-    const matches = rowsBySignature.get(signature) || [];
-    return matches.length > 1 ? [{ signature, sourceRow, matches }] : [];
-  });
-}
-
-function receiptIdenticalPricingGroups(pricingRows, fileId, type) {
-  if (!['Авиа', 'ЖД'].includes(type)) return [];
-  const serviceRows = (pricingRows || []).filter((row) => row?.f?.type === type);
-  const rowsBySignature = new Map();
-  serviceRows.forEach((row) => {
+// Сквозная группировка по одинаковой закупочной стоимости: считается по всем
+// загруженным бланкам импорта сразу, а не внутри одного PDF. Один и тот же
+// тариф в разных документах поставщика попадает в одну группу.
+function receiptGlobalCostGroups(pricingRows) {
+  const groups = new Map();
+  (pricingRows || []).forEach((row) => {
+    const type = row?.f?.type;
+    if (!['Авиа', 'ЖД'].includes(type)) return;
     const signature = receiptPricingCostSignature(type, row.parsed);
     if (!signature) return;
-    rowsBySignature.set(signature, [...(rowsBySignature.get(signature) || []), row]);
+    const key = `${type}::${signature}`;
+    const current = groups.get(key) || { key, type, signature, matches: [] };
+    current.matches.push(row);
+    groups.set(key, current);
   });
-  const seen = new Set();
-  return serviceRows.filter((row) => row.f.id === fileId).flatMap((sourceRow) => {
-    const signature = receiptPricingCostSignature(type, sourceRow.parsed);
-    if (!signature || seen.has(signature)) return [];
-    seen.add(signature);
-    const matches = rowsBySignature.get(signature) || [];
-    return matches.length > 1 ? [{ signature, sourceRow, matches }] : [];
-  });
+  return [...groups.values()]
+    .filter((group) => group.matches.length > 1)
+    .map((group) => ({
+      ...group,
+      sourceRow: group.matches[0],
+      amount: receiptRailSignatureAmount(group.signature),
+      currency: group.matches[0]?.parsed?.currency || '',
+      documentCount: new Set(group.matches.map((row) => row.f.id)).size,
+    }))
+    .sort((a, b) => b.matches.length - a.matches.length || b.amount - a.amount);
 }
 
 function receiptGroupedTickets(file) {
@@ -2794,6 +2784,140 @@ function ServiceFeeBindingSummary({ rows = [], info = {}, context = {}, hint = '
 }
 
 
+const costTabId = (index) => `cost-tab-${index}`;
+const costPanelId = (index) => `cost-panel-${index}`;
+
+// Единая полоса навигации по одинаковой стоимости над таблицей импорта.
+// Вкладки перечисляют все варианты цены сразу; в панели видно каждый бланк
+// с указанием документа-источника, поэтому переключаться между строками
+// таблицы не нужно.
+function ReceiptCostGroupsBar({
+  groups, activeKey, onSelect, getMath, clientTotal,
+  onEditTicket, onEditMath, onOpenBrand, onEditGroup,
+}) {
+  if (!groups.length) return null;
+  const activeIndex = groups.findIndex((group) => group.key === activeKey);
+  const activeGroup = activeIndex < 0 ? null : groups[activeIndex];
+  const coveredBlanks = groups.reduce((sum, group) => sum + group.matches.length, 0);
+  const coveredDocuments = new Set(groups.flatMap((group) => group.matches.map((row) => row.f.id))).size;
+  const multiType = new Set(groups.map((group) => group.type)).size > 1;
+  const moveFocus = (event, index) => {
+    const shift = event.key === 'ArrowRight' ? 1 : event.key === 'ArrowLeft' ? -1 : 0;
+    if (!shift || groups.length < 2) return;
+    event.preventDefault();
+    const next = (index + shift + groups.length) % groups.length;
+    onSelect(groups[next].key);
+    const node = typeof document !== 'undefined' ? document.getElementById(costTabId(next)) : null;
+    if (node) node.focus();
+  };
+  return (
+    <div className={'receipt-cost-tabs is-global' + (activeGroup ? ' is-open' : '')}>
+      <div className="receipt-cost-tabs-head">
+        <span className="receipt-cost-tabs-title">
+          <Icon name="calc" />
+          <span>
+            <b>Билеты с одинаковой стоимостью</b>
+            <small>
+              {groups.length} {plural(groups.length, ['вариант', 'варианта', 'вариантов'])} цены
+              {' · '}{coveredBlanks} {plural(coveredBlanks, ['бланк', 'бланка', 'бланков'])}
+              {' из '}{coveredDocuments} {plural(coveredDocuments, ['документа', 'документов', 'документов'])}
+              {' · '}сквозная навигация по всем загруженным бланкам
+            </small>
+          </span>
+        </span>
+        {activeGroup && <button type="button" className="btn btn-ghost btn-sm receipt-cost-tabs-collapse"
+          onClick={() => onSelect('')}>
+          <Icon name="chevUp" /> Свернуть
+        </button>}
+      </div>
+      <div className="receipt-cost-tablist" role="tablist" aria-label="Билеты с одинаковой стоимостью">
+        {groups.map((group, groupIndex) => {
+          const isActiveCostTab = group.key === activeKey;
+          return (
+            <button type="button" role="tab" key={group.key}
+              id={costTabId(groupIndex)}
+              className={'receipt-cost-tab' + (isActiveCostTab ? ' is-active' : '')}
+              aria-selected={isActiveCostTab}
+              aria-controls={costPanelId(groupIndex)}
+              tabIndex={isActiveCostTab || (!activeGroup && groupIndex === 0) ? 0 : -1}
+              onKeyDown={(event) => moveFocus(event, groupIndex)}
+              onClick={() => onSelect(isActiveCostTab ? '' : group.key)}>
+              <b>{recMoney(group.amount, group.currency)}</b>
+              <small>
+                {group.matches.length} {plural(group.matches.length, ['бланк', 'бланка', 'бланков'])}
+                {group.documentCount > 1 ? ` · ${group.documentCount} док.` : ''}
+                {multiType ? ` · ${group.type}` : ''}
+              </small>
+            </button>
+          );
+        })}
+      </div>
+      {activeGroup && (
+        <div className="receipt-cost-panel" role="tabpanel"
+          id={costPanelId(activeIndex)}
+          aria-labelledby={costTabId(activeIndex)}>
+          <div className="receipt-cost-panel-head">
+            <span>
+              <b>{recMoney(activeGroup.amount, activeGroup.currency)} · {activeGroup.matches.length} {plural(activeGroup.matches.length, ['бланк', 'бланка', 'бланков'])}</b>
+              <small>Совпадает только закупочная стоимость. Пассажир, номер билета и маршрут остаются индивидуальными.</small>
+            </span>
+            <Button size="sm" variant="secondary" icon="calc"
+              onClick={() => onEditGroup(activeGroup.sourceRow)}>
+              Редактировать стоимость группы ({activeGroup.matches.length})
+            </Button>
+          </div>
+          <ol className="receipt-cost-ticket-list">
+            {activeGroup.matches.map((match, matchIndex) => {
+              const matchMath = getMath(match.mathKey, match.parsed);
+              const matchLeg = match.parsed.legs?.[0] || {};
+              const matchReviewed = receiptBlankIsReviewed(match.parsed);
+              return (
+                <li key={match.mathKey} className="receipt-cost-ticket">
+                  <span className="receipt-cost-ticket-index">{matchIndex + 1}</span>
+                  <span className="receipt-cost-ticket-main">
+                    <b>{match.parsed.passenger || receiptParticipantLabel(match.parsed, match.f.name)}</b>
+                    <small>{[
+                      match.blankIndex !== null ? `Бланк ${match.blankIndex + 1}` : 'Отдельный документ',
+                      match.parsed.ticketNo ? `№ ${match.parsed.ticketNo}` : '',
+                    ].filter(Boolean).join(' · ')}</small>
+                    <span className="receipt-cost-ticket-source">{match.f.name}</span>
+                  </span>
+                  <span className="receipt-cost-ticket-route">
+                    <span>{routeSummary(match.parsed)}</span>
+                    <small>{[
+                      matchLeg.date || '',
+                      matchLeg.flightNo ? (match.f.type === 'ЖД' ? `Поезд ${matchLeg.flightNo}` : `Рейс ${matchLeg.flightNo}`) : '',
+                      matchLeg.coach ? `вагон ${matchLeg.coach}` : '',
+                      matchLeg.seat ? `место ${matchLeg.seat}` : '',
+                    ].filter(Boolean).join(' · ') || 'Детали рейса не распознаны'}</small>
+                  </span>
+                  <span className="receipt-cost-ticket-money">
+                    <b>{recSourceMoney(match.parsed)}</b>
+                    <small>клиенту {recMoney(clientTotal(matchMath), match.parsed.currency)} · сбор {recMoney(Number(matchMath.fee) || 0, match.parsed.currency)}</small>
+                  </span>
+                  <Pill tone={matchReviewed ? 'green' : 'amber'}>{matchReviewed ? 'Проверено' : 'Не проверено'}</Pill>
+                  <span className="receipt-cost-ticket-actions">
+                    <button type="button" className="btn btn-ghost btn-sm" onClick={() => onEditTicket(match)}>
+                      <Icon name="edit" /> Изменить
+                    </button>
+                    <button type="button" className="btn btn-ghost btn-sm" onClick={() => onEditMath(match.mathKey)}>
+                      <Icon name="calc" /> Математика
+                    </button>
+                    <button type="button" className="btn btn-ghost btn-sm"
+                      onClick={() => onOpenBrand({ fileId: match.f.id, blankIndex: match.blankIndex === null ? 0 : match.blankIndex })}>
+                      <Icon name="template" /> На бланке
+                    </button>
+                  </span>
+                </li>
+              );
+            })}
+          </ol>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function ReceiptMathDrawer({ open, file, math, scopeOptions = [], feeInfo = null, onSave, onClose }) {
   const [m, setM] = useState(math || { tariff: 0, fee: 0, markup: 0, commission: 0 });
   // Область применения расчёта. По умолчанию — только текущий бланк: раньше
@@ -2948,7 +3072,7 @@ function ReceiptImportModal({ open, onClose, onDone, initialDraft, initialFiles 
   const [expandedReceipts, setExpandedReceipts] = useState({});
   // Билеты с одинаковой закупочной стоимостью показываются вкладками:
   // ключ — id документа, значение — подпись активной вкладки ('' — вкладки свёрнуты).
-  const [costTabByFile, setCostTabByFile] = useState({});
+  const [costTabKey, setCostTabKey] = useState('');
   // Результат серверного расчёта сервисного сбора по бланкам: mathKey → источник.
   const [serviceFeeInfo, setServiceFeeInfo] = useState({});
   const [confirmClose, setConfirmClose] = useState(false);
@@ -3713,32 +3837,13 @@ function ReceiptImportModal({ open, onClose, onDone, initialDraft, initialFiles 
     }
     return identicalPricingRows(sourceRow);
   };
-  const identicalRailPricingGroupsForFile = (file) => {
-    if (file?.type === 'ЖД') return receiptIdenticalRailPricingGroups(pricingRows, file.id);
-    if (file?.type !== 'Авиа') return [];
-    return receiptIdenticalPricingGroups(pricingRows, file.id, file.type);
-  };
-  const costTabId = (fileId, index) => `cost-tab-${fileId}-${index}`;
-  const costPanelId = (fileId, index) => `cost-panel-${fileId}-${index}`;
-  // Активная вкладка хранится по подписи стоимости, а не по индексу: после
-  // правки математики набор групп пересобирается, и выбор пользователя должен
-  // пережить пересчёт либо корректно свернуться, если группа исчезла.
-  const activeCostTabGroup = (fileId, groups) => {
-    const signature = costTabByFile[fileId];
-    if (!signature) return null;
-    const index = groups.findIndex((group) => group.signature === signature);
-    return index < 0 ? null : { ...groups[index], index };
-  };
-  const setCostTab = (fileId, signature) => setCostTabByFile((current) => ({ ...current, [fileId]: signature }));
-  const moveCostTabFocus = (event, fileId, groups, index) => {
-    const shift = event.key === 'ArrowRight' ? 1 : event.key === 'ArrowLeft' ? -1 : 0;
-    if (!shift || groups.length < 2) return;
-    event.preventDefault();
-    const next = (index + shift + groups.length) % groups.length;
-    setCostTab(fileId, groups[next].signature);
-    const node = typeof document !== 'undefined' ? document.getElementById(costTabId(fileId, next)) : null;
-    if (node) node.focus();
-  };
+  // Полоса одинаковой стоимости строится по всем загруженным бланкам сразу,
+  // а не внутри отдельного PDF: оператору нужен сквозной список вариантов цены.
+  const globalCostGroups = receiptGlobalCostGroups(pricingRows);
+  // Активная вкладка хранится по ключу «услуга + подпись стоимости», а не по
+  // индексу: после правки математики набор групп пересобирается, и выбор
+  // пользователя должен пережить пересчёт либо корректно свернуться.
+  const activeCostTabKey = globalCostGroups.some((group) => group.key === costTabKey) ? costTabKey : '';
   const openCostTicketEditor = (row) => {
     if (row.blankIndex === null) setEditId(row.f.id);
     else setSubEdit({ fileId: row.f.id, index: row.blankIndex });
@@ -4234,6 +4339,17 @@ function ReceiptImportModal({ open, onClose, onDone, initialDraft, initialFiles 
                   <span><b>Обнаружено однотипных групп: {detectedGroups.length}</b><small>{detectedGroups.reduce((sum, group) => sum + group.length, 0)} бланк. будут редактироваться группами. Общие поля переносятся вместе, ФИО, документы, номера билетов и стоимость отдельных ЖД-билетов не смешиваются.</small></span>
                 </div>}
 
+                <ReceiptCostGroupsBar
+                  groups={globalCostGroups}
+                  activeKey={activeCostTabKey}
+                  onSelect={setCostTabKey}
+                  getMath={getMath}
+                  clientTotal={clientTotal}
+                  onEditTicket={openCostTicketEditor}
+                  onEditMath={setMathId}
+                  onOpenBrand={setBrandTarget}
+                  onEditGroup={selectIdenticalRailPricing} />
+
                 <div className="table-card rec-import-table-card">
                   <table className="tbl rec-import-table">
                     <thead><tr>
@@ -4268,113 +4384,8 @@ function ReceiptImportModal({ open, onClose, onDone, initialDraft, initialFiles 
                             Number(p.receiptCount || p.receipt_count || 0),
                           );
                           const reviewedBlankCount = (r.f.subReceipts || []).filter(receiptBlankIsReviewed).length;
-                          const sameRailGroups = identicalRailPricingGroupsForFile(r.f);
-                          const activeCostGroup = activeCostTabGroup(r.f.id, sameRailGroups);
-                          const activeCostSignature = activeCostGroup ? activeCostGroup.signature : '';
-                          const activeCostIndex = activeCostGroup ? activeCostGroup.index : 0;
                           return (
                             <React.Fragment key={r.f.id}>
-                            {sameRailGroups.length > 0 && (
-                            <tr className={'rec-import-costtabs-row' + (activeCostGroup ? ' is-open' : '')} style={{ opacity: skipped ? 0.5 : 1 }}>
-                              <td data-label="" colSpan={7}>
-                                <div className="receipt-cost-tabs">
-                                  <div className="receipt-cost-tabs-head">
-                                    <span className="receipt-cost-tabs-title">
-                                      <Icon name="calc" />
-                                      <span>
-                                        <b>Билеты с одинаковой стоимостью</b>
-                                        <small>{sameRailGroups.length} {plural(sameRailGroups.length, ['вариант', 'варианта', 'вариантов'])} цены · откройте вкладку, чтобы просмотреть и отредактировать бланки</small>
-                                      </span>
-                                    </span>
-                                    {activeCostGroup && <button type="button" className="btn btn-ghost btn-sm receipt-cost-tabs-collapse"
-                                      onClick={() => setCostTab(r.f.id, '')}>
-                                      <Icon name="chevUp" /> Свернуть
-                                    </button>}
-                                  </div>
-                                  <div className="receipt-cost-tablist" role="tablist" aria-label="Билеты с одинаковой стоимостью">
-                                    {sameRailGroups.map((group, groupIndex) => {
-                                      const isActiveCostTab = group.signature === activeCostSignature;
-                                      return (
-                                        <button type="button" role="tab" key={group.signature}
-                                          id={costTabId(r.f.id, groupIndex)}
-                                          className={'receipt-cost-tab' + (isActiveCostTab ? ' is-active' : '')}
-                                          aria-selected={isActiveCostTab}
-                                          aria-controls={costPanelId(r.f.id, groupIndex)}
-                                          tabIndex={isActiveCostTab || (!activeCostGroup && groupIndex === 0) ? 0 : -1}
-                                          onKeyDown={(event) => moveCostTabFocus(event, r.f.id, sameRailGroups, groupIndex)}
-                                          onClick={() => setCostTab(r.f.id, isActiveCostTab ? '' : group.signature)}>
-                                          <b>{recMoney(receiptRailSignatureAmount(group.signature), group.sourceRow.parsed.currency)}</b>
-                                          <small>{group.matches.length} {plural(group.matches.length, ['бланк', 'бланка', 'бланков'])}</small>
-                                        </button>
-                                      );
-                                    })}
-                                  </div>
-                                  {activeCostGroup && (
-                                    <div className="receipt-cost-panel" role="tabpanel"
-                                      id={costPanelId(r.f.id, activeCostIndex)}
-                                      aria-labelledby={costTabId(r.f.id, activeCostIndex)}>
-                                      <div className="receipt-cost-panel-head">
-                                        <span>
-                                          <b>{recMoney(receiptRailSignatureAmount(activeCostGroup.signature), activeCostGroup.sourceRow.parsed.currency)} · {activeCostGroup.matches.length} {plural(activeCostGroup.matches.length, ['бланк', 'бланка', 'бланков'])}</b>
-                                          <small>Совпадает только закупочная стоимость. Пассажир, номер билета и маршрут остаются индивидуальными.</small>
-                                        </span>
-                                        <Button size="sm" variant="secondary" icon="calc"
-                                          onClick={() => selectIdenticalRailPricing(activeCostGroup.sourceRow)}>
-                                          Редактировать стоимость группы ({activeCostGroup.matches.length})
-                                        </Button>
-                                      </div>
-                                      <ol className="receipt-cost-ticket-list">
-                                        {activeCostGroup.matches.map((match, matchIndex) => {
-                                          const matchMath = getMath(match.mathKey, match.parsed);
-                                          const matchLeg = match.parsed.legs?.[0] || {};
-                                          const matchReviewed = receiptBlankIsReviewed(match.parsed);
-                                          return (
-                                            <li key={match.mathKey} className="receipt-cost-ticket">
-                                              <span className="receipt-cost-ticket-index">{matchIndex + 1}</span>
-                                              <span className="receipt-cost-ticket-main">
-                                                <b>{match.parsed.passenger || receiptParticipantLabel(match.parsed, match.f.name)}</b>
-                                                <small>{[
-                                                  match.blankIndex !== null ? `Бланк ${match.blankIndex + 1}` : 'Отдельный документ',
-                                                  match.parsed.ticketNo ? `№ ${match.parsed.ticketNo}` : '',
-                                                ].filter(Boolean).join(' · ')}</small>
-                                                {match.f.id !== r.f.id && <span className="receipt-cost-ticket-source">{match.f.name}</span>}
-                                              </span>
-                                              <span className="receipt-cost-ticket-route">
-                                                <span>{routeSummary(match.parsed)}</span>
-                                                <small>{[
-                                                  matchLeg.date || '',
-                                                  matchLeg.flightNo ? (match.f.type === 'ЖД' ? `Поезд ${matchLeg.flightNo}` : `Рейс ${matchLeg.flightNo}`) : '',
-                                                  matchLeg.coach ? `вагон ${matchLeg.coach}` : '',
-                                                  matchLeg.seat ? `место ${matchLeg.seat}` : '',
-                                                ].filter(Boolean).join(' · ') || 'Детали рейса не распознаны'}</small>
-                                              </span>
-                                              <span className="receipt-cost-ticket-money">
-                                                <b>{recSourceMoney(match.parsed)}</b>
-                                                <small>клиенту {recMoney(clientTotal(matchMath), match.parsed.currency)} · сбор {recMoney(Number(matchMath.fee) || 0, match.parsed.currency)}</small>
-                                              </span>
-                                              <Pill tone={matchReviewed ? 'green' : 'amber'}>{matchReviewed ? 'Проверено' : 'Не проверено'}</Pill>
-                                              <span className="receipt-cost-ticket-actions">
-                                                <button type="button" className="btn btn-ghost btn-sm" onClick={() => openCostTicketEditor(match)}>
-                                                  <Icon name="edit" /> Изменить
-                                                </button>
-                                                <button type="button" className="btn btn-ghost btn-sm" onClick={() => setMathId(match.mathKey)}>
-                                                  <Icon name="calc" /> Математика
-                                                </button>
-                                                <button type="button" className="btn btn-ghost btn-sm"
-                                                  onClick={() => setBrandTarget({ fileId: match.f.id, blankIndex: match.blankIndex === null ? 0 : match.blankIndex })}>
-                                                  <Icon name="template" /> На бланке
-                                                </button>
-                                              </span>
-                                            </li>
-                                          );
-                                        })}
-                                      </ol>
-                                    </div>
-                                  )}
-                                </div>
-                              </td>
-                            </tr>
-                            )}
                             <tr className={'rec-import-row' + (r.f.subReceipts?.length ? ' has-subrows' : '')} style={{ opacity: skipped ? 0.5 : 1 }}>
                               <td data-label=""><Checkbox on={!!sel[r.f.id]} onChange={() => setSel((s) => ({ ...s, [r.f.id]: !s[r.f.id] }))} /></td>
                               <td data-label="Документ">
@@ -4538,6 +4549,17 @@ function ReceiptImportModal({ open, onClose, onDone, initialDraft, initialFiles 
                   <span><b>Выбрано бланков: {selectedPricingRows.length}</b><small>Общие сбор, надбавка и комиссия применяются только внутри одного вида услуги. База поставщика остаётся индивидуальной.</small></span>
                   <Button size="sm" variant="ghost" onClick={() => setPricingSel({})}>Снять выбор</Button>
                 </div>}
+                <ReceiptCostGroupsBar
+                  groups={globalCostGroups}
+                  activeKey={activeCostTabKey}
+                  onSelect={setCostTabKey}
+                  getMath={getMath}
+                  clientTotal={clientTotal}
+                  onEditTicket={openCostTicketEditor}
+                  onEditMath={setMathId}
+                  onOpenBrand={setBrandTarget}
+                  onEditGroup={selectIdenticalRailPricing} />
+
                 <div className="table-card receipt-pricing-card">
                   <table className="tbl receipt-pricing-table">
                     <thead><tr><th aria-label="Выбор"></th><th>Бланк</th><th>База поставщика</th><th>Внутренняя математика</th><th>Версии</th><th></th></tr></thead>

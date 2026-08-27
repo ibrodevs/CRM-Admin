@@ -21,9 +21,9 @@ function loadRailCostHelpers() {
 }
 
 function loadRailGroupingHelper() {
-  const source = costHelperSource('\n\nfunction receiptGroupedTickets');
+  const source = costHelperSource('\nfunction receiptGroupedTickets');
   const { receiptMoneyNumber } = loadRailCostHelpers();
-  return Function('receiptMoneyNumber', `${source}; return receiptIdenticalRailPricingGroups;`)(receiptMoneyNumber);
+  return Function('receiptMoneyNumber', `${source}; return receiptGlobalCostGroups;`)(receiptMoneyNumber);
 }
 
 test('rail cost matching accepts localized values and ignores stale grouped originalTotal', () => {
@@ -77,27 +77,28 @@ test('total-only blanks fall back to the supplier base without agency fees', () 
   assert.equal(receiptSupplierBaseAmount('Авиа', { currency: 'RUB', total: '27 428', fees: 900 }), 26528);
 });
 
-test('collapsed group row exposes every repeated rail price from the full import list', () => {
+test('the price bar exposes every repeated rail price from the full import list', () => {
   const groupIdentical = loadRailGroupingHelper();
   const row = (fileId, total, type = 'ЖД') => ({
     f: { id: fileId, type },
-    parsed: { currency: 'RUB', ticketCost: total, reservedSeatCost: 0 },
+    parsed: { currency: 'RUB', ticketCost: total, reservedSeatCost: 0, fare: total, taxes: 0 },
   });
   const pricingRows = [
     row('group-pdf', 5261.5), row('group-pdf', 3826.1),
     row('group-pdf', '5 261,50'), row('group-pdf', '3 826,10'),
     row('separate-pdf', 5261.5), row('avia-pdf', 5261.5, 'Авиа'),
   ];
-  const groups = groupIdentical(pricingRows, 'group-pdf');
-  assert.deepEqual(groups.map((group) => [group.signature, group.matches.length]), [
-    ['RUB::526150', 3],
-    ['RUB::382610', 2],
+  // Цена из отдельного PDF попадает в ту же группу, что и билеты группового —
+  // навигация сквозная по всем загруженным бланкам.
+  const groups = groupIdentical(pricingRows);
+  assert.deepEqual(groups.map((group) => [group.key, group.matches.length]), [
+    ['ЖД::RUB::526150', 3],
+    ['ЖД::RUB::382610', 2],
   ]);
 
-  assert.match(page, /const identicalRailPricingGroupsForFile = \(file\) =>/);
-  assert.match(page, /receiptIdenticalRailPricingGroups\(pricingRows, file\.id\)/);
-  assert.match(page, /sameRailGroups\.map\(\(group, groupIndex\) => \{/);
-  assert.match(page, /<b>\{recMoney\(receiptRailSignatureAmount\(group\.signature\), group\.sourceRow\.parsed\.currency\)\}<\/b>/);
+  assert.match(page, /const globalCostGroups = receiptGlobalCostGroups\(pricingRows\)/);
+  assert.match(page, /groups\.map\(\(group, groupIndex\) => \{/);
+  assert.match(page, /<b>\{recMoney\(group\.amount, group\.currency\)\}<\/b>/);
   assert.doesNotMatch(page, /const parentPricingRow = pricingRows\.find\(\(row\) => row\.mathKey === r\.f\.id\)/);
 });
 
@@ -112,7 +113,7 @@ test('tickets inside one grouped PDF are matched by their own supplier base', ()
     ticket('3 167,30', '986,80'), ticket(4602.7, 986.8),
   ];
 
-  const groups = groupIdentical(pricingRows, 'group-pdf');
+  const groups = groupIdentical(pricingRows);
 
   assert.deepEqual(groups.map((group) => [group.signature, group.matches.length]), [['RUB::415410', 3]]);
 });

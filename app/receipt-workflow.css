@@ -256,3 +256,43 @@
   flex: 0 0 auto;
   margin-top: 2px;
 }
+
+/* ——— Сквозная полоса «Билеты с одинаковой стоимостью» ————————————————————
+   Полоса живёт над таблицей импорта и охватывает все загруженные бланки,
+   поэтому у неё собственная рамка, отступ и «липкий» список вкладок —
+   переключаться между строками документов больше не нужно. */
+.receipt-cost-tabs.is-global {
+  margin: 0 0 14px;
+  border: 1px solid #cbd8ff;
+  border-radius: 12px;
+  background: #fff;
+  overflow: visible;
+}
+
+.receipt-cost-tabs.is-global .receipt-cost-tabs-head {
+  border-radius: 12px 12px 0 0;
+}
+
+.receipt-cost-tabs.is-global .receipt-cost-tablist {
+  max-height: 168px;
+  overflow-y: auto;
+}
+
+.receipt-cost-tabs.is-global .receipt-cost-panel {
+  max-height: 460px;
+  overflow-y: auto;
+}
+
+.receipt-cost-tabs.is-global .receipt-cost-ticket-source {
+  display: block;
+  font-size: 11px;
+  color: var(--muted-2);
+}
+
+@media (max-width: 900px) {
+  .receipt-cost-tabs.is-global {
+    border: 1px solid #cbd8ff;
+    border-radius: 12px;
+    background: #fff;
+  }
+}

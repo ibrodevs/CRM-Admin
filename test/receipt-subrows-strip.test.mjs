@@ -15,9 +15,10 @@ test('available receipt blanks live inside the document cell', async () => {
   assert.match(source, /expandedReceipts\[r\.f\.id\] \? 'Скрыть' : 'Показать'/);
   assert.doesNotMatch(source, /<tr className=\{'receipt-subrows-strip-row'/);
   // Полоса бланков не должна возвращаться отдельной строкой на всю ширину.
-  // Единственная широкая строка — вкладки билетов с одинаковой стоимостью.
-  assert.equal((source.match(/colSpan=\{7\}/g) || []).length, 1);
-  assert.match(source, /rec-import-costtabs-row'[\s\S]{0,220}colSpan=\{7\}/);
+  // Широких строк в таблице импорта больше нет вовсе: вкладки одинаковой
+  // стоимости вынесены в сквозную полосу над таблицей.
+  assert.equal((source.match(/colSpan=\{7\}/g) || []).length, 0);
+  assert.match(source, /<ReceiptCostGroupsBar/);
 });
 
 test('blank toggle is outside participant title but still inside the document block', async () => {
