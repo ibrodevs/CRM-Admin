@@ -236,7 +236,7 @@ function App() {
   });
 
   if (auth.status === 'loading') return <div className="app-boot"><span className="spinner" />Загрузка Travel Hub…</div>;
-  if (auth.status !== 'authenticated') return <LoginScreen onLogin={auth.login} onVerifyTwoFactor={auth.verifyTwoFactor} onPasswordReset={auth.requestPasswordReset} />;
+  if (auth.status !== 'authenticated') return <LoginScreen expired={auth.expired} onLogin={auth.login} onVerifyTwoFactor={auth.verifyTwoFactor} onPasswordReset={auth.requestPasswordReset} />;
 
   const topbar = (
     <GlobalTopbar

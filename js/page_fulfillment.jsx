@@ -4373,11 +4373,14 @@ function ReceiptImportModal({ open, onClose, onDone, initialDraft, initialFiles 
   const hasBindingTarget = hasOrderTarget || hasPersonTarget || hasCompanyTarget || canCreateOrderTarget;
   const canAttach = toAdd.length > 0 && !processing && hasBindingTarget
     && (!optCreateServices || hasOrderTarget || canCreateOrderTarget);
+  // Переходить между шагами можно свободно: непроверенные бланки удерживают
+  // только последний шаг, где бланки уходят в заказ. Там же оператор видит,
+  // что именно нужно исправить.
   const canNext = [
     files.length > 0,
     files.length > 0 && !processing,
-    doneRows.length > 0 && pendingReview === 0,
-    doneRows.length > 0 && pendingReview === 0,
+    doneRows.length > 0,
+    doneRows.length > 0,
     canAttach,
   ];
 
@@ -4928,37 +4931,6 @@ function ReceiptImportModal({ open, onClose, onDone, initialDraft, initialFiles 
               <Stat label="Дубли" value={counts['Возможный дубль']} tone="red" />
               <Stat label="Ошибка" value={counts['Ошибка']} tone="muted-2" />
             </div>
-            {pendingReview > 0 && step >= 2 && (
-              <div className="receipt-next-blocked" role="status">
-                <Icon name="alertCircle" />
-                <div className="receipt-next-blocked-main">
-                  <b>Переход дальше заблокирован: не подтверждено {pendingReview} {plural(pendingReview, ['документ', 'документа', 'документов'])}</b>
-                  <small>
-                    {blockingIncomplete
-                      ? `В ${blockingIncomplete} ${plural(blockingIncomplete, ['документе', 'документах', 'документах'])} остались незаполненные обязательные поля — их нужно открыть и дозаполнить. `
-                      : 'Данные заполнены — осталось подтвердить бланки. '}
-                    Редактирование бланка само по себе проверкой не считается: нажмите «Проверено» в редакторе или подтвердите всё сразу.
-                  </small>
-                  <ul className="receipt-next-blocked-list">
-                    {blockingDetails.slice(0, 6).map((row) => (
-                      <li key={row.id}>
-                        <span>{row.name}</span>
-                        <b>{row.total > 1 ? `проверено ${row.reviewed} из ${row.total}` : 'ожидает подтверждения'}</b>
-                        {row.incomplete > 0 && <em>не заполнено: {row.incomplete}</em>}
-                      </li>
-                    ))}
-                    {blockingDetails.length > 6 && <li className="is-more">…и ещё {blockingDetails.length - 6}</li>}
-                  </ul>
-                </div>
-                <div className="receipt-next-blocked-actions">
-                  <Button size="sm" icon="check" onClick={reviewAllReadyReceipts}>Подтвердить все готовые</Button>
-                  {blockingDetails[0] && <Button size="sm" variant="secondary" icon="edit"
-                    onClick={() => setEditId(blockingDetails[0].id)}>Открыть первый документ</Button>}
-                </div>
-              </div>
-            )}
-
-
             {rows.length > 0 && step === 2 && (() => {
               const allSel = doneRows.length > 0 && doneRows.every((r) => sel[r.f.id]);
               return (
@@ -5252,6 +5224,35 @@ function ReceiptImportModal({ open, onClose, onDone, initialDraft, initialFiles 
               Будет добавлено в заказ: {toAdd.length}. Непроверенные, ошибки и исключённые дубли не попадут в итог.
               {bindTarget.mode === 'new' ? ' Перед сохранением откроется окно создания заказа по бланкам: маршрут, даты, пассажиры и услуги уже заполнены из квитанций — останется выбрать клиента или создать новое физлицо. Искать услуги не нужно.' : ''}
             </div>
+            {pendingReview > 0 && (
+              <div className="receipt-next-blocked" role="status">
+                <Icon name="alertCircle" />
+                <div className="receipt-next-blocked-main">
+                  <b>Нельзя добавить в заказ: не подтверждено {pendingReview} {plural(pendingReview, ['документ', 'документа', 'документов'])}</b>
+                  <small>
+                    {blockingIncomplete
+                      ? `В ${blockingIncomplete} ${plural(blockingIncomplete, ['документе', 'документах', 'документах'])} остались незаполненные обязательные поля — их нужно открыть и дозаполнить. `
+                      : 'Данные заполнены — осталось подтвердить бланки. '}
+                    Редактирование бланка проверкой не считается: нажмите «Проверено» в редакторе или подтвердите всё сразу.
+                  </small>
+                  <ul className="receipt-next-blocked-list">
+                    {blockingDetails.slice(0, 6).map((row) => (
+                      <li key={row.id}>
+                        <span>{row.name}</span>
+                        <b>{row.total > 1 ? `проверено ${row.reviewed} из ${row.total}` : 'ожидает подтверждения'}</b>
+                        {row.incomplete > 0 && <em>не заполнено: {row.incomplete}</em>}
+                      </li>
+                    ))}
+                    {blockingDetails.length > 6 && <li className="is-more">…и ещё {blockingDetails.length - 6}</li>}
+                  </ul>
+                </div>
+                <div className="receipt-next-blocked-actions">
+                  <Button size="sm" icon="check" onClick={reviewAllReadyReceipts}>Подтвердить все готовые</Button>
+                  {blockingDetails[0] && <Button size="sm" variant="secondary" icon="edit"
+                    onClick={() => setEditId(blockingDetails[0].id)}>Открыть первый документ</Button>}
+                </div>
+              </div>
+            )}
             </>}
           </>
         )}
@@ -5264,11 +5265,13 @@ function ReceiptImportModal({ open, onClose, onDone, initialDraft, initialFiles 
           {step > 0 && <Button variant="secondary" icon="chevLeft" onClick={() => setStep((s) => Math.max(0, s - 1))}>Назад</Button>}
           {step < IMPORT_STEPS.length - 1
             ? <Button icon="chevRight" disabled={!canNext[step]}
-              title={canNext[step] ? '' : (pendingReview > 0
-                ? `Не подтверждено документов: ${pendingReview}. Нажмите «Подтвердить все готовые» или откройте документ и отметьте бланки проверенными.`
-                : 'Дождитесь обработки загруженных файлов')}
+              title={canNext[step] ? '' : 'Дождитесь обработки загруженных файлов'}
               onClick={() => setStep((s) => Math.min(IMPORT_STEPS.length - 1, s + 1))}>Далее</Button>
-            : <Button icon="check" disabled={processing || !toAdd.length || pendingReview > 0 || !hasBindingTarget || (optCreateServices && !hasOrderTarget && !canCreateOrderTarget)} onClick={finish}>
+            : <Button icon="check" disabled={processing || !toAdd.length || pendingReview > 0 || !hasBindingTarget || (optCreateServices && !hasOrderTarget && !canCreateOrderTarget)}
+              title={pendingReview > 0
+                ? `Не подтверждено документов: ${pendingReview}. Нажмите «Подтвердить все готовые» или откройте документ и отметьте бланки проверенными.`
+                : ''}
+              onClick={finish}>
               {bindTarget.mode === 'new' ? 'Создать заказ и добавить'
                 : ['person', 'company'].includes(bindTarget.mode) ? 'Привязать бланки' : 'Добавить в заказ'}{toAdd.length ? ' (' + toAdd.length + ')' : ''}</Button>}
         </div>

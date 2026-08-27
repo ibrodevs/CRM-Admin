@@ -87,13 +87,15 @@ test('editing a blank marks it reviewed so the next step unlocks', () => {
   assert.match(page, /filesStateRef\.current = filesStateRef\.current\.map\(\(file\) => \{\n\s+if \(!readyIds\.has\(file\.id\)\) return file;/);
 });
 
-test('a disabled next button explains itself and offers a one-click fix', () => {
+test('the last step explains what blocks adding to the order and offers a fix', () => {
   assert.match(page, /const blockingRows = doneRows\.filter\(/);
   assert.match(page, /const pendingReview = blockingRows\.length;/);
-  assert.match(page, /Переход дальше заблокирован: не подтверждено/);
-  assert.match(page, /Редактирование бланка само по себе проверкой не считается/);
+  // Блок живёт только на шаге «В заказ»: между шагами оператор ходит свободно.
+  assert.match(page, /Нельзя добавить в заказ: не подтверждено/);
+  assert.doesNotMatch(page, /Переход дальше заблокирован/);
+  assert.match(page, /\{step === 4 && <>[\s\S]*receipt-next-blocked/);
+  assert.match(page, /Редактирование бланка проверкой не считается/);
   assert.match(page, /onClick=\{reviewAllReadyReceipts\}>Подтвердить все готовые/);
   assert.match(page, /onClick=\{\(\) => setEditId\(blockingDetails\[0\]\.id\)\}>Открыть первый документ/);
-  assert.match(page, /title=\{canNext\[step\] \? '' : \(pendingReview > 0/);
   assert.match(styles, /\.receipt-next-blocked \{/);
 });

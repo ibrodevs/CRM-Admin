@@ -34,6 +34,24 @@ function errorFrom(response, payload) {
   });
 }
 
+// ——— Истёкшая сессия ————————————————————————————————————————————————————
+// Сессия может закончиться в любой момент работы: backend начинает отвечать
+// 401, данные перестают приходить, но приложение об этом не знает и оставляет
+// оператора на рабочем экране с пустыми списками. Любой 401 поднимается сюда,
+// и слой авторизации сразу переводит приложение на экран входа.
+const unauthorizedHandlers = new Set();
+
+export function onUnauthorized(handler) {
+  unauthorizedHandlers.add(handler);
+  return () => unauthorizedHandlers.delete(handler);
+}
+
+function notifyUnauthorized(path) {
+  unauthorizedHandlers.forEach((handler) => {
+    try { handler(path); } catch { /* обработчик выхода не должен ломать запрос */ }
+  });
+}
+
 export async function apiRequest(path, options = {}) {
   const method = options.method || (options.body === undefined ? 'GET' : 'POST');
   const headers = new Headers(options.headers || {});
@@ -62,7 +80,12 @@ export async function apiRequest(path, options = {}) {
     : contentType.includes('application/json')
       ? await response.json()
       : await response.blob();
-  if (!response.ok) throw errorFrom(response, payload);
+  if (!response.ok) {
+    // Собственные эндпоинты сессии разбирает сам слой авторизации: их 401 —
+    // это нормальный ответ «не авторизован», а не потеря сессии.
+    if (response.status === 401 && options.handlesUnauthorized !== true) notifyUnauthorized(path);
+    throw errorFrom(response, payload);
+  }
   return payload;
 }
 

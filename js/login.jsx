@@ -100,7 +100,7 @@ const LP_STYLES = `
 @media(max-height:820px) and (min-width:1001px){.lp-root{padding-bottom:6px}.lp-card{padding-top:20px;padding-bottom:20px}.lp-demo{min-height:170px}}
 `;
 
-function LoginScreen({ onLogin, onVerifyTwoFactor, onPasswordReset }) {
+function LoginScreen({ onLogin, onVerifyTwoFactor, onPasswordReset, expired = false }) {
   const toast = useToast();
 
   const [view, setView] = useState('login');
@@ -245,6 +245,7 @@ function LoginScreen({ onLogin, onVerifyTwoFactor, onPasswordReset }) {
                   </div>
                   {errs.pass && <div className="lp-errtxt"><Icon name="alertCircle" />{errs.pass}</div>}
                   {errs.form && <div className="lp-errtxt"><Icon name="alertCircle" />{errs.form}</div>}
+                  {expired && !errs.form && <div className="lp-errtxt"><Icon name="alertCircle" />Сессия истекла — войдите снова, чтобы продолжить работу.</div>}
 
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', margin: '10px 0 16px' }}>
                     <button type="button" className="lp-link" onClick={() => go('forgot')}>Забыли пароль?</button>
