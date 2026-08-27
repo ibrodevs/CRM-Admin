@@ -2814,8 +2814,14 @@ function receiptFeeBindingContext(bindTarget) {
 
 // Итог по источнику сервисного сбора на шаге привязки: оператор видит, откуда
 // возьмётся сумма, до того как бланки уйдут в заказ.
-function ServiceFeeBindingSummary({ rows = [], info = {}, context = {}, hint = '' }) {
-  if (!rows.length) return null;
+function ServiceFeeBindingSummary({ rows = [], info = {}, context = {}, hint = '', dismissed = false, onDismiss = null }) {
+  const [localDismissed, setLocalDismissed] = useState(false);
+  const isDismissed = dismissed || localDismissed;
+  if (!rows.length || isDismissed) return null;
+  const handleDismiss = () => {
+    setLocalDismissed(true);
+    onDismiss?.();
+  };
   const resolutions = rows.map((row) => info[row.mathKey]).filter(Boolean);
   const contractRows = resolutions.filter((item) => item.source === 'contract');
   const manualRows = resolutions.filter((item) => item.source !== 'contract');
@@ -2834,6 +2840,15 @@ function ServiceFeeBindingSummary({ rows = [], info = {}, context = {}, hint = '
           ? `Клиент: ${context.label || 'контрагент'}. Сумма подставлена автоматически и пересчитается при смене клиента.`
           : [serviceFeeManualHint(manualRows[0]), hint].filter(Boolean).join(' ')}</small>
       </span>
+      <button
+        type="button"
+        className="receipt-fee-summary-close"
+        onClick={handleDismiss}
+        aria-label="Закрыть уведомление"
+        title="Закрыть"
+      >
+        <Icon name="x" />
+      </button>
     </div>
   );
 }
@@ -3498,6 +3513,7 @@ function ReceiptImportModal({ open, onClose, onDone, initialDraft, initialFiles 
   const orderPlanResolveRef = useRef(null);
   // Результат серверного расчёта сервисного сбора по бланкам: mathKey → источник.
   const [serviceFeeInfo, setServiceFeeInfo] = useState({});
+  const [feeSummaryDismissed, setFeeSummaryDismissed] = useState(false);
   const [confirmClose, setConfirmClose] = useState(false);
   const [importMode, setImportMode] = useState('auto');
 
@@ -3547,6 +3563,7 @@ function ReceiptImportModal({ open, onClose, onDone, initialDraft, initialFiles 
     setSubEdit(null);
     setExpandedReceipts({});
     setConfirmClose(false);
+    setFeeSummaryDismissed(false);
     setImportMode(draft?.importMode || 'auto');
     setBindTarget(draft?.bindTarget || initialBindTarget || { mode: 'order', label: 'Выберите заказ' });
     setOptAddIncomplete(Boolean(draft?.optAddIncomplete));
@@ -4982,6 +4999,7 @@ function ReceiptImportModal({ open, onClose, onDone, initialDraft, initialFiles 
                   Это вторая форма расчёта, отдельная от редактора данных бланка. Для ЖД база — билет и плацкарта, для авиа — тариф и таксы. Финансовые изменения переносятся в рабочую копию PDF поставщика.
                 </div>
                 <ServiceFeeBindingSummary rows={pricingRows} info={serviceFeeInfo} context={feeBindingContext}
+                  dismissed={feeSummaryDismissed} onDismiss={() => setFeeSummaryDismissed(true)}
                   hint="Клиент выбирается на шаге «В заказ» — после выбора сбор пересчитается автоматически." />
                 {selectedPricingRows.length > 0 && <div className="receipt-pricing-selection" role="status">
                   <Icon name="checkCircle" />
@@ -5041,7 +5059,8 @@ function ReceiptImportModal({ open, onClose, onDone, initialDraft, initialFiles 
                 <Checkbox on={optAddIncomplete} onChange={() => setOptAddIncomplete((v) => !v)} /> Добавлять квитанции с неполными данными
               </label>
             </div>
-            <ServiceFeeBindingSummary rows={pricingRows} info={serviceFeeInfo} context={feeBindingContext} />
+            <ServiceFeeBindingSummary rows={pricingRows} info={serviceFeeInfo} context={feeBindingContext}
+              dismissed={feeSummaryDismissed} onDismiss={() => setFeeSummaryDismissed(true)} />
             <div style={{ marginTop: 12, fontSize: 12.5, color: 'var(--muted)' }}>
               Будет добавлено в заказ: {toAdd.length}. Непроверенные, ошибки и исключённые дубли не попадут в итог.
               {bindTarget.mode === 'new' ? ' Перед сохранением откроется окно создания заказа по бланкам: маршрут, даты, пассажиры и услуги уже заполнены из квитанций — останется выбрать клиента или создать новое физлицо. Искать услуги не нужно.' : ''}

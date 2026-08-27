@@ -305,3 +305,12 @@ test('saving waits for a pending fee calculation and uses the freshest math', ()
   assert.match(page, /\.finally\(release\)/);
   assert.match(page, /const m = mathForFileWithState\(r\.f, mathStateRef\.current\)/);
 });
+
+test('service fee notification is dismissible with close button and has vertical spacing', () => {
+  assert.match(page, /function ServiceFeeBindingSummary\(\{[\s\S]*?dismissed = false[\s\S]*?onDismiss = null[\s\S]*?\}\)/);
+  assert.match(page, /className="receipt-fee-summary-close"/);
+  assert.match(page, /aria-label="Закрыть уведомление"/);
+  assert.match(page, /<Icon name="x" \/>/);
+  assert.match(styles, /\.receipt-fee-summary\{[^}]*margin:12px 0 14px/);
+  assert.match(styles, /\.receipt-fee-summary-close\{/);
+});

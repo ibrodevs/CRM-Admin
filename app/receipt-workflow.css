@@ -286,7 +286,7 @@
    поэтому у неё собственная рамка, отступ и «липкий» список вкладок —
    переключаться между строками документов больше не нужно. */
 .receipt-cost-tabs.is-global {
-  margin: 0 0 14px;
+  margin: 0 0 16px;
   border: 1px solid #cbd8ff;
   border-radius: 12px;
   background: #fff;
