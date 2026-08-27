@@ -96,7 +96,8 @@ test('фирменные бланки авиа, ЖД и отеля получа�
 
 test('авиа-режим IT закрывает только тариф, таксы и сборы остаются суммами', () => {
   assert.match(editor, /function receiptUsesItFare\(draft\)/);
-  assert.match(editor, /\['it', 'itFare', 'fareIt'\]\.includes\(draft\?\.output\?\.priceMode\)/);
+  assert.match(editor, /function receiptOutputUsesItFare\(output\)/);
+  assert.match(editor, /return receiptOutputUsesItFare\(draft\?\.output\);/);
   assert.match(editor, /const fareMoney = \(\) => receiptUsesItFare\(p\) \? 'IT' : money\(p\.fare\)/);
   assert.match(editor, /const fareRowMoney = \(row\) => receiptUsesItFare\(p\) \? 'IT' : money\(row\.amount\)/);
   assert.match(editor, /<span>Таксы перевозчика<\/span><b>\{money\(p\.taxes\)\}<\/b>/);
