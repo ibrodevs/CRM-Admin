@@ -409,7 +409,7 @@ function CompareModal({ open, offers, onClose, onSelect }) {
     ['Багаж', (o) => o.baggage],
     ['Возврат', (o) => o.refundable ? 'Да' : 'Нет'],
     ['Поставщик', (o) => o.supplier],
-    ['Итого', (o) => <b style={{ fontSize: 17 }}>{(o.fare + o.fee).toLocaleString('ru-RU')} $</b>],
+    ['Итого', (o) => <b style={{ fontSize: 17 }}>{(o.fare + o.fee).toLocaleString('ru-RU')} {o.currency === 'USD' ? '$' : (o.currency || '₽')}</b>],
   ];
   return (
     <Drawer open={open} onClose={onClose} width="min(900px,96vw)"
@@ -1587,7 +1587,8 @@ function FlightCard({ svc, offer, no: noProp, hideBackRow, onBack, onFormKp, onA
   const no = noProp || (svc ? svc.no : 'AV-' + Math.floor(10000 + Math.random() * 90000));
   const fare = offer ? offer.fare : (svc ? svc.sum : 0);
   const fee = offer ? offer.fee : 0;
-  const currency = (svc && svc.currency) || (offer && offer.currency) || 'USD';
+  const currency = (svc && svc.currency) || (offer && offer.currency) || 'RUB';
+  const cur = currency === 'RUB' ? '₽' : currency === 'USD' ? '$' : currency === 'EUR' ? '€' : (currency || '₽');
 
   const { issued, booked, offered, free } = flightStatusFlags(status, svc, offer);
   const [addPaxOpen, setAddPaxOpen] = useState(false);
@@ -1730,7 +1731,7 @@ function FlightCard({ svc, offer, no: noProp, hideBackRow, onBack, onFormKp, onA
           </div>
           <div style={{ textAlign: 'right', flex: '0 0 auto' }}>
             <div style={{ fontSize: 13, color: 'var(--muted)' }}>Итого к оплате</div>
-            <div style={{ fontSize: 26, fontWeight: 700, color: 'var(--ink)', whiteSpace: 'nowrap' }}>{(fare + fee).toLocaleString('ru-RU')} $</div>
+            <div style={{ fontSize: 26, fontWeight: 700, color: 'var(--ink)', whiteSpace: 'nowrap' }}>{(fare + fee).toLocaleString('ru-RU')} {cur}</div>
           </div>
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
 
@@ -1903,13 +1904,13 @@ function FlightCard({ svc, offer, no: noProp, hideBackRow, onBack, onFormKp, onA
 
       {tab === 'finance' && (
         <div className="card card-pad" style={{ maxWidth: 520 }}><div className="kv">
-          <div className="kv-row"><span className="k">Тариф</span><span className="v">{fare.toLocaleString('ru-RU')} $</span></div>
+          <div className="kv-row"><span className="k">Тариф</span><span className="v">{fare.toLocaleString('ru-RU')} {cur}</span></div>
           <div className="kv-row"><span className="k">Таксы и сборы</span><span className="v">включены</span></div>
-          <div className="kv-row"><span className="k">Сервисный сбор агентства</span><span className="v">{fee.toLocaleString('ru-RU')} $</span></div>
-          <div className="kv-row"><span className="k">Комиссия поставщика</span><span className="v" style={{ color: 'var(--green)' }}>+ 38 $</span></div>
-          <div className="kv-row"><span className="k" style={{ fontWeight: 700, color: 'var(--ink)' }}>Итого клиенту</span><span className="v" style={{ fontSize: 18 }}>{(fare + fee).toLocaleString('ru-RU')} $</span></div>
-          <div className="kv-row"><span className="k">Оплачено</span><span className="v">0 $</span></div>
-          <div className="kv-row"><span className="k">Задолженность</span><span className="v" style={{ color: 'var(--red)' }}>{(fare + fee).toLocaleString('ru-RU')} $</span></div>
+          <div className="kv-row"><span className="k">Сервисный сбор агентства</span><span className="v">{fee.toLocaleString('ru-RU')} {cur}</span></div>
+          <div className="kv-row"><span className="k">Комиссия поставщика</span><span className="v" style={{ color: 'var(--green)' }}>+ 38 {cur}</span></div>
+          <div className="kv-row"><span className="k" style={{ fontWeight: 700, color: 'var(--ink)' }}>Итого клиенту</span><span className="v" style={{ fontSize: 18 }}>{(fare + fee).toLocaleString('ru-RU')} {cur}</span></div>
+          <div className="kv-row"><span className="k">Оплачено</span><span className="v">0 {cur}</span></div>
+          <div className="kv-row"><span className="k">Задолженность</span><span className="v" style={{ color: 'var(--red)' }}>{(fare + fee).toLocaleString('ru-RU')} {cur}</span></div>
         </div></div>
       )}
 

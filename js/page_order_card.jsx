@@ -2011,7 +2011,6 @@ function OrderCard({ order, company, clients = [], onBack, initTab, initSvc, ini
   const [aviaParams, setAviaParams] = useState({ trip: 'rt', from: 'FRU', to: 'IST', depDate: null, retDate: null, pax: { adt: 2, chd: 0, infNoSeat: 0, infSeat: 0, special: {}, subsidized: {} }, cabin: 'Эконом', baggage: false, flex: false, direct: false, airline: '', ...PAX_DEFAULT_OPTIONS });
 
 
-  const openAviaCard = (s) => { const match = AIR_SERVICES.find((a) => a.no === s.avia) || { no: s.avia || s.id, airline: (s.offer ? s.offer.airline : 'KC'), status: s.status, supplier: s.supplier, pax: 2, sum: s.sum, currency: s.currency, route: s.title, pnr: '—', ticket: '—', dep: s.date }; setActiveAvia(s.offer ? { ...match, offer: s.offer } : match); setSvcView('avia-card'); };
   const openAviaCard = (s) => {
     const match = AIR_SERVICES.find((a) => a.no === s.avia) || {
       no: s.avia || s.id,
@@ -2335,7 +2334,6 @@ function OrderCard({ order, company, clients = [], onBack, initTab, initSvc, ini
           toast(error.message || 'Не удалось обновить заказ', 'err');
         }
       }} />;
-    if (svcView === 'avia-card') return <FlightCard svc={activeAvia} offer={activeAvia ? activeAvia.offer : null} onBack={() => setSvcView(null)} />;
     if (svcView === 'avia-card') return (
       <FlightCard
         svc={activeAvia}
