@@ -1915,28 +1915,31 @@ function FlightCard({ svc, offer, no: noProp, hideBackRow, onBack, onFormKp, onA
       )}
 
       {tab === 'docs' && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
-          {svc?.id && <ServiceBlanksPanel service={svc} orderNo={svc.orderNo || svc.order_no || null}
-            orderId={svc.orderId || svc.order || null} orders={orders} companies={companies}
-            participants={passengers.map((p) => ({ name: p.name, role: p.type }))} />}
-        <div className="grid-4">
-          {uploadedDocs.map((d) => (
-            <div key={d.id} className="doc-chip" title={d.name}>
-              <span style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
-                <Icon name="docs" style={{ flexShrink: 0 }} />
-                <span style={{ display: 'flex', flexDirection: 'column', minWidth: 0 }}>
-                  <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{d.name}</span>
-                  <span style={{ fontSize: 12, color: 'var(--muted)' }}>{d.type}{d.size ? ' · ' + d.size : ''}</span>
-                </span>
-              </span>
-              <span style={{ display: 'flex', alignItems: 'center', gap: 4, flexShrink: 0 }}>
-                <button className="icon-btn" onClick={() => window.location.assign(documentsApi.downloadUrl(d.documentId || d.id))} title="Скачать"><Icon name="download" /></button>
-                <button className="icon-btn" onClick={async () => { try { await documentsApi.void(d.documentId || d.id, 'Аннулирован из карточки авиаперелёта'); setUploadedDocs((cur) => cur.filter((x) => x.id !== d.id)); } catch (error) { toast(error.message, 'err'); } }} title="Удалить"><Icon name="trash" /></button>
-              </span>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 18, maxWidth: '100%', minWidth: 0 }}>
+          {svc?.id ? (
+            <ServiceBlanksPanel service={svc} orderNo={svc.orderNo || svc.order_no || null}
+              orderId={svc.orderId || svc.order || null} orders={orders} companies={companies}
+              participants={passengers.map((p) => ({ name: p.name, role: p.type }))} />
+          ) : (
+            <div className="service-doc-grid">
+              {uploadedDocs.map((d) => (
+                <div key={d.id} className="doc-chip" title={d.name}>
+                  <span style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
+                    <Icon name="docs" style={{ flexShrink: 0 }} />
+                    <span style={{ display: 'flex', flexDirection: 'column', minWidth: 0 }}>
+                      <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{d.name}</span>
+                      <span style={{ fontSize: 12, color: 'var(--muted)' }}>{d.type}{d.size ? ' · ' + d.size : ''}</span>
+                    </span>
+                  </span>
+                  <span style={{ display: 'flex', alignItems: 'center', gap: 4, flexShrink: 0 }}>
+                    <button className="icon-btn" onClick={() => window.location.assign(documentsApi.downloadUrl(d.documentId || d.id))} title="Скачать"><Icon name="download" /></button>
+                    <button className="icon-btn" onClick={async () => { try { await documentsApi.void(d.documentId || d.id, 'Аннулирован из карточки авиаперелёта'); setUploadedDocs((cur) => cur.filter((x) => x.id !== d.id)); } catch (error) { toast(error.message, 'err'); } }} title="Удалить"><Icon name="trash" /></button>
+                  </span>
+                </div>
+              ))}
+              <button className="doc-chip" style={{ borderStyle: 'dashed', color: 'var(--blue)' }} onClick={() => setUploadOpen(true)}><span style={{ display: 'flex', alignItems: 'center', gap: 8 }}><Icon name="plus" />Загрузить</span></button>
             </div>
-          ))}
-          <button className="doc-chip" style={{ borderStyle: 'dashed', color: 'var(--blue)' }} onClick={() => setUploadOpen(true)}><span style={{ display: 'flex', alignItems: 'center', gap: 8 }}><Icon name="plus" />Загрузить</span></button>
-        </div>
+          )}
         </div>
       )}
 

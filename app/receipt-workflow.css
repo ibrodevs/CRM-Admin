@@ -244,8 +244,32 @@
 
 .service-blank-card > footer { display: flex; flex-wrap: wrap; gap: 8px; }
 
-.service-blanks-other { display: grid; gap: 8px; }
-.service-blanks-other > b { font-size: 13px; color: var(--ink); }
+.service-blanks-other { display: grid; gap: 10px; max-width: 100%; min-width: 0; }
+.service-blanks-other > b { font-size: 13.5px; color: var(--ink); display: flex; align-items: center; gap: 8px; }
+.service-doc-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 12px;
+  max-width: 100%;
+  min-width: 0;
+}
+.service-blanks-more-btn {
+  border: 1px dashed var(--blue-soft-text);
+  background: var(--blue-soft);
+  color: var(--blue-soft-text);
+  border-radius: 10px;
+  padding: 8px 14px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  width: fit-content;
+  transition: .15s;
+}
+.service-blanks-more-btn:hover {
+  background: var(--blue);
+  color: #fff;
+  border-color: var(--blue);
+}
 
 /* Клик по всей карточке выбирает вариант: сам переключатель кликов не ловит,
    иначе чекбокс переключался бы дважды за один клик. */

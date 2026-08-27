@@ -1,6 +1,6 @@
 import { FIN_OPS } from '../../data';
 
-function ocCurrency(currency = 'USD') {
+function ocCurrency(currency = 'RUB') {
   if (currency === 'USD' || currency === '$') return '$';
   if (currency === 'RUB' || currency === '₽') return '₽';
   if (currency === 'EUR' || currency === '€') return '€';
@@ -8,7 +8,7 @@ function ocCurrency(currency = 'USD') {
   return currency;
 }
 
-function ocMoney(amount, currency = 'USD') {
+function ocMoney(amount, currency = 'RUB') {
   const value = Number(amount);
   return Math.round(Number.isFinite(value) ? value : 0).toLocaleString('ru-RU') + ' ' + ocCurrency(currency);
 }

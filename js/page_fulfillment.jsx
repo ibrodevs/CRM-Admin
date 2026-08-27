@@ -1066,6 +1066,7 @@ export function ServiceBlanksPanel({
   const [edit, setEdit] = useState(null);
   const [brand, setBrand] = useState(null);
   const [importing, setImporting] = useState(false);
+  const [showAllOtherDocs, setShowAllOtherDocs] = useState(false);
   const serviceId = service?.serverId || service?.id || null;
   const boundOrder = orders.find((item) => String(item.id) === String(orderId));
   const boundOrderNo = orderNo || boundOrder?.no || null;
@@ -1242,23 +1243,40 @@ export function ServiceBlanksPanel({
             sub="Загрузите маршрут-квитанцию, билет или ваучер — он попадёт в эту услугу и станет доступен для редактирования." />
         )}
 
-      {otherDocs.length > 0 && (
-        <div className="service-blanks-other">
-          <b>Прочие документы услуги</b>
-          <div className="grid-4">
-            {otherDocs.map((document) => (
-              <div key={document.serverId || document.no} className="doc-chip" title={document.name}>
-                <span style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
-                  <Icon name="docs" style={{ flexShrink: 0 }} />
-                  <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{document.name}</span>
-                </span>
-                <button className="icon-btn" title="Скачать"
-                  onClick={() => window.open(documentsApi.downloadUrl(document.serverId), '_blank', 'noopener,noreferrer')}><Icon name="download" /></button>
-              </div>
-            ))}
+      {otherDocs.length > 0 && (() => {
+        const OTHER_DOCS_LIMIT = 6;
+        const visibleOtherDocs = showAllOtherDocs ? otherDocs : otherDocs.slice(0, OTHER_DOCS_LIMIT);
+        return (
+          <div className="service-blanks-other">
+            <b>
+              Прочие документы услуги
+              <span className="pill pill-gray" style={{ marginLeft: 6 }}>{otherDocs.length}</span>
+            </b>
+            <div className="service-doc-grid">
+              {visibleOtherDocs.map((document) => (
+                <div key={document.serverId || document.no} className="doc-chip" title={document.name}>
+                  <span style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
+                    <Icon name="docs" style={{ flexShrink: 0 }} />
+                    <span style={{ display: 'flex', flexDirection: 'column', minWidth: 0 }}>
+                      <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{document.name}</span>
+                      <span style={{ fontSize: 12, color: 'var(--muted)' }}>{document.type}{document.size ? ' · ' + document.size : ''}</span>
+                    </span>
+                  </span>
+                  <button className="icon-btn" title="Скачать"
+                    onClick={() => window.open(documentsApi.downloadUrl(document.serverId), '_blank', 'noopener,noreferrer')}><Icon name="download" /></button>
+                </div>
+              ))}
+            </div>
+            {otherDocs.length > OTHER_DOCS_LIMIT && (
+              <button type="button" className="service-blanks-more-btn" onClick={() => setShowAllOtherDocs((prev) => !prev)}>
+                {showAllOtherDocs
+                  ? 'Свернуть список документов'
+                  : `Показать ещё ${otherDocs.length - OTHER_DOCS_LIMIT} ${plural(otherDocs.length - OTHER_DOCS_LIMIT, ['документ', 'документа', 'документов'])}`}
+              </button>
+            )}
           </div>
-        </div>
-      )}
+        );
+      })()}
 
       <ReceiptEditDrawer open={!!edit} file={edit ? { ...edit, type: edit.editorType } : null}
         onClose={() => setEdit(null)}
