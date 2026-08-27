@@ -434,3 +434,54 @@
 }
 
 .uf-intake-manual svg { width: 16px; height: 16px; flex: 0 0 16px; margin-top: 2px; color: var(--muted-2); }
+
+/* ——— Почему «Далее» недоступна ———————————————————————————————————————————
+   Кнопка больше не гаснет молча: оператор видит, какие документы ждут
+   подтверждения, и снимает блокировку прямо отсюда. */
+.receipt-next-blocked {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-top: 12px;
+  padding: 13px 15px;
+  border-radius: 12px;
+  border: 1px solid var(--amber, #d98a00);
+  background: var(--amber-bg, color-mix(in srgb, #d98a00 10%, transparent));
+}
+
+.receipt-next-blocked > svg {
+  width: 18px;
+  height: 18px;
+  flex: 0 0 18px;
+  margin-top: 2px;
+  color: var(--amber, #d98a00);
+}
+
+.receipt-next-blocked-main { flex: 1 1 320px; min-width: 0; display: grid; gap: 4px; }
+.receipt-next-blocked-main b { color: var(--ink); font-size: 14px; }
+.receipt-next-blocked-main small { color: var(--muted); font-size: 12.5px; line-height: 1.45; }
+
+.receipt-next-blocked-list {
+  margin: 6px 0 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 4px;
+}
+
+.receipt-next-blocked-list li {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  flex-wrap: wrap;
+  font-size: 12.5px;
+  color: var(--muted);
+}
+
+.receipt-next-blocked-list li > span { color: var(--ink); font-weight: 600; }
+.receipt-next-blocked-list li > b { font-weight: 500; }
+.receipt-next-blocked-list li > em { font-style: normal; color: var(--amber, #d98a00); font-weight: 600; }
+.receipt-next-blocked-list li.is-more { color: var(--muted-2); }
+
+.receipt-next-blocked-actions { display: flex; gap: 8px; flex-wrap: wrap; align-items: flex-start; }

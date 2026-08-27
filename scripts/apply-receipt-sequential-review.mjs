@@ -14,6 +14,12 @@ function replaceRequired(source, from, to, label) {
     && source.includes('Сохранить и завершить проверку')) return source;
   if (label === 'явный запуск последовательной проверки'
     && source.includes("(r.f.subReceipts || []).length > 1 ? 'Проверить бланки по очереди'")) return source;
+  // Причина блокировки «Далее» теперь считается через blockingRows, поэтому
+  // подсчёт pendingReview выглядит иначе, но контракт тот же.
+  if (label === 'блокировка непроверенной группы'
+    && source.includes('const blockingRows = doneRows.filter((r) => !excluded[r.f.id] && (')
+    && source.includes('const pendingReview = blockingRows.length;')
+    && source.includes('!receiptGroupNeedsSequentialReview(r.f)')) return source;
   if (typeof from === 'string') {
     if (!source.includes(from)) throw new Error(`Не найден фрагмент: ${label}`);
     changed = true;

@@ -4062,8 +4062,12 @@ function ReceiptImportModal({ open, onClose, onDone, initialDraft, initialFiles 
   };
   const updateSubReceipt = (fileId, subIndex, parsed) => {
     const sourceFile = filesStateRef.current.find((file) => file.id === fileId);
+    // Бланк, который оператор открыл и сохранил, больше не «ожидает
+    // распознавания»: иначе агрегат документа навсегда оставался в статусе
+    // «Требует проверки» и кнопка «Далее» не разблокировалась.
     const editedChild = normalizeReceiptDraft(sourceFile?.type || 'ЖД', {
       ...parsed,
+      recognitionPending: false,
       groupTickets: [], receipts: [], railTickets: [], receiptItems: [], receiptCount: 1,
     });
     const sourceChild = sourceFile?.subReceipts?.[subIndex];
@@ -4168,6 +4172,29 @@ function ReceiptImportModal({ open, onClose, onDone, initialDraft, initialFiles 
       };
     }));
     setReviewed((current) => [...readyIds].reduce((next, fileId) => ({ ...next, [fileId]: true }), current));
+    // Отложенная запись PDF читает ref вне цикла рендера — держим его в
+    // одном состоянии с видимым списком.
+    filesStateRef.current = filesStateRef.current.map((file) => {
+      if (!readyIds.has(file.id)) return file;
+      const tickets = receiptGroupedTickets(file);
+      if (tickets.length > 1) {
+        const reviewedTickets = tickets.map((ticket) => normalizeReceiptDraft(file.type, {
+          ...ticket,
+          reviewStatus: 'reviewed', review_status: 'reviewed', reviewed: true,
+          reviewedAt, reviewed_at: reviewedAt,
+          groupTickets: [], receipts: [], railTickets: [], receiptItems: [], receiptCount: 1,
+        }));
+        return { ...file, subReceipts: reviewedTickets, parsed: aggregateReceiptSubrows(file.parsed, reviewedTickets, file.type) };
+      }
+      return {
+        ...file,
+        parsed: normalizeReceiptDraft(file.type, {
+          ...file.parsed,
+          reviewStatus: 'reviewed', review_status: 'reviewed', reviewed: true,
+          reviewedAt, reviewed_at: reviewedAt,
+        }),
+      };
+    });
     [...readyIds].forEach((fileId) => queueWorkingPdfSync(fileId, { mode: 'review' }));
     const skippedCount = rows.filter((row) => !row.pending && !excluded[row.f.id] && !readyIds.has(row.f.id)).length;
     toast(`Экспресс-проверка завершена: ${readyIds.size} ${plural(readyIds.size, 'файл', 'файла', 'файлов')}.${skippedCount ? ` Требуют ручной проверки: ${skippedCount}.` : ''}`, 'ok');
@@ -4290,9 +4317,27 @@ function ReceiptImportModal({ open, onClose, onDone, initialDraft, initialFiles 
     && !receiptGroupNeedsSequentialReview(r.f)
     && (r.status === 'Распознано' || r.status === 'Заполнено вручную' || reviewed[r.f.id] || optAddIncomplete);
   const toAdd = doneRows.filter(isEligible);
-  const pendingReview = doneRows.filter((r) => !excluded[r.f.id] && (
+  // Что именно держит переход на следующий шаг. Раньше «Далее» просто гасла,
+  // и оператор, отредактировавший все бланки, не понимал, чего от него ждут.
+  const blockingRows = doneRows.filter((r) => !excluded[r.f.id] && (
     (r.status === 'Требует проверки' && !reviewed[r.f.id]) || receiptGroupNeedsSequentialReview(r.f)
-  )).length;
+  ));
+  const pendingReview = blockingRows.length;
+  const blockingDetails = blockingRows.map((row) => {
+    const tickets = receiptGroupedTickets(row.f);
+    const reviewedCount = tickets.filter(receiptBlankIsReviewed).length;
+    const missing = tickets.length > 1
+      ? tickets.filter((ticket) => receiptBlankMissingFields(ticket, row.f.type).length > 0).length
+      : receiptBlankMissingFields(row.f.parsed, row.f.type).length > 0 ? 1 : 0;
+    return {
+      id: row.f.id,
+      name: row.f.parsed?.passenger || row.f.name || 'Документ',
+      total: tickets.length || 1,
+      reviewed: tickets.length > 1 ? reviewedCount : (reviewed[row.f.id] ? 1 : 0),
+      incomplete: missing,
+    };
+  });
+  const blockingIncomplete = blockingDetails.filter((row) => row.incomplete > 0).length;
   const editFile = files.find((f) => f.id === editId) || null;
   const mathFile = files.find((f) => f.id === mathId)
     || files.flatMap((file) => (receiptHasMultipleSubReceipts(file) ? receiptGroupedTickets(file) : []).map((receipt, index) => ({
@@ -4871,8 +4916,32 @@ function ReceiptImportModal({ open, onClose, onDone, initialDraft, initialFiles 
               <Stat label="Ошибка" value={counts['Ошибка']} tone="muted-2" />
             </div>
             {pendingReview > 0 && step >= 2 && (
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 10, padding: '10px 12px', borderRadius: 10, background: 'var(--amber-bg)', color: 'var(--amber)', fontSize: 13 }}>
-                <Icon name="alertCircle" style={{ width: 16, height: 16 }} /> Нужно проверить бланков: {pendingReview}. После проверки станет доступно добавление в заказ.
+              <div className="receipt-next-blocked" role="status">
+                <Icon name="alertCircle" />
+                <div className="receipt-next-blocked-main">
+                  <b>Переход дальше заблокирован: не подтверждено {pendingReview} {plural(pendingReview, ['документ', 'документа', 'документов'])}</b>
+                  <small>
+                    {blockingIncomplete
+                      ? `В ${blockingIncomplete} ${plural(blockingIncomplete, ['документе', 'документах', 'документах'])} остались незаполненные обязательные поля — их нужно открыть и дозаполнить. `
+                      : 'Данные заполнены — осталось подтвердить бланки. '}
+                    Редактирование бланка само по себе проверкой не считается: нажмите «Проверено» в редакторе или подтвердите всё сразу.
+                  </small>
+                  <ul className="receipt-next-blocked-list">
+                    {blockingDetails.slice(0, 6).map((row) => (
+                      <li key={row.id}>
+                        <span>{row.name}</span>
+                        <b>{row.total > 1 ? `проверено ${row.reviewed} из ${row.total}` : 'ожидает подтверждения'}</b>
+                        {row.incomplete > 0 && <em>не заполнено: {row.incomplete}</em>}
+                      </li>
+                    ))}
+                    {blockingDetails.length > 6 && <li className="is-more">…и ещё {blockingDetails.length - 6}</li>}
+                  </ul>
+                </div>
+                <div className="receipt-next-blocked-actions">
+                  <Button size="sm" icon="check" onClick={reviewAllReadyReceipts}>Подтвердить все готовые</Button>
+                  {blockingDetails[0] && <Button size="sm" variant="secondary" icon="edit"
+                    onClick={() => setEditId(blockingDetails[0].id)}>Открыть первый документ</Button>}
+                </div>
               </div>
             )}
 
@@ -5181,7 +5250,11 @@ function ReceiptImportModal({ open, onClose, onDone, initialDraft, initialFiles 
           </Button>}
           {step > 0 && <Button variant="secondary" icon="chevLeft" onClick={() => setStep((s) => Math.max(0, s - 1))}>Назад</Button>}
           {step < IMPORT_STEPS.length - 1
-            ? <Button icon="chevRight" disabled={!canNext[step]} onClick={() => setStep((s) => Math.min(IMPORT_STEPS.length - 1, s + 1))}>Далее</Button>
+            ? <Button icon="chevRight" disabled={!canNext[step]}
+              title={canNext[step] ? '' : (pendingReview > 0
+                ? `Не подтверждено документов: ${pendingReview}. Нажмите «Подтвердить все готовые» или откройте документ и отметьте бланки проверенными.`
+                : 'Дождитесь обработки загруженных файлов')}
+              onClick={() => setStep((s) => Math.min(IMPORT_STEPS.length - 1, s + 1))}>Далее</Button>
             : <Button icon="check" disabled={processing || !toAdd.length || pendingReview > 0 || !hasBindingTarget || (optCreateServices && !hasOrderTarget && !canCreateOrderTarget)} onClick={finish}>
               {bindTarget.mode === 'new' ? 'Создать заказ и добавить'
                 : ['person', 'company'].includes(bindTarget.mode) ? 'Привязать бланки' : 'Добавить в заказ'}{toAdd.length ? ' (' + toAdd.length + ')' : ''}</Button>}
@@ -5203,7 +5276,14 @@ function ReceiptImportModal({ open, onClose, onDone, initialDraft, initialFiles 
         onClose={() => setSubEdit(null)}
         onChange={(_id, parsed) => updateSubReceipt(subEdit.fileId, subEdit.index, parsed)}
         onReview={(_id, parsed) => {
-          updateSubReceipt(subEdit.fileId, subEdit.index, parsed);
+          // «Проверено» в редакторе отдельного билета отмечает именно этот
+          // бланк: без метки группа считалась непроверенной целиком.
+          const reviewedAt = new Date().toISOString();
+          updateSubReceipt(subEdit.fileId, subEdit.index, {
+            ...parsed,
+            reviewStatus: 'reviewed', review_status: 'reviewed', reviewed: true,
+            reviewedAt, reviewed_at: reviewedAt,
+          });
           return true;
         }}
         onBrand={() => { setBrandTarget({ fileId: subEdit.fileId, blankIndex: subEdit.index }); }} />
