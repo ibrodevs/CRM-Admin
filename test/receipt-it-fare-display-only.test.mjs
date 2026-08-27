@@ -48,6 +48,14 @@ test('a literal IT printed by the supplier never stays in a numeric field', () =
   assert.match(editor, /priceMode: 'it', itFareSource: 'supplier'/);
 });
 
+test('an unclosed IT fare in the supplier PDF is named directly', () => {
+  assert.match(fulfillment, /function receiptPdfCorrectionProblem\(correction\)/);
+  assert.match(fulfillment, /unapplied\.some\(\(key\) => String\(key\)\.endsWith\('\.it'\)\)/);
+  assert.match(fulfillment, /графу тарифа в бланке поставщика заменить не удалось/);
+  assert.match(fulfillment, /toast\(receiptPdfCorrectionProblem\(correction\), 'err'\)/);
+  assert.match(fulfillment, /toast\(receiptPdfCorrectionProblem\(supplierPdfCorrection\), 'err'\)/);
+});
+
 test('group apply shares IT display settings without copying another blank snapshot', () => {
   assert.match(fulfillment, /const \{ itFareSnapshot, it_fare_snapshot: legacySnapshot, \.\.\.displayOutput \} = parsed\.output;/);
   assert.match(fulfillment, /Object\.assign\(shared, \{ output: displayOutput \}\)/);

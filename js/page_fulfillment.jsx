@@ -1946,6 +1946,19 @@ async function waitForReceiptResult(importId) {
 }
 
 
+// Причина, по которой рабочий PDF не опубликован. Незакрытый тариф называется
+// прямо: оператор должен понимать, что графа тарифа в бланке осталась открытой.
+function receiptPdfCorrectionProblem(correction) {
+  const unapplied = [
+    ...(Array.isArray(correction?.unapplied) ? correction.unapplied : []),
+    ...(Array.isArray(correction?.raw_unapplied) ? correction.raw_unapplied : []),
+  ];
+  if (unapplied.some((key) => String(key).endsWith('.it'))) {
+    return 'Тариф закрыт на IT, но графу тарифа в бланке поставщика заменить не удалось. Проверьте бланк вручную — цена в нём осталась открытой.';
+  }
+  return 'Стоимость сохранена, но её не удалось безопасно перенести в рабочий PDF. Исходник не изменён.';
+}
+
 function receiptBlankIsReviewed(ticket) {
   const raw = String(ticket?.reviewStatus || ticket?.review_status || '').trim().toLowerCase();
   return ticket?.reviewed === true || ['reviewed', 'checked', 'done', 'complete', 'completed'].includes(raw);
@@ -4628,7 +4641,7 @@ function ReceiptImportModal({ open, onClose, onDone, initialDraft, initialFiles 
       }
       if (['manual_required', 'unsupported'].includes(correction.status)) {
         setPdfSync((current) => ({ ...current, [fileId]: 'error' }));
-        toast('Стоимость сохранена, но её не удалось безопасно перенести в рабочий PDF. Исходник не изменён.', 'err');
+        toast(receiptPdfCorrectionProblem(correction), 'err');
         return;
       }
       const revision = Date.now();
@@ -5512,7 +5525,7 @@ function ReceiptEditorPage({ documents = [], orders = [], services = [], compani
       }
       if (!['corrected', 'source'].includes(correction.status)) {
         setRegistryPdfSync((current) => ({ ...current, [fileId]: 'error' }));
-        toast('Стоимость сохранена, но рабочий PDF не подтвердил замену цифр. Проверьте журнал supplier_pdf_sync.', 'err');
+        toast(receiptPdfCorrectionProblem(correction), 'err');
         return;
       }
       const revision = Date.now();
@@ -5616,7 +5629,7 @@ function ReceiptEditorPage({ documents = [], orders = [], services = [], compani
       if (!asDraft) await onChanged?.();
       const supplierPdfCorrection = savedDocument?.supplier_pdf_correction;
       if (!asDraft && supplierPdfCorrection?.status === 'manual_required') {
-        toast('Данные сохранены, но PDF поставщика не опубликован с частичными правками: одна или несколько сумм не найдены безопасно.', 'err');
+        toast(receiptPdfCorrectionProblem(supplierPdfCorrection), 'err');
       } else if (!asDraft && supplierPdfCorrection?.status === 'corrected') {
         toast('Данные сохранены · суммы перенесены в копию оригинала поставщика с исходным шрифтом', 'ok');
       } else {
