@@ -171,6 +171,11 @@ export function WorkspaceProvider({ children }) {
       comment: draft.comment || '',
       participants: Array.isArray(draft.participants) ? draft.participants : [],
     };
+    // Маршрут заказа приходит из бланков поставщика: backend принимает его
+    // вместе с заказом, отдельного запроса не нужно.
+    if (draft.route && Array.isArray(draft.route.points) && draft.route.points.length >= 2) {
+      body.route = draft.route;
+    }
     if (!body.client_person && !body.client_company) {
       const err = new Error('Для создания заказа выберите существующего клиента или компанию');
       err.code = 'CLIENT_REQUIRED';

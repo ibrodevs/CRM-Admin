@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import ReactDOM from 'react-dom';
 import { Icon } from './icons';
-import { ActionMenu, Avatar, Button, Checkbox, ConfirmDialog, Drawer, EmptyState, Field, FilterChip, Input, Pill, Radio, SearchBox, Select, Tabs, Th, TimeField, plural, useSort, useToast } from './ui';
+import { ActionMenu, Avatar, Button, Checkbox, Combobox, ConfirmDialog, Drawer, EmptyState, Field, FilterChip, Input, Pill, Radio, SearchBox, Select, Tabs, Th, TimeField, plural, useSort, useToast } from './ui';
 import { COMPANIES_DB, CURRENT_USER, DOCS2, DOC_KIND, DOC_STATUS2, FIN_OPS, FIN_OP_STATUS, FULFILLMENT, ORDERS, ORDER_STAGES, SERVICE_KIND } from './data';
 import { UnifiedBindField, UFDateField } from './forms_unified';
 import { Topbar } from './layout';
@@ -3067,7 +3067,342 @@ function ReceiptMathDrawer({ open, file, math, scopeOptions = [], feeInfo = null
 }
 
 
-function ReceiptImportModal({ open, onClose, onDone, initialDraft, initialFiles = [], initialBindTarget = null, onDraftSaved, onDraftCleared, onCreateOrder, orders = [], companies = [] }) {
+// ——— Заказ из маршрут-квитанций ————————————————————————————————————————
+// Всё, что нужно заказу, уже распознано в бланках: пассажиры, маршрут, даты,
+// виды услуг и суммы. Поэтому новый заказ собирается прямо из них, без шага
+// поиска услуг — искать нечего, услуги создаются по квитанциям.
+
+function receiptIsoDate(value) {
+  const raw = String(value || '').trim();
+  const ru = raw.match(/^(\d{1,2})[.\/-](\d{1,2})[.\/-](\d{4})$/);
+  if (ru) return `${ru[3]}-${String(ru[2]).padStart(2, '0')}-${String(ru[1]).padStart(2, '0')}`;
+  const iso = raw.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  return iso ? raw : '';
+}
+
+// Код точки маршрута ограничен 8 символами: сначала IATA/код станции, затем
+// код в скобках из названия, в последнюю очередь — усечённое название.
+function receiptRoutePointCode(leg, side) {
+  const code = String(leg?.[`${side}Code`] || '').trim().toUpperCase();
+  if (code && code.length <= 8) return code;
+  const name = String(leg?.[side] || '').trim();
+  const inline = name.toUpperCase().match(/\(([A-Z0-9]{3,8})\)/);
+  if (inline) return inline[1];
+  return name.toUpperCase().replace(/[^0-9A-ZА-ЯЁ]/g, '').slice(0, 8);
+}
+
+function receiptRoutePointName(leg, side) {
+  return String(leg?.[side] || leg?.[`${side}Code`] || '').trim().slice(0, 150);
+}
+
+function receiptOrderPassengers(file) {
+  const tickets = receiptGroupedTickets(file);
+  const sources = tickets.length ? tickets : [file.parsed];
+  return sources.flatMap((ticket) => {
+    const draft = normalizeReceiptDraft(file.type, ticket);
+    const rows = (draft.passengers || []).filter((row) => String(row?.name || '').trim());
+    const fallback = String(draft.passenger || '').trim();
+    if (!rows.length && fallback) return [{ name: fallback, dob: '', document: '', ticketNo: draft.ticketNo || '' }];
+    return rows.map((row) => ({
+      name: String(row.name).trim(),
+      dob: row.dob || '',
+      document: row.document || '',
+      ticketNo: row.ticketNo || draft.ticketNo || '',
+    }));
+  });
+}
+
+// Маршрут одного бланка полностью повторяется в бланках остальных пассажиров.
+// Поэтому вложенные маршруты отбрасываются: заказ получает самый полный
+// маршрут, а не десять склеенных копий одного и того же перелёта.
+function receiptRouteContains(outer, inner) {
+  if (!inner.length || inner.length > outer.length) return false;
+  for (let start = 0; start + inner.length <= outer.length; start += 1) {
+    let matched = true;
+    for (let offset = 0; offset < inner.length; offset += 1) {
+      if (outer[start + offset].location_code !== inner[offset].location_code) { matched = false; break; }
+    }
+    if (matched) return true;
+  }
+  return false;
+}
+
+function receiptMergeRoutes(routes) {
+  const unique = [];
+  const seen = new Set();
+  routes.filter((route) => route.length > 1).forEach((route) => {
+    const signature = route.map((point) => point.location_code).join('>');
+    if (seen.has(signature)) return;
+    seen.add(signature);
+    unique.push(route);
+  });
+  const kept = unique.filter((route, index) => !unique.some((other, otherIndex) => (
+    otherIndex !== index && other.length > route.length && receiptRouteContains(other, route)
+  )));
+  const merged = [];
+  kept.forEach((route) => {
+    route.forEach((point) => {
+      if (merged[merged.length - 1]?.location_code === point.location_code) return;
+      merged.push(point);
+    });
+  });
+  return merged;
+}
+
+// Сводка по всем добавляемым бланкам: пассажиры, точки маршрута, даты и виды
+// услуг. Из неё собирается тело заказа — оператору остаётся выбрать клиента.
+function receiptOrderPlan(files = []) {
+  const passengers = [];
+  const seenPassengers = new Set();
+  const routes = [];
+  const dates = [];
+  const serviceKinds = [];
+  let currency = '';
+  let roundTripHint = false;
+
+  files.forEach((file) => {
+    if (!serviceKinds.includes(file.type)) serviceKinds.push(file.type);
+    receiptOrderPassengers(file).forEach((passenger) => {
+      const key = passenger.name.toLocaleLowerCase('ru-RU').replace(/\s+/g, ' ');
+      if (seenPassengers.has(key)) return;
+      seenPassengers.add(key);
+      passengers.push(passenger);
+    });
+    const tickets = receiptGroupedTickets(file);
+    const sources = tickets.length ? tickets : [file.parsed];
+    sources.forEach((ticket) => {
+      const draft = normalizeReceiptDraft(file.type, ticket);
+      if (!currency && draft.currency) currency = draft.currency;
+      if (draft.tripType === 'roundtrip') roundTripHint = true;
+      const ticketRoute = [];
+      (draft.legs || []).forEach((leg) => {
+        const iso = receiptIsoDate(leg.date);
+        if (iso) dates.push(iso);
+        const endIso = receiptIsoDate(leg.endDate);
+        if (endIso) dates.push(endIso);
+        const locationType = file.type === 'Авиа' ? 'airport' : 'city';
+        [['from', 'from'], ['to', 'to']].forEach(([side]) => {
+          const code = receiptRoutePointCode(leg, side);
+          if (!code || ticketRoute[ticketRoute.length - 1]?.location_code === code) return;
+          ticketRoute.push({ location_code: code, location_name: receiptRoutePointName(leg, side), location_type: locationType });
+        });
+      });
+      if (ticketRoute.length > 1) routes.push(ticketRoute);
+    });
+  });
+
+  const points = receiptMergeRoutes(routes);
+  dates.sort();
+  // Backend принимает не больше MULTI_CITY_MAX_SEGMENTS сегментов: лишние
+  // точки в заказ не уходят, но остаются видны в услугах по бланкам.
+  const limitedPoints = points.slice(0, 7);
+  const kind = limitedPoints.length < 3
+    ? 'one_way'
+    : (roundTripHint && limitedPoints.length === 3
+      && limitedPoints[0].location_code === limitedPoints[2].location_code)
+      ? 'round_trip'
+      : 'multi_city';
+
+  return {
+    passengers,
+    points: limitedPoints,
+    truncatedPoints: Math.max(0, points.length - limitedPoints.length),
+    kind,
+    plannedStart: dates[0] || null,
+    plannedEnd: dates[dates.length - 1] || null,
+    currency: currency || 'RUB',
+    serviceKinds,
+    blankCount: files.reduce((sum, file) => sum + Math.max(1, receiptGroupedTickets(file).length), 0),
+  };
+}
+
+// Разбор ФИО из бланка в поля физлица: в квитанциях фамилия идёт первой.
+function receiptPersonNameParts(fullName) {
+  const parts = String(fullName || '').trim().replace(/\s+/g, ' ').split(' ');
+  return {
+    surname: parts[0] || '',
+    givenName: parts[1] || '',
+    middleName: parts.slice(2).join(' ') || '',
+  };
+}
+
+const RECEIPT_ROUTE_KIND_LABEL = {
+  one_way: 'В одну сторону',
+  round_trip: 'Туда-обратно',
+  multi_city: 'Сложный маршрут',
+};
+
+// Создание заказа по бланкам: маршрут, даты, участники и услуги уже известны,
+// оператор выбирает только клиента. Никакого поиска услуг здесь нет.
+function ReceiptOrderCreateDrawer({ open, plan, clients = [], companies = [], onCancel, onSubmit }) {
+  const toast = useToast();
+  const [clientMode, setClientMode] = useState('new');
+  const [person, setPerson] = useState({ surname: '', givenName: '', middleName: '', dob: '', phone: '', email: '' });
+  const [existingClientId, setExistingClientId] = useState('');
+  const [companyId, setCompanyId] = useState('');
+  const [selectedPassengers, setSelectedPassengers] = useState({});
+  const [saving, setSaving] = useState(false);
+
+  const firstPassenger = plan?.passengers?.[0];
+  useEffect(() => {
+    if (!open || !plan) return;
+    const parts = receiptPersonNameParts(firstPassenger?.name);
+    setClientMode('new');
+    setPerson({
+      surname: parts.surname, givenName: parts.givenName, middleName: parts.middleName,
+      dob: firstPassenger?.dob || '', phone: '', email: '',
+    });
+    setExistingClientId('');
+    setCompanyId('');
+    setSelectedPassengers(Object.fromEntries(plan.passengers.map((passenger) => [passenger.name, true])));
+    setSaving(false);
+  }, [open, plan?.passengers?.length, firstPassenger?.name]);
+
+  if (!open || !plan) return null;
+
+  const chosenPassengers = plan.passengers.filter((passenger) => selectedPassengers[passenger.name]);
+  const clientOptions = clients.map((client) => ({
+    value: String(client.id),
+    label: `${client.name}${client.phone && client.phone !== '—' ? ` · ${client.phone}` : ''}`,
+    keywords: `${client.name} ${client.phone || ''} ${client.email || ''}`,
+  }));
+  const companyOptions = companies.map((company) => ({
+    value: String(company.id),
+    label: company.name || company.shortName || company.fullName || 'Юр. лицо',
+    keywords: `${company.name || ''} ${company.inn || company.tax_id || ''}`,
+  }));
+
+  const routeText = plan.points.length
+    ? plan.points.map((point) => point.location_code).join(' → ')
+    : 'Маршрут не распознан';
+  const datesText = plan.plannedStart
+    ? `${plan.plannedStart.split('-').reverse().join('.')}${plan.plannedEnd && plan.plannedEnd !== plan.plannedStart ? ` — ${plan.plannedEnd.split('-').reverse().join('.')}` : ''}`
+    : 'Даты не распознаны';
+
+  const submit = async () => {
+    if (clientMode === 'new' && !person.surname.trim()) {
+      toast('Укажите фамилию нового физлица', 'err');
+      return;
+    }
+    if (clientMode === 'existing' && !existingClientId) {
+      toast('Выберите клиента из базы', 'err');
+      return;
+    }
+    if (clientMode === 'company' && !companyId) {
+      toast('Выберите юридическое лицо', 'err');
+      return;
+    }
+    setSaving(true);
+    try {
+      const created = await onSubmit({
+        clientMode,
+        person: clientMode === 'new' ? {
+          surname: person.surname.trim(),
+          given_name: person.givenName.trim(),
+          middle_name: person.middleName.trim(),
+          birth_date: receiptIsoDate(person.dob) || null,
+          phone: person.phone.trim(),
+          email: person.email.trim(),
+        } : null,
+        clientPersonId: clientMode === 'existing' ? existingClientId : null,
+        companyId: clientMode === 'company' ? companyId : null,
+        plan,
+        passengers: chosenPassengers,
+      });
+      if (created) onCancel(created);
+    } catch (error) {
+      toast(error.message || 'Не удалось создать заказ по бланкам', 'err');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <Drawer open={open} onClose={() => onCancel(null)} title="Создание заказа по бланкам"
+      sub={`${plan.blankCount} ${plural(plan.blankCount, ['бланк', 'бланка', 'бланков'])} · услуги создадутся по квитанциям, искать ничего не нужно`}
+      width="min(720px,96vw)" className="receipt-order-create-drawer"
+      footer={<>
+        <Button variant="secondary" onClick={() => onCancel(null)}>Отмена</Button>
+        <Button style={{ flex: 1 }} icon="check" disabled={saving} onClick={submit}>
+          {saving ? 'Создаём заказ…' : `Создать заказ и добавить ${plan.blankCount} ${plural(plan.blankCount, ['бланк', 'бланка', 'бланков'])}`}
+        </Button>
+      </>}>
+      <section className="receipt-order-plan" aria-label="Данные из бланков">
+        <div className="receipt-order-plan-head">
+          <Icon name="checkCircle" />
+          <span><b>Всё уже есть в маршрут-квитанциях</b>
+            <small>Маршрут, даты, пассажиры и услуги берутся из загруженных бланков. Поиск услуг в этом сценарии не нужен.</small></span>
+        </div>
+        <div className="receipt-order-plan-grid">
+          <div><small>Услуги по бланкам</small><b>{plan.serviceKinds.join(' · ') || '—'}</b></div>
+          <div><small>Маршрут · {RECEIPT_ROUTE_KIND_LABEL[plan.kind]}</small><b>{routeText}</b></div>
+          <div><small>Даты поездки</small><b>{datesText}</b></div>
+          <div><small>Валюта</small><b>{plan.currency}</b></div>
+        </div>
+        {plan.truncatedPoints > 0 && <small className="receipt-order-plan-note">
+          В маршрут заказа вошли первые {plan.points.length} точек — остальные {plan.truncatedPoints} останутся в услугах по бланкам.
+        </small>}
+      </section>
+
+      <RSub>Клиент заказа</RSub>
+      <div className="receipt-apply-scope-options" role="radiogroup" aria-label="Клиент заказа">
+        {[
+          ['new', 'Новое физлицо', firstPassenger?.name ? `Из бланка: ${firstPassenger.name}` : 'Заполните данные вручную'],
+          ['existing', 'Существующий клиент', 'Выбрать физлицо из базы CRM'],
+          ['company', 'Юридическое лицо', 'Заказ оформляется на компанию'],
+        ].map(([mode, label, hint]) => (
+          <label key={mode} className={'receipt-apply-scope-option' + (clientMode === mode ? ' is-active' : '')}
+            onClick={() => setClientMode(mode)}>
+            <span className="receipt-apply-scope-control"><Radio on={clientMode === mode} onChange={() => setClientMode(mode)} /></span>
+            <span><b>{label}</b><small>{hint}</small></span>
+          </label>
+        ))}
+      </div>
+
+      {clientMode === 'new' && <div className="receipt-form-grid receipt-order-person">
+        <Field label="Фамилия" required><Input value={person.surname} onChange={(e) => setPerson((s) => ({ ...s, surname: e.target.value }))} /></Field>
+        <Field label="Имя"><Input value={person.givenName} onChange={(e) => setPerson((s) => ({ ...s, givenName: e.target.value }))} /></Field>
+        <Field label="Отчество"><Input value={person.middleName} onChange={(e) => setPerson((s) => ({ ...s, middleName: e.target.value }))} /></Field>
+        <Field label="Дата рождения" hint="из бланка"><Input value={person.dob} placeholder="дд.мм.гггг" onChange={(e) => setPerson((s) => ({ ...s, dob: e.target.value }))} /></Field>
+        <Field label="Телефон"><Input value={person.phone} onChange={(e) => setPerson((s) => ({ ...s, phone: e.target.value }))} /></Field>
+        <Field label="Электронная почта"><Input value={person.email} onChange={(e) => setPerson((s) => ({ ...s, email: e.target.value }))} /></Field>
+      </div>}
+
+      {clientMode === 'existing' && <Field label="Клиент из базы">
+        <Combobox options={clientOptions} value={existingClientId} onChange={setExistingClientId}
+          placeholder="Начните вводить фамилию или телефон" searchPlaceholder="ФИО, телефон, почта…"
+          emptyText="Клиент не найден — создайте новое физлицо" />
+      </Field>}
+
+      {clientMode === 'company' && <Field label="Юридическое лицо">
+        <Combobox options={companyOptions} value={companyId} onChange={setCompanyId}
+          placeholder="Начните вводить название" searchPlaceholder="Название или ИНН…"
+          emptyText="Юрлицо не найдено" />
+      </Field>}
+
+      <RSub>Участники заказа</RSub>
+      <div className="receipt-order-passengers">
+        {plan.passengers.length ? plan.passengers.map((passenger) => (
+          <label key={passenger.name} className={selectedPassengers[passenger.name] ? 'is-on' : ''}
+            onClick={() => setSelectedPassengers((current) => ({ ...current, [passenger.name]: !current[passenger.name] }))}>
+            <span className="receipt-apply-scope-control">
+              <Checkbox on={!!selectedPassengers[passenger.name]} onChange={() => {}} />
+            </span>
+            <span>
+              <b>{passenger.name}</b>
+              <small>{[passenger.dob, passenger.document, passenger.ticketNo ? `билет ${passenger.ticketNo}` : ''].filter(Boolean).join(' · ') || 'Дополнительные данные не распознаны'}</small>
+            </span>
+          </label>
+        )) : <div className="receipt-empty">Пассажиры в бланках не распознаны</div>}
+      </div>
+      <small className="receipt-order-plan-note">
+        Участники добавятся в заказ вместе с бланками: {chosenPassengers.length} из {plan.passengers.length}.
+      </small>
+    </Drawer>
+  );
+}
+
+function ReceiptImportModal({ open, onClose, onDone, initialDraft, initialFiles = [], initialBindTarget = null, onDraftSaved, onDraftCleared, onCreateOrder, orders = [], companies = [], clients = [] }) {
   const toast = useToast();
   const [files, setFiles] = useState([]);
   const [step, setStep] = useState(0);
@@ -3079,6 +3414,10 @@ function ReceiptImportModal({ open, onClose, onDone, initialDraft, initialFiles 
   // Билеты с одинаковой закупочной стоимостью показываются вкладками:
   // ключ — id документа, значение — подпись активной вкладки ('' — вкладки свёрнуты).
   const [costTabKey, setCostTabKey] = useState('');
+  // Заказ по бланкам создаётся в отдельном окне: оператор выбирает клиента,
+  // всё остальное уже распознано. Промис ждёт его решения.
+  const [orderPlanRequest, setOrderPlanRequest] = useState(null);
+  const orderPlanResolveRef = useRef(null);
   // Результат серверного расчёта сервисного сбора по бланкам: mathKey → источник.
   const [serviceFeeInfo, setServiceFeeInfo] = useState({});
   const [confirmClose, setConfirmClose] = useState(false);
@@ -4128,13 +4467,28 @@ function ReceiptImportModal({ open, onClose, onDone, initialDraft, initialFiles 
       try { await pending; } catch { /* ошибка расчёта уже показана оператору */ }
     }
   };
+  // Окно создания заказа по бланкам открывается из шага «В заказ» и
+  // возвращает созданный заказ либо null, если оператор отказался.
+  const requestOrderFromReceipts = (plan) => new Promise((resolve) => {
+    orderPlanResolveRef.current = resolve;
+    setOrderPlanRequest(plan);
+  });
+  const closeOrderPlanRequest = (order) => {
+    const resolve = orderPlanResolveRef.current;
+    orderPlanResolveRef.current = null;
+    setOrderPlanRequest(null);
+    if (resolve) resolve(order || null);
+  };
+
   const finish = async () => {
     if (!toAdd.length) { toast('Нет квитанций для добавления', 'err'); return; }
     await ensureServiceFeesResolved();
     let finalBindTarget = bindTarget;
     if (bindTarget.mode === 'new') {
       if (typeof onCreateOrder !== 'function') { toast('Создание нового заказа сейчас недоступно', 'err'); return; }
-      const createdOrder = await onCreateOrder();
+      // Услуги искать не нужно: маршрут, даты, пассажиров и виды услуг берём
+      // прямо из бланков и показываем оператору для подтверждения.
+      const createdOrder = await requestOrderFromReceipts(receiptOrderPlan(toAdd.map((row) => row.f)));
       if (!createdOrder) return;
       finalBindTarget = { mode: 'order', order: createdOrder, label: 'Заказ № ' + createdOrder.no };
       setBindTarget(finalBindTarget);
@@ -4611,7 +4965,7 @@ function ReceiptImportModal({ open, onClose, onDone, initialDraft, initialFiles 
             <ServiceFeeBindingSummary rows={pricingRows} info={serviceFeeInfo} context={feeBindingContext} />
             <div style={{ marginTop: 12, fontSize: 12.5, color: 'var(--muted)' }}>
               Будет добавлено в заказ: {toAdd.length}. Непроверенные, ошибки и исключённые дубли не попадут в итог.
-              {bindTarget.mode === 'new' ? ' Перед сохранением откроется форма нового заказа: можно выбрать юридическое лицо или физическое лицо.' : ''}
+              {bindTarget.mode === 'new' ? ' Перед сохранением откроется окно создания заказа по бланкам: маршрут, даты, пассажиры и услуги уже заполнены из квитанций — останется выбрать клиента или создать новое физлицо. Искать услуги не нужно.' : ''}
             </div>
             </>}
           </>
@@ -4658,6 +5012,10 @@ function ReceiptImportModal({ open, onClose, onDone, initialDraft, initialFiles 
       <ReceiptBrandDocumentDrawer open={!!brandFile} type={brandFile?.type} draft={brandFile?.parsed}
         originalUrl={brandFile?.originalUrl} sourceOriginalUrl={brandFile?.sourceOriginalUrl}
         onClose={() => setBrandTarget(null)} />
+      <ReceiptOrderCreateDrawer open={!!orderPlanRequest} plan={orderPlanRequest}
+        clients={clients} companies={companies}
+        onCancel={closeOrderPlanRequest}
+        onSubmit={(draft) => onCreateOrder(draft)} />
       <Drawer open={confirmClose} onClose={() => setConfirmClose(false)} title="Закрыть импорт?"
         sub="Проверьте, какие бланки сохранятся в черновик"
         width="min(780px,96vw)"
@@ -4748,7 +5106,7 @@ function ReceiptImportModal({ open, onClose, onDone, initialDraft, initialFiles 
 
 
 
-function ReceiptEditorPage({ documents = [], orders = [], services = [], companies = [], onChanged, onOpenOrder, onCreateOrder }) {
+function ReceiptEditorPage({ documents = [], orders = [], services = [], companies = [], clients = [], onChanged, onOpenOrder, onCreateOrder }) {
   const toast = useToast();
   const [q, setQ] = useState('');
   const [edit, setEdit] = useState(null);
@@ -5191,7 +5549,7 @@ function ReceiptEditorPage({ documents = [], orders = [], services = [], compani
         onClose={() => setBrandEdit(null)} />
 
       <ReceiptImportModal open={importing} initialDraft={activeImportDraft}
-        orders={orders} companies={companies} onCreateOrder={onCreateOrder}
+        orders={orders} companies={companies} clients={clients} onCreateOrder={onCreateOrder}
         onClose={() => {
           setImporting(false);
         }}

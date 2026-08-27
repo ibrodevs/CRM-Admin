@@ -11,7 +11,7 @@ import { AppShell } from './layout';
 import { LoginScreen } from './login';
 import { DashboardPage } from './page_dashboard';
 import { FlightsPage } from './page_flights';
-import { OrderCreateModal, OrdersPage } from './page_orders';
+import { OrdersPage } from './page_orders';
 import { OffersPage } from './page_offers';
 import { DocCenterPage, FulfillmentPage, ReceiptEditorPage } from './page_fulfillment';
 import { FinancePage } from './page_finance';
@@ -126,7 +126,6 @@ function App() {
   const [notifOpen, setNotifOpen] = useState(false);
   const [ctxOrder, setCtxOrder] = useState(null);
   const [role, setRole] = useState(auth.user?.role || 'Оператор');
-  const [receiptOrderRequest, setReceiptOrderRequest] = useState(null);
 
   useEffect(() => { if (auth.user?.role) setRole(auth.user.role); }, [auth.user?.role]);
 
@@ -175,11 +174,46 @@ function App() {
     openOrder(created);
     return created;
   };
-  const requestReceiptOrder = () => new Promise((resolve) => setReceiptOrderRequest({ resolve }));
-  const closeReceiptOrderRequest = (order = null) => {
-    const request = receiptOrderRequest;
-    setReceiptOrderRequest(null);
-    request?.resolve(order);
+  // Заказ по маршрут-квитанциям: клиента выбирает оператор в окне импорта,
+  // маршрут, даты и участники уже распознаны в бланках. Шага поиска услуг
+  // здесь нет — услуги создаются самими квитанциями.
+  const createReceiptOrder = async (draft) => {
+    try {
+      let clientPersonId = draft.clientPersonId || null;
+      if (draft.clientMode === 'new') {
+        const client = await workspace.createPersonClient({
+          source: draft.person,
+          client_type: 'individual',
+        });
+        clientPersonId = client.id;
+      }
+      const plan = draft.plan || {};
+      const created = await workspace.createOrder({
+        request_type: draft.clientMode === 'company' ? 'Корпоративная' : 'Индивидуальная',
+        client_person: draft.clientMode === 'company' ? null : clientPersonId,
+        client_company: draft.clientMode === 'company' ? draft.companyId : null,
+        base_currency: plan.currency || 'USD',
+        planned_start: plan.plannedStart || null,
+        planned_end: plan.plannedEnd || null,
+        purpose: plan.serviceKinds?.length ? `Заказ по бланкам: ${plan.serviceKinds.join(', ')}` : 'Заказ по бланкам поставщика',
+        route: plan.points?.length >= 2 ? { kind: plan.kind, points: plan.points } : null,
+        participants: (draft.passengers || []).map((passenger, index) => ({
+          guest_snapshot: {
+            full_name: passenger.name,
+            birth_date: passenger.dob || '',
+            document: passenger.document || '',
+            ticket_no: passenger.ticketNo || '',
+          },
+          role: 'passenger',
+          is_contact: index === 0,
+        })),
+      });
+      toast(`Заказ № ${created.no} создан по бланкам`, 'ok');
+      return created;
+    } catch (error) {
+      toast(error.message || 'Не удалось создать заказ по бланкам', 'err');
+      return null;
+    }
   };
 
   const addSupplier = async (supplier) => {
@@ -218,11 +252,6 @@ function App() {
       <DesktopNotifier enabled notifications={workspace.notifications} orders={orders} onNavigate={navigate} onOpenOrder={openOrder} />
       <NotificationDrawer open={notifOpen} notifications={workspace.notifications} orders={orders} onNotificationsChange={(next) => workspace.update('notifications', next)} onClose={() => setNotifOpen(false)} onNavigate={navigate} onOpenOrder={openOrder} />
       <GlobalChatDrawer open={chatOpen} onClose={() => setChatOpen(false)} contextOrder={ctxOrder} initialThreads={workspace.chats} orders={orders} currentUserId={auth.user.id} onOpenOrder={openOrder} />
-      <OrderCreateModal open={!!receiptOrderRequest} clientOptions={workspace.clients} companyOptions={workspace.companies}
-        onClose={() => closeReceiptOrderRequest(null)} onCreated={(order) => {
-          workspace.update('orders', (current) => [order, ...current.filter((item) => String(item.id) !== String(order.id))]);
-          closeReceiptOrderRequest(order);
-        }} />
     </>
   );
 
@@ -240,7 +269,8 @@ function App() {
       {route === 'finance' && <FinancePage overview={workspace.finance} transactions={workspace.transactions} clients={workspace.clients} companies={workspace.companies} suppliers={workspace.suppliers} orders={orders} meta={workspace.meta} />}
       {route === 'documents' && <DocCenterPage documents={workspace.documents} orders={orders} />}
       {route === 'receipts' && <ReceiptEditorPage documents={workspace.documents} orders={orders}
-        services={workspace.orderServices} companies={workspace.companies} onChanged={() => workspace.reload()} onOpenOrder={openOrder} onCreateOrder={requestReceiptOrder} />}
+        services={workspace.orderServices} companies={workspace.companies} clients={workspace.clients}
+        onChanged={() => workspace.reload()} onOpenOrder={openOrder} onCreateOrder={createReceiptOrder} />}
       {route === 'fulfillment' && <FulfillmentPage onOpenOrder={openOrder} orders={orders} documents={workspace.documents} returns={workspace.returns} />}
       {route === 'settings' && <SettingsPage users={workspace.users} onUsersChange={(next) => workspace.update('users', next)} />}
       {route === 'profile' && <ProfilePage user={auth.user} onNavigate={navigate} />}

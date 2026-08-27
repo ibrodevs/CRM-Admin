@@ -48,11 +48,16 @@ test('opening and closing a printable blank keeps every receipt editor open', ()
   assert.doesNotMatch(fulfillment, /setBrandEdit\(edit\); closeReceiptEditor\(\)/);
 });
 
-test('final import step can create a real order with the existing customer form', () => {
+test('final import step creates a real order straight from the receipts', () => {
   assert.match(fulfillment, /modes=\{\['new', 'order', 'company', 'person'\]\}/);
-  assert.match(fulfillment, /const createdOrder = await onCreateOrder\(\)/);
-  assert.match(app, /<OrderCreateModal open=\{!!receiptOrderRequest\}/);
-  assert.match(app, /onCreateOrder=\{requestReceiptOrder\}/);
+  // Заказ собирается из бланков: маршрут, даты и пассажиры уже распознаны,
+  // поэтому вместо формы поиска услуг открывается окно подтверждения.
+  assert.match(fulfillment, /const createdOrder = await requestOrderFromReceipts\(receiptOrderPlan\(toAdd\.map\(\(row\) => row\.f\)\)\)/);
+  assert.match(fulfillment, /function ReceiptOrderCreateDrawer\(/);
+  assert.match(app, /const createReceiptOrder = async \(draft\) =>/);
+  assert.match(app, /onCreateOrder=\{createReceiptOrder\}/);
+  assert.doesNotMatch(app, /OrderCreateModal/);
+  // Обычное создание заказа со страницы «Заказы» остаётся прежним.
   assert.match(orders, /ReactDOM\.createPortal\(orderCreateNode, document\.body\)/);
   assert.match(orders, /drawer-overlay order-create-overlay/);
 });

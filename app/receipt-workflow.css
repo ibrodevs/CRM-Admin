@@ -313,3 +313,68 @@
   border-color: color-mix(in srgb, var(--blue) 45%, var(--line));
   background: var(--blue-soft, color-mix(in srgb, var(--blue) 8%, transparent));
 }
+
+/* ——— Заказ по маршрут-квитанциям ———————————————————————————————————————
+   Всё уже распознано в бланках, поэтому окно показывает готовый план заказа,
+   а не форму поиска услуг. */
+.receipt-order-plan {
+  border: 1px solid color-mix(in srgb, var(--green) 40%, var(--line));
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--green) 7%, var(--surface));
+  padding: 14px 16px;
+  display: grid;
+  gap: 12px;
+  margin-bottom: 18px;
+}
+
+.receipt-order-plan-head { display: flex; align-items: flex-start; gap: 10px; }
+.receipt-order-plan-head > svg { width: 18px; height: 18px; flex: 0 0 auto; color: var(--green); margin-top: 2px; }
+.receipt-order-plan-head > span { display: grid; gap: 2px; min-width: 0; }
+.receipt-order-plan-head b { color: var(--ink); font-size: 14.5px; }
+.receipt-order-plan-head small { color: var(--muted); font-size: 12.5px; line-height: 1.4; }
+
+.receipt-order-plan-grid {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+}
+
+.receipt-order-plan-grid > div {
+  display: grid;
+  gap: 2px;
+  padding: 9px 11px;
+  border-radius: 10px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  min-width: 0;
+}
+
+.receipt-order-plan-grid small { font-size: 11.5px; color: var(--muted); }
+.receipt-order-plan-grid b { font-size: 13.5px; color: var(--ink); overflow-wrap: anywhere; }
+
+.receipt-order-plan-note { display: block; font-size: 12px; color: var(--muted); margin-top: 4px; }
+
+.receipt-order-person { margin: 12px 0 4px; }
+
+.receipt-order-passengers {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  margin-bottom: 8px;
+}
+
+.receipt-order-passengers label {
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+  padding: 9px 11px;
+  border: 1px solid var(--line);
+  border-radius: 11px;
+  background: var(--surface);
+  cursor: pointer;
+}
+
+.receipt-order-passengers label.is-on { border-color: color-mix(in srgb, var(--blue) 45%, var(--line)); }
+.receipt-order-passengers label > span:last-child { display: grid; gap: 2px; min-width: 0; }
+.receipt-order-passengers b { font-size: 13.5px; color: var(--ink); }
+.receipt-order-passengers small { font-size: 11.5px; color: var(--muted); line-height: 1.35; }
