@@ -1,5 +1,6 @@
 import './globals.css';
 import './receipt-ui-fixes.css';
+import './receipt-workflow.css';
 import './location-autocomplete.css';
 import './compact-steppers.css';
 

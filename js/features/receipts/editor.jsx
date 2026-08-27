@@ -1,10 +1,11 @@
 import React, { useEffect, useMemo, useState, useRef } from 'react';
 import ReactDOM from 'react-dom';
 import { Icon } from '../../icons';
-import { Button, Checkbox, Combobox, Drawer, EmptyState, Field, Input, Pill, SearchBox, Select, TimeField } from '../../ui';
+import { Button, Checkbox, Combobox, Drawer, EmptyState, Field, Input, Pill, SearchBox, Select, TimeField, holdOverlaysDuringPrint, printOverlayScope } from '../../ui';
 import { UFDateField, UnifiedBindField } from '../../forms_unified';
 import { segmentConnectionLabel } from './layover';
 import { normalizeReceiptDisplayDate } from './date';
+import { AVIA_TAX_BY_CODE, CUSTOM_TAX_VALUE, aviaTaxName, aviaTaxOptionsFor } from './tax-catalog';
 
 const TYPE_META = {
   'Авиа': { icon: 'plane', color: '#2566ff', document: 'Маршрут-квитанция' },
@@ -109,25 +110,6 @@ const emptyRoom = () => ({
 const emptyCharge = () => ({ code: '', label: '', amount: '', currency: '' });
 const emptyExtra = () => ({ name: '', details: '', amount: '' });
 
-const AVIA_TAX_OPTIONS = [
-  { value: 'YQ', label: 'YQ — топливный сбор перевозчика', name: 'Топливный сбор перевозчика' },
-  { value: 'YR', label: 'YR — дополнительный сбор перевозчика', name: 'Дополнительный сбор перевозчика' },
-  { value: 'XT', label: 'XT — сумма нескольких такс', name: 'Сумма нескольких такс' },
-  { value: 'RU', label: 'RU — сбор гражданской авиации РФ', name: 'Сбор гражданской авиации РФ' },
-  { value: 'RI', label: 'RI — сервисный сбор поставщика', name: 'Сервисный сбор поставщика' },
-  { value: 'UA', label: 'UA — сбор аэропорта вылета', name: 'Сбор аэропорта вылета' },
-  { value: 'UH', label: 'UH — сбор авиационной безопасности', name: 'Сбор авиационной безопасности' },
-  { value: 'RA', label: 'RA — пассажирский сбор аэропорта', name: 'Пассажирский сбор аэропорта' },
-  { value: 'XF', label: 'XF — пассажирский аэропортовый сбор', name: 'Пассажирский аэропортовый сбор' },
-  { value: 'AY', label: 'AY — сбор авиационной безопасности США', name: 'Сбор авиационной безопасности США' },
-  { value: 'US', label: 'US — транспортный налог США', name: 'Транспортный налог США' },
-  { value: 'GB', label: 'GB — пассажирский сбор Великобритании', name: 'Пассажирский сбор Великобритании' },
-  { value: 'DE', label: 'DE — авиационный налог Германии', name: 'Авиационный налог Германии' },
-  { value: 'FR', label: 'FR — авиационный налог Франции', name: 'Авиационный налог Франции' },
-  { value: 'TR', label: 'TR — аэропортовый сбор Турции', name: 'Аэропортовый сбор Турции' },
-  { value: 'KG', label: 'KG — аэропортовый сбор Кыргызстана', name: 'Аэропортовый сбор Кыргызстана' },
-  { value: 'KZ', label: 'KZ — аэропортовый сбор Казахстана', name: 'Аэропортовый сбор Казахстана' },
-];
 
 const RECEIPT_SERVICE_KINDS = {
   'Авиа': ['авиа', 'avia', 'flight'],
@@ -968,9 +950,13 @@ export function ReceiptDocumentPreview({ type, draft }) {
 export function ReceiptBrandDocumentDrawer({ open, type, draft, originalUrl, sourceOriginalUrl, onClose }) {
   const [previewMode, setPreviewMode] = useState('agency');
   const [supplierPdfNonce, setSupplierPdfNonce] = useState(0);
+  const [pdfBusy, setPdfBusy] = useState(false);
+  const [printNotice, setPrintNotice] = useState('');
   const printScopeRef = useRef(null);
+  const documentRef = useRef(null);
   useEffect(() => {
     if (open) setSupplierPdfNonce(Date.now());
+    if (open) setPrintNotice('');
   }, [open, originalUrl]);
   useEffect(() => {
     if (!open) return;
@@ -1019,17 +1005,53 @@ export function ReceiptBrandDocumentDrawer({ open, type, draft, originalUrl, sou
     return `${url}${url.includes('?') ? '&' : '?'}_pdf=${nonce}`;
   };
   const displayedSupplierPdfUrl = sourcePdfUrl ? freshSupplierPdfUrl(sourcePdfUrl, supplierPdfNonce || 'initial') : '';
+  // Печать только этого окна. Слои удерживаются от закрытия: после закрытия
+  // системного окна печати оператор обязан вернуться в тот же редактор, а не
+  // в общий список загруженных документов.
   const printReceipt = () => {
     const printOverlay = printScopeRef.current?.closest('.drawer-overlay');
-    const cleanup = () => {
-      document.body.classList.remove('receipt-printing');
-      printOverlay?.classList.remove('receipt-print-target');
-    };
-    printOverlay?.classList.add('receipt-print-target');
-    document.body.classList.add('receipt-printing');
-    window.addEventListener('afterprint', cleanup, { once: true });
-    window.print();
-    window.setTimeout(cleanup, 1000);
+    if (printOverlay) printOverlay.classList.add('receipt-print-target');
+    printOverlayScope(printScopeRef.current, {
+      onDone: () => setPrintNotice('Печать завершена — вы остались в редакторе бланка.'),
+    });
+  };
+  // Выгрузка фирменного бланка в PDF без системного окна печати: файл
+  // сохраняется сразу, диалог печати вообще не открывается.
+  const downloadBrandPdf = async () => {
+    const node = documentRef.current;
+    if (!node || typeof window === 'undefined' || !window.html2canvas || !window.jspdf) {
+      printReceipt();
+      return;
+    }
+    setPdfBusy(true);
+    holdOverlaysDuringPrint(4000);
+    const host = document.createElement('div');
+    host.style.position = 'fixed';
+    host.style.left = '-99999px';
+    host.style.top = '0';
+    host.style.zIndex = '-1';
+    host.style.background = '#ffffff';
+    const clone = node.cloneNode(true);
+    clone.style.maxWidth = 'none';
+    clone.style.width = '900px';
+    host.appendChild(clone);
+    document.body.appendChild(host);
+    try {
+      const canvas = await window.html2canvas(clone, {
+        scale: 2, backgroundColor: '#ffffff', useCORS: true, windowWidth: 900, width: 900,
+      });
+      const { jsPDF } = window.jspdf;
+      const pdf = new jsPDF({ orientation: 'portrait', unit: 'px', format: [canvas.width, canvas.height], compress: true });
+      pdf.addImage(canvas.toDataURL('image/jpeg', 0.94), 'JPEG', 0, 0, canvas.width, canvas.height);
+      pdf.save(`${TYPE_META[type]?.document || 'Документ'} · ${outputLabel}.pdf`);
+      setPrintNotice('PDF сохранён. Редактор бланка остался открытым.');
+    } catch (error) {
+      setPrintNotice('Не удалось собрать PDF — используйте кнопку «Печать».');
+    } finally {
+      document.body.removeChild(host);
+      holdOverlaysDuringPrint(1200);
+      setPdfBusy(false);
+    }
   };
   const downloadSupplierPdf = () => {
     if (!sourcePdfUrl) return;
@@ -1051,11 +1073,15 @@ export function ReceiptBrandDocumentDrawer({ open, type, draft, originalUrl, sou
       footer={<div className="receipt-supplier-footer-actions">
         {sourcePdfUrl && <Button variant="secondary" icon="eye" onClick={() => window.open(freshSupplierPdfUrl(sourcePdfUrl), '_blank', 'noopener,noreferrer')}>Оригинал поставщика с корректировками</Button>}
         {sourceOriginalPdfUrl && <Button variant="ghost" onClick={() => window.open(sourceOriginalPdfUrl, '_blank', 'noopener,noreferrer')}>Исходный файл поставщика</Button>}
-        <Button variant="secondary" onClick={onClose}>Закрыть</Button>
-        {(output.mode !== 'original' || type === 'ЖД' || type === 'Авиа') && <Button icon="download"
-          onClick={output.mode === 'original' ? downloadSupplierPdf : printReceipt}>{output.mode === 'original' ? 'Скачать исправленный PDF' : 'Скачать фирменный PDF'}</Button>}
+        <Button variant="secondary" onClick={onClose}>Вернуться в редактор</Button>
+        {output.mode !== 'original' && <Button variant="secondary" icon="printer" onClick={printReceipt}>Печать</Button>}
+        {(output.mode !== 'original' || type === 'ЖД' || type === 'Авиа') && <Button icon="download" disabled={pdfBusy}
+          onClick={output.mode === 'original' ? downloadSupplierPdf : downloadBrandPdf}>{output.mode === 'original'
+            ? 'Скачать исправленный PDF'
+            : pdfBusy ? 'Готовим PDF…' : 'Скачать фирменный PDF'}</Button>}
       </div>}>
       <div ref={printScopeRef} className="receipt-brand-print-scope">
+      {printNotice && <div className="receipt-print-notice" role="status"><Icon name="checkCircle" />{printNotice}</div>}
       <div className="receipt-brand-variants" aria-label="Вариант бланка">
         {[
           ['original', 'Оригинал поставщика'],
@@ -1065,6 +1091,7 @@ export function ReceiptBrandDocumentDrawer({ open, type, draft, originalUrl, sou
           className={output.mode === mode ? 'active' : ''} aria-pressed={output.mode === mode}
           onClick={() => setPreviewMode(mode)}>{label}</button>)}
       </div>
+      <div ref={documentRef} className="receipt-brand-document-scope">
       {output.mode === 'original' ? (
         <section className="receipt-supplier-original" aria-label="Оригинал поставщика">
           <div className="receipt-source-notice"><Icon name="checkCircle" /><div><b>Оригинал поставщика · с сохранёнными корректировками</b>
@@ -1236,6 +1263,7 @@ export function ReceiptBrandDocumentDrawer({ open, type, draft, originalUrl, sou
         </article>
       )}
       </div>
+      </div>
     </Drawer>
   );
 }
@@ -1245,6 +1273,11 @@ export function ReceiptSpecializedForm({
 }) {
   const p = useMemo(() => normalizeReceiptDraft(type, value), [type, value]);
   const user = (typeof window !== 'undefined' && window.CURRENT_USER?.name) || 'Оператор';
+  // Какая строка разбивки только что добавлена: у неё сразу раскрывается
+  // справочник, а после выбора кода фокус уходит в поле суммы.
+  const [openPickerRow, setOpenPickerRow] = useState('');
+  const [focusAmountRow, setFocusAmountRow] = useState('');
+  const [pendingAddRow, setPendingAddRow] = useState('');
   const commit = (next, label, before, after) => {
     const changed = String(before ?? '') !== String(after ?? '');
     const auditLog = changed ? [...(next.auditLog || []), {
@@ -1271,13 +1304,21 @@ export function ReceiptSpecializedForm({
     commit(nextDraft,
       label, p[key]?.[index]?.[field], next);
   };
+  // Выбор таксы из справочника: код проставляется, наименование подставляется
+  // автоматически, сумма остаётся за оператором — её вводят следующим шагом.
   const setTaxCode = (key, index, code, title) => {
-    const catalogTax = AVIA_TAX_OPTIONS.find((option) => option.value === code);
+    const custom = code === CUSTOM_TAX_VALUE;
+    const catalogTax = custom ? null : AVIA_TAX_BY_CODE[code];
     const rows = (p[key] || []).map((row, rowIndex) => rowIndex === index
-      ? { ...row, code, label: catalogTax?.name || row.label || '' }
+      ? {
+        ...row,
+        code: custom ? '' : code,
+        customCode: custom,
+        label: custom ? (row.label || '') : (catalogTax?.name || row.label || ''),
+      }
       : row);
     const nextDraft = synchronizeBreakdown({ ...p, [key]: rows }, key, rows);
-    commit(nextDraft, `${title}: такса ${index + 1}`, p[key]?.[index]?.code, code);
+    commit(nextDraft, `${title}: такса ${index + 1}`, p[key]?.[index]?.code, custom ? 'ручной код' : code);
   };
   const addRow = (key, row, label) => commit({ ...p, [key]: [...(p[key] || []), row] }, label, '—', `Строка ${(p[key] || []).length + 1}`);
   const removeRow = (key, index, label) => {
@@ -1288,6 +1329,28 @@ export function ReceiptSpecializedForm({
   };
   const source = (label, key, input = {}) => <Field label={label}><LockedInput correctionMode={correctionMode}
     value={p[key] || ''} onChange={(e) => set(key, e.target.value, label)} {...input} /></Field>;
+  // Сразу после выбора кода фокус переходит в сумму: «выбрали — проставили
+  // стоимость» без лишнего клика.
+  useEffect(() => {
+    if (!focusAmountRow || typeof document === 'undefined') return;
+    const node = document.querySelector(`[data-amount-row="${focusAmountRow}"]`);
+    if (node) { node.focus(); if (node.select) node.select(); }
+    setFocusAmountRow('');
+  }, [focusAmountRow]);
+
+  // Кнопка «Добавить таксу» на защищённом бланке сначала включает режим
+  // исправления, а строку добавляет уже следующим рендером — иначе правка
+  // ушла бы в заблокированную форму и потерялась.
+  useEffect(() => {
+    if (!pendingAddRow || !correctionMode) return;
+    const key = pendingAddRow;
+    setPendingAddRow('');
+    const nextIndex = (p[key] || []).length;
+    addRow(key, { ...emptyCharge(), currency: p.currency },
+      `Добавлена строка: ${key === 'taxBreakdown' ? 'Разбивка такс' : 'Разбивка'}`);
+    setOpenPickerRow(`${key}:${nextIndex}`);
+  }, [pendingAddRow, correctionMode]);
+
   const setTripType = (tripType) => {
     let legs = p.legs.map((leg) => ({ ...leg }));
     if (tripType === 'oneway') legs = [{ ...(legs[0] || emptyLeg()), dir: 'out' }];
@@ -1512,32 +1575,84 @@ export function ReceiptSpecializedForm({
     </Section>
   ) : null;
 
-  const breakdown = (key, title, isTax) => (
-    <div className="receipt-subcard">
-      {(!isTax || correctionMode)
-        ? <ListHeader title={title} onAdd={() => addRow(key, { ...emptyCharge(), currency: p.currency }, `Добавлена строка: ${title}`)} />
-        : <div className="receipt-list-head"><b>{title}</b><Pill tone="gray">Данные поставщика</Pill></div>}
-      {(p[key] || []).length ? p[key].map((row, index) => <div
-        className={`receipt-inline-row ${index > 0 ? 'is-following ' : ''}${(!isTax || correctionMode) ? 'is-editable' : 'is-readonly'}`} key={index}>
-        <Field label={isTax ? 'Код таксы' : 'Тип сбора'}>{isTax
-          ? correctionMode
-            ? <Combobox options={AVIA_TAX_OPTIONS.some((option) => option.value === row.code) || !row.code
-              ? AVIA_TAX_OPTIONS
-              : [{ value: row.code, label: `${row.code} — ${row.label || 'другая такса'}` }, ...AVIA_TAX_OPTIONS]}
-              value={row.code || ''} placeholder="Выберите или найдите таксу"
-              onChange={(code) => setTaxCode(key, index, code, title)} />
-            : <LockedInput correctionMode={false} value={row.code || ''} />
-          : <Input value={row.code || ''} onChange={(e) => setArray(key, index, 'code', e.target.value, `${title}: код ${index + 1}`)} />}</Field>
-        <Field label="Наименование">{isTax
-          ? <LockedInput correctionMode={correctionMode} value={row.label || ''} onChange={(e) => setArray(key, index, 'label', e.target.value, `${title}: название ${index + 1}`)} />
-          : <Input value={row.label || ''} onChange={(e) => setArray(key, index, 'label', e.target.value, `${title}: название ${index + 1}`)} />}</Field>
-        <Field label="Сумма">{isTax
-          ? <LockedInput correctionMode={correctionMode} type="number" value={row.amount || ''} onChange={(e) => setArray(key, index, 'amount', e.target.value, `${title}: сумма ${index + 1}`)} />
-          : <Input type="number" value={row.amount || ''} onChange={(e) => setArray(key, index, 'amount', e.target.value, `${title}: сумма ${index + 1}`)} />}</Field>
-        {(!isTax || correctionMode) && <RowRemove label="" onClick={() => removeRow(key, index, `Удалена строка: ${title}`)} />}
-      </div>) : <div className="receipt-empty">Нет строк</div>}
-    </div>
-  );
+  // Разбивка тарифа / такс / сборов. Для такс код выбирается из справочника
+  // (выпадающий список с поиском по первым буквам кода или названия), после
+  // выбора наименование подставляется само, оператор проставляет только сумму.
+  const breakdown = (key, title, locked, kind = 'fee') => {
+    const isTax = kind === 'tax';
+    const rows = p[key] || [];
+    const editable = !locked || correctionMode;
+    const rowsTotal = roundMoney(rows.reduce((sum, row) => sum + (Number(row.amount) || 0), 0));
+    const addLabel = isTax ? 'Добавить таксу' : kind === 'fare' ? 'Добавить строку тарифа' : 'Добавить сбор';
+    const addRowNow = () => {
+      addRow(key, { ...emptyCharge(), currency: p.currency }, `Добавлена строка: ${title}`);
+      setOpenPickerRow(`${key}:${rows.length}`);
+    };
+    const onAdd = () => {
+      // Таксу можно добавить прямо из заблокированного бланка: режим
+      // исправления включится сам, чтобы не искать отдельную кнопку.
+      if (locked && !correctionMode && onToggleCorrection) {
+        if (pendingAddRow) return;
+        onToggleCorrection();
+        setPendingAddRow(key);
+        return;
+      }
+      addRowNow();
+    };
+    return (
+      <div className="receipt-subcard">
+        {editable
+          ? <ListHeader title={title} onAdd={onAdd} addLabel={addLabel} />
+          : <div className="receipt-list-head"><b>{title}</b>
+            <span className="receipt-list-head-actions">
+              <Pill tone="gray">Данные поставщика</Pill>
+              {isTax && <Button size="sm" variant="ghost" icon="plus" onClick={onAdd}>{addLabel}</Button>}
+            </span>
+          </div>}
+        {rows.length ? rows.map((row, index) => {
+          const pickerKey = `${key}:${index}`;
+          const useCatalog = isTax && !row.customCode;
+          return (
+            <div className={`receipt-inline-row ${index > 0 ? 'is-following ' : ''}${editable ? 'is-editable' : 'is-readonly'}`} key={index}>
+              <Field label={isTax ? 'Код таксы' : kind === 'fare' ? 'Код составляющей' : 'Тип сбора'}>{isTax
+                ? editable
+                  ? useCatalog
+                    ? <Combobox options={aviaTaxOptionsFor(row.code)}
+                      value={row.code || ''} placeholder="Выберите таксу из списка"
+                      searchPlaceholder="Код или название таксы…"
+                      emptyText="Такса не найдена — выберите «Другой код»"
+                      autoOpen={openPickerRow === pickerKey}
+                      onChange={(code) => {
+                        setOpenPickerRow('');
+                        setTaxCode(key, index, code, title);
+                        if (code !== CUSTOM_TAX_VALUE) setFocusAmountRow(pickerKey);
+                      }} />
+                    : <div className="receipt-tax-custom">
+                      <Input value={row.code || ''} placeholder="Код"
+                        onChange={(e) => setArray(key, index, 'code', e.target.value.toUpperCase(), `${title}: код ${index + 1}`)} />
+                      <Button size="sm" variant="ghost" onClick={() => setArray(key, index, 'customCode', false, `${title}: возврат к справочнику`)}>Из справочника</Button>
+                    </div>
+                  : <LockedInput correctionMode={false} value={row.code || ''} />
+                : <Input value={row.code || ''} onChange={(e) => setArray(key, index, 'code', e.target.value, `${title}: код ${index + 1}`)} />}</Field>
+              <Field label="Наименование">{isTax
+                ? <LockedInput correctionMode={editable} value={row.label || aviaTaxName(row.code) || ''} onChange={(e) => setArray(key, index, 'label', e.target.value, `${title}: название ${index + 1}`)} />
+                : <Input value={row.label || ''} onChange={(e) => setArray(key, index, 'label', e.target.value, `${title}: название ${index + 1}`)} />}</Field>
+              <Field label="Сумма">{isTax
+                ? <LockedInput correctionMode={editable} type="number" step="0.01" value={row.amount || ''}
+                  data-amount-row={pickerKey}
+                  onChange={(e) => setArray(key, index, 'amount', e.target.value, `${title}: сумма ${index + 1}`)} />
+                : <Input type="number" step="0.01" value={row.amount || ''} onChange={(e) => setArray(key, index, 'amount', e.target.value, `${title}: сумма ${index + 1}`)} />}</Field>
+              {editable && <RowRemove label="" onClick={() => removeRow(key, index, `Удалена строка: ${title}`)} />}
+            </div>
+          );
+        }) : <div className="receipt-empty">{isTax ? 'Таксы не добавлены — нажмите «Добавить таксу» и выберите код из справочника' : 'Нет строк'}</div>}
+        {rows.length > 0 && <div className="receipt-breakdown-total">
+          <span>Итого по разбивке</span>
+          <b>{roundMoney(rowsTotal).toLocaleString('ru-RU')} {p.currency || ''}</b>
+        </div>}
+      </div>
+    );
+  };
 
   const moneyField = (label, key, locked = false) => {
     const lockedProps = locked && !correctionMode ? { disabled: true, className: 'input receipt-locked-input' } : {};
@@ -1570,12 +1685,12 @@ export function ReceiptSpecializedForm({
       </div>
       {type === 'Авиа' && <>
         <div className="receipt-grid-2 receipt-breakdown-grid receipt-top-gap">
-          {breakdown('fareBreakdown', 'Разбивка тарифа', true)}
-          {breakdown('taxBreakdown', 'Разбивка такс', true)}
+          {breakdown('fareBreakdown', 'Разбивка тарифа', true, 'fare')}
+          {breakdown('taxBreakdown', 'Разбивка такс', true, 'tax')}
         </div>
-        <div className="receipt-top-gap">{breakdown('feeBreakdown', 'Разбивка сборов', false)}</div>
+        <div className="receipt-top-gap">{breakdown('feeBreakdown', 'Разбивка сборов', false, 'fee')}</div>
       </>}
-      {type === 'ЖД' && <div className="receipt-top-gap">{breakdown('feeBreakdown', 'Разбивка сервисных сборов', false)}</div>}
+      {type === 'ЖД' && <div className="receipt-top-gap">{breakdown('feeBreakdown', 'Разбивка сервисных сборов', false, 'fee')}</div>}
     </Section>
   );
 

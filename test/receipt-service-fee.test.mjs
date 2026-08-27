@@ -209,8 +209,8 @@ test('math drawer locks the contract fee and explains a manual one', () => {
   assert.match(page, /<input className="input" value=\{feeAmount\} readOnly disabled aria-readonly="true" \/>/);
   assert.match(page, /\{serviceFeeSourceLabel\(feeInfo\)\}/);
   assert.match(page, /\{serviceFeeManualHint\(feeInfo\)\}/);
-  assert.match(page, /onSave\(\{ tariff: num\(m\.tariff\), fee: feeAmount/);
-  assert.match(page, /Выбрано \$\{applyCount\}/);
+  assert.match(page, /const patch = \(\) => \(\{ tariff: num\(m\.tariff\), fee: feeAmount/);
+  assert.match(page, /Выбрано \$\{targetRows\.length\}/);
   assert.ok(styles.includes('.receipt-internal-math-note.is-contract{color:var(--green)}'));
 });
 
@@ -228,6 +228,30 @@ test('confirmation sends the fee source for a server-side re-check', () => {
   // Черновик импорта помнит источник сбора вместе с математикой.
   assert.match(page, /      math,\n      serviceFeeInfo,/);
   assert.match(page, /setServiceFeeInfo\(draft\?\.serviceFeeInfo \|\| \{\}\)/);
+});
+
+test('bulk pricing never starts on its own — the operator must pass explicit targets', () => {
+  const rows = [
+    { mathKey: 'doc-1::blank::0', f: { id: 'doc-1', type: 'ЖД' }, parsed: { fare: 4154.1, taxes: 0, fees: 0, passenger: 'ПЕРВЫЙ' } },
+    { mathKey: 'doc-1::blank::1', f: { id: 'doc-1', type: 'ЖД' }, parsed: { fare: 4154.1, taxes: 0, fees: 0, passenger: 'ВТОРОЙ' } },
+  ];
+  const state = { current: {} };
+  const setMathFor = loadComponentHelper('setMathFor', {
+    mathStateRef: state,
+    pricingRows: rows,
+    pricingSel: { 'doc-1::blank::0': true, 'doc-1::blank::1': true },
+    getMathFrom,
+    setMath: () => {},
+    syncPricingSnapshots: () => {},
+    contractServiceFeeFor: () => null,
+    toast: () => {},
+  });
+
+  // Галочки в таблице сами по себе массовое применение не запускают.
+  setMathFor('doc-1::blank::0', rows[0].parsed, { tariff: 4200, fee: 500, markup: 100, commission: 50 });
+
+  assert.deepEqual(state.current['doc-1::blank::0'], { tariff: 4200, fee: 500, markup: 100, commission: 50 });
+  assert.equal(state.current['doc-1::blank::1'], undefined, 'без явного подтверждения соседний бланк не трогается');
 });
 
 test('bulk pricing shares only fee, markup and commission — never the blank data', () => {
@@ -250,7 +274,8 @@ test('bulk pricing shares only fee, markup and commission — never the blank da
     toast: () => {},
   });
 
-  setMathFor('doc-1::blank::0', rows[0].parsed, { tariff: 4200, fee: 500, markup: 100, commission: 50 });
+  // Явный список бланков приходит из формы расчёта после подтверждения.
+  setMathFor('doc-1::blank::0', rows[0].parsed, { tariff: 4200, fee: 500, markup: 100, commission: 50 }, rows);
 
   const math = state.current;
   // Общими стали только сбор, надбавка и комиссия — внутри одного вида услуги.

@@ -9,6 +9,7 @@ import { PanelSub, StackPanel } from './components/shared-panels';
 import { SvcAddPaxDrawer, SvcDocUploadDrawer } from './page_services';
 import { aftersalesApi, documentsApi, proposalsApi, servicesApi, workspaceActionsApi } from './api/resources';
 import { resultsOf } from './api/client';
+import { ServiceBlanksPanel } from './page_fulfillment';
 import { technicalStopCount, technicalStopLabel, technicalStopsOf } from './features/avia/technical-stops';
 import { TechnicalStopsDetails } from './features/avia/technical-stops.jsx';
 
@@ -1880,6 +1881,7 @@ function FlightCard({ svc, offer, no: noProp, hideBackRow, onBack, onFormKp, onA
               <div style={{ fontWeight: 700, color: 'var(--ink)' }}>Бланк поставщика</div>
               <div style={{ fontSize: 13, color: 'var(--muted)', marginTop: 2 }}>Оригинал сохраняется без изменений (v1). Клиентская версия — с правкой тарифа/такс/сборов, закрытием тарифа на «IT», единично или группово.</div>
             </div>
+            <Button variant="secondary" icon="template" onClick={() => setTab('docs')}>Бланки поставщика в редакторе</Button>
             <Button icon="edit" onClick={() => setBrandedOpen(true)}>Корректировать бланк</Button>
           </div>
           <div className="grid-2">
@@ -1912,6 +1914,10 @@ function FlightCard({ svc, offer, no: noProp, hideBackRow, onBack, onFormKp, onA
       )}
 
       {tab === 'docs' && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
+          {svc?.id && <ServiceBlanksPanel service={svc} orderNo={svc.orderNo || svc.order_no || null}
+            orderId={svc.orderId || svc.order || null} orders={orders} companies={companies}
+            participants={passengers.map((p) => ({ name: p.name, role: p.type }))} />}
         <div className="grid-4">
           {uploadedDocs.map((d) => (
             <div key={d.id} className="doc-chip" title={d.name}>
@@ -1929,6 +1935,7 @@ function FlightCard({ svc, offer, no: noProp, hideBackRow, onBack, onFormKp, onA
             </div>
           ))}
           <button className="doc-chip" style={{ borderStyle: 'dashed', color: 'var(--blue)' }} onClick={() => setUploadOpen(true)}><span style={{ display: 'flex', alignItems: 'center', gap: 8 }}><Icon name="plus" />Загрузить</span></button>
+        </div>
         </div>
       )}
 

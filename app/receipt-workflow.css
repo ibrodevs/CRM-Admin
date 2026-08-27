@@ -1,0 +1,258 @@
+/* ——— Явная область применения стоимости и корректировок ——————————————— */
+.receipt-apply-scope {
+  grid-column: 1 / -1;
+  border: 1px solid var(--line);
+  border-left: 4px solid var(--blue);
+  border-radius: 14px;
+  background: var(--surface-2, var(--surface));
+  padding: 14px 16px;
+  display: grid;
+  gap: 12px;
+  margin: 0;
+}
+
+.receipt-apply-scope.is-compact {
+  margin: 0 0 14px;
+  padding: 12px 14px;
+  border-radius: 12px;
+}
+
+.receipt-apply-scope-head {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.receipt-apply-scope-head > svg {
+  width: 18px;
+  height: 18px;
+  flex: 0 0 auto;
+  color: var(--blue);
+  margin-top: 2px;
+}
+
+.receipt-apply-scope-head > span {
+  flex: 1;
+  min-width: 0;
+  display: grid;
+  gap: 2px;
+}
+
+.receipt-apply-scope-head b { color: var(--ink); font-size: 14.5px; }
+.receipt-apply-scope-head small { color: var(--muted); font-size: 12.5px; line-height: 1.4; }
+
+.receipt-apply-scope-options {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+}
+
+.receipt-apply-scope-option {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--surface);
+  cursor: pointer;
+  transition: border-color .15s ease, background .15s ease;
+}
+
+.receipt-apply-scope-option:hover { border-color: var(--muted-2); }
+.receipt-apply-scope-option.is-active { border-color: var(--blue); background: color-mix(in srgb, var(--blue) 7%, var(--surface)); }
+
+.receipt-apply-scope-option > span { display: grid; gap: 2px; min-width: 0; }
+.receipt-apply-scope-option b { font-size: 13.5px; color: var(--ink); }
+.receipt-apply-scope-option small { font-size: 12px; color: var(--muted); line-height: 1.4; }
+
+.receipt-apply-scope-parts {
+  display: grid;
+  gap: 8px;
+  padding-top: 10px;
+  border-top: 1px dashed var(--line);
+}
+
+.receipt-apply-scope-parts > b { font-size: 13px; color: var(--ink); }
+
+.receipt-apply-scope-parts-grid {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+}
+
+.receipt-apply-scope-parts-grid label {
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  cursor: pointer;
+  background: var(--surface);
+}
+
+.receipt-apply-scope-parts-grid label.is-on { border-color: color-mix(in srgb, var(--blue) 45%, var(--line)); }
+.receipt-apply-scope-parts-grid label > span { display: grid; gap: 1px; min-width: 0; }
+.receipt-apply-scope-parts-grid b { font-size: 13px; color: var(--ink); }
+.receipt-apply-scope-parts-grid small { font-size: 11.5px; color: var(--muted); line-height: 1.35; }
+
+.receipt-apply-scope-note {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.receipt-apply-scope-note svg { width: 14px; height: 14px; flex: 0 0 auto; }
+
+/* ——— Подтверждение массового применения ——————————————————————————————— */
+.receipt-apply-confirm { display: grid; gap: 12px; text-align: left; }
+.receipt-apply-confirm p { margin: 0; font-size: 13.5px; color: var(--muted); line-height: 1.5; }
+.receipt-apply-confirm-block { display: grid; gap: 6px; }
+.receipt-apply-confirm-block > b { font-size: 13px; color: var(--ink); }
+.receipt-apply-confirm-block ul { margin: 0; padding: 0; list-style: none; display: grid; gap: 4px; }
+.receipt-apply-confirm-block li { font-size: 13px; color: var(--body, var(--ink)); display: flex; align-items: center; gap: 6px; }
+.receipt-apply-confirm-block li svg { width: 14px; height: 14px; color: var(--green); flex: 0 0 auto; }
+.receipt-apply-confirm-block li span { color: var(--muted); font-size: 12px; }
+
+.receipt-apply-confirm-money {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 13px;
+  padding: 6px 10px;
+  border-radius: 8px;
+  background: var(--surface-2, var(--surface));
+}
+
+.receipt-apply-confirm-money b { color: var(--ink); }
+
+.receipt-apply-confirm-targets {
+  max-height: 190px;
+  overflow-y: auto;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 8px 10px !important;
+}
+
+.receipt-apply-confirm-targets li { font-size: 12.5px; color: var(--muted); }
+.receipt-apply-confirm-targets li.is-current { color: var(--ink); font-weight: 600; }
+.receipt-apply-confirm-note { font-size: 12px !important; }
+
+/* ——— Разбивка такс: справочник и итог ————————————————————————————————— */
+.receipt-list-head-actions { display: inline-flex; align-items: center; gap: 8px; }
+
+.receipt-tax-custom { display: flex; align-items: center; gap: 6px; }
+.receipt-tax-custom .input { flex: 1; min-width: 0; }
+
+.receipt-breakdown-total {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px dashed var(--line);
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.receipt-breakdown-total b { color: var(--ink); }
+
+.combobox-group {
+  padding: 8px 10px 4px;
+  font-size: 11px;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+  color: var(--muted-2);
+  font-weight: 700;
+}
+
+.combobox-dropdown .dropdown-item.is-cursor {
+  background: color-mix(in srgb, var(--blue) 10%, transparent);
+}
+
+/* ——— Печать и выгрузка фирменного бланка ——————————————————————————————— */
+.receipt-print-notice {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+  padding: 9px 12px;
+  border-radius: 10px;
+  border: 1px solid color-mix(in srgb, var(--green) 40%, var(--line));
+  background: color-mix(in srgb, var(--green) 8%, var(--surface));
+  color: var(--ink);
+  font-size: 13px;
+}
+
+.receipt-print-notice svg { width: 16px; height: 16px; color: var(--green); flex: 0 0 auto; }
+
+@media print {
+  body.receipt-printing .receipt-print-notice { display: none !important; }
+}
+
+/* ——— Бланки поставщика внутри услуги заказа ——————————————————————————— */
+.service-blanks { display: grid; gap: 14px; }
+
+.service-blanks-head {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+  padding: 14px 16px;
+  border: 1px solid var(--line);
+  border-left: 4px solid var(--blue);
+  border-radius: 14px;
+  background: var(--surface);
+}
+
+.service-blanks-head > div { flex: 1; min-width: 220px; display: grid; gap: 3px; }
+.service-blanks-head b { color: var(--ink); font-size: 15px; }
+.service-blanks-head small { color: var(--muted); font-size: 12.5px; line-height: 1.45; }
+
+.service-blanks-list { display: grid; gap: 12px; }
+
+.service-blank-card {
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--surface);
+  padding: 14px 16px;
+  display: grid;
+  gap: 10px;
+}
+
+.service-blank-card > header { display: flex; align-items: center; gap: 12px; }
+.service-blank-card > header > div:nth-child(2) { flex: 1; min-width: 0; display: grid; gap: 2px; }
+.service-blank-card > header b { color: var(--ink); font-size: 14.5px; }
+.service-blank-card > header small { color: var(--muted); font-size: 12px; }
+
+.service-blank-total { text-align: right; display: grid; gap: 2px; }
+.service-blank-total b { font-size: 16px; color: var(--ink); }
+.service-blank-total small { font-size: 11.5px; color: var(--muted); }
+
+.service-blank-details {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 16px;
+  font-size: 12.5px;
+  color: var(--muted);
+  padding-top: 10px;
+  border-top: 1px solid var(--line);
+}
+
+.service-blank-card > footer { display: flex; flex-wrap: wrap; gap: 8px; }
+
+.service-blanks-other { display: grid; gap: 8px; }
+.service-blanks-other > b { font-size: 13px; color: var(--ink); }
+
+/* Клик по всей карточке выбирает вариант: сам переключатель кликов не ловит,
+   иначе чекбокс переключался бы дважды за один клик. */
+.receipt-apply-scope-control {
+  display: inline-flex;
+  align-items: center;
+  pointer-events: none;
+  flex: 0 0 auto;
+  margin-top: 2px;
+}

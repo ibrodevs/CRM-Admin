@@ -20,9 +20,9 @@ test('print and PDF export target only the selected receipt drawer', () => {
 test('receipt sections collapse and avia taxes use a searchable catalog', () => {
   assert.match(editor, /function Section\(\{ title, action, children, defaultOpen = true \}\)/);
   assert.match(editor, /aria-expanded=\{open\}/);
-  assert.match(editor, /const AVIA_TAX_OPTIONS = \[/);
-  assert.match(editor, /<Combobox options=\{AVIA_TAX_OPTIONS/);
-  assert.match(editor, /Выберите или найдите таксу/);
+  assert.match(editor, /from '\.\/tax-catalog'/);
+  assert.match(editor, /<Combobox options=\{aviaTaxOptionsFor\(row\.code\)}/);
+  assert.match(editor, /Выберите таксу из списка/);
 });
 
 test('highlighted bulk calculation block is removed without breaking identical-cost editing', () => {
@@ -32,7 +32,8 @@ test('highlighted bulk calculation block is removed without breaking identical-c
   assert.doesNotMatch(fulfillment, /bulkConfirm/);
   assert.match(fulfillment, /const \[pricingSel, setPricingSel\]/);
   assert.match(fulfillment, /setMathId\(sourceRow\.mathKey\)/);
-  assert.match(fulfillment, /applyCount=\{mathFile && pricingSel\[mathFile\.id\] \? selectedPricingRows\.length : 1\}/);
+  assert.match(fulfillment, /scopeOptions=\{mathScopeOptions\}/);
+  assert.match(fulfillment, /const mathScopeOptions = \(\) => \{|const mathScopeOptions = \(\(\) => \{/);
   assert.match(fulfillment, /row\.mathKey === id[\s\S]*\? patch[\s\S]*fee: patch\.fee, markup: patch\.markup, commission: patch\.commission/);
   assert.match(fulfillment, /clientTotal: clientTotal\(ticketMath\)/);
 });

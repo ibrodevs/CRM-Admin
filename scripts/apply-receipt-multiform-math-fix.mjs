@@ -8,7 +8,7 @@ let changed = false;
 // drawer. The former bulk card was intentionally removed from the UI.
 if (source.includes('const pricingRows = doneRows.filter')
   && source.includes('const mathForFile = (file) =>')
-  && source.includes('const setMathFor = (id, p, patch) =>')) {
+  && source.includes('const setMathFor = (id, p, patch')) {
   console.log('Математика отдельных бланков уже настроена без удалённого массового блока.');
   process.exit(0);
 }

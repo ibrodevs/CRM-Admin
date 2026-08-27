@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import ReactDOM from 'react-dom';
 import { Icon } from './icons';
-import { ActionMenu, Avatar, Button, Checkbox, ConfirmDialog, Drawer, EmptyState, Field, FilterChip, Input, Pill, SearchBox, Select, Tabs, Th, TimeField, plural, useSort, useToast } from './ui';
+import { ActionMenu, Avatar, Button, Checkbox, ConfirmDialog, Drawer, EmptyState, Field, FilterChip, Input, Pill, Radio, SearchBox, Select, Tabs, Th, TimeField, plural, useSort, useToast } from './ui';
 import { COMPANIES_DB, CURRENT_USER, DOCS2, DOC_KIND, DOC_STATUS2, FIN_OPS, FIN_OP_STATUS, FULFILLMENT, ORDERS, ORDER_STAGES, SERVICE_KIND } from './data';
 import { UnifiedBindField, UFDateField } from './forms_unified';
 import { Topbar } from './layout';
@@ -790,27 +790,58 @@ function DocCenter({ scopeOrder, participants, services, onOpenDoc, initialDocum
     d.service_type,
     guessType(`${d.name || ''} ${d.service || ''}`),
   );
+  // Бланк заказа открывается в том же редакторе квитанций, что и в реестре:
+  // правки, стоимость и вывод бланка доступны прямо из карточки заказа.
+  const openReceiptDocument = (d) => {
+    const editorType = receiptEditorType(d);
+    const parsed = normalizeReceiptDraft(editorType, {
+      ...d.parsed,
+      crmOrderId: d.parsed?.crmOrderId || d.orderId || scopedOrderId || '',
+      crmOrderNo: d.parsed?.crmOrderNo || (d.order !== '—' ? String(d.order) : ''),
+      crmPersonId: d.parsed?.crmPersonId || d.personId || '',
+    });
+    setReceiptEdit({
+      ...d, id: d.serverId, editorType, parsed,
+      originalUrl: documentsApi.supplierPreviewUrl(d.serverId),
+      sourceOriginalUrl: documentsApi.supplierSourcePreviewUrl(d.serverId),
+    });
+  };
   const open = (d) => {
     if (d.parsed && ['Маршрут-квитанция', 'Маршрутная квитанция', 'Билет', 'Ваучер'].includes(d.type)) {
-      const editorType = receiptEditorType(d);
-      const parsed = normalizeReceiptDraft(editorType, {
-        ...d.parsed,
-        crmOrderId: d.parsed.crmOrderId || d.orderId || scopedOrderId || '',
-        crmOrderNo: d.parsed.crmOrderNo || (d.order !== '—' ? String(d.order) : ''),
-        crmPersonId: d.parsed.crmPersonId || d.personId || '',
-      });
-      setReceiptEdit({
-        ...d, id: d.serverId, editorType, parsed,
-        originalUrl: documentsApi.supplierPreviewUrl(d.serverId),
-        sourceOriginalUrl: documentsApi.supplierSourcePreviewUrl(d.serverId),
-      });
+      openReceiptDocument(d);
       return;
     }
     if (onOpenDoc) onOpenDoc(d);
     else setOpenNo(d.no);
   };
 
-  const saveOrderReceipt = async (fileId, parsed) => {
+  // Однотипные бланки заказа: их видит редактор, чтобы оператор мог осознанно
+  // распространить стоимость и корректировки на весь заказ.
+  const RECEIPT_DOC_TYPES = ['Маршрут-квитанция', 'Маршрутная квитанция', 'Билет', 'Ваучер'];
+  const receiptSiblingsFor = (document) => docs.filter((row) => row.serverId && row.parsed
+    && RECEIPT_DOC_TYPES.includes(row.type)
+    && receiptEditorType(row) === receiptEditorType(document));
+
+  const receiptGroupInfo = (() => {
+    if (!receiptEdit) return null;
+    const siblings = receiptSiblingsFor(receiptEdit);
+    if (siblings.length < 2) return null;
+    const position = siblings.findIndex((row) => String(row.serverId) === String(receiptEdit.id)) + 1;
+    return {
+      index: 1,
+      count: siblings.length,
+      type: receiptEdit.editorType,
+      position: position > 0 ? position : 1,
+      fileIds: siblings.map((row) => row.serverId),
+      fileNames: siblings.map((row) => row.parsed?.passenger || row.name || row.no || 'Бланк'),
+    };
+  })();
+
+  const saveOrderReceipt = async (fileId, parsed, options = {}) => {
+    const editorType = receiptEdit?.editorType || 'Авиа';
+    const siblingIds = options.applyToGroup
+      ? (options.groupFileIds || []).filter((id) => String(id) !== String(fileId))
+      : [];
     try {
       const saved = await documentsApi.updateReceipt(fileId, {
         draft: false,
@@ -823,6 +854,54 @@ function DocCenter({ scopeOrder, participants, services, onOpenDoc, initialDocum
       const mapped = toLegacyDocument(saved, orders);
       setDocs((current) => current.map((row) => String(row.serverId) === String(fileId) ? mapped : row));
       setReceiptEdit((current) => current ? { ...current, parsed: { ...parsed, recognitionPending: false } } : current);
+
+      if (siblingIds.length) {
+        const shared = receiptSharedGroupPatch(editorType, parsed, options.applyParts);
+        const auditEntry = {
+          at: new Date().toLocaleString('ru-RU'),
+          user: (typeof window !== 'undefined' && window.CURRENT_USER?.name) || 'Оператор',
+          label: 'Применение стоимости и корректировок ко всем бланкам заказа',
+          before: 'Индивидуальные данные сохранены',
+          after: receiptApplyPartsLabel(options.applyParts),
+        };
+        const savedSiblings = [];
+        for (const siblingId of siblingIds) {
+          const sibling = docs.find((row) => String(row.serverId) === String(siblingId));
+          if (!sibling) continue;
+          const nextParsed = normalizeReceiptDraft(editorType, {
+            ...sibling.parsed,
+            ...shared,
+            auditLog: [...(sibling.parsed?.auditLog || []), auditEntry],
+          });
+          // eslint-disable-next-line no-await-in-loop
+          const savedSibling = await documentsApi.updateReceipt(siblingId, {
+            draft: false,
+            verified_data: nextParsed,
+            output_settings: nextParsed.output || { mode: 'original' },
+            audit_log: nextParsed.auditLog || [],
+          });
+          savedSiblings.push(toLegacyDocument(savedSibling, orders));
+        }
+        if (savedSiblings.length) {
+          setDocs((current) => current.map((row) => savedSiblings.find((item) => String(item.serverId) === String(row.serverId)) || row));
+        }
+        toast(`Стоимость и корректировки применены к ${savedSiblings.length + 1} ${plural(savedSiblings.length + 1, ['бланку', 'бланкам', 'бланкам'])} заказа`, 'ok');
+        return true;
+      }
+
+      // Последовательная проверка бланков заказа: следующий однотипный бланк
+      // открывается сам, редактор при этом не закрывается.
+      if (options.continueSequential) {
+        const ids = options.groupFileIds || [];
+        const nextId = ids[ids.indexOf(fileId) + 1] ?? ids.find((id) => String(id) !== String(fileId));
+        const nextDoc = docs.find((row) => String(row.serverId) === String(nextId));
+        if (nextDoc) {
+          openReceiptDocument(nextDoc);
+          toast('Бланк сохранён. Открыт следующий бланк заказа.', 'ok');
+          return true;
+        }
+      }
+
       toast('Квитанция сохранена прямо в документах заказа', 'ok');
       return true;
     } catch (error) {
@@ -963,10 +1042,250 @@ function DocCenter({ scopeOrder, participants, services, onOpenDoc, initialDocum
         onClose={() => setReceiptEdit(null)}
         onChange={(fileId, parsed) => setReceiptEdit((current) => current && String(current.id) === String(fileId) ? { ...current, parsed } : current)}
         onReview={saveOrderReceipt} orders={orders} services={services || []}
+        groupInfo={receiptGroupInfo}
         onBrand={() => { setReceiptBrand(receiptEdit); }} />
       <ReceiptBrandDocumentDrawer open={!!receiptBrand} type={receiptBrand?.editorType} draft={receiptBrand?.parsed}
         originalUrl={receiptBrand?.originalUrl} sourceOriginalUrl={receiptBrand?.sourceOriginalUrl}
         onClose={() => setReceiptBrand(null)} />
+    </div>
+  );
+}
+
+// ——— Бланки поставщика внутри услуги заказа ——————————————————————————————
+// Заказ / услуга / авиа: выгруженные бланки редактируются тем же редактором
+// квитанций, что и в реестре, и выгружаются в нужном виде — оригинал
+// поставщика с корректировками, исходный файл или фирменный бланк.
+const SERVICE_RECEIPT_DOC_TYPES = ['Маршрут-квитанция', 'Маршрутная квитанция', 'Билет', 'Ваучер'];
+
+export function ServiceBlanksPanel({
+  service, orderNo, orderId, orders = [], companies = [], participants = [], onChanged,
+}) {
+  const toast = useToast();
+  const [docs, setDocs] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [edit, setEdit] = useState(null);
+  const [brand, setBrand] = useState(null);
+  const [importing, setImporting] = useState(false);
+  const serviceId = service?.serverId || service?.id || null;
+  const boundOrder = orders.find((item) => String(item.id) === String(orderId));
+  const boundOrderNo = orderNo || boundOrder?.no || null;
+
+  const reload = React.useCallback(async (signal) => {
+    if (!serviceId) { setLoading(false); return; }
+    try {
+      const payload = await documentsApi.list({ service: serviceId }, signal);
+      setDocs(resultsOf(payload).map((item) => toLegacyDocument(item, orders)));
+    } catch (error) {
+      if (error.name !== 'AbortError') toast(error.message || 'Не удалось загрузить бланки услуги', 'err');
+    } finally {
+      setLoading(false);
+    }
+  }, [serviceId]);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    setLoading(true);
+    reload(controller.signal);
+    return () => controller.abort();
+  }, [reload]);
+
+  const editorTypeOf = (document) => document.recType || serviceTypeFromBackend(
+    document.service_kind,
+    document.service_type,
+    guessType(`${document.name || ''} ${service?.kind || ''}`),
+  );
+
+  const blanks = docs
+    .filter((document) => document.serverId && SERVICE_RECEIPT_DOC_TYPES.includes(document.type))
+    .map((document) => {
+      const editorType = editorTypeOf(document);
+      return {
+        ...document,
+        id: document.serverId,
+        editorType,
+        parsed: normalizeReceiptDraft(editorType, {
+          ...(document.parsed || { passenger: document.participant !== '—' ? document.participant : '', recognitionPending: true }),
+          crmOrderId: document.parsed?.crmOrderId || document.orderId || orderId || '',
+          crmOrderNo: document.parsed?.crmOrderNo || (orderNo ? String(orderNo) : ''),
+        }),
+        originalUrl: documentsApi.supplierPreviewUrl(document.serverId),
+        sourceOriginalUrl: documentsApi.supplierSourcePreviewUrl(document.serverId),
+      };
+    });
+  const otherDocs = docs.filter((document) => !SERVICE_RECEIPT_DOC_TYPES.includes(document.type));
+
+  const groupInfo = (() => {
+    if (!edit || blanks.length < 2) return null;
+    const position = blanks.findIndex((row) => String(row.id) === String(edit.id)) + 1;
+    return {
+      index: 1,
+      count: blanks.length,
+      type: edit.editorType,
+      position: position > 0 ? position : 1,
+      fileIds: blanks.map((row) => row.id),
+      fileNames: blanks.map((row) => row.parsed?.passenger || row.name || 'Бланк'),
+    };
+  })();
+
+  const saveBlank = async (fileId, parsed, options = {}) => {
+    const editorType = edit?.editorType || 'Авиа';
+    const siblingIds = options.applyToGroup
+      ? (options.groupFileIds || []).filter((id) => String(id) !== String(fileId))
+      : [];
+    try {
+      const boundOrderId = parsed.crmOrderId || orderId || null;
+      await documentsApi.updateReceipt(fileId, {
+        draft: false,
+        verified_data: parsed,
+        // Пустой order отвязал бы бланк от заказа — поле уходит только с id.
+        ...(boundOrderId ? { order: boundOrderId } : {}),
+        output_settings: parsed.output || { mode: 'original' },
+        audit_log: parsed.auditLog || [],
+      });
+      if (siblingIds.length) {
+        const shared = receiptSharedGroupPatch(editorType, parsed, options.applyParts);
+        const auditEntry = {
+          at: new Date().toLocaleString('ru-RU'),
+          user: (typeof window !== 'undefined' && window.CURRENT_USER?.name) || 'Оператор',
+          label: 'Применение стоимости и корректировок ко всем бланкам услуги',
+          before: 'Индивидуальные данные сохранены',
+          after: receiptApplyPartsLabel(options.applyParts),
+        };
+        for (const siblingId of siblingIds) {
+          const sibling = blanks.find((row) => String(row.id) === String(siblingId));
+          if (!sibling) continue;
+          const nextParsed = normalizeReceiptDraft(editorType, {
+            ...sibling.parsed,
+            ...shared,
+            auditLog: [...(sibling.parsed?.auditLog || []), auditEntry],
+          });
+          // eslint-disable-next-line no-await-in-loop
+          await documentsApi.updateReceipt(siblingId, {
+            draft: false,
+            verified_data: nextParsed,
+            output_settings: nextParsed.output || { mode: 'original' },
+            audit_log: nextParsed.auditLog || [],
+          });
+        }
+        toast(`Стоимость и корректировки применены к ${siblingIds.length + 1} бланкам услуги`, 'ok');
+      } else if (options.continueSequential) {
+        const ids = options.groupFileIds || [];
+        const nextId = ids[ids.indexOf(fileId) + 1];
+        const nextBlank = blanks.find((row) => String(row.id) === String(nextId));
+        if (nextBlank) {
+          setEdit(nextBlank);
+          toast('Бланк сохранён. Открыт следующий бланк услуги.', 'ok');
+        } else {
+          toast('Бланк сохранён в услуге заказа', 'ok');
+        }
+      } else {
+        toast('Бланк сохранён в услуге заказа', 'ok');
+      }
+      await reload();
+      await onChanged?.();
+      return true;
+    } catch (error) {
+      toast(error.message || 'Не удалось сохранить бланк', 'err');
+      return false;
+    }
+  };
+
+  const openFile = (url) => url && window.open(freshSupplierDocumentUrl(url), '_blank', 'noopener,noreferrer');
+
+  return (
+    <div className="service-blanks">
+      <div className="service-blanks-head">
+        <span className="oc-svc-ic" style={{ background: 'var(--blue)' }}><Icon name="template" /></span>
+        <div>
+          <b>Бланки поставщика по услуге</b>
+          <small>Редактируйте бланк прямо в заказе и выгружайте нужный вид: оригинал поставщика с корректировками, исходный файл или фирменный бланк. Загруженный оригинал всегда хранится отдельно и не меняется.</small>
+        </div>
+        <Button icon="download" onClick={() => setImporting(true)}>Загрузить бланк</Button>
+      </div>
+
+      {loading ? <div className="receipt-empty">Загружаем бланки услуги…</div>
+        : blanks.length ? (
+          <div className="service-blanks-list">
+            {blanks.map((document) => {
+              const meta = recType(document.editorType);
+              const details = receiptDetailsLines(document.editorType, document.parsed);
+              const total = receiptFinancialTotal(document.editorType, document.parsed);
+              return (
+                <article className="service-blank-card" key={document.id}>
+                  <header>
+                    <span className="rec-import-icon" style={{ background: meta.color }}><Icon name={meta.icon} /></span>
+                    <div>
+                      <b><ReceiptParticipantSummary draft={document.parsed} noun={document.editorType === 'Гостиница' ? 'гостей' : 'пассажиров'} /></b>
+                      <small>{document.editorType} · {document.no} · {document.name}</small>
+                    </div>
+                    <div className="service-blank-total">
+                      <b>{recMoney(total, document.parsed.currency)}</b>
+                      <small>итого клиенту</small>
+                    </div>
+                  </header>
+                  <div className="service-blank-details">
+                    {details.map((line, index) => <span key={index}>{line}</span>)}
+                  </div>
+                  <footer>
+                    <Button size="sm" icon="edit" onClick={() => setEdit(document)}>Редактировать бланк</Button>
+                    <Button size="sm" variant="secondary" icon="template" onClick={() => setBrand(document)}>Фирменный бланк</Button>
+                    <Button size="sm" variant="ghost" icon="eye" onClick={() => openFile(document.originalUrl)}>Оригинал с корректировками</Button>
+                    <Button size="sm" variant="ghost" onClick={() => window.open(inlineSupplierDocumentUrl(document.sourceOriginalUrl), '_blank', 'noopener,noreferrer')}>Исходный файл</Button>
+                    <Button size="sm" variant="ghost" icon="download" onClick={() => window.open(documentsApi.downloadUrl(document.serverId), '_blank', 'noopener,noreferrer')}>Скачать файл</Button>
+                  </footer>
+                </article>
+              );
+            })}
+          </div>
+        ) : (
+          <EmptyState icon="template" title="Бланки поставщика не загружены"
+            sub="Загрузите маршрут-квитанцию, билет или ваучер — он попадёт в эту услугу и станет доступен для редактирования." />
+        )}
+
+      {otherDocs.length > 0 && (
+        <div className="service-blanks-other">
+          <b>Прочие документы услуги</b>
+          <div className="grid-4">
+            {otherDocs.map((document) => (
+              <div key={document.serverId || document.no} className="doc-chip" title={document.name}>
+                <span style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
+                  <Icon name="docs" style={{ flexShrink: 0 }} />
+                  <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{document.name}</span>
+                </span>
+                <button className="icon-btn" title="Скачать"
+                  onClick={() => window.open(documentsApi.downloadUrl(document.serverId), '_blank', 'noopener,noreferrer')}><Icon name="download" /></button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      <ReceiptEditDrawer open={!!edit} file={edit ? { ...edit, type: edit.editorType } : null}
+        onClose={() => setEdit(null)}
+        onChange={(fileId, parsed) => setEdit((current) => current && String(current.id) === String(fileId) ? { ...current, parsed } : current)}
+        onReview={saveBlank}
+        groupInfo={groupInfo}
+        orders={orders} services={service ? [service] : []} companies={companies}
+        onBrand={() => setBrand(edit)} />
+
+      <ReceiptBrandDocumentDrawer open={!!brand} type={brand?.editorType} draft={brand?.parsed}
+        originalUrl={brand?.originalUrl} sourceOriginalUrl={brand?.sourceOriginalUrl}
+        onClose={() => setBrand(null)} />
+
+      {importing && (
+        <ReceiptImportModal open orders={orders} companies={companies}
+          initialBindTarget={boundOrderNo ? {
+            mode: 'order',
+            label: `Заказ № ${boundOrderNo}`,
+            order: boundOrder || { no: boundOrderNo, id: orderId },
+          } : null}
+          onClose={() => setImporting(false)}
+          onDone={async () => {
+            setImporting(false);
+            await reload();
+            await onChanged?.();
+          }} />
+      )}
     </div>
   );
 }
@@ -1807,16 +2126,33 @@ function receiptDetectedGroups(files, importMode = 'auto') {
   return groups;
 }
 
-function receiptSharedGroupPatch(type, parsed) {
-  const shared = {
+// Что именно оператор разрешил перенести на остальные бланки. Набор всегда
+// выбирается явно: раньше группа получала весь пакет полей молча.
+const RECEIPT_APPLY_PARTS = [
+  { key: 'finance', label: 'Стоимость, таксы и сборы', hint: 'тариф, таксы, сервисные сборы, итог и валюта' },
+  { key: 'route', label: 'Маршрут и рейсы', hint: 'направления, даты, номера рейсов, перевозчик' },
+  { key: 'fare', label: 'Тариф и условия', hint: 'код тарифа, класс бронирования, багаж' },
+  { key: 'output', label: 'Настройки бланка', hint: 'вид бланка и режим показа цены' },
+];
+const RECEIPT_APPLY_ALL_PARTS = Object.fromEntries(RECEIPT_APPLY_PARTS.map((part) => [part.key, true]));
+
+function receiptApplyPartsLabel(parts) {
+  const selected = RECEIPT_APPLY_PARTS.filter((part) => parts?.[part.key]).map((part) => part.label.toLowerCase());
+  return selected.length ? selected.join(', ') : 'ничего не выбрано';
+}
+
+function receiptSharedGroupPatch(type, parsed, parts = RECEIPT_APPLY_ALL_PARTS) {
+  const use = { ...RECEIPT_APPLY_ALL_PARTS, ...(parts || {}) };
+  const shared = {};
+  if (use.route) Object.assign(shared, {
     carrier: parsed.carrier,
     legs: parsed.legs,
     tripType: parsed.tripType,
-    currency: parsed.currency,
-    output: parsed.output,
-    fareInfo: parsed.fareInfo,
-  };
-  if (type === 'Авиа') Object.assign(shared, {
+  });
+  if (use.finance) Object.assign(shared, { currency: parsed.currency });
+  if (use.output) Object.assign(shared, { output: parsed.output });
+  if (use.fare) Object.assign(shared, { fareInfo: parsed.fareInfo });
+  if (type === 'Авиа' && use.finance) Object.assign(shared, {
     fare: parsed.fare,
     taxes: parsed.taxes,
     fees: parsed.fees,
@@ -1825,12 +2161,59 @@ function receiptSharedGroupPatch(type, parsed) {
     fareBreakdown: parsed.fareBreakdown,
     taxBreakdown: parsed.taxBreakdown,
     feeBreakdown: parsed.feeBreakdown,
+  });
+  if (type === 'Авиа' && use.fare) Object.assign(shared, {
     cls: parsed.cls,
     fareBasis: parsed.fareBasis,
     baggage: parsed.baggage,
     handBaggage: parsed.handBaggage,
   });
   return shared;
+}
+
+// Явный выбор области применения. Пока оператор не выбрал «ко всей группе» и
+// не подтвердил действие, правки остаются на текущем бланке.
+function ReceiptApplyScopePanel({ total, position, scope, onScope, parts, onTogglePart, subjectLabel, unitLabel = 'бланков' }) {
+  const chosen = RECEIPT_APPLY_PARTS.filter((part) => parts[part.key]).length;
+  return (
+    <section className="receipt-apply-scope" aria-label="Область применения изменений">
+      <div className="receipt-apply-scope-head">
+        <Icon name="alertCircle" />
+        <span>
+          <b>Куда применить стоимость и корректировки?</b>
+          <small>Решение за оператором: система ничего не переносит на другие бланки без явного выбора и подтверждения.</small>
+        </span>
+        <Pill tone={scope === 'all' ? 'blue' : 'gray'}>{scope === 'all' ? `Ко всем · ${total}` : 'Только текущий'}</Pill>
+      </div>
+      <div className="receipt-apply-scope-options" role="radiogroup" aria-label="Область применения">
+        <label className={'receipt-apply-scope-option' + (scope === 'current' ? ' is-active' : '')} onClick={() => onScope('current')}>
+          <span className="receipt-apply-scope-control"><Radio on={scope === 'current'} onChange={() => onScope('current')} /></span>
+          <span><b>Только этот бланк</b><small>{subjectLabel}{position ? ` · бланк ${position} из ${total}` : ''}</small></span>
+        </label>
+        <label className={'receipt-apply-scope-option' + (scope === 'all' ? ' is-active' : '')} onClick={() => onScope('all')}>
+          <span className="receipt-apply-scope-control"><Radio on={scope === 'all'} onChange={() => onScope('all')} /></span>
+          <span><b>Применять общие исправления ко всей группе</b><small>Все {total} {unitLabel} — стоимость и расчёты переносятся на каждый бланк</small></span>
+        </label>
+      </div>
+      {scope === 'all' && (
+        <div className="receipt-apply-scope-parts">
+          <b>Что переносим на остальные бланки</b>
+          <div className="receipt-apply-scope-parts-grid">
+            {RECEIPT_APPLY_PARTS.map((part) => (
+              <label key={part.key} className={parts[part.key] ? 'is-on' : ''} onClick={() => onTogglePart(part.key)}>
+                <span className="receipt-apply-scope-control"><Checkbox on={!!parts[part.key]} onChange={() => onTogglePart(part.key)} /></span>
+                <span><b>{part.label}</b><small>{part.hint}</small></span>
+              </label>
+            ))}
+          </div>
+          <small className="receipt-apply-scope-note">
+            <Icon name="lock" /> ФИО, документы, номера билетов и места остаются индивидуальными всегда.
+            {chosen === 0 && ' Выберите хотя бы один блок — иначе применять нечего.'}
+          </small>
+        </div>
+      )}
+    </section>
+  );
 }
 
 function receiptBlankMissingFields(ticket, type = 'ЖД') {
@@ -1852,7 +2235,11 @@ function ReceiptEditDrawer({ open, file, onClose, onChange, onSubChange, onBrand
   const [previewExpanded, setPreviewExpanded] = useState(false);
   const [editPreviewMode, setEditPreviewMode] = useState('corrected');
   const [activeBlankIndex, setActiveBlankIndex] = useState(0);
-  const [applyToGroup, setApplyToGroup] = useState(false);
+  // Область применения выбирает оператор: 'current' — только открытый бланк,
+  // 'all' — вся группа. Значение по умолчанию всегда 'current'.
+  const [applyScope, setApplyScope] = useState('current');
+  const [applyParts, setApplyParts] = useState(RECEIPT_APPLY_ALL_PARTS);
+  const applyToGroup = applyScope === 'all';
   const [confirmGroupApply, setConfirmGroupApply] = useState(false);
   const ticketGridRef = useRef(null);
   useEffect(() => {
@@ -1865,7 +2252,8 @@ function ReceiptEditDrawer({ open, file, onClose, onChange, onSubChange, onBrand
     setActiveBlankIndex(firstUnreviewed >= 0 ? firstUnreviewed : 0);
     // A related return ticket can have its own valid fare and conditions.
     // Common corrections therefore require an explicit operator choice.
-    setApplyToGroup(false);
+    setApplyScope('current');
+    setApplyParts(RECEIPT_APPLY_ALL_PARTS);
     setConfirmGroupApply(false);
   }, [open, file && file.id, groupInfo?.count]);
   useEffect(() => {
@@ -2007,11 +2395,13 @@ function ReceiptEditDrawer({ open, file, onClose, onChange, onSubChange, onBrand
     if (saved !== false) onClose();
   };
 
+  // Массовое применение внутри одного многобланкового PDF (авиа и ЖД).
+  // Вызывается только после явного подтверждения оператора.
   const saveAviaGroup = async () => {
-    if (!isAviaTicketGroup || currentMissing.length) return;
+    if (!hasTicketGroup || currentMissing.length || !hasChosenParts) return;
     const reviewedAt = new Date().toISOString();
-    const shared = receiptSharedGroupPatch('Авиа', editingParsed);
-    const tickets = groupTickets.map((ticket, index) => normalizeReceiptDraft('Авиа', {
+    const shared = receiptSharedGroupPatch(file.type, editingParsed, applyParts);
+    const tickets = groupTickets.map((ticket, index) => normalizeReceiptDraft(file.type, {
       ...ticket,
       ...shared,
       ...(index === safeBlankIndex ? editingParsed : {}),
@@ -2032,25 +2422,44 @@ function ReceiptEditDrawer({ open, file, onClose, onChange, onSubChange, onBrand
       reviewedAt, reviewed_at: reviewedAt,
     });
     onChange(file.id, reviewedParsed, useGroup
-      ? { applyToGroup: true, groupFileIds: groupInfo?.fileIds || [] }
+      ? { applyToGroup: true, groupFileIds: groupInfo?.fileIds || [], applyParts }
       : {});
-    const hasNextGroupBlank = Boolean(groupInfo?.count > 1 && groupInfo.position < groupInfo.count);
+    // После массового применения переходить «к следующему» не нужно: группа уже
+    // закрыта одним подтверждением, редактор закрывается.
+    const hasNextGroupBlank = !useGroup && Boolean(groupInfo?.count > 1 && groupInfo.position < groupInfo.count);
     const saved = await onReview?.(file.id, reviewedParsed, {
       applyToGroup: useGroup,
       continueSequential: hasNextGroupBlank,
       groupFileIds: groupInfo?.fileIds || [],
+      applyParts,
     });
     if (saved !== false && !hasNextGroupBlank) onClose();
   };
 
   const confirmGroupChanges = async () => {
     setConfirmGroupApply(false);
-    if (isAviaTicketGroup) {
+    if (hasTicketGroup) {
       await saveAviaGroup();
       return;
     }
     await finishSingleReceipt(true);
   };
+
+  const applyTotal = hasTicketGroup ? groupTickets.length : (groupInfo?.count || 1);
+  const applyPosition = hasTicketGroup ? safeBlankIndex + 1 : (groupInfo?.position || 1);
+  const hasSiblingBlanks = applyTotal > 1;
+  const hasChosenParts = RECEIPT_APPLY_PARTS.some((part) => applyParts[part.key]);
+  const applyTargets = hasTicketGroup
+    ? groupTickets.map((ticket, index) => ({
+      label: receiptParticipantLabel(ticket, `Бланк ${index + 1}`),
+      note: ticket.ticketNo ? `№ ${ticket.ticketNo}` : '',
+      current: index === safeBlankIndex,
+    }))
+    : (groupInfo?.fileNames || []).map((name, index) => ({
+      label: name,
+      note: '',
+      current: index === (groupInfo.position - 1),
+    }));
 
   const drawerTitle = hasTicketGroup
     ? `Проверка · бланк ${safeBlankIndex + 1} из ${groupTickets.length} · ${receiptParticipantLabel(editingParsed)}`
@@ -2085,32 +2494,50 @@ function ReceiptEditDrawer({ open, file, onClose, onChange, onSubChange, onBrand
         footer={<>
           {file.originalUrl && <Button variant="secondary" icon="eye" onClick={() => window.open(supplierPreviewUrl, '_blank', 'noopener,noreferrer')}>Оригинал поставщика с корректировками</Button>}
           {onBrand && <Button variant="secondary" icon="template" onClick={() => onBrand(hasTicketGroup ? safeBlankIndex : null)}>Фирменный бланк</Button>}
-          {isAviaTicketGroup ? <Button style={{ flex: 1 }} icon="check" disabled={currentMissing.length > 0}
-            onClick={() => setConfirmGroupApply(true)}>Проверить и применить к {groupTickets.length} бланкам</Button> : hasTicketGroup ? <>
+          {isAviaTicketGroup ? (applyToGroup
+            ? <Button style={{ flex: 1 }} icon="check" disabled={currentMissing.length > 0 || !hasChosenParts}
+              onClick={() => setConfirmGroupApply(true)}>Проверить и применить к {groupTickets.length} бланкам</Button>
+            : <>
+              <Button variant="secondary" icon="chevLeft" disabled={safeBlankIndex === 0}
+                onClick={() => { setActiveBlankIndex((index) => Math.max(0, index - 1)); setCorrectionMode(false); }}>Назад</Button>
+              <Button style={{ flex: 1 }} icon={canFinishSequence ? 'check' : 'chevRight'} disabled={currentMissing.length > 0}
+                onClick={saveAndContinue}>
+                {canFinishSequence ? 'Сохранить и завершить проверку' : 'Сохранить только этот бланк'}
+              </Button>
+            </>) : hasTicketGroup ? <>
             <Button variant="secondary" icon="chevLeft" disabled={safeBlankIndex === 0}
               onClick={() => { setActiveBlankIndex((index) => Math.max(0, index - 1)); setCorrectionMode(false); }}>Назад</Button>
-            <Button style={{ flex: 1 }} icon={canFinishSequence ? 'check' : 'chevRight'} disabled={currentMissing.length > 0}
-              onClick={saveAndContinue}>
-              {canFinishSequence ? 'Сохранить и завершить проверку' : 'Сохранить и далее'}
-            </Button>
-          </> : <Button style={{ flex: 1 }} icon="check" onClick={() => {
+            {applyToGroup
+              ? <Button style={{ flex: 1 }} icon="check" disabled={currentMissing.length > 0 || !hasChosenParts}
+                onClick={() => setConfirmGroupApply(true)}>Проверить и применить к {groupTickets.length} бланкам</Button>
+              : <Button style={{ flex: 1 }} icon={canFinishSequence ? 'check' : 'chevRight'} disabled={currentMissing.length > 0}
+                onClick={saveAndContinue}>
+                {canFinishSequence ? 'Сохранить и завершить проверку' : 'Сохранить и далее'}
+              </Button>}
+          </> : <Button style={{ flex: 1 }} icon="check" disabled={applyToGroup && !hasChosenParts} onClick={() => {
             if (applyToGroup && groupInfo?.count > 1) setConfirmGroupApply(true);
             else finishSingleReceipt(false);
-          }}>{groupInfo?.count > 1 && groupInfo.position < groupInfo.count
-              ? 'Сохранить и далее'
-              : applyToGroup && groupInfo?.count > 1
-                ? `Проверить и завершить (${groupInfo.count})`
+          }}>{applyToGroup && groupInfo?.count > 1
+              ? `Проверить и применить к ${groupInfo.count} бланкам`
+              : groupInfo?.count > 1 && groupInfo.position < groupInfo.count
+                ? 'Сохранить и далее'
                 : 'Проверено'}</Button>}
         </>}>
         <div className="receipt-edit-layout">
           {!hasTicketGroup && groupInfo?.count > 1 && <section className="receipt-similar-group-banner">
             <Icon name="users" />
             <span><b>Последовательная проверка: бланк {groupInfo.position} из {groupInfo.count}</b><small>{groupInfo.position < groupInfo.count ? 'Следующий бланк откроется после сохранения.' : 'Это последний бланк группы.'} Пассажир, номер билета и маршрут остаются индивидуальными.</small></span>
-            <label><Checkbox on={applyToGroup} onChange={() => setApplyToGroup((value) => !value)} /> Применять общие исправления ко всей группе</label>
           </section>}
+          {hasSiblingBlanks && <ReceiptApplyScopePanel
+            total={applyTotal} position={applyPosition}
+            scope={applyScope} onScope={setApplyScope}
+            parts={applyParts}
+            onTogglePart={(key) => setApplyParts((current) => ({ ...current, [key]: !current[key] }))}
+            subjectLabel={receiptParticipantLabel(hasTicketGroup ? editingParsed : parsed)}
+            unitLabel={plural(applyTotal, ['бланк', 'бланка', 'бланков'])} />}
           {hasTicketGroup && <section className="receipt-sequential-review" aria-label="Последовательная проверка бланков">
             <div className="receipt-sequential-review-head">
-              <span><b>{isAviaTicketGroup ? 'Групповой авиабилет' : 'Последовательная проверка бланков'}</b><small>{isAviaTicketGroup ? 'Общие параметры рейса применяются одним подтверждением; пассажиры и номера билетов остаются индивидуальными.' : 'Проверьте текущий билет и нажмите «Сохранить и далее» — следующий откроется автоматически.'}</small></span>
+              <span><b>{isAviaTicketGroup ? 'Групповой авиабилет' : 'Последовательная проверка бланков'}</b><small>{applyToGroup ? 'Выбрано применение ко всей группе: после подтверждения общие поля уйдут на все бланки, пассажиры и номера билетов останутся индивидуальными.' : 'Правки сохраняются только на текущем бланке. Чтобы перенести их на остальные, выберите область применения выше.'}</small></span>
               <strong>{reviewedCount} / {groupTickets.length}</strong>
             </div>
             <div className="receipt-sequential-progress" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow={progress}>
@@ -2176,7 +2603,9 @@ function ReceiptEditDrawer({ open, file, onClose, onChange, onSubChange, onBrand
             </div>
             {currentMissing.length > 0
               ? <div className="receipt-sequential-validation is-warning"><Icon name="alertCircle" /> Не заполнено: {currentMissing.join(', ')}. Заполните эти данные для продолжения.</div>
-              : <div className="receipt-sequential-validation is-ok"><Icon name="checkCircle" /> {isAviaTicketGroup ? 'Общие исправления будут применены ко всем авиабилетам одним подтверждением. Индивидуальные данные пассажиров сохранятся.' : 'Изменения применяются только к выбранному билету. После сохранения система откроет следующий автоматически.'}</div>}
+              : applyToGroup
+                ? <div className="receipt-sequential-validation is-ok"><Icon name="checkCircle" /> Общие исправления будут применены ко всем бланкам одним подтверждением: {receiptApplyPartsLabel(applyParts)}. Индивидуальные данные пассажиров сохранятся.</div>
+                : <div className="receipt-sequential-validation is-ok"><Icon name="checkCircle" /> Изменения применяются только к выбранному билету. После сохранения система откроет следующий автоматически.</div>}
           </section>}
           <aside className="receipt-edit-preview">
             <div className="receipt-edit-preview-head">
@@ -2227,8 +2656,38 @@ function ReceiptEditDrawer({ open, file, onClose, onChange, onSubChange, onBrand
         document.body,
       )}
       <ConfirmDialog open={confirmGroupApply}
-        title={`Применить общие исправления к ${isAviaTicketGroup ? groupTickets.length : groupInfo?.count || 0} бланкам?`}
-        message="Общие условия, стоимость и настройки вывода будут применены ко всей группе. Встречные маршруты, пассажиры и номера билетов останутся индивидуальными."
+        title={`Применить общие исправления к ${applyTotal} бланкам?`}
+        message={<div className="receipt-apply-confirm">
+          <p>Проверьте, что именно уйдёт на другие бланки. Отменить массовое применение одним действием нельзя.</p>
+          <div className="receipt-apply-confirm-block">
+            <b>Переносим</b>
+            <ul>{RECEIPT_APPLY_PARTS.filter((part) => applyParts[part.key]).map((part) => (
+              <li key={part.key}><Icon name="check" />{part.label} <span>({part.hint})</span></li>
+            ))}</ul>
+          </div>
+          {applyParts.finance && <div className="receipt-apply-confirm-block">
+            <b>Стоимость, которая станет общей</b>
+            <div className="receipt-apply-confirm-money">
+              <span>Итого для клиента</span>
+              <b>{recMoney(receiptFinancialTotal(file.type, editingParsed), editingParsed.currency)}</b>
+            </div>
+            {file.type === 'Авиа' && <div className="receipt-apply-confirm-money">
+              <span>Тариф · таксы · сборы</span>
+              <b>{recMoney(Number(editingParsed.fare) || 0, editingParsed.currency)} · {recMoney(Number(editingParsed.taxes) || 0, editingParsed.currency)} · {recMoney(Number(editingParsed.fees) || 0, editingParsed.currency)}</b>
+            </div>}
+          </div>}
+          <div className="receipt-apply-confirm-block">
+            <b>Бланки, которых это коснётся ({applyTotal})</b>
+            <ul className="receipt-apply-confirm-targets">
+              {applyTargets.map((target, index) => (
+                <li key={`${target.label}-${index}`} className={target.current ? 'is-current' : ''}>
+                  {target.label}{target.note ? ` · ${target.note}` : ''}{target.current ? ' — открыт сейчас' : ''}
+                </li>
+              ))}
+            </ul>
+          </div>
+          <p className="receipt-apply-confirm-note">ФИО, документы, номера билетов и места останутся индивидуальными.</p>
+        </div>}
         confirmLabel={groupInfo?.count > 1 && groupInfo.position < groupInfo.count ? 'Да, применить и далее' : 'Да, применить и завершить'} confirmVariant="primary"
         onConfirm={confirmGroupChanges} onCancel={() => setConfirmGroupApply(false)} />
     </>
@@ -2335,9 +2794,14 @@ function ServiceFeeBindingSummary({ rows = [], info = {}, context = {}, hint = '
 }
 
 
-function ReceiptMathDrawer({ open, file, math, applyCount = 1, feeInfo = null, onSave, onClose }) {
+function ReceiptMathDrawer({ open, file, math, scopeOptions = [], feeInfo = null, onSave, onClose }) {
   const [m, setM] = useState(math || { tariff: 0, fee: 0, markup: 0, commission: 0 });
+  // Область применения расчёта. По умолчанию — только текущий бланк: раньше
+  // выбор в таблице молча превращался в массовое применение.
+  const [scopeKey, setScopeKey] = useState('current');
+  const [confirmScope, setConfirmScope] = useState(false);
   useEffect(() => { if (open && math) setM(math); }, [open, file && file.id]);
+  useEffect(() => { if (open) { setScopeKey('current'); setConfirmScope(false); } }, [open, file && file.id]);
   if (!open || !file) return null;
   const type = file.type || 'Прочее';
   const cur = file.parsed.currency; const sym = cur === 'USD' ? '$' : cur;
@@ -2347,6 +2811,13 @@ function ReceiptMathDrawer({ open, file, math, applyCount = 1, feeInfo = null, o
   const contractFee = feeInfo?.source === 'contract' && feeInfo.fee !== null;
   const feeAmount = contractFee ? num(feeInfo.fee) : num(m.fee);
   const client = num(num(m.tariff) + feeAmount + num(m.markup));
+  const options = scopeOptions.length ? scopeOptions : [{
+    key: 'current', label: 'Только этот бланк', hint: file.parsed.passenger || file.name || '',
+    rows: [{ mathKey: file.id, parsed: file.parsed }],
+  }];
+  const activeScope = options.find((option) => option.key === scopeKey) || options[0];
+  const targetRows = activeScope?.rows || [];
+  const massApply = targetRows.length > 1;
   const serviceMeta = {
     'Авиа': { title: 'Авиа', tariff: 'Тариф + таксы поставщика', hint: 'тариф и таксы из авиабилета', fee: 'Сервисный сбор за авиабилет' },
     'ЖД': { title: 'ЖД', tariff: 'Билет + плацкарта поставщика', hint: 'стоимость билета и плацкарты', fee: 'Сервисный сбор за ЖД-билет' },
@@ -2365,23 +2836,46 @@ function ReceiptMathDrawer({ open, file, math, applyCount = 1, feeInfo = null, o
     ['Агентская надбавка', num(m.markup)],
     ['Комиссия поставщика (не входит в итог)', num(m.commission)],
   ];
-  const selectedLabel = applyCount > 1
-    ? `Выбрано ${applyCount} ${plural(applyCount, ['бланк', 'бланка', 'бланков'])}`
+  const selectedLabel = massApply
+    ? `Выбрано ${targetRows.length} ${plural(targetRows.length, ['бланк', 'бланка', 'бланков'])}`
     : 'Текущий бланк';
+  const patch = () => ({ tariff: num(m.tariff), fee: feeAmount, markup: num(m.markup), commission: num(m.commission) });
+  const applyNow = () => {
+    onSave(patch(), massApply ? targetRows : null);
+    onClose();
+  };
   return (
+    <>
     <Drawer open={open} onClose={onClose} title={'Внутренняя математика · ' + serviceMeta.title}
-      sub={applyCount > 1
-        ? `Сбор, надбавка и комиссия применятся к ${applyCount} выбранным бланкам. База поставщика изменится только у текущего билета.`
+      sub={massApply
+        ? `Сбор, надбавка и комиссия применятся к ${targetRows.length} бланкам после подтверждения. База поставщика изменится только у текущего билета.`
         : 'Отдельная внутренняя форма расчёта · после сохранения сумма сразу переносится в рабочую копию PDF'}
-      width="min(520px,96vw)" className="receipt-internal-math-drawer"
+      width="min(560px,96vw)" className="receipt-internal-math-drawer"
       footer={<>
         <Button variant="secondary" onClick={onClose}>Отмена</Button>
-        <Button icon="check" onClick={() => { onSave({ tariff: num(m.tariff), fee: feeAmount, markup: num(m.markup), commission: num(m.commission) }); onClose(); }}>Сохранить расчёт</Button>
+        <Button icon="check" onClick={() => { if (massApply) setConfirmScope(true); else applyNow(); }}>
+          {massApply ? `Применить к ${targetRows.length} бланкам` : 'Сохранить расчёт'}
+        </Button>
       </>}>
       <div className="receipt-internal-math-head">
-        <Pill tone={applyCount > 1 ? 'blue' : 'gray'}>{selectedLabel}</Pill>
+        <Pill tone={massApply ? 'blue' : 'gray'}>{selectedLabel}</Pill>
         <span>Бланк: <b>{file.parsed.passenger || file.name || 'без названия'}</b></span>
       </div>
+      {options.length > 1 && <div className="receipt-apply-scope is-compact" role="radiogroup" aria-label="Область применения расчёта">
+        <div className="receipt-apply-scope-head">
+          <Icon name="alertCircle" />
+          <span><b>К каким бланкам применить расчёт?</b><small>Система не расширяет область сама — выберите и подтвердите.</small></span>
+        </div>
+        <div className="receipt-apply-scope-options">
+          {options.map((option) => (
+            <label key={option.key} className={'receipt-apply-scope-option' + (option.key === activeScope.key ? ' is-active' : '')}
+              onClick={() => setScopeKey(option.key)}>
+              <span className="receipt-apply-scope-control"><Radio on={option.key === activeScope.key} onChange={() => setScopeKey(option.key)} /></span>
+              <span><b>{option.label}</b>{option.hint && <small>{option.hint}</small>}</span>
+            </label>
+          ))}
+        </div>
+      </div>}
       <div className="receipt-internal-math-fields">
         {fld('tariff', serviceMeta.tariff, serviceMeta.hint)}
         {contractFee ? (
@@ -2413,13 +2907,34 @@ function ReceiptMathDrawer({ open, file, math, applyCount = 1, feeInfo = null, o
         <small>Итого = база поставщика + сервисный сбор + агентская надбавка. Комиссия — внутреннее вознаграждение и сумму клиента не увеличивает.</small>
       </div>
     </Drawer>
+    <ConfirmDialog open={confirmScope}
+      title={`Применить расчёт к ${targetRows.length} бланкам?`}
+      message={<div className="receipt-apply-confirm">
+        <p>Сервисный сбор, агентская надбавка и комиссия станут одинаковыми. База поставщика у каждого бланка останется своей.</p>
+        <div className="receipt-apply-confirm-block">
+          <b>Новые значения</b>
+          <div className="receipt-apply-confirm-money"><span>Сервисный сбор</span><b>{recMoney(feeAmount, cur)}</b></div>
+          <div className="receipt-apply-confirm-money"><span>Агентская надбавка</span><b>{recMoney(num(m.markup), cur)}</b></div>
+          <div className="receipt-apply-confirm-money"><span>Комиссия поставщика</span><b>{recMoney(num(m.commission), cur)}</b></div>
+        </div>
+        <div className="receipt-apply-confirm-block">
+          <b>Бланки ({targetRows.length})</b>
+          <ul className="receipt-apply-confirm-targets">
+            {targetRows.map((row) => (
+              <li key={row.mathKey} className={row.mathKey === file.id ? 'is-current' : ''}>
+                {row.parsed?.passenger || row.f?.name || row.mathKey}{row.mathKey === file.id ? ' — открыт сейчас' : ''}
+              </li>
+            ))}
+          </ul>
+        </div>
+        <p className="receipt-apply-confirm-note">Бланки с договорным сбором сохранят сумму по договору контрагента.</p>
+      </div>}
+      confirmLabel="Да, применить" confirmVariant="primary"
+      onCancel={() => setConfirmScope(false)}
+      onConfirm={() => { setConfirmScope(false); applyNow(); }} />
+    </>
   );
 }
-
-
-
-
-
 
 
 function ReceiptImportModal({ open, onClose, onDone, initialDraft, initialFiles = [], initialBindTarget = null, onDraftSaved, onDraftCleared, onCreateOrder, orders = [], companies = [] }) {
@@ -2527,11 +3042,15 @@ function ReceiptImportModal({ open, onClose, onDone, initialDraft, initialFiles 
     const info = serviceFeeInfoRef.current[mathKey];
     return info?.source === 'contract' && info.fee !== null ? Math.round(Number(info.fee) * 100) / 100 : null;
   };
-  const setMathFor = (id, p, patch) => {
+  // Массовый расчёт применяется только по явному выбору оператора: список
+  // бланков приходит из формы расчёта после подтверждения. Без него правка
+  // остаётся на текущем бланке — система сама область не расширяет.
+  const setMathFor = (id, p, patch, explicitTargets) => {
     const current = mathStateRef.current;
     const sourcePricingRow = pricingRows.find((row) => row.mathKey === id);
-    const targets = pricingSel[id]
-      ? pricingRows.filter((row) => pricingSel[row.mathKey] && row.f.type === sourcePricingRow?.f?.type)
+    const requested = Array.isArray(explicitTargets) && explicitTargets.length ? explicitTargets : null;
+    const targets = requested
+      ? requested.filter((row) => !sourcePricingRow || row.f?.type === undefined || row.f.type === sourcePricingRow.f?.type)
       : [{ mathKey: id, parsed: p }];
     const safeTargets = targets.length ? targets : [{ mathKey: id, parsed: p }];
     const next = { ...current };
@@ -2797,7 +3316,7 @@ function ReceiptImportModal({ open, onClose, onDone, initialDraft, initialFiles 
         ? receiptDetectedGroups(cur, importMode).find((items) => items.some((file) => file.id === id))
         : null;
       const groupedIds = group?.map((file) => file.id) || options.groupFileIds || [];
-      const sharedPatch = source ? receiptSharedGroupPatch(source.type, parsed) : {};
+      const sharedPatch = source ? receiptSharedGroupPatch(source.type, parsed, options.applyParts) : {};
       const next = cur.map((file) => {
         if (file.id === id) {
           const normalized = normalizeReceiptDraft(file.type, {
@@ -3080,6 +3599,9 @@ function ReceiptImportModal({ open, onClose, onDone, initialDraft, initialFiles 
     type: file.type,
     position: group.findIndex((item) => item.id === file.id) + 1,
     fileIds: group.map((item) => item.id),
+    // Имена нужны диалогу подтверждения: оператор должен видеть, каких именно
+    // бланков коснётся массовое применение.
+    fileNames: group.map((item) => item.parsed?.passenger || item.name || 'Бланк'),
   }])));
   useEffect(() => {
     if (files.length && !processing && step === 1) setStep(2);
@@ -3145,6 +3667,34 @@ function ReceiptImportModal({ open, onClose, onDone, initialDraft, initialFiles 
   });
   const selectedPricingRows = pricingRows.filter((row) => pricingSel[row.mathKey]
     && (!mathFile || row.f.type === mathFile.type));
+  // Варианты области применения для формы расчёта. «Только этот бланк» есть
+  // всегда; массовые варианты появляются, только если есть куда применять.
+  const mathScopeOptions = (() => {
+    if (!mathFile) return [];
+    const sourcePricingRow = pricingRows.find((row) => row.mathKey === mathFile.id);
+    const sameTypeRows = pricingRows.filter((row) => row.f.type === mathFile.type);
+    const selectedRows = pricingRows.filter((row) => pricingSel[row.mathKey] && row.f.type === sourcePricingRow?.f?.type);
+    const options = [{
+      key: 'current',
+      label: 'Только этот бланк',
+      hint: mathFile.parsed?.passenger || mathFile.name || '',
+      rows: [{ mathKey: mathFile.id, parsed: mathFile.parsed, f: { type: mathFile.type, name: mathFile.name } }],
+    }];
+    if (selectedRows.length > 1) options.push({
+      key: 'selected',
+      label: `Выбранные бланки (${selectedRows.length})`,
+      hint: 'отмеченные галочками в таблице расчётов',
+      rows: selectedRows,
+    });
+    if (sameTypeRows.length > 1) options.push({
+      key: 'sameType',
+      label: `Все загруженные бланки услуги «${mathFile.type}» (${sameTypeRows.length})`,
+      hint: 'стоимость и расчёты применятся к каждому бланку этого вида услуги',
+      rows: sameTypeRows,
+    });
+    return options;
+  })();
+
   const identicalPricingRows = (sourceRow) => {
     const type = sourceRow?.f?.type;
     if (!['Авиа', 'ЖД'].includes(type)) return [];
@@ -4073,9 +4623,9 @@ function ReceiptImportModal({ open, onClose, onDone, initialDraft, initialFiles 
         }}
         onBrand={() => { setBrandTarget({ fileId: subEdit.fileId, blankIndex: subEdit.index }); }} />
       <ReceiptMathDrawer open={!!mathFile} file={mathFile} math={mathFile ? getMath(mathFile.id, mathFile.parsed) : null}
-        applyCount={mathFile && pricingSel[mathFile.id] ? selectedPricingRows.length : 1}
+        scopeOptions={mathScopeOptions}
         feeInfo={mathFile ? serviceFeeInfo[mathFile.id] : null}
-        onSave={(patch) => { setMathFor(mathFile.id, mathFile.parsed, patch); }} onClose={() => setMathId(null)} />
+        onSave={(patch, targets) => { setMathFor(mathFile.id, mathFile.parsed, patch, targets); }} onClose={() => setMathId(null)} />
 
       <ReceiptBrandDocumentDrawer open={!!brandFile} type={brandFile?.type} draft={brandFile?.parsed}
         originalUrl={brandFile?.originalUrl} sourceOriginalUrl={brandFile?.sourceOriginalUrl}

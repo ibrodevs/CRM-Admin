@@ -49,7 +49,7 @@ test('similar avia and rail files support explicit grouped or ordinary intake', 
   assert.match(page, /Групповое редактирование/);
   assert.match(page, /Обычное редактирование/);
   assert.match(page, /Применять общие исправления ко всей группе/);
-  assert.match(page, /receiptSharedGroupPatch\(source\.type, parsed\)/);
+  assert.match(page, /receiptSharedGroupPatch\(source\.type, parsed, options\.applyParts\)/);
   assert.match(page, /ФИО, документы, номера билетов и стоимость отдельных ЖД-билетов не смешиваются/);
   assert.match(styles, /\.receipt-import-mode-options/);
   assert.match(styles, /\.receipt-similar-group-banner/);

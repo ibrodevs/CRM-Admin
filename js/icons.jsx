@@ -9,6 +9,7 @@ const ICON_PATHS = {
   chat: '<rect x="3" y="4" width="18" height="13" rx="2.5"/><path d="M3 8h18"/><path d="M8 4v13"/>',
   finance: '<path d="M12 2v20"/><path d="M17 6.5c0-2-2.2-3-5-3s-5 1-5 3 2.2 2.6 5 3 5 1.2 5 3.2-2.2 3-5 3-5-1-5-3"/>',
   docs: '<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="3.4"/>',
+  printer: '<path d="M7 9V4h10v5"/><rect x="4" y="9" width="16" height="7" rx="2"/><path d="M7 14h10v6H7z"/>',
   settings: '<path d="M12 4 5 8v8l7 4 7-4V8l-7-4Z"/><path d="M5 8l7 4 7-4M12 12v8"/>',
   calc: '<rect x="4" y="3" width="16" height="18" rx="2.5"/><path d="M8 7h8"/><path d="M8 12h.01M12 12h.01M16 12h.01M8 16h.01M12 16h.01M16 16h.01"/>',
   user: '<circle cx="12" cy="8" r="4"/><path d="M5 20c0-3.6 3.1-6 7-6s7 2.4 7 6"/>',

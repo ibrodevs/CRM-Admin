@@ -407,46 +407,110 @@ function SearchBox({ value, onChange, placeholder = 'Поиск', style }) {
   );
 }
 
-function Combobox({ options, value, onChange, placeholder = 'Начните вводить…', error }) {
-  const [open, setOpen] = useState(false);
+// Выпадающий список с поиском: элементы можно листать скроллом, а можно
+// сузить набор, набрав первые буквы кода или названия. Поддерживает группы,
+// стрелки/Enter и Escape, который закрывает только сам список — окно под ним
+// остаётся открытым.
+function Combobox({
+  options, value, onChange, placeholder = 'Начните вводить…', error,
+  autoOpen = false, emptyText = 'Ничего не найдено', searchPlaceholder = 'Поиск…', size,
+}) {
+  const [open, setOpen] = useState(!!autoOpen);
   const [q, setQ] = useState('');
+  const [cursor, setCursor] = useState(0);
   const wrapRef = useRef(null);
-  const opts = options.map((o) => (typeof o === 'string' ? { value: o, label: o } : o));
+  const listRef = useRef(null);
+  const opts = (options || []).map((o) => (typeof o === 'string' ? { value: o, label: o } : o));
   useEffect(() => {
-    if (!open) return;
+    if (!open) return undefined;
     const onDown = (e) => { if (wrapRef.current && !wrapRef.current.contains(e.target)) { setOpen(false); setQ(''); } };
     document.addEventListener('mousedown', onDown);
     return () => document.removeEventListener('mousedown', onDown);
   }, [open]);
-  const shown = q.trim() ? opts.filter((o) => o.label.toLowerCase().includes(q.trim().toLowerCase())) : opts;
+  const needle = q.trim().toLowerCase();
+  const shown = needle
+    ? opts.filter((o) => `${o.value} ${o.label} ${o.keywords || ''}`.toLowerCase().includes(needle))
+    : opts;
+  // Совпадение по началу кода поднимается наверх: набрал «yq» — сразу YQ.
+  const ranked = needle
+    ? [...shown].sort((a, b) => {
+      const rank = (o) => (String(o.value).toLowerCase().startsWith(needle) ? 0
+        : String(o.label).toLowerCase().startsWith(needle) ? 1 : 2);
+      return rank(a) - rank(b);
+    })
+    : shown;
   const cur = opts.find((o) => o.value === value);
+  const safeCursor = ranked.length ? Math.min(cursor, ranked.length - 1) : 0;
+  useEffect(() => { setCursor(0); }, [q, open]);
+  useEffect(() => {
+    if (!open || !listRef.current) return;
+    const node = listRef.current.querySelector('[data-cursor="1"]');
+    node?.scrollIntoView({ block: 'nearest' });
+  }, [open, safeCursor, q]);
+  const pick = (option) => { onChange(option.value); setOpen(false); setQ(''); };
+  const onKeyDown = (event) => {
+    if (event.key === 'Escape') {
+      event.preventDefault();
+      event.stopPropagation();
+      setOpen(false);
+      setQ('');
+      return;
+    }
+    if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+      event.preventDefault();
+      if (!ranked.length) return;
+      const shift = event.key === 'ArrowDown' ? 1 : -1;
+      setCursor((index) => (Math.min(index, ranked.length - 1) + shift + ranked.length) % ranked.length);
+      return;
+    }
+    if (event.key === 'Enter') {
+      event.preventDefault();
+      if (ranked[safeCursor]) pick(ranked[safeCursor]);
+    }
+  };
+  let lastGroup = null;
   return (
-    <div className="combobox" ref={wrapRef} style={{ position: 'relative' }}>
-      <div className={'select combobox-field' + (error ? ' err' : '')} onClick={() => setOpen((o) => !o)}
+    <div className={'combobox' + (size === 'sm' ? ' combobox-sm' : '')} ref={wrapRef} style={{ position: 'relative' }}>
+      <div className={'select combobox-field' + (error ? ' err' : '')} role="button" tabIndex={0}
+        aria-haspopup="listbox" aria-expanded={open}
+        onClick={() => setOpen((o) => !o)}
+        onKeyDown={(event) => {
+          if (event.key === 'Enter' || event.key === ' ' || event.key === 'ArrowDown') { event.preventDefault(); setOpen(true); }
+        }}
         style={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}>
         <span style={{ flex: 1, color: cur ? 'var(--ink)' : 'var(--muted-2)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{cur ? cur.label : placeholder}</span>
         <Icon name="chevDown" style={{ width: 16, height: 16, color: 'var(--muted-2)' }} />
       </div>
       {open && (
-        <div className="dropdown combobox-dropdown" style={{ position: 'absolute', top: '100%', left: 0, marginTop: 4, zIndex: 60, maxHeight: 280, overflowY: 'auto', padding: 6 }}>
-          <div className="search" style={{ margin: '2px 2px 6px' }}>
+        <div className="dropdown combobox-dropdown" role="listbox" ref={listRef}
+          style={{ position: 'absolute', top: '100%', left: 0, marginTop: 4, zIndex: 60, maxHeight: 320, overflowY: 'auto', padding: 6 }}>
+          <div className="search" style={{ margin: '2px 2px 6px', position: 'sticky', top: 0, zIndex: 1 }}>
             <Icon name="search" />
-            <input autoFocus value={q} onChange={(e) => setQ(e.target.value)} placeholder="Поиск…" onClick={(e) => e.stopPropagation()} />
+            <input autoFocus value={q} onChange={(e) => setQ(e.target.value)} placeholder={searchPlaceholder}
+              onClick={(e) => e.stopPropagation()} onKeyDown={onKeyDown} />
           </div>
-          {shown.length === 0 && <div style={{ padding: '8px 10px', fontSize: 13, color: 'var(--muted)' }}>Ничего не найдено</div>}
-          {shown.map((o) => (
-            <div key={o.value} className={'dropdown-item' + (o.value === value ? ' active' : '')}
-              onClick={() => { onChange(o.value); setOpen(false); setQ(''); }}>
-              {o.value === value && <Icon name="check" style={{ width: 15, height: 15, color: 'var(--blue)' }} />}{o.label}
-            </div>
-          ))}
+          {ranked.length === 0 && <div style={{ padding: '8px 10px', fontSize: 13, color: 'var(--muted)' }}>{emptyText}</div>}
+          {ranked.map((o, index) => {
+            const groupHead = !needle && o.group && o.group !== lastGroup ? o.group : null;
+            lastGroup = o.group || lastGroup;
+            return (
+              <React.Fragment key={o.value}>
+                {groupHead && <div className="combobox-group">{groupHead}</div>}
+                <div role="option" aria-selected={o.value === value}
+                  data-cursor={index === safeCursor ? '1' : '0'}
+                  className={'dropdown-item' + (o.value === value ? ' active' : '') + (index === safeCursor ? ' is-cursor' : '')}
+                  onMouseEnter={() => setCursor(index)}
+                  onClick={() => pick(o)}>
+                  {o.value === value && <Icon name="check" style={{ width: 15, height: 15, color: 'var(--blue)' }} />}{o.label}
+                </div>
+              </React.Fragment>
+            );
+          })}
         </div>
       )}
     </div>
   );
 }
-
-
 
 
 function ClockTimePicker({ value = '09:00', onChange }) {
@@ -558,10 +622,97 @@ function Avatar({ src, name = '', size = 40 }) {
 }
 
 
+// ——— Слои модальных окон ————————————————————————————————————————————————
+// Каждое открытое окно (Drawer / Modal) регистрируется в общем стеке. Escape
+// закрывает только верхний слой, иначе одно нажатие схлопывало сразу все
+// панели: оператор из вложенного предпросмотра вылетал в общий список,
+// потеряв открытый редактор.
+const OVERLAY_LAYERS = [];
+let overlayEscapeBound = false;
+
+// Диалог печати браузера возвращает фокус в страницу и в части браузеров
+// доставляет туда же Escape, которым его закрыли. На время печати и коротко
+// после неё закрытие по Escape и по клику вне окна блокируется — редактор
+// обязан пережить печать.
+let printGuardUntil = 0;
+
+function isPrintGuardActive() {
+  return Date.now() < printGuardUntil;
+}
+
+// Устанавливает окно защиты абсолютно, а не «не меньше текущего»: иначе
+// длинное удержание на время диалога печати не снималось бы после его
+// закрытия и окна нельзя было бы закрыть ещё минуту.
+function holdOverlaysDuringPrint(ms = 1200) {
+  printGuardUntil = Date.now() + ms;
+}
+
+// Печать конкретного окна без выхода из редактора: подсветили нужный слой,
+// напечатали, сняли подсветку и удержали слои от закрытия.
+function printOverlayScope(node, { onDone } = {}) {
+  if (typeof window === 'undefined') return;
+  const overlay = node?.closest?.('.drawer-overlay') || null;
+  const cleanup = () => {
+    document.body.classList.remove('receipt-printing');
+    overlay?.classList.remove('receipt-print-target');
+    holdOverlaysDuringPrint(1200);
+    if (onDone) onDone();
+  };
+  holdOverlaysDuringPrint(60000);
+  overlay?.classList.add('receipt-print-target');
+  document.body.classList.add('receipt-printing');
+  window.addEventListener('afterprint', cleanup, { once: true });
+  try {
+    window.print();
+  } finally {
+    window.setTimeout(cleanup, 1000);
+  }
+}
+
+function bindOverlayEscape() {
+  if (overlayEscapeBound || typeof window === 'undefined') return;
+  overlayEscapeBound = true;
+  window.addEventListener('keydown', (event) => {
+    if (event.key !== 'Escape' || event.defaultPrevented) return;
+    if (!OVERLAY_LAYERS.length) return;
+    if (isPrintGuardActive()) { event.preventDefault(); event.stopPropagation(); return; }
+    const top = OVERLAY_LAYERS[OVERLAY_LAYERS.length - 1];
+    event.preventDefault();
+    event.stopPropagation();
+    top.close();
+  });
+}
+
+// Регистрация окна в стеке. onClose читается через ref, поэтому пересоздание
+// обработчика на каждом рендере не переставляет слой в конец стека.
+function useOverlayLayer(open, onClose) {
+  const closeRef = useRef(onClose);
+  closeRef.current = onClose;
+  useEffect(() => {
+    if (!open) return undefined;
+    bindOverlayEscape();
+    const layer = { close: () => { if (closeRef.current) closeRef.current(); } };
+    OVERLAY_LAYERS.push(layer);
+    return () => {
+      const index = OVERLAY_LAYERS.indexOf(layer);
+      if (index >= 0) OVERLAY_LAYERS.splice(index, 1);
+    };
+  }, [open]);
+}
+
+// Клик по подложке закрывает окно, но не сразу после печати и не когда поверх
+// открыт ещё один слой (клик по нему не должен ронять нижние панели).
+function overlayBackdropClose(event, onClose) {
+  if (event.target !== event.currentTarget) return;
+  if (isPrintGuardActive()) return;
+  if (onClose) onClose();
+}
+
 const MODAL_FOCUSABLE = 'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
 
 function Modal({ open, onClose, children, size, className = '', ariaLabel = 'Диалоговое окно' }) {
   const modalRef = useRef(null);
+  useOverlayLayer(open, onClose);
   useEffect(() => {
     if (!open) return;
     const previousFocus = document.activeElement;
@@ -569,10 +720,6 @@ function Modal({ open, onClose, children, size, className = '', ariaLabel = 'Д�
       modalRef.current?.focus();
     });
     const h = (e) => {
-      if (e.key === 'Escape') {
-        onClose && onClose();
-        return;
-      }
       if (e.key !== 'Tab' || !modalRef.current) return;
       const controls = Array.from(modalRef.current.querySelectorAll(MODAL_FOCUSABLE));
       if (!controls.length) {
@@ -600,7 +747,7 @@ function Modal({ open, onClose, children, size, className = '', ariaLabel = 'Д�
   if (!open) return null;
   const sizeClass = size ? 'modal-' + size + ' ' : '';
   return (
-    <div className="overlay" onMouseDown={(e) => { if (e.target === e.currentTarget) onClose && onClose(); }}>
+    <div className="overlay" onMouseDown={(e) => overlayBackdropClose(e, onClose)}>
       <div ref={modalRef} className={'modal ' + sizeClass + className} role="dialog" aria-modal="true" aria-label={ariaLabel} tabIndex={-1}>
         <div className="modal-content scroll">{children}</div>
       </div>
@@ -621,17 +768,12 @@ function ModalHeader({ title, sub, onClose }) {
 
 
 function Drawer({ open, onClose, title, sub, children, footer, width, className = '' }) {
-  useEffect(() => {
-    if (!open) return;
-    const h = (e) => { if (e.key === 'Escape') onClose && onClose(); };
-    window.addEventListener('keydown', h);
-    return () => window.removeEventListener('keydown', h);
-  }, [open, onClose]);
+  useOverlayLayer(open, onClose);
   if (!open) return null;
   // Рендерим порталом в body: иначе вложенный в другую панель (container-type/overflow)
   // Drawer с position:fixed привязывается к коробке родителя и открывается неправильно.
   const node = (
-    <div className="drawer-overlay" onMouseDown={(e) => { if (e.target === e.currentTarget) onClose && onClose(); }}>
+    <div className="drawer-overlay" onMouseDown={(e) => overlayBackdropClose(e, onClose)}>
       <div className={`drawer scroll${className ? ` ${className}` : ''}`} style={width ? { width } : null}>
         <div className="drawer-head">
           <div>
@@ -1210,6 +1352,7 @@ function TimeField({ label, value, onChange, placeholder = 'чч:мм', required
 Object.assign(window, {
   ToastProvider, useToast, Button, Pill, TimeLimitBadge, plural, Toggle, Checkbox, Radio,
   Field, Input, LocationAutocomplete, Select, SearchBox, Combobox, Avatar, Modal, ModalHeader, Drawer,
+  printOverlayScope, holdOverlaysDuringPrint, isPrintGuardActive,
   ConfirmDialog, Tabs, FilterChip, Pagination, Th, useSort,
   EmptyState, SkeletonRows, ActionMenu,
   fmtDate, CalendarPicker, DateField, DateRangeField, TimeField,
@@ -1217,4 +1360,4 @@ Object.assign(window, {
 
 
 
-export { ToastCtx, useToast, MAX_TOASTS, TOAST_ICON, TOAST_URGENCY, ToastItem, ToastProvider, BTN_OWN_PROPS, Button, PILL_TONE, Pill, TimeLimitBadge, plural, Toggle, Checkbox, Radio, Field, Input, LocationAutocomplete, Select, SearchBox, Combobox, ClockTimePicker, WH_DAY_RANGES, WorkHoursPicker, Avatar, Modal, ModalHeader, Drawer, ConfirmDialog, Tabs, FilterChip, Pagination, Th, useSort, EmptyState, SkeletonRows, ActionMenu, CAL_MONTHS, CAL_DAYS, fmtDate, sameDayEq, CalendarPicker, DateField, DateRangeField, TimeField };
+export { ToastCtx, useToast, MAX_TOASTS, TOAST_ICON, TOAST_URGENCY, ToastItem, ToastProvider, BTN_OWN_PROPS, Button, PILL_TONE, Pill, TimeLimitBadge, plural, Toggle, Checkbox, Radio, Field, Input, LocationAutocomplete, Select, SearchBox, Combobox, printOverlayScope, holdOverlaysDuringPrint, isPrintGuardActive, ClockTimePicker, WH_DAY_RANGES, WorkHoursPicker, Avatar, Modal, ModalHeader, Drawer, ConfirmDialog, Tabs, FilterChip, Pagination, Th, useSort, EmptyState, SkeletonRows, ActionMenu, CAL_MONTHS, CAL_DAYS, fmtDate, sameDayEq, CalendarPicker, DateField, DateRangeField, TimeField };
