@@ -1522,6 +1522,12 @@ function receiptWithPricing(type, receipt, pricing) {
 
   if (type === 'ЖД') {
     const reservedSeatCost = round(receipt?.reservedSeatCost);
+    const reservedSeatCost = pricing?.reservedSeatCost !== undefined && pricing?.reservedSeatCost !== null && pricing?.reservedSeatCost !== ''
+      ? round(pricing.reservedSeatCost)
+      : round(receipt?.reservedSeatCost);
+    const ticketCost = pricing?.ticketCost !== undefined && pricing?.ticketCost !== null && pricing?.ticketCost !== ''
+      ? round(pricing.ticketCost)
+      : Math.max(0, round(tariffAndTaxes - taxes - reservedSeatCost));
     const additionalFees = round(receipt?.additionalFees);
     const ticketCost = Math.max(0, round(tariffAndTaxes - taxes - reservedSeatCost));
     const agencyServiceFee = Math.max(0, round(fees - additionalFees));
@@ -2975,11 +2981,33 @@ function ReceiptCostGroupsBar({
 
 function ReceiptMathDrawer({ open, file, math, scopeOptions = [], feeInfo = null, onSave, onClose }) {
   const [m, setM] = useState(math || { tariff: 0, fee: 0, markup: 0, commission: 0 });
+  const num = (v) => Math.round((Number(v) || 0) * 100) / 100;
+  const isRail = file?.type === 'ЖД';
+  const buildInitialMath = (baseMath, parsed) => {
+    const raw = baseMath || {};
+    const parsedTicket = Number(parsed?.ticketCost ?? parsed?.ticket_cost);
+    const parsedReserved = Number(parsed?.reservedSeatCost ?? parsed?.reserved_seat_cost);
+    const ticketCost = raw.ticketCost !== undefined ? raw.ticketCost : (Number.isFinite(parsedTicket) ? parsedTicket : (raw.tariff || 0));
+    const reservedSeatCost = raw.reservedSeatCost !== undefined ? raw.reservedSeatCost : (Number.isFinite(parsedReserved) ? parsedReserved : 0);
+    const tariff = isRail
+      ? num(num(ticketCost) + num(reservedSeatCost))
+      : (raw.tariff ?? 0);
+    return {
+      tariff,
+      ticketCost,
+      reservedSeatCost,
+      fee: raw.fee ?? 0,
+      markup: raw.markup ?? 0,
+      commission: raw.commission ?? 0,
+    };
+  };
+  const [m, setM] = useState(() => buildInitialMath(math, file?.parsed));
   // Область применения расчёта. По умолчанию — только текущий бланк: раньше
   // выбор в таблице молча превращался в массовое применение.
   const [scopeKey, setScopeKey] = useState('current');
   const [confirmScope, setConfirmScope] = useState(false);
   useEffect(() => { if (open && math) setM(math); }, [open, file && file.id]);
+  useEffect(() => { if (open && math) setM(buildInitialMath(math, file?.parsed)); }, [open, file && file.id, math]);
   useEffect(() => { if (open) { setScopeKey('current'); setConfirmScope(false); } }, [open, file && file.id]);
   if (!open || !file) return null;
   const type = file.type || 'Прочее';
@@ -3000,6 +3028,7 @@ function ReceiptMathDrawer({ open, file, math, scopeOptions = [], feeInfo = null
   const serviceMeta = {
     'Авиа': { title: 'Авиа', tariff: 'Тариф + таксы поставщика', hint: 'тариф и таксы из авиабилета', fee: 'Сервисный сбор за авиабилет' },
     'ЖД': { title: 'ЖД', tariff: 'Билет + плацкарта поставщика', hint: 'стоимость билета и плацкарты', fee: 'Сервисный сбор за ЖД-билет' },
+    'ЖД': { title: 'ЖД', tariff: 'База поставщика (билет + плацкарта)', hint: 'автоматическая сумма стоимости билета и плацкарты', fee: 'Сервисный сбор за ЖД-билет' },
     'Гостиница': { title: 'Гостиница', tariff: 'Стоимость проживания поставщика', hint: 'закупочная стоимость размещения', fee: 'Сервисный сбор за бронирование' },
     'Трансфер': { title: 'Трансфер', tariff: 'Стоимость трансфера поставщика', hint: 'закупочная стоимость поездки', fee: 'Сервисный сбор за трансфер' },
   }[type] || { title: type, tariff: 'Стоимость поставщика', hint: 'из бланка', fee: 'Сервисный сбор' };
@@ -3010,6 +3039,14 @@ function ReceiptMathDrawer({ open, file, math, scopeOptions = [], feeInfo = null
     </label>
   );
   const calculationRows = [
+  const calculationRows = isRail ? [
+    ['Стоимость билета', num(m.ticketCost)],
+    ['Стоимость плацкарты', num(m.reservedSeatCost)],
+    ['База поставщика (билет + плацкарта)', num(m.tariff)],
+    [serviceMeta.fee, feeAmount],
+    ['Агентская надбавка', num(m.markup)],
+    ['Комиссия поставщика (не входит в итог)', num(m.commission)],
+  ] : [
     [serviceMeta.tariff, num(m.tariff)],
     [serviceMeta.fee, feeAmount],
     ['Агентская надбавка', num(m.markup)],
@@ -3019,6 +3056,13 @@ function ReceiptMathDrawer({ open, file, math, scopeOptions = [], feeInfo = null
     ? `Выбрано ${targetRows.length} ${plural(targetRows.length, ['бланк', 'бланка', 'бланков'])}`
     : 'Текущий бланк';
   const patch = () => ({ tariff: num(m.tariff), fee: feeAmount, markup: num(m.markup), commission: num(m.commission) });
+  const patch = () => ({
+    tariff: num(m.tariff),
+    ...(isRail ? { ticketCost: num(m.ticketCost), reservedSeatCost: num(m.reservedSeatCost) } : {}),
+    fee: feeAmount,
+    markup: num(m.markup),
+    commission: num(m.commission),
+  });
   const applyNow = () => {
     onSave(patch(), massApply ? targetRows : null);
     onClose();
@@ -3057,6 +3101,53 @@ function ReceiptMathDrawer({ open, file, math, scopeOptions = [], feeInfo = null
       </div>}
       <div className="receipt-internal-math-fields">
         {fld('tariff', serviceMeta.tariff, serviceMeta.hint)}
+        {isRail ? (
+          <>
+            <label className="receipt-internal-math-field">
+              <span>Стоимость билета, {sym}<small> · проезд по ЖД</small></span>
+              <input
+                className="input"
+                type="number"
+                min="0"
+                step="0.01"
+                inputMode="decimal"
+                value={m.ticketCost ?? ''}
+                onChange={(e) => {
+                  const tVal = e.target.value;
+                  const rVal = m.reservedSeatCost ?? 0;
+                  const sumTariff = num((Number(tVal) || 0) + (Number(rVal) || 0));
+                  setM((s) => ({ ...s, ticketCost: tVal, tariff: sumTariff }));
+                }}
+              />
+            </label>
+            <label className="receipt-internal-math-field">
+              <span>Стоимость плацкарты, {sym}<small> · спальное / посадочное место</small></span>
+              <input
+                className="input"
+                type="number"
+                min="0"
+                step="0.01"
+                inputMode="decimal"
+                value={m.reservedSeatCost ?? ''}
+                onChange={(e) => {
+                  const rVal = e.target.value;
+                  const tVal = m.ticketCost ?? 0;
+                  const sumTariff = num((Number(tVal) || 0) + (Number(rVal) || 0));
+                  setM((s) => ({ ...s, reservedSeatCost: rVal, tariff: sumTariff }));
+                }}
+              />
+            </label>
+            <div className="receipt-internal-math-field is-contract-fee">
+              <span>База поставщика (билет + плацкарта), {sym}</span>
+              <input className="input" value={num(m.tariff)} readOnly disabled aria-readonly="true" />
+              <small className="receipt-internal-math-note is-contract">
+                <Icon name="calc" /> Автоматический расчёт: {num(m.ticketCost || 0)} + {num(m.reservedSeatCost || 0)} = {num(m.tariff)} {sym}
+              </small>
+            </div>
+          </>
+        ) : (
+          fld('tariff', serviceMeta.tariff, serviceMeta.hint)
+        )}
         {contractFee ? (
           <div className="receipt-internal-math-field is-contract-fee">
             <span>{serviceMeta.fee}, {sym}</span>
@@ -3581,6 +3672,26 @@ function ReceiptImportModal({ open, onClose, onDone, initialDraft, initialFiles 
     fee: Math.round((Number(p && p.fees) || 0) * 100) / 100,
     markup: 0,
     commission: 0,
+  const getMathFrom = (mathState, id, p) => {
+    if (mathState[id]) return mathState[id];
+    const ticketCost = Number(p && (p.ticketCost ?? p.ticket_cost)) || 0;
+    const reservedSeatCost = Number(p && (p.reservedSeatCost ?? p.reserved_seat_cost)) || 0;
+    const isRail = Boolean(ticketCost > 0 || reservedSeatCost > 0 || p?.type === 'ЖД' || p?.editorType === 'ЖД');
+    const initialTicketCost = isRail
+      ? (ticketCost || (reservedSeatCost ? Math.max(0, supplierNet(p) - reservedSeatCost) : supplierNet(p)))
+      : 0;
+    const initialReservedCost = isRail ? reservedSeatCost : 0;
+    const tariff = isRail
+      ? Math.round((initialTicketCost + initialReservedCost) * 100) / 100
+      : supplierNet(p);
+    return {
+      tariff,
+      ticketCost: initialTicketCost,
+      reservedSeatCost: initialReservedCost,
+      fee: Math.round((Number(p && (p.fees || p.agencyServiceFee)) || 0) * 100) / 100,
+      markup: 0,
+      commission: 0,
+    };
   };
   const getMath = (id, p) => getMathFrom(math, id, p);
   // Договорной сервисный сбор индивидуален для бланка: массовое применение

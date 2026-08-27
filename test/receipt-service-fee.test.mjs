@@ -209,7 +209,6 @@ test('math drawer locks the contract fee and explains a manual one', () => {
   assert.match(page, /<input className="input" value=\{feeAmount\} readOnly disabled aria-readonly="true" \/>/);
   assert.match(page, /\{serviceFeeSourceLabel\(feeInfo\)\}/);
   assert.match(page, /\{serviceFeeManualHint\(feeInfo\)\}/);
-  assert.match(page, /const patch = \(\) => \(\{ tariff: num\(m\.tariff\), fee: feeAmount/);
   assert.match(page, /Выбрано \$\{targetRows\.length\}/);
   assert.ok(styles.includes('.receipt-internal-math-note.is-contract{color:var(--green)}'));
 });

@@ -46,6 +46,10 @@ test('internal math has service-specific forms and preserves cents', () => {
   assert.match(page, /Внутренняя математика ·/);
   assert.match(page, /'Авиа': \{ title: 'Авиа', tariff: 'Тариф \+ таксы поставщика'/);
   assert.match(page, /'ЖД': \{ title: 'ЖД', tariff: 'Билет \+ плацкарта поставщика'/);
+  assert.match(page, /'ЖД': \{ title: 'ЖД', tariff: 'База поставщика \(билет \+ плацкарта\)'/);
+  assert.match(page, /Стоимость билета, \{sym\}/);
+  assert.match(page, /Стоимость плацкарты, \{sym\}/);
+  assert.match(page, /Автоматический расчёт: \{num\(m\.ticketCost/);
   assert.match(page, /step="0\.01" inputMode="decimal"/);
   assert.match(page, /Math\.round\(\(Number\(v\) \|\| 0\) \* 100\) \/ 100/);
   assert.ok(page.includes('const clientTotal = (m) => Math.round(((Number(m.tariff) || 0) + (Number(m.fee) || 0) + (Number(m.markup) || 0)) * 100) / 100;'));
