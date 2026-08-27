@@ -975,12 +975,10 @@ export function ReceiptBrandDocumentDrawer({ open, type, draft, originalUrl, sou
   const [previewMode, setPreviewMode] = useState('agency');
   const [supplierPdfNonce, setSupplierPdfNonce] = useState(0);
   const [pdfBusy, setPdfBusy] = useState(false);
-  const [printNotice, setPrintNotice] = useState('');
   const printScopeRef = useRef(null);
   const documentRef = useRef(null);
   useEffect(() => {
     if (open) setSupplierPdfNonce(Date.now());
-    if (open) setPrintNotice('');
   }, [open, originalUrl]);
   useEffect(() => {
     if (!open) return;
@@ -1032,17 +1030,13 @@ export function ReceiptBrandDocumentDrawer({ open, type, draft, originalUrl, sou
   };
   const displayedSupplierPdfUrl = sourcePdfUrl ? freshSupplierPdfUrl(sourcePdfUrl, supplierPdfNonce || 'initial') : '';
   // Печать только этого окна. Слои удерживаются от закрытия: после закрытия
-  // системного окна печати оператор обязан вернуться в тот же редактор, а не
-  // в общий список загруженных документов.
+  
   const printReceipt = () => {
     const printOverlay = printScopeRef.current?.closest('.drawer-overlay');
     if (printOverlay) printOverlay.classList.add('receipt-print-target');
-    printOverlayScope(printScopeRef.current, {
-      onDone: () => setPrintNotice('Печать завершена — вы остались в редакторе бланка.'),
-    });
+    printOverlayScope(printScopeRef.current);
   };
-  // Выгрузка фирменного бланка в PDF без системного окна печати: файл
-  // сохраняется сразу, диалог печати вообще не открывается.
+  
   const downloadBrandPdf = async () => {
     const node = documentRef.current;
     if (!node || typeof window === 'undefined' || !window.html2canvas || !window.jspdf) {
@@ -1070,9 +1064,8 @@ export function ReceiptBrandDocumentDrawer({ open, type, draft, originalUrl, sou
       const pdf = new jsPDF({ orientation: 'portrait', unit: 'px', format: [canvas.width, canvas.height], compress: true });
       pdf.addImage(canvas.toDataURL('image/jpeg', 0.94), 'JPEG', 0, 0, canvas.width, canvas.height);
       pdf.save(`${TYPE_META[type]?.document || 'Документ'} · ${outputLabel}.pdf`);
-      setPrintNotice('PDF сохранён. Редактор бланка остался открытым.');
     } catch (error) {
-      setPrintNotice('Не удалось собрать PDF — используйте кнопку «Печать».');
+      // ignore
     } finally {
       document.body.removeChild(host);
       holdOverlaysDuringPrint(1200);
@@ -1107,7 +1100,6 @@ export function ReceiptBrandDocumentDrawer({ open, type, draft, originalUrl, sou
             : pdfBusy ? 'Готовим PDF…' : 'Скачать фирменный PDF'}</Button>}
       </div>}>
       <div ref={printScopeRef} className="receipt-brand-print-scope">
-      {printNotice && <div className="receipt-print-notice" role="status"><Icon name="checkCircle" />{printNotice}</div>}
       <div className="receipt-brand-variants" aria-label="Вариант бланка">
         {[
           ['original', 'Оригинал поставщика'],
@@ -1684,16 +1676,10 @@ export function ReceiptSpecializedForm({
   // видит ровно то, что уйдёт в клиентский документ. Закупочная сумма живёт
   // в модели и подписана под полем — она нужна для внутренних расчётов.
   const itFareOn = type === 'Авиа' && receiptUsesItFare(p);
-  const itFareAmount = itFareOn
-    ? receiptNumericSource(p.fare, p.output?.itFareSnapshot?.fare, p.output?.it_fare_snapshot?.fare)
-    : '';
-  const itFareHint = itFareAmount === ''
-    ? 'Поставщик закрыл тариф — суммы в бланке нет'
-    : `Закупка ${roundMoney(itFareAmount).toLocaleString('ru-RU')} ${p.currency || ''} · видна только вам`;
   const moneyField = (label, key, locked = false) => {
     const lockedProps = locked && !correctionMode ? { disabled: true, className: 'input receipt-locked-input' } : {};
     if (itFareOn && key === 'fare') {
-      return <Field label={label} hint={itFareHint}>
+      return <Field label={label}>
         <Input value="IT" readOnly className="input receipt-it-input" aria-label={`${label}: закрыт на IT`} />
       </Field>;
     }

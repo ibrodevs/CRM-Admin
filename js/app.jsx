@@ -192,7 +192,7 @@ function App() {
         request_type: draft.clientMode === 'company' ? 'Корпоративная' : 'Индивидуальная',
         client_person: draft.clientMode === 'company' ? null : clientPersonId,
         client_company: draft.clientMode === 'company' ? draft.companyId : null,
-        base_currency: plan.currency || 'USD',
+        base_currency: plan.currency || 'RUB',
         planned_start: plan.plannedStart || null,
         planned_end: plan.plannedEnd || null,
         purpose: plan.serviceKinds?.length ? `Заказ по бланкам: ${plan.serviceKinds.join(', ')}` : 'Заказ по бланкам поставщика',

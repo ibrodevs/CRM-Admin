@@ -664,7 +664,7 @@ function TripCalendarPage({ role, feed, orders = [], clients = [], companies = [
         request_type: 'individual', client_person: client?.id || null, client_company: company?.id || null,
         planned_start: event.date.toISOString().slice(0, 10),
         planned_end: event.endStr ? event.endStr.split('.').reverse().join('-') : null,
-        purpose: event.form.direction || 'Поездка из календаря', base_currency: 'USD', source: 'calendar',
+        purpose: event.form.direction || 'Поездка из календаря', base_currency: 'RUB', source: 'calendar',
       });
       linkedOrder = toUiOrder(createdOrder);
       window.__addOrder && window.__addOrder(linkedOrder);

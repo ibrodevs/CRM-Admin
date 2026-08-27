@@ -66,7 +66,7 @@ export function toUiOrder(order) {
     operator: order.operator_name || 'Не назначен',
     operatorRole: 'Оператор',
     sum: Number(order.total_amount || 0),
-    currency: order.base_currency || 'USD',
+    currency: order.base_currency || 'RUB',
     services: Number(order.services_count || 0),
     progress: order.stage === 'completed' ? 100 : 0,
     date: date ? date.toLocaleDateString('ru-RU') : '',

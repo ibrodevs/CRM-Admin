@@ -164,7 +164,7 @@ export function WorkspaceProvider({ children }) {
       priority: draft.priority || 'normal',
       source: draft.source || 'web',
       preferred_channel: draft.preferred_channel || draft.channel || '',
-      base_currency: draft.base_currency || draft.currency || 'USD',
+      base_currency: draft.base_currency || draft.currency || 'RUB',
       planned_start: draft.planned_start || draft.dateFrom || null,
       planned_end: draft.planned_end || draft.dateTo || null,
       purpose: draft.purpose || draft.service || '',

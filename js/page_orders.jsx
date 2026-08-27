@@ -412,7 +412,7 @@ function OrderCreateModal({ open, onClose, onCreated, initialGroup = false, clie
       const created = await ordersApi.create({
         request_type: isGroup ? 'group' : clientType === 'org' ? 'corporate' : 'individual',
         ...(clientType === 'org' ? { client_company: company.id } : { client_person: selectedClient.id }),
-        base_currency: 'USD',
+        base_currency: 'RUB',
         planned_start: depDate instanceof Date ? depDate.toISOString().slice(0, 10) : null,
         planned_end: retDate instanceof Date ? retDate.toISOString().slice(0, 10) : null,
         route: {
@@ -873,7 +873,7 @@ function OrdersList({ orders, onOpen, onCreate, onNavigate, currentUser }) {
     try {
       const proposal = await proposalsApi.create({
         order: selected.id, type: 'standard', purpose: 'Коммерческое предложение',
-        currency: selected.currency || 'USD', variants: [{ name: 'Основной вариант', items: [] }],
+        currency: selected.currency || 'RUB', variants: [{ name: 'Основной вариант', items: [] }],
       });
       const prepared = await proposalsApi.prepare(proposal.id, proposal.version);
       await proposalsApi.send(prepared.id, prepared.version);

@@ -345,7 +345,7 @@ function TabOverview({ order, company }) {
     ['Тип заявки', order.requestType],
     ['Оператор', order.operator],
     ['Дата создания', order.date],
-    ['Валюта', order.currency || order.base_currency || 'USD'],
+    ['Валюта', order.currency || order.base_currency || 'RUB'],
     ['Назначение', visibleValue(order.purpose)],
     ['Начало поездки', visibleValue(order.planned_start)],
     ['Окончание поездки', visibleValue(order.planned_end)],

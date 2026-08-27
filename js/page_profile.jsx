@@ -202,7 +202,7 @@ function ProfilePage({ user, onNavigate, initialTab }) {
         setPrefs({
           theme: { light: 'Светлая', dark: 'Тёмная', system: 'Системная' }[preference.theme] || 'Светлая',
           dateFmt: preference.date_format || 'ДД.ММ.ГГГГ', timeFmt: preference.time_format || '24 часа',
-          currency: preference.base_currency || 'USD',
+          currency: preference.base_currency || 'RUB',
           lang: { ru: 'Русский', ky: 'Кыргызча', en: 'English' }[preference.language] || 'Русский',
           pageSize: String(preference.page_size || 25), startPage: preference.start_page || 'Главное',
         });

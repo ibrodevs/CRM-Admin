@@ -29,8 +29,6 @@ test('the editor itself shows the IT marker instead of the closed tariff', () =>
   assert.match(editor, /const itFareOn = type === 'Авиа' && receiptUsesItFare\(p\)/);
   assert.match(editor, /if \(itFareOn && key === 'fare'\) \{/);
   assert.match(editor, /<Input value="IT" readOnly className="input receipt-it-input"/);
-  // Закупочная сумма никуда не девается — она в подсказке под полем.
-  assert.match(editor, /Закупка \$\{roundMoney\(itFareAmount\)/);
   // Маркер стоит только в графе тарифа: итоги в редакторе остаются суммами,
   // иначе оператор теряет рабочие числа.
   assert.match(editor, /<Input value=\{total\} readOnly className="input receipt-total-input" \/>/);

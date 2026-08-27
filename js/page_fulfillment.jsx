@@ -2,8 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import ReactDOM from 'react-dom';
 import { Icon } from './icons';
 import { ActionMenu, Avatar, Button, Checkbox, Combobox, ConfirmDialog, Drawer, EmptyState, Field, FilterChip, Input, Pill, Radio, SearchBox, Select, Tabs, Th, TimeField, plural, useSort, useToast } from './ui';
-import { COMPANIES_DB, CURRENT_USER, DOCS2, DOC_KIND, DOC_STATUS2, FIN_OPS, FIN_OP_STATUS, FULFILLMENT, ORDERS, ORDER_STAGES, SERVICE_KIND } from './data';
-import { UnifiedBindField, UFDateField } from './forms_unified';
+import { UnifiedBindField, UnifiedBindPicker, UFDateField } from './forms_unified';
 import { Topbar } from './layout';
 import { toLegacyDocument } from './api/legacy-adapters';
 import { crmApi, documentsApi, financeApi, jobsApi, workspaceActionsApi } from './api/resources';
@@ -3271,6 +3270,7 @@ function ReceiptOrderCreateDrawer({ open, plan, clients = [], companies = [], on
   const [person, setPerson] = useState({ surname: '', givenName: '', middleName: '', dob: '', phone: '', email: '' });
   const [existingClientId, setExistingClientId] = useState('');
   const [companyId, setCompanyId] = useState('');
+  const [pickerOpen, setPickerOpen] = useState(false);
   const [selectedPassengers, setSelectedPassengers] = useState({});
   const [saving, setSaving] = useState(false);
 
@@ -3285,6 +3285,7 @@ function ReceiptOrderCreateDrawer({ open, plan, clients = [], companies = [], on
     });
     setExistingClientId('');
     setCompanyId('');
+    setPickerOpen(false);
     setSelectedPassengers(Object.fromEntries(plan.passengers.map((passenger) => [passenger.name, true])));
     setSaving(false);
   }, [open, plan?.passengers?.length, firstPassenger?.name]);
@@ -3292,16 +3293,8 @@ function ReceiptOrderCreateDrawer({ open, plan, clients = [], companies = [], on
   if (!open || !plan) return null;
 
   const chosenPassengers = plan.passengers.filter((passenger) => selectedPassengers[passenger.name]);
-  const clientOptions = clients.map((client) => ({
-    value: String(client.id),
-    label: `${client.name}${client.phone && client.phone !== '—' ? ` · ${client.phone}` : ''}`,
-    keywords: `${client.name} ${client.phone || ''} ${client.email || ''}`,
-  }));
-  const companyOptions = companies.map((company) => ({
-    value: String(company.id),
-    label: company.name || company.shortName || company.fullName || 'Юр. лицо',
-    keywords: `${company.name || ''} ${company.inn || company.tax_id || ''}`,
-  }));
+  const selectedClient = clients.find((c) => String(c.id) === String(existingClientId));
+  const selectedCompany = companies.find((c) => String(c.id) === String(companyId));
 
   const routeText = plan.points.length
     ? plan.points.map((point) => point.location_code).join(' → ')
@@ -3383,8 +3376,14 @@ function ReceiptOrderCreateDrawer({ open, plan, clients = [], companies = [], on
           ['company', 'Юридическое лицо', 'Заказ оформляется на компанию'],
         ].map(([mode, label, hint]) => (
           <label key={mode} className={'receipt-apply-scope-option' + (clientMode === mode ? ' is-active' : '')}
-            onClick={() => setClientMode(mode)}>
-            <span className="receipt-apply-scope-control"><Radio on={clientMode === mode} onChange={() => setClientMode(mode)} /></span>
+            onClick={() => {
+              setClientMode(mode);
+              if (mode === 'existing' || mode === 'company') setPickerOpen(true);
+            }}>
+            <span className="receipt-apply-scope-control"><Radio on={clientMode === mode} onChange={() => {
+              setClientMode(mode);
+              if (mode === 'existing' || mode === 'company') setPickerOpen(true);
+            }} /></span>
             <span><b>{label}</b><small>{hint}</small></span>
           </label>
         ))}
@@ -3394,22 +3393,51 @@ function ReceiptOrderCreateDrawer({ open, plan, clients = [], companies = [], on
         <Field label="Фамилия" required><Input value={person.surname} onChange={(e) => setPerson((s) => ({ ...s, surname: e.target.value }))} /></Field>
         <Field label="Имя"><Input value={person.givenName} onChange={(e) => setPerson((s) => ({ ...s, givenName: e.target.value }))} /></Field>
         <Field label="Отчество"><Input value={person.middleName} onChange={(e) => setPerson((s) => ({ ...s, middleName: e.target.value }))} /></Field>
-        <Field label="Дата рождения" hint="из бланка"><Input value={person.dob} placeholder="дд.мм.гггг" onChange={(e) => setPerson((s) => ({ ...s, dob: e.target.value }))} /></Field>
+        <Field label="Дата рождения"><Input value={person.dob} placeholder="дд.мм.гггг" onChange={(e) => setPerson((s) => ({ ...s, dob: e.target.value }))} /></Field>
         <Field label="Телефон"><Input value={person.phone} onChange={(e) => setPerson((s) => ({ ...s, phone: e.target.value }))} /></Field>
         <Field label="Электронная почта"><Input value={person.email} onChange={(e) => setPerson((s) => ({ ...s, email: e.target.value }))} /></Field>
       </div>}
 
       {clientMode === 'existing' && <Field label="Клиент из базы">
-        <Combobox options={clientOptions} value={existingClientId} onChange={setExistingClientId}
-          placeholder="Начните вводить фамилию или телефон" searchPlaceholder="ФИО, телефон, почта…"
-          emptyText="Клиент не найден — создайте новое физлицо" />
+        <button type="button" className="select unified-bind-field" onClick={() => setPickerOpen(true)}
+          style={{ display: 'flex', alignItems: 'center', gap: 10, textAlign: 'left', cursor: 'pointer', width: '100%' }}>
+          <Icon name="user" style={{ width: 16, height: 16, color: 'var(--muted-2)', flexShrink: 0 }} />
+          <span style={{ flex: 1, color: existingClientId ? 'var(--ink)' : 'var(--muted)' }}>
+            {selectedClient?.name ? `${selectedClient.name}${selectedClient.phone && selectedClient.phone !== '—' ? ` · ${selectedClient.phone}` : ''}` : 'Нажмите, чтобы выбрать клиента из базы'}
+          </span>
+          <Icon name="chevRight" style={{ width: 16, height: 16, color: 'var(--muted-2)' }} />
+        </button>
       </Field>}
 
       {clientMode === 'company' && <Field label="Юридическое лицо">
-        <Combobox options={companyOptions} value={companyId} onChange={setCompanyId}
-          placeholder="Начните вводить название" searchPlaceholder="Название или ИНН…"
-          emptyText="Юрлицо не найдено" />
+        <button type="button" className="select unified-bind-field" onClick={() => setPickerOpen(true)}
+          style={{ display: 'flex', alignItems: 'center', gap: 10, textAlign: 'left', cursor: 'pointer', width: '100%' }}>
+          <Icon name="building" style={{ width: 16, height: 16, color: 'var(--muted-2)', flexShrink: 0 }} />
+          <span style={{ flex: 1, color: companyId ? 'var(--ink)' : 'var(--muted)' }}>
+            {selectedCompany ? (selectedCompany.name || selectedCompany.shortName || selectedCompany.fullName || 'Юр. лицо') : 'Нажмите, чтобы выбрать юридическое лицо'}
+          </span>
+          <Icon name="chevRight" style={{ width: 16, height: 16, color: 'var(--muted-2)' }} />
+        </button>
       </Field>}
+
+      <UnifiedBindPicker
+        open={pickerOpen && (clientMode === 'existing' || clientMode === 'company')}
+        modes={[clientMode === 'company' ? 'company' : 'person']}
+        title={clientMode === 'company' ? 'Выбор юридического лица' : 'Выбор клиента из базы'}
+        sub={clientMode === 'company' ? 'Выберите компанию из CRM для оформления заказа' : 'Выберите клиента из CRM для оформления заказа'}
+        clientOptions={clients}
+        companyOptions={companies}
+        onClose={() => setPickerOpen(false)}
+        onPick={(target) => {
+          if (target.mode === 'person') {
+            const found = clients.find((c) => c.name === target.client || String(c.id) === String(target.client?.id || target.id));
+            setExistingClientId(found ? String(found.id) : (target.client?.id ? String(target.client.id) : target.client || ''));
+          } else if (target.mode === 'company') {
+            setCompanyId(String(target.company?.id || target.id || ''));
+          }
+          setPickerOpen(false);
+        }}
+      />
 
       <RSub>Участники заказа</RSub>
       <div className="receipt-order-passengers">

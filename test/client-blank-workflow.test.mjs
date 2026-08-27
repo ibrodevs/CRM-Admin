@@ -95,9 +95,8 @@ test('printing keeps the operator inside the receipt editor', () => {
   // Фирменный PDF выгружается без системного окна печати.
   assert.match(editor, /const downloadBrandPdf = async \(\) =>/);
   assert.match(editor, /window\.jspdf/);
-  assert.match(editor, /Вернуться в редактор/);
-  assert.match(editor, /вы остались в редакторе/i);
-  assert.match(styles, /\.receipt-print-notice/);
+  assert.match(editor, /const printReceipt = \(\) =>/);
+  assert.match(editor, /printOverlayScope\(printScopeRef\.current\)/);
 });
 
 // 4. Бланки поставщика редактируются прямо в услуге заказа.

@@ -36,7 +36,7 @@ function FreeBookingFinalize({ draft, onClose, onDone, onOpenOrder, onCreateOrde
         client_person: client?.id || null,
         client_company: company?.id || null,
         purpose: 'Свободное бронирование',
-        base_currency: 'USD',
+        base_currency: 'RUB',
         source: 'dashboard',
       });
       const order = toUiOrder(created);
