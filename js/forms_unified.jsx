@@ -4,6 +4,7 @@ import { Icon } from './icons';
 import { Avatar, Button, Drawer, EmptyState, Field, Input, SearchBox, Select, Toggle, fmtDate, useToast } from './ui';
 import { CLIENTS, CLIENT_STATUS, ORDERS } from './data';
 import { PanelSub } from './components/shared-panels';
+import { crmApi } from './api/resources';
 const UF_DOC_TYPES = ['Загранпаспорт', 'Общегражданский паспорт', 'ID-карта', 'Свидетельство о рождении', 'Вид на жительство', 'Виза'];
 const UF_CITIZENSHIP = ['Кыргызстан', 'Казахстан', 'Россия', 'Узбекистан', 'Таджикистан', 'Туркменистан', 'Азербайджан', 'Турция', 'Германия', 'Китай', 'ОАЭ', 'Другое'];
 const UF_PAX_ROLES = ['Взрослый', 'Ребёнок', 'Младенец'];
@@ -243,12 +244,156 @@ function UFDateField(_uf) {
 
 
 
-function UnifiedPersonFields({ value, onChange, errors = {}, departments = [], showRole = false, showStatus = true, showDocuments = false, onManageDocs }) {
+// ——— Заполнение карточки по документу ————————————————————————————————————
+// OCR — равноправная альтернатива ручному вводу, поэтому блок стоит в начале
+// анкеты: оператор либо загружает скан и проверяет подставленные поля, либо
+// заполняет карточку руками. Backend ничего не сохраняет — только распознаёт.
+
+const UF_INTAKE_DOC_LABELS = {
+  foreign_passport: 'Загранпаспорт',
+  national_passport: 'Общегражданский паспорт',
+  id_card: 'ID-карта',
+  birth_certificate: 'Свидетельство о рождении',
+  visa: 'Виза',
+};
+
+function ufDateFromRecognized(value) {
+  const iso = String(value || '').match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  return iso ? `${iso[3]}.${iso[2]}.${iso[1]}` : '';
+}
+
+// Распознанные поля → карточка физлица. Заполняются только пустые поля:
+// уже введённое оператором не затирается.
+function ufApplyRecognizedFields(person, fields = {}) {
+  const next = { ...person };
+  const fill = (key, value) => {
+    if (!value) return;
+    if (String(next[key] || '').trim()) return;
+    next[key] = value;
+  };
+  fill('lastName', fields.surname);
+  fill('firstName', fields.given_name);
+  fill('middleName', fields.middle_name);
+  fill('dob', ufDateFromRecognized(fields.birth_date));
+  fill('gender', fields.sex);
+  fill('docNo', fields.number);
+  fill('docExpiry', ufDateFromRecognized(fields.expiry_date));
+  const docLabel = fields.document_label || UF_INTAKE_DOC_LABELS[fields.document_kind];
+  if (docLabel && UF_DOC_TYPES.includes(docLabel)) next.docType = docLabel;
+  if (fields.citizenship && UF_CITIZENSHIP.includes(fields.citizenship)) next.citizenship = fields.citizenship;
+  const documentRow = {
+    docType: next.docType,
+    citizenship: next.citizenship,
+    docNo: fields.number || next.docNo || '',
+    docExpiry: ufDateFromRecognized(fields.expiry_date),
+    latLast: fields.latin_surname || '',
+    latFirst: fields.latin_given_name || '',
+    latMiddle: fields.latin_middle_name || '',
+    dob: ufDateFromRecognized(fields.birth_date),
+    ownerName: [next.lastName, next.firstName, next.middleName].filter(Boolean).join(' '),
+    phone: '', phone2: '', comment: '', file: fields.file_name || '',
+    recognized: true,
+  };
+  if (documentRow.docNo) {
+    const already = (next.documents || []).some((row) => String(row.docNo || '').replace(/\s+/g, '').toUpperCase()
+      === String(documentRow.docNo).replace(/\s+/g, '').toUpperCase());
+    if (!already) next.documents = [...(next.documents || []), documentRow];
+  }
+  return next;
+}
+
+const UF_INTAKE_STATUS_TEXT = {
+  recognized: 'Документ распознан по машиночитаемой зоне. Проверьте подставленные поля.',
+  partial: 'Распознана часть данных — машиночитаемая зона не прочиталась. Проверьте и дополните поля.',
+  manual_required: 'Не удалось распознать документ. Заполните карточку вручную или загрузите более чёткий скан.',
+};
+
+function UnifiedPersonIntake({ mode, onMode, onApply, disabled }) {
+  const toast = useToast();
+  const fileRef = useRef(null);
+  const [busy, setBusy] = useState(false);
+  const [result, setResult] = useState(null);
+  const [fileName, setFileName] = useState('');
+
+  const recognize = async (file) => {
+    if (!file) return;
+    setBusy(true);
+    setFileName(file.name);
+    try {
+      const recognized = await crmApi.recognizePersonDocument(file);
+      setResult(recognized);
+      if (recognized.status === 'manual_required') {
+        toast('Документ не распознан — заполните карточку вручную', 'warn');
+        return;
+      }
+      onApply(recognized.fields || {}, { ...recognized, file_name: file.name });
+      toast(recognized.status === 'recognized' ? 'Документ распознан, поля заполнены' : 'Распознана часть данных — проверьте поля', recognized.status === 'recognized' ? 'ok' : 'info');
+    } catch (error) {
+      setResult({ status: 'manual_required', fields: {} });
+      toast(error.message || 'Не удалось распознать документ', 'err');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const pick = () => { if (!busy) fileRef.current?.click(); };
+  const drop = (event) => {
+    event.preventDefault();
+    if (disabled) return;
+    recognize(event.dataTransfer?.files?.[0]);
+  };
+
+  return (
+    <section className="uf-intake" aria-label="Способ заполнения карточки">
+      <div className="uf-seg uf-intake-seg">
+        <button type="button" className={mode === 'ocr' ? 'on' : ''} onClick={() => onMode('ocr')}>
+          <Icon name="zap" />Заполнить по документу
+        </button>
+        <button type="button" className={mode === 'manual' ? 'on' : ''} onClick={() => onMode('manual')}>
+          <Icon name="edit" />Заполнить вручную
+        </button>
+      </div>
+      {mode === 'ocr' ? (
+        <>
+          <div className="uf-drop" onClick={pick} onDragOver={(event) => event.preventDefault()} onDrop={drop}>
+            <Icon name={busy ? 'loader' : 'idcard'} style={{ width: 28, height: 28, color: 'var(--muted-2)' }} />
+            <div className="uf-drop-t">{busy ? 'Распознаём документ…' : (fileName || 'Перетащите скан паспорта или ID-карты')}</div>
+            <div style={{ margin: '10px 0' }}>
+              <Button variant="secondary" size="sm" disabled={busy}
+                onClick={(event) => { event.stopPropagation(); pick(); }}>Выбрать файл</Button>
+            </div>
+            <div className="uf-drop-s">JPG, PNG, PDF · до 25 МБ · данные подставятся в анкету ниже</div>
+          </div>
+          <input ref={fileRef} type="file" hidden accept="image/jpeg,image/png,application/pdf"
+            onChange={(event) => { const file = event.target.files?.[0]; event.target.value = ''; recognize(file); }} />
+          {result && (
+            <div className={'uf-ocr-ok' + (result.status === 'recognized' ? '' : ' is-partial')}>
+              <Icon name={result.status === 'recognized' ? 'checkCircle' : 'alertCircle'}
+                style={{ width: 18, height: 18, color: result.status === 'recognized' ? 'var(--green)' : 'var(--amber)', flex: '0 0 18px', marginTop: 1 }} />
+              <span>
+                {UF_INTAKE_STATUS_TEXT[result.status] || UF_INTAKE_STATUS_TEXT.manual_required}
+                {result.confidence ? ` Точность распознавания: ${result.confidence}%.` : ''}
+              </span>
+            </div>
+          )}
+        </>
+      ) : (
+        <div className="uf-intake-manual">
+          <Icon name="edit" />
+          <span>Заполняете карточку сами. Скан документа можно загрузить в любой момент — переключитесь на «Заполнить по документу», данные подставятся в пустые поля.</span>
+        </div>
+      )}
+    </section>
+  );
+}
+
+function UnifiedPersonFields({ value, onChange, errors = {}, departments = [], showRole = false, showStatus = true, showDocuments = false, onManageDocs, intake = null }) {
   const p = value;
   const set = (k, v) => onChange({ ...p, [k]: v });
   const isEmp = p.kind === 'employee';
   return (
     <>
+      {intake}
       <PanelSub style={{ marginTop: 0 }}>Личные данные</PanelSub>
       <div className="form-grid">
         <Field label="Фамилия" required error={errors.name}><Input value={p.lastName} onChange={(e) => set('lastName', e.target.value)} placeholder="Иванов" error={errors.name} /></Field>
@@ -334,12 +479,17 @@ function UnifiedPersonDrawer({ open, kind = 'person', mode = 'create', initial, 
   const [p, setP] = useState(ufBlankPerson(kind));
   const [errs, setErrs] = useState({});
   const [docFor, setDocFor] = useState(false);
+  // Новая карточка по умолчанию предлагает распознавание документа: это
+  // альтернатива ручному вводу, а не действие в конце анкеты. При
+  // редактировании данные уже есть — там сразу ручной режим.
+  const [intakeMode, setIntakeMode] = useState(mode === 'edit' ? 'manual' : 'ocr');
   useEffect(() => {
     if (!open) return;
     const base = initial ? (initial.kind ? { ...ufBlankPerson(kind), ...initial } : ufFromClient(initial, kind)) : ufBlankPerson(kind);
     setP({ ...base, kind });
     setErrs({});
-  }, [open, kind, initial]);
+    setIntakeMode(mode === 'edit' || initial ? 'manual' : 'ocr');
+  }, [open, kind, initial, mode]);
   if (!open) return null;
   const submit = () => {
     const er = ufValidatePerson(p);
@@ -360,7 +510,12 @@ function UnifiedPersonDrawer({ open, kind = 'person', mode = 'create', initial, 
           <Button icon="check" onClick={submit}>{mode === 'edit' ? 'Сохранить изменения' : 'Сохранить'}</Button>
         </>}>
         <UnifiedPersonFields value={p} onChange={setP} errors={errs} departments={departments}
-          showRole={showRole} showDocuments onManageDocs={() => setDocFor(true)} />
+          showRole={showRole} showDocuments onManageDocs={() => setDocFor(true)}
+          intake={<UnifiedPersonIntake mode={intakeMode} onMode={setIntakeMode}
+            onApply={(fields, meta) => {
+              setP((current) => ufApplyRecognizedFields(current, { ...fields, file_name: meta?.file_name || '' }));
+              setErrs({});
+            }} />} />
       </Drawer>
       <UnifiedDocumentDrawer open={docFor} person={{ name: ufFullName(p), citizenship: p.citizenship }}
         onClose={() => setDocFor(false)}
@@ -387,21 +542,49 @@ function UnifiedDocumentDrawer({ open, person = {}, initial, mode = 'create', on
   const toast = useToast();
   const [mth, setMth] = useState('ocr');
   const [scanned, setScanned] = useState(false);
+  const [ocrBusy, setOcrBusy] = useState(false);
+  const [ocrNote, setOcrNote] = useState('');
+  const fileRef = useRef(null);
   const [d, setD] = useState(ufBlankDoc(person));
   const set = (k, v) => setD((s) => ({ ...s, [k]: v }));
   useEffect(() => {
     if (!open) return;
     setD(initial ? { ...ufBlankDoc(person), ...initial } : ufBlankDoc(person));
     setMth(initial ? 'manual' : 'ocr'); setScanned(!!initial);
+    setOcrBusy(false); setOcrNote('');
   }, [open]);
   if (!open) return null;
-  const runOcr = () => {
-    setScanned(true);
-
-    const nm = ufSplitName(person.name);
-    setD((s) => ({ ...s, docNo: s.docNo || 'AC ' + (1000000 + Math.floor(Math.random() * 8999999)),
-      latLast: s.latLast || translit(nm.lastName), latFirst: s.latFirst || translit(nm.firstName),
-      latMiddle: s.latMiddle || translit(nm.middleName), file: 'passport_scan.jpg' }));
+  // Реальное распознавание: backend читает машиночитаемую зону документа.
+  // Транслитерация ФИО владельца остаётся запасным вариантом, если в MRZ
+  // латинских имён нет.
+  const runOcr = async (file) => {
+    if (!file) { fileRef.current?.click(); return; }
+    setOcrBusy(true);
+    try {
+      const recognized = await crmApi.recognizePersonDocument(file);
+      const fields = recognized.fields || {};
+      const nm = ufSplitName(person.name);
+      setScanned(recognized.status !== 'manual_required');
+      setOcrNote(UF_INTAKE_STATUS_TEXT[recognized.status] || UF_INTAKE_STATUS_TEXT.manual_required);
+      setD((s) => ({
+        ...s,
+        docType: (fields.document_label && UF_DOC_TYPES.includes(fields.document_label)) ? fields.document_label : s.docType,
+        citizenship: (fields.citizenship && UF_CITIZENSHIP.includes(fields.citizenship)) ? fields.citizenship : s.citizenship,
+        docNo: fields.number || s.docNo,
+        docExpiry: ufDateFromRecognized(fields.expiry_date) || s.docExpiry,
+        dob: ufDateFromRecognized(fields.birth_date) || s.dob,
+        latLast: fields.latin_surname || s.latLast || translit(nm.lastName),
+        latFirst: fields.latin_given_name || s.latFirst || translit(nm.firstName),
+        latMiddle: fields.latin_middle_name || s.latMiddle || translit(nm.middleName),
+        file: file.name,
+      }));
+      if (recognized.status === 'manual_required') toast('Документ не распознан — заполните поля вручную', 'warn');
+    } catch (error) {
+      setOcrNote(UF_INTAKE_STATUS_TEXT.manual_required);
+      toast(error.message || 'Не удалось распознать документ', 'err');
+    } finally {
+      setOcrBusy(false);
+    }
   };
   const submit = () => {
     if (!d.docNo.trim()) { toast('Укажите номер документа', 'err'); return; }
@@ -428,16 +611,21 @@ function UnifiedDocumentDrawer({ open, person = {}, initial, mode = 'create', on
 
       {mth === 'ocr' && (
         <>
-          <div onClick={runOcr} className="uf-drop">
-            <Icon name="download" style={{ width: 28, height: 28, color: 'var(--muted-2)' }} />
-            <div className="uf-drop-t">{d.file ? d.file : 'Перетащите файл или выберите'}</div>
-            <div style={{ margin: '10px 0' }}><Button variant="secondary" size="sm" onClick={(e) => { e.stopPropagation(); runOcr(); }}>Выбрать файл</Button></div>
-            <div className="uf-drop-s">JPG, PNG, PDF · до 10 МБ</div>
+          <div onClick={() => !ocrBusy && fileRef.current?.click()} className="uf-drop"
+            onDragOver={(event) => event.preventDefault()}
+            onDrop={(event) => { event.preventDefault(); runOcr(event.dataTransfer?.files?.[0]); }}>
+            <Icon name={ocrBusy ? 'loader' : 'idcard'} style={{ width: 28, height: 28, color: 'var(--muted-2)' }} />
+            <div className="uf-drop-t">{ocrBusy ? 'Распознаём документ…' : (d.file || 'Перетащите файл или выберите')}</div>
+            <div style={{ margin: '10px 0' }}><Button variant="secondary" size="sm" disabled={ocrBusy}
+              onClick={(e) => { e.stopPropagation(); fileRef.current?.click(); }}>Выбрать файл</Button></div>
+            <div className="uf-drop-s">JPG, PNG, PDF · до 25 МБ</div>
           </div>
-          {scanned && (
-            <div className="uf-ocr-ok">
-              <Icon name="checkCircle" style={{ width: 18, height: 18, color: 'var(--green)', flex: '0 0 18px', marginTop: 1 }} />
-              <span>Документ распознан. Проверьте данные ниже и при необходимости отредактируйте.</span>
+          <input ref={fileRef} type="file" hidden accept="image/jpeg,image/png,application/pdf"
+            onChange={(event) => { const file = event.target.files?.[0]; event.target.value = ''; runOcr(file); }} />
+          {(scanned || ocrNote) && (
+            <div className={'uf-ocr-ok' + (scanned ? '' : ' is-partial')}>
+              <Icon name={scanned ? 'checkCircle' : 'alertCircle'} style={{ width: 18, height: 18, color: scanned ? 'var(--green)' : 'var(--amber)', flex: '0 0 18px', marginTop: 1 }} />
+              <span>{ocrNote || 'Документ распознан. Проверьте данные ниже и при необходимости отредактируйте.'}</span>
             </div>
           )}
         </>
@@ -643,4 +831,4 @@ Object.assign(window, {
 
 
 
-export { UF_DOC_TYPES, UF_CITIZENSHIP, UF_PAX_ROLES, UF_GENDER, UF_CLIENT_STATUSES, ufBlankPerson, ufSplitName, ufFullName, ufFromClient, ufToClient, ufValidatePerson, UF_MONTHS, UF_DAYS, ufParseDate, ufDateString, ufDateIso, ufDateFromIso, UFDateField, UnifiedPersonFields, UnifiedPersonDrawer, ufBlankDoc, UnifiedDocumentDrawer, ufOrderPickRows, UF_PICK_ROW_STYLE, UfOrderRow, UfPersonRow, UF_BIND_MODE_LABEL, ufBindLabel, UnifiedBindPicker, UnifiedBindField, translit };
+export { UF_DOC_TYPES, UF_CITIZENSHIP, UF_PAX_ROLES, UF_GENDER, UF_CLIENT_STATUSES, ufApplyRecognizedFields, ufDateFromRecognized, UnifiedPersonIntake, ufBlankPerson, ufSplitName, ufFullName, ufFromClient, ufToClient, ufValidatePerson, UF_MONTHS, UF_DAYS, ufParseDate, ufDateString, ufDateIso, ufDateFromIso, UFDateField, UnifiedPersonFields, UnifiedPersonDrawer, ufBlankDoc, UnifiedDocumentDrawer, ufOrderPickRows, UF_PICK_ROW_STYLE, UfOrderRow, UfPersonRow, UF_BIND_MODE_LABEL, ufBindLabel, UnifiedBindPicker, UnifiedBindField, translit };
