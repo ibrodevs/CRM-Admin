@@ -1852,17 +1852,44 @@ function serializableReceiptImportFile(file) {
   };
 }
 
-function receiptStatus(parsed, seen, type, error) {
+// Отпечаток одного бланка. Номера билета мало: в ЖД-группе перевозчик
+// печатает на каждом билете общий номер заказа, и по нему все бланки группы
+// выглядели одинаковыми. Пассажир вместе с поездом, вагоном, местом и датой
+// разводит билеты одного заказа и при этом ловит повторную загрузку файла.
+function receiptBlankFingerprint(ticket, parent) {
+  const token = (value) => String(value ?? '').replace(/[^0-9A-ZА-ЯЁ]/gi, '').toUpperCase();
+  const leg = ticket?.legs?.[0] || ticket?.segments?.[0] || parent?.legs?.[0] || parent?.segments?.[0] || {};
+  const number = token(ticket?.ticketNo || ticket?.ticket_number || ticket?.passengers?.[0]?.ticketNo || ticket?.docNo || ticket?.document_number);
+  const passenger = token(ticket?.passenger || ticket?.passenger_name || ticket?.passengers?.[0]?.name || parent?.passenger || parent?.passenger_name);
+  const doc = token(ticket?.docNo || ticket?.document_number || ticket?.passengers?.[0]?.document);
+  const train = token(leg.flightNo || leg.flight_no || leg.train);
+  const coach = token(leg.coach);
+  const seat = token(leg.seat);
+  const date = token(leg.date);
+  const dep = token(leg.dep);
+  const place = [train, coach, seat, date, dep].filter(Boolean).join('-');
+  const route = [token(leg.fromCode || leg.from), token(leg.toCode || leg.to)].filter(Boolean).join('-');
+  const identity = [number, passenger || doc, place, route].filter(Boolean).join('::');
+  return identity && (number || passenger || doc || place) ? identity : '';
+}
+
+function receiptBlankFingerprints(parsed, file) {
+  if (!parsed && !file) return [];
+  const fileSubReceipts = Array.isArray(file?.subReceipts) && file.subReceipts.length ? file.subReceipts : [];
+  const parsedTickets = parsed?.groupTickets || parsed?.receiptItems || parsed?.receipt_items || parsed?.receipts || parsed?.railTickets || [];
+  const tickets = fileSubReceipts.length ? fileSubReceipts : (parsedTickets.length ? parsedTickets : []);
+  const sources = tickets.length ? tickets : (parsed ? [parsed] : []);
+  return [...new Set(sources.map((ticket) => receiptBlankFingerprint(ticket, parsed)).filter(Boolean))];
+}
+
+function receiptStatus(parsed, seen, type, error, file) {
   if (error) return 'Ошибка';
   if (!parsed) return 'Ошибка';
-  const ticketNumbers = (parsed.groupTickets || parsed.receiptItems || parsed.receipts || [])
-    .map((ticket) => ticket?.ticketNo || ticket?.ticket_number)
-    .concat([parsed.ticketNo])
-    .map((value) => String(value || '').replace(/[^0-9A-ZА-ЯЁ]/gi, '').toUpperCase())
-    .filter(Boolean);
-  const uniqueTicketNumbers = [...new Set(ticketNumbers)];
-  const duplicate = uniqueTicketNumbers.some((ticketNo) => seen.has(ticketNo));
-  uniqueTicketNumbers.forEach((ticketNo) => seen.add(ticketNo));
+  const fingerprints = receiptBlankFingerprints(parsed, file);
+  // Дубль — только когда повторно загружен весь документ. Частичное
+  // совпадение у ЖД-группы означает общий заказ, а не повтор билета.
+  const duplicate = fingerprints.length > 0 && fingerprints.every((fingerprint) => seen.has(fingerprint));
+  fingerprints.forEach((fingerprint) => seen.add(fingerprint));
   if (duplicate) return 'Возможный дубль';
   const route = routeSummary(parsed);
   const hasRoute = route && route !== '—' && route.replace(/[→⇄\s]/g, '');
@@ -2003,7 +2030,11 @@ function receiptBrandFileForBlank(file, blankIndex = 0) {
 }
 
 function receiptHasMultipleSubReceipts(file) {
-  return Array.isArray(file?.subReceipts) && file.subReceipts.length > 1;
+  if (Array.isArray(file?.subReceipts) && file.subReceipts.length > 1) return true;
+  const tickets = typeof receiptGroupedTickets === 'function'
+    ? receiptGroupedTickets(file)
+    : (file?.parsed?.groupTickets || file?.parsed?.receipt_items || file?.parsed?.receipts || []);
+  return Array.isArray(tickets) && tickets.length > 1;
 }
 
 function receiptFinancialFingerprint(receipt) {
@@ -4057,7 +4088,7 @@ function ReceiptImportModal({ open, onClose, onDone, initialDraft, initialFiles 
     return files.map((f) => ({
       f,
       pending: f.status !== 'done',
-      status: f.status === 'done' ? receiptStatus(f.parsed, seen, f.type, f.error) : (f.status === 'scanning' ? 'Сканируется' : 'В очереди'),
+      status: f.status === 'done' ? receiptStatus(f.parsed, seen, f.type, f.error, f) : (f.status === 'scanning' ? 'Сканируется' : 'В очереди'),
     }));
   })();
   const doneRows = rows.filter((r) => !r.pending);
@@ -4095,7 +4126,7 @@ function ReceiptImportModal({ open, onClose, onDone, initialDraft, initialFiles 
   )).length;
   const editFile = files.find((f) => f.id === editId) || null;
   const mathFile = files.find((f) => f.id === mathId)
-    || files.flatMap((file) => (receiptHasMultipleSubReceipts(file) ? file.subReceipts : []).map((receipt, index) => ({
+    || files.flatMap((file) => (receiptHasMultipleSubReceipts(file) ? receiptGroupedTickets(file) : []).map((receipt, index) => ({
       ...file,
       id: subReceiptMathKey(file.id, index),
       parsed: receipt,
@@ -4126,8 +4157,9 @@ function ReceiptImportModal({ open, onClose, onDone, initialDraft, initialFiles 
 
   const selIds = doneRows.filter((r) => sel[r.f.id]).map((r) => r.f.id);
   const pricingRows = doneRows.filter((row) => !excluded[row.f.id]).flatMap((row) => {
-    if (!receiptHasMultipleSubReceipts(row.f)) return [{ ...row, parsed: row.f.parsed, mathKey: row.f.id, blankIndex: null }];
-    return row.f.subReceipts.map((receipt, index) => ({
+    const tickets = receiptGroupedTickets(row.f);
+    if (tickets.length <= 1) return [{ ...row, parsed: row.f.parsed, mathKey: row.f.id, blankIndex: null }];
+    return tickets.map((receipt, index) => ({
       ...row,
       parsed: receipt,
       mathKey: subReceiptMathKey(row.f.id, index),
