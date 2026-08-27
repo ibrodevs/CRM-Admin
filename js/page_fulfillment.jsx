@@ -2140,7 +2140,13 @@ function receiptSharedGroupPatch(type, parsed, parts = RECEIPT_APPLY_ALL_PARTS) 
     tripType: parsed.tripType,
   });
   if (use.finance) Object.assign(shared, { currency: parsed.currency });
-  if (use.output) Object.assign(shared, { output: parsed.output });
+  // Настройки вывода переносятся без itFareSnapshot: снимок закупочных сумм
+  // индивидуален для бланка, и подмена его суммами исходного билета сломала бы
+  // восстановление тарифа у остальных.
+  if (use.output && parsed.output) {
+    const { itFareSnapshot, it_fare_snapshot: legacySnapshot, ...displayOutput } = parsed.output;
+    Object.assign(shared, { output: displayOutput });
+  }
   if (use.fare) Object.assign(shared, { fareInfo: parsed.fareInfo });
   if (type === 'Авиа' && use.finance) Object.assign(shared, {
     fare: parsed.fare,

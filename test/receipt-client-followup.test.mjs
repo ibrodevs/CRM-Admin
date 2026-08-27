@@ -72,7 +72,7 @@ test('successful supplier PDF sync notice disappears after confirmation', () => 
 test('receipt editor keeps the avia IT fare action permanently visible', () => {
   assert.match(editor, /const aviaItFareControl = type === 'Авиа'/);
   assert.match(editor, /<b[^>]*>Закрыть тариф на IT<\/b>/);
-  assert.match(editor, /В клиентской квитанции вместо суммы тарифа будет показано «IT»/);
+  assert.match(editor, /В клиентской квитанции вместо суммы тарифа и итога будет показано «IT»/);
   assert.match(editor, /enabled \? 'it' : 'total'/);
   assert.match(editor, /\{aviaItFareControl\}[\s\S]*\{bindingBlock\}/);
   assert.match(editor, /receiptUsesItFare\(p\) \? 'IT включён' : 'Тариф открыт'/);

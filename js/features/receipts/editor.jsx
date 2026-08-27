@@ -434,9 +434,16 @@ export function normalizeReceiptDraft(type, value = {}) {
   draft.vehicle = { className: '', category: '', passengers: '', luggage: '', requirements: '', ...(value.vehicle || {}) };
   draft.transferTerms = { cancellation: '', freeWaiting: '', meetAndGreet: '', baggageHelp: '', supportContacts: '', supplierComment: '', driverComment: '', passengerComment: '', ...(value.transferTerms || {}) };
   draft.output = { mode: 'original', template: '', priceMode: type === 'Гостиница' || type === 'Трансфер' ? 'hidden' : 'total', ...(value.output || {}) };
-  if (type === 'Авиа' && receiptOutputUsesItFare(draft.output)) {
+  // Маркер «IT» в числовой графе разбирается всегда, а не только при уже
+  // включённом режиме: поставщик печатает «IT» прямо в бланке закрытого
+  // тарифа, и раньше эта строка оставалась в поле суммы — итог превращался
+  // в 0. Сумму восстанавливаем из снимка или неизменяемых данных поставщика;
+  // если её нет нигде, поле остаётся пустым, а показ переключается на IT.
+  if (type === 'Авиа') {
     const sourceFinancials = value.sourceSupplierFinancials || value.source_supplier_financials || {};
     const snapshot = draft.output?.itFareSnapshot || draft.output?.it_fare_snapshot || {};
+    const supplierClosedFare = receiptIsItMarker(draft.fare)
+      || (draft.fareBreakdown || []).some((row) => receiptIsItMarker(row?.amount));
     draft.fare = receiptRestoreAviaAmount(
       draft.fare,
       receiptNumericSource(snapshot.fare, sourceFinancials.fare),
@@ -455,6 +462,17 @@ export function normalizeReceiptDraft(type, value = {}) {
       draft.feeBreakdown,
       sourceFinancials.feeBreakdown || sourceFinancials.fee_breakdown,
     );
+    draft.fareBreakdown = (draft.fareBreakdown || []).map((row) => (receiptIsItMarker(row?.amount)
+      ? { ...row, amount: '' } : row));
+    draft.taxBreakdown = (draft.taxBreakdown || []).map((row) => (receiptIsItMarker(row?.amount)
+      ? { ...row, amount: '' } : row));
+    draft.feeBreakdown = (draft.feeBreakdown || []).map((row) => (receiptIsItMarker(row?.amount)
+      ? { ...row, amount: '' } : row));
+    // Тариф, закрытый самим поставщиком, включает режим IT автоматически:
+    // оператору не нужно догадываться, почему в графе пусто.
+    if (supplierClosedFare && !receiptOutputUsesItFare(draft.output)) {
+      draft.output = { ...draft.output, priceMode: 'it', itFareSource: 'supplier' };
+    }
   }
   draft.auditLog = Array.isArray(value.auditLog) ? value.auditLog : [];
   const explicitSupplierOrder = firstReceiptValue(value.supplierOrderNo, value.supplier_order_number, value.order_number);
@@ -690,8 +708,12 @@ function ReceiptAviaDocument({ draft, organization = 'ПСЦ Travel Hub' }) {
   const p = normalizeReceiptDraft('Авиа', draft);
   const participants = receiptParticipantNames(p);
   const money = (value) => `${roundMoney(value).toLocaleString('ru-RU')} ${p.currency || ''}`.trim();
+  const itFare = receiptUsesItFare(p);
   const fareMoney = () => receiptUsesItFare(p) ? 'IT' : money(p.fare);
   const fareRowMoney = (row) => receiptUsesItFare(p) ? 'IT' : money(row.amount);
+  // Итог включает закрытый тариф, поэтому при IT он тоже не раскрывается:
+  // иначе клиент вычислял бы тариф вычитанием такс и сборов.
+  const totalMoney = () => itFare ? 'IT' : money(receiptFinancialTotal('Авиа', p));
   const fareRows = p.fareBreakdown?.length ? p.fareBreakdown : [];
   const taxRows = p.taxBreakdown?.length ? p.taxBreakdown
     : (Number(p.taxes) ? [{ code: 'TAX', label: 'Таксы перевозчика', amount: p.taxes }] : []);
@@ -782,8 +804,10 @@ function ReceiptAviaDocument({ draft, organization = 'ПСЦ Travel Hub' }) {
           <div><span>Сервисный сбор</span><b>{money(p.fees)}</b></div>
           {feeRows.map((row, index) => <div key={`fee-${index}`}><span>{[row.code, row.label].filter(Boolean).join(' · ') || 'Сбор'}</span><b>{money(row.amount)}</b></div>)}
         </div></section>
-        <div className="receipt-brand-finance-total"><span>Итого для клиента</span><b>{money(receiptFinancialTotal('Авиа', p))}</b></div>
+        <div className="receipt-brand-finance-total"><span>Итого для клиента</span><b>{totalMoney()}</b></div>
       </div>
+      {itFare && <div className="receipt-brand-callout receipt-it-callout"><b>Тариф закрыт на IT</b>
+        <span>Сумма тарифа и итог в клиентском документе не раскрываются. Видимыми остаются только таксы и сборы.</span></div>}
       <footer>{organization} · Сформировано в PSC Travel Hub</footer>
     </article>
   );
@@ -972,8 +996,10 @@ export function ReceiptBrandDocumentDrawer({ open, type, draft, originalUrl, sou
   const output = { ...(p.output || {}), mode: previewMode };
   const organization = output.mode === 'saas' ? 'Компания клиента' : 'ПСЦ Travel Hub';
   const outputLabel = output.mode === 'saas' ? 'Фирменный ваучер SaaS-компании' : output.mode === 'agency' ? 'Фирменный бланк агентства' : 'Оригинал поставщика с корректировками';
-  const price = output.priceMode === 'paid' ? 'Оплачено'
-    : output.priceMode === 'hidden' ? '' : `${receiptFinancialTotal(type, p).toLocaleString('ru-RU')} ${p.currency || ''}`;
+  const itFareClosed = type === 'Авиа' && receiptUsesItFare(p);
+  const price = itFareClosed ? 'IT'
+    : output.priceMode === 'paid' ? 'Оплачено'
+      : output.priceMode === 'hidden' ? '' : `${receiptFinancialTotal(type, p).toLocaleString('ru-RU')} ${p.currency || ''}`;
   const money = (value) => `${roundMoney(value).toLocaleString('ru-RU')} ${p.currency || ''}`.trim();
   const rowMoney = (row) => `${Number(row.amount || 0).toLocaleString('ru-RU', { maximumFractionDigits: 6 })} ${row.currency || ''}`.trim();
   const fareRows = p.fareBreakdown?.length ? p.fareBreakdown : [];
@@ -1232,8 +1258,8 @@ export function ReceiptBrandDocumentDrawer({ open, type, draft, originalUrl, sou
           {type === 'Авиа' && <><h4>Расчёт стоимости</h4>
             <div className="receipt-brand-finance-groups">
               <section><h5>Тариф</h5><div className="receipt-brand-finance">
-                <div><span>Тариф перевозчика</span><b>{money(p.fare)}</b></div>
-                {fareRows.map((row, index) => <div key={`fare-${index}`}><span>{[row.code, row.label].filter(Boolean).join(' · ') || 'Расчёт тарифа'}</span><b>{rowMoney(row)}</b></div>)}
+                <div><span>Тариф перевозчика</span><b>{itFareClosed ? 'IT' : money(p.fare)}</b></div>
+                {fareRows.map((row, index) => <div key={`fare-${index}`}><span>{[row.code, row.label].filter(Boolean).join(' · ') || 'Расчёт тарифа'}</span><b>{itFareClosed ? 'IT' : rowMoney(row)}</b></div>)}
               </div></section>
               <section><h5>Таксы</h5><div className="receipt-brand-finance">
                 <div><span>Таксы перевозчика</span><b>{money(p.taxes)}</b></div>
@@ -1243,7 +1269,7 @@ export function ReceiptBrandDocumentDrawer({ open, type, draft, originalUrl, sou
                 <div><span>Сервисный сбор</span><b>{money(p.fees)}</b></div>
                 {feeRows.map((row, index) => <div key={`fee-${index}`}><span>{[row.code, row.label].filter(Boolean).join(' · ') || 'Сбор'}</span><b>{money(row.amount)}</b></div>)}
               </div></section>
-              <div className="receipt-brand-finance-total"><span>Итого для клиента</span><b>{money(receiptFinancialTotal(type, p))}</b></div>
+              <div className="receipt-brand-finance-total"><span>Итого для клиента</span><b>{itFareClosed ? 'IT' : money(receiptFinancialTotal(type, p))}</b></div>
             </div>
             {(p.fareInfo.code || p.fareInfo.name || p.fareInfo.bookingClass) && <div className="receipt-brand-callout"><b>Тариф</b>
               <span>{[p.fareInfo.code, p.fareInfo.name, p.fareInfo.bookingClass].filter(Boolean).join(' · ')}</span></div>}
@@ -1637,7 +1663,9 @@ export function ReceiptSpecializedForm({
               <Field label="Наименование">{isTax
                 ? <LockedInput correctionMode={editable} value={row.label || aviaTaxName(row.code) || ''} onChange={(e) => setArray(key, index, 'label', e.target.value, `${title}: название ${index + 1}`)} />
                 : <Input value={row.label || ''} onChange={(e) => setArray(key, index, 'label', e.target.value, `${title}: название ${index + 1}`)} />}</Field>
-              <Field label="Сумма">{isTax
+              <Field label="Сумма">{kind === 'fare' && itFareOn
+                ? <Input value="IT" readOnly className="input receipt-it-input" aria-label="Строка тарифа закрыта на IT" />
+                : isTax
                 ? <LockedInput correctionMode={editable} type="number" step="0.01" value={row.amount || ''}
                   data-amount-row={pickerKey}
                   onChange={(e) => setArray(key, index, 'amount', e.target.value, `${title}: сумма ${index + 1}`)} />
@@ -1648,14 +1676,29 @@ export function ReceiptSpecializedForm({
         }) : <div className="receipt-empty">{isTax ? 'Таксы не добавлены — нажмите «Добавить таксу» и выберите код из справочника' : 'Нет строк'}</div>}
         {rows.length > 0 && <div className="receipt-breakdown-total">
           <span>Итого по разбивке</span>
-          <b>{roundMoney(rowsTotal).toLocaleString('ru-RU')} {p.currency || ''}</b>
+          <b>{kind === 'fare' && itFareOn ? 'IT' : `${roundMoney(rowsTotal).toLocaleString('ru-RU')} ${p.currency || ''}`}</b>
         </div>}
       </div>
     );
   };
 
+  // Закрытый на IT тариф показывается маркером и в самом редакторе: оператор
+  // видит ровно то, что уйдёт в клиентский документ. Закупочная сумма живёт
+  // в модели и подписана под полем — она нужна для внутренних расчётов.
+  const itFareOn = type === 'Авиа' && receiptUsesItFare(p);
+  const itFareAmount = itFareOn
+    ? receiptNumericSource(p.fare, p.output?.itFareSnapshot?.fare, p.output?.it_fare_snapshot?.fare)
+    : '';
+  const itFareHint = itFareAmount === ''
+    ? 'Поставщик закрыл тариф — суммы в бланке нет'
+    : `Закупка ${roundMoney(itFareAmount).toLocaleString('ru-RU')} ${p.currency || ''} · видна только вам`;
   const moneyField = (label, key, locked = false) => {
     const lockedProps = locked && !correctionMode ? { disabled: true, className: 'input receipt-locked-input' } : {};
+    if (itFareOn && key === 'fare') {
+      return <Field label={label} hint={itFareHint}>
+        <Input value="IT" readOnly className="input receipt-it-input" aria-label={`${label}: закрыт на IT`} />
+      </Field>;
+    }
     return <Field label={label}><Input type="number" min="0" value={p[key] || ''}
       {...lockedProps} onChange={(e) => set(key, e.target.value, label)} /></Field>;
   };
@@ -1676,7 +1719,10 @@ export function ReceiptSpecializedForm({
         {(type === 'Гостиница' || type === 'Трансфер') && moneyField('Сервисный сбор', 'agencyServiceFee')}
         {(type === 'Гостиница' || type === 'Трансфер') && moneyField('Дополнительные сборы', 'additionalFees')}
         {(type === 'Гостиница' || type === 'Трансфер') && moneyField('Скидка', 'discount')}
-        <Field label="Итого для клиента"><Input value={total} readOnly className="input receipt-total-input" /></Field>
+        <Field label="Итого для клиента"
+          hint={itFareOn ? `Внутренний итог ${roundMoney(total).toLocaleString('ru-RU')} ${p.currency || ''} · в документе закрыт на IT` : ''}>
+          <Input value={itFareOn ? 'IT' : total} readOnly
+            className={'input ' + (itFareOn ? 'receipt-it-input' : 'receipt-total-input')} /></Field>
         {(type === 'Гостиница' || type === 'Трансфер') && <Field label="Источник стоимости"><Select options={[
           { value: 'document', label: type === 'Гостиница' ? 'Распознано из ваучера' : 'Распознано из документа' },
           { value: 'crm', label: 'Подтянуто из заказа CRM' }, { value: 'manual', label: 'Введено вручную' },
@@ -1805,7 +1851,7 @@ export function ReceiptSpecializedForm({
       <span className="hp-check-label" style={{ flex: 1 }}>
         <b style={{ display: 'block', color: 'var(--ink)' }}>Закрыть тариф на IT</b>
         <span style={{ color: 'var(--muted)', fontSize: 12 }}>
-          В клиентской квитанции вместо суммы тарифа будет показано «IT». Таксы и сборы останутся видимыми.
+          В клиентской квитанции вместо суммы тарифа и итога будет показано «IT». Таксы и сборы останутся видимыми, внутренний расчёт не меняется.
         </span>
       </span>
       <Pill tone={receiptUsesItFare(p) ? 'green' : 'gray'}>
