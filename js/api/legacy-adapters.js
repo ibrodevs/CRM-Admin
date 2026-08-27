@@ -31,6 +31,9 @@ function receiptDraftFromMetadata(item) {
   const metadata = item?.metadata || {};
   const receiptImport = metadata.receipt_import || {};
   const supplierOriginal = metadata.supplier_original || {};
+  const supplierFinancialSource = supplierOriginal.verified_data
+    || supplierOriginal.corrected_verified_data
+    || {};
   // Saved operator corrections are the client-facing source of truth.  The
   // supplier snapshot is only a fallback for documents that were never edited.
   const stored = receiptImport.verified_data
@@ -69,6 +72,14 @@ function receiptDraftFromMetadata(item) {
     fareBreakdown: stored.fareBreakdown || stored.fare_breakdown || [],
     taxBreakdown: stored.taxBreakdown || stored.tax_breakdown || [],
     feeBreakdown: stored.feeBreakdown || stored.fee_breakdown || [],
+    sourceSupplierFinancials: {
+      fare: supplierFinancialSource.fare,
+      taxes: supplierFinancialSource.taxes,
+      fees: supplierFinancialSource.fees,
+      fareBreakdown: supplierFinancialSource.fareBreakdown || supplierFinancialSource.fare_breakdown || [],
+      taxBreakdown: supplierFinancialSource.taxBreakdown || supplierFinancialSource.tax_breakdown || [],
+      feeBreakdown: supplierFinancialSource.feeBreakdown || supplierFinancialSource.fee_breakdown || [],
+    },
     output: stored.output || supplierOriginal.output_settings,
     auditLog: stored.auditLog || supplierOriginal.audit_log || [],
     originalTotal: stored.originalTotal ?? receiptImport.original_total ?? stored.total ?? item.amount ?? 0,
