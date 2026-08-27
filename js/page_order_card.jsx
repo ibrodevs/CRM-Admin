@@ -2012,6 +2012,29 @@ function OrderCard({ order, company, clients = [], onBack, initTab, initSvc, ini
 
 
   const openAviaCard = (s) => { const match = AIR_SERVICES.find((a) => a.no === s.avia) || { no: s.avia || s.id, airline: (s.offer ? s.offer.airline : 'KC'), status: s.status, supplier: s.supplier, pax: 2, sum: s.sum, currency: s.currency, route: s.title, pnr: '—', ticket: '—', dep: s.date }; setActiveAvia(s.offer ? { ...match, offer: s.offer } : match); setSvcView('avia-card'); };
+  const openAviaCard = (s) => {
+    const match = AIR_SERVICES.find((a) => a.no === s.avia) || {
+      no: s.avia || s.id,
+      airline: (s.offer ? s.offer.airline : 'KC'),
+      status: s.status,
+      supplier: s.supplier,
+      pax: 2,
+      sum: s.sum,
+      currency: s.currency,
+      route: s.title,
+      pnr: '—',
+      ticket: '—',
+      dep: s.date,
+    };
+    setActiveAvia({
+      ...match,
+      id: s.id || s.serverId || match.id || match.no,
+      orderId: cardOrder.id || order.id,
+      orderNo: cardOrder.no || order.no,
+      offer: s.offer || match.offer,
+    });
+    setSvcView('avia-card');
+  };
   const openOtherCard = (s) => { setActiveSvc(s.svcOffer ? { ...s.svcOffer, kind: s.kind, status: s.status, date: s.svcOffer.date || s.date, calc: s.calc, order: order.no } : { ...s, order: order.no }); setSvcView('svc-card'); };
   const openServiceCard = (s) => (s.kind === 'Авиа' ? openAviaCard(s) : openOtherCard(s));
 
@@ -2313,6 +2336,16 @@ function OrderCard({ order, company, clients = [], onBack, initTab, initSvc, ini
         }
       }} />;
     if (svcView === 'avia-card') return <FlightCard svc={activeAvia} offer={activeAvia ? activeAvia.offer : null} onBack={() => setSvcView(null)} />;
+    if (svcView === 'avia-card') return (
+      <FlightCard
+        svc={activeAvia}
+        offer={activeAvia ? activeAvia.offer : null}
+        orders={[cardOrder || order]}
+        companies={company ? [company] : []}
+        clients={clients}
+        onBack={() => { setSvcView(null); refreshOrderSnapshot(); }}
+      />
+    );
     if (svcView === 'svc-card') return <SvcCard item={activeSvc} kind={activeSvc.kind} participants={participants} onBack={() => setSvcView(null)} />;
     if (svcView === 'add-service') return (
       <div className="fade-in">
