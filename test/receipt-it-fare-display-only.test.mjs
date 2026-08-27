@@ -31,9 +31,12 @@ test('the editor itself shows the IT marker instead of the closed tariff', () =>
   assert.match(editor, /<Input value="IT" readOnly className="input receipt-it-input"/);
   // Закупочная сумма никуда не девается — она в подсказке под полем.
   assert.match(editor, /Закупка \$\{roundMoney\(itFareAmount\)/);
-  assert.match(editor, /Внутренний итог \$\{roundMoney\(total\)/);
-  assert.match(editor, /value=\{itFareOn \? 'IT' : total\}/);
-  assert.match(editor, /kind === 'fare' && itFareOn/);
+  // Маркер стоит только в графе тарифа: итоги в редакторе остаются суммами,
+  // иначе оператор теряет рабочие числа.
+  assert.match(editor, /<Input value=\{total\} readOnly className="input receipt-total-input" \/>/);
+  assert.match(editor, /В клиентском документе итог закрыт на IT/);
+  assert.doesNotMatch(editor, /value=\{itFareOn \? 'IT' : total\}/);
+  assert.doesNotMatch(editor, /kind === 'fare' && itFareOn/);
 });
 
 test('a literal IT printed by the supplier never stays in a numeric field', () => {

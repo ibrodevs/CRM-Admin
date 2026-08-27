@@ -1663,9 +1663,7 @@ export function ReceiptSpecializedForm({
               <Field label="Наименование">{isTax
                 ? <LockedInput correctionMode={editable} value={row.label || aviaTaxName(row.code) || ''} onChange={(e) => setArray(key, index, 'label', e.target.value, `${title}: название ${index + 1}`)} />
                 : <Input value={row.label || ''} onChange={(e) => setArray(key, index, 'label', e.target.value, `${title}: название ${index + 1}`)} />}</Field>
-              <Field label="Сумма">{kind === 'fare' && itFareOn
-                ? <Input value="IT" readOnly className="input receipt-it-input" aria-label="Строка тарифа закрыта на IT" />
-                : isTax
+              <Field label="Сумма">{isTax
                 ? <LockedInput correctionMode={editable} type="number" step="0.01" value={row.amount || ''}
                   data-amount-row={pickerKey}
                   onChange={(e) => setArray(key, index, 'amount', e.target.value, `${title}: сумма ${index + 1}`)} />
@@ -1676,7 +1674,7 @@ export function ReceiptSpecializedForm({
         }) : <div className="receipt-empty">{isTax ? 'Таксы не добавлены — нажмите «Добавить таксу» и выберите код из справочника' : 'Нет строк'}</div>}
         {rows.length > 0 && <div className="receipt-breakdown-total">
           <span>Итого по разбивке</span>
-          <b>{kind === 'fare' && itFareOn ? 'IT' : `${roundMoney(rowsTotal).toLocaleString('ru-RU')} ${p.currency || ''}`}</b>
+          <b>{roundMoney(rowsTotal).toLocaleString('ru-RU')} {p.currency || ''}</b>
         </div>}
       </div>
     );
@@ -1720,9 +1718,8 @@ export function ReceiptSpecializedForm({
         {(type === 'Гостиница' || type === 'Трансфер') && moneyField('Дополнительные сборы', 'additionalFees')}
         {(type === 'Гостиница' || type === 'Трансфер') && moneyField('Скидка', 'discount')}
         <Field label="Итого для клиента"
-          hint={itFareOn ? `Внутренний итог ${roundMoney(total).toLocaleString('ru-RU')} ${p.currency || ''} · в документе закрыт на IT` : ''}>
-          <Input value={itFareOn ? 'IT' : total} readOnly
-            className={'input ' + (itFareOn ? 'receipt-it-input' : 'receipt-total-input')} /></Field>
+          hint={itFareOn ? 'В клиентском документе итог закрыт на IT' : ''}>
+          <Input value={total} readOnly className="input receipt-total-input" /></Field>
         {(type === 'Гостиница' || type === 'Трансфер') && <Field label="Источник стоимости"><Select options={[
           { value: 'document', label: type === 'Гостиница' ? 'Распознано из ваучера' : 'Распознано из документа' },
           { value: 'crm', label: 'Подтянуто из заказа CRM' }, { value: 'manual', label: 'Введено вручную' },
