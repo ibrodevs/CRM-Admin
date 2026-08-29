@@ -2845,15 +2845,12 @@ function OrderCard({ order, company, clients = [], onBack, initTab, initSvc, ini
 
               <div className="oc-facts">
                 <div className="oc-fact">
-                  <span className="ic"><Icon name="calendar" /></span>
                   <div className="body"><div className="v">{order.date || '—'}</div><div className="l">Дата создания</div></div>
                 </div>
                 <button type="button" className="oc-fact" onClick={() => setReassignOpen(true)}>
-                  <span className="ic"><Icon name="user" /></span>
                   <div className="body"><div className="v">{operator || order.operator || 'Не назначен'}</div><div className="l">Оператор</div></div>
                 </button>
                 <button type="button" className="oc-fact" onClick={() => setEditOpen(true)}>
-                  <span className="ic"><Icon name="ticket" /></span>
                   <div className="body"><div className="v">{requestType || '—'}</div><div className="l">Тип заявки</div></div>
                 </button>
               </div>

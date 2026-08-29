@@ -2788,7 +2788,7 @@ table.hp-matrix{border-collapse:collapse;width:100%;min-width:640px}
 /* ——— Карточка заказа: шапка с фактами и единая лента услуг ——————————— */
 .oc-purpose{font-size:14px;color:var(--muted);margin-top:6px}
 .oc-facts{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:12px;margin-top:16px}
-.oc-fact{display:flex;align-items:center;gap:12px;border:1px solid var(--line);border-radius:14px;padding:11px 14px;background:var(--surface-2);text-align:left;font:inherit;width:100%}
+.oc-fact{display:flex;align-items:center;gap:12px;border:1px solid var(--line);border-radius:14px;padding:12px 16px;background:var(--surface-2);text-align:left;font:inherit;width:100%}
 button.oc-fact{cursor:pointer;transition:.14s}
 button.oc-fact:hover{border-color:#d3dbe8;background:#fff}
 .oc-fact .ic{width:34px;height:34px;border-radius:10px;flex:0 0 34px;display:flex;align-items:center;justify-content:center;background:#fff;border:1px solid var(--line);color:var(--blue)}
