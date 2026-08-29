@@ -23,8 +23,8 @@ import { HotelPicker } from './page_hotel_picker';
 import { getThreadForOrder, threadUnread } from './page_chats';
 import { GROUP_ORDERS, GroupServiceScenario, GrMatrixTab, GrDiffTab } from './page_groups';
 import { financeSnapshot, ocCurrency, ocMoney, opDebt, opPayable, svcCalc } from './features/orders/finance';
-import { crmApi, ordersApi, proposalsApi, servicesApi, usersApi, workspaceActionsApi } from './api/resources';
-import { toLegacyOrderService, toLegacyParticipant } from './api/legacy-adapters';
+import { crmApi, documentsApi, ordersApi, proposalsApi, servicesApi, usersApi, workspaceActionsApi } from './api/resources';
+import { toLegacyDocument, toLegacyOrderService, toLegacyParticipant } from './api/legacy-adapters';
 import { resultsOf } from './api/client';
 import { participantPayloadFromUi, routePayloadFromUi } from './api/order-card';
 import { toUiOrder } from './api/adapters';
@@ -151,8 +151,9 @@ function StatusControl({ status, onChange }) {
 }
 
 
-function OrderAside({ order, status, onStatusChange, services, participants, tasks = ORDER_TASKS, requestType, aviaParams, onOpenTab, onOpenTasks, operator, onReassign }) {
-  const urgent = tasks.filter((t) => t.urgent);
+function OrderAside({ order, status, onStatusChange, services, participants, tasks = ORDER_TASKS, history = [], documents = [],
+  requestType, aviaParams, onOpenTab, onOpenServices, onOpenTasks }) {
+  const openTasks = tasks.filter((t) => !t.done);
   const fin = financeSnapshot(order.no, services);
   const trip = tripFromServices(services, aviaParams);
 
@@ -206,7 +207,7 @@ function OrderAside({ order, status, onStatusChange, services, participants, tas
         </button>
 
         <div className="oc-aside-sep" />
-        <button className="oc-aside-row" onClick={() => onOpenTab('services')}>
+        <button className="oc-aside-row" onClick={onOpenServices}>
           <span className="ic"><Icon name="briefcase" /></span>
           <div className="body">
             <div className="lbl">Услуги</div>
@@ -223,8 +224,10 @@ function OrderAside({ order, status, onStatusChange, services, participants, tas
           <span className="ic"><Icon name="docs" /></span>
           <div className="body">
             <div className="lbl">Документы</div>
-            <div className="val">{okPax} / {participants.length} готовы</div>
-            {checkPax > 0 && <div className="oc-aside-stat"><span className="dot" style={{ background: 'var(--red)' }} />{checkPax} отсутствуют</div>}
+            <div className="val">{documents.length} {plural(documents.length, ['файл', 'файла', 'файлов'])}</div>
+            {checkPax > 0
+              ? <div className="oc-aside-stat"><span className="dot" style={{ background: 'var(--amber)' }} />{checkPax} {plural(checkPax, ['пассажир', 'пассажира', 'пассажиров'])} без документа</div>
+              : <div className="oc-aside-stat"><span className="dot" style={{ background: 'var(--green)' }} />Все на месте</div>}
           </div>
           <Icon name="chevRight" className="chev" />
         </button>
@@ -240,30 +243,36 @@ function OrderAside({ order, status, onStatusChange, services, participants, tas
           </div>
           <Icon name="chevRight" className="chev" />
         </button>
-      </div>
 
-      <div className="card card-pad">
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
-          <h3 className="card-title" style={{ fontSize: 17 }}>Ближайшие дедлайны</h3>
-          {urgent.length > 0 && <span className="pill pill-red">{urgent.length}</span>}
-        </div>
-        {tasks.map((t, i) => (
-          <div className="oc-task" key={i} onClick={onOpenTasks} style={{ cursor: 'pointer' }}>
-            <span className={'dot' + (t.urgent ? ' urgent' : '')} />
-            <div><div className="tt">{t.text}</div><div className={'td' + (t.urgent ? ' urgent' : '')}>{t.due}</div></div>
+        <div className="oc-aside-sep" />
+        <button className="oc-aside-row" onClick={onOpenTasks}>
+          <span className="ic"><Icon name="checkCircle" /></span>
+          <div className="body">
+            <div className="lbl">Задачи</div>
+            <div className="val">{tasks.length} {plural(tasks.length, ['задача', 'задачи', 'задач'])}</div>
+            {openTasks.length > 0 && <div className="oc-aside-stat"><span className="dot" style={{ background: 'var(--green)' }} />{openTasks.length} {plural(openTasks.length, ['активная', 'активные', 'активных'])}</div>}
           </div>
-        ))}
-        {!tasks.length && <div style={{ color: 'var(--muted)', fontSize: 13, padding: '8px 0' }}>Активных дедлайнов нет</div>}
-        <button onClick={onOpenTasks} style={{ marginTop: 8, border: 'none', background: 'none', padding: 0, color: 'var(--blue)', fontWeight: 600, fontSize: 13, cursor: 'pointer' }}>Все дедлайны →</button>
+          <Icon name="chevRight" className="chev" />
+        </button>
+
+        <div className="oc-aside-sep" />
+        <button className="oc-aside-row" onClick={() => onOpenTab('history')}>
+          <span className="ic"><Icon name="clock" /></span>
+          <div className="body">
+            <div className="lbl">История</div>
+            <div className="val">{history.length} {plural(history.length, ['событие', 'события', 'событий'])}</div>
+            {history.length > 0 && <div className="sub">Последнее: {history[history.length - 1].t}</div>}
+          </div>
+          <Icon name="chevRight" className="chev" />
+        </button>
       </div>
 
-      <div className="card card-pad">
-        <h3 className="card-title" style={{ fontSize: 17, marginBottom: 14 }}>Ответственный</h3>
-        <div className="oc-aside-resp" style={{ marginBottom: 12 }}>
-          <Avatar name={operator || order.operator} size={40} />
-          <div><div className="nm">{operator || order.operator}</div><div className="rl">{order.operatorRole || 'Оператор'}</div></div>
+      <div className="oc-hint">
+        <span className="ic"><Icon name="sparkles" /></span>
+        <div>
+          <div className="t">Подсказка</div>
+          <div className="d">Вся основная информация и документы по каждой услуге доступны прямо в карточке заказа.</div>
         </div>
-        <Button variant="secondary" size="sm" icon="users" style={{ width: '100%' }} onClick={onReassign}>Переназначить</Button>
       </div>
     </div>
   );
@@ -698,7 +707,283 @@ function ServicesFooterBar({ services, participants, bookingDraft, onStartBookin
 
 
 
-function OrderChangeCase({ orderNo, services, participants }) {
+// ——— Единая лента услуг заказа —————————————————————————————————————
+// Карточка заказа собрана в один поток: услуга + её пассажиры + документы +
+// действия лежат в одном блоке, разделы-подробности открываются из правой
+// колонки. Тарифные/статусные данные берутся из тех же полей услуги, что и в
+// прежних вкладках, поэтому поведение действий не меняется.
+
+function svcTint(color, alpha = 0.12) {
+  const m = /^#([0-9a-f]{6})$/i.exec(color || '');
+  if (!m) return 'var(--blue-soft)';
+  const n = parseInt(m[1], 16);
+  return 'rgba(' + ((n >> 16) & 255) + ',' + ((n >> 8) & 255) + ',' + (n & 255) + ',' + alpha + ')';
+}
+
+function svcExactMoney(amount, currency = 'RUB') {
+  const value = Number(amount);
+  return (Number.isFinite(value) ? value : 0).toLocaleString('ru-RU', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' ' + ocCurrency(currency);
+}
+
+function serviceDetailBlock(s) {
+  if (!s || !s.details) return null;
+  return s.details[s.kind] || Object.values(s.details)[0] || null;
+}
+
+function serviceHeadline(s) {
+  const d = serviceDetailBlock(s) || {};
+  const raw = String(d.route || s.title || '');
+  const parts = raw.split('→').map((p) => p.trim()).filter(Boolean);
+  if (parts.length > 1) return parts;
+  return [s.title || d.name || s.kind || '—'];
+}
+
+function airlineCodeOf(s) {
+  const d = serviceDetailBlock(s) || {};
+  if (s.offer && s.offer.airline) return s.offer.airline;
+  const name = d.airline || s.supplier || '';
+  const code = Object.keys(AIRLINES).find((c) => name && (AIRLINES[c].name === name || name.indexOf(AIRLINES[c].name) === 0));
+  return code || null;
+}
+
+function serviceSupplierLine(s) {
+  const d = serviceDetailBlock(s) || {};
+  if (s.kind === 'Авиа' || s.kind === 'ЖД') {
+    const carrier = d.airline || d.carrier || s.supplier || '';
+    const flight = d.flightNo || d.trainNo || '';
+    return [carrier, flight].filter(Boolean).join(', ');
+  }
+  return [d.name || s.supplier, s.sub].filter(Boolean).join(' · ');
+}
+
+function serviceFacts(s) {
+  const d = serviceDetailBlock(s) || {};
+  const out = [];
+  if (s.kind === 'Авиа' || s.kind === 'ЖД') {
+    out.push({ icon: 'calendar', text: d.depDate || s.date });
+    if (d.depTime && d.arrTime) out.push({ icon: s.kind === 'ЖД' ? 'train' : 'plane', text: d.depTime + ' – ' + d.arrTime });
+    out.push({ icon: 'ticket', text: d.cabin });
+  } else if (s.kind === 'Гостиница') {
+    out.push({ icon: 'calendar', text: d.checkIn && d.checkOut ? d.checkIn + ' – ' + d.checkOut : s.date });
+    if (d.nights) out.push({ icon: 'bed', text: d.nights + ' ' + plural(Number(d.nights), ['ночь', 'ночи', 'ночей']) });
+    out.push({ icon: 'coffee', text: d.board });
+  } else if (s.kind === 'Трансфер') {
+    out.push({ icon: 'calendar', text: d.date || s.date });
+    out.push({ icon: 'clock', text: d.time });
+  } else {
+    out.push({ icon: 'calendar', text: s.date });
+    out.push({ icon: 'briefcase', text: s.supplier });
+  }
+  return out.filter((f) => f.text);
+}
+
+function serviceParticipants(s, participants = []) {
+  const ids = (s.participantIds || []).map(String);
+  if (ids.length) {
+    const byId = participants.filter((p) => ids.includes(String(p.serverId || p.id)));
+    if (byId.length) return byId;
+  }
+  const names = (s.passengers || []).map((p) => (typeof p === 'string' ? p : p && p.name)).filter(Boolean);
+  if (names.length) {
+    const byName = participants.filter((p) => names.includes(p.name));
+    if (byName.length) return byName;
+    return names.map((name) => ({ name }));
+  }
+  return participants;
+}
+
+function serviceDocuments(s, documents = []) {
+  const id = String(s.serverId || s.id || '');
+  return documents.filter((d) => id && String(d.service) === id);
+}
+
+function ticketForParticipant(docs, participant) {
+  const personId = participant && participant.person ? String(participant.person) : null;
+  if (!personId) return null;
+  return docs.find((d) => d.kind === 'ticket' && String(d.person) === personId) || null;
+}
+
+
+function ServiceBlock({ s, participants, documents, orderNo, open, onToggle, onOpenCard, onCancel, onExchange, onOpenChat,
+  onOpenPassenger, onAddPassengerDoc, onUploadDocument, onOpenDocument, onDeleteService, selectable, selected, onSelect }) {
+  const toast = useToast();
+  const fileRef = useRef(null);
+  const [sendOpen, setSendOpen] = useState(false);
+  const [histOpen, setHistOpen] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const kind = SERVICE_KIND[s.kind] || { icon: 'briefcase', color: '#2566ff' };
+  const pax = serviceParticipants(s, participants);
+  const docs = serviceDocuments(s, documents);
+  const facts = serviceFacts(s);
+  const head = serviceHeadline(s);
+  const supplierLine = serviceSupplierLine(s);
+  const airline = s.kind === 'Авиа' ? airlineCodeOf(s) : null;
+  const total = svcCalc(s).total;
+  const cardItem = s.svcOffer
+    ? { ...s.svcOffer, title: s.title, sub: s.sub, kind: s.kind, status: s.status, date: s.date, order: orderNo, calc: s.calc }
+    : { ...s, order: orderNo };
+
+  const pickFile = () => fileRef.current && fileRef.current.click();
+  const takeFile = async (event) => {
+    const file = event.target.files && event.target.files[0];
+    event.target.value = '';
+    if (!file) return;
+    setUploading(true);
+    try { await onUploadDocument(s, file); } finally { setUploading(false); }
+  };
+
+  return (
+    <div className={'osrv' + (open ? ' open' : '')}>
+      <div className="osrv-head" role="button" tabIndex={0} onClick={onToggle}
+        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onToggle(); } }}>
+        {selectable && (
+          <span onClick={(e) => e.stopPropagation()} style={{ display: 'inline-flex', alignItems: 'center' }}>
+            <Checkbox on={!!selected} onChange={onSelect} />
+          </span>
+        )}
+        <span className="osrv-ic" style={{ background: svcTint(kind.color), color: kind.color }}><Icon name={kind.icon} /></span>
+        <span className="osrv-kind">{s.kind}</span>
+        <Pill tone={SERVICE_STATUS[s.status] || 'gray'}>{s.status}</Pill>
+        <span style={{ flex: 1 }} />
+        <span className="osrv-sum">{svcExactMoney(total, s.currency)}</span>
+        <Icon name={open ? 'chevUp' : 'chevDown'} className="osrv-chev" />
+      </div>
+
+      <div className="osrv-body">
+        <button type="button" className="osrv-title" onClick={() => onOpenCard(s)}>
+          {head.map((part, i) => (
+            <React.Fragment key={part + i}>
+              {i > 0 && <Icon name="arrowRight" />}
+              <span>{part}</span>
+            </React.Fragment>
+          ))}
+        </button>
+
+        {supplierLine && (
+          <div className="osrv-line">
+            {airline ? <AirlineLogo code={airline} size="sm" /> : (
+              <span className="osrv-dot" style={{ background: svcTint(kind.color), color: kind.color }}><Icon name={kind.icon} /></span>
+            )}
+            <span>{supplierLine}</span>
+          </div>
+        )}
+
+        {facts.length > 0 && (
+          <div className="osrv-facts">
+            {facts.map((f, i) => (
+              <span className="osrv-fact" key={f.icon + i}><Icon name={f.icon} />{f.text}</span>
+            ))}
+          </div>
+        )}
+
+        {open && (
+          <>
+            <div className="osrv-sec">
+              <div className="osrv-sec-t">Пассажиры ({pax.length})</div>
+              {pax.length === 0 && <div style={{ fontSize: 13, color: 'var(--muted)', padding: '6px 0' }}>Пассажиры к услуге не привязаны</div>}
+              {pax.map((p, i) => {
+                const ticket = ticketForParticipant(docs, p);
+                return (
+                  <div className="osrv-pax" key={(p.serverId || p.id || p.name) + '-' + i}>
+                    <Avatar name={p.name} size={34} />
+                    <div style={{ flex: 1, minWidth: 140 }}>
+                      <div className="nm">{p.name}{p.lead && <span className="pill pill-blue" style={{ marginLeft: 6, height: 20, padding: '0 8px', fontSize: 12 }}>Лид</span>}</div>
+                    </div>
+                    <span className="dc">{p.docType ? p.docType + ': ' : 'Документ: '}{p.docNo || p.doc || '—'}</span>
+                    {ticket
+                      ? <button type="button" className="osrv-tick" onClick={() => onOpenDocument(ticket)}><Icon name="ticket" />Билет {ticket.document_number || ticket.title}</button>
+                      : <span style={{ fontSize: 13, color: 'var(--muted-2)', whiteSpace: 'nowrap' }}>Билет не выписан</span>}
+                    <ActionMenu trigger={<button className="btn btn-ghost btn-icon btn-sm"><Icon name="more" /></button>}
+                      items={[
+                        { icon: 'idcard', label: 'Документы пассажира', onClick: () => onOpenPassenger(p) },
+                        { icon: 'docs', label: 'Добавить документ', onClick: () => onAddPassengerDoc(p) },
+                        ...(ticket ? [{ icon: 'download', label: 'Открыть билет', onClick: () => onOpenDocument(ticket) }] : []),
+                      ]} />
+                  </div>
+                );
+              })}
+            </div>
+
+            <div className="osrv-sec">
+              <div className="osrv-sec-t">Документы ({docs.length})</div>
+              <div className="osrv-docs">
+                {docs.map((d) => {
+                  const legacy = toLegacyDocument(d);
+                  return (
+                    <button type="button" className="osrv-doc" key={d.id} onClick={() => onOpenDocument(d)}>
+                      <span className="ic"><Icon name="docs" /></span>
+                      <span>
+                        <span className="nm" style={{ display: 'block' }}>{legacy.name}</span>
+                        <span className="mt" style={{ display: 'block' }}>{legacy.type}{legacy.date ? ' · ' + legacy.date : ''}</span>
+                      </span>
+                    </button>
+                  );
+                })}
+                <button type="button" className="osrv-adddoc" onClick={pickFile} disabled={uploading}>
+                  <Icon name={uploading ? 'loader' : 'plus'} />{uploading ? 'Загрузка…' : 'Добавить файл'}
+                </button>
+                <input ref={fileRef} type="file" hidden onChange={takeFile} />
+              </div>
+            </div>
+
+            <div className="osrv-actions">
+              <Button variant="secondary" icon="refund" onClick={() => onCancel(s)}>Отменить</Button>
+              <Button icon="swap" onClick={() => onExchange(s)}>Запросить обмен</Button>
+              <span className="sep" />
+              <span style={{ flex: 1 }} />
+              <button className="btn btn-ghost btn-icon" title="История карточки услуги" onClick={() => setHistOpen(true)}><Icon name="clock" /></button>
+              <button className="btn btn-ghost btn-icon" title="Отправить карточку клиенту" onClick={() => setSendOpen(true)}><Icon name="send" /></button>
+              <button className="btn btn-ghost btn-icon" title="Обсудить в чате" onClick={onOpenChat}><Icon name="chat" /></button>
+              <ActionMenu trigger={<button className="btn btn-ghost btn-icon"><Icon name="more" /></button>}
+                items={[
+                  { icon: 'eye', label: 'Открыть карточку услуги', onClick: () => onOpenCard(s) },
+                  { icon: 'docs', label: 'Добавить файл', onClick: pickFile },
+                  { sep: true },
+                  { icon: 'trash', label: 'Удалить услугу', danger: true, onClick: () => onDeleteService(s) },
+                ]} />
+            </div>
+          </>
+        )}
+      </div>
+
+      {sendOpen && <ServiceCardSendPanel item={cardItem} kind={s.kind} participants={pax} orderNo={orderNo}
+        currency={s.currency} serviceId={s.id} onSent={(ch) => toast('Карточка услуги отправлена клиенту по каналу «' + ch + '»', 'ok')} onClose={() => setSendOpen(false)} />}
+      {histOpen && <ServiceCardHistoryDrawer orderNo={orderNo} serviceId={s.id} title={s.title} onClose={() => setHistOpen(false)} />}
+    </div>
+  );
+}
+
+
+function OrderServicesBoard({ services, participants, documents, orderNo, expanded, onToggle, onAdd, selMode, sel, onSel, renderExtra, ...handlers }) {
+  return (
+    <div className="fade-in">
+      <div className="osrv-boardhead">
+        <div>
+          <h3>Услуги в заказе</h3>
+          <div className="sub">Все услуги, пассажиры, документы и действия — в одном месте</div>
+        </div>
+        <Button icon="plus" onClick={onAdd}>Добавить услугу</Button>
+      </div>
+
+      {services.length === 0 ? (
+        <EmptyState icon="briefcase" title="Услуги не добавлены" sub="Добавьте авиабилеты, отели, трансферы и другие услуги в заказ" />
+      ) : services.map((s) => (
+        <div key={s.id}>
+          <ServiceBlock s={s} participants={participants} documents={documents} orderNo={orderNo}
+            open={expanded.has(s.id)} onToggle={() => onToggle(s.id)}
+            selectable={selMode} selected={sel.has(s.id)} onSelect={() => onSel(s.id)}
+            {...handlers} />
+          {renderExtra && renderExtra(s)}
+        </div>
+      ))}
+
+      <button type="button" className="osrv-add" onClick={onAdd}><Icon name="plus" />Добавить ещё услугу в заказ</button>
+    </div>
+  );
+}
+
+
+function OrderChangeCase({ orderNo, orderId, services, participants }) {
   const toast = useToast();
   const [cs, setCs] = useState(() => getChangeCase(orderNo));
   const [trigger, setTrigger] = useState(CASE_TRIGGERS[0]);
@@ -719,20 +1004,20 @@ function OrderChangeCase({ orderNo, services, participants }) {
   const openCase = async () => {
     const c = createChangeCase(orderNo, trigger, triggerTitle, 'Авиа');
     try {
-      await workspaceActionsApi.execute('order.change_case.create', { resourceType: 'order', resourceId: String(order.id || orderNo), payload: c });
+      await workspaceActionsApi.execute('order.change_case.create', { resourceType: 'order', resourceId: String(orderId || orderNo), payload: c });
       setCs({ ...c }); toast('Кейс изменения создан и закреплён за заказом', 'ok');
     } catch (error) { delete ORDER_CHANGE_CASES[orderNo]; toast(error.message || 'Не удалось создать кейс изменения', 'err'); }
   };
   const checkDates = async (i) => {
     try {
-      await workspaceActionsApi.execute('order.change_case.date_check.request', { resourceType: 'order', resourceId: String(order.id || orderNo), payload: { service: cs.services[i], trigger } });
+      await workspaceActionsApi.execute('order.change_case.date_check.request', { resourceType: 'order', resourceId: String(orderId || orderNo), payload: { service: cs.services[i], trigger } });
       commit(logSvc(cs, i, 'Создана ручная задача сверки новых дат', { status: 'checking' }));
       toast('Задача сверки дат создана', 'ok');
     } catch (error) { toast(error.message || 'Не удалось создать задачу сверки', 'err'); }
   };
   const sendRequest = async (i) => {
     try {
-      await workspaceActionsApi.execute('order.change_case.supplier_request', { resourceType: 'order', resourceId: String(order.id || orderNo), payload: { service: cs.services[i], trigger } });
+      await workspaceActionsApi.execute('order.change_case.supplier_request', { resourceType: 'order', resourceId: String(orderId || orderNo), payload: { service: cs.services[i], trigger } });
       commit(logSvc(cs, i, 'Создан ручной запрос поставщику', { status: 'requested' }));
       toast('Запрос поставщику сохранён как backend-задача', 'ok');
     } catch (error) { toast(error.message || 'Не удалось создать запрос поставщику', 'err'); }
@@ -771,7 +1056,7 @@ function OrderChangeCase({ orderNo, services, participants }) {
     const manual = chosen.some((c) => c.manual);
     const head = chosen.length > 1 ? 'Подобрано альтернатив: ' + chosen.length : 'Подобрана альтернатива: ' + chosen[0].title;
     try {
-      await workspaceActionsApi.execute('order.change_case.alternative.fix', { resourceType: 'order', resourceId: String(order.id || orderNo), payload: { service: cur.services[p.i], alternatives: chosen } });
+      await workspaceActionsApi.execute('order.change_case.alternative.fix', { resourceType: 'order', resourceId: String(orderId || orderNo), payload: { service: cur.services[p.i], alternatives: chosen } });
       commit(logSvc(cur, p.i, head + (manual ? ' · ручная выборка оператором' : ''), { status: 'resolved', alts: chosen }));
       setPicker(null);
       toast('Альтернатива зафиксирована в кейсе' + (manual ? ' (включая ручной выбор)' : ''), 'ok');
@@ -1967,9 +2252,22 @@ function TabTasks({ tasks = [] }) {
 
 
 
+const ORDER_SECTIONS = {
+  overview: 'Общая информация', clients: 'Клиенты', responsibles: 'Ответственные', route: 'Маршрут',
+  participants: 'Пассажиры', matrix: 'Матрица группы', diff: 'Различия по броням', documents: 'Документы',
+  finance: 'Финансы', tasks: 'Задачи', history: 'История заказа', offers: 'Коммерческие предложения',
+  extras: 'Доп. услуги', aftersale: 'Постпродажа',
+};
+
+// Услуги живут на главном экране карточки, поэтому старый ключ вкладки ведёт туда же.
+function orderSection(key) {
+  if (!key || key === 'services' || key === 'main') return null;
+  return key;
+}
+
 function OrderCard({ order, company, clients = [], onBack, initTab, initSvc, initSvcSearch, fresh, onOpenChat }) {
   const toast = useToast();
-  const [tab, setTab] = useState(initTab || (initSvcSearch ? 'services' : 'overview'));
+  const [tab, setTab] = useState(orderSection(initTab) || 'main');
   const [loading, setLoading] = useState(true);
   const [cardOrder, setCardOrder] = useState(order);
   const [status, setStatus] = useState(order.status === 'Нет данных' ? 'Новое' : order.status);
@@ -2003,6 +2301,14 @@ function OrderCard({ order, company, clients = [], onBack, initTab, initSvc, ini
   const [addKind, setAddKind] = useState('Авиа');
   const [activeSvc, setActiveSvc] = useState(null);
   const [otherSvc, setOtherSvc] = useState(null);
+
+  const [orderDocs, setOrderDocs] = useState([]);
+  const [expandedSvc, setExpandedSvc] = useState(() => new Set());
+  const [selMode, setSelMode] = useState(false);
+  const [sel, setSel] = useState(() => new Set());
+  const [changeCaseOpen, setChangeCaseOpen] = useState(false);
+  const [confirmAction, setConfirmAction] = useState(null);
+  const [aftersalePreset, setAftersalePreset] = useState(null);
 
   const [pendingAviaRoute, setPendingAviaRoute] = useState(null);
   const [aviaClassByPax, setAviaClassByPax] = useState({});
@@ -2065,12 +2371,22 @@ function OrderCard({ order, company, clients = [], onBack, initTab, initSvc, ini
     return liveOrder;
   };
 
+  const refreshDocuments = async (signal) => {
+    try {
+      const payload = await documentsApi.list({ order: order.id }, signal);
+      setOrderDocs(resultsOf(payload));
+    } catch (error) {
+      if (error.name !== 'AbortError') setOrderDocs([]);
+    }
+  };
+
   const refreshOrderSnapshot = async () => {
     const [overview, taskPayload, historyPayload] = await Promise.all([
       ordersApi.overview(order.id),
       ordersApi.tasks(order.id, { status: 'open' }),
       ordersApi.history(order.id, {}),
     ]);
+    await refreshDocuments();
     return applyOrderSnapshot(overview, taskPayload, historyPayload);
   };
 
@@ -2085,8 +2401,16 @@ function OrderCard({ order, company, clients = [], onBack, initTab, initSvc, ini
         if (error.name !== 'AbortError') toast(error.message || 'Не удалось загрузить заказ', 'err');
       })
       .finally(() => { if (!controller.signal.aborted) setLoading(false); });
+    refreshDocuments(controller.signal);
     return () => controller.abort();
   }, [order.id, order.no]);
+
+  // Первая услуга раскрыта — оператор сразу видит пассажиров и документы по ней.
+  useEffect(() => { setExpandedSvc(new Set()); setSel(new Set()); setSelMode(false); }, [order.no]);
+  useEffect(() => {
+    if (!services.length) return;
+    setExpandedSvc((cur) => (cur.size ? cur : new Set([services[0].id])));
+  }, [services]);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -2174,49 +2498,43 @@ function OrderCard({ order, company, clients = [], onBack, initTab, initSvc, ini
     toast('Изменения сохранены', 'ok');
   };
 
-  useEffect(() => { if (initTab) setTab(initTab); }, [initTab, order.no]);
+  useEffect(() => { setTab(orderSection(initTab) || 'main'); }, [initTab, order.no]);
+
+  useEffect(() => {
+    if (!initSvcSearch) return;
+    setTab('main'); setAddKind(initSvcSearch); setSvcView('add-service');
+  }, [initSvcSearch, order.no]);
 
 
   useEffect(() => {
     if (!initSvc || loading) return;
     const s = services.find((x) => x.id === initSvc);
     if (!s) return;
-    setTab('services');
+    setTab('main');
     openServiceCard(s);
   }, [initSvc, loading, order.no]);
 
   useEffect(() => { if (fresh) toast('Заказ создан. Добавьте участников и их документы во вкладке «Участники».', 'info'); }, []);
 
-  const docsReady = participants.filter((p) => p.docStatus === 'ok').length;
+  const orderPurpose = cardOrder.purpose || cardOrder.comment || '';
 
   const isGroup = requestType === 'Групповая';
   // Групповая модель для вкладок, которых нет у обычного заказа (Матрица, Различия).
   const groupModel = isGroup ? (GROUP_ORDERS.find((g) => String(g.no) === String(order.no)) || GROUP_ORDERS[0]) : null;
 
-  const TABS = [
-    { key: 'route', label: 'Маршрут', icon: 'route' },
-    { key: 'services', label: 'Услуги', icon: 'briefcase', count: services.length },
-    { key: 'participants', label: 'Пассажиры', icon: 'users', count: participants.length },
-    // Групповой заказ = та же карточка + доп. вкладки (единый вид группы и сверка условий броней)
-    ...(isGroup && groupModel ? [
-      { key: 'matrix', label: 'Матрица', icon: 'grid' },
-      { key: 'diff', label: 'Различия', icon: 'swap' },
-    ] : []),
-    { key: 'documents', label: 'Документы', icon: 'docs', countText: docsReady + '/' + participants.length },
-    { key: 'finance', label: 'Финансы', icon: 'finance' },
-    { key: 'tasks', label: 'Задачи', icon: 'checkCircle', count: tasks.length || null },
-    { key: 'history', label: 'История', icon: 'clock' },
-  ];
-
+  // Разделы, не поместившиеся в правую колонку, открываются из меню шапки заказа.
   const MORE_TABS = [
     { key: 'overview', label: 'Общая информация', icon: 'clipboard' },
     { key: 'clients', label: 'Клиенты', icon: 'contacts' },
     { key: 'responsibles', label: 'Ответственные', icon: 'users', count: orderResponsibles(order.no).length || null },
+    ...(isGroup && groupModel ? [
+      { key: 'matrix', label: 'Матрица группы', icon: 'grid' },
+      { key: 'diff', label: 'Различия по броням', icon: 'swap' },
+    ] : []),
     { key: 'extras', label: 'Доп. услуги', icon: 'sparkles' },
     { key: 'offers', label: 'КП', icon: 'template', count: PROPOSALS.filter((p) => p.order === order.no).length, locked: stageIdx < 2 && !PROPOSALS.some((p) => p.order === order.no) },
     { key: 'aftersale', label: 'Постпродажа', icon: 'refund', count: RETURNS.filter((r) => r.order === order.no).length || null, locked: stageIdx < 2 },
   ];
-  const isTabLocked = (t) => !!t.locked;
 
   const goAddType = (type) => { setAddKind(type || 'Авиа'); setSvcView('add-service'); };
 
@@ -2321,6 +2639,66 @@ function OrderCard({ order, company, clients = [], onBack, initTab, initSvc, ini
 
 
 
+  const toggleSvc = (id) => setExpandedSvc((cur) => { const n = new Set(cur); if (n.has(id)) n.delete(id); else n.add(id); return n; });
+  const toggleSel = (id) => setSel((cur) => { const n = new Set(cur); if (n.has(id)) n.delete(id); else n.add(id); return n; });
+  const assembleSelected = () => { const chosen = services.filter((s) => sel.has(s.id)); assembleKPFromCards(chosen); setSelMode(false); setSel(new Set()); };
+  const exportSelectedToChat = () => { const chosen = services.filter((s) => sel.has(s.id)); exportServicesToChat(chosen); setSelMode(false); setSel(new Set()); };
+
+  const openDocument = (doc) => window.open(documentsApi.downloadUrl(doc.id), '_blank', 'noopener,noreferrer');
+
+  const uploadServiceDocument = async (svc, file) => {
+    try {
+      await documentsApi.upload(file, { order: order.id, service: svc.serverId || svc.id, kind: 'other', title: file.name });
+      await refreshDocuments();
+      toast('Файл добавлен к услуге', 'ok');
+    } catch (error) {
+      toast(error.message || 'Не удалось загрузить файл', 'err');
+    }
+  };
+
+  const cancelService = async (svc) => {
+    try {
+      await servicesApi.cancel(svc.serverId || svc.id, { version: svc.version, reason: 'Отменено оператором в карточке заказа' });
+      await refreshOrderSnapshot();
+      toast('Услуга отменена', 'ok');
+    } catch (error) {
+      toast(error.message || 'Не удалось отменить услугу', 'err');
+    }
+  };
+
+  const deleteService = async (svc) => {
+    try {
+      await servicesApi.remove(svc.serverId || svc.id);
+      await refreshOrderSnapshot();
+      toast('Услуга удалена из заказа', 'ok');
+    } catch (error) {
+      toast(error.message || 'Не удалось удалить услугу', 'err');
+    }
+  };
+
+  const askCancelService = (svc) => setConfirmAction({
+    title: 'Отменить услугу?',
+    message: <>Услуга <b>{svc.title}</b> будет отменена у поставщика. Штрафы и удержания фиксируются в постпродаже.</>,
+    confirmLabel: 'Отменить услугу',
+    confirmVariant: 'danger',
+    run: () => cancelService(svc),
+  });
+
+  const askDeleteService = (svc) => setConfirmAction({
+    title: 'Удалить услугу из заказа?',
+    message: <>Услуга <b>{svc.title}</b> будет удалена из заказа вместе с привязками пассажиров.</>,
+    confirmLabel: 'Удалить',
+    confirmVariant: 'danger',
+    run: () => deleteService(svc),
+  });
+
+  // Обмен ведётся штатным постпродажным модулем — карточка лишь открывает его
+  // с предзаполненной услугой, чтобы оператор не искал её в списке заново.
+  const requestExchange = (svc) => {
+    setAftersalePreset({ type: 'Обмен билета', serviceId: String(svc.serverId || svc.id), stamp: Date.now() });
+    setTab('aftersale');
+  };
+
   const renderServicesArea = () => {
     if (svcView === 'booking') return <BookingWizard order={order} services={services} draft={bookingDraft}
       onSaveDraft={setBookingDraft} onClose={() => setSvcView(null)}
@@ -2359,12 +2737,36 @@ function OrderCard({ order, company, clients = [], onBack, initTab, initSvc, ini
           onAddAviaPerPax={startAviaFareStep} onAddOther={addSvcOffer} />
       </div>
     );
-    return <TabServices orderNo={order.no} services={services} participants={participants} requestType={requestType}
-      onOpenPicker={() => goAddType(addKind)}
-      onAssembleKP={assembleKPFromCards}
-      onExportToChat={exportServicesToChat}
-      onOpenAvia={openAviaCard}
-      onOpenOther={openOtherCard} />;
+    return (
+      <>
+        {(changeCaseOpen || !!getChangeCase(order.no)) && (
+          <OrderChangeCase orderNo={order.no} orderId={order.id} services={services} participants={participants} />
+        )}
+        {selMode && (
+          <div className="osrv-selbar">
+            <Icon name="check" style={{ width: 16, height: 16 }} />
+            <span>Отметьте услуги — их можно выгрузить в чат клиенту или объединить в КП. Выбрано: {sel.size}</span>
+            <span style={{ flex: 1 }} />
+            <Button size="sm" variant="secondary" onClick={() => { setSelMode(false); setSel(new Set()); }}>Отмена</Button>
+            <Button size="sm" variant="secondary" icon="chat" disabled={sel.size === 0} onClick={exportSelectedToChat}>Выгрузить в чат</Button>
+            <Button size="sm" icon="template" disabled={sel.size === 0} onClick={assembleSelected}>Собрать КП</Button>
+          </div>
+        )}
+        <OrderServicesBoard services={services} participants={participants} documents={orderDocs} orderNo={order.no}
+          expanded={expandedSvc} onToggle={toggleSvc} onAdd={() => goAddType(addKind)}
+          selMode={selMode} sel={sel} onSel={toggleSel}
+          renderExtra={isGroup ? (s) => <GroupServiceScenario s={s} pax={participants} orderNo={order.no} /> : null}
+          onOpenCard={openServiceCard}
+          onCancel={askCancelService}
+          onExchange={requestExchange}
+          onOpenChat={onOpenChat}
+          onOpenPassenger={(person) => setEditPax(person)}
+          onAddPassengerDoc={(person) => setDocPax(person)}
+          onUploadDocument={uploadServiceDocument}
+          onOpenDocument={openDocument}
+          onDeleteService={askDeleteService} />
+      </>
+    );
   };
 
   const tabContent = () => {
@@ -2377,7 +2779,7 @@ function OrderCard({ order, company, clients = [], onBack, initTab, initSvc, ini
       case 'route': return <TabRoute services={services} />;
       case 'matrix': return groupModel ? <GrMatrixTab o={groupModel} /> : null;
       case 'diff': return groupModel ? <GrDiffTab o={groupModel} /> : null;
-      case 'services': return renderServicesArea();
+      case 'main': case 'services': return renderServicesArea();
       case 'offers': return <KPModule order={order} services={services} participants={participants}
         onApprove={() => { setStageIdx((i) => Math.max(i, 2)); toast('Созданы финансовые записи и задачи по выпуску документов', 'ok'); }} />;
       case 'responsibles': return <OrderResponsiblesTab order={order} />;
@@ -2385,7 +2787,7 @@ function OrderCard({ order, company, clients = [], onBack, initTab, initSvc, ini
       case 'documents': return <DocCenter scopeOrder={order.no} participants={participants} services={services} orders={[order]} />;
       case 'finance': return (<><OrderFinanceBlock orderNo={order.no} order={order} services={services} summary={financeSummary} /><FinanceRegistry scopeOrder={order.no} initialOps={[]} /></>);
       case 'tasks': return <TabTasks tasks={tasks} />;
-      case 'aftersale': return <ReturnsModule scopeOrder={order.no} order={order} services={services} participants={participants} compact />;
+      case 'aftersale': return <ReturnsModule scopeOrder={order.no} order={order} services={services} participants={participants} initialNew={aftersalePreset} compact />;
       case 'history': return <TabHistory liveItems={history} />;
       default: return null;
     }
@@ -2394,16 +2796,23 @@ function OrderCard({ order, company, clients = [], onBack, initTab, initSvc, ini
 
 
 
-  const fullWidthFlow = tab === 'services' && svcView === 'booking';
+  const fullWidthFlow = tab === 'main' && svcView === 'booking';
 
+
+  const openSection = (key) => { setTab(key); if (svcView !== 'booking') setSvcView(null); };
 
   const headerMenuItems = [
     { icon: 'edit', label: 'Редактировать заказ', onClick: () => setEditOpen(true) },
-    { icon: 'plus', label: 'Добавить услугу', onClick: () => { setTab('services'); goAddType('Авиа'); } },
-    { icon: 'zap', label: bookingDraft ? 'Продолжить бронирование' : 'Начать бронирование', onClick: () => { setTab('services'); setSvcView('booking'); } },
-    { icon: 'template', label: 'КП', onClick: () => setTab('offers') },
+    { icon: 'plus', label: 'Добавить услугу', onClick: () => { setTab('main'); goAddType('Авиа'); } },
+    { icon: 'zap', label: bookingDraft ? 'Продолжить бронирование' : 'Начать бронирование', onClick: () => { setTab('main'); setSvcView('booking'); } },
+    { icon: 'check', label: 'Выбрать услуги для КП или чата', onClick: () => { setTab('main'); setSvcView(null); setSelMode(true); } },
+    { icon: 'refund', label: 'Изменение по рейсу', onClick: () => { setTab('main'); setSvcView(null); setChangeCaseOpen(true); } },
     { icon: 'users', label: 'Переназначить оператора', onClick: () => setReassignOpen(true) },
     { icon: 'send', label: 'Отправить клиенту', onClick: () => setSendOpen(true) },
+    { sep: true },
+    ...MORE_TABS.filter((t) => !t.locked).map((t) => ({
+      icon: t.icon, label: t.label + (t.count ? ` (${t.count})` : ''), onClick: () => openSection(t.key),
+    })),
   ];
   return (
     <div className="fade-in">
@@ -2418,57 +2827,59 @@ function OrderCard({ order, company, clients = [], onBack, initTab, initSvc, ini
           <div className="oc-main">
             <div className="oc-head">
               <div style={{ display: 'flex', alignItems: 'flex-start', gap: 16, flexWrap: 'wrap' }}>
-                  <div className="oc-id">
-                    <h2>Заказ № {order.no}</h2>
-                    <StatusControl status={status} onChange={changeOrderStatus} />
-                  </div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap', fontSize: 13, color: 'var(--muted)' }}>
-                    <span>Создан {order.date} · <b style={{ color: 'var(--ink)', fontWeight: 600 }}>{(participants.find((p) => p.lead) || participants[0] || {}).name || order.client}</b> · {requestType === 'Групповая' ? 'Групповая поездка' : requestType} · {aviaParams.cabin}</span>
-                  </div>
-                  <div style={{ flex: 1 }} />
-                  <ActionMenu trigger={<button className="btn btn-ghost btn-icon"><Icon name="more" /></button>} items={headerMenuItems} />
-                  <Button variant="secondary" size="sm" icon="chat" onClick={onOpenChat}>
-                    Чат{chatUnread > 0 && <span className="pill pill-red" style={{ marginLeft: 6 }}>{chatUnread}</span>}
-                  </Button>
+                <div className="oc-id">
+                  <h2>Заказ № {order.no}</h2>
+                  <StatusControl status={status} onChange={changeOrderStatus} />
                 </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap', fontSize: 13, color: 'var(--muted)' }}>
+                  <span>Создан {order.date} · <b style={{ color: 'var(--ink)', fontWeight: 600 }}>{(participants.find((p) => p.lead) || participants[0] || {}).name || order.client}</b> · {requestType === 'Групповая' ? 'Групповая поездка' : requestType} · {aviaParams.cabin}</span>
+                </div>
+                <div style={{ flex: 1 }} />
+                <Button variant="secondary" size="sm" icon="chat" onClick={onOpenChat}>
+                  Чат{chatUnread > 0 && <span className="pill pill-red" style={{ marginLeft: 6 }}>{chatUnread}</span>}
+                </Button>
+                <ActionMenu trigger={<button className="btn btn-ghost btn-icon"><Icon name="more" /></button>} items={headerMenuItems} />
+              </div>
 
-                <div className="oc-tabbar">
-                  <div className="oc-tabbar-scroll">
-                    {TABS.map((t) => (
-                      <button key={t.key} className={'oc-tab' + (tab === t.key ? ' active' : '')}
-                        onClick={() => { setTab(t.key); if (t.key !== 'services' && svcView !== 'booking') setSvcView(null); }}>
-                        <Icon name={t.icon} />{t.label}
-                        {(t.count != null || t.countText) && <span className="cnt">{t.countText || t.count}</span>}
-                      </button>
-                    ))}
-                  </div>
-                  <span className="oc-tab-more">
-                    <ActionMenu trigger={<button className="btn btn-ghost btn-icon btn-sm"><Icon name="more" /></button>}
-                      items={MORE_TABS.map((t) => ({
-                        icon: t.icon, label: t.label + (t.count ? ` (${t.count})` : ''),
-                        onClick: () => {
-                          setTab(t.key); if (svcView !== 'booking') setSvcView(null);
-                        },
-                      })).filter((item, index) => !MORE_TABS[index].locked)} />
-                  </span>
+              {orderPurpose && <div className="oc-purpose">{orderPurpose}</div>}
+
+              <div className="oc-facts">
+                <div className="oc-fact">
+                  <span className="ic"><Icon name="calendar" /></span>
+                  <div className="body"><div className="v">{order.date || '—'}</div><div className="l">Дата создания</div></div>
                 </div>
+                <button type="button" className="oc-fact" onClick={() => setReassignOpen(true)}>
+                  <span className="ic"><Icon name="user" /></span>
+                  <div className="body"><div className="v">{operator || order.operator || 'Не назначен'}</div><div className="l">Оператор</div></div>
+                </button>
+                <button type="button" className="oc-fact" onClick={() => setEditOpen(true)}>
+                  <span className="ic"><Icon name="ticket" /></span>
+                  <div className="body"><div className="v">{requestType || '—'}</div><div className="l">Тип заявки</div></div>
+                </button>
+              </div>
             </div>
 
-            {tabContent()}
+            {tab === 'main' ? tabContent() : (
+              <div className="fade-in">
+                <BackRow label="К заказу" onBack={() => { setTab('main'); setSvcView(null); }} />
+                <div className="oc-section-head"><h3>{ORDER_SECTIONS[tab] || 'Раздел заказа'}</h3></div>
+                {tabContent()}
+              </div>
+            )}
           </div>
           {!fullWidthFlow && (
             <OrderAside order={order} status={status} onStatusChange={changeOrderStatus}
-              services={services} participants={participants} tasks={tasks} requestType={requestType} aviaParams={aviaParams}
-              onOpenTab={(k) => { setTab(k); if (k !== 'services' && svcView !== 'booking') setSvcView(null); }}
-              onOpenTasks={() => { setTab('tasks'); if (svcView !== 'booking') setSvcView(null); }}
-              operator={operator} onReassign={() => setReassignOpen(true)} />
+              services={services} participants={participants} tasks={tasks} history={history} documents={orderDocs}
+              requestType={requestType} aviaParams={aviaParams}
+              onOpenTab={openSection} onOpenServices={() => { setTab('main'); setSvcView(null); }}
+              onOpenTasks={() => openSection('tasks')} />
           )}
         </div>
 
 
         {!fullWidthFlow && (
           <ServicesFooterBar services={services} participants={participants} bookingDraft={bookingDraft} orderId={order.id}
-            onStartBooking={() => { setTab('services'); setSvcView('booking'); }} />
+            onStartBooking={() => { setTab('main'); setSvcView('booking'); }} />
         )}
       </div>
 
@@ -2519,6 +2930,13 @@ function OrderCard({ order, company, clients = [], onBack, initTab, initSvc, ini
           onClose={() => setPendingAviaRoute(null)} onApply={finalizeAviaFare} />
       )}
 
+
+      <ConfirmDialog open={!!confirmAction} title={confirmAction ? confirmAction.title : ''}
+        confirmLabel={confirmAction ? confirmAction.confirmLabel : 'Подтвердить'}
+        confirmVariant={confirmAction ? confirmAction.confirmVariant : 'primary'}
+        message={confirmAction ? confirmAction.message : null}
+        onCancel={() => setConfirmAction(null)}
+        onConfirm={() => { const action = confirmAction; setConfirmAction(null); if (action) action.run(); }} />
 
       <ConfirmDialog open={sendOpen} title="Отправить заказ клиенту?" confirmLabel="Отправить" confirmVariant="primary"
         onCancel={() => setSendOpen(false)}

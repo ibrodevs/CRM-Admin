@@ -39,7 +39,7 @@ function ProcessFlow({ steps, current }) {
 }
 
 
-function NewReturnModal({ open, order, services, participants = [], onClose, onCreate }) {
+function NewReturnModal({ open, order, services, participants = [], preset, onClose, onCreate }) {
   const toast = useToast();
   const [type, setType] = useState('Возврат билета');
   const [svc, setSvc] = useState('');
@@ -50,7 +50,13 @@ function NewReturnModal({ open, order, services, participants = [], onClose, onC
   const [nf, setNf] = useState({ from: '', to: '', date: null, flightNo: '' });
   const [reqMode, setReqMode] = useState('request');
   const [confirm, setConfirm] = useState(false);
-  useEffect(() => { if (open) { setType('Возврат билета'); setSvc(''); setReason(''); setVoluntary(true); setPax([]); setDocs([]); setNf({ from: '', to: '', date: null, flightNo: '' }); setReqMode('request'); setConfirm(false); } }, [open]);
+  useEffect(() => {
+    if (!open) return;
+    setType((preset && preset.type) || 'Возврат билета');
+    setSvc((preset && preset.serviceId) ? String(preset.serviceId) : '');
+    setReason(''); setVoluntary(true); setPax([]); setDocs([]);
+    setNf({ from: '', to: '', date: null, flightNo: '' }); setReqMode('request'); setConfirm(false);
+  }, [open, preset]);
   if (!open) return null;
 
   const roster = (participants && participants.length
@@ -450,7 +456,7 @@ function ReturnCard({ op, onBack, onChange }) {
 
 
 
-function ReturnsModule({ scopeOrder, onOpenOrder, compact, order, initialCases, orders = EMPTY_LIST, services = EMPTY_LIST, participants = EMPTY_LIST }) {
+function ReturnsModule({ scopeOrder, onOpenOrder, compact, order, initialCases, initialNew, orders = EMPTY_LIST, services = EMPTY_LIST, participants = EMPTY_LIST }) {
   const toast = useToast();
   const effectiveOrder = order && participants.length ? { ...order, participants } : order;
   const contextOrders = effectiveOrder ? [effectiveOrder, ...orders.filter((item) => item.id !== effectiveOrder.id)] : orders;
@@ -469,6 +475,8 @@ function ReturnsModule({ scopeOrder, onOpenOrder, compact, order, initialCases, 
   const [view, setView] = useState('list');
   const [activeNo, setActiveNo] = useState(null);
   const [newOpen, setNewOpen] = useState(false);
+  // Карточка заказа может открыть модуль сразу с формой обмена/возврата по услуге.
+  useEffect(() => { if (initialNew) { setView('list'); setNewOpen(true); } }, [initialNew]);
   const [q, setQ] = useState('');
   const [fType, setFType] = useState('');
   const [fStatus, setFStatus] = useState('');
@@ -552,7 +560,7 @@ function ReturnsModule({ scopeOrder, onOpenOrder, compact, order, initialCases, 
   if (view === 'card' && active) return (
     <>
       <ReturnCard op={active} onBack={() => setView('list')} onChange={updateOp} />
-      <NewReturnModal open={newOpen} order={order} services={availableServices} participants={participants} onClose={() => setNewOpen(false)} onCreate={createOp} />
+      <NewReturnModal open={newOpen} order={order} services={availableServices} participants={participants} preset={initialNew} onClose={() => setNewOpen(false)} onCreate={createOp} />
     </>
   );
 
@@ -580,7 +588,7 @@ function ReturnsModule({ scopeOrder, onOpenOrder, compact, order, initialCases, 
         {activeReturns.length > 0 && <><div className="kp-sec-h">Активные возвраты</div>{activeReturns.map(Row)}</>}
         {activeExch.length > 0 && <><div className="kp-sec-h">Активные обмены</div>{activeExch.map(Row)}</>}
         {done.length > 0 && <><div className="kp-sec-h">История завершённых</div>{done.map(Row)}</>}
-        <NewReturnModal open={newOpen} order={order} services={availableServices} participants={participants} onClose={() => setNewOpen(false)} onCreate={createOp} />
+        <NewReturnModal open={newOpen} order={order} services={availableServices} participants={participants} preset={initialNew} onClose={() => setNewOpen(false)} onCreate={createOp} />
       </div>
     );
   }
@@ -665,7 +673,7 @@ function ReturnsModule({ scopeOrder, onOpenOrder, compact, order, initialCases, 
           </table>
         ) : <EmptyState icon="refund" title="Операций не найдено" sub="Измените фильтры или создайте запрос" />}
       </div>
-      <NewReturnModal open={newOpen} order={order} services={availableServices} participants={participants} onClose={() => setNewOpen(false)} onCreate={createOp} />
+      <NewReturnModal open={newOpen} order={order} services={availableServices} participants={participants} preset={initialNew} onClose={() => setNewOpen(false)} onCreate={createOp} />
     </div>
   );
 }
