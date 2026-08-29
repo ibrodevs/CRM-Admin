@@ -3535,7 +3535,7 @@ function ReceiptOrderCreateDrawer({ open, plan, clients = [], companies = [], on
         <Field label="Фамилия" required><Input value={person.surname} onChange={(e) => setPerson((s) => ({ ...s, surname: e.target.value }))} /></Field>
         <Field label="Имя"><Input value={person.givenName} onChange={(e) => setPerson((s) => ({ ...s, givenName: e.target.value }))} /></Field>
         <Field label="Отчество"><Input value={person.middleName} onChange={(e) => setPerson((s) => ({ ...s, middleName: e.target.value }))} /></Field>
-        <Field label="Дата рождения"><Input value={person.dob} placeholder="дд.мм.гггг" onChange={(e) => setPerson((s) => ({ ...s, dob: e.target.value }))} /></Field>
+        <UFDateField label="Дата рождения" value={person.dob && person.dob !== '—' ? person.dob : null} onChange={(v) => setPerson((s) => ({ ...s, dob: v }))} placeholder="дд.мм.гггг" />
         <Field label="Телефон"><Input value={person.phone} onChange={(e) => setPerson((s) => ({ ...s, phone: e.target.value }))} /></Field>
         <Field label="Электронная почта"><Input value={person.email} onChange={(e) => setPerson((s) => ({ ...s, email: e.target.value }))} /></Field>
       </div>}
@@ -4769,6 +4769,7 @@ function ReceiptImportModal({ open, onClose, onDone, initialDraft, initialFiles 
     const companyName = finalBindTarget.company?.name || finalBindTarget.company?.shortName || finalBindTarget.label || '';
     const bindText = isPerson ? ('физ. лицу ' + finalBindTarget.client)
       : isCompany ? ('юр. лицу ' + companyName) : ('заказу № ' + orderNo);
+    setProcessing(true);
     try {
       const confirmed = await Promise.all(toAdd.map((r) => {
         const p = r.f.parsed; const m = mathForFileWithState(r.f, mathStateRef.current);
@@ -4839,6 +4840,9 @@ function ReceiptImportModal({ open, onClose, onDone, initialDraft, initialFiles 
         : isCompany ? toAdd.length + ' квитанц. привязано к юр. лицу: ' + companyName
           : toAdd.length + ' квитанц. добавлено в заказ № ' + orderNo, 'ok');
     } catch (error) { toast(error.message || 'Не удалось сохранить квитанции', 'err'); }
+    finally {
+      setProcessing(false);
+    }
   };
 
   const Stat = ({ label, value, tone }) => (
