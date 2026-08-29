@@ -11,7 +11,7 @@ import { AddServicePanel } from './page_order_card';
 import { ErrorCodesDrawer } from './page_notifications';
 import { SHIFT_DEMO_OPS, SHIFT_REQUESTS_HANDLED, motivationFor, operatorEarn, shiftDuration, shiftFmtTime, shiftTotals } from './page_shifts';
 import { toLegacyProposal, toLegacyReturn } from './api/legacy-adapters';
-import { ordersApi } from './api/resources';
+import { ordersApi, servicesApi } from './api/resources';
 import { toUiOrder } from './api/adapters';
 
 
@@ -26,6 +26,29 @@ function FreeBookingFinalize({ draft, onClose, onDone, onOpenOrder, onCreateOrde
   const [recipient, setRecipient] = useState('');
   const kpNo = 'КП из backend';
 
+  const svcTitle = (x) => x.title || x.route || x.fareName || (x.from && x.to ? x.from + ' → ' + x.to : x.kind || 'Услуга');
+  const svcSum = (x) => x.fareDeltaUsd || x.total || x.cost || x.price || x.sum || 0;
+  const total = draft.reduce((s, x) => s + svcSum(x), 0);
+  const finish = (msg, action) => { toast(msg, 'ok', action ? { action, duration: 7000 } : {}); onDone(); };
+
+  const attachDraftToOrder = async (orderId) => {
+    await Promise.all(draft.map((svc) => {
+      const kindMap = { 'Авиа': 'avia', 'ЖД': 'rail', 'Гостиница': 'hotel', 'Отель': 'hotel', 'Трансфер': 'transfer', 'Страховка': 'insurance', 'Виза': 'visa', 'Тур': 'tour', 'Автобус': 'bus' };
+      const rawKind = svc.kind || 'avia';
+      const kind = kindMap[rawKind] || rawKind;
+      const body = {
+        kind,
+        title: svcTitle(svc),
+        currency: svc.currency || 'RUB',
+        client_total: svcSum(svc),
+        supplier_cost: svc.cost || svc.tariff || svcSum(svc),
+        agency_fee: svc.fee || 0,
+        markup: svc.markup || 0,
+      };
+      return servicesApi.addToOrder(orderId, svc.offerId || svc.backendOfferId || body);
+    }));
+  };
+
   const createNewOrder = async (clientName, requestType) => {
     const client = clients.find((item) => item.name === clientName);
     const company = companies.find((item) => item.name === clientName);
@@ -39,6 +62,7 @@ function FreeBookingFinalize({ draft, onClose, onDone, onOpenOrder, onCreateOrde
         base_currency: 'RUB',
         source: 'dashboard',
       });
+      await attachDraftToOrder(created.id);
       const order = toUiOrder(created);
       toast('Создан заказ № ' + order.no + ' на «' + clientName + '» · услуг: ' + draft.length, 'ok',
         onOpenOrder ? { action: { label: 'Открыть заказ № ' + order.no, onClick: () => onOpenOrder(order) }, duration: 7000 } : {});
@@ -49,10 +73,6 @@ function FreeBookingFinalize({ draft, onClose, onDone, onOpenOrder, onCreateOrde
       return;
     }
   };
-  const svcTitle = (x) => x.title || x.route || x.fareName || (x.from && x.to ? x.from + ' → ' + x.to : x.kind || 'Услуга');
-  const svcSum = (x) => x.fareDeltaUsd || x.total || x.cost || x.price || x.sum || 0;
-  const total = draft.reduce((s, x) => s + svcSum(x), 0);
-  const finish = (msg, action) => { toast(msg, 'ok', action ? { action, duration: 7000 } : {}); onDone(); };
 
   const orderPickRows = ufOrderPickRows;
 
@@ -65,7 +85,14 @@ function FreeBookingFinalize({ draft, onClose, onDone, onOpenOrder, onCreateOrde
         <SearchBox value={q} onChange={setQ} placeholder="Поиск: № заказа или клиент" style={{ width: '100%', marginBottom: 12 }} />
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
           {rows.map((o) => (
-            <UfOrderRow key={o.id} order={o} onClick={() => finish('Услуги привязаны к заказу № ' + o.no)} />
+            <UfOrderRow key={o.id} order={o} onClick={async () => {
+              try {
+                await attachDraftToOrder(o.id);
+                finish('Услуги (' + draft.length + ') привязаны к заказу № ' + o.no);
+              } catch (error) {
+                toast(error.message || 'Не удалось привязать услуги к заказу', 'err');
+              }
+            }} />
           ))}
           {!rows.length && <EmptyState icon="briefcase" title="Заказы не найдены" />}
         </div>

@@ -2371,7 +2371,7 @@ function OrderCard({ order, company, clients = [], onBack, initTab, initSvc, ini
   const [loading, setLoading] = useState(true);
   const [cardOrder, setCardOrder] = useState(order);
   const [status, setStatus] = useState(order.status === 'Нет данных' ? 'Новое' : order.status);
-  const [services, setServices] = useState(ORDER_SERVICES);
+  const [services, setServices] = useState(() => (order.services || []).map(toLegacyOrderService));
   const [tasks, setTasks] = useState([]);
   const [history, setHistory] = useState([]);
   const [financeSummary, setFinanceSummary] = useState(null);
@@ -2381,8 +2381,8 @@ function OrderCard({ order, company, clients = [], onBack, initTab, initSvc, ini
   const requestType = order.requestType;
   const [editOpen, setEditOpen] = useState(false);
   const [sendOpen, setSendOpen] = useState(false);
-  const [participants, setParticipants] = useState(requestType === 'Групповая' ? GROUP_PAX : ORDER_PARTICIPANTS);
-  useEffect(() => { setParticipants(requestType === 'Групповая' ? GROUP_PAX : ORDER_PARTICIPANTS); }, [order.no, requestType]);
+  const [participants, setParticipants] = useState(() => (order.participants || []).map(toLegacyParticipant));
+  useEffect(() => { if (order.participants?.length) setParticipants(order.participants.map(toLegacyParticipant)); }, [order.no, requestType]);
   const chatUnread = threadUnread(getThreadForOrder(order));
   const initStage = () => {
     return orderStageIndexForStatus(order.status);
@@ -2530,7 +2530,10 @@ function OrderCard({ order, company, clients = [], onBack, initTab, initSvc, ini
     return liveOrder;
   };
 
+  const orderId = order.id || order.serverId || order.orderId || (cardOrder && (cardOrder.id || cardOrder.serverId));
+
   const refreshDocuments = async (signal) => {
+    if (!orderId) return;
     try {
       const payload = await documentsApi.list({ order: order.id }, signal);
       setOrderDocs(resultsOf(payload));
@@ -2540,19 +2543,28 @@ function OrderCard({ order, company, clients = [], onBack, initTab, initSvc, ini
   };
 
   const refreshOrderSnapshot = async () => {
+    if (!orderId) return;
     const [overview, taskPayload, historyPayload] = await Promise.all([
-      ordersApi.overview(order.id),
-      ordersApi.tasks(order.id, { status: 'open' }),
-      ordersApi.history(order.id, {}),
+      ordersApi.overview(orderId),
+      ordersApi.tasks(orderId, { status: 'open' }),
+      ordersApi.history(orderId, {}),
     ]);
     await refreshDocuments();
     return applyOrderSnapshot(overview, taskPayload, historyPayload);
   };
 
   useEffect(() => {
+    if (!orderId) {
+      setLoading(false);
+      return undefined;
+    }
     const controller = new AbortController();
     setLoading(true);
-    Promise.all([ordersApi.overview(order.id, controller.signal), ordersApi.tasks(order.id, { status: 'open' }, controller.signal), ordersApi.history(order.id, {}, controller.signal)])
+    Promise.all([
+      ordersApi.overview(orderId, controller.signal),
+      ordersApi.tasks(orderId, { status: 'open' }, controller.signal),
+      ordersApi.history(orderId, {}, controller.signal),
+    ])
       .then(([overview, taskPayload, historyPayload]) => {
         applyOrderSnapshot(overview, taskPayload, historyPayload);
       })
@@ -2562,7 +2574,7 @@ function OrderCard({ order, company, clients = [], onBack, initTab, initSvc, ini
       .finally(() => { if (!controller.signal.aborted) setLoading(false); });
     refreshDocuments(controller.signal);
     return () => controller.abort();
-  }, [order.id, order.no]);
+  }, [orderId, order.no]);
 
   // Первая услуга раскрыта — оператор сразу видит пассажиров и документы по ней.
   useEffect(() => { setExpandedSvc(new Set()); setSel(new Set()); setSelMode(false); }, [order.no]);
