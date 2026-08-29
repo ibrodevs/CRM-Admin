@@ -4794,7 +4794,7 @@ function ReceiptImportModal({ open, onClose, onDone, initialDraft, initialFiles 
           order: finalHasOrderTarget ? finalBindTarget.order.id : null,
           person: isPerson ? (finalBindTarget.id || finalBindTarget.person?.id || null) : null,
           company: isCompany ? (finalBindTarget.company?.id || null) : null,
-          create_services: Boolean(finalHasOrderTarget && (bindTarget.mode === 'new' || optCreateServices)),
+          create_services: Boolean(finalHasOrderTarget && (finalBindTarget.mode === 'order' ? optCreateServices !== false : true)),
           service_type: r.f.type,
           original_total: Number(p.originalTotal) || Number(p.total) || 0,
           client_total: clientTotal(m),
