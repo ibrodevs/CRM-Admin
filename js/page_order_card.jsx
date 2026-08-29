@@ -26,7 +26,7 @@ import { financeSnapshot, ocCurrency, ocMoney, opDebt, opPayable, svcCalc } from
 import { crmApi, documentsApi, ordersApi, proposalsApi, servicesApi, usersApi, workspaceActionsApi } from './api/resources';
 import { toLegacyDocument, toLegacyOrderService, toLegacyParticipant } from './api/legacy-adapters';
 import { resultsOf } from './api/client';
-import { participantPayloadFromUi, routePayloadFromUi } from './api/order-card';
+import { formatIsoDateTime, orderDateOnly, participantPayloadFromUi, routePayloadFromUi } from './api/order-card';
 import { toUiOrder } from './api/adapters';
 import { technicalStopCount, technicalStopLabel, technicalStopsOf } from './features/avia/technical-stops';
 import { TechnicalStopsDetails } from './features/avia/technical-stops.jsx';
@@ -44,17 +44,6 @@ const ORDER_STATUS_CODE = {
 };
 
 const ORDER_STATUS_LABEL = Object.fromEntries(Object.entries(ORDER_STATUS_CODE).map(([label, code]) => [code, label]));
-
-function orderDateOnly(value) {
-  if (!value) return null;
-  if (value instanceof Date && !Number.isNaN(value.getTime())) return value.toISOString().slice(0, 10);
-  const text = String(value);
-  const iso = text.match(/^(\d{4})-(\d{2})-(\d{2})/);
-  if (iso) return `${iso[1]}-${iso[2]}-${iso[3]}`;
-  const ru = text.match(/^(\d{2})\.(\d{2})\.(\d{4})$/);
-  if (ru) return `${ru[3]}-${ru[2]}-${ru[1]}`;
-  return text;
-}
 
 const PERSON_CITIZENSHIP = {
   'Кыргызстан': 'KG',
@@ -463,7 +452,7 @@ function DocCell({ p }) {
 }
 
 
-function PaxGroupCard({ index, name, members, onPassport, onEdit, onAddDoc }) {
+function PaxGroupCard({ index, name, members, onPassport, onEdit, onAddDoc, onRemove }) {
   const [open, setOpen] = useState(true);
   const [showAll, setShowAll] = useState(false);
   const isChild = (p) => /реб[её]н|child|инфант|infant/i.test(p.role || '');
@@ -499,6 +488,7 @@ function PaxGroupCard({ index, name, members, onPassport, onEdit, onAddDoc }) {
                 { icon: 'idcard', label: 'Документы', onClick: () => onPassport(p.name) },
                 { icon: 'docs', label: 'Добавить документ', onClick: () => onAddDoc && onAddDoc(p) },
                 { icon: 'edit', label: 'Изменить данные', onClick: () => onEdit && onEdit(p) },
+                ...(onRemove ? [{ sep: true }, { icon: 'trash', label: 'Удалить из заказа', danger: true, onClick: () => onRemove(p) }] : []),
               ]} />
           </span>
         </div>
@@ -512,7 +502,7 @@ function PaxGroupCard({ index, name, members, onPassport, onEdit, onAddDoc }) {
   );
 }
 
-function TabParticipants({ list, isGroup, groups, fresh, orderNo, orderAirline, companyId, companyName, onPassport, onAdd, onEdit, onAddDoc, onApplyRoster }) {
+function TabParticipants({ list, isGroup, groups, fresh, orderNo, orderAirline, companyId, companyName, onPassport, onAdd, onEdit, onAddDoc, onRemove, onApplyRoster }) {
   const [unifyOpen, setUnifyOpen] = useState(false);
   const [groupsOpen, setGroupsOpen] = useState(false);
   const toast = useToast();
@@ -570,7 +560,7 @@ function TabParticipants({ list, isGroup, groups, fresh, orderNo, orderAirline, 
           return out;
         })() : null;
         const cardSections = secs || [{ id: '__standard', index: null, name: 'Пассажиры заказа', members: list.map((p, i) => ({ p, i })) }];
-        return <div className="pax-groups">{cardSections.map((s) => <PaxGroupCard key={s.id} index={s.index} name={s.name} members={s.members} onPassport={onPassport} onEdit={onEdit} onAddDoc={onAddDoc} />)}</div>;
+        return <div className="pax-groups">{cardSections.map((s) => <PaxGroupCard key={s.id} index={s.index} name={s.name} members={s.members} onPassport={onPassport} onEdit={onEdit} onAddDoc={onAddDoc} onRemove={onRemove} />)}</div>;
       })()}
       {unifyOpen && <PaxUnifyPanel list={list} orderNo={orderNo} autoBind={orderAirline} onApplyRoster={onApplyRoster} onClose={() => setUnifyOpen(false)} />}
       {groupsOpen && <PaxGroupsDrawer current={list} companyId={companyId} companyName={companyName} onAddGroup={addGroup} onClose={() => setGroupsOpen(false)} />}
@@ -578,15 +568,43 @@ function TabParticipants({ list, isGroup, groups, fresh, orderNo, orderAirline, 
   );
 }
 
-function TabRoute({ services }) {
-  const steps = [
-    { t: '24.06 · 04:15', text: 'Вылет FRU → IST · KC 131', ic: 'plane' },
-    { t: '24.06 · 08:40', text: 'Прилёт в Стамбул (IST)', ic: 'plane' },
-    { t: '24.06 · 09:30', text: 'Трансфер IST → Hilton Istanbul', ic: 'car' },
-    { t: '24.06 – 01.07', text: 'Проживание · Hilton Istanbul 4★', ic: 'building' },
-    { t: '01.07 · 14:05', text: 'Вылет IST → FRU · KC 132', ic: 'plane' },
-    { t: '01.07 · 23:30', text: 'Прилёт в Бишкек (FRU)', ic: 'plane' },
-  ];
+function TabRoute({ services = [], route }) {
+  const points = route?.points || [];
+  const validServices = (services || []).filter((s) => s.title || s.kind);
+  const steps = [];
+
+  if (validServices.length) {
+    validServices.forEach((s) => {
+      const k = SERVICE_KIND[s.kind] || { icon: 'briefcase', color: 'var(--blue)' };
+      steps.push({
+        t: s.date || (s.starts_at ? new Date(s.starts_at).toLocaleString('ru-RU') : 'Дата уточняется'),
+        text: `${s.kind}: ${s.title}${s.supplier ? ` · ${s.supplier}` : ''}`,
+        ic: k.icon || 'plane',
+        status: s.status,
+      });
+    });
+  } else if (points.length >= 2) {
+    points.forEach((p, idx) => {
+      const isStart = idx === 0;
+      const isEnd = idx === points.length - 1;
+      const ap = AIRPORTS.find((a) => a.code === p.location_code);
+      const name = ap ? `${ap.city} (${ap.code})` : (p.location_name || p.location_code);
+      steps.push({
+        t: p.local_datetime ? new Date(p.local_datetime).toLocaleString('ru-RU') : (isStart ? 'Отправление' : isEnd ? 'Прибытие' : `Точка ${idx + 1}`),
+        text: isStart ? `Начало маршрута: ${name}` : isEnd ? `Конечный пункт: ${name}` : `Пересадка / остановка: ${name}`,
+        ic: 'plane',
+      });
+    });
+  }
+
+  if (!steps.length) {
+    return (
+      <div className="card card-pad fade-in" style={{ maxWidth: 640 }}>
+        <EmptyState icon="route" title="Маршрут пока не сформирован" sub="Добавьте услуги в заказ (авиабилеты, проживание, трансферы) или укажите маршрут в параметрах заказа." />
+      </div>
+    );
+  }
+
   return (
     <div className="card card-pad fade-in" style={{ maxWidth: 640 }}>
       <h3 className="card-title" style={{ marginBottom: 18 }}>Маршрут поездки</h3>
@@ -596,7 +614,10 @@ function TabRoute({ services }) {
             <span className="tl-dot" /><span className="tl-line" />
             <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
               <Icon name={s.ic} style={{ width: 18, height: 18, color: 'var(--blue)' }} />
-              <div><div className="tl-time">{s.t}</div><div className="tl-text">{s.text}</div></div>
+              <div>
+                <div className="tl-time">{s.t}</div>
+                <div className="tl-text">{s.text} {s.status && <span className="pill pill-gray" style={{ marginLeft: 6, fontSize: 11 }}>{s.status}</span>}</div>
+              </div>
             </div>
           </div>
         ))}
@@ -2206,15 +2227,26 @@ function TabFinance({ services, onAddFee }) {
 }
 
 function TabHistory({ liveItems }) {
-  const items = liveItems || [
+  const hasLive = Array.isArray(liveItems) && liveItems.length > 0;
+  const items = hasLive ? liveItems : (liveItems === undefined ? [
     { t: '14.06.2026 · 15:34', text: 'КП-1042 отправлено клиенту', who: 'Даниель' },
     { t: '14.06.2026 · 15:12', text: 'Авиабилет выписан · PNR KC8H2L', who: 'Даниель' },
     { t: '14.06.2026 · 14:40', text: 'Добавлена услуга: Hilton Istanbul', who: 'Даниель' },
     { t: '14.06.2026 · 14:05', text: 'Назначен оператор (Даниель)', who: 'Система' },
     { t: '14.06.2026 · 14:00', text: 'Заказ создан', who: 'Система' },
-  ];
+  ] : []);
+
+  if (!items.length) {
+    return (
+      <div className="card card-pad fade-in" style={{ maxWidth: 560 }}>
+        <EmptyState icon="clock" title="История изменений пуста" sub="Все изменения статусов, услуг и параметров заказа фиксируются здесь." />
+      </div>
+    );
+  }
+
   return (
     <div className="card card-pad fade-in" style={{ maxWidth: 560 }}>
+      <h3 className="card-title" style={{ fontSize: 18, marginBottom: 14 }}>История заказа</h3>
       <div className="timeline">
         {items.map((h, i) => (
           <div className="tl-item" key={i}><span className="tl-dot" /><span className="tl-line" />
@@ -2225,26 +2257,94 @@ function TabHistory({ liveItems }) {
   );
 }
 
-function TabTasks({ tasks = [] }) {
+function TabTasks({ tasks = [], onAddTask, onToggleTask, onDeleteTask }) {
+  const [createOpen, setCreateOpen] = useState(false);
+  const [taskTitle, setTaskTitle] = useState('');
+  const [taskDue, setTaskDue] = useState('');
+  const [taskPriority, setTaskPriority] = useState('normal');
+  const [submitting, setSubmitting] = useState(false);
+
+  const handleCreate = async () => {
+    if (!taskTitle.trim()) return;
+    try {
+      setSubmitting(true);
+      await onAddTask({
+        title: taskTitle.trim(),
+        due_at: taskDue ? formatIsoDateTime(taskDue) : null,
+        priority: taskPriority,
+      });
+      setTaskTitle('');
+      setTaskDue('');
+      setTaskPriority('normal');
+      setCreateOpen(false);
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
   return (
     <div className="fade-in">
       <div className="card card-pad">
-        <h3 className="card-title" style={{ fontSize: 18, marginBottom: 14 }}>Задачи и дедлайны</h3>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+          <h3 className="card-title" style={{ fontSize: 18, margin: 0 }}>Задачи и дедлайны</h3>
+          {onAddTask && <Button icon="plus" size="sm" onClick={() => setCreateOpen(true)}>Добавить задачу</Button>}
+        </div>
+
         {tasks.length ? (
           <div style={{ display: 'grid', gap: 10 }}>
-            {tasks.map((task, index) => (
-              <div key={task.id || index} className="oc-task" style={{ cursor: 'default', padding: '10px 0' }}>
-                <span className={'dot' + (task.urgent ? ' urgent' : '')} />
-                <div style={{ flex: 1 }}>
-                  <div className="tt">{task.text || task.title || 'Задача'}</div>
-                  <div className={'td' + (task.urgent ? ' urgent' : '')}>{task.due || task.due_at || 'Срок не указан'}</div>
+            {tasks.map((task, index) => {
+              const isCompleted = task.status === 'completed' || task.done;
+              return (
+                <div key={task.id || index} className="oc-task" style={{ padding: '12px 14px', borderRadius: 10, background: 'var(--surface-2)', display: 'flex', alignItems: 'center', gap: 12 }}>
+                  <button type="button" className="btn btn-ghost btn-icon btn-sm" title={isCompleted ? 'Открыть заново' : 'Отметить выполненной'} onClick={() => onToggleTask && onToggleTask(task)}>
+                    <Icon name={isCompleted ? 'checkCircle' : 'circle'} style={{ color: isCompleted ? 'var(--green)' : 'var(--muted)' }} />
+                  </button>
+                  <span className={'dot' + (task.urgent ? ' urgent' : '')} />
+                  <div style={{ flex: 1, textDecoration: isCompleted ? 'line-through' : 'none', opacity: isCompleted ? 0.65 : 1 }}>
+                    <div className="tt" style={{ fontWeight: 600, color: 'var(--ink)' }}>{task.text || task.title || 'Задача'}</div>
+                    <div className={'td' + (task.urgent ? ' urgent' : '')} style={{ fontSize: 12, color: 'var(--muted)', marginTop: 2 }}>{task.due || task.due_at || 'Срок не указан'}</div>
+                  </div>
+                  {task.priority && ['critical', 'high'].includes(task.priority) && <Pill tone="red">Срочно</Pill>}
+                  {task.status && <Pill tone={isCompleted ? 'green' : 'amber'}>{isCompleted ? 'Выполнена' : 'В работе'}</Pill>}
+                  {onDeleteTask && (
+                    <button type="button" className="icon-btn" title="Удалить задачу" onClick={() => onDeleteTask(task)}>
+                      <Icon name="trash" />
+                    </button>
+                  )}
                 </div>
-                {task.status && <Pill tone={task.status === 'open' ? 'amber' : 'green'}>{task.status}</Pill>}
-              </div>
-            ))}
+              );
+            })}
           </div>
-        ) : <EmptyState icon="checkCircle" title="Активных задач нет" sub="Новые дедлайны появятся после бронирования, выпуска документов или финансовых действий." />}
+        ) : (
+          <EmptyState icon="checkCircle" title="Активных задач нет" sub="Новые дедлайны появятся после бронирования, выпуска документов или добавления вручную." />
+        )}
       </div>
+
+      {createOpen && (
+        <Drawer open={createOpen} onClose={() => setCreateOpen(false)} title="Новая задача"
+          footer={
+            <div style={{ display: 'flex', gap: 10 }}>
+              <Button variant="secondary" style={{ flex: 1 }} onClick={() => setCreateOpen(false)}>Отмена</Button>
+              <Button style={{ flex: 1 }} disabled={!taskTitle.trim() || submitting} onClick={handleCreate}>Создать задачу</Button>
+            </div>
+          }>
+          <div className="form-grid">
+            <Field label="Название задачи *" className="full">
+              <Input placeholder="Например: Проверить паспортные данные" value={taskTitle} onChange={(e) => setTaskTitle(e.target.value)} autoFocus />
+            </Field>
+            <Field label="Срок выполнения" className="full">
+              <DateField value={taskDue} onChange={setTaskDue} placeholder="Выберите дату" />
+            </Field>
+            <Field label="Приоритет" className="full">
+              <Select options={[
+                { value: 'normal', label: 'Обычный' },
+                { value: 'high', label: 'Высокий' },
+                { value: 'critical', label: 'Критический' },
+              ]} value={taskPriority} onChange={(e) => setTaskPriority(e.target.value)} />
+            </Field>
+          </div>
+        </Drawer>
+      )}
     </div>
   );
 }
@@ -2294,6 +2394,65 @@ function OrderCard({ order, company, clients = [], onBack, initTab, initSvc, ini
 
 
   const [bookingDraft, setBookingDraft] = useState(null);
+
+  const removeParticipantFromOrder = (participant) => {
+    const participantId = participant.serverId || participant.id;
+    if (!participantId) {
+      toast('Для участника не найден ID в системе', 'err');
+      return;
+    }
+    setConfirmAction({
+      title: 'Удалить участника?',
+      confirmLabel: 'Удалить',
+      confirmVariant: 'danger',
+      message: `Вы действительно хотите удалить пассажира «${participant.name || 'Участник'}» из заказа №${order.no}?`,
+      run: async () => {
+        try {
+          await ordersApi.removeParticipant(order.id, participantId);
+          await refreshOrderSnapshot();
+          toast('Участник удалён из заказа', 'ok');
+        } catch (error) {
+          toast(error.message || 'Не удалось удалить участника', 'err');
+        }
+      },
+    });
+  };
+
+  const addTask = async (taskPayload) => {
+    try {
+      await ordersApi.createTask(order.id, taskPayload);
+      await refreshOrderSnapshot();
+      toast('Задача создана', 'ok');
+    } catch (error) {
+      toast(error.message || 'Не удалось создать задачу', 'err');
+    }
+  };
+
+  const toggleTask = async (task) => {
+    const taskId = task.serverId || task.id;
+    if (!taskId) return;
+    const nextStatus = (task.status === 'completed' || task.done) ? 'open' : 'completed';
+    try {
+      await ordersApi.updateTask(order.id, taskId, { status: nextStatus });
+      await refreshOrderSnapshot();
+      toast(nextStatus === 'completed' ? 'Задача выполнена' : 'Задача открыта заново', 'ok');
+    } catch (error) {
+      toast(error.message || 'Не удалось обновить статус задачи', 'err');
+    }
+  };
+
+  const deleteTask = async (task) => {
+    const taskId = task.serverId || task.id;
+    if (!taskId) return;
+    try {
+      await ordersApi.removeTask(order.id, taskId);
+      await refreshOrderSnapshot();
+      toast('Задача удалена', 'ok');
+    } catch (error) {
+      toast(error.message || 'Не удалось удалить задачу', 'err');
+    }
+  };
+
   const [operator, setOperator] = useState(order.operator);
   const [operatorOptions, setOperatorOptions] = useState([]);
   const [reassignOpen, setReassignOpen] = useState(false);
@@ -2779,18 +2938,48 @@ function OrderCard({ order, company, clients = [], onBack, initTab, initSvc, ini
     switch (tab) {
       case 'overview': return <TabOverview order={cardOrder} company={company} />;
       case 'clients': return <TabClients order={cardOrder} company={company} client={client} onOpenChat={onOpenChat} />;
-      case 'participants': { const oco = (typeof COMPANIES_DB !== 'undefined') ? COMPANIES_DB.find((c) => c.name === order.client) : null; return <TabParticipants list={participants} isGroup={requestType === 'Групповая'} groups={requestType === 'Групповая' ? AVIA_GROUPS_SEED : null} fresh={fresh} orderNo={order.no} orderAirline={(services.find((s) => s.kind === 'Авиа') || {}).supplier} companyId={oco ? oco.id : null} companyName={oco ? oco.name : order.client} onPassport={setPassport} onAdd={() => setPaxOpen(true)} onEdit={(p) => setEditPax(p)} onAddDoc={(p) => setDocPax(p)} onApplyRoster={setParticipants} />; }
-      case 'route': return <TabRoute services={services} />;
+      case 'participants': {
+        const oco = (typeof COMPANIES_DB !== 'undefined') ? COMPANIES_DB.find((c) => c.name === order.client) : null;
+        return (
+          <TabParticipants
+            list={participants}
+            isGroup={requestType === 'Групповая'}
+            groups={requestType === 'Групповая' ? AVIA_GROUPS_SEED : null}
+            fresh={fresh}
+            orderNo={order.no}
+            orderAirline={(services.find((s) => s.kind === 'Авиа') || {}).supplier}
+            companyId={oco ? oco.id : null}
+            companyName={oco ? oco.name : order.client}
+            onPassport={setPassport}
+            onAdd={() => setPaxOpen(true)}
+            onEdit={(p) => setEditPax(p)}
+            onAddDoc={(p) => setDocPax(p)}
+            onRemove={removeParticipantFromOrder}
+            onApplyRoster={setParticipants}
+          />
+        );
+      }
+      case 'route': return <TabRoute services={services} route={cardOrder.route} />;
       case 'matrix': return groupModel ? <GrMatrixTab o={groupModel} /> : null;
       case 'diff': return groupModel ? <GrDiffTab o={groupModel} /> : null;
       case 'main': case 'services': return renderServicesArea();
-      case 'offers': return <KPModule order={order} services={services} participants={participants}
-        onApprove={() => { setStageIdx((i) => Math.max(i, 2)); toast('Созданы финансовые записи и задачи по выпуску документов', 'ok'); }} />;
+      case 'offers': return (
+        <KPModule
+          order={order}
+          services={services}
+          participants={participants}
+          onApprove={async () => {
+            setStageIdx((i) => Math.max(i, 2));
+            await refreshOrderSnapshot();
+            toast('Созданы финансовые записи и задачи по выпуску документов', 'ok');
+          }}
+        />
+      );
       case 'responsibles': return <OrderResponsiblesTab order={order} />;
       case 'extras': return <DynamicExtrasPanel order={order} />;
-      case 'documents': return <DocCenter scopeOrder={order.no} participants={participants} services={services} orders={[order]} />;
+      case 'documents': return <DocCenter scopeOrder={order.no} initialDocuments={orderDocs} participants={participants} services={services} orders={[order]} />;
       case 'finance': return (<><OrderFinanceBlock orderNo={order.no} order={order} services={services} summary={financeSummary} /><FinanceRegistry scopeOrder={order.no} initialOps={[]} /></>);
-      case 'tasks': return <TabTasks tasks={tasks} />;
+      case 'tasks': return <TabTasks tasks={tasks} onAddTask={addTask} onToggleTask={toggleTask} onDeleteTask={deleteTask} />;
       case 'aftersale': return <ReturnsModule scopeOrder={order.no} order={order} services={services} participants={participants} initialNew={aftersalePreset} compact />;
       case 'history': return <TabHistory liveItems={history} />;
       default: return null;

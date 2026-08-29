@@ -39,13 +39,35 @@ export const orderCardApi = {
   financeSummary: (orderId, signal) => get(`orders/${orderId}/finance-summary/`, signal),
 };
 
+export function orderDateOnly(value) {
+  if (!value) return null;
+  if (value instanceof Date && !Number.isNaN(value.getTime())) return value.toISOString().slice(0, 10);
+  const text = String(value).trim();
+  const iso = text.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (iso) return `${iso[1]}-${iso[2]}-${iso[3]}`;
+  const ru = text.match(/^(\d{2})\.(\d{2})\.(\d{4})$/);
+  if (ru) return `${ru[3]}-${ru[2]}-${ru[1]}`;
+  return text;
+}
+
+export function formatIsoDateTime(val) {
+  if (!val) return null;
+  if (val instanceof Date && !Number.isNaN(val.getTime())) return val.toISOString();
+  const text = String(val).trim();
+  if (/^\d{4}-\d{2}-\d{2}$/.test(text)) return `${text}T00:00:00Z`;
+  if (/^\d{4}-\d{2}-\d{2}T/.test(text)) return text;
+  const ru = text.match(/^(\d{2})\.(\d{2})\.(\d{4})$/);
+  if (ru) return `${ru[3]}-${ru[2]}-${ru[1]}T00:00:00Z`;
+  return null;
+}
+
 export function participantPayloadFromUi(person = {}) {
   const existingPersonId = person.person || person.personId || person.source?.person;
   const snapshot = {
     name: person.name || [person.lastName, person.firstName, person.middleName].filter(Boolean).join(' '),
     phone: person.phone || '',
     email: person.email || '',
-    birth_date: person.dob || person.birthDate || null,
+    birth_date: orderDateOnly(person.dob || person.birthDate),
     document: person.doc || '',
     documents: person.documents || [],
   };
@@ -71,7 +93,7 @@ export function routePayloadFromUi({ trip = 'ow', points = [], depDate, retDate,
       location_code: code,
       location_type: 'airport',
       location_name: '',
-      local_datetime: index === 0 ? depDate || null : index === validPoints.length - 1 ? retDate || null : null,
+      local_datetime: index === 0 ? formatIsoDateTime(depDate) : index === validPoints.length - 1 ? formatIsoDateTime(retDate) : null,
       timezone: '',
     })),
   };

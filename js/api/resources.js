@@ -95,7 +95,7 @@ export const ordersApi = {
   updateParticipant: (id, participantId, body) => patch(`orders/${id}/participants/${participantId}/`, body),
   removeParticipant: (id, participantId) => remove(`orders/${id}/participants/${participantId}/`),
   route: (id, signal) => get(`orders/${id}/route/`, signal),
-  updateRoute: (id, body) => apiRequest(apiPath(`orders/${id}/route/`), { method: 'PUT', body }),
+  updateRoute: (id, body) => patch(`orders/${id}/route/`, body),
   services: (id, signal) => get(`orders/${id}/services/`, signal),
   tasks: (id, params = {}, signal) => list(`orders/${id}/tasks/`, { page_size: 100, ...params }, signal),
   createTask: (id, body) => create(`orders/${id}/tasks/`, body),
