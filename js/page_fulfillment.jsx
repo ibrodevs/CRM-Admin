@@ -446,6 +446,11 @@ function DocCard({ doc, onClose, onChange }) {
     { ic: 'plane', label: doc.service, on: doc.service !== '—' },
     { ic: 'finance', label: 'Операция ' + doc.finOp, on: doc.finOp !== '—' },
   ].filter((l) => l.on);
+  const openDoc = (version) => {
+    if (!doc.serverId) return toast('Файл документа не найден в backend', 'err');
+    const suffix = version ? `&file_version=${version}` : '';
+    window.open(documentsApi.previewUrl(doc.serverId) + suffix, '_blank', 'noopener,noreferrer');
+  };
   const download = (version) => {
     if (!doc.serverId) return toast('Файл документа не найден в backend', 'err');
     const suffix = version ? `?file_version=${version}` : '';
@@ -485,7 +490,7 @@ function DocCard({ doc, onClose, onChange }) {
         <span style={{ fontSize: 13 }}>Предпросмотр документа · v{doc.version}</span>
         {needsPreview
           ? <Button variant="secondary" size="sm" icon="eye" onClick={() => setPreview(true)}>Предпросмотр перед отправкой</Button>
-          : <Button variant="secondary" size="sm" icon="eye" onClick={() => download()}>Открыть</Button>}
+          : <Button variant="secondary" size="sm" icon="eye" onClick={() => openDoc()}>Открыть</Button>}
       </div>
 
       <h3 className="card-title" style={{ fontSize: 15, marginBottom: 10 }}>Связи</h3>

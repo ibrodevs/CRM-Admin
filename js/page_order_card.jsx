@@ -2644,7 +2644,11 @@ function OrderCard({ order, company, clients = [], onBack, initTab, initSvc, ini
   const assembleSelected = () => { const chosen = services.filter((s) => sel.has(s.id)); assembleKPFromCards(chosen); setSelMode(false); setSel(new Set()); };
   const exportSelectedToChat = () => { const chosen = services.filter((s) => sel.has(s.id)); exportServicesToChat(chosen); setSelMode(false); setSel(new Set()); };
 
-  const openDocument = (doc) => window.open(documentsApi.downloadUrl(doc.id), '_blank', 'noopener,noreferrer');
+  const openDocument = (doc) => {
+    const id = doc?.id || doc?.documentId || doc?.serverId;
+    if (!id) return;
+    window.open(documentsApi.previewUrl(id), '_blank', 'noopener,noreferrer');
+  };
 
   const uploadServiceDocument = async (svc, file) => {
     try {
