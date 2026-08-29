@@ -3692,8 +3692,12 @@ function ReceiptImportModal({ open, onClose, onDone, initialDraft, initialFiles 
     if (!draft && initialFiles.length) addFiles(initialFiles);
   }, [open]);
   useEffect(() => {
-    if (['person', 'company'].includes(bindTarget.mode) && optCreateServices) setOptCreateServices(false);
-  }, [bindTarget.mode, optCreateServices]);
+    if (['person', 'company'].includes(bindTarget.mode)) {
+      if (optCreateServices) setOptCreateServices(false);
+    } else if (['new', 'order'].includes(bindTarget.mode)) {
+      if (!optCreateServices) setOptCreateServices(true);
+    }
+  }, [bindTarget.mode]);
 
 
   const supplierNet = (p) => {
@@ -4790,7 +4794,7 @@ function ReceiptImportModal({ open, onClose, onDone, initialDraft, initialFiles 
           order: finalHasOrderTarget ? finalBindTarget.order.id : null,
           person: isPerson ? (finalBindTarget.id || finalBindTarget.person?.id || null) : null,
           company: isCompany ? (finalBindTarget.company?.id || null) : null,
-          create_services: optCreateServices && finalHasOrderTarget,
+          create_services: Boolean(finalHasOrderTarget && (bindTarget.mode === 'new' || optCreateServices)),
           service_type: r.f.type,
           original_total: Number(p.originalTotal) || Number(p.total) || 0,
           client_total: clientTotal(m),
