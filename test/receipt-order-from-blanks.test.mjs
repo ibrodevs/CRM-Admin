@@ -31,7 +31,8 @@ test('creating an order from receipts never routes the operator into a service s
   assert.match(page, /Создание заказа по бланкам/);
   assert.match(page, /Всё уже есть в маршрут-квитанциях/);
   assert.match(page, /Поиск услуг в этом сценарии не нужен/);
-  assert.match(page, /const createdOrder = await requestOrderFromReceipts\(receiptOrderPlan\(/);
+  assert.match(page, /const orderPlan = receiptOrderPlan\(/);
+  assert.match(page, /const createdOrder = await requestOrderFromReceipts\(orderPlan\)/);
   // Общая форма поиска услуг в потоке квитанций больше не участвует.
   assert.doesNotMatch(app, /OrderCreateModal/);
   assert.doesNotMatch(page, /Найти услуги/);
@@ -64,6 +65,9 @@ test('a newly created receipt order always creates services and verifies the ser
   assert.match(page, /create_services: shouldCreateServices/);
   assert.match(page, /confirmed\.filter\(\(result\) => !result\?\.service_id\)/);
   assert.doesNotMatch(page, /finalBindTarget\.mode === 'order' \? optCreateServices !== false : true/);
+  assert.match(page, /orderPlan\.receiptServices = toAdd\.map/);
+  assert.match(app, /receipt_services: plan\.receiptServices \|\| \[\]/);
+  assert.match(workspace, /body\.receipt_services = draft\.receipt_services/);
 });
 
 test('the plan is built from the blanks: passengers, route, dates and service kinds', () => {

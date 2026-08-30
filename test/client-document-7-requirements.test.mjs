@@ -52,7 +52,9 @@ test('final import step creates a real order straight from the receipts', () => 
   assert.match(fulfillment, /modes=\{\['new', 'order', 'company', 'person'\]\}/);
   // Заказ собирается из бланков: маршрут, даты и пассажиры уже распознаны,
   // поэтому вместо формы поиска услуг открывается окно подтверждения.
-  assert.match(fulfillment, /const createdOrder = await requestOrderFromReceipts\(receiptOrderPlan\(toAdd\.map\(\(row\) => row\.f\)\)\)/);
+  assert.match(fulfillment, /const orderPlan = receiptOrderPlan\(toAdd\.map\(\(row\) => row\.f\)\)/);
+  assert.match(fulfillment, /orderPlan\.receiptServices = toAdd\.map/);
+  assert.match(fulfillment, /const createdOrder = await requestOrderFromReceipts\(orderPlan\)/);
   assert.match(fulfillment, /function ReceiptOrderCreateDrawer\(/);
   assert.match(app, /const createReceiptOrder = async \(draft\) =>/);
   assert.match(app, /onCreateOrder=\{createReceiptOrder\}/);

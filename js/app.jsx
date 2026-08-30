@@ -207,6 +207,7 @@ function App() {
           role: 'passenger',
           is_contact: index === 0,
         })),
+        receipt_services: plan.receiptServices || [],
       });
       toast(`Заказ № ${created.no} создан по бланкам`, 'ok');
       return created;

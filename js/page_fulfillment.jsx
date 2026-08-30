@@ -4763,7 +4763,31 @@ function ReceiptImportModal({ open, onClose, onDone, initialDraft, initialFiles 
       if (typeof onCreateOrder !== 'function') { toast('Создание нового заказа сейчас недоступно', 'err'); return; }
       // Услуги искать не нужно: маршрут, даты, пассажиров и виды услуг берём
       // прямо из бланков и показываем оператору для подтверждения.
-      const createdOrder = await requestOrderFromReceipts(receiptOrderPlan(toAdd.map((row) => row.f)));
+      const orderPlan = receiptOrderPlan(toAdd.map((row) => row.f));
+      orderPlan.receiptServices = toAdd.map((row) => {
+        const verified = verifiedReceiptForSaveWithMath(row.f, mathStateRef.current);
+        const receiptMath = mathForFileWithState(row.f, mathStateRef.current);
+        const rawKind = String(row.f.type || '').trim().toLowerCase();
+        const kind = ({
+          'авиа': 'avia', 'жд': 'rail', 'ж/д': 'rail', 'гостиница': 'hotel',
+          'отель': 'hotel', 'трансфер': 'transfer', 'автобус': 'bus', 'тур': 'tour',
+          'страхование': 'insurance', 'виза': 'visa',
+        })[rawKind] || 'other';
+        const supplierCost = supplierNet(verified);
+        return {
+          import_id: row.f.importId,
+          kind,
+          title: [verified.carrier || row.f.type || 'Услуга', verified.passenger].filter(Boolean).join(' · '),
+          passenger_name: verified.passenger || '',
+          currency: verified.currency || 'RUB',
+          supplier_cost: supplierCost,
+          agency_fee: Number(verified.fees || 0),
+          markup: Number(receiptMath.markup || 0),
+          commission: Number(receiptMath.commission || 0),
+          client_total: clientTotal(receiptMath),
+        };
+      });
+      const createdOrder = await requestOrderFromReceipts(orderPlan);
       if (!createdOrder) return;
       finalBindTarget = { mode: 'order', order: createdOrder, label: 'Заказ № ' + createdOrder.no };
       setBindTarget(finalBindTarget);

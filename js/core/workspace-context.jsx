@@ -176,6 +176,9 @@ export function WorkspaceProvider({ children }) {
     if (draft.route && Array.isArray(draft.route.points) && draft.route.points.length >= 2) {
       body.route = draft.route;
     }
+    if (Array.isArray(draft.receipt_services) && draft.receipt_services.length) {
+      body.receipt_services = draft.receipt_services;
+    }
     if (!body.client_person && !body.client_company) {
       const err = new Error('Для создания заказа выберите существующего клиента или компанию');
       err.code = 'CLIENT_REQUIRED';
