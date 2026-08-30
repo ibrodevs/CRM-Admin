@@ -58,6 +58,14 @@ test('the application creates the person, the order, its route and participants'
   assert.match(workspace, /if \(draft\.route && Array\.isArray\(draft\.route\.points\) && draft\.route\.points\.length >= 2\)/);
 });
 
+test('a newly created receipt order always creates services and verifies the server result', () => {
+  assert.match(page, /const creatingOrderFromReceipts = bindTarget\.mode === 'new'/);
+  assert.match(page, /finalHasOrderTarget && \(creatingOrderFromReceipts \|\| optCreateServices\)/);
+  assert.match(page, /create_services: shouldCreateServices/);
+  assert.match(page, /confirmed\.filter\(\(result\) => !result\?\.service_id\)/);
+  assert.doesNotMatch(page, /finalBindTarget\.mode === 'order' \? optCreateServices !== false : true/);
+});
+
 test('the plan is built from the blanks: passengers, route, dates and service kinds', () => {
   const { receiptOrderPlan, receiptIsoDate, receiptRoutePointCode, receiptPersonNameParts } = loadPlanHelpers();
 

@@ -4754,8 +4754,12 @@ function ReceiptImportModal({ open, onClose, onDone, initialDraft, initialFiles 
   const finish = async () => {
     if (!toAdd.length) { toast('Нет квитанций для добавления', 'err'); return; }
     await ensureServiceFeesResolved();
+    // Запоминаем исходный выбор до того, как новый заказ превратится в обычную
+    // цель mode=order. Для заказа, созданного именно из квитанций, услуги
+    // обязательны и не должны зависеть от устаревшего состояния чекбокса.
+    const creatingOrderFromReceipts = bindTarget.mode === 'new';
     let finalBindTarget = bindTarget;
-    if (bindTarget.mode === 'new') {
+    if (creatingOrderFromReceipts) {
       if (typeof onCreateOrder !== 'function') { toast('Создание нового заказа сейчас недоступно', 'err'); return; }
       // Услуги искать не нужно: маршрут, даты, пассажиров и виды услуг берём
       // прямо из бланков и показываем оператору для подтверждения.
@@ -4766,6 +4770,9 @@ function ReceiptImportModal({ open, onClose, onDone, initialDraft, initialFiles 
     }
     const finalHasOrderTarget = finalBindTarget.mode === 'order' && finalBindTarget.order?.id;
     if (optCreateServices && !finalHasOrderTarget) { toast('Выберите или создайте заказ для создания услуг', 'err'); return; }
+    const shouldCreateServices = Boolean(
+      finalHasOrderTarget && (creatingOrderFromReceipts || optCreateServices),
+    );
     const now = new Date().toLocaleDateString('ru-RU');
     const isPerson = finalBindTarget.mode === 'person';
     const isCompany = finalBindTarget.mode === 'company';
@@ -4794,7 +4801,7 @@ function ReceiptImportModal({ open, onClose, onDone, initialDraft, initialFiles 
           order: finalHasOrderTarget ? finalBindTarget.order.id : null,
           person: isPerson ? (finalBindTarget.id || finalBindTarget.person?.id || null) : null,
           company: isCompany ? (finalBindTarget.company?.id || null) : null,
-          create_services: Boolean(finalHasOrderTarget && (finalBindTarget.mode === 'order' ? optCreateServices !== false : true)),
+          create_services: shouldCreateServices,
           service_type: r.f.type,
           original_total: Number(p.originalTotal) || Number(p.total) || 0,
           client_total: clientTotal(m),
@@ -4809,6 +4816,12 @@ function ReceiptImportModal({ open, onClose, onDone, initialDraft, initialFiles 
           },
         });
       }));
+      if (shouldCreateServices) {
+        const missingServices = confirmed.filter((result) => !result?.service_id);
+        if (missingServices.length) {
+          throw new Error('Заказ создан, но сервер не подтвердил добавление услуг. Повторите сохранение квитанций.');
+        }
+      }
       const supplierPdfManual = confirmed.filter((result) => result?.supplier_pdf_correction?.status === 'manual_required').length;
       if (supplierPdfManual) {
         toast('Данные сохранены. Для ' + supplierPdfManual + ' файл. не удалось безопасно перенести все суммы в PDF поставщика — исходник оставлен без частичных правок.', 'err');
@@ -4834,7 +4847,7 @@ function ReceiptImportModal({ open, onClose, onDone, initialDraft, initialFiles 
         ],
         history: [
           { t: now, text: 'Оригинальный бланк поставщика сохранён как v1', who: 'CRM' },
-          { t: now, text: 'Проверено и привязано к ' + bindText + (optCreateServices ? ' · услуги добавлены в заказ' : ''), who: (window.CURRENT_USER && CURRENT_USER.name) || 'Оператор' },
+          { t: now, text: 'Проверено и привязано к ' + bindText + (shouldCreateServices ? ' · услуги добавлены в заказ' : ''), who: (window.CURRENT_USER && CURRENT_USER.name) || 'Оператор' },
         ],
       };
       });
