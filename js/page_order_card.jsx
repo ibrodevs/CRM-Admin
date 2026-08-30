@@ -2371,7 +2371,9 @@ function OrderCard({ order, company, clients = [], onBack, initTab, initSvc, ini
   const [loading, setLoading] = useState(true);
   const [cardOrder, setCardOrder] = useState(order);
   const [status, setStatus] = useState(order.status === 'Нет данных' ? 'Новое' : order.status);
-  const [services, setServices] = useState(() => (order.services || []).map(toLegacyOrderService));
+  const [services, setServices] = useState(() => (
+    Array.isArray(order.services) ? order.services : []
+  ).map(toLegacyOrderService));
   const [tasks, setTasks] = useState([]);
   const [history, setHistory] = useState([]);
   const [financeSummary, setFinanceSummary] = useState(null);
@@ -2513,7 +2515,7 @@ function OrderCard({ order, company, clients = [], onBack, initTab, initSvc, ini
     const liveOrder = overview.order || {};
     const normalizedOrder = toUiOrder(liveOrder);
     setCardOrder((current) => ({ ...current, ...liveOrder, ...normalizedOrder, route: liveOrder.route }));
-    setServices((overview.services || []).map(toLegacyOrderService));
+    setServices((Array.isArray(overview.services) ? overview.services : []).map(toLegacyOrderService));
     setParticipants((liveOrder.participants || []).map(toLegacyParticipant));
     setOrderVersion(liveOrder.version);
     setRouteVersion(liveOrder.route?.version || null);

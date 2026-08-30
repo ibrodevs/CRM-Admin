@@ -57,7 +57,7 @@ for (const token of [
   // Непроверенные бланки удерживают теперь только последний шаг «В заказ»:
   // между шагами оператор ходит свободно, а причина блокировки показана там,
   // где бланки уходят в заказ.
-  'disabled={processing || !toAdd.length || pendingReview > 0',
+  'disabled={processing || saving || !toAdd.length || pendingReview > 0',
 ]) {
   if (!source.includes(token)) throw new Error(`Не подтверждено разблокирование «Далее»: ${token}`);
 }

@@ -16,6 +16,12 @@ test('карточка заказа открывается единой лент
   assert.match(card, /ORDER_SECTIONS\[tab\]/);
 });
 
+test('счётчик услуг из списка заказов не принимается за массив услуг', () => {
+  assert.match(card, /Array\.isArray\(order\.services\) \? order\.services : \[\]/);
+  assert.match(card, /Array\.isArray\(overview\.services\) \? overview\.services : \[\]/);
+  assert.doesNotMatch(card, /\(order\.services \|\| \[\]\)\.map/);
+});
+
 test('блок услуги показывает пассажиров, документы и действия по услуге', () => {
   assert.match(card, /Пассажиры \(\{pax\.length\}\)/);
   assert.match(card, /Документы \(\{docs\.length\}\)/);

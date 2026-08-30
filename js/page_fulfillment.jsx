@@ -3624,6 +3624,7 @@ function ReceiptImportModal({ open, onClose, onDone, initialDraft, initialFiles 
   const [feeSummaryDismissed, setFeeSummaryDismissed] = useState(false);
   const [confirmClose, setConfirmClose] = useState(false);
   const [importMode, setImportMode] = useState('auto');
+  const [saving, setSaving] = useState(false);
 
 
   const [bindTarget, setBindTarget] = useState({ mode: 'order', label: 'Выберите заказ' });
@@ -3671,6 +3672,7 @@ function ReceiptImportModal({ open, onClose, onDone, initialDraft, initialFiles 
     setSubEdit(null);
     setExpandedReceipts({});
     setConfirmClose(false);
+    setSaving(false);
     setFeeSummaryDismissed(false);
     setImportMode(draft?.importMode || 'auto');
     setBindTarget(draft?.bindTarget || initialBindTarget || { mode: 'order', label: 'Выберите заказ' });
@@ -4804,7 +4806,7 @@ function ReceiptImportModal({ open, onClose, onDone, initialDraft, initialFiles 
     const companyName = finalBindTarget.company?.name || finalBindTarget.company?.shortName || finalBindTarget.label || '';
     const bindText = isPerson ? ('физ. лицу ' + finalBindTarget.client)
       : isCompany ? ('юр. лицу ' + companyName) : ('заказу № ' + orderNo);
-    setProcessing(true);
+    setSaving(true);
     try {
       const confirmed = await Promise.all(toAdd.map((r) => {
         const p = r.f.parsed; const m = mathForFileWithState(r.f, mathStateRef.current);
@@ -4882,7 +4884,7 @@ function ReceiptImportModal({ open, onClose, onDone, initialDraft, initialFiles 
           : toAdd.length + ' квитанц. добавлено в заказ № ' + orderNo, 'ok');
     } catch (error) { toast(error.message || 'Не удалось сохранить квитанции', 'err'); }
     finally {
-      setProcessing(false);
+      setSaving(false);
     }
   };
 
@@ -5317,7 +5319,7 @@ function ReceiptImportModal({ open, onClose, onDone, initialDraft, initialFiles 
             ? <Button icon="chevRight" disabled={!canNext[step]}
               title={canNext[step] ? '' : 'Дождитесь обработки загруженных файлов'}
               onClick={() => setStep((s) => Math.min(IMPORT_STEPS.length - 1, s + 1))}>Далее</Button>
-            : <Button icon="check" disabled={processing || !toAdd.length || pendingReview > 0 || !hasBindingTarget || (optCreateServices && !hasOrderTarget && !canCreateOrderTarget)}
+            : <Button icon="check" disabled={processing || saving || !toAdd.length || pendingReview > 0 || !hasBindingTarget || (optCreateServices && !hasOrderTarget && !canCreateOrderTarget)}
               title={pendingReview > 0
                 ? `Не подтверждено документов: ${pendingReview}. Нажмите «Подтвердить все готовые» или откройте документ и отметьте бланки проверенными.`
                 : ''}

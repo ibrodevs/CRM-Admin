@@ -70,6 +70,14 @@ test('a newly created receipt order always creates services and verifies the ser
   assert.match(workspace, /body\.receipt_services = draft\.receipt_services/);
 });
 
+test('receipt saving has its own state and never mutates the derived import progress flag', () => {
+  assert.match(page, /const \[saving, setSaving\] = useState\(false\)/);
+  assert.match(page, /setSaving\(true\)/);
+  assert.match(page, /setSaving\(false\)/);
+  assert.doesNotMatch(page, /setProcessing\(/);
+  assert.match(page, /disabled=\{processing \|\| saving \|\| !toAdd\.length/);
+});
+
 test('the plan is built from the blanks: passengers, route, dates and service kinds', () => {
   const { receiptOrderPlan, receiptIsoDate, receiptRoutePointCode, receiptPersonNameParts } = loadPlanHelpers();
 

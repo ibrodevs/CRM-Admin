@@ -13,6 +13,6 @@ test('main Next button reads current child review statuses after sequential revi
   assert.match(page, /receiptGroupNeedsSequentialReview\(r\.f\)/);
   // Непроверенные бланки удерживают последний шаг «В заказ», а не переход
   // между шагами: между ними оператор ходит свободно.
-  assert.match(page, /disabled=\{processing \|\| !toAdd\.length \|\| pendingReview > 0/);
+  assert.match(page, /disabled=\{processing \|\| saving \|\| !toAdd\.length \|\| pendingReview > 0/);
   assert.doesNotMatch(page, /doneRows\.length > 0 && pendingReview === 0/);
 });
