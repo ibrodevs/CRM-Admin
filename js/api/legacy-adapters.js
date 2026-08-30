@@ -212,7 +212,7 @@ export function toLegacyOrderService(item) {
     sum: item.client_total === null || item.client_total === undefined || item.client_total === ''
       ? null
       : Number(item.client_total),
-    currency: item.currency || 'USD',
+    currency: item.currency || 'RUB',
     passengers: (item.passengers || []).map((row) => row.name).filter(Boolean),
     participantIds: (item.passengers || []).map((row) => row.participant).filter(Boolean),
     calc: { tariff: Number(item.supplier_cost || 0), taxes: Number(item.taxes || 0), fee: Number(item.agency_fee || 0), markup: Number(item.markup || 0), commission: Number(item.commission || 0), discount: Number(item.discount || 0), total: item.client_total === null || item.client_total === undefined || item.client_total === '' ? null : Number(item.client_total) },

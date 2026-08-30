@@ -1,16 +1,49 @@
 import { FIN_OPS } from '../../data';
 
+function normalizeCurrency(currency, fallback = 'RUB') {
+  const value = String(currency || '').trim();
+  if (!value) return fallback;
+  const code = value.toUpperCase();
+  if (['RUB', 'RUR', '₽', 'РУБ'].includes(code)) return 'RUB';
+  if (['USD', '$'].includes(code)) return 'USD';
+  if (['EUR', '€'].includes(code)) return 'EUR';
+  if (['KGS', 'СОМ'].includes(code)) return 'KGS';
+  return code;
+}
+
 function ocCurrency(currency = 'RUB') {
-  if (currency === 'USD' || currency === '$') return '$';
-  if (currency === 'RUB' || currency === '₽') return '₽';
-  if (currency === 'EUR' || currency === '€') return '€';
-  if (currency === 'KGS') return 'сом';
-  return currency;
+  const code = normalizeCurrency(currency);
+  if (code === 'USD') return '$';
+  if (code === 'RUB') return '₽';
+  if (code === 'EUR') return '€';
+  if (code === 'KGS') return 'сом';
+  return code;
 }
 
 function ocMoney(amount, currency = 'RUB') {
   const value = Number(amount);
   return Math.round(Number.isFinite(value) ? value : 0).toLocaleString('ru-RU') + ' ' + ocCurrency(currency);
+}
+
+function financeRowsTotal(rows, currency) {
+  const targetCurrency = normalizeCurrency(currency);
+  return (rows || []).reduce((sum, row) => {
+    const rowCurrency = normalizeCurrency(row?.currency, targetCurrency);
+    return rowCurrency === targetCurrency ? sum + Number(row?.amount || 0) : sum;
+  }, 0);
+}
+
+function orderFinanceCurrency(summary, order = {}, services = []) {
+  const summaryRows = [
+    ...(summary?.services_total || []),
+    ...(summary?.paid || []),
+    ...(summary?.outstanding || []),
+  ];
+  const summaryCurrency = summaryRows.find((row) => row?.currency)?.currency;
+  const serviceCurrency = (services || []).find((service) => service?.currency)?.currency;
+  return normalizeCurrency(
+    summaryCurrency || order.base_currency || order.currency || serviceCurrency || 'RUB',
+  );
 }
 
 function opPayable(operation) {
@@ -60,7 +93,7 @@ function financeSnapshot(orderNo, services) {
       taxes: (byKind[service.kind]?.taxes || 0) + calculation.taxes,
       fee: (byKind[service.kind]?.fee || 0) + calculation.fee,
       commission: (byKind[service.kind]?.commission || 0) + calculation.commission,
-      currency: service.currency || byKind[service.kind]?.currency || 'USD',
+      currency: normalizeCurrency(service.currency || byKind[service.kind]?.currency || 'RUB'),
     };
   });
   operations.forEach((operation) => {
@@ -104,4 +137,7 @@ function financeSnapshot(orderNo, services) {
   };
 }
 
-export { ocCurrency, ocMoney, opPayable, opDebt, svcCalc, financeSnapshot };
+export {
+  normalizeCurrency, ocCurrency, ocMoney, financeRowsTotal, orderFinanceCurrency,
+  opPayable, opDebt, svcCalc, financeSnapshot,
+};

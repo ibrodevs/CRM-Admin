@@ -15,14 +15,17 @@ import { CityPickPanel, StackPanel } from './components/shared-panels';
 import { BackRow } from './components/back-row';
 import { KPModule } from './page_offers';
 import { DocCenter, FinanceRegistry } from './page_fulfillment';
-import { CreditLimitBar, FIN_COUNTERPARTIES, FIN_PAYMENTS, f$ } from './page_finance';
+import { CreditLimitBar, FIN_COUNTERPARTIES, FIN_PAYMENTS } from './page_finance';
 import { ReturnsModule } from './page_returns';
 import { PaxGroupsDrawer, PaxUnifyPanel, paxMergeAppend } from './pax_unify';
 import { AeroAddFlow, ManualAltForm, RailAddFlow, ServiceAddFlow, ServiceCardHistoryDrawer, ServiceCardSendPanel, SvcCard } from './page_services';
 import { HotelPicker } from './page_hotel_picker';
 import { getThreadForOrder, threadUnread } from './page_chats';
 import { GROUP_ORDERS, GroupServiceScenario, GrMatrixTab, GrDiffTab } from './page_groups';
-import { financeSnapshot, ocCurrency, ocMoney, opDebt, opPayable, svcCalc } from './features/orders/finance';
+import {
+  financeRowsTotal, financeSnapshot, normalizeCurrency, ocCurrency, ocMoney,
+  opDebt, opPayable, orderFinanceCurrency, svcCalc,
+} from './features/orders/finance';
 import { crmApi, documentsApi, ordersApi, proposalsApi, servicesApi, usersApi, workspaceActionsApi } from './api/resources';
 import { toLegacyDocument, toLegacyOrderService, toLegacyParticipant } from './api/legacy-adapters';
 import { resultsOf } from './api/client';
@@ -654,7 +657,17 @@ function ServiceListRow({ s, paxCount, isGroup, onOpen, orderNo, participants = 
   const [cardSt, setCardSt] = useState(initCard);
   const cst = cardStatus(cardSt);
 
-  const cardItem = s.svcOffer ? { ...s.svcOffer, title: s.title, sub: s.sub, kind: s.kind, status: s.status, date: s.date, order: orderNo, calc: s.calc } : { ...s, order: orderNo };
+  const cardItem = s.svcOffer ? {
+    ...s.svcOffer,
+    title: s.title,
+    sub: s.sub,
+    kind: s.kind,
+    status: s.status,
+    date: s.date,
+    order: orderNo,
+    calc: s.calc,
+    currency: s.currency || s.svcOffer.currency || 'RUB',
+  } : { ...s, order: orderNo };
   const onSent = (ch) => {
     setCardSt('sent');
     toast('Карточка услуги отправлена клиенту по каналу «' + ch + '»', 'ok');
@@ -686,10 +699,14 @@ function ServiceListRow({ s, paxCount, isGroup, onOpen, orderNo, participants = 
 
 
 function serviceTotals(services) {
-
-  const toUsd = (x) => { const t = svcCalc(x).total; return (x.currency === 'RUB' || x.currency === '₽') ? t / 90 : t; };
+  const currency = normalizeCurrency((services || []).find((service) => service?.currency)?.currency || 'RUB');
   return {
-    total: services.reduce((s, x) => s + toUsd(x), 0),
+    currency,
+    total: services.reduce((sum, service) => (
+      normalizeCurrency(service.currency, currency) === currency
+        ? sum + svcCalc(service).total
+        : sum
+    ), 0),
     confirmedSvc: services.filter((s) => s.status === 'Подтверждено' || s.status === 'Выписано').length,
     awaitingSvc: services.filter((s) => s.status === 'Забронировано' || s.status === 'Согласование' || s.status === 'Предложение').length,
     actionSvc: services.filter((s) => s.status === 'Поиск' || s.status === 'Возврат' || s.status === 'Отменено').length,
@@ -702,10 +719,10 @@ function serviceTotals(services) {
 
 function ServicesFooterBar({ services, participants, bookingDraft, onStartBooking, orderId }) {
   const toast = useToast();
-  const { total, confirmedSvc, awaitingSvc, actionSvc } = serviceTotals(services);
+  const { total, currency, confirmedSvc, awaitingSvc, actionSvc } = serviceTotals(services);
   return (
     <div className="oc-svc-footer">
-      <div className="grp"><span className="l">Итого по заказу</span><span className="v">{ocMoney(total)} <Icon name="alertCircle" style={{ width: 14, height: 14, color: 'var(--muted-2)', verticalAlign: -2 }} /></span></div>
+      <div className="grp"><span className="l">Итого по заказу</span><span className="v">{ocMoney(total, currency)} <Icon name="alertCircle" style={{ width: 14, height: 14, color: 'var(--muted-2)', verticalAlign: -2 }} /></span></div>
       <div className="grp"><span className="l">Пассажиры</span><span className="v">{participants.length} чел.</span></div>
       <div className="grp"><span className="l">Услуг</span><span className="v blue">{services.length}</span></div>
       <div className="grp"><span className="l">Подтверждено</span><span className="v green">{confirmedSvc}</span></div>
@@ -2115,19 +2132,25 @@ function TabOffers({ onCreate }) {
 
 
 function OrderFinanceBlock({ orderNo, order, services, summary }) {
-  const sumMoney = (items) => (items || []).reduce((sum, item) => sum + Number(item.amount || 0), 0);
-  const total = summary ? sumMoney(summary.services_total) : services.reduce((s, x) => { const t = svcCalc(x).total; return s + ((x.currency === 'RUB' || x.currency === '₽') ? t / 90 : t); }, 0);
+  const currency = orderFinanceCurrency(summary, order, services);
+  const total = summary
+    ? financeRowsTotal(summary.services_total, currency)
+    : services.reduce((sum, service) => (
+      normalizeCurrency(service.currency, currency) === currency
+        ? sum + svcCalc(service).total
+        : sum
+    ), 0);
   const cps = (typeof FIN_COUNTERPARTIES !== 'undefined') ? FIN_COUNTERPARTIES : [];
   const cp = cps.find((c) => c.type === 'client' && (c.name === order.client || order.client.includes(c.name) || c.name.includes(order.client)));
   const pays = summary ? [] : ((typeof FIN_PAYMENTS !== 'undefined') ? FIN_PAYMENTS : []).filter((p) => p.order === orderNo);
   const ops = summary ? [] : ((typeof FIN_OPS !== 'undefined') ? FIN_OPS : []).filter((o) => o.order === orderNo);
   const docs = summary ? [] : ((typeof DOCS2 !== 'undefined') ? DOCS2 : []).filter((d) => d.order === orderNo && ['Счёт', 'Акт', 'Договор'].includes(d.type));
-  const paid = summary ? sumMoney(summary.paid) : (ops.reduce((s, o) => s + (o.paid || 0), 0) || (cp ? cp.paid : 0));
-  const debt = summary ? sumMoney(summary.outstanding) : Math.max(0, Math.round(total) - paid);
+  const paid = summary ? financeRowsTotal(summary.paid, currency) : (ops.reduce((s, o) => s + (o.paid || 0), 0) || (cp ? cp.paid : 0));
+  const debt = summary ? financeRowsTotal(summary.outstanding, currency) : Math.max(0, Math.round(total) - paid);
   const profit = summary ? 0 : Math.round(total * 0.12);
   const free = cp && cp.limit ? Math.max(0, cp.limit - cp.used) : 0;
   const hasLimitBar = typeof CreditLimitBar !== 'undefined' && cp && cp.limit;
-  const money = (typeof f$ === 'function') ? f$ : ((n) => ocMoney(n));
+  const money = (amount) => ocMoney(amount, currency);
   return (
     <div className="card card-pad fade-in" style={{ marginBottom: 18, border: '1px solid var(--line)' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
@@ -2501,7 +2524,14 @@ function OrderCard({ order, company, clients = [], onBack, initTab, initSvc, ini
     });
     setSvcView('avia-card');
   };
-  const openOtherCard = (s) => { setActiveSvc(s.svcOffer ? { ...s.svcOffer, kind: s.kind, status: s.status, date: s.svcOffer.date || s.date, calc: s.calc, order: order.no } : { ...s, order: order.no }); setSvcView('svc-card'); };
+  const openOtherCard = (s) => {
+    const currency = s.currency || s.svcOffer?.currency
+      || cardOrder.base_currency || cardOrder.currency || order.base_currency || order.currency || 'RUB';
+    setActiveSvc(s.svcOffer
+      ? { ...s.svcOffer, kind: s.kind, status: s.status, date: s.svcOffer.date || s.date, calc: s.calc, currency, order: order.no }
+      : { ...s, currency, order: order.no });
+    setSvcView('svc-card');
+  };
   const openServiceCard = (s) => (s.kind === 'Авиа' ? openAviaCard(s) : openOtherCard(s));
 
 

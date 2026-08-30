@@ -15,11 +15,14 @@ import { kpNow } from './page_offers';
 import { documentsApi, ordersApi, proposalsApi, servicesApi, workspaceActionsApi } from './api/resources';
 import { resultsOf } from './api/client';
 import { toLegacyOrderService } from './api/legacy-adapters';
+import { normalizeCurrency, ocMoney } from './features/orders/finance';
 
 
 
 
 function svM(n) { return Math.round(n).toLocaleString('ru-RU') + ' $'; }
+
+const SERVICE_DOCUMENT_PAGE_SIZE = 12;
 
 
 
@@ -1008,6 +1011,7 @@ function SvcCard({ item, kind, participants = [], hideBackRow, onBack }) {
   const [sendOpen, setSendOpen] = useState(false);
   const [uploadOpen, setUploadOpen] = useState(false);
   const [uploadedDocs, setUploadedDocs] = useState([]);
+  const [visibleDocumentCount, setVisibleDocumentCount] = useState(SERVICE_DOCUMENT_PAGE_SIZE);
   const [comment, setComment] = useState('');
   const [serviceHistory, setServiceHistory] = useState([]);
   const initialPax = participants.length ? participants : (item.passengers || []).map((name, index) => ({
@@ -1029,8 +1033,8 @@ function SvcCard({ item, kind, participants = [], hideBackRow, onBack }) {
   const [opConfirm, setOpConfirm] = useState(null);
   const k = SERVICE_KIND[kind] || { icon: 'briefcase', color: 'var(--blue)' };
   const isOffer = !!item.cost;
-  const cur = item.currency || (item.svcOffer && item.svcOffer.currency);
-  const fmt = (n) => (cur === 'RUB' || cur === '₽') ? rub(n) : svM(n);
+  const cur = normalizeCurrency(item.currency || (item.svcOffer && item.svcOffer.currency) || 'RUB');
+  const fmt = (n) => ocMoney(n, cur);
   const title = item.title || item.main;
   const sub = item.sub;
   const [status, setStatus] = useState(item.status || (isOffer ? 'Предложение' : '—'));
@@ -1061,6 +1065,7 @@ function SvcCard({ item, kind, participants = [], hideBackRow, onBack }) {
 
   useEffect(() => {
     if (!serviceId) return undefined;
+    setVisibleDocumentCount(SERVICE_DOCUMENT_PAGE_SIZE);
     const controller = new AbortController();
     Promise.all([
       documentsApi.list({ service: serviceId }, controller.signal),
@@ -1133,7 +1138,7 @@ function SvcCard({ item, kind, participants = [], hideBackRow, onBack }) {
         title: doc.name,
         source: 'upload',
       });
-      setUploadedDocs((current) => [...current, { ...created, name: created.title, type: created.kind, documentId: created.id, size: doc.size }]);
+      setUploadedDocs((current) => [{ ...created, name: created.title, type: created.kind, documentId: created.id, size: doc.size }, ...current]);
       setUploadOpen(false);
       toast('Документ загружен', 'ok');
     } catch (error) { toast(error.message, 'err'); }
@@ -1229,6 +1234,8 @@ function SvcCard({ item, kind, participants = [], hideBackRow, onBack }) {
     { key: 'comments', label: 'Комментарии' },
     { key: 'history', label: 'История' },
   ];
+  const visibleDocuments = uploadedDocs.slice(0, visibleDocumentCount);
+  const hiddenDocumentCount = Math.max(0, uploadedDocs.length - visibleDocuments.length);
 
   return (
     <div className="fade-in">
@@ -1419,24 +1426,52 @@ function SvcCard({ item, kind, participants = [], hideBackRow, onBack }) {
       )}
 
       {tab === 'docs' && (
-        <div className="grid-4">
-          {uploadedDocs.map((d) => (
-            <div key={d.id} className="doc-chip" title={d.name}>
-              <span style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
-                <Icon name="docs" style={{ flexShrink: 0 }} />
-                <span style={{ display: 'flex', flexDirection: 'column', minWidth: 0 }}>
-                  <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{d.name}</span>
-                  <span style={{ fontSize: 12, color: 'var(--muted)' }}>{d.type}{d.size ? ' · ' + d.size : ''}</span>
-                </span>
-              </span>
-              <span style={{ display: 'flex', alignItems: 'center', gap: 4, flexShrink: 0 }}>
-                <button className="icon-btn" onClick={() => window.location.assign(documentsApi.downloadUrl(d.documentId || d.id))} title="Скачать"><Icon name="download" /></button>
-                <button className="icon-btn" onClick={() => voidDocument(d)} title="Удалить"><Icon name="trash" /></button>
-              </span>
+        <section className="svc-documents-panel">
+          <div className="svc-documents-head">
+            <div>
+              <h3>Документы услуги</h3>
+              <span>{uploadedDocs.length} {plural(uploadedDocs.length, ['документ', 'документа', 'документов'])}</span>
             </div>
-          ))}
-          <button className="doc-chip" style={{ borderStyle: 'dashed', color: 'var(--blue)' }} onClick={() => setUploadOpen(true)}><span style={{ display: 'flex', alignItems: 'center', gap: 8 }}><Icon name="plus" />Загрузить</span></button>
-        </div>
+            <Button size="sm" icon="plus" onClick={() => setUploadOpen(true)}>Загрузить</Button>
+          </div>
+          {uploadedDocs.length ? (
+            <>
+              <div className="svc-documents-grid" aria-label="Документы услуги">
+                {visibleDocuments.map((d) => (
+                  <div key={d.id} className="doc-chip" title={d.name}>
+                    <span style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
+                      <Icon name="docs" style={{ flexShrink: 0 }} />
+                      <span style={{ display: 'flex', flexDirection: 'column', minWidth: 0 }}>
+                        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{d.name}</span>
+                        <span style={{ fontSize: 12, color: 'var(--muted)' }}>{d.type}{d.size ? ' · ' + d.size : ''}</span>
+                      </span>
+                    </span>
+                    <span style={{ display: 'flex', alignItems: 'center', gap: 4, flexShrink: 0 }}>
+                      <button className="icon-btn" onClick={() => window.location.assign(documentsApi.downloadUrl(d.documentId || d.id))} title="Скачать"><Icon name="download" /></button>
+                      <button className="icon-btn" onClick={() => voidDocument(d)} title="Удалить"><Icon name="trash" /></button>
+                    </span>
+                  </div>
+                ))}
+              </div>
+              <div className="svc-documents-foot">
+                <span>Показано {visibleDocuments.length} из {uploadedDocs.length}</span>
+                <div>
+                  {visibleDocumentCount > SERVICE_DOCUMENT_PAGE_SIZE && (
+                    <Button size="sm" variant="secondary" onClick={() => setVisibleDocumentCount(SERVICE_DOCUMENT_PAGE_SIZE)}>Свернуть</Button>
+                  )}
+                  {hiddenDocumentCount > 0 && (
+                    <Button size="sm" variant="secondary" icon="chevDown"
+                      onClick={() => setVisibleDocumentCount((count) => Math.min(count + SERVICE_DOCUMENT_PAGE_SIZE, uploadedDocs.length))}>
+                      Показать ещё ({Math.min(SERVICE_DOCUMENT_PAGE_SIZE, hiddenDocumentCount)})
+                    </Button>
+                  )}
+                </div>
+              </div>
+            </>
+          ) : (
+            <EmptyState icon="docs" title="Документов пока нет" sub="Загрузите первый документ этой услуги." />
+          )}
+        </section>
       )}
 
       {tab === 'comments' && (
