@@ -369,7 +369,17 @@ const OPERATOR_CARD_ACCESS = window.OPERATOR_CARD_ACCESS || (window.OPERATOR_CAR
   'Куба':             { fullAccess: false, kinds: { 'Страхование': allCardRights(), 'Виза': allCardRights() } },
 });
 function operatorCardAccess(name) {
-  if (!OPERATOR_CARD_ACCESS[name]) OPERATOR_CARD_ACCESS[name] = { fullAccess: false, kinds: {} };
+  const user = typeof window !== 'undefined' ? window.CURRENT_USER : null;
+  const isSuperOrAdmin = (user && (
+    user.role === 'admin' ||
+    user.role === 'supervisor' ||
+    user.is_staff ||
+    user.is_superuser ||
+    /админ|admin/i.test(user.role || '') ||
+    /админ|admin/i.test(user.name || '')
+  )) || (/админ|admin/i.test(name || ''));
+  if (isSuperOrAdmin) return { fullAccess: true, kinds: {} };
+  if (!OPERATOR_CARD_ACCESS[name]) return { fullAccess: true, kinds: {} };
   return OPERATOR_CARD_ACCESS[name];
 }
 

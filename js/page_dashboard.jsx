@@ -733,7 +733,7 @@ function SupplierErrorsDrawer({ supplier, onClose, onOpenOrder }) {
   );
 }
 
-function DashboardPage({ role, orders = [], clients = [], companies = [], proposals = [], returns = [], notifications = [], chats = [], dashboard, finance, onNavigate, onAddOrder, onOpenOrder, onCreateOrder }) {
+function DashboardPage({ role, orders = [], clients = [], companies = [], proposals = [], returns = [], notifications = [], chats = [], dashboard, finance, onNavigate, onAddOrder, onOpenOrder, onCreateOrder, onOpenChat }) {
   const [search, setSearch] = useState('');
   const [searchOpen, setSearchOpen] = useState(false);
   const [errCodeOpen, setErrCodeOpen] = useState(null);
@@ -1033,7 +1033,7 @@ function DashboardPage({ role, orders = [], clients = [], companies = [], propos
             title={c.name + (c.channel ? ' · ' + c.channel : '')}
             sub={(c.mine ? 'Вы: ' : '') + c.lastText}
             right={<>{c.unread > 0 && <Pill tone="amber">{c.unread} новых</Pill>}<span style={{ fontSize: 12, color: 'var(--muted)', marginLeft: 8 }}>{c.lastTime}</span></>}
-            onClick={() => goOrder(c.order)} />
+            onClick={() => onOpenChat ? onOpenChat(c) : (c.order ? goOrder(c.order) : onNavigate('chats'))} />
         ))}</List>;
       default:
         return <DashDetailEmpty title="Нет данных" />;

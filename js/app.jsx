@@ -122,6 +122,7 @@ function App() {
   const suppliers = workspace.suppliers;
 
   const [chatOpen, setChatOpen] = useState(false);
+  const [chatTarget, setChatTarget] = useState(null);
   const [focusedChat, setFocusedChat] = useState(null);
   const [notifOpen, setNotifOpen] = useState(false);
   const [ctxOrder, setCtxOrder] = useState(null);
@@ -137,6 +138,14 @@ function App() {
     setRoute(r);
     setCtxOrder(null);
     if (b === 'orders') setIntent({ type: 'list' });
+  };
+  const openChat = (target) => {
+    if (target) {
+      setChatTarget(target);
+      if (target.no || target.client) setCtxOrder(target);
+      if (target.id) setFocusedChat(target.id ? toUiThread(target) : target);
+    }
+    setChatOpen(true);
   };
   const openChatThread = (thread) => {
     if (thread) setFocusedChat(thread.id ? toUiThread(thread) : thread);
@@ -244,7 +253,7 @@ function App() {
       route={route} ctxOrder={ctxOrder}
       onNavigate={navigate} onOpenOrder={openOrder}
       onCreateClient={createClient} onCreateCompany={createCompany} onCreateKP={createKP}
-      onOpenChat={() => setChatOpen(true)} onOpenNotif={() => setNotifOpen(true)}
+      onOpenChat={() => openChat(ctxOrder)} onOpenNotif={() => setNotifOpen(true)}
       unreadChat={unreadChat} unreadNotif={unreadNotif}
       role={role} onRole={changeRole} />
   );
@@ -252,7 +261,7 @@ function App() {
     <>
       <DesktopNotifier enabled notifications={workspace.notifications} orders={orders} onNavigate={navigate} onOpenOrder={openOrder} />
       <NotificationDrawer open={notifOpen} notifications={workspace.notifications} orders={orders} onNotificationsChange={(next) => workspace.update('notifications', next)} onClose={() => setNotifOpen(false)} onNavigate={navigate} onOpenOrder={openOrder} />
-      <GlobalChatDrawer open={chatOpen} onClose={() => setChatOpen(false)} contextOrder={ctxOrder} initialThreads={workspace.chats} orders={orders} currentUserId={auth.user.id} onOpenOrder={openOrder} />
+      <GlobalChatDrawer open={chatOpen} onClose={() => { setChatOpen(false); setChatTarget(null); }} contextOrder={chatTarget || ctxOrder} initialThreads={workspace.chats} orders={orders} currentUserId={auth.user.id} onOpenOrder={openOrder} />
     </>
   );
 
@@ -260,9 +269,9 @@ function App() {
 
   const page = (
       <>
-      {route === 'dashboard' && <DashboardPage role={role} orders={orders} clients={workspace.clients} companies={workspace.companies} proposals={workspace.proposals} returns={workspace.returns} notifications={workspace.notifications} chats={workspace.chats} dashboard={workspace.dashboard} finance={workspace.finance} onNavigate={navigate} onAddOrder={createOrder} onOpenOrder={openOrder} onCreateOrder={createOrderFromPicker} />}
+      {route === 'dashboard' && <DashboardPage role={role} orders={orders} clients={workspace.clients} companies={workspace.companies} proposals={workspace.proposals} returns={workspace.returns} notifications={workspace.notifications} chats={workspace.chats} dashboard={workspace.dashboard} finance={workspace.finance} onNavigate={navigate} onAddOrder={createOrder} onOpenOrder={openOrder} onCreateOrder={createOrderFromPicker} onOpenChat={openChat} />}
       {route === 'calendar' && <TripCalendarPage role={role} feed={workspace.calendar} orders={orders} clients={workspace.clients} companies={workspace.companies} users={workspace.users} onOpenOrder={(no) => { const target = orders.find((o) => String(o.no) === String(no) || String(o.id) === String(no)); if (target) openOrder(target); else toast('Заказ не найден или недоступен', 'warn'); }} />}
-      {route === 'orders' && <OrdersPage intent={intent} onConsume={() => setIntent(null)} orders={orders} clients={workspace.clients} companies={workspace.companies} addOrder={addOrder} onDetailChange={setCtxOrder} onOpenChat={() => setChatOpen(true)} onNavigate={navigate} currentUser={auth.user} />}
+      {route === 'orders' && <OrdersPage intent={intent} onConsume={() => setIntent(null)} orders={orders} clients={workspace.clients} companies={workspace.companies} addOrder={addOrder} onDetailChange={setCtxOrder} onOpenChat={openChat} onNavigate={navigate} currentUser={auth.user} />}
       {route === 'services' && <ServicesHubPage onNavigate={navigate} onAddOrder={createOrder} onSearch={openServiceSearch} onOpenOrder={openOrder} onCreateOrder={createOrderFromPicker} />}
       {route === 'flights' && <FlightsPage searchIntent={svcSearch && svcSearch.key === 'flights' ? svcSearch : null} onConsumeSearch={() => setSvcSearch(null)} orders={orders} clients={workspace.clients} companies={workspace.companies} />}
       {route === 'suppliers' && <SuppliersPage intent={intent} onConsume={() => setIntent(null)} suppliers={suppliers} addSupplier={addSupplier} onNavigate={navigate} onOpenChat={openChatThread} />}

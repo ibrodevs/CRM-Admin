@@ -118,7 +118,17 @@ const OPERATOR_SVC_ACCESS = window.OPERATOR_SVC_ACCESS || (window.OPERATOR_SVC_A
   'Куба': { fullAccess: false, kinds: { 'Страхование': fullRights(), 'Визы': fullRights() } },
 });
 function operatorSvcAccess(name) {
-  if (!OPERATOR_SVC_ACCESS[name]) OPERATOR_SVC_ACCESS[name] = { fullAccess: false, kinds: {} };
+  const user = typeof window !== 'undefined' ? window.CURRENT_USER : null;
+  const isSuperOrAdmin = (user && (
+    user.role === 'admin' ||
+    user.role === 'supervisor' ||
+    user.is_staff ||
+    user.is_superuser ||
+    /админ|admin/i.test(user.role || '') ||
+    /админ|admin/i.test(user.name || '')
+  )) || (/админ|admin/i.test(name || ''));
+  if (isSuperOrAdmin) return { fullAccess: true, kinds: {} };
+  if (!OPERATOR_SVC_ACCESS[name]) return { fullAccess: true, kinds: {} };
   return OPERATOR_SVC_ACCESS[name];
 }
 function operatorKindsLabel(name) {

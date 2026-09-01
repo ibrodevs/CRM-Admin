@@ -2878,6 +2878,15 @@ function OrderCard({ order, company, clients = [], onBack, initTab, initSvc, ini
     return thread;
   };
 
+  const handleOpenChat = async () => {
+    try {
+      const thread = await ensureClientThread();
+      if (onOpenChat) onOpenChat(thread || cardOrder);
+    } catch {
+      if (onOpenChat) onOpenChat(cardOrder);
+    }
+  };
+
   const sendServiceCardToClient = async (service, channelList, draft) => {
     const serviceId = service.serverId || service.id;
     if (!orderId || !serviceId) throw new Error('Услуга не связана с backend-заказом');
@@ -2907,7 +2916,7 @@ function OrderCard({ order, company, clients = [], onBack, initTab, initSvc, ini
       const thread = await ensureClientThread();
       await communicationsApi.send(thread.id, { body: text, type: 'text', internal_note: false });
       toast(chosen.length + ' услуг отправлено в чат клиенту', 'ok');
-      onOpenChat && onOpenChat();
+      onOpenChat && onOpenChat(thread || cardOrder);
       return true;
     } catch (error) {
       toast(error.message || 'Не удалось отправить услуги в чат', 'err');
@@ -3043,7 +3052,7 @@ function OrderCard({ order, company, clients = [], onBack, initTab, initSvc, ini
           onSendServiceCard={sendServiceCardToClient}
           onCancel={askCancelService}
           onExchange={requestExchange}
-          onOpenChat={onOpenChat}
+          onOpenChat={handleOpenChat}
           onOpenPassenger={(person) => setEditPax(person)}
           onAddPassengerDoc={(person) => setDocPax(person)}
           onUploadDocument={uploadServiceDocument}
@@ -3058,7 +3067,7 @@ function OrderCard({ order, company, clients = [], onBack, initTab, initSvc, ini
     const client = clients.find((item) => String(item.id) === String(cardOrder.contact_person || cardOrder.client_person));
     switch (tab) {
       case 'overview': return <TabOverview order={cardOrder} company={company} />;
-      case 'clients': return <TabClients order={cardOrder} company={company} client={client} onOpenChat={onOpenChat} />;
+      case 'clients': return <TabClients order={cardOrder} company={company} client={client} onOpenChat={handleOpenChat} />;
       case 'participants': {
         return (
           <TabParticipants
@@ -3152,7 +3161,7 @@ function OrderCard({ order, company, clients = [], onBack, initTab, initSvc, ini
                   <span>Создан {order.date} · <b style={{ color: 'var(--ink)', fontWeight: 600 }}>{(participants.find((p) => p.lead) || participants[0] || {}).name || order.client}</b> · {requestType === 'Групповая' ? 'Групповая поездка' : requestType} · {aviaParams.cabin} · оператор <button type="button" className="oc-meta-action" onClick={() => setReassignOpen(true)}>{operator || order.operator || 'не назначен'}</button></span>
                 </div>
                 <div style={{ flex: 1 }} />
-                <Button variant="secondary" size="sm" icon="chat" onClick={onOpenChat}>
+                <Button variant="secondary" size="sm" icon="chat" onClick={handleOpenChat}>
                   Чат{chatUnread > 0 && <span className="pill pill-red" style={{ marginLeft: 6 }}>{chatUnread}</span>}
                 </Button>
                 <ActionMenu trigger={<button className="btn btn-ghost btn-icon"><Icon name="more" /></button>} items={headerMenuItems} />

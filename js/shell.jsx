@@ -469,14 +469,86 @@ function NotificationDrawer({ open, notifications, orders, onNotificationsChange
 }
 
 
+function findMatchingThread(threads, ctx) {
+  if (!ctx || !Array.isArray(threads) || !threads.length) return null;
+  if (ctx.id && threads.some((t) => String(t.id) === String(ctx.id))) {
+    return threads.find((t) => String(t.id) === String(ctx.id));
+  }
+  const orderNo = String(ctx.no || ctx.orderNo || ctx.order || '');
+  const orderId = String(ctx.id || ctx.serverId || ctx.orderId || '');
+  const clientName = (ctx.client || ctx.name || '').trim().toLowerCase();
+
+  if (orderNo || orderId) {
+    const byOrder = threads.find((t) => {
+      const tNo = String(t.order || '');
+      const tId = String(t.orderId || '');
+      if (orderNo && (tNo === orderNo || tId === orderNo)) return true;
+      if (orderId && (tId === orderId || tNo === orderId)) return true;
+      return false;
+    });
+    if (byOrder) return byOrder;
+  }
+
+  if (clientName) {
+    const byName = threads.find((t) => {
+      const c1 = (t.client || '').trim().toLowerCase();
+      const c2 = (t.name || '').trim().toLowerCase();
+      return c1 === clientName || c2 === clientName;
+    });
+    if (byName) return byName;
+  }
+
+  return null;
+}
+
+function createFallbackThread(ctx) {
+  if (!ctx) return null;
+  const orderNo = ctx.no || ctx.orderNo || ctx.order || '';
+  const orderId = ctx.id || ctx.serverId || ctx.orderId || null;
+  const name = ctx.client || ctx.name || (orderNo ? `Заказ № ${orderNo}` : 'Клиент');
+  return {
+    id: ctx.id && !orderNo ? `chat-${ctx.id}` : `order-${orderNo || orderId || Date.now()}`,
+    order: orderNo || orderId || '—',
+    orderId,
+    type: ctx.type || 'client',
+    channel: 'MAX',
+    name,
+    client: ctx.client || ctx.name || name,
+    online: '—',
+    unread: 0,
+    pinned: false,
+    connectionStatus: 'Подключено',
+    responsibleOperator: ctx.operator || '',
+    relatedServices: [],
+    participants: [{ name, role: 'Клиент' }],
+    messages: [],
+    internal: [],
+    virtual: true,
+  };
+}
+
 function GlobalChatDrawer({ open, onClose, contextOrder, initialThreads = [], orders = [], currentUserId, onOpenOrder }) {
   const [extraThreads, setExtraThreads] = useState([]);
   const threads = [...initialThreads, ...extraThreads];
-  const initialId = contextOrder ? threads.find((thread) => thread.order === contextOrder.no)?.id : threads[0]?.id;
-  const [activeId, setActiveId] = useState(initialId);
+  const matched = findMatchingThread(threads, contextOrder);
+  const [activeId, setActiveId] = useState(() => (matched?.id || threads[0]?.id || null));
+
   useEffect(() => {
-    if (open && contextOrder) setActiveId(threads.find((thread) => thread.order === contextOrder.no)?.id || threads[0]?.id);
-    else if (open && !activeId) setActiveId(threads[0]?.id);
+    if (!open) return;
+    if (contextOrder) {
+      const hit = findMatchingThread(threads, contextOrder);
+      if (hit) {
+        setActiveId(hit.id);
+      } else {
+        const created = createFallbackThread(contextOrder);
+        if (created) {
+          setExtraThreads((cur) => cur.some((t) => t.id === created.id) ? cur : [...cur, created]);
+          setActiveId(created.id);
+        }
+      }
+    } else if (!activeId && threads[0]) {
+      setActiveId(threads[0].id);
+    }
   }, [open, contextOrder, initialThreads]);
   useEffect(() => {
     if (!open) return;
