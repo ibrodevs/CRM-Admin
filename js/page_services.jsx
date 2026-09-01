@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Icon } from './icons';
+import { ChannelIcon, Icon } from './icons';
 import { ActionMenu, Button, Checkbox, DateField, DateRangeField, Drawer, EmptyState, FilterChip, Input, Pill, Radio, SearchBox, Select, Tabs, TimeLimitBadge, Toggle, fmtDate, plural, useToast } from './ui';
 import { CURRENT_USER, ORDERS, RAIL_OCCUPIED, RAIL_SERVICE_CLASSES, RAIL_WAGONS, RETURNS, SERVICE_KIND, SERVICE_STATUS, SVC_DATA } from './data';
 import { CARD_CLIENT_VISIBILITY, CARD_STATUS, CARD_STATUS_FLOW, SEND_CHANNELS, cardInternals, cardStatus, orderClientChannel, sendChannelMeta } from './data/access-control';
@@ -591,7 +591,10 @@ function ServiceCardSendPanel({ item, kind, participants = [], orderNo, currency
           {previewMode === 'messenger' && (
             <div className="seg-toggle" style={{ marginBottom: 10 }}>
               {['Telegram', 'WhatsApp', 'MAX'].map((c) => (
-                <button key={c} type="button" className={'seg-btn' + (previewChannel === c ? ' active' : '')} style={{ padding: '5px 10px', fontSize: 12 }} onClick={() => setPreviewChannel(c)}>{c}</button>
+                <button key={c} type="button" className={'seg-btn' + (previewChannel === c ? ' active' : '')} style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 6, padding: '5px 12px', fontSize: 12 }} onClick={() => setPreviewChannel(c)}>
+                  <ChannelIcon channel={c} size={14} />
+                  <span>{c}</span>
+                </button>
               ))}
             </div>
           )}
@@ -631,7 +634,7 @@ function ServiceCardSendPanel({ item, kind, participants = [], orderNo, currency
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 12, pointerEvents: readOnly ? 'none' : 'auto', opacity: readOnly ? 0.6 : 1 }}>
             {available.map((s) => { const scn = cardScenario(s); return (
               <button key={s} type="button" onClick={() => changeScenario(s)}
-                className={'seg-btn' + (scenarioSys === s ? ' active' : '')} style={{ padding: '6px 10px', fontSize: 12.5, borderRadius: 8 }}>{scn.name}</button>); })}
+                className={'sc-btn' + (scenarioSys === s ? ' active' : '')}>{scn.name}</button>); })}
           </div>
 
 
@@ -755,11 +758,13 @@ function ServiceCardSendPanel({ item, kind, participants = [], orderNo, currency
 
 
           <label className="lbl" style={{ display: 'block', margin: '16px 0 6px' }}>Каналы отправки <span style={{ color: 'var(--muted)', fontWeight: 400 }}>· по умолчанию — закреплённый за заказом</span></label>
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
             {chanList.map((c) => (
               <button key={c} type="button" onClick={() => toggleChannel(c)}
-                className={'seg-btn' + (channels.includes(c) ? ' active' : '')} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '7px 11px', fontSize: 13, borderRadius: 8 }}>
-                <Icon name={SEND_CHANNELS[c].icon} style={{ width: 14, height: 14 }} />{c}{channels.includes(c) && <Icon name="check" style={{ width: 13, height: 13 }} />}
+                className={'sc-channel-btn' + (channels.includes(c) ? ' active' : '')}>
+                <ChannelIcon channel={c} size={15} />
+                <span>{c}</span>
+                {channels.includes(c) && <Icon name="check" style={{ width: 13, height: 13, marginLeft: 2 }} />}
               </button>
             ))}
           </div>

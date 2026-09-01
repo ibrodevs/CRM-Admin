@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { BrandMark, Icon } from './icons';
+import { BrandMark, ChannelIcon, Icon } from './icons';
 import { ActionMenu, Avatar, Button, Drawer, EmptyState, Field, FilterChip, Input, Pill, Radio, SearchBox, Select, Th, TimeField, fmtDate, plural, useSort, useToast } from './ui';
 import { UFDateField } from './forms_unified';
 import { CURRENCIES, CURRENT_USER, KP_STATUS, KP_STATUS_FLOW, OPERATORS, ORDERS, ORDER_PARTICIPANTS, ORDER_SERVICES, ORDER_STATUS, PROPOSALS, SERVICE_KIND } from './data';
@@ -1342,14 +1342,14 @@ function ProposalSendPanel({ proposal, participants = [], onSend, onClose }) {
           <div style={{ flex: 1, minWidth: 200 }}>
             <div style={{ fontSize: 12, color: 'var(--muted)' }}>{proposal.order ? `Канал связи, закреплённый за заказом № ${proposal.order}` : 'Выберите канал для самостоятельного КП'}</div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 4 }}>
-              <Pill tone={meta.tone}><Icon name={meta.icon} style={{ width: 14, height: 14, verticalAlign: -2 }} /> {channel}</Pill>
+              <Pill tone={meta.tone}><ChannelIcon channel={channel} size={14} style={{ verticalAlign: -2 }} /> {channel}</Pill>
               <span style={{ fontSize: 13, color: 'var(--muted)' }}>· {meta.adapt}</span>
             </div>
           </div>
           <div className="seg-toggle" style={{ flexWrap: 'wrap' }}>
             {Object.keys(SEND_CHANNELS).map((c) => (
               <button key={c} type="button" className={'seg-btn' + (channel === c ? ' active' : '')} style={{ flex: '0 0 auto', display: 'inline-flex', alignItems: 'center', gap: 6, padding: '7px 12px', fontSize: 13 }} onClick={() => setChannel(c)}>
-                <Icon name={SEND_CHANNELS[c].icon} style={{ width: 14, height: 14 }} />{c}
+                <ChannelIcon channel={c} size={14} /><span>{c}</span>
               </button>
             ))}
           </div>

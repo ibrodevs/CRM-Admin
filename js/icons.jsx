@@ -111,8 +111,28 @@ function BrandMark({ size = 26, color = '#2566ff' }) {
   );
 }
 
-Object.assign(window, { Icon, BrandMark, ICON_PATHS });
+function ChannelIcon({ channel, size = 15, style }) {
+  if (channel === 'MAX' || channel === 'max') {
+    return <img src="/assets/max-logo.png" alt="MAX" style={{ width: size + 2, height: size + 2, objectFit: 'contain', borderRadius: 3, verticalAlign: 'middle', display: 'inline-block', flexShrink: 0, ...style }} />;
+  }
+  if (channel === 'Telegram' || channel === 'telegram') {
+    return <Icon name="send" style={{ width: size, height: size, flexShrink: 0, color: '#24A1DE', ...style }} />;
+  }
+  if (channel === 'WhatsApp' || channel === 'whatsapp') {
+    return (
+      <svg style={{ width: size, height: size, flexShrink: 0, color: '#25D366', ...style }} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/>
+      </svg>
+    );
+  }
+  if (channel === 'Email' || channel === 'email') {
+    return <Icon name="mail" style={{ width: size, height: size, flexShrink: 0, color: 'var(--teal)', ...style }} />;
+  }
+  return <Icon name="chat" style={{ width: size, height: size, flexShrink: 0, color: 'var(--blue)', ...style }} />;
+}
+
+Object.assign(window, { Icon, BrandMark, ChannelIcon, ICON_PATHS });
 
 
 
-export { ICON_PATHS, Icon, BrandMark };
+export { ICON_PATHS, Icon, BrandMark, ChannelIcon };

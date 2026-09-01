@@ -919,6 +919,12 @@ table.tbl.tbl-wide thead th,table.tbl.tbl-wide tbody td{white-space:nowrap}
 .src-btn svg{color:var(--muted-2);flex:0 0 auto;transition:.14s}
 .src-btn.active{background:var(--blue-soft);border-color:var(--blue);color:var(--blue-soft-text)}
 .src-btn.active svg{color:var(--blue)}
+.sc-btn{display:inline-flex;align-items:center;gap:6px;padding:6px 12px;border-radius:10px;background:#fff;border:1px solid var(--field-line);color:var(--body);font:inherit;font-weight:500;font-size:13px;cursor:pointer;transition:.14s;white-space:nowrap}
+.sc-btn:hover{background:var(--hover);border-color:var(--line-strong)}
+.sc-btn.active{background:var(--blue-soft);border-color:var(--blue);color:var(--blue-soft-text);font-weight:600}
+.sc-channel-btn{display:inline-flex;align-items:center;gap:7px;padding:7px 13px;border-radius:10px;background:#fff;border:1px solid var(--field-line);color:var(--body);font:inherit;font-weight:500;font-size:13px;cursor:pointer;transition:.14s;white-space:nowrap}
+.sc-channel-btn:hover{background:var(--hover);border-color:var(--line-strong)}
+.sc-channel-btn.active{background:var(--blue-soft);border-color:var(--blue);color:var(--blue-soft-text);font-weight:600}
 .kp-create-form{min-width:0}
 .kp-create-form .field,.kp-create-form .field > *{min-width:0}
 .kp-create-section{border-bottom:1px solid var(--line);padding:0 0 24px;margin:0 0 24px}
