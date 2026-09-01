@@ -11,9 +11,27 @@ test('карточка заказа открывается единой лент
   assert.match(card, /<OrderServicesBoard services=\{services\}/);
   assert.match(card, /Услуги в заказе/);
   assert.match(card, /Добавить ещё услугу в заказ/);
-  // Разделы-подробности остаются доступными и открываются поверх ленты.
-  assert.match(card, /<BackRow label="К заказу"/);
+  // Разделы-подробности остаются доступными, но старые текстовые кнопки
+  // возврата больше не возвращаются в карточку.
+  assert.doesNotMatch(card, /<BackRow/);
+  assert.match(card, /className="oc-context-close"/);
   assert.match(card, /ORDER_SECTIONS\[tab\]/);
+});
+
+test('большой заказ можно отфильтровать по пассажиру, билету и типу услуги', () => {
+  assert.match(card, /Пассажир, билет, PNR, маршрут/);
+  assert.match(card, /serviceMatchesParticipant/);
+  assert.match(card, /focusedParticipant/);
+  assert.match(card, /focusedTicket/);
+  assert.match(card, /Показано \{visibleServices\.length\} из \{services\.length\}/);
+  assert.doesNotMatch(card, /new Set\(\[services\[0\]\.id\]\)/);
+});
+
+test('все действия услуги доступны из компактной закрытой строки', () => {
+  const head = card.slice(card.indexOf('className="osrv-head"'), card.indexOf('<div className="osrv-body">'));
+  for (const label of ['Открыть карточку услуги', 'Отправить клиенту', 'История услуги', 'Добавить файл', 'Обсудить в чате', 'Запросить обмен', 'Отменить услугу', 'Удалить услугу']) {
+    assert.ok(head.includes(label), `в компактной строке нет действия «${label}»`);
+  }
 });
 
 test('счётчик услуг из списка заказов не принимается за массив услуг', () => {

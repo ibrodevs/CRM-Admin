@@ -12,7 +12,6 @@ import { BookingWizard } from './page_booking';
 import { FeeDrawer, PassengerDrawer, PassportModal } from './order_extras';
 import { DynamicExtrasPanel, OrderResponsiblesTab } from './order_ops';
 import { CityPickPanel, StackPanel } from './components/shared-panels';
-import { BackRow } from './components/back-row';
 import { KPModule } from './page_offers';
 import { DocCenter, FinanceRegistry } from './page_fulfillment';
 import { CreditLimitBar, FIN_COUNTERPARTIES, FIN_PAYMENTS } from './page_finance';
@@ -841,9 +840,20 @@ function ticketForParticipant(docs, participant) {
   return docs.find((d) => d.kind === 'ticket' && String(d.person) === personId) || null;
 }
 
+function participantKey(participant) {
+  return String(participant && (participant.serverId || participant.id || participant.person || participant.name) || '');
+}
+
+function serviceMatchesParticipant(service, participant, participants = []) {
+  if (!participant) return true;
+  const target = participantKey(participant);
+  return serviceParticipants(service, participants).some((item) => participantKey(item) === target || item.name === participant.name);
+}
+
 
 function ServiceBlock({ s, participants, documents, orderNo, open, onToggle, onOpenCard, onCancel, onExchange, onOpenChat,
-  onOpenPassenger, onAddPassengerDoc, onUploadDocument, onOpenDocument, onDeleteService, selectable, selected, onSelect }) {
+  onOpenPassenger, onAddPassengerDoc, onUploadDocument, onOpenDocument, onDeleteService, selectable, selected, onSelect,
+  focusedParticipant }) {
   const toast = useToast();
   const fileRef = useRef(null);
   const [sendOpen, setSendOpen] = useState(false);
@@ -857,6 +867,7 @@ function ServiceBlock({ s, participants, documents, orderNo, open, onToggle, onO
   const supplierLine = serviceSupplierLine(s);
   const airline = s.kind === 'Авиа' ? airlineCodeOf(s) : null;
   const total = svcCalc(s).total;
+  const focusedTicket = focusedParticipant ? ticketForParticipant(docs, focusedParticipant) : null;
   const cardItem = s.svcOffer
     ? { ...s.svcOffer, title: s.title, sub: s.sub, kind: s.kind, status: s.status, date: s.date, order: orderNo, calc: s.calc }
     : { ...s, order: orderNo };
@@ -882,8 +893,25 @@ function ServiceBlock({ s, participants, documents, orderNo, open, onToggle, onO
         <span className="osrv-ic" style={{ background: svcTint(kind.color), color: kind.color }}><Icon name={kind.icon} /></span>
         <span className="osrv-kind">{s.kind}</span>
         <Pill tone={SERVICE_STATUS[s.status] || 'gray'}>{s.status}</Pill>
+        <span className="osrv-count"><Icon name="users" />{pax.length}</span>
+        <span className="osrv-count"><Icon name="docs" />{docs.length}</span>
         <span style={{ flex: 1 }} />
         <span className="osrv-sum">{svcExactMoney(total, s.currency)}</span>
+        <span onClick={(event) => event.stopPropagation()} className="osrv-head-actions">
+          <button type="button" className="btn btn-ghost btn-icon btn-sm" title="Открыть карточку услуги" onClick={() => onOpenCard(s)}><Icon name="eye" /></button>
+          <ActionMenu trigger={<button type="button" className="btn btn-ghost btn-icon btn-sm" aria-label={'Действия: ' + s.title}><Icon name="more" /></button>}
+            items={[
+              { icon: 'eye', label: 'Открыть карточку услуги', onClick: () => onOpenCard(s) },
+              { icon: 'send', label: 'Отправить клиенту', onClick: () => setSendOpen(true) },
+              { icon: 'clock', label: 'История услуги', onClick: () => setHistOpen(true) },
+              { icon: 'docs', label: 'Добавить файл', onClick: pickFile },
+              { icon: 'chat', label: 'Обсудить в чате', onClick: onOpenChat },
+              { sep: true },
+              { icon: 'swap', label: 'Запросить обмен', onClick: () => onExchange(s) },
+              { icon: 'refund', label: 'Отменить услугу', danger: true, onClick: () => onCancel(s) },
+              { icon: 'trash', label: 'Удалить услугу', danger: true, onClick: () => onDeleteService(s) },
+            ]} />
+        </span>
         <Icon name={open ? 'chevUp' : 'chevDown'} className="osrv-chev" />
       </div>
 
@@ -911,6 +939,23 @@ function ServiceBlock({ s, participants, documents, orderNo, open, onToggle, onO
             {facts.map((f, i) => (
               <span className="osrv-fact" key={f.icon + i}><Icon name={f.icon} />{f.text}</span>
             ))}
+          </div>
+        )}
+
+        {focusedParticipant && (
+          <div className="osrv-focus-pax">
+            <Avatar name={focusedParticipant.name} size={28} />
+            <span className="nm">{focusedParticipant.name}</span>
+            <span className="dc">{focusedParticipant.docNo || focusedParticipant.doc || 'Документ не указан'}</span>
+            {focusedTicket
+              ? <button type="button" className="osrv-tick" onClick={() => onOpenDocument(focusedTicket)}><Icon name="ticket" />{focusedTicket.document_number || focusedTicket.title || 'Открыть билет'}</button>
+              : <span className="osrv-no-ticket"><Icon name="alertCircle" />Билет не выписан</span>}
+            <ActionMenu trigger={<button type="button" className="btn btn-ghost btn-icon btn-sm" aria-label={'Действия пассажира: ' + focusedParticipant.name}><Icon name="more" /></button>}
+              items={[
+                { icon: 'idcard', label: 'Карточка пассажира', onClick: () => onOpenPassenger(focusedParticipant) },
+                { icon: 'docs', label: 'Добавить документ', onClick: () => onAddPassengerDoc(focusedParticipant) },
+                ...(focusedTicket ? [{ icon: 'download', label: 'Открыть билет', onClick: () => onOpenDocument(focusedTicket) }] : []),
+              ]} />
           </div>
         )}
 
@@ -993,23 +1038,64 @@ function ServiceBlock({ s, participants, documents, orderNo, open, onToggle, onO
 
 
 function OrderServicesBoard({ services, participants, documents, orderNo, expanded, onToggle, onAdd, selMode, sel, onSel, renderExtra, ...handlers }) {
+  const [query, setQuery] = useState('');
+  const [participantId, setParticipantId] = useState('');
+  const [kind, setKind] = useState('');
+  const focusedParticipant = participants.find((participant) => participantKey(participant) === participantId) || null;
+  const needle = query.trim().toLocaleLowerCase('ru');
+  const visibleServices = services.filter((service) => {
+    if (kind && service.kind !== kind) return false;
+    if (!serviceMatchesParticipant(service, focusedParticipant, participants)) return false;
+    if (!needle) return true;
+    const docs = serviceDocuments(service, documents);
+    const pax = serviceParticipants(service, participants);
+    const haystack = [
+      service.kind, service.title, service.sub, service.supplier, service.status, service.date,
+      ...pax.flatMap((person) => [person.name, person.docNo, person.doc]),
+      ...docs.flatMap((document) => [document.title, document.document_number, document.pnr]),
+    ].filter(Boolean).join(' ').toLocaleLowerCase('ru');
+    return haystack.includes(needle);
+  });
+  const serviceKinds = [...new Set(services.map((service) => service.kind).filter(Boolean))];
+  const resetFilters = () => { setQuery(''); setParticipantId(''); setKind(''); };
   return (
     <div className="fade-in">
       <div className="osrv-boardhead">
         <div>
           <h3>Услуги в заказе</h3>
-          <div className="sub">Все услуги, пассажиры, документы и действия — в одном месте</div>
+          <div className="sub">Найдите пассажира, билет, PNR или услугу без длинной прокрутки</div>
         </div>
         <Button icon="plus" onClick={onAdd}>Добавить услугу</Button>
       </div>
 
+      <div className="osrv-toolbar" aria-label="Поиск и фильтры услуг">
+        <SearchBox value={query} onChange={setQuery} placeholder="Пассажир, билет, PNR, маршрут…" />
+        <Select aria-label="Пассажир" value={participantId} onChange={(event) => setParticipantId(event.target.value)}
+          options={[{ value: '', label: `Все пассажиры · ${participants.length}` }, ...participants.map((participant) => ({ value: participantKey(participant), label: participant.name }))]} />
+        <Select aria-label="Тип услуги" value={kind} onChange={(event) => setKind(event.target.value)}
+          options={[{ value: '', label: `Все услуги · ${services.length}` }, ...serviceKinds.map((value) => ({ value, label: value }))]} />
+        {(query || participantId || kind) && <button type="button" className="osrv-reset" onClick={resetFilters}><Icon name="x" />Сбросить</button>}
+        <span className="osrv-found">Показано {visibleServices.length} из {services.length}</span>
+      </div>
+
+      {focusedParticipant && (
+        <div className="osrv-focus-summary">
+          <Avatar name={focusedParticipant.name} size={34} />
+          <span><b>{focusedParticipant.name}</b><small>{visibleServices.length} {plural(visibleServices.length, ['услуга', 'услуги', 'услуг'])} · билет открывается прямо из строки услуги</small></span>
+          <button type="button" className="btn btn-secondary btn-sm" onClick={() => handlers.onOpenPassenger(focusedParticipant)}>Карточка пассажира</button>
+        </div>
+      )}
+
       {services.length === 0 ? (
         <EmptyState icon="briefcase" title="Услуги не добавлены" sub="Добавьте авиабилеты, отели, трансферы и другие услуги в заказ" />
-      ) : services.map((s) => (
+      ) : visibleServices.length === 0 ? (
+        <EmptyState icon="search" title="Ничего не найдено" sub="Измените пассажира, тип услуги или поисковый запрос" action={<Button variant="secondary" onClick={resetFilters}>Сбросить фильтры</Button>} />
+      ) : visibleServices.map((s) => (
         <div key={s.id}>
           <ServiceBlock s={s} participants={participants} documents={documents} orderNo={orderNo}
             open={expanded.has(s.id)} onToggle={() => onToggle(s.id)}
             selectable={selMode} selected={sel.has(s.id)} onSelect={() => onSel(s.id)}
+            focusedParticipant={focusedParticipant}
             {...handlers} />
           {renderExtra && renderExtra(s)}
         </div>
@@ -2608,12 +2694,9 @@ function OrderCard({ order, company, clients = [], onBack, initTab, initSvc, ini
     return () => controller.abort();
   }, [orderId, order.no]);
 
-  // Первая услуга раскрыта — оператор сразу видит пассажиров и документы по ней.
+  // В больших заказах лента всегда начинается компактной: нужную услугу или
+  // пассажира оператор находит через фильтры и раскрывает только по запросу.
   useEffect(() => { setExpandedSvc(new Set()); setSel(new Set()); setSelMode(false); }, [order.no]);
-  useEffect(() => {
-    if (!services.length) return;
-    setExpandedSvc((cur) => (cur.size ? cur : new Set([services[0].id])));
-  }, [services]);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -2923,18 +3006,20 @@ function OrderCard({ order, company, clients = [], onBack, initTab, initSvc, ini
       <FlightCard
         svc={activeAvia}
         offer={activeAvia ? activeAvia.offer : null}
+        hideBackRow
         orders={[cardOrder || order]}
         companies={company ? [company] : []}
         clients={clients}
         onBack={() => { setSvcView(null); refreshOrderSnapshot(); }}
       />
     );
-    if (svcView === 'svc-card') return <SvcCard item={activeSvc} kind={activeSvc.kind} participants={participants} onBack={() => setSvcView(null)} />;
+    if (svcView === 'svc-card') return <SvcCard item={activeSvc} kind={activeSvc.kind} participants={participants} hideBackRow onBack={() => setSvcView(null)} />;
     if (svcView === 'add-service') return (
       <div className="fade-in">
-        <BackRow label="К списку услуг" onBack={() => setSvcView(null)} />
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 18, flexWrap: 'wrap', gap: 12 }}>
+        <div className="oc-context-head">
+          <button type="button" className="oc-context-close" title="Закрыть подбор" aria-label="Закрыть подбор" onClick={() => setSvcView(null)}><Icon name="x" /></button>
           <h3 className="card-title" style={{ fontSize: 18 }}>Добавить услугу / Поиск</h3>
+          <span style={{ flex: 1 }} />
           <ActionMenu trigger={<Button variant="secondary" size="sm" iconRight="chevDown">Недавние запросы</Button>}
             items={[{ label: 'Нет недавних запросов' }]} />
         </div>
@@ -3055,7 +3140,7 @@ function OrderCard({ order, company, clients = [], onBack, initTab, initSvc, ini
     <div className="fade-in">
       <Topbar title="Карточка заказа">
         <div className="topbar-spacer" />
-        <Button variant="secondary" icon="chevLeft" onClick={onBack}>К реестру</Button>
+        <button type="button" className="btn btn-ghost btn-icon" title="Закрыть карточку" aria-label="Закрыть карточку" onClick={onBack}><Icon name="x" /></button>
       </Topbar>
 
       <div className="content" style={{ paddingTop: 8 }}>
@@ -3095,8 +3180,10 @@ function OrderCard({ order, company, clients = [], onBack, initTab, initSvc, ini
 
             {tab === 'main' ? tabContent() : (
               <div className="fade-in">
-                <BackRow label="К заказу" onBack={() => { setTab('main'); setSvcView(null); }} />
-                <div className="oc-section-head"><h3>{ORDER_SECTIONS[tab] || 'Раздел заказа'}</h3></div>
+                <div className="oc-context-head">
+                  <button type="button" className="oc-context-close" title="Закрыть раздел" aria-label="Закрыть раздел" onClick={() => { setTab('main'); setSvcView(null); }}><Icon name="x" /></button>
+                  <div className="oc-section-head"><h3>{ORDER_SECTIONS[tab] || 'Раздел заказа'}</h3></div>
+                </div>
                 {tabContent()}
               </div>
             )}

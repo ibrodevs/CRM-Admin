@@ -2799,8 +2799,8 @@ table.hp-matrix{border-collapse:collapse;width:100%;min-width:640px}
 
 /* ——— Карточка заказа: шапка с фактами и единая лента услуг ——————————— */
 .oc-purpose{font-size:14px;color:var(--muted);margin-top:6px}
-.oc-facts{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:12px;margin-top:16px}
-.oc-fact{display:flex;align-items:center;gap:12px;border:1px solid var(--line);border-radius:14px;padding:12px 16px;background:var(--surface-2);text-align:left;font:inherit;width:100%}
+.oc-facts{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:12px}
+.oc-fact{display:flex;align-items:center;gap:8px;border:1px solid var(--line);border-radius:10px;padding:7px 11px;background:var(--surface-2);text-align:left;font:inherit;width:auto;min-width:150px}
 button.oc-fact{cursor:pointer;transition:.14s}
 button.oc-fact:hover{border-color:#d3dbe8;background:#fff}
 .oc-fact .ic{width:34px;height:34px;border-radius:10px;flex:0 0 34px;display:flex;align-items:center;justify-content:center;background:#fff;border:1px solid var(--line);color:var(--blue)}
@@ -2809,28 +2809,48 @@ button.oc-fact:hover{border-color:#d3dbe8;background:#fff}
 .oc-fact .l{font-size:12.5px;color:var(--muted);margin-top:2px}
 .oc-fact .body{min-width:0}
 
-.osrv-boardhead{display:flex;align-items:flex-start;justify-content:space-between;gap:14px;flex-wrap:wrap;margin:22px 0 16px}
-.osrv-boardhead h3{font-size:22px;font-weight:700;color:var(--ink);letter-spacing:-.02em;margin:0}
+.osrv-boardhead{display:flex;align-items:flex-start;justify-content:space-between;gap:14px;flex-wrap:wrap;margin:14px 0 10px}
+.osrv-boardhead h3{font-size:19px;font-weight:700;color:var(--ink);letter-spacing:-.02em;margin:0}
 .osrv-boardhead .sub{font-size:13.5px;color:var(--muted);margin-top:4px}
 
-.osrv{border:1px solid var(--line);border-radius:var(--r-card);background:#fff;box-shadow:var(--shadow-card);margin-bottom:14px;transition:.14s}
+.osrv-toolbar{display:flex;align-items:center;gap:8px;position:sticky;top:8px;z-index:5;padding:9px;margin-bottom:10px;border:1px solid var(--line);border-radius:12px;background:rgba(255,255,255,.96);box-shadow:0 4px 16px rgba(16,23,38,.05);backdrop-filter:blur(10px)}
+.osrv-toolbar .search{height:38px;flex:1 1 300px;min-width:180px}
+.osrv-toolbar .select{height:38px;width:auto;min-width:180px;padding-top:0;padding-bottom:0;font-size:13.5px}
+.osrv-reset{display:inline-flex;align-items:center;gap:5px;height:34px;padding:0 8px;border:0;background:none;color:var(--muted);font:inherit;font-size:12.5px;font-weight:600;cursor:pointer;white-space:nowrap}
+.osrv-reset:hover{color:var(--blue)}
+.osrv-reset svg{width:13px;height:13px}
+.osrv-found{margin-left:auto;color:var(--muted);font-size:12.5px;white-space:nowrap}
+.osrv-focus-summary{display:flex;align-items:center;gap:10px;padding:9px 11px;margin-bottom:10px;border:1px solid #cbd8ff;border-radius:11px;background:#f4f7ff}
+.osrv-focus-summary>span{display:grid;gap:1px;min-width:0;flex:1}
+.osrv-focus-summary b{font-size:13.5px;color:var(--ink)}
+.osrv-focus-summary small{font-size:12px;color:var(--muted)}
+
+.osrv{border:1px solid var(--line);border-radius:12px;background:#fff;box-shadow:0 1px 3px rgba(16,23,38,.035);margin-bottom:8px;transition:.14s;content-visibility:auto;contain-intrinsic-size:88px}
 .osrv.open{border-color:var(--line-strong);box-shadow:0 2px 10px rgba(16,23,38,.06)}
-.osrv-head{display:flex;align-items:center;gap:12px;width:100%;background:none;border:none;font:inherit;text-align:left;padding:16px 18px 0;cursor:pointer}
-.osrv-ic{width:40px;height:40px;border-radius:12px;flex:0 0 40px;display:flex;align-items:center;justify-content:center}
-.osrv-ic svg{width:20px;height:20px}
-.osrv-kind{font-size:14px;font-weight:700;color:var(--ink);letter-spacing:.02em;text-transform:uppercase}
-.osrv-sum{font-size:19px;font-weight:700;color:var(--ink);letter-spacing:-.02em;white-space:nowrap}
+.osrv-head{display:flex;align-items:center;gap:9px;width:100%;background:none;border:none;font:inherit;text-align:left;padding:10px 12px 0;cursor:pointer}
+.osrv-ic{width:32px;height:32px;border-radius:9px;flex:0 0 32px;display:flex;align-items:center;justify-content:center}
+.osrv-ic svg{width:16px;height:16px}
+.osrv-kind{font-size:12px;font-weight:800;color:var(--ink);letter-spacing:.03em;text-transform:uppercase}
+.osrv-count{display:inline-flex;align-items:center;gap:4px;font-size:12px;color:var(--muted);white-space:nowrap}
+.osrv-count svg{width:13px;height:13px}
+.osrv-sum{font-size:15px;font-weight:750;color:var(--ink);letter-spacing:-.01em;white-space:nowrap}
 .osrv-chev{width:18px;height:18px;color:var(--muted-2);flex:0 0 18px}
-.osrv-body{padding:10px 18px 16px 70px}
-.osrv-title{display:inline-flex;align-items:center;gap:10px;font-size:16.5px;font-weight:700;color:var(--ink);letter-spacing:-.01em;flex-wrap:wrap;background:none;border:none;font-family:inherit;padding:0;cursor:pointer;text-align:left}
+.osrv-head-actions{display:inline-flex;align-items:center;gap:2px}
+.osrv-body{padding:4px 12px 10px 53px}
+.osrv-title{display:inline-flex;align-items:center;gap:8px;font-size:14.5px;font-weight:700;color:var(--ink);letter-spacing:-.01em;flex-wrap:wrap;background:none;border:none;font-family:inherit;padding:0;cursor:pointer;text-align:left}
 .osrv-title:hover{color:var(--blue)}
 .osrv-title svg{width:17px;height:17px;color:var(--blue)}
-.osrv-line{display:flex;align-items:center;gap:9px;margin-top:9px;font-size:13.5px;color:var(--body);flex-wrap:wrap}
+.osrv-line{display:flex;align-items:center;gap:7px;margin-top:4px;font-size:12.5px;color:var(--body);flex-wrap:wrap}
 .osrv-dot{width:22px;height:22px;border-radius:50%;flex:0 0 22px;display:flex;align-items:center;justify-content:center}
 .osrv-dot svg{width:13px;height:13px}
-.osrv-facts{display:flex;align-items:center;gap:16px;flex-wrap:wrap;margin-top:9px;font-size:13px;color:var(--muted)}
+.osrv-facts{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-top:4px;font-size:12px;color:var(--muted)}
 .osrv-fact{display:inline-flex;align-items:center;gap:6px}
 .osrv-fact svg{width:14px;height:14px;color:var(--muted-2)}
+.osrv-focus-pax{display:flex;align-items:center;gap:9px;margin-top:7px;padding:6px 8px;border-radius:9px;background:var(--blue-soft);font-size:12.5px}
+.osrv-focus-pax .nm{font-weight:700;color:var(--ink);min-width:130px}
+.osrv-focus-pax .dc{color:var(--muted);min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.osrv-no-ticket{display:inline-flex;align-items:center;gap:5px;margin-left:auto;color:var(--amber);font-weight:650;white-space:nowrap}
+.osrv-no-ticket svg{width:14px;height:14px}
 .osrv-sec{background:var(--surface-2);border:1px solid var(--line);border-radius:14px;padding:12px 14px;margin-top:14px}
 .osrv-sec-t{font-size:13px;font-weight:700;color:var(--body)}
 .osrv-pax{display:flex;align-items:center;gap:12px;background:#fff;border:1px solid var(--line);border-radius:12px;padding:9px 12px;margin-top:8px;flex-wrap:wrap}
@@ -2862,8 +2882,21 @@ button.oc-fact:hover{border-color:#d3dbe8;background:#fff}
 .oc-hint .d{font-size:12.5px;color:var(--muted);line-height:1.5}
 .oc-section-head{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:16px}
 .oc-section-head h3{font-size:20px;font-weight:700;color:var(--ink);letter-spacing:-.02em;margin:0}
+.oc-context-head{display:flex;align-items:center;gap:10px;margin:0 0 12px;padding:8px 10px;border:1px solid var(--line);border-radius:11px;background:#fff}
+.oc-context-head .oc-section-head{margin:0}
+.oc-context-close{display:inline-grid;place-items:center;width:30px;height:30px;padding:0;border:1px solid var(--line);border-radius:8px;background:var(--surface-2);color:var(--muted);cursor:pointer;flex:0 0 30px}
+.oc-context-close:hover{color:var(--ink);border-color:var(--line-strong);background:#fff}
+.oc-context-close svg{width:15px;height:15px}
 
 @media (max-width:820px){
-  .osrv-body{padding-left:18px}
+  .osrv-toolbar{position:static;flex-wrap:wrap}
+  .osrv-toolbar .search,.osrv-toolbar .select{width:100%;flex:1 1 100%}
+  .osrv-found{margin-left:0}
+  .osrv-body{padding-left:12px}
   .osrv-facts{gap:12px}
+  .osrv-count{display:none}
+  .osrv-head-actions>button:first-child{display:none}
+  .osrv-focus-pax{flex-wrap:wrap}
+  .osrv-focus-pax .dc{flex:1 1 180px}
+  .osrv-no-ticket{margin-left:0}
 }
