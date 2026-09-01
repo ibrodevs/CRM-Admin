@@ -65,19 +65,6 @@ test('блок услуги показывает пассажиров, доку�
   assert.match(card, /onExchange=\{requestExchange\}/);
 });
 
-test('раскрытая услуга показывает параметры, бронь и стоимость до длинных списков', () => {
-  const detailsAt = card.indexOf('Параметры услуги');
-  const passengersAt = card.indexOf('Пассажиры ({pax.length})');
-  assert.ok(detailsAt > 0 && passengersAt > detailsAt, 'параметры услуги должны идти раньше пассажиров');
-  assert.match(card, /Бронь и поставщик/);
-  assert.match(card, /Стоимость услуги/);
-  assert.match(card, /s\.external_id \|\| s\.pnr \|\| s\.avia/);
-  assert.match(card, /s\.ticketing_deadline/);
-  assert.match(card, /calculation\.tariff/);
-  assert.match(card, /<details className="osrv-sec osrv-disclosure">/);
-  assert.match(css, /\.osrv-detail-shell/);
-});
-
 test('документы услуги грузятся с backend и привязываются к услуге', () => {
   assert.match(card, /documentsApi\.list\(\{ order: order\.id \}, signal\)/);
   assert.match(card, /documentsApi\.upload\(file, \{ order: order\.id, service: svc\.serverId \|\| svc\.id/);

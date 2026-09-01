@@ -809,104 +809,6 @@ function serviceFacts(s) {
   return out.filter((f) => f.text);
 }
 
-const SERVICE_DETAIL_FIELDS = {
-  'Авиа': [
-    ['depAirport', 'Аэропорт вылета'], ['arrAirport', 'Аэропорт прилёта'],
-    ['terminalDep', 'Терминал вылета'], ['terminalArr', 'Терминал прилёта'],
-    ['airline', 'Авиакомпания'], ['flightNo', 'Рейс'], ['aircraft', 'Самолёт'],
-    ['depDate', 'Дата вылета'], ['depTime', 'Время вылета'], ['arrDate', 'Дата прилёта'], ['arrTime', 'Время прилёта'],
-    ['duration', 'В пути'], ['stops', 'Пересадки'], ['layover', 'Стыковка'],
-    ['cabin', 'Класс'], ['bookingClass', 'Класс бронирования'], ['fare', 'Тариф'],
-    ['handLuggage', 'Ручная кладь'], ['baggage', 'Багаж'], ['meal', 'Питание'],
-    ['refund', 'Возврат'], ['exchange', 'Обмен'], ['extras', 'Дополнительно'], ['confirmBy', 'Подтвердить до'],
-  ],
-  'Гостиница': [
-    ['name', 'Отель'], ['category', 'Категория'], ['address', 'Адрес'], ['location', 'Расположение'],
-    ['checkIn', 'Заезд'], ['checkOut', 'Выезд'], ['nights', 'Ночей'],
-    ['roomCategory', 'Категория номера'], ['roomType', 'Тип номера'], ['bed', 'Кровать'],
-    ['occupancy', 'Размещение'], ['board', 'Питание'], ['checkInTime', 'Время заезда'], ['checkOutTime', 'Время выезда'],
-    ['cancel', 'Условия отмены'], ['extras', 'Дополнительно'], ['confirmBy', 'Подтвердить до'],
-  ],
-  'Трансфер': [
-    ['pickup', 'Откуда'], ['dropoff', 'Куда'], ['date', 'Дата'], ['time', 'Время'],
-    ['linkedFlight', 'Связанный рейс'], ['meetPoint', 'Место встречи'], ['sign', 'Табличка'], ['waitTime', 'Ожидание'],
-    ['carType', 'Автомобиль'], ['carClass', 'Класс'], ['capacity', 'Вместимость'], ['baggage', 'Багаж'],
-    ['carNumber', 'Номер автомобиля'], ['driver', 'Водитель'], ['driverPhone', 'Телефон водителя'], ['extra', 'Дополнительно'],
-  ],
-  'ЖД': [
-    ['depStation', 'Станция отправления'], ['arrStation', 'Станция прибытия'],
-    ['depDate', 'Дата отправления'], ['depTime', 'Время отправления'], ['arrDate', 'Дата прибытия'], ['arrTime', 'Время прибытия'],
-    ['trainNo', 'Поезд'], ['carrier', 'Перевозчик'], ['trainType', 'Тип поезда'],
-    ['cabin', 'Класс'], ['wagon', 'Вагон'], ['wagonType', 'Тип вагона'], ['seat', 'Места'],
-    ['meal', 'Питание'], ['bedding', 'Бельё'], ['extras', 'Дополнительно'], ['refund', 'Возврат'], ['confirmBy', 'Подтвердить до'],
-  ],
-};
-
-const SERVICE_DETAIL_LABELS = {
-  route: 'Маршрут', name: 'Наименование', date: 'Дата', time: 'Время',
-  start: 'Начало', end: 'Окончание', description: 'Описание', notes: 'Примечание',
-};
-
-function serviceReadableValue(value) {
-  if (value === null || value === undefined || value === '' || value === '—') return '';
-  if (typeof value === 'boolean') return value ? 'Да' : 'Нет';
-  if (Array.isArray(value)) return value.map(serviceReadableValue).filter(Boolean).join(', ');
-  if (typeof value === 'object') {
-    return Object.entries(value)
-      .map(([key, item]) => {
-        const text = serviceReadableValue(item);
-        return text ? (SERVICE_DETAIL_LABELS[key] || key) + ': ' + text : '';
-      })
-      .filter(Boolean)
-      .join(' · ');
-  }
-  return String(value);
-}
-
-function serviceDateTimeLabel(value) {
-  if (!value) return '';
-  const parsed = new Date(value);
-  if (Number.isNaN(parsed.getTime())) return serviceReadableValue(value);
-  return parsed.toLocaleString('ru-RU', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
-}
-
-function serviceDetailRows(s) {
-  const detail = serviceDetailBlock(s) || {};
-  const configured = SERVICE_DETAIL_FIELDS[s.kind];
-  const fields = configured || Object.keys(detail)
-    .filter((key) => key !== 'route' && key !== 'delay')
-    .map((key) => [key, SERVICE_DETAIL_LABELS[key] || key]);
-  const rows = fields
-    .map(([key, label]) => ({ key, label, value: serviceReadableValue(detail[key]) }))
-    .filter((row) => row.value);
-  if (rows.length === 0) {
-    [['title', 'Услуга', s.title], ['date', 'Период', s.date], ['sub', 'Описание', s.sub]].forEach(([key, label, value]) => {
-      const readable = serviceReadableValue(value);
-      if (readable) rows.push({ key, label, value: readable });
-    });
-  }
-  if (detail.delay) rows.push({ key: 'delay', label: 'Изменение по услуге', value: serviceReadableValue(detail.delay), wide: true });
-  return rows;
-}
-
-function serviceBookingRows(s) {
-  const detail = serviceDetailBlock(s) || {};
-  const supplier = s.supplier_name || (typeof s.supplier === 'string' ? s.supplier : s.supplier?.name) || detail.airline || detail.carrier;
-  const source = { api: 'API', manual: 'Вручную', import: 'Импорт' }[s.source] || s.source;
-  return [
-    ['Поставщик', supplier],
-    [s.kind === 'Авиа' ? 'PNR / бронь' : 'Номер брони', s.external_id || s.pnr || s.avia || detail.pnr],
-    ['Источник', source],
-    ['Начало услуги', serviceDateTimeLabel(s.starts_at)],
-    ['Окончание услуги', serviceDateTimeLabel(s.ends_at)],
-    ['Оплатить до', serviceDateTimeLabel(s.payment_deadline)],
-    ['Выписать до', serviceDateTimeLabel(s.ticketing_deadline)],
-    ['Ответственный', serviceReadableValue(s.responsible)],
-    ['Тревел-политика', serviceReadableValue(s.policy_compliance)],
-    ['Правила отмены', serviceReadableValue(s.cancellation_rules)],
-  ].map(([label, value]) => ({ label, value: serviceReadableValue(value) })).filter((row) => row.value);
-}
-
 function serviceParticipants(s, participants = []) {
   const ids = (s.participantIds || []).map(String);
   if (ids.length) {
@@ -956,21 +858,10 @@ function ServiceBlock({ s, participants, documents, orderNo, open, onToggle, onC
   const pax = serviceParticipants(s, participants);
   const docs = serviceDocuments(s, documents);
   const facts = serviceFacts(s);
-  const detailRows = serviceDetailRows(s);
-  const bookingRows = serviceBookingRows(s);
-  const calculation = svcCalc(s);
   const head = serviceHeadline(s);
   const supplierLine = serviceSupplierLine(s);
   const airline = s.kind === 'Авиа' ? airlineCodeOf(s) : null;
-  const total = calculation.total;
-  const financeRows = [
-    { label: 'Тариф поставщика', value: calculation.tariff },
-    { label: 'Таксы', value: calculation.taxes },
-    { label: 'Сервисный сбор', value: calculation.fee },
-    { label: 'Наценка', value: calculation.markup },
-    { label: 'Скидка', value: calculation.discount, negative: true },
-    { label: 'Комиссия', value: calculation.commission },
-  ].filter((row) => row.value !== 0);
+  const total = svcCalc(s).total;
   const focusedTicket = focusedParticipant ? ticketForParticipant(docs, focusedParticipant) : null;
   const cardCurrency = s.currency || s.svcOffer?.currency || 'RUB';
   const cardItem = s.svcOffer
@@ -1066,43 +957,8 @@ function ServiceBlock({ s, participants, documents, orderNo, open, onToggle, onC
 
         {open && (
           <>
-            <div className="osrv-detail-shell">
-              <section className="osrv-detail-card osrv-detail-card-main">
-                <div className="osrv-detail-head"><Icon name={kind.icon} />Параметры услуги</div>
-                <div className="osrv-detail-grid">
-                  {detailRows.map((row) => (
-                    <div className={'osrv-detail-item' + (row.wide ? ' wide' : '')} key={row.key}>
-                      <span>{row.label}</span>
-                      <b>{row.value}</b>
-                    </div>
-                  ))}
-                </div>
-              </section>
-
-              <div className="osrv-detail-side">
-                <section className="osrv-detail-card">
-                  <div className="osrv-detail-head"><Icon name="briefcase" />Бронь и поставщик</div>
-                  {bookingRows.length > 0 ? (
-                    <div className="osrv-booking-list">
-                      {bookingRows.map((row) => <div key={row.label}><span>{row.label}</span><b>{row.value}</b></div>)}
-                    </div>
-                  ) : <div className="osrv-detail-empty">Данные брони пока не заполнены</div>}
-                </section>
-
-                <section className="osrv-detail-card">
-                  <div className="osrv-detail-head"><Icon name="finance" />Стоимость услуги</div>
-                  <div className="osrv-fin-list">
-                    {financeRows.map((row) => (
-                      <div key={row.label}><span>{row.label}</span><b>{row.negative ? '−' : ''}{svcExactMoney(row.value, cardCurrency)}</b></div>
-                    ))}
-                    <div className="total"><span>Итого</span><b>{svcExactMoney(total, cardCurrency)}</b></div>
-                  </div>
-                </section>
-              </div>
-            </div>
-
-            <details className="osrv-sec osrv-disclosure">
-              <summary className="osrv-sec-t"><span>Пассажиры ({pax.length})</span><span className="osrv-sec-hint">Показать список <Icon name="chevDown" /></span></summary>
+            <div className="osrv-sec">
+              <div className="osrv-sec-t">Пассажиры ({pax.length})</div>
               {pax.length === 0 && <div style={{ fontSize: 13, color: 'var(--muted)', padding: '6px 0' }}>Пассажиры к услуге не привязаны</div>}
               {pax.map((p, i) => {
                 const ticket = ticketForParticipant(docs, p);
@@ -1125,10 +981,10 @@ function ServiceBlock({ s, participants, documents, orderNo, open, onToggle, onC
                   </div>
                 );
               })}
-            </details>
+            </div>
 
-            <details className="osrv-sec osrv-disclosure">
-              <summary className="osrv-sec-t"><span>Документы ({docs.length})</span><span className="osrv-sec-hint">Показать файлы <Icon name="chevDown" /></span></summary>
+            <div className="osrv-sec">
+              <div className="osrv-sec-t">Документы ({docs.length})</div>
               <div className="osrv-docs">
                 {docs.map((d) => {
                   const legacy = toLegacyDocument(d);
@@ -1147,7 +1003,7 @@ function ServiceBlock({ s, participants, documents, orderNo, open, onToggle, onC
                 </button>
                 <input ref={fileRef} type="file" hidden onChange={takeFile} />
               </div>
-            </details>
+            </div>
 
             <div className="osrv-actions">
               <Button variant="secondary" icon="refund" onClick={() => onCancel(s)}>Отменить</Button>
