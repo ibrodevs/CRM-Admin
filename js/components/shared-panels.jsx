@@ -1,3 +1,4 @@
+import ReactDOM from 'react-dom';
 import { useEffect, useState } from 'react';
 import { AIRPORTS } from '../data';
 import { Icon } from '../icons';
@@ -13,7 +14,7 @@ function StackPanel({ title, onClose, footer, children, width }) {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [onClose]);
 
-  return (
+  const node = (
     <div className="drawer-stack" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}>
       <div className="drawer-stack-panel scroll" style={width ? { width } : undefined}>
         <div style={{ padding: '20px 26px 16px', position: 'sticky', top: 0, background: '#fff', zIndex: 2, borderBottom: '1px solid var(--line)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
@@ -25,6 +26,8 @@ function StackPanel({ title, onClose, footer, children, width }) {
       </div>
     </div>
   );
+
+  return (typeof document !== 'undefined') ? ReactDOM.createPortal(node, document.body) : node;
 }
 
 function PanelSub({ children, style }) {

@@ -564,7 +564,7 @@ function ServiceCardSendPanel({ item, kind, participants = [], orderNo, currency
   }
 
   return (
-    <StackPanel title="Карточка услуги · предпросмотр перед отправкой" width="min(1180px,97vw)" onClose={onClose}
+    <StackPanel title="Карточка услуги · предпросмотр перед отправкой" width="min(1280px,98vw)" onClose={onClose}
       footer={<>
         <div style={{ fontSize: 12, color: 'var(--muted)', display: 'flex', alignItems: 'center', gap: 6 }}>
           <Icon name="lock" style={{ width: 14, height: 14 }} />Внутренние расчёты клиенту не отправляются · при отправке фиксируется версия
