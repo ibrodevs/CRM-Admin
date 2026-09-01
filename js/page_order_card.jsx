@@ -2457,13 +2457,6 @@ function TabTasks({ tasks = [], onAddTask, onToggleTask, onDeleteTask }) {
 
 
 
-const ORDER_SECTIONS = {
-  overview: 'Общая информация', clients: 'Клиенты', responsibles: 'Ответственные', route: 'Маршрут',
-  participants: 'Пассажиры', matrix: 'Матрица группы', diff: 'Различия по броням', documents: 'Документы',
-  finance: 'Финансы', tasks: 'Задачи', history: 'История заказа', offers: 'Коммерческие предложения',
-  extras: 'Доп. услуги', aftersale: 'Постпродажа',
-};
-
 const ORDER_WORKSPACE_NAV = [
   { key: 'main', label: 'Услуги', icon: 'briefcase' },
   { key: 'participants', label: 'Пассажиры', icon: 'users' },
@@ -3140,15 +3133,7 @@ function OrderCard({ order, company, clients = [], onBack, initTab, initSvc, ini
               </div>
             </div>
 
-            {tab === 'main' ? tabContent() : (
-              <div className="fade-in">
-                <div className="oc-context-head">
-                  <button type="button" className="oc-context-close" title="Закрыть раздел" aria-label="Закрыть раздел" onClick={() => { setTab('main'); setSvcView(null); }}><Icon name="x" /></button>
-                  <div className="oc-section-head"><h3>{ORDER_SECTIONS[tab] || 'Раздел заказа'}</h3></div>
-                </div>
-                {tabContent()}
-              </div>
-            )}
+            {tab === 'main' ? tabContent() : <div className="fade-in">{tabContent()}</div>}
           </div>
         </div>
 

@@ -11,11 +11,12 @@ test('карточка заказа открывается единой лент
   assert.match(card, /<OrderServicesBoard services=\{services\}/);
   assert.match(card, /Услуги в заказе/);
   assert.match(card, /Добавить ещё услугу в заказ/);
-  // Разделы-подробности остаются доступными, но старые текстовые кнопки
-  // возврата больше не возвращаются в карточку.
+  // Разделы-подробности остаются доступными через единую навигацию, без
+  // повторного заголовка и кнопки закрытия внутри страницы.
   assert.doesNotMatch(card, /<BackRow/);
-  assert.match(card, /className="oc-context-close"/);
-  assert.match(card, /ORDER_SECTIONS\[tab\]/);
+  assert.doesNotMatch(card, /title="Закрыть раздел"/);
+  assert.doesNotMatch(card, /ORDER_SECTIONS\[tab\]/);
+  assert.match(card, /tab === 'main' \? tabContent\(\) : <div className="fade-in">\{tabContent\(\)\}<\/div>/);
 });
 
 test('большой заказ можно отфильтровать по пассажиру, билету и типу услуги', () => {
