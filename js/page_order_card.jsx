@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Icon } from './icons';
 import { ActionMenu, Avatar, Button, Checkbox, ConfirmDialog, DateField, DateRangeField, Drawer, EmptyState, Field, Input, Pill, Radio, SearchBox, Select, Th, fmtDate, plural, useSort, useToast } from './ui';
-import { AIRLINES, AIRPORTS, AVIA_BOOKING_CLASSES, AVIA_GROUPS_SEED, COMPANIES_DB, CURRENT_USER, DOCS2, FIN_OPS, FIN_OP_STATUS, FLIGHT_OFFERS, GROUP_PAX, KP_STATUS, OPERATORS, ORDER_PARTICIPANTS, ORDER_SERVICES, ORDER_STATUS, ORDER_TASKS, PAX_DOC_KIND, PROPOSALS, RETURNS, SERVICE_KIND, SERVICE_STATUS } from './data';
-import { cardStatus, orderResponsibles } from './data/access-control';
+import { AIRLINES, AIRPORTS, AVIA_BOOKING_CLASSES, FLIGHT_OFFERS, KP_STATUS, OPERATORS, ORDER_STATUS, ORDER_TASKS, PAX_DOC_KIND, SERVICE_KIND, SERVICE_STATUS } from './data';
+import { cardStatus } from './data/access-control';
 import { CASE_SVC_STATUS, CASE_TRIGGERS, ORDER_CHANGE_CASES, caseNow, caseProgress, createChangeCase, getChangeCase, normKind, smartAlternatives } from './data/service-cards';
 import { UnifiedDocumentDrawer, UnifiedPersonDrawer } from './forms_unified';
 import { Topbar } from './layout';
@@ -14,18 +14,14 @@ import { DynamicExtrasPanel, OrderResponsiblesTab } from './order_ops';
 import { CityPickPanel, StackPanel } from './components/shared-panels';
 import { KPModule } from './page_offers';
 import { DocCenter, FinanceRegistry } from './page_fulfillment';
-import { CreditLimitBar, FIN_COUNTERPARTIES, FIN_PAYMENTS } from './page_finance';
 import { ReturnsModule } from './page_returns';
-import { PaxGroupsDrawer, PaxUnifyPanel, paxMergeAppend } from './pax_unify';
 import { AeroAddFlow, ManualAltForm, RailAddFlow, ServiceAddFlow, ServiceCardHistoryDrawer, ServiceCardSendPanel } from './page_services';
 import { HotelPicker } from './page_hotel_picker';
-import { getThreadForOrder, threadUnread } from './page_chats';
-import { GROUP_ORDERS, GroupServiceScenario, GrMatrixTab, GrDiffTab } from './page_groups';
 import {
   financeRowsTotal, financeSnapshot, normalizeCurrency, ocCurrency, ocMoney,
   opDebt, opPayable, orderFinanceCurrency, svcCalc,
 } from './features/orders/finance';
-import { crmApi, documentsApi, ordersApi, proposalsApi, servicesApi, usersApi, workspaceActionsApi } from './api/resources';
+import { communicationsApi, crmApi, documentsApi, ordersApi, proposalsApi, serviceCardsApi, servicesApi, usersApi, workspaceActionsApi } from './api/resources';
 import { toLegacyDocument, toLegacyOrderService, toLegacyParticipant } from './api/legacy-adapters';
 import { resultsOf } from './api/client';
 import { formatIsoDateTime, orderDateOnly, participantPayloadFromUi, routePayloadFromUi } from './api/order-card';
@@ -504,12 +500,7 @@ function PaxGroupCard({ index, name, members, onPassport, onEdit, onAddDoc, onRe
   );
 }
 
-function TabParticipants({ list, isGroup, groups, fresh, orderNo, orderAirline, companyId, companyName, onPassport, onAdd, onEdit, onAddDoc, onRemove, onApplyRoster }) {
-  const [unifyOpen, setUnifyOpen] = useState(false);
-  const [groupsOpen, setGroupsOpen] = useState(false);
-  const toast = useToast();
-
-  const addGroup = (members) => { const r = paxMergeAppend(list, members); onApplyRoster && onApplyRoster(r.list); return r; };
+function TabParticipants({ list, isGroup, groups, fresh, onPassport, onAdd, onEdit, onAddDoc, onRemove }) {
   if (!list.length) return (
     <div className="fade-in">
       <EmptyState icon="users" title="Участников пока нет" sub="Добавьте пассажиров поездки и их документы здесь" />
@@ -536,17 +527,9 @@ function TabParticipants({ list, isGroup, groups, fresh, orderNo, orderAirline, 
               Поимённый список: {list.length - errCount} без ошибок{errCount ? `, ${errCount} требуют проверки` : ''}
             </div>
           </div>
-          <Button variant="secondary" size="sm" icon="checkCircle" onClick={async () => {
-            try {
-              await workspaceActionsApi.execute('order.participants.validate', { resourceType: 'order', resourceId: String(orderNo), payload: { participants: list.map((p) => ({ id: p.serverId || p.id, document_status: p.docStatus })), errors: errCount } });
-              toast(errCount ? (errCount + ' участник(ов) требуют проверки документов') : 'Список проверен — расхождений не найдено', errCount ? 'warn' : 'ok');
-            } catch (error) { toast(error.message, 'err'); }
-          }}>Проверить список</Button>
         </div>
       )}
       <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginBottom: 14 }}>
-        <Button variant="secondary" icon="users" onClick={() => setGroupsOpen(true)}>Группы пассажиров</Button>
-        <Button variant="secondary" icon="idcard" onClick={() => setUnifyOpen(true)}>Унификация списка</Button>
         <Button icon="plus" onClick={onAdd}>Добавить участника</Button>
       </div>
       {(() => {
@@ -564,8 +547,6 @@ function TabParticipants({ list, isGroup, groups, fresh, orderNo, orderAirline, 
         const cardSections = secs || [{ id: '__standard', index: null, name: 'Пассажиры заказа', members: list.map((p, i) => ({ p, i })) }];
         return <div className="pax-groups">{cardSections.map((s) => <PaxGroupCard key={s.id} index={s.index} name={s.name} members={s.members} onPassport={onPassport} onEdit={onEdit} onAddDoc={onAddDoc} onRemove={onRemove} />)}</div>;
       })()}
-      {unifyOpen && <PaxUnifyPanel list={list} orderNo={orderNo} autoBind={orderAirline} onApplyRoster={onApplyRoster} onClose={() => setUnifyOpen(false)} />}
-      {groupsOpen && <PaxGroupsDrawer current={list} companyId={companyId} companyName={companyName} onAddGroup={addGroup} onClose={() => setGroupsOpen(false)} />}
     </div>
   );
 }
@@ -716,17 +697,12 @@ function serviceTotals(services) {
 
 
 
-function ServicesFooterBar({ services, participants, bookingDraft, onStartBooking, orderId }) {
-  const toast = useToast();
+function ServicesFooterBar({ services, bookingDraft, onStartBooking }) {
   const { total, currency } = serviceTotals(services);
   return (
     <div className="oc-svc-footer">
       <div className="grp"><span className="l">Итого по заказу</span><span className="v">{ocMoney(total, currency)} <Icon name="alertCircle" style={{ width: 14, height: 14, color: 'var(--muted-2)', verticalAlign: -2 }} /></span></div>
       <div style={{ flex: 1 }} />
-      <Button variant="secondary" onClick={async () => {
-        try { await workspaceActionsApi.execute('order.services.save', { resourceType: 'order', resourceId: String(orderId), payload: { services: services.map((s) => s.serverId || s.id), participants: participants.map((p) => p.serverId || p.id) } }); toast('Изменения сохранены', 'ok'); }
-        catch (error) { toast(error.message, 'err'); }
-      }}>Сохранить</Button>
       <Button iconRight="arrowRight" onClick={onStartBooking}>{bookingDraft ? 'Продолжить бронирование' : 'Перейти к бронированию'}</Button>
     </div>
   );
@@ -845,10 +821,48 @@ function serviceMatchesParticipant(service, participant, participants = []) {
   return serviceParticipants(service, participants).some((item) => participantKey(item) === target || item.name === participant.name);
 }
 
+function LiveServiceCardHistoryDrawer({ orderId, serviceId, title, onClose }) {
+  const [state, setState] = useState({ loading: true, cards: [], error: '' });
+  useEffect(() => {
+    const controller = new AbortController();
+    serviceCardsApi.list({ order: orderId, service: serviceId }, controller.signal)
+      .then((payload) => setState({ loading: false, cards: resultsOf(payload), error: '' }))
+      .catch((error) => {
+        if (error.name !== 'AbortError') setState({ loading: false, cards: [], error: error.message || 'Не удалось загрузить историю' });
+      });
+    return () => controller.abort();
+  }, [orderId, serviceId]);
+  return (
+    <Drawer open onClose={onClose} title="История отправки услуги" sub={title}
+      footer={<Button variant="secondary" onClick={onClose}>Закрыть</Button>}>
+      {state.loading ? <AsyncBlock state="loading" skeletonRows={4} /> : state.error ? (
+        <EmptyState icon="alertCircle" title="История недоступна" sub={state.error} />
+      ) : state.cards.length === 0 ? (
+        <EmptyState icon="clock" title="Карточка ещё не отправлялась" sub="После реальной отправки здесь появятся версия, каналы доставки и ответ клиента." />
+      ) : state.cards.map((card) => (
+        <div className="card card-pad" key={card.id} style={{ marginBottom: 10 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <b style={{ fontSize: 14 }}>Версия {card.card_version}</b>
+            <Pill tone={['chosen', 'viewed', 'delivered'].includes(card.status) ? 'green' : card.status === 'declined' ? 'red' : 'blue'}>{card.status}</Pill>
+            <span style={{ flex: 1 }} />
+            <span style={{ fontSize: 12, color: 'var(--muted)' }}>{card.created_at ? new Date(card.created_at).toLocaleString('ru-RU') : ''}</span>
+          </div>
+          {(card.deliveries || []).map((delivery) => (
+            <div className="kv-row" key={delivery.id}><span className="k">{delivery.channel}</span><span className="v">{delivery.state}{delivery.recipient ? ' · ' + delivery.recipient : ''}</span></div>
+          ))}
+          {(card.responses || []).map((response) => (
+            <div className="kv-row" key={response.id}><span className="k">Ответ клиента</span><span className="v">{response.action}{response.comment ? ' · ' + response.comment : ''}</span></div>
+          ))}
+        </div>
+      ))}
+    </Drawer>
+  );
+}
+
 
 function ServiceBlock({ s, participants, documents, orderNo, open, onToggle, onCancel, onExchange, onOpenChat,
   onOpenPassenger, onAddPassengerDoc, onUploadDocument, onOpenDocument, onDeleteService, selectable, selected, onSelect,
-  focusedParticipant }) {
+  focusedParticipant, orderId, onSendServiceCard }) {
   const toast = useToast();
   const fileRef = useRef(null);
   const [sendOpen, setSendOpen] = useState(false);
@@ -1026,8 +1040,12 @@ function ServiceBlock({ s, participants, documents, orderNo, open, onToggle, onC
       </div>
 
       {sendOpen && <ServiceCardSendPanel item={cardItem} kind={s.kind} participants={pax} orderNo={orderNo}
-        currency={s.currency} serviceId={s.id} onSent={(ch) => toast('Карточка услуги отправлена клиенту по каналу «' + ch + '»', 'ok')} onClose={() => setSendOpen(false)} />}
-      {histOpen && <ServiceCardHistoryDrawer orderNo={orderNo} serviceId={s.id} title={s.title} onClose={() => setHistOpen(false)} />}
+        currency={s.currency} serviceId={s.id} onSent={async (channels, draft) => {
+          await onSendServiceCard(s, channels, draft);
+          toast('Карточка услуги отправлена клиенту по каналу «' + channels + '»', 'ok');
+          return { persisted: true };
+        }} onClose={() => setSendOpen(false)} />}
+      {histOpen && <LiveServiceCardHistoryDrawer orderId={orderId} serviceId={s.serverId || s.id} title={s.title} onClose={() => setHistOpen(false)} />}
     </div>
   );
 }
@@ -1366,12 +1384,7 @@ function TabServices({ orderNo, services, participants, requestType, onOpenAvia,
         <EmptyState icon="briefcase" title="Услуги не добавлены" sub="Добавьте авиабилеты, отели, трансферы и другие услуги в заказ" />
       ) : (
         <div className="card" style={{ padding: '4px 18px' }}>
-          {shown.map((s) => isGroup ? (
-            <div key={s.id} style={{ padding: '2px 0' }}>
-              <ServiceListRow s={s} paxCount={participants.length} isGroup={isGroup} onOpen={openItem} orderNo={orderNo} participants={participants} selected={sel.has(s.id)} onSel={selMode ? () => toggleSel(s.id) : null} />
-              <GroupServiceScenario s={s} pax={participants} orderNo={orderNo} />
-            </div>
-          ) : (
+          {shown.map((s) => (
             <ServiceListRow key={s.id} s={s} paxCount={participants.length} isGroup={isGroup} onOpen={openItem} orderNo={orderNo} participants={participants} selected={sel.has(s.id)} onSel={selMode ? () => toggleSel(s.id) : null} />
           ))}
         </div>
@@ -1866,6 +1879,15 @@ function AviaSearchPanel({ params, setParams, paxCount, participants = [], isGro
   const [liveOffers, setLiveOffers] = useState([]);
   const [loading, setLoading] = useState(false);
   const runSearch = async () => {
+    const requestedSeats = participants.length || paxTotal(p.pax);
+    if (!p.from || !p.to || (p.trip !== 'mc' && !p.depDate)) {
+      toast('Укажите маршрут и дату поездки', 'warn');
+      return;
+    }
+    if (requestedSeats < 1) {
+      toast('Добавьте пассажира в заказ или укажите количество пассажиров', 'warn');
+      return;
+    }
     setLoading(true);
     setLiveOffers([]);
     try {
@@ -1886,7 +1908,7 @@ function AviaSearchPanel({ params, setParams, paxCount, participants = [], isGro
   const [view, setView] = useState('cards');
   const [paxPanel, setPaxPanel] = useState(false);
   const [fareRoute, setFareRoute] = useState(null);
-  const groups = isGroup ? AVIA_GROUPS_SEED : null;
+  const groups = null;
   const seats = participants.length || paxTotal(p.pax);
   const plural = (n) => n === 1 ? 'пассажир' : (n % 10 >= 2 && n % 10 <= 4 && (n % 100 < 10 || n % 100 >= 20) ? 'пассажира' : 'пассажиров');
 
@@ -2164,7 +2186,7 @@ function AddServicePanel({ kind, setKind, aviaParams, setAviaParams, paxCount, p
         participants={participants || []} isGroup={isGroup} onAdd={onAddAvia} onAddPerPax={onAddAviaPerPax} />}
 
       {kind === 'Гостиница' && <HotelPicker participants={participants} group={isGroup} onApply={(offer) => onAddOther(offer, 'Гостиница')} onCancel={() => {}} />}
-      {kind === 'ЖД' && <RailAddFlow participants={participants} groups={isGroup ? AVIA_GROUPS_SEED : null} onAdd={onAddOther} />}
+      {kind === 'ЖД' && <RailAddFlow participants={participants} groups={null} onAdd={onAddOther} />}
       {kind === 'Аэроэкспресс' && <AeroAddFlow onAdd={onAddOther} />}
       {kind !== 'Авиа' && kind !== 'Гостиница' && kind !== 'ЖД' && kind !== 'Аэроэкспресс' && cat.routeKey && <ServiceAddFlow routeKey={cat.routeKey} onAdd={onAddOther} />}
       {kind !== 'Авиа' && kind !== 'Гостиница' && kind !== 'ЖД' && kind !== 'Аэроэкспресс' && !cat.routeKey && <QuickAddForm kind={kind} onAdd={onAddOther} />}
@@ -2222,16 +2244,8 @@ function OrderFinanceBlock({ orderNo, order, services, summary }) {
         ? sum + svcCalc(service).total
         : sum
     ), 0);
-  const cps = (typeof FIN_COUNTERPARTIES !== 'undefined') ? FIN_COUNTERPARTIES : [];
-  const cp = cps.find((c) => c.type === 'client' && (c.name === order.client || order.client.includes(c.name) || c.name.includes(order.client)));
-  const pays = summary ? [] : ((typeof FIN_PAYMENTS !== 'undefined') ? FIN_PAYMENTS : []).filter((p) => p.order === orderNo);
-  const ops = summary ? [] : ((typeof FIN_OPS !== 'undefined') ? FIN_OPS : []).filter((o) => o.order === orderNo);
-  const docs = summary ? [] : ((typeof DOCS2 !== 'undefined') ? DOCS2 : []).filter((d) => d.order === orderNo && ['Счёт', 'Акт', 'Договор'].includes(d.type));
-  const paid = summary ? financeRowsTotal(summary.paid, currency) : (ops.reduce((s, o) => s + (o.paid || 0), 0) || (cp ? cp.paid : 0));
+  const paid = summary ? financeRowsTotal(summary.paid, currency) : 0;
   const debt = summary ? financeRowsTotal(summary.outstanding, currency) : Math.max(0, Math.round(total) - paid);
-  const profit = summary ? 0 : Math.round(total * 0.12);
-  const free = cp && cp.limit ? Math.max(0, cp.limit - cp.used) : 0;
-  const hasLimitBar = typeof CreditLimitBar !== 'undefined' && cp && cp.limit;
   const money = (amount) => ocMoney(amount, currency);
   return (
     <div className="card card-pad fade-in" style={{ marginBottom: 18, border: '1px solid var(--line)' }}>
@@ -2242,36 +2256,14 @@ function OrderFinanceBlock({ orderNo, order, services, summary }) {
         <Pill tone={debt > 0 ? 'amber' : 'green'}>{debt > 0 ? 'Есть задолженность' : 'Полностью оплачен'}</Pill>
       </div>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(150px,1fr))', gap: 10, marginBottom: 16 }}>
-        {[['Стоимость заказа', money(total), null], ['Оплачено', money(paid), 'var(--green)'], ['Остаток', money(debt), debt > 0 ? 'var(--amber)' : 'var(--green)'], ['Прибыль по заказу', money(profit), 'var(--green)']].map(([l, v, c]) => (
+        {[['Стоимость заказа', money(total), null], ['Оплачено', money(paid), 'var(--green)'], ['Остаток', money(debt), debt > 0 ? 'var(--amber)' : 'var(--green)']].map(([l, v, c]) => (
           <div key={l} style={{ padding: '12px 14px', borderRadius: 12, background: 'var(--surface-2)', border: '1px solid var(--line)' }}>
             <div style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 4 }}>{l}</div>
             <div style={{ fontSize: 18, fontWeight: 800, color: c || 'var(--ink)' }}>{v}</div>
           </div>
         ))}
       </div>
-      <div className="oc-2col" style={{ gap: '0 24px' }}>
-        <div>
-          <div style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--muted)', margin: '4px 0 6px' }}>Финансовые условия</div>
-          <div className="kv-row" style={{ padding: '8px 0' }}><span className="k" style={{ fontSize: 13.5 }}>Схема работы</span><span className="v" style={{ fontSize: 13.5 }}>{cp ? cp.scheme : 'Предоплата'}</span></div>
-          <div className="kv-row" style={{ padding: '8px 0' }}><span className="k" style={{ fontSize: 13.5 }}>Отсрочка</span><span className="v" style={{ fontSize: 13.5 }}>{cp && cp.deferralDays ? cp.deferralDays + ' дн. · ' + cp.deferralStart : '—'}</span></div>
-          <div className="kv-row" style={{ padding: '8px 0' }}><span className="k" style={{ fontSize: 13.5 }}>Срок оплаты</span><span className="v" style={{ fontSize: 13.5 }}>{cp && cp.obligations[0] ? cp.obligations[0].due : '—'}</span></div>
-          <div className="kv-row" style={{ padding: '8px 0' }}><span className="k" style={{ fontSize: 13.5 }}>Кредитный лимит</span><span className="v" style={{ fontSize: 13.5 }}>{cp && cp.limit ? money(cp.limit) + ' · свободно ' + money(free) : 'не установлен'}</span></div>
-          {hasLimitBar && <div style={{ marginTop: 8 }}><CreditLimitBar used={cp.used} limit={cp.limit} /></div>}
-        </div>
-        <div>
-          <div style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--muted)', margin: '4px 0 6px' }}>Связанные документы и платежи</div>
-          <div style={{ display: 'grid', gap: 5 }}>
-            {docs.map((d) => <div key={d.no} style={{ fontSize: 12.5, color: 'var(--body)' }}><Icon name="finance" style={{ width: 12, height: 12, verticalAlign: -1, color: 'var(--muted-2)' }} /> {d.name} · <span style={{ color: 'var(--muted)' }}>{d.status}</span></div>)}
-            {pays.map((p) => <div key={p.no} style={{ fontSize: 12.5, color: 'var(--body)' }}><Icon name="swap" style={{ width: 12, height: 12, verticalAlign: -1, color: 'var(--muted-2)' }} /> {p.no} · {p.dir === 'in' ? 'входящий' : 'исходящий'} {money(p.sum)} · <span style={{ color: 'var(--muted)' }}>{p.status}</span></div>)}
-            {docs.length === 0 && pays.length === 0 && <div style={{ fontSize: 12.5, color: 'var(--muted)' }}>Пока нет связанных документов/платежей.</div>}
-          </div>
-          <div style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--muted)', margin: '12px 0 6px' }}>История финансовых операций</div>
-          <div style={{ display: 'grid', gap: 4 }}>
-            {ops.length === 0 && <div style={{ fontSize: 12.5, color: 'var(--muted)' }}>Операций по заказу пока нет.</div>}
-            {ops.map((o) => <div key={o.no} style={{ fontSize: 12, color: 'var(--body)' }}><span style={{ color: 'var(--muted-2)' }}>{o.date}</span> · {o.type} · {o.source} · <b>{money(o.paid || opPayable(o))}</b> · <span style={{ color: (FIN_OP_STATUS[o.status] === 'green') ? 'var(--green)' : 'var(--muted)' }}>{o.status}</span></div>)}
-          </div>
-        </div>
-      </div>
+      {!summary && <div style={{ fontSize: 12.5, color: 'var(--muted)' }}>Платежи и финансовые условия ещё не получены от backend. Ниже отображается реестр реальных операций.</div>}
     </div>
   );
 }
@@ -2485,6 +2477,9 @@ function OrderCard({ order, company, clients = [], onBack, initTab, initSvc, ini
   const [tasks, setTasks] = useState([]);
   const [history, setHistory] = useState([]);
   const [financeSummary, setFinanceSummary] = useState(null);
+  const [proposalCount, setProposalCount] = useState(0);
+  const [aftersaleCount, setAftersaleCount] = useState(0);
+  const [clientThread, setClientThread] = useState(null);
   const [orderVersion, setOrderVersion] = useState(order.version);
   const [routeVersion, setRouteVersion] = useState(null);
   const [allowedTransitions, setAllowedTransitions] = useState(null);
@@ -2493,7 +2488,7 @@ function OrderCard({ order, company, clients = [], onBack, initTab, initSvc, ini
   const [sendOpen, setSendOpen] = useState(false);
   const [participants, setParticipants] = useState(() => (order.participants || []).map(toLegacyParticipant));
   useEffect(() => { if (order.participants?.length) setParticipants(order.participants.map(toLegacyParticipant)); }, [order.no, requestType]);
-  const chatUnread = threadUnread(getThreadForOrder(order));
+  const chatUnread = Number(clientThread?.unread_count || 0);
   const initStage = () => {
     return orderStageIndexForStatus(order.status);
   };
@@ -2518,7 +2513,7 @@ function OrderCard({ order, company, clients = [], onBack, initTab, initSvc, ini
       message: `Вы действительно хотите удалить пассажира «${participant.name || 'Участник'}» из заказа №${order.no}?`,
       run: async () => {
         try {
-          await ordersApi.removeParticipant(order.id, participantId);
+          await ordersApi.removeParticipant(orderId, participantId);
           await refreshOrderSnapshot();
           toast('Участник удалён из заказа', 'ok');
         } catch (error) {
@@ -2530,7 +2525,7 @@ function OrderCard({ order, company, clients = [], onBack, initTab, initSvc, ini
 
   const addTask = async (taskPayload) => {
     try {
-      await ordersApi.createTask(order.id, taskPayload);
+      await ordersApi.createTask(orderId, taskPayload);
       await refreshOrderSnapshot();
       toast('Задача создана', 'ok');
     } catch (error) {
@@ -2543,7 +2538,7 @@ function OrderCard({ order, company, clients = [], onBack, initTab, initSvc, ini
     if (!taskId) return;
     const nextStatus = (task.status === 'completed' || task.done) ? 'open' : 'completed';
     try {
-      await ordersApi.updateTask(order.id, taskId, { status: nextStatus });
+      await ordersApi.updateTask(orderId, taskId, { status: nextStatus });
       await refreshOrderSnapshot();
       toast(nextStatus === 'completed' ? 'Задача выполнена' : 'Задача открыта заново', 'ok');
     } catch (error) {
@@ -2555,7 +2550,7 @@ function OrderCard({ order, company, clients = [], onBack, initTab, initSvc, ini
     const taskId = task.serverId || task.id;
     if (!taskId) return;
     try {
-      await ordersApi.removeTask(order.id, taskId);
+      await ordersApi.removeTask(orderId, taskId);
       await refreshOrderSnapshot();
       toast('Задача удалена', 'ok');
     } catch (error) {
@@ -2572,7 +2567,6 @@ function OrderCard({ order, company, clients = [], onBack, initTab, initSvc, ini
   const [expandedSvc, setExpandedSvc] = useState(() => new Set());
   const [selMode, setSelMode] = useState(false);
   const [sel, setSel] = useState(() => new Set());
-  const [changeCaseOpen, setChangeCaseOpen] = useState(false);
   const [confirmAction, setConfirmAction] = useState(null);
   const [aftersalePreset, setAftersalePreset] = useState(null);
 
@@ -2580,7 +2574,18 @@ function OrderCard({ order, company, clients = [], onBack, initTab, initSvc, ini
   const [aviaClassByPax, setAviaClassByPax] = useState({});
   const [aviaFareByPax, setAviaFareByPax] = useState({});
   const [aviaIndividualMode, setAviaIndividualMode] = useState(true);
-  const [aviaParams, setAviaParams] = useState({ trip: 'rt', from: 'FRU', to: 'IST', depDate: null, retDate: null, pax: { adt: 2, chd: 0, infNoSeat: 0, infSeat: 0, special: {}, subsidized: {} }, cabin: 'Эконом', baggage: false, flex: false, direct: false, airline: '', ...PAX_DEFAULT_OPTIONS });
+  const [aviaParams, setAviaParams] = useState(() => {
+    const points = order.route?.points || [];
+    return {
+      trip: order.route?.kind === 'round_trip' ? 'rt' : order.route?.kind === 'multi_city' ? 'mc' : 'ow',
+      from: points[0]?.location_code || '',
+      to: points[points.length - 1]?.location_code || '',
+      depDate: points[0]?.local_datetime || null,
+      retDate: points.length > 1 ? points[points.length - 1]?.local_datetime || null : null,
+      pax: { adt: participants.length, chd: 0, infNoSeat: 0, infSeat: 0, special: {}, subsidized: {} },
+      cabin: order.cabin || 'Эконом', baggage: false, flex: false, direct: false, airline: '', ...PAX_DEFAULT_OPTIONS,
+    };
+  });
 
 
   const [passport, setPassport] = useState(null);
@@ -2599,11 +2604,13 @@ function OrderCard({ order, company, clients = [], onBack, initTab, initSvc, ini
     setRouteVersion(liveOrder.route?.version || null);
     setAllowedTransitions(overview.allowed_actions?.transitions || []);
     setFinanceSummary(overview.finance_summary || null);
+    setProposalCount(Array.isArray(overview.proposals) ? overview.proposals.length : 0);
+    setAftersaleCount(Array.isArray(overview.returns) ? overview.returns.length : 0);
     if (taskPayload) {
-      setTasks(resultsOf(taskPayload).map((task) => ({ ...task, text: task.title, due: task.due_at ? new Date(task.due_at).toLocaleString('ru-RU') : 'без срока', urgent: ['critical', 'high'].includes(task.priority) })));
+      setTasks(resultsOf(taskPayload).map((task) => ({ ...task, text: task.title, done: task.status === 'completed', due: task.due_at ? new Date(task.due_at).toLocaleString('ru-RU') : 'без срока', urgent: ['critical', 'high'].includes(task.priority) })));
     }
     if (historyPayload) {
-      setHistory(resultsOf(historyPayload).map((entry) => ({ t: new Date(entry.changed_at).toLocaleString('ru-RU'), text: entry.reason || `Статус: ${ORDER_STATUS_LABEL[entry.to_status] || entry.to_status}`, who: entry.changed_by ? 'Пользователь' : 'Система' })));
+      setHistory(resultsOf(historyPayload).map((entry) => ({ t: new Date(entry.changed_at).toLocaleString('ru-RU'), text: entry.reason || `Статус: ${ORDER_STATUS_LABEL[entry.to_status] || entry.to_status}`, who: entry.changed_by_name || (entry.changed_by ? 'Пользователь' : 'Система') })));
     }
     setStatus(ORDER_STATUS_LABEL[liveOrder.status] || liveOrder.status_display || status);
     setStageIdx(orderStageIndexForStatus(liveOrder.status || liveOrder.status_display));
@@ -2615,7 +2622,7 @@ function OrderCard({ order, company, clients = [], onBack, initTab, initSvc, ini
   const refreshDocuments = async (signal) => {
     if (!orderId) return;
     try {
-      const payload = await documentsApi.list({ order: order.id }, signal);
+      const payload = await documentsApi.list({ order: orderId }, signal);
       setOrderDocs(resultsOf(payload));
     } catch (error) {
       if (error.name !== 'AbortError') setOrderDocs([]);
@@ -2626,7 +2633,7 @@ function OrderCard({ order, company, clients = [], onBack, initTab, initSvc, ini
     if (!orderId) return;
     const [overview, taskPayload, historyPayload] = await Promise.all([
       ordersApi.overview(orderId),
-      ordersApi.tasks(orderId, { status: 'open' }),
+      ordersApi.tasks(orderId, {}),
       ordersApi.history(orderId, {}),
     ]);
     await refreshDocuments();
@@ -2642,7 +2649,7 @@ function OrderCard({ order, company, clients = [], onBack, initTab, initSvc, ini
     setLoading(true);
     Promise.all([
       ordersApi.overview(orderId, controller.signal),
-      ordersApi.tasks(orderId, { status: 'open' }, controller.signal),
+      ordersApi.tasks(orderId, {}, controller.signal),
       ordersApi.history(orderId, {}, controller.signal),
     ])
       .then(([overview, taskPayload, historyPayload]) => {
@@ -2655,6 +2662,16 @@ function OrderCard({ order, company, clients = [], onBack, initTab, initSvc, ini
     refreshDocuments(controller.signal);
     return () => controller.abort();
   }, [orderId, order.no]);
+
+  useEffect(() => {
+    if (!orderId) return undefined;
+    const controller = new AbortController();
+    communicationsApi.threads({ order: orderId, type: 'client' }, controller.signal).then((threadPayload) => {
+      if (controller.signal.aborted) return;
+      setClientThread(resultsOf(threadPayload)[0] || null);
+    }).catch(() => {});
+    return () => controller.abort();
+  }, [orderId, requestType]);
 
   // В больших заказах лента всегда начинается компактной: нужную услугу или
   // пассажира оператор находит через фильтры и раскрывает только по запросу.
@@ -2674,10 +2691,10 @@ function OrderCard({ order, company, clients = [], onBack, initTab, initSvc, ini
       return;
     }
     try {
-      const updated = await ordersApi.transition(order.id, { target_status: target, version: orderVersion });
+      const updated = await ordersApi.transition(orderId, { target_status: target, version: orderVersion });
       setStatus(ORDER_STATUS_LABEL[updated.status] || nextStatus);
       setOrderVersion(updated.version);
-      const refreshed = await ordersApi.overview(order.id);
+      const refreshed = await ordersApi.overview(orderId);
       setAllowedTransitions(refreshed.allowed_actions?.transitions || []);
       toast('Статус: ' + (ORDER_STATUS_LABEL[updated.status] || nextStatus), 'ok');
     } catch (error) {
@@ -2687,14 +2704,14 @@ function OrderCard({ order, company, clients = [], onBack, initTab, initSvc, ini
   const reassignOperator = async (nextOperator) => {
     if (!nextOperator.id) { toast('Для сотрудника не найден backend-профиль', 'err'); return; }
     try {
-      const updated = await ordersApi.reassign(order.id, { operator: nextOperator.id, version: orderVersion, reason: 'Переназначено в карточке заказа' });
+      const updated = await ordersApi.reassign(orderId, { operator: nextOperator.id, version: orderVersion, reason: 'Переназначено в карточке заказа' });
       setOperator(nextOperator.name); setOrderVersion(updated.version); setReassignOpen(false);
       toast('Ответственный оператор: ' + nextOperator.name, 'ok');
     } catch (error) { toast(error.message || 'Не удалось переназначить оператора', 'err'); }
   };
 
   const addParticipantToOrder = async (client, person) => {
-    await ordersApi.addParticipant(order.id, participantPayloadFromUi({ ...client, ...person }));
+    await ordersApi.addParticipant(orderId, participantPayloadFromUi({ ...client, ...person }));
     await refreshOrderSnapshot();
   };
 
@@ -2704,7 +2721,7 @@ function OrderCard({ order, company, clients = [], onBack, initTab, initSvc, ini
     if (participant.person) {
       await crmApi.updatePerson(participant.person, personPayloadFromUnified(person, client));
     }
-    await ordersApi.updateParticipant(order.id, participantId, participantPayloadFromUi({ ...participant, ...client, ...person }));
+    await ordersApi.updateParticipant(orderId, participantId, participantPayloadFromUi({ ...participant, ...client, ...person }));
     await refreshOrderSnapshot();
   };
 
@@ -2713,12 +2730,12 @@ function OrderCard({ order, company, clients = [], onBack, initTab, initSvc, ini
     if (!participantId) throw new Error('Для пассажира не найден backend ID');
     if (participant.person) {
       const created = await crmApi.addPersonDocument(participant.person, personDocumentPayloadFromUnified(document));
-      await ordersApi.updateParticipant(order.id, participantId, participantPayloadFromUi({ ...participant, bookingDocument: created.id }));
+      await ordersApi.updateParticipant(orderId, participantId, participantPayloadFromUi({ ...participant, bookingDocument: created.id }));
       await refreshOrderSnapshot();
       return;
     }
     const documents = [...(participant.documents || []), document];
-    await ordersApi.updateParticipant(order.id, participantId, participantPayloadFromUi({ ...participant, documents }));
+    await ordersApi.updateParticipant(orderId, participantId, participantPayloadFromUi({ ...participant, documents }));
     await refreshOrderSnapshot();
   };
 
@@ -2726,7 +2743,7 @@ function OrderCard({ order, company, clients = [], onBack, initTab, initSvc, ini
     const operations = [];
     const points = (values.points || []).filter(Boolean);
     if (points.length >= 2) {
-      operations.push(ordersApi.updateRoute(order.id, routePayloadFromUi({
+      operations.push(ordersApi.updateRoute(orderId, routePayloadFromUi({
         trip: values.trip,
         points,
         depDate: values.depDate || null,
@@ -2734,7 +2751,7 @@ function OrderCard({ order, company, clients = [], onBack, initTab, initSvc, ini
         version: routeVersion,
       })));
     }
-    operations.push(ordersApi.update(order.id, {
+    operations.push(ordersApi.update(orderId, {
       version: orderVersion,
       purpose: values.purpose || '',
       comment: values.comment || '',
@@ -2768,21 +2785,14 @@ function OrderCard({ order, company, clients = [], onBack, initTab, initSvc, ini
   const orderPurpose = cardOrder.purpose || cardOrder.comment || '';
 
   const isGroup = requestType === 'Групповая';
-  // Групповая модель для вкладок, которых нет у обычного заказа (Матрица, Различия).
-  const groupModel = isGroup ? (GROUP_ORDERS.find((g) => String(g.no) === String(order.no)) || GROUP_ORDERS[0]) : null;
-
   // Разделы, не поместившиеся в правую колонку, открываются из меню шапки заказа.
   const MORE_TABS = [
     { key: 'overview', label: 'Общая информация', icon: 'clipboard' },
     { key: 'clients', label: 'Клиенты', icon: 'contacts' },
-    { key: 'responsibles', label: 'Ответственные', icon: 'users', count: orderResponsibles(order.no).length || null },
-    ...(isGroup && groupModel ? [
-      { key: 'matrix', label: 'Матрица группы', icon: 'grid' },
-      { key: 'diff', label: 'Различия по броням', icon: 'swap' },
-    ] : []),
+    { key: 'responsibles', label: 'Ответственные', icon: 'users', count: operator ? 1 : null },
     { key: 'extras', label: 'Доп. услуги', icon: 'sparkles' },
-    { key: 'offers', label: 'КП', icon: 'template', count: PROPOSALS.filter((p) => p.order === order.no).length, locked: stageIdx < 2 && !PROPOSALS.some((p) => p.order === order.no) },
-    { key: 'aftersale', label: 'Постпродажа', icon: 'refund', count: RETURNS.filter((r) => r.order === order.no).length || null, locked: stageIdx < 2 },
+    { key: 'offers', label: 'КП', icon: 'template', count: proposalCount || null, locked: stageIdx < 2 && proposalCount === 0 },
+    { key: 'aftersale', label: 'Постпродажа', icon: 'refund', count: aftersaleCount || null, locked: stageIdx < 2 },
   ];
 
   const goAddType = (type) => { setAddKind(type || 'Авиа'); setSvcView('add-service'); };
@@ -2796,7 +2806,7 @@ function OrderCard({ order, company, clients = [], onBack, initTab, initSvc, ini
     try {
       const backendOfferId = route.backendOfferId || legs[0]?.backendOfferId;
       const participantIds = participants.map((p) => p.serverId || p.id).filter(Boolean);
-      const created = await servicesApi.addToOrder(order.id, backendOfferId
+      const created = await servicesApi.addToOrder(orderId, backendOfferId
         ? { offer_id: backendOfferId, participants: participantIds }
         : { kind: 'avia', title, currency: 'USD', supplier_cost: total, client_total: total, participants: participantIds });
       setServices((cur) => [...cur, toLegacyOrderService(created)]);
@@ -2827,7 +2837,7 @@ function OrderCard({ order, company, clients = [], onBack, initTab, initSvc, ini
       const body = offer._backendOfferId
         ? { offer_id: offer._backendOfferId, participants: participants.map((p) => p.serverId || p.id).filter(Boolean) }
         : { kind: kindCode, title: offer.title || kind, currency: offer.currency || 'USD', supplier_cost: Number(offer.cost || 0), agency_fee: Number(offer.fee || 0), client_total: amount, participants: participants.map((p) => p.serverId || p.id).filter(Boolean) };
-      const created = await servicesApi.addToOrder(order.id, body);
+      const created = await servicesApi.addToOrder(orderId, body);
       setServices((cur) => [...cur, toLegacyOrderService(created)]);
       setSvcView(null);
       toast(kind + ': услуга добавлена в заказ', 'ok');
@@ -2853,7 +2863,7 @@ function OrderCard({ order, company, clients = [], onBack, initTab, initSvc, ini
         };
       });
       await proposalsApi.create({
-        order: order.id,
+        order: orderId,
         type: 'standard',
         purpose: 'КП из карточек услуг',
         currency: 'USD',
@@ -2862,6 +2872,7 @@ function OrderCard({ order, company, clients = [], onBack, initTab, initSvc, ini
       });
       setSvcView(null);
       setStageIdx((i) => Math.max(i, 2));
+      setProposalCount((count) => count + 1);
       setTab('offers');
       toast('КП собрано из ' + items.length + ' карточек — открыт раздел «КП»', 'ok');
     } catch (error) {
@@ -2870,19 +2881,69 @@ function OrderCard({ order, company, clients = [], onBack, initTab, initSvc, ini
   };
 
 
-  const exportServicesToChat = (chosen) => {
+  const ensureClientThread = async () => {
+    if (clientThread?.id) return clientThread;
+    const payload = await communicationsApi.threads({ order: orderId, type: 'client' });
+    let thread = resultsOf(payload)[0];
+    if (!thread) {
+      thread = await communicationsApi.createThread({
+        type: 'client',
+        order: orderId,
+        title: `Заказ № ${order.no}`,
+      });
+    }
+    setClientThread(thread);
+    return thread;
+  };
+
+  const sendServiceCardToClient = async (service, channelList, draft) => {
+    const serviceId = service.serverId || service.id;
+    if (!orderId || !serviceId) throw new Error('Услуга не связана с backend-заказом');
+    const kind = { 'Авиа': 'avia', 'ЖД': 'rail', 'Гостиница': 'hotel', 'Трансфер': 'transfer' }[service.kind] || 'other';
+    const card = await serviceCardsApi.create({
+      order: orderId,
+      service: serviceId,
+      kind,
+      scenario: draft.scenario || '',
+      price_snapshot: { amount: svcCalc(service).total, currency: service.currency || 'RUB' },
+      content: draft,
+    });
+    const channelCodes = String(channelList).split(',').map((value) => value.trim()).filter(Boolean).map((channel) => ({
+      'Внутренний чат': 'internal', Telegram: 'telegram', WhatsApp: 'whatsapp', MAX: 'max', Email: 'email',
+    })[channel] || channel.toLowerCase());
+    await serviceCardsApi.send(card.id, { channels: channelCodes, recipient: cardOrder.email || cardOrder.phone || '' });
+  };
+
+  const exportServicesToChat = async (chosen) => {
     if (!chosen || !chosen.length) { toast('Выберите хотя бы одну услугу', 'err'); return; }
     const lines = chosen.map((s) => {
       const total = svcCalc(s).total || s.sum || 0;
       return '• ' + s.title + (s.sub ? ' (' + s.sub + ')' : '') + ' — ' + Math.round(total).toLocaleString('ru-RU') + ' ' + (s.currency || 'USD');
     });
     const text = 'Подобранные услуги по заказу № ' + order.no + ':\n' + lines.join('\n');
-    const thread = getThreadForOrder(order);
-    const now = new Date();
-    const time = String(now.getHours()).padStart(2, '0') + ':' + String(now.getMinutes()).padStart(2, '0');
-    thread.messages = [...(thread.messages || []), { from: 'me', author: (window.CURRENT_USER && CURRENT_USER.name) || 'Оператор', text, time, read: false, kind: 'services' }];
-    toast(chosen.length + ' услуг выгружено в чат клиенту', 'ok');
-    onOpenChat && onOpenChat();
+    try {
+      const thread = await ensureClientThread();
+      await communicationsApi.send(thread.id, { body: text, type: 'text', internal_note: false });
+      toast(chosen.length + ' услуг отправлено в чат клиенту', 'ok');
+      onOpenChat && onOpenChat();
+      return true;
+    } catch (error) {
+      toast(error.message || 'Не удалось отправить услуги в чат', 'err');
+      return false;
+    }
+  };
+
+  const sendOrderToClient = async () => {
+    const lines = services.map((service) => `• ${service.title} — ${svcExactMoney(svcCalc(service).total, service.currency)}`);
+    const text = [`Заказ № ${order.no}`, orderPurpose, ...lines].filter(Boolean).join('\n');
+    try {
+      const thread = await ensureClientThread();
+      await communicationsApi.send(thread.id, { body: text, type: 'text', internal_note: false });
+      setSendOpen(false);
+      toast('Заказ отправлен клиенту', 'ok');
+    } catch (error) {
+      toast(error.message || 'Не удалось отправить заказ клиенту', 'err');
+    }
   };
 
 
@@ -2891,7 +2952,10 @@ function OrderCard({ order, company, clients = [], onBack, initTab, initSvc, ini
   const toggleSvc = (id) => setExpandedSvc((cur) => { const n = new Set(cur); if (n.has(id)) n.delete(id); else n.add(id); return n; });
   const toggleSel = (id) => setSel((cur) => { const n = new Set(cur); if (n.has(id)) n.delete(id); else n.add(id); return n; });
   const assembleSelected = () => { const chosen = services.filter((s) => sel.has(s.id)); assembleKPFromCards(chosen); setSelMode(false); setSel(new Set()); };
-  const exportSelectedToChat = () => { const chosen = services.filter((s) => sel.has(s.id)); exportServicesToChat(chosen); setSelMode(false); setSel(new Set()); };
+  const exportSelectedToChat = async () => {
+    const chosen = services.filter((s) => sel.has(s.id));
+    if (await exportServicesToChat(chosen)) { setSelMode(false); setSel(new Set()); }
+  };
 
   const openDocument = (doc) => {
     const id = doc?.id || doc?.documentId || doc?.serverId;
@@ -2901,7 +2965,7 @@ function OrderCard({ order, company, clients = [], onBack, initTab, initSvc, ini
 
   const uploadServiceDocument = async (svc, file) => {
     try {
-      await documentsApi.upload(file, { order: order.id, service: svc.serverId || svc.id, kind: 'other', title: file.name });
+      await documentsApi.upload(file, { order: orderId, service: svc.serverId || svc.id, kind: 'other', title: file.name });
       await refreshDocuments();
       toast('Файл добавлен к услуге', 'ok');
     } catch (error) {
@@ -2970,9 +3034,6 @@ function OrderCard({ order, company, clients = [], onBack, initTab, initSvc, ini
         <div className="oc-context-head">
           <button type="button" className="oc-context-close" title="Закрыть подбор" aria-label="Закрыть подбор" onClick={() => setSvcView(null)}><Icon name="x" /></button>
           <h3 className="card-title" style={{ fontSize: 18 }}>Добавить услугу / Поиск</h3>
-          <span style={{ flex: 1 }} />
-          <ActionMenu trigger={<Button variant="secondary" size="sm" iconRight="chevDown">Недавние запросы</Button>}
-            items={[{ label: 'Нет недавних запросов' }]} />
         </div>
         <AddServicePanel kind={addKind} setKind={setAddKind} aviaParams={aviaParams} setAviaParams={setAviaParams}
           paxCount={participants.length} participants={participants} isGroup={requestType === 'Групповая'}
@@ -2982,9 +3043,6 @@ function OrderCard({ order, company, clients = [], onBack, initTab, initSvc, ini
     );
     return (
       <>
-        {(changeCaseOpen || !!getChangeCase(order.no)) && (
-          <OrderChangeCase orderNo={order.no} orderId={order.id} services={services} participants={participants} />
-        )}
         {selMode && (
           <div className="osrv-selbar">
             <Icon name="check" style={{ width: 16, height: 16 }} />
@@ -2998,7 +3056,9 @@ function OrderCard({ order, company, clients = [], onBack, initTab, initSvc, ini
         <OrderServicesBoard services={services} participants={participants} documents={orderDocs} orderNo={order.no}
           expanded={expandedSvc} onToggle={toggleSvc} onAdd={() => goAddType(addKind)}
           selMode={selMode} sel={sel} onSel={toggleSel}
-          renderExtra={isGroup ? (s) => <GroupServiceScenario s={s} pax={participants} orderNo={order.no} /> : null}
+          renderExtra={null}
+          orderId={orderId}
+          onSendServiceCard={sendServiceCardToClient}
           onCancel={askCancelService}
           onExchange={requestExchange}
           onOpenChat={onOpenChat}
@@ -3018,29 +3078,21 @@ function OrderCard({ order, company, clients = [], onBack, initTab, initSvc, ini
       case 'overview': return <TabOverview order={cardOrder} company={company} />;
       case 'clients': return <TabClients order={cardOrder} company={company} client={client} onOpenChat={onOpenChat} />;
       case 'participants': {
-        const oco = (typeof COMPANIES_DB !== 'undefined') ? COMPANIES_DB.find((c) => c.name === order.client) : null;
         return (
           <TabParticipants
             list={participants}
             isGroup={requestType === 'Групповая'}
-            groups={requestType === 'Групповая' ? AVIA_GROUPS_SEED : null}
+            groups={null}
             fresh={fresh}
-            orderNo={order.no}
-            orderAirline={(services.find((s) => s.kind === 'Авиа') || {}).supplier}
-            companyId={oco ? oco.id : null}
-            companyName={oco ? oco.name : order.client}
             onPassport={setPassport}
             onAdd={() => setPaxOpen(true)}
             onEdit={(p) => setEditPax(p)}
             onAddDoc={(p) => setDocPax(p)}
             onRemove={removeParticipantFromOrder}
-            onApplyRoster={setParticipants}
           />
         );
       }
       case 'route': return <TabRoute services={services} route={cardOrder.route} />;
-      case 'matrix': return groupModel ? <GrMatrixTab o={groupModel} /> : null;
-      case 'diff': return groupModel ? <GrDiffTab o={groupModel} /> : null;
       case 'main': case 'services': return renderServicesArea();
       case 'offers': return (
         <KPModule
@@ -3078,7 +3130,11 @@ function OrderCard({ order, company, clients = [], onBack, initTab, initSvc, ini
     { icon: 'plus', label: 'Добавить услугу', onClick: () => { setTab('main'); goAddType('Авиа'); } },
     { icon: 'zap', label: bookingDraft ? 'Продолжить бронирование' : 'Начать бронирование', onClick: () => { setTab('main'); setSvcView('booking'); } },
     { icon: 'check', label: 'Выбрать услуги для КП или чата', onClick: () => { setTab('main'); setSvcView(null); setSelMode(true); } },
-    { icon: 'refund', label: 'Изменение по рейсу', onClick: () => { setTab('main'); setSvcView(null); setChangeCaseOpen(true); } },
+    { icon: 'refund', label: 'Изменение по рейсу', onClick: () => {
+      const flight = services.find((service) => service.kind === 'Авиа');
+      setAftersalePreset({ type: 'Обмен билета', serviceId: flight ? String(flight.serverId || flight.id) : '', stamp: Date.now() });
+      setTab('aftersale');
+    } },
     { icon: 'users', label: 'Переназначить оператора', onClick: () => setReassignOpen(true) },
     { icon: 'send', label: 'Отправить клиенту', onClick: () => setSendOpen(true) },
     { sep: true },
@@ -3139,7 +3195,7 @@ function OrderCard({ order, company, clients = [], onBack, initTab, initSvc, ini
 
 
         {!fullWidthFlow && (
-          <ServicesFooterBar services={services} participants={participants} bookingDraft={bookingDraft} orderId={order.id}
+          <ServicesFooterBar services={services} bookingDraft={bookingDraft}
             onStartBooking={() => { setTab('main'); setSvcView('booking'); }} />
         )}
       </div>
@@ -3184,7 +3240,7 @@ function OrderCard({ order, company, clients = [], onBack, initTab, initSvc, ini
 
 
       {pendingAviaRoute && (
-        <FareSelectPanel pax={participants} groups={requestType === 'Групповая' ? AVIA_GROUPS_SEED : undefined}
+        <FareSelectPanel pax={participants} groups={undefined}
           classByPax={aviaClassByPax} setClassByPax={setAviaClassByPax}
           fareByPax={aviaFareByPax} setFareByPax={setAviaFareByPax}
           individualMode={aviaIndividualMode} setIndividualMode={setAviaIndividualMode}
@@ -3201,7 +3257,7 @@ function OrderCard({ order, company, clients = [], onBack, initTab, initSvc, ini
 
       <ConfirmDialog open={sendOpen} title="Отправить заказ клиенту?" confirmLabel="Отправить" confirmVariant="primary"
         onCancel={() => setSendOpen(false)}
-        onConfirm={() => { setSendOpen(false); toast('Заказ отправлен клиенту', 'ok'); }}
+        onConfirm={sendOrderToClient}
         message={
           <>
             Клиенту <b>{order.client}</b> по заказу № {order.no} будет отправлено:

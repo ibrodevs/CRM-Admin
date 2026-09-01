@@ -208,6 +208,13 @@ export const proposalsApi = {
   deleteTemplate: (id) => remove(`proposal-templates/${id}/`),
 };
 
+export const serviceCardsApi = {
+  list: (params = {}, signal) => list('service-cards/', { page_size: 100, ...params }, signal),
+  create: (body) => create('service-cards/', body),
+  send: (id, body) => create(`service-cards/${id}/send/`, body),
+  expire: (id) => create(`service-cards/${id}/expire/`, {}),
+};
+
 export const documentsApi = {
   list: workspaceApi.documents,
   create: (body) => create('documents/', body),

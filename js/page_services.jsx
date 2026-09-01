@@ -507,10 +507,12 @@ function ServiceCardSendPanel({ item, kind, participants = [], orderNo, currency
       snapshot: { title: item.title || item.main, info, badge: clientLabel },
     };
     try {
-      await Promise.resolve(onSent && onSent(channels.join(', '), draft));
-      const card = sendServiceCard(oNo, svcId, draft, operator);
-      setTimeout(() => channels.forEach((ch) => advanceDelivery(card, ch, 'delivered')), 900);
-      setTimeout(() => channels.forEach((ch) => advanceDelivery(card, ch, 'viewed')), 2100);
+      const result = await Promise.resolve(onSent && onSent(channels.join(', '), draft));
+      if (!result?.persisted) {
+        const card = sendServiceCard(oNo, svcId, draft, operator);
+        setTimeout(() => channels.forEach((ch) => advanceDelivery(card, ch, 'delivered')), 900);
+        setTimeout(() => channels.forEach((ch) => advanceDelivery(card, ch, 'viewed')), 2100);
+      }
       onClose && onClose();
     } catch (error) { toast(error.message || 'Не удалось отправить карточку услуги', 'err'); }
   };
