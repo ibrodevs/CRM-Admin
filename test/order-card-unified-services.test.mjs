@@ -29,9 +29,25 @@ test('большой заказ можно отфильтровать по па�
 
 test('все действия услуги доступны из компактной закрытой строки', () => {
   const head = card.slice(card.indexOf('className="osrv-head"'), card.indexOf('<div className="osrv-body">'));
-  for (const label of ['Открыть карточку услуги', 'Отправить клиенту', 'История услуги', 'Добавить файл', 'Обсудить в чате', 'Запросить обмен', 'Отменить услугу', 'Удалить услугу']) {
+  for (const label of ['Показать детали', 'Отправить клиенту', 'История услуги', 'Добавить файл', 'Обсудить в чате', 'Запросить обмен', 'Отменить услугу', 'Удалить услугу']) {
     assert.ok(head.includes(label), `в компактной строке нет действия «${label}»`);
   }
+});
+
+test('клик по услуге раскрывает её в заказе и не открывает старую карточку', () => {
+  assert.match(card, /className="osrv-title" onClick=\{onToggle\}/);
+  assert.match(card, /setExpandedSvc\(new Set\(\[s\.id\]\)\)/);
+  assert.doesNotMatch(card, /svcView === 'avia-card'/);
+  assert.doesNotMatch(card, /svcView === 'svc-card'/);
+  assert.doesNotMatch(card, /<FlightCard/);
+  assert.doesNotMatch(card, /<SvcCard/);
+});
+
+test('правая дублирующая колонка не рендерится, разделы собраны в одной панели', () => {
+  assert.doesNotMatch(card, /<OrderAside order=/);
+  assert.match(card, /className="oc-workspace-nav"/);
+  assert.match(card, /ORDER_WORKSPACE_NAV\.map/);
+  assert.match(css, /\.oc-workspace-nav/);
 });
 
 test('счётчик услуг из списка заказов не принимается за массив услуг', () => {
@@ -68,8 +84,8 @@ test('кейс изменения получает id заказа явным п
   assert.doesNotMatch(card, /String\(order\.id \|\| orderNo\)/);
 });
 
-test('стили ленты услуг и фактов заказа присутствуют', () => {
-  for (const rule of ['.osrv-head', '.osrv-body', '.osrv-sec', '.osrv-actions', '.osrv-add', '.oc-facts', '.oc-hint']) {
+test('стили компактной ленты услуг и навигации заказа присутствуют', () => {
+  for (const rule of ['.osrv-head', '.osrv-body', '.osrv-sec', '.osrv-actions', '.osrv-add', '.oc-workspace-nav', '.osrv-toolbar']) {
     assert.ok(css.includes(rule), `нет правила ${rule}`);
   }
 });

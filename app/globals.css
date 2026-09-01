@@ -1133,7 +1133,7 @@ table.tbl.tbl-wide thead th,table.tbl.tbl-wide tbody td{white-space:nowrap}
 .oc-svc-row .mcol{display:flex;flex-direction:column;gap:5px;min-width:92px;flex:0 0 auto}
 .oc-svc-row .mcol .l{font-size:12px;color:var(--muted)}
 .oc-svc-row .mcol .v{font-weight:700;color:var(--ink);font-size:14px}
-.oc-svc-footer{position:sticky;bottom:0;z-index:6;display:flex;align-items:center;gap:26px;flex-wrap:wrap;background:#fff;border:1px solid var(--line);border-radius:var(--r-card);box-shadow:0 -2px 14px rgba(16,23,38,.06);padding:16px 22px;margin-top:18px}
+.oc-svc-footer{position:sticky;bottom:0;z-index:6;display:flex;align-items:center;gap:14px;flex-wrap:wrap;background:#fff;border:1px solid var(--line);border-radius:12px;box-shadow:0 -2px 14px rgba(16,23,38,.06);padding:10px 12px;margin-top:12px}
 .oc-svc-footer .grp{display:flex;flex-direction:column;gap:2px}
 .oc-svc-footer .grp .l{font-size:12px;color:var(--muted)}
 .oc-svc-footer .grp .v{font-weight:700;color:var(--ink);font-size:15px}
@@ -2799,6 +2799,16 @@ table.hp-matrix{border-collapse:collapse;width:100%;min-width:640px}
 
 /* ——— Карточка заказа: шапка с фактами и единая лента услуг ——————————— */
 .oc-purpose{font-size:14px;color:var(--muted);margin-top:6px}
+.oc-meta-action{padding:0;border:0;background:none;color:var(--blue);font:inherit;font-weight:650;cursor:pointer}
+.oc-meta-action:hover{text-decoration:underline}
+.oc-workspace-nav{display:flex;align-items:center;gap:3px;margin-top:12px;padding-top:10px;border-top:1px solid var(--line);overflow-x:auto;scrollbar-width:none}
+.oc-workspace-nav::-webkit-scrollbar{display:none}
+.oc-workspace-nav button{display:inline-flex;align-items:center;gap:6px;height:34px;padding:0 10px;border:0;border-radius:8px;background:transparent;color:var(--muted);font:inherit;font-size:12.5px;font-weight:650;white-space:nowrap;cursor:pointer}
+.oc-workspace-nav button:hover{background:var(--hover);color:var(--ink)}
+.oc-workspace-nav button.active{background:var(--blue-soft);color:var(--blue-soft-text)}
+.oc-workspace-nav button svg{width:14px;height:14px}
+.oc-workspace-nav button b{display:inline-grid;place-items:center;min-width:19px;height:19px;padding:0 5px;border-radius:999px;background:var(--surface-2);color:var(--muted);font-size:10.5px}
+.oc-workspace-nav button.active b{background:#fff;color:var(--blue)}
 .oc-facts{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:12px}
 .oc-fact{display:flex;align-items:center;gap:8px;border:1px solid var(--line);border-radius:10px;padding:7px 11px;background:var(--surface-2);text-align:left;font:inherit;width:auto;min-width:150px}
 button.oc-fact{cursor:pointer;transition:.14s}

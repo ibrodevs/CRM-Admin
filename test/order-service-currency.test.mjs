@@ -13,13 +13,13 @@ test('order finance keeps the backend currency and never converts RUB totals to 
   assert.match(orderCard, /const money = \(amount\) => ocMoney\(amount, currency\)/);
   assert.doesNotMatch(orderCard, /t \/ 90/);
   assert.doesNotMatch(orderCard, /typeof f\$ === 'function'/);
-  assert.match(orderCard, /const \{ total, currency, confirmedSvc, awaitingSvc, actionSvc \} = serviceTotals\(services\)/);
+  assert.match(orderCard, /const \{ total, currency \} = serviceTotals\(services\)/);
   assert.match(orderCard, /ocMoney\(total, currency\)/);
 });
 
 test('an order service currency wins over an offer fallback in the service card', () => {
-  assert.match(orderCard, /currency: s\.currency \|\| s\.svcOffer\.currency \|\| 'RUB'/);
-  assert.match(orderCard, /const currency = s\.currency \|\| s\.svcOffer\?\.currency/);
+  assert.match(orderCard, /const cardCurrency = s\.currency \|\| s\.svcOffer\?\.currency \|\| 'RUB'/);
+  assert.match(orderCard, /currency: cardCurrency/);
   assert.match(services, /normalizeCurrency\(item\.currency \|\| \(item\.svcOffer && item\.svcOffer\.currency\) \|\| 'RUB'\)/);
   assert.match(services, /const fmt = \(n\) => ocMoney\(n, cur\)/);
 });

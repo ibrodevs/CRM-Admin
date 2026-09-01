@@ -1,12 +1,12 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Icon } from './icons';
 import { ActionMenu, Avatar, Button, Checkbox, ConfirmDialog, DateField, DateRangeField, Drawer, EmptyState, Field, Input, Pill, Radio, SearchBox, Select, Th, fmtDate, plural, useSort, useToast } from './ui';
-import { AIRLINES, AIRPORTS, AIR_SERVICES, AVIA_BOOKING_CLASSES, AVIA_GROUPS_SEED, COMPANIES_DB, CURRENT_USER, DOCS2, FIN_OPS, FIN_OP_STATUS, FLIGHT_OFFERS, GROUP_PAX, KP_STATUS, OPERATORS, ORDER_PARTICIPANTS, ORDER_SERVICES, ORDER_STATUS, ORDER_TASKS, PAX_DOC_KIND, PROPOSALS, RETURNS, SERVICE_KIND, SERVICE_STATUS } from './data';
+import { AIRLINES, AIRPORTS, AVIA_BOOKING_CLASSES, AVIA_GROUPS_SEED, COMPANIES_DB, CURRENT_USER, DOCS2, FIN_OPS, FIN_OP_STATUS, FLIGHT_OFFERS, GROUP_PAX, KP_STATUS, OPERATORS, ORDER_PARTICIPANTS, ORDER_SERVICES, ORDER_STATUS, ORDER_TASKS, PAX_DOC_KIND, PROPOSALS, RETURNS, SERVICE_KIND, SERVICE_STATUS } from './data';
 import { cardStatus, orderResponsibles } from './data/access-control';
 import { CASE_SVC_STATUS, CASE_TRIGGERS, ORDER_CHANGE_CASES, caseNow, caseProgress, createChangeCase, getChangeCase, normKind, smartAlternatives } from './data/service-cards';
 import { UnifiedDocumentDrawer, UnifiedPersonDrawer } from './forms_unified';
 import { Topbar } from './layout';
-import { AirlineLogo, AirportField, FlightCard, PAX_DEFAULT_OPTIONS, PaxClassPicker, durMin, loadLiveFlightOffers, money, paxTotal } from './page_flights';
+import { AirlineLogo, AirportField, PAX_DEFAULT_OPTIONS, PaxClassPicker, durMin, loadLiveFlightOffers, money, paxTotal } from './page_flights';
 import { ExtrasTabs, FareSelectPanel, RUB_PER_USD, fareCabinLabel, fareTiersForClass } from './page_avia_picker';
 import { BookingWizard } from './page_booking';
 import { FeeDrawer, PassengerDrawer, PassportModal } from './order_extras';
@@ -17,7 +17,7 @@ import { DocCenter, FinanceRegistry } from './page_fulfillment';
 import { CreditLimitBar, FIN_COUNTERPARTIES, FIN_PAYMENTS } from './page_finance';
 import { ReturnsModule } from './page_returns';
 import { PaxGroupsDrawer, PaxUnifyPanel, paxMergeAppend } from './pax_unify';
-import { AeroAddFlow, ManualAltForm, RailAddFlow, ServiceAddFlow, ServiceCardHistoryDrawer, ServiceCardSendPanel, SvcCard } from './page_services';
+import { AeroAddFlow, ManualAltForm, RailAddFlow, ServiceAddFlow, ServiceCardHistoryDrawer, ServiceCardSendPanel } from './page_services';
 import { HotelPicker } from './page_hotel_picker';
 import { getThreadForOrder, threadUnread } from './page_chats';
 import { GROUP_ORDERS, GroupServiceScenario, GrMatrixTab, GrDiffTab } from './page_groups';
@@ -718,15 +718,10 @@ function serviceTotals(services) {
 
 function ServicesFooterBar({ services, participants, bookingDraft, onStartBooking, orderId }) {
   const toast = useToast();
-  const { total, currency, confirmedSvc, awaitingSvc, actionSvc } = serviceTotals(services);
+  const { total, currency } = serviceTotals(services);
   return (
     <div className="oc-svc-footer">
       <div className="grp"><span className="l">Итого по заказу</span><span className="v">{ocMoney(total, currency)} <Icon name="alertCircle" style={{ width: 14, height: 14, color: 'var(--muted-2)', verticalAlign: -2 }} /></span></div>
-      <div className="grp"><span className="l">Пассажиры</span><span className="v">{participants.length} чел.</span></div>
-      <div className="grp"><span className="l">Услуг</span><span className="v blue">{services.length}</span></div>
-      <div className="grp"><span className="l">Подтверждено</span><span className="v green">{confirmedSvc}</span></div>
-      <div className="grp"><span className="l">Ожидают подтверждения</span><span className="v amber">{awaitingSvc}</span></div>
-      <div className="grp"><span className="l">Требуют действий</span><span className="v amber">{actionSvc}</span></div>
       <div style={{ flex: 1 }} />
       <Button variant="secondary" onClick={async () => {
         try { await workspaceActionsApi.execute('order.services.save', { resourceType: 'order', resourceId: String(orderId), payload: { services: services.map((s) => s.serverId || s.id), participants: participants.map((p) => p.serverId || p.id) } }); toast('Изменения сохранены', 'ok'); }
@@ -746,8 +741,8 @@ function ServicesFooterBar({ services, participants, bookingDraft, onStartBookin
 
 // ——— Единая лента услуг заказа —————————————————————————————————————
 // Карточка заказа собрана в один поток: услуга + её пассажиры + документы +
-// действия лежат в одном блоке, разделы-подробности открываются из правой
-// колонки. Тарифные/статусные данные берутся из тех же полей услуги, что и в
+// действия лежат в одном блоке, разделы-подробности открываются из компактной
+// панели заказа. Тарифные/статусные данные берутся из тех же полей услуги, что и в
 // прежних вкладках, поэтому поведение действий не меняется.
 
 function svcTint(color, alpha = 0.12) {
@@ -851,7 +846,7 @@ function serviceMatchesParticipant(service, participant, participants = []) {
 }
 
 
-function ServiceBlock({ s, participants, documents, orderNo, open, onToggle, onOpenCard, onCancel, onExchange, onOpenChat,
+function ServiceBlock({ s, participants, documents, orderNo, open, onToggle, onCancel, onExchange, onOpenChat,
   onOpenPassenger, onAddPassengerDoc, onUploadDocument, onOpenDocument, onDeleteService, selectable, selected, onSelect,
   focusedParticipant }) {
   const toast = useToast();
@@ -868,9 +863,10 @@ function ServiceBlock({ s, participants, documents, orderNo, open, onToggle, onO
   const airline = s.kind === 'Авиа' ? airlineCodeOf(s) : null;
   const total = svcCalc(s).total;
   const focusedTicket = focusedParticipant ? ticketForParticipant(docs, focusedParticipant) : null;
+  const cardCurrency = s.currency || s.svcOffer?.currency || 'RUB';
   const cardItem = s.svcOffer
-    ? { ...s.svcOffer, title: s.title, sub: s.sub, kind: s.kind, status: s.status, date: s.date, order: orderNo, calc: s.calc }
-    : { ...s, order: orderNo };
+    ? { ...s.svcOffer, title: s.title, sub: s.sub, kind: s.kind, status: s.status, date: s.date, order: orderNo, calc: s.calc, currency: cardCurrency }
+    : { ...s, order: orderNo, currency: cardCurrency };
 
   const pickFile = () => fileRef.current && fileRef.current.click();
   const takeFile = async (event) => {
@@ -898,10 +894,10 @@ function ServiceBlock({ s, participants, documents, orderNo, open, onToggle, onO
         <span style={{ flex: 1 }} />
         <span className="osrv-sum">{svcExactMoney(total, s.currency)}</span>
         <span onClick={(event) => event.stopPropagation()} className="osrv-head-actions">
-          <button type="button" className="btn btn-ghost btn-icon btn-sm" title="Открыть карточку услуги" onClick={() => onOpenCard(s)}><Icon name="eye" /></button>
+          <button type="button" className="btn btn-ghost btn-icon btn-sm" title={open ? 'Свернуть услугу' : 'Показать детали услуги'} onClick={onToggle}><Icon name={open ? 'chevUp' : 'eye'} /></button>
           <ActionMenu trigger={<button type="button" className="btn btn-ghost btn-icon btn-sm" aria-label={'Действия: ' + s.title}><Icon name="more" /></button>}
             items={[
-              { icon: 'eye', label: 'Открыть карточку услуги', onClick: () => onOpenCard(s) },
+              { icon: 'eye', label: open ? 'Свернуть детали' : 'Показать детали', onClick: onToggle },
               { icon: 'send', label: 'Отправить клиенту', onClick: () => setSendOpen(true) },
               { icon: 'clock', label: 'История услуги', onClick: () => setHistOpen(true) },
               { icon: 'docs', label: 'Добавить файл', onClick: pickFile },
@@ -916,7 +912,7 @@ function ServiceBlock({ s, participants, documents, orderNo, open, onToggle, onO
       </div>
 
       <div className="osrv-body">
-        <button type="button" className="osrv-title" onClick={() => onOpenCard(s)}>
+        <button type="button" className="osrv-title" onClick={onToggle}>
           {head.map((part, i) => (
             <React.Fragment key={part + i}>
               {i > 0 && <Icon name="arrowRight" />}
@@ -1019,7 +1015,7 @@ function ServiceBlock({ s, participants, documents, orderNo, open, onToggle, onO
               <button className="btn btn-ghost btn-icon" title="Обсудить в чате" onClick={onOpenChat}><Icon name="chat" /></button>
               <ActionMenu trigger={<button className="btn btn-ghost btn-icon"><Icon name="more" /></button>}
                 items={[
-                  { icon: 'eye', label: 'Открыть карточку услуги', onClick: () => onOpenCard(s) },
+                  { icon: 'eye', label: open ? 'Свернуть детали' : 'Показать детали', onClick: onToggle },
                   { icon: 'docs', label: 'Добавить файл', onClick: pickFile },
                   { sep: true },
                   { icon: 'trash', label: 'Удалить услугу', danger: true, onClick: () => onDeleteService(s) },
@@ -2468,6 +2464,16 @@ const ORDER_SECTIONS = {
   extras: 'Доп. услуги', aftersale: 'Постпродажа',
 };
 
+const ORDER_WORKSPACE_NAV = [
+  { key: 'main', label: 'Услуги', icon: 'briefcase' },
+  { key: 'participants', label: 'Пассажиры', icon: 'users' },
+  { key: 'route', label: 'Маршрут', icon: 'route' },
+  { key: 'documents', label: 'Документы', icon: 'docs' },
+  { key: 'finance', label: 'Финансы', icon: 'finance' },
+  { key: 'tasks', label: 'Задачи', icon: 'checkCircle' },
+  { key: 'history', label: 'История', icon: 'clock' },
+];
+
 // Услуги живут на главном экране карточки, поэтому старый ключ вкладки ведёт туда же.
 function orderSection(key) {
   if (!key || key === 'services' || key === 'main') return null;
@@ -2567,10 +2573,7 @@ function OrderCard({ order, company, clients = [], onBack, initTab, initSvc, ini
   const [operator, setOperator] = useState(order.operator);
   const [operatorOptions, setOperatorOptions] = useState([]);
   const [reassignOpen, setReassignOpen] = useState(false);
-  const [activeAvia, setActiveAvia] = useState(null);
   const [addKind, setAddKind] = useState('Авиа');
-  const [activeSvc, setActiveSvc] = useState(null);
-  const [otherSvc, setOtherSvc] = useState(null);
 
   const [orderDocs, setOrderDocs] = useState([]);
   const [expandedSvc, setExpandedSvc] = useState(() => new Set());
@@ -2585,40 +2588,6 @@ function OrderCard({ order, company, clients = [], onBack, initTab, initSvc, ini
   const [aviaFareByPax, setAviaFareByPax] = useState({});
   const [aviaIndividualMode, setAviaIndividualMode] = useState(true);
   const [aviaParams, setAviaParams] = useState({ trip: 'rt', from: 'FRU', to: 'IST', depDate: null, retDate: null, pax: { adt: 2, chd: 0, infNoSeat: 0, infSeat: 0, special: {}, subsidized: {} }, cabin: 'Эконом', baggage: false, flex: false, direct: false, airline: '', ...PAX_DEFAULT_OPTIONS });
-
-
-  const openAviaCard = (s) => {
-    const match = AIR_SERVICES.find((a) => a.no === s.avia) || {
-      no: s.avia || s.id,
-      airline: (s.offer ? s.offer.airline : 'KC'),
-      status: s.status,
-      supplier: s.supplier,
-      pax: 2,
-      sum: s.sum,
-      currency: s.currency,
-      route: s.title,
-      pnr: '—',
-      ticket: '—',
-      dep: s.date,
-    };
-    setActiveAvia({
-      ...match,
-      id: s.id || s.serverId || match.id || match.no,
-      orderId: cardOrder.id || order.id,
-      orderNo: cardOrder.no || order.no,
-      offer: s.offer || match.offer,
-    });
-    setSvcView('avia-card');
-  };
-  const openOtherCard = (s) => {
-    const currency = s.currency || s.svcOffer?.currency
-      || cardOrder.base_currency || cardOrder.currency || order.base_currency || order.currency || 'RUB';
-    setActiveSvc(s.svcOffer
-      ? { ...s.svcOffer, kind: s.kind, status: s.status, date: s.svcOffer.date || s.date, calc: s.calc, currency, order: order.no }
-      : { ...s, currency, order: order.no });
-    setSvcView('svc-card');
-  };
-  const openServiceCard = (s) => (s.kind === 'Авиа' ? openAviaCard(s) : openOtherCard(s));
 
 
   const [passport, setPassport] = useState(null);
@@ -2797,7 +2766,8 @@ function OrderCard({ order, company, clients = [], onBack, initTab, initSvc, ini
     const s = services.find((x) => x.id === initSvc);
     if (!s) return;
     setTab('main');
-    openServiceCard(s);
+    setSvcView(null);
+    setExpandedSvc(new Set([s.id]));
   }, [initSvc, loading, order.no]);
 
   useEffect(() => { if (fresh) toast('Заказ создан. Добавьте участников и их документы во вкладке «Участники».', 'info'); }, []);
@@ -3002,18 +2972,6 @@ function OrderCard({ order, company, clients = [], onBack, initTab, initSvc, ini
           toast(error.message || 'Не удалось обновить заказ', 'err');
         }
       }} />;
-    if (svcView === 'avia-card') return (
-      <FlightCard
-        svc={activeAvia}
-        offer={activeAvia ? activeAvia.offer : null}
-        hideBackRow
-        orders={[cardOrder || order]}
-        companies={company ? [company] : []}
-        clients={clients}
-        onBack={() => { setSvcView(null); refreshOrderSnapshot(); }}
-      />
-    );
-    if (svcView === 'svc-card') return <SvcCard item={activeSvc} kind={activeSvc.kind} participants={participants} hideBackRow onBack={() => setSvcView(null)} />;
     if (svcView === 'add-service') return (
       <div className="fade-in">
         <div className="oc-context-head">
@@ -3048,7 +3006,6 @@ function OrderCard({ order, company, clients = [], onBack, initTab, initSvc, ini
           expanded={expandedSvc} onToggle={toggleSvc} onAdd={() => goAddType(addKind)}
           selMode={selMode} sel={sel} onSel={toggleSel}
           renderExtra={isGroup ? (s) => <GroupServiceScenario s={s} pax={participants} orderNo={order.no} /> : null}
-          onOpenCard={openServiceCard}
           onCancel={askCancelService}
           onExchange={requestExchange}
           onOpenChat={onOpenChat}
@@ -3136,6 +3093,13 @@ function OrderCard({ order, company, clients = [], onBack, initTab, initSvc, ini
       icon: t.icon, label: t.label + (t.count ? ` (${t.count})` : ''), onClick: () => openSection(t.key),
     })),
   ];
+  const workspaceCounts = {
+    main: services.length,
+    participants: participants.length,
+    documents: orderDocs.length,
+    tasks: tasks.filter((task) => !task.done).length,
+    history: history.length,
+  };
   return (
     <div className="fade-in">
       <Topbar title="Карточка заказа">
@@ -3154,7 +3118,7 @@ function OrderCard({ order, company, clients = [], onBack, initTab, initSvc, ini
                   <StatusControl status={status} onChange={changeOrderStatus} />
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap', fontSize: 13, color: 'var(--muted)' }}>
-                  <span>Создан {order.date} · <b style={{ color: 'var(--ink)', fontWeight: 600 }}>{(participants.find((p) => p.lead) || participants[0] || {}).name || order.client}</b> · {requestType === 'Групповая' ? 'Групповая поездка' : requestType} · {aviaParams.cabin}</span>
+                  <span>Создан {order.date} · <b style={{ color: 'var(--ink)', fontWeight: 600 }}>{(participants.find((p) => p.lead) || participants[0] || {}).name || order.client}</b> · {requestType === 'Групповая' ? 'Групповая поездка' : requestType} · {aviaParams.cabin} · оператор <button type="button" className="oc-meta-action" onClick={() => setReassignOpen(true)}>{operator || order.operator || 'не назначен'}</button></span>
                 </div>
                 <div style={{ flex: 1 }} />
                 <Button variant="secondary" size="sm" icon="chat" onClick={onOpenChat}>
@@ -3165,16 +3129,14 @@ function OrderCard({ order, company, clients = [], onBack, initTab, initSvc, ini
 
               {orderPurpose && <div className="oc-purpose">{orderPurpose}</div>}
 
-              <div className="oc-facts">
-                <div className="oc-fact">
-                  <div className="body"><div className="v">{order.date || '—'}</div><div className="l">Дата создания</div></div>
-                </div>
-                <button type="button" className="oc-fact" onClick={() => setReassignOpen(true)}>
-                  <div className="body"><div className="v">{operator || order.operator || 'Не назначен'}</div><div className="l">Оператор</div></div>
-                </button>
-                <button type="button" className="oc-fact" onClick={() => setEditOpen(true)}>
-                  <div className="body"><div className="v">{requestType || '—'}</div><div className="l">Тип заявки</div></div>
-                </button>
+              <div className="oc-workspace-nav" aria-label="Разделы заказа">
+                {ORDER_WORKSPACE_NAV.map((item) => (
+                  <button type="button" key={item.key} className={tab === item.key ? 'active' : ''}
+                    onClick={() => item.key === 'main' ? openSection('main') : openSection(item.key)}>
+                    <Icon name={item.icon} /><span>{item.label}</span>
+                    {workspaceCounts[item.key] != null && <b>{workspaceCounts[item.key]}</b>}
+                  </button>
+                ))}
               </div>
             </div>
 
@@ -3188,13 +3150,6 @@ function OrderCard({ order, company, clients = [], onBack, initTab, initSvc, ini
               </div>
             )}
           </div>
-          {!fullWidthFlow && (
-            <OrderAside order={order} status={status} onStatusChange={changeOrderStatus}
-              services={services} participants={participants} tasks={tasks} history={history} documents={orderDocs}
-              requestType={requestType} aviaParams={aviaParams}
-              onOpenTab={openSection} onOpenServices={() => { setTab('main'); setSvcView(null); }}
-              onOpenTasks={() => openSection('tasks')} />
-          )}
         </div>
 
 
@@ -3272,21 +3227,6 @@ function OrderCard({ order, company, clients = [], onBack, initTab, initSvc, ini
           </>
         } />
 
-
-      <Drawer open={!!otherSvc} onClose={() => setOtherSvc(null)} title={otherSvc ? otherSvc.title : ''}
-        footer={otherSvc && <div style={{ display: 'flex', gap: 10 }}><Button variant="secondary" style={{ flex: 1 }} onClick={() => setOtherSvc(null)}>Закрыть</Button><Button style={{ flex: 1 }} icon="edit">Редактировать</Button></div>}>
-        {otherSvc && (
-          <div className="kv">
-            <div className="kv-row"><span className="k">Тип услуги</span><span className="v">{otherSvc.kind}</span></div>
-            <div className="kv-row"><span className="k">Описание</span><span className="v">{otherSvc.sub}</span></div>
-            <div className="kv-row"><span className="k">Поставщик</span><span className="v">{otherSvc.supplier}</span></div>
-            <div className="kv-row"><span className="k">Даты</span><span className="v">{otherSvc.date}</span></div>
-            <div className="kv-row"><span className="k">Статус</span><span className="v"><Pill tone={SERVICE_STATUS[otherSvc.status]}>{otherSvc.status}</Pill></span></div>
-            <div className="kv-row"><span className="k">Стоимость</span><span className="v">{ocMoney(otherSvc.sum, otherSvc.currency)}</span></div>
-            {!!otherSvc.calc && <div className="kv-row"><span className="k">Расчёт</span><span className="v">{ocMoney(otherSvc.calc.tariff || 0, otherSvc.currency)} + {ocMoney(otherSvc.calc.fee || 0, otherSvc.currency)} сервис</span></div>}
-          </div>
-        )}
-      </Drawer>
     </div>
   );
 }
