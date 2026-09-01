@@ -67,8 +67,8 @@ test('блок услуги показывает пассажиров, доку�
 });
 
 test('документы услуги грузятся с backend и привязываются к услуге', () => {
-  assert.match(card, /documentsApi\.list\(\{ order: order\.id \}, signal\)/);
-  assert.match(card, /documentsApi\.upload\(file, \{ order: order\.id, service: svc\.serverId \|\| svc\.id/);
+  assert.match(card, /documentsApi\.list\(\{ order: (?:orderId|order\.id) \}, signal\)/);
+  assert.match(card, /documentsApi\.upload\(file, \{ order: (?:orderId|order\.id), service: svc\.serverId \|\| svc\.id/);
   assert.match(card, /String\(d\.service\) === id/);
 });
 

@@ -414,16 +414,18 @@ function KPModule({ order, services, participants, onApprove }) {
   const docRef = useRef(null);
 
   useEffect(() => {
+    const orderId = order?.id || order?.serverId || order?.orderId;
+    if (!orderId) return;
     const controller = new AbortController();
     Promise.all([
-      proposalsApi.list({ order: order.id }, controller.signal),
+      proposalsApi.list({ order: orderId }, controller.signal),
       proposalsApi.templates(controller.signal),
     ]).then(([proposalPayload, templatePayload]) => {
       setProposals(resultsOf(proposalPayload).map((item) => toLegacyProposal(item, [order])));
       setTemplates(resultsOf(templatePayload).map(proposalTemplateToUi));
     }).catch((error) => { if (error.name !== 'AbortError') toast(error.message || 'Не удалось загрузить КП', 'err'); });
     return () => controller.abort();
-  }, [order.id]);
+  }, [order?.id, order?.serverId, order?.orderId]);
 
   const active = proposals.find((p) => p.id === activeId);
   const uid = (pre) => pre + Math.random().toString(36).slice(2, 7);

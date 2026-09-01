@@ -138,7 +138,7 @@ function StatusControl({ status, onChange }) {
 }
 
 
-function OrderAside({ order, status, onStatusChange, services, participants, tasks = ORDER_TASKS, history = [], documents = [],
+function OrderAside({ order, status, onStatusChange, services, participants, tasks = [], history = [], documents = [],
   requestType, aviaParams, onOpenTab, onOpenServices, onOpenTasks }) {
   const openTasks = tasks.filter((t) => !t.done);
   const fin = financeSnapshot(order.no, services);
@@ -266,7 +266,7 @@ function OrderAside({ order, status, onStatusChange, services, participants, tas
 }
 
 
-function ReassignOperatorDrawer({ open, current, options = OPERATORS, onClose, onPick }) {
+function ReassignOperatorDrawer({ open, current, options = [], onClose, onPick }) {
   return (
     <Drawer open={open} onClose={onClose} title="Ответственный оператор"
       footer={<Button variant="secondary" style={{ width: '100%' }} onClick={onClose}>Закрыть</Button>}>
@@ -1443,8 +1443,8 @@ function RadioFlightRow({ opt, selected, onSelect }) {
 
 
 
-function aviaPriceBounds(offers = FLIGHT_OFFERS) { const t = offers.map((o) => o.fare + o.fee); return t.length ? { min: Math.floor(Math.min(...t)), max: Math.ceil(Math.max(...t)) } : { min: 0, max: 0 }; }
-function AviaFilters({ flt, setFlt, bounds, offers = FLIGHT_OFFERS }) {
+function aviaPriceBounds(offers = []) { const t = (offers || []).map((o) => o.fare + o.fee); return t.length ? { min: Math.floor(Math.min(...t)), max: Math.ceil(Math.max(...t)) } : { min: 0, max: 0 }; }
+function AviaFilters({ flt, setFlt, bounds, offers = [] }) {
   const airlines = [...new Set(offers.map((o) => o.airline))];
   const suppliers = [...new Set(offers.map((o) => o.supplier))];
   const tg = (key, val) => setFlt((f) => ({ ...f, [key]: f[key].includes(val) ? f[key].filter((x) => x !== val) : [...f[key], val] }));
@@ -2194,9 +2194,7 @@ function AddServicePanel({ kind, setKind, aviaParams, setAviaParams, paxCount, p
   );
 }
 
-function TabOffers({ onCreate }) {
-  const toast = useToast();
-  const list = ORDER_KP;
+function TabOffers({ list = [], onCreate }) {
   if (!list.length) {
     return <EmptyState icon="template" title="Коммерческих предложений нет"
       sub="Соберите варианты из услуг заказа и отправьте клиенту" />;
@@ -2204,7 +2202,7 @@ function TabOffers({ onCreate }) {
   return (
     <div className="fade-in">
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-        <span style={{ color: 'var(--muted)', fontSize: 14 }}>{list.length} варианта</span>
+        <span style={{ color: 'var(--muted)', fontSize: 14 }}>{list.length} {plural(list.length, ['вариант', 'варианта', 'вариантов'])}</span>
         <Button icon="plus" onClick={onCreate}>Создать КП</Button>
       </div>
       <div className="grid-2" style={{ alignItems: 'start' }}>
@@ -2212,19 +2210,13 @@ function TabOffers({ onCreate }) {
           <div className="card card-pad" key={kp.id}>
             <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 10 }}>
               <div>
-                <div style={{ fontWeight: 700, color: 'var(--ink)', fontSize: 16 }}>{kp.title}</div>
-                <div style={{ color: 'var(--muted)', fontSize: 13, marginTop: 2 }}>{kp.id} · {kp.services} услуги</div>
+                <div style={{ fontWeight: 700, color: 'var(--ink)', fontSize: 16 }}>{kp.title || 'Коммерческое предложение'}</div>
+                <div style={{ color: 'var(--muted)', fontSize: 13, marginTop: 2 }}>{kp.id} · {kp.services || kp.itemsCount || 0} {plural(kp.services || kp.itemsCount || 0, ['услуга', 'услуги', 'услуг'])}</div>
               </div>
-              <Pill tone={KP_STATUS[kp.status]}>{kp.status}</Pill>
+              {kp.status && <Pill tone={KP_STATUS[kp.status] || 'gray'}>{kp.status}</Pill>}
             </div>
-            <div className="kv-row" style={{ borderBottom: 'none' }}><span className="k">Сумма</span><span className="v" style={{ fontSize: 18 }}>{ocMoney(kp.total)}</span></div>
-            <div style={{ color: 'var(--muted)', fontSize: 13, marginBottom: 14 }}>Отправлено: {kp.sent}</div>
-            <div style={{ display: 'flex', gap: 10 }}>
-              <Button variant="secondary" size="sm" icon="eye" onClick={() => window.__toastNav && window.__toastNav('offers')}>Просмотр</Button>
-              <Button variant="secondary" size="sm" icon="send" onClick={() => window.__toastNav && window.__toastNav('offers')}>Отправить</Button>
-              <ActionMenu trigger={<button className="btn btn-ghost btn-icon btn-sm"><Icon name="more" /></button>}
-                items={[{ icon: 'copy', label: 'Дублировать' }, { icon: 'download', label: 'Скачать PDF' }, { sep: true }, { icon: 'trash', label: 'Удалить', danger: true }]} />
-            </div>
+            <div className="kv-row" style={{ borderBottom: 'none' }}><span className="k">Сумма</span><span className="v" style={{ fontSize: 18 }}>{ocMoney(kp.total, kp.currency)}</span></div>
+            {kp.sent && <div style={{ color: 'var(--muted)', fontSize: 13, marginBottom: 14 }}>Отправлено: {kp.sent}</div>}
           </div>
         ))}
       </div>
@@ -2263,7 +2255,7 @@ function OrderFinanceBlock({ orderNo, order, services, summary }) {
           </div>
         ))}
       </div>
-      {!summary && <div style={{ fontSize: 12.5, color: 'var(--muted)' }}>Платежи и финансовые условия ещё не получены от backend. Ниже отображается реестр реальных операций.</div>}
+      {!summary && <div style={{ fontSize: 12.5, color: 'var(--muted)' }}>Платежи и финансовые условия формируются на основе услуг заказа.</div>}
     </div>
   );
 }
@@ -2278,60 +2270,50 @@ function orderStageIndexForStatus(value) {
   return 1;
 }
 
-function TabFinance({ services, onAddFee }) {
+function TabFinance({ services = [], summary, onAddFee }) {
   const toast = useToast();
-  const total = services.reduce((s, x) => s + x.sum, 0);
-  const fees = [
-    { service: 'Авиа', type: 'Процент', value: '5%', tax: '80 $', comment: 'Сервисный сбор' },
-    { service: 'Отель', type: 'Фиксированная', value: '25 $', tax: '0 $', comment: 'Сбор бронирования' },
-  ];
+  const total = services.reduce((s, x) => s + (x.sum || 0), 0);
+  const paid = summary?.paid ? Number(summary.paid) : 0;
+  const debt = Math.max(0, total - paid);
   return (
     <div className="fade-in">
       <div className="grid-4" style={{ marginBottom: 22 }}>
-        {[['Стоимость услуг', ocMoney(total), ''], ['Сборы агентства', '105 $', ''], ['Оплачено', ocMoney(1660), 'green'], ['Задолженность', ocMoney(Math.max(0, total - 1660)), 'red']].map(([l, v, tone]) => (
+        {[['Стоимость услуг', ocMoney(total), ''], ['Оплачено', ocMoney(paid), 'green'], ['Задолженность', ocMoney(debt), debt > 0 ? 'red' : 'green']].map(([l, v, tone]) => (
           <div className="stat-card" key={l}><div className="s-label">{l}</div><div className="s-value" style={tone === 'red' ? { color: 'var(--red)' } : tone === 'green' ? { color: 'var(--green)' } : null}>{v}</div></div>
         ))}
       </div>
 
-
-      <div className="card card-pad" style={{ marginBottom: 18, display: 'flex', alignItems: 'center', gap: 14 }}>
-        <Icon name="alertCircle" style={{ width: 22, height: 22, color: 'var(--amber)' }} />
-        <div style={{ flex: 1 }}>
-          <div style={{ fontWeight: 600, color: 'var(--ink)' }}>Синхронизация с 1С приостановлена</div>
-          <div style={{ color: 'var(--muted)', fontSize: 13 }}>Последняя успешная: 14.06 · 12:30</div>
-        </div>
-        <Button variant="secondary" size="sm" icon="loader" onClick={async () => {
-          try { await workspaceActionsApi.execute('integration.accounting.retry', { resourceType: 'finance', payload: { services: services.map((service) => service.serverId || service.id) } }); toast('Повторная синхронизация поставлена в очередь', 'ok'); }
-          catch (error) { toast(error.message, 'err'); }
-        }}>Повторить</Button>
-      </div>
-
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', margin: '0 0 14px' }}>
-        <h3 className="section-title" style={{ fontSize: 20 }}>Сборы и налоги</h3>
-        <Button icon="plus" onClick={onAddFee}>Добавить сбор</Button>
+        <h3 className="section-title" style={{ fontSize: 20 }}>Услуги и расчёты</h3>
+        {onAddFee && <Button icon="plus" onClick={onAddFee}>Добавить сбор</Button>}
       </div>
-      <div className="table-card">
-        <table className="tbl">
-          <thead><tr><th>Услуга</th><th>Тип сбора</th><th>Значение</th><th>Налог</th><th>Комментарий</th><th></th></tr></thead>
-          <tbody>{fees.map((r, i) => (
-            <tr key={i}><td className="t-strong">{r.service}</td><td>{r.type}</td><td>{r.value}</td><td>{r.tax}</td><td className="t-muted">{r.comment}</td>
-              <td><div className="row-actions"><button className="icon-btn green"><Icon name="edit" /></button><button className="icon-btn"><Icon name="trash" /></button></div></td></tr>
-          ))}</tbody>
-        </table>
-      </div>
+      {services.length === 0 ? (
+        <EmptyState icon="finance" title="Финансовые записи отсутствуют" sub="Добавьте услуги в заказ для расчёта стоимости" />
+      ) : (
+        <div className="table-card">
+          <table className="tbl">
+            <thead><tr><th>Услуга</th><th>Вид</th><th>Тариф</th><th>Сбор</th><th>Итого</th></tr></thead>
+            <tbody>{services.map((s) => {
+              const c = svcCalc(s);
+              return (
+                <tr key={s.id || s.serverId}>
+                  <td className="t-strong">{s.title}</td>
+                  <td><Pill tone={SERVICE_STATUS[s.status] || 'gray'}>{s.kind}</Pill></td>
+                  <td>{ocMoney(c.tariff, s.currency)}</td>
+                  <td>{ocMoney(c.fee, s.currency)}</td>
+                  <td className="t-strong">{ocMoney(c.total, s.currency)}</td>
+                </tr>
+              );
+            })}</tbody>
+          </table>
+        </div>
+      )}
     </div>
   );
 }
 
-function TabHistory({ liveItems }) {
-  const hasLive = Array.isArray(liveItems) && liveItems.length > 0;
-  const items = hasLive ? liveItems : (liveItems === undefined ? [
-    { t: '14.06.2026 · 15:34', text: 'КП-1042 отправлено клиенту', who: 'Даниель' },
-    { t: '14.06.2026 · 15:12', text: 'Авиабилет выписан · PNR KC8H2L', who: 'Даниель' },
-    { t: '14.06.2026 · 14:40', text: 'Добавлена услуга: Hilton Istanbul', who: 'Даниель' },
-    { t: '14.06.2026 · 14:05', text: 'Назначен оператор (Даниель)', who: 'Система' },
-    { t: '14.06.2026 · 14:00', text: 'Заказ создан', who: 'Система' },
-  ] : []);
+function TabHistory({ liveItems = [] }) {
+  const items = Array.isArray(liveItems) ? liveItems : [];
 
   if (!items.length) {
     return (

@@ -21,7 +21,7 @@ function ensureResponsibles(order) {
   if (ORDER_SVC_RESPONSIBLES[order.no]) return ORDER_SVC_RESPONSIBLES[order.no];
   const kindMap = { 'Отель': 'Гостиницы', 'Трансфер': 'Трансферы', 'Виза': 'Визы' };
   const k = kindMap[order.service] || (SVC_ACCESS_KINDS.includes(order.service) ? order.service : 'Авиа');
-  ORDER_SVC_RESPONSIBLES[order.no] = [{ kind: k, service: order.service + ' по заказу', operator: order.operator || OPERATORS[0] }];
+  ORDER_SVC_RESPONSIBLES[order.no] = [{ kind: k, service: (order.service || 'Услуга') + ' по заказу', operator: order.operator || 'Не назначен' }];
   return ORDER_SVC_RESPONSIBLES[order.no];
 }
 

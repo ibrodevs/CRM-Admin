@@ -61,9 +61,9 @@ function NewReturnModal({ open, order, services, participants = [], preset, onCl
 
   const roster = (participants && participants.length
     ? participants
-    : (order && order.participants && order.participants.length ? order.participants : ORDER_PARTICIPANTS)
+    : (order && order.participants && order.participants.length ? order.participants : [])
   ).map((p) => (typeof p === 'string' ? { name: p, role: '' } : { ...p, id: p.serverId || p.id, name: p.name || p.person_name || p.guest_snapshot?.name || 'Участник' }));
-  const availableServices = services && services.length ? services : ORDER_SERVICES;
+  const availableServices = Array.isArray(services) ? services : [];
   const serviceOptions = availableServices.map((s) => {
     const id = s.serverId || s.id;
     return { value: String(id), label: `${s.kind} · ${s.title}` };
@@ -460,14 +460,15 @@ function ReturnsModule({ scopeOrder, onOpenOrder, compact, order, initialCases, 
   const toast = useToast();
   const effectiveOrder = order && participants.length ? { ...order, participants } : order;
   const contextOrders = effectiveOrder ? [effectiveOrder, ...orders.filter((item) => item.id !== effectiveOrder.id)] : orders;
-  const availableServices = services && services.length ? services : ORDER_SERVICES;
+  const availableServices = Array.isArray(services) ? services : [];
   const mappedCases = () => (initialCases || []).map((item) => toLegacyReturn(item, contextOrders, availableServices)).filter((item) => !scopeOrder || item.order === scopeOrder);
   const [ops, setOps] = useState(mappedCases);
   useEffect(() => { if (Array.isArray(initialCases)) setOps(mappedCases()); }, [initialCases, orders, scopeOrder, order, services, participants]);
   useEffect(() => {
-    if (Array.isArray(initialCases) || !order?.id) return;
+    const orderId = order?.id || order?.serverId || order?.orderId;
+    if (Array.isArray(initialCases) || !orderId) return;
     const controller = new AbortController();
-    aftersalesApi.list({ order: order.id }, controller.signal)
+    aftersalesApi.list({ order: orderId }, controller.signal)
       .then((payload) => setOps(resultsOf(payload).map((item) => toLegacyReturn(item, contextOrders, availableServices))))
       .catch((error) => { if (error.name !== 'AbortError') toast(error.message || 'Не удалось загрузить постпродажные операции', 'err'); });
     return () => controller.abort();
