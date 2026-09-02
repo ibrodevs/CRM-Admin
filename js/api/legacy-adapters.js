@@ -5,6 +5,7 @@ const documentKind = { itinerary_receipt: 'Маршрут-квитанция', t
 const documentStatus = { draft: 'Черновик', uploaded: 'Сформирован', generated: 'Сформирован', accounting: 'В бухгалтерии', signing: 'На подписи', signed: 'Подписан', void: 'Аннулирован' };
 const serviceKind = { avia: 'Авиа', rail: 'ЖД', hotel: 'Гостиница', transfer: 'Трансфер', bus: 'Автобус', tour: 'Тур', insurance: 'Страховка', visa: 'Виза', other: 'Прочее' };
 const serviceStatus = { searching: 'Поиск', proposed: 'Предложено', approval: 'На согласовании', booked: 'Забронировано', confirmed: 'Подтверждено', issued: 'Выписано', refund_in_progress: 'Возврат', refunded: 'Возвращено', cancelled: 'Отменено', failed: 'Ошибка' };
+const personDocumentKind = { foreign_passport: 'Загранпаспорт', national_passport: 'Общегражданский паспорт', id_card: 'ID-карта', birth_certificate: 'Свидетельство о рождении', visa: 'Виза', other: 'Документ' };
 
 function orderFor(orders, id) { return orders.find((order) => order.id === id); }
 function asDate(value) {
@@ -20,11 +21,39 @@ function dateTime(value) {
   const parsed = asDate(value);
   return parsed ? parsed.toLocaleString('ru-RU') : '—';
 }
+function dateOrEmpty(value) {
+  const parsed = asDate(value);
+  return parsed ? parsed.toLocaleDateString('ru-RU') : '';
+}
 function idOf(item) { return item && (item.serverId || item.id || item); }
 function nameOfParticipant(participant) {
   if (!participant) return '';
   if (typeof participant === 'string') return participant;
   return participant.name || participant.person_name || participant.guest_snapshot?.name || participant.guest_snapshot?.full_name || '';
+}
+
+function exchangeViewFromQuote(item, service, quote) {
+  const oldItinerary = quote?.old_itinerary || {};
+  const newItinerary = quote?.new_itinerary || {};
+  const oldRoute = oldItinerary.route || oldItinerary.service || service?.title || 'Исходная услуга';
+  const newRoute = newItinerary.route || [newItinerary.from, newItinerary.to].filter(Boolean).join(' → ') || oldRoute;
+  const original = Number(quote?.original_paid || item?.financial_snapshot?.original_paid || service?.sum || 0);
+  const diff = Number(quote?.exchange_difference || 0);
+  return {
+    oldP: {
+      route: oldRoute,
+      date: oldItinerary.date || service?.date || '—',
+      fare: oldItinerary.fare || service?.sub || '—',
+      price: original,
+    },
+    newP: {
+      route: newRoute,
+      date: newItinerary.date || newItinerary.local_datetime || '—',
+      fare: newItinerary.fare || '—',
+      price: Math.max(0, original + diff),
+    },
+    diff,
+  };
 }
 
 function receiptDraftFromMetadata(item) {
@@ -153,6 +182,7 @@ export function toLegacyReturn(item, orders = [], services = []) {
       extraHold: Number(finSource.other_withholdings || 0),
       refund: Number(finSource.refund_total || snapshot.result || 0),
     },
+    exchange: item.exchange || exchangeViewFromQuote(item, service, quote),
     finOp: snapshot.refund_id || snapshot.obligation_id || null,
   };
 }
@@ -221,21 +251,37 @@ export function toLegacyOrderService(item) {
 
 export function toLegacyParticipant(item) {
   const snapshot = item.guest_snapshot || {};
-  const documents = snapshot.documents || item.documents || [];
-  const primaryDoc = documents[0] || {};
-  const docNo = item.booking_document || primaryDoc.docNo || primaryDoc.no || primaryDoc.number || snapshot.document || '';
+  const rawDocuments = item.documents || snapshot.documents || [];
+  const documents = rawDocuments.map((doc) => ({
+    ...doc,
+    docType: doc.docType || personDocumentKind[doc.type] || doc.type || 'Документ',
+    docNo: doc.docNo || doc.number || doc.no || '',
+    docExpiry: doc.docExpiry || dateOrEmpty(doc.expires_at),
+    citizenship: doc.citizenship || doc.nationality || doc.issuing_country || '',
+  }));
+  const bookingDoc = item.booking_document_detail ? {
+    ...item.booking_document_detail,
+    docType: item.booking_document_detail.docType || personDocumentKind[item.booking_document_detail.type] || 'Документ',
+    docNo: item.booking_document_detail.docNo || item.booking_document_detail.number || '',
+    docExpiry: item.booking_document_detail.docExpiry || dateOrEmpty(item.booking_document_detail.expires_at),
+  } : null;
+  const primaryDoc = bookingDoc || documents[0] || {};
+  const docNo = primaryDoc.docNo || primaryDoc.no || primaryDoc.number || snapshot.document || '';
   return {
     ...item,
     serverId: item.id,
     id: item.id,
     name: item.person_name || snapshot.name || snapshot.full_name || 'Участник',
     role: snapshot.role || (item.role === 'traveler' || item.role === 'passenger' ? 'Взрослый' : item.role),
-    phone: snapshot.phone || item.phone || '',
-    email: snapshot.email || item.email || '',
-    dob: snapshot.dob || snapshot.birth_date || item.dob || '',
-    citizenship: snapshot.citizenship || item.citizenship || '',
-    documents,
+    phone: snapshot.phone || item.person_phone || item.phone || '',
+    email: snapshot.email || item.person_email || item.email || '',
+    dob: snapshot.dob || snapshot.birth_date || item.person_birth_date || item.dob || '',
+    citizenship: snapshot.citizenship || item.person_citizenship || item.citizenship || '',
+    documents: bookingDoc && !documents.some((doc) => String(doc.id) === String(bookingDoc.id)) ? [bookingDoc, ...documents] : documents,
     doc: docNo || '—',
+    docType: primaryDoc.docType || snapshot.docType || '',
+    docNo,
+    docExpiry: primaryDoc.docExpiry || snapshot.docExpiry || '',
     docStatus: docNo ? 'ok' : 'missing',
     notes: item.notes || snapshot.comment || '',
     isContact: Boolean(item.is_contact),

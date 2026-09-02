@@ -11,7 +11,10 @@ import { AirportField } from './page_flights';
 
 
 
-function rUsd(n, c = 'USD') { return Math.round(n).toLocaleString('ru-RU') + ' ' + (c === 'USD' ? '$' : c); }
+function rUsd(n, c = 'USD') {
+  const symbol = { USD: '$', RUB: '₽', KGS: 'с', EUR: '€' }[String(c || 'USD').toUpperCase()] || c;
+  return Math.round(n).toLocaleString('ru-RU') + ' ' + symbol;
+}
 function calcRefund(fin) { return Math.max(0, fin.original - fin.supplierPenalty - fin.serviceFee - fin.extraHold); }
 const isTerminal = (s) => s === 'Отменено' || s === 'Отклонено';
 const nextStatus = (s) => { const i = RETURN_FLOW.indexOf(s); return i >= 0 && i < RETURN_FLOW.length - 1 ? RETURN_FLOW[i + 1] : s; };
@@ -69,6 +72,7 @@ function NewReturnModal({ open, order, services, participants = [], preset, onCl
     return { value: String(id), label: `${s.kind} · ${s.title}` };
   });
   const base = availableServices.find((s) => String(s.serverId || s.id) === String(svc));
+  const currency = preset?.currency || base?.currency || order?.currency || order?.base_currency || 'RUB';
   const original = base ? base.sum : 0;
   const isRefund = type === 'Возврат билета';
   const isExchange = type === 'Обмен билета';
@@ -78,7 +82,9 @@ function NewReturnModal({ open, order, services, participants = [], preset, onCl
   const perUnit = original / Math.max(1, roster.length);
   const scoped = needsPax && pax.length ? Math.round(perUnit * pax.length) : original;
   const penalty = isAnnul ? scoped : (voluntary ? Math.round(scoped * 0.2) : 0);
-  const fee = type === 'Оформление справки' ? 10 : (voluntary || isAnnul ? 14 : 0);
+  const fixedFee = String(currency).toUpperCase() === 'RUB' ? 1200 : 14;
+  const certificateFee = String(currency).toUpperCase() === 'RUB' ? 900 : 10;
+  const fee = type === 'Оформление справки' ? certificateFee : (voluntary || isAnnul ? fixedFee : 0);
   const refund = Math.max(0, scoped - penalty - fee);
   const togglePax = (i) => setPax((s) => s.includes(i) ? s.filter((x) => x !== i) : [...s, i]);
   const addDoc = () => setDocs((d) => [...d, { name: 'Документ ' + (d.length + 1) + '.pdf' }]);
@@ -92,7 +98,7 @@ function NewReturnModal({ open, order, services, participants = [], preset, onCl
     return true;
   };
   const submit = () => {
-    onCreate({ type, serviceId: svc, serviceLabel: serviceOptions.find((item) => item.value === svc)?.label || svc, reason, original, penalty, fee, refund, voluntary,
+    onCreate({ type, serviceId: svc, serviceLabel: serviceOptions.find((item) => item.value === svc)?.label || svc, reason, original, penalty, fee, refund, voluntary, currency,
       participantIds: pax.map((i) => roster[i].id).filter(Boolean), participants: pax.map((i) => roster[i].name), docs: docs.map((d) => d.name),
       newFlight: isExchange ? nf : null, reqMode: isExchange ? reqMode : null });
   };
@@ -101,7 +107,7 @@ function NewReturnModal({ open, order, services, participants = [], preset, onCl
     ? 'Бронирование по услуге «' + svc + '» будет аннулировано. Действие необратимо.'
     : isExchange
       ? (reqMode === 'request' ? 'Будет отправлен запрос на обмен авиакомпании' : 'Обмен будет проведён') + ' для ' + pax.length + ' пасс. Новый рейс: ' + (nf.from || '—') + ' → ' + (nf.to || '—') + '.'
-      : 'Будет создан ' + (voluntary ? 'добровольный' : 'вынужденный') + ' возврат для ' + pax.length + ' пасс. на сумму ' + rUsd(refund) + '.';
+      : 'Будет создан ' + (voluntary ? 'добровольный' : 'вынужденный') + ' возврат для ' + pax.length + ' пасс. на сумму ' + rUsd(refund, currency) + '.';
 
   return (
     <>
@@ -204,10 +210,10 @@ function NewReturnModal({ open, order, services, participants = [], preset, onCl
 
         {svc && type !== 'Оформление справки' && (
           <div className="card card-pad" style={{ margin: '16px 0 4px', background: 'var(--surface-2)' }}>
-            <div className="amt-row"><span className="k">{needsPax && pax.length ? 'Стоимость выбранных (' + pax.length + ')' : 'Первоначальная стоимость'}</span><span className="v">{rUsd(scoped)}</span></div>
-            <div className="amt-row minus"><span className="k">Предв. штраф поставщика</span><span className="v">− {rUsd(penalty)}</span></div>
-            <div className="amt-row minus"><span className="k">Сервисный сбор</span><span className="v">− {rUsd(fee)}</span></div>
-            <div className="amt-row total"><span className="k">{isExchange ? 'Предв. доплата/возврат' : 'Предв. сумма к возврату'}</span><span className="v">{rUsd(refund)}</span></div>
+            <div className="amt-row"><span className="k">{needsPax && pax.length ? 'Стоимость выбранных (' + pax.length + ')' : 'Первоначальная стоимость'}</span><span className="v">{rUsd(scoped, currency)}</span></div>
+            <div className="amt-row minus"><span className="k">Предв. штраф поставщика</span><span className="v">− {rUsd(penalty, currency)}</span></div>
+            <div className="amt-row minus"><span className="k">Сервисный сбор</span><span className="v">− {rUsd(fee, currency)}</span></div>
+            <div className="amt-row total"><span className="k">{isExchange ? 'Предв. доплата/возврат' : 'Предв. сумма к возврату'}</span><span className="v">{rUsd(refund, currency)}</span></div>
           </div>
         )}
 
@@ -285,7 +291,7 @@ function ReturnCard({ op, onBack, onChange }) {
     if (ns === 'Завершено') {
       const updated = await onChange(op.no, { status: 'Завершено' },
         isExchange ? 'Обмен переоформлен · заказ обновлён' : 'Возврат исполнен · создана фин. операция «Возврат»');
-      if (updated) toast(isExchange ? 'Обмен переоформлен, заказ обновлён' : `Создана фин. операция «Возврат» на ${rUsd(refund)} · задолженность обновлена`, 'ok');
+      if (updated) toast(isExchange ? 'Обмен переоформлен, заказ обновлён' : `Создана фин. операция «Возврат» на ${rUsd(refund, op.currency)} · задолженность обновлена`, 'ok');
     } else {
       const updated = await onChange(op.no, { status: ns }, `Статус: ${ns}`);
       if (updated) toast('Статус: ' + updated.status, 'info');
@@ -296,7 +302,7 @@ function ReturnCard({ op, onBack, onChange }) {
     const ns = nextStatus(op.status);
     if (ns === 'Завершено') {
       ask(isExchange ? 'Переоформить обмен?' : 'Исполнить возврат?',
-        isExchange ? 'Обмен будет переоформлен, заказ обновлён. Действие необратимо.' : `Будет создана фин. операция «Возврат» на ${rUsd(refund)}. Действие необратимо.`,
+        isExchange ? 'Обмен будет переоформлен, заказ обновлён. Действие необратимо.' : `Будет создана фин. операция «Возврат» на ${rUsd(refund, op.currency)}. Действие необратимо.`,
         doAdvance, isExchange ? 'Переоформить' : 'Исполнить', 'primary');
     } else { doAdvance(); }
   };
@@ -387,7 +393,7 @@ function ReturnCard({ op, onBack, onChange }) {
                 <div className="kv-row"><span className="k">Маршрут</span><span className="v">{op.exchange.oldP.route}</span></div>
                 <div className="kv-row"><span className="k">Даты</span><span className="v">{op.exchange.oldP.date}</span></div>
                 <div className="kv-row"><span className="k">Тариф</span><span className="v">{op.exchange.oldP.fare}</span></div>
-                <div className="kv-row"><span className="k">Стоимость</span><span className="v">{rUsd(op.exchange.oldP.price)}</span></div>
+                <div className="kv-row"><span className="k">Стоимость</span><span className="v">{rUsd(op.exchange.oldP.price, op.currency)}</span></div>
               </div>
             </div>
             <div className="card card-pad" style={{ borderColor: 'var(--blue)', boxShadow: '0 0 0 3px var(--blue-soft)' }}>
@@ -399,7 +405,7 @@ function ReturnCard({ op, onBack, onChange }) {
                 <div className="kv-row"><span className="k">Маршрут</span><span className="v">{op.exchange.newP.route}</span></div>
                 <div className="kv-row"><span className="k">Даты</span><span className="v">{op.exchange.newP.date}</span></div>
                 <div className="kv-row"><span className="k">Тариф</span><span className="v">{op.exchange.newP.fare}</span></div>
-                <div className="kv-row"><span className="k">Стоимость</span><span className="v">{rUsd(op.exchange.newP.price)}</span></div>
+                <div className="kv-row"><span className="k">Стоимость</span><span className="v">{rUsd(op.exchange.newP.price, op.currency)}</span></div>
               </div>
             </div>
           </div>
@@ -407,7 +413,7 @@ function ReturnCard({ op, onBack, onChange }) {
             <Icon name="swap" style={{ width: 22, height: 22, color: 'var(--blue)' }} />
             <span style={{ fontWeight: 600, color: 'var(--ink)' }}>Разница стоимости</span>
             <div style={{ flex: 1 }} />
-            <span style={{ fontWeight: 700, fontSize: 18, color: op.exchange.diff >= 0 ? 'var(--ink)' : 'var(--green)' }}>{op.exchange.diff >= 0 ? '+ ' : '− '}{rUsd(Math.abs(op.exchange.diff))}{op.exchange.diff >= 0 ? ' (доплата)' : ' (возврат)'}</span>
+            <span style={{ fontWeight: 700, fontSize: 18, color: op.exchange.diff >= 0 ? 'var(--ink)' : 'var(--green)' }}>{op.exchange.diff >= 0 ? '+ ' : '− '}{rUsd(Math.abs(op.exchange.diff), op.currency)}{op.exchange.diff >= 0 ? ' (доплата)' : ' (возврат)'}</span>
           </div>
         </>
       )}
@@ -528,7 +534,7 @@ function ReturnsModule({ scopeOrder, onOpenOrder, compact, order, initialCases, 
         participants: d.participantIds?.length ? d.participantIds : undefined,
         type: kinds[d.type] || 'refund',
         initiator: 'operator',
-        currency: 'USD',
+        currency: d.currency || selectedOrder.currency || selectedOrder.base_currency || 'RUB',
         external_references: {
           reason: d.reason || '',
           voluntary: d.voluntary,
@@ -540,7 +546,7 @@ function ReturnsModule({ scopeOrder, onOpenOrder, compact, order, initialCases, 
       let detail = created;
       if (['Возврат билета', 'Обмен билета'].includes(d.type)) {
         await aftersalesApi.quote(created.id, {
-          currency: 'USD',
+          currency: d.currency || selectedOrder.currency || selectedOrder.base_currency || 'RUB',
           original_paid: String(d.original || 0),
           supplier_penalty: String(d.penalty || 0),
           agency_service_fee: String(d.fee || 0),
@@ -575,7 +581,7 @@ function ReturnsModule({ scopeOrder, onOpenOrder, compact, order, initialCases, 
         <span className="oc-svc-ic" style={{ background: o.status === 'Завершено' ? 'var(--green)' : isTerminal(o.status) ? '#9aa3b2' : 'var(--blue)' }}><Icon name={RETURN_TYPE[o.type].icon} /></span>
         <div style={{ flex: 1, minWidth: 0 }}><div className="oc-svc-t">{o.type}</div><div className="oc-svc-s">{o.no} · {o.service}</div></div>
         <Pill tone={RETURN_STATUS[o.status]}>{o.status}</Pill>
-        <div style={{ width: 96, textAlign: 'right', fontWeight: 700 }}>{o.type === 'Обмен билета' ? (o.exchange.diff >= 0 ? '+' : '−') + rUsd(Math.abs(o.exchange.diff)) : rUsd(calcRefund(o.fin))}</div>
+        <div style={{ width: 96, textAlign: 'right', fontWeight: 700 }}>{o.type === 'Обмен билета' ? (o.exchange.diff >= 0 ? '+' : '−') + rUsd(Math.abs(o.exchange.diff), o.currency) : rUsd(calcRefund(o.fin), o.currency)}</div>
         <Icon name="chevRight" style={{ width: 20, height: 20, color: 'var(--faint)' }} />
       </div>
     );
@@ -659,8 +665,8 @@ function ReturnsModule({ scopeOrder, onOpenOrder, compact, order, initialCases, 
                   <td><Pill tone={RETURN_TYPE[o.type].tone}>{o.type}</Pill></td>
                   <td className="t-muted">{o.service}</td>
                   <td><Pill tone={RETURN_STATUS[o.status]}>{o.status}</Pill></td>
-                  <td style={{ textAlign: 'right', fontWeight: 600, color: 'var(--green)' }}>{o.type === 'Обмен билета' ? '—' : rUsd(calcRefund(o.fin))}</td>
-                  <td style={{ textAlign: 'right', color: 'var(--red)' }}>{o.fin.supplierPenalty ? rUsd(o.fin.supplierPenalty) : '—'}</td>
+                  <td style={{ textAlign: 'right', fontWeight: 600, color: 'var(--green)' }}>{o.type === 'Обмен билета' ? '—' : rUsd(calcRefund(o.fin), o.currency)}</td>
+                  <td style={{ textAlign: 'right', color: 'var(--red)' }}>{o.fin.supplierPenalty ? rUsd(o.fin.supplierPenalty, o.currency) : '—'}</td>
                   <td>{o.resp}</td>
                   <td>{o.created}</td>
                   <td><span style={!isTerminal(o.status) && o.status !== 'Завершено' ? { color: 'var(--red)', fontWeight: 600 } : { color: 'var(--muted-2)' }}>{o.deadline}</span></td>

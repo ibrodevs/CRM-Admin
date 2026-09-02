@@ -47,7 +47,7 @@ function ufFromClient(c, kind) {
     dob: c.dob && c.dob !== '—' ? c.dob : '',
     citizenship: c.citizenship || 'Кыргызстан',
     docType: c.docType || 'Загранпаспорт',
-    docNo: (c.doc && c.doc !== '—') ? c.doc : (c.docNo || ''),
+    docNo: c.docNo || ((c.doc && c.doc !== '—') ? c.doc : ''),
     phone: c.phone || '', phone2: c.phone2 || '', email: c.email || '',
     city: c.city || 'Бишкек',
     status: c.status || 'Новый',

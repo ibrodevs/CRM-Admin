@@ -46,8 +46,10 @@ function PassportModal({ passenger, participants, onClose, onAddDoc }) {
     : (passenger ? [{ name: passenger, docStatus: 'check' }] : []);
   const pax = source.map((p) => ({
     name: p.name,
-    sub: p.docStatus === 'check' ? 'Требует проверки' : (p.doc || 'Документы в порядке'),
-    expired: p.docStatus === 'check',
+    sub: p.docStatus === 'check' || p.docStatus === 'missing' ? 'Требует проверки' : (p.docNo || p.doc || 'Документы в порядке'),
+    expired: p.docStatus === 'check' || p.docStatus === 'missing',
+    source: p,
+    documents: p.documents || [],
   }));
   const initIdx = Math.max(0, pax.findIndex((p) => p.name === passenger));
   const [activePax, setActivePax] = useState(initIdx);
@@ -57,15 +59,16 @@ function PassportModal({ passenger, participants, onClose, onAddDoc }) {
   const filtered = pax.map((p, i) => ({ p, i })).filter(({ p }) => !s || p.name.toLowerCase().includes(s));
   const documentAction = async (action, success, close = false) => {
     try {
-      await workspaceActionsApi.execute(action, { resourceType: 'person_document', resourceId: cur?.name || passenger || '', payload: { person: cur?.name, document_type: docType } });
+      await workspaceActionsApi.execute(action, { resourceType: 'person_document', resourceId: cur?.source?.person || cur?.source?.id || cur?.name || passenger || '', payload: { person: cur?.name, document_type: docType } });
       toast(success, 'ok'); if (close) onClose();
     } catch (error) { toast(error.message, 'err'); }
   };
+  const currentDocs = cur?.documents || [];
   return (
     <Drawer open onClose={onClose} width="min(720px,96vw)"
       title="Документация" sub={passenger ? `Документы пассажира: ${passenger}` : 'Документы пассажира'}
       footer={<div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', justifyContent: 'flex-end', flex: 1 }}>
-        <Button variant="secondary" icon="plus" onClick={() => onAddDoc && onAddDoc(cur ? { name: cur.name } : null)}>Добавить документ</Button>
+        <Button variant="secondary" icon="plus" onClick={() => onAddDoc && onAddDoc(cur ? cur.source : null)}>Добавить документ</Button>
         <div style={{ flex: 1 }} />
         <Button variant="secondary" iconRight="chevRight" disabled={!cur} onClick={() => window.print()}>Посмотреть документ</Button>
         <Button variant="secondary" disabled={!cur} onClick={() => documentAction('document.person.verify', 'Данные подтверждены')}>Подтвердить данные</Button>
@@ -100,15 +103,29 @@ function PassportModal({ passenger, participants, onClose, onAddDoc }) {
       </div>
 
 
-      {cur && <div style={{ position: 'relative', display: 'flex', justifyContent: 'center', paddingTop: 34, marginTop: 12 }}>
-        <div className="badge-tip" style={{ left: '50%', top: 6, background: cur.expired ? '#ec4444' : '#f5a623' }}>
+      {cur && <div style={{ position: 'relative', paddingTop: 34, marginTop: 12 }}>
+        <div className="badge-tip" style={{ left: '50%', top: 6, background: cur.expired ? '#ec4444' : '#21a67a' }}>
           {cur.expired ? 'Документ требует проверки' : cur.sub}
         </div>
-        <div style={{ width: 250, height: 320, borderRadius: 12, overflow: 'hidden', border: '1px solid var(--line)',
-          background: 'var(--surface-2)',
-          display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          <span style={{ fontSize: 13, color: 'var(--muted)', textAlign: 'center', padding: 16 }}>Файл документа появится после загрузки в backend</span>
-        </div>
+        {currentDocs.length ? (
+          <div style={{ display: 'grid', gap: 10 }}>
+            {currentDocs.map((doc, index) => (
+              <div key={doc.id || doc.docNo || index} style={{ display: 'flex', alignItems: 'center', gap: 12, border: '1px solid var(--line)', borderRadius: 12, padding: '12px 14px', background: '#fff' }}>
+                <span className="oc-svc-ic" style={{ background: 'var(--blue)', width: 34, height: 34 }}><Icon name="idcard" /></span>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontWeight: 700, color: 'var(--ink)', fontSize: 14 }}>{doc.docType || 'Документ'}</div>
+                  <div style={{ fontSize: 12.5, color: 'var(--muted)' }}>№ {doc.docNo || doc.number || '—'}{doc.docExpiry ? ' · до ' + doc.docExpiry : ''}</div>
+                  {(doc.citizenship || doc.issuing_country) && <div style={{ fontSize: 12, color: 'var(--muted-2)' }}>Страна: {doc.citizenship || doc.issuing_country}</div>}
+                </div>
+                <Pill tone={doc.status === 'active' || !doc.status ? 'green' : 'gray'}>{doc.status === 'active' || !doc.status ? 'Активен' : doc.status}</Pill>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div style={{ borderRadius: 12, border: '1px solid var(--line)', background: 'var(--surface-2)', padding: 18 }}>
+            <EmptyState icon="idcard" title="Документ не добавлен" sub="Добавьте паспорт или другой документ пассажира, чтобы он подтягивался в бронирование и выписку." />
+          </div>
+        )}
       </div>}
     </Drawer>
   );

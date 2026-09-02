@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { Icon } from './icons';
-import { Button, Drawer, Pill, useToast } from './ui';
+import { Button, Drawer, EmptyState, Pill, useToast } from './ui';
 import { SERVICE_KIND } from './data';
 import { OperationConfirmModal } from './order_ops';
 import { BackRow } from './components/back-row';
@@ -61,6 +61,12 @@ function BwSvc({ s, status, tone, right }) {
   );
 }
 
+const BOOKABLE_SERVICE_STATUSES = new Set(['Предложено', 'Предложение', 'На согласовании', 'Согласование', 'proposed', 'approval']);
+
+function isServiceBookable(service) {
+  return BOOKABLE_SERVICE_STATUSES.has(service?.status);
+}
+
 
 
 
@@ -95,6 +101,8 @@ function BookingWizard({ order, services, draft, onClose, onComplete, onSaveDraf
   const [workflow, setWorkflow] = useState(draft?.workflow || null);
   const [serverProposal, setServerProposal] = useState(draft?.serverProposal || null);
   const [busy, setBusy] = useState(false);
+  const bookingServices = services.filter(isServiceBookable);
+  const skippedServices = services.filter((service) => !isServiceBookable(service));
 
   const startRef = useRef(Date.now());
   const [tlBonus, setTlBonus] = useState({});
@@ -122,17 +130,21 @@ function BookingWizard({ order, services, draft, onClose, onComplete, onSaveDraf
 
 
   const STEPS = ['Выбор вариантов', 'Получение ответов', 'Подтверждение', 'Выписка и оплата', 'Завершение'];
-  const total = services.reduce((a, s) => a + bwRub(s), 0);
+  const total = bookingServices.reduce((a, s) => a + bwRub(s), 0);
   const fee = 1900;
-  const route = (services.find((s) => s.kind === 'Авиа') || {}).title || (order && order.no ? 'Заказ № ' + order.no : 'Маршрут заказа');
-  const kinds = [...new Set(services.map((s) => s.kind))];
+  const route = (bookingServices.find((s) => s.kind === 'Авиа') || services.find((s) => s.kind === 'Авиа') || {}).title || (order && order.no ? 'Заказ № ' + order.no : 'Маршрут заказа');
+  const kinds = [...new Set(bookingServices.map((s) => s.kind))];
 
   const next = () => setStep((s) => Math.min(STEPS.length - 1, s + 1));
   const back = () => setStep((s) => Math.max(0, s - 1));
   const startBooking = async () => {
+    if (!bookingServices.length) {
+      toast('Нет услуг в статусе «Предложено» или «На согласовании» для бронирования', 'info');
+      return;
+    }
     setBusy(true);
     try {
-      const created = await bookingApi.create({ order: order.id, services: services.map((service) => service.serverId || service.id) });
+      const created = await bookingApi.create({ order: order.id, services: bookingServices.map((service) => service.serverId || service.id) });
       await bookingApi.preflight(created.id);
       await bookingApi.start(created.id, true);
       setWorkflow(created.id);
@@ -191,10 +203,10 @@ function BookingWizard({ order, services, draft, onClose, onComplete, onSaveDraf
       if (!proposal) {
         proposal = await proposalsApi.create({
           order: order.id, type: 'booking', purpose: 'Подтверждение вариантов перед выпиской',
-          currency: services[0]?.currency || 'USD',
-          variants: [{ name: 'Основной вариант', items: services.map((service) => ({
+          currency: bookingServices[0]?.currency || order?.currency || order?.base_currency || 'RUB',
+          variants: [{ name: 'Основной вариант', items: bookingServices.map((service) => ({
             service: service.serverId || service.id, title: service.title, description: service.sub || '',
-            quantity: 1, price_amount: service.sum || 0, price_currency: service.currency || 'USD',
+            quantity: 1, price_amount: service.sum || 0, price_currency: service.currency || order?.currency || order?.base_currency || 'RUB',
           })) }],
         });
         proposal = await proposalsApi.prepare(proposal.id, proposal.version);
@@ -246,7 +258,14 @@ function BookingWizard({ order, services, draft, onClose, onComplete, onSaveDraf
             </>
           )}
           <div className="section-title" style={{ fontSize: 16, marginBottom: 12 }}>Услуги к бронированию</div>
-          {services.map((s, i) => <BwSvc key={s.id} s={s} />)}
+          {bookingServices.length ? bookingServices.map((s, i) => <BwSvc key={s.id} s={s} />) : (
+            <EmptyState icon="checkCircle" title="Нечего бронировать" sub="Все услуги уже забронированы, выписаны или отменены. Добавьте новую услугу или откройте постпродажу по оформленным билетам." />
+          )}
+          {skippedServices.length > 0 && (
+            <div style={{ marginTop: 12, display: 'grid', gap: 8 }}>
+              {skippedServices.map((s) => <BwSvc key={'skip-' + s.id} s={s} status={s.status || 'Недоступно'} tone="gray" />)}
+            </div>
+          )}
 
           <div className="card card-pad bw-kp-note" style={{ marginTop: 16, display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap' }}>
             <span className="bw-kp-ic"><Icon name="template" /></span>
@@ -267,7 +286,7 @@ function BookingWizard({ order, services, draft, onClose, onComplete, onSaveDraf
             <Button variant="secondary" size="sm" icon="clock" onClick={() => setHistOpen(true)}>История запросов</Button>
           </div>
           <div style={{ color: 'var(--muted)', fontSize: 13, marginBottom: 16 }}>Тайм-лимиты идут по каждой услуге. Продлите лимит или свяжитесь с поставщиком, чтобы ускорить ответ.</div>
-          {services.map((s, i) => { const v = svcView(s, i); const wait = v.tone === 'amber'; return (
+          {bookingServices.map((s, i) => { const v = svcView(s, i); const wait = v.tone === 'amber'; return (
             <BwSvc key={s.id} s={s} status={v.status} tone={v.tone}
               right={<div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
                 {wait ? (
@@ -290,7 +309,7 @@ function BookingWizard({ order, services, draft, onClose, onComplete, onSaveDraf
         <div>
           <div className="section-title" style={{ fontSize: 18, marginBottom: 6 }}>Подтверждение услуг</div>
           <div style={{ color: 'var(--muted)', fontSize: 13, marginBottom: 14 }}>Стоимость зафиксирована по тайм-лимиту. КП формируется с фиксированными суммами для согласования с клиентом.</div>
-          {services.map((s) => <BwSvc key={s.id} s={s} status="Подтверждено" tone="green" />)}
+          {bookingServices.map((s) => <BwSvc key={s.id} s={s} status="Подтверждено" tone="green" />)}
           <div className="section-title" style={{ fontSize: 16, margin: '22px 0 6px', display: 'flex', alignItems: 'center', gap: 8 }}>
             КП с фиксированными суммами <Pill tone="green">Цена зафиксирована</Pill>
           </div>
@@ -302,7 +321,7 @@ function BookingWizard({ order, services, draft, onClose, onComplete, onSaveDraf
                   <div style={{ fontWeight: 700, color: 'var(--ink)', fontSize: 15 }}>{title}</div>
                   {rec && <Pill tone="blue">Рекомендуем</Pill>}
                 </div>
-                {services.map((s) => <div key={s.id} className="kv-row"><span className="k">{s.title}</span><span className="v">{ocMoney(s.sum, s.currency)}</span></div>)}
+                {bookingServices.map((s) => <div key={s.id} className="kv-row"><span className="k">{s.title}</span><span className="v">{ocMoney(s.sum, s.currency)}</span></div>)}
                 {rec && <div className="kv-row"><span className="k">Доп. услуги и страхование</span><span className="v" style={{ color: 'var(--green)' }}>+ 61 000 ₽</span></div>}
                 <div className="kv-row" style={{ borderBottom: 'none' }}><span className="k" style={{ fontWeight: 700, color: 'var(--ink)' }}>Итого</span><span className="v" style={{ fontSize: 18 }}>{bwMoney(sum)}</span></div>
                 <Button variant="secondary" size="sm" icon="eye" className="btn-block" style={{ marginTop: 12 }} onClick={() => setOfferPreview({ rec })}>Просмотр предложения</Button>
@@ -314,7 +333,7 @@ function BookingWizard({ order, services, draft, onClose, onComplete, onSaveDraf
       case 3: return (
         <div>
           <div className="section-title" style={{ fontSize: 18, marginBottom: 14 }}>Выписка и оплата</div>
-          {services.map((s, i) => { const v = svcView(s, i); return (
+          {bookingServices.map((s, i) => { const v = svcView(s, i); return (
             <BwSvc key={s.id} s={s} status={v.status} tone={v.tone}
               right={<Button size="sm" icon="ticket" variant="secondary" disabled={busy} onClick={issueWorkflow}>Выписать</Button>} />
           ); })}
@@ -336,7 +355,7 @@ function BookingWizard({ order, services, draft, onClose, onComplete, onSaveDraf
               <h2 style={{ fontSize: 24, fontWeight: 700, color: 'var(--ink)', margin: '0 0 6px' }}>Заказ успешно завершён</h2>
               <div style={{ color: 'var(--muted)', fontSize: 14 }}>Все услуги забронированы, выписаны и подтверждены</div>
               <div className="grid-4" style={{ marginTop: 22, textAlign: 'left' }}>
-                {[['Номер заказа', order && order.no ? '№ ' + order.no : '№ 51181'], ['Сумма заказа', bwMoney(total + fee)], ['Услуг', services.length], ['Способ', method === 'group' ? 'Групповой' : 'Индивидуальный']].map(([l, v]) => (
+                {[['Номер заказа', order && order.no ? '№ ' + order.no : '№ 51181'], ['Сумма заказа', bwMoney(total + fee)], ['Услуг', bookingServices.length], ['Способ', method === 'group' ? 'Групповой' : 'Индивидуальный']].map(([l, v]) => (
                   <div className="stat-card" key={l}><div className="s-label">{l}</div><div className="s-value" style={{ fontSize: 20 }}>{v}</div></div>
                 ))}
               </div>
@@ -362,15 +381,15 @@ function BookingWizard({ order, services, draft, onClose, onComplete, onSaveDraf
       <div className="bw-aside">
         <h4>Идёт получение ответов</h4>
         <div className="bw-prog" style={{ '--p': '72%' }}><span>72%</span></div>
-        <div style={{ textAlign: 'center', fontSize: 13, color: 'var(--muted)', marginBottom: 14 }}>Получено {Math.max(1, services.length - 1)} из {services.length} ответов</div>
-        <BwReadiness title="Состояние" items={services.map((s, i) => ({ tone: svcView(s, i).tone === 'green' ? 'ok' : 'wait', text: s.kind + ' — ' + svcView(s, i).status }))} />
+        <div style={{ textAlign: 'center', fontSize: 13, color: 'var(--muted)', marginBottom: 14 }}>Получено {Math.max(1, bookingServices.length - 1)} из {bookingServices.length} ответов</div>
+        <BwReadiness title="Состояние" items={bookingServices.map((s, i) => ({ tone: svcView(s, i).tone === 'green' ? 'ok' : 'wait', text: s.kind + ' — ' + svcView(s, i).status }))} />
       </div>
     );
     if (step === 2 || step === 3) return (
       <div>
         <div className="bw-aside">
           <h4>{step === 2 ? 'Готовность к выписке' : 'Сводка по заказу'}</h4>
-          {services.map((s) => <div key={s.id} className="kv-row"><span className="k">{s.kind}</span><span className="v">{ocMoney(s.sum, s.currency)}</span></div>)}
+          {bookingServices.map((s) => <div key={s.id} className="kv-row"><span className="k">{s.kind}</span><span className="v">{ocMoney(s.sum, s.currency)}</span></div>)}
           <div className="kv-row"><span className="k">Сервисный сбор</span><span className="v">{bwMoney(fee)}</span></div>
           <div className="kv-row" style={{ borderBottom: 'none' }}><span className="k" style={{ fontWeight: 700, color: 'var(--ink)' }}>Итого</span><span className="v" style={{ fontSize: 18 }}>{bwMoney(total + fee)}</span></div>
         </div>
@@ -394,7 +413,7 @@ function BookingWizard({ order, services, draft, onClose, onComplete, onSaveDraf
 
 
   const footer = () => {
-    if (step === 0) return <><Button variant="secondary" onClick={onClose}>Отмена</Button><div style={{ flex: 1 }} /><Button icon="zap" disabled={busy} onClick={() => setOpConfirm({ action: 'book', onConfirm: startBooking })}>Забронировать</Button></>;
+    if (step === 0) return <><Button variant="secondary" onClick={onClose}>Отмена</Button><div style={{ flex: 1 }} /><Button icon="zap" disabled={busy || !bookingServices.length} onClick={() => setOpConfirm({ action: 'book', onConfirm: startBooking })}>Забронировать</Button></>;
     if (step === 1) return <><Button variant="secondary" icon="chevLeft" onClick={back}>Назад</Button><div style={{ flex: 1 }} /><Button icon="check" onClick={refreshWorkflow}>Проверить ответы</Button></>;
     if (step === 2) return <><Button variant="secondary" icon="chevLeft" onClick={back}>Назад</Button><div style={{ flex: 1 }} /><Button variant="secondary" icon="send" disabled={busy} onClick={sendProposal}>Отправить КП клиенту</Button><Button iconRight="arrowRight" onClick={next}>К выписке и оплате</Button></>;
     if (step === 3) return <><Button variant="secondary" icon="chevLeft" onClick={back}>Назад</Button><div style={{ flex: 1 }} /><Button icon="check" disabled={busy} onClick={() => setOpConfirm({ action: 'issue', onConfirm: issueWorkflow })}>Выписать и принять оплату</Button></>;
@@ -472,7 +491,7 @@ function BookingWizard({ order, services, draft, onClose, onComplete, onSaveDraf
 
 
       {offerPreview && (() => {
-        const offer = offerFromServices(order, services, total, fee, offerPreview.rec);
+        const offer = offerFromServices(order, bookingServices, total, fee, offerPreview.rec);
         return (
           <Drawer open onClose={() => setOfferPreview(null)} width="min(760px,96vw)"
             title={offerPreview.draft ? 'Ознакомительное КП' : 'Предложение для клиента'} sub={offer.id}
@@ -494,7 +513,7 @@ function BookingWizard({ order, services, draft, onClose, onComplete, onSaveDraf
       })()}
       {opConfirm && <OperationConfirmModal open action={opConfirm.action} kind={(kinds && kinds[0]) || 'Авиа'}
         service={'Заказ' + (order && order.no ? ' № ' + order.no : '')}
-        fin={{ currency: (services[0] && services[0].currency) || '$', price: total, fee, total: total + fee }}
+        fin={{ currency: (bookingServices[0] && bookingServices[0].currency) || order?.currency || order?.base_currency || 'RUB', price: total, fee, total: total + fee }}
         warnings={opConfirm.action === 'issue' ? ['После выписки повторное оформление возможно только по актуальной стоимости'] : []}
         onConfirm={opConfirm.onConfirm} onClose={() => setOpConfirm(null)} needComment={opConfirm.action === 'issue'} />}
     </div>

@@ -289,6 +289,38 @@ function ReassignOperatorDrawer({ open, current, options = [], onClose, onPick }
   );
 }
 
+function EmployeePickerDrawer({ open, currentId, options = [], title = 'Ответственный', onClose, onPick }) {
+  if (!open) return null;
+  return (
+    <Drawer open={open} onClose={onClose} title={title}
+      footer={<Button variant="secondary" style={{ width: '100%' }} onClick={onClose}>Закрыть</Button>}>
+      <div style={{ color: 'var(--muted)', fontSize: 13, marginBottom: 14 }}>Выберите сотрудника из команды.</div>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+        {options.map((choice) => {
+          const employee = typeof choice === 'string'
+            ? { id: choice, name: choice, sub: 'Сотрудник' }
+            : {
+                id: choice.id,
+                name: choice.full_name || choice.name || choice.email || 'Сотрудник',
+                sub: [choice.position || choice.role || 'Сотрудник', choice.email].filter(Boolean).join(' · '),
+              };
+          const selected = String(employee.id || '') === String(currentId || '');
+          return (
+            <button key={employee.id || employee.name} type="button" className={'oce-client' + (selected ? ' sel' : '')}
+              style={{ cursor: 'pointer', width: '100%', textAlign: 'left', border: '1px solid ' + (selected ? 'var(--blue)' : 'var(--line)'), background: selected ? 'var(--blue-soft)' : '#fff', borderRadius: 12, padding: '10px 12px' }}
+              onClick={() => onPick(employee)}>
+              <Avatar name={employee.name} size={34} />
+              <div style={{ flex: 1, minWidth: 0 }}><div className="nm">{employee.name}</div><div className="mt">{employee.sub}</div></div>
+              {selected ? <Pill tone="blue">Выбран</Pill> : <Icon name="chevRight" style={{ width: 18, height: 18, color: 'var(--muted-2)' }} />}
+            </button>
+          );
+        })}
+        {!options.length && <EmptyState icon="users" title="Сотрудники не найдены" sub="Проверьте список пользователей в настройках доступа." />}
+      </div>
+    </Drawer>
+  );
+}
+
 
 function tripFromServices(services, aviaParams) {
   const avia = services.find((s) => s.kind === 'Авиа');
@@ -1224,7 +1256,8 @@ function OrderChangeCase({ orderNo, orderId, services, participants }) {
   }
 
   const prog = caseProgress(cs);
-  const triggerItem = flight || { title: cs.triggerTitle, main: cs.triggerTitle, kind: 'Авиа', currency: 'USD', id: 'trig' };
+  const orderCurrency = services.find((service) => service.currency)?.currency || 'RUB';
+  const triggerItem = flight || { title: cs.triggerTitle, main: cs.triggerTitle, kind: 'Авиа', currency: orderCurrency, id: 'trig' };
   return (
     <div className="card card-pad" style={{ border: '1px solid var(--amber)', marginBottom: 16 }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 4, flexWrap: 'wrap' }}>
@@ -1335,7 +1368,7 @@ function OrderChangeCase({ orderNo, orderId, services, participants }) {
         </div>
       )}
 
-      {letterOpen && <ServiceCardSendPanel item={triggerItem} kind="Авиа" participants={participants} orderNo={orderNo} currency={triggerItem.currency || 'USD'} serviceId={triggerItem.id} onSent={onLetterSent} onClose={() => setLetterOpen(false)} />}
+      {letterOpen && <ServiceCardSendPanel item={triggerItem} kind="Авиа" participants={participants} orderNo={orderNo} currency={triggerItem.currency || orderCurrency || 'RUB'} serviceId={triggerItem.id} onSent={onLetterSent} onClose={() => setLetterOpen(false)} />}
     </div>
   );
 }
@@ -2336,12 +2369,15 @@ function TabHistory({ liveItems = [] }) {
   );
 }
 
-function TabTasks({ tasks = [], onAddTask, onToggleTask, onDeleteTask }) {
+function TabTasks({ tasks = [], assignees = [], onAddTask, onToggleTask, onDeleteTask }) {
   const [createOpen, setCreateOpen] = useState(false);
   const [taskTitle, setTaskTitle] = useState('');
   const [taskDue, setTaskDue] = useState('');
   const [taskPriority, setTaskPriority] = useState('normal');
+  const [taskAssignee, setTaskAssignee] = useState(null);
+  const [assigneeOpen, setAssigneeOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const assigneeName = taskAssignee ? taskAssignee.name : 'Не назначен';
 
   const handleCreate = async () => {
     if (!taskTitle.trim()) return;
@@ -2351,10 +2387,12 @@ function TabTasks({ tasks = [], onAddTask, onToggleTask, onDeleteTask }) {
         title: taskTitle.trim(),
         due_at: taskDue ? formatIsoDateTime(taskDue) : null,
         priority: taskPriority,
+        assignee: taskAssignee?.id || null,
       });
       setTaskTitle('');
       setTaskDue('');
       setTaskPriority('normal');
+      setTaskAssignee(null);
       setCreateOpen(false);
     } finally {
       setSubmitting(false);
@@ -2382,6 +2420,9 @@ function TabTasks({ tasks = [], onAddTask, onToggleTask, onDeleteTask }) {
                   <div style={{ flex: 1, textDecoration: isCompleted ? 'line-through' : 'none', opacity: isCompleted ? 0.65 : 1 }}>
                     <div className="tt" style={{ fontWeight: 600, color: 'var(--ink)' }}>{task.text || task.title || 'Задача'}</div>
                     <div className={'td' + (task.urgent ? ' urgent' : '')} style={{ fontSize: 12, color: 'var(--muted)', marginTop: 2 }}>{task.due || task.due_at || 'Срок не указан'}</div>
+                    <div style={{ fontSize: 12, color: 'var(--muted-2)', marginTop: 3, display: 'inline-flex', alignItems: 'center', gap: 5 }}>
+                      <Icon name="user" style={{ width: 12, height: 12 }} />{task.assigneeName || task.assignee_name || 'Ответственный не назначен'}
+                    </div>
                   </div>
                   {task.priority && ['critical', 'high'].includes(task.priority) && <Pill tone="red">Срочно</Pill>}
                   {task.status && <Pill tone={isCompleted ? 'green' : 'amber'}>{isCompleted ? 'Выполнена' : 'В работе'}</Pill>}
@@ -2414,6 +2455,14 @@ function TabTasks({ tasks = [], onAddTask, onToggleTask, onDeleteTask }) {
             <Field label="Срок выполнения" className="full">
               <DateField value={taskDue} onChange={setTaskDue} placeholder="Выберите дату" />
             </Field>
+            <Field label="Ответственный" className="full">
+              <button type="button" className="input" onClick={() => setAssigneeOpen(true)}
+                style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 10, textAlign: 'left', background: '#fff' }}>
+                <Avatar name={assigneeName} size={28} />
+                <span style={{ flex: 1, color: taskAssignee ? 'var(--ink)' : 'var(--muted)' }}>{assigneeName}</span>
+                <Icon name="chevRight" style={{ width: 16, height: 16, color: 'var(--muted-2)' }} />
+              </button>
+            </Field>
             <Field label="Приоритет" className="full">
               <Select options={[
                 { value: 'normal', label: 'Обычный' },
@@ -2422,6 +2471,10 @@ function TabTasks({ tasks = [], onAddTask, onToggleTask, onDeleteTask }) {
               ]} value={taskPriority} onChange={(e) => setTaskPriority(e.target.value)} />
             </Field>
           </div>
+          <EmployeePickerDrawer open={assigneeOpen} currentId={taskAssignee?.id} options={assignees}
+            title="Ответственный за задачу"
+            onClose={() => setAssigneeOpen(false)}
+            onPick={(employee) => { setTaskAssignee(employee); setAssigneeOpen(false); }} />
         </Drawer>
       )}
     </div>
@@ -2589,7 +2642,14 @@ function OrderCard({ order, company, clients = [], onBack, initTab, initSvc, ini
     setProposalCount(Array.isArray(overview.proposals) ? overview.proposals.length : 0);
     setAftersaleCount(Array.isArray(overview.returns) ? overview.returns.length : 0);
     if (taskPayload) {
-      setTasks(resultsOf(taskPayload).map((task) => ({ ...task, text: task.title, done: task.status === 'completed', due: task.due_at ? new Date(task.due_at).toLocaleString('ru-RU') : 'без срока', urgent: ['critical', 'high'].includes(task.priority) })));
+      setTasks(resultsOf(taskPayload).map((task) => ({
+        ...task,
+        text: task.title,
+        done: task.status === 'completed',
+        due: task.due_at ? new Date(task.due_at).toLocaleString('ru-RU') : 'без срока',
+        urgent: ['critical', 'high'].includes(task.priority),
+        assigneeName: task.assignee_name || task.assignee_email || '',
+      })));
     }
     if (historyPayload) {
       setHistory(resultsOf(historyPayload).map((entry) => ({ t: new Date(entry.changed_at).toLocaleString('ru-RU'), text: entry.reason || `Статус: ${ORDER_STATUS_LABEL[entry.to_status] || entry.to_status}`, who: entry.changed_by_name || (entry.changed_by ? 'Пользователь' : 'Система') })));
@@ -2841,14 +2901,14 @@ function OrderCard({ order, company, clients = [], onBack, initTab, initSvc, ini
           description: s.sub || '',
           quantity: 1,
           price_amount: String(total),
-          price_currency: s.currency || 'USD',
+          price_currency: s.currency || cardOrder.currency || cardOrder.base_currency || 'RUB',
         };
       });
       await proposalsApi.create({
         order: orderId,
         type: 'standard',
         purpose: 'КП из карточек услуг',
-        currency: 'USD',
+        currency: chosen[0]?.currency || cardOrder.currency || cardOrder.base_currency || 'RUB',
         valid_until: validUntil.toISOString(),
         variants: [{ name: 'Вариант A · из карточек', items }],
       });
@@ -3003,12 +3063,12 @@ function OrderCard({ order, company, clients = [], onBack, initTab, initSvc, ini
   // Обмен ведётся штатным постпродажным модулем — карточка лишь открывает его
   // с предзаполненной услугой, чтобы оператор не искал её в списке заново.
   const requestExchange = (svc) => {
-    setAftersalePreset({ type: 'Обмен билета', serviceId: String(svc.serverId || svc.id), stamp: Date.now() });
+    setAftersalePreset({ type: 'Обмен билета', serviceId: String(svc.serverId || svc.id), currency: svc.currency || cardOrder.currency || cardOrder.base_currency || 'RUB', stamp: Date.now() });
     setTab('aftersale');
   };
 
   const renderServicesArea = () => {
-    if (svcView === 'booking') return <BookingWizard order={order} services={services} draft={bookingDraft}
+    if (svcView === 'booking') return <BookingWizard order={cardOrder} services={services} draft={bookingDraft}
       onSaveDraft={setBookingDraft} onClose={() => setSvcView(null)}
       onComplete={async () => {
         setBookingDraft(null);
@@ -3101,7 +3161,7 @@ function OrderCard({ order, company, clients = [], onBack, initTab, initSvc, ini
       case 'extras': return <DynamicExtrasPanel order={order} />;
       case 'documents': return <DocCenter scopeOrder={order.no} initialDocuments={orderDocs} participants={participants} services={services} orders={[order]} />;
       case 'finance': return (<><OrderFinanceBlock orderNo={order.no} order={order} services={services} summary={financeSummary} /><FinanceRegistry scopeOrder={order.no} initialOps={[]} /></>);
-      case 'tasks': return <TabTasks tasks={tasks} onAddTask={addTask} onToggleTask={toggleTask} onDeleteTask={deleteTask} />;
+      case 'tasks': return <TabTasks tasks={tasks} assignees={operatorOptions} onAddTask={addTask} onToggleTask={toggleTask} onDeleteTask={deleteTask} />;
       case 'aftersale': return <ReturnsModule scopeOrder={order.no} order={order} services={services} participants={participants} initialNew={aftersalePreset} compact />;
       case 'history': return <TabHistory liveItems={history} />;
       default: return null;
@@ -3123,7 +3183,7 @@ function OrderCard({ order, company, clients = [], onBack, initTab, initSvc, ini
     { icon: 'check', label: 'Выбрать услуги для КП или чата', onClick: () => { setTab('main'); setSvcView(null); setSelMode(true); } },
     { icon: 'refund', label: 'Изменение по рейсу', onClick: () => {
       const flight = services.find((service) => service.kind === 'Авиа');
-      setAftersalePreset({ type: 'Обмен билета', serviceId: flight ? String(flight.serverId || flight.id) : '', stamp: Date.now() });
+      setAftersalePreset({ type: 'Обмен билета', serviceId: flight ? String(flight.serverId || flight.id) : '', currency: flight?.currency || cardOrder.currency || cardOrder.base_currency || 'RUB', stamp: Date.now() });
       setTab('aftersale');
     } },
     { icon: 'users', label: 'Переназначить оператора', onClick: () => setReassignOpen(true) },

@@ -3,7 +3,9 @@ import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 
 const card = await readFile(new URL('../js/page_order_card.jsx', import.meta.url), 'utf8');
+const booking = await readFile(new URL('../js/page_booking.jsx', import.meta.url), 'utf8');
 const returns = await readFile(new URL('../js/page_returns.jsx', import.meta.url), 'utf8');
+const legacy = await readFile(new URL('../js/api/legacy-adapters.js', import.meta.url), 'utf8');
 const css = await readFile(new URL('../app/globals.css', import.meta.url), 'utf8');
 
 test('карточка заказа открывается единой лентой услуг, а не вкладками', () => {
@@ -74,10 +76,27 @@ test('документы услуги грузятся с backend и привя�
 
 test('отмена услуги передаёт версию, обмен открывает постпродажу с предзаполненной услугой', () => {
   assert.match(card, /servicesApi\.cancel\(svc\.serverId \|\| svc\.id, \{ version: svc\.version/);
-  assert.match(card, /setAftersalePreset\(\{ type: 'Обмен билета', serviceId/);
+  assert.match(card, /setAftersalePreset\(\{ type: 'Обмен билета', serviceId:[\s\S]*currency: svc\.currency \|\| cardOrder\.currency \|\| cardOrder\.base_currency \|\| 'RUB'/);
   assert.match(card, /initialNew=\{aftersalePreset\}/);
   assert.match(returns, /preset=\{initialNew\}/);
   assert.match(returns, /setType\(\(preset && preset\.type\) \|\| 'Возврат билета'\)/);
+  assert.match(returns, /currency: d\.currency \|\| selectedOrder\.currency \|\| selectedOrder\.base_currency \|\| 'RUB'/);
+  assert.match(returns, /rUsd\(scoped, currency\)/);
+});
+
+test('бронирование не отправляет уже выписанные услуги в workflow', () => {
+  assert.match(booking, /const BOOKABLE_SERVICE_STATUSES = new Set/);
+  assert.match(booking, /const bookingServices = services\.filter\(isServiceBookable\)/);
+  assert.match(booking, /bookingApi\.create\(\{ order: order\.id, services: bookingServices\.map/);
+  assert.match(booking, /disabled=\{busy \|\| !bookingServices\.length\}/);
+  assert.doesNotMatch(booking, /bookingApi\.create\(\{ order: order\.id, services: services\.map/);
+});
+
+test('пассажиры показывают реальный документ, а не id booking_document', () => {
+  assert.match(legacy, /item\.booking_document_detail/);
+  assert.match(legacy, /docNo: item\.booking_document_detail\.docNo/);
+  assert.match(legacy, /docStatus: docNo \? 'ok' : 'missing'/);
+  assert.doesNotMatch(legacy, /const docNo = item\.booking_document \|\|/);
 });
 
 test('кейс изменения получает id заказа явным пропом, а не из внешней области', () => {
