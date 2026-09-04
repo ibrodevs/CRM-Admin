@@ -38,11 +38,29 @@ export const crmApi = {
   createCompanyDepartment: (id, body) => create(`companies/${id}/departments/`, body),
   updateCompanyDepartment: (companyId, departmentId, body) => patch(`companies/${companyId}/departments/${departmentId}/`, body),
   removeCompanyDepartment: (companyId, departmentId) => remove(`companies/${companyId}/departments/${departmentId}/`),
+  importCompanyEmployees: (companyId, file) => {
+    const body = new FormData();
+    body.append('file', file);
+    return apiRequest(apiPath(`companies/${companyId}/employees/import/`), { method: 'POST', body });
+  },
   companyFinancialConditions: (id, signal) => get(`companies/${id}/financial-conditions/`, signal),
   saveCompanyFinancialConditions: (id, body) => apiRequest(apiPath(`companies/${id}/financial-conditions/`), { method: 'PUT', body }),
   // Сервисный сбор считает backend по договору контрагента: фронт передаёт
   // только контекст (контрагент, вид услуги, база поставщика).
   resolveServiceFee: (body, signal) => create('service-fee/resolve/', body, { idempotent: false, signal }),
+};
+
+export const travelPolicyApi = {
+  list: (companyId, signal) => get(`companies/${companyId}/travel-policies/`, signal),
+  create: (companyId, body) => create(`companies/${companyId}/travel-policies/`, body),
+  detail: (id, signal) => get(`travel-policies/${id}/`, signal),
+  update: (id, body) => patch(`travel-policies/${id}/`, body),
+  check: (id, offer) => create(`travel-policies/${id}/check/`, { offer }),
+  import: (companyId, file) => {
+    const body = new FormData();
+    body.append('file', file);
+    return apiRequest(apiPath(`companies/${companyId}/travel-policies/import/`), { method: 'POST', body });
+  },
 };
 
 export const accountApi = {
@@ -144,19 +162,20 @@ export const notificationsApi = {
 export const integrationsApi = {
   operations: (params = {}, signal) => list('integration-operations/', { page_size: 100, ...params }, signal),
   incidents: (params = {}, signal) => list('integration-incidents/', { page_size: 100, ...params }, signal),
-  assign: (id, user) => create(`integration-incidents/${id}/assign/`, { user }),
+  assign: (id, assignee) => create(`integration-incidents/${id}/assign/`, { assignee }),
   retry: (id) => create(`integration-incidents/${id}/retry/`, {}),
   snooze: (id, until) => create(`integration-incidents/${id}/snooze/`, { until }),
   switchSupplier: (id, supplier) => create(`integration-incidents/${id}/switch-supplier/`, { supplier }),
-  resolve: (id) => create(`integration-incidents/${id}/resolve/`, {}),
+  resolve: (id, resolutionCode = 'resolved_manually', comment = '') => create(`integration-incidents/${id}/resolve/`, { resolution_code: resolutionCode, comment }),
   reopen: (id) => create(`integration-incidents/${id}/reopen/`, {}),
   escalate: (id, body = {}) => create(`integration-incidents/${id}/escalate/`, body),
   errorCodes: (signal) => get('integration-error-codes/', signal),
 };
 
 export const workforceApi = {
-  queue: (signal) => get('sla/queue/', signal),
+  queue: (params = {}, signal) => get(`sla/queue/${queryString(params)}`, signal),
   currentShift: (signal) => get('shifts/current/', signal),
+  shifts: (params = {}, signal) => list('shifts/', { page_size: 100, ...params }, signal),
   startShift: (body = {}) => create('shifts/start/', body),
   previewClose: (id) => create(`shifts/${id}/preview-close/`, {}),
   closeShift: (id, body = {}) => create(`shifts/${id}/close/`, body),

@@ -126,9 +126,7 @@ function App() {
   const [focusedChat, setFocusedChat] = useState(null);
   const [notifOpen, setNotifOpen] = useState(false);
   const [ctxOrder, setCtxOrder] = useState(null);
-  const [role, setRole] = useState(auth.user?.role || 'Оператор');
-
-  useEffect(() => { if (auth.user?.role) setRole(auth.user.role); }, [auth.user?.role]);
+  const role = auth.user?.role || 'Оператор';
 
   const unreadChat = workspace.chats.reduce((s, t) => s + threadUnread(t), 0);
   const unreadNotif = workspace.notifications.filter((n) => !n.read).length;
@@ -153,7 +151,6 @@ function App() {
     setCtxOrder(null);
   };
 
-  const changeRole = (r) => { setRole(r); if (!roleCanSee(r, route.split('/')[0])) { setRoute('dashboard'); setCtxOrder(null); } };
   const blocked = !roleCanSee(role, route.split('/')[0]);
 
   const openOrder = (o, tab, svc) => {
@@ -255,7 +252,7 @@ function App() {
       onCreateClient={createClient} onCreateCompany={createCompany} onCreateKP={createKP}
       onOpenChat={() => openChat(ctxOrder)} onOpenNotif={() => setNotifOpen(true)}
       unreadChat={unreadChat} unreadNotif={unreadNotif}
-      role={role} onRole={changeRole} />
+      role={role} />
   );
   const overlays = (
     <>
@@ -269,7 +266,7 @@ function App() {
 
   const page = (
       <>
-      {route === 'dashboard' && <DashboardPage role={role} orders={orders} clients={workspace.clients} companies={workspace.companies} proposals={workspace.proposals} returns={workspace.returns} notifications={workspace.notifications} chats={workspace.chats} dashboard={workspace.dashboard} finance={workspace.finance} onNavigate={navigate} onAddOrder={createOrder} onOpenOrder={openOrder} onCreateOrder={createOrderFromPicker} onOpenChat={openChat} />}
+      {route === 'dashboard' && <DashboardPage role={role} user={auth.user} orders={orders} orderServices={workspace.orderServices} clients={workspace.clients} companies={workspace.companies} proposals={workspace.proposals} returns={workspace.returns} notifications={workspace.notifications} chats={workspace.chats} dashboard={workspace.dashboard} finance={workspace.finance} incidents={workspace.integrationIncidents} operations={workspace.integrationOperations} slaQueue={workspace.slaQueue} currentShift={workspace.currentShift} motivationAccruals={workspace.motivationAccruals} users={workspace.users} suppliers={workspace.suppliers} onNavigate={navigate} onAddOrder={createOrder} onOpenOrder={openOrder} onCreateOrder={createOrderFromPicker} onOpenChat={openChat} />}
       {route === 'calendar' && <TripCalendarPage role={role} feed={workspace.calendar} orders={orders} clients={workspace.clients} companies={workspace.companies} users={workspace.users} onOpenOrder={(no) => { const target = orders.find((o) => String(o.no) === String(no) || String(o.id) === String(no)); if (target) openOrder(target); else toast('Заказ не найден или недоступен', 'warn'); }} />}
       {route === 'orders' && <OrdersPage intent={intent} onConsume={() => setIntent(null)} orders={orders} clients={workspace.clients} companies={workspace.companies} addOrder={addOrder} onDetailChange={setCtxOrder} onOpenChat={openChat} onNavigate={navigate} currentUser={auth.user} />}
       {route === 'services' && <ServicesHubPage onNavigate={navigate} onAddOrder={createOrder} onSearch={openServiceSearch} onOpenOrder={openOrder} onCreateOrder={createOrderFromPicker} />}

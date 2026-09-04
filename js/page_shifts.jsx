@@ -3,7 +3,8 @@ import ReactDOM from 'react-dom';
 import { Icon } from './icons';
 import { ActionMenu, Button, Drawer, Input, Pill, Toggle, useToast } from './ui';
 import { CURRENT_USER } from './data';
-import { workforceApi, workspaceActionsApi } from './api/resources';
+import { workforceApi } from './api/resources';
+import { resultsOf } from './api/client';
 
 
 
@@ -17,7 +18,7 @@ const ENABLE_DEMO_BUSINESS_DATA = typeof process !== 'undefined' && process.env.
 const MOTIVATION_SERVICES = ['Авиа', 'ЖД', 'Гостиницы', 'Трансферы', 'Страхование', 'Визы', 'Прочее'];
 const MOTIVATION_DEFAULT = { service: 30, markup: 20, commission: 10 };
 
-const OPERATOR_MOTIVATION = window.OPERATOR_MOTIVATION || (window.OPERATOR_MOTIVATION = {
+const DEMO_OPERATOR_MOTIVATION = {
   'Даниель': {
     uniform: false,
     base: { ...MOTIVATION_DEFAULT },
@@ -31,7 +32,8 @@ const OPERATOR_MOTIVATION = window.OPERATOR_MOTIVATION || (window.OPERATOR_MOTIV
       'Прочее': { service: 20, markup: 15, commission: 10 },
     },
   },
-});
+};
+const OPERATOR_MOTIVATION = window.OPERATOR_MOTIVATION || (window.OPERATOR_MOTIVATION = ENABLE_DEMO_BUSINESS_DATA ? DEMO_OPERATOR_MOTIVATION : {});
 function motivationFor(name) {
   if (!OPERATOR_MOTIVATION[name]) {
     OPERATOR_MOTIVATION[name] = {
@@ -107,30 +109,57 @@ function toUiShift(payload) {
     id: row.id,
     openedAt: row.started_at ? new Date(row.started_at) : new Date(),
     closedAt: row.ended_at ? new Date(row.ended_at) : null,
-    ops: ENABLE_DEMO_BUSINESS_DATA ? SHIFT_DEMO_OPS : [],
+    ops: ENABLE_DEMO_BUSINESS_DATA ? SHIFT_DEMO_OPS : (row.operations || []).map((operation) => ({
+      backend: true,
+      time: operation.created_at ? shiftFmtTime(new Date(operation.created_at)) : '—',
+      order: operation.resource_type === 'Order' ? operation.resource_id : '',
+      svc: operation.resource_type || 'Операция', title: operation.resource_id || '', supplier: '—', type: operation.kind,
+      cost: Number(operation.amount || 0), serviceFee: 0, markup: 0, commission: 0, currency: operation.currency || row.currency || '',
+    })),
     report: row.closing_report || null,
   };
+}
+
+const MOTIVATION_KIND_CODE = { 'Авиа': 'avia', 'ЖД': 'rail', 'Гостиницы': 'hotel', 'Трансферы': 'transfer', 'Страхование': 'insurance', 'Визы': 'visa', 'Прочее': 'other' };
+function motivationFromRules(rows) {
+  const wildcard = rows.find((row) => row.service_kind === '*');
+  const base = wildcard ? { service: Number(wildcard.fee_percent || 0), markup: Number(wildcard.markup_percent || 0), commission: Number(wildcard.commission_percent || 0) } : { service: 0, markup: 0, commission: 0 };
+  const perService = MOTIVATION_SERVICES.reduce((result, name) => {
+    const row = rows.find((item) => item.service_kind === MOTIVATION_KIND_CODE[name]);
+    result[name] = row ? { service: Number(row.fee_percent || 0), markup: Number(row.markup_percent || 0), commission: Number(row.commission_percent || 0) } : { ...base };
+    return result;
+  }, {});
+  return { uniform: Boolean(wildcard) && rows.filter((row) => row.is_active).length === 1, base, perService };
 }
 
 
 function MotivationDrawer({ open, operator, onClose }) {
   const toast = useToast();
-  const [mot, setMot] = useState(() => JSON.parse(JSON.stringify(motivationFor(operator || 'Оператор'))));
-  useEffect(() => { if (open && operator) setMot(JSON.parse(JSON.stringify(motivationFor(operator)))); }, [open, operator]);
+  const [mot, setMot] = useState(() => motivationFromRules([]));
+  const [busy, setBusy] = useState(false);
+  useEffect(() => {
+    if (!open) return;
+    setBusy(true);
+    workforceApi.motivationRules()
+      .then((payload) => setMot(motivationFromRules(resultsOf(payload))))
+      .catch((error) => toast(error.message || 'Не удалось загрузить правила мотивации', 'err'))
+      .finally(() => setBusy(false));
+  }, [open]);
   if (!open) return null;
 
   const setBase = (k, v) => setMot((m) => ({ ...m, base: { ...m.base, [k]: v } }));
   const setSvc = (svc, k, v) => setMot((m) => ({ ...m, perService: { ...m.perService, [svc]: { ...(m.perService[svc] || m.base), [k]: v } } }));
   const save = async () => {
+    setBusy(true);
     try {
-      await workspaceActionsApi.execute('operator.motivation.update', {
-        resourceType: 'operator',
-        resourceId: String(operator),
-        payload: { motivation: mot },
-      });
+      const rules = mot.uniform
+        ? [{ service_kind: '*', fee_percent: mot.base.service, markup_percent: mot.base.markup, commission_percent: mot.base.commission, is_active: true }]
+        : MOTIVATION_SERVICES.map((name) => ({ service_kind: MOTIVATION_KIND_CODE[name], fee_percent: mot.perService[name]?.service || 0, markup_percent: mot.perService[name]?.markup || 0, commission_percent: mot.perService[name]?.commission || 0, is_active: true }));
+      await workforceApi.saveMotivationRules({ rules });
       OPERATOR_MOTIVATION[operator] = JSON.parse(JSON.stringify(mot));
-      toast('Мотивация оператора сохранена', 'ok'); onClose();
+      toast('Правила мотивации сохранены в backend', 'ok'); onClose();
     } catch (error) { toast(error.message || 'Не удалось сохранить мотивацию', 'err'); }
+    finally { setBusy(false); }
   };
   const pctInput = (val, onCh) => (
     <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
@@ -141,8 +170,8 @@ function MotivationDrawer({ open, operator, onClose }) {
   const ROWS = [['service', 'от сервисного сбора'], ['markup', 'от агентской надбавки'], ['commission', 'от комиссионного вознаграждения']];
 
   return (
-    <Drawer open={open} onClose={onClose} title="Система мотивации" sub={'Оператор: ' + operator} width="min(680px,96vw)"
-      footer={<><Button variant="secondary" onClick={onClose}>Отмена</Button><Button icon="check" onClick={save}>Сохранить</Button></>}>
+    <Drawer open={open} onClose={onClose} title="Система мотивации" sub="Правила организации" width="min(680px,96vw)"
+      footer={<><Button variant="secondary" onClick={onClose} disabled={busy}>Отмена</Button><Button icon="check" onClick={save} disabled={busy}>{busy ? 'Сохранение…' : 'Сохранить'}</Button></>}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '4px 0 16px', borderBottom: '1px solid var(--line)', marginBottom: 18 }}>
         <div>
           <div style={{ fontWeight: 600, color: 'var(--ink)' }}>Единые настройки для всех видов услуг</div>
@@ -193,12 +222,6 @@ function ShiftReportDrawer({ open, onClose, operator, shift, closing, onConfirmC
   const toast = useToast();
   const [detailOp, setDetailOp] = useState(null);
   if (!open || !shift) return null;
-  const sendTo = async (who) => {
-    try {
-      await workspaceActionsApi.execute('profile.shift_report.send', { resourceType: 'shift', resourceId: String(shift.serverId || shift.id || operator), payload: { recipient: who, operator } });
-      toast('Отчёт по смене отправлен ' + who, 'ok');
-    } catch (error) { toast(error.message, 'err'); }
-  };
   const openOrderNo = (no) => {
     const ord = (window.ORDERS || []).find((o) => o.no === no);
     if (ord && onOpenOrder) { onClose(); onOpenOrder(ord); }
@@ -231,9 +254,7 @@ function ShiftReportDrawer({ open, onClose, operator, shift, closing, onConfirmC
 
 
       <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 16 }}>
-        <Button variant="secondary" size="sm" icon="download" onClick={() => window.print()}>Скачать PDF</Button>
-        <Button variant="secondary" size="sm" icon="send" onClick={() => sendTo('администратору')}>Отправить администратору</Button>
-        <Button variant="secondary" size="sm" icon="send" onClick={() => sendTo('бухгалтеру')}>Отправить бухгалтеру</Button>
+        <Button variant="secondary" size="sm" icon="download" onClick={() => window.open(workforceApi.reportUrl(shift.serverId || shift.id), '_blank', 'noopener,noreferrer')}>Открыть отчёт backend</Button>
       </div>
 
 
@@ -476,4 +497,4 @@ Object.assign(window, {
 
 
 
-export { shM, shPct, MOTIVATION_SERVICES, MOTIVATION_DEFAULT, OPERATOR_MOTIVATION, motivationFor, motivationRates, operatorEarn, SHIFT_DEMO_OPS, SHIFT_REQUESTS_HANDLED, shiftTotals, shiftFmtTime, shiftDuration, MotivationDrawer, ShiftReportDrawer, FeesReportDrawer, ShiftControl };
+export { shM, shPct, MOTIVATION_SERVICES, MOTIVATION_DEFAULT, OPERATOR_MOTIVATION, motivationFor, motivationRates, operatorEarn, SHIFT_DEMO_OPS, SHIFT_REQUESTS_HANDLED, shiftTotals, shiftFmtTime, shiftDuration, motivationFromRules, MotivationDrawer, ShiftReportDrawer, FeesReportDrawer, ShiftControl };

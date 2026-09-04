@@ -3,7 +3,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState } 
 import { resourceStatusFromError, resultsOf } from '../api/client';
 import { toUiClient, toUiCompany, toUiNotification, toUiOrder, toUiSupplier, toUiThread } from '../api/adapters';
 import { toLegacyDocument, toLegacyOrderService, toLegacyProposal, toLegacyReturn, toLegacyUser } from '../api/legacy-adapters';
-import { communicationsApi, crmApi, notificationsApi, ordersApi, servicesApi, suppliersApi, workspaceApi } from '../api/resources';
+import { communicationsApi, crmApi, integrationsApi, notificationsApi, ordersApi, servicesApi, suppliersApi, workforceApi, workspaceApi } from '../api/resources';
 import { useAuth } from './auth-context';
 import { syncLegacyDataFromWorkspace } from './backend-data-sync';
 
@@ -12,6 +12,7 @@ const WorkspaceContext = createContext(null);
 const EMPTY = {
   orders: [], suppliers: [], persons: [], clients: [], companies: [], notifications: [], chats: [],
   proposals: [], documents: [], returns: [], orderServices: [], transactions: [], users: [], calendar: null, dashboard: null, finance: null, meta: null,
+  integrationIncidents: [], integrationOperations: [], slaQueue: [], currentShift: null, motivationAccruals: [],
 };
 
 const RESOURCE_KEYS = Object.keys(EMPTY);
@@ -78,6 +79,9 @@ export function WorkspaceProvider({ children }) {
       transactions: workspaceApi.transactions({}, signal),
       users: workspaceApi.users({}, signal), calendar: workspaceApi.calendar({}, signal), dashboard: workspaceApi.dashboard({ role_scope: 'tenant' }, signal),
       finance: workspaceApi.financeOverview(signal), meta: workspaceApi.meta(signal),
+      integrationIncidents: integrationsApi.incidents({}, signal), integrationOperations: integrationsApi.operations({}, signal),
+      slaQueue: workforceApi.queue({ scope: 'team' }, signal), currentShift: workforceApi.currentShift(signal),
+      motivationAccruals: workforceApi.motivationAccruals({}, signal),
     };
     const entries = Object.entries(calls);
     const settled = await Promise.allSettled(entries.map(([, promise]) => promise));
@@ -115,6 +119,11 @@ export function WorkspaceProvider({ children }) {
     next.dashboard = raw.dashboard;
     next.finance = raw.finance;
     next.meta = raw.meta;
+    next.integrationIncidents = resultsOf(raw.integrationIncidents);
+    next.integrationOperations = resultsOf(raw.integrationOperations);
+    next.slaQueue = resultsOf(raw.slaQueue);
+    next.currentShift = raw.currentShift?.shift || raw.currentShift || null;
+    next.motivationAccruals = resultsOf(raw.motivationAccruals);
     const loadedAt = new Date().toISOString();
     RESOURCE_KEYS.forEach((key) => {
       if (!nextResources[key]) nextResources[key] = makeResource(next[key], 'success', null, loadedAt);

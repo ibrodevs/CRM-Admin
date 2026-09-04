@@ -3,7 +3,7 @@ import { ChannelIcon, Icon } from './icons';
 import { ActionMenu, Button, Checkbox, DateField, DateRangeField, Drawer, EmptyState, FilterChip, Input, Pill, Radio, SearchBox, Select, Tabs, TimeLimitBadge, Toggle, fmtDate, plural, useToast } from './ui';
 import { CURRENT_USER, ORDERS, RAIL_OCCUPIED, RAIL_SERVICE_CLASSES, RAIL_WAGONS, RETURNS, SERVICE_KIND, SERVICE_STATUS, SVC_DATA } from './data';
 import { CARD_CLIENT_VISIBILITY, CARD_STATUS, CARD_STATUS_FLOW, SEND_CHANNELS, cardInternals, cardStatus, orderClientChannel, sendChannelMeta } from './data/access-control';
-import { CHAIN_STATUS, DELIVERY_STATUS, DELIVERY_TONE, FORCE_MAJEURE_TYPES, advanceDelivery, affectedServiceChain, buildCardFields, buildForceMajeureRows, cardAction, cardEmailTemplate, cardScenario, cardsFor, channelMode, defaultForceMajeure, enabledChannels, operatorCardRights, recordCardResponse, scenarioActions, scenarioBadge, scenariosForKind, sendServiceCard, smartAlternatives } from './data/service-cards';
+import { CHAIN_STATUS, FORCE_MAJEURE_TYPES, buildCardFields, buildForceMajeureRows, cardAction, cardEmailTemplate, cardScenario, channelMode, defaultForceMajeure, enabledChannels, operatorCardRights, scenarioActions, scenarioBadge, scenariosForKind } from './data/service-cards';
 import { UnifiedPersonDrawer } from './forms_unified';
 import { Topbar } from './layout';
 import { DetailedSearchPanel } from './page_dashboard';
@@ -12,7 +12,7 @@ import { rub } from './page_avia_picker';
 import { OperationConfirmModal } from './order_ops';
 import { PanelSub, StackPanel } from './components/shared-panels';
 import { kpNow } from './page_offers';
-import { documentsApi, ordersApi, proposalsApi, servicesApi, workspaceActionsApi } from './api/resources';
+import { documentsApi, ordersApi, proposalsApi, serviceCardsApi, servicesApi, workspaceActionsApi } from './api/resources';
 import { resultsOf } from './api/client';
 import { toLegacyOrderService } from './api/legacy-adapters';
 import { normalizeCurrency, ocMoney } from './features/orders/finance';
@@ -21,6 +21,23 @@ import { normalizeCurrency, ocMoney } from './features/orders/finance';
 
 
 function svM(n) { return Math.round(n).toLocaleString('ru-RU') + ' $'; }
+
+const BACKEND_ID_RE = /^[0-9a-f]{8}-[0-9a-f-]{27}$/i;
+const SERVICE_KIND_CODE = {
+  'Авиа': 'avia', 'ЖД': 'rail', 'Гостиница': 'hotel', 'Гостиницы': 'hotel',
+  'Трансфер': 'transfer', 'Автобус': 'bus', 'Тур': 'tour', 'Группа': 'tour',
+  'Аэроэкспресс': 'aeroexpress', 'Бизнес-зал': 'lounge', 'Страховка': 'insurance',
+  'Страхование': 'insurance', 'Виза': 'visa', 'Доп. услуга': 'other', 'Прочее': 'other',
+};
+const serviceKindCode = (kind) => SERVICE_KIND_CODE[kind] || (Object.values(SERVICE_KIND_CODE).includes(kind) ? kind : 'other');
+const serviceCardChannelCodes = (channels) => String(channels || '').split(',').map((value) => value.trim()).filter(Boolean).map((channel) => ({
+  'Внутренний чат': 'internal', Telegram: 'telegram', WhatsApp: 'whatsapp', MAX: 'max', Email: 'email',
+})[channel] || channel.toLowerCase());
+const serviceCardStatusLabel = (status) => ({
+  created: 'Создана', sent: 'Отправлена', delivered: 'Доставлена', viewed: 'Просмотрена',
+  chosen: 'Клиент выбрал', declined: 'Отклонена', expired: 'Срок истёк', price_changed: 'Цена изменилась',
+  unavailable: 'Недоступна', issued: 'Оформлена',
+}[status] || status);
 
 const SERVICE_DOCUMENT_PAGE_SIZE = 12;
 
@@ -389,7 +406,8 @@ function ManualAltForm({ onAdd, compact }) {
 function ServiceCardSendPanel({ item, kind, participants = [], orderNo, currency, serviceId, initialScenario, onSent, onClose }) {
   const toast = useToast();
   const oNo = orderNo || item.order;
-  const svcId = serviceId || item.id || (kind + '-' + (item.title || item.main || ''));
+  const backendOrderId = item.orderId || item.order_id || (BACKEND_ID_RE.test(String(item.order || '')) ? item.order : null);
+  const backendServiceId = item.serverId || (BACKEND_ID_RE.test(String(serviceId || item.id || '')) ? (serviceId || item.id) : null);
   const operator = (typeof CURRENT_USER !== 'undefined' && CURRENT_USER.name) || 'Оператор';
   const fmt = (n) => (currency === 'RUB' || currency === '₽') ? rub(n) : svM(n);
   const kindMeta = SERVICE_KIND[kind] || { icon: 'briefcase', color: 'var(--blue)' };
@@ -421,6 +439,8 @@ function ServiceCardSendPanel({ item, kind, participants = [], orderNo, currency
   const [responseDeadline, setResponseDeadline] = useState(looksExchange ? 'сегодня 18:00' : '');
   const [vis, setVis] = useState(() => ({ ...(window.CARD_CLIENT_VISIBILITY || {}) }));
   const [attachments, setAttachments] = useState([]);
+  const [attachmentBusy, setAttachmentBusy] = useState(false);
+  const attachmentRef = useRef(null);
   const [channels, setChannels] = useState([orderClientChannel(oNo)]);
   const [previewMode, setPreviewMode] = useState(channelMode(orderClientChannel(oNo)));
   const [previewChannel, setPreviewChannel] = useState(orderClientChannel(oNo));
@@ -436,31 +456,80 @@ function ServiceCardSendPanel({ item, kind, participants = [], orderNo, currency
   const [manualAlts, setManualAlts] = useState([]);
   const [altSel, setAltSel] = useState(() => new Set());
   const [picksOpen, setPicksOpen] = useState(false);
+  const [altBusy, setAltBusy] = useState(false);
   const allAlts = [...altOpts, ...manualAlts];
   const syncAltText = (sel, opts) => {
     const chosen = opts.filter((o) => sel.has(o.id));
     setFm((f) => ({ ...f, alternatives: chosen.map((o) => o.title + ' (' + o.delta + ')').join('; ') }));
   };
-  const findAlternatives = () => {
-    const opts = smartAlternatives(item, kind);
-    setAltOpts(opts);
-    const sel = new Set([...opts.map((o) => o.id), ...manualAlts.map((o) => o.id)]);
-    setAltSel(sel); syncAltText(sel, [...opts, ...manualAlts]);
-    toast('Подобрано ' + opts.length + ' альтернатив (умный поиск)', 'ok');
+  const fetchAlternatives = async (subject, subjectKind) => {
+    const created = await servicesApi.search({
+      kind: serviceKindCode(subjectKind),
+      ...(backendOrderId ? { order: backendOrderId } : {}),
+      criteria: {
+        query: subject.title || subject.service || subject.main || '',
+        reference_service: subject.serverId || subject.id || null,
+        currency: currency || subject.currency || 'RUB',
+      },
+    });
+    const offers = await waitForBackendOffers(created.search_id);
+    const basePrice = Number(subject.sum || subject.client_total || subject.cost || fin.clientTotal || 0);
+    return offers.map((offer) => {
+      const amount = Number(offer.price?.amount || 0);
+      const diff = amount - basePrice;
+      return {
+        id: offer.id,
+        offerId: offer.id,
+        title: offer.itinerary?.property_name || offer.itinerary?.description || offer.external_key || 'Вариант поставщика',
+        meta: [offer.provider_adapter, offer.fare?.name || offer.fare?.code].filter(Boolean).join(' · ') || 'Подключённый поставщик',
+        price: amount,
+        currency: offer.price?.currency || currency || 'RUB',
+        delta: basePrice ? `${diff > 0 ? '+' : diff < 0 ? '−' : ''}${Math.abs(diff).toLocaleString('ru-RU')} ${offer.price?.currency || currency || 'RUB'}` : '=',
+      };
+    });
+  };
+  const findAlternatives = async () => {
+    setAltBusy(true);
+    try {
+      const opts = await fetchAlternatives(item, kind);
+      setAltOpts(opts);
+      const sel = new Set([...opts.map((o) => o.id), ...manualAlts.map((o) => o.id)]);
+      setAltSel(sel); syncAltText(sel, [...opts, ...manualAlts]);
+      toast(opts.length ? 'Получено альтернатив от поставщиков: ' + opts.length : 'Поставщики не вернули альтернатив', opts.length ? 'ok' : 'info');
+    } catch (error) { toast(error.message || 'Не удалось подобрать альтернативы', 'err'); }
+    finally { setAltBusy(false); }
   };
   const toggleAlt = (id) => { setAltSel((s) => { const n = new Set(s); n.has(id) ? n.delete(id) : n.add(id); syncAltText(n, [...altOpts, ...manualAlts]); return n; }); };
   const addManualAlt = (v) => {
-    const alt = { id: 'man-' + Math.random().toString(36).slice(2, 7), manual: true, ...v };
+    const alt = { id: 'manual-' + (crypto.randomUUID?.() || Date.now()), manual: true, ...v };
     setManualAlts((m) => [...m, alt]);
     setAltSel((s) => { const n = new Set(s); n.add(alt.id); syncAltText(n, [...allAlts, alt]); return n; });
     toast('Вариант добавлен в форму подбора', 'info');
   };
   const removeManualAlt = (id) => { setManualAlts((m) => m.filter((x) => x.id !== id)); setAltSel((s) => { const n = new Set(s); n.delete(id); return n; }); };
 
-  const [chain] = useState(() => affectedServiceChain(oNo, kind));
-  const [chainState, setChainState] = useState(() => affectedServiceChain(oNo, kind).map(() => ({ alts: [], sel: new Set(), include: false })));
-  const chainAuto = (i) => setChainState((cs) => cs.map((c, idx) => { if (idx !== i) return c; const alts = smartAlternatives({ title: chain[i].service }, chain[i].kind); return { alts, sel: new Set(alts.map((a) => a.id)), include: true }; }));
-  const chainAddManual = (i, v) => setChainState((cs) => cs.map((c, idx) => { if (idx !== i) return c; const alt = { id: 'cm-' + Math.random().toString(36).slice(2, 7), manual: true, ...v }; const sel = new Set(c.sel); sel.add(alt.id); return { alts: [...c.alts, alt], sel, include: true }; }));
+  const [chain, setChain] = useState([]);
+  const [chainState, setChainState] = useState([]);
+  useEffect(() => {
+    if (!backendOrderId) { setChain([]); setChainState([]); return undefined; }
+    const controller = new AbortController();
+    servicesApi.list({ order: backendOrderId }, controller.signal).then((payload) => {
+      const related = resultsOf(payload).filter((service) => String(service.id) !== String(backendServiceId)).map((service) => {
+        const ui = toLegacyOrderService(service);
+        return { ...ui, service: ui.title, status: 'ok', statusLabel: ui.status };
+      });
+      setChain(related);
+      setChainState(related.map(() => ({ alts: [], sel: new Set(), include: false })));
+    }).catch((error) => { if (error.name !== 'AbortError') toast(error.message || 'Не удалось загрузить связанные услуги', 'err'); });
+    return () => controller.abort();
+  }, [backendOrderId, backendServiceId]);
+  const chainAuto = async (i) => {
+    try {
+      const alts = await fetchAlternatives(chain[i], chain[i].kind);
+      setChainState((cs) => cs.map((c, idx) => idx === i ? { alts, sel: new Set(alts.map((a) => a.id)), include: true } : c));
+    } catch (error) { toast(error.message || 'Не удалось подобрать варианты', 'err'); }
+  };
+  const chainAddManual = (i, v) => setChainState((cs) => cs.map((c, idx) => { if (idx !== i) return c; const alt = { id: 'manual-' + (crypto.randomUUID?.() || Date.now()), manual: true, ...v }; const sel = new Set(c.sel); sel.add(alt.id); return { alts: [...c.alts, alt], sel, include: true }; }));
   const chainToggleAlt = (i, id) => setChainState((cs) => cs.map((c, idx) => { if (idx !== i) return c; const sel = new Set(c.sel); sel.has(id) ? sel.delete(id) : sel.add(id); return { ...c, sel }; }));
   const chainRemoveManual = (i, id) => setChainState((cs) => cs.map((c, idx) => { if (idx !== i) return c; const sel = new Set(c.sel); sel.delete(id); return { ...c, alts: c.alts.filter((a) => a.id !== id), sel }; }));
   const chainToggleInclude = (i) => setChainState((cs) => cs.map((c, idx) => idx === i ? { ...c, include: !c.include } : c));
@@ -494,7 +563,20 @@ function ServiceCardSendPanel({ item, kind, participants = [], orderNo, currency
   const toggle = (set, val, on) => { const n = new Set(set); on ? n.add(val) : n.delete(val); return n; };
   const toggleChannel = (c) => setChannels((cs) => cs.includes(c) ? cs.filter((x) => x !== c) : [...cs, c]);
   const toggleAction = (a) => setActions((as) => as.includes(a) ? as.filter((x) => x !== a) : [...as, a]);
-  const addAttachment = () => setAttachments((a) => [...a, { name: 'Ваучер_' + (a.length + 1) + '.pdf' }]);
+  const addAttachment = () => attachmentRef.current?.click();
+  const uploadAttachment = async (event) => {
+    const file = event.target.files?.[0];
+    event.target.value = '';
+    if (!file) return;
+    if (!backendOrderId || !backendServiceId) { toast('Вложение можно сохранить только для backend-услуги в заказе', 'err'); return; }
+    setAttachmentBusy(true);
+    try {
+      const document = await documentsApi.upload(file, { order: backendOrderId, service: backendServiceId, kind: 'other', title: file.name, source: 'upload', metadata: { service_card_attachment: true } });
+      setAttachments((current) => [...current, { id: document.id, name: document.title, kind: document.kind }]);
+      toast('Вложение загружено', 'ok');
+    } catch (error) { toast(error.message || 'Не удалось загрузить вложение', 'err'); }
+    finally { setAttachmentBusy(false); }
+  };
 
   const send = async () => {
     if (!rights.send) { toast('Нет права на отправку карточек по услуге «' + kind + '»', 'err'); return; }
@@ -507,12 +589,9 @@ function ServiceCardSendPanel({ item, kind, participants = [], orderNo, currency
       snapshot: { title: item.title || item.main, info, badge: clientLabel },
     };
     try {
-      const result = await Promise.resolve(onSent && onSent(channels.join(', '), draft));
-      if (!result?.persisted) {
-        const card = sendServiceCard(oNo, svcId, draft, operator);
-        setTimeout(() => channels.forEach((ch) => advanceDelivery(card, ch, 'delivered')), 900);
-        setTimeout(() => channels.forEach((ch) => advanceDelivery(card, ch, 'viewed')), 2100);
-      }
+      if (!onSent) throw new Error('Отправка недоступна: услуга не связана с backend-заказом');
+      const result = await Promise.resolve(onSent(channels.join(', '), draft));
+      if (!result?.persisted) throw new Error('Карточка не была сохранена в backend');
       onClose && onClose();
     } catch (error) { toast(error.message || 'Не удалось отправить карточку услуги', 'err'); }
   };
@@ -689,7 +768,7 @@ function ServiceCardSendPanel({ item, kind, participants = [], orderNo, currency
                       <span style={{ width: 78, flexShrink: 0, fontSize: 12, fontWeight: 600, color: 'var(--muted)' }}>{c.kind}</span>
                       <span style={{ flex: 1, minWidth: 0, fontSize: 13, color: 'var(--ink)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.service}</span>
                       {picks > 0 && <Pill tone="blue">{picks} для клиента</Pill>}
-                      <Pill tone={st.tone}>{st.label}</Pill>
+                      <Pill tone={st.tone}>{c.statusLabel || st.label}</Pill>
                     </div>
                   );
                 })}
@@ -752,7 +831,8 @@ function ServiceCardSendPanel({ item, kind, participants = [], orderNo, currency
 
 
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 14, flexWrap: 'wrap' }}>
-            <Button size="sm" variant="secondary" icon="paperclip" onClick={addAttachment}>Добавить вложение</Button>
+            <input ref={attachmentRef} type="file" hidden onChange={uploadAttachment} />
+            <Button size="sm" variant="secondary" icon="paperclip" onClick={addAttachment} disabled={attachmentBusy}>{attachmentBusy ? 'Загрузка…' : 'Добавить вложение'}</Button>
             {attachments.map((a, i) => <Pill key={i} tone="gray">{a.name}</Pill>)}
           </div>
 
@@ -783,7 +863,7 @@ function ServiceCardSendPanel({ item, kind, participants = [], orderNo, currency
             <span style={{ fontWeight: 700, fontSize: 14, color: 'var(--ink)' }}>Основная услуга</span>
           </div>
           <div style={{ fontSize: 12.5, color: 'var(--muted)', marginBottom: 10 }}>{item.title || item.main}</div>
-          <Button size="sm" variant="secondary" icon="refund" onClick={findAlternatives} style={{ marginBottom: 10 }}>{altOpts.length ? 'Обновить авто-подбор' : 'Подобрать автоматически'}</Button>
+          <Button size="sm" variant="secondary" icon="refund" onClick={findAlternatives} disabled={altBusy} style={{ marginBottom: 10 }}>{altBusy ? 'Поиск у поставщиков…' : altOpts.length ? 'Обновить подбор' : 'Подобрать у поставщиков'}</Button>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 10 }}>
             {allAlts.length === 0 && <div style={{ fontSize: 12.5, color: 'var(--muted)' }}>Нажмите «Подобрать автоматически» — система предложит близкие варианты; либо добавьте конкретный рейс вручную ниже.</div>}
             {allAlts.map((o) => {
@@ -818,7 +898,7 @@ function ServiceCardSendPanel({ item, kind, participants = [], orderNo, currency
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8, flexWrap: 'wrap' }}>
                     <span style={{ fontWeight: 700, fontSize: 13, color: 'var(--ink)' }}>{c.kind}</span>
                     <span style={{ flex: 1, minWidth: 0, fontSize: 12.5, color: 'var(--muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.service}</span>
-                    <Pill tone={st.tone}>{st.label}</Pill>
+                    <Pill tone={st.tone}>{c.statusLabel || st.label}</Pill>
                   </div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: cs.alts.length ? 8 : 0, flexWrap: 'wrap' }}>
                     <Button size="sm" variant="secondary" icon="refund" onClick={() => chainAuto(i)}>{cs.alts.length ? 'Обновить' : 'Подобрать авто'}</Button>
@@ -861,45 +941,59 @@ function ServiceCardSendPanel({ item, kind, participants = [], orderNo, currency
 
 
 function ServiceCardHistoryDrawer({ orderNo, serviceId, title, onClose }) {
-  const [, force] = useState(0);
-  const rerender = () => force((n) => n + 1);
-  const cards = cardsFor(orderNo, serviceId).slice().sort((a, b) => b.version - a.version);
-  const simDeliver = (card, ch, st) => { advanceDelivery(card, ch, st); rerender(); };
-  const simResponse = (card, act, ch) => { recordCardResponse(card, act, ch); rerender(); };
+  const toast = useToast();
+  const [loading, setLoading] = useState(true);
+  const [cards, setCards] = useState([]);
+  const backendOrderId = BACKEND_ID_RE.test(String(orderNo || '')) ? orderNo : null;
+  const backendServiceId = BACKEND_ID_RE.test(String(serviceId || '')) ? serviceId : null;
+  useEffect(() => {
+    if (!backendOrderId && !backendServiceId) { setLoading(false); setCards([]); return undefined; }
+    const controller = new AbortController();
+    serviceCardsApi.list({ ...(backendOrderId ? { order: backendOrderId } : {}), ...(backendServiceId ? { service: backendServiceId } : {}) }, controller.signal)
+      .then((payload) => { setCards(resultsOf(payload)); setLoading(false); })
+      .catch((error) => { if (error.name !== 'AbortError') { setLoading(false); toast(error.message || 'Не удалось загрузить историю карточки', 'err'); } });
+    return () => controller.abort();
+  }, [backendOrderId, backendServiceId]);
+  const expire = async (card) => {
+    try {
+      const updated = await serviceCardsApi.expire(card.id);
+      setCards((current) => current.map((item) => item.id === updated.id ? updated : item));
+      toast('Срок действия карточки завершён', 'ok');
+    } catch (error) { toast(error.message || 'Не удалось завершить карточку', 'err'); }
+  };
+  const statusTone = (status) => status === 'chosen' || status === 'viewed' || status === 'delivered' || status === 'issued' ? 'green' : status === 'declined' || status === 'unavailable' ? 'red' : status === 'expired' || status === 'price_changed' ? 'amber' : 'blue';
+  const deliveryLabel = { queued: 'В очереди', sent: 'Отправлено', delivered: 'Доставлено', read: 'Прочитано', failed: 'Ошибка' };
 
   return (
     <Drawer open onClose={onClose} title="История карточки услуги" sub={title} width="min(560px, 96vw)"
       footer={<Button variant="secondary" onClick={onClose}>Закрыть</Button>}>
-      {cards.length === 0 ? (
-        <EmptyState icon="clock" title="Карточка ещё не отправлялась" sub="После отправки клиенту здесь появятся версии, доставки и ответы." />
-      ) : cards.map((card) => {
-        const sc = cardScenario(card.scenario), cst = cardStatus(card.status === 'sent' ? 'sent' : card.status);
+      {loading ? <div className="sk" style={{ height: 120 }} /> : cards.length === 0 ? (
+        <EmptyState icon="clock" title="Карточка ещё не отправлялась" sub={backendOrderId || backendServiceId ? 'После отправки здесь появятся backend-версии, доставки и ответы.' : 'Услуга не связана с backend, история недоступна.'} />
+      ) : cards.map((card, cardIndex) => {
+        const sc = cardScenario(card.scenario);
+        const actual = cardIndex === 0 && !['expired', 'price_changed'].includes(card.status);
         return (
-          <div key={card.id} className="card card-pad" style={{ marginBottom: 14, opacity: card.actual ? 1 : 0.85, borderLeft: '3px solid ' + (card.actual ? 'var(--blue)' : 'var(--line)') }}>
+          <div key={card.id} className="card card-pad" style={{ marginBottom: 14, opacity: actual ? 1 : 0.85, borderLeft: '3px solid ' + (actual ? 'var(--blue)' : 'var(--line)') }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-              <Pill tone={card.actual ? 'blue' : 'gray'}>Версия {card.version}</Pill>
-              <span style={{ fontWeight: 700, color: 'var(--ink)', fontSize: 14 }}>{card.clientLabel}</span>
-              {!card.actual && <Pill tone="amber">неактуальна</Pill>}
+              <Pill tone={actual ? 'blue' : 'gray'}>Версия {card.card_version}</Pill>
+              <span style={{ fontWeight: 700, color: 'var(--ink)', fontSize: 14 }}>{card.content?.clientLabel || card.content?.snapshot?.title || title}</span>
+              {!actual && cardIndex > 0 && <Pill tone="gray">предыдущая</Pill>}
               <div style={{ flex: 1 }} />
-              <Pill tone={cst.tone || 'gray'}>{cardStatus(card.status) ? cardStatus(card.status).label : card.status}</Pill>
+              <Pill tone={statusTone(card.status)}>{serviceCardStatusLabel(card.status)}</Pill>
             </div>
-            <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 4 }}>Сценарий: {sc.name} · отправлено {card.sentAt} · {card.operator}</div>
-            {!card.actual && card.staleNote && (
-              <div style={{ marginTop: 8, padding: '8px 10px', borderRadius: 9, background: 'var(--surface-2)', fontSize: 12, color: 'var(--muted)' }}>
-                <Icon name="alertCircle" style={{ width: 13, height: 13, verticalAlign: -2, marginRight: 4 }} />{card.staleNote}
-              </div>
-            )}
+            <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 4 }}>Сценарий: {sc.name} · {card.created_at ? new Date(card.created_at).toLocaleString('ru-RU') : '—'}</div>
 
 
             <div style={{ marginTop: 10 }}>
               <div className="lbl" style={{ marginBottom: 6 }}>Доставка по каналам</div>
-              {card.deliveries.map((d, i) => (
+              {(card.deliveries || []).length === 0 && <div style={{ fontSize: 12, color: 'var(--muted)' }}>Ещё не поставлена в очередь отправки</div>}
+              {(card.deliveries || []).map((d, i) => (
                 <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '5px 0', borderTop: i ? '1px solid var(--line)' : 'none' }}>
                   <Icon name={sendChannelMeta(d.channel).icon} style={{ width: 14, height: 14, color: 'var(--muted)' }} />
                   <span style={{ fontSize: 13 }}>{d.channel}</span>
                   <div style={{ flex: 1 }} />
-                  <Pill tone={DELIVERY_TONE[d.status] || 'gray'}>{DELIVERY_STATUS[d.status] || d.status}</Pill>
-                  <span style={{ fontSize: 11, color: 'var(--muted)' }}>{d.at}</span>
+                  <Pill tone={d.state === 'failed' ? 'red' : d.state === 'read' || d.state === 'delivered' ? 'green' : 'gray'}>{deliveryLabel[d.state] || d.state}</Pill>
+                  <span style={{ fontSize: 11, color: 'var(--muted)' }}>{d.sent_at ? new Date(d.sent_at).toLocaleString('ru-RU') : ''}</span>
                 </div>
               ))}
             </div>
@@ -910,36 +1004,13 @@ function ServiceCardHistoryDrawer({ orderNo, serviceId, title, onClose }) {
                 <div className="lbl" style={{ marginBottom: 6 }}>Ответы клиента</div>
                 {card.responses.map((r, i) => (
                   <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, padding: '3px 0' }}>
-                    <Icon name={cardAction(r.action).icon} style={{ width: 14, height: 14, color: 'var(--green)' }} />{r.label}
-                    <div style={{ flex: 1 }} /><span style={{ fontSize: 11, color: 'var(--muted)' }}>{r.channel} · {r.at}</span>
+                    <Icon name={r.action === 'decline' ? 'x' : 'check'} style={{ width: 14, height: 14, color: r.action === 'decline' ? 'var(--red)' : 'var(--green)' }} />{r.action === 'choose' ? 'Клиент выбрал' : r.action === 'decline' ? 'Клиент отклонил' : r.action}{r.comment ? ' · ' + r.comment : ''}
+                    <div style={{ flex: 1 }} /><span style={{ fontSize: 11, color: 'var(--muted)' }}>{r.channel}{r.created_at ? ' · ' + new Date(r.created_at).toLocaleString('ru-RU') : ''}</span>
                   </div>
                 ))}
               </div>
             )}
-
-
-            {card.actual && (
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 10 }}>
-                {card.deliveries.some((d) => d.status !== 'viewed') && <Button size="sm" variant="secondary" icon="eye" onClick={() => card.deliveries.forEach((d) => simDeliver(card, d.channel, 'viewed'))}>Отметить просмотр</Button>}
-                {card.responses.length === 0 && card.actions.slice(0, 2).map((a) => (
-                  <Button key={a} size="sm" variant="secondary" icon={cardAction(a).icon} onClick={() => simResponse(card, a, card.channels[0])}>Клиент: {cardAction(a).label}</Button>
-                ))}
-              </div>
-            )}
-
-
-            <details style={{ marginTop: 10 }}>
-              <summary style={{ cursor: 'pointer', fontSize: 12.5, color: 'var(--blue)' }}>Журнал действий ({card.history.length})</summary>
-              <div style={{ marginTop: 8 }}>
-                {card.history.map((h, i) => (
-                  <div key={i} style={{ display: 'flex', gap: 8, fontSize: 12, padding: '4px 0', borderTop: i ? '1px solid var(--line)' : 'none' }}>
-                    <span style={{ color: 'var(--muted)', flex: '0 0 96px' }}>{h.at}</span>
-                    <span style={{ flex: 1 }}>{h.action}{h.channel ? ' · ' + h.channel : ''}{h.note ? ' ' + h.note : ''}</span>
-                    <span style={{ color: 'var(--muted)' }}>{h.user}</span>
-                  </div>
-                ))}
-              </div>
-            </details>
+            {actual && !['chosen', 'declined', 'expired', 'issued'].includes(card.status) && <Button size="sm" variant="secondary" icon="clock" onClick={() => expire(card)} style={{ marginTop: 10 }}>Завершить срок действия</Button>}
           </div>
         );
       })}
@@ -1036,7 +1107,8 @@ function SvcCard({ item, kind, participants = [], hideBackRow, onBack }) {
   const [version, setVersion] = useState(item.version || 1);
   const [serviceVersion, setServiceVersion] = useState(item.version || 1);
   const [versions, setVersions] = useState(item.versions || []);
-  const [cardLog, setCardLog] = useState(() => [{ t: 'сейчас', txt: 'Карточка услуги создана' }]);
+  const [latestCard, setLatestCard] = useState(null);
+  const [cardLog, setCardLog] = useState([]);
   const [opConfirm, setOpConfirm] = useState(null);
   const k = SERVICE_KIND[kind] || { icon: 'briefcase', color: 'var(--blue)' };
   const isOffer = !!item.cost;
@@ -1077,7 +1149,8 @@ function SvcCard({ item, kind, participants = [], hideBackRow, onBack }) {
     Promise.all([
       documentsApi.list({ service: serviceId }, controller.signal),
       workspaceActionsApi.list({ resource_type: 'OrderService', resource_id: serviceId }, controller.signal),
-    ]).then(([documents, actions]) => {
+      serviceCardsApi.list({ service: serviceId }, controller.signal),
+    ]).then(([documents, actions, cardsPayload]) => {
       setUploadedDocs(resultsOf(documents).map((doc) => ({
         ...doc, name: doc.title, type: doc.kind, size: '', documentId: doc.id,
       })));
@@ -1085,6 +1158,19 @@ function SvcCard({ item, kind, participants = [], hideBackRow, onBack }) {
         t: row.created_at ? new Date(row.created_at).toLocaleString('ru-RU') : '—',
         txt: row.payload?.comment || row.payload?.label || row.action,
       })));
+      const cards = resultsOf(cardsPayload);
+      const current = cards[0] || null;
+      setLatestCard(current);
+      if (current) {
+        setVersion(current.card_version);
+        setCardSt(current.status);
+      }
+      setVersions(cards.map((card) => ({ v: card.card_version, note: `${serviceCardStatusLabel(card.status)} · ${card.created_at ? new Date(card.created_at).toLocaleString('ru-RU') : '—'}` })));
+      setCardLog(cards.flatMap((card) => [
+        { t: card.created_at ? new Date(card.created_at).toLocaleString('ru-RU') : '—', txt: `Создана backend-версия v${card.card_version}` },
+        ...(card.deliveries || []).map((delivery) => ({ t: delivery.created_at ? new Date(delivery.created_at).toLocaleString('ru-RU') : '—', txt: `Канал ${delivery.channel}: ${delivery.state}` })),
+        ...(card.responses || []).map((response) => ({ t: response.created_at ? new Date(response.created_at).toLocaleString('ru-RU') : '—', txt: `Ответ клиента: ${response.action}${response.comment ? ' · ' + response.comment : ''}` })),
+      ]));
     }).catch((error) => { if (error.name !== 'AbortError') toast(error.message, 'err'); });
     return () => controller.abort();
   }, [serviceId]);
@@ -1159,16 +1245,25 @@ function SvcCard({ item, kind, participants = [], hideBackRow, onBack }) {
     } catch (error) { toast(error.message, 'err'); }
   };
 
-  const sendCard = async (ch) => {
-    try {
-      await workspaceActionsApi.execute('service.card.send', {
-        resourceType: 'OrderService', resourceId: serviceId,
-        payload: { channel: ch, version, label: `Карточка отправлена · ${ch} · v${version}` },
-      });
-      setCardSt('sent');
-      setCardLog((l) => [...l, { t: 'сейчас', txt: 'Отправлена клиенту · канал «' + ch + '» · v' + version }]);
-      toast('Карточка услуги поставлена в очередь отправки по каналу «' + ch + '»', 'ok');
-    } catch (error) { toast(error.message, 'err'); }
+  const sendCard = async (ch, draft) => {
+    const orderId = item.orderId || (BACKEND_ID_RE.test(String(item.order || '')) ? item.order : null);
+    if (!orderId || !BACKEND_ID_RE.test(String(serviceId || ''))) throw new Error('Услуга не связана с backend-заказом');
+    const created = await serviceCardsApi.create({
+      order: orderId,
+      service: serviceId,
+      kind: serviceKindCode(kind),
+      scenario: draft.scenario || '',
+      price_snapshot: { amount: total || 0, currency: cur },
+      content: draft,
+    });
+    const sent = await serviceCardsApi.send(created.id, { channels: serviceCardChannelCodes(ch), recipient: item.client_email || item.client_phone || '' });
+    setLatestCard(sent);
+    setVersion(sent.card_version);
+    setCardSt(sent.status);
+    setVersions((current) => [{ v: sent.card_version, note: `${serviceCardStatusLabel(sent.status)} · ${new Date(sent.created_at).toLocaleString('ru-RU')}` }, ...current.filter((row) => row.v !== sent.card_version)]);
+    setCardLog((current) => [{ t: 'сейчас', txt: `Карточка v${sent.card_version} поставлена в backend-очередь · ${ch}` }, ...current]);
+    toast('Карточка услуги сохранена и поставлена в очередь отправки', 'ok');
+    return { persisted: true, card: sent };
   };
   const addServicePassenger = async (person) => {
     const orderId = item.orderId || (/^[0-9a-f-]{32,36}$/i.test(String(item.order || '')) ? item.order : null);
@@ -1203,31 +1298,15 @@ function SvcCard({ item, kind, participants = [], hideBackRow, onBack }) {
       toast((isHotel ? 'Гость' : 'Пассажир') + ' добавлен в backend-услугу', 'ok');
     } catch (error) { toast(error.message || 'Не удалось добавить участника услуги', 'err'); }
   };
-  const bumpVersion = async () => {
-    const nv = version + 1;
-    try {
-      await workspaceActionsApi.execute('service.card.version.create', {
-        resourceType: 'OrderService', resourceId: serviceId,
-        payload: { previous_version: version, version: nv, label: `Создана версия карточки v${nv}` },
-      });
-      setVersions((vs) => [...vs, { v: version, note: 'Прежняя версия сохранена в истории' }]);
-      setVersion(nv);
-      setCardSt('price_changed');
-      setCardLog((l) => [...l, { t: 'сейчас', txt: 'Изменены параметры — создана версия v' + nv + ' (прежняя сохранена)' }]);
-      toast('Создана новая версия карточки v' + nv + ' — прежняя сохранена в истории', 'ok');
-    } catch (error) { toast(error.message, 'err'); }
-  };
+  const bumpVersion = () => setSendOpen(true);
 
   const markCard = async (key) => {
-    const st = cardStatus(key);
+    if (key !== 'expired' || !latestCard?.id) { toast('Статусы выбора и отказа меняются только ответом клиента', 'info'); return; }
     try {
-      await workspaceActionsApi.execute('service.card.status.change', {
-        resourceType: 'OrderService', resourceId: serviceId,
-        payload: { status: key, label: `Статус карточки: ${st.label}` },
-      });
-      setCardSt(key);
-      setCardLog((l) => [...l, { t: 'сейчас', txt: 'Статус карточки: ' + st.label }]);
-      toast('Статус карточки: ' + st.label, key === 'declined' || key === 'unavailable' || key === 'expired' ? 'info' : 'ok');
+      const updated = await serviceCardsApi.expire(latestCard.id);
+      setLatestCard(updated); setCardSt(updated.status);
+      setCardLog((current) => [{ t: 'сейчас', txt: 'Срок действия backend-карточки завершён' }, ...current]);
+      toast('Срок действия карточки завершён', 'ok');
     } catch (error) { toast(error.message, 'err'); }
   };
 
@@ -1272,7 +1351,7 @@ function SvcCard({ item, kind, participants = [], hideBackRow, onBack }) {
         <ActionMenu trigger={<button className="btn btn-secondary btn-icon"><Icon name="more" /></button>}
           items={[
             { icon: 'send', label: 'Отправить карточку клиенту', onClick: () => setSendOpen(true) },
-            { icon: 'edit', label: 'Изменить параметры → новая версия', onClick: bumpVersion },
+            { icon: 'edit', label: 'Подготовить новую версию', onClick: bumpVersion },
             { sep: true },
             { icon: 'template', label: 'Корректировка документов', onClick: () => setCorrOpen(true) },
             { icon: 'download', label: 'Скачать документы', onClick: () => uploadedDocs.forEach((doc) => window.open(documentsApi.downloadUrl(doc.documentId || doc.id), '_blank', 'noopener,noreferrer')) },
@@ -1331,7 +1410,7 @@ function SvcCard({ item, kind, participants = [], hideBackRow, onBack }) {
               </div>
               <div style={{ display: 'flex', gap: 8, marginTop: 12, flexWrap: 'wrap' }}>
                 <Button size="sm" icon="send" onClick={() => setSendOpen(true)}>Отправить клиенту</Button>
-                <Button size="sm" variant="secondary" icon="edit" onClick={bumpVersion}>Новая версия</Button>
+                <Button size="sm" variant="secondary" icon="edit" onClick={bumpVersion}>Подготовить новую версию</Button>
               </div>
               <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 10, display: 'flex', alignItems: 'center', gap: 6 }}>
                 <Icon name="lock" style={{ width: 14, height: 14 }} />Внутренние расчёты (себестоимость, комиссия, прибыль) клиенту не отправляются.
@@ -1340,13 +1419,10 @@ function SvcCard({ item, kind, participants = [], hideBackRow, onBack }) {
 
             <div className="card card-pad" style={{ marginTop: 16 }}>
               <h3 className="card-title" style={{ fontSize: 14, marginBottom: 4 }}>Ответ клиента / статус</h3>
-              <div style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 10 }}>В реальной работе приходит из канала связи или по таймеру. Здесь — вручную.</div>
+              <div style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 10 }}>Выбор или отказ фиксируется backend по публичной ссылке клиента. Оператор может только завершить срок актуальной карточки.</div>
               <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                <Button size="sm" variant="secondary" icon="check" onClick={() => markCard('chosen')}>Клиент выбрал</Button>
-                <Button size="sm" variant="secondary" icon="x" onClick={() => markCard('declined')}>Отклонил</Button>
-                <Button size="sm" variant="secondary" icon="clock" onClick={() => markCard('expired')}>Срок истёк</Button>
-                <Button size="sm" variant="secondary" icon="alertCircle" onClick={() => markCard('unavailable')}>Недоступна</Button>
-                <Button size="sm" variant="secondary" icon="checkCircle" onClick={() => markCard('issued')}>Оформлена</Button>
+                <Pill tone={cst.tone}>{cst.label}</Pill>
+                {latestCard && !['chosen', 'declined', 'expired', 'issued'].includes(cardSt) && <Button size="sm" variant="secondary" icon="clock" onClick={() => markCard('expired')}>Завершить срок действия</Button>}
               </div>
             </div>
             {versions.length > 0 && (
@@ -1354,7 +1430,7 @@ function SvcCard({ item, kind, participants = [], hideBackRow, onBack }) {
                 <h3 className="card-title" style={{ fontSize: 14, marginBottom: 8 }}>История версий</h3>
                 <div className="kv">
                   {versions.map((vv, i) => (<div className="kv-row" key={i}><span className="k">Версия v{vv.v}</span><span className="v" style={{ color: 'var(--muted)' }}>{vv.note}</span></div>))}
-                  <div className="kv-row"><span className="k" style={{ fontWeight: 700 }}>Версия v{version}</span><span className="v"><Pill tone="green">актуальная</Pill></span></div>
+                  {latestCard && <div className="kv-row"><span className="k" style={{ fontWeight: 700 }}>Текущая backend-версия</span><span className="v"><Pill tone="green">v{version}</Pill></span></div>}
                 </div>
               </div>
             )}

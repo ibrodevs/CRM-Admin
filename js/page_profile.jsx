@@ -6,7 +6,7 @@ import { CURRENCIES, CURRENT_USER } from './data';
 import { SVC_ACCESS_KINDS, operatorKindsLabel, operatorSla, operatorSvcAccess } from './data/access-control';
 import { Topbar } from './layout';
 import { RolesTab } from './page_settings';
-import { MotivationDrawer, motivationFor, shiftDuration, shiftFmtTime } from './page_shifts';
+import { MotivationDrawer, motivationFromRules, shiftDuration, shiftFmtTime } from './page_shifts';
 import { ServiceAccessEditor } from './features/settings/service-access-editor';
 import { accountApi, aftersalesApi, ordersApi, servicesApi, usersApi, workforceApi } from './api/resources';
 import { toUiUser } from './api/adapters';
@@ -20,15 +20,21 @@ const PRESENCE_TONE = { 'Онлайн': 'green', 'Не в сети': 'gray', 'В
 const WORK_STATUS = ['Работает', 'Отпуск', 'Больничный', 'Выходной'];
 
 
-function ProfileMotivation({ operator }) {
+function ProfileMotivation({ operator, canEdit }) {
   const [tick, setTick] = useState(0);
   const [editOpen, setEditOpen] = useState(false);
-  const mot = motivationFor(operator);
+  const [rules, setRules] = useState([]);
+  const [mot, setMot] = useState(() => motivationFromRules([]));
+  const toast = useToast();
+  useEffect(() => {
+    const controller = new AbortController();
+    workforceApi.motivationRules(controller.signal)
+      .then((payload) => { const loaded = resultsOf(payload); setRules(loaded); setMot(motivationFromRules(loaded)); })
+      .catch((error) => { if (error.name !== 'AbortError') toast(error.message || 'Не удалось загрузить мотивацию', 'err'); });
+    return () => controller.abort();
+  }, [tick]);
   const rows = [['service', 'Процент от сервисного сбора'], ['markup', 'Процент от агентской надбавки'], ['commission', 'Процент от комиссионного вознаграждения']];
-  const history = [
-    { date: '01.06.2026', user: operator || 'Оператор', text: 'Установлена базовая мотивация 30 / 20 / 10' },
-    { date: '20.06.2026', user: operator || 'Оператор', text: 'Индивидуальные ставки по видам услуг включены' },
-  ];
+  const history = [...rules].filter((rule) => rule.updated_at).sort((a, b) => new Date(b.updated_at) - new Date(a.updated_at));
   return (
     <div className="fade-in">
       <div style={{ display: 'flex', alignItems: 'center', marginBottom: 14 }}>
@@ -36,7 +42,7 @@ function ProfileMotivation({ operator }) {
           <h3 className="card-title" style={{ fontSize: 17, margin: 0 }}>Система мотивации</h3>
           <div style={{ fontSize: 12, color: 'var(--muted)' }}>{mot.uniform ? 'Единые ставки для всех видов услуг' : 'Индивидуальные ставки по каждому виду услуг'}</div>
         </div>
-        <Button variant="secondary" icon="edit" onClick={() => setEditOpen(true)}>Изменить</Button>
+        {canEdit && <Button variant="secondary" icon="edit" onClick={() => setEditOpen(true)}>Изменить</Button>}
       </div>
       <div className="grid-2" style={{ alignItems: 'start' }}>
         <div className="card card-pad">
@@ -50,15 +56,16 @@ function ProfileMotivation({ operator }) {
         <div className="card card-pad">
           <h4 style={{ margin: '0 0 12px', fontSize: 14, fontWeight: 700, color: 'var(--ink)' }}>История изменений мотивации</h4>
           <div className="timeline">
-            {history.map((h, i) => (
-              <div className="tl-item" key={i}><span className="tl-dot" /><span className="tl-line" />
-                <div><div className="tl-time">{h.date} · {h.user}</div><div className="tl-text">{h.text}</div></div>
+            {!history.length && <div style={{ color: 'var(--muted)', fontSize: 13 }}>Правила ещё не настроены.</div>}
+            {history.map((rule) => (
+              <div className="tl-item" key={rule.id}><span className="tl-dot" /><span className="tl-line" />
+                <div><div className="tl-time">{new Date(rule.updated_at).toLocaleString('ru-RU')}</div><div className="tl-text">Обновлено правило «{rule.service_kind}»</div></div>
               </div>
             ))}
           </div>
         </div>
       </div>
-      <MotivationDrawer open={editOpen} operator={operator} onClose={() => { setEditOpen(false); setTick((t) => t + 1); }} />
+      {canEdit && <MotivationDrawer open={editOpen} operator={operator} onClose={() => { setEditOpen(false); setTick((t) => t + 1); }} />}
     </div>
   );
 }
@@ -66,6 +73,11 @@ function ProfileMotivation({ operator }) {
 
 function ProfileStats({ operator, userId }) {
   const toast = useToast();
+  const now = new Date();
+  const periodStart = new Date(now.getFullYear(), now.getMonth(), 1);
+  const periodFrom = periodStart.toISOString().slice(0, 10);
+  const periodTo = now.toISOString().slice(0, 10);
+  const inPeriod = (value) => value && new Date(value) >= periodStart && new Date(value) <= now;
   const [stats, setStats] = useState([['Оформлено заказов', '—'], ['Выписано услуг', '—'], ['Обменов', '—'], ['Возвратов', '—'], ['Среднее время обработки заявки', '—'], ['Общая прибыль (для компании)', '—'], ['Заработок за месяц', '—'], ['Заработок за период', '—']]);
   useEffect(() => {
     const controller = new AbortController();
@@ -73,9 +85,12 @@ function ProfileStats({ operator, userId }) {
       ordersApi.list(userId ? { operator: userId } : {}, controller.signal),
       servicesApi.list(userId ? { operator: userId } : {}, controller.signal),
       aftersalesApi.list(userId ? { responsible: userId } : {}, controller.signal),
-      workforceApi.motivationAccruals(userId ? { user: userId } : {}, controller.signal),
+      workforceApi.motivationAccruals({ ...(userId ? { user: userId } : {}), from: periodFrom, to: periodTo }, controller.signal),
     ]).then(([orderPayload, servicePayload, aftersalesPayload, accrualPayload]) => {
-      const orders = resultsOf(orderPayload), services = resultsOf(servicePayload), cases = resultsOf(aftersalesPayload), accruals = resultsOf(accrualPayload);
+      const orders = resultsOf(orderPayload).filter((item) => inPeriod(item.created_at));
+      const services = resultsOf(servicePayload).filter((item) => inPeriod(item.created_at));
+      const cases = resultsOf(aftersalesPayload).filter((item) => inPeriod(item.created_at));
+      const accruals = resultsOf(accrualPayload).filter((item) => !item.reversed_at);
       const issued = services.filter((service) => service.status === 'issued');
       const profit = services.reduce((sum, service) => sum + Number(service.client_total || 0) - Number(service.supplier_cost || 0), 0);
       const earnings = accruals.reduce((sum, item) => sum + Number(item.amount || 0), 0);
@@ -88,7 +103,7 @@ function ProfileStats({ operator, userId }) {
       ]);
     }).catch((error) => { if (error.name !== 'AbortError') toast(error.message, 'err'); });
     return () => controller.abort();
-  }, [userId]);
+  }, [userId, periodFrom, periodTo]);
   const exportStats = () => {
     const csv = [['Показатель', 'Значение'], ...stats].map((row) => row.map((cell) => `"${String(cell).replaceAll('"', '""')}"`).join(';')).join('\n');
     const url = URL.createObjectURL(new Blob([`\uFEFF${csv}`], { type: 'text/csv;charset=utf-8' }));
@@ -99,7 +114,7 @@ function ProfileStats({ operator, userId }) {
   return (
     <div className="fade-in">
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>
-        <span className="chip" style={{ cursor: 'default' }}>Период: 01.06.2026 — 07.07.2026 <Icon name="chevDown" /></span>
+        <span className="chip" style={{ cursor: 'default' }}>Период: {periodStart.toLocaleDateString('ru-RU')} — {now.toLocaleDateString('ru-RU')}</span>
         <div style={{ flex: 1 }} />
         <Button variant="secondary" size="sm" icon="download" onClick={exportStats}>Экспорт</Button>
       </div>
@@ -119,28 +134,36 @@ function ProfileWorkTime({ user }) {
   const operator = user.name;
   const [sla, setSla] = useState(user.slaResponseMin || operatorSla(operator));
   const [shift, setShift] = useState(null);
+  const [shifts, setShifts] = useState([]);
   useEffect(() => {
-    Promise.all([usersApi.sla(user.id), workforceApi.currentShift()])
-      .then(([slaData, shiftData]) => { setSla(slaData.sla_response_minutes || 15); setShift(shiftData.shift); })
+    const controller = new AbortController();
+    Promise.all([usersApi.sla(user.id, controller.signal), workforceApi.currentShift(controller.signal), workforceApi.shifts({ user: user.id }, controller.signal)])
+      .then(([slaData, shiftData, shiftHistory]) => { setSla(slaData.sla_response_minutes || 15); setShift(shiftData.shift); setShifts(resultsOf(shiftHistory)); })
       .catch((error) => toast(error.message, 'err'));
+    return () => controller.abort();
   }, [user.id]);
   const saveSla = async () => {
     try { await usersApi.setSla(user.id, sla); toast('Норматив отклика сохранён: ' + sla + ' мин', 'ok'); }
     catch (error) { toast(error.message, 'err'); }
   };
+  const monthStart = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
+  const monthShifts = shifts.filter((item) => new Date(item.started_at) >= monthStart);
+  const workedMs = monthShifts.reduce((sum, item) => sum + Math.max(0, new Date(item.ended_at || Date.now()) - new Date(item.started_at)), 0);
+  const hours = Math.floor(workedMs / 3600000), minutes = Math.floor((workedMs % 3600000) / 60000);
+  const lastClosed = shifts.find((item) => item.ended_at);
   const metrics = [
     ['Начало смены', shift ? new Date(shift.started_at).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' }) : '—'],
-    ['Окончание смены', shift ? '— (открыта)' : '18:14'],
-    ['Отработанные часы', shift ? shiftDuration(new Date(shift.started_at).getTime()) : '—'],
-    ['Активное рабочее время', '7 ч 05 мин'],
-    ['Время простоя', '1 ч 07 мин'],
-    ['Смен за месяц', '21'],
+    ['Окончание смены', shift ? '— (открыта)' : lastClosed ? new Date(lastClosed.ended_at).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' }) : '—'],
+    ['Текущая длительность', shift ? shiftDuration(new Date(shift.started_at)) : '—'],
+    ['Отработано за месяц', monthShifts.length ? `${hours} ч ${String(minutes).padStart(2, '0')} мин` : '—'],
+    ['Операций за месяц', String(monthShifts.reduce((sum, item) => sum + (item.operations || []).length, 0))],
+    ['Смен за месяц', String(monthShifts.length)],
   ];
-  const shiftsHistory = [
-    { date: '07.07.2026', span: '09:02 — 18:14', worked: '8 ч 12 мин', idle: '1 ч 07 мин' },
-    { date: '06.07.2026', span: '09:00 — 18:30', worked: '8 ч 40 мин', idle: '0 ч 50 мин' },
-    { date: '05.07.2026', span: '09:10 — 17:50', worked: '7 ч 55 мин', idle: '0 ч 45 мин' },
-  ];
+  const shiftsHistory = shifts.map((item) => ({
+    id: item.id, date: new Date(item.started_at).toLocaleDateString('ru-RU'),
+    span: `${shiftFmtTime(new Date(item.started_at))} — ${item.ended_at ? shiftFmtTime(new Date(item.ended_at)) : 'открыта'}`,
+    worked: shiftDuration(new Date(item.started_at), item.ended_at ? new Date(item.ended_at) : new Date()), operations: (item.operations || []).length,
+  }));
   return (
     <div className="fade-in">
 
@@ -165,10 +188,11 @@ function ProfileWorkTime({ user }) {
       <h4 style={{ margin: '0 0 10px', fontSize: 15, fontWeight: 700, color: 'var(--ink)' }}>История смен</h4>
       <div className="table-card">
         <table className="tbl">
-          <thead><tr><th>Дата</th><th>Смена</th><th>Отработано</th><th>Простой</th></tr></thead>
+          <thead><tr><th>Дата</th><th>Смена</th><th>Отработано</th><th>Операций</th></tr></thead>
           <tbody>
-            {shiftsHistory.map((s, i) => (
-              <tr key={i}><td className="t-strong">{s.date}</td><td>{s.span}</td><td>{s.worked}</td><td className="t-muted">{s.idle}</td></tr>
+            {!shiftsHistory.length && <tr><td colSpan={4} className="t-muted">Смен пока нет</td></tr>}
+            {shiftsHistory.map((s) => (
+              <tr key={s.id}><td className="t-strong">{s.date}</td><td>{s.span}</td><td>{s.worked}</td><td>{s.operations}</td></tr>
             ))}
           </tbody>
         </table>
@@ -551,7 +575,7 @@ function ProfilePage({ user, onNavigate, initialTab }) {
         )}
 
 
-        {tab === 'motivation' && <ProfileMotivation operator={u.name} />}
+        {tab === 'motivation' && <ProfileMotivation operator={u.name} canEdit={canManageUsers} />}
         {tab === 'stats' && <ProfileStats operator={u.name} userId={u.serverId || u.id} />}
         {tab === 'worktime' && <ProfileWorkTime user={u} />}
       </div>

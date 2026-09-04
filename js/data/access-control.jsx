@@ -1,5 +1,6 @@
 import { AIRLINES, CHAT_THREADS, CURRENCIES, OPERATORS, USERS, companyStaff } from '../data';
 
+const ENABLE_DEMO_BUSINESS_DATA = typeof process !== 'undefined' && process.env.NEXT_PUBLIC_DEMO_MODE === 'true';
 
 
 
@@ -42,7 +43,6 @@ const TP_CURRENCIES = (typeof CURRENCIES !== 'undefined') ? CURRENCIES.map((c) =
 const TP_EMPLOYEES = [...new Set([
   ...(typeof USERS !== 'undefined' ? USERS.map((u) => u.name) : []),
   ...(typeof OPERATORS !== 'undefined' ? OPERATORS : []),
-  'Нуралиев Данияр', 'Каримов Икрам', 'Сагынбеков Икрам',
 ])];
 
 const TP_COMPLIANCE = {
@@ -57,16 +57,16 @@ function defaultTravelPolicy() {
   return {
     scope: 'Вся компания', scopeValue: '',
     avia: {
-      classAllowed: 'Бизнес', airlinesAllowed: ['S7 Airlines', 'Turkish Airlines', 'Emirates'], airlinesForbidden: [],
-      stops: true, maxStops: 1, maxLayoverH: 6, minLayoverMin: 60,
-      maxPrice: 1200, maxPriceCur: 'USD', deviationPct: 20, nonRefundable: false, extrasAllowed: true, minLeadDays: 3,
+      classAllowed: '', airlinesAllowed: [], airlinesForbidden: [],
+      stops: true, maxStops: '', maxLayoverH: '', minLayoverMin: '',
+      maxPrice: '', maxPriceCur: 'RUB', deviationPct: '', nonRefundable: true, extrasAllowed: true, minLeadDays: '',
     },
-    rail: { wagonClass: 'Купе', wagonTypes: ['Купе', 'СВ'], maxPrice: 250, maxPriceCur: 'USD', svAllowed: true, kupeAllowed: true, highSpeed: true, minLeadDays: 2 },
-    hotels: { maxNight: 150, maxNightCur: 'USD', maxCategory: '4★', chainsAllowed: ['Hilton', 'Marriott', 'Radisson'], forbidden: [], maxDistanceKm: 5, boardAllowed: ['Завтрак', 'Полупансион'], earlyCheckIn: true, lateCheckOut: false, upgrade: false },
-    transfers: { carClasses: ['Эконом', 'Комфорт'], individual: true, taxi: true, maxPrice: 80, maxPriceCur: 'USD' },
-    extras: { insurance: true, visa: true, vipLounge: false, fastTrack: false, airportExtra: true },
+    rail: { wagonClass: '', wagonTypes: [], maxPrice: '', maxPriceCur: 'RUB', svAllowed: true, kupeAllowed: true, highSpeed: true, minLeadDays: '' },
+    hotels: { maxNight: '', maxNightCur: 'RUB', maxCategory: '', chainsAllowed: [], forbidden: [], maxDistanceKm: '', boardAllowed: [], earlyCheckIn: true, lateCheckOut: true, upgrade: true },
+    transfers: { carClasses: [], individual: true, taxi: true, maxPrice: '', maxPriceCur: 'RUB' },
+    extras: { insurance: true, visa: true, vipLounge: true, fastTrack: true, airportExtra: true },
 
-    approval: { required: true, approvers: ['Акимова Айсулуу'], onOverLimit: true, autoIfCompliant: true, allowWithout: false },
+    approval: { required: false, approvers: [], onOverLimit: true, autoIfCompliant: true, allowWithout: true },
   };
 }
 
@@ -92,8 +92,6 @@ function travelPolicyFor(companyId) {
     TRAVEL_POLICIES[companyId] = {
       policy: defaultTravelPolicy(),
       history: [
-        { date: '02.06.2026 11:20', user: 'Акимова Айсулуу', title: 'Политика создана', fields: ['Инициализация тревел-политики'] },
-        { date: '18.06.2026 15:04', user: 'Кими Райкконен', title: 'Изменён лимит по авиа', fields: ['Авиа · макс. стоимость', 'Авиа · класс обслуживания'] },
       ],
     };
   }
@@ -166,6 +164,15 @@ const ORDER_ACTION_LOG = window.ORDER_ACTION_LOG || (window.ORDER_ACTION_LOG = {
   ],
 });
 function orderActionLog(no) { return ORDER_ACTION_LOG[no] || []; }
+
+if (!ENABLE_DEMO_BUSINESS_DATA) {
+  SLA_QUEUE.splice(0, SLA_QUEUE.length);
+  Object.keys(OPERATOR_SLA).forEach((key) => delete OPERATOR_SLA[key]);
+  Object.keys(OPERATOR_SVC_ACCESS).forEach((key) => delete OPERATOR_SVC_ACCESS[key]);
+  Object.keys(ORDER_SVC_RESPONSIBLES).forEach((key) => delete ORDER_SVC_RESPONSIBLES[key]);
+  Object.keys(ORDER_RESP_HISTORY).forEach((key) => delete ORDER_RESP_HISTORY[key]);
+  Object.keys(ORDER_ACTION_LOG).forEach((key) => delete ORDER_ACTION_LOG[key]);
+}
 
 
 

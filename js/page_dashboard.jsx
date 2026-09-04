@@ -11,20 +11,23 @@ import { AddServicePanel } from './page_order_card';
 import { ErrorCodesDrawer } from './page_notifications';
 import { SHIFT_DEMO_OPS, SHIFT_REQUESTS_HANDLED, motivationFor, operatorEarn, shiftDuration, shiftFmtTime, shiftTotals } from './page_shifts';
 import { toLegacyProposal, toLegacyReturn } from './api/legacy-adapters';
-import { ordersApi, servicesApi } from './api/resources';
+import { resultsOf } from './api/client';
+import { communicationsApi, integrationsApi, ordersApi, proposalsApi, servicesApi } from './api/resources';
 import { toUiOrder } from './api/adapters';
 
 
 
 
 
-function FreeBookingFinalize({ draft, onClose, onDone, onOpenOrder, onCreateOrder, clients = [], companies = [] }) {
+function FreeBookingFinalize({ draft, onClose, onDone, onOpenOrder, onNavigate, clients = [], companies = [] }) {
   const toast = useToast();
   const [step, setStep] = useState('menu');
   const [entity, setEntity] = useState('legal');
   const [q, setQ] = useState('');
   const [recipient, setRecipient] = useState('');
-  const kpNo = 'КП из backend';
+  const [proposal, setProposal] = useState(null);
+  const [busy, setBusy] = useState(false);
+  const kpNo = proposal?.number || 'Новое КП';
 
   const svcTitle = (x) => x.title || x.route || x.fareName || (x.from && x.to ? x.from + ' → ' + x.to : x.kind || 'Услуга');
   const svcSum = (x) => x.fareDeltaUsd || x.total || x.cost || x.price || x.sum || 0;
@@ -66,7 +69,6 @@ function FreeBookingFinalize({ draft, onClose, onDone, onOpenOrder, onCreateOrde
       const order = toUiOrder(created);
       toast('Создан заказ № ' + order.no + ' на «' + clientName + '» · услуг: ' + draft.length, 'ok',
         onOpenOrder ? { action: { label: 'Открыть заказ № ' + order.no, onClick: () => onOpenOrder(order) }, duration: 7000 } : {});
-      if (onCreateOrder) onCreateOrder(order);
       onDone();
     } catch (error) {
       toast(error.message || 'Не удалось создать заказ', 'err');
@@ -75,6 +77,48 @@ function FreeBookingFinalize({ draft, onClose, onDone, onOpenOrder, onCreateOrde
   };
 
   const orderPickRows = ufOrderPickRows;
+  const kindCode = (kind) => ({ 'Авиа': 'avia', 'ЖД': 'rail', 'Гостиница': 'hotel', 'Отель': 'hotel', 'Трансфер': 'transfer', 'Страховка': 'insurance', 'Виза': 'visa', 'Тур': 'tour', 'Автобус': 'bus' }[kind] || kind || 'other');
+  const sendDraftToChat = async (order) => {
+    setBusy(true);
+    try {
+      const existing = resultsOf(await communicationsApi.threads({ order: order.id, type: 'client' }))[0];
+      const thread = existing || await communicationsApi.createThread({ type: 'client', order: order.id, title: `Заказ № ${order.no}` });
+      const lines = draft.map((item, index) => `${index + 1}. ${svcTitle(item)} — ${svcSum(item) || 'цена не указана'} ${item.currency || 'RUB'}`);
+      await communicationsApi.send(thread.id, { body: `Подборка услуг:\n${lines.join('\n')}` });
+      finish(`Подборка отправлена в чат по заказу № ${order.no}`, { label: `Открыть заказ № ${order.no}`, onClick: () => onOpenOrder?.(order) });
+    } catch (error) { toast(error.message || 'Не удалось отправить подборку в чат', 'err'); }
+    finally { setBusy(false); }
+  };
+  const createProposal = async (sendNow = false) => {
+    setBusy(true);
+    try {
+      let current = proposal;
+      if (!current) {
+        const currency = draft.find((item) => item.currency)?.currency || 'RUB';
+        current = await proposalsApi.create({
+          type: 'standard', purpose: 'Свободное бронирование', source: 'dashboard', recipient: recipient.trim(), currency,
+          brief: { source: 'dashboard_free_booking' },
+          variants: [{ name: 'Вариант 1', items: draft.map((item) => ({
+            ...(item.offerId || item.backendOfferId ? { offer: item.offerId || item.backendOfferId } : {}),
+            service_kind: kindCode(item.kind), title: svcTitle(item), description: item.supplier || '', quantity: 1,
+            price_amount: svcSum(item), price_currency: item.currency || currency,
+          })) }],
+        });
+        current = await proposalsApi.prepare(current.id, current.version);
+      }
+      if (sendNow) current = await proposalsApi.send(current.id, current.version);
+      setProposal(current);
+      toast(sendNow ? `КП ${current.number} отправлено клиенту` : `КП ${current.number} сформировано`, 'ok');
+    } catch (error) { toast(error.message || 'Не удалось сформировать КП', 'err'); }
+    finally { setBusy(false); }
+  };
+  const proposalPdf = () => proposal ? proposalsApi.pdfUrl(proposal.id, proposal.current_version) : '';
+  const openProposalPdf = () => { const url = proposalPdf(); if (url) window.open(url, '_blank', 'noopener,noreferrer'); };
+  const copyProposalLink = async () => {
+    if (!proposal) return;
+    try { await navigator.clipboard.writeText(new URL(proposalPdf(), window.location.origin).href); toast('Ссылка на PDF скопирована', 'ok'); }
+    catch { toast('Не удалось скопировать ссылку', 'err'); }
+  };
 
 
   if (step === 'order') {
@@ -112,10 +156,7 @@ function FreeBookingFinalize({ draft, onClose, onDone, onOpenOrder, onCreateOrde
         <SearchBox value={q} onChange={setQ} placeholder="Поиск: № заказа или клиент" style={{ width: '100%', marginBottom: 12 }} />
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
           {rows.map((o) => (
-            <UfOrderRow key={o.id} order={o} icon="chat" tone="var(--green)" onClick={() => finish(
-              'Подборка (' + draft.length + ' ' + plural(draft.length, ['услуга', 'услуги', 'услуг']) + ') отправлена в чат по заказу № ' + o.no,
-              { label: 'Открыть заказ № ' + o.no, onClick: () => onOpenOrder && onOpenOrder(o) }
-            )} />
+            <UfOrderRow key={o.id} order={o} icon="chat" tone="var(--green)" onClick={() => !busy && sendDraftToChat(o)} />
           ))}
           {!rows.length && <EmptyState icon="chat" title="Заказы не найдены" />}
         </div>
@@ -125,14 +166,14 @@ function FreeBookingFinalize({ draft, onClose, onDone, onOpenOrder, onCreateOrde
 
 
   if (step === 'person') {
-    const list = CLIENTS.filter((c) => c.toLowerCase().includes(q.toLowerCase()));
+    const list = clients.filter((client) => client.name.toLowerCase().includes(q.toLowerCase()));
     return (
       <Drawer open onClose={onClose} title="Привязать к физ. лицу"
         footer={<Button variant="secondary" style={{ width: '100%' }} onClick={() => setStep('menu')}>Назад</Button>}>
         <SearchBox value={q} onChange={setQ} placeholder="Поиск клиента" style={{ width: '100%', marginBottom: 12 }} />
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-          {list.map((c) => (
-            <UfPersonRow key={c} name={c} onClick={() => finish('Услуги привязаны к клиенту: ' + c)} />
+          {list.map((client) => (
+            <UfPersonRow key={client.id} name={client.name} onClick={() => createNewOrder(client.name, 'Индивидуальная')} />
           ))}
           {!list.length && <EmptyState icon="user" title="Клиенты не найдены" />}
         </div>
@@ -182,8 +223,8 @@ function FreeBookingFinalize({ draft, onClose, onDone, onOpenOrder, onCreateOrde
       <Drawer open onClose={onClose} title="Коммерческое предложение"
         footer={<>
           <Button variant="secondary" onClick={() => setStep('menu')}>Назад</Button>
-          <Button icon="send" style={{ flex: 1 }} disabled title="КП создаётся после привязки подборки к backend-заказу">
-            {recipient ? 'Отправить клиенту' : 'Сформировать КП'}
+          <Button icon="send" style={{ flex: 1 }} disabled={busy || (proposal && !recipient.trim())} onClick={() => createProposal(Boolean(proposal && recipient.trim()))}>
+            {busy ? 'Сохраняем…' : proposal ? 'Отправить клиенту' : 'Сформировать КП'}
           </Button>
         </>}>
 
@@ -199,8 +240,8 @@ function FreeBookingFinalize({ draft, onClose, onDone, onOpenOrder, onCreateOrde
         <PanelSub style={{ marginTop: 0 }}>Получатель</PanelSub>
         <SearchBox value={recipient} onChange={setRecipient} placeholder="Клиент или организация (необязательно)" style={{ width: '100%', marginBottom: 6 }} />
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 14 }}>
-          {CLIENTS.slice(0, 4).map((c) => (
-            <button key={c} type="button" className="chip" style={{ cursor: 'pointer' }} onClick={() => setRecipient(c)}>{c}</button>
+          {[...clients.map((client) => client.name), ...companies.map((company) => company.name)].slice(0, 4).map((name) => (
+            <button key={name} type="button" className="chip" style={{ cursor: 'pointer' }} onClick={() => setRecipient(name)}>{name}</button>
           ))}
         </div>
 
@@ -221,8 +262,8 @@ function FreeBookingFinalize({ draft, onClose, onDone, onOpenOrder, onCreateOrde
 
         <PanelSub>Действия с КП</PanelSub>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-          {[['Скачать PDF', 'download'], ['Открыть в разделе КП', 'template'], ['Копировать ссылку', 'docs'], ['Печать', 'clipboard']].map(([label, icon]) => (
-            <button key={label} className="doc-chip" disabled title="Действие доступно после создания КП в заказе" style={{ width: '100%', opacity: 0.55, cursor: 'not-allowed' }}>
+          {[['Скачать / открыть PDF', 'download', openProposalPdf], ['Открыть в разделе КП', 'template', () => onNavigate?.('offers')], ['Копировать ссылку', 'docs', copyProposalLink], ['Печать PDF', 'clipboard', openProposalPdf]].map(([label, icon, action]) => (
+            <button key={label} className="doc-chip" disabled={!proposal} onClick={action} style={{ width: '100%', opacity: proposal ? 1 : 0.55, cursor: proposal ? 'pointer' : 'not-allowed' }}>
               <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}><Icon name={icon} style={{ width: 16, height: 16 }} />{label}</span>
             </button>
           ))}
@@ -266,7 +307,7 @@ function FreeBookingFinalize({ draft, onClose, onDone, onOpenOrder, onCreateOrde
 
 
 
-function DetailedSearchPanel({ onClose, initialKind, onOpenOrder, onCreateOrder, clients = [], companies = [] }) {
+function DetailedSearchPanel({ onClose, initialKind, onOpenOrder, onCreateOrder, onNavigate, clients = [], companies = [] }) {
   const toast = useToast();
   const [kind, setKind] = useState(initialKind || 'Авиа');
   const [aviaParams, setAviaParams] = useState({ trip: 'rt', from: 'FRU', to: 'IST', depDate: null, retDate: null, pax: { adt: 1, chd: 0, infNoSeat: 0, infSeat: 0, special: {}, subsidized: {} }, cabin: 'Эконом', baggage: false, flex: false, direct: false, airline: '', ...PAX_DEFAULT_OPTIONS });
@@ -289,7 +330,7 @@ function DetailedSearchPanel({ onClose, initialKind, onOpenOrder, onCreateOrder,
         paxCount={aviaParams.pax.adt + aviaParams.pax.chd}
         onAddAvia={(r) => add(r, 'Авиа')}
         onAddOther={(o, k) => add(o, k)} />
-      {finalize && <FreeBookingFinalize draft={draft} onClose={() => setFinalize(false)} onDone={() => { setFinalize(false); onClose(); }} onOpenOrder={onOpenOrder} onCreateOrder={onCreateOrder} clients={clients} companies={companies} />}
+      {finalize && <FreeBookingFinalize draft={draft} onClose={() => setFinalize(false)} onDone={() => { setFinalize(false); onClose(); }} onOpenOrder={onOpenOrder} onCreateOrder={onCreateOrder} onNavigate={onNavigate} clients={clients} companies={companies} />}
     </StackPanel>
   );
 }
@@ -549,21 +590,71 @@ const MY_TASKS = [
 
 
 
-function SupplierErrorCard({ err, onClose, onOpenOrder, onChange }) {
+const INCIDENT_STATUS_LABEL = { open: 'Новая', assigned: 'В работе', retrying: 'В работе', reopened: 'В работе', escalated: 'В работе', snoozed: 'Отложена', resolved: 'Решена' };
+const INCIDENT_SEVERITY_LABEL = { critical: 'Критическая', high: 'Важная', medium: 'Важная', low: 'Информационная', info: 'Информационная' };
+function backendIncidentToUi(row, { orders = [], suppliers = [], users = [], services = [] } = {}) {
+  const supplier = suppliers.find((item) => String(item.id || item.no) === String(row.supplier));
+  const order = orders.find((item) => String(item.id) === String(row.order));
+  const service = services.find((item) => String(item.id || item.serverId) === String(row.service));
+  const assignee = users.find((item) => String(item.id) === String(row.assignee));
+  const created = row.created_at ? new Date(row.created_at) : null;
+  const updated = row.updated_at ? new Date(row.updated_at) : created;
+  return {
+    backend: true, backendId: row.id, raw: row, id: `INC-${row.id}`,
+    supplier: supplier?.name || row.provider_adapter || 'Поставщик не указан', supplierId: row.supplier || null,
+    service: service?.kind || service?.title || (row.service ? String(row.service) : '—'), op: row.operation || 'Операция API',
+    time: created ? created.toLocaleString('ru-RU') : '—', order: order?.no || null, orderId: row.order || null,
+    client: order?.client || '—', operator: order?.operator || '—', assignee: assignee?.name || '', assigneeId: row.assignee || null,
+    code: row.correlation_id || '—', crmCode: row.error_code || 'UNKNOWN', crit: INCIDENT_SEVERITY_LABEL[row.severity] || row.severity,
+    reason: row.sanitized_error || row.error_code || 'Ошибка интеграции', tech: [row.sanitized_error, row.correlation_id ? `correlation_id=${row.correlation_id}` : ''].filter(Boolean).join('\n'),
+    repeats: Number(row.retry_count || row.occurrences || 0), attempts: Number(row.retry_count || 0),
+    first: created ? created.toLocaleString('ru-RU') : '—', last: updated ? updated.toLocaleString('ru-RU') : '—', impact: order ? `Затронут заказ № ${order.no}` : 'Заказ не связан',
+    status: INCIDENT_STATUS_LABEL[row.status] || row.status, snoozeUntil: row.snoozed_until ? new Date(row.snoozed_until).toLocaleString('ru-RU') : null,
+    altSupplier: suppliers.find((item) => String(item.id || item.no) === String(row.fallback_supplier))?.name || '',
+    devTicket: row.developer_ticket || '', resolutionCode: row.resolution_code || '',
+    history: (row.timeline || []).map((entry) => ({ t: new Date(entry.created_at).toLocaleString('ru-RU'), text: entry.action, who: entry.actor_name || 'Система' })),
+  };
+}
+
+function SupplierErrorCard({ err, onClose, onOpenOrder, onChange, users = [], suppliers = [] }) {
   const toast = useToast();
   const [showTech, setShowTech] = useState(false);
+  const [busy, setBusy] = useState(false);
   const [, force] = useState(0);
   const rerender = () => { force((x) => x + 1); onChange && onChange(); };
   const resolved = err.status === 'Решена';
 
-  const doRetry = () => { const ok = errRetry(err); rerender(); toast(ok ? 'Повтор успешен — ошибка закрыта' : 'Повтор выполнен — ошибка ещё активна', ok ? 'ok' : 'warn'); };
-  const doAssign = (who) => { errAssign(err, who); rerender(); toast('Назначен: ' + who + ' · создано уведомление', 'ok'); };
-  const doSupplier = (sup) => { errChooseSupplier(err, sup); rerender(); toast('Поставщик переключён: ' + sup, 'ok'); };
-  const doSnooze = (label) => { errSnooze(err, label); rerender(); toast('Отложено: ' + label, 'info'); };
-  const doResolve = () => { errResolve(err); rerender(); toast('Ошибка закрыта и убрана из активных', 'ok'); };
-  const doReopen = () => { errReopen(err); rerender(); toast('Ошибка возвращена в работу', 'info'); };
-  const doDev = () => { errSendDev(err); rerender(); toast('Передано разработчику · тикет ' + err.devTicket, 'ok'); };
-  const doCopy = () => { try { navigator.clipboard.writeText(err.tech || ''); } catch (e) {} errLog(err, 'Скопированы технические данные'); rerender(); toast('Технические данные скопированы', 'ok'); };
+  const applyBackend = async (request, message) => {
+    setBusy(true);
+    try {
+      const result = await request();
+      onChange?.(result?.id ? result : { ...err.raw, status: 'retrying', retry_count: Number(err.raw?.retry_count || 0) + 1 }, err.backendId);
+      toast(message, 'ok');
+    } catch (error) { toast(error.message || 'Не удалось выполнить действие', 'err'); }
+    finally { setBusy(false); }
+  };
+  const doRetry = () => err.backend
+    ? applyBackend(() => integrationsApi.retry(err.backendId), 'Повторный запрос поставлен в очередь')
+    : (() => { const ok = errRetry(err); rerender(); toast(ok ? 'Повтор успешен — ошибка закрыта' : 'Повтор выполнен — ошибка ещё активна', ok ? 'ok' : 'warn'); })();
+  const doAssign = (person) => err.backend
+    ? applyBackend(() => integrationsApi.assign(err.backendId, person.id), `Назначен: ${person.name}`)
+    : (() => { errAssign(err, person.name || person); rerender(); toast('Назначен: ' + (person.name || person), 'ok'); })();
+  const doSupplier = (supplier) => err.backend
+    ? applyBackend(() => integrationsApi.switchSupplier(err.backendId, supplier.id || supplier.no), `Поставщик переключён: ${supplier.name}`)
+    : (() => { errChooseSupplier(err, supplier.name || supplier); rerender(); toast('Поставщик переключён: ' + (supplier.name || supplier), 'ok'); })();
+  const doSnooze = (minutes, label) => err.backend
+    ? applyBackend(() => integrationsApi.snooze(err.backendId, new Date(Date.now() + minutes * 60000).toISOString()), `Отложено: ${label}`)
+    : (() => { errSnooze(err, label); rerender(); toast('Отложено: ' + label, 'info'); })();
+  const doResolve = () => err.backend
+    ? applyBackend(() => integrationsApi.resolve(err.backendId, 'resolved_manually'), 'Инцидент закрыт')
+    : (() => { errResolve(err); rerender(); toast('Ошибка закрыта и убрана из активных', 'ok'); })();
+  const doReopen = () => err.backend
+    ? applyBackend(() => integrationsApi.reopen(err.backendId), 'Инцидент возвращён в работу')
+    : (() => { errReopen(err); rerender(); toast('Ошибка возвращена в работу', 'info'); })();
+  const doDev = () => err.backend
+    ? applyBackend(() => integrationsApi.escalate(err.backendId, { developer_ticket: `incident-${err.backendId}` }), 'Инцидент передан разработчику')
+    : (() => { errSendDev(err); rerender(); toast('Передано разработчику · тикет ' + err.devTicket, 'ok'); })();
+  const doCopy = async () => { try { await navigator.clipboard.writeText(err.tech || ''); toast('Технические данные скопированы', 'ok'); } catch { toast('Не удалось скопировать данные', 'err'); } };
 
   const kv = [
     ['Поставщик', err.altSupplier ? err.supplier + ' → ' + err.altSupplier : err.supplier], ['Тип услуги', err.service], ['Операция', err.op],
@@ -581,11 +672,11 @@ function SupplierErrorCard({ err, onClose, onOpenOrder, onChange }) {
   return (
     <Drawer open onClose={onClose} width="min(720px,96vw)" title={'Ошибка ' + err.id} sub={err.supplier + ' · ' + err.op}
       footer={<>
-        <Button variant="secondary" icon="zap" disabled={resolved} onClick={doRetry}>Повторить запрос</Button>
+        <Button variant="secondary" icon="zap" disabled={resolved || busy} onClick={doRetry}>Повторить запрос</Button>
         {err.order && <Button variant="secondary" icon="orders" onClick={() => { onOpenOrder && onOpenOrder(err.order); onClose(); }}>Открыть заказ</Button>}
         {resolved
-          ? <Button variant="secondary" icon="refund" onClick={doReopen}>Вернуть в работу</Button>
-          : <Button variant="primary" icon="check" onClick={doResolve}>Отметить решённой</Button>}
+          ? <Button variant="secondary" icon="refund" disabled={busy} onClick={doReopen}>Вернуть в работу</Button>
+          : <Button variant="primary" icon="check" disabled={busy} onClick={doResolve}>Отметить решённой</Button>}
       </>}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14, flexWrap: 'wrap' }}>
         <Pill tone={ERR_STATUS_TONE[err.status] || 'gray'}>Статус: {err.status}</Pill>
@@ -604,13 +695,13 @@ function SupplierErrorCard({ err, onClose, onOpenOrder, onChange }) {
 
       <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '.03em', marginBottom: 8 }}>Действия</div>
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 16 }}>
-        <Button variant="secondary" size="sm" icon="zap" disabled={resolved} onClick={doRetry}>Повторно проверить цену и наличие</Button>
+        <Button variant="secondary" size="sm" icon="zap" disabled={resolved || busy} onClick={doRetry}>Повторно проверить цену и наличие</Button>
         <ActionMenu trigger={<Button variant="secondary" size="sm" icon="suppliers" disabled={resolved}>Выбрать другого поставщика</Button>}
-          items={errAltSuppliers(err).map((s) => ({ icon: 'suppliers', label: s, onClick: () => doSupplier(s) }))} />
+          items={(err.backend ? suppliers.filter((item) => String(item.id || item.no) !== String(err.supplierId)) : errAltSuppliers(err).map((name) => ({ name }))).map((supplier) => ({ icon: 'suppliers', label: supplier.name, onClick: () => doSupplier(supplier) }))} />
         <ActionMenu trigger={<Button variant="secondary" size="sm" icon="user" disabled={resolved}>Назначить ответственного</Button>}
-          items={(typeof OPERATORS !== 'undefined' ? OPERATORS : ['Оператор']).map((o) => ({ icon: 'user', label: o, onClick: () => doAssign(o) }))} />
+          items={(err.backend ? users : (typeof OPERATORS !== 'undefined' ? OPERATORS.map((name) => ({ name })) : [])).map((person) => ({ icon: 'user', label: person.name, onClick: () => doAssign(person) }))} />
         <ActionMenu trigger={<Button variant="secondary" size="sm" icon="clock" disabled={resolved}>Отложить обработку</Button>}
-          items={['30 минут', '2 часа', 'до завтра'].map((l) => ({ icon: 'clock', label: l, onClick: () => doSnooze(l) }))} />
+          items={[[30, '30 минут'], [120, '2 часа'], [1440, 'до завтра']].map(([minutes, label]) => ({ icon: 'clock', label, onClick: () => doSnooze(minutes, label) }))} />
         <Button variant="secondary" size="sm" icon="template" onClick={doCopy}>Скопировать технические данные</Button>
         <Button variant="secondary" size="sm" icon="send" onClick={doDev}>Отправить разработчику</Button>
       </div>
@@ -645,12 +736,13 @@ function SupplierErrorCard({ err, onClose, onOpenOrder, onChange }) {
   );
 }
 
-function SupplierErrorsDrawer({ supplier, onClose, onOpenOrder }) {
+function SupplierErrorsDrawer({ supplier, onClose, onOpenOrder, errors, users = [], suppliers = [], onIncidentChange }) {
   const [flt, setFlt] = useState({ supplier: supplier || '', service: '', op: '', crit: '', status: '', activeOnly: false, grouped: true });
   const [sel, setSel] = useState(null);
   const [q, setQ] = useState('');
   const [, bump] = useState(0);
-  let list = SUPPLIER_ERRORS.filter((e) =>
+  const sourceErrors = errors || SUPPLIER_ERRORS;
+  let list = sourceErrors.filter((e) =>
     (!flt.supplier || e.supplier === flt.supplier) &&
     (!flt.service || e.service === flt.service) &&
     (!flt.op || e.op === flt.op) &&
@@ -692,11 +784,11 @@ function SupplierErrorsDrawer({ supplier, onClose, onOpenOrder }) {
       title="Ошибки поставщиков" sub={(flt.supplier || 'Все поставщики') + ' · активных: ' + list.filter((e) => e.status !== 'Решена').length}
       footer={<Button variant="secondary" onClick={onClose}>Закрыть</Button>}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', marginBottom: 14 }}>
-        {chip('Поставщик', 'supplier', [...new Set(SUPPLIER_ERRORS.map((e) => e.supplier))])}
-        {chip('Тип услуги', 'service', [...new Set(SUPPLIER_ERRORS.map((e) => e.service))])}
-        {chip('Операция', 'op', [...new Set(SUPPLIER_ERRORS.map((e) => e.op))])}
+        {chip('Поставщик', 'supplier', [...new Set(sourceErrors.map((e) => e.supplier))])}
+        {chip('Тип услуги', 'service', [...new Set(sourceErrors.map((e) => e.service))])}
+        {chip('Операция', 'op', [...new Set(sourceErrors.map((e) => e.op))])}
         {chip('Критичность', 'crit', ['Критическая', 'Важная', 'Информационная'])}
-        {chip('Статус', 'status', [...new Set(SUPPLIER_ERRORS.map((e) => e.status))])}
+        {chip('Статус', 'status', [...new Set(sourceErrors.map((e) => e.status))])}
         <div className="topbar-spacer" />
         <SearchBox value={q} onChange={setQ} placeholder="Заказ, код, поставщик" style={{ width: 220 }} />
       </div>
@@ -728,22 +820,24 @@ function SupplierErrorsDrawer({ supplier, onClose, onOpenOrder }) {
             })}
           </div>
         : <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>{list.map(errRow)}</div>}
-      {sel && <SupplierErrorCard err={sel} onClose={() => setSel(null)} onOpenOrder={onOpenOrder} onChange={() => bump((v) => v + 1)} />}
+      {sel && <SupplierErrorCard err={sel} users={users} suppliers={suppliers} onClose={() => setSel(null)} onOpenOrder={onOpenOrder} onChange={(raw, id) => { onIncidentChange?.(raw, id); setSel(null); bump((v) => v + 1); }} />}
     </Drawer>
   );
 }
 
-function DashboardPage({ role, orders = [], clients = [], companies = [], proposals = [], returns = [], notifications = [], chats = [], dashboard, finance, onNavigate, onAddOrder, onOpenOrder, onCreateOrder, onOpenChat }) {
+function DashboardPage({ role, user, orders = [], orderServices = [], clients = [], companies = [], proposals = [], returns = [], notifications = [], chats = [], dashboard, finance, incidents = [], operations = [], slaQueue = [], currentShift, motivationAccruals = [], users = [], suppliers = [], onNavigate, onAddOrder, onOpenOrder, onCreateOrder, onOpenChat }) {
   const [search, setSearch] = useState('');
   const [searchOpen, setSearchOpen] = useState(false);
   const [errCodeOpen, setErrCodeOpen] = useState(null);
   const [errDrawer, setErrDrawer] = useState(null);
+  const [incidentRows, setIncidentRows] = useState(incidents);
   const [, tick] = useState(0);
 
-  const isMgr = role === 'Админ' || role === 'Менеджер';
-  const backendMode = dashboard !== undefined;
+  const isMgr = role === 'Админ' || role === 'Менеджер' || role === 'Руководитель';
+  const backendMode = !ENABLE_DEMO_BUSINESS_DATA;
   const [sel, setSel] = useState(isMgr ? 'overdue' : 'mytasks');
-  const shift = window.SHIFT_STATE || null;
+  const shiftSource = window.SHIFT_STATE || currentShift || null;
+  const shift = shiftSource ? { ...shiftSource, openedAt: shiftSource.openedAt || (shiftSource.started_at ? new Date(shiftSource.started_at) : null) } : null;
 
   useEffect(() => {
     const onShift = () => tick((t) => t + 1);
@@ -753,6 +847,7 @@ function DashboardPage({ role, orders = [], clients = [], companies = [], propos
   }, []);
 
   useEffect(() => { setSel(isMgr ? 'overdue' : 'mytasks'); }, [isMgr]);
+  useEffect(() => { setIncidentRows(incidents); }, [incidents]);
 
   const money = (n) => Math.round(n || 0).toLocaleString('ru-RU') + ' $';
   const liveProposals = proposals.map((item) => toLegacyProposal(item, orders));
@@ -765,14 +860,16 @@ function DashboardPage({ role, orders = [], clients = [], companies = [], propos
     overdueCount: dashboard?.finance?.overdue_obligations || 0,
     urgent: [],
   } : financeOverview();
-  const slaSource = backendMode ? orders.filter((order) => order.statusCode === 'new').map((order) => {
-    const waited = Math.max(0, Math.round((Date.now() - new Date(order.created_at || order.createdOn).getTime()) / 60000));
-    return { no: order.no, client: order.client, operator: order.operator, waited, limit: 15 };
+  const slaSource = backendMode ? slaQueue.map((entry) => {
+    const order = orders.find((item) => String(item.id) === String(entry.resource_id));
+    const limit = Number(entry.limit_minutes || user?.slaResponseMin || 15);
+    const waited = entry.started_at ? Math.max(0, Math.round((Date.now() - new Date(entry.started_at).getTime()) / 60000)) : 0;
+    return { no: order?.no || entry.resource_id, client: order?.client || entry.resource_type, operator: order?.operator || 'Не назначен', waited, limit, breached: entry.breached };
   }) : SLA_QUEUE;
-  const slaRows = slaSource.map((q) => ({ ...q, tone: slaTone(q.waited, q.limit) }));
+  const slaRows = slaSource.map((q) => ({ ...q, tone: q.breached ? 'red' : slaTone(q.waited, q.limit) }));
   const slaOverdue = slaRows.filter((r) => r.tone === 'red').length;
   const errNotifs = notifications.filter((n) => n.source === 'Интеграции');
-  const supErrTotal = backendMode ? (dashboard?.integration_incidents?.open || 0) : errActiveCount();
+  const supErrTotal = backendMode ? incidentRows.filter((item) => item.status !== 'resolved').length : errActiveCount();
 
   const taskRows = backendMode ? (dashboard?.my_tasks || []).map((task) => {
     const order = orders.find((item) => item.id === task.order);
@@ -780,15 +877,34 @@ function DashboardPage({ role, orders = [], clients = [], companies = [], propos
     return { title: task.title, due: due ? due.toLocaleString('ru-RU') : 'без срока', tone: task.priority === 'critical' ? 'red' : task.priority === 'high' ? 'amber' : 'blue', order: order?.no || task.order };
   }) : MY_TASKS;
   const tripRows = backendMode ? (dashboard?.trips_today || []).map((trip) => ({ type: 'Поездка', icon: 'plane', main: trip.title, sub: new Date(trip.starts_at).toLocaleString('ru-RU'), order: trip.order_number })) : TODAY_TRIPS;
-  const operatorRows = backendMode ? [] : OPERATORS_WORK;
-  const activityRows = backendMode ? [] : RECENT_CHANGES;
-  const supplierRows = backendMode ? [] : SUPPLIER_STATS;
+  const activeIncidents = incidentRows.map((row) => backendIncidentToUi(row, { orders, suppliers, users, services: orderServices }));
+  const activityRows = backendMode ? (dashboard?.recent_activity || []).map((row) => ({ desc: row.title || row.type, client: row.description || '', resp: '', dept: '', time: row.created_at ? new Date(row.created_at).toLocaleString('ru-RU') : '' })) : RECENT_CHANGES;
+  const operatorRows = backendMode ? users.map((operator) => {
+    const operatorOrders = orders.filter((order) => String(order.operatorId || order.operator) === String(operator.id));
+    const operatorServices = orderServices.filter((service) => operatorOrders.some((order) => String(order.id) === String(service.orderId || service.order)));
+    const accruals = motivationAccruals.filter((item) => String(item.user) === String(operator.id) && !item.reversed_at);
+    const breached = slaQueue.some((entry) => String(entry.assignee) === String(operator.id) && entry.breached);
+    return { name: operator.name, handled: slaQueue.filter((entry) => String(entry.assignee) === String(operator.id)).length, orders: operatorOrders.length, issued: operatorServices.filter((service) => service.status === 'Выписано' || service.status === 'issued').length, earn: accruals.reduce((sum, item) => sum + Number(item.amount || 0), 0), profit: operatorServices.reduce((sum, service) => sum + Number(service.calc?.total || service.client_total || 0) - Number(service.calc?.tariff || service.supplier_cost || 0), 0), sla: breached ? 'red' : 'ok' };
+  }) : OPERATORS_WORK;
+  const supplierRows = backendMode ? [...new Set(activeIncidents.map((item) => item.supplier).concat(operations.map((item) => item.provider_adapter).filter(Boolean)))].map((name) => {
+    const errors = activeIncidents.filter((item) => item.supplier === name);
+    const logs = operations.filter((item) => item.provider_adapter === name);
+    const durations = logs.map((item) => Number(item.duration_ms)).filter(Number.isFinite);
+    const critical = errors.some((item) => item.crit === 'Критическая') ? 'Критическая' : errors.some((item) => item.crit === 'Важная') ? 'Важная' : errors.length ? 'Информационная' : '—';
+    return { name, apiErrors: errors.length, failed: logs.filter((item) => ['error', 'failed'].includes(item.result)).length, avgResp: durations.length ? `${Math.round(durations.reduce((sum, value) => sum + value, 0) / durations.length)} мс` : '—', integ: errors.length ? 'Частичные ошибки' : 'Работает стабильно', crit: critical, ordersAffected: new Set(errors.map((item) => item.order).filter(Boolean)).size, tone: errors.length ? 'amber' : 'green' };
+  }) : SUPPLIER_STATS;
 
 
-  const shOps = shift ? shift.ops : (backendMode ? [] : SHIFT_DEMO_OPS);
-  const shT = shiftTotals(shOps, motivationFor('Даниель'));
-  const issuedToday = shOps.filter((o) => o.type === 'Выписка').length;
-  const salesToday = shOps.reduce((s, o) => s + Math.max(0, o.cost), 0);
+  const todayKey = new Date().toISOString().slice(0, 10);
+  const todayServices = backendMode ? orderServices.filter((service) => String(service.created_at || '').slice(0, 10) === todayKey) : [];
+  const shOps = backendMode ? [] : (shift ? shift.ops : SHIFT_DEMO_OPS);
+  const shT = backendMode ? {
+    orders: new Set(todayServices.map((service) => service.orderId || service.order)).size,
+    earn: motivationAccruals.filter((item) => !item.reversed_at && String(item.created_at || '').slice(0, 10) === todayKey).reduce((sum, item) => sum + Number(item.amount || 0), 0),
+    profit: todayServices.reduce((sum, service) => sum + Number(service.calc?.total || service.client_total || 0) - Number(service.calc?.tariff || service.supplier_cost || 0), 0),
+  } : shiftTotals(shOps, motivationFor(user?.name || 'Оператор'));
+  const issuedToday = backendMode ? todayServices.filter((service) => service.status === 'Выписано' || service.status === 'issued').length : shOps.filter((o) => o.type === 'Выписка').length;
+  const salesToday = backendMode ? todayServices.reduce((sum, service) => sum + Number(service.calc?.total || service.client_total || service.sum || 0), 0) : shOps.reduce((sum, operation) => sum + Math.max(0, operation.cost), 0);
 
   const isActive = (s) => s !== 'Завершено' && s !== 'Отменено' && s !== 'Отклонено';
   const returnsActive = liveReturns.filter((r) => isActive(r.status));
@@ -802,7 +918,8 @@ function DashboardPage({ role, orders = [], clients = [], companies = [], propos
   ];
 
   const openErr = (code) => setErrCodeOpen(code || '');
-  const goOrder = (no) => { const o = orders.find((x) => x.no === no); o ? onOpenOrder(o) : onNavigate('orders'); };
+  const goOrder = (reference) => { const order = orders.find((item) => String(item.no) === String(reference) || String(item.id) === String(reference)); order ? onOpenOrder(order) : onNavigate('orders'); };
+  const updateIncident = (raw, id) => setIncidentRows((current) => current.map((item) => String(item.id) === String(id) ? { ...item, ...raw } : item));
 
 
   const WIDGETS = isMgr ? [
@@ -817,7 +934,7 @@ function DashboardPage({ role, orders = [], clients = [], companies = [], propos
     { key: 'overdue',   label: 'Просрочки оплат',   value: fin.overdueCount, sub: fin.overdue > 0 ? money(fin.overdue) : null, tone: fin.overdue > 0 ? 'red' : 'green', icon: 'alertCircle' },
     { key: 'risk',      label: 'Депозит / лимит',   value: fin.urgent.length, tone: fin.urgent.length ? 'amber' : 'green', icon: 'bank' },
     { key: 'operators', label: 'Работа операторов', value: operatorRows.length, tone: 'blue', icon: 'users' },
-    { key: 'suppliers', label: 'Поставщики (API)',  value: dashboard?.integration_incidents?.open ?? supErrTotal, sub: 'ошибок', tone: (dashboard?.integration_incidents?.open ?? supErrTotal) ? 'red' : 'green', icon: 'api' },
+    { key: 'suppliers', label: 'Поставщики (API)',  value: supErrTotal, sub: 'ошибок', tone: supErrTotal ? 'red' : 'green', icon: 'api' },
     { key: 'trips',     label: 'Вылеты и заезды',   value: dashboard?.trips_today?.length ?? (backendMode ? 0 : TODAY_TRIPS.length), tone: 'blue', icon: 'plane' },
     { key: 'activity',  label: 'Активность',        value: activityRows.length, tone: 'blue', icon: 'clock' },
   ] : [
@@ -847,7 +964,7 @@ function DashboardPage({ role, orders = [], clients = [], companies = [], propos
       lastText: m.text || (m.attach ? '📎 ' + m.attach.name : '—'), lastTime: m.time || '', mine: m.from === 'me' };
   }).sort((a, b) => (b.unread > 0) - (a.unread > 0));
   const unreadChats = dashChats.filter((c) => c.unread > 0).length;
-  const critErr = backendMode ? [] : (typeof SUPPLIER_ERRORS !== 'undefined' ? SUPPLIER_ERRORS : []).filter((e) => e.crit === 'Критическая');
+  const critErr = backendMode ? activeIncidents.filter((error) => error.crit === 'Критическая' && error.status !== 'Решена') : (typeof SUPPLIER_ERRORS !== 'undefined' ? SUPPLIER_ERRORS : []).filter((e) => e.crit === 'Критическая');
   const redRisk = fin.urgent.filter((u) => u.tone === 'red');
 
 
@@ -1049,7 +1166,7 @@ function DashboardPage({ role, orders = [], clients = [], companies = [], propos
 
   return (
     <div className="fade-in" style={{ display: 'flex', flexDirection: 'column', height: '100vh', minHeight: 0 }}>
-      <Topbar title={isMgr ? 'Добрый день, Айсулуу' : 'Мой рабочий день'}>
+      <Topbar title={isMgr ? `Добрый день${user?.name ? `, ${user.name.split(' ')[1] || user.name.split(' ')[0]}` : ''}` : 'Мой рабочий день'}>
         <div className="topbar-spacer" />
         <SearchBox value={search} onChange={setSearch} placeholder="Поиск" style={{ width: 220 }} />
         <Button variant="secondary" icon="calendar" onClick={() => onNavigate('calendar')}>Календарь поездок</Button>
@@ -1057,7 +1174,7 @@ function DashboardPage({ role, orders = [], clients = [], companies = [], propos
         <Button variant="primary" icon="plus" onClick={onAddOrder}>Добавить заказ</Button>
       </Topbar>
 
-      {searchOpen && <DetailedSearchPanel onClose={() => setSearchOpen(false)} onOpenOrder={onOpenOrder} onCreateOrder={onCreateOrder} clients={clients} companies={companies} />}
+      {searchOpen && <DetailedSearchPanel onClose={() => setSearchOpen(false)} onOpenOrder={onOpenOrder} onCreateOrder={onCreateOrder} onNavigate={onNavigate} clients={clients} companies={companies} />}
 
       <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', padding: '10px 38px 22px', overflowY: 'auto' }}>
 
@@ -1072,7 +1189,7 @@ function DashboardPage({ role, orders = [], clients = [], companies = [], propos
             </div>
             <div style={{ display: 'flex', gap: 18, flexWrap: 'wrap' }}>
               {shiftStat('Продолжительность', shiftDuration(shift.openedAt))}
-              {shiftStat('Обработано заявок', SHIFT_REQUESTS_HANDLED)}
+              {shiftStat('Операций в смене', backendMode ? (shiftSource.operations || []).length : SHIFT_REQUESTS_HANDLED)}
               {shiftStat('Оформлено заказов', shT.orders)}
               {shiftStat('Выписано услуг', issuedToday)}
               {shiftStat('Текущий заработок', money(shT.earn), 'blue')}
@@ -1124,7 +1241,7 @@ function DashboardPage({ role, orders = [], clients = [], companies = [], propos
       </div>
 
       <ErrorCodesDrawer open={errCodeOpen !== null} focusCode={errCodeOpen} onClose={() => setErrCodeOpen(null)} />
-      {errDrawer !== null && <SupplierErrorsDrawer supplier={errDrawer || null} onClose={() => setErrDrawer(null)} onOpenOrder={onOpenOrder} />}
+      {errDrawer !== null && <SupplierErrorsDrawer supplier={errDrawer || null} errors={backendMode ? activeIncidents : undefined} users={users} suppliers={suppliers} onIncidentChange={updateIncident} onClose={() => setErrDrawer(null)} onOpenOrder={goOrder} />}
     </div>
   );
 }

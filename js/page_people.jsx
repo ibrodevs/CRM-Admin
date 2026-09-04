@@ -576,7 +576,13 @@ function CompanyCard({ co, orders: allOrders = ORDERS, onBack, onOpenOrder, onCr
     return r;
   };
   const orders = ordersForCompany(co, allOrders);
-  const contacts = [{ name: co.dir, role: 'Директор', phone: co.phone, email: co.email }, { name: 'Бухгалтерия', role: 'Финансы', phone: co.phone, email: 'buh@' + co.email.split('@')[1] }].slice(0, co.contacts);
+  const contacts = [
+    ...(co.dir && (co.phone || co.email) ? [{ id: 'company-director', name: co.dir, role: 'Директор', phone: co.phone || '', email: co.email || '' }] : []),
+    ...staff.employees.map((employee) => ({
+      id: employee.id, name: employee.name, role: employee.position || 'Сотрудник',
+      phone: employee.phone || '', email: employee.email || '',
+    })).filter((contact) => contact.phone || contact.email),
+  ].filter((contact, index, list) => list.findIndex((item) => item.name === contact.name && item.email === contact.email && item.phone === contact.phone) === index);
   const fin = companyFinance(co.id);
   const bal = companyBalanceShort(fin);
   return (
@@ -685,11 +691,13 @@ function CompanyCard({ co, orders: allOrders = ORDERS, onBack, onOpenOrder, onCr
 
       <h3 className="section-title" style={{ fontSize: 20, margin: '24px 0 14px' }}>Контактные лица</h3>
       <div className="grid-2">
-        {contacts.map((p, i) => (
-          <div className="card card-pad" key={i} style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+        {!contacts.length && <EmptyState icon="users" title="Контактные лица не указаны" sub="Добавьте телефон или e-mail сотруднику компании" />}
+        {contacts.map((p) => (
+          <div className="card card-pad" key={p.id} style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
             <Avatar name={p.name} size={44} />
-            <div style={{ flex: 1 }}><div style={{ fontWeight: 600, color: 'var(--ink)' }}>{p.name}</div><div style={{ fontSize: 13, color: 'var(--muted)' }}>{p.role} · {p.phone}</div></div>
-            <button className="icon-btn"><Icon name="mail" /></button><button className="icon-btn"><Icon name="phone" /></button>
+            <div style={{ flex: 1 }}><div style={{ fontWeight: 600, color: 'var(--ink)' }}>{p.name}</div><div style={{ fontSize: 13, color: 'var(--muted)' }}>{[p.role, p.phone, p.email].filter(Boolean).join(' · ')}</div></div>
+            {p.email && <a className="icon-btn" href={`mailto:${p.email}`} title={`Написать ${p.email}`}><Icon name="mail" /></a>}
+            {p.phone && <a className="icon-btn" href={`tel:${p.phone.replace(/[^+\d]/g, '')}`} title={`Позвонить ${p.phone}`}><Icon name="phone" /></a>}
           </div>
         ))}
       </div>

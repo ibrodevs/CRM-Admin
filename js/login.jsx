@@ -109,7 +109,6 @@ function LoginScreen({ onLogin, onVerifyTwoFactor, onPasswordReset, expired = fa
   const [showPass, setShowPass] = useState(false);
   const [remember, setRemember] = useState(true);
   const [recover, setRecover] = useState('');
-  const [phone, setPhone] = useState('');
   const [code, setCode] = useState('');
   const [demo, setDemo] = useState({ name: '', company: '', email: '', phone: '' });
   const [errs, setErrs] = useState({});
@@ -154,14 +153,6 @@ function LoginScreen({ onLogin, onVerifyTwoFactor, onPasswordReset, expired = fa
     } finally {
       setLoading(false);
     }
-  };
-  const sendSms = (e) => {
-    e.preventDefault();
-    setErrs({ phone: 'Вход по SMS сейчас недоступен' });
-  };
-  const submitSms = (e) => {
-    e.preventDefault();
-    setErrs({ code: 'Вход по SMS сейчас недоступен' });
   };
   const submitTwoFactor = async (e) => {
     e.preventDefault();
@@ -256,14 +247,6 @@ function LoginScreen({ onLogin, onVerifyTwoFactor, onPasswordReset, expired = fa
                   </button>
                 </form>
 
-                <div className="lp-or">или</div>
-
-                <button type="button" className="lp-btn lp-btn-out" disabled title="Вход через MAX будет доступен после подключения OAuth-ключей организации">
-                  <span className="lp-max-ic"><img src="assets/max-logo.png" alt="MAX" /></span>
-                  Войти через MAX
-                  <span className="lp-pill" style={{ marginLeft: 4 }}>Не подключено</span>
-                </button>
-                <p className="lp-cap">Быстрый и безопасный вход через мессенджер MAX</p>
               </div>
 
 
@@ -330,63 +313,6 @@ function LoginScreen({ onLogin, onVerifyTwoFactor, onPasswordReset, expired = fa
           )}
 
 
-          {view === 'max' && (
-            <div className="fade-in lp-card" style={{ textAlign: 'center' }}>
-              <div style={{ width: 74, height: 74, borderRadius: 20, background: '#2aa5ff', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', marginBottom: 18, color: '#fff', boxShadow: '0 14px 30px rgba(42,165,255,.35)' }}>
-                <Icon name="chat" style={{ width: 34, height: 34 }} />
-              </div>
-              <h2 className="lp-h1" style={{ fontSize: 22 }}>Подтвердите вход в MAX</h2>
-              <p className="lp-sub" style={{ marginBottom: 20 }}>Мы отправили запрос в мессенджер MAX. Откройте приложение и подтвердите вход.</p>
-              <div style={{ display: 'inline-flex', alignItems: 'center', gap: 9, color: 'var(--blue)', fontWeight: 600, fontSize: 14, marginBottom: 22 }}>
-                <Icon name="loader" className="lp-spin" style={{ width: 18, height: 18 }} />Ожидаем подтверждения…
-              </div>
-              <button className="lp-btn lp-btn-out" onClick={() => go('login')}>Отмена</button>
-            </div>
-          )}
-
-
-          {view === 'sms' && (
-            <div className="fade-in lp-card">
-              <button type="button" className="lp-btn-ghost" onClick={() => go('login')} style={{ marginBottom: 14 }}><Icon name="chevLeft" style={{ width: 16, height: 16 }} />Ко входу</button>
-              <h2 className="lp-h1">Вход по SMS-коду</h2>
-              <p className="lp-sub">Введите номер телефона — отправим одноразовый код для входа.</p>
-              <form onSubmit={sendSms} style={{ marginTop: 22 }}>
-                <label className="lp-lbl">Телефон</label>
-                <div className="lp-input-wrap">
-                  <input className={'lp-input' + (errs.phone ? ' err' : '')} type="tel" placeholder="+7 (___) ___-__-__"
-                    value={phone} onChange={(e) => setPhone(e.target.value)} />
-                </div>
-                {errs.phone && <div className="lp-errtxt"><Icon name="alertCircle" />{errs.phone}</div>}
-                <button type="submit" className="lp-btn lp-btn-primary" style={{ marginTop: 20 }} disabled={loading}>
-                  {loading ? <><Icon name="loader" className="lp-spin" style={{ width: 18, height: 18 }} />Отправка…</> : 'Получить код'}
-                </button>
-              </form>
-            </div>
-          )}
-
-
-          {view === 'smsCode' && (
-            <div className="fade-in lp-card">
-              <button type="button" className="lp-btn-ghost" onClick={() => go('sms')} style={{ marginBottom: 14 }}><Icon name="chevLeft" style={{ width: 16, height: 16 }} />Изменить номер</button>
-              <h2 className="lp-h1">Введите код</h2>
-              <p className="lp-sub">Мы отправили код на <b style={{ color: '#141a2c' }}>{phone}</b>.</p>
-              <form onSubmit={submitSms} style={{ marginTop: 22 }}>
-                <label className="lp-lbl">Код из SMS</label>
-                <input className={'lp-input' + (errs.code ? ' err' : '')} inputMode="numeric" placeholder="• • • •  • •"
-                  style={{ letterSpacing: '.35em', fontWeight: 700, fontSize: 18, textAlign: 'center' }}
-                  value={code} onChange={(e) => setCode(e.target.value)} maxLength={6} />
-                {errs.code && <div className="lp-errtxt"><Icon name="alertCircle" />{errs.code}</div>}
-                <button type="submit" className="lp-btn lp-btn-primary" style={{ marginTop: 20 }} disabled={loading}>
-                  {loading ? <><Icon name="loader" className="lp-spin" style={{ width: 18, height: 18 }} />Проверка…</> : 'Войти'}
-                </button>
-                <p className="lp-cap" style={{ marginTop: 14 }}>
-                  Не пришёл код? <button type="button" className="lp-link" disabled title="Повторная отправка станет доступна после подключения SMS-провайдера">Отправить ещё раз</button>
-                </p>
-              </form>
-            </div>
-          )}
-
-
           {view === 'demo' && (
             <div className="fade-in lp-card">
               <button type="button" className="lp-btn-ghost" onClick={() => go('login')} style={{ marginBottom: 14 }}><Icon name="chevLeft" style={{ width: 16, height: 16 }} />Ко входу</button>
@@ -436,7 +362,7 @@ function LoginScreen({ onLogin, onVerifyTwoFactor, onPasswordReset, expired = fa
       </div>
 
       <div className="lp-foot">
-        <span>© 2024 ПСЦ Travel Hub. Все права защищены.</span>
+        <span>© {new Date().getFullYear()} ПСЦ Travel Hub. Все права защищены.</span>
         <div className="lp-foot-links">
           <a href="/privacy-policy.txt" target="_blank" rel="noreferrer">Политика конфиденциальности</a>
           <span>·</span>

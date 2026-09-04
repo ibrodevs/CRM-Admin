@@ -3,7 +3,7 @@ import { Icon } from './icons';
 import { ActionMenu, Avatar, Button, Checkbox, ConfirmDialog, DateField, DateRangeField, Drawer, EmptyState, Field, Input, Pill, Radio, SearchBox, Select, Th, fmtDate, plural, useSort, useToast } from './ui';
 import { AIRLINES, AIRPORTS, AVIA_BOOKING_CLASSES, FLIGHT_OFFERS, KP_STATUS, OPERATORS, ORDER_STATUS, ORDER_TASKS, PAX_DOC_KIND, SERVICE_KIND, SERVICE_STATUS } from './data';
 import { cardStatus } from './data/access-control';
-import { CASE_SVC_STATUS, CASE_TRIGGERS, ORDER_CHANGE_CASES, caseNow, caseProgress, createChangeCase, getChangeCase, normKind, smartAlternatives } from './data/service-cards';
+import { CASE_SVC_STATUS, CASE_TRIGGERS, ORDER_CHANGE_CASES, caseNow, caseProgress, createChangeCase, getChangeCase, normKind } from './data/service-cards';
 import { UnifiedDocumentDrawer, UnifiedPersonDrawer } from './forms_unified';
 import { Topbar } from './layout';
 import { AirlineLogo, AirportField, PAX_DEFAULT_OPTIONS, PaxClassPicker, durMin, loadLiveFlightOffers, money, paxTotal } from './page_flights';
@@ -680,11 +680,23 @@ function ServiceListRow({ s, paxCount, isGroup, onOpen, orderNo, participants = 
     calc: s.calc,
     currency: s.currency || s.svcOffer.currency || 'RUB',
   } : { ...s, order: orderNo };
-  const onSent = (ch) => {
-    setCardSt('sent');
-    toast('Карточка услуги отправлена клиенту по каналу «' + ch + '»', 'ok');
-    setTimeout(() => setCardSt('delivered'), 1000);
-    setTimeout(() => setCardSt('viewed'), 2200);
+  const onSent = async (ch, draft) => {
+    const orderId = s.orderId || s.order_id || (/^[0-9a-f-]{32,36}$/i.test(String(s.order || '')) ? s.order : null);
+    const serviceId = s.serverId || (/^[0-9a-f-]{32,36}$/i.test(String(s.id || '')) ? s.id : null);
+    if (!orderId || !serviceId) throw new Error('Услуга не связана с backend-заказом');
+    const card = await serviceCardsApi.create({
+      order: orderId,
+      service: serviceId,
+      kind: { 'Авиа': 'avia', 'ЖД': 'rail', 'Гостиница': 'hotel', 'Трансфер': 'transfer', 'Автобус': 'bus', 'Страховка': 'insurance', 'Виза': 'visa' }[s.kind] || 'other',
+      scenario: draft.scenario || '',
+      price_snapshot: { amount: svcCalc(s).total, currency: s.currency || 'RUB' },
+      content: draft,
+    });
+    const channelCodes = String(ch).split(',').map((value) => value.trim()).filter(Boolean).map((channel) => ({ 'Внутренний чат': 'internal', Telegram: 'telegram', WhatsApp: 'whatsapp', MAX: 'max', Email: 'email' })[channel] || channel.toLowerCase());
+    const sent = await serviceCardsApi.send(card.id, { channels: channelCodes, recipient: s.client_email || s.client_phone || '' });
+    setCardSt(sent.status);
+    toast('Карточка услуги поставлена в backend-очередь отправки', 'ok');
+    return { persisted: true, card: sent };
   };
   return (
     <div className={'oc-svc-row' + (selected ? ' sel' : '')}>
@@ -702,7 +714,7 @@ function ServiceListRow({ s, paxCount, isGroup, onOpen, orderNo, participants = 
       <Button variant="secondary" size="sm" icon="send" onClick={() => setSendOpen(true)}>Клиенту</Button>
       <Button variant="secondary" size="sm" onClick={() => onOpen(s)}>Детали</Button>
       <ActionMenu trigger={<button className="btn btn-ghost btn-icon btn-sm"><Icon name="more" /></button>}
-        items={[{ icon: 'eye', label: 'Открыть', onClick: () => onOpen(s) }, { icon: 'send', label: 'Отправить клиенту', onClick: () => setSendOpen(true) }, { icon: 'clock', label: 'История карточки', onClick: () => setHistOpen(true) }, { sep: true }, { icon: 'trash', label: 'Удалить', danger: true }]} />
+        items={[{ icon: 'eye', label: 'Открыть', onClick: () => onOpen(s) }, { icon: 'send', label: 'Отправить клиенту', onClick: () => setSendOpen(true) }, { icon: 'clock', label: 'История карточки', onClick: () => setHistOpen(true) }]} />
       {sendOpen && <ServiceCardSendPanel item={cardItem} kind={s.kind} participants={participants} orderNo={orderNo} currency={s.currency} serviceId={s.id} onSent={onSent} onClose={() => setSendOpen(false)} />}
       {histOpen && <ServiceCardHistoryDrawer orderNo={orderNo} serviceId={s.id} title={s.title} onClose={() => setHistOpen(false)} />}
     </div>
@@ -1203,17 +1215,43 @@ function OrderChangeCase({ orderNo, orderId, services, participants }) {
     setOpenLog(null);
   };
 
-  const pickerAuto = () => setPicker((p) => {
-    if (!p) return p;
+  const pickerAuto = async () => {
+    const selected = picker;
+    if (!selected) return;
     const cur = getChangeCase(orderNo);
-    const auto = smartAlternatives({ title: cur.services[p.i].title }, cur.services[p.i].kind);
-    const opts = p.opts.slice(); const sel = new Set(p.sel);
-    auto.forEach((a) => { if (!opts.some((o) => o.id === a.id)) opts.push(a); sel.add(a.id); });
-    return { ...p, opts, sel };
-  });
+    const subject = cur.services[selected.i];
+    setPicker((value) => value ? { ...value, busy: true } : value);
+    try {
+      const kindCode = { 'Авиа': 'avia', 'ЖД': 'rail', 'Гостиница': 'hotel', 'Трансфер': 'transfer', 'Автобус': 'bus', 'Страховка': 'insurance', 'Виза': 'visa' }[subject.kind] || 'other';
+      const created = await servicesApi.search({ kind: kindCode, ...(orderId ? { order: orderId } : {}), criteria: { query: subject.title, reference_service: subject.id || null, currency: services.find((service) => service.currency)?.currency || 'RUB' } });
+      let offers = [];
+      for (let attempt = 0; attempt < 30; attempt += 1) {
+        const session = await servicesApi.searchStatus(created.search_id);
+        if (['completed', 'partial', 'failed', 'cancelled'].includes(session.status)) {
+          if (session.status === 'failed') throw new Error('Поставщики не вернули варианты');
+          offers = resultsOf(await servicesApi.offers(created.search_id));
+          break;
+        }
+        await new Promise((resolve) => setTimeout(resolve, 500));
+      }
+      const currentService = services.find((service) => service.id === subject.id || service.title === subject.title);
+      const base = Number(currentService ? svcCalc(currentService).total : 0);
+      const auto = offers.map((offer) => {
+        const amount = Number(offer.price?.amount || 0); const diff = amount - base;
+        return { id: offer.id, offerId: offer.id, title: offer.itinerary?.property_name || offer.itinerary?.description || offer.external_key || 'Вариант поставщика', meta: offer.provider_adapter || 'Подключённый поставщик', price: amount, delta: base ? `${diff > 0 ? '+' : diff < 0 ? '−' : ''}${Math.abs(diff).toLocaleString('ru-RU')} ${offer.price?.currency || 'RUB'}` : '=' };
+      });
+      setPicker((value) => {
+        if (!value) return value;
+        const opts = value.opts.slice(); const sel = new Set(value.sel);
+        auto.forEach((alt) => { if (!opts.some((item) => item.id === alt.id)) opts.push(alt); sel.add(alt.id); });
+        return { ...value, opts, sel, busy: false };
+      });
+      if (!auto.length) toast('Поставщики не вернули альтернатив', 'info');
+    } catch (error) { setPicker((value) => value ? { ...value, busy: false } : value); toast(error.message || 'Не удалось подобрать альтернативы', 'err'); }
+  };
   const pickerToggle = (id) => setPicker((p) => { const sel = new Set(p.sel); sel.has(id) ? sel.delete(id) : sel.add(id); return { ...p, sel }; });
   const pickerAddManual = (v) => setPicker((p) => {
-    const alt = { id: 'man-' + Math.random().toString(36).slice(2, 7), manual: true, ...v };
+    const alt = { id: 'manual-' + (crypto.randomUUID?.() || Date.now()), manual: true, ...v };
     const sel = new Set(p.sel); sel.add(alt.id);
     return { ...p, opts: [...p.opts, alt], sel };
   });
@@ -1232,10 +1270,17 @@ function OrderChangeCase({ orderNo, orderId, services, participants }) {
       toast('Альтернатива зафиксирована в кейсе' + (manual ? ' (включая ручной выбор)' : ''), 'ok');
     } catch (error) { toast(error.message || 'Не удалось зафиксировать альтернативу', 'err'); }
   };
-  const onLetterSent = (channels) => {
+  const onLetterSent = async (channels, draft) => {
     const cur = getChangeCase(orderNo); if (!cur) return;
+    const backendOrderId = orderId || flight?.orderId || (/^[0-9a-f-]{32,36}$/i.test(String(flight?.order || '')) ? flight.order : null);
+    const backendServiceId = flight?.serverId || (/^[0-9a-f-]{32,36}$/i.test(String(flight?.id || '')) ? flight.id : null);
+    if (!backendOrderId || !backendServiceId) throw new Error('Кейс не связан с backend-заказом и услугой');
+    const card = await serviceCardsApi.create({ order: backendOrderId, service: backendServiceId, kind: 'avia', scenario: draft.scenario || '', price_snapshot: { amount: svcCalc(flight).total, currency: flight.currency || 'RUB' }, content: draft });
+    const channelCodes = String(channels).split(',').map((value) => value.trim()).filter(Boolean).map((channel) => ({ 'Внутренний чат': 'internal', Telegram: 'telegram', WhatsApp: 'whatsapp', MAX: 'max', Email: 'email' })[channel] || channel.toLowerCase());
+    await serviceCardsApi.send(card.id, { channels: channelCodes, recipient: '' });
     const v = cur.letters.length + 1; const t = caseNow();
     commit({ ...cur, letters: [...cur.letters, { v, sentAt: t, channels }], history: [...cur.history, { t, text: 'Письмо клиенту отправлено (v' + v + ') · ' + channels }] });
+    return { persisted: true };
   };
 
 
@@ -1319,7 +1364,7 @@ function OrderChangeCase({ orderNo, orderId, services, participants }) {
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
                     <span style={{ fontWeight: 700, fontSize: 12.5, color: 'var(--ink)' }}>Подбор альтернативы · {s.kind}</span>
                     <div style={{ flex: 1 }} />
-                    <Button size="sm" variant="secondary" icon="zap" onClick={pickerAuto}>{picker.opts.some((o) => !o.manual) ? 'Обновить авто-подбор' : 'Подобрать автоматически'}</Button>
+                    <Button size="sm" variant="secondary" icon="zap" onClick={pickerAuto} disabled={picker.busy}>{picker.busy ? 'Поиск у поставщиков…' : picker.opts.some((o) => !o.manual) ? 'Обновить подбор' : 'Подобрать у поставщиков'}</Button>
                   </div>
                   {picker.opts.length === 0 && <div style={{ fontSize: 12, color: 'var(--muted)' }}>Нажмите «Подобрать автоматически» — система предложит близкие варианты; либо добавьте конкретный вариант вручную ниже.</div>}
                   {picker.opts.map((o) => {

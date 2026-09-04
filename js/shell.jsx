@@ -79,11 +79,7 @@ function backendSearchResultToHit(result, handlers) {
 }
 
 function RoleSwitcher({ role, onRole }) {
-  return (
-    <ActionMenu
-      trigger={<button className="chip" style={{ height: 36 }} title="Текущая роль — интерфейс адаптируется"><Icon name="user" />{role}<Icon name="chevDown" /></button>}
-      items={ROLES.map((r) => ({ icon: r === role ? 'check' : 'user', label: 'Войти как: ' + r, onClick: () => onRole(r) }))} />
-  );
+  return <span className="chip" style={{ height: 36, cursor: 'default' }} title="Роль получена из защищённой backend-сессии"><Icon name="user" />{role}</span>;
 }
 
 function AccessDenied({ onNavigate }) {
@@ -96,7 +92,7 @@ function AccessDenied({ onNavigate }) {
             <Icon name="lock" style={{ width: 28, height: 28 }} />
           </div>
           <h2 className="card-title" style={{ marginBottom: 8 }}>Раздел недоступен для вашей роли</h2>
-          <p style={{ color: 'var(--muted)', fontSize: 15, margin: '0 0 22px' }}>Доступ к этому модулю ограничен правами. Обратитесь к администратору или смените роль.</p>
+          <p style={{ color: 'var(--muted)', fontSize: 15, margin: '0 0 22px' }}>Доступ к этому модулю ограничен правами. Обратитесь к администратору организации.</p>
           <Button onClick={() => onNavigate('dashboard')} icon="home">На главную</Button>
         </div>
       </div>

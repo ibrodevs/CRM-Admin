@@ -1,10 +1,10 @@
 import { useState, useEffect, useRef } from 'react';
 import { Icon } from './icons';
 import { Avatar, Button, Checkbox, Drawer, Input, Pill, Select, Toggle, useToast } from './ui';
-import { CURRENT_USER } from './data';
-import { TP_AIRLINES, TP_BOARD, TP_CAR_CLASSES, TP_CLASSES_AVIA, TP_COMPLIANCE, TP_CURRENCIES, TP_EMPLOYEES, TP_HOTEL_CATEGORIES, TP_HOTEL_CHAINS, TP_RAIL_CLASSES, TP_RAIL_TYPES, TP_SCOPES, companyStaffStore, departmentsFor, travelPolicyFor } from './data/access-control';
+import { TP_AIRLINES, TP_BOARD, TP_CAR_CLASSES, TP_CLASSES_AVIA, TP_COMPLIANCE, TP_CURRENCIES, TP_EMPLOYEES, TP_HOTEL_CATEGORIES, TP_HOTEL_CHAINS, TP_RAIL_CLASSES, TP_RAIL_TYPES, TP_SCOPES, defaultTravelPolicy } from './data/access-control';
 import { CollapseSection } from './order_extras';
-import { workspaceActionsApi } from './api/resources';
+import { resultsOf } from './api/client';
+import { crmApi, travelPolicyApi } from './api/resources';
 
 
 
@@ -217,31 +217,36 @@ function TpMultiSelect({ label, options, values, onChange, placeholder }) {
   );
 }
 
-function TpPersonSearch({ placeholder, exclude, onPick }) {
+function TpPersonSearch({ placeholder, exclude, onPick, options = [] }) {
   const [q, setQ] = useState('');
   const [open, setOpen] = useState(false);
   const ref = useRef(null);
   useEffect(() => { const h = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); }; document.addEventListener('mousedown', h); return () => document.removeEventListener('mousedown', h); }, []);
   const ex = exclude || [];
-  const list = TP_EMPLOYEES.filter((n) => !ex.includes(n) && n.toLowerCase().includes(q.trim().toLowerCase())).slice(0, 8);
+  const source = options.length ? options : TP_EMPLOYEES.map((name) => ({ id: name, name }));
+  const list = source.filter((item) => {
+    const name = typeof item === 'string' ? item : item.name;
+    const id = typeof item === 'string' ? item : item.id;
+    return !ex.includes(name) && !ex.includes(id) && String(name || '').toLowerCase().includes(q.trim().toLowerCase());
+  }).slice(0, 8);
   return (
     <div ref={ref} style={{ position: 'relative' }}>
       <Input leadIcon="search" placeholder={placeholder || 'Поиск сотрудника по ФИО'} value={q} onChange={(e) => { setQ(e.target.value); setOpen(true); }} onFocus={() => setOpen(true)} />
       {open && q.trim() && (
         <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, marginTop: 4, zIndex: 60, background: '#fff', border: '1px solid var(--line)', borderRadius: 12, boxShadow: 'var(--shadow-modal)', maxHeight: 260, overflowY: 'auto', padding: 6 }}>
-          {list.length ? list.map((n) => (
-            <div key={n} onClick={() => { onPick(n); setQ(''); setOpen(false); }} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 10px', borderRadius: 8, cursor: 'pointer' }}
+          {list.length ? list.map((item) => { const name = typeof item === 'string' ? item : item.name; const id = typeof item === 'string' ? item : item.id; return (
+            <div key={id} onClick={() => { onPick(name, item); setQ(''); setOpen(false); }} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 10px', borderRadius: 8, cursor: 'pointer' }}
               onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--surface-2)')} onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}>
-              <Avatar name={n} size={26} /><span style={{ fontSize: 13, color: 'var(--ink)' }}>{n}</span>
+              <Avatar name={name} size={26} /><span style={{ fontSize: 13, color: 'var(--ink)' }}>{name}</span>
             </div>
-          )) : <div style={{ padding: '10px', color: 'var(--muted)', fontSize: 13 }}>Не найдено</div>}
+          ); }) : <div style={{ padding: '10px', color: 'var(--muted)', fontSize: 13 }}>Не найдено</div>}
         </div>
       )}
     </div>
   );
 }
 
-function TpApproverChain({ approvers, onChange }) {
+function TpApproverChain({ approvers, onChange, options = [] }) {
   const list = approvers || [];
   const move = (i, d) => { const j = i + d; if (j < 0 || j >= list.length) return; const n = [...list]; [n[i], n[j]] = [n[j], n[i]]; onChange(n); };
   const remove = (i) => onChange(list.filter((_, j) => j !== i));
@@ -262,71 +267,93 @@ function TpApproverChain({ approvers, onChange }) {
           </div>
         ))}
       </div>
-      <TpPersonSearch placeholder="Добавить согласующего…" exclude={list} onPick={add} />
+      <TpPersonSearch placeholder="Добавить согласующего…" exclude={list} options={options} onPick={add} />
     </div>
   );
 }
 
 
-function DepartmentsManager({ companyId }) {
+function employeeName(employee) {
+  return employee?.person_detail?.full_name || [employee?.person_detail?.surname, employee?.person_detail?.given_name, employee?.person_detail?.middle_name].filter(Boolean).join(' ') || 'Сотрудник';
+}
+
+function DepartmentsManager({ companyId, onChanged }) {
   const toast = useToast();
-  const [, setTick] = useState(0);
-  const rerender = () => setTick((n) => n + 1);
-  const store = companyStaffStore(companyId);
-  const depts = store.departments;
-  const empsOf = (d) => store.employees.filter((e) => e.dept === d.id);
+  const [depts, setDepts] = useState([]);
+  const [employees, setEmployees] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [newDept, setNewDept] = useState('');
+  const load = async () => {
+    setLoading(true);
+    try {
+      const [departmentRows, employeeRows] = await Promise.all([
+        crmApi.companyDepartments(companyId), crmApi.companyEmployees(companyId),
+      ]);
+      setDepts(resultsOf(departmentRows));
+      setEmployees(resultsOf(employeeRows));
+    } catch (error) { toast(error.message || 'Не удалось загрузить структуру компании', 'err'); }
+    finally { setLoading(false); }
+  };
+  useEffect(() => { load(); }, [companyId]);
+  const empsOf = (department) => employees.filter((employee) => String(employee.department || '') === String(department.id));
 
   const addDept = async () => {
     if (!newDept.trim()) { toast('Введите название подразделения', 'info'); return; }
-    const dept = { id: 'd' + Date.now(), name: newDept.trim(), head: '', policy: '' };
     try {
-      await workspaceActionsApi.execute('company.department.create_manual', { resourceType: 'company', resourceId: String(companyId), payload: dept });
-      depts.push(dept);
-      setNewDept(''); toast('Подразделение создано', 'ok'); rerender();
+      const department = await crmApi.createCompanyDepartment(companyId, { name: newDept.trim() });
+      setDepts((current) => [...current, department]);
+      setNewDept(''); toast('Подразделение создано', 'ok'); onChanged?.();
     } catch (error) { toast(error.message || 'Не удалось создать подразделение', 'err'); }
   };
-  const removeDept = (id) => {
-    const i = depts.findIndex((d) => d.id === id); if (i >= 0) depts.splice(i, 1);
-    store.employees.forEach((e) => { if (e.dept === id) e.dept = ''; });
-    rerender();
-  };
-  const invite = async (dept, name) => {
-    if (store.employees.some((e) => e.name === name && e.dept === dept.id)) return;
-    const employee = { id: 'E-' + Math.floor(1000 + Math.random() * 8999), name, dept: dept.id, position: '', phone: '', email: '', doc: '—', dob: '—', inPolicy: true };
+  const removeDept = async (id) => {
     try {
-      await workspaceActionsApi.execute('company.employee.invite_manual', { resourceType: 'company', resourceId: String(companyId), payload: employee });
-      store.employees.push(employee);
-      toast('Приглашён: ' + name, 'ok'); rerender();
-    } catch (error) { toast(error.message || 'Не удалось пригласить сотрудника', 'err'); }
+      await crmApi.removeCompanyDepartment(companyId, id);
+      setDepts((current) => current.filter((department) => department.id !== id));
+      toast('Подразделение удалено', 'ok'); onChanged?.();
+    } catch (error) { toast(error.message || 'Не удалось удалить подразделение', 'err'); }
   };
-  const removeEmp = (emp) => { const i = store.employees.findIndex((e) => e.id === emp.id); if (i >= 0) store.employees.splice(i, 1); rerender(); };
+  const assign = async (department, employee) => {
+    try {
+      const saved = await crmApi.updateCompanyEmployee(companyId, employee.id, { department: department.id });
+      setEmployees((current) => current.map((item) => item.id === saved.id ? saved : item));
+      toast('Сотрудник назначен в подразделение', 'ok'); onChanged?.();
+    } catch (error) { toast(error.message || 'Не удалось назначить сотрудника', 'err'); }
+  };
+  const unassign = async (employee) => {
+    try {
+      const saved = await crmApi.updateCompanyEmployee(companyId, employee.id, { department: null });
+      setEmployees((current) => current.map((item) => item.id === saved.id ? saved : item));
+      toast('Сотрудник выведен из подразделения', 'ok'); onChanged?.();
+    } catch (error) { toast(error.message || 'Не удалось изменить сотрудника', 'err'); }
+  };
 
   return (
     <div>
-      <div style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 12 }}>Создавайте отделы и подразделения и приглашайте в них сотрудников. Список общий с вкладкой «Сотрудники» компании. На подразделения можно назначать отдельную тревел-политику (область применения «Подразделение»).</div>
+      <div style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 12 }}>Создавайте подразделения и назначайте в них сотрудников из реестра компании. Изменения сразу сохраняются в backend.</div>
       <div style={{ display: 'flex', gap: 10, marginBottom: 16, flexWrap: 'wrap' }}>
         <div style={{ flex: 1, minWidth: 220 }}><Input placeholder="Название подразделения" value={newDept} onChange={(e) => setNewDept(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') addDept(); }} /></div>
         <Button icon="plus" onClick={addDept}>Создать подразделение</Button>
       </div>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-        {depts.map((d) => { const emps = empsOf(d); return (
+        {loading && <div style={{ color: 'var(--muted)', fontSize: 13 }}>Загрузка структуры…</div>}
+        {!loading && !depts.length && <div style={{ color: 'var(--muted)', fontSize: 13 }}>Подразделений пока нет.</div>}
+        {depts.map((d) => { const emps = empsOf(d); const candidates = employees.filter((employee) => String(employee.department || '') !== String(d.id)).map((employee) => ({ id: employee.id, name: employeeName(employee), employee })); return (
           <div className="card card-pad" key={d.id}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
               <span className="oc-svc-ic" style={{ width: 34, height: 34, background: 'var(--blue-soft)', color: 'var(--blue)' }}><Icon name="building" style={{ width: 18, height: 18 }} /></span>
-              <div style={{ flex: 1 }}><div style={{ fontWeight: 700, color: 'var(--ink)' }}>{d.name}</div><div style={{ fontSize: 12, color: 'var(--muted)' }}>{emps.length} сотрудник(ов){d.policy ? ' · политика: ' + d.policy : (d.head ? ' · руководитель ' + d.head : '')}</div></div>
+              <div style={{ flex: 1 }}><div style={{ fontWeight: 700, color: 'var(--ink)' }}>{d.name}</div><div style={{ fontSize: 12, color: 'var(--muted)' }}>{emps.length} сотрудник(ов){d.travel_policy ? ' · назначена политика' : ''}</div></div>
               <Button variant="ghost" size="sm" icon="trash" onClick={() => removeDept(d.id)}>Удалить</Button>
             </div>
             <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 10 }}>
               {emps.map((e) => (
                 <span key={e.id} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '5px 8px 5px 5px', borderRadius: 999, border: '1px solid var(--field-line)', fontSize: 12 }}>
-                  <Avatar name={e.name} size={22} />{e.name}
-                  <button className="icon-btn" style={{ width: 20, height: 20 }} onClick={() => removeEmp(e)}><Icon name="x" style={{ width: 12, height: 12 }} /></button>
+                  <Avatar name={employeeName(e)} size={22} />{employeeName(e)}
+                  <button className="icon-btn" title="Убрать из подразделения" style={{ width: 20, height: 20 }} onClick={() => unassign(e)}><Icon name="x" style={{ width: 12, height: 12 }} /></button>
                 </span>
               ))}
               {!emps.length && <span style={{ fontSize: 12, color: 'var(--muted-2)' }}>Сотрудники не приглашены.</span>}
             </div>
-            <div style={{ maxWidth: 360 }}><TpPersonSearch placeholder="Пригласить сотрудника…" exclude={emps.map((e) => e.name)} onPick={(n) => invite(d, n)} /></div>
+            <div style={{ maxWidth: 360 }}><TpPersonSearch placeholder="Назначить сотрудника…" options={candidates} exclude={emps.map((e) => e.id)} onPick={(_, item) => assign(d, item.employee)} /></div>
           </div>
         ); })}
       </div>
@@ -335,9 +362,10 @@ function DepartmentsManager({ companyId }) {
 }
 
 
-function TpImportDrawer({ open, kind, companyId, onClose }) {
+function TpImportDrawer({ open, kind, companyId, onClose, onImported }) {
   const toast = useToast();
   const [file, setFile] = useState(null);
+  const [busy, setBusy] = useState(false);
   useEffect(() => { if (open) setFile(null); }, [open, kind]);
   if (!open) return null;
   const isEmp = kind === 'employees';
@@ -346,54 +374,135 @@ function TpImportDrawer({ open, kind, companyId, onClose }) {
       toast('Выберите файл для импорта', 'err');
       return;
     }
+    setBusy(true);
+    try {
+      const result = isEmp
+        ? await crmApi.importCompanyEmployees(companyId, file)
+        : await travelPolicyApi.import(companyId, file);
+      if (isEmp) toast(`Импорт завершён: создано ${result.created || 0}, обновлено ${result.updated || 0}`, result.errors?.length ? 'warn' : 'ok');
+      else toast('Тревел-политика импортирована и сохранена в backend', 'ok');
+      await onImported?.(result);
+      onClose();
+    } catch (error) { toast(error.message || 'Не удалось импортировать файл', 'err'); }
+    finally { setBusy(false); }
   };
   return (
     <Drawer open={open} onClose={onClose} title={isEmp ? 'Импорт сотрудников' : 'Импорт тревел-политики'} width="min(560px,96vw)"
-      footer={<><Button variant="secondary" onClick={onClose}>Отмена</Button><Button icon="check" disabled title="Импорт будет доступен после подключения backend-парсера" onClick={doImport}>Импорт недоступен</Button></>}>
+      footer={<><Button variant="secondary" onClick={onClose} disabled={busy}>Отмена</Button><Button icon="check" disabled={busy || !file} onClick={doImport}>{busy ? 'Импорт…' : 'Импортировать'}</Button></>}>
       <div style={{ fontSize: 13, color: 'var(--muted)', marginBottom: 14 }}>
-        {isEmp ? 'Загрузите файл со списком сотрудников (XLSX / CSV). Сотрудники будут добавлены в подразделения компании.' : 'Загрузите документ тревел-политики (PDF / DOCX / XLSX). Параметры будут распознаны и применены к компании.'}
-        <div style={{ marginTop: 8, color: 'var(--amber)' }}>Автоматический импорт сейчас отключён. Файл можно выбрать для проверки формата, но применение данных недоступно.</div>
+        {isEmp ? 'Загрузите CSV/XLSX с колонками ФИО (или Фамилия и Имя), Телефон, Email, Подразделение, Должность. Backend создаст или обновит сотрудников.' : 'Загрузите JSON с полями API/объектом policy либо XLSX «поле — значение». Импорт обновит активную политику и увеличит её версию.'}
       </div>
-      <label className="doc-chip" style={{ borderStyle: 'dashed', color: 'var(--blue)', height: 120, flexDirection: 'column', gap: 8, cursor: 'pointer', justifyContent: 'center' }}>
+      <label className="doc-chip" onDragOver={(event) => event.preventDefault()} onDrop={(event) => { event.preventDefault(); setFile(event.dataTransfer.files?.[0] || null); }} style={{ borderStyle: 'dashed', color: 'var(--blue)', height: 120, flexDirection: 'column', gap: 8, cursor: 'pointer', justifyContent: 'center' }}>
         <Icon name="download" style={{ width: 26, height: 26 }} />
         <span style={{ fontWeight: 600 }}>{file ? file.name : 'Выберите файл или перетащите сюда'}</span>
-        <span style={{ fontSize: 12, color: 'var(--muted)' }}>{isEmp ? 'XLSX, CSV — до 5 МБ' : 'PDF, DOCX, XLSX — до 10 МБ'}</span>
-        <input type="file" hidden accept={isEmp ? '.xlsx,.csv' : '.pdf,.docx,.xlsx'} onChange={(event) => setFile(event.target.files?.[0] || null)} />
+        <span style={{ fontSize: 12, color: 'var(--muted)' }}>{isEmp ? 'XLSX, CSV — до 5 МБ' : 'JSON, XLSX — до 10 МБ'}</span>
+        <input type="file" hidden accept={isEmp ? '.xlsx,.csv' : '.json,.xlsx'} onChange={(event) => setFile(event.target.files?.[0] || null)} />
       </label>
     </Drawer>
   );
 }
 
+function clonePolicy(value) { return JSON.parse(JSON.stringify(value)); }
+function mergePolicy(value) {
+  const base = defaultTravelPolicy();
+  const next = value || {};
+  return {
+    ...base, ...next,
+    avia: { ...base.avia, ...(next.avia || {}) }, rail: { ...base.rail, ...(next.rail || {}) },
+    hotels: { ...base.hotels, ...(next.hotels || {}) }, transfers: { ...base.transfers, ...(next.transfers || {}) },
+    extras: { ...base.extras, ...(next.extras || {}) }, approval: { ...base.approval, ...(next.approval || {}) },
+  };
+}
+function policyFromApi(row) {
+  const envelope = (Array.isArray(row?.scopes) ? row.scopes : []).find((scope) => scope && typeof scope === 'object' && scope.ui);
+  if (envelope?.ui) return mergePolicy(envelope.ui);
+  const limit = (kind) => row?.price_limits?.[kind] || {};
+  const base = defaultTravelPolicy();
+  const scope = Array.isArray(row?.scopes) ? row.scopes[0] : null;
+  return mergePolicy({
+    scope: typeof scope === 'string' ? scope : scope?.scope || base.scope,
+    scopeValue: typeof scope === 'object' ? scope?.value || '' : '',
+    avia: { classAllowed: row?.allowed_avia_cabins?.[0] || '', airlinesAllowed: row?.allowed_airlines || [], maxPrice: limit('avia').amount || '', maxPriceCur: limit('avia').currency || 'RUB', minLeadDays: row?.min_advance_booking_days || '' },
+    rail: { wagonClass: row?.allowed_rail_classes?.[0] || '', wagonTypes: row?.allowed_train_types || [], maxPrice: limit('rail').amount || '', maxPriceCur: limit('rail').currency || 'RUB', minLeadDays: row?.min_advance_booking_days || '' },
+    hotels: { maxCategory: row?.allowed_hotel_categories?.[0] || '', chainsAllowed: row?.allowed_hotel_chains || [], boardAllowed: row?.allowed_meal_plans || [], maxNight: limit('hotel').amount || '', maxNightCur: limit('hotel').currency || 'RUB' },
+    transfers: { carClasses: row?.allowed_car_classes || [], maxPrice: limit('transfer').amount || '', maxPriceCur: limit('transfer').currency || 'RUB' },
+    approval: { required: Boolean(row?.approver_chain?.length), approvers: row?.approver_chain || [] },
+  });
+}
+function policyToApi(pol) {
+  const limits = {};
+  const addLimit = (kind, amount, currency) => { if (amount !== '' && amount != null) limits[kind] = { amount: Number(amount), currency: currency || 'RUB' }; };
+  addLimit('avia', pol.avia.maxPrice, pol.avia.maxPriceCur);
+  addLimit('rail', pol.rail.maxPrice, pol.rail.maxPriceCur);
+  addLimit('hotel', pol.hotels.maxNight, pol.hotels.maxNightCur);
+  addLimit('transfer', pol.transfers.maxPrice, pol.transfers.maxPriceCur);
+  return {
+    name: pol.name || 'Тревел-политика компании', is_active: true,
+    scopes: [{ scope: pol.scope, value: pol.scopeValue || '', ui: clonePolicy(pol) }],
+    allowed_avia_cabins: pol.avia.classAllowed ? [pol.avia.classAllowed] : [], allowed_airlines: pol.avia.airlinesAllowed || [],
+    allowed_rail_classes: pol.rail.wagonClass ? [pol.rail.wagonClass] : [], allowed_train_types: pol.rail.wagonTypes || [],
+    allowed_hotel_categories: pol.hotels.maxCategory ? [pol.hotels.maxCategory] : [], allowed_hotel_chains: pol.hotels.chainsAllowed || [],
+    allowed_meal_plans: pol.hotels.boardAllowed || [], allowed_car_classes: pol.transfers.carClasses || [], price_limits: limits,
+    min_advance_booking_days: Number(pol.avia.minLeadDays || pol.rail.minLeadDays) || null,
+    approver_chain: pol.approval.approvers || [],
+  };
+}
+
 function TravelPolicyBlock({ co }) {
   const toast = useToast();
-  const store = travelPolicyFor(co.id);
-  const [pol, setPol] = useState(() => JSON.parse(JSON.stringify(store.policy)));
+  const [pol, setPol] = useState(() => defaultTravelPolicy());
+  const [base, setBase] = useState(() => defaultTravelPolicy());
+  const [policies, setPolicies] = useState([]);
+  const [activePolicy, setActivePolicy] = useState(null);
+  const [departments, setDepartments] = useState([]);
+  const [employees, setEmployees] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [histOpen, setHistOpen] = useState(false);
   const [importKind, setImportKind] = useState(null);
   const [showDepts, setShowDepts] = useState(false);
   const s = (section, key, v) => setPol((p) => ({ ...p, [section]: { ...p[section], [key]: v } }));
 
+  const load = async () => {
+    setLoading(true);
+    try {
+      const [policyRows, departmentRows, employeeRows] = await Promise.all([
+        travelPolicyApi.list(co.id), crmApi.companyDepartments(co.id), crmApi.companyEmployees(co.id),
+      ]);
+      const list = resultsOf(policyRows);
+      const current = list.find((item) => item.is_active) || list[0] || null;
+      const ui = current ? policyFromApi(current) : defaultTravelPolicy();
+      setPolicies(list); setActivePolicy(current); setPol(clonePolicy(ui)); setBase(clonePolicy(ui));
+      setDepartments(resultsOf(departmentRows)); setEmployees(resultsOf(employeeRows));
+    } catch (error) { toast(error.message || 'Не удалось загрузить тревел-политику', 'err'); }
+    finally { setLoading(false); }
+  };
+  useEffect(() => { load(); }, [co.id]);
+
   const diffFields = () => {
     const out = [];
-    const base = store.policy;
+    const original = base;
     ['avia', 'rail', 'hotels', 'transfers', 'extras', 'approval'].forEach((sec) => {
-      Object.keys(pol[sec]).forEach((k) => { if (JSON.stringify(pol[sec][k]) !== JSON.stringify(base[sec][k])) out.push(sec + ' · ' + k); });
+      Object.keys(pol[sec]).forEach((k) => { if (JSON.stringify(pol[sec][k]) !== JSON.stringify(original[sec][k])) out.push(sec + ' · ' + k); });
     });
-    if (pol.scope !== base.scope || pol.scopeValue !== base.scopeValue) out.push('Область применения');
+    if (pol.scope !== original.scope || pol.scopeValue !== original.scopeValue) out.push('Область применения');
     return out;
   };
   const save = async () => {
     const fields = diffFields();
-    if (!fields.length) { toast('Изменений нет', 'info'); return; }
+    if (!fields.length && activePolicy) { toast('Изменений нет', 'info'); return; }
     try {
-      await workspaceActionsApi.execute('company.travel_policy.update', { resourceType: 'company', resourceId: String(co.id), payload: { policy: pol, fields } });
-      store.policy = JSON.parse(JSON.stringify(pol));
-      store.history.push({ date: window.cfNow ? window.cfNow() : new Date().toLocaleString('ru-RU'), user: (CURRENT_USER && CURRENT_USER.name) || 'Оператор', title: 'Изменение тревел-политики', fields });
-      toast('Тревел-политика сохранена (новая версия)', 'ok');
+      const saved = activePolicy
+        ? await travelPolicyApi.update(activePolicy.id, policyToApi(pol))
+        : await travelPolicyApi.create(co.id, policyToApi(pol));
+      const ui = policyFromApi(saved);
+      setActivePolicy(saved); setBase(clonePolicy(ui)); setPol(clonePolicy(ui));
+      setPolicies((current) => [saved, ...current.filter((item) => item.id !== saved.id)]);
+      toast(`Тревел-политика сохранена · версия ${saved.policy_version}`, 'ok');
     } catch (error) { toast(error.message || 'Не удалось сохранить тревел-политику', 'err'); }
   };
 
-  const deptNames = departmentsFor(co.id).map((d) => d.name);
+  const deptNames = departments.map((department) => department.name);
+  const employeeOptions = employees.map((employee) => ({ id: employee.id, name: employeeName(employee) }));
 
   return (
     <div className="fade-in">
@@ -410,6 +519,7 @@ function TravelPolicyBlock({ co }) {
             <Button variant="secondary" size="sm" icon="clock" onClick={() => setHistOpen(true)}>История</Button>
           </div>
         </div>
+        {loading && <div style={{ marginTop: 12, fontSize: 12, color: 'var(--muted)' }}>Загружаем актуальную политику из backend…</div>}
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginTop: 14, flexWrap: 'wrap' }}>
           <span style={{ fontSize: 13, color: 'var(--muted)' }}>Применяется к:</span>
           <div className="seg-toggle">
@@ -427,7 +537,7 @@ function TravelPolicyBlock({ co }) {
             <div style={{ width: 280 }}>
               {pol.scopeValue
                 ? <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '6px 10px', borderRadius: 10, border: '1px solid var(--field-line)' }}><Avatar name={pol.scopeValue} size={24} />{pol.scopeValue}<button className="icon-btn" onClick={() => setPol((p) => ({ ...p, scopeValue: '' }))}><Icon name="x" /></button></span>
-                : <TpPersonSearch placeholder="Найдите сотрудника…" onPick={(n) => setPol((p) => ({ ...p, scopeValue: n }))} />}
+                : <TpPersonSearch placeholder="Найдите сотрудника…" options={employeeOptions} onPick={(n) => setPol((p) => ({ ...p, scopeValue: n }))} />}
             </div>
           )}
         </div>
@@ -440,7 +550,7 @@ function TravelPolicyBlock({ co }) {
           <div style={{ flex: 1 }}><div style={{ fontWeight: 700, color: 'var(--ink)' }}>Подразделения и сотрудники</div><div style={{ fontSize: 12, color: 'var(--muted)' }}>Создание отделов и приглашение сотрудников</div></div>
           <Icon name={showDepts ? 'chevUp' : 'chevDown'} style={{ width: 18, height: 18, color: 'var(--muted-2)' }} />
         </div>
-        {showDepts && <div style={{ borderTop: '1px solid var(--line)', padding: '16px 18px', background: 'var(--surface-2)' }}><DepartmentsManager companyId={co.id} /></div>}
+        {showDepts && <div style={{ borderTop: '1px solid var(--line)', padding: '16px 18px', background: 'var(--surface-2)' }}><DepartmentsManager companyId={co.id} onChanged={load} /></div>}
       </div>
 
 
@@ -503,7 +613,7 @@ function TravelPolicyBlock({ co }) {
 
       <CollapseSection title="Согласование" note="Кто и когда согласовывает поездку · цепочка согласующих">
         <TpToggle label="Требуется согласование поездки" value={pol.approval.required} onChange={(v) => s('approval', 'required', v)} />
-        <TpApproverChain approvers={pol.approval.approvers} onChange={(v) => s('approval', 'approvers', v)} />
+        <TpApproverChain approvers={pol.approval.approvers} options={employeeOptions} onChange={(v) => s('approval', 'approvers', v)} />
         <TpToggle label="Согласование при превышении лимитов" value={pol.approval.onOverLimit} onChange={(v) => s('approval', 'onOverLimit', v)} />
         <TpToggle label="Автосогласование при соблюдении политики" value={pol.approval.autoIfCompliant} onChange={(v) => s('approval', 'autoIfCompliant', v)} />
         <TpToggle label="Возможность оформления без согласования" value={pol.approval.allowWithout} onChange={(v) => s('approval', 'allowWithout', v)} />
@@ -519,25 +629,26 @@ function TravelPolicyBlock({ co }) {
       </div>
 
       <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 12, marginTop: 18 }}>
-        <Button icon="check" onClick={save}>Сохранить тревел-политику</Button>
+        <Button icon="check" onClick={save} disabled={loading}>{activePolicy ? 'Сохранить новую версию' : 'Создать тревел-политику'}</Button>
       </div>
 
       <Drawer open={histOpen} onClose={() => setHistOpen(false)} title="История изменений тревел-политики"
         footer={<Button variant="secondary" style={{ width: '100%' }} onClick={() => setHistOpen(false)}>Закрыть</Button>}>
         <div className="timeline">
-          {[...store.history].reverse().map((v, i) => (
-            <div className="tl-item" key={i}><span className="tl-dot" /><span className="tl-line" />
+          {!policies.length && <div style={{ color: 'var(--muted)', fontSize: 13 }}>Сохранённых политик пока нет.</div>}
+          {[...policies].sort((a, b) => new Date(b.updated_at || b.created_at) - new Date(a.updated_at || a.created_at)).map((v) => (
+            <div className="tl-item" key={v.id}><span className="tl-dot" /><span className="tl-line" />
               <div style={{ paddingBottom: 8 }}>
-                <div className="tl-time">{v.date} · {v.user}</div>
-                <div className="tl-text" style={{ fontWeight: 600 }}>{v.title}</div>
-                <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 2 }}>{v.fields.join(', ')}</div>
+                <div className="tl-time">{new Date(v.updated_at || v.created_at).toLocaleString('ru-RU')}{v.updated_by_name ? ' · ' + v.updated_by_name : ''}</div>
+                <div className="tl-text" style={{ fontWeight: 600 }}>{v.name} · версия {v.policy_version}</div>
+                <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 2 }}>{v.is_active ? 'Активна' : 'Неактивна'}</div>
               </div>
             </div>
           ))}
         </div>
       </Drawer>
 
-      <TpImportDrawer open={!!importKind} kind={importKind} companyId={co.id} onClose={() => setImportKind(null)} />
+      <TpImportDrawer open={!!importKind} kind={importKind} companyId={co.id} onClose={() => setImportKind(null)} onImported={load} />
     </div>
   );
 }

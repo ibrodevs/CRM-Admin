@@ -672,7 +672,7 @@ function ReturnsModule({ scopeOrder, onOpenOrder, compact, order, initialCases, 
                   <td><span style={!isTerminal(o.status) && o.status !== 'Завершено' ? { color: 'var(--red)', fontWeight: 600 } : { color: 'var(--muted-2)' }}>{o.deadline}</span></td>
                   <td onClick={(e) => e.stopPropagation()}>
                     <ActionMenu trigger={<button className="btn btn-ghost btn-icon btn-sm"><Icon name="more" /></button>}
-                      items={[{ icon: 'eye', label: 'Открыть', onClick: () => { setActiveNo(o.no); setView('card'); } }, { icon: 'orders', label: 'Перейти в заказ', onClick: () => { const ord = ORDERS.find((x) => x.no === o.order) || { no: o.order, client: o.client, requestType: 'Индивидуальная', status: 'В работе', operator: o.resp, date: '15.06.25' }; onOpenOrder && onOpenOrder(ord); } }]} />
+                      items={[{ icon: 'eye', label: 'Открыть', onClick: () => { setActiveNo(o.no); setView('card'); } }, { icon: 'orders', label: 'Перейти в заказ', onClick: () => { const ord = ORDERS.find((x) => String(x.no) === String(o.order) || String(x.id) === String(o.order)); if (ord && onOpenOrder) onOpenOrder(ord); else toast('Связанный заказ не найден или недоступен', 'err'); } }]} />
                   </td>
                 </tr>
               ))}
