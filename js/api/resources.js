@@ -201,6 +201,8 @@ export const workspaceApi = {
 export const workspaceSettingsApi = {
   get: (namespace, signal) => get(`workspace-settings/${namespace}/`, signal),
   save: (namespace, value) => patch(`workspace-settings/${namespace}/`, { value }),
+  getTenant: (namespace, signal) => get(`workspace-settings/${namespace}/${queryString({ scope: 'tenant' })}`, signal),
+  saveTenant: (namespace, value) => apiRequest(apiPath(`workspace-settings/${namespace}/`) + queryString({ scope: 'tenant' }), { method: 'PATCH', body: { value } }),
 };
 
 export const workspaceActionsApi = {
@@ -352,4 +354,7 @@ export const servicesApi = {
   book: (id, body = {}) => create(`services/${id}/book/`, body),
   issue: (id, body = {}) => create(`services/${id}/issue/`, body),
   cancel: (id, body = {}) => create(`services/${id}/cancel/`, body),
+  extras: (id, signal) => get(`services/${id}/extras/`, signal),
+  addExtra: (id, body) => create(`services/${id}/extras/`, body),
+  setResponsible: (id, responsible) => apiRequest(apiPath(`services/${id}/responsible/`), { method: 'PUT', body: { responsible } }),
 };

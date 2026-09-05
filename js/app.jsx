@@ -28,6 +28,7 @@ import { ProfilePage } from './page_profile';
 import { AccountSettingsPage } from './page_account';
 import { AccessDenied, GlobalChatDrawer, GlobalTopbar, NotificationDrawer, roleCanSee } from './shell';
 import { toUiThread } from './api/adapters';
+import { workspaceSettingsApi } from './api/resources';
 
 const NOTIF_PRIORITY_KIND = { 'Критический': 'err', 'Высокий': 'warn', 'Средний': 'info', 'Информационный': 'ok' };
 const ROUTE_RESOURCE = {
@@ -117,6 +118,18 @@ function App() {
   const [route, setRoute] = useState('dashboard');
   const [intent, setIntent] = useState(null);
   const [svcSearch, setSvcSearch] = useState(null);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    workspaceSettingsApi.getTenant('service-cards', controller.signal).then(({ value = {} }) => {
+      if (value.scenarios && window.CARD_SCENARIOS) Object.keys(value.scenarios).forEach((key) => Object.assign(window.CARD_SCENARIOS[key] || (window.CARD_SCENARIOS[key] = {}), value.scenarios[key]));
+      if (value.kinds && window.CARD_KINDS_ENABLED) Object.assign(window.CARD_KINDS_ENABLED, value.kinds);
+      if (value.channels && window.CARD_CHANNELS_ENABLED) Object.assign(window.CARD_CHANNELS_ENABLED, value.channels);
+      if (value.emails && window.CARD_EMAIL_TEMPLATES) Object.keys(value.emails).forEach((key) => Object.assign(window.CARD_EMAIL_TEMPLATES[key] || (window.CARD_EMAIL_TEMPLATES[key] = {}), value.emails[key]));
+      if (value.visibility && window.CARD_CLIENT_VISIBILITY) Object.assign(window.CARD_CLIENT_VISIBILITY, value.visibility);
+    }).catch((error) => { if (error.name !== 'AbortError') toast(error.message || 'Не удалось загрузить настройки карточек услуг', 'err'); });
+    return () => controller.abort();
+  }, []);
 
   const orders = workspace.orders;
   const suppliers = workspace.suppliers;
@@ -284,7 +297,7 @@ function App() {
       {route === 'account' && <AccountSettingsPage user={auth.user} onNavigate={navigate} />}
 
       {route === 'rail' && <ServiceFlow routeKey="rail" searchIntent={svcSearch && svcSearch.key === 'rail' ? svcSearch : null} onConsumeSearch={() => setSvcSearch(null)} orders={orders} clients={workspace.clients} companies={workspace.companies} services={workspace.orderServices} />}
-      {route === 'hotels' && <HotelsPage persons={workspace.persons} />}
+      {route === 'hotels' && <HotelsPage orders={orders} />}
       {route === 'transfers' && <ServiceFlow routeKey="transfers" searchIntent={svcSearch && svcSearch.key === 'transfers' ? svcSearch : null} onConsumeSearch={() => setSvcSearch(null)} orders={orders} clients={workspace.clients} companies={workspace.companies} services={workspace.orderServices} />}
       {route === 'buses' && <ServiceFlow routeKey="buses" searchIntent={svcSearch && svcSearch.key === 'buses' ? svcSearch : null} onConsumeSearch={() => setSvcSearch(null)} orders={orders} clients={workspace.clients} companies={workspace.companies} services={workspace.orderServices} />}
       {route === 'tours' && <ServiceFlow routeKey="tours" searchIntent={svcSearch && svcSearch.key === 'tours' ? svcSearch : null} onConsumeSearch={() => setSvcSearch(null)} orders={orders} clients={workspace.clients} companies={workspace.companies} services={workspace.orderServices} />}

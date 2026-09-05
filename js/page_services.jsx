@@ -3,7 +3,7 @@ import { ChannelIcon, Icon } from './icons';
 import { ActionMenu, Button, Checkbox, DateField, DateRangeField, Drawer, EmptyState, FilterChip, Input, Pill, Radio, SearchBox, Select, Tabs, TimeLimitBadge, Toggle, fmtDate, plural, useToast } from './ui';
 import { CURRENT_USER, ORDERS, RAIL_OCCUPIED, RAIL_SERVICE_CLASSES, RAIL_WAGONS, RETURNS, SERVICE_KIND, SERVICE_STATUS, SVC_DATA } from './data';
 import { CARD_CLIENT_VISIBILITY, CARD_STATUS, CARD_STATUS_FLOW, SEND_CHANNELS, cardInternals, cardStatus, orderClientChannel, sendChannelMeta } from './data/access-control';
-import { CHAIN_STATUS, FORCE_MAJEURE_TYPES, buildCardFields, buildForceMajeureRows, cardAction, cardEmailTemplate, cardScenario, channelMode, defaultForceMajeure, enabledChannels, operatorCardRights, scenarioActions, scenarioBadge, scenariosForKind } from './data/service-cards';
+import { CHAIN_STATUS, FORCE_MAJEURE_TYPES, buildCardFields, buildForceMajeureRows, cardAction, cardEmailTemplate, cardScenario, channelMode, defaultForceMajeure, enabledChannels, scenarioActions, scenarioBadge, scenariosForKind } from './data/service-cards';
 import { UnifiedPersonDrawer } from './forms_unified';
 import { Topbar } from './layout';
 import { DetailedSearchPanel } from './page_dashboard';
@@ -446,8 +446,7 @@ function ServiceCardSendPanel({ item, kind, participants = [], orderNo, currency
   const [previewChannel, setPreviewChannel] = useState(orderClientChannel(oNo));
 
 
-  const rights = operatorCardRights(operator, kind);
-  const readOnly = !rights.clientFields;
+  const readOnly = false;
 
   const [fm, setFm] = useState(() => defaultForceMajeure(item, operator));
   const setFmType = (t) => { setFm((f) => ({ ...f, fmType: t })); setActions(FORCE_MAJEURE_TYPES[t].actions.slice()); };
@@ -579,7 +578,6 @@ function ServiceCardSendPanel({ item, kind, participants = [], orderNo, currency
   };
 
   const send = async () => {
-    if (!rights.send) { toast('Нет права на отправку карточек по услуге «' + kind + '»', 'err'); return; }
     if (!channels.length) { toast('Выберите хотя бы один канал отправки', 'warn'); return; }
     const draft = {
       kind, scenario: scenarioSys, clientLabel, statuses, accompanyingText, passengers: paxNames,
@@ -629,19 +627,6 @@ function ServiceCardSendPanel({ item, kind, participants = [], orderNo, currency
   const chanList = enabledChannels();
 
 
-  if (!rights.create) {
-    return (
-      <StackPanel title="Карточка услуги" width="min(560px,96vw)" onClose={onClose}
-        footer={<Button variant="secondary" onClick={onClose}>Закрыть</Button>}>
-        <div className="card card-pad" style={{ textAlign: 'center', padding: '40px 24px' }}>
-          <Icon name="lock" style={{ width: 40, height: 40, color: 'var(--muted-2)' }} strokeWidth={1.4} />
-          <h3 style={{ margin: '14px 0 6px', fontSize: 16 }}>Нет доступа к карточкам по услуге «{kind}»</h3>
-          <div style={{ fontSize: 13, color: 'var(--muted)' }}>Оператор {operator} не имеет права создавать карточки этого вида услуги. Обратитесь к администратору (Настройки → Карточки услуг → Права операторов).</div>
-        </div>
-      </StackPanel>
-    );
-  }
-
   return (
     <StackPanel title="Карточка услуги · предпросмотр перед отправкой" width="min(1280px,98vw)" onClose={onClose}
       footer={<>
@@ -651,7 +636,7 @@ function ServiceCardSendPanel({ item, kind, participants = [], orderNo, currency
         <div style={{ flex: 1 }} />
         <Button variant="secondary" onClick={onClose}>Отмена</Button>
         <Button variant="secondary" icon="template" onClick={buildKpFromAlternatives} title="Собрать КП из подобранных вариантов">Собрать КП{altBlocks.length ? ' (' + altBlocks.length + ')' : ''}</Button>
-        <Button icon="send" onClick={send} disabled={!rights.send} title={!rights.send ? 'Нет права на отправку' : undefined}>Отправить{channels.length > 1 ? ' (' + channels.length + ' канала)' : channels.length === 1 ? ' · ' + channels[0] : ''}</Button>
+        <Button icon="send" onClick={send}>Отправить{channels.length > 1 ? ' (' + channels.length + ' канала)' : channels.length === 1 ? ' · ' + channels[0] : ''}</Button>
       </>}>
 
       <div className="grid-2" style={{ alignItems: 'start', gap: 16, gridTemplateColumns: '1.05fr .95fr' }}>
@@ -704,7 +689,7 @@ function ServiceCardSendPanel({ item, kind, participants = [], orderNo, currency
             <h3 className="card-title" style={{ fontSize: 15, margin: 0 }}>Настройки карточки</h3>
             <div style={{ flex: 1 }} />
 
-            <Pill tone={rights.clientFields ? 'green' : 'amber'}><Icon name={rights.clientFields ? 'checkCircle' : 'lock'} style={{ width: 12, height: 12, verticalAlign: -2 }} /> {operator}</Pill>
+            <Pill tone="green"><Icon name="checkCircle" style={{ width: 12, height: 12, verticalAlign: -2 }} /> {operator}</Pill>
           </div>
           {readOnly && <div style={{ fontSize: 12, color: 'var(--amber)', marginBottom: 12, display: 'flex', gap: 6 }}><Icon name="lock" style={{ width: 13, height: 13 }} />Нет права «изменение клиентских полей» — настройки только для чтения</div>}
 
@@ -1598,6 +1583,7 @@ function SvcAddPaxDrawer({ open, isHotel, onClose, onAdd }) {
       title={isHotel ? 'Добавить гостя' : 'Добавить пассажира'}
       onClose={onClose}
       onSave={(person, client) => onAdd({
+        draft: person,
         name: client.name,
         role: person.role,
         doc: person.docNo || '—',
@@ -1781,6 +1767,20 @@ function ServiceFlow({ routeKey, searchIntent, onConsumeSearch }) {
     } finally { setLoading(false); }
   };
   const runSearch = () => performSearch(form);
+  const addRegistryToProposal = async (service) => {
+    if (!service.orderId || !service.serverId) { toast('Услуга не связана с backend-заказом', 'err'); return; }
+    try {
+      const proposal = await proposalsApi.create({
+        order: service.orderId,
+        type: 'standard',
+        purpose: 'Предложение по услуге',
+        currency: service.currency || 'RUB',
+        valid_until: new Date(Date.now() + 7 * 86400000).toISOString(),
+        variants: [{ name: service.title || service.main || cfg.title, items: [{ service: service.serverId, service_kind: serviceKindCode(service.kind), title: service.title || service.main, description: service.sub || '', quantity: 1, price_amount: String(service.sum || 0), price_currency: service.currency || 'RUB' }] }],
+      });
+      toast(`Создано КП ${proposal.number} с услугой`, 'ok', { action: { label: 'Открыть КП', route: 'offers' }, duration: 7000 });
+    } catch (error) { toast(error.message || 'Не удалось создать КП', 'err'); }
+  };
 
   let offers = allOffers.filter((o) => {
     if (flt.priceMax != null && (o.cost + o.fee) > flt.priceMax) return false;
@@ -1822,7 +1822,7 @@ function ServiceFlow({ routeKey, searchIntent, onConsumeSearch }) {
                         <td>{r.qty}</td>
                         <td><Pill tone={SERVICE_STATUS[r.status] || 'gray'}>{r.status}</Pill></td>
                         <td style={{ textAlign: 'right', fontWeight: 600 }}>{r.sum ? (r.currency === 'RUB' ? rub(r.sum) : svM(r.sum)) : '—'}</td>
-                        <td onClick={(e) => e.stopPropagation()}><ActionMenu trigger={<button className="btn btn-ghost btn-icon btn-sm"><Icon name="more" /></button>} items={[{ icon: 'eye', label: 'Открыть', onClick: () => { setItem(r); setView('card'); } }, { icon: 'template', label: 'В КП' }]} /></td>
+                        <td onClick={(e) => e.stopPropagation()}><ActionMenu trigger={<button className="btn btn-ghost btn-icon btn-sm"><Icon name="more" /></button>} items={[{ icon: 'eye', label: 'Открыть', onClick: () => { setItem(r); setView('card'); } }, { icon: 'template', label: 'Создать КП', onClick: () => addRegistryToProposal(r) }]} /></td>
                       </tr>
                     ))}
                   </tbody>
@@ -2092,8 +2092,17 @@ function railSections(pax, groups) {
 
 
 function RailOfferCard({ o, onSelect }) {
+  const toast = useToast();
+  const [details, setDetails] = useState(null);
+  const [detailsBusy, setDetailsBusy] = useState(false);
+  const openDetails = async () => {
+    setDetailsBusy(true);
+    try { const payload = await servicesApi.fareRules(o.id); setDetails(payload.fare_rules || payload); }
+    catch (error) { toast(error.message || 'Не удалось загрузить условия тарифа', 'err'); }
+    finally { setDetailsBusy(false); }
+  };
   return (
-    <div className="rail-offer">
+    <><div className="rail-offer">
       <div className="ro-train">
         <span className={'ro-logo ' + (o.carrier === 'РЖД' ? 'rzd' : 'alt')}>{o.carrier}</span>
         <div style={{ minWidth: 0 }}>
@@ -2123,9 +2132,12 @@ function RailOfferCard({ o, onSelect }) {
         <div className="ro-per">за 1 человека</div>
         <div className="ro-clsline">{o.cls} · <span className="ro-free">{o.freeSeats} мест</span></div>
         <Button size="sm" onClick={() => onSelect(o)}>Выбрать поезд</Button>
-        <button type="button" className="ro-more">Подробнее</button>
+        <button type="button" className="ro-more" onClick={openDetails} disabled={detailsBusy}>{detailsBusy ? 'Загрузка…' : 'Условия тарифа'}</button>
       </div>
     </div>
+    {details && <Drawer open onClose={() => setDetails(null)} title="Условия тарифа" sub={`${o.carrier || ''} ${o.number || ''}`} footer={<Button variant="secondary" onClick={() => setDetails(null)}>Закрыть</Button>}>
+      {typeof details === 'string' ? <div style={{ whiteSpace: 'pre-wrap', lineHeight: 1.6 }}>{details}</div> : <div className="kv">{Object.entries(details || {}).map(([key, value]) => <div className="kv-row" key={key}><span className="k">{key}</span><span className="v" style={{ whiteSpace: 'pre-wrap' }}>{typeof value === 'object' ? JSON.stringify(value, null, 2) : String(value ?? '—')}</span></div>)}</div>}
+    </Drawer>}</>
   );
 }
 

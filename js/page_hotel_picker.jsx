@@ -1,10 +1,11 @@
 import { useEffect, useState } from 'react';
 import { Icon } from './icons';
 import { ActionMenu, Avatar, Button, Checkbox, DateField, EmptyState, Field, Input, Radio, SearchBox, Select, fmtDate, useToast } from './ui';
-import { GROUP_PAX, HOTELS, HOTEL_AMENITIES, HOTEL_DISTRICTS, HOTEL_EXTRAS, HOTEL_MEALS, ORDER_PARTICIPANTS } from './data';
+import { HOTEL_MEALS } from './data';
 import { Topbar } from './layout';
 import { StackPanel } from './components/shared-panels';
-import { servicesApi, workspaceActionsApi } from './api/resources';
+import { UnifiedBindPicker } from './forms_unified';
+import { servicesApi } from './api/resources';
 import { resultsOf } from './api/client';
 
 
@@ -21,77 +22,89 @@ const HP_SORT_LABEL = HP_SORT_OPTS.reduce((m, [k, l]) => (m[k] = l, m), {});
 
 const HP_RADIUS_OPTS = ['500 м', '1 км', '2 км', '5 км', '10 км', 'Без ограничений'];
 
-function hpM(n) { return Math.round(n).toLocaleString('ru-RU') + ' ₽'; }
+function hpM(n, currency = 'RUB') {
+  const symbol = { RUB: '₽', USD: '$', EUR: '€', KGS: 'сом' }[currency] || currency;
+  return Number(n || 0).toLocaleString('ru-RU', { maximumFractionDigits: 2 }) + ' ' + symbol;
+}
 function hpStars(n) { return '★★★★★'.slice(0, n); }
 function hpNights(ci, co) {
   if (!ci || !co) return 1;
   const d = Math.round((co - ci) / 86400000);
   return d > 0 ? d : 1;
 }
-function hotelOfferToUi(offer) {
+function hotelOfferToUi(offer, criteria = {}) {
   const itinerary = offer.itinerary || {};
-  const usd = Number(offer.price?.amount || 0);
-  const base = Math.max(4000, Math.round(usd * 90));
-  const tariff = (id, name, price, features) => ({ id, name, price, feats: features });
-  const room = (id, name, price, cap) => ({
-    id, name, base: price, beds: cap > 2 ? '2 кровати' : '1 большая кровать', cap, count: 4, area: cap > 2 ? 36 : 24, floor: '2–8',
-    tariffs: [
-      tariff('pop', 'Популярный', price, [{ ok: true, t: itinerary.meal_plan === 'RO' ? 'Без питания' : 'Питание включено' }, { ok: true, t: 'Условия отмены получены от поставщика' }]),
-      tariff('flex', 'Тариф с гибкой отменой', Math.round(price * 1.15), [{ ok: true, t: 'Гибкая отмена' }, { ok: true, t: 'Подтверждение поставщика' }]),
-      tariff('nobreak', 'Базовый тариф', Math.round(price * 0.9), [{ ok: false, t: 'Без питания' }, { ok: false, t: 'Ограниченная отмена' }]),
-    ],
-  });
+  const fare = offer.fare || {};
+  const base = Number(offer.price?.amount || 0);
+  const currency = offer.price?.currency || 'USD';
+  const rawCapacity = itinerary.max_occupancy ?? itinerary.capacity ?? fare.max_occupancy;
+  const cap = Number.isFinite(Number(rawCapacity)) && Number(rawCapacity) > 0 ? Number(rawCapacity) : null;
+  const cancellation = fare.cancellation_rules || fare.cancellation || itinerary.cancellation_rules || '';
+  const room = {
+    id: offer.id, name: itinerary.room || 'Категория не указана', base, currency,
+    beds: itinerary.beds || itinerary.bed_type || 'Не указано', cap,
+    count: typeof offer.availability === 'object' ? offer.availability.rooms ?? null : null,
+    area: itinerary.area || null, floor: itinerary.floor || null,
+    tariffs: [{
+      id: offer.id, name: fare.name || fare.rate_name || itinerary.meal_plan || 'Тариф поставщика', price: base, currency,
+      feats: [
+        itinerary.meal_plan ? { ok: true, t: `Питание: ${itinerary.meal_plan}` } : null,
+        cancellation ? { ok: true, t: String(cancellation) } : null,
+      ].filter(Boolean),
+    }],
+  };
   return {
     ...offer,
     _backendOfferId: offer.id,
     id: offer.id,
-    name: itinerary.property_name || `Отель ${offer.external_key || ''}`,
-    stars: Number(itinerary.stars || 3),
-    addr: itinerary.city || '—',
-    addrFull: itinerary.city || '—',
+    name: itinerary.property_name || offer.external_key || 'Гостиница',
+    stars: itinerary.stars == null ? 0 : Number(itinerary.stars),
+    addr: itinerary.address || itinerary.city || '—',
+    addrFull: itinerary.address || itinerary.city || '—',
     city: itinerary.city || '',
-    district: 'Центр города',
-    metro: 0,
-    rating: 8.5,
-    ratingText: 'Рекомендовано',
-    reviews: 0,
+    district: itinerary.district || itinerary.city || '—',
+    metro: itinerary.metro_distance ?? null,
+    rating: itinerary.rating ?? null,
+    ratingText: itinerary.rating_text || '',
+    reviews: itinerary.reviews_count ?? null,
     base,
     breakfast: itinerary.meal_plan && itinerary.meal_plan !== 'RO',
-    freeCancel: itinerary.check_in || 'по условиям тарифа',
-    payAtHotel: false,
+    freeCancel: fare.free_cancel_until || itinerary.free_cancel_until || null,
+    cancellation,
+    payAtHotel: Boolean(fare.pay_at_hotel || itinerary.pay_at_hotel),
     supplier: offer.provider_adapter || 'Подключённый поставщик',
-    phone: '', email: '', currency: offer.price?.currency || 'USD',
-    rooms: [room('standard', itinerary.room || 'Standard Double', base, 2), room('family', 'Family Room', Math.round(base * 1.35), 4), room('suite', 'Suite', Math.round(base * 1.8), 2)],
+    supplierId: offer.supplier || null,
+    phone: itinerary.phone || '', email: itinerary.email || '', currency,
+    rooms: [room],
   };
 }
 
 
-function HotelResultCard({ h, saved, onSave, onPick }) {
+function HotelResultCard({ h, onPick }) {
   return (
     <div className="hp-card">
       <div className="hp-card-photo">
         <div className={'hp-photo hp-photo-' + h.id} />
         {h.breakfast && <span className="hp-photo-badge"><Icon name="coffee" />Завтрак включён</span>}
-        <button className={'hp-fav' + (saved ? ' on' : '')} onClick={(e) => { e.stopPropagation(); onSave(h); }}><Icon name="heart" /></button>
       </div>
       <div className="hp-card-main">
         <div className="hp-card-name">{h.name} <span className="hp-stars">{hpStars(h.stars)}</span></div>
         <div className="hp-card-addr">{h.addr}</div>
-        <div className="hp-card-loc"><Icon name="mapPin" />{h.district} · {h.metro} м до метро</div>
+        <div className="hp-card-loc"><Icon name="mapPin" />{h.district}{h.metro != null ? ` · ${h.metro} м до метро` : ''}</div>
         <span className="hp-supplier"><Icon name="api" />{h.supplier}</span>
       </div>
       <div className="hp-card-rate">
-        <div className="hp-rate-pill"><b>{h.rating}</b><span>{h.ratingText}</span></div>
-        <div className="hp-rate-reviews">{h.reviews} отзывов</div>
+        {h.rating != null && <div className="hp-rate-pill"><b>{h.rating}</b><span>{h.ratingText}</span></div>}
+        {h.reviews != null && <div className="hp-rate-reviews">{h.reviews} отзывов</div>}
         <div className="hp-card-conds">
-          <span className="ok"><Icon name="check" />Бесплатная отмена<br /><i>до {h.freeCancel}</i></span>
+          {h.freeCancel && <span className="ok"><Icon name="check" />Бесплатная отмена<br /><i>до {h.freeCancel}</i></span>}
           <span><Icon name="bank" />{h.payAtHotel ? 'Оплата на месте' : 'Онлайн-оплата'}<br /><i>{h.payAtHotel ? 'без предоплаты' : 'предоплата'}</i></span>
         </div>
       </div>
       <div className="hp-card-price">
         <div className="hp-price-from">от</div>
-        <div className="hp-price-val">{hpM(h.base)}</div>
-        <div className="hp-price-night">за 1 ночь</div>
+        <div className="hp-price-val">{hpM(h.base, h.currency)}</div>
+        <div className="hp-price-night">за выбранный период</div>
         <Button size="sm" onClick={() => onPick(h)}>Выбрать номер</Button>
         <button className="hp-more-link" onClick={() => onPick(h)}>Подробнее о номерах</button>
       </div>
@@ -100,8 +113,8 @@ function HotelResultCard({ h, saved, onSave, onPick }) {
 }
 
 
-function HotelFilters({ priceMax, setPriceMax, stars, toggleStar, starCounts, districts, distSel, toggleDist, count, onReset, query, setQuery }) {
-  const selCount = Object.values(stars).filter(Boolean).length + Object.values(distSel).filter(Boolean).length + (priceMax < 50000 ? 1 : 0) + (query && query.trim() ? 1 : 0);
+function HotelFilters({ stars, toggleStar, starCounts, districts, distSel, toggleDist, onReset, query, setQuery }) {
+  const selCount = Object.values(stars).filter(Boolean).length + Object.values(distSel).filter(Boolean).length + (query && query.trim() ? 1 : 0);
   return (
     <aside className="hp-filters">
       <div className="hp-filters-head">
@@ -111,16 +124,6 @@ function HotelFilters({ priceMax, setPriceMax, stars, toggleStar, starCounts, di
 
 
       <SearchBox value={query || ''} onChange={setQuery} placeholder="Поиск отелей" style={{ minWidth: 0, width: '100%', height: 42, margin: '4px 0 10px' }} />
-
-      <div className="hp-filter-block">
-        <div className="hp-filter-title">Цена за ночь</div>
-        <div className="hp-price-range">
-          <span className="hp-pr-from">от {hpM(4000)}</span>
-          <span className="hp-pr-to">{hpM(priceMax)}</span>
-        </div>
-        <input type="range" className="hp-slider" min="4000" max="50000" step="500"
-          value={priceMax} onChange={(e) => setPriceMax(+e.target.value)} />
-      </div>
 
       <div className="hp-filter-block">
         <div className="hp-filter-title">Звёзды</div>
@@ -151,23 +154,21 @@ function HotelFilters({ priceMax, setPriceMax, stars, toggleStar, starCounts, di
 
 function HotelPicker({ participants, group = false, onApply, onCancel }) {
   const toast = useToast();
-  const basePax = (participants && participants.length) ? participants : (group ? GROUP_PAX : ORDER_PARTICIPANTS);
-  const PAX = group && basePax.length < 4 ? GROUP_PAX : basePax;
+  const PAX = Array.isArray(participants) ? participants : [];
 
 
-  const [dest, setDest] = useState('Москва');
+  const [dest, setDest] = useState('');
   const [radius, setRadius] = useState('2 км');
-  const [checkin, setCheckin] = useState(() => new Date(Date.now() + 7 * 86400000));
-  const [checkout, setCheckout] = useState(() => new Date(Date.now() + 8 * 86400000));
+  const [checkin, setCheckin] = useState(null);
+  const [checkout, setCheckout] = useState(null);
   const [searchRooms, setSearchRooms] = useState(group ? Math.ceil(PAX.length / 2) : 1);
-  const [searchGuests, setSearchGuests] = useState(group ? PAX.length : Math.min(2, PAX.length));
+  const [searchGuests, setSearchGuests] = useState(group ? Math.max(1, PAX.length) : Math.max(1, Math.min(2, PAX.length)));
   const [meal, setMeal] = useState('BB');
   const [freeCancelOnly, setFreeCancelOnly] = useState(false);
   const [citizenship, setCitizenship] = useState('');
   const [paxPopOpen, setPaxPopOpen] = useState(false);
 
 
-  const [priceMax, setPriceMax] = useState(50000);
   const [stars, setStars] = useState({});
   const [distSel, setDistSel] = useState({});
   const [hotelQ, setHotelQ] = useState('');
@@ -177,7 +178,6 @@ function HotelPicker({ participants, group = false, onApply, onCancel }) {
 
   const [activeHotel, setActiveHotel] = useState(null);
   const [panel, setPanel] = useState(null);
-  const [saved, setSaved] = useState({});
   const [groupMode, setGroupMode] = useState(group);
 
   const [selRoom, setSelRoom] = useState(null);
@@ -195,8 +195,6 @@ function HotelPicker({ participants, group = false, onApply, onCancel }) {
   const [addRoomOpen, setAddRoomOpen] = useState(false);
 
 
-  const [extras, setExtras] = useState({});
-  const [hotelComment, setHotelComment] = useState('');
   const [supplierComment, setSupplierComment] = useState('');
 
   const nights = hpNights(checkin, checkout);
@@ -206,8 +204,7 @@ function HotelPicker({ participants, group = false, onApply, onCancel }) {
   const anyStar = Object.values(stars).some(Boolean);
   const anyDist = Object.values(distSel).some(Boolean);
   const hq = hotelQ.trim().toLowerCase();
-  let list = liveHotels.filter((h) => h.base <= priceMax
-    && (!anyStar || stars[h.stars])
+  let list = liveHotels.filter((h) => (!anyStar || stars[h.stars])
     && (!anyDist || distSel[h.district])
     && (!hq || `${h.name} ${h.district || ''} ${h.city || ''}`.toLowerCase().includes(hq))
     && (!freeCancelOnly || h.freeCancel));
@@ -218,8 +215,9 @@ function HotelPicker({ participants, group = false, onApply, onCancel }) {
     if (sort === 'rating') return b.rating - a.rating;
     return b.rating - a.rating;
   });
-  const resetFilters = () => { setPriceMax(50000); setStars({}); setDistSel({}); setFreeCancelOnly(false); setHotelQ(''); };
+  const resetFilters = () => { setStars({}); setDistSel({}); setFreeCancelOnly(false); setHotelQ(''); };
   const runHotelSearch = async () => {
+    if (!dest.trim() || !checkin || !checkout) { toast('Укажите локацию, даты заезда и выезда', 'err'); return; }
     try {
       const created = await servicesApi.search({
         kind: 'hotel',
@@ -230,6 +228,7 @@ function HotelPicker({ participants, group = false, onApply, onCancel }) {
           guests: searchGuests,
           rooms: searchRooms,
           meal_plan: meal,
+          radius,
           currency: 'USD',
         },
       });
@@ -237,7 +236,7 @@ function HotelPicker({ participants, group = false, onApply, onCancel }) {
         const status = await servicesApi.searchStatus(created.search_id);
         if (['completed', 'partial', 'failed', 'cancelled'].includes(status.status)) {
           if (status.status === 'failed') throw new Error('Поставщики не вернули варианты гостиниц');
-          const offers = resultsOf(await servicesApi.offers(created.search_id)).map(hotelOfferToUi);
+          const offers = resultsOf(await servicesApi.offers(created.search_id)).map((offer) => hotelOfferToUi(offer, { guests: searchGuests, rooms: searchRooms }));
           setLiveHotels(offers);
           toast(`Получено вариантов: ${offers.length}`, 'ok');
           return;
@@ -254,15 +253,19 @@ function HotelPicker({ participants, group = false, onApply, onCancel }) {
     const r = h.rooms[0];
     setSelRoom(r);
     setSelTariff(r.tariffs[0]);
-    setBedType(r.beds.includes('раздельные') ? 'twin' : 'double');
+    setBedType(String(r.beds).toLowerCase().includes('twin') || String(r.beds).toLowerCase().includes('раздельн') ? 'twin' : 'double');
     setPanel('room');
   };
-  const pickRoom = (r) => { setSelRoom(r); setSelTariff(r.tariffs[0]); setBedType(r.beds.includes('раздельные') ? 'twin' : 'double'); };
+  const pickRoom = (r) => { setSelRoom(r); setSelTariff(r.tariffs[0]); setBedType(String(r.beds).toLowerCase().includes('twin') || String(r.beds).toLowerCase().includes('раздельн') ? 'twin' : 'double'); };
 
 
   const proceedFromRoom = (tariff) => {
     setSelTariff(tariff);
     if (groupMode) {
+      if (!activeHotel.rooms.every((room) => room.cap != null)) {
+        toast('Поставщик не передал вместимость номера — групповое размещение нельзя проверить', 'err');
+        return;
+      }
 
       const seeded = [];
       const cats = activeHotel.rooms;
@@ -270,7 +273,8 @@ function HotelPicker({ participants, group = false, onApply, onCancel }) {
       for (let i = 0; i < PAX.length; i += 2) {
         const members = [i]; if (i + 1 < PAX.length) members.push(i + 1);
         const cat = i === 0 ? selRoom : cats[Math.min(idx % 3 + 1, cats.length - 1)];
-        seeded.push({ id: 'rg' + i, cat: cat.id, bed: i % 2 === 0 ? 'double' : 'twin', members });
+        const bed = String(cat.beds).toLowerCase().includes('twin') || String(cat.beds).toLowerCase().includes('раздельн') ? 'twin' : 'double';
+        seeded.push({ id: 'rg' + i, cat: cat.id, bed, members });
         idx++;
       }
       setRoomGroups(seeded);
@@ -282,16 +286,9 @@ function HotelPicker({ participants, group = false, onApply, onCancel }) {
 
 
   const catById = (id) => activeHotel ? (activeHotel.rooms.find((r) => r.id === id) || activeHotel.rooms[0]) : null;
-  const accommodationTotal = !activeHotel ? 0 : (groupMode
-    ? roomGroups.reduce((s, g) => { const c = catById(g.cat); return s + (c ? c.base : 0) * nights; }, 0)
-    : (selTariff ? selTariff.price * nights : 0));
+  const accommodationTotal = !activeHotel ? 0 : Number(selTariff?.price || activeHotel.base || 0);
 
-  const extrasFlat = HOTEL_EXTRAS.flatMap((c) => c.items.map((it) => ({ ...it, cat: c.cat })));
-  const extraQty = (id) => extras[id] || 0;
-  const extrasTotal = extrasFlat.reduce((s, it) => s + extraQty(it.id) * it.price, 0);
-  const extrasByCat = (cat) => HOTEL_EXTRAS.find((c) => c.cat === cat).items.reduce((s, it) => s + extraQty(it.id) * it.price, 0);
-  const extrasCount = extrasFlat.filter((it) => extraQty(it.id) > 0).length;
-  const grandTotal = accommodationTotal + extrasTotal;
+  const grandTotal = accommodationTotal;
 
 
   const conflicts = (() => {
@@ -301,7 +298,7 @@ function HotelPicker({ participants, group = false, onApply, onCancel }) {
     roomGroups.forEach((g) => {
       const cap = catById(g.cat).cap;
       g.members.forEach((m, i) => {
-        if (i >= cap) out.push({ type: 'capacity', pax: m, room: g.id, desc: `В номере уже размещено ${cap} ${cap === 1 ? 'гость' : 'гостя'} — превышение вместимости.` });
+        if (cap != null && i >= cap) out.push({ type: 'capacity', pax: m, room: g.id, desc: `В номере уже размещено ${cap} ${cap === 1 ? 'гость' : 'гостя'} — превышение вместимости.` });
         if (seen[m] != null) out.push({ type: 'multi', pax: m, room: g.id, desc: `Пассажир уже назначен в другой номер (№${seen[m] + 1}).` });
         else seen[m] = roomGroups.indexOf(g);
       });
@@ -309,7 +306,7 @@ function HotelPicker({ participants, group = false, onApply, onCancel }) {
     PAX.forEach((_, i) => { if (seen[i] == null) out.push({ type: 'unassigned', pax: i, room: null, desc: 'Гость не размещён ни в одном номере.' }); });
     return out;
   })();
-  const totalCap = roomGroups.reduce((s, g) => { const c = catById(g.cat); return s + (c ? c.cap : 0); }, 0);
+  const totalCap = roomGroups.reduce((s, g) => { const c = catById(g.cat); return s + (c?.cap || 0); }, 0);
 
 
   const buildOffer = (sub) => ({
@@ -319,18 +316,18 @@ function HotelPicker({ participants, group = false, onApply, onCancel }) {
     cost: grandTotal, fee: 0, supplier: activeHotel.supplier,
     info: [{ l: 'Заезд', v: fmtDate(checkin) }, { l: 'Выезд', v: fmtDate(checkout) }, { l: 'Ночей', v: nights }],
     tags: [selRoom.name, HOTEL_MEALS.find((x) => x.id === meal).full].filter(Boolean),
-    currency: '₽',
+    currency: activeHotel.currency,
   });
   const finalizeSingle = () => {
     const sub = `${selRoom.name} · ${nights} ${nights === 1 ? 'ночь' : 'ночи'} · ${selTariff.name}`;
     onApply && onApply(buildOffer(sub));
-    toast('Гостиница добавлена в заказ', 'ok');
+    toast('Вариант гостиницы выбран', 'ok');
     closeAll();
   };
   const finalizeGroup = () => {
     const sub = `${roomGroups.length} номеров · ${PAX.length} гостей · ${nights} ${nights === 1 ? 'ночь' : 'ночи'}`;
     onApply && onApply(buildOffer(sub));
-    toast('Групповое бронирование добавлено в заказ', 'ok');
+    toast('Групповой вариант гостиницы выбран', 'ok');
     closeAll();
   };
   const closeAll = () => { setPanel(null); setActiveHotel(null); setRoomGroups([]); setEditRoomId(null); setAddRoomOpen(false); };
@@ -404,10 +401,10 @@ function HotelPicker({ participants, group = false, onApply, onCancel }) {
             <Checkbox on={freeCancelOnly} onChange={() => setFreeCancelOnly((v) => !v)} />
             Бесплатная отмена
           </label>
-          <label className="hp-inline-check">
+          {PAX.length > 0 && <label className="hp-inline-check">
             <Checkbox on={groupMode} onChange={() => setGroupMode((v) => !v)} />
             Групповое размещение
-          </label>
+          </label>}
         </div>
       </div>
 
@@ -427,17 +424,14 @@ function HotelPicker({ participants, group = false, onApply, onCancel }) {
 
       <div className="hp-layout">
         <HotelFilters
-          priceMax={priceMax} setPriceMax={setPriceMax}
           stars={stars} toggleStar={(s) => setStars((p) => ({ ...p, [s]: !p[s] }))} starCounts={starCounts}
-          districts={HOTEL_DISTRICTS} distSel={distSel} toggleDist={(d) => setDistSel((p) => ({ ...p, [d]: !p[d] }))}
+          districts={[...new Set(liveHotels.map((hotel) => hotel.district).filter((district) => district && district !== '—'))]} distSel={distSel} toggleDist={(d) => setDistSel((p) => ({ ...p, [d]: !p[d] }))}
           query={hotelQ} setQuery={setHotelQ}
-          count={list.length} onReset={resetFilters} />
+          onReset={resetFilters} />
 
         <div className="hp-results">
           {list.length ? list.map((h) => (
-            <HotelResultCard key={h.id} h={h} saved={!!saved[h.id]}
-              onSave={(x) => { setSaved((p) => ({ ...p, [x.id]: !p[x.id] })); toast(saved[x.id] ? 'Удалено из избранного' : 'Сохранено в избранное', 'ok'); }}
-              onPick={openHotel} />
+            <HotelResultCard key={h.id} h={h} onPick={openHotel} />
           )) : <EmptyState icon="building" title="Ничего не найдено" sub="Измените фильтры или параметры поиска" />}
         </div>
       </div>
@@ -449,8 +443,8 @@ function HotelPicker({ participants, group = false, onApply, onCancel }) {
           onClose={closeAll} onProceed={proceedFromRoom} groupMode={groupMode}
           onContact={async () => {
             try {
-              await workspaceActionsApi.execute('supplier.hotel_availability_request', { resourceType: 'hotel_offer', resourceId: String(activeHotel.serverId || activeHotel.id), payload: { hotel: activeHotel.name, room: selRoom?.name, checkin: checkin?.toISOString(), checkout: checkout?.toISOString() } });
-              toast('Запрос наличия отправлен в отель', 'ok');
+              const result = await servicesApi.revalidate(activeHotel._backendOfferId);
+              toast(result.revalidation?.status === 'valid' ? 'Наличие и цена подтверждены поставщиком' : 'Ответ поставщика получен', 'ok');
             } catch (error) { toast(error.message, 'err'); }
           }} />
       )}
@@ -460,8 +454,7 @@ function HotelPicker({ participants, group = false, onApply, onCancel }) {
           checkin={checkin} checkout={checkout}
           bedType={bedType} setBedType={setBedType} mainGuest={mainGuest} setMainGuest={setMainGuest}
           guestSel={guestSel} setGuestSel={setGuestSel} specialReq={specialReq} setSpecialReq={setSpecialReq}
-          extrasCount={extrasCount} extrasTotal={extrasTotal}
-          onExtras={() => setPanel('extras')} onClose={closeAll} onBack={() => setPanel('room')} onAdd={finalizeSingle} />
+          onClose={closeAll} onBack={() => setPanel('room')} onAdd={finalizeSingle} />
       )}
 
       {panel === 'group' && activeHotel && (
@@ -475,7 +468,7 @@ function HotelPicker({ participants, group = false, onApply, onCancel }) {
         <RoomingMatrixPanel hotel={activeHotel} pax={PAX} roomGroups={roomGroups} setRoomGroups={setRoomGroups}
           catById={catById} conflicts={conflicts} nights={nights} checkin={checkin} checkout={checkout}
           onEditRoom={(id) => setEditRoomId(id)} onConflicts={() => setPanel('conflicts')}
-          onClose={closeAll} onBack={() => setPanel('group')} onContinue={() => setPanel('extras')} />
+          onClose={closeAll} onBack={() => setPanel('group')} onContinue={() => setPanel('confirm')} />
       )}
 
       {panel === 'conflicts' && activeHotel && (
@@ -484,22 +477,13 @@ function HotelPicker({ participants, group = false, onApply, onCancel }) {
           onClose={closeAll} onBack={() => setPanel('matrix')} />
       )}
 
-      {panel === 'extras' && activeHotel && (
-        <ExtrasPanel hotel={activeHotel} pax={PAX} nights={nights} checkin={checkin} checkout={checkout}
-          roomsCount={groupMode ? roomGroups.length : 1} extras={extras} setExtras={setExtras}
-          extrasByCat={extrasByCat} extrasTotal={extrasTotal} extrasCount={extrasCount}
-          hotelComment={hotelComment} setHotelComment={setHotelComment}
-          onClose={closeAll} onBack={() => setPanel(groupMode ? 'matrix' : 'pax')}
-          onContinue={() => setPanel(groupMode ? 'confirm' : 'pax')} groupMode={groupMode} />
-      )}
-
       {panel === 'confirm' && activeHotel && (
         <ConfirmPanel hotel={activeHotel} pax={PAX} roomGroups={roomGroups} catById={catById}
           nights={nights} checkin={checkin} checkout={checkout}
-          accommodationTotal={accommodationTotal} extras={extras} extrasFlat={extrasFlat} extrasTotal={extrasTotal}
+          accommodationTotal={accommodationTotal}
           grandTotal={grandTotal} meal={meal}
           supplierComment={supplierComment} setSupplierComment={setSupplierComment}
-          onClose={closeAll} onBack={() => setPanel('extras')} onBook={finalizeGroup} />
+          onClose={closeAll} onBack={() => setPanel('matrix')} onBook={finalizeGroup} />
       )}
 
 
@@ -530,7 +514,7 @@ function HotelPanelHead({ hotel, checkin, checkout, nights, guestsLabel, guests,
       <div className={'hp-photo hp-photo-sm hp-photo-' + hotel.id} />
       <div className="hp-ph-info">
         <div className="hp-ph-name">{hotel.name} <span className="hp-stars">{hpStars(hotel.stars)}</span></div>
-        <div className="hp-ph-addr">{hotel.addr} · {hotel.metro} м до метро</div>
+        <div className="hp-ph-addr">{hotel.addr}{hotel.metro != null ? ` · ${hotel.metro} м до метро` : ''}</div>
         <span className="hp-supplier"><Icon name="api" />{hotel.supplier}</span>
       </div>
       <div className="hp-ph-dates">
@@ -561,13 +545,13 @@ function RoomPanel({ hotel, selRoom, selTariff, onPickRoom, checkin, checkout, g
             <div key={r.id} className={'hp-roomcat' + (selRoom.id === r.id ? ' sel' : '')} onClick={() => onPickRoom(r)}>
               <div className="hp-rc-main">
                 <div className="hp-rc-name">{r.name}</div>
-                <div className="hp-rc-meta">{r.cap} {r.cap === 1 ? 'гость' : 'гостя'} · {r.beds}</div>
+                <div className="hp-rc-meta">{r.cap != null ? `до ${r.cap} ${r.cap === 1 ? 'гостя' : 'гостей'} · ` : ''}{r.beds}</div>
                 {r.count != null && <div className="hp-rc-left">{r.count} {r.count === 1 ? 'номер' : 'номеров'}</div>}
               </div>
-              <div className="hp-rc-price">от {hpM(r.base)}</div>
+              <div className="hp-rc-price">{hpM(r.base, r.currency)}</div>
             </div>
           ))}
-          <div className="hp-room-help">Не нашли подходящий номер? <button onClick={onContact}>Связаться с отелем</button></div>
+          <div className="hp-room-help"><button onClick={onContact}>Проверить наличие и цену у поставщика</button></div>
         </div>
 
 
@@ -575,44 +559,35 @@ function RoomPanel({ hotel, selRoom, selTariff, onPickRoom, checkin, checkout, g
           <div className="hp-col-title">2. {selRoom.name}</div>
           <div className="hp-gallery">
             <div className={'hp-gallery-main hp-photo-' + hotel.id} />
-            <div className="hp-gallery-thumbs">
-              <div className={'hp-photo-' + hotel.id} />
-              <div className={'hp-photo-' + hotel.id} />
-              <div className="hp-gallery-more">+8 фото</div>
-            </div>
           </div>
           <div className="hp-room-specs">
-            <span><Icon name="grid" />{selRoom.area} м²</span>
-            <span><Icon name="building" />Этаж {selRoom.floor}</span>
-            <span><Icon name="users" />{selRoom.cap} гостя</span>
+            {selRoom.area && <span><Icon name="grid" />{selRoom.area} м²</span>}
+            {selRoom.floor && <span><Icon name="building" />Этаж {selRoom.floor}</span>}
+            {selRoom.cap != null && <span><Icon name="users" />{selRoom.cap} гостя</span>}
             <span><Icon name="bed" />{selRoom.beds}</span>
           </div>
-          <div className="hp-col-subtitle">Удобства в номере</div>
-          <div className="hp-amenities">
-            {HOTEL_AMENITIES.map((a) => (<span key={a.id} className="hp-amenity"><Icon name={a.icon} />{a.label}</span>))}
-          </div>
           <div className="hp-col-subtitle">Питание</div>
-          <div className="hp-room-line"><Icon name="coffee" />Завтрак включён в тариф «Популярный»</div>
+          <div className="hp-room-line"><Icon name="coffee" />{hotel.breakfast ? 'Питание включено по данным поставщика' : 'Питание не включено или не указано'}</div>
           <div className="hp-col-subtitle">Условия отмены</div>
-          <div className="hp-room-line ok"><Icon name="check" />Бесплатная отмена до {hotel.freeCancel}, 18:00. Позднее удерживается стоимость 1 ночи.</div>
+          <div className="hp-room-line"><Icon name="docs" />{hotel.cancellation || (hotel.freeCancel ? `Бесплатная отмена до ${hotel.freeCancel}` : 'Поставщик не передал условия отмены')}</div>
           <div className="hp-col-subtitle">Условия оплаты</div>
-          <div className="hp-room-line"><Icon name="bank" />Оплата на месте при заселении, без предоплаты.</div>
+          <div className="hp-room-line"><Icon name="bank" />{hotel.payAtHotel ? 'Оплата на месте' : 'Онлайн-оплата'}</div>
         </div>
 
 
         <div className="hp-room-col">
           <div className="hp-col-title">3. Доступные тарифы</div>
-          <div className="hp-tariff-note">Цены указаны за 1 ночь</div>
+          <div className="hp-tariff-note">Цена поставщика за выбранный период</div>
           {selRoom.tariffs.map((t) => (
             <div key={t.id} className={'hp-tariff' + (selTariff.id === t.id ? ' sel' : '')} onClick={() => onPickRoom && undefined}>
               {t.badge && <span className="hp-tariff-badge">{t.badge}</span>}
-              <div className="hp-tariff-price">{hpM(t.price)}<small>за 1 ночь</small></div>
+              <div className="hp-tariff-price">{hpM(t.price, t.currency)}<small>за период</small></div>
               {t.feats.map((f, i) => (<div key={i} className={'hp-tariff-feat ' + (f.ok ? 'ok' : 'no')}><Icon name={f.ok ? 'check' : 'x'} />{f.t}</div>))}
               <Button size="sm" style={{ width: '100%', marginTop: 10 }} variant={selTariff.id === t.id ? 'primary' : 'secondary'}
                 onClick={() => onProceed(t)}>{groupMode ? 'Выбрать и разместить' : 'Выбрать этот тариф'}</Button>
             </div>
           ))}
-          <div className="hp-room-footnote">Цены указаны за 1 ночь. Включая налоги и сборы.</div>
+          <div className="hp-room-footnote">Состав цены и правила показываются только в объёме, который передал поставщик.</div>
         </div>
       </div>
     </StackPanel>
@@ -620,21 +595,20 @@ function RoomPanel({ hotel, selRoom, selTariff, onPickRoom, checkin, checkout, g
 }
 
 
-function PaxPlacementPanel({ hotel, room, tariff, pax, nights, checkin, checkout, bedType, setBedType, mainGuest, setMainGuest, guestSel, setGuestSel, specialReq, setSpecialReq, extrasCount, extrasTotal, onExtras, onClose, onBack, onAdd }) {
+function PaxPlacementPanel({ hotel, room, tariff, pax, nights, checkin, checkout, bedType, setBedType, mainGuest, setMainGuest, guestSel, setGuestSel, specialReq, setSpecialReq, onClose, onBack, onAdd }) {
   const selected = pax.map((_, i) => i).filter((i) => guestSel[i]);
-  const cap = room.cap;
+  const cap = room.cap || pax.length;
   const toggleGuest = (i) => {
     if (guestSel[i]) { const n = { ...guestSel }; delete n[i]; setGuestSel(n); }
     else { if (selected.length >= cap) return; setGuestSel({ ...guestSel, [i]: true }); }
   };
-  const total = tariff.price * nights;
+  const total = tariff.price;
   return (
     <StackPanel title="Пассажиры и размещение" width="min(1180px,96vw)" onClose={onClose}
       footer={<>
         <Button variant="secondary" icon="chevLeft" onClick={onBack}>Назад</Button>
-        <Button variant="secondary" icon="briefcase" onClick={onExtras}>Дополнительные услуги{extrasCount ? ` · ${extrasCount}` : ''}</Button>
         <div style={{ flex: 1 }} />
-        <div className="hp-foot-total">Итого<b>{hpM(total + extrasTotal)}</b></div>
+        <div className="hp-foot-total">Итого<b>{hpM(total, tariff.currency)}</b></div>
         <Button icon="check" onClick={onAdd}>Добавить в заказ</Button>
       </>}>
       <HotelPanelHead hotel={hotel} checkin={checkin} checkout={checkout} nights={nights} guests={selected.length} rooms={1} onEdit={onBack} />
@@ -646,11 +620,11 @@ function PaxPlacementPanel({ hotel, room, tariff, pax, nights, checkin, checkout
             <div>
               <div className="hp-rc-name">{room.name}</div>
               <div className="hp-room-specs sm">
-                <span><Icon name="grid" />{room.area} м²</span><span><Icon name="building" />Этаж {room.floor}</span><span><Icon name="users" />{room.cap} гостя</span>
+                {room.area && <span><Icon name="grid" />{room.area} м²</span>}{room.floor && <span><Icon name="building" />Этаж {room.floor}</span>}{room.cap != null && <span><Icon name="users" />{room.cap} гостя</span>}
               </div>
-              <div className="hp-room-line sm ok"><Icon name="check" />Завтрак включён · Бесплатная отмена до {hotel.freeCancel}</div>
+              <div className="hp-room-line sm"><Icon name="docs" />{hotel.cancellation || (hotel.freeCancel ? `Бесплатная отмена до ${hotel.freeCancel}` : 'Условия отмены не переданы')}</div>
             </div>
-            <div className="hp-selroom-price"><span>Цена за 1 ночь</span><b>{hpM(tariff.price)}</b></div>
+            <div className="hp-selroom-price"><span>Цена за период</span><b>{hpM(tariff.price, tariff.currency)}</b></div>
           </div>
 
           <div className="hp-col-subtitle">2. Тип размещения</div>
@@ -666,7 +640,7 @@ function PaxPlacementPanel({ hotel, room, tariff, pax, nights, checkin, checkout
           </div>
 
           <div className="hp-col-subtitle">3. Гости номера</div>
-          <div className="hp-hint">Выберите гостей, которые будут проживать в номере. Выбрано {selected.length} из {cap} гостей</div>
+          <div className="hp-hint">Выерите гостей, которые будут проживать в номере. Выбрано {selected.length}{room.cap != null ? ` из ${room.cap}` : ''}</div>
           <div className="hp-guest-list">
             {pax.map((p, i) => {
               const on = !!guestSel[i]; const dis = !on && selected.length >= cap;
@@ -680,7 +654,7 @@ function PaxPlacementPanel({ hotel, room, tariff, pax, nights, checkin, checkout
               );
             })}
           </div>
-          {selected.length >= cap && <div className="hp-cap-note"><Icon name="alertCircle" />Максимальное размещение — {cap} гостя</div>}
+          {room.cap != null && selected.length >= room.cap && <div className="hp-cap-note"><Icon name="alertCircle" />Максимальное размещение — {room.cap} гостя</div>}
         </div>
 
         <div>
@@ -706,10 +680,9 @@ function PaxPlacementPanel({ hotel, room, tariff, pax, nights, checkin, checkout
             <div className="hp-sum-row"><span>Тип размещения</span><b>{bedType === 'double' ? '1 двуспальная кровать' : '2 раздельные кровати'}</b></div>
             <div className="hp-sum-row top"><span>Гости</span><b className="hp-sum-guests">{selected.map((i) => pax[i].name).join(', ') || '—'}</b></div>
             <div className="hp-sum-divider" />
-            <div className="hp-sum-row"><span>Стоимость за 1 ночь</span><b>{hpM(tariff.price)}</b></div>
+            <div className="hp-sum-row"><span>Стоимость за период</span><b>{hpM(tariff.price, tariff.currency)}</b></div>
             <div className="hp-sum-row"><span>Количество ночей</span><b>{nights}</b></div>
-            {extrasTotal > 0 && <div className="hp-sum-row"><span>Доп. услуги</span><b>{hpM(extrasTotal)}</b></div>}
-            <div className="hp-sum-total"><span>Итого</span><b>{hpM(total + extrasTotal)}</b></div>
+            <div className="hp-sum-total"><span>Итого</span><b>{hpM(total, tariff.currency)}</b></div>
           </div>
           <div className="hp-room-footnote">Номер будет добавлен в заказ и забронирован после подтверждения.</div>
         </div>
@@ -811,8 +784,7 @@ function RoomingMatrixPanel({ hotel, pax, roomGroups, setRoomGroups, catById, co
       footer={<>
         <Button variant="secondary" icon="chevLeft" onClick={onBack}>Назад к группам</Button>
         <div style={{ flex: 1 }} />
-        <Button variant="secondary" icon="briefcase" onClick={onContinue}>Дополнительные услуги</Button>
-        <Button icon="chevRight" onClick={onContinue}>Продолжить</Button>
+        <Button icon="chevRight" onClick={onContinue}>К подтверждению</Button>
       </>}>
       <HotelPanelHead hotel={hotel} checkin={checkin} checkout={checkout} nights={nights} guests={pax.length} rooms={roomGroups.length} onEdit={onBack} />
 
@@ -1027,17 +999,16 @@ function ExtrasPanel({ hotel, pax, nights, checkin, checkout, roomsCount, extras
 }
 
 
-function ConfirmPanel({ hotel, pax, roomGroups, catById, nights, checkin, checkout, accommodationTotal, extras, extrasFlat, extrasTotal, grandTotal, meal, supplierComment, setSupplierComment, onClose, onBack, onBook }) {
+function ConfirmPanel({ hotel, pax, roomGroups, catById, nights, checkin, checkout, accommodationTotal, grandTotal, supplierComment, setSupplierComment, onClose, onBack, onBook }) {
   const [showRooms, setShowRooms] = useState(true);
-  const chosen = extrasFlat.filter((it) => (extras[it.id] || 0) > 0);
   return (
-    <StackPanel title="Подтверждение бронирования гостиницы" width="min(1240px,96vw)" onClose={onClose}
+    <StackPanel title="Подтверждение варианта гостиницы" width="min(1240px,96vw)" onClose={onClose}
       footer={<>
         <Button variant="secondary" icon="chevLeft" onClick={onBack}>Назад</Button>
         <div style={{ flex: 1 }} />
-        <div className="hp-foot-total big">Итого к оплате<b>{hpM(grandTotal)}</b></div>
+        <div className="hp-foot-total big">Итого к оплате<b>{hpM(grandTotal, hotel.currency)}</b></div>
         <Button variant="secondary" onClick={onClose}>Отмена</Button>
-        <Button icon="check" onClick={onBook}>Забронировать</Button>
+        <Button icon="check" onClick={onBook}>Добавить в заказ</Button>
       </>}>
       <HotelPanelHead hotel={hotel} checkin={checkin} checkout={checkout} nights={nights} guests={pax.length} rooms={roomGroups.length} onEdit={onBack} />
 
@@ -1061,50 +1032,33 @@ function ConfirmPanel({ hotel, pax, roomGroups, catById, nights, checkin, checko
             </div>
           )}
 
-          <div className="hp-col-title">2. Дополнительные услуги <span className="hp-opt">{chosen.length} услуг на сумму {hpM(extrasTotal)}</span></div>
-          {chosen.length ? (
-            <div className="hp-confirm-extras">
-              {chosen.map((it) => (
-                <div key={it.id} className="hp-ce-row">
-                  <span className="hp-ce-name">{it.label}{it.note ? ' (' + it.note + ')' : ''}</span>
-                  <span className="hp-ce-qty">× {extras[it.id]}</span>
-                  <span className="hp-ce-price">{it.price ? hpM(it.price * extras[it.id]) : 'бесплатно'}</span>
-                </div>
-              ))}
-            </div>
-          ) : <div className="hp-hint">Дополнительные услуги не выбраны</div>}
-
-          <div className="hp-col-title">6. Контакты отеля</div>
-          <div className="hp-contact"><Icon name="phone" />{hotel.phone}</div>
-          <div className="hp-contact"><Icon name="mail" />{hotel.email}</div>
+          <div className="hp-col-title">2. Контакты отеля</div>
+          {hotel.phone && <div className="hp-contact"><Icon name="phone" />{hotel.phone}</div>}
+          {hotel.email && <div className="hp-contact"><Icon name="mail" />{hotel.email}</div>}
           <div className="hp-contact"><Icon name="mapPin" />{hotel.addrFull}</div>
 
-          <div className="hp-col-title">7. Комментарий для поставщика</div>
+          <div className="hp-col-title">3. Комментарий для поставщика</div>
           <textarea className="hp-textarea" rows={3} value={supplierComment} onChange={(e) => setSupplierComment(e.target.value)}
             placeholder="Уточните важные пожелания или особые запросы для отеля" />
         </div>
 
         <div>
-          <div className="hp-col-subtitle" style={{ marginTop: 0 }}>3. Стоимость</div>
+          <div className="hp-col-subtitle" style={{ marginTop: 0 }}>4. Стоимость</div>
           <div className="hp-summary">
-            <div className="hp-sum-row"><span>Проживание ({roomGroups.length} номеров × {nights} {nights === 1 ? 'ночь' : 'ночи'})</span><b>{hpM(accommodationTotal)}</b></div>
-            <div className="hp-sum-row"><span>Дополнительные услуги</span><b>{hpM(extrasTotal)}</b></div>
-            <div className="hp-sum-total"><span>Итого</span><b>{hpM(grandTotal)}</b></div>
-            <div className="hp-distrib-note ok"><Icon name="checkCircle" />Все цены указаны в RUB. Налоги и сборы включены.</div>
+            <div className="hp-sum-row"><span>Предложение поставщика · {nights} {nights === 1 ? 'ночь' : 'ночи'}</span><b>{hpM(accommodationTotal, hotel.currency)}</b></div>
+            <div className="hp-sum-total"><span>Итого</span><b>{hpM(grandTotal, hotel.currency)}</b></div>
+            <div className="hp-distrib-note"><Icon name="alertCircle" />Валюта поставщика: {hotel.currency}. Состав налогов и сборов не дополняется на фронте.</div>
           </div>
 
-          <div className="hp-col-subtitle">4. Поставщик</div>
-          <div className="hp-prov"><Icon name="api" /><div><b>{hotel.supplier}</b><span>ООО «Бронирование гостиниц»</span></div></div>
-          <div className="hp-contact sm">Номер договора: OST-{Math.floor(10000 + Math.random() * 90000)}-1</div>
+          <div className="hp-col-subtitle">5. Поставщик</div>
+          <div className="hp-prov"><Icon name="api" /><div><b>{hotel.supplier}</b>{hotel.supplierId && <span>ID: {hotel.supplierId}</span>}</div></div>
 
-          <div className="hp-col-subtitle">5. Условия</div>
+          <div className="hp-col-subtitle">6. Условия</div>
           <div className="hp-cond-list">
-            <div className="hp-cond"><span>Бесплатная отмена</span><b>до {hotel.freeCancel}, 18:00</b></div>
-            <div className="hp-cond"><span>Штраф за отмену позже</span><b>100% стоимости</b></div>
+            <div className="hp-cond"><span>Отмена</span><b>{hotel.cancellation || (hotel.freeCancel ? `бесплатно до ${hotel.freeCancel}` : 'не передано поставщиком')}</b></div>
             <div className="hp-cond"><span>Оплата</span><b>{hotel.payAtHotel ? 'Гарантия картой' : 'Онлайн'}</b></div>
-            <div className="hp-cond"><span>Дедлайн гарантии</span><b>до {hotel.freeCancel}, 18:00</b></div>
           </div>
-          <div className="hp-room-footnote">Цена зафиксирована до {hotel.freeCancel}, 18:00. Бронирование будет создано после подтверждения.</div>
+          <div className="hp-room-footnote">Перед добавлением в заказ backend повторно проверит актуальность предложения по правилам поставщика.</div>
         </div>
       </div>
     </StackPanel>
@@ -1120,7 +1074,7 @@ function RoomGroupEditor({ title, hotel, onClose, onSave }) {
       footer={<><Button variant="secondary" style={{ flex: 1 }} onClick={onClose}>Отмена</Button>
         <Button style={{ flex: 1 }} icon="plus" onClick={() => onSave({ cat, bed })}>Добавить номер</Button></>}>
       <Field label="Категория номера">
-        <Select options={hotel.rooms.map((r) => ({ value: r.id, label: `${r.name} · от ${hpM(r.base)}` }))} value={cat} onChange={(e) => setCat(e.target.value)} />
+        <Select options={hotel.rooms.map((r) => ({ value: r.id, label: `${r.name} · ${hpM(r.base, r.currency)}` }))} value={cat} onChange={(e) => setCat(e.target.value)} />
       </Field>
       <Field label="Тип кроватей">
         <div className="hp-bed-opts">
@@ -1149,7 +1103,7 @@ function GroupCompositionEditor({ hotel, pax, roomGroups, group, catById, onClos
         <Button variant="secondary" onClick={onClose}>Отмена</Button>
         <Button icon="check" onClick={() => onSave(members)}>Сохранить</Button>
       </>}>
-      <div className="hp-info-banner"><Icon name="alertCircle" />Выберите гостей для номера. Вместимость: {cat.cap} {cat.cap === 1 ? 'гость' : 'гостя'}. {members.length > cat.cap && <b style={{ color: 'var(--red)' }}>Превышение вместимости!</b>}</div>
+      <div className="hp-info-banner"><Icon name="alertCircle" />Выберите гостей для номера.{cat.cap != null && <> Вместимость: {cat.cap} {cat.cap === 1 ? 'гость' : 'гостя'}. {members.length > cat.cap && <b style={{ color: 'var(--red)' }}>Превышение вместимости!</b>}</>}</div>
       <div className="hp-group-grid">
         <div>
           <div className="hp-col-title">Гости для размещения</div>
@@ -1186,17 +1140,29 @@ function GroupCompositionEditor({ hotel, pax, roomGroups, group, catById, onClos
 }
 
 
-function HotelsPage({ persons = [] }) {
+function HotelsPage({ orders = [] }) {
   const toast = useToast();
-  const participants = persons.map((person) => ({ id: person.id, name: person.full_name || [person.surname, person.given_name, person.middle_name].filter(Boolean).join(' '), doc: '—' }));
+  const [selectedOffer, setSelectedOffer] = useState(null);
+  const attach = async (target) => {
+    const order = target.order;
+    if (!order?.id || !selectedOffer?._backendOfferId) return;
+    try {
+      await servicesApi.revalidate(selectedOffer._backendOfferId);
+      await servicesApi.addToOrder(order.id, { offer_id: selectedOffer._backendOfferId });
+      toast(`Гостиница добавлена в backend-заказ № ${order.no || order.number}`, 'ok');
+      setSelectedOffer(null);
+    } catch (error) { toast(error.message || 'Не удалось добавить гостиницу в заказ', 'err'); }
+  };
   return (
     <>
       <Topbar title="Гостиницы" />
       <div className="content">
-        <HotelPicker participants={participants} group={false}
-          onApply={() => toast('Гостиница добавлена. Привязать к заказу можно из карточки заказа.', 'info')}
+        <HotelPicker participants={[]} group={false}
+          onApply={setSelectedOffer}
           onCancel={() => {}} />
       </div>
+      {selectedOffer && <UnifiedBindPicker open title="Добавить гостиницу в заказ" sub={selectedOffer.title}
+        modes={['order']} orderOptions={orders} onClose={() => setSelectedOffer(null)} onPick={attach} />}
     </>
   );
 }
@@ -1205,4 +1171,4 @@ Object.assign(window, { HotelPicker, HotelsPage });
 
 
 
-export { HP_SORT_OPTS, HP_SORT_LABEL, HP_RADIUS_OPTS, hpM, hpStars, hpNights, HotelResultCard, HotelFilters, HotelPicker, HotelPanelHead, RoomPanel, PaxPlacementPanel, GroupAccommodationPanel, RoomingMatrixPanel, ConflictsPanel, ExtrasPanel, ConfirmPanel, RoomGroupEditor, GroupCompositionEditor, HotelsPage };
+export { HP_SORT_OPTS, HP_SORT_LABEL, HP_RADIUS_OPTS, hpM, hpStars, hpNights, HotelResultCard, HotelFilters, HotelPicker, HotelPanelHead, RoomPanel, PaxPlacementPanel, GroupAccommodationPanel, RoomingMatrixPanel, ConflictsPanel, ConfirmPanel, RoomGroupEditor, GroupCompositionEditor, HotelsPage };

@@ -48,7 +48,8 @@ function FreeBookingFinalize({ draft, onClose, onDone, onOpenOrder, onNavigate, 
         agency_fee: svc.fee || 0,
         markup: svc.markup || 0,
       };
-      return servicesApi.addToOrder(orderId, svc.offerId || svc.backendOfferId || body);
+      const offerId = svc.offerId || svc.backendOfferId;
+      return servicesApi.addToOrder(orderId, offerId ? { offer_id: offerId } : body);
     }));
   };
 

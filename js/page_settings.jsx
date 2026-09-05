@@ -30,12 +30,12 @@ function CurrencyModal({ open, onClose }) {
   const [baseCurrency, setBaseCurrency] = useState('USD');
   useEffect(() => {
     if (!open) return;
-    workspaceSettingsApi.get('finance-currencies').then((data) => {
+    workspaceSettingsApi.getTenant('finance-currencies').then((data) => {
       setVals(data.value?.rates || {}); setExtra(data.value?.extraCalculation ?? true); setBaseCurrency(data.value?.base || 'USD');
-    }).catch(() => {});
+    }).catch((error) => toast(error.message || 'Не удалось загрузить курсы', 'err'));
   }, [open]);
   const save = async () => {
-    try { await workspaceSettingsApi.save('finance-currencies', { base: baseCurrency, rates: vals, extraCalculation: extra }); toast('Курсы валют сохранены в backend', 'ok'); onClose(); }
+    try { await workspaceSettingsApi.saveTenant('finance-currencies', { base: baseCurrency, rates: vals, extraCalculation: extra }); toast('Курсы валют сохранены в backend для организации', 'ok'); onClose(); }
     catch (error) { toast(error.message || 'Не удалось сохранить курсы', 'err'); }
   };
   return (
@@ -49,7 +49,7 @@ function CurrencyModal({ open, onClose }) {
             <div key={i} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 20, padding: '12px 0', borderBottom: '1px solid var(--line)' }}>
               <div>
                 <div style={{ fontSize: 17, fontWeight: 600, color: 'var(--ink)' }}>{c.sym} {c.name}</div>
-                <div style={{ fontSize: 13, color: 'var(--muted)' }}>Текущее значение: {c.rate}</div>
+                <div style={{ fontSize: 13, color: 'var(--muted)' }}>Текущее значение: {vals[c.code] || c.rate || '—'}</div>
               </div>
               <input className="input" style={{ width: 230 }} placeholder="Введите значение" value={vals[c.code] || ''} onChange={(e) => setVals((v) => ({ ...v, [c.code]: e.target.value }))} />
             </div>
@@ -490,10 +490,11 @@ const CARD_VIS_FIELDS = [
 function CardVisibilityModal({ open, onClose }) {
   const toast = useToast();
   const [vis, setVis] = useState(() => ({ ...(window.CARD_CLIENT_VISIBILITY || {}) }));
-  useEffect(() => { if (open) workspaceSettingsApi.get('card-client-visibility').then((data) => setVis(data.value || {})).catch(() => setVis({ ...(window.CARD_CLIENT_VISIBILITY || {}) })); }, [open]);
+  const [config, setConfig] = useState({});
+  useEffect(() => { if (open) workspaceSettingsApi.getTenant('service-cards').then((data) => { setConfig(data.value || {}); setVis(data.value?.visibility || { ...(window.CARD_CLIENT_VISIBILITY || {}) }); }).catch((error) => toast(error.message || 'Не удалось загрузить настройки видимости', 'err')); }, [open]);
   if (!open) return null;
   const tg = (k) => setVis((v) => ({ ...v, [k]: !v[k] }));
-  const save = async () => { try { await workspaceSettingsApi.save('card-client-visibility', vis); Object.assign(window.CARD_CLIENT_VISIBILITY || {}, vis); toast('Настройки видимости сохранены в backend', 'ok'); onClose(); } catch (error) { toast(error.message || 'Не удалось сохранить настройки', 'err'); } };
+  const save = async () => { try { await workspaceSettingsApi.saveTenant('service-cards', { ...config, visibility: vis }); Object.assign(window.CARD_CLIENT_VISIBILITY || {}, vis); toast('Настройки видимости сохранены в backend для организации', 'ok'); onClose(); } catch (error) { toast(error.message || 'Не удалось сохранить настройки', 'err'); } };
   return (
     <Drawer open={open} onClose={onClose} title="Видимость полей карточки для клиента" sub="Отметьте, какие поля клиент видит в карточке услуги и КП. Неотмеченные остаются внутренними и клиенту не отправляются." width="min(520px, 94vw)"
       footer={<>

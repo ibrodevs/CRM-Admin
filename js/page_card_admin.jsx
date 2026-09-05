@@ -1,9 +1,10 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Icon } from './icons';
 import { Button, Checkbox, Input, Pill, Tabs, Toggle, useToast } from './ui';
 import { SEND_CHANNELS } from './data/access-control';
-import { CARD_ACTION_CATALOG, CARD_BLOCK_CATALOG, CARD_KINDS_ALL, CARD_RIGHT_KEYS, CARD_RIGHT_LABELS, CARD_SCENARIO_ORDER, allCardRights, cardAction, cardScenario, noCardRights } from './data/service-cards';
+import { CARD_ACTION_CATALOG, CARD_BLOCK_CATALOG, CARD_KINDS_ALL, CARD_SCENARIO_ORDER, cardAction, cardScenario } from './data/service-cards';
 import { StackPanel } from './components/shared-panels';
+import { workspaceSettingsApi } from './api/resources';
 
 
 
@@ -15,32 +16,46 @@ function clone(o) { return JSON.parse(JSON.stringify(o)); }
 function ServiceCardAdminDrawer({ onClose }) {
   const toast = useToast();
   const [tab, setTab] = useState('scenarios');
+  const [busy, setBusy] = useState(true);
 
   const [scen, setScen] = useState(() => clone(window.CARD_SCENARIOS));
   const [kinds, setKinds] = useState(() => clone(window.CARD_KINDS_ENABLED));
   const [chans, setChans] = useState(() => clone(window.CARD_CHANNELS_ENABLED));
-  const [rights, setRights] = useState(() => clone(window.OPERATOR_CARD_ACCESS));
   const [emails, setEmails] = useState(() => clone(window.CARD_EMAIL_TEMPLATES));
   const [vis, setVis] = useState(() => clone(window.CARD_CLIENT_VISIBILITY));
   const [curSys, setCurSys] = useState(CARD_SCENARIO_ORDER[0]);
-  const [curOp, setCurOp] = useState(Object.keys(window.OPERATOR_CARD_ACCESS)[0]);
 
-  const save = () => {
+  useEffect(() => {
+    const controller = new AbortController();
+    workspaceSettingsApi.getTenant('service-cards', controller.signal).then(({ value = {} }) => {
+      if (value.scenarios) setScen((current) => ({ ...current, ...clone(value.scenarios) }));
+      if (value.kinds) setKinds((current) => ({ ...current, ...clone(value.kinds) }));
+      if (value.channels) setChans((current) => ({ ...current, ...clone(value.channels) }));
+      if (value.emails) setEmails((current) => ({ ...current, ...clone(value.emails) }));
+      if (value.visibility) setVis((current) => ({ ...current, ...clone(value.visibility) }));
+    }).catch((error) => { if (error.name !== 'AbortError') toast(error.message || 'Не удалось загрузить настройки карточек', 'err'); }).finally(() => setBusy(false));
+    return () => controller.abort();
+  }, []);
 
-    Object.keys(scen).forEach((k) => Object.assign(window.CARD_SCENARIOS[k], scen[k]));
-    Object.assign(window.CARD_KINDS_ENABLED, kinds);
-    Object.assign(window.CARD_CHANNELS_ENABLED, chans);
-    Object.keys(rights).forEach((k) => window.OPERATOR_CARD_ACCESS[k] = rights[k]);
-    Object.keys(emails).forEach((k) => window.CARD_EMAIL_TEMPLATES[k] = emails[k]);
-    Object.assign(window.CARD_CLIENT_VISIBILITY, vis);
-    toast('Настройки карточек услуг сохранены', 'ok');
-    onClose && onClose();
+  const save = async () => {
+    setBusy(true);
+    try {
+      await workspaceSettingsApi.saveTenant('service-cards', { scenarios: scen, kinds, channels: chans, emails, visibility: vis });
+
+      Object.keys(scen).forEach((k) => Object.assign(window.CARD_SCENARIOS[k], scen[k]));
+      Object.assign(window.CARD_KINDS_ENABLED, kinds);
+      Object.assign(window.CARD_CHANNELS_ENABLED, chans);
+      Object.keys(emails).forEach((k) => window.CARD_EMAIL_TEMPLATES[k] = emails[k]);
+      Object.assign(window.CARD_CLIENT_VISIBILITY, vis);
+      toast('Настройки карточек услуг сохранены в backend для организации', 'ok');
+      onClose && onClose();
+    } catch (error) { toast(error.message || 'Не удалось сохранить настройки', 'err'); }
+    finally { setBusy(false); }
   };
 
   const TABS = [
     { key: 'scenarios', label: 'Сценарии и блоки' },
     { key: 'kinds', label: 'Виды и каналы' },
-    { key: 'rights', label: 'Права операторов' },
     { key: 'email', label: 'Шаблоны Email' },
     { key: 'fields', label: 'Клиентские поля' },
   ];
@@ -50,8 +65,8 @@ function ServiceCardAdminDrawer({ onClose }) {
       footer={<>
         <div style={{ fontSize: 12, color: 'var(--muted)' }}>Изменения применяются ко всей системе карточек услуг</div>
         <div style={{ flex: 1 }} />
-        <Button variant="secondary" onClick={onClose}>Отмена</Button>
-        <Button icon="check" onClick={save}>Сохранить</Button>
+        <Button variant="secondary" onClick={onClose} disabled={busy}>Отмена</Button>
+        <Button icon="check" onClick={save} disabled={busy}>{busy ? 'Сохранение…' : 'Сохранить'}</Button>
       </>}>
       <div style={{ marginBottom: 18 }}><Tabs tabs={TABS} value={tab} onChange={setTab} /></div>
 
@@ -82,10 +97,6 @@ function ServiceCardAdminDrawer({ onClose }) {
             ))}
           </div>
         </div>
-      )}
-
-      {tab === 'rights' && (
-        <RightsTab rights={rights} setRights={setRights} curOp={curOp} setCurOp={setCurOp} />
       )}
 
       {tab === 'email' && (
@@ -203,72 +214,8 @@ function ScenariosTab({ scen, setScen, curSys, setCurSys }) {
 }
 
 
-function RightsTab({ rights, setRights, curOp, setCurOp }) {
-  const ops = Object.keys(rights);
-  const a = rights[curOp] || { fullAccess: false, kinds: {} };
-  const setOp = (patch) => setRights((r) => ({ ...r, [curOp]: { ...r[curOp], ...patch } }));
-  const setKindRight = (kind, key, val) => {
-    const kinds = { ...(a.kinds || {}) };
-    kinds[kind] = { ...(kinds[kind] || noCardRights()), [key]: val };
-    setOp({ kinds });
-  };
-  const grantKind = (kind) => { const kinds = { ...(a.kinds || {}) }; kinds[kind] = allCardRights(); setOp({ kinds }); };
-  const revokeKind = (kind) => { const kinds = { ...(a.kinds || {}) }; delete kinds[kind]; setOp({ kinds }); };
-  return (
-    <div className="grid-2" style={{ gap: 20, alignItems: 'start', gridTemplateColumns: '220px 1fr' }}>
-      <div className="card card-pad" style={{ padding: 8 }}>
-        {ops.map((op) => (
-          <button key={op} type="button" onClick={() => setCurOp(op)}
-            style={{ width: '100%', textAlign: 'left', display: 'flex', alignItems: 'center', gap: 8, padding: '9px 10px', borderRadius: 9, border: 'none', cursor: 'pointer', background: curOp === op ? 'var(--blue-soft)' : 'transparent' }}>
-            <span style={{ fontSize: 13, fontWeight: curOp === op ? 700 : 500 }}>{op}</span>
-            <div style={{ flex: 1 }} />
-            {rights[op].fullAccess && <Pill tone="green">все</Pill>}
-          </button>
-        ))}
-      </div>
-      <div className="card card-pad">
-        <label style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 14, fontWeight: 600, marginBottom: 14 }}>
-          <Toggle on={!!a.fullAccess} onChange={(on) => setOp({ fullAccess: on })} />Полный доступ ко всем видам услуг
-        </label>
-        {a.fullAccess ? (
-          <div style={{ fontSize: 13, color: 'var(--muted)' }}>Оператор может создавать и отправлять карточки по всем видам услуг со всеми правами.</div>
-        ) : (
-          <div style={{ overflowX: 'auto' }}>
-            <table className="tbl" style={{ minWidth: 640, fontSize: 12 }}>
-              <thead><tr>
-                <th style={{ textAlign: 'left' }}>Вид услуги</th>
-                {CARD_RIGHT_KEYS.map((k) => <th key={k} style={{ writingMode: 'vertical-rl', transform: 'rotate(180deg)', height: 92, padding: 2 }}>{CARD_RIGHT_LABELS[k]}</th>)}
-                <th></th>
-              </tr></thead>
-              <tbody>
-                {['Авиа', 'ЖД', 'Гостиница', 'Трансфер', 'Виза', 'Страхование'].map((kind) => {
-                  const kr = (a.kinds || {})[kind];
-                  return (
-                    <tr key={kind}>
-                      <td style={{ fontWeight: 600 }}>{kind}</td>
-                      {CARD_RIGHT_KEYS.map((k) => (
-                        <td key={k} style={{ textAlign: 'center' }}>
-                          <Checkbox on={!!(kr && kr[k])} onChange={(on) => setKindRight(kind, k, on)} />
-                        </td>
-                      ))}
-                      <td style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
-                        {kr ? <button type="button" className="btn btn-ghost btn-sm" onClick={() => revokeKind(kind)}>Убрать</button>
-                          : <button type="button" className="btn btn-ghost btn-sm" onClick={() => grantKind(kind)}>Всё</button>}
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </div>
-    </div>
-  );
-}
-
 Object.assign(window, { ServiceCardAdminDrawer });
 
 
 
-export { clone, ServiceCardAdminDrawer, ScenariosTab, RightsTab };
+export { clone, ServiceCardAdminDrawer, ScenariosTab };
