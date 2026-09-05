@@ -1,24 +1,23 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { Icon } from './icons';
 import { Button, Drawer, EmptyState, Field, FilterChip, Input, Pill, SearchBox, Select, Tabs, useToast } from './ui';
-import { SERVICE_KIND, CLIENTS_DB, COMPANIES_DB, SUPPLIERS } from './data';
+import { SERVICE_KIND } from './data';
 import { UFDateField } from './forms_unified';
 import { Topbar } from './layout';
-import { financeApi, workspaceActionsApi } from './api/resources';
+import { financeApi } from './api/resources';
 import { resultsOf } from './api/client';
-import {
-  f$, fSigned, finNow, deltaTone, finCreditCheck,
-  FIN_ACCT_GROUPS, FIN_ACCOUNTS, FIN_ACCT_OP_TYPES, acctOps,
-  FIN_PAY_STATUS, FIN_PRIORITY, FIN_PAYMENTS, obl, FIN_COUNTERPARTIES, FIN_SCHEMES,
-  FIN_CASHFLOW, FIN_RECEIPTS, FIN_SALARY, FIN_RULES, FIN_RECON_STATUS, FIN_RECON, FIN_ACTIONS,
-  FIN_SVC_MODEL, sumK, svcClientTotal, svcSupplierPay, svcModelProfit, FIN_ANALYTICS_SLICES,
-} from './data/finance';
+import { f$, FIN_ACCT_GROUPS, FIN_PAY_STATUS } from './data/finance';
 
 const financeDate = (value) => {
   if (!value) return '—';
   const day = String(value).slice(0, 10);
   const parts = day.split('-');
   return parts.length === 3 ? parts.reverse().join('.') : new Date(value).toLocaleDateString('ru-RU');
+};
+const financeMoney = (value, currency = 'USD') => {
+  const code = String(currency || 'USD').toUpperCase();
+  const symbol = { USD: '$', EUR: '€', RUB: '₽', KGS: 'сом', KZT: '₸' }[code] || code;
+  return `${Number(value || 0).toLocaleString('ru-RU', { maximumFractionDigits: 2 })} ${symbol}`;
 };
 const saveFinanceBlob = (blob, filename) => {
   const url = URL.createObjectURL(blob);
@@ -54,11 +53,6 @@ const financeAccountRow = (account) => ({
   bank: account.company_name || account.supplier_name || '—',
   number: account.code,
   balance: Number(account.balance || 0),
-  available: Number(account.balance || 0),
-  reserved: 0,
-  unmatched: 0,
-  synced: 'данные backend',
-  note: '',
 });
 const financePaymentRow = (payment) => {
   const party = payment.supplier_name || payment.payer_company_name || payment.payer_person_name || 'Контрагент';
@@ -69,23 +63,12 @@ const financePaymentRow = (payment) => {
     no: `PMT-${String(payment.id || '').slice(0, 8).toUpperCase()}`,
     dir: payment.direction === 'incoming' ? 'in' : 'out',
     date,
-    plan: date,
     party,
-    requisites: payment.method || '—',
     sum: Number(payment.amount || 0),
-    purpose: payment.comment || `Оплата по заказу ${payment.order_number || '—'}`,
+    purpose: payment.comment || '—',
     orderId: payment.order || null,
     order: payment.order_number || null,
-    supplier: payment.supplier_name || '—',
-    client: payment.payer_company_name || payment.payer_person_name || '—',
-    resp: 'Backend',
-    priority: payment.status === 'pending' ? 'Высокий' : 'Средний',
     status,
-    services: [{ t: payment.comment || 'Платёж по заказу', sum: Number(payment.amount || 0) }],
-    fees: [],
-    docs: payment.provider_transaction_id ? [payment.provider_transaction_id] : [],
-    history: [{ t: date, text: `Статус: ${status}`, who: 'Backend' }],
-    approvals: payment.status === 'pending' ? [{ who: 'Финансовый контроль', at: null, ok: null }] : [],
   };
 };
 const financeAllocationsForPayment = (payment, obligations = []) => {
@@ -116,6 +99,7 @@ const financeReceiptRow = (obligation) => {
     basis: `Заказ № ${obligation.order_number || '—'}`,
     resp: 'Backend',
     sum: Number(obligation.outstanding || 0),
+    currency: obligation.currency || 'USD',
     overdue,
   };
 };
@@ -131,7 +115,7 @@ const financeCounterpartyRow = (obligation) => {
   const order = obligation.order_number || String(obligation.order || '').slice(0, 8);
   const name = supplier ? (obligation.supplier_name || `Поставщик · заказ ${order}`) : (obligation.client_name || `Клиент · заказ ${order}`);
   const status = obligation.status === 'settled' ? 'Оплачено' : overdueDays ? 'Просрочено' : 'Ожидает оплаты';
-  const item = { order, doc: `Обязательство ${String(obligation.id || '').slice(0, 8)}`, sum: amount, paid, rest, since: financeDate(obligation.created_at), due: financeDate(dueRaw), daysToDue: overdueDays ? -overdueDays : 0, overdueDays, status };
+  const item = { id: obligation.id, order, doc: `Обязательство ${String(obligation.id || '').slice(0, 8)}`, kind: obligation.service_kind || 'Прочее', currency: obligation.currency || 'USD', sum: amount, paid, rest, since: financeDate(obligation.created_at), due: financeDate(dueRaw), daysToDue: overdueDays ? -overdueDays : 0, overdueDays, status };
   return {
     id: obligation.id,
     type: supplier ? 'supplier' : 'client',
@@ -152,9 +136,31 @@ const financeCounterpartyRow = (obligation) => {
     acts: [],
     orders: [order],
     obligations: [item],
-    payHistory: paid ? [{ t: financeDate(obligation.created_at), text: `Оплачено ${f$(paid)}` }] : [],
+    payHistory: paid ? [{ t: financeDate(obligation.created_at), text: `Оплачено ${financeMoney(paid, obligation.currency)}` }] : [],
     discipline: { avgPayDays: 0, avgOverdue: overdueDays, maxOverdue: overdueDays, overdueSum: overdueDays ? rest : 0, onTimePct: overdueDays ? 50 : 100, rating: overdueDays ? 'C' : 'A' },
   };
+};
+
+const financeCounterpartyRows = (obligations = []) => {
+  const grouped = new Map();
+  obligations.filter((item) => ['client_receivable', 'supplier_payable'].includes(item.direction)).forEach((obligation) => {
+    const row = financeCounterpartyRow(obligation);
+    const key = `${row.type}|${row.name}|${row.currency}`;
+    const current = grouped.get(key);
+    if (!current) {
+      grouped.set(key, row);
+      return;
+    }
+    current.debt += row.debt;
+    current.paid += row.paid;
+    current.balance += row.balance;
+    current.used += row.used;
+    current.obligations.push(...row.obligations);
+    current.payHistory.push(...row.payHistory);
+    current.orders = [...new Set([...current.orders, ...row.orders])];
+    current.invoices = [...current.invoices, ...row.invoices];
+  });
+  return [...grouped.values()];
 };
 
 function StatTile({ label, value, tone, sub, icon, onClick, accent }) {
@@ -223,176 +229,184 @@ function FinRow({ label, value, tone, strong }) {
   );
 }
 
-function FinOverview({ onGoTab, overview, accounts = [], payments = [], receipts = [], counterparties = [] }) {
-  const live = true;
-  const sumMoney = (items) => (items || []).reduce((sum, item) => sum + Number(item.amount || 0), 0);
-  const totalCash = accounts.reduce((s, a) => s + a.balance, 0);
-  const inTransit = accounts.filter((a) => a.group === 'Эквайринг').reduce((s, a) => s + a.reserved, 0);
-  const bySrc = (g) => accounts.filter((a) => a.group === g).reduce((s, a) => s + a.balance, 0);
-  const receivable = sumMoney(overview?.client_receivable) || counterparties.filter((c) => c.type === 'client').reduce((s, c) => s + c.debt, 0);
-  const payable = sumMoney(overview?.supplier_payable) || counterparties.filter((c) => c.type === 'supplier').reduce((s, c) => s + c.debt, 0);
-  const expected = receipts.filter((r) => !r.overdue).reduce((s, r) => s + r.sum, 0);
-  const planned = payments.filter((p) => p.dir === 'out' && !['Исполнено', 'Отменено', 'Возвращено'].includes(p.status)).reduce((s, p) => s + p.sum, 0);
-  const overdue = receipts.filter((r) => r.overdue).reduce((s, r) => s + r.sum, 0);
-  const profit = payments.reduce((sum, payment) => sum + (payment.dir === 'in' ? payment.sum : -payment.sum), 0);
-  const serviceFees = 0;
-  const recent = payments.slice(0, 5);
-  const flowData = recent.slice().reverse().map((payment) => ({ m: payment.date, in: payment.dir === 'in' ? payment.sum : 0, out: payment.dir === 'out' ? payment.sum : 0 }));
-  const calendarRows = [...receipts.map((r) => ({ dir: 'in', date: r.date, party: r.party, sum: r.sum, overdue: r.overdue })), ...payments.filter((p) => p.dir === 'out').map((p) => ({ dir: 'out', date: p.plan, party: p.party, sum: p.sum, overdue: false }))];
+function FinOverview({ onGoTab, overview, accounts = [], payments = [], receipts = [], counterparties = [], cashflow = [], economics = [] }) {
+  const currencies = Array.from(new Set([
+    ...accounts.map((item) => item.currency),
+    ...payments.map((item) => item.currency),
+    ...receipts.map((item) => item.currency),
+    ...counterparties.map((item) => item.currency),
+    ...cashflow.map((item) => item.currency),
+    ...economics.map((item) => item.currency),
+  ].filter(Boolean))).sort();
+  const [selectedCurrency, setSelectedCurrency] = useState('');
+  const currency = currencies.includes(selectedCurrency) ? selectedCurrency : currencies[0] || 'USD';
+  const currencyAccounts = accounts.filter((item) => item.currency === currency);
+  const currencyPayments = payments.filter((item) => item.currency === currency);
+  const currencyReceipts = receipts.filter((item) => item.currency === currency);
+  const currencyCounterparties = counterparties.filter((item) => item.currency === currency);
+  const currencyEconomics = economics.filter((item) => item.currency === currency);
+  const totalCash = currencyAccounts.reduce((sum, item) => sum + item.balance, 0);
+  const overviewReceivable = (overview?.client_receivable || []).filter((item) => item?.currency === currency);
+  const overviewPayable = (overview?.supplier_payable || []).filter((item) => item?.currency === currency);
+  const receivable = overviewReceivable.length
+    ? overviewReceivable.reduce((sum, item) => sum + Number(item.amount || 0), 0)
+    : currencyCounterparties.filter((item) => item.type === 'client').reduce((sum, item) => sum + item.debt, 0);
+  const payable = overviewPayable.length
+    ? overviewPayable.reduce((sum, item) => sum + Number(item.amount || 0), 0)
+    : currencyCounterparties.filter((item) => item.type === 'supplier').reduce((sum, item) => sum + item.debt, 0);
+  const expected = currencyReceipts.filter((item) => !item.overdue).reduce((sum, item) => sum + item.sum, 0);
+  const planned = currencyPayments
+    .filter((item) => item.dir === 'out' && !['Исполнено', 'Отменено', 'Отклонено'].includes(item.status))
+    .reduce((sum, item) => sum + item.sum, 0);
+  const overdueRows = currencyReceipts.filter((item) => item.overdue);
+  const overdue = overdueRows.reduce((sum, item) => sum + item.sum, 0);
+  const gross = currencyEconomics.reduce((sum, item) => sum + Number(item.revenue || 0) - Number(item.cost || 0), 0);
+  const serviceFees = currencyEconomics.reduce((sum, item) => sum + Number(item.fees || 0), 0);
+  const recent = currencyPayments.slice(0, 5);
+  const flowByDate = new Map();
+  cashflow.filter((item) => item.currency === currency).forEach((item) => {
+    const key = financeDate(item.date);
+    const row = flowByDate.get(key) || { m: key, in: 0, out: 0 };
+    row[item.direction === 'incoming' ? 'in' : 'out'] += Number(item.amount || 0);
+    flowByDate.set(key, row);
+  });
+  const flowData = [...flowByDate.values()];
+  const calendarRows = [
+    ...currencyReceipts.map((item) => ({ dir: 'in', date: item.date, party: item.party, sum: item.sum, overdue: item.overdue })),
+    ...currencyPayments.filter((item) => item.dir === 'out').map((item) => ({ dir: 'out', date: item.date, party: item.party, sum: item.sum, overdue: false })),
+  ];
 
   return (
     <div className="fade-in">
-      {overdue > 0 && <WarnBanner tone="red" title={'Просроченная дебиторская задолженность: ' + f$(overdue)}
-        text="2 контрагента вышли за срок оплаты — рекомендуется напоминание и проверка кредитных условий."
+      <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 12 }}>
+        <Field label="Валюта">
+          <Select value={currency} onChange={(event) => setSelectedCurrency(event.target.value)} options={currencies.length ? currencies : ['USD']} style={{ width: 130 }} />
+        </Field>
+      </div>
+      {overdue > 0 && <WarnBanner tone="red" title={'Просроченная дебиторская задолженность: ' + financeMoney(overdue, currency)}
+        text={`${overdueRows.length} обязательств вышли за срок оплаты.`}
         action={<Button size="sm" variant="secondary" onClick={() => onGoTab('settlements')}>К взаиморасчётам</Button>} />}
-      {(!live || planned > expected) && <WarnBanner tone="amber" icon="alertCircle" title="Риск кассового разрыва"
-        text={'К выплате ' + f$(planned) + ', ожидаемые поступления ' + f$(expected) + '. Проверьте приоритеты платежей в казначействе.'}
+      {planned > totalCash + expected && <WarnBanner tone="amber" icon="alertCircle" title="Риск кассового разрыва"
+        text={`К выплате ${financeMoney(planned, currency)}, доступно с ожидаемыми поступлениями ${financeMoney(totalCash + expected, currency)}.`}
         action={<Button size="sm" variant="secondary" onClick={() => onGoTab('treasury')}>В казначейство</Button>} />}
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(210px, 1fr))', gap: 12, marginBottom: 12 }}>
-        <StatTile label="Общий остаток ДС" value={f$(totalCash)} icon="finance" accent="var(--green)" sub="по всем источникам" onClick={() => onGoTab('balance')} />
-        <StatTile label="Расчётные счета" value={f$(bySrc('Расчётные счета'))} icon="bank" onClick={() => onGoTab('balance')} />
-        <StatTile label="Корп. карты" value={f$(bySrc('Корпоративные карты'))} icon="finance" onClick={() => onGoTab('balance')} />
-        <StatTile label="Касса" value={f$(bySrc('Касса'))} icon="calc" onClick={() => onGoTab('balance')} />
-        <StatTile label="Эл. кошельки" value={f$(bySrc('Электронные кошельки'))} icon="globe" onClick={() => onGoTab('balance')} />
-        <StatTile label="ДС в пути (эквайринг)" value={f$(inTransit)} icon="swap" tone="var(--teal)" sub="зачисление T+1" />
-        <StatTile label="Дебиторская задолженность" value={f$(receivable)} icon="arrowUpRight" tone="var(--amber)" onClick={() => onGoTab('settlements')} />
-        <StatTile label="Кредиторская задолженность" value={f$(payable)} icon="arrowUpRight" tone="var(--red)" onClick={() => onGoTab('settlements')} />
-        <StatTile label="Ожидаемые поступления" value={f$(expected)} icon="calendar" tone="var(--green)" onClick={() => onGoTab('settlements')} />
-        <StatTile label="Запланированные выплаты" value={f$(planned)} icon="calendar" tone="var(--red)" onClick={() => onGoTab('treasury')} />
-        <StatTile label="Текущая прибыль (период)" value={f$(profit)} icon="pie" tone="var(--green)" onClick={() => onGoTab('analytics')} />
-        <StatTile label="Сервисные сборы (месяц)" value={f$(serviceFees)} icon="sparkles" onClick={() => onGoTab('economics')} />
+        <StatTile label="Остаток денежных средств" value={financeMoney(totalCash, currency)} icon="finance" accent="var(--green)" onClick={() => onGoTab('balance')} />
+        <StatTile label="Дебиторская задолженность" value={financeMoney(receivable, currency)} icon="arrowUpRight" tone="var(--amber)" onClick={() => onGoTab('settlements')} />
+        <StatTile label="Кредиторская задолженность" value={financeMoney(payable, currency)} icon="arrowUpRight" tone="var(--red)" onClick={() => onGoTab('settlements')} />
+        <StatTile label="Ожидаемые поступления" value={financeMoney(expected, currency)} icon="calendar" tone="var(--green)" onClick={() => onGoTab('settlements')} />
+        <StatTile label="Платежи к исполнению" value={financeMoney(planned, currency)} icon="calendar" tone="var(--red)" onClick={() => onGoTab('treasury')} />
+        <StatTile label="Валовая прибыль услуг" value={financeMoney(gross, currency)} icon="pie" tone={gross >= 0 ? 'var(--green)' : 'var(--red)'} onClick={() => onGoTab('economics')} />
+        <StatTile label="Сервисные сборы" value={financeMoney(serviceFees, currency)} icon="sparkles" onClick={() => onGoTab('economics')} />
       </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1.5fr) minmax(0, 1fr)', gap: 12, alignItems: 'start' }}>
         <div className="card card-pad">
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
-            <h3 className="card-title" style={{ fontSize: 16 }}>Движение денежных средств</h3>
-            <div style={{ display: 'flex', gap: 14 }}><LegendDot color="var(--green)" label="Приход" /><LegendDot color="var(--red)" label="Расход" /><LegendDot color="var(--blue-soft-text)" label="Остаток" /></div>
-          </div>
-          <CashflowChart data={flowData} startBalance={live ? 0 : 60000} />
+          <h3 className="card-title" style={{ fontSize: 16, marginBottom: 6 }}>Подтверждённый денежный поток</h3>
+          {flowData.length ? (
+            <>
+              <div style={{ display: 'flex', gap: 14, marginBottom: 6 }}><LegendDot color="var(--green)" label="Приход" /><LegendDot color="var(--red)" label="Расход" /><LegendDot color="var(--blue-soft-text)" label="Остаток" /></div>
+              <CashflowChart data={flowData} startBalance={0} />
+            </>
+          ) : <EmptyState icon="finance" title="Подтверждённых операций пока нет" />}
         </div>
         <div className="card card-pad">
           <h3 className="card-title" style={{ fontSize: 16, marginBottom: 10 }}>Платёжный календарь</h3>
-          <div style={{ display: 'grid', gap: 8 }}>
-            {calendarRows.sort((a, b) => a.date.localeCompare(b.date)).slice(0, 6).map((e, i) => (
-                <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 12.5 }}>
-                  <span style={{ width: 8, height: 8, borderRadius: '50%', background: e.dir === 'in' ? 'var(--green)' : 'var(--red)', flexShrink: 0 }} />
-                  <span style={{ color: 'var(--muted-2)', width: 78, flexShrink: 0 }}>{e.date}</span>
-                  <span style={{ flex: 1, color: 'var(--ink)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{e.party}</span>
-                  <span style={{ fontWeight: 700, color: e.overdue ? 'var(--red)' : e.dir === 'in' ? 'var(--green)' : 'var(--body)' }}>{e.dir === 'in' ? '+' : '−'}{f$(e.sum).replace(' $', '')} $</span>
-                </div>
-              ))}
-          </div>
+          {calendarRows.length ? <div style={{ display: 'grid', gap: 8 }}>
+            {calendarRows.sort((a, b) => a.date.localeCompare(b.date)).slice(0, 6).map((item, index) => (
+              <div key={index} style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 12.5 }}>
+                <span style={{ width: 8, height: 8, borderRadius: '50%', background: item.dir === 'in' ? 'var(--green)' : 'var(--red)', flexShrink: 0 }} />
+                <span style={{ color: 'var(--muted-2)', width: 78, flexShrink: 0 }}>{item.date}</span>
+                <span style={{ flex: 1, color: 'var(--ink)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.party}</span>
+                <span style={{ fontWeight: 700, color: item.overdue ? 'var(--red)' : item.dir === 'in' ? 'var(--green)' : 'var(--body)' }}>{item.dir === 'in' ? '+' : '−'}{financeMoney(item.sum, currency)}</span>
+              </div>
+            ))}
+          </div> : <EmptyState icon="calendar" title="Запланированных операций нет" />}
         </div>
       </div>
 
       <div className="card card-pad" style={{ marginTop: 12 }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
-          <h3 className="card-title" style={{ fontSize: 16 }}>Последние финансовые операции</h3>
+          <h3 className="card-title" style={{ fontSize: 16 }}>Последние платежи</h3>
           <Button size="sm" variant="secondary" onClick={() => onGoTab('payments')}>Все платежи</Button>
         </div>
-        <div className="table-card" style={{ boxShadow: 'none', border: '1px solid var(--line)' }}>
+        {!recent.length ? <EmptyState icon="finance" title="Платежей пока нет" /> : <div className="table-card" style={{ boxShadow: 'none', border: '1px solid var(--line)' }}>
           <table className="tbl">
             <thead><tr><th>Платёж</th><th>Дата</th><th>Контрагент</th><th>Назначение</th><th style={{ textAlign: 'right' }}>Сумма</th><th>Статус</th></tr></thead>
-            <tbody>
-              {recent.map((p) => (
-                <tr key={p.no}>
-                  <td style={{ fontWeight: 600 }}>{p.no}</td><td>{p.date}</td><td>{p.party}</td>
-                  <td style={{ color: 'var(--muted)', maxWidth: 240, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.purpose}</td>
-                  <td style={{ textAlign: 'right', fontWeight: 700, color: p.dir === 'in' ? 'var(--green)' : 'var(--body)' }}>{p.dir === 'in' ? '+' : '−'}{f$(p.sum)}</td>
-                  <td><Pill tone={FIN_PAY_STATUS[p.status]}>{p.status}</Pill></td>
-                </tr>
-              ))}
-            </tbody>
+            <tbody>{recent.map((item) => (
+              <tr key={item.id}>
+                <td style={{ fontWeight: 600 }}>{item.no}</td><td>{item.date}</td><td>{item.party}</td>
+                <td style={{ color: 'var(--muted)', maxWidth: 240, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.purpose}</td>
+                <td style={{ textAlign: 'right', fontWeight: 700, color: item.dir === 'in' ? 'var(--green)' : 'var(--body)' }}>{item.dir === 'in' ? '+' : '−'}{financeMoney(item.sum, item.currency)}</td>
+                <td><Pill tone={FIN_PAY_STATUS[item.status]}>{item.status}</Pill></td>
+              </tr>
+            ))}</tbody>
           </table>
-        </div>
+        </div>}
       </div>
     </div>
   );
 }
 
 function FinAccountDrawer({ ac, onClose }) {
-  const ops = acctOps(ac);
   return (
-    <Drawer open={!!ac} onClose={onClose} title={ac.name} sub={ac.bank !== '—' ? ac.bank + ' · ' + ac.number : ac.number} width="min(760px,96vw)">
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10, marginBottom: 16 }}>
-        <StatTile label="Текущий остаток" value={f$(ac.balance)} />
-        <StatTile label="Доступно" value={f$(ac.available)} tone="var(--green)" />
-        <StatTile label="Зарезервировано" value={f$(ac.reserved)} tone={ac.reserved ? 'var(--amber)' : undefined} />
+    <Drawer open={!!ac} onClose={onClose} title={ac.name} sub={ac.number} width="min(620px,96vw)">
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0,1fr))', gap: 10, marginBottom: 16 }}>
+        <StatTile label="Фактический остаток" value={financeMoney(ac.balance, ac.currency)} tone={ac.balance >= 0 ? 'var(--green)' : 'var(--red)'} />
+        <StatTile label="Валюта счёта" value={ac.currency} />
       </div>
-      <div className="card card-pad" style={{ marginBottom: 16 }}>
-        <FinRow label="Банк" value={ac.bank} /><FinRow label="Номер / идентификатор" value={ac.number} />
-        <FinRow label="Валюта" value={ac.currency} /><FinRow label="Несопоставленные операции" value={ac.unmatched} tone={ac.unmatched ? 'var(--amber)' : undefined} />
-        <FinRow label="Последняя синхронизация" value={ac.synced} />
-        {ac.note && <FinRow label="Примечание" value={ac.note} />}
+      <div className="card card-pad">
+        <FinRow label="Тип счёта" value={ac.group} />
+        <FinRow label="Код / номер" value={ac.number || '—'} />
+        <FinRow label="Связанная организация" value={ac.bank || '—'} />
+        <FinRow label="Статус" value={ac.is_active ? 'Активен' : 'Неактивен'} />
       </div>
-      <h3 className="card-title" style={{ fontSize: 15, marginBottom: 10 }}>История операций по счёту</h3>
-      <div className="table-card" style={{ boxShadow: 'none', border: '1px solid var(--line)' }}>
-        <table className="tbl">
-          <thead><tr><th>Дата · время</th><th>Тип</th><th>Контрагент</th><th>Заказ · услуга</th><th>Документ</th><th style={{ textAlign: 'right' }}>Сумма</th><th style={{ textAlign: 'right' }}>Остаток</th><th>Статус</th></tr></thead>
-          <tbody>
-            {ops.map((o, i) => (
-              <tr key={i}>
-                <td style={{ whiteSpace: 'nowrap' }}>{o.date}<div style={{ fontSize: 11.5, color: 'var(--muted-2)' }}>{o.time}</div></td>
-                <td>{o.type}</td><td>{o.party}</td>
-                <td style={{ fontSize: 12.5 }}>№ {o.order}<div style={{ color: 'var(--muted-2)' }}>{o.service}</div></td>
-                <td style={{ fontSize: 12.5, color: 'var(--muted)' }}>{o.doc}<div style={{ color: 'var(--muted-2)' }}>{o.resp}</div></td>
-                <td style={{ textAlign: 'right', fontWeight: 700, color: deltaTone(o.sum) }}>{fSigned(o.sum)}</td>
-                <td style={{ textAlign: 'right', color: 'var(--muted)' }}>{f$(o.balanceAfter)}</td>
-                <td><Pill tone={o.status === 'Проведено' ? 'green' : 'amber'}>{o.status}</Pill></td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+      <div style={{ fontSize: 12.5, color: 'var(--muted)', marginTop: 12 }}>
+        Остаток рассчитан backend по проводкам этого финансового счёта.
       </div>
     </Drawer>
   );
 }
 function FinBalance({ accounts = [] }) {
   const [open, setOpen] = useState(null);
-  const total = accounts.reduce((s, a) => s + a.balance, 0);
-  const available = accounts.reduce((s, a) => s + a.available, 0);
-  const reserved = accounts.reduce((s, a) => s + a.reserved, 0);
+  const totals = accounts.reduce((map, account) => {
+    map[account.currency] = (map[account.currency] || 0) + account.balance;
+    return map;
+  }, {});
   return (
     <div className="fade-in">
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px,1fr))', gap: 12, marginBottom: 16 }}>
-        <StatTile label="Всего денежных средств" value={f$(total)} tone="var(--green)" icon="finance" />
-        <StatTile label="Доступно" value={f$(available)} icon="check" />
-        <StatTile label="Зарезервировано / в пути" value={f$(reserved)} tone="var(--amber)" icon="clock" />
-        <StatTile label="Несопоставлено операций" value={accounts.reduce((s, a) => s + a.unmatched, 0)} tone="var(--amber)" icon="alertCircle" />
-      </div>
-      {FIN_ACCT_GROUPS.map((g) => {
-        const accs = accounts.filter((a) => a.group === g.key);
-        if (!accs.length) return null;
-        const sum = accs.reduce((s, a) => s + a.balance, 0);
-        return (
-          <div key={g.key} style={{ marginBottom: 18 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
-              <Icon name={g.icon} style={{ width: 16, height: 16, color: 'var(--muted-2)' }} />
-              <h3 className="card-title" style={{ fontSize: 15 }}>{g.key}</h3>
-              <span style={{ fontSize: 13, color: 'var(--muted)' }}>· {f$(sum)}</span>
-            </div>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px,1fr))', gap: 12 }}>
-              {accs.map((a) => (
-                <div key={a.id} className="card card-pad" style={{ cursor: 'pointer', padding: '16px 18px' }} onClick={() => setOpen(a)}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 8 }}>
-                    <div><div style={{ fontWeight: 700, color: 'var(--ink)', fontSize: 14 }}>{a.name}</div>
-                      <div style={{ fontSize: 12, color: 'var(--muted)' }}>{a.bank !== '—' ? a.bank + ' · ' : ''}{a.number}</div></div>
-                    {a.unmatched > 0 && <Pill tone="amber">{a.unmatched} несопост.</Pill>}
-                  </div>
-                  <div className="s-value" style={{ fontSize: 22, marginBottom: 8 }}>{f$(a.balance)}</div>
-                  <div style={{ display: 'flex', gap: 14, fontSize: 12, color: 'var(--muted)' }}>
-                    <span>Доступно: <b style={{ color: 'var(--green)' }}>{f$(a.available)}</b></span>
-                    {a.reserved > 0 && <span>Резерв: <b style={{ color: 'var(--amber)' }}>{f$(a.reserved)}</b></span>}
-                  </div>
-                  <div style={{ fontSize: 11.5, color: 'var(--muted-2)', marginTop: 8 }}>Синхронизация: {a.synced}{a.note ? ' · ' + a.note : ''}</div>
-                </div>
-              ))}
-            </div>
+      {!accounts.length ? <EmptyState icon="bank" title="Финансовые счета не созданы" /> : (
+        <>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px,1fr))', gap: 12, marginBottom: 16 }}>
+            {Object.entries(totals).map(([currency, value]) => (
+              <StatTile key={currency} label={`Остаток · ${currency}`} value={financeMoney(value, currency)} tone={value >= 0 ? 'var(--green)' : 'var(--red)'} icon="finance" />
+            ))}
           </div>
-        );
-      })}
+          {FIN_ACCT_GROUPS.map((group) => {
+            const groupAccounts = accounts.filter((account) => account.group === group.key);
+            if (!groupAccounts.length) return null;
+            return (
+              <div key={group.key} style={{ marginBottom: 18 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
+                  <Icon name={group.icon} style={{ width: 16, height: 16, color: 'var(--muted-2)' }} />
+                  <h3 className="card-title" style={{ fontSize: 15 }}>{group.key}</h3>
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px,1fr))', gap: 12 }}>
+                  {groupAccounts.map((account) => (
+                    <button key={account.id} type="button" className="card card-pad"
+                      style={{ cursor: 'pointer', padding: '16px 18px', textAlign: 'left', border: '1px solid var(--line)', background: 'var(--surface)' }}
+                      onClick={() => setOpen(account)}>
+                      <div style={{ fontWeight: 700, color: 'var(--ink)', fontSize: 14 }}>{account.name}</div>
+                      <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 2 }}>{account.number || 'Без кода'}{account.bank !== '—' ? ' · ' + account.bank : ''}</div>
+                      <div className="s-value" style={{ fontSize: 22, marginTop: 10, color: account.balance >= 0 ? 'var(--ink)' : 'var(--red)' }}>{financeMoney(account.balance, account.currency)}</div>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            );
+          })}
+        </>
+      )}
       {open && <FinAccountDrawer ac={open} onClose={() => setOpen(null)} />}
     </div>
   );
@@ -400,8 +414,7 @@ function FinBalance({ accounts = [] }) {
 
 function FinPaymentDrawer({ p, onClose, onConfirm }) {
   const toast = useToast();
-  const svcSum = p.services.reduce((s, x) => s + x.sum, 0);
-  const feeSum = p.fees.reduce((s, x) => s + x.sum, 0);
+  const canConfirm = p.status === 'Черновик' || p.status === 'На согласовании';
   return (
     <Drawer open={!!p} onClose={onClose} title={p.no} sub={(p.dir === 'in' ? 'Входящий' : 'Исходящий') + ' платёж · ' + p.date}
       footer={<div style={{ display: 'flex', gap: 10, width: '100%' }}>
@@ -409,62 +422,27 @@ function FinPaymentDrawer({ p, onClose, onConfirm }) {
           if (!p.id) return toast('Платёж ещё не сохранён в backend', 'err');
           window.open(financeApi.paymentOrderUrl(p.id), '_blank', 'noopener,noreferrer');
         }}>Платёжное поручение</Button>
-        <Button style={{ flex: 1 }} icon="check" disabled={p.status === 'Исполнено'} onClick={() => onConfirm(p)}>Провести</Button>
+        {canConfirm && <Button style={{ flex: 1 }} icon="check" onClick={() => onConfirm(p)}>Провести</Button>}
       </div>}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14 }}>
-        <span className="s-value" style={{ fontSize: 26, color: p.dir === 'in' ? 'var(--green)' : 'var(--ink)' }}>{p.dir === 'in' ? '+' : '−'}{f$(p.sum)}</span>
+        <span className="s-value" style={{ fontSize: 26, color: p.dir === 'in' ? 'var(--green)' : 'var(--ink)' }}>{p.dir === 'in' ? '+' : '−'}{financeMoney(p.sum, p.currency)}</span>
         <Pill tone={FIN_PAY_STATUS[p.status]}>{p.status}</Pill>
-        <Pill tone={FIN_PRIORITY[p.priority]}>Приоритет: {p.priority}</Pill>
       </div>
-      <div className="card card-pad" style={{ marginBottom: 14 }}>
-        <FinRow label={p.dir === 'in' ? 'Отправитель' : 'Получатель'} value={p.party} />
-        <FinRow label="Реквизиты" value={p.requisites} /><FinRow label="Назначение платежа" value={p.purpose} />
+      <div className="card card-pad">
+        <FinRow label={p.dir === 'in' ? 'Плательщик' : 'Получатель'} value={p.party} />
         <FinRow label="Связанный заказ" value={p.order ? '№ ' + p.order : '—'} />
-        <FinRow label={p.dir === 'in' ? 'Клиент' : 'Поставщик'} value={p.dir === 'in' ? p.client : p.supplier} />
-        <FinRow label="Ответственный" value={p.resp} /><FinRow label="Плановая дата" value={p.plan} />
-      </div>
-      <h3 className="card-title" style={{ fontSize: 14, marginBottom: 8 }}>Оплачиваемые услуги</h3>
-      <div className="card card-pad" style={{ marginBottom: 14 }}>
-        {p.services.map((s, i) => <FinRow key={i} label={s.t} value={f$(s.sum)} />)}
-        {p.fees.map((s, i) => <FinRow key={'f' + i} label={s.t} value={f$(s.sum)} tone="var(--amber)" />)}
-        <FinRow label="Итого" value={f$(svcSum + feeSum)} strong />
-      </div>
-      <h3 className="card-title" style={{ fontSize: 14, marginBottom: 8 }}>Документы-основания</h3>
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 14 }}>
-        {p.docs.map((d, i) => <span key={i} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12.5, padding: '6px 11px', borderRadius: 8, background: 'var(--surface-2)', border: '1px solid var(--line)' }}><Icon name="docs" style={{ width: 13, height: 13, color: 'var(--muted-2)' }} />{d}</span>)}
-      </div>
-      <h3 className="card-title" style={{ fontSize: 14, marginBottom: 8 }}>Журнал согласования</h3>
-      <div className="card card-pad" style={{ marginBottom: 14 }}>
-        {p.approvals.length === 0 && <div style={{ fontSize: 12.5, color: 'var(--muted)' }}>Согласование не требуется для этого типа платежа.</div>}
-        {p.approvals.map((a, i) => (
-          <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '7px 0', borderBottom: i < p.approvals.length - 1 ? '1px solid var(--line)' : 'none' }}>
-            <Icon name={a.ok === true ? 'checkCircle' : a.ok === false ? 'x' : 'clock'} style={{ width: 16, height: 16, color: a.ok === true ? 'var(--green)' : a.ok === false ? 'var(--red)' : 'var(--amber)' }} />
-            <span style={{ flex: 1, fontSize: 13 }}>{a.who}</span>
-            <span style={{ fontSize: 12, color: 'var(--muted)' }}>{a.at || 'ожидает'}</span>
-          </div>
-        ))}
-      </div>
-      <h3 className="card-title" style={{ fontSize: 14, marginBottom: 8 }}>История изменений</h3>
-      <div style={{ display: 'grid', gap: 6 }}>
-        {p.history.map((h, i) => <div key={i} style={{ fontSize: 12.5, color: 'var(--body)' }}><span style={{ color: 'var(--muted-2)', marginRight: 6 }}>{h.t}</span>{h.text} · <span style={{ color: 'var(--muted)' }}>{h.who}</span></div>)}
+        <FinRow label="Способ оплаты" value={p.method || '—'} />
+        <FinRow label="Назначение" value={p.purpose} />
+        <FinRow label="Валюта" value={p.currency || '—'} />
+        <FinRow label="Создан" value={p.date} />
+        <FinRow label="Подтверждён" value={p.confirmed_at ? financeDate(p.confirmed_at) : '—'} />
+        <FinRow label="ID транзакции провайдера" value={p.provider_transaction_id || '—'} />
       </div>
     </Drawer>
   );
 }
-const FIN_OPERATORS = ['Даниель', 'Азамат А.', 'Куба', 'Айсулуу', 'Бухгалтерия'];
-const FIN_CURRENCIES = ['USD', 'KGS', 'RUB', 'EUR', 'KZT'];
-let FIN_PMT_SEQ = 5047;
 
-const uniqBy = (arr, key) => { const seen = new Set(); return arr.filter((x) => (seen.has(key(x)) ? false : (seen.add(key(x)), true))); };
-const FIN_CLIENT_ROWS = uniqBy([
-  ...COMPANIES_DB.map((c) => ({ name: c.name, sub: c.type + (c.inn ? ' · ИНН ' + c.inn : ''), icon: 'building', tone: 'var(--blue)' })),
-  ...CLIENTS_DB.map((c) => ({ name: c.name, sub: c.type + (c.city ? ' · ' + c.city : '') + (c.company && c.company !== '—' ? ' · ' + c.company : ''), icon: 'user', tone: 'var(--green)' })),
-], (r) => r.name);
-const FIN_SUPPLIER_ROWS = uniqBy([
-  ...FIN_COUNTERPARTIES.filter((c) => c.type === 'supplier').map((c) => ({ name: c.name, sub: 'Поставщик · ' + c.scheme, icon: 'suppliers', tone: 'var(--amber)' })),
-  ...SUPPLIERS.map((s) => ({ name: s.name, sub: [s.service, s.org].filter((x) => x && x !== s.name).join(' · '), icon: 'suppliers', tone: 'var(--amber)' })),
-], (r) => r.name);
-const FIN_SERVICE_ROWS = Object.entries(SERVICE_KIND).map(([k, v]) => ({ name: k, sub: 'Вид услуги', icon: v.icon, tone: v.color }));
+const FIN_CURRENCIES = ['USD', 'KGS', 'RUB', 'EUR', 'KZT'];
 
 function FinPickerDrawer({ open, title, sub, rows, placeholder, value, onClose, onPick }) {
   const [q, setQ] = useState('');
@@ -478,14 +456,14 @@ function FinPickerDrawer({ open, title, sub, rows, placeholder, value, onClose, 
       <SearchBox value={q} onChange={setQ} placeholder={placeholder} style={{ width: '100%', marginBottom: 12 }} />
       <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
         {shown.map((r) => (
-          <button key={r.name} type="button" onClick={() => onPick(r.name)}
-            style={{ cursor: 'pointer', width: '100%', textAlign: 'left', border: '1px solid var(--line)', background: value === r.name ? 'var(--surface-2)' : '#fff', borderRadius: 12, padding: '10px 12px', display: 'flex', alignItems: 'center', gap: 12 }}>
+          <button key={r.value || r.name} type="button" onClick={() => onPick(r.value || r.name)}
+            style={{ cursor: 'pointer', width: '100%', textAlign: 'left', border: '1px solid var(--line)', background: value === (r.value || r.name) ? 'var(--surface-2)' : '#fff', borderRadius: 12, padding: '10px 12px', display: 'flex', alignItems: 'center', gap: 12 }}>
             <span className="oc-svc-ic" style={{ background: r.tone || 'var(--blue)', width: 34, height: 34, borderRadius: 10, flexShrink: 0 }}><Icon name={r.icon || 'briefcase'} style={{ width: 17, height: 17 }} /></span>
             <span style={{ flex: 1, minWidth: 0 }}>
               <span style={{ display: 'block', fontWeight: 600, color: 'var(--ink)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{r.name}</span>
               {r.sub && <span style={{ display: 'block', fontSize: 12.5, color: 'var(--muted)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{r.sub}</span>}
             </span>
-            {value === r.name && <Icon name="check" style={{ width: 18, height: 18, color: 'var(--blue)' }} />}
+            {value === (r.value || r.name) && <Icon name="check" style={{ width: 18, height: 18, color: 'var(--blue)' }} />}
           </button>
         ))}
         {!shown.length && <EmptyState icon="search" title="Ничего не найдено" />}
@@ -505,175 +483,121 @@ function FinPickerField({ value, placeholder, icon, error, onOpen }) {
   );
 }
 
-function NewPaymentDrawer({ open, onClose, onCreate, clientRows = [], supplierRows = [] }) {
+function NewPaymentDrawer({ open, onClose, onCreate, clientRows = [], supplierRows = [], orderRows = [] }) {
   const toast = useToast();
   const [dir, setDir] = useState('in');
-  const [party, setParty] = useState('');
-  const [sum, setSum] = useState('');
+  const [partyKey, setPartyKey] = useState('');
+  const [amount, setAmount] = useState('');
   const [currency, setCurrency] = useState('USD');
   const [purpose, setPurpose] = useState('');
-  const [order, setOrder] = useState('');
-  const [plan, setPlan] = useState('');
-  const [resp, setResp] = useState('Даниель');
-  const [priority, setPriority] = useState('Средний');
-  const [status, setStatus] = useState('Черновик');
-  const [services, setServices] = useState([{ t: '', sum: '' }]);
-  const [docs, setDocs] = useState([]);
-  const [docDraft, setDocDraft] = useState('');
-  const [err, setErr] = useState({});
+  const [orderId, setOrderId] = useState('');
+  const [method, setMethod] = useState('manual');
+  const [saving, setSaving] = useState(false);
   const [pickParty, setPickParty] = useState(false);
-  const [pickSvc, setPickSvc] = useState(null);
+  const [pickOrder, setPickOrder] = useState(false);
+  const [errors, setErrors] = useState({});
+  const partyRows = dir === 'in' ? clientRows : supplierRows;
+  const selectedParty = partyRows.find((item) => item.value === partyKey);
+  const selectedOrder = orderRows.find((item) => item.value === orderId);
 
   const reset = () => {
-    setDir('in'); setParty(''); setSum(''); setCurrency('USD'); setPurpose(''); setOrder('');
-    setPlan(''); setResp('Даниель'); setPriority('Средний'); setStatus('Черновик');
-    setServices([{ t: '', sum: '' }]); setDocs([]); setDocDraft(''); setErr({});
-    setPickParty(false); setPickSvc(null);
+    setDir('in');
+    setPartyKey('');
+    setAmount('');
+    setCurrency('USD');
+    setPurpose('');
+    setOrderId('');
+    setMethod('manual');
+    setPickParty(false);
+    setPickOrder(false);
+    setErrors({});
   };
-  const close = () => { reset(); onClose(); };
-
-  const svcSum = services.reduce((s, x) => s + (Number(x.sum) || 0), 0);
-  const total = Number(sum) || svcSum;
-
-  const setSvc = (i, k, v) => setServices((arr) => arr.map((s, idx) => (idx === i ? { ...s, [k]: v } : s)));
-  const addSvc = () => setServices((arr) => [...arr, { t: '', sum: '' }]);
-  const rmSvc = (i) => setServices((arr) => (arr.length > 1 ? arr.filter((_, idx) => idx !== i) : arr));
-  const addDoc = () => { const d = docDraft.trim(); if (!d) return; setDocs((x) => [...x, d]); setDocDraft(''); };
-
+  const close = () => {
+    if (saving) return;
+    reset();
+    onClose();
+  };
   const submit = async () => {
-    const e = {};
-    if (!party.trim()) e.party = 'Укажите контрагента';
-    if (!(total > 0)) e.sum = 'Сумма должна быть больше 0';
-    setErr(e);
-    if (Object.keys(e).length) { toast('Заполните обязательные поля', 'err'); return; }
-    const now = finNow();
-    const stamp = now.slice(0, 5) + ' · ' + now.slice(-5);
-    const filledSvc = services.filter((s) => s.t.trim() || Number(s.sum) > 0)
-      .map((s) => ({ t: s.t.trim() || 'Услуга', sum: Number(s.sum) || 0 }));
-    const needApprove = dir === 'out' && total >= 1000;
-    const pmt = {
-      no: 'PMT-' + FIN_PMT_SEQ++,
-      dir, date: now.slice(0, 10), plan: plan.trim() || now.slice(0, 10),
-      party: party.trim(), requisites: '—', sum: total, currency,
-      purpose: purpose.trim() || (dir === 'in' ? 'Поступление от ' + party.trim() : 'Оплата ' + party.trim()),
-      order: order.trim() || null,
-      supplier: dir === 'out' ? party.trim() : '—', client: dir === 'in' ? party.trim() : '—',
-      resp, priority, status,
-      services: filledSvc.length ? filledSvc : [{ t: purpose.trim() || 'Платёж', sum: total }],
-      fees: [], docs,
-      history: [{ t: stamp, text: 'Платёж создан вручную', who: resp }],
-      approvals: needApprove ? [{ who: 'Старший оператор', at: null, ok: null }, { who: 'Финансовый контроль', at: null, ok: null }] : [],
-    };
+    const nextErrors = {};
+    if (!selectedParty) nextErrors.party = 'Выберите контрагента';
+    if (!(Number(amount) > 0)) nextErrors.amount = 'Сумма должна быть больше нуля';
+    setErrors(nextErrors);
+    if (Object.keys(nextErrors).length) return;
+    setSaving(true);
     try {
-      const created = await onCreate(pmt);
-      toast('Платёж ' + (created?.no || pmt.no) + ' создан', 'ok');
+      await onCreate({
+        dir,
+        partyKey,
+        sum: Number(amount),
+        currency,
+        purpose: purpose.trim(),
+        orderId: orderId || null,
+        method,
+      });
+      toast('Платёж создан в backend', 'ok');
       reset();
       onClose();
     } catch (error) {
       toast(error.message || 'Не удалось создать платёж', 'err');
+    } finally {
+      setSaving(false);
     }
   };
 
   return (
-    <Drawer open={open} onClose={close} title="Новый платёж" sub="Финансы · Платежи · создание вручную" width="min(720px,96vw)"
+    <Drawer open={open} onClose={close} title="Новый платёж" sub="Создание финансового платежа" width="min(640px,96vw)"
       footer={<div style={{ display: 'flex', gap: 10, width: '100%' }}>
-        <Button variant="secondary" style={{ flex: 1 }} onClick={close}>Отмена</Button>
-        <Button style={{ flex: 2 }} icon="check" onClick={submit}>Создать платёж</Button>
+        <Button variant="secondary" style={{ flex: 1 }} disabled={saving} onClick={close}>Отмена</Button>
+        <Button style={{ flex: 2 }} icon="check" disabled={saving} onClick={submit}>Создать платёж</Button>
       </div>}>
-      <Field label="Направление платежа" required>
-        <Tabs tabs={[{ key: 'in', label: 'Входящий (поступление)' }, { key: 'out', label: 'Исходящий (выплата)' }]} value={dir}
-          onChange={(v) => { setDir(v); setParty(''); }} />
+      <Field label="Направление" required>
+        <Tabs tabs={[{ key: 'in', label: 'Входящий' }, { key: 'out', label: 'Исходящий' }]} value={dir}
+          onChange={(value) => { setDir(value); setPartyKey(''); setErrors({}); }} />
       </Field>
-      <Field label={dir === 'in' ? 'Клиент' : 'Поставщик'} required error={err.party}
-        hint={dir === 'in' ? 'Выберите клиента из справочника' : 'Выберите поставщика из справочника'}>
-        <FinPickerField value={party} error={err.party} icon={dir === 'in' ? 'user' : 'suppliers'}
+      <Field label={dir === 'in' ? 'Плательщик' : 'Получатель'} required error={errors.party}>
+        <FinPickerField value={selectedParty?.name || ''} error={errors.party} icon={dir === 'in' ? 'user' : 'suppliers'}
           placeholder={dir === 'in' ? 'Выбрать клиента…' : 'Выбрать поставщика…'} onOpen={() => setPickParty(true)} />
       </Field>
       <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 12 }}>
-        <Field label="Сумма" required error={err.sum}>
-          <Input type="number" value={sum} onChange={(e) => setSum(e.target.value)} error={err.sum}
-            placeholder={svcSum > 0 ? String(svcSum) + ' (из услуг)' : '0'} />
+        <Field label="Сумма" required error={errors.amount}>
+          <Input type="number" min="0" step="0.01" value={amount} onChange={(event) => setAmount(event.target.value)} error={errors.amount} placeholder="0.00" />
         </Field>
-        <Field label="Валюта"><Select value={currency} onChange={(e) => setCurrency(e.target.value)} options={FIN_CURRENCIES} /></Field>
+        <Field label="Валюта"><Select value={currency} onChange={(event) => setCurrency(event.target.value)} options={FIN_CURRENCIES} /></Field>
       </div>
+      <Field label="Связанный заказ">
+        <FinPickerField value={selectedOrder?.name || ''} icon="briefcase" placeholder="Без привязки к заказу" onOpen={() => setPickOrder(true)} />
+      </Field>
+      <Field label="Способ оплаты">
+        <Input value={method} onChange={(event) => setMethod(event.target.value)} placeholder="manual" />
+      </Field>
       <Field label="Назначение платежа">
-        <Input value={purpose} onChange={(e) => setPurpose(e.target.value)} placeholder="Напр.: Оплата по счёту № 6152" />
-      </Field>
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-        <Field label="Заказ (необязательно)"><Input value={order} onChange={(e) => setOrder(e.target.value)} placeholder="№ заказа" /></Field>
-        <UFDateField label="Плановая дата" value={plan || null} onChange={(v) => setPlan(v || '')} placeholder="дд.мм.гггг" />
-      </div>
-
-      <Field label="Услуги (можно несколько)" hint="Выберите вид услуги из справочника и укажите сумму">
-        <div style={{ display: 'grid', gap: 8 }}>
-          {services.map((s, i) => (
-            <div key={i} style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-              <div style={{ flex: 1 }}>
-                <FinPickerField value={s.t} icon="briefcase" placeholder="Выбрать услугу…" onOpen={() => setPickSvc(i)} />
-              </div>
-              <Input type="number" value={s.sum} onChange={(e) => setSvc(i, 'sum', e.target.value)} placeholder="Сумма" style={{ width: 120 }} />
-              <Button size="sm" variant="secondary" icon="trash" onClick={() => rmSvc(i)} disabled={services.length <= 1} />
-            </div>
-          ))}
-          <div><Button size="sm" variant="secondary" icon="plus" onClick={addSvc}>Добавить услугу</Button></div>
-          {svcSum > 0 && <div style={{ fontSize: 12.5, color: 'var(--muted)', textAlign: 'right' }}>Сумма услуг: <b style={{ color: 'var(--ink)' }}>{f$(svcSum)}</b></div>}
-        </div>
+        <Input value={purpose} onChange={(event) => setPurpose(event.target.value)} placeholder="Основание или комментарий" />
       </Field>
 
-      <Field label="Документы-основания">
-        <div style={{ display: 'flex', gap: 8 }}>
-          <Input value={docDraft} onChange={(e) => setDocDraft(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addDoc(); } }}
-            placeholder="Счёт, акт, инвойс, заявление…" style={{ flex: 1 }} />
-          <Button size="sm" variant="secondary" icon="plus" onClick={addDoc}>Добавить</Button>
-        </div>
-        {docs.length > 0 && (
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 8 }}>
-            {docs.map((d, i) => (
-              <span key={i} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12.5, padding: '5px 10px', borderRadius: 8, background: 'var(--surface-2)', border: '1px solid var(--line)' }}>
-                <Icon name="docs" style={{ width: 13, height: 13, color: 'var(--muted-2)' }} />{d}
-                <Icon name="x" style={{ width: 13, height: 13, color: 'var(--muted-2)', cursor: 'pointer' }} onClick={() => setDocs((x) => x.filter((_, idx) => idx !== i))} />
-              </span>
-            ))}
-          </div>
-        )}
-      </Field>
-
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12 }}>
-        <Field label="Ответственный"><Select value={resp} onChange={(e) => setResp(e.target.value)} options={FIN_OPERATORS} /></Field>
-        <Field label="Приоритет"><Select value={priority} onChange={(e) => setPriority(e.target.value)} options={Object.keys(FIN_PRIORITY)} /></Field>
-        <Field label="Статус согласования"><Select value={status} onChange={(e) => setStatus(e.target.value)} options={Object.keys(FIN_PAY_STATUS)} /></Field>
-      </div>
-      <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 2 }}>
-        Итого к {dir === 'in' ? 'поступлению' : 'выплате'}: <b style={{ color: dir === 'in' ? 'var(--green)' : 'var(--ink)' }}>{f$(total)}</b>
-        {dir === 'out' && total >= 1000 ? ' · потребуется согласование' : ''}
-      </div>
-
-      <FinPickerDrawer open={pickParty} value={party}
-        title={dir === 'in' ? 'Выбор клиента' : 'Выбор поставщика'}
-        sub={dir === 'in' ? 'Плательщик по входящему платежу' : 'Получатель исходящего платежа'}
-        placeholder={dir === 'in' ? 'Поиск клиента' : 'Поиск поставщика'}
-        rows={dir === 'in' ? clientRows : supplierRows}
-        onClose={() => setPickParty(false)} onPick={(name) => { setParty(name); setPickParty(false); }} />
-      <FinPickerDrawer open={pickSvc !== null} value={pickSvc !== null ? services[pickSvc].t : ''}
-        title="Выбор услуги" sub="Вид услуги для оплаты" placeholder="Поиск услуги" rows={FIN_SERVICE_ROWS}
-        onClose={() => setPickSvc(null)} onPick={(name) => { setSvc(pickSvc, 't', name); setPickSvc(null); }} />
+      <FinPickerDrawer open={pickParty} value={partyKey}
+        title={dir === 'in' ? 'Выбор плательщика' : 'Выбор получателя'}
+        sub={dir === 'in' ? 'Лицо или компания из backend' : 'Поставщик из backend'}
+        placeholder="Поиск контрагента" rows={partyRows}
+        onClose={() => setPickParty(false)} onPick={(value) => { setPartyKey(value); setPickParty(false); }} />
+      <FinPickerDrawer open={pickOrder} value={orderId} title="Выбор заказа" sub="Заказы из backend"
+        placeholder="Поиск по номеру заказа" rows={orderRows}
+        onClose={() => setPickOrder(false)} onPick={(value) => { setOrderId(value); setPickOrder(false); }} />
     </Drawer>
   );
 }
 
-function FinPayments({ payments = [], obligations = [], onPaymentCreated, onPaymentConfirmed, clientRows = [], supplierRows = [] }) {
+function FinPayments({ payments = [], obligations = [], onPaymentCreated, onPaymentConfirmed, clientRows = [], supplierRows = [], orderRows = [] }) {
   const toast = useToast();
   const [open, setOpen] = useState(null);
   const [creating, setCreating] = useState(false);
-  const [extra, setExtra] = useState([]);
   const [updates, setUpdates] = useState({});
   const [dir, setDir] = useState('all');
   const [status, setStatus] = useState('');
   const [q, setQ] = useState('');
-  const all = [...extra, ...payments.map((payment) => updates[payment.id] || payment)];
+  const all = payments.map((payment) => updates[payment.id] || payment);
   const ql = q.trim().toLowerCase();
   const list = all.filter((p) => (dir === 'all' || p.dir === dir) && (!status || p.status === status)
-    && (!ql || [p.no, p.party, p.purpose, p.order, p.resp].some((v) => String(v || '').toLowerCase().includes(ql))));
+    && (!ql || [p.no, p.party, p.purpose, p.order].some((v) => String(v || '').toLowerCase().includes(ql))));
   return (
     <div className="fade-in">
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14, flexWrap: 'wrap' }}>
@@ -683,9 +607,9 @@ function FinPayments({ payments = [], obligations = [], onPaymentCreated, onPaym
         <FilterChip label="Статус" value={status} onChange={setStatus} options={Object.keys(FIN_PAY_STATUS)} />
         <Button icon="plus" onClick={() => setCreating(true)}>Новый платёж</Button>
       </div>
-      <div className="table-card">
+      {!list.length ? <EmptyState icon="finance" title="Платежей не найдено" /> : <div className="table-card">
         <table className="tbl tbl-wide">
-          <thead><tr><th>№</th><th>Дата</th><th>Направление</th><th>Контрагент</th><th>Заказ</th><th>Назначение</th><th>Ответственный</th><th style={{ textAlign: 'right' }}>Сумма</th><th>Приоритет</th><th>Статус</th></tr></thead>
+          <thead><tr><th>№</th><th>Дата</th><th>Направление</th><th>Контрагент</th><th>Заказ</th><th>Назначение</th><th style={{ textAlign: 'right' }}>Сумма</th><th>Статус</th></tr></thead>
           <tbody>
             {list.map((p) => (
               <tr key={p.no} style={{ cursor: 'pointer' }} onClick={() => setOpen(p)}>
@@ -693,121 +617,111 @@ function FinPayments({ payments = [], obligations = [], onPaymentCreated, onPaym
                 <td><Pill tone={p.dir === 'in' ? 'green' : 'gray'}>{p.dir === 'in' ? 'Входящий' : 'Исходящий'}</Pill></td>
                 <td>{p.party}</td><td>{p.order ? '№ ' + p.order : '—'}</td>
                 <td style={{ color: 'var(--muted)', maxWidth: 220, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.purpose}</td>
-                <td>{p.resp}</td>
-                <td style={{ textAlign: 'right', fontWeight: 700, color: p.dir === 'in' ? 'var(--green)' : 'var(--body)' }}>{p.dir === 'in' ? '+' : '−'}{f$(p.sum)}</td>
-                <td><Pill tone={FIN_PRIORITY[p.priority]}>{p.priority}</Pill></td>
+                <td style={{ textAlign: 'right', fontWeight: 700, color: p.dir === 'in' ? 'var(--green)' : 'var(--body)' }}>{p.dir === 'in' ? '+' : '−'}{financeMoney(p.sum, p.currency)}</td>
                 <td><Pill tone={FIN_PAY_STATUS[p.status]}>{p.status}</Pill></td>
               </tr>
             ))}
           </tbody>
         </table>
-      </div>
+      </div>}
       {open && <FinPaymentDrawer p={open} onClose={() => setOpen(null)} onConfirm={async (payment) => {
         try {
           const allocations = financeAllocationsForPayment(payment, obligations);
           const updated = financePaymentRow(await financeApi.confirmPayment(payment.id, { version: payment.version, allocations }));
           setUpdates((current) => ({ ...current, [payment.id]: updated }));
-          setExtra((current) => current.map((item) => item.id === payment.id ? updated : item));
           setOpen(updated);
           await onPaymentConfirmed?.();
         } catch (error) { toast(error.message || 'Не удалось провести платёж', 'err'); }
       }} />}
-      <NewPaymentDrawer open={creating} onClose={() => setCreating(false)} clientRows={clientRows} supplierRows={supplierRows} onCreate={async (p) => {
-        const created = await onPaymentCreated(p);
-        setExtra((x) => [created, ...x]);
-        return created;
+      <NewPaymentDrawer open={creating} onClose={() => setCreating(false)} clientRows={clientRows} supplierRows={supplierRows} orderRows={orderRows} onCreate={async (p) => {
+        return onPaymentCreated(p);
       }} />
     </div>
   );
 }
 
 function FinTreasury({ accounts = [], payments = [], receipts = [] }) {
-  const toast = useToast();
-  const startBalance = accounts.filter((a) => a.group !== 'Депозиты').reduce((s, a) => s + a.available, 0);
-  const [prio, setPrio] = useState(() => payments.filter((p) => p.dir === 'out').reduce((m, p) => (m[p.no] = p.priority, m), {}));
-  const [saving, setSaving] = useState(false);
-  useEffect(() => setPrio(payments.filter((p) => p.dir === 'out').reduce((m, p) => (m[p.no] = p.priority, m), {})), [payments]);
-  const planned = payments.filter((p) => p.dir === 'out' && !['Исполнено', 'Отменено', 'Возвращено'].includes(p.status));
-  const incoming = receipts.slice().sort((a, b) => a.date.localeCompare(b.date));
-  const totalOut = planned.reduce((s, p) => s + p.sum, 0);
-  const totalIn = incoming.filter((r) => !r.overdue).reduce((s, r) => s + r.sum, 0);
+  const currencies = Array.from(new Set([
+    ...accounts.map((item) => item.currency),
+    ...payments.map((item) => item.currency),
+    ...receipts.map((item) => item.currency),
+  ].filter(Boolean))).sort();
+  const [selectedCurrency, setSelectedCurrency] = useState('');
+  const currency = currencies.includes(selectedCurrency) ? selectedCurrency : currencies[0] || 'USD';
+  const currencyAccounts = accounts.filter((item) => item.currency === currency && item.kind !== 'deposit');
+  const planned = payments
+    .filter((item) => item.currency === currency && item.dir === 'out' && !['Исполнено', 'Отменено', 'Отклонено'].includes(item.status))
+    .slice()
+    .sort((a, b) => String(a.created_at || '').localeCompare(String(b.created_at || '')));
+  const incoming = receipts
+    .filter((item) => item.currency === currency && !item.overdue)
+    .slice()
+    .sort((a, b) => String(a.date).localeCompare(String(b.date)));
+  const startBalance = currencyAccounts.reduce((sum, item) => sum + item.balance, 0);
+  const totalOut = planned.reduce((sum, item) => sum + item.sum, 0);
+  const totalIn = incoming.reduce((sum, item) => sum + item.sum, 0);
   const forecast = startBalance + totalIn - totalOut;
-  const order = { 'Высокий': 0, 'Средний': 1, 'Низкий': 2 };
-  const sorted = planned.slice().sort((a, b) => order[prio[a.no]] - order[prio[b.no]] || a.plan.localeCompare(b.plan));
-  let run = startBalance + totalIn;
-  const withRunning = sorted.map((p) => { run -= p.sum; return { ...p, after: run }; });
-  const gap = withRunning.some((p) => p.after < 0);
+  let running = startBalance + totalIn;
+  const withRunning = planned.map((payment) => {
+    running -= payment.sum;
+    return { ...payment, after: running };
+  });
+  const gap = withRunning.some((item) => item.after < 0);
+
   return (
     <div className="fade-in">
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px,1fr))', gap: 12, marginBottom: 14 }}>
-        <StatTile label="Доступно сейчас" value={f$(startBalance)} icon="finance" />
-        <StatTile label="Ожидаемые поступления" value={f$(totalIn)} tone="var(--green)" icon="arrowUpRight" />
-        <StatTile label="К выплате (план)" value={f$(totalOut)} tone="var(--red)" icon="arrowUpRight" />
-        <StatTile label="Прогноз остатка" value={f$(forecast)} tone={forecast < 0 ? 'var(--red)' : 'var(--green)'} icon="pie" sub="после всех платежей" />
+      <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 12 }}>
+        <Field label="Валюта">
+          <Select value={currency} onChange={(event) => setSelectedCurrency(event.target.value)} options={currencies.length ? currencies : ['USD']} style={{ width: 130 }} />
+        </Field>
       </div>
-      {gap && <WarnBanner tone="red" title="Прогнозируется кассовый разрыв"
-        text="При текущем графике доступных средств не хватит на все запланированные выплаты. Понизьте приоритет части платежей или перенесите даты." />}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px,1fr))', gap: 12, marginBottom: 14 }}>
+        <StatTile label="Остаток на счетах и в кассе" value={financeMoney(startBalance, currency)} icon="finance" />
+        <StatTile label="Ожидаемые поступления" value={financeMoney(totalIn, currency)} tone="var(--green)" icon="arrowUpRight" />
+        <StatTile label="Непроведённые выплаты" value={financeMoney(totalOut, currency)} tone="var(--red)" icon="arrowUpRight" />
+        <StatTile label="Расчётный остаток" value={financeMoney(forecast, currency)} tone={forecast < 0 ? 'var(--red)' : 'var(--green)'} icon="pie" />
+      </div>
+      {gap && <WarnBanner tone="red" title="По текущим данным возможен кассовый разрыв"
+        text="Сумма непроведённых исходящих платежей превышает остаток с учётом ожидаемых поступлений." />}
       <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0,1.6fr) minmax(0,1fr)', gap: 12, alignItems: 'start' }}>
         <div className="card card-pad">
-          <h3 className="card-title" style={{ fontSize: 16, marginBottom: 4 }}>Планирование выплат</h3>
-          <div style={{ fontSize: 12.5, color: 'var(--muted)', marginBottom: 12 }}>Платежи выстроены по приоритету. Прогноз остатка пересчитывается на лету.</div>
-          <div style={{ display: 'grid', gap: 8 }}>
-            {withRunning.map((p) => (
-              <div key={p.no} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px', borderRadius: 10, border: '1px solid var(--line)', background: p.after < 0 ? 'var(--red-bg)' : '#fff' }}>
+          <h3 className="card-title" style={{ fontSize: 16, marginBottom: 4 }}>Исходящие платежи к проведению</h3>
+          <div style={{ fontSize: 12.5, color: 'var(--muted)', marginBottom: 12 }}>Показываются фактические непроведённые платежи backend в выбранной валюте.</div>
+          {!withRunning.length ? <EmptyState icon="check" title="Платежей к проведению нет" /> : <div style={{ display: 'grid', gap: 8 }}>
+            {withRunning.map((payment) => (
+              <div key={payment.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px', borderRadius: 10, border: '1px solid var(--line)', background: payment.after < 0 ? 'var(--red-bg)' : '#fff' }}>
                 <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontWeight: 600, fontSize: 13, color: 'var(--ink)' }}>{p.party}</div>
-                  <div style={{ fontSize: 12, color: 'var(--muted)' }}>{p.no} · план {p.plan} · заказ {p.order || '—'}</div>
+                  <div style={{ fontWeight: 600, fontSize: 13, color: 'var(--ink)' }}>{payment.party}</div>
+                  <div style={{ fontSize: 12, color: 'var(--muted)' }}>{payment.no} · создан {payment.date} · заказ {payment.order || '—'} · {payment.status}</div>
                 </div>
-                <span style={{ fontWeight: 700, color: 'var(--red)' }}>−{f$(p.sum)}</span>
-                <Select value={prio[p.no]} onChange={(e) => setPrio((m) => ({ ...m, [p.no]: e.target.value }))} options={Object.keys(FIN_PRIORITY)} style={{ width: 'auto', minWidth: 120 }} />
-                <span style={{ width: 96, textAlign: 'right', fontSize: 12.5, fontWeight: 700, color: p.after < 0 ? 'var(--red)' : 'var(--muted)' }}>ост. {f$(p.after)}</span>
+                <span style={{ fontWeight: 700, color: 'var(--red)' }}>−{financeMoney(payment.sum, currency)}</span>
+                <span style={{ width: 118, textAlign: 'right', fontSize: 12.5, fontWeight: 700, color: payment.after < 0 ? 'var(--red)' : 'var(--muted)' }}>остаток {financeMoney(payment.after, currency)}</span>
               </div>
             ))}
-          </div>
-          <Button size="sm" style={{ marginTop: 12 }} icon="check" disabled={saving} onClick={async () => {
-            setSaving(true);
-            try {
-              await workspaceActionsApi.execute('finance.payment_schedule.approve', { payload: { priorities: prio, payments: withRunning.map(({ no, plan, after }) => ({ no, plan, after })) } });
-              toast('График платежей сохранён', 'ok');
-            } catch (error) { toast(error.message, 'err'); }
-            finally { setSaving(false); }
-          }}>Утвердить график</Button>
+          </div>}
         </div>
         <div className="card card-pad">
-          <h3 className="card-title" style={{ fontSize: 16, marginBottom: 10 }}>Прогнозная картина</h3>
-          <FinRow label="Остаток на начало" value={f$(startBalance)} />
-          <FinRow label="Поступит" value={'+' + f$(totalIn)} tone="var(--green)" />
-          <FinRow label="Необходимо выплатить" value={'−' + f$(totalOut)} tone="var(--red)" />
-          <FinRow label="Ожидаемый остаток" value={f$(forecast)} tone={forecast < 0 ? 'var(--red)' : 'var(--green)'} strong />
-          <div style={{ marginTop: 12, fontSize: 12.5, color: 'var(--muted)' }}>Ближайшие поступления</div>
-          <div style={{ display: 'grid', gap: 6, marginTop: 6 }}>
-            {incoming.slice(0, 4).map((r, i) => (
-              <div key={i} style={{ display: 'flex', gap: 8, fontSize: 12.5 }}>
-                <span style={{ color: 'var(--muted-2)', width: 76 }}>{r.date}</span>
-                <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.party}</span>
-                <span style={{ fontWeight: 700, color: r.overdue ? 'var(--red)' : 'var(--green)' }}>+{f$(r.sum)}</span>
+          <h3 className="card-title" style={{ fontSize: 16, marginBottom: 10 }}>Расчёт</h3>
+          <FinRow label="Остаток" value={financeMoney(startBalance, currency)} />
+          <FinRow label="Ожидается" value={'+' + financeMoney(totalIn, currency)} tone="var(--green)" />
+          <FinRow label="К проведению" value={'−' + financeMoney(totalOut, currency)} tone="var(--red)" />
+          <FinRow label="После операций" value={financeMoney(forecast, currency)} tone={forecast < 0 ? 'var(--red)' : 'var(--green)'} strong />
+          <div style={{ marginTop: 12, fontSize: 12.5, color: 'var(--muted)' }}>Ближайшие обязательства клиентов</div>
+          {!incoming.length ? <div style={{ fontSize: 12.5, color: 'var(--muted-2)', marginTop: 8 }}>Нет ожидаемых поступлений</div> : <div style={{ display: 'grid', gap: 6, marginTop: 6 }}>
+            {incoming.slice(0, 4).map((item, index) => (
+              <div key={index} style={{ display: 'flex', gap: 8, fontSize: 12.5 }}>
+                <span style={{ color: 'var(--muted-2)', width: 76 }}>{item.date}</span>
+                <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.party}</span>
+                <span style={{ fontWeight: 700, color: 'var(--green)' }}>+{financeMoney(item.sum, currency)}</span>
               </div>
             ))}
-          </div>
+          </div>}
         </div>
       </div>
     </div>
   );
 }
 
-function CreditLimitBar({ used, limit }) {
-  if (!limit) return <div style={{ fontSize: 12, color: 'var(--muted)' }}>Лимит не установлен (работа по факту)</div>;
-  const pct = Math.min(100, Math.round((used / limit) * 100));
-  const tone = pct >= 90 ? 'var(--red)' : pct >= 70 ? 'var(--amber)' : 'var(--green)';
-  return (
-    <div>
-      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, marginBottom: 4 }}>
-        <span style={{ color: 'var(--muted)' }}>Использован лимит</span><span style={{ fontWeight: 700, color: tone }}>{f$(used)} / {f$(limit)} · {pct}%</span>
-      </div>
-      <div style={{ height: 8, borderRadius: 6, background: 'var(--surface-2)', overflow: 'hidden' }}><div style={{ width: pct + '%', height: '100%', background: tone }} /></div>
-    </div>
-  );
-}
 // --- Акт сверки: разбор дат, определение услуги, сбор операций ---
 function reconParseDate(s) {
   const m = String(s || '').match(/(\d{1,2})\.(\d{1,2})(?:\.(\d{2,4}))?/);
@@ -834,17 +748,8 @@ function reconOperations(cp) {
   // Дебет — начисления по документам-обязательствам
   (cp.obligations || []).forEach((o) => ops.push({
     date: reconParseDate(o.since), dateLabel: o.since, basis: o.doc, order: o.order,
-    kind: reconKindOf(o.doc), resp: null, debit: o.sum, credit: 0, dir: 'debit',
+    kind: o.kind ? reconServiceKindLabel(o.kind) : reconKindOf(o.doc), resp: null, debit: o.sum, credit: o.paid, dir: 'obligation',
   }));
-  // Кредит — оплаты из платежей по этому контрагенту (реальные даты / услуга / ответственный)
-  (typeof FIN_PAYMENTS !== 'undefined' ? FIN_PAYMENTS : []).forEach((p) => {
-    if (p.party !== cp.name) return;
-    const svc = (p.services && p.services[0] && p.services[0].t) || p.purpose;
-    ops.push({
-      date: reconParseDate(p.date), dateLabel: p.date, basis: p.purpose, order: p.order,
-      kind: reconKindOf(svc), resp: p.resp, debit: 0, credit: p.sum, dir: 'credit', doc: p.no,
-    });
-  });
   return ops.sort((a, b) => (a.date ? a.date.getTime() : 0) - (b.date ? b.date.getTime() : 0));
 }
 
@@ -892,7 +797,7 @@ function ReconActContent({ cp, meta }) {
         },
       });
       if (result instanceof Blob) saveFinanceBlob(result, `Акт-сверки-${cp.name}.txt`);
-      toast(kind === 'accounting_export' ? 'Акт передан в бухгалтерию' : kind === 'reconciliation_send' ? 'Акт отправлен контрагенту' : 'Акт сверки скачан', 'ok');
+      toast(kind === 'reconciliation' ? 'Акт сверки скачан' : 'Задача поставлена в очередь backend', 'ok');
     } catch (error) { toast(error.message || 'Не удалось обработать акт сверки', 'err'); }
   };
 
@@ -924,9 +829,9 @@ function ReconActContent({ cp, meta }) {
       {built ? (
         <div className="fade-in">
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(160px,1fr))', gap: 10, marginBottom: 12 }}>
-            <StatTile label="Дебет (начислено)" value={f$(debit)} />
-            <StatTile label="Кредит (оплачено)" value={f$(credit)} tone="var(--green)" />
-            <StatTile label="Сальдо (остаток)" value={f$(balance)} tone={balance > 0 ? 'var(--amber)' : 'var(--green)'} />
+            <StatTile label="Дебет (начислено)" value={financeMoney(debit, cp.currency)} />
+            <StatTile label="Кредит (оплачено)" value={financeMoney(credit, cp.currency)} tone="var(--green)" />
+            <StatTile label="Сальдо (остаток)" value={financeMoney(balance, cp.currency)} tone={balance > 0 ? 'var(--amber)' : 'var(--green)'} />
           </div>
           <div style={{ fontSize: 12.5, color: 'var(--muted)', marginBottom: 10 }}>Акт сверки с <b style={{ color: 'var(--ink)' }}>{cp.name}</b> · {paramLine} · операций: {rows.length}</div>
           <div className="table-card" style={{ boxShadow: 'none', border: '1px solid var(--line)' }}>
@@ -940,8 +845,8 @@ function ReconActContent({ cp, meta }) {
                     <td>{o.order ? '№ ' + o.order : '—'}</td>
                     <td>{o.kind}</td>
                     <td>{o.resp || '—'}</td>
-                    <td style={{ textAlign: 'right' }}>{o.debit ? f$(o.debit) : '—'}</td>
-                    <td style={{ textAlign: 'right', color: 'var(--green)' }}>{o.credit ? f$(o.credit) : '—'}</td>
+                    <td style={{ textAlign: 'right' }}>{o.debit ? financeMoney(o.debit, cp.currency) : '—'}</td>
+                    <td style={{ textAlign: 'right', color: 'var(--green)' }}>{o.credit ? financeMoney(o.credit, cp.currency) : '—'}</td>
                   </tr>
                 ))}
                 {rows.length === 0 && <tr><td colSpan={7} style={{ textAlign: 'center', color: 'var(--muted)', padding: '18px 0' }}>Нет операций под выбранные параметры</td></tr>}
@@ -949,8 +854,8 @@ function ReconActContent({ cp, meta }) {
               {rows.length > 0 && (
                 <tfoot><tr style={{ fontWeight: 700 }}>
                   <td colSpan={5} style={{ textAlign: 'right' }}>Итого:</td>
-                  <td style={{ textAlign: 'right' }}>{f$(debit)}</td>
-                  <td style={{ textAlign: 'right', color: 'var(--green)' }}>{f$(credit)}</td>
+                  <td style={{ textAlign: 'right' }}>{financeMoney(debit, cp.currency)}</td>
+                  <td style={{ textAlign: 'right', color: 'var(--green)' }}>{financeMoney(credit, cp.currency)}</td>
                 </tr></tfoot>
               )}
             </table>
@@ -981,20 +886,14 @@ function ReconActDrawer({ open, cp, meta, onClose }) {
   );
 }
 
-const FIN_CP_ROWS = FIN_COUNTERPARTIES.map((c) => ({
-  name: c.name,
-  sub: (c.type === 'client' ? 'Клиент' : 'Поставщик') + ' · ' + c.scheme + ' · долг ' + f$(c.debt),
-  icon: c.type === 'client' ? 'user' : 'suppliers',
-  tone: c.type === 'client' ? 'var(--blue)' : 'var(--amber)',
-}));
-
 function FinReconciliation({ counterparties = [], meta }) {
-  const [cpName, setCpName] = useState('');
+  const [cpKey, setCpKey] = useState('');
   const [pick, setPick] = useState(false);
-  const cp = counterparties.find((c) => c.name === cpName) || null;
+  const cp = counterparties.find((c) => `${c.id}|${c.currency}` === cpKey) || null;
   const rows = counterparties.map((c) => ({
+    value: `${c.id}|${c.currency}`,
     name: c.name,
-    sub: (c.type === 'client' ? 'Клиент' : 'Поставщик') + ' · ' + c.scheme + ' · долг ' + f$(c.debt),
+    sub: (c.type === 'client' ? 'Клиент' : 'Поставщик') + ' · ' + c.currency + ' · долг ' + financeMoney(c.debt, c.currency),
     icon: c.type === 'client' ? 'user' : 'suppliers',
     tone: c.type === 'client' ? 'var(--blue)' : 'var(--amber)',
   }));
@@ -1002,7 +901,7 @@ function FinReconciliation({ counterparties = [], meta }) {
     <div className="fade-in">
       <div className="card card-pad" style={{ marginBottom: 14, maxWidth: 560 }}>
         <Field label="Контрагент" hint="Клиент или поставщик — выберите из списка в боковом окне">
-          <FinPickerField value={cpName} icon="suppliers" placeholder="Выбрать контрагента или компанию…" onOpen={() => setPick(true)} />
+          <FinPickerField value={cp ? `${cp.name} · ${cp.currency}` : ''} icon="suppliers" placeholder="Выбрать контрагента или компанию…" onOpen={() => setPick(true)} />
         </Field>
       </div>
       {cp
@@ -1011,9 +910,9 @@ function FinReconciliation({ counterparties = [], meta }) {
             <Icon name="finance" style={{ width: 18, height: 18, color: 'var(--muted-2)' }} />
             Выберите контрагента — откроются параметры и формирование акта сверки за период / по услуге / по сотруднику.
           </div>}
-      <FinPickerDrawer open={pick} value={cpName} title="Выбор контрагента" sub="Клиенты и поставщики"
+      <FinPickerDrawer open={pick} value={cpKey} title="Выбор контрагента" sub="Клиенты и поставщики"
         placeholder="Поиск контрагента или компании" rows={rows}
-        onClose={() => setPick(false)} onPick={(name) => { setCpName(name); setPick(false); }} />
+        onClose={() => setPick(false)} onPick={(value) => { setCpKey(value); setPick(false); }} />
     </div>
   );
 }
@@ -1021,421 +920,220 @@ function FinReconciliation({ counterparties = [], meta }) {
 function FinCounterpartyDrawer({ cp, meta, onClose }) {
   const toast = useToast();
   const [reconOpen, setReconOpen] = useState(false);
-  const free = Math.max(0, cp.limit - cp.used);
-  const debit = cp.obligations.reduce((s, o) => s + o.sum, 0);
-  const credit = cp.obligations.reduce((s, o) => s + o.paid, 0);
-  const exp = async (kind) => {
+  const debit = cp.obligations.reduce((sum, item) => sum + item.sum, 0);
+  const credit = cp.obligations.reduce((sum, item) => sum + item.paid, 0);
+  const rows = cp.obligations.map((item) => ({
+    date: item.since,
+    basis: item.doc,
+    order: item.order,
+    kind: item.kind,
+    debit: item.sum,
+    credit: item.paid,
+  }));
+  const exportDocument = async (kind) => {
     try {
-      const result = await financeApi.createDocument({ kind, payload: { counterpart: cp.name, debit, credit, balance: debit - credit } });
-      if (result instanceof Blob) saveFinanceBlob(result, `${kind === 'invoice' ? 'Счёт' : 'УПД'}-${cp.name}.txt`);
-      toast(kind === 'accounting_export' ? 'Данные переданы в бухгалтерию' : 'Документ сформирован', 'ok');
-    } catch (error) { toast(error.message || 'Не удалось сформировать документ', 'err'); }
+      const result = await financeApi.createDocument({
+        kind,
+        payload: { counterpart: cp.name, debit, credit, balance: debit - credit, rows },
+      });
+      if (result instanceof Blob) {
+        const label = { invoice: 'Счёт', upd: 'УПД' }[kind] || 'Документ';
+        saveFinanceBlob(result, `${label}-${cp.name}.txt`);
+        toast('Документ сформирован по данным backend', 'ok');
+      } else {
+        toast(result?.status === 'queued' ? 'Выгрузка поставлена в очередь backend' : 'Запрос обработан backend', 'ok');
+      }
+    } catch (error) {
+      toast(error.message || 'Не удалось сформировать документ', 'err');
+    }
   };
+
   return (
-    <Drawer open={!!cp} onClose={onClose} title={cp.name} sub={(cp.type === 'client' ? 'Клиент' : 'Поставщик') + ' · ' + cp.legal} width="min(780px,96vw)"
+    <Drawer open={!!cp} onClose={onClose} title={cp.name} sub={(cp.type === 'client' ? 'Клиент' : 'Поставщик') + ' · ' + cp.currency} width="min(900px,96vw)"
       footer={<div style={{ display: 'flex', gap: 8, width: '100%', flexWrap: 'wrap' }}>
         <Button variant="secondary" size="sm" icon="download" onClick={() => setReconOpen(true)} style={{ flex: 1 }}>Акт сверки</Button>
-        <Button variant="secondary" size="sm" icon="download" onClick={() => exp('invoice')} style={{ flex: 1 }}>Счёт</Button>
-        <Button variant="secondary" size="sm" icon="download" onClick={() => exp('upd')} style={{ flex: 1 }}>УПД</Button>
-        <Button size="sm" icon="send" onClick={() => exp('accounting_export')} style={{ flex: 1.4 }}>В бухгалтерию</Button>
+        <Button variant="secondary" size="sm" icon="download" onClick={() => exportDocument('invoice')} style={{ flex: 1 }}>Счёт</Button>
+        <Button variant="secondary" size="sm" icon="download" onClick={() => exportDocument('upd')} style={{ flex: 1 }}>УПД</Button>
+        <Button size="sm" icon="send" onClick={() => exportDocument('accounting_export')} style={{ flex: 1.4 }}>В бухгалтерию</Button>
       </div>}>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 10, marginBottom: 14 }}>
-        <StatTile label={cp.type === 'client' ? 'Задолженность клиента' : 'Наш долг поставщику'} value={f$(cp.debt)} tone={cp.debt ? 'var(--amber)' : 'var(--green)'} />
-        <StatTile label="Оплачено" value={f$(cp.paid)} />
-        <StatTile label="Свободный лимит" value={cp.limit ? f$(free) : '—'} tone={cp.limit ? 'var(--green)' : undefined} />
+        <StatTile label={cp.type === 'client' ? 'Задолженность клиента' : 'Наш долг поставщику'} value={financeMoney(cp.debt, cp.currency)} tone={cp.debt ? 'var(--amber)' : 'var(--green)'} />
+        <StatTile label="Начислено" value={financeMoney(debit, cp.currency)} />
+        <StatTile label="Оплачено" value={financeMoney(credit, cp.currency)} tone="var(--green)" />
       </div>
-      <div className="card card-pad" style={{ marginBottom: 14 }}>
-        <h3 className="card-title" style={{ fontSize: 14, marginBottom: 10 }}>Финансовые условия · отсрочка</h3>
-        <FinRow label="Схема работы" value={cp.scheme} />
-        <FinRow label="Отсрочка" value={cp.deferralDays ? cp.deferralDays + ' дн. · ' + cp.deferralStart : '—'} />
-        <FinRow label="Кредитный лимит" value={cp.limit ? f$(cp.limit) + ' (' + cp.currency + ')' : 'не установлен'} />
-        <FinRow label="Гарантийное письмо" value={cp.guaranteeLetter ? 'требуется' : 'не требуется'} />
-        <FinRow label="Согласование при превышении" value={cp.approveOnExceed ? 'обязательно' : 'не требуется'} />
-        <div style={{ marginTop: 12 }}><CreditLimitBar used={cp.used} limit={cp.limit} /></div>
-      </div>
-      <div className="card card-pad" style={{ marginBottom: 14 }}>
-        <h3 className="card-title" style={{ fontSize: 14, marginBottom: 10 }}>Детализация по дебету / кредиту</h3>
-        <FinRow label="Дебет (начислено по документам)" value={f$(debit)} />
-        <FinRow label="Кредит (оплачено)" value={f$(credit)} tone="var(--green)" />
-        <FinRow label="Сальдо (остаток)" value={f$(debit - credit)} tone={debit - credit > 0 ? 'var(--amber)' : 'var(--green)'} strong />
-      </div>
-      <h3 className="card-title" style={{ fontSize: 14, marginBottom: 8 }}>График погашения задолженности</h3>
+
+      <h3 className="card-title" style={{ fontSize: 14, marginBottom: 8 }}>Финансовые обязательства</h3>
       <div className="table-card" style={{ boxShadow: 'none', border: '1px solid var(--line)', marginBottom: 14 }}>
         <table className="tbl">
-          <thead><tr><th>Заказ</th><th>Документ</th><th style={{ textAlign: 'right' }}>Сумма</th><th style={{ textAlign: 'right' }}>Оплачено</th><th style={{ textAlign: 'right' }}>Остаток</th><th>Возникло</th><th>Срок</th><th>Дней</th><th>Статус</th></tr></thead>
-          <tbody>
-            {cp.obligations.map((o, i) => (
-              <tr key={i}>
-                <td>№ {o.order}</td><td>{o.doc}</td>
-                <td style={{ textAlign: 'right' }}>{f$(o.sum)}</td><td style={{ textAlign: 'right', color: 'var(--green)' }}>{f$(o.paid)}</td>
-                <td style={{ textAlign: 'right', fontWeight: 700 }}>{f$(o.rest)}</td>
-                <td>{o.since}</td><td>{o.due}</td>
-                <td style={{ fontWeight: 700, color: o.overdueDays > 0 ? 'var(--red)' : 'var(--muted)' }}>{o.overdueDays > 0 ? '+' + o.overdueDays + ' проср.' : o.daysToDue + ' дн.'}</td>
-                <td><Pill tone={o.status === 'Оплачено' ? 'green' : o.status === 'Просрочено' ? 'red' : 'amber'}>{o.status}</Pill></td>
-              </tr>
-            ))}
-          </tbody>
+          <thead><tr><th>Заказ</th><th>Основание</th><th>Вид услуги</th><th>Возникло</th><th>Срок</th><th style={{ textAlign: 'right' }}>Начислено</th><th style={{ textAlign: 'right' }}>Оплачено</th><th style={{ textAlign: 'right' }}>Остаток</th><th>Статус</th></tr></thead>
+          <tbody>{cp.obligations.map((item) => (
+            <tr key={item.id}>
+              <td>№ {item.order}</td>
+              <td>{item.doc}</td>
+              <td>{reconServiceKindLabel(item.kind)}</td>
+              <td>{item.since}</td>
+              <td style={{ color: item.overdueDays > 0 ? 'var(--red)' : undefined }}>{item.due}</td>
+              <td style={{ textAlign: 'right' }}>{financeMoney(item.sum, cp.currency)}</td>
+              <td style={{ textAlign: 'right', color: 'var(--green)' }}>{financeMoney(item.paid, cp.currency)}</td>
+              <td style={{ textAlign: 'right', fontWeight: 700 }}>{financeMoney(item.rest, cp.currency)}</td>
+              <td><Pill tone={item.status === 'Оплачено' ? 'green' : item.status === 'Просрочено' ? 'red' : 'amber'}>{item.status}</Pill></td>
+            </tr>
+          ))}</tbody>
         </table>
       </div>
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
-        <div>
-          <h3 className="card-title" style={{ fontSize: 14, marginBottom: 8 }}>История оплат</h3>
-          <div className="card card-pad">{cp.payHistory.map((h, i) => <FinRow key={i} label={h.t} value={h.text} />)}</div>
-        </div>
-        <div>
-          <h3 className="card-title" style={{ fontSize: 14, marginBottom: 8 }}>Счета · акты · заказы</h3>
-          <div className="card card-pad" style={{ fontSize: 12.5, color: 'var(--body)', display: 'grid', gap: 6 }}>
-            {cp.invoices.map((x, i) => <div key={'i' + i}><Icon name="finance" style={{ width: 12, height: 12, verticalAlign: -1, color: 'var(--muted-2)' }} /> {x}</div>)}
-            {cp.acts.map((x, i) => <div key={'a' + i}><Icon name="template" style={{ width: 12, height: 12, verticalAlign: -1, color: 'var(--muted-2)' }} /> {x}</div>)}
-            <div style={{ color: 'var(--muted)' }}>Заказы: {cp.orders.map((o) => '№ ' + o).join(', ')}</div>
-          </div>
-        </div>
-      </div>
-      {cp.type === 'supplier' && <SupplierSettlements cp={cp} />}
+      <div style={{ fontSize: 12, color: 'var(--muted)' }}>Параметры договора и кредитного лимита показываются в карточке компании; здесь отображаются только проведённые финансовые записи.</div>
       <ReconActDrawer open={reconOpen} cp={cp} meta={meta} onClose={() => setReconOpen(false)} />
     </Drawer>
-  );
-}
-function SupplierSettlements({ cp }) {
-  const toast = useToast();
-  const [ops, setOps] = useState([
-    { t: '28.06.2026', kind: 'Аванс', sum: 1000, note: 'Предоплата по договору' },
-    { t: '05.07.2026', kind: 'Доплата', sum: 240, note: 'Доплата за доп. номера' },
-    { t: '10.07.2026', kind: 'Возврат', sum: -120, note: 'Возврат за отменённый номер' },
-  ]);
-  const add = async (kind) => {
-    const operationAmounts = { 'Аванс': 500, 'Доплата': 180, 'Возврат': -90, 'Взаимозачёт': -260 };
-    const row = { t: finNow().slice(0, 10), kind, sum: operationAmounts[kind], note: kind === 'Взаимозачёт' ? 'Зачёт встречных требований' : 'Операция оператора' };
-    try {
-      await workspaceActionsApi.execute('finance.supplier_settlement.create', { resourceType: 'counterparty', resourceId: cp.name, payload: row });
-      setOps((o) => [row, ...o]);
-      toast(kind + ' сохранён в финансовом журнале', 'ok');
-    } catch (error) { toast(error.message || 'Не удалось сохранить операцию', 'err'); }
-  };
-  const kindTone = { 'Аванс': 'blue', 'Доплата': 'amber', 'Возврат': 'teal', 'Взаимозачёт': 'gray' };
-  return (
-    <div style={{ marginTop: 14 }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8, flexWrap: 'wrap' }}>
-        <h3 className="card-title" style={{ fontSize: 14 }}>Расчёты с локальным поставщиком</h3>
-        <div style={{ flex: 1 }} />
-        {['Аванс', 'Доплата', 'Возврат', 'Взаимозачёт'].map((k) => <Button key={k} size="sm" variant="secondary" onClick={() => add(k)}>+ {k}</Button>)}
-      </div>
-      <div className="card card-pad" style={{ marginBottom: 10 }}>
-        <FinRow label="Комиссия поставщика" value="по договору · 8%" />
-        <FinRow label="Поддерживаются" value="частичные оплаты · авансы · доплаты · возвраты · взаимозачёты" />
-      </div>
-      <div className="table-card" style={{ boxShadow: 'none', border: '1px solid var(--line)' }}>
-        <table className="tbl">
-          <thead><tr><th>Дата</th><th>Тип</th><th>Основание</th><th style={{ textAlign: 'right' }}>Сумма</th></tr></thead>
-          <tbody>
-            {ops.map((o, i) => (
-              <tr key={i}><td>{o.t}</td><td><Pill tone={kindTone[o.kind]}>{o.kind}</Pill></td><td style={{ color: 'var(--muted)' }}>{o.note}</td>
-                <td style={{ textAlign: 'right', fontWeight: 700, color: deltaTone(o.sum) }}>{fSigned(o.sum)}</td></tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-    </div>
   );
 }
 function FinSettlements({ counterparties = [], receipts = [], meta }) {
   const [open, setOpen] = useState(null);
   const [type, setType] = useState('client');
   const [q, setQ] = useState('');
-  const [scheme, setScheme] = useState('');
   const [onlyOverdue, setOnlyOverdue] = useState(false);
-  const ql = q.trim().toLowerCase();
-  const list = counterparties.filter((c) => c.type === type)
-    .filter((c) => !ql || [c.name, c.legal, ...c.orders.map(String)].some((v) => String(v || '').toLowerCase().includes(ql)))
-    .filter((c) => !scheme || c.scheme === scheme)
-    .filter((c) => !onlyOverdue || c.obligations.some((o) => o.overdueDays > 0));
-  const schemeOptions = Array.from(new Set(counterparties.map((c) => c.scheme)));
+  const query = q.trim().toLowerCase();
+  const list = counterparties.filter((item) => item.type === type)
+    .filter((item) => !query || [item.name, item.legal, ...item.orders.map(String)].some((value) => String(value || '').toLowerCase().includes(query)))
+    .filter((item) => !onlyOverdue || item.obligations.some((obligation) => obligation.overdueDays > 0));
+  const debtByCurrency = list.reduce((map, item) => {
+    map[item.currency] = (map[item.currency] || 0) + item.debt;
+    return map;
+  }, {});
+  const debtText = Object.entries(debtByCurrency).map(([currency, value]) => financeMoney(value, currency)).join('; ') || '0';
+
   return (
     <div className="fade-in">
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14, flexWrap: 'wrap' }}>
         <Tabs tabs={[{ key: 'client', label: 'Клиенты' }, { key: 'supplier', label: 'Поставщики' }]} value={type} onChange={setType} />
-        <SearchBox value={q} onChange={setQ} placeholder="Поиск по компании, юр. лицу, заказу" style={{ minWidth: 260 }} />
-        <FilterChip label="Схема" value={scheme} onChange={setScheme} options={schemeOptions} />
-        <button type="button" onClick={() => setOnlyOverdue((v) => !v)}
+        <SearchBox value={q} onChange={setQ} placeholder="Поиск по контрагенту или заказу" style={{ minWidth: 260 }} />
+        <button type="button" onClick={() => setOnlyOverdue((value) => !value)}
           style={{ cursor: 'pointer', fontSize: 12.5, padding: '7px 12px', borderRadius: 9, border: '1px solid ' + (onlyOverdue ? 'var(--red)' : 'var(--line)'), background: onlyOverdue ? 'var(--red-bg)' : '#fff', color: onlyOverdue ? 'var(--red)' : 'var(--body)' }}>
           Только с просрочкой
         </button>
         <div style={{ flex: 1 }} />
-        <span style={{ fontSize: 12.5, color: 'var(--muted)' }}>Найдено: <b>{list.length}</b> · задолженность: <b style={{ color: 'var(--amber)' }}>{f$(list.reduce((s, c) => s + c.debt, 0))}</b></span>
+        <span style={{ fontSize: 12.5, color: 'var(--muted)' }}>Найдено: <b>{list.length}</b> · задолженность: <b style={{ color: 'var(--amber)' }}>{debtText}</b></span>
       </div>
-      <div className="table-card">
-        <table className="tbl tbl-wide">
-          <thead><tr><th>Контрагент</th><th>Схема</th><th>Отсрочка</th><th>Кредитный лимит</th><th style={{ textAlign: 'right' }}>Задолженность</th><th style={{ textAlign: 'right' }}>Оплачено</th><th>Ближайший срок</th><th>Дисциплина</th></tr></thead>
-          <tbody>
-            {list.map((c) => {
-              const nearest = c.obligations.slice().sort((a, b) => a.due.localeCompare(b.due))[0];
-              const over = c.obligations.some((o) => o.overdueDays > 0);
+
+      {!list.length ? <EmptyState icon="finance" title="Взаиморасчётов не найдено" /> : (
+        <div className="table-card">
+          <table className="tbl">
+            <thead><tr><th>Контрагент</th><th>Валюта</th><th>Заказы</th><th>Обязательств</th><th style={{ textAlign: 'right' }}>Задолженность</th><th style={{ textAlign: 'right' }}>Оплачено</th><th>Ближайший срок</th><th>Статус</th></tr></thead>
+            <tbody>{list.map((item) => {
+              const nearest = item.obligations.filter((obligation) => obligation.due && obligation.due !== '—').slice().sort((a, b) => a.due.localeCompare(b.due))[0];
+              const overdue = item.obligations.some((obligation) => obligation.overdueDays > 0);
               return (
-                <tr key={c.id} style={{ cursor: 'pointer' }} onClick={() => setOpen(c)}>
-                  <td style={{ fontWeight: 600 }}>{c.name}</td><td>{c.scheme}</td>
-                  <td>{c.deferralDays ? c.deferralDays + ' дн.' : '—'}</td>
-                  <td style={{ minWidth: 150 }}>{c.limit ? <CreditLimitBar used={c.used} limit={c.limit} /> : '—'}</td>
-                  <td style={{ textAlign: 'right', fontWeight: 700, color: over ? 'var(--red)' : 'var(--amber)' }}>{f$(c.debt)}</td>
-                  <td style={{ textAlign: 'right', color: 'var(--green)' }}>{f$(c.paid)}</td>
-                  <td style={{ color: over ? 'var(--red)' : 'var(--body)' }}>{nearest ? nearest.due : '—'}{over ? ' · просрочка' : ''}</td>
-                  <td><Pill tone={c.discipline.rating === 'A' ? 'green' : c.discipline.rating === 'B' ? 'amber' : 'red'}>{c.discipline.rating} · {c.discipline.onTimePct}%</Pill></td>
+                <tr key={item.type + item.name + item.currency} style={{ cursor: 'pointer' }} onClick={() => setOpen(item)}>
+                  <td className="t-strong">{item.name}</td>
+                  <td>{item.currency}</td>
+                  <td>{item.orders.join(', ') || '—'}</td>
+                  <td>{item.obligations.length}</td>
+                  <td style={{ textAlign: 'right', fontWeight: 700, color: overdue ? 'var(--red)' : 'var(--amber)' }}>{financeMoney(item.debt, item.currency)}</td>
+                  <td style={{ textAlign: 'right', color: 'var(--green)' }}>{financeMoney(item.paid, item.currency)}</td>
+                  <td style={{ color: overdue ? 'var(--red)' : 'var(--body)' }}>{nearest?.due || '—'}{overdue ? ' · просрочка' : ''}</td>
+                  <td><Pill tone={overdue ? 'red' : item.debt > 0 ? 'amber' : 'green'}>{overdue ? 'Просрочено' : item.debt > 0 ? 'Ожидает оплаты' : 'Оплачено'}</Pill></td>
                 </tr>
               );
-            })}
-          </tbody>
-        </table>
-      </div>
+            })}</tbody>
+          </table>
+        </div>
+      )}
+
       <h3 className="card-title" style={{ fontSize: 16, margin: '22px 0 12px' }}>Календарь поступлений</h3>
-      <div className="table-card">
-        <table className="tbl">
-          <thead><tr><th>Дата</th><th>Контрагент</th><th>Основание</th><th>Ответственный</th><th style={{ textAlign: 'right' }}>Сумма</th><th>Статус</th></tr></thead>
-          <tbody>
-            {receipts.slice().sort((a, b) => a.date.localeCompare(b.date)).map((r, i) => (
-              <tr key={i}>
-                <td>{r.date}</td><td style={{ fontWeight: 600 }}>{r.party}</td><td style={{ color: 'var(--muted)' }}>{r.basis}</td><td>{r.resp}</td>
-                <td style={{ textAlign: 'right', fontWeight: 700, color: r.overdue ? 'var(--red)' : 'var(--green)' }}>+{f$(r.sum)}</td>
-                <td><Pill tone={r.overdue ? 'red' : 'green'}>{r.overdue ? 'Просрочено' : 'Ожидается'}</Pill></td>
+      {!receipts.length ? <EmptyState icon="calendar" title="Ожидаемых поступлений нет" /> : (
+        <div className="table-card">
+          <table className="tbl">
+            <thead><tr><th>Дата</th><th>Контрагент</th><th>Основание</th><th style={{ textAlign: 'right' }}>Сумма</th><th>Статус</th></tr></thead>
+            <tbody>{receipts.slice().sort((a, b) => a.date.localeCompare(b.date)).map((receipt, index) => (
+              <tr key={index}>
+                <td>{receipt.date}</td><td className="t-strong">{receipt.party}</td><td style={{ color: 'var(--muted)' }}>{receipt.basis}</td>
+                <td style={{ textAlign: 'right', fontWeight: 700, color: receipt.overdue ? 'var(--red)' : 'var(--green)' }}>{financeMoney(receipt.sum, receipt.currency)}</td>
+                <td><Pill tone={receipt.overdue ? 'red' : 'green'}>{receipt.overdue ? 'Просрочено' : 'Ожидается'}</Pill></td>
               </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+            ))}</tbody>
+          </table>
+        </div>
+      )}
       {open && <FinCounterpartyDrawer cp={open} meta={meta} onClose={() => setOpen(null)} />}
     </div>
   );
 }
 
-function ServiceModelCard({ kind }) {
-  const rows = FIN_SVC_MODEL[kind];
-  const clientTotal = svcClientTotal(rows);
-  const supplierPay = svcSupplierPay(rows);
-  const profit = svcModelProfit(rows);
+function FinEconomics({ economics = [] }) {
+  const rows = economics.map((item) => ({
+    ...item,
+    revenue: Number(item.revenue || 0),
+    cost: Number(item.cost || 0),
+    fees: Number(item.fees || 0),
+    markup: Number(item.markup || 0),
+    gross: Number(item.revenue || 0) - Number(item.cost || 0),
+  }));
   return (
-    <div className="card card-pad">
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
-        <span className="oc-svc-ic" style={{ background: (SERVICE_KIND[kind] || {}).color || 'var(--blue)', width: 30, height: 30 }}><Icon name={(SERVICE_KIND[kind] || {}).icon || 'briefcase'} /></span>
-        <h3 className="card-title" style={{ fontSize: 15 }}>Финмодель · {kind}</h3>
+    <div className="fade-in">
+      <div style={{ fontSize: 12.5, color: 'var(--muted)', marginBottom: 12 }}>
+        Данные рассчитаны backend по подтверждённым и оформленным услугам. Каждая строка разделена по виду услуги и валюте.
       </div>
-      {rows.map((r, i) => <FinRow key={i} label={r.l} value={fSigned(r.v)} tone={r.k === 'cost' ? 'var(--muted)' : r.v >= 0 ? 'var(--ink)' : 'var(--red)'} />)}
-      <div style={{ borderTop: '1px dashed var(--line)', marginTop: 8, paddingTop: 4 }}>
-        <FinRow label="Итоговая стоимость клиенту" value={f$(clientTotal)} strong />
-        <FinRow label="Оплата поставщику" value={f$(supplierPay)} tone="var(--muted)" />
-        <FinRow label="Чистая прибыль" value={f$(profit)} tone="var(--green)" strong />
-      </div>
+      {!rows.length ? <EmptyState icon="pie" title="Нет услуг для расчёта экономики" /> : (
+        <div className="table-card">
+          <table className="tbl">
+            <thead><tr><th>Вид услуги</th><th>Валюта</th><th style={{ textAlign: 'right' }}>Выручка</th><th style={{ textAlign: 'right' }}>Стоимость поставщика</th><th style={{ textAlign: 'right' }}>Сборы</th><th style={{ textAlign: 'right' }}>Наценка</th><th style={{ textAlign: 'right' }}>Валовая прибыль</th></tr></thead>
+            <tbody>{rows.map((item) => (
+              <tr key={`${item.kind}|${item.currency}`}>
+                <td className="t-strong">{reconServiceKindLabel(item.kind)}</td>
+                <td>{item.currency}</td>
+                <td style={{ textAlign: 'right' }}>{financeMoney(item.revenue, item.currency)}</td>
+                <td style={{ textAlign: 'right' }}>{financeMoney(item.cost, item.currency)}</td>
+                <td style={{ textAlign: 'right' }}>{financeMoney(item.fees, item.currency)}</td>
+                <td style={{ textAlign: 'right' }}>{financeMoney(item.markup, item.currency)}</td>
+                <td style={{ textAlign: 'right', fontWeight: 700, color: item.gross >= 0 ? 'var(--green)' : 'var(--red)' }}>{financeMoney(item.gross, item.currency)}</td>
+              </tr>
+            ))}</tbody>
+          </table>
+        </div>
+      )}
     </div>
   );
 }
-function FinEconomics() {
-  const [kind, setKind] = useState('Авиа');
-  const orderKinds = ['Авиа', 'Гостиница', 'Трансфер'];
-  const orderRows = orderKinds.map((k) => {
-    const rows = FIN_SVC_MODEL[k];
-    return { k, client: svcClientTotal(rows), cost: svcSupplierPay(rows), profit: svcModelProfit(rows) };
+
+function FinAnalytics({ cashflow = [] }) {
+  const currencies = Array.from(new Set(cashflow.map((item) => item.currency).filter(Boolean))).sort();
+  const [selectedCurrency, setSelectedCurrency] = useState('');
+  const currency = currencies.includes(selectedCurrency) ? selectedCurrency : currencies[0] || 'USD';
+  const grouped = new Map();
+  cashflow.filter((item) => item.currency === currency).forEach((item) => {
+    const key = financeDate(item.date);
+    const row = grouped.get(key) || { date: key, incoming: 0, outgoing: 0 };
+    row[item.direction === 'incoming' ? 'incoming' : 'outgoing'] += Number(item.amount || 0);
+    grouped.set(key, row);
   });
-  const oClient = orderRows.reduce((s, r) => s + r.client, 0);
-  const oCost = orderRows.reduce((s, r) => s + r.cost, 0);
-  const oProfit = orderRows.reduce((s, r) => s + r.profit, 0);
-  const tax = Math.round(oProfit * 0.1);
+  let cumulative = 0;
+  const rows = [...grouped.values()].map((item) => {
+    const net = item.incoming - item.outgoing;
+    cumulative += net;
+    return { ...item, net, cumulative };
+  });
   return (
     <div className="fade-in">
-      <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0,1fr) minmax(0,1fr)', gap: 12, alignItems: 'start' }}>
-        <div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
-            <h3 className="card-title" style={{ fontSize: 16 }}>Полная финмодель услуги</h3>
-            <div style={{ flex: 1 }} />
-            <Select value={kind} onChange={(e) => setKind(e.target.value)} options={Object.keys(FIN_SVC_MODEL)} style={{ width: 'auto', minWidth: 130 }} />
-          </div>
-          <ServiceModelCard kind={kind} />
-          <div className="card card-pad" style={{ marginTop: 12 }}>
-            <h3 className="card-title" style={{ fontSize: 14, marginBottom: 8 }}>Автоматический расчёт начислений</h3>
-            <div style={{ fontSize: 12.5, color: 'var(--muted)', marginBottom: 8 }}>Все начисления считаются по правилам из «Центра финправил» без изменения кода.</div>
-            {['Сервисный сбор', 'Надбавка / скидка', 'Комиссия поставщика', 'Агентская комиссия', 'Комиссия платёжной системы', 'Банковская комиссия', 'Вознаграждение оператора', 'Налоги и курсовые разницы'].map((x, i) => (
-              <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '5px 0', fontSize: 12.5 }}>
-                <Icon name="check" style={{ width: 14, height: 14, color: 'var(--green)' }} /><span style={{ color: 'var(--body)' }}>{x}</span>
-                <span style={{ flex: 1 }} /><Pill tone="blue">авто</Pill>
-              </div>
-            ))}
-          </div>
-        </div>
-        <div>
-          <h3 className="card-title" style={{ fontSize: 16, marginBottom: 10 }}>Финансовая детализация заказа № 51162</h3>
-          <div className="card card-pad" style={{ marginBottom: 12 }}>
-            <div className="table-card" style={{ boxShadow: 'none', border: '1px solid var(--line)', marginBottom: 10 }}>
-              <table className="tbl">
-                <thead><tr><th>Услуга</th><th style={{ textAlign: 'right' }}>Клиенту</th><th style={{ textAlign: 'right' }}>Поставщику</th><th style={{ textAlign: 'right' }}>Прибыль</th></tr></thead>
-                <tbody>
-                  {orderRows.map((r) => <tr key={r.k}><td>{r.k}</td><td style={{ textAlign: 'right' }}>{f$(r.client)}</td><td style={{ textAlign: 'right', color: 'var(--muted)' }}>{f$(r.cost)}</td><td style={{ textAlign: 'right', color: deltaTone(r.profit), fontWeight: 700 }}>{f$(r.profit)}</td></tr>)}
-                </tbody>
-              </table>
-            </div>
-            <FinRow label="Стоимость для клиента" value={f$(oClient)} strong />
-            <FinRow label="Стоимость услуг поставщиков" value={f$(oCost)} tone="var(--muted)" />
-            <FinRow label="Валовая прибыль" value={f$(oProfit)} tone="var(--green)" />
-            <FinRow label="Налог с прибыли (10%)" value={'−' + f$(tax)} tone="var(--red)" />
-            <FinRow label="Чистая прибыль" value={f$(oProfit - tax)} tone="var(--green)" strong />
-          </div>
-        </div>
+      <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 12 }}>
+        <Field label="Валюта">
+          <Select value={currency} onChange={(event) => setSelectedCurrency(event.target.value)} options={currencies.length ? currencies : ['USD']} style={{ width: 130 }} />
+        </Field>
       </div>
-
-      <h3 className="card-title" style={{ fontSize: 16, margin: '22px 0 12px' }}>Расчёт вознаграждения операторов</h3>
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px,1fr))', gap: 12 }}>
-        {FIN_SALARY.map((s) => (
-          <div key={s.operator} className="card card-pad">
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
-              <div style={{ fontWeight: 700, color: 'var(--ink)' }}>{s.operator}</div>
-              <span className="s-value" style={{ fontSize: 20, color: 'var(--green)' }}>{f$(s.total)}</span>
-            </div>
-            <div style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 10 }}>Схема: {s.scheme}</div>
-            {s.accruals.map((a, i) => (
-              <div key={i} style={{ display: 'flex', gap: 8, fontSize: 12.5, padding: '5px 0', borderBottom: i < s.accruals.length - 1 ? '1px solid var(--line)' : 'none' }}>
-                <span style={{ color: 'var(--muted-2)', width: 56 }}>№ {a.order}</span>
-                <span style={{ flex: 1 }}>{a.service}<div style={{ color: 'var(--muted-2)', fontSize: 11 }}>{a.rule}</div></span>
-                <span style={{ fontWeight: 700 }}>{f$(a.amount)}</span>
-              </div>
-            ))}
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-function FinAnalytics() {
-  const [slice, setSlice] = useState('Операторы');
-  const [period, setPeriod] = useState('Месяц');
-  const rows = FIN_ANALYTICS_SLICES[slice];
-  const maxP = Math.max(...rows.map((r) => r.profit));
-  let bal = 60000;
-  const flow = FIN_CASHFLOW.map((d) => ({ ...d, net: d.in - d.out, bal: (bal += d.in - d.out) }));
-  return (
-    <div className="fade-in">
-      <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0,1.4fr) minmax(0,1fr)', gap: 12, alignItems: 'start' }}>
-        <div className="card card-pad">
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
-            <h3 className="card-title" style={{ fontSize: 16 }}>Денежные потоки</h3>
-            <Tabs tabs={['День', 'Неделя', 'Месяц', 'Квартал', 'Год'].map((p) => ({ key: p, label: p }))} value={period} onChange={setPeriod} />
-          </div>
-          <div className="table-card" style={{ boxShadow: 'none', border: '1px solid var(--line)' }}>
-            <table className="tbl">
-              <thead><tr><th>Период</th><th style={{ textAlign: 'right' }}>Приход</th><th style={{ textAlign: 'right' }}>Расход</th><th style={{ textAlign: 'right' }}>Чистый поток</th><th style={{ textAlign: 'right' }}>Остаток</th></tr></thead>
-              <tbody>
-                {flow.map((d) => (
-                  <tr key={d.m}><td style={{ fontWeight: 600 }}>{d.m} 2026</td>
-                    <td style={{ textAlign: 'right', color: 'var(--green)' }}>+{f$(d.in)}</td>
-                    <td style={{ textAlign: 'right', color: 'var(--red)' }}>−{f$(d.out)}</td>
-                    <td style={{ textAlign: 'right', fontWeight: 700, color: deltaTone(d.net) }}>{fSigned(d.net)}</td>
-                    <td style={{ textAlign: 'right' }}>{f$(d.bal)}</td></tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
-        <div className="card card-pad">
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
-            <h3 className="card-title" style={{ fontSize: 16 }}>Аналитика · прибыль</h3>
-            <div style={{ flex: 1 }} />
-            <Select value={slice} onChange={(e) => setSlice(e.target.value)} options={Object.keys(FIN_ANALYTICS_SLICES)} style={{ width: 'auto', minWidth: 130 }} />
-          </div>
-          <div style={{ display: 'grid', gap: 10 }}>
-            {rows.map((r) => (
-              <div key={r.n}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12.5, marginBottom: 4 }}>
-                  <span style={{ color: 'var(--ink)', fontWeight: 600 }}>{r.n}</span>
-                  <span style={{ color: 'var(--muted)' }}>{f$(r.profit)} · {r.orders} зак.</span>
-                </div>
-                <div style={{ height: 8, borderRadius: 6, background: 'var(--surface-2)', overflow: 'hidden' }}><div style={{ width: (r.profit / maxP * 100) + '%', height: '100%', background: 'var(--green)' }} /></div>
-              </div>
-            ))}
-          </div>
-          <div style={{ fontSize: 11.5, color: 'var(--muted-2)', marginTop: 10 }}>Каждый показатель раскрывается до первичного документа.</div>
-        </div>
-      </div>
-
-      <h3 className="card-title" style={{ fontSize: 16, margin: '22px 0 12px' }}>Аналитика платёжной дисциплины</h3>
-      <div className="table-card">
-        <table className="tbl">
-          <thead><tr><th>Клиент</th><th style={{ textAlign: 'right' }}>Средний срок оплаты</th><th style={{ textAlign: 'right' }}>Средняя просрочка</th><th style={{ textAlign: 'right' }}>Макс. просрочка</th><th style={{ textAlign: 'right' }}>Просрочено</th><th style={{ textAlign: 'right' }}>Своевременно</th><th>Рейтинг</th><th>Рекомендация</th></tr></thead>
-          <tbody>
-            {FIN_COUNTERPARTIES.filter((c) => c.type === 'client').map((c) => {
-              const d = c.discipline;
-              const rec = d.rating === 'A' ? 'Можно увеличить лимит / отсрочку' : d.rating === 'B' ? 'Условия без изменений' : 'Снизить лимит, перейти на предоплату';
-              return (
-                <tr key={c.id}>
-                  <td style={{ fontWeight: 600 }}>{c.name}</td>
-                  <td style={{ textAlign: 'right' }}>{d.avgPayDays} дн.</td>
-                  <td style={{ textAlign: 'right', color: d.avgOverdue ? 'var(--amber)' : 'var(--muted)' }}>{d.avgOverdue} дн.</td>
-                  <td style={{ textAlign: 'right' }}>{d.maxOverdue} дн.</td>
-                  <td style={{ textAlign: 'right', color: d.overdueSum ? 'var(--red)' : 'var(--muted)' }}>{f$(d.overdueSum)}</td>
-                  <td style={{ textAlign: 'right', fontWeight: 700, color: d.onTimePct >= 90 ? 'var(--green)' : d.onTimePct >= 70 ? 'var(--amber)' : 'var(--red)' }}>{d.onTimePct}%</td>
-                  <td><Pill tone={d.rating === 'A' ? 'green' : d.rating === 'B' ? 'amber' : 'red'}>{d.rating}</Pill></td>
-                  <td style={{ fontSize: 12, color: 'var(--muted)' }}>{rec}</td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
-      </div>
-    </div>
-  );
-}
-
-function FinRules() {
-  const toast = useToast();
-  const persistAction = async (action, resourceId, payload = {}) => {
-    try { await workspaceActionsApi.execute(action, { resourceType: 'finance', resourceId, payload }); toast('Действие сохранено в финансовом журнале', 'ok'); }
-    catch (error) { toast(error.message, 'err'); }
-  };
-  return (
-    <div className="fade-in">
-      <WarnBanner tone="amber" icon="alertCircle" title="Изменения применяются только к новым операциям"
-        text="Уже оформленные заказы сохраняют исторические значения сборов и комиссий." />
-      <h3 className="card-title" style={{ fontSize: 16, marginBottom: 12 }}>Центр финансовых правил</h3>
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px,1fr))', gap: 12, marginBottom: 22 }}>
-        {FIN_RULES.map((g) => (
-          <div key={g.group} className="card card-pad">
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
-              <h3 className="card-title" style={{ fontSize: 14 }}>{g.group}</h3>
-              <Button size="sm" variant="secondary" icon="edit" onClick={() => persistAction('finance.rules.edit_requested', g.group, { rules: g.items })}>Настроить</Button>
-            </div>
-            {g.items.map((it, i) => <FinRow key={i} label={it.t} value={it.v} />)}
-          </div>
-        ))}
-      </div>
-
-      <h3 className="card-title" style={{ fontSize: 16, marginBottom: 12 }}>Банковская сверка</h3>
-      <div className="table-card" style={{ marginBottom: 22 }}>
-        <table className="tbl">
-          <thead><tr><th>Банк. операция</th><th>Дата</th><th>Контрагент</th><th style={{ textAlign: 'right' }}>Сумма</th><th>Сопоставление</th><th>Статус</th><th></th></tr></thead>
-          <tbody>
-            {FIN_RECON.map((r) => (
-              <tr key={r.id}>
-                <td style={{ fontWeight: 600 }}>{r.id}</td><td>{r.date}</td><td>{r.party}</td>
-                <td style={{ textAlign: 'right', fontWeight: 700 }}>{f$(r.sum)}</td>
-                <td style={{ color: 'var(--muted)' }}>{r.matched}</td>
-                <td><Pill tone={FIN_RECON_STATUS[r.status]}>{r.status}</Pill></td>
-                <td>{(r.status === 'Не найдено соответствие' || r.status === 'Конфликт') && <Button size="sm" variant="secondary" onClick={() => persistAction('finance.reconciliation.manual_match', r.id, { transaction: r })}>Сопоставить</Button>}</td>
+      {!rows.length ? <EmptyState icon="finance" title="Подтверждённых денежных операций нет" /> : (
+        <div className="table-card">
+          <table className="tbl">
+            <thead><tr><th>Дата</th><th style={{ textAlign: 'right' }}>Приход</th><th style={{ textAlign: 'right' }}>Расход</th><th style={{ textAlign: 'right' }}>Чистый поток</th><th style={{ textAlign: 'right' }}>Накопительный поток</th></tr></thead>
+            <tbody>{rows.map((item) => (
+              <tr key={item.date}>
+                <td className="t-strong">{item.date}</td>
+                <td style={{ textAlign: 'right', color: 'var(--green)' }}>{item.incoming ? '+' + financeMoney(item.incoming, currency) : '—'}</td>
+                <td style={{ textAlign: 'right', color: 'var(--red)' }}>{item.outgoing ? '−' + financeMoney(item.outgoing, currency) : '—'}</td>
+                <td style={{ textAlign: 'right', fontWeight: 700, color: item.net >= 0 ? 'var(--green)' : 'var(--red)' }}>{financeMoney(item.net, currency)}</td>
+                <td style={{ textAlign: 'right' }}>{financeMoney(item.cumulative, currency)}</td>
               </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-
-      <h3 className="card-title" style={{ fontSize: 16, marginBottom: 12 }}>Журнал финансовых действий</h3>
-      <div style={{ fontSize: 12.5, color: 'var(--muted)', marginBottom: 10 }}>Все изменения фиксируются. Удаление финансовых документов без сохранения истории запрещено.</div>
-      <div className="table-card">
-        <table className="tbl">
-          <thead><tr><th>Дата · время</th><th>Пользователь</th><th>Действие</th><th>Объект</th><th>Было</th><th>Стало</th><th>Причина</th></tr></thead>
-          <tbody>
-            {FIN_ACTIONS.map((a, i) => (
-              <tr key={i}>
-                <td style={{ whiteSpace: 'nowrap' }}>{a.t}</td><td>{a.user}</td><td style={{ fontWeight: 600 }}>{a.action}</td>
-                <td style={{ color: 'var(--muted)' }}>{a.field}</td><td style={{ color: 'var(--muted)' }}>{a.oldV}</td>
-                <td style={{ fontWeight: 600 }}>{a.newV}</td><td style={{ fontSize: 12, color: 'var(--muted)' }}>{a.reason}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+            ))}</tbody>
+          </table>
+        </div>
+      )}
     </div>
   );
 }
@@ -1448,24 +1146,35 @@ const FIN_TABS = [
   { key: 'settlements', label: 'Взаиморасчёты' },
   { key: 'recon', label: 'Акт сверки' },
   { key: 'economics', label: 'Экономика' },
-  { key: 'analytics', label: 'Аналитика' },
-  { key: 'rules', label: 'Правила' },
+  { key: 'analytics', label: 'Денежный поток' },
 ];
-function FinancePage({ overview, transactions = [], clients = [], companies = [], suppliers = [], orders = [], meta = null }) {
+
+function FinancePage({ overview, clients = [], companies = [], suppliers = [], orders = [], meta = null }) {
   const [tab, setTab] = useState('overview');
   const [accounts, setAccounts] = useState([]);
   const [payments, setPayments] = useState([]);
   const [obligations, setObligations] = useState([]);
+  const [cashflow, setCashflow] = useState([]);
+  const [economics, setEconomics] = useState([]);
 
   const loadFinance = useCallback(async (signal) => {
-    const [accountPayload, paymentPayload, obligationPayload] = await Promise.all([
+    const [accountPayload, paymentPayload, obligationPayload, cashflowPayload, economicsPayload] = await Promise.all([
       financeApi.accounts(signal),
       financeApi.payments({}, signal),
       financeApi.obligations({}, signal),
+      financeApi.cashflow({}, signal),
+      financeApi.economics({}, signal),
     ]);
     setAccounts(resultsOf(accountPayload).filter((item) => ['bank', 'cash', 'deposit'].includes(item.kind)).map(financeAccountRow));
     setPayments(resultsOf(paymentPayload).map(financePaymentRow));
     setObligations(resultsOf(obligationPayload));
+    setCashflow((cashflowPayload?.cashflow || []).map((item) => ({
+      date: item.date,
+      direction: item.direction,
+      currency: item.money?.currency,
+      amount: Number(item.money?.amount || 0),
+    })));
+    setEconomics(economicsPayload?.by_kind || []);
   }, []);
 
   useEffect(() => {
@@ -1479,51 +1188,50 @@ function FinancePage({ overview, transactions = [], clients = [], companies = []
   const receipts = useMemo(() => obligations
     .filter((item) => item.direction === 'client_receivable' && ['open', 'partial'].includes(item.status) && Number(item.outstanding || 0) > 0)
     .map(financeReceiptRow), [obligations]);
-  const counterparties = useMemo(() => obligations
-    .filter((item) => ['client_receivable', 'supplier_payable'].includes(item.direction))
-    .map(financeCounterpartyRow), [obligations]);
+  const counterparties = useMemo(() => financeCounterpartyRows(obligations), [obligations]);
   const clientRows = useMemo(() => [
-    ...companies.map((item) => ({ name: item.name, sub: `${item.type || 'Компания'} · ИНН ${item.inn || '—'}`, icon: 'building', tone: 'var(--blue)' })),
-    ...clients.map((item) => ({ name: item.name, sub: item.type || 'Клиент', icon: 'user', tone: 'var(--green)' })),
+    ...companies.map((item) => ({ value: `company:${item.id}`, name: item.name, sub: `${item.type || 'Компания'} · ИНН ${item.inn || '—'}`, icon: 'building', tone: 'var(--blue)' })),
+    ...clients.map((item) => ({ value: `person:${item.id}`, name: item.name, sub: item.type || 'Физическое лицо', icon: 'user', tone: 'var(--green)' })),
   ], [clients, companies]);
-  const supplierRows = useMemo(() => suppliers.map((item) => ({ name: item.name, sub: item.service || 'Поставщик', icon: 'suppliers', tone: 'var(--amber)' })), [suppliers]);
+  const supplierRows = useMemo(() => suppliers.map((item) => ({ value: `supplier:${item.id || item.no}`, name: item.name, sub: item.service || 'Поставщик', icon: 'suppliers', tone: 'var(--amber)' })), [suppliers]);
+  const orderRows = useMemo(() => orders.filter((item) => item.id).map((item) => ({ value: String(item.id), name: `№ ${item.no || item.number || item.id}`, sub: item.client || item.clientName || 'Заказ', icon: 'briefcase', tone: 'var(--blue)' })), [orders]);
+
   const createPayment = async (payment) => {
-    const company = companies.find((item) => item.name === payment.party);
-    const client = clients.find((item) => item.name === payment.party);
-    const supplier = suppliers.find((item) => item.name === payment.party);
-    const order = orders.find((item) => String(item.no) === String(payment.order));
+    const [partyType, partyId] = String(payment.partyKey || '').split(':');
     const created = await financeApi.createPayment({
       direction: payment.dir === 'in' ? 'incoming' : 'outgoing',
-      order: order?.id || null,
-      payer_person: payment.dir === 'in' ? client?.id || null : null,
-      payer_company: payment.dir === 'in' ? company?.id || null : null,
-      supplier: payment.dir === 'out' ? supplier?.id || supplier?.no || null : null,
-      method: 'manual',
+      order: payment.orderId || null,
+      payer_person: payment.dir === 'in' && partyType === 'person' ? partyId : null,
+      payer_company: payment.dir === 'in' && partyType === 'company' ? partyId : null,
+      supplier: payment.dir === 'out' && partyType === 'supplier' ? partyId : null,
+      method: payment.method || 'manual',
       amount: payment.sum,
       currency: payment.currency,
       comment: payment.purpose,
     });
-    return { ...payment, ...financePaymentRow(created) };
+    const row = financePaymentRow(created);
+    setPayments((current) => [row, ...current.filter((item) => item.id !== row.id)]);
+    return row;
   };
+
   return (
     <>
-      <Topbar title="Финансы" sub="Управление финансами компании: баланс, платежи, взаиморасчёты, аналитика" />
+      <Topbar title="Финансы" sub="Баланс, платежи, обязательства и экономика по данным backend" />
       <div className="content">
         <div style={{ marginBottom: 18 }}><Tabs tabs={FIN_TABS} value={tab} onChange={setTab} /></div>
-        {tab === 'overview' && <FinOverview onGoTab={setTab} overview={overview} accounts={accounts} payments={payments} receipts={receipts} counterparties={counterparties} />}
+        {tab === 'overview' && <FinOverview onGoTab={setTab} overview={overview} accounts={accounts} payments={payments} receipts={receipts} counterparties={counterparties} cashflow={cashflow} economics={economics} />}
         {tab === 'balance' && <FinBalance accounts={accounts} />}
-        {tab === 'payments' && <FinPayments payments={payments} obligations={obligations} onPaymentCreated={createPayment} onPaymentConfirmed={() => loadFinance()} clientRows={clientRows} supplierRows={supplierRows} />}
+        {tab === 'payments' && <FinPayments payments={payments} obligations={obligations} onPaymentCreated={createPayment} onPaymentConfirmed={() => loadFinance()} clientRows={clientRows} supplierRows={supplierRows} orderRows={orderRows} />}
         {tab === 'treasury' && <FinTreasury accounts={accounts} payments={payments} receipts={receipts} />}
         {tab === 'settlements' && <FinSettlements counterparties={counterparties} receipts={receipts} meta={meta} />}
         {tab === 'recon' && <FinReconciliation counterparties={counterparties} meta={meta} />}
-        {tab === 'economics' && <FinEconomics />}
-        {tab === 'analytics' && <FinAnalytics />}
-        {tab === 'rules' && <FinRules />}
+        {tab === 'economics' && <FinEconomics economics={economics} />}
+        {tab === 'analytics' && <FinAnalytics cashflow={cashflow} />}
       </div>
     </>
   );
 }
 
-Object.assign(window, { FinancePage, FIN_ACCOUNTS, FIN_PAYMENTS, FIN_COUNTERPARTIES, finCreditCheck });
+Object.assign(window, { FinancePage });
 
-export { f$, fSigned, finNow, deltaTone, finCreditCheck, FIN_ACCT_GROUPS, FIN_ACCOUNTS, FIN_ACCT_OP_TYPES, acctOps, FIN_PAY_STATUS, FIN_PRIORITY, FIN_PAYMENTS, obl, FIN_COUNTERPARTIES, FIN_SCHEMES, FIN_CASHFLOW, FIN_RECEIPTS, FIN_SALARY, FIN_RULES, FIN_RECON_STATUS, FIN_RECON, FIN_ACTIONS, FIN_SVC_MODEL, sumK, svcClientTotal, svcSupplierPay, svcModelProfit, StatTile, WarnBanner, CashflowChart, LegendDot, FinRow, FinOverview, FinAccountDrawer, FinBalance, FinPaymentDrawer, FinPayments, FinTreasury, CreditLimitBar, ReconActDrawer, FinCounterpartyDrawer, SupplierSettlements, FinSettlements, ServiceModelCard, FinEconomics, FIN_ANALYTICS_SLICES, FinAnalytics, FinRules, FIN_TABS, FinancePage };
+export { f$, StatTile, WarnBanner, CashflowChart, LegendDot, FinRow, FinOverview, FinAccountDrawer, FinBalance, FinPaymentDrawer, FinPayments, FinTreasury, ReconActDrawer, FinCounterpartyDrawer, FinSettlements, FinEconomics, FinAnalytics, FIN_TABS, FinancePage };

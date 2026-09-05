@@ -735,11 +735,11 @@ function CompaniesPage({ initialCompanies = [], orders = [], onCompaniesChange, 
   const createCompany = async (company) => {
     const created = await crmApi.createCompany({
       legal_name: company.fullName || company.name, short_name: company.shortName || '',
-      type: company.type, status: 'active', tax_id: company.inn === '—' ? '' : company.inn,
+      type: company.type, status: { 'Действующий': 'active', 'На паузе': 'paused', 'Архив': 'archived' }[company.status] || 'active', tax_id: company.inn === '—' ? '' : company.inn,
       okpo: company.okpo === '—' ? '' : company.okpo, legal_address: company.addr === '—' ? '' : company.addr,
       bank_name: company.bank === '—' ? '' : company.bank, bank_account: company.account === '—' ? '' : company.account,
       director: company.dir === '—' ? '' : company.dir, phone: company.phone === '—' ? '' : company.phone,
-      email: company.email === '—' ? '' : company.email,
+      email: company.email === '—' ? '' : company.email, vat_mode: company.vat || '', requires_e_sign: Boolean(company.requiresESign),
     });
     const uiCompany = toUiCompany(created);
     setCompanies((current) => {

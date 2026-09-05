@@ -1,10 +1,9 @@
 import { useState, useEffect } from 'react';
 import { Icon } from './icons';
-import { Button, ConfirmDialog, DateField, Drawer, Field, Input, Pill, Select, Tabs, useToast } from './ui';
-import { CURRENT_USER, FEE_DESC_DEFAULTS, FEE_SCHEMA, FEE_SERVICE_TYPES, FEE_TEMPLATES, SERVICE_DESC_DEFAULTS, SETTLEMENT_TYPES, applyAgreementFees, creditAvailable, depositAvailable, descsFromDefaults, feeDescOf, feeDescsFromDefaults, feeTemplate, feesFromTemplate, registerFeeTemplate } from './data';
-import { FIN_COUNTERPARTIES, f$ } from './data/finance';
-import { FinCounterpartyDrawer, ReconActDrawer } from './page_finance';
-import { crmApi, financeApi, workspaceActionsApi, workspaceSettingsApi } from './api/resources';
+import { Button, DateField, Drawer, Field, Input, Pill, Select, Tabs, useToast } from './ui';
+import { CURRENT_USER, FEE_DESC_DEFAULTS, FEE_SCHEMA, FEE_SERVICE_TYPES, FEE_TEMPLATES, SERVICE_DESC_DEFAULTS, SETTLEMENT_TYPES, creditAvailable, depositAvailable, descsFromDefaults, feeDescOf, feeDescsFromDefaults, feeTemplate, feesFromTemplate } from './data';
+import { crmApi, financeApi, workspaceSettingsApi } from './api/resources';
+import { resultsOf } from './api/client';
 
 
 
@@ -250,9 +249,6 @@ function AgreementEditor({ open, agreement, currency = 'USD', onClose, onSave })
   const [fees, setFees] = useState(() => cfNormalizeAgreement(agreement).fees);
   const [descs, setDescs] = useState(() => cfNormalizeAgreement(agreement).descs);
   const [feeDescs, setFeeDescs] = useState(() => cfNormalizeAgreement(agreement).feeDescs);
-  const [tplName, setTplName] = useState('');
-  const [tplNameOpen, setTplNameOpen] = useState(false);
-  const [tplTick, setTplTick] = useState(0);
   const toast = useToast();
   useEffect(() => {
     if (open && agreement) { const safe = cfNormalizeAgreement(agreement); setTpl(safe.template); setFees(safe.fees); setDescs(safe.descs); setFeeDescs(safe.feeDescs); setTab(FEE_SERVICE_TYPES[0]); }
@@ -260,16 +256,6 @@ function AgreementEditor({ open, agreement, currency = 'USD', onClose, onSave })
   if (!open) return null;
 
   const applyTpl = (id) => { setTpl(id); setFees(feesFromTemplate(id)); toast('Применён шаблон «' + feeTemplate(id).name + '»', 'ok'); };
-  const saveAsTemplate = async () => {
-    const name = tplName.trim();
-    if (!name) { toast('Введите название шаблона', 'info'); return; }
-    try {
-      await workspaceActionsApi.execute('company.fee_template.create', { resourceType: 'company_finance', resourceId: name, payload: { name, fees } });
-      const id = registerFeeTemplate(name, fees);
-      setTpl(id); setTplName(''); setTplNameOpen(false); setTplTick((t) => t + 1);
-      toast('Создан шаблон «' + name + '»', 'ok');
-    } catch (error) { toast(error.message || 'Не удалось создать шаблон', 'err'); }
-  };
   const setFee = (svc, key, patch) => setFees((f) => ({ ...f, [svc]: { ...(f[svc] || {}), [key]: { ...(((f[svc] || {})[key]) || { type: 'fixed', value: 0 }), ...patch } } }));
   const setDesc = (svc, v) => setDescs((d) => ({ ...d, [svc]: v }));
   const setFeeDesc = (svc, key, v) => setFeeDescs((d) => ({ ...d, [svc]: { ...d[svc], [key]: v } }));
@@ -305,26 +291,13 @@ function AgreementEditor({ open, agreement, currency = 'USD', onClose, onSave })
         <Button icon="check" onClick={save}>Сохранить как новую версию</Button>
       </>}>
       <div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap', marginBottom: tplNameOpen ? 10 : 16 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap', marginBottom: 16 }}>
           <span style={{ fontSize: 13, color: 'var(--muted)' }}>Шаблон сборов:</span>
-          <div style={{ maxWidth: 260 }} key={tplTick}>
+          <div style={{ maxWidth: 260 }}>
             <Select options={FEE_TEMPLATES.map((t) => ({ value: t.id, label: t.name + (t.custom ? ' (индивид.)' : '') }))} value={tpl} onChange={(e) => applyTpl(e.target.value)} />
           </div>
           <span style={{ fontSize: 12, color: 'var(--muted)' }}>можно донастроить вручную ниже</span>
-          <div style={{ flex: 1 }} />
-          <Button variant="ghost" size="sm" icon="plus" onClick={() => setTplNameOpen((v) => !v)}>Сохранить как шаблон</Button>
         </div>
-        {tplNameOpen && (
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', marginBottom: 16, padding: '10px 12px', background: 'var(--surface-2)', borderRadius: 10 }}>
-            <span style={{ fontSize: 12, color: 'var(--muted)' }}>Название нового шаблона:</span>
-            <div style={{ width: 240 }}>
-              <Input value={tplName} onChange={(e) => setTplName(e.target.value)} placeholder="напр. «Корп. клиент 2026»"
-                onKeyDown={(e) => { if (e.key === 'Enter') saveAsTemplate(); }} />
-            </div>
-            <Button size="sm" icon="check" onClick={saveAsTemplate}>Создать</Button>
-            <span style={{ fontSize: 12, color: 'var(--muted)' }}>Текущие сборы по всем услугам сохранятся как переиспользуемый шаблон.</span>
-          </div>
-        )}
 
         <Tabs tabs={FEE_SERVICE_TYPES.map((s) => ({ key: s, label: s }))} value={tab} onChange={setTab} />
 
@@ -401,7 +374,7 @@ function AgreementHistoryDrawer({ open, agreement, onClose }) {
 }
 
 
-function CompanyContracts({ fin, coName, onFinChange, onOpenClosing }) {
+function CompanyContracts({ fin, onFinChange }) {
   const toast = useToast();
   const [editAgr, setEditAgr] = useState(null);
   const [histAgr, setHistAgr] = useState(null);
@@ -420,7 +393,6 @@ function CompanyContracts({ fin, coName, onFinChange, onOpenClosing }) {
       history: [...a.history, { date: cfNow(), user: (window.CURRENT_USER && CURRENT_USER.name) || 'Оператор', title: 'ДС № ' + newVersion + ' · изменение условий', fields }],
     };
     try {
-      await workspaceActionsApi.execute('company.agreement.version.create', { resourceType: 'company', resourceId: coName, payload: { contractId, agreement: created, fields } });
       c.agreements.push(created);
       await onFinChange(nextFin);
       toast('Создана версия ' + created.no, 'ok');
@@ -431,7 +403,6 @@ function CompanyContracts({ fin, coName, onFinChange, onOpenClosing }) {
     if (!no?.trim()) return;
     const contract = { id: cfUid('C'), no: no.trim(), date: cfNow().split(' ')[0], status: 'Действующий', agreements: [] };
     try {
-      await workspaceActionsApi.execute('company.contract.create', { resourceType: 'company', resourceId: coName, payload: contract });
       await onFinChange({ ...fin, contracts: [contract, ...fin.contracts] });
       setExpanded((value) => ({ ...value, [contract.id]: true }));
       toast('Договор добавлен', 'ok');
@@ -473,7 +444,6 @@ function CompanyContracts({ fin, coName, onFinChange, onOpenClosing }) {
                         <div style={{ flex: 1 }} />
                         <Button variant="ghost" size="sm" icon="clock" onClick={() => setHistAgr(a)}>История</Button>
                         {a.status === 'Действующий' && <Button variant="secondary" size="sm" icon="edit" onClick={() => setEditAgr({ contractId: c.id, agreement: a })}>Изменить условия</Button>}
-                        {a.status === 'Действующий' && <Button size="sm" icon="download" onClick={() => onOpenClosing(a)}>Закрывающие</Button>}
                       </div>
                       <AgreementFeesView agreement={a} currency={cfCurrency(fin)} />
                     </div>
@@ -494,145 +464,81 @@ function CompanyContracts({ fin, coName, onFinChange, onOpenClosing }) {
 }
 
 
-const ACCOUNTING_SYSTEMS = ['Эльба', 'Контур', '1С', 'Мое дело'];
-const CLOSING_DOC_TYPES = ['Акт', 'Счёт', 'УПД'];
-function ClosingDocsPreview({ open, agreement, coName, co, currency = 'USD', onClose }) {
-  const toast = useToast();
-  const [sys, setSys] = useState('Эльба');
-  const [docType, setDocType] = useState('Акт');
-  const [confirmSend, setConfirmSend] = useState(false);
 
-  const baseRows = [
-    { svc: 'Авиа', base: 1600 },
-    { svc: 'Гостиница', base: 955 },
-    { svc: 'Трансфер', base: 60 },
-  ];
-  const [rows, setRows] = useState(() => baseRows.map((r) => ({ ...r, desc: (agreement && agreement.descs[r.svc]) || SERVICE_DESC_DEFAULTS[r.svc] || r.svc })));
+
+function CompanySettlementsBlock({ co, currency = 'USD' }) {
+  const toast = useToast();
+  const companyId = co.serverId || co.id;
+  const [summary, setSummary] = useState(null);
+  const [obligations, setObligations] = useState([]);
+  const [detailsOpen, setDetailsOpen] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState('');
+
   useEffect(() => {
-    if (open) setRows(baseRows.map((r) => ({ ...r, desc: (agreement && agreement.descs[r.svc]) || SERVICE_DESC_DEFAULTS[r.svc] || r.svc })));
-  }, [open, agreement]);
-  if (!open) return null;
+    const controller = new AbortController();
+    let active = true;
+    setLoading(true);
+    setLoadError('');
+    Promise.all([
+      financeApi.companySummary(companyId, controller.signal),
+      financeApi.obligations({ company: companyId, direction: 'client_receivable' }, controller.signal),
+    ]).then(([nextSummary, nextObligations]) => {
+      if (!active) return;
+      setSummary(nextSummary);
+      setObligations(resultsOf(nextObligations));
+    }).catch((error) => {
+      if (error.name !== 'AbortError' && active) setLoadError(error.message || 'Не удалось загрузить взаиморасчёты');
+    }).finally(() => { if (active) setLoading(false); });
+    return () => { active = false; controller.abort(); };
+  }, [companyId]);
 
-  const vatRate = co && co.vat && /\d/.test(co.vat) ? parseFloat(co.vat) : 0;
-  const vatOf = (sum) => Math.round(sum * vatRate / (100 + vatRate));
-
-
-  const positions = [];
-  rows.forEach((r, ri) => {
-    positions.push({ svc: r.svc, kind: 'service', desc: r.desc, amount: r.base, rowIndex: ri });
-    const f = applyAgreementFees(agreement, r.svc, r.base);
-    FEE_SCHEMA[r.svc].forEach((fs) => {
-      const amt = f.fees[fs.key] || 0;
-      if (amt > 0) positions.push({ svc: r.svc, kind: 'fee', desc: feeDescOf(agreement, r.svc, fs.key), amount: amt });
-    });
-  });
-  const total = positions.reduce((s, p) => s + p.amount, 0);
-  const totalVat = positions.reduce((s, p) => s + vatOf(p.amount), 0);
-  const totalFees = positions.filter((p) => p.kind === 'fee').reduce((s, p) => s + p.amount, 0);
-
-  const setDesc = (i, v) => setRows((rs) => rs.map((r, j) => (j === i ? { ...r, desc: v } : r)));
-
-  return (
-    <Drawer open={open} onClose={onClose} width="min(860px,96vw)"
-      title="Предпросмотр закрывающих документов" sub={coName + ' · перед выгрузкой в онлайн-бухгалтерию'}
-      footer={<>
-        <Button variant="secondary" onClick={onClose}>Отмена</Button>
-        <Button icon="send" onClick={() => setConfirmSend(true)}>Передать в «{sys}»</Button>
-      </>}>
-        <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap', marginBottom: 16 }}>
-          <div style={{ minWidth: 180 }}><Field label="Бухгалтерия"><Select options={ACCOUNTING_SYSTEMS.map((s) => ({ value: s, label: s }))} value={sys} onChange={(e) => setSys(e.target.value)} /></Field></div>
-          <div style={{ minWidth: 160 }}><Field label="Тип документа"><Select options={CLOSING_DOC_TYPES.map((s) => ({ value: s, label: s }))} value={docType} onChange={(e) => setDocType(e.target.value)} /></Field></div>
-        </div>
-
-
-        <div className="card card-pad" style={{ marginBottom: 14 }}>
-          <div style={{ fontWeight: 700, color: 'var(--ink)', marginBottom: 8 }}>{docType} · {coName}</div>
-          <div className="grid-2" style={{ gap: '2px 24px' }}>
-            <div className="kv-row"><span className="k">Контрагент</span><span className="v">{coName}</span></div>
-            <div className="kv-row"><span className="k">ИНН</span><span className="v">{co && co.inn}</span></div>
-            <div className="kv-row"><span className="k">Договор / ДС</span><span className="v">{(co && co.contract) || '—'} · {agreement && agreement.no}</span></div>
-            <div className="kv-row"><span className="k">НДС</span><span className="v">{(co && co.vat) || '—'}</span></div>
-          </div>
-        </div>
-
-
-        <div className="table-card" style={{ marginBottom: 6 }}>
-          <table className="tbl">
-            <thead><tr><th>Позиция / описание</th><th style={{ textAlign: 'right' }}>Сумма</th><th style={{ textAlign: 'right' }}>в т.ч. НДС</th></tr></thead>
-            <tbody>
-              {positions.map((p, i) => (
-                <tr key={i} style={p.kind === 'fee' ? { background: 'var(--surface-2)' } : null}>
-                  <td style={{ minWidth: 300 }}>
-                    {p.kind === 'service' ? (
-                      <>
-                        <input className="input" style={{ height: 34, padding: '4px 8px', fontWeight: 600 }} value={p.desc} onChange={(e) => setDesc(p.rowIndex, e.target.value)} />
-                        <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 2 }}>{p.svc} · основная услуга</div>
-                      </>
-                    ) : (
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, paddingLeft: 12 }}>
-                        <Icon name="chevRight" style={{ width: 14, height: 14, color: 'var(--muted-2)' }} />
-                        <span style={{ fontSize: 13, color: 'var(--body)' }}>{p.desc}</span>
-                      </div>
-                    )}
-                  </td>
-                  <td style={{ textAlign: 'right', fontWeight: p.kind === 'service' ? 600 : 400, color: p.kind === 'fee' ? 'var(--muted)' : 'var(--ink)' }}>{fM(p.amount, currency)}</td>
-                  <td style={{ textAlign: 'right', color: 'var(--muted)' }}>{vatRate ? fM(vatOf(p.amount), currency) : '—'}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-        <div style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 12 }}>Заголовок услуги можно скорректировать разово перед отправкой. Формулировки сборов берутся из доп. соглашения.</div>
-
-
-        <div className="card card-pad" style={{ marginBottom: 14 }}>
-          <div className="kv">
-            <div className="kv-row"><span className="k">Сервисные сборы и надбавки</span><span className="v">{fM(totalFees, currency)}</span></div>
-            <div className="kv-row"><span className="k">Итого к оплате</span><span className="v" style={{ fontSize: 18, fontWeight: 700 }}>{fM(total, currency)}</span></div>
-            <div className="kv-row"><span className="k">в том числе НДС ({(co && co.vat) || '—'})</span><span className="v">{vatRate ? fM(totalVat, currency) : 'без НДС'}</span></div>
-          </div>
-        </div>
-
-        <div className="card" style={{ padding: '10px 12px', borderLeft: '3px solid var(--blue)', marginBottom: 16, display: 'flex', gap: 8, alignItems: 'center' }}>
-          <Icon name="eye" style={{ width: 16, height: 16, color: 'var(--blue)' }} />
-          <span style={{ fontSize: 12, color: 'var(--body)' }}>Проверьте описание услуг, суммы, сборы, надбавки, реквизиты, НДС и итог. Выгрузка в «{sys}» произойдёт только после подтверждения.</span>
-        </div>
-
-      <ConfirmDialog open={confirmSend} title={'Передать документы в «' + sys + '»?'}
-        message={'Будет выгружен ' + docType + ' на сумму ' + fM(total, currency) + '. Проверьте данные перед отправкой.'}
-        confirmLabel="Передать" confirmVariant="primary"
-        onConfirm={() => { setConfirmSend(false); toast(docType + ' передан в «' + sys + '»', 'ok'); onClose(); }}
-        onCancel={() => setConfirmSend(false)} />
-    </Drawer>
-  );
-}
-
-
-function CompanySettlementsBlock({ co }) {
-  const toast = useToast();
-  const [open, setOpen] = useState(false);
-  const [reconOpen, setReconOpen] = useState(false);
-  const cp = FIN_COUNTERPARTIES.find((c) => c.name === co.name || c.legal === co.name
-    || (co.name && (c.name.includes(co.name) || co.name.includes(c.name))));
-  if (!cp) {
-    return (
-      <div className="card card-pad" style={{ color: 'var(--muted)' }}>
-        По этой организации ещё нет проведённых взаиморасчётов. Они появятся после первого счёта или оплаты.
-      </div>
-    );
-  }
-  const debit = cp.obligations.reduce((s, o) => s + o.sum, 0);
-  const credit = cp.obligations.reduce((s, o) => s + o.paid, 0);
-  const overdue = cp.obligations.some((o) => o.overdueDays > 0);
+  const today = new Date().toISOString().slice(0, 10);
+  const overdue = obligations.some((row) => row.due_date && row.due_date < today && ['open', 'partial'].includes(row.status));
+  const totals = obligations.reduce((map, row) => {
+    const code = row.currency || currency;
+    const current = map[code] || { debit: 0, credit: 0, balance: 0 };
+    current.debit += Number(row.original_amount || 0);
+    current.credit += Number(row.paid_amount || 0);
+    current.balance += Number(row.outstanding || 0);
+    map[code] = current;
+    return map;
+  }, {});
+  const documentRows = obligations.map((row) => ({
+    date: row.created_at ? new Date(row.created_at).toLocaleDateString('ru-RU') : '',
+    basis: row.id,
+    order: row.order_number || '',
+    kind: row.service_kind || row.direction,
+    debit: row.original_amount,
+    credit: row.paid_amount,
+    currency: row.currency,
+  }));
   const requestDoc = async (kind) => {
     try {
-      const result = await financeApi.createDocument({ kind, payload: { counterpart: cp.name, debit, credit, balance: debit - credit } });
+      const currencyTotals = Object.entries(totals);
+      const result = await financeApi.createDocument({
+        kind,
+        payload: {
+          counterpart: co.name,
+          period: 'весь период',
+          rows: documentRows,
+          debit: currencyTotals.map(([code, value]) => fM(value.debit, code)).join('; ') || 0,
+          credit: currencyTotals.map(([code, value]) => fM(value.credit, code)).join('; ') || 0,
+          balance: currencyTotals.map(([code, value]) => fM(value.balance, code)).join('; ') || 0,
+        },
+      });
       if (result instanceof Blob) {
-        const url = URL.createObjectURL(result); const link = document.createElement('a');
-        link.href = url; link.download = `${kind === 'invoice' ? 'Счёт' : 'УПД'}-${cp.name}.txt`; link.click();
+        const url = URL.createObjectURL(result);
+        const link = document.createElement('a');
+        const labels = { reconciliation: 'Акт-сверки', invoice: 'Счёт', upd: 'УПД' };
+        link.href = url;
+        link.download = `${labels[kind] || 'Документ'}-${co.name}.txt`;
+        link.click();
         setTimeout(() => URL.revokeObjectURL(url), 1000);
+        toast('Документ сформирован по данным backend', 'ok');
+      } else {
+        toast(result?.status === 'queued' ? 'Выгрузка поставлена в очередь backend' : 'Запрос обработан backend', 'ok');
       }
-      toast(kind === 'accounting_export' ? 'Данные переданы в бухгалтерию' : 'Документ сформирован', 'ok');
     } catch (error) { toast(error.message || 'Не удалось сформировать документ', 'err'); }
   };
   const stat = (label, value, tone) => (
@@ -641,28 +547,67 @@ function CompanySettlementsBlock({ co }) {
       <div style={{ fontSize: 20, fontWeight: 700, color: tone || 'var(--ink)' }}>{value}</div>
     </div>
   );
+
+  if (loading) return <div className="card card-pad" style={{ color: 'var(--muted)' }}>Загрузка взаиморасчётов…</div>;
+  if (loadError) return <div className="card card-pad" style={{ color: 'var(--red)' }}>{loadError}</div>;
+
+  const settlement = summary?.settlement || {};
+  const availableDeposit = Number(settlement.deposit_balance || 0) - Number(settlement.deposit_reserved || 0);
+  const creditLimit = Number(settlement.credit_limit || 0);
+  const totalDebtInConditionsCurrency = totals[currency]?.balance || 0;
+
   return (
     <div className="card card-pad">
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12, flexWrap: 'wrap' }}>
         <h3 className="card-title" style={{ fontSize: 17, margin: 0 }}>Взаиморасчёты</h3>
         {overdue && <Pill tone="red">есть просрочка</Pill>}
         <div style={{ flex: 1 }} />
-        <Button size="sm" icon="finance" onClick={() => setOpen(true)}>Открыть детализацию</Button>
+        <span style={{ fontSize: 12, color: 'var(--muted)' }}>Заказов: {summary?.orders_count || 0}</span>
+        {!!obligations.length && <Button size="sm" icon="finance" onClick={() => setDetailsOpen((value) => !value)}>{detailsOpen ? 'Скрыть детализацию' : 'Открыть детализацию'}</Button>}
       </div>
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(150px,1fr))', gap: 10, marginBottom: 12 }}>
-        {stat('Дебет (начислено)', f$(debit))}
-        {stat('Кредит (оплачено)', f$(credit), 'var(--green)')}
-        {stat('Сальдо (остаток)', f$(debit - credit), debit - credit > 0 ? 'var(--amber)' : 'var(--green)')}
-        {stat('Свободный лимит', cp.limit ? f$(Math.max(0, cp.limit - cp.used)) : '—')}
-      </div>
-      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-        <Button size="sm" variant="secondary" icon="download" onClick={() => setReconOpen(true)}>Акт сверки</Button>
+
+      {Object.keys(totals).length ? Object.entries(totals).map(([code, value]) => (
+        <div key={code} style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(150px,1fr))', gap: 10, marginBottom: 12 }}>
+          {stat(`Начислено · ${code}`, fM(value.debit, code))}
+          {stat(`Оплачено · ${code}`, fM(value.credit, code), 'var(--green)')}
+          {stat(`Остаток · ${code}`, fM(value.balance, code), value.balance > 0 ? 'var(--amber)' : 'var(--green)')}
+        </div>
+      )) : (
+        <div style={{ color: 'var(--muted)', marginBottom: 12 }}>По компании пока нет финансовых обязательств.</div>
+      )}
+
+      {settlement.mode === 'deposit' && (
+        <div style={{ marginBottom: 12 }}>{stat('Доступно на депозите', fM(availableDeposit, currency), availableDeposit >= 0 ? 'var(--green)' : 'var(--red)')}</div>
+      )}
+      {settlement.mode === 'credit' && (
+        <div style={{ marginBottom: 12 }}>{stat('Свободный кредитный лимит', fM(Math.max(0, creditLimit - totalDebtInConditionsCurrency), currency))}</div>
+      )}
+
+      {detailsOpen && (
+        <div className="table-card" style={{ marginBottom: 12 }}>
+          <table className="tbl">
+            <thead><tr><th>Заказ</th><th>Услуга</th><th>Срок</th><th>Статус</th><th style={{ textAlign: 'right' }}>Начислено</th><th style={{ textAlign: 'right' }}>Оплачено</th><th style={{ textAlign: 'right' }}>Остаток</th></tr></thead>
+            <tbody>{obligations.map((row) => (
+              <tr key={row.id}>
+                <td className="t-strong">{row.order_number || '—'}</td>
+                <td>{row.service_kind || '—'}</td>
+                <td style={row.due_date && row.due_date < today && ['open', 'partial'].includes(row.status) ? { color: 'var(--red)' } : undefined}>{row.due_date || '—'}</td>
+                <td><Pill tone={row.status === 'settled' ? 'green' : row.status === 'partial' ? 'amber' : row.status === 'cancelled' ? 'gray' : 'blue'}>{row.status}</Pill></td>
+                <td style={{ textAlign: 'right' }}>{fM(row.original_amount, row.currency)}</td>
+                <td style={{ textAlign: 'right' }}>{fM(row.paid_amount, row.currency)}</td>
+                <td style={{ textAlign: 'right', fontWeight: 600 }}>{fM(row.outstanding, row.currency)}</td>
+              </tr>
+            ))}</tbody>
+          </table>
+        </div>
+      )}
+
+      {!!obligations.length && <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+        <Button size="sm" variant="secondary" icon="download" onClick={() => requestDoc('reconciliation')}>Акт сверки</Button>
         <Button size="sm" variant="secondary" icon="download" onClick={() => requestDoc('invoice')}>Счёт</Button>
         <Button size="sm" variant="secondary" icon="download" onClick={() => requestDoc('upd')}>УПД</Button>
         <Button size="sm" variant="secondary" icon="send" onClick={() => requestDoc('accounting_export')}>В бухгалтерию</Button>
-      </div>
-      {open && <FinCounterpartyDrawer cp={cp} onClose={() => setOpen(false)} />}
-      <ReconActDrawer open={reconOpen} cp={cp} onClose={() => setReconOpen(false)} />
+      </div>}
     </div>
   );
 }
@@ -840,7 +785,6 @@ function CompanyFinanceBlock({ co }) {
   const [fin, setFin] = useState(null);
   const [loading, setLoading] = useState(true);
   const [createOpen, setCreateOpen] = useState(false);
-  const [closing, setClosing] = useState(null);
   const companyId = co.serverId || co.id;
   const legacyNamespace = `company-finance-${companyId}`;
   useEffect(() => {
@@ -937,10 +881,9 @@ function CompanyFinanceBlock({ co }) {
         </div>
         <CompanyFinanceSection fin={fin} onChangeSettlement={setSettlement} onChangeCurrency={setCurrency} />
       <div style={{ height: 8 }} />
-      <CompanySettlementsBlock co={co} />
+      <CompanySettlementsBlock co={co} currency={cfCurrency(fin)} />
       <div style={{ height: 8 }} />
-      <CompanyContracts fin={fin} coName={co.name} onFinChange={updateFin} onOpenClosing={(a) => setClosing(a)} />
-        <ClosingDocsPreview open={!!closing} agreement={closing} co={co} coName={co.name} currency={cfCurrency(fin)} onClose={() => setClosing(null)} />
+      <CompanyContracts fin={fin} onFinChange={updateFin} />
       </div>
       <CompanyFinanceCreateDrawer open={createOpen} co={co} onClose={() => setCreateOpen(false)} onCreated={updateFin} />
     </>
@@ -948,7 +891,7 @@ function CompanyFinanceBlock({ co }) {
 }
 
 Object.assign(window, {
-  CompanyFinanceBlock, CompanyFinanceSection, CompanyContracts, AgreementEditor, ClosingDocsPreview,
+  CompanyFinanceBlock, CompanyFinanceSection, CompanyContracts, AgreementEditor,
   DepositCard, CreditCard,
 });
 
@@ -956,4 +899,4 @@ if (typeof window !== 'undefined') window.cfNow = cfNow;
 
 
 
-export { fM, feeCellText, cfUid, cfNow, DepositCard, CreditCard, DepositHistoryDrawer, CompanyFinanceSection, AgreementFeesView, AgreementEditor, AgreementHistoryDrawer, CompanyContracts, ACCOUNTING_SYSTEMS, CLOSING_DOC_TYPES, ClosingDocsPreview, CompanyFinanceBlock };
+export { fM, feeCellText, cfUid, cfNow, DepositCard, CreditCard, DepositHistoryDrawer, CompanyFinanceSection, AgreementFeesView, AgreementEditor, AgreementHistoryDrawer, CompanyContracts, CompanyFinanceBlock };

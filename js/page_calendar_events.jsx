@@ -1,10 +1,10 @@
 import { useState } from 'react';
 import { Icon } from './icons';
-import { Avatar, Button, Checkbox, Drawer, Field, Input, Pill, Select, Tabs, SearchBox, TimeField, useToast } from './ui';
+import { Avatar, Button, Drawer, Field, Input, Pill, Select, Tabs, SearchBox, TimeField, useToast } from './ui';
 import { UFDateField, UnifiedBindPicker } from './forms_unified';
-import { CLIENTS_DB, CURRENT_USER, OPERATORS, ORDERS, SUPPLIERS } from './data';
+import { CURRENT_USER } from './data';
 import { trSameDay } from './data/trips';
-import { FinRow, f$, finCreditCheck } from './page_finance';
+import { FinRow } from './page_finance';
 
 
 
@@ -30,8 +30,6 @@ const CAL_SERVICE_TYPES = ['Авиа', 'ЖД', 'Гостиница', 'Транс
 const CAL_REMINDER_PRESETS = ['Проверить изменение стоимости', 'Запросить ответ у поставщика', 'Проверить подтверждение гостиницы', 'Проверить статус рейса', 'Связаться с клиентом', 'Проверить поступление оплаты', 'Проконтролировать внесение имён', 'Проверить выписку билетов', 'Повторно запросить места', 'Проверить тайм-лимит', 'Уточнить трансфер', 'Отправить документы'];
 const CAL_TASK_PRESETS = ['Выписать билеты', 'Отправить список пассажиров', 'Проверить документы', 'Согласовать КП', 'Подтвердить бронирование', 'Оформить обмен', 'Оформить возврат', 'Проверить расселение группы'];
 const CAL_CONTROL_PRESETS = ['Проверить цену', 'Проверить доступность мест', 'Проверить статус рейса', 'Проверить ответ поставщика', 'Проверить поступление оплаты', 'Проверить отмену или задержку', 'Проверить изменение расписания', 'Проверить срок бесплатной отмены', 'Проверить выпуск документов'];
-const ENABLE_DEMO_BUSINESS_DATA = process.env.NEXT_PUBLIC_DEMO_MODE === 'true';
-
 function calFmtDay(d) { return String(d.getDate()).padStart(2, '0') + '.' + String(d.getMonth() + 1).padStart(2, '0') + '.' + d.getFullYear(); }
 function calNowStr() { return new Date().toLocaleString('ru-RU', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }).replace(',', ' ·'); }
 
@@ -115,39 +113,29 @@ function CalCustomRepeatDrawer({ value, dateStr, time, onClose, onApply }) {
 }
 
 
-const CAL_EVENTS = window.CAL_EVENTS || (window.CAL_EVENTS = (() => {
-  if (!ENABLE_DEMO_BUSINESS_DATA) return [];
-  const D = (dd, mm, hh, mi) => new Date(2026, mm - 1, dd, hh || 9, mi || 0);
-  const who = (window.CURRENT_USER && CURRENT_USER.name) || 'Даниель';
-  const ev = (o) => ({ id: 'CE-' + Math.random().toString(36).slice(2, 7), done: false, history: [{ t: calNowStr(), text: 'Событие создано', who }], ...o });
-  return [
-    ev({ type: 'task', title: 'Выписать билеты', date: D(24, 6, 15, 0), time: '15:00', order: 51170, service: 'Авиа', resp: 'Даниель', priority: 'Высокий', repeat: 'Не повторять', scope: 'Себе', respRole: 'Авиа' }),
-    ev({ type: 'reminder', title: 'Проверить поступление оплаты', date: D(25, 6, 12, 0), time: '12:00', order: 51156, resp: 'Даниель', priority: 'Средний', notify: 'Email', repeat: 'До выполнения условия', scope: 'Себе' }),
-    ev({ type: 'control', title: 'Проверить статус рейса SU1234', date: D(26, 6, 18, 0), time: '18:00', order: 51170, service: 'Авиа', resp: 'Даниель', criterion: 'задержка более 60 минут', actionOnProblem: 'создать задачу оператору', repeat: 'Ежедневно', scope: 'Себе' }),
-    ev({ type: 'reminder', title: 'Проверить тайм-лимит', date: D(24, 6, 17, 0), time: '17:00', order: 51162, service: 'Авиа', resp: 'Азамат А.', priority: 'Высокий', notify: 'Push', repeat: 'Не повторять', scope: 'Другому оператору' }),
-  ];
-})());
+const CAL_EVENTS = window.CAL_EVENTS || (window.CAL_EVENTS = []);
 const CAL_KIND_FROM_BACKEND = { order_trip: 'order', reminder: 'reminder', task: 'task', control: 'control' };
 const CAL_PRIORITY_FROM_BACKEND = { high: 'Высокий', normal: 'Средний', low: 'Низкий' };
-function calendarEventToUi(item, orders = [], users = []) {
+function calendarEventToUi(item, orders = [], users = [], clients = [], suppliers = []) {
   const order = orders.find((entry) => entry.id === item.order);
   const assignee = users.find((entry) => entry.id === item.assignee);
+  const person = clients.find((entry) => entry.id === item.person);
+  const supplier = suppliers.find((entry) => entry.id === item.supplier || entry.no === item.supplier);
   const date = new Date(item.starts_at);
   return {
     ...item, type: CAL_KIND_FROM_BACKEND[item.kind] || item.kind, date,
     time: date.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' }),
-    order: order?.no || item.order || null, resp: assignee?.full_name || assignee?.name || 'Сотрудник',
-    priority: CAL_PRIORITY_FROM_BACKEND[item.priority] || item.priority, notify: item.notification_method,
-    repeat: item.recurrence_rule || 'Не повторять', done: item.status === 'done',
-    history: [{ t: calNowStr(), text: `Статус backend: ${item.status}`, who: 'Система' }],
+    order: order?.no || item.order || null, resp: assignee?.full_name || assignee?.name || 'Не назначен',
+    priority: CAL_PRIORITY_FROM_BACKEND[item.priority] || item.priority,
+    pax: person?.name || '', supplier: supplier?.name || '', done: item.status === 'done',
   };
 }
-function hydrateCalendarEvents(items = [], orders = [], users = []) {
-  CAL_EVENTS.splice(0, CAL_EVENTS.length, ...items.map((item) => calendarEventToUi(item, orders, users)));
+function hydrateCalendarEvents(items = [], orders = [], users = [], clients = [], suppliers = []) {
+  CAL_EVENTS.splice(0, CAL_EVENTS.length, ...items.map((item) => calendarEventToUi(item, orders, users, clients, suppliers)));
 }
 function calEventsOn(day) { return CAL_EVENTS.filter((e) => trSameDay(e.date, day)); }
 function calAddEvent(evt) {
-  const who = (window.CURRENT_USER && CURRENT_USER.name) || 'Даниель';
+  const who = (window.CURRENT_USER && CURRENT_USER.name) || 'Пользователь';
   const full = { id: 'CE-' + Math.random().toString(36).slice(2, 7), done: false, history: [{ t: calNowStr(), text: 'Событие создано', who }], ...evt };
   CAL_EVENTS.push(full); return full;
 }
@@ -161,10 +149,10 @@ function calFindDuplicate({ type, title, order }) {
   return CAL_EVENTS.find((e) => e.order === order && order != null && (e.type === type) && e.title.trim().toLowerCase() === (title || '').trim().toLowerCase() && !e.done);
 }
 function calOrderInfo(no) {
-  const source = window.CALENDAR_ORDERS || (typeof ORDERS !== 'undefined' ? ORDERS : []);
+  const source = window.CALENDAR_ORDERS || [];
   const o = source.find((x) => x.no === no) || null;
   if (!o) return null;
-  return { no: o.no, client: o.client, company: o.requestType, pax: o.services, services: o.service, operator: o.operator, deadline: 'выписка · сегодня 18:00' };
+  return { no: o.no, client: o.client, company: o.requestType, services: o.services, operator: o.operator };
 }
 
 
@@ -221,8 +209,7 @@ function CalOrderPicker({ value, onChange, orders = [] }) {
       {info && (
         <div style={{ marginTop: 8, padding: '10px 12px', borderRadius: 10, background: 'var(--surface-2)', fontSize: 12.5, display: 'grid', gap: 3 }}>
           <div style={{ color: 'var(--muted)' }}>Клиент: <b style={{ color: 'var(--ink)' }}>{info.client}</b> · тип: {info.company}</div>
-          <div style={{ color: 'var(--muted)' }}>Пассажиров: {info.pax} · услуг: {info.services} · ответственный: {info.operator}</div>
-          <div style={{ color: 'var(--amber)' }}>Ближайший дедлайн: {info.deadline}</div>
+          <div style={{ color: 'var(--muted)' }}>Услуг: {info.services} · ответственный: {info.operator}</div>
         </div>
       )}
     </div>
@@ -230,15 +217,7 @@ function CalOrderPicker({ value, onChange, orders = [] }) {
 }
 
 function calendarOperatorRows(users = []) {
-  const source = users.length
-    ? users
-    : (typeof OPERATORS !== 'undefined' ? OPERATORS.map((name, index) => ({
-        id: `operator-${index}`,
-        name,
-        role: 'Оператор',
-        status: 'Активный',
-      })) : []);
-  return source
+  return users
     .map((user, index) => ({
       id: user.id || user.serverId || `operator-${index}`,
       name: user.full_name || user.name || user.email || 'Сотрудник',
@@ -321,11 +300,11 @@ function CalPaxPickDrawer({ order, onPick, onClose, clients = [], users = [] }) 
   const [q, setQ] = useState('');
   const s = q.trim().toLowerCase();
   const orderClient = order && typeof calOrderInfo === 'function' ? calOrderInfo(order) : null;
-  const passengers = (clients.length ? clients : (typeof CLIENTS_DB !== 'undefined' ? CLIENTS_DB : [])).map((c) => ({
+  const passengers = clients.map((c) => ({
     id: c.id, name: c.name, sub: [c.phone, c.doc].filter(Boolean).join(' · '), tag: c.status, tone: 'blue',
     fromOrder: !!(orderClient && c.company && orderClient.client && c.company === orderClient.client),
   }));
-  const employees = (users.length ? users.map((user) => ({ id: user.id, name: user.full_name || user.name || user.email })) : (typeof OPERATORS !== 'undefined' ? OPERATORS.map((name, i) => ({ id: 'op-' + i, name })) : []))
+  const employees = users.map((user) => ({ id: user.id, name: user.full_name || user.name || user.email }))
     .map((entry) => ({ id: entry.id, name: entry.name, sub: 'Сотрудник агентства', tag: 'Оператор', tone: 'teal' }));
   const src = tab === 'pax' ? passengers : employees;
   let list = s ? src.filter((p) => p.name.toLowerCase().includes(s) || (p.sub || '').toLowerCase().includes(s)) : src;
@@ -376,83 +355,61 @@ function CalPaxPicker({ value, onChange, order, placeholder = 'Выберите'
 
 
 
-function CalEventCreator({ type, day, presetOrder, orders = [], clients = [], users = [], onClose, onCreated, onPersist }) {
+function CalEventCreator({ type, day, presetOrder, orders = [], clients = [], users = [], suppliers = [], onClose, onCreated, onPersist }) {
   const toast = useToast();
   const t = CAL_EVENT_TYPES[type];
-  const currentOperator = (window.CURRENT_USER && CURRENT_USER.name) || 'Даниель';
+  const currentOperator = (window.CURRENT_USER && CURRENT_USER.name) || 'Пользователь';
   const [f, setF] = useState({
-    title: '', dateStr: calFmtDay(day), endStr: '', time: '12:00', order: presetOrder || null, service: '', pax: '', supplier: '',
-    resp: currentOperator, priority: 'Средний', notify: CAL_NOTIFY[0], repeat: 'Не повторять',
-    repeatEvery: '2', repeatUnit: 'День', repeatUntil: '', repeatCondition: '',
-    scope: 'Себе', respRole: '—', direction: '', services: [], contact: '', comment: '', criterion: '', actionOnProblem: '',
+    title: '', dateStr: calFmtDay(day), endStr: '', time: '12:00', order: presetOrder || null, pax: '', supplier: '',
+    resp: currentOperator, priority: 'Средний', scope: 'Себе', respRole: '—', direction: '', contact: '', comment: '', criterion: '',
   });
   const [dupChoice, setDupChoice] = useState(null);
-  const [creditAck, setCreditAck] = useState(false);
-  const [repeatDrawerOpen, setRepeatDrawerOpen] = useState(false);
   const set = (k, v) => setF((s) => ({ ...s, [k]: v }));
 
-  const orderClient = (type === 'order' && f.order) ? (calOrderInfo(f.order) || {}).client : null;
-  const credit = (type === 'order' && orderClient && typeof finCreditCheck === 'function') ? finCreditCheck(orderClient) : null;
-  const creditBlocked = credit && credit.block && !creditAck;
-  const toggleSvc = (s) => setF((p) => ({ ...p, services: p.services.includes(s) ? p.services.filter((x) => x !== s) : [...p.services, s] }));
   const changeScope = (scope) => setF((current) => ({
     ...current,
     scope,
     resp: scope === 'Себе' ? currentOperator : scope === 'Другому оператору' ? '' : current.resp,
   }));
-  const changeRepeat = (repeat) => {
-    set('repeat', repeat);
-    if (repeat === 'Свой интервал') setRepeatDrawerOpen(true);
-  };
-
   const dup = (type === 'reminder' || type === 'task') && f.title && f.order ? calFindDuplicate({ type, title: f.title, order: f.order }) : null;
   const needTitle = type !== 'order';
   const assigneeReady = f.scope !== 'Другому оператору' || Boolean(f.resp);
   const canSave = (type === 'order' ? Boolean(f.order || f.contact || f.pax) : !!f.title.trim()) && assigneeReady;
 
   const submit = async () => {
-    if (creditBlocked) { toast('Оформление заблокировано: требуется согласование кредитных условий', 'warn'); return; }
+    if (!onPersist) { toast('Backend обработчик календаря недоступен', 'err'); return; }
     if (dup && !dupChoice) { setDupChoice('shown'); return; }
     const [dd, mm, yy] = f.dateStr.split('.').map(Number);
     const [hh, mi] = (f.time || '12:00').split(':').map(Number);
-    const date = new Date(yy || 2026, (mm || 1) - 1, dd || 1, hh || 12, mi || 0);
-    const repeatLabel = f.repeat === 'Свой интервал'
-      ? calRepeatSummary(f.repeatEvery, f.repeatUnit, f.repeatUntil)
-      : f.repeat === 'До указанной даты'
-        ? `До указанной даты${f.repeatUntil ? ' · до ' + f.repeatUntil : ''}`
-        : f.repeat === 'До выполнения условия'
-          ? `До выполнения условия${f.repeatCondition ? ' · ' + f.repeatCondition : ''}`
-          : f.repeat;
-    const base = {
-      type, date, time: f.time, order: f.order, service: f.service, resp: f.resp,
-      repeat: repeatLabel, scope: f.scope, respRole: f.respRole, comment: f.comment,
-    };
+    const date = new Date(yy || new Date().getFullYear(), (mm || 1) - 1, dd || 1, hh || 12, mi || 0);
+    const base = { type, date, time: f.time, order: f.order, resp: f.resp, scope: f.scope, comment: f.comment };
     let evt;
     if (type === 'order') {
       try {
-        const created = onPersist ? calUpsertEvent(await onPersist({ ...base, type, form: f, date, endStr: f.endStr })) : calAddEvent({ ...base, title: f.direction || 'Заказ / поездка' });
+        const created = calUpsertEvent(await onPersist({ ...base, type, form: f, date, endStr: f.endStr }));
         toast('Заказ и событие сохранены в backend', 'ok', { title: 'Заказ создан', action: { label: 'Открыть в «Заказы»', route: 'orders' } });
         onCreated && onCreated(created); onClose();
       } catch (error) { toast(error.message || 'Не удалось создать заказ и событие', 'err'); }
       return;
     }
-    if (type === 'reminder') evt = { ...base, title: f.title, pax: f.pax, supplier: f.supplier, priority: f.priority, notify: f.notify };
+    if (type === 'reminder') evt = { ...base, title: f.title, pax: f.pax, supplier: f.supplier, priority: f.priority };
     else if (type === 'task') evt = { ...base, title: f.title, priority: f.priority };
-    else evt = { ...base, title: f.title, criterion: f.criterion, actionOnProblem: f.actionOnProblem };
+    else evt = { ...base, title: f.title, criterion: f.criterion };
     try {
-      const created = onPersist ? calUpsertEvent(await onPersist({ ...evt, form: f })) : calAddEvent(evt);
+      const created = calUpsertEvent(await onPersist({ ...evt, form: f }));
       toast(t.l + ' сохранено в backend', 'ok');
       onCreated && onCreated(created); onClose();
     } catch (error) { toast(error.message || 'Не удалось создать событие', 'err'); }
   };
 
   const presets = type === 'reminder' ? CAL_REMINDER_PRESETS : type === 'task' ? CAL_TASK_PRESETS : type === 'control' ? CAL_CONTROL_PRESETS : [];
+  const operatorNames = calendarOperatorRows(users).map((item) => item.name);
 
   return (
     <Drawer open title={t.l} sub="Заполните поля и создайте событие" width="min(640px,96vw)" onClose={onClose}
       footer={<>
         <Button variant="secondary" style={{ flex: 1 }} onClick={onClose}>Отмена</Button>
-        <Button style={{ flex: 1 }} icon="check" disabled={!canSave || creditBlocked} onClick={submit}>{dup && !dupChoice ? 'Проверить дубли' : 'Создать'}</Button>
+        <Button style={{ flex: 1 }} icon="check" disabled={!canSave} onClick={submit}>{dup && !dupChoice ? 'Проверить дубли' : 'Создать'}</Button>
       </>}>
 
       {dup && dupChoice && (
@@ -483,39 +440,13 @@ function CalEventCreator({ type, day, presetOrder, orders = [], clients = [], us
           <UFDateField label="Дата окончания" value={f.endStr || null} onChange={(v) => set('endStr', v)} placeholder="дд.мм.гггг" />
           <Field label="Продолжительность"><Input value={f.endStr ? '—' : ''} placeholder="авто" disabled /></Field>
         </div>
-        <Field label="Клиент или компания"><CalOrderPicker value={f.order} orders={orders} onChange={(v) => set('order', v)} /></Field>
+        <Field label="Существующий заказ"><CalOrderPicker value={f.order} orders={orders} onChange={(v) => set('order', v)} /></Field>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
           <Field label="Контактное лицо"><CalPaxPicker value={f.contact} order={f.order} clients={clients} users={users} onChange={(v) => set('contact', v)} placeholder="Выберите контакт" /></Field>
           <Field label="Пассажир"><CalPaxPicker value={f.pax} order={f.order} clients={clients} users={users} onChange={(v) => set('pax', v)} placeholder="Выберите пассажира" /></Field>
           <Field label="Направление"><Input value={f.direction} onChange={(e) => set('direction', e.target.value)} placeholder="Москва → Казань" /></Field>
-          <Field label="Ответственный оператор"><Select value={f.resp} onChange={(e) => set('resp', e.target.value)} options={f.resp && !OPERATORS.includes(f.resp) ? [f.resp, ...OPERATORS] : OPERATORS} /></Field>
+          <Field label="Ответственный оператор"><Select value={f.resp} onChange={(e) => set('resp', e.target.value)} options={f.resp && !operatorNames.includes(f.resp) ? [f.resp, ...operatorNames] : operatorNames} /></Field>
         </div>
-        <Field label="Типы услуг">
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-            {CAL_SERVICE_TYPES.map((s) => <button key={s} type="button" onClick={() => toggleSvc(s)} className={'chip' + (f.services.includes(s) ? '' : ' ghost')} style={{ height: 32, fontSize: 12.5 }}>{s}</button>)}
-          </div>
-        </Field>
-
-        {credit && credit.cp && (credit.problems.length > 0 ? (
-          <div style={{ padding: '12px 14px', borderRadius: 12, background: credit.block ? 'var(--red-bg)' : 'var(--amber-bg)', border: '1px solid ' + (credit.block ? 'var(--red)' : 'var(--amber)') }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
-              <Icon name={credit.block ? 'lock' : 'alertTriangle'} style={{ width: 18, height: 18, color: credit.block ? 'var(--red)' : 'var(--amber)' }} />
-              <b style={{ color: 'var(--ink)', fontSize: 13.5 }}>Проверка кредитных условий · {credit.cp.name}</b>
-            </div>
-            <div style={{ fontSize: 12.5, color: 'var(--body)', marginBottom: 6 }}>{credit.problems.join(' · ')}.</div>
-            <div style={{ fontSize: 12, color: 'var(--muted)' }}>Лимит {credit.cp.limit ? f$(credit.cp.used) + ' / ' + f$(credit.cp.limit) : 'не установлен'}{credit.nearestDue ? ' · ближайшая оплата ' + credit.nearestDue.due : ''} · согласование при превышении: {credit.cp.approveOnExceed ? 'обязательно' : 'не требуется'}</div>
-            {credit.block && (
-              <label style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 10, fontSize: 12.5, cursor: 'pointer' }}>
-                <Checkbox on={creditAck} onChange={() => setCreditAck((v) => !v)} />
-                Оформить под согласование (превышение/просрочка подтверждено)
-              </label>
-            )}
-          </div>
-        ) : (
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 14px', borderRadius: 12, background: 'var(--green-bg-2)', fontSize: 12.5, color: 'var(--body)' }}>
-            <Icon name="checkCircle" style={{ width: 16, height: 16, color: 'var(--green)' }} />Кредитные условия в норме — оформление разрешено{credit.free != null ? ' (свободный лимит ' + f$(credit.free) + ')' : ''}.
-          </div>
-        ))}
       </>)}
 
       {type !== 'order' && (<>
@@ -525,9 +456,8 @@ function CalEventCreator({ type, day, presetOrder, orders = [], clients = [], us
         </div>
         <Field label={type === 'task' ? 'Заказ (обязательно)' : 'Заказ (необязательно)'}><CalOrderPicker value={f.order} orders={orders} onChange={(v) => set('order', v)} /></Field>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-          <Field label="Услуга"><Select value={f.service} onChange={(e) => set('service', e.target.value)} options={CAL_SERVICE_TYPES} placeholder="—" /></Field>
           {type === 'reminder' && <Field label="Пассажир"><CalPaxPicker value={f.pax} order={f.order} clients={clients} users={users} onChange={(v) => set('pax', v)} placeholder="Выберите пассажира" /></Field>}
-          {type === 'reminder' && <Field label="Поставщик"><Select value={f.supplier} onChange={(e) => set('supplier', e.target.value)} options={['', ...SUPPLIERS.map((s) => s.name)]} placeholder="(необязательно)" /></Field>}
+          {type === 'reminder' && <Field label="Поставщик"><Select value={f.supplier} onChange={(e) => set('supplier', e.target.value)} options={['', ...suppliers.map((item) => item.name)]} placeholder="(необязательно)" /></Field>}
           {type !== 'control' && <Field label="Приоритет"><Select value={f.priority} onChange={(e) => set('priority', e.target.value)} options={CAL_PRIORITY} /></Field>}
         </div>
       </>)}
@@ -535,14 +465,11 @@ function CalEventCreator({ type, day, presetOrder, orders = [], clients = [], us
       {type === 'control' && (
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
           <Field label="Критерий результата"><Input value={f.criterion} onChange={(e) => set('criterion', e.target.value)} placeholder="напр. задержка > 60 мин" /></Field>
-          <Field label="Действие при проблеме"><Input value={f.actionOnProblem} onChange={(e) => set('actionOnProblem', e.target.value)} placeholder="напр. создать задачу оператору" /></Field>
         </div>
       )}
 
 
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-        {type !== 'order' && <Field label="Повторение"><Select value={f.repeat} onChange={(e) => changeRepeat(e.target.value)} options={CAL_REPEAT} /></Field>}
-        {type === 'reminder' && <Field label="Способ уведомления"><Select value={f.notify} onChange={(e) => set('notify', e.target.value)} options={CAL_NOTIFY} /></Field>}
         <Field label="Назначить"><Select value={f.scope} onChange={(e) => changeScope(e.target.value)} options={CAL_SCOPE} /></Field>
         {f.scope === 'На весь заказ' && <Field label="Ответственный по услуге"><Select value={f.respRole} onChange={(e) => set('respRole', e.target.value)} options={CAL_RESP_ROLE} /></Field>}
       </div>
@@ -551,40 +478,13 @@ function CalEventCreator({ type, day, presetOrder, orders = [], clients = [], us
           <CalOperatorPicker value={f.resp} users={users} onChange={(value) => set('resp', value)} />
         </Field>
       )}
-      {type !== 'order' && f.repeat === 'Свой интервал' && (
-        <button type="button" className="cal-repeat-summary" onClick={() => setRepeatDrawerOpen(true)}>
-          <span className="cal-repeat-summary-icon"><Icon name="clock" /></span>
-          <span><small>Настроенный интервал</small><b>{calRepeatSummary(f.repeatEvery, f.repeatUnit, f.repeatUntil)}</b></span>
-          <span className="cal-repeat-edit">Изменить <Icon name="chevRight" /></span>
-        </button>
-      )}
-      {type !== 'order' && f.repeat === 'До указанной даты' && (
-        <UFDateField label="Повторять до" value={f.repeatUntil || null} onChange={(v) => set('repeatUntil', v)} placeholder="дд.мм.гггг" />
-      )}
-      {type !== 'order' && f.repeat === 'До выполнения условия' && (
-        <Field label="Условие завершения">
-          <Input value={f.repeatCondition} onChange={(e) => set('repeatCondition', e.target.value)} placeholder="например: после оплаты или подтверждения" />
-        </Field>
-      )}
       <Field label="Комментарий"><Input value={f.comment} onChange={(e) => set('comment', e.target.value)} placeholder="Необязательно" /></Field>
 
       {type === 'control' && (f.title || f.criterion) && (
         <div style={{ marginTop: 4, padding: '10px 12px', borderRadius: 10, background: 'var(--surface-2)', fontSize: 12.5, color: 'var(--body)' }}>
-          <b>Контроль:</b> {f.title || '—'}{f.order ? ' · заказ № ' + f.order : ''}<br />Проверить {f.dateStr} в {f.time}. {f.criterion ? 'При «' + f.criterion + '» → ' + (f.actionOnProblem || 'уведомить ответственного') + '.' : ''}
+          <b>Контроль:</b> {f.title || '—'}{f.order ? ' · заказ № ' + f.order : ''}<br />Проверить {f.dateStr} в {f.time}.{f.criterion ? ' Критерий: «' + f.criterion + '».' : ''}
           <div style={{ color: 'var(--muted-2)', marginTop: 4 }}>Контроль сохраняется в backend и отображается в общем календаре.</div>
         </div>
-      )}
-      {repeatDrawerOpen && (
-        <CalCustomRepeatDrawer
-          value={{ every: f.repeatEvery, unit: f.repeatUnit, until: f.repeatUntil }}
-          dateStr={f.dateStr}
-          time={f.time}
-          onClose={() => setRepeatDrawerOpen(false)}
-          onApply={({ every, unit, until }) => {
-            setF((current) => ({ ...current, repeat: 'Свой интервал', repeatEvery: every, repeatUnit: unit, repeatUntil: until }));
-            setRepeatDrawerOpen(false);
-          }}
-        />
       )}
     </Drawer>
   );
@@ -611,9 +511,8 @@ function CalEventPanel({ evt, onClose, onChanged, onOpenOrder, onComplete, onRes
   const toast = useToast();
   const t = CAL_EVENT_TYPES[evt.type];
   const info = evt.order ? calOrderInfo(evt.order) : null;
-  const log = (text) => { evt.history = [...evt.history, { t: calNowStr(), text, who: (window.CURRENT_USER && CURRENT_USER.name) || 'Даниель' }]; onChanged && onChanged(); };
-  const complete = async () => { try { if (onComplete) await onComplete(evt); evt.done = true; log('Событие выполнено'); toast('Событие отмечено выполненным' + (evt.repeat && evt.repeat !== 'Не повторять' ? ' · повторение остановлено' : ''), 'ok'); onChanged && onChanged(); } catch (error) { toast(error.message || 'Не удалось выполнить событие', 'err'); } };
-  const move = async () => { try { const next = new Date(evt.date.getTime() + 86400000); if (onReschedule) await onReschedule(evt, next); evt.date = next; log('Срок перенесён на +1 день'); toast('Срок перенесён на следующий день', 'info'); onChanged && onChanged(); } catch (error) { toast(error.message || 'Не удалось перенести событие', 'err'); } };
+  const complete = async () => { try { if (onComplete) await onComplete(evt); evt.done = true; toast('Событие отмечено выполненным', 'ok'); onChanged && onChanged(); } catch (error) { toast(error.message || 'Не удалось выполнить событие', 'err'); } };
+  const move = async () => { try { const next = new Date(evt.date.getTime() + 86400000); if (onReschedule) await onReschedule(evt, next); evt.date = next; toast('Срок перенесён на следующий день', 'info'); onChanged && onChanged(); } catch (error) { toast(error.message || 'Не удалось перенести событие', 'err'); } };
   return (
     <Drawer open={!!evt} onClose={onClose} title={evt.title} sub={t.l + ' · ' + calFmtDay(evt.date) + (evt.time ? ' · ' + evt.time : '')}
       footer={<div style={{ display: 'flex', gap: 10, width: '100%' }}>
@@ -629,28 +528,19 @@ function CalEventPanel({ evt, onClose, onChanged, onOpenOrder, onComplete, onRes
       </div>
       <div className="card card-pad" style={{ marginBottom: 14 }}>
         {evt.order && <FinRow label="Заказ" value={'№ ' + evt.order} />}
-        {evt.service && <FinRow label="Услуга" value={evt.service} />}
         {evt.pax && <FinRow label="Пассажир" value={evt.pax} />}
         {evt.supplier && <FinRow label="Поставщик" value={evt.supplier} />}
         <FinRow label="Ответственный" value={evt.resp} />
         {evt.scope && <FinRow label="Назначено" value={evt.scope + (evt.respRole && evt.respRole !== '—' ? ' · ' + evt.respRole : '')} />}
-        {evt.notify && <FinRow label="Уведомление" value={evt.notify} />}
-        {evt.repeat && <FinRow label="Повторение" value={evt.repeat} />}
         {evt.criterion && <FinRow label="Критерий" value={evt.criterion} />}
-        {evt.actionOnProblem && <FinRow label="При проблеме" value={evt.actionOnProblem} />}
         {evt.comment && <FinRow label="Комментарий" value={evt.comment} />}
       </div>
       {info && (
         <div className="card card-pad" style={{ marginBottom: 14, background: 'var(--surface-2)' }}>
           <div style={{ fontWeight: 700, fontSize: 13, color: 'var(--ink)', marginBottom: 6 }}>Связанный заказ № {info.no}</div>
-          <div style={{ fontSize: 12.5, color: 'var(--muted)' }}>Клиент: {info.client} · пассажиров: {info.pax} · услуг: {info.services}</div>
-          <div style={{ fontSize: 12.5, color: 'var(--amber)' }}>Ближайший дедлайн: {info.deadline}</div>
+          <div style={{ fontSize: 12.5, color: 'var(--muted)' }}>Клиент: {info.client} · услуг: {info.services} · ответственный: {info.operator}</div>
         </div>
       )}
-      <h3 className="card-title" style={{ fontSize: 14, marginBottom: 8 }}>История</h3>
-      <div style={{ display: 'grid', gap: 6 }}>
-        {evt.history.map((h, i) => <div key={i} style={{ fontSize: 12.5, color: 'var(--body)' }}><span style={{ color: 'var(--muted-2)', marginRight: 6 }}>{h.t}</span>{h.text} · <span style={{ color: 'var(--muted)' }}>{h.who}</span></div>)}
-      </div>
     </Drawer>
   );
 }

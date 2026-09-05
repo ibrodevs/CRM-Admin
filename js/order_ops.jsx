@@ -1,243 +1,300 @@
 import { useState, useEffect } from 'react';
 import { Icon } from './icons';
-import { ActionMenu, Avatar, Button, Drawer, EmptyState, Modal, ModalHeader, Pill, useToast } from './ui';
-import { CURRENT_USER, OPERATORS, SERVICE_TYPE } from './data';
-import { EXTRA_STAGES, EXTRA_STATUS, EXTRA_SVC_CATALOG, ORDER_RESP_HISTORY, ORDER_SVC_RESPONSIBLES, SVC_ACCESS_KINDS, extrasFromSupplier, operatorSvcAccess, orderActionLog } from './data/access-control';
-import { workspaceActionsApi } from './api/resources';
+import { ActionMenu, Avatar, Button, Drawer, EmptyState, Field, Input, Modal, ModalHeader, Pill, Select, useToast } from './ui';
+import { servicesApi } from './api/resources';
+import { resultsOf } from './api/client';
 
+const SERVICE_TONE = {
+  'Авиа': 'blue', 'ЖД': 'teal', 'Гостиница': 'amber', 'Трансфер': 'purple',
+  'Автобус': 'green', 'Тур': 'pink', 'Страховка': 'teal', 'Виза': 'amber', 'Прочее': 'gray',
+};
+const EXTRA_STAGE_LABEL = {
+  before_booking: 'До бронирования',
+  after_booking: 'После бронирования',
+  after_issue: 'После выписки',
+};
+const EXTRA_AVAILABILITY_LABEL = {
+  provider: 'От поставщика',
+  manual: 'Ручная',
+  unavailable: 'Недоступна',
+};
+const EXTRA_STATUS_TONE = { proposed: 'blue', requested: 'amber', confirmed: 'green', issued: 'green', cancelled: 'gray', failed: 'red' };
+const SERVICE_KIND_OPTIONS = [
+  { value: 'avia', label: 'Авиа' }, { value: 'rail', label: 'ЖД' },
+  { value: 'hotel', label: 'Гостиница' }, { value: 'transfer', label: 'Трансфер' },
+  { value: 'bus', label: 'Автобус' }, { value: 'tour', label: 'Тур' },
+  { value: 'insurance', label: 'Страховка' }, { value: 'visa', label: 'Виза' },
+  { value: 'other', label: 'Прочее' },
+];
+const EXTRA_STAGE_OPTIONS = Object.entries(EXTRA_STAGE_LABEL).map(([value, label]) => ({ value, label }));
 
-
-
-
-function operatorsForKind(kind) {
-  return OPERATORS.filter((op) => {
-    const a = operatorSvcAccess(op);
-    return a.fullAccess || (a.kinds && a.kinds[kind] && Object.values(a.kinds[kind]).some(Boolean));
-  });
+function userName(user) {
+  return user.full_name || user.name || user.email || 'Пользователь';
+}
+function operatorsForKind(users = []) {
+  return users.filter((user) => !user.status || user.status === 'active' || user.status === 'Активный');
+}
+function ensureResponsibles(services = []) {
+  return Array.isArray(services) ? services : [];
 }
 
-
-function ensureResponsibles(order) {
-  if (ORDER_SVC_RESPONSIBLES[order.no]) return ORDER_SVC_RESPONSIBLES[order.no];
-  const kindMap = { 'Отель': 'Гостиницы', 'Трансфер': 'Трансферы', 'Виза': 'Визы' };
-  const k = kindMap[order.service] || (SVC_ACCESS_KINDS.includes(order.service) ? order.service : 'Авиа');
-  ORDER_SVC_RESPONSIBLES[order.no] = [{ kind: k, service: (order.service || 'Услуга') + ' по заказу', operator: order.operator || 'Не назначен' }];
-  return ORDER_SVC_RESPONSIBLES[order.no];
-}
-
-
-function OrderResponsiblesTab({ order }) {
+function OrderResponsiblesTab({ services = [], users = [], onUpdated }) {
   const toast = useToast();
-  const [, tick] = useState(0);
-  const rerender = () => tick((n) => n + 1);
-  const resp = ensureResponsibles(order);
-  const history = ORDER_RESP_HISTORY[order.no] || (ORDER_RESP_HISTORY[order.no] = []);
-  const log = orderActionLog(order.no);
+  const rows = ensureResponsibles(services);
+  const operators = operatorsForKind(users);
 
-  const reassign = (row, op) => {
-    if (op === row.operator) return;
-    const prev = row.operator;
-    row.operator = op;
-    history.push({ date: (window.cfNow ? window.cfNow() : new Date().toLocaleString('ru-RU')), text: row.kind + ': ' + prev + ' → ' + op, user: (CURRENT_USER && CURRENT_USER.name) || 'Оператор' });
-    toast('Ответственный по «' + row.kind + '»: ' + op, 'ok');
-    rerender();
+  const reassign = async (service, user) => {
+    const serviceId = service.serverId || service.id;
+    if (!serviceId || !user.id) {
+      toast('Для услуги или пользователя не найден backend ID', 'err');
+      return;
+    }
+    try {
+      const updated = await servicesApi.setResponsible(serviceId, user.id);
+      onUpdated?.(updated);
+      toast('Ответственный по услуге изменён', 'ok');
+    } catch (error) {
+      toast(error.message || 'Не удалось изменить ответственного', 'err');
+    }
   };
 
   return (
     <div className="fade-in">
-      <div style={{ display: 'flex', alignItems: 'center', marginBottom: 12 }}>
+      <div style={{ marginBottom: 12 }}>
+        <h3 className="card-title" style={{ fontSize: 18, margin: 0 }}>Ответственные по услугам</h3>
+        <div style={{ fontSize: 12, color: 'var(--muted)' }}>Назначения загружены из услуг заказа и сохраняются непосредственно в backend.</div>
+      </div>
+      {!rows.length ? <EmptyState icon="users" title="В заказе пока нет услуг" sub="Ответственного можно назначить после добавления услуги." /> : (
+        <div className="table-card">
+          <table className="tbl">
+            <thead><tr><th>Вид услуг</th><th>Услуга</th><th>Ответственный</th><th style={{ width: 150 }}>Действие</th></tr></thead>
+            <tbody>{rows.map((service) => {
+              const current = service.responsible_name || operators.find((user) => String(user.id) === String(service.responsible)) && userName(operators.find((user) => String(user.id) === String(service.responsible))) || 'Не назначен';
+              return (
+                <tr key={service.serverId || service.id}>
+                  <td><Pill tone={SERVICE_TONE[service.kind] || 'gray'}>{service.kind || 'Прочее'}</Pill></td>
+                  <td className="t-strong">{service.title || 'Услуга'}</td>
+                  <td><span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}><Avatar name={current} size={26} />{current}</span></td>
+                  <td>
+                    <ActionMenu
+                      trigger={<Button variant="secondary" size="sm" iconRight="chevDown" disabled={!operators.length}>Переназначить</Button>}
+                      items={operators.map((user) => ({
+                        icon: String(user.id) === String(service.responsible) ? 'check' : 'user',
+                        label: userName(user),
+                        onClick: () => reassign(service, user),
+                      }))}
+                    />
+                  </td>
+                </tr>
+              );
+            })}</tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function DynamicExtrasPanel({ services = [] }) {
+  const toast = useToast();
+  const [rows, setRows] = useState([]);
+  const [catalog, setCatalog] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [formOpen, setFormOpen] = useState(false);
+  const [draft, setDraft] = useState({ service: '', catalog_item: '', name: '', stage: 'before_booking', quantity: 1, price: '', currency: '' });
+
+  const load = async (signal) => {
+    setLoading(true);
+    try {
+      const [catalogPayload, ...extraPayloads] = await Promise.all([
+        servicesApi.extraCatalog({}, signal),
+        ...services.map((service) => servicesApi.extras(service.serverId || service.id, signal)),
+      ]);
+      setCatalog(resultsOf(catalogPayload).filter((item) => item.is_active));
+      setRows(extraPayloads.flatMap((items, index) => (Array.isArray(items) ? items : []).map((item) => ({
+        ...item,
+        serviceId: services[index]?.serverId || services[index]?.id,
+        serviceTitle: services[index]?.title || services[index]?.kind || 'Услуга',
+      }))));
+    } catch (error) {
+      if (error.name !== 'AbortError') toast(error.message || 'Не удалось загрузить дополнительные услуги', 'err');
+    } finally {
+      if (!signal?.aborted) setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    const controller = new AbortController();
+    load(controller.signal);
+    return () => controller.abort();
+  }, [services.map((service) => service.serverId || service.id).join('|')]);
+
+  const openForm = () => {
+    const first = services[0];
+    setDraft({
+      service: first ? String(first.serverId || first.id) : '',
+      catalog_item: '',
+      name: '',
+      stage: 'before_booking',
+      quantity: 1,
+      price: '',
+      currency: first?.currency || '',
+    });
+    setFormOpen(true);
+  };
+  const chooseCatalog = (id) => {
+    const item = catalog.find((row) => String(row.id) === String(id));
+    setDraft((current) => ({
+      ...current,
+      catalog_item: id,
+      name: item?.name || current.name,
+      stage: item?.stage || current.stage,
+      price: item?.default_fee ?? current.price,
+      currency: item?.currency || current.currency,
+    }));
+  };
+  const createExtra = async () => {
+    if (!draft.service || !draft.name.trim()) {
+      toast('Выберите услугу и укажите название', 'err');
+      return;
+    }
+    try {
+      const created = await servicesApi.addExtra(draft.service, {
+        catalog_item: draft.catalog_item || null,
+        name: draft.name.trim(),
+        stage: draft.stage,
+        availability: 'manual',
+        quantity: Math.max(1, Number(draft.quantity || 1)),
+        price: draft.price === '' ? null : Number(draft.price),
+        currency: draft.currency || '',
+      });
+      const service = services.find((item) => String(item.serverId || item.id) === String(draft.service));
+      setRows((current) => [...current, { ...created, serviceId: draft.service, serviceTitle: service?.title || service?.kind || 'Услуга' }]);
+      setFormOpen(false);
+      toast('Дополнительная услуга сохранена в backend', 'ok');
+    } catch (error) {
+      toast(error.message || 'Не удалось добавить дополнительную услугу', 'err');
+    }
+  };
+
+  return (
+    <div className="fade-in">
+      <div style={{ display: 'flex', alignItems: 'center', marginBottom: 12, gap: 12 }}>
         <div style={{ flex: 1 }}>
-          <h3 className="card-title" style={{ fontSize: 18, margin: 0 }}>Ответственные по услугам</h3>
-          <div style={{ fontSize: 12, color: 'var(--muted)' }}>Над одним заказом работают несколько операторов — каждый со своими услугами. Вознаграждение считается по своим услугам.</div>
-        </div>
-      </div>
-
-      <div className="table-card" style={{ marginBottom: 18 }}>
-        <table className="tbl">
-          <thead><tr><th>Вид услуг</th><th>Услуга</th><th>Ответственный</th><th style={{ width: 150 }}>Действие</th></tr></thead>
-          <tbody>
-            {resp.map((row, i) => (
-              <tr key={i}>
-                <td><Pill tone={SERVICE_TYPE[row.kind] || 'blue'}>{row.kind}</Pill></td>
-                <td className="t-strong">{row.service}</td>
-                <td><span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}><Avatar name={row.operator} size={26} />{row.operator}</span></td>
-                <td>
-                  <ActionMenu trigger={<Button variant="secondary" size="sm" iconRight="chevDown">Переназначить</Button>}
-                    items={(operatorsForKind(row.kind).length ? operatorsForKind(row.kind) : OPERATORS).map((op) => ({
-                      icon: op === row.operator ? 'check' : 'user', label: op, onClick: () => reassign(row, op),
-                    }))} />
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-
-      <div className="grid-2" style={{ alignItems: 'start' }}>
-
-        <div>
-          <h3 className="card-title" style={{ fontSize: 16, marginBottom: 10 }}>Журнал действий операторов</h3>
-          <div className="table-card">
-            <table className="tbl">
-              <thead><tr><th>Время</th><th>Оператор</th><th>Услуга</th><th>Действие</th><th>Результат</th></tr></thead>
-              <tbody>
-                {log.length ? log.map((l, i) => (
-                  <tr key={i}>
-                    <td className="t-muted" style={{ whiteSpace: 'nowrap' }}>{l.time}</td>
-                    <td>{l.operator}</td>
-                    <td><Pill tone={SERVICE_TYPE[l.kind] || 'blue'}>{l.kind}</Pill></td>
-                    <td>{l.action}</td>
-                    <td className="t-muted">{l.result}</td>
-                  </tr>
-                )) : <tr><td colSpan={5}><EmptyState title="Действий пока нет" /></td></tr>}
-              </tbody>
-            </table>
-          </div>
-        </div>
-
-
-        <div>
-          <h3 className="card-title" style={{ fontSize: 16, marginBottom: 10 }}>История назначений</h3>
-          <div className="card card-pad">
-            {history.length ? (
-              <div className="timeline">
-                {[...history].reverse().map((h, i) => (
-                  <div className="tl-item" key={i}><span className="tl-dot" /><span className="tl-line" />
-                    <div><div className="tl-time">{h.date} · {h.user}</div><div className="tl-text">{h.text}</div></div>
-                  </div>
-                ))}
-              </div>
-            ) : <div style={{ color: 'var(--muted)', fontSize: 13 }}>Переназначений ещё не было.</div>}
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-
-function DynamicExtrasPanel({ order }) {
-  const toast = useToast();
-  const [stage, setStage] = useState('Бронирование');
-  const [hasApi, setHasApi] = useState(true);
-  const [issued, setIssued] = useState({});
-  const list = extrasFromSupplier(stage, hasApi, issued);
-
-  const issue = (item) => { setIssued((s) => ({ ...s, [item.id]: true })); toast('Услуга оформлена: ' + item.name, 'ok'); };
-  const request = (item) => toast('Запрос поставщику отправлен: ' + item.name, 'info');
-
-  const groups = [
-    { key: 'available', title: 'Доступны сейчас', hint: 'Вернул поставщик через API — можно оформить' },
-    { key: 'request', title: 'Запросить вручную / у поставщика', hint: 'API не подтвердил — оформляется по запросу' },
-    { key: 'manual', title: 'Только вручную', hint: 'Оформляется оператором вручную' },
-    { key: 'issued', title: 'Уже оформлены', hint: '' },
-    { key: 'unavailable', title: 'Недоступны на этом этапе', hint: 'Не поддерживаются тарифом / этапом / поставщиком' },
-  ];
-  const byGroup = (k) => list.filter((x) => x.status === k);
-
-  const card = (item) => {
-    const st = EXTRA_STATUS[item.status];
-    return (
-      <div key={item.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '11px 14px', borderRadius: 12, border: '1px solid var(--field-line)', background: item.status === 'unavailable' ? 'var(--surface-2)' : '#fff', opacity: item.status === 'unavailable' ? 0.7 : 1 }}>
-        <span className="oc-svc-ic" style={{ width: 38, height: 38, background: 'var(--blue-soft)', color: 'var(--blue)' }}><Icon name={item.icon} style={{ width: 18, height: 18 }} /></span>
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontWeight: 600, color: 'var(--ink)', display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>{item.name}{item.emd && <span className="off-tag">EMD</span>}{item.fee && <span className="off-tag">сбор</span>}</div>
-          <div style={{ fontSize: 12, color: 'var(--muted)' }}>{item.category} · {item.desc}</div>
-        </div>
-        <Pill tone={st.tone}>{st.label}</Pill>
-        {item.status === 'available' && <Button size="sm" icon="check" onClick={() => issue(item)}>Оформить</Button>}
-        {item.status === 'request' && <Button size="sm" variant="secondary" icon="send" onClick={() => request(item)}>Запросить</Button>}
-        {item.status === 'manual' && <Button size="sm" variant="secondary" icon="edit" onClick={() => issue(item)}>Вручную</Button>}
-      </div>
-    );
-  };
-
-  return (
-    <div className="fade-in">
-      <div style={{ display: 'flex', alignItems: 'center', marginBottom: 12, flexWrap: 'wrap', gap: 12 }}>
-        <div style={{ flex: 1, minWidth: 220 }}>
           <h3 className="card-title" style={{ fontSize: 18, margin: 0 }}>Дополнительные услуги</h3>
-          <div style={{ fontSize: 12, color: 'var(--muted)' }}>Список формируется динамически: этап оформления → запрос в API поставщика → фильтр по статусу → отображение.</div>
+          <div style={{ fontSize: 12, color: 'var(--muted)' }}>Показаны только услуги, сохранённые в backend у услуг этого заказа.</div>
         </div>
+        <Button size="sm" icon="plus" disabled={!services.length} onClick={openForm}>Добавить</Button>
       </div>
 
+      {loading ? <div className="card card-pad" style={{ color: 'var(--muted)' }}>Загрузка дополнительных услуг…</div>
+        : !rows.length ? <EmptyState icon="sparkles" title="Дополнительных услуг пока нет" sub="Добавьте ручной запрос или дождитесь данных поставщика." />
+          : <div className="table-card">
+            <table className="tbl">
+              <thead><tr><th>Услуга заказа</th><th>Доп. услуга</th><th>Этап</th><th>Источник</th><th>Статус</th><th style={{ textAlign: 'right' }}>Стоимость</th></tr></thead>
+              <tbody>{rows.map((item) => (
+                <tr key={item.id}>
+                  <td className="t-strong">{item.serviceTitle}</td>
+                  <td>{item.name}</td>
+                  <td>{EXTRA_STAGE_LABEL[item.stage] || item.stage}</td>
+                  <td>{EXTRA_AVAILABILITY_LABEL[item.availability] || item.availability}</td>
+                  <td><Pill tone={EXTRA_STATUS_TONE[item.status] || 'gray'}>{item.status}</Pill></td>
+                  <td style={{ textAlign: 'right' }}>{item.price == null ? '—' : `${Number(item.price).toLocaleString('ru-RU')} ${item.currency || ''}`}</td>
+                </tr>
+              ))}</tbody>
+            </table>
+          </div>}
 
-      <div className="card card-pad" style={{ marginBottom: 16, display: 'flex', alignItems: 'center', gap: 18, flexWrap: 'wrap' }}>
-        <div>
-          <div style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 6 }}>Этап оформления</div>
-          <div className="seg-toggle" style={{ width: 300 }}>
-            {EXTRA_STAGES.map((st) => <button key={st} className={'seg-btn' + (stage === st ? ' active' : '')} onClick={() => setStage(st)}>{st}</button>)}
-          </div>
+      <Drawer open={formOpen} onClose={() => setFormOpen(false)} title="Добавить дополнительную услугу"
+        footer={<><Button variant="secondary" onClick={() => setFormOpen(false)}>Отмена</Button><Button icon="check" onClick={createExtra}>Сохранить</Button></>}>
+        <Field label="Услуга заказа" required>
+          <Select options={services.map((service) => ({ value: String(service.serverId || service.id), label: service.title || service.kind }))} value={draft.service} onChange={(event) => setDraft((current) => ({ ...current, service: event.target.value, currency: services.find((item) => String(item.serverId || item.id) === event.target.value)?.currency || current.currency }))} />
+        </Field>
+        <Field label="Из справочника">
+          <Select placeholder="Не выбрано" options={catalog.map((item) => ({ value: String(item.id), label: item.name }))} value={draft.catalog_item} onChange={(event) => chooseCatalog(event.target.value)} />
+        </Field>
+        <Field label="Название" required><Input value={draft.name} onChange={(event) => setDraft((current) => ({ ...current, name: event.target.value }))} /></Field>
+        <Field label="Этап"><Select options={EXTRA_STAGE_OPTIONS} value={draft.stage} onChange={(event) => setDraft((current) => ({ ...current, stage: event.target.value }))} /></Field>
+        <div className="grid-2">
+          <Field label="Количество"><Input type="number" min="1" value={draft.quantity} onChange={(event) => setDraft((current) => ({ ...current, quantity: event.target.value }))} /></Field>
+          <Field label="Цена"><Input type="number" min="0" value={draft.price} onChange={(event) => setDraft((current) => ({ ...current, price: event.target.value }))} /></Field>
         </div>
-        <div>
-          <div style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 6 }}>Поставщик</div>
-          <div className="seg-toggle" style={{ width: 260 }}>
-            <button className={'seg-btn' + (hasApi ? ' active' : '')} onClick={() => setHasApi(true)}>С API</button>
-            <button className={'seg-btn' + (!hasApi ? ' active' : '')} onClick={() => setHasApi(false)}>Локальный (без API)</button>
-          </div>
-        </div>
-        <div style={{ flex: 1 }} />
-        <div style={{ fontSize: 12, color: 'var(--muted)', maxWidth: 280, display: 'flex', gap: 6, alignItems: 'flex-start' }}>
-          <Icon name="api" style={{ width: 16, height: 16, color: 'var(--blue)', flexShrink: 0, marginTop: 1 }} />
-          CRM показывает только то, что вернул поставщик. Если API нет — услуга помечается «ручной запрос».
-        </div>
-      </div>
-
-      {groups.map((g) => {
-        const items = byGroup(g.key);
-        if (!items.length) return null;
-        return (
-          <div key={g.key} style={{ marginBottom: 16 }}>
-            <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, marginBottom: 8 }}>
-              <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--ink)' }}>{g.title}</span>
-              <span style={{ fontSize: 12, color: 'var(--muted)' }}>{g.hint}</span>
-              <span style={{ fontSize: 12, color: 'var(--muted-2)' }}>· {items.length}</span>
-            </div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>{items.map(card)}</div>
-          </div>
-        );
-      })}
+        <Field label="Валюта"><Input value={draft.currency} maxLength={3} onChange={(event) => setDraft((current) => ({ ...current, currency: event.target.value.toUpperCase() }))} /></Field>
+      </Drawer>
     </div>
   );
 }
-
 
 function ExtrasCatalogModal({ open, onClose }) {
   const toast = useToast();
-  const [catalog, setCatalog] = useState(EXTRA_SVC_CATALOG);
-  if (!open) return null;
-  const addCatalogItem = async () => {
-    const name = window.prompt('Название дополнительной услуги');
-    if (!name?.trim()) return;
+  const [catalog, setCatalog] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [formOpen, setFormOpen] = useState(false);
+  const [draft, setDraft] = useState({ name: '', kind: 'avia', stage: 'before_booking', default_fee: '', currency: '' });
+
+  useEffect(() => {
+    if (!open) return undefined;
+    const controller = new AbortController();
+    setLoading(true);
+    servicesApi.extraCatalog({}, controller.signal)
+      .then((payload) => setCatalog(resultsOf(payload)))
+      .catch((error) => { if (error.name !== 'AbortError') toast(error.message || 'Не удалось загрузить справочник', 'err'); })
+      .finally(() => { if (!controller.signal.aborted) setLoading(false); });
+    return () => controller.abort();
+  }, [open]);
+
+  const createItem = async () => {
+    if (!draft.name.trim()) {
+      toast('Укажите название услуги', 'err');
+      return;
+    }
     try {
-      const item = { id: `custom-${Date.now()}`, name: name.trim(), category: 'Прочее', stages: ['До выписки'], emd: false, manual: true, fee: '—', icon: 'plus' };
-      await workspaceActionsApi.execute('service.catalog.create', { resourceType: 'service_catalog', resourceId: item.id, payload: item });
-      setCatalog((items) => [...items, item]); toast('Услуга добавлена в справочник', 'ok');
-    } catch (error) { toast(error.message, 'err'); }
+      const created = await servicesApi.createExtraCatalogItem({
+        ...draft,
+        code: `extra-${Date.now()}`,
+        default_fee: draft.default_fee === '' ? null : Number(draft.default_fee),
+        currency: draft.currency.toUpperCase(),
+        is_active: true,
+      });
+      setCatalog((current) => [...current, created]);
+      setFormOpen(false);
+      setDraft({ name: '', kind: 'avia', stage: 'before_booking', default_fee: '', currency: '' });
+      toast('Услуга добавлена в backend-справочник', 'ok');
+    } catch (error) {
+      toast(error.message || 'Не удалось добавить услугу', 'err');
+    }
   };
+
+  if (!open) return null;
   return (
-    <Drawer open={open} onClose={onClose} title="Справочник дополнительных услуг" sub="Отображение и правила услуг. Доступность определяется API поставщика, а не справочником." width="min(900px, 96vw)"
-      footer={<>
-        <Button variant="secondary" icon="plus" onClick={addCatalogItem}>Добавить услугу</Button>
-        <Button variant="primary" onClick={onClose}>Закрыть</Button>
-      </>}>
+    <Drawer open onClose={onClose} title="Справочник дополнительных услуг" sub="Настраиваемые позиции организации из backend." width="min(900px, 96vw)"
+      footer={<><Button variant="secondary" icon="plus" onClick={() => setFormOpen((value) => !value)}>Добавить услугу</Button><Button onClick={onClose}>Закрыть</Button></>}>
+      {formOpen && <div className="card card-pad" style={{ marginBottom: 14 }}>
+        <div className="grid-2">
+          <Field label="Название" required><Input value={draft.name} onChange={(event) => setDraft((current) => ({ ...current, name: event.target.value }))} /></Field>
+          <Field label="Вид услуги"><Select options={SERVICE_KIND_OPTIONS} value={draft.kind} onChange={(event) => setDraft((current) => ({ ...current, kind: event.target.value }))} /></Field>
+          <Field label="Этап"><Select options={EXTRA_STAGE_OPTIONS} value={draft.stage} onChange={(event) => setDraft((current) => ({ ...current, stage: event.target.value }))} /></Field>
+          <Field label="Сбор по умолчанию"><Input type="number" min="0" value={draft.default_fee} onChange={(event) => setDraft((current) => ({ ...current, default_fee: event.target.value }))} /></Field>
+          <Field label="Валюта"><Input maxLength={3} value={draft.currency} onChange={(event) => setDraft((current) => ({ ...current, currency: event.target.value.toUpperCase() }))} /></Field>
+        </div>
+        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}><Button variant="secondary" onClick={() => setFormOpen(false)}>Отмена</Button><Button icon="check" onClick={createItem}>Сохранить</Button></div>
+      </div>}
+      {loading ? <div style={{ color: 'var(--muted)' }}>Загрузка…</div> : !catalog.length ? <EmptyState icon="sparkles" title="Справочник пуст" /> : (
         <div className="table-card">
           <table className="tbl">
-            <thead><tr><th>Услуга</th><th>Категория</th><th>Этапы доступности</th><th>EMD</th><th>Вручную</th><th>Сбор</th></tr></thead>
-            <tbody>
-              {catalog.map((x) => (
-                <tr key={x.id}>
-                  <td><span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}><Icon name={x.icon} style={{ width: 16, height: 16, color: 'var(--blue)' }} />{x.name}</span></td>
-                  <td>{x.category}</td>
-                  <td className="t-muted" style={{ fontSize: 12 }}>{x.stages.join(', ')}</td>
-                  <td>{x.emd ? <Pill tone="teal">EMD</Pill> : <span className="t-muted">—</span>}</td>
-                  <td>{x.manual ? 'Да' : 'Нет'}</td>
-                  <td>{x.fee ? (x.feeName || 'Сбор') : '—'}</td>
-                </tr>
-              ))}
-            </tbody>
+            <thead><tr><th>Услуга</th><th>Вид</th><th>Этап</th><th>Сбор</th><th>Статус</th></tr></thead>
+            <tbody>{catalog.map((item) => (
+              <tr key={item.id}>
+                <td className="t-strong">{item.name}</td>
+                <td>{SERVICE_KIND_OPTIONS.find((option) => option.value === item.kind)?.label || item.kind}</td>
+                <td>{EXTRA_STAGE_LABEL[item.stage] || item.stage}</td>
+                <td>{item.default_fee == null ? '—' : `${Number(item.default_fee).toLocaleString('ru-RU')} ${item.currency || ''}`}</td>
+                <td><Pill tone={item.is_active ? 'green' : 'gray'}>{item.is_active ? 'Активна' : 'Отключена'}</Pill></td>
+              </tr>
+            ))}</tbody>
           </table>
         </div>
+      )}
     </Drawer>
   );
 }

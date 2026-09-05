@@ -9,7 +9,7 @@ import { Topbar } from './layout';
 import { AirlineLogo, AirportField, PAX_DEFAULT_OPTIONS, PaxClassPicker, durMin, loadLiveFlightOffers, money, paxTotal } from './page_flights';
 import { ExtrasTabs, FareSelectPanel, RUB_PER_USD, fareCabinLabel, fareTiersForClass } from './page_avia_picker';
 import { BookingWizard } from './page_booking';
-import { FeeDrawer, PassengerDrawer, PassportModal } from './order_extras';
+import { PassengerDrawer, PassportModal } from './order_extras';
 import { DynamicExtrasPanel, OrderResponsiblesTab } from './order_ops';
 import { CityPickPanel, StackPanel } from './components/shared-panels';
 import { KPModule } from './page_offers';
@@ -328,8 +328,8 @@ function tripFromServices(services, aviaParams) {
     const m = avia.title.match(/^(.+?)\s*→\s*(.+?)(?:\s*→.+)?$/);
     return { from: m ? m[1] : aviaParams.from, to: m ? m[2] : aviaParams.to, dates: avia.date };
   }
-  const dep = aviaParams.depDate ? fmtDate(aviaParams.depDate) : '24.06';
-  const ret = aviaParams.trip === 'rt' ? ' – ' + (aviaParams.retDate ? fmtDate(aviaParams.retDate) : '01.07') : '';
+  const dep = aviaParams.depDate ? fmtDate(aviaParams.depDate) : '—';
+  const ret = aviaParams.trip === 'rt' ? ' – ' + (aviaParams.retDate ? fmtDate(aviaParams.retDate) : '—') : '';
   return { from: aviaParams.from, to: aviaParams.to, dates: dep + ret };
 }
 
@@ -427,8 +427,8 @@ function TabClients({ order, company, client, onOpenChat }) {
       <div className="card card-pad">
         <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 18 }}>
           <Avatar name={order.client} size={48} />
-          <div style={{ flex: 1 }}><div style={{ fontWeight: 700, fontSize: 16, color: 'var(--ink)' }}>{order.client}</div><div style={{ color: 'var(--muted)', fontSize: 13 }}>Заказчик · Компания</div></div>
-          <Pill tone="green">Активный</Pill>
+          <div style={{ flex: 1 }}><div style={{ fontWeight: 700, fontSize: 16, color: 'var(--ink)' }}>{order.client}</div><div style={{ color: 'var(--muted)', fontSize: 13 }}>Заказчик · {company ? 'Компания' : 'Физическое лицо'}</div></div>
+          {(client?.status || company?.status) && <Pill tone={(client?.status || company?.status) === 'Активный' || (client?.status || company?.status) === 'Действующий' ? 'green' : 'gray'}>{client?.status || company?.status}</Pill>}
         </div>
         <div className="kv">
           <div className="kv-row"><span className="k">Контактное лицо</span><span className="v">{visibleValue(client?.name)}</span></div>
@@ -443,7 +443,7 @@ function TabClients({ order, company, client, onOpenChat }) {
           footer={<Button variant="secondary" style={{ width: '100%' }} onClick={() => setCardOpen(false)}>Закрыть</Button>}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 18 }}>
             <Avatar name={order.client} size={48} />
-            <div><div style={{ fontWeight: 700, fontSize: 16, color: 'var(--ink)' }}>{order.client}</div><div style={{ color: 'var(--muted)', fontSize: 13 }}>Заказчик · Компания</div></div>
+            <div><div style={{ fontWeight: 700, fontSize: 16, color: 'var(--ink)' }}>{order.client}</div><div style={{ color: 'var(--muted)', fontSize: 13 }}>Заказчик · {company ? 'Компания' : 'Физическое лицо'}</div></div>
           </div>
           <div className="kv">
             {clientRows.map(([k, v], i) => (<div className="kv-row" key={i}><span className="k">{k}</span><span className="v">{v}</span></div>))}
@@ -2670,7 +2670,6 @@ function OrderCard({ order, company, clients = [], onBack, initTab, initSvc, ini
 
   const [passport, setPassport] = useState(null);
   const [paxOpen, setPaxOpen] = useState(false);
-  const [feeOpen, setFeeOpen] = useState(false);
   const [editPax, setEditPax] = useState(null);
   const [docPax, setDocPax] = useState(null);
 
@@ -3202,8 +3201,9 @@ function OrderCard({ order, company, clients = [], onBack, initTab, initSvc, ini
           }}
         />
       );
-      case 'responsibles': return <OrderResponsiblesTab order={order} />;
-      case 'extras': return <DynamicExtrasPanel order={order} />;
+      case 'responsibles': return <OrderResponsiblesTab services={services} users={operatorOptions}
+        onUpdated={(updated) => setServices((current) => current.map((service) => String(service.serverId || service.id) === String(updated.id) ? toLegacyOrderService(updated) : service))} />;
+      case 'extras': return <DynamicExtrasPanel services={services} />;
       case 'documents': return <DocCenter scopeOrder={order.no} initialDocuments={orderDocs} participants={participants} services={services} orders={[order]} />;
       case 'finance': return (<><OrderFinanceBlock orderNo={order.no} order={order} services={services} summary={financeSummary} /><FinanceRegistry scopeOrder={order.no} initialOps={[]} /></>);
       case 'tasks': return <TabTasks tasks={tasks} assignees={operatorOptions} onAddTask={addTask} onToggleTask={toggleTask} onDeleteTask={deleteTask} />;
@@ -3301,7 +3301,6 @@ function OrderCard({ order, company, clients = [], onBack, initTab, initSvc, ini
         onPick={reassignOperator} />
       {paxOpen && <PassengerDrawer open={paxOpen} onClose={() => setPaxOpen(false)}
         onAdd={addParticipantToOrder} />}
-      {feeOpen && <FeeDrawer open={feeOpen} onClose={() => setFeeOpen(false)} />}
       {passport && <PassportModal passenger={passport} participants={participants} onClose={() => setPassport(null)}
         onAddDoc={(p) => { setPassport(null); setDocPax(p || { name: passport }); }} />}
 

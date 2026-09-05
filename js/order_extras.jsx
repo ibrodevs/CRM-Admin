@@ -1,10 +1,9 @@
 import { useState, useEffect } from 'react';
 import { Icon } from './icons';
 import { Avatar, Button, Checkbox, Drawer, EmptyState, Field, Input, SearchBox, Select, useToast } from './ui';
-import { CURRENCIES, OPERATORS } from './data';
 import { UnifiedPersonDrawer } from './forms_unified';
 import { PanelSub } from './components/shared-panels';
-import { documentsApi, workspaceActionsApi } from './api/resources';
+import { documentsApi } from './api/resources';
 
 const ENABLE_DEMO_BUSINESS_DATA = typeof process !== 'undefined' && process.env.NEXT_PUBLIC_DEMO_MODE === 'true';
 
@@ -37,8 +36,6 @@ const PASS_DOCTYPES = [
   { key: 'bank', label: 'Банковская выписка', icon: 'bank' },
 ];
 function PassportModal({ passenger, participants, onClose, onAddDoc }) {
-  const toast = useToast();
-  const [docType, setDocType] = useState('pass');
   const [q, setQ] = useState('');
 
   const source = (participants && participants.length)
@@ -57,38 +54,16 @@ function PassportModal({ passenger, participants, onClose, onAddDoc }) {
   const showSearch = pax.length > 6;
   const s = q.trim().toLowerCase();
   const filtered = pax.map((p, i) => ({ p, i })).filter(({ p }) => !s || p.name.toLowerCase().includes(s));
-  const documentAction = async (action, success, close = false) => {
-    try {
-      await workspaceActionsApi.execute(action, { resourceType: 'person_document', resourceId: cur?.source?.person || cur?.source?.id || cur?.name || passenger || '', payload: { person: cur?.name, document_type: docType } });
-      toast(success, 'ok'); if (close) onClose();
-    } catch (error) { toast(error.message, 'err'); }
-  };
   const currentDocs = cur?.documents || [];
   return (
     <Drawer open onClose={onClose} width="min(720px,96vw)"
       title="Документация" sub={passenger ? `Документы пассажира: ${passenger}` : 'Документы пассажира'}
       footer={<div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', justifyContent: 'flex-end', flex: 1 }}>
-        <Button variant="secondary" icon="plus" onClick={() => onAddDoc && onAddDoc(cur ? cur.source : null)}>Добавить документ</Button>
+        <Button variant="secondary" icon="plus" disabled={!cur} onClick={() => onAddDoc && onAddDoc(cur ? cur.source : null)}>Добавить документ</Button>
         <div style={{ flex: 1 }} />
-        <Button variant="secondary" iconRight="chevRight" disabled={!cur} onClick={() => window.print()}>Посмотреть документ</Button>
-        <Button variant="secondary" disabled={!cur} onClick={() => documentAction('document.person.verify', 'Данные подтверждены')}>Подтвердить данные</Button>
-        <Button variant="primary" iconRight="chevRight" disabled={!cur} onClick={() => documentAction('document.person.sign', 'Документ подписан', true)}>Подписать</Button>
+        <Button onClick={onClose}>Закрыть</Button>
       </div>}>
-
-      <PanelSub style={{ marginTop: 0 }}>Тип документа</PanelSub>
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-        {PASS_DOCTYPES.map((d) => (
-          <button key={d.key} onClick={() => setDocType(d.key)}
-            style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '13px 15px', borderRadius: 13, border: '1px solid ' + (docType === d.key ? 'var(--blue)' : 'var(--field-line)'), background: docType === d.key ? 'var(--blue-soft)' : '#fff', cursor: 'pointer', textAlign: 'left' }}>
-            <Icon name={d.icon} style={{ width: 20, height: 20, color: 'var(--blue)' }} />
-            <span style={{ flex: 1, fontSize: 14, fontWeight: 500, color: 'var(--ink)' }}>{d.label}</span>
-            <span className={'radio' + (docType === d.key ? ' on' : '')} />
-          </button>
-        ))}
-      </div>
-
-
-      <PanelSub>Пассажир</PanelSub>
+      <PanelSub style={{ marginTop: 0 }}>Пассажир</PanelSub>
       {showSearch && <div style={{ marginBottom: 12 }}><SearchBox value={q} onChange={setQ} placeholder="Поиск пассажира по ФИО" /></div>}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, maxHeight: 260, overflowY: 'auto', paddingRight: filtered.length > 6 ? 4 : 0 }}>
         {filtered.map(({ p, i }) => (
@@ -211,66 +186,67 @@ if (!ENABLE_DEMO_BUSINESS_DATA) Object.keys(ORG_REGISTRY).forEach((key) => { del
 
 function NewOrgDrawer({ open, onClose, onCreated }) {
   const toast = useToast();
-  const empty = { full: '', short: '', email: '', phone: '', site: '', currency: 'KGS', orgType: '', curator: '', operator: '', accountant: '', inn: '', kpp: '', ogrn: '', okpo: '', legalAddr: '', factAddr: '', sameAddress: true, director: '', signatory: '', account: '', bank: '', bik: '', corrAccount: '', accountStatus: 'Действующий', status: 'Действующий', comment: '' };
-  const [f, setF] = useState(empty);
-  const [errs, setErrs] = useState({});
-  const [lookup, setLookup] = useState('idle');
-  const [revealed, setRevealed] = useState(false);
+  const empty = {
+    full: '', short: '', email: '', phone: '', orgType: '', inn: '', okpo: '',
+    legalAddr: '', director: '', account: '', bank: '', vat: '', status: 'Действующий',
+    requiresESign: false,
+  };
+  const [form, setForm] = useState(empty);
+  const [errors, setErrors] = useState({});
   const [saving, setSaving] = useState(false);
   const [logoFile, setLogoFile] = useState(null);
-  const set = (k) => (e) => setF((p) => ({ ...p, [k]: e.target ? e.target.value : e }));
-  const setLegalAddress = (e) => {
-    const value = e.target.value;
-    setF((p) => ({ ...p, legalAddr: value, factAddr: p.sameAddress ? value : p.factAddr }));
-  };
-  const setSameAddress = (value) => setF((p) => ({ ...p, sameAddress: value, factAddr: value ? p.legalAddr : p.factAddr }));
-  useEffect(() => { if (open) { setF(empty); setErrs({}); setLookup('idle'); setRevealed(false); setLogoFile(null); } }, [open]);
+  const set = (key) => (event) => setForm((current) => ({ ...current, [key]: event?.target ? event.target.value : event }));
 
-
-  const runLookup = () => {
-    const digits = (f.inn || '').replace(/\D/g, '');
-    if (digits.length < 8) { setErrs((p) => ({ ...p, inn: 'Введите корректный ИНН' })); return; }
-    setErrs((p) => ({ ...p, inn: undefined }));
-    setLookup('loading');
-    setTimeout(() => {
-      const hit = ORG_REGISTRY[digits];
-      if (hit) {
-        setF((p) => ({ ...p, ...hit, inn: digits }));
-        setLookup('found'); setRevealed(true);
-        toast('Реквизиты организации загружены из реестра', 'ok');
-      } else {
-        setLookup('notfound'); setRevealed(true);
-        toast('Организация не найдена — заполните данные вручную', 'info');
-      }
-    }, 800);
-  };
-
-  const enterManual = () => { setRevealed(true); if (lookup !== 'found') setLookup('notfound'); };
+  useEffect(() => {
+    if (open) {
+      setForm(empty);
+      setErrors({});
+      setLogoFile(null);
+    }
+  }, [open]);
 
   const submit = async () => {
-    const er = {};
-    if (!f.inn.trim()) er.inn = 'Введите ИНН';
-    if (!f.full.trim()) er.full = 'Введите название';
-    if (!f.orgType) er.orgType = 'Выберите тип';
-    if (!f.curator) er.curator = 'Назначьте куратора';
-    if (f.email && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(f.email)) er.email = 'Некорректный e-mail';
-    setErrs(er);
-    if (Object.keys(er).length) { toast('Проверьте поля формы', 'err'); return; }
+    const nextErrors = {};
+    if (!form.inn.trim()) nextErrors.inn = 'Введите ИНН';
+    if (!form.full.trim()) nextErrors.full = 'Введите название';
+    if (!form.orgType) nextErrors.orgType = 'Выберите тип';
+    if (form.email && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(form.email)) nextErrors.email = 'Некорректный e-mail';
+    setErrors(nextErrors);
+    if (Object.keys(nextErrors).length) {
+      toast('Проверьте поля формы', 'err');
+      return;
+    }
     const company = {
-      id: 'CO-' + Math.floor(2000 + Math.random() * 8000), name: f.full.trim(), shortName: f.short.trim() || f.full.trim(), fullName: f.full.trim(),
-      type: f.orgType, status: f.status, inn: f.inn.replace(/\D/g, ''), kpp: f.kpp, ogrn: f.ogrn, okpo: f.okpo || '—',
-      dir: f.director || '—', phone: f.phone || '—', email: f.email || '—', site: f.site || '—',
-      addr: f.legalAddr || '—', factAddr: f.factAddr || f.legalAddr || '—', bank: f.bank || '—', bik: f.bik || '—',
-      corrAccount: f.corrAccount || '—', account: f.account || '—', contract: 'Не указан', orders: 0, turnover: 0, contacts: f.director ? 1 : 0,
-      vat: '—', requiresESign: false, docCorrections: [], signatory: f.signatory, comment: f.comment,
+      name: form.full.trim(),
+      shortName: form.short.trim() || form.full.trim(),
+      fullName: form.full.trim(),
+      type: form.orgType,
+      status: form.status,
+      inn: form.inn.trim(),
+      okpo: form.okpo.trim(),
+      dir: form.director.trim(),
+      phone: form.phone.trim(),
+      email: form.email.trim(),
+      addr: form.legalAddr.trim(),
+      bank: form.bank.trim(),
+      account: form.account.trim(),
+      vat: form.vat.trim(),
+      requiresESign: form.requiresESign,
     };
     setSaving(true);
     try {
       const saved = onCreated ? await onCreated(company) : company;
       if (logoFile && (saved?.serverId || saved?.id)) {
-        await documentsApi.upload(logoFile, { company: saved.serverId || saved.id, kind: 'other', title: logoFile.name, source: 'upload', metadata: { purpose: 'company_logo' } });
+        await documentsApi.upload(logoFile, {
+          company: saved.serverId || saved.id,
+          kind: 'other',
+          title: logoFile.name,
+          source: 'upload',
+          metadata: { purpose: 'company_logo' },
+        });
       }
-      toast('Компания «' + (saved?.name || company.name) + '» создана', 'ok'); onClose();
+      toast('Компания «' + (saved?.name || company.name) + '» создана в backend', 'ok');
+      onClose();
     } catch (error) {
       toast(error.message || 'Не удалось создать компанию', 'err');
     } finally {
@@ -278,110 +254,53 @@ function NewOrgDrawer({ open, onClose, onCreated }) {
     }
   };
 
-  const loading = lookup === 'loading';
   return (
     <Drawer open={open} onClose={onClose} title="Новая организация" width="min(720px,96vw)"
-      footer={<><Button variant="secondary" onClick={onClose}>Отмена</Button><Button variant="primary" iconRight="arrowRight" onClick={submit} disabled={!revealed || saving}>{saving ? 'Создание…' : 'Далее'}</Button></>}>
-
-
-      <div style={{ background: 'var(--blue-soft)', border: '1px solid var(--line)', borderRadius: 14, padding: 18, marginBottom: 22 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-          <span className="airline-logo sm" style={{ background: '#2566ff', width: 36, height: 36, borderRadius: 9, flex: '0 0 36px' }}><Icon name="building" style={{ width: 18, height: 18 }} /></span>
-          <div>
-            <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--ink)' }}>Данные по ИНН</div>
-            <div style={{ fontSize: 13, color: 'var(--body)' }}>Введите ИНН — реквизиты подтянутся автоматически из реестра</div>
-          </div>
-        </div>
-        <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start', marginTop: 14 }}>
-          <div style={{ flex: 1 }}>
-            <Field error={errs.inn}>
-              <Input leadIcon="search" placeholder="Введите ИНН организации" value={f.inn} onChange={set('inn')} error={errs.inn} disabled={loading}
-                onKeyDown={(e) => { if (e.key === 'Enter') runLookup(); }} />
-            </Field>
-          </div>
-          <Button variant="primary" onClick={runLookup} disabled={loading}>
-            {loading
-              ? <><Icon name="loader" style={{ width: 16, height: 16, animation: 'spin .7s linear infinite' }} />Поиск…</>
-              : <><Icon name="search" />Найти</>}
-          </Button>
-        </div>
-
-        {lookup === 'found' && (
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 12, fontSize: 13, fontWeight: 600, color: 'var(--green)' }}>
-            <Icon name="checkCircle" style={{ width: 16, height: 16 }} />Данные загружены из реестра — проверьте и при необходимости отредактируйте.
-          </div>
-        )}
-        {lookup === 'notfound' && (
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 12, fontSize: 13, fontWeight: 600, color: 'var(--amber)' }}>
-            <Icon name="alertCircle" style={{ width: 16, height: 16 }} />Автопоиск недоступен — заполните данные вручную ниже.
-          </div>
-        )}
-        {!revealed && !loading && (
-          <button type="button" className="link-btn" style={{ marginTop: 12, background: 'none', border: 'none', padding: 0, cursor: 'pointer', color: 'var(--blue)', fontSize: 13, fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: 6 }} onClick={enterManual}>
-            <Icon name="edit" style={{ width: 14, height: 14 }} />Ввести данные вручную
-          </button>
-        )}
+      footer={<><Button variant="secondary" onClick={onClose}>Отмена</Button><Button icon="check" onClick={submit} disabled={saving}>{saving ? 'Создание…' : 'Создать'}</Button></>}>
+      <div className="card" style={{ padding: '10px 12px', borderLeft: '3px solid var(--blue)', marginBottom: 16 }}>
+        <div style={{ fontSize: 13, color: 'var(--body)' }}>Заполните реквизиты вручную. Автопоиск по внешнему реестру не подключён.</div>
       </div>
 
-      {revealed && (
-        <>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 22 }}>
-            <span className="avatar-ph" style={{ width: 54, height: 54 }}><Icon name="user" style={{ width: 24, height: 24 }} /></span>
-            <label className="btn btn-secondary" style={{ cursor: 'pointer' }}><Icon name="download" />{logoFile ? logoFile.name : 'Логотип организации'}<input type="file" accept="image/*" hidden onChange={(event) => setLogoFile(event.target.files?.[0] || null)} /></label>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 18 }}>
+        <span className="avatar-ph" style={{ width: 54, height: 54 }}><Icon name="building" style={{ width: 24, height: 24 }} /></span>
+        <label className="btn btn-secondary" style={{ cursor: 'pointer' }}><Icon name="download" />{logoFile ? logoFile.name : 'Логотип организации'}<input type="file" accept="image/*" hidden onChange={(event) => setLogoFile(event.target.files?.[0] || null)} /></label>
+      </div>
+
+      <div style={{ display: 'grid', gap: 12 }}>
+        <CollapseSection title="Основные данные" note="Название, тип и руководитель" defaultOpen>
+          <div className="form-grid">
+            <Field label="Полное название" required error={errors.full}><Input value={form.full} onChange={set('full')} error={errors.full} /></Field>
+            <Field label="Краткое название"><Input value={form.short} onChange={set('short')} /></Field>
+            <Field label="Тип организации" required error={errors.orgType}><Select placeholder="Выберите тип" options={['Корпоративный клиент', 'Туроператор', 'Турагент', 'Авиакомпания', 'Отель', 'Партнёр', 'Поставщик']} value={form.orgType} onChange={set('orgType')} error={errors.orgType} /></Field>
+            <Field label="Руководитель"><Input value={form.director} onChange={set('director')} /></Field>
+            <Field label="Статус"><Select options={['Действующий', 'На паузе', 'Архив']} value={form.status} onChange={set('status')} /></Field>
+            <Field label="НДС"><Input value={form.vat} onChange={set('vat')} placeholder="например, 12% или без НДС" /></Field>
+            <label style={{ display: 'flex', alignItems: 'center', gap: 9, fontSize: 13, color: 'var(--body)' }}><Checkbox on={form.requiresESign} onChange={(value) => setForm((current) => ({ ...current, requiresESign: value }))} />Требуется электронная подпись</label>
           </div>
-          <div style={{ display: 'grid', gap: 12 }}>
-            <CollapseSection title="Основные данные" note="Название, тип и руководитель" badge={lookup === 'found' ? 'Заполнено автоматически' : null} defaultOpen>
-              <div className="form-grid">
-                <Field label="Полное название" required error={errs.full}><Input placeholder="Введите название" value={f.full} onChange={set('full')} error={errs.full} /></Field>
-                <Field label="Краткое название"><Input placeholder="Введите название" value={f.short} onChange={set('short')} /></Field>
-                <Field label="Тип организации" required error={errs.orgType}><Select placeholder="Выберите тип" options={['Корпоративный клиент', 'Туроператор', 'Турагент', 'Авиакомпания', 'Отель', 'Партнёр', 'Поставщик']} value={f.orgType} onChange={set('orgType')} error={errs.orgType} /></Field>
-                <Field label="Руководитель / ФИО для подписи"><Input placeholder="Иванов Иван Иванович" value={f.director} onChange={set('director')} /></Field>
-                <div className="full"><Field label="В лице" hint="Для подстановки в договоры"><Input placeholder="директора Иванова Ивана Ивановича" value={f.signatory} onChange={set('signatory')} /></Field></div>
-              </div>
-            </CollapseSection>
+        </CollapseSection>
 
-            <CollapseSection title="Регистрационные данные" note="ИНН, КПП, ОГРН, ОКПО и адреса" badge={lookup === 'found' ? 'Заполнено автоматически' : null}>
-              <div className="form-grid">
-                <Field label="ИНН" required error={errs.inn}><Input placeholder="Введите ИНН" value={f.inn} onChange={set('inn')} error={errs.inn} /></Field>
-                <Field label="КПП"><Input placeholder="Введите КПП" value={f.kpp} onChange={set('kpp')} /></Field>
-                <Field label="ОГРН"><Input placeholder="Введите ОГРН" value={f.ogrn} onChange={set('ogrn')} /></Field>
-                <Field label="ОКПО"><Input placeholder="Введите ОКПО" value={f.okpo} onChange={set('okpo')} /></Field>
-                <Field label="Юридический адрес"><Input placeholder="Город, улица, дом" value={f.legalAddr} onChange={setLegalAddress} /></Field>
-                <Field label="Фактический адрес"><div style={{ display: 'flex', alignItems: 'center', gap: 9, marginBottom: 8 }}><Checkbox on={f.sameAddress} onChange={setSameAddress} /><span style={{ fontSize: 13, color: 'var(--body)' }}>Совпадает с юридическим</span></div>{!f.sameAddress && <Input placeholder="Город, улица, дом" value={f.factAddr} onChange={set('factAddr')} />}</Field>
-              </div>
-            </CollapseSection>
-
-            <CollapseSection title="Контакты" note="E-mail, телефон и сайт" badge={lookup === 'found' ? 'Заполнено автоматически' : null}>
-              <div className="form-grid">
-                <Field label="Контактный e-mail" error={errs.email}><Input placeholder="johndoe@mail.com" value={f.email} onChange={set('email')} error={errs.email} /></Field>
-                <Field label="Контактный телефон"><Input placeholder="+996 (___) __-__-__" value={f.phone} onChange={set('phone')} /></Field>
-                <div className="full"><Field label="Сайт"><Input placeholder="company.kg" value={f.site} onChange={set('site')} /></Field></div>
-              </div>
-            </CollapseSection>
-
-            <CollapseSection title="Ответственные и настройки" note="Куратор, оператор, бухгалтерия и статус">
-              <div className="form-grid">
-                <Field label="Основная валюта"><Select placeholder="Выберите валюту" options={CURRENCIES.map((c) => c.code)} value={f.currency} onChange={set('currency')} /></Field>
-                <Field label="Статус компании"><Select options={['Действующий', 'На паузе', 'Архив']} value={f.status} onChange={set('status')} /></Field>
-                <Field label="Куратор" required error={errs.curator} hint="Главный ответственный за компанию"><Select placeholder="Выберите куратора" options={OPERATORS} value={f.curator} onChange={set('curator')} error={errs.curator} /></Field>
-                <Field label="Оператор"><Select placeholder="Выберите оператора" options={OPERATORS} value={f.operator} onChange={set('operator')} /></Field>
-                <Field label="Бухгалтер"><Select placeholder="Выберите бухгалтера" options={['Иванова А.', 'Петров С.']} value={f.accountant} onChange={set('accountant')} /></Field>
-                <div className="full"><Field label="Комментарий"><textarea className="input" rows={3} placeholder="Внутренний комментарий" value={f.comment} onChange={set('comment')} /></Field></div>
-              </div>
-            </CollapseSection>
-
-            <CollapseSection title="Расчётные счета" note="Банк, БИК и номера счетов" badge={lookup === 'found' ? 'Заполнено автоматически' : null}>
-              <div className="form-grid">
-                <Field label="Номер счета"><Input placeholder="Введите номер" value={f.account} onChange={set('account')} /></Field>
-                <Field label="Банк"><Input placeholder="БИК банка или название банка" value={f.bank} onChange={set('bank')} /></Field>
-                <Field label="БИК"><Input placeholder="БИК банка" value={f.bik} onChange={set('bik')} /></Field>
-                <Field label="Корр. счет"><Input placeholder="Корреспондентский счет" value={f.corrAccount} onChange={set('corrAccount')} /></Field>
-                <div className="full"><Field label="Статус счета"><Select options={['Действующий', 'Закрытый']} value={f.accountStatus} onChange={set('accountStatus')} /></Field></div>
-              </div>
-            </CollapseSection>
+        <CollapseSection title="Регистрационные данные" note="ИНН, ОКПО и юридический адрес" defaultOpen>
+          <div className="form-grid">
+            <Field label="ИНН" required error={errors.inn}><Input value={form.inn} onChange={set('inn')} error={errors.inn} /></Field>
+            <Field label="ОКПО"><Input value={form.okpo} onChange={set('okpo')} /></Field>
+            <div className="full"><Field label="Юридический адрес"><Input value={form.legalAddr} onChange={set('legalAddr')} /></Field></div>
           </div>
-        </>
-      )}
+        </CollapseSection>
+
+        <CollapseSection title="Контакты" note="E-mail и телефон">
+          <div className="form-grid">
+            <Field label="Контактный e-mail" error={errors.email}><Input type="email" value={form.email} onChange={set('email')} error={errors.email} /></Field>
+            <Field label="Контактный телефон"><Input value={form.phone} onChange={set('phone')} /></Field>
+          </div>
+        </CollapseSection>
+
+        <CollapseSection title="Расчётный счёт" note="Банк и номер счёта">
+          <div className="form-grid">
+            <Field label="Номер счёта"><Input value={form.account} onChange={set('account')} /></Field>
+            <Field label="Банк"><Input value={form.bank} onChange={set('bank')} /></Field>
+          </div>
+        </CollapseSection>
+      </div>
     </Drawer>
   );
 }

@@ -24,6 +24,8 @@ export const crmApi = {
   updatePerson: (id, body) => patch(`persons/${id}/`, body),
   personDocuments: (id, signal) => get(`persons/${id}/documents/`, signal),
   addPersonDocument: (id, body) => create(`persons/${id}/documents/`, body),
+  personLoyaltyCards: (id, signal) => get(`persons/${id}/loyalty-cards/`, signal),
+  addPersonLoyaltyCard: (id, body) => create(`persons/${id}/loyalty-cards/`, body),
   clients: (params = {}, signal) => list('clients/', { page_size: 100, ...params }, signal),
   createClient: (body) => create('clients/', body),
   companies: (params = {}, signal) => list('companies/', { page_size: 100, ...params }, signal),
@@ -304,6 +306,7 @@ export const groupsApi = {
 
 export const financeApi = {
   overview: workspaceApi.financeOverview,
+  companySummary: (companyId, signal) => get(`companies/${companyId}/finance-summary/`, signal),
   accounts: (signal) => get('finance/accounts/', signal),
   transactions: workspaceApi.transactions,
   obligations: (params = {}, signal) => list('finance/obligations/', { page_size: 100, ...params }, signal),
@@ -356,5 +359,7 @@ export const servicesApi = {
   cancel: (id, body = {}) => create(`services/${id}/cancel/`, body),
   extras: (id, signal) => get(`services/${id}/extras/`, signal),
   addExtra: (id, body) => create(`services/${id}/extras/`, body),
+  extraCatalog: (params = {}, signal) => list('service-extra-catalog/', { page_size: 100, ...params }, signal),
+  createExtraCatalogItem: (body) => create('service-extra-catalog/', body),
   setResponsible: (id, responsible) => apiRequest(apiPath(`services/${id}/responsible/`), { method: 'PUT', body: { responsible } }),
 };

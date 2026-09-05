@@ -1,12 +1,11 @@
 import { useEffect, useState } from 'react';
 import { Icon } from './icons';
-import { Button, DateRangeField, Drawer, FilterChip, Pill, useToast } from './ui';
+import { Button, DateRangeField, Drawer, FilterChip, Pill } from './ui';
 import { CURRENT_USER, ORDER_STATUS, SERVICE_KIND } from './data';
-import { TRIPS, TRIP_CRIT, TRIP_NOW, controlCenterFeed, critMax, crossTripConflicts, trDay, trDayTime, trHumanIn, trSameDay, trStartOfDay, trTime, tripConflicts, tripCriticality, tripEvents, tripFilterSets, tripForceMajeures, tripUnpaid } from './data/trips';
+import { TRIP_CRIT, controlCenterFeed, critMax, crossTripConflicts, trDay, trDayTime, trHumanIn, trSameDay, trStartOfDay, trTime, tripConflicts, tripCriticality, tripEvents, tripFilterSets, tripForceMajeures, tripUnpaid } from './data/trips';
 import { Topbar } from './layout';
-import { ServiceCardSendPanel } from './page_services';
 import { CAL_EVENT_TYPES, CalDayMenu, CalEventChip, CalEventCreator, CalEventPanel, calEventsOn, calendarEventToUi, hydrateCalendarEvents } from './page_calendar_events';
-import { calendarApi, ordersApi, workspaceActionsApi } from './api/resources';
+import { calendarApi, ordersApi } from './api/resources';
 import { toUiOrder } from './api/adapters';
 
 
@@ -17,6 +16,7 @@ import { toUiOrder } from './api/adapters';
 const TC_WEEKDAYS = ['ПН', 'ВТ', 'СР', 'ЧТ', 'ПТ', 'СБ', 'ВС'];
 const TC_MONTHS = ['января', 'февраля', 'марта', 'апреля', 'мая', 'июня', 'июля', 'августа', 'сентября', 'октября', 'ноября', 'декабря'];
 const TC_MONTHS_NOM = ['Январь', 'Февраль', 'Март', 'Апрель', 'Май', 'Июнь', 'Июль', 'Август', 'Сентябрь', 'Октябрь', 'Ноябрь', 'Декабрь'];
+const LIVE_NOW = new Date();
 
 
 function tcWeekStart(d) {
@@ -71,7 +71,7 @@ function TripCard({ trip, compact, onOpen }) {
       <div className="tc-card-sub">
         {trip.isGroup || trip.group ? <Icon name="users" style={{ width: 13, height: 13, verticalAlign: -2 }} /> : null}
         {' '}{trip.company && trip.company !== '—' ? trip.company : trip.client}
-        {trip.group ? ' · группа ' + trip.group.bookings : ' · ' + trip.pax + ' пасс.'}
+        {trip.group ? ' · группа ' + trip.group.bookings : Number.isFinite(trip.pax) ? ' · ' + trip.pax + ' пасс.' : ''}
       </div>
       {!compact && (
         <div className="tc-card-dates">
@@ -89,7 +89,7 @@ function TripCard({ trip, compact, onOpen }) {
           {fms.length > 0 && <span className="tc-marker tc-marker-fm"><Icon name={fms[0].icon} style={{ width: 12, height: 12 }} />{fms[0].typeLabel}</span>}
           {conflicts.length > 0 && <span className="tc-marker tc-marker-conf"><Icon name="alertTriangle" style={{ width: 12, height: 12 }} />Конфликт{conflicts.length > 1 ? ' ×' + conflicts.length : ''}</span>}
           {topEvent && fms.length === 0 && conflicts.length === 0 && (
-            <span className={'tc-marker tone-' + tcTone(topEvent.crit)}><Icon name={topEvent.icon} style={{ width: 12, height: 12 }} />{topEvent.label} · {trHumanIn(topEvent.at)}</span>
+            <span className={'tc-marker tone-' + tcTone(topEvent.crit)}><Icon name={topEvent.icon} style={{ width: 12, height: 12 }} />{topEvent.label} · {trHumanIn(topEvent.at, LIVE_NOW)}</span>
           )}
         </div>
       )}
@@ -104,7 +104,7 @@ function TripWeekChip({ trip, onOpen }) {
   const fms = tripForceMajeures(trip);
   const conflicts = tripConflicts(trip);
   const who = trip.company && trip.company !== '—' ? trip.company : trip.client;
-  const paxLabel = trip.group ? 'группа ' + trip.group.bookings : trip.pax + ' пасс.';
+  const paxLabel = trip.group ? 'группа ' + trip.group.bookings : Number.isFinite(trip.pax) ? trip.pax + ' пасс.' : 'заказ';
   return (
     <button type="button" className={'tc-wchip tone-' + tcTone(crit)} onClick={() => onOpen(trip)} title={trip.routeLabel + ' · ' + who}>
       <span className="tc-wchip-l1">
@@ -129,7 +129,7 @@ function WeekView({ anchor, trips, onOpen, onPickDay, onOpenEvent, evtTick }) {
   return (
     <div className="tc-week">
       {days.map((day) => {
-        const isToday = trSameDay(day, TRIP_NOW);
+        const isToday = trSameDay(day, LIVE_NOW);
         const dayTrips = trips.filter((t) => tcTripActiveOn(t, day))
           .sort((a, b) => tcCrit(tripCriticality(b)).rank - tcCrit(tripCriticality(a)).rank);
         const dayEvents = calEventsOn(day);
@@ -244,7 +244,7 @@ function MonthView({ anchor, trips, onOpen, onPickDay, onOpenEvent, onOpenDay, e
       <div className="tc-month-grid">
         {cells.map((day) => {
           const inMonth = day.getMonth() === anchor.getMonth();
-          const isToday = trSameDay(day, TRIP_NOW);
+          const isToday = trSameDay(day, LIVE_NOW);
           const dayTrips = trips.filter((t) => tcTripActiveOn(t, day));
           const dayEvents = calEventsOn(day);
           const crit = dayTrips.reduce((c, t) => critMax(c, tripCriticality(t)), 'info');
@@ -282,18 +282,18 @@ function TimelineView({ anchor, trips, onOpen }) {
   const rangeStart = start, rangeEnd = tcAddDays(start, 7);
   const totalMs = rangeEnd - rangeStart;
   const pct = (d) => Math.max(0, Math.min(100, ((d - rangeStart) / totalMs) * 100));
-  const nowPct = pct(TRIP_NOW);
+  const nowPct = pct(LIVE_NOW);
   const rows = trips.filter((t) => t.start < rangeEnd && t.end >= rangeStart);
   return (
     <div className="tc-timeline">
       <div className="tc-tl-axis">
         <div className="tc-tl-rowlabel" />
         <div className="tc-tl-track">
-          {days.map((d) => <div key={d.toISOString()} className={'tc-tl-daycol' + (trSameDay(d, TRIP_NOW) ? ' is-today' : '')}><span>{TC_WEEKDAYS[(d.getDay() + 6) % 7]} {d.getDate()}</span></div>)}
+          {days.map((d) => <div key={d.toISOString()} className={'tc-tl-daycol' + (trSameDay(d, LIVE_NOW) ? ' is-today' : '')}><span>{TC_WEEKDAYS[(d.getDay() + 6) % 7]} {d.getDate()}</span></div>)}
         </div>
       </div>
       <div className="tc-tl-body">
-        {TRIP_NOW >= rangeStart && TRIP_NOW < rangeEnd && <div className="tc-tl-now" style={{ left: 'calc(180px + (100% - 180px) * ' + nowPct / 100 + ')' }} title="Сейчас" />}
+        {LIVE_NOW >= rangeStart && LIVE_NOW < rangeEnd && <div className="tc-tl-now" style={{ left: 'calc(180px + (100% - 180px) * ' + nowPct / 100 + ')' }} title="Сейчас" />}
         {rows.length === 0 && <DashDetailEmptyLite title="На этой неделе поездок нет" />}
         {rows.map((t) => {
           const crit = tripCriticality(t);
@@ -307,7 +307,7 @@ function TimelineView({ anchor, trips, onOpen }) {
                 <span className="tc-tl-rl-main">{t.routeLabel}<span className="tc-tl-rl-sub">{t.client}</span></span>
               </div>
               <div className="tc-tl-track">
-                {days.map((d, i) => <div key={i} className={'tc-tl-daycol' + (trSameDay(d, TRIP_NOW) ? ' is-today' : '')} />)}
+                {days.map((d, i) => <div key={i} className={'tc-tl-daycol' + (trSameDay(d, LIVE_NOW) ? ' is-today' : '')} />)}
                 <button type="button" className={'tc-tl-bar tone-' + tcTone(crit)} style={{ left: l + '%', width: Math.max(2, r - l) + '%' }} onClick={() => onOpen(t)}>
                   <span className="tc-tl-bar-lbl">{t.services.map((s) => s.kind === 'Гостиница' ? '🏨' : '').join('')}{trDay(t.start)}–{trDay(t.end)}</span>
                 </button>
@@ -323,7 +323,7 @@ function TimelineView({ anchor, trips, onOpen }) {
 
 
 function ControlCenter({ trips, onOpen }) {
-  const feed = controlCenterFeed(trips, TRIP_NOW, 8);
+  const feed = controlCenterFeed(trips, LIVE_NOW, 8);
   const cross = crossTripConflicts(trips);
   return (
     <div className="tc-control">
@@ -360,9 +360,6 @@ function ControlCenter({ trips, onOpen }) {
 
 
 function TripDetailPanel({ trip, onClose, onOpenOrder }) {
-  const toast = useToast();
-  const [cardFor, setCardFor] = useState(null);
-  const [actionBusy, setActionBusy] = useState('');
   if (!trip) return null;
   const events = tripEvents(trip);
   const conflicts = tripConflicts(trip);
@@ -372,45 +369,6 @@ function TripDetailPanel({ trip, onClose, onOpenOrder }) {
   const timeline = trip.services.slice().sort((a, b) => a.start - b.start);
 
 
-  const svcToItem = (s) => ({
-    id: (trip.id + '-' + s.kind + '-' + (s.title || '')).replace(/[^0-9A-Za-zА-Яа-я]+/g, '_'),
-    order: trip.orderNo, client: trip.client, title: s.title, sub: s.sub, tags: [], status: s.status,
-    supplier: s.supplier, currency: s.currency || (s.kind === 'Аэроэкспресс' ? 'RUB' : 'USD'),
-    details: { route: (s.from && s.to) ? (s.from + ' → ' + s.to) : (s.title || '') },
-    info: [
-      { l: 'Маршрут', v: (s.from && s.to) ? (s.from + ' → ' + s.to) : (s.title || '') },
-      { l: 'Дата', v: trDayTime(s.start) },
-      { l: 'Поставщик', v: s.supplier },
-      { l: 'Пассажиров', v: s.pax },
-    ].filter((r) => r.v != null && r.v !== ''),
-  });
-
-
-  const scenarioFor = (s) => {
-    const replace = ['Авиа', 'ЖД', 'Гостиница', 'Трансфер'].includes(s.kind) ? 'service_unavailable' : 'cancellation';
-    const fm = fms.find((f) => f.service === s.title);
-    if (fm) {
-      if (fm.type === 'flight_cancel' || fm.type === 'hotel_cancel') return 'cancellation';
-      if (fm.type === 'flight_delay' || fm.type === 'dep_time_change') return s.kind === 'Гостиница' ? replace : 'delay';
-      return replace;
-    }
-    if (s.delayed) return s.kind === 'Гостиница' ? replace : 'delay';
-    return replace;
-  };
-  const openCard = (s) => setCardFor({ item: svcToItem(s), kind: s.kind, scenario: scenarioFor(s) });
-  const affectedService = () => (fms[0] && trip.services.find((s) => s.title === fms[0].service)) || trip.services.find((s) => s.delayed) || trip.services[0];
-  const paxObjs = (trip.paxNames || []).filter((n) => !/^…/.test(n)).map((n) => ({ name: n }));
-  const performTripAction = async (action, success) => {
-    setActionBusy(action);
-    try {
-      await workspaceActionsApi.execute(action, {
-        resourceType: 'trip', resourceId: String(trip.serverId || trip.id),
-        payload: { order_number: trip.orderNo, route: trip.routeLabel, client: trip.client },
-      });
-      toast(success, 'ok');
-    } catch (error) { toast(error.message, 'err'); }
-    finally { setActionBusy(''); }
-  };
   return (
     <>
     <Drawer open={!!trip} onClose={onClose} width="min(560px,96vw)"
@@ -427,7 +385,7 @@ function TripDetailPanel({ trip, onClose, onOpenOrder }) {
           <Pill tone={ORDER_STATUS[trip.status] || 'gray'}>{trip.status}</Pill>
           {crit !== 'info' && <Pill tone={tcTone(crit)}>{tcCrit(crit).label}</Pill>}
           <span className="tc-panel-op"><Icon name="user" style={{ width: 14, height: 14 }} /> {trip.operator}</span>
-          <span className="tc-panel-op"><Icon name="users" style={{ width: 14, height: 14 }} /> {trip.group ? 'группа ' + trip.group.bookings : trip.pax + ' пасс.'}</span>
+          {(trip.group || Number.isFinite(trip.pax)) && <span className="tc-panel-op"><Icon name="users" style={{ width: 14, height: 14 }} /> {trip.group ? 'группа ' + trip.group.bookings : trip.pax + ' пасс.'}</span>}
         </div>
 
 
@@ -465,7 +423,7 @@ function TripDetailPanel({ trip, onClose, onOpenOrder }) {
             {events.map((e, i) => (
               <div key={i} className="tc-ev-row">
                 <span className="tc-ev-ic" style={{ background: 'var(--' + tcTone(e.crit) + ')' }}><Icon name={e.icon} style={{ width: 14, height: 14 }} /></span>
-                <span className="tc-ev-main"><b>{e.label}</b><span className="tc-ev-sub">{trDayTime(e.at)} · {trHumanIn(e.at)}</span></span>
+                <span className="tc-ev-main"><b>{e.label}</b><span className="tc-ev-sub">{trDayTime(e.at)} · {trHumanIn(e.at, LIVE_NOW)}</span></span>
                 <Pill tone={tcTone(e.crit)}>{tcCrit(e.crit).label}</Pill>
               </div>
             ))}
@@ -473,7 +431,7 @@ function TripDetailPanel({ trip, onClose, onOpenOrder }) {
         )}
 
 
-        <div className="tc-panel-sec">
+        {timeline.length > 0 && <div className="tc-panel-sec">
           <div className="tc-panel-sec-h"><Icon name="route" style={{ width: 16, height: 16, color: 'var(--blue)' }} />Маршрут и услуги</div>
           <div className="tc-svc-timeline">
             {timeline.map((s, i) => (
@@ -481,7 +439,6 @@ function TripDetailPanel({ trip, onClose, onOpenOrder }) {
                 <SvcGlyph kind={s.kind} size={34} />
                 <div className="tc-svc-body">
                   <div className="tc-svc-title">{s.title} <Pill tone={ORDER_STATUS[s.status] || 'gray'}>{s.status}</Pill>
-                    <button type="button" className="tc-svc-replace" onClick={() => openCard(s)} title="Подобрать замену и оформить"><Icon name="refund" style={{ width: 13, height: 13 }} />Заменить</button>
                   </div>
                   <div className="tc-svc-sub">{s.sub}</div>
                   <div className="tc-svc-meta">
@@ -495,7 +452,7 @@ function TripDetailPanel({ trip, onClose, onOpenOrder }) {
               </div>
             ))}
           </div>
-        </div>
+        </div>}
 
 
         {trip.paxNames && trip.paxNames.length > 0 && (
@@ -524,26 +481,8 @@ function TripDetailPanel({ trip, onClose, onOpenOrder }) {
           </div>
         )}
 
-
-        <div className="tc-panel-sec">
-          <div className="tc-panel-sec-h"><Icon name="clipboard" style={{ width: 16, height: 16, color: 'var(--blue)' }} />Действия оператора</div>
-          <div className="tc-action-hint">Подбор альтернатив (авто/вручную), карточка предложения, сборка КП и отправка клиенту — в одном окне.</div>
-          <div className="tc-actions">
-            <Button size="sm" icon="refund" onClick={() => openCard(affectedService())}>Подобрать альтернативу и оформить</Button>
-            <Button size="sm" variant="secondary" icon="chat" disabled={!!actionBusy} onClick={() => performTripAction('travel.notify_client', 'Уведомление клиенту поставлено на отправку')}>Уведомить клиента</Button>
-            <Button size="sm" variant="secondary" icon="users" disabled={!!actionBusy} onClick={() => performTripAction('travel.delegate', 'Поездка передана на делегирование')}>Делегировать</Button>
-            <Button size="sm" variant="secondary" icon="check" disabled={!!actionBusy} onClick={() => performTripAction('travel.processed', 'Поездка отмечена обработанной')}>Отметить обработанным</Button>
-          </div>
-        </div>
       </div>
     </Drawer>
-    {cardFor && (
-      <ServiceCardSendPanel item={cardFor.item} kind={cardFor.kind} participants={paxObjs}
-        orderNo={trip.orderNo} currency={cardFor.item.currency} serviceId={cardFor.item.id}
-        initialScenario={cardFor.scenario}
-        onSent={() => { setCardFor(null); toast('Карточка предложения отправлена клиенту', 'ok'); }}
-        onClose={() => setCardFor(null)} />
-    )}
     </>
   );
 }
@@ -554,17 +493,17 @@ function DashDetailEmptyLite({ title }) {
 }
 
 
-function TripCalendarPage({ role, feed, orders = [], clients = [], companies = [], users = [], onOpenOrder }) {
+function TripCalendarPage({ role, feed, orders = [], clients = [], companies = [], users = [], suppliers = [], onOpenOrder }) {
   const sourceTrips = Array.isArray(feed?.trips) ? feed.trips.map((item) => {
     const order = orders.find((entry) => entry.id === item.order);
     return {
-      ...item, id: item.id, orderNo: item.order_number, client: order?.client || '—', company: order?.client || '—',
+      ...item, id: item.id, orderNo: item.order_number, client: order?.client || '—', company: null,
       operator: order?.operator || '—', status: item.status, routeLabel: item.title,
       start: new Date(item.starts_at), end: new Date(item.ends_at || item.starts_at), criticality: item.criticality || 'info',
-      isGroup: order?.requestType === 'Групповая', pax: 0, paxNames: [], services: [], fm: [], docs: [],
+      isGroup: order?.requestType === 'Групповая', pax: null, paxNames: [], services: [], fm: [], docs: [],
     };
-  }) : TRIPS;
-  const calendarNow = sourceTrips[0]?.start || new Date();
+  }) : [];
+  const calendarNow = new Date();
   const [view, setView] = useState('day');
   const [control, setControl] = useState(false);
   const [anchor, setAnchor] = useState(new Date(calendarNow));
@@ -577,9 +516,9 @@ function TripCalendarPage({ role, feed, orders = [], clients = [], companies = [
   }, [feed]);
   useEffect(() => {
     window.CALENDAR_ORDERS = orders;
-    hydrateCalendarEvents(feed?.events || [], orders, users);
+    hydrateCalendarEvents(feed?.events || [], orders, users, clients, suppliers);
     setEvtTick((value) => value + 1);
-  }, [feed?.events, orders, users]);
+  }, [feed?.events, orders, users, clients, suppliers]);
   const [sel, setSel] = useState(null);
   const [dayMenu, setDayMenu] = useState(null);
   const [creator, setCreator] = useState(null);
@@ -590,7 +529,7 @@ function TripCalendarPage({ role, feed, orders = [], clients = [], companies = [
   const openDayMenu = (day, e) => setDayMenu({ day, pos: { x: (e && e.clientX) || 200, y: (e && e.clientY) || 200 } });
   const openDayList = (day, e, dayTrips, dayEvents) => setDayList({ day, pos: { x: (e && e.clientX) || 200, y: (e && e.clientY) || 200 }, trips: dayTrips, events: dayEvents });
   const sets = tripFilterSets(sourceTrips);
-  const me = (typeof CURRENT_USER !== 'undefined' && CURRENT_USER.name) || 'Даниель';
+  const me = (typeof CURRENT_USER !== 'undefined' && CURRENT_USER.name) || 'Пользователь';
 
   const trips = sourceTrips.filter((t) => {
     if (f.scope === 'my' && t.operator !== me && !me.startsWith(t.operator) && !t.operator.startsWith(me.split(' ')[0])) return false;
@@ -670,17 +609,19 @@ function TripCalendarPage({ role, feed, orders = [], clients = [], companies = [
       window.__addOrder && window.__addOrder(linkedOrder);
     }
     const assignee = users.find((user) => (user.full_name || user.name) === event.resp);
+    const person = clients.find((item) => item.name === event.form?.pax);
+    const supplier = suppliers.find((item) => item.name === event.form?.supplier);
     const priority = { 'Высокий': 'high', 'Средний': 'normal', 'Низкий': 'low' }[event.form?.priority || event.priority] || 'normal';
     const saved = await calendarApi.createEvent({
       kind, title: event.title || (linkedOrder ? `Заказ № ${linkedOrder.no}` : 'Событие календаря'),
       description: event.comment || '', starts_at: event.date.toISOString(),
       ends_at: event.endStr ? new Date(event.endStr.split('.').reverse().join('-') + 'T23:59:00').toISOString() : null,
       timezone: Intl.DateTimeFormat().resolvedOptions().timeZone, order: linkedOrder?.id || null,
+      person: person?.id || null, supplier: supplier?.id || supplier?.no || null,
       assignee: assignee?.id || null, scope: event.scope === 'На весь заказ' ? 'tenant' : event.scope?.includes('Группе') ? 'team' : 'personal',
-      priority, notification_method: event.form?.notify || event.notify || '', recurrence_rule: event.repeat === 'Не повторять' ? '' : event.repeat || '',
-      criterion: event.criterion || '', action_on_problem: event.actionOnProblem || '',
+      priority, notification_method: '', recurrence_rule: '', criterion: event.criterion || '', action_on_problem: '',
     });
-    return calendarEventToUi(saved, linkedOrder ? [linkedOrder, ...orders] : orders, users);
+    return calendarEventToUi(saved, linkedOrder ? [linkedOrder, ...orders] : orders, users, clients, suppliers);
   };
 
   return (
@@ -752,7 +693,7 @@ function TripCalendarPage({ role, feed, orders = [], clients = [], companies = [
         onOpenTrip={(t) => { setDayList(null); setSel(t); }}
         onOpenEvent={(ev) => { setDayList(null); setEvtSel(ev); }}
         onOpenDayView={() => { setAnchor(new Date(dayList.day)); setView('day'); setControl(false); setDayList(null); }} />}
-      {creator && <CalEventCreator type={creator.type} day={creator.day} orders={orders} clients={clients} users={users} onPersist={persistCalendarEvent} onClose={() => setCreator(null)}
+      {creator && <CalEventCreator type={creator.type} day={creator.day} orders={orders} clients={clients} users={users} suppliers={suppliers} onPersist={persistCalendarEvent} onClose={() => setCreator(null)}
         onCreated={(ev) => { setEvtTick((t) => t + 1); setEvtSel(ev); }} />}
       {evtSel && <CalEventPanel evt={evtSel} onClose={() => setEvtSel(null)} onChanged={() => setEvtTick((t) => t + 1)} onOpenOrder={onOpenOrder}
         onComplete={(event) => calendarApi.complete(event.id)}
