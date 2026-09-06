@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 
 const fulfillmentUrl = new URL('../js/page_fulfillment.jsx', import.meta.url);
-const resourcesUrl = new URL('../js/api/resources.js', import.meta.url);
+const resourcesUrl = new URL('../src/modules/documents/api/documentsApi.js', import.meta.url);
 
 test('receipt batch import limits backend pressure', async () => {
   const source = await readFile(fulfillmentUrl, 'utf8');

@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 
-const resources = await readFile(new URL('../js/api/resources.js', import.meta.url), 'utf8');
+const resources = await readFile(new URL('../src/modules/documents/api/documentsApi.js', import.meta.url), 'utf8');
 const page = await readFile(new URL('../js/page_fulfillment.jsx', import.meta.url), 'utf8');
 const editor = await readFile(new URL('../js/features/receipts/editor.jsx', import.meta.url), 'utf8');
 const pkg = JSON.parse(await readFile(new URL('../package.json', import.meta.url), 'utf8'));

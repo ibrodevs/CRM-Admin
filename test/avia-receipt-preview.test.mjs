@@ -5,7 +5,7 @@ import test from 'node:test';
 const editor = await readFile(new URL('../js/features/receipts/editor.jsx', import.meta.url), 'utf8');
 const css = await readFile(new URL('../app/globals.css', import.meta.url), 'utf8');
 const page = await readFile(new URL('../js/page_fulfillment.jsx', import.meta.url), 'utf8');
-const resources = await readFile(new URL('../js/api/resources.js', import.meta.url), 'utf8');
+const resources = await readFile(new URL('../src/modules/documents/api/documentsApi.js', import.meta.url), 'utf8');
 
 test('авиа-сегменты сохраняют класс, бронирование, статус и тарифные поля', () => {
   assert.match(editor, /function normalizeReceiptLeg\(row = \{\}\)/);
