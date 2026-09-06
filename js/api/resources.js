@@ -26,18 +26,7 @@ export { notificationsApi } from '../../src/modules/notifications/api.js';
 
 export { integrationsApi } from '../../src/modules/integrations/api.js';
 
-export const workforceApi = {
-  queue: (params = {}, signal) => get(`sla/queue/${queryString(params)}`, signal),
-  currentShift: (signal) => get('shifts/current/', signal),
-  shifts: (params = {}, signal) => list('shifts/', { page_size: 100, ...params }, signal),
-  startShift: (body = {}) => create('shifts/start/', body),
-  previewClose: (id) => create(`shifts/${id}/preview-close/`, {}),
-  closeShift: (id, body = {}) => create(`shifts/${id}/close/`, body),
-  reportUrl: (id) => apiPath(`shifts/${id}/report/`),
-  motivationRules: (signal) => get('motivation/rules/', signal),
-  saveMotivationRules: (body) => apiRequest(apiPath('motivation/rules/'), { method: 'PUT', body }),
-  motivationAccruals: (params = {}, signal) => list('motivation/accruals/', params, signal),
-};
+export { workforceApi } from '../../src/modules/workforce/api.js';
 
 export const workspaceApi = {
   dashboard: (params = {}, signal) => list('dashboard/', params, signal),
