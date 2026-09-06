@@ -30,12 +30,7 @@ export { workforceApi } from '../../src/modules/workforce/api.js';
 
 export { workspaceApi } from '../../src/modules/workspace/api.js';
 
-export const workspaceSettingsApi = {
-  get: (namespace, signal) => get(`workspace-settings/${namespace}/`, signal),
-  save: (namespace, value) => patch(`workspace-settings/${namespace}/`, { value }),
-  getTenant: (namespace, signal) => get(`workspace-settings/${namespace}/${queryString({ scope: 'tenant' })}`, signal),
-  saveTenant: (namespace, value) => apiRequest(apiPath(`workspace-settings/${namespace}/`) + queryString({ scope: 'tenant' }), { method: 'PATCH', body: { value } }),
-};
+export { workspaceSettingsApi } from '../../src/modules/settings/api.js';
 
 export const workspaceActionsApi = {
   list: (params = {}, signal) => get(`workspace-actions/${queryString(params)}`, signal),
