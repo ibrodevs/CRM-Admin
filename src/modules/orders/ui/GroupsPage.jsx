@@ -6,7 +6,7 @@ import { Topbar } from '../../../../js/layout';
 import { PanelSub } from '../../locations/ui/SharedPanels';
 import { UFDateField } from '../../clients/ui/UnifiedForms';
 import { OrderCreateModal } from './OrdersPage';
-import { FinRow, StatTile, WarnBanner, f$ } from '../../../../js/page_finance';
+import { FinRow, StatTile, WarnBanner, f$ } from '../../finance/ui/FinancePage';
 import { groupsApi, workspaceActionsApi } from '../../../legacy/compatibility/resources';
 import { resultsOf } from '../../../shared/api/client';
 

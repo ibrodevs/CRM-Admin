@@ -14,7 +14,7 @@ import { FlightsPage } from '../src/modules/services/flights/FlightsPage';
 import { OrdersPage } from '../src/modules/orders/ui/OrdersPage';
 import { OffersPage } from './page_offers';
 import { DocCenterPage, FulfillmentPage, ReceiptEditorPage } from './page_fulfillment';
-import { FinancePage } from './page_finance';
+import { FinancePage } from '../src/modules/finance/ui/FinancePage';
 import { ReturnsPage } from './page_returns';
 import { NotificationsPage } from './page_notifications';
 import { ServiceFlow, ServicesHubPage } from '../src/modules/services/ui/ServicesPage';

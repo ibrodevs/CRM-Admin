@@ -4,7 +4,7 @@ import { Avatar, Button, Drawer, Field, Input, Pill, Select, Tabs, SearchBox, Ti
 import { UFDateField, UnifiedBindPicker } from '../src/modules/clients/ui/UnifiedForms';
 import { CURRENT_USER } from '../src/legacy/data/index';
 import { trSameDay } from '../src/legacy/data/trips';
-import { FinRow } from './page_finance';
+import { FinRow } from '../src/modules/finance/ui/FinancePage';
 
 
 
