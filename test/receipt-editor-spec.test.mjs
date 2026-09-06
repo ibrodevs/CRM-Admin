@@ -3,10 +3,10 @@ import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 import { toLegacyDocument } from '../src/legacy/adapters/legacy-adapters.js';
 
-const editor = await readFile(new URL('../js/features/receipts/editor.jsx', import.meta.url), 'utf8');
+const editor = await readFile(new URL('../src/modules/receipts/ui/editor.jsx', import.meta.url), 'utf8');
 const ui = await readFile(new URL('../src/shared/ui/index.jsx', import.meta.url), 'utf8');
 const styles = await readFile(new URL('../app/globals.css', import.meta.url), 'utf8');
-const page = await readFile(new URL('../js/page_fulfillment.jsx', import.meta.url), 'utf8');
+const page = await readFile(new URL('../src/modules/receipts/ui/FulfillmentPages.jsx', import.meta.url), 'utf8');
 
 test('редактор использует отдельные формы авиа, ЖД, гостиницы и трансфера', () => {
   for (const service of ['Авиа', 'ЖД', 'Гостиница', 'Трансфер']) {

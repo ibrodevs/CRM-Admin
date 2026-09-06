@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 
-const editorUrl = new URL('../js/features/receipts/editor.jsx', import.meta.url);
+const editorUrl = new URL('../src/modules/receipts/ui/editor.jsx', import.meta.url);
 
 test('hotel supplier booking does not fall back to generic OCR reference', async () => {
   const source = await readFile(editorUrl, 'utf8');

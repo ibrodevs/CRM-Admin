@@ -1,6 +1,6 @@
 import { readFile, writeFile } from 'node:fs/promises';
 
-const fileUrl = new URL('../js/features/receipts/editor.jsx', import.meta.url);
+const fileUrl = new URL('../src/modules/receipts/ui/editor.jsx', import.meta.url);
 let source = await readFile(fileUrl, 'utf8');
 let changed = false;
 

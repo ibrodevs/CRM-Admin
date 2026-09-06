@@ -49,7 +49,7 @@ function acctOps(ac) {
     const sum = inflow ? amt : -amt;
     const type = inflow ? (i % 2 ? 'Поступление от клиента' : 'Эквайринг T+1') : FIN_ACCT_OP_TYPES[1 + (i % 3)];
     rows.push({
-      date: '1' + (4 - Math.floor(i / 2)) + '../../../js/data/.07.2026', time: (11 - i) + ':' + String((seed * 7 + i * 11) % 60).padStart(2, '0'),
+      date: '1' + (4 - Math.floor(i / 2)) + '.07.2026', time: (11 - i) + ':' + String((seed * 7 + i * 11) % 60).padStart(2, '0'),
       sum, currency: ac.currency, type, party: inflow ? ['ОсОО "Гранд лимитед"', 'Нуралиев Данияр', 'ИП Мамажанов'][i % 3] : ['Turkish Airlines', 'Hilton Istanbul', 'Оптима Банк'][i % 3],
       order: [51162, 51170, 51168, 51155][i % 4], service: ['Авиа', 'Гостиница', 'Трансфер', '—'][i % 4],
       doc: inflow ? 'Счёт № 61' + (50 + i) : 'Плат. поручение № 3' + (20 + i), resp: ['Даниель', 'Азамат', 'Куба'][i % 3],

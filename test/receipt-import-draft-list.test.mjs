@@ -9,7 +9,7 @@ import {
   removeReceiptImportDraft,
   upsertReceiptImportDraft,
   writeReceiptImportDrafts,
-} from '../js/features/receipts/import-drafts.js';
+} from '../src/modules/receipts/model/import-drafts.js';
 
 function draft(id, savedAt, name, step = 2) {
   return { id, version: 1, savedAt, step, files: [{ id: `${id}-file`, name }] };

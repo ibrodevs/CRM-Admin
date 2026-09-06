@@ -396,7 +396,7 @@ function TpImportDrawer({ open, kind, companyId, onClose, onImported }) {
         <Icon name="download" style={{ width: 26, height: 26 }} />
         <span style={{ fontWeight: 600 }}>{file ? file.name : 'Выберите файл или перетащите сюда'}</span>
         <span style={{ fontSize: 12, color: 'var(--muted)' }}>{isEmp ? 'XLSX, CSV — до 5 МБ' : 'JSON, XLSX — до 10 МБ'}</span>
-        <input type="file" hidden accept={isEmp ? '../../../../js/.xlsx,.csv' : '../../../../js/.json,.xlsx'} onChange={(event) => setFile(event.target.files?.[0] || null)} />
+        <input type="file" hidden accept={isEmp ? '.xlsx,.csv' : '.json,.xlsx'} onChange={(event) => setFile(event.target.files?.[0] || null)} />
       </label>
     </Drawer>
   );

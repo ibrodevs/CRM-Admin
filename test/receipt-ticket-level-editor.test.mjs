@@ -2,8 +2,8 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 
-const pageUrl = new URL('../js/page_fulfillment.jsx', import.meta.url);
-const editorUrl = new URL('../js/features/receipts/editor.jsx', import.meta.url);
+const pageUrl = new URL('../src/modules/receipts/ui/FulfillmentPages.jsx', import.meta.url);
+const editorUrl = new URL('../src/modules/receipts/ui/editor.jsx', import.meta.url);
 const cssUrl = new URL('../app/receipt-ui-fixes.css', import.meta.url);
 const packageUrl = new URL('../package.json', import.meta.url);
 

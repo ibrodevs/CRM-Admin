@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 
-const fulfillmentUrl = new URL('../js/page_fulfillment.jsx', import.meta.url);
+const fulfillmentUrl = new URL('../src/modules/receipts/ui/FulfillmentPages.jsx', import.meta.url);
 const resourcesUrl = new URL('../src/modules/documents/api/documentsApi.js', import.meta.url);
 
 test('receipt batch import limits backend pressure', async () => {

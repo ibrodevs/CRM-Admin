@@ -13,7 +13,7 @@ import { DashboardPage } from '../src/modules/dashboard/ui/DashboardPage';
 import { FlightsPage } from '../src/modules/services/flights/FlightsPage';
 import { OrdersPage } from '../src/modules/orders/ui/OrdersPage';
 import { OffersPage } from './page_offers';
-import { DocCenterPage, FulfillmentPage, ReceiptEditorPage } from './page_fulfillment';
+import { DocCenterPage, FulfillmentPage, ReceiptEditorPage } from '../src/modules/receipts/ui/FulfillmentPages';
 import { FinancePage } from '../src/modules/finance/ui/FinancePage';
 import { ReturnsPage } from './page_returns';
 import { NotificationsPage } from './page_notifications';

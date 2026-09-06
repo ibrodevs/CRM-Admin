@@ -2,13 +2,13 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 
-const fulfillment = await readFile(new URL('../js/page_fulfillment.jsx', import.meta.url), 'utf8');
-const editor = await readFile(new URL('../js/features/receipts/editor.jsx', import.meta.url), 'utf8');
+const fulfillment = await readFile(new URL('../src/modules/receipts/ui/FulfillmentPages.jsx', import.meta.url), 'utf8');
+const editor = await readFile(new URL('../src/modules/receipts/ui/editor.jsx', import.meta.url), 'utf8');
 const ui = await readFile(new URL('../src/shared/ui/index.jsx', import.meta.url), 'utf8');
 const flights = await readFile(new URL('../src/modules/services/flights/FlightsPage.jsx', import.meta.url), 'utf8');
 const styles = await readFile(new URL('../app/receipt-workflow.css', import.meta.url), 'utf8');
 const layout = await readFile(new URL('../app/layout.jsx', import.meta.url), 'utf8');
-const catalog = await import('../js/features/receipts/tax-catalog.js');
+const catalog = await import('../src/modules/receipts/model/tax-catalog.js');
 
 // 1. Стоимость и корректировки применяются ко всем бланкам только по явному
 //    выбору оператора и после подтверждения.

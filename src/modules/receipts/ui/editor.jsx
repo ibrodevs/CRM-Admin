@@ -1,11 +1,11 @@
 import React, { useEffect, useMemo, useState, useRef } from 'react';
 import ReactDOM from 'react-dom';
-import { Icon } from '../../../src/shared/icons/index';
-import { Button, Checkbox, Combobox, Drawer, EmptyState, Field, Input, Pill, SearchBox, Select, TimeField, holdOverlaysDuringPrint, printOverlayScope } from '../../../src/shared/ui/index';
-import { UFDateField, UnifiedBindField } from '../../../src/modules/clients/ui/UnifiedForms';
-import { segmentConnectionLabel } from './layover';
-import { normalizeReceiptDisplayDate } from './date';
-import { AVIA_TAX_BY_CODE, CUSTOM_TAX_VALUE, aviaTaxName, aviaTaxOptionsFor } from './tax-catalog';
+import { Icon } from '../../../shared/icons/index';
+import { Button, Checkbox, Combobox, Drawer, EmptyState, Field, Input, Pill, SearchBox, Select, TimeField, holdOverlaysDuringPrint, printOverlayScope } from '../../../shared/ui/index';
+import { UFDateField, UnifiedBindField } from '../../clients/ui/UnifiedForms';
+import { segmentConnectionLabel } from '../model/layover';
+import { normalizeReceiptDisplayDate } from '../model/date';
+import { AVIA_TAX_BY_CODE, CUSTOM_TAX_VALUE, aviaTaxName, aviaTaxOptionsFor } from '../model/tax-catalog';
 
 const TYPE_META = {
   'Авиа': { icon: 'plane', color: '#2566ff', document: 'Маршрут-квитанция' },

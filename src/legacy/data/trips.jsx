@@ -303,7 +303,7 @@ function tripConflicts(trip) {
   transfers.forEach((tr) => arrivals.forEach((a) => {
     if (!trSameDay(tr.start, a.end)) return;
     const diff = trMinutes(tr.start - a.end);
-    if (diff < 0) out.push({ crit: 'critical', text: 'Трансфер назначен раньше прибытия: ' + trTime(tr.start) + ' < прибытие ' + trTime(a.end) + '../../../js/data/. Перенесите трансфер.' });
+    if (diff < 0) out.push({ crit: 'critical', text: 'Трансфер назначен раньше прибытия: ' + trTime(tr.start) + ' < прибытие ' + trTime(a.end) + '. Перенесите трансфер.' });
     else if (diff < 30) out.push({ crit: 'high', text: 'Недостаточно времени на встречу: между прибытием (' + trTime(a.end) + ') и трансфером (' + trTime(tr.start) + ') всего ' + diff + ' мин.' });
   }));
 
@@ -316,7 +316,7 @@ function tripConflicts(trip) {
   hotels.forEach((h) => {
     const a = arrivalBefore(h);
     if (a && h.checkinUntil && a.end > h.checkinUntil)
-      out.push({ crit: 'high', text: 'Позднее заселение: прибытие ' + trTime(a.end) + ', заселение до ' + trTime(h.checkinUntil) + '../../../js/data/. Требуется подтверждение гостиницы.' });
+      out.push({ crit: 'high', text: 'Позднее заселение: прибытие ' + trTime(a.end) + ', заселение до ' + trTime(h.checkinUntil) + '. Требуется подтверждение гостиницы.' });
   });
 
 

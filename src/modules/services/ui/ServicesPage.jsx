@@ -235,7 +235,7 @@ function CardCore({ vm, fmt, kindMeta }) {
       {vm.warning && (
         <div style={{ display: 'flex', alignItems: 'flex-start', gap: 9, padding: '10px 12px', marginBottom: 13, borderRadius: 11, background: sc.tone === 'red' ? '#fdecec' : 'var(--blue-soft)', border: '1px solid ' + (sc.tone === 'red' ? '#f3c2c2' : '#bfd2ff'), color: sc.tone === 'red' ? 'var(--red)' : 'var(--blue)' }}>
           <Icon name={sc.tone === 'red' ? 'alertCircle' : 'swap'} style={{ width: 18, height: 18, marginTop: 1, flex: '0 0 18px' }} />
-          <div><div style={{ fontSize: 12, fontWeight: 800, letterSpacing: '../../../../js/.04em' }}>{vm.warning.title}</div><div style={{ fontSize: 12, color: 'var(--body)', marginTop: 2 }}>{vm.warning.text}</div></div>
+          <div><div style={{ fontSize: 12, fontWeight: 800, letterSpacing: '.04em' }}>{vm.warning.title}</div><div style={{ fontSize: 12, color: 'var(--body)', marginTop: 2 }}>{vm.warning.text}</div></div>
         </div>
       )}
 
@@ -257,14 +257,14 @@ function CardCore({ vm, fmt, kindMeta }) {
 
       {vm.fmRows && vm.fmRows.length > 0 && (
         <div style={{ marginBottom: 8, padding: '10px 12px', borderRadius: 11, background: '#fdf3f0', border: '1px solid #f3d4c9' }}>
-          <div style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: '../../../../js/.05em', textTransform: 'uppercase', color: 'var(--red)', marginBottom: 4 }}>Форс-мажор</div>
+          <div style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: '.05em', textTransform: 'uppercase', color: 'var(--red)', marginBottom: 4 }}>Форс-мажор</div>
           <div className="kv">{vm.fmRows.map((r, i) => (<div className="kv-row" key={i}><span className="k">{r.l}</span><span className="v">{r.v}</span></div>))}</div>
         </div>
       )}
 
       {vm.altBlocks && vm.altBlocks.length > 0 && (
         <div style={{ marginBottom: 8 }}>
-          <div style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: '../../../../js/.05em', textTransform: 'uppercase', color: 'var(--blue)', margin: '8px 0 5px' }}>Доступные альтернативы</div>
+          <div style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: '.05em', textTransform: 'uppercase', color: 'var(--blue)', margin: '8px 0 5px' }}>Доступные альтернативы</div>
           <div style={{ display: 'grid', gap: 6 }}>
             {vm.altBlocks.map((a, i) => {
               const cheaper = String(a.delta).startsWith('−') || String(a.delta).startsWith('-');
@@ -288,7 +288,7 @@ function CardCore({ vm, fmt, kindMeta }) {
 
       {vm.fieldBlocks && vm.fieldBlocks.map((b, bi) => (
         <div key={bi} style={{ marginBottom: 6 }}>
-          {b.title && <div style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: '../../../../js/.05em', textTransform: 'uppercase', color: 'var(--muted)', margin: '8px 0 3px' }}>{b.title}</div>}
+          {b.title && <div style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: '.05em', textTransform: 'uppercase', color: 'var(--muted)', margin: '8px 0 3px' }}>{b.title}</div>}
           <div className="kv">{b.rows.map((r, i) => (<div className="kv-row" key={i}><span className="k">{r.l}</span><span className="v">{r.v}</span></div>))}</div>
         </div>
       ))}

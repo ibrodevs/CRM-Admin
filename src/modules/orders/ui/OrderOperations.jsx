@@ -447,7 +447,7 @@ function OpConfSection({ icon, title, tone, children }) {
     <div style={{ background: s.bg, border: '1px solid ' + s.bd, borderRadius: 12, padding: '12px 14px' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 9 }}>
         <Icon name={icon} style={{ width: 15, height: 15, color: s.hd }} />
-        <span style={{ fontSize: 11.5, fontWeight: 700, color: s.hd, textTransform: 'uppercase', letterSpacing: '../../../../js/.03em' }}>{title}</span>
+        <span style={{ fontSize: 11.5, fontWeight: 700, color: s.hd, textTransform: 'uppercase', letterSpacing: '.03em' }}>{title}</span>
       </div>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>{children}</div>
     </div>

@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 
-const pageUrl = new URL('../js/page_fulfillment.jsx', import.meta.url);
+const pageUrl = new URL('../src/modules/receipts/ui/FulfillmentPages.jsx', import.meta.url);
 
 test('partial and complete backend groups keep independent child blanks', async () => {
   const source = await readFile(pageUrl, 'utf8');

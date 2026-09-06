@@ -13,7 +13,7 @@ import { PassengerDrawer, PassportModal } from './OrderExtras';
 import { DynamicExtrasPanel, OrderResponsiblesTab } from './OrderOperations';
 import { CityPickPanel, StackPanel } from '../../locations/ui/SharedPanels';
 import { KPModule } from '../../../../js/page_offers';
-import { DocCenter, FinanceRegistry } from '../../../../js/page_fulfillment';
+import { DocCenter, FinanceRegistry } from '../../receipts/ui/FulfillmentPages';
 import { ReturnsModule } from '../../../../js/page_returns';
 import { AeroAddFlow, ManualAltForm, RailAddFlow, ServiceAddFlow, ServiceCardHistoryDrawer, ServiceCardSendPanel } from '../../services/ui/ServicesPage';
 import { HotelPicker } from '../../services/hotels/HotelsPage';
@@ -26,7 +26,7 @@ import { toLegacyDocument, toLegacyOrderService, toLegacyParticipant } from '../
 import { resultsOf } from '../../../shared/api/client';
 import { formatIsoDateTime, orderDateOnly, participantPayloadFromUi, routePayloadFromUi } from '../api/order-card';
 import { toUiOrder } from '../../../legacy/adapters/ui-adapters';
-import { technicalStopCount, technicalStopLabel, technicalStopsOf } from '../../services/flights/TechnicalStops';
+import { technicalStopCount, technicalStopLabel, technicalStopsOf } from '../../services/flights/technical-stops';
 import { TechnicalStopsDetails } from '../../services/flights/TechnicalStops.jsx';
 
 const ORDER_STATUS_CODE = {

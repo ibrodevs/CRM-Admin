@@ -22,7 +22,7 @@ async function patchTextFile(url, replacements, changedMessage, unchangedMessage
 }
 
 await patchTextFile(
-  new URL('../js/features/receipts/editor.jsx', import.meta.url),
+  new URL('../src/modules/receipts/ui/editor.jsx', import.meta.url),
   [
     {
       label: 'импорт бокового выбора',
@@ -61,7 +61,7 @@ await patchTextFile(
 );
 
 await patchTextFile(
-  new URL('../js/page_fulfillment.jsx', import.meta.url),
+  new URL('../src/modules/receipts/ui/FulfillmentPages.jsx', import.meta.url),
   [
     {
       label: 'статус черновика квитанции',

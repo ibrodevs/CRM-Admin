@@ -63,7 +63,7 @@ function TypeCard({ iconName, label, selected, onClick }) {
       border: '1.5px solid ' + (selected ? 'var(--blue)' : 'var(--field-line)'),
       background: selected ? 'var(--blue-soft)' : '#fff',
       cursor: 'pointer', width: '100%', textAlign: 'left',
-      transition: '../../../../js/.14s', fontFamily: 'inherit',
+      transition: '.14s', fontFamily: 'inherit',
     }}>
       <Icon name={iconName} style={{ width: 22, height: 22, color: selected ? 'var(--blue)' : 'var(--muted)' }} />
       <span style={{ flex: 1, fontWeight: 500, color: 'var(--ink)', fontSize: 15 }}>{label}</span>
@@ -81,7 +81,7 @@ function DocUploadBtn({ label, placeholder = 'Добавить паспорт' }
         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
         padding: '12px 16px', borderRadius: 12, border: '1px solid var(--field-line)',
         background: '#fff', cursor: 'pointer', width: '100%',
-        fontSize: 15, color: 'var(--body)', fontFamily: 'inherit', transition: '../../../../js/.14s',
+        fontSize: 15, color: 'var(--body)', fontFamily: 'inherit', transition: '.14s',
       }}>
         <span>{placeholder}</span>
         <Icon name="chevRight" style={{ width: 18, height: 18, color: 'var(--muted-2)' }} />
@@ -97,7 +97,7 @@ function PersonTab({ icon = 'user', name, sub, active, onClick }) {
       display: 'flex', alignItems: 'center', gap: 10,
       padding: '10px 16px', borderRadius: 13,
       border: '1.5px solid ' + (active ? 'var(--blue)' : 'var(--field-line)'),
-      background: '#fff', cursor: 'pointer', fontFamily: 'inherit', transition: '../../../../js/.14s',
+      background: '#fff', cursor: 'pointer', fontFamily: 'inherit', transition: '.14s',
     }}>
       <Icon name={icon} style={{ width: 20, height: 20, color: active ? 'var(--blue)' : 'var(--muted)' }} />
       <div style={{ textAlign: 'left' }}>
@@ -564,7 +564,7 @@ function OrderCreateModal({ open, onClose, onCreated, initialGroup = false, clie
                     </div>
                   );
                 })()}
-                <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '../../../../js/.02em', margin: '16px 2px 10px' }}>Сотрудники в поездке</div>
+                <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '.02em', margin: '16px 2px 10px' }}>Сотрудники в поездке</div>
                 {employees.map((c) => (
                   <div key={c.id} className="oce-client">
                     <Avatar name={c.name} size={32} />

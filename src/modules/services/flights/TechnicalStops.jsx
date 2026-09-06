@@ -1,6 +1,6 @@
 import React from 'react';
 import { Icon } from '../../../shared/icons/index';
-import { technicalStopLabel } from './TechnicalStops';
+import { technicalStopLabel } from './technical-stops';
 
 function stopLocation(stop) {
   const place = stop.city || stop.airportName || stop.airportCode || 'Аэропорт';

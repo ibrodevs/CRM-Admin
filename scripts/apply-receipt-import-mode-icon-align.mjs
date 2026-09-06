@@ -54,7 +54,7 @@ async function patchTextFile(relativePath, replacements) {
   }
 }
 
-await patchTextFile('js/page_fulfillment.jsx', [
+await patchTextFile('src/modules/receipts/ui/FulfillmentPages.jsx', [
   {
     label: 'не закрывать основной редактор при открытии фирменного бланка',
     before: `        onBrand={() => { setBrandId(editId); setEditId(null); }} />`,

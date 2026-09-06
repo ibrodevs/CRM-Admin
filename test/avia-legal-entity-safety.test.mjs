@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 
-const editor = await readFile(new URL('../js/features/receipts/editor.jsx', import.meta.url), 'utf8');
+const editor = await readFile(new URL('../src/modules/receipts/ui/editor.jsx', import.meta.url), 'utf8');
 
 
 test('ИП и другие юридические формы не становятся авиакомпанией', () => {

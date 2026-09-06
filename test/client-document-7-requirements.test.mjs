@@ -2,8 +2,8 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 
-const editor = await readFile(new URL('../js/features/receipts/editor.jsx', import.meta.url), 'utf8');
-const fulfillment = await readFile(new URL('../js/page_fulfillment.jsx', import.meta.url), 'utf8');
+const editor = await readFile(new URL('../src/modules/receipts/ui/editor.jsx', import.meta.url), 'utf8');
+const fulfillment = await readFile(new URL('../src/modules/receipts/ui/FulfillmentPages.jsx', import.meta.url), 'utf8');
 const orders = await readFile(new URL('../src/modules/orders/ui/OrdersPage.jsx', import.meta.url), 'utf8');
 const app = await readFile(new URL('../js/app.jsx', import.meta.url), 'utf8');
 const styles = await readFile(new URL('../app/globals.css', import.meta.url), 'utf8');
@@ -20,7 +20,7 @@ test('print and PDF export target only the selected receipt drawer', () => {
 test('receipt sections collapse and avia taxes use a searchable catalog', () => {
   assert.match(editor, /function Section\(\{ title, action, children, defaultOpen = true \}\)/);
   assert.match(editor, /aria-expanded=\{open\}/);
-  assert.match(editor, /from '\.\/tax-catalog'/);
+  assert.match(editor, /from '\.\.\/model\/tax-catalog'/);
   assert.match(editor, /<Combobox options=\{aviaTaxOptionsFor\(row\.code\)}/);
   assert.match(editor, /Выберите таксу из списка/);
 });

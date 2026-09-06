@@ -651,7 +651,7 @@ function holdOverlaysDuringPrint(ms = 1200) {
 // напечатали, сняли подсветку и удержали слои от закрытия.
 function printOverlayScope(node, { onDone } = {}) {
   if (typeof window === 'undefined') return;
-  const overlay = node?.closest?.('../../../js/.drawer-overlay') || null;
+  const overlay = node?.closest?.('.drawer-overlay') || null;
   const cleanup = () => {
     document.body.classList.remove('receipt-printing');
     overlay?.classList.remove('receipt-print-target');
@@ -1327,7 +1327,7 @@ function TimeField({ label, value, onChange, placeholder = 'чч:мм', required
       {open && ReactDOM.createPortal(
         <div id="__time_portal__" style={{ position: 'fixed', top: pos.top, left: pos.left, zIndex: 9999 }}>
           <div style={{ background: '#fff', borderRadius: 16, boxShadow: '0 18px 54px rgba(16,23,38,.22)', border: '1px solid var(--line)', width: 224, userSelect: 'none', overflow: 'hidden' }}>
-            <div style={{ display: 'flex', textAlign: 'center', fontSize: 11, fontWeight: 800, color: 'var(--blue)', padding: '10px 6px 4px', letterSpacing: '../../../js/.04em' }}>
+            <div style={{ display: 'flex', textAlign: 'center', fontSize: 11, fontWeight: 800, color: 'var(--blue)', padding: '10px 6px 4px', letterSpacing: '.04em' }}>
               <div style={{ flex: 1 }}>ЧАСЫ</div><div style={{ flex: 1 }}>МИНУТЫ</div>
             </div>
             <div style={{ display: 'flex', gap: 4, padding: '0 6px' }}>

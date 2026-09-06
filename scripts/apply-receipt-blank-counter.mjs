@@ -1,6 +1,6 @@
 import { readFile, writeFile } from 'node:fs/promises';
 
-const fulfillmentUrl = new URL('../js/page_fulfillment.jsx', import.meta.url);
+const fulfillmentUrl = new URL('../src/modules/receipts/ui/FulfillmentPages.jsx', import.meta.url);
 const cssUrl = new URL('../app/receipt-ui-fixes.css', import.meta.url);
 
 let source = await readFile(fulfillmentUrl, 'utf8');

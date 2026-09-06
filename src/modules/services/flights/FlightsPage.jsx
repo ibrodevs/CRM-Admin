@@ -9,8 +9,8 @@ import { PanelSub, StackPanel } from '../../locations/ui/SharedPanels';
 import { SvcAddPaxDrawer, SvcDocUploadDrawer } from '../ui/ServicesPage';
 import { aftersalesApi, crmApi, documentsApi, ordersApi, proposalsApi, servicesApi, workspaceActionsApi } from '../../../legacy/compatibility/resources';
 import { resultsOf } from '../../../shared/api/client';
-import { ServiceBlanksPanel } from '../../../../js/page_fulfillment';
-import { technicalStopCount, technicalStopLabel, technicalStopsOf } from './TechnicalStops';
+import { ServiceBlanksPanel } from '../../receipts/ui/FulfillmentPages';
+import { technicalStopCount, technicalStopLabel, technicalStopsOf } from './technical-stops';
 import { TechnicalStopsDetails } from './TechnicalStops.jsx';
 
 
@@ -1856,7 +1856,7 @@ function FlightCard({ svc, offer, no: noProp, hideBackRow, onBack, onFormKp, onA
         {(booked || issued) && (
           <div className="fc-meta" style={{ display: 'flex', flexWrap: 'wrap', gap: '10px 28px', marginTop: 16, paddingTop: 16, borderTop: '1px solid var(--line)' }}>
             <div className="fc-meta-item"><div style={{ fontSize: 12, color: 'var(--muted)' }}>Рейс</div><div style={{ fontWeight: 600, color: 'var(--ink)' }}>{airlineName} • {out.flightNo}</div></div>
-            <div className="fc-meta-item"><div style={{ fontSize: 12, color: 'var(--muted)' }}>PNR (код брони)</div><div style={{ fontWeight: 600, color: 'var(--ink)', fontFamily: 'monospace', letterSpacing: '../../../../js/.03em' }}>{pnr}</div></div>
+            <div className="fc-meta-item"><div style={{ fontSize: 12, color: 'var(--muted)' }}>PNR (код брони)</div><div style={{ fontWeight: 600, color: 'var(--ink)', fontFamily: 'monospace', letterSpacing: '.03em' }}>{pnr}</div></div>
 
             <div className="fc-meta-item"><div style={{ fontSize: 12, color: 'var(--muted)' }}>{passengers.length > 1 ? (issued ? 'Пассажиры / билеты' : 'Пассажиры') : (issued ? 'Пассажир / билет' : 'Пассажир')}</div>
               <div style={{ fontWeight: 600, color: 'var(--ink)' }}>

@@ -7,7 +7,7 @@ import {
   segmentConnectionLabel,
   segmentLayoverLabel,
   segmentLayoverMinutes,
-} from '../js/features/receipts/layover.js';
+} from '../src/modules/receipts/model/layover.js';
 
 test('рассчитывает ожидание между соседними авиасегментами', () => {
   const first = { date: '26.09.2024', arr: '15:50' };

@@ -249,23 +249,23 @@ function paxExport(fmt, tpl, header, rows, baseName) {
   const delim = tpl.delimiter || ',';
   if (fmt === 'CSV') {
     const body = [header, ...rows].map((r) => r.map((c) => paxCsvEscape(c, delim)).join(delim)).join('\n');
-    paxDownload(name + '../../../../js/.csv', '﻿' + body, 'text/csv;charset=utf-8'); return true;
+    paxDownload(name + '.csv', '﻿' + body, 'text/csv;charset=utf-8'); return true;
   }
   if (fmt === 'Текст') {
     const body = [header, ...rows].map((r) => r.join('  ·  ')).join('\n');
-    paxDownload(name + '../../../../js/.txt', body, 'text/plain;charset=utf-8'); return true;
+    paxDownload(name + '.txt', body, 'text/plain;charset=utf-8'); return true;
   }
   if (fmt === 'JSON') {
     const arr = rows.map((r) => { const o = {}; header.forEach((h, i) => { o[h] = r[i]; }); return o; });
-    paxDownload(name + '../../../../js/.json', JSON.stringify(arr, null, 2), 'application/json'); return true;
+    paxDownload(name + '.json', JSON.stringify(arr, null, 2), 'application/json'); return true;
   }
   if (fmt === 'XML') {
     const body = '<?xml version="1.0" encoding="UTF-8"?>\n<passengers>\n' + rows.map((r) => '  <passenger>\n' +
       header.map((h, i) => `    <field name="${paxXmlEscape(h)}">${paxXmlEscape(r[i])}</field>`).join('\n') + '\n  </passenger>').join('\n') + '\n</passengers>';
-    paxDownload(name + '../../../../js/.xml', body, 'application/xml'); return true;
+    paxDownload(name + '.xml', body, 'application/xml'); return true;
   }
-  if (fmt === 'Excel') { paxDownload(name + '../../../../js/.xls', paxHtmlTable(header, rows), 'application/vnd.ms-excel'); return true; }
-  if (fmt === 'Word') { paxDownload(name + '../../../../js/.doc', paxHtmlTable(header, rows), 'application/msword'); return true; }
+  if (fmt === 'Excel') { paxDownload(name + '.xls', paxHtmlTable(header, rows), 'application/vnd.ms-excel'); return true; }
+  if (fmt === 'Word') { paxDownload(name + '.doc', paxHtmlTable(header, rows), 'application/msword'); return true; }
   return false;
 }
 
@@ -482,7 +482,7 @@ function PaxUnifyPanel({ list, orderNo, autoBind, onClose, onApplyRoster }) {
           <div style={{ fontSize: 12.5, color: 'var(--muted)', marginTop: 2 }}>Excel, Word, CSV или скан. Система сверит по <b>Имя + Отчество + Дата рождения</b> и покажет: новые · было → стало · без изменений · ошибки. Изменения сохраняются после подтверждения.</div>
         </div>
         {mergeHist.length > 0 && <Button variant="ghost" size="sm" icon="clock" onClick={() => setHistOpen(true)}>История ({mergeHist.length})</Button>}
-        <input ref={fileRef} type="file" accept="../../../../js/.xlsx,.xls,.csv,.doc,.docx,.pdf,image/*" style={{ display: 'none' }} onChange={onFile} />
+        <input ref={fileRef} type="file" accept=".xlsx,.xls,.csv,.doc,.docx,.pdf,image/*" style={{ display: 'none' }} onChange={onFile} />
         <Button icon="plus" onClick={pickFile}>Загрузить файл</Button>
       </div>
 

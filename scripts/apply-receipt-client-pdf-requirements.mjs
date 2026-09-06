@@ -1,8 +1,8 @@
 import { readFile, writeFile } from 'node:fs/promises';
 
 const resourcesUrl = new URL('../src/legacy/compatibility/resources.js', import.meta.url);
-const pageUrl = new URL('../js/page_fulfillment.jsx', import.meta.url);
-const editorUrl = new URL('../js/features/receipts/editor.jsx', import.meta.url);
+const pageUrl = new URL('../src/modules/receipts/ui/FulfillmentPages.jsx', import.meta.url);
+const editorUrl = new URL('../src/modules/receipts/ui/editor.jsx', import.meta.url);
 const cssUrl = new URL('../app/receipt-ui-fixes.css', import.meta.url);
 
 let resources = await readFile(resourcesUrl, 'utf8');

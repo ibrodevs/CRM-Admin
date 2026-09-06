@@ -302,7 +302,7 @@ function LoginScreen({ onLogin, onVerifyTwoFactor, onPasswordReset, expired = fa
               <form onSubmit={submitTwoFactor} style={{ marginTop: 22 }}>
                 <label className="lp-lbl">Код подтверждения</label>
                 <input className={'lp-input' + (errs.code ? ' err' : '')} inputMode="numeric" autoComplete="one-time-code"
-                  style={{ letterSpacing: '../../../js/.35em', fontWeight: 700, fontSize: 18, textAlign: 'center' }}
+                  style={{ letterSpacing: '.35em', fontWeight: 700, fontSize: 18, textAlign: 'center' }}
                   value={code} onChange={(e) => setCode(e.target.value.replace(/\D/g, ''))} maxLength={6} autoFocus />
                 {errs.code && <div className="lp-errtxt"><Icon name="alertCircle" />{errs.code}</div>}
                 <button type="submit" className="lp-btn lp-btn-primary" style={{ marginTop: 20 }} disabled={loading}>

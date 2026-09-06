@@ -986,7 +986,7 @@ function SupplierModal({ supplier, onClose, onDelete }) {
                   style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '13px 15px', borderRadius: 13,
                     border: '1px solid ' + (on ? 'var(--blue)' : 'var(--field-line)'),
                     background: on ? 'var(--blue-soft)' : '#fff', cursor: 'pointer', fontSize: 15,
-                    fontWeight: on ? 700 : 500, color: on ? 'var(--blue)' : 'var(--ink)', textAlign: 'left', transition: '../../../../js/.12s' }}>
+                    fontWeight: on ? 700 : 500, color: on ? 'var(--blue)' : 'var(--ink)', textAlign: 'left', transition: '.12s' }}>
                   <Icon name={t.icon} style={{ width: 20, height: 20, color: on ? 'var(--blue)' : 'var(--muted)' }} />
                   <span style={{ flex: 1 }}>{t.label}</span>
                   <span className={'radio' + (on ? ' on' : '')} />

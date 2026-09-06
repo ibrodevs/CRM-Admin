@@ -491,7 +491,7 @@ function AttentionMarker({ a, onClick }) {
         <Icon name={a.icon} style={{ width: 16, height: 16, color: '#fff' }} />
       </span>
       <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ fontSize: 10.5, fontWeight: 800, letterSpacing: '../../../../js/.05em', textTransform: 'uppercase', color: c }}>{badge}</div>
+        <div style={{ fontSize: 10.5, fontWeight: 800, letterSpacing: '.05em', textTransform: 'uppercase', color: c }}>{badge}</div>
         <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--ink)', lineHeight: 1.25, overflow: 'hidden', textOverflow: 'ellipsis', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}>{a.title}</div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 3 }}>
           <span style={{ fontSize: 11.5, color: 'var(--muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1, minWidth: 0 }}>{a.sub}</span>
@@ -694,7 +694,7 @@ function SupplierErrorCard({ err, onClose, onOpenOrder, onChange, users = [], su
       </div>
 
 
-      <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '../../../../js/.03em', marginBottom: 8 }}>Действия</div>
+      <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '.03em', marginBottom: 8 }}>Действия</div>
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 16 }}>
         <Button variant="secondary" size="sm" icon="zap" disabled={resolved || busy} onClick={doRetry}>Повторно проверить цену и наличие</Button>
         <ActionMenu trigger={<Button variant="secondary" size="sm" icon="suppliers" disabled={resolved}>Выбрать другого поставщика</Button>}
@@ -721,7 +721,7 @@ function SupplierErrorCard({ err, onClose, onOpenOrder, onChange, users = [], su
 
       {err.history && err.history.length > 0 && (
         <div style={{ marginTop: 16 }}>
-          <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '../../../../js/.03em', marginBottom: 8 }}>История обработки</div>
+          <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '.03em', marginBottom: 8 }}>История обработки</div>
           <div style={{ display: 'grid', gap: 7 }}>
             {err.history.slice().reverse().map((h, i) => (
               <div key={i} style={{ display: 'flex', gap: 10, fontSize: 12.5 }}>

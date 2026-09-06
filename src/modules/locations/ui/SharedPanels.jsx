@@ -32,7 +32,7 @@ function StackPanel({ title, onClose, footer, children, width }) {
 
 function PanelSub({ children, style }) {
   return (
-    <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '../../../../js/components/.02em', margin: '20px 2px 10px', ...style }}>
+    <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '.02em', margin: '20px 2px 10px', ...style }}>
       {children}
     </div>
   );
