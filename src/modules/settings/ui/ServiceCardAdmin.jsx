@@ -1,10 +1,10 @@
 import { useEffect, useState } from 'react';
-import { Icon } from '../src/shared/icons/index';
-import { Button, Checkbox, Input, Pill, Tabs, Toggle, useToast } from '../src/shared/ui/index';
-import { SEND_CHANNELS } from '../src/legacy/data/access-control';
-import { CARD_ACTION_CATALOG, CARD_BLOCK_CATALOG, CARD_KINDS_ALL, CARD_SCENARIO_ORDER, cardAction, cardScenario } from '../src/legacy/data/service-cards';
-import { StackPanel } from '../src/modules/locations/ui/SharedPanels';
-import { workspaceSettingsApi } from '../src/legacy/compatibility/resources';
+import { Icon } from '../../../shared/icons/index';
+import { Button, Checkbox, Input, Pill, Tabs, Toggle, useToast } from '../../../shared/ui/index';
+import { SEND_CHANNELS } from '../../../legacy/data/access-control';
+import { CARD_ACTION_CATALOG, CARD_BLOCK_CATALOG, CARD_KINDS_ALL, CARD_SCENARIO_ORDER, cardAction, cardScenario } from '../../../legacy/data/service-cards';
+import { StackPanel } from '../../locations/ui/SharedPanels';
+import { workspaceSettingsApi } from '../../../legacy/compatibility/resources';
 
 
 

@@ -6,10 +6,10 @@ import {
   fullRights,
   noRights,
   operatorSvcAccess,
-} from '../../../src/legacy/data/access-control';
-import { Icon } from '../../../src/shared/icons/index';
-import { Button, Checkbox, Toggle, useToast } from '../../../src/shared/ui/index';
-import { usersApi } from '../../../src/legacy/compatibility/resources';
+} from '../../../legacy/data/access-control';
+import { Icon } from '../../../shared/icons/index';
+import { Button, Checkbox, Toggle, useToast } from '../../../shared/ui/index';
+import { usersApi } from '../../../legacy/compatibility/resources';
 
 const KIND_CODE = { 'Авиа': 'avia', 'ЖД': 'rail', 'Гостиница': 'hotel', 'Трансфер': 'transfer', 'Автобус': 'bus', 'Тур': 'tour', 'Виза': 'visa', 'Страхование': 'insurance' };
 const RIGHT_CODE = { 'Поиск': 'search', 'Бронирование': 'book', 'Выписка': 'issue', 'Возврат': 'refund', 'Обмен': 'exchange', 'Аннуляция': 'cancel', 'Доп. услуги': 'extras' };

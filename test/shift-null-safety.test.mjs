@@ -3,7 +3,7 @@ import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 
 const workspace = await readFile(new URL('../src/legacy/compatibility/workspace-provider.jsx', import.meta.url), 'utf8');
-const shifts = await readFile(new URL('../js/page_shifts.jsx', import.meta.url), 'utf8');
+const shifts = await readFile(new URL('../src/modules/workforce/ui/ShiftControl.jsx', import.meta.url), 'utf8');
 const dashboard = await readFile(new URL('../src/modules/dashboard/ui/DashboardPage.jsx', import.meta.url), 'utf8');
 
 test('empty current shift response stays null instead of becoming a fake shift', () => {

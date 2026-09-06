@@ -1,16 +1,16 @@
 import React, { useState, useEffect } from 'react';
-import { Icon } from '../src/shared/icons/index';
-import { ActionMenu, Avatar, Button, Checkbox, ConfirmDialog, Drawer, Field, Input, ModalHeader, Pill, Select, Tabs, Toggle, useToast } from '../src/shared/ui/index';
-import { CURRENCIES, ORG_TYPE, USER_STATUS } from '../src/legacy/data/index';
-import { operatorSla } from '../src/legacy/data/access-control';
-import { Topbar } from './layout';
-import { ExtrasCatalogModal } from '../src/modules/orders/ui/OrderOperations';
-import { ErrorCodesDrawer } from '../src/modules/notifications/ui/NotificationsPage';
-import { MotivationDrawer } from './page_shifts';
-import { ServiceCardAdminDrawer } from './page_card_admin';
-import { ServiceAccessEditor } from './features/settings/service-access-editor';
-import { notificationsApi, usersApi, workspaceActionsApi, workspaceSettingsApi } from '../src/legacy/compatibility/resources';
-import { toLegacyUser } from '../src/legacy/adapters/legacy-adapters';
+import { Icon } from '../../../shared/icons/index';
+import { ActionMenu, Avatar, Button, Checkbox, ConfirmDialog, Drawer, Field, Input, ModalHeader, Pill, Select, Tabs, Toggle, useToast } from '../../../shared/ui/index';
+import { CURRENCIES, ORG_TYPE, USER_STATUS } from '../../../legacy/data/index';
+import { operatorSla } from '../../../legacy/data/access-control';
+import { Topbar } from '../../../../js/layout';
+import { ExtrasCatalogModal } from '../../orders/ui/OrderOperations';
+import { ErrorCodesDrawer } from '../../notifications/ui/NotificationsPage';
+import { MotivationDrawer } from '../../workforce/ui/ShiftControl';
+import { ServiceCardAdminDrawer } from './ServiceCardAdmin';
+import { ServiceAccessEditor } from './ServiceAccessEditor';
+import { notificationsApi, usersApi, workspaceActionsApi, workspaceSettingsApi } from '../../../legacy/compatibility/resources';
+import { toLegacyUser } from '../../../legacy/adapters/legacy-adapters';
 
 const ROLE_LABEL = { admin: 'Админ', operator: 'Оператор', accountant: 'Бухгалтер', manager: 'Менеджер' };
 const PERMISSION_GROUPS = [

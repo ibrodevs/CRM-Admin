@@ -7,7 +7,7 @@ import { NAV_ITEMS, Topbar } from './layout';
 import { NotificationsCenter } from '../src/modules/notifications/ui/NotificationsPage';
 import { PAX_GROUPS } from '../src/modules/clients/ui/PassengerTools';
 import { ChatThread, chatRecipients, getThreadForOrder, threadUnread } from '../src/modules/chats/ui/ChatsPage';
-import { ShiftControl } from './page_shifts';
+import { ShiftControl } from '../src/modules/workforce/ui/ShiftControl';
 import { workspaceApi } from '../src/legacy/compatibility/resources';
 
 
