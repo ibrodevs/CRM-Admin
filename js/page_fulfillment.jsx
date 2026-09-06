@@ -6,7 +6,8 @@ import { COMPANIES_DB, CURRENT_USER, DOCS2, DOC_KIND, DOC_STATUS2, FIN_OPS, FIN_
 import { UnifiedBindField, UnifiedBindPicker, UFDateField } from './forms_unified';
 import { Topbar } from './layout';
 import { toLegacyDocument } from './api/legacy-adapters';
-import { crmApi, documentsApi, financeApi, jobsApi, workspaceActionsApi } from './api/resources';
+import { toUiOrder } from './api/adapters';
+import { crmApi, documentsApi, financeApi, jobsApi, ordersApi, workspaceActionsApi } from './api/resources';
 import { resultsOf } from './api/client';
 import {
   ReceiptBrandDocumentDrawer,
@@ -5931,8 +5932,69 @@ function ReceiptEditorPage({ documents = [], orders = [], services = [], compani
 
 
 
+function buildFulfillmentRows({ obligations = [], orders = [], documents = [], returns = [] }) {
+  const paymentRows = obligations
+    .filter((item) => ['open', 'partial'].includes(item.status) && Number(item.outstanding || 0) > 0)
+    .map((item) => {
+      const order = orders.find((entry) => entry.id === item.order);
+      const overdue = Boolean(item.due_date && new Date(`${item.due_date}T23:59:59`) < new Date());
+      return {
+        id: `payment-${item.id}`,
+        cat: overdue ? 'overdue' : 'payment',
+        orderId: item.order || null,
+        order: order?.no || item.order_number || String(item.order || '').slice(0, 8),
+        client: item.client_name || item.supplier_name || order?.client || 'Контрагент',
+        detail: item.direction === 'supplier_payable' ? 'Оплатить поставщику' : 'Получить оплату от клиента',
+        amount: fUsd(Number(item.outstanding || 0), item.currency),
+        due: item.due_date ? item.due_date.split('-').reverse().join('.') : '—',
+        resp: order?.operator || 'Не назначен',
+        overdue,
+      };
+    });
+
+  const documentedOrderIds = new Set(documents.map((item) => item.orderId).filter(Boolean).map(String));
+  const documentRows = orders
+    .filter((order) => order.services > 0 && !documentedOrderIds.has(String(order.id)))
+    .map((order) => ({
+      id: `documents-${order.id}`,
+      cat: 'docs',
+      orderId: order.id,
+      order: order.no,
+      client: order.client,
+      detail: 'Подготовить документы по услугам',
+      amount: fUsd(order.sum || 0, order.currency),
+      due: order.planned_start ? String(order.planned_start).split('-').reverse().join('.') : '—',
+      resp: order.operator || 'Не назначен',
+      overdue: false,
+    }));
+
+  const terminalReturnStatuses = new Set(['completed', 'cancelled', 'rejected']);
+  const returnRows = returns
+    .filter((item) => !terminalReturnStatuses.has(item.statusCode || item.status))
+    .map((item) => {
+      const orderId = item.orderId || null;
+      const order = orders.find((entry) => entry.id === orderId || entry.no === item.order);
+      return {
+        id: `return-${item.serverId || item.id || item.no}`,
+        cat: 'return',
+        orderId,
+        order: order?.no || item.order || String(orderId || '').slice(0, 8),
+        client: order?.client || item.client || 'Клиент',
+        detail: item.reason || item.type || 'Возврат в обработке',
+        amount: fUsd(Number(item.fin?.refund ?? item.refund_amount ?? item.client_refund ?? 0), item.currency || 'USD'),
+        due: item.created_at ? new Date(item.created_at).toLocaleDateString('ru-RU') : '—',
+        resp: item.resp || order?.operator || 'Не назначен',
+        overdue: false,
+      };
+    });
+
+  return [...paymentRows, ...documentRows, ...returnRows];
+}
+
 function FulfillmentRegistry({ onOpenOrder, rows = [], orders = [] }) {
+  const toast = useToast();
   const [cat, setCat] = useState('payment');
+  const [opening, setOpening] = useState(null);
   const CATS = [
     { key: 'payment', label: 'Требуют оплаты', icon: 'finance' },
     { key: 'docs', label: 'Нет документов', icon: 'docs' },
@@ -5940,7 +6002,18 @@ function FulfillmentRegistry({ onOpenOrder, rows = [], orders = [] }) {
     { key: 'return', label: 'Возвраты в обработке', icon: 'refund' },
   ];
   const shownRows = rows.filter((r) => r.cat === cat);
-  const goOrder = (no, client) => { const o = orders.find((x) => x.no === no) || { no, client, requestType: 'Индивидуальная', status: 'В работе', operator: 'Не назначен', date: new Date().toLocaleDateString('ru-RU') }; onOpenOrder(o); };
+  const goOrder = async (row) => {
+    const found = orders.find((order) => String(order.id) === String(row.orderId) || String(order.no) === String(row.order));
+    if (found) { onOpenOrder(found); return; }
+    if (!row.orderId) { toast('Связанный заказ не найден или недоступен', 'warn'); return; }
+    setOpening(row.id);
+    try {
+      const saved = await ordersApi.detail(row.orderId);
+      onOpenOrder(toUiOrder(saved));
+    } catch (error) {
+      toast(error.message || 'Не удалось открыть связанный заказ', 'err');
+    } finally { setOpening(null); }
+  };
 
   return (
     <div className="fade-in">
@@ -5962,15 +6035,15 @@ function FulfillmentRegistry({ onOpenOrder, rows = [], orders = [] }) {
           <table className="tbl">
             <thead><tr><th>Заказ</th><th>Клиент</th><th>Действие</th><th>Сумма</th><th>Срок</th><th>Ответственный</th><th></th></tr></thead>
             <tbody>
-              {shownRows.map((r, i) => (
-                <tr key={i} style={{ cursor: 'pointer' }} onClick={() => goOrder(r.order, r.client)}>
+              {shownRows.map((r) => (
+                <tr key={r.id} style={{ cursor: 'pointer' }} onClick={() => goOrder(r)}>
                   <td><span style={{ color: 'var(--blue)', fontWeight: 700 }}>№ {r.order}</span></td>
                   <td className="t-strong">{r.client}</td>
                   <td>{r.detail}</td>
                   <td className="t-strong">{r.amount}</td>
                   <td><span style={r.overdue ? { color: 'var(--red)', fontWeight: 600 } : null}>{r.due}</span></td>
                   <td>{r.resp}</td>
-                  <td onClick={(e) => e.stopPropagation()}><Button variant="secondary" size="sm" iconRight="chevRight" onClick={() => goOrder(r.order, r.client)}>В заказ</Button></td>
+                  <td onClick={(e) => e.stopPropagation()}><Button variant="secondary" size="sm" iconRight="chevRight" disabled={opening === r.id} onClick={() => goOrder(r)}>{opening === r.id ? 'Открываем…' : 'В заказ'}</Button></td>
                 </tr>
               ))}
             </tbody>
@@ -5982,36 +6055,15 @@ function FulfillmentRegistry({ onOpenOrder, rows = [], orders = [] }) {
 }
 
 function FulfillmentPage({ onOpenOrder, orders = [], documents = [], returns = [] }) {
+  const toast = useToast();
   const [rows, setRows] = useState([]);
   useEffect(() => {
     const controller = new AbortController();
     financeApi.obligations({}, controller.signal).then((payload) => {
-      const obligations = resultsOf(payload).filter((item) => ['open', 'partial'].includes(item.status) && Number(item.outstanding || 0) > 0);
-      const paymentRows = obligations.map((item) => {
-        const order = orders.find((entry) => entry.id === item.order);
-        const overdue = Boolean(item.due_date && new Date(`${item.due_date}T23:59:59`) < new Date());
-        return {
-          cat: overdue ? 'overdue' : 'payment', order: order?.no || item.order_number || String(item.order || '').slice(0, 8),
-          client: item.client_name || item.supplier_name || order?.client || 'Контрагент',
-          detail: item.direction === 'supplier_payable' ? 'Оплатить поставщику' : 'Получить оплату от клиента',
-          amount: fUsd(Number(item.outstanding || 0), item.currency), due: item.due_date ? item.due_date.split('-').reverse().join('.') : '—',
-          resp: order?.operator || 'Не назначен', overdue,
-        };
-      });
-      const documented = new Set(documents.map((item) => item.order).filter(Boolean));
-      const documentRows = orders.filter((order) => order.services > 0 && !documented.has(order.id)).map((order) => ({
-        cat: 'docs', order: order.no, client: order.client, detail: 'Подготовить документы по услугам',
-        amount: fUsd(order.sum || 0, order.currency), due: order.planned_start ? String(order.planned_start).split('-').reverse().join('.') : '—',
-        resp: order.operator, overdue: false,
-      }));
-      const returnRows = returns.filter((item) => !['executed', 'cancelled', 'closed'].includes(item.status)).map((item) => {
-        const order = orders.find((entry) => entry.id === item.order);
-        return { cat: 'return', order: order?.no || String(item.order || '').slice(0, 8), client: order?.client || 'Клиент', detail: item.reason || 'Возврат в обработке', amount: fUsd(Number(item.refund_amount || item.client_refund || 0), item.currency || 'USD'), due: item.created_at ? new Date(item.created_at).toLocaleDateString('ru-RU') : '—', resp: order?.operator || 'Не назначен', overdue: false };
-      });
-      setRows([...paymentRows, ...documentRows, ...returnRows]);
-    }).catch((error) => { if (error.name !== 'AbortError') console.error(error); });
+      setRows(buildFulfillmentRows({ obligations: resultsOf(payload), orders, documents, returns }));
+    }).catch((error) => { if (error.name !== 'AbortError') { setRows([]); toast(error.message || 'Не удалось загрузить очередь оформления', 'err'); } });
     return () => controller.abort();
-  }, [documents, orders, returns]);
+  }, [documents, orders, returns, toast]);
   return (<><Topbar title="Оформление" /><div className="content"><FulfillmentRegistry onOpenOrder={onOpenOrder} rows={rows} orders={orders} /></div></>);
 }
 
@@ -6023,4 +6075,4 @@ Object.assign(window, {
 
 
 
-export { fUsd, finPayable, finDebt, companyForDoc, OrderStageBar, FinanceOpCard, FinanceRegistry, FinancePageNew, DOC_BOOKKEEPING, now, DocPreviewModal, DocCard, DocPassengerGroup, correctionSubjects, DOC_UPLOAD_TYPES, DocUploadModal, DocCenter, DocCenterPage, REC_TYPES, recType, RECOG_STEPS, TRIP_TYPES, tripLabel, legCode, routeSummary, RID, emptyReceiptParse, guessType, recMoney, recComputed, LegLine, RouteView, RSub, ReceiptPreview, ReceiptEditForm, REC_STATUS, receiptStatus, ReceiptEditDrawer, ReceiptMathDrawer, ReceiptImportModal, ReceiptEditorPage, FulfillmentRegistry, FulfillmentPage };
+export { fUsd, finPayable, finDebt, companyForDoc, OrderStageBar, FinanceOpCard, FinanceRegistry, FinancePageNew, DOC_BOOKKEEPING, now, DocPreviewModal, DocCard, DocPassengerGroup, correctionSubjects, DOC_UPLOAD_TYPES, DocUploadModal, DocCenter, DocCenterPage, REC_TYPES, recType, RECOG_STEPS, TRIP_TYPES, tripLabel, legCode, routeSummary, RID, emptyReceiptParse, guessType, recMoney, recComputed, LegLine, RouteView, RSub, ReceiptPreview, ReceiptEditForm, REC_STATUS, receiptStatus, ReceiptEditDrawer, ReceiptMathDrawer, ReceiptImportModal, ReceiptEditorPage, buildFulfillmentRows, FulfillmentRegistry, FulfillmentPage };

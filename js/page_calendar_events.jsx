@@ -69,6 +69,22 @@ function calRepeatPreview(dateStr, time, every, unit, until = '') {
   return rows;
 }
 
+function calRecurrenceRule(form = {}) {
+  const repeat = form.repeat || 'Не повторять';
+  if (repeat === 'Не повторять') return '';
+  const until = String(form.repeatUntil || '').trim();
+  const condition = String(form.repeatCondition || '').trim();
+  const every = Math.max(1, Number(form.repeatEvery) || 1);
+  const unit = form.repeatUnit || 'День';
+  return JSON.stringify({
+    mode: repeat,
+    every: repeat === 'Свой интервал' ? every : 1,
+    unit: repeat === 'Еженедельно' ? 'Неделя' : repeat === 'Ежедневно' ? 'День' : unit,
+    until,
+    condition,
+  });
+}
+
 function CalCustomRepeatDrawer({ value, dateStr, time, onClose, onApply }) {
   const [every, setEvery] = useState(String(value.every || '2'));
   const [unit, setUnit] = useState(value.unit || 'День');
@@ -361,9 +377,12 @@ function CalEventCreator({ type, day, presetOrder, orders = [], clients = [], us
   const currentOperator = (window.CURRENT_USER && CURRENT_USER.name) || 'Пользователь';
   const [f, setF] = useState({
     title: '', dateStr: calFmtDay(day), endStr: '', time: '12:00', order: presetOrder || null, pax: '', supplier: '',
-    resp: currentOperator, priority: 'Средний', scope: 'Себе', respRole: '—', direction: '', contact: '', comment: '', criterion: '',
+    resp: currentOperator, priority: 'Средний', notify: CAL_NOTIFY[0], repeat: 'Не повторять',
+    repeatEvery: '2', repeatUnit: 'День', repeatUntil: '', repeatCondition: '',
+    scope: 'Себе', respRole: '—', direction: '', contact: '', comment: '', criterion: '', actionOnProblem: '',
   });
   const [dupChoice, setDupChoice] = useState(null);
+  const [repeatDrawerOpen, setRepeatDrawerOpen] = useState(false);
   const set = (k, v) => setF((s) => ({ ...s, [k]: v }));
 
   const changeScope = (scope) => setF((current) => ({
@@ -371,10 +390,16 @@ function CalEventCreator({ type, day, presetOrder, orders = [], clients = [], us
     scope,
     resp: scope === 'Себе' ? currentOperator : scope === 'Другому оператору' ? '' : current.resp,
   }));
+  const changeRepeat = (repeat) => {
+    set('repeat', repeat);
+    if (repeat === 'Свой интервал') setRepeatDrawerOpen(true);
+  };
   const dup = (type === 'reminder' || type === 'task') && f.title && f.order ? calFindDuplicate({ type, title: f.title, order: f.order }) : null;
   const needTitle = type !== 'order';
   const assigneeReady = f.scope !== 'Другому оператору' || Boolean(f.resp);
-  const canSave = (type === 'order' ? Boolean(f.order || f.contact || f.pax) : !!f.title.trim()) && assigneeReady;
+  const recurrenceReady = f.repeat !== 'До указанной даты' || Boolean(f.repeatUntil);
+  const conditionReady = f.repeat !== 'До выполнения условия' || Boolean(f.repeatCondition.trim());
+  const canSave = (type === 'order' ? Boolean(f.order || f.contact || f.pax) : !!f.title.trim()) && assigneeReady && recurrenceReady && conditionReady;
 
   const submit = async () => {
     if (!onPersist) { toast('Backend обработчик календаря недоступен', 'err'); return; }
@@ -382,7 +407,10 @@ function CalEventCreator({ type, day, presetOrder, orders = [], clients = [], us
     const [dd, mm, yy] = f.dateStr.split('.').map(Number);
     const [hh, mi] = (f.time || '12:00').split(':').map(Number);
     const date = new Date(yy || new Date().getFullYear(), (mm || 1) - 1, dd || 1, hh || 12, mi || 0);
-    const base = { type, date, time: f.time, order: f.order, resp: f.resp, scope: f.scope, comment: f.comment };
+    const base = {
+      type, date, time: f.time, order: f.order, resp: f.resp, scope: f.scope, comment: f.comment,
+      recurrenceRule: calRecurrenceRule(f), notificationMethod: f.notify,
+    };
     let evt;
     if (type === 'order') {
       try {
@@ -394,7 +422,7 @@ function CalEventCreator({ type, day, presetOrder, orders = [], clients = [], us
     }
     if (type === 'reminder') evt = { ...base, title: f.title, pax: f.pax, supplier: f.supplier, priority: f.priority };
     else if (type === 'task') evt = { ...base, title: f.title, priority: f.priority };
-    else evt = { ...base, title: f.title, criterion: f.criterion };
+    else evt = { ...base, title: f.title, criterion: f.criterion, actionOnProblem: f.actionOnProblem };
     try {
       const created = calUpsertEvent(await onPersist({ ...evt, form: f }));
       toast(t.l + ' сохранено в backend', 'ok');
@@ -465,11 +493,14 @@ function CalEventCreator({ type, day, presetOrder, orders = [], clients = [], us
       {type === 'control' && (
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
           <Field label="Критерий результата"><Input value={f.criterion} onChange={(e) => set('criterion', e.target.value)} placeholder="напр. задержка > 60 мин" /></Field>
+          <Field label="Действие при проблеме"><Input value={f.actionOnProblem} onChange={(e) => set('actionOnProblem', e.target.value)} placeholder="напр. создать задачу оператору" /></Field>
         </div>
       )}
 
 
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+        {type !== 'order' && <Field label="Повторение"><Select value={f.repeat} onChange={(e) => changeRepeat(e.target.value)} options={CAL_REPEAT} /></Field>}
+        {type === 'reminder' && <Field label="Способ уведомления"><Select value={f.notify} onChange={(e) => set('notify', e.target.value)} options={CAL_NOTIFY} /></Field>}
         <Field label="Назначить"><Select value={f.scope} onChange={(e) => changeScope(e.target.value)} options={CAL_SCOPE} /></Field>
         {f.scope === 'На весь заказ' && <Field label="Ответственный по услуге"><Select value={f.respRole} onChange={(e) => set('respRole', e.target.value)} options={CAL_RESP_ROLE} /></Field>}
       </div>
@@ -478,13 +509,40 @@ function CalEventCreator({ type, day, presetOrder, orders = [], clients = [], us
           <CalOperatorPicker value={f.resp} users={users} onChange={(value) => set('resp', value)} />
         </Field>
       )}
+      {type !== 'order' && f.repeat === 'Свой интервал' && (
+        <button type="button" className="cal-repeat-summary" onClick={() => setRepeatDrawerOpen(true)}>
+          <span className="cal-repeat-summary-icon"><Icon name="clock" /></span>
+          <span><small>Настроенный интервал</small><b>{calRepeatSummary(f.repeatEvery, f.repeatUnit, f.repeatUntil)}</b></span>
+          <span className="cal-repeat-edit">Изменить <Icon name="chevRight" /></span>
+        </button>
+      )}
+      {type !== 'order' && f.repeat === 'До указанной даты' && (
+        <UFDateField label="Повторять до" value={f.repeatUntil || null} onChange={(v) => set('repeatUntil', v)} placeholder="дд.мм.гггг" />
+      )}
+      {type !== 'order' && f.repeat === 'До выполнения условия' && (
+        <Field label="Условие завершения" required>
+          <Input value={f.repeatCondition} onChange={(e) => set('repeatCondition', e.target.value)} placeholder="например: после оплаты или подтверждения" />
+        </Field>
+      )}
       <Field label="Комментарий"><Input value={f.comment} onChange={(e) => set('comment', e.target.value)} placeholder="Необязательно" /></Field>
 
       {type === 'control' && (f.title || f.criterion) && (
         <div style={{ marginTop: 4, padding: '10px 12px', borderRadius: 10, background: 'var(--surface-2)', fontSize: 12.5, color: 'var(--body)' }}>
-          <b>Контроль:</b> {f.title || '—'}{f.order ? ' · заказ № ' + f.order : ''}<br />Проверить {f.dateStr} в {f.time}.{f.criterion ? ' Критерий: «' + f.criterion + '».' : ''}
+          <b>Контроль:</b> {f.title || '—'}{f.order ? ' · заказ № ' + f.order : ''}<br />Проверить {f.dateStr} в {f.time}.{f.criterion ? ' Критерий: «' + f.criterion + '».' : ''}{f.actionOnProblem ? ' Действие: ' + f.actionOnProblem + '.' : ''}
           <div style={{ color: 'var(--muted-2)', marginTop: 4 }}>Контроль сохраняется в backend и отображается в общем календаре.</div>
         </div>
+      )}
+      {repeatDrawerOpen && (
+        <CalCustomRepeatDrawer
+          value={{ every: f.repeatEvery, unit: f.repeatUnit, until: f.repeatUntil }}
+          dateStr={f.dateStr}
+          time={f.time}
+          onClose={() => setRepeatDrawerOpen(false)}
+          onApply={({ every, unit, until }) => {
+            setF((current) => ({ ...current, repeat: 'Свой интервал', repeatEvery: every, repeatUnit: unit, repeatUntil: until }));
+            setRepeatDrawerOpen(false);
+          }}
+        />
       )}
     </Drawer>
   );
@@ -511,8 +569,27 @@ function CalEventPanel({ evt, onClose, onChanged, onOpenOrder, onComplete, onRes
   const toast = useToast();
   const t = CAL_EVENT_TYPES[evt.type];
   const info = evt.order ? calOrderInfo(evt.order) : null;
-  const complete = async () => { try { if (onComplete) await onComplete(evt); evt.done = true; toast('Событие отмечено выполненным', 'ok'); onChanged && onChanged(); } catch (error) { toast(error.message || 'Не удалось выполнить событие', 'err'); } };
-  const move = async () => { try { const next = new Date(evt.date.getTime() + 86400000); if (onReschedule) await onReschedule(evt, next); evt.date = next; toast('Срок перенесён на следующий день', 'info'); onChanged && onChanged(); } catch (error) { toast(error.message || 'Не удалось перенести событие', 'err'); } };
+  const complete = async () => {
+    try {
+      if (!onComplete) throw new Error('Backend обработчик календаря недоступен');
+      const saved = await onComplete(evt);
+      evt.done = saved.status === 'done';
+      evt.status = saved.status;
+      toast('Событие отмечено выполненным', 'ok');
+      onChanged && onChanged();
+    } catch (error) { toast(error.message || 'Не удалось выполнить событие', 'err'); }
+  };
+  const move = async () => {
+    try {
+      if (!onReschedule) throw new Error('Backend обработчик календаря недоступен');
+      const next = new Date(evt.date.getTime() + 86400000);
+      const saved = await onReschedule(evt, next);
+      evt.date = new Date(saved.starts_at);
+      evt.time = evt.date.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
+      toast('Срок перенесён на следующий день', 'info');
+      onChanged && onChanged();
+    } catch (error) { toast(error.message || 'Не удалось перенести событие', 'err'); }
+  };
   return (
     <Drawer open={!!evt} onClose={onClose} title={evt.title} sub={t.l + ' · ' + calFmtDay(evt.date) + (evt.time ? ' · ' + evt.time : '')}
       footer={<div style={{ display: 'flex', gap: 10, width: '100%' }}>
@@ -549,4 +626,4 @@ Object.assign(window, { CAL_EVENTS, CAL_EVENT_TYPES, calEventsOn, calAddEvent, C
 
 
 
-export { CAL_EVENT_TYPES, CAL_PRIORITY, CAL_PRIORITY_TONE, CAL_NOTIFY, CAL_REPEAT, CAL_SCOPE, CAL_RESP_ROLE, CAL_SERVICE_TYPES, CAL_REMINDER_PRESETS, CAL_TASK_PRESETS, CAL_CONTROL_PRESETS, calFmtDay, calNowStr, calRepeatSummary, calRepeatPreview, CAL_EVENTS, calendarEventToUi, hydrateCalendarEvents, calEventsOn, calAddEvent, calFindDuplicate, calOrderInfo, calendarOperatorRows, CalDayMenu, CalOrderPicker, CalOperatorPickerDrawer, CalOperatorPicker, CalCustomRepeatDrawer, CalEventCreator, CalEventChip, CalEventPanel };
+export { CAL_EVENT_TYPES, CAL_PRIORITY, CAL_PRIORITY_TONE, CAL_NOTIFY, CAL_REPEAT, CAL_SCOPE, CAL_RESP_ROLE, CAL_SERVICE_TYPES, CAL_REMINDER_PRESETS, CAL_TASK_PRESETS, CAL_CONTROL_PRESETS, calFmtDay, calNowStr, calRepeatSummary, calRepeatPreview, calRecurrenceRule, CAL_EVENTS, calendarEventToUi, hydrateCalendarEvents, calEventsOn, calAddEvent, calFindDuplicate, calOrderInfo, calendarOperatorRows, CalDayMenu, CalOrderPicker, CalOperatorPickerDrawer, CalOperatorPicker, CalCustomRepeatDrawer, CalEventCreator, CalEventChip, CalEventPanel };

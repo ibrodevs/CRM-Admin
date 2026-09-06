@@ -5,8 +5,7 @@ import { CURRENT_USER, ORDER_STATUS, SERVICE_KIND } from './data';
 import { TRIP_CRIT, controlCenterFeed, critMax, crossTripConflicts, trDay, trDayTime, trHumanIn, trSameDay, trStartOfDay, trTime, tripConflicts, tripCriticality, tripEvents, tripFilterSets, tripForceMajeures, tripUnpaid } from './data/trips';
 import { Topbar } from './layout';
 import { CAL_EVENT_TYPES, CalDayMenu, CalEventChip, CalEventCreator, CalEventPanel, calEventsOn, calendarEventToUi, hydrateCalendarEvents } from './page_calendar_events';
-import { calendarApi, ordersApi } from './api/resources';
-import { toUiOrder } from './api/adapters';
+import { calendarApi } from './api/resources';
 
 
 
@@ -17,6 +16,96 @@ const TC_WEEKDAYS = ['ПН', 'ВТ', 'СР', 'ЧТ', 'ПТ', 'СБ', 'ВС'];
 const TC_MONTHS = ['января', 'февраля', 'марта', 'апреля', 'мая', 'июня', 'июля', 'августа', 'сентября', 'октября', 'ноября', 'декабря'];
 const TC_MONTHS_NOM = ['Январь', 'Февраль', 'Март', 'Апрель', 'Май', 'Июнь', 'Июль', 'Август', 'Сентябрь', 'Октябрь', 'Ноябрь', 'Декабрь'];
 const LIVE_NOW = new Date();
+const TRIP_ORDER_STATUS = {
+  new: 'Новое', in_progress: 'В работе', awaiting_confirmation: 'Ожидает подтверж.',
+  awaiting_payment: 'Ожидание оплаты', paid: 'Оплачено', completed: 'Оплачено',
+  needs_review: 'Требует проверки', on_hold: 'На паузе', cancelled: 'Отменено', data_missing: 'Нет данных',
+};
+const TRIP_SERVICE_KIND = {
+  avia: 'Авиа', rail: 'ЖД', hotel: 'Гостиница', transfer: 'Трансфер', bus: 'Автобус',
+  tour: 'Тур', visa: 'Виза', insurance: 'Страхование', aeroexpress: 'Аэроэкспресс', lounge: 'Бизнес-зал', other: 'Прочее',
+};
+const TRIP_SERVICE_STATUS = {
+  searching: 'Поиск', proposed: 'Предложено', approval: 'Согласование', booked: 'Забронировано',
+  confirmed: 'Подтверждено', issued: 'Выписано', refund_in_progress: 'Возврат', refunded: 'Возвращено',
+  cancelled: 'Отменено', failed: 'Ошибка',
+};
+const TRIP_DOCUMENT_STATUS = {
+  draft: 'Черновик', uploaded: 'Загружен', generated: 'Сформирован', accounting: 'В бухгалтерии',
+  signing: 'На подписи', signed: 'Подписан', void: 'Аннулирован',
+};
+const TRIP_SEVERITY = { critical: 'critical', high: 'high', warning: 'medium', medium: 'medium', normal: 'medium', low: 'info', info: 'info' };
+
+function tripDate(value) {
+  if (!value) return null;
+  const parsed = new Date(value);
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
+}
+
+function calendarTripToUi(item, orders = []) {
+  const order = orders.find((entry) => entry.id === item.order);
+  const start = tripDate(item.starts_at);
+  const end = tripDate(item.ends_at) || start;
+  const participants = Array.isArray(item.participants) ? item.participants : [];
+  const services = (item.services || []).map((service) => {
+    const serviceStart = tripDate(service.starts_at);
+    return {
+      ...service,
+      kind: TRIP_SERVICE_KIND[service.kind] || service.kind,
+      status: TRIP_SERVICE_STATUS[service.status] || service.status,
+      supplier: service.supplier_name || 'Не указан',
+      sub: service.external_id || '',
+      start: serviceStart,
+      end: tripDate(service.ends_at) || serviceStart,
+      timeLimit: tripDate(service.ticketing_deadline),
+      paymentDeadline: tripDate(service.payment_deadline),
+    };
+  });
+  const incidents = (item.incidents || []).map((incident) => ({
+    type: incident.error_code || 'integration_incident',
+    event: incident.message || incident.error_code || 'Инцидент поставщика',
+    service: incident.service_title || 'Услуга заказа',
+    at: tripDate(incident.created_at) || start,
+    source: incident.supplier_name || incident.operation || 'Интеграция',
+    crit: TRIP_SEVERITY[incident.severity] || 'high',
+  }));
+  const persistedConflicts = (item.conflicts || []).map((conflict) => ({
+    ...conflict,
+    crit: TRIP_SEVERITY[conflict.severity] || 'high',
+    text: conflict.details?.message || conflict.details?.description || conflict.details?.text || conflict.kind,
+  }));
+  const summary = item.group_summary;
+  return {
+    ...item,
+    id: item.id,
+    orderNo: item.order_number,
+    client: item.client_name || order?.client || 'Клиент не указан',
+    company: item.company_name || null,
+    operator: item.operator_name || order?.operator || 'Не назначен',
+    status: TRIP_ORDER_STATUS[item.order_status] || order?.status || item.order_status || item.status,
+    routeLabel: item.title || `Поездка по заказу № ${item.order_number}`,
+    start,
+    end,
+    criticality: TRIP_SEVERITY[item.criticality] || 'info',
+    isGroup: item.request_type === 'group' || order?.requestType === 'Групповая',
+    pax: participants.length,
+    paxNames: participants.map((participant) => participant.name).filter(Boolean),
+    services,
+    fm: incidents,
+    persistedConflicts,
+    docs: (item.documents || []).map((document) => ({
+      ...document,
+      name: document.name || document.title,
+      status: TRIP_DOCUMENT_STATUS[document.status] || document.status,
+    })),
+    group: summary ? {
+      bookings: summary.bookings,
+      issued: summary.issued,
+      noSeat: summary.without_seat,
+      placementConflict: persistedConflicts.some((conflict) => String(conflict.kind || '').includes('placement')),
+    } : null,
+  };
+}
 
 
 function tcWeekStart(d) {
@@ -493,16 +582,8 @@ function DashDetailEmptyLite({ title }) {
 }
 
 
-function TripCalendarPage({ role, feed, orders = [], clients = [], companies = [], users = [], suppliers = [], onOpenOrder }) {
-  const sourceTrips = Array.isArray(feed?.trips) ? feed.trips.map((item) => {
-    const order = orders.find((entry) => entry.id === item.order);
-    return {
-      ...item, id: item.id, orderNo: item.order_number, client: order?.client || '—', company: null,
-      operator: order?.operator || '—', status: item.status, routeLabel: item.title,
-      start: new Date(item.starts_at), end: new Date(item.ends_at || item.starts_at), criticality: item.criticality || 'info',
-      isGroup: order?.requestType === 'Групповая', pax: null, paxNames: [], services: [], fm: [], docs: [],
-    };
-  }) : [];
+function TripCalendarPage({ role, feed, orders = [], clients = [], companies = [], users = [], suppliers = [], onOpenOrder, onCreateOrder }) {
+  const sourceTrips = Array.isArray(feed?.trips) ? feed.trips.map((item) => calendarTripToUi(item, orders)) : [];
   const calendarNow = new Date();
   const [view, setView] = useState('day');
   const [control, setControl] = useState(false);
@@ -599,14 +680,13 @@ function TripCalendarPage({ role, feed, orders = [], clients = [], companies = [
       const client = clients.find((item) => item.name === selectedName);
       const company = companies.find((item) => item.name === selectedName);
       if (!client && !company) throw new Error('Выберите клиента или существующий заказ');
-      const createdOrder = await ordersApi.create({
+      if (!onCreateOrder) throw new Error('Backend обработчик создания заказа недоступен');
+      linkedOrder = await onCreateOrder({
         request_type: 'individual', client_person: client?.id || null, client_company: company?.id || null,
         planned_start: event.date.toISOString().slice(0, 10),
         planned_end: event.endStr ? event.endStr.split('.').reverse().join('-') : null,
         purpose: event.form.direction || 'Поездка из календаря', base_currency: 'RUB', source: 'calendar',
       });
-      linkedOrder = toUiOrder(createdOrder);
-      window.__addOrder && window.__addOrder(linkedOrder);
     }
     const assignee = users.find((user) => (user.full_name || user.name) === event.resp);
     const person = clients.find((item) => item.name === event.form?.pax);
@@ -619,7 +699,8 @@ function TripCalendarPage({ role, feed, orders = [], clients = [], companies = [
       timezone: Intl.DateTimeFormat().resolvedOptions().timeZone, order: linkedOrder?.id || null,
       person: person?.id || null, supplier: supplier?.id || supplier?.no || null,
       assignee: assignee?.id || null, scope: event.scope === 'На весь заказ' ? 'tenant' : event.scope?.includes('Группе') ? 'team' : 'personal',
-      priority, notification_method: '', recurrence_rule: '', criterion: event.criterion || '', action_on_problem: '',
+      priority, notification_method: event.notificationMethod || '', recurrence_rule: event.recurrenceRule || '',
+      criterion: event.criterion || '', action_on_problem: event.actionOnProblem || '',
     });
     return calendarEventToUi(saved, linkedOrder ? [linkedOrder, ...orders] : orders, users, clients, suppliers);
   };
@@ -706,4 +787,4 @@ Object.assign(window, { TripCalendarPage });
 
 
 
-export { TC_WEEKDAYS, TC_MONTHS, TC_MONTHS_NOM, tcWeekStart, tcAddDays, tcTripActiveOn, tcTone, CritDot, SvcGlyph, TripCard, WeekView, DayView, MonthView, TimelineView, ControlCenter, TripDetailPanel, DashDetailEmptyLite, TripCalendarPage };
+export { TC_WEEKDAYS, TC_MONTHS, TC_MONTHS_NOM, tcWeekStart, tcAddDays, tcTripActiveOn, tcTone, calendarTripToUi, CritDot, SvcGlyph, TripCard, WeekView, DayView, MonthView, TimelineView, ControlCenter, TripDetailPanel, DashDetailEmptyLite, TripCalendarPage };

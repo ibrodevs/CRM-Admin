@@ -3,6 +3,7 @@ import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 
 const source = await readFile(new URL('../js/page_calendar_events.jsx', import.meta.url), 'utf8');
+const calendarSource = await readFile(new URL('../js/page_trip_calendar.jsx', import.meta.url), 'utf8');
 
 test('назначение другому оператору открывает боковой выбор сотрудников', () => {
   assert.match(source, /function CalOperatorPickerDrawer/);
@@ -21,4 +22,6 @@ test('свой интервал сразу открывает боковую н�
   assert.match(source, /title="Свой интервал повторения"/);
   assert.match(source, /Ближайшие повторения/);
   assert.match(source, /className="cal-repeat-summary"/);
+  assert.match(source, /function calRecurrenceRule/);
+  assert.match(calendarSource, /recurrence_rule: event\.recurrenceRule \|\| ''/);
 });

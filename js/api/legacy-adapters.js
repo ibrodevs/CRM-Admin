@@ -168,6 +168,7 @@ export function toLegacyReturn(item, orders = [], services = []) {
     supplier: service?.supplier || item.supplier || '—',
     initiator: item.initiator === 'client' ? 'Клиент' : 'Оператор',
     resp: item.responsible_name || order?.operator || '—',
+    statusCode: item.status,
     status: returnStatus[item.status] || item.status,
     created: date(item.created_at),
     deadline: date(item.deadline),

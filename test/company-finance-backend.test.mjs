@@ -8,7 +8,7 @@ const resourcesUrl = new URL('../js/api/resources.js', import.meta.url);
 test('дата договора использует общий календарь CRM', async () => {
   const source = await readFile(financeUrl, 'utf8');
 
-  assert.match(source, /ConfirmDialog, DateField, Drawer/);
+  assert.match(source, /Button, DateField, Drawer/);
   assert.match(source, /<DateField value=\{contractDate\} onChange=\{setContractDate\}/);
   assert.doesNotMatch(source, /<Input type="date" value=\{contractDate\}/);
   assert.match(source, /contractDate instanceof Date/);

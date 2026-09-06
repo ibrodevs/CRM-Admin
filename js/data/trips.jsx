@@ -5,7 +5,7 @@
 
 
 
-const TRIP_NOW = new Date(2026, 5, 24, 9, 30);
+const TRIP_NOW = new Date();
 
 
 const TRIP_CRIT = {
@@ -42,7 +42,7 @@ function trSameDay(a, b) { return a && b && a.getFullYear() === b.getFullYear() 
 function trStartOfDay(d) { return new Date(d.getFullYear(), d.getMonth(), d.getDate()); }
 function trDaysBetween(a, b) { return Math.round((trStartOfDay(b) - trStartOfDay(a)) / 86400000); }
 function trMinutes(ms) { return Math.round(ms / 60000); }
-function trHumanIn(dt, now = TRIP_NOW) {
+function trHumanIn(dt, now = new Date()) {
   const m = trMinutes(dt - now);
   if (m < 0) { const am = -m; return am < 60 ? am + ' мин назад' : Math.round(am / 60) + ' ч назад'; }
   if (m < 60) return 'через ' + m + ' мин';
@@ -247,7 +247,7 @@ if (!ENABLE_DEMO_BUSINESS_DATA) {
 
 
 
-function tripEvents(trip, now = TRIP_NOW) {
+function tripEvents(trip, now = new Date()) {
   const ev = [];
   const soon = (dt, hoursCrit, hoursHigh, hoursMed) => {
     if (!(dt instanceof Date)) return null;
@@ -287,7 +287,11 @@ function tripEvents(trip, now = TRIP_NOW) {
 
 
 function tripConflicts(trip) {
-  const out = [];
+  const out = (trip.persistedConflicts || []).map((conflict) => ({
+    crit: conflict.crit || conflict.severity || 'high',
+    text: conflict.text || conflict.kind || 'Конфликт поездки',
+    persisted: true,
+  }));
   const svc = trip.services;
   const flights = svc.filter((s) => s.kind === 'Авиа');
   const arrivals = svc.filter((s) => s.kind === 'Авиа' || s.kind === 'ЖД');
@@ -373,7 +377,7 @@ function tripForceMajeures(trip) {
 }
 
 
-function tripCriticality(trip, now = TRIP_NOW) {
+function tripCriticality(trip, now = new Date()) {
   let c = trip.criticality || 'info';
   tripEvents(trip, now).forEach((e) => { c = critMax(c, e.crit); });
   tripConflicts(trip).forEach((k) => { c = critMax(c, k.crit); });
@@ -382,10 +386,10 @@ function tripCriticality(trip, now = TRIP_NOW) {
 }
 
 
-function tripUnpaid(trip) { return trip.services.some((s) => !s.paid); }
+function tripUnpaid(trip) { return trip.services.some((s) => s.paid === false); }
 
 
-function controlCenterFeed(trips = TRIPS, now = TRIP_NOW, withinHours = 6) {
+function controlCenterFeed(trips = TRIPS, now = new Date(), withinHours = 6) {
   const feed = [];
   trips.forEach((trip) => {
     tripEvents(trip, now).forEach((e) => {
