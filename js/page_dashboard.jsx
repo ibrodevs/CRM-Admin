@@ -9,7 +9,7 @@ import { PAX_DEFAULT_OPTIONS } from './page_flights';
 import { PanelSub, StackPanel } from './components/shared-panels';
 import { AddServicePanel } from './page_order_card';
 import { ErrorCodesDrawer } from './page_notifications';
-import { SHIFT_DEMO_OPS, SHIFT_REQUESTS_HANDLED, motivationFor, operatorEarn, shiftDuration, shiftFmtTime, shiftTotals } from './page_shifts';
+import { SHIFT_DEMO_OPS, SHIFT_REQUESTS_HANDLED, motivationFor, operatorEarn, shiftDate, shiftDuration, shiftFmtTime, shiftTotals } from './page_shifts';
 import { toLegacyProposal, toLegacyReturn } from './api/legacy-adapters';
 import { resultsOf } from './api/client';
 import { communicationsApi, integrationsApi, ordersApi, proposalsApi, servicesApi } from './api/resources';
@@ -838,7 +838,8 @@ function DashboardPage({ role, user, orders = [], orderServices = [], clients = 
   const backendMode = !ENABLE_DEMO_BUSINESS_DATA;
   const [sel, setSel] = useState(isMgr ? 'overdue' : 'mytasks');
   const shiftSource = window.SHIFT_STATE || currentShift || null;
-  const shift = shiftSource ? { ...shiftSource, openedAt: shiftSource.openedAt || (shiftSource.started_at ? new Date(shiftSource.started_at) : null) } : null;
+  const openedAt = shiftDate(shiftSource?.openedAt || shiftSource?.started_at);
+  const shift = shiftSource && openedAt ? { ...shiftSource, openedAt } : null;
 
   useEffect(() => {
     const onShift = () => tick((t) => t + 1);

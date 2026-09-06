@@ -122,7 +122,10 @@ export function WorkspaceProvider({ children }) {
     next.integrationIncidents = resultsOf(raw.integrationIncidents);
     next.integrationOperations = resultsOf(raw.integrationOperations);
     next.slaQueue = resultsOf(raw.slaQueue);
-    next.currentShift = raw.currentShift?.shift || raw.currentShift || null;
+    const currentShiftPayload = raw.currentShift;
+    next.currentShift = currentShiftPayload && Object.prototype.hasOwnProperty.call(currentShiftPayload, 'shift')
+      ? currentShiftPayload.shift
+      : currentShiftPayload || null;
     next.motivationAccruals = resultsOf(raw.motivationAccruals);
     const loadedAt = new Date().toISOString();
     RESOURCE_KEYS.forEach((key) => {

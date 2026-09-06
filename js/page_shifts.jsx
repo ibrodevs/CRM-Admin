@@ -94,9 +94,22 @@ function shiftTotals(ops, mot) {
   return t;
 }
 
-function shiftFmtTime(d) { const p = (n) => String(n).padStart(2, '0'); return p(d.getHours()) + ':' + p(d.getMinutes()); }
+function shiftDate(value) {
+  if (!value) return null;
+  const date = value instanceof Date ? value : new Date(value);
+  return Number.isNaN(date.getTime()) ? null : date;
+}
+function shiftFmtTime(value) {
+  const d = shiftDate(value);
+  if (!d) return '—';
+  const p = (n) => String(n).padStart(2, '0');
+  return p(d.getHours()) + ':' + p(d.getMinutes());
+}
 function shiftDuration(from, to) {
-  const ms = Math.max(0, (to || new Date()) - from);
+  const startedAt = shiftDate(from);
+  if (!startedAt) return '—';
+  const endedAt = shiftDate(to) || new Date();
+  const ms = Math.max(0, endedAt - startedAt);
   const h = Math.floor(ms / 3600000), m = Math.floor((ms % 3600000) / 60000);
   return h + ' ч ' + String(m).padStart(2, '0') + ' мин';
 }
@@ -104,11 +117,13 @@ function shiftDuration(from, to) {
 function toUiShift(payload) {
   const row = payload?.shift === undefined ? payload : payload.shift;
   if (!row) return null;
+  const openedAt = shiftDate(row.started_at || row.openedAt);
+  if (!openedAt) return null;
   return {
     serverId: row.id,
     id: row.id,
-    openedAt: row.started_at ? new Date(row.started_at) : new Date(),
-    closedAt: row.ended_at ? new Date(row.ended_at) : null,
+    openedAt,
+    closedAt: shiftDate(row.ended_at || row.closedAt),
     ops: ENABLE_DEMO_BUSINESS_DATA ? SHIFT_DEMO_OPS : (row.operations || []).map((operation) => ({
       backend: true,
       time: operation.created_at ? shiftFmtTime(new Date(operation.created_at)) : '—',
@@ -497,4 +512,4 @@ Object.assign(window, {
 
 
 
-export { shM, shPct, MOTIVATION_SERVICES, MOTIVATION_DEFAULT, OPERATOR_MOTIVATION, motivationFor, motivationRates, operatorEarn, SHIFT_DEMO_OPS, SHIFT_REQUESTS_HANDLED, shiftTotals, shiftFmtTime, shiftDuration, motivationFromRules, MotivationDrawer, ShiftReportDrawer, FeesReportDrawer, ShiftControl };
+export { shM, shPct, MOTIVATION_SERVICES, MOTIVATION_DEFAULT, OPERATOR_MOTIVATION, motivationFor, motivationRates, operatorEarn, SHIFT_DEMO_OPS, SHIFT_REQUESTS_HANDLED, shiftTotals, shiftDate, shiftFmtTime, shiftDuration, motivationFromRules, MotivationDrawer, ShiftReportDrawer, FeesReportDrawer, ShiftControl };
