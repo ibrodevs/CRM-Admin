@@ -1,13 +1,13 @@
 import { useState, useEffect } from 'react';
-import { Icon } from '../src/shared/icons/index';
-import { Avatar, Button, Checkbox, Combobox, Drawer, EmptyState, Field, FilterChip, Input, Pagination, Pill, Radio, SearchBox, Select, Tabs, Th, Toggle, WorkHoursPicker, useSort, useToast } from '../src/shared/ui/index';
-import { AIRLINES, AVIA_MARKUPS, CURRENCIES, ORG_TYPE, SUPPLIER_STATUS, aviaMarkupsFor } from '../src/legacy/data/index';
-import { Topbar } from './layout';
-import { AirlineLogo } from './page_flights';
-import { PAGE_SIZE } from '../src/modules/orders/ui/OrdersPage';
-import { communicationsApi, documentsApi, servicesApi, suppliersApi, workspaceSettingsApi } from '../src/legacy/compatibility/resources';
-import { toUiSupplier } from '../src/legacy/adapters/ui-adapters';
-import { resultsOf } from '../src/shared/api/client';
+import { Icon } from '../../../shared/icons/index';
+import { Avatar, Button, Checkbox, Combobox, Drawer, EmptyState, Field, FilterChip, Input, Pagination, Pill, Radio, SearchBox, Select, Tabs, Th, Toggle, WorkHoursPicker, useSort, useToast } from '../../../shared/ui/index';
+import { AIRLINES, AVIA_MARKUPS, CURRENCIES, ORG_TYPE, SUPPLIER_STATUS, aviaMarkupsFor } from '../../../legacy/data/index';
+import { Topbar } from '../../../../js/layout';
+import { AirlineLogo } from '../../../../js/page_flights';
+import { PAGE_SIZE } from '../../orders/ui/OrdersPage';
+import { communicationsApi, documentsApi, servicesApi, suppliersApi, workspaceSettingsApi } from '../../../legacy/compatibility/resources';
+import { toUiSupplier } from '../../../legacy/adapters/ui-adapters';
+import { resultsOf } from '../../../shared/api/client';
 
 function useSupplierDocuments(s, ext) {
   const [, refresh] = useState(0);
@@ -986,7 +986,7 @@ function SupplierModal({ supplier, onClose, onDelete }) {
                   style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '13px 15px', borderRadius: 13,
                     border: '1px solid ' + (on ? 'var(--blue)' : 'var(--field-line)'),
                     background: on ? 'var(--blue-soft)' : '#fff', cursor: 'pointer', fontSize: 15,
-                    fontWeight: on ? 700 : 500, color: on ? 'var(--blue)' : 'var(--ink)', textAlign: 'left', transition: '.12s' }}>
+                    fontWeight: on ? 700 : 500, color: on ? 'var(--blue)' : 'var(--ink)', textAlign: 'left', transition: '../../../../js/.12s' }}>
                   <Icon name={t.icon} style={{ width: 20, height: 20, color: on ? 'var(--blue)' : 'var(--muted)' }} />
                   <span style={{ flex: 1 }}>{t.label}</span>
                   <span className={'radio' + (on ? ' on' : '')} />

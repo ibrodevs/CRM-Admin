@@ -20,7 +20,7 @@ import { NotificationsPage } from './page_notifications';
 import { ServiceFlow, ServicesHubPage } from './page_services';
 import { HotelsPage } from './page_hotel_picker';
 import { ClientsPage, CompaniesPage } from '../src/modules/clients/ui/PeoplePages';
-import { SuppliersPage } from './page_suppliers';
+import { SuppliersPage } from '../src/modules/suppliers/ui/SuppliersPage';
 import { ChatsPage, threadUnread } from './page_chats';
 import { SettingsPage } from './page_settings';
 import { TripCalendarPage } from './page_trip_calendar';

@@ -55,7 +55,7 @@ test('flight attachment drawer does not provide demo company fallbacks', async (
 });
 
 test('supplier cards do not synthesize business credentials or metrics', async () => {
-  const suppliers = await source('js/page_suppliers.jsx');
+  const suppliers = await source('src/modules/suppliers/ui/SuppliersPage.jsx');
   assert.doesNotMatch(suppliers, /https:\/\/api\.'/);
   assert.doesNotMatch(suppliers, /sk_'\s*\+/);
   assert.doesNotMatch(suppliers, /tok_'\s*\+/);
