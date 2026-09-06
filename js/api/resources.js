@@ -12,24 +12,7 @@ export { crmApi } from '../../src/modules/clients/api.js';
 
 export { travelPolicyApi } from '../../src/modules/companies/api.js';
 
-export const accountApi = {
-  me: (signal) => get('me/', signal),
-  updateMe: (body) => patch('me/', body),
-  preferences: (signal) => get('me/preferences/', signal),
-  updatePreferences: (body) => patch('me/preferences/', body),
-  changePassword: (currentPassword, newPassword) => create('auth/password/change/', {
-    current_password: currentPassword, new_password: newPassword,
-  }, { idempotent: false }),
-  twoFactorStatus: (signal) => get('auth/2fa/status/', signal),
-  twoFactorSetup: () => create('auth/2fa/setup/', {}, { idempotent: false }),
-  twoFactorConfirm: (code) => create('auth/2fa/confirm/', { code }, { idempotent: false }),
-  twoFactorDisable: (currentPassword, code) => create('auth/2fa/disable/', {
-    current_password: currentPassword, code,
-  }, { idempotent: false }),
-  sessions: (signal) => get('auth/sessions/', signal),
-  revokeSession: (id) => remove(`auth/sessions/${id}/`),
-  logoutAll: () => create('auth/logout-all/', {}, { idempotent: false }),
-};
+export { accountApi } from '../../src/modules/account/api.js';
 
 export const usersApi = {
   list: (params = {}, signal) => list('users/', { page_size: 100, ...params }, signal),
