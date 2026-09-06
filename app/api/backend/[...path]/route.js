@@ -1,4 +1,4 @@
-import { proxyToBackend } from '../../_lib/backend.js';
+import { proxyToBackend } from '../../../../src/server/bff/backend.js';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 60;

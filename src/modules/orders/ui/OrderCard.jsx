@@ -5,7 +5,7 @@ import { AIRLINES, AIRPORTS, AVIA_BOOKING_CLASSES, FLIGHT_OFFERS, KP_STATUS, OPE
 import { cardStatus } from '../../../legacy/data/access-control';
 import { CASE_SVC_STATUS, CASE_TRIGGERS, ORDER_CHANGE_CASES, caseNow, caseProgress, createChangeCase, getChangeCase, normKind } from '../../../legacy/data/service-cards';
 import { UnifiedDocumentDrawer, UnifiedPersonDrawer } from '../../clients/ui/UnifiedForms';
-import { Topbar } from '../../../../js/layout';
+import { Topbar } from '../../../application/shell/AppShell';
 import { AirlineLogo, AirportField, PAX_DEFAULT_OPTIONS, PaxClassPicker, durMin, loadLiveFlightOffers, money, paxTotal } from '../../services/flights/FlightsPage';
 import { ExtrasTabs, FareSelectPanel, RUB_PER_USD, fareCabinLabel, fareTiersForClass } from '../../services/flights/AviaPicker';
 import { BookingWizard } from './BookingWizard';

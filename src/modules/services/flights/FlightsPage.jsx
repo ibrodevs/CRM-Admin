@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { Icon } from '../../../shared/icons/index';
 import { ActionMenu, Avatar, Button, Checkbox, ConfirmDialog, DateField, DateRangeField, Drawer, EmptyState, Field, FilterChip, Input, Pill, Radio, SearchBox, Select, Tabs, Th, TimeLimitBadge, Toggle, fmtDate, plural, useSort, useToast } from '../../../shared/ui/index';
 import { AIRLINES, AIRPORTS, AIR_STATS, AIR_STATUS, CABIN_CLASSES, SPECIAL_PAX_CATEGORIES, SUBSIDIZED_PAX_PROGRAMS } from '../../../legacy/data/index';
-import { Topbar } from '../../../../js/layout';
+import { Topbar } from '../../../application/shell/AppShell';
 import { ExtrasTabs } from './AviaPicker';
 import { OperationConfirmModal } from '../../orders/ui/OrderOperations';
 import { PanelSub, StackPanel } from '../../locations/ui/SharedPanels';

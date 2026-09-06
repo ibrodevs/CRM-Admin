@@ -3,7 +3,7 @@ import { Icon } from '../../../shared/icons/index';
 import { ActionMenu, Avatar, Button, Drawer, EmptyState, Field, FilterChip, Input, Pill, SearchBox, Select, Tabs, Th, plural, useSort, useToast } from '../../../shared/ui/index';
 import { CLIENTS_DB, CLIENT_STATUS, COMPANIES_DB, COMPANY_STATUS, ORDERS, ORDER_STATUS, SETTLEMENT_TONE, companyBalanceShort, companyFinance } from '../../../legacy/data/index';
 import { UnifiedDocumentDrawer, UnifiedPersonDrawer, ufBlankPerson, ufDateIso, ufFromClient } from './UnifiedForms';
-import { Topbar } from '../../../../js/layout';
+import { Topbar } from '../../../application/shell/AppShell';
 import { NewOrgDrawer } from '../../orders/ui/OrderExtras';
 import { PanelSub } from '../../locations/ui/SharedPanels';
 import { PaxGroupsDrawer, PaxUnifyPanel, paxMergeAppend } from './PassengerTools';

@@ -4,7 +4,7 @@ import { Avatar, Button, Checkbox, Drawer, Field, Input, Pill, Select, Tabs, Tog
 import { UFDateField } from '../../clients/ui/UnifiedForms';
 import { CURRENCIES, CURRENT_USER } from '../../../legacy/data/index';
 import { SVC_ACCESS_KINDS, operatorKindsLabel, operatorSla, operatorSvcAccess } from '../../../legacy/data/access-control';
-import { Topbar } from '../../../../js/layout';
+import { Topbar } from '../../../application/shell/AppShell';
 import { RolesTab } from '../../settings/ui/SettingsPage';
 import { MotivationDrawer, motivationFromRules, shiftDuration, shiftFmtTime } from '../../workforce/ui/ShiftControl';
 import { ServiceAccessEditor } from '../../settings/ui/ServiceAccessEditor';

@@ -5,7 +5,7 @@ import { CURRENT_USER, ORDERS, RAIL_OCCUPIED, RAIL_SERVICE_CLASSES, RAIL_WAGONS,
 import { CARD_CLIENT_VISIBILITY, CARD_STATUS, CARD_STATUS_FLOW, SEND_CHANNELS, cardInternals, cardStatus, orderClientChannel, sendChannelMeta } from '../../../legacy/data/access-control';
 import { CHAIN_STATUS, FORCE_MAJEURE_TYPES, buildCardFields, buildForceMajeureRows, cardAction, cardEmailTemplate, cardScenario, channelMode, defaultForceMajeure, enabledChannels, scenarioActions, scenarioBadge, scenariosForKind } from '../../../legacy/data/service-cards';
 import { UnifiedPersonDrawer } from '../../clients/ui/UnifiedForms';
-import { Topbar } from '../../../../js/layout';
+import { Topbar } from '../../../application/shell/AppShell';
 import { DetailedSearchPanel } from '../../dashboard/ui/DashboardPage';
 import { DocCorrectionPanel, docCorrKind } from '../flights/FlightsPage';
 import { rub } from '../flights/AviaPicker';

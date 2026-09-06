@@ -132,7 +132,7 @@ test('IT fare control is available for supplier and branded avia documents', asy
 
 test('every client order row displays the order date', async () => {
   const people = await readFile(peopleUrl, 'utf8');
-  const app = await readFile(new URL('../js/app.jsx', import.meta.url), 'utf8');
+  const app = await readFile(new URL('../src/application/CRMApp.jsx', import.meta.url), 'utf8');
 
   assert.match(people, /<th>№<\/th><th>Дата<\/th><th>Тип<\/th>/);
   assert.match(people, /function ordersForClient\(client, orders = ORDERS\)/);
@@ -145,7 +145,7 @@ test('every client order row displays the order date', async () => {
 
 test('company and employee order histories display the order date too', async () => {
   const people = await readFile(peopleUrl, 'utf8');
-  const app = await readFile(new URL('../js/app.jsx', import.meta.url), 'utf8');
+  const app = await readFile(new URL('../src/application/CRMApp.jsx', import.meta.url), 'utf8');
 
   assert.match(people, /Поездки сотрудника[\s\S]*<th>№<\/th><th>Дата<\/th>/);
   assert.match(people, /Заказы компании[\s\S]*<th>№<\/th><th>Дата<\/th>/);

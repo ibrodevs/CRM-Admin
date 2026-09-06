@@ -7,7 +7,7 @@ import {
   clearSessionCookies,
   sessionTokens,
   setSessionCookies,
-} from '../_lib/backend.js';
+} from '../../../src/server/bff/backend.js';
 
 export const dynamic = 'force-dynamic';
 

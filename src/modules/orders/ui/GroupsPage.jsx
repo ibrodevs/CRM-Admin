@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { Icon } from '../../../shared/icons/index';
 import { Button, Drawer, Field, FilterChip, Input, Modal, ModalHeader, Pill, Select, Tabs, useToast } from '../../../shared/ui/index';
 import { SERVICE_KIND } from '../../../legacy/data/index';
-import { Topbar } from '../../../../js/layout';
+import { Topbar } from '../../../application/shell/AppShell';
 import { PanelSub } from '../../locations/ui/SharedPanels';
 import { UFDateField } from '../../clients/ui/UnifiedForms';
 import { OrderCreateModal } from './OrdersPage';

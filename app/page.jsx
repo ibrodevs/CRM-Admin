@@ -2,7 +2,7 @@
 
 import dynamic from 'next/dynamic';
 
-const CRMApp = dynamic(() => import('../js/app'), { ssr: false });
+const CRMApp = dynamic(() => import('../src/application/CRMApp'), { ssr: false });
 
 export default function Page() {
   return (

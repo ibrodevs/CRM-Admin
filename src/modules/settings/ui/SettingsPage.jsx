@@ -3,7 +3,7 @@ import { Icon } from '../../../shared/icons/index';
 import { ActionMenu, Avatar, Button, Checkbox, ConfirmDialog, Drawer, Field, Input, ModalHeader, Pill, Select, Tabs, Toggle, useToast } from '../../../shared/ui/index';
 import { CURRENCIES, ORG_TYPE, USER_STATUS } from '../../../legacy/data/index';
 import { operatorSla } from '../../../legacy/data/access-control';
-import { Topbar } from '../../../../js/layout';
+import { Topbar } from '../../../application/shell/AppShell';
 import { ExtrasCatalogModal } from '../../orders/ui/OrderOperations';
 import { ErrorCodesDrawer } from '../../notifications/ui/NotificationsPage';
 import { MotivationDrawer } from '../../workforce/ui/ShiftControl';

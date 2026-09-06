@@ -4,7 +4,7 @@ import { ActionMenu, Avatar, Button, Drawer, EmptyState, Field, FilterChip, Inpu
 import { UFDateField } from '../../clients/ui/UnifiedForms';
 import { CURRENCIES, CURRENT_USER, KP_STATUS, KP_STATUS_FLOW, OPERATORS, ORDERS, ORDER_PARTICIPANTS, ORDER_SERVICES, ORDER_STATUS, PROPOSALS, SERVICE_KIND } from '../../../legacy/data/index';
 import { SEND_CHANNELS, orderClientChannel, sendChannelMeta } from '../../../legacy/data/access-control';
-import { Topbar } from '../../../../js/layout';
+import { Topbar } from '../../../application/shell/AppShell';
 import { PAX_DEFAULT_OPTIONS } from '../../services/flights/FlightsPage';
 import { PanelSub, StackPanel } from '../../locations/ui/SharedPanels';
 import { AddServicePanel } from '../../orders/ui/OrderCard';

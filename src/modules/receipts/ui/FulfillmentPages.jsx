@@ -4,7 +4,7 @@ import { Icon } from '../../../shared/icons/index';
 import { ActionMenu, Avatar, Button, Checkbox, Combobox, ConfirmDialog, Drawer, EmptyState, Field, FilterChip, Input, Pill, Radio, SearchBox, Select, Tabs, Th, TimeField, plural, useSort, useToast } from '../../../shared/ui/index';
 import { COMPANIES_DB, CURRENT_USER, DOCS2, DOC_KIND, DOC_STATUS2, FIN_OPS, FIN_OP_STATUS, FULFILLMENT, ORDERS, ORDER_STAGES, SERVICE_KIND } from '../../../legacy/data/index';
 import { UnifiedBindField, UnifiedBindPicker, UFDateField } from '../../clients/ui/UnifiedForms';
-import { Topbar } from '../../../../js/layout';
+import { Topbar } from '../../../application/shell/AppShell';
 import { toLegacyDocument } from '../../../legacy/adapters/legacy-adapters';
 import { toUiOrder } from '../../../legacy/adapters/ui-adapters';
 import { crmApi, documentsApi, financeApi, jobsApi, ordersApi, workspaceActionsApi } from '../../../legacy/compatibility/resources';

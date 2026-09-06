@@ -4,7 +4,7 @@ import { ActionMenu, Avatar, Button, Checkbox, Drawer, EmptyState, FilterChip, P
 import { CHAT_THREADS, CLIENTS, COMPANIES_DB, CURRENT_USER, NOTIFICATIONS, OPERATORS, ORDERS, ORDER_STATUS, PROPOSALS, RECENT_CHANGES, RETURNS, RETURN_STATUS, RETURN_TYPE, financeOverview } from '../../../legacy/data/index';
 import { SLA_QUEUE, slaLabel, slaTone } from '../../../legacy/data/access-control';
 import { UfOrderRow, UfPersonRow, ufOrderPickRows } from '../../clients/ui/UnifiedForms';
-import { Topbar } from '../../../../js/layout';
+import { Topbar } from '../../../application/shell/AppShell';
 import { PAX_DEFAULT_OPTIONS } from '../../services/flights/FlightsPage';
 import { PanelSub, StackPanel } from '../../locations/ui/SharedPanels';
 import { AddServicePanel } from '../../orders/ui/OrderCard';

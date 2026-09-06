@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { Icon } from '../../../shared/icons/index';
 import { Avatar, Button, Checkbox, Combobox, Drawer, EmptyState, Field, FilterChip, Input, Pagination, Pill, Radio, SearchBox, Select, Tabs, Th, Toggle, WorkHoursPicker, useSort, useToast } from '../../../shared/ui/index';
 import { AIRLINES, AVIA_MARKUPS, CURRENCIES, ORG_TYPE, SUPPLIER_STATUS, aviaMarkupsFor } from '../../../legacy/data/index';
-import { Topbar } from '../../../../js/layout';
+import { Topbar } from '../../../application/shell/AppShell';
 import { AirlineLogo } from '../../services/flights/FlightsPage';
 import { PAGE_SIZE } from '../../orders/ui/OrdersPage';
 import { communicationsApi, documentsApi, servicesApi, suppliersApi, workspaceSettingsApi } from '../../../legacy/compatibility/resources';

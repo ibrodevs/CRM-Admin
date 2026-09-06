@@ -1,14 +1,14 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Icon } from '../src/shared/icons/index';
-import { ActionMenu, Button, EmptyState } from '../src/shared/ui/index';
-import { AIR_SERVICES, CHAT_THREADS, CHAT_TYPE_LABEL, CLIENTS_DB, COMPANIES_DB, DOCUMENTS, ORDERS, PERMISSIONS, PROPOSALS, ROLES, SUPPLIERS } from '../src/legacy/data/index';
-import { SLA_QUEUE, companyStaffStore } from '../src/legacy/data/access-control';
-import { NAV_ITEMS, Topbar } from './layout';
-import { NotificationsCenter } from '../src/modules/notifications/ui/NotificationsPage';
-import { PAX_GROUPS } from '../src/modules/clients/ui/PassengerTools';
-import { ChatThread, chatRecipients, getThreadForOrder, threadUnread } from '../src/modules/chats/ui/ChatsPage';
-import { ShiftControl } from '../src/modules/workforce/ui/ShiftControl';
-import { workspaceApi } from '../src/legacy/compatibility/resources';
+import { Icon } from '../../shared/icons/index';
+import { ActionMenu, Button, EmptyState } from '../../shared/ui/index';
+import { AIR_SERVICES, CHAT_THREADS, CHAT_TYPE_LABEL, CLIENTS_DB, COMPANIES_DB, DOCUMENTS, ORDERS, PERMISSIONS, PROPOSALS, ROLES, SUPPLIERS } from '../../legacy/data/index';
+import { SLA_QUEUE, companyStaffStore } from '../../legacy/data/access-control';
+import { NAV_ITEMS, Topbar } from './AppShell';
+import { NotificationsCenter } from '../../modules/notifications/ui/NotificationsPage';
+import { PAX_GROUPS } from '../../modules/clients/ui/PassengerTools';
+import { ChatThread, chatRecipients, getThreadForOrder, threadUnread } from '../../modules/chats/ui/ChatsPage';
+import { ShiftControl } from '../../modules/workforce/ui/ShiftControl';
+import { workspaceApi } from '../../legacy/compatibility/resources';
 
 
 

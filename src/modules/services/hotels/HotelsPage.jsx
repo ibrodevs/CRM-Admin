@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { Icon } from '../../../shared/icons/index';
 import { ActionMenu, Avatar, Button, Checkbox, DateField, EmptyState, Field, Input, Radio, SearchBox, Select, fmtDate, useToast } from '../../../shared/ui/index';
 import { HOTEL_MEALS } from '../../../legacy/data/index';
-import { Topbar } from '../../../../js/layout';
+import { Topbar } from '../../../application/shell/AppShell';
 import { StackPanel } from '../../locations/ui/SharedPanels';
 import { UnifiedBindPicker } from '../../clients/ui/UnifiedForms';
 import { servicesApi } from '../../../legacy/compatibility/resources';

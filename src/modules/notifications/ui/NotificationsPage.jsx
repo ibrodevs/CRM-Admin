@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { Icon } from '../../../shared/icons/index';
 import { ActionMenu, Button, Drawer, EmptyState, FilterChip, Pill, SearchBox, Tabs, Toggle, useToast } from '../../../shared/ui/index';
 import { ERR_CATEGORIES, ERR_SEVERITY, ERR_SYSTEMS, INTEGRATION_ERROR_CODES, NOTIF_PRIORITY, NOTIF_PRIO_RANK, NOTIF_SETTINGS, NOTIF_SOURCE } from '../../../legacy/data/index';
-import { Topbar } from '../../../../js/layout';
+import { Topbar } from '../../../application/shell/AppShell';
 import { notificationsApi } from '../../../legacy/compatibility/resources';
 
 
