@@ -21,7 +21,7 @@ import { ServiceFlow, ServicesHubPage } from '../src/modules/services/ui/Service
 import { HotelsPage } from '../src/modules/services/hotels/HotelsPage';
 import { ClientsPage, CompaniesPage } from '../src/modules/clients/ui/PeoplePages';
 import { SuppliersPage } from '../src/modules/suppliers/ui/SuppliersPage';
-import { ChatsPage, threadUnread } from './page_chats';
+import { ChatsPage, threadUnread } from '../src/modules/chats/ui/ChatsPage';
 import { SettingsPage } from './page_settings';
 import { TripCalendarPage } from './page_trip_calendar';
 import { ProfilePage } from './page_profile';

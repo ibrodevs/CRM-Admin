@@ -1,9 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Icon } from '../src/shared/icons/index';
-import { ActionMenu, Avatar, Button, EmptyState, Pill, SearchBox, useToast } from '../src/shared/ui/index';
-import { CHAT_CHANNEL_TONE, CHAT_THREADS, CHAT_TYPES, CURRENT_USER, OPERATORS, ORDERS, ORDER_SERVICES, ORDER_STATUS, SERVICE_KIND, SERVICE_STATUS } from '../src/legacy/data/index';
-import { communicationsApi, documentsApi, ordersApi, workspaceActionsApi } from '../src/legacy/compatibility/resources';
-import { toUiMessage } from '../src/legacy/adapters/ui-adapters';
+import { Icon } from '../../../shared/icons/index';
+import { ActionMenu, Avatar, Button, EmptyState, Pill, SearchBox, useToast } from '../../../shared/ui/index';
+import { CHAT_CHANNEL_TONE, CHAT_THREADS, CHAT_TYPES, CURRENT_USER, OPERATORS, ORDERS, ORDER_SERVICES, ORDER_STATUS, SERVICE_KIND, SERVICE_STATUS } from '../../../legacy/data/index';
+import { communicationsApi, documentsApi, ordersApi, workspaceActionsApi } from '../../../legacy/compatibility/resources';
+import { toUiMessage } from '../../../legacy/adapters/ui-adapters';
 
 
 

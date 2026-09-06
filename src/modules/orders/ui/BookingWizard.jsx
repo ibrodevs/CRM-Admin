@@ -6,7 +6,7 @@ import { OperationConfirmModal } from './OrderOperations';
 import { BackRow } from '../../../shared/ui/BackRow';
 import { ocMoney, svcCalc } from '../model/finance';
 import { KPPreviewDoc } from '../../../../js/page_offers';
-import { ChatThread, getThreadForOrder } from '../../../../js/page_chats';
+import { ChatThread, getThreadForOrder } from '../../chats/ui/ChatsPage';
 import { bookingApi, documentsApi, ordersApi, proposalsApi } from '../../../legacy/compatibility/resources';
 import { resultsOf } from '../../../shared/api/client';
 
