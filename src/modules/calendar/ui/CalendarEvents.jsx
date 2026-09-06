@@ -1,10 +1,10 @@
 import { useState } from 'react';
-import { Icon } from '../src/shared/icons/index';
-import { Avatar, Button, Drawer, Field, Input, Pill, Select, Tabs, SearchBox, TimeField, useToast } from '../src/shared/ui/index';
-import { UFDateField, UnifiedBindPicker } from '../src/modules/clients/ui/UnifiedForms';
-import { CURRENT_USER } from '../src/legacy/data/index';
-import { trSameDay } from '../src/legacy/data/trips';
-import { FinRow } from '../src/modules/finance/ui/FinancePage';
+import { Icon } from '../../../shared/icons/index';
+import { Avatar, Button, Drawer, Field, Input, Pill, Select, Tabs, SearchBox, TimeField, useToast } from '../../../shared/ui/index';
+import { UFDateField, UnifiedBindPicker } from '../../clients/ui/UnifiedForms';
+import { CURRENT_USER } from '../../../legacy/data/index';
+import { trSameDay } from '../../../legacy/data/trips';
+import { FinRow } from '../../finance/ui/FinancePage';
 
 
 

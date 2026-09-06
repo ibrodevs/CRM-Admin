@@ -23,7 +23,7 @@ import { ClientsPage, CompaniesPage } from '../src/modules/clients/ui/PeoplePage
 import { SuppliersPage } from '../src/modules/suppliers/ui/SuppliersPage';
 import { ChatsPage, threadUnread } from '../src/modules/chats/ui/ChatsPage';
 import { SettingsPage } from './page_settings';
-import { TripCalendarPage } from './page_trip_calendar';
+import { TripCalendarPage } from '../src/modules/calendar/ui/TripCalendarPage';
 import { ProfilePage } from './page_profile';
 import { AccountSettingsPage } from './page_account';
 import { AccessDenied, GlobalChatDrawer, GlobalTopbar, NotificationDrawer, roleCanSee } from './shell';

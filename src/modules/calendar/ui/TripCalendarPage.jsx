@@ -1,11 +1,11 @@
 import { useEffect, useState } from 'react';
-import { Icon } from '../src/shared/icons/index';
-import { Button, DateRangeField, Drawer, FilterChip, Pill } from '../src/shared/ui/index';
-import { CURRENT_USER, ORDER_STATUS, SERVICE_KIND } from '../src/legacy/data/index';
-import { TRIP_CRIT, controlCenterFeed, critMax, crossTripConflicts, trDay, trDayTime, trHumanIn, trSameDay, trStartOfDay, trTime, tripConflicts, tripCriticality, tripEvents, tripFilterSets, tripForceMajeures, tripUnpaid } from '../src/legacy/data/trips';
-import { Topbar } from './layout';
-import { CAL_EVENT_TYPES, CalDayMenu, CalEventChip, CalEventCreator, CalEventPanel, calEventsOn, calendarEventToUi, hydrateCalendarEvents } from './page_calendar_events';
-import { calendarApi } from '../src/legacy/compatibility/resources';
+import { Icon } from '../../../shared/icons/index';
+import { Button, DateRangeField, Drawer, FilterChip, Pill } from '../../../shared/ui/index';
+import { CURRENT_USER, ORDER_STATUS, SERVICE_KIND } from '../../../legacy/data/index';
+import { TRIP_CRIT, controlCenterFeed, critMax, crossTripConflicts, trDay, trDayTime, trHumanIn, trSameDay, trStartOfDay, trTime, tripConflicts, tripCriticality, tripEvents, tripFilterSets, tripForceMajeures, tripUnpaid } from '../../../legacy/data/trips';
+import { Topbar } from '../../../../js/layout';
+import { CAL_EVENT_TYPES, CalDayMenu, CalEventChip, CalEventCreator, CalEventPanel, calEventsOn, calendarEventToUi, hydrateCalendarEvents } from './CalendarEvents';
+import { calendarApi } from '../../../legacy/compatibility/resources';
 
 
 
