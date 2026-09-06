@@ -6,7 +6,7 @@ const page = await readFile(new URL('../js/page_fulfillment.jsx', import.meta.ur
 const editor = await readFile(new URL('../js/features/receipts/editor.jsx', import.meta.url), 'utf8');
 const bindings = await readFile(new URL('../js/forms_unified.jsx', import.meta.url), 'utf8');
 const app = await readFile(new URL('../js/app.jsx', import.meta.url), 'utf8');
-const resources = await readFile(new URL('../js/api/resources.js', import.meta.url), 'utf8');
+const resources = await readFile(new URL('../src/modules/integrations/api/jobsApi.js', import.meta.url), 'utf8');
 const styles = await readFile(new URL('../app/globals.css', import.meta.url), 'utf8');
 
 test('identical rail costs can be selected across the complete import list', () => {
