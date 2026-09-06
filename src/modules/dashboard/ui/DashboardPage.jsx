@@ -1,19 +1,19 @@
 import { useState, useEffect } from 'react';
-import { Icon } from '../src/shared/icons/index';
-import { ActionMenu, Avatar, Button, Checkbox, Drawer, EmptyState, FilterChip, Pill, SearchBox, plural, useToast } from '../src/shared/ui/index';
-import { CHAT_THREADS, CLIENTS, COMPANIES_DB, CURRENT_USER, NOTIFICATIONS, OPERATORS, ORDERS, ORDER_STATUS, PROPOSALS, RECENT_CHANGES, RETURNS, RETURN_STATUS, RETURN_TYPE, financeOverview } from '../src/legacy/data/index';
-import { SLA_QUEUE, slaLabel, slaTone } from '../src/legacy/data/access-control';
-import { UfOrderRow, UfPersonRow, ufOrderPickRows } from '../src/modules/clients/ui/UnifiedForms';
-import { Topbar } from './layout';
-import { PAX_DEFAULT_OPTIONS } from './page_flights';
-import { PanelSub, StackPanel } from '../src/modules/locations/ui/SharedPanels';
-import { AddServicePanel } from './page_order_card';
-import { ErrorCodesDrawer } from './page_notifications';
-import { SHIFT_DEMO_OPS, SHIFT_REQUESTS_HANDLED, motivationFor, operatorEarn, shiftDate, shiftDuration, shiftFmtTime, shiftTotals } from './page_shifts';
-import { toLegacyProposal, toLegacyReturn } from '../src/legacy/adapters/legacy-adapters';
-import { resultsOf } from '../src/shared/api/client';
-import { communicationsApi, integrationsApi, ordersApi, proposalsApi, servicesApi } from '../src/legacy/compatibility/resources';
-import { toUiOrder } from '../src/legacy/adapters/ui-adapters';
+import { Icon } from '../../../shared/icons/index';
+import { ActionMenu, Avatar, Button, Checkbox, Drawer, EmptyState, FilterChip, Pill, SearchBox, plural, useToast } from '../../../shared/ui/index';
+import { CHAT_THREADS, CLIENTS, COMPANIES_DB, CURRENT_USER, NOTIFICATIONS, OPERATORS, ORDERS, ORDER_STATUS, PROPOSALS, RECENT_CHANGES, RETURNS, RETURN_STATUS, RETURN_TYPE, financeOverview } from '../../../legacy/data/index';
+import { SLA_QUEUE, slaLabel, slaTone } from '../../../legacy/data/access-control';
+import { UfOrderRow, UfPersonRow, ufOrderPickRows } from '../../clients/ui/UnifiedForms';
+import { Topbar } from '../../../../js/layout';
+import { PAX_DEFAULT_OPTIONS } from '../../../../js/page_flights';
+import { PanelSub, StackPanel } from '../../locations/ui/SharedPanels';
+import { AddServicePanel } from '../../../../js/page_order_card';
+import { ErrorCodesDrawer } from '../../../../js/page_notifications';
+import { SHIFT_DEMO_OPS, SHIFT_REQUESTS_HANDLED, motivationFor, operatorEarn, shiftDate, shiftDuration, shiftFmtTime, shiftTotals } from '../../../../js/page_shifts';
+import { toLegacyProposal, toLegacyReturn } from '../../../legacy/adapters/legacy-adapters';
+import { resultsOf } from '../../../shared/api/client';
+import { communicationsApi, integrationsApi, ordersApi, proposalsApi, servicesApi } from '../../../legacy/compatibility/resources';
+import { toUiOrder } from '../../../legacy/adapters/ui-adapters';
 
 
 
@@ -491,7 +491,7 @@ function AttentionMarker({ a, onClick }) {
         <Icon name={a.icon} style={{ width: 16, height: 16, color: '#fff' }} />
       </span>
       <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ fontSize: 10.5, fontWeight: 800, letterSpacing: '.05em', textTransform: 'uppercase', color: c }}>{badge}</div>
+        <div style={{ fontSize: 10.5, fontWeight: 800, letterSpacing: '../../../../js/.05em', textTransform: 'uppercase', color: c }}>{badge}</div>
         <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--ink)', lineHeight: 1.25, overflow: 'hidden', textOverflow: 'ellipsis', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}>{a.title}</div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 3 }}>
           <span style={{ fontSize: 11.5, color: 'var(--muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1, minWidth: 0 }}>{a.sub}</span>
@@ -694,7 +694,7 @@ function SupplierErrorCard({ err, onClose, onOpenOrder, onChange, users = [], su
       </div>
 
 
-      <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '.03em', marginBottom: 8 }}>Действия</div>
+      <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '../../../../js/.03em', marginBottom: 8 }}>Действия</div>
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 16 }}>
         <Button variant="secondary" size="sm" icon="zap" disabled={resolved || busy} onClick={doRetry}>Повторно проверить цену и наличие</Button>
         <ActionMenu trigger={<Button variant="secondary" size="sm" icon="suppliers" disabled={resolved}>Выбрать другого поставщика</Button>}
@@ -721,7 +721,7 @@ function SupplierErrorCard({ err, onClose, onOpenOrder, onChange, users = [], su
 
       {err.history && err.history.length > 0 && (
         <div style={{ marginTop: 16 }}>
-          <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '.03em', marginBottom: 8 }}>История обработки</div>
+          <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '../../../../js/.03em', marginBottom: 8 }}>История обработки</div>
           <div style={{ display: 'grid', gap: 7 }}>
             {err.history.slice().reverse().map((h, i) => (
               <div key={i} style={{ display: 'flex', gap: 10, fontSize: 12.5 }}>

@@ -23,7 +23,7 @@ test('production data module clears demo business arrays unless demo mode is ena
 });
 
 test('page-level demo seeds are disabled outside demo mode', async () => {
-  const dashboard = await source('js/page_dashboard.jsx');
+  const dashboard = await source('src/modules/dashboard/ui/DashboardPage.jsx');
   const groups = await source('js/page_groups.jsx');
   const extras = await source('src/modules/orders/ui/OrderExtras.jsx');
   assert.match(dashboard, /SUPPLIER_STATS\.splice\(0,\s*SUPPLIER_STATS\.length\)/);

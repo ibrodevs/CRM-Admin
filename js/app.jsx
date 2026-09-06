@@ -9,7 +9,7 @@ import { AuthProvider, useAuth } from '../src/shared/auth/auth-context';
 import { WorkspaceProvider, useWorkspace } from '../src/legacy/compatibility/workspace-provider';
 import { AppShell } from './layout';
 import { LoginScreen } from '../src/shared/auth/LoginScreen';
-import { DashboardPage } from './page_dashboard';
+import { DashboardPage } from '../src/modules/dashboard/ui/DashboardPage';
 import { FlightsPage } from './page_flights';
 import { OrdersPage } from './page_orders';
 import { OffersPage } from './page_offers';

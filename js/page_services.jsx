@@ -6,7 +6,7 @@ import { CARD_CLIENT_VISIBILITY, CARD_STATUS, CARD_STATUS_FLOW, SEND_CHANNELS, c
 import { CHAIN_STATUS, FORCE_MAJEURE_TYPES, buildCardFields, buildForceMajeureRows, cardAction, cardEmailTemplate, cardScenario, channelMode, defaultForceMajeure, enabledChannels, scenarioActions, scenarioBadge, scenariosForKind } from '../src/legacy/data/service-cards';
 import { UnifiedPersonDrawer } from '../src/modules/clients/ui/UnifiedForms';
 import { Topbar } from './layout';
-import { DetailedSearchPanel } from './page_dashboard';
+import { DetailedSearchPanel } from '../src/modules/dashboard/ui/DashboardPage';
 import { DocCorrectionPanel, docCorrKind } from './page_flights';
 import { rub } from './page_avia_picker';
 import { OperationConfirmModal } from '../src/modules/orders/ui/OrderOperations';
