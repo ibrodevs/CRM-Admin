@@ -3,7 +3,7 @@ import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 
 const page = await readFile(new URL('../js/page_fulfillment.jsx', import.meta.url), 'utf8');
-const resources = await readFile(new URL('../js/api/resources.js', import.meta.url), 'utf8');
+const resources = await readFile(new URL('../src/modules/clients/api/crmApi.js', import.meta.url), 'utf8');
 const styles = await readFile(new URL('../app/globals.css', import.meta.url), 'utf8');
 
 function loadConstant(name) {

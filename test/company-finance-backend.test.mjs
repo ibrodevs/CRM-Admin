@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 
 const financeUrl = new URL('../js/page_company_finance.jsx', import.meta.url);
-const resourcesUrl = new URL('../js/api/resources.js', import.meta.url);
+const resourcesUrl = new URL('../src/modules/clients/api/crmApi.js', import.meta.url);
 
 test('дата договора использует общий календарь CRM', async () => {
   const source = await readFile(financeUrl, 'utf8');

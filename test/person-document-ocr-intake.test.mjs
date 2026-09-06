@@ -3,7 +3,7 @@ import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 
 const forms = await readFile(new URL('../js/forms_unified.jsx', import.meta.url), 'utf8');
-const resources = await readFile(new URL('../js/api/resources.js', import.meta.url), 'utf8');
+const resources = await readFile(new URL('../src/modules/clients/api/crmApi.js', import.meta.url), 'utf8');
 const styles = await readFile(new URL('../app/receipt-workflow.css', import.meta.url), 'utf8');
 
 function loadIntakeHelpers() {
