@@ -28,7 +28,7 @@ async function patchFile(url, replacements, required) {
 }
 
 const financeChanged = await patchFile(
-  new URL('../js/page_company_finance.jsx', import.meta.url),
+  new URL('../src/modules/companies/ui/CompanyFinance.jsx', import.meta.url),
   [
     [
       "import { Button, ConfirmDialog, Drawer, Field, Input, Pill, Select, Tabs, useToast } from './ui';",

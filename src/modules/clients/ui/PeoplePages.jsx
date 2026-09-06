@@ -1,17 +1,17 @@
 import { useState, useEffect } from 'react';
-import { Icon } from '../src/shared/icons/index';
-import { ActionMenu, Avatar, Button, Drawer, EmptyState, Field, FilterChip, Input, Pill, SearchBox, Select, Tabs, Th, plural, useSort, useToast } from '../src/shared/ui/index';
-import { CLIENTS_DB, CLIENT_STATUS, COMPANIES_DB, COMPANY_STATUS, ORDERS, ORDER_STATUS, SETTLEMENT_TONE, companyBalanceShort, companyFinance } from '../src/legacy/data/index';
-import { UnifiedDocumentDrawer, UnifiedPersonDrawer, ufBlankPerson, ufDateIso, ufFromClient } from '../src/modules/clients/ui/UnifiedForms';
-import { Topbar } from './layout';
-import { NewOrgDrawer } from '../src/modules/orders/ui/OrderExtras';
-import { PanelSub } from '../src/modules/locations/ui/SharedPanels';
-import { PaxGroupsDrawer, PaxUnifyPanel, paxMergeAppend } from '../src/modules/clients/ui/PassengerTools';
-import { TravelPolicyBlock } from '../src/modules/companies/ui/TravelPolicy';
-import { CompanyFinanceBlock } from './page_company_finance';
-import { communicationsApi, crmApi } from '../src/legacy/compatibility/resources';
-import { toUiClient, toUiCompany } from '../src/legacy/adapters/ui-adapters';
-import { resultsOf } from '../src/shared/api/client';
+import { Icon } from '../../../shared/icons/index';
+import { ActionMenu, Avatar, Button, Drawer, EmptyState, Field, FilterChip, Input, Pill, SearchBox, Select, Tabs, Th, plural, useSort, useToast } from '../../../shared/ui/index';
+import { CLIENTS_DB, CLIENT_STATUS, COMPANIES_DB, COMPANY_STATUS, ORDERS, ORDER_STATUS, SETTLEMENT_TONE, companyBalanceShort, companyFinance } from '../../../legacy/data/index';
+import { UnifiedDocumentDrawer, UnifiedPersonDrawer, ufBlankPerson, ufDateIso, ufFromClient } from './UnifiedForms';
+import { Topbar } from '../../../../js/layout';
+import { NewOrgDrawer } from '../../orders/ui/OrderExtras';
+import { PanelSub } from '../../locations/ui/SharedPanels';
+import { PaxGroupsDrawer, PaxUnifyPanel, paxMergeAppend } from './PassengerTools';
+import { TravelPolicyBlock } from '../../companies/ui/TravelPolicy';
+import { CompanyFinanceBlock } from '../../companies/ui/CompanyFinance';
+import { communicationsApi, crmApi } from '../../../legacy/compatibility/resources';
+import { toUiClient, toUiCompany } from '../../../legacy/adapters/ui-adapters';
+import { resultsOf } from '../../../shared/api/client';
 
 
 

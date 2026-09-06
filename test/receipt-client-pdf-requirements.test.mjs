@@ -6,7 +6,7 @@ const resourcesUrl = new URL('../src/modules/documents/api/documentsApi.js', imp
 const pageUrl = new URL('../js/page_fulfillment.jsx', import.meta.url);
 const editorUrl = new URL('../js/features/receipts/editor.jsx', import.meta.url);
 const cssUrl = new URL('../app/receipt-ui-fixes.css', import.meta.url);
-const peopleUrl = new URL('../js/page_people.jsx', import.meta.url);
+const peopleUrl = new URL('../src/modules/clients/ui/PeoplePages.jsx', import.meta.url);
 
 
 test('supplier working original and immutable source open separately inline', async () => {

@@ -1,6 +1,6 @@
 import { readFile, writeFile } from 'node:fs/promises';
 
-const fileUrl = new URL('../js/page_company_finance.jsx', import.meta.url);
+const fileUrl = new URL('../src/modules/companies/ui/CompanyFinance.jsx', import.meta.url);
 let source = await readFile(fileUrl, 'utf8');
 let changed = false;
 

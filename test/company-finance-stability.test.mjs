@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 
-const financeUrl = new URL('../js/page_company_finance.jsx', import.meta.url);
+const financeUrl = new URL('../src/modules/companies/ui/CompanyFinance.jsx', import.meta.url);
 
 test('неполные финансовые данные нормализуются до отображения', async () => {
   const source = await readFile(financeUrl, 'utf8');
