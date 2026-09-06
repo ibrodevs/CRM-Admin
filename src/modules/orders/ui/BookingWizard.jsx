@@ -5,7 +5,7 @@ import { SERVICE_KIND } from '../../../legacy/data/index';
 import { OperationConfirmModal } from './OrderOperations';
 import { BackRow } from '../../../shared/ui/BackRow';
 import { ocMoney, svcCalc } from '../model/finance';
-import { KPPreviewDoc } from '../../../../js/page_offers';
+import { KPPreviewDoc } from '../../proposals/ui/OffersPage';
 import { ChatThread, getThreadForOrder } from '../../chats/ui/ChatsPage';
 import { bookingApi, documentsApi, ordersApi, proposalsApi } from '../../../legacy/compatibility/resources';
 import { resultsOf } from '../../../shared/api/client';

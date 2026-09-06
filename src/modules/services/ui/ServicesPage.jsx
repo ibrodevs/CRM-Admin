@@ -11,7 +11,7 @@ import { DocCorrectionPanel, docCorrKind } from '../flights/FlightsPage';
 import { rub } from '../flights/AviaPicker';
 import { OperationConfirmModal } from '../../orders/ui/OrderOperations';
 import { PanelSub, StackPanel } from '../../locations/ui/SharedPanels';
-import { kpNow } from '../../../../js/page_offers';
+import { kpNow } from '../../proposals/ui/OffersPage';
 import { documentsApi, ordersApi, proposalsApi, serviceCardsApi, servicesApi, workspaceActionsApi } from '../../../legacy/compatibility/resources';
 import { resultsOf } from '../../../shared/api/client';
 import { toLegacyOrderService } from '../../../legacy/adapters/legacy-adapters';

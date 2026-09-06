@@ -1,17 +1,17 @@
 import { useState, useEffect, useRef } from 'react';
-import { BrandMark, ChannelIcon, Icon } from '../src/shared/icons/index';
-import { ActionMenu, Avatar, Button, Drawer, EmptyState, Field, FilterChip, Input, Pill, Radio, SearchBox, Select, Th, TimeField, fmtDate, plural, useSort, useToast } from '../src/shared/ui/index';
-import { UFDateField } from '../src/modules/clients/ui/UnifiedForms';
-import { CURRENCIES, CURRENT_USER, KP_STATUS, KP_STATUS_FLOW, OPERATORS, ORDERS, ORDER_PARTICIPANTS, ORDER_SERVICES, ORDER_STATUS, PROPOSALS, SERVICE_KIND } from '../src/legacy/data/index';
-import { SEND_CHANNELS, orderClientChannel, sendChannelMeta } from '../src/legacy/data/access-control';
-import { Topbar } from './layout';
-import { PAX_DEFAULT_OPTIONS } from '../src/modules/services/flights/FlightsPage';
-import { PanelSub, StackPanel } from '../src/modules/locations/ui/SharedPanels';
-import { AddServicePanel } from '../src/modules/orders/ui/OrderCard';
-import { documentsApi, proposalsApi, servicesApi } from '../src/legacy/compatibility/resources';
-import { toLegacyProposal } from '../src/legacy/adapters/legacy-adapters';
-import { resultsOf } from '../src/shared/api/client';
-import { kpBriefItems, parseKpRequest } from './kp_request_parser';
+import { BrandMark, ChannelIcon, Icon } from '../../../shared/icons/index';
+import { ActionMenu, Avatar, Button, Drawer, EmptyState, Field, FilterChip, Input, Pill, Radio, SearchBox, Select, Th, TimeField, fmtDate, plural, useSort, useToast } from '../../../shared/ui/index';
+import { UFDateField } from '../../clients/ui/UnifiedForms';
+import { CURRENCIES, CURRENT_USER, KP_STATUS, KP_STATUS_FLOW, OPERATORS, ORDERS, ORDER_PARTICIPANTS, ORDER_SERVICES, ORDER_STATUS, PROPOSALS, SERVICE_KIND } from '../../../legacy/data/index';
+import { SEND_CHANNELS, orderClientChannel, sendChannelMeta } from '../../../legacy/data/access-control';
+import { Topbar } from '../../../../js/layout';
+import { PAX_DEFAULT_OPTIONS } from '../../services/flights/FlightsPage';
+import { PanelSub, StackPanel } from '../../locations/ui/SharedPanels';
+import { AddServicePanel } from '../../orders/ui/OrderCard';
+import { documentsApi, proposalsApi, servicesApi } from '../../../legacy/compatibility/resources';
+import { toLegacyProposal } from '../../../legacy/adapters/legacy-adapters';
+import { resultsOf } from '../../../shared/api/client';
+import { kpBriefItems, parseKpRequest } from '../model/request-parser';
 
 
 // Срок действия КП = дата + время, оба выбираются шаблонно (без произвольного ввода).

@@ -12,7 +12,7 @@ import { BookingWizard } from './BookingWizard';
 import { PassengerDrawer, PassportModal } from './OrderExtras';
 import { DynamicExtrasPanel, OrderResponsiblesTab } from './OrderOperations';
 import { CityPickPanel, StackPanel } from '../../locations/ui/SharedPanels';
-import { KPModule } from '../../../../js/page_offers';
+import { KPModule } from '../../proposals/ui/OffersPage';
 import { DocCenter, FinanceRegistry } from '../../receipts/ui/FulfillmentPages';
 import { ReturnsModule } from '../../returns/ui/ReturnsPage';
 import { AeroAddFlow, ManualAltForm, RailAddFlow, ServiceAddFlow, ServiceCardHistoryDrawer, ServiceCardSendPanel } from '../../services/ui/ServicesPage';

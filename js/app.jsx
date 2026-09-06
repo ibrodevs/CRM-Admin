@@ -12,7 +12,7 @@ import { LoginScreen } from '../src/shared/auth/LoginScreen';
 import { DashboardPage } from '../src/modules/dashboard/ui/DashboardPage';
 import { FlightsPage } from '../src/modules/services/flights/FlightsPage';
 import { OrdersPage } from '../src/modules/orders/ui/OrdersPage';
-import { OffersPage } from './page_offers';
+import { OffersPage } from '../src/modules/proposals/ui/OffersPage';
 import { DocCenterPage, FulfillmentPage, ReceiptEditorPage } from '../src/modules/receipts/ui/FulfillmentPages';
 import { FinancePage } from '../src/modules/finance/ui/FinancePage';
 import { ReturnsPage } from '../src/modules/returns/ui/ReturnsPage';

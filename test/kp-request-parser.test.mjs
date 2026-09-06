@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { kpBriefItems, parseKpRequest } from '../js/kp_request_parser.js';
+import { kpBriefItems, parseKpRequest } from '../src/modules/proposals/model/request-parser.js';
 
 test('распознаёт маршрут, даты, пассажиров и услуги из заявки', () => {
   const result = parseKpRequest(
