@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { readFile } from 'node:fs/promises';
+import { readFile } from './helpers/source.mjs';
 import test from 'node:test';
 
 const source = await readFile(new URL('../src/modules/calendar/ui/CalendarEvents.jsx', import.meta.url), 'utf8');

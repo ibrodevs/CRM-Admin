@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { readFile } from 'node:fs/promises';
+import { readFile } from './helpers/source.mjs';
 
 const cssUrl = new URL('../app/compact-steppers.css', import.meta.url);
 const layoutUrl = new URL('../app/layout.jsx', import.meta.url);

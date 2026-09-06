@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { readFile } from 'node:fs/promises';
+import { readFile } from './helpers/source.mjs';
 import { normalizeReceiptDisplayDate } from '../src/modules/receipts/model/date.js';
 
 test('IATA passenger birth date is shown as DD.MM.YYYY', () => {

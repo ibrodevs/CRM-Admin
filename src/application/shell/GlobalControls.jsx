@@ -1,56 +1,14 @@
 import { workspaceInfoApi } from '../../modules/workspace/api.js';
-import React, { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Icon } from '../../shared/icons/index';
-import { ActionMenu, Button, EmptyState } from '../../shared/ui/index';
-import { AIR_SERVICES, CHAT_THREADS, CHAT_TYPE_LABEL, CLIENTS_DB, COMPANIES_DB, DOCUMENTS, ORDERS, PERMISSIONS, PROPOSALS, ROLES, SUPPLIERS } from '../../legacy/data/index';
+import { AIR_SERVICES, CHAT_THREADS, CHAT_TYPE_LABEL, CLIENTS_DB, COMPANIES_DB, DOCUMENTS, ORDERS, PROPOSALS, SUPPLIERS } from '../../legacy/data/index';
 import { SLA_QUEUE, companyStaffStore } from '../../legacy/data/access-control';
-import { NAV_ITEMS, Topbar } from './AppShell';
-import { NotificationsCenter } from '../../modules/notifications/ui/NotificationsPage';
 import { PAX_GROUPS } from '../../modules/clients/ui/PassengerTools';
-import { ChatThread, threadUnread } from '../../modules/chats/ui/ChatsPage';
-import { ShiftControl } from '../../modules/workforce/ui/ShiftControl';
-
-
-
-
-
-
-
-const SERVICE_LABELS = { flights: 'Авиабилеты', rail: 'ЖД билеты', hotels: 'Гостиницы', transfers: 'Трансферы', buses: 'Автобусы', tours: 'Туры' };
-
-const ORDER_OPS_LABELS = { documents: 'Документы', fulfillment: 'Оформление', returns: 'Возвраты и обмены' };
-const ROUTE_LABELS = (() => {
-  const m = { dashboard: 'Главное', calendar: 'Календарь поездок', profile: 'Мой профиль', account: 'Настройки аккаунта', ...SERVICE_LABELS, ...ORDER_OPS_LABELS };
-  NAV_ITEMS.forEach((it) => {
-    if (it.group) { m[it.group] = it.label; it.children.forEach((c) => { m[c.key] = c.label; }); }
-    else m[it.key] = it.label;
-  });
-  return m;
-})();
-const SERVICE_PARENT = { flights: 1, rail: 1, hotels: 1, transfers: 1, buses: 1, tours: 1 };
-const ORDER_OPS_PARENT = { documents: 1, fulfillment: 1, returns: 1 };
-
-
-const NAV_PERM = {
-  orders: 'Просмотр заказов',
-  flights: 'Поиск и бронирование услуг', rail: 'Поиск и бронирование услуг', hotels: 'Поиск и бронирование услуг',
-  transfers: 'Поиск и бронирование услуг', buses: 'Поиск и бронирование услуг', tours: 'Поиск и бронирование услуг',
-  offers: 'Коммерческие предложения',
-  finance: 'Просмотр финансов',
-  documents: 'Просмотр документов',
-  receipts: 'Просмотр документов',
-  fulfillment: 'Проведение оплат',
-  returns: 'Возвраты и штрафы',
-  settings: 'Настройки системы',
-};
-function roleIdx(role) { return ROLES.indexOf(role); }
-function roleHasPerm(role, permKey) {
-  const i = roleIdx(role);
-  if (i < 0) return true;
-  for (const g of PERMISSIONS) for (const it of g.items) if (it.k === permKey) return !!it.r[i];
-  return true;
-}
-function roleCanSee(role, navKey) { const p = NAV_PERM[navKey]; return p ? roleHasPerm(role, p) : true; }
+import { ROUTE_LABELS } from '../routing/labels.js';
+import { NAV_PERM, roleHasPerm, roleCanSee, RoleSwitcher, AccessDenied } from '../../shared/auth/permissions.jsx';
+import { Breadcrumbs, QuickCreate, GlobalTopbar } from './Topbar.jsx';
+import { NotificationDrawer } from './NotificationDrawer.jsx';
+import { GlobalChatDrawer } from './ChatDrawer.jsx';
 
 const SEARCH_TYPE_META = {
   order: { icon: 'orders', tone: 'order', label: 'Заказ', route: 'orders' },
@@ -58,6 +16,7 @@ const SEARCH_TYPE_META = {
   company: { icon: 'building', tone: 'company', label: 'Компания', route: 'companies' },
   supplier: { icon: 'suppliers', tone: 'supplier', label: 'Поставщик', route: 'suppliers' },
 };
+
 function backendSearchResultToHit(result, handlers) {
   const meta = SEARCH_TYPE_META[result.type] || { icon: 'search', tone: 'document', label: result.type || 'Результат', route: 'orders' };
   const openOrder = () => {
@@ -79,52 +38,6 @@ function backendSearchResultToHit(result, handlers) {
   };
 }
 
-function RoleSwitcher({ role, onRole }) {
-  return <span className="chip" style={{ height: 36, cursor: 'default' }} title="Роль получена из защищённой backend-сессии"><Icon name="user" />{role}</span>;
-}
-
-function AccessDenied({ onNavigate }) {
-  return (
-    <>
-      <Topbar title="Нет доступа" />
-      <div className="content">
-        <div className="card card-pad" style={{ maxWidth: 560, margin: '40px auto', textAlign: 'center', padding: '44px 36px' }}>
-          <div style={{ width: 64, height: 64, borderRadius: 18, background: 'var(--red-bg)', color: 'var(--red)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 18px' }}>
-            <Icon name="lock" style={{ width: 28, height: 28 }} />
-          </div>
-          <h2 className="card-title" style={{ marginBottom: 8 }}>Раздел недоступен для вашей роли</h2>
-          <p style={{ color: 'var(--muted)', fontSize: 15, margin: '0 0 22px' }}>Доступ к этому модулю ограничен правами. Обратитесь к администратору организации.</p>
-          <Button onClick={() => onNavigate('dashboard')} icon="home">На главную</Button>
-        </div>
-      </div>
-    </>
-  );
-}
-
-function Breadcrumbs({ route, ctxOrder, onNavigate }) {
-  const base = (route || 'dashboard').split('/')[0];
-  const crumbs = [{ key: 'dashboard', label: 'Главное' }];
-  if (SERVICE_PARENT[base]) crumbs.push({ key: 'services', label: 'Подбор услуг' });
-  if (ORDER_OPS_PARENT[base]) crumbs.push({ key: 'orders', label: 'Заказы' });
-  if (base !== 'dashboard' && base !== 'services') crumbs.push({ key: base, label: ROUTE_LABELS[base] || base });
-  if (base === 'orders' && ctxOrder) crumbs.push({ label: '№ ' + ctxOrder.no + ' · ' + ctxOrder.client });
-  return (
-    <div className="crumbs">
-      {crumbs.map((c, i) => {
-        const last = i === crumbs.length - 1;
-        return (
-          <React.Fragment key={i}>
-            {i > 0 && <Icon name="chevRight" className="crumb-sep" />}
-            <span className={'crumb' + (last ? ' cur' : '')}
-              onClick={() => { if (!last && !c.noNav && c.key) onNavigate(c.key); }}>{c.label}</span>
-          </React.Fragment>
-        );
-      })}
-    </div>
-  );
-}
-
-
 const GSEARCH_TONES = {
   person: { bg: 'var(--green-bg)', color: 'var(--green)' },
   employee: { bg: 'var(--blue-soft)', color: 'var(--blue)' },
@@ -138,9 +51,13 @@ const GSEARCH_TONES = {
   supplier: { bg: 'var(--gray-100)', color: 'var(--muted)' },
   document: { bg: 'var(--gray-100)', color: 'var(--muted)' },
 };
+
 function gsSafeArray(v) { return Array.isArray(v) ? v : []; }
+
 function gsNorm(v) { return String(v == null ? '' : v).toLowerCase().replace(/[«»"'№#]/g, '').replace(/\s+/g, ' ').trim(); }
+
 function gsJoin(fields) { return fields.filter((v) => v != null && v !== '').map((v) => String(v)).join(' · '); }
+
 function gsPlural(n, one, few, many) {
   const a = Math.abs(Number(n) || 0) % 100;
   const b = a % 10;
@@ -149,6 +66,7 @@ function gsPlural(n, one, few, many) {
   if (b === 1) return one;
   return many;
 }
+
 function gsScore(query, fields, weight) {
   const q = gsNorm(query);
   const values = fields.map(gsNorm).filter(Boolean);
@@ -162,20 +80,25 @@ function gsScore(query, fields, weight) {
   });
   return best ? best + (weight || 0) : 0;
 }
+
 function gsOrder(no) { return gsSafeArray(typeof ORDERS !== 'undefined' ? ORDERS : []).find((o) => String(o.no) === String(no)); }
+
 function gsOpenOrderOrRoute(no, onOpenOrder, onNavigate, fallback) {
   const order = gsOrder(no);
   if (order && onOpenOrder) onOpenOrder(order);
   else if (onNavigate) onNavigate(fallback || 'orders');
 }
+
 function gsActiveOrdersFor(name) {
   const n = gsNorm(name);
   return gsSafeArray(typeof ORDERS !== 'undefined' ? ORDERS : []).filter((o) => gsNorm(o.client).includes(n) && !['Отменено', 'Оплачено'].includes(o.status));
 }
+
 function gsAddResult(list, query, item, fields, weight) {
   const score = gsScore(query, fields, weight);
   if (score) list.push({ ...item, score });
 }
+
 function buildGlobalSearchResults(query, handlers) {
   const list = [];
   const onNavigate = handlers.onNavigate;
@@ -315,6 +238,7 @@ function buildGlobalSearchResults(query, handlers) {
     .sort((a, b) => b.score - a.score || a.type.localeCompare(b.type) || a.title.localeCompare(b.title))
     .filter((r) => { if (seen.has(r.id)) return false; seen.add(r.id); return true; });
 }
+
 function GlobalSearch({ onOpenOrder, onNavigate, onOpenChat }) {
   const [q, setQ] = useState('');
   const [open, setOpen] = useState(false);
@@ -402,215 +326,26 @@ function GlobalSearch({ onOpenOrder, onNavigate, onOpenChat }) {
   );
 }
 
-
-function QuickCreate({ onCreateOrder, onCreateClient, onCreateCompany, onCreateKP, onNavigate, role }) {
-  const items = [];
-  if (roleHasPerm(role, 'Создание и редактирование')) items.push({ icon: 'orders', label: 'Новый заказ', onClick: () => onCreateOrder() });
-  items.push({ icon: 'user', label: 'Новый клиент', onClick: () => onCreateClient() });
-  items.push({ icon: 'building', label: 'Новая компания', onClick: () => onCreateCompany() });
-  if (roleHasPerm(role, 'Коммерческие предложения')) items.push({ icon: 'template', label: 'Новое КП', onClick: () => onCreateKP() });
-  if (roleHasPerm(role, 'Поиск и бронирование услуг')) { items.push({ sep: true }); items.push({ icon: 'route', label: 'Подобрать услугу', onClick: () => onNavigate('services') }); }
-  return (
-    <ActionMenu
-      trigger={<button className="btn btn-primary btn-sm" style={{ height: 36 }}><Icon name="plus" />Создать</button>}
-      items={items} />
-  );
-}
-
-
-function GlobalTopbar({ route, ctxOrder, onNavigate, onOpenOrder, onCreateClient, onCreateCompany, onCreateKP, onOpenChat, onOpenNotif, unreadChat, unreadNotif, role, onRole }) {
-  return (
-    <div className="gtop">
-      <style>{'.topbar .search[style*="width: 220px"],.topbar .search:has(input[placeholder="Поиск"]){display:none!important}'}</style>
-      <Breadcrumbs route={route} ctxOrder={ctxOrder} onNavigate={onNavigate} />
-      <GlobalSearch onOpenOrder={onOpenOrder} onNavigate={onNavigate} onOpenChat={onOpenChat} />
-      <div className="gtop-actions">
-        <ShiftControl role={role} onOpenOrder={onOpenOrder} />
-        <RoleSwitcher role={role} onRole={onRole} />
-        <QuickCreate onCreateOrder={() => onOpenOrder('__create__')} onCreateClient={onCreateClient} onCreateCompany={onCreateCompany} onCreateKP={onCreateKP} onNavigate={onNavigate} role={role} />
-        <button className="icon-btn gtop-ic" title="Чат" onClick={onOpenChat}>
-          <Icon name="chat" />{unreadChat > 0 && <span className="gtop-badge">{unreadChat}</span>}
-        </button>
-        <button className="icon-btn gtop-ic" title="Уведомления" onClick={onOpenNotif}>
-          <Icon name="bell" />{unreadNotif > 0 && <span className="gtop-badge">{unreadNotif}</span>}
-        </button>
-      </div>
-    </div>
-  );
-}
-
-
-function NotificationDrawer({ open, notifications, orders, onNotificationsChange, onClose, onNavigate, onOpenOrder }) {
-  useEffect(() => {
-    if (!open) return;
-    const h = (e) => { if (e.key === 'Escape') onClose(); };
-    window.addEventListener('keydown', h);
-    return () => window.removeEventListener('keydown', h);
-  }, [open, onClose]);
-  if (!open) return null;
-  return (
-    <div className="drawer-overlay" onMouseDown={(e) => { if (e.target === e.currentTarget) onClose(); }}>
-      <div className="shell-drawer" style={{ width: 'min(760px,97vw)' }}>
-        <div className="drawer-head" style={{ padding: '20px 26px' }}>
-          <h2 className="modal-title" style={{ fontSize: 22 }}>Уведомления</h2>
-          <button className="modal-close" onClick={onClose}><Icon name="x" /></button>
-        </div>
-        <div className="scroll" style={{ flex: 1, overflowY: 'auto', padding: '18px 24px' }}>
-          <NotificationsCenter compact notifications={notifications} orders={orders} onChange={onNotificationsChange}
-            onNavigate={(r) => { onClose(); onNavigate(r); }}
-            onOpenOrder={(o, tab) => { onClose(); onOpenOrder(o, tab); }} />
-        </div>
-      </div>
-    </div>
-  );
-}
-
-
-function findMatchingThread(threads, ctx) {
-  if (!ctx || !Array.isArray(threads) || !threads.length) return null;
-  if (ctx.id && threads.some((t) => String(t.id) === String(ctx.id))) {
-    return threads.find((t) => String(t.id) === String(ctx.id));
-  }
-  const orderNo = String(ctx.no || ctx.orderNo || ctx.order || '');
-  const orderId = String(ctx.id || ctx.serverId || ctx.orderId || '');
-  const clientName = (ctx.client || ctx.name || '').trim().toLowerCase();
-
-  if (orderNo || orderId) {
-    const byOrder = threads.find((t) => {
-      const tNo = String(t.order || '');
-      const tId = String(t.orderId || '');
-      if (orderNo && (tNo === orderNo || tId === orderNo)) return true;
-      if (orderId && (tId === orderId || tNo === orderId)) return true;
-      return false;
-    });
-    if (byOrder) return byOrder;
-  }
-
-  if (clientName) {
-    const byName = threads.find((t) => {
-      const c1 = (t.client || '').trim().toLowerCase();
-      const c2 = (t.name || '').trim().toLowerCase();
-      return c1 === clientName || c2 === clientName;
-    });
-    if (byName) return byName;
-  }
-
-  return null;
-}
-
-function createFallbackThread(ctx) {
-  if (!ctx) return null;
-  const orderNo = ctx.no || ctx.orderNo || ctx.order || '';
-  const orderId = ctx.id || ctx.serverId || ctx.orderId || null;
-  const name = ctx.client || ctx.name || (orderNo ? `Заказ № ${orderNo}` : 'Клиент');
-  return {
-    id: ctx.id && !orderNo ? `chat-${ctx.id}` : `order-${orderNo || orderId || Date.now()}`,
-    order: orderNo || orderId || '—',
-    orderId,
-    type: ctx.type || 'client',
-    channel: 'MAX',
-    name,
-    client: ctx.client || ctx.name || name,
-    online: '—',
-    unread: 0,
-    pinned: false,
-    connectionStatus: 'Подключено',
-    responsibleOperator: ctx.operator || '',
-    relatedServices: [],
-    participants: [{ name, role: 'Клиент' }],
-    messages: [],
-    internal: [],
-    virtual: true,
-  };
-}
-
-function GlobalChatDrawer({ open, onClose, contextOrder, initialThreads = [], orders = [], currentUserId, onOpenOrder }) {
-  const [extraThreads, setExtraThreads] = useState([]);
-  const threads = [...initialThreads, ...extraThreads];
-  const matched = findMatchingThread(threads, contextOrder);
-  const [activeId, setActiveId] = useState(() => (matched?.id || threads[0]?.id || null));
-
-  useEffect(() => {
-    if (!open) return;
-    if (contextOrder) {
-      const hit = findMatchingThread(threads, contextOrder);
-      if (hit) {
-        setActiveId(hit.id);
-      } else {
-        const created = createFallbackThread(contextOrder);
-        if (created) {
-          setExtraThreads((cur) => cur.some((t) => t.id === created.id) ? cur : [...cur, created]);
-          setActiveId(created.id);
-        }
-      }
-    } else if (!activeId && threads[0]) {
-      setActiveId(threads[0].id);
-    }
-  }, [open, contextOrder, initialThreads]);
-  useEffect(() => {
-    if (!open) return;
-    const h = (e) => { if (e.key === 'Escape') onClose(); };
-    window.addEventListener('keydown', h);
-    return () => window.removeEventListener('keydown', h);
-  }, [open, onClose]);
-  if (!open) return null;
-
-  const active = threads.find((t) => t.id === activeId) ||
-    threads[0];
-  if (!active) return (
-    <div className="drawer-overlay" onMouseDown={(e) => { if (e.target === e.currentTarget) onClose(); }}>
-      <div className="shell-drawer" style={{ width: 'min(480px,96vw)' }}><button className="modal-close" onClick={onClose}><Icon name="x" /></button><EmptyState icon="chat" title="Чатов пока нет" /></div>
-    </div>
-  );
-  const totalUnread = (t) => threadUnread(t);
-  const goOrder = (t) => { const o = orders.find((x) => x.no === t.order); onClose(); o && onOpenOrder(o); };
-  const recipients = threads.filter((thread) => thread.order === active.order);
-  const switchThread = (t) => {
-    if (t.virtual) { const real = { ...t, virtual: false }; setExtraThreads((cur) => [...cur, real]); setActiveId(real.id); }
-    else setActiveId(t.id);
-  };
-
-  const ord = orders.find((x) => x.no === active.order);
-  const meta = [active.client || active.name, ord && ord.requestType, (ord && ord.operator) && ('отв. ' + ord.operator)].filter(Boolean);
-
-  return (
-    <div className="drawer-overlay" onMouseDown={(e) => { if (e.target === e.currentTarget) onClose(); }}>
-      <div className="shell-drawer" style={{ width: 'min(480px,96vw)' }}>
-        <div className="drawer-head" style={{ padding: '14px 22px', flexDirection: 'column', alignItems: 'stretch', justifyContent: 'flex-start', gap: 6 }}>
-          <div style={{ display: 'flex', alignItems: 'center' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0, flex: 1 }}>
-              <h2 className="modal-title" style={{ fontSize: 20 }}>Чат</h2>
-              <ActionMenu
-                trigger={<button className="chip" style={{ height: 34 }}>№ {active.order}<Icon name="chevDown" /></button>}
-                items={threads.map((t) => ({ icon: 'chat', label: '№ ' + t.order + ' · ' + t.name + (totalUnread(t) ? '  (' + totalUnread(t) + ')' : ''), onClick: () => setActiveId(t.id) }))} />
-            </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-              <button className="icon-btn" title="Открыть заказ" onClick={() => goOrder(active)}><Icon name="orders" /></button>
-              <button className="modal-close" onClick={onClose}><Icon name="x" /></button>
-            </div>
-          </div>
-          {meta.length > 0 && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap', fontSize: 13, color: 'var(--muted)' }}>
-              {meta.map((m, i) => (
-                <React.Fragment key={i}>{i > 0 && <span style={{ color: 'var(--faint)' }}>·</span>}<span>{m}</span></React.Fragment>
-              ))}
-            </div>
-          )}
-        </div>
-        <div style={{ flex: 1, minHeight: 0 }}>
-          <ChatThread thread={active} currentUserId={currentUserId} embedded onOpenOrder={() => goOrder(active)} recipients={recipients} onSwitchThread={switchThread} />
-        </div>
-      </div>
-    </div>
-  );
-}
-
 Object.assign(window, {
   ROUTE_LABELS, Breadcrumbs, GlobalSearch, QuickCreate,
   GlobalTopbar, NotificationDrawer, GlobalChatDrawer,
   NAV_PERM, roleHasPerm, roleCanSee, RoleSwitcher, AccessDenied,
 });
 
-
-
-export { SERVICE_LABELS, ORDER_OPS_LABELS, ROUTE_LABELS, SERVICE_PARENT, ORDER_OPS_PARENT, NAV_PERM, roleIdx, roleHasPerm, roleCanSee, RoleSwitcher, AccessDenied, Breadcrumbs, GSEARCH_TONES, gsSafeArray, gsNorm, gsJoin, gsPlural, gsScore, gsOrder, gsOpenOrderOrRoute, gsActiveOrdersFor, gsAddResult, buildGlobalSearchResults, GlobalSearch, QuickCreate, GlobalTopbar, NotificationDrawer, GlobalChatDrawer };
+export { SEARCH_TYPE_META, backendSearchResultToHit, GSEARCH_TONES, gsSafeArray, gsNorm, gsJoin, gsPlural, gsScore, gsOrder, gsOpenOrderOrRoute, gsActiveOrdersFor, gsAddResult, buildGlobalSearchResults, GlobalSearch };
+export { SERVICE_LABELS } from '../routing/labels.js';
+export { ORDER_OPS_LABELS } from '../routing/labels.js';
+export { ROUTE_LABELS } from '../routing/labels.js';
+export { SERVICE_PARENT } from '../routing/labels.js';
+export { ORDER_OPS_PARENT } from '../routing/labels.js';
+export { NAV_PERM } from '../../shared/auth/permissions.jsx';
+export { roleIdx } from '../../shared/auth/permissions.jsx';
+export { roleHasPerm } from '../../shared/auth/permissions.jsx';
+export { roleCanSee } from '../../shared/auth/permissions.jsx';
+export { RoleSwitcher } from '../../shared/auth/permissions.jsx';
+export { AccessDenied } from '../../shared/auth/permissions.jsx';
+export { Breadcrumbs } from './Topbar.jsx';
+export { QuickCreate } from './Topbar.jsx';
+export { GlobalTopbar } from './Topbar.jsx';
+export { NotificationDrawer } from './NotificationDrawer.jsx';
+export { GlobalChatDrawer } from './ChatDrawer.jsx';

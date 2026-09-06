@@ -1,6 +1,6 @@
 import { applicationSource } from './helpers/application-source.mjs';
 import assert from 'node:assert/strict';
-import { readFile } from 'node:fs/promises';
+import { readFile } from './helpers/source.mjs';
 import test from 'node:test';
 
 const editor = await readFile(new URL('../src/modules/receipts/ui/editor.jsx', import.meta.url), 'utf8');

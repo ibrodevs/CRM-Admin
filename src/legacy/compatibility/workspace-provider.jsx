@@ -18,7 +18,8 @@ import { communicationsApi, integrationsApi, notificationsApi, ordersApi, servic
 import { useAuth } from '../../shared/auth/auth-context';
 import { syncLegacyDataFromWorkspace } from '../adapters/backend-data-sync';
 
-const WorkspaceContext = createContext(null);
+import { WorkspaceContext } from '../../shared/workspace/context.jsx';
+export { useWorkspace } from '../../shared/workspace/context.jsx';
 
 const EMPTY = {
   orders: [], suppliers: [], persons: [], clients: [], companies: [], notifications: [], chats: [],
@@ -328,8 +329,3 @@ export function WorkspaceProvider({ children }) {
   return <WorkspaceContext.Provider value={value}>{children}</WorkspaceContext.Provider>;
 }
 
-export function useWorkspace() {
-  const value = useContext(WorkspaceContext);
-  if (!value) throw new Error('useWorkspace must be used inside WorkspaceProvider');
-  return value;
-}

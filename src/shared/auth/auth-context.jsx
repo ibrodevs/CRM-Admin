@@ -2,8 +2,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState } 
 
 import { authApi } from './auth.api';
 import { onUnauthorized } from '../api/client';
-import { toUiUser } from '../../legacy/adapters/ui-adapters';
-import { syncLegacyCurrentUser } from '../../legacy/adapters/backend-data-sync';
+import { toUiUser } from './user.mapper.js';
 
 const AuthContext = createContext(null);
 
@@ -12,7 +11,9 @@ const AuthContext = createContext(null);
 // следующего действия оператора.
 const SESSION_REVALIDATE_MS = 60_000;
 
-export function AuthProvider({ children }) {
+const ignoreLegacyUser = () => {};
+
+export function AuthProvider({ children, syncLegacyCurrentUser = ignoreLegacyUser }) {
   const [status, setStatus] = useState('loading');
   const [user, setUser] = useState(null);
   const [challengeToken, setChallengeToken] = useState('');

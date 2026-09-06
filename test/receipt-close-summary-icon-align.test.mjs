@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { readFile } from 'node:fs/promises';
+import { readFile } from './helpers/source.mjs';
 
 const cssUrl = new URL('../app/receipt-ui-fixes.css', import.meta.url);
 const patchUrl = new URL('../scripts/apply-receipt-close-summary.mjs', import.meta.url);

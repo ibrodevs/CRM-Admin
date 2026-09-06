@@ -1,3 +1,4 @@
+import { useApplicationWorkspace } from './model/useApplicationWorkspace';
 import { AppProviders } from './providers';
 import { ROUTE_RESOURCE } from './routing/routes';
 import { WorkspaceResourceGate } from './routing/WorkspaceResourceGate';
@@ -40,7 +41,7 @@ import { workspaceSettingsApi } from '../legacy/compatibility/resources';
 
 function App() {
   const auth = useAuth();
-  const workspace = useWorkspace();
+  const workspace = useApplicationWorkspace();
   const toast = useToast();
   const { route, setRoute, intent, setIntent, svcSearch, setSvcSearch, chatOpen, setChatOpen, chatTarget, setChatTarget, focusedChat, setFocusedChat, notifOpen, setNotifOpen, ctxOrder, setCtxOrder, navigate, openChat, openChatThread, openOrder, createOrder, createClient, createCompany, createKP, openServiceSearch } = useAppNavigation();
   useEffect(() => {

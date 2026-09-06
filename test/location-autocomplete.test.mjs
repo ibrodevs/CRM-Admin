@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { readFile } from 'node:fs/promises';
+import { readFile } from './helpers/source.mjs';
 
 const uiUrl = new URL('../src/shared/ui/index.jsx', import.meta.url);
 const apiUrl = new URL('../app/api/locations/route.js', import.meta.url);

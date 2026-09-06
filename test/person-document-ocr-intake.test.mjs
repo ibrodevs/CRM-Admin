@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { readFile } from 'node:fs/promises';
+import { readFile } from './helpers/source.mjs';
 import test from 'node:test';
 
 const forms = await readFile(new URL('../src/modules/clients/ui/UnifiedForms.jsx', import.meta.url), 'utf8');
