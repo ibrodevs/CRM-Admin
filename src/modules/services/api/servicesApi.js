@@ -1,0 +1,32 @@
+import { apiPath, apiRequest, queryString } from '../../../shared/api/client.js';
+import { list, get, create, patch, remove } from '../../../shared/api/operations.js';
+
+export const servicesApi = {
+  list: (params = {}, signal) => list('services/', { page_size: 100, ...params }, signal),
+  detail: (id, signal) => get(`services/${id}/`, signal),
+  update: (id, body) => patch(`services/${id}/`, body),
+  remove: (id) => remove(`services/${id}/`),
+  search: (body) => create('service-searches/', body),
+  searchV1: (body) => create('services/search/', body),
+  searchStatus: (id, signal) => get(`service-searches/${id}/`, signal),
+  offers: (id, params = {}, signal) => list(`service-searches/${id}/offers/`, params, signal),
+  cancelSearch: (id) => create(`service-searches/${id}/cancel/`, {}),
+  compare: (offerIds) => create('service-offers/compare/', { offer_ids: offerIds }),
+  revalidate: (id) => create(`service-offers/${id}/revalidate/`, {}),
+  fareRules: (id, signal) => get(`service-offers/${id}/fare-rules/`, signal),
+  addToOrder: (orderId, body) => create(`orders/${orderId}/services/`, body),
+  transition: (id, body) => create(`services/${id}/transition/`, body),
+  passengers: (id, signal) => get(`services/${id}/passengers/`, signal),
+  updatePassengers: (id, body) => apiRequest(apiPath(`services/${id}/passengers/`), { method: 'PUT', body }),
+  manualBook: (id, body) => create(`services/${id}/manual-book/`, body),
+  manualIssue: (id, body) => create(`services/${id}/manual-issue/`, body),
+  revalidateService: (id, body = {}) => create(`services/${id}/revalidate/`, body),
+  book: (id, body = {}) => create(`services/${id}/book/`, body),
+  issue: (id, body = {}) => create(`services/${id}/issue/`, body),
+  cancel: (id, body = {}) => create(`services/${id}/cancel/`, body),
+  extras: (id, signal) => get(`services/${id}/extras/`, signal),
+  addExtra: (id, body) => create(`services/${id}/extras/`, body),
+  extraCatalog: (params = {}, signal) => list('service-extra-catalog/', { page_size: 100, ...params }, signal),
+  createExtraCatalogItem: (body) => create('service-extra-catalog/', body),
+  setResponsible: (id, responsible) => apiRequest(apiPath(`services/${id}/responsible/`), { method: 'PUT', body: { responsible } }),
+};
