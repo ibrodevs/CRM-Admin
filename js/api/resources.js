@@ -42,15 +42,7 @@ export { documentsApi } from '../../src/modules/documents/api.js';
 
 export { aftersalesApi } from '../../src/modules/returns/api.js';
 
-export const bookingApi = {
-  create: (body) => create('booking-workflows/', body),
-  preflight: (id) => create(`booking-workflows/${id}/preflight/`, {}),
-  start: (id, confirm = false) => create(`booking-workflows/${id}/start/`, { confirm }),
-  status: (id, signal) => get(`booking-workflows/${id}/status/`, signal),
-  issue: (id, body = {}) => create(`booking-workflows/${id}/issue/`, body),
-  inquiry: (id, item) => create(`booking-workflows/${id}/status-inquiry/`, { item }),
-  cancel: (id, reason) => create(`booking-workflows/${id}/cancel/`, { reason }),
-};
+export { bookingApi } from '../../src/modules/orders/api.js';
 
 export const groupsApi = {
   list: (params = {}, signal) => list('group-orders/', { page_size: 100, ...params }, signal),
