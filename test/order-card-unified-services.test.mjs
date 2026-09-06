@@ -4,7 +4,7 @@ import test from 'node:test';
 
 const card = await readFile(new URL('../src/modules/orders/ui/OrderCard.jsx', import.meta.url), 'utf8');
 const booking = await readFile(new URL('../src/modules/orders/ui/BookingWizard.jsx', import.meta.url), 'utf8');
-const returns = await readFile(new URL('../js/page_returns.jsx', import.meta.url), 'utf8');
+const returns = await readFile(new URL('../src/modules/returns/ui/ReturnsPage.jsx', import.meta.url), 'utf8');
 const legacy = await readFile(new URL('../src/legacy/adapters/legacy-adapters.js', import.meta.url), 'utf8');
 const css = await readFile(new URL('../app/globals.css', import.meta.url), 'utf8');
 

@@ -14,7 +14,7 @@ import { DynamicExtrasPanel, OrderResponsiblesTab } from './OrderOperations';
 import { CityPickPanel, StackPanel } from '../../locations/ui/SharedPanels';
 import { KPModule } from '../../../../js/page_offers';
 import { DocCenter, FinanceRegistry } from '../../receipts/ui/FulfillmentPages';
-import { ReturnsModule } from '../../../../js/page_returns';
+import { ReturnsModule } from '../../returns/ui/ReturnsPage';
 import { AeroAddFlow, ManualAltForm, RailAddFlow, ServiceAddFlow, ServiceCardHistoryDrawer, ServiceCardSendPanel } from '../../services/ui/ServicesPage';
 import { HotelPicker } from '../../services/hotels/HotelsPage';
 import {

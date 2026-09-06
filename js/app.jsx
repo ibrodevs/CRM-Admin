@@ -15,7 +15,7 @@ import { OrdersPage } from '../src/modules/orders/ui/OrdersPage';
 import { OffersPage } from './page_offers';
 import { DocCenterPage, FulfillmentPage, ReceiptEditorPage } from '../src/modules/receipts/ui/FulfillmentPages';
 import { FinancePage } from '../src/modules/finance/ui/FinancePage';
-import { ReturnsPage } from './page_returns';
+import { ReturnsPage } from '../src/modules/returns/ui/ReturnsPage';
 import { NotificationsPage } from '../src/modules/notifications/ui/NotificationsPage';
 import { ServiceFlow, ServicesHubPage } from '../src/modules/services/ui/ServicesPage';
 import { HotelsPage } from '../src/modules/services/hotels/HotelsPage';
