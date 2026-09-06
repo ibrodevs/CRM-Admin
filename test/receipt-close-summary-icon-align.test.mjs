@@ -26,6 +26,6 @@ test('close import summary icons and their tiles are vertically centered against
   assert.match(rowPatch, /align-items: center !important;/);
 
   for (const key of ['predev', 'prebuild', 'pretest']) {
-    assert.match(pkg.scripts[key], /apply-receipt-close-summary-row-align\.mjs/);
+    assert.doesNotMatch(pkg.scripts[key], /scripts\/apply-/);
   }
 });

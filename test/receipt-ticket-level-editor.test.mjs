@@ -45,13 +45,13 @@ test('rail editor shows real ticket identity, passenger document, place and cond
 });
 
 
-test('ticket selector has dedicated responsive UI and patch runs after older receipt patches', async () => {
+test('ticket selector has dedicated responsive UI without lifecycle source patches', async () => {
   const css = await readFile(cssUrl, 'utf8');
   const pkg = JSON.parse(await readFile(packageUrl, 'utf8'));
 
   assert.match(css, /Ticket-level editor: a grouped supplier PDF is a container, each ticket is independent/);
   assert.match(css, /\.receipt-ticket-editor-chip\.is-active/);
   for (const key of ['predev', 'prebuild', 'pretest']) {
-    assert.match(pkg.scripts[key], /apply-receipt-blank-counter\.mjs && node scripts\/apply-receipt-ticket-level-editor\.mjs/);
+    assert.doesNotMatch(pkg.scripts[key], /scripts\/apply-/);
   }
 });

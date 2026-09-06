@@ -103,9 +103,9 @@ test('supplier preview explains corrected copy and keeps source available', () =
   assert.doesNotMatch(editor, /Изменения из редактора применяются только к бланку агентства и не изменяют этот файл/);
 });
 
-test('corrected supplier patch is always the final receipt build patch', () => {
+test('canonical corrected supplier source is not rewritten by lifecycle hooks', () => {
   for (const key of ['predev', 'prebuild', 'pretest']) {
-    assert.match(pkg.scripts[key], /apply-receipt-sequential-review-compat\.mjs && node scripts\/apply-receipt-corrected-supplier-pdf\.mjs/);
+    assert.doesNotMatch(pkg.scripts[key], /scripts\/apply-/);
   }
 });
 

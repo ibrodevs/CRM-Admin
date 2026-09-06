@@ -16,6 +16,6 @@ test('receipt import mode icon tiles are centered against the full text block', 
   assert.match(css, /\.receipt-import-mode-options button > span svg \{\s*display: block;/);
 
   for (const scriptName of ['predev', 'prebuild', 'pretest']) {
-    assert.match(pkg.scripts[scriptName], /apply-receipt-import-mode-icon-align\.mjs/);
+    assert.doesNotMatch(pkg.scripts[scriptName], /scripts\/apply-/);
   }
 });
