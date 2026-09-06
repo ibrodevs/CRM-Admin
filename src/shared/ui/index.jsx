@@ -1,0 +1,1363 @@
+import React, { useState, useEffect, useRef, createContext, useContext, useCallback, useMemo } from 'react';
+import ReactDOM from 'react-dom';
+import { Icon } from '../icons/index';
+
+
+
+
+const ToastCtx = createContext(() => {});
+const useToast = () => useContext(ToastCtx);
+
+const MAX_TOASTS = 3;
+const TOAST_ICON = { ok: 'checkCircle', info: 'bell', warn: 'alertCircle', err: 'alertCircle' };
+const TOAST_URGENCY = { err: 'Срочно', warn: 'Важно' };
+
+
+
+function ToastItem({ t, onClose, onNav }) {
+  const total = t.duration || ((t.kind === 'err' || t.kind === 'warn') ? 6000 : 4500);
+  const [paused, setPaused] = useState(false);
+  const remain = useRef(total);
+  const startRef = useRef(0);
+  useEffect(() => {
+    if (paused) return;
+    startRef.current = Date.now();
+    const id = setTimeout(() => onClose(t.id), remain.current);
+    return () => { clearTimeout(id); remain.current -= (Date.now() - startRef.current); };
+  }, [paused]);
+  const act = () => {
+    if (t.action && t.action.onClick) t.action.onClick();
+    else if (t.action && t.action.route) onNav(t.action.route);
+    onClose(t.id);
+  };
+  const urgency = TOAST_URGENCY[t.kind];
+  return (
+    <div className={'toast ' + t.kind} onMouseEnter={() => setPaused(true)} onMouseLeave={() => setPaused(false)}>
+      <span className="toast-ic"><Icon name={TOAST_ICON[t.kind] || 'bell'} style={{ width: 20, height: 20 }} /></span>
+      <div className="toast-body">
+        {urgency && <div className="toast-urgency">{urgency}</div>}
+        {t.title && <div className="toast-title">{t.title}</div>}
+        <div className="toast-msg">{t.msg}</div>
+        {t.action && <button type="button" className="toast-link" onClick={act}>{t.action.label}<Icon name="arrowRight" style={{ width: 14, height: 14 }} /></button>}
+      </div>
+      <button type="button" className="toast-ring" onClick={() => onClose(t.id)} title="Скрыть" aria-label="Скрыть">
+        <svg viewBox="0 0 26 26" className="toast-ring-svg">
+          <circle cx="13" cy="13" r="10" className="toast-ring-bg" />
+          <circle cx="13" cy="13" r="10" className="toast-ring-fg" style={{ animationDuration: total + 'ms', animationPlayState: paused ? 'paused' : 'running' }} />
+        </svg>
+        <Icon name="x" className="toast-ring-x" />
+      </button>
+    </div>
+  );
+}
+
+function ToastProvider({ children }) {
+  const [toasts, setToasts] = useState([]);
+  const push = useCallback((msg, kind = 'ok', opts = {}) => {
+    const id = Math.random().toString(36).slice(2);
+    setToasts((t) => [...t, { id, msg, kind, title: opts.title, action: opts.action, duration: opts.duration }].slice(-MAX_TOASTS));
+  }, []);
+  const remove = useCallback((id) => setToasts((t) => t.filter((x) => x.id !== id)), []);
+  const nav = useCallback((r) => { if (window.__toastNav) window.__toastNav(r); }, []);
+  return (
+    <ToastCtx.Provider value={push}>
+      {children}
+      <div className="toast-wrap">
+        {toasts.map((t) => (
+          <div key={t.id} className="toast-slot">
+            <ToastItem t={t} onClose={remove} onNav={nav} />
+          </div>
+        ))}
+      </div>
+    </ToastCtx.Provider>
+  );
+}
+
+
+
+
+
+
+
+
+
+const BTN_OWN_PROPS = { variant: 1, size: 1, icon: 1, iconRight: 1, children: 1, className: 1 };
+function Button(props) {
+  const variant = props.variant || 'primary';
+  const { size, icon, iconRight } = props;
+  const cls = ['btn', 'btn-' + variant, size === 'sm' ? 'btn-sm' : size === 'lg' ? 'btn-lg' : '', props.className || '']
+    .filter(Boolean).join(' ');
+  const rest = {};
+  for (const k in props) if (!BTN_OWN_PROPS[k]) rest[k] = props[k];
+  return (
+    <button {...rest} className={cls}>
+      {icon && <Icon name={icon} />}
+      {props.children}
+      {iconRight && <Icon name={iconRight} />}
+    </button>
+  );
+}
+
+
+const PILL_TONE = {
+  green: 'pill-green', red: 'pill-red', teal: 'pill-teal',
+  amber: 'pill-amber', blue: 'pill-blue', gray: 'pill-gray',
+};
+function Pill({ tone = 'gray', children }) {
+  return <span className={'pill ' + (PILL_TONE[tone] || 'pill-gray')}>{children}</span>;
+}
+
+
+
+function TimeLimitBadge({ tone = 'red', icon = 'clock', children }) {
+  return (
+    <span className={'pill ' + (PILL_TONE[tone] || 'pill-red')} style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>
+      <Icon name={icon} style={{ width: 14, height: 14 }} />{children}
+    </span>
+  );
+}
+
+
+function plural(n, forms) {
+  const a = Math.abs(n) % 100, b = a % 10;
+  if (a > 10 && a < 20) return forms[2];
+  if (b > 1 && b < 5) return forms[1];
+  if (b === 1) return forms[0];
+  return forms[2];
+}
+
+
+function Toggle({ on, onChange, style }) {
+  return <button type="button" className={'toggle' + (on ? ' on' : '')} style={style} onClick={() => onChange(!on)} />;
+}
+function Checkbox({ on, onChange, style }) {
+  return (
+    <button type="button" className={'checkbox' + (on ? ' on' : '')} style={style} onClick={() => onChange(!on)}>
+      {on && <Icon name="check" strokeWidth={3} />}
+    </button>
+  );
+}
+function Radio({ on, onChange, interactive = true }) {
+  if (!interactive) return <span className={'radio' + (on ? ' on' : '')} aria-hidden="true" />;
+  return <button type="button" className={'radio' + (on ? ' on' : '')} onClick={() => onChange(true)} />;
+}
+
+
+function Field({ label, required, hint, error, children }) {
+  return (
+    <div className="field">
+      {label && <label className="label">{label}{required && <span className="req"> *</span>}</label>}
+      {hint && <div className="hint">{hint}</div>}
+      {children}
+      {error && <div className="err-text"><Icon name="alertCircle" style={{ width: 14, height: 14 }} />{error}</div>}
+    </div>
+  );
+}
+
+
+
+
+const LOCATION_CONTEXT_HINTS = [
+  'город', 'аэропорт', 'локац', 'адрес', 'отел', 'место отправления', 'место назначения',
+  'пункт отправления', 'пункт назначения', 'точка отправления', 'точка назначения', 'место подачи',
+];
+
+function locationContextText(props) {
+  return [props.placeholder, props['aria-label'], props.name, props.id, props['data-field-label']]
+    .filter(Boolean).join(' ').toLowerCase().replace(/ё/g, 'е').trim();
+}
+
+function shouldUseLocationAutocomplete(props) {
+  if (props.locationAutocomplete === false || props.disabled || props.readOnly) return false;
+  if (props.locationAutocomplete === true) return true;
+  const type = String(props.type || 'text').toLowerCase();
+  if (type !== 'text' && type !== 'search') return false;
+  const context = locationContextText(props);
+  if (!context) return false;
+  if (LOCATION_CONTEXT_HINTS.some((hint) => context.includes(hint))) return true;
+  return ['откуда', 'куда', 'направление'].includes(context);
+}
+
+function locationOptionIcon(kind) {
+  if (kind === 'Аэропорт') return 'plane';
+  if (kind === 'Отель') return 'hotel';
+  if (kind === 'Вокзал') return 'train';
+  if (kind === 'Достопримечательность') return 'star';
+  if (kind === 'Адрес') return 'building';
+  return 'mapPin';
+}
+
+function LocationAutocomplete(props) {
+  const {
+    error, leadIcon, trailIcon, onTrail, locationAutocomplete, locationScope, onLocationSelect,
+    className, value = '', onChange, onFocus, onBlur, onKeyDown, ...rest
+  } = props;
+  const [open, setOpen] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [options, setOptions] = useState([]);
+  const [active, setActive] = useState(0);
+  const [chosen, setChosen] = useState(null);
+  const [hasTyped, setHasTyped] = useState(false);
+  const rootRef = useRef(null);
+  const requestRef = useRef(null);
+  const text = String(value == null ? '' : value);
+  const normalizedText = text.toLowerCase().replace(/ё/g, 'е').trim();
+  const selectedIsCurrent = chosen && String(chosen.value || '').toLowerCase().replace(/ё/g, 'е').trim() === normalizedText;
+
+  useEffect(() => {
+    const close = (event) => {
+      if (rootRef.current && !rootRef.current.contains(event.target)) setOpen(false);
+    };
+    document.addEventListener('mousedown', close);
+    return () => document.removeEventListener('mousedown', close);
+  }, []);
+
+  useEffect(() => {
+    const query = text.trim();
+    if (!hasTyped || query.length < 2 || selectedIsCurrent) {
+      setOptions([]);
+      setLoading(false);
+      return undefined;
+    }
+
+    const controller = new AbortController();
+    requestRef.current = controller;
+    const timer = setTimeout(async () => {
+      setLoading(true);
+      try {
+        const params = new URLSearchParams({ q: query });
+        if (locationScope) params.set('scope', locationScope);
+        const response = await fetch('/api/locations?' + params.toString(), {
+          signal: controller.signal,
+          headers: { Accept: 'application/json' },
+        });
+        if (!response.ok) throw new Error('Location lookup failed');
+        const payload = await response.json();
+        if (!controller.signal.aborted) {
+          setOptions(Array.isArray(payload.results) ? payload.results : []);
+          setActive(0);
+          setOpen(true);
+        }
+      } catch (lookupError) {
+        if (lookupError && lookupError.name !== 'AbortError' && !controller.signal.aborted) {
+          setOptions([]);
+          setOpen(true);
+        }
+      } finally {
+        if (!controller.signal.aborted) setLoading(false);
+      }
+    }, 260);
+
+    return () => {
+      clearTimeout(timer);
+      controller.abort();
+    };
+  }, [text, locationScope, selectedIsCurrent, hasTyped]);
+
+  const emit = (nextValue, option) => {
+    const target = { value: nextValue, name: rest.name, id: rest.id, location: option || null };
+    onChange && onChange({ target, currentTarget: target });
+  };
+
+  const choose = (option) => {
+    if (!option) return;
+    setChosen(option);
+    setHasTyped(false);
+    setOptions([]);
+    setOpen(false);
+    emit(option.value || option.title || option.label, option);
+    onLocationSelect && onLocationSelect(option);
+  };
+
+  const handleChange = (event) => {
+    setChosen(null);
+    setHasTyped(true);
+    emit(event.target.value, null);
+    if (event.target.value.trim().length >= 2) setOpen(true);
+  };
+
+  const handleKeyDown = (event) => {
+    if (open && options.length) {
+      if (event.key === 'ArrowDown') {
+        event.preventDefault();
+        setActive((current) => (current + 1) % options.length);
+      } else if (event.key === 'ArrowUp') {
+        event.preventDefault();
+        setActive((current) => (current - 1 + options.length) % options.length);
+      } else if (event.key === 'Enter') {
+        event.preventDefault();
+        choose(options[active] || options[0]);
+      } else if (event.key === 'Escape') {
+        event.preventDefault();
+        setOpen(false);
+      }
+    }
+    onKeyDown && onKeyDown(event);
+  };
+
+  const inputClass = ['input', trailIcon ? 'has-trail' : '', error ? 'err' : '', 'location-autocomplete-input', open ? 'is-open' : '', className || '']
+    .filter(Boolean).join(' ');
+  const inputElement = (
+    <input
+      {...rest}
+      value={text}
+      className={inputClass}
+      autoComplete="off"
+      aria-autocomplete="list"
+      aria-expanded={open}
+      onChange={handleChange}
+      onKeyDown={handleKeyDown}
+      onFocus={(event) => {
+        if (hasTyped && text.trim().length >= 2 && !selectedIsCurrent) setOpen(true);
+        onFocus && onFocus(event);
+      }}
+      onBlur={(event) => {
+        onBlur && onBlur(event);
+      }}
+    />
+  );
+
+  return (
+    <div className="location-autocomplete" ref={rootRef}>
+      {leadIcon || trailIcon ? (
+        <div className="input-wrap">
+          {leadIcon && <Icon name={leadIcon} className="lead" />}
+          {inputElement}
+          {trailIcon && <Icon name={trailIcon} className="trail" onClick={onTrail} />}
+        </div>
+      ) : inputElement}
+
+      {open && hasTyped && text.trim().length >= 2 && (
+        <div className="location-autocomplete-menu" role="listbox">
+          {loading && (
+            <div className="location-autocomplete-status"><Icon name="loader" />Подбираем города и локации…</div>
+          )}
+          {!loading && options.map((option, index) => (
+            <button
+              type="button"
+              role="option"
+              aria-selected={index === active}
+              key={option.id || option.label || index}
+              className={'location-autocomplete-option' + (index === active ? ' is-active' : '')}
+              onMouseEnter={() => setActive(index)}
+              onMouseDown={(event) => event.preventDefault()}
+              onClick={() => choose(option)}
+            >
+              <span className="location-autocomplete-option-icon"><Icon name={locationOptionIcon(option.kind)} /></span>
+              <span className="location-autocomplete-option-main">
+                <b>{option.title || option.value || option.label}</b>
+                <span>{option.subtitle || option.label || 'Выберите подходящий вариант'}</span>
+              </span>
+              <span className="location-autocomplete-kind">{option.kind || 'Локация'}</span>
+            </button>
+          ))}
+          {!loading && !options.length && (
+            <div className="location-autocomplete-empty">Ничего не найдено. Проверьте написание или уточните страну.</div>
+          )}
+          {!selectedIsCurrent && (
+            <div className="location-autocomplete-help"><Icon name="alertCircle" />Выберите вариант из списка, чтобы поиск получил корректную локацию.</div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function Input(props) {
+  if (shouldUseLocationAutocomplete(props)) return <LocationAutocomplete {...props} />;
+  const { error, leadIcon, trailIcon, onTrail, locationAutocomplete, locationScope, onLocationSelect, className } = props;
+  const rest = {};
+  for (const k in props) {
+    if (!['error', 'leadIcon', 'trailIcon', 'onTrail', 'locationAutocomplete', 'locationScope', 'onLocationSelect', 'className'].includes(k)) rest[k] = props[k];
+  }
+  const inputClass = ['input', trailIcon ? 'has-trail' : '', error ? 'err' : '', className || ''].filter(Boolean).join(' ');
+  if (leadIcon || trailIcon) {
+    return (
+      <div className="input-wrap">
+        {leadIcon && <Icon name={leadIcon} className="lead" />}
+        <input className={inputClass} {...rest} />
+        {trailIcon && <Icon name={trailIcon} className="trail" onClick={onTrail} />}
+      </div>
+    );
+  }
+  return <input className={inputClass} {...rest} />;
+}
+
+function Select(props) {
+  const { options, error, placeholder } = props;
+  const rest = {};
+  for (const k in props) { if (k !== 'options' && k !== 'error' && k !== 'placeholder') rest[k] = props[k]; }
+  return (
+    <select className={'select' + (error ? ' err' : '')} {...rest}>
+      {placeholder && <option value="">{placeholder}</option>}
+      {options.map((o) => {
+        const val = typeof o === 'string' ? o : o.value;
+        const lab = typeof o === 'string' ? o : o.label;
+        return <option key={val} value={val}>{lab}</option>;
+      })}
+    </select>
+  );
+}
+function SearchBox({ value, onChange, placeholder = 'Поиск', style }) {
+  return (
+    <div className="search" style={style}>
+      <Icon name="search" />
+      <input value={value} onChange={(e) => onChange(e.target.value)} placeholder={placeholder} />
+    </div>
+  );
+}
+
+// Выпадающий список с поиском: элементы можно листать скроллом, а можно
+// сузить набор, набрав первые буквы кода или названия. Поддерживает группы,
+// стрелки/Enter и Escape, который закрывает только сам список — окно под ним
+// остаётся открытым.
+function Combobox({
+  options, value, onChange, placeholder = 'Начните вводить…', error,
+  autoOpen = false, emptyText = 'Ничего не найдено', searchPlaceholder = 'Поиск…', size,
+}) {
+  const [open, setOpen] = useState(!!autoOpen);
+  const [q, setQ] = useState('');
+  const [cursor, setCursor] = useState(0);
+  const wrapRef = useRef(null);
+  const listRef = useRef(null);
+  const opts = (options || []).map((o) => (typeof o === 'string' ? { value: o, label: o } : o));
+  useEffect(() => {
+    if (!open) return undefined;
+    const onDown = (e) => { if (wrapRef.current && !wrapRef.current.contains(e.target)) { setOpen(false); setQ(''); } };
+    document.addEventListener('mousedown', onDown);
+    return () => document.removeEventListener('mousedown', onDown);
+  }, [open]);
+  const needle = q.trim().toLowerCase();
+  const shown = needle
+    ? opts.filter((o) => `${o.value} ${o.label} ${o.keywords || ''}`.toLowerCase().includes(needle))
+    : opts;
+  // Совпадение по началу кода поднимается наверх: набрал «yq» — сразу YQ.
+  const ranked = needle
+    ? [...shown].sort((a, b) => {
+      const rank = (o) => (String(o.value).toLowerCase().startsWith(needle) ? 0
+        : String(o.label).toLowerCase().startsWith(needle) ? 1 : 2);
+      return rank(a) - rank(b);
+    })
+    : shown;
+  const cur = opts.find((o) => o.value === value);
+  const safeCursor = ranked.length ? Math.min(cursor, ranked.length - 1) : 0;
+  useEffect(() => { setCursor(0); }, [q, open]);
+  useEffect(() => {
+    if (!open || !listRef.current) return;
+    const node = listRef.current.querySelector('[data-cursor="1"]');
+    node?.scrollIntoView({ block: 'nearest' });
+  }, [open, safeCursor, q]);
+  const pick = (option) => { onChange(option.value); setOpen(false); setQ(''); };
+  const onKeyDown = (event) => {
+    if (event.key === 'Escape') {
+      event.preventDefault();
+      event.stopPropagation();
+      setOpen(false);
+      setQ('');
+      return;
+    }
+    if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+      event.preventDefault();
+      if (!ranked.length) return;
+      const shift = event.key === 'ArrowDown' ? 1 : -1;
+      setCursor((index) => (Math.min(index, ranked.length - 1) + shift + ranked.length) % ranked.length);
+      return;
+    }
+    if (event.key === 'Enter') {
+      event.preventDefault();
+      if (ranked[safeCursor]) pick(ranked[safeCursor]);
+    }
+  };
+  let lastGroup = null;
+  return (
+    <div className={'combobox' + (size === 'sm' ? ' combobox-sm' : '')} ref={wrapRef} style={{ position: 'relative' }}>
+      <div className={'select combobox-field' + (error ? ' err' : '')} role="button" tabIndex={0}
+        aria-haspopup="listbox" aria-expanded={open}
+        onClick={() => setOpen((o) => !o)}
+        onKeyDown={(event) => {
+          if (event.key === 'Enter' || event.key === ' ' || event.key === 'ArrowDown') { event.preventDefault(); setOpen(true); }
+        }}
+        style={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}>
+        <span style={{ flex: 1, color: cur ? 'var(--ink)' : 'var(--muted-2)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{cur ? cur.label : placeholder}</span>
+        <Icon name="chevDown" style={{ width: 16, height: 16, color: 'var(--muted-2)' }} />
+      </div>
+      {open && (
+        <div className="dropdown combobox-dropdown" role="listbox" ref={listRef}
+          style={{ position: 'absolute', top: '100%', left: 0, marginTop: 4, zIndex: 60, maxHeight: 320, overflowY: 'auto', padding: 6 }}>
+          <div className="search" style={{ margin: '2px 2px 6px', position: 'sticky', top: 0, zIndex: 1 }}>
+            <Icon name="search" />
+            <input autoFocus value={q} onChange={(e) => setQ(e.target.value)} placeholder={searchPlaceholder}
+              onClick={(e) => e.stopPropagation()} onKeyDown={onKeyDown} />
+          </div>
+          {ranked.length === 0 && <div style={{ padding: '8px 10px', fontSize: 13, color: 'var(--muted)' }}>{emptyText}</div>}
+          {ranked.map((o, index) => {
+            const groupHead = !needle && o.group && o.group !== lastGroup ? o.group : null;
+            lastGroup = o.group || lastGroup;
+            return (
+              <React.Fragment key={o.value}>
+                {groupHead && <div className="combobox-group">{groupHead}</div>}
+                <div role="option" aria-selected={o.value === value}
+                  data-cursor={index === safeCursor ? '1' : '0'}
+                  className={'dropdown-item' + (o.value === value ? ' active' : '') + (index === safeCursor ? ' is-cursor' : '')}
+                  onMouseEnter={() => setCursor(index)}
+                  onClick={() => pick(o)}>
+                  {o.value === value && <Icon name="check" style={{ width: 15, height: 15, color: 'var(--blue)' }} />}{o.label}
+                </div>
+              </React.Fragment>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+
+function ClockTimePicker({ value = '09:00', onChange }) {
+  const [hRaw, mRaw] = String(value).split(':');
+  const hour24 = Math.max(0, Math.min(23, parseInt(hRaw, 10) || 0));
+  const minute = Math.max(0, Math.min(59, parseInt(mRaw, 10) || 0));
+  const pm = hour24 >= 12;
+  const hour12 = ((hour24 + 11) % 12) + 1;
+  const emit = (h12, min, isPm) => {
+    let h = h12 % 12; if (isPm) h += 12;
+    onChange && onChange(String(h).padStart(2, '0') + ':' + String(min).padStart(2, '0'));
+  };
+  const R = 78, C = 96, hand = 54;
+  const ang = (hour12 % 12) * 30 - 90;
+  const hx = C + hand * Math.cos(ang * Math.PI / 180);
+  const hy = C + hand * Math.sin(ang * Math.PI / 180);
+  return (
+    <div style={{ display: 'flex', gap: 16, alignItems: 'center', flexWrap: 'wrap' }}>
+      <svg width={C * 2} height={C * 2} style={{ flexShrink: 0 }}>
+        <circle cx={C} cy={C} r={C - 4} fill="var(--surface-2)" stroke="var(--line)" strokeWidth="1.5" />
+        <line x1={C} y1={C} x2={hx} y2={hy} stroke="var(--blue)" strokeWidth="3" strokeLinecap="round" />
+        <circle cx={C} cy={C} r="5" fill="var(--blue)" />
+        {Array.from({ length: 12 }, (_, i) => {
+          const n = i + 1;
+          const a = (n * 30 - 90) * Math.PI / 180;
+          const x = C + R * Math.cos(a), y = C + R * Math.sin(a);
+          const active = n === (hour12 % 12 || 12);
+          return (
+            <g key={n} style={{ cursor: 'pointer' }} onClick={() => emit(n, minute, pm)}>
+              <circle cx={x} cy={y} r="14" fill={active ? 'var(--blue)' : 'transparent'} />
+              <text x={x} y={y} textAnchor="middle" dominantBaseline="central"
+                fontSize="13" fontWeight="700" fill={active ? '#fff' : 'var(--ink)'}>{n}</text>
+            </g>
+          );
+        })}
+      </svg>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+        <div style={{ fontSize: 22, fontWeight: 800, color: 'var(--ink)' }}>
+          {String(hour24).padStart(2, '0')}:{String(minute).padStart(2, '0')}
+        </div>
+        <div style={{ display: 'inline-flex', border: '1px solid var(--line)', borderRadius: 9, overflow: 'hidden' }}>
+          {[['День', false], ['Ночь', true]].map(([lbl, isPm]) => (
+            <button key={lbl} type="button" onClick={() => emit(hour12, minute, isPm)}
+              style={{ padding: '6px 12px', fontSize: 12.5, fontWeight: 700, border: 'none', cursor: 'pointer',
+                background: pm === isPm ? 'var(--blue)' : '#fff', color: pm === isPm ? '#fff' : 'var(--muted)' }}>{lbl}</button>
+          ))}
+        </div>
+        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+          {[0, 15, 30, 45].map((m) => (
+            <button key={m} type="button" onClick={() => emit(hour12, m, pm)}
+              style={{ padding: '5px 9px', fontSize: 12.5, fontWeight: 700, borderRadius: 8, cursor: 'pointer',
+                border: '1px solid ' + (minute === m ? 'var(--blue)' : 'var(--line)'),
+                background: minute === m ? 'var(--blue-soft)' : '#fff', color: minute === m ? 'var(--blue)' : 'var(--muted)' }}>:{String(m).padStart(2, '0')}</button>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+
+const WH_DAY_RANGES = ['Пн–Пт', 'Пн–Сб', 'Пн–Вс', 'Сб–Вс'];
+function WorkHoursPicker({ value = 'Пн–Пт 09:00–18:00', onChange }) {
+  const round = /круглосуточ/i.test(value);
+  const m = String(value).match(/(\S+)\s+(\d{2}:\d{2})[–-](\d{2}:\d{2})/);
+  const days = m ? m[1] : 'Пн–Пт';
+  const from = m ? m[2] : '09:00';
+  const to = m ? m[3] : '18:00';
+  const [editing, setEditing] = useState(null);
+  const set = (d, f, t) => onChange && onChange(d + ' ' + f + '–' + t);
+  return (
+    <div style={{ border: '1px solid var(--line)', borderRadius: 12, padding: 12, background: '#fff' }}>
+      <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13.5, fontWeight: 600, color: 'var(--ink)', cursor: 'pointer', marginBottom: round ? 0 : 12 }}>
+        <input type="checkbox" checked={round} onChange={(e) => onChange && onChange(e.target.checked ? 'Круглосуточно' : (days + ' ' + from + '–' + to))} />
+        Круглосуточно
+      </label>
+      {!round && (
+        <>
+          <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap', marginBottom: 10 }}>
+            <select className="select" style={{ width: 'auto', minWidth: 110 }} value={days} onChange={(e) => set(e.target.value, from, to)}>
+              {WH_DAY_RANGES.map((d) => <option key={d} value={d}>{d}</option>)}
+            </select>
+            <button type="button" onClick={() => setEditing(editing === 'from' ? null : 'from')}
+              style={{ padding: '8px 12px', borderRadius: 9, cursor: 'pointer', fontWeight: 700, fontSize: 14,
+                border: '1px solid ' + (editing === 'from' ? 'var(--blue)' : 'var(--line)'), background: editing === 'from' ? 'var(--blue-soft)' : '#fff', color: 'var(--ink)' }}>с {from}</button>
+            <span style={{ color: 'var(--muted)' }}>—</span>
+            <button type="button" onClick={() => setEditing(editing === 'to' ? null : 'to')}
+              style={{ padding: '8px 12px', borderRadius: 9, cursor: 'pointer', fontWeight: 700, fontSize: 14,
+                border: '1px solid ' + (editing === 'to' ? 'var(--blue)' : 'var(--line)'), background: editing === 'to' ? 'var(--blue-soft)' : '#fff', color: 'var(--ink)' }}>до {to}</button>
+          </div>
+          {editing && (
+            <div style={{ borderTop: '1px dashed var(--line)', paddingTop: 12 }}>
+              <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--muted)', marginBottom: 8 }}>{editing === 'from' ? 'Открытие' : 'Закрытие'} — задайте циферблатом</div>
+              <ClockTimePicker value={editing === 'from' ? from : to}
+                onChange={(v) => (editing === 'from' ? set(days, v, to) : set(days, from, v))} />
+            </div>
+          )}
+        </>
+      )}
+    </div>
+  );
+}
+
+
+function Avatar({ src, name = '', size = 40 }) {
+  const initials = name.split(' ').filter(Boolean).slice(0, 2).map((w) => w[0]).join('').toUpperCase();
+  if (src) return <img className="avatar" src={src} alt={name} style={{ width: size, height: size }} />;
+  return <span className="avatar-ph" style={{ width: size, height: size, fontSize: size * 0.36 }}>{initials}</span>;
+}
+
+
+// ——— Слои модальных окон ————————————————————————————————————————————————
+// Каждое открытое окно (Drawer / Modal) регистрируется в общем стеке. Escape
+// закрывает только верхний слой, иначе одно нажатие схлопывало сразу все
+// панели: оператор из вложенного предпросмотра вылетал в общий список,
+// потеряв открытый редактор.
+const OVERLAY_LAYERS = [];
+let overlayEscapeBound = false;
+
+// Диалог печати браузера возвращает фокус в страницу и в части браузеров
+// доставляет туда же Escape, которым его закрыли. На время печати и коротко
+// после неё закрытие по Escape и по клику вне окна блокируется — редактор
+// обязан пережить печать.
+let printGuardUntil = 0;
+
+function isPrintGuardActive() {
+  return Date.now() < printGuardUntil;
+}
+
+// Устанавливает окно защиты абсолютно, а не «не меньше текущего»: иначе
+// длинное удержание на время диалога печати не снималось бы после его
+// закрытия и окна нельзя было бы закрыть ещё минуту.
+function holdOverlaysDuringPrint(ms = 1200) {
+  printGuardUntil = Date.now() + ms;
+}
+
+// Печать конкретного окна без выхода из редактора: подсветили нужный слой,
+// напечатали, сняли подсветку и удержали слои от закрытия.
+function printOverlayScope(node, { onDone } = {}) {
+  if (typeof window === 'undefined') return;
+  const overlay = node?.closest?.('../../../js/.drawer-overlay') || null;
+  const cleanup = () => {
+    document.body.classList.remove('receipt-printing');
+    overlay?.classList.remove('receipt-print-target');
+    holdOverlaysDuringPrint(1200);
+    if (onDone) onDone();
+  };
+  holdOverlaysDuringPrint(60000);
+  overlay?.classList.add('receipt-print-target');
+  document.body.classList.add('receipt-printing');
+  window.addEventListener('afterprint', cleanup, { once: true });
+  try {
+    window.print();
+  } finally {
+    window.setTimeout(cleanup, 1000);
+  }
+}
+
+function bindOverlayEscape() {
+  if (overlayEscapeBound || typeof window === 'undefined') return;
+  overlayEscapeBound = true;
+  window.addEventListener('keydown', (event) => {
+    if (event.key !== 'Escape' || event.defaultPrevented) return;
+    if (!OVERLAY_LAYERS.length) return;
+    if (isPrintGuardActive()) { event.preventDefault(); event.stopPropagation(); return; }
+    const top = OVERLAY_LAYERS[OVERLAY_LAYERS.length - 1];
+    event.preventDefault();
+    event.stopPropagation();
+    top.close();
+  });
+}
+
+// Регистрация окна в стеке. onClose читается через ref, поэтому пересоздание
+// обработчика на каждом рендере не переставляет слой в конец стека.
+function useOverlayLayer(open, onClose) {
+  const closeRef = useRef(onClose);
+  closeRef.current = onClose;
+  useEffect(() => {
+    if (!open) return undefined;
+    bindOverlayEscape();
+    const layer = { close: () => { if (closeRef.current) closeRef.current(); } };
+    OVERLAY_LAYERS.push(layer);
+    return () => {
+      const index = OVERLAY_LAYERS.indexOf(layer);
+      if (index >= 0) OVERLAY_LAYERS.splice(index, 1);
+    };
+  }, [open]);
+}
+
+// Клик по подложке закрывает окно, но не сразу после печати и не когда поверх
+// открыт ещё один слой (клик по нему не должен ронять нижние панели).
+function overlayBackdropClose(event, onClose) {
+  if (event.target !== event.currentTarget) return;
+  if (isPrintGuardActive()) return;
+  if (onClose) onClose();
+}
+
+const MODAL_FOCUSABLE = 'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
+
+function Modal({ open, onClose, children, size, className = '', ariaLabel = 'Диалоговое окно' }) {
+  const modalRef = useRef(null);
+  useOverlayLayer(open, onClose);
+  useEffect(() => {
+    if (!open) return;
+    const previousFocus = document.activeElement;
+    const frame = window.requestAnimationFrame(() => {
+      modalRef.current?.focus();
+    });
+    const h = (e) => {
+      if (e.key !== 'Tab' || !modalRef.current) return;
+      const controls = Array.from(modalRef.current.querySelectorAll(MODAL_FOCUSABLE));
+      if (!controls.length) {
+        e.preventDefault();
+        modalRef.current.focus();
+        return;
+      }
+      const first = controls[0];
+      const last = controls[controls.length - 1];
+      if (e.shiftKey && (document.activeElement === first || document.activeElement === modalRef.current)) {
+        e.preventDefault();
+        last.focus();
+      } else if (!e.shiftKey && (document.activeElement === last || document.activeElement === modalRef.current)) {
+        e.preventDefault();
+        first.focus();
+      }
+    };
+    window.addEventListener('keydown', h);
+    return () => {
+      window.cancelAnimationFrame(frame);
+      window.removeEventListener('keydown', h);
+      previousFocus?.focus?.();
+    };
+  }, [open, onClose]);
+  if (!open) return null;
+  const sizeClass = size ? 'modal-' + size + ' ' : '';
+  return (
+    <div className="overlay" onMouseDown={(e) => overlayBackdropClose(e, onClose)}>
+      <div ref={modalRef} className={'modal ' + sizeClass + className} role="dialog" aria-modal="true" aria-label={ariaLabel} tabIndex={-1}>
+        <div className="modal-content scroll">{children}</div>
+      </div>
+    </div>
+  );
+}
+function ModalHeader({ title, sub, onClose }) {
+  return (
+    <div className="modal-head">
+      <div>
+        <h2 className="modal-title">{title}</h2>
+        {sub && <div className="modal-sub">{sub}</div>}
+      </div>
+      {onClose && <button type="button" className="modal-close" onClick={onClose} aria-label={'Закрыть окно «' + title + '»'}><Icon name="x" /></button>}
+    </div>
+  );
+}
+
+
+function Drawer({ open, onClose, title, sub, children, footer, width, className = '' }) {
+  useOverlayLayer(open, onClose);
+  if (!open) return null;
+  // Рендерим порталом в body: иначе вложенный в другую панель (container-type/overflow)
+  // Drawer с position:fixed привязывается к коробке родителя и открывается неправильно.
+  const node = (
+    <div className="drawer-overlay" onMouseDown={(e) => overlayBackdropClose(e, onClose)}>
+      <div className={`drawer scroll${className ? ` ${className}` : ''}`} style={width ? { width } : null}>
+        <div className="drawer-head">
+          <div>
+            <h2 className="modal-title" style={{ fontSize: 24 }}>{title}</h2>
+            {sub && <div className="modal-sub">{sub}</div>}
+          </div>
+          <button className="modal-close" onClick={onClose}><Icon name="x" /></button>
+        </div>
+        <div className="drawer-body">{children}</div>
+        {footer && <div className="drawer-foot">{footer}</div>}
+      </div>
+    </div>
+  );
+  return (typeof document !== 'undefined') ? ReactDOM.createPortal(node, document.body) : node;
+}
+
+
+function ConfirmDialog({ open, title = 'Вы уверены?', message, confirmLabel = 'Удалить', confirmVariant = 'danger', onConfirm, onCancel }) {
+  return (
+    <Drawer open={open} onClose={onCancel} title={title} width="min(440px,92vw)" className="confirm-dialog-drawer"
+      footer={<>
+        <Button variant="secondary" onClick={onCancel} style={{ flex: 1 }}>Отменить</Button>
+        <Button variant={confirmVariant} onClick={onConfirm} style={{ flex: 1 }}>{confirmLabel}</Button>
+      </>}>
+      <div style={{ color: 'var(--muted)', fontSize: 15, lineHeight: 1.5 }}>{message}</div>
+    </Drawer>
+  );
+}
+
+
+function Tabs({ tabs, value, onChange }) {
+  return (
+    <div className="tabs">
+      {tabs.map((t) => (
+        <button key={t.key} className={'tab' + (value === t.key ? ' active' : '')} onClick={() => onChange(t.key)}>
+          {t.label}
+          {t.count != null && <span className="tab-count">{t.count}</span>}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+
+function FilterChip({ label, options, value, onChange, icon = 'filter' }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef(null);
+  useEffect(() => {
+    const h = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); };
+    document.addEventListener('mousedown', h);
+    return () => document.removeEventListener('mousedown', h);
+  }, []);
+  const cur = options.find((o) => (o.value ?? o) === value);
+  const curLabel = value ? (cur ? (cur.label ?? cur) : value) : label;
+  return (
+    <div style={{ position: 'relative' }} ref={ref}>
+      <button className={'chip' + (value ? '' : '')} onClick={() => setOpen((o) => !o)}>
+        {curLabel}
+        <Icon name={icon === 'filter' ? 'filter' : 'chevDown'} />
+      </button>
+      {open && (
+        <div className="dropdown" style={{ top: 48, left: 0 }}>
+          <div className="dropdown-item" onClick={() => { onChange(''); setOpen(false); }}>
+            <span style={{ width: 17 }} />Все
+          </div>
+          <div className="dropdown-sep" />
+          {options.filter((o) => (o?.value ?? o) !== '' && (o?.value ?? o) != null).map((o) => {
+            const val = o.value ?? o, lab = o.label ?? o;
+            return (
+              <div key={val} className="dropdown-item" onClick={() => { onChange(val); setOpen(false); }}>
+                {value === val ? <Icon name="check" /> : <span style={{ width: 17 }} />}{lab}
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+
+function Pagination({ page, pages, onPage }) {
+  return (
+    <div className="pagination">
+      <Button variant="secondary" size="sm" disabled={page <= 1} onClick={() => onPage(page - 1)}>Назад</Button>
+      <div className="page-info">Страница {page} из {pages}</div>
+      <Button variant="secondary" size="sm" disabled={page >= pages} onClick={() => onPage(page + 1)}>Вперед</Button>
+    </div>
+  );
+}
+
+
+function Th({ label, col, sort, onSort, sortable = true, style }) {
+  if (!sortable) return <th style={style}>{label}</th>;
+  const active = sort && sort.col === col;
+  return (
+    <th className="sortable" style={style} onClick={() => onSort(col)}>
+      <span className="th-in">{label}
+        <Icon name={active ? (sort.dir === 'asc' ? 'chevUp' : 'chevDown') : 'chevDown'}
+          style={{ opacity: active ? 0.9 : 0.35 }} />
+      </span>
+    </th>
+  );
+}
+function useSort(initial) {
+  const [sort, setSort] = useState(initial || null);
+  const onSort = (col) => setSort((s) => (s && s.col === col ? { col, dir: s.dir === 'asc' ? 'desc' : 'asc' } : { col, dir: 'asc' }));
+  const apply = (rows, accessors) => {
+    if (!sort) return rows;
+    const acc = accessors[sort.col] || ((r) => r[sort.col]);
+    const sorted = [...rows].sort((a, b) => {
+      const x = acc(a), y = acc(b);
+      if (typeof x === 'number' && typeof y === 'number') return x - y;
+      return String(x).localeCompare(String(y), 'ru');
+    });
+    return sort.dir === 'asc' ? sorted : sorted.reverse();
+  };
+  return { sort, onSort, apply };
+}
+
+
+function EmptyState({ icon = 'inbox', title = 'Нет данных', sub, action }) {
+  return (
+    <div className="empty">
+      <Icon name={icon} strokeWidth={1.5} />
+      <div className="e-title">{title}</div>
+      {sub && <div className="e-sub">{sub}</div>}
+      {action && <div style={{ marginTop: 14 }}>{action}</div>}
+    </div>
+  );
+}
+function SkeletonRows({ rows = 6, cols = 6 }) {
+  return (
+    <tbody>
+      {Array.from({ length: rows }).map((_, i) => (
+        <tr key={i}>
+          {Array.from({ length: cols }).map((__, j) => (
+            <td key={j}><div className="sk" style={{ height: 16, width: j === 0 ? '40%' : '70%' }} /></td>
+          ))}
+        </tr>
+      ))}
+    </tbody>
+  );
+}
+
+
+
+
+
+function ActionMenu({ items, trigger }) {
+  const [open, setOpen] = useState(false);
+  const [pos, setPos] = useState(null);
+  const wrapRef = useRef(null);
+  const trigRef = useRef(null);
+  const menuRef = useRef(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const onDown = (e) => {
+      if ((wrapRef.current && wrapRef.current.contains(e.target)) || (menuRef.current && menuRef.current.contains(e.target))) return;
+      setOpen(false);
+    };
+    const onKey = (e) => { if (e.key === 'Escape') setOpen(false); };
+    const dismiss = () => setOpen(false);
+    document.addEventListener('mousedown', onDown);
+    window.addEventListener('keydown', onKey);
+    window.addEventListener('resize', dismiss);
+    window.addEventListener('scroll', dismiss, true);
+    return () => {
+      document.removeEventListener('mousedown', onDown);
+      window.removeEventListener('keydown', onKey);
+      window.removeEventListener('resize', dismiss);
+      window.removeEventListener('scroll', dismiss, true);
+    };
+  }, [open]);
+
+
+
+  React.useLayoutEffect(() => {
+    if (!open || !trigRef.current || !menuRef.current) return;
+    const t = trigRef.current.getBoundingClientRect();
+    const m = menuRef.current.getBoundingClientRect();
+    const vw = window.innerWidth, vh = window.innerHeight, gap = 6, pad = 8;
+    let left = t.right - m.width;
+    if (left < pad) left = t.left;
+    left = Math.min(Math.max(pad, left), Math.max(pad, vw - m.width - pad));
+    let top = t.bottom + gap;
+    if (top + m.height > vh - pad) {
+      const above = t.top - m.height - gap;
+      top = above >= pad ? above : Math.max(pad, vh - m.height - pad);
+    }
+    setPos((p) => (p && Math.abs(p.top - top) < 0.5 && Math.abs(p.left - left) < 0.5) ? p : { top, left });
+  }, [open, items]);
+
+  return (
+    <div style={{ position: 'relative' }} ref={wrapRef}>
+      <span ref={trigRef} style={{ display: 'inline-flex' }} onClick={(e) => { e.stopPropagation(); setPos(null); setOpen((o) => !o); }}>{trigger}</span>
+      {open && ReactDOM.createPortal(
+        <div ref={menuRef} className="dropdown" style={{ position: 'fixed', top: pos ? pos.top : 0, left: pos ? pos.left : 0, right: 'auto', zIndex: 9999, visibility: pos ? 'visible' : 'hidden' }}>
+          {items.map((it, i) => it.sep
+            ? <div key={i} className="dropdown-sep" />
+            : (
+              <div key={i} className={'dropdown-item' + (it.danger ? ' danger' : '')}
+                onClick={(e) => { e.stopPropagation(); setOpen(false); it.onClick && it.onClick(); }}>
+                {it.icon && <Icon name={it.icon} />}{it.label}
+              </div>
+            ))}
+        </div>,
+        document.body
+      )}
+    </div>
+  );
+}
+
+
+
+const CAL_MONTHS = ['Январь','Февраль','Март','Апрель','Май','Июнь','Июль','Август','Сентябрь','Октябрь','Ноябрь','Декабрь'];
+const CAL_DAYS  = ['ВС','ПН','ВТ','СР','ЧТ','ПТ','СБ'];
+
+function fmtDate(d) {
+  if (!d || !(d instanceof Date) || Number.isNaN(d.getTime())) return '';
+  return `${String(d.getDate()).padStart(2,'0')}.${String(d.getMonth()+1).padStart(2,'0')}.${String(d.getFullYear()).slice(2)}`;
+}
+function sameDayEq(a, b) {
+  if (!a || !b) return false;
+  return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
+}
+
+function CalendarPicker({ mode = 'range', startVal = null, endVal = null, onConfirm, onClose, autoConfirm = false, rangeStartLabel = 'Далее' }) {
+  const now = new Date();
+  const [month, setMonth] = useState(startVal ? startVal.getMonth() : now.getMonth());
+  const [year,  setYear]  = useState(startVal ? startVal.getFullYear() : now.getFullYear());
+  const [selS,  setSelS]  = useState(startVal);
+  const [selE,  setSelE]  = useState(endVal);
+  const [hover, setHover] = useState(null);
+  const [phase, setPhase] = useState('start');
+
+  const prevMo = () => { if (month === 0) { setMonth(11); setYear(y => y - 1); } else setMonth(m => m - 1); };
+  const nextMo = () => { if (month === 11) { setMonth(0); setYear(y => y + 1); } else setMonth(m => m + 1); };
+
+
+
+
+  const cells = useMemo(() => {
+    const out = [];
+    const firstDow = new Date(year, month, 1).getDay();
+    const daysInMo = new Date(year, month + 1, 0).getDate();
+    const prevMonDays = new Date(year, month, 0).getDate();
+    for (let i = firstDow - 1; i >= 0; i--) {
+      const pm = month === 0 ? 11 : month - 1;
+      const py = month === 0 ? year - 1 : year;
+      out.push({ d: new Date(py, pm, prevMonDays - i), cur: false });
+    }
+    for (let d = 1; d <= daysInMo; d++) out.push({ d: new Date(year, month, d), cur: true });
+    let nxt = 1;
+    while (out.length < 42) {
+      const nm = month === 11 ? 0 : month + 1;
+      const ny = month === 11 ? year + 1 : year;
+      out.push({ d: new Date(ny, nm, nxt++), cur: false });
+    }
+    return out;
+  }, [year, month]);
+
+
+  const effEnd = selE || (mode === 'range' && phase === 'end' && selS && hover ? hover : null);
+  const rS = selS && effEnd ? (selS <= effEnd ? selS : effEnd) : null;
+  const rE = selS && effEnd ? (selS <= effEnd ? effEnd : selS) : null;
+
+  const handleClick = ({ d, cur }) => {
+    if (!cur) return;
+
+    if (mode === 'single') {
+      setSelS(new Date(d)); setSelE(null);
+      if (autoConfirm) onConfirm(new Date(d));
+      return;
+    }
+    if (phase === 'start' || !selS) {
+      setSelS(new Date(d)); setSelE(null); setPhase('end');
+    } else {
+      let s = selS, e = new Date(d);
+      if (e < s) { const t = s; s = e; e = t; }
+      setSelS(new Date(s)); setSelE(new Date(e)); setPhase('start');
+
+      if (autoConfirm) onConfirm(new Date(s), new Date(e));
+    }
+  };
+
+  const periodText = selS ? (selE && mode === 'range' ? `${fmtDate(selS)}-${fmtDate(selE)}` : fmtDate(selS)) : '';
+
+  const BG = 'var(--blue-soft)';
+  const SOLO = sameDayEq(rS, rE);
+
+  return (
+    <div style={{ background: '#fff', borderRadius: 20, padding: '22px 18px 16px', boxShadow: '0 16px 48px rgba(16,23,38,.22)', width: 302, userSelect: 'none' }}>
+
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
+        <button type="button" onClick={prevMo} style={{ border: 'none', background: 'none', cursor: 'pointer', color: 'var(--blue)', padding: '6px', borderRadius: 8, display: 'flex' }}>
+          <Icon name="chevLeft" style={{ width: 20, height: 20 }} />
+        </button>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, minWidth: 178 }}>
+          <select aria-label="Месяц" value={month} onChange={(e) => setMonth(Number(e.target.value))}
+            style={{ border: '1px solid var(--line)', borderRadius: 9, background: '#fff', color: 'var(--ink)', fontWeight: 700, fontSize: 14, padding: '6px 8px', cursor: 'pointer', fontFamily: 'inherit' }}>
+            {CAL_MONTHS.map((name, index) => <option key={name} value={index}>{name}</option>)}
+          </select>
+          <select aria-label="Год" value={year} onChange={(e) => setYear(Number(e.target.value))}
+            style={{ border: '1px solid var(--line)', borderRadius: 9, background: '#fff', color: 'var(--ink)', fontWeight: 800, fontSize: 14, padding: '6px 8px', cursor: 'pointer', fontFamily: 'inherit' }}>
+            {Array.from(new Set([...Array.from({ length: 101 }, (_, i) => now.getFullYear() - 80 + i), year]))
+              .sort((a, b) => a - b)
+              .map((value) => <option key={value} value={value}>{value}</option>)}
+          </select>
+        </div>
+        <button type="button" onClick={nextMo} style={{ border: 'none', background: 'none', cursor: 'pointer', color: 'var(--blue)', padding: '6px', borderRadius: 8, display: 'flex' }}>
+          <Icon name="chevRight" style={{ width: 20, height: 20 }} />
+        </button>
+      </div>
+
+
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7,1fr)', marginBottom: 2 }}>
+        {CAL_DAYS.map(d => (
+          <div key={d} style={{ textAlign: 'center', fontSize: 12, fontWeight: 700, color: 'var(--blue)', padding: '3px 0 6px' }}>{d}</div>
+        ))}
+      </div>
+
+
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7,1fr)' }}
+        onMouseLeave={() => { if (hover) setHover(null); }}>
+        {cells.map(({ d, cur }, i) => {
+          const isSt  = cur && rS && sameDayEq(d, rS);
+          const isEn  = cur && rE && sameDayEq(d, rE);
+          const inR   = cur && rS && rE && d > rS && d < rE;
+          const isSel = mode === 'single' && cur && selS && sameDayEq(d, selS);
+          const circle = isSt || isEn || isSel;
+
+          let cellBg = 'transparent';
+          if (inR)               cellBg = BG;
+          else if (isSt && !SOLO) cellBg = `linear-gradient(to right, transparent 50%, ${BG} 50%)`;
+          else if (isEn && !SOLO) cellBg = `linear-gradient(to left,  transparent 50%, ${BG} 50%)`;
+
+          return (
+            <div key={i}
+              onClick={() => handleClick({ d, cur })}
+              onMouseEnter={() => { if (cur && mode === 'range' && phase === 'end' && selS && !sameDayEq(hover, d)) setHover(new Date(d)); }}
+              style={{ height: 38, display: 'flex', alignItems: 'center', justifyContent: 'center', background: cellBg, cursor: cur ? 'pointer' : 'default' }}>
+              <div style={{
+                width: 34, height: 34, borderRadius: '50%',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                background: circle ? 'var(--blue)' : 'transparent',
+                color: circle ? '#fff' : (!cur ? 'var(--faint)' : 'var(--ink)'),
+                fontWeight: circle ? 700 : 400,
+                fontSize: 14, transition: 'background .1s',
+              }}>{d.getDate()}</div>
+            </div>
+          );
+        })}
+      </div>
+
+
+      <div style={{ textAlign: 'center', fontSize: 13, color: 'var(--muted)', margin: '10px 0 14px', minHeight: 18 }}>
+        {periodText ? (mode === 'range' ? `Выбранный период: ${periodText}` : periodText) : ' '}
+      </div>
+
+
+      {(() => {
+        const rangeOnlyStart = mode === 'range' && selS && !selE;
+        const label = rangeOnlyStart ? rangeStartLabel : 'Далее';
+        return (
+          <Button variant="primary" style={{ width: '100%', marginBottom: 8 }}
+            onClick={() => { if (!selS) return; rangeOnlyStart ? onConfirm(selS, null) : onConfirm(selS, mode === 'range' ? selE : undefined); }}
+            disabled={!selS}>
+            {label}
+          </Button>
+        );
+      })()}
+      <button type="button" onClick={onClose}
+        style={{ width: '100%', border: 'none', background: 'none', color: 'var(--muted)', cursor: 'pointer', fontSize: 15, padding: '6px 0', fontFamily: 'inherit' }}>
+        Закрыть
+      </button>
+    </div>
+  );
+}
+
+
+function DateField({ label, value, onChange, placeholder = 'Выбрать дату', required, error, style, autoConfirm = true }) {
+  const [open, setOpen] = useState(false);
+  const [pos, setPos] = useState({ top: 0, left: 0 });
+  const ref = useRef(null);
+  useEffect(() => {
+    const h = (e) => {
+      if (!ref.current) return;
+
+      const portal = document.getElementById('__cal_portal__');
+      if (ref.current.contains(e.target) || (portal && portal.contains(e.target))) return;
+      setOpen(false);
+    };
+    document.addEventListener('mousedown', h);
+    return () => document.removeEventListener('mousedown', h);
+  }, []);
+  const toggle = () => {
+    if (!open && ref.current) {
+      const r = ref.current.getBoundingClientRect();
+
+
+      const calH = 460, calW = 312, vh = window.innerHeight;
+      let top = r.bottom + 6;
+      if (top + calH > vh - 8) {
+        const above = r.top - calH - 6;
+        top = above >= 8 ? above : Math.max(8, vh - calH - 8);
+      }
+      const left = Math.max(8, Math.min(r.left, window.innerWidth - calW - 8));
+      setPos({ top, left });
+    }
+    setOpen(o => !o);
+  };
+  return (
+    <div ref={ref} style={{ position: 'relative', ...style }}>
+      {label && <label className="label" style={{ display: 'block', marginBottom: 7 }}>{label}{required && <span className="req"> *</span>}</label>}
+      <div className={'input' + (error ? ' err' : '')}
+        style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 10 }}
+        onClick={toggle}>
+        <Icon name="calendar" style={{ width: 18, height: 18, color: 'var(--muted-2)', flexShrink: 0 }} />
+        <span style={{ color: value ? 'var(--ink)' : 'var(--faint)', fontSize: 15, flex: 1 }}>
+          {value ? fmtDate(value) : placeholder}
+        </span>
+      </div>
+      {error && <div className="err-text"><Icon name="alertCircle" style={{ width: 14, height: 14 }} />{error}</div>}
+      {open && ReactDOM.createPortal(
+        <div id="__cal_portal__" style={{ position: 'fixed', top: pos.top, left: pos.left, zIndex: 9999 }}>
+          <CalendarPicker mode="single" startVal={value || null} autoConfirm={autoConfirm}
+            onConfirm={(d) => { onChange(d); setOpen(false); }}
+            onClose={() => setOpen(false)} />
+        </div>,
+        document.body
+      )}
+    </div>
+  );
+}
+
+
+function DateRangeField({ label, startVal, endVal, onChange, placeholder = 'Выбрать период', style, autoConfirm = true, rangeStartLabel = 'Далее' }) {
+  const [open, setOpen] = useState(false);
+  const [pos, setPos] = useState({ top: 0, left: 0 });
+  const ref = useRef(null);
+  useEffect(() => {
+    const h = (e) => {
+      if (!ref.current) return;
+      const portal = document.getElementById('__calr_portal__');
+      if (ref.current.contains(e.target) || (portal && portal.contains(e.target))) return;
+      setOpen(false);
+    };
+    document.addEventListener('mousedown', h);
+    return () => document.removeEventListener('mousedown', h);
+  }, []);
+  const toggle = () => {
+    if (!open && ref.current) {
+      const r = ref.current.getBoundingClientRect();
+
+
+      const calH = 460, calW = 312, vh = window.innerHeight;
+      let top = r.bottom + 6;
+      if (top + calH > vh - 8) {
+        const above = r.top - calH - 6;
+        top = above >= 8 ? above : Math.max(8, vh - calH - 8);
+      }
+      const left = Math.max(8, Math.min(r.left, window.innerWidth - calW - 8));
+      setPos({ top, left });
+    }
+    setOpen(o => !o);
+  };
+  const display = startVal
+    ? (endVal ? `${fmtDate(startVal)} — ${fmtDate(endVal)}` : fmtDate(startVal))
+    : '';
+  return (
+    <div ref={ref} style={{ position: 'relative', ...style }}>
+      {label && <label className="label" style={{ display: 'block', marginBottom: 7 }}>{label}</label>}
+      <div className="input"
+        style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 10 }}
+        onClick={toggle}>
+        <Icon name="calendar" style={{ width: 18, height: 18, color: 'var(--muted-2)', flexShrink: 0 }} />
+        <span style={{ color: display ? 'var(--ink)' : 'var(--faint)', fontSize: 15, flex: 1 }}>
+          {display || placeholder}
+        </span>
+      </div>
+      {open && ReactDOM.createPortal(
+        <div id="__calr_portal__" style={{ position: 'fixed', top: pos.top, left: pos.left, zIndex: 9999 }}>
+          <CalendarPicker mode="range" startVal={startVal || null} endVal={endVal || null}
+            autoConfirm={autoConfirm} rangeStartLabel={rangeStartLabel}
+            onConfirm={(s, e) => { onChange(s, e); setOpen(false); }}
+            onClose={() => setOpen(false)} />
+        </div>,
+        document.body
+      )}
+    </div>
+  );
+}
+
+// Шаблонизированный выбор времени: только выбор из списка (часы + минуты), без произвольного ввода.
+function TimeField({ label, value, onChange, placeholder = 'чч:мм', required, error, style, minuteStep = 5 }) {
+  const [open, setOpen] = useState(false);
+  const [pos, setPos] = useState({ top: 0, left: 0 });
+  const ref = useRef(null);
+  const hourRef = useRef(null);
+  const minRef = useRef(null);
+  const m = String(value || '').match(/^(\d{1,2}):(\d{1,2})$/);
+  const hour = m ? Math.max(0, Math.min(23, parseInt(m[1], 10))) : null;
+  const minute = m ? Math.max(0, Math.min(59, parseInt(m[2], 10))) : null;
+  const pad = (n) => String(n).padStart(2, '0');
+  const hours = Array.from({ length: 24 }, (_, i) => i);
+  const minutes = Array.from({ length: Math.ceil(60 / minuteStep) }, (_, i) => i * minuteStep);
+  useEffect(() => {
+    const h = (e) => {
+      if (!ref.current) return;
+      const portal = document.getElementById('__time_portal__');
+      if (ref.current.contains(e.target) || (portal && portal.contains(e.target))) return;
+      setOpen(false);
+    };
+    document.addEventListener('mousedown', h);
+    return () => document.removeEventListener('mousedown', h);
+  }, []);
+  useEffect(() => {
+    if (!open) return;
+    const t = setTimeout(() => {
+      [hourRef.current, minRef.current].forEach((el) => {
+        if (el) { const sel = el.querySelector('[data-sel="1"]'); if (sel) sel.scrollIntoView({ block: 'center' }); }
+      });
+    }, 0);
+    return () => clearTimeout(t);
+  }, [open]);
+  const toggle = () => {
+    if (!open && ref.current) {
+      const r = ref.current.getBoundingClientRect();
+      const boxH = 280, boxW = 232, vh = window.innerHeight;
+      let top = r.bottom + 6;
+      if (top + boxH > vh - 8) { const above = r.top - boxH - 6; top = above >= 8 ? above : Math.max(8, vh - boxH - 8); }
+      setPos({ top, left: Math.max(8, Math.min(r.left, window.innerWidth - boxW - 8)) });
+    }
+    setOpen((o) => !o);
+  };
+  const emit = (h, mi) => { onChange && onChange(pad(h) + ':' + pad(mi)); };
+  const col = { flex: 1, maxHeight: 210, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 3, padding: '2px 6px' };
+  const cell = (active) => ({ padding: '7px 0', borderRadius: 8, border: 'none', cursor: 'pointer', fontSize: 14,
+    fontWeight: active ? 800 : 600, background: active ? 'var(--blue)' : 'transparent', color: active ? '#fff' : 'var(--ink)', fontFamily: 'inherit' });
+  return (
+    <div ref={ref} style={{ position: 'relative', ...style }}>
+      {label && <label className="label" style={{ display: 'block', marginBottom: 7 }}>{label}{required && <span className="req"> *</span>}</label>}
+      <div className={'input' + (error ? ' err' : '')} style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 10 }} onClick={toggle}>
+        <Icon name="clock" style={{ width: 18, height: 18, color: 'var(--muted-2)', flexShrink: 0 }} />
+        <span style={{ color: m ? 'var(--ink)' : 'var(--faint)', fontSize: 15, flex: 1 }}>{m ? pad(hour) + ':' + pad(minute) : placeholder}</span>
+        <Icon name="chevDown" style={{ width: 16, height: 16, color: 'var(--muted-2)' }} />
+      </div>
+      {error && <div className="err-text"><Icon name="alertCircle" style={{ width: 14, height: 14 }} />{error}</div>}
+      {open && ReactDOM.createPortal(
+        <div id="__time_portal__" style={{ position: 'fixed', top: pos.top, left: pos.left, zIndex: 9999 }}>
+          <div style={{ background: '#fff', borderRadius: 16, boxShadow: '0 18px 54px rgba(16,23,38,.22)', border: '1px solid var(--line)', width: 224, userSelect: 'none', overflow: 'hidden' }}>
+            <div style={{ display: 'flex', textAlign: 'center', fontSize: 11, fontWeight: 800, color: 'var(--blue)', padding: '10px 6px 4px', letterSpacing: '../../../js/.04em' }}>
+              <div style={{ flex: 1 }}>ЧАСЫ</div><div style={{ flex: 1 }}>МИНУТЫ</div>
+            </div>
+            <div style={{ display: 'flex', gap: 4, padding: '0 6px' }}>
+              <div ref={hourRef} style={col} className="scroll">
+                {hours.map((h) => <button key={h} type="button" data-sel={h === hour ? '1' : undefined} style={cell(h === hour)} onClick={() => emit(h, minute == null ? 0 : minute)}>{pad(h)}</button>)}
+              </div>
+              <div style={{ width: 1, background: 'var(--line)' }} />
+              <div ref={minRef} style={col} className="scroll">
+                {minutes.map((mi) => <button key={mi} type="button" data-sel={mi === minute ? '1' : undefined} style={cell(mi === minute)} onClick={() => emit(hour == null ? 9 : hour, mi)}>{pad(mi)}</button>)}
+              </div>
+            </div>
+            <button type="button" onClick={() => setOpen(false)} style={{ width: '100%', border: 'none', borderTop: '1px solid var(--line)', background: 'none', color: 'var(--muted)', cursor: 'pointer', fontSize: 13.5, padding: '9px 0', fontFamily: 'inherit' }}>Готово</button>
+          </div>
+        </div>,
+        document.body
+      )}
+    </div>
+  );
+}
+
+
+Object.assign(window, {
+  ToastProvider, useToast, Button, Pill, TimeLimitBadge, plural, Toggle, Checkbox, Radio,
+  Field, Input, LocationAutocomplete, Select, SearchBox, Combobox, Avatar, Modal, ModalHeader, Drawer,
+  printOverlayScope, holdOverlaysDuringPrint, isPrintGuardActive,
+  ConfirmDialog, Tabs, FilterChip, Pagination, Th, useSort,
+  EmptyState, SkeletonRows, ActionMenu,
+  fmtDate, CalendarPicker, DateField, DateRangeField, TimeField,
+});
+
+
+
+export { ToastCtx, useToast, MAX_TOASTS, TOAST_ICON, TOAST_URGENCY, ToastItem, ToastProvider, BTN_OWN_PROPS, Button, PILL_TONE, Pill, TimeLimitBadge, plural, Toggle, Checkbox, Radio, Field, Input, LocationAutocomplete, Select, SearchBox, Combobox, printOverlayScope, holdOverlaysDuringPrint, isPrintGuardActive, ClockTimePicker, WH_DAY_RANGES, WorkHoursPicker, Avatar, Modal, ModalHeader, Drawer, ConfirmDialog, Tabs, FilterChip, Pagination, Th, useSort, EmptyState, SkeletonRows, ActionMenu, CAL_MONTHS, CAL_DAYS, fmtDate, sameDayEq, CalendarPicker, DateField, DateRangeField, TimeField };

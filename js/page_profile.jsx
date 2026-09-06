@@ -1,16 +1,16 @@
 import { useEffect, useState } from 'react';
-import { Icon } from './icons';
-import { Avatar, Button, Checkbox, Drawer, Field, Input, Pill, Select, Tabs, Toggle, useToast } from './ui';
-import { UFDateField } from './forms_unified';
-import { CURRENCIES, CURRENT_USER } from './data';
-import { SVC_ACCESS_KINDS, operatorKindsLabel, operatorSla, operatorSvcAccess } from './data/access-control';
+import { Icon } from '../src/shared/icons/index';
+import { Avatar, Button, Checkbox, Drawer, Field, Input, Pill, Select, Tabs, Toggle, useToast } from '../src/shared/ui/index';
+import { UFDateField } from '../src/modules/clients/ui/UnifiedForms';
+import { CURRENCIES, CURRENT_USER } from '../src/legacy/data/index';
+import { SVC_ACCESS_KINDS, operatorKindsLabel, operatorSla, operatorSvcAccess } from '../src/legacy/data/access-control';
 import { Topbar } from './layout';
 import { RolesTab } from './page_settings';
 import { MotivationDrawer, motivationFromRules, shiftDuration, shiftFmtTime } from './page_shifts';
 import { ServiceAccessEditor } from './features/settings/service-access-editor';
-import { accountApi, aftersalesApi, ordersApi, servicesApi, usersApi, workforceApi } from './api/resources';
-import { toUiUser } from './api/adapters';
-import { useAuth } from './core/auth-context';
+import { accountApi, aftersalesApi, ordersApi, servicesApi, usersApi, workforceApi } from '../src/legacy/compatibility/resources';
+import { toUiUser } from '../src/legacy/adapters/ui-adapters';
+import { useAuth } from '../src/shared/auth/auth-context';
 import { resultsOf } from '../src/shared/api/client';
 
 

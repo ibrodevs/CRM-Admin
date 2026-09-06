@@ -1,12 +1,12 @@
 import { useState, useEffect } from 'react';
-import { Icon } from './icons';
-import { Avatar, Button, Checkbox, Combobox, Drawer, EmptyState, Field, FilterChip, Input, Pagination, Pill, Radio, SearchBox, Select, Tabs, Th, Toggle, WorkHoursPicker, useSort, useToast } from './ui';
-import { AIRLINES, AVIA_MARKUPS, CURRENCIES, ORG_TYPE, SUPPLIER_STATUS, aviaMarkupsFor } from './data';
+import { Icon } from '../src/shared/icons/index';
+import { Avatar, Button, Checkbox, Combobox, Drawer, EmptyState, Field, FilterChip, Input, Pagination, Pill, Radio, SearchBox, Select, Tabs, Th, Toggle, WorkHoursPicker, useSort, useToast } from '../src/shared/ui/index';
+import { AIRLINES, AVIA_MARKUPS, CURRENCIES, ORG_TYPE, SUPPLIER_STATUS, aviaMarkupsFor } from '../src/legacy/data/index';
 import { Topbar } from './layout';
 import { AirlineLogo } from './page_flights';
 import { PAGE_SIZE } from './page_orders';
-import { communicationsApi, documentsApi, servicesApi, suppliersApi, workspaceSettingsApi } from './api/resources';
-import { toUiSupplier } from './api/adapters';
+import { communicationsApi, documentsApi, servicesApi, suppliersApi, workspaceSettingsApi } from '../src/legacy/compatibility/resources';
+import { toUiSupplier } from '../src/legacy/adapters/ui-adapters';
 import { resultsOf } from '../src/shared/api/client';
 
 function useSupplierDocuments(s, ext) {

@@ -4,7 +4,7 @@ import test from 'node:test';
 
 const page = await readFile(new URL('../js/page_fulfillment.jsx', import.meta.url), 'utf8');
 const app = await readFile(new URL('../js/app.jsx', import.meta.url), 'utf8');
-const workspace = await readFile(new URL('../js/core/workspace-context.jsx', import.meta.url), 'utf8');
+const workspace = await readFile(new URL('../src/legacy/compatibility/workspace-provider.jsx', import.meta.url), 'utf8');
 const styles = await readFile(new URL('../app/receipt-workflow.css', import.meta.url), 'utf8');
 
 function loadPlanHelpers() {

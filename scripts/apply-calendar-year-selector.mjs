@@ -1,6 +1,6 @@
 import { readFile, writeFile } from 'node:fs/promises';
 
-const fileUrl = new URL('../js/ui.jsx', import.meta.url);
+const fileUrl = new URL('../src/shared/ui/index.jsx', import.meta.url);
 let source = await readFile(fileUrl, 'utf8');
 
 const oldHeader = `        <span style={{ fontWeight: 700, fontSize: 17, color: 'var(--ink)' }}>{CAL_MONTHS[month]}</span>`;

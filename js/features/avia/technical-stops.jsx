@@ -1,5 +1,5 @@
 import React from 'react';
-import { Icon } from '../../icons';
+import { Icon } from '../../../src/shared/icons/index';
 import { technicalStopLabel } from './technical-stops';
 
 function stopLocation(stop) {

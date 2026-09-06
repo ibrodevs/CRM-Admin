@@ -1,15 +1,15 @@
 import { useState, useEffect, useRef } from 'react';
-import { BrandMark, ChannelIcon, Icon } from './icons';
-import { ActionMenu, Avatar, Button, Drawer, EmptyState, Field, FilterChip, Input, Pill, Radio, SearchBox, Select, Th, TimeField, fmtDate, plural, useSort, useToast } from './ui';
-import { UFDateField } from './forms_unified';
-import { CURRENCIES, CURRENT_USER, KP_STATUS, KP_STATUS_FLOW, OPERATORS, ORDERS, ORDER_PARTICIPANTS, ORDER_SERVICES, ORDER_STATUS, PROPOSALS, SERVICE_KIND } from './data';
-import { SEND_CHANNELS, orderClientChannel, sendChannelMeta } from './data/access-control';
+import { BrandMark, ChannelIcon, Icon } from '../src/shared/icons/index';
+import { ActionMenu, Avatar, Button, Drawer, EmptyState, Field, FilterChip, Input, Pill, Radio, SearchBox, Select, Th, TimeField, fmtDate, plural, useSort, useToast } from '../src/shared/ui/index';
+import { UFDateField } from '../src/modules/clients/ui/UnifiedForms';
+import { CURRENCIES, CURRENT_USER, KP_STATUS, KP_STATUS_FLOW, OPERATORS, ORDERS, ORDER_PARTICIPANTS, ORDER_SERVICES, ORDER_STATUS, PROPOSALS, SERVICE_KIND } from '../src/legacy/data/index';
+import { SEND_CHANNELS, orderClientChannel, sendChannelMeta } from '../src/legacy/data/access-control';
 import { Topbar } from './layout';
 import { PAX_DEFAULT_OPTIONS } from './page_flights';
-import { PanelSub, StackPanel } from './components/shared-panels';
+import { PanelSub, StackPanel } from '../src/modules/locations/ui/SharedPanels';
 import { AddServicePanel } from './page_order_card';
-import { documentsApi, proposalsApi, servicesApi } from './api/resources';
-import { toLegacyProposal } from './api/legacy-adapters';
+import { documentsApi, proposalsApi, servicesApi } from '../src/legacy/compatibility/resources';
+import { toLegacyProposal } from '../src/legacy/adapters/legacy-adapters';
 import { resultsOf } from '../src/shared/api/client';
 import { kpBriefItems, parseKpRequest } from './kp_request_parser';
 

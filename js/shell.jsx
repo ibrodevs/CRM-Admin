@@ -1,14 +1,14 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Icon } from './icons';
-import { ActionMenu, Button, EmptyState } from './ui';
-import { AIR_SERVICES, CHAT_THREADS, CHAT_TYPE_LABEL, CLIENTS_DB, COMPANIES_DB, DOCUMENTS, ORDERS, PERMISSIONS, PROPOSALS, ROLES, SUPPLIERS } from './data';
-import { SLA_QUEUE, companyStaffStore } from './data/access-control';
+import { Icon } from '../src/shared/icons/index';
+import { ActionMenu, Button, EmptyState } from '../src/shared/ui/index';
+import { AIR_SERVICES, CHAT_THREADS, CHAT_TYPE_LABEL, CLIENTS_DB, COMPANIES_DB, DOCUMENTS, ORDERS, PERMISSIONS, PROPOSALS, ROLES, SUPPLIERS } from '../src/legacy/data/index';
+import { SLA_QUEUE, companyStaffStore } from '../src/legacy/data/access-control';
 import { NAV_ITEMS, Topbar } from './layout';
 import { NotificationsCenter } from './page_notifications';
-import { PAX_GROUPS } from './pax_unify';
+import { PAX_GROUPS } from '../src/modules/clients/ui/PassengerTools';
 import { ChatThread, chatRecipients, getThreadForOrder, threadUnread } from './page_chats';
 import { ShiftControl } from './page_shifts';
-import { workspaceApi } from './api/resources';
+import { workspaceApi } from '../src/legacy/compatibility/resources';
 
 
 

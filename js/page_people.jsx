@@ -1,16 +1,16 @@
 import { useState, useEffect } from 'react';
-import { Icon } from './icons';
-import { ActionMenu, Avatar, Button, Drawer, EmptyState, Field, FilterChip, Input, Pill, SearchBox, Select, Tabs, Th, plural, useSort, useToast } from './ui';
-import { CLIENTS_DB, CLIENT_STATUS, COMPANIES_DB, COMPANY_STATUS, ORDERS, ORDER_STATUS, SETTLEMENT_TONE, companyBalanceShort, companyFinance } from './data';
-import { UnifiedDocumentDrawer, UnifiedPersonDrawer, ufBlankPerson, ufDateIso, ufFromClient } from './forms_unified';
+import { Icon } from '../src/shared/icons/index';
+import { ActionMenu, Avatar, Button, Drawer, EmptyState, Field, FilterChip, Input, Pill, SearchBox, Select, Tabs, Th, plural, useSort, useToast } from '../src/shared/ui/index';
+import { CLIENTS_DB, CLIENT_STATUS, COMPANIES_DB, COMPANY_STATUS, ORDERS, ORDER_STATUS, SETTLEMENT_TONE, companyBalanceShort, companyFinance } from '../src/legacy/data/index';
+import { UnifiedDocumentDrawer, UnifiedPersonDrawer, ufBlankPerson, ufDateIso, ufFromClient } from '../src/modules/clients/ui/UnifiedForms';
 import { Topbar } from './layout';
-import { NewOrgDrawer } from './order_extras';
-import { PanelSub } from './components/shared-panels';
-import { PaxGroupsDrawer, PaxUnifyPanel, paxMergeAppend } from './pax_unify';
-import { TravelPolicyBlock } from './travel_policy';
+import { NewOrgDrawer } from '../src/modules/orders/ui/OrderExtras';
+import { PanelSub } from '../src/modules/locations/ui/SharedPanels';
+import { PaxGroupsDrawer, PaxUnifyPanel, paxMergeAppend } from '../src/modules/clients/ui/PassengerTools';
+import { TravelPolicyBlock } from '../src/modules/companies/ui/TravelPolicy';
 import { CompanyFinanceBlock } from './page_company_finance';
-import { communicationsApi, crmApi } from './api/resources';
-import { toUiClient, toUiCompany } from './api/adapters';
+import { communicationsApi, crmApi } from '../src/legacy/compatibility/resources';
+import { toUiClient, toUiCompany } from '../src/legacy/adapters/ui-adapters';
 import { resultsOf } from '../src/shared/api/client';
 
 

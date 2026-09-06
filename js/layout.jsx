@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
-import { BrandMark, Icon } from './icons';
-import { Avatar } from './ui';
+import { BrandMark, Icon } from '../src/shared/icons/index';
+import { Avatar } from '../src/shared/ui/index';
 
 
 

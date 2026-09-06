@@ -1,17 +1,17 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Icon } from './icons';
-import { ActionMenu, Avatar, Button, Checkbox, ConfirmDialog, DateField, DateRangeField, Drawer, EmptyState, Field, Input, Pill, Radio, SearchBox, Select, Th, fmtDate, plural, useSort, useToast } from './ui';
-import { AIRLINES, AIRPORTS, AVIA_BOOKING_CLASSES, FLIGHT_OFFERS, KP_STATUS, OPERATORS, ORDER_STATUS, ORDER_TASKS, PAX_DOC_KIND, SERVICE_KIND, SERVICE_STATUS } from './data';
-import { cardStatus } from './data/access-control';
-import { CASE_SVC_STATUS, CASE_TRIGGERS, ORDER_CHANGE_CASES, caseNow, caseProgress, createChangeCase, getChangeCase, normKind } from './data/service-cards';
-import { UnifiedDocumentDrawer, UnifiedPersonDrawer } from './forms_unified';
+import { Icon } from '../src/shared/icons/index';
+import { ActionMenu, Avatar, Button, Checkbox, ConfirmDialog, DateField, DateRangeField, Drawer, EmptyState, Field, Input, Pill, Radio, SearchBox, Select, Th, fmtDate, plural, useSort, useToast } from '../src/shared/ui/index';
+import { AIRLINES, AIRPORTS, AVIA_BOOKING_CLASSES, FLIGHT_OFFERS, KP_STATUS, OPERATORS, ORDER_STATUS, ORDER_TASKS, PAX_DOC_KIND, SERVICE_KIND, SERVICE_STATUS } from '../src/legacy/data/index';
+import { cardStatus } from '../src/legacy/data/access-control';
+import { CASE_SVC_STATUS, CASE_TRIGGERS, ORDER_CHANGE_CASES, caseNow, caseProgress, createChangeCase, getChangeCase, normKind } from '../src/legacy/data/service-cards';
+import { UnifiedDocumentDrawer, UnifiedPersonDrawer } from '../src/modules/clients/ui/UnifiedForms';
 import { Topbar } from './layout';
 import { AirlineLogo, AirportField, PAX_DEFAULT_OPTIONS, PaxClassPicker, durMin, loadLiveFlightOffers, money, paxTotal } from './page_flights';
 import { ExtrasTabs, FareSelectPanel, RUB_PER_USD, fareCabinLabel, fareTiersForClass } from './page_avia_picker';
 import { BookingWizard } from './page_booking';
-import { PassengerDrawer, PassportModal } from './order_extras';
-import { DynamicExtrasPanel, OrderResponsiblesTab } from './order_ops';
-import { CityPickPanel, StackPanel } from './components/shared-panels';
+import { PassengerDrawer, PassportModal } from '../src/modules/orders/ui/OrderExtras';
+import { DynamicExtrasPanel, OrderResponsiblesTab } from '../src/modules/orders/ui/OrderOperations';
+import { CityPickPanel, StackPanel } from '../src/modules/locations/ui/SharedPanels';
 import { KPModule } from './page_offers';
 import { DocCenter, FinanceRegistry } from './page_fulfillment';
 import { ReturnsModule } from './page_returns';
@@ -20,12 +20,12 @@ import { HotelPicker } from './page_hotel_picker';
 import {
   financeRowsTotal, financeSnapshot, normalizeCurrency, ocCurrency, ocMoney,
   opDebt, opPayable, orderFinanceCurrency, svcCalc,
-} from './features/orders/finance';
-import { communicationsApi, crmApi, documentsApi, ordersApi, proposalsApi, serviceCardsApi, servicesApi, usersApi, workspaceActionsApi } from './api/resources';
-import { toLegacyDocument, toLegacyOrderService, toLegacyParticipant } from './api/legacy-adapters';
+} from '../src/modules/orders/model/finance';
+import { communicationsApi, crmApi, documentsApi, ordersApi, proposalsApi, serviceCardsApi, servicesApi, usersApi, workspaceActionsApi } from '../src/legacy/compatibility/resources';
+import { toLegacyDocument, toLegacyOrderService, toLegacyParticipant } from '../src/legacy/adapters/legacy-adapters';
 import { resultsOf } from '../src/shared/api/client';
-import { formatIsoDateTime, orderDateOnly, participantPayloadFromUi, routePayloadFromUi } from './api/order-card';
-import { toUiOrder } from './api/adapters';
+import { formatIsoDateTime, orderDateOnly, participantPayloadFromUi, routePayloadFromUi } from '../src/modules/orders/api/order-card';
+import { toUiOrder } from '../src/legacy/adapters/ui-adapters';
 import { technicalStopCount, technicalStopLabel, technicalStopsOf } from './features/avia/technical-stops';
 import { TechnicalStopsDetails } from './features/avia/technical-stops.jsx';
 

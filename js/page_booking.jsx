@@ -1,13 +1,13 @@
 import { useState, useEffect } from 'react';
-import { Icon } from './icons';
-import { Button, Drawer, EmptyState, Pill, useToast } from './ui';
-import { SERVICE_KIND } from './data';
-import { OperationConfirmModal } from './order_ops';
-import { BackRow } from './components/back-row';
-import { ocMoney, svcCalc } from './features/orders/finance';
+import { Icon } from '../src/shared/icons/index';
+import { Button, Drawer, EmptyState, Pill, useToast } from '../src/shared/ui/index';
+import { SERVICE_KIND } from '../src/legacy/data/index';
+import { OperationConfirmModal } from '../src/modules/orders/ui/OrderOperations';
+import { BackRow } from '../src/shared/ui/BackRow';
+import { ocMoney, svcCalc } from '../src/modules/orders/model/finance';
 import { KPPreviewDoc } from './page_offers';
 import { ChatThread, getThreadForOrder } from './page_chats';
-import { bookingApi, documentsApi, ordersApi, proposalsApi } from './api/resources';
+import { bookingApi, documentsApi, ordersApi, proposalsApi } from '../src/legacy/compatibility/resources';
 import { resultsOf } from '../src/shared/api/client';
 
 

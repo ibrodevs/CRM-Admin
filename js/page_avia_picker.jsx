@@ -1,10 +1,10 @@
 import React, { useState } from 'react';
-import { Icon } from './icons';
-import { Avatar, Button, Checkbox, Field, Input, Pill, Radio, SearchBox, Select, Toggle, fmtDate, useToast } from './ui';
-import { AIRLINES, AIRPORTS, AVIA_BAGGAGE_OPTIONS, AVIA_BOOKING_CLASSES, AVIA_COMFORT_GROUPS, AVIA_COMPLEX_ROUTE, AVIA_FARE_TIERS, AVIA_FARE_TIERS_BUSINESS, AVIA_GROUPS_SEED, AVIA_INSURANCE_INCLUDES, AVIA_INSURANCE_PLANS, AVIA_MEALS, AVIA_SEATMAP, AVIA_SPECIAL_BAGGAGE, FLIGHT_OFFERS, GROUP_PAX, ORDER_PARTICIPANTS, SERVICE_KIND, aviaMarkupAmount } from './data';
+import { Icon } from '../src/shared/icons/index';
+import { Avatar, Button, Checkbox, Field, Input, Pill, Radio, SearchBox, Select, Toggle, fmtDate, useToast } from '../src/shared/ui/index';
+import { AIRLINES, AIRPORTS, AVIA_BAGGAGE_OPTIONS, AVIA_BOOKING_CLASSES, AVIA_COMFORT_GROUPS, AVIA_COMPLEX_ROUTE, AVIA_FARE_TIERS, AVIA_FARE_TIERS_BUSINESS, AVIA_GROUPS_SEED, AVIA_INSURANCE_INCLUDES, AVIA_INSURANCE_PLANS, AVIA_MEALS, AVIA_SEATMAP, AVIA_SPECIAL_BAGGAGE, FLIGHT_OFFERS, GROUP_PAX, ORDER_PARTICIPANTS, SERVICE_KIND, aviaMarkupAmount } from '../src/legacy/data/index';
 import { AirlineLogo, FlightSearch, PaxStepper } from './page_flights';
-import { StackPanel } from './components/shared-panels';
-import { ocMoney } from './features/orders/finance';
+import { StackPanel } from '../src/modules/locations/ui/SharedPanels';
+import { ocMoney } from '../src/modules/orders/model/finance';
 
 
 

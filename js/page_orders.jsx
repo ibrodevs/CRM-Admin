@@ -1,14 +1,14 @@
 import { useState, useEffect, useRef } from 'react';
 import ReactDOM from 'react-dom';
-import { Icon } from './icons';
-import { ActionMenu, Avatar, Button, Checkbox, DateField, DateRangeField, EmptyState, Field, FilterChip, Input, Pagination, Pill, Radio, SearchBox, Th, Toggle, fmtDate, useSort, useToast } from './ui';
-import { AIRPORTS, CLIENTS, CLIENTS_DB, CLIENT_STATUS, COMPANIES_DB, GROUP_PAX, ORDER_PARTICIPANTS, ORDER_SERVICES, ORDER_STATUS, REQUEST_TYPE, SERVICE_TYPE, SETTLEMENT_TONE, activeAgreement, activeContract, companyBalanceShort, companyFinance, companyStaff, feeTemplate } from './data';
-import { UnifiedDocumentDrawer, UnifiedPersonDrawer, UnifiedPersonFields, ufBlankPerson, ufToClient, ufValidatePerson } from './forms_unified';
+import { Icon } from '../src/shared/icons/index';
+import { ActionMenu, Avatar, Button, Checkbox, DateField, DateRangeField, EmptyState, Field, FilterChip, Input, Pagination, Pill, Radio, SearchBox, Th, Toggle, fmtDate, useSort, useToast } from '../src/shared/ui/index';
+import { AIRPORTS, CLIENTS, CLIENTS_DB, CLIENT_STATUS, COMPANIES_DB, GROUP_PAX, ORDER_PARTICIPANTS, ORDER_SERVICES, ORDER_STATUS, REQUEST_TYPE, SERVICE_TYPE, SETTLEMENT_TONE, activeAgreement, activeContract, companyBalanceShort, companyFinance, companyStaff, feeTemplate } from '../src/legacy/data/index';
+import { UnifiedDocumentDrawer, UnifiedPersonDrawer, UnifiedPersonFields, ufBlankPerson, ufToClient, ufValidatePerson } from '../src/modules/clients/ui/UnifiedForms';
 import { ORDER_OPS_SECTIONS, Topbar } from './layout';
 import { OrderCard, OrderEditDrawer } from './page_order_card';
-import { CityPickPanel, PanelSub, StackPanel } from './components/shared-panels';
-import { ordersApi, proposalsApi } from './api/resources';
-import { toUiOrder } from './api/adapters';
+import { CityPickPanel, PanelSub, StackPanel } from '../src/modules/locations/ui/SharedPanels';
+import { ordersApi, proposalsApi } from '../src/legacy/compatibility/resources';
+import { toUiOrder } from '../src/legacy/adapters/ui-adapters';
 
 
 

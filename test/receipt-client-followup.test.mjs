@@ -4,7 +4,7 @@ import test from 'node:test';
 
 const page = await readFile(new URL('../js/page_fulfillment.jsx', import.meta.url), 'utf8');
 const editor = await readFile(new URL('../js/features/receipts/editor.jsx', import.meta.url), 'utf8');
-const bindings = await readFile(new URL('../js/forms_unified.jsx', import.meta.url), 'utf8');
+const bindings = await readFile(new URL('../src/modules/clients/ui/UnifiedForms.jsx', import.meta.url), 'utf8');
 const app = await readFile(new URL('../js/app.jsx', import.meta.url), 'utf8');
 const resources = await readFile(new URL('../src/modules/integrations/api/jobsApi.js', import.meta.url), 'utf8');
 const styles = await readFile(new URL('../app/globals.css', import.meta.url), 'utf8');

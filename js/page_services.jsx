@@ -1,21 +1,21 @@
 import { useState, useEffect, useRef } from 'react';
-import { ChannelIcon, Icon } from './icons';
-import { ActionMenu, Button, Checkbox, DateField, DateRangeField, Drawer, EmptyState, FilterChip, Input, Pill, Radio, SearchBox, Select, Tabs, TimeLimitBadge, Toggle, fmtDate, plural, useToast } from './ui';
-import { CURRENT_USER, ORDERS, RAIL_OCCUPIED, RAIL_SERVICE_CLASSES, RAIL_WAGONS, RETURNS, SERVICE_KIND, SERVICE_STATUS, SVC_DATA } from './data';
-import { CARD_CLIENT_VISIBILITY, CARD_STATUS, CARD_STATUS_FLOW, SEND_CHANNELS, cardInternals, cardStatus, orderClientChannel, sendChannelMeta } from './data/access-control';
-import { CHAIN_STATUS, FORCE_MAJEURE_TYPES, buildCardFields, buildForceMajeureRows, cardAction, cardEmailTemplate, cardScenario, channelMode, defaultForceMajeure, enabledChannels, scenarioActions, scenarioBadge, scenariosForKind } from './data/service-cards';
-import { UnifiedPersonDrawer } from './forms_unified';
+import { ChannelIcon, Icon } from '../src/shared/icons/index';
+import { ActionMenu, Button, Checkbox, DateField, DateRangeField, Drawer, EmptyState, FilterChip, Input, Pill, Radio, SearchBox, Select, Tabs, TimeLimitBadge, Toggle, fmtDate, plural, useToast } from '../src/shared/ui/index';
+import { CURRENT_USER, ORDERS, RAIL_OCCUPIED, RAIL_SERVICE_CLASSES, RAIL_WAGONS, RETURNS, SERVICE_KIND, SERVICE_STATUS, SVC_DATA } from '../src/legacy/data/index';
+import { CARD_CLIENT_VISIBILITY, CARD_STATUS, CARD_STATUS_FLOW, SEND_CHANNELS, cardInternals, cardStatus, orderClientChannel, sendChannelMeta } from '../src/legacy/data/access-control';
+import { CHAIN_STATUS, FORCE_MAJEURE_TYPES, buildCardFields, buildForceMajeureRows, cardAction, cardEmailTemplate, cardScenario, channelMode, defaultForceMajeure, enabledChannels, scenarioActions, scenarioBadge, scenariosForKind } from '../src/legacy/data/service-cards';
+import { UnifiedPersonDrawer } from '../src/modules/clients/ui/UnifiedForms';
 import { Topbar } from './layout';
 import { DetailedSearchPanel } from './page_dashboard';
 import { DocCorrectionPanel, docCorrKind } from './page_flights';
 import { rub } from './page_avia_picker';
-import { OperationConfirmModal } from './order_ops';
-import { PanelSub, StackPanel } from './components/shared-panels';
+import { OperationConfirmModal } from '../src/modules/orders/ui/OrderOperations';
+import { PanelSub, StackPanel } from '../src/modules/locations/ui/SharedPanels';
 import { kpNow } from './page_offers';
-import { documentsApi, ordersApi, proposalsApi, serviceCardsApi, servicesApi, workspaceActionsApi } from './api/resources';
+import { documentsApi, ordersApi, proposalsApi, serviceCardsApi, servicesApi, workspaceActionsApi } from '../src/legacy/compatibility/resources';
 import { resultsOf } from '../src/shared/api/client';
-import { toLegacyOrderService } from './api/legacy-adapters';
-import { normalizeCurrency, ocMoney } from './features/orders/finance';
+import { toLegacyOrderService } from '../src/legacy/adapters/legacy-adapters';
+import { normalizeCurrency, ocMoney } from '../src/modules/orders/model/finance';
 
 
 

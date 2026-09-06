@@ -1,8 +1,8 @@
 import React, { useEffect, useMemo, useState, useRef } from 'react';
 import ReactDOM from 'react-dom';
-import { Icon } from '../../icons';
-import { Button, Checkbox, Combobox, Drawer, EmptyState, Field, Input, Pill, SearchBox, Select, TimeField, holdOverlaysDuringPrint, printOverlayScope } from '../../ui';
-import { UFDateField, UnifiedBindField } from '../../forms_unified';
+import { Icon } from '../../../src/shared/icons/index';
+import { Button, Checkbox, Combobox, Drawer, EmptyState, Field, Input, Pill, SearchBox, Select, TimeField, holdOverlaysDuringPrint, printOverlayScope } from '../../../src/shared/ui/index';
+import { UFDateField, UnifiedBindField } from '../../../src/modules/clients/ui/UnifiedForms';
 import { segmentConnectionLabel } from './layover';
 import { normalizeReceiptDisplayDate } from './date';
 import { AVIA_TAX_BY_CODE, CUSTOM_TAX_VALUE, aviaTaxName, aviaTaxOptionsFor } from './tax-catalog';

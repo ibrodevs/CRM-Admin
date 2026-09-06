@@ -6,8 +6,8 @@ const offers = await readFile(new URL('../js/page_offers.jsx', import.meta.url),
 const receipts = await readFile(new URL('../js/page_fulfillment.jsx', import.meta.url), 'utf8');
 const suppliers = await readFile(new URL('../js/page_suppliers.jsx', import.meta.url), 'utf8');
 const app = await readFile(new URL('../js/app.jsx', import.meta.url), 'utf8');
-const orderFinance = await readFile(new URL('../js/features/orders/finance.jsx', import.meta.url), 'utf8');
-const legacyAdapters = await readFile(new URL('../js/api/legacy-adapters.js', import.meta.url), 'utf8');
+const orderFinance = await readFile(new URL('../src/modules/orders/model/finance.jsx', import.meta.url), 'utf8');
+const legacyAdapters = await readFile(new URL('../src/legacy/adapters/legacy-adapters.js', import.meta.url), 'utf8');
 
 test('свободное КП открывается в редакторе и сохраняется через backend', () => {
   assert.match(offers, /function StandaloneKPEditor/);

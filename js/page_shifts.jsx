@@ -1,9 +1,9 @@
 import { useState, useEffect } from 'react';
 import ReactDOM from 'react-dom';
-import { Icon } from './icons';
-import { ActionMenu, Button, Drawer, Input, Pill, Toggle, useToast } from './ui';
-import { CURRENT_USER } from './data';
-import { workforceApi } from './api/resources';
+import { Icon } from '../src/shared/icons/index';
+import { ActionMenu, Button, Drawer, Input, Pill, Toggle, useToast } from '../src/shared/ui/index';
+import { CURRENT_USER } from '../src/legacy/data/index';
+import { workforceApi } from '../src/legacy/compatibility/resources';
 import { resultsOf } from '../src/shared/api/client';
 
 

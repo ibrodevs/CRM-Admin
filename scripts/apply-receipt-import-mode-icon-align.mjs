@@ -107,7 +107,7 @@ await patchTextFile('js/page_fulfillment.jsx', [
   },
 ]);
 
-await patchTextFile('js/api/legacy-adapters.js', [
+await patchTextFile('src/legacy/adapters/legacy-adapters.js', [
   {
     label: 'единое имя itinerary receipt из backend',
     before: `const documentKind = { itinerary_receipt: 'Маршрутная квитанция', ticket: 'Билет', voucher: 'Ваучер', insurance_policy: 'Страховой полис', invoice: 'Счёт', act: 'Акт', contract: 'Договор', passport: 'Паспорт', other: 'Прочее' };`,
@@ -115,7 +115,7 @@ await patchTextFile('js/api/legacy-adapters.js', [
   },
 ]);
 
-await patchTextFile('js/data.jsx', [
+await patchTextFile('src/legacy/data/index.jsx', [
   {
     label: 'иконка для нового имени маршрут-квитанции с legacy совместимостью',
     before: `const DOC_KIND = {\n  'Маршрутная квитанция': { icon: 'route',    color: '#2566ff' },`,

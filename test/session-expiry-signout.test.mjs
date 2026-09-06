@@ -3,10 +3,10 @@ import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 
 const client = await readFile(new URL('../src/shared/api/client.js', import.meta.url), 'utf8');
-const auth = await readFile(new URL('../js/core/auth-context.jsx', import.meta.url), 'utf8');
-const authApi = await readFile(new URL('../js/api/auth.js', import.meta.url), 'utf8');
+const auth = await readFile(new URL('../src/shared/auth/auth-context.jsx', import.meta.url), 'utf8');
+const authApi = await readFile(new URL('../src/shared/auth/auth.api.js', import.meta.url), 'utf8');
 const app = await readFile(new URL('../js/app.jsx', import.meta.url), 'utf8');
-const login = await readFile(new URL('../js/login.jsx', import.meta.url), 'utf8');
+const login = await readFile(new URL('../src/shared/auth/LoginScreen.jsx', import.meta.url), 'utf8');
 
 function loadClientHooks() {
   const start = client.indexOf('const unauthorizedHandlers = new Set();');

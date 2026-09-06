@@ -1,10 +1,10 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Icon } from './icons';
-import { aftersalesApi, documentsApi, workspaceActionsApi } from './api/resources';
-import { toLegacyReturn } from './api/legacy-adapters';
+import { Icon } from '../src/shared/icons/index';
+import { aftersalesApi, documentsApi, workspaceActionsApi } from '../src/legacy/compatibility/resources';
+import { toLegacyReturn } from '../src/legacy/adapters/legacy-adapters';
 import { resultsOf } from '../src/shared/api/client';
-import { ActionMenu, Button, Checkbox, ConfirmDialog, DateField, Drawer, EmptyState, Field, FilterChip, Input, Pill, SearchBox, Select, Th, fmtDate, useSort, useToast } from './ui';
-import { DOC_STATUS2, ORDERS, ORDER_PARTICIPANTS, ORDER_SERVICES, RETURNS, RETURN_FLOW, RETURN_STATUS, RETURN_TYPE } from './data';
+import { ActionMenu, Button, Checkbox, ConfirmDialog, DateField, Drawer, EmptyState, Field, FilterChip, Input, Pill, SearchBox, Select, Th, fmtDate, useSort, useToast } from '../src/shared/ui/index';
+import { DOC_STATUS2, ORDERS, ORDER_PARTICIPANTS, ORDER_SERVICES, RETURNS, RETURN_FLOW, RETURN_STATUS, RETURN_TYPE } from '../src/legacy/data/index';
 import { Topbar } from './layout';
 import { AirportField } from './page_flights';
 

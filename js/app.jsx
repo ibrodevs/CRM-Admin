@@ -3,12 +3,12 @@ import * as jspdf from 'jspdf';
 if (typeof window !== 'undefined') { window.html2canvas = html2canvas; window.jspdf = jspdf; }
 
 import { useState, useEffect } from 'react';
-import { Button, EmptyState, ToastProvider, useToast } from './ui';
+import { Button, EmptyState, ToastProvider, useToast } from '../src/shared/ui/index';
 import { messageForApiError } from '../src/shared/api/client';
-import { AuthProvider, useAuth } from './core/auth-context';
-import { WorkspaceProvider, useWorkspace } from './core/workspace-context';
+import { AuthProvider, useAuth } from '../src/shared/auth/auth-context';
+import { WorkspaceProvider, useWorkspace } from '../src/legacy/compatibility/workspace-provider';
 import { AppShell } from './layout';
-import { LoginScreen } from './login';
+import { LoginScreen } from '../src/shared/auth/LoginScreen';
 import { DashboardPage } from './page_dashboard';
 import { FlightsPage } from './page_flights';
 import { OrdersPage } from './page_orders';
@@ -27,8 +27,8 @@ import { TripCalendarPage } from './page_trip_calendar';
 import { ProfilePage } from './page_profile';
 import { AccountSettingsPage } from './page_account';
 import { AccessDenied, GlobalChatDrawer, GlobalTopbar, NotificationDrawer, roleCanSee } from './shell';
-import { toUiThread } from './api/adapters';
-import { workspaceSettingsApi } from './api/resources';
+import { toUiThread } from '../src/legacy/adapters/ui-adapters';
+import { workspaceSettingsApi } from '../src/legacy/compatibility/resources';
 
 const NOTIF_PRIORITY_KIND = { 'Критический': 'err', 'Высокий': 'warn', 'Средний': 'info', 'Информационный': 'ok' };
 const ROUTE_RESOURCE = {

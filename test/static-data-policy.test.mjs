@@ -11,9 +11,9 @@ async function source(path) {
 }
 
 test('production data module clears demo business arrays unless demo mode is enabled', async () => {
-  const data = await source('js/data.jsx');
-  const avia = await source('js/data/avia.jsx');
-  const services = await source('js/data/services.jsx');
+  const data = await source('src/legacy/data/index.jsx');
+  const avia = await source('src/legacy/data/avia.jsx');
+  const services = await source('src/legacy/data/services.jsx');
   assert.match(data, /NEXT_PUBLIC_DEMO_MODE\s*===\s*'true'/);
   assert.match(data, /items\.splice\(0,\s*items\.length\)/);
   assert.match(data, /Object\.keys\(COMPANY_STAFF\)\.forEach/);
@@ -25,7 +25,7 @@ test('production data module clears demo business arrays unless demo mode is ena
 test('page-level demo seeds are disabled outside demo mode', async () => {
   const dashboard = await source('js/page_dashboard.jsx');
   const groups = await source('js/page_groups.jsx');
-  const extras = await source('js/order_extras.jsx');
+  const extras = await source('src/modules/orders/ui/OrderExtras.jsx');
   assert.match(dashboard, /SUPPLIER_STATS\.splice\(0,\s*SUPPLIER_STATS\.length\)/);
   assert.match(dashboard, /SUPPLIER_ERRORS\.splice\(0,\s*SUPPLIER_ERRORS\.length\)/);
   assert.match(groups, /GROUP_ORDERS\.splice\(0,\s*GROUP_ORDERS\.length\)/);
@@ -33,8 +33,8 @@ test('page-level demo seeds are disabled outside demo mode', async () => {
 });
 
 test('legacy current user is synced from authenticated backend user', async () => {
-  const sync = await source('js/core/backend-data-sync.js');
-  const auth = await source('js/core/auth-context.jsx');
+  const sync = await source('src/legacy/adapters/backend-data-sync.js');
+  const auth = await source('src/shared/auth/auth-context.jsx');
   assert.match(sync, /export function syncLegacyCurrentUser/);
   assert.match(sync, /Object\.assign\(CURRENT_USER/);
   assert.match(sync, /window\.CURRENT_USER = CURRENT_USER/);
@@ -42,7 +42,7 @@ test('legacy current user is synced from authenticated backend user', async () =
 });
 
 test('authenticated user adapter does not fall back to a hardcoded employee avatar', async () => {
-  const adapters = await source('js/api/adapters.js');
+  const adapters = await source('src/legacy/adapters/ui-adapters.js');
   assert.doesNotMatch(adapters, /avatar-aisuluu\.png/);
 });
 
@@ -74,8 +74,8 @@ test('client previews are not rendered as inert clickable anchors', async () => 
 });
 
 test('manual import and document drawers avoid fake generated people or parser data', async () => {
-  const extras = await source('js/order_extras.jsx');
-  const policy = await source('js/travel_policy.jsx');
+  const extras = await source('src/modules/orders/ui/OrderExtras.jsx');
+  const policy = await source('src/modules/companies/ui/TravelPolicy.jsx');
   assert.doesNotMatch(extras, /Меркель Александр/);
   assert.doesNotMatch(extras, /До окончания срока: 3 месяца/);
   assert.doesNotMatch(policy, /Импортов Импорт/);

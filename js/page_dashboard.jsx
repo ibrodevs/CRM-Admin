@@ -1,19 +1,19 @@
 import { useState, useEffect } from 'react';
-import { Icon } from './icons';
-import { ActionMenu, Avatar, Button, Checkbox, Drawer, EmptyState, FilterChip, Pill, SearchBox, plural, useToast } from './ui';
-import { CHAT_THREADS, CLIENTS, COMPANIES_DB, CURRENT_USER, NOTIFICATIONS, OPERATORS, ORDERS, ORDER_STATUS, PROPOSALS, RECENT_CHANGES, RETURNS, RETURN_STATUS, RETURN_TYPE, financeOverview } from './data';
-import { SLA_QUEUE, slaLabel, slaTone } from './data/access-control';
-import { UfOrderRow, UfPersonRow, ufOrderPickRows } from './forms_unified';
+import { Icon } from '../src/shared/icons/index';
+import { ActionMenu, Avatar, Button, Checkbox, Drawer, EmptyState, FilterChip, Pill, SearchBox, plural, useToast } from '../src/shared/ui/index';
+import { CHAT_THREADS, CLIENTS, COMPANIES_DB, CURRENT_USER, NOTIFICATIONS, OPERATORS, ORDERS, ORDER_STATUS, PROPOSALS, RECENT_CHANGES, RETURNS, RETURN_STATUS, RETURN_TYPE, financeOverview } from '../src/legacy/data/index';
+import { SLA_QUEUE, slaLabel, slaTone } from '../src/legacy/data/access-control';
+import { UfOrderRow, UfPersonRow, ufOrderPickRows } from '../src/modules/clients/ui/UnifiedForms';
 import { Topbar } from './layout';
 import { PAX_DEFAULT_OPTIONS } from './page_flights';
-import { PanelSub, StackPanel } from './components/shared-panels';
+import { PanelSub, StackPanel } from '../src/modules/locations/ui/SharedPanels';
 import { AddServicePanel } from './page_order_card';
 import { ErrorCodesDrawer } from './page_notifications';
 import { SHIFT_DEMO_OPS, SHIFT_REQUESTS_HANDLED, motivationFor, operatorEarn, shiftDate, shiftDuration, shiftFmtTime, shiftTotals } from './page_shifts';
-import { toLegacyProposal, toLegacyReturn } from './api/legacy-adapters';
+import { toLegacyProposal, toLegacyReturn } from '../src/legacy/adapters/legacy-adapters';
 import { resultsOf } from '../src/shared/api/client';
-import { communicationsApi, integrationsApi, ordersApi, proposalsApi, servicesApi } from './api/resources';
-import { toUiOrder } from './api/adapters';
+import { communicationsApi, integrationsApi, ordersApi, proposalsApi, servicesApi } from '../src/legacy/compatibility/resources';
+import { toUiOrder } from '../src/legacy/adapters/ui-adapters';
 
 
 

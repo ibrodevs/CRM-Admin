@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 
-const uiUrl = new URL('../js/ui.jsx', import.meta.url);
+const uiUrl = new URL('../src/shared/ui/index.jsx', import.meta.url);
 const apiUrl = new URL('../app/api/locations/route.js', import.meta.url);
 const cssUrl = new URL('../app/location-autocomplete.css', import.meta.url);
 const hotelUrl = new URL('../js/page_hotel_picker.jsx', import.meta.url);

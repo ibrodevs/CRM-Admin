@@ -3,7 +3,7 @@ import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 
 const page = await readFile(new URL('../js/page_fulfillment.jsx', import.meta.url), 'utf8');
-const adapters = await readFile(new URL('../js/api/legacy-adapters.js', import.meta.url), 'utf8');
+const adapters = await readFile(new URL('../src/legacy/adapters/legacy-adapters.js', import.meta.url), 'utf8');
 
 test('существующие квитанции показывают серверные черновики в отдельном списке', () => {
   assert.match(adapters, /isReceiptDraft: receiptImport\.stage === 'draft'/);

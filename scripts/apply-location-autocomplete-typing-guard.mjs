@@ -1,6 +1,6 @@
 import { readFile, writeFile } from 'node:fs/promises';
 
-const uiUrl = new URL('../js/ui.jsx', import.meta.url);
+const uiUrl = new URL('../src/shared/ui/index.jsx', import.meta.url);
 let source = await readFile(uiUrl, 'utf8');
 
 if (!source.includes('function LocationAutocomplete(props)')) {

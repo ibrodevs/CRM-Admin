@@ -1,9 +1,9 @@
 import { useState } from 'react';
-import { Icon } from './icons';
-import { Avatar, Button, Drawer, Field, Input, Pill, Select, Tabs, SearchBox, TimeField, useToast } from './ui';
-import { UFDateField, UnifiedBindPicker } from './forms_unified';
-import { CURRENT_USER } from './data';
-import { trSameDay } from './data/trips';
+import { Icon } from '../src/shared/icons/index';
+import { Avatar, Button, Drawer, Field, Input, Pill, Select, Tabs, SearchBox, TimeField, useToast } from '../src/shared/ui/index';
+import { UFDateField, UnifiedBindPicker } from '../src/modules/clients/ui/UnifiedForms';
+import { CURRENT_USER } from '../src/legacy/data/index';
+import { trSameDay } from '../src/legacy/data/trips';
 import { FinRow } from './page_finance';
 
 

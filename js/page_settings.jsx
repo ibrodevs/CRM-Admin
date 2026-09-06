@@ -1,16 +1,16 @@
 import React, { useState, useEffect } from 'react';
-import { Icon } from './icons';
-import { ActionMenu, Avatar, Button, Checkbox, ConfirmDialog, Drawer, Field, Input, ModalHeader, Pill, Select, Tabs, Toggle, useToast } from './ui';
-import { CURRENCIES, ORG_TYPE, USER_STATUS } from './data';
-import { operatorSla } from './data/access-control';
+import { Icon } from '../src/shared/icons/index';
+import { ActionMenu, Avatar, Button, Checkbox, ConfirmDialog, Drawer, Field, Input, ModalHeader, Pill, Select, Tabs, Toggle, useToast } from '../src/shared/ui/index';
+import { CURRENCIES, ORG_TYPE, USER_STATUS } from '../src/legacy/data/index';
+import { operatorSla } from '../src/legacy/data/access-control';
 import { Topbar } from './layout';
-import { ExtrasCatalogModal } from './order_ops';
+import { ExtrasCatalogModal } from '../src/modules/orders/ui/OrderOperations';
 import { ErrorCodesDrawer } from './page_notifications';
 import { MotivationDrawer } from './page_shifts';
 import { ServiceCardAdminDrawer } from './page_card_admin';
 import { ServiceAccessEditor } from './features/settings/service-access-editor';
-import { notificationsApi, usersApi, workspaceActionsApi, workspaceSettingsApi } from './api/resources';
-import { toLegacyUser } from './api/legacy-adapters';
+import { notificationsApi, usersApi, workspaceActionsApi, workspaceSettingsApi } from '../src/legacy/compatibility/resources';
+import { toLegacyUser } from '../src/legacy/adapters/legacy-adapters';
 
 const ROLE_LABEL = { admin: 'Админ', operator: 'Оператор', accountant: 'Бухгалтер', manager: 'Менеджер' };
 const PERMISSION_GROUPS = [

@@ -35,7 +35,7 @@ await patchTextFile(
 );
 
 await patchTextFile(
-  new URL('../js/forms_unified.jsx', import.meta.url),
+  new URL('../src/modules/clients/ui/UnifiedForms.jsx', import.meta.url),
   [
     {
       label: 'одна стрелка поля привязки',
@@ -48,7 +48,7 @@ await patchTextFile(
 );
 
 await patchTextFile(
-  new URL('../js/api/legacy-adapters.js', import.meta.url),
+  new URL('../src/legacy/adapters/legacy-adapters.js', import.meta.url),
   [
     {
       label: 'признак серверного черновика квитанции',

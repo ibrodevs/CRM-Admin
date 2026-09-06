@@ -1,0 +1,18 @@
+import { apiPath, apiRequest } from '../api/client';
+
+export const authApi = {
+  session: (signal) => apiRequest('/api/session', { signal, handlesUnauthorized: true }),
+  login: (login, password) => apiRequest('/api/session/login', {
+    method: 'POST', body: { login, password }, idempotent: false, handlesUnauthorized: true,
+  }),
+  verifyTwoFactor: (challengeToken, code) => apiRequest('/api/session/2fa', {
+    method: 'POST', body: { challenge_token: challengeToken, code }, idempotent: false, handlesUnauthorized: true,
+  }),
+  logout: () => apiRequest('/api/session', { method: 'DELETE', idempotent: false, handlesUnauthorized: true }),
+  requestPasswordReset: (email) => apiRequest('/api/session/password-reset', {
+    method: 'POST', body: { email }, idempotent: false,
+  }),
+  requestDemoAccess: (body) => apiRequest(apiPath('public/demo-access/'), {
+    method: 'POST', body, idempotent: false,
+  }),
+};

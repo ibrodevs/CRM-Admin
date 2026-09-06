@@ -1,10 +1,10 @@
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import test from 'node:test';
-import { toLegacyDocument } from '../js/api/legacy-adapters.js';
+import { toLegacyDocument } from '../src/legacy/adapters/legacy-adapters.js';
 
 const editor = await readFile(new URL('../js/features/receipts/editor.jsx', import.meta.url), 'utf8');
-const ui = await readFile(new URL('../js/ui.jsx', import.meta.url), 'utf8');
+const ui = await readFile(new URL('../src/shared/ui/index.jsx', import.meta.url), 'utf8');
 const styles = await readFile(new URL('../app/globals.css', import.meta.url), 'utf8');
 const page = await readFile(new URL('../js/page_fulfillment.jsx', import.meta.url), 'utf8');
 
@@ -141,7 +141,7 @@ test('закрытие изменённого редактора предупр�
 });
 
 test('диалог сохранения черновика использует стабильные контейнеры иконок', async () => {
-  const ui = await readFile(new URL('../js/ui.jsx', import.meta.url), 'utf8');
+  const ui = await readFile(new URL('../src/shared/ui/index.jsx', import.meta.url), 'utf8');
   const styles = await readFile(new URL('../app/receipt-ui-fixes.css', import.meta.url), 'utf8');
   assert.match(ui, /className="confirm-dialog-drawer"/);
   assert.match(styles, /\.confirm-dialog-drawer \.modal-close/);

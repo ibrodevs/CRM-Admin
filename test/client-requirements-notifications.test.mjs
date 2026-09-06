@@ -2,10 +2,10 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 
-import { toUiNotification } from '../js/api/adapters.js';
+import { toUiNotification } from '../src/legacy/adapters/ui-adapters.js';
 
 const page = await readFile(new URL('../js/page_notifications.jsx', import.meta.url), 'utf8');
-const ui = await readFile(new URL('../js/ui.jsx', import.meta.url), 'utf8');
+const ui = await readFile(new URL('../src/shared/ui/index.jsx', import.meta.url), 'utf8');
 const styles = await readFile(new URL('../app/globals.css', import.meta.url), 'utf8');
 
 test('backend-уведомление сохраняет точное время, ответственного и переход', () => {

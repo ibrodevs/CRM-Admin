@@ -158,7 +158,7 @@ const financeChanged = await patchFile(
 );
 
 const resourcesChanged = await patchFile(
-  new URL('../js/api/resources.js', import.meta.url),
+  new URL('../src/legacy/compatibility/resources.js', import.meta.url),
   [
     [
       "  removeCompanyDepartment: (companyId, departmentId) => remove(`companies/${companyId}/departments/${departmentId}/`),\n};",

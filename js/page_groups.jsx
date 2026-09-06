@@ -1,13 +1,13 @@
 import { useEffect, useState } from 'react';
-import { Icon } from './icons';
-import { Button, Drawer, Field, FilterChip, Input, Modal, ModalHeader, Pill, Select, Tabs, useToast } from './ui';
-import { SERVICE_KIND } from './data';
+import { Icon } from '../src/shared/icons/index';
+import { Button, Drawer, Field, FilterChip, Input, Modal, ModalHeader, Pill, Select, Tabs, useToast } from '../src/shared/ui/index';
+import { SERVICE_KIND } from '../src/legacy/data/index';
 import { Topbar } from './layout';
-import { PanelSub } from './components/shared-panels';
-import { UFDateField } from './forms_unified';
+import { PanelSub } from '../src/modules/locations/ui/SharedPanels';
+import { UFDateField } from '../src/modules/clients/ui/UnifiedForms';
 import { OrderCreateModal } from './page_orders';
 import { FinRow, StatTile, WarnBanner, f$ } from './page_finance';
-import { groupsApi, workspaceActionsApi } from './api/resources';
+import { groupsApi, workspaceActionsApi } from '../src/legacy/compatibility/resources';
 import { resultsOf } from '../src/shared/api/client';
 
 

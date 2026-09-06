@@ -1,12 +1,12 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
-import { Icon } from './icons';
-import { Button, Drawer, EmptyState, Field, FilterChip, Input, Pill, SearchBox, Select, Tabs, useToast } from './ui';
-import { SERVICE_KIND } from './data';
-import { UFDateField } from './forms_unified';
+import { Icon } from '../src/shared/icons/index';
+import { Button, Drawer, EmptyState, Field, FilterChip, Input, Pill, SearchBox, Select, Tabs, useToast } from '../src/shared/ui/index';
+import { SERVICE_KIND } from '../src/legacy/data/index';
+import { UFDateField } from '../src/modules/clients/ui/UnifiedForms';
 import { Topbar } from './layout';
-import { financeApi } from './api/resources';
+import { financeApi } from '../src/legacy/compatibility/resources';
 import { resultsOf } from '../src/shared/api/client';
-import { f$, FIN_ACCT_GROUPS, FIN_PAY_STATUS } from './data/finance';
+import { f$, FIN_ACCT_GROUPS, FIN_PAY_STATUS } from '../src/legacy/data/finance';
 
 const financeDate = (value) => {
   if (!value) return '—';

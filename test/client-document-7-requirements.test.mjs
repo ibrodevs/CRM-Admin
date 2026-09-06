@@ -7,8 +7,8 @@ const fulfillment = await readFile(new URL('../js/page_fulfillment.jsx', import.
 const orders = await readFile(new URL('../js/page_orders.jsx', import.meta.url), 'utf8');
 const app = await readFile(new URL('../js/app.jsx', import.meta.url), 'utf8');
 const styles = await readFile(new URL('../app/globals.css', import.meta.url), 'utf8');
-const adapters = await readFile(new URL('../js/api/legacy-adapters.js', import.meta.url), 'utf8');
-const data = await readFile(new URL('../js/data.jsx', import.meta.url), 'utf8');
+const adapters = await readFile(new URL('../src/legacy/adapters/legacy-adapters.js', import.meta.url), 'utf8');
+const data = await readFile(new URL('../src/legacy/data/index.jsx', import.meta.url), 'utf8');
 
 test('print and PDF export target only the selected receipt drawer', () => {
   assert.match(editor, /closest\('\.drawer-overlay'\)/);

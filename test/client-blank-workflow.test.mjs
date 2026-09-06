@@ -4,7 +4,7 @@ import test from 'node:test';
 
 const fulfillment = await readFile(new URL('../js/page_fulfillment.jsx', import.meta.url), 'utf8');
 const editor = await readFile(new URL('../js/features/receipts/editor.jsx', import.meta.url), 'utf8');
-const ui = await readFile(new URL('../js/ui.jsx', import.meta.url), 'utf8');
+const ui = await readFile(new URL('../src/shared/ui/index.jsx', import.meta.url), 'utf8');
 const flights = await readFile(new URL('../js/page_flights.jsx', import.meta.url), 'utf8');
 const styles = await readFile(new URL('../app/receipt-workflow.css', import.meta.url), 'utf8');
 const layout = await readFile(new URL('../app/layout.jsx', import.meta.url), 'utf8');
