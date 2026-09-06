@@ -48,15 +48,7 @@ export { groupsApi } from '../../src/modules/orders/api.js';
 
 export { financeApi } from '../../src/modules/finance/api.js';
 
-export const calendarApi = {
-  feed: workspaceApi.calendar,
-  events: (params = {}, signal) => list('calendar/events/', { page_size: 100, ...params }, signal),
-  createEvent: (body) => create('calendar/events/', body),
-  complete: (id, body = {}) => create(`calendar/events/${id}/complete/`, body),
-  reschedule: (id, body) => create(`calendar/events/${id}/reschedule/`, body),
-  trips: (params = {}, signal) => list('trips/', { page_size: 100, ...params }, signal),
-  conflicts: (id, signal) => get(`trips/${id}/conflicts/`, signal),
-};
+export { calendarApi } from '../../src/modules/calendar/api.js';
 
 export const servicesApi = {
   list: (params = {}, signal) => list('services/', { page_size: 100, ...params }, signal),
