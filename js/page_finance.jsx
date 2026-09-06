@@ -5,7 +5,7 @@ import { SERVICE_KIND } from './data';
 import { UFDateField } from './forms_unified';
 import { Topbar } from './layout';
 import { financeApi } from './api/resources';
-import { resultsOf } from './api/client';
+import { resultsOf } from '../src/shared/api/client';
 import { f$, FIN_ACCT_GROUPS, FIN_PAY_STATUS } from './data/finance';
 
 const financeDate = (value) => {

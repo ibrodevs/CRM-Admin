@@ -1,4 +1,4 @@
-import { apiPath, apiRequest, queryString } from './client';
+import { apiPath, apiRequest, queryString } from '../../src/shared/api/client';
 
 const get = (path, signal) => apiRequest(apiPath(path), { signal });
 const post = (path, body = {}) => apiRequest(apiPath(path), { method: 'POST', body });

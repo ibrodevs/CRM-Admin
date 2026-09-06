@@ -4,7 +4,7 @@ if (typeof window !== 'undefined') { window.html2canvas = html2canvas; window.js
 
 import { useState, useEffect } from 'react';
 import { Button, EmptyState, ToastProvider, useToast } from './ui';
-import { messageForApiError } from './api/client';
+import { messageForApiError } from '../src/shared/api/client';
 import { AuthProvider, useAuth } from './core/auth-context';
 import { WorkspaceProvider, useWorkspace } from './core/workspace-context';
 import { AppShell } from './layout';

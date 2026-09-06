@@ -23,7 +23,7 @@ import {
 } from './features/orders/finance';
 import { communicationsApi, crmApi, documentsApi, ordersApi, proposalsApi, serviceCardsApi, servicesApi, usersApi, workspaceActionsApi } from './api/resources';
 import { toLegacyDocument, toLegacyOrderService, toLegacyParticipant } from './api/legacy-adapters';
-import { resultsOf } from './api/client';
+import { resultsOf } from '../src/shared/api/client';
 import { formatIsoDateTime, orderDateOnly, participantPayloadFromUi, routePayloadFromUi } from './api/order-card';
 import { toUiOrder } from './api/adapters';
 import { technicalStopCount, technicalStopLabel, technicalStopsOf } from './features/avia/technical-stops';

@@ -1,6 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 
-import { resourceStatusFromError, resultsOf } from '../api/client';
+import { resourceStatusFromError, resultsOf } from '../../src/shared/api/client';
 import { toUiClient, toUiCompany, toUiNotification, toUiOrder, toUiSupplier, toUiThread } from '../api/adapters';
 import { toLegacyDocument, toLegacyOrderService, toLegacyProposal, toLegacyReturn, toLegacyUser } from '../api/legacy-adapters';
 import { communicationsApi, crmApi, integrationsApi, notificationsApi, ordersApi, servicesApi, suppliersApi, workforceApi, workspaceApi } from '../api/resources';

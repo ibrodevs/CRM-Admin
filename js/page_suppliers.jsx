@@ -7,7 +7,7 @@ import { AirlineLogo } from './page_flights';
 import { PAGE_SIZE } from './page_orders';
 import { communicationsApi, documentsApi, servicesApi, suppliersApi, workspaceSettingsApi } from './api/resources';
 import { toUiSupplier } from './api/adapters';
-import { resultsOf } from './api/client';
+import { resultsOf } from '../src/shared/api/client';
 
 function useSupplierDocuments(s, ext) {
   const [, refresh] = useState(0);

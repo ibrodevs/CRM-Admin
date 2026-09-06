@@ -11,7 +11,7 @@ import { ServiceAccessEditor } from './features/settings/service-access-editor';
 import { accountApi, aftersalesApi, ordersApi, servicesApi, usersApi, workforceApi } from './api/resources';
 import { toUiUser } from './api/adapters';
 import { useAuth } from './core/auth-context';
-import { resultsOf } from './api/client';
+import { resultsOf } from '../src/shared/api/client';
 
 
 

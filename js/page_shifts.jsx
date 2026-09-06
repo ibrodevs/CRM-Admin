@@ -4,7 +4,7 @@ import { Icon } from './icons';
 import { ActionMenu, Button, Drawer, Input, Pill, Toggle, useToast } from './ui';
 import { CURRENT_USER } from './data';
 import { workforceApi } from './api/resources';
-import { resultsOf } from './api/client';
+import { resultsOf } from '../src/shared/api/client';
 
 
 

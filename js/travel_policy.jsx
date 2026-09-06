@@ -3,7 +3,7 @@ import { Icon } from './icons';
 import { Avatar, Button, Checkbox, Drawer, Input, Pill, Select, Toggle, useToast } from './ui';
 import { TP_AIRLINES, TP_BOARD, TP_CAR_CLASSES, TP_CLASSES_AVIA, TP_COMPLIANCE, TP_CURRENCIES, TP_EMPLOYEES, TP_HOTEL_CATEGORIES, TP_HOTEL_CHAINS, TP_RAIL_CLASSES, TP_RAIL_TYPES, TP_SCOPES, defaultTravelPolicy } from './data/access-control';
 import { CollapseSection } from './order_extras';
-import { resultsOf } from './api/client';
+import { resultsOf } from '../src/shared/api/client';
 import { crmApi, travelPolicyApi } from './api/resources';
 
 

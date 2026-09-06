@@ -1,4 +1,4 @@
-import { apiPath, apiRequest } from './client';
+import { apiPath, apiRequest } from '../../src/shared/api/client';
 
 export const authApi = {
   session: (signal) => apiRequest('/api/session', { signal, handlesUnauthorized: true }),

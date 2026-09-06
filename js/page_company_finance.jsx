@@ -3,7 +3,7 @@ import { Icon } from './icons';
 import { Button, DateField, Drawer, Field, Input, Pill, Select, Tabs, useToast } from './ui';
 import { CURRENT_USER, FEE_DESC_DEFAULTS, FEE_SCHEMA, FEE_SERVICE_TYPES, FEE_TEMPLATES, SERVICE_DESC_DEFAULTS, SETTLEMENT_TYPES, creditAvailable, depositAvailable, descsFromDefaults, feeDescOf, feeDescsFromDefaults, feeTemplate, feesFromTemplate } from './data';
 import { crmApi, financeApi, workspaceSettingsApi } from './api/resources';
-import { resultsOf } from './api/client';
+import { resultsOf } from '../src/shared/api/client';
 
 
 

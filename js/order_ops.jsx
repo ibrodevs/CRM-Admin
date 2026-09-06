@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { Icon } from './icons';
 import { ActionMenu, Avatar, Button, Drawer, EmptyState, Field, Input, Modal, ModalHeader, Pill, Select, useToast } from './ui';
 import { servicesApi } from './api/resources';
-import { resultsOf } from './api/client';
+import { resultsOf } from '../src/shared/api/client';
 
 const SERVICE_TONE = {
   'Авиа': 'blue', 'ЖД': 'teal', 'Гостиница': 'amber', 'Трансфер': 'purple',

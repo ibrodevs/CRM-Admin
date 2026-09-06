@@ -8,7 +8,7 @@ import { OperationConfirmModal } from './order_ops';
 import { PanelSub, StackPanel } from './components/shared-panels';
 import { SvcAddPaxDrawer, SvcDocUploadDrawer } from './page_services';
 import { aftersalesApi, crmApi, documentsApi, ordersApi, proposalsApi, servicesApi, workspaceActionsApi } from './api/resources';
-import { resultsOf } from './api/client';
+import { resultsOf } from '../src/shared/api/client';
 import { ServiceBlanksPanel } from './page_fulfillment';
 import { technicalStopCount, technicalStopLabel, technicalStopsOf } from './features/avia/technical-stops';
 import { TechnicalStopsDetails } from './features/avia/technical-stops.jsx';

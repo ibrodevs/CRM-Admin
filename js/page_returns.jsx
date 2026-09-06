@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Icon } from './icons';
 import { aftersalesApi, documentsApi, workspaceActionsApi } from './api/resources';
 import { toLegacyReturn } from './api/legacy-adapters';
-import { resultsOf } from './api/client';
+import { resultsOf } from '../src/shared/api/client';
 import { ActionMenu, Button, Checkbox, ConfirmDialog, DateField, Drawer, EmptyState, Field, FilterChip, Input, Pill, SearchBox, Select, Th, fmtDate, useSort, useToast } from './ui';
 import { DOC_STATUS2, ORDERS, ORDER_PARTICIPANTS, ORDER_SERVICES, RETURNS, RETURN_FLOW, RETURN_STATUS, RETURN_TYPE } from './data';
 import { Topbar } from './layout';

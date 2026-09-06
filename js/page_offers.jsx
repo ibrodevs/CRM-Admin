@@ -10,7 +10,7 @@ import { PanelSub, StackPanel } from './components/shared-panels';
 import { AddServicePanel } from './page_order_card';
 import { documentsApi, proposalsApi, servicesApi } from './api/resources';
 import { toLegacyProposal } from './api/legacy-adapters';
-import { resultsOf } from './api/client';
+import { resultsOf } from '../src/shared/api/client';
 import { kpBriefItems, parseKpRequest } from './kp_request_parser';
 
 

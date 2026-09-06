@@ -6,7 +6,7 @@ import { Topbar } from './layout';
 import { StackPanel } from './components/shared-panels';
 import { UnifiedBindPicker } from './forms_unified';
 import { servicesApi } from './api/resources';
-import { resultsOf } from './api/client';
+import { resultsOf } from '../src/shared/api/client';
 
 
 

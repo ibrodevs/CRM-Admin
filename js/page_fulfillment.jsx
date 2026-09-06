@@ -8,7 +8,7 @@ import { Topbar } from './layout';
 import { toLegacyDocument } from './api/legacy-adapters';
 import { toUiOrder } from './api/adapters';
 import { crmApi, documentsApi, financeApi, jobsApi, ordersApi, workspaceActionsApi } from './api/resources';
-import { resultsOf } from './api/client';
+import { resultsOf } from '../src/shared/api/client';
 import {
   ReceiptBrandDocumentDrawer,
   ReceiptDocumentPreview,

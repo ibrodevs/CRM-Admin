@@ -1,7 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 
 import { authApi } from '../api/auth';
-import { onUnauthorized } from '../api/client';
+import { onUnauthorized } from '../../src/shared/api/client';
 import { toUiUser } from '../api/adapters';
 import { syncLegacyCurrentUser } from './backend-data-sync';
 

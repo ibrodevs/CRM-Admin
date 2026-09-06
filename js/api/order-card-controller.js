@@ -1,4 +1,4 @@
-import { resultsOf } from './client';
+import { resultsOf } from '../../src/shared/api/client';
 import { toLegacyOrderService, toLegacyParticipant } from './legacy-adapters';
 import { orderCardApi, participantPayloadFromUi, routePayloadFromUi } from './order-card';
 

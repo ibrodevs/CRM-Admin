@@ -11,7 +11,7 @@ import { TravelPolicyBlock } from './travel_policy';
 import { CompanyFinanceBlock } from './page_company_finance';
 import { communicationsApi, crmApi } from './api/resources';
 import { toUiClient, toUiCompany } from './api/adapters';
-import { resultsOf } from './api/client';
+import { resultsOf } from '../src/shared/api/client';
 
 
 

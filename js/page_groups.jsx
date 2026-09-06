@@ -8,7 +8,7 @@ import { UFDateField } from './forms_unified';
 import { OrderCreateModal } from './page_orders';
 import { FinRow, StatTile, WarnBanner, f$ } from './page_finance';
 import { groupsApi, workspaceActionsApi } from './api/resources';
-import { resultsOf } from './api/client';
+import { resultsOf } from '../src/shared/api/client';
 
 
 

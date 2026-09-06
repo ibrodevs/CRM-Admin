@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 
 const pageUrl = new URL('../js/page_fulfillment.jsx', import.meta.url);
-const apiClientUrl = new URL('../js/api/client.js', import.meta.url);
+const apiClientUrl = new URL('../src/shared/api/client.js', import.meta.url);
 
 async function loadGuessType() {
   const source = await readFile(pageUrl, 'utf8');

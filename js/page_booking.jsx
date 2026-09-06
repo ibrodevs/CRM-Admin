@@ -8,7 +8,7 @@ import { ocMoney, svcCalc } from './features/orders/finance';
 import { KPPreviewDoc } from './page_offers';
 import { ChatThread, getThreadForOrder } from './page_chats';
 import { bookingApi, documentsApi, ordersApi, proposalsApi } from './api/resources';
-import { resultsOf } from './api/client';
+import { resultsOf } from '../src/shared/api/client';
 
 
 

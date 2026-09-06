@@ -11,7 +11,7 @@ import { AddServicePanel } from './page_order_card';
 import { ErrorCodesDrawer } from './page_notifications';
 import { SHIFT_DEMO_OPS, SHIFT_REQUESTS_HANDLED, motivationFor, operatorEarn, shiftDate, shiftDuration, shiftFmtTime, shiftTotals } from './page_shifts';
 import { toLegacyProposal, toLegacyReturn } from './api/legacy-adapters';
-import { resultsOf } from './api/client';
+import { resultsOf } from '../src/shared/api/client';
 import { communicationsApi, integrationsApi, ordersApi, proposalsApi, servicesApi } from './api/resources';
 import { toUiOrder } from './api/adapters';
 

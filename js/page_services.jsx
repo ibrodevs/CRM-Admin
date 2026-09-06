@@ -13,7 +13,7 @@ import { OperationConfirmModal } from './order_ops';
 import { PanelSub, StackPanel } from './components/shared-panels';
 import { kpNow } from './page_offers';
 import { documentsApi, ordersApi, proposalsApi, serviceCardsApi, servicesApi, workspaceActionsApi } from './api/resources';
-import { resultsOf } from './api/client';
+import { resultsOf } from '../src/shared/api/client';
 import { toLegacyOrderService } from './api/legacy-adapters';
 import { normalizeCurrency, ocMoney } from './features/orders/finance';
 
