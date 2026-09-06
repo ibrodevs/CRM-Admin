@@ -1,17 +1,17 @@
 import { useEffect, useState } from 'react';
-import { Icon } from '../src/shared/icons/index';
-import { Avatar, Button, Checkbox, Drawer, Field, Input, Pill, Select, Tabs, Toggle, useToast } from '../src/shared/ui/index';
-import { UFDateField } from '../src/modules/clients/ui/UnifiedForms';
-import { CURRENCIES, CURRENT_USER } from '../src/legacy/data/index';
-import { SVC_ACCESS_KINDS, operatorKindsLabel, operatorSla, operatorSvcAccess } from '../src/legacy/data/access-control';
-import { Topbar } from './layout';
-import { RolesTab } from '../src/modules/settings/ui/SettingsPage';
-import { MotivationDrawer, motivationFromRules, shiftDuration, shiftFmtTime } from '../src/modules/workforce/ui/ShiftControl';
-import { ServiceAccessEditor } from '../src/modules/settings/ui/ServiceAccessEditor';
-import { accountApi, aftersalesApi, ordersApi, servicesApi, usersApi, workforceApi } from '../src/legacy/compatibility/resources';
-import { toUiUser } from '../src/legacy/adapters/ui-adapters';
-import { useAuth } from '../src/shared/auth/auth-context';
-import { resultsOf } from '../src/shared/api/client';
+import { Icon } from '../../../shared/icons/index';
+import { Avatar, Button, Checkbox, Drawer, Field, Input, Pill, Select, Tabs, Toggle, useToast } from '../../../shared/ui/index';
+import { UFDateField } from '../../clients/ui/UnifiedForms';
+import { CURRENCIES, CURRENT_USER } from '../../../legacy/data/index';
+import { SVC_ACCESS_KINDS, operatorKindsLabel, operatorSla, operatorSvcAccess } from '../../../legacy/data/access-control';
+import { Topbar } from '../../../../js/layout';
+import { RolesTab } from '../../settings/ui/SettingsPage';
+import { MotivationDrawer, motivationFromRules, shiftDuration, shiftFmtTime } from '../../workforce/ui/ShiftControl';
+import { ServiceAccessEditor } from '../../settings/ui/ServiceAccessEditor';
+import { accountApi, aftersalesApi, ordersApi, servicesApi, usersApi, workforceApi } from '../../../legacy/compatibility/resources';
+import { toUiUser } from '../../../legacy/adapters/ui-adapters';
+import { useAuth } from '../../../shared/auth/auth-context';
+import { resultsOf } from '../../../shared/api/client';
 
 
 

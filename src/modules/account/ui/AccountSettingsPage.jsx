@@ -1,4 +1,4 @@
-import { ProfilePage } from './page_profile';
+import { ProfilePage } from '../../profile/ui/ProfilePage';
 
 
 
