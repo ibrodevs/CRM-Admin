@@ -1,9 +1,9 @@
 import { useState, useEffect } from 'react';
-import { Icon } from '../src/shared/icons/index';
-import { ActionMenu, Button, Drawer, EmptyState, FilterChip, Pill, SearchBox, Tabs, Toggle, useToast } from '../src/shared/ui/index';
-import { ERR_CATEGORIES, ERR_SEVERITY, ERR_SYSTEMS, INTEGRATION_ERROR_CODES, NOTIF_PRIORITY, NOTIF_PRIO_RANK, NOTIF_SETTINGS, NOTIF_SOURCE } from '../src/legacy/data/index';
-import { Topbar } from './layout';
-import { notificationsApi } from '../src/legacy/compatibility/resources';
+import { Icon } from '../../../shared/icons/index';
+import { ActionMenu, Button, Drawer, EmptyState, FilterChip, Pill, SearchBox, Tabs, Toggle, useToast } from '../../../shared/ui/index';
+import { ERR_CATEGORIES, ERR_SEVERITY, ERR_SYSTEMS, INTEGRATION_ERROR_CODES, NOTIF_PRIORITY, NOTIF_PRIO_RANK, NOTIF_SETTINGS, NOTIF_SOURCE } from '../../../legacy/data/index';
+import { Topbar } from '../../../../js/layout';
+import { notificationsApi } from '../../../legacy/compatibility/resources';
 
 
 

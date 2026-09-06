@@ -5,7 +5,7 @@ import { CURRENCIES, ORG_TYPE, USER_STATUS } from '../src/legacy/data/index';
 import { operatorSla } from '../src/legacy/data/access-control';
 import { Topbar } from './layout';
 import { ExtrasCatalogModal } from '../src/modules/orders/ui/OrderOperations';
-import { ErrorCodesDrawer } from './page_notifications';
+import { ErrorCodesDrawer } from '../src/modules/notifications/ui/NotificationsPage';
 import { MotivationDrawer } from './page_shifts';
 import { ServiceCardAdminDrawer } from './page_card_admin';
 import { ServiceAccessEditor } from './features/settings/service-access-editor';

@@ -8,7 +8,7 @@ import { Topbar } from '../../../../js/layout';
 import { PAX_DEFAULT_OPTIONS } from '../../services/flights/FlightsPage';
 import { PanelSub, StackPanel } from '../../locations/ui/SharedPanels';
 import { AddServicePanel } from '../../orders/ui/OrderCard';
-import { ErrorCodesDrawer } from '../../../../js/page_notifications';
+import { ErrorCodesDrawer } from '../../notifications/ui/NotificationsPage';
 import { SHIFT_DEMO_OPS, SHIFT_REQUESTS_HANDLED, motivationFor, operatorEarn, shiftDate, shiftDuration, shiftFmtTime, shiftTotals } from '../../../../js/page_shifts';
 import { toLegacyProposal, toLegacyReturn } from '../../../legacy/adapters/legacy-adapters';
 import { resultsOf } from '../../../shared/api/client';

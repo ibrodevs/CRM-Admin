@@ -4,7 +4,7 @@ import { ActionMenu, Button, EmptyState } from '../src/shared/ui/index';
 import { AIR_SERVICES, CHAT_THREADS, CHAT_TYPE_LABEL, CLIENTS_DB, COMPANIES_DB, DOCUMENTS, ORDERS, PERMISSIONS, PROPOSALS, ROLES, SUPPLIERS } from '../src/legacy/data/index';
 import { SLA_QUEUE, companyStaffStore } from '../src/legacy/data/access-control';
 import { NAV_ITEMS, Topbar } from './layout';
-import { NotificationsCenter } from './page_notifications';
+import { NotificationsCenter } from '../src/modules/notifications/ui/NotificationsPage';
 import { PAX_GROUPS } from '../src/modules/clients/ui/PassengerTools';
 import { ChatThread, chatRecipients, getThreadForOrder, threadUnread } from '../src/modules/chats/ui/ChatsPage';
 import { ShiftControl } from './page_shifts';

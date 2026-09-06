@@ -4,7 +4,7 @@ import test from 'node:test';
 
 import { toUiNotification } from '../src/legacy/adapters/ui-adapters.js';
 
-const page = await readFile(new URL('../js/page_notifications.jsx', import.meta.url), 'utf8');
+const page = await readFile(new URL('../src/modules/notifications/ui/NotificationsPage.jsx', import.meta.url), 'utf8');
 const ui = await readFile(new URL('../src/shared/ui/index.jsx', import.meta.url), 'utf8');
 const styles = await readFile(new URL('../app/globals.css', import.meta.url), 'utf8');
 
