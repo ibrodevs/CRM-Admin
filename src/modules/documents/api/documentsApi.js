@@ -1,9 +1,10 @@
+import { documentListApi } from '../api.js';
 import { apiPath, apiRequest, queryString } from '../../../shared/api/client.js';
 import { list, get, create, patch, remove } from '../../../shared/api/operations.js';
-import { workspaceApi } from '../../workspace/api.js';
+
 
 export const documentsApi = {
-  list: workspaceApi.documents,
+  list: documentListApi.documents,
   create: (body) => create('documents/', body),
   upload: (file, document) => {
     const body = new FormData();

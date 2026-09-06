@@ -1,9 +1,20 @@
+import { workspaceInfoApi } from '../../modules/workspace/api.js';
+import { userListApi } from '../../modules/users/api.js';
+import { transactionListApi } from '../../modules/finance/api.js';
+import { financeOverviewApi } from '../../modules/finance/api.js';
+import { returnListApi } from '../../modules/returns/api.js';
+import { documentListApi } from '../../modules/documents/api.js';
+import { proposalListApi } from '../../modules/proposals/api.js';
+import { calendarFeedApi } from '../../modules/calendar/api.js';
+import { dashboardApi } from '../../modules/dashboard/api.js';
+import { companiesApi } from '../../modules/companies/api.js';
+import { clientsApi } from '../../modules/clients/api.js';
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 
 import { resourceStatusFromError, resultsOf } from '../../shared/api/client';
 import { toUiClient, toUiCompany, toUiNotification, toUiOrder, toUiSupplier, toUiThread } from '../adapters/ui-adapters';
 import { toLegacyDocument, toLegacyOrderService, toLegacyProposal, toLegacyReturn, toLegacyUser } from '../adapters/legacy-adapters';
-import { communicationsApi, crmApi, integrationsApi, notificationsApi, ordersApi, servicesApi, suppliersApi, workforceApi, workspaceApi } from './resources';
+import { communicationsApi, integrationsApi, notificationsApi, ordersApi, servicesApi, suppliersApi, workforceApi } from './resources';
 import { useAuth } from '../../shared/auth/auth-context';
 import { syncLegacyDataFromWorkspace } from '../adapters/backend-data-sync';
 
@@ -72,13 +83,13 @@ export function WorkspaceProvider({ children }) {
     }, {}));
     const calls = {
       orders: ordersApi.list({}, signal), suppliers: suppliersApi.list({}, signal),
-      persons: crmApi.persons({}, signal), clients: crmApi.clients({}, signal), companies: crmApi.companies({}, signal),
+      persons: clientsApi.persons({}, signal), clients: clientsApi.clients({}, signal), companies: companiesApi.companies({}, signal),
       notifications: notificationsApi.list({}, signal), chats: communicationsApi.threads({}, signal),
-      proposals: workspaceApi.proposals({}, signal), documents: workspaceApi.documents({}, signal),
-      returns: workspaceApi.returns({}, signal), orderServices: servicesApi.list({}, signal),
-      transactions: workspaceApi.transactions({}, signal),
-      users: workspaceApi.users({}, signal), calendar: workspaceApi.calendar({}, signal), dashboard: workspaceApi.dashboard({ role_scope: 'tenant' }, signal),
-      finance: workspaceApi.financeOverview(signal), meta: workspaceApi.meta(signal),
+      proposals: proposalListApi.proposals({}, signal), documents: documentListApi.documents({}, signal),
+      returns: returnListApi.returns({}, signal), orderServices: servicesApi.list({}, signal),
+      transactions: transactionListApi.transactions({}, signal),
+      users: userListApi.users({}, signal), calendar: calendarFeedApi.calendar({}, signal), dashboard: dashboardApi.dashboard({ role_scope: 'tenant' }, signal),
+      finance: financeOverviewApi.financeOverview(signal), meta: workspaceInfoApi.meta(signal),
       integrationIncidents: integrationsApi.incidents({}, signal), integrationOperations: integrationsApi.operations({}, signal),
       slaQueue: workforceApi.queue({ scope: 'team' }, signal), currentShift: workforceApi.currentShift(signal),
       motivationAccruals: workforceApi.motivationAccruals({}, signal),
@@ -211,7 +222,7 @@ export function WorkspaceProvider({ children }) {
 
   const createPersonClient = useCallback(async (draft = {}) => {
     const source = draft.source || draft;
-    const person = await crmApi.createPerson({
+    const person = await clientsApi.createPerson({
       surname: source.surname || source.last_name || String(draft.name || '').split(' ')[0] || 'Клиент',
       given_name: source.given_name || source.first_name || String(draft.name || '').split(' ').slice(1).join(' ') || 'Без имени',
       middle_name: source.middle_name || '',
@@ -221,7 +232,7 @@ export function WorkspaceProvider({ children }) {
       citizenship: source.citizenship || draft.citizenship || '',
       city: source.city || draft.city || '',
     });
-    const profile = await crmApi.createClient({
+    const profile = await clientsApi.createClient({
       person: person.id,
       client_type: draft.client_type || (draft.type === 'Корпоративный' ? 'corporate' : 'individual'),
       status: draft.status_code || 'active',
@@ -241,7 +252,7 @@ export function WorkspaceProvider({ children }) {
   }, []);
 
   const updatePerson = useCallback(async (personId, patch) => {
-    const person = await crmApi.updatePerson(personId, patch);
+    const person = await clientsApi.updatePerson(personId, patch);
     setData((current) => {
       const next = {
         ...current,
@@ -260,7 +271,7 @@ export function WorkspaceProvider({ children }) {
   }, []);
 
   const createCompany = useCallback(async (draft = {}) => {
-    const created = await crmApi.createCompany({
+    const created = await companiesApi.createCompany({
       legal_name: draft.legal_name || draft.fullName || draft.name,
       short_name: draft.short_name || draft.shortName || draft.name,
       status: draft.status_code || 'active',
@@ -277,7 +288,7 @@ export function WorkspaceProvider({ children }) {
   }, [update]);
 
   const updateCompany = useCallback(async (id, patch) => {
-    const saved = await crmApi.updateCompany(id, patch);
+    const saved = await companiesApi.updateCompany(id, patch);
     const ui = toUiCompany(saved);
     update('companies', (current) => current.map((item) => item.id === ui.id ? ui : item));
     return ui;

@@ -1,3 +1,5 @@
+import { companiesApi } from '../../companies/api.js';
+import { clientsApi } from '../api.js';
 import { useState, useEffect } from 'react';
 import { Icon } from '../../../shared/icons/index';
 import { ActionMenu, Avatar, Button, Drawer, EmptyState, Field, FilterChip, Input, Pill, SearchBox, Select, Tabs, Th, plural, useSort, useToast } from '../../../shared/ui/index';
@@ -9,7 +11,7 @@ import { PanelSub } from '../../locations/ui/SharedPanels';
 import { PaxGroupsDrawer, PaxUnifyPanel, paxMergeAppend } from './PassengerTools';
 import { TravelPolicyBlock } from '../../companies/ui/TravelPolicy';
 import { CompanyFinanceBlock } from '../../companies/ui/CompanyFinance';
-import { communicationsApi, crmApi } from '../../../legacy/compatibility/resources';
+import { communicationsApi } from '../../../legacy/compatibility/resources';
 import { toUiClient, toUiCompany } from '../../../legacy/adapters/ui-adapters';
 import { resultsOf } from '../../../shared/api/client';
 
@@ -89,7 +91,7 @@ function ClientCard({ c: c0, orders: allOrders = ORDERS, onBack, onOpenOrder, on
     setC(c0);
     setDocs(c0.documents || []);
     const controller = new AbortController();
-    crmApi.personDocuments(c0.id, controller.signal)
+    clientsApi.personDocuments(c0.id, controller.signal)
       .then((rows) => setDocs((rows || []).map((doc) => ({ ...doc, docType: doc.type, docNo: doc.number_masked || '—' }))))
       .catch((error) => { if (error.name !== 'AbortError') toast(error.message || 'Не удалось загрузить документы', 'err'); });
     return () => controller.abort();
@@ -101,7 +103,7 @@ function ClientCard({ c: c0, orders: allOrders = ORDERS, onBack, onOpenOrder, on
   const saveDocument = async (doc) => {
     if (!doc.docNo) { toast('Введите номер документа', 'err'); return; }
     try {
-      const saved = await crmApi.addPersonDocument(c.id, {
+      const saved = await clientsApi.addPersonDocument(c.id, {
         type: { 'Загранпаспорт': 'foreign_passport', 'Общегражданский паспорт': 'national_passport', 'ID-карта': 'id_card', 'Свидетельство о рождении': 'birth_certificate', 'Виза': 'visa' }[doc.docType] || 'other',
         number: doc.docNo || '',
         series: doc.series || '',
@@ -203,12 +205,12 @@ function ClientCreateModal({ open, initial, onClose, onCreated }) {
     try {
       let profile;
       if (initial) {
-        const updated = await crmApi.updatePerson(initial.id, { ...payload, version: initial.source?.version });
+        const updated = await clientsApi.updatePerson(initial.id, { ...payload, version: initial.source?.version });
         profile = toUiClient({ ...initial, id: initial.profileId, person: initial.id, person_detail: updated, created_at: initial.created_at });
       } else {
-        const created = await crmApi.createClient({ client_type: 'individual', status: 'active', person_data: payload });
+        const created = await clientsApi.createClient({ client_type: 'individual', status: 'active', person_data: payload });
         if (person.docNo) {
-          await crmApi.addPersonDocument(created.person, {
+          await clientsApi.addPersonDocument(created.person, {
             type: { 'Загранпаспорт': 'foreign_passport', 'Общегражданский паспорт': 'national_passport', 'ID-карта': 'id_card', 'Свидетельство о рождении': 'birth_certificate', 'Виза': 'visa' }[person.docType] || 'other',
             number: person.docNo, expires_at: ufDateIso(person.docExpiry) || null,
             issuing_country: payload.citizenship,
@@ -468,8 +470,8 @@ function CompanyCard({ co, orders: allOrders = ORDERS, onBack, onOpenOrder, onCr
     setStaffLoading(true);
     try {
       const [departmentPayload, employeePayload] = await Promise.all([
-        crmApi.companyDepartments(co.id, signal),
-        crmApi.companyEmployees(co.id, signal),
+        companiesApi.companyDepartments(co.id, signal),
+        companiesApi.companyEmployees(co.id, signal),
       ]);
       setStaff({
         departments: (departmentPayload || []).map(toUiDepartment),
@@ -490,9 +492,9 @@ function CompanyCard({ co, orders: allOrders = ORDERS, onBack, onOpenOrder, onCr
     const personPayload = personPayloadFromUnified(person);
     let personId = initial?.personId || initial?.person || null;
     if (personId) {
-      await crmApi.updatePerson(personId, personPayload);
+      await clientsApi.updatePerson(personId, personPayload);
     } else {
-      const createdPerson = await crmApi.createPerson(personPayload);
+      const createdPerson = await clientsApi.createPerson(personPayload);
       personId = createdPerson.id;
     }
     const employeePayload = {
@@ -502,8 +504,8 @@ function CompanyCard({ co, orders: allOrders = ORDERS, onBack, onOpenOrder, onCr
       status: 'active',
     };
     const saved = initial?.id
-      ? await crmApi.updateCompanyEmployee(co.id, initial.id, employeePayload)
-      : await crmApi.createCompanyEmployee(co.id, employeePayload);
+      ? await companiesApi.updateCompanyEmployee(co.id, initial.id, employeePayload)
+      : await companiesApi.createCompanyEmployee(co.id, employeePayload);
     const ui = toUiEmployee(saved);
     setStaff((current) => ({
       ...current,
@@ -514,7 +516,7 @@ function CompanyCard({ co, orders: allOrders = ORDERS, onBack, onOpenOrder, onCr
     return ui;
   };
   const addDepartment = async (name) => {
-    const created = await crmApi.createCompanyDepartment(co.id, { name });
+    const created = await companiesApi.createCompanyDepartment(co.id, { name });
     const ui = toUiDepartment(created);
     setStaff((current) => ({ ...current, departments: [...current.departments, ui] }));
     toast('Отдел «' + name + '» создан', 'ok');
@@ -522,7 +524,7 @@ function CompanyCard({ co, orders: allOrders = ORDERS, onBack, onOpenOrder, onCr
   };
   const removeEmployee = async (emp) => {
     try {
-      await crmApi.removeCompanyEmployee(co.id, emp.id);
+      await companiesApi.removeCompanyEmployee(co.id, emp.id);
       setStaff((current) => ({ ...current, employees: current.employees.filter((e) => e.id !== emp.id) }));
       toast('Сотрудник убран из компании', 'ok');
     } catch (error) {
@@ -551,12 +553,12 @@ function CompanyCard({ co, orders: allOrders = ORDERS, onBack, onOpenOrder, onCr
     };
     let personId = current?.personId || null;
     if (personId) {
-      await crmApi.updatePerson(personId, payload);
-      const updated = await crmApi.updateCompanyEmployee(co.id, current.id, { position: current.position || '', department: member._dept || current.dept || null, status: 'active' });
+      await clientsApi.updatePerson(personId, payload);
+      const updated = await companiesApi.updateCompanyEmployee(co.id, current.id, { position: current.position || '', department: member._dept || current.dept || null, status: 'active' });
       return toUiEmployee(updated);
     }
-    const person = await crmApi.createPerson(payload);
-    const employee = await crmApi.createCompanyEmployee(co.id, { person: person.id, department: member._dept || null, position: member.position || '', status: 'active' });
+    const person = await clientsApi.createPerson(payload);
+    const employee = await companiesApi.createCompanyEmployee(co.id, { person: person.id, department: member._dept || null, position: member.position || '', status: 'active' });
     return toUiEmployee(employee);
   };
   const applyRosterToStaff = async (roster) => {
@@ -733,7 +735,7 @@ function CompaniesPage({ initialCompanies = [], orders = [], onCompaniesChange, 
   useEffect(() => { setCompanies(initialCompanies); }, [initialCompanies]);
 
   const createCompany = async (company) => {
-    const created = await crmApi.createCompany({
+    const created = await companiesApi.createCompany({
       legal_name: company.fullName || company.name, short_name: company.shortName || '',
       type: company.type, status: { 'Действующий': 'active', 'На паузе': 'paused', 'Архив': 'archived' }[company.status] || 'active', tax_id: company.inn === '—' ? '' : company.inn,
       okpo: company.okpo === '—' ? '' : company.okpo, legal_address: company.addr === '—' ? '' : company.addr,

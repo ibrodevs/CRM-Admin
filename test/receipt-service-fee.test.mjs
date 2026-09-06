@@ -3,7 +3,7 @@ import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 
 const page = await readFile(new URL('../src/modules/receipts/ui/FulfillmentPages.jsx', import.meta.url), 'utf8');
-const resources = await readFile(new URL('../src/modules/clients/api/crmApi.js', import.meta.url), 'utf8');
+const resources = await readFile(new URL('../src/modules/finance/api/serviceFeeApi.js', import.meta.url), 'utf8');
 const styles = await readFile(new URL('../app/globals.css', import.meta.url), 'utf8');
 
 function loadConstant(name) {
@@ -192,7 +192,7 @@ test('operator always sees where the service fee came from', () => {
 
 test('the service fee is calculated by the backend, not by the import wizard', () => {
   assert.match(resources, /resolveServiceFee: \(body, signal\) => create\('service-fee\/resolve\/', body/);
-  assert.match(page, /crmApi\.resolveServiceFee\(\{[\s\S]*company: feeBindingContext\.company \|\| null,[\s\S]*order: feeBindingContext\.order \|\| null,[\s\S]*items,/);
+  assert.match(page, /serviceFeeApi\.resolveServiceFee\(\{[\s\S]*company: feeBindingContext\.company \|\| null,[\s\S]*order: feeBindingContext\.order \|\| null,[\s\S]*items,/);
   assert.match(page, /base_amount: serviceFeeBase\(row\)/);
   // База сбора — база поставщика из математики, а не итог с самим сбором.
   assert.match(page, /const serviceFeeBase = \(row\) => Math\.round\(\(Number\(getMathFrom\(math, row\.mathKey, row\.parsed\)\.tariff\)/);

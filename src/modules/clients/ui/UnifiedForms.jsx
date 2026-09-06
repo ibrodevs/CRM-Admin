@@ -1,10 +1,11 @@
+import { clientsApi } from '../api.js';
 import { useState, useEffect, useRef, useMemo } from 'react';
 import ReactDOM from 'react-dom';
 import { Icon } from '../../../shared/icons/index';
 import { Avatar, Button, Drawer, EmptyState, Field, Input, SearchBox, Select, Toggle, fmtDate, useToast } from '../../../shared/ui/index';
 import { CLIENTS, CLIENT_STATUS, ORDERS } from '../../../legacy/data/index';
 import { PanelSub } from '../../locations/ui/SharedPanels';
-import { crmApi } from '../../../legacy/compatibility/resources';
+
 const UF_DOC_TYPES = ['Загранпаспорт', 'Общегражданский паспорт', 'ID-карта', 'Свидетельство о рождении', 'Вид на жительство', 'Виза'];
 const UF_CITIZENSHIP = ['Кыргызстан', 'Казахстан', 'Россия', 'Узбекистан', 'Таджикистан', 'Туркменистан', 'Азербайджан', 'Турция', 'Германия', 'Китай', 'ОАЭ', 'Другое'];
 const UF_PAX_ROLES = ['Взрослый', 'Ребёнок', 'Младенец'];
@@ -320,7 +321,7 @@ function UnifiedPersonIntake({ mode, onMode, onApply, disabled }) {
     setBusy(true);
     setFileName(file.name);
     try {
-      const recognized = await crmApi.recognizePersonDocument(file);
+      const recognized = await clientsApi.recognizePersonDocument(file);
       setResult(recognized);
       if (recognized.status === 'manual_required') {
         toast('Документ не распознан — заполните карточку вручную', 'warn');
@@ -561,7 +562,7 @@ function UnifiedDocumentDrawer({ open, person = {}, initial, mode = 'create', on
     if (!file) { fileRef.current?.click(); return; }
     setOcrBusy(true);
     try {
-      const recognized = await crmApi.recognizePersonDocument(file);
+      const recognized = await clientsApi.recognizePersonDocument(file);
       const fields = recognized.fields || {};
       const nm = ufSplitName(person.name);
       setScanned(recognized.status !== 'manual_required');

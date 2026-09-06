@@ -1,3 +1,4 @@
+import { clientsApi } from '../../clients/api.js';
 import { useState, useEffect, useRef } from 'react';
 import { Icon } from '../../../shared/icons/index';
 import { ActionMenu, Avatar, Button, Checkbox, ConfirmDialog, DateField, DateRangeField, Drawer, EmptyState, Field, FilterChip, Input, Pill, Radio, SearchBox, Select, Tabs, Th, TimeLimitBadge, Toggle, fmtDate, plural, useSort, useToast } from '../../../shared/ui/index';
@@ -7,7 +8,7 @@ import { ExtrasTabs } from './AviaPicker';
 import { OperationConfirmModal } from '../../orders/ui/OrderOperations';
 import { PanelSub, StackPanel } from '../../locations/ui/SharedPanels';
 import { SvcAddPaxDrawer, SvcDocUploadDrawer } from '../ui/ServicesPage';
-import { aftersalesApi, crmApi, documentsApi, ordersApi, proposalsApi, servicesApi, workspaceActionsApi } from '../../../legacy/compatibility/resources';
+import { aftersalesApi, documentsApi, ordersApi, proposalsApi, servicesApi, workspaceActionsApi } from '../../../legacy/compatibility/resources';
 import { resultsOf } from '../../../shared/api/client';
 import { ServiceBlanksPanel } from '../../receipts/ui/FulfillmentPages';
 import { technicalStopCount, technicalStopLabel, technicalStopsOf } from './technical-stops';
@@ -1735,7 +1736,7 @@ function FlightCard({ svc, offer, no: noProp, hideBackRow, onBack, onFormKp, onA
     const parts = String(person.name || '').trim().split(/\s+/);
     const toIso = (value) => { const match = String(value || '').match(/^(\d{2})\.(\d{2})\.(\d{4})$/); return match ? `${match[3]}-${match[2]}-${match[1]}` : value || null; };
     try {
-      const createdPerson = await crmApi.createPerson({
+      const createdPerson = await clientsApi.createPerson({
         surname: draft.lastName || parts[0] || '', given_name: draft.firstName || parts[1] || '', middle_name: draft.middleName || parts.slice(2).join(' '),
         birth_date: toIso(draft.dob || person.dob), gender: { 'Мужской': 'male', 'Женский': 'female' }[draft.gender] || '',
         citizenship: { Кыргызстан: 'KG', Казахстан: 'KZ', Россия: 'RU', Узбекистан: 'UZ', Таджикистан: 'TJ', Турция: 'TR', Германия: 'DE', Китай: 'CN', ОАЭ: 'AE' }[draft.citizenship || person.citizenship] || '',
@@ -1743,7 +1744,7 @@ function FlightCard({ svc, offer, no: noProp, hideBackRow, onBack, onFormKp, onA
       });
       let bookingDocument = null;
       if (person.docNo && person.docNo !== '—') {
-        bookingDocument = await crmApi.addPersonDocument(createdPerson.id, {
+        bookingDocument = await clientsApi.addPersonDocument(createdPerson.id, {
           type: { 'Загранпаспорт': 'foreign_passport', 'Общегражданский паспорт': 'national_passport', 'ID-карта': 'id_card', 'Свидетельство о рождении': 'birth_certificate', Виза: 'visa' }[person.docType] || 'other',
           number: person.docNo, expires_at: toIso(draft.docExpiry), issuing_country: createdPerson.citizenship || '', nationality: createdPerson.citizenship || '',
         });

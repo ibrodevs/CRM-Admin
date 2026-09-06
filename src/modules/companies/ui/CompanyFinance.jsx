@@ -1,8 +1,9 @@
+import { companiesApi } from '../api.js';
 import { useState, useEffect } from 'react';
 import { Icon } from '../../../shared/icons/index';
 import { Button, DateField, Drawer, Field, Input, Pill, Select, Tabs, useToast } from '../../../shared/ui/index';
 import { CURRENT_USER, FEE_DESC_DEFAULTS, FEE_SCHEMA, FEE_SERVICE_TYPES, FEE_TEMPLATES, SERVICE_DESC_DEFAULTS, SETTLEMENT_TYPES, creditAvailable, depositAvailable, descsFromDefaults, feeDescOf, feeDescsFromDefaults, feeTemplate, feesFromTemplate } from '../../../legacy/data/index';
-import { crmApi, financeApi, workspaceSettingsApi } from '../../../legacy/compatibility/resources';
+import { financeApi, workspaceSettingsApi } from '../../../legacy/compatibility/resources';
 import { resultsOf } from '../../../shared/api/client';
 
 
@@ -795,7 +796,7 @@ function CompanyFinanceBlock({ co }) {
 
     const load = async () => {
       try {
-        const remote = await crmApi.companyFinancialConditions(companyId, controller.signal);
+        const remote = await companiesApi.companyFinancialConditions(companyId, controller.signal);
         const normalizedRemote = cfNormalizeFinancialConditions(remote?.value);
         if (remote?.configured && normalizedRemote) {
           if (active) setFin(normalizedRemote);
@@ -807,7 +808,7 @@ function CompanyFinanceBlock({ co }) {
         const legacyValue = cfNormalizeFinancialConditions(legacy?.value);
         if (!legacyValue) return;
         try {
-          const migrated = await crmApi.saveCompanyFinancialConditions(companyId, legacyValue);
+          const migrated = await companiesApi.saveCompanyFinancialConditions(companyId, legacyValue);
           if (active) setFin(cfNormalizeFinancialConditions(migrated?.value) || legacyValue);
         } catch (migrationError) {
           if (migrationError?.status === 404 || migrationError?.status === 405) {
@@ -838,7 +839,7 @@ function CompanyFinanceBlock({ co }) {
     const prepared = cfNormalizeFinancialConditions(next);
     if (!prepared) throw new Error('Добавьте договор и первое дополнительное соглашение');
     try {
-      const saved = await crmApi.saveCompanyFinancialConditions(companyId, prepared);
+      const saved = await companiesApi.saveCompanyFinancialConditions(companyId, prepared);
       const value = cfNormalizeFinancialConditions(saved?.value) || prepared;
       setFin(value);
       return value;

@@ -8,7 +8,7 @@ const remove = (path) => apiRequest(apiPath(path), { method: 'DELETE' });
 
 export { jobsApi } from '../../modules/integrations/api.js';
 
-export { crmApi } from '../../modules/clients/api.js';
+export { crmApi } from './crmApi.js';
 
 export { travelPolicyApi } from '../../modules/companies/api.js';
 
@@ -28,7 +28,7 @@ export { integrationsApi } from '../../modules/integrations/api.js';
 
 export { workforceApi } from '../../modules/workforce/api.js';
 
-export { workspaceApi } from '../../modules/workspace/api.js';
+export { workspaceApi } from './workspaceApi.js';
 
 export { workspaceSettingsApi } from '../../modules/settings/api.js';
 

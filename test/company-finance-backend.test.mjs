@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 
 const financeUrl = new URL('../src/modules/companies/ui/CompanyFinance.jsx', import.meta.url);
-const resourcesUrl = new URL('../src/modules/clients/api/crmApi.js', import.meta.url);
+const resourcesUrl = new URL('../src/modules/companies/api/companiesApi.js', import.meta.url);
 
 test('дата договора использует общий календарь CRM', async () => {
   const source = await readFile(financeUrl, 'utf8');
@@ -18,8 +18,8 @@ test('финансовые условия загружаются и сохран
   const source = await readFile(financeUrl, 'utf8');
   const resources = await readFile(resourcesUrl, 'utf8');
 
-  assert.match(source, /crmApi\.companyFinancialConditions\(companyId/);
-  assert.match(source, /crmApi\.saveCompanyFinancialConditions\(companyId/);
+  assert.match(source, /companiesApi\.companyFinancialConditions\(companyId/);
+  assert.match(source, /companiesApi\.saveCompanyFinancialConditions\(companyId/);
   assert.match(source, /Однократная миграция только полноценных старых условий/);
   assert.match(resources, /companies\/\$\{id\}\/financial-conditions\//);
   assert.match(resources, /method: 'PUT'/);

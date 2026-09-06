@@ -1,3 +1,4 @@
+import { serviceFeeApi } from '../../finance/api.js';
 import React, { useState, useEffect, useRef } from 'react';
 import ReactDOM from 'react-dom';
 import { Icon } from '../../../shared/icons/index';
@@ -7,7 +8,7 @@ import { UnifiedBindField, UnifiedBindPicker, UFDateField } from '../../clients/
 import { Topbar } from '../../../application/shell/AppShell';
 import { toLegacyDocument } from '../../../legacy/adapters/legacy-adapters';
 import { toUiOrder } from '../../../legacy/adapters/ui-adapters';
-import { crmApi, documentsApi, financeApi, jobsApi, ordersApi, workspaceActionsApi } from '../../../legacy/compatibility/resources';
+import { documentsApi, financeApi, jobsApi, ordersApi, workspaceActionsApi } from '../../../legacy/compatibility/resources';
 import { resultsOf } from '../../../shared/api/client';
 import {
   ReceiptBrandDocumentDrawer,
@@ -4572,7 +4573,7 @@ function ReceiptImportModal({ open, onClose, onDone, initialDraft, initialFiles 
     serviceFeeResolveRef.current = pending;
     const controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
     const timer = setTimeout(() => {
-      crmApi.resolveServiceFee({
+      serviceFeeApi.resolveServiceFee({
         company: feeBindingContext.company || null,
         order: feeBindingContext.order || null,
         items,

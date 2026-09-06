@@ -1,12 +1,14 @@
+import { transactionListApi } from '../api.js';
+import { financeOverviewApi } from '../api.js';
 import { apiPath, apiRequest, queryString } from '../../../shared/api/client.js';
 import { list, get, create, patch, remove } from '../../../shared/api/operations.js';
-import { workspaceApi } from '../../workspace/api.js';
+
 
 export const financeApi = {
-  overview: workspaceApi.financeOverview,
+  overview: financeOverviewApi.financeOverview,
   companySummary: (companyId, signal) => get(`companies/${companyId}/finance-summary/`, signal),
   accounts: (signal) => get('finance/accounts/', signal),
-  transactions: workspaceApi.transactions,
+  transactions: transactionListApi.transactions,
   obligations: (params = {}, signal) => list('finance/obligations/', { page_size: 100, ...params }, signal),
   createObligation: (body) => create('finance/obligations/', body),
   payments: (params = {}, signal) => list('finance/payments/', { page_size: 100, ...params }, signal),

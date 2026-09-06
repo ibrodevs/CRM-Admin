@@ -3,7 +3,7 @@ import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 
 const forms = await readFile(new URL('../src/modules/clients/ui/UnifiedForms.jsx', import.meta.url), 'utf8');
-const resources = await readFile(new URL('../src/modules/clients/api/crmApi.js', import.meta.url), 'utf8');
+const resources = await readFile(new URL('../src/modules/clients/api/clientsApi.js', import.meta.url), 'utf8');
 const styles = await readFile(new URL('../app/receipt-workflow.css', import.meta.url), 'utf8');
 
 function loadIntakeHelpers() {
@@ -34,7 +34,7 @@ test('document recognition is offered as an alternative at the top of the form',
 test('recognition goes to the backend and no longer fabricates a number', () => {
   assert.match(resources, /recognizePersonDocument: \(file\) => \{/);
   assert.match(resources, /person-documents\/recognize\//);
-  assert.match(forms, /await crmApi\.recognizePersonDocument\(file\)/);
+  assert.match(forms, /await clientsApi\.recognizePersonDocument\(file\)/);
   // Старый мок с random-номером паспорта убран.
   assert.doesNotMatch(forms, /'AC ' \+ \(1000000 \+ Math\.floor\(Math\.random\(\)/);
   assert.doesNotMatch(forms, /file: 'passport_scan\.jpg'/);

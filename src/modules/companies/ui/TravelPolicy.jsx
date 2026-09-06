@@ -1,10 +1,11 @@
+import { companiesApi } from '../api.js';
 import { useState, useEffect, useRef } from 'react';
 import { Icon } from '../../../shared/icons/index';
 import { Avatar, Button, Checkbox, Drawer, Input, Pill, Select, Toggle, useToast } from '../../../shared/ui/index';
 import { TP_AIRLINES, TP_BOARD, TP_CAR_CLASSES, TP_CLASSES_AVIA, TP_COMPLIANCE, TP_CURRENCIES, TP_EMPLOYEES, TP_HOTEL_CATEGORIES, TP_HOTEL_CHAINS, TP_RAIL_CLASSES, TP_RAIL_TYPES, TP_SCOPES, defaultTravelPolicy } from '../../../legacy/data/access-control';
 import { CollapseSection } from '../../orders/ui/OrderExtras';
 import { resultsOf } from '../../../shared/api/client';
-import { crmApi, travelPolicyApi } from '../../../legacy/compatibility/resources';
+import { travelPolicyApi } from '../../../legacy/compatibility/resources';
 
 
 
@@ -287,7 +288,7 @@ function DepartmentsManager({ companyId, onChanged }) {
     setLoading(true);
     try {
       const [departmentRows, employeeRows] = await Promise.all([
-        crmApi.companyDepartments(companyId), crmApi.companyEmployees(companyId),
+        companiesApi.companyDepartments(companyId), companiesApi.companyEmployees(companyId),
       ]);
       setDepts(resultsOf(departmentRows));
       setEmployees(resultsOf(employeeRows));
@@ -300,28 +301,28 @@ function DepartmentsManager({ companyId, onChanged }) {
   const addDept = async () => {
     if (!newDept.trim()) { toast('Введите название подразделения', 'info'); return; }
     try {
-      const department = await crmApi.createCompanyDepartment(companyId, { name: newDept.trim() });
+      const department = await companiesApi.createCompanyDepartment(companyId, { name: newDept.trim() });
       setDepts((current) => [...current, department]);
       setNewDept(''); toast('Подразделение создано', 'ok'); onChanged?.();
     } catch (error) { toast(error.message || 'Не удалось создать подразделение', 'err'); }
   };
   const removeDept = async (id) => {
     try {
-      await crmApi.removeCompanyDepartment(companyId, id);
+      await companiesApi.removeCompanyDepartment(companyId, id);
       setDepts((current) => current.filter((department) => department.id !== id));
       toast('Подразделение удалено', 'ok'); onChanged?.();
     } catch (error) { toast(error.message || 'Не удалось удалить подразделение', 'err'); }
   };
   const assign = async (department, employee) => {
     try {
-      const saved = await crmApi.updateCompanyEmployee(companyId, employee.id, { department: department.id });
+      const saved = await companiesApi.updateCompanyEmployee(companyId, employee.id, { department: department.id });
       setEmployees((current) => current.map((item) => item.id === saved.id ? saved : item));
       toast('Сотрудник назначен в подразделение', 'ok'); onChanged?.();
     } catch (error) { toast(error.message || 'Не удалось назначить сотрудника', 'err'); }
   };
   const unassign = async (employee) => {
     try {
-      const saved = await crmApi.updateCompanyEmployee(companyId, employee.id, { department: null });
+      const saved = await companiesApi.updateCompanyEmployee(companyId, employee.id, { department: null });
       setEmployees((current) => current.map((item) => item.id === saved.id ? saved : item));
       toast('Сотрудник выведен из подразделения', 'ok'); onChanged?.();
     } catch (error) { toast(error.message || 'Не удалось изменить сотрудника', 'err'); }
@@ -377,7 +378,7 @@ function TpImportDrawer({ open, kind, companyId, onClose, onImported }) {
     setBusy(true);
     try {
       const result = isEmp
-        ? await crmApi.importCompanyEmployees(companyId, file)
+        ? await companiesApi.importCompanyEmployees(companyId, file)
         : await travelPolicyApi.import(companyId, file);
       if (isEmp) toast(`Импорт завершён: создано ${result.created || 0}, обновлено ${result.updated || 0}`, result.errors?.length ? 'warn' : 'ok');
       else toast('Тревел-политика импортирована и сохранена в backend', 'ok');
@@ -466,7 +467,7 @@ function TravelPolicyBlock({ co }) {
     setLoading(true);
     try {
       const [policyRows, departmentRows, employeeRows] = await Promise.all([
-        travelPolicyApi.list(co.id), crmApi.companyDepartments(co.id), crmApi.companyEmployees(co.id),
+        travelPolicyApi.list(co.id), companiesApi.companyDepartments(co.id), companiesApi.companyEmployees(co.id),
       ]);
       const list = resultsOf(policyRows);
       const current = list.find((item) => item.is_active) || list[0] || null;

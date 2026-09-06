@@ -1,9 +1,10 @@
+import { returnListApi } from '../api.js';
 import { apiPath, apiRequest, queryString } from '../../../shared/api/client.js';
 import { list, get, create, patch, remove } from '../../../shared/api/operations.js';
-import { workspaceApi } from '../../workspace/api.js';
+
 
 export const aftersalesApi = {
-  list: workspaceApi.returns,
+  list: returnListApi.returns,
   create: (body) => create('after-sales/', body),
   detail: (id, signal) => get(`after-sales/${id}/`, signal),
   quote: (id, body) => create(`after-sales/${id}/quote/`, body),

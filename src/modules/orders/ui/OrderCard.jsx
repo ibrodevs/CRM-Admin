@@ -1,3 +1,4 @@
+import { clientsApi } from '../../clients/api.js';
 import React, { useState, useEffect, useRef } from 'react';
 import { Icon } from '../../../shared/icons/index';
 import { ActionMenu, Avatar, Button, Checkbox, ConfirmDialog, DateField, DateRangeField, Drawer, EmptyState, Field, Input, Pill, Radio, SearchBox, Select, Th, fmtDate, plural, useSort, useToast } from '../../../shared/ui/index';
@@ -21,7 +22,7 @@ import {
   financeRowsTotal, financeSnapshot, normalizeCurrency, ocCurrency, ocMoney,
   opDebt, opPayable, orderFinanceCurrency, svcCalc,
 } from '../model/finance';
-import { communicationsApi, crmApi, documentsApi, ordersApi, proposalsApi, serviceCardsApi, servicesApi, usersApi, workspaceActionsApi } from '../../../legacy/compatibility/resources';
+import { communicationsApi, documentsApi, ordersApi, proposalsApi, serviceCardsApi, servicesApi, usersApi, workspaceActionsApi } from '../../../legacy/compatibility/resources';
 import { toLegacyDocument, toLegacyOrderService, toLegacyParticipant } from '../../../legacy/adapters/legacy-adapters';
 import { resultsOf } from '../../../shared/api/client';
 import { formatIsoDateTime, orderDateOnly, participantPayloadFromUi, routePayloadFromUi } from '../api/order-card';
@@ -2805,7 +2806,7 @@ function OrderCard({ order, company, clients = [], onBack, initTab, initSvc, ini
     const participantId = participant.serverId || participant.id;
     if (!participantId) throw new Error('Для пассажира не найден backend ID');
     if (participant.person) {
-      await crmApi.updatePerson(participant.person, personPayloadFromUnified(person, client));
+      await clientsApi.updatePerson(participant.person, personPayloadFromUnified(person, client));
     }
     await ordersApi.updateParticipant(orderId, participantId, participantPayloadFromUi({ ...participant, ...client, ...person }));
     await refreshOrderSnapshot();
@@ -2815,7 +2816,7 @@ function OrderCard({ order, company, clients = [], onBack, initTab, initSvc, ini
     const participantId = participant.serverId || participant.id;
     if (!participantId) throw new Error('Для пассажира не найден backend ID');
     if (participant.person) {
-      const created = await crmApi.addPersonDocument(participant.person, personDocumentPayloadFromUnified(document));
+      const created = await clientsApi.addPersonDocument(participant.person, personDocumentPayloadFromUnified(document));
       await ordersApi.updateParticipant(orderId, participantId, participantPayloadFromUi({ ...participant, bookingDocument: created.id }));
       await refreshOrderSnapshot();
       return;

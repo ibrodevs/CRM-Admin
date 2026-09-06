@@ -1,9 +1,10 @@
+import { calendarFeedApi } from '../api.js';
 import { apiPath, apiRequest, queryString } from '../../../shared/api/client.js';
 import { list, get, create, patch, remove } from '../../../shared/api/operations.js';
-import { workspaceApi } from '../../workspace/api.js';
+
 
 export const calendarApi = {
-  feed: workspaceApi.calendar,
+  feed: calendarFeedApi.calendar,
   events: (params = {}, signal) => list('calendar/events/', { page_size: 100, ...params }, signal),
   createEvent: (body) => create('calendar/events/', body),
   complete: (id, body = {}) => create(`calendar/events/${id}/complete/`, body),

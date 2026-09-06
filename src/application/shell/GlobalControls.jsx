@@ -1,3 +1,4 @@
+import { workspaceInfoApi } from '../../modules/workspace/api.js';
 import React, { useState, useEffect, useRef } from 'react';
 import { Icon } from '../../shared/icons/index';
 import { ActionMenu, Button, EmptyState } from '../../shared/ui/index';
@@ -8,7 +9,7 @@ import { NotificationsCenter } from '../../modules/notifications/ui/Notification
 import { PAX_GROUPS } from '../../modules/clients/ui/PassengerTools';
 import { ChatThread, threadUnread } from '../../modules/chats/ui/ChatsPage';
 import { ShiftControl } from '../../modules/workforce/ui/ShiftControl';
-import { workspaceApi } from '../../legacy/compatibility/resources';
+
 
 
 
@@ -345,7 +346,7 @@ function GlobalSearch({ onOpenOrder, onNavigate, onOpenChat }) {
     const controller = new AbortController();
     setBackendState('loading');
     const timer = setTimeout(() => {
-      workspaceApi.globalSearch(ql, controller.signal)
+      workspaceInfoApi.globalSearch(ql, controller.signal)
         .then((payload) => {
           setBackendHits(gsSafeArray(payload?.results).map((result) => backendSearchResultToHit(result, handlersRef.current)));
           setBackendState('success');

@@ -1,9 +1,10 @@
+import { proposalListApi } from '../api.js';
 import { apiPath, apiRequest, queryString } from '../../../shared/api/client.js';
 import { list, get, create, patch, remove } from '../../../shared/api/operations.js';
-import { workspaceApi } from '../../workspace/api.js';
+
 
 export const proposalsApi = {
-  list: workspaceApi.proposals,
+  list: proposalListApi.proposals,
   create: (body) => create('proposals/', body),
   detail: (id, signal) => get(`proposals/${id}/`, signal),
   replaceDraft: (id, body) => apiRequest(apiPath(`proposals/${id}/draft/`), { method: 'PUT', body }),

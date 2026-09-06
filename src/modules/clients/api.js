@@ -1,1 +1,1 @@
-export { crmApi } from './api/crmApi.js';
+export { clientsApi } from './api/clientsApi.js';
