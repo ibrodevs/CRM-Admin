@@ -5,7 +5,7 @@ import test from 'node:test';
 const fulfillment = await readFile(new URL('../js/page_fulfillment.jsx', import.meta.url), 'utf8');
 const editor = await readFile(new URL('../js/features/receipts/editor.jsx', import.meta.url), 'utf8');
 const ui = await readFile(new URL('../src/shared/ui/index.jsx', import.meta.url), 'utf8');
-const flights = await readFile(new URL('../js/page_flights.jsx', import.meta.url), 'utf8');
+const flights = await readFile(new URL('../src/modules/services/flights/FlightsPage.jsx', import.meta.url), 'utf8');
 const styles = await readFile(new URL('../app/receipt-workflow.css', import.meta.url), 'utf8');
 const layout = await readFile(new URL('../app/layout.jsx', import.meta.url), 'utf8');
 const catalog = await import('../js/features/receipts/tax-catalog.js');
@@ -107,7 +107,7 @@ test('supplier blanks are editable and downloadable inside the order service', (
   assert.match(fulfillment, /Фирменный бланк/);
   assert.match(fulfillment, /Оригинал с корректировками/);
   assert.match(fulfillment, /Исходный файл/);
-  assert.match(flights, /import \{ ServiceBlanksPanel \} from '\.\/page_fulfillment'/);
+  assert.match(flights, /import \{ ServiceBlanksPanel \} from '[^']+'/);
   assert.match(flights, /<ServiceBlanksPanel service=\{svc\}/);
   assert.match(flights, /Бланки поставщика в редакторе/);
   assert.match(styles, /\.service-blank-card/);

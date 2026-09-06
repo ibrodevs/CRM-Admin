@@ -24,7 +24,7 @@ async function applyReplacements(fileUrl, replacements, required) {
 }
 
 const servicesChanged = await applyReplacements(
-  new URL('../js/page_services.jsx', import.meta.url),
+  new URL('../src/modules/services/ui/ServicesPage.jsx', import.meta.url),
   [
     [
       "const n = v == null ? 1 : v;",
@@ -69,7 +69,7 @@ const servicesChanged = await applyReplacements(
 );
 
 const hotelChanged = await applyReplacements(
-  new URL('../js/page_hotel_picker.jsx', import.meta.url),
+  new URL('../src/modules/services/hotels/HotelsPage.jsx', import.meta.url),
   [
     [
       "disabled={searchRooms <= 1} onClick={() => setSearchRooms((n) => Math.max(1, n - 1))}",

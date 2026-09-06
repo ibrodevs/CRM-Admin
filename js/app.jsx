@@ -10,15 +10,15 @@ import { WorkspaceProvider, useWorkspace } from '../src/legacy/compatibility/wor
 import { AppShell } from './layout';
 import { LoginScreen } from '../src/shared/auth/LoginScreen';
 import { DashboardPage } from '../src/modules/dashboard/ui/DashboardPage';
-import { FlightsPage } from './page_flights';
+import { FlightsPage } from '../src/modules/services/flights/FlightsPage';
 import { OrdersPage } from '../src/modules/orders/ui/OrdersPage';
 import { OffersPage } from './page_offers';
 import { DocCenterPage, FulfillmentPage, ReceiptEditorPage } from './page_fulfillment';
 import { FinancePage } from './page_finance';
 import { ReturnsPage } from './page_returns';
 import { NotificationsPage } from './page_notifications';
-import { ServiceFlow, ServicesHubPage } from './page_services';
-import { HotelsPage } from './page_hotel_picker';
+import { ServiceFlow, ServicesHubPage } from '../src/modules/services/ui/ServicesPage';
+import { HotelsPage } from '../src/modules/services/hotels/HotelsPage';
 import { ClientsPage, CompaniesPage } from '../src/modules/clients/ui/PeoplePages';
 import { SuppliersPage } from '../src/modules/suppliers/ui/SuppliersPage';
 import { ChatsPage, threadUnread } from './page_chats';

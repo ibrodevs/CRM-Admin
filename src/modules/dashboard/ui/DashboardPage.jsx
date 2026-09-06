@@ -5,7 +5,7 @@ import { CHAT_THREADS, CLIENTS, COMPANIES_DB, CURRENT_USER, NOTIFICATIONS, OPERA
 import { SLA_QUEUE, slaLabel, slaTone } from '../../../legacy/data/access-control';
 import { UfOrderRow, UfPersonRow, ufOrderPickRows } from '../../clients/ui/UnifiedForms';
 import { Topbar } from '../../../../js/layout';
-import { PAX_DEFAULT_OPTIONS } from '../../../../js/page_flights';
+import { PAX_DEFAULT_OPTIONS } from '../../services/flights/FlightsPage';
 import { PanelSub, StackPanel } from '../../locations/ui/SharedPanels';
 import { AddServicePanel } from '../../orders/ui/OrderCard';
 import { ErrorCodesDrawer } from '../../../../js/page_notifications';

@@ -6,7 +6,7 @@ import {
   technicalStopCount,
   technicalStopLabel,
   technicalStopsOf,
-} from '../js/features/avia/technical-stops.js';
+} from '../src/modules/services/flights/technical-stops.js';
 
 test('нормализует техническую посадку из snake_case ответа GDS', () => {
   const stop = normalizeTechnicalStop({
@@ -67,8 +67,8 @@ test('техническая посадка считается отдельно 
 
 test('боковая панель показывает детали, а live-ответ сохраняет technical_stops', async () => {
   const panel = await readFile(new URL('../src/modules/orders/ui/OrderCard.jsx', import.meta.url), 'utf8');
-  const live = await readFile(new URL('../js/page_flights.jsx', import.meta.url), 'utf8');
-  const details = await readFile(new URL('../js/features/avia/technical-stops.jsx', import.meta.url), 'utf8');
+  const live = await readFile(new URL('../src/modules/services/flights/FlightsPage.jsx', import.meta.url), 'utf8');
+  const details = await readFile(new URL('../src/modules/services/flights/TechnicalStops.jsx', import.meta.url), 'utf8');
 
   assert.match(panel, /<TechnicalStopsDetails stops=\{technicalStopsOf\(s\)\} \/>/);
   assert.match(panel, /Без пересадок ·/);

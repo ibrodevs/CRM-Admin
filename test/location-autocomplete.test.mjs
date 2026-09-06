@@ -5,8 +5,8 @@ import { readFile } from 'node:fs/promises';
 const uiUrl = new URL('../src/shared/ui/index.jsx', import.meta.url);
 const apiUrl = new URL('../app/api/locations/route.js', import.meta.url);
 const cssUrl = new URL('../app/location-autocomplete.css', import.meta.url);
-const hotelUrl = new URL('../js/page_hotel_picker.jsx', import.meta.url);
-const servicesUrl = new URL('../js/page_services.jsx', import.meta.url);
+const hotelUrl = new URL('../src/modules/services/hotels/HotelsPage.jsx', import.meta.url);
+const servicesUrl = new URL('../src/modules/services/ui/ServicesPage.jsx', import.meta.url);
 
 test('global Input enables autocomplete for city and location contexts', async () => {
   const source = await readFile(uiUrl, 'utf8');

@@ -1,12 +1,12 @@
 import { useEffect, useState } from 'react';
-import { Icon } from '../src/shared/icons/index';
-import { ActionMenu, Avatar, Button, Checkbox, DateField, EmptyState, Field, Input, Radio, SearchBox, Select, fmtDate, useToast } from '../src/shared/ui/index';
-import { HOTEL_MEALS } from '../src/legacy/data/index';
-import { Topbar } from './layout';
-import { StackPanel } from '../src/modules/locations/ui/SharedPanels';
-import { UnifiedBindPicker } from '../src/modules/clients/ui/UnifiedForms';
-import { servicesApi } from '../src/legacy/compatibility/resources';
-import { resultsOf } from '../src/shared/api/client';
+import { Icon } from '../../../shared/icons/index';
+import { ActionMenu, Avatar, Button, Checkbox, DateField, EmptyState, Field, Input, Radio, SearchBox, Select, fmtDate, useToast } from '../../../shared/ui/index';
+import { HOTEL_MEALS } from '../../../legacy/data/index';
+import { Topbar } from '../../../../js/layout';
+import { StackPanel } from '../../locations/ui/SharedPanels';
+import { UnifiedBindPicker } from '../../clients/ui/UnifiedForms';
+import { servicesApi } from '../../../legacy/compatibility/resources';
+import { resultsOf } from '../../../shared/api/client';
 
 
 

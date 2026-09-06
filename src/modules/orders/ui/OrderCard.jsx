@@ -6,8 +6,8 @@ import { cardStatus } from '../../../legacy/data/access-control';
 import { CASE_SVC_STATUS, CASE_TRIGGERS, ORDER_CHANGE_CASES, caseNow, caseProgress, createChangeCase, getChangeCase, normKind } from '../../../legacy/data/service-cards';
 import { UnifiedDocumentDrawer, UnifiedPersonDrawer } from '../../clients/ui/UnifiedForms';
 import { Topbar } from '../../../../js/layout';
-import { AirlineLogo, AirportField, PAX_DEFAULT_OPTIONS, PaxClassPicker, durMin, loadLiveFlightOffers, money, paxTotal } from '../../../../js/page_flights';
-import { ExtrasTabs, FareSelectPanel, RUB_PER_USD, fareCabinLabel, fareTiersForClass } from '../../../../js/page_avia_picker';
+import { AirlineLogo, AirportField, PAX_DEFAULT_OPTIONS, PaxClassPicker, durMin, loadLiveFlightOffers, money, paxTotal } from '../../services/flights/FlightsPage';
+import { ExtrasTabs, FareSelectPanel, RUB_PER_USD, fareCabinLabel, fareTiersForClass } from '../../services/flights/AviaPicker';
 import { BookingWizard } from './BookingWizard';
 import { PassengerDrawer, PassportModal } from './OrderExtras';
 import { DynamicExtrasPanel, OrderResponsiblesTab } from './OrderOperations';
@@ -15,8 +15,8 @@ import { CityPickPanel, StackPanel } from '../../locations/ui/SharedPanels';
 import { KPModule } from '../../../../js/page_offers';
 import { DocCenter, FinanceRegistry } from '../../../../js/page_fulfillment';
 import { ReturnsModule } from '../../../../js/page_returns';
-import { AeroAddFlow, ManualAltForm, RailAddFlow, ServiceAddFlow, ServiceCardHistoryDrawer, ServiceCardSendPanel } from '../../../../js/page_services';
-import { HotelPicker } from '../../../../js/page_hotel_picker';
+import { AeroAddFlow, ManualAltForm, RailAddFlow, ServiceAddFlow, ServiceCardHistoryDrawer, ServiceCardSendPanel } from '../../services/ui/ServicesPage';
+import { HotelPicker } from '../../services/hotels/HotelsPage';
 import {
   financeRowsTotal, financeSnapshot, normalizeCurrency, ocCurrency, ocMoney,
   opDebt, opPayable, orderFinanceCurrency, svcCalc,
@@ -26,8 +26,8 @@ import { toLegacyDocument, toLegacyOrderService, toLegacyParticipant } from '../
 import { resultsOf } from '../../../shared/api/client';
 import { formatIsoDateTime, orderDateOnly, participantPayloadFromUi, routePayloadFromUi } from '../api/order-card';
 import { toUiOrder } from '../../../legacy/adapters/ui-adapters';
-import { technicalStopCount, technicalStopLabel, technicalStopsOf } from '../../../../js/features/avia/technical-stops';
-import { TechnicalStopsDetails } from '../../../../js/features/avia/technical-stops.jsx';
+import { technicalStopCount, technicalStopLabel, technicalStopsOf } from '../../services/flights/TechnicalStops';
+import { TechnicalStopsDetails } from '../../services/flights/TechnicalStops.jsx';
 
 const ORDER_STATUS_CODE = {
   'Новое': 'new',

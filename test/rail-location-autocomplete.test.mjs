@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 
-const services = await readFile(new URL('../js/page_services.jsx', import.meta.url), 'utf8');
+const services = await readFile(new URL('../src/modules/services/ui/ServicesPage.jsx', import.meta.url), 'utf8');
 
 test('ЖД-поля Откуда и Куда явно используют автокомплит локаций', () => {
   const railBlockStart = services.indexOf('function RailAddFlow');

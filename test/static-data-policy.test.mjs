@@ -47,7 +47,7 @@ test('authenticated user adapter does not fall back to a hardcoded employee avat
 });
 
 test('flight attachment drawer does not provide demo company fallbacks', async () => {
-  const flights = await source('js/page_flights.jsx');
+  const flights = await source('src/modules/services/flights/FlightsPage.jsx');
   assert.doesNotMatch(flights, /ОсОО «Гранд лимитед»/);
   assert.doesNotMatch(flights, /ОсОО «Asia Travel»/);
   assert.doesNotMatch(flights, /ИП Мамажанов/);
@@ -68,7 +68,7 @@ test('supplier cards do not synthesize business credentials or metrics', async (
 });
 
 test('client previews are not rendered as inert clickable anchors', async () => {
-  const services = await source('js/page_services.jsx');
+  const services = await source('src/modules/services/ui/ServicesPage.jsx');
   assert.doesNotMatch(services, /href="#"/);
   assert.doesNotMatch(services, /onClick=\{\(e\) => e\.preventDefault\(\)\}/);
 });

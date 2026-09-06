@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 
-const services = await readFile(new URL('../js/page_services.jsx', import.meta.url), 'utf8');
+const services = await readFile(new URL('../src/modules/services/ui/ServicesPage.jsx', import.meta.url), 'utf8');
 const css = await readFile(new URL('../app/globals.css', import.meta.url), 'utf8');
 
 test('documents in a service card are paged instead of growing the whole order page', () => {

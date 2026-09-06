@@ -6,7 +6,7 @@ import { resultsOf } from '../src/shared/api/client';
 import { ActionMenu, Button, Checkbox, ConfirmDialog, DateField, Drawer, EmptyState, Field, FilterChip, Input, Pill, SearchBox, Select, Th, fmtDate, useSort, useToast } from '../src/shared/ui/index';
 import { DOC_STATUS2, ORDERS, ORDER_PARTICIPANTS, ORDER_SERVICES, RETURNS, RETURN_FLOW, RETURN_STATUS, RETURN_TYPE } from '../src/legacy/data/index';
 import { Topbar } from './layout';
-import { AirportField } from './page_flights';
+import { AirportField } from '../src/modules/services/flights/FlightsPage';
 
 
 

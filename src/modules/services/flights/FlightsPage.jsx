@@ -1,17 +1,17 @@
 import { useState, useEffect, useRef } from 'react';
-import { Icon } from '../src/shared/icons/index';
-import { ActionMenu, Avatar, Button, Checkbox, ConfirmDialog, DateField, DateRangeField, Drawer, EmptyState, Field, FilterChip, Input, Pill, Radio, SearchBox, Select, Tabs, Th, TimeLimitBadge, Toggle, fmtDate, plural, useSort, useToast } from '../src/shared/ui/index';
-import { AIRLINES, AIRPORTS, AIR_STATS, AIR_STATUS, CABIN_CLASSES, SPECIAL_PAX_CATEGORIES, SUBSIDIZED_PAX_PROGRAMS } from '../src/legacy/data/index';
-import { Topbar } from './layout';
-import { ExtrasTabs } from './page_avia_picker';
-import { OperationConfirmModal } from '../src/modules/orders/ui/OrderOperations';
-import { PanelSub, StackPanel } from '../src/modules/locations/ui/SharedPanels';
-import { SvcAddPaxDrawer, SvcDocUploadDrawer } from './page_services';
-import { aftersalesApi, crmApi, documentsApi, ordersApi, proposalsApi, servicesApi, workspaceActionsApi } from '../src/legacy/compatibility/resources';
-import { resultsOf } from '../src/shared/api/client';
-import { ServiceBlanksPanel } from './page_fulfillment';
-import { technicalStopCount, technicalStopLabel, technicalStopsOf } from './features/avia/technical-stops';
-import { TechnicalStopsDetails } from './features/avia/technical-stops.jsx';
+import { Icon } from '../../../shared/icons/index';
+import { ActionMenu, Avatar, Button, Checkbox, ConfirmDialog, DateField, DateRangeField, Drawer, EmptyState, Field, FilterChip, Input, Pill, Radio, SearchBox, Select, Tabs, Th, TimeLimitBadge, Toggle, fmtDate, plural, useSort, useToast } from '../../../shared/ui/index';
+import { AIRLINES, AIRPORTS, AIR_STATS, AIR_STATUS, CABIN_CLASSES, SPECIAL_PAX_CATEGORIES, SUBSIDIZED_PAX_PROGRAMS } from '../../../legacy/data/index';
+import { Topbar } from '../../../../js/layout';
+import { ExtrasTabs } from './AviaPicker';
+import { OperationConfirmModal } from '../../orders/ui/OrderOperations';
+import { PanelSub, StackPanel } from '../../locations/ui/SharedPanels';
+import { SvcAddPaxDrawer, SvcDocUploadDrawer } from '../ui/ServicesPage';
+import { aftersalesApi, crmApi, documentsApi, ordersApi, proposalsApi, servicesApi, workspaceActionsApi } from '../../../legacy/compatibility/resources';
+import { resultsOf } from '../../../shared/api/client';
+import { ServiceBlanksPanel } from '../../../../js/page_fulfillment';
+import { technicalStopCount, technicalStopLabel, technicalStopsOf } from './TechnicalStops';
+import { TechnicalStopsDetails } from './TechnicalStops.jsx';
 
 
 
@@ -1856,7 +1856,7 @@ function FlightCard({ svc, offer, no: noProp, hideBackRow, onBack, onFormKp, onA
         {(booked || issued) && (
           <div className="fc-meta" style={{ display: 'flex', flexWrap: 'wrap', gap: '10px 28px', marginTop: 16, paddingTop: 16, borderTop: '1px solid var(--line)' }}>
             <div className="fc-meta-item"><div style={{ fontSize: 12, color: 'var(--muted)' }}>Рейс</div><div style={{ fontWeight: 600, color: 'var(--ink)' }}>{airlineName} • {out.flightNo}</div></div>
-            <div className="fc-meta-item"><div style={{ fontSize: 12, color: 'var(--muted)' }}>PNR (код брони)</div><div style={{ fontWeight: 600, color: 'var(--ink)', fontFamily: 'monospace', letterSpacing: '.03em' }}>{pnr}</div></div>
+            <div className="fc-meta-item"><div style={{ fontSize: 12, color: 'var(--muted)' }}>PNR (код брони)</div><div style={{ fontWeight: 600, color: 'var(--ink)', fontFamily: 'monospace', letterSpacing: '../../../../js/.03em' }}>{pnr}</div></div>
 
             <div className="fc-meta-item"><div style={{ fontSize: 12, color: 'var(--muted)' }}>{passengers.length > 1 ? (issued ? 'Пассажиры / билеты' : 'Пассажиры') : (issued ? 'Пассажир / билет' : 'Пассажир')}</div>
               <div style={{ fontWeight: 600, color: 'var(--ink)' }}>

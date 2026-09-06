@@ -1,6 +1,6 @@
 import { readFile, writeFile } from 'node:fs/promises';
 
-const fileUrl = new URL('../js/page_services.jsx', import.meta.url);
+const fileUrl = new URL('../src/modules/services/ui/ServicesPage.jsx', import.meta.url);
 let source = await readFile(fileUrl, 'utf8');
 
 const replacements = [

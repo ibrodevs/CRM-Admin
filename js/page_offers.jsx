@@ -5,7 +5,7 @@ import { UFDateField } from '../src/modules/clients/ui/UnifiedForms';
 import { CURRENCIES, CURRENT_USER, KP_STATUS, KP_STATUS_FLOW, OPERATORS, ORDERS, ORDER_PARTICIPANTS, ORDER_SERVICES, ORDER_STATUS, PROPOSALS, SERVICE_KIND } from '../src/legacy/data/index';
 import { SEND_CHANNELS, orderClientChannel, sendChannelMeta } from '../src/legacy/data/access-control';
 import { Topbar } from './layout';
-import { PAX_DEFAULT_OPTIONS } from './page_flights';
+import { PAX_DEFAULT_OPTIONS } from '../src/modules/services/flights/FlightsPage';
 import { PanelSub, StackPanel } from '../src/modules/locations/ui/SharedPanels';
 import { AddServicePanel } from '../src/modules/orders/ui/OrderCard';
 import { documentsApi, proposalsApi, servicesApi } from '../src/legacy/compatibility/resources';

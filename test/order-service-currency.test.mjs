@@ -3,7 +3,7 @@ import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 
 const orderCard = await readFile(new URL('../src/modules/orders/ui/OrderCard.jsx', import.meta.url), 'utf8');
-const services = await readFile(new URL('../js/page_services.jsx', import.meta.url), 'utf8');
+const services = await readFile(new URL('../src/modules/services/ui/ServicesPage.jsx', import.meta.url), 'utf8');
 const adapters = await readFile(new URL('../src/legacy/adapters/legacy-adapters.js', import.meta.url), 'utf8');
 const finance = await readFile(new URL('../src/modules/orders/model/finance.jsx', import.meta.url), 'utf8');
 

@@ -1,10 +1,10 @@
 import React, { useState } from 'react';
-import { Icon } from '../src/shared/icons/index';
-import { Avatar, Button, Checkbox, Field, Input, Pill, Radio, SearchBox, Select, Toggle, fmtDate, useToast } from '../src/shared/ui/index';
-import { AIRLINES, AIRPORTS, AVIA_BAGGAGE_OPTIONS, AVIA_BOOKING_CLASSES, AVIA_COMFORT_GROUPS, AVIA_COMPLEX_ROUTE, AVIA_FARE_TIERS, AVIA_FARE_TIERS_BUSINESS, AVIA_GROUPS_SEED, AVIA_INSURANCE_INCLUDES, AVIA_INSURANCE_PLANS, AVIA_MEALS, AVIA_SEATMAP, AVIA_SPECIAL_BAGGAGE, FLIGHT_OFFERS, GROUP_PAX, ORDER_PARTICIPANTS, SERVICE_KIND, aviaMarkupAmount } from '../src/legacy/data/index';
-import { AirlineLogo, FlightSearch, PaxStepper } from './page_flights';
-import { StackPanel } from '../src/modules/locations/ui/SharedPanels';
-import { ocMoney } from '../src/modules/orders/model/finance';
+import { Icon } from '../../../shared/icons/index';
+import { Avatar, Button, Checkbox, Field, Input, Pill, Radio, SearchBox, Select, Toggle, fmtDate, useToast } from '../../../shared/ui/index';
+import { AIRLINES, AIRPORTS, AVIA_BAGGAGE_OPTIONS, AVIA_BOOKING_CLASSES, AVIA_COMFORT_GROUPS, AVIA_COMPLEX_ROUTE, AVIA_FARE_TIERS, AVIA_FARE_TIERS_BUSINESS, AVIA_GROUPS_SEED, AVIA_INSURANCE_INCLUDES, AVIA_INSURANCE_PLANS, AVIA_MEALS, AVIA_SEATMAP, AVIA_SPECIAL_BAGGAGE, FLIGHT_OFFERS, GROUP_PAX, ORDER_PARTICIPANTS, SERVICE_KIND, aviaMarkupAmount } from '../../../legacy/data/index';
+import { AirlineLogo, FlightSearch, PaxStepper } from './FlightsPage';
+import { StackPanel } from '../../locations/ui/SharedPanels';
+import { ocMoney } from '../../orders/model/finance';
 
 
 
@@ -165,7 +165,7 @@ function PaxOptionBlock({ pax, options, value, onChange, render }) {
 
 function xtrShortName(p, i) {
   const parts = (p.name || ('Пассажир ' + (i + 1))).split(' ');
-  return (i + 1) + '. ' + parts[0] + (parts[1] ? ' ' + parts[1][0] + '.' : '');
+  return (i + 1) + '../../../../js/. ' + parts[0] + (parts[1] ? ' ' + parts[1][0] + '.' : '');
 }
 
 
@@ -181,7 +181,7 @@ function XtrPaxBlock({ pax, options, value, onChange, kind }) {
           <div className="xtr-pax" key={i}>
             <div className="xtr-pax-head">
               <span className="ic"><Icon name="user" /></span>
-              <div className="who"><div className="n">{(i + 1) + '. ' + p.name}</div>{(p.tariff || p.role) && <span className="xtr-tariff">{p.tariff ? 'Тариф: ' + p.tariff : p.role}</span>}</div>
+              <div className="who"><div className="n">{(i + 1) + '../../../../js/. ' + p.name}</div>{(p.tariff || p.role) && <span className="xtr-tariff">{p.tariff ? 'Тариф: ' + p.tariff : p.role}</span>}</div>
             </div>
             <div className={'xtr-cards' + (kind === 'meal' ? ' meal' : kind === 'insurance' ? ' ins' : '')}>
               {options.map((o) => {
@@ -984,7 +984,7 @@ function GroupEditPanel({ title, pax, groups, group, onClose, onSave, isNew }) {
         </>
       )}
       <Field label="Тариф группы"><Select options={fareOpts} value={fare} onChange={(e) => setFare(e.target.value)} /></Field>
-      <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '.02em', margin: '16px 2px 10px', display: 'flex', alignItems: 'center' }}>
+      <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '../../../../js/.02em', margin: '16px 2px 10px', display: 'flex', alignItems: 'center' }}>
         Пассажиры<span style={{ flex: 1 }} /><span style={{ textTransform: 'none', color: 'var(--blue)' }}>{members.length} выбрано</span>
       </div>
       <SearchBox value={q} onChange={setQ} placeholder="Поиск пассажира" />
