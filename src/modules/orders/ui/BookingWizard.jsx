@@ -1,14 +1,14 @@
 import { useState, useEffect } from 'react';
-import { Icon } from '../src/shared/icons/index';
-import { Button, Drawer, EmptyState, Pill, useToast } from '../src/shared/ui/index';
-import { SERVICE_KIND } from '../src/legacy/data/index';
-import { OperationConfirmModal } from '../src/modules/orders/ui/OrderOperations';
-import { BackRow } from '../src/shared/ui/BackRow';
-import { ocMoney, svcCalc } from '../src/modules/orders/model/finance';
-import { KPPreviewDoc } from './page_offers';
-import { ChatThread, getThreadForOrder } from './page_chats';
-import { bookingApi, documentsApi, ordersApi, proposalsApi } from '../src/legacy/compatibility/resources';
-import { resultsOf } from '../src/shared/api/client';
+import { Icon } from '../../../shared/icons/index';
+import { Button, Drawer, EmptyState, Pill, useToast } from '../../../shared/ui/index';
+import { SERVICE_KIND } from '../../../legacy/data/index';
+import { OperationConfirmModal } from './OrderOperations';
+import { BackRow } from '../../../shared/ui/BackRow';
+import { ocMoney, svcCalc } from '../model/finance';
+import { KPPreviewDoc } from '../../../../js/page_offers';
+import { ChatThread, getThreadForOrder } from '../../../../js/page_chats';
+import { bookingApi, documentsApi, ordersApi, proposalsApi } from '../../../legacy/compatibility/resources';
+import { resultsOf } from '../../../shared/api/client';
 
 
 

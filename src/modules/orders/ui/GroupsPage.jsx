@@ -1,14 +1,14 @@
 import { useEffect, useState } from 'react';
-import { Icon } from '../src/shared/icons/index';
-import { Button, Drawer, Field, FilterChip, Input, Modal, ModalHeader, Pill, Select, Tabs, useToast } from '../src/shared/ui/index';
-import { SERVICE_KIND } from '../src/legacy/data/index';
-import { Topbar } from './layout';
-import { PanelSub } from '../src/modules/locations/ui/SharedPanels';
-import { UFDateField } from '../src/modules/clients/ui/UnifiedForms';
-import { OrderCreateModal } from './page_orders';
-import { FinRow, StatTile, WarnBanner, f$ } from './page_finance';
-import { groupsApi, workspaceActionsApi } from '../src/legacy/compatibility/resources';
-import { resultsOf } from '../src/shared/api/client';
+import { Icon } from '../../../shared/icons/index';
+import { Button, Drawer, Field, FilterChip, Input, Modal, ModalHeader, Pill, Select, Tabs, useToast } from '../../../shared/ui/index';
+import { SERVICE_KIND } from '../../../legacy/data/index';
+import { Topbar } from '../../../../js/layout';
+import { PanelSub } from '../../locations/ui/SharedPanels';
+import { UFDateField } from '../../clients/ui/UnifiedForms';
+import { OrderCreateModal } from './OrdersPage';
+import { FinRow, StatTile, WarnBanner, f$ } from '../../../../js/page_finance';
+import { groupsApi, workspaceActionsApi } from '../../../legacy/compatibility/resources';
+import { resultsOf } from '../../../shared/api/client';
 
 
 
@@ -286,7 +286,7 @@ function SplitFlow({ s, pax }) {
       </div>
       {phase === 'result' && (
         <WarnBanner tone={need > 0 ? 'amber' : 'red'} icon="alertTriangle"
-          title={'Подтверждено ' + confirmed + ' из ' + pax.length + ' участников' + (need > 0 ? '. Требуется решение по ' + need + ' участникам' : '')}
+          title={'Подтверждено ' + confirmed + ' из ' + pax.length + ' участников' + (need > 0 ? '../../../../js/. Требуется решение по ' + need + ' участникам' : '')}
           text="Ошибка одной технической брони не отменяет остальные. Уже подтверждённые брони не отменяются автоматически." />
       )}
       <div style={{ display: 'grid', gap: 8 }}>
@@ -744,7 +744,7 @@ function GrDocsTab({ o }) {
     setTimeout(() => {
       setRows(o.pax.map((p, i) => {
         const unmatched = i >= o.pax.length - 3;
-        return { p, doc: 'Билет · ' + p.name.split(' ')[0] + '.pdf', match: unmatched ? 'none' : 'auto' };
+        return { p, doc: 'Билет · ' + p.name.split(' ')[0] + '../../../../js/.pdf', match: unmatched ? 'none' : 'auto' };
       }));
       setPhase('done');
       toast('Загружено ' + o.pax.length + ' документов · сопоставлено автоматически ' + (o.pax.length - 3), 'ok');

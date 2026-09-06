@@ -7,7 +7,7 @@ import { SEND_CHANNELS, orderClientChannel, sendChannelMeta } from '../src/legac
 import { Topbar } from './layout';
 import { PAX_DEFAULT_OPTIONS } from './page_flights';
 import { PanelSub, StackPanel } from '../src/modules/locations/ui/SharedPanels';
-import { AddServicePanel } from './page_order_card';
+import { AddServicePanel } from '../src/modules/orders/ui/OrderCard';
 import { documentsApi, proposalsApi, servicesApi } from '../src/legacy/compatibility/resources';
 import { toLegacyProposal } from '../src/legacy/adapters/legacy-adapters';
 import { resultsOf } from '../src/shared/api/client';

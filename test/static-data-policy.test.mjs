@@ -24,7 +24,7 @@ test('production data module clears demo business arrays unless demo mode is ena
 
 test('page-level demo seeds are disabled outside demo mode', async () => {
   const dashboard = await source('src/modules/dashboard/ui/DashboardPage.jsx');
-  const groups = await source('js/page_groups.jsx');
+  const groups = await source('src/modules/orders/ui/GroupsPage.jsx');
   const extras = await source('src/modules/orders/ui/OrderExtras.jsx');
   assert.match(dashboard, /SUPPLIER_STATS\.splice\(0,\s*SUPPLIER_STATS\.length\)/);
   assert.match(dashboard, /SUPPLIER_ERRORS\.splice\(0,\s*SUPPLIER_ERRORS\.length\)/);
@@ -83,7 +83,7 @@ test('manual import and document drawers avoid fake generated people or parser d
 });
 
 test('order card uses linked company and contact data instead of demo requisites', async () => {
-  const card = await source('js/page_order_card.jsx');
+  const card = await source('src/modules/orders/ui/OrderCard.jsx');
   assert.doesNotMatch(card, /07070707070707/);
   assert.doesNotMatch(card, /grandlimited@mail\.ru/);
   assert.doesNotMatch(card, /Токтогула 125\/1/);

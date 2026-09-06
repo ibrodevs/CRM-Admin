@@ -66,7 +66,7 @@ test('техническая посадка считается отдельно 
 });
 
 test('боковая панель показывает детали, а live-ответ сохраняет technical_stops', async () => {
-  const panel = await readFile(new URL('../js/page_order_card.jsx', import.meta.url), 'utf8');
+  const panel = await readFile(new URL('../src/modules/orders/ui/OrderCard.jsx', import.meta.url), 'utf8');
   const live = await readFile(new URL('../js/page_flights.jsx', import.meta.url), 'utf8');
   const details = await readFile(new URL('../js/features/avia/technical-stops.jsx', import.meta.url), 'utf8');
 

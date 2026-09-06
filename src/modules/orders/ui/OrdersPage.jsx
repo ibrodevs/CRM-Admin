@@ -1,14 +1,14 @@
 import { useState, useEffect, useRef } from 'react';
 import ReactDOM from 'react-dom';
-import { Icon } from '../src/shared/icons/index';
-import { ActionMenu, Avatar, Button, Checkbox, DateField, DateRangeField, EmptyState, Field, FilterChip, Input, Pagination, Pill, Radio, SearchBox, Th, Toggle, fmtDate, useSort, useToast } from '../src/shared/ui/index';
-import { AIRPORTS, CLIENTS, CLIENTS_DB, CLIENT_STATUS, COMPANIES_DB, GROUP_PAX, ORDER_PARTICIPANTS, ORDER_SERVICES, ORDER_STATUS, REQUEST_TYPE, SERVICE_TYPE, SETTLEMENT_TONE, activeAgreement, activeContract, companyBalanceShort, companyFinance, companyStaff, feeTemplate } from '../src/legacy/data/index';
-import { UnifiedDocumentDrawer, UnifiedPersonDrawer, UnifiedPersonFields, ufBlankPerson, ufToClient, ufValidatePerson } from '../src/modules/clients/ui/UnifiedForms';
-import { ORDER_OPS_SECTIONS, Topbar } from './layout';
-import { OrderCard, OrderEditDrawer } from './page_order_card';
-import { CityPickPanel, PanelSub, StackPanel } from '../src/modules/locations/ui/SharedPanels';
-import { ordersApi, proposalsApi } from '../src/legacy/compatibility/resources';
-import { toUiOrder } from '../src/legacy/adapters/ui-adapters';
+import { Icon } from '../../../shared/icons/index';
+import { ActionMenu, Avatar, Button, Checkbox, DateField, DateRangeField, EmptyState, Field, FilterChip, Input, Pagination, Pill, Radio, SearchBox, Th, Toggle, fmtDate, useSort, useToast } from '../../../shared/ui/index';
+import { AIRPORTS, CLIENTS, CLIENTS_DB, CLIENT_STATUS, COMPANIES_DB, GROUP_PAX, ORDER_PARTICIPANTS, ORDER_SERVICES, ORDER_STATUS, REQUEST_TYPE, SERVICE_TYPE, SETTLEMENT_TONE, activeAgreement, activeContract, companyBalanceShort, companyFinance, companyStaff, feeTemplate } from '../../../legacy/data/index';
+import { UnifiedDocumentDrawer, UnifiedPersonDrawer, UnifiedPersonFields, ufBlankPerson, ufToClient, ufValidatePerson } from '../../clients/ui/UnifiedForms';
+import { ORDER_OPS_SECTIONS, Topbar } from '../../../../js/layout';
+import { OrderCard, OrderEditDrawer } from './OrderCard';
+import { CityPickPanel, PanelSub, StackPanel } from '../../locations/ui/SharedPanels';
+import { ordersApi, proposalsApi } from '../../../legacy/compatibility/resources';
+import { toUiOrder } from '../../../legacy/adapters/ui-adapters';
 
 
 
@@ -63,7 +63,7 @@ function TypeCard({ iconName, label, selected, onClick }) {
       border: '1.5px solid ' + (selected ? 'var(--blue)' : 'var(--field-line)'),
       background: selected ? 'var(--blue-soft)' : '#fff',
       cursor: 'pointer', width: '100%', textAlign: 'left',
-      transition: '.14s', fontFamily: 'inherit',
+      transition: '../../../../js/.14s', fontFamily: 'inherit',
     }}>
       <Icon name={iconName} style={{ width: 22, height: 22, color: selected ? 'var(--blue)' : 'var(--muted)' }} />
       <span style={{ flex: 1, fontWeight: 500, color: 'var(--ink)', fontSize: 15 }}>{label}</span>
@@ -81,7 +81,7 @@ function DocUploadBtn({ label, placeholder = 'Добавить паспорт' }
         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
         padding: '12px 16px', borderRadius: 12, border: '1px solid var(--field-line)',
         background: '#fff', cursor: 'pointer', width: '100%',
-        fontSize: 15, color: 'var(--body)', fontFamily: 'inherit', transition: '.14s',
+        fontSize: 15, color: 'var(--body)', fontFamily: 'inherit', transition: '../../../../js/.14s',
       }}>
         <span>{placeholder}</span>
         <Icon name="chevRight" style={{ width: 18, height: 18, color: 'var(--muted-2)' }} />
@@ -97,7 +97,7 @@ function PersonTab({ icon = 'user', name, sub, active, onClick }) {
       display: 'flex', alignItems: 'center', gap: 10,
       padding: '10px 16px', borderRadius: 13,
       border: '1.5px solid ' + (active ? 'var(--blue)' : 'var(--field-line)'),
-      background: '#fff', cursor: 'pointer', fontFamily: 'inherit', transition: '.14s',
+      background: '#fff', cursor: 'pointer', fontFamily: 'inherit', transition: '../../../../js/.14s',
     }}>
       <Icon name={icon} style={{ width: 20, height: 20, color: active ? 'var(--blue)' : 'var(--muted)' }} />
       <div style={{ textAlign: 'left' }}>
@@ -564,7 +564,7 @@ function OrderCreateModal({ open, onClose, onCreated, initialGroup = false, clie
                     </div>
                   );
                 })()}
-                <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '.02em', margin: '16px 2px 10px' }}>Сотрудники в поездке</div>
+                <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '../../../../js/.02em', margin: '16px 2px 10px' }}>Сотрудники в поездке</div>
                 {employees.map((c) => (
                   <div key={c.id} className="oce-client">
                     <Avatar name={c.name} size={32} />

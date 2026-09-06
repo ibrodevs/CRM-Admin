@@ -7,7 +7,7 @@ import { UfOrderRow, UfPersonRow, ufOrderPickRows } from '../../clients/ui/Unifi
 import { Topbar } from '../../../../js/layout';
 import { PAX_DEFAULT_OPTIONS } from '../../../../js/page_flights';
 import { PanelSub, StackPanel } from '../../locations/ui/SharedPanels';
-import { AddServicePanel } from '../../../../js/page_order_card';
+import { AddServicePanel } from '../../orders/ui/OrderCard';
 import { ErrorCodesDrawer } from '../../../../js/page_notifications';
 import { SHIFT_DEMO_OPS, SHIFT_REQUESTS_HANDLED, motivationFor, operatorEarn, shiftDate, shiftDuration, shiftFmtTime, shiftTotals } from '../../../../js/page_shifts';
 import { toLegacyProposal, toLegacyReturn } from '../../../legacy/adapters/legacy-adapters';

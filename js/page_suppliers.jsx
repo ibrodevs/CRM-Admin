@@ -4,7 +4,7 @@ import { Avatar, Button, Checkbox, Combobox, Drawer, EmptyState, Field, FilterCh
 import { AIRLINES, AVIA_MARKUPS, CURRENCIES, ORG_TYPE, SUPPLIER_STATUS, aviaMarkupsFor } from '../src/legacy/data/index';
 import { Topbar } from './layout';
 import { AirlineLogo } from './page_flights';
-import { PAGE_SIZE } from './page_orders';
+import { PAGE_SIZE } from '../src/modules/orders/ui/OrdersPage';
 import { communicationsApi, documentsApi, servicesApi, suppliersApi, workspaceSettingsApi } from '../src/legacy/compatibility/resources';
 import { toUiSupplier } from '../src/legacy/adapters/ui-adapters';
 import { resultsOf } from '../src/shared/api/client';

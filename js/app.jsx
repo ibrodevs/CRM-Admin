@@ -11,7 +11,7 @@ import { AppShell } from './layout';
 import { LoginScreen } from '../src/shared/auth/LoginScreen';
 import { DashboardPage } from '../src/modules/dashboard/ui/DashboardPage';
 import { FlightsPage } from './page_flights';
-import { OrdersPage } from './page_orders';
+import { OrdersPage } from '../src/modules/orders/ui/OrdersPage';
 import { OffersPage } from './page_offers';
 import { DocCenterPage, FulfillmentPage, ReceiptEditorPage } from './page_fulfillment';
 import { FinancePage } from './page_finance';

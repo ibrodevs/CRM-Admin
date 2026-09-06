@@ -2,8 +2,8 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 
-const card = await readFile(new URL('../js/page_order_card.jsx', import.meta.url), 'utf8');
-const booking = await readFile(new URL('../js/page_booking.jsx', import.meta.url), 'utf8');
+const card = await readFile(new URL('../src/modules/orders/ui/OrderCard.jsx', import.meta.url), 'utf8');
+const booking = await readFile(new URL('../src/modules/orders/ui/BookingWizard.jsx', import.meta.url), 'utf8');
 const returns = await readFile(new URL('../js/page_returns.jsx', import.meta.url), 'utf8');
 const legacy = await readFile(new URL('../src/legacy/adapters/legacy-adapters.js', import.meta.url), 'utf8');
 const css = await readFile(new URL('../app/globals.css', import.meta.url), 'utf8');
