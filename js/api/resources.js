@@ -32,12 +32,7 @@ export { workspaceApi } from '../../src/modules/workspace/api.js';
 
 export { workspaceSettingsApi } from '../../src/modules/settings/api.js';
 
-export const workspaceActionsApi = {
-  list: (params = {}, signal) => get(`workspace-actions/${queryString(params)}`, signal),
-  execute: (action, { resourceType = '', resourceId = '', payload = {} } = {}) => create('workspace-actions/', {
-    action, resource_type: resourceType, resource_id: resourceId, payload,
-  }),
-};
+export { workspaceActionsApi } from '../../src/modules/workspace/api.js';
 
 export const proposalsApi = {
   list: workspaceApi.proposals,
