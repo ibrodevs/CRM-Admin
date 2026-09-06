@@ -10,18 +10,7 @@ export { jobsApi } from '../../src/modules/integrations/api.js';
 
 export { crmApi } from '../../src/modules/clients/api.js';
 
-export const travelPolicyApi = {
-  list: (companyId, signal) => get(`companies/${companyId}/travel-policies/`, signal),
-  create: (companyId, body) => create(`companies/${companyId}/travel-policies/`, body),
-  detail: (id, signal) => get(`travel-policies/${id}/`, signal),
-  update: (id, body) => patch(`travel-policies/${id}/`, body),
-  check: (id, offer) => create(`travel-policies/${id}/check/`, { offer }),
-  import: (companyId, file) => {
-    const body = new FormData();
-    body.append('file', file);
-    return apiRequest(apiPath(`companies/${companyId}/travel-policies/import/`), { method: 'POST', body });
-  },
-};
+export { travelPolicyApi } from '../../src/modules/companies/api.js';
 
 export const accountApi = {
   me: (signal) => get('me/', signal),
