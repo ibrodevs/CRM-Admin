@@ -1,3 +1,4 @@
+import { applicationSource } from './helpers/application-source.mjs';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import test from 'node:test';
@@ -5,7 +6,7 @@ import test from 'node:test';
 const page = await readFile(new URL('../src/modules/receipts/ui/FulfillmentPages.jsx', import.meta.url), 'utf8');
 const editor = await readFile(new URL('../src/modules/receipts/ui/editor.jsx', import.meta.url), 'utf8');
 const bindings = await readFile(new URL('../src/modules/clients/ui/UnifiedForms.jsx', import.meta.url), 'utf8');
-const app = await readFile(new URL('../src/application/CRMApp.jsx', import.meta.url), 'utf8');
+const app = applicationSource;
 const resources = await readFile(new URL('../src/modules/integrations/api/jobsApi.js', import.meta.url), 'utf8');
 const styles = await readFile(new URL('../app/globals.css', import.meta.url), 'utf8');
 

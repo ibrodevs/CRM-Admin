@@ -6,7 +6,7 @@ import { SLA_QUEUE, companyStaffStore } from '../../legacy/data/access-control';
 import { NAV_ITEMS, Topbar } from './AppShell';
 import { NotificationsCenter } from '../../modules/notifications/ui/NotificationsPage';
 import { PAX_GROUPS } from '../../modules/clients/ui/PassengerTools';
-import { ChatThread, chatRecipients, getThreadForOrder, threadUnread } from '../../modules/chats/ui/ChatsPage';
+import { ChatThread, threadUnread } from '../../modules/chats/ui/ChatsPage';
 import { ShiftControl } from '../../modules/workforce/ui/ShiftControl';
 import { workspaceApi } from '../../legacy/compatibility/resources';
 
