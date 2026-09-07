@@ -1,6 +1,6 @@
 import { readFile, writeFile } from 'node:fs/promises';
 
-const cssUrl = new URL('../app/receipt-ui-fixes.css', import.meta.url);
+const cssUrl = new URL('../src/styles/modules/receipt-ui-fixes.css', import.meta.url);
 let css = await readFile(cssUrl, 'utf8');
 let changed = false;
 
@@ -54,7 +54,7 @@ async function patchTextFile(relativePath, replacements) {
   }
 }
 
-await patchTextFile('src/modules/receipts/ui/FulfillmentPages.jsx', [
+await patchTextFile('src/modules/receipts/ui/ReceiptEditorPage.jsx', [
   {
     label: 'не закрывать основной редактор при открытии фирменного бланка',
     before: `        onBrand={() => { setBrandId(editId); setEditId(null); }} />`,

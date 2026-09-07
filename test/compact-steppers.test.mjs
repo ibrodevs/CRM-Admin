@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from './helpers/source.mjs';
 
-const cssUrl = new URL('../app/compact-steppers.css', import.meta.url);
+const cssUrl = new URL('../src/styles/components/compact-steppers.css', import.meta.url);
 const layoutUrl = new URL('../app/layout.jsx', import.meta.url);
 
 test('компактные стили счётчиков подключены глобально', async () => {
@@ -11,7 +11,7 @@ test('компактные стили счётчиков подключены г
     readFile(layoutUrl, 'utf8'),
   ]);
 
-  assert.match(layout, /import '\.\/compact-steppers\.css';/);
+  assert.match(layout, /import '\.\.\/src\/styles\/components\/compact-steppers\.css';/);
   assert.match(css, /\.input:has\(/);
   assert.match(css, /> button\.btn\.btn-icon\.btn-sm/);
   assert.match(css, /\.hp-stepper button/);

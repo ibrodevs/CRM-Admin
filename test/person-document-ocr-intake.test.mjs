@@ -4,7 +4,7 @@ import test from 'node:test';
 
 const forms = await readFile(new URL('../src/modules/clients/ui/UnifiedForms.jsx', import.meta.url), 'utf8');
 const resources = await readFile(new URL('../src/modules/clients/api/clientsApi.js', import.meta.url), 'utf8');
-const styles = await readFile(new URL('../app/receipt-workflow.css', import.meta.url), 'utf8');
+const styles = await readFile(new URL('../src/styles/modules/receipt-workflow.css', import.meta.url), 'utf8');
 
 function loadIntakeHelpers() {
   const names = ['ufDateFromRecognized', 'ufApplyRecognizedFields'];

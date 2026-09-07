@@ -1,12 +1,5 @@
 
 
-
-
-
-
-
-
-
 import { DashboardPage } from '../../modules/dashboard/index.js';
 import { FlightsPage } from '../../modules/services/index.js';
 import { OrdersPage } from '../../modules/orders/index.js';
@@ -26,9 +19,6 @@ import { SettingsPage } from '../../modules/settings/index.js';
 import { TripCalendarPage } from '../../modules/calendar/index.js';
 import { ProfilePage } from '../../modules/profile/index.js';
 import { AccountSettingsPage } from '../../modules/account/index.js';
-
-
-
 
 export function RouteRenderer({ route, role, auth, orders, suppliers, workspace, navigate, createOrder, openOrder, createOrderFromPicker, openChat, intent, setIntent, addOrder, setCtxOrder, openServiceSearch, svcSearch, setSvcSearch, addSupplier, openChatThread, focusedChat, createReceiptOrder, toast }) {
   const page = (

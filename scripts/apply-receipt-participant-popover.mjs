@@ -1,7 +1,7 @@
 import { readFile, writeFile } from 'node:fs/promises';
 
 const editorUrl = new URL('../src/modules/receipts/ui/editor.jsx', import.meta.url);
-const cssUrl = new URL('../app/receipt-ui-fixes.css', import.meta.url);
+const cssUrl = new URL('../src/styles/modules/receipt-ui-fixes.css', import.meta.url);
 let source = await readFile(editorUrl, 'utf8');
 let css = await readFile(cssUrl, 'utf8');
 let sourceChanged = false;

@@ -5,6 +5,7 @@ import { relative } from 'node:path';
 // Existing source contracts span mechanically extracted files. Assertions remain unchanged.
 const root = fileURLToPath(new URL('../../', import.meta.url));
 const bundles = {
+  "app/globals.css": ["src/styles/tokens.css", "src/styles/base.css", "src/styles/layout.css", "src/styles/components.css"],
   "src/shared/ui/index.jsx": [
     "src/shared/ui/Toast.jsx",
     "src/shared/ui/Button.jsx",
@@ -29,19 +30,19 @@ const bundles = {
     "src/shared/ui/ActionMenu.jsx",
     "src/shared/ui/DateFields.jsx"
   ],
-  "src/modules/clients/ui/PeoplePages.jsx": [
+  "src/modules/clients/ui/ClientsPage.jsx": [
     "src/modules/clients/model/people-helpers.js",
     "src/modules/companies/model/people-helpers.js",
     "src/modules/clients/ui/ClientsPage.jsx",
     "src/modules/companies/ui/CompaniesPage.jsx"
   ],
-  "src/modules/receipts/ui/FulfillmentPages.jsx": [
+  "src/modules/receipts/ui/ReceiptEditorPage.jsx": [
     "src/shared/lib/money.js",
     "src/modules/finance/model/operations.js",
     "src/modules/finance/ui/FinanceRegistry.jsx",
     "src/modules/documents/model/supplier-pdf.js",
     "src/modules/documents/ui/DocumentsPage.jsx",
-    "src/modules/receipts/ui/FulfillmentPages.jsx",
+    "src/modules/receipts/ui/ReceiptEditorPage.jsx",
     "src/modules/documents/ui/FulfillmentPage.jsx"
   ],
   "src/modules/clients/ui/UnifiedForms.jsx": [

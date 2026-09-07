@@ -1,6 +1,6 @@
 import { readFile, writeFile } from 'node:fs/promises';
 
-const pageUrl = new URL('../src/modules/receipts/ui/FulfillmentPages.jsx', import.meta.url);
+const pageUrl = new URL('../src/modules/receipts/ui/ReceiptEditorPage.jsx', import.meta.url);
 let source = await readFile(pageUrl, 'utf8');
 
 const marker = 'className="receipt-close-summary"';
@@ -119,7 +119,7 @@ if (source.includes(marker)) {
 // Keep both icon tiles geometrically centered. Earlier CSS used baseline
 // alignment, which pulled the eye/docs and service icons toward the text
 // baseline instead of the middle of their 34/38 px tiles.
-const cssUrl = new URL('../app/receipt-ui-fixes.css', import.meta.url);
+const cssUrl = new URL('../src/styles/modules/receipt-ui-fixes.css', import.meta.url);
 let css = await readFile(cssUrl, 'utf8');
 const iconAlignMarker = '/* Close-import summary icons: center SVGs inside their tiles. */';
 if (!css.includes(iconAlignMarker)) {

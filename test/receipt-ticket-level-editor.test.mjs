@@ -2,9 +2,9 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from './helpers/source.mjs';
 
-const pageUrl = new URL('../src/modules/receipts/ui/FulfillmentPages.jsx', import.meta.url);
+const pageUrl = new URL('../src/modules/receipts/ui/ReceiptEditorPage.jsx', import.meta.url);
 const editorUrl = new URL('../src/modules/receipts/ui/editor.jsx', import.meta.url);
-const cssUrl = new URL('../app/receipt-ui-fixes.css', import.meta.url);
+const cssUrl = new URL('../src/styles/modules/receipt-ui-fixes.css', import.meta.url);
 const packageUrl = new URL('../package.json', import.meta.url);
 
 

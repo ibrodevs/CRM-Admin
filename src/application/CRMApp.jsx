@@ -22,21 +22,7 @@ import { useWorkspace } from '../shared/workspace/context.jsx';
 import { AppShell } from './shell/AppShell.jsx';
 import { LoginScreen } from '../shared/auth/LoginScreen.jsx';
 
-
-
-
-
-
-
-
-
-
-
-
 import { threadUnread } from '../modules/chats/index.js';
-
-
-
 
 import { AccessDenied, roleCanSee } from '../shared/auth/permissions.jsx';
 import { GlobalTopbar } from './shell/Topbar.jsx';

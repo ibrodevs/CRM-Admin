@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { readFile } from './helpers/source.mjs';
 import test from 'node:test';
 
-const page = await readFile(new URL('../src/modules/receipts/ui/FulfillmentPages.jsx', import.meta.url), 'utf8');
+const page = await readFile(new URL('../src/modules/receipts/ui/ReceiptEditorPage.jsx', import.meta.url), 'utf8');
 const adapters = await readFile(new URL('../src/legacy/adapters/legacy-adapters.js', import.meta.url), 'utf8');
 
 test('существующие квитанции показывают серверные черновики в отдельном списке', () => {

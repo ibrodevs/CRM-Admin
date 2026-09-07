@@ -61,7 +61,7 @@ await patchTextFile(
 );
 
 await patchTextFile(
-  new URL('../src/modules/receipts/ui/FulfillmentPages.jsx', import.meta.url),
+  new URL('../src/modules/receipts/ui/ReceiptEditorPage.jsx', import.meta.url),
   [
     {
       label: 'статус черновика квитанции',

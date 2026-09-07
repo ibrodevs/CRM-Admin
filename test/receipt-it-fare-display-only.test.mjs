@@ -4,7 +4,7 @@ import test from 'node:test';
 
 const editor = await readFile(new URL('../src/modules/receipts/ui/editor.jsx', import.meta.url), 'utf8');
 const adapters = await readFile(new URL('../src/legacy/adapters/legacy-adapters.js', import.meta.url), 'utf8');
-const fulfillment = await readFile(new URL('../src/modules/receipts/ui/FulfillmentPages.jsx', import.meta.url), 'utf8');
+const fulfillment = await readFile(new URL('../src/modules/receipts/ui/ReceiptEditorPage.jsx', import.meta.url), 'utf8');
 
 test('IT mode is display-only and never overwrites aviation supplier amounts', () => {
   assert.match(editor, /function receiptOutputUsesItFare\(output\)/);

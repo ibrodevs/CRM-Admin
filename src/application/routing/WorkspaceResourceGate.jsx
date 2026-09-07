@@ -1,33 +1,8 @@
 
 
-
 import { Button } from '../../shared/ui/Button.jsx';
 import { EmptyState } from '../../shared/ui/EmptyState.jsx';
 import { messageForApiError } from '../../shared/api/client.js';
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 export function WorkspaceResourceGate({ resource, onRetry, children }) {
   if (!resource) return children;

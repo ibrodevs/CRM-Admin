@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from './helpers/source.mjs';
 
-const cssUrl = new URL('../app/receipt-ui-fixes.css', import.meta.url);
+const cssUrl = new URL('../src/styles/modules/receipt-ui-fixes.css', import.meta.url);
 
 test('final prebuild CSS keeps receipt blank count on the text baseline', async () => {
   const css = await readFile(cssUrl, 'utf8');

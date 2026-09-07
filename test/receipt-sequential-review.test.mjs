@@ -2,8 +2,8 @@ import assert from 'node:assert/strict';
 import { readFile } from './helpers/source.mjs';
 import test from 'node:test';
 
-const page = await readFile(new URL('../src/modules/receipts/ui/FulfillmentPages.jsx', import.meta.url), 'utf8');
-const styles = await readFile(new URL('../app/receipt-ui-fixes.css', import.meta.url), 'utf8');
+const page = await readFile(new URL('../src/modules/receipts/ui/ReceiptEditorPage.jsx', import.meta.url), 'utf8');
+const styles = await readFile(new URL('../src/styles/modules/receipt-ui-fixes.css', import.meta.url), 'utf8');
 
 
 test('grouped railway receipts are reviewed as a sequential wizard', () => {

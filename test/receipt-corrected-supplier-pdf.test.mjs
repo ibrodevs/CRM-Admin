@@ -3,7 +3,7 @@ import { readFile } from './helpers/source.mjs';
 import test from 'node:test';
 
 const resources = await readFile(new URL('../src/modules/documents/api/documentsApi.js', import.meta.url), 'utf8');
-const page = await readFile(new URL('../src/modules/receipts/ui/FulfillmentPages.jsx', import.meta.url), 'utf8');
+const page = await readFile(new URL('../src/modules/receipts/ui/ReceiptEditorPage.jsx', import.meta.url), 'utf8');
 const editor = await readFile(new URL('../src/modules/receipts/ui/editor.jsx', import.meta.url), 'utf8');
 const pkg = JSON.parse(await readFile(new URL('../package.json', import.meta.url), 'utf8'));
 const prerequisitePatch = await readFile(new URL('../scripts/apply-receipt-client-pdf-requirements.mjs', import.meta.url), 'utf8');

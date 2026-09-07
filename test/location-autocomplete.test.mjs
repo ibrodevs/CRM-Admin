@@ -4,7 +4,7 @@ import { readFile } from './helpers/source.mjs';
 
 const uiUrl = new URL('../src/shared/ui/index.jsx', import.meta.url);
 const apiUrl = new URL('../app/api/locations/route.js', import.meta.url);
-const cssUrl = new URL('../app/location-autocomplete.css', import.meta.url);
+const cssUrl = new URL('../src/styles/components/location-autocomplete.css', import.meta.url);
 const hotelUrl = new URL('../src/modules/services/hotels/HotelsPage.jsx', import.meta.url);
 const servicesUrl = new URL('../src/modules/services/ui/ServicesPage.jsx', import.meta.url);
 

@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from './helpers/source.mjs';
 
-const pageUrl = new URL('../src/modules/receipts/ui/FulfillmentPages.jsx', import.meta.url);
+const pageUrl = new URL('../src/modules/receipts/ui/ReceiptEditorPage.jsx', import.meta.url);
 const apiClientUrl = new URL('../src/shared/api/client.js', import.meta.url);
 
 async function loadGuessType() {

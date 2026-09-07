@@ -6,7 +6,7 @@ import { toLegacyDocument } from '../src/legacy/adapters/legacy-adapters.js';
 const editor = await readFile(new URL('../src/modules/receipts/ui/editor.jsx', import.meta.url), 'utf8');
 const ui = await readFile(new URL('../src/shared/ui/index.jsx', import.meta.url), 'utf8');
 const styles = await readFile(new URL('../app/globals.css', import.meta.url), 'utf8');
-const page = await readFile(new URL('../src/modules/receipts/ui/FulfillmentPages.jsx', import.meta.url), 'utf8');
+const page = await readFile(new URL('../src/modules/receipts/ui/ReceiptEditorPage.jsx', import.meta.url), 'utf8');
 
 test('редактор использует отдельные формы авиа, ЖД, гостиницы и трансфера', () => {
   for (const service of ['Авиа', 'ЖД', 'Гостиница', 'Трансфер']) {
@@ -142,7 +142,7 @@ test('закрытие изменённого редактора предупр�
 
 test('диалог сохранения черновика использует стабильные контейнеры иконок', async () => {
   const ui = await readFile(new URL('../src/shared/ui/index.jsx', import.meta.url), 'utf8');
-  const styles = await readFile(new URL('../app/receipt-ui-fixes.css', import.meta.url), 'utf8');
+  const styles = await readFile(new URL('../src/styles/modules/receipt-ui-fixes.css', import.meta.url), 'utf8');
   assert.match(ui, /className="confirm-dialog-drawer"/);
   assert.match(styles, /\.confirm-dialog-drawer \.modal-close/);
   assert.match(styles, /\.confirm-dialog-drawer \.drawer-foot \.btn/);

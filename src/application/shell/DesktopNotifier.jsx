@@ -3,31 +3,6 @@
 import { useEffect } from 'react';
 import { useToast } from '../../shared/ui/Toast.jsx';
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 export const NOTIF_PRIORITY_KIND = { 'Критический': 'err', 'Высокий': 'warn', 'Средний': 'info', 'Информационный': 'ok' };
 export function DesktopNotifier({ enabled, notifications = [], orders = [], onNavigate, onOpenOrder }) {
   const toast = useToast();

@@ -4,7 +4,7 @@ import test from 'node:test';
 
 const editor = await readFile(new URL('../src/modules/receipts/ui/editor.jsx', import.meta.url), 'utf8');
 const css = await readFile(new URL('../app/globals.css', import.meta.url), 'utf8');
-const page = await readFile(new URL('../src/modules/receipts/ui/FulfillmentPages.jsx', import.meta.url), 'utf8');
+const page = await readFile(new URL('../src/modules/receipts/ui/ReceiptEditorPage.jsx', import.meta.url), 'utf8');
 const resources = await readFile(new URL('../src/modules/documents/api/documentsApi.js', import.meta.url), 'utf8');
 
 test('авиа-сегменты сохраняют класс, бронирование, статус и тарифные поля', () => {

@@ -1,6 +1,6 @@
 import { readFile, writeFile } from 'node:fs/promises';
 
-const cssUrl = new URL('../app/receipt-ui-fixes.css', import.meta.url);
+const cssUrl = new URL('../src/styles/modules/receipt-ui-fixes.css', import.meta.url);
 const marker = '/* Receipt import operations: never overlap the delete action. */';
 const longLabelMarker = '/* Receipt import operations: long actions wrap without clipping. */';
 let css = await readFile(cssUrl, 'utf8');

@@ -40,7 +40,6 @@ function NavGroup({ item, active, onNavigate, collapsed }) {
 function Sidebar({ route, onNavigate, onLogout, role, user, collapsed }) {
   const active = route.split('/')[0];
 
-
   const can = (k) => (typeof window.roleCanSee === 'function' ? window.roleCanSee(role, k) : true);
   const items = NAV_ITEMS.map((it) => {
     if (it.group) { const children = it.children.filter((c) => can(c.key)); return children.length ? { ...it, children } : null; }

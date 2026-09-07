@@ -4,7 +4,7 @@ import { readFile } from './helpers/source.mjs';
 import test from 'node:test';
 
 const offers = await readFile(new URL('../src/modules/proposals/ui/OffersPage.jsx', import.meta.url), 'utf8');
-const receipts = await readFile(new URL('../src/modules/receipts/ui/FulfillmentPages.jsx', import.meta.url), 'utf8');
+const receipts = await readFile(new URL('../src/modules/receipts/ui/ReceiptEditorPage.jsx', import.meta.url), 'utf8');
 const suppliers = await readFile(new URL('../src/modules/suppliers/ui/SuppliersPage.jsx', import.meta.url), 'utf8');
 const app = applicationSource;
 const orderFinance = await readFile(new URL('../src/modules/orders/model/finance.jsx', import.meta.url), 'utf8');

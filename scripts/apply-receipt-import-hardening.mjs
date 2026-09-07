@@ -1,7 +1,7 @@
 import { readFile, writeFile } from 'node:fs/promises';
 
-const pageUrl = new URL('../src/modules/receipts/ui/FulfillmentPages.jsx', import.meta.url);
-const cssUrl = new URL('../app/receipt-ui-fixes.css', import.meta.url);
+const pageUrl = new URL('../src/modules/receipts/ui/ReceiptEditorPage.jsx', import.meta.url);
+const cssUrl = new URL('../src/styles/modules/receipt-ui-fixes.css', import.meta.url);
 let source = await readFile(pageUrl, 'utf8');
 let css = await readFile(cssUrl, 'utf8');
 let changed = false;

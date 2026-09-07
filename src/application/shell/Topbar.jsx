@@ -4,7 +4,7 @@ import { ActionMenu } from '../../shared/ui/ActionMenu.jsx';
 import { ShiftControl } from '../../modules/workforce/index.js';
 import { ROUTE_LABELS, SERVICE_PARENT, ORDER_OPS_PARENT } from '../routing/labels.js';
 import { roleHasPerm, RoleSwitcher } from '../../shared/auth/permissions.jsx';
-import { GlobalSearch } from './GlobalControls.jsx';
+import { GlobalSearch } from './GlobalSearch.jsx';
 
 function Breadcrumbs({ route, ctxOrder, onNavigate }) {
   const base = (route || 'dashboard').split('/')[0];

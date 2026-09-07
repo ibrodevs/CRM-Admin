@@ -1,33 +1,7 @@
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 import { GlobalChatDrawer } from './ChatDrawer.jsx';
 import { NotificationDrawer } from './NotificationDrawer.jsx';
-
-
 
 import { DesktopNotifier } from './DesktopNotifier.jsx';
 

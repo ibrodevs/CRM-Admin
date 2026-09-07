@@ -1,7 +1,7 @@
 import './apply-receipt-date-normalization.mjs';
 import { readFile, writeFile } from 'node:fs/promises';
 
-const cssUrl = new URL('../app/receipt-ui-fixes.css', import.meta.url);
+const cssUrl = new URL('../src/styles/modules/receipt-ui-fixes.css', import.meta.url);
 let css = await readFile(cssUrl, 'utf8');
 let changed = false;
 

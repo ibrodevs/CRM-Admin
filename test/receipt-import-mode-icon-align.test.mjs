@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { readFile } from './helpers/source.mjs';
 import test from 'node:test';
 
-const cssUrl = new URL('../app/receipt-ui-fixes.css', import.meta.url);
+const cssUrl = new URL('../src/styles/modules/receipt-ui-fixes.css', import.meta.url);
 const packageUrl = new URL('../package.json', import.meta.url);
 
 
