@@ -22,4 +22,3 @@ export const ROUTE_RESOURCE = {
   buses: 'orderServices',
   tours: 'orderServices',
 };
-

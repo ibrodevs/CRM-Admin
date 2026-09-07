@@ -24,4 +24,3 @@ export function WorkspaceResourceGate({ resource, onRetry, children }) {
   }
   return children;
 }
-

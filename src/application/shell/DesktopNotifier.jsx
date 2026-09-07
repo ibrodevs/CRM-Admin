@@ -37,4 +37,3 @@ export function DesktopNotifier({ enabled, notifications = [], orders = [], onNa
   }, [enabled, notifications, orders, onOpenOrder, toast]);
   return null;
 }
-

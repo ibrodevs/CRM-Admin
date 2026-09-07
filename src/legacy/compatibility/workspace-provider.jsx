@@ -339,4 +339,3 @@ export function WorkspaceProvider({ children }) {
   ]);
   return <WorkspaceContext.Provider value={value}>{children}</WorkspaceContext.Provider>;
 }
-

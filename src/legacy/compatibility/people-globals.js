@@ -2,4 +2,3 @@ import { ClientCard, ClientCreateModal, ClientsPage } from '../../modules/client
 import { CompanyCard, CompaniesPage } from '../../modules/companies/index.js';
 
 Object.assign(window, { ClientsPage, ClientCard, ClientCreateModal, CompaniesPage, CompanyCard });
-

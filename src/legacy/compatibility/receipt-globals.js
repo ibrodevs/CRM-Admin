@@ -9,4 +9,3 @@ Object.assign(window, {
   DocCard, DocCenter, DocCenterPage, DocUploadModal, ReceiptEditorPage, FulfillmentRegistry, FulfillmentPage,
   fUsd, finPayable, finDebt,
 });
-

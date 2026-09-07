@@ -10,4 +10,3 @@ Object.assign(window, {
   GlobalTopbar, NotificationDrawer, GlobalChatDrawer,
   NAV_PERM, roleHasPerm, roleCanSee, RoleSwitcher, AccessDenied,
 });
-
