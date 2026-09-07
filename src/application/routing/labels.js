@@ -1,4 +1,4 @@
-import { NAV_ITEMS } from '../shell/AppShell';
+import { NAV_ITEMS } from './navigation.js';
 
 const SERVICE_LABELS = { flights: 'Авиабилеты', rail: 'ЖД билеты', hotels: 'Гостиницы', transfers: 'Трансферы', buses: 'Автобусы', tours: 'Туры' };
 

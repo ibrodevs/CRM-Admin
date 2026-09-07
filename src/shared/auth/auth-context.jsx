@@ -1,7 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 
-import { authApi } from './auth.api';
-import { onUnauthorized } from '../api/client';
+import { authApi } from './auth.api.js';
+import { onUnauthorized } from '../api/client.js';
 import { toUiUser } from './user.mapper.js';
 
 const AuthContext = createContext(null);

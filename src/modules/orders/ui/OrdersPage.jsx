@@ -1,14 +1,31 @@
 import { useState, useEffect, useRef } from 'react';
 import ReactDOM from 'react-dom';
-import { Icon } from '../../../shared/icons/index';
-import { ActionMenu, Avatar, Button, Checkbox, DateField, DateRangeField, EmptyState, Field, FilterChip, Input, Pagination, Pill, Radio, SearchBox, Th, Toggle, fmtDate, useSort, useToast } from '../../../shared/ui/index';
-import { AIRPORTS, CLIENTS, CLIENTS_DB, CLIENT_STATUS, COMPANIES_DB, GROUP_PAX, ORDER_PARTICIPANTS, ORDER_SERVICES, ORDER_STATUS, REQUEST_TYPE, SERVICE_TYPE, SETTLEMENT_TONE, activeAgreement, activeContract, companyBalanceShort, companyFinance, companyStaff, feeTemplate } from '../../../legacy/data/index';
-import { UnifiedDocumentDrawer, UnifiedPersonDrawer, UnifiedPersonFields, ufBlankPerson, ufToClient, ufValidatePerson } from '../../clients/ui/UnifiedForms';
-import { ORDER_OPS_SECTIONS, Topbar } from '../../../application/shell/AppShell';
-import { OrderCard, OrderEditDrawer } from './OrderCard';
-import { CityPickPanel, PanelSub, StackPanel } from '../../locations/ui/SharedPanels';
-import { ordersApi, proposalsApi } from '../../../legacy/compatibility/resources';
-import { toUiOrder } from '../../../legacy/adapters/ui-adapters';
+import { Icon } from '../../../shared/icons/index.jsx';
+import { ActionMenu } from '../../../shared/ui/ActionMenu.jsx';
+import { Avatar } from '../../../shared/ui/Avatar.jsx';
+import { Button } from '../../../shared/ui/Button.jsx';
+import { Checkbox } from '../../../shared/ui/Checkbox.jsx';
+import { DateField, DateRangeField, fmtDate } from '../../../shared/ui/DateFields.jsx';
+import { EmptyState } from '../../../shared/ui/EmptyState.jsx';
+import { Field } from '../../../shared/ui/Field.jsx';
+import { FilterChip } from '../../../shared/ui/FilterChip.jsx';
+import { Input } from '../../../shared/ui/Input.jsx';
+import { Pagination } from '../../../shared/ui/Pagination.jsx';
+import { Pill } from '../../../shared/ui/Pill.jsx';
+import { Radio } from '../../../shared/ui/Radio.jsx';
+import { SearchBox } from '../../../shared/ui/SearchBox.jsx';
+import { Th, useSort } from '../../../shared/ui/Table.jsx';
+import { Toggle } from '../../../shared/ui/Toggle.jsx';
+import { useToast } from '../../../shared/ui/Toast.jsx';
+import { AIRPORTS, CLIENTS, CLIENTS_DB, CLIENT_STATUS, COMPANIES_DB, GROUP_PAX, ORDER_PARTICIPANTS, ORDER_SERVICES, ORDER_STATUS, REQUEST_TYPE, SERVICE_TYPE, SETTLEMENT_TONE, activeAgreement, activeContract, companyBalanceShort, companyFinance, companyStaff, feeTemplate } from '../../../legacy/data/index.jsx';
+import { UnifiedDocumentDrawer, UnifiedPersonDrawer, UnifiedPersonFields, ufBlankPerson, ufToClient, ufValidatePerson } from '../../clients/index.js';
+import { ORDER_OPS_SECTIONS } from '../../../shared/constants/navigation.js';
+import { Topbar } from '../../../shared/ui/Topbar.jsx';
+import { OrderCard, OrderEditDrawer } from './OrderCard.jsx';
+import { CityPickPanel, PanelSub, StackPanel } from '../../locations/index.js';
+import { ordersApi } from '../api/ordersApi.js';
+import { proposalsApi } from '../../proposals/api.js';
+import { toUiOrder } from '../model/orders.mapper.js';
 
 
 

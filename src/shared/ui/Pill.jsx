@@ -1,4 +1,4 @@
-import { Icon } from '../icons/index';
+import { Icon } from '../icons/index.jsx';
 
 const PILL_TONE = {
   green: 'pill-green', red: 'pill-red', teal: 'pill-teal',

@@ -1,4 +1,4 @@
-import { Icon } from '../icons/index';
+import { Icon } from '../icons/index.jsx';
 
 function EmptyState({ icon = 'inbox', title = 'Нет данных', sub, action }) {
   return (

@@ -1,10 +1,21 @@
 import React from 'react';
 import { useState } from 'react';
-import { Icon } from '../../../shared/icons/index';
-import { ActionMenu, Button, Drawer, EmptyState, FilterChip, Input, Pill, SearchBox, Tabs, Th, useSort, useToast } from '../../../shared/ui/index';
-import { FIN_OPS, FIN_OP_STATUS, ORDER_STAGES, SERVICE_KIND } from '../../../legacy/data/index';
-import { Topbar } from '../../../application/shell/AppShell';
-import { financeApi, workspaceActionsApi } from '../../../legacy/compatibility/resources';
+import { Icon } from '../../../shared/icons/index.jsx';
+import { ActionMenu } from '../../../shared/ui/ActionMenu.jsx';
+import { Button } from '../../../shared/ui/Button.jsx';
+import { Drawer } from '../../../shared/ui/Overlays.jsx';
+import { EmptyState } from '../../../shared/ui/EmptyState.jsx';
+import { FilterChip } from '../../../shared/ui/FilterChip.jsx';
+import { Input } from '../../../shared/ui/Input.jsx';
+import { Pill } from '../../../shared/ui/Pill.jsx';
+import { SearchBox } from '../../../shared/ui/SearchBox.jsx';
+import { Tabs } from '../../../shared/ui/Tabs.jsx';
+import { Th, useSort } from '../../../shared/ui/Table.jsx';
+import { useToast } from '../../../shared/ui/Toast.jsx';
+import { FIN_OPS, FIN_OP_STATUS, ORDER_STAGES, SERVICE_KIND } from '../../../legacy/data/index.jsx';
+import { Topbar } from '../../../shared/ui/Topbar.jsx';
+import { financeApi } from '../api/financeApi.js';
+import { workspaceActionsApi } from '../../workspace/api.js';
 import { fUsd } from '../../../shared/lib/money.js';
 import { finPayable, finDebt } from '../model/operations.js';
 

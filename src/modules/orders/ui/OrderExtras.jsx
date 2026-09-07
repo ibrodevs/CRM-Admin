@@ -1,9 +1,18 @@
 import { useState, useEffect } from 'react';
-import { Icon } from '../../../shared/icons/index';
-import { Avatar, Button, Checkbox, Drawer, EmptyState, Field, Input, SearchBox, Select, useToast } from '../../../shared/ui/index';
-import { UnifiedPersonDrawer } from '../../clients/ui/UnifiedForms';
-import { PanelSub } from '../../locations/ui/SharedPanels';
-import { documentsApi } from '../../../legacy/compatibility/resources';
+import { Icon } from '../../../shared/icons/index.jsx';
+import { Avatar } from '../../../shared/ui/Avatar.jsx';
+import { Button } from '../../../shared/ui/Button.jsx';
+import { Checkbox } from '../../../shared/ui/Checkbox.jsx';
+import { Drawer } from '../../../shared/ui/Overlays.jsx';
+import { EmptyState } from '../../../shared/ui/EmptyState.jsx';
+import { Field } from '../../../shared/ui/Field.jsx';
+import { Input } from '../../../shared/ui/Input.jsx';
+import { SearchBox } from '../../../shared/ui/SearchBox.jsx';
+import { Select } from '../../../shared/ui/Select.jsx';
+import { useToast } from '../../../shared/ui/Toast.jsx';
+import { UnifiedPersonDrawer } from '../../clients/index.js';
+import { PanelSub } from '../../locations/index.js';
+import { documentsApi } from '../../documents/api.js';
 
 const ENABLE_DEMO_BUSINESS_DATA = typeof process !== 'undefined' && process.env.NEXT_PUBLIC_DEMO_MODE === 'true';
 

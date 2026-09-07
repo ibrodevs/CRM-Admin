@@ -1,9 +1,18 @@
 import { useState, useEffect } from 'react';
-import { Icon } from '../../../shared/icons/index';
-import { ActionMenu, Button, Drawer, EmptyState, FilterChip, Pill, SearchBox, Tabs, Toggle, useToast } from '../../../shared/ui/index';
-import { ERR_CATEGORIES, ERR_SEVERITY, ERR_SYSTEMS, INTEGRATION_ERROR_CODES, NOTIF_PRIORITY, NOTIF_PRIO_RANK, NOTIF_SETTINGS, NOTIF_SOURCE } from '../../../legacy/data/index';
-import { Topbar } from '../../../application/shell/AppShell';
-import { notificationsApi } from '../../../legacy/compatibility/resources';
+import { Icon } from '../../../shared/icons/index.jsx';
+import { ActionMenu } from '../../../shared/ui/ActionMenu.jsx';
+import { Button } from '../../../shared/ui/Button.jsx';
+import { Drawer } from '../../../shared/ui/Overlays.jsx';
+import { EmptyState } from '../../../shared/ui/EmptyState.jsx';
+import { FilterChip } from '../../../shared/ui/FilterChip.jsx';
+import { Pill } from '../../../shared/ui/Pill.jsx';
+import { SearchBox } from '../../../shared/ui/SearchBox.jsx';
+import { Tabs } from '../../../shared/ui/Tabs.jsx';
+import { Toggle } from '../../../shared/ui/Toggle.jsx';
+import { useToast } from '../../../shared/ui/Toast.jsx';
+import { ERR_CATEGORIES, ERR_SEVERITY, ERR_SYSTEMS, INTEGRATION_ERROR_CODES, NOTIF_PRIORITY, NOTIF_PRIO_RANK, NOTIF_SETTINGS, NOTIF_SOURCE } from '../../../legacy/data/index.jsx';
+import { Topbar } from '../../../shared/ui/Topbar.jsx';
+import { notificationsApi } from '../api/notificationsApi.js';
 
 
 

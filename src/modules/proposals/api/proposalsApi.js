@@ -1,4 +1,4 @@
-import { proposalListApi } from '../api.js';
+import { proposalListApi } from './proposalListApi.js';
 import { apiPath, apiRequest, queryString } from '../../../shared/api/client.js';
 import { list, get, create, patch, remove } from '../../../shared/api/operations.js';
 

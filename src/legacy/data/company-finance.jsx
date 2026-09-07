@@ -1,4 +1,4 @@
-import { COMPANIES_DB } from './index';
+import { COMPANIES_DB } from './index.jsx';
 
 const SETTLEMENT_TYPES = ['предоплата', 'депозит', 'отсрочка'];
 const SETTLEMENT_TONE = { 'предоплата': 'gray', 'депозит': 'blue', 'отсрочка': 'amber' };

@@ -7,23 +7,25 @@
 
 
 
-import { DashboardPage } from '../../modules/dashboard/ui/DashboardPage';
-import { FlightsPage } from '../../modules/services/flights/FlightsPage';
-import { OrdersPage } from '../../modules/orders/ui/OrdersPage';
-import { OffersPage } from '../../modules/proposals/ui/OffersPage';
-import { DocCenterPage, FulfillmentPage, ReceiptEditorPage } from '../../modules/receipts/ui/FulfillmentPages';
-import { FinancePage } from '../../modules/finance/ui/FinancePage';
-import { ReturnsPage } from '../../modules/returns/ui/ReturnsPage';
-import { NotificationsPage } from '../../modules/notifications/ui/NotificationsPage';
-import { ServiceFlow, ServicesHubPage } from '../../modules/services/ui/ServicesPage';
-import { HotelsPage } from '../../modules/services/hotels/HotelsPage';
-import { ClientsPage, CompaniesPage } from '../../modules/clients/ui/PeoplePages';
-import { SuppliersPage } from '../../modules/suppliers/ui/SuppliersPage';
-import { ChatsPage } from '../../modules/chats/ui/ChatsPage';
-import { SettingsPage } from '../../modules/settings/ui/SettingsPage';
-import { TripCalendarPage } from '../../modules/calendar/ui/TripCalendarPage';
-import { ProfilePage } from '../../modules/profile/ui/ProfilePage';
-import { AccountSettingsPage } from '../../modules/account/ui/AccountSettingsPage';
+import { DashboardPage } from '../../modules/dashboard/index.js';
+import { FlightsPage } from '../../modules/services/index.js';
+import { OrdersPage } from '../../modules/orders/index.js';
+import { OffersPage } from '../../modules/proposals/index.js';
+import { DocCenterPage, FulfillmentPage } from '../../modules/documents/index.js';
+import { ReceiptEditorPage } from '../../modules/receipts/index.js';
+import { FinancePage } from '../../modules/finance/index.js';
+import { ReturnsPage } from '../../modules/returns/index.js';
+import { NotificationsPage } from '../../modules/notifications/index.js';
+import { ServiceFlow, ServicesHubPage } from '../../modules/services/index.js';
+import { HotelsPage } from '../../modules/services/index.js';
+import { ClientsPage } from '../../modules/clients/index.js';
+import { CompaniesPage } from '../../modules/companies/index.js';
+import { SuppliersPage } from '../../modules/suppliers/index.js';
+import { ChatsPage } from '../../modules/chats/index.js';
+import { SettingsPage } from '../../modules/settings/index.js';
+import { TripCalendarPage } from '../../modules/calendar/index.js';
+import { ProfilePage } from '../../modules/profile/index.js';
+import { AccountSettingsPage } from '../../modules/account/index.js';
 
 
 

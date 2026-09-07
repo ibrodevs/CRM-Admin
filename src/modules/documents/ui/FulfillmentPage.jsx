@@ -1,10 +1,13 @@
 import { useState, useEffect } from 'react';
-import { Icon } from '../../../shared/icons/index';
-import { Button, EmptyState, useToast } from '../../../shared/ui/index';
-import { Topbar } from '../../../application/shell/AppShell';
-import { toUiOrder } from '../../../legacy/adapters/ui-adapters';
-import { financeApi, ordersApi } from '../../../legacy/compatibility/resources';
-import { resultsOf } from '../../../shared/api/client';
+import { Icon } from '../../../shared/icons/index.jsx';
+import { Button } from '../../../shared/ui/Button.jsx';
+import { EmptyState } from '../../../shared/ui/EmptyState.jsx';
+import { useToast } from '../../../shared/ui/Toast.jsx';
+import { Topbar } from '../../../shared/ui/Topbar.jsx';
+import { toUiOrder } from '../../orders/model.js';
+import { financeApi } from '../../finance/api.js';
+import { ordersApi } from '../../orders/api.js';
+import { resultsOf } from '../../../shared/api/client.js';
 import { fUsd } from '../../../shared/lib/money.js';
 
 function buildFulfillmentRows({ obligations = [], orders = [], documents = [], returns = [] }) {

@@ -1,8 +1,9 @@
 import ReactDOM from 'react-dom';
 import { useEffect, useState } from 'react';
-import { AIRPORTS } from '../../../legacy/data/index';
-import { Icon } from '../../../shared/icons/index';
-import { EmptyState, SearchBox } from '../../../shared/ui/index';
+import { AIRPORTS } from '../../../legacy/data/index.jsx';
+import { Icon } from '../../../shared/icons/index.jsx';
+import { EmptyState } from '../../../shared/ui/EmptyState.jsx';
+import { SearchBox } from '../../../shared/ui/SearchBox.jsx';
 
 function StackPanel({ title, onClose, footer, children, width }) {
   useEffect(() => {

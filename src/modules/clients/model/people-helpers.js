@@ -1,4 +1,4 @@
-import { ORDERS } from '../../../legacy/data/index';
+import { ORDERS } from '../../../legacy/data/index.jsx';
 
 function pUsd(n) { return Math.round(n).toLocaleString('ru-RU') + ' $'; }
 

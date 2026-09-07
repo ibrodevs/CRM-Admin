@@ -5,7 +5,8 @@ import test from 'node:test';
 const editor = await readFile(new URL('../src/modules/receipts/ui/editor.jsx', import.meta.url), 'utf8');
 
 test('привязка квитанции объединяет заказ, юрлицо и физлицо в одном верхнем блоке', () => {
-  assert.match(editor, /UFDateField, UnifiedBindField/);
+  assert.match(editor, /import \{ UnifiedBindField \} from [^;]+clients\/index\.js/);
+  assert.match(editor, /import \{ UFDateField \} from [^;]+UnifiedDateField\.jsx/);
   assert.match(editor, /Section title="Привязка квитанции"/);
   assert.match(editor, /modes=\{\['order', 'company', 'person'\]\}/);
   assert.match(editor, /companyOptions=\{companies\}/);

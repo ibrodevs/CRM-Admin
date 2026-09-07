@@ -1,10 +1,16 @@
 import { useState, useEffect } from 'react';
 import ReactDOM from 'react-dom';
-import { Icon } from '../../../shared/icons/index';
-import { ActionMenu, Button, Drawer, Input, Pill, Toggle, useToast } from '../../../shared/ui/index';
-import { CURRENT_USER } from '../../../legacy/data/index';
-import { workforceApi } from '../../../legacy/compatibility/resources';
-import { resultsOf } from '../../../shared/api/client';
+import { Icon } from '../../../shared/icons/index.jsx';
+import { ActionMenu } from '../../../shared/ui/ActionMenu.jsx';
+import { Button } from '../../../shared/ui/Button.jsx';
+import { Drawer } from '../../../shared/ui/Overlays.jsx';
+import { Input } from '../../../shared/ui/Input.jsx';
+import { Pill } from '../../../shared/ui/Pill.jsx';
+import { Toggle } from '../../../shared/ui/Toggle.jsx';
+import { useToast } from '../../../shared/ui/Toast.jsx';
+import { CURRENT_USER } from '../../../legacy/data/index.jsx';
+import { workforceApi } from '../api/workforceApi.js';
+import { resultsOf } from '../../../shared/api/client.js';
 
 
 

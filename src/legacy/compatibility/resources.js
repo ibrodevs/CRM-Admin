@@ -1,4 +1,4 @@
-import { apiPath, apiRequest, queryString } from '../../shared/api/client';
+import { apiPath, apiRequest, queryString } from '../../shared/api/client.js';
 
 const list = (path, params, signal) => apiRequest(apiPath(path) + queryString(params), { signal });
 const get = (path, signal) => apiRequest(apiPath(path), { signal });

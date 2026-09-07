@@ -1,12 +1,27 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Icon } from '../../../shared/icons/index';
-import { aftersalesApi, documentsApi, workspaceActionsApi } from '../../../legacy/compatibility/resources';
-import { toLegacyReturn } from '../../../legacy/adapters/legacy-adapters';
-import { resultsOf } from '../../../shared/api/client';
-import { ActionMenu, Button, Checkbox, ConfirmDialog, DateField, Drawer, EmptyState, Field, FilterChip, Input, Pill, SearchBox, Select, Th, fmtDate, useSort, useToast } from '../../../shared/ui/index';
-import { DOC_STATUS2, ORDERS, ORDER_PARTICIPANTS, ORDER_SERVICES, RETURNS, RETURN_FLOW, RETURN_STATUS, RETURN_TYPE } from '../../../legacy/data/index';
-import { Topbar } from '../../../application/shell/AppShell';
-import { AirportField } from '../../services/flights/FlightsPage';
+import { Icon } from '../../../shared/icons/index.jsx';
+import { aftersalesApi } from '../api/aftersalesApi.js';
+import { documentsApi } from '../../documents/api.js';
+import { workspaceActionsApi } from '../../workspace/api.js';
+import { toLegacyReturn } from '../../../legacy/adapters/legacy-adapters.js';
+import { resultsOf } from '../../../shared/api/client.js';
+import { ActionMenu } from '../../../shared/ui/ActionMenu.jsx';
+import { Button } from '../../../shared/ui/Button.jsx';
+import { Checkbox } from '../../../shared/ui/Checkbox.jsx';
+import { ConfirmDialog, Drawer } from '../../../shared/ui/Overlays.jsx';
+import { DateField, fmtDate } from '../../../shared/ui/DateFields.jsx';
+import { EmptyState } from '../../../shared/ui/EmptyState.jsx';
+import { Field } from '../../../shared/ui/Field.jsx';
+import { FilterChip } from '../../../shared/ui/FilterChip.jsx';
+import { Input } from '../../../shared/ui/Input.jsx';
+import { Pill } from '../../../shared/ui/Pill.jsx';
+import { SearchBox } from '../../../shared/ui/SearchBox.jsx';
+import { Select } from '../../../shared/ui/Select.jsx';
+import { Th, useSort } from '../../../shared/ui/Table.jsx';
+import { useToast } from '../../../shared/ui/Toast.jsx';
+import { DOC_STATUS2, ORDERS, ORDER_PARTICIPANTS, ORDER_SERVICES, RETURNS, RETURN_FLOW, RETURN_STATUS, RETURN_TYPE } from '../../../legacy/data/index.jsx';
+import { Topbar } from '../../../shared/ui/Topbar.jsx';
+import { AirportField } from '../../services/index.js';
 
 
 

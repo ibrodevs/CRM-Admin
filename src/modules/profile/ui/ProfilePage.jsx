@@ -1,17 +1,32 @@
 import { useEffect, useState } from 'react';
-import { Icon } from '../../../shared/icons/index';
-import { Avatar, Button, Checkbox, Drawer, Field, Input, Pill, Select, Tabs, Toggle, useToast } from '../../../shared/ui/index';
-import { UFDateField } from '../../clients/ui/UnifiedForms';
-import { CURRENCIES, CURRENT_USER } from '../../../legacy/data/index';
-import { SVC_ACCESS_KINDS, operatorKindsLabel, operatorSla, operatorSvcAccess } from '../../../legacy/data/access-control';
-import { Topbar } from '../../../application/shell/AppShell';
-import { RolesTab } from '../../settings/ui/SettingsPage';
-import { MotivationDrawer, motivationFromRules, shiftDuration, shiftFmtTime } from '../../workforce/ui/ShiftControl';
-import { ServiceAccessEditor } from '../../settings/ui/ServiceAccessEditor';
-import { accountApi, aftersalesApi, ordersApi, servicesApi, usersApi, workforceApi } from '../../../legacy/compatibility/resources';
-import { toUiUser } from '../../../legacy/adapters/ui-adapters';
-import { useAuth } from '../../../shared/auth/auth-context';
-import { resultsOf } from '../../../shared/api/client';
+import { Icon } from '../../../shared/icons/index.jsx';
+import { Avatar } from '../../../shared/ui/Avatar.jsx';
+import { Button } from '../../../shared/ui/Button.jsx';
+import { Checkbox } from '../../../shared/ui/Checkbox.jsx';
+import { Drawer } from '../../../shared/ui/Overlays.jsx';
+import { Field } from '../../../shared/ui/Field.jsx';
+import { Input } from '../../../shared/ui/Input.jsx';
+import { Pill } from '../../../shared/ui/Pill.jsx';
+import { Select } from '../../../shared/ui/Select.jsx';
+import { Tabs } from '../../../shared/ui/Tabs.jsx';
+import { Toggle } from '../../../shared/ui/Toggle.jsx';
+import { useToast } from '../../../shared/ui/Toast.jsx';
+import { UFDateField } from '../../../shared/ui/UnifiedDateField.jsx';
+import { CURRENCIES, CURRENT_USER } from '../../../legacy/data/index.jsx';
+import { SVC_ACCESS_KINDS, operatorKindsLabel, operatorSla, operatorSvcAccess } from '../../../legacy/data/access-control.jsx';
+import { Topbar } from '../../../shared/ui/Topbar.jsx';
+import { RolesTab } from '../../settings/index.js';
+import { MotivationDrawer, motivationFromRules, shiftDuration, shiftFmtTime } from '../../workforce/index.js';
+import { ServiceAccessEditor } from '../../settings/index.js';
+import { accountApi } from '../../account/api.js';
+import { aftersalesApi } from '../../returns/api.js';
+import { ordersApi } from '../../orders/api.js';
+import { servicesApi } from '../../services/api.js';
+import { usersApi } from '../../users/api.js';
+import { workforceApi } from '../../workforce/api.js';
+import { toUiUser } from '../../../shared/auth/user.mapper.js';
+import { useAuth } from '../../../shared/auth/auth-context.jsx';
+import { resultsOf } from '../../../shared/api/client.js';
 
 
 

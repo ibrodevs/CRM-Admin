@@ -1,4 +1,4 @@
-import { ORDERS } from '../../../legacy/data/index';
+import { ORDERS } from '../../../legacy/data/index.jsx';
 
 function ordersForCompany(company, orders = ORDERS) {
   return orders.filter((order) => (

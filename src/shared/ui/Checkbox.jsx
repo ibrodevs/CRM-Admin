@@ -1,4 +1,4 @@
-import { Icon } from '../icons/index';
+import { Icon } from '../icons/index.jsx';
 
 function Checkbox({ on, onChange, style }) {
   return (

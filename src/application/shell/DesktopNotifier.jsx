@@ -1,7 +1,7 @@
 
 
 import { useEffect } from 'react';
-import { useToast } from '../../shared/ui/index';
+import { useToast } from '../../shared/ui/Toast.jsx';
 
 
 

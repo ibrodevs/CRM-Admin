@@ -1,9 +1,19 @@
-import { clientsApi } from '../api.js';
+import { clientsApi } from '../api/clientsApi.js';
 import { useState, useEffect, useRef } from 'react';
-import { Icon } from '../../../shared/icons/index';
-import { Avatar, Button, Drawer, EmptyState, Field, Input, SearchBox, Select, Toggle, fmtDate, useToast } from '../../../shared/ui/index';
-import { CLIENTS, CLIENT_STATUS, ORDERS } from '../../../legacy/data/index';
-import { PanelSub } from '../../locations/ui/SharedPanels';
+import { Icon } from '../../../shared/icons/index.jsx';
+import { Avatar } from '../../../shared/ui/Avatar.jsx';
+import { Button } from '../../../shared/ui/Button.jsx';
+import { Drawer } from '../../../shared/ui/Overlays.jsx';
+import { EmptyState } from '../../../shared/ui/EmptyState.jsx';
+import { Field } from '../../../shared/ui/Field.jsx';
+import { Input } from '../../../shared/ui/Input.jsx';
+import { SearchBox } from '../../../shared/ui/SearchBox.jsx';
+import { Select } from '../../../shared/ui/Select.jsx';
+import { Toggle } from '../../../shared/ui/Toggle.jsx';
+import { fmtDate } from '../../../shared/ui/DateFields.jsx';
+import { useToast } from '../../../shared/ui/Toast.jsx';
+import { CLIENTS, CLIENT_STATUS, ORDERS } from '../../../legacy/data/index.jsx';
+import { PanelSub } from '../../locations/index.js';
 import { UF_MONTHS, UF_DAYS, ufParseDate, ufDateString, ufDateIso, ufDateFromIso, UFDateField } from '../../../shared/ui/UnifiedDateField.jsx';
 
 const UF_DOC_TYPES = ['Загранпаспорт', 'Общегражданский паспорт', 'ID-карта', 'Свидетельство о рождении', 'Вид на жительство', 'Виза'];

@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
 import ReactDOM from 'react-dom';
-import { Icon } from '../icons/index';
+import { Icon } from '../icons/index.jsx';
 import { useToast, ToastProvider } from './Toast.jsx';
 import { Button } from './Button.jsx';
 import { Pill, TimeLimitBadge } from './Pill.jsx';

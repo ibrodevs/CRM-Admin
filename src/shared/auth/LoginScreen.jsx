@@ -1,7 +1,7 @@
 import { useState } from 'react';
-import { Icon } from '../icons/index';
-import { useToast } from '../ui/index';
-import { authApi } from './auth.api';
+import { Icon } from '../icons/index.jsx';
+import { useToast } from '../ui/Toast.jsx';
+import { authApi } from './auth.api.js';
 
 
 

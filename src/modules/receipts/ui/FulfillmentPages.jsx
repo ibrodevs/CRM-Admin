@@ -2,20 +2,29 @@ import { serviceFeeApi } from '../../finance/api.js';
 import React from 'react';
 import { useState, useEffect, useRef } from 'react';
 import ReactDOM from 'react-dom';
-import { Icon } from '../../../shared/icons/index';
-import { Button, Checkbox, ConfirmDialog, Drawer, EmptyState, Field, Input, Pill, Radio, SearchBox, Select, TimeField, plural, useToast } from '../../../shared/ui/index';
-import { CURRENT_USER } from '../../../legacy/data/index';
-import { UnifiedBindField, UnifiedBindPicker, UFDateField } from '../../clients/ui/UnifiedForms';
-import { Topbar } from '../../../application/shell/AppShell';
-import { toLegacyDocument } from '../../../legacy/adapters/legacy-adapters';
-import { documentsApi } from '../../../legacy/compatibility/resources';
-import { ReceiptBrandDocumentDrawer, ReceiptDocumentPreview, ReceiptParticipantSummary, ReceiptSpecializedForm, normalizeReceiptDraft, receiptDetailsLines, receiptFinancialTotal, receiptParticipantLabel } from './editor';
-import { createReceiptImportDraftId, readReceiptImportDrafts, receiptImportDraftTitle, removeReceiptImportDraft, upsertReceiptImportDraft, writeReceiptImportDrafts } from '../model/import-drafts';
-import { fUsd } from '../../../shared/lib/money.js';
-import { finPayable, finDebt } from '../../finance/model/operations.js';
-import { inlineSupplierDocumentUrl, freshSupplierDocumentUrl, waitForReceiptPdfJob, PDF_SYNC_SUCCESS_NOTICE_MS, supplierDocumentPageUrl, DocCard, DocUploadModal, DocCenter, DocCenterPage } from '../../documents/ui/DocumentsPage.jsx';
-import { OrderStageBar, FinanceOpCard, FinanceRegistry, FinancePageNew } from '../../finance/ui/FinanceRegistry.jsx';
-import { FulfillmentRegistry, FulfillmentPage } from '../../documents/ui/FulfillmentPage.jsx';
+import { Icon } from '../../../shared/icons/index.jsx';
+import { Button } from '../../../shared/ui/Button.jsx';
+import { Checkbox } from '../../../shared/ui/Checkbox.jsx';
+import { ConfirmDialog, Drawer } from '../../../shared/ui/Overlays.jsx';
+import { EmptyState } from '../../../shared/ui/EmptyState.jsx';
+import { Field } from '../../../shared/ui/Field.jsx';
+import { Input } from '../../../shared/ui/Input.jsx';
+import { Pill } from '../../../shared/ui/Pill.jsx';
+import { Radio } from '../../../shared/ui/Radio.jsx';
+import { SearchBox } from '../../../shared/ui/SearchBox.jsx';
+import { Select } from '../../../shared/ui/Select.jsx';
+import { TimeField } from '../../../shared/ui/DateFields.jsx';
+import { plural } from '../../../shared/ui/plural.js';
+import { useToast } from '../../../shared/ui/Toast.jsx';
+import { CURRENT_USER } from '../../../legacy/data/index.jsx';
+import { UnifiedBindField, UnifiedBindPicker } from '../../clients/index.js';
+import { UFDateField } from '../../../shared/ui/UnifiedDateField.jsx';
+import { Topbar } from '../../../shared/ui/Topbar.jsx';
+import { toLegacyDocument } from '../../../legacy/adapters/legacy-adapters.js';
+import { documentsApi } from '../../documents/api.js';
+import { ReceiptBrandDocumentDrawer, ReceiptDocumentPreview, ReceiptParticipantSummary, ReceiptSpecializedForm, normalizeReceiptDraft, receiptDetailsLines, receiptFinancialTotal, receiptParticipantLabel } from './editor.jsx';
+import { createReceiptImportDraftId, readReceiptImportDrafts, receiptImportDraftTitle, removeReceiptImportDraft, upsertReceiptImportDraft, writeReceiptImportDrafts } from '../model/import-drafts.js';
+import { inlineSupplierDocumentUrl, freshSupplierDocumentUrl, waitForReceiptPdfJob, PDF_SYNC_SUCCESS_NOTICE_MS, supplierDocumentPageUrl } from '../../documents/model.js';
 
 const REC_TYPES = [
   { key: 'Авиа',      doc: 'Маршрут-квитанция', icon: 'plane', color: '#2566ff', legLabel: 'Рейс',    docNoLabel: 'Номер билета', refLabel: 'PNR' },
@@ -4629,32 +4638,4 @@ function ReceiptEditorPage({ documents = [], orders = [], services = [], compani
   );
 }
 
-Object.assign(window, {
-  OrderStageBar, FinanceOpCard, FinanceRegistry, FinancePageNew,
-  DocCard, DocCenter, DocCenterPage, DocUploadModal, ReceiptEditorPage, FulfillmentRegistry, FulfillmentPage,
-  fUsd, finPayable, finDebt,
-});
-
 export { REC_TYPES, recType, RECOG_STEPS, TRIP_TYPES, tripLabel, legCode, routeSummary, RID, emptyReceiptParse, guessType, serviceTypeFromBackend, receiptImportSubrows, aggregateReceiptSubrows, receiptWithPricing, receiptMoneyNumber, receiptImportMoney, receiptImportPassengers, recMoney, recComputed, recHasSourceAmount, recSourceMoney, LegLine, RouteView, RSub, ReceiptPreview, ReceiptEditForm, REC_STATUS, IMPORT_STEPS, RECEIPT_IMPORT_CONCURRENCY, RECEIPT_IMPORT_MAX_ATTEMPTS, RECEIPT_RESULT_MAX_ATTEMPTS, RECEIPT_IMPORT_GAP_MS, RECEIPT_TRANSIENT_STATUSES, receiptImportSleep, receiptRetryDelay, isTransientReceiptError, importReceiptWithRetry, receiptResultWithRetry, serializableReceiptImportFile, receiptBlankFingerprint, receiptBlankFingerprints, receiptStatus, waitForReceiptResult, receiptPdfCorrectionProblem, receiptBlankIsReviewed, receiptSupplierBaseAmount, receiptSupplierBaseSignature, receiptRailCostSignature, receiptPricingCostSignature, receiptRailSignatureAmount, receiptGlobalCostGroups, receiptGroupedTickets, receiptBrandFileForBlank, receiptHasMultipleSubReceipts, receiptFinancialFingerprint, receiptSupplierPdfFingerprint, receiptGroupNeedsSequentialReview, receiptGroupToken, receiptSimilaritySignature, receiptDetectedGroups, RECEIPT_APPLY_PARTS, RECEIPT_APPLY_ALL_PARTS, receiptApplyPartsLabel, receiptSharedGroupPatch, ReceiptApplyScopePanel, receiptBlankMissingFields, ReceiptEditDrawer, SERVICE_FEE_MANUAL_HINTS, normalizeServiceFeeResolution, serviceFeeSourceLabel, serviceFeeManualHint, receiptFeeBindingContext, ServiceFeeBindingSummary, costTabId, costPanelId, ReceiptCostGroupsBar, ReceiptMathDrawer, receiptIsoDate, receiptRoutePointCode, receiptRoutePointName, receiptOrderPassengers, receiptRouteContains, receiptMergeRoutes, receiptOrderPlan, receiptPersonNameParts, RECEIPT_ROUTE_KIND_LABEL, ReceiptOrderCreateDrawer, ReceiptImportModal, ReceiptEditorPage };
-export { ServiceBlanksPanel } from '../../documents/ui/DocumentsPage.jsx';
-export { fUsd } from '../../../shared/lib/money.js';
-export { finPayable } from '../../finance/model/operations.js';
-export { finDebt } from '../../finance/model/operations.js';
-export { companyForDoc } from '../../documents/ui/DocumentsPage.jsx';
-export { OrderStageBar } from '../../finance/ui/FinanceRegistry.jsx';
-export { FinanceOpCard } from '../../finance/ui/FinanceRegistry.jsx';
-export { FinanceRegistry } from '../../finance/ui/FinanceRegistry.jsx';
-export { FinancePageNew } from '../../finance/ui/FinanceRegistry.jsx';
-export { DOC_BOOKKEEPING } from '../../documents/ui/DocumentsPage.jsx';
-export { now } from '../../documents/ui/DocumentsPage.jsx';
-export { DocPreviewModal } from '../../documents/ui/DocumentsPage.jsx';
-export { DocCard } from '../../documents/ui/DocumentsPage.jsx';
-export { DocPassengerGroup } from '../../documents/ui/DocumentsPage.jsx';
-export { correctionSubjects } from '../../documents/ui/DocumentsPage.jsx';
-export { DOC_UPLOAD_TYPES } from '../../documents/ui/DocumentsPage.jsx';
-export { DocUploadModal } from '../../documents/ui/DocumentsPage.jsx';
-export { DocCenter } from '../../documents/ui/DocumentsPage.jsx';
-export { DocCenterPage } from '../../documents/ui/DocumentsPage.jsx';
-export { buildFulfillmentRows } from '../../documents/ui/FulfillmentPage.jsx';
-export { FulfillmentRegistry } from '../../documents/ui/FulfillmentPage.jsx';
-export { FulfillmentPage } from '../../documents/ui/FulfillmentPage.jsx';

@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react';
 import ReactDOM from 'react-dom';
-import { Icon } from '../icons/index';
+import { Icon } from '../icons/index.jsx';
 import { Button } from './Button.jsx';
 
 // ——— Слои модальных окон ————————————————————————————————————————————————

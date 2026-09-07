@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Icon } from '../icons/index';
+import { Icon } from '../icons/index.jsx';
 
 function FilterChip({ label, options, value, onChange, icon = 'filter' }) {
   const [open, setOpen] = useState(false);

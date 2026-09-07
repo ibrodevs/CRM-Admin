@@ -1,9 +1,18 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Icon } from '../../../shared/icons/index';
-import { ActionMenu, Avatar, Button, EmptyState, Pill, SearchBox, useToast } from '../../../shared/ui/index';
-import { CHAT_CHANNEL_TONE, CHAT_THREADS, CHAT_TYPES, CURRENT_USER, OPERATORS, ORDERS, ORDER_SERVICES, ORDER_STATUS, SERVICE_KIND, SERVICE_STATUS } from '../../../legacy/data/index';
-import { communicationsApi, documentsApi, ordersApi, workspaceActionsApi } from '../../../legacy/compatibility/resources';
-import { toUiMessage } from '../../../legacy/adapters/ui-adapters';
+import { Icon } from '../../../shared/icons/index.jsx';
+import { ActionMenu } from '../../../shared/ui/ActionMenu.jsx';
+import { Avatar } from '../../../shared/ui/Avatar.jsx';
+import { Button } from '../../../shared/ui/Button.jsx';
+import { EmptyState } from '../../../shared/ui/EmptyState.jsx';
+import { Pill } from '../../../shared/ui/Pill.jsx';
+import { SearchBox } from '../../../shared/ui/SearchBox.jsx';
+import { useToast } from '../../../shared/ui/Toast.jsx';
+import { CHAT_CHANNEL_TONE, CHAT_THREADS, CHAT_TYPES, CURRENT_USER, OPERATORS, ORDERS, ORDER_SERVICES, ORDER_STATUS, SERVICE_KIND, SERVICE_STATUS } from '../../../legacy/data/index.jsx';
+import { communicationsApi } from '../api/communicationsApi.js';
+import { documentsApi } from '../../documents/api.js';
+import { ordersApi } from '../../orders/api.js';
+import { workspaceActionsApi } from '../../workspace/api.js';
+import { toUiMessage } from '../model/chats.mapper.js';
 
 
 

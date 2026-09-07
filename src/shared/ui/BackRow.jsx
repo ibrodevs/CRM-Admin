@@ -1,4 +1,4 @@
-import { Button } from './index';
+import { Button } from './Button.jsx';
 
 function BackRow({ label, onBack }) {
   return (

@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
-import { BrandMark, Icon } from '../../shared/icons/index';
-import { Avatar } from '../../shared/ui/index';
+import { BrandMark, Icon } from '../../shared/icons/index.jsx';
+import { Avatar } from '../../shared/ui/Avatar.jsx';
 import { ORDER_OPS_SECTIONS, SERVICE_KEYS } from '../../shared/constants/navigation.js';
 import { NAV_ITEMS } from '../routing/navigation.js';
 

@@ -24,11 +24,12 @@
 
 
 
-import { GlobalChatDrawer, NotificationDrawer } from './GlobalControls';
+import { GlobalChatDrawer } from './ChatDrawer.jsx';
+import { NotificationDrawer } from './NotificationDrawer.jsx';
 
 
 
-import { DesktopNotifier } from './DesktopNotifier';
+import { DesktopNotifier } from './DesktopNotifier.jsx';
 
 export function GlobalOverlays({ workspace, orders, navigate, openOrder, notifOpen, setNotifOpen, chatOpen, setChatOpen, setChatTarget, chatTarget, ctxOrder, auth }) {
   const overlays = (

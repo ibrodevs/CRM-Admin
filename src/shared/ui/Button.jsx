@@ -1,4 +1,4 @@
-import { Icon } from '../icons/index';
+import { Icon } from '../icons/index.jsx';
 
 const BTN_OWN_PROPS = { variant: 1, size: 1, icon: 1, iconRight: 1, children: 1, className: 1 };
 

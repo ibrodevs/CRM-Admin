@@ -1,11 +1,22 @@
 import React, { useEffect, useMemo, useState, useRef } from 'react';
 import ReactDOM from 'react-dom';
-import { Icon } from '../../../shared/icons/index';
-import { Button, Checkbox, Combobox, Drawer, EmptyState, Field, Input, Pill, SearchBox, Select, TimeField, holdOverlaysDuringPrint, printOverlayScope } from '../../../shared/ui/index';
-import { UFDateField, UnifiedBindField } from '../../clients/ui/UnifiedForms';
-import { segmentConnectionLabel } from '../model/layover';
-import { normalizeReceiptDisplayDate } from '../model/date';
-import { AVIA_TAX_BY_CODE, CUSTOM_TAX_VALUE, aviaTaxName, aviaTaxOptionsFor } from '../model/tax-catalog';
+import { Icon } from '../../../shared/icons/index.jsx';
+import { Button } from '../../../shared/ui/Button.jsx';
+import { Checkbox } from '../../../shared/ui/Checkbox.jsx';
+import { Combobox } from '../../../shared/ui/Combobox.jsx';
+import { Drawer, holdOverlaysDuringPrint, printOverlayScope } from '../../../shared/ui/Overlays.jsx';
+import { EmptyState } from '../../../shared/ui/EmptyState.jsx';
+import { Field } from '../../../shared/ui/Field.jsx';
+import { Input } from '../../../shared/ui/Input.jsx';
+import { Pill } from '../../../shared/ui/Pill.jsx';
+import { SearchBox } from '../../../shared/ui/SearchBox.jsx';
+import { Select } from '../../../shared/ui/Select.jsx';
+import { TimeField } from '../../../shared/ui/DateFields.jsx';
+import { UFDateField } from '../../../shared/ui/UnifiedDateField.jsx';
+import { UnifiedBindField } from '../../clients/index.js';
+import { segmentConnectionLabel } from '../model/layover.js';
+import { normalizeReceiptDisplayDate } from '../model/date.js';
+import { AVIA_TAX_BY_CODE, CUSTOM_TAX_VALUE, aviaTaxName, aviaTaxOptionsFor } from '../model/tax-catalog.js';
 
 const TYPE_META = {
   'Авиа': { icon: 'plane', color: '#2566ff', document: 'Маршрут-квитанция' },

@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, createContext, useContext, useCallback } from 'react';
-import { Icon } from '../icons/index';
+import { Icon } from '../icons/index.jsx';
 
 const ToastCtx = createContext(() => {});
 

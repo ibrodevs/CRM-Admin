@@ -1,10 +1,21 @@
 import { useState } from 'react';
-import { Icon } from '../../../shared/icons/index';
-import { Avatar, Button, Drawer, Field, Input, Pill, Select, Tabs, SearchBox, TimeField, useToast } from '../../../shared/ui/index';
-import { UFDateField, UnifiedBindPicker } from '../../clients/ui/UnifiedForms';
-import { CURRENT_USER } from '../../../legacy/data/index';
-import { trSameDay } from '../../../legacy/data/trips';
-import { FinRow } from '../../finance/ui/FinancePage';
+import { Icon } from '../../../shared/icons/index.jsx';
+import { Avatar } from '../../../shared/ui/Avatar.jsx';
+import { Button } from '../../../shared/ui/Button.jsx';
+import { Drawer } from '../../../shared/ui/Overlays.jsx';
+import { Field } from '../../../shared/ui/Field.jsx';
+import { Input } from '../../../shared/ui/Input.jsx';
+import { Pill } from '../../../shared/ui/Pill.jsx';
+import { Select } from '../../../shared/ui/Select.jsx';
+import { Tabs } from '../../../shared/ui/Tabs.jsx';
+import { SearchBox } from '../../../shared/ui/SearchBox.jsx';
+import { TimeField } from '../../../shared/ui/DateFields.jsx';
+import { useToast } from '../../../shared/ui/Toast.jsx';
+import { UFDateField } from '../../../shared/ui/UnifiedDateField.jsx';
+import { UnifiedBindPicker } from '../../clients/index.js';
+import { CURRENT_USER } from '../../../legacy/data/index.jsx';
+import { trSameDay } from '../../../legacy/data/trips.jsx';
+import { FinRow } from '../../finance/index.js';
 
 
 

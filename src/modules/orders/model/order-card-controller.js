@@ -1,6 +1,6 @@
-import { resultsOf } from '../../../shared/api/client';
-import { toLegacyOrderService, toLegacyParticipant } from '../../../legacy/adapters/legacy-adapters';
-import { orderCardApi, participantPayloadFromUi, routePayloadFromUi } from '../api/order-card';
+import { resultsOf } from '../../../shared/api/client.js';
+import { toLegacyOrderService, toLegacyParticipant } from '../../../legacy/adapters/legacy-adapters.js';
+import { orderCardApi, participantPayloadFromUi, routePayloadFromUi } from '../api/order-card.js';
 
 function taskToUi(task) {
   return {

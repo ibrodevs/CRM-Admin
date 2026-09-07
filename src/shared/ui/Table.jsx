@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Icon } from '../icons/index';
+import { Icon } from '../icons/index.jsx';
 
 function Th({ label, col, sort, onSort, sortable = true, style }) {
   if (!sortable) return <th style={style}>{label}</th>;

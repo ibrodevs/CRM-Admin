@@ -1,87 +1,10 @@
 import { ROLES, PERMISSIONS } from '../../shared/constants/permissions.js';
-import {
-  SVC_DATA,
-  HOTEL_AMENITIES,
-  hotelTariffs,
-  hotelRooms,
-  HOTELS,
-  HOTEL_DISTRICTS,
-  HOTEL_MEALS,
-  HOTEL_EXTRAS,
-} from './services';
-import {
-  SETTLEMENT_TYPES,
-  SETTLEMENT_TONE,
-  FEE_SCHEMA,
-  FEE_SERVICE_TYPES,
-  SERVICE_DESC_DEFAULTS,
-  FEE_DESC_DEFAULTS,
-  feeDescsFromDefaults,
-  feeDescOf,
-  FEE_TEMPLATES,
-  feeTemplate,
-  feesFromTemplate,
-  descsFromDefaults,
-  registerFeeTemplate,
-  COMPANY_FINANCE,
-  companyFinance,
-  depositAvailable,
-  creditAvailable,
-  activeContract,
-  activeAgreement,
-  feeAmount,
-  applyAgreementFees,
-  companyBalanceShort,
-  financeOverview,
-} from './company-finance';
+import { SVC_DATA, HOTEL_AMENITIES, hotelTariffs, hotelRooms, HOTELS, HOTEL_DISTRICTS, HOTEL_MEALS, HOTEL_EXTRAS } from './services.jsx';
+import { SETTLEMENT_TYPES, SETTLEMENT_TONE, FEE_SCHEMA, FEE_SERVICE_TYPES, SERVICE_DESC_DEFAULTS, FEE_DESC_DEFAULTS, feeDescsFromDefaults, feeDescOf, FEE_TEMPLATES, feeTemplate, feesFromTemplate, descsFromDefaults, registerFeeTemplate, COMPANY_FINANCE, companyFinance, depositAvailable, creditAvailable, activeContract, activeAgreement, feeAmount, applyAgreementFees, companyBalanceShort, financeOverview } from './company-finance.jsx';
 
-import {
-  AIRLINES,
-  AIR_STATUS,
-  isRuAirport,
-  isDomesticRu,
-  AVIA_MARKUPS,
-  aviaMarkupsFor,
-  aviaMarkupResolve,
-  aviaMarkupAmount,
-  CABIN_CLASSES,
-  SPECIAL_PAX_CATEGORIES,
-  SUBSIDIZED_PAX_PROGRAMS,
-  AIRPORTS,
-  FLIGHT_OFFERS,
-  AVIA_COMPLEX_ROUTE,
-  AIR_SERVICES,
-  AIR_STATS,
-  AVIA_FARE_TIERS,
-  AVIA_FARE_TIERS_BUSINESS,
-  AVIA_BOOKING_CLASSES,
-  AVIA_BAGGAGE_OPTIONS,
-  AVIA_SPECIAL_BAGGAGE,
-  AVIA_MEALS,
-  AVIA_INSURANCE_PLANS,
-  AVIA_INSURANCE_INCLUDES,
-  AVIA_COMFORT_GROUPS,
-  AVIA_SEATMAP,
-} from './avia';
-import {
-  CHATS,
-  CHAT_TYPES,
-  CHAT_TYPE_LABEL,
-  CHAT_CHANNEL_TONE,
-  CHAT_CHANNELS,
-  CHAT_THREADS,
-} from './chats';
-import {
-  NOTIF_PRIORITY,
-  NOTIF_PRIO_RANK,
-  NOTIF_SOURCE,
-  NOTIFICATIONS,
-  INTEGRATION_ERROR_CODES,
-  ERR_SEVERITY,
-  ERR_SYSTEMS,
-  ERR_CATEGORIES,
-  NOTIF_SETTINGS,
-} from './notifications';
+import { AIRLINES, AIR_STATUS, isRuAirport, isDomesticRu, AVIA_MARKUPS, aviaMarkupsFor, aviaMarkupResolve, aviaMarkupAmount, CABIN_CLASSES, SPECIAL_PAX_CATEGORIES, SUBSIDIZED_PAX_PROGRAMS, AIRPORTS, FLIGHT_OFFERS, AVIA_COMPLEX_ROUTE, AIR_SERVICES, AIR_STATS, AVIA_FARE_TIERS, AVIA_FARE_TIERS_BUSINESS, AVIA_BOOKING_CLASSES, AVIA_BAGGAGE_OPTIONS, AVIA_SPECIAL_BAGGAGE, AVIA_MEALS, AVIA_INSURANCE_PLANS, AVIA_INSURANCE_INCLUDES, AVIA_COMFORT_GROUPS, AVIA_SEATMAP } from './avia.jsx';
+import { CHATS, CHAT_TYPES, CHAT_TYPE_LABEL, CHAT_CHANNEL_TONE, CHAT_CHANNELS, CHAT_THREADS } from './chats.jsx';
+import { NOTIF_PRIORITY, NOTIF_PRIO_RANK, NOTIF_SOURCE, NOTIFICATIONS, INTEGRATION_ERROR_CODES, ERR_SEVERITY, ERR_SYSTEMS, ERR_CATEGORIES, NOTIF_SETTINGS } from './notifications.jsx';
 
 
 

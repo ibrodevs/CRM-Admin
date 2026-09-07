@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Icon } from '../icons/index';
+import { Icon } from '../icons/index.jsx';
 
 const LOCATION_CONTEXT_HINTS = [
   'город', 'аэропорт', 'локац', 'адрес', 'отел', 'место отправления', 'место назначения',

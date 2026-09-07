@@ -1,4 +1,4 @@
-import { ORDER_SVC_RESPONSIBLES, SEND_CHANNELS } from './access-control';
+import { ORDER_SVC_RESPONSIBLES, SEND_CHANNELS } from './access-control.jsx';
 
 
 

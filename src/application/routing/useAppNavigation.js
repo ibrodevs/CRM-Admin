@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { toUiThread } from '../../legacy/adapters/ui-adapters';
+import { toUiThread } from '../../modules/chats/model.js';
 
 export function useAppNavigation() {
   const [route, setRoute] = useState('dashboard');

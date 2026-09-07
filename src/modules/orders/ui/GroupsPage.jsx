@@ -1,14 +1,23 @@
 import { useEffect, useState } from 'react';
-import { Icon } from '../../../shared/icons/index';
-import { Button, Drawer, Field, FilterChip, Input, Modal, ModalHeader, Pill, Select, Tabs, useToast } from '../../../shared/ui/index';
-import { SERVICE_KIND } from '../../../legacy/data/index';
-import { Topbar } from '../../../application/shell/AppShell';
-import { PanelSub } from '../../locations/ui/SharedPanels';
-import { UFDateField } from '../../clients/ui/UnifiedForms';
-import { OrderCreateModal } from './OrdersPage';
-import { FinRow, StatTile, WarnBanner, f$ } from '../../finance/ui/FinancePage';
-import { groupsApi, workspaceActionsApi } from '../../../legacy/compatibility/resources';
-import { resultsOf } from '../../../shared/api/client';
+import { Icon } from '../../../shared/icons/index.jsx';
+import { Button } from '../../../shared/ui/Button.jsx';
+import { Drawer, Modal, ModalHeader } from '../../../shared/ui/Overlays.jsx';
+import { Field } from '../../../shared/ui/Field.jsx';
+import { FilterChip } from '../../../shared/ui/FilterChip.jsx';
+import { Input } from '../../../shared/ui/Input.jsx';
+import { Pill } from '../../../shared/ui/Pill.jsx';
+import { Select } from '../../../shared/ui/Select.jsx';
+import { Tabs } from '../../../shared/ui/Tabs.jsx';
+import { useToast } from '../../../shared/ui/Toast.jsx';
+import { SERVICE_KIND } from '../../../legacy/data/index.jsx';
+import { Topbar } from '../../../shared/ui/Topbar.jsx';
+import { PanelSub } from '../../locations/index.js';
+import { UFDateField } from '../../../shared/ui/UnifiedDateField.jsx';
+import { OrderCreateModal } from './OrdersPage.jsx';
+import { FinRow, StatTile, WarnBanner, f$ } from '../../finance/index.js';
+import { groupsApi } from '../api/groupsApi.js';
+import { workspaceActionsApi } from '../../workspace/api.js';
+import { resultsOf } from '../../../shared/api/client.js';
 
 
 

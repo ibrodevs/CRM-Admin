@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
-import { Icon } from '../../shared/icons/index';
-import { NotificationsCenter } from '../../modules/notifications/ui/NotificationsPage';
+import { Icon } from '../../shared/icons/index.jsx';
+import { NotificationsCenter } from '../../modules/notifications/index.js';
 
 function NotificationDrawer({ open, notifications, orders, onNotificationsChange, onClose, onNavigate, onOpenOrder }) {
   useEffect(() => {

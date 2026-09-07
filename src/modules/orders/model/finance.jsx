@@ -1,4 +1,4 @@
-import { FIN_OPS } from '../../../legacy/data/index';
+import { FIN_OPS } from '../../../legacy/data/index.jsx';
 
 function normalizeCurrency(currency, fallback = 'RUB') {
   const value = String(currency || '').trim();

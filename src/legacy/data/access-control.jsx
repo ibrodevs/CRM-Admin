@@ -1,4 +1,4 @@
-import { AIRLINES, CHAT_THREADS, CURRENCIES, OPERATORS, USERS, companyStaff } from './index';
+import { AIRLINES, CHAT_THREADS, CURRENCIES, OPERATORS, USERS, companyStaff } from './index.jsx';
 
 const ENABLE_DEMO_BUSINESS_DATA = typeof process !== 'undefined' && process.env.NEXT_PUBLIC_DEMO_MODE === 'true';
 

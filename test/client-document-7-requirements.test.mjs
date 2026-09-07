@@ -21,7 +21,7 @@ test('print and PDF export target only the selected receipt drawer', () => {
 test('receipt sections collapse and avia taxes use a searchable catalog', () => {
   assert.match(editor, /function Section\(\{ title, action, children, defaultOpen = true \}\)/);
   assert.match(editor, /aria-expanded=\{open\}/);
-  assert.match(editor, /from '\.\.\/model\/tax-catalog'/);
+  assert.match(editor, /from '\.\.\/model\/tax-catalog\.js'/);
   assert.match(editor, /<Combobox options=\{aviaTaxOptionsFor\(row\.code\)}/);
   assert.match(editor, /Выберите таксу из списка/);
 });

@@ -1,14 +1,21 @@
 import { useState, useEffect } from 'react';
-import { Icon } from '../../../shared/icons/index';
-import { Button, Drawer, EmptyState, Pill, useToast } from '../../../shared/ui/index';
-import { SERVICE_KIND } from '../../../legacy/data/index';
-import { OperationConfirmModal } from './OrderOperations';
-import { BackRow } from '../../../shared/ui/BackRow';
-import { ocMoney, svcCalc } from '../model/finance';
-import { KPPreviewDoc } from '../../proposals/ui/OffersPage';
-import { ChatThread, getThreadForOrder } from '../../chats/ui/ChatsPage';
-import { bookingApi, documentsApi, ordersApi, proposalsApi } from '../../../legacy/compatibility/resources';
-import { resultsOf } from '../../../shared/api/client';
+import { Icon } from '../../../shared/icons/index.jsx';
+import { Button } from '../../../shared/ui/Button.jsx';
+import { Drawer } from '../../../shared/ui/Overlays.jsx';
+import { EmptyState } from '../../../shared/ui/EmptyState.jsx';
+import { Pill } from '../../../shared/ui/Pill.jsx';
+import { useToast } from '../../../shared/ui/Toast.jsx';
+import { SERVICE_KIND } from '../../../legacy/data/index.jsx';
+import { OperationConfirmModal } from './OrderOperations.jsx';
+import { BackRow } from '../../../shared/ui/BackRow.jsx';
+import { ocMoney, svcCalc } from '../model/finance.jsx';
+import { KPPreviewDoc } from '../../proposals/index.js';
+import { ChatThread, getThreadForOrder } from '../../chats/index.js';
+import { bookingApi } from '../api/bookingApi.js';
+import { documentsApi } from '../../documents/api.js';
+import { ordersApi } from '../api/ordersApi.js';
+import { proposalsApi } from '../../proposals/api.js';
+import { resultsOf } from '../../../shared/api/client.js';
 
 
 

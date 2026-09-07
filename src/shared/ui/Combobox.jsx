@@ -1,6 +1,6 @@
 import React from 'react';
 import { useState, useEffect, useRef } from 'react';
-import { Icon } from '../icons/index';
+import { Icon } from '../icons/index.jsx';
 
 // Выпадающий список с поиском: элементы можно листать скроллом, а можно
 // сузить набор, набрав первые буквы кода или названия. Поддерживает группы,

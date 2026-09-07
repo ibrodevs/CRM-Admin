@@ -1,12 +1,22 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
-import { Icon } from '../../../shared/icons/index';
-import { Button, Drawer, EmptyState, Field, FilterChip, Input, Pill, SearchBox, Select, Tabs, useToast } from '../../../shared/ui/index';
-import { SERVICE_KIND } from '../../../legacy/data/index';
-import { UFDateField } from '../../clients/ui/UnifiedForms';
-import { Topbar } from '../../../application/shell/AppShell';
-import { financeApi } from '../../../legacy/compatibility/resources';
-import { resultsOf } from '../../../shared/api/client';
-import { f$, FIN_ACCT_GROUPS, FIN_PAY_STATUS } from '../../../legacy/data/finance';
+import { Icon } from '../../../shared/icons/index.jsx';
+import { Button } from '../../../shared/ui/Button.jsx';
+import { Drawer } from '../../../shared/ui/Overlays.jsx';
+import { EmptyState } from '../../../shared/ui/EmptyState.jsx';
+import { Field } from '../../../shared/ui/Field.jsx';
+import { FilterChip } from '../../../shared/ui/FilterChip.jsx';
+import { Input } from '../../../shared/ui/Input.jsx';
+import { Pill } from '../../../shared/ui/Pill.jsx';
+import { SearchBox } from '../../../shared/ui/SearchBox.jsx';
+import { Select } from '../../../shared/ui/Select.jsx';
+import { Tabs } from '../../../shared/ui/Tabs.jsx';
+import { useToast } from '../../../shared/ui/Toast.jsx';
+import { SERVICE_KIND } from '../../../legacy/data/index.jsx';
+import { UFDateField } from '../../../shared/ui/UnifiedDateField.jsx';
+import { Topbar } from '../../../shared/ui/Topbar.jsx';
+import { financeApi } from '../api/financeApi.js';
+import { resultsOf } from '../../../shared/api/client.js';
+import { f$, FIN_ACCT_GROUPS, FIN_PAY_STATUS } from '../../../legacy/data/finance.jsx';
 
 const financeDate = (value) => {
   if (!value) return '—';

@@ -1,8 +1,17 @@
 import { useState, useEffect } from 'react';
-import { Icon } from '../../../shared/icons/index';
-import { ActionMenu, Avatar, Button, Drawer, EmptyState, Field, Input, Modal, ModalHeader, Pill, Select, useToast } from '../../../shared/ui/index';
-import { servicesApi } from '../../../legacy/compatibility/resources';
-import { resultsOf } from '../../../shared/api/client';
+import { Icon } from '../../../shared/icons/index.jsx';
+import { ActionMenu } from '../../../shared/ui/ActionMenu.jsx';
+import { Avatar } from '../../../shared/ui/Avatar.jsx';
+import { Button } from '../../../shared/ui/Button.jsx';
+import { Drawer, Modal, ModalHeader } from '../../../shared/ui/Overlays.jsx';
+import { EmptyState } from '../../../shared/ui/EmptyState.jsx';
+import { Field } from '../../../shared/ui/Field.jsx';
+import { Input } from '../../../shared/ui/Input.jsx';
+import { Pill } from '../../../shared/ui/Pill.jsx';
+import { Select } from '../../../shared/ui/Select.jsx';
+import { useToast } from '../../../shared/ui/Toast.jsx';
+import { servicesApi } from '../../services/api.js';
+import { resultsOf } from '../../../shared/api/client.js';
 
 const SERVICE_TONE = {
   'Авиа': 'blue', 'ЖД': 'teal', 'Гостиница': 'amber', 'Трансфер': 'purple',

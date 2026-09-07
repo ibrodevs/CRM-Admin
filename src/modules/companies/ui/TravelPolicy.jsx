@@ -1,11 +1,19 @@
-import { companiesApi } from '../api.js';
+import { companiesApi } from '../api/companiesApi.js';
 import { useState, useEffect, useRef } from 'react';
-import { Icon } from '../../../shared/icons/index';
-import { Avatar, Button, Checkbox, Drawer, Input, Pill, Select, Toggle, useToast } from '../../../shared/ui/index';
-import { TP_AIRLINES, TP_BOARD, TP_CAR_CLASSES, TP_CLASSES_AVIA, TP_COMPLIANCE, TP_CURRENCIES, TP_EMPLOYEES, TP_HOTEL_CATEGORIES, TP_HOTEL_CHAINS, TP_RAIL_CLASSES, TP_RAIL_TYPES, TP_SCOPES, defaultTravelPolicy } from '../../../legacy/data/access-control';
-import { CollapseSection } from '../../orders/ui/OrderExtras';
-import { resultsOf } from '../../../shared/api/client';
-import { travelPolicyApi } from '../../../legacy/compatibility/resources';
+import { Icon } from '../../../shared/icons/index.jsx';
+import { Avatar } from '../../../shared/ui/Avatar.jsx';
+import { Button } from '../../../shared/ui/Button.jsx';
+import { Checkbox } from '../../../shared/ui/Checkbox.jsx';
+import { Drawer } from '../../../shared/ui/Overlays.jsx';
+import { Input } from '../../../shared/ui/Input.jsx';
+import { Pill } from '../../../shared/ui/Pill.jsx';
+import { Select } from '../../../shared/ui/Select.jsx';
+import { Toggle } from '../../../shared/ui/Toggle.jsx';
+import { useToast } from '../../../shared/ui/Toast.jsx';
+import { TP_AIRLINES, TP_BOARD, TP_CAR_CLASSES, TP_CLASSES_AVIA, TP_COMPLIANCE, TP_CURRENCIES, TP_EMPLOYEES, TP_HOTEL_CATEGORIES, TP_HOTEL_CHAINS, TP_RAIL_CLASSES, TP_RAIL_TYPES, TP_SCOPES, defaultTravelPolicy } from '../../../legacy/data/access-control.jsx';
+import { CollapseSection } from '../../orders/index.js';
+import { resultsOf } from '../../../shared/api/client.js';
+import { travelPolicyApi } from '../api/travelPolicyApi.js';
 
 
 

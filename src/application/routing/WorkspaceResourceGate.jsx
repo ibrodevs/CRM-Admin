@@ -1,8 +1,9 @@
 
 
 
-import { Button, EmptyState } from '../../shared/ui/index';
-import { messageForApiError } from '../../shared/api/client';
+import { Button } from '../../shared/ui/Button.jsx';
+import { EmptyState } from '../../shared/ui/EmptyState.jsx';
+import { messageForApiError } from '../../shared/api/client.js';
 
 
 

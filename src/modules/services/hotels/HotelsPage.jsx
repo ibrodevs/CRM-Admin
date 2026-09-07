@@ -1,12 +1,23 @@
 import { useEffect, useState } from 'react';
-import { Icon } from '../../../shared/icons/index';
-import { ActionMenu, Avatar, Button, Checkbox, DateField, EmptyState, Field, Input, Radio, SearchBox, Select, fmtDate, useToast } from '../../../shared/ui/index';
-import { HOTEL_MEALS } from '../../../legacy/data/index';
-import { Topbar } from '../../../application/shell/AppShell';
-import { StackPanel } from '../../locations/ui/SharedPanels';
-import { UnifiedBindPicker } from '../../clients/ui/UnifiedForms';
-import { servicesApi } from '../../../legacy/compatibility/resources';
-import { resultsOf } from '../../../shared/api/client';
+import { Icon } from '../../../shared/icons/index.jsx';
+import { ActionMenu } from '../../../shared/ui/ActionMenu.jsx';
+import { Avatar } from '../../../shared/ui/Avatar.jsx';
+import { Button } from '../../../shared/ui/Button.jsx';
+import { Checkbox } from '../../../shared/ui/Checkbox.jsx';
+import { DateField, fmtDate } from '../../../shared/ui/DateFields.jsx';
+import { EmptyState } from '../../../shared/ui/EmptyState.jsx';
+import { Field } from '../../../shared/ui/Field.jsx';
+import { Input } from '../../../shared/ui/Input.jsx';
+import { Radio } from '../../../shared/ui/Radio.jsx';
+import { SearchBox } from '../../../shared/ui/SearchBox.jsx';
+import { Select } from '../../../shared/ui/Select.jsx';
+import { useToast } from '../../../shared/ui/Toast.jsx';
+import { HOTEL_MEALS } from '../../../legacy/data/index.jsx';
+import { Topbar } from '../../../shared/ui/Topbar.jsx';
+import { StackPanel } from '../../locations/index.js';
+import { UnifiedBindPicker } from '../../clients/index.js';
+import { servicesApi } from '../api/servicesApi.js';
+import { resultsOf } from '../../../shared/api/client.js';
 
 
 

@@ -8,7 +8,9 @@ const resourcesUrl = new URL('../src/modules/companies/api/companiesApi.js', imp
 test('дата договора использует общий календарь CRM', async () => {
   const source = await readFile(financeUrl, 'utf8');
 
-  assert.match(source, /Button, DateField, Drawer/);
+  assert.match(source, /import \{ Button \} from [^;]+Button\.jsx/);
+  assert.match(source, /import \{ Drawer \} from [^;]+Overlays\.jsx/);
+  assert.match(source, /import \{ DateField \} from [^;]+DateFields\.jsx/);
   assert.match(source, /<DateField value=\{contractDate\} onChange=\{setContractDate\}/);
   assert.doesNotMatch(source, /<Input type="date" value=\{contractDate\}/);
   assert.match(source, /contractDate instanceof Date/);

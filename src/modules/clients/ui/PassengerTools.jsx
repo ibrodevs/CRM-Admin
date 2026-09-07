@@ -1,12 +1,24 @@
 import { useState, useRef } from 'react';
-import { Icon } from '../../../shared/icons/index';
-import { ActionMenu, Avatar, Button, Checkbox, Drawer, EmptyState, Field, Input, Modal, ModalHeader, Pill, Select, Toggle, plural, useToast } from '../../../shared/ui/index';
-import { CURRENT_USER } from '../../../legacy/data/index';
-import { companyStaffStore } from '../../../legacy/data/access-control';
-import { nowStamp } from '../../../legacy/data/service-cards';
-import { UnifiedDocumentDrawer, UnifiedPersonFields, ufBlankPerson, ufFullName, ufValidatePerson } from './UnifiedForms';
-import { PanelSub, StackPanel } from '../../locations/ui/SharedPanels';
-import { workspaceActionsApi } from '../../../legacy/compatibility/resources';
+import { Icon } from '../../../shared/icons/index.jsx';
+import { ActionMenu } from '../../../shared/ui/ActionMenu.jsx';
+import { Avatar } from '../../../shared/ui/Avatar.jsx';
+import { Button } from '../../../shared/ui/Button.jsx';
+import { Checkbox } from '../../../shared/ui/Checkbox.jsx';
+import { Drawer, Modal, ModalHeader } from '../../../shared/ui/Overlays.jsx';
+import { EmptyState } from '../../../shared/ui/EmptyState.jsx';
+import { Field } from '../../../shared/ui/Field.jsx';
+import { Input } from '../../../shared/ui/Input.jsx';
+import { Pill } from '../../../shared/ui/Pill.jsx';
+import { Select } from '../../../shared/ui/Select.jsx';
+import { Toggle } from '../../../shared/ui/Toggle.jsx';
+import { plural } from '../../../shared/ui/plural.js';
+import { useToast } from '../../../shared/ui/Toast.jsx';
+import { CURRENT_USER } from '../../../legacy/data/index.jsx';
+import { companyStaffStore } from '../../../legacy/data/access-control.jsx';
+import { nowStamp } from '../../../legacy/data/service-cards.jsx';
+import { UnifiedDocumentDrawer, UnifiedPersonFields, ufBlankPerson, ufFullName, ufValidatePerson } from './UnifiedForms.jsx';
+import { PanelSub, StackPanel } from '../../locations/index.js';
+import { workspaceActionsApi } from '../../workspace/api.js';
 
 
 

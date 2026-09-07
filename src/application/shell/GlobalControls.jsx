@@ -1,14 +1,9 @@
 import { workspaceInfoApi } from '../../modules/workspace/api.js';
 import { useState, useEffect, useRef } from 'react';
-import { Icon } from '../../shared/icons/index';
-import { AIR_SERVICES, CHAT_THREADS, CHAT_TYPE_LABEL, CLIENTS_DB, COMPANIES_DB, DOCUMENTS, ORDERS, PROPOSALS, SUPPLIERS } from '../../legacy/data/index';
-import { SLA_QUEUE, companyStaffStore } from '../../legacy/data/access-control';
-import { PAX_GROUPS } from '../../modules/clients/ui/PassengerTools';
-import { ROUTE_LABELS } from '../routing/labels.js';
-import { NAV_PERM, roleHasPerm, roleCanSee, RoleSwitcher, AccessDenied } from '../../shared/auth/permissions.jsx';
-import { Breadcrumbs, QuickCreate, GlobalTopbar } from './Topbar.jsx';
-import { NotificationDrawer } from './NotificationDrawer.jsx';
-import { GlobalChatDrawer } from './ChatDrawer.jsx';
+import { Icon } from '../../shared/icons/index.jsx';
+import { AIR_SERVICES, CHAT_THREADS, CHAT_TYPE_LABEL, CLIENTS_DB, COMPANIES_DB, DOCUMENTS, ORDERS, PROPOSALS, SUPPLIERS } from '../../legacy/data/index.jsx';
+import { SLA_QUEUE, companyStaffStore } from '../../legacy/data/access-control.jsx';
+import { PAX_GROUPS } from '../../modules/clients/index.js';
 
 const SEARCH_TYPE_META = {
   order: { icon: 'orders', tone: 'order', label: 'Заказ', route: 'orders' },
@@ -326,26 +321,4 @@ function GlobalSearch({ onOpenOrder, onNavigate, onOpenChat }) {
   );
 }
 
-Object.assign(window, {
-  ROUTE_LABELS, Breadcrumbs, GlobalSearch, QuickCreate,
-  GlobalTopbar, NotificationDrawer, GlobalChatDrawer,
-  NAV_PERM, roleHasPerm, roleCanSee, RoleSwitcher, AccessDenied,
-});
-
 export { SEARCH_TYPE_META, backendSearchResultToHit, GSEARCH_TONES, gsSafeArray, gsNorm, gsJoin, gsPlural, gsScore, gsOrder, gsOpenOrderOrRoute, gsActiveOrdersFor, gsAddResult, buildGlobalSearchResults, GlobalSearch };
-export { SERVICE_LABELS } from '../routing/labels.js';
-export { ORDER_OPS_LABELS } from '../routing/labels.js';
-export { ROUTE_LABELS } from '../routing/labels.js';
-export { SERVICE_PARENT } from '../routing/labels.js';
-export { ORDER_OPS_PARENT } from '../routing/labels.js';
-export { NAV_PERM } from '../../shared/auth/permissions.jsx';
-export { roleIdx } from '../../shared/auth/permissions.jsx';
-export { roleHasPerm } from '../../shared/auth/permissions.jsx';
-export { roleCanSee } from '../../shared/auth/permissions.jsx';
-export { RoleSwitcher } from '../../shared/auth/permissions.jsx';
-export { AccessDenied } from '../../shared/auth/permissions.jsx';
-export { Breadcrumbs } from './Topbar.jsx';
-export { QuickCreate } from './Topbar.jsx';
-export { GlobalTopbar } from './Topbar.jsx';
-export { NotificationDrawer } from './NotificationDrawer.jsx';
-export { GlobalChatDrawer } from './ChatDrawer.jsx';

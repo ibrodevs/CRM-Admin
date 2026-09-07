@@ -1,4 +1,4 @@
-import { Icon } from '../icons/index';
+import { Icon } from '../icons/index.jsx';
 import { Topbar } from './Topbar.jsx';
 
 function ModulePlaceholder({ title, icon = 'inbox', planned = [] }) {

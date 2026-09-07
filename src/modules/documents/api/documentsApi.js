@@ -1,4 +1,4 @@
-import { documentListApi } from '../api.js';
+import { documentListApi } from './documentListApi.js';
 import { apiPath, apiRequest, queryString } from '../../../shared/api/client.js';
 import { list, get, create, patch, remove } from '../../../shared/api/operations.js';
 

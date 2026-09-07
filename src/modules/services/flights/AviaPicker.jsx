@@ -1,10 +1,21 @@
 import React, { useState } from 'react';
-import { Icon } from '../../../shared/icons/index';
-import { Avatar, Button, Checkbox, Field, Input, Pill, Radio, SearchBox, Select, Toggle, fmtDate, useToast } from '../../../shared/ui/index';
-import { AIRLINES, AIRPORTS, AVIA_BAGGAGE_OPTIONS, AVIA_BOOKING_CLASSES, AVIA_COMFORT_GROUPS, AVIA_COMPLEX_ROUTE, AVIA_FARE_TIERS, AVIA_FARE_TIERS_BUSINESS, AVIA_GROUPS_SEED, AVIA_INSURANCE_INCLUDES, AVIA_INSURANCE_PLANS, AVIA_MEALS, AVIA_SEATMAP, AVIA_SPECIAL_BAGGAGE, FLIGHT_OFFERS, GROUP_PAX, ORDER_PARTICIPANTS, SERVICE_KIND, aviaMarkupAmount } from '../../../legacy/data/index';
-import { AirlineLogo, FlightSearch, PaxStepper } from './FlightsPage';
-import { StackPanel } from '../../locations/ui/SharedPanels';
-import { ocMoney } from '../../orders/model/finance';
+import { Icon } from '../../../shared/icons/index.jsx';
+import { Avatar } from '../../../shared/ui/Avatar.jsx';
+import { Button } from '../../../shared/ui/Button.jsx';
+import { Checkbox } from '../../../shared/ui/Checkbox.jsx';
+import { Field } from '../../../shared/ui/Field.jsx';
+import { Input } from '../../../shared/ui/Input.jsx';
+import { Pill } from '../../../shared/ui/Pill.jsx';
+import { Radio } from '../../../shared/ui/Radio.jsx';
+import { SearchBox } from '../../../shared/ui/SearchBox.jsx';
+import { Select } from '../../../shared/ui/Select.jsx';
+import { Toggle } from '../../../shared/ui/Toggle.jsx';
+import { fmtDate } from '../../../shared/ui/DateFields.jsx';
+import { useToast } from '../../../shared/ui/Toast.jsx';
+import { AIRLINES, AIRPORTS, AVIA_BAGGAGE_OPTIONS, AVIA_BOOKING_CLASSES, AVIA_COMFORT_GROUPS, AVIA_COMPLEX_ROUTE, AVIA_FARE_TIERS, AVIA_FARE_TIERS_BUSINESS, AVIA_GROUPS_SEED, AVIA_INSURANCE_INCLUDES, AVIA_INSURANCE_PLANS, AVIA_MEALS, AVIA_SEATMAP, AVIA_SPECIAL_BAGGAGE, FLIGHT_OFFERS, GROUP_PAX, ORDER_PARTICIPANTS, SERVICE_KIND, aviaMarkupAmount } from '../../../legacy/data/index.jsx';
+import { AirlineLogo, FlightSearch, PaxStepper } from './FlightsPage.jsx';
+import { StackPanel } from '../../locations/index.js';
+import { ocMoney } from '../../orders/model.js';
 
 
 

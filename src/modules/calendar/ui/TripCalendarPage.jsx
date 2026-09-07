@@ -1,11 +1,15 @@
 import { useEffect, useState } from 'react';
-import { Icon } from '../../../shared/icons/index';
-import { Button, DateRangeField, Drawer, FilterChip, Pill } from '../../../shared/ui/index';
-import { CURRENT_USER, ORDER_STATUS, SERVICE_KIND } from '../../../legacy/data/index';
-import { TRIP_CRIT, controlCenterFeed, critMax, crossTripConflicts, trDay, trDayTime, trHumanIn, trSameDay, trStartOfDay, trTime, tripConflicts, tripCriticality, tripEvents, tripFilterSets, tripForceMajeures, tripUnpaid } from '../../../legacy/data/trips';
-import { Topbar } from '../../../application/shell/AppShell';
-import { CAL_EVENT_TYPES, CalDayMenu, CalEventChip, CalEventCreator, CalEventPanel, calEventsOn, calendarEventToUi, hydrateCalendarEvents } from './CalendarEvents';
-import { calendarApi } from '../../../legacy/compatibility/resources';
+import { Icon } from '../../../shared/icons/index.jsx';
+import { Button } from '../../../shared/ui/Button.jsx';
+import { DateRangeField } from '../../../shared/ui/DateFields.jsx';
+import { Drawer } from '../../../shared/ui/Overlays.jsx';
+import { FilterChip } from '../../../shared/ui/FilterChip.jsx';
+import { Pill } from '../../../shared/ui/Pill.jsx';
+import { CURRENT_USER, ORDER_STATUS, SERVICE_KIND } from '../../../legacy/data/index.jsx';
+import { TRIP_CRIT, controlCenterFeed, critMax, crossTripConflicts, trDay, trDayTime, trHumanIn, trSameDay, trStartOfDay, trTime, tripConflicts, tripCriticality, tripEvents, tripFilterSets, tripForceMajeures, tripUnpaid } from '../../../legacy/data/trips.jsx';
+import { Topbar } from '../../../shared/ui/Topbar.jsx';
+import { CAL_EVENT_TYPES, CalDayMenu, CalEventChip, CalEventCreator, CalEventPanel, calEventsOn, calendarEventToUi, hydrateCalendarEvents } from './CalendarEvents.jsx';
+import { calendarApi } from '../api/calendarApi.js';
 
 
 

@@ -39,6 +39,7 @@ const bundles = {
     "src/shared/lib/money.js",
     "src/modules/finance/model/operations.js",
     "src/modules/finance/ui/FinanceRegistry.jsx",
+    "src/modules/documents/model/supplier-pdf.js",
     "src/modules/documents/ui/DocumentsPage.jsx",
     "src/modules/receipts/ui/FulfillmentPages.jsx",
     "src/modules/documents/ui/FulfillmentPage.jsx"

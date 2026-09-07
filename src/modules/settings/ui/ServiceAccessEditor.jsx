@@ -1,15 +1,11 @@
 import { useEffect, useState } from 'react';
-import {
-  OPERATOR_SVC_ACCESS,
-  SVC_ACCESS_KINDS,
-  SVC_ACCESS_RIGHTS,
-  fullRights,
-  noRights,
-  operatorSvcAccess,
-} from '../../../legacy/data/access-control';
-import { Icon } from '../../../shared/icons/index';
-import { Button, Checkbox, Toggle, useToast } from '../../../shared/ui/index';
-import { usersApi } from '../../../legacy/compatibility/resources';
+import { OPERATOR_SVC_ACCESS, SVC_ACCESS_KINDS, SVC_ACCESS_RIGHTS, fullRights, noRights, operatorSvcAccess } from '../../../legacy/data/access-control.jsx';
+import { Icon } from '../../../shared/icons/index.jsx';
+import { Button } from '../../../shared/ui/Button.jsx';
+import { Checkbox } from '../../../shared/ui/Checkbox.jsx';
+import { Toggle } from '../../../shared/ui/Toggle.jsx';
+import { useToast } from '../../../shared/ui/Toast.jsx';
+import { usersApi } from '../../users/api.js';
 
 const KIND_CODE = { 'Авиа': 'avia', 'ЖД': 'rail', 'Гостиница': 'hotel', 'Трансфер': 'transfer', 'Автобус': 'bus', 'Тур': 'tour', 'Виза': 'visa', 'Страхование': 'insurance' };
 const RIGHT_CODE = { 'Поиск': 'search', 'Бронирование': 'book', 'Выписка': 'issue', 'Возврат': 'refund', 'Обмен': 'exchange', 'Аннуляция': 'cancel', 'Доп. услуги': 'extras' };

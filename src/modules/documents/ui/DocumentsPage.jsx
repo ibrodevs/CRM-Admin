@@ -1,59 +1,31 @@
 import React from 'react';
 import { useState, useEffect, useRef } from 'react';
-import { Icon } from '../../../shared/icons/index';
-import { Avatar, Button, Drawer, EmptyState, Field, FilterChip, Input, Pill, SearchBox, Select, Tabs, plural, useToast } from '../../../shared/ui/index';
-import { COMPANIES_DB, CURRENT_USER, DOCS2, DOC_KIND, DOC_STATUS2, ORDERS } from '../../../legacy/data/index';
-import { Topbar } from '../../../application/shell/AppShell';
-import { toLegacyDocument } from '../../../legacy/adapters/legacy-adapters';
-import { documentsApi, jobsApi, workspaceActionsApi } from '../../../legacy/compatibility/resources';
-import { resultsOf } from '../../../shared/api/client';
-import { ReceiptBrandDocumentDrawer, ReceiptParticipantSummary, normalizeReceiptDraft, receiptDetailsLines, receiptFinancialTotal } from '../../receipts/ui/editor';
-import { recType, guessType, serviceTypeFromBackend, recMoney, receiptApplyPartsLabel, receiptSharedGroupPatch, ReceiptEditDrawer, ReceiptImportModal } from '../../receipts/ui/FulfillmentPages.jsx';
+import { Icon } from '../../../shared/icons/index.jsx';
+import { Avatar } from '../../../shared/ui/Avatar.jsx';
+import { Button } from '../../../shared/ui/Button.jsx';
+import { Drawer } from '../../../shared/ui/Overlays.jsx';
+import { EmptyState } from '../../../shared/ui/EmptyState.jsx';
+import { Field } from '../../../shared/ui/Field.jsx';
+import { FilterChip } from '../../../shared/ui/FilterChip.jsx';
+import { Input } from '../../../shared/ui/Input.jsx';
+import { Pill } from '../../../shared/ui/Pill.jsx';
+import { SearchBox } from '../../../shared/ui/SearchBox.jsx';
+import { Select } from '../../../shared/ui/Select.jsx';
+import { Tabs } from '../../../shared/ui/Tabs.jsx';
+import { plural } from '../../../shared/ui/plural.js';
+import { useToast } from '../../../shared/ui/Toast.jsx';
+import { COMPANIES_DB, CURRENT_USER, DOCS2, DOC_KIND, DOC_STATUS2, ORDERS } from '../../../legacy/data/index.jsx';
+import { Topbar } from '../../../shared/ui/Topbar.jsx';
+import { toLegacyDocument } from '../../../legacy/adapters/legacy-adapters.js';
+import { documentsApi } from '../api/documentsApi.js';
+import { workspaceActionsApi } from '../../workspace/api.js';
+import { resultsOf } from '../../../shared/api/client.js';
+import { ReceiptBrandDocumentDrawer, ReceiptParticipantSummary, normalizeReceiptDraft, receiptDetailsLines, receiptFinancialTotal, recType, guessType, serviceTypeFromBackend, recMoney, receiptApplyPartsLabel, receiptSharedGroupPatch, ReceiptEditDrawer, ReceiptImportModal } from '../../receipts/index.js';
+import { inlineSupplierDocumentUrl, freshSupplierDocumentUrl } from '../model/supplier-pdf.js';
 
 function companyForDoc(doc) {
   const name = doc.participant !== '—' ? doc.participant : ORDERS.find((o) => o.no === doc.order)?.client;
   return COMPANIES_DB.find((c) => c.name === name) || null;
-}
-
-function inlineSupplierDocumentUrl(url) {
-  const value = String(url || '');
-  if (!value || value.startsWith('blob:') || !value.includes('/documents/')
-    || !value.includes('/download/') || value.includes('disposition=')) return value;
-  return `${value}${value.includes('?') ? '&' : '?'}disposition=inline`;
-}
-
-function freshSupplierDocumentUrl(url) {
-  const value = inlineSupplierDocumentUrl(url);
-  if (!value || value.startsWith('blob:')) return value;
-  return `${value}${value.includes('?') ? '&' : '?'}_pdf=${Date.now()}`;
-}
-
-async function waitForReceiptPdfJob(jobId, timeoutMs = 5 * 60 * 1000) {
-  const deadline = Date.now() + timeoutMs;
-  while (Date.now() < deadline) {
-    const job = await jobsApi.detail(jobId);
-    if (job.status === 'succeeded') return job.result || {};
-    if (['failed', 'dead', 'cancelled'].includes(job.status)) {
-      throw new Error(job.error_message || 'Фоновое обновление PDF завершилось с ошибкой');
-    }
-    await new Promise((resolve) => setTimeout(resolve, 1500));
-  }
-  throw new Error('PDF продолжает обновляться в фоне. Откройте документ немного позже.');
-}
-
-const PDF_SYNC_SUCCESS_NOTICE_MS = 3500;
-
-function supplierDocumentPageUrl(url, pageNumber) {
-  const value = inlineSupplierDocumentUrl(url);
-  const page = Number(pageNumber);
-  if (!value || !Number.isFinite(page) || page < 1) return value;
-  const base = value.split('#')[0];
-  const normalizedPage = Math.floor(page);
-  const separator = base.includes('?') ? '&' : '?';
-  // Chromium's PDF viewer can keep the previous page when only the hash
-  // changes. A deterministic query key makes every ticket page a distinct
-  // document URL; #page then positions the freshly mounted viewer.
-  return `${base}${separator}_receipt_page=${normalizedPage}#page=${normalizedPage}`;
 }
 
 const DOC_BOOKKEEPING = ['Счёт', 'Акт', 'Договор'];
@@ -1065,4 +1037,9 @@ function DocCenterPage({ documents = [], orders = [] }) {
   return (<><Topbar title="Документы" /><div className="content"><DocCenter initialDocuments={documents} orders={orders} /></div></>);
 }
 
-export { companyForDoc, inlineSupplierDocumentUrl, freshSupplierDocumentUrl, waitForReceiptPdfJob, PDF_SYNC_SUCCESS_NOTICE_MS, supplierDocumentPageUrl, DOC_BOOKKEEPING, now, DOC_ORIGIN, docOrigin, docOriginShort, DocOriginPill, docSetKey, docSetTitle, groupDocSets, DocPreviewModal, DocCard, DocSetCard, DocServiceGroup, DocPassengerGroup, correctionSubjects, DOC_UPLOAD_TYPES, DocUploadModal, DocCenter, SERVICE_RECEIPT_DOC_TYPES, DocCenterPage };
+export { companyForDoc, DOC_BOOKKEEPING, now, DOC_ORIGIN, docOrigin, docOriginShort, DocOriginPill, docSetKey, docSetTitle, groupDocSets, DocPreviewModal, DocCard, DocSetCard, DocServiceGroup, DocPassengerGroup, correctionSubjects, DOC_UPLOAD_TYPES, DocUploadModal, DocCenter, SERVICE_RECEIPT_DOC_TYPES, DocCenterPage };
+export { inlineSupplierDocumentUrl } from '../model/supplier-pdf.js';
+export { freshSupplierDocumentUrl } from '../model/supplier-pdf.js';
+export { waitForReceiptPdfJob } from '../model/supplier-pdf.js';
+export { PDF_SYNC_SUCCESS_NOTICE_MS } from '../model/supplier-pdf.js';
+export { supplierDocumentPageUrl } from '../model/supplier-pdf.js';

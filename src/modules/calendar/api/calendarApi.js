@@ -1,4 +1,4 @@
-import { calendarFeedApi } from '../api.js';
+import { calendarFeedApi } from './calendarFeedApi.js';
 import { apiPath, apiRequest, queryString } from '../../../shared/api/client.js';
 import { list, get, create, patch, remove } from '../../../shared/api/operations.js';
 

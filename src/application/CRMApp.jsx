@@ -1,25 +1,26 @@
-import { useApplicationWorkspace } from './model/useApplicationWorkspace';
-import { AppProviders } from './providers';
-import { ROUTE_RESOURCE } from './routing/routes';
-import { WorkspaceResourceGate } from './routing/WorkspaceResourceGate';
-import { RouteRenderer } from './routing/RouteRenderer';
-import { useAppNavigation } from './routing/useAppNavigation';
-import { useOrderActions } from './model/useOrderActions';
-import { GlobalOverlays } from './shell/GlobalOverlays';
-import { DesktopNotifier, NOTIF_PRIORITY_KIND } from './shell/DesktopNotifier';
+import '../legacy/compatibility/shell-globals.js';
+import '../legacy/compatibility/receipt-globals.js';
+import '../legacy/compatibility/people-globals.js';
+import { useApplicationWorkspace } from './model/useApplicationWorkspace.js';
+import { AppProviders } from './providers.jsx';
+import { ROUTE_RESOURCE } from './routing/routes.js';
+import { WorkspaceResourceGate } from './routing/WorkspaceResourceGate.jsx';
+import { RouteRenderer } from './routing/RouteRenderer.jsx';
+import { useAppNavigation } from './routing/useAppNavigation.js';
+import { useOrderActions } from './model/useOrderActions.js';
+import { GlobalOverlays } from './shell/GlobalOverlays.jsx';
+import { DesktopNotifier, NOTIF_PRIORITY_KIND } from './shell/DesktopNotifier.jsx';
 import html2canvas from 'html2canvas';
 import * as jspdf from 'jspdf';
 if (typeof window !== 'undefined') { window.html2canvas = html2canvas; window.jspdf = jspdf; }
 
 import { useEffect } from 'react';
-import { useToast } from '../shared/ui/index';
+import { useToast } from '../shared/ui/Toast.jsx';
 
-import { useAuth } from '../shared/auth/auth-context';
-import { useWorkspace } from '../legacy/compatibility/workspace-provider';
-import { AppShell } from './shell/AppShell';
-import { LoginScreen } from '../shared/auth/LoginScreen';
-
-
+import { useAuth } from '../shared/auth/auth-context.jsx';
+import { useWorkspace } from '../shared/workspace/context.jsx';
+import { AppShell } from './shell/AppShell.jsx';
+import { LoginScreen } from '../shared/auth/LoginScreen.jsx';
 
 
 
@@ -30,14 +31,17 @@ import { LoginScreen } from '../shared/auth/LoginScreen';
 
 
 
-import { threadUnread } from '../modules/chats/ui/ChatsPage';
+
+
+import { threadUnread } from '../modules/chats/index.js';
 
 
 
 
-import { AccessDenied, GlobalTopbar, roleCanSee } from './shell/GlobalControls';
+import { AccessDenied, roleCanSee } from '../shared/auth/permissions.jsx';
+import { GlobalTopbar } from './shell/Topbar.jsx';
 
-import { workspaceSettingsApi } from '../legacy/compatibility/resources';
+import { workspaceSettingsApi } from '../modules/settings/api.js';
 
 function App() {
   const auth = useAuth();

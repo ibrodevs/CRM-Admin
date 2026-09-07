@@ -1,4 +1,4 @@
-import { apiPath, apiRequest } from '../api/client';
+import { apiPath, apiRequest } from '../api/client.js';
 
 export const authApi = {
   session: (signal) => apiRequest('/api/session', { signal, handlesUnauthorized: true }),

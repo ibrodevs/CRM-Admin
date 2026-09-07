@@ -1,19 +1,33 @@
 import { useState, useEffect } from 'react';
-import { Icon } from '../../../shared/icons/index';
-import { ActionMenu, Avatar, Button, Checkbox, Drawer, EmptyState, FilterChip, Pill, SearchBox, plural, useToast } from '../../../shared/ui/index';
-import { CHAT_THREADS, CLIENTS, COMPANIES_DB, CURRENT_USER, NOTIFICATIONS, OPERATORS, ORDERS, ORDER_STATUS, PROPOSALS, RECENT_CHANGES, RETURNS, RETURN_STATUS, RETURN_TYPE, financeOverview } from '../../../legacy/data/index';
-import { SLA_QUEUE, slaLabel, slaTone } from '../../../legacy/data/access-control';
-import { UfOrderRow, UfPersonRow, ufOrderPickRows } from '../../clients/ui/UnifiedForms';
-import { Topbar } from '../../../application/shell/AppShell';
-import { PAX_DEFAULT_OPTIONS } from '../../services/flights/FlightsPage';
-import { PanelSub, StackPanel } from '../../locations/ui/SharedPanels';
-import { AddServicePanel } from '../../orders/ui/OrderCard';
-import { ErrorCodesDrawer } from '../../notifications/ui/NotificationsPage';
-import { SHIFT_DEMO_OPS, SHIFT_REQUESTS_HANDLED, motivationFor, operatorEarn, shiftDate, shiftDuration, shiftFmtTime, shiftTotals } from '../../workforce/ui/ShiftControl';
-import { toLegacyProposal, toLegacyReturn } from '../../../legacy/adapters/legacy-adapters';
-import { resultsOf } from '../../../shared/api/client';
-import { communicationsApi, integrationsApi, ordersApi, proposalsApi, servicesApi } from '../../../legacy/compatibility/resources';
-import { toUiOrder } from '../../../legacy/adapters/ui-adapters';
+import { Icon } from '../../../shared/icons/index.jsx';
+import { ActionMenu } from '../../../shared/ui/ActionMenu.jsx';
+import { Avatar } from '../../../shared/ui/Avatar.jsx';
+import { Button } from '../../../shared/ui/Button.jsx';
+import { Checkbox } from '../../../shared/ui/Checkbox.jsx';
+import { Drawer } from '../../../shared/ui/Overlays.jsx';
+import { EmptyState } from '../../../shared/ui/EmptyState.jsx';
+import { FilterChip } from '../../../shared/ui/FilterChip.jsx';
+import { Pill } from '../../../shared/ui/Pill.jsx';
+import { SearchBox } from '../../../shared/ui/SearchBox.jsx';
+import { plural } from '../../../shared/ui/plural.js';
+import { useToast } from '../../../shared/ui/Toast.jsx';
+import { CHAT_THREADS, CLIENTS, COMPANIES_DB, CURRENT_USER, NOTIFICATIONS, OPERATORS, ORDERS, ORDER_STATUS, PROPOSALS, RECENT_CHANGES, RETURNS, RETURN_STATUS, RETURN_TYPE, financeOverview } from '../../../legacy/data/index.jsx';
+import { SLA_QUEUE, slaLabel, slaTone } from '../../../legacy/data/access-control.jsx';
+import { UfOrderRow, UfPersonRow, ufOrderPickRows } from '../../clients/index.js';
+import { Topbar } from '../../../shared/ui/Topbar.jsx';
+import { PAX_DEFAULT_OPTIONS } from '../../services/index.js';
+import { PanelSub, StackPanel } from '../../locations/index.js';
+import { AddServicePanel } from '../../orders/index.js';
+import { ErrorCodesDrawer } from '../../notifications/index.js';
+import { SHIFT_DEMO_OPS, SHIFT_REQUESTS_HANDLED, motivationFor, operatorEarn, shiftDate, shiftDuration, shiftFmtTime, shiftTotals } from '../../workforce/index.js';
+import { toLegacyProposal, toLegacyReturn } from '../../../legacy/adapters/legacy-adapters.js';
+import { resultsOf } from '../../../shared/api/client.js';
+import { communicationsApi } from '../../chats/api.js';
+import { integrationsApi } from '../../integrations/api.js';
+import { ordersApi } from '../../orders/api.js';
+import { proposalsApi } from '../../proposals/api.js';
+import { servicesApi } from '../../services/api.js';
+import { toUiOrder } from '../../orders/model.js';
 
 
 

@@ -1,8 +1,9 @@
 import React from 'react';
 import { useState, useEffect } from 'react';
-import { Icon } from '../../shared/icons/index';
-import { ActionMenu, EmptyState } from '../../shared/ui/index';
-import { ChatThread, threadUnread } from '../../modules/chats/ui/ChatsPage';
+import { Icon } from '../../shared/icons/index.jsx';
+import { ActionMenu } from '../../shared/ui/ActionMenu.jsx';
+import { EmptyState } from '../../shared/ui/EmptyState.jsx';
+import { ChatThread, threadUnread } from '../../modules/chats/index.js';
 
 function findMatchingThread(threads, ctx) {
   if (!ctx || !Array.isArray(threads) || !threads.length) return null;

@@ -1,12 +1,20 @@
-import { clientsApi } from '../api.js';
+import { clientsApi } from '../api/clientsApi.js';
 import { useState, useEffect } from 'react';
-import { Icon } from '../../../shared/icons/index';
-import { Avatar, Button, EmptyState, FilterChip, Pill, SearchBox, Th, useSort, useToast } from '../../../shared/ui/index';
-import { CLIENT_STATUS, ORDERS, ORDER_STATUS } from '../../../legacy/data/index';
-import { UnifiedDocumentDrawer, UnifiedPersonDrawer, ufDateIso } from './UnifiedForms';
-import { Topbar } from '../../../application/shell/AppShell';
-import { communicationsApi } from '../../../legacy/compatibility/resources';
-import { toUiClient } from '../../../legacy/adapters/ui-adapters';
+import { Icon } from '../../../shared/icons/index.jsx';
+import { Avatar } from '../../../shared/ui/Avatar.jsx';
+import { Button } from '../../../shared/ui/Button.jsx';
+import { EmptyState } from '../../../shared/ui/EmptyState.jsx';
+import { FilterChip } from '../../../shared/ui/FilterChip.jsx';
+import { Pill } from '../../../shared/ui/Pill.jsx';
+import { SearchBox } from '../../../shared/ui/SearchBox.jsx';
+import { Th, useSort } from '../../../shared/ui/Table.jsx';
+import { useToast } from '../../../shared/ui/Toast.jsx';
+import { CLIENT_STATUS, ORDERS, ORDER_STATUS } from '../../../legacy/data/index.jsx';
+import { UnifiedDocumentDrawer, UnifiedPersonDrawer } from './UnifiedForms.jsx';
+import { ufDateIso } from '../../../shared/ui/UnifiedDateField.jsx';
+import { Topbar } from '../../../shared/ui/Topbar.jsx';
+import { communicationsApi } from '../../chats/api.js';
+import { toUiClient } from '../model/clients.mapper.js';
 import { pUsd, orderDate } from '../model/people-helpers.js';
 
 function ordersForClient(client, orders = ORDERS) {

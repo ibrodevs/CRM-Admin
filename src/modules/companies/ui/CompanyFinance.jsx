@@ -1,10 +1,19 @@
-import { companiesApi } from '../api.js';
+import { companiesApi } from '../api/companiesApi.js';
 import { useState, useEffect } from 'react';
-import { Icon } from '../../../shared/icons/index';
-import { Button, DateField, Drawer, Field, Input, Pill, Select, Tabs, useToast } from '../../../shared/ui/index';
-import { CURRENT_USER, FEE_DESC_DEFAULTS, FEE_SCHEMA, FEE_SERVICE_TYPES, FEE_TEMPLATES, SERVICE_DESC_DEFAULTS, SETTLEMENT_TYPES, creditAvailable, depositAvailable, descsFromDefaults, feeDescOf, feeDescsFromDefaults, feeTemplate, feesFromTemplate } from '../../../legacy/data/index';
-import { financeApi, workspaceSettingsApi } from '../../../legacy/compatibility/resources';
-import { resultsOf } from '../../../shared/api/client';
+import { Icon } from '../../../shared/icons/index.jsx';
+import { Button } from '../../../shared/ui/Button.jsx';
+import { DateField } from '../../../shared/ui/DateFields.jsx';
+import { Drawer } from '../../../shared/ui/Overlays.jsx';
+import { Field } from '../../../shared/ui/Field.jsx';
+import { Input } from '../../../shared/ui/Input.jsx';
+import { Pill } from '../../../shared/ui/Pill.jsx';
+import { Select } from '../../../shared/ui/Select.jsx';
+import { Tabs } from '../../../shared/ui/Tabs.jsx';
+import { useToast } from '../../../shared/ui/Toast.jsx';
+import { CURRENT_USER, FEE_DESC_DEFAULTS, FEE_SCHEMA, FEE_SERVICE_TYPES, FEE_TEMPLATES, SERVICE_DESC_DEFAULTS, SETTLEMENT_TYPES, creditAvailable, depositAvailable, descsFromDefaults, feeDescOf, feeDescsFromDefaults, feeTemplate, feesFromTemplate } from '../../../legacy/data/index.jsx';
+import { financeApi } from '../../finance/api.js';
+import { workspaceSettingsApi } from '../../settings/api.js';
+import { resultsOf } from '../../../shared/api/client.js';
 
 
 

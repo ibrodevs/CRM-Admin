@@ -1,4 +1,4 @@
-import { ProfilePage } from '../../profile/ui/ProfilePage';
+import { ProfilePage } from '../../profile/index.js';
 
 
 

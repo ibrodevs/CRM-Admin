@@ -1,5 +1,5 @@
-import { transactionListApi } from '../api.js';
-import { financeOverviewApi } from '../api.js';
+import { transactionListApi } from './transactionListApi.js';
+import { financeOverviewApi } from './financeOverviewApi.js';
 import { apiPath, apiRequest, queryString } from '../../../shared/api/client.js';
 import { list, get, create, patch, remove } from '../../../shared/api/operations.js';
 

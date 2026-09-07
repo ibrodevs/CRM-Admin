@@ -1,17 +1,34 @@
 import { useState, useEffect, useRef } from 'react';
-import { BrandMark, ChannelIcon, Icon } from '../../../shared/icons/index';
-import { ActionMenu, Avatar, Button, Drawer, EmptyState, Field, FilterChip, Input, Pill, Radio, SearchBox, Select, Th, TimeField, fmtDate, plural, useSort, useToast } from '../../../shared/ui/index';
-import { UFDateField } from '../../clients/ui/UnifiedForms';
-import { CURRENCIES, CURRENT_USER, KP_STATUS, KP_STATUS_FLOW, OPERATORS, ORDERS, ORDER_PARTICIPANTS, ORDER_SERVICES, ORDER_STATUS, PROPOSALS, SERVICE_KIND } from '../../../legacy/data/index';
-import { SEND_CHANNELS, orderClientChannel, sendChannelMeta } from '../../../legacy/data/access-control';
-import { Topbar } from '../../../application/shell/AppShell';
-import { PAX_DEFAULT_OPTIONS } from '../../services/flights/FlightsPage';
-import { PanelSub, StackPanel } from '../../locations/ui/SharedPanels';
-import { AddServicePanel } from '../../orders/ui/OrderCard';
-import { documentsApi, proposalsApi, servicesApi } from '../../../legacy/compatibility/resources';
-import { toLegacyProposal } from '../../../legacy/adapters/legacy-adapters';
-import { resultsOf } from '../../../shared/api/client';
-import { kpBriefItems, parseKpRequest } from '../model/request-parser';
+import { BrandMark, ChannelIcon, Icon } from '../../../shared/icons/index.jsx';
+import { ActionMenu } from '../../../shared/ui/ActionMenu.jsx';
+import { Avatar } from '../../../shared/ui/Avatar.jsx';
+import { Button } from '../../../shared/ui/Button.jsx';
+import { Drawer } from '../../../shared/ui/Overlays.jsx';
+import { EmptyState } from '../../../shared/ui/EmptyState.jsx';
+import { Field } from '../../../shared/ui/Field.jsx';
+import { FilterChip } from '../../../shared/ui/FilterChip.jsx';
+import { Input } from '../../../shared/ui/Input.jsx';
+import { Pill } from '../../../shared/ui/Pill.jsx';
+import { Radio } from '../../../shared/ui/Radio.jsx';
+import { SearchBox } from '../../../shared/ui/SearchBox.jsx';
+import { Select } from '../../../shared/ui/Select.jsx';
+import { Th, useSort } from '../../../shared/ui/Table.jsx';
+import { TimeField, fmtDate } from '../../../shared/ui/DateFields.jsx';
+import { plural } from '../../../shared/ui/plural.js';
+import { useToast } from '../../../shared/ui/Toast.jsx';
+import { UFDateField } from '../../../shared/ui/UnifiedDateField.jsx';
+import { CURRENCIES, CURRENT_USER, KP_STATUS, KP_STATUS_FLOW, OPERATORS, ORDERS, ORDER_PARTICIPANTS, ORDER_SERVICES, ORDER_STATUS, PROPOSALS, SERVICE_KIND } from '../../../legacy/data/index.jsx';
+import { SEND_CHANNELS, orderClientChannel, sendChannelMeta } from '../../../legacy/data/access-control.jsx';
+import { Topbar } from '../../../shared/ui/Topbar.jsx';
+import { PAX_DEFAULT_OPTIONS } from '../../services/index.js';
+import { PanelSub, StackPanel } from '../../locations/index.js';
+import { AddServicePanel } from '../../orders/index.js';
+import { documentsApi } from '../../documents/api.js';
+import { proposalsApi } from '../api/proposalsApi.js';
+import { servicesApi } from '../../services/api.js';
+import { toLegacyProposal } from '../../../legacy/adapters/legacy-adapters.js';
+import { resultsOf } from '../../../shared/api/client.js';
+import { kpBriefItems, parseKpRequest } from '../model/request-parser.js';
 
 
 // Срок действия КП = дата + время, оба выбираются шаблонно (без произвольного ввода).

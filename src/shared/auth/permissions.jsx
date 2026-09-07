@@ -1,7 +1,7 @@
-import { Icon } from '../icons/index';
-import { Button } from '../ui/index';
+import { Icon } from '../icons/index.jsx';
+import { Button } from '../ui/Button.jsx';
 import { PERMISSIONS, ROLES } from '../constants/permissions.js';
-import { Topbar } from '../../application/shell/AppShell';
+import { Topbar } from '../ui/Topbar.jsx';
 
 const NAV_PERM = {
   orders: 'Просмотр заказов',
