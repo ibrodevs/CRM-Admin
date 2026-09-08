@@ -3,6 +3,7 @@ import '../src/styles/modules/receipt-ui-fixes.css';
 import '../src/styles/modules/receipt-workflow.css';
 import '../src/styles/components/location-autocomplete.css';
 import '../src/styles/components/compact-steppers.css';
+import '../src/styles/preferences.css';
 
 export const metadata = {
   title: 'ПСЦ — Travel Hub · CRM',

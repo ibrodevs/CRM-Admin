@@ -154,18 +154,18 @@ function motivationFromRules(rows) {
 }
 
 
-function MotivationDrawer({ open, operator, onClose }) {
+function MotivationDrawer({ open, operator, userId, onClose }) {
   const toast = useToast();
   const [mot, setMot] = useState(() => motivationFromRules([]));
   const [busy, setBusy] = useState(false);
   useEffect(() => {
     if (!open) return;
     setBusy(true);
-    workforceApi.motivationRules()
+    workforceApi.motivationRules(undefined, userId)
       .then((payload) => setMot(motivationFromRules(resultsOf(payload))))
       .catch((error) => toast(error.message || 'Не удалось загрузить правила мотивации', 'err'))
       .finally(() => setBusy(false));
-  }, [open]);
+  }, [open, userId]);
   if (!open) return null;
 
   const setBase = (k, v) => setMot((m) => ({ ...m, base: { ...m.base, [k]: v } }));
@@ -176,7 +176,7 @@ function MotivationDrawer({ open, operator, onClose }) {
       const rules = mot.uniform
         ? [{ service_kind: '*', fee_percent: mot.base.service, markup_percent: mot.base.markup, commission_percent: mot.base.commission, is_active: true }]
         : MOTIVATION_SERVICES.map((name) => ({ service_kind: MOTIVATION_KIND_CODE[name], fee_percent: mot.perService[name]?.service || 0, markup_percent: mot.perService[name]?.markup || 0, commission_percent: mot.perService[name]?.commission || 0, is_active: true }));
-      await workforceApi.saveMotivationRules({ rules });
+      await workforceApi.saveMotivationRules({ rules, ...(userId ? { user: userId } : {}) });
       OPERATOR_MOTIVATION[operator] = JSON.parse(JSON.stringify(mot));
       toast('Правила мотивации сохранены в backend', 'ok'); onClose();
     } catch (error) { toast(error.message || 'Не удалось сохранить мотивацию', 'err'); }
@@ -191,7 +191,7 @@ function MotivationDrawer({ open, operator, onClose }) {
   const ROWS = [['service', 'от сервисного сбора'], ['markup', 'от агентской надбавки'], ['commission', 'от комиссионного вознаграждения']];
 
   return (
-    <Drawer open={open} onClose={onClose} title="Система мотивации" sub="Правила организации" width="min(680px,96vw)"
+    <Drawer open={open} onClose={onClose} title="Система мотивации" sub={userId ? `Индивидуальные правила: ${operator}` : "Правила организации"} width="min(680px,96vw)"
       footer={<><Button variant="secondary" onClick={onClose} disabled={busy}>Отмена</Button><Button icon="check" onClick={save} disabled={busy}>{busy ? 'Сохранение…' : 'Сохранить'}</Button></>}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '4px 0 16px', borderBottom: '1px solid var(--line)', marginBottom: 18 }}>
         <div>
@@ -231,8 +231,7 @@ function MotivationDrawer({ open, operator, onClose }) {
         </div>
       )}
       <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 16 }}>
-        Начисления рассчитываются автоматически после оформления услуги и отображаются в отчёте оператора.
-        При обмене, возврате или изменении стоимости заказа начисления пересчитываются с сохранением истории изменений.
+        Здесь сохраняются ставки мотивации. В статистике отображаются зарегистрированные начисления; автоматический расчёт требует подключённого обработчика начислений.
       </div>
     </Drawer>
   );

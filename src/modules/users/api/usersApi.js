@@ -1,11 +1,13 @@
 import { apiPath, apiRequest, queryString } from '../../../shared/api/client.js';
-import { list, get, create, patch, remove } from '../../../shared/api/operations.js';
+import { list, listAll, get, create, patch, remove } from '../../../shared/api/operations.js';
 
 export const usersApi = {
+  all: (signal) => listAll('users/', {}, signal),
   list: (params = {}, signal) => list('users/', { page_size: 100, ...params }, signal),
   create: (body) => create('users/', body),
   update: (id, body) => patch(`users/${id}/`, body),
   invite: (id) => create(`users/${id}/invite/`, {}),
+  activate: (id) => create(`users/${id}/activate/`, {}),
   suspend: (id, reason = '') => create(`users/${id}/suspend/`, { reason }),
   roles: (signal) => get('roles/', signal),
   updateRole: (id, permissions) => apiRequest(apiPath(`roles/${id}/`), { method: 'PUT', body: { permissions } }),

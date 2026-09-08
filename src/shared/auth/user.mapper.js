@@ -13,7 +13,7 @@ function toUiUser(user) {
     ...user,
     name: user?.full_name || [user?.last_name, user?.first_name, user?.middle_name].filter(Boolean).join(' '),
     role,
-    avatar: user?.avatar || null,
+    avatar: user?.avatar?.startsWith('/api/v1/me/avatar/') ? user.avatar.replace('/api/v1/', '/api/backend/') : user?.avatar || null,
     position: user?.position || role,
     dept: user?.department || '',
     workEmail: user?.email || '',
@@ -24,6 +24,7 @@ function toUiUser(user) {
     presence: { online: 'Онлайн', away: 'Отошёл', busy: 'Занят', offline: 'Не в сети' }[user?.presence] || user?.presence || '',
     tz: TIMEZONE_LABEL[user?.timezone] || user?.timezone || '(GMT+6) Бишкек',
     lang: { ru: 'Русский', ky: 'Кыргызча', en: 'English' }[user?.language] || user?.language || 'Русский',
+    lastLogin: user?.last_login ? new Date(user.last_login).toLocaleString('ru-RU') : '—',
     slaResponseMin: user?.sla_response_minutes || 15,
   };
 }

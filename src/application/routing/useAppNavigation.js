@@ -1,8 +1,18 @@
-import { useState } from 'react';
+import { useAuth } from '../../shared/auth/auth-context.jsx';
+import { useState, useEffect, useRef } from 'react';
 import { toUiThread } from '../../modules/chats/model.js';
 
 export function useAppNavigation() {
+  const { user } = useAuth();
+  const initialized = useRef(null);
   const [route, setRoute] = useState('dashboard');
+  useEffect(() => {
+    if (!user) { initialized.current = null; return; }
+    if (initialized.current === user.id) return;
+    initialized.current = user.id;
+    const start = user.preferences?.start_page;
+    setRoute(['dashboard', 'orders', 'fulfillment', 'chats'].includes(start) ? start : 'dashboard');
+  }, [user?.id, user?.preferences?.start_page]);
   const [intent, setIntent] = useState(null);
   const [svcSearch, setSvcSearch] = useState(null);
 

@@ -1,4 +1,4 @@
-import { CHAT_THREADS, CLIENTS, CLIENTS_DB, COMPANIES_DB, CURRENT_USER, DOCUMENTS, FINANCE, FIN_OPS, GROUP_PAX, NOTIFICATIONS, OPERATORS, ORDER_PARTICIPANTS, ORDER_SERVICES, ORDER_TASKS, ORDERS, PROPOSALS, RETURNS, SUPPLIERS, USERS } from '../data/index.jsx';
+import { CURRENCIES, CHAT_THREADS, CLIENTS, CLIENTS_DB, COMPANIES_DB, CURRENT_USER, DOCUMENTS, FINANCE, FIN_OPS, GROUP_PAX, NOTIFICATIONS, OPERATORS, ORDER_PARTICIPANTS, ORDER_SERVICES, ORDER_TASKS, ORDERS, PROPOSALS, RETURNS, SUPPLIERS, USERS } from '../data/index.jsx';
 
 function replaceArray(target, source) {
   if (!Array.isArray(target) || !Array.isArray(source)) return;
@@ -121,4 +121,10 @@ export function syncLegacyDataFromWorkspace(workspace) {
   replaceArray(DOCUMENTS, documentRowsFrom(workspace.documents));
   replaceArray(FINANCE, financeRowsFrom(workspace.transactions));
   replaceArray(FIN_OPS, financeRowsFrom(workspace.transactions));
+}
+
+const defaultCurrencies = CURRENCIES.map((currency) => ({ ...currency }));
+export function syncLegacyCurrencies(value = {}) {
+  CURRENCIES.splice(0, CURRENCIES.length, ...(value?.currencies || defaultCurrencies).map((currency) => ({ ...currency })));
+  for (const currency of CURRENCIES) if (value.rates?.[currency.code] != null) currency.rate = value.rates[currency.code];
 }

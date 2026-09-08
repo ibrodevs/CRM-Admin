@@ -12,6 +12,7 @@ export const authApi = {
   requestPasswordReset: (email) => apiRequest('/api/session/password-reset', {
     method: 'POST', body: { email }, idempotent: false,
   }),
+  confirmPasswordReset: (token, newPassword) => apiRequest('/api/session/password-reset', { method: 'POST', body: { token, new_password: newPassword }, idempotent: false, handlesUnauthorized: true }),
   requestDemoAccess: (body) => apiRequest(apiPath('public/demo-access/'), {
     method: 'POST', body, idempotent: false,
   }),

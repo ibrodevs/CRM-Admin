@@ -44,6 +44,6 @@ test('stylesheet fragments parse independently and preserve their cascade order'
   const layout = fs.readFileSync(path.join(root, 'app/layout.jsx'), 'utf8');
   assert.deepEqual([...layout.matchAll(/import '([^']+\.css)';/g)].map((match) => match[1]), [
     './globals.css', '../src/styles/modules/receipt-ui-fixes.css', '../src/styles/modules/receipt-workflow.css',
-    '../src/styles/components/location-autocomplete.css', '../src/styles/components/compact-steppers.css',
+    '../src/styles/components/location-autocomplete.css', '../src/styles/components/compact-steppers.css', '../src/styles/preferences.css',
   ]);
 });

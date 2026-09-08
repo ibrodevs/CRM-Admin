@@ -1,13 +1,14 @@
 
 
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { useToast } from '../../shared/ui/Toast.jsx';
 
 export const NOTIF_PRIORITY_KIND = { 'Критический': 'err', 'Высокий': 'warn', 'Средний': 'info', 'Информационный': 'ok' };
-export function DesktopNotifier({ enabled, notifications = [], orders = [], onNavigate, onOpenOrder }) {
+export function DesktopNotifier({ enabled, desktop = false, notifications = [], orders = [], onNavigate, onOpenOrder }) {
   const toast = useToast();
+  const sent = useRef(new Set());
   useEffect(() => {
-    if (!enabled) return;
+    if (!enabled && !desktop) return;
 
     const order = ['Критический', 'Высокий', 'Средний', 'Информационный'];
     const queue = notifications
@@ -18,6 +19,12 @@ export function DesktopNotifier({ enabled, notifications = [], orders = [], onNa
     let idx = 0;
     const timers = [];
     const push = (n) => {
+      if (desktop && 'Notification' in window && Notification.permission === 'granted' && !sent.current.has(n.id)) {
+        sent.current.add(n.id);
+        const notice = new Notification(n.title || 'CRM', {body: n.desc || '', tag: String(n.id)});
+        notice.onclick = () => { window.focus(); onNavigate('notifications'); notice.close(); };
+      }
+      if (!enabled) return;
       const kind = NOTIF_PRIORITY_KIND[n.priority] || 'info';
       const lt = n.link && n.link.type;
       const action = { label: n.act || 'Открыть' };
@@ -34,6 +41,6 @@ export function DesktopNotifier({ enabled, notifications = [], orders = [], onNa
       if (idx < queue.length) timers.push(setTimeout(tick, 22000));
     }, 3000));
     return () => timers.forEach(clearTimeout);
-  }, [enabled, notifications, orders, onOpenOrder, toast]);
+  }, [enabled, desktop, notifications, orders, onOpenOrder, toast]);
   return null;
 }

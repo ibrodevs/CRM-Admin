@@ -35,6 +35,7 @@ function App() {
   const toast = useToast();
   const { route, setRoute, intent, setIntent, svcSearch, setSvcSearch, chatOpen, setChatOpen, chatTarget, setChatTarget, focusedChat, setFocusedChat, notifOpen, setNotifOpen, ctxOrder, setCtxOrder, navigate, openChat, openChatThread, openOrder, createOrder, createClient, createCompany, createKP, openServiceSearch } = useAppNavigation();
   useEffect(() => {
+    if (auth.status !== 'authenticated') return;
     const controller = new AbortController();
     workspaceSettingsApi.getTenant('service-cards', controller.signal).then(({ value = {} }) => {
       if (value.scenarios && window.CARD_SCENARIOS) Object.keys(value.scenarios).forEach((key) => Object.assign(window.CARD_SCENARIOS[key] || (window.CARD_SCENARIOS[key] = {}), value.scenarios[key]));
@@ -44,7 +45,7 @@ function App() {
       if (value.visibility && window.CARD_CLIENT_VISIBILITY) Object.assign(window.CARD_CLIENT_VISIBILITY, value.visibility);
     }).catch((error) => { if (error.name !== 'AbortError') toast(error.message || 'Не удалось загрузить настройки карточек услуг', 'err'); });
     return () => controller.abort();
-  }, []);
+  }, [auth.status, auth.user?.id]);
 
   const orders = workspace.orders;
   const suppliers = workspace.suppliers;
@@ -54,7 +55,7 @@ function App() {
   const unreadChat = workspace.chats.reduce((s, t) => s + threadUnread(t), 0);
   const unreadNotif = workspace.notifications.filter((n) => !n.read).length;
 
-  const blocked = !roleCanSee(role, route.split('/')[0]);
+  const blocked = route === 'settings' ? !(auth.user?.permissions || []).some((code) => ['users.manage', 'roles.manage', 'settings.manage', 'integrations.manage'].includes(code)) : !roleCanSee(role, route.split('/')[0]);
 
   const { addOrder, createOrderFromPicker, createReceiptOrder } = useOrderActions({ workspace, toast, openOrder });
 
@@ -91,7 +92,7 @@ function App() {
   );
   const isServicePage = ['flights', 'rail', 'hotels', 'transfers', 'buses', 'tours'].includes(route.split('/')[0]);
 
-  const currentResource = workspace.resources?.[ROUTE_RESOURCE[route.split('/')[0]]];
+  const currentResource = route === 'settings' ? undefined : workspace.resources?.[ROUTE_RESOURCE[route.split('/')[0]]];
   const gatedPage = (
     <WorkspaceResourceGate resource={currentResource} onRetry={() => workspace.reload()}>
       <RouteRenderer {...{ route, role, auth, orders, suppliers, workspace, navigate, createOrder, openOrder, createOrderFromPicker, openChat, intent, setIntent, addOrder, setCtxOrder, openServiceSearch, svcSearch, setSvcSearch, addSupplier, openChatThread, focusedChat, createReceiptOrder, toast }} />

@@ -103,7 +103,9 @@ const LP_STYLES = `
 function LoginScreen({ onLogin, onVerifyTwoFactor, onPasswordReset, expired = false }) {
   const toast = useToast();
 
-  const [view, setView] = useState('login');
+  const [inviteToken] = useState(() => typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('invite') || '' : '');
+  const [view, setView] = useState(inviteToken ? 'setPassword' : 'login');
+  const [confirmPass, setConfirmPass] = useState('');
   const [ident, setIdent] = useState('');
   const [pass, setPass] = useState('');
   const [showPass, setShowPass] = useState(false);
@@ -265,6 +267,23 @@ function LoginScreen({ onLogin, onVerifyTwoFactor, onPasswordReset, expired = fa
           )}
 
 
+          {view === 'setPassword' && (
+            <form className="lp-card" onSubmit={async (event) => {
+              event.preventDefault();
+              if (pass.length < 10 || pass !== confirmPass) { setErrs({ form: 'Минимум 10 символов; пароли должны совпадать' }); return; }
+              setLoading(true);
+              try { await authApi.confirmPasswordReset(inviteToken, pass); window.history.replaceState(null, '', window.location.pathname); setPass(''); setConfirmPass(''); go('login'); toast('Пароль установлен. Войдите в систему.', 'ok'); }
+              catch (error) { setErrs({ form: error.message }); }
+              finally { setLoading(false); }
+            }}>
+              <h2>Установка пароля</h2>
+              <input className="lp-input" aria-label="Новый пароль" type="password" placeholder="Минимум 10 символов" value={pass} onChange={(e) => setPass(e.target.value)} />
+              <input className="lp-input" aria-label="Подтвердите пароль" type="password" placeholder="Повторите пароль" value={confirmPass} onChange={(e) => setConfirmPass(e.target.value)} />
+              {errs.form && <div className="lp-errtxt">{errs.form}</div>}
+              <button className="lp-btn" disabled={loading} type="submit">Установить пароль</button>
+              <button className="lp-link" type="button" onClick={() => go('login')}>Ко входу</button>
+            </form>
+          )}
           {view === 'forgot' && (
             <div className="fade-in lp-card">
               <button type="button" className="lp-btn-ghost" onClick={() => go('login')} style={{ marginBottom: 14 }}><Icon name="chevLeft" style={{ width: 16, height: 16 }} />Ко входу</button>

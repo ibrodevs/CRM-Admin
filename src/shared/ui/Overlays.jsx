@@ -162,7 +162,7 @@ function Drawer({ open, onClose, title, sub, children, footer, width, className 
             <h2 className="modal-title" style={{ fontSize: 24 }}>{title}</h2>
             {sub && <div className="modal-sub">{sub}</div>}
           </div>
-          <button className="modal-close" onClick={onClose}><Icon name="x" /></button>
+          <button className="modal-close" aria-label={'Закрыть окно «' + title + '»'} onClick={onClose}><Icon name="x" /></button>
         </div>
         <div className="drawer-body">{children}</div>
         {footer && <div className="drawer-foot">{footer}</div>}

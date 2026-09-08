@@ -1,3 +1,4 @@
+import { setRuntimePreferences } from '../preferences/preferences.js';
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 
 import { authApi } from './auth.api.js';
@@ -23,12 +24,14 @@ export function AuthProvider({ children, syncLegacyCurrentUser = ignoreLegacyUse
     try {
       const session = await authApi.session(signal);
       const uiUser = toUiUser(session.user);
+      setRuntimePreferences({ ...uiUser.preferences, timezone: uiUser.timezone });
       syncLegacyCurrentUser(uiUser);
       setUser(uiUser);
       setStatus('authenticated');
       return session;
     } catch (error) {
       if (error.name === 'AbortError') return null;
+      setRuntimePreferences();
       syncLegacyCurrentUser(null);
       setUser(null);
       setStatus(error.status === 503 ? 'unavailable' : 'anonymous');
@@ -46,6 +49,7 @@ export function AuthProvider({ children, syncLegacyCurrentUser = ignoreLegacyUse
   // на рабочем экране в таком состоянии нельзя: данные всё равно не придут,
   // а оператор видит пустые списки и не понимает, что произошло.
   const endSession = useCallback(() => {
+    setRuntimePreferences();
     syncLegacyCurrentUser(null);
     setUser(null);
     setChallengeToken('');
@@ -88,6 +92,7 @@ export function AuthProvider({ children, syncLegacyCurrentUser = ignoreLegacyUse
       return { twoFactorRequired: true };
     }
     const uiUser = toUiUser(result.user);
+    setRuntimePreferences({ ...uiUser.preferences, timezone: uiUser.timezone });
     syncLegacyCurrentUser(uiUser);
     setUser(uiUser);
     setStatus('authenticated');
@@ -99,6 +104,7 @@ export function AuthProvider({ children, syncLegacyCurrentUser = ignoreLegacyUse
     const result = await authApi.verifyTwoFactor(challengeToken, code);
     setChallengeToken('');
     const uiUser = toUiUser(result.user);
+    setRuntimePreferences({ ...uiUser.preferences, timezone: uiUser.timezone });
     syncLegacyCurrentUser(uiUser);
     setUser(uiUser);
     setStatus('authenticated');
@@ -107,6 +113,7 @@ export function AuthProvider({ children, syncLegacyCurrentUser = ignoreLegacyUse
 
   const logout = useCallback(async () => {
     try { await authApi.logout(); } finally {
+      setRuntimePreferences();
       syncLegacyCurrentUser(null);
       setUser(null);
       setStatus('anonymous');

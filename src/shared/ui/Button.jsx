@@ -1,3 +1,4 @@
+import { translate } from '../preferences/translations.js';
 import { Icon } from '../icons/index.jsx';
 
 const BTN_OWN_PROPS = { variant: 1, size: 1, icon: 1, iconRight: 1, children: 1, className: 1 };
@@ -12,7 +13,7 @@ function Button(props) {
   return (
     <button {...rest} className={cls}>
       {icon && <Icon name={icon} />}
-      {props.children}
+      {typeof props.children === 'string' ? translate(props.children) : props.children}
       {iconRight && <Icon name={iconRight} />}
     </button>
   );

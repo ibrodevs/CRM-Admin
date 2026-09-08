@@ -2,7 +2,10 @@ import { apiPath, apiRequest, queryString } from '../../../shared/api/client.js'
 import { list, get, create, patch, remove } from '../../../shared/api/operations.js';
 
 export const accountApi = {
+  statistics: (params, signal) => list('me/statistics/', params, signal),
   me: (signal) => get('me/', signal),
+  uploadAvatar: (file) => { const body = new FormData(); body.append('avatar', file); return apiRequest(apiPath('me/avatar/'), { method: 'PUT', body }); },
+  removeAvatar: () => remove('me/avatar/'),
   updateMe: (body) => patch('me/', body),
   preferences: (signal) => get('me/preferences/', signal),
   updatePreferences: (body) => patch('me/preferences/', body),

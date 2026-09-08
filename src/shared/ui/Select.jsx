@@ -1,3 +1,4 @@
+import { translate } from '../preferences/translations.js';
 
 
 function Select(props) {
@@ -10,7 +11,7 @@ function Select(props) {
       {options.map((o) => {
         const val = typeof o === 'string' ? o : o.value;
         const lab = typeof o === 'string' ? o : o.label;
-        return <option key={val} value={val}>{lab}</option>;
+        return <option key={val} value={val}>{translate(lab)}</option>;
       })}
     </select>
   );

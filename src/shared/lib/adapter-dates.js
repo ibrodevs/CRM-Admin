@@ -1,3 +1,4 @@
+import { getRuntimePreferences, formatProfileDate } from '../preferences/preferences.js';
 
 
 function asDate(value) {
@@ -8,12 +9,12 @@ function asDate(value) {
 
 function formatDate(value) {
   const parsed = asDate(value);
-  return parsed ? parsed.toLocaleDateString('ru-RU') : '';
+  return parsed ? formatProfileDate(parsed, getRuntimePreferences()) : '';
 }
 
 function formatTime(value) {
   const parsed = asDate(value);
-  return parsed ? parsed.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' }) : '';
+  return parsed ? parsed.toLocaleTimeString(({en:'en-US',ky:'ky-KG'})[getRuntimePreferences().language] || 'ru-RU', { hour: '2-digit', minute: '2-digit', hour12: getRuntimePreferences().time_format === '12h', timeZone: getRuntimePreferences().timezone }) : '';
 }
 
 export { asDate, formatDate, formatTime };

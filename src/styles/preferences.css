@@ -1,0 +1,19 @@
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --ink: #edf2fc; --body: #dce4f2; --muted: #a0aec4; --muted-2: #8795ab;
+  --bg: #101722; --surface: #172131; --surface-2: #1d2a3c; --hover: #26354c;
+  --line: #2c3a4e; --line-strong: #3a4b63; --field-line: #3a4b63;
+  --blue-soft: #1c3558; --blue-soft-2: #203d64; --blue-soft-text: #9abaff;
+  --green-bg: #153d2b; --green-bg-2: #1b362b; --green: #67d395;
+  --red-bg: #492a2c; --red: #ffa095; --amber-bg: #463822; --amber: #eebd72;
+  --gray-bg: #2b3648; --gray-text: #b4c0d2; --teal-bg: #1b3c4c;
+}
+:root[data-theme="dark"] .input, :root[data-theme="dark"] .select { background-color: var(--surface); color: var(--body); }
+:root[data-theme="dark"] :is(.btn-secondary, .tab:not(.active), .chip.ghost, .doc-chip, .drawer, .drawer-head, .drawer-foot, .drawer-stack-panel, .modal, .dropdown, .popover, .gtop, .table-card, .tbl thead th) {
+  background: var(--surface);
+  color: var(--body);
+  border-color: var(--field-line);
+}
+:root[data-theme="dark"] :is(.nav-item:not(.active), .nav-item:not(.active) svg, .crumb, .gtop-ic) { color: var(--muted); }
+:root[data-theme="dark"] :is(.nav-item:hover, .dropdown-item:hover, .tbl tbody tr:hover) { background: var(--hover); color: var(--ink); }
+:root[data-theme="dark"] .avatar-ph { background: var(--blue-soft); color: var(--blue-soft-text); }

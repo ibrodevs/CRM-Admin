@@ -7,7 +7,7 @@ export async function POST(request) {
   if (originError) return originError;
   try {
     const payload = await request.json();
-    const { response, data } = await backendJson('/api/v1/auth/password/reset/request/', {
+    const { response, data } = await backendJson(payload.token ? '/api/v1/auth/password/reset/confirm/' : '/api/v1/auth/password/reset/request/', {
       method: 'POST', body: payload,
     });
     return data === null

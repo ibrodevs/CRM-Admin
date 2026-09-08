@@ -4,6 +4,8 @@ import { list, get, create, patch, remove } from '../../../shared/api/operations
 
 
 export const documentsApi = {
+  templates: (signal) => get('document-templates/', signal),
+  createTemplate: (body) => create('document-templates/', body),
   list: documentListApi.documents,
   create: (body) => create('documents/', body),
   upload: (file, document) => {

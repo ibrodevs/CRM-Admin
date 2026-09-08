@@ -1,3 +1,4 @@
+import { translate as t } from '../../../shared/preferences/translations.js';
 import { useEffect, useState } from 'react';
 import { OPERATOR_SVC_ACCESS, SVC_ACCESS_KINDS, SVC_ACCESS_RIGHTS, fullRights, noRights, operatorSvcAccess } from '../../../legacy/data/access-control.jsx';
 import { Icon } from '../../../shared/icons/index.jsx';
@@ -7,26 +8,23 @@ import { Toggle } from '../../../shared/ui/Toggle.jsx';
 import { useToast } from '../../../shared/ui/Toast.jsx';
 import { usersApi } from '../../users/api.js';
 
-const KIND_CODE = { 'Авиа': 'avia', 'ЖД': 'rail', 'Гостиница': 'hotel', 'Трансфер': 'transfer', 'Автобус': 'bus', 'Тур': 'tour', 'Виза': 'visa', 'Страхование': 'insurance' };
-const RIGHT_CODE = { 'Поиск': 'search', 'Бронирование': 'book', 'Выписка': 'issue', 'Возврат': 'refund', 'Обмен': 'exchange', 'Аннуляция': 'cancel', 'Доп. услуги': 'extras' };
+import { serviceAccessToUi, serviceAccessFromUi } from '../service-access.js';
 
 function ServiceAccessEditor({ operator, userId }) {
   const toast = useToast();
   const [access, setAccess] = useState(() => JSON.parse(JSON.stringify(operatorSvcAccess(operator))));
+  const [loadedRows, setLoadedRows] = useState([]);
+  const [busy, setBusy] = useState(true);
+  const [loadError, setLoadError] = useState(false);
   const [expandedKind, setExpandedKind] = useState(null);
   useEffect(() => {
     if (!userId) return;
-    usersApi.serviceAccess(userId).then((rows) => {
-      if (!rows.length) return setAccess({ fullAccess: true, kinds: {} });
-      const kinds = {};
-      rows.forEach((row) => {
-        const kind = Object.keys(KIND_CODE).find((key) => KIND_CODE[key] === row.service_kind);
-        if (!kind) return;
-        kinds[kind] = noRights();
-        row.allowed_actions.forEach((code) => { const right = Object.keys(RIGHT_CODE).find((key) => RIGHT_CODE[key] === code); if (right) kinds[kind][right] = true; });
-      });
-      setAccess({ fullAccess: false, kinds });
-    }).catch(() => {});
+    const controller = new AbortController();
+    setBusy(true); setLoadError(false);
+    usersApi.serviceAccess(userId, controller.signal).then((rows) => {
+      setLoadedRows(rows); setAccess(serviceAccessToUi(rows));
+    }).catch((error) => { if (error.name !== 'AbortError') { setLoadError(true); toast(error.message, 'err'); } }).finally(() => setBusy(false));
+    return () => controller.abort();
   }, [userId]);
   const kindEnabled = (kind) => access.kinds[kind] && Object.values(access.kinds[kind]).some(Boolean);
 
@@ -50,26 +48,29 @@ function ServiceAccessEditor({ operator, userId }) {
       toast('Выберите пользователя, чтобы сохранить доступы', 'err');
       return;
     }
-    const body = access.fullAccess ? [] : Object.entries(access.kinds).map(([kind, rights]) => ({
-      service_kind: KIND_CODE[kind] || 'other',
-      allowed_actions: Object.entries(rights).filter(([, enabled]) => enabled).map(([right]) => RIGHT_CODE[right]).filter(Boolean),
-    }));
-    try { await usersApi.setServiceAccess(userId, body); toast('Область ответственности сохранена в backend', 'ok'); }
-    catch (error) { toast(error.message || 'Не удалось сохранить доступы', 'err'); }
+    const body = serviceAccessFromUi(access, loadedRows);
+    setBusy(true);
+    try {
+      await usersApi.setServiceAccess(userId, body);
+      setLoadedRows(body);
+      OPERATOR_SVC_ACCESS[operator] = serviceAccessToUi(body);
+      toast('Область ответственности сохранена в backend', 'ok');
+    } catch (error) { toast(error.message || 'Не удалось сохранить доступы', 'err'); }
+    finally { setBusy(false); }
   };
 
   return (
     <div>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', borderRadius: 12, border: '1px solid var(--field-line)', marginBottom: 14 }}>
         <div>
-          <div style={{ fontWeight: 600, color: 'var(--ink)' }}>Полный доступ ко всем услугам заказа</div>
-          <div style={{ fontSize: 12, color: 'var(--muted)' }}>Оператор работает со всеми видами услуг без ограничений</div>
+          <div style={{ fontWeight: 600, color: 'var(--ink)' }}>{t("Полный доступ ко всем услугам заказа")}</div>
+          <div style={{ fontSize: 12, color: 'var(--muted)' }}>{t("Оператор работает со всеми видами услуг без ограничений")}</div>
         </div>
         <Toggle on={access.fullAccess} onChange={(fullAccess) => setAccess((current) => ({ ...current, fullAccess }))} />
       </div>
       {!access.fullAccess && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-          <div style={{ fontSize: 12, color: 'var(--muted)' }}>Отметьте виды услуг и настройте права по каждому. Оператор не имеет доступа к невыбранным видам.</div>
+          <div style={{ fontSize: 12, color: 'var(--muted)' }}>{t("Отметьте виды услуг и настройте права по каждому. Оператор не имеет доступа к невыбранным видам.")}</div>
           {SVC_ACCESS_KINDS.map((kind) => {
             const enabled = kindEnabled(kind);
             const expanded = expandedKind === kind;
@@ -78,7 +79,7 @@ function ServiceAccessEditor({ operator, userId }) {
                 <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 16px' }}>
                   <Checkbox on={enabled} onChange={() => toggleKind(kind)} />
                   <span style={{ flex: 1, fontWeight: 600, color: 'var(--ink)' }}>{kind}</span>
-                  {enabled && <span style={{ fontSize: 12, color: 'var(--muted)' }}>{SVC_ACCESS_RIGHTS.filter((right) => access.kinds[kind] && access.kinds[kind][right]).length} из {SVC_ACCESS_RIGHTS.length} прав</span>}
+                  {enabled && <span style={{ fontSize: 12, color: 'var(--muted)' }}>{SVC_ACCESS_RIGHTS.filter((right) => access.kinds[kind] && access.kinds[kind][right]).length}{t("из")}{SVC_ACCESS_RIGHTS.length}{t("прав")}</span>}
                   {enabled && <button type="button" className="icon-btn" onClick={() => setExpandedKind(expanded ? null : kind)} aria-label={expanded ? 'Свернуть права' : 'Развернуть права'}><Icon name={expanded ? 'chevUp' : 'chevDown'} /></button>}
                 </div>
                 {enabled && expanded && (
@@ -96,7 +97,7 @@ function ServiceAccessEditor({ operator, userId }) {
         </div>
       )}
       <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 16 }}>
-        <Button icon="check" onClick={save}>Сохранить доступы</Button>
+        <Button icon="check" disabled={busy || loadError} onClick={save}>{t("Сохранить доступы")}</Button>
       </div>
     </div>
   );
