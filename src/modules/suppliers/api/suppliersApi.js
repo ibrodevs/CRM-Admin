@@ -1,8 +1,12 @@
 import { apiPath, apiRequest, queryString } from '../../../shared/api/client.js';
-import { list, get, create, patch, remove } from '../../../shared/api/operations.js';
+import { list, listAll, get, create, patch, remove } from '../../../shared/api/operations.js';
 
 export const suppliersApi = {
-  list: (params = {}, signal) => list('suppliers/', { page_size: 100, ...params }, signal),
+  aviaMarkups: (id) => get(`suppliers/${id}/avia-markups/`),
+  saveAviaMarkups: (id, value) => patch(`suppliers/${id}/avia-markups/`, { value }),
+  list: (params = {}, signal) => listAll('suppliers/', params, signal),
+  settings: (id, signal) => get(`suppliers/${id}/settings/`, signal),
+  saveSettings: (id, value) => patch(`suppliers/${id}/settings/`, { value }),
   create: (body) => create('suppliers/', body),
   update: (id, body) => patch(`suppliers/${id}/`, body),
   credentials: (id, signal) => get(`suppliers/${id}/credentials/`, signal),

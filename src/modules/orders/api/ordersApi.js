@@ -1,8 +1,9 @@
 import { getRuntimePreferences } from '../../../shared/preferences/preferences.js';
 import { apiPath, apiRequest, queryString } from '../../../shared/api/client.js';
-import { list, get, create, patch, remove } from '../../../shared/api/operations.js';
+import { list, listAll, get, create, patch, remove } from '../../../shared/api/operations.js';
 
 export const ordersApi = {
+  all: (params = {}, signal) => listAll('orders/', params, signal),
   list: (params = {}, signal) => list('orders/', { page_size: 100, ...params }, signal),
   detail: (id, signal) => get(`orders/${id}/`, signal),
   overview: (id, signal) => get(`orders/${id}/overview/`, signal),

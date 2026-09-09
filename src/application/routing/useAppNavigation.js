@@ -10,6 +10,8 @@ export function useAppNavigation() {
     if (!user) { initialized.current = null; return; }
     if (initialized.current === user.id) return;
     initialized.current = user.id;
+    const supplierMatch = window.location.hash.match(/^#supplier-([a-f0-9-]{36})$/i);
+    if (supplierMatch) { setRoute('suppliers'); setIntent({ type: 'open', supplierId: supplierMatch[1] }); return; }
     const start = user.preferences?.start_page;
     setRoute(['dashboard', 'orders', 'fulfillment', 'chats'].includes(start) ? start : 'dashboard');
   }, [user?.id, user?.preferences?.start_page]);
@@ -45,7 +47,7 @@ export function useAppNavigation() {
     if (o === '__create__') { setRoute('orders'); setIntent({ type: 'create' }); setCtxOrder(null); return; }
     setRoute('orders'); setIntent({ type: 'open', order: o, tab, svc }); setCtxOrder(o);
   };
-  const createOrder = () => { setRoute('orders'); setIntent({ type: 'create' }); setCtxOrder(null); };
+  const createOrder = (customer) => { setRoute('orders'); setIntent({ type: 'create', customer: customer?.kind ? customer : null }); setCtxOrder(null); };
   const createClient = () => { setRoute('clients'); setIntent({ type: 'create' }); setCtxOrder(null); };
   const createCompany = () => { setRoute('companies'); setIntent({ type: 'create' }); setCtxOrder(null); };
   const createKP = () => { setRoute('offers'); setIntent({ type: 'create' }); setCtxOrder(null); };

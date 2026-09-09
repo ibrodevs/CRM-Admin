@@ -1,12 +1,12 @@
 import { apiPath, apiRequest, queryString } from '../../../shared/api/client.js';
-import { list, get, create, patch, remove } from '../../../shared/api/operations.js';
+import { list, listAll, get, create, patch, remove } from '../../../shared/api/operations.js';
 
 export const companiesApi = {
-  companies: (params = {}, signal) => list('companies/', { page_size: 100, ...params }, signal),
+  companies: (params = {}, signal) => listAll('companies/', params, signal),
   company: (id, signal) => get(`companies/${id}/`, signal),
   createCompany: (body) => create('companies/', body),
   updateCompany: (id, body) => patch(`companies/${id}/`, body),
-  companyEmployees: (id, signal) => get(`companies/${id}/employees/`, signal),
+  companyEmployees: (id, signal) => listAll(`companies/${id}/employees/`, {}, signal),
   createCompanyEmployee: (id, body) => create(`companies/${id}/employees/`, body),
   updateCompanyEmployee: (companyId, employeeId, body) => patch(`companies/${companyId}/employees/${employeeId}/`, body),
   removeCompanyEmployee: (companyId, employeeId) => remove(`companies/${companyId}/employees/${employeeId}/`),

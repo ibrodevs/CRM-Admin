@@ -36,22 +36,17 @@ function useSupplierDocuments(s, ext) {
   useEffect(() => {
     if (!s || !ext) return undefined;
     const controller = new AbortController();
-    Promise.all([documentsApi.list({}, controller.signal), servicesApi.list({}, controller.signal)]).then(([payload, servicePayload]) => {
+    documentsApi.all({}, controller.signal).then((payload) => {
       const grouped = SUP_DOC_KINDS.reduce((result, kind) => ({ ...result, [kind]: [] }), {});
       resultsOf(payload).filter((doc) => String(doc.metadata?.supplier_id || '') === String(s.serverId || s.id)).forEach((doc) => {
         const kind = doc.metadata?.supplier_document_kind || 'Прочие файлы';
         if (!grouped[kind]) grouped[kind] = [];
-        grouped[kind].push({ name: doc.title, documentId: doc.id, kind, versions: [{ v: `v${doc.current_version || 1}`, date: new Date(doc.created_at).toLocaleDateString('ru-RU'), author: 'CRM', note: 'Версия из backend', current: true }] });
+        grouped[kind].push({ name: doc.title, documentId: doc.id, kind });
       });
-      const services = resultsOf(servicePayload).filter((service) => String(service.supplier) === String(s.serverId || s.id));
-      const successful = services.filter((service) => ['booked', 'confirmed', 'issued', 'completed'].includes(service.status));
       ext.docs = grouped;
-      ext.stats = { ...ext.stats, bookings: services.length, issues: services.filter((service) => service.status === 'issued').length,
-        refunds: services.filter((service) => service.status === 'refunded').length,
-        successRate: services.length ? `${Math.round(successful.length / services.length * 100)}%` : '0%',
-        lastUsed: services[0]?.created_at ? new Date(services[0].created_at).toLocaleDateString('ru-RU') : '—' };
+      ext.stats = { bookings: s.metrics?.bookings ?? 0, issues: s.metrics?.issues ?? 0, refunds: s.metrics?.refunds ?? 0, avgResponse: '—', successRate: '—', lastUsed: s.metrics?.last_used ? new Date(s.metrics.last_used).toLocaleString('ru-RU') : '—' };
       refresh((value) => value + 1);
-    }).catch(() => {});
+    }).catch((error) => { if (error.name !== 'AbortError') console.error(error); });
     return () => controller.abort();
   }, [s?.serverId, s?.id]);
 }
@@ -62,21 +57,26 @@ function useSupplierDocuments(s, ext) {
 function DocPreviewDrawer({ open, doc, onClose }) {
   const toast = useToast();
   const [ver, setVer] = useState(0);
-  useEffect(() => { setVer(0); }, [doc]);
+  const [versions, setVersions] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const loadVersions = async () => {
+    const rows = await documentsApi.versions(doc.documentId);
+    setVersions(resultsOf(rows).map((version) => ({ ...version, v: `v${version.version}`, date: new Date(version.created_at).toLocaleDateString('ru-RU'), author: version.created_by_name || '', note: version.correction_reason || '', current: version.is_current })));
+  };
+  useEffect(() => {
+    setVer(0); setVersions([]);
+    if (!open || !doc?.documentId) return;
+    setLoading(true);
+    loadVersions().catch((error) => toast(error.message, 'err')).finally(() => setLoading(false));
+  }, [open, doc?.documentId]);
   if (!open || !doc) return null;
-
-  const versions = doc.versions || [
-    { v: 'v3', date: '03.2026', author: 'Акимова А.', note: 'Продление на 2026 год', current: true },
-    { v: 'v2', date: '08.2025', author: 'Мамажанов А.', note: 'Изменение реквизитов' },
-    { v: 'v1', date: '01.2025', author: 'Акимова А.', note: 'Первичная редакция' },
-  ];
-  const active = versions[ver] || versions[0];
+  const active = versions[ver] || { v: '—' };
   const download = () => {
-    if (doc.documentId) window.open(documentsApi.downloadUrl(doc.documentId), '_blank');
+    if (doc.documentId) window.open(documentsApi.downloadUrl(doc.documentId) + (active.version ? `?file_version=${active.version}` : ''), '_blank', 'noopener');
   };
   const addVersion = async (event) => {
     const file = event.target.files?.[0]; if (!file || !doc.documentId) return;
-    try { await documentsApi.addVersion(doc.documentId, file, 'Новая версия договора поставщика'); toast('Новая версия загружена', 'ok'); }
+    try { await documentsApi.addVersion(doc.documentId, file, 'Новая версия договора поставщика'); await loadVersions(); setVer(0); toast('Новая версия загружена', 'ok'); }
     catch (error) { toast(error.message, 'err'); }
     finally { event.target.value = ''; }
   };
@@ -114,9 +114,8 @@ function DocPreviewDrawer({ open, doc, onClose }) {
             <div style={{ background: '#fff', border: '1px solid var(--line)', borderRadius: 8, padding: '32px 34px', boxShadow: 'var(--shadow-card)', minHeight: 360 }}>
               <div style={{ textAlign: 'center', fontWeight: 700, fontSize: 15, color: 'var(--ink)', marginBottom: 4 }}>{doc.name.replace(/\.[a-z]+$/i, '')}</div>
               <div style={{ textAlign: 'center', fontSize: 12, color: 'var(--muted)', marginBottom: 22 }}>Версия {active.v} · {active.date}</div>
-              {[92, 78, 96, 64, 88, 40, 84, 72].map((wp, i) => (
-                <div key={i} style={{ height: 9, width: wp + '%', borderRadius: 4, background: 'var(--line-strong)', margin: '11px 0' }} />
-              ))}
+              {loading ? <p>Загрузка версий…</p> : active.version ? <iframe title="Файл договора" src={documentsApi.previewUrl(doc.documentId) + `&file_version=${active.version}`} style={{width: '100%', height: 500, border: 0}} /> : <p>Файл отсутствует на сервере</p>}
+
             </div>
           </div>
         </div>
@@ -254,7 +253,7 @@ function supExt(s) {
         responseMinutes: automation.sla?.response_minutes || '',
         confirmationHours: automation.sla?.confirmation_hours || '',
       },
-      stats: { bookings: 0, issues: 0, refunds: 0, avgResponse: '—', successRate: '0%', lastUsed: '—' },
+      stats: { bookings: s.metrics?.bookings ?? 0, issues: s.metrics?.issues ?? 0, refunds: s.metrics?.refunds ?? 0, avgResponse: '—', successRate: '—', lastUsed: s.metrics?.last_used ? new Date(s.metrics.last_used).toLocaleString('ru-RU') : '—' },
       docs: SUP_DOC_KINDS.reduce((result, kind) => ({ ...result, [kind]: [] }), {}),
 
       legal: {
@@ -277,14 +276,17 @@ function supFinSummary(ext) {
 
 
 
-function AviaMarkupEditor({ supplierName }) {
+function AviaMarkupEditor({ supplierName, supplierId }) {
   const toast = useToast();
-  const [cfg, setCfg] = useState(() => JSON.parse(JSON.stringify(aviaMarkupsFor(supplierName))));
+  const [cfg, setCfg] = useState({});
+  const [saving, setSaving] = useState(false);
+  useEffect(() => { suppliersApi.aviaMarkups(supplierId).then((result) => setCfg(result.value)).catch((error) => toast(error.message, 'err')); }, [supplierId]);
+  const saveMarkups = async () => { setSaving(true); try { await suppliersApi.saveAviaMarkups(supplierId, cfg); AVIA_MARKUPS[supplierName] = structuredClone(cfg); toast('Наценки сохранены', 'ok'); } catch (error) { toast(error.message, 'err'); } finally { setSaving(false); } };
   const [addAir, setAddAir] = useState('');
   const airCodes = Object.keys(cfg);
   const available = Object.keys(AIRLINES).filter((c) => !cfg[c]);
 
-  const persist = (next) => { setCfg(next); AVIA_MARKUPS[supplierName] = JSON.parse(JSON.stringify(next)); };
+  const persist = (next) => setCfg(next);
   const addAirline = () => { if (!addAir) return; persist({ ...cfg, [addAir]: { domestic: { type: 'percent', value: 0 }, intl: { type: 'percent', value: 0 }, routes: [] } }); setAddAir(''); toast('Добавлена ' + AIRLINES[addAir].name, 'ok'); };
   const removeAirline = (code) => { const n = { ...cfg }; delete n[code]; persist(n); };
   const setBucket = (code, bucket, patch) => persist({ ...cfg, [code]: { ...cfg[code], [bucket]: { ...cfg[code][bucket], ...patch } } });
@@ -349,6 +351,7 @@ function AviaMarkupEditor({ supplierName }) {
           </div>
         ))}
       </div>
+      <Button icon="check" disabled={saving} onClick={saveMarkups}>Сохранить наценки</Button>
       {available.length > 0 && (
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 14 }}>
           <div style={{ width: 240 }}>
@@ -575,6 +578,10 @@ const SUP_TABS = [
 
 
 
+function SupplierLegalField({ form, change, label, k, wide, ph }) {
+  return <div style={{ gridColumn: wide ? '1 / -1' : 'auto' }}><Field label={label}><Input value={form[k] || ''} onChange={change(k)} placeholder={ph} /></Field></div>;
+}
+
 function SupplierLegalEditor({ s, ext, onSaveSettings }) {
   const toast = useToast();
   const [, force] = useState(0);
@@ -598,9 +605,7 @@ function SupplierLegalEditor({ s, ext, onSaveSettings }) {
     } catch (error) { toast(error.message || 'Не удалось сохранить реквизиты поставщика', 'err'); }
     finally { setSaving(false); }
   };
-  const F = ({ label, k, wide, ph }) => (
-    <div style={{ gridColumn: wide ? '1 / -1' : 'auto' }}><Field label={label}><Input value={f[k] || ''} onChange={set(k)} placeholder={ph} /></Field></div>
-  );
+
   return (
     <div>
 
@@ -616,32 +621,32 @@ function SupplierLegalEditor({ s, ext, onSaveSettings }) {
       <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--muted)', margin: '4px 0 10px' }}>Юридические данные</div>
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
         <div><Field label="Форма"><Select options={['ОсОО', 'ЗАО', 'ОАО', 'ИП', 'АО', 'ООО', 'Филиал']} value={f.legalForm || 'ОсОО'} onChange={set('legalForm')} /></Field></div>
-        <F label="Юридическое название" k="legalName" />
-        <F label="КПП" k="kpp" />
-        <F label="ОГРН / ОГРНИП" k="ogrn" />
-        <F label="ОКПО" k="okpo" />
+        <SupplierLegalField form={f} change={set} label="Юридическое название" k="legalName" />
+        <SupplierLegalField form={f} change={set} label="КПП" k="kpp" />
+        <SupplierLegalField form={f} change={set} label="ОГРН / ОГРНИП" k="ogrn" />
+        <SupplierLegalField form={f} change={set} label="ОКПО" k="okpo" />
         <div><Field label="НДС"><Select options={['Без НДС', '12%', '20%']} value={f.vat || 'Без НДС'} onChange={set('vat')} /></Field></div>
-        <F label="Директор / подписант" k="director" />
-        <F label="Юридический адрес" k="address" wide />
-        <F label="Телефон" k="phone" />
-        <F label="E-mail" k="email" />
+        <SupplierLegalField form={f} change={set} label="Директор / подписант" k="director" />
+        <SupplierLegalField form={f} change={set} label="Юридический адрес" k="address" wide />
+        <SupplierLegalField form={f} change={set} label="Телефон" k="phone" />
+        <SupplierLegalField form={f} change={set} label="E-mail" k="email" />
       </div>
 
 
       <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--muted)', margin: '18px 0 10px' }}>Банк и расчётный счёт</div>
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-        <F label="Банк" k="bank" />
-        <F label="БИК" k="bik" />
-        <F label="Расчётный счёт" k="account" />
-        <F label="Корреспондентский счёт" k="corr" />
+        <SupplierLegalField form={f} change={set} label="Банк" k="bank" />
+        <SupplierLegalField form={f} change={set} label="БИК" k="bik" />
+        <SupplierLegalField form={f} change={set} label="Расчётный счёт" k="account" />
+        <SupplierLegalField form={f} change={set} label="Корреспондентский счёт" k="corr" />
       </div>
 
 
       <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--muted)', margin: '18px 0 10px' }}>Договор и взаиморасчёты</div>
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-        <F label="Номер договора" k="contractNo" ph="№ 2025-014" />
-        <F label="Дата договора" k="contractDate" ph="14.01.2025" />
-        <F label="Подписант со стороны компании" k="signedBy" />
+        <SupplierLegalField form={f} change={set} label="Номер договора" k="contractNo" ph="№ 2025-014" />
+        <SupplierLegalField form={f} change={set} label="Дата договора" k="contractDate" ph="14.01.2025" />
+        <SupplierLegalField form={f} change={set} label="Подписант со стороны компании" k="signedBy" />
         <div><Field label="Взаиморасчёты"><Select options={['Предоплата', 'Депозит', 'Отсрочка', 'По факту']} value={ext.fin.settlement} onChange={(e) => { ext.fin.settlement = e.target.value; force((v) => v + 1); }} /></Field></div>
         <div><Field label="Срок оплаты (дней)"><Input value={typeof ext.fin.payTerm === 'number' ? ext.fin.payTerm : (ext.fin.payTerm || '')} onChange={(e) => { ext.fin.payTerm = e.target.value === '' ? '' : (parseInt(e.target.value) || 0); force((v) => v + 1); }} /></Field></div>
         <div><Field label="Валюта расчёта"><Select options={(typeof CURRENCIES !== 'undefined' ? CURRENCIES.map((c) => c.code) : ['USD', 'EUR', 'RUB', 'KGS'])} value={ext.fin.currency} onChange={(e) => { ext.fin.currency = e.target.value; force((v) => v + 1); }} /></Field></div>
@@ -729,7 +734,7 @@ function SupplierTabBody({ s, ext, tab, isAirline, apiStatus, checkConn, setPrev
           <EmptyState icon="chart" title="Динамика по дням пока не загружена" sub="График появится после появления временного ряда в backend" />
         </div>
       )}
-      {tab === 'markups' && isAirline && <AviaMarkupEditor supplierName={s.name} />}
+      {tab === 'markups' && isAirline && <AviaMarkupEditor supplierName={s.name} supplierId={s.serverId || s.id} />}
       {tab === 'api' && (
         <div>
           <div className="kv">
@@ -798,7 +803,7 @@ function SupplierCard({ supplier, onBack, onOpenOrder, onOpenChat }) {
   const settingsNamespace = `supplier-ext-${s.serverId || s.id || s.no}`;
   useEffect(() => {
     const controller = new AbortController();
-    workspaceSettingsApi.get(settingsNamespace, controller.signal)
+    suppliersApi.settings(s.serverId || s.id || s.no, controller.signal)
       .then((setting) => {
         if (setting.value && Object.keys(setting.value).length) {
           Object.assign(ext, setting.value);
@@ -810,7 +815,7 @@ function SupplierCard({ supplier, onBack, onOpenOrder, onOpenChat }) {
   }, [settingsNamespace]);
   const saveSettings = async (next) => {
     const value = JSON.parse(JSON.stringify(next));
-    await workspaceSettingsApi.save(settingsNamespace, value);
+    await suppliersApi.saveSettings(s.serverId || s.id || s.no, value);
     Object.assign(ext, value);
     forceCard((current) => current + 1);
   };
@@ -830,7 +835,7 @@ function SupplierCard({ supplier, onBack, onOpenOrder, onOpenChat }) {
   };
   const openSupplierChat = async () => {
     try {
-      const thread = await communicationsApi.createThread({ type: 'supplier', title: s.name, external_channel: 'CRM', status: 'active' });
+      const thread = await communicationsApi.createThread({ type: 'supplier', supplier: s.serverId || s.id, title: s.name, status: 'active' });
       onOpenChat && onOpenChat(thread);
     } catch (error) { toast(error.message, 'err'); }
   };
@@ -944,7 +949,7 @@ function SupplierModal({ supplier, onClose, onDelete }) {
   useEffect(() => {
     if (!settingsNamespace || !ext) return undefined;
     const controller = new AbortController();
-    workspaceSettingsApi.get(settingsNamespace, controller.signal)
+    suppliersApi.settings(s.serverId || s.id || s.no, controller.signal)
       .then((setting) => {
         if (setting.value && Object.keys(setting.value).length) {
           Object.assign(ext, setting.value);
@@ -957,7 +962,7 @@ function SupplierModal({ supplier, onClose, onDelete }) {
   const saveSettings = async (next) => {
     if (!settingsNamespace || !ext) return;
     const value = JSON.parse(JSON.stringify(next));
-    await workspaceSettingsApi.save(settingsNamespace, value);
+    await suppliersApi.saveSettings(s.serverId || s.id || s.no, value);
     Object.assign(ext, value);
     forceModal((current) => current + 1);
   };
@@ -1125,6 +1130,7 @@ function SupplierAddDrawer({ open, onClose, onCreated }) {
         contact_person: f.local.contact,
         automation_capabilities: { operations: f.ops, search_mode: f.automation, finance: f.fin, api_url: f.api.url },
       });
+      await suppliersApi.saveSettings(created.id, ext);
       SUP_EXT[created.id] = ext;
       let connectionWarning = '';
       if (isApiType) {
@@ -1393,6 +1399,7 @@ function SuppliersPage({ intent, onConsume, suppliers, addSupplier, onNavigate, 
   const { sort, onSort, apply } = useSort(null);
 
   useEffect(() => { if (intent && intent.type === 'create') { setAddOpen(true); onConsume(); } }, [intent]);
+  useEffect(() => { if (intent?.type === 'open' && intent.supplierId && suppliers?.length) { const supplier = suppliers.find((row) => String(row.serverId || row.id) === intent.supplierId); if (supplier) setActive(supplier); else toast('Поставщик недоступен', 'err'); onConsume?.(); } }, [intent, suppliers]);
   useEffect(() => { setPage(1); }, [search, filters]);
 
   if (active) return (

@@ -60,11 +60,13 @@ function ufFromClient(c, kind) {
     ...nm,
     id: c.id,
     dob: c.dob && c.dob !== '—' ? c.dob : '',
-    citizenship: c.citizenship || 'Кыргызстан',
+    citizenship: ({ KG: 'Кыргызстан', KZ: 'Казахстан', RU: 'Россия', UZ: 'Узбекистан', TJ: 'Таджикистан', TM: 'Туркменистан', AZ: 'Азербайджан', TR: 'Турция', DE: 'Германия', CN: 'Китай', AE: 'ОАЭ' })[c.citizenship] || c.citizenship || 'Другое',
+    gender: ({ male: 'Мужской', female: 'Женский' })[c.source?.gender || c.personSource?.gender] || c.gender || 'Не указан',
+    comment: c.source?.notes || c.personSource?.notes || c.comment || '',
     docType: c.docType || 'Загранпаспорт',
     docNo: c.docNo || ((c.doc && c.doc !== '—') ? c.doc : ''),
-    phone: c.phone || '', phone2: c.phone2 || '', email: c.email || '',
-    city: c.city || 'Бишкек',
+    phone: c.phone === '—' ? '' : c.phone || '', phone2: c.phone2 || '', email: c.email === '—' ? '' : c.email || '',
+    city: c.city === '—' ? '' : c.city || '',
     status: c.status || 'Новый',
     category: c.type || 'Физлицо',
     role: c.role || 'Взрослый',
@@ -426,6 +428,7 @@ function UnifiedDocumentDrawer({ open, person = {}, initial, mode = 'create', on
         latFirst: fields.latin_given_name || s.latFirst || translit(nm.firstName),
         latMiddle: fields.latin_middle_name || s.latMiddle || translit(nm.middleName),
         file: file.name,
+        sourceFile: file,
       }));
       if (recognized.status === 'manual_required') toast('Документ не распознан — заполните поля вручную', 'warn');
     } catch (error) {

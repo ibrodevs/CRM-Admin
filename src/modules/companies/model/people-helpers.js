@@ -24,11 +24,11 @@ const toUiEmployee = (employee) => {
     name: name || 'Сотрудник',
     position: employee.position || '',
     dept: employee.department || '',
-    phone: person.phone || '—',
+    phone: person.phone || '—', phone2: person.secondary_phone || '',
     email: person.email || '',
     doc: '—',
     dob: person.birth_date || '—',
-    inPolicy: true,
+    inPolicy: null,
     source: employee,
     personSource: person,
   };

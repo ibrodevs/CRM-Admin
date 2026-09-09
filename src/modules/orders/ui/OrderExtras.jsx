@@ -193,7 +193,7 @@ const ORG_REGISTRY = {
 };
 if (!ENABLE_DEMO_BUSINESS_DATA) Object.keys(ORG_REGISTRY).forEach((key) => { delete ORG_REGISTRY[key]; });
 
-function NewOrgDrawer({ open, onClose, onCreated }) {
+function NewOrgDrawer({ open, onClose, onCreated, initial = null }) {
   const toast = useToast();
   const empty = {
     full: '', short: '', email: '', phone: '', orgType: '', inn: '', okpo: '',
@@ -208,7 +208,7 @@ function NewOrgDrawer({ open, onClose, onCreated }) {
 
   useEffect(() => {
     if (open) {
-      setForm(empty);
+      setForm(initial ? { ...empty, full: initial.fullName || initial.name || '', short: initial.shortName || '', email: initial.email === '—' ? '' : initial.email || '', phone: initial.phone === '—' ? '' : initial.phone || '', orgType: initial.type || '', inn: initial.inn === '—' ? '' : initial.inn || '', okpo: initial.okpo === '—' ? '' : initial.okpo || '', legalAddr: initial.addr === '—' ? '' : initial.addr || '', director: initial.dir === '—' ? '' : initial.dir || '', bank: initial.bank === '—' ? '' : initial.bank || '', vat: initial.vat === '—' ? '' : initial.vat || '', status: initial.status, requiresESign: initial.requiresESign } : empty);
       setErrors({});
       setLogoFile(null);
     }
@@ -254,7 +254,7 @@ function NewOrgDrawer({ open, onClose, onCreated }) {
           metadata: { purpose: 'company_logo' },
         });
       }
-      toast('Компания «' + (saved?.name || company.name) + '» создана в backend', 'ok');
+      toast('Компания «' + (saved?.name || company.name) + (initial ? '» обновлена в backend' : '» создана в backend'), 'ok');
       onClose();
     } catch (error) {
       toast(error.message || 'Не удалось создать компанию', 'err');
@@ -264,8 +264,8 @@ function NewOrgDrawer({ open, onClose, onCreated }) {
   };
 
   return (
-    <Drawer open={open} onClose={onClose} title="Новая организация" width="min(720px,96vw)"
-      footer={<><Button variant="secondary" onClick={onClose}>Отмена</Button><Button icon="check" onClick={submit} disabled={saving}>{saving ? 'Создание…' : 'Создать'}</Button></>}>
+    <Drawer open={open} onClose={onClose} title={initial ? "Редактирование организации" : "Новая организация"} width="min(720px,96vw)"
+      footer={<><Button variant="secondary" onClick={onClose}>Отмена</Button><Button icon="check" onClick={submit} disabled={saving}>{saving ? 'Сохранение…' : initial ? 'Сохранить' : 'Создать'}</Button></>}>
       <div className="card" style={{ padding: '10px 12px', borderLeft: '3px solid var(--blue)', marginBottom: 16 }}>
         <div style={{ fontSize: 13, color: 'var(--body)' }}>Заполните реквизиты вручную. Автопоиск по внешнему реестру не подключён.</div>
       </div>

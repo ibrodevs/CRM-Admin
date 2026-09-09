@@ -1,3 +1,5 @@
+import { ordersApi } from '../../orders/api.js';
+import { toUiOrder } from '../../orders/model.js';
 import { companiesApi } from '../api/companiesApi.js';
 import { clientsApi } from '../../clients/api.js';
 import { useState, useEffect } from 'react';
@@ -29,7 +31,7 @@ import { CompanyFinanceBlock } from './CompanyFinance.jsx';
 import { communicationsApi } from '../../chats/api.js';
 import { toUiCompany } from '../model/companies.mapper.js';
 import { resultsOf } from '../../../shared/api/client.js';
-import { pUsd, ordersOf, orderDate } from '../../clients/model.js';
+import { sumCurrencies, pUsd, ordersOf, orderDate } from '../../clients/model.js';
 import { ordersForCompany, toUiDepartment, toUiEmployee } from '../model/people-helpers.js';
 import { citizenshipCode, personPayloadFromUnified } from '../../clients/index.js';
 
@@ -56,7 +58,7 @@ function EmployeeCreateDrawer({ open, departments, defaultDept, coName, initial,
   );
 }
 
-function EmployeeProfileDrawer({ emp, dept, coName, onClose, onOpenOrder, onRemove, onEdit }) {
+function EmployeeProfileDrawer({ emp, dept, coName, onClose, onOpenOrder, onRemove, onEdit, onOpenChat }) {
   const toast = useToast();
   if (!emp) return null;
   const trips = ordersOf(emp.name);
@@ -64,7 +66,7 @@ function EmployeeProfileDrawer({ emp, dept, coName, onClose, onOpenOrder, onRemo
     <Drawer open onClose={onClose} width="min(620px,96vw)" title="Профиль сотрудника" sub={coName}
       footer={<>
         <Button variant="secondary" icon="chat" onClick={async () => {
-          try { await communicationsApi.createThread({ type: 'client', title: `${emp.name} · ${coName}`, external_channel: 'CRM', status: 'active' }); toast('Чат с сотрудником открыт', 'ok'); }
+          try { const thread = await communicationsApi.createThread({ type: 'client', client_person: emp.personId || emp.source?.person || emp.id, title: `${emp.name} · ${coName}`, status: 'active' }); onOpenChat?.(thread); }
           catch (error) { toast(error.message, 'err'); }
         }}>Написать</Button>
         <div style={{ flex: 1 }} />
@@ -173,7 +175,7 @@ function StaffDeptGroup({ dept, emps, onOpen, onAdd, onRemove }) {
             <div className="nm">{e.name}</div>
             <div className="mt">{(e.position || 'Сотрудник') + ' · ' + e.phone}</div>
           </div>
-          <Pill tone={e.inPolicy === false ? 'gray' : 'green'}>{e.inPolicy === false ? 'вне политики' : 'в политике'}</Pill>
+          <Pill tone={e.inPolicy == null || e.inPolicy === false ? 'gray' : 'green'}>{e.inPolicy == null ? 'не проверено' : e.inPolicy === false ? 'вне политики' : 'в политике'}</Pill>
           <span onClick={(ev) => ev.stopPropagation()}>
             <ActionMenu trigger={<button className="btn btn-ghost btn-icon btn-sm"><Icon name="more" /></button>}
               items={[
@@ -192,8 +194,11 @@ function StaffDeptGroup({ dept, emps, onOpen, onAdd, onRemove }) {
   );
 }
 
-function CompanyCard({ co, orders: allOrders = ORDERS, onBack, onOpenOrder, onCreateOrder }) {
+function CompanyCard({ co, orders: allOrders = ORDERS, onBack, onOpenOrder, onCreateOrder, onEdit, onOpenChat }) {
   const toast = useToast();
+  const [entityOrders, setEntityOrders] = useState(allOrders);
+  useEffect(() => { const controller = new AbortController(); ordersApi.all({ client: co.id }, controller.signal).then((result) => setEntityOrders(result.results.map(toUiOrder))).catch((error) => { if (error.name !== 'AbortError') toast(error.message, 'err'); }); return () => controller.abort(); }, [co.id]);
+
   const [tab, setTab] = useState('overview');
 
   const [staff, setStaff] = useState({ departments: [], employees: [] });
@@ -315,12 +320,12 @@ function CompanyCard({ co, orders: allOrders = ORDERS, onBack, onOpenOrder, onCr
     setStaff((current) => ({ ...current, employees: [...current.employees, ...saved] }));
     return r;
   };
-  const orders = ordersForCompany(co, allOrders);
+  const orders = ordersForCompany(co, entityOrders);
   const contacts = [
-    ...(co.dir && (co.phone || co.email) ? [{ id: 'company-director', name: co.dir, role: 'Директор', phone: co.phone || '', email: co.email || '' }] : []),
+    ...(co.dir && co.dir !== '—' && ((co.phone && co.phone !== '—') || (co.email && co.email !== '—')) ? [{ id: 'company-director', name: co.dir, role: 'Директор', phone: co.phone === '—' ? '' : co.phone || '', email: co.email === '—' ? '' : co.email || '' }] : []),
     ...staff.employees.map((employee) => ({
       id: employee.id, name: employee.name, role: employee.position || 'Сотрудник',
-      phone: employee.phone || '', email: employee.email || '',
+      phone: employee.phone === '—' ? '' : employee.phone || '', email: employee.email === '—' ? '' : employee.email || '',
     })).filter((contact) => contact.phone || contact.email),
   ].filter((contact, index, list) => list.findIndex((item) => item.name === contact.name && item.email === contact.email && item.phone === contact.phone) === index);
   const fin = companyFinance(co.id);
@@ -345,7 +350,8 @@ function CompanyCard({ co, orders: allOrders = ORDERS, onBack, onOpenOrder, onCr
             {bal.overdue > 0 && <div style={{ fontSize: 12, color: 'var(--red)' }}>просрочено {Math.round(bal.overdue).toLocaleString('ru-RU')} $</div>}
           </div>
         )}
-        <Button icon="plus" onClick={onCreateOrder}>Новый заказ</Button>
+        <Button variant="secondary" icon="edit" onClick={onEdit}>Изменить</Button>
+        <Button icon="plus" onClick={() => onCreateOrder({ kind: 'company', id: co.id })}>Новый заказ</Button>
       </div>
 
       <div style={{ marginBottom: 18 }}>
@@ -397,7 +403,7 @@ function CompanyCard({ co, orders: allOrders = ORDERS, onBack, onOpenOrder, onCr
             {addDept && <DepartmentCreateDrawer open onClose={() => setAddDept(false)} onCreate={addDepartment} />}
             {addEmp && <EmployeeCreateDrawer open departments={staff.departments} defaultDept={addEmp.dept} initial={addEmp.initial} coName={co.name}
               onClose={() => setAddEmp(null)} onCreate={addEmployee} />}
-            {empView && <EmployeeProfileDrawer emp={empView} dept={deptOf(empView)} coName={co.name}
+            {empView && <EmployeeProfileDrawer onOpenChat={onOpenChat} emp={empView} dept={deptOf(empView)} coName={co.name}
               onClose={() => setEmpView(null)} onOpenOrder={onOpenOrder} onRemove={removeEmployee} onEdit={(emp) => setAddEmp({ dept: emp.dept, initial: emp })} />}
             {unifyOpen && <PaxUnifyPanel list={paxList} autoBind={co.name} onApplyRoster={applyRosterToStaff} onClose={() => setUnifyOpen(false)} />}
             {groupsOpen && <PaxGroupsDrawer current={paxList} companyId={co.id} companyName={co.name} onAddGroup={addGroupToStaff} onClose={() => setGroupsOpen(false)} />}
@@ -461,7 +467,7 @@ function CompanyCard({ co, orders: allOrders = ORDERS, onBack, onOpenOrder, onCr
   );
 }
 
-function CompaniesPage({ initialCompanies = [], orders = [], onCompaniesChange, onOpenOrder, onCreateOrder, intent, onConsume }) {
+function CompaniesPage({ initialCompanies = [], orders = [], onCompaniesChange, onOpenOrder, onCreateOrder, intent, onConsume, onOpenChat }) {
   const [view, setView] = useState('list');
   const [active, setActive] = useState(null);
   const [q, setQ] = useState('');
@@ -472,29 +478,31 @@ function CompaniesPage({ initialCompanies = [], orders = [], onCompaniesChange, 
 
   useEffect(() => { setCompanies(initialCompanies); }, [initialCompanies]);
 
+  const [editing, setEditing] = useState(null);
   const createCompany = async (company) => {
-    const created = await companiesApi.createCompany({
+    const save = editing ? (data) => companiesApi.updateCompany(editing.id, data) : companiesApi.createCompany;
+    const created = await save({
       legal_name: company.fullName || company.name, short_name: company.shortName || '',
       type: company.type, status: { 'Действующий': 'active', 'На паузе': 'paused', 'Архив': 'archived' }[company.status] || 'active', tax_id: company.inn === '—' ? '' : company.inn,
       okpo: company.okpo === '—' ? '' : company.okpo, legal_address: company.addr === '—' ? '' : company.addr,
-      bank_name: company.bank === '—' ? '' : company.bank, bank_account: company.account === '—' ? '' : company.account,
+      bank_name: company.bank === '—' ? '' : company.bank, ...(!editing || company.account ? { bank_account: company.account === '—' ? '' : company.account } : {}),
       director: company.dir === '—' ? '' : company.dir, phone: company.phone === '—' ? '' : company.phone,
       email: company.email === '—' ? '' : company.email, vat_mode: company.vat || '', requires_e_sign: Boolean(company.requiresESign),
     });
     const uiCompany = toUiCompany(created);
-    setCompanies((current) => {
-      const next = [uiCompany, ...current]; onCompaniesChange && onCompaniesChange(next); return next;
-    });
+    const next = editing ? companies.map((row) => row.id === editing.id ? uiCompany : row) : [uiCompany, ...companies];
+    setCompanies(next); onCompaniesChange?.(next);
+    if (editing) setActive(uiCompany);
     return uiCompany;
   };
 
   useEffect(() => { if (intent && intent.type === 'create') { setCreateOpen(true); onConsume && onConsume(); } }, [intent]);
 
-  if (view === 'card' && active) return (<><Topbar title="Карточка компании" /><div className="content"><CompanyCard co={active} orders={orders} onBack={() => setView('list')} onOpenOrder={onOpenOrder} onCreateOrder={onCreateOrder} /></div></>);
+  if (view === 'card' && active) return (<><Topbar title="Карточка компании" /><div className="content"><CompanyCard co={active} orders={orders} onOpenChat={onOpenChat} onBack={() => setView('list')} onOpenOrder={onOpenOrder} onCreateOrder={onCreateOrder} onEdit={() => setEditing(active)} /><NewOrgDrawer open={!!editing} initial={editing} onClose={() => setEditing(null)} onCreated={createCompany} /></div></>);
 
   let rows = companies.filter((c) => (!fStatus || c.status === fStatus) && (!q || `${c.id} ${c.name} ${c.inn} ${c.dir}`.toLowerCase().includes(q.toLowerCase())));
-  rows = apply(rows, { name: (r) => r.name, orders: (r) => r.orders, turnover: (r) => r.turnover });
-  const STATS = [['Всего компаний', companies.length], ['Действующие', companies.filter((c) => c.status === 'Действующий').length], ['Совокупный оборот', pUsd(companies.reduce((s, c) => s + c.turnover, 0))], ['Заказов', companies.reduce((s, c) => s + c.orders, 0)]];
+  rows = apply(rows, { name: (r) => r.name, orders: (r) => r.orders, turnover: (r) => pUsd(r.turnover) });
+  const STATS = [['Всего компаний', companies.length], ['Действующие', companies.filter((c) => c.status === 'Действующий').length], ['Совокупный оборот', pUsd(sumCurrencies(companies, 'turnover'))], ['Заказов', companies.reduce((s, c) => s + c.orders, 0)]];
 
   return (
     <>

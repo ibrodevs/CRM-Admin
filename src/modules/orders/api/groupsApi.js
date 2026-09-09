@@ -1,7 +1,13 @@
 import { apiPath, apiRequest, queryString } from '../../../shared/api/client.js';
-import { list, get, create, patch, remove } from '../../../shared/api/operations.js';
+import { list, listAll, get, create, patch, remove } from '../../../shared/api/operations.js';
 
 export const groupsApi = {
+  exportRoster: (body) => create('roster-export/', body),
+  passengerGroups: (company, signal) => listAll('passenger-groups/', company ? { company } : {}, signal),
+  createPassengerGroup: (body) => create('passenger-groups/', body),
+  updatePassengerGroup: (id, body) => patch(`passenger-groups/${id}/`, body),
+  deletePassengerGroup: (id) => remove(`passenger-groups/${id}/`),
+  parseRoster: (file) => { const body = new FormData(); body.append('file', file); return apiRequest(apiPath('roster-parse/'), { method: 'POST', body }); },
   list: (params = {}, signal) => list('group-orders/', { page_size: 100, ...params }, signal),
   create: (body) => create('group-orders/', body),
   detail: (id, signal) => get(`group-orders/${id}/`, signal),

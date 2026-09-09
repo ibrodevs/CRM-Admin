@@ -1,12 +1,13 @@
 import { documentListApi } from './documentListApi.js';
 import { apiPath, apiRequest, queryString } from '../../../shared/api/client.js';
-import { list, get, create, patch, remove } from '../../../shared/api/operations.js';
+import { list, listAll, get, create, patch, remove } from '../../../shared/api/operations.js';
 
 
 export const documentsApi = {
   templates: (signal) => get('document-templates/', signal),
   createTemplate: (body) => create('document-templates/', body),
   list: documentListApi.documents,
+  all: (params = {}, signal) => listAll('documents/', params, signal),
   create: (body) => create('documents/', body),
   upload: (file, document) => {
     const body = new FormData();

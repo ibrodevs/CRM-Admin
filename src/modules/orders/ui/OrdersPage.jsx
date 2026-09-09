@@ -323,7 +323,7 @@ function OceSec({ n, title, children }) {
   );
 }
 
-function OrderCreateModal({ open, onClose, onCreated, initialGroup = false, clientOptions = [], companyOptions = [] }) {
+function OrderCreateModal({ open, onClose, onCreated, initialGroup = false, initialCustomer = null, clientOptions = [], companyOptions = [] }) {
   const toast = useToast();
   const availableClients = clientOptions.map((client) => {
     const person = client.person_detail || {};
@@ -370,7 +370,8 @@ function OrderCreateModal({ open, onClose, onCreated, initialGroup = false, clie
   useEffect(() => {
     if (!open) return;
     setClientType('person'); setClientQuery('');
-    setSelClients(firstClient ? [firstClient] : []); setCompany(firstCompany); setCompanyQuery(''); setCompanyOpen(false); setEmployees([]); setCreating(false);
+    setClientType(initialCustomer?.kind === 'company' ? 'org' : 'person');
+    setSelClients(initialCustomer?.kind === 'person' ? availableClients.filter((client) => String(client.id) === String(initialCustomer.id)) : firstClient ? [firstClient] : []); setCompany(initialCustomer?.kind === 'company' ? availableCompanies.find((company) => String(company.id) === String(initialCustomer.id)) || null : firstCompany); setCompanyQuery(''); setCompanyOpen(false); setEmployees([]); setCreating(false);
     setTrip('rt'); setPts(['SVO', 'DXB']); setDepDate(null); setRetDate(null); setSvc({}); setIsGroup(initialGroup);
     setCityPick(null); setDocFor(null); setBonusFor(null); setEmpPick(false);
   }, [open]);
@@ -1005,6 +1006,7 @@ function OrdersPage({ intent, onConsume, orders, clients = [], companies = [], a
   const [detailSvc, setDetailSvc] = useState(null);
   const [svcSearch, setSvcSearch] = useState(null);
   const [createOpen, setCreateOpen] = useState(false);
+  const [createCustomer, setCreateCustomer] = useState(null);
   const [fresh, setFresh] = useState(false);
   const setDetail = (o, tab, svc) => { setFresh(false); setDetailRaw(o); setDetailTab(tab || null); setDetailSvc(svc || null); setSvcSearch(null); onDetailChange && onDetailChange(o); };
 
@@ -1015,7 +1017,7 @@ function OrdersPage({ intent, onConsume, orders, clients = [], companies = [], a
   };
   useEffect(() => {
     if (!intent) return;
-    if (intent.type === 'create') setCreateOpen(true);
+    if (intent.type === 'create') { setCreateCustomer(intent.customer || null); setCreateOpen(true); }
     if (intent.type === 'open') setDetail(intent.order, intent.tab, intent.svc);
     if (intent.type === 'list') setDetail(null);
     onConsume();
@@ -1027,8 +1029,8 @@ function OrdersPage({ intent, onConsume, orders, clients = [], companies = [], a
   }
   return (
     <>
-      <OrdersList orders={orders} onOpen={setDetail} onCreate={() => setCreateOpen(true)} onNavigate={onNavigate} currentUser={currentUser} />
-      <OrderCreateModal open={createOpen} onClose={() => setCreateOpen(false)} onCreated={handleCreated} clientOptions={clients} companyOptions={companies} />
+      <OrdersList orders={orders} onOpen={setDetail} onCreate={() => { setCreateCustomer(null); setCreateOpen(true); }} onNavigate={onNavigate} currentUser={currentUser} />
+      <OrderCreateModal open={createOpen} onClose={() => setCreateOpen(false)} onCreated={handleCreated} initialCustomer={createCustomer} clientOptions={clients} companyOptions={companies} />
     </>
   );
 }

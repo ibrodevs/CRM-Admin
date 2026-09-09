@@ -9,8 +9,8 @@ function toUiCompany(company) {
     inn: company.tax_id || '—', okpo: company.okpo || '—', vat: company.vat_mode || '—',
     addr: company.legal_address || '—', bank: company.bank_name || '—',
     account: company.bank_account_masked || '—', dir: company.director || '—',
-    phone: company.phone || '—', email: company.email || '—', contract: '—', requiresESign: Boolean(company.requires_e_sign),
-    orders: 0, turnover: 0, contacts: company.director ? 1 : 0,
+    phone: company.phone || '—', email: company.email || '—', contract: company.metrics?.contracts?.join(', ') || '—', requiresESign: Boolean(company.requires_e_sign),
+    orders: company.metrics?.orders ?? 0, turnover: company.metrics?.spent || {}, contacts: company.metrics?.employees ?? 0,
   };
 }
 
