@@ -353,6 +353,20 @@ const AVIA_SEATMAP = {
 const ENABLE_DEMO_BUSINESS_DATA = typeof process !== 'undefined' && process.env.NEXT_PUBLIC_DEMO_MODE === 'true';
 if (!ENABLE_DEMO_BUSINESS_DATA) {
   [FLIGHT_OFFERS, AIR_SERVICES, AIR_STATS].forEach((items) => { if (Array.isArray(items)) items.splice(0, items.length); });
+  // Каталоги допуслуг и схема салона — не справочники, а прайс поставщика:
+  // цены, набор опций и занятые места приходят из брони конкретного рейса.
+  // Пока адаптер их не отдаёт, показывать вымышленные значения оператору
+  // нельзя — он выставит клиенту несуществующую стоимость.
+  [
+    AVIA_BAGGAGE_OPTIONS, AVIA_SPECIAL_BAGGAGE, AVIA_MEALS,
+    AVIA_INSURANCE_PLANS, AVIA_INSURANCE_INCLUDES, AVIA_COMFORT_GROUPS,
+  ].forEach((items) => { if (Array.isArray(items)) items.splice(0, items.length); });
+  AVIA_SEATMAP.rows = 0;
+  AVIA_SEATMAP.cols = [];
+  AVIA_SEATMAP.legend = [];
+  AVIA_SEATMAP.rowKind = {};
+  AVIA_SEATMAP.occupied = [];
+  AVIA_SEATMAP.price = {};
 }
 
 export {

@@ -35,7 +35,7 @@ import { TodayAgenda } from './TodayAgenda.jsx';
 import { WorkCenter } from './WorkCenter.jsx';
 import { dashToneColor } from './DashboardCard.jsx';
 import { addDays, buildAgenda, dailySeries, formatPercent, isoDayKey, isoDayRange, percentChange, percentTone, sameDay, seriesTotal } from '../model/dashboard-metrics.js';
-import { getDefaultCurrency, resolveCurrency } from '../../../shared/lib/money.js';
+import { formatMoney, getDefaultCurrency, resolveCurrency } from '../../../shared/lib/money.js';
 
 
 
@@ -700,7 +700,7 @@ function DashboardPage({ role, user, orders = [], orderServices = [], clients = 
 
   useEffect(() => { setIncidentRows(incidents); }, [incidents]);
 
-  const money = (n) => Math.round(n || 0).toLocaleString('ru-RU') + ' $';
+  const money = (n) => formatMoney(n);
   const liveProposals = proposals.map((item) => toLegacyProposal(item, orders));
   const liveReturns = returns.map((item) => toLegacyReturn(item, orders));
   const receivable = dashboard?.finance?.receivable || finance?.client_receivable || [];

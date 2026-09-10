@@ -1188,6 +1188,10 @@ function OrderServicesBoard({ services, participants, documents, orderNo, expand
 }
 
 
+// Действие, которым состояние кейса изменения сохраняется на backend.
+// Без него кейс жил только в памяти вкладки и пропадал при перезагрузке.
+const CHANGE_CASE_STATE_ACTION = 'order.change_case.state';
+
 function OrderChangeCase({ orderNo, orderId, services, participants }) {
   const toast = useToast();
   const [cs, setCs] = useState(() => getChangeCase(orderNo));
@@ -1197,9 +1201,32 @@ function OrderChangeCase({ orderNo, orderId, services, participants }) {
   const [showHist, setShowHist] = useState(false);
   const [picker, setPicker] = useState(null);
 
+  const resourceId = String(orderId || orderNo);
+  useEffect(() => {
+    const controller = new AbortController();
+    workspaceActionsApi
+      .list({ action: CHANGE_CASE_STATE_ACTION, resource_type: 'order', resource_id: resourceId }, controller.signal)
+      .then((rows) => {
+        const latest = (Array.isArray(rows) ? rows : resultsOf(rows))[0];
+        const restored = latest?.payload;
+        if (controller.signal.aborted || !restored?.services) return;
+        ORDER_CHANGE_CASES[orderNo] = restored;
+        setCs({ ...restored });
+      })
+      .catch((error) => { if (error.name !== 'AbortError') toast(error.message || 'Не удалось загрузить кейс изменения', 'err'); });
+    return () => controller.abort();
+  }, [orderNo, resourceId]);
+
   const flight = (services || []).find((s) => normKind(s.kind) === 'Авиа');
   const triggerTitle = flight ? (flight.title || flight.main) : 'Рейс заказа';
-  const commit = (next) => { ORDER_CHANGE_CASES[orderNo] = next; setCs({ ...next }); };
+  const commit = (next) => {
+    ORDER_CHANGE_CASES[orderNo] = next;
+    setCs({ ...next });
+    // Кейс должен пережить перезагрузку страницы и быть виден другому оператору.
+    workspaceActionsApi
+      .execute(CHANGE_CASE_STATE_ACTION, { resourceType: 'order', resourceId, payload: next })
+      .catch((error) => toast(error.message || 'Изменение кейса не сохранено на сервере', 'err'));
+  };
   const logSvc = (base, i, text, patch) => {
     const t = caseNow();
     const svcs = base.services.map((s, idx) => idx === i ? { ...s, ...patch, log: [...s.log, { t, text }] } : s);
@@ -1209,8 +1236,8 @@ function OrderChangeCase({ orderNo, orderId, services, participants }) {
   const openCase = async () => {
     const c = createChangeCase(orderNo, trigger, triggerTitle, 'Авиа');
     try {
-      await workspaceActionsApi.execute('order.change_case.create', { resourceType: 'order', resourceId: String(orderId || orderNo), payload: c });
-      setCs({ ...c }); toast('Кейс изменения создан и закреплён за заказом', 'ok');
+      await workspaceActionsApi.execute('order.change_case.create', { resourceType: 'order', resourceId, payload: c });
+      commit(c); toast('Кейс изменения создан и закреплён за заказом', 'ok');
     } catch (error) { delete ORDER_CHANGE_CASES[orderNo]; toast(error.message || 'Не удалось создать кейс изменения', 'err'); }
   };
   const checkDates = async (i) => {
@@ -2576,6 +2603,7 @@ function OrderCard({ order, company, clients = [], onBack, initTab, initSvc, ini
       operations.push(ordersApi.updateRoute(orderId, routePayloadFromUi({
         trip: values.trip,
         points,
+        pointNames: values.pointNames || {},
         depDate: values.depDate || null,
         retDate: values.retDate || null,
         version: routeVersion,
@@ -3099,6 +3127,7 @@ function OrderEditDrawer({ open, order, status, onStatusChange, services, partic
   const secRefs = useRef({});
   const [trip, setTrip] = useState('rt');
   const [pts, setPts] = useState(['', '']);
+  const [ptNames, setPtNames] = useState({});
   const [depDate, setDepDate] = useState(null);
   const [retDate, setRetDate] = useState(null);
   const [cityPick, setCityPick] = useState(null);
@@ -3120,6 +3149,11 @@ function OrderEditDrawer({ open, order, status, onStatusChange, services, partic
     const kindToTrip = { one_way: 'ow', round_trip: 'rt', multi_city: 'mc' };
     setTrip(kindToTrip[route.kind] || 'rt');
     setPts(routePoints.length ? routePoints.map((point) => point.location_code || '') : ['', '']);
+    // Названия точек приходят с backend: без них место без IATA-кода
+    // отображалось бы одним усечённым кодом.
+    setPtNames(Object.fromEntries(routePoints
+      .filter((point) => point.location_code && point.location_name)
+      .map((point) => [point.location_code, { name: point.location_name, type: point.location_type || 'city' }])));
     setDepDate(routePoints[0]?.local_datetime || order.planned_start || null);
     setRetDate(routePoints[routePoints.length - 1]?.local_datetime || order.planned_end || null);
     setEventType(order.purpose || '');
@@ -3129,7 +3163,12 @@ function OrderEditDrawer({ open, order, status, onStatusChange, services, partic
 
   if (!open) return null;
 
-  const cityLabel = (code) => { const a = AIRPORTS.find((x) => x.code === code); return a ? `${a.city} (${a.code})` : null; };
+  const cityLabel = (code) => {
+    if (!code) return null;
+    const a = AIRPORTS.find((x) => x.code === code);
+    if (a) return `${a.city} (${a.code})`;
+    return ptNames[code]?.name || code;
+  };
   const goTab = (key) => { setTab(key); const el = secRefs.current[key]; if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' }); };
   const fin = financeSnapshot(order.no, services, null, order.base_currency || order.currency);
   const submit = async () => {
@@ -3143,6 +3182,7 @@ function OrderEditDrawer({ open, order, status, onStatusChange, services, partic
         await onSave({
           trip,
           points: pts,
+          pointNames: ptNames,
           depDate,
           retDate,
           plannedStart: depDate,
@@ -3293,7 +3333,11 @@ function OrderEditDrawer({ open, order, status, onStatusChange, services, partic
 
       {cityPick && <CityPickPanel value={pts[cityPick.idx]}
         onClose={() => setCityPick(null)}
-        onPick={(code) => { setPts((p) => { const n = [...p]; n[cityPick.idx] = code; return n; }); setCityPick(null); }} />}
+        onPick={(code, meta) => {
+          setPts((p) => { const n = [...p]; n[cityPick.idx] = code; return n; });
+          if (meta?.name) setPtNames((current) => ({ ...current, [code]: meta }));
+          setCityPick(null);
+        }} />}
     </>
   );
 }

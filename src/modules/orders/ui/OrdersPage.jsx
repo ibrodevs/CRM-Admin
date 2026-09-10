@@ -342,6 +342,9 @@ function OrderCreateModal({ open, onClose, onCreated, initialGroup = false, init
 
   const [trip, setTrip] = useState('rt');
   const [pts, setPts] = useState(['', '']);
+  // Названия мест, выбранных из справочника: у них нет IATA-кода, и без этого
+  // в заказ ушёл бы только усечённый код без человекочитаемого имени.
+  const [ptNames, setPtNames] = useState({});
   const [depDate, setDepDate] = useState(null);
   const [retDate, setRetDate] = useState(null);
   const [dragIdx, setDragIdx] = useState(null);
@@ -361,7 +364,7 @@ function OrderCreateModal({ open, onClose, onCreated, initialGroup = false, init
     setClientType('person'); setClientQuery('');
     setClientType(initialCustomer?.kind === 'company' ? 'org' : 'person');
     setSelClients(initialCustomer?.kind === 'person' ? availableClients.filter((client) => String(client.id) === String(initialCustomer.id)) : firstClient ? [firstClient] : []); setCompany(initialCustomer?.kind === 'company' ? availableCompanies.find((company) => String(company.id) === String(initialCustomer.id)) || null : firstCompany); setCompanyQuery(''); setCompanyOpen(false); setEmployees([]); setCreating(false);
-    setTrip('rt'); setPts(['', '']); setDepDate(null); setRetDate(null); setSvc({}); setIsGroup(initialGroup);
+    setTrip('rt'); setPts(['', '']); setPtNames({}); setDepDate(null); setRetDate(null); setSvc({}); setIsGroup(initialGroup);
     setCityPick(null); setDocFor(null); setBonusFor(null); setEmpPick(false);
   }, [open]);
 
@@ -390,7 +393,12 @@ function OrderCreateModal({ open, onClose, onCreated, initialGroup = false, init
     ['Трансфер', 'Трансфер'], ['Виза', null], ['Страховка', null], ['Доп.услуги', null],
   ];
   const activeServices = ORDER_SVC.filter(([l]) => svc[l]).map(([l]) => l);
-  const cityLabel = (code) => { const a = AIRPORTS.find((x) => x.code === code); return a ? `${a.city} (${a.code})` : null; };
+  const cityLabel = (code) => {
+    if (!code) return null;
+    const a = AIRPORTS.find((x) => x.code === code);
+    if (a) return `${a.city} (${a.code})`;
+    return ptNames[code]?.name || code;
+  };
   const swapPts = (i) => setPts((p) => { const n = [...p]; [n[i], n[i + 1]] = [n[i + 1], n[i]]; return n; });
   const removePt = (i) => setPts((p) => p.length > 2 ? p.filter((_, x) => x !== i) : p);
   const addPt = () => { setTrip('mc'); const idx = pts.length; setPts((p) => [...p, '']); setCityPick({ idx }); };
@@ -427,7 +435,12 @@ function OrderCreateModal({ open, onClose, onCreated, initialGroup = false, init
           kind,
           points: routePts.map((code) => {
             const airport = AIRPORTS.find((item) => item.code === code);
-            return { location_code: code, location_type: 'airport', location_name: airport?.city || code };
+            const picked = ptNames[code];
+            return {
+              location_code: code,
+              location_type: airport ? 'airport' : (picked?.type || 'city'),
+              location_name: airport?.city || picked?.name || code,
+            };
           }),
         },
       });
@@ -621,7 +634,7 @@ function OrderCreateModal({ open, onClose, onCreated, initialGroup = false, init
               <div style={{ display: 'flex', gap: 10, marginTop: 4 }}>
                 <button className="oce-add" style={{ flex: 1 }} onClick={addPt}><Icon name="plus" style={{ width: 16, height: 16 }} />Добавить город</button>
                 <Button variant="secondary" icon="zap" onClick={() => {
-                  setPts((points) => points.length <= 2 ? points : [points[0], ...points.slice(1, -1).sort((a, b) => cityLabel(a).localeCompare(cityLabel(b), 'ru')), points.at(-1)]);
+                  setPts((points) => points.length <= 2 ? points : [points[0], ...points.slice(1, -1).sort((a, b) => String(cityLabel(a) || '').localeCompare(String(cityLabel(b) || ''), 'ru')), points.at(-1)]);
                   toast('Промежуточные точки маршрута упорядочены', 'ok');
                 }}>Оптимизировать</Button>
               </div>
@@ -651,7 +664,11 @@ function OrderCreateModal({ open, onClose, onCreated, initialGroup = false, init
 
       {cityPick && <CityPickPanel value={pts[cityPick.idx]}
         onClose={() => setCityPick(null)}
-        onPick={(code) => { setPts((p) => { const n = [...p]; n[cityPick.idx] = code; return n; }); setCityPick(null); }} />}
+        onPick={(code, meta) => {
+          setPts((p) => { const n = [...p]; n[cityPick.idx] = code; return n; });
+          if (meta?.name) setPtNames((current) => ({ ...current, [code]: meta }));
+          setCityPick(null);
+        }} />}
       {docFor && <DocumentPanel client={docFor} onClose={() => setDocFor(null)} onSave={async (doc) => {
         try {
           await clientsApi.addPersonDocument(docFor.id, {

@@ -1,5 +1,5 @@
 import { CURRENCIES, CHAT_THREADS, CLIENTS, CLIENTS_DB, COMPANIES_DB, CURRENT_USER, DOCUMENTS, FINANCE, FIN_OPS, GROUP_PAX, NOTIFICATIONS, OPERATORS, ORDER_PARTICIPANTS, ORDER_SERVICES, ORDER_TASKS, ORDERS, PROPOSALS, RETURNS, SUPPLIERS, USERS } from '../data/index.jsx';
-import { resolveCurrency } from '../../shared/lib/money.js';
+import { resolveCurrency, setCurrencyRates } from '../../shared/lib/money.js';
 
 function replaceArray(target, source) {
   if (!Array.isArray(target) || !Array.isArray(source)) return;
@@ -128,4 +128,10 @@ const defaultCurrencies = CURRENCIES.map((currency) => ({ ...currency }));
 export function syncLegacyCurrencies(value = {}) {
   CURRENCIES.splice(0, CURRENCIES.length, ...(value?.currencies || defaultCurrencies).map((currency) => ({ ...currency })));
   for (const currency of CURRENCIES) if (value.rates?.[currency.code] != null) currency.rate = value.rates[currency.code];
+  // Курсы нужны не только экрану настроек: по ним пересчитываются суммы услуг,
+  // у которых своя валюта отличается от валюты заказа.
+  setCurrencyRates(
+    value?.rates || Object.fromEntries(CURRENCIES.map((currency) => [currency.code, currency.rate])),
+    value?.base,
+  );
 }

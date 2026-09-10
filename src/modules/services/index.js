@@ -12,7 +12,6 @@ export { money } from './flights/FlightsPage.jsx';
 export { paxTotal } from './flights/FlightsPage.jsx';
 export { ExtrasTabs } from './flights/AviaPicker.jsx';
 export { FareSelectPanel } from './flights/AviaPicker.jsx';
-export { RUB_PER_USD } from './flights/AviaPicker.jsx';
 export { fareCabinLabel } from './flights/AviaPicker.jsx';
 export { fareTiersForClass } from './flights/AviaPicker.jsx';
 export { AeroAddFlow } from './ui/ServicesPage.jsx';

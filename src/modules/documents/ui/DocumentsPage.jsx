@@ -388,7 +388,8 @@ function DocUploadModal({ open, scopeOrder, participants = [], defaultParticipan
     if (isReceipt) { onRouteToEditor(payload); return; }
     const now = new Date().toLocaleDateString('ru-RU');
     const doc = {
-      no: 'D-' + Math.floor(3200 + Math.random() * 800),
+      // Номер присваивает backend при загрузке; локальный черновик его не выдумывает.
+      no: '',
       name: (file && file.name) || (type + ' (загружен)'),
       type, order: scopeOrder || '—', participant: payload.participant, service: '—', finOp: '—',
       status: 'Черновик', version: origin === 'corrected' ? 2 : 1, origin, date: now, size: (file && file.size) || '— КБ',

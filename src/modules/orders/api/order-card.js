@@ -83,7 +83,7 @@ export function participantPayloadFromUi(person = {}) {
   };
 }
 
-export function routePayloadFromUi({ trip = 'ow', points = [], depDate, retDate, version } = {}) {
+export function routePayloadFromUi({ trip = 'ow', points = [], pointNames = {}, depDate, retDate, version } = {}) {
   const kind = { ow: 'one_way', rt: 'round_trip', mc: 'multi_city' }[trip] || 'one_way';
   const validPoints = points.filter(Boolean);
   return {
@@ -91,8 +91,10 @@ export function routePayloadFromUi({ trip = 'ow', points = [], depDate, retDate,
     version,
     points: validPoints.map((code, index) => ({
       location_code: code,
-      location_type: 'airport',
-      location_name: '',
+      // Точка может быть городом из справочника мест, а не аэропортом:
+      // в этом случае тип и название приходят из выбора оператора.
+      location_type: pointNames[code]?.type || 'airport',
+      location_name: pointNames[code]?.name || '',
       local_datetime: index === 0 ? formatIsoDateTime(depDate) : index === validPoints.length - 1 ? formatIsoDateTime(retDate) : null,
       timezone: '',
     })),

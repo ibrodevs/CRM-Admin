@@ -29,7 +29,7 @@ import { servicesApi } from '../../services/api.js';
 import { toLegacyProposal } from '../../../legacy/adapters/legacy-adapters.js';
 import { resultsOf } from '../../../shared/api/client.js';
 import { kpBriefItems, parseKpRequest } from '../model/request-parser.js';
-import { currencySymbol, resolveCurrency } from '../../../shared/lib/money.js';
+import { currencySymbol, getDefaultCurrency, resolveCurrency } from '../../../shared/lib/money.js';
 
 
 // Срок действия КП = дата + время, оба выбираются шаблонно (без произвольного ввода).
@@ -309,35 +309,6 @@ const KP_KIND_CODE = { 'Авиа': 'avia', 'ЖД': 'rail', 'Гостиница':
 const KP_KIND_LABEL = Object.fromEntries(Object.entries(KP_KIND_CODE).map(([label, code]) => [code, label]));
 
 
-const KP_TEMPLATES = window.KP_TEMPLATES || (window.KP_TEMPLATES = [
-  { id: 'TPL-01', name: 'Стамбул · пакет «Стандарт»', desc: 'Перелёт + отель 4★ + индивидуальный трансфер', items: [
-    { kind: 'Авиа', title: 'Turkish Airlines · FRU–IST–FRU', sub: 'Прямой · эконом', cost: 470, fee: 22 },
-    { kind: 'Гостиница', title: 'Hilton Istanbul 4★', sub: '7 ночей · BB', cost: 980, fee: 25 },
-    { kind: 'Трансфер', title: 'Индивидуальный трансфер', sub: 'Минивэн · встреча с табличкой', cost: 60, fee: 0 },
-  ] },
-  { id: 'TPL-02', name: 'Бизнес-поездка', desc: 'Перелёт бизнес-класса + отель в центре', items: [
-    { kind: 'Авиа', title: 'Бизнес-класс · по запросу', sub: 'Гибкий тариф', cost: 1400, fee: 60 },
-    { kind: 'Гостиница', title: 'Отель 5★ · центр', sub: '3 ночи · BB', cost: 720, fee: 30 },
-  ] },
-  { id: 'TPL-03', name: 'ЖД + отель по СНГ', desc: 'Железная дорога и проживание', items: [
-    { kind: 'ЖД', title: 'ЖД билеты · купе', sub: 'Туда-обратно', cost: 180, fee: 10 },
-    { kind: 'Гостиница', title: 'Отель 3★', sub: '4 ночи · BB', cost: 260, fee: 14 },
-  ] },
-  { id: 'TPL-04', name: 'Дубай · отдых 5★', desc: 'Перелёт + отель 5★ «всё включено» + трансфер', items: [
-    { kind: 'Авиа', title: 'flydubai · FRU–DXB–FRU', sub: 'Прямой · эконом', cost: 520, fee: 26 },
-    { kind: 'Гостиница', title: 'Отель 5★ · Марина', sub: '5 ночей · All Inclusive', cost: 1350, fee: 45 },
-    { kind: 'Трансфер', title: 'Индивидуальный трансфер', sub: 'Премиум · встреча', cost: 90, fee: 5 },
-  ] },
-  { id: 'TPL-05', name: 'Групповой тур · команда', desc: 'Групповой перелёт + отель + автобус', items: [
-    { kind: 'Группа', title: 'Групповой блок мест', sub: 'От 10 пассажиров', cost: 4200, fee: 200 },
-    { kind: 'Гостиница', title: 'Отель 4★ · размещение группы', sub: '4 ночи · HB', cost: 2600, fee: 120 },
-    { kind: 'Автобус', title: 'Автобус на группу', sub: 'Трансферы по программе', cost: 480, fee: 20 },
-  ] },
-  { id: 'TPL-06', name: 'Мин. виза + страховка', desc: 'Визовая поддержка и страхование', items: [
-    { kind: 'Доп. услуга', title: 'Визовая поддержка', sub: 'Оформление визы', cost: 120, fee: 20 },
-    { kind: 'Доп. услуга', title: 'Страховка ВЗР', sub: 'Медицинская · на поездку', cost: 25, fee: 5 },
-  ] },
-]);
 
 function proposalTemplateToUi(template) {
   let body = {};
@@ -1096,6 +1067,9 @@ function kpDefaultValidDate() {
 }
 function KPCreateModal({ open, onClose, onCreated, onOpenOrder }) {
   const toast = useToast();
+  // Шаблоны КП создаёт сама организация: список приходит с backend, а не из
+  // зашитого в код набора демонстрационных пакетов.
+  const [templates, setTemplates] = useState([]);
   const [source, setSource] = useState('manual');
   const [sourceNote, setSourceNote] = useState('');
   const [orderNo, setOrderNo] = useState('');
@@ -1104,7 +1078,7 @@ function KPCreateModal({ open, onClose, onCreated, onOpenOrder }) {
   const [name, setName] = useState('');
   const [recipient, setRecipient] = useState('');
   const [responsible, setResponsible] = useState((typeof CURRENT_USER !== 'undefined' && CURRENT_USER.name) || OPERATORS[0]);
-  const [currency, setCurrency] = useState('USD');
+  const [currency, setCurrency] = useState(getDefaultCurrency);
   const [valid, setValid] = useState(kpDefaultValidDate());
   const [validTime, setValidTime] = useState('18:00');
   const [validTz, setValidTz] = useState('Бишкек (UTC+6)');
@@ -1122,13 +1096,18 @@ function KPCreateModal({ open, onClose, onCreated, onOpenOrder }) {
     setName('');
     setRecipient('');
     setResponsible((typeof CURRENT_USER !== 'undefined' && CURRENT_USER.name) || OPERATORS[0]);
-    setCurrency('USD');
+    setCurrency(getDefaultCurrency());
     setValid(kpDefaultValidDate());
     setValidTime('18:00');
     setValidTz('Бишкек (UTC+6)');
     setPayTerm('');
     setBase('manual');
     setBusy(false);
+    const controller = new AbortController();
+    proposalsApi.templates(controller.signal)
+      .then((payload) => { if (!controller.signal.aborted) setTemplates(resultsOf(payload).map(proposalTemplateToUi)); })
+      .catch((error) => { if (error.name !== 'AbortError') toast(error.message || 'Не удалось загрузить шаблоны КП', 'err'); });
+    return () => controller.abort();
   }, [open]);
   const baseOpts = [
     { value: 'manual', label: 'Подобрать услуги вручную' },
@@ -1136,7 +1115,7 @@ function KPCreateModal({ open, onClose, onCreated, onOpenOrder }) {
     { value: 'recognize', label: 'Распознать запрос из чата / текста' },
     { value: 'copy', label: 'Скопировать существующий вариант' },
     { value: 'empty', label: 'Пустой вариант' },
-    ...KP_TEMPLATES.map((t) => ({ value: 'tpl:' + t.id, label: 'Шаблон: ' + t.name })),
+    ...templates.map((t) => ({ value: 'tpl:' + t.id, label: 'Шаблон: ' + t.name })),
   ];
   const sourceFlow = KP_SOURCE_FLOW[source] || KP_SOURCE_FLOW.order;
   const selOrder = ORDERS.find((o) => String(o.no) === String(orderNo));
@@ -1153,7 +1132,7 @@ function KPCreateModal({ open, onClose, onCreated, onOpenOrder }) {
       if (!name && brief.route) vname = brief.route;
     }
     else if (base.indexOf('tpl:') === 0) {
-      const t = KP_TEMPLATES.find((x) => x.id === base.slice(4));
+      const t = templates.find((x) => x.id === base.slice(4));
       if (t) {
         items = t.items.map((s) => ({ title: s.title, description: s.sub || '', quantity: 1, price_amount: String(Number(s.cost || 0) + Number(s.fee || 0)), price_currency: currency }));
         if (!name) vname = t.name;
@@ -1698,8 +1677,8 @@ function OffersPage({ onOpenOrder, intent, onConsume, proposals = [], orders = [
   );
 }
 
-Object.assign(window, { KPModule, KPPreviewDoc, KPCreateModal, ProposalSendPanel, OffersRegistry, OffersPage, FixVariantModal, KPHistoryDrawer, OrderPickerDrawer, KpServicePicker, KPTemplateBuilder, KP_TEMPLATES });
+Object.assign(window, { KPModule, KPPreviewDoc, KPCreateModal, ProposalSendPanel, OffersRegistry, OffersPage, FixVariantModal, KPHistoryDrawer, OrderPickerDrawer, KpServicePicker, KPTemplateBuilder });
 
 
 
-export { kpM, varCost, varFee, varTotal, kpNow, trainTotal, accRowTotal, accVarTotal, pVariants, proposalSummary, exportKpToPdf, KPStatusControl, KPPreviewDoc, KPTab, TrainTableView, AccTableView, KPTrainPreviewDoc, FixVariantModal, KP_ADD_TYPES, KP_TEMPLATES, orderDateLabel, OrderPickerDrawer, KpServicePicker, KPModule, KPTemplateBuilder, KPHistoryDrawer, KP_DOC_TYPES, KP_SOURCES, KP_PURPOSE_TYPES, KPCreateModal, ProposalSendPanel, StandaloneKPEditor, OffersRegistry, OffersPage };
+export { kpM, varCost, varFee, varTotal, kpNow, trainTotal, accRowTotal, accVarTotal, pVariants, proposalSummary, exportKpToPdf, KPStatusControl, KPPreviewDoc, KPTab, TrainTableView, AccTableView, KPTrainPreviewDoc, FixVariantModal, KP_ADD_TYPES, orderDateLabel, OrderPickerDrawer, KpServicePicker, KPModule, KPTemplateBuilder, KPHistoryDrawer, KP_DOC_TYPES, KP_SOURCES, KP_PURPOSE_TYPES, KPCreateModal, ProposalSendPanel, StandaloneKPEditor, OffersRegistry, OffersPage };

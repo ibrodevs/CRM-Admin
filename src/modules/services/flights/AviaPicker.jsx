@@ -16,14 +16,15 @@ import { AIRLINES, AIRPORTS, AVIA_BAGGAGE_OPTIONS, AVIA_BOOKING_CLASSES, AVIA_CO
 import { AirlineLogo, FlightSearch, PaxStepper } from './FlightsPage.jsx';
 import { StackPanel } from '../../locations/index.js';
 import { ocMoney } from '../../orders/model.js';
+import { convertMoney, formatMoney, getDefaultCurrency, resolveCurrency } from '../../../shared/lib/money.js';
 
 
 
 
 
 
-function rub(n) { return Math.round(n).toLocaleString('ru-RU') + ' ₽'; }
-const RUB_PER_USD = 90;
+// Суммы этого экрана считаются в валюте по умолчанию из настроек пользователя.
+function rub(n, currency) { return formatMoney(n, currency); }
 
 function parseDurMin(s) { const m = /(?:(\d+)ч)?\s*(?:(\d+)м)?/.exec(s || ''); return (+(m && m[1] || 0)) * 60 + (+(m && m[2] || 0)); }
 function fmtDurMin(min) { return `${Math.floor(min / 60)}ч ${min % 60}м`; }
@@ -91,9 +92,22 @@ function FareRulesBlock({ tier, airline }) {
 }
 
 
+// Схема салона приходит вместе с бронью конкретного рейса. Пока поставщик её
+// не отдал, показываем это прямо, а не рисуем условный самолёт.
+function ExtrasUnavailable({ text }) {
+  return (
+    <div className="xtr-info-box" style={{ margin: '8px 0' }}>
+      <Icon name="alertCircle" />{text}
+    </div>
+  );
+}
+
 function SeatSelector({ seats, setSeats, pax }) {
   const [activePax, setActivePax] = useState(0);
   const M = AVIA_SEATMAP;
+  if (!M.rows || !M.cols?.length) {
+    return <ExtrasUnavailable text="Поставщик не передал схему салона для этого рейса. Место можно запросить у авиакомпании отдельно." />;
+  }
   const kindOf = (row) => M.rowKind[row] || 'std';
   const occupied = new Set(M.occupied);
   const taken = new Set(Object.entries(seats).filter(([k]) => +k !== activePax).map(([, v]) => v));
@@ -187,7 +201,7 @@ function XtrPaxBlock({ pax, options, value, onChange, kind }) {
       {pax.map((p, i) => {
         const sel = value[i] || def;
         const selOpt = options.find((o) => o.id === sel) || options[0];
-        const selPrice = selOpt.price ? '+ ' + rub(selOpt.price) : (selOpt.incl ? 'включено' : '0 ₽');
+        const selPrice = selOpt.price ? '+ ' + rub(selOpt.price) : (selOpt.incl ? 'включено' : rub(0));
         return (
           <div className="xtr-pax" key={i}>
             <div className="xtr-pax-head">
@@ -204,7 +218,7 @@ function XtrPaxBlock({ pax, options, value, onChange, kind }) {
                     {kind === 'insurance' && o.sub && <div className="xtr-card-s">{o.sub}</div>}
                     {kind === 'insurance' && o.cover && <div className="xtr-card-s">{o.cover}</div>}
                     {kind === 'meal' && o.id !== 'none' && <span className="xtr-meal-img" style={{ background: o.color || 'var(--surface-2)' }}><Icon name="utensils" /></span>}
-                    <div className="xtr-card-p">{o.price ? '+ ' + rub(o.price) : (o.incl ? 'Включено' : '0 ₽')}</div>
+                    <div className="xtr-card-p">{o.price ? '+ ' + rub(o.price) : (o.incl ? 'Включено' : rub(0))}</div>
                   </button>
                 );
               })}
@@ -251,7 +265,7 @@ function ComfortMatrix({ pax, state, set }) {
                 <span className="pr">{rub(it.price)}<Icon name="alertCircle" className="pcp-info" /></span>
               </div>
             ))}
-            <div className="xtr-cm-grouptotal"><span>Итого по категории</span><b>{groupTotal ? '+ ' + rub(groupTotal) : '0 ₽'}</b></div>
+            <div className="xtr-cm-grouptotal"><span>Итого по категории</span><b>{groupTotal ? '+ ' + rub(groupTotal) : rub(0)}</b></div>
           </div>
         );
       })}
@@ -300,7 +314,7 @@ function ExtrasTabs({ pax, state, set, embedded }) {
 
       {tab === 'seats' && <SeatSelector seats={state.seats} setSeats={(s) => set({ ...state, seats: s })} pax={pax} />}
 
-      {tab === 'baggage' && (<>
+      {tab === 'baggage' && (AVIA_BAGGAGE_OPTIONS.length || AVIA_SPECIAL_BAGGAGE.length ? <>
         <XtrPaxBlock pax={pax} options={AVIA_BAGGAGE_OPTIONS} value={state.baggage} onChange={(v) => set({ ...state, baggage: v })} kind="baggage" />
         <div className="ap-sc-title" style={{ marginTop: 18 }}>Специальный багаж</div>
         <div className="xtr-note-line">Оплачивается за место. Стоимость за 1 единицу.</div>
@@ -313,24 +327,26 @@ function ExtrasTabs({ pax, state, set, embedded }) {
           </div>
         ))}
         <div className="xtr-info-box"><Icon name="alertCircle" />Спецбагаж подтверждается авиакомпанией. Возможны ограничения по весу и габаритам.</div>
-      </>)}
+      </> : <ExtrasUnavailable text="Поставщик не передал тарифы на багаж для этого рейса." />)}
 
-      {tab === 'meal' && (<>
+      {tab === 'meal' && (AVIA_MEALS.length ? <>
         <XtrPaxBlock pax={pax} options={AVIA_MEALS} value={state.meal} onChange={(v) => set({ ...state, meal: v })} kind="meal" />
         <div className="xtr-info-box"><Icon name="alertCircle" />Питание предоставляется на рейсах продолжительностью более 2 часов. На некоторых рейсах нужна заявка не менее чем за 24 часа до вылета.</div>
-      </>)}
+      </> : <ExtrasUnavailable text="Поставщик не передал варианты питания для этого рейса." />)}
 
-      {tab === 'insurance' && (<>
+      {tab === 'insurance' && (AVIA_INSURANCE_PLANS.length ? <>
         <XtrPaxBlock pax={pax} options={AVIA_INSURANCE_PLANS} value={state.insurance} onChange={(v) => set({ ...state, insurance: v })} kind="insurance" />
         <div className="ap-sc-title" style={{ marginTop: 18 }}>Что входит в страховое покрытие</div>
         <div className="xtr-incl">
           {AVIA_INSURANCE_INCLUDES.map((c) => (<div className="xtr-incl-item" key={c.title}><span className="ic"><Icon name={c.icon} /></span><div><div className="t">{c.title}</div><div className="s">{c.sub}</div></div></div>))}
         </div>
-      </>)}
+      </> : <ExtrasUnavailable text="Страховые программы не подключены. Добавьте поставщика страхования в разделе «Поставщики»." />)}
 
-      {tab === 'comfort' && <ComfortMatrix pax={pax} state={state} set={set} />}
+      {tab === 'comfort' && (AVIA_COMFORT_GROUPS.length
+        ? <ComfortMatrix pax={pax} state={state} set={set} />
+        : <ExtrasUnavailable text="Поставщик не передал опции комфорта для этого рейса." />)}
 
-      <div className="xtr-total"><span>Итого по разделу «{(TABS.find((t) => t.key === tab) || {}).label}»</span><b>{tabTotal[tab] ? '+ ' + rub(tabTotal[tab]) : '0 ₽'}</b></div>
+      <div className="xtr-total"><span>Итого по разделу «{(TABS.find((t) => t.key === tab) || {}).label}»</span><b>{tabTotal[tab] ? '+ ' + rub(tabTotal[tab]) : rub(0)}</b></div>
     </div>
   );
 }
@@ -404,7 +420,7 @@ function FareSelectPanel({ pax, groups, classByPax, setClassByPax, fareByPax, se
     <div className={'fare-sel-row' + (activePax === i ? ' active' : '')} onClick={() => setActivePax(i)}>
       <div className="nm">{i + 1}. {pax[i].name}</div>
       <div className="tr">{tierOf(i).name}{classOf(i) !== 'Y' ? ' · класс ' + classOf(i) : ''}</div>
-      <div className="pr">{tierOf(i).delta ? '+ ' + rub(tierOf(i).delta) : '0 ₽'}</div>
+      <div className="pr">{tierOf(i).delta ? '+ ' + rub(tierOf(i).delta) : rub(0)}</div>
     </div>
   );
 
@@ -611,6 +627,18 @@ function AviaPicker({ params, setParams, services = [], onApply, onCancel, onAdd
   const fareDeltaOf = (i) => { const g = groups.find((gr) => gr.members.includes(i)); const t = AVIA_FARE_TIERS.find((x) => x.id === (g ? g.fare : fare)); return t ? t.delta : 0; };
   const groupFlightTotal = PAX.reduce((a, _, i) => a + flightTotal + fareDeltaOf(i), 0);
   const grand = group ? groupFlightTotal + extrasTotal : flightTotal + fareTotal + extrasTotal;
+  // Услуги сценария могут быть в разных валютах. Пересчитываем по курсам
+  // организации; при отсутствии курса сумма не выдумывается, а исключается
+  // из итога с явным предупреждением.
+  const converted = (services || []).reduce((acc, service) => {
+    const amount = convertMoney(service.sum, service.currency, getDefaultCurrency());
+    if (amount == null) {
+      const code = resolveCurrency(service.currency);
+      if (!acc.unconverted.includes(code)) acc.unconverted.push(code);
+      return acc;
+    }
+    return { ...acc, total: acc.total + amount };
+  }, { total: 0, unconverted: [] });
   const assignedCount = groups.reduce((a, g) => a + g.members.length, 0);
 
   const allLegsPicked = segKeys.every((k) => legs[k]);
@@ -686,12 +714,12 @@ function AviaPicker({ params, setParams, services = [], onApply, onCancel, onAdd
           <div className="ap-sc-foot">
             <div className="ap-sc-total">
               <span className="l">Итого по сценарию</span>
-              <span className="v">{rub(grand + services.reduce((a, s) => a + (s.currency === '₽' || s.currency === 'RUB' ? s.sum : s.sum * RUB_PER_USD), 0))}</span>
+              <span className="v">{rub(grand + converted.total)}</span>
             </div>
-            {services.some((s) => s.currency && s.currency !== '₽' && s.currency !== 'RUB') && (
-              <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: 'var(--muted)', margin: '0 0 10px' }}>
+            {converted.unconverted.length > 0 && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: 'var(--amber)', margin: '0 0 10px' }}>
                 <Icon name="alertCircle" style={{ width: 14, height: 14 }} />
-                Суммы в валюте пересчитаны по курсу ≈ {RUB_PER_USD} ₽/$
+                Нет курса для {converted.unconverted.join(', ')} — эти суммы не вошли в итог. Задайте курс в «Настройки → Курсы валют».
               </div>
             )}
             <Button icon="template" style={{ width: '100%' }} disabled={!onApply} onClick={() => onApply?.({ mode: 'proposal', legs, fare, extras, passengers: PAX, services, total: grand })}>Сформировать предложение</Button>
@@ -1017,4 +1045,4 @@ Object.assign(window, { AviaPicker });
 
 
 
-export { rub, RUB_PER_USD, parseDurMin, fmtDurMin, ApFlightRow, tierBookingClass, FareRulesBlock, SeatSelector, PaxOptionBlock, xtrShortName, XtrPaxBlock, ComfortMatrix, ExtrasTabs, fareClassGroup, fareTiersForClass, fareCabinLabel, paxIsChild, FareSelectPanel, ApSumRow, AviaPicker, tierName, tierDelta, GroupManager, GroupEditPanel };
+export { rub, parseDurMin, fmtDurMin, ApFlightRow, tierBookingClass, FareRulesBlock, SeatSelector, PaxOptionBlock, xtrShortName, XtrPaxBlock, ComfortMatrix, ExtrasTabs, fareClassGroup, fareTiersForClass, fareCabinLabel, paxIsChild, FareSelectPanel, ApSumRow, AviaPicker, tierName, tierDelta, GroupManager, GroupEditPanel };

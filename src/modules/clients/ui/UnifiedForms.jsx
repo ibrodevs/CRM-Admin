@@ -78,7 +78,9 @@ function ufFromClient(c, kind) {
 
 function ufToClient(p) {
   return {
-    id: p.id || ('CL-' + (1061 + Math.floor(Math.random() * 8999))),
+    // Идентификатор выдаёт backend: сгенерированный локально не совпал бы
+    // с сохранённой записью и ломал бы последующие запросы по этому клиенту.
+    id: p.id || '',
     name: ufFullName(p),
     type: p.kind === 'employee' ? 'Сотрудник' : (p.category || 'Физлицо'),
     role: p.role,

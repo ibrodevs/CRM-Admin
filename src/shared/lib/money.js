@@ -48,3 +48,39 @@ export function formatMoney(amount, currency) {
 
 // Историческое имя формата: сохранено, чтобы не переписывать все вызовы разом.
 export { formatMoney as fUsd };
+
+// Курсы организации («Настройки → Курсы валют»): сколько единиц базовой валюты
+// стоит одна единица данной. Заполняются при старте из настроек tenant'а —
+// до этого конвертация недоступна и вызывающий код должен показать сумму как есть.
+let currencyRates = {};
+let ratesBase = null;
+
+export function setCurrencyRates(rates = {}, base = null) {
+  currencyRates = {};
+  for (const [code, rate] of Object.entries(rates || {})) {
+    const value = Number(String(rate).replace(',', '.'));
+    const normalized = normalizeCurrencyCode(code);
+    if (normalized && Number.isFinite(value) && value > 0) currencyRates[normalized] = value;
+  }
+  ratesBase = normalizeCurrencyCode(base);
+  if (ratesBase) currencyRates[ratesBase] = 1;
+}
+
+export const getCurrencyRates = () => ({ ...currencyRates });
+
+/**
+ * Пересчёт суммы между валютами по курсам организации.
+ * Возвращает null, если курса нет: показывать сумму по выдуманному курсу хуже,
+ * чем показать её в исходной валюте.
+ */
+export function convertMoney(amount, from, to) {
+  const value = Number(amount);
+  if (!Number.isFinite(value)) return null;
+  const source = resolveCurrency(from);
+  const target = resolveCurrency(to);
+  if (source === target) return value;
+  const fromRate = currencyRates[source];
+  const toRate = currencyRates[target];
+  if (!fromRate || !toRate) return null;
+  return (value * fromRate) / toRate;
+}

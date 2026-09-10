@@ -16,7 +16,7 @@ import { Tabs } from '../../../shared/ui/Tabs.jsx';
 import { Toggle } from '../../../shared/ui/Toggle.jsx';
 import { plural } from '../../../shared/ui/plural.js';
 import { useToast } from '../../../shared/ui/Toast.jsx';
-import { CURRENT_USER, ORDERS, RAIL_OCCUPIED, RAIL_SERVICE_CLASSES, RAIL_WAGONS, RETURNS, SERVICE_KIND, SERVICE_STATUS, SVC_DATA } from '../../../legacy/data/index.jsx';
+import { CURRENT_USER, ORDERS, RAIL_OCCUPIED, RAIL_SERVICE_CLASSES, RAIL_WAGONS, RETURNS, SERVICE_KIND, SERVICE_STATUS } from '../../../legacy/data/index.jsx';
 import { CARD_CLIENT_VISIBILITY, CARD_STATUS, CARD_STATUS_FLOW, SEND_CHANNELS, cardInternals, cardStatus, orderClientChannel, sendChannelMeta } from '../../../legacy/data/access-control.jsx';
 import { CHAIN_STATUS, FORCE_MAJEURE_TYPES, buildCardFields, buildForceMajeureRows, cardAction, cardEmailTemplate, cardScenario, channelMode, defaultForceMajeure, enabledChannels, scenarioActions, scenarioBadge, scenariosForKind } from '../../../legacy/data/service-cards.jsx';
 import { UnifiedPersonDrawer } from '../../clients/index.js';
@@ -36,7 +36,7 @@ import { workspaceActionsApi } from '../../workspace/api.js';
 import { resultsOf } from '../../../shared/api/client.js';
 import { toLegacyOrderService } from '../../../legacy/adapters/legacy-adapters.js';
 import { normalizeCurrency, ocMoney } from '../../orders/model.js';
-import { getDefaultCurrency, resolveCurrency } from '../../../shared/lib/money.js';
+import { convertMoney, getDefaultCurrency, resolveCurrency } from '../../../shared/lib/money.js';
 
 
 
@@ -1655,7 +1655,7 @@ function backendOfferCard(offer, routeKey) {
   if (routeKey !== 'rail') return generic;
   const fmtTime = (date) => date ? date.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' }) : '—';
   const fmtDay = (date) => date ? date.toLocaleDateString('ru-RU') : '—';
-  return { ...generic, carrier: segment.carrier || supplier, number: segment.train_number || offer.external_key, name: title, dep: { time: fmtTime(departure), date: fmtDay(departure), city: segment.origin || '—', station: segment.origin || '—' }, arr: { time: fmtTime(arrival), date: fmtDay(arrival), city: segment.destination || '—', station: segment.destination || '—' }, dur: departure && arrival ? Math.max(1, Math.round((arrival - departure) / 3600000)) + ' ч' : '—', stops: 'прямой', priceRub: generic.currency === 'USD' ? Math.round(amount * 90) : amount, cls: offer.fare?.cabin || 'Класс', freeSeats: Number(offer.availability?.seats || 1) };
+  return { ...generic, carrier: segment.carrier || supplier, number: segment.train_number || offer.external_key, name: title, dep: { time: fmtTime(departure), date: fmtDay(departure), city: segment.origin || '—', station: segment.origin || '—' }, arr: { time: fmtTime(arrival), date: fmtDay(arrival), city: segment.destination || '—', station: segment.destination || '—' }, dur: departure && arrival ? Math.max(1, Math.round((arrival - departure) / 3600000)) + ' ч' : '—', stops: 'прямой', priceRub: convertMoney(amount, generic.currency, getDefaultCurrency()) ?? amount, cls: offer.fare?.cabin || 'Класс', freeSeats: Number(offer.availability?.seats || 1) };
 }
 function backendServiceRegistryRow(item) {
   const service = toLegacyOrderService(item);
@@ -1743,7 +1743,6 @@ function SvcFilters({ allOffers, flt, setFlt, bounds, facetLabel }) {
 
 function ServiceFlow({ routeKey, searchIntent, onConsumeSearch }) {
   const cfg = SVC_CFG[routeKey];
-  const data = SVC_DATA[routeKey];
   const k = SERVICE_KIND[cfg.kind];
   const toast = useToast();
 
@@ -1900,9 +1899,8 @@ function ServiceFlow({ routeKey, searchIntent, onConsumeSearch }) {
 
 function routeKeyForKind(kind) { return Object.keys(SVC_CFG).find((k) => SVC_CFG[k].kind === kind); }
 
-function ServiceAddFlow({ routeKey, onAdd, currency = 'RUB', paxCount = 1 }) {
+function ServiceAddFlow({ routeKey, onAdd, currency, paxCount = 1 }) {
   const cfg = SVC_CFG[routeKey];
-  const data = SVC_DATA[routeKey];
   const toast = useToast();
   const [view, setView] = useState('search');
   const [form, setForm] = useState({});
@@ -1995,7 +1993,6 @@ function ServiceAddFlow({ routeKey, onAdd, currency = 'RUB', paxCount = 1 }) {
 
 function AeroAddFlow({ onAdd }) {
   const toast = useToast();
-  const data = SVC_DATA.aero;
   const [view, setView] = useState('search');
   const [fare, setFare] = useState('single');
   const [dir, setDir] = useState(AERO_DIRS[0].label);
@@ -2246,7 +2243,7 @@ function RailAddFlow({ participants = [], groups, onAdd }) {
   if (sort === 'fast') offers = [...offers].sort((a, b) => a.dur.localeCompare(b.dur));
 
   const applySeats = (res) => {
-    const aug = { ...seatOffer, sub: seatOffer.sub + ' · ' + res.summary, cost: res.total, fee: seatOffer.fee, currency: 'RUB', railSeats: res };
+    const aug = { ...seatOffer, sub: seatOffer.sub + ' · ' + res.summary, cost: res.total, fee: seatOffer.fee, currency: resolveCurrency(seatOffer.currency), railSeats: res };
     setSeatOffer(null);
     onAdd(aug, 'ЖД');
   };
@@ -2332,6 +2329,9 @@ function RailSeatPanel({ offer, participants, groups, onClose, onApply }) {
   const changeClass = (id) => { setClsId(id); const w = RAIL_WAGONS[id] || []; setWagonNo(w[0] ? w[0].no : '01'); setSeats({}); setWagShow(8); };
   const changeWagon = (no) => { setWagonNo(no); setSeats({}); };
 
+  // Занятые места отдаёт перевозчик. Пустая карта означает «данных нет»:
+  // помечать места занятыми наугад нельзя — оператор продаст не то место.
+  const seatMapKnown = Boolean(RAIL_OCCUPIED[clsId + ':' + wagonNo]);
   const occupied = new Set(RAIL_OCCUPIED[clsId + ':' + wagonNo] || []);
   const seatOwner = (n) => { const e = Object.entries(seats).find(([, v]) => v === n); return e ? +e[0] : null; };
   const assignSeat = (i, val) => {
@@ -2341,7 +2341,12 @@ function RailSeatPanel({ offer, participants, groups, onClose, onApply }) {
   const pickSeat = (n) => { if (occupied.has(n)) return; const owner = seatOwner(n); assignSeat(activePax, (owner === activePax) ? '' : String(n)); };
 
   const assignedCount = Object.values(seats).filter(Boolean).length;
-  const total = cls.priceRub * PAX.length;
+  // Стоимость берётся из выбранного предложения поставщика. Раньше здесь стояла
+  // цена из зашитой таблицы классов — в заказ уходила сумма, не имеющая
+  // отношения к найденному поезду.
+  const pricePerPax = Number(offer.priceRub ?? offer.sum ?? offer.cost ?? 0);
+  const offerClassId = tagClass ? tagClass.id : null;
+  const total = pricePerPax * PAX.length;
   const seatNumbers = Array.from({ length: cls.seats }, (_, i) => i + 1);
   const comps = cls.perComp ? railChunk(seatNumbers, cls.perComp) : null;
   const seatOptions = (i) => [{ value: '', label: '— выбрать —' }].concat(
@@ -2372,7 +2377,11 @@ function RailSeatPanel({ offer, participants, groups, onClose, onApply }) {
   return (
     <StackPanel title="Выбор вагона и мест" width="min(1380px,97vw)" onClose={onClose}
       footer={<>
-        <div className="rail-foot-note">Цены указаны за 1 человека. Включая налоги и сборы.</div>
+        <div className="rail-foot-note">
+          {seatMapKnown
+            ? 'Цены указаны за 1 человека. Включая налоги и сборы.'
+            : 'Перевозчик не передал занятость мест — подтвердите выбранные места при бронировании.'}
+        </div>
         <div style={{ flex: 1 }} />
         <Button variant="secondary" onClick={onClose}>Отмена</Button>
         <Button icon="check" disabled={assignedCount < PAX.length} onClick={apply}>
@@ -2396,9 +2405,12 @@ function RailSeatPanel({ offer, participants, groups, onClose, onApply }) {
                 <span className="rc-ic"><Icon name={c.icon} /></span>
                 <div className="rc-body">
                   <div className="rc-name">{c.name}</div>
-                  <div className="rc-price">от {rub(c.priceRub)}</div>
+                  {/* Цену знаем только для класса из найденного предложения.
+                      Для остальных классов поставщик её не присылал — раньше
+                      здесь стояли зашитые в код суммы. */}
+                  <div className="rc-price">{c.id === offerClassId ? rub(pricePerPax) : 'цена по запросу'}</div>
                   <div className="rc-per">за 1 человека</div>
-                  <div className="rc-free">Свободно мест: {c.freeSeats}</div>
+                  {c.id === offerClassId && offer.freeSeats != null && <div className="rc-free">Свободно мест: {offer.freeSeats}</div>}
                 </div>
               </button>
             ))}
@@ -2410,6 +2422,11 @@ function RailSeatPanel({ offer, participants, groups, onClose, onApply }) {
           <div className="rail-col-h">2. Выберите вагон</div>
           <div className="rail-col-sub">Вагоны класса {cls.name}</div>
           <div className="rail-wlist">
+            {!wagons.length && (
+              <div className="rail-col-sub" style={{ padding: '10px 2px' }}>
+                Перевозчик не передал список вагонов. Укажите номер вагона при бронировании.
+              </div>
+            )}
             {wagons.slice(0, wagShow).map((w) => (
               <button key={w.no} type="button" className={'rail-wrow' + (wagonNo === w.no ? ' sel' : '')} onClick={() => changeWagon(w.no)}>
                 <Radio on={wagonNo === w.no} onChange={() => changeWagon(w.no)} />

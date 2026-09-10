@@ -650,6 +650,10 @@ if (!ENABLE_DEMO_BUSINESS_DATA) {
     RECENT_CHANGES, API_ACCESS, ORDER_SERVICES, PROPOSALS, ORDER_PARTICIPANTS, GROUP_PAX,
     ORDER_TASKS, DOCS2, FULFILLMENT, RETURNS, USERS, CLIENTS_DB, COMPANIES_DB,
   ].forEach((items) => { if (Array.isArray(items)) items.splice(0, items.length); });
+  // Схемы вагонов и занятость мест приходят от перевозчика вместе с бронью.
+  // До подключения адаптера ЖД показывать вымышленные места нельзя.
+  Object.keys(RAIL_WAGONS).forEach((key) => { RAIL_WAGONS[key] = []; });
+  Object.keys(RAIL_OCCUPIED).forEach((key) => { delete RAIL_OCCUPIED[key]; });
   Object.keys(COMPANY_STAFF).forEach((key) => { delete COMPANY_STAFF[key]; });
 }
 
