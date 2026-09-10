@@ -92,10 +92,20 @@ const ICON_PATHS = {
   dumbbell: '<path d="M6.5 6.5l11 11M4 9l2-2 3 3-2 2zM15 18l2-2 3 3-2 2zM18 9l2-2M6 15l-2 2"/>',
 };
 
-function Icon({ name, className, style, strokeWidth = 1.9 }) {
+function Icon({ name, className, style, strokeWidth = 1.9, onClick, title, ariaLabel }) {
+  // Кликабельная иконка получает роль кнопки и клавиатурный доступ:
+  // без этого onClick молча терялся и подобные «кнопки» не работали.
+  const interactive = typeof onClick === 'function';
   return (
     <svg className={className} style={style} viewBox="0 0 24 24" fill="none"
       stroke="currentColor" strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round"
+      onClick={onClick}
+      role={interactive ? 'button' : undefined}
+      tabIndex={interactive ? 0 : undefined}
+      aria-label={interactive ? (ariaLabel || title || name) : ariaLabel}
+      onKeyDown={interactive ? (event) => {
+        if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); onClick(event); }
+      } : undefined}
       dangerouslySetInnerHTML={{ __html: ICON_PATHS[name] || '' }} />
   );
 }

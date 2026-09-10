@@ -234,7 +234,8 @@ function LoginScreen({ onLogin, onVerifyTwoFactor, onPasswordReset, expired = fa
                       placeholder="Введите пароль" style={{ paddingRight: 44 }}
                       autoComplete="current-password"
                       value={pass} onChange={(e) => setPass(e.target.value)} />
-                    <Icon name={showPass ? 'eyeOff' : 'eye'} className="lp-eye" style={{ width: 20, height: 20 }} onClick={() => setShowPass((s) => !s)} />
+                    <Icon name={showPass ? 'eyeOff' : 'eye'} className="lp-eye" style={{ width: 20, height: 20 }}
+                      ariaLabel={showPass ? 'Скрыть пароль' : 'Показать пароль'} onClick={() => setShowPass((s) => !s)} />
                   </div>
                   {errs.pass && <div className="lp-errtxt"><Icon name="alertCircle" />{errs.pass}</div>}
                   {errs.form && <div className="lp-errtxt"><Icon name="alertCircle" />{errs.form}</div>}

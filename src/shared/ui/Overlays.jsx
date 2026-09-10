@@ -10,6 +10,30 @@ import { Button } from './Button.jsx';
 // потеряв открытый редактор.
 const OVERLAY_LAYERS = [];
 
+// ——— Порядок наложения ————————————————————————————————————————————————
+// Все оверлеи рендерятся порталом в body, поэтому порядок в DOM не отражает
+// вложенность: Drawer, открытый изнутри StackPanel, оказывался под ним и
+// выглядел как «кнопка не работает». Каждый слой при открытии получает свой
+// z-index — на 10 выше предыдущего, — и всегда ложится поверх того, из
+// которого его открыли. Потолок 170 держит слои ниже тостов (200).
+const OVERLAY_Z_BASE = 80;
+const OVERLAY_Z_STEP = 10;
+const OVERLAY_Z_MAX = 170;
+let overlayZDepth = 0;
+
+function useOverlayZIndex(open) {
+  const zRef = useRef(0);
+  if (open && !zRef.current) {
+    overlayZDepth += 1;
+    zRef.current = Math.min(OVERLAY_Z_MAX, OVERLAY_Z_BASE + overlayZDepth * OVERLAY_Z_STEP);
+  }
+  useEffect(() => {
+    if (!open) return undefined;
+    return () => { overlayZDepth = Math.max(0, overlayZDepth - 1); zRef.current = 0; };
+  }, [open]);
+  return zRef.current || OVERLAY_Z_BASE + OVERLAY_Z_STEP;
+}
+
 let overlayEscapeBound = false;
 
 // Диалог печати браузера возвращает фокус в страницу и в части браузеров
@@ -95,6 +119,7 @@ const MODAL_FOCUSABLE = 'button:not([disabled]), [href], input:not([disabled]), 
 function Modal({ open, onClose, children, size, className = '', ariaLabel = 'Диалоговое окно' }) {
   const modalRef = useRef(null);
   useOverlayLayer(open, onClose);
+  const zIndex = useOverlayZIndex(open);
   useEffect(() => {
     if (!open) return;
     const previousFocus = document.activeElement;
@@ -129,7 +154,7 @@ function Modal({ open, onClose, children, size, className = '', ariaLabel = 'Д�
   if (!open) return null;
   const sizeClass = size ? 'modal-' + size + ' ' : '';
   return (
-    <div className="overlay" onMouseDown={(e) => overlayBackdropClose(e, onClose)}>
+    <div className="overlay" style={{ zIndex }} onMouseDown={(e) => overlayBackdropClose(e, onClose)}>
       <div ref={modalRef} className={'modal ' + sizeClass + className} role="dialog" aria-modal="true" aria-label={ariaLabel} tabIndex={-1}>
         <div className="modal-content scroll">{children}</div>
       </div>
@@ -151,11 +176,12 @@ function ModalHeader({ title, sub, onClose }) {
 
 function Drawer({ open, onClose, title, sub, children, footer, width, className = '' }) {
   useOverlayLayer(open, onClose);
+  const zIndex = useOverlayZIndex(open);
   if (!open) return null;
   // Рендерим порталом в body: иначе вложенный в другую панель (container-type/overflow)
   // Drawer с position:fixed привязывается к коробке родителя и открывается неправильно.
   const node = (
-    <div className="drawer-overlay" onMouseDown={(e) => overlayBackdropClose(e, onClose)}>
+    <div className="drawer-overlay" style={{ zIndex }} onMouseDown={(e) => overlayBackdropClose(e, onClose)}>
       <div className={`drawer scroll${className ? ` ${className}` : ''}`} style={width ? { width } : null}>
         <div className="drawer-head">
           <div>
@@ -184,4 +210,4 @@ function ConfirmDialog({ open, title = 'Вы уверены?', message, confirmL
   );
 }
 
-export { OVERLAY_LAYERS, overlayEscapeBound, printGuardUntil, isPrintGuardActive, holdOverlaysDuringPrint, printOverlayScope, bindOverlayEscape, useOverlayLayer, overlayBackdropClose, MODAL_FOCUSABLE, Modal, ModalHeader, Drawer, ConfirmDialog };
+export { OVERLAY_LAYERS, OVERLAY_Z_BASE, useOverlayZIndex, overlayEscapeBound, printGuardUntil, isPrintGuardActive, holdOverlaysDuringPrint, printOverlayScope, bindOverlayEscape, useOverlayLayer, overlayBackdropClose, MODAL_FOCUSABLE, Modal, ModalHeader, Drawer, ConfirmDialog };
