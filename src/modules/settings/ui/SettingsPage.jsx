@@ -28,6 +28,7 @@ import { usersApi } from '../../users/api.js';
 import { workspaceActionsApi } from '../../workspace/api.js';
 import { workspaceSettingsApi } from '../api/workspaceSettingsApi.js';
 import { toLegacyUser } from '../../../legacy/adapters/legacy-adapters.js';
+import { getDefaultCurrency, resolveCurrency } from '../../../shared/lib/money.js';
 
 const ROLE_LABEL = { admin: 'Админ', operator: 'Оператор', accountant: 'Бухгалтер', manager: 'Менеджер' };
 const PERMISSION_GROUPS = [
@@ -44,7 +45,7 @@ function CurrencyModal({ open, onClose }) {
   const toast = useToast();
   const [extra, setExtra] = useState(true);
   const [vals, setVals] = useState({});
-  const [baseCurrency, setBaseCurrency] = useState('USD');
+  const [baseCurrency, setBaseCurrency] = useState(getDefaultCurrency);
   const [currencies, setCurrencies] = useState(CURRENCIES);
   const [draft, setDraft] = useState(null);
   const [busy, setBusy] = useState(false);
@@ -54,7 +55,7 @@ function CurrencyModal({ open, onClose }) {
     setBusy(true); setLoaded(false); setDraft(null);
     workspaceSettingsApi.getTenant('finance-currencies').then((data) => {
       setCurrencies(data.value?.currencies || [...CURRENCIES]);
-      setVals(data.value?.rates || {}); setExtra(data.value?.extraCalculation ?? true); setBaseCurrency(data.value?.base || 'USD'); setLoaded(true);
+      setVals(data.value?.rates || {}); setExtra(data.value?.extraCalculation ?? true); setBaseCurrency(resolveCurrency(data.value?.base)); setLoaded(true);
     }).catch((error) => toast(error.message || 'Не удалось загрузить курсы', 'err')).finally(() => setBusy(false));
   }, [open]);
   const save = async () => {

@@ -59,7 +59,7 @@ function buildFulfillmentRows({ obligations = [], orders = [], documents = [], r
         order: order?.no || item.order || String(orderId || '').slice(0, 8),
         client: order?.client || item.client || 'Клиент',
         detail: item.reason || item.type || 'Возврат в обработке',
-        amount: fUsd(Number(item.fin?.refund ?? item.refund_amount ?? item.client_refund ?? 0), item.currency || 'USD'),
+        amount: fUsd(Number(item.fin?.refund ?? item.refund_amount ?? item.client_refund ?? 0), item.currency),
         due: item.created_at ? new Date(item.created_at).toLocaleDateString('ru-RU') : '—',
         resp: item.resp || order?.operator || 'Не назначен',
         overdue: false,

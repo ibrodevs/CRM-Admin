@@ -93,8 +93,12 @@ function App() {
   const isServicePage = ['flights', 'rail', 'hotels', 'transfers', 'buses', 'tours'].includes(route.split('/')[0]);
 
   const currentResource = route === 'settings' ? undefined : workspace.resources?.[ROUTE_RESOURCE[route.split('/')[0]]];
+  // Валюту по умолчанию модули читают при рендере, но часть страниц раскладывает
+  // её по своему состоянию при монтировании. Без пересборки на некоторых экранах
+  // оставалась бы старая валюта до перезагрузки страницы.
+  const currencyKey = auth.user?.preferences?.base_currency || '';
   const gatedPage = (
-    <WorkspaceResourceGate resource={currentResource} onRetry={() => workspace.reload()}>
+    <WorkspaceResourceGate key={currencyKey} resource={currentResource} onRetry={() => workspace.reload()}>
       <RouteRenderer {...{ route, role, auth, orders, suppliers, workspace, navigate, createOrder, openOrder, createOrderFromPicker, openChat, intent, setIntent, addOrder, setCtxOrder, openServiceSearch, svcSearch, setSvcSearch, addSupplier, openChatThread, focusedChat, createReceiptOrder, toast }} />
     </WorkspaceResourceGate>
   );

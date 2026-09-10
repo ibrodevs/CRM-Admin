@@ -35,6 +35,7 @@ import { TodayAgenda } from './TodayAgenda.jsx';
 import { WorkCenter } from './WorkCenter.jsx';
 import { dashToneColor } from './DashboardCard.jsx';
 import { addDays, buildAgenda, dailySeries, formatPercent, isoDayKey, isoDayRange, percentChange, percentTone, sameDay, seriesTotal } from '../model/dashboard-metrics.js';
+import { getDefaultCurrency, resolveCurrency } from '../../../shared/lib/money.js';
 
 
 
@@ -63,7 +64,7 @@ function FreeBookingFinalize({ draft, onClose, onDone, onOpenOrder, onNavigate, 
       const body = {
         kind,
         title: svcTitle(svc),
-        currency: svc.currency || 'RUB',
+        currency: resolveCurrency(svc.currency),
         client_total: svcSum(svc),
         supplier_cost: svc.cost || svc.tariff || svcSum(svc),
         agency_fee: svc.fee || 0,
@@ -84,7 +85,7 @@ function FreeBookingFinalize({ draft, onClose, onDone, onOpenOrder, onNavigate, 
         client_person: client?.id || null,
         client_company: company?.id || null,
         purpose: 'Свободное бронирование',
-        base_currency: 'RUB',
+        base_currency: getDefaultCurrency(),
         source: 'dashboard',
       });
       await attachDraftToOrder(created.id);
@@ -105,7 +106,7 @@ function FreeBookingFinalize({ draft, onClose, onDone, onOpenOrder, onNavigate, 
     try {
       const existing = resultsOf(await communicationsApi.threads({ order: order.id, type: 'client' }))[0];
       const thread = existing || await communicationsApi.createThread({ type: 'client', order: order.id, title: `Заказ № ${order.no}` });
-      const lines = draft.map((item, index) => `${index + 1}. ${svcTitle(item)} — ${svcSum(item) || 'цена не указана'} ${item.currency || 'RUB'}`);
+      const lines = draft.map((item, index) => `${index + 1}. ${svcTitle(item)} — ${svcSum(item) || 'цена не указана'} ${resolveCurrency(item.currency)}`);
       await communicationsApi.send(thread.id, { body: `Подборка услуг:\n${lines.join('\n')}` });
       finish(`Подборка отправлена в чат по заказу № ${order.no}`, { label: `Открыть заказ № ${order.no}`, onClick: () => onOpenOrder?.(order) });
     } catch (error) { toast(error.message || 'Не удалось отправить подборку в чат', 'err'); }
@@ -116,7 +117,7 @@ function FreeBookingFinalize({ draft, onClose, onDone, onOpenOrder, onNavigate, 
     try {
       let current = proposal;
       if (!current) {
-        const currency = draft.find((item) => item.currency)?.currency || 'RUB';
+        const currency = resolveCurrency(draft.find((item) => item.currency)?.currency);
         current = await proposalsApi.create({
           type: 'standard', purpose: 'Свободное бронирование', source: 'dashboard', recipient: recipient.trim(), currency,
           brief: { source: 'dashboard_free_booking' },

@@ -25,6 +25,7 @@ import { documentsApi } from '../../documents/api.js';
 import { ReceiptBrandDocumentDrawer, ReceiptDocumentPreview, ReceiptParticipantSummary, ReceiptSpecializedForm, normalizeReceiptDraft, receiptDetailsLines, receiptFinancialTotal, receiptParticipantLabel } from './editor.jsx';
 import { createReceiptImportDraftId, readReceiptImportDrafts, receiptImportDraftTitle, removeReceiptImportDraft, upsertReceiptImportDraft, writeReceiptImportDrafts } from '../model/import-drafts.js';
 import { inlineSupplierDocumentUrl, freshSupplierDocumentUrl, waitForReceiptPdfJob, PDF_SYNC_SUCCESS_NOTICE_MS, supplierDocumentPageUrl } from '../../documents/model.js';
+import { currencySymbol, resolveCurrency } from '../../../shared/lib/money.js';
 
 const REC_TYPES = [
   { key: 'Авиа',      doc: 'Маршрут-квитанция', icon: 'plane', color: '#2566ff', legLabel: 'Рейс',    docNoLabel: 'Номер билета', refLabel: 'PNR' },
@@ -123,7 +124,7 @@ function receiptImportSubrows(type, receipts, expectedCount = 0) {
     taxBreakdown: receipt.taxBreakdown || receipt.tax_breakdown || [],
     feeBreakdown: receipt.feeBreakdown || receipt.fee_breakdown || [],
     includedTaxBreakdown: receipt.includedTaxBreakdown || receipt.included_tax_breakdown || [],
-    currency: receipt.currency || 'RUB',
+    currency: resolveCurrency(receipt.currency),
     legs: receipt.legs || receipt.segments || [],
     tripType: receipt.tripType || receipt.trip_type || 'oneway',
     recognitionPending: false,
@@ -193,8 +194,8 @@ function aggregateReceiptSubrows(parent, subReceipts, receiptType = 'ЖД') {
     agencyServiceFee,
     additionalFees,
     fareBreakdown: [
-      { code: 'TICKET', label: 'Билет', amount: ticketCost, currency: parent.currency || 'RUB' },
-      { code: 'RESERVED_SEAT', label: 'Плацкарта', amount: reservedSeatCost, currency: parent.currency || 'RUB' },
+      { code: 'TICKET', label: 'Билет', amount: ticketCost, currency: resolveCurrency(parent.currency) },
+      { code: 'RESERVED_SEAT', label: 'Плацкарта', amount: reservedSeatCost, currency: resolveCurrency(parent.currency) },
     ],
     groupTickets: tickets,
     receipts: tickets,
@@ -258,8 +259,8 @@ function receiptWithPricing(type, receipt, pricing) {
       additionalFees,
       total: clientAmount,
       fareBreakdown: [
-        { code: 'TICKET', label: 'Билет', amount: ticketCost, currency: receipt?.currency || 'RUB' },
-        { code: 'RESERVED_SEAT', label: 'Плацкарта', amount: reservedSeatCost, currency: receipt?.currency || 'RUB' },
+        { code: 'TICKET', label: 'Билет', amount: ticketCost, currency: resolveCurrency(receipt?.currency) },
+        { code: 'RESERVED_SEAT', label: 'Плацкарта', amount: reservedSeatCost, currency: resolveCurrency(receipt?.currency) },
       ],
       ...pricingFields,
     });
@@ -299,7 +300,7 @@ const receiptImportPassengers = (...lists) => (
   lists.find((rows) => Array.isArray(rows) && rows.length > 0) || []
 );
 
-const recMoney = (v, c) => (v < 0 ? '− ' : '') + Math.abs(v).toLocaleString('ru-RU') + ' ' + (c === 'USD' ? '$' : c);
+const recMoney = (v, c) => (v < 0 ? '− ' : '') + Math.abs(v).toLocaleString('ru-RU') + ' ' + currencySymbol(c);
 
 const recComputed = (p) => (Number(p.fare) || 0) + (Number(p.taxes) || 0) + (Number(p.fees) || 0);
 
@@ -422,7 +423,7 @@ function ReceiptEditForm({ type, p, onChange }) {
   };
   const addBreakdown = (kind) => {
     const key = breakdownKey(kind);
-    onChange({ ...p, [key]: [...(p[key] || []), { code: '', label: '', amount: '', currency: p.currency || 'RUB' }] });
+    onChange({ ...p, [key]: [...(p[key] || []), { code: '', label: '', amount: '', currency: resolveCurrency(p.currency) }] });
   };
   const delBreakdown = (kind, i) => {
     const key = breakdownKey(kind);
@@ -719,6 +720,8 @@ function receiptSupplierBaseAmount(type, receipt) {
 function receiptSupplierBaseSignature(type, receipt) {
   const amount = receiptSupplierBaseAmount(type, receipt);
   if (!(amount > 0)) return '';
+  // Ключ группировки одинаковых стоимостей, а не показ суммы: он не должен
+  // зависеть от валюты по умолчанию, иначе группы разъедутся при её смене.
   return `${String(receipt?.currency || 'RUB').toUpperCase()}::${Math.round(amount * 100)}`;
 }
 
@@ -1393,7 +1396,7 @@ function ReceiptEditDrawer({ open, file, onClose, onChange, onSubChange, onBrand
                     <small>№ {ticketNumber}</small>
                   </span>
                   <span className="receipt-ticket-editor-side">
-                    <b>{recMoney(Number.isFinite(amount) ? amount : 0, ticket.currency || parsed.currency || 'RUB')}</b>
+                    <b>{recMoney(Number.isFinite(amount) ? amount : 0, resolveCurrency(ticket.currency, parsed.currency))}</b>
                     <small>{place || 'Место не указано'}</small>
                   </span>
                 </button>;
@@ -1764,7 +1767,7 @@ function ReceiptMathDrawer({ open, file, math, scopeOptions = [], feeInfo = null
   useEffect(() => { if (open) { setScopeKey('current'); setConfirmScope(false); } }, [open, file && file.id]);
   if (!open || !file) return null;
   const type = file.type || 'Прочее';
-  const cur = file.parsed.currency || 'RUB'; const sym = cur === 'USD' ? '$' : cur;
+  const cur = resolveCurrency(file.parsed.currency); const sym = currencySymbol(cur);
   const num = (v) => Math.round((Number(v) || 0) * 100) / 100;
   // Договорной сбор редактировать нельзя: он приходит из финансовых условий
   // контрагента и пересчитывается сервером при смене клиента или базы.
@@ -2098,7 +2101,7 @@ function receiptOrderPlan(files = []) {
     kind,
     plannedStart: dates[0] || null,
     plannedEnd: dates[dates.length - 1] || null,
-    currency: currency || 'RUB',
+    currency: resolveCurrency(currency),
     serviceKinds,
     blankCount: files.reduce((sum, file) => sum + Math.max(1, receiptGroupedTickets(file).length), 0),
   };
@@ -3267,7 +3270,7 @@ function ReceiptImportModal({ open, onClose, onDone, initialDraft, initialFiles 
       key: row.mathKey,
       service_kind: row.f.type,
       base_amount: serviceFeeBase(row),
-      currency: row.parsed?.currency || 'RUB',
+      currency: resolveCurrency(row.parsed?.currency),
     }));
     const manualFor = (reason) => items.map((item) => ({
       key: item.key, source: 'manual', fee: null, reason, currency: item.currency, service_kind: item.service_kind,
@@ -3435,7 +3438,7 @@ function ReceiptImportModal({ open, onClose, onDone, initialDraft, initialFiles 
     const reference = contractInfos[0] || infos[0] || null;
     return {
       amount: Number(fileMath?.fee || 0),
-      currency: file.parsed?.currency || 'RUB',
+      currency: resolveCurrency(file.parsed?.currency),
       service_kind: file.type,
       source: isContract ? 'contract' : 'manual',
       reason: isContract ? '' : (infos.find((info) => info.source !== 'contract')?.reason || 'manual'),
@@ -3497,7 +3500,7 @@ function ReceiptImportModal({ open, onClose, onDone, initialDraft, initialFiles 
           kind,
           title: [verified.carrier || row.f.type || 'Услуга', verified.passenger].filter(Boolean).join(' · '),
           passenger_name: verified.passenger || '',
-          currency: verified.currency || 'RUB',
+          currency: resolveCurrency(verified.currency),
           supplier_cost: supplierCost,
           agency_fee: Number(verified.fees || 0),
           markup: Number(receiptMath.markup || 0),
@@ -3536,7 +3539,7 @@ function ReceiptImportModal({ open, onClose, onDone, initialDraft, initialFiles 
           fare: supplierFare,
           taxes: supplierTaxes,
           fees: supplierFees,
-          currency: verifiedForSave.currency || 'USD',
+          currency: resolveCurrency(verifiedForSave.currency),
           fare_breakdown: verifiedForSave.fareBreakdown || [],
           tax_breakdown: verifiedForSave.taxBreakdown || [],
           fee_breakdown: verifiedForSave.feeBreakdown || [],

@@ -36,6 +36,7 @@ import { workspaceActionsApi } from '../../workspace/api.js';
 import { resultsOf } from '../../../shared/api/client.js';
 import { toLegacyOrderService } from '../../../legacy/adapters/legacy-adapters.js';
 import { normalizeCurrency, ocMoney } from '../../orders/model.js';
+import { getDefaultCurrency, resolveCurrency } from '../../../shared/lib/money.js';
 
 
 
@@ -624,7 +625,7 @@ function ServiceCardSendPanel({ item, kind, participants = [], orderNo, currency
       description: a.meta || a.scope || '',
       quantity: 1,
       price_amount: String(a.price || 0),
-      price_currency: currency || 'USD',
+      price_currency: resolveCurrency(currency),
     }));
     try {
       const validUntil = new Date(Date.now() + 7 * 86400000).toISOString();
@@ -632,7 +633,7 @@ function ServiceCardSendPanel({ item, kind, participants = [], orderNo, currency
         order: orderId,
         type: 'standard',
         purpose: 'Подбор альтернатив по услуге',
-        currency: currency || 'USD',
+        currency: resolveCurrency(currency),
         valid_until: validUntil,
         variants: [{ name: 'Альтернативы · ' + (item.title || item.main || kind), items }],
       });
@@ -1117,7 +1118,7 @@ function SvcCard({ item, kind, participants = [], hideBackRow, onBack }) {
   const [opConfirm, setOpConfirm] = useState(null);
   const k = SERVICE_KIND[kind] || { icon: 'briefcase', color: 'var(--blue)' };
   const isOffer = !!item.cost;
-  const cur = normalizeCurrency(item.currency || (item.svcOffer && item.svcOffer.currency) || 'RUB');
+  const cur = normalizeCurrency(resolveCurrency(item.currency, item.svcOffer && item.svcOffer.currency));
   const fmt = (n) => ocMoney(n, cur);
   const title = item.title || item.main;
   const sub = item.sub;
@@ -1200,7 +1201,7 @@ function SvcCard({ item, kind, participants = [], hideBackRow, onBack }) {
           version: serviceVersion,
           document_number: documentNumber,
           amount: total || null,
-          currency: cur || 'USD',
+          currency: resolveCurrency(cur),
           comment: meta.comment || '',
         });
       } else {
@@ -1581,14 +1582,14 @@ function SvcCard({ item, kind, participants = [], hideBackRow, onBack }) {
         </div>
       )}
 
-      {corrOpen && <DocCorrectionPanel subjects={corrSubjects} meta={corrMeta} currency={cur || 'USD'} orderNo={item.order || null} onClose={() => setCorrOpen(false)} />}
+      {corrOpen && <DocCorrectionPanel subjects={corrSubjects} meta={corrMeta} currency={resolveCurrency(cur)} orderNo={item.order || null} onClose={() => setCorrOpen(false)} />}
       {sendOpen && <ServiceCardSendPanel item={item} kind={kind} participants={pax} orderNo={orderNo} currency={cur} serviceId={serviceId} onSent={sendCard} onClose={() => setSendOpen(false)} />}
       <SvcDocUploadDrawer open={uploadOpen} isHotel={isHotel} participants={pax} orderNo={orderNo} onClose={() => setUploadOpen(false)}
         onUploaded={uploadDocument} />
       <SvcAddPaxDrawer open={addPaxOpen} isHotel={isHotel} onClose={() => setAddPaxOpen(false)}
         onAdd={addServicePassenger} />
       {opConfirm && <OperationConfirmModal open action={opConfirm.action} kind={kind} service={title}
-        fin={{ currency: cur || '$', price: tariff, fee, total }}
+        fin={{ currency: resolveCurrency(cur), price: tariff, fee, total }}
         warnings={opConfirm.action === 'issue' ? ['Проверьте актуальность цены перед выпиской'] : []}
         onConfirm={opConfirm.onConfirm} onClose={() => setOpConfirm(null)} needComment={opConfirm.action === 'issue'} />}
     </div>
@@ -1629,7 +1630,7 @@ function svcPriceBounds(offers) {
 const BACKEND_SERVICE_KIND = { rail: 'rail', hotels: 'hotel', transfers: 'transfer', buses: 'bus', tours: 'tour', aero: 'aeroexpress', lounge: 'lounge' };
 const isoDate = (value) => value instanceof Date ? value.toISOString().slice(0, 10) : value || undefined;
 function backendCriteria(routeKey, form) {
-  const common = { currency: 'USD' };
+  const common = { currency: getDefaultCurrency() };
   if (routeKey === 'hotels') return { ...common, location: form.city, check_in: isoDate(form.dates?.s), check_out: isoDate(form.dates?.e), guests: form.guests ?? 0, rooms: form.rooms ?? 0, stars: form.stars };
   if (routeKey === 'tours') return { ...common, destination: form.dest, date: isoDate(form.dates?.s), return_date: isoDate(form.dates?.e), passengers: form.pax ?? 0, meal_plan: form.board };
   return { ...common, origin: form.from || form.dir || form.airport, destination: form.to, date: isoDate(form.date || form.dt), return_date: isoDate(form.retDate), passengers: form.pax ?? 0, class: form.cls };
@@ -1650,7 +1651,7 @@ function backendOfferCard(offer, routeKey) {
   const info = routeKey === 'hotels'
     ? [{ l: 'Заезд', v: itinerary.check_in || '—' }, { l: 'Выезд', v: itinerary.check_out || '—' }, { l: 'Питание', v: itinerary.meal_plan || '—' }]
     : [{ l: 'Отправление', v: departure ? departure.toLocaleString('ru-RU') : '—' }, { l: 'Прибытие', v: arrival ? arrival.toLocaleString('ru-RU') : '—' }];
-  const generic = { ...offer, _backendOfferId: offer.id, title, sub, supplier, cost: amount, fee: 0, currency: offer.price?.currency || 'USD', info, tags: [offer.availability === 'available' ? 'Доступно' : offer.availability, offer.fare?.refundable ? 'Возвратный' : null].filter(Boolean) };
+  const generic = { ...offer, _backendOfferId: offer.id, title, sub, supplier, cost: amount, fee: 0, currency: resolveCurrency(offer.price?.currency), info, tags: [offer.availability === 'available' ? 'Доступно' : offer.availability, offer.fare?.refundable ? 'Возвратный' : null].filter(Boolean) };
   if (routeKey !== 'rail') return generic;
   const fmtTime = (date) => date ? date.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' }) : '—';
   const fmtDay = (date) => date ? date.toLocaleDateString('ru-RU') : '—';
@@ -2222,7 +2223,7 @@ function RailAddFlow({ participants = [], groups, onAdd }) {
   const runSearch = async () => {
     setLoading(true); setOffersAll([]);
     try {
-      const created = await servicesApi.search({ kind: 'rail', criteria: { origin: form.from, destination: form.to, date: isoDate(form.dep), return_date: isoDate(form.ret), passengers: form.pax, currency: 'USD' } });
+      const created = await servicesApi.search({ kind: 'rail', criteria: { origin: form.from, destination: form.to, date: isoDate(form.dep), return_date: isoDate(form.ret), passengers: form.pax, currency: getDefaultCurrency() } });
       const found = (await waitForBackendOffers(created.search_id)).map((offer) => backendOfferCard(offer, 'rail'));
       setOffersAll(found);
       const next = found.map((offer) => offer.priceRub);

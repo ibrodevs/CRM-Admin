@@ -18,6 +18,7 @@ import { FinRow, StatTile, WarnBanner, f$ } from '../../finance/index.js';
 import { groupsApi } from '../api/groupsApi.js';
 import { workspaceActionsApi } from '../../workspace/api.js';
 import { resultsOf } from '../../../shared/api/client.js';
+import { getDefaultCurrency } from '../../../shared/lib/money.js';
 
 
 
@@ -878,7 +879,7 @@ function grToOrderShape(o) {
     service: (o.services && o.services[0] && o.services[0].kind) || 'Авиа',
     status: stMap[o.status] || 'В работе',
     operator: (o.operators && o.operators[0]) || o.operator || 'Даниель', operatorRole: 'Оператор',
-    sum: grAgg(o).cost || 0, currency: 'USD',
+    sum: grAgg(o).cost || 0, currency: getDefaultCurrency(),
     services: (o.services && o.services.length) || 1, progress: 0,
     date: o.dateFrom || o.date || '14.06.26',
   };

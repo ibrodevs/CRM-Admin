@@ -1,4 +1,5 @@
 import { SERVICE_KIND } from '../../../shared/constants/service-kind.js';
+import { resolveCurrency } from '../../../shared/lib/money.js';
 
 const SUPPLIER_STATUS = { active: 'Активный', paused: 'На паузе', archived: 'Заблокированный' };
 
@@ -11,7 +12,7 @@ function toUiSupplier(supplier) {
     org: supplier.legal_name || supplier.name,
     status: SUPPLIER_STATUS[supplier.status] || supplier.status,
     service: SERVICE_KIND[kind] || kind || 'Другое',
-    currency: supplier.currencies?.[0] || 'USD',
+    currency: resolveCurrency(supplier.currencies?.[0]),
     commission: 'По правилам наценки',
     type: supplier.is_global ? 'Глобальный' : 'Локальный',
     orgType: supplier.organization_type || 'Другое',

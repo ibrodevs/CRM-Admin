@@ -13,6 +13,7 @@ import { documentsApi } from '../../documents/api.js';
 import { ordersApi } from '../../orders/api.js';
 import { workspaceActionsApi } from '../../workspace/api.js';
 import { toUiMessage } from '../model/chats.mapper.js';
+import { currencySymbol } from '../../../shared/lib/money.js';
 
 
 
@@ -36,8 +37,7 @@ function threadUnread(t) { return typeof t.unread === 'number' ? t.unread : Obje
 function chatServiceById(id) { return (typeof ORDER_SERVICES !== 'undefined' ? ORDER_SERVICES : []).find((s) => s.id === id) || null; }
 function chatMoney(n, cur) {
   if (n == null) return '—';
-  const sym = { USD: '$', RUB: '₽', EUR: '€', KZT: '₸', KGS: 'сом', USDT: 'USDT' }[cur] || (cur || '');
-  return Math.round(n).toLocaleString('ru-RU') + (sym ? ' ' + sym : '');
+  return Math.round(n).toLocaleString('ru-RU') + ' ' + currencySymbol(cur);
 }
 
 

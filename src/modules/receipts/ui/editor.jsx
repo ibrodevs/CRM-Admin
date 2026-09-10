@@ -17,6 +17,7 @@ import { UnifiedBindField } from '../../clients/index.js';
 import { segmentConnectionLabel } from '../model/layover.js';
 import { normalizeReceiptDisplayDate } from '../model/date.js';
 import { AVIA_TAX_BY_CODE, CUSTOM_TAX_VALUE, aviaTaxName, aviaTaxOptionsFor } from '../model/tax-catalog.js';
+import { currencySymbol, getDefaultCurrency, resolveCurrency } from '../../../shared/lib/money.js';
 
 const TYPE_META = {
   'Авиа': { icon: 'plane', color: '#2566ff', document: 'Маршрут-квитанция' },
@@ -377,7 +378,7 @@ export function normalizeReceiptDraft(type, value = {}) {
     ref: '', supplierOrderNo: '', hotelBookingNo: '', crmBindingMode: 'order',
     crmOrderId: '', crmOrderNo: '', crmPersonId: '', crmPerson: '', crmCompanyId: '', crmCompany: '', crmPassenger: '',
     crmService: '', crmServiceId: '', crmTrip: '', crmTripId: '',
-    issueDate: '', bookingStatus: '', currency: 'RUB', tripType: type === 'Гостиница' ? 'stay' : 'oneway',
+    issueDate: '', bookingStatus: '', currency: getDefaultCurrency(), tripType: type === 'Гостиница' ? 'stay' : 'oneway',
     legs: [emptyLeg()], fare: '', taxes: '', fees: '', total: '', originalTotal: supplierTotal || '', supplierFees: '',
     ticketCost: value.fare || '', reservedSeatCost: '', agencyServiceFee: value.fees || '',
     additionalFees: '', supplierCost: supplierBase || '', markup: '', discount: '',
@@ -863,7 +864,7 @@ function ReceiptRailMultiBlankPreview({ draft }) {
       <section className="receipt-blank-strip" aria-label="Доступные ЖД-бланки">
         <div className="receipt-blank-strip-title">
           <div><Icon name="docs" /><span><b>Доступные бланки</b><small>{tickets.length} отдельных билета · {passengerCount} пассажира · {routeCount} маршрута</small></span></div>
-          <strong className="receipt-blank-strip-total"><small>Итого по {tickets.length} бланкам</small><b>{total.toLocaleString('ru-RU')} {draft.currency || 'RUB'}</b></strong>
+          <strong className="receipt-blank-strip-total"><small>Итого по {tickets.length} бланкам</small><b>{total.toLocaleString('ru-RU')} {currencySymbol(draft.currency)}</b></strong>
         </div>
         <div className="receipt-blank-strip-scroll">
           {tickets.map((ticket, index) => {
@@ -874,7 +875,7 @@ function ReceiptRailMultiBlankPreview({ draft }) {
                 aria-pressed={index === activeIndex} onClick={() => setActiveIndex(index)}>
                 <span className="receipt-blank-chip-number">{item.index}</span>
                 <span className="receipt-blank-chip-main"><b>{item.passenger}</b><small>Билет № {item.ticketNo}</small><small>{item.route}</small></span>
-                <span className="receipt-blank-chip-side"><b>{item.total.toLocaleString('ru-RU')} {ticket.currency || draft.currency || 'RUB'}</b><small>{item.trip || 'Место не распознано'}</small></span>
+                <span className="receipt-blank-chip-side"><b>{item.total.toLocaleString('ru-RU')} {currencySymbol(resolveCurrency(ticket.currency, draft.currency))}</b><small>{item.trip || 'Место не распознано'}</small></span>
               </button>
             );
           })}
@@ -1507,7 +1508,7 @@ export function ReceiptSpecializedForm({
         {type === 'Трансфер' && source('Номер заказа поставщика', 'supplierOrderNo')}
         {source('Дата оформления', 'issueDate')}
         {source('Статус бронирования', 'bookingStatus')}
-        <Field label="Валюта"><Select options={['RUB', 'USD', 'EUR', 'KGS', 'KZT', 'CNY']} value={p.currency || 'RUB'} onChange={(e) => set('currency', e.target.value, 'Валюта')} /></Field>
+        <Field label="Валюта"><Select options={['RUB', 'USD', 'EUR', 'KGS', 'KZT', 'CNY']} value={resolveCurrency(p.currency)} onChange={(e) => set('currency', e.target.value, 'Валюта')} /></Field>
       </div>
     </Section>
   );

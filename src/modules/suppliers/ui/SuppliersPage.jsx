@@ -30,6 +30,7 @@ import { suppliersApi } from '../api/suppliersApi.js';
 import { workspaceSettingsApi } from '../../settings/api.js';
 import { toUiSupplier } from '../model/suppliers.mapper.js';
 import { resultsOf } from '../../../shared/api/client.js';
+import { currencySymbol, getDefaultCurrency } from '../../../shared/lib/money.js';
 
 function useSupplierDocuments(s, ext) {
   const [, refresh] = useState(0);
@@ -271,7 +272,7 @@ function supLookupByInn(inn, ext, s) {
   return { ...ext.legal, inn: String(inn || '') };
 }
 function supFinSummary(ext) {
-  return ext.fin.commType === '%' ? ext.fin.commValue + ' %' : ext.fin.commType === 'Фиксированная' ? ext.fin.commValue + ' ' + ext.fin.currency : ext.fin.commValue + ' % + сборы';
+  return ext.fin.commType === '%' ? ext.fin.commValue + ' %' : ext.fin.commType === 'Фиксированная' ? ext.fin.commValue + ' ' + currencySymbol(ext.fin.currency) : ext.fin.commValue + ' % + сборы';
 }
 
 
@@ -305,7 +306,7 @@ function AviaMarkupEditor({ supplierName, supplierId }) {
           <button className={'seg-btn' + (b.type === 'fixed' ? ' active' : '')} onClick={() => setBucket(code, bucket, { type: 'fixed' })}>Фикс.</button>
         </div>
         <div style={{ width: 110 }}><Input type="number" value={b.value} onChange={(e) => setBucket(code, bucket, { value: parseFloat(e.target.value) || 0 })} /></div>
-        <span style={{ width: 18, color: 'var(--muted)', fontSize: 13 }}>{b.type === 'percent' ? '%' : '$'}</span>
+        <span style={{ width: 18, color: 'var(--muted)', fontSize: 13 }}>{b.type === 'percent' ? '%' : currencySymbol()}</span>
       </div>
     );
   };
@@ -1059,7 +1060,7 @@ function SupplierAddDrawer({ open, onClose, onCreated }) {
     status: 'Активный', orgType: 'Другое',
     api: { url: '', apiKey: '', login: '', password: '', token: '', version: '' },
     local: { contact: '', comm: [], commBind: {}, processing: '', hours: SUP_WORK_HOURS[2] },
-    fin: { currency: 'USD', commType: '%', commValue: 0, vat: 'Без НДС', settlement: 'Предоплата', payTerm: '', perService: supEmptyFin(SUP_SERVICE_KINDS) },
+    fin: { currency: getDefaultCurrency(), commType: '%', commValue: 0, vat: 'Без НДС', settlement: 'Предоплата', payTerm: '', perService: supEmptyFin(SUP_SERVICE_KINDS) },
     ops: { 'Бронирование': true, 'Выписка': true, 'Возврат': false, 'Обмен': false, 'Аннуляция': false, 'Дополнительные услуги': false },
     automation: 'auto',
     searchPriority: {},

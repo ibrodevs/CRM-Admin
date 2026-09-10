@@ -13,6 +13,7 @@ import { useToast } from '../../../shared/ui/Toast.jsx';
 import { UnifiedPersonDrawer } from '../../clients/index.js';
 import { PanelSub } from '../../locations/index.js';
 import { documentsApi } from '../../documents/api.js';
+import { getDefaultCurrency } from '../../../shared/lib/money.js';
 
 const ENABLE_DEMO_BUSINESS_DATA = typeof process !== 'undefined' && process.env.NEXT_PUBLIC_DEMO_MODE === 'true';
 
@@ -118,7 +119,7 @@ function PassportModal({ passenger, participants, onClose, onAddDoc }) {
 
 function FeeDrawer({ open, onClose }) {
   const toast = useToast();
-  const empty = { service: '', feeType: '', value: '', tax: '', currency: 'USD', comment: '' };
+  const empty = { service: '', feeType: '', value: '', tax: '', currency: getDefaultCurrency(), comment: '' };
   const [f, setF] = useState(empty);
   const [errs, setErrs] = useState({});
   const set = (k) => (e) => setF((p) => ({ ...p, [k]: e.target ? e.target.value : e }));

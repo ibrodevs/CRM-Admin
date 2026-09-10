@@ -76,11 +76,11 @@ test('документы услуги грузятся с backend и привя�
 
 test('отмена услуги передаёт версию, обмен открывает постпродажу с предзаполненной услугой', () => {
   assert.match(card, /servicesApi\.cancel\(svc\.serverId \|\| svc\.id, \{ version: svc\.version/);
-  assert.match(card, /setAftersalePreset\(\{ type: 'Обмен билета', serviceId:[\s\S]*currency: svc\.currency \|\| cardOrder\.currency \|\| cardOrder\.base_currency \|\| 'RUB'/);
+  assert.match(card, /setAftersalePreset\(\{ type: 'Обмен билета', serviceId:[\s\S]*currency: resolveCurrency\(svc\.currency, cardOrder\.currency, cardOrder\.base_currency\)/);
   assert.match(card, /initialNew=\{aftersalePreset\}/);
   assert.match(returns, /preset=\{initialNew\}/);
   assert.match(returns, /setType\(\(preset && preset\.type\) \|\| 'Возврат билета'\)/);
-  assert.match(returns, /currency: d\.currency \|\| selectedOrder\.currency \|\| selectedOrder\.base_currency \|\| 'RUB'/);
+  assert.match(returns, /currency: resolveCurrency\(d\.currency, selectedOrder\.currency, selectedOrder\.base_currency\)/);
   assert.match(returns, /rUsd\(scoped, currency\)/);
 });
 

@@ -12,6 +12,7 @@ import { Select } from '../../../shared/ui/Select.jsx';
 import { useToast } from '../../../shared/ui/Toast.jsx';
 import { servicesApi } from '../../services/api.js';
 import { resultsOf } from '../../../shared/api/client.js';
+import { currencySymbol } from '../../../shared/lib/money.js';
 
 const SERVICE_TONE = {
   'Авиа': 'blue', 'ЖД': 'teal', 'Гостиница': 'amber', 'Трансфер': 'purple',
@@ -357,7 +358,7 @@ function OperationConfirmModal({ open, action, kind = 'Авиа', service, fin =
   if (!open) return null;
   const cfg = OP_CONFIRM_ACTIONS[action] || OP_CONFIRM_ACTIONS.issue;
   const checks = OP_CHECKS_BY_KIND[kind] || OP_CHECKS_BY_KIND['Авиа'];
-  const cur = fin.currency || '$';
+  const cur = currencySymbol(fin.currency);
   const fmt = (v) => (v == null ? null : Math.round(v).toLocaleString('ru-RU') + ' ' + cur);
   const finRows = [
     ['Стоимость услуги', fin.price], ['Сервисный сбор', fin.fee], ['Комиссия', fin.commission],

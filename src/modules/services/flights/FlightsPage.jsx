@@ -36,6 +36,7 @@ import { resultsOf } from '../../../shared/api/client.js';
 import { ServiceBlanksPanel } from '../../documents/index.js';
 import { technicalStopCount, technicalStopLabel, technicalStopsOf } from './technical-stops.js';
 import { TechnicalStopsDetails } from './TechnicalStops.jsx';
+import { currencySymbol, resolveCurrency } from '../../../shared/lib/money.js';
 
 
 
@@ -52,7 +53,7 @@ function durMin(s) {
   const m = (s.match(/(\d+)м/) || [])[1] || 0;
   return (+h) * 60 + (+m);
 }
-function money(n, c) { return n.toLocaleString('ru-RU') + ' ' + (c === 'USD' ? '$' : c); }
+function money(n, c) { return n.toLocaleString('ru-RU') + ' ' + currencySymbol(c); }
 
 
 function AirportField({ label, value, onChange, placeholder = 'Город или аэропорт' }) {
@@ -364,7 +365,7 @@ function OfferCard({ o, picked, onPick, onSelect, onSave, onCompare, compared })
           <div className="off-supplier"><Icon name="api" style={{ width: 14, height: 14, verticalAlign: -2 }} /> {o.supplier}</div>
           <div className="off-price-line"><span>Тариф</span><span>{money(o.fare, o.currency)}</span></div>
           <div className="off-price-line"><span>Сервисный сбор</span><span>{money(o.fee, o.currency)}</span></div>
-          <div className="off-total">{total.toLocaleString('ru-RU')} <small>{o.currency === 'USD' ? '$' : o.currency}</small></div>
+          <div className="off-total">{total.toLocaleString('ru-RU')} <small>{currencySymbol(o.currency)}</small></div>
         </div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
           <Button size="sm" onClick={() => onSelect(o)}>Выбрать</Button>
@@ -433,7 +434,7 @@ function CompareModal({ open, offers, onClose, onSelect }) {
     ['Багаж', (o) => o.baggage],
     ['Возврат', (o) => o.refundable ? 'Да' : 'Нет'],
     ['Поставщик', (o) => o.supplier],
-    ['Итого', (o) => <b style={{ fontSize: 17 }}>{(o.fare + o.fee).toLocaleString('ru-RU')} {o.currency === 'USD' ? '$' : (o.currency || '₽')}</b>],
+    ['Итого', (o) => <b style={{ fontSize: 17 }}>{(o.fare + o.fee).toLocaleString('ru-RU')} {currencySymbol(o.currency)}</b>],
   ];
   return (
     <Drawer open={open} onClose={onClose} width="min(900px,96vw)"
@@ -655,7 +656,7 @@ function RefundPanel({ passengers, base, currency, onClose, onDone }) {
     setCalc({ cnt, gross, penalty, fee, refund: Math.max(0, gross - penalty - fee) });
   };
   useEffect(() => { setCalc(null); }, [voluntary, sel, docs, supplierPenalty, agencyFee]);
-  const cur = ' ' + (currency === 'USD' ? '$' : currency);
+  const cur = ' ' + currencySymbol(currency);
   return (
     <StackPanel title="Оформление возврата" width="min(680px,96vw)" onClose={onClose}
       footer={<>
@@ -764,7 +765,7 @@ function ExchangePanel({ passengers, base, currency, origin, dest, onClose, onDo
   const pickVariant = (v) => { setPickedVar(v); setNewFare(String(v.fareUsd)); setManualFare(false); };
   const toggle = (i) => setSel((s) => s.includes(i) ? s.filter((x) => x !== i) : [...s, i]);
   const allSel = sel.length === passengers.length;
-  const cur = ' ' + (currency === 'USD' ? '$' : currency);
+  const cur = ' ' + currencySymbol(currency);
   const doCalc = () => {
     if (!sel.length) { toast('Выберите пассажиров для обмена', 'err'); return; }
     if (!nf.to || !nf.date) { toast('Заполните новый рейс (направление и дату)', 'err'); return; }
@@ -929,7 +930,7 @@ const CORR_FIELDS = [
   { key: 'serviceFee',  label: 'Сервисный сбор' },
   { key: 'discount',    label: 'Скидка' },
 ];
-const corrCur = (c) => (c === 'USD' ? '$' : c);
+const corrCur = currencySymbol;
 const corrComputed = (d) => d.baseFare + d.taxes + d.agentMarkup + d.serviceFee - d.discount;
 const corrTotal = (d) => (d.totalOverride != null ? d.totalOverride : corrComputed(d));
 function corrChanges(d) {
@@ -1483,7 +1484,7 @@ function AttachFlightDrawer({ mode, svcTitle, offer, orders: orderOptions = [], 
           client_company: isCompany ? picked.id : null,
           client_person: isCompany ? null : picked.id,
           purpose: 'Авиаперелёт',
-          base_currency: offer.currency || 'USD',
+          base_currency: resolveCurrency(offer.currency),
           source: 'avia_search',
         });
       }
@@ -1559,7 +1560,7 @@ function AttachFlightDrawer({ mode, svcTitle, offer, orders: orderOptions = [], 
 function FlightReceiptDrawer({ open, passengers, pax, legs, air, supplier, fare, fee, currency, onClose }) {
   const toast = useToast();
   const list = pax ? [pax] : passengers;
-  const cur = currency === 'USD' ? '$' : currency;
+  const cur = currencySymbol(currency);
   const money = (v) => Math.round(v).toLocaleString('ru-RU') + ' ' + cur;
   const perPax = (fare + fee) / Math.max(1, passengers.length);
   const taxRows = [];
@@ -1637,8 +1638,8 @@ function FlightCard({ svc, offer, no: noProp, hideBackRow, onBack, onFormKp, onA
   const no = noProp || (svc ? svc.no : `OF-${String(offer?.external_key || offer?.id || '').slice(0, 12).toUpperCase()}`);
   const fare = offer ? offer.fare : (svc ? svc.sum : 0);
   const fee = offer ? offer.fee : 0;
-  const currency = (svc && svc.currency) || (offer && offer.currency) || 'RUB';
-  const cur = currency === 'RUB' ? '₽' : currency === 'USD' ? '$' : currency === 'EUR' ? '€' : (currency || '₽');
+  const currency = resolveCurrency(svc && svc.currency, offer && offer.currency);
+  const cur = currencySymbol(currency);
 
   const { issued, booked, offered, free } = flightStatusFlags(status, svc, offer);
   const [addPaxOpen, setAddPaxOpen] = useState(false);
@@ -2122,7 +2123,7 @@ function FlightCard({ svc, offer, no: noProp, hideBackRow, onBack, onFormKp, onA
     {opConfirm && (
       <OperationConfirmModal open action={opConfirm.action} kind="Авиа"
         service={out.from + ' → ' + out.to + (back ? ' → ' + back.to : '') + ' · ' + airlineName}
-        fin={{ price: fare, fee, total: fare + fee, currency: currency === 'USD' ? '$' : currency }}
+        fin={{ price: fare, fee, total: fare + fee, currency: resolveCurrency(currency) }}
         warnings={[ticketingDeadline ? 'До окончания тайм-лимита бронирования: ' + ticketingDeadline : null, 'Стоимость могла измениться с момента последнего поиска'].filter(Boolean)}
         onConfirm={opConfirm.onConfirm} onClose={() => setOpConfirm(null)} />
     )}
@@ -2237,7 +2238,7 @@ function liveFlightOffer(offer) {
     refundable: Boolean(offer.fare?.refundable), baggage: offer.fare?.baggage === '0PC' ? 'Без багажа' : (offer.fare?.baggage || '—'),
     cabin: offer.fare?.cabin || '—', fareName: offer.fare?.booking_class ? `Класс ${offer.fare.booking_class}` : '—',
     seatsLeft: offer.availability?.seats == null ? null : Number(offer.availability.seats), out: liveFlightLeg(segment), back: null,
-    fare: Number(offer.price?.amount || 0), fee: 0, currency: offer.price?.currency || 'USD',
+    fare: Number(offer.price?.amount || 0), fee: 0, currency: resolveCurrency(offer.price?.currency),
   };
 }
 function serviceFlightRow(item) {
@@ -2265,7 +2266,7 @@ function serviceFlightRow(item) {
     supplier: item.supplier_name || 'Без поставщика',
     status,
     sum: Number(item.client_total || 0),
-    currency: item.currency || 'USD',
+    currency: resolveCurrency(item.currency),
     dep: item.starts_at ? new Date(item.starts_at).toLocaleDateString('ru-RU') : '—',
     out: {
       from: routeParts[0] || '—', to: routeParts[1] || '—',
@@ -2284,7 +2285,7 @@ async function loadLiveFlightOffers(params) {
       date: params.depDate instanceof Date ? params.depDate.toISOString().slice(0, 10) : params.depDate || undefined,
       return_date: params.retDate instanceof Date ? params.retDate.toISOString().slice(0, 10) : params.retDate || undefined,
       cabin: { 'Эконом': 'economy', 'Бизнес': 'business', 'Первый': 'first' }[params.cabin] || 'economy',
-      passengers: paxTotal(params.pax), currency: params.currency || 'RUB',
+      passengers: paxTotal(params.pax), currency: resolveCurrency(params.currency),
       trip: params.trip,
       ...(params.trip === 'mc' ? { segments: (params.segments || []).map((segment) => ({ origin: segment.from, destination: segment.to, date: segment.date instanceof Date ? segment.date.toLocaleDateString('en-CA') : segment.date })) } : {}),
     },
@@ -2344,15 +2345,15 @@ function FlightsPage({ searchIntent, onConsumeSearch, orders = [], clients = [],
     try {
       const until = new Date(); until.setDate(until.getDate() + 7);
       const proposal = await proposalsApi.create({
-        order: service.orderId, type: 'standard', purpose: 'Предложение по авиауслуге', currency: service.currency || 'USD', valid_until: until.toISOString(),
-        variants: [{ name: 'Вариант A', items: [{ service: service.id, service_kind: 'avia', title: service.route, description: service.supplier || '', quantity: 1, price_amount: Number(service.sum || 0), price_currency: service.currency || 'USD' }] }],
+        order: service.orderId, type: 'standard', purpose: 'Предложение по авиауслуге', currency: resolveCurrency(service.currency), valid_until: until.toISOString(),
+        variants: [{ name: 'Вариант A', items: [{ service: service.id, service_kind: 'avia', title: service.route, description: service.supplier || '', quantity: 1, price_amount: Number(service.sum || 0), price_currency: resolveCurrency(service.currency) }] }],
       });
       toast(`КП ${proposal.number} создано в backend`, 'ok');
     } catch (error) { toast(error.message || 'Не удалось создать КП', 'err'); }
   };
   const createReturn = async (service) => {
     try {
-      const created = await aftersalesApi.create({ order: service.orderId, service: service.id, type: 'refund', initiator: 'client', currency: service.currency || 'USD' });
+      const created = await aftersalesApi.create({ order: service.orderId, service: service.id, type: 'refund', initiator: 'client', currency: resolveCurrency(service.currency) });
       toast(`Запрос ${created.number} создан в backend`, 'ok');
     } catch (error) { toast(error.message || 'Не удалось создать запрос на возврат', 'err'); }
   };

@@ -3,11 +3,13 @@ export const TIME_FORMATS = { '24 часа': '24h', '12 часов (AM/PM)': '12
 export const START_PAGES = { 'Главное': 'dashboard', 'Заказы': 'orders', 'Оформление': 'fulfillment', 'Чаты': 'chats' };
 export const LANGUAGES = { 'Русский': 'ru', 'Кыргызча': 'ky', English: 'en' };
 export const THEMES = { 'Светлая': 'light', 'Тёмная': 'dark', 'Системная': 'system' };
+// Валюта, пока пользователь не выбрал свою в «Профиль → Предпочтения».
+export const DEFAULT_CURRENCY = 'RUB';
 const label = (map, value, fallback) => Object.keys(map).find((key) => map[key] === value) || (value in map ? value : fallback);
 export function preferencesToForm(value = {}) {
   return {
     theme: label(THEMES, value.theme, 'Светлая'), dateFmt: label(DATE_FORMATS, value.date_format, 'ДД.ММ.ГГГГ'),
-    timeFmt: label(TIME_FORMATS, value.time_format, '24 часа'), currency: value.base_currency || 'USD',
+    timeFmt: label(TIME_FORMATS, value.time_format, '24 часа'), currency: value.base_currency || DEFAULT_CURRENCY,
     lang: label(LANGUAGES, value.language, 'Русский'), pageSize: String(value.page_size || 25),
     startPage: label(START_PAGES, value.start_page, 'Главное'),
   };

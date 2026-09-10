@@ -27,11 +27,11 @@ import { clientsApi } from '../../clients/api.js';
 import { ordersApi } from '../api/ordersApi.js';
 import { proposalsApi } from '../../proposals/api.js';
 import { moneyRowsText } from '../model/finance.jsx';
-import { getRuntimePreferences } from '../../../shared/preferences/preferences.js';
 import { orderDateOnly, participantPayloadFromUi } from '../api/order-card.js';
 import { companiesApi } from '../../companies/api.js';
 import { resultsOf } from '../../../shared/api/client.js';
 import { toUiOrder } from '../model/orders.mapper.js';
+import { getDefaultCurrency, resolveCurrency } from '../../../shared/lib/money.js';
 
 
 
@@ -419,7 +419,7 @@ function OrderCreateModal({ open, onClose, onCreated, initialGroup = false, init
       const created = await ordersApi.create({
         request_type: isGroup ? 'group' : clientType === 'org' ? 'corporate' : 'individual',
         ...(clientType === 'org' ? { client_company: company.id } : { client_person: selectedClient.id }),
-        base_currency: getRuntimePreferences().base_currency || 'RUB',
+        base_currency: getDefaultCurrency(),
         participants: (clientType === 'org' ? employees : selClients).map((person, index) => participantPayloadFromUi({ ...person, person: person.source ? person.id : null, isContact: index === 0 })),
         planned_start: orderDateOnly(depDate),
         planned_end: orderDateOnly(retDate),
@@ -907,7 +907,7 @@ function OrdersList({ orders, onOpen, onCreate, onNavigate, currentUser }) {
     try {
       const proposal = await proposalsApi.create({
         order: selected.id, type: 'standard', purpose: 'Коммерческое предложение',
-        currency: selected.currency || 'RUB', variants: [{ name: 'Основной вариант', items: [] }],
+        currency: resolveCurrency(selected.currency), variants: [{ name: 'Основной вариант', items: [] }],
       });
       const prepared = await proposalsApi.prepare(proposal.id, proposal.version);
       await proposalsApi.send(prepared.id, prepared.version);

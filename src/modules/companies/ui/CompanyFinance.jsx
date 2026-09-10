@@ -14,22 +14,24 @@ import { CURRENT_USER, FEE_DESC_DEFAULTS, FEE_SCHEMA, FEE_SERVICE_TYPES, FEE_TEM
 import { financeApi } from '../../finance/api.js';
 import { workspaceSettingsApi } from '../../settings/api.js';
 import { resultsOf } from '../../../shared/api/client.js';
+import { currencySymbol, getDefaultCurrency, resolveCurrency } from '../../../shared/lib/money.js';
 
 
 
 // Валюта финансовых условий: в ней указаны фиксированные сборы договора,
 // поэтому её же сравнивает серверный расчёт сервисного сбора бланка.
-const FEE_CURRENCIES = ['USD', 'RUB', 'EUR', 'KZT'];
+const FEE_CURRENCIES = ['RUB', 'USD', 'EUR', 'KGS', 'KZT'];
 const cfCurrency = (value) => {
-  const currency = String((value && value.currency) || 'USD').toUpperCase();
-  return FEE_CURRENCIES.includes(currency) ? currency : 'USD';
+  const currency = resolveCurrency(value && value.currency);
+  if (FEE_CURRENCIES.includes(currency)) return currency;
+  const preferred = getDefaultCurrency();
+  return FEE_CURRENCIES.includes(preferred) ? preferred : FEE_CURRENCIES[0];
 };
-function fM(n, currency = 'USD') {
-  const code = String(currency || 'USD').toUpperCase();
-  return Math.round(n || 0).toLocaleString('ru-RU') + ' ' + (code === 'USD' ? '$' : code);
+function fM(n, currency) {
+  return Math.round(n || 0).toLocaleString('ru-RU') + ' ' + currencySymbol(currency);
 }
-function cfMoneySymbol(currency) { return String(currency || 'USD').toUpperCase() === 'USD' ? '$' : String(currency).toUpperCase(); }
-function feeCellText(fee, currency = 'USD') {
+const cfMoneySymbol = currencySymbol;
+function feeCellText(fee, currency) {
   if (!fee) return '—';
   return fee.type === 'percent' ? (fee.value || 0) + ' %' : fM(fee.value || 0, currency);
 }
@@ -115,7 +117,7 @@ function cfNow() {
 }
 
 
-function DepositCard({ deposit, currency = 'USD' }) {
+function DepositCard({ deposit, currency }) {
   const avail = depositAvailable(deposit);
   return (
     <div className="card card-pad">
@@ -134,7 +136,7 @@ function DepositCard({ deposit, currency = 'USD' }) {
     </div>
   );
 }
-function CreditCard({ credit, currency = 'USD' }) {
+function CreditCard({ credit, currency }) {
   const avail = creditAvailable(credit);
   return (
     <div className="card card-pad">
@@ -156,7 +158,7 @@ function CreditCard({ credit, currency = 'USD' }) {
     </div>
   );
 }
-function DepositHistoryDrawer({ open, deposit, currency = 'USD', onClose }) {
+function DepositHistoryDrawer({ open, deposit, currency, onClose }) {
   return (
     <Drawer open={open} onClose={onClose} title="История депозита"
       footer={<Button variant="secondary" style={{ width: '100%' }} onClick={onClose}>Закрыть</Button>}>
@@ -233,7 +235,7 @@ function CompanyFinanceSection({ fin, onChangeSettlement, onChangeCurrency }) {
 }
 
 
-function AgreementFeesView({ agreement, currency = 'USD' }) {
+function AgreementFeesView({ agreement, currency }) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
       {FEE_SERVICE_TYPES.map((svc) => (
@@ -253,7 +255,7 @@ function AgreementFeesView({ agreement, currency = 'USD' }) {
 }
 
 
-function AgreementEditor({ open, agreement, currency = 'USD', onClose, onSave }) {
+function AgreementEditor({ open, agreement, currency, onClose, onSave }) {
   const [tab, setTab] = useState(FEE_SERVICE_TYPES[0]);
   const [tpl, setTpl] = useState(agreement ? (agreement.template || 'standard') : 'standard');
   const [fees, setFees] = useState(() => cfNormalizeAgreement(agreement).fees);
@@ -476,7 +478,7 @@ function CompanyContracts({ fin, onFinChange }) {
 
 
 
-function CompanySettlementsBlock({ co, currency = 'USD' }) {
+function CompanySettlementsBlock({ co, currency }) {
   const toast = useToast();
   const companyId = co.serverId || co.id;
   const [summary, setSummary] = useState(null);
@@ -626,7 +628,7 @@ function CompanySettlementsBlock({ co, currency = 'USD' }) {
 function CompanyFinanceCreateDrawer({ open, co, onClose, onCreated }) {
   const toast = useToast();
   const [settlement, setSettlement] = useState('предоплата');
-  const [currency, setCurrency] = useState('USD');
+  const [currency, setCurrency] = useState(cfCurrency);
   const [template, setTemplate] = useState('standard');
   const [contractNo, setContractNo] = useState('');
   const [contractDate, setContractDate] = useState(() => new Date());
@@ -638,7 +640,7 @@ function CompanyFinanceCreateDrawer({ open, co, onClose, onCreated }) {
   useEffect(() => {
     if (!open) return;
     setSettlement('предоплата');
-    setCurrency('USD');
+    setCurrency(cfCurrency());
     setTemplate('standard');
     setContractNo('');
     setContractDate(new Date());

@@ -1,5 +1,6 @@
 import { SERVICE_KIND } from '../../../shared/constants/service-kind.js';
 import { asDate } from '../../../shared/lib/adapter-dates.js';
+import { resolveCurrency } from '../../../shared/lib/money.js';
 
 const ORDER_STATUS = {
   new: 'Новое', in_progress: 'В работе', awaiting_confirmation: 'Ожидает подтверж.',
@@ -24,8 +25,8 @@ function toUiOrder(order) {
     operator: order.operator_name || 'Не назначен',
     operatorRole: 'Оператор',
     sum: Number(order.total_amount || 0),
-    currency: order.base_currency || 'RUB',
-    totals: order.totals_by_currency || [{ amount: order.total_amount || 0, currency: order.base_currency || 'RUB' }],
+    currency: resolveCurrency(order.base_currency),
+    totals: order.totals_by_currency || [{ amount: order.total_amount || 0, currency: resolveCurrency(order.base_currency) }],
     services: Number(order.services_count || 0),
     progress: order.stage === 'completed' ? 100 : 0,
     date: date ? date.toLocaleDateString('ru-RU') : '',

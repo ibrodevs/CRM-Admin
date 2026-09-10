@@ -18,6 +18,7 @@ import { StackPanel } from '../../locations/index.js';
 import { UnifiedBindPicker } from '../../clients/index.js';
 import { servicesApi } from '../api/servicesApi.js';
 import { resultsOf } from '../../../shared/api/client.js';
+import { currencySymbol, resolveCurrency } from '../../../shared/lib/money.js';
 
 
 
@@ -33,9 +34,8 @@ const HP_SORT_LABEL = HP_SORT_OPTS.reduce((m, [k, l]) => (m[k] = l, m), {});
 
 const HP_RADIUS_OPTS = ['500 м', '1 км', '2 км', '5 км', '10 км', 'Без ограничений'];
 
-function hpM(n, currency = 'RUB') {
-  const symbol = { RUB: '₽', USD: '$', EUR: '€', KGS: 'сом' }[currency] || currency;
-  return Number(n || 0).toLocaleString('ru-RU', { maximumFractionDigits: 2 }) + ' ' + symbol;
+function hpM(n, currency) {
+  return Number(n || 0).toLocaleString('ru-RU', { maximumFractionDigits: 2 }) + ' ' + currencySymbol(currency);
 }
 function hpStars(n) { return '★★★★★'.slice(0, n); }
 function hpNights(ci, co) {
@@ -47,7 +47,7 @@ function hotelOfferToUi(offer, criteria = {}) {
   const itinerary = offer.itinerary || {};
   const fare = offer.fare || {};
   const base = Number(offer.price?.amount || 0);
-  const currency = offer.price?.currency || 'USD';
+  const currency = resolveCurrency(offer.price?.currency);
   const rawCapacity = itinerary.max_occupancy ?? itinerary.capacity ?? fare.max_occupancy;
   const cap = Number.isFinite(Number(rawCapacity)) && Number(rawCapacity) > 0 ? Number(rawCapacity) : null;
   const cancellation = fare.cancellation_rules || fare.cancellation || itinerary.cancellation_rules || '';
@@ -163,7 +163,7 @@ function HotelFilters({ stars, toggleStar, starCounts, districts, distSel, toggl
 
 
 
-function HotelPicker({ participants, group = false, onApply, onCancel, currency = 'RUB' }) {
+function HotelPicker({ participants, group = false, onApply, onCancel, currency }) {
   const toast = useToast();
   const PAX = Array.isArray(participants) ? participants : [];
 

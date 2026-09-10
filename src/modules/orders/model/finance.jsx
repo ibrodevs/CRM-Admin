@@ -1,25 +1,18 @@
 
-function normalizeCurrency(currency, fallback = 'RUB') {
-  const value = String(currency || '').trim();
-  if (!value) return fallback;
-  const code = value.toUpperCase();
-  if (['RUB', 'RUR', '₽', 'РУБ'].includes(code)) return 'RUB';
-  if (['USD', '$'].includes(code)) return 'USD';
-  if (['EUR', '€'].includes(code)) return 'EUR';
-  if (['KGS', 'СОМ'].includes(code)) return 'KGS';
-  return code;
+import { currencySymbol, resolveCurrency } from '../../../shared/lib/money.js';
+
+// Пустая валюта означает «не указана», а не «доллар»: подставляем валюту
+// по умолчанию из настроек пользователя.
+function normalizeCurrency(currency, fallback) {
+  const code = resolveCurrency(currency, fallback);
+  return ['RUR', 'РУБ'].includes(code) ? 'RUB' : code;
 }
 
-function ocCurrency(currency = 'RUB') {
-  const code = normalizeCurrency(currency);
-  if (code === 'USD') return '$';
-  if (code === 'RUB') return '₽';
-  if (code === 'EUR') return '€';
-  if (code === 'KGS') return 'сом';
-  return code;
+function ocCurrency(currency) {
+  return currencySymbol(normalizeCurrency(currency));
 }
 
-function ocMoney(amount, currency = 'RUB') {
+function ocMoney(amount, currency) {
   const value = Number(amount);
   return (Number.isFinite(value) ? value : 0).toLocaleString('ru-RU', { maximumFractionDigits: 2 }) + ' ' + ocCurrency(currency);
 }
@@ -41,7 +34,7 @@ function orderFinanceCurrency(summary, order = {}, services = []) {
   const summaryCurrency = summaryRows.find((row) => row?.currency)?.currency;
   const serviceCurrency = (services || []).find((service) => service?.currency)?.currency;
   return normalizeCurrency(
-    summaryCurrency || order.base_currency || order.currency || serviceCurrency || 'RUB',
+    summaryCurrency || order.base_currency || order.currency || serviceCurrency,
   );
 }
 
@@ -85,7 +78,7 @@ function activeOrderServices(services = []) {
   return services.filter((service) => !['cancelled', 'failed', 'Отменено', 'Ошибка'].includes(service.statusCode || service.status));
 }
 
-function serviceMoneyRows(services = [], fallback = 'RUB') {
+function serviceMoneyRows(services = [], fallback) {
   const totals = new Map();
   activeOrderServices(services).forEach((service) => {
     const currency = normalizeCurrency(service.currency, fallback);
@@ -94,11 +87,11 @@ function serviceMoneyRows(services = [], fallback = 'RUB') {
   return [...totals].map(([currency, amount]) => ({ currency, amount }));
 }
 
-function moneyRowsText(rows = [], fallback = 'RUB') {
+function moneyRowsText(rows = [], fallback) {
   return rows.length ? rows.map((row) => ocMoney(row.amount, row.currency)).join(' + ') : ocMoney(0, fallback);
 }
 
-function financeSnapshot(orderNo, services, summary = null, fallback = 'RUB') {
+function financeSnapshot(orderNo, services, summary = null, fallback) {
   const totals = summary?.services_total || serviceMoneyRows(services, fallback);
   return { totals, totalText: moneyRowsText(totals, fallback),
     paidText: summary ? moneyRowsText(summary.paid, fallback) : 'Нет данных',

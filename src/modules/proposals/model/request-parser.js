@@ -133,7 +133,7 @@ export function parseKpRequest(rawText) {
   };
 }
 
-export function kpBriefItems(brief, currency = 'USD', sourceText = '') {
+export function kpBriefItems(brief, currency, sourceText = '') {
   return (brief?.services || []).map((service) => ({
     service_kind: service.kind,
     title: service.title,

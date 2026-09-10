@@ -1,5 +1,5 @@
 import { translate as t } from '../../../shared/preferences/translations.js';
-import { preferencesToForm, preferencesFromForm, formatProfileDate } from '../../../shared/preferences/preferences.js';
+import { DEFAULT_CURRENCY, preferencesToForm, preferencesFromForm, formatProfileDate } from '../../../shared/preferences/preferences.js';
 import { useEffect, useState } from 'react';
 import { Icon } from '../../../shared/icons/index.jsx';
 import { Avatar } from '../../../shared/ui/Avatar.jsx';
@@ -212,7 +212,7 @@ function ProfilePage({ user, onNavigate, initialTab }) {
   const [devices, setDevices] = useState([]);
   const [loaded, setLoaded] = useState({ preferences: false, security: false });
   const [saving, setSaving] = useState(false);
-  const [prefs, setPrefs] = useState({ theme: 'Светлая', dateFmt: 'ДД.ММ.ГГГГ', timeFmt: '24 часа', currency: 'USD', lang: u.lang, pageSize: '25', startPage: 'Главное' });
+  const [prefs, setPrefs] = useState({ theme: 'Светлая', dateFmt: 'ДД.ММ.ГГГГ', timeFmt: '24 часа', currency: DEFAULT_CURRENCY, lang: u.lang, pageSize: '25', startPage: 'Главное' });
   const [twoFactor, setTwoFactor] = useState({ enabled: false, confirmedAt: null, setupOpen: false, disableOpen: false, secret: '', uri: '', code: '', password: '' });
 
   useEffect(() => { setPf({ ...u }); }, [u.id]);

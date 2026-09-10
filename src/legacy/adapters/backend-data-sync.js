@@ -1,4 +1,5 @@
 import { CURRENCIES, CHAT_THREADS, CLIENTS, CLIENTS_DB, COMPANIES_DB, CURRENT_USER, DOCUMENTS, FINANCE, FIN_OPS, GROUP_PAX, NOTIFICATIONS, OPERATORS, ORDER_PARTICIPANTS, ORDER_SERVICES, ORDER_TASKS, ORDERS, PROPOSALS, RETURNS, SUPPLIERS, USERS } from '../data/index.jsx';
+import { resolveCurrency } from '../../shared/lib/money.js';
 
 function replaceArray(target, source) {
   if (!Array.isArray(target) || !Array.isArray(source)) return;
@@ -33,7 +34,7 @@ function financeRowsFrom(transactions) {
     service: row.service_kind || row.service || '—',
     sum: row.amount || row.total || 0,
     paid: row.paid_amount || row.amount || 0,
-    currency: row.currency || 'USD',
+    currency: resolveCurrency(row.currency),
     resp: row.responsible_name || '—',
     status: row.status_display || row.status || '—',
   }));

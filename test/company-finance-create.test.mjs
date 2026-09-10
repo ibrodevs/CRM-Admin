@@ -36,10 +36,10 @@ test('депозит и отсрочка получают корректные �
 test('валюта финансовых условий задаётся и видна в суммах договора', async () => {
   const source = await readFile(financeUrl, 'utf8');
 
-  assert.match(source, /const FEE_CURRENCIES = \['USD', 'RUB', 'EUR', 'KZT'\]/);
+  assert.match(source, /const FEE_CURRENCIES = \['RUB', 'USD', 'EUR', 'KGS', 'KZT'\]/);
   assert.match(source, /const cfCurrency = \(value\) => \{/);
-  assert.match(source, /function fM\(n, currency = 'USD'\)/);
-  assert.match(source, /const \[currency, setCurrency\] = useState\('USD'\)/);
+  assert.match(source, /function fM\(n, currency\) \{/);
+  assert.match(source, /const \[currency, setCurrency\] = useState\(cfCurrency\)/);
   assert.match(source, /    const next = \{\n      settlement,\n      currency,/);
   assert.match(source, /const setCurrency = \(value\) => updateFin\(\{ \.\.\.fin, currency: value \}\)/);
   assert.match(source, /onChangeCurrency=\{setCurrency\}/);

@@ -14,6 +14,7 @@ import { TP_AIRLINES, TP_BOARD, TP_CAR_CLASSES, TP_CLASSES_AVIA, TP_COMPLIANCE, 
 import { CollapseSection } from '../../orders/index.js';
 import { resultsOf } from '../../../shared/api/client.js';
 import { travelPolicyApi } from '../api/travelPolicyApi.js';
+import { resolveCurrency } from '../../../shared/lib/money.js';
 
 
 
@@ -431,16 +432,16 @@ function policyFromApi(row) {
   return mergePolicy({
     scope: typeof scope === 'string' ? scope : scope?.scope || base.scope,
     scopeValue: typeof scope === 'object' ? scope?.value || '' : '',
-    avia: { classAllowed: row?.allowed_avia_cabins?.[0] || '', airlinesAllowed: row?.allowed_airlines || [], maxPrice: limit('avia').amount || '', maxPriceCur: limit('avia').currency || 'RUB', minLeadDays: row?.min_advance_booking_days || '' },
-    rail: { wagonClass: row?.allowed_rail_classes?.[0] || '', wagonTypes: row?.allowed_train_types || [], maxPrice: limit('rail').amount || '', maxPriceCur: limit('rail').currency || 'RUB', minLeadDays: row?.min_advance_booking_days || '' },
-    hotels: { maxCategory: row?.allowed_hotel_categories?.[0] || '', chainsAllowed: row?.allowed_hotel_chains || [], boardAllowed: row?.allowed_meal_plans || [], maxNight: limit('hotel').amount || '', maxNightCur: limit('hotel').currency || 'RUB' },
-    transfers: { carClasses: row?.allowed_car_classes || [], maxPrice: limit('transfer').amount || '', maxPriceCur: limit('transfer').currency || 'RUB' },
+    avia: { classAllowed: row?.allowed_avia_cabins?.[0] || '', airlinesAllowed: row?.allowed_airlines || [], maxPrice: limit('avia').amount || '', maxPriceCur: resolveCurrency(limit('avia').currency), minLeadDays: row?.min_advance_booking_days || '' },
+    rail: { wagonClass: row?.allowed_rail_classes?.[0] || '', wagonTypes: row?.allowed_train_types || [], maxPrice: limit('rail').amount || '', maxPriceCur: resolveCurrency(limit('rail').currency), minLeadDays: row?.min_advance_booking_days || '' },
+    hotels: { maxCategory: row?.allowed_hotel_categories?.[0] || '', chainsAllowed: row?.allowed_hotel_chains || [], boardAllowed: row?.allowed_meal_plans || [], maxNight: limit('hotel').amount || '', maxNightCur: resolveCurrency(limit('hotel').currency) },
+    transfers: { carClasses: row?.allowed_car_classes || [], maxPrice: limit('transfer').amount || '', maxPriceCur: resolveCurrency(limit('transfer').currency) },
     approval: { required: Boolean(row?.approver_chain?.length), approvers: row?.approver_chain || [] },
   });
 }
 function policyToApi(pol) {
   const limits = {};
-  const addLimit = (kind, amount, currency) => { if (amount !== '' && amount != null) limits[kind] = { amount: Number(amount), currency: currency || 'RUB' }; };
+  const addLimit = (kind, amount, currency) => { if (amount !== '' && amount != null) limits[kind] = { amount: Number(amount), currency: resolveCurrency(currency) }; };
   addLimit('avia', pol.avia.maxPrice, pol.avia.maxPriceCur);
   addLimit('rail', pol.rail.maxPrice, pol.rail.maxPriceCur);
   addLimit('hotel', pol.hotels.maxNight, pol.hotels.maxNightCur);

@@ -16,13 +16,13 @@ import { documentsApi } from '../../documents/api.js';
 import { ordersApi } from '../api/ordersApi.js';
 import { proposalsApi } from '../../proposals/api.js';
 import { resultsOf } from '../../../shared/api/client.js';
+import { currencySymbol, resolveCurrency } from '../../../shared/lib/money.js';
 
 
 
 function bwRub(s) { return Number(s?.sum || 0); }
-function bwMoney(n, currency = 'RUB') {
-  const symbol = { RUB: '₽', USD: '$', EUR: '€', KGS: 'сом' }[currency] || currency;
-  return Number(n || 0).toLocaleString('ru-RU', { maximumFractionDigits: 2 }) + ' ' + symbol;
+function bwMoney(n, currency) {
+  return Number(n || 0).toLocaleString('ru-RU', { maximumFractionDigits: 2 }) + ' ' + currencySymbol(currency);
 }
 
 
@@ -88,7 +88,7 @@ function offerFromServices(order, services) {
     id: 'ПРЕД-' + (order ? order.no : '0000'), client: order ? order.client : '—', order: order ? order.no : 0,
     created: `${p(now.getDate())}.${p(now.getMonth() + 1)}.${now.getFullYear()}`,
     validUntil: `${p(now.getDate())}.${p(now.getMonth() + 1)}.${now.getFullYear()}`,
-    currency: services[0]?.currency || order?.currency || order?.base_currency || 'RUB', approvedVariant: null,
+    currency: resolveCurrency(services[0]?.currency, order?.currency, order?.base_currency), approvedVariant: null,
     variants: [{ id: 'v1', name: 'Основной вариант', items }],
   };
 }
@@ -121,7 +121,7 @@ function BookingWizard({ order, services, draft, onClose, onComplete, onSaveDraf
 
 
   const STEPS = ['Выбор вариантов', 'Получение ответов', 'Подтверждение', 'Выписка и оплата', 'Завершение'];
-  const currency = bookingServices[0]?.currency || order?.currency || order?.base_currency || 'RUB';
+  const currency = resolveCurrency(bookingServices[0]?.currency, order?.currency, order?.base_currency);
   const sameCurrency = bookingServices.every((service) => (service.currency || currency) === currency);
   const total = sameCurrency ? bookingServices.reduce((a, s) => a + bwRub(s), 0) : 0;
   const fee = sameCurrency ? bookingServices.reduce((sum, service) => sum + Number(svcCalc(service).fee || 0), 0) : 0;
@@ -238,10 +238,10 @@ function BookingWizard({ order, services, draft, onClose, onComplete, onSaveDraf
       if (!proposal) {
         proposal = await proposalsApi.create({
           order: order.id, type: 'booking', purpose: 'Подтверждение вариантов перед выпиской',
-          currency: bookingServices[0]?.currency || order?.currency || order?.base_currency || 'RUB',
+          currency: resolveCurrency(bookingServices[0]?.currency, order?.currency, order?.base_currency),
           variants: [{ name: 'Основной вариант', items: bookingServices.map((service) => ({
             service: service.serverId || service.id, title: service.title, description: service.sub || '',
-            quantity: 1, price_amount: service.sum || 0, price_currency: service.currency || order?.currency || order?.base_currency || 'RUB',
+            quantity: 1, price_amount: service.sum || 0, price_currency: resolveCurrency(service.currency, order?.currency, order?.base_currency),
           })) }],
         });
         proposal = await proposalsApi.prepare(proposal.id, proposal.version);

@@ -2,6 +2,7 @@ import { applicationSource } from './helpers/application-source.mjs';
 import assert from 'node:assert/strict';
 import { readFile } from './helpers/source.mjs';
 import test from 'node:test';
+import { resolveCurrency } from '../src/shared/lib/money.js';
 
 const page = await readFile(new URL('../src/modules/receipts/ui/ReceiptEditorPage.jsx', import.meta.url), 'utf8');
 const app = applicationSource;
@@ -20,10 +21,11 @@ function loadPlanHelpers() {
     assert.ok(from >= 0 && to > from, `helper ${name} must exist`);
     return page.slice(from, to + 2);
   });
-  return Function('receiptGroupedTickets', 'normalizeReceiptDraft',
+  return Function('receiptGroupedTickets', 'normalizeReceiptDraft', 'resolveCurrency',
     `${sources.join('\n')}\nreturn { ${names.join(', ')} };`)(
     (file) => (file?.subReceipts?.length ? file.subReceipts : (file?.parsed?.groupTickets || [])),
     (_type, value) => value,
+    resolveCurrency,
   );
 }
 

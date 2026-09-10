@@ -10,6 +10,7 @@ import { TRIP_CRIT, controlCenterFeed, critMax, crossTripConflicts, trDay, trDay
 import { Topbar } from '../../../shared/ui/Topbar.jsx';
 import { CAL_EVENT_TYPES, CalDayMenu, CalEventChip, CalEventCreator, CalEventPanel, calEventsOn, calendarEventToUi, hydrateCalendarEvents } from './CalendarEvents.jsx';
 import { calendarApi } from '../api/calendarApi.js';
+import { getDefaultCurrency } from '../../../shared/lib/money.js';
 
 
 
@@ -689,7 +690,7 @@ function TripCalendarPage({ role, feed, orders = [], clients = [], companies = [
         request_type: 'individual', client_person: client?.id || null, client_company: company?.id || null,
         planned_start: event.date.toISOString().slice(0, 10),
         planned_end: event.endStr ? event.endStr.split('.').reverse().join('-') : null,
-        purpose: event.form.direction || 'Поездка из календаря', base_currency: 'RUB', source: 'calendar',
+        purpose: event.form.direction || 'Поездка из календаря', base_currency: getDefaultCurrency(), source: 'calendar',
       });
     }
     const assignee = users.find((user) => (user.full_name || user.name) === event.resp);

@@ -17,6 +17,7 @@ import { Topbar } from '../../../shared/ui/Topbar.jsx';
 import { financeApi } from '../api/financeApi.js';
 import { resultsOf } from '../../../shared/api/client.js';
 import { f$, FIN_ACCT_GROUPS, FIN_PAY_STATUS } from '../../../legacy/data/finance.jsx';
+import { currencySymbol, getDefaultCurrency, resolveCurrency } from '../../../shared/lib/money.js';
 
 const financeDate = (value) => {
   if (!value) return '—';
@@ -24,11 +25,8 @@ const financeDate = (value) => {
   const parts = day.split('-');
   return parts.length === 3 ? parts.reverse().join('.') : new Date(value).toLocaleDateString('ru-RU');
 };
-const financeMoney = (value, currency = 'USD') => {
-  const code = String(currency || 'USD').toUpperCase();
-  const symbol = { USD: '$', EUR: '€', RUB: '₽', KGS: 'сом', KZT: '₸' }[code] || code;
-  return `${Number(value || 0).toLocaleString('ru-RU', { maximumFractionDigits: 2 })} ${symbol}`;
-};
+const financeMoney = (value, currency) =>
+  `${Number(value || 0).toLocaleString('ru-RU', { maximumFractionDigits: 2 })} ${currencySymbol(currency)}`;
 const saveFinanceBlob = (blob, filename) => {
   const url = URL.createObjectURL(blob);
   const link = document.createElement('a');
@@ -109,7 +107,7 @@ const financeReceiptRow = (obligation) => {
     basis: `Заказ № ${obligation.order_number || '—'}`,
     resp: 'Backend',
     sum: Number(obligation.outstanding || 0),
-    currency: obligation.currency || 'USD',
+    currency: resolveCurrency(obligation.currency),
     overdue,
   };
 };
@@ -125,7 +123,7 @@ const financeCounterpartyRow = (obligation) => {
   const order = obligation.order_number || String(obligation.order || '').slice(0, 8);
   const name = supplier ? (obligation.supplier_name || `Поставщик · заказ ${order}`) : (obligation.client_name || `Клиент · заказ ${order}`);
   const status = obligation.status === 'settled' ? 'Оплачено' : overdueDays ? 'Просрочено' : 'Ожидает оплаты';
-  const item = { id: obligation.id, order, doc: `Обязательство ${String(obligation.id || '').slice(0, 8)}`, kind: obligation.service_kind || 'Прочее', currency: obligation.currency || 'USD', sum: amount, paid, rest, since: financeDate(obligation.created_at), due: financeDate(dueRaw), daysToDue: overdueDays ? -overdueDays : 0, overdueDays, status };
+  const item = { id: obligation.id, order, doc: `Обязательство ${String(obligation.id || '').slice(0, 8)}`, kind: obligation.service_kind || 'Прочее', currency: resolveCurrency(obligation.currency), sum: amount, paid, rest, since: financeDate(obligation.created_at), due: financeDate(dueRaw), daysToDue: overdueDays ? -overdueDays : 0, overdueDays, status };
   return {
     id: obligation.id,
     type: supplier ? 'supplier' : 'client',
@@ -136,7 +134,7 @@ const financeCounterpartyRow = (obligation) => {
     deferralStart: 'от даты документа',
     limit: 0,
     used: rest,
-    currency: obligation.currency || 'USD',
+    currency: resolveCurrency(obligation.currency),
     guaranteeLetter: false,
     approveOnExceed: false,
     debt: rest,
@@ -249,7 +247,7 @@ function FinOverview({ onGoTab, overview, accounts = [], payments = [], receipts
     ...economics.map((item) => item.currency),
   ].filter(Boolean))).sort();
   const [selectedCurrency, setSelectedCurrency] = useState('');
-  const currency = currencies.includes(selectedCurrency) ? selectedCurrency : currencies[0] || 'USD';
+  const currency = currencies.includes(selectedCurrency) ? selectedCurrency : currencies[0] || getDefaultCurrency();
   const currencyAccounts = accounts.filter((item) => item.currency === currency);
   const currencyPayments = payments.filter((item) => item.currency === currency);
   const currencyReceipts = receipts.filter((item) => item.currency === currency);
@@ -290,7 +288,7 @@ function FinOverview({ onGoTab, overview, accounts = [], payments = [], receipts
     <div className="fade-in">
       <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 12 }}>
         <Field label="Валюта">
-          <Select value={currency} onChange={(event) => setSelectedCurrency(event.target.value)} options={currencies.length ? currencies : ['USD']} style={{ width: 130 }} />
+          <Select value={currency} onChange={(event) => setSelectedCurrency(event.target.value)} options={currencies.length ? currencies : [getDefaultCurrency()]} style={{ width: 130 }} />
         </Field>
       </div>
       {overdue > 0 && <WarnBanner tone="red" title={'Просроченная дебиторская задолженность: ' + financeMoney(overdue, currency)}
@@ -452,7 +450,7 @@ function FinPaymentDrawer({ p, onClose, onConfirm }) {
   );
 }
 
-const FIN_CURRENCIES = ['USD', 'KGS', 'RUB', 'EUR', 'KZT'];
+const FIN_CURRENCIES = ['RUB', 'USD', 'KGS', 'EUR', 'KZT'];
 
 function FinPickerDrawer({ open, title, sub, rows, placeholder, value, onClose, onPick }) {
   const [q, setQ] = useState('');
@@ -498,7 +496,7 @@ function NewPaymentDrawer({ open, onClose, onCreate, clientRows = [], supplierRo
   const [dir, setDir] = useState('in');
   const [partyKey, setPartyKey] = useState('');
   const [amount, setAmount] = useState('');
-  const [currency, setCurrency] = useState('USD');
+  const [currency, setCurrency] = useState(getDefaultCurrency);
   const [purpose, setPurpose] = useState('');
   const [orderId, setOrderId] = useState('');
   const [method, setMethod] = useState('manual');
@@ -514,7 +512,7 @@ function NewPaymentDrawer({ open, onClose, onCreate, clientRows = [], supplierRo
     setDir('in');
     setPartyKey('');
     setAmount('');
-    setCurrency('USD');
+    setCurrency(getDefaultCurrency());
     setPurpose('');
     setOrderId('');
     setMethod('manual');
@@ -657,7 +655,7 @@ function FinTreasury({ accounts = [], payments = [], receipts = [] }) {
     ...receipts.map((item) => item.currency),
   ].filter(Boolean))).sort();
   const [selectedCurrency, setSelectedCurrency] = useState('');
-  const currency = currencies.includes(selectedCurrency) ? selectedCurrency : currencies[0] || 'USD';
+  const currency = currencies.includes(selectedCurrency) ? selectedCurrency : currencies[0] || getDefaultCurrency();
   const currencyAccounts = accounts.filter((item) => item.currency === currency && item.kind !== 'deposit');
   const planned = payments
     .filter((item) => item.currency === currency && item.dir === 'out' && !['Исполнено', 'Отменено', 'Отклонено'].includes(item.status))
@@ -682,7 +680,7 @@ function FinTreasury({ accounts = [], payments = [], receipts = [] }) {
     <div className="fade-in">
       <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 12 }}>
         <Field label="Валюта">
-          <Select value={currency} onChange={(event) => setSelectedCurrency(event.target.value)} options={currencies.length ? currencies : ['USD']} style={{ width: 130 }} />
+          <Select value={currency} onChange={(event) => setSelectedCurrency(event.target.value)} options={currencies.length ? currencies : [getDefaultCurrency()]} style={{ width: 130 }} />
         </Field>
       </div>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px,1fr))', gap: 12, marginBottom: 14 }}>
@@ -1107,7 +1105,7 @@ function FinEconomics({ economics = [] }) {
 function FinAnalytics({ cashflow = [] }) {
   const currencies = Array.from(new Set(cashflow.map((item) => item.currency).filter(Boolean))).sort();
   const [selectedCurrency, setSelectedCurrency] = useState('');
-  const currency = currencies.includes(selectedCurrency) ? selectedCurrency : currencies[0] || 'USD';
+  const currency = currencies.includes(selectedCurrency) ? selectedCurrency : currencies[0] || getDefaultCurrency();
   const grouped = new Map();
   cashflow.filter((item) => item.currency === currency).forEach((item) => {
     const key = financeDate(item.date);
@@ -1125,7 +1123,7 @@ function FinAnalytics({ cashflow = [] }) {
     <div className="fade-in">
       <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 12 }}>
         <Field label="Валюта">
-          <Select value={currency} onChange={(event) => setSelectedCurrency(event.target.value)} options={currencies.length ? currencies : ['USD']} style={{ width: 130 }} />
+          <Select value={currency} onChange={(event) => setSelectedCurrency(event.target.value)} options={currencies.length ? currencies : [getDefaultCurrency()]} style={{ width: 130 }} />
         </Field>
       </div>
       {!rows.length ? <EmptyState icon="finance" title="Подтверждённых денежных операций нет" /> : (

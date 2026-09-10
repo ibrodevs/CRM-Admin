@@ -29,6 +29,7 @@ import { servicesApi } from '../../services/api.js';
 import { toLegacyProposal } from '../../../legacy/adapters/legacy-adapters.js';
 import { resultsOf } from '../../../shared/api/client.js';
 import { kpBriefItems, parseKpRequest } from '../model/request-parser.js';
+import { currencySymbol, resolveCurrency } from '../../../shared/lib/money.js';
 
 
 // Срок действия КП = дата + время, оба выбираются шаблонно (без произвольного ввода).
@@ -47,7 +48,7 @@ function ValidUntilField({ value, onChange, label = 'Срок действия �
 
 
 
-function kpM(n, c = 'USD') { const sym = (CURRENCIES.find((x) => x.code === c) || {}).sym || c; return Math.round(n).toLocaleString('ru-RU') + ' ' + sym; }
+function kpM(n, c) { const code = resolveCurrency(c); const sym = (CURRENCIES.find((x) => x.code === code) || {}).sym || currencySymbol(code); return Math.round(n).toLocaleString('ru-RU') + ' ' + sym; }
 function varCost(v) { return v.items.reduce((s, i) => s + (+i.cost || 0), 0); }
 function varFee(v) { return v.items.reduce((s, i) => s + (+i.fee || 0), 0); }
 function varTotal(v) { return varCost(v) + varFee(v); }
@@ -455,10 +456,10 @@ function KPModule({ order, services, participants, onApprove }) {
     description: item.sub || item.description || '',
     quantity: 1,
     price_amount: String(Number(item.cost || 0) + Number(item.fee || 0)),
-    price_currency: currency || 'USD',
+    price_currency: resolveCurrency(currency),
   });
   const proposalTrainVariantsPayload = (proposal) => {
-    const currency = proposal.currency || 'USD';
+    const currency = resolveCurrency(proposal.currency);
     const trainItems = (proposal.train?.trips || []).map((trip) => proposalItemPayload({
       kind: 'rail',
       title: [trip.carrier, trip.number, trip.route].filter(Boolean).join(' · ') || 'ЖД переезд',
@@ -484,7 +485,7 @@ function KPModule({ order, services, participants, onApprove }) {
   };
   const proposalDraftPayload = (proposal) => ({
     version: proposal.version,
-    currency: proposal.currency || 'USD',
+    currency: resolveCurrency(proposal.currency),
     valid_until: kpValidUntilIso(proposal.validUntil),
     variants: proposal.docType === 'train' ? proposalTrainVariantsPayload(proposal) : (proposal.variants || []).map((variant) => ({
       name: variant.name,
@@ -1340,7 +1341,7 @@ function ProposalSendPanel({ proposal, participants = [], onSend, onClose }) {
   const defChannel = proposal.order ? orderClientChannel(proposal.order) : 'email';
   const [channel, setChannel] = useState(defChannel);
   const meta = sendChannelMeta(channel);
-  const cur = proposal.currency || 'USD';
+  const cur = resolveCurrency(proposal.currency);
   const variants = proposal.variants || [];
   const multi = variants.length > 1;
   return (
@@ -1470,7 +1471,7 @@ function StandaloneKPEditor({ proposal, orders = [], onClose, onSaved, onSend })
         recipient: draft.recipient || '',
         payment_terms: draft.payment_terms || '',
         brief: draft.brief || {},
-        currency: draft.currency || 'USD',
+        currency: resolveCurrency(draft.currency),
         valid_until: kpValidUntilIso(draft.validUntil),
         variants: draft.variants.map((item) => ({
           name: item.name,
@@ -1480,7 +1481,7 @@ function StandaloneKPEditor({ proposal, orders = [], onClose, onSaved, onSend })
             description: entry.sub || entry.description || '',
             quantity: 1,
             price_amount: String(Number(entry.cost || 0) + Number(entry.fee || 0)),
-            price_currency: draft.currency || 'USD',
+            price_currency: resolveCurrency(draft.currency),
           })),
         })),
       });

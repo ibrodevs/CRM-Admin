@@ -34,6 +34,7 @@ import { resultsOf } from '../../../shared/api/client.js';
 import { sumCurrencies, pUsd, ordersOf, orderDate } from '../../clients/model.js';
 import { ordersForCompany, toUiDepartment, toUiEmployee } from '../model/people-helpers.js';
 import { citizenshipCode, personPayloadFromUnified } from '../../clients/index.js';
+import { currencySymbol } from '../../../shared/lib/money.js';
 
 function EmployeeCreateDrawer({ open, departments, defaultDept, coName, initial, onClose, onCreate }) {
   const toast = useToast();
@@ -103,7 +104,7 @@ function EmployeeProfileDrawer({ emp, dept, coName, onClose, onOpenOrder, onRemo
             <tbody>{trips.map((o, i) => (
               <tr key={i} style={{ cursor: 'pointer' }} onClick={() => { onOpenOrder && onOpenOrder(o); onClose(); }}>
                 <td className="t-strong">{o.no}</td><td>{orderDate(o)}</td><td><Pill tone={ORDER_STATUS[o.status]}>{o.status}</Pill></td>
-                <td>{o.service}</td><td style={{ textAlign: 'right', fontWeight: 600 }}>{o.sum} {o.currency}</td>
+                <td>{o.service}</td><td style={{ textAlign: 'right', fontWeight: 600 }}>{o.sum} {currencySymbol(o.currency)}</td>
                 <td><span className="go-dot"><Icon name="chevRight" /></span></td>
               </tr>
             ))}</tbody>
@@ -456,7 +457,7 @@ function CompanyCard({ co, orders: allOrders = ORDERS, onBack, onOpenOrder, onCr
             <tbody>{orders.map((o, i) => (
               <tr key={i} style={{ cursor: 'pointer' }} onClick={() => onOpenOrder(o)}>
                 <td className="t-strong">{o.no}</td><td>{orderDate(o)}</td><td><Pill tone={ORDER_STATUS[o.status]}>{o.status}</Pill></td><td>{o.service}</td><td>{o.operator}</td>
-                <td style={{ textAlign: 'right', fontWeight: 600 }}>{o.sum} {o.currency}</td><td><span className="go-dot"><Icon name="chevRight" /></span></td>
+                <td style={{ textAlign: 'right', fontWeight: 600 }}>{o.sum} {currencySymbol(o.currency)}</td><td><span className="go-dot"><Icon name="chevRight" /></span></td>
               </tr>
             ))}</tbody>
           </table>

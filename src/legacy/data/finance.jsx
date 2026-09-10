@@ -1,5 +1,6 @@
-function f$(n) { return Math.round(n).toLocaleString('ru-RU') + ' $'; }
-function fSigned(n) { return (n >= 0 ? '+' : '−') + Math.abs(Math.round(n)).toLocaleString('ru-RU') + ' $'; }
+import { currencySymbol } from '../../shared/lib/money.js';
+function f$(n, currency) { return Math.round(n).toLocaleString('ru-RU') + ' ' + currencySymbol(currency); }
+function fSigned(n, currency) { return (n >= 0 ? '+' : '−') + Math.abs(Math.round(n)).toLocaleString('ru-RU') + ' ' + currencySymbol(currency); }
 function finNow() { return new Date().toLocaleString('ru-RU', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }); }
 function deltaTone(n) { return n > 0 ? 'var(--green)' : n < 0 ? 'var(--red)' : 'var(--muted)'; }
 

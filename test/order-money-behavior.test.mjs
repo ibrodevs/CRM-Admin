@@ -3,7 +3,13 @@ import test from 'node:test';
 import { readFile } from 'node:fs/promises';
 import { toUiOrder } from '../src/modules/orders/model/orders.mapper.js';
 import { orderDateOnly } from '../src/modules/orders/api/order-card.js';
-const source = await readFile(new URL('../src/modules/orders/model/finance.jsx', import.meta.url), 'utf8');
+const financeUrl = new URL('../src/modules/orders/model/finance.jsx', import.meta.url);
+// Модуль грузится data-URL'ом (расширение .jsx Node сам импортировать не умеет),
+// а относительные импорты из data-URL не резолвятся — разворачиваем их в file://.
+const source = (await readFile(financeUrl, 'utf8')).replace(
+  /(from\s+')(\.[^']*)(')/g,
+  (_all, head, specifier, tail) => head + new URL(specifier, financeUrl).href + tail,
+);
 const { serviceMoneyRows, moneyRowsText, ocMoney, financeSnapshot } = await import(`data:text/javascript;base64,${Buffer.from(source).toString('base64')}`);
 
 test('order amounts keep currencies, decimals and cancelled-service exclusions', () => {

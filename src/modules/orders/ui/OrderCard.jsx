@@ -48,6 +48,7 @@ import { formatIsoDateTime, orderDateOnly, participantPayloadFromUi, routePayloa
 import { toUiOrder } from '../model/orders.mapper.js';
 import { technicalStopCount, technicalStopLabel, technicalStopsOf } from '../../services/index.js';
 import { TechnicalStopsDetails } from '../../services/index.js';
+import { currencySymbol, resolveCurrency } from '../../../shared/lib/money.js';
 
 const ORDER_STATUS_CODE = {
   'Новое': 'new',
@@ -394,7 +395,7 @@ function TabOverview({ order, company }) {
     ['Тип заявки', order.requestType],
     ['Оператор', order.operator],
     ['Дата создания', order.date],
-    ['Валюта', order.currency || order.base_currency || 'RUB'],
+    ['Валюта', resolveCurrency(order.currency, order.base_currency)],
     ['Назначение', visibleValue(order.purpose)],
     ['Начало поездки', visibleValue(order.planned_start)],
     ['Окончание поездки', visibleValue(order.planned_end)],
@@ -699,7 +700,7 @@ function ServiceListRow({ s, paxCount, isGroup, onOpen, orderNo, participants = 
     date: s.date,
     order: orderNo,
     calc: s.calc,
-    currency: s.currency || s.svcOffer.currency || 'RUB',
+    currency: resolveCurrency(s.currency, s.svcOffer.currency),
   } : { ...s, order: orderNo };
   const onSent = async (ch, draft) => {
     const orderId = s.orderId || s.order_id || (/^[0-9a-f-]{32,36}$/i.test(String(s.order || '')) ? s.order : null);
@@ -710,7 +711,7 @@ function ServiceListRow({ s, paxCount, isGroup, onOpen, orderNo, participants = 
       service: serviceId,
       kind: { 'Авиа': 'avia', 'ЖД': 'rail', 'Гостиница': 'hotel', 'Трансфер': 'transfer', 'Автобус': 'bus', 'Страховка': 'insurance', 'Виза': 'visa' }[s.kind] || 'other',
       scenario: draft.scenario || '',
-      price_snapshot: { amount: svcCalc(s).total, currency: s.currency || 'RUB' },
+      price_snapshot: { amount: svcCalc(s).total, currency: resolveCurrency(s.currency) },
       content: draft,
     });
     const channelCodes = String(ch).split(',').map((value) => value.trim()).filter(Boolean).map((channel) => ({ 'Внутренний чат': 'internal', Telegram: 'telegram', WhatsApp: 'whatsapp', MAX: 'max', Email: 'email' })[channel] || channel.toLowerCase());
@@ -745,7 +746,7 @@ function ServiceListRow({ s, paxCount, isGroup, onOpen, orderNo, participants = 
 
 function serviceTotals(services) {
   services = activeOrderServices(services);
-  const currency = normalizeCurrency((services || []).find((service) => service?.currency)?.currency || 'RUB');
+  const currency = normalizeCurrency((services || []).find((service) => service?.currency)?.currency);
   return {
     currency,
     total: services.reduce((sum, service) => (
@@ -794,7 +795,7 @@ function svcTint(color, alpha = 0.12) {
   return 'rgba(' + ((n >> 16) & 255) + ',' + ((n >> 8) & 255) + ',' + (n & 255) + ',' + alpha + ')';
 }
 
-function svcExactMoney(amount, currency = 'RUB') {
+function svcExactMoney(amount, currency) {
   const value = Number(amount);
   return (Number.isFinite(value) ? value : 0).toLocaleString('ru-RU', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' ' + ocCurrency(currency);
 }
@@ -943,7 +944,7 @@ function ServiceBlock({ s, participants, documents, orderNo, open, onToggle, onC
   const airline = s.kind === 'Авиа' ? airlineCodeOf(s) : null;
   const total = svcCalc(s).total;
   const focusedTicket = focusedParticipant ? ticketForParticipant(docs, focusedParticipant) : null;
-  const cardCurrency = s.currency || s.svcOffer?.currency || 'RUB';
+  const cardCurrency = resolveCurrency(s.currency, s.svcOffer?.currency);
   const cardItem = s.svcOffer
     ? { ...s.svcOffer, title: s.title, sub: s.sub, kind: s.kind, status: s.status, date: s.date, order: orderNo, calc: s.calc, currency: cardCurrency }
     : { ...s, order: orderNo, currency: cardCurrency };
@@ -1245,7 +1246,7 @@ function OrderChangeCase({ orderNo, orderId, services, participants }) {
     setPicker((value) => value ? { ...value, busy: true } : value);
     try {
       const kindCode = { 'Авиа': 'avia', 'ЖД': 'rail', 'Гостиница': 'hotel', 'Трансфер': 'transfer', 'Автобус': 'bus', 'Страховка': 'insurance', 'Виза': 'visa' }[subject.kind] || 'other';
-      const created = await servicesApi.search({ kind: kindCode, ...(orderId ? { order: orderId } : {}), criteria: { query: subject.title, reference_service: subject.id || null, currency: services.find((service) => service.currency)?.currency || 'RUB' } });
+      const created = await servicesApi.search({ kind: kindCode, ...(orderId ? { order: orderId } : {}), criteria: { query: subject.title, reference_service: subject.id || null, currency: resolveCurrency(services.find((service) => service.currency)?.currency) } });
       let offers = [];
       for (let attempt = 0; attempt < 30; attempt += 1) {
         const session = await servicesApi.searchStatus(created.search_id);
@@ -1260,7 +1261,7 @@ function OrderChangeCase({ orderNo, orderId, services, participants }) {
       const base = Number(currentService ? svcCalc(currentService).total : 0);
       const auto = offers.map((offer) => {
         const amount = Number(offer.price?.amount || 0); const diff = amount - base;
-        return { id: offer.id, offerId: offer.id, title: offer.itinerary?.property_name || offer.itinerary?.description || offer.external_key || 'Вариант поставщика', meta: offer.provider_adapter || 'Подключённый поставщик', price: amount, delta: base ? `${diff > 0 ? '+' : diff < 0 ? '−' : ''}${Math.abs(diff).toLocaleString('ru-RU')} ${offer.price?.currency || 'RUB'}` : '=' };
+        return { id: offer.id, offerId: offer.id, title: offer.itinerary?.property_name || offer.itinerary?.description || offer.external_key || 'Вариант поставщика', meta: offer.provider_adapter || 'Подключённый поставщик', price: amount, delta: base ? `${diff > 0 ? '+' : diff < 0 ? '−' : ''}${Math.abs(diff).toLocaleString('ru-RU')} ${currencySymbol(offer.price?.currency)}` : '=' };
       });
       setPicker((value) => {
         if (!value) return value;
@@ -1297,7 +1298,7 @@ function OrderChangeCase({ orderNo, orderId, services, participants }) {
     const backendOrderId = orderId || flight?.orderId || (/^[0-9a-f-]{32,36}$/i.test(String(flight?.order || '')) ? flight.order : null);
     const backendServiceId = flight?.serverId || (/^[0-9a-f-]{32,36}$/i.test(String(flight?.id || '')) ? flight.id : null);
     if (!backendOrderId || !backendServiceId) throw new Error('Кейс не связан с backend-заказом и услугой');
-    const card = await serviceCardsApi.create({ order: backendOrderId, service: backendServiceId, kind: 'avia', scenario: draft.scenario || '', price_snapshot: { amount: svcCalc(flight).total, currency: flight.currency || 'RUB' }, content: draft });
+    const card = await serviceCardsApi.create({ order: backendOrderId, service: backendServiceId, kind: 'avia', scenario: draft.scenario || '', price_snapshot: { amount: svcCalc(flight).total, currency: resolveCurrency(flight.currency) }, content: draft });
     const channelCodes = String(channels).split(',').map((value) => value.trim()).filter(Boolean).map((channel) => ({ 'Внутренний чат': 'internal', Telegram: 'telegram', WhatsApp: 'whatsapp', MAX: 'max', Email: 'email' })[channel] || channel.toLowerCase());
     await serviceCardsApi.send(card.id, { channels: channelCodes, recipient: '' });
     const v = cur.letters.length + 1; const t = caseNow();
@@ -1323,7 +1324,7 @@ function OrderChangeCase({ orderNo, orderId, services, participants }) {
   }
 
   const prog = caseProgress(cs);
-  const orderCurrency = services.find((service) => service.currency)?.currency || 'RUB';
+  const orderCurrency = resolveCurrency(services.find((service) => service.currency)?.currency);
   const triggerItem = flight || { title: cs.triggerTitle, main: cs.triggerTitle, kind: 'Авиа', currency: orderCurrency, id: 'trig' };
   return (
     <div className="card card-pad" style={{ border: '1px solid var(--amber)', marginBottom: 16 }}>
@@ -1435,7 +1436,7 @@ function OrderChangeCase({ orderNo, orderId, services, participants }) {
         </div>
       )}
 
-      {letterOpen && <ServiceCardSendPanel item={triggerItem} kind="Авиа" participants={participants} orderNo={orderNo} currency={triggerItem.currency || orderCurrency || 'RUB'} serviceId={triggerItem.id} onSent={onLetterSent} onClose={() => setLetterOpen(false)} />}
+      {letterOpen && <ServiceCardSendPanel item={triggerItem} kind="Авиа" participants={participants} orderNo={orderNo} currency={resolveCurrency(triggerItem.currency, orderCurrency)} serviceId={triggerItem.id} onSent={onLetterSent} onClose={() => setLetterOpen(false)} />}
     </div>
   );
 }
@@ -1560,8 +1561,8 @@ function AviaFilters({ flt, setFlt, bounds, offers = [] }) {
       <div className="hp-filter-block">
         <div className="hp-filter-title">Цена</div>
         <div className="hp-price-range">
-          <span className="hp-pr-from">от {money(bounds.min, offers[0]?.currency || 'RUB')}</span>
-          <span className="hp-pr-to">{money(flt.priceMax == null ? bounds.max : flt.priceMax, offers[0]?.currency || 'RUB')}</span>
+          <span className="hp-pr-from">от {money(bounds.min, resolveCurrency(offers[0]?.currency))}</span>
+          <span className="hp-pr-to">{money(flt.priceMax == null ? bounds.max : flt.priceMax, resolveCurrency(offers[0]?.currency))}</span>
         </div>
         <input type="range" className="hp-slider" min={bounds.min} max={bounds.max} step="1"
           value={flt.priceMax == null ? bounds.max : flt.priceMax}
@@ -1862,7 +1863,7 @@ function AviaSearchPanel({ params, setParams, participants = [], onAdd }) {
       <Field label="Маршрут"><select className="select" value={params.trip} onChange={(event) => set({ trip: event.target.value })}>
         <option value="ow">В одну сторону</option><option value="rt">Туда-обратно</option><option value="mc">Сложный маршрут</option>
       </select></Field>
-      <Field label="Валюта поиска"><select className="select" value={params.currency || 'RUB'} onChange={(event) => set({ currency: event.target.value })}>
+      <Field label="Валюта поиска"><select className="select" value={resolveCurrency(params.currency)} onChange={(event) => set({ currency: event.target.value })}>
         {['RUB', 'USD', 'EUR', 'KGS'].map((code) => <option key={code}>{code}</option>)}
       </select></Field>
       {params.trip !== 'mc' ? <>
@@ -1898,7 +1899,7 @@ function AviaSearchPanel({ params, setParams, participants = [], onAdd }) {
   </div>;
 }
 
-function QuickAddForm({ kind, onAdd, currency = 'RUB' }) {
+function QuickAddForm({ kind, onAdd, currency }) {
   const toast = useToast();
   const k = SERVICE_KIND[kind] || { icon: 'briefcase', color: 'var(--blue)' };
   const [title, setTitle] = useState('');
@@ -2387,7 +2388,7 @@ function OrderCard({ order, company, clients = [], onBack, initTab, initSvc, ini
   const [aviaParams, setAviaParams] = useState(() => {
     const points = order.route?.points || [];
     return {
-      currency: order.base_currency || order.currency || 'RUB',
+      currency: resolveCurrency(order.base_currency, order.currency),
       trip: order.route?.kind === 'round_trip' ? 'rt' : order.route?.kind === 'multi_city' ? 'mc' : 'ow',
       from: points[0]?.location_code || '',
       to: points[points.length - 1]?.location_code || '',
@@ -2646,7 +2647,7 @@ function OrderCard({ order, company, clients = [], onBack, initTab, initSvc, ini
     try {
       const body = offer._backendOfferId
         ? { offer_id: offer._backendOfferId, participants: participants.map((p) => p.serverId || p.id).filter(Boolean) }
-        : { kind: kindCode, title: offer.title || kind, currency: offer.currency || cardOrder.base_currency || cardOrder.currency || 'RUB', supplier_cost: Number(offer.cost || 0), agency_fee: Number(offer.fee || 0), client_total: amount, participants: participants.map((p) => p.serverId || p.id).filter(Boolean) };
+        : { kind: kindCode, title: offer.title || kind, currency: resolveCurrency(offer.currency, cardOrder.base_currency, cardOrder.currency), supplier_cost: Number(offer.cost || 0), agency_fee: Number(offer.fee || 0), client_total: amount, participants: participants.map((p) => p.serverId || p.id).filter(Boolean) };
       const created = await servicesApi.addToOrder(orderId, body);
       await refreshOrderSnapshot();
       setSvcView(null);
@@ -2669,14 +2670,14 @@ function OrderCard({ order, company, clients = [], onBack, initTab, initSvc, ini
           description: s.sub || '',
           quantity: 1,
           price_amount: String(total),
-          price_currency: s.currency || cardOrder.currency || cardOrder.base_currency || 'RUB',
+          price_currency: resolveCurrency(s.currency, cardOrder.currency, cardOrder.base_currency),
         };
       });
       await proposalsApi.create({
         order: orderId,
         type: 'standard',
         purpose: 'КП из карточек услуг',
-        currency: chosen[0]?.currency || cardOrder.currency || cardOrder.base_currency || 'RUB',
+        currency: resolveCurrency(chosen[0]?.currency, cardOrder.currency, cardOrder.base_currency),
         valid_until: validUntil.toISOString(),
         variants: [{ name: 'Вариант A · из карточек', items }],
       });
@@ -2724,7 +2725,7 @@ function OrderCard({ order, company, clients = [], onBack, initTab, initSvc, ini
       service: serviceId,
       kind,
       scenario: draft.scenario || '',
-      price_snapshot: { amount: svcCalc(service).total, currency: service.currency || 'RUB' },
+      price_snapshot: { amount: svcCalc(service).total, currency: resolveCurrency(service.currency) },
       content: draft,
     });
     const channelCodes = String(channelList).split(',').map((value) => value.trim()).filter(Boolean).map((channel) => ({
@@ -2737,7 +2738,7 @@ function OrderCard({ order, company, clients = [], onBack, initTab, initSvc, ini
     if (!chosen || !chosen.length) { toast('Выберите хотя бы одну услугу', 'err'); return; }
     const lines = chosen.map((s) => {
       const total = svcCalc(s).total || s.sum || 0;
-      return '• ' + s.title + (s.sub ? ' (' + s.sub + ')' : '') + ' — ' + Math.round(total).toLocaleString('ru-RU') + ' ' + (s.currency || cardOrder.base_currency || 'RUB');
+      return '• ' + s.title + (s.sub ? ' (' + s.sub + ')' : '') + ' — ' + Math.round(total).toLocaleString('ru-RU') + ' ' + currencySymbol(resolveCurrency(s.currency, cardOrder.base_currency));
     });
     const text = 'Подобранные услуги по заказу № ' + order.no + ':\n' + lines.join('\n');
     try {
@@ -2831,7 +2832,7 @@ function OrderCard({ order, company, clients = [], onBack, initTab, initSvc, ini
   // Обмен ведётся штатным постпродажным модулем — карточка лишь открывает его
   // с предзаполненной услугой, чтобы оператор не искал её в списке заново.
   const requestExchange = (svc) => {
-    setAftersalePreset({ type: 'Обмен билета', serviceId: String(svc.serverId || svc.id), currency: svc.currency || cardOrder.currency || cardOrder.base_currency || 'RUB', stamp: Date.now() });
+    setAftersalePreset({ type: 'Обмен билета', serviceId: String(svc.serverId || svc.id), currency: resolveCurrency(svc.currency, cardOrder.currency, cardOrder.base_currency), stamp: Date.now() });
     setTab('aftersale');
   };
 
@@ -2952,7 +2953,7 @@ function OrderCard({ order, company, clients = [], onBack, initTab, initSvc, ini
     { icon: 'check', label: 'Выбрать услуги для КП или чата', onClick: () => { setTab('main'); setSvcView(null); setSelMode(true); } },
     { icon: 'refund', label: 'Изменение по рейсу', onClick: () => {
       const flight = services.find((service) => service.kind === 'Авиа');
-      setAftersalePreset({ type: 'Обмен билета', serviceId: flight ? String(flight.serverId || flight.id) : '', currency: flight?.currency || cardOrder.currency || cardOrder.base_currency || 'RUB', stamp: Date.now() });
+      setAftersalePreset({ type: 'Обмен билета', serviceId: flight ? String(flight.serverId || flight.id) : '', currency: resolveCurrency(flight?.currency, cardOrder.currency, cardOrder.base_currency), stamp: Date.now() });
       setTab('aftersale');
     } },
     { icon: 'users', label: 'Переназначить оператора', onClick: () => setReassignOpen(true) },

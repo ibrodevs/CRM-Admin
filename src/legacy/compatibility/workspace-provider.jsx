@@ -30,6 +30,7 @@ import { useAuth } from '../../shared/auth/auth-context.jsx';
 import { syncLegacyDataFromWorkspace } from '../adapters/backend-data-sync.js';
 
 import { WorkspaceContext } from '../../shared/workspace/context.jsx';
+import { resolveCurrency } from '../../shared/lib/money.js';
 export { useWorkspace } from '../../shared/workspace/context.jsx';
 
 const EMPTY = {
@@ -199,7 +200,7 @@ export function WorkspaceProvider({ children }) {
       priority: draft.priority || 'normal',
       source: draft.source || 'web',
       preferred_channel: draft.preferred_channel || draft.channel || '',
-      base_currency: draft.base_currency || draft.currency || 'RUB',
+      base_currency: resolveCurrency(draft.base_currency, draft.currency),
       planned_start: draft.planned_start || draft.dateFrom || null,
       planned_end: draft.planned_end || draft.dateTo || null,
       purpose: draft.purpose || draft.service || '',
@@ -313,7 +314,7 @@ export function WorkspaceProvider({ children }) {
       status: draft.status_code || 'active',
       organization_type: draft.organization_type || draft.orgType || 'other',
       service_kinds: draft.service_kinds || [],
-      currencies: draft.currencies || [draft.currency || 'USD'],
+      currencies: draft.currencies || [resolveCurrency(draft.currency)],
       is_global: Boolean(draft.is_global || draft.type === 'Глобальный'),
     });
     const ui = toUiSupplier(saved);

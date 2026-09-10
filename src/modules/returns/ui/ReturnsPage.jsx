@@ -22,13 +22,13 @@ import { useToast } from '../../../shared/ui/Toast.jsx';
 import { DOC_STATUS2, ORDERS, ORDER_PARTICIPANTS, ORDER_SERVICES, RETURNS, RETURN_FLOW, RETURN_STATUS, RETURN_TYPE } from '../../../legacy/data/index.jsx';
 import { Topbar } from '../../../shared/ui/Topbar.jsx';
 import { AirportField } from '../../services/index.js';
+import { currencySymbol, resolveCurrency } from '../../../shared/lib/money.js';
 
 
 
 
-function rUsd(n, c = 'USD') {
-  const symbol = { USD: '$', RUB: '₽', KGS: 'с', EUR: '€' }[String(c || 'USD').toUpperCase()] || c;
-  return Math.round(n).toLocaleString('ru-RU') + ' ' + symbol;
+function rUsd(n, c) {
+  return Math.round(n).toLocaleString('ru-RU') + ' ' + currencySymbol(c);
 }
 function calcRefund(fin) { return Math.max(0, fin.original - fin.supplierPenalty - fin.serviceFee - fin.extraHold); }
 const isTerminal = (s) => s === 'Отменено' || s === 'Отклонено';
@@ -87,7 +87,7 @@ function NewReturnModal({ open, order, services, participants = [], preset, onCl
     return { value: String(id), label: `${s.kind} · ${s.title}` };
   });
   const base = availableServices.find((s) => String(s.serverId || s.id) === String(svc));
-  const currency = preset?.currency || base?.currency || order?.currency || order?.base_currency || 'RUB';
+  const currency = resolveCurrency(preset?.currency, base?.currency, order?.currency, order?.base_currency);
   const original = base ? base.sum : 0;
   const isRefund = type === 'Возврат билета';
   const isExchange = type === 'Обмен билета';
@@ -549,7 +549,7 @@ function ReturnsModule({ scopeOrder, onOpenOrder, compact, order, initialCases, 
         participants: d.participantIds?.length ? d.participantIds : undefined,
         type: kinds[d.type] || 'refund',
         initiator: 'operator',
-        currency: d.currency || selectedOrder.currency || selectedOrder.base_currency || 'RUB',
+        currency: resolveCurrency(d.currency, selectedOrder.currency, selectedOrder.base_currency),
         external_references: {
           reason: d.reason || '',
           voluntary: d.voluntary,
@@ -561,7 +561,7 @@ function ReturnsModule({ scopeOrder, onOpenOrder, compact, order, initialCases, 
       let detail = created;
       if (['Возврат билета', 'Обмен билета'].includes(d.type)) {
         await aftersalesApi.quote(created.id, {
-          currency: d.currency || selectedOrder.currency || selectedOrder.base_currency || 'RUB',
+          currency: resolveCurrency(d.currency, selectedOrder.currency, selectedOrder.base_currency),
           original_paid: String(d.original || 0),
           supplier_penalty: String(d.penalty || 0),
           agency_service_fee: String(d.fee || 0),
