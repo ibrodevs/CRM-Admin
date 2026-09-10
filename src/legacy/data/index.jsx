@@ -21,7 +21,7 @@ const CURRENT_USER = {
 const ORDER_STATUS = {
   'Новое': 'teal', 'В работе': 'blue', 'Ожидание оплаты': 'amber',
   'Ожидает подтверж.': 'gray', 'Требует проверки': 'gray',
-  'Оплачено': 'green', 'Отменено': 'red', 'Нет данных': 'gray',
+  'Оплачено': 'green', 'Завершено': 'green', 'На паузе': 'gray', 'Отменено': 'red', 'Нет данных': 'gray',
 };
 const SERVICE_TYPE = {
   'Авиа': 'blue', 'Отель': 'teal', 'Трансфер': 'green',

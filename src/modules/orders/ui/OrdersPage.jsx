@@ -17,14 +17,20 @@ import { SearchBox } from '../../../shared/ui/SearchBox.jsx';
 import { Th, useSort } from '../../../shared/ui/Table.jsx';
 import { Toggle } from '../../../shared/ui/Toggle.jsx';
 import { useToast } from '../../../shared/ui/Toast.jsx';
-import { AIRPORTS, CLIENTS, CLIENTS_DB, CLIENT_STATUS, COMPANIES_DB, GROUP_PAX, ORDER_PARTICIPANTS, ORDER_SERVICES, ORDER_STATUS, REQUEST_TYPE, SERVICE_TYPE, SETTLEMENT_TONE, activeAgreement, activeContract, companyBalanceShort, companyFinance, companyStaff, feeTemplate } from '../../../legacy/data/index.jsx';
+import { AIRPORTS, CLIENT_STATUS, ORDER_STATUS, REQUEST_TYPE, SERVICE_TYPE } from '../../../legacy/data/index.jsx';
 import { UnifiedDocumentDrawer, UnifiedPersonDrawer, UnifiedPersonFields, ufBlankPerson, ufToClient, ufValidatePerson } from '../../clients/index.js';
 import { ORDER_OPS_SECTIONS } from '../../../shared/constants/navigation.js';
 import { Topbar } from '../../../shared/ui/Topbar.jsx';
 import { OrderCard, OrderEditDrawer } from './OrderCard.jsx';
 import { CityPickPanel, PanelSub, StackPanel } from '../../locations/index.js';
+import { clientsApi } from '../../clients/api.js';
 import { ordersApi } from '../api/ordersApi.js';
 import { proposalsApi } from '../../proposals/api.js';
+import { moneyRowsText } from '../model/finance.jsx';
+import { getRuntimePreferences } from '../../../shared/preferences/preferences.js';
+import { orderDateOnly, participantPayloadFromUi } from '../api/order-card.js';
+import { companiesApi } from '../../companies/api.js';
+import { resultsOf } from '../../../shared/api/client.js';
 import { toUiOrder } from '../model/orders.mapper.js';
 
 
@@ -36,24 +42,7 @@ const ALL_SERVICES = ['Авиаперелет', 'Отель', 'Транспор�
 
 const SEARCH_KIND = { 'Авиаперелет': 'Авиа', 'Отель': 'Гостиница', 'ЖД': 'ЖД', 'Трансфер': 'Трансфер', 'Транспорт': 'Автобус' };
 
-const FLIGHT_SEARCH_OPTIONS = [
-  {
-    id: 1,
-    fromCity: 'Ташкент (UZB)', toCity: 'Дубай (DXB)',
-    dep: '21.01.26 (18:20)', arr: '22.01.26 (07:50)',
-    retDep: '01.02.26 (00:20)', retArr: '02.02.26 (09:50)',
-    airline: 'S7 Airlines', cls: 'E Class (Эконом)',
-    baggage: 'До 17кг + 5кг ручной', cost: '726$', comm: '1.5$', fees: '1.2$',
-  },
-  {
-    id: 2,
-    fromCity: 'Ташкент (UZB)', toCity: 'Дубай (DXB)',
-    dep: '21.01.26 (18:20)', arr: '22.01.26 (09:50)',
-    retDep: '01.02.26 (00:20)', retArr: '02.02.26 (09:50)',
-    airline: 'AviaTraffic', cls: 'C Class (Бизнес класс)',
-    baggage: 'До 23кг', cost: '220$', comm: '2.4$', fees: '1.6$',
-  },
-];
+const FLIGHT_SEARCH_OPTIONS = [];
 
 
 function StepIndicator({ step }) {
@@ -227,11 +216,11 @@ function ServiceSection({ svcName, startDate, endDate, selectedFlight, onSelectF
       <div style={{ display: 'flex', alignItems: 'flex-end', gap: 10, marginBottom: 12, flexWrap: 'wrap' }}>
         <div>
           <div style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 4 }}>Начало</div>
-          <input className="input" style={{ height: 40, width: 108, fontSize: 13 }} value={startDate instanceof Date ? fmtDate(startDate) : (startDate || '21.01.26')} readOnly />
+          <input className="input" style={{ height: 40, width: 108, fontSize: 13 }} value={startDate instanceof Date ? fmtDate(startDate) : (startDate || '')} readOnly />
         </div>
         <div>
           <div style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 4 }}>Конец</div>
-          <input className="input" style={{ height: 40, width: 108, fontSize: 13 }} value={endDate instanceof Date ? fmtDate(endDate) : (endDate || '01.02.26')} readOnly />
+          <input className="input" style={{ height: 40, width: 108, fontSize: 13 }} value={endDate instanceof Date ? fmtDate(endDate) : (endDate || '')} readOnly />
         </div>
         <button type="button" style={{ border: 'none', background: 'none', color: 'var(--muted)', fontSize: 13, cursor: 'pointer', paddingBottom: 2 }}>Изменить даты</button>
         <select className="select" style={{ width: 160, height: 40, fontSize: 13 }}>
@@ -326,7 +315,7 @@ function OceSec({ n, title, children }) {
 function OrderCreateModal({ open, onClose, onCreated, initialGroup = false, initialCustomer = null, clientOptions = [], companyOptions = [] }) {
   const toast = useToast();
   const availableClients = clientOptions.map((client) => {
-    const person = client.person_detail || {};
+    const person = client.person_detail || client.source || {};
     return {
       id: person.id || client.person,
       name: person.full_name || [person.surname, person.given_name].filter(Boolean).join(' ') || 'Клиент',
@@ -334,7 +323,7 @@ function OrderCreateModal({ open, onClose, onCreated, initialGroup = false, init
     };
   });
   const availableCompanies = companyOptions.map((item) => ({
-    id: item.id, name: item.short_name || item.legal_name, inn: item.tax_id || '—',
+    id: item.id, name: item.short_name || item.legal_name || item.name, inn: item.tax_id || '—',
     dir: item.director || '—', source: item,
   }));
   const firstClient = availableClients[0] || null;
@@ -352,7 +341,7 @@ function OrderCreateModal({ open, onClose, onCreated, initialGroup = false, init
   const [creating, setCreating] = useState(false);
 
   const [trip, setTrip] = useState('rt');
-  const [pts, setPts] = useState(['SVO', 'DXB']);
+  const [pts, setPts] = useState(['', '']);
   const [depDate, setDepDate] = useState(null);
   const [retDate, setRetDate] = useState(null);
   const [dragIdx, setDragIdx] = useState(null);
@@ -372,7 +361,7 @@ function OrderCreateModal({ open, onClose, onCreated, initialGroup = false, init
     setClientType('person'); setClientQuery('');
     setClientType(initialCustomer?.kind === 'company' ? 'org' : 'person');
     setSelClients(initialCustomer?.kind === 'person' ? availableClients.filter((client) => String(client.id) === String(initialCustomer.id)) : firstClient ? [firstClient] : []); setCompany(initialCustomer?.kind === 'company' ? availableCompanies.find((company) => String(company.id) === String(initialCustomer.id)) || null : firstCompany); setCompanyQuery(''); setCompanyOpen(false); setEmployees([]); setCreating(false);
-    setTrip('rt'); setPts(['SVO', 'DXB']); setDepDate(null); setRetDate(null); setSvc({}); setIsGroup(initialGroup);
+    setTrip('rt'); setPts(['', '']); setDepDate(null); setRetDate(null); setSvc({}); setIsGroup(initialGroup);
     setCityPick(null); setDocFor(null); setBonusFor(null); setEmpPick(false);
   }, [open]);
 
@@ -430,9 +419,10 @@ function OrderCreateModal({ open, onClose, onCreated, initialGroup = false, init
       const created = await ordersApi.create({
         request_type: isGroup ? 'group' : clientType === 'org' ? 'corporate' : 'individual',
         ...(clientType === 'org' ? { client_company: company.id } : { client_person: selectedClient.id }),
-        base_currency: 'RUB',
-        planned_start: depDate instanceof Date ? depDate.toISOString().slice(0, 10) : null,
-        planned_end: retDate instanceof Date ? retDate.toISOString().slice(0, 10) : null,
+        base_currency: getRuntimePreferences().base_currency || 'RUB',
+        participants: (clientType === 'org' ? employees : selClients).map((person, index) => participantPayloadFromUi({ ...person, person: person.source ? person.id : null, isContact: index === 0 })),
+        planned_start: orderDateOnly(depDate),
+        planned_end: orderDateOnly(retDate),
         route: {
           kind,
           points: routePts.map((code) => {
@@ -545,7 +535,7 @@ function OrderCreateModal({ open, onClose, onCreated, initialGroup = false, init
                         <div className="dropdown scroll" style={{ top: 50, left: 0, right: 0, maxHeight: 260, overflowY: 'auto', padding: 6 }}>
                           {matches.map((c) => (
                             <div key={c.id} className="dropdown-item" style={{ gap: 10 }}
-                              onClick={() => { setCompany(c); setCompanyQuery(''); setCompanyOpen(false); setEmployees(companyStaff(c.id).employees.slice(0, 1)); }}>
+                              onClick={() => { setCompany(c); setCompanyQuery(''); setCompanyOpen(false); setEmployees([]); }}>
                               <span className="oce-svc-ic" style={{ width: 32, height: 32, borderRadius: 9, background: 'var(--blue-soft)', color: 'var(--blue)', display: 'flex', alignItems: 'center', justifyContent: 'center', flex: '0 0 32px' }}><Icon name="building" style={{ width: 16, height: 16 }} /></span>
                               <span style={{ flex: 1, minWidth: 0 }}>
                                 <div style={{ fontWeight: 600 }}>{c.name}</div>
@@ -565,23 +555,6 @@ function OrderCreateModal({ open, onClose, onCreated, initialGroup = false, init
                   <div style={{ flex: 1, minWidth: 0 }}><div className="nm">{company?.name || 'Организация не выбрана'}</div><div className="mt">ИНН {company?.inn || '—'} · {company?.dir || '—'}</div></div>
                 </div>
 
-                {(() => {
-                  const fin = company ? companyFinance(company.id) : null; if (!fin) return null;
-                  const c = activeContract(fin); const a = activeAgreement(fin); if (!a) return null;
-                  const bal = companyBalanceShort(fin);
-                  return (
-                    <div className="card" style={{ marginTop: 10, padding: '11px 13px', borderLeft: '3px solid var(--green)', background: 'var(--green-bg, #eafaf0)' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-                        <Icon name="checkCircle" style={{ width: 16, height: 16, color: 'var(--green)' }} />
-                        <span style={{ fontSize: 13, color: 'var(--ink)', fontWeight: 600 }}>Договор {c.no} · {a.no}</span>
-                        <Pill tone={SETTLEMENT_TONE[fin.settlement]}>{fin.settlement}</Pill>
-                        {bal && bal.kind === 'депозит' && <Pill tone={bal.tone}>депозит {Math.round(bal.value).toLocaleString('ru-RU')} $</Pill>}
-                        {bal && bal.kind === 'отсрочка' && <Pill tone={bal.tone}>долг {Math.round(bal.value).toLocaleString('ru-RU')} ${bal.overdue > 0 ? ' · просрочка' : ''}</Pill>}
-                      </div>
-                      <div style={{ fontSize: 12, color: 'var(--body)', marginTop: 5 }}>Сборы по услугам применяются автоматически из «{feeTemplate(a.template).name}» шаблона доп. соглашения — без ручного ввода.</div>
-                    </div>
-                  );
-                })()}
                 <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '.02em', margin: '16px 2px 10px' }}>Сотрудники в поездке</div>
                 {employees.map((c) => (
                   <div key={c.id} className="oce-client">
@@ -679,12 +652,31 @@ function OrderCreateModal({ open, onClose, onCreated, initialGroup = false, init
       {cityPick && <CityPickPanel value={pts[cityPick.idx]}
         onClose={() => setCityPick(null)}
         onPick={(code) => { setPts((p) => { const n = [...p]; n[cityPick.idx] = code; return n; }); setCityPick(null); }} />}
-      {docFor && <DocumentPanel client={docFor} onClose={() => setDocFor(null)} onSave={() => { toast('Документы загружаются после создания backend-заказа', 'warn'); setDocFor(null); }} />}
-      {bonusFor && <BonusCardPanel client={bonusFor} onClose={() => setBonusFor(null)} onSave={() => { toast('Бонусные карты пока доступны только как справочная информация клиента', 'warn'); setBonusFor(null); }} />}
+      {docFor && <DocumentPanel client={docFor} onClose={() => setDocFor(null)} onSave={async (doc) => {
+        try {
+          await clientsApi.addPersonDocument(docFor.id, {
+            type: { 'Загранпаспорт': 'foreign_passport', 'Общегражданский паспорт': 'national_passport', 'ID-карта': 'id_card', 'Свидетельство о рождении': 'birth_certificate' }[doc.docType] || 'other',
+            number: doc.docNo || doc.number || '', expires_at: orderDateOnly(doc.docExpiry),
+          });
+          toast('Документ сохранён', 'ok'); setDocFor(null);
+        } catch (error) { toast(error.message, 'err'); }
+      }} />}
+      {bonusFor && <BonusCardPanel client={bonusFor} onClose={() => setBonusFor(null)} onSave={async (body) => {
+        await clientsApi.addPersonLoyaltyCard(bonusFor.id, body);
+        toast('Бонусная карта сохранена', 'ok'); setBonusFor(null);
+      }} />}
       {empPick && <EmployeePanel company={company} selected={employees} onClose={() => setEmpPick(false)} onApply={(list) => { setEmployees(list); setEmpPick(false); }} />}
       <UnifiedPersonDrawer open={newPerson} kind="person" mode="create"
         onClose={() => setNewPerson(false)}
-        onSave={(person, client) => { setSelClients((l) => [...l, client]); setNewPerson(false); toast('Физическое лицо добавлено в черновик заказа', 'info'); }} />
+        onSave={async (person, client) => {
+          try {
+            const saved = await clientsApi.createPerson({ surname: person.lastName, given_name: person.firstName,
+              middle_name: person.middleName || '', phone: person.phone || '', email: person.email || '', birth_date: orderDateOnly(person.dob) });
+            await clientsApi.createClient({ person: saved.id, client_type: 'individual' });
+            setSelClients((rows) => [...rows, { ...client, id: saved.id, source: saved }]);
+            setNewPerson(false); toast('Клиент сохранён', 'ok');
+          } catch (error) { toast(error.message, 'err'); }
+        }} />
     </>
   );
   // The receipt importer is itself rendered into document.body. Render the
@@ -711,6 +703,18 @@ const LOYALTY_PROGRAMS = [
   { name: 'Accor ALL',            type: 'Отель' },
 ];
 function BonusCardPanel({ client, onClose, onSave }) {
+  const toast = useToast();
+  const [number, setNumber] = useState('');
+  const [cardStatus, setCardStatus] = useState('');
+  const [comment, setComment] = useState('');
+  const [saving, setSaving] = useState(false);
+  const save = async () => {
+    if (!program || !number.trim()) { toast('Выберите программу и укажите номер карты', 'err'); return; }
+    setSaving(true);
+    try { await onSave({ program_type: { 'Авиакомпания': 'airline', 'Ж/Д': 'rail', 'Отель': 'hotel' }[program.type], provider: program.name, number: number.trim(), status: cardStatus || 'active', auto_apply: auto, metadata: { comment } }); }
+    catch (error) { toast(error.message, 'err'); }
+    finally { setSaving(false); }
+  };
   const [program, setProgram] = useState(null);
   const [open, setOpen] = useState(false);
   const [auto, setAuto] = useState(true);
@@ -728,7 +732,7 @@ function BonusCardPanel({ client, onClose, onSave }) {
   );
   return (
     <StackPanel title="Добавление бонусной карты" onClose={onClose}
-      footer={<><Button variant="secondary" style={{ flex: 1 }} onClick={onClose}>Отмена</Button><Button style={{ flex: 1 }} icon="check" onClick={onSave}>Сохранить карту</Button></>}>
+      footer={<><Button variant="secondary" style={{ flex: 1 }} onClick={onClose}>Отмена</Button><Button style={{ flex: 1 }} icon="check" disabled={saving} onClick={save}>Сохранить карту</Button></>}>
       <div className="oce-client" style={{ marginBottom: 16 }}>
         <Avatar name={client.name} size={32} /><div style={{ flex: 1 }}><div className="nm">{client.name}</div><div className="mt">Держатель карты</div></div>
       </div>
@@ -761,9 +765,9 @@ function BonusCardPanel({ client, onClose, onSave }) {
       <Field label="2. Тип программы">
         <Input value={program ? program.type : ''} placeholder="Определяется автоматически" readOnly />
       </Field>
-      <Field label="3. Номер участника"><Input placeholder="Введите номер карты / участника" /></Field>
+      <Field label="3. Номер участника"><Input value={number} onChange={(event) => setNumber(event.target.value)} placeholder="Введите номер карты / участника" /></Field>
       <Field label={<>4. Статус <span style={{ fontWeight: 400, color: 'var(--faint)' }}>(необязательно)</span></>}>
-        <select className="select"><option value="">Выберите статус</option><option>Базовый</option><option>Серебряный</option><option>Золотой</option><option>Платиновый</option></select>
+        <select className="select" value={cardStatus} onChange={(event) => setCardStatus(event.target.value)}><option value="">Выберите статус</option><option>Базовый</option><option>Серебряный</option><option>Золотой</option><option>Платиновый</option></select>
       </Field>
 
       <div role="button" tabIndex={0} onClick={() => setAuto((v) => !v)} style={{ display: 'flex', alignItems: 'flex-start', gap: 10, cursor: 'pointer', marginTop: 12 }}>
@@ -777,7 +781,7 @@ function BonusCardPanel({ client, onClose, onSave }) {
         Дополнительная информация (необязательно)
         <Icon name={extra ? 'chevUp' : 'chevDown'} style={{ width: 16, height: 16 }} />
       </button>
-      {extra && <textarea className="input" rows={3} placeholder="Комментарий" style={{ resize: 'vertical', marginTop: 10 }} />}
+      {extra && <textarea className="input" rows={3} value={comment} onChange={(event) => setComment(event.target.value)} placeholder="Комментарий" style={{ resize: 'vertical', marginTop: 10 }} />}
 
       <div style={{ display: 'flex', gap: 9, alignItems: 'flex-start', padding: '11px 13px', borderRadius: 11, background: 'var(--blue-soft)', marginTop: 18 }}>
         <Icon name="alertCircle" style={{ width: 18, height: 18, color: 'var(--blue)', flex: '0 0 17px', marginTop: 1 }} />
@@ -797,7 +801,19 @@ function EmployeePanel({ company, selected, onApply, onClose }) {
   const [np, setNp] = useState(null);
   const [npErr, setNpErr] = useState({});
   const [extra, setExtra] = useState([]);
-  const staff = companyStaff(company ? company.id : null);
+  const [staff, setStaff] = useState({ departments: [], employees: [] });
+  useEffect(() => {
+    const controller = new AbortController();
+    if (!company?.id) return;
+    companiesApi.companyEmployees(company.id, controller.signal).then((payload) => {
+      setStaff({ departments: [], employees: resultsOf(payload).map((employee) => {
+        const person = employee.person_detail || {};
+        return { ...employee, id: person.id || employee.person, name: person.full_name || '',
+          phone: person.phone || '', email: person.email || '', dept: employee.department || '', source: employee };
+      }) });
+    }).catch((error) => { if (error.name !== 'AbortError') toast(error.message, 'err'); });
+    return () => controller.abort();
+  }, [company?.id]);
   const departments = staff.departments || [];
   const allEmployees = [...staff.employees, ...extra];
   const s = q.trim().toLowerCase();
@@ -880,11 +896,11 @@ function OrdersList({ orders, onOpen, onCreate, onNavigate, currentUser }) {
   const [filters, setFilters] = useState({ status: '', requestType: '', service: '' });
   const { sort, onSort, apply } = useSort(null);
   const [selected, setSelected] = useState(null);
-  const [editOrder, setEditOrder] = useState(null);
+
 
   const handleEditClick = () => {
     if (!selected) { toast('Выберите заказ для редактирования', 'info'); return; }
-    setEditOrder(selected);
+    onOpen(selected, 'edit');
   };
   const createAndSendProposal = async () => {
     if (!selected) { toast('Выберите заказ для формирования КП', 'info'); return; }
@@ -931,7 +947,7 @@ function OrdersList({ orders, onOpen, onCreate, onNavigate, currentUser }) {
         </div>
         <div className="orders-filters" style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 18, flexWrap: 'wrap' }}>
           <FilterChip label="Статус" icon="chev" options={Object.keys(ORDER_STATUS)} value={filters.status} onChange={(v) => setFilters((f) => ({ ...f, status: v }))} />
-          <FilterChip label="Заказчик" icon="chev" options={CLIENTS} value={filters.client} onChange={(v) => setSearch(v === '' ? '' : v)} />
+          <FilterChip label="Заказчик" icon="chev" options={[...new Set(orders.map((order) => order.client).filter(Boolean))]} value={filters.client} onChange={(v) => setSearch(v === '' ? '' : v)} />
           <FilterChip label="Тип заявки" icon="chev" options={REQUEST_TYPE} value={filters.requestType} onChange={(v) => setFilters((f) => ({ ...f, requestType: v }))} />
           <FilterChip label="Тип услуги" icon="chev" options={Object.keys(SERVICE_TYPE)} value={filters.service} onChange={(v) => setFilters((f) => ({ ...f, service: v }))} />
           <div className="topbar-spacer" />
@@ -955,7 +971,7 @@ function OrdersList({ orders, onOpen, onCreate, onNavigate, currentUser }) {
               : (
                 <tbody>
                   {pageRows.map((o, i) => (
-                    <tr key={i} style={{ cursor: 'pointer' }} onClick={() => onOpen(o)}>
+                    <tr key={o.id} style={{ cursor: 'pointer' }} onClick={() => onOpen(o)}>
                       <td onClick={(e) => e.stopPropagation()}><Radio on={!!selected && selected.no === o.no} onChange={() => setSelected((cur) => (cur && cur.no === o.no ? null : o))} /></td>
                       <td className="t-strong">{o.no}</td>
                       <td><span className="order-list-date"><Icon name="calendar" />{o.date || '—'}</span></td>
@@ -964,7 +980,7 @@ function OrdersList({ orders, onOpen, onCreate, onNavigate, currentUser }) {
                       <td><Pill tone={ORDER_STATUS[o.status]}>{o.status}</Pill></td>
                       <td><Pill tone={SERVICE_TYPE[o.service]}>{o.service}</Pill></td>
                       <td><div className="t-strong">{o.operator}</div><div className="t-sub">{o.operatorRole}</div></td>
-                      <td className="t-strong">{o.sum} {o.currency}</td>
+                      <td className="t-strong">{moneyRowsText(o.totals || [{ amount: o.sum, currency: o.currency }], o.currency)}</td>
                       <td>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                           {o.services} <span className="info-dot">i</span>
@@ -985,22 +1001,13 @@ function OrdersList({ orders, onOpen, onCreate, onNavigate, currentUser }) {
         </div>
       </div>
 
-      {editOrder && (
-        <OrderEditDrawer open
-          order={editOrder}
-          status={editOrder.status === 'Нет данных' ? 'Новое' : editOrder.status}
-          onStatusChange={(s) => setEditOrder((o) => ({ ...o, status: s }))}
-          services={ORDER_SERVICES}
-          participants={editOrder.requestType === 'Групповая' ? GROUP_PAX : ORDER_PARTICIPANTS}
-          onClose={() => setEditOrder(null)}
-          onAddPassenger={() => { setEditOrder(null); onOpen(editOrder, 'participants'); }} />
-      )}
+
     </div>
   );
 }
 
 
-function OrdersPage({ intent, onConsume, orders, clients = [], companies = [], addOrder, onDetailChange, onOpenChat, onNavigate, currentUser }) {
+function OrdersPage({ intent, onConsume, orders, clients = [], companies = [], addOrder, onOrderUpdated, onDetailChange, onOpenChat, onNavigate, currentUser }) {
   const [detail, setDetailRaw] = useState(null);
   const [detailTab, setDetailTab] = useState(null);
   const [detailSvc, setDetailSvc] = useState(null);
@@ -1011,7 +1018,7 @@ function OrdersPage({ intent, onConsume, orders, clients = [], companies = [], a
   const setDetail = (o, tab, svc) => { setFresh(false); setDetailRaw(o); setDetailTab(tab || null); setDetailSvc(svc || null); setSvcSearch(null); onDetailChange && onDetailChange(o); };
 
   const handleCreated = (o, searchKind) => {
-    addOrder(o); setCreateOpen(false);
+    onOrderUpdated?.(o); setCreateOpen(false);
     setFresh(true); setDetailRaw(o); setDetailTab('services'); setDetailSvc(null); setSvcSearch(searchKind || null);
     onDetailChange && onDetailChange(o);
   };
@@ -1025,7 +1032,7 @@ function OrdersPage({ intent, onConsume, orders, clients = [], companies = [], a
 
   if (detail) {
     const company = companies.find((item) => String(item.id) === String(detail.client_company));
-    return <OrderCard order={detail} company={company} clients={clients} fresh={fresh} initTab={detailTab} initSvc={detailSvc} initSvcSearch={svcSearch} onBack={() => { setDetail(null); onDetailChange && onDetailChange(null); }} onOpenChat={onOpenChat} />;
+    return <OrderCard key={detail.id} onOrderUpdated={onOrderUpdated} order={detail} company={company} clients={clients} fresh={fresh} initTab={detailTab} initSvc={detailSvc} initSvcSearch={svcSearch} onBack={() => { setDetail(null); onDetailChange && onDetailChange(null); }} onOpenChat={onOpenChat} />;
   }
   return (
     <>

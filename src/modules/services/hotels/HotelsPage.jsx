@@ -163,7 +163,7 @@ function HotelFilters({ stars, toggleStar, starCounts, districts, distSel, toggl
 
 
 
-function HotelPicker({ participants, group = false, onApply, onCancel }) {
+function HotelPicker({ participants, group = false, onApply, onCancel, currency = 'RUB' }) {
   const toast = useToast();
   const PAX = Array.isArray(participants) ? participants : [];
 
@@ -240,7 +240,7 @@ function HotelPicker({ participants, group = false, onApply, onCancel }) {
           rooms: searchRooms,
           meal_plan: meal,
           radius,
-          currency: 'USD',
+          currency,
         },
       });
       for (let attempt = 0; attempt < 30; attempt += 1) {

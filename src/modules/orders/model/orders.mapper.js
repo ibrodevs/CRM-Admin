@@ -3,7 +3,7 @@ import { asDate } from '../../../shared/lib/adapter-dates.js';
 
 const ORDER_STATUS = {
   new: 'Новое', in_progress: 'В работе', awaiting_confirmation: 'Ожидает подтверж.',
-  awaiting_payment: 'Ожидание оплаты', paid: 'Оплачено', completed: 'Оплачено',
+  awaiting_payment: 'Ожидание оплаты', paid: 'Оплачено', completed: 'Завершено',
   needs_review: 'Требует проверки', on_hold: 'На паузе', cancelled: 'Отменено', data_missing: 'Нет данных',
 };
 
@@ -25,6 +25,7 @@ function toUiOrder(order) {
     operatorRole: 'Оператор',
     sum: Number(order.total_amount || 0),
     currency: order.base_currency || 'RUB',
+    totals: order.totals_by_currency || [{ amount: order.total_amount || 0, currency: order.base_currency || 'RUB' }],
     services: Number(order.services_count || 0),
     progress: order.stage === 'completed' ? 100 : 0,
     date: date ? date.toLocaleDateString('ru-RU') : '',

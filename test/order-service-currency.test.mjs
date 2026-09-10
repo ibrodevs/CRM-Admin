@@ -8,13 +8,13 @@ const adapters = await readFile(new URL('../src/legacy/adapters/legacy-adapters.
 const finance = await readFile(new URL('../src/modules/orders/model/finance.jsx', import.meta.url), 'utf8');
 
 test('order finance keeps the backend currency and never converts RUB totals to USD', () => {
-  assert.match(orderCard, /const currency = orderFinanceCurrency\(summary, order, services\)/);
+  assert.match(orderCard, /const currency = selectedCurrency \|\| orderFinanceCurrency\(summary, order, services\)/);
   assert.match(orderCard, /financeRowsTotal\(summary\.services_total, currency\)/);
   assert.match(orderCard, /const money = \(amount\) => ocMoney\(amount, currency\)/);
   assert.doesNotMatch(orderCard, /t \/ 90/);
   assert.doesNotMatch(orderCard, /typeof f\$ === 'function'/);
   assert.match(orderCard, /const \{ total, currency \} = serviceTotals\(services\)/);
-  assert.match(orderCard, /ocMoney\(total, currency\)/);
+  assert.match(orderCard, /moneyRowsText\(serviceMoneyRows\(services/);
 });
 
 test('an order service currency wins over an offer fallback in the service card', () => {

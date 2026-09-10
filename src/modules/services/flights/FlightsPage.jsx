@@ -2284,7 +2284,9 @@ async function loadLiveFlightOffers(params) {
       date: params.depDate instanceof Date ? params.depDate.toISOString().slice(0, 10) : params.depDate || undefined,
       return_date: params.retDate instanceof Date ? params.retDate.toISOString().slice(0, 10) : params.retDate || undefined,
       cabin: { 'Эконом': 'economy', 'Бизнес': 'business', 'Первый': 'first' }[params.cabin] || 'economy',
-      passengers: paxTotal(params.pax), currency: 'USD',
+      passengers: paxTotal(params.pax), currency: params.currency || 'RUB',
+      trip: params.trip,
+      ...(params.trip === 'mc' ? { segments: (params.segments || []).map((segment) => ({ origin: segment.from, destination: segment.to, date: segment.date instanceof Date ? segment.date.toLocaleDateString('en-CA') : segment.date })) } : {}),
     },
   });
   for (let attempt = 0; attempt < 30; attempt += 1) {

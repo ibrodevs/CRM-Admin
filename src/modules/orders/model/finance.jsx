@@ -1,4 +1,3 @@
-import { FIN_OPS } from '../../../legacy/data/index.jsx';
 
 function normalizeCurrency(currency, fallback = 'RUB') {
   const value = String(currency || '').trim();
@@ -22,7 +21,7 @@ function ocCurrency(currency = 'RUB') {
 
 function ocMoney(amount, currency = 'RUB') {
   const value = Number(amount);
-  return Math.round(Number.isFinite(value) ? value : 0).toLocaleString('ru-RU') + ' ' + ocCurrency(currency);
+  return (Number.isFinite(value) ? value : 0).toLocaleString('ru-RU', { maximumFractionDigits: 2 }) + ' ' + ocCurrency(currency);
 }
 
 function financeRowsTotal(rows, currency) {
@@ -82,62 +81,31 @@ function svcCalc(service) {
   };
 }
 
-function financeSnapshot(orderNo, services) {
-  const operations = FIN_OPS.filter((operation) => operation.order === orderNo);
-  const byKind = {};
-  services.forEach((service) => {
-    const calculation = svcCalc(service);
-    byKind[service.kind] = {
-      total: (byKind[service.kind]?.total || 0) + calculation.total,
-      tariff: (byKind[service.kind]?.tariff || 0) + calculation.tariff,
-      taxes: (byKind[service.kind]?.taxes || 0) + calculation.taxes,
-      fee: (byKind[service.kind]?.fee || 0) + calculation.fee,
-      commission: (byKind[service.kind]?.commission || 0) + calculation.commission,
-      currency: normalizeCurrency(service.currency || byKind[service.kind]?.currency || 'RUB'),
-    };
+function activeOrderServices(services = []) {
+  return services.filter((service) => !['cancelled', 'failed', 'Отменено', 'Ошибка'].includes(service.statusCode || service.status));
+}
+
+function serviceMoneyRows(services = [], fallback = 'RUB') {
+  const totals = new Map();
+  activeOrderServices(services).forEach((service) => {
+    const currency = normalizeCurrency(service.currency, fallback);
+    totals.set(currency, (totals.get(currency) || 0) + svcCalc(service).total);
   });
-  operations.forEach((operation) => {
-    byKind[operation.source] = {
-      ...(byKind[operation.source] || {
-        total: 0,
-        tariff: 0,
-        taxes: 0,
-        fee: 0,
-        commission: 0,
-        currency: operation.currency,
-      }),
-      paid: (byKind[operation.source]?.paid || 0) + operation.paid,
-      debt: (byKind[operation.source]?.debt || 0) + opDebt(operation),
-      margin: (byKind[operation.source]?.margin || 0) + operation.commission,
-      payable: (byKind[operation.source]?.payable || 0) + opPayable(operation),
-      refund: (byKind[operation.source]?.refund || 0) + operation.refund,
-    };
-  });
-  return {
-    byKind,
-    tariffs: services.reduce((sum, service) => sum + svcCalc(service).tariff, 0),
-    taxes: services.reduce((sum, service) => sum + svcCalc(service).taxes, 0),
-    fees: services.reduce((sum, service) => sum + svcCalc(service).fee, 0),
-    margin: operations.length
-      ? operations.reduce((sum, operation) => sum + (operation.commission || 0), 0)
-      : services.reduce((sum, service) => sum + svcCalc(service).commission, 0),
-    total: services.reduce((sum, service) => sum + svcCalc(service).total, 0),
-    paid: operations.reduce((sum, operation) => sum + operation.paid, 0),
-    debt: operations.reduce((sum, operation) => sum + opDebt(operation), 0),
-    refund: operations.reduce((sum, operation) => sum + operation.refund, 0),
-    hasOps: operations.length > 0,
-    currencies: [
-      ...new Set(
-        services
-          .map((service) => service.currency)
-          .concat(operations.map((operation) => operation.currency))
-          .filter(Boolean),
-      ),
-    ],
-  };
+  return [...totals].map(([currency, amount]) => ({ currency, amount }));
+}
+
+function moneyRowsText(rows = [], fallback = 'RUB') {
+  return rows.length ? rows.map((row) => ocMoney(row.amount, row.currency)).join(' + ') : ocMoney(0, fallback);
+}
+
+function financeSnapshot(orderNo, services, summary = null, fallback = 'RUB') {
+  const totals = summary?.services_total || serviceMoneyRows(services, fallback);
+  return { totals, totalText: moneyRowsText(totals, fallback),
+    paidText: summary ? moneyRowsText(summary.paid, fallback) : 'Нет данных',
+    debtText: summary ? moneyRowsText(summary.outstanding, fallback) : 'Нет данных' };
 }
 
 export {
   normalizeCurrency, ocCurrency, ocMoney, financeRowsTotal, orderFinanceCurrency,
-  opPayable, opDebt, svcCalc, financeSnapshot,
+  opPayable, opDebt, svcCalc, financeSnapshot, activeOrderServices, serviceMoneyRows, moneyRowsText,
 };

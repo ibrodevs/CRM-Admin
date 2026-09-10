@@ -94,7 +94,7 @@ export function WorkspaceProvider({ children }) {
       return acc;
     }, {}));
     const calls = {
-      orders: ordersApi.list({}, signal), suppliers: suppliersApi.list({}, signal),
+      orders: ordersApi.all({}, signal), suppliers: suppliersApi.list({}, signal),
       persons: clientsApi.persons({}, signal), clients: clientsApi.clients({}, signal), companies: companiesApi.companies({}, signal),
       notifications: notificationsApi.list({}, signal), chats: communicationsApi.threads({}, signal),
       proposals: proposalListApi.proposals({}, signal), documents: documentListApi.documents({}, signal),

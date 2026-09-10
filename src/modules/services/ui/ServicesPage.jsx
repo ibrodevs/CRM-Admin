@@ -109,7 +109,7 @@ function SvcField({ f, form, set }) {
 function SvcOfferCard({ o, kind, onSelect, onSave, selectLabel }) {
   const k = SERVICE_KIND[kind];
   const total = o.cost + o.fee;
-  const fmt = o.currency === 'RUB' ? rub : svM;
+  const fmt = (amount) => ocMoney(amount, o.currency);
   return (
     <div className="off-card" style={{ marginBottom: 14 }}>
       <div className="off-main">
@@ -127,7 +127,7 @@ function SvcOfferCard({ o, kind, onSelect, onSave, selectLabel }) {
           <div className="off-supplier"><Icon name="api" style={{ width: 14, height: 14, verticalAlign: -2 }} /> {o.supplier}</div>
           <div className="off-price-line"><span>Тариф</span><span>{fmt(o.cost)}</span></div>
           <div className="off-price-line"><span>Сервисный сбор</span><span>{fmt(o.fee)}</span></div>
-          <div className="off-total">{Math.round(total).toLocaleString('ru-RU')} <small>{o.currency === 'RUB' ? '₽' : '$'}</small></div>
+          <div className="off-total">{fmt(total)}</div>
         </div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
           <Button size="sm" onClick={() => onSelect(o)}>{selectLabel || 'Выбрать'}</Button>
@@ -429,7 +429,7 @@ function ServiceCardSendPanel({ item, kind, participants = [], orderNo, currency
   const backendOrderId = item.orderId || item.order_id || (BACKEND_ID_RE.test(String(item.order || '')) ? item.order : null);
   const backendServiceId = item.serverId || (BACKEND_ID_RE.test(String(serviceId || item.id || '')) ? (serviceId || item.id) : null);
   const operator = (typeof CURRENT_USER !== 'undefined' && CURRENT_USER.name) || 'Оператор';
-  const fmt = (n) => (currency === 'RUB' || currency === '₽') ? rub(n) : svM(n);
+  const fmt = (n) => ocMoney(n, currency);
   const kindMeta = SERVICE_KIND[kind] || { icon: 'briefcase', color: 'var(--blue)' };
 
 
@@ -1690,6 +1690,7 @@ async function waitForBackendOffers(searchId) {
   throw new Error('Поиск занимает больше обычного. Повторите попытку.');
 }
 function SvcFilters({ allOffers, flt, setFlt, bounds, facetLabel }) {
+  const fmt = (amount) => ocMoney(amount, allOffers[0]?.currency || 'RUB');
   const suppliers = [...new Set(allOffers.map((o) => o.supplier))];
   const supCount = (s) => allOffers.filter((o) => o.supplier === s).length;
   const tags = [...new Set(allOffers.flatMap((o) => o.tags || []))];
@@ -1704,8 +1705,8 @@ function SvcFilters({ allOffers, flt, setFlt, bounds, facetLabel }) {
       <div className="hp-filter-block">
         <div className="hp-filter-title">Цена</div>
         <div className="hp-price-range">
-          <span className="hp-pr-from">от {svM(bounds.min)}</span>
-          <span className="hp-pr-to">{svM(flt.priceMax == null ? bounds.max : flt.priceMax)}</span>
+          <span className="hp-pr-from">от {fmt(bounds.min)}</span>
+          <span className="hp-pr-to">{fmt(flt.priceMax == null ? bounds.max : flt.priceMax)}</span>
         </div>
         <input type="range" className="hp-slider" min={bounds.min} max={bounds.max} step="1"
           value={flt.priceMax == null ? bounds.max : flt.priceMax}
@@ -1898,7 +1899,7 @@ function ServiceFlow({ routeKey, searchIntent, onConsumeSearch }) {
 
 function routeKeyForKind(kind) { return Object.keys(SVC_CFG).find((k) => SVC_CFG[k].kind === kind); }
 
-function ServiceAddFlow({ routeKey, onAdd }) {
+function ServiceAddFlow({ routeKey, onAdd, currency = 'RUB', paxCount = 1 }) {
   const cfg = SVC_CFG[routeKey];
   const data = SVC_DATA[routeKey];
   const toast = useToast();
@@ -1915,7 +1916,7 @@ function ServiceAddFlow({ routeKey, onAdd }) {
     setLoading(true);
     setLiveOffers([]);
     try {
-      const created = await servicesApi.search({ kind: BACKEND_SERVICE_KIND[routeKey], criteria: backendCriteria(routeKey, form) });
+      const created = await servicesApi.search({ kind: BACKEND_SERVICE_KIND[routeKey], criteria: { ...backendCriteria(routeKey, form), currency, passengers: form.pax ?? paxCount } });
       const found = (await waitForBackendOffers(created.search_id)).map((offer) => backendOfferCard(offer, routeKey));
       setLiveOffers(found);
       const nextBounds = svcPriceBounds(found);

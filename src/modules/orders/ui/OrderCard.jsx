@@ -17,24 +17,24 @@ import { Select } from '../../../shared/ui/Select.jsx';
 import { Th, useSort } from '../../../shared/ui/Table.jsx';
 import { plural } from '../../../shared/ui/plural.js';
 import { useToast } from '../../../shared/ui/Toast.jsx';
-import { AIRLINES, AIRPORTS, AVIA_BOOKING_CLASSES, FLIGHT_OFFERS, KP_STATUS, OPERATORS, ORDER_STATUS, ORDER_TASKS, PAX_DOC_KIND, SERVICE_KIND, SERVICE_STATUS } from '../../../legacy/data/index.jsx';
+import { AIRLINES, AIRPORTS, KP_STATUS, ORDER_STATUS, PAX_DOC_KIND, SERVICE_KIND, SERVICE_STATUS } from '../../../legacy/data/index.jsx';
 import { cardStatus } from '../../../legacy/data/access-control.jsx';
 import { CASE_SVC_STATUS, CASE_TRIGGERS, ORDER_CHANGE_CASES, caseNow, caseProgress, createChangeCase, getChangeCase, normKind } from '../../../legacy/data/service-cards.jsx';
 import { UnifiedDocumentDrawer, UnifiedPersonDrawer } from '../../clients/index.js';
 import { Topbar } from '../../../shared/ui/Topbar.jsx';
 import { AirlineLogo, AirportField, PAX_DEFAULT_OPTIONS, PaxClassPicker, durMin, loadLiveFlightOffers, money, paxTotal } from '../../services/index.js';
-import { ExtrasTabs, FareSelectPanel, RUB_PER_USD, fareCabinLabel, fareTiersForClass } from '../../services/index.js';
+import { ExtrasTabs } from '../../services/index.js';
 import { BookingWizard } from './BookingWizard.jsx';
 import { PassengerDrawer, PassportModal } from './OrderExtras.jsx';
 import { DynamicExtrasPanel, OrderResponsiblesTab } from './OrderOperations.jsx';
 import { CityPickPanel, StackPanel } from '../../locations/index.js';
 import { KPModule } from '../../proposals/index.js';
 import { DocCenter } from '../../documents/index.js';
-import { FinanceRegistry } from '../../finance/index.js';
+import { listAll } from '../../../shared/api/operations.js';
 import { ReturnsModule } from '../../returns/index.js';
 import { AeroAddFlow, ManualAltForm, RailAddFlow, ServiceAddFlow, ServiceCardHistoryDrawer, ServiceCardSendPanel } from '../../services/index.js';
 import { HotelPicker } from '../../services/index.js';
-import { financeRowsTotal, financeSnapshot, normalizeCurrency, ocCurrency, ocMoney, opDebt, opPayable, orderFinanceCurrency, svcCalc } from '../model/finance.jsx';
+import { activeOrderServices, moneyRowsText, serviceMoneyRows, financeRowsTotal, financeSnapshot, normalizeCurrency, ocCurrency, ocMoney, opDebt, opPayable, orderFinanceCurrency, svcCalc } from '../model/finance.jsx';
 import { communicationsApi } from '../../chats/api.js';
 import { documentsApi } from '../../documents/api.js';
 import { ordersApi } from '../api/ordersApi.js';
@@ -55,6 +55,7 @@ const ORDER_STATUS_CODE = {
   'Ожидает подтверж.': 'awaiting_confirmation',
   'Ожидание оплаты': 'awaiting_payment',
   'Оплачено': 'paid',
+  'Завершено': 'completed',
   'Требует проверки': 'needs_review',
   'На паузе': 'on_hold',
   'Отменено': 'cancelled',
@@ -161,7 +162,7 @@ function StatusControl({ status, onChange }) {
 function OrderAside({ order, status, onStatusChange, services, participants, tasks = [], history = [], documents = [],
   requestType, aviaParams, onOpenTab, onOpenServices, onOpenTasks }) {
   const openTasks = tasks.filter((t) => !t.done);
-  const fin = financeSnapshot(order.no, services);
+  const fin = financeSnapshot(order.no, services, null, order.base_currency || order.currency);
   const trip = tripFromServices(services, aviaParams);
 
 
@@ -244,9 +245,9 @@ function OrderAside({ order, status, onStatusChange, services, participants, tas
           <span className="ic"><Icon name="finance" /></span>
           <div className="body">
             <div className="lbl">Финансы</div>
-            <div className="val">{ocMoney(fin.total)}</div>
-            <div className="sub">Оплачено: {ocMoney(fin.paid)}</div>
-            <div className="sub">К оплате: {ocMoney(Math.max(0, fin.total - fin.paid))}</div>
+            <div className="val">{fin.totalText}</div>
+            <div className="sub">Оплачено: {fin.paidText}</div>
+            <div className="sub">К оплате: {fin.debtText}</div>
           </div>
           <Icon name="chevRight" className="chev" />
         </button>
@@ -743,6 +744,7 @@ function ServiceListRow({ s, paxCount, isGroup, onOpen, orderNo, participants = 
 
 
 function serviceTotals(services) {
+  services = activeOrderServices(services);
   const currency = normalizeCurrency((services || []).find((service) => service?.currency)?.currency || 'RUB');
   return {
     currency,
@@ -761,11 +763,11 @@ function serviceTotals(services) {
 
 
 
-function ServicesFooterBar({ services, bookingDraft, onStartBooking }) {
+function ServicesFooterBar({ services, order, bookingDraft, onStartBooking }) {
   const { total, currency } = serviceTotals(services);
   return (
     <div className="oc-svc-footer">
-      <div className="grp"><span className="l">Итого по заказу</span><span className="v">{ocMoney(total, currency)} <Icon name="alertCircle" style={{ width: 14, height: 14, color: 'var(--muted-2)', verticalAlign: -2 }} /></span></div>
+      <div className="grp"><span className="l">Итого по заказу</span><span className="v">{moneyRowsText(serviceMoneyRows(services, order?.base_currency || order?.currency), order?.base_currency || order?.currency)} <Icon name="alertCircle" style={{ width: 14, height: 14, color: 'var(--muted-2)', verticalAlign: -2 }} /></span></div>
       <div style={{ flex: 1 }} />
       <Button iconRight="arrowRight" onClick={onStartBooking}>{bookingDraft ? 'Продолжить бронирование' : 'Перейти к бронированию'}</Button>
     </div>
@@ -1528,7 +1530,7 @@ function RadioFlightRow({ opt, selected, onSelect }) {
         </span>
       </div>
       <div className="tm">{leg.arr}<div className="ap">{leg.to}</div></div>
-      <div className="pr"><div className="v">{money(opt.price, 'USD')}</div><div className="c">{AIRLINES[opt.airline]?.name || opt.airline}</div></div>
+      <div className="pr"><div className="v">{money(opt.price, opt.currency)}</div><div className="c">{AIRLINES[opt.airline]?.name || opt.airline}</div></div>
       <Radio on={selected} onChange={onSelect} />
     </div>
   );
@@ -1558,8 +1560,8 @@ function AviaFilters({ flt, setFlt, bounds, offers = [] }) {
       <div className="hp-filter-block">
         <div className="hp-filter-title">Цена</div>
         <div className="hp-price-range">
-          <span className="hp-pr-from">от {money(bounds.min, 'USD')}</span>
-          <span className="hp-pr-to">{money(flt.priceMax == null ? bounds.max : flt.priceMax, 'USD')}</span>
+          <span className="hp-pr-from">от {money(bounds.min, offers[0]?.currency || 'RUB')}</span>
+          <span className="hp-pr-to">{money(flt.priceMax == null ? bounds.max : flt.priceMax, offers[0]?.currency || 'RUB')}</span>
         </div>
         <input type="range" className="hp-slider" min={bounds.min} max={bounds.max} step="1"
           value={flt.priceMax == null ? bounds.max : flt.priceMax}
@@ -1608,7 +1610,7 @@ function AviaCardRow({ opt, sel, onSelect }) {
         </div>
       </div>
       <div className="ap-fl-time">{leg.arr}<div className="ap">{leg.to}</div></div>
-      <div className="ap-fl-pr"><div className="v">{money(opt.price, 'USD')}</div><div className="c">{AIRLINES[opt.airline]?.name || opt.airline}</div></div>
+      <div className="ap-fl-pr"><div className="v">{money(opt.price, opt.currency)}</div><div className="c">{AIRLINES[opt.airline]?.name || opt.airline}</div></div>
       <Radio on={sel} onChange={() => onSelect(opt)} />
     </div>
   );
@@ -1715,7 +1717,7 @@ function AviaResultRow({ opt, onView, embedded }) {
       <FlightScaleBar leg={leg} />
       <div className="ap-fl-time">{leg.arr}<div className="ap">{leg.to}</div></div>
       <div className="ap-fl-pr">
-        <div className="v">{money(opt.price, 'USD')}</div>
+        <div className="v">{money(opt.price, opt.currency)}</div>
         <div className="c">{AIRLINES[opt.airline]?.name || opt.airline}</div>
         {opt.supplier && <SupplierTag name={opt.supplier} />}
       </div>
@@ -1780,150 +1782,6 @@ function AviaPaxPanel({ params, setParams, participants = [], groups, onClose })
 
 
 
-function FlightFarePanel({ route, paxCount, cabin, pax = [], onClose, onAdd, onPerPax }) {
-
-
-  const [clsCode, setClsCode] = useState('Y');
-  const [infoFare, setInfoFare] = useState(null);
-
-  const [extras, setExtras] = useState({ seats: {}, baggage: {}, meal: {}, insurance: {}, special: {}, comfort: {} });
-  const [extrasOpen, setExtrasOpen] = useState(false);
-  const extrasCount = Object.values(extras.seats).filter(Boolean).length
-    + Object.values(extras.baggage).filter((v) => v && v !== 'none').length
-    + Object.values(extras.meal).filter((v) => v && v !== 'standard' && v !== 'none').length
-    + Object.values(extras.insurance).filter((v) => v && v !== 'none').length
-    + Object.keys(extras.comfort).filter((kk) => extras.comfort[kk]).length
-    + Object.keys(extras.special).filter((kk) => extras.special[kk]).length;
-  const extrasPax = pax && pax.length ? pax : [{ name: 'Пассажир 1', role: 'Взрослый' }];
-  const tiers = fareTiersForClass(clsCode);
-  const [fareId, setFareId] = useState((tiers.find((f) => f.recommended) || tiers[0]).id);
-  const tier = tiers.find((f) => f.id === fareId) || (tiers.find((f) => f.recommended) || tiers[0]);
-  const changeClass = (code) => {
-    setClsCode(code);
-    const t = fareTiersForClass(code);
-    setFareId((t.find((f) => f.recommended) || t[0]).id);
-  };
-  const fareUsd = Math.round(tier.delta / RUB_PER_USD);
-  const seats = Math.max(1, paxCount);
-  const grand = (route.total + fareUsd) * seats;
-  const legs = route.legs;
-  const routeTitle = legs[0].leg.from + legs.map((l) => ' → ' + l.leg.to).join('');
-  const plural = (n) => n === 1 ? 'пассажир' : (n % 10 >= 2 && n % 10 <= 4 && (n % 100 < 10 || n % 100 >= 20) ? 'пассажира' : 'пассажиров');
-  const add = () => onAdd({ ...route, cls: clsCode, cabin: fareCabinLabel(clsCode), fareName: tier.name, fareDeltaUsd: fareUsd });
-  return (
-    <>
-    <StackPanel title="Класс и тариф по рейсу" width="min(940px,95vw)" onClose={onClose}
-      footer={<>
-        <div className="ft-total" style={{ marginRight: 'auto' }}>Итого · {seats} {plural(seats)}<b style={{ fontSize: 18 }}>{money(grand, 'USD')}</b></div>
-        {onPerPax && <Button variant="secondary" icon="users" onClick={() => onPerPax(route)}>Тарифы по пассажирам</Button>}
-        <Button icon="check" onClick={add}>Добавить в заказ</Button>
-      </>}>
-      <div className="card card-pad" style={{ marginBottom: 16, display: 'flex', flexDirection: 'column', gap: 10 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <AirlineLogo code={legs[0].airline} size="sm" />
-          <div style={{ fontWeight: 700, color: 'var(--ink)' }}>{routeTitle}</div>
-          <span className="pill pill-gray" style={{ marginLeft: 'auto' }}>{fareCabinLabel(clsCode)} · класс {clsCode}</span>
-        </div>
-        {legs.map((l, i) => <LegTimeline key={i} opt={l} title={legs.length > 1 ? (i === 0 ? 'Маршрут туда' : i === 1 ? 'Обратно' : 'Сегмент ' + (i + 1)) : null} />)}
-      </div>
-
-
-      <div className="ap-sc-title">1. Выберите класс бронирования</div>
-      <div className="fare-class-grid">
-        {AVIA_BOOKING_CLASSES.map((c) => (
-          <div key={c.code} className={'fare-class-tile' + (clsCode === c.code ? ' sel' : '')} onClick={() => changeClass(c.code)}>
-            {clsCode === c.code && <Icon name="check" className="ic-sel" />}
-            <div className="code">{c.code}</div>
-            <div className="cab">{c.cabin}</div>
-            <div className="left">Осталось мест: {c.seatsLeft}</div>
-          </div>
-        ))}
-      </div>
-
-
-      <div className="ap-sc-title">2. Выберите тариф в классе {clsCode} ({fareCabinLabel(clsCode)}) — ознакомьтесь перед бронированием</div>
-      <div className="fare-grid">
-        {tiers.map((f) => {
-          const u = Math.round(f.delta / RUB_PER_USD);
-          const sel = tier.id === f.id;
-          return (
-            <div key={f.id} className={'fare-card' + (sel ? ' sel' : '')} onClick={() => setFareId(f.id)}>
-              {f.recommended && <span className="fc-badge">Рекомендуем</span>}
-              <div className="fc-name">{f.name}
-                <button type="button" className="fc-info" title="О тарифе" onClick={(e) => { e.stopPropagation(); setInfoFare(f); }}><Icon name="alertCircle" style={{ width: 16, height: 16 }} /></button>
-              </div>
-              <div className="fc-price">{u ? '+ ' + money(u, 'USD') : 'без доплаты'}<small>{u ? ' / пассажир' : ''}</small></div>
-              {f.features.map((ft, k) => (
-                <div key={k} className={'fare-feat ' + (ft.ok ? 'ok' : 'no')}><Icon name={ft.ok ? 'check' : 'x'} />{ft.text}</div>
-              ))}
-              {f.rules && (
-                <div className="fare-rules">
-                  <div className="fare-rules-h">Правила тарифа</div>
-                  {f.rules.map((r, k) => (<div key={k} className="fare-rule"><span className="rk">{r.k}</span><span className={'rv ' + (r.tone || '')}>{r.v}</span></div>))}
-                </div>
-              )}
-              {f.desc && (
-                <button type="button" className="fare-info-btn" onClick={(e) => { e.stopPropagation(); setInfoFare(f); }}>
-                  <Icon name="alertCircle" style={{ width: 14, height: 14 }} />О тарифе
-                </button>
-              )}
-              <Button variant="secondary" size="sm" className="fare-pick-btn" icon={sel ? 'check' : undefined}
-                onClick={(e) => { e.stopPropagation(); setFareId(f.id); }}>{sel ? 'Выбран' : 'Выбрать тариф'}</Button>
-            </div>
-          );
-        })}
-      </div>
-
-
-      <div className="ap-sc-title" style={{ marginTop: 18 }}>3. Доп. услуги и места</div>
-      <div className="ap-list-row ap-sum-row" style={{ cursor: 'pointer' }} onClick={() => setExtrasOpen(true)}>
-        <span className="ic"><Icon name="briefcase" /></span>
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <div className="t">Багаж, выбор места, питание, страховка</div>
-          <div className="s">{extrasCount ? 'Выбрано доп. услуг: ' + extrasCount : 'Доп. услуги авиакомпании — по желанию'}</div>
-        </div>
-        <span className="pr">{extrasCount ? extrasCount + ' шт.' : 'Добавить'}</span>
-        <Icon name="chevRight" style={{ width: 18, height: 18, color: 'var(--muted-2)', flex: '0 0 18px' }} />
-      </div>
-    </StackPanel>
-    {infoFare && <FareInfoPanel fare={infoFare} onClose={() => setInfoFare(null)} onSelect={() => { setFareId(infoFare.id); setInfoFare(null); }} />}
-    {extrasOpen && (
-      <StackPanel title="Дополнительные услуги" width="min(1040px,96vw)" onClose={() => setExtrasOpen(false)}
-        footer={<>
-          <Button variant="secondary" style={{ flex: 1 }} onClick={() => setExtrasOpen(false)}>Отмена</Button>
-          <Button icon="check" style={{ flex: 2 }} onClick={() => setExtrasOpen(false)}>Применить{extrasCount ? ' · выбрано ' + extrasCount : ''}</Button>
-        </>}>
-        <ExtrasTabs pax={extrasPax} state={extras} set={setExtras} embedded />
-      </StackPanel>
-    )}
-    </>
-  );
-}
-
-
-function FareInfoPanel({ fare, onClose, onSelect }) {
-  const u = Math.round((fare.delta || 0) / RUB_PER_USD);
-  return (
-    <StackPanel title={'Тариф · ' + fare.name} width="min(540px,92vw)" onClose={onClose}
-      footer={<>
-        <Button variant="secondary" style={{ flex: 1 }} onClick={onClose}>Закрыть</Button>
-        <Button style={{ flex: 1 }} icon="check" onClick={onSelect}>Выбрать этот тариф</Button>
-      </>}>
-      <div style={{ fontSize: 22, fontWeight: 700, color: 'var(--ink)', marginBottom: 10 }}>{u ? '+ ' + money(u, 'USD') : 'без доплаты'}<span style={{ fontSize: 13, fontWeight: 500, color: 'var(--muted)' }}>{u ? ' / пассажир' : ''}</span></div>
-      {fare.desc && <p style={{ color: 'var(--muted)', lineHeight: 1.55, margin: '0 0 8px' }}>{fare.desc}</p>}
-      <div className="ap-sc-title" style={{ marginTop: 14 }}>Что включено</div>
-      {fare.features.map((ft, k) => (<div key={k} className={'fare-feat ' + (ft.ok ? 'ok' : 'no')}><Icon name={ft.ok ? 'check' : 'x'} />{ft.text}</div>))}
-      {fare.rules && <>
-        <div className="ap-sc-title" style={{ marginTop: 16 }}>Правила тарифа</div>
-        <div className="kv">{fare.rules.map((r, k) => (<div className="kv-row" key={k}><span className="k">{r.k}</span><span className={'v fare-rule-v ' + (r.tone || '')}>{r.v}</span></div>))}</div>
-      </>}
-    </StackPanel>
-  );
-}
-
-
-
-
 function aviaDepMin(t) { const m = (t || '').match(/(\d{1,2}):(\d{2})/); return m ? (+m[1]) * 60 + (+m[2]) : 0; }
 function AviaListTable({ rows }) {
   const { sort, onSort, apply } = useSort({ col: 'price', dir: 'asc' });
@@ -1958,7 +1816,7 @@ function AviaListTable({ rows }) {
                     ? <span style={{ color: 'var(--amber)' }}>Без пересадок · {technicalStopLabel(technicalStopCount(leg))}</span>
                     : <span style={{ color: 'var(--green)' }}>Прямой</span>}</td>
                 <td style={{ color: 'var(--muted)', fontSize: 13, whiteSpace: 'nowrap' }}>{r.supplier}</td>
-                <td style={{ textAlign: 'right', fontWeight: 700, whiteSpace: 'nowrap' }}>{money(r.price, 'USD')}</td>
+                <td style={{ textAlign: 'right', fontWeight: 700, whiteSpace: 'nowrap' }}>{money(r.price, r.currency)}</td>
                 <td onClick={(e) => e.stopPropagation()}><Button size="sm" variant="secondary" iconRight="chevRight" onClick={r.view}>Тарифы</Button></td>
               </tr>
             );
@@ -1969,279 +1827,78 @@ function AviaListTable({ rows }) {
   );
 }
 
-function AviaSearchPanel({ params, setParams, paxCount, participants = [], isGroup, onAdd, onAddPerPax }) {
+function AviaSearchPanel({ params, setParams, participants = [], onAdd }) {
   const toast = useToast();
-  const p = params;
-  const set = (patch) => setParams({ ...p, ...patch });
-  const swap = () => set({ from: p.to, to: p.from });
-  const [liveOffers, setLiveOffers] = useState([]);
+  const [offers, setOffers] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [searched, setSearched] = useState(false);
+  const [adding, setAdding] = useState(null);
+  const requestId = useRef(0);
+  useEffect(() => () => { requestId.current += 1; }, []);
+  const set = (patch) => { requestId.current += 1; setLoading(false); setOffers([]); setSearched(false); setParams({ ...params, ...patch }); };
+  const segments = params.segments?.length ? params.segments : [{ from: params.from, to: params.to, date: params.depDate }, { from: params.to, to: '', date: null }];
   const runSearch = async () => {
-    const requestedSeats = participants.length || paxTotal(p.pax);
-    if (!p.from || !p.to || (p.trip !== 'mc' && !p.depDate)) {
-      toast('Укажите маршрут и дату поездки', 'warn');
-      return;
+    if (!participants.length) { toast('Добавьте пассажиров в заказ', 'err'); return; }
+    const points = params.trip === 'mc' ? segments : [{ from: params.from, to: params.to, date: params.depDate }];
+    if (points.some((point) => !point.from || !point.to || !point.date) || (params.trip === 'rt' && !params.retDate)) {
+      toast('Заполните маршрут и даты поездки', 'err'); return;
     }
-    if (requestedSeats < 1) {
-      toast('Добавьте пассажира в заказ или укажите количество пассажиров', 'warn');
-      return;
-    }
-    setLoading(true);
-    setLiveOffers([]);
+    const currentRequest = ++requestId.current;
+    setLoading(true); setOffers([]); setSearched(false);
     try {
-      const found = await loadLiveFlightOffers(p);
-      setLiveOffers(found);
-      const nextBounds = aviaPriceBounds(found);
-      setFlt((current) => ({ ...current, air: [], sup: [], priceMax: nextBounds.max }));
-      toast(`Получено вариантов: ${found.length}`, 'ok');
-    } catch (error) {
-      toast(error.message || 'Не удалось выполнить поиск перелётов', 'err');
-    } finally {
-      setLoading(false);
-    }
+      const found = await loadLiveFlightOffers({ ...params, pax: { adt: participants.length }, segments: points });
+      if (currentRequest !== requestId.current) return;
+      setOffers(found); setSearched(true);
+    } catch (error) { if (currentRequest === requestId.current) toast(error.message, 'err'); }
+    finally { if (currentRequest === requestId.current) setLoading(false); }
   };
-  const aviaBounds = aviaPriceBounds(liveOffers);
-  const [flt, setFlt] = useState({ stops: [], air: [], sup: [], bagOnly: false, refundOnly: false, priceMax: aviaBounds.max, flightNo: '' });
-  const [visible, setVisible] = useState(6);
-  const [view, setView] = useState('cards');
-  const [paxPanel, setPaxPanel] = useState(false);
-  const [fareRoute, setFareRoute] = useState(null);
-  const groups = null;
-  const seats = participants.length || paxTotal(p.pax);
-  const plural = (n) => n === 1 ? 'пассажир' : (n % 10 >= 2 && n % 10 <= 4 && (n % 100 < 10 || n % 100 >= 20) ? 'пассажира' : 'пассажиров');
-
-
-  const TRIPS = [['ow', 'В одну сторону'], ['rt', 'Туда-обратно'], ['mc', 'Сложный маршрут']];
-
-  const flightNoMatch = (o, q) => { const n = q.replace(/\s+/g, '').toLowerCase(); return [o.out, o.back].some((l) => l && l.flightNo && l.flightNo.replace(/\s+/g, '').toLowerCase().includes(n)); };
-  let pool = liveOffers.filter((o) => {
-    const st = o.out.stops >= 2 ? '2plus' : String(o.out.stops || 0);
-    if (flt.flightNo && flt.flightNo.trim() && !flightNoMatch(o, flt.flightNo)) return false;
-    if (flt.stops.length && !flt.stops.includes(st)) return false;
-    if (flt.air.length && !flt.air.includes(o.airline)) return false;
-    if (flt.sup.length && !flt.sup.includes(o.supplier)) return false;
-    if (flt.bagOnly && o.baggage === 'Без багажа') return false;
-    if (flt.refundOnly && !o.refundable) return false;
-    if (flt.priceMax != null && (o.fare + o.fee) > flt.priceMax) return false;
-    return true;
-  });
-  pool = [...pool].sort((a, b) => (a.fare + a.fee) - (b.fare + b.fee));
-
-  const outOpts = pool.map((o) => ({ key: o.id + '-o', backendOfferId: o._backendOfferId, airline: o.airline, leg: o.out, supplier: o.supplier, price: Math.round((o.fare + o.fee) * 0.6) }));
-  const rtCombos = pool.filter((o) => o.back).map((o) => ({
-    id: o.id,
-    out: { key: o.id + '-o', airline: o.airline, leg: o.out, supplier: o.supplier, price: Math.round((o.fare + o.fee) * 0.6) },
-    back: { key: o.id + '-b', airline: o.airline, leg: o.back, supplier: o.supplier, price: Math.round((o.fare + o.fee) * 0.4) },
-  })).sort((a, b) => (a.out.price + a.back.price) - (b.out.price + b.back.price));
-  const resultTrip = p.trip === 'rt' && pool.length > 0 && rtCombos.length === 0 ? 'ow' : p.trip;
-
-
-  const MC_MAX = 6;
-  const segs = (p.segments && p.segments.length >= 2) ? p.segments : [
-    { from: p.from, to: p.to, date: p.depDate },
-    { from: p.to, to: '', date: null },
-  ];
-  const setSegs = (next) => set({ segments: next });
-  const updateSeg = (i, patch) => setSegs(segs.map((s, idx) => (idx === i ? { ...s, ...patch } : s)));
-  const addSeg = () => { if (segs.length < MC_MAX) setSegs([...segs, { from: segs[segs.length - 1].to || '', to: '', date: null }]); };
-  const removeSeg = (i) => { if (segs.length > 2) setSegs(segs.filter((_, idx) => idx !== i)); };
-
-  const mcLegs = outOpts.length ? segs.map((_, i) => outOpts[i % outOpts.length]) : [];
-  const mcTotal = mcLegs.reduce((s, o) => s + o.price, 0);
-
-  const openFare = (route) => setFareRoute(route);
-
-
-  const listRows = resultTrip === 'rt'
-    ? rtCombos.map((c) => ({ id: c.id, airline: c.out.airline, leg: c.out.leg, flightNo: c.out.leg.flightNo, supplier: c.out.supplier, price: c.out.price + c.back.price, roundtrip: true, view: () => openFare({ legs: [c.out, c.back], total: c.out.price + c.back.price }) }))
-    : resultTrip === 'mc'
-      ? (mcLegs.length ? [{ id: 'mc', airline: mcLegs[0].airline, leg: mcLegs[0].leg, flightNo: mcLegs[0].leg.flightNo, supplier: mcLegs[0].supplier, price: mcTotal, view: () => openFare({ legs: mcLegs, total: mcTotal }) }] : [])
-      : outOpts.map((o) => ({ id: o.key, airline: o.airline, leg: o.leg, flightNo: o.leg.flightNo, supplier: o.supplier, price: o.price, view: () => openFare({ legs: [o], total: o.price }) }));
-
-  const paxLabel = `${seats} ${plural(seats)} · ${p.cabin}`;
-  const paxFieldNode = (
-    <div className="av-field avia-pax-field" onClick={() => setPaxPanel(true)}>
-      <span className="label">Пассажиры и класс</span>
-      <div className="input" style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 9 }}>
-        <Icon name="users" style={{ width: 18, height: 18, color: 'var(--muted-2)', flexShrink: 0 }} />
-        <span style={{ flex: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{paxLabel}</span>
-        <Icon name="chevDown" style={{ width: 16, height: 16, color: 'var(--muted-2)' }} />
-      </div>
+  const choose = async (offer) => {
+    setAdding(offer.id);
+    try { await onAdd({ backendOfferId: offer._backendOfferId, currency: offer.currency }); }
+    finally { setAdding(null); }
+  };
+  return <div>
+    <div className="form-grid">
+      <Field label="Маршрут"><select className="select" value={params.trip} onChange={(event) => set({ trip: event.target.value })}>
+        <option value="ow">В одну сторону</option><option value="rt">Туда-обратно</option><option value="mc">Сложный маршрут</option>
+      </select></Field>
+      <Field label="Валюта поиска"><select className="select" value={params.currency || 'RUB'} onChange={(event) => set({ currency: event.target.value })}>
+        {['RUB', 'USD', 'EUR', 'KGS'].map((code) => <option key={code}>{code}</option>)}
+      </select></Field>
+      {params.trip !== 'mc' ? <>
+        <Field label="Откуда"><AirportField value={params.from} onChange={(from) => set({ from })} /></Field>
+        <Field label="Куда"><AirportField value={params.to} onChange={(to) => set({ to })} /></Field>
+        <Field label="Дата вылета"><DateField value={params.depDate} onChange={(depDate) => set({ depDate })} /></Field>
+        {params.trip === 'rt' && <Field label="Дата возвращения"><DateField value={params.retDate} onChange={(retDate) => set({ retDate })} /></Field>}
+      </> : segments.map((segment, index) => <div className="full form-grid" key={index}>
+        <Field label={`Перелёт ${index + 1}: откуда`}><AirportField value={segment.from} onChange={(from) => set({ segments: segments.map((row, i) => i === index ? { ...row, from } : row) })} /></Field>
+        <Field label="Куда"><AirportField value={segment.to} onChange={(to) => set({ segments: segments.map((row, i) => i === index ? { ...row, to } : row) })} /></Field>
+        <Field label="Дата"><DateField value={segment.date} onChange={(date) => set({ segments: segments.map((row, i) => i === index ? { ...row, date } : row) })} /></Field>
+        {segments.length > 2 && <Button variant="secondary" onClick={() => set({ segments: segments.filter((_, i) => i !== index) })}>Убрать сегмент</Button>}
+      </div>)}
+      {params.trip === 'mc' && segments.length < 6 && <Button variant="secondary" onClick={() => set({ segments: [...segments, { from: segments.at(-1).to, to: '', date: null }] })}>Добавить сегмент</Button>}
+      <Field label="Класс"><select className="select" value={params.cabin} onChange={(event) => set({ cabin: event.target.value })}>
+        {['Эконом', 'Бизнес', 'Первый'].map((value) => <option key={value}>{value}</option>)}
+      </select></Field>
     </div>
-  );
-  const foundCount = resultTrip === 'rt' ? rtCombos.length : resultTrip === 'mc' ? (mcLegs.length ? 1 : 0) : outOpts.length;
-
-  return (
-    <div>
-
-      <div className="trip-toggle" style={{ marginBottom: 14 }}>
-        {TRIPS.map(([k, l]) => (
-          <button key={k} className={p.trip === k ? 'on' : ''} onClick={() => set({ trip: k })}>{l}</button>
-        ))}
-      </div>
-
-      {p.trip === 'mc' ? (
-
-        <div className="avia-mc-mask">
-          <div className="avia-mc-head">
-            <span className="l" style={{ flex: '1 1 0' }}>Откуда</span>
-            <span style={{ flex: '0 0 40px' }} />
-            <span className="l" style={{ flex: '1 1 0' }}>Куда</span>
-            <span className="l" style={{ flex: '0 0 168px' }}>Дата вылета</span>
-            <span style={{ flex: '0 0 34px' }} />
-          </div>
-          {segs.map((s, i) => (
-            <div className="avia-mc-row" key={i}>
-              <AirportField value={s.from} onChange={(v) => updateSeg(i, { from: v })} />
-              <button className="av-swap" onClick={() => updateSeg(i, { from: s.to, to: s.from })} title="Поменять местами"><Icon name="swap" style={{ width: 18, height: 18 }} /></button>
-              <AirportField value={s.to} onChange={(v) => updateSeg(i, { to: v })} />
-              <div className="av-field avia-mc-date"><DateField value={s.date} onChange={(d) => updateSeg(i, { date: d })} placeholder="Дата" /></div>
-              <button className="avia-mc-del" disabled={segs.length <= 2} title={segs.length <= 2 ? 'Минимум 2 сегмента' : 'Удалить сегмент'} onClick={() => removeSeg(i)}><Icon name="x" style={{ width: 16, height: 16 }} /></button>
-            </div>
-          ))}
-          <div className="avia-mc-foot">
-            <Button variant="secondary" icon="plus" disabled={segs.length >= MC_MAX} onClick={addSeg}>
-              {segs.length >= MC_MAX ? 'Добавлено максимальное кол-во маршрутов' : 'Добавить маршрут'}
-            </Button>
-            <div style={{ flex: 1 }} />
-            {paxFieldNode}
-            <Button icon="search" className="avia-find-btn" style={{ height: 46, marginBottom: 0 }} onClick={runSearch}>Найти</Button>
-          </div>
-        </div>
-      ) : (
-
-        <div className="svcp-search-bar avia-search-bar">
-          <AirportField label="Откуда" value={p.from} onChange={(v) => set({ from: v })} />
-          <button className="av-swap" onClick={swap} title="Поменять местами"><Icon name="swap" style={{ width: 18, height: 18 }} /></button>
-          <AirportField label="Куда" value={p.to} onChange={(v) => set({ to: v })} />
-          {p.trip === 'rt' ? (
-            <div className="av-field">
-
-              <DateRangeField label="Даты поездки" startVal={p.depDate} endVal={p.retDate} rangeStartLabel="Только туда"
-                placeholder="Туда — обратно"
-                onChange={(s, e) => { if (e === null || e === undefined) set({ trip: 'ow', depDate: s, retDate: null }); else set({ depDate: s, retDate: e }); }} />
-            </div>
-          ) : (
-            <div className="av-field">
-              <DateField label="Дата вылета" value={p.depDate} onChange={(d) => set({ depDate: d })} placeholder="Выбрать" />
-            </div>
-          )}
-
-          {paxFieldNode}
-          <Button icon="search" className="avia-find-btn" style={{ height: 46, marginBottom: 0 }} onClick={runSearch}>Найти</Button>
-        </div>
-      )}
-
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10, margin: '0 0 14px' }}>
-        <div style={{ flex: 1 }} />
-        <span style={{ color: 'var(--muted)', fontSize: 13 }}>{loading ? 'Поиск…' : `Найдено ${foundCount}`}</span>
-
-        <div className="avia-view-toggle">
-          <button className={view === 'cards' ? 'on' : ''} title="Карточки" onClick={() => setView('cards')}><Icon name="grid" style={{ width: 16, height: 16 }} />Карточки</button>
-          <button className={view === 'list' ? 'on' : ''} title="Список" onClick={() => setView('list')}><Icon name="orders" style={{ width: 16, height: 16 }} />Список</button>
-        </div>
-        {view === 'cards' && <div style={{ minWidth: 190 }}><Select options={[{ value: 'price', label: 'Сортировка: Цена' }]} value="price" onChange={() => {}} /></div>}
-      </div>
-
-      <div className="hp-layout">
-        <AviaFilters flt={flt} setFlt={setFlt} bounds={aviaBounds} offers={liveOffers} />
-        <div style={{ minWidth: 0 }}>
-          {loading && <div className="card card-pad"><div className="sk" style={{ height: 44, marginBottom: 12 }} /><div className="sk" style={{ height: 90 }} /></div>}
-          {!loading && !pool.length && <EmptyState icon="plane" title="Варианты ещё не загружены" sub="Задайте маршрут и нажмите «Найти»" />}
-          {!loading && pool.length > 0 && <>
-          {view === 'list' ? (
-            <div className="ap-route-section">
-              <div className="ap-route-title">Рейсы списком — нажмите строку, чтобы открыть тарифы</div>
-              <AviaListTable rows={listRows.slice(0, resultTrip === 'mc' ? listRows.length : visible)} />
-              {resultTrip !== 'mc' && visible < listRows.length && (
-                <button className="svcf-more" onClick={() => setVisible((v) => v + 10)}>
-                  Показать ещё рейсы <Icon name="chevDown" style={{ width: 16, height: 16 }} />
-                </button>
-              )}
-            </div>
-          ) : (<>
-          {resultTrip === 'ow' && (
-            <div className="ap-route-section">
-              <div className="ap-route-title">{p.trip === 'rt' ? 'Варианты первого сегмента от поставщиков' : 'Рейсы туда — нажмите рейс, чтобы открыть тарифы'}</div>
-              {outOpts.slice(0, visible).map((o) => (
-                <div key={o.key} className="ap-route-card">
-                  <AviaResultRow opt={o} onView={() => openFare({ legs: [o], total: o.price })} />
-                </div>
-              ))}
-            </div>
-          )}
-
-          {resultTrip === 'rt' && (
-            <div className="ap-route-section">
-              <div className="ap-route-title">Туда и обратно — нажмите вариант, чтобы открыть тарифы</div>
-              {rtCombos.slice(0, visible).map((c) => {
-                const total = c.out.price + c.back.price;
-                const dur = fmtDur(durMin(c.out.leg.dur) + durMin(c.back.leg.dur));
-                const savings = Math.round(total * 0.045);
-                const view = () => openFare({ legs: [c.out, c.back], total });
-                return (
-                  <div key={c.id} className="ap-route-card avia-rt-card" onClick={view}>
-                    <AviaResultRow opt={c.out} embedded />
-                    <span className="ap-route-swap"><Icon name="swap" /></span>
-                    <AviaResultRow opt={c.back} embedded />
-                    <div className="ap-route-totals">
-                      <div className="rt-block"><Icon name="route" /><div><div className="l">Общая продолжительность</div><div className="v">{dur}</div></div></div>
-                      <div className="rt-price"><div className="l">Итого за маршрут</div><div className="v">{money(total, 'USD')}</div></div>
-                      <span className="pill pill-green rt-badge"><Icon name="zap" />Выгоднее на {money(savings, 'USD')}</span>
-                      <Button size="sm" iconRight="chevRight" onClick={(e) => { e.stopPropagation(); view(); }}>Тарифы</Button>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-
-          {resultTrip === 'mc' && (
-            <div className="ap-route-section">
-              <div className="ap-route-title">Сложный маршрут — нажмите, чтобы открыть тарифы</div>
-              <div className="ap-route-card chain">
-                <div className="ap-route-chain">
-                  {mcLegs.map((o, i) => (
-                    <React.Fragment key={o.key}>
-                      <div className="ap-route-chain-row">
-                        <div className="ap-route-chain-num"><span>{i + 1}</span>{i < mcLegs.length - 1 && <i />}</div>
-                        <div className="ap-route-chain-leg"><AviaResultRow opt={o} embedded /></div>
-                      </div>
-                      {i < mcLegs.length - 1 && <div style={{ marginLeft: 36 }}><span className="ap-route-chain-layover">Пересадка {fmtDur(60 + i * 40)}</span></div>}
-                    </React.Fragment>
-                  ))}
-                </div>
-                <div className="ap-route-totals">
-                  <div className="rt-block"><Icon name="route" /><div><div className="l">Итого за маршрут</div><div className="v">{money(mcTotal, 'USD')}</div></div></div>
-                  <div style={{ flex: 1 }} />
-                  <Button size="sm" iconRight="chevRight" onClick={() => openFare({ legs: mcLegs, total: mcTotal })}>Тарифы</Button>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {resultTrip !== 'mc' && visible < (resultTrip === 'rt' ? rtCombos.length : outOpts.length) && (
-            <button className="svcf-more" onClick={() => setVisible((v) => v + 10)}>
-              Показать ещё рейсы <Icon name="chevDown" style={{ width: 16, height: 16 }} />
-            </button>
-          )}
-          </>)}
-          </>}
-        </div>
-      </div>
-
-      {paxPanel && <AviaPaxPanel params={p} setParams={setParams} participants={participants} groups={groups} onClose={() => setPaxPanel(false)} />}
-      {fareRoute && (
-        <FlightFarePanel route={fareRoute} paxCount={seats} cabin={p.cabin} pax={participants}
-          onClose={() => setFareRoute(null)}
-          onAdd={(r) => { setFareRoute(null); onAdd(r); }}
-          onPerPax={onAddPerPax ? (r) => { setFareRoute(null); onAddPerPax(r); } : null} />
-      )}
+    <Button disabled={loading} icon="search" onClick={runSearch}>{loading ? 'Поиск…' : `Найти для ${participants.length} пассажиров`}</Button>
+    <div style={{ marginTop: 20 }}>
+      {offers.map((offer) => <div className="card card-pad" key={offer.id} style={{ marginBottom: 12 }}>
+        <div className="kv-row"><span className="k">{offer.supplier}</span><b>{ocMoney(offer.fare + offer.fee, offer.currency)}</b></div>
+        {(offer.itinerary?.segments || []).map((segment, index) => <div key={index} style={{ marginBottom: 10 }}>
+          <b>{segment.origin} → {segment.destination}</b> · {segment.airline} {segment.flight_number}
+          <div>{segment.departure ? new Date(segment.departure).toLocaleString('ru-RU') : '—'} → {segment.arrival ? new Date(segment.arrival).toLocaleString('ru-RU') : '—'}</div>
+          <TechnicalStopsDetails stops={technicalStopsOf(segment)} />
+        </div>)}
+        <div>{offer.fareName} · Багаж: {offer.baggage}</div>
+        <Button disabled={adding !== null} onClick={() => choose(offer)}>{adding === offer.id ? 'Добавление…' : 'Добавить в заказ'}</Button>
+      </div>)}
+      {searched && !offers.length && <EmptyState icon="plane" title="Предложения не найдены" sub="Измените параметры поиска" />}
     </div>
-  );
+  </div>;
 }
 
-function QuickAddForm({ kind, onAdd }) {
+function QuickAddForm({ kind, onAdd, currency = 'RUB' }) {
   const toast = useToast();
   const k = SERVICE_KIND[kind] || { icon: 'briefcase', color: 'var(--blue)' };
   const [title, setTitle] = useState('');
@@ -2250,7 +1907,7 @@ function QuickAddForm({ kind, onAdd }) {
   const [cost, setCost] = useState('');
   const submit = () => {
     if (!title.trim() || !cost) { toast('Заполните название и стоимость', 'err'); return; }
-    onAdd({ title: title.trim(), sub: kind, cost: +cost, fee: 0, supplier: supplier.trim() || '—', info: [{ l: 'Дата', v: date ? fmtDate(date) : '—' }] }, kind);
+    onAdd({ title: title.trim(), sub: kind, cost: +cost, fee: 0, currency, starts_at: formatIsoDateTime(date), supplier: supplier.trim() || '—', info: [{ l: 'Дата', v: date ? fmtDate(date) : '—' }] }, kind);
   };
   return (
     <div>
@@ -2262,7 +1919,7 @@ function QuickAddForm({ kind, onAdd }) {
         <div className="full"><Field label="Название услуги"><Input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Например, Страховка ВЗР" /></Field></div>
         <Field label="Дата"><DateField value={date} onChange={setDate} placeholder="Выбрать дату" /></Field>
         <Field label="Поставщик"><Input value={supplier} onChange={(e) => setSupplier(e.target.value)} placeholder="Название поставщика" /></Field>
-        <Field label="Стоимость, $"><Input type="number" value={cost} onChange={(e) => setCost(e.target.value)} placeholder="0" /></Field>
+        <Field label={`Стоимость, ${currency}`}><Input type="number" value={cost} onChange={(e) => setCost(e.target.value)} placeholder="0" /></Field>
       </div>
       <Button icon="plus" onClick={submit} style={{ marginTop: 8 }}>Добавить в заказ</Button>
     </div>
@@ -2283,11 +1940,11 @@ function AddServicePanel({ kind, setKind, aviaParams, setAviaParams, paxCount, p
       {kind === 'Авиа' && <AviaSearchPanel params={aviaParams} setParams={setAviaParams} paxCount={paxCount}
         participants={participants || []} isGroup={isGroup} onAdd={onAddAvia} onAddPerPax={onAddAviaPerPax} />}
 
-      {kind === 'Гостиница' && <HotelPicker participants={participants} group={isGroup} onApply={(offer) => onAddOther(offer, 'Гостиница')} onCancel={() => {}} />}
-      {kind === 'ЖД' && <RailAddFlow participants={participants} groups={null} onAdd={onAddOther} />}
+      {kind === 'Гостиница' && <HotelPicker currency={aviaParams?.currency} participants={participants} group={isGroup} onApply={(offer) => onAddOther(offer, 'Гостиница')} onCancel={() => {}} />}
+      {kind === 'ЖД' && <ServiceAddFlow routeKey="rail" currency={aviaParams?.currency} paxCount={participants?.length} onAdd={onAddOther} />}
       {kind === 'Аэроэкспресс' && <AeroAddFlow onAdd={onAddOther} />}
-      {kind !== 'Авиа' && kind !== 'Гостиница' && kind !== 'ЖД' && kind !== 'Аэроэкспресс' && cat.routeKey && <ServiceAddFlow routeKey={cat.routeKey} onAdd={onAddOther} />}
-      {kind !== 'Авиа' && kind !== 'Гостиница' && kind !== 'ЖД' && kind !== 'Аэроэкспресс' && !cat.routeKey && <QuickAddForm kind={kind} onAdd={onAddOther} />}
+      {kind !== 'Авиа' && kind !== 'Гостиница' && kind !== 'ЖД' && kind !== 'Аэроэкспресс' && cat.routeKey && <ServiceAddFlow currency={aviaParams?.currency} paxCount={participants?.length} routeKey={cat.routeKey} onAdd={onAddOther} />}
+      {kind !== 'Авиа' && kind !== 'Гостиница' && kind !== 'ЖД' && kind !== 'Аэроэкспресс' && !cat.routeKey && <QuickAddForm currency={aviaParams?.currency} kind={kind} onAdd={onAddOther} />}
     </div>
   );
 }
@@ -2325,8 +1982,59 @@ function TabOffers({ list = [], onCreate }) {
 
 
 
-function OrderFinanceBlock({ orderNo, order, services, summary }) {
-  const currency = orderFinanceCurrency(summary, order, services);
+function OrderFinanceRecords({ orderId }) {
+  const [data, setData] = useState(null);
+  const [error, setError] = useState(null);
+  const [retry, setRetry] = useState(0);
+  useEffect(() => {
+    const controller = new AbortController();
+    setData(null); setError(null);
+    Promise.all([
+      listAll('finance/obligations/', { order: orderId }, controller.signal),
+      listAll('finance/payments/', { order: orderId }, controller.signal),
+    ]).then(([obligations, payments]) => setData({ obligations: resultsOf(obligations), payments: resultsOf(payments) }))
+      .catch((failure) => { if (failure.name !== 'AbortError') setError(failure); });
+    return () => controller.abort();
+  }, [orderId, retry]);
+  if (error) return <AsyncBlock state="error" onRetry={() => setRetry((value) => value + 1)} />;
+  if (!data) return <AsyncBlock state="loading" />;
+  const directions = { client_receivable: 'К оплате клиентом', supplier_payable: 'К оплате поставщику', client_refund: 'Возврат клиенту', supplier_refund: 'Возврат от поставщика', incoming: 'Поступление', outgoing: 'Списание' };
+  const statuses = { open: 'Открыто', partial: 'Частично оплачено', settled: 'Оплачено', cancelled: 'Отменено', draft: 'Черновик', pending: 'Ожидает', confirmed: 'Подтверждено', failed: 'Ошибка' };
+  return <>
+    <h3>Начисления</h3>
+    {!data.obligations.length ? <EmptyState title="Начислений пока нет" /> : <div className="table-card"><table className="tbl">
+      <thead><tr><th>Назначение</th><th>Статус</th><th>Начислено</th><th>Оплачено</th><th>Остаток</th></tr></thead>
+      <tbody>{data.obligations.map((row) => <tr key={row.id}>
+        <td>{directions[row.direction] || row.direction}</td><td>{statuses[row.status] || row.status}</td>
+        <td>{ocMoney(row.original_amount, row.currency)}</td><td>{ocMoney(row.paid_amount, row.currency)}</td>
+        <td>{row.status === 'cancelled' ? '—' : ocMoney(row.outstanding, row.currency)}</td>
+      </tr>)}</tbody>
+    </table></div>}
+    <h3>Платежи</h3>
+    {!data.payments.length ? <EmptyState title="Платежей пока нет" /> : <div className="table-card"><table className="tbl">
+      <thead><tr><th>Дата</th><th>Направление</th><th>Статус</th><th>Сумма</th></tr></thead>
+      <tbody>{data.payments.map((row) => <tr key={row.id}>
+        <td>{new Date(row.created_at).toLocaleString('ru-RU')}</td><td>{directions[row.direction] || row.direction}</td>
+        <td>{statuses[row.status] || row.status}</td><td>{ocMoney(row.amount, row.currency)}</td>
+      </tr>)}</tbody>
+    </table></div>}
+  </>;
+}
+
+function OrderFinanceBlock({ orderNo, order, services, summary, selectedCurrency }) {
+  const currencies = [...new Set([
+    ...(summary?.services_total || serviceMoneyRows(services)).map((row) => row.currency),
+    ...(summary?.paid || []).map((row) => row.currency),
+    ...(summary?.outstanding || []).map((row) => row.currency),
+  ])];
+  if (!selectedCurrency && currencies.length > 1) return <>{currencies.map((code) => (
+    <OrderFinanceBlock key={code} orderNo={orderNo} order={order} services={services} summary={summary} selectedCurrency={code} />
+  ))}</>;
+  return <OrderFinanceCurrencyBlock order={order} services={services} summary={summary} selectedCurrency={selectedCurrency || currencies[0]} />;
+}
+
+function OrderFinanceCurrencyBlock({ order, services, summary, selectedCurrency }) {
+  const currency = selectedCurrency || orderFinanceCurrency(summary, order, services);
   const total = summary
     ? financeRowsTotal(summary.services_total, currency)
     : services.reduce((sum, service) => (
@@ -2335,7 +2043,7 @@ function OrderFinanceBlock({ orderNo, order, services, summary }) {
         : sum
     ), 0);
   const paid = summary ? financeRowsTotal(summary.paid, currency) : 0;
-  const debt = summary ? financeRowsTotal(summary.outstanding, currency) : Math.max(0, Math.round(total) - paid);
+  const debt = summary ? financeRowsTotal(summary.outstanding, currency) : Math.max(0, total - paid);
   const money = (amount) => ocMoney(amount, currency);
   return (
     <div className="card card-pad fade-in" style={{ marginBottom: 18, border: '1px solid var(--line)' }}>
@@ -2343,10 +2051,10 @@ function OrderFinanceBlock({ orderNo, order, services, summary }) {
         <Icon name="finance" style={{ width: 18, height: 18, color: 'var(--green)' }} />
         <h3 className="card-title" style={{ fontSize: 16 }}>Финансы заказа</h3>
         <div style={{ flex: 1 }} />
-        <Pill tone={debt > 0 ? 'amber' : 'green'}>{debt > 0 ? 'Есть задолженность' : 'Полностью оплачен'}</Pill>
+        <Pill tone={debt > 0 ? 'amber' : 'gray'}>{debt > 0 ? 'Есть задолженность' : paid >= total && total > 0 ? 'Полностью оплачен' : 'Нет открытых начислений'}</Pill>
       </div>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(150px,1fr))', gap: 10, marginBottom: 16 }}>
-        {[['Стоимость заказа', money(total), null], ['Оплачено', money(paid), 'var(--green)'], ['Остаток', money(debt), debt > 0 ? 'var(--amber)' : 'var(--green)']].map(([l, v, c]) => (
+        {[['Стоимость заказа · ' + currency, money(total), null], ['Оплачено', money(paid), 'var(--green)'], ['Остаток', money(debt), debt > 0 ? 'var(--amber)' : 'var(--green)']].map(([l, v, c]) => (
           <div key={l} style={{ padding: '12px 14px', borderRadius: 12, background: 'var(--surface-2)', border: '1px solid var(--line)' }}>
             <div style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 4 }}>{l}</div>
             <div style={{ fontSize: 18, fontWeight: 800, color: c || 'var(--ink)' }}>{v}</div>
@@ -2565,9 +2273,11 @@ function orderSection(key) {
   return key;
 }
 
-function OrderCard({ order, company, clients = [], onBack, initTab, initSvc, initSvcSearch, fresh, onOpenChat }) {
+function OrderCard({ order, company, clients = [], onBack, initTab, initSvc, initSvcSearch, fresh, onOpenChat, onOrderUpdated }) {
   const toast = useToast();
-  const [tab, setTab] = useState(orderSection(initTab) || 'main');
+  const [loadError, setLoadError] = useState(null);
+  const [reloadKey, setReloadKey] = useState(0);
+  const [tab, setTab] = useState(initTab === 'edit' ? 'main' : orderSection(initTab) || 'main');
   const [loading, setLoading] = useState(true);
   const [cardOrder, setCardOrder] = useState(order);
   const [status, setStatus] = useState(order.status === 'Нет данных' ? 'Новое' : order.status);
@@ -2584,7 +2294,7 @@ function OrderCard({ order, company, clients = [], onBack, initTab, initSvc, ini
   const [routeVersion, setRouteVersion] = useState(null);
   const [allowedTransitions, setAllowedTransitions] = useState(null);
   const requestType = order.requestType;
-  const [editOpen, setEditOpen] = useState(false);
+  const [editOpen, setEditOpen] = useState(initTab === 'edit');
   const [sendOpen, setSendOpen] = useState(false);
   const [participants, setParticipants] = useState(() => (order.participants || []).map(toLegacyParticipant));
   useEffect(() => { if (order.participants?.length) setParticipants(order.participants.map(toLegacyParticipant)); }, [order.no, requestType]);
@@ -2670,13 +2380,14 @@ function OrderCard({ order, company, clients = [], onBack, initTab, initSvc, ini
   const [confirmAction, setConfirmAction] = useState(null);
   const [aftersalePreset, setAftersalePreset] = useState(null);
 
-  const [pendingAviaRoute, setPendingAviaRoute] = useState(null);
-  const [aviaClassByPax, setAviaClassByPax] = useState({});
-  const [aviaFareByPax, setAviaFareByPax] = useState({});
-  const [aviaIndividualMode, setAviaIndividualMode] = useState(true);
+
+
+
+
   const [aviaParams, setAviaParams] = useState(() => {
     const points = order.route?.points || [];
     return {
+      currency: order.base_currency || order.currency || 'RUB',
       trip: order.route?.kind === 'round_trip' ? 'rt' : order.route?.kind === 'multi_city' ? 'mc' : 'ow',
       from: points[0]?.location_code || '',
       to: points[points.length - 1]?.location_code || '',
@@ -2697,10 +2408,20 @@ function OrderCard({ order, company, clients = [], onBack, initTab, initSvc, ini
     const liveOrder = overview.order || {};
     const normalizedOrder = toUiOrder(liveOrder);
     setCardOrder((current) => ({ ...current, ...liveOrder, ...normalizedOrder, route: liveOrder.route }));
+    onOrderUpdated?.(normalizedOrder);
+    setOperator(normalizedOrder.operator);
     setServices((Array.isArray(overview.services) ? overview.services : []).map(toLegacyOrderService));
     setParticipants((liveOrder.participants || []).map(toLegacyParticipant));
     setOrderVersion(liveOrder.version);
     setRouteVersion(liveOrder.route?.version || null);
+    const points = liveOrder.route?.points || [];
+    setAviaParams((current) => ({ ...current,
+      currency: liveOrder.base_currency || normalizedOrder.currency,
+      trip: { round_trip: 'rt', multi_city: 'mc', one_way: 'ow' }[liveOrder.route?.kind] || 'ow',
+      from: points[0]?.location_code || '', to: points.at(-1)?.location_code || '',
+      depDate: points[0]?.local_datetime || liveOrder.planned_start || null,
+      retDate: liveOrder.planned_end || null,
+    }));
     setAllowedTransitions(overview.allowed_actions?.transitions || []);
     setFinanceSummary(overview.finance_summary || null);
     setProposalCount(Array.isArray(overview.proposals) ? overview.proposals.length : 0);
@@ -2753,6 +2474,7 @@ function OrderCard({ order, company, clients = [], onBack, initTab, initSvc, ini
     }
     const controller = new AbortController();
     setLoading(true);
+    setLoadError(null);
     Promise.all([
       ordersApi.overview(orderId, controller.signal),
       ordersApi.tasks(orderId, {}, controller.signal),
@@ -2762,12 +2484,12 @@ function OrderCard({ order, company, clients = [], onBack, initTab, initSvc, ini
         applyOrderSnapshot(overview, taskPayload, historyPayload);
       })
       .catch((error) => {
-        if (error.name !== 'AbortError') toast(error.message || 'Не удалось загрузить заказ', 'err');
+        if (error.name !== 'AbortError') { setLoadError(error); toast(error.message || 'Не удалось загрузить заказ', 'err'); }
       })
       .finally(() => { if (!controller.signal.aborted) setLoading(false); });
     refreshDocuments(controller.signal);
     return () => controller.abort();
-  }, [orderId, order.no]);
+  }, [orderId, order.no, reloadKey]);
 
   useEffect(() => {
     if (!orderId) return undefined;
@@ -2801,7 +2523,7 @@ function OrderCard({ order, company, clients = [], onBack, initTab, initSvc, ini
       setStatus(ORDER_STATUS_LABEL[updated.status] || nextStatus);
       setOrderVersion(updated.version);
       const refreshed = await ordersApi.overview(orderId);
-      setAllowedTransitions(refreshed.allowed_actions?.transitions || []);
+      applyOrderSnapshot(refreshed);
       toast('Статус: ' + (ORDER_STATUS_LABEL[updated.status] || nextStatus), 'ok');
     } catch (error) {
       toast(error.message || 'Не удалось изменить статус', 'err');
@@ -2811,6 +2533,7 @@ function OrderCard({ order, company, clients = [], onBack, initTab, initSvc, ini
     if (!nextOperator.id) { toast('Для сотрудника не найден backend-профиль', 'err'); return; }
     try {
       const updated = await ordersApi.reassign(orderId, { operator: nextOperator.id, version: orderVersion, reason: 'Переназначено в карточке заказа' });
+      await refreshOrderSnapshot();
       setOperator(nextOperator.name); setOrderVersion(updated.version); setReassignOpen(false);
       toast('Ответственный оператор: ' + nextOperator.name, 'ok');
     } catch (error) { toast(error.message || 'Не удалось переназначить оператора', 'err'); }
@@ -2869,7 +2592,7 @@ function OrderCard({ order, company, clients = [], onBack, initTab, initSvc, ini
     toast('Изменения сохранены', 'ok');
   };
 
-  useEffect(() => { setTab(orderSection(initTab) || 'main'); }, [initTab, order.no]);
+  useEffect(() => { setTab(initTab === 'edit' ? 'main' : orderSection(initTab) || 'main'); }, [initTab, order.no]);
 
   useEffect(() => {
     if (!initSvcSearch) return;
@@ -2904,47 +2627,28 @@ function OrderCard({ order, company, clients = [], onBack, initTab, initSvc, ini
   const goAddType = (type) => { setAddKind(type || 'Авиа'); setSvcView('add-service'); };
 
 
-  const addAviaSimple = async (route, fareDeltaSum = 0) => {
-    const legs = route.legs;
-    const title = legs[0].leg.from + legs.map((l) => ' → ' + l.leg.to).join('');
-    const airlineNames = [...new Set(legs.map((l) => AIRLINES[l.airline]?.name || l.airline))].join(' / ');
-    const total = route.total * Math.max(1, participants.length) + fareDeltaSum;
+  const addAviaSimple = async (route) => {
+    if (!route.backendOfferId) { toast('Выберите предложение поставщика', 'err'); return; }
     try {
-      const backendOfferId = route.backendOfferId || legs[0]?.backendOfferId;
-      const participantIds = participants.map((p) => p.serverId || p.id).filter(Boolean);
-      const created = await servicesApi.addToOrder(orderId, backendOfferId
-        ? { offer_id: backendOfferId, participants: participantIds }
-        : { kind: 'avia', title, currency: 'USD', supplier_cost: total, client_total: total, participants: participantIds });
-      setServices((cur) => [...cur, toLegacyOrderService(created)]);
+      await servicesApi.addToOrder(orderId, {
+        offer_id: route.backendOfferId,
+        participants: participants.map((participant) => participant.serverId || participant.id).filter(Boolean),
+      });
+      await refreshOrderSnapshot();
       setSvcView(null);
-      toast(`Перелёт ${airlineNames} добавлен в заказ`, 'ok');
-    } catch (error) {
-      toast(error.message || 'Не удалось добавить перелёт в заказ', 'err');
-    }
+      toast('Перелёт добавлен в заказ', 'ok');
+    } catch (error) { toast(error.message || 'Не удалось добавить перелёт', 'err'); }
   };
 
-  const startAviaFareStep = (route) => { setAviaClassByPax({}); setAviaFareByPax({}); setAviaIndividualMode(true); setPendingAviaRoute(route); };
-  const finalizeAviaFare = () => {
-    if (!pendingAviaRoute) return;
-    const fareDeltaSum = participants.reduce((s, _, i) => {
-      const cls = aviaClassByPax[i] || 'Y';
-      const tiers = fareTiersForClass(cls);
-      const fid = aviaFareByPax[i] || (tiers.find((f) => f.recommended) || tiers[0]).id;
-      const t = tiers.find((f) => f.id === fid) || tiers[0];
-      return s + Math.round((t.delta || 0) / RUB_PER_USD);
-    }, 0);
-    addAviaSimple(pendingAviaRoute, fareDeltaSum);
-    setPendingAviaRoute(null);
-  };
   const addSvcOffer = async (offer, kind) => {
     const kindCode = { 'Авиа': 'avia', 'ЖД': 'rail', 'Гостиница': 'hotel', 'Трансфер': 'transfer', 'Автобус': 'bus', 'Тур': 'tour', 'Аэроэкспресс': 'aeroexpress', 'Бизнес-зал': 'lounge', 'Страховка': 'insurance', 'Виза': 'visa' }[kind] || 'other';
     const amount = Number(offer.cost || 0) + Number(offer.fee || 0);
     try {
       const body = offer._backendOfferId
         ? { offer_id: offer._backendOfferId, participants: participants.map((p) => p.serverId || p.id).filter(Boolean) }
-        : { kind: kindCode, title: offer.title || kind, currency: offer.currency || 'USD', supplier_cost: Number(offer.cost || 0), agency_fee: Number(offer.fee || 0), client_total: amount, participants: participants.map((p) => p.serverId || p.id).filter(Boolean) };
+        : { kind: kindCode, title: offer.title || kind, currency: offer.currency || cardOrder.base_currency || cardOrder.currency || 'RUB', supplier_cost: Number(offer.cost || 0), agency_fee: Number(offer.fee || 0), client_total: amount, participants: participants.map((p) => p.serverId || p.id).filter(Boolean) };
       const created = await servicesApi.addToOrder(orderId, body);
-      setServices((cur) => [...cur, toLegacyOrderService(created)]);
+      await refreshOrderSnapshot();
       setSvcView(null);
       toast(kind + ': услуга добавлена в заказ', 'ok');
     } catch (error) {
@@ -3033,7 +2737,7 @@ function OrderCard({ order, company, clients = [], onBack, initTab, initSvc, ini
     if (!chosen || !chosen.length) { toast('Выберите хотя бы одну услугу', 'err'); return; }
     const lines = chosen.map((s) => {
       const total = svcCalc(s).total || s.sum || 0;
-      return '• ' + s.title + (s.sub ? ' (' + s.sub + ')' : '') + ' — ' + Math.round(total).toLocaleString('ru-RU') + ' ' + (s.currency || 'USD');
+      return '• ' + s.title + (s.sub ? ' (' + s.sub + ')' : '') + ' — ' + Math.round(total).toLocaleString('ru-RU') + ' ' + (s.currency || cardOrder.base_currency || 'RUB');
     });
     const text = 'Подобранные услуги по заказу № ' + order.no + ':\n' + lines.join('\n');
     try {
@@ -3152,8 +2856,7 @@ function OrderCard({ order, company, clients = [], onBack, initTab, initSvc, ini
         </div>
         <AddServicePanel kind={addKind} setKind={setAddKind} aviaParams={aviaParams} setAviaParams={setAviaParams}
           paxCount={participants.length} participants={participants} isGroup={requestType === 'Групповая'}
-          onAddAvia={(route) => addAviaSimple(route, Math.round(route.fareDeltaUsd || 0) * participants.length)}
-          onAddAviaPerPax={startAviaFareStep} onAddOther={addSvcOffer} />
+          onAddAvia={addAviaSimple} onAddOther={addSvcOffer} />
       </div>
     );
     return (
@@ -3187,6 +2890,7 @@ function OrderCard({ order, company, clients = [], onBack, initTab, initSvc, ini
   };
 
   const tabContent = () => {
+    if (loadError) return <AsyncBlock state="error" onRetry={() => setReloadKey((key) => key + 1)} />;
     if (loading) return <AsyncBlock state="loading" skeletonRows={5} />;
     const client = clients.find((item) => String(item.id) === String(cardOrder.contact_person || cardOrder.client_person));
     switch (tab) {
@@ -3225,7 +2929,7 @@ function OrderCard({ order, company, clients = [], onBack, initTab, initSvc, ini
         onUpdated={(updated) => setServices((current) => current.map((service) => String(service.serverId || service.id) === String(updated.id) ? toLegacyOrderService(updated) : service))} />;
       case 'extras': return <DynamicExtrasPanel services={services} />;
       case 'documents': return <DocCenter scopeOrder={order.no} initialDocuments={orderDocs} participants={participants} services={services} orders={[order]} />;
-      case 'finance': return (<><OrderFinanceBlock orderNo={order.no} order={order} services={services} summary={financeSummary} /><FinanceRegistry scopeOrder={order.no} initialOps={[]} /></>);
+      case 'finance': return (<><OrderFinanceBlock orderNo={order.no} order={cardOrder} services={services} summary={financeSummary} /><OrderFinanceRecords orderId={orderId} /></>);
       case 'tasks': return <TabTasks tasks={tasks} assignees={operatorOptions} onAddTask={addTask} onToggleTask={toggleTask} onDeleteTask={deleteTask} />;
       case 'aftersale': return <ReturnsModule scopeOrder={order.no} order={order} services={services} participants={participants} initialNew={aftersalePreset} compact />;
       case 'history': return <TabHistory liveItems={history} />;
@@ -3310,8 +3014,8 @@ function OrderCard({ order, company, clients = [], onBack, initTab, initSvc, ini
         </div>
 
 
-        {!fullWidthFlow && (
-          <ServicesFooterBar services={services} bookingDraft={bookingDraft}
+        {!fullWidthFlow && !loading && !loadError && (
+          <ServicesFooterBar order={cardOrder} services={services} bookingDraft={bookingDraft}
             onStartBooking={() => { setTab('main'); setSvcView('booking'); }} />
         )}
       </div>
@@ -3347,20 +3051,11 @@ function OrderCard({ order, company, clients = [], onBack, initTab, initSvc, ini
             toast(error.message || 'Не удалось добавить документ участнику', 'err');
           }
         }} />
-      <OrderEditDrawer open={editOpen} order={cardOrder} status={status} onStatusChange={changeOrderStatus}
+      <OrderEditDrawer open={editOpen && !loading && !loadError} order={cardOrder} status={status} onStatusChange={changeOrderStatus}
         services={services} participants={participants}
         onClose={() => setEditOpen(false)}
         onSave={saveOrderChanges}
         onAddPassenger={() => { setEditOpen(false); setPaxOpen(true); }} />
-
-
-      {pendingAviaRoute && (
-        <FareSelectPanel pax={participants} groups={undefined}
-          classByPax={aviaClassByPax} setClassByPax={setAviaClassByPax}
-          fareByPax={aviaFareByPax} setFareByPax={setAviaFareByPax}
-          individualMode={aviaIndividualMode} setIndividualMode={setAviaIndividualMode}
-          onClose={() => setPendingAviaRoute(null)} onApply={finalizeAviaFare} />
-      )}
 
 
       <ConfirmDialog open={!!confirmAction} title={confirmAction ? confirmAction.title : ''}
@@ -3402,7 +3097,7 @@ function OrderEditDrawer({ open, order, status, onStatusChange, services, partic
   const [tab, setTab] = useState('pax');
   const secRefs = useRef({});
   const [trip, setTrip] = useState('rt');
-  const [pts, setPts] = useState(['FRU', 'IST']);
+  const [pts, setPts] = useState(['', '']);
   const [depDate, setDepDate] = useState(null);
   const [retDate, setRetDate] = useState(null);
   const [cityPick, setCityPick] = useState(null);
@@ -3423,7 +3118,7 @@ function OrderEditDrawer({ open, order, status, onStatusChange, services, partic
     const routePoints = route.points || [];
     const kindToTrip = { one_way: 'ow', round_trip: 'rt', multi_city: 'mc' };
     setTrip(kindToTrip[route.kind] || 'rt');
-    setPts(routePoints.length ? routePoints.map((point) => point.location_code || '') : ['FRU', 'IST']);
+    setPts(routePoints.length ? routePoints.map((point) => point.location_code || '') : ['', '']);
     setDepDate(routePoints[0]?.local_datetime || order.planned_start || null);
     setRetDate(routePoints[routePoints.length - 1]?.local_datetime || order.planned_end || null);
     setEventType(order.purpose || '');
@@ -3435,9 +3130,9 @@ function OrderEditDrawer({ open, order, status, onStatusChange, services, partic
 
   const cityLabel = (code) => { const a = AIRPORTS.find((x) => x.code === code); return a ? `${a.city} (${a.code})` : null; };
   const goTab = (key) => { setTab(key); const el = secRefs.current[key]; if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' }); };
-  const fin = financeSnapshot(order.no, services);
+  const fin = financeSnapshot(order.no, services, null, order.base_currency || order.currency);
   const submit = async () => {
-    if (pts.filter(Boolean).length < 2) {
+    if (pts.some(Boolean) && (pts.filter(Boolean).length < 2 || pts.some((point) => !point))) {
       toast('Маршрут содержит минимум 2 точки', 'err');
       return;
     }
@@ -3563,7 +3258,7 @@ function OrderEditDrawer({ open, order, status, onStatusChange, services, partic
               </div>
               <div className="card card-pad">
                 <h3 className="card-title" style={{ fontSize: 16, marginBottom: 8 }}>Итого по заказу</h3>
-                <div style={{ fontSize: 26, fontWeight: 700, color: 'var(--ink)' }}>{ocMoney(fin.total)}</div>
+                <div style={{ fontSize: 26, fontWeight: 700, color: 'var(--ink)' }}>{fin.totalText}</div>
               </div>
               <div className="card card-pad">
                 <h3 className="card-title" style={{ fontSize: 16, marginBottom: 14 }}>Состав заказа</h3>
@@ -3606,4 +3301,4 @@ Object.assign(window, { OrderCard, AsyncBlock, OrderEditDrawer });
 
 
 
-export { ocCurrency, ocMoney, opPayable, opDebt, AsyncBlock, StatusControl, svcCalc, financeSnapshot, OrderAside, ReassignOperatorDrawer, tripFromServices, KvEditDrawer, TabOverview, TabClients, DocCell, PaxGroupCard, TabParticipants, TabRoute, SVC_FILTER_CHIPS, ServiceListRow, serviceTotals, ServicesFooterBar, OrderChangeCase, TabServices, ADD_SVC_CATS, fmtDur, RadioFlightRow, aviaPriceBounds, AviaFilters, AviaCardRow, legSegments, legFlightNos, legRouteSummary, LegTimeline, FlightScaleBar, SupplierTag, AviaResultRow, AviaPaxPanel, FlightFarePanel, FareInfoPanel, aviaDepMin, AviaListTable, AviaSearchPanel, QuickAddForm, AddServicePanel, TabOffers, OrderFinanceBlock, TabFinance, TabHistory, OrderCard, EDIT_TABS, OrderEditDrawer };
+export { ocCurrency, ocMoney, opPayable, opDebt, AsyncBlock, StatusControl, svcCalc, financeSnapshot, OrderAside, ReassignOperatorDrawer, tripFromServices, KvEditDrawer, TabOverview, TabClients, DocCell, PaxGroupCard, TabParticipants, TabRoute, SVC_FILTER_CHIPS, ServiceListRow, serviceTotals, ServicesFooterBar, OrderChangeCase, TabServices, ADD_SVC_CATS, fmtDur, RadioFlightRow, aviaPriceBounds, AviaFilters, AviaCardRow, legSegments, legFlightNos, legRouteSummary, LegTimeline, FlightScaleBar, SupplierTag, AviaResultRow, AviaPaxPanel, aviaDepMin, AviaListTable, AviaSearchPanel, QuickAddForm, AddServicePanel, TabOffers, OrderFinanceBlock, TabFinance, TabHistory, OrderCard, EDIT_TABS, OrderEditDrawer };
