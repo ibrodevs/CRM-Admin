@@ -11,7 +11,7 @@ import { Pill } from '../../../shared/ui/Pill.jsx';
 import { SearchBox } from '../../../shared/ui/SearchBox.jsx';
 import { plural } from '../../../shared/ui/plural.js';
 import { useToast } from '../../../shared/ui/Toast.jsx';
-import { CHAT_THREADS, CLIENTS, COMPANIES_DB, CURRENT_USER, NOTIFICATIONS, OPERATORS, ORDERS, ORDER_STATUS, PROPOSALS, RECENT_CHANGES, RETURNS, RETURN_STATUS, RETURN_TYPE, financeOverview } from '../../../legacy/data/index.jsx';
+import { CURRENT_USER, NOTIFICATIONS, OPERATORS, RETURN_TYPE, financeOverview } from '../../../legacy/data/index.jsx';
 import { SLA_QUEUE, slaLabel, slaTone } from '../../../legacy/data/access-control.jsx';
 import { UfOrderRow, UfPersonRow, ufOrderPickRows } from '../../clients/index.js';
 import { Topbar } from '../../../shared/ui/Topbar.jsx';
@@ -19,15 +19,22 @@ import { PAX_DEFAULT_OPTIONS } from '../../services/index.js';
 import { PanelSub, StackPanel } from '../../locations/index.js';
 import { AddServicePanel } from '../../orders/index.js';
 import { ErrorCodesDrawer } from '../../notifications/index.js';
-import { SHIFT_DEMO_OPS, SHIFT_REQUESTS_HANDLED, motivationFor, operatorEarn, shiftDate, shiftDuration, shiftFmtTime, shiftTotals } from '../../workforce/index.js';
+import { SHIFT_DEMO_OPS, SHIFT_REQUESTS_HANDLED, motivationFor, shiftDate, shiftDuration, shiftFmtTime, shiftTotals } from '../../workforce/index.js';
 import { toLegacyProposal, toLegacyReturn } from '../../../legacy/adapters/legacy-adapters.js';
-import { resultsOf } from '../../../shared/api/client.js';
+import { messageForApiError, resultsOf } from '../../../shared/api/client.js';
 import { communicationsApi } from '../../chats/api.js';
 import { integrationsApi } from '../../integrations/api.js';
 import { ordersApi } from '../../orders/api.js';
 import { proposalsApi } from '../../proposals/api.js';
 import { servicesApi } from '../../services/api.js';
 import { toUiOrder } from '../../orders/model.js';
+import { DashboardKpiGrid } from './DashboardKpiGrid.jsx';
+import { OperatorsPerformance } from './OperatorsPerformance.jsx';
+import { SalesChart } from './SalesChart.jsx';
+import { TodayAgenda } from './TodayAgenda.jsx';
+import { WorkCenter } from './WorkCenter.jsx';
+import { dashToneColor } from './DashboardCard.jsx';
+import { addDays, buildAgenda, dailySeries, formatPercent, isoDayKey, isoDayRange, percentChange, percentTone, sameDay, seriesTotal } from '../model/dashboard-metrics.js';
 
 
 
@@ -352,179 +359,6 @@ function DetailedSearchPanel({ onClose, initialKind, onOpenOrder, onCreateOrder,
 
 
 
-function FinanceOverviewBlock({ onNavigate }) {
-  const ov = financeOverview();
-  const money = (n) => Math.round(n || 0).toLocaleString('ru-RU') + ' $';
-  return (
-    <div style={{ marginBottom: 32 }}>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
-        <h2 className="section-title" style={{ margin: 0 }}>Финансовое состояние клиентов</h2>
-        <Button variant="secondary" size="sm" icon="building" onClick={() => onNavigate('companies')}>Все компании</Button>
-      </div>
-      <div className="grid-4" style={{ marginBottom: ov.urgent.length ? 16 : 0 }}>
-        <div className="stat-card" style={{ cursor: 'pointer' }} onClick={() => onNavigate('companies')}>
-          <div className="s-label">Депозиты (доступно)</div>
-          <div className="s-value" style={{ fontSize: 'var(--fs-stat)', color: 'var(--green)' }}>{money(ov.deposits)}</div>
-        </div>
-        <div className="stat-card" style={{ cursor: 'pointer' }} onClick={() => onNavigate('companies')}>
-          <div className="s-label">Задолженность (отсрочка)</div>
-          <div className="s-value" style={{ fontSize: 'var(--fs-stat)', color: 'var(--amber)' }}>{money(ov.debt)}</div>
-        </div>
-        <div className="stat-card" style={{ cursor: 'pointer' }} onClick={() => onNavigate('finance')}>
-          <div className="s-label">Просрочено</div>
-          <div className="s-value" style={{ fontSize: 'var(--fs-stat)', color: ov.overdue > 0 ? 'var(--red)' : 'var(--muted)' }}>{money(ov.overdue)}</div>
-        </div>
-        <div className="stat-card" style={{ cursor: 'pointer' }} onClick={() => onNavigate('finance')}>
-          <div className="s-label">Клиентов с просрочкой</div>
-          <div className="s-value" style={{ fontSize: 'var(--fs-stat)', color: ov.overdueCount > 0 ? 'var(--red)' : 'var(--muted)' }}>{ov.overdueCount}</div>
-        </div>
-      </div>
-
-      {!!ov.urgent.length && (
-        <div className="card card-pad">
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
-            <Icon name="alertCircle" style={{ width: 18, height: 18, color: 'var(--amber)' }} />
-            <h3 className="card-title" style={{ fontSize: 15, margin: 0 }}>Срочные оплаты и внимание к балансам</h3>
-            <Pill tone="amber">{ov.urgent.length}</Pill>
-          </div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-            {ov.urgent.map((u, i) => (
-              <button key={i} type="button" onClick={() => onNavigate('companies')}
-                style={{ cursor: 'pointer', width: '100%', textAlign: 'left', border: '1px solid var(--line)', borderLeft: '3px solid var(--' + u.tone + ')', background: '#fff', borderRadius: 12, padding: '10px 12px', display: 'flex', alignItems: 'center', gap: 12 }}>
-                <span className="oc-svc-ic" style={{ background: 'var(--' + u.tone + ')', width: 34, height: 34, opacity: .9 }}><Icon name="bank" style={{ width: 16, height: 16 }} /></span>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div className="nm" style={{ fontWeight: 600, color: 'var(--ink)' }}>{u.co}</div>
-                  <div className="mt" style={{ fontSize: 12, color: 'var(--muted)' }}>{u.text}</div>
-                </div>
-                <Pill tone={u.tone}>{u.kind}</Pill>
-                <span style={{ fontWeight: 700, whiteSpace: 'nowrap', color: 'var(--' + u.tone + ')' }}>{money(u.value)}</span>
-                <Icon name="chevRight" style={{ width: 18, height: 18, color: 'var(--muted-2)' }} />
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
-
-function StatCardDash({ s, onGo }) {
-  return (
-    <div className="stat-card" style={{ cursor: 'pointer' }} onClick={onGo}>
-      <div className="s-label">{s.label}</div>
-      <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between' }}>
-        <div className="s-value" style={{ fontSize: 'var(--fs-display)' }}>{s.value}</div>
-        {s.cta
-          ? <span className="pill pill-green" style={{ height: 32 }}>{s.cta}<Icon name="arrowRight" style={{ width: 16, height: 16 }} /></span>
-          : <span className="go-dot"><Icon name="chevRight" /></span>}
-      </div>
-    </div>
-  );
-}
-
-
-function SlaResponseWidget({ onOpenOrder }) {
-  const rows = SLA_QUEUE.map((q) => ({ ...q, tone: slaTone(q.waited, q.limit) }));
-  const overdue = rows.filter((r) => r.tone === 'red').length;
-  const heating = rows.filter((r) => r.tone === 'amber').length;
-  return (
-    <div style={{ marginBottom: 32 }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 14, flexWrap: 'wrap' }}>
-        <h2 className="section-title" style={{ margin: 0 }}>Отклик на заявки</h2>
-        {overdue > 0 && <Pill tone="red">Просрочено: {overdue}</Pill>}
-        {heating > 0 && <Pill tone="amber">Накал тайминга: {heating}</Pill>}
-        {!overdue && !heating && <Pill tone="green">Все в норме</Pill>}
-      </div>
-      <div className="table-card">
-        <table className="tbl">
-          <thead><tr><th>Заявка</th><th>Клиент</th><th>Оператор</th><th>Ожидает</th><th>Норматив</th><th>Статус</th></tr></thead>
-          <tbody>
-            {rows.map((r, i) => (
-              <tr key={i} style={{ cursor: 'pointer' }} onClick={() => { const o = ORDERS.find((x) => x.no === r.no); o && onOpenOrder && onOpenOrder(o); }}>
-                <td className="t-strong">№ {r.no}</td>
-                <td>{r.client}</td>
-                <td>{r.operator}</td>
-                <td style={{ fontWeight: 600, color: r.tone === 'red' ? 'var(--red)' : r.tone === 'amber' ? 'var(--amber)' : 'var(--ink)' }}>{r.waited} мин</td>
-                <td className="t-muted">{r.limit} мин</td>
-                <td><Pill tone={r.tone}>{slaLabel(r.tone)}</Pill></td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-    </div>
-  );
-}
-
-
-function dashToneColor(t) {
-  return t === 'red' ? 'var(--red)' : t === 'amber' ? 'var(--amber)' : t === 'green' ? 'var(--green)' : t === 'teal' ? 'var(--teal, var(--blue))' : t === 'gray' ? 'var(--muted-2)' : 'var(--blue)';
-}
-
-
-
-function DashTile({ w, active, onClick }) {
-  const toneColor = dashToneColor(w.tone);
-  const pv = w.preview;
-  return (
-    <button type="button" onClick={onClick}
-      style={{
-        textAlign: 'left', cursor: 'pointer', background: active ? 'var(--blue-soft, #eef3ff)' : '#fff',
-        borderTop: '1px solid ' + (active ? 'var(--blue)' : 'var(--line)'), borderRight: '1px solid ' + (active ? 'var(--blue)' : 'var(--line)'), borderBottom: '1px solid ' + (active ? 'var(--blue)' : 'var(--line)'), borderLeft: '3px solid ' + toneColor, borderRadius: 14, padding: '11px 13px',
-        boxShadow: active ? '0 0 0 1px var(--blue) inset, var(--shadow-card)' : 'var(--shadow-card)',
-        display: 'flex', flexDirection: 'column', gap: 7, minWidth: 0, transition: 'all .14s',
-      }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-        <span style={{ width: 26, height: 26, borderRadius: 8, background: toneColor, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-          <Icon name={w.icon} style={{ width: 16, height: 16, color: '#fff' }} />
-        </span>
-        <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--muted)', lineHeight: 1.2, flex: 1, minWidth: 0 }}>{w.label}</span>
-        <span style={{ fontSize: w.small ? 16 : 20, fontWeight: 800, letterSpacing: '-.02em', color: w.tone === 'green' ? 'var(--ink)' : toneColor }}>{w.value}</span>
-      </div>
-      {pv ? (
-        <div style={{ display: 'flex', alignItems: 'center', gap: 6, paddingTop: 7, borderTop: '1px dashed var(--line)' }}>
-          <span style={{ width: 6, height: 6, borderRadius: '50%', background: dashToneColor(pv.tone || w.tone), flexShrink: 0 }} />
-          <span style={{ fontSize: 11.5, color: 'var(--body)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1, minWidth: 0 }}>{pv.text}</span>
-          {pv.right && <span style={{ fontSize: 11, fontWeight: 700, color: dashToneColor(pv.tone || w.tone), whiteSpace: 'nowrap' }}>{pv.right}</span>}
-        </div>
-      ) : (w.sub ? <div style={{ fontSize: 12, color: 'var(--muted)', paddingTop: 7, borderTop: '1px dashed var(--line)' }}>{w.sub}</div> : null)}
-    </button>
-  );
-}
-
-
-function AttentionMarker({ a, onClick }) {
-  const c = dashToneColor(a.tone);
-  const badge = a.tone === 'red' ? 'Срочно' : a.tone === 'amber' ? 'Важно' : 'Внимание';
-  return (
-    <button type="button" onClick={onClick}
-      style={{ flex: '0 0 auto', width: 248, textAlign: 'left', cursor: 'pointer', background: '#fff',
-        border: '1px solid var(--line)', borderTop: '3px solid ' + c, borderRadius: 12, padding: '11px 13px',
-        display: 'flex', gap: 10, boxShadow: 'var(--shadow-card)' }}>
-      <span style={{ width: 32, height: 32, borderRadius: 9, background: c, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-        <Icon name={a.icon} style={{ width: 16, height: 16, color: '#fff' }} />
-      </span>
-      <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ fontSize: 10.5, fontWeight: 800, letterSpacing: '.05em', textTransform: 'uppercase', color: c }}>{badge}</div>
-        <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--ink)', lineHeight: 1.25, overflow: 'hidden', textOverflow: 'ellipsis', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}>{a.title}</div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 3 }}>
-          <span style={{ fontSize: 11.5, color: 'var(--muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1, minWidth: 0 }}>{a.sub}</span>
-          {a.right && <span style={{ fontSize: 11.5, fontWeight: 700, color: c, whiteSpace: 'nowrap' }}>{a.right}</span>}
-        </div>
-      </div>
-    </button>
-  );
-}
-
-
-function DashDetailEmpty({ title }) {
-  return (
-    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', color: 'var(--muted)', gap: 8, padding: 40 }}>
-      <span style={{ width: 46, height: 46, borderRadius: 12, background: 'var(--green)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}><Icon name="check" style={{ width: 24, height: 24, color: '#fff' }} /></span>
-      <div style={{ fontWeight: 600, color: 'var(--ink)' }}>{title}</div>
-    </div>
-  );
-}
 
 
 
@@ -588,13 +422,6 @@ const OPERATORS_WORK = [
   { name: 'Куба',              handled: 17, orders: 4, issued: 5, earn: 96,  profit: 320, sla: 'red' },
   { name: 'Адилет Медербеков',  handled: 14, orders: 5, issued: 6, earn: 88,  profit: 260, sla: 'ok' },
   { name: 'Кими Райкконен',     handled: 9,  orders: 2, issued: 3, earn: 54,  profit: 140, sla: 'amber' },
-];
-const TODAY_TRIPS = [
-  { type: 'Вылет',     icon: 'plane',    main: 'FRU → IST · Turkish TK 4521',   sub: 'Нуралиев Данияр · 09:40',   order: 51162 },
-  { type: 'Заселение', icon: 'building', main: 'Jannat Hotel · 3 ночи',          sub: 'Аттокуров Эрбол · заезд 14:00', order: 51163 },
-  { type: 'Трансфер',  icon: 'car',      main: 'Аэропорт Манас → отель',         sub: 'Группа · подача 12:30',      order: 51154 },
-  { type: 'Поездка',   icon: 'train',    main: 'Москва → СПб · Купе',            sub: 'Сагынбеков Икрам · 11:05',   order: 51156 },
-  { type: 'Вылет',     icon: 'plane',    main: 'FRU → DXB · Air Astana',         sub: 'Асылов Айбек · 18:20',       order: 51171 },
 ];
 const MY_TASKS = [
   { title: 'Выписать билеты по заказу № 51170', due: 'до 18:00',  tone: 'red',   order: 51170 },
@@ -840,7 +667,13 @@ function SupplierErrorsDrawer({ supplier, onClose, onOpenOrder, errors, users = 
   );
 }
 
-function DashboardPage({ role, user, orders = [], orderServices = [], clients = [], companies = [], proposals = [], returns = [], notifications = [], chats = [], dashboard, finance, incidents = [], operations = [], slaQueue = [], currentShift, motivationAccruals = [], users = [], suppliers = [], onNavigate, onAddOrder, onOpenOrder, onCreateOrder, onOpenChat }) {
+
+const WORK_TAB_ROUTE = { attention: 'orders', newreq: 'orders', deadlines: 'orders', approvals: 'offers' };
+const ORDER_CLOSED_STATUS = ['completed', 'cancelled'];
+const serviceSales = (service) => Number(service.calc?.total ?? service.client_total ?? service.sum ?? 0);
+const serviceProfit = (service) => Number(service.calc?.total ?? service.client_total ?? 0) - Number(service.calc?.tariff ?? service.supplier_cost ?? 0);
+
+function DashboardPage({ role, user, orders = [], orderServices = [], clients = [], companies = [], proposals = [], returns = [], chats = [], dashboard, calendar, finance, resources, incidents = [], slaQueue = [], currentShift, motivationAccruals = [], users = [], suppliers = [], onNavigate, onAddOrder, onOpenOrder, onCreateOrder, onOpenChat, onReload }) {
   const [search, setSearch] = useState('');
   const [searchOpen, setSearchOpen] = useState(false);
   const [errCodeOpen, setErrCodeOpen] = useState(null);
@@ -850,7 +683,9 @@ function DashboardPage({ role, user, orders = [], orderServices = [], clients = 
 
   const isMgr = role === 'Админ' || role === 'Менеджер' || role === 'Руководитель';
   const backendMode = !ENABLE_DEMO_BUSINESS_DATA;
-  const [sel, setSel] = useState(isMgr ? 'overdue' : 'mytasks');
+  const [tab, setTab] = useState('attention');
+  const [agendaDay, setAgendaDay] = useState(() => new Date());
+  const today = new Date();
   const shiftSource = window.SHIFT_STATE || currentShift || null;
   const openedAt = shiftDate(shiftSource?.openedAt || shiftSource?.started_at);
   const shift = shiftSource && openedAt ? { ...shiftSource, openedAt } : null;
@@ -862,7 +697,6 @@ function DashboardPage({ role, user, orders = [], orderServices = [], clients = 
     return () => { window.removeEventListener('shift-change', onShift); clearInterval(id); };
   }, []);
 
-  useEffect(() => { setSel(isMgr ? 'overdue' : 'mytasks'); }, [isMgr]);
   useEffect(() => { setIncidentRows(incidents); }, [incidents]);
 
   const money = (n) => Math.round(n || 0).toLocaleString('ru-RU') + ' $';
@@ -884,7 +718,6 @@ function DashboardPage({ role, user, orders = [], orderServices = [], clients = 
   }) : SLA_QUEUE;
   const slaRows = slaSource.map((q) => ({ ...q, tone: q.breached ? 'red' : slaTone(q.waited, q.limit) }));
   const slaOverdue = slaRows.filter((r) => r.tone === 'red').length;
-  const errNotifs = notifications.filter((n) => n.source === 'Интеграции');
   const supErrTotal = backendMode ? incidentRows.filter((item) => item.status !== 'resolved').length : errActiveCount();
 
   const taskRows = backendMode ? (dashboard?.my_tasks || []).map((task) => {
@@ -892,23 +725,15 @@ function DashboardPage({ role, user, orders = [], orderServices = [], clients = 
     const due = task.due_at ? new Date(task.due_at) : null;
     return { title: task.title, due: due ? due.toLocaleString('ru-RU') : 'без срока', tone: task.priority === 'critical' ? 'red' : task.priority === 'high' ? 'amber' : 'blue', order: order?.no || task.order };
   }) : MY_TASKS;
-  const tripRows = backendMode ? (dashboard?.trips_today || []).map((trip) => ({ type: 'Поездка', icon: 'plane', main: trip.title, sub: new Date(trip.starts_at).toLocaleString('ru-RU'), order: trip.order_number })) : TODAY_TRIPS;
   const activeIncidents = incidentRows.map((row) => backendIncidentToUi(row, { orders, suppliers, users, services: orderServices }));
-  const activityRows = backendMode ? (dashboard?.recent_activity || []).map((row) => ({ desc: row.title || row.type, client: row.description || '', resp: '', dept: '', time: row.created_at ? new Date(row.created_at).toLocaleString('ru-RU') : '' })) : RECENT_CHANGES;
   const operatorRows = backendMode ? users.map((operator) => {
     const operatorOrders = orders.filter((order) => String(order.operatorId || order.operator) === String(operator.id));
     const operatorServices = orderServices.filter((service) => operatorOrders.some((order) => String(order.id) === String(service.orderId || service.order)));
     const accruals = motivationAccruals.filter((item) => String(item.user) === String(operator.id) && !item.reversed_at);
     const breached = slaQueue.some((entry) => String(entry.assignee) === String(operator.id) && entry.breached);
-    return { name: operator.name, handled: slaQueue.filter((entry) => String(entry.assignee) === String(operator.id)).length, orders: operatorOrders.length, issued: operatorServices.filter((service) => service.status === 'Выписано' || service.status === 'issued').length, earn: accruals.reduce((sum, item) => sum + Number(item.amount || 0), 0), profit: operatorServices.reduce((sum, service) => sum + Number(service.calc?.total || service.client_total || 0) - Number(service.calc?.tariff || service.supplier_cost || 0), 0), sla: breached ? 'red' : 'ok' };
+    const orderedIn = (days, from) => operatorOrders.filter((order) => isoDayRange(days, from).includes(isoDayKey(order.created_at))).length;
+    return { id: operator.id, name: operator.name, handled: slaQueue.filter((entry) => String(entry.assignee) === String(operator.id)).length, orders: operatorOrders.length, issued: operatorServices.filter((service) => service.status === 'Выписано' || service.status === 'issued').length, earn: accruals.reduce((sum, item) => sum + Number(item.amount || 0), 0), profit: operatorServices.reduce((sum, service) => sum + Number(service.calc?.total || service.client_total || 0) - Number(service.calc?.tariff || service.supplier_cost || 0), 0), sla: breached ? 'red' : 'ok', last7: orderedIn(7, today), prev7: orderedIn(7, addDays(today, -7)) };
   }) : OPERATORS_WORK;
-  const supplierRows = backendMode ? [...new Set(activeIncidents.map((item) => item.supplier).concat(operations.map((item) => item.provider_adapter).filter(Boolean)))].map((name) => {
-    const errors = activeIncidents.filter((item) => item.supplier === name);
-    const logs = operations.filter((item) => item.provider_adapter === name);
-    const durations = logs.map((item) => Number(item.duration_ms)).filter(Number.isFinite);
-    const critical = errors.some((item) => item.crit === 'Критическая') ? 'Критическая' : errors.some((item) => item.crit === 'Важная') ? 'Важная' : errors.length ? 'Информационная' : '—';
-    return { name, apiErrors: errors.length, failed: logs.filter((item) => ['error', 'failed'].includes(item.result)).length, avgResp: durations.length ? `${Math.round(durations.reduce((sum, value) => sum + value, 0) / durations.length)} мс` : '—', integ: errors.length ? 'Частичные ошибки' : 'Работает стабильно', crit: critical, ordersAffected: new Set(errors.map((item) => item.order).filter(Boolean)).size, tone: errors.length ? 'amber' : 'green' };
-  }) : SUPPLIER_STATS;
 
 
   const todayKey = new Date().toISOString().slice(0, 10);
@@ -937,247 +762,140 @@ function DashboardPage({ role, user, orders = [], orderServices = [], clients = 
   const goOrder = (reference) => { const order = orders.find((item) => String(item.no) === String(reference) || String(item.id) === String(reference)); order ? onOpenOrder(order) : onNavigate('orders'); };
   const updateIncident = (raw, id) => setIncidentRows((current) => current.map((item) => String(item.id) === String(id) ? { ...item, ...raw } : item));
 
-
-  const WIDGETS = isMgr ? [
-    { key: 'newreq',    label: 'Новые заявки',      value: dashboard?.sla?.open ?? (backendMode ? 0 : SLA_QUEUE.length), tone: 'blue', icon: 'inbox' },
-    { key: 'ordersToday', label: 'Заказы сегодня',  value: dashboard?.orders?.new_today ?? (backendMode ? 0 : shT.orders), tone: 'blue', icon: 'orders' },
-    { key: 'issued',    label: 'Выписано услуг',    value: issuedToday, tone: 'green', icon: 'check' },
-    { key: 'sales',     label: 'Продажи сегодня',   value: money(salesToday), small: true, tone: 'blue', icon: 'finance' },
-    { key: 'profit',    label: 'Прибыль сегодня',   value: money(shT.profit), small: true, tone: 'green', icon: 'bank' },
-    { key: 'returns',   label: 'Возвраты и обмены', value: returnsActive.length, tone: returnsActive.length ? 'amber' : 'green', icon: 'refund' },
-    { key: 'approvals', label: 'Согласования',      value: approvals.length, tone: approvals.length ? 'amber' : 'green', icon: 'template' },
-    { key: 'deadlines', label: 'Дедлайны',          value: deadlines.length, tone: deadlines.length ? 'red' : 'green', icon: 'clock' },
-    { key: 'overdue',   label: 'Просрочки оплат',   value: fin.overdueCount, sub: fin.overdue > 0 ? money(fin.overdue) : null, tone: fin.overdue > 0 ? 'red' : 'green', icon: 'alertCircle' },
-    { key: 'risk',      label: 'Депозит / лимит',   value: fin.urgent.length, tone: fin.urgent.length ? 'amber' : 'green', icon: 'bank' },
-    { key: 'operators', label: 'Работа операторов', value: operatorRows.length, tone: 'blue', icon: 'users' },
-    { key: 'suppliers', label: 'Поставщики (API)',  value: supErrTotal, sub: 'ошибок', tone: supErrTotal ? 'red' : 'green', icon: 'api' },
-    { key: 'trips',     label: 'Вылеты и заезды',   value: dashboard?.trips_today?.length ?? (backendMode ? 0 : TODAY_TRIPS.length), tone: 'blue', icon: 'plane' },
-    { key: 'activity',  label: 'Активность',        value: activityRows.length, tone: 'blue', icon: 'clock' },
-  ] : [
-    { key: 'mytasks',   label: 'Мои задачи',        value: dashboard?.my_tasks?.length ?? (backendMode ? 0 : MY_TASKS.length), tone: (dashboard?.my_tasks?.length ?? (backendMode ? 0 : MY_TASKS.length)) ? 'amber' : 'green', icon: 'clipboard' },
-    { key: 'newreq',    label: 'Мои новые заявки',  value: dashboard?.sla?.open ?? (backendMode ? 0 : SLA_QUEUE.length), tone: 'blue', icon: 'inbox' },
-    { key: 'ordersToday', label: 'Заказы сегодня',  value: dashboard?.orders?.new_today ?? (backendMode ? 0 : shT.orders), tone: 'blue', icon: 'orders' },
-    { key: 'issued',    label: 'Выписано услуг',    value: issuedToday, tone: 'green', icon: 'check' },
-    { key: 'myearn',    label: 'Заработок сегодня', value: money(shT.earn), small: true, tone: 'blue', icon: 'finance' },
-    { key: 'approvals', label: 'Мои согласования',  value: approvals.length, tone: approvals.length ? 'amber' : 'green', icon: 'template' },
-    { key: 'deadlines', label: 'Мои дедлайны',      value: deadlines.length, tone: deadlines.length ? 'red' : 'green', icon: 'clock' },
-    { key: 'returns',   label: 'Возвраты и обмены', value: returnsActive.length, tone: returnsActive.length ? 'amber' : 'green', icon: 'refund' },
-  ];
-
-  const DTITLE = {
-    newreq: 'Новые заявки · отклик', ordersToday: 'Заказы за сегодня', issued: 'Выписанные услуги за сегодня',
-    sales: 'Продажи за сегодня', profit: 'Финансовые показатели за сегодня', returns: 'Возвраты и обмены в обработке',
-    approvals: 'Открытые согласования', deadlines: 'Ближайшие дедлайны', overdue: 'Просрочки оплат по клиентам',
-    risk: 'Клиенты: депозит и лимит отсрочки', operators: 'Работа операторов', suppliers: 'Статистика по поставщикам',
-    trips: 'Вылеты, заселения и поездки сегодня', activity: 'Активность пользователей', mytasks: 'Мои задачи', myearn: 'Мой заработок за смену',
-    chats: 'Мои чаты — свежие сообщения',
-  };
-
-
   const dashChats = chats.filter((t) => t.type === 'client' || t.type === 'supplier').map((t) => {
     const m = (t.messages || [])[(t.messages || []).length - 1] || {};
     return { id: t.id, order: t.order, name: t.name, client: t.client, channel: t.channel, type: t.type, unread: t.unread || 0,
       lastText: m.text || (m.attach ? '📎 ' + m.attach.name : '—'), lastTime: m.time || '', mine: m.from === 'me' };
   }).sort((a, b) => (b.unread > 0) - (a.unread > 0));
-  const unreadChats = dashChats.filter((c) => c.unread > 0).length;
   const critErr = backendMode ? activeIncidents.filter((error) => error.crit === 'Критическая' && error.status !== 'Решена') : (typeof SUPPLIER_ERRORS !== 'undefined' ? SUPPLIER_ERRORS : []).filter((e) => e.crit === 'Критическая');
   const redRisk = fin.urgent.filter((u) => u.tone === 'red');
-
-
-  const previews = {
-    mytasks: taskRows[0] && { text: taskRows[0].title, right: taskRows[0].due, tone: taskRows[0].tone },
-    newreq: slaRows[0] && { text: '№' + slaRows[0].no + ' · ' + slaRows[0].client, right: slaRows[0].waited + ' мин', tone: slaRows[0].tone },
-    deadlines: deadlines[0] && { text: deadlines[0].label, right: deadlines[0].date, tone: deadlines[0].tone },
-    approvals: approvals[0] && { text: approvals[0].label + ' · ' + approvals[0].who, right: approvals[0].kind, tone: 'amber' },
-    returns: returnsActive[0] && { text: returnsActive[0].type + ' · ' + returnsActive[0].no, right: returnsActive[0].client, tone: 'amber' },
-    overdue: redRisk[0] && { text: redRisk[0].co, right: money(redRisk[0].value), tone: 'red' },
-    risk: fin.urgent[0] && { text: fin.urgent[0].co, right: fin.urgent[0].kind, tone: fin.urgent[0].tone },
-    suppliers: critErr[0] && { text: critErr[0].reason, right: critErr[0].order ? '№' + critErr[0].order : critErr[0].supplier, tone: 'red' },
-    trips: tripRows[0] && { text: tripRows[0].main, right: (tripRows[0].sub.split('·').pop() || '').trim(), tone: 'blue' },
-    activity: activityRows[0] && { text: activityRows[0].desc + ' · ' + activityRows[0].client, right: activityRows[0].time, tone: 'gray' },
-    ordersToday: orders[0] && { text: '№' + orders[0].no + ' · ' + orders[0].client, right: orders[0].status, tone: 'blue' },
-    operators: operatorRows[0] && { text: operatorRows[0].name + ' · ' + operatorRows[0].orders + ' заказов', right: money(operatorRows[0].profit), tone: 'blue' },
-    chats: dashChats[0] && { text: dashChats[0].name + ': ' + dashChats[0].lastText, right: dashChats[0].unread ? '+' + dashChats[0].unread : dashChats[0].lastTime, tone: dashChats[0].unread ? 'amber' : 'blue' },
-  };
-  const chatsWidget = { key: 'chats', label: 'Мои чаты', value: unreadChats || dashChats.length, sub: unreadChats ? 'новых' : 'диалогов', tone: unreadChats ? 'amber' : 'blue', icon: 'chat' };
   const tonePri = { red: 0, amber: 1, teal: 2, blue: 3, green: 4, gray: 5 };
 
-  const widgets = WIDGETS.concat([chatsWidget]).map((w) => ({ ...w, preview: previews[w.key] || null }))
-    .sort((a, b) => (tonePri[a.tone] - tonePri[b.tone]));
 
-
+  // ——— Рабочий центр: одни и те же источники, что и раньше, сгруппированные по вкладкам ———
   const attention = [];
   if (isMgr) {
-    slaRows.filter((r) => r.tone !== 'green').forEach((r) => attention.push({ icon: 'inbox', tone: r.tone, title: 'Заявка ждёт отклик', sub: '№' + r.no + ' · ' + r.client, right: r.waited + ' мин', order: r.no, cat: 'newreq' }));
-    critErr.forEach((e) => attention.push({ icon: 'api', tone: 'red', title: e.reason, sub: e.supplier + (e.order ? ' · №' + e.order : ''), right: e.orderTL || 'критично', order: e.order, cat: 'suppliers' }));
+    slaRows.filter((r) => r.tone !== 'green').forEach((r) => attention.push({ icon: 'inbox', tone: r.tone, title: 'Заявка ждёт отклик', sub: '№' + r.no + ' · Клиент: ' + r.client, right: r.waited + ' мин', order: r.no, cat: 'newreq' }));
+    critErr.forEach((e) => attention.push({ icon: 'api', tone: 'red', title: e.reason, sub: e.supplier + (e.order ? ' · №' + e.order : ''), right: e.orderTL || 'критично', order: null, supplier: e.supplier, cat: 'suppliers' }));
+    returnsActive.forEach((r) => attention.push({ icon: RETURN_TYPE[r.type] ? RETURN_TYPE[r.type].icon : 'refund', tone: 'amber', title: r.type + ' · ' + r.no, sub: [r.client, r.service].filter(Boolean).join(' · '), right: r.status, order: r.order, cat: 'returns' }));
     redRisk.forEach((u) => attention.push({ icon: 'bank', tone: 'red', title: u.co, sub: u.text, right: money(u.value), order: null, cat: 'overdue' }));
     deadlines.filter((d) => d.tone === 'red').forEach((d) => attention.push({ icon: d.icon, tone: 'red', title: d.label, sub: d.who, right: d.date, order: d.order, cat: 'deadlines' }));
     approvals.slice(0, 2).forEach((a) => attention.push({ icon: 'template', tone: 'amber', title: 'Согласование · ' + a.label, sub: a.who, right: a.kind, order: a.order, cat: 'approvals' }));
   } else {
     taskRows.forEach((t) => attention.push({ icon: 'clipboard', tone: t.tone, title: t.title, sub: 'Заказ №' + t.order, right: t.due, order: t.order, cat: 'mytasks' }));
-    dashChats.filter((c) => c.unread > 0).forEach((c) => attention.push({ icon: c.type === 'supplier' ? 'api' : 'chat', tone: 'amber', title: 'Ответить · ' + c.name, sub: c.lastText, right: c.lastTime, order: c.order, cat: 'chats' }));
+    dashChats.filter((c) => c.unread > 0).forEach((c) => attention.push({ icon: c.type === 'supplier' ? 'api' : 'chat', tone: 'amber', title: 'Ответить · ' + c.name, sub: c.lastText, right: c.lastTime, order: c.order, chat: c, cat: 'chats' }));
     deadlines.forEach((d) => attention.push({ icon: d.icon, tone: d.tone, title: d.label, sub: d.who, right: d.date, order: d.order, cat: 'deadlines' }));
   }
   attention.sort((a, b) => tonePri[a.tone] - tonePri[b.tone]);
-  const attTop = attention.slice(0, 8);
 
-
-  const Row = ({ icon, iconBg, title, sub, right, tone, onClick }) => (
-    <button type="button" onClick={onClick} style={{ cursor: onClick ? 'pointer' : 'default', textAlign: 'left', width: '100%', border: '1px solid var(--line)', borderLeft: '3px solid var(--' + (tone || 'line-strong') + ')', background: '#fff', borderRadius: 12, padding: '10px 12px', display: 'flex', alignItems: 'center', gap: 12 }}>
-      {icon && <span className="oc-svc-ic" style={{ background: iconBg || 'var(--blue)', width: 32, height: 32 }}><Icon name={icon} style={{ width: 16, height: 16 }} /></span>}
-      <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ fontWeight: 600, color: 'var(--ink)' }}>{title}</div>
-        {sub && <div style={{ fontSize: 12, color: 'var(--muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{sub}</div>}
-      </div>
-      {right}
-      {onClick && <Icon name="chevRight" style={{ width: 18, height: 18, color: 'var(--muted-2)' }} />}
-    </button>
-  );
-  const List = ({ children }) => <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>{children}</div>;
-
-
-  const renderDetail = () => {
-    switch (sel) {
-      case 'newreq':
-        return (
-          <table className="tbl">
-            <thead><tr><th>Заявка</th><th>Клиент</th><th>Оператор</th><th>Ожидает</th><th>Норматив</th><th>Статус</th></tr></thead>
-            <tbody>{slaRows.map((r, i) => (
-              <tr key={i} style={{ cursor: 'pointer' }} onClick={() => goOrder(r.no)}>
-                <td className="t-strong">№ {r.no}</td><td>{r.client}</td><td>{r.operator}</td>
-                <td style={{ fontWeight: 600, color: r.tone === 'red' ? 'var(--red)' : r.tone === 'amber' ? 'var(--amber)' : 'var(--ink)' }}>{r.waited} мин</td>
-                <td className="t-muted">{r.limit} мин</td><td><Pill tone={r.tone}>{slaLabel(r.tone)}</Pill></td>
-              </tr>))}</tbody>
-          </table>
-        );
-      case 'ordersToday':
-        return (
-          <table className="tbl">
-            <thead><tr><th style={{ width: 80 }}>№</th><th>Клиент</th><th>Статус</th><th>Ответственный</th><th>Тип</th><th style={{ width: 50 }}></th></tr></thead>
-            <tbody>{orders.slice(0, 8).map((o, i) => (
-              <tr key={i} style={{ cursor: 'pointer' }} onClick={() => onOpenOrder(o)}>
-                <td className="t-strong">{o.no}</td><td className="t-strong">{o.client}</td>
-                <td><Pill tone={ORDER_STATUS[o.status]}>{o.status}</Pill></td><td>{o.operator}</td>
-                <td><Pill tone="blue">{o.requestType}</Pill></td><td><span className="go-dot"><Icon name="chevRight" /></span></td>
-              </tr>))}</tbody>
-          </table>
-        );
-      case 'issued': case 'sales': case 'myearn':
-        return (
-          <table className="tbl">
-            <thead><tr><th>Время</th><th>Услуга</th><th>Заказ</th><th>Тип</th><th style={{ textAlign: 'right' }}>Стоимость</th><th style={{ textAlign: 'right' }}>{sel === 'myearn' ? 'Заработок' : 'Сборы'}</th></tr></thead>
-            <tbody>{shOps.map((o, i) => (
-              <tr key={i} style={{ cursor: 'pointer' }} onClick={() => goOrder(o.order)}>
-                <td className="t-muted">{o.time}</td><td className="t-strong">{o.title}</td><td>№ {o.order}</td>
-                <td><Pill tone={o.type === 'Выписка' ? 'green' : o.type === 'Обмен' ? 'blue' : 'amber'}>{o.type}</Pill></td>
-                <td style={{ textAlign: 'right' }}>{money(o.cost)}</td>
-                <td style={{ textAlign: 'right', fontWeight: 700, color: 'var(--blue)' }}>{sel === 'myearn' ? money(operatorEarn(o, motivationFor('Даниель'))) : money(o.serviceFee + o.markup + o.commission)}</td>
-              </tr>))}</tbody>
-          </table>
-        );
-      case 'profit':
-        return (
-          <div className="grid-4" style={{ gap: 14 }}>
-            {[['Сервисные сборы', shT.serviceFee, 'blue'], ['Агентские надбавки', shT.markup, 'teal'], ['Комиссионное вознаграждение', shT.commission, 'amber'], ['Заработок операторов', shT.earn, 'gray'], ['Итого сборы', shT.feesTotal, 'blue'], ['Продажи (оборот)', salesToday, 'gray'], ['Прибыль компании', shT.profit, 'green']].map(([l, v, t], i) => (
-              <div key={i} className="stat-card" style={{ borderLeft: '3px solid var(--' + t + ')' }}>
-                <div className="s-label">{l}</div>
-                <div className="s-value" style={{ fontSize: 'var(--fs-stat)', color: t === 'green' ? 'var(--green)' : 'var(--ink)' }}>{money(v)}</div>
-              </div>
-            ))}
-          </div>
-        );
-      case 'returns':
-        if (!returnsActive.length) return <DashDetailEmpty title="Возвратов и обменов в обработке нет" />;
-        return <List>{returnsActive.map((r, i) => (
-          <Row key={i} icon={RETURN_TYPE[r.type] ? RETURN_TYPE[r.type].icon : 'refund'} iconBg="var(--blue)" tone="amber"
-            title={r.type + ' · ' + r.no} sub={r.client + ' · ' + r.service}
-            right={<Pill tone={RETURN_STATUS[r.status]}>{r.status}</Pill>} onClick={() => goOrder(r.order)} />
-        ))}</List>;
-      case 'approvals':
-        if (!approvals.length) return <DashDetailEmpty title="Открытых согласований нет" />;
-        return <List>{approvals.map((a, i) => (
-          <Row key={i} icon="template" iconBg="var(--blue)" tone="amber" title={a.label} sub={a.who}
-            right={<Pill tone="gray">{a.kind}</Pill>} onClick={() => goOrder(a.order)} />
-        ))}</List>;
-      case 'deadlines':
-        if (!deadlines.length) return <DashDetailEmpty title="Ближайших дедлайнов нет" />;
-        return <List>{deadlines.map((d, i) => (
-          <Row key={i} icon={d.icon} iconBg={'var(--' + d.tone + ')'} tone={d.tone} title={d.label} sub={d.who}
-            right={<span style={{ fontWeight: 700, color: 'var(--' + d.tone + ')', whiteSpace: 'nowrap' }}>{d.date}</span>} onClick={() => goOrder(d.order)} />
-        ))}</List>;
-      case 'overdue': case 'risk': {
-        const list = sel === 'overdue' ? fin.urgent.filter((u) => u.tone === 'red') : fin.urgent;
-        if (!list.length) return <DashDetailEmpty title={sel === 'overdue' ? 'Просрочек по оплатам нет' : 'Рисков по депозитам и лимитам нет'} />;
-        return <List>{list.map((u, i) => (
-          <Row key={i} icon="bank" iconBg={'var(--' + u.tone + ')'} tone={u.tone} title={u.co} sub={u.text}
-            right={<><Pill tone={u.tone}>{u.kind}</Pill><span style={{ fontWeight: 700, color: 'var(--' + u.tone + ')', whiteSpace: 'nowrap', marginLeft: 8 }}>{money(u.value)}</span></>}
-            onClick={() => onNavigate('companies')} />
-        ))}</List>;
-      }
-      case 'operators':
-        return (
-          <table className="tbl">
-            <thead><tr><th>Оператор</th><th>Заявок</th><th>Заказов</th><th>Услуг</th><th style={{ textAlign: 'right' }}>Заработок</th><th style={{ textAlign: 'right' }}>Прибыль компании</th><th>SLA</th></tr></thead>
-            <tbody>{operatorRows.map((o, i) => (
-              <tr key={i}>
-                <td className="t-strong">{o.name}</td><td>{o.handled}</td><td>{o.orders}</td><td>{o.issued}</td>
-                <td style={{ textAlign: 'right', fontWeight: 700, color: 'var(--blue)' }}>{money(o.earn)}</td>
-                <td style={{ textAlign: 'right', fontWeight: 700, color: 'var(--green)' }}>{money(o.profit)}</td>
-                <td><Pill tone={o.sla === 'ok' ? 'green' : o.sla}>{o.sla === 'red' ? 'Просрочка' : o.sla === 'amber' ? 'Накал' : 'В норме'}</Pill></td>
-              </tr>))}</tbody>
-          </table>
-        );
-      case 'suppliers':
-        return (
-          <table className="tbl">
-            <thead><tr><th>Поставщик</th><th>Ошибки API</th><th>Неуспешные</th><th>Ср. ответ</th><th>Интеграция</th><th>Критичность</th><th style={{ width: 90 }}>Заказы</th></tr></thead>
-            <tbody>{supplierRows.map((s, i) => (
-
-              <tr key={i} style={{ cursor: 'pointer' }} onClick={() => setErrDrawer(s.name)} title="Открыть ошибки поставщика">
-                <td className="t-strong">{s.name}</td>
-                <td style={{ color: s.apiErrors ? 'var(--red)' : 'var(--muted-2)', fontWeight: s.apiErrors ? 700 : 400 }}>{s.apiErrors}</td>
-                <td style={{ color: s.failed ? 'var(--amber)' : 'var(--muted-2)', fontWeight: s.failed ? 700 : 400 }}>{s.failed}</td>
-                <td>{s.avgResp}</td>
-                <td><Pill tone={INTEG_TONE[s.integ] || 'gray'}>{s.integ}</Pill></td>
-                <td>{s.crit === '—' ? <span className="t-muted">—</span> : <Pill tone={ERR_CRIT_TONE[s.crit] || 'gray'}>{s.crit}</Pill>}</td>
-                <td>{s.ordersAffected ? <Pill tone="red">{s.ordersAffected} затронуто</Pill> : <span className="t-muted">—</span>}</td>
-              </tr>))}</tbody>
-          </table>
-        );
-      case 'trips':
-        return <List>{tripRows.map((t, i) => (
-          <Row key={i} icon={t.icon} iconBg="var(--blue)" tone="blue" title={t.main} sub={t.sub}
-            right={<Pill tone="blue">{t.type}</Pill>} onClick={() => goOrder(t.order)} />
-        ))}</List>;
-      case 'activity':
-        return <List>{activityRows.map((r, i) => (
-          <Row key={i} icon="clock" iconBg="var(--muted-2)" title={r.desc} sub={r.client + ' · ' + r.resp + ' · ' + r.dept}
-            right={<span style={{ fontSize: 12, color: 'var(--muted-2)' }}>{r.time}</span>} />
-        ))}</List>;
-      case 'mytasks':
-        return <List>{taskRows.map((t, i) => (
-          <Row key={i} icon="clipboard" iconBg={'var(--' + t.tone + ')'} tone={t.tone} title={t.title} sub={'Заказ № ' + t.order}
-            right={<span style={{ fontWeight: 700, color: 'var(--' + t.tone + ')', whiteSpace: 'nowrap' }}>{t.due}</span>} onClick={() => goOrder(t.order)} />
-        ))}</List>;
-      case 'chats':
-        if (!dashChats.length) return <DashDetailEmpty title="Активных чатов нет" />;
-        return <List>{dashChats.map((c, i) => (
-          <Row key={i} icon={c.type === 'supplier' ? 'api' : 'chat'} iconBg={c.unread ? 'var(--amber)' : 'var(--blue)'} tone={c.unread ? 'amber' : 'blue'}
-            title={c.name + (c.channel ? ' · ' + c.channel : '')}
-            sub={(c.mine ? 'Вы: ' : '') + c.lastText}
-            right={<>{c.unread > 0 && <Pill tone="amber">{c.unread} новых</Pill>}<span style={{ fontSize: 12, color: 'var(--muted)', marginLeft: 8 }}>{c.lastTime}</span></>}
-            onClick={() => onOpenChat ? onOpenChat(c) : (c.order ? goOrder(c.order) : onNavigate('chats'))} />
-        ))}</List>;
-      default:
-        return <DashDetailEmpty title="Нет данных" />;
-    }
+  const badgeFor = (tone) => tone === 'red' ? 'Срочно' : tone === 'amber' ? 'Требует действия' : tone === 'blue' ? 'Новая' : 'В работе';
+  const workRows = {
+    attention: attention.map((a, i) => ({ ...a, id: 'att-' + i, badge: badgeFor(a.tone) })),
+    newreq: slaRows.map((r, i) => ({ id: 'req-' + i, icon: 'inbox', tone: r.tone, title: 'Заявка ждёт отклик', sub: '№' + r.no + ' · Клиент: ' + r.client, right: r.waited + ' мин', badge: slaLabel(r.tone), order: r.no, cat: 'newreq' })),
+    deadlines: deadlines.map((d, i) => ({ id: 'dl-' + i, icon: d.icon, tone: d.tone, title: d.label, sub: d.who, right: d.date, badge: d.tone === 'red' ? 'Срочно' : 'Дедлайн', order: d.order, cat: 'deadlines' })),
+    approvals: approvals.map((a, i) => ({ id: 'ap-' + i, icon: 'template', tone: 'amber', title: 'Согласование · ' + a.label, sub: a.who, right: a.kind, badge: 'На согласовании', order: a.order, cat: 'approvals' })),
+  };
+  const workTabs = [
+    { key: 'attention', label: isMgr ? 'Требуют внимания' : 'Мои задачи', count: attention.length, tone: attention.some((a) => a.tone === 'red') ? 'red' : 'gray' },
+    { key: 'newreq', label: 'Новые заявки', count: slaRows.length, tone: slaOverdue ? 'red' : 'gray' },
+    { key: 'deadlines', label: 'Дедлайны', count: deadlines.length, tone: deadlines.some((d) => d.tone === 'red') ? 'red' : 'gray' },
+    { key: 'approvals', label: 'Согласования', count: approvals.length, tone: 'gray' },
+  ];
+  const activeRows = workRows[tab] || [];
+  const openWorkItem = (item) => {
+    if (item.cat === 'suppliers') { setErrDrawer(item.supplier || ''); return; }
+    if (item.cat === 'chats') { onOpenChat ? onOpenChat(item.chat) : onNavigate('chats'); return; }
+    if (item.cat === 'overdue' || item.cat === 'risk') { onNavigate('companies'); return; }
+    if (item.cat === 'returns' && !item.order) { onNavigate('returns'); return; }
+    if (item.order) { goOrder(item.order); return; }
+    onNavigate(WORK_TAB_ROUTE[item.cat] || 'orders');
   };
 
-  const shiftStat = (l, v, accent) => (
-    <div style={{ flex: '1 1 120px', minWidth: 110 }}>
-      <div style={{ fontSize: 12, color: 'var(--muted)' }}>{l}</div>
-      <div style={{ fontSize: 'var(--fs-lg)', fontWeight: 700, color: accent ? 'var(--' + accent + ')' : 'var(--ink)', letterSpacing: '-.01em' }}>{v}</div>
-    </div>
+
+  // ——— Сегодня: поездки и события календаря + тайм-лимиты из dashboard-пейлоада ———
+  const agendaTrips = calendar?.trips?.length ? calendar.trips : (dashboard?.trips_today || []);
+  const agendaItems = buildAgenda({
+    day: agendaDay, trips: agendaTrips, events: calendar?.events || [],
+    deadlines: dashboard?.deadlines || [], orders,
+  });
+  if (sameDay(agendaDay, today) && fin.overdueCount > 0) {
+    agendaItems.push({
+      id: 'overdue-alert', time: 'Сейчас', icon: 'bank', tone: 'red', title: 'Просрочка оплаты',
+      sub: fin.overdueCount + ' ' + plural(fin.overdueCount, ['обязательство', 'обязательства', 'обязательств']) + (fin.debt ? ' · ' + money(fin.debt) : ''),
+      route: 'finance',
+    });
+  }
+  const openAgendaItem = (item) => {
+    if (item.order) { goOrder(item.order); return; }
+    onNavigate(item.route || 'calendar');
+  };
+
+
+  // ——— Аналитика: ряды строятся из уже загруженных услуг и заказов ———
+  const salesSeries = dailySeries(orderServices, { days: 7, now: today, key: (s) => s.created_at, value: serviceSales });
+  const salesPrevSeries = dailySeries(orderServices, { days: 7, now: addDays(today, -7), key: (s) => s.created_at, value: serviceSales });
+  const profitSeries = dailySeries(orderServices, { days: 7, now: today, key: (s) => s.created_at, value: serviceProfit });
+  const ordersSeries = dailySeries(orders, { days: 7, now: today, key: (o) => o.created_at });
+  const salesWeek = seriesTotal(salesSeries);
+  const salesWeekDelta = percentChange(salesWeek, seriesTotal(salesPrevSeries));
+  const salesDayDelta = percentChange(salesSeries[6]?.value, salesSeries[5]?.value);
+  const profitDayDelta = percentChange(profitSeries[6]?.value, profitSeries[5]?.value);
+
+  const ordersTotal = dashboard?.kpi?.orders_total ?? orders.length;
+  const ordersNewToday = dashboard?.orders?.new_today ?? ordersSeries[6]?.value ?? 0;
+  const ordersActive = dashboard?.kpi?.orders_active ?? orders.filter((order) => !ORDER_CLOSED_STATUS.includes(order.statusCode || order.status)).length;
+  const overdueCount = fin.overdueCount;
+
+  const kpiItems = [
+    { key: 'orders', icon: 'orders', tone: 'blue', label: 'Заказы', value: ordersTotal, series: ordersSeries,
+      delta: ordersNewToday ? '+' + ordersNewToday + ' за день' : 'без новых', deltaTone: ordersNewToday ? 'green' : 'gray',
+      deltaIcon: ordersNewToday ? 'arrowUpRight' : null, onClick: () => onNavigate('orders'), title: 'Все заказы' },
+    { key: 'sales', icon: 'finance', tone: 'blue', label: 'Продажи', value: money(salesToday), series: salesSeries,
+      delta: formatPercent(salesDayDelta) || 'за сегодня', deltaTone: percentTone(salesDayDelta),
+      deltaIcon: salesDayDelta > 0 ? 'arrowUpRight' : null, onClick: () => onNavigate('finance'), title: 'Продажи за сегодня' },
+    isMgr
+      ? { key: 'profit', icon: 'bank', tone: 'green', label: 'Прибыль', value: money(shT.profit), series: profitSeries,
+          delta: formatPercent(profitDayDelta) || 'за сегодня', deltaTone: percentTone(profitDayDelta),
+          deltaIcon: profitDayDelta > 0 ? 'arrowUpRight' : null, onClick: () => onNavigate('finance'), title: 'Прибыль за сегодня' }
+      : { key: 'earn', icon: 'finance', tone: 'green', label: 'Мой заработок', value: money(shT.earn), series: null,
+          delta: 'за смену', deltaTone: 'gray', onClick: () => onNavigate('profile'), title: 'Заработок за смену' },
+    { key: 'active', icon: 'briefcase', tone: 'teal', label: 'В работе', value: ordersActive,
+      delta: ordersNewToday ? ordersNewToday + ' ' + plural(ordersNewToday, ['новый', 'новых', 'новых']) : 'новых нет',
+      deltaTone: 'blue', onClick: () => onNavigate('orders'), title: 'Заказы в работе' },
+    { key: 'overdue', icon: 'alertCircle', tone: overdueCount ? 'red' : 'green', label: 'Просрочки', value: overdueCount,
+      delta: overdueCount ? 'требуют оплаты' : 'все оплаты в срок', deltaTone: overdueCount ? 'red' : 'green',
+      onClick: () => onNavigate('finance'), title: 'Просрочки оплат' },
+  ];
+
+  const operatorCards = [...operatorRows].sort((a, b) => (b.orders || 0) - (a.orders || 0)).slice(0, 5).map((operator) => {
+    const change = percentChange(operator.last7, operator.prev7);
+    return { id: operator.id || operator.name, name: operator.name, orders: operator.orders || 0, sla: operator.sla,
+      delta: formatPercent(change), deltaTone: percentTone(change) };
+  });
+
+
+  // ——— Состояния блоков берутся из статусов ресурсов workspace ———
+  const statusOf = (key) => resources?.[key]?.status;
+  const blockLoading = (...keys) => keys.some((key) => statusOf(key) === 'loading' || statusOf(key) === 'idle');
+  const blockError = (...keys) => {
+    const failed = keys.map((key) => resources?.[key]).find((entry) => entry?.status === 'error' || entry?.status === 'forbidden');
+    if (!failed) return null;
+    return failed.status === 'forbidden' ? 'Нет доступа к этим данным' : messageForApiError(failed.error);
+  };
+  const workLoading = blockLoading('slaQueue', 'proposals', 'returns', 'integrationIncidents');
+  const workError = blockError('slaQueue', 'proposals', 'returns', 'integrationIncidents');
+  const agendaLoading = blockLoading('calendar');
+  const agendaError = blockError('calendar');
+  const salesLoading = blockLoading('orderServices');
+  const salesError = blockError('orderServices');
+  const operatorsLoading = blockLoading('users', 'orderServices');
+  const operatorsError = blockError('users', 'orderServices');
+
+  const shiftStat = (label, value, accent) => (
+    <span key={label} className="dsh-shift-stat">
+      <span className="dsh-shift-stat-label">{label}</span>
+      <span className="dsh-shift-stat-value" style={accent ? { color: dashToneColor(accent) } : undefined}>{value}</span>
+    </span>
   );
 
   return (
@@ -1192,68 +910,62 @@ function DashboardPage({ role, user, orders = [], orderServices = [], clients = 
 
       {searchOpen && <DetailedSearchPanel onClose={() => setSearchOpen(false)} onOpenOrder={onOpenOrder} onCreateOrder={onCreateOrder} onNavigate={onNavigate} clients={clients} companies={companies} />}
 
-      <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', padding: '10px 38px 22px', overflowY: 'auto' }}>
-
+      <div className="dsh scroll">
         {shift && (
-          <div className="card card-pad" style={{ marginBottom: 16, borderLeft: '3px solid var(--green)', background: 'var(--green-bg, #f2fbf6)' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12, flexWrap: 'wrap' }}>
-              <span style={{ width: 9, height: 9, borderRadius: '50%', background: 'var(--green)' }} />
-              <h3 className="card-title" style={{ fontSize: 16, margin: 0 }}>Моя смена</h3>
-              <Pill tone="green">открыта · с {shiftFmtTime(shift.openedAt)}</Pill>
-              <div style={{ flex: 1 }} />
-              <span style={{ fontSize: 12, color: 'var(--muted)' }}>Отчёт и закрытие — в меню смены в шапке</span>
-            </div>
-            <div style={{ display: 'flex', gap: 18, flexWrap: 'wrap' }}>
-              {shiftStat('Продолжительность', shiftDuration(shift.openedAt))}
-              {shiftStat('Операций в смене', backendMode ? (shiftSource.operations || []).length : SHIFT_REQUESTS_HANDLED)}
-              {shiftStat('Оформлено заказов', shT.orders)}
-              {shiftStat('Выписано услуг', issuedToday)}
-              {shiftStat('Текущий заработок', money(shT.earn), 'blue')}
-              {shiftStat('Прибыль компании', money(shT.profit), 'green')}
-            </div>
+          <div className="card dsh-shift">
+            <span className="dsh-shift-dot" />
+            <span className="dsh-shift-title">Моя смена</span>
+            <Pill tone="green">открыта · с {shiftFmtTime(shift.openedAt)}</Pill>
+            <span className="dsh-spacer" />
+            {shiftStat('Продолжительность', shiftDuration(shift.openedAt))}
+            {shiftStat('Операций', backendMode ? (shiftSource.operations || []).length : SHIFT_REQUESTS_HANDLED)}
+            {shiftStat('Заказов', shT.orders)}
+            {shiftStat('Выписано', issuedToday)}
+            {shiftStat('Заработок', money(shT.earn), 'blue')}
           </div>
         )}
 
+        <DashboardKpiGrid items={kpiItems} />
 
-        {attTop.length > 0 && (
-          <div style={{ marginBottom: 16 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
-              <span style={{ width: 8, height: 8, borderRadius: '50%', background: 'var(--red)' }} />
-              <h3 className="card-title" style={{ fontSize: 15, margin: 0 }}>Сейчас требуют внимания</h3>
-              <Pill tone="red">{attention.length}</Pill>
-              <div style={{ flex: 1 }} />
-              <span style={{ fontSize: 12, color: 'var(--muted)' }}>Нажмите — откроется рабочая область</span>
-            </div>
-            <div className="scroll" style={{ display: 'flex', gap: 10, overflowX: 'auto', paddingBottom: 4 }}>
-              {attTop.map((a, i) => (
-                <AttentionMarker key={i} a={a} onClick={() => { setSel(a.cat); if (a.order) goOrder(a.order); }} />
-              ))}
-            </div>
-          </div>
+        <div className="dsh-main">
+          <WorkCenter
+            tabs={workTabs} tab={tab} onTabChange={setTab}
+            items={activeRows.slice(0, 5)} total={activeRows.length}
+            loading={workLoading} error={workError} onRetry={onReload}
+            onOpenAll={() => onNavigate(WORK_TAB_ROUTE[tab] || 'orders')}
+            onShowAll={() => onNavigate(WORK_TAB_ROUTE[tab] || 'orders')}
+            onOpenItem={openWorkItem}
+            emptyTitle={tab === 'attention' ? 'Ничего не требует внимания' : 'В этой вкладке пусто'}
+          />
+          <TodayAgenda
+            day={agendaDay} today={today} items={agendaItems}
+            loading={agendaLoading} error={agendaError} onRetry={onReload}
+            onSelectDay={setAgendaDay} onOpenItem={openAgendaItem}
+            onOpenCalendar={() => onNavigate('calendar')}
+          />
+        </div>
+
+        <div className="dsh-analytics">
+          <SalesChart
+            series={salesSeries} total={money(salesWeek)} format={money}
+            delta={formatPercent(salesWeekDelta)} deltaTone={percentTone(salesWeekDelta)}
+            loading={salesLoading} error={salesError} onRetry={onReload}
+            onOpenAll={() => onNavigate('finance')}
+          />
+          <OperatorsPerformance
+            rows={operatorCards} loading={operatorsLoading} error={operatorsError} onRetry={onReload}
+            onOpenAll={() => onNavigate('settings')}
+          />
+        </div>
+
+        {supErrTotal > 0 && (
+          <button type="button" className="dsh-api-alert" onClick={() => setErrDrawer('')}>
+            <Icon name="api" />
+            <span>Ошибки поставщиков (API): <b>{supErrTotal}</b></span>
+            <span className="dsh-spacer" />
+            <span className="dsh-api-alert-go">Разобрать<Icon name="chevRight" /></span>
+          </button>
         )}
-
-
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(210px, 1fr))', gap: 12, marginBottom: 16 }}>
-          {widgets.map((w) => (<DashTile key={w.key} w={w} active={sel === w.key} onClick={() => setSel(w.key)} />))}
-        </div>
-
-
-        <div className="card" style={{ flex: 1, minHeight: 320, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '14px 18px', borderBottom: '1px solid var(--line)', flexShrink: 0 }}>
-            <h2 className="card-title" style={{ fontSize: 17, margin: 0 }}>{DTITLE[sel] || ''}</h2>
-            <div style={{ flex: 1 }} />
-            {sel === 'suppliers' && <Button variant="secondary" size="sm" icon="alertCircle" onClick={() => setErrDrawer('')}>Разбор ошибок</Button>}
-            {sel === 'suppliers' && <Button variant="secondary" size="sm" icon="suppliers" onClick={() => onNavigate('suppliers')}>Все поставщики</Button>}
-            {(sel === 'overdue' || sel === 'risk') && <Button variant="secondary" size="sm" icon="building" onClick={() => onNavigate('companies')}>Все компании</Button>}
-            {(sel === 'returns') && <Button variant="secondary" size="sm" icon="refund" onClick={() => onNavigate('returns')}>Все возвраты</Button>}
-            {(sel === 'ordersToday' || sel === 'newreq') && <Button variant="secondary" size="sm" icon="orders" onClick={() => onNavigate('orders')}>Все заказы</Button>}
-            {sel === 'activity' && <Button variant="secondary" size="sm" icon="bell" onClick={() => onNavigate('notifications')}>Все события</Button>}
-            {sel === 'chats' && <Button variant="secondary" size="sm" icon="chat" onClick={() => onNavigate('chats')}>Все чаты</Button>}
-          </div>
-          <div className="scroll" style={{ flex: 1, minHeight: 0, overflow: 'auto', padding: 16 }}>
-            {renderDetail()}
-          </div>
-        </div>
       </div>
 
       <ErrorCodesDrawer open={errCodeOpen !== null} focusCode={errCodeOpen} onClose={() => setErrCodeOpen(null)} />
@@ -1266,4 +978,4 @@ Object.assign(window, { DashboardPage, DetailedSearchPanel });
 
 
 
-export { FreeBookingFinalize, DetailedSearchPanel, FinanceOverviewBlock, StatCardDash, SlaResponseWidget, dashToneColor, DashTile, AttentionMarker, DashDetailEmpty, SUPPLIER_STATS, ERR_CRIT_TONE, INTEG_TONE, SUPPLIER_ERRORS, ERR_STATUS_TONE, errNow, errCurOp, errLog, errActiveCount, errPushNotif, errRetry, errAssign, errResolve, errReopen, errSnooze, errChooseSupplier, errSendDev, errAltSuppliers, OPERATORS_WORK, TODAY_TRIPS, MY_TASKS, SupplierErrorCard, SupplierErrorsDrawer, DashboardPage };
+export { FreeBookingFinalize, DetailedSearchPanel, SUPPLIER_STATS, ERR_CRIT_TONE, INTEG_TONE, SUPPLIER_ERRORS, ERR_STATUS_TONE, errNow, errCurOp, errLog, errActiveCount, errPushNotif, errRetry, errAssign, errResolve, errReopen, errSnooze, errChooseSupplier, errSendDev, errAltSuppliers, OPERATORS_WORK, MY_TASKS, SupplierErrorCard, SupplierErrorsDrawer, DashboardPage };
