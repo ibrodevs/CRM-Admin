@@ -13,7 +13,8 @@ import { Select } from '../../../shared/ui/Select.jsx';
 import { Tabs } from '../../../shared/ui/Tabs.jsx';
 import { Toggle } from '../../../shared/ui/Toggle.jsx';
 import { useToast } from '../../../shared/ui/Toast.jsx';
-import { UFDateField } from '../../../shared/ui/UnifiedDateField.jsx';
+import { UFDateField, ufDateFromIso, ufDateIso } from '../../../shared/ui/UnifiedDateField.jsx';
+import { describeUserAgent } from '../../../shared/lib/user-agent.js';
 import { CURRENCIES, CURRENT_USER } from '../../../legacy/data/index.jsx';
 import { SVC_ACCESS_KINDS, operatorKindsLabel, operatorSla, operatorSvcAccess } from '../../../legacy/data/access-control.jsx';
 import { Topbar } from '../../../shared/ui/Topbar.jsx';
@@ -36,6 +37,23 @@ import { RU_DATE_TIME } from '../../../shared/lib/datetime.js';
 
 const PRESENCE_TONE = { 'Онлайн': 'green', 'Не в сети': 'gray', 'В отпуске': 'amber' };
 const WORK_STATUS = ['Работает', 'Отпуск', 'Больничный', 'Выходной'];
+
+// Русские названия разделов: в правах они закодированы латиницей
+// («orders.view»), и в карточке доступов выводились именно коды.
+const SECTION_LABEL = {
+  orders: 'Заказы', services: 'Услуги', offers: 'Ком. предложения', finance: 'Финансы',
+  documents: 'Документы', crm: 'Клиенты и компании', suppliers: 'Поставщики',
+  communications: 'Чаты', notifications: 'Уведомления', users: 'Пользователи',
+  roles: 'Роли', settings: 'Настройки', integrations: 'Интеграции', audit: 'Аудит',
+  reports: 'Отчёты', calendar: 'Календарь', aftersales: 'Возвраты и обмены',
+};
+
+function accessibleSections(permissions = []) {
+  const names = (permissions || [])
+    .filter((code) => String(code).endsWith('.view'))
+    .map((code) => SECTION_LABEL[String(code).split('.')[0]] || String(code).split('.')[0]);
+  return [...new Set(names)].sort((a, b) => a.localeCompare(b, 'ru')).join(', ');
+}
 
 
 function ProfileMotivation({ operator, userId, canEdit }) {
@@ -103,7 +121,7 @@ function ProfileStats({ operator, userId }) {
     const controller = new AbortController();
     setBusy(true); setError('');
     accountApi.statistics({from, to}, controller.signal).then((data) => {
-      const money = (values) => Object.entries(values).map(([currency, amount]) => `${Number(amount).toLocaleString('ru-RU')} ${currency}`).join(' · ') || '0';
+      const money = (values) => Object.entries(values || {}).map(([currency, amount]) => `${Number(amount).toLocaleString('ru-RU')} ${currency}`).join(' · ') || '0';
       setStats([['Оформлено заказов', data.orders], ['Выписано услуг', data.issued], ['Обменов', data.exchanges], ['Возвратов', data.refunds], ['Среднее время обработки заявки', data.response_minutes == null ? '—' : `${data.response_minutes} мин`], ['Общая прибыль (для компании)', money(data.profit)], ['Заработок за период', money(data.earnings)]]);
     }).catch((error) => { if (error.name !== 'AbortError') { setError(error.message); toast(error.message, 'err'); } }).finally(() => { if (!controller.signal.aborted) setBusy(false); });
     return () => controller.abort();
@@ -114,8 +132,10 @@ function ProfileStats({ operator, userId }) {
     const link = document.createElement('a'); link.href = url; link.download = `statistics-${operator}.csv`; link.click(); setTimeout(() => URL.revokeObjectURL(url), 1000);
   };
   return <div className="fade-in"><div style={{display:'flex', gap:12, alignItems:'end', marginBottom:16}}>
-    <Field label={t("Начало периода")}><Input aria-label="Начало периода" type="date" value={from} onChange={(e) => setFrom(e.target.value)} /></Field>
-    <Field label={t("Конец периода")}><Input aria-label="Конец периода" type="date" value={to} onChange={(e) => setTo(e.target.value)} /></Field>
+    {/* Тот же календарь, что и во всех формах проекта: нативный type="date"
+        выглядел и вёл себя иначе в каждом браузере. */}
+    <UFDateField label={t("Начало периода")} value={ufDateFromIso(from)} onChange={(value) => { const iso = ufDateIso(value); if (iso) setFrom(iso); }} />
+    <UFDateField label={t("Конец периода")} value={ufDateFromIso(to)} onChange={(value) => { const iso = ufDateIso(value); if (iso) setTo(iso); }} />
     <Button variant="secondary" icon="download" disabled={busy || !!error} onClick={exportStats}>{t("Экспорт")}</Button>
   </div>{error && <p role="alert">{error}</p>}{busy ? <p>{t("Загрузка статистики…")}</p> : <div className="grid-2">{stats.map(([label, value]) => <div className="stat-card" key={t(label)}><div className="s-label">{t(label)}</div><div className="s-value" style={{fontSize:22}}>{value}</div></div>)}</div>}
     <p className="hint">{formatProfileDate(from, user?.preferences)} — {formatProfileDate(to, user?.preferences)}{t(". Суммы показаны отдельно по валютам; прибыль рассчитана по выписанным услугам.")}</p>
@@ -345,7 +365,7 @@ function ProfilePage({ user, onNavigate, initialTab }) {
     id: session.id,
     time: session.created_at ? formatProfileDate(session.created_at, { ...u.preferences, timezone: u.timezone }, true) : '—',
     ip: session.ip_address || '—',
-    device: session.user_agent || 'Неизвестное устройство',
+    device: describeUserAgent(session.user_agent),
     current: Boolean(session.is_current),
   }));
 
@@ -368,31 +388,45 @@ function ProfilePage({ user, onNavigate, initialTab }) {
       </Topbar>
       <div className="content">
 
-        <div className="card card-pad" style={{ display: 'flex', alignItems: 'center', gap: 24, marginBottom: 20, flexWrap: 'wrap' }}>
-          <div style={{display:'grid', gap:8}}>
-            <Avatar src={u.avatar} name={u.name} size={92} />
-            <label className="btn btn-secondary btn-sm">{t("Изменить фото")}<input aria-label="Изменить фото" type="file" accept="image/png,image/jpeg,image/webp" disabled={saving} style={{position:'absolute',width:1,height:1,opacity:0}} onChange={async (event) => {
-              const file = event.target.files?.[0]; event.target.value = ''; if (!file) return;
-              if (file.size > 5 * 1024 * 1024) { toast('Максимальный размер фото — 5 МБ', 'err'); return; }
-              setSaving(true);
-              try { await accountApi.uploadAvatar(file); await auth.refreshSession(); toast('Фото сохранено', 'ok'); }
-              catch (error) { toast(error.message, 'err'); } finally { setSaving(false); }
-            }} /></label>
-            {u.avatar && <Button size="sm" variant="secondary" disabled={saving} onClick={async () => { setSaving(true); try { await accountApi.removeAvatar(); await auth.refreshSession(); } catch (error) { toast(error.message, 'err'); } finally { setSaving(false); } }}>{t("Удалить фото")}</Button>}
+        {/* Шапка: фото со скрытыми под наведением действиями — две кнопки
+            столбиком под аватаром растягивали блок и выглядели тяжело. */}
+        <div className="card card-pad profile-head">
+          <div className="profile-photo">
+            <Avatar src={u.avatar} name={u.name} size={84} />
+            <div className="profile-photo-actions">
+              <label className="profile-photo-btn" title={t("Изменить фото")} aria-label={t("Изменить фото")}>
+                <Icon name="camera" />
+                <input aria-label={t("Изменить фото")} type="file" accept="image/png,image/jpeg,image/webp" disabled={saving} onChange={async (event) => {
+                  const file = event.target.files?.[0]; event.target.value = ''; if (!file) return;
+                  if (file.size > 5 * 1024 * 1024) { toast('Максимальный размер фото — 5 МБ', 'err'); return; }
+                  setSaving(true);
+                  try { await accountApi.uploadAvatar(file); await auth.refreshSession(); toast('Фото сохранено', 'ok'); }
+                  catch (error) { toast(error.message, 'err'); } finally { setSaving(false); }
+                }} />
+              </label>
+              {u.avatar && (
+                <button type="button" className="profile-photo-btn" title={t("Удалить фото")} aria-label={t("Удалить фото")} disabled={saving}
+                  onClick={async () => { setSaving(true); try { await accountApi.removeAvatar(); await auth.refreshSession(); toast('Фото удалено', 'ok'); } catch (error) { toast(error.message, 'err'); } finally { setSaving(false); } }}>
+                  <Icon name="trash" />
+                </button>
+              )}
+            </div>
           </div>
-          <div style={{ flex: 1, minWidth: 220 }}>
-            <div style={{ fontSize: 24, fontWeight: 700, color: 'var(--ink)', letterSpacing: '-.02em' }}>{u.name}</div>
-            <div style={{ color: 'var(--muted)', fontSize: 15, marginTop: 3 }}>{u.position} · {u.dept}</div>
-            <div style={{ display: 'flex', gap: 10, marginTop: 12, flexWrap: 'wrap' }}>
+          <div className="profile-head-main">
+            <div className="profile-head-name">{u.name}</div>
+            <div className="profile-head-sub">{[u.position, u.dept].filter(Boolean).join(' · ')}</div>
+            <div className="profile-head-pills">
               <Pill tone="blue">{u.role}</Pill>
               <Pill tone={PRESENCE_TONE[u.presence] || 'gray'}>{u.presence}</Pill>
               <Pill tone={u.workStatus === 'Работает' ? 'green' : 'amber'}>{u.workStatus}</Pill>
             </div>
           </div>
-          <div style={{ textAlign: 'right' }}>
-            <div style={{ fontSize: 12, color: 'var(--muted)' }}>{t("Последний вход")}</div>
-            <div style={{ fontSize: 15, fontWeight: 600, color: 'var(--ink)' }}>{formatProfileDate(u.last_login, { ...u.preferences, timezone: u.timezone }, true)}</div>
-            <Button variant="secondary" icon="edit" size="sm" style={{ marginTop: 10 }} onClick={() => setTab('profile')}>{t("Редактировать")}</Button>
+          <div className="profile-head-aside">
+            <div className="profile-head-login">
+              <span>{t("Последний вход")}</span>
+              <b>{formatProfileDate(u.last_login, { ...u.preferences, timezone: u.timezone }, true)}</b>
+            </div>
+            <Button variant="secondary" icon="edit" size="sm" onClick={() => setTab('profile')}>{t("Редактировать")}</Button>
           </div>
         </div>
 
@@ -416,7 +450,6 @@ function ProfilePage({ user, onNavigate, initialTab }) {
               <Field label="WhatsApp"><Input value={pf.whatsapp || ''} onChange={setField('whatsapp')} leadIcon="phone" placeholder="+996 700 000 000" /></Field>
               <Field label={t("Статус")}><Select options={WORK_STATUS} value={pf.workStatus} onChange={setField('workStatus')} /></Field>
               <Field label={t("Часовой пояс")}><Select options={['(GMT+6) Бишкек', '(GMT+3) Москва', '(GMT+5) Ташкент']} value={pf.tz} onChange={setField('tz')} /></Field>
-              <Field label={t("Язык интерфейса")}><Select options={['Русский', 'Кыргызча', 'English']} value={pf.lang} onChange={setField('lang')} /></Field>
             </div>
             <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 22 }}>
               <Button variant="primary" onClick={saveProfile} disabled={saving}>{saving ? 'Сохранение…' : 'Сохранить изменения'}</Button>
@@ -430,9 +463,9 @@ function ProfilePage({ user, onNavigate, initialTab }) {
             <div className="card card-pad">
               <h3 className="card-title" style={{ marginBottom: 16 }}>{t("Смена пароля")}</h3>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-                <Field label={t("Текущий пароль")} error={pwErr.cur}><Input type={showPw ? 'text' : 'password'} value={pw.cur} onChange={(e) => setPw((p) => ({ ...p, cur: e.target.value }))} error={pwErr.cur} trailIcon={showPw ? 'eyeOff' : 'eye'} onTrail={() => setShowPw((s) => !s)} placeholder="••••••••" /></Field>
-                <Field label={t("Новый пароль")} error={pwErr.next}><Input type={showPw ? 'text' : 'password'} value={pw.next} onChange={(e) => setPw((p) => ({ ...p, next: e.target.value }))} error={pwErr.next} placeholder={t("Минимум 10 символов")} /></Field>
-                <Field label={t("Подтвердите пароль")} error={pwErr.confirm}><Input type={showPw ? 'text' : 'password'} value={pw.confirm} onChange={(e) => setPw((p) => ({ ...p, confirm: e.target.value }))} error={pwErr.confirm} placeholder={t("Повторите новый пароль")} /></Field>
+                <Field label={t("Текущий пароль")} error={pwErr.cur}><Input type={showPw ? 'text' : 'password'} value={pw.cur} onChange={(e) => setPw((p) => ({ ...p, cur: e.target.value }))} error={pwErr.cur} trailIcon={showPw ? 'eyeOff' : 'eye'} onTrail={() => setShowPw((s) => !s)} placeholder={t("Введите текущий пароль")} /></Field>
+                <Field label={t("Новый пароль")} error={pwErr.next}><Input type={showPw ? 'text' : 'password'} value={pw.next} onChange={(e) => setPw((p) => ({ ...p, next: e.target.value }))} error={pwErr.next} trailIcon={showPw ? 'eyeOff' : 'eye'} onTrail={() => setShowPw((v) => !v)} placeholder={t("Минимум 10 символов")} /></Field>
+                <Field label={t("Подтвердите пароль")} error={pwErr.confirm}><Input type={showPw ? 'text' : 'password'} value={pw.confirm} onChange={(e) => setPw((p) => ({ ...p, confirm: e.target.value }))} error={pwErr.confirm} trailIcon={showPw ? 'eyeOff' : 'eye'} onTrail={() => setShowPw((v) => !v)} placeholder={t("Повторите новый пароль")} /></Field>
                 <Button variant="primary" onClick={savePassword} disabled={saving} style={{ alignSelf: 'flex-start' }}>{t("Изменить пароль")}</Button>
               </div>
               <div style={{ borderTop: '1px solid var(--line)', marginTop: 22, paddingTop: 18, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
@@ -453,7 +486,7 @@ function ProfilePage({ user, onNavigate, initialTab }) {
                   {devices.map((d) => (
                     <div key={d.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 12px', borderRadius: 10, border: '1px solid var(--field-line)' }}>
                       <Icon name="grid" style={{ width: 18, height: 18, color: 'var(--muted)' }} />
-                      <div style={{ flex: 1 }}><div style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink)' }}>{d.user_agent || 'Неизвестное устройство'}</div><div style={{ fontSize: 12, color: 'var(--muted)' }}>{d.ip_address || 'IP не определён'} · {d.last_seen_at ? formatProfileDate(d.last_seen_at, { ...u.preferences, timezone: u.timezone }, true) : '—'}</div></div>
+                      <div style={{ flex: 1 }}><div style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink)' }}>{describeUserAgent(d.user_agent)}</div><div style={{ fontSize: 12, color: 'var(--muted)' }}>{d.ip_address || 'IP не определён'} · {d.last_seen_at ? formatProfileDate(d.last_seen_at, { ...u.preferences, timezone: u.timezone }, true) : '—'}</div></div>
                       {d.is_current ? <Pill tone="green">{t("Текущее")}</Pill> : <button className="icon-btn" aria-label="Завершить сессию" onClick={() => revokeSession(d.id)}><Icon name="x" /></button>}
                     </div>
                   ))}
@@ -476,29 +509,36 @@ function ProfilePage({ user, onNavigate, initialTab }) {
 
 
         {tab === 'notif' && (
-          <div className="card card-pad fade-in" style={{ maxWidth: 680 }}>
-            <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--muted)', marginBottom: 6 }}>{t("Каналы доставки")}</div>
-            <p className="hint">Внешние каналы требуют подключения сервиса доставки на сервере. Здесь сохраняются ваши предпочтения; включение переключателя не подтверждает отправку.</p>
-            {channelRows.map(([k, l], i, arr) => (
-              <div key={k} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 0', borderBottom: i < arr.length - 1 ? '1px solid var(--line)' : 'none' }}>
-                <span style={{ fontSize: 15, color: 'var(--ink)' }}>{t(l)}</span>
-                <Toggle on={notif[k]} onChange={async (v) => {
-                  if (k === 'desktop' && v) {
-                    if (!('Notification' in window)) { toast('Браузер не поддерживает уведомления', 'err'); return; }
-                    const permission = await Notification.requestPermission();
-                    if (permission !== 'granted') { toast('Разрешите уведомления в настройках браузера', 'err'); return; }
-                  }
-                  setNotif((n) => ({ ...n, [k]: v }));
-                }} />
-              </div>
-            ))}
-            <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--muted)', margin: '20px 0 6px' }}>{t("Общие события")}</div>
-            {eventRows.map(([k, l], i, arr) => (
-              <div key={k} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 0', borderBottom: i < arr.length - 1 ? '1px solid var(--line)' : 'none' }}>
-                <span style={{ fontSize: 15, color: 'var(--ink)' }}>{t(l)}</span>
-                <Toggle on={notif[k]} onChange={(v) => setNotif((n) => ({ ...n, [k]: v }))} />
-              </div>
-            ))}
+          <div className="card card-pad fade-in" style={{ maxWidth: 1080 }}>
+            <div className="profile-notif-head">{t("Каналы доставки")}</div>
+            <p className="hint" style={{ marginTop: 0 }}>Внешние каналы требуют подключения сервиса доставки на сервере. Здесь сохраняются ваши предпочтения; включение переключателя не подтверждает отправку.</p>
+            <div className="profile-notif-grid">
+              {channelRows.map(([k, l, icon]) => (
+                <label key={k} className={'profile-notif-item' + (notif[k] ? ' is-on' : '')}>
+                  <Icon name={icon} />
+                  <span className="profile-notif-label">{t(l)}</span>
+                  <Toggle on={notif[k]} onChange={async (v) => {
+                    if (k === 'desktop' && v) {
+                      if (!('Notification' in window)) { toast('Браузер не поддерживает уведомления', 'err'); return; }
+                      const permission = await Notification.requestPermission();
+                      if (permission !== 'granted') { toast('Разрешите уведомления в настройках браузера', 'err'); return; }
+                    }
+                    setNotif((n) => ({ ...n, [k]: v }));
+                  }} />
+                </label>
+              ))}
+            </div>
+
+            <div className="profile-notif-head">{t("Общие события")}</div>
+            <div className="profile-notif-grid">
+              {eventRows.map(([k, l]) => (
+                <label key={k} className={'profile-notif-item' + (notif[k] ? ' is-on' : '')}>
+                  <Icon name="bell" />
+                  <span className="profile-notif-label">{t(l)}</span>
+                  <Toggle on={notif[k]} onChange={(v) => setNotif((n) => ({ ...n, [k]: v }))} />
+                </label>
+              ))}
+            </div>
 
 
             {(() => {
@@ -510,9 +550,9 @@ function ProfilePage({ user, onNavigate, initialTab }) {
                     .map((k) => [k, ACTION_EVENTS.filter((r) => acc.kinds[k] && acc.kinds[k][r])])
                     .filter(([, rights]) => rights.length);
               return (
-                <div style={{ marginTop: 22 }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, margin: '0 0 4px' }}>
-                    <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--muted)' }}>{t("По услугам и действиям")}</span>
+                <div style={{ marginTop: 4 }}>
+                  <div className="profile-notif-head" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <span>{t("По услугам и действиям")}</span>
                     <Pill tone="blue">{t("по вашим доступам")}</Pill>
                   </div>
                   <div style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 10, display: 'flex', gap: 6, alignItems: 'flex-start' }}>
@@ -524,14 +564,14 @@ function ProfilePage({ user, onNavigate, initialTab }) {
                         <Icon name="check" style={{ width: 16, height: 16, color: 'var(--blue)' }} />
                         <span style={{ fontWeight: 700, color: 'var(--ink)', fontSize: 14 }}>{kind}</span>
                       </div>
-                      <div style={{ padding: '4px 14px' }}>
-                        {rights.map((r, i) => {
+                      <div className="profile-notif-grid" style={{ padding: 12 }}>
+                        {rights.map((r) => {
                           const key = 'svc:' + kind + ':' + r;
                           return (
-                            <div key={r} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 0', borderBottom: i < rights.length - 1 ? '1px solid var(--line)' : 'none' }}>
-                              <span style={{ fontSize: 14, color: 'var(--body)' }}>{r}</span>
+                            <label key={r} className={'profile-notif-item' + (notif[key] !== false ? ' is-on' : '')}>
+                              <span className="profile-notif-label">{r}</span>
                               <Toggle on={notif[key] !== false} onChange={(v) => setNotif((n) => ({ ...n, [key]: v }))} />
-                            </div>
+                            </label>
                           );
                         })}
                       </div>
@@ -555,7 +595,6 @@ function ProfilePage({ user, onNavigate, initialTab }) {
               <Field label={t("Формат даты")}><Select options={['ДД.ММ.ГГГГ', 'ММ/ДД/ГГГГ', 'ГГГГ-ММ-ДД']} value={prefs.dateFmt} onChange={(e) => setPrefs((p) => ({ ...p, dateFmt: e.target.value }))} /></Field>
               <Field label={t("Формат времени")}><Select options={['24 часа', '12 часов (AM/PM)']} value={prefs.timeFmt} onChange={(e) => setPrefs((p) => ({ ...p, timeFmt: e.target.value }))} /></Field>
               <Field label={t("Валюта по умолчанию")}><Select options={CURRENCIES.map((c) => c.code)} value={prefs.currency} onChange={(e) => setPrefs((p) => ({ ...p, currency: e.target.value }))} /></Field>
-              <Field label={t("Язык интерфейса")}><Select options={['Русский', 'Кыргызча', 'English']} value={prefs.lang} onChange={(e) => setPrefs((p) => ({ ...p, lang: e.target.value }))} /></Field>
               <Field label={t("Размер страницы списка")}><Select options={['10', '25', '50', '100']} value={prefs.pageSize} onChange={(e) => setPrefs((p) => ({ ...p, pageSize: e.target.value }))} /></Field>
               <Field label={t("Стартовая страница после входа")}><Select options={['Главное', 'Заказы', 'Оформление', 'Чаты']} value={prefs.startPage} onChange={(e) => setPrefs((p) => ({ ...p, startPage: e.target.value }))} /></Field>
             </div>
@@ -572,7 +611,7 @@ function ProfilePage({ user, onNavigate, initialTab }) {
               <h3 className="card-title" style={{ fontSize: 16, marginBottom: 12 }}>{t("Роль и права")}</h3>
               <div className="kv" style={{ marginBottom: 12 }}>
                 <div className="kv-row"><span className="k">{t("Роль")}</span><span className="v"><Pill tone="blue">{u.role}</Pill></span></div>
-                <div className="kv-row"><span className="k">{t("Доступные разделы")}</span><span className="v" style={{ maxWidth: 260 }}>{(u.permissions || []).filter((code) => code.endsWith('.view')).map((code) => code.split('.')[0]).join(', ') || 'По назначенным правам'}</span></div>
+                <div className="kv-row"><span className="k">{t("Доступные разделы")}</span><span className="v" style={{ maxWidth: 260 }}>{accessibleSections(u.permissions) || 'По назначенным правам'}</span></div>
                 <div className="kv-row"><span className="k">{t("Доступные поставщики")}</span><span className="v">{t("В пределах прав вашей организации")}</span></div>
                 <div className="kv-row"><span className="k">{t("Доступные компании")}</span><span className="v">{t("В пределах прав вашей организации")}</span></div>
                 <div className="kv-row"><span className="k">{t("Доступные виды услуг")}</span><span className="v">{!u.service_access?.length ? 'Все виды услуг' : Object.entries(serviceAccessToUi(u.service_access).kinds).filter(([, rights]) => Object.values(rights).some(Boolean)).map(([name]) => name).join(', ') || 'Не назначены'}</span></div>

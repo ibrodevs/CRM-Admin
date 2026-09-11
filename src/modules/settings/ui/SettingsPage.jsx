@@ -535,9 +535,11 @@ function RolesTab({ readOnly = false }) {
   };
   return (
     <div className="fade-in">
-      <div style={{ display: 'flex', alignItems: 'center', marginBottom: 16 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', marginBottom: 16 }}>
         <span style={{ color: 'var(--muted)', fontSize: 14 }}>{t("Матрица прав доступа по ролям · «Админ» всегда имеет полный доступ")}</span>
-        <div style={{ flex: 1 }} /><Button variant="secondary" icon="settings" onClick={loadRoles} disabled={loading}>{t("Обновить")}</Button><Button variant="secondary" icon="check" onClick={save} disabled={loading || readOnly}>{t("Сохранить")}</Button>
+        <div style={{ flex: 1 }} />
+        <Button variant="secondary" icon="settings" onClick={loadRoles} disabled={loading}>{t("Обновить")}</Button>
+        <Button icon="check" onClick={save} disabled={loading || readOnly}>{t("Сохранить")}</Button>
       </div>
       <div className="table-card">
         <table className="tbl">

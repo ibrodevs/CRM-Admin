@@ -1,6 +1,8 @@
 import { RU_DATE_TIME } from '../lib/datetime.js';
 
 
+import { proxiedMediaUrl } from '../lib/media-url.js';
+
 const TIMEZONE_LABEL = {
   'Asia/Bishkek': '(GMT+6) Бишкек',
   'Europe/Moscow': '(GMT+3) Москва',
@@ -14,7 +16,7 @@ function toUiUser(user) {
     ...user,
     name: user?.full_name || [user?.last_name, user?.first_name, user?.middle_name].filter(Boolean).join(' '),
     role,
-    avatar: user?.avatar?.startsWith('/api/v1/me/avatar/') ? user.avatar.replace('/api/v1/', '/api/backend/') : user?.avatar || null,
+    avatar: proxiedMediaUrl(user?.avatar),
     position: user?.position || role,
     dept: user?.department || '',
     workEmail: user?.email || '',

@@ -112,6 +112,15 @@ function forwardedHeaders(request, access, contentType) {
   if (idempotencyKey) headers.set('Idempotency-Key', idempotencyKey);
   const requestId = request.headers.get('x-request-id');
   if (requestId) headers.set('X-Request-ID', requestId);
+  // Браузер ходит в backend через этот прокси, поэтому без проброса backend
+  // видел User-Agent серверного fetch («node») и IP самого сервера — именно они
+  // и попадали в список сессий вместо устройства и адреса пользователя.
+  const userAgent = request.headers.get('user-agent');
+  if (userAgent) headers.set('User-Agent', userAgent);
+  const forwardedFor = request.headers.get('x-forwarded-for');
+  if (forwardedFor) headers.set('X-Forwarded-For', forwardedFor);
+  const forwardedProto = request.headers.get('x-forwarded-proto');
+  if (forwardedProto) headers.set('X-Forwarded-Proto', forwardedProto);
   return headers;
 }
 

@@ -1,5 +1,6 @@
 import { resolveCurrency } from '../../shared/lib/money.js';
 import { RU_DATE_TIME } from '../../shared/lib/datetime.js';
+import { proxiedMediaUrl } from '../../shared/lib/media-url.js';
 const proposalStatus = { draft: 'Черновик', prepared: 'Подготовлено', sent: 'Отправлено клиенту', approved: 'Согласовано', rejected: 'Отклонено', archived: 'Архивировано' };
 const returnStatus = { created: 'Создано', review: 'На проверке', awaiting_client_approval: 'Ожидает согласования клиента', submitted_to_supplier: 'Передано поставщику', processing: 'В обработке', completed: 'Завершено', cancelled: 'Отменено', rejected: 'Отклонено' };
 const returnType = { refund: 'Возврат билета', exchange: 'Обмен билета', cancellation: 'Аннуляция бронирования', certificate: 'Оформление справки' };
@@ -231,7 +232,7 @@ export function toLegacyUser(item) {
   const statuses = { active: 'Активный', invited: 'Приглашён', suspended: 'Заблокированный', archived: 'Заблокированный' };
   // roleCode нужен, чтобы сопоставлять роль по коду, а не по подписи:
   // подписи в разных экранах расходились («Менеджер» / «Руководитель»).
-  return { ...item, serverId: item.id, name: item.full_name || item.email, roleCode: item.roles?.[0] || '', role: roleNames[item.roles?.[0]] || item.roles?.[0] || 'Оператор', status: statuses[item.status] || item.status, last: dateTime(item.last_login) };
+  return { ...item, serverId: item.id, avatar: proxiedMediaUrl(item.avatar), name: item.full_name || item.email, roleCode: item.roles?.[0] || '', role: roleNames[item.roles?.[0]] || item.roles?.[0] || 'Оператор', status: statuses[item.status] || item.status, last: dateTime(item.last_login) };
 }
 
 export function toLegacyOrderService(item) {
