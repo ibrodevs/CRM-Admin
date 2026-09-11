@@ -17,6 +17,7 @@ import { ordersApi } from '../api/ordersApi.js';
 import { proposalsApi } from '../../proposals/api.js';
 import { resultsOf } from '../../../shared/api/client.js';
 import { currencySymbol, resolveCurrency } from '../../../shared/lib/money.js';
+import { RU_DATE_TIME } from '../../../shared/lib/datetime.js';
 
 
 
@@ -471,7 +472,7 @@ function BookingWizard({ order, services, draft, onClose, onComplete, onSaveDraf
         {history.length ? <div className="timeline">
           {history.map((item) => (
             <div className="tl-item" key={item.id}><span className="tl-dot" /><span className="tl-line" />
-              <div><div className="tl-time">{new Date(item.changed_at).toLocaleString('ru-RU')} · {item.changed_by_name || 'Система'}</div><div className="tl-text">{item.reason || `${item.from_status || '—'} → ${item.to_status || '—'}`}</div></div></div>
+              <div><div className="tl-time">{new Date(item.changed_at).toLocaleString('ru-RU', RU_DATE_TIME)} · {item.changed_by_name || 'Система'}</div><div className="tl-text">{item.reason || `${item.from_status || '—'} → ${item.to_status || '—'}`}</div></div></div>
           ))}
         </div> : <EmptyState icon="clock" title="История пока пуста" sub="Здесь появятся сохранённые изменения статуса заказа." />}
       </Drawer>

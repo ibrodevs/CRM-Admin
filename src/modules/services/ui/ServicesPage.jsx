@@ -37,6 +37,7 @@ import { resultsOf } from '../../../shared/api/client.js';
 import { toLegacyOrderService } from '../../../legacy/adapters/legacy-adapters.js';
 import { normalizeCurrency, ocMoney } from '../../orders/model.js';
 import { convertMoney, getDefaultCurrency, resolveCurrency } from '../../../shared/lib/money.js';
+import { RU_DATE_TIME } from '../../../shared/lib/datetime.js';
 
 
 
@@ -987,7 +988,7 @@ function ServiceCardHistoryDrawer({ orderNo, serviceId, title, onClose }) {
               <div style={{ flex: 1 }} />
               <Pill tone={statusTone(card.status)}>{serviceCardStatusLabel(card.status)}</Pill>
             </div>
-            <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 4 }}>Сценарий: {sc.name} · {card.created_at ? new Date(card.created_at).toLocaleString('ru-RU') : '—'}</div>
+            <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 4 }}>Сценарий: {sc.name} · {card.created_at ? new Date(card.created_at).toLocaleString('ru-RU', RU_DATE_TIME) : '—'}</div>
 
 
             <div style={{ marginTop: 10 }}>
@@ -999,7 +1000,7 @@ function ServiceCardHistoryDrawer({ orderNo, serviceId, title, onClose }) {
                   <span style={{ fontSize: 13 }}>{d.channel}</span>
                   <div style={{ flex: 1 }} />
                   <Pill tone={d.state === 'failed' ? 'red' : d.state === 'read' || d.state === 'delivered' ? 'green' : 'gray'}>{deliveryLabel[d.state] || d.state}</Pill>
-                  <span style={{ fontSize: 11, color: 'var(--muted)' }}>{d.sent_at ? new Date(d.sent_at).toLocaleString('ru-RU') : ''}</span>
+                  <span style={{ fontSize: 11, color: 'var(--muted)' }}>{d.sent_at ? new Date(d.sent_at).toLocaleString('ru-RU', RU_DATE_TIME) : ''}</span>
                 </div>
               ))}
             </div>
@@ -1011,7 +1012,7 @@ function ServiceCardHistoryDrawer({ orderNo, serviceId, title, onClose }) {
                 {card.responses.map((r, i) => (
                   <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, padding: '3px 0' }}>
                     <Icon name={r.action === 'decline' ? 'x' : 'check'} style={{ width: 14, height: 14, color: r.action === 'decline' ? 'var(--red)' : 'var(--green)' }} />{r.action === 'choose' ? 'Клиент выбрал' : r.action === 'decline' ? 'Клиент отклонил' : r.action}{r.comment ? ' · ' + r.comment : ''}
-                    <div style={{ flex: 1 }} /><span style={{ fontSize: 11, color: 'var(--muted)' }}>{r.channel}{r.created_at ? ' · ' + new Date(r.created_at).toLocaleString('ru-RU') : ''}</span>
+                    <div style={{ flex: 1 }} /><span style={{ fontSize: 11, color: 'var(--muted)' }}>{r.channel}{r.created_at ? ' · ' + new Date(r.created_at).toLocaleString('ru-RU', RU_DATE_TIME) : ''}</span>
                   </div>
                 ))}
               </div>
@@ -1161,7 +1162,7 @@ function SvcCard({ item, kind, participants = [], hideBackRow, onBack }) {
         ...doc, name: doc.title, type: doc.kind, size: '', documentId: doc.id,
       })));
       setServiceHistory((actions || []).map((row) => ({
-        t: row.created_at ? new Date(row.created_at).toLocaleString('ru-RU') : '—',
+        t: row.created_at ? new Date(row.created_at).toLocaleString('ru-RU', RU_DATE_TIME) : '—',
         txt: row.payload?.comment || row.payload?.label || row.action,
       })));
       const cards = resultsOf(cardsPayload);
@@ -1171,11 +1172,11 @@ function SvcCard({ item, kind, participants = [], hideBackRow, onBack }) {
         setVersion(current.card_version);
         setCardSt(current.status);
       }
-      setVersions(cards.map((card) => ({ v: card.card_version, note: `${serviceCardStatusLabel(card.status)} · ${card.created_at ? new Date(card.created_at).toLocaleString('ru-RU') : '—'}` })));
+      setVersions(cards.map((card) => ({ v: card.card_version, note: `${serviceCardStatusLabel(card.status)} · ${card.created_at ? new Date(card.created_at).toLocaleString('ru-RU', RU_DATE_TIME) : '—'}` })));
       setCardLog(cards.flatMap((card) => [
-        { t: card.created_at ? new Date(card.created_at).toLocaleString('ru-RU') : '—', txt: `Создана backend-версия v${card.card_version}` },
-        ...(card.deliveries || []).map((delivery) => ({ t: delivery.created_at ? new Date(delivery.created_at).toLocaleString('ru-RU') : '—', txt: `Канал ${delivery.channel}: ${delivery.state}` })),
-        ...(card.responses || []).map((response) => ({ t: response.created_at ? new Date(response.created_at).toLocaleString('ru-RU') : '—', txt: `Ответ клиента: ${response.action}${response.comment ? ' · ' + response.comment : ''}` })),
+        { t: card.created_at ? new Date(card.created_at).toLocaleString('ru-RU', RU_DATE_TIME) : '—', txt: `Создана backend-версия v${card.card_version}` },
+        ...(card.deliveries || []).map((delivery) => ({ t: delivery.created_at ? new Date(delivery.created_at).toLocaleString('ru-RU', RU_DATE_TIME) : '—', txt: `Канал ${delivery.channel}: ${delivery.state}` })),
+        ...(card.responses || []).map((response) => ({ t: response.created_at ? new Date(response.created_at).toLocaleString('ru-RU', RU_DATE_TIME) : '—', txt: `Ответ клиента: ${response.action}${response.comment ? ' · ' + response.comment : ''}` })),
       ]));
     }).catch((error) => { if (error.name !== 'AbortError') toast(error.message, 'err'); });
     return () => controller.abort();
@@ -1221,7 +1222,7 @@ function SvcCard({ item, kind, participants = [], hideBackRow, onBack }) {
       const row = await workspaceActionsApi.execute('service.comment.add', {
         resourceType: 'OrderService', resourceId: serviceId, payload: { comment: value },
       });
-      setServiceHistory((current) => [{ t: new Date(row.created_at).toLocaleString('ru-RU'), txt: value }, ...current]);
+      setServiceHistory((current) => [{ t: new Date(row.created_at).toLocaleString('ru-RU', RU_DATE_TIME), txt: value }, ...current]);
       setComment('');
       toast('Комментарий добавлен', 'ok');
     } catch (error) { toast(error.message, 'err'); }
@@ -1266,7 +1267,7 @@ function SvcCard({ item, kind, participants = [], hideBackRow, onBack }) {
     setLatestCard(sent);
     setVersion(sent.card_version);
     setCardSt(sent.status);
-    setVersions((current) => [{ v: sent.card_version, note: `${serviceCardStatusLabel(sent.status)} · ${new Date(sent.created_at).toLocaleString('ru-RU')}` }, ...current.filter((row) => row.v !== sent.card_version)]);
+    setVersions((current) => [{ v: sent.card_version, note: `${serviceCardStatusLabel(sent.status)} · ${new Date(sent.created_at).toLocaleString('ru-RU', RU_DATE_TIME)}` }, ...current.filter((row) => row.v !== sent.card_version)]);
     setCardLog((current) => [{ t: 'сейчас', txt: `Карточка v${sent.card_version} поставлена в backend-очередь · ${ch}` }, ...current]);
     toast('Карточка услуги сохранена и поставлена в очередь отправки', 'ok');
     return { persisted: true, card: sent };
@@ -1675,7 +1676,7 @@ function backendServiceRegistryRow(item) {
     info: [
       { l: 'Заказ', v: item.order_number || item.order },
       { l: 'Поставщик', v: item.supplier_name || '—' },
-      { l: 'Начало', v: item.starts_at ? new Date(item.starts_at).toLocaleString('ru-RU') : '—' },
+      { l: 'Начало', v: item.starts_at ? new Date(item.starts_at).toLocaleString('ru-RU', RU_DATE_TIME) : '—' },
     ],
   };
 }

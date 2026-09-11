@@ -33,6 +33,7 @@ import { resultsOf } from '../../../shared/api/client.js';
 import { currencySymbol, getDefaultCurrency } from '../../../shared/lib/money.js';
 import { shortCode } from '../../../shared/lib/short-id.js';
 import { ORGANIZATION_TYPE_LABEL, SETTLEMENT_TYPE_LABEL, labelFor } from '../../../shared/constants/backend-labels.js';
+import { RU_DATE_TIME } from '../../../shared/lib/datetime.js';
 
 function useSupplierDocuments(s, ext) {
   const [, refresh] = useState(0);
@@ -47,7 +48,7 @@ function useSupplierDocuments(s, ext) {
         grouped[kind].push({ name: doc.title, documentId: doc.id, kind });
       });
       ext.docs = grouped;
-      ext.stats = { bookings: s.metrics?.bookings ?? 0, issues: s.metrics?.issues ?? 0, refunds: s.metrics?.refunds ?? 0, avgResponse: '—', successRate: '—', lastUsed: s.metrics?.last_used ? new Date(s.metrics.last_used).toLocaleString('ru-RU') : '—' };
+      ext.stats = { bookings: s.metrics?.bookings ?? 0, issues: s.metrics?.issues ?? 0, refunds: s.metrics?.refunds ?? 0, avgResponse: '—', successRate: '—', lastUsed: s.metrics?.last_used ? new Date(s.metrics.last_used).toLocaleString('ru-RU', RU_DATE_TIME) : '—' };
       refresh((value) => value + 1);
     }).catch((error) => { if (error.name !== 'AbortError') console.error(error); });
     return () => controller.abort();
@@ -268,7 +269,7 @@ function supExt(s) {
         responseMinutes: automation.sla?.response_minutes || '',
         confirmationHours: automation.sla?.confirmation_hours || '',
       },
-      stats: { bookings: s.metrics?.bookings ?? 0, issues: s.metrics?.issues ?? 0, refunds: s.metrics?.refunds ?? 0, avgResponse: '—', successRate: '—', lastUsed: s.metrics?.last_used ? new Date(s.metrics.last_used).toLocaleString('ru-RU') : '—' },
+      stats: { bookings: s.metrics?.bookings ?? 0, issues: s.metrics?.issues ?? 0, refunds: s.metrics?.refunds ?? 0, avgResponse: '—', successRate: '—', lastUsed: s.metrics?.last_used ? new Date(s.metrics.last_used).toLocaleString('ru-RU', RU_DATE_TIME) : '—' },
       docs: SUP_DOC_KINDS.reduce((result, kind) => ({ ...result, [kind]: [] }), {}),
 
       legal: {
@@ -1158,7 +1159,7 @@ function SupplierAddDrawer({ open, onClose, onCreated }) {
         try {
           await suppliersApi.checkConnection(created.id);
           ext.api.status = 'Подключено';
-          ext.api.lastSync = new Date().toLocaleString('ru-RU');
+          ext.api.lastSync = new Date().toLocaleString('ru-RU', RU_DATE_TIME);
         } catch (error) {
           connectionWarning = error.message || 'Интеграция требует настройки';
           ext.api.status = 'Требует настройки';

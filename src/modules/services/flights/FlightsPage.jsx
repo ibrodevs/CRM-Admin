@@ -37,6 +37,7 @@ import { ServiceBlanksPanel } from '../../documents/index.js';
 import { technicalStopCount, technicalStopLabel, technicalStopsOf } from './technical-stops.js';
 import { TechnicalStopsDetails } from './TechnicalStops.jsx';
 import { currencySymbol, resolveCurrency } from '../../../shared/lib/money.js';
+import { RU_DATE_TIME } from '../../../shared/lib/datetime.js';
 
 
 
@@ -1089,7 +1090,7 @@ function DocCorrectionPanel({ subjects, meta, currency, orderNo, onClose }) {
   const [massField, setMassField] = useState('agentMarkup');
   const [massVal, setMassVal] = useState('');
   const [versions, setVersions] = useState([
-    { date: new Date().toLocaleString('ru-RU'), user: (CURRENT_USER && CURRENT_USER.name) || 'Оператор', title: 'v1 · Оригинал поставщика', fields: ['Импортирован бланк поставщика (' + supplier + ')'], comment: '' },
+    { date: new Date().toLocaleString('ru-RU', RU_DATE_TIME), user: (CURRENT_USER && CURRENT_USER.name) || 'Оператор', title: 'v1 · Оригинал поставщика', fields: ['Импортирован бланк поставщика (' + supplier + ')'], comment: '' },
   ]);
 
   const cur = corrCur(currency);
@@ -1662,7 +1663,7 @@ function FlightCard({ svc, offer, no: noProp, hideBackRow, onBack, onFormKp, onA
       workspaceActionsApi.list({ resource_type: 'OrderService', resource_id: svc.id }, controller.signal),
     ]).then(([documents, actions]) => {
       setUploadedDocs(resultsOf(documents).map((doc) => ({ ...doc, name: doc.title, type: doc.kind, documentId: doc.id })));
-      setServerHistory((actions || []).map((row) => ({ t: new Date(row.created_at).toLocaleString('ru-RU'), txt: row.payload?.comment || row.payload?.label || row.action, who: 'CRM' })));
+      setServerHistory((actions || []).map((row) => ({ t: new Date(row.created_at).toLocaleString('ru-RU', RU_DATE_TIME), txt: row.payload?.comment || row.payload?.label || row.action, who: 'CRM' })));
     }).catch((error) => { if (error.name !== 'AbortError') toast(error.message, 'err'); });
     return () => controller.abort();
   }, [svc?.id]);
@@ -1670,7 +1671,7 @@ function FlightCard({ svc, offer, no: noProp, hideBackRow, onBack, onFormKp, onA
   const serviceAction = async (action, payload = {}) => {
     try {
       const row = await workspaceActionsApi.execute(action, { resourceType: 'OrderService', resourceId: svc?.id || '', payload });
-      setServerHistory((current) => [{ t: new Date(row.created_at).toLocaleString('ru-RU'), txt: payload.label || action, who: 'CRM' }, ...current]);
+      setServerHistory((current) => [{ t: new Date(row.created_at).toLocaleString('ru-RU', RU_DATE_TIME), txt: payload.label || action, who: 'CRM' }, ...current]);
       toast(payload.label || 'Операция принята backend', 'ok');
     } catch (error) { toast(error.message, 'err'); }
   };
@@ -1711,12 +1712,12 @@ function FlightCard({ svc, offer, no: noProp, hideBackRow, onBack, onFormKp, onA
     if (type === 'refund' && data.docs?.length) {
       await Promise.all(data.docs.map((document) => documentsApi.upload(document.file, { order: svc.orderId || svc.order, service: svc.id, kind: 'other', title: document.name, source: 'upload', metadata: { aftersale_case: created.id, forced_refund_evidence: !data.voluntary } })));
     }
-    setServerHistory((current) => [{ t: new Date().toLocaleString('ru-RU'), txt: `Создана операция ${created.number}`, who: 'CRM' }, ...current]);
+    setServerHistory((current) => [{ t: new Date().toLocaleString('ru-RU', RU_DATE_TIME), txt: `Создана операция ${created.number}`, who: 'CRM' }, ...current]);
     setStatus(type === 'refund' ? 'Возврат' : 'Обмен');
     return { ...created, current_quote: quote.id };
   };
 
-  const ticketingDeadline = svc?.ticketing_deadline ? new Date(svc.ticketing_deadline).toLocaleString('ru-RU') : null;
+  const ticketingDeadline = svc?.ticketing_deadline ? new Date(svc.ticketing_deadline).toLocaleString('ru-RU', RU_DATE_TIME) : null;
 
   const transitionService = async (target, label) => {
     if (!svc?.id) return;
@@ -2006,7 +2007,7 @@ function FlightCard({ svc, offer, no: noProp, hideBackRow, onBack, onFormKp, onA
               <div className="kv-row"><span className="k">Канал</span><span className="v">{svc?.source === 'api' || offer ? 'API / GDS' : svc?.source === 'import' ? 'Импорт' : 'Ручной'}</span></div>
               <div className="kv-row"><span className="k">PNR (локатор)</span><span className="v">{pnr}</span></div>
               <div className="kv-row"><span className="k">Номер билета</span><span className="v">{ticket}</span></div>
-              <div className="kv-row"><span className="k">Дата брони</span><span className="v">{svc?.created_at ? new Date(svc.created_at).toLocaleString('ru-RU') : '—'}</span></div>
+              <div className="kv-row"><span className="k">Дата брони</span><span className="v">{svc?.created_at ? new Date(svc.created_at).toLocaleString('ru-RU', RU_DATE_TIME) : '—'}</span></div>
             </div></div>
             <div className="card card-pad"><div className="kv">
               <div className="kv-row"><span className="k">Статус оплаты поставщику</span><span className="v">{svc?.supplier_payment_status || '—'}</span></div>

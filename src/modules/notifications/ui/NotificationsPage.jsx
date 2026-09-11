@@ -10,7 +10,7 @@ import { SearchBox } from '../../../shared/ui/SearchBox.jsx';
 import { Tabs } from '../../../shared/ui/Tabs.jsx';
 import { Toggle } from '../../../shared/ui/Toggle.jsx';
 import { useToast } from '../../../shared/ui/Toast.jsx';
-import { ERR_CATEGORIES, ERR_SEVERITY, ERR_SYSTEMS, INTEGRATION_ERROR_CODES, NOTIF_PRIORITY, NOTIF_PRIO_RANK, NOTIF_SETTINGS, NOTIF_SOURCE } from '../../../legacy/data/index.jsx';
+import { ERR_CATEGORIES, ERR_SEVERITY, ERR_SYSTEMS, INTEGRATION_ERROR_CODES, NOTIF_PRIORITY, NOTIF_PRIO_RANK, NOTIF_SOURCE } from '../../../legacy/data/index.jsx';
 import { Topbar } from '../../../shared/ui/Topbar.jsx';
 import { notificationsApi } from '../api/notificationsApi.js';
 
@@ -45,11 +45,10 @@ function NotificationRow({ n, onAct, onRead, onPin, onDismiss, onOpenCode }) {
           {n.errCode && <span className="link-chip" title="Открыть код ошибки" onClick={() => onOpenCode && onOpenCode(n.errCode)} style={{ padding: '3px 8px', fontFamily: 'ui-monospace, Menlo, monospace', fontWeight: 700 }}><Icon name="api" />{n.errCode}</span>}
           {n.order && <span className="link-chip" onClick={() => onAct(n)} style={{ padding: '3px 8px' }}><Icon name="orders" />№ {n.order}</span>}
           <span>·</span><span>Ответственный: {n.resp || 'Не назначен'}</span>
-          <span>·</span><span>Создано: {n.created || n.date || '—'}</span>
+          <span>·</span><span>Создано: {n.created || '—'}</span>
         </div>
       </div>
       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 10, flex: '0 0 auto' }}>
-        <span className="ntf-time">{n.created || (n.time ? `${n.time} назад` : 'Время не указано')}</span>
         <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
           {n.act && <Button size="sm" iconRight="arrowRight" onClick={() => onAct(n)}>{n.act}</Button>}
           <button className={'icon-btn' + (n.pinned ? ' green' : '')} title="Закрепить" onClick={() => onPin(n.id)}><Icon name="star" /></button>
@@ -66,15 +65,59 @@ function NotificationRow({ n, onAct, onRead, onPin, onDismiss, onOpenCode }) {
 }
 
 
-function NotifSettingsDrawer({ open, settings, setSettings, onClose }) {
+// Те же правила доставки, что и в «Настройках»: раньше здесь стояли локальные
+// переключатели, которые никуда не сохранялись и сбрасывались при закрытии.
+const NOTIF_RULE_OPTIONS = [
+  { label: 'Уведомления о новых заказах', desc: 'Создание и изменение заказов' },
+  { label: 'Уведомления о платежах', desc: 'Поступления, возвраты и задолженности' },
+  { label: 'SMS-уведомления', desc: 'Требуется подключённая служба доставки' },
+  { label: 'E-mail уведомления', desc: 'Дублирование событий на почту' },
+  { label: 'Push в Telegram', desc: 'Требуется подключённый бот' },
+  { label: 'Просрочки и дедлайны SLA', desc: 'Тайм-лимиты, сроки КП и нормативы отклика' },
+];
+const NOTIF_RULE_FALLBACK = [true, true, false, true, false, true];
+
+function NotifSettingsDrawer({ open, onClose }) {
+  const toast = useToast();
+  const [rules, setRules] = useState(NOTIF_RULE_FALLBACK);
+  const [ready, setReady] = useState(false);
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    if (!open) return undefined;
+    const controller = new AbortController();
+    setReady(false);
+    notificationsApi.rules(controller.signal)
+      .then((data) => {
+        const rows = Array.isArray(data) ? data : [];
+        setRules(NOTIF_RULE_OPTIONS.map((_, i) => rows.find((rule) => rule.event_type === `ui.preference.${i}`)?.is_active ?? NOTIF_RULE_FALLBACK[i]));
+        setReady(true);
+      })
+      .catch((error) => { if (!controller.signal.aborted) toast(error.message || 'Не удалось загрузить настройки', 'err'); });
+    return () => controller.abort();
+  }, [open]);
+
+  const save = async () => {
+    setSaving(true);
+    try { await notificationsApi.setRules({ rules }); toast('Настройки уведомлений сохранены', 'ok'); onClose(); }
+    catch (error) { toast(error.message || 'Не удалось сохранить настройки', 'err'); }
+    finally { setSaving(false); }
+  };
+
   return (
     <Drawer open={open} onClose={onClose} title="Настройки уведомлений"
-      footer={<Button className="btn-block" onClick={onClose}>Готово</Button>}>
-      <p style={{ color: 'var(--muted)', fontSize: 14, marginTop: 0 }}>Выберите, какие события показывать в центре уведомлений и ленте.</p>
-      {settings.map((s, i) => (
-        <div key={s.key} style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '16px 0', borderBottom: i < settings.length - 1 ? '1px solid var(--line)' : 'none' }}>
-          <div style={{ flex: 1 }}><div style={{ fontWeight: 600, color: 'var(--ink)' }}>{s.label}</div><div style={{ fontSize: 13, color: 'var(--muted)' }}>{s.desc}</div></div>
-          <Toggle on={s.on} onChange={(v) => setSettings((cur) => cur.map((x) => x.key === s.key ? { ...x, on: v } : x))} />
+      footer={<>
+        <Button variant="secondary" onClick={onClose}>Отмена</Button>
+        <Button style={{ flex: 1 }} icon="check" disabled={!ready || saving} onClick={save}>{saving ? 'Сохранение…' : 'Сохранить'}</Button>
+      </>}>
+      <p style={{ color: 'var(--muted)', fontSize: 14, marginTop: 0 }}>Выберите, какие события показывать в центре уведомлений и как их доставлять.</p>
+      {NOTIF_RULE_OPTIONS.map((option, i) => (
+        <div key={option.label} style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '16px 0', borderBottom: i < NOTIF_RULE_OPTIONS.length - 1 ? '1px solid var(--line)' : 'none' }}>
+          <div style={{ flex: 1 }}>
+            <div style={{ fontWeight: 600, color: 'var(--ink)' }}>{option.label}</div>
+            <div style={{ fontSize: 13, color: 'var(--muted)' }}>{option.desc}</div>
+          </div>
+          <Toggle on={rules[i]} onChange={(value) => setRules((current) => current.map((item, j) => j === i ? value : item))} />
         </div>
       ))}
     </Drawer>
@@ -137,7 +180,6 @@ function NotificationsCenter({ notifications = [], orders = [], onChange, onNavi
   const [fPrio, setFPrio] = useState('');
   const [fSource, setFSource] = useState('');
   const [setOpen, setSetOpen] = useState(false);
-  const [settings, setSettings] = useState(NOTIF_SETTINGS);
   const [errOpen, setErrOpen] = useState(null);
 
   useEffect(() => { setList(notifications); }, [notifications]);
@@ -215,7 +257,7 @@ function NotificationsCenter({ notifications = [], orders = [], onChange, onNavi
         <NotificationRow key={n.id} n={n} onAct={act} onRead={(id) => setRead(id)} onPin={pin} onDismiss={dismiss} onOpenCode={openCode} />
       )) : <EmptyState icon="bell" title="Здесь пусто" sub="Нет уведомлений по выбранным условиям" />}
 
-      <NotifSettingsDrawer open={setOpen} settings={settings} setSettings={setSettings} onClose={() => setSetOpen(false)} />
+      <NotifSettingsDrawer open={setOpen} onClose={() => setSetOpen(false)} />
       <ErrorCodesDrawer open={errOpen !== null} focusCode={errOpen} onClose={() => setErrOpen(null)} />
     </div>
   );

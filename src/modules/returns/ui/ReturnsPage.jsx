@@ -23,6 +23,7 @@ import { DOC_STATUS2, ORDERS, ORDER_PARTICIPANTS, ORDER_SERVICES, RETURNS, RETUR
 import { Topbar } from '../../../shared/ui/Topbar.jsx';
 import { AirportField } from '../../services/index.js';
 import { currencySymbol, resolveCurrency } from '../../../shared/lib/money.js';
+import { RU_DATE_TIME } from '../../../shared/lib/datetime.js';
 
 
 
@@ -266,8 +267,8 @@ function ReturnCard({ op, onBack, onChange }) {
       workspaceActionsApi.list({ action: 'service.aftersale.comment', resource_type: 'AfterSaleCase', resource_id: op.serverId }, controller.signal),
     ]).then(([docs, events, comments]) => {
       setDocuments((docs || []).map((doc) => ({ ...doc, name: doc.title, kind: doc.kind, v: doc.current_version, status: doc.status })));
-      const rows = (events || []).map((event) => ({ t: new Date(event.created_at).toLocaleString('ru-RU'), who: event.actor || 'Система', text: event.details?.reason || event.action }));
-      const notes = (comments || []).map((row) => ({ t: new Date(row.created_at).toLocaleString('ru-RU'), who: 'Сотрудник', text: row.payload?.comment || '' }));
+      const rows = (events || []).map((event) => ({ t: new Date(event.created_at).toLocaleString('ru-RU', RU_DATE_TIME), who: event.actor || 'Система', text: event.details?.reason || event.action }));
+      const notes = (comments || []).map((row) => ({ t: new Date(row.created_at).toLocaleString('ru-RU', RU_DATE_TIME), who: 'Сотрудник', text: row.payload?.comment || '' }));
       setHistory([...rows, ...notes].sort((a, b) => String(a.t).localeCompare(String(b.t))));
     }).catch((error) => { if (error.name !== 'AbortError') toast(error.message, 'err'); });
     return () => controller.abort();
@@ -295,7 +296,7 @@ function ReturnCard({ op, onBack, onChange }) {
     const value = comment.trim(); if (!value) return;
     try {
       const row = await workspaceActionsApi.execute('service.aftersale.comment', { resourceType: 'AfterSaleCase', resourceId: op.serverId, payload: { comment: value } });
-      setHistory((current) => [...current, { t: new Date(row.created_at).toLocaleString('ru-RU'), who: 'Сотрудник', text: value }]);
+      setHistory((current) => [...current, { t: new Date(row.created_at).toLocaleString('ru-RU', RU_DATE_TIME), who: 'Сотрудник', text: value }]);
       setComment(''); toast('Комментарий добавлен', 'ok');
     } catch (error) { toast(error.message, 'err'); }
   };

@@ -36,6 +36,7 @@ import { WorkCenter } from './WorkCenter.jsx';
 import { dashToneColor } from './DashboardCard.jsx';
 import { addDays, buildAgenda, dailySeries, formatPercent, isoDayKey, isoDayRange, percentChange, percentTone, sameDay, seriesTotal } from '../model/dashboard-metrics.js';
 import { formatMoney, getDefaultCurrency, resolveCurrency } from '../../../shared/lib/money.js';
+import { RU_DATE_TIME } from '../../../shared/lib/datetime.js';
 
 
 
@@ -446,16 +447,16 @@ function backendIncidentToUi(row, { orders = [], suppliers = [], users = [], ser
     backend: true, backendId: row.id, raw: row, id: `INC-${row.id}`,
     supplier: supplier?.name || row.provider_adapter || 'Поставщик не указан', supplierId: row.supplier || null,
     service: service?.kind || service?.title || (row.service ? String(row.service) : '—'), op: row.operation || 'Операция API',
-    time: created ? created.toLocaleString('ru-RU') : '—', order: order?.no || null, orderId: row.order || null,
+    time: created ? created.toLocaleString('ru-RU', RU_DATE_TIME) : '—', order: order?.no || null, orderId: row.order || null,
     client: order?.client || '—', operator: order?.operator || '—', assignee: assignee?.name || '', assigneeId: row.assignee || null,
     code: row.correlation_id || '—', crmCode: row.error_code || 'UNKNOWN', crit: INCIDENT_SEVERITY_LABEL[row.severity] || row.severity,
     reason: row.sanitized_error || row.error_code || 'Ошибка интеграции', tech: [row.sanitized_error, row.correlation_id ? `correlation_id=${row.correlation_id}` : ''].filter(Boolean).join('\n'),
     repeats: Number(row.retry_count || row.occurrences || 0), attempts: Number(row.retry_count || 0),
-    first: created ? created.toLocaleString('ru-RU') : '—', last: updated ? updated.toLocaleString('ru-RU') : '—', impact: order ? `Затронут заказ № ${order.no}` : 'Заказ не связан',
-    status: INCIDENT_STATUS_LABEL[row.status] || row.status, snoozeUntil: row.snoozed_until ? new Date(row.snoozed_until).toLocaleString('ru-RU') : null,
+    first: created ? created.toLocaleString('ru-RU') : '—', last: updated ? updated.toLocaleString('ru-RU', RU_DATE_TIME) : '—', impact: order ? `Затронут заказ № ${order.no}` : 'Заказ не связан',
+    status: INCIDENT_STATUS_LABEL[row.status] || row.status, snoozeUntil: row.snoozed_until ? new Date(row.snoozed_until).toLocaleString('ru-RU', RU_DATE_TIME) : null,
     altSupplier: suppliers.find((item) => String(item.id || item.no) === String(row.fallback_supplier))?.name || '',
     devTicket: row.developer_ticket || '', resolutionCode: row.resolution_code || '',
-    history: (row.timeline || []).map((entry) => ({ t: new Date(entry.created_at).toLocaleString('ru-RU'), text: entry.action, who: entry.actor_name || 'Система' })),
+    history: (row.timeline || []).map((entry) => ({ t: new Date(entry.created_at).toLocaleString('ru-RU', RU_DATE_TIME), text: entry.action, who: entry.actor_name || 'Система' })),
   };
 }
 

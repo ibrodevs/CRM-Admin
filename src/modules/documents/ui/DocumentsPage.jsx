@@ -22,6 +22,7 @@ import { workspaceActionsApi } from '../../workspace/api.js';
 import { resultsOf } from '../../../shared/api/client.js';
 import { ReceiptBrandDocumentDrawer, ReceiptParticipantSummary, normalizeReceiptDraft, receiptDetailsLines, receiptFinancialTotal, recType, guessType, serviceTypeFromBackend, recMoney, receiptApplyPartsLabel, receiptSharedGroupPatch, ReceiptEditDrawer, ReceiptImportModal } from '../../receipts/index.js';
 import { inlineSupplierDocumentUrl, freshSupplierDocumentUrl } from '../model/supplier-pdf.js';
+import { RU_DATE_TIME } from '../../../shared/lib/datetime.js';
 
 function companyForDoc(doc) {
   const name = doc.participant !== '—' ? doc.participant : ORDERS.find((o) => o.no === doc.order)?.client;
@@ -584,7 +585,7 @@ function DocCenter({ scopeOrder, participants, services, onOpenDoc, initialDocum
       if (siblingIds.length) {
         const shared = receiptSharedGroupPatch(editorType, parsed, options.applyParts);
         const auditEntry = {
-          at: new Date().toLocaleString('ru-RU'),
+          at: new Date().toLocaleString('ru-RU', RU_DATE_TIME),
           user: (typeof window !== 'undefined' && window.CURRENT_USER?.name) || 'Оператор',
           label: 'Применение стоимости и корректировок ко всем бланкам заказа',
           before: 'Индивидуальные данные сохранены',
@@ -872,7 +873,7 @@ export function ServiceBlanksPanel({
       if (siblingIds.length) {
         const shared = receiptSharedGroupPatch(editorType, parsed, options.applyParts);
         const auditEntry = {
-          at: new Date().toLocaleString('ru-RU'),
+          at: new Date().toLocaleString('ru-RU', RU_DATE_TIME),
           user: (typeof window !== 'undefined' && window.CURRENT_USER?.name) || 'Оператор',
           label: 'Применение стоимости и корректировок ко всем бланкам услуги',
           before: 'Индивидуальные данные сохранены',

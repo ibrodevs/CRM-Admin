@@ -30,6 +30,7 @@ import { toLegacyProposal } from '../../../legacy/adapters/legacy-adapters.js';
 import { resultsOf } from '../../../shared/api/client.js';
 import { kpBriefItems, parseKpRequest } from '../model/request-parser.js';
 import { currencySymbol, getDefaultCurrency, resolveCurrency } from '../../../shared/lib/money.js';
+import { RU_DATE_TIME } from '../../../shared/lib/datetime.js';
 
 
 // Срок действия КП = дата + время, оба выбираются шаблонно (без произвольного ввода).
@@ -1561,7 +1562,7 @@ function OffersRegistry({ onOpenOrder, intent, onConsume, initialProposals = [],
   const [sendTarget, setSendTarget] = useState(null);
   const [editTarget, setEditTarget] = useState(null);
   const [pdfBusy, setPdfBusy] = useState(false);
-  const kpNow2 = () => (typeof kpNow === 'function' ? kpNow() : new Date().toLocaleString('ru-RU'));
+  const kpNow2 = () => (typeof kpNow === 'function' ? kpNow() : new Date().toLocaleString('ru-RU', RU_DATE_TIME));
   useEffect(() => { setProposals(initialProposals.map(normalizeProposal)); }, [initialProposals, orders]);
   const doSendProposal = async (p, channel) => {
     try {

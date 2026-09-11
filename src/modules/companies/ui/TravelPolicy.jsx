@@ -15,6 +15,7 @@ import { CollapseSection } from '../../orders/index.js';
 import { resultsOf } from '../../../shared/api/client.js';
 import { travelPolicyApi } from '../api/travelPolicyApi.js';
 import { resolveCurrency } from '../../../shared/lib/money.js';
+import { RU_DATE_TIME } from '../../../shared/lib/datetime.js';
 
 
 
@@ -649,7 +650,7 @@ function TravelPolicyBlock({ co }) {
           {[...policies].sort((a, b) => new Date(b.updated_at || b.created_at) - new Date(a.updated_at || a.created_at)).map((v) => (
             <div className="tl-item" key={v.id}><span className="tl-dot" /><span className="tl-line" />
               <div style={{ paddingBottom: 8 }}>
-                <div className="tl-time">{new Date(v.updated_at || v.created_at).toLocaleString('ru-RU')}{v.updated_by_name ? ' · ' + v.updated_by_name : ''}</div>
+                <div className="tl-time">{new Date(v.updated_at || v.created_at).toLocaleString('ru-RU', RU_DATE_TIME)}{v.updated_by_name ? ' · ' + v.updated_by_name : ''}</div>
                 <div className="tl-text" style={{ fontWeight: 600 }}>{v.name} · версия {v.policy_version}</div>
                 <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 2 }}>{v.is_active ? 'Активна' : 'Неактивна'}</div>
               </div>

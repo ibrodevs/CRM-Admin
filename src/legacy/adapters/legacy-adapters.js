@@ -1,4 +1,5 @@
 import { resolveCurrency } from '../../shared/lib/money.js';
+import { RU_DATE_TIME } from '../../shared/lib/datetime.js';
 const proposalStatus = { draft: 'Черновик', prepared: 'Подготовлено', sent: 'Отправлено клиенту', approved: 'Согласовано', rejected: 'Отклонено', archived: 'Архивировано' };
 const returnStatus = { created: 'Создано', review: 'На проверке', awaiting_client_approval: 'Ожидает согласования клиента', submitted_to_supplier: 'Передано поставщику', processing: 'В обработке', completed: 'Завершено', cancelled: 'Отменено', rejected: 'Отклонено' };
 const returnType = { refund: 'Возврат билета', exchange: 'Обмен билета', cancellation: 'Аннуляция бронирования', certificate: 'Оформление справки' };
@@ -20,7 +21,7 @@ function date(value) {
 }
 function dateTime(value) {
   const parsed = asDate(value);
-  return parsed ? parsed.toLocaleString('ru-RU') : '—';
+  return parsed ? parsed.toLocaleString('ru-RU', RU_DATE_TIME) : '—';
 }
 function dateOrEmpty(value) {
   const parsed = asDate(value);
@@ -228,7 +229,9 @@ export function toLegacyDocument(item, orders = []) {
 export function toLegacyUser(item) {
   const roleNames = { admin: 'Админ', operator: 'Оператор', accountant: 'Бухгалтер', manager: 'Менеджер' };
   const statuses = { active: 'Активный', invited: 'Приглашён', suspended: 'Заблокированный', archived: 'Заблокированный' };
-  return { ...item, serverId: item.id, name: item.full_name || item.email, role: roleNames[item.roles?.[0]] || item.roles?.[0] || 'Оператор', status: statuses[item.status] || item.status, last: dateTime(item.last_login) };
+  // roleCode нужен, чтобы сопоставлять роль по коду, а не по подписи:
+  // подписи в разных экранах расходились («Менеджер» / «Руководитель»).
+  return { ...item, serverId: item.id, name: item.full_name || item.email, roleCode: item.roles?.[0] || '', role: roleNames[item.roles?.[0]] || item.roles?.[0] || 'Оператор', status: statuses[item.status] || item.status, last: dateTime(item.last_login) };
 }
 
 export function toLegacyOrderService(item) {

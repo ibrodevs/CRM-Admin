@@ -26,6 +26,7 @@ import { ReceiptBrandDocumentDrawer, ReceiptDocumentPreview, ReceiptParticipantS
 import { createReceiptImportDraftId, readReceiptImportDrafts, receiptImportDraftTitle, removeReceiptImportDraft, upsertReceiptImportDraft, writeReceiptImportDrafts } from '../model/import-drafts.js';
 import { inlineSupplierDocumentUrl, freshSupplierDocumentUrl, waitForReceiptPdfJob, PDF_SYNC_SUCCESS_NOTICE_MS, supplierDocumentPageUrl } from '../../documents/model.js';
 import { currencySymbol, resolveCurrency } from '../../../shared/lib/money.js';
+import { RU_DATE_TIME } from '../../../shared/lib/datetime.js';
 
 const REC_TYPES = [
   { key: 'Авиа',      doc: 'Маршрут-квитанция', icon: 'plane', color: '#2566ff', legLabel: 'Рейс',    docNoLabel: 'Номер билета', refLabel: 'PNR' },
@@ -2762,7 +2763,7 @@ function ReceiptImportModal({ open, onClose, onDone, initialDraft, initialFiles 
           if (!sameDirection) delete targetPatch.legs;
         }
         const auditEntry = {
-          at: new Date().toLocaleString('ru-RU'),
+          at: new Date().toLocaleString('ru-RU', RU_DATE_TIME),
           user: (typeof window !== 'undefined' && window.CURRENT_USER?.name) || 'Оператор',
           label: 'Общие исправления однотипной группы',
           before: 'Индивидуальные данные сохранены',
@@ -4491,7 +4492,7 @@ function ReceiptEditorPage({ documents = [], orders = [], services = [], compani
               <span>
                 <b>{receiptImportDraftTitle(draft)}</b>
                 <small>
-                  Черновик импорта · {draft.files.length} {plural(draft.files.length, 'квитанция', 'квитанции', 'квитанций')} · сохранён {new Date(draft.savedAt).toLocaleString('ru-RU')}
+                  Черновик импорта · {draft.files.length} {plural(draft.files.length, 'квитанция', 'квитанции', 'квитанций')} · сохранён {new Date(draft.savedAt).toLocaleString('ru-RU', RU_DATE_TIME)}
                 </small>
               </span>
               <Button size="sm" icon="edit" onClick={() => continueImportDraft(draft.id)}>Продолжить редактирование</Button>

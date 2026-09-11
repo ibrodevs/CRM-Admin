@@ -1,19 +1,20 @@
 import { resultsOf } from '../../../shared/api/client.js';
 import { toLegacyOrderService, toLegacyParticipant } from '../../../legacy/adapters/legacy-adapters.js';
 import { orderCardApi, participantPayloadFromUi, routePayloadFromUi } from '../api/order-card.js';
+import { RU_DATE_TIME } from '../../../shared/lib/datetime.js';
 
 function taskToUi(task) {
   return {
     ...task,
     text: task.title,
-    due: task.due_at ? new Date(task.due_at).toLocaleString('ru-RU') : 'без срока',
+    due: task.due_at ? new Date(task.due_at).toLocaleString('ru-RU', RU_DATE_TIME) : 'без срока',
     urgent: ['critical', 'high'].includes(task.priority),
   };
 }
 
 function historyToUi(entry, statusLabels = {}) {
   return {
-    t: entry.changed_at ? new Date(entry.changed_at).toLocaleString('ru-RU') : '',
+    t: entry.changed_at ? new Date(entry.changed_at).toLocaleString('ru-RU', RU_DATE_TIME) : '',
     text: entry.reason || `Статус: ${statusLabels[entry.to_status] || entry.to_status}`,
     who: entry.changed_by ? 'Пользователь' : 'Система',
   };

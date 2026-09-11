@@ -24,6 +24,7 @@ import { UnifiedDocumentDrawer, UnifiedPersonFields, ufBlankPerson, ufFullName, 
 import { PanelSub, StackPanel } from '../../locations/index.js';
 import { workspaceSettingsApi } from '../../settings/api.js';
 import { workspaceActionsApi } from '../../workspace/api.js';
+import { RU_DATE_TIME } from '../../../shared/lib/datetime.js';
 
 
 
@@ -751,7 +752,7 @@ function simulateIncomingList(current) {
   inc.push({ name: 'Бекова Асель', role: 'Взрослый', dob: '', docType: 'Паспорт РФ', docNo: '4500 111222' });
   return inc;
 }
-function paxStamp() { return (typeof nowStamp === 'function') ? nowStamp() : new Date().toLocaleString('ru-RU'); }
+function paxStamp() { return (typeof nowStamp === 'function') ? nowStamp() : new Date().toLocaleString('ru-RU', RU_DATE_TIME); }
 
 const PAX_MERGE_HISTORY = window.PAX_MERGE_HISTORY || (window.PAX_MERGE_HISTORY = {});
 

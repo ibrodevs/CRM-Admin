@@ -18,6 +18,7 @@ import { segmentConnectionLabel } from '../model/layover.js';
 import { normalizeReceiptDisplayDate } from '../model/date.js';
 import { AVIA_TAX_BY_CODE, CUSTOM_TAX_VALUE, aviaTaxName, aviaTaxOptionsFor } from '../model/tax-catalog.js';
 import { currencySymbol, getDefaultCurrency, resolveCurrency } from '../../../shared/lib/money.js';
+import { RU_DATE_TIME } from '../../../shared/lib/datetime.js';
 
 const TYPE_META = {
   'Авиа': { icon: 'plane', color: '#2566ff', document: 'Маршрут-квитанция' },
@@ -1311,7 +1312,7 @@ export function ReceiptSpecializedForm({
   const commit = (next, label, before, after) => {
     const changed = String(before ?? '') !== String(after ?? '');
     const auditLog = changed ? [...(next.auditLog || []), {
-      at: new Date().toLocaleString('ru-RU'), user, label, before: before ?? '', after: after ?? '',
+      at: new Date().toLocaleString('ru-RU', RU_DATE_TIME), user, label, before: before ?? '', after: after ?? '',
     }] : (next.auditLog || []);
     onChange(withFinancialAliases(type, { ...next, auditLog }));
   };

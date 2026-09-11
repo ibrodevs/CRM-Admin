@@ -49,6 +49,7 @@ import { toUiOrder } from '../model/orders.mapper.js';
 import { technicalStopCount, technicalStopLabel, technicalStopsOf } from '../../services/index.js';
 import { TechnicalStopsDetails } from '../../services/index.js';
 import { currencySymbol, resolveCurrency } from '../../../shared/lib/money.js';
+import { RU_DATE_TIME } from '../../../shared/lib/datetime.js';
 
 const ORDER_STATUS_CODE = {
   'Новое': 'new',
@@ -614,7 +615,7 @@ function TabRoute({ services = [], route }) {
     validServices.forEach((s) => {
       const k = SERVICE_KIND[s.kind] || { icon: 'briefcase', color: 'var(--blue)' };
       steps.push({
-        t: s.date || (s.starts_at ? new Date(s.starts_at).toLocaleString('ru-RU') : 'Дата уточняется'),
+        t: s.date || (s.starts_at ? new Date(s.starts_at).toLocaleString('ru-RU', RU_DATE_TIME) : 'Дата уточняется'),
         text: `${s.kind}: ${s.title}${s.supplier ? ` · ${s.supplier}` : ''}`,
         ic: k.icon || 'plane',
         status: s.status,
@@ -627,7 +628,7 @@ function TabRoute({ services = [], route }) {
       const ap = AIRPORTS.find((a) => a.code === p.location_code);
       const name = ap ? `${ap.city} (${ap.code})` : (p.location_name || p.location_code);
       steps.push({
-        t: p.local_datetime ? new Date(p.local_datetime).toLocaleString('ru-RU') : (isStart ? 'Отправление' : isEnd ? 'Прибытие' : `Точка ${idx + 1}`),
+        t: p.local_datetime ? new Date(p.local_datetime).toLocaleString('ru-RU', RU_DATE_TIME) : (isStart ? 'Отправление' : isEnd ? 'Прибытие' : `Точка ${idx + 1}`),
         text: isStart ? `Начало маршрута: ${name}` : isEnd ? `Конечный пункт: ${name}` : `Пересадка / остановка: ${name}`,
         ic: 'plane',
       });
@@ -912,7 +913,7 @@ function LiveServiceCardHistoryDrawer({ orderId, serviceId, title, onClose }) {
             <b style={{ fontSize: 14 }}>Версия {card.card_version}</b>
             <Pill tone={['chosen', 'viewed', 'delivered'].includes(card.status) ? 'green' : card.status === 'declined' ? 'red' : 'blue'}>{card.status}</Pill>
             <span style={{ flex: 1 }} />
-            <span style={{ fontSize: 12, color: 'var(--muted)' }}>{card.created_at ? new Date(card.created_at).toLocaleString('ru-RU') : ''}</span>
+            <span style={{ fontSize: 12, color: 'var(--muted)' }}>{card.created_at ? new Date(card.created_at).toLocaleString('ru-RU', RU_DATE_TIME) : ''}</span>
           </div>
           {(card.deliveries || []).map((delivery) => (
             <div className="kv-row" key={delivery.id}><span className="k">{delivery.channel}</span><span className="v">{delivery.state}{delivery.recipient ? ' · ' + delivery.recipient : ''}</span></div>
@@ -1915,7 +1916,7 @@ function AviaSearchPanel({ params, setParams, participants = [], onAdd }) {
         <div className="kv-row"><span className="k">{offer.supplier}</span><b>{ocMoney(offer.fare + offer.fee, offer.currency)}</b></div>
         {(offer.itinerary?.segments || []).map((segment, index) => <div key={index} style={{ marginBottom: 10 }}>
           <b>{segment.origin} → {segment.destination}</b> · {segment.airline} {segment.flight_number}
-          <div>{segment.departure ? new Date(segment.departure).toLocaleString('ru-RU') : '—'} → {segment.arrival ? new Date(segment.arrival).toLocaleString('ru-RU') : '—'}</div>
+          <div>{segment.departure ? new Date(segment.departure).toLocaleString('ru-RU', RU_DATE_TIME) : '—'} → {segment.arrival ? new Date(segment.arrival).toLocaleString('ru-RU', RU_DATE_TIME) : '—'}</div>
           <TechnicalStopsDetails stops={technicalStopsOf(segment)} />
         </div>)}
         <div>{offer.fareName} · Багаж: {offer.baggage}</div>
@@ -2042,7 +2043,7 @@ function OrderFinanceRecords({ orderId }) {
     {!data.payments.length ? <EmptyState title="Платежей пока нет" /> : <div className="table-card"><table className="tbl">
       <thead><tr><th>Дата</th><th>Направление</th><th>Статус</th><th>Сумма</th></tr></thead>
       <tbody>{data.payments.map((row) => <tr key={row.id}>
-        <td>{new Date(row.created_at).toLocaleString('ru-RU')}</td><td>{directions[row.direction] || row.direction}</td>
+        <td>{new Date(row.created_at).toLocaleString('ru-RU', RU_DATE_TIME)}</td><td>{directions[row.direction] || row.direction}</td>
         <td>{statuses[row.status] || row.status}</td><td>{ocMoney(row.amount, row.currency)}</td>
       </tr>)}</tbody>
     </table></div>}
@@ -2459,13 +2460,13 @@ function OrderCard({ order, company, clients = [], onBack, initTab, initSvc, ini
         ...task,
         text: task.title,
         done: task.status === 'completed',
-        due: task.due_at ? new Date(task.due_at).toLocaleString('ru-RU') : 'без срока',
+        due: task.due_at ? new Date(task.due_at).toLocaleString('ru-RU', RU_DATE_TIME) : 'без срока',
         urgent: ['critical', 'high'].includes(task.priority),
         assigneeName: task.assignee_name || task.assignee_email || '',
       })));
     }
     if (historyPayload) {
-      setHistory(resultsOf(historyPayload).map((entry) => ({ t: new Date(entry.changed_at).toLocaleString('ru-RU'), text: entry.reason || `Статус: ${ORDER_STATUS_LABEL[entry.to_status] || entry.to_status}`, who: entry.changed_by_name || (entry.changed_by ? 'Пользователь' : 'Система') })));
+      setHistory(resultsOf(historyPayload).map((entry) => ({ t: new Date(entry.changed_at).toLocaleString('ru-RU', RU_DATE_TIME), text: entry.reason || `Статус: ${ORDER_STATUS_LABEL[entry.to_status] || entry.to_status}`, who: entry.changed_by_name || (entry.changed_by ? 'Пользователь' : 'Система') })));
     }
     setStatus(ORDER_STATUS_LABEL[liveOrder.status] || liveOrder.status_display || status);
     setStageIdx(orderStageIndexForStatus(liveOrder.status || liveOrder.status_display));

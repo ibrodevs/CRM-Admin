@@ -1,3 +1,4 @@
+import { RU_DATE_TIME } from '../lib/datetime.js';
 
 
 const TIMEZONE_LABEL = {
@@ -24,7 +25,7 @@ function toUiUser(user) {
     presence: { online: 'Онлайн', away: 'Отошёл', busy: 'Занят', offline: 'Не в сети' }[user?.presence] || user?.presence || '',
     tz: TIMEZONE_LABEL[user?.timezone] || user?.timezone || '(GMT+6) Бишкек',
     lang: { ru: 'Русский', ky: 'Кыргызча', en: 'English' }[user?.language] || user?.language || 'Русский',
-    lastLogin: user?.last_login ? new Date(user.last_login).toLocaleString('ru-RU') : '—',
+    lastLogin: user?.last_login ? new Date(user.last_login).toLocaleString('ru-RU', RU_DATE_TIME) : '—',
     slaResponseMin: user?.sla_response_minutes || 15,
   };
 }

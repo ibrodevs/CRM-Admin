@@ -29,6 +29,7 @@ import { workforceApi } from '../../workforce/api.js';
 import { toUiUser } from '../../../shared/auth/user.mapper.js';
 import { useAuth } from '../../../shared/auth/auth-context.jsx';
 import { resultsOf } from '../../../shared/api/client.js';
+import { RU_DATE_TIME } from '../../../shared/lib/datetime.js';
 
 
 
@@ -76,7 +77,7 @@ function ProfileMotivation({ operator, userId, canEdit }) {
             {!history.length && <div style={{ color: 'var(--muted)', fontSize: 13 }}>{t("Правила ещё не настроены.")}</div>}
             {history.map((rule) => (
               <div className="tl-item" key={rule.id}><span className="tl-dot" /><span className="tl-line" />
-                <div><div className="tl-time">{new Date(rule.updated_at).toLocaleString('ru-RU')}</div><div className="tl-text">{t("Обновлено правило «")}{rule.service_kind}»</div></div>
+                <div><div className="tl-time">{new Date(rule.updated_at).toLocaleString('ru-RU', RU_DATE_TIME)}</div><div className="tl-text">{t("Обновлено правило «")}{rule.service_kind}»</div></div>
               </div>
             ))}
           </div>

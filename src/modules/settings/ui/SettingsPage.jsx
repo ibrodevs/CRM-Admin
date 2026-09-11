@@ -8,6 +8,7 @@ import { Avatar } from '../../../shared/ui/Avatar.jsx';
 import { Button } from '../../../shared/ui/Button.jsx';
 import { Checkbox } from '../../../shared/ui/Checkbox.jsx';
 import { ConfirmDialog, Drawer, ModalHeader } from '../../../shared/ui/Overlays.jsx';
+import { EmptyState } from '../../../shared/ui/EmptyState.jsx';
 import { Field } from '../../../shared/ui/Field.jsx';
 import { Input } from '../../../shared/ui/Input.jsx';
 import { Pill } from '../../../shared/ui/Pill.jsx';
@@ -31,6 +32,15 @@ import { toLegacyUser } from '../../../legacy/adapters/legacy-adapters.js';
 import { getDefaultCurrency, resolveCurrency } from '../../../shared/lib/money.js';
 
 const ROLE_LABEL = { admin: 'Админ', operator: 'Оператор', accountant: 'Бухгалтер', manager: 'Менеджер' };
+// Короткое пояснение к роли: нужно, чтобы администратор выбирал осознанно,
+// а не по коду. Если у роли есть своё описание в backend, показываем его.
+const ROLE_HINT = {
+  admin: 'Полный доступ ко всем разделам и настройкам',
+  manager: 'Заказы, продажи и контроль работы операторов',
+  operator: 'Подбор услуг, бронирование и оформление заказов',
+  accountant: 'Финансы, платежи и сверки',
+};
+const ROLE_ICON = { admin: 'lock', manager: 'users', operator: 'briefcase', accountant: 'finance' };
 const PERMISSION_GROUPS = [
   { group: 'Заказы', items: [['orders.view', 'Просмотр заказов'], ['orders.create', 'Создание заказов'], ['orders.change', 'Изменение заказов'], ['orders.delete', 'Архивация заказов'], ['orders.reassign', 'Переназначение ответственного'], ['orders.change_status', 'Смена статуса заказа']] },
   { group: 'Услуги и КП', items: [['services.search', 'Поиск услуг'], ['services.book', 'Бронирование'], ['services.issue', 'Выписка'], ['services.exchange', 'Обмен'], ['services.refund', 'Возврат'], ['services.cancel', 'Аннуляция'], ['services.correct_document', 'Корректировка документов'], ['services.send_document', 'Отправка документов'], ['offers.view', 'Просмотр КП'], ['offers.create', 'Создание КП'], ['offers.change', 'Изменение КП'], ['offers.send', 'Отправка КП'], ['offers.approve', 'Согласование КП'], ['offers.archive', 'Архивация КП'], ['offers.manage_templates', 'Шаблоны КП']] },
@@ -338,11 +348,94 @@ function OperatorAccessDrawer({ open, operator, onClose }) {
   );
 }
 
+// Выбор роли боковой панелью вместо системного prompt с кодами ролей.
+function RolePickerDrawer({ open, user, onClose, onSaved }) {
+  const toast = useToast();
+  const [roles, setRoles] = useState([]);
+  const [selected, setSelected] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    if (!open || !user) return undefined;
+    const controller = new AbortController();
+    setLoading(true);
+    setSelected(user.roleCode || '');
+    usersApi.roles(controller.signal)
+      .then((rows) => { setRoles(Array.isArray(rows) ? rows : []); setLoading(false); })
+      .catch((error) => { if (!controller.signal.aborted) { setLoading(false); toast(error.message || 'Не удалось загрузить роли', 'err'); } });
+    return () => controller.abort();
+  }, [open, user?.serverId]);
+
+  const save = async () => {
+    if (!selected || selected === user.roleCode) { onClose(); return; }
+    setSaving(true);
+    try {
+      await usersApi.setRoles(user.serverId, [selected]);
+      onSaved(selected);
+      toast(`Роль «${ROLE_LABEL[selected] || selected}» назначена`, 'ok');
+      onClose();
+    } catch (error) {
+      toast(error.message || 'Не удалось изменить роль', 'err');
+    } finally { setSaving(false); }
+  };
+
+  if (!open || !user) return null;
+  return (
+    <Drawer open onClose={onClose} width="min(560px,96vw)"
+      title={t('Изменить роль')} sub={user.name}
+      footer={<>
+        <Button variant="secondary" onClick={onClose}>{t('Отмена')}</Button>
+        <Button icon="check" style={{ flex: 1 }} disabled={saving || loading || !selected} onClick={save}>
+          {saving ? t('Сохранение…') : t('Сохранить роль')}
+        </Button>
+      </>}>
+      {loading ? (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+          {[0, 1, 2, 3].map((i) => <div key={i} className="sk" style={{ height: 68 }} />)}
+        </div>
+      ) : !roles.length ? (
+        <EmptyState icon="lock" title={t('Роли не настроены')} sub={t('Создайте роли в разделе «Роли и права»')} />
+      ) : (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+          {roles.map((role) => {
+            const active = selected === role.code;
+            const label = ROLE_LABEL[role.code] || role.name || role.code;
+            const hint = role.description || ROLE_HINT[role.code] || '';
+            return (
+              <button key={role.code} type="button" onClick={() => setSelected(role.code)}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: 12, width: '100%', textAlign: 'left', cursor: 'pointer',
+                  padding: '12px 14px', borderRadius: 14, background: active ? 'var(--blue-soft)' : '#fff',
+                  border: '1px solid ' + (active ? 'var(--blue)' : 'var(--line)'), transition: '.14s',
+                }}>
+                <span className="oc-svc-ic" style={{ width: 38, height: 38, borderRadius: 11, background: active ? 'var(--blue)' : 'var(--surface-2)', color: active ? '#fff' : 'var(--muted)' }}>
+                  <Icon name={ROLE_ICON[role.code] || 'user'} style={{ width: 18, height: 18 }} />
+                </span>
+                <span style={{ flex: 1, minWidth: 0 }}>
+                  <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <span style={{ fontWeight: 600, color: 'var(--ink)' }}>{label}</span>
+                    {role.code === user.roleCode && <Pill tone="gray">{t('текущая')}</Pill>}
+                  </span>
+                  {hint && <span style={{ display: 'block', fontSize: 12.5, color: 'var(--muted)', marginTop: 2 }}>{hint}</span>}
+                  {Array.isArray(role.permissions) && <span style={{ display: 'block', fontSize: 11.5, color: 'var(--muted-2)', marginTop: 2 }}>{role.permissions.length} {t('прав')}</span>}
+                </span>
+                <Icon name={active ? 'checkCircle' : 'chevRight'} style={{ width: 20, height: 20, color: active ? 'var(--blue)' : 'var(--faint)', flexShrink: 0 }} />
+              </button>
+            );
+          })}
+        </div>
+      )}
+    </Drawer>
+  );
+}
+
 function UsersTab({ onAdd, users = [], onUsersChange }) {
   const toast = useToast();
   const [invite, setInvite] = useState('');
   const [motUser, setMotUser] = useState(null);
   const [accUser, setAccUser] = useState(null);
+  const [roleUser, setRoleUser] = useState(null);
   const { user: currentUser } = useAuth();
   const pageSize = currentUser?.preferences?.page_size || 25;
   const [page, setPage] = useState(1);
@@ -363,16 +456,8 @@ function UsersTab({ onAdd, users = [], onUsersChange }) {
       }
     } catch (error) { toast(error.message || 'Не удалось изменить доступ', 'err'); }
   };
-  const changeRole = async (user) => {
-    try {
-      const roles = await usersApi.roles();
-      const code = window.prompt(`Код роли (${roles.map((role) => role.code).join(', ')})`, roles.find((role) => (ROLE_LABEL[role.code] || role.name) === user.role)?.code || 'operator');
-      if (!code) return;
-      if (!roles.some((role) => role.code === code)) throw new Error('Неизвестный код роли');
-      await usersApi.setRoles(user.serverId, [code]);
-      onUsersChange?.(users.map((item) => item.id === user.serverId ? { ...item, roles: [code] } : item));
-      toast('Роль пользователя изменена', 'ok');
-    } catch (error) { toast(error.message || 'Не удалось изменить роль', 'err'); }
+  const applyRole = (code) => {
+    onUsersChange?.(users.map((item) => item.id === roleUser?.serverId ? { ...item, roles: [code] } : item));
   };
   return (
     <div className="fade-in">
@@ -393,7 +478,7 @@ function UsersTab({ onAdd, users = [], onUsersChange }) {
                 <td><Pill tone={USER_STATUS[u.status]}>{u.status}</Pill></td>
                 <td><ActionMenu trigger={<button className="btn btn-ghost btn-icon btn-sm"><Icon name="more" /></button>}
                   items={[
-                    { icon: 'edit', label: 'Изменить роль', onClick: () => changeRole(u) },
+                    { icon: 'edit', label: 'Изменить роль', onClick: () => setRoleUser(u) },
                     ...(u.role === 'Оператор' ? [
                       { icon: 'finance', label: 'Мотивация оператора', onClick: () => setMotUser(u) },
                       { icon: 'sla', label: 'Доступ и нормативы', onClick: () => setAccUser(u) },
@@ -414,6 +499,7 @@ function UsersTab({ onAdd, users = [], onUsersChange }) {
       </Drawer>
       <MotivationDrawer open={!!motUser} operator={motUser?.name} userId={motUser?.serverId} onClose={() => setMotUser(null)} />
       <OperatorAccessDrawer open={!!accUser} operator={accUser} onClose={() => setAccUser(null)} />
+      <RolePickerDrawer open={!!roleUser} user={roleUser} onClose={() => setRoleUser(null)} onSaved={applyRole} />
     </div>
   );
 }
@@ -602,4 +688,4 @@ Object.assign(window, { SettingsPage, UsersTab, RolesTab, CardVisibilityModal })
 
 
 
-export { CurrencyModal, ACCESS_TOGGLES, ApiKeyModal, ApiAccessModal, AddUserDrawer, NotificationsModal, OperatorAccessDrawer, UsersTab, RolesTab, SettingsPage, CARD_VIS_FIELDS, CardVisibilityModal };
+export { CurrencyModal, RolePickerDrawer, ACCESS_TOGGLES, ApiKeyModal, ApiAccessModal, AddUserDrawer, NotificationsModal, OperatorAccessDrawer, UsersTab, RolesTab, SettingsPage, CARD_VIS_FIELDS, CardVisibilityModal };
