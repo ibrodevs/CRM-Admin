@@ -710,7 +710,7 @@ function ServiceListRow({ s, paxCount, isGroup, onOpen, orderNo, participants = 
     const card = await serviceCardsApi.create({
       order: orderId,
       service: serviceId,
-      kind: { 'Авиа': 'avia', 'ЖД': 'rail', 'Гостиница': 'hotel', 'Трансфер': 'transfer', 'Автобус': 'bus', 'Страховка': 'insurance', 'Виза': 'visa' }[s.kind] || 'other',
+      kind: { 'Авиа': 'avia', 'ЖД': 'rail', 'Гостиница': 'hotel', 'Отель': 'hotel', 'Трансфер': 'transfer', 'Автобус': 'bus', 'Тур': 'tour', 'Страховка': 'insurance', 'Виза': 'visa', 'Аэроэкспресс': 'aeroexpress', 'Бизнес-зал': 'lounge', 'Бизнес-залы': 'lounge' }[s.kind] || 'other',
       scenario: draft.scenario || '',
       price_snapshot: { amount: svcCalc(s).total, currency: resolveCurrency(s.currency) },
       content: draft,
@@ -1273,7 +1273,7 @@ function OrderChangeCase({ orderNo, orderId, services, participants }) {
     const subject = cur.services[selected.i];
     setPicker((value) => value ? { ...value, busy: true } : value);
     try {
-      const kindCode = { 'Авиа': 'avia', 'ЖД': 'rail', 'Гостиница': 'hotel', 'Трансфер': 'transfer', 'Автобус': 'bus', 'Страховка': 'insurance', 'Виза': 'visa' }[subject.kind] || 'other';
+      const kindCode = { 'Авиа': 'avia', 'ЖД': 'rail', 'Гостиница': 'hotel', 'Отель': 'hotel', 'Трансфер': 'transfer', 'Автобус': 'bus', 'Тур': 'tour', 'Страховка': 'insurance', 'Виза': 'visa', 'Аэроэкспресс': 'aeroexpress', 'Бизнес-зал': 'lounge', 'Бизнес-залы': 'lounge' }[subject.kind] || 'other';
       const created = await servicesApi.search({ kind: kindCode, ...(orderId ? { order: orderId } : {}), criteria: { query: subject.title, reference_service: subject.id || null, currency: resolveCurrency(services.find((service) => service.currency)?.currency) } });
       let offers = [];
       for (let attempt = 0; attempt < 30; attempt += 1) {

@@ -154,7 +154,7 @@ function SupplierBadge({ name, icon = 'suppliers', size = 'md' }) {
 }
 
 const SUPPLIER_TYPES = ['API', 'Локальный', 'Консолидатор', 'GDS'];
-const SUP_SERVICE_KINDS = ['Авиа', 'ЖД', 'Гостиницы', 'Трансферы', 'Автобусы', 'Туры', 'Страхование', 'Визы', 'Прочее'];
+const SUP_SERVICE_KINDS = ['Авиа', 'ЖД', 'Гостиницы', 'Трансферы', 'Автобусы', 'Туры', 'Страхование', 'Визы', 'Аэроэкспресс', 'Бизнес-залы', 'Прочее'];
 const SUP_COMM_METHODS = ['Telegram', 'WhatsApp', 'Email', 'Телефон', 'Чат', 'Макс'];
 
 const SUP_COUNTRIES = ['Кыргызстан', 'Казахстан', 'Россия', 'Узбекистан', 'Таджикистан', 'Турция', 'ОАЭ', 'Другое'];
@@ -220,11 +220,39 @@ function supEmptyFin(kinds) {
 
 
 const SUP_EXT = window.SUP_EXT || (window.SUP_EXT = {});
-const SUP_KIND_LABEL = { avia: 'Авиа', rail: 'ЖД', hotel: 'Гостиницы', transfer: 'Трансферы', bus: 'Автобусы', tour: 'Туры', insurance: 'Страхование', visa: 'Визы', other: 'Прочее' };
+const SUP_KIND_LABEL = {
+  avia: 'Авиа',
+  rail: 'ЖД',
+  hotel: 'Гостиницы',
+  transfer: 'Трансферы',
+  bus: 'Автобусы',
+  tour: 'Туры',
+  insurance: 'Страхование',
+  visa: 'Визы',
+  aeroexpress: 'Аэроэкспресс',
+  lounge: 'Бизнес-залы',
+  other: 'Прочее',
+};
 // Виды услуг приходят кодами ('avia'), а в старых записях — русскими словами
 // в единственном числе. Приводим и то, и другое к одному русскому написанию,
 // иначе в таблице соседствуют «Авиа» и «tour».
-const SUP_KIND_SYNONYM = { 'Отель': 'Гостиницы', 'Гостиница': 'Гостиницы', 'Трансфер': 'Трансферы', 'Автобус': 'Автобусы', 'Тур': 'Туры', 'Страховка': 'Страхование', 'Виза': 'Визы', 'Другое': 'Прочее' };
+const SUP_KIND_SYNONYM = {
+  'Отель': 'Гостиницы',
+  'Гостиница': 'Гостиницы',
+  'Трансфер': 'Трансферы',
+  'Автобус': 'Автобусы',
+  'Тур': 'Туры',
+  'Страховка': 'Страхование',
+  'Виза': 'Визы',
+  'Бизнес-зал': 'Бизнес-залы',
+  'Бизнес зал': 'Бизнес-залы',
+  'Лаундж': 'Бизнес-залы',
+  'Лаунж': 'Бизнес-залы',
+  'VIP-зал': 'Бизнес-залы',
+  'VIP-залы': 'Бизнес-залы',
+  'Аэроэкспрессы': 'Аэроэкспресс',
+  'Другое': 'Прочее',
+};
 function supKindLabel(kind) {
   if (!kind) return '';
   const byCode = SUP_KIND_LABEL[String(kind).toLowerCase()];
@@ -1132,7 +1160,28 @@ function SupplierAddDrawer({ open, onClose, onCreated }) {
       stats: { bookings: 0, issues: 0, refunds: 0, avgResponse: '—', successRate: '—', lastUsed: '—' },
       docs: SUP_DOC_KINDS.reduce((m, k) => (m[k] = [], m), {}),
     };
-    const kindMap = { 'Авиа': 'avia', 'ЖД': 'rail', 'Гостиницы': 'hotel', 'Трансферы': 'transfer', 'Автобусы': 'bus', 'Туры': 'tour', 'Страхование': 'insurance', 'Визы': 'visa', 'Прочее': 'other' };
+    const kindMap = {
+      'Авиа': 'avia',
+      'ЖД': 'rail',
+      'Гостиницы': 'hotel',
+      'Гостиница': 'hotel',
+      'Отель': 'hotel',
+      'Трансферы': 'transfer',
+      'Трансфер': 'transfer',
+      'Автобусы': 'bus',
+      'Автобус': 'bus',
+      'Туры': 'tour',
+      'Тур': 'tour',
+      'Страхование': 'insurance',
+      'Страховка': 'insurance',
+      'Визы': 'visa',
+      'Виза': 'visa',
+      'Аэроэкспресс': 'aeroexpress',
+      'Бизнес-залы': 'lounge',
+      'Бизнес-зал': 'lounge',
+      'Прочее': 'other',
+      'Другое': 'other',
+    };
     setSaving(true);
     try {
       const created = await suppliersApi.create({
