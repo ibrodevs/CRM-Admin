@@ -243,17 +243,33 @@ function FinRow({ label, value, tone, strong }) {
   );
 }
 
-function FinOverview({ onGoTab, overview, accounts = [], payments = [], receipts = [], counterparties = [], cashflow = [], economics = [] }) {
-  const currencies = Array.from(new Set([
-    ...accounts.map((item) => item.currency),
-    ...payments.map((item) => item.currency),
-    ...receipts.map((item) => item.currency),
-    ...counterparties.map((item) => item.currency),
-    ...cashflow.map((item) => item.currency),
-    ...economics.map((item) => item.currency),
-  ].filter(Boolean))).sort();
-  const [selectedCurrency, setSelectedCurrency] = useState('');
-  const currency = currencies.includes(selectedCurrency) ? selectedCurrency : currencies[0] || getDefaultCurrency();
+// Вкладки, которые считаются в одной валюте: у них в шапке появляется переключатель.
+const FIN_CURRENCY_TABS = ['overview', 'treasury', 'analytics'];
+
+/**
+ * Переключатель валюты рядом с вкладками, а не отдельной строкой над контентом.
+ * Пока валюта одна — не показываем ничего: выбирать не из чего, а лишний
+ * элемент только занимает место.
+ */
+function FinCurrencySwitch({ currencies, value, onChange }) {
+  if (currencies.length < 2) return null;
+  if (currencies.length <= 4) {
+    return (
+      <div className="seg-toggle fin-currency-switch" role="group" aria-label="Валюта">
+        {currencies.map((code) => (
+          <button key={code} type="button" className={'seg-btn' + (code === value ? ' active' : '')} onClick={() => onChange(code)}>
+            {code}
+          </button>
+        ))}
+      </div>
+    );
+  }
+  return (
+    <Select className="fin-currency-select" aria-label="Валюта" value={value} onChange={(event) => onChange(event.target.value)} options={currencies} />
+  );
+}
+
+function FinOverview({ onGoTab, overview, accounts = [], payments = [], receipts = [], counterparties = [], cashflow = [], economics = [], currency }) {
   const currencyAccounts = accounts.filter((item) => item.currency === currency);
   const currencyPayments = payments.filter((item) => item.currency === currency);
   const currencyReceipts = receipts.filter((item) => item.currency === currency);
@@ -292,11 +308,6 @@ function FinOverview({ onGoTab, overview, accounts = [], payments = [], receipts
 
   return (
     <div className="fade-in">
-      <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 12 }}>
-        <Field label="Валюта">
-          <Select value={currency} onChange={(event) => setSelectedCurrency(event.target.value)} options={currencies.length ? currencies : [getDefaultCurrency()]} style={{ width: 130 }} />
-        </Field>
-      </div>
       {overdue > 0 && <WarnBanner tone="red" title={'Просроченная дебиторская задолженность: ' + financeMoney(overdue, currency)}
         text={`${overdueRows.length} обязательств вышли за срок оплаты.`}
         action={<Button size="sm" variant="secondary" onClick={() => onGoTab('settlements')}>К взаиморасчётам</Button>} />}
@@ -654,14 +665,7 @@ function FinPayments({ payments = [], obligations = [], onPaymentCreated, onPaym
   );
 }
 
-function FinTreasury({ accounts = [], payments = [], receipts = [] }) {
-  const currencies = Array.from(new Set([
-    ...accounts.map((item) => item.currency),
-    ...payments.map((item) => item.currency),
-    ...receipts.map((item) => item.currency),
-  ].filter(Boolean))).sort();
-  const [selectedCurrency, setSelectedCurrency] = useState('');
-  const currency = currencies.includes(selectedCurrency) ? selectedCurrency : currencies[0] || getDefaultCurrency();
+function FinTreasury({ accounts = [], payments = [], receipts = [], currency }) {
   const currencyAccounts = accounts.filter((item) => item.currency === currency && item.kind !== 'deposit');
   const planned = payments
     .filter((item) => item.currency === currency && item.dir === 'out' && !['Исполнено', 'Отменено', 'Отклонено'].includes(item.status))
@@ -684,11 +688,6 @@ function FinTreasury({ accounts = [], payments = [], receipts = [] }) {
 
   return (
     <div className="fade-in">
-      <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 12 }}>
-        <Field label="Валюта">
-          <Select value={currency} onChange={(event) => setSelectedCurrency(event.target.value)} options={currencies.length ? currencies : [getDefaultCurrency()]} style={{ width: 130 }} />
-        </Field>
-      </div>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px,1fr))', gap: 12, marginBottom: 14 }}>
         <StatTile label="Остаток на счетах и в кассе" value={financeMoney(startBalance, currency)} icon="finance" />
         <StatTile label="Ожидаемые поступления" value={financeMoney(totalIn, currency)} tone="var(--green)" icon="arrowUpRight" />
@@ -1108,10 +1107,7 @@ function FinEconomics({ economics = [] }) {
   );
 }
 
-function FinAnalytics({ cashflow = [] }) {
-  const currencies = Array.from(new Set(cashflow.map((item) => item.currency).filter(Boolean))).sort();
-  const [selectedCurrency, setSelectedCurrency] = useState('');
-  const currency = currencies.includes(selectedCurrency) ? selectedCurrency : currencies[0] || getDefaultCurrency();
+function FinAnalytics({ cashflow = [], currency }) {
   const grouped = new Map();
   cashflow.filter((item) => item.currency === currency).forEach((item) => {
     const key = financeDate(item.date);
@@ -1127,11 +1123,6 @@ function FinAnalytics({ cashflow = [] }) {
   });
   return (
     <div className="fade-in">
-      <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 12 }}>
-        <Field label="Валюта">
-          <Select value={currency} onChange={(event) => setSelectedCurrency(event.target.value)} options={currencies.length ? currencies : [getDefaultCurrency()]} style={{ width: 130 }} />
-        </Field>
-      </div>
       {!rows.length ? <EmptyState icon="finance" title="Подтверждённых денежных операций нет" /> : (
         <div className="table-card">
           <table className="tbl">
@@ -1170,6 +1161,9 @@ function FinancePage({ overview, clients = [], companies = [], suppliers = [], o
   const [obligations, setObligations] = useState([]);
   const [cashflow, setCashflow] = useState([]);
   const [economics, setEconomics] = useState([]);
+  // Валюта выбирается один раз на всю страницу: раньше у каждой вкладки был
+  // свой переключатель, и выбор терялся при переходе между ними.
+  const [selectedCurrency, setSelectedCurrency] = useState('');
 
   const loadFinance = useCallback(async (signal) => {
     const [accountPayload, paymentPayload, obligationPayload, cashflowPayload, economicsPayload] = await Promise.all([
@@ -1210,6 +1204,23 @@ function FinancePage({ overview, clients = [], companies = [], suppliers = [], o
   const supplierRows = useMemo(() => suppliers.map((item) => ({ value: `supplier:${item.id || item.no}`, name: item.name, sub: item.service || 'Поставщик', icon: 'suppliers', tone: 'var(--amber)' })), [suppliers]);
   const orderRows = useMemo(() => orders.filter((item) => item.id).map((item) => ({ value: String(item.id), name: `№ ${item.no || item.number || item.id}`, sub: item.client || item.clientName || 'Заказ', icon: 'briefcase', tone: 'var(--blue)' })), [orders]);
 
+  const currencies = useMemo(() => Array.from(new Set([
+    ...accounts.map((item) => item.currency),
+    ...payments.map((item) => item.currency),
+    ...receipts.map((item) => item.currency),
+    ...counterparties.map((item) => item.currency),
+    ...cashflow.map((item) => item.currency),
+    ...economics.map((item) => item.currency),
+    ...(overview?.client_receivable || []).map((item) => item?.currency),
+    ...(overview?.supplier_payable || []).map((item) => item?.currency),
+  ].filter(Boolean))).sort(), [accounts, payments, receipts, counterparties, cashflow, economics, overview]);
+  // По умолчанию — валюта из настроек пользователя, если по ней есть данные;
+  // иначе первая доступная. Раньше открывалась первая по алфавиту.
+  const preferredCurrency = getDefaultCurrency();
+  const currency = currencies.includes(selectedCurrency)
+    ? selectedCurrency
+    : (currencies.includes(preferredCurrency) ? preferredCurrency : currencies[0] || preferredCurrency);
+
   const createPayment = async (payment) => {
     const [partyType, partyId] = String(payment.partyKey || '').split(':');
     const created = await financeApi.createPayment({
@@ -1232,15 +1243,20 @@ function FinancePage({ overview, clients = [], companies = [], suppliers = [], o
     <>
       <Topbar title="Финансы" sub="Баланс, платежи, обязательства и экономика по данным backend" />
       <div className="content">
-        <div style={{ marginBottom: 18 }}><Tabs tabs={FIN_TABS} value={tab} onChange={setTab} /></div>
-        {tab === 'overview' && <FinOverview onGoTab={setTab} overview={overview} accounts={accounts} payments={payments} receipts={receipts} counterparties={counterparties} cashflow={cashflow} economics={economics} />}
+        <div className="fin-toolbar">
+          <Tabs tabs={FIN_TABS} value={tab} onChange={setTab} />
+          {FIN_CURRENCY_TABS.includes(tab) && (
+            <FinCurrencySwitch currencies={currencies} value={currency} onChange={setSelectedCurrency} />
+          )}
+        </div>
+        {tab === 'overview' && <FinOverview onGoTab={setTab} overview={overview} accounts={accounts} payments={payments} receipts={receipts} counterparties={counterparties} cashflow={cashflow} economics={economics} currency={currency} />}
         {tab === 'balance' && <FinBalance accounts={accounts} />}
         {tab === 'payments' && <FinPayments payments={payments} obligations={obligations} onPaymentCreated={createPayment} onPaymentConfirmed={() => loadFinance()} clientRows={clientRows} supplierRows={supplierRows} orderRows={orderRows} />}
-        {tab === 'treasury' && <FinTreasury accounts={accounts} payments={payments} receipts={receipts} />}
+        {tab === 'treasury' && <FinTreasury accounts={accounts} payments={payments} receipts={receipts} currency={currency} />}
         {tab === 'settlements' && <FinSettlements counterparties={counterparties} receipts={receipts} meta={meta} />}
         {tab === 'recon' && <FinReconciliation counterparties={counterparties} meta={meta} />}
         {tab === 'economics' && <FinEconomics economics={economics} />}
-        {tab === 'analytics' && <FinAnalytics cashflow={cashflow} />}
+        {tab === 'analytics' && <FinAnalytics cashflow={cashflow} currency={currency} />}
       </div>
     </>
   );
@@ -1248,4 +1264,4 @@ function FinancePage({ overview, clients = [], companies = [], suppliers = [], o
 
 Object.assign(window, { FinancePage });
 
-export { f$, StatTile, WarnBanner, CashflowChart, LegendDot, FinRow, FinOverview, FinAccountDrawer, FinBalance, FinPaymentDrawer, FinPayments, FinTreasury, ReconActDrawer, FinCounterpartyDrawer, FinSettlements, FinEconomics, FinAnalytics, FIN_TABS, FinancePage };
+export { f$, FinCurrencySwitch, StatTile, WarnBanner, CashflowChart, LegendDot, FinRow, FinOverview, FinAccountDrawer, FinBalance, FinPaymentDrawer, FinPayments, FinTreasury, ReconActDrawer, FinCounterpartyDrawer, FinSettlements, FinEconomics, FinAnalytics, FIN_TABS, FinancePage };

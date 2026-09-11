@@ -2888,3 +2888,17 @@ button.oc-fact:hover{border-color:#d3dbe8;background:#fff}
   .dsh-row .pill{display:none}
   .dsh-chart-total{font-size:24px}
 }
+
+/* Панель вкладок «Финансов»: переключатель валюты стоит в одной строке с
+   вкладками и прижат вправо — отдельной строкой над контентом он выглядел
+   оторванным и занимал лишнюю высоту. */
+.fin-toolbar{display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin-bottom:18px}
+.fin-toolbar .tabs{flex:1;min-width:0}
+.fin-currency-switch{flex:0 0 auto;margin-left:auto}
+.fin-currency-switch .seg-btn{flex:0 0 auto;padding:7px 13px;font-size:13.5px;letter-spacing:.01em}
+.fin-currency-select{flex:0 0 auto;margin-left:auto;width:118px;height:42px}
+@media(max-width:760px){
+  .fin-toolbar{gap:10px}
+  .fin-currency-switch,.fin-currency-select{margin-left:0;width:100%}
+  .fin-currency-switch .seg-btn{flex:1}
+}
