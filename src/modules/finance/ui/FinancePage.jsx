@@ -18,6 +18,12 @@ import { financeApi } from '../api/financeApi.js';
 import { resultsOf } from '../../../shared/api/client.js';
 import { f$, FIN_ACCT_GROUPS, FIN_PAY_STATUS } from '../../../legacy/data/finance.jsx';
 import { currencySymbol, getDefaultCurrency, resolveCurrency } from '../../../shared/lib/money.js';
+import { PAYMENT_METHOD_LABEL, labelFor } from '../../../shared/constants/backend-labels.js';
+
+// Способы оплаты хранятся кодами (Payment.method): в интерфейсе показываем
+// русские подписи и выбираем из списка, а не вводим код руками.
+const FIN_PAY_METHODS = Object.keys(PAYMENT_METHOD_LABEL).filter((code, index, all) => all.findIndex((item) => PAYMENT_METHOD_LABEL[item] === PAYMENT_METHOD_LABEL[code]) === index);
+const FIN_METHOD_OPTIONS = FIN_PAY_METHODS.map((code) => ({ value: code, label: PAYMENT_METHOD_LABEL[code] }));
 
 const financeDate = (value) => {
   if (!value) return '—';
@@ -439,7 +445,7 @@ function FinPaymentDrawer({ p, onClose, onConfirm }) {
       <div className="card card-pad">
         <FinRow label={p.dir === 'in' ? 'Плательщик' : 'Получатель'} value={p.party} />
         <FinRow label="Связанный заказ" value={p.order ? '№ ' + p.order : '—'} />
-        <FinRow label="Способ оплаты" value={p.method || '—'} />
+        <FinRow label="Способ оплаты" value={labelFor(PAYMENT_METHOD_LABEL, p.method, '—')} />
         <FinRow label="Назначение" value={p.purpose} />
         <FinRow label="Валюта" value={p.currency || '—'} />
         <FinRow label="Создан" value={p.date} />
@@ -576,7 +582,7 @@ function NewPaymentDrawer({ open, onClose, onCreate, clientRows = [], supplierRo
         <FinPickerField value={selectedOrder?.name || ''} icon="briefcase" placeholder="Без привязки к заказу" onOpen={() => setPickOrder(true)} />
       </Field>
       <Field label="Способ оплаты">
-        <Input value={method} onChange={(event) => setMethod(event.target.value)} placeholder="manual" />
+        <Select value={method} onChange={(event) => setMethod(event.target.value)} options={FIN_METHOD_OPTIONS} />
       </Field>
       <Field label="Назначение платежа">
         <Input value={purpose} onChange={(event) => setPurpose(event.target.value)} placeholder="Основание или комментарий" />

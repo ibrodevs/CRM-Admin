@@ -20,6 +20,7 @@ import { Topbar } from '../../../shared/ui/Topbar.jsx';
 import { communicationsApi } from '../../chats/api.js';
 import { toUiClient } from '../model/clients.mapper.js';
 import { pUsd, orderDate, sumCurrencies, hasDebt } from '../model/people-helpers.js';
+import { shortCode, shortCodeSearchable } from '../../../shared/lib/short-id.js';
 import { currencySymbol } from '../../../shared/lib/money.js';
 
 function ordersForClient(client, orders = ORDERS) {
@@ -93,7 +94,7 @@ function ClientCard({ c: c0, orders: allOrders = ORDERS, onBack, onOpenOrder, on
     <div className="fade-in">
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>
         <Button variant="secondary" size="sm" icon="chevLeft" onClick={onBack}>К реестру</Button>
-        <span style={{ color: 'var(--muted)', fontSize: 14 }}>Клиенты / {c.id}</span>
+        <span style={{ color: 'var(--muted)', fontSize: 14 }} title={c.id}>Клиенты / {shortCode(c.id, 'CL')}</span>
       </div>
 
       <div className="card card-pad" style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 18, flexWrap: 'wrap' }}>
@@ -218,7 +219,7 @@ function ClientsPage({ initialClients = [], orders = [], onClientsChange, onOpen
 
   if (view === 'card' && active) return (<><Topbar title="Карточка клиента" /><div className="content"><ClientCard c={active} orders={orders} onBack={() => setView('list')} onOpenOrder={onOpenOrder} onCreateOrder={onCreateOrder} onOpenChat={onOpenChat} onUpdate={(u) => { upsertClient(u); setActive(u); }} /></div></>);
 
-  let rows = clients.filter((c) => (!fStatus || c.status === fStatus) && (!q || `${c.id} ${c.name} ${c.company} ${c.phone}`.toLowerCase().includes(q.toLowerCase())));
+  let rows = clients.filter((c) => (!fStatus || c.status === fStatus) && (!q || `${shortCodeSearchable(c.id, 'CL')} ${c.name} ${c.company} ${c.phone}`.toLowerCase().includes(q.toLowerCase())));
   rows = apply(rows, { name: (r) => r.name, orders: (r) => r.orders, spent: (r) => pUsd(r.spent), debt: (r) => pUsd(r.debt) });
   const STATS = [['Всего клиентов', clients.length], ['Активные', clients.filter((c) => c.status === 'Активный' || c.status === 'VIP').length], ['VIP', clients.filter((c) => c.status === 'VIP').length], ['С задолженностью', pUsd(sumCurrencies(clients, 'debt'))]];
 
@@ -238,7 +239,7 @@ function ClientsPage({ initialClients = [], orders = [], onClientsChange, onOpen
               <tbody>
                 {rows.map((c) => (
                   <tr key={c.id} style={{ cursor: 'pointer' }} onClick={() => { setActive(c); setView('card'); }}>
-                    <td className="t-strong">{c.id}</td>
+                    <td className="t-strong" title={c.id}>{shortCode(c.id, 'CL')}</td>
                     <td><span style={{ display: 'flex', alignItems: 'center', gap: 10 }}><Avatar name={c.name} size={32} /><span style={{ fontWeight: 600 }}>{c.name}</span></span></td>
                     <td>{c.type}</td><td className="t-muted">{c.company}</td><td>{c.city}</td><td>{c.orders}</td>
                     <td style={{ textAlign: 'right', fontWeight: 600 }}>{pUsd(c.spent)}</td>

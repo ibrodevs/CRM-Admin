@@ -1,4 +1,5 @@
 import { SERVICE_KIND } from '../../../shared/constants/service-kind.js';
+import { ORGANIZATION_TYPE_LABEL, labelFor } from '../../../shared/constants/backend-labels.js';
 import { resolveCurrency } from '../../../shared/lib/money.js';
 
 const SUPPLIER_STATUS = { active: 'Активный', paused: 'На паузе', archived: 'Заблокированный' };
@@ -15,7 +16,7 @@ function toUiSupplier(supplier) {
     currency: resolveCurrency(supplier.currencies?.[0]),
     commission: 'По правилам наценки',
     type: supplier.is_global ? 'Глобальный' : 'Локальный',
-    orgType: supplier.organization_type || 'Другое',
+    orgType: labelFor(ORGANIZATION_TYPE_LABEL, supplier.organization_type, 'Другое'),
   };
 }
 

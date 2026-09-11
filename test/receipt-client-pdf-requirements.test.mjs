@@ -150,7 +150,7 @@ test('company and employee order histories display the order date too', async ()
 
   assert.match(people, /Поездки сотрудника[\s\S]*<th>№<\/th><th>Дата<\/th>/);
   assert.match(people, /Заказы компании[\s\S]*<th>№<\/th><th>Дата<\/th>/);
-  assert.match(people, /<CompanyCard co=\{active\} orders=\{orders\}/);
+  assert.match(people, /<CompanyCard co=\{active\}[^>]*orders=\{orders\}/);
   assert.match(app, /<CompaniesPage initialCompanies=\{workspace\.companies\} orders=\{orders\}/);
 });
 

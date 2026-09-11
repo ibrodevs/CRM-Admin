@@ -194,7 +194,7 @@ const ORG_REGISTRY = {
 };
 if (!ENABLE_DEMO_BUSINESS_DATA) Object.keys(ORG_REGISTRY).forEach((key) => { delete ORG_REGISTRY[key]; });
 
-function NewOrgDrawer({ open, onClose, onCreated, initial = null }) {
+function NewOrgDrawer({ open, onClose, onCreated, onLogoUploaded, initial = null }) {
   const toast = useToast();
   const empty = {
     full: '', short: '', email: '', phone: '', orgType: '', inn: '', okpo: '',
@@ -205,13 +205,23 @@ function NewOrgDrawer({ open, onClose, onCreated, initial = null }) {
   const [errors, setErrors] = useState({});
   const [saving, setSaving] = useState(false);
   const [logoFile, setLogoFile] = useState(null);
+  // Превью: выбранный файл показываем сразу, иначе — уже сохранённый логотип.
+  const [logoPreview, setLogoPreview] = useState(null);
   const set = (key) => (event) => setForm((current) => ({ ...current, [key]: event?.target ? event.target.value : event }));
+
+  useEffect(() => {
+    if (!logoFile) return undefined;
+    const url = URL.createObjectURL(logoFile);
+    setLogoPreview(url);
+    return () => URL.revokeObjectURL(url);
+  }, [logoFile]);
 
   useEffect(() => {
     if (open) {
       setForm(initial ? { ...empty, full: initial.fullName || initial.name || '', short: initial.shortName || '', email: initial.email === '—' ? '' : initial.email || '', phone: initial.phone === '—' ? '' : initial.phone || '', orgType: initial.type || '', inn: initial.inn === '—' ? '' : initial.inn || '', okpo: initial.okpo === '—' ? '' : initial.okpo || '', legalAddr: initial.addr === '—' ? '' : initial.addr || '', director: initial.dir === '—' ? '' : initial.dir || '', bank: initial.bank === '—' ? '' : initial.bank || '', vat: initial.vat === '—' ? '' : initial.vat || '', status: initial.status, requiresESign: initial.requiresESign } : empty);
       setErrors({});
       setLogoFile(null);
+      setLogoPreview(initial?.logoUrl || null);
     }
   }, [open]);
 
@@ -247,13 +257,14 @@ function NewOrgDrawer({ open, onClose, onCreated, initial = null }) {
     try {
       const saved = onCreated ? await onCreated(company) : company;
       if (logoFile && (saved?.serverId || saved?.id)) {
-        await documentsApi.upload(logoFile, {
+        const uploaded = await documentsApi.upload(logoFile, {
           company: saved.serverId || saved.id,
           kind: 'other',
           title: logoFile.name,
           source: 'upload',
           metadata: { purpose: 'company_logo' },
         });
+        onLogoUploaded?.(saved.serverId || saved.id, uploaded);
       }
       toast('Компания «' + (saved?.name || company.name) + (initial ? '» обновлена в backend' : '» создана в backend'), 'ok');
       onClose();
@@ -272,8 +283,10 @@ function NewOrgDrawer({ open, onClose, onCreated, initial = null }) {
       </div>
 
       <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 18 }}>
-        <span className="avatar-ph" style={{ width: 54, height: 54 }}><Icon name="building" style={{ width: 24, height: 24 }} /></span>
-        <label className="btn btn-secondary" style={{ cursor: 'pointer' }}><Icon name="download" />{logoFile ? logoFile.name : 'Логотип организации'}<input type="file" accept="image/*" hidden onChange={(event) => setLogoFile(event.target.files?.[0] || null)} /></label>
+        {logoPreview
+          ? <img src={logoPreview} alt="Логотип организации" style={{ width: 54, height: 54, borderRadius: 14, objectFit: 'contain', background: '#fff', border: '1px solid var(--line)' }} />
+          : <span className="avatar-ph" style={{ width: 54, height: 54 }}><Icon name="building" style={{ width: 24, height: 24 }} /></span>}
+        <label className="btn btn-secondary" style={{ cursor: 'pointer' }}><Icon name="download" />{logoFile ? logoFile.name : logoPreview ? 'Заменить логотип' : 'Логотип организации'}<input type="file" accept="image/*" hidden onChange={(event) => setLogoFile(event.target.files?.[0] || null)} /></label>
       </div>
 
       <div style={{ display: 'grid', gap: 12 }}>

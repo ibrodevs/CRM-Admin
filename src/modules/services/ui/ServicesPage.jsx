@@ -2562,7 +2562,7 @@ function ServiceSearchDrawer({ svc, onClose, onSubmit, onOpenRegistry }) {
 
 const HUB_KIND = { flights: 'Авиа', rail: 'ЖД', hotels: 'Гостиница', transfers: 'Трансфер', buses: 'Автобус', aero: 'Аэроэкспресс', lounge: 'Бизнес-зал', tours: 'Доп. услуга' };
 
-function ServicesHubPage({ onNavigate, onAddOrder, onOpenOrder, onCreateOrder }) {
+function ServicesHubPage({ onNavigate, onAddOrder, onOpenOrder, onCreateOrder, clients = [], companies = [], orders = [] }) {
 
   const [maskKind, setMaskKind] = useState(null);
   return (
@@ -2590,7 +2590,7 @@ function ServicesHubPage({ onNavigate, onAddOrder, onOpenOrder, onCreateOrder })
           <span>Все виды услуг — в одной маске бронирования с вкладками. Подбор можно оформить в КП, привязать к заказу, к клиенту или отправить в чат.</span>
         </div>
       </div>
-      {maskKind && <DetailedSearchPanel initialKind={maskKind} onClose={() => setMaskKind(null)} onOpenOrder={onOpenOrder} onCreateOrder={onCreateOrder} />}
+      {maskKind && <DetailedSearchPanel initialKind={maskKind} onClose={() => setMaskKind(null)} onOpenOrder={onOpenOrder} onCreateOrder={onCreateOrder} onNavigate={onNavigate} clients={clients} companies={companies} orders={orders} />}
     </>
   );
 }

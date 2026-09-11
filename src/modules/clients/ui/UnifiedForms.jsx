@@ -513,9 +513,12 @@ function UnifiedDocumentDrawer({ open, person = {}, initial, mode = 'create', on
   );
 }
 
-function ufOrderPickRows(query) {
+// Заказы для выбора берём из переданных (загруженных с backend); демо-массив
+// ORDERS в проде очищен, поэтому без параметра список выходил пустым.
+function ufOrderPickRows(query, orders) {
   const q = String(query || '').toLowerCase();
-  return (typeof ORDERS !== 'undefined' ? ORDERS : [])
+  const source = Array.isArray(orders) && orders.length ? orders : (typeof ORDERS !== 'undefined' ? ORDERS : []);
+  return source
     .filter((o) => `${o.no} ${o.client}`.toLowerCase().includes(q))
     .slice()
     .sort((a, b) => (b.createdOn ? b.createdOn.getTime() : 0) - (a.createdOn ? a.createdOn.getTime() : 0))

@@ -1,8 +1,29 @@
 import { ORDERS } from '../../../legacy/data/index.jsx';
+import { convertMoney, formatMoney, getDefaultCurrency } from '../../../shared/lib/money.js';
 
+/**
+ * Суммы клиента или компании. Бэкенд отдаёт их разбитыми по валютам услуг
+ * ({ USD: '831.5' }), складывать разные валюты без курса нельзя.
+ * Поэтому: пробуем привести всё к валюте по умолчанию по курсам организации,
+ * а если курса хотя бы для одной валюты нет — показываем суммы как есть,
+ * каждую со своим символом.
+ */
 function pUsd(n) {
-  if (n && typeof n === 'object') return Object.entries(n).map(([currency, amount]) => `${Number(amount).toLocaleString('ru-RU')} ${currency}`).join(' · ') || '—';
-  return Math.round(n).toLocaleString('ru-RU') + ' $';
+  if (n && typeof n === 'object') {
+    const entries = Object.entries(n).filter(([, amount]) => Number(amount));
+    if (!entries.length) return formatMoney(0);
+    const target = getDefaultCurrency();
+    let total = 0;
+    const converted = entries.every(([currency, amount]) => {
+      const value = convertMoney(amount, currency, target);
+      if (value === null) return false;
+      total += value;
+      return true;
+    });
+    if (converted) return formatMoney(total, target);
+    return entries.map(([currency, amount]) => formatMoney(amount, currency)).join(' · ');
+  }
+  return formatMoney(n);
 }
 function sumCurrencies(rows, field) {
   const sums = {};

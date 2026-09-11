@@ -34,7 +34,10 @@ function lastMessage(thread) {
   return (m.from === 'me' ? 'Вы: ' : '') + (m.attach ? '📎 ' + m.attach.name : m.text);
 }
 function threadUnread(t) { return typeof t.unread === 'number' ? t.unread : Object.values(t.unread || {}).reduce((s, n) => s + n, 0); }
-function chatServiceById(id) { return (typeof ORDER_SERVICES !== 'undefined' ? ORDER_SERVICES : []).find((s) => s.id === id) || null; }
+function chatServiceById(id, services = []) {
+  const source = services.length ? services : (typeof ORDER_SERVICES !== 'undefined' ? ORDER_SERVICES : []);
+  return source.find((s) => String(s.id) === String(id)) || null;
+}
 function chatMoney(n, cur) {
   if (n == null) return '—';
   return Math.round(n).toLocaleString('ru-RU') + ' ' + currencySymbol(cur);
@@ -72,15 +75,27 @@ function ChatServiceCard({ svc, me, onOpen }) {
     </div>
   );
 }
-function chatOrderStatus(no) { const o = (typeof ORDERS !== 'undefined' ? ORDERS : []).find((x) => x.no === no); if (!o) return null; return o.status === 'Нет данных' ? 'Новое' : o.status; }
+// Статус ищем в заказах, которые пришли в страницу с backend: демо-массив ORDERS
+// в проде очищен, из-за чего статус в шапке чата всегда был пустым.
+function chatOrderStatus(no, orders = []) {
+  const source = orders.length ? orders : (typeof ORDERS !== 'undefined' ? ORDERS : []);
+  const o = source.find((x) => String(x.no) === String(no));
+  if (!o) return null;
+  return o.status === 'Нет данных' ? 'Новое' : o.status;
+}
 function chatTypeMeta(key) { return (CHAT_TYPES.find((t) => t.key === key)) || { key, label: key, icon: 'chat' }; }
 
 
-function getThreadForOrder(order) {
-  return CHAT_THREADS.find((t) => t.order === order.no && t.type === 'client') ||
-    CHAT_THREADS.find((t) => t.order === order.no) ||
-    { id: 'o' + order.no, order: order.no, type: 'client', channel: 'MAX', name: order.client, client: order.client,
-      online: '—', unread: 0, pinned: false, connectionStatus: 'Подключено', responsibleOperator: order.operator || 'Даниель',
+// Треды заказа берём из переданных (загруженных с backend); демо-массив остаётся
+// только запасным вариантом для демо-режима. Ответственный — оператор заказа,
+// без подстановки конкретного имени.
+function getThreadForOrder(order, threads = []) {
+  const source = threads.length ? threads : CHAT_THREADS;
+  const sameOrder = (t) => String(t.order) === String(order.no) || String(t.orderId || '') === String(order.id || '');
+  return source.find((t) => sameOrder(t) && t.type === 'client') ||
+    source.find(sameOrder) ||
+    { id: 'o' + order.no, order: order.no, orderId: order.id || null, type: 'client', channel: order.channel || '—', name: order.client, client: order.client,
+      online: '—', unread: 0, pinned: false, connectionStatus: 'Подключено', responsibleOperator: order.operator || 'Не назначен',
       relatedServices: [], participants: [{ name: order.client, role: 'Клиент' }], messages: [], internal: [] };
 }
 
@@ -89,9 +104,9 @@ function getThreadForOrder(order) {
 
 function makeAdminThread(order) {
   return {
-    id: 'admin-' + order.no, order: order.no, type: 'operator', isAdmin: true, channel: 'MAX',
+    id: 'admin-' + order.no, order: order.no, type: 'operator', isAdmin: true, channel: '—',
     name: 'Админ · ' + CURRENT_USER.name, client: order.client, online: 'сейчас',
-    createdAt: order.date, responsibleOperator: order.operator || 'Даниель', connectionStatus: 'Подключено',
+    createdAt: order.date, responsibleOperator: order.operator || 'Не назначен', connectionStatus: 'Подключено',
     pinned: false, unread: 0, relatedServices: [],
     participants: [{ name: CURRENT_USER.name, role: 'Админ' }],
     messages: [], internal: [],
@@ -103,7 +118,8 @@ function recipientLabel(t) {
 }
 
 function chatRecipients(orderNo, extraThreads) {
-  const mine = CHAT_THREADS.filter((t) => t.order === orderNo).concat((extraThreads || []).filter((t) => t.order === orderNo));
+  const mine = (extraThreads || []).filter((t) => String(t.order) === String(orderNo));
+  if (!mine.length) mine.push(...CHAT_THREADS.filter((t) => String(t.order) === String(orderNo)));
   if (!mine.some((t) => t.isAdmin)) mine.push({ ...makeAdminThread({ no: orderNo, client: mine[0] && mine[0].client, date: mine[0] && mine[0].createdAt }), virtual: true });
   return mine;
 }
@@ -118,7 +134,7 @@ function ChannelBadge({ channel, sm }) {
 }
 
 
-function ChatThread({ thread, currentUserId, embedded, onOpenOrder, onOpenService, initChannel, recipients, onSwitchThread }) {
+function ChatThread({ thread, currentUserId, embedded, onOpenOrder, onOpenService, initChannel, recipients, onSwitchThread, orders = [], services = [] }) {
   const toast = useToast();
   const [sub, setSub] = useState('message');
   const [msgs, setMsgs] = useState(thread.messages || []);
@@ -216,8 +232,14 @@ function ChatThread({ thread, currentUserId, embedded, onOpenOrder, onOpenServic
     } catch (error) { toast(error.message, 'err'); }
   };
 
-  const status = chatOrderStatus(thread.order);
-  const services = typeof ORDER_SERVICES !== 'undefined' ? ORDER_SERVICES : [];
+  const status = chatOrderStatus(thread.order, orders);
+  // Кого можно упомянуть: участники этого чата и ответственный оператор заказа.
+  const mentionNames = [...new Set([
+    ...(thread.participants || []).map((person) => person.name),
+    thread.responsibleOperator,
+  ].filter((name) => name && name !== 'Не назначен'))];
+  // Услуги заказа приходят с backend; демо-массив используется только как запасной.
+  const orderServices = services.length ? services : (typeof ORDER_SERVICES !== 'undefined' ? ORDER_SERVICES : []);
   const tMeta = chatTypeMeta(thread.type);
 
 
@@ -316,9 +338,9 @@ function ChatThread({ thread, currentUserId, embedded, onOpenOrder, onOpenServic
           <input ref={fileRef} type="file" hidden onChange={uploadAttachment} />
           <button className="icon-btn" onClick={attach} title="Прикрепить"><Icon name="paperclip" /></button>
           <ActionMenu trigger={<button className="icon-btn" title="Привязать к услуге"><Icon name="route" /></button>}
-            items={services.length ? services.map((s) => ({ icon: (SERVICE_KIND[s.kind] || {}).icon || 'route', label: s.kind + ' · ' + s.title, onClick: () => { setLinked(s.id); toast('Привязано к услуге: ' + s.title, 'ok'); } })) : [{ icon: 'route', label: 'Нет услуг в заказе', onClick: () => {} }]} />
+            items={orderServices.length ? orderServices.map((s) => ({ icon: (SERVICE_KIND[s.kind] || {}).icon || 'route', label: s.kind + ' · ' + s.title, onClick: () => { setLinked(s.id); toast('Привязано к услуге: ' + s.title, 'ok'); } })) : [{ icon: 'route', label: 'Нет услуг в заказе', onClick: () => {} }]} />
           <ActionMenu trigger={<button className="icon-btn" title="Упомянуть"><span style={{ fontWeight: 700, fontSize: 16, color: 'var(--muted)' }}>@</span></button>}
-            items={OPERATORS.map((o) => ({ icon: 'user', label: o, onClick: () => setDraft((d) => (d ? d + ' ' : '') + '@' + o.split(' ')[0] + ' ') }))} />
+            items={(mentionNames.length ? mentionNames : OPERATORS).map((o) => ({ icon: 'user', label: o, onClick: () => setDraft((d) => (d ? d + ' ' : '') + '@' + o.split(' ')[0] + ' ') }))} />
           <input value={draft} disabled={sending} onChange={(e) => setDraft(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && send()}
             placeholder={sub === 'internal' ? 'Внутренний комментарий…' : 'Сообщение…'} style={{ flex: 1 }} />
           <button className="icon-btn" style={{ color: 'var(--blue)' }} onClick={send}><Icon name="send" /></button>
@@ -329,10 +351,10 @@ function ChatThread({ thread, currentUserId, embedded, onOpenOrder, onOpenServic
 }
 
 
-function ChatInfoPanel({ thread, onOpenOrder, onOpenService }) {
+function ChatInfoPanel({ thread, onOpenOrder, onOpenService, orderServices = [] }) {
   const toast = useToast();
   const [allPax, setAllPax] = useState(false);
-  const services = (thread.relatedServices || []).map(chatServiceById).filter(Boolean);
+  const services = (thread.relatedServices || []).map((id) => chatServiceById(id, orderServices)).filter(Boolean);
   const tMeta = chatTypeMeta(thread.type);
   const pax = thread.participants || [];
   const shownPax = allPax ? pax : pax.slice(0, 4);
@@ -514,7 +536,7 @@ function ChatsNav({ threads, activeId, onSelect, search, setSearch, mode, setMod
 }
 
 
-function ChatsPage({ initialThreads = [], focusThread = null, orders = [], currentUserId, onOpenOrder }) {
+function ChatsPage({ initialThreads = [], focusThread = null, orders = [], orderServices = [], currentUserId, onOpenOrder }) {
   const toast = useToast();
 
 
@@ -538,6 +560,11 @@ function ChatsPage({ initialThreads = [], focusThread = null, orders = [], curre
   };
   const openOrderFromThread = (t) => { const o = orders.find((x) => x.no === t.order); if (o) onOpenOrder && onOpenOrder(o); };
   const openServiceFromThread = (sid) => { const o = orders.find((x) => x.no === active.order); if (o) onOpenOrder && onOpenOrder(o, 'services', sid || null); };
+  // Услуги активного заказа — из загруженных с backend, по id или номеру заказа.
+  const activeOrder = active ? orders.find((x) => String(x.no) === String(active.order)) : null;
+  const activeServices = activeOrder
+    ? orderServices.filter((service) => String(service.orderId || service.order) === String(activeOrder.id))
+    : [];
 
   return (
     <div className="fade-in" style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
@@ -548,11 +575,12 @@ function ChatsPage({ initialThreads = [], focusThread = null, orders = [], curre
 
           <div className="card" style={{ display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
             {active ? <ChatThread thread={active} currentUserId={currentUserId} onOpenOrder={openOrderFromThread} onOpenService={openServiceFromThread}
+              orders={orders} services={activeServices}
               recipients={recipients} onSwitchThread={switchThread} /> : <EmptyState icon="chat" title="Выберите чат" />}
           </div>
 
 
-          {active && <ChatInfoPanel thread={active} onOpenOrder={openOrderFromThread} onOpenService={openServiceFromThread} />}
+          {active && <ChatInfoPanel thread={active} orderServices={activeServices} onOpenOrder={openOrderFromThread} onOpenService={openServiceFromThread} />}
         </div>
       </div>
     </div>

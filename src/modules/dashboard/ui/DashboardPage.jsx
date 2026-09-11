@@ -41,7 +41,7 @@ import { formatMoney, getDefaultCurrency, resolveCurrency } from '../../../share
 
 
 
-function FreeBookingFinalize({ draft, onClose, onDone, onOpenOrder, onNavigate, clients = [], companies = [] }) {
+function FreeBookingFinalize({ draft, onClose, onDone, onOpenOrder, onNavigate, clients = [], companies = [], orders = [] }) {
   const toast = useToast();
   const [step, setStep] = useState('menu');
   const [entity, setEntity] = useState('legal');
@@ -99,7 +99,7 @@ function FreeBookingFinalize({ draft, onClose, onDone, onOpenOrder, onNavigate, 
     }
   };
 
-  const orderPickRows = ufOrderPickRows;
+  const orderPickRows = (query) => ufOrderPickRows(query, orders);
   const kindCode = (kind) => ({ 'Авиа': 'avia', 'ЖД': 'rail', 'Гостиница': 'hotel', 'Отель': 'hotel', 'Трансфер': 'transfer', 'Страховка': 'insurance', 'Виза': 'visa', 'Тур': 'tour', 'Автобус': 'bus' }[kind] || kind || 'other');
   const sendDraftToChat = async (order) => {
     setBusy(true);
@@ -330,7 +330,7 @@ function FreeBookingFinalize({ draft, onClose, onDone, onOpenOrder, onNavigate, 
 
 
 
-function DetailedSearchPanel({ onClose, initialKind, onOpenOrder, onCreateOrder, onNavigate, clients = [], companies = [] }) {
+function DetailedSearchPanel({ onClose, initialKind, onOpenOrder, onCreateOrder, onNavigate, clients = [], companies = [], orders = [] }) {
   const toast = useToast();
   const [kind, setKind] = useState(initialKind || 'Авиа');
   const [aviaParams, setAviaParams] = useState({ trip: 'rt', from: 'FRU', to: 'IST', depDate: null, retDate: null, pax: { adt: 1, chd: 0, infNoSeat: 0, infSeat: 0, special: {}, subsidized: {} }, cabin: 'Эконом', baggage: false, flex: false, direct: false, airline: '', ...PAX_DEFAULT_OPTIONS });
@@ -353,7 +353,7 @@ function DetailedSearchPanel({ onClose, initialKind, onOpenOrder, onCreateOrder,
         paxCount={aviaParams.pax.adt + aviaParams.pax.chd}
         onAddAvia={(r) => add(r, 'Авиа')}
         onAddOther={(o, k) => add(o, k)} />
-      {finalize && <FreeBookingFinalize draft={draft} onClose={() => setFinalize(false)} onDone={() => { setFinalize(false); onClose(); }} onOpenOrder={onOpenOrder} onCreateOrder={onCreateOrder} onNavigate={onNavigate} clients={clients} companies={companies} />}
+      {finalize && <FreeBookingFinalize draft={draft} onClose={() => setFinalize(false)} onDone={() => { setFinalize(false); onClose(); }} onOpenOrder={onOpenOrder} onCreateOrder={onCreateOrder} onNavigate={onNavigate} clients={clients} companies={companies} orders={orders} />}
     </StackPanel>
   );
 }
@@ -909,7 +909,7 @@ function DashboardPage({ role, user, orders = [], orderServices = [], clients = 
         <Button variant="primary" icon="plus" onClick={onAddOrder}>Добавить заказ</Button>
       </Topbar>
 
-      {searchOpen && <DetailedSearchPanel onClose={() => setSearchOpen(false)} onOpenOrder={onOpenOrder} onCreateOrder={onCreateOrder} onNavigate={onNavigate} clients={clients} companies={companies} />}
+      {searchOpen && <DetailedSearchPanel onClose={() => setSearchOpen(false)} onOpenOrder={onOpenOrder} onCreateOrder={onCreateOrder} onNavigate={onNavigate} clients={clients} companies={companies} orders={orders} />}
 
       <div className="dsh scroll">
         {shift && (

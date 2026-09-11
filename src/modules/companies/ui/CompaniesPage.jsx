@@ -34,7 +34,9 @@ import { resultsOf } from '../../../shared/api/client.js';
 import { sumCurrencies, pUsd, ordersOf, orderDate } from '../../clients/model.js';
 import { ordersForCompany, toUiDepartment, toUiEmployee } from '../model/people-helpers.js';
 import { citizenshipCode, personPayloadFromUnified } from '../../clients/index.js';
-import { currencySymbol } from '../../../shared/lib/money.js';
+import { currencySymbol, formatMoney } from '../../../shared/lib/money.js';
+import { shortCode, shortCodeSearchable } from '../../../shared/lib/short-id.js';
+import { companyLogoUrl, loadCompanyLogos } from '../model/company-logo.js';
 
 function EmployeeCreateDrawer({ open, departments, defaultDept, coName, initial, onClose, onCreate }) {
   const toast = useToast();
@@ -195,7 +197,24 @@ function StaffDeptGroup({ dept, emps, onOpen, onAdd, onRemove }) {
   );
 }
 
-function CompanyCard({ co, orders: allOrders = ORDERS, onBack, onOpenOrder, onCreateOrder, onEdit, onOpenChat }) {
+// Логотип организации, если он загружен; иначе — прежняя иконка.
+function CompanyLogo({ url, name, size = 30, radius = 8 }) {
+  const [failed, setFailed] = useState(false);
+  const box = { width: size, height: size, borderRadius: radius, flex: `0 0 ${size}px` };
+  if (url && !failed) {
+    return (
+      <img src={url} alt={name || 'Логотип организации'} onError={() => setFailed(true)}
+        style={{ ...box, objectFit: 'contain', background: '#fff', border: '1px solid var(--line)' }} />
+    );
+  }
+  return (
+    <span className="oc-svc-ic" style={{ ...box, background: '#2566ff' }}>
+      <Icon name="building" style={{ width: Math.round(size * 0.52), height: Math.round(size * 0.52) }} />
+    </span>
+  );
+}
+
+function CompanyCard({ co, logoUrl, orders: allOrders = ORDERS, onBack, onOpenOrder, onCreateOrder, onEdit, onOpenChat }) {
   const toast = useToast();
   const [entityOrders, setEntityOrders] = useState(allOrders);
   useEffect(() => { const controller = new AbortController(); ordersApi.all({ client: co.id }, controller.signal).then((result) => setEntityOrders(result.results.map(toUiOrder))).catch((error) => { if (error.name !== 'AbortError') toast(error.message, 'err'); }); return () => controller.abort(); }, [co.id]);
@@ -335,11 +354,11 @@ function CompanyCard({ co, orders: allOrders = ORDERS, onBack, onOpenOrder, onCr
     <div className="fade-in">
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>
         <Button variant="secondary" size="sm" icon="chevLeft" onClick={onBack}>К реестру</Button>
-        <span style={{ color: 'var(--muted)', fontSize: 14 }}>Компании / {co.id}</span>
+        <span style={{ color: 'var(--muted)', fontSize: 14 }} title={co.id}>Компании / {shortCode(co.id, 'ORG')}</span>
       </div>
 
       <div className="card card-pad" style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 18, flexWrap: 'wrap' }}>
-        <span className="oc-svc-ic" style={{ background: '#2566ff', width: 56, height: 56, borderRadius: 16 }}><Icon name="building" style={{ width: 26, height: 26 }} /></span>
+        <CompanyLogo url={logoUrl} name={co.name} size={56} radius={16} />
         <div style={{ flex: 1, minWidth: 200 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}><h2 className="card-title">{co.name}</h2><Pill tone={COMPANY_STATUS[co.status]}>{co.status}</Pill>{fin && <Pill tone={SETTLEMENT_TONE[fin.settlement]}>{fin.settlement}</Pill>}</div>
           <div style={{ color: 'var(--muted)', fontSize: 14, marginTop: 4 }}>{co.type} · ИНН {co.inn} · директор {co.dir}</div>
@@ -347,7 +366,7 @@ function CompanyCard({ co, orders: allOrders = ORDERS, onBack, onOpenOrder, onCr
         {bal && bal.kind !== 'предоплата' && (
           <div style={{ textAlign: 'right' }}>
             <div style={{ fontSize: 12, color: 'var(--muted)' }}>{bal.label}</div>
-            <div style={{ fontSize: 20, fontWeight: 700, color: 'var(--' + (bal.tone === 'red' ? 'red' : bal.tone === 'green' ? 'green' : 'ink') + ')' }}>{Math.round(bal.value).toLocaleString('ru-RU')} $</div>
+            <div style={{ fontSize: 20, fontWeight: 700, color: 'var(--' + (bal.tone === 'red' ? 'red' : bal.tone === 'green' ? 'green' : 'ink') + ')' }}>{formatMoney(bal.value, bal.currency)}</div>
             {bal.overdue > 0 && <div style={{ fontSize: 12, color: 'var(--red)' }}>просрочено {Math.round(bal.overdue).toLocaleString('ru-RU')} $</div>}
           </div>
         )}
@@ -475,9 +494,18 @@ function CompaniesPage({ initialCompanies = [], orders = [], onCompaniesChange, 
   const [fStatus, setFStatus] = useState('');
   const [createOpen, setCreateOpen] = useState(false);
   const [companies, setCompanies] = useState(initialCompanies);
+  const [logos, setLogos] = useState({});
   const { sort, onSort, apply } = useSort(null);
 
   useEffect(() => { setCompanies(initialCompanies); }, [initialCompanies]);
+
+  // Логотипы подгружаются одним запросом на всю страницу; их отсутствие
+  // не должно ломать список, поэтому ошибка просто оставляет иконку.
+  useEffect(() => {
+    const controller = new AbortController();
+    loadCompanyLogos(controller.signal).then(setLogos).catch(() => {});
+    return () => controller.abort();
+  }, [initialCompanies]);
 
   const [editing, setEditing] = useState(null);
   const createCompany = async (company) => {
@@ -497,18 +525,24 @@ function CompaniesPage({ initialCompanies = [], orders = [], onCompaniesChange, 
     return uiCompany;
   };
 
+  // Свежезагруженный логотип показываем сразу, не дожидаясь перезагрузки списка.
+  const applyLogo = (companyId, document) => {
+    const url = companyLogoUrl(document);
+    if (url) setLogos((current) => ({ ...current, [companyId]: url }));
+  };
+
   useEffect(() => { if (intent && intent.type === 'create') { setCreateOpen(true); onConsume && onConsume(); } }, [intent]);
 
-  if (view === 'card' && active) return (<><Topbar title="Карточка компании" /><div className="content"><CompanyCard co={active} orders={orders} onOpenChat={onOpenChat} onBack={() => setView('list')} onOpenOrder={onOpenOrder} onCreateOrder={onCreateOrder} onEdit={() => setEditing(active)} /><NewOrgDrawer open={!!editing} initial={editing} onClose={() => setEditing(null)} onCreated={createCompany} /></div></>);
+  if (view === 'card' && active) return (<><Topbar title="Карточка компании" /><div className="content"><CompanyCard co={active} logoUrl={logos[active.id]} orders={orders} onOpenChat={onOpenChat} onBack={() => setView('list')} onOpenOrder={onOpenOrder} onCreateOrder={onCreateOrder} onEdit={() => setEditing(active)} /><NewOrgDrawer open={!!editing} initial={editing ? { ...editing, logoUrl: logos[editing.id] } : null} onClose={() => setEditing(null)} onCreated={createCompany} onLogoUploaded={applyLogo} /></div></>);
 
-  let rows = companies.filter((c) => (!fStatus || c.status === fStatus) && (!q || `${c.id} ${c.name} ${c.inn} ${c.dir}`.toLowerCase().includes(q.toLowerCase())));
+  let rows = companies.filter((c) => (!fStatus || c.status === fStatus) && (!q || `${shortCodeSearchable(c.id, 'ORG')} ${c.name} ${c.inn} ${c.dir}`.toLowerCase().includes(q.toLowerCase())));
   rows = apply(rows, { name: (r) => r.name, orders: (r) => r.orders, turnover: (r) => pUsd(r.turnover) });
   const STATS = [['Всего компаний', companies.length], ['Действующие', companies.filter((c) => c.status === 'Действующий').length], ['Совокупный оборот', pUsd(sumCurrencies(companies, 'turnover'))], ['Заказов', companies.reduce((s, c) => s + c.orders, 0)]];
 
   return (
     <>
       <Topbar title="Компании"><div className="topbar-spacer" /><Button icon="plus" onClick={() => setCreateOpen(true)}>Добавить компанию</Button></Topbar>
-      <NewOrgDrawer open={createOpen} onClose={() => setCreateOpen(false)} onCreated={createCompany} />
+      <NewOrgDrawer open={createOpen} onClose={() => setCreateOpen(false)} onCreated={createCompany} onLogoUploaded={applyLogo} />
       <div className="content fade-in">
         <div className="grid-4" style={{ marginBottom: 22 }}>{STATS.map(([l, v]) => (<div className="stat-card" key={l}><div className="s-label">{l}</div><div className="s-value">{v}</div></div>))}</div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16, flexWrap: 'wrap' }}>
@@ -524,15 +558,15 @@ function CompaniesPage({ initialCompanies = [], orders = [], onCompaniesChange, 
                   const bal = companyBalanceShort(companyFinance(c.id));
                   return (
                   <tr key={c.id} style={{ cursor: 'pointer' }} onClick={() => { setActive(c); setView('card'); }}>
-                    <td className="t-strong">{c.id}</td>
-                    <td><span style={{ display: 'flex', alignItems: 'center', gap: 10 }}><span className="airline-logo sm" style={{ background: '#2566ff', width: 30, height: 30, borderRadius: 8 }}><Icon name="building" style={{ width: 16, height: 16 }} /></span><span style={{ fontWeight: 600 }}>{c.name}</span></span></td>
+                    <td className="t-strong" title={c.id}>{shortCode(c.id, 'ORG')}</td>
+                    <td><span style={{ display: 'flex', alignItems: 'center', gap: 10 }}><CompanyLogo url={logos[c.id]} name={c.name} size={30} /><span style={{ fontWeight: 600 }}>{c.name}</span></span></td>
                     <td>{c.type}</td>
                     <td>{bal ? <Pill tone={SETTLEMENT_TONE[bal.kind] || 'gray'}>{bal.kind}</Pill> : <span className="t-muted">—</span>}</td>
                     <td style={{ textAlign: 'right' }}>
                       {bal && bal.kind !== 'предоплата' ? (
                         <span style={{ fontWeight: 600, color: bal.tone === 'red' ? 'var(--red)' : bal.tone === 'green' ? 'var(--green)' : 'var(--ink)' }}>
-                          {Math.round(bal.value).toLocaleString('ru-RU')} $
-                          {bal.overdue > 0 && <span style={{ display: 'block', fontSize: 12, color: 'var(--red)', fontWeight: 500 }}>просрочено {Math.round(bal.overdue).toLocaleString('ru-RU')} $</span>}
+                          {formatMoney(bal.value, bal.currency)}
+                          {bal.overdue > 0 && <span style={{ display: 'block', fontSize: 12, color: 'var(--red)', fontWeight: 500 }}>просрочено {formatMoney(bal.overdue, bal.currency)}</span>}
                         </span>
                       ) : <span className="t-muted">—</span>}
                     </td>

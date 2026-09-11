@@ -31,6 +31,8 @@ import { workspaceSettingsApi } from '../../settings/api.js';
 import { toUiSupplier } from '../model/suppliers.mapper.js';
 import { resultsOf } from '../../../shared/api/client.js';
 import { currencySymbol, getDefaultCurrency } from '../../../shared/lib/money.js';
+import { shortCode } from '../../../shared/lib/short-id.js';
+import { ORGANIZATION_TYPE_LABEL, SETTLEMENT_TYPE_LABEL, labelFor } from '../../../shared/constants/backend-labels.js';
 
 function useSupplierDocuments(s, ext) {
   const [, refresh] = useState(0);
@@ -151,7 +153,7 @@ function SupplierBadge({ name, icon = 'suppliers', size = 'md' }) {
 }
 
 const SUPPLIER_TYPES = ['API', 'Локальный', 'Консолидатор', 'GDS'];
-const SUP_SERVICE_KINDS = ['Авиа', 'ЖД', 'Гостиницы', 'Трансферы', 'Автобусы', 'Страхование', 'Визы', 'Прочее'];
+const SUP_SERVICE_KINDS = ['Авиа', 'ЖД', 'Гостиницы', 'Трансферы', 'Автобусы', 'Туры', 'Страхование', 'Визы', 'Прочее'];
 const SUP_COMM_METHODS = ['Telegram', 'WhatsApp', 'Email', 'Телефон', 'Чат', 'Макс'];
 
 const SUP_COUNTRIES = ['Кыргызстан', 'Казахстан', 'Россия', 'Узбекистан', 'Таджикистан', 'Турция', 'ОАЭ', 'Другое'];
@@ -217,10 +219,20 @@ function supEmptyFin(kinds) {
 
 
 const SUP_EXT = window.SUP_EXT || (window.SUP_EXT = {});
-const SUP_KIND_LABEL = { avia: 'Авиа', rail: 'ЖД', hotel: 'Гостиницы', transfer: 'Трансферы', bus: 'Автобусы', insurance: 'Страхование', visa: 'Визы', other: 'Прочее' };
+const SUP_KIND_LABEL = { avia: 'Авиа', rail: 'ЖД', hotel: 'Гостиницы', transfer: 'Трансферы', bus: 'Автобусы', tour: 'Туры', insurance: 'Страхование', visa: 'Визы', other: 'Прочее' };
+// Виды услуг приходят кодами ('avia'), а в старых записях — русскими словами
+// в единственном числе. Приводим и то, и другое к одному русскому написанию,
+// иначе в таблице соседствуют «Авиа» и «tour».
+const SUP_KIND_SYNONYM = { 'Отель': 'Гостиницы', 'Гостиница': 'Гостиницы', 'Трансфер': 'Трансферы', 'Автобус': 'Автобусы', 'Тур': 'Туры', 'Страховка': 'Страхование', 'Виза': 'Визы', 'Другое': 'Прочее' };
+function supKindLabel(kind) {
+  if (!kind) return '';
+  const byCode = SUP_KIND_LABEL[String(kind).toLowerCase()];
+  const value = byCode || kind;
+  return SUP_KIND_SYNONYM[value] || value;
+}
 function supplierKinds(s) {
-  const raw = Array.isArray(s.service_kinds) && s.service_kinds.length ? s.service_kinds.map((kind) => SUP_KIND_LABEL[kind] || kind) : [s.service];
-  return raw.map((kind) => kind === 'Отель' ? 'Гостиницы' : kind === 'Трансфер' ? 'Трансферы' : kind).filter(Boolean);
+  const raw = Array.isArray(s.service_kinds) && s.service_kinds.length ? s.service_kinds : [s.service];
+  return raw.map(supKindLabel).filter(Boolean);
 }
 function supExt(s) {
   if (s.ext) return s.ext;
@@ -246,7 +258,9 @@ function supExt(s) {
         version: automation.api_version || '', status: automation.adapter ? 'Требует проверки' : 'Не настроено', lastSync: '',
       },
       local: { contact: s.contact_person || '', comm, commBind, processing: '', hours: s.work_hours || '' },
-      fin: { currency: s.currency, commType: s.settlement_type || '%', commValue: 0, vat: 'Без НДС', settlement: s.settlement_type || '', payTerm: '', perService: fin },
+      // commType — тип комиссии (SUP_COMM_TYPES), а не тип взаиморасчётов:
+      // раньше сюда попадал settlement_type и сводка показывала «0 % + сборы».
+      fin: { currency: s.currency, commType: '%', commValue: 0, vat: 'Без НДС', settlement: labelFor(SETTLEMENT_TYPE_LABEL, s.settlement_type, ''), payTerm: '', perService: fin },
       ops: SUP_OPS.reduce((result, operation) => ({ ...result, [operation]: Boolean(automation.operations?.[operation]) }), {}),
       automation: automation.search_mode || 'manual',
       searchPriority: automation.search_priority || {},
@@ -854,7 +868,7 @@ function SupplierCard({ supplier, onBack, onOpenOrder, onOpenChat }) {
     <div className="fade-in">
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>
         <Button variant="secondary" size="sm" icon="chevLeft" onClick={onBack}>К реестру</Button>
-        <span style={{ color: 'var(--muted)', fontSize: 14 }}>Поставщики / № {s.no}</span>
+        <span style={{ color: 'var(--muted)', fontSize: 14 }} title={s.no}>Поставщики / № {shortCode(s.no, 'SUP')}</span>
       </div>
 
 
@@ -1117,7 +1131,7 @@ function SupplierAddDrawer({ open, onClose, onCreated }) {
       stats: { bookings: 0, issues: 0, refunds: 0, avgResponse: '—', successRate: '—', lastUsed: '—' },
       docs: SUP_DOC_KINDS.reduce((m, k) => (m[k] = [], m), {}),
     };
-    const kindMap = { 'Авиа': 'avia', 'ЖД': 'rail', 'Гостиницы': 'hotel', 'Трансферы': 'transfer', 'Автобусы': 'bus', 'Страхование': 'insurance', 'Визы': 'visa', 'Прочее': 'other' };
+    const kindMap = { 'Авиа': 'avia', 'ЖД': 'rail', 'Гостиницы': 'hotel', 'Трансферы': 'transfer', 'Автобусы': 'bus', 'Туры': 'tour', 'Страхование': 'insurance', 'Визы': 'visa', 'Прочее': 'other' };
     setSaving(true);
     try {
       const created = await suppliersApi.create({
@@ -1411,10 +1425,10 @@ function SuppliersPage({ intent, onConsume, suppliers, addSupplier, onNavigate, 
   );
 
   let rows = suppliers.filter((s) =>
-    (s.name.toLowerCase().includes(search.toLowerCase()) || String(s.no).includes(search)) &&
+    (s.name.toLowerCase().includes(search.toLowerCase()) || `${shortCode(s.no, 'SUP')} ${s.no}`.toLowerCase().includes(search.toLowerCase())) &&
     (!filters.supType || supExt(s).supType === filters.supType) &&
     (!filters.status || s.status === filters.status) &&
-    (!filters.service || s.service === filters.service));
+    (!filters.service || supplierKinds(s).includes(filters.service)));
   rows = apply(rows, { no: (r) => r.no });
   const pages = Math.max(1, Math.ceil(rows.length / PAGE_SIZE));
   const pageRows = rows.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
@@ -1430,7 +1444,7 @@ function SuppliersPage({ intent, onConsume, suppliers, addSupplier, onNavigate, 
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 18, flexWrap: 'wrap' }}>
           <FilterChip label="Типы поставщиков" options={SUPPLIER_TYPES} value={filters.supType} onChange={(v) => setFilters((f) => ({ ...f, supType: v }))} />
           <FilterChip label="Статусы" options={Object.keys(SUPPLIER_STATUS)} value={filters.status} onChange={(v) => setFilters((f) => ({ ...f, status: v }))} />
-          <FilterChip label="Типы услуг" options={['Авиа', 'ЖД', 'Отель', 'Трансфер', 'Автобусы', 'Страхование', 'Визы']} value={filters.service} onChange={(v) => setFilters((f) => ({ ...f, service: v }))} />
+          <FilterChip label="Типы услуг" options={SUP_SERVICE_KINDS} value={filters.service} onChange={(v) => setFilters((f) => ({ ...f, service: v }))} />
           <div className="topbar-spacer" />
           <SearchBox value={search} onChange={setSearch} style={{ width: 280 }} />
         </div>
@@ -1450,7 +1464,7 @@ function SuppliersPage({ intent, onConsume, suppliers, addSupplier, onNavigate, 
                     const ext = supExt(s);
                     return (
                       <tr key={i} style={{ cursor: 'pointer' }} onClick={() => setActive(s)}>
-                        <td className="t-strong">{s.no}</td>
+                        <td className="t-strong" title={s.no}>{shortCode(s.no, 'SUP')}</td>
                         <td><span style={{ display: 'inline-flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}><SupplierBadge name={s.name} />{ext.useDefault && <Pill tone="blue">по умолч.</Pill>}</span></td>
                         <td><Pill tone={ext.supType === 'Локальный' ? 'gray' : 'teal'}>{ext.supType}</Pill></td>
                         <td><Pill tone={SUPPLIER_STATUS[s.status]}>{s.status}</Pill></td>

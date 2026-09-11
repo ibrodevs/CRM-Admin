@@ -177,9 +177,12 @@ function applyAgreementFees(agreement, serviceType, base) {
 
 function companyBalanceShort(fin) {
   if (!fin) return null;
-  if (fin.settlement === 'депозит' && fin.deposit) return { kind: 'депозит', label: 'Депозит', value: depositAvailable(fin.deposit), tone: depositAvailable(fin.deposit) > 0 ? 'green' : 'red' };
-  if (fin.settlement === 'отсрочка' && fin.credit) return { kind: 'отсрочка', label: 'Задолженность', value: fin.credit.debt, overdue: fin.credit.overdue, tone: fin.credit.overdue > 0 ? 'red' : 'amber' };
-  return { kind: 'предоплата', label: 'Предоплата', value: 0, tone: 'gray' };
+  // Валюта финансовых условий едет вместе с суммой: без неё вызывающий код
+  // подставлял доллар независимо от настроек организации.
+  const currency = fin.currency || null;
+  if (fin.settlement === 'депозит' && fin.deposit) return { kind: 'депозит', label: 'Депозит', currency, value: depositAvailable(fin.deposit), tone: depositAvailable(fin.deposit) > 0 ? 'green' : 'red' };
+  if (fin.settlement === 'отсрочка' && fin.credit) return { kind: 'отсрочка', label: 'Задолженность', currency, value: fin.credit.debt, overdue: fin.credit.overdue, tone: fin.credit.overdue > 0 ? 'red' : 'amber' };
+  return { kind: 'предоплата', label: 'Предоплата', currency, value: 0, tone: 'gray' };
 }
 
 

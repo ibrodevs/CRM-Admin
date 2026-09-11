@@ -330,10 +330,18 @@ function orderDateLabel(o) {
   if (o.createdOn) return fmtDate(o.createdOn);
   return o.date || '—';
 }
-function OrderPickerDrawer({ onPick, onClose, title = 'Выбор заказа', sub = 'Заказы по дате оформления — новые сверху' }) {
+// Заказ по номеру: раньше на его месте собиралась фиктивная карточка с чужим
+// оператором и датой, из-за чего открывался несуществующий заказ.
+function orderByNo(no, orders = []) {
+  const source = orders.length ? orders : (typeof ORDERS !== 'undefined' ? ORDERS : []);
+  return source.find((o) => String(o.no) === String(no)) || null;
+}
+
+function OrderPickerDrawer({ onPick, onClose, orders = [], title = 'Выбор заказа', sub = 'Заказы по дате оформления — новые сверху' }) {
   const [q, setQ] = useState('');
   const seen = {};
-  const rows = (typeof ORDERS !== 'undefined' ? ORDERS : [])
+  // Заказы приходят с backend; демо-массив остаётся запасным для демо-режима.
+  const rows = (orders.length ? orders : (typeof ORDERS !== 'undefined' ? ORDERS : []))
     .filter((o) => (seen[o.no] ? false : (seen[o.no] = true)))
     .filter((o) => `${o.no} ${o.client}`.toLowerCase().includes(q.toLowerCase()))
     .slice().sort((a, b) => (b.createdOn ? b.createdOn.getTime() : 0) - (a.createdOn ? a.createdOn.getTime() : 0));
@@ -419,7 +427,7 @@ function KPModule({ order, services, participants, onApprove }) {
   const active = proposals.find((p) => p.id === activeId);
   const uid = (pre) => pre + Math.random().toString(36).slice(2, 7);
   const patch = (id, fn) => setProposals((ps) => ps.map((p) => (p.id === id ? fn(p) : p)));
-  const withHist = (p, text) => ({ ...p, history: [...p.history, { t: kpNow(), text, who: 'Даниель' }] });
+  const withHist = (p, text) => ({ ...p, history: [...p.history, { t: kpNow(), text, who: (window.CURRENT_USER && CURRENT_USER.name) || 'Оператор' }] });
 
   const proposalItemPayload = (item, currency) => ({
     service_kind: KP_KIND_CODE[item.kind] || item.kind || item.service_kind || '',
@@ -1065,7 +1073,7 @@ function kpDefaultValidDate() {
   const date = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
   return date.toLocaleDateString('ru-RU');
 }
-function KPCreateModal({ open, onClose, onCreated, onOpenOrder }) {
+function KPCreateModal({ open, onClose, onCreated, onOpenOrder, orders = [] }) {
   const toast = useToast();
   // Шаблоны КП создаёт сама организация: список приходит с backend, а не из
   // зашитого в код набора демонстрационных пакетов.
@@ -1118,7 +1126,7 @@ function KPCreateModal({ open, onClose, onCreated, onOpenOrder }) {
     ...templates.map((t) => ({ value: 'tpl:' + t.id, label: 'Шаблон: ' + t.name })),
   ];
   const sourceFlow = KP_SOURCE_FLOW[source] || KP_SOURCE_FLOW.order;
-  const selOrder = ORDERS.find((o) => String(o.no) === String(orderNo));
+  const selOrder = (orders.length ? orders : (typeof ORDERS !== 'undefined' ? ORDERS : [])).find((o) => String(o.no) === String(orderNo));
   const brief = parseKpRequest(sourceNote);
   const inputLabel = source === 'manual' ? 'Описание задачи или текст клиента' : (sourceFlow.inputLabel || 'Комментарий к заказу');
   const inputPlaceholder = sourceFlow.inputPlaceholder || 'Можно вставить текст заявки, переписку или оставить короткий комментарий…';
@@ -1308,7 +1316,7 @@ function KPCreateModal({ open, onClose, onCreated, onOpenOrder }) {
             <span>{selOrder ? `КП будет связано с заказом № ${selOrder.no}.` : 'КП сохранится как самостоятельный черновик — заказ не требуется.'} {brief.services.length ? `В конструктор добавим позиции: ${brief.services.map((item) => item.title).join(', ')}.` : 'Услуги можно добавить после создания.'}</span>
           </div>
         </div>
-        {orderPickerOpen && <OrderPickerDrawer title="Связать КП с заказом" sub="Это необязательно — связь можно изменить позже" onPick={(order) => { setOrderNo(String(order.no)); if (source === 'order') setBase('services'); }} onClose={() => setOrderPickerOpen(false)} />}
+        {orderPickerOpen && <OrderPickerDrawer orders={orders} title="Связать КП с заказом" sub="Это необязательно — связь можно изменить позже" onPick={(order) => { setOrderNo(String(order.no)); if (source === 'order') setBase('services'); }} onClose={() => setOrderPickerOpen(false)} />}
       </div>
     </Drawer>
   );
@@ -1536,7 +1544,7 @@ function StandaloneKPEditor({ proposal, orders = [], onClose, onSaved, onSend })
           </table>
         </div>
       </div>}
-      {orderPickerOpen && <OrderPickerDrawer title="Связать КП с заказом" onPick={(order) => { patch({ order: order.no, client: order.client }); setOrderPickerOpen(false); }} onClose={() => setOrderPickerOpen(false)} />}
+      {orderPickerOpen && <OrderPickerDrawer orders={orders} title="Связать КП с заказом" onPick={(order) => { patch({ order: order.no, client: order.client }); setOrderPickerOpen(false); }} onClose={() => setOrderPickerOpen(false)} />}
     </Drawer>
   );
 }
@@ -1625,7 +1633,7 @@ function OffersRegistry({ onOpenOrder, intent, onConsume, initialProposals = [],
                         { icon: 'edit', label: 'Редактировать', onClick: () => setEditTarget(p) },
                         { icon: 'eye', label: 'Предпросмотр', onClick: () => setPreview(p) },
                         { icon: 'send', label: 'Отправить клиенту', onClick: () => setSendTarget(p) },
-                        ...(p.order ? [{ icon: 'orders', label: 'Перейти в заказ', onClick: () => { const o = (ORDERS.find((x) => x.no === p.order)) || { no: p.order, client: p.client, requestType: 'Индивидуальная', status: 'В работе', operator: 'Даниель', date: '15.06.25' }; onOpenOrder(o); } }] : []),
+                        ...(p.order ? [{ icon: 'orders', label: 'Перейти в заказ', onClick: () => { const o = orderByNo(p.order, orders); if (o) onOpenOrder(o); else toast('Заказ № ' + p.order + ' не найден', 'warn'); } }] : []),
                       ]} />
                   </td>
                 </tr>
@@ -1644,7 +1652,7 @@ function OffersRegistry({ onOpenOrder, intent, onConsume, initialProposals = [],
               setPdfBusy(true);
               exportKpToPdf(previewDocRef.current, preview.id + '.pdf', (ok) => { setPdfBusy(false); toast(ok ? 'PDF сохранён' : 'Не удалось сформировать PDF', ok ? 'ok' : 'err'); });
             }}>{pdfBusy ? 'Формируем…' : 'Скачать PDF'}</Button>
-            {preview.order && <Button variant="secondary" icon="orders" onClick={() => { const o = (ORDERS.find((x) => x.no === preview.order)) || { no: preview.order, client: preview.client, requestType: 'Индивидуальная', status: 'В работе', operator: 'Даниель', date: '15.06.25' }; setPreview(null); onOpenOrder(o); }}>Перейти в заказ</Button>}
+            {preview.order && <Button variant="secondary" icon="orders" onClick={() => { const o = orderByNo(preview.order, orders); if (!o) { toast('Заказ № ' + preview.order + ' не найден', 'warn'); return; } setPreview(null); onOpenOrder(o); }}>Перейти в заказ</Button>}
           </>}>
           <div ref={previewDocRef} style={{ margin: '-28px -32px', padding: 24, background: 'var(--surface-2)' }}>{preview.docType === 'train' ? <KPTrainPreviewDoc proposal={preview} /> : <KPPreviewDoc proposal={preview} />}</div>
         </Drawer>
@@ -1655,7 +1663,7 @@ function OffersRegistry({ onOpenOrder, intent, onConsume, initialProposals = [],
           setProposals((ps) => [np, ...ps]);
           if (mode === 'draft' && !np.order) setEditTarget(np);
           onChanged?.(np);
-        }} onOpenOrder={onOpenOrder} />
+        }} onOpenOrder={onOpenOrder} orders={orders} />
       {editTarget && <StandaloneKPEditor proposal={editTarget} orders={orders} onClose={() => setEditTarget(null)}
         onSaved={(saved) => {
           setProposals((items) => items.map((item) => item.serverId === saved.serverId ? saved : item));
