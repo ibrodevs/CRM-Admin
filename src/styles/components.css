@@ -688,9 +688,13 @@ table.tbl.tbl-wide thead th,table.tbl.tbl-wide tbody td{white-space:nowrap}
 @keyframes spin{to{transform:rotate(360deg)}}
 
 .dropdown{position:absolute;background:#fff;border:1px solid var(--line-strong);border-radius:13px;box-shadow:var(--shadow-pop);padding:7px;z-index:60;min-width:200px;animation:pop .14s ease}
-.dropdown-item{display:flex;align-items:center;gap:11px;padding:10px 12px;border-radius:9px;font-size:14.5px;color:var(--body);cursor:pointer;white-space:nowrap}
+.dropdown-item{display:flex;align-items:center;gap:10px;padding:8px 12px;border-radius:9px;font-size:14.5px;color:var(--body);cursor:pointer;white-space:nowrap}
 .dropdown-item:hover{background:var(--hover)}
 .dropdown-item svg{width:17px;height:17px;color:var(--muted)}
+/* Отметка выбранного пункта прижата к правому краю: слева текст начинается
+   сразу, без зарезервированной под галочку пустой колонки. */
+.dropdown-item-mark{margin-left:auto;color:var(--blue)!important;flex:0 0 17px}
+.dropdown-item.is-selected{color:var(--ink);font-weight:600}
 .dropdown-item.danger{color:var(--red-strong)}
 .dropdown-item.danger svg{color:var(--red-strong)}
 .dropdown-sep{height:1px;background:var(--line);margin:6px 4px}

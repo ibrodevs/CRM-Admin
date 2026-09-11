@@ -96,7 +96,7 @@ function Combobox({
                   className={'dropdown-item' + (o.value === value ? ' active' : '') + (index === safeCursor ? ' is-cursor' : '')}
                   onMouseEnter={() => setCursor(index)}
                   onClick={() => pick(o)}>
-                  {o.value === value && <Icon name="check" style={{ width: 15, height: 15, color: 'var(--blue)' }} />}{o.label}
+                  {o.label}{o.value === value && <Icon name="check" className="dropdown-item-mark" />}
                 </div>
               </React.Fragment>
             );

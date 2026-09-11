@@ -19,15 +19,18 @@ function FilterChip({ label, options, value, onChange, icon = 'filter' }) {
       </button>
       {open && (
         <div className="dropdown" style={{ top: 48, left: 0 }}>
-          <div className="dropdown-item" onClick={() => { onChange(''); setOpen(false); }}>
-            <span style={{ width: 17 }} />Все
+          {/* Отметка выбранного стоит справа: колонка под галочку слева
+              оставляла пустую полосу вдоль всего списка. */}
+          <div className={'dropdown-item' + (value ? '' : ' is-selected')} onClick={() => { onChange(''); setOpen(false); }}>
+            Все{!value && <Icon name="check" className="dropdown-item-mark" />}
           </div>
           <div className="dropdown-sep" />
           {options.filter((o) => (o?.value ?? o) !== '' && (o?.value ?? o) != null).map((o) => {
             const val = o.value ?? o, lab = o.label ?? o;
+            const selected = value === val;
             return (
-              <div key={val} className="dropdown-item" onClick={() => { onChange(val); setOpen(false); }}>
-                {value === val ? <Icon name="check" /> : <span style={{ width: 17 }} />}{lab}
+              <div key={val} className={'dropdown-item' + (selected ? ' is-selected' : '')} onClick={() => { onChange(val); setOpen(false); }}>
+                {lab}{selected && <Icon name="check" className="dropdown-item-mark" />}
               </div>
             );
           })}
