@@ -1406,3 +1406,95 @@ html[data-theme="dark"] body {
   color: var(--green);
 }
 
+:root[data-theme="dark"] :is(.receipt-locked-input, input:disabled, textarea:disabled, select:disabled) {
+  background: var(--surface-2) !important;
+  border-color: var(--line) !important;
+  color: var(--muted) !important;
+}
+
+:root[data-theme="dark"] .receipt-breakdown-remove {
+  background: var(--red-bg) !important;
+  border-color: rgba(248, 113, 113, 0.4) !important;
+  color: var(--red) !important;
+}
+
+:root[data-theme="dark"] .receipt-breakdown-remove:hover {
+  background: rgba(239, 68, 68, 0.25) !important;
+  border-color: var(--red) !important;
+}
+
+:root[data-theme="dark"] .receipt-group-review-mode button {
+  background: var(--surface-2);
+  border-color: var(--line);
+  color: var(--body);
+}
+
+:root[data-theme="dark"] .receipt-group-review-mode button.is-active {
+  background: var(--blue-soft);
+  border-color: var(--blue);
+  color: var(--blue);
+}
+
+:root[data-theme="dark"] :is(.receipt-group-detected, .receipt-similar-group-banner) {
+  background: var(--green-bg);
+  border-color: rgba(52, 211, 153, 0.35);
+  color: var(--green);
+}
+
+:root[data-theme="dark"] :is(.receipt-group-detected, .receipt-similar-group-banner) b {
+  color: var(--ink);
+}
+
+:root[data-theme="dark"] :is(.receipt-group-detected, .receipt-similar-group-banner) small {
+  color: var(--body);
+}
+
+:root[data-theme="dark"] .receipt-similar-group-pill {
+  background: var(--green-bg-2);
+  color: var(--green);
+}
+
+:root[data-theme="dark"] .receipt-edit-preview-tabs button {
+  background: var(--surface-2);
+  border-color: var(--line);
+  color: var(--body);
+}
+
+:root[data-theme="dark"] .receipt-edit-preview-tabs button.is-active {
+  background: var(--blue-soft);
+  border-color: var(--blue);
+  color: var(--blue);
+}
+
+:root[data-theme="dark"] .oce-client {
+  background: var(--surface);
+  border-color: var(--line);
+}
+
+:root[data-theme="dark"] .oce-client.found {
+  background: var(--green-bg);
+  border-color: var(--green);
+}
+
+:root[data-theme="dark"] .oce-city {
+  background: var(--surface-2);
+  border-color: var(--field-line);
+  color: var(--ink);
+}
+
+:root[data-theme="dark"] .city-chip {
+  background: var(--surface-2);
+  border-color: var(--line);
+  color: var(--ink);
+}
+
+:root[data-theme="dark"] .uf-seg button.on {
+  background: var(--surface);
+  color: var(--blue);
+}
+
+:root[data-theme="dark"] .uf-doc-row {
+  background: var(--surface);
+  border-color: var(--line);
+}
+

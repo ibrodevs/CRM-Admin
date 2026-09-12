@@ -100,7 +100,7 @@ function DocPreviewDrawer({ open, doc, onClose }) {
               <button key={i} onClick={() => setVer(i)}
                 style={{ textAlign: 'left', padding: '10px 12px', borderRadius: 11, cursor: 'pointer',
                   border: '1px solid ' + (i === ver ? 'var(--blue)' : 'var(--field-line)'),
-                  background: i === ver ? 'var(--blue-soft)' : '#fff' }}>
+                  background: i === ver ? 'var(--blue-soft)' : 'var(--surface)' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                   <span style={{ fontWeight: 700, color: 'var(--ink)', fontSize: 14 }}>{vs.v}</span>
                   {vs.current && <Pill tone="green">актуальная</Pill>}
@@ -115,7 +115,7 @@ function DocPreviewDrawer({ open, doc, onClose }) {
         <div>
           <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--muted)', marginBottom: 10 }}>ПРЕДПРОСМОТР</div>
           <div style={{ border: '1px solid var(--line)', borderRadius: 12, background: 'var(--surface-2)', padding: 28, minHeight: 420 }}>
-            <div style={{ background: '#fff', border: '1px solid var(--line)', borderRadius: 8, padding: '32px 34px', boxShadow: 'var(--shadow-card)', minHeight: 360 }}>
+            <div style={{ background: 'var(--surface)', border: '1px solid var(--line)', borderRadius: 8, padding: '32px 34px', boxShadow: 'var(--shadow-card)', minHeight: 360 }}>
               <div style={{ textAlign: 'center', fontWeight: 700, fontSize: 15, color: 'var(--ink)', marginBottom: 4 }}>{doc.name.replace(/\.[a-z]+$/i, '')}</div>
               <div style={{ textAlign: 'center', fontSize: 12, color: 'var(--muted)', marginBottom: 22 }}>Версия {active.v} · {active.date}</div>
               {loading ? <p>Загрузка версий…</p> : active.version ? <iframe title="Файл договора" src={documentsApi.previewUrl(doc.documentId) + `&file_version=${active.version}`} style={{width: '100%', height: 500, border: 0}} /> : <p>Файл отсутствует на сервере</p>}
@@ -497,7 +497,7 @@ function SupplierSearchEditor({ ext, supplierName, onSaveSettings }) {
       <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 18 }}>
         {SUP_AUTOMATION.map((a) => (
           <button key={a.key} onClick={() => setAuto(a.key)}
-            style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '11px 14px', borderRadius: 12, border: '1px solid ' + (auto === a.key ? 'var(--blue)' : 'var(--field-line)'), background: auto === a.key ? 'var(--blue-soft)' : '#fff', cursor: 'pointer', textAlign: 'left' }}>
+            style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '11px 14px', borderRadius: 12, border: '1px solid ' + (auto === a.key ? 'var(--blue)' : 'var(--field-line)'), background: auto === a.key ? 'var(--blue-soft)' : 'var(--surface-2)', cursor: 'pointer', textAlign: 'left' }}>
             <Radio on={auto === a.key} interactive={false} />
             <div style={{ flex: 1 }}>
               <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--ink)' }}>{a.label}</div>
@@ -594,7 +594,7 @@ function SearchPriorityModal({ open, onClose, suppliers = [] }) {
         <Tabs tabs={SUP_PRIORITY_SERVICES.map((s) => ({ key: s, label: s }))} value={svc} onChange={setSvc} />
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 16 }}>
           {loading ? <div style={{ color: 'var(--muted)' }}>Загрузка поставщиков…</div> : (order[svc] || []).map((supplier, i) => (
-            <div key={supplier.serverId || supplier.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 14px', borderRadius: 12, border: '1px solid var(--field-line)', background: '#fff' }}>
+            <div key={supplier.serverId || supplier.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 14px', borderRadius: 12, border: '1px solid var(--field-line)', background: 'var(--surface)' }}>
               <span style={{ width: 26, height: 26, borderRadius: 8, background: i === 0 ? 'var(--blue)' : 'var(--surface-2)', color: i === 0 ? '#fff' : 'var(--muted)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, fontWeight: 700 }}>{i + 1}</span>
               <span style={{ flex: 1, fontWeight: 600, color: 'var(--ink)' }}>{supplier.name}</span>
               <button className="icon-btn" disabled={i === 0} onClick={() => move(i, -1)} style={i === 0 ? { opacity: .35 } : null}><Icon name="chevUp" /></button>
@@ -1056,7 +1056,7 @@ function SupplierModal({ supplier, onClose, onDelete }) {
                 <button key={t.key} onClick={() => setTab(t.key)}
                   style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '13px 15px', borderRadius: 13,
                     border: '1px solid ' + (on ? 'var(--blue)' : 'var(--field-line)'),
-                    background: on ? 'var(--blue-soft)' : '#fff', cursor: 'pointer', fontSize: 15,
+                    background: on ? 'var(--blue-soft)' : 'var(--surface-2)', cursor: 'pointer', fontSize: 15,
                     fontWeight: on ? 700 : 500, color: on ? 'var(--blue)' : 'var(--ink)', textAlign: 'left', transition: '.12s' }}>
                   <Icon name={t.icon} style={{ width: 20, height: 20, color: on ? 'var(--blue)' : 'var(--muted)' }} />
                   <span style={{ flex: 1 }}>{t.label}</span>
@@ -1415,7 +1415,7 @@ function SupplierAddDrawer({ open, onClose, onCreated }) {
         <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
           {SUP_AUTOMATION.map((a) => (
             <button key={a.key} onClick={() => set('automation')(a.key)}
-              style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 14px', borderRadius: 12, border: '1px solid ' + (f.automation === a.key ? 'var(--blue)' : 'var(--field-line)'), background: f.automation === a.key ? 'var(--blue-soft)' : '#fff', cursor: 'pointer', textAlign: 'left' }}>
+              style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 14px', borderRadius: 12, border: '1px solid ' + (f.automation === a.key ? 'var(--blue)' : 'var(--field-line)'), background: f.automation === a.key ? 'var(--blue-soft)' : 'var(--surface-2)', cursor: 'pointer', textAlign: 'left' }}>
               <Radio on={f.automation === a.key} interactive={false} />
               <div style={{ flex: 1 }}>
                 <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--ink)' }}>{a.label}</div>

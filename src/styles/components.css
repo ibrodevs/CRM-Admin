@@ -296,7 +296,7 @@ table.tbl.tbl-wide thead th,table.tbl.tbl-wide tbody td{white-space:nowrap}
 @media (min-width:901px){.receipt-breakdown-grid .receipt-inline-row.is-following .label{display:none}}
 .receipt-extra-row{grid-template-columns:1fr 1.4fr .7fr 38px}
 .receipt-textarea{width:100%;height:auto;min-height:72px;resize:vertical;padding-top:9px;padding-bottom:9px}
-.receipt-locked-input{border-color:var(--line)!important;background:#f6f7f9!important;color:var(--body)!important;cursor:not-allowed}
+.receipt-locked-input{border-color:var(--line)!important;background:var(--surface-2)!important;color:var(--muted)!important;cursor:not-allowed}
 .receipt-total-input{border-color:#a9c2ff!important;background:var(--blue-soft)!important;color:var(--ink)!important;font-weight:800}
 .receipt-top-gap{margin-top:12px}
 .receipt-trip-toggle{margin-bottom:12px}

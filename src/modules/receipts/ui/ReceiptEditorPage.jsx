@@ -367,7 +367,7 @@ function ReceiptPreview({ type, p }) {
   const total = Number(p.total) || recComputed(p);
   const hasFinancials = [p.fare, p.taxes, p.fees, p.total].some((value) => value !== '' && value != null);
   return (
-    <div style={{ background: '#fff', border: '1px solid var(--line)', borderRadius: 12, boxShadow: 'var(--shadow-card)', overflow: 'hidden' }}>
+    <div style={{ background: 'var(--surface)', border: '1px solid var(--line)', borderRadius: 12, boxShadow: 'var(--shadow-card)', overflow: 'hidden' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '13px 16px', borderBottom: '2px solid var(--ink)' }}>
         <span style={{ width: 34, height: 34, borderRadius: 8, background: t.color, display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}><Icon name={t.icon} style={{ width: 18, height: 18, color: '#fff' }} /></span>
         <div style={{ flex: 1 }}>
@@ -3631,7 +3631,7 @@ function ReceiptImportModal({ open, onClose, onDone, initialDraft, initialFiles 
               return (
                 <button key={s.key} type="button" onClick={() => setStep(i)}
                   disabled={i > step && !canNext[i - 1]}
-                  style={{ cursor: i > step && !canNext[i - 1] ? 'not-allowed' : 'pointer', border: '1px solid ' + (active ? 'var(--blue)' : doneStep ? 'var(--green)' : 'var(--line)'), background: active ? 'var(--blue-soft)' : '#fff', borderRadius: 10, padding: '10px 8px', textAlign: 'left', opacity: i > step && !canNext[i - 1] ? 0.55 : 1 }}>
+                  style={{ cursor: i > step && !canNext[i - 1] ? 'not-allowed' : 'pointer', border: '1px solid ' + (active ? 'var(--blue)' : doneStep ? 'var(--green)' : 'var(--line)'), background: active ? 'var(--blue-soft)' : doneStep ? 'var(--surface-2)' : 'var(--surface)', borderRadius: 10, padding: '10px 8px', textAlign: 'left', opacity: i > step && !canNext[i - 1] ? 0.55 : 1 }}>
                   <span style={{ width: 22, height: 22, borderRadius: 7, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', marginRight: 7, background: active ? 'var(--blue)' : doneStep ? 'var(--green)' : 'var(--surface-2)', color: active || doneStep ? '#fff' : 'var(--muted)', fontWeight: 800, fontSize: 12 }}>{doneStep ? <Icon name="check" style={{ width: 13, height: 13 }} /> : i + 1}</span>
                   <span style={{ fontSize: 12.5, fontWeight: 700, color: active ? 'var(--blue)' : 'var(--ink)' }}>{s.label}</span>
                 </button>

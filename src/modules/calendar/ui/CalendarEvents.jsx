@@ -195,7 +195,7 @@ function CalDayMenu({ day, pos, onPick, onClose }) {
   const x = Math.min(pos.x, window.innerWidth - 300), y = Math.min(pos.y, window.innerHeight - 260);
   return (
     <div style={{ position: 'fixed', inset: 0, zIndex: 60 }} onMouseDown={onClose}>
-      <div style={{ position: 'fixed', left: x, top: y, width: 280, background: '#fff', border: '1px solid var(--line)', borderRadius: 14, boxShadow: '0 12px 40px rgba(16,23,38,.18)', overflow: 'hidden' }} onMouseDown={(e) => e.stopPropagation()}>
+      <div style={{ position: 'fixed', left: x, top: y, width: 280, background: 'var(--surface)', border: '1px solid var(--line)', borderRadius: 14, boxShadow: '0 12px 40px rgba(16,23,38,.18)', overflow: 'hidden' }} onMouseDown={(e) => e.stopPropagation()}>
         <div style={{ padding: '11px 14px', borderBottom: '1px solid var(--line)', fontSize: 12.5, color: 'var(--muted)' }}>Создать на <b style={{ color: 'var(--ink)' }}>{calFmtDay(day)}</b></div>
         {items.map((it) => {
           const t = CAL_EVENT_TYPES[it.type];

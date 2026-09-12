@@ -352,7 +352,7 @@ function OrderPickerDrawer({ onPick, onClose, orders = [], title = 'Выбор �
       <SearchBox value={q} onChange={setQ} placeholder="Поиск: № заказа или клиент" style={{ width: '100%', marginBottom: 12 }} />
       <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
         {rows.map((o) => (
-          <button key={o.no} type="button" style={{ cursor: 'pointer', width: '100%', textAlign: 'left', border: '1px solid var(--line)', background: '#fff', borderRadius: 12, padding: '10px 12px', display: 'flex', alignItems: 'center', gap: 12 }}
+          <button key={o.no} type="button" style={{ cursor: 'pointer', width: '100%', textAlign: 'left', border: '1px solid var(--line)', background: 'var(--surface)', color: 'var(--ink)', borderRadius: 12, padding: '10px 12px', display: 'flex', alignItems: 'center', gap: 12 }}
             onClick={() => { onPick(o); onClose(); }}>
             <span className="oc-svc-ic" style={{ background: 'var(--blue)', width: 34, height: 34 }}><Icon name="briefcase" style={{ width: 16, height: 16 }} /></span>
             <div style={{ flex: 1, minWidth: 0 }}>

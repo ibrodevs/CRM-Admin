@@ -1373,7 +1373,7 @@ function OrderChangeCase({ orderNo, orderId, services, participants }) {
           const st = CASE_SVC_STATUS[s.status] || CASE_SVC_STATUS.idle;
           const logOpen = openLog === i;
           return (
-            <div key={s.id} style={{ border: '1px solid var(--line)', borderRadius: 12, padding: '11px 13px', background: '#fff' }}>
+            <div key={s.id} style={{ border: '1px solid var(--line)', borderRadius: 12, padding: '11px 13px', background: 'var(--surface)' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
                 <span className="oc-svc-ic" style={{ background: (SERVICE_KIND[s.kind] || {}).color || 'var(--blue)', width: 34, height: 34 }}><Icon name={(SERVICE_KIND[s.kind] || {}).icon || 'briefcase'} /></span>
                 <div style={{ flex: 1, minWidth: 150 }}>
@@ -2259,7 +2259,7 @@ function TabTasks({ tasks = [], assignees = [], onAddTask, onToggleTask, onDelet
             </Field>
             <Field label="Ответственный" className="full">
               <button type="button" className="input" onClick={() => setAssigneeOpen(true)}
-                style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 10, textAlign: 'left', background: '#fff' }}>
+                style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 10, textAlign: 'left' }}>
                 <Avatar name={assigneeName} size={28} />
                 <span style={{ flex: 1, color: taskAssignee ? 'var(--ink)' : 'var(--muted)' }}>{assigneeName}</span>
                 <Icon name="chevRight" style={{ width: 16, height: 16, color: 'var(--muted-2)' }} />
@@ -3203,11 +3203,11 @@ function OrderEditDrawer({ open, order, status, onStatusChange, services, partic
   return (
     <>
       <div className="drawer-overlay" onMouseDown={(e) => { if (e.target === e.currentTarget) onClose(); }}>
-        <div className="scroll" style={{ background: '#fff', width: 'min(980px, 94vw)', height: '100vh',
+        <div className="scroll" style={{ background: 'var(--surface)', width: 'min(980px, 94vw)', height: '100vh',
           overflow: 'auto', boxShadow: 'var(--shadow-modal)', animation: 'slidein .26s cubic-bezier(.2,.9,.3,1)',
           display: 'flex', flexDirection: 'column' }}>
 
-          <div style={{ padding: '22px 30px 0', position: 'sticky', top: 0, background: '#fff', zIndex: 3 }}>
+          <div style={{ padding: '22px 30px 0', position: 'sticky', top: 0, background: 'var(--surface)', zIndex: 3 }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
               <h2 style={{ fontSize: 22, fontWeight: 700, color: 'var(--ink)', margin: 0, letterSpacing: '-.02em' }}>Редактирование заказа №{order.no}</h2>
               <button type="button" className="modal-close" onClick={onClose}><Icon name="x" /></button>
@@ -3322,7 +3322,7 @@ function OrderEditDrawer({ open, order, status, onStatusChange, services, partic
           </div>
 
 
-          <div style={{ padding: '16px 30px', borderTop: '1px solid var(--line)', position: 'sticky', bottom: 0, background: '#fff', display: 'flex', alignItems: 'center', gap: 12 }}>
+          <div style={{ padding: '16px 30px', borderTop: '1px solid var(--line)', position: 'sticky', bottom: 0, background: 'var(--surface)', display: 'flex', alignItems: 'center', gap: 12 }}>
             <Button variant="secondary" onClick={onClose} disabled={saving}>Отмена</Button>
             <div style={{ flex: 1 }} />
             <Button variant="primary" icon={saving ? 'loader' : 'check'} onClick={submit} disabled={saving}>

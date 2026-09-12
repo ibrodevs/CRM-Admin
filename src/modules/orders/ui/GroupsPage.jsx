@@ -303,7 +303,7 @@ function SplitFlow({ s, pax }) {
         {split.map((g, i) => {
           const st = GR_BOOK_STATE[states[g.id] || 'wait'];
           return (
-            <div key={g.id} style={{ border: '1px solid var(--line)', borderRadius: 10, padding: '10px 12px', background: '#fff' }}>
+            <div key={g.id} style={{ border: '1px solid var(--line)', borderRadius: 10, padding: '10px 12px', background: 'var(--surface)' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
                 <span style={{ fontWeight: 700, fontSize: 13, color: 'var(--ink)' }}>Бронь #{i + 1}</span>
                 <span style={{ fontSize: 12.5, color: 'var(--muted)' }}>{g.pax.length} чел. · {f$(g.pax.length * s.pricePer)}</span>
@@ -328,7 +328,7 @@ function SplitFlow({ s, pax }) {
     </div>
   );
 }
-const grIconBtn = { border: '1px solid var(--field-line)', background: '#fff', borderRadius: 8, width: 28, height: 28, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', color: 'var(--muted)' };
+const grIconBtn = { border: '1px solid var(--field-line)', background: 'var(--surface-2)', borderRadius: 8, width: 28, height: 28, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', color: 'var(--muted)' };
 
 
 // Каналы запроса группового блока у поставщика (онлайн, почта и иные каналы связи)
@@ -402,7 +402,7 @@ function GroupServiceScenario({ s, pax = [], orderNo }) {
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px,1fr))', gap: 10 }}>
               {GR_CHANNELS.map((ch) => (
                 <button key={ch.id} type="button" onClick={() => sendRequest(ch)}
-                  style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '12px 14px', border: '1px solid var(--field-line)', borderRadius: 12, background: '#fff', cursor: 'pointer', textAlign: 'left' }}>
+                  style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '12px 14px', border: '1px solid var(--field-line)', borderRadius: 12, background: 'var(--surface)', cursor: 'pointer', textAlign: 'left' }}>
                   <span className="oc-svc-ic" style={{ background: 'var(--blue)', width: 34, height: 34 }}><Icon name={ch.icon} /></span>
                   <span><div style={{ fontWeight: 700, color: 'var(--ink)', fontSize: 13.5 }}>{ch.l}</div><div style={{ fontSize: 12, color: 'var(--muted)' }}>{ch.sub}</div></span>
                 </button>

@@ -15,12 +15,12 @@ function StackPanel({ title, onClose, footer, children, width }) {
   const node = (
     <div className="drawer-stack" style={{ zIndex }} onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}>
       <div className="drawer-stack-panel scroll" style={width ? { width } : undefined}>
-        <div style={{ padding: '20px 26px 16px', position: 'sticky', top: 0, background: '#fff', zIndex: 2, borderBottom: '1px solid var(--line)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <div style={{ padding: '20px 26px 16px', position: 'sticky', top: 0, background: 'var(--surface)', zIndex: 2, borderBottom: '1px solid var(--line)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <h3 style={{ fontSize: 18, fontWeight: 700, color: 'var(--ink)', margin: 0 }}>{title}</h3>
           <button type="button" className="modal-close" onClick={onClose} aria-label="Закрыть панель"><Icon name="x" /></button>
         </div>
         <div style={{ padding: '20px 26px', flex: 1 }}>{children}</div>
-        {footer && <div style={{ padding: '14px 26px', borderTop: '1px solid var(--line)', position: 'sticky', bottom: 0, background: '#fff', display: 'flex', gap: 10 }}>{footer}</div>}
+        {footer && <div style={{ padding: '14px 26px', borderTop: '1px solid var(--line)', position: 'sticky', bottom: 0, background: 'var(--surface)', display: 'flex', gap: 10 }}>{footer}</div>}
       </div>
     </div>
   );

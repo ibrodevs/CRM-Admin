@@ -67,7 +67,7 @@ function TypeCard({ iconName, label, selected, onClick }) {
       display: 'flex', alignItems: 'center', gap: 12,
       padding: '14px 18px', borderRadius: 14,
       border: '1.5px solid ' + (selected ? 'var(--blue)' : 'var(--field-line)'),
-      background: selected ? 'var(--blue-soft)' : '#fff',
+      background: selected ? 'var(--blue-soft)' : 'var(--surface-2)',
       cursor: 'pointer', width: '100%', textAlign: 'left',
       transition: '.14s', fontFamily: 'inherit',
     }}>
@@ -86,7 +86,7 @@ function DocUploadBtn({ label, placeholder = 'Добавить паспорт' }
       <button type="button" style={{
         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
         padding: '12px 16px', borderRadius: 12, border: '1px solid var(--field-line)',
-        background: '#fff', cursor: 'pointer', width: '100%',
+        background: 'var(--surface)', cursor: 'pointer', width: '100%',
         fontSize: 15, color: 'var(--body)', fontFamily: 'inherit', transition: '.14s',
       }}>
         <span>{placeholder}</span>
@@ -103,7 +103,7 @@ function PersonTab({ icon = 'user', name, sub, active, onClick }) {
       display: 'flex', alignItems: 'center', gap: 10,
       padding: '10px 16px', borderRadius: 13,
       border: '1.5px solid ' + (active ? 'var(--blue)' : 'var(--field-line)'),
-      background: '#fff', cursor: 'pointer', fontFamily: 'inherit', transition: '.14s',
+      background: active ? 'var(--blue-soft)' : 'var(--surface)', cursor: 'pointer', fontFamily: 'inherit', transition: '.14s',
     }}>
       <Icon name={icon} style={{ width: 20, height: 20, color: active ? 'var(--blue)' : 'var(--muted)' }} />
       <div style={{ textAlign: 'left' }}>
@@ -473,11 +473,11 @@ function OrderCreateModal({ open, onClose, onCreated, initialGroup = false, init
     <>
       <div className="drawer-overlay order-create-overlay" style={{ display: 'flex', justifyContent: 'flex-end' }}
         onMouseDown={(e) => { if (e.target === e.currentTarget) onClose(); }}>
-        <div className="scroll" style={{ background: '#fff', width: 'min(640px, 60vw)', height: '100%',
+        <div className="scroll" style={{ background: 'var(--surface)', width: 'min(640px, 60vw)', height: '100%',
           overflow: 'auto', boxShadow: 'var(--shadow-modal)', animation: 'slidein .26s cubic-bezier(.2,.9,.3,1)',
           display: 'flex', flexDirection: 'column' }}>
 
-          <div style={{ padding: '22px 30px 18px', position: 'sticky', top: 0, background: '#fff', zIndex: 2, borderBottom: '1px solid var(--line)' }}>
+          <div style={{ padding: '22px 30px 18px', position: 'sticky', top: 0, background: 'var(--surface)', zIndex: 2, borderBottom: '1px solid var(--line)' }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
               <h2 style={{ fontSize: 22, fontWeight: 700, color: 'var(--ink)', margin: 0, letterSpacing: '-.02em' }}>Создание заказа</h2>
               <button type="button" className="modal-close" onClick={onClose}><Icon name="x" /></button>
@@ -493,7 +493,7 @@ function OrderCreateModal({ open, onClose, onCreated, initialGroup = false, init
                 <TypeCard iconName="user" label="Физическое лицо" selected={clientType === 'person'} onClick={() => setClientType('person')} />
               </div>
               <div role="button" tabIndex={0} onClick={() => setIsGroup((v) => !v)}
-                style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer', marginTop: 12, padding: '11px 13px', border: '1px solid var(--line)', borderRadius: 11, background: isGroup ? 'var(--blue-soft)' : '#fff' }}>
+                style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer', marginTop: 12, padding: '11px 13px', border: '1px solid var(--line)', borderRadius: 11, background: isGroup ? 'var(--blue-soft)' : 'var(--surface-2)' }}>
                 <Icon name="users" style={{ width: 18, height: 18, color: 'var(--blue)' }} />
                 <div style={{ flex: 1 }}><div style={{ fontWeight: 600, color: 'var(--ink)', fontSize: 14 }}>Групповая поездка</div>
                   <div style={{ fontSize: 12, color: 'var(--muted)' }}>Бронирование на группу пассажиров с управлением группами</div></div>
@@ -653,7 +653,7 @@ function OrderCreateModal({ open, onClose, onCreated, initialGroup = false, init
           </div>
 
 
-          <div style={{ padding: '16px 30px', borderTop: '1px solid var(--line)', position: 'sticky', bottom: 0, background: '#fff', display: 'flex', alignItems: 'center', gap: 12 }}>
+          <div style={{ padding: '16px 30px', borderTop: '1px solid var(--line)', position: 'sticky', bottom: 0, background: 'var(--surface)', display: 'flex', alignItems: 'center', gap: 12 }}>
             <Button variant="secondary" onClick={onClose}>Отмена</Button>
             <div style={{ flex: 1 }} />
             <Button variant="primary" icon={creating ? 'loader' : 'search'} onClick={findServices} disabled={creating}>{creating ? 'Создание…' : 'Найти услуги'}</Button>

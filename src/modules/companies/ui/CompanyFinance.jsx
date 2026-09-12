@@ -554,7 +554,7 @@ function CompanySettlementsBlock({ co, currency }) {
     } catch (error) { toast(error.message || 'Не удалось сформировать документ', 'err'); }
   };
   const stat = (label, value, tone) => (
-    <div style={{ padding: '12px 14px', border: '1px solid var(--line)', borderRadius: 12, background: '#fff' }}>
+    <div style={{ padding: '12px 14px', border: '1px solid var(--line)', borderRadius: 12, background: 'var(--surface)' }}>
       <div style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 4 }}>{label}</div>
       <div style={{ fontSize: 20, fontWeight: 700, color: tone || 'var(--ink)' }}>{value}</div>
     </div>

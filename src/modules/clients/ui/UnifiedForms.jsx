@@ -525,14 +525,14 @@ function ufOrderPickRows(query, orders) {
     .slice(0, 20);
 }
 
-const UF_PICK_ROW_STYLE = { cursor: 'pointer', width: '100%', textAlign: 'left', border: '1px solid var(--line)', background: '#fff', borderRadius: 12, padding: '10px 12px', display: 'flex', alignItems: 'center', gap: 12 };
+const UF_PICK_ROW_STYLE = { cursor: 'pointer', width: '100%', textAlign: 'left', border: '1px solid var(--line)', background: 'var(--surface)', color: 'var(--ink)', borderRadius: 12, padding: '10px 12px', display: 'flex', alignItems: 'center', gap: 12 };
 
 function UfOrderRow({ order, icon = 'briefcase', tone = 'var(--blue)', onClick }) {
   return (
     <button type="button" className="oce-client" style={UF_PICK_ROW_STYLE} onClick={onClick}>
       <span className="oc-svc-ic" style={{ background: tone, width: 34, height: 34 }}><Icon name={icon} /></span>
       <div style={{ flex: 1, minWidth: 0 }}>
-        <div className="nm" style={{ fontWeight: 600 }}>Заказ № {order.no}</div>
+        <div className="nm" style={{ fontWeight: 600, color: 'var(--ink)' }}>Заказ № {order.no}</div>
         <div className="mt" style={{ fontSize: 12, color: 'var(--muted)' }}>{order.client}{order.requestType ? ' · ' + order.requestType : ''}</div>
       </div>
       {order.createdOn && <div style={{ fontSize: 12, color: 'var(--muted)', whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: 5 }}><Icon name="calendar" style={{ width: 13, height: 13 }} />{fmtDate(order.createdOn)}</div>}

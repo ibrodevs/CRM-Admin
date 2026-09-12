@@ -291,7 +291,7 @@ function CardCore({ vm, fmt, kindMeta }) {
             {vm.altBlocks.map((a, i) => {
               const cheaper = String(a.delta).startsWith('−') || String(a.delta).startsWith('-');
               return (
-                <div key={i} style={{ padding: '9px 11px', borderRadius: 10, border: '1px solid var(--line)', background: '#fff', display: 'flex', alignItems: 'center', gap: 10 }}>
+                <div key={i} style={{ padding: '9px 11px', borderRadius: 10, border: '1px solid var(--line)', background: 'var(--surface)', display: 'flex', alignItems: 'center', gap: 10 }}>
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ fontSize: 10.5, color: 'var(--muted)', marginBottom: 1 }}>{a.scope}</div>
                     <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--ink)' }}>{a.title}</div>
@@ -335,8 +335,8 @@ function ChannelPreview({ mode, channel, vm, fmt, kindMeta }) {
     const tpl = cardEmailTemplate(vm.sc.sys);
     const subst = (s) => (s || '').replace('{label}', vm.badge).replace('{title}', vm.title).replace('{sys}', vm.sc.sys);
     return (
-      <div style={{ background: '#f1f4f8', border: '1px solid var(--line)', borderRadius: 14, overflow: 'hidden' }}>
-        <div style={{ background: '#fff', borderBottom: '1px solid var(--line)', padding: '12px 16px' }}>
+      <div style={{ background: 'var(--surface-2)', border: '1px solid var(--line)', borderRadius: 14, overflow: 'hidden' }}>
+        <div style={{ background: 'var(--surface)', borderBottom: '1px solid var(--line)', padding: '12px 16px' }}>
           <div style={{ fontSize: 11, color: 'var(--muted)' }}>Тема письма</div>
           <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--ink)' }}>{subst(tpl.subject)}</div>
           <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 4 }}>от Travel Hub &lt;service@travelhub.app&gt; · кому: клиент</div>
@@ -353,9 +353,9 @@ function ChannelPreview({ mode, channel, vm, fmt, kindMeta }) {
   if (mode === 'messenger') {
     const acts = vm.actions.map((a) => cardAction(a));
     return (
-      <div style={{ background: 'linear-gradient(#e7ebf1,#eef2f6)', border: '1px solid var(--line)', borderRadius: 16, padding: 14, minHeight: 120 }}>
+      <div style={{ background: 'var(--surface-2)', border: '1px solid var(--line)', borderRadius: 16, padding: 14, minHeight: 120 }}>
         <div style={{ maxWidth: 340, marginLeft: 'auto' }}>
-          <div style={{ background: '#fff', borderRadius: '14px 14px 4px 14px', boxShadow: '0 2px 8px rgba(25,45,80,.08)', padding: 12 }}>
+          <div style={{ background: 'var(--surface)', borderRadius: '14px 14px 4px 14px', boxShadow: 'var(--shadow-card)', padding: 12 }}>
             <div style={{ fontSize: 13, fontWeight: 800, color: sc_tone_color(vm.sc.tone) }}>{vm.badge}</div>
             {vm.statuses.length > 0 && <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 2 }}>{vm.statuses.join(' · ')}</div>}
             <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--ink)', marginTop: 8 }}>{vm.title}</div>
@@ -363,7 +363,7 @@ function ChannelPreview({ mode, channel, vm, fmt, kindMeta }) {
             <div style={{ fontSize: 12, color: 'var(--body)', marginTop: 8, whiteSpace: 'pre-line' }}>{messengerBody(vm, fmt)}</div>
             {vm.attachments.length > 0 && <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 6 }}>📎 {vm.attachments.map((a) => a.name || a).join(', ')}</div>}
             <div style={{ borderTop: '1px solid var(--line)', marginTop: 10, paddingTop: 8, display: 'flex', flexDirection: 'column', gap: 6 }}>
-              {acts.slice(0, 3).map((m, i) => <span key={i} style={{ width: '100%', textAlign: 'center', padding: '8px', borderRadius: 9, border: '1px solid ' + (m.kind === 'primary' ? 'var(--blue)' : 'var(--line)'), background: m.kind === 'primary' ? 'var(--blue)' : '#fff', color: m.kind === 'primary' ? '#fff' : 'var(--ink)', fontSize: 13, fontWeight: 600 }}>{m.label}</span>)}
+              {acts.slice(0, 3).map((m, i) => <span key={i} style={{ width: '100%', textAlign: 'center', padding: '8px', borderRadius: 9, border: '1px solid ' + (m.kind === 'primary' ? 'var(--blue)' : 'var(--line)'), background: m.kind === 'primary' ? 'var(--blue)' : 'var(--surface)', color: m.kind === 'primary' ? '#fff' : 'var(--ink)', fontSize: 13, fontWeight: 600 }}>{m.label}</span>)}
               <span style={{ textAlign: 'center', fontSize: 12, color: 'var(--blue)', marginTop: 2 }}>Открыть полную карточку →</span>
             </div>
           </div>
@@ -743,7 +743,7 @@ function ServiceCardSendPanel({ item, kind, participants = [], orderNo, currency
                 <Input value={fm.whatChanged} onChange={(e) => setFm((f) => ({ ...f, whatChanged: e.target.value }))} placeholder="Что изменилось" />
                 <Input value={fm.operatorActions} onChange={(e) => setFm((f) => ({ ...f, operatorActions: e.target.value }))} placeholder="Действия оператора" />
 
-                <div style={{ border: '1px solid var(--field-line)', borderRadius: 12, padding: 12, background: '#fff' }}>
+                <div style={{ border: '1px solid var(--field-line)', borderRadius: 12, padding: 12, background: 'var(--surface)' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                     <span style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--ink)', flex: 1 }}>Альтернативы и связанные услуги</span>
                     <Button size="sm" icon="refund" onClick={() => setPicksOpen(true)}>Открыть подбор</Button>
@@ -771,7 +771,7 @@ function ServiceCardSendPanel({ item, kind, participants = [], orderNo, currency
                   const st = CHAIN_STATUS[c.status] || CHAIN_STATUS.ok;
                   const picks = chainState[i] && chainState[i].include ? chainState[i].sel.size : 0;
                   return (
-                    <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 10px', borderRadius: 10, border: '1px solid var(--field-line)', background: '#fff' }}>
+                    <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 10px', borderRadius: 10, border: '1px solid var(--field-line)', background: 'var(--surface)' }}>
                       <span style={{ width: 78, flexShrink: 0, fontSize: 12, fontWeight: 600, color: 'var(--muted)' }}>{c.kind}</span>
                       <span style={{ flex: 1, minWidth: 0, fontSize: 13, color: 'var(--ink)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.service}</span>
                       {picks > 0 && <Pill tone="blue">{picks} для клиента</Pill>}

@@ -214,7 +214,7 @@ function TpMultiSelect({ label, options, values, onChange, placeholder }) {
           <Icon name="chevDown" style={{ width: 16, height: 16, color: 'var(--muted-2)' }} />
         </button>
         {open && (
-          <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, marginTop: 4, zIndex: 60, background: '#fff', border: '1px solid var(--line)', borderRadius: 12, boxShadow: 'var(--shadow-modal)', maxHeight: 260, overflowY: 'auto', padding: 6 }}>
+          <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, marginTop: 4, zIndex: 60, background: 'var(--surface)', border: '1px solid var(--line)', borderRadius: 12, boxShadow: 'var(--shadow-modal)', maxHeight: 260, overflowY: 'auto', padding: 6 }}>
             {options.map((o) => (
               <div key={o} onClick={() => toggle(o)} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '9px 10px', borderRadius: 8, cursor: 'pointer', fontSize: 13, color: 'var(--ink)' }}
                 onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--surface-2)')} onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}>
@@ -244,7 +244,7 @@ function TpPersonSearch({ placeholder, exclude, onPick, options = [] }) {
     <div ref={ref} style={{ position: 'relative' }}>
       <Input leadIcon="search" placeholder={placeholder || 'Поиск сотрудника по ФИО'} value={q} onChange={(e) => { setQ(e.target.value); setOpen(true); }} onFocus={() => setOpen(true)} />
       {open && q.trim() && (
-        <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, marginTop: 4, zIndex: 60, background: '#fff', border: '1px solid var(--line)', borderRadius: 12, boxShadow: 'var(--shadow-modal)', maxHeight: 260, overflowY: 'auto', padding: 6 }}>
+        <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, marginTop: 4, zIndex: 60, background: 'var(--surface)', border: '1px solid var(--line)', borderRadius: 12, boxShadow: 'var(--shadow-modal)', maxHeight: 260, overflowY: 'auto', padding: 6 }}>
           {list.length ? list.map((item) => { const name = typeof item === 'string' ? item : item.name; const id = typeof item === 'string' ? item : item.id; return (
             <div key={id} onClick={() => { onPick(name, item); setQ(''); setOpen(false); }} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 10px', borderRadius: 8, cursor: 'pointer' }}
               onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--surface-2)')} onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}>

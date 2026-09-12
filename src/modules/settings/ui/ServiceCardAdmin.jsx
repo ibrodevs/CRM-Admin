@@ -214,7 +214,7 @@ function ScenariosTab({ scen, setScen, curSys, setCurSys }) {
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 8 }}>
           {Object.keys(CARD_BLOCK_CATALOG).filter((b) => !(sc.blocks || []).includes(b)).map((b) => (
             <button key={b} type="button" onClick={() => toggleIn('blocks', b)}
-              style={{ fontSize: 11.5, padding: '4px 9px', borderRadius: 16, border: '1px dashed var(--line)', background: '#fff', color: 'var(--muted)', cursor: 'pointer' }}>+ {CARD_BLOCK_CATALOG[b]}</button>
+              style={{ fontSize: 11.5, padding: '4px 9px', borderRadius: 16, border: '1px dashed var(--line)', background: 'var(--surface)', color: 'var(--muted)', cursor: 'pointer' }}>+ {CARD_BLOCK_CATALOG[b]}</button>
           ))}
         </div>
       </div>

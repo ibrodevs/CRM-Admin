@@ -482,7 +482,7 @@ function FinPickerDrawer({ open, title, sub, rows, placeholder, value, onClose, 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
         {shown.map((r) => (
           <button key={r.value || r.name} type="button" onClick={() => onPick(r.value || r.name)}
-            style={{ cursor: 'pointer', width: '100%', textAlign: 'left', border: '1px solid var(--line)', background: value === (r.value || r.name) ? 'var(--surface-2)' : '#fff', borderRadius: 12, padding: '10px 12px', display: 'flex', alignItems: 'center', gap: 12 }}>
+            style={{ cursor: 'pointer', width: '100%', textAlign: 'left', border: '1px solid var(--line)', background: value === (r.value || r.name) ? 'var(--surface-2)' : 'var(--surface)', borderRadius: 12, padding: '10px 12px', display: 'flex', alignItems: 'center', gap: 12 }}>
             <span className="oc-svc-ic" style={{ background: r.tone || 'var(--blue)', width: 34, height: 34, borderRadius: 10, flexShrink: 0 }}><Icon name={r.icon || 'briefcase'} style={{ width: 17, height: 17 }} /></span>
             <span style={{ flex: 1, minWidth: 0 }}>
               <span style={{ display: 'block', fontWeight: 600, color: 'var(--ink)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{r.name}</span>
@@ -702,7 +702,7 @@ function FinTreasury({ accounts = [], payments = [], receipts = [], currency }) 
           <div style={{ fontSize: 12.5, color: 'var(--muted)', marginBottom: 12 }}>Показываются фактические непроведённые платежи backend в выбранной валюте.</div>
           {!withRunning.length ? <EmptyState icon="check" title="Платежей к проведению нет" /> : <div style={{ display: 'grid', gap: 8 }}>
             {withRunning.map((payment) => (
-              <div key={payment.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px', borderRadius: 10, border: '1px solid var(--line)', background: payment.after < 0 ? 'var(--red-bg)' : '#fff' }}>
+              <div key={payment.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px', borderRadius: 10, border: '1px solid var(--line)', background: payment.after < 0 ? 'var(--red-bg)' : 'var(--surface)' }}>
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ fontWeight: 600, fontSize: 13, color: 'var(--ink)' }}>{payment.party}</div>
                   <div style={{ fontSize: 12, color: 'var(--muted)' }}>{payment.no} · создан {payment.date} · заказ {payment.order || '—'} · {payment.status}</div>
@@ -1020,7 +1020,7 @@ function FinSettlements({ counterparties = [], receipts = [], meta }) {
         <Tabs tabs={[{ key: 'client', label: 'Клиенты' }, { key: 'supplier', label: 'Поставщики' }]} value={type} onChange={setType} />
         <SearchBox value={q} onChange={setQ} placeholder="Поиск по контрагенту или заказу" style={{ minWidth: 260 }} />
         <button type="button" onClick={() => setOnlyOverdue((value) => !value)}
-          style={{ cursor: 'pointer', fontSize: 12.5, padding: '7px 12px', borderRadius: 9, border: '1px solid ' + (onlyOverdue ? 'var(--red)' : 'var(--line)'), background: onlyOverdue ? 'var(--red-bg)' : '#fff', color: onlyOverdue ? 'var(--red)' : 'var(--body)' }}>
+          style={{ cursor: 'pointer', fontSize: 12.5, padding: '7px 12px', borderRadius: 9, border: '1px solid ' + (onlyOverdue ? 'var(--red)' : 'var(--line)'), background: onlyOverdue ? 'var(--red-bg)' : 'var(--surface-2)', color: onlyOverdue ? 'var(--red)' : 'var(--body)' }}>
           Только с просрочкой
         </button>
         <div style={{ flex: 1 }} />

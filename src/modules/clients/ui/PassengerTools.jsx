@@ -602,7 +602,7 @@ function PaxUnifyPanel({ list, orderNo, autoBind, onClose, onApplyRoster }) {
           <div style={{ width: '100%' }}>
             <ModalHeader title="Предпросмотр документа" sub={'Формат «' + (tpl.bindTo || tpl.name) + '» · ' + tpl.file.toUpperCase() + ' · ' + tpl.encoding} onClose={() => setDocPreview(false)} />
             <div style={{ background: 'var(--surface-2)', borderRadius: 12, padding: 24, maxHeight: '62vh', overflow: 'auto' }}>
-              <div style={{ background: '#fff', border: '1px solid var(--line)', borderRadius: 8, padding: 24, boxShadow: 'var(--shadow-card)' }}>
+              <div style={{ background: 'var(--surface)', border: '1px solid var(--line)', borderRadius: 8, padding: 24, boxShadow: 'var(--shadow-card)' }}>
                 <div style={{ fontWeight: 700, fontSize: 15, color: 'var(--ink)', marginBottom: 2 }}>Список пассажиров{orderNo ? ' · заказ №' + orderNo : ''}</div>
                 <div style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 16 }}>Назначение: {tpl.bindTo || tpl.name} · документ: {requiredDoc} · {pax.length} пасс.</div>
                 <div style={{ overflowX: 'auto' }}>
@@ -1040,7 +1040,7 @@ function PaxGroupsDrawer({ current = [], companyId, companyName, onAddGroup, onC
 
 
     const memberRow = ({ m, idx }) => (
-      <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 10px', borderRadius: 10, border: '1px solid var(--field-line)', background: '#fff' }}>
+      <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 10px', borderRadius: 10, border: '1px solid var(--field-line)', background: 'var(--surface)' }}>
         <Avatar name={m.name} size={30} />
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ fontWeight: 600, fontSize: 13.5, color: 'var(--ink)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{m.name}</div>

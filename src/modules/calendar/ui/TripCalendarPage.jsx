@@ -299,7 +299,7 @@ function DayListPopover({ day, pos, trips, events, onOpenTrip, onOpenEvent, onOp
   const dateLabel = day.getDate() + ' ' + TC_MONTHS[day.getMonth()] + ' ' + day.getFullYear();
   return (
     <div style={{ position: 'fixed', inset: 0, zIndex: 60 }} onMouseDown={onClose}>
-      <div style={{ position: 'fixed', left: x, top: Math.max(8, y), width: W, maxHeight: 'min(70vh, 460px)', display: 'flex', flexDirection: 'column', background: '#fff', border: '1px solid var(--line)', borderRadius: 14, boxShadow: '0 12px 40px rgba(16,23,38,.18)', overflow: 'hidden' }}
+      <div style={{ position: 'fixed', left: x, top: Math.max(8, y), width: W, maxHeight: 'min(70vh, 460px)', display: 'flex', flexDirection: 'column', background: 'var(--surface)', border: '1px solid var(--line)', borderRadius: 14, boxShadow: '0 12px 40px rgba(16,23,38,.18)', overflow: 'hidden' }}
         onMouseDown={(e) => e.stopPropagation()}>
         <div style={{ padding: '11px 14px', borderBottom: '1px solid var(--line)', display: 'flex', alignItems: 'center', gap: 8 }}>
           <span style={{ fontSize: 13.5, fontWeight: 700, color: 'var(--ink)' }}>{dateLabel}</span>

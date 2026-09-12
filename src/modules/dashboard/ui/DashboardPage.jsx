@@ -225,7 +225,7 @@ function FreeBookingFinalize({ draft, onClose, onDone, onOpenOrder, onNavigate, 
         <SearchBox value={q} onChange={setQ} placeholder={legal ? 'Поиск компании' : 'Поиск клиента'} style={{ width: '100%', marginBottom: 12 }} />
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
           {list.map((name) => (
-            <button key={name} type="button" style={{ cursor: 'pointer', width: '100%', textAlign: 'left', border: '1px solid var(--line)', background: '#fff', borderRadius: 12, padding: '10px 12px', display: 'flex', alignItems: 'center', gap: 12 }}
+            <button key={name} type="button" style={{ cursor: 'pointer', width: '100%', textAlign: 'left', border: '1px solid var(--line)', background: 'var(--surface)', color: 'var(--ink)', borderRadius: 12, padding: '10px 12px', display: 'flex', alignItems: 'center', gap: 12 }}
               onClick={() => createNewOrder(name, legal ? 'Корпоративная' : 'Индивидуальная')}>
               {legal
                 ? <span className="oc-svc-ic" style={{ background: '#2566ff', width: 34, height: 34 }}><Icon name="building" style={{ width: 16, height: 16 }} /></span>
@@ -608,7 +608,7 @@ function SupplierErrorsDrawer({ supplier, onClose, onOpenOrder, errors, users = 
     <FilterChip label={label} options={opts} value={flt[key]} onChange={(v) => setFlt((f) => ({ ...f, [key]: v }))} />
   );
   const errRow = (e) => (
-    <div key={e.id} onClick={() => setSel(e)} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 14px', borderRadius: 12, border: '1px solid var(--field-line)', cursor: 'pointer', background: '#fff' }}>
+    <div key={e.id} onClick={() => setSel(e)} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 14px', borderRadius: 12, border: '1px solid var(--field-line)', cursor: 'pointer', background: 'var(--surface)' }}>
       <span style={{ width: 8, height: 8, borderRadius: '50%', background: 'var(--' + (ERR_CRIT_TONE[e.crit] || 'gray') + ')', flexShrink: 0 }} />
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ fontWeight: 600, color: 'var(--ink)', fontSize: 14 }}>{e.reason}</div>

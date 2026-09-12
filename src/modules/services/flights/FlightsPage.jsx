@@ -951,7 +951,7 @@ function CorrectionPreview({ doc, template, entity, currency, cfg, itinerary = [
   const cur = corrCur(currency);
   const money = (v) => (v < 0 ? '− ' : '') + Math.abs(v).toLocaleString('ru-RU') + ' ' + cur;
   return (
-    <div style={{ background: '#fff', border: '1px solid var(--line)', borderRadius: 10, boxShadow: 'var(--shadow-card)', padding: '22px 24px', fontSize: 13 }}>
+    <div style={{ background: 'var(--surface)', border: '1px solid var(--line)', borderRadius: 10, boxShadow: 'var(--shadow-card)', padding: '22px 24px', fontSize: 13 }}>
 
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingBottom: 14, borderBottom: '2px solid var(--ink)' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
@@ -1573,7 +1573,7 @@ function FlightReceiptDrawer({ open, passengers, pax, legs, air, supplier, fare,
         <Button icon="download" onClick={() => window.print()}>Скачать PDF</Button></>}>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
         {list.map((p, i) => (
-          <div key={i} style={{ background: '#fff', border: '1px solid var(--line)', borderRadius: 10, boxShadow: 'var(--shadow-card)', padding: '20px 22px', fontSize: 13 }}>
+          <div key={i} style={{ background: 'var(--surface)', border: '1px solid var(--line)', borderRadius: 10, boxShadow: 'var(--shadow-card)', padding: '20px 22px', fontSize: 13 }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingBottom: 12, borderBottom: '2px solid var(--ink)' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                 <AirlineLogo code={air} size="sm" />

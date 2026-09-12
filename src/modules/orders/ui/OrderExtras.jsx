@@ -95,7 +95,7 @@ function PassportModal({ passenger, participants, onClose, onAddDoc }) {
         {currentDocs.length ? (
           <div style={{ display: 'grid', gap: 10 }}>
             {currentDocs.map((doc, index) => (
-              <div key={doc.id || doc.docNo || index} style={{ display: 'flex', alignItems: 'center', gap: 12, border: '1px solid var(--line)', borderRadius: 12, padding: '12px 14px', background: '#fff' }}>
+              <div key={doc.id || doc.docNo || index} style={{ display: 'flex', alignItems: 'center', gap: 12, border: '1px solid var(--line)', borderRadius: 12, padding: '12px 14px', background: 'var(--surface)' }}>
                 <span className="oc-svc-ic" style={{ background: 'var(--blue)', width: 34, height: 34 }}><Icon name="idcard" /></span>
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ fontWeight: 700, color: 'var(--ink)', fontSize: 14 }}>{doc.docType || 'Документ'}</div>
