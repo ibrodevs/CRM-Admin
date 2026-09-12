@@ -2030,7 +2030,7 @@ function AeroAddFlow({ onAdd }) {
     <div className="fade-in">
       <div style={{ marginBottom: 14, display: 'flex', gap: 10, alignItems: 'center' }}>
         {view === 'results' && <Button variant="secondary" size="sm" icon="chevLeft" onClick={() => setView('search')}>Изменить поиск</Button>}
-        <img className="aero-logo" src="assets/Aeroexpress_logo.svg.png" alt="Аэроэкспресс" style={{ height: 22, width: 'auto' }} />
+        <img className="aero-logo" src="assets/Express-blue-logo.png" alt="Аэроэкспресс" style={{ height: 22, width: 'auto' }} />
         <span style={{ fontWeight: 600, color: 'var(--ink)' }}>Аэроэкспресс — билеты и абонементы</span>
       </div>
 
@@ -2515,7 +2515,7 @@ const SERVICES_HUB = [
   { key: 'hotels', icon: 'building', title: 'Гостиницы', desc: 'Подбор отелей, категории, питание и условия.' },
   { key: 'transfers', icon: 'car', title: 'Трансферы', desc: 'Индивидуальные и групповые трансферы, такси.' },
   { key: 'buses', icon: 'bus', title: 'Автобусы', desc: 'Автобусные и маршрутные перевозки.' },
-  { key: 'aero', img: 'assets/Aeroexpress_logo.svg.png', title: 'Аэроэкспресс', desc: 'Билеты и абонементы Аэроэкспресс, аэропорт ⇄ город.' },
+  { key: 'aero', img: 'assets/Express-blue-logo.png', title: 'Аэроэкспресс', desc: 'Билеты и абонементы Аэроэкспресс, аэропорт ⇄ город.' },
   { key: 'lounge', icon: 'lounge', title: 'Бизнес-залы', desc: 'VIP-залы ожидания в аэропортах, доступ по гостям.' },
   { key: 'tours', icon: 'users', title: 'Туры и группы', desc: 'Групповые поездки и туристические пакеты.' },
 ];
