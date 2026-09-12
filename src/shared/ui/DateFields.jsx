@@ -101,7 +101,7 @@ function CalendarPicker({ mode = 'range', startVal = null, endVal = null, onConf
   const SOLO = sameDayEq(rS, rE);
 
   return (
-    <div style={{ background: '#fff', borderRadius: 20, padding: '22px 18px 16px', boxShadow: '0 16px 48px rgba(16,23,38,.22)', width: 302, userSelect: 'none' }}>
+    <div style={{ background: 'var(--surface)', borderRadius: 20, padding: '22px 18px 16px', boxShadow: 'var(--shadow-pop)', width: 302, userSelect: 'none', border: '1px solid var(--line)' }}>
 
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
         <button type="button" onClick={prevMo} style={{ border: 'none', background: 'none', cursor: 'pointer', color: 'var(--blue)', padding: '6px', borderRadius: 8, display: 'flex' }}>
@@ -109,11 +109,11 @@ function CalendarPicker({ mode = 'range', startVal = null, endVal = null, onConf
         </button>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, minWidth: 178 }}>
           <select aria-label="Месяц" value={month} onChange={(e) => setMonth(Number(e.target.value))}
-            style={{ border: '1px solid var(--line)', borderRadius: 9, background: '#fff', color: 'var(--ink)', fontWeight: 700, fontSize: 14, padding: '6px 8px', cursor: 'pointer', fontFamily: 'inherit' }}>
+            style={{ border: '1px solid var(--line)', borderRadius: 9, background: 'var(--surface)', color: 'var(--ink)', fontWeight: 700, fontSize: 14, padding: '6px 8px', cursor: 'pointer', fontFamily: 'inherit' }}>
             {CAL_MONTHS.map((name, index) => <option key={name} value={index}>{name}</option>)}
           </select>
           <select aria-label="Год" value={year} onChange={(e) => setYear(Number(e.target.value))}
-            style={{ border: '1px solid var(--line)', borderRadius: 9, background: '#fff', color: 'var(--ink)', fontWeight: 800, fontSize: 14, padding: '6px 8px', cursor: 'pointer', fontFamily: 'inherit' }}>
+            style={{ border: '1px solid var(--line)', borderRadius: 9, background: 'var(--surface)', color: 'var(--ink)', fontWeight: 800, fontSize: 14, padding: '6px 8px', cursor: 'pointer', fontFamily: 'inherit' }}>
             {Array.from(new Set([...Array.from({ length: 101 }, (_, i) => now.getFullYear() - 80 + i), year]))
               .sort((a, b) => a - b)
               .map((value) => <option key={value} value={value}>{value}</option>)}
@@ -358,7 +358,7 @@ function TimeField({ label, value, onChange, placeholder = 'чч:мм', required
       {error && <div className="err-text"><Icon name="alertCircle" style={{ width: 14, height: 14 }} />{error}</div>}
       {open && ReactDOM.createPortal(
         <div id="__time_portal__" style={{ position: 'fixed', top: pos.top, left: pos.left, zIndex: 9999 }}>
-          <div style={{ background: '#fff', borderRadius: 16, boxShadow: '0 18px 54px rgba(16,23,38,.22)', border: '1px solid var(--line)', width: 224, userSelect: 'none', overflow: 'hidden' }}>
+          <div style={{ background: 'var(--surface)', borderRadius: 16, boxShadow: 'var(--shadow-pop)', border: '1px solid var(--line)', width: 224, userSelect: 'none', overflow: 'hidden' }}>
             <div style={{ display: 'flex', textAlign: 'center', fontSize: 11, fontWeight: 800, color: 'var(--blue)', padding: '10px 6px 4px', letterSpacing: '.04em' }}>
               <div style={{ flex: 1 }}>ЧАСЫ</div><div style={{ flex: 1 }}>МИНУТЫ</div>
             </div>

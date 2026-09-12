@@ -11,10 +11,15 @@ export function PreferenceEffects({ syncCurrencies }) {
     workspaceSettingsApi.getTenant('finance-currencies', controller.signal).then(({value}) => { if (!controller.signal.aborted) syncCurrencies(value || {}); }).catch(() => {});
     return () => controller.abort();
   }, [user?.id, syncCurrencies]);
-  const theme = user?.preferences?.theme || 'light';
+  const storedTheme = typeof window !== 'undefined' ? (() => { try { return localStorage.getItem('crm_theme'); } catch { return null; } })() : null;
+  const theme = user?.preferences?.theme || storedTheme || 'light';
   useEffect(() => {
     const media = window.matchMedia('(prefers-color-scheme: dark)');
-    const apply = () => { document.documentElement.dataset.theme = theme === 'system' ? (media.matches ? 'dark' : 'light') : theme; };
+    const apply = () => {
+      const activeTheme = theme === 'system' ? (media.matches ? 'dark' : 'light') : theme;
+      document.documentElement.dataset.theme = activeTheme;
+      try { if (theme) localStorage.setItem('crm_theme', theme); } catch {}
+    };
     apply(); media.addEventListener('change', apply);
     return () => media.removeEventListener('change', apply);
   }, [theme]);

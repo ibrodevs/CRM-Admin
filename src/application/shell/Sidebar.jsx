@@ -71,12 +71,26 @@ function Sidebar({ route, onNavigate, onLogout, role, user, collapsed }) {
 
 function ProfileCard({ user, onLogout, onNavigate, collapsed }) {
   const [open, setOpen] = useState(false);
+  const [theme, setTheme] = useState(() => (typeof document !== 'undefined' ? document.documentElement.dataset.theme || 'light' : 'light'));
   const ref = useRef(null);
   useEffect(() => {
     const h = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); };
     document.addEventListener('mousedown', h);
     return () => document.removeEventListener('mousedown', h);
   }, []);
+  useEffect(() => {
+    if (typeof document === 'undefined') return;
+    const observer = new MutationObserver(() => {
+      setTheme(document.documentElement.dataset.theme || 'light');
+    });
+    observer.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
+    return () => observer.disconnect();
+  }, []);
+  const toggleTheme = () => {
+    const next = theme === 'dark' ? 'light' : 'dark';
+    document.documentElement.dataset.theme = next;
+    try { localStorage.setItem('crm_theme', next); } catch {}
+  };
   const go = (r) => { setOpen(false); onNavigate && onNavigate(r); };
   const profile = user || { name: 'Пользователь', role: 'CRM', avatar: null };
   return (
@@ -85,6 +99,10 @@ function ProfileCard({ user, onLogout, onNavigate, collapsed }) {
         <div className="dropdown" style={collapsed ? { bottom: 74, left: 0, minWidth: 220 } : { bottom: 74, left: 0, right: 0, minWidth: 0 }}>
           <div className="dropdown-item" onClick={() => go('profile')}><Icon name="user" />Мой профиль</div>
           <div className="dropdown-item" onClick={() => go('account')}><Icon name="settings" />Настройки аккаунта</div>
+          <div className="dropdown-item" onClick={toggleTheme}>
+            <Icon name={theme === 'dark' ? 'sun' : 'moon'} />
+            {theme === 'dark' ? 'Светлая тема' : 'Тёмная тема'}
+          </div>
           <div className="dropdown-sep" />
           <div className="dropdown-item danger" onClick={onLogout}><Icon name="logout" />Выйти</div>
         </div>

@@ -113,7 +113,7 @@ function UFDateField(_uf) {
   };
   const cal = (
     <div id="__uf_date_portal__" style={{ position: 'fixed', top: pos.top, left: pos.left, zIndex: 9999 }}>
-      <div style={{ background: '#fff', borderRadius: 18, padding: 16, boxShadow: '0 18px 54px rgba(16,23,38,.22)', border: '1px solid var(--line)', width: 318, userSelect: 'none' }}>
+      <div style={{ background: 'var(--surface)', borderRadius: 18, padding: 16, boxShadow: 'var(--shadow-pop)', border: '1px solid var(--line)', width: 318, userSelect: 'none' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
           <button type="button" onClick={() => moveMonth(-1)} className="icon-btn" style={{ width: 34, height: 34 }}><Icon name="chevLeft" style={{ width: 18, height: 18 }} /></button>
           <select className="select" value={month} onChange={(e) => setMonth(Number(e.target.value))} style={{ flex: 1, height: 36, padding: '0 9px', fontWeight: 700 }}>

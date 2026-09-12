@@ -1,5 +1,5 @@
 import { translate as t } from '../../../shared/preferences/translations.js';
-import { DEFAULT_CURRENCY, preferencesToForm, preferencesFromForm, formatProfileDate } from '../../../shared/preferences/preferences.js';
+import { DEFAULT_CURRENCY, THEMES, preferencesToForm, preferencesFromForm, formatProfileDate } from '../../../shared/preferences/preferences.js';
 import { useEffect, useState } from 'react';
 import { Icon } from '../../../shared/icons/index.jsx';
 import { Avatar } from '../../../shared/ui/Avatar.jsx';
@@ -591,7 +591,22 @@ function ProfilePage({ user, onNavigate, initialTab }) {
         {tab === 'prefs' && (
           <div className="card card-pad fade-in" style={{ maxWidth: 760 }}>
             <div className="form-grid">
-              <Field label={t("Тема оформления")}><Select options={['Светлая', 'Тёмная', 'Системная']} value={prefs.theme} onChange={(e) => setPrefs((p) => ({ ...p, theme: e.target.value }))} /></Field>
+              <Field label={t("Тема оформления")}>
+                <Select
+                  options={['Светлая', 'Тёмная', 'Системная']}
+                  value={prefs.theme}
+                  onChange={(e) => {
+                    const selected = e.target.value;
+                    setPrefs((p) => ({ ...p, theme: selected }));
+                    const mapped = THEMES[selected] || 'light';
+                    const media = typeof window !== 'undefined' ? window.matchMedia('(prefers-color-scheme: dark)') : null;
+                    if (typeof document !== 'undefined') {
+                      document.documentElement.dataset.theme = mapped === 'system' ? (media && media.matches ? 'dark' : 'light') : mapped;
+                    }
+                    try { if (typeof localStorage !== 'undefined') localStorage.setItem('crm_theme', mapped); } catch {}
+                  }}
+                />
+              </Field>
               <Field label={t("Формат даты")}><Select options={['ДД.ММ.ГГГГ', 'ММ/ДД/ГГГГ', 'ГГГГ-ММ-ДД']} value={prefs.dateFmt} onChange={(e) => setPrefs((p) => ({ ...p, dateFmt: e.target.value }))} /></Field>
               <Field label={t("Формат времени")}><Select options={['24 часа', '12 часов (AM/PM)']} value={prefs.timeFmt} onChange={(e) => setPrefs((p) => ({ ...p, timeFmt: e.target.value }))} /></Field>
               <Field label={t("Валюта по умолчанию")}><Select options={CURRENCIES.map((c) => c.code)} value={prefs.currency} onChange={(e) => setPrefs((p) => ({ ...p, currency: e.target.value }))} /></Field>

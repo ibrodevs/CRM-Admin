@@ -1,19 +1,1396 @@
 :root[data-theme="dark"] {
   color-scheme: dark;
-  --ink: #edf2fc; --body: #dce4f2; --muted: #a0aec4; --muted-2: #8795ab;
-  --bg: #101722; --surface: #172131; --surface-2: #1d2a3c; --hover: #26354c;
-  --line: #2c3a4e; --line-strong: #3a4b63; --field-line: #3a4b63;
-  --blue-soft: #1c3558; --blue-soft-2: #203d64; --blue-soft-text: #9abaff;
-  --green-bg: #153d2b; --green-bg-2: #1b362b; --green: #67d395;
-  --red-bg: #492a2c; --red: #ffa095; --amber-bg: #463822; --amber: #eebd72;
-  --gray-bg: #2b3648; --gray-text: #b4c0d2; --teal-bg: #1b3c4c;
+
+  /* ── Базовые цвета и поверхности ─────────────────────────────────────── */
+  --bg: #0c121c;
+  --surface: #141c2b;
+  --surface-2: #1b263b;
+  --hover: #22324b;
+
+  /* ── Линии и разделители ─────────────────────────────────────────────── */
+  --line: #223046;
+  --line-strong: #2e405c;
+  --field-line: #2e405c;
+
+  /* ── Текст и типографика ─────────────────────────────────────────────── */
+  --ink: #f0f4fc;
+  --body: #d5e0f2;
+  --muted: #8e9eb5;
+  --muted-2: #6d7f99;
+  --faint: #475872;
+  --gray: #718096;
+  --gray-bg: #1e293b;
+  --gray-text: #94a3b8;
+
+  /* ── Основные акценты (синий спектр) ─────────────────────────────────── */
+  --blue: #3b82f6;
+  --blue-hover: #60a5fa;
+  --blue-press: #2563eb;
+  --blue-soft: #172a46;
+  --blue-soft-2: #1e3558;
+  --blue-soft-text: #93c5fd;
+  --indigo: #818cf8;
+
+  /* ── Статусные цвета ─────────────────────────────────────────────────── */
+  --green: #34d399;
+  --green-bg: #133324;
+  --green-bg-2: #183e2d;
+
+  --red: #f87171;
+  --red-bg: #3d1b1f;
+  --red-strong: #ef4444;
+
+  --amber: #fbbf24;
+  --amber-bg: #382c16;
+
+  --teal: #38bdf8;
+  --teal-bg: #143542;
+
+  /* ── Тени в тёмной теме ──────────────────────────────────────────────── */
+  --shadow-card: 0 2px 8px rgba(0, 0, 0, 0.35);
+  --shadow-pop: 0 14px 40px rgba(0, 0, 0, 0.55);
+  --shadow-modal: 0 24px 70px rgba(0, 0, 0, 0.7);
 }
-:root[data-theme="dark"] .input, :root[data-theme="dark"] .select { background-color: var(--surface); color: var(--body); }
-:root[data-theme="dark"] :is(.btn-secondary, .tab:not(.active), .chip.ghost, .doc-chip, .drawer, .drawer-head, .drawer-foot, .drawer-stack-panel, .modal, .dropdown, .popover, .gtop, .table-card, .tbl thead th) {
+
+/* ── Глобальные стили и скроллбары ─────────────────────────────────────── */
+html[data-theme="dark"],
+html[data-theme="dark"] body {
+  background: var(--bg);
+  color: var(--body);
+}
+
+:root[data-theme="dark"] ::selection {
+  background: var(--blue-soft-2);
+  color: var(--ink);
+}
+
+:root[data-theme="dark"] .scroll::-webkit-scrollbar-thumb {
+  background: #33445c;
+  border: 2px solid var(--surface);
+  border-radius: 8px;
+}
+
+:root[data-theme="dark"] .scroll::-webkit-scrollbar-thumb:hover {
+  background: #445876;
+}
+
+:root[data-theme="dark"] .chat-filter-scroll::-webkit-scrollbar-thumb {
+  background: #33445c;
+  border-radius: 8px;
+}
+
+:root[data-theme="dark"] .chat-filter-scroll {
+  scrollbar-color: #33445c transparent;
+}
+
+/* ── Навигация, сайдбар и шапка ────────────────────────────────────────── */
+:root[data-theme="dark"] .sidebar {
+  background: var(--surface);
+  border-color: var(--line);
+}
+
+:root[data-theme="dark"] .sb-logo {
+  color: var(--ink);
+}
+
+:root[data-theme="dark"] .nav-item {
+  color: var(--body);
+}
+
+:root[data-theme="dark"] .nav-item svg {
+  color: var(--muted);
+}
+
+:root[data-theme="dark"] .nav-item:hover {
+  background: var(--hover);
+  color: var(--ink);
+}
+
+:root[data-theme="dark"] .nav-item:hover svg {
+  color: var(--ink);
+}
+
+:root[data-theme="dark"] .nav-item.active {
+  background: var(--blue);
+  color: #fff;
+  box-shadow: 0 6px 16px rgba(59, 130, 246, 0.35);
+}
+
+:root[data-theme="dark"] .nav-item.active svg {
+  color: #fff;
+}
+
+:root[data-theme="dark"] .nav-badge {
+  background: var(--red-bg);
+  color: var(--red);
+}
+
+:root[data-theme="dark"] .nav-item.has-active {
+  background: var(--blue-soft);
+  color: var(--blue-soft-text);
+}
+
+:root[data-theme="dark"] .nav-item.has-active svg {
+  color: var(--blue-soft-text);
+}
+
+:root[data-theme="dark"] .nav-sub {
+  border-left-color: var(--line);
+}
+
+:root[data-theme="dark"] .nav-subitem {
+  color: var(--body);
+}
+
+:root[data-theme="dark"] .nav-subitem svg {
+  color: var(--muted);
+}
+
+:root[data-theme="dark"] .nav-subitem:hover {
+  background: var(--hover);
+  color: var(--ink);
+}
+
+:root[data-theme="dark"] .nav-subitem:hover svg {
+  color: var(--ink);
+}
+
+:root[data-theme="dark"] .nav-subitem.active {
+  background: var(--blue);
+  color: #fff;
+  box-shadow: 0 6px 14px rgba(59, 130, 246, 0.35);
+}
+
+:root[data-theme="dark"] .nav-subitem.active svg {
+  color: #fff;
+}
+
+:root[data-theme="dark"] .sidebar.collapsed .nav-sub {
+  background: var(--surface);
+  border-color: var(--line-strong);
+  box-shadow: var(--shadow-pop);
+}
+
+:root[data-theme="dark"] .profile-card {
+  background: var(--surface);
+  border-color: var(--line-strong);
+}
+
+:root[data-theme="dark"] .profile-card:hover {
+  background: var(--hover);
+}
+
+:root[data-theme="dark"] .profile-card .pc-name {
+  color: var(--ink);
+}
+
+:root[data-theme="dark"] .profile-card .pc-role {
+  color: var(--muted);
+}
+
+:root[data-theme="dark"] .profile-card .chev {
+  color: var(--faint);
+}
+
+:root[data-theme="dark"] .avatar-ph {
+  background: var(--blue-soft);
+  color: var(--blue-soft-text);
+}
+
+:root[data-theme="dark"] .gtop {
+  background: rgba(20, 28, 43, 0.9);
+  backdrop-filter: blur(12px);
+  border-bottom-color: var(--line);
+}
+
+:root[data-theme="dark"] .crumb {
+  color: var(--muted);
+}
+
+:root[data-theme="dark"] .crumb:hover,
+:root[data-theme="dark"] .crumb.cur {
+  color: var(--ink);
+}
+
+:root[data-theme="dark"] .crumb-sep {
+  color: var(--faint);
+}
+
+:root[data-theme="dark"] .gtop-badge {
+  border-color: var(--surface);
+}
+
+:root[data-theme="dark"] .gtop-ic {
+  color: var(--muted);
+}
+
+:root[data-theme="dark"] .gtop-ic:hover {
+  color: var(--ink);
+}
+
+:root[data-theme="dark"] .gsearch-pop {
+  background: var(--surface);
+  border-color: var(--line-strong);
+  box-shadow: var(--shadow-pop);
+}
+
+:root[data-theme="dark"] .gsearch-row:hover {
+  background: var(--hover);
+}
+
+:root[data-theme="dark"] .gsearch-t {
+  color: var(--ink);
+}
+
+:root[data-theme="dark"] .gsearch-s {
+  color: var(--muted);
+}
+
+/* ── Поля ввода, селекты, чекбоксы и переключатели ────────────────────── */
+:root[data-theme="dark"] .input,
+:root[data-theme="dark"] .select,
+:root[data-theme="dark"] textarea.input,
+:root[data-theme="dark"] .cell-input,
+:root[data-theme="dark"] .hp-textarea,
+:root[data-theme="dark"] .receipt-textarea {
+  background-color: var(--surface);
+  color: var(--ink);
+  border-color: var(--field-line);
+}
+
+:root[data-theme="dark"] .input:focus,
+:root[data-theme="dark"] .select:focus,
+:root[data-theme="dark"] textarea.input:focus,
+:root[data-theme="dark"] .cell-input:focus,
+:root[data-theme="dark"] .hp-textarea:focus {
+  border-color: var(--blue);
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.22);
+}
+
+:root[data-theme="dark"] .input::placeholder,
+:root[data-theme="dark"] textarea.input::placeholder {
+  color: var(--faint);
+}
+
+:root[data-theme="dark"] .select {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%238e9eb5' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+}
+
+:root[data-theme="dark"] .search {
+  background: var(--surface-2);
+  border-color: var(--line);
+}
+
+:root[data-theme="dark"] .search input {
+  color: var(--ink);
+}
+
+:root[data-theme="dark"] .search input::placeholder {
+  color: var(--muted-2);
+}
+
+:root[data-theme="dark"] .search:focus-within {
+  background: var(--surface);
+  border-color: var(--blue);
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2);
+}
+
+:root[data-theme="dark"] .checkbox {
+  background: var(--surface);
+  border-color: var(--field-line);
+}
+
+:root[data-theme="dark"] .checkbox.on {
+  background: var(--blue);
+  border-color: var(--blue);
+}
+
+:root[data-theme="dark"] .radio {
+  border-color: var(--field-line);
+  background: var(--surface);
+}
+
+:root[data-theme="dark"] .toggle {
+  background: #33445c;
+}
+
+:root[data-theme="dark"] .toggle::after {
+  background: #f0f4fc;
+}
+
+:root[data-theme="dark"] .toggle.on {
+  background: var(--blue);
+}
+
+/* ── Выпадающие меню, поповеры и автокомплит ────────────────────────────── */
+:root[data-theme="dark"] .dropdown,
+:root[data-theme="dark"] .popover,
+:root[data-theme="dark"] .combobox-dropdown,
+:root[data-theme="dark"] .location-autocomplete-menu {
+  background: var(--surface);
+  border-color: var(--line-strong);
+  box-shadow: var(--shadow-pop);
+  color: var(--body);
+}
+
+:root[data-theme="dark"] .dropdown-item,
+:root[data-theme="dark"] .location-autocomplete-option {
+  color: var(--body);
+}
+
+:root[data-theme="dark"] .dropdown-item:hover,
+:root[data-theme="dark"] .location-autocomplete-option:hover,
+:root[data-theme="dark"] .location-autocomplete-option.is-active {
+  background: var(--hover);
+  color: var(--ink);
+}
+
+:root[data-theme="dark"] .dropdown-sep {
+  background: var(--line);
+}
+
+:root[data-theme="dark"] .dropdown-item.is-selected {
+  color: var(--ink);
+}
+
+:root[data-theme="dark"] .location-autocomplete-option-main b {
+  color: var(--ink);
+}
+
+:root[data-theme="dark"] .location-autocomplete-option-main span {
+  color: var(--muted);
+}
+
+:root[data-theme="dark"] .location-autocomplete-help {
+  border-top-color: var(--line);
+  color: var(--muted-2);
+}
+
+:root[data-theme="dark"] .receipt-relation-field,
+:root[data-theme="dark"] .receipt-relation-option {
+  background: var(--surface);
+  border-color: var(--line);
+  color: var(--ink);
+}
+
+:root[data-theme="dark"] .receipt-relation-option:hover {
+  background: var(--hover);
+  border-color: var(--blue);
+}
+
+:root[data-theme="dark"] .receipt-participant-list {
+  background: var(--surface);
+  border-color: var(--line-strong);
+  color: var(--ink);
+  box-shadow: var(--shadow-pop);
+}
+
+:root[data-theme="dark"] .cal-operator-row {
+  background: var(--surface);
+  border-color: var(--line);
+}
+
+:root[data-theme="dark"] .cal-operator-row:hover {
+  background: var(--hover);
+  border-color: var(--blue);
+}
+
+:root[data-theme="dark"] .cal-operator-row.selected {
+  background: var(--blue-soft);
+  border-color: var(--blue);
+}
+
+:root[data-theme="dark"] .cal-operator-name {
+  color: var(--ink);
+}
+
+:root[data-theme="dark"] .cal-repeat-summary-icon {
+  background: var(--surface-2);
+  color: var(--blue);
+}
+
+:root[data-theme="dark"] .hp-guests-trigger {
+  background: var(--surface);
+  color: var(--ink);
+  border-color: var(--field-line);
+}
+
+:root[data-theme="dark"] .hp-guests-pop {
+  background: var(--surface);
+  border-color: var(--line-strong);
+  box-shadow: var(--shadow-pop);
+}
+
+:root[data-theme="dark"] .hp-stepper button {
+  background: var(--surface);
+  color: var(--ink);
+  border-color: var(--field-line);
+}
+
+:root[data-theme="dark"] .hp-stepper button:hover:not(:disabled) {
+  border-color: var(--blue);
+  color: var(--blue);
+}
+
+:root[data-theme="dark"] .hp-meal-tab {
   background: var(--surface);
   color: var(--body);
   border-color: var(--field-line);
 }
-:root[data-theme="dark"] :is(.nav-item:not(.active), .nav-item:not(.active) svg, .crumb, .gtop-ic) { color: var(--muted); }
-:root[data-theme="dark"] :is(.nav-item:hover, .dropdown-item:hover, .tbl tbody tr:hover) { background: var(--hover); color: var(--ink); }
-:root[data-theme="dark"] .avatar-ph { background: var(--blue-soft); color: var(--blue-soft-text); }
+
+:root[data-theme="dark"] .hp-meal-tab:hover {
+  border-color: var(--line-strong);
+}
+
+:root[data-theme="dark"] .hp-meal-tab.active {
+  background: var(--blue);
+  border-color: var(--blue);
+  color: #fff;
+}
+
+:root[data-theme="dark"] .hp-sort select,
+:root[data-theme="dark"] .hp-sort-btn,
+:root[data-theme="dark"] .hp-map-btn {
+  background: var(--surface);
+  color: var(--ink);
+  border-color: var(--field-line);
+}
+
+:root[data-theme="dark"] .profile-photo-btn {
+  background: var(--surface);
+  border-color: var(--line);
+  color: var(--muted);
+}
+
+:root[data-theme="dark"] .profile-photo-btn:hover {
+  background: var(--hover);
+  color: var(--blue);
+  border-color: var(--blue);
+}
+
+/* ── Кнопки, вкладки, бейджи и чипы ────────────────────────────────────── */
+:root[data-theme="dark"] .btn-secondary {
+  background: var(--surface);
+  color: var(--body);
+  border-color: var(--field-line);
+}
+
+:root[data-theme="dark"] .btn-secondary:hover {
+  background: var(--hover);
+  color: var(--ink);
+  border-color: var(--line-strong);
+}
+
+:root[data-theme="dark"] .btn-ghost {
+  color: var(--muted);
+}
+
+:root[data-theme="dark"] .btn-ghost:hover {
+  background: var(--hover);
+  color: var(--ink);
+}
+
+:root[data-theme="dark"] .chip.ghost {
+  background: var(--surface);
+  color: var(--body);
+  border-color: var(--field-line);
+}
+
+:root[data-theme="dark"] .chip.ghost:hover {
+  background: var(--hover);
+}
+
+:root[data-theme="dark"] .tab:not(.active) {
+  background: var(--surface);
+  color: var(--body);
+  border-color: var(--field-line);
+}
+
+:root[data-theme="dark"] .tab:not(.active):hover {
+  background: var(--hover);
+  color: var(--ink);
+}
+
+:root[data-theme="dark"] .tab.active {
+  background: var(--blue);
+  color: #fff;
+  border-color: var(--blue);
+}
+
+:root[data-theme="dark"] .tab-count {
+  background: var(--gray-bg);
+  color: var(--gray-text);
+}
+
+:root[data-theme="dark"] .doc-chip {
+  background: var(--surface);
+  color: var(--body);
+  border-color: var(--field-line);
+}
+
+:root[data-theme="dark"] .doc-chip:hover {
+  background: var(--blue-soft);
+  color: var(--blue-soft-text);
+  border-color: var(--blue);
+}
+
+:root[data-theme="dark"] :is(.trip-toggle, .seg-toggle, .avia-view-toggle, .tc-viewseg, .uf-seg) {
+  background: var(--surface-2);
+  border-color: var(--line);
+}
+
+:root[data-theme="dark"] :is(.trip-toggle button.on, .seg-toggle .seg-btn.active, .avia-view-toggle button.on, .tc-viewseg button.on, .uf-seg button.on) {
+  background: var(--surface);
+  color: var(--ink);
+  box-shadow: var(--shadow-card);
+}
+
+:root[data-theme="dark"] :is(.src-btn, .sc-btn, .sc-channel-btn, .link-chip, .city-chip, .tc-toggle) {
+  background: var(--surface);
+  color: var(--body);
+  border-color: var(--field-line);
+}
+
+:root[data-theme="dark"] :is(.src-btn:hover, .sc-btn:hover, .sc-channel-btn:hover, .link-chip:hover, .city-chip:hover, .tc-toggle:hover) {
+  background: var(--hover);
+  color: var(--ink);
+}
+
+:root[data-theme="dark"] :is(.src-btn.active, .sc-btn.active, .sc-channel-btn.active, .link-chip.active, .city-chip.sel, .tc-toggle.on) {
+  background: var(--blue-soft);
+  border-color: var(--blue);
+  color: var(--blue-soft-text);
+}
+
+/* ── Карточки, таблицы и информационные блоки ─────────────────────────── */
+:root[data-theme="dark"] :is(.card, .table-card, .stat-card, .svc-documents-panel, .accordion, .oc-head, .oc-svc, .oc-svc-footer, .oc-context-head) {
+  background: var(--surface);
+  border-color: var(--line);
+}
+
+:root[data-theme="dark"] :is(.card-title, .section-title, .page-title, .modal-title) {
+  color: var(--ink);
+}
+
+:root[data-theme="dark"] table.tbl thead th {
+  background: var(--surface-2);
+  color: var(--muted);
+  border-bottom-color: var(--line);
+}
+
+:root[data-theme="dark"] table.tbl tbody td {
+  color: var(--body);
+  border-bottom-color: var(--line);
+}
+
+:root[data-theme="dark"] table.tbl tbody tr:hover {
+  background: var(--hover);
+}
+
+:root[data-theme="dark"] .pagination {
+  border-top-color: var(--line);
+}
+
+:root[data-theme="dark"] .orders-access-summary>div {
+  background: var(--surface);
+  border-color: var(--line);
+}
+
+:root[data-theme="dark"] .orders-access-summary b {
+  color: var(--ink);
+}
+
+/* ── Модальные окна и шторки ───────────────────────────────────────────── */
+:root[data-theme="dark"] .modal {
+  background: var(--surface);
+  border: 1px solid var(--line-strong);
+  box-shadow: var(--shadow-modal);
+}
+
+:root[data-theme="dark"] .modal-close {
+  color: var(--muted-2);
+}
+
+:root[data-theme="dark"] .modal-close:hover {
+  background: var(--hover);
+  color: var(--ink);
+}
+
+:root[data-theme="dark"] :is(.drawer, .drawer-head, .drawer-foot, .shell-drawer, .drawer-stack-panel) {
+  background: var(--surface);
+  border-color: var(--line);
+}
+
+:root[data-theme="dark"] :is(.drawer-overlay, .overlay, .drawer-stack, .receipt-corrected-preview-overlay) {
+  background: rgba(6, 11, 20, 0.7);
+  backdrop-filter: blur(4px);
+}
+
+:root[data-theme="dark"] .receipt-corrected-preview-dialog {
+  background: var(--surface);
+  border: 1px solid var(--line-strong);
+  box-shadow: var(--shadow-modal);
+}
+
+:root[data-theme="dark"] .receipt-corrected-preview-dialog header b {
+  color: var(--ink);
+}
+
+/* ── Услуги: Авиа, ЖД, Отели, Заказы, Календарь ────────────────────────── */
+:root[data-theme="dark"] :is(.off-card, .ap-flight, .ap-sc-item, .ap-route-card, .fare-card, .ap-pax, .ap-opt, .ap-list-row) {
+  background: var(--surface);
+  border-color: var(--line);
+}
+
+:root[data-theme="dark"] :is(.off-card:hover, .ap-flight:hover, .ap-sc-item:hover, .ap-route-card:hover, .ap-list-row:hover, .ap-opt:hover, .fare-card:hover) {
+  border-color: var(--line-strong);
+}
+
+:root[data-theme="dark"] .off-side {
+  background: var(--surface-2);
+  border-left-color: var(--line);
+}
+
+:root[data-theme="dark"] .off-stop-dot {
+  background: var(--surface);
+}
+
+:root[data-theme="dark"] .ap-scenario,
+:root[data-theme="dark"] .ap-step {
+  background: var(--surface);
+  border-color: var(--line);
+}
+
+:root[data-theme="dark"] .ap-route-totals,
+:root[data-theme="dark"] .svcf-summary {
+  background: var(--blue-soft);
+  border-color: var(--blue-soft-2);
+}
+
+:root[data-theme="dark"] .ap-route-swap {
+  background: var(--surface);
+  border-color: var(--line);
+  color: var(--muted);
+}
+
+:root[data-theme="dark"] :is(.rail-offer, .rail-class, .rail-seat, .fare-pax-tab, .fare-class-tile, .pax-group) {
+  background: var(--surface);
+  border-color: var(--field-line);
+}
+
+:root[data-theme="dark"] .rail-car {
+  background: var(--surface-2);
+  border-color: var(--line);
+}
+
+:root[data-theme="dark"] .rail-wrow:hover {
+  background: var(--hover);
+}
+
+:root[data-theme="dark"] .rail-wrow.sel {
+  background: var(--blue-soft);
+}
+
+:root[data-theme="dark"] .pcp-row {
+  background: var(--surface);
+  border-color: var(--line);
+}
+
+:root[data-theme="dark"] .pcp-stepper button {
+  background: var(--surface);
+  border-color: var(--field-line);
+  color: var(--ink);
+}
+
+:root[data-theme="dark"] .pcp-stepper .n {
+  border-color: var(--field-line);
+  color: var(--ink);
+}
+
+:root[data-theme="dark"] .pcp-class {
+  background: var(--surface);
+  border-color: var(--field-line);
+}
+
+:root[data-theme="dark"] .xtr-pax,
+:root[data-theme="dark"] .xtr-card {
+  background: var(--surface);
+  border-color: var(--field-line);
+}
+
+:root[data-theme="dark"] :is(.hp-searchbar, .hp-filters, .hp-card, .hp-conf-table, .hp-conf-tab) {
+  background: var(--surface);
+  border-color: var(--line);
+}
+
+:root[data-theme="dark"] .hp-card-rate,
+:root[data-theme="dark"] .hp-card-price {
+  border-left-color: var(--line);
+}
+
+:root[data-theme="dark"] .hp-mx-guest {
+  background: var(--surface);
+  color: var(--ink);
+}
+
+:root[data-theme="dark"] .hp-mx-chip {
+  background: var(--surface-2);
+  border-color: var(--green);
+}
+
+:root[data-theme="dark"] .hp-add-room {
+  background: var(--surface);
+  border-color: var(--field-line);
+}
+
+:root[data-theme="dark"] .hp-rg-ic {
+  background: var(--surface);
+  border-color: var(--line);
+}
+
+:root[data-theme="dark"] :is(.tc-card, .tc-wchip, .tc-day-schedule, .tc-sched-row, .tc-month-cell, .tc-control-row) {
+  background: var(--surface);
+  border-color: var(--line);
+}
+
+:root[data-theme="dark"] .tc-sched-row:hover,
+:root[data-theme="dark"] .tc-control-row:hover {
+  background: var(--hover);
+}
+
+:root[data-theme="dark"] .tc-nav button {
+  background: var(--surface);
+  border-color: var(--line);
+  color: var(--body);
+}
+
+:root[data-theme="dark"] .tc-nav button:hover {
+  background: var(--hover);
+}
+
+:root[data-theme="dark"] .tc-date-range .input {
+  background: var(--surface);
+}
+
+:root[data-theme="dark"] .tc-week-col.is-today {
+  background: rgba(59, 130, 246, 0.08);
+}
+
+:root[data-theme="dark"] .tc-week-col.is-today .tc-week-head {
+  background: var(--blue-soft);
+}
+
+:root[data-theme="dark"] :is(.bw-top, .bw-stepper, .bw-aside, .bw-svc, .bw-method, .bw-footer) {
+  background: var(--surface);
+  border-color: var(--line);
+}
+
+:root[data-theme="dark"] :is(.osrv, .osrv-pax, .osrv-doc) {
+  background: var(--surface);
+  border-color: var(--line);
+}
+
+:root[data-theme="dark"] .osrv-toolbar {
+  background: rgba(20, 28, 43, 0.95);
+  border-color: var(--line-strong);
+}
+
+:root[data-theme="dark"] .oc-fact {
+  background: var(--surface-2);
+  border-color: var(--line);
+}
+
+:root[data-theme="dark"] .oc-fact .ic {
+  background: var(--surface);
+  border-color: var(--line);
+}
+
+:root[data-theme="dark"] button.oc-fact:hover {
+  background: var(--hover);
+  border-color: var(--line-strong);
+}
+
+:root[data-theme="dark"] .oc-workspace-nav button.active b {
+  background: var(--surface);
+  color: var(--blue);
+}
+
+:root[data-theme="dark"] .oc-svc-chip.active .cnt {
+  background: var(--surface);
+  color: var(--blue-soft-text);
+}
+
+:root[data-theme="dark"] :is(.svcf-row, .svcf-more) {
+  background: var(--surface);
+  border-color: var(--line);
+}
+
+:root[data-theme="dark"] .svcf-swap-mid .ic,
+:root[data-theme="dark"] .svcf-summary .ic {
+  background: var(--surface);
+  border-color: var(--line);
+}
+
+:root[data-theme="dark"] .add-svc-card {
+  background: var(--surface);
+  border-color: var(--line);
+}
+
+:root[data-theme="dark"] .add-svc-card:hover {
+  background: var(--blue-soft);
+  border-color: var(--blue);
+}
+
+:root[data-theme="dark"] :is(.kp-doc, .kp2-doc) {
+  background: var(--surface);
+  border-color: var(--line);
+}
+
+:root[data-theme="dark"] .kp2-side {
+  background: var(--surface-2);
+}
+
+:root[data-theme="dark"] .kp2-table th {
+  background: var(--surface-2);
+  color: var(--muted);
+  border-color: var(--line);
+}
+
+:root[data-theme="dark"] .kp2-table td {
+  border-color: var(--line);
+  color: var(--body);
+}
+
+:root[data-theme="dark"] .kp2-cell:focus {
+  background: var(--surface-2);
+  border-color: var(--field-line);
+}
+
+:root[data-theme="dark"] .kp2-tab-gray {
+  background: var(--surface-2);
+}
+
+:root[data-theme="dark"] .kp2-tab-amber {
+  background: #3d2f16;
+}
+
+:root[data-theme="dark"] .kp2-tab-amber-row .kp2-tab-num {
+  color: #fde68a;
+}
+
+/* ── Чаты и сообщения ─────────────────────────────────────────────────── */
+:root[data-theme="dark"] .msg.me {
+  background: #19432d;
+  color: #e6f9ed;
+}
+
+:root[data-theme="dark"] .msg.them {
+  background: #1e2a3e;
+  color: var(--ink);
+}
+
+:root[data-theme="dark"] .msg.internal.me {
+  background: #3d2f16;
+  color: #fef3c7;
+}
+
+:root[data-theme="dark"] .msg.internal.them {
+  background: #322510;
+  color: #fde68a;
+}
+
+:root[data-theme="dark"] .chat-sys span {
+  background: var(--surface-2);
+  color: var(--muted);
+}
+
+:root[data-theme="dark"] .chat-attach,
+:root[data-theme="dark"] .chat-svc-card {
+  background: var(--surface);
+  border-color: var(--line);
+}
+
+:root[data-theme="dark"] .csc-rows,
+:root[data-theme="dark"] .csc-open {
+  border-top-color: var(--line);
+}
+
+:root[data-theme="dark"] .chat-row {
+  border-bottom-color: var(--line);
+}
+
+:root[data-theme="dark"] .chat-row:hover {
+  background: var(--hover);
+}
+
+:root[data-theme="dark"] .chat-row.active {
+  background: var(--blue-soft);
+}
+
+/* ── Уведомления и всплывающие плашки (Toasts) ────────────────────────── */
+:root[data-theme="dark"] .ntf {
+  background: var(--surface);
+  border-color: var(--line);
+}
+
+:root[data-theme="dark"] .ntf:hover {
+  border-color: var(--line-strong);
+  box-shadow: var(--shadow-card);
+}
+
+:root[data-theme="dark"] .ntf.unread {
+  background: #172437;
+}
+
+:root[data-theme="dark"] .ntf.p-Критический {
+  border-color: #6b262a;
+  background: #351a1d;
+}
+
+:root[data-theme="dark"] .ntf.p-Высокий {
+  border-color: #5c4418;
+  background: #2f2210;
+}
+
+:root[data-theme="dark"] .ntf-title {
+  color: var(--ink);
+}
+
+:root[data-theme="dark"] .ntf-desc {
+  color: var(--muted);
+}
+
+:root[data-theme="dark"] .toast {
+  background: rgba(20, 28, 43, 0.94);
+  border-color: var(--line-strong);
+  box-shadow: 0 14px 38px rgba(0, 0, 0, 0.55);
+}
+
+:root[data-theme="dark"] .toast-title {
+  color: var(--ink);
+}
+
+:root[data-theme="dark"] .toast-msg {
+  color: var(--body);
+}
+
+/* ── Редактор квитанций (Receipts) ─────────────────────────────────────── */
+:root[data-theme="dark"] :is(.receipt-preview, .receipt-brand-document, .receipt-section, .receipt-brand-segment) {
+  background: var(--surface);
+  border-color: var(--line);
+  color: var(--body);
+}
+
+:root[data-theme="dark"] :is(.receipt-preview>header, .receipt-brand-document>header) {
+  border-bottom-color: var(--line-strong);
+}
+
+:root[data-theme="dark"] .receipt-preview-summary {
+  border-bottom-color: var(--line);
+}
+
+:root[data-theme="dark"] .receipt-brand-passengers {
+  background: var(--surface-2);
+  border-color: var(--line);
+}
+
+:root[data-theme="dark"] .receipt-brand-passenger+.receipt-brand-passenger {
+  border-top-color: var(--line);
+}
+
+:root[data-theme="dark"] .receipt-brand-variants {
+  background: var(--surface-2);
+  border-color: var(--line);
+}
+
+:root[data-theme="dark"] .receipt-brand-variants button.active {
+  background: var(--surface);
+  color: var(--blue);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.3);
+}
+
+:root[data-theme="dark"] .receipt-import-draft-banner {
+  background: var(--blue-soft);
+  border-color: var(--blue-soft-2);
+  color: var(--ink);
+}
+
+:root[data-theme="dark"] .receipt-pricing-selection {
+  background: var(--blue-soft);
+  border-color: var(--blue-soft-2);
+}
+
+:root[data-theme="dark"] .receipt-edit-preview-head {
+  background: var(--surface-2);
+  border-color: var(--line-strong);
+}
+
+:root[data-theme="dark"] .receipt-cost-tabs {
+  background: var(--surface);
+  border-color: var(--line-strong);
+}
+
+:root[data-theme="dark"] .receipt-cost-tabs-head {
+  background: var(--surface-2);
+  border-bottom-color: var(--line);
+}
+
+:root[data-theme="dark"] .receipt-cost-tab {
+  background: var(--surface);
+  border-color: var(--line);
+}
+
+:root[data-theme="dark"] .receipt-cost-tab:hover {
+  background: var(--hover);
+  border-color: var(--blue);
+}
+
+:root[data-theme="dark"] .receipt-cost-tab.is-active {
+  background: var(--blue);
+  color: #fff;
+}
+
+:root[data-theme="dark"] .receipt-cost-panel-head {
+  background: var(--surface-2);
+  border-color: var(--line);
+}
+
+:root[data-theme="dark"] .receipt-cost-ticket {
+  background: var(--surface);
+  border-color: var(--line);
+}
+
+:root[data-theme="dark"] .receipt-cost-ticket:hover {
+  border-color: var(--line-strong);
+  background: var(--hover);
+}
+
+:root[data-theme="dark"] .receipt-sequential-steps button {
+  background: var(--surface);
+  border-color: var(--field-line);
+  color: var(--muted);
+}
+
+:root[data-theme="dark"] .receipt-sequential-steps button:hover {
+  background: var(--hover);
+  color: var(--ink);
+}
+
+:root[data-theme="dark"] :is(.receipt-group-review-mode button, .receipt-edit-preview-tabs button) {
+  background: var(--surface);
+  border-color: var(--line);
+  color: var(--body);
+}
+
+:root[data-theme="dark"] .rec-import-table tbody tr.rec-import-costtabs-row {
+  background: var(--surface-2);
+}
+
+:root[data-theme="dark"] .rec-import-table tbody tr.rec-import-costtabs-row:hover {
+  background: var(--surface-2);
+}
+
+:root[data-theme="dark"] .rec-import-table tbody tr.rec-import-row.has-subrows {
+  background: var(--surface-2);
+  border-bottom-color: var(--line);
+}
+
+:root[data-theme="dark"] .rec-import-table tbody tr.rec-import-subrow {
+  background: #111a27;
+  border-bottom-color: var(--line);
+}
+
+:root[data-theme="dark"] .rec-import-table tbody tr.rec-import-row {
+  background: var(--surface);
+  border-color: var(--line);
+}
+
+:root[data-theme="dark"] .receipt-fee-summary {
+  background: var(--surface-2);
+  border-color: var(--line);
+}
+
+:root[data-theme="dark"] .receipt-fee-summary.is-contract {
+  background: var(--green-bg);
+  border-color: var(--green);
+}
+
+:root[data-theme="dark"] .receipt-fee-summary-close:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: var(--ink);
+}
+
+:root[data-theme="dark"] :is(.receipt-rail-ticket-card, .receipt-rail-editor-modal, .receipt-rail-editor-section, .receipt-rail-conditions, .receipt-rail-preview-pdf, .receipt-mass-pricing-modal, .receipt-sequential-wizard, .receipt-group-actions-panel, .receipt-import-mode-selector) {
+  background: var(--surface);
+  border-color: var(--line);
+}
+
+:root[data-theme="dark"] .receipt-mass-pricing-table th {
+  background: var(--surface-2);
+  color: var(--muted);
+}
+
+:root[data-theme="dark"] .receipt-mass-pricing-row:hover {
+  background: var(--hover);
+}
+
+:root[data-theme="dark"] .receipt-similar-group-banner {
+  background: var(--green-bg);
+  border-color: var(--green);
+  color: var(--green);
+}
+
+:root[data-theme="dark"] .receipt-similar-group-pill {
+  background: var(--green-bg);
+  color: var(--green);
+}
+
+:root[data-theme="dark"] .receipt-cost-tabs.is-global {
+  background: var(--surface);
+  border-color: var(--line-strong);
+}
+
+/* ── Специальные баннеры, прогресс и предупреждения ────────────────────── */
+:root[data-theme="dark"] .technical-stops {
+  background: #312310;
+  border-color: #5c431d;
+}
+
+:root[data-theme="dark"] .technical-stops-head {
+  background: #3d2c14;
+  color: #fbbf24;
+}
+
+:root[data-theme="dark"] .oc-hint {
+  background: #332410;
+  border-color: #5c431d;
+}
+
+:root[data-theme="dark"] .kp-recognition.ok {
+  background: var(--green-bg);
+  border-color: var(--green);
+}
+
+:root[data-theme="dark"] .kp-bulk {
+  background: var(--green-bg);
+  border-color: var(--green);
+}
+
+:root[data-theme="dark"] .kp-vtot {
+  background: var(--surface-2);
+}
+
+:root[data-theme="dark"] .pay-bar {
+  background: var(--surface-2);
+}
+
+:root[data-theme="dark"] .progress {
+  background: var(--surface-2);
+}
+
+:root[data-theme="dark"] .receipt-upload-progress {
+  background: var(--surface-2);
+  border-color: var(--line-strong);
+}
+
+/* ── Экран входа (LoginScreen) ────────────────────────────────────────── */
+:root[data-theme="dark"] .lp-root {
+  background: radial-gradient(circle at 20% 20%, #152238 0%, #0c121c 100%);
+  color: var(--body);
+}
+
+:root[data-theme="dark"] .lp-card {
+  background: rgba(20, 28, 43, 0.95);
+  border-color: var(--line-strong);
+  box-shadow: var(--shadow-modal);
+}
+
+:root[data-theme="dark"] .lp-glass {
+  background: rgba(27, 38, 59, 0.85);
+  border-color: rgba(255, 255, 255, 0.08);
+  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.45);
+}
+
+:root[data-theme="dark"] .lp-chip {
+  background: rgba(27, 38, 59, 0.9);
+  border-color: rgba(255, 255, 255, 0.08);
+  color: var(--ink);
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.4);
+}
+
+:root[data-theme="dark"] .lp-seg {
+  color: var(--ink);
+}
+
+:root[data-theme="dark"] .lp-seg .muted {
+  color: var(--muted);
+}
+
+:root[data-theme="dark"] .lp-trust {
+  background: rgba(20, 28, 43, 0.8);
+  border-color: var(--line);
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.35);
+}
+
+:root[data-theme="dark"] .lp-trust-t {
+  color: var(--ink);
+}
+
+:root[data-theme="dark"] .lp-sla {
+  background: var(--surface-2);
+  border-color: var(--line);
+  color: var(--body);
+}
+
+:root[data-theme="dark"] .lp-lbl {
+  color: var(--body);
+}
+
+:root[data-theme="dark"] .lp-input {
+  background: var(--surface-2);
+  border-color: var(--field-line);
+  color: var(--ink);
+}
+
+:root[data-theme="dark"] .lp-input:focus {
+  background: var(--surface);
+  border-color: var(--blue);
+}
+
+:root[data-theme="dark"] .lp-btn-out {
+  background: var(--surface-2);
+  color: var(--ink);
+  border-color: var(--field-line);
+}
+
+:root[data-theme="dark"] .lp-btn-out:hover {
+  background: var(--hover);
+  border-color: var(--line-strong);
+}
+
+:root[data-theme="dark"] .lp-demo {
+  background: #111a28;
+  border-color: var(--line);
+}
+
+:root[data-theme="dark"] .lp-demo-p {
+  color: var(--muted);
+}
+
+:root[data-theme="dark"] .lp-check {
+  color: var(--body);
+}
+
+/* ── Таймлайны, индикаторы и лотки ────────────────────────────────────── */
+:root[data-theme="dark"] .tl-dot {
+  background: var(--surface);
+  border-color: var(--blue);
+}
+
+:root[data-theme="dark"] .tl-line {
+  background: var(--line-strong);
+}
+
+:root[data-theme="dark"] .seg-rail .o {
+  background: var(--surface);
+  border-color: var(--blue);
+}
+
+:root[data-theme="dark"] .cmp-tray {
+  background: var(--surface);
+  border-color: var(--line-strong);
+  box-shadow: var(--shadow-pop);
+}
+
+:root[data-theme="dark"] .av-swap {
+  background: var(--surface-2);
+  border-color: var(--field-line);
+  color: var(--blue-soft-text);
+}
+
+:root[data-theme="dark"] :is(.src-btn, .sc-btn, .sc-channel-btn) {
+  background: var(--surface);
+  border-color: var(--field-line);
+  color: var(--body);
+}
+
+:root[data-theme="dark"] :is(.src-btn:hover, .sc-btn:hover, .sc-channel-btn:hover) {
+  background: var(--hover);
+  border-color: var(--line-strong);
+  color: var(--ink);
+}
+
+:root[data-theme="dark"] :is(.trip-toggle button.on, .seg-toggle .seg-btn.active, .avia-view-toggle button.on) {
+  background: var(--surface-2);
+  color: var(--ink);
+  box-shadow: var(--shadow-card);
+}
+
+:root[data-theme="dark"] .doc-chip {
+  background: var(--surface);
+  border-color: var(--field-line);
+  color: var(--body);
+}
+
+:root[data-theme="dark"] .doc-chip:hover {
+  background: var(--hover);
+  border-color: var(--line-strong);
+}
+
+:root[data-theme="dark"] .oc-svc-chip.active .cnt {
+  background: var(--surface-2);
+  color: var(--blue-soft-text);
+}
+
+/* ── Расширенная стилизация квитанций и модулей импорта ───────────────── */
+:root[data-theme="dark"] :is(
+  .receipt-close-section,
+  .receipt-close-file,
+  .receipt-blank-strip-title,
+  .receipt-blank-chip,
+  .receipt-hotel-preview,
+  .receipt-hotel-preview-room,
+  .receipt-ticket-editor-chip,
+  .receipt-ticket-editor-nav > button,
+  .receipt-sequential-review,
+  .receipt-sequential-steps button,
+  .receipt-import-mode-options button,
+  .receipt-supplier-original-frame
+) {
+  background: var(--surface);
+  border-color: var(--line);
+  color: var(--body);
+}
+
+:root[data-theme="dark"] .receipt-ticket-editor-chip.is-active,
+:root[data-theme="dark"] .receipt-sequential-steps button.is-active {
+  background: var(--blue-soft);
+  border-color: var(--blue);
+}
+
+:root[data-theme="dark"] .receipt-ticket-editor-chip.is-reviewed:not(.is-active),
+:root[data-theme="dark"] .receipt-sequential-steps button.is-reviewed {
+  background: var(--green-bg);
+  border-color: var(--green);
+}
+
+:root[data-theme="dark"] .receipt-ticket-editor-index,
+:root[data-theme="dark"] .receipt-sequential-steps button > span,
+:root[data-theme="dark"] .receipt-import-mode-options button > span {
+  background: var(--surface-2);
+  color: var(--muted);
+}
+
+:root[data-theme="dark"] .receipt-sequential-progress {
+  background: var(--surface-2);
+}
+
+:root[data-theme="dark"] .receipt-edit-supplier-frame {
+  background: var(--surface);
+}
+
+:root[data-theme="dark"] .receipt-sequential-validation.is-ok {
+  background: var(--green-bg);
+  color: var(--green);
+}
+

@@ -42,7 +42,7 @@ function ClockTimePicker({ value = '09:00', onChange }) {
           {[['День', false], ['Ночь', true]].map(([lbl, isPm]) => (
             <button key={lbl} type="button" onClick={() => emit(hour12, minute, isPm)}
               style={{ padding: '6px 12px', fontSize: 12.5, fontWeight: 700, border: 'none', cursor: 'pointer',
-                background: pm === isPm ? 'var(--blue)' : '#fff', color: pm === isPm ? '#fff' : 'var(--muted)' }}>{lbl}</button>
+                background: pm === isPm ? 'var(--blue)' : 'var(--surface)', color: pm === isPm ? '#fff' : 'var(--muted)' }}>{lbl}</button>
           ))}
         </div>
         <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
@@ -50,7 +50,7 @@ function ClockTimePicker({ value = '09:00', onChange }) {
             <button key={m} type="button" onClick={() => emit(hour12, m, pm)}
               style={{ padding: '5px 9px', fontSize: 12.5, fontWeight: 700, borderRadius: 8, cursor: 'pointer',
                 border: '1px solid ' + (minute === m ? 'var(--blue)' : 'var(--line)'),
-                background: minute === m ? 'var(--blue-soft)' : '#fff', color: minute === m ? 'var(--blue)' : 'var(--muted)' }}>:{String(m).padStart(2, '0')}</button>
+                background: minute === m ? 'var(--blue-soft)' : 'var(--surface)', color: minute === m ? 'var(--blue)' : 'var(--muted)' }}>:{String(m).padStart(2, '0')}</button>
           ))}
         </div>
       </div>
@@ -69,7 +69,7 @@ function WorkHoursPicker({ value = 'Пн–Пт 09:00–18:00', onChange }) {
   const [editing, setEditing] = useState(null);
   const set = (d, f, t) => onChange && onChange(d + ' ' + f + '–' + t);
   return (
-    <div style={{ border: '1px solid var(--line)', borderRadius: 12, padding: 12, background: '#fff' }}>
+    <div style={{ border: '1px solid var(--line)', borderRadius: 12, padding: 12, background: 'var(--surface)' }}>
       <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13.5, fontWeight: 600, color: 'var(--ink)', cursor: 'pointer', marginBottom: round ? 0 : 12 }}>
         <input type="checkbox" checked={round} onChange={(e) => onChange && onChange(e.target.checked ? 'Круглосуточно' : (days + ' ' + from + '–' + to))} />
         Круглосуточно
@@ -82,11 +82,11 @@ function WorkHoursPicker({ value = 'Пн–Пт 09:00–18:00', onChange }) {
             </select>
             <button type="button" onClick={() => setEditing(editing === 'from' ? null : 'from')}
               style={{ padding: '8px 12px', borderRadius: 9, cursor: 'pointer', fontWeight: 700, fontSize: 14,
-                border: '1px solid ' + (editing === 'from' ? 'var(--blue)' : 'var(--line)'), background: editing === 'from' ? 'var(--blue-soft)' : '#fff', color: 'var(--ink)' }}>с {from}</button>
+                border: '1px solid ' + (editing === 'from' ? 'var(--blue)' : 'var(--line)'), background: editing === 'from' ? 'var(--blue-soft)' : 'var(--surface)', color: 'var(--ink)' }}>с {from}</button>
             <span style={{ color: 'var(--muted)' }}>—</span>
             <button type="button" onClick={() => setEditing(editing === 'to' ? null : 'to')}
               style={{ padding: '8px 12px', borderRadius: 9, cursor: 'pointer', fontWeight: 700, fontSize: 14,
-                border: '1px solid ' + (editing === 'to' ? 'var(--blue)' : 'var(--line)'), background: editing === 'to' ? 'var(--blue-soft)' : '#fff', color: 'var(--ink)' }}>до {to}</button>
+                border: '1px solid ' + (editing === 'to' ? 'var(--blue)' : 'var(--line)'), background: editing === 'to' ? 'var(--blue-soft)' : 'var(--surface)', color: 'var(--ink)' }}>до {to}</button>
           </div>
           {editing && (
             <div style={{ borderTop: '1px dashed var(--line)', paddingTop: 12 }}>
