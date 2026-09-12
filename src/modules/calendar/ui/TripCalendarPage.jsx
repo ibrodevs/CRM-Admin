@@ -142,7 +142,7 @@ function CritDot({ crit, size = 8 }) {
 function SvcGlyph({ kind, size = 26 }) {
   const k = SERVICE_KIND[kind] || { icon: 'route', color: 'var(--muted)' };
   return (
-    <span className="tc-glyph" style={{ width: size, height: size, background: k.img ? '#fff' : k.color, border: k.img ? '1px solid var(--line)' : 'none' }} title={kind}>
+    <span className="tc-glyph" style={{ width: size, height: size, background: k.img ? 'var(--blue-soft)' : k.color, border: 'none' }} title={kind}>
       {k.img ? <img src={k.img} alt={kind} /> : <Icon name={k.icon} style={{ width: size * 0.55, height: size * 0.55 }} />}
     </span>
   );

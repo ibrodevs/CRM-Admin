@@ -1535,7 +1535,7 @@ const ADD_SVC_CATS = [
   { kind: 'Гостиница', label: 'Отели', icon: 'building', routeKey: 'hotels' },
   { kind: 'Трансфер', label: 'Трансферы', icon: 'car', routeKey: 'transfers' },
   { kind: 'Автобус', label: 'Автобус', icon: 'bus', routeKey: 'buses' },
-  { kind: 'Аэроэкспресс', label: 'Аэроэкспресс', icon: 'zap', routeKey: 'aero' },
+  { kind: 'Аэроэкспресс', label: 'Аэроэкспресс', icon: 'zap', img: 'assets/Express-blue-logo.png', routeKey: 'aero' },
   { kind: 'Бизнес-зал', label: 'Бизнес-залы', icon: 'lounge', routeKey: 'lounge' },
   { kind: 'Страховка', label: 'Страховка', icon: 'shield' },
   { kind: 'Доп. услуга', label: 'Доп. услуга', icon: 'briefcase' },

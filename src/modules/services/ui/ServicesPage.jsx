@@ -116,7 +116,7 @@ function SvcOfferCard({ o, kind, onSelect, onSave, selectLabel }) {
     <div className="off-card" style={{ marginBottom: 14 }}>
       <div className="off-main">
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-          <span className={'oc-svc-ic' + (k.img ? ' oc-svc-ic-img' : '')} style={{ background: k.img ? '#fff' : k.color, width: 44, height: 44 }}>{k.img ? <img src={k.img} alt={kind} /> : <Icon name={k.icon} />}</span>
+          <span className={'oc-svc-ic' + (k.img ? ' oc-svc-ic-img' : '')} style={{ background: k.img ? 'var(--blue-soft)' : k.color, width: 44, height: 44 }}>{k.img ? <img src={k.img} alt={kind} /> : <Icon name={k.icon} />}</span>
           <div><div style={{ fontWeight: 700, color: 'var(--ink)' }}>{o.title}</div><div style={{ fontSize: 13, color: 'var(--muted)' }}>{o.sub}</div></div>
         </div>
         <div style={{ display: 'flex', gap: 26, flexWrap: 'wrap' }}>
@@ -2030,7 +2030,7 @@ function AeroAddFlow({ onAdd }) {
     <div className="fade-in">
       <div style={{ marginBottom: 14, display: 'flex', gap: 10, alignItems: 'center' }}>
         {view === 'results' && <Button variant="secondary" size="sm" icon="chevLeft" onClick={() => setView('search')}>Изменить поиск</Button>}
-        <Icon name="zap" style={{ width: 20, height: 20, color: 'var(--blue)' }} />
+        <img className="aero-logo" src="assets/Express-blue-logo.png" alt="Аэроэкспресс" style={{ height: 22, width: 'auto' }} />
         <span style={{ fontWeight: 600, color: 'var(--ink)' }}>Аэроэкспресс — билеты и абонементы</span>
       </div>
 
@@ -2515,7 +2515,7 @@ const SERVICES_HUB = [
   { key: 'hotels', icon: 'building', title: 'Гостиницы', desc: 'Подбор отелей, категории, питание и условия.' },
   { key: 'transfers', icon: 'car', title: 'Трансферы', desc: 'Индивидуальные и групповые трансферы, такси.' },
   { key: 'buses', icon: 'bus', title: 'Автобусы', desc: 'Автобусные и маршрутные перевозки.' },
-  { key: 'aero', icon: 'zap', title: 'Аэроэкспресс', desc: 'Билеты и абонементы Аэроэкспресс, аэропорт ⇄ город.' },
+  { key: 'aero', img: 'assets/Express-blue-logo.png', title: 'Аэроэкспресс', desc: 'Билеты и абонементы Аэроэкспресс, аэропорт ⇄ город.' },
   { key: 'lounge', icon: 'lounge', title: 'Бизнес-залы', desc: 'VIP-залы ожидания в аэропортах, доступ по гостям.' },
   { key: 'tours', icon: 'users', title: 'Туры и группы', desc: 'Групповые поездки и туристические пакеты.' },
 ];
