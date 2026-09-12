@@ -34,6 +34,29 @@ function App() {
   const workspace = useApplicationWorkspace();
   const toast = useToast();
   const { route, setRoute, intent, setIntent, svcSearch, setSvcSearch, chatOpen, setChatOpen, chatTarget, setChatTarget, focusedChat, setFocusedChat, notifOpen, setNotifOpen, ctxOrder, setCtxOrder, navigate, openChat, openChatThread, openOrder, createOrder, createClient, createCompany, createKP, openServiceSearch } = useAppNavigation();
+
+  const [userCollapsed, setUserCollapsed] = useState(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const saved = localStorage.getItem('crm_sidebar_collapsed');
+        if (saved !== null) return saved === 'true';
+      } catch {}
+    }
+    return null;
+  });
+
+  const sidebarCollapsed = userCollapsed !== null
+    ? userCollapsed
+    : (!!ctxOrder || route.split('/')[0] === 'chats');
+
+  const toggleSidebar = () => {
+    setUserCollapsed((prev) => {
+      const current = prev !== null ? prev : (!!ctxOrder || route.split('/')[0] === 'chats');
+      const next = !current;
+      try { localStorage.setItem('crm_sidebar_collapsed', String(next)); } catch {}
+      return next;
+    });
+  };
   useEffect(() => {
     if (auth.status !== 'authenticated') return;
     const controller = new AbortController();
@@ -80,29 +103,6 @@ function App() {
 
   if (auth.status === 'loading') return <div className="app-boot"><span className="spinner" />Загрузка Travel Hub…</div>;
   if (auth.status !== 'authenticated') return <LoginScreen expired={auth.expired} onLogin={auth.login} onVerifyTwoFactor={auth.verifyTwoFactor} onPasswordReset={auth.requestPasswordReset} />;
-
-  const [userCollapsed, setUserCollapsed] = useState(() => {
-    if (typeof window !== 'undefined') {
-      try {
-        const saved = localStorage.getItem('crm_sidebar_collapsed');
-        if (saved !== null) return saved === 'true';
-      } catch {}
-    }
-    return null;
-  });
-
-  const sidebarCollapsed = userCollapsed !== null
-    ? userCollapsed
-    : (!!ctxOrder || route.split('/')[0] === 'chats');
-
-  const toggleSidebar = () => {
-    setUserCollapsed((prev) => {
-      const current = prev !== null ? prev : (!!ctxOrder || route.split('/')[0] === 'chats');
-      const next = !current;
-      try { localStorage.setItem('crm_sidebar_collapsed', String(next)); } catch {}
-      return next;
-    });
-  };
 
   const topbar = (
     <GlobalTopbar
