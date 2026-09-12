@@ -14,7 +14,7 @@ import html2canvas from 'html2canvas';
 import * as jspdf from 'jspdf';
 if (typeof window !== 'undefined') { window.html2canvas = html2canvas; window.jspdf = jspdf; }
 
-import { useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { useToast } from '../shared/ui/Toast.jsx';
 
 import { useAuth } from '../shared/auth/auth-context.jsx';
