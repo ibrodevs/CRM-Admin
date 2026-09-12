@@ -93,6 +93,18 @@ html[data-theme="dark"] body {
   color: var(--ink);
 }
 
+:root[data-theme="dark"] .sb-toggle-btn {
+  background: var(--surface-2);
+  border-color: var(--line);
+  color: var(--muted);
+}
+
+:root[data-theme="dark"] .sb-toggle-btn:hover {
+  background: var(--hover);
+  border-color: var(--line-strong);
+  color: var(--ink);
+}
+
 :root[data-theme="dark"] .nav-item {
   color: var(--body);
 }

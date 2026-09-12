@@ -37,7 +37,7 @@ function NavGroup({ item, active, onNavigate, collapsed }) {
   );
 }
 
-function Sidebar({ route, onNavigate, onLogout, role, user, collapsed }) {
+function Sidebar({ route, onNavigate, onLogout, role, user, collapsed, onToggleCollapse }) {
   const active = route.split('/')[0];
 
   const can = (k) => k === 'settings' ? (user?.permissions || []).some((code) => ['users.manage', 'roles.manage', 'settings.manage', 'integrations.manage'].includes(code)) : (typeof window.roleCanSee === 'function' ? window.roleCanSee(role, k) : true);
@@ -47,9 +47,22 @@ function Sidebar({ route, onNavigate, onLogout, role, user, collapsed }) {
   }).filter(Boolean);
   return (
     <aside className={'sidebar' + (collapsed ? ' collapsed' : '')}>
-      <div className="sb-logo" onClick={() => onNavigate('dashboard')}>
-        <BrandMark size={26} />
-        <span>ПСЦ&nbsp;-&nbsp;Travel&nbsp;Hub</span>
+      <div className="sb-header">
+        <div className="sb-logo" onClick={() => onNavigate('dashboard')} title="Главное">
+          <BrandMark size={26} />
+          <span className="sb-logo-text">ПСЦ&nbsp;-&nbsp;Travel&nbsp;Hub</span>
+        </div>
+        {onToggleCollapse && (
+          <button
+            type="button"
+            className="sb-toggle-btn"
+            title={collapsed ? "Развернуть боковое меню" : "Свернуть боковое меню"}
+            onClick={onToggleCollapse}
+            aria-label={collapsed ? "Развернуть боковое меню" : "Свернуть боковое меню"}
+          >
+            <Icon name={collapsed ? "chevRight" : "chevLeft"} />
+          </button>
+        )}
       </div>
       <nav className="nav scroll">
         {items.map((it) => it.group ? (

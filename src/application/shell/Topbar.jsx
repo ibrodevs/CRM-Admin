@@ -43,7 +43,7 @@ function QuickCreate({ onCreateOrder, onCreateClient, onCreateCompany, onCreateK
   );
 }
 
-function GlobalTopbar({ route, ctxOrder, onNavigate, onOpenOrder, onCreateClient, onCreateCompany, onCreateKP, onOpenChat, onOpenNotif, unreadChat, unreadNotif, role, onRole }) {
+function GlobalTopbar({ route, ctxOrder, onNavigate, onOpenOrder, onCreateClient, onCreateCompany, onCreateKP, onOpenChat, onOpenNotif, unreadChat, unreadNotif, role, onRole, sidebarCollapsed, onToggleSidebar }) {
   const [theme, setTheme] = React.useState(() => (typeof document !== 'undefined' ? document.documentElement.dataset.theme || 'light' : 'light'));
   React.useEffect(() => {
     if (typeof document === 'undefined') return;
@@ -61,7 +61,20 @@ function GlobalTopbar({ route, ctxOrder, onNavigate, onOpenOrder, onCreateClient
   return (
     <div className="gtop">
       <style>{'.topbar .search[style*="width: 220px"],.topbar .search:has(input[placeholder="Поиск"]){display:none!important}'}</style>
-      <Breadcrumbs route={route} ctxOrder={ctxOrder} onNavigate={onNavigate} />
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
+        {onToggleSidebar && (
+          <button
+            type="button"
+            className="icon-btn gtop-ic gtop-sidebar-btn"
+            title={sidebarCollapsed ? "Развернуть боковое меню" : "Свернуть боковое меню"}
+            onClick={onToggleSidebar}
+            aria-label={sidebarCollapsed ? "Развернуть боковое меню" : "Свернуть боковое меню"}
+          >
+            <Icon name="menu" />
+          </button>
+        )}
+        <Breadcrumbs route={route} ctxOrder={ctxOrder} onNavigate={onNavigate} />
+      </div>
       <GlobalSearch onOpenOrder={onOpenOrder} onNavigate={onNavigate} onOpenChat={onOpenChat} />
       <div className="gtop-actions">
         <ShiftControl role={role} onOpenOrder={onOpenOrder} />

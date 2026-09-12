@@ -81,6 +81,29 @@ function App() {
   if (auth.status === 'loading') return <div className="app-boot"><span className="spinner" />Загрузка Travel Hub…</div>;
   if (auth.status !== 'authenticated') return <LoginScreen expired={auth.expired} onLogin={auth.login} onVerifyTwoFactor={auth.verifyTwoFactor} onPasswordReset={auth.requestPasswordReset} />;
 
+  const [userCollapsed, setUserCollapsed] = useState(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const saved = localStorage.getItem('crm_sidebar_collapsed');
+        if (saved !== null) return saved === 'true';
+      } catch {}
+    }
+    return null;
+  });
+
+  const sidebarCollapsed = userCollapsed !== null
+    ? userCollapsed
+    : (!!ctxOrder || route.split('/')[0] === 'chats');
+
+  const toggleSidebar = () => {
+    setUserCollapsed((prev) => {
+      const current = prev !== null ? prev : (!!ctxOrder || route.split('/')[0] === 'chats');
+      const next = !current;
+      try { localStorage.setItem('crm_sidebar_collapsed', String(next)); } catch {}
+      return next;
+    });
+  };
+
   const topbar = (
     <GlobalTopbar
       route={route} ctxOrder={ctxOrder}
@@ -88,7 +111,9 @@ function App() {
       onCreateClient={createClient} onCreateCompany={createCompany} onCreateKP={createKP}
       onOpenChat={() => openChat(ctxOrder)} onOpenNotif={() => setNotifOpen(true)}
       unreadChat={unreadChat} unreadNotif={unreadNotif}
-      role={role} />
+      role={role}
+      sidebarCollapsed={sidebarCollapsed}
+      onToggleSidebar={toggleSidebar} />
   );
   const isServicePage = ['flights', 'rail', 'hotels', 'transfers', 'buses', 'tours'].includes(route.split('/')[0]);
 
@@ -105,7 +130,7 @@ function App() {
 
   return (
     <AppShell route={route} onNavigate={navigate} onLogout={async () => { await auth.logout(); setRoute('dashboard'); }}
-      role={role} user={auth.user} topbar={topbar} overlays={<GlobalOverlays {...{ workspace, orders, navigate, openOrder, notifOpen, setNotifOpen, chatOpen, setChatOpen, setChatTarget, chatTarget, ctxOrder, auth }} />} sidebarCollapsed={!!ctxOrder || route.split('/')[0] === 'chats'}>
+      role={role} user={auth.user} topbar={topbar} overlays={<GlobalOverlays {...{ workspace, orders, navigate, openOrder, notifOpen, setNotifOpen, chatOpen, setChatOpen, setChatTarget, chatTarget, ctxOrder, auth }} />} sidebarCollapsed={sidebarCollapsed} onToggleSidebar={toggleSidebar}>
       {blocked && <AccessDenied onNavigate={navigate} />}
       {!blocked && (isServicePage ? <div className="svc-zoom">{gatedPage}</div> : gatedPage)}
     </AppShell>

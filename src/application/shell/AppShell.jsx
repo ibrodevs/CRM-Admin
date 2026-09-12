@@ -4,10 +4,10 @@ import { NavGroup, Sidebar, ProfileCard } from './Sidebar.jsx';
 import { Topbar } from '../../shared/ui/Topbar.jsx';
 import { ModulePlaceholder } from '../../shared/ui/ModulePlaceholder.jsx';
 
-function AppShell({ route, onNavigate, onLogout, role, user, topbar, overlays, children, sidebarCollapsed }) {
+function AppShell({ route, onNavigate, onLogout, role, user, topbar, overlays, children, sidebarCollapsed, onToggleSidebar }) {
   return (
     <div className="app">
-      <Sidebar route={route} onNavigate={onNavigate} onLogout={onLogout} role={role} user={user} collapsed={sidebarCollapsed} />
+      <Sidebar route={route} onNavigate={onNavigate} onLogout={onLogout} role={role} user={user} collapsed={sidebarCollapsed} onToggleCollapse={onToggleSidebar} />
       <main className="main scroll">
         {topbar}
         {children}
