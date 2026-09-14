@@ -300,7 +300,7 @@ function ReassignOperatorDrawer({ open, current, options = [], onClose, onPick }
           const op = typeof choice === 'string' ? { id: null, name: choice } : { id: choice.id, name: choice.full_name || choice.name || choice.email };
           const sel = op.name === current;
           return (
-            <button key={op.id || op.name} type="button" className={'oce-client' + (sel ? ' sel' : '')} style={{ cursor: 'pointer', width: '100%', textAlign: 'left', border: '1px solid ' + (sel ? 'var(--blue)' : 'var(--line)'), background: sel ? 'var(--blue-soft)' : '#fff', borderRadius: 12, padding: '10px 12px' }}
+            <button key={op.id || op.name} type="button" className={'oce-client' + (sel ? ' sel' : '')} style={{ cursor: 'pointer', width: '100%', textAlign: 'left', border: '1px solid ' + (sel ? 'var(--blue)' : 'var(--line)'), background: sel ? 'var(--blue-soft)' : 'var(--surface)', borderRadius: 12, padding: '10px 12px', color: 'inherit' }}
               onClick={() => onPick(op)}>
               <Avatar name={op.name} size={34} />
               <div style={{ flex: 1, minWidth: 0 }}><div className="nm">{op.name}</div><div className="mt">Оператор</div></div>

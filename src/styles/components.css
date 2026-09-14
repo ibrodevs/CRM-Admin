@@ -1710,7 +1710,9 @@ table.tbl.tbl-wide thead th,table.tbl.tbl-wide tbody td{white-space:nowrap}
 .oce-sec-h{display:flex;align-items:center;gap:10px;margin-bottom:14px}
 .oce-sec-h .n{width:25px;height:25px;border-radius:50%;background:var(--blue);color:#fff;font-weight:700;font-size:13px;display:flex;align-items:center;justify-content:center;flex:0 0 25px}
 .oce-sec-h .t{font-weight:700;color:var(--ink);font-size:17px}
-.oce-client{display:flex;align-items:center;gap:12px;padding:13px 14px;border:1px solid var(--line);border-radius:13px;background:#fff;margin-bottom:10px}
+.oce-client{display:flex;align-items:center;gap:12px;padding:13px 14px;border:1px solid var(--line);border-radius:13px;background:var(--surface);margin-bottom:10px;transition:.14s}
+.oce-client:hover{border-color:var(--blue);background:var(--hover)}
+.oce-client.sel{border-color:var(--blue);background:var(--blue-soft)}
 .oce-client.found{border-color:var(--green);background:var(--green-bg)}
 .oce-client .nm{font-weight:600;color:var(--ink);font-size:14.5px}
 .oce-client .mt{font-size:12.5px;color:var(--muted);margin-top:2px}

@@ -1567,8 +1567,18 @@ html[data-theme="dark"] body {
 }
 
 :root[data-theme="dark"] .oce-client {
-  background: var(--surface);
+  background: var(--surface) !important;
   border-color: var(--line);
+}
+
+:root[data-theme="dark"] .oce-client:hover:not(.sel) {
+  background: var(--hover) !important;
+  border-color: var(--blue);
+}
+
+:root[data-theme="dark"] .oce-client.sel {
+  background: var(--blue-soft) !important;
+  border-color: var(--blue);
 }
 
 :root[data-theme="dark"] .oce-client.found {

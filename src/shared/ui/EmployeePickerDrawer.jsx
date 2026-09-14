@@ -23,7 +23,7 @@ function EmployeePickerDrawer({ open, currentId, options = [], title = 'Отве
           const selected = String(employee.id || '') === String(currentId || '');
           return (
             <button key={employee.id || employee.name} type="button" className={'oce-client' + (selected ? ' sel' : '')}
-              style={{ cursor: 'pointer', width: '100%', textAlign: 'left', border: '1px solid ' + (selected ? 'var(--blue)' : 'var(--line)'), background: selected ? 'var(--blue-soft)' : '#fff', borderRadius: 12, padding: '10px 12px' }}
+              style={{ cursor: 'pointer', width: '100%', textAlign: 'left', border: '1px solid ' + (selected ? 'var(--blue)' : 'var(--line)'), background: selected ? 'var(--blue-soft)' : 'var(--surface)', borderRadius: 12, padding: '10px 12px', color: 'inherit' }}
               onClick={() => onPick(employee)}>
               <Avatar name={employee.name} size={34} />
               <div style={{ flex: 1, minWidth: 0 }}><div className="nm">{employee.name}</div><div className="mt">{employee.sub}</div></div>

@@ -35,3 +35,10 @@ test('ChatThread and ChatInfoPanel wire Задача and История buttons 
   assert.match(chatsPageSource, /<ChatTaskDrawer/);
   assert.match(chatsPageSource, /<ChatHistoryDrawer/);
 });
+
+test('EmployeePickerDrawer uses theme-aware background instead of hardcoded white', async () => {
+  const employeePickerSource = await readFile(new URL('../src/shared/ui/EmployeePickerDrawer.jsx', import.meta.url), 'utf8');
+  assert.doesNotMatch(employeePickerSource, /background:\s*selected\s*\?\s*['"]var\(--blue-soft\)['"]\s*:\s*['"]#fff['"]/);
+  assert.match(employeePickerSource, /var\(--surface\)/);
+});
+

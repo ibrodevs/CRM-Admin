@@ -347,7 +347,7 @@ function CalPaxPickDrawer({ order, onPick, onClose, clients = [], users = [] }) 
       <div style={{ marginTop: 12, display: 'flex', flexDirection: 'column', gap: 6 }}>
         {list.map((p) => (
           <button key={p.id} type="button" onClick={() => onPick(p.name)}
-            style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 12px', border: '1px solid var(--line)', borderRadius: 12, background: p.fromOrder ? 'var(--blue-soft)' : '#fff', cursor: 'pointer', textAlign: 'left', width: '100%', fontFamily: 'inherit' }}>
+            style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 12px', border: '1px solid var(--line)', borderRadius: 12, background: p.fromOrder ? 'var(--blue-soft)' : 'var(--surface)', cursor: 'pointer', textAlign: 'left', width: '100%', fontFamily: 'inherit' }}>
             <Avatar name={p.name} size={34} />
             <div style={{ flex: 1, minWidth: 0 }}>
               <div style={{ fontWeight: 600, color: 'var(--ink)', fontSize: 14 }}>{p.name}</div>

@@ -867,7 +867,7 @@ function EmployeePanel({ company, selected, onApply, onClose }) {
             <>
               <PanelSub style={{ margin: '0 0 10px' }}>Отделы и тревел-группы</PanelSub>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 18 }}>
-                <div role="button" tabIndex={0} className="oce-client" style={{ cursor: 'pointer', background: !deptFilter ? 'var(--blue-soft)' : '#fff' }} onClick={() => setDeptFilter('')}>
+                <div role="button" tabIndex={0} className="oce-client" style={{ cursor: 'pointer', background: !deptFilter ? 'var(--blue-soft)' : 'var(--surface)' }} onClick={() => setDeptFilter('')}>
                   <span className="oce-svc-ic" style={{ width: 32, height: 32, borderRadius: 9, background: 'var(--surface-2)', color: 'var(--blue)', display: 'flex', alignItems: 'center', justifyContent: 'center', flex: '0 0 32px' }}><Icon name="users" style={{ width: 16, height: 16 }} /></span>
                   <div style={{ flex: 1, minWidth: 0 }}><div className="nm">Все сотрудники</div><div className="mt">{staff.employees.length} чел.</div></div>
                 </div>
@@ -875,7 +875,7 @@ function EmployeePanel({ company, selected, onApply, onClose }) {
                   const deptEmployees = staff.employees.filter((c) => c.dept === d.id);
                   const allIn = deptEmployees.length > 0 && deptEmployees.every((c) => picked.includes(c.id));
                   return (
-                    <div key={d.id} className="oce-client" style={{ background: deptFilter === d.id ? 'var(--blue-soft)' : '#fff' }}>
+                    <div key={d.id} className="oce-client" style={{ background: deptFilter === d.id ? 'var(--blue-soft)' : 'var(--surface)' }}>
                       <div role="button" tabIndex={0} style={{ display: 'flex', alignItems: 'center', gap: 12, flex: 1, minWidth: 0, cursor: 'pointer' }} onClick={() => setDeptFilter(d.id)}>
                         <span className="oce-svc-ic" style={{ width: 32, height: 32, borderRadius: 9, background: 'var(--surface-2)', color: 'var(--blue)', display: 'flex', alignItems: 'center', justifyContent: 'center', flex: '0 0 32px' }}><Icon name="briefcase" style={{ width: 16, height: 16 }} /></span>
                         <div style={{ flex: 1, minWidth: 0 }}><div className="nm">{d.name}</div><div className="mt">{deptEmployees.length} чел. · политика: {d.policy}</div></div>
