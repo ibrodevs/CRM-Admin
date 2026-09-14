@@ -1364,7 +1364,6 @@ html[data-theme="dark"] body {
   .receipt-hotel-preview-room,
   .receipt-ticket-editor-chip,
   .receipt-ticket-editor-nav > button,
-  .receipt-sequential-review,
   .receipt-sequential-steps button,
   .receipt-import-mode-options button,
   .receipt-supplier-original-frame
@@ -1374,16 +1373,45 @@ html[data-theme="dark"] body {
   color: var(--body);
 }
 
+:root[data-theme="dark"] :is(
+  .receipt-ticket-editor-strip,
+  .receipt-sequential-review
+) {
+  background: var(--surface-2);
+  border-color: var(--line);
+}
+
+:root[data-theme="dark"] .receipt-ticket-editor-chip {
+  background: var(--surface);
+  border-color: var(--line);
+  color: var(--body);
+}
+
+:root[data-theme="dark"] .receipt-ticket-editor-chip b {
+  color: var(--ink);
+}
+
+:root[data-theme="dark"] .receipt-ticket-editor-chip:hover {
+  background: var(--hover);
+  border-color: var(--line-strong);
+}
+
 :root[data-theme="dark"] .receipt-ticket-editor-chip.is-active,
 :root[data-theme="dark"] .receipt-sequential-steps button.is-active {
-  background: var(--blue-soft);
-  border-color: var(--blue);
+  background: var(--blue-soft) !important;
+  border-color: var(--blue) !important;
+  color: var(--ink) !important;
+}
+
+:root[data-theme="dark"] .receipt-ticket-editor-chip.is-active:hover {
+  background: var(--blue-soft-2) !important;
+  border-color: var(--blue-hover) !important;
 }
 
 :root[data-theme="dark"] .receipt-ticket-editor-chip.is-reviewed:not(.is-active),
-:root[data-theme="dark"] .receipt-sequential-steps button.is-reviewed {
-  background: var(--green-bg);
-  border-color: var(--green);
+:root[data-theme="dark"] .receipt-sequential-steps button.is-reviewed:not(.is-active) {
+  background: var(--green-bg) !important;
+  border-color: var(--green) !important;
 }
 
 :root[data-theme="dark"] .receipt-ticket-editor-index,
@@ -1391,6 +1419,41 @@ html[data-theme="dark"] body {
 :root[data-theme="dark"] .receipt-import-mode-options button > span {
   background: var(--surface-2);
   color: var(--muted);
+}
+
+:root[data-theme="dark"] .receipt-ticket-editor-chip.is-active .receipt-ticket-editor-index,
+:root[data-theme="dark"] .receipt-sequential-steps button.is-active > span {
+  background: var(--blue) !important;
+  color: #fff !important;
+}
+
+:root[data-theme="dark"] .receipt-ticket-editor-chip.is-reviewed .receipt-ticket-editor-index,
+:root[data-theme="dark"] .receipt-sequential-steps button.is-reviewed > span {
+  background: var(--green) !important;
+  color: #fff !important;
+}
+
+:root[data-theme="dark"] .receipt-ticket-editor-nav > button {
+  background: var(--surface);
+  border-color: var(--line);
+  color: var(--body);
+}
+
+:root[data-theme="dark"] .receipt-ticket-editor-nav > button:hover:not(:disabled) {
+  background: var(--hover);
+  border-color: var(--blue);
+  color: var(--ink);
+}
+
+:root[data-theme="dark"] .receipt-ticket-editor-nav > button:disabled {
+  background: var(--surface);
+  border-color: var(--line);
+  opacity: 0.38;
+  color: var(--muted);
+}
+
+:root[data-theme="dark"] .receipt-ticket-editor-note {
+  color: var(--green);
 }
 
 :root[data-theme="dark"] .receipt-sequential-progress {
@@ -1404,6 +1467,13 @@ html[data-theme="dark"] body {
 :root[data-theme="dark"] .receipt-sequential-validation.is-ok {
   background: var(--green-bg);
   color: var(--green);
+  border: 1px solid rgba(52, 211, 153, 0.25);
+}
+
+:root[data-theme="dark"] .receipt-sequential-validation.is-warning {
+  background: var(--amber-bg);
+  color: var(--amber);
+  border: 1px solid rgba(251, 191, 36, 0.25);
 }
 
 :root[data-theme="dark"] :is(.receipt-locked-input, input:disabled, textarea:disabled, select:disabled) {
@@ -1421,6 +1491,36 @@ html[data-theme="dark"] body {
 :root[data-theme="dark"] .receipt-breakdown-remove:hover {
   background: rgba(239, 68, 68, 0.25) !important;
   border-color: var(--red) !important;
+}
+
+:root[data-theme="dark"] :is(.receipt-participant-popover) {
+  background: var(--surface);
+  border-color: var(--line);
+  color: var(--ink);
+  box-shadow: var(--shadow-pop);
+}
+
+:root[data-theme="dark"] :is(.receipt-participant-popover-head) {
+  background: var(--surface-2);
+  border-color: var(--line);
+}
+
+:root[data-theme="dark"] :is(.receipt-participant-popover-head > button:hover, .receipt-participant-popover-item:hover) {
+  background: var(--hover);
+}
+
+:root[data-theme="dark"] .receipt-participant-popover-item > span {
+  background: var(--blue-soft);
+  color: var(--blue-soft-text);
+}
+
+:root[data-theme="dark"] .receipt-participant-popover-item b {
+  color: var(--ink);
+}
+
+:root[data-theme="dark"] :is(.rec-import-table .receipt-subrows-strip-row, .receipt-subrows-strip-row > td, .receipt-subrows-strip, .rec-import-table .receipt-subrows-strip) {
+  background: var(--surface-2) !important;
+  border-color: var(--line) !important;
 }
 
 :root[data-theme="dark"] .receipt-group-review-mode button {

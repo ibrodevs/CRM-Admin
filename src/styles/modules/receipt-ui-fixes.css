@@ -831,7 +831,7 @@
 .rec-import-table .receipt-subrows-strip-row {
   display: table-row !important;
   width: 100% !important;
-  background: #f7f9ff !important;
+  background: var(--surface-2, #f7f9ff) !important;
 }
 
 .receipt-subrows-strip-row > td,
@@ -840,7 +840,7 @@
   width: 100% !important;
   max-width: none !important;
   padding: 0 !important;
-  background: #f7f9ff !important;
+  background: var(--surface-2, #f7f9ff) !important;
   box-sizing: border-box !important;
 }
 
@@ -851,9 +851,9 @@
   min-width: 0 !important;
   box-sizing: border-box !important;
   padding: 9px 14px !important;
-  border-top: 1px solid #dce6ff !important;
-  border-bottom: 1px solid #dce6ff !important;
-  background: #f7f9ff !important;
+  border-top: 1px solid var(--line, #dce6ff) !important;
+  border-bottom: 1px solid var(--line, #dce6ff) !important;
+  background: var(--surface-2, #f7f9ff) !important;
 }
 
 .receipt-subrows-strip-summary {
@@ -921,9 +921,9 @@
   max-width: calc(100vw - 24px);
   max-height: min(360px, calc(100vh - 24px));
   overflow: hidden;
-  border: 1px solid #dbe3ef;
+  border: 1px solid var(--line, #dbe3ef);
   border-radius: 12px;
-  background: #fff;
+  background: var(--surface, #fff);
   box-shadow: 0 14px 38px rgba(15, 23, 42, .16), 0 3px 10px rgba(15, 23, 42, .08);
   color: var(--ink);
 }
@@ -931,12 +931,12 @@
 .receipt-participant-popover-head {
   min-height: 50px;
   padding: 9px 10px 9px 12px;
-  border-bottom: 1px solid #edf1f6;
+  border-bottom: 1px solid var(--line, #edf1f6);
   display: flex;
   align-items: baseline;
   justify-content: space-between;
   gap: 10px;
-  background: #fbfcfe;
+  background: var(--surface-2, #fbfcfe);
 }
 
 .receipt-participant-popover-head > span {
@@ -972,7 +972,7 @@
 }
 
 .receipt-participant-popover-head > button:hover {
-  background: #f0f3f8;
+  background: var(--hover, #f0f3f8);
   color: var(--ink);
 }
 
@@ -1000,15 +1000,15 @@
 }
 
 .receipt-participant-popover-item:hover {
-  background: #f6f8fb;
+  background: var(--hover, #f6f8fb);
 }
 
 .receipt-participant-popover-item > span {
   width: 24px;
   height: 24px;
   border-radius: 7px;
-  background: #eef3ff;
-  color: #3568d4;
+  background: var(--blue-soft, #eef3ff);
+  color: var(--blue-soft-text, #3568d4);
   display: inline-flex;
   align-items: baseline;
   justify-content: center;
@@ -1018,7 +1018,7 @@
 
 .receipt-participant-popover-item b {
   min-width: 0;
-  color: #202a3b;
+  color: var(--ink, #202a3b);
   font-size: 11px;
   line-height: 1.35;
   overflow-wrap: anywhere;
@@ -1108,9 +1108,9 @@
   grid-column: 1 / -1;
   min-width: 0;
   padding: 12px;
-  border: 1px solid #dfe7f3;
+  border: 1px solid var(--line, #dfe7f3);
   border-radius: 14px;
-  background: #f8faff;
+  background: var(--surface-2, #f8faff);
   display: grid;
   gap: 10px;
 }
@@ -1162,9 +1162,9 @@
   min-height: 70px;
   flex: none;
   padding: 9px 10px;
-  border: 1px solid #dfe5ee;
+  border: 1px solid var(--line, #dfe5ee);
   border-radius: 12px;
-  background: #fff;
+  background: var(--surface, #fff);
   display: grid;
   grid-template-columns: 28px minmax(130px, 1fr) minmax(90px, auto);
   align-items: baseline;
@@ -1190,7 +1190,7 @@
   width: 28px;
   height: 28px;
   border-radius: 9px;
-  background: #f1f3f7;
+  background: var(--surface-2, #f1f3f7);
   color: var(--muted);
   display: inline-grid;
   place-items: center;
@@ -1221,9 +1221,9 @@
   height: 32px;
   flex: 0 0 32px;
   padding: 0;
-  border: 1px solid var(--field-line);
+  border: 1px solid var(--field-line, var(--line));
   border-radius: 9px;
-  background: #fff;
+  background: var(--surface, #fff);
   color: var(--body);
   cursor: pointer;
 }
@@ -1309,9 +1309,9 @@
   display: grid;
   gap: 10px;
   padding: 14px;
-  border: 1px solid #dce6f6;
+  border: 1px solid var(--line, #dce6f6);
   border-radius: 14px;
-  background: #fff;
+  background: var(--surface-2, #fff);
 }
 .receipt-sequential-review-head { display:flex; align-items:center; justify-content:space-between; gap:14px; }
 .receipt-sequential-review-head > span { min-width:0; display:grid; gap:3px; }
@@ -1321,8 +1321,8 @@
 .receipt-sequential-progress { height:6px; border-radius:999px; background:#e9eef7; overflow:hidden; }
 .receipt-sequential-progress > span { display:block; height:100%; border-radius:inherit; background:var(--green); transition:width .2s ease; }
 .receipt-sequential-steps { display:grid; grid-template-columns:repeat(auto-fill,minmax(105px,1fr)); gap:7px; max-height:180px; overflow-x:hidden; overflow-y:auto; padding-bottom:2px; }
-.receipt-sequential-steps button { min-width:0; border:1px solid #dfe5ee; border-radius:10px; background:#fff; padding:7px 9px; display:flex; align-items:center; gap:7px; color:var(--muted); cursor:pointer; }
-.receipt-sequential-steps button > span { width:24px; height:24px; flex:0 0 24px; border-radius:8px; display:inline-grid; place-items:center; background:#f1f3f7; font-size:11px;
+.receipt-sequential-steps button { min-width:0; border:1px solid var(--line, #dfe5ee); border-radius:10px; background:var(--surface, #fff); padding:7px 9px; display:flex; align-items:center; gap:7px; color:var(--muted); cursor:pointer; }
+.receipt-sequential-steps button > span { width:24px; height:24px; flex:0 0 24px; border-radius:8px; display:inline-grid; place-items:center; background:var(--surface-2, #f1f3f7); font-size:11px;
   line-height:1; font-weight:800; }
 .receipt-sequential-steps button > span svg { display:block; width:13px; height:13px; }
 .receipt-sequential-steps button small { white-space:nowrap; font-size:10.5px; }
