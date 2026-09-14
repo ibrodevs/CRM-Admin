@@ -38,6 +38,7 @@ import { technicalStopCount, technicalStopLabel, technicalStopsOf } from './tech
 import { TechnicalStopsDetails } from './TechnicalStops.jsx';
 import { currencySymbol, resolveCurrency } from '../../../shared/lib/money.js';
 import { RU_DATE_TIME } from '../../../shared/lib/datetime.js';
+import { deliverySummary } from '../../../shared/lib/delivery.js';
 
 
 
@@ -1427,7 +1428,7 @@ function SendToPaxDrawer({ open, passengers, onClose, onSend }) {
   const CHANNELS = [['email', 'E-mail', 'mail'], ['whatsapp', 'WhatsApp', 'chat'], ['telegram', 'Telegram', 'send']];
   return (
     <Drawer open={open} onClose={onClose} title="Отправить пассажиру"
-      footer={<><Button variant="secondary" onClick={onClose}>Отмена</Button><Button icon="send" onClick={async () => { try { await onSend?.(channel, passengers); toast('Документы отправлены пассажиру', 'ok'); onClose(); } catch (error) { toast(error.message, 'err'); } }}>Отправить</Button></>}>
+      footer={<><Button variant="secondary" onClick={onClose}>Отмена</Button><Button icon="send" onClick={async () => { try { const summary = await onSend?.(channel, passengers); toast(summary?.message || 'Документы поставлены в очередь отправки', summary?.tone || 'ok'); onClose(); } catch (error) { toast(error.message, 'err'); } }}>Отправить</Button></>}>
       <PanelSub style={{ marginTop: 0 }}>Канал отправки</PanelSub>
       <div style={{ display: 'flex', gap: 8 }}>
         {CHANNELS.map(([k, label, icon]) => (
@@ -2104,7 +2105,8 @@ function FlightCard({ svc, offer, no: noProp, hideBackRow, onBack, onFormKp, onA
       onSend={async (channel) => {
         if (!uploadedDocs.length) throw new Error('Нет загруженных backend-документов для отправки');
         const channelCode = { Email: 'email', Telegram: 'telegram', WhatsApp: 'whatsapp', MAX: 'max', 'Внутренний чат': 'internal' }[channel] || String(channel).toLowerCase();
-        await Promise.all(uploadedDocs.map((document) => documentsApi.send(document.documentId || document.id, channelCode)));
+        const results = await Promise.all(uploadedDocs.map((document) => documentsApi.send(document.documentId || document.id, channelCode)));
+        return deliverySummary(results, { subject: `Документы (${results.length})` });
       }} />
     <SvcAddPaxDrawer open={addPaxOpen} isHotel={false} onClose={() => setAddPaxOpen(false)}
       onAdd={addBackendPassenger} />

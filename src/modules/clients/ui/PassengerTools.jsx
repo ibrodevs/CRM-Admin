@@ -754,7 +754,6 @@ function simulateIncomingList(current) {
 }
 function paxStamp() { return (typeof nowStamp === 'function') ? nowStamp() : new Date().toLocaleString('ru-RU', RU_DATE_TIME); }
 
-const PAX_MERGE_HISTORY = window.PAX_MERGE_HISTORY || (window.PAX_MERGE_HISTORY = {});
 
 
 function PaxReconcileModal({ fileName, current, res, onCancel, onConfirm }) {
@@ -1157,7 +1156,7 @@ function PaxGroupsDrawer({ current = [], companyId, companyName, onAddGroup, onC
 
 Object.assign(window, {
   PaxUnifyPanel, PaxTemplateEditor, PAX_TEMPLATE_PRESETS,
-  paxSamePerson, reconcilePax, applyPaxMerge, paxMergeAppend, simulateIncomingList, PAX_MERGE_HISTORY,
+  paxSamePerson, reconcilePax, applyPaxMerge, paxMergeAppend, simulateIncomingList,
   PaxReconcileModal, PaxGroupsDrawer, PAX_GROUPS, PAX_GROUP_KINDS,
   paxTranslit, fmtPaxName, fmtPaxDate, fmtPaxSex, fmtPaxNat, guessPaxSex,
   preparePax, paxCell, validatePaxRow, paxExport,
@@ -1165,4 +1164,4 @@ Object.assign(window, {
 
 
 
-export { PAX_TODAY, PAX_TR, paxTranslit, paxNameParts, paxTitle, paxNamePart, fmtPaxName, PAX_MON_EN, paxParseDate, fmtPaxDate, PAX_FEMALE_NAMES, guessPaxSex, fmtPaxSex, PAX_NAT_MAP, fmtPaxNat, PAX_COL_LABELS, PAX_NAME_STYLES, PAX_DATE_STYLES, PAX_SEX_STYLES, PAX_NAT_STYLES, PAX_DOC_OPTS, PAX_TEMPLATE_PRESETS, paxDocsOf, preparePax, paxCell, validatePaxRow, paxCsvEscape, paxXmlEscape, paxHtmlTable, paxDownload, paxExport, PaxTemplateEditor, PAX_ROUTE_OPTS, PAX_EXPORT_FMTS, PaxUnifyPanel, paxNorm, paxSamePerson, PAX_DIFF_FIELDS, reconcilePax, applyPaxMerge, paxMergeAppend, paxSynthDob, simulateIncomingList, paxStamp, PAX_MERGE_HISTORY, PaxReconcileModal, PAX_GROUP_KINDS, PAX_GROUPS, GroupNewMemberForm, PaxGroupsDrawer };
+export { PAX_TODAY, PAX_TR, paxTranslit, paxNameParts, paxTitle, paxNamePart, fmtPaxName, PAX_MON_EN, paxParseDate, fmtPaxDate, PAX_FEMALE_NAMES, guessPaxSex, fmtPaxSex, PAX_NAT_MAP, fmtPaxNat, PAX_COL_LABELS, PAX_NAME_STYLES, PAX_DATE_STYLES, PAX_SEX_STYLES, PAX_NAT_STYLES, PAX_DOC_OPTS, PAX_TEMPLATE_PRESETS, paxDocsOf, preparePax, paxCell, validatePaxRow, paxCsvEscape, paxXmlEscape, paxHtmlTable, paxDownload, paxExport, PaxTemplateEditor, PAX_ROUTE_OPTS, PAX_EXPORT_FMTS, PaxUnifyPanel, paxNorm, paxSamePerson, PAX_DIFF_FIELDS, reconcilePax, applyPaxMerge, paxMergeAppend, paxSynthDob, simulateIncomingList, paxStamp, PaxReconcileModal, PAX_GROUP_KINDS, PAX_GROUPS, GroupNewMemberForm, PaxGroupsDrawer };

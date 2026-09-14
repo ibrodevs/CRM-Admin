@@ -9,5 +9,9 @@ export const notificationsApi = {
   readAll: () => create('notifications/read-all/', {}),
   dismissRead: () => create('notifications/dismiss-read/', {}),
   rules: (signal) => get('notification-rules/', signal),
+  // Какие внешние каналы реально настроены на сервере: интерфейс не должен
+  // обещать доставку по каналу, у которого нет ни одного реквизита.
+  channels: (signal) => get('notification-channels/', signal),
+  deliveries: (params = {}, signal) => list('notification-deliveries/', params, signal),
   setRules: (body) => apiRequest(apiPath('notification-rules/'), { method: 'PUT', body }),
 };

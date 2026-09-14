@@ -47,6 +47,15 @@ function NotificationRow({ n, onAct, onRead, onPin, onDismiss, onOpenCode }) {
           <span>·</span><span>Ответственный: {n.resp || 'Не назначен'}</span>
           <span>·</span><span>Создано: {n.created || '—'}</span>
         </div>
+        {(n.undelivered || []).length > 0 && (
+          <div className="ntf-meta" style={{ marginTop: 4 }}>
+            {n.undelivered.map((delivery) => (
+              <span key={delivery.channel} title={delivery.error}>
+                <Pill tone="amber">{delivery.label}: {delivery.stateLabel}</Pill>
+              </span>
+            ))}
+          </div>
+        )}
       </div>
       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 10, flex: '0 0 auto' }}>
         <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>

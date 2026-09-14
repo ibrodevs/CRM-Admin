@@ -22,6 +22,7 @@ import { RolesTab } from '../../settings/index.js';
 import { MotivationDrawer, motivationFromRules, shiftDuration, shiftFmtTime } from '../../workforce/index.js';
 import { ServiceAccessEditor, serviceAccessToUi } from '../../settings/index.js';
 import { accountApi } from '../../account/api.js';
+import { notificationsApi } from '../../notifications/api.js';
 import { aftersalesApi } from '../../returns/api.js';
 import { ordersApi } from '../../orders/api.js';
 import { servicesApi } from '../../services/api.js';
@@ -235,6 +236,8 @@ function ProfilePage({ user, onNavigate, initialTab }) {
   const [saving, setSaving] = useState(false);
   const [prefs, setPrefs] = useState({ theme: 'Светлая', dateFmt: 'ДД.ММ.ГГГГ', timeFmt: '24 часа', currency: DEFAULT_CURRENCY, lang: u.lang, pageSize: '25', startPage: 'Главное' });
   const [twoFactor, setTwoFactor] = useState({ enabled: false, confirmedAt: null, setupOpen: false, disableOpen: false, secret: '', uri: '', code: '', password: '' });
+  // Реальное состояние внешних каналов доставки на сервере.
+  const [channelStatus, setChannelStatus] = useState({});
 
   useEffect(() => { setPf({ ...u }); }, [u.id]);
   useEffect(() => { setTab(initialTab || 'profile'); }, [initialTab]);
@@ -247,6 +250,9 @@ function ProfilePage({ user, onNavigate, initialTab }) {
       setLoaded((current) => ({ ...current, preferences: true }));
     }).catch(handleError);
     accountApi.sessions(controller.signal).then((sessions) => setDevices(sessions.results || [])).catch(handleError);
+    notificationsApi.channels(controller.signal)
+      .then((payload) => setChannelStatus(Object.fromEntries((payload.channels || []).map((row) => [row.channel, row]))))
+      .catch(() => setChannelStatus({}));
     accountApi.twoFactorStatus(controller.signal).then((status) => {
       setTwoFactor((current) => ({ ...current, enabled: Boolean(status.enabled), confirmedAt: status.confirmed_at || null }));
       setLoaded((current) => ({ ...current, security: true }));
@@ -375,6 +381,16 @@ function ProfilePage({ user, onNavigate, initialTab }) {
     ['telegram', 'Telegram', 'send'], ['max', 'MAX', 'chat'], ['whatsapp', 'WhatsApp', 'chat'],
     ['sms', 'SMS', 'phone'], ['push', 'Push (моб. приложение)', 'bell'], ['desktop', 'Desktop (браузер)', 'grid'],
   ];
+  // Ключ переключателя → канал доставки на сервере. «В системе» и «Desktop»
+  // доставляются самой CRM и браузером, серверных реквизитов не требуют.
+  const CHANNEL_BACKEND_KEY = { incrm: null, desktop: null, email: 'email', telegram: 'telegram', max: 'max', whatsapp: 'whatsapp', sms: 'sms', push: 'push' };
+  const channelUnavailable = (key) => {
+    const backendKey = CHANNEL_BACKEND_KEY[key];
+    if (!backendKey) return null;
+    const status = channelStatus[backendKey];
+    if (!status || status.configured) return null;
+    return status.requirement || 'канал не настроен на сервере';
+  };
   const eventRows = [
     ['newReq', 'По новым заявкам'], ['exchRet', 'По обменам и возвратам'], ['overdue', 'По просроченным задачам'],
     ['chat', 'По сообщениям чата'], ['orderChg', 'По изменениям заказов'],
@@ -511,12 +527,13 @@ function ProfilePage({ user, onNavigate, initialTab }) {
         {tab === 'notif' && (
           <div className="card card-pad fade-in" style={{ maxWidth: 1080 }}>
             <div className="profile-notif-head">{t("Каналы доставки")}</div>
-            <p className="hint" style={{ marginTop: 0 }}>Внешние каналы требуют подключения сервиса доставки на сервере. Здесь сохраняются ваши предпочтения; включение переключателя не подтверждает отправку.</p>
+            <p className="hint" style={{ marginTop: 0 }}>Здесь сохраняются ваши предпочтения. Канал, помеченный «не настроен», отправлять не может: уведомление останется только в центре уведомлений CRM.</p>
             <div className="profile-notif-grid">
               {channelRows.map(([k, l, icon]) => (
-                <label key={k} className={'profile-notif-item' + (notif[k] ? ' is-on' : '')}>
+                <label key={k} className={'profile-notif-item' + (notif[k] ? ' is-on' : '')} title={channelUnavailable(k) ? `Не настроено: ${channelUnavailable(k)}` : undefined}>
                   <Icon name={icon} />
                   <span className="profile-notif-label">{t(l)}</span>
+                  {channelUnavailable(k) && <Pill tone="amber">{t('не настроен')}</Pill>}
                   <Toggle on={notif[k]} onChange={async (v) => {
                     if (k === 'desktop' && v) {
                       if (!('Notification' in window)) { toast('Браузер не поддерживает уведомления', 'err'); return; }

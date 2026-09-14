@@ -286,11 +286,16 @@ function AddUserDrawer({ open, onClose, onCreated }) {
   );
 }
 
+// Канал, от которого зависит каждое правило: без него правило сохранится, но
+// доставить ничего не сможет — и это надо показать, а не умалчивать.
+const NOTIFICATION_RULE_CHANNEL = [null, null, 'sms', 'email', 'telegram', null];
+
 function NotificationsModal({ open, onClose }) {
   const toast = useToast();
   const [tg, setTg] = useState([true, true, false, true, false, true]);
   const [ready, setReady] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [channelStatus, setChannelStatus] = useState({});
   const opts = ['Уведомления о новых заказах', 'Уведомления о платежах', 'SMS-уведомления', 'E-mail уведомления', 'Push в Telegram', 'Просрочки и дедлайны SLA'];
   useEffect(() => {
     if (!open) return;
@@ -299,7 +304,17 @@ function NotificationsModal({ open, onClose }) {
       setTg(opts.map((_, i) => data.find((rule) => rule.event_type === `ui.preference.${i}`)?.is_active ?? [true, true, false, true, false, true][i]));
       setReady(true);
     }).catch((error) => toast(error.message || 'Не удалось загрузить уведомления', 'err'));
+    notificationsApi.channels()
+      .then((payload) => setChannelStatus(Object.fromEntries((payload.channels || []).map((row) => [row.channel, row]))))
+      .catch(() => setChannelStatus({}));
   }, [open]);
+  const ruleWarning = (index) => {
+    const channel = NOTIFICATION_RULE_CHANNEL[index];
+    if (!channel) return '';
+    const status = channelStatus[channel];
+    if (!status || status.configured) return '';
+    return status.requirement || 'канал не настроен на сервере';
+  };
   const save = async () => {
     setSaving(true);
     try { await notificationsApi.setRules({ rules: tg }); toast('Настройки сохранены в backend', 'ok'); onClose(); }
@@ -309,11 +324,14 @@ function NotificationsModal({ open, onClose }) {
   return (
     <Drawer open={open} onClose={onClose} title={t("Настройки уведомлений")} width="min(460px, 94vw)"
       footer={<Button variant="primary" onClick={save} disabled={!ready || saving}>{t("Сохранить")}</Button>}>
-        <p className="hint">Для SMS, Email и Telegram требуется подключённая служба доставки. Настройки не подтверждают отправку сообщения.</p>
+        <p className="hint">Правило определяет, кому и по какому поводу создаётся уведомление. Канал с пометкой «не настроен» отправить наружу не сможет — уведомление останется в центре уведомлений CRM.</p>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
           {opts.map((l, i) => (
-            <div key={i} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 0', borderBottom: i < opts.length - 1 ? '1px solid var(--line)' : 'none' }}>
-              <span style={{ fontSize: 14, color: 'var(--ink)' }}>{t(l)}</span>
+            <div key={i} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, padding: '12px 0', borderBottom: i < opts.length - 1 ? '1px solid var(--line)' : 'none' }}>
+              <div style={{ flex: 1 }}>
+                <span style={{ fontSize: 14, color: 'var(--ink)' }}>{t(l)}</span>
+                {ruleWarning(i) && <div style={{ fontSize: 12, color: 'var(--amber, #b7791f)', marginTop: 2 }}>{t('Канал не настроен')}: {ruleWarning(i)}</div>}
+              </div>
               <Toggle on={tg[i]} onChange={(v) => setTg((arr) => arr.map((x, j) => j === i ? v : x))} />
             </div>
           ))}

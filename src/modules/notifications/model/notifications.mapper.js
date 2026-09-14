@@ -1,9 +1,11 @@
 import { asDate } from '../../../shared/lib/adapter-dates.js';
 import { RU_DATE_TIME } from '../../../shared/lib/datetime.js';
+import { DELIVERY_STATE_LABELS, channelLabel } from '../../../shared/lib/delivery.js';
 
-// В теле уведомления backend сохраняет дамп полезной нагрузки события
-// ({'action': 'created', 'order_id': '...'}). Показывать такое оператору нельзя:
-// разбираем знакомые поля в короткую русскую фразу, техническое — прячем.
+// Backend теперь формирует человекочитаемое тело уведомления сам
+// (notifications/messages.py). Разбор ниже остаётся для записей, созданных
+// до этой правки: в них лежит Python-дамп полезной нагрузки события
+// ({'action': 'created', 'order_id': '...'}), показывать который оператору нельзя.
 const PAYLOAD_FIELD_LABEL = {
   action: 'Действие', status: 'Статус', reason: 'Причина', comment: 'Комментарий',
   from_status: 'Было', to_status: 'Стало', amount: 'Сумма', currency: 'Валюта',
@@ -48,6 +50,19 @@ function errorCodeOf(notification) {
   return fromBody?.[1] || '';
 }
 
+/** Каналы, по которым доставка не состоялась: их нужно показать оператору. */
+function undeliveredChannels(notification) {
+  return (notification.deliveries || [])
+    .filter((delivery) => delivery.state === 'failed' || delivery.state === 'skipped')
+    .map((delivery) => ({
+      channel: delivery.channel,
+      label: channelLabel(delivery.channel),
+      state: delivery.state,
+      stateLabel: DELIVERY_STATE_LABELS[delivery.state] || delivery.state,
+      error: delivery.error || '',
+    }));
+}
+
 function toUiNotification(notification) {
   const priority = { critical: 'Критический', high: 'Высокий', medium: 'Средний', info: 'Информационный', low: 'Информационный' }[notification.priority] || notification.priority;
   const source = { system: 'Система', orders: 'Заказы', finance: 'Финансы', documents: 'Документы', integrations: 'Интеграции', communications: 'Чаты', services: 'Услуги' }[notification.source] || notification.source || 'Система';
@@ -75,6 +90,7 @@ function toUiNotification(notification) {
     order: deepOrder?.[1] || (resourceType === 'order' ? notification.resource_id : null),
     link,
     act: section ? 'Перейти к разделу' : null,
+    undelivered: undeliveredChannels(notification),
   };
 }
 

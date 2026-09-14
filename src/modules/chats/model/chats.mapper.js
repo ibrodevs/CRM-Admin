@@ -17,6 +17,17 @@ function toUiThread(thread) {
   };
 }
 
+// Подпись под своим сообщением: доставка во внешний канал разбирается воркером,
+// поэтому «queued» — это ещё не «отправлено», а «failed» означает, что клиент
+// сообщения не получил. Раньше обе ситуации выглядели как обычная отправка.
+const DELIVERY_HINTS = {
+  queued: 'В очереди отправки',
+  sent: 'Отправлено',
+  delivered: 'Доставлено',
+  read: 'Прочитано',
+  failed: 'Не доставлено — проверьте настройку канала',
+};
+
 function toUiMessage(message, currentUserId) {
   return {
     id: message.id,
@@ -26,6 +37,8 @@ function toUiMessage(message, currentUserId) {
     internal: Boolean(message.is_internal),
     time: formatTime(message.created_at),
     read: ['read', 'delivered'].includes(message.delivery_state),
+    deliveryState: message.delivery_state || 'sent',
+    deliveryHint: DELIVERY_HINTS[message.delivery_state] || '',
     attach: message.attachment ? {
       id: message.attachment,
       documentId: message.attachment_document,

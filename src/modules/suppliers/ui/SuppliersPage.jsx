@@ -630,9 +630,15 @@ function SupplierLegalEditor({ s, ext, onSaveSettings }) {
   const toast = useToast();
   const [, force] = useState(0);
   const [f, setF] = useState(() => ({ ...ext.legal }));
+  // Блок «Договор и взаиморасчёты» раньше писал прямо в ext.fin и перерисовывал
+  // компонент вручную: на сервер значение уходило только при сохранении другого
+  // блока, а после ухода со страницы молча возвращалось к прежнему. Держим его
+  // в состоянии и сохраняем вместе с реквизитами.
+  const [fin, setFin] = useState(() => ({ ...ext.fin }));
   const [busy, setBusy] = useState(false);
   const [saving, setSaving] = useState(false);
   const set = (k) => (e) => setF((p) => ({ ...p, [k]: e.target.value }));
+  const setFinField = (k, v) => setFin((p) => ({ ...p, [k]: v }));
   const lookup = () => {
     if (!f.inn || String(f.inn).replace(/\D/g, '').length < 6) { toast('Введите ИНН (не менее 6 цифр)', 'err'); return; }
     setF(supLookupByInn(f.inn, ext, s));
@@ -641,9 +647,10 @@ function SupplierLegalEditor({ s, ext, onSaveSettings }) {
   const save = async () => {
     setSaving(true);
     try {
-      const next = { ...ext, legal: { ...f, filled: true } };
+      const next = { ...ext, legal: { ...f, filled: true }, fin: { ...ext.fin, ...fin } };
       if (onSaveSettings) await onSaveSettings(next);
       ext.legal = next.legal;
+      ext.fin = next.fin;
       force((v) => v + 1);
       toast('Реквизиты поставщика сохранены', 'ok');
     } catch (error) { toast(error.message || 'Не удалось сохранить реквизиты поставщика', 'err'); }
@@ -691,9 +698,9 @@ function SupplierLegalEditor({ s, ext, onSaveSettings }) {
         <SupplierLegalField form={f} change={set} label="Номер договора" k="contractNo" ph="№ 2025-014" />
         <SupplierLegalField form={f} change={set} label="Дата договора" k="contractDate" ph="14.01.2025" />
         <SupplierLegalField form={f} change={set} label="Подписант со стороны компании" k="signedBy" />
-        <div><Field label="Взаиморасчёты"><Select options={['Предоплата', 'Депозит', 'Отсрочка', 'По факту']} value={ext.fin.settlement} onChange={(e) => { ext.fin.settlement = e.target.value; force((v) => v + 1); }} /></Field></div>
-        <div><Field label="Срок оплаты (дней)"><Input value={typeof ext.fin.payTerm === 'number' ? ext.fin.payTerm : (ext.fin.payTerm || '')} onChange={(e) => { ext.fin.payTerm = e.target.value === '' ? '' : (parseInt(e.target.value) || 0); force((v) => v + 1); }} /></Field></div>
-        <div><Field label="Валюта расчёта"><Select options={(typeof CURRENCIES !== 'undefined' ? CURRENCIES.map((c) => c.code) : ['USD', 'EUR', 'RUB', 'KGS'])} value={ext.fin.currency} onChange={(e) => { ext.fin.currency = e.target.value; force((v) => v + 1); }} /></Field></div>
+        <div><Field label="Взаиморасчёты"><Select options={['Предоплата', 'Депозит', 'Отсрочка', 'По факту']} value={fin.settlement} onChange={(e) => setFinField('settlement', e.target.value)} /></Field></div>
+        <div><Field label="Срок оплаты (дней)"><Input value={typeof fin.payTerm === 'number' ? fin.payTerm : (fin.payTerm || '')} onChange={(e) => setFinField('payTerm', e.target.value === '' ? '' : (parseInt(e.target.value) || 0))} /></Field></div>
+        <div><Field label="Валюта расчёта"><Select options={(typeof CURRENCIES !== 'undefined' ? CURRENCIES.map((c) => c.code) : ['USD', 'EUR', 'RUB', 'KGS'])} value={fin.currency} onChange={(e) => setFinField('currency', e.target.value)} /></Field></div>
       </div>
 
       <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 18 }}>

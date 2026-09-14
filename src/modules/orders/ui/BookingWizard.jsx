@@ -18,6 +18,7 @@ import { proposalsApi } from '../../proposals/api.js';
 import { resultsOf } from '../../../shared/api/client.js';
 import { currencySymbol, resolveCurrency } from '../../../shared/lib/money.js';
 import { RU_DATE_TIME } from '../../../shared/lib/datetime.js';
+import { deliverySummary } from '../../../shared/lib/delivery.js';
 
 
 
@@ -182,8 +183,9 @@ function BookingWizard({ order, services, draft, onClose, onComplete, onSaveDraf
     try {
       const docs = await orderDocuments();
       if (!docs.length) return toast('Для заказа пока нет сформированных документов', 'info');
-      await Promise.all(docs.map((doc) => documentsApi.send(doc.id, 'email')));
-      toast(`Отправлено документов: ${docs.length}`, 'ok');
+      const results = await Promise.all(docs.map((doc) => documentsApi.send(doc.id, 'email')));
+      const summary = deliverySummary(results, { subject: `Документы (${docs.length})` });
+      toast(summary.message, summary.tone);
     } catch (error) { toast(error.message, 'err'); }
   };
   const supplierAction = async (action, service) => {

@@ -315,7 +315,10 @@ function ChatThread({ thread, currentUserId, embedded, onOpenOrder, onOpenServic
                 {m.attach
                   ? <div className="chat-attach" onClick={() => m.attach.documentId && window.location.assign(documentsApi.downloadUrl(m.attach.documentId))}><span className="ic"><Icon name="paperclip" /></span><div><div style={{ fontWeight: 600, fontSize: 13 }}>{m.attach.name}</div><div style={{ fontSize: 12, color: 'var(--muted)' }}>{m.attach.size}</div></div><Icon name="download" style={{ width: 16, height: 16, color: 'var(--muted-2)' }} /></div>
                   : <span>{chatText(m.text)}</span>}
-                <div className="msg-time">{m.time}{me && <Icon name="check" style={{ width: 14, height: 14, color: m.read ? '#2bb96a' : 'var(--muted)' }} />}</div>
+                <div className="msg-time" title={me ? m.deliveryHint : undefined}>{m.time}{me && (m.deliveryState === 'failed'
+                  ? <Icon name="alertCircle" style={{ width: 14, height: 14, color: "#e0483d" }} />
+                  : <Icon name="check" style={{ width: 14, height: 14, color: m.read ? '#2bb96a' : m.deliveryState === 'queued' ? 'var(--muted-2)' : 'var(--muted)' }} />)}</div>
+                {me && m.deliveryState === 'failed' && <div className="msg-time" style={{ color: '#e0483d' }}>{m.deliveryHint}</div>}
               </div>
             </div>
           );
