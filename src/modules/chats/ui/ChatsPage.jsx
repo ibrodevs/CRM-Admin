@@ -8,6 +8,7 @@ import { Pill } from '../../../shared/ui/Pill.jsx';
 import { SearchBox } from '../../../shared/ui/SearchBox.jsx';
 import { useToast } from '../../../shared/ui/Toast.jsx';
 import { Drawer } from '../../../shared/ui/Overlays.jsx';
+import { EmployeePickerDrawer } from '../../../shared/ui/EmployeePickerDrawer.jsx';
 import { Field } from '../../../shared/ui/Field.jsx';
 import { Input } from '../../../shared/ui/Input.jsx';
 import { Select } from '../../../shared/ui/Select.jsx';
@@ -18,7 +19,8 @@ import { communicationsApi } from '../api/communicationsApi.js';
 import { documentsApi } from '../../documents/api.js';
 import { ordersApi } from '../../orders/api.js';
 import { workspaceActionsApi } from '../../workspace/api.js';
-import { toUiMessage } from '../model/chats.mapper.js';
+import { userListApi } from '../../users/api.js';
+import { isUuid, orderRef, toUiMessage } from '../model/chats.mapper.js';
 import { currencySymbol } from '../../../shared/lib/money.js';
 
 
@@ -188,9 +190,12 @@ function getHistoryIcon(type, action) {
   return 'clock';
 }
 
-function ChatTaskDrawer({ open, onClose, thread, orders = [] }) {
+function ChatTaskDrawer({ open, onClose, thread, orders = [], users = [] }) {
   const toast = useToast();
   const [title, setTitle] = useState('');
+  const [assignee, setAssignee] = useState(null);
+  const [assigneeOpen, setAssigneeOpen] = useState(false);
+  const [loadedUsers, setLoadedUsers] = useState([]);
   const [description, setDescription] = useState('');
   const [priority, setPriority] = useState('normal');
   const [dueAt, setDueAt] = useState('');
@@ -200,11 +205,13 @@ function ChatTaskDrawer({ open, onClose, thread, orders = [] }) {
   useEffect(() => {
     if (!open || !thread) return;
     const defaultTitle = `Ответить в чате: ${thread.name || 'Клиент'}`;
-    const defaultDesc = `Чат ${thread.title || thread.name || ''}${thread.order ? `, заказ № ${thread.order}` : ''}`.trim();
+    const defaultDesc = `Чат ${thread.name || ''}${thread.order && thread.order !== '—' ? `, заказ № ${orderRef(thread.order)}` : ''}`.trim();
     setTitle(defaultTitle);
     setDescription(defaultDesc);
     setPriority('normal');
     setDueAt('');
+    setAssignee(null);
+    setAssigneeOpen(false);
 
     let initialOrderId = '';
     if (thread.orderId) {
@@ -219,7 +226,22 @@ function ChatTaskDrawer({ open, onClose, thread, orders = [] }) {
     setSelectedOrderId(initialOrderId);
   }, [open, thread, orders]);
 
+  // Список сотрудников workspace бывает пуст (не загрузился или нет прав на
+  // настройки) — тогда подгружаем его сами, иначе назначить ответственного не из кого.
+  useEffect(() => {
+    if (!open || users.length || loadedUsers.length) return undefined;
+    const controller = new AbortController();
+    userListApi.users({}, controller.signal)
+      .then((payload) => setLoadedUsers(payload?.results || (Array.isArray(payload) ? payload : [])))
+      .catch(() => {});
+    return () => controller.abort();
+  }, [open, users.length]);
+
   if (!open || !thread) return null;
+
+  const employees = (users.length ? users : loadedUsers)
+    .filter((user) => !['suspended', 'archived', 'Заблокированный'].includes(user.status));
+  const assigneeName = assignee ? assignee.name : 'Не назначен';
 
   const orderOptions = orders.map((o) => ({
     value: String(o.id),
@@ -229,7 +251,7 @@ function ChatTaskDrawer({ open, onClose, thread, orders = [] }) {
   if (thread.orderId && !orderOptions.some((o) => o.value === String(thread.orderId))) {
     orderOptions.unshift({
       value: String(thread.orderId),
-      label: `№ ${thread.order || thread.orderId}${thread.client ? ` · ${thread.client}` : ''}`,
+      label: `№ ${orderRef(thread.order || thread.orderId)}${thread.client ? ` · ${thread.client}` : ''}`,
     });
   }
 
@@ -245,6 +267,7 @@ function ChatTaskDrawer({ open, onClose, thread, orders = [] }) {
         description: description.trim(),
         priority,
         due_at: dueAt ? formatIsoDate(dueAt) : null,
+        assignee: assignee?.id || null,
       });
       toast('Задача создана в заказе', 'ok');
       onClose();
@@ -281,7 +304,7 @@ function ChatTaskDrawer({ open, onClose, thread, orders = [] }) {
             />
           ) : (
             <Input
-              value={thread.order ? `Заказ № ${thread.order}` : 'Заказ не привязан'}
+              value={thread.order && thread.order !== '—' ? `Заказ № ${orderRef(thread.order)}` : 'Заказ не привязан'}
               disabled
             />
           )}
@@ -307,6 +330,15 @@ function ChatTaskDrawer({ open, onClose, thread, orders = [] }) {
           />
         </Field>
 
+        <Field label="Ответственный">
+          <button type="button" className="input" onClick={() => setAssigneeOpen(true)}
+            style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 10, textAlign: 'left' }}>
+            <Avatar name={assigneeName} size={28} />
+            <span style={{ flex: 1, color: assignee ? 'var(--ink)' : 'var(--muted)' }}>{assigneeName}</span>
+            <Icon name="chevRight" style={{ width: 16, height: 16, color: 'var(--muted-2)' }} />
+          </button>
+        </Field>
+
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
           <Field label="Приоритет">
             <Select
@@ -324,6 +356,10 @@ function ChatTaskDrawer({ open, onClose, thread, orders = [] }) {
           />
         </div>
       </form>
+      <EmployeePickerDrawer open={assigneeOpen} currentId={assignee?.id} options={employees}
+        title="Ответственный за задачу"
+        onClose={() => setAssigneeOpen(false)}
+        onPick={(employee) => { setAssignee(employee); setAssigneeOpen(false); }} />
     </Drawer>
   );
 }
@@ -385,7 +421,7 @@ function ChatHistoryDrawer({ open, onClose, thread }) {
             {thread.order && (
               <div className="kv-row" style={{ padding: '4px 0' }}>
                 <span className="k" style={{ color: 'var(--muted)' }}>Заказ</span>
-                <span className="v">№ {thread.order}</span>
+                <span className="v">№ {orderRef(thread.order)}</span>
               </div>
             )}
             <div className="kv-row" style={{ padding: '4px 0' }}>
@@ -486,12 +522,19 @@ function ChatHistoryDrawer({ open, onClose, thread }) {
 }
 
 
-function ChatThread({ thread, currentUserId, embedded, onOpenOrder, onOpenService, initChannel, recipients, onSwitchThread, orders = [], services = [], onOpenTask, onOpenHistory }) {
+function chatFileSize(bytes) {
+  if (!bytes) return '';
+  if (bytes < 1024 * 1024) return `${Math.max(1, Math.round(bytes / 1024))} КБ`;
+  return `${(bytes / (1024 * 1024)).toFixed(1).replace('.', ',')} МБ`;
+}
+
+function ChatThread({ thread, currentUserId, embedded, onOpenOrder, onOpenService, initChannel, recipients, onSwitchThread, orders = [], services = [], users = [], onOpenTask, onOpenHistory }) {
   const toast = useToast();
   const [sub, setSub] = useState('message');
   const [msgs, setMsgs] = useState(thread.messages || []);
   const [intl, setIntl] = useState(thread.internal || []);
   const [draft, setDraft] = useState('');
+  const [pendingFile, setPendingFile] = useState(null);
   const [linked, setLinked] = useState(null);
   const [pinned, setPinned] = useState(!!thread.pinned);
   const [sending, setSending] = useState(false);
@@ -499,11 +542,12 @@ function ChatThread({ thread, currentUserId, embedded, onOpenOrder, onOpenServic
   const [selfHistoryOpen, setSelfHistoryOpen] = useState(false);
   const scrollRef = useRef(null);
   const fileRef = useRef(null);
+  const serverThreadRef = useRef(null);
 
   const handleOpenTask = onOpenTask || (() => setSelfTaskOpen(true));
   const handleOpenHistory = onOpenHistory || (() => setSelfHistoryOpen(true));
 
-  useEffect(() => { setMsgs(thread.messages || []); setIntl(thread.internal || []); setSub('message'); setLinked(null); setPinned(!!thread.pinned); }, [thread.id]);
+  useEffect(() => { setMsgs(thread.messages || []); setIntl(thread.internal || []); setSub('message'); setLinked(null); setPendingFile(null); serverThreadRef.current = null; setPinned(!!thread.pinned); }, [thread.id]);
   useEffect(() => {
     if (!thread.id || thread.virtual) return undefined;
     const controller = new AbortController();
@@ -521,44 +565,56 @@ function ChatThread({ thread, currentUserId, embedded, onOpenOrder, onOpenServic
 
   const feed = sub === 'internal' ? intl : msgs;
   const setFeed = sub === 'internal' ? setIntl : setMsgs;
+  // Заглушка чата (тред ещё не создан на сервере) при первой отправке получает
+  // настоящий тред заказа — иначе сообщение уходило бы в несуществующий id.
+  const ensureServerThreadId = async () => {
+    if (!thread.virtual && isUuid(thread.id)) return thread.id;
+    if (serverThreadRef.current) return serverThreadRef.current;
+    if (!isUuid(thread.orderId)) throw new Error('Чат не связан с заказом: откройте его из карточки заказа или раздела «Чаты»');
+    const type = ['client', 'supplier', 'internal'].includes(thread.type) ? thread.type : 'internal';
+    const existing = await communicationsApi.threads({ order: thread.orderId, type });
+    const found = (existing?.results || (Array.isArray(existing) ? existing : []))[0];
+    const hasOrderNo = thread.order && thread.order !== '—' && !isUuid(thread.order);
+    const server = found || await communicationsApi.createThread({ type, order: thread.orderId, title: hasOrderNo ? `Заказ № ${thread.order}` : '' });
+    serverThreadRef.current = server.id;
+    return server.id;
+  };
+  // Файл хранится документом. К заказу и услуге привязываем, только если чат
+  // с ними связан: раньше без заказа выбранный файл молча отбрасывался.
+  const uploadChatFile = async (file) => {
+    const meta = { kind: 'other', title: file.name.slice(0, 255), source: 'upload' };
+    if (isUuid(thread.orderId)) {
+      meta.order = thread.orderId;
+      if (isUuid(linked)) meta.service = linked;
+    }
+    const document = await documentsApi.upload(file, meta);
+    const versions = await documentsApi.versions(document.id);
+    const version = (Array.isArray(versions) ? versions : versions?.results || [])[0];
+    if (!version) throw new Error('Файл загружен, но версия документа не создана');
+    return version.id;
+  };
   const send = async () => {
-    if (!draft.trim()) return;
     const text = draft.trim();
+    if (sending || (!text && !pendingFile)) return;
     setSending(true);
     try {
-      const message = await communicationsApi.send(thread.id, { body: text, type: 'text', internal_note: sub === 'internal' });
-      setFeed((c) => [...c, { ...toUiMessage(message, currentUserId), from: 'me', service: linked }]);
+      const threadId = await ensureServerThreadId();
+      const internal = sub === 'internal';
+      const body = pendingFile
+        ? { body: text || pendingFile.name, type: 'file', attachment: await uploadChatFile(pendingFile), internal_note: internal }
+        : { body: text, type: 'text', internal_note: internal };
+      const message = await communicationsApi.send(threadId, body);
+      setFeed((current) => [...current, { ...toUiMessage(message, currentUserId), from: 'me', service: linked }]);
       setDraft('');
-    } catch (error) { toast(error.message, 'err'); }
+      setPendingFile(null);
+    } catch (error) { toast(error.message || 'Не удалось отправить сообщение', 'err'); }
     finally { setSending(false); }
   };
   const attach = () => fileRef.current?.click();
-  const uploadAttachment = async (event) => {
+  const pickAttachment = (event) => {
     const file = event.target.files?.[0];
     event.target.value = '';
-    if (!file || !thread.orderId) return;
-    setSending(true);
-    try {
-      const document = await documentsApi.upload(file, {
-        order: thread.orderId,
-        service: linked || null,
-        kind: 'other',
-        title: file.name,
-        source: 'upload',
-      });
-      const versions = await documentsApi.versions(document.id);
-      const version = versions[0];
-      if (!version) throw new Error('Версия загруженного файла не создана');
-      const message = await communicationsApi.send(thread.id, {
-        body: file.name,
-        type: 'file',
-        attachment: version.id,
-        internal_note: sub === 'internal',
-      });
-      setFeed((current) => [...current, { ...toUiMessage(message, currentUserId), from: 'me' }]);
-      toast('Файл отправлен', 'ok');
-    } catch (error) { toast(error.message, 'err'); }
-    finally { setSending(false); }
+    if (file) setPendingFile(file);
   };
   const togglePin = async () => {
     const next = !pinned;
@@ -586,6 +642,7 @@ function ChatThread({ thread, currentUserId, embedded, onOpenOrder, onOpenServic
   ].filter((name) => name && name !== 'Не назначен'))];
   // Услуги заказа приходят с backend; демо-массив используется только как запасной.
   const orderServices = services.length ? services : (typeof ORDER_SERVICES !== 'undefined' ? ORDER_SERVICES : []);
+  const linkedService = linked ? chatServiceById(linked, orderServices) : null;
   const tMeta = chatTypeMeta(thread.type);
 
 
@@ -619,7 +676,7 @@ function ChatThread({ thread, currentUserId, embedded, onOpenOrder, onOpenServic
       ) : (
         <div style={{ padding: '8px 14px', borderBottom: '1px solid var(--line)' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 7, flexWrap: 'wrap' }}>
-            <span style={{ fontWeight: 700, fontSize: 14, color: 'var(--ink)' }}>№ {thread.order}</span>
+            <span style={{ fontWeight: 700, fontSize: 14, color: 'var(--ink)' }}>№ {orderRef(thread.order)}</span>
             {status && <Pill tone={(typeof ORDER_STATUS !== 'undefined' && ORDER_STATUS[status]) || 'blue'}>{status}</Pill>}
             <ChannelBadge channel={thread.channel} />
             <Pill tone={thread.connectionStatus === 'Подключено' ? 'green' : 'red'}>{thread.connectionStatus}</Pill>
@@ -652,14 +709,17 @@ function ChatThread({ thread, currentUserId, embedded, onOpenOrder, onOpenServic
             </div>
           );
           const me = m.from === 'me';
-          const svc = m.service ? chatServiceById(m.service) : null;
+          const svc = m.service ? chatServiceById(m.service, orderServices) : null;
           return (
             <div className={'msg-row ' + (me ? 'me' : 'them')} key={i}>
               <div className={'msg ' + (me ? 'me' : 'them') + (sub === 'internal' ? ' internal' : '')}>
                 {!me && m.author && thread.type !== 'client' && <div className="msg-author">{m.author}</div>}
                 {svc && <ChatServiceCard svc={svc} me={me} onOpen={() => onOpenService && onOpenService(svc.id)} />}
                 {m.attach
-                  ? <div className="chat-attach" onClick={() => m.attach.documentId && window.location.assign(documentsApi.downloadUrl(m.attach.documentId))}><span className="ic"><Icon name="paperclip" /></span><div><div style={{ fontWeight: 600, fontSize: 13 }}>{m.attach.name}</div><div style={{ fontSize: 12, color: 'var(--muted)' }}>{m.attach.size}</div></div><Icon name="download" style={{ width: 16, height: 16, color: 'var(--muted-2)' }} /></div>
+                  ? <>
+                    <div className="chat-attach" onClick={() => m.attach.documentId && window.location.assign(documentsApi.downloadUrl(m.attach.documentId))}><span className="ic"><Icon name="paperclip" /></span><div><div style={{ fontWeight: 600, fontSize: 13 }}>{m.attach.name}</div><div style={{ fontSize: 12, color: 'var(--muted)' }}>{m.attach.size}</div></div><Icon name="download" style={{ width: 16, height: 16, color: 'var(--muted-2)' }} /></div>
+                    {m.text && m.text !== m.attach.name && <span>{chatText(m.text)}</span>}
+                  </>
                   : <span>{chatText(m.text)}</span>}
                 <div className="msg-time" title={me ? m.deliveryHint : undefined}>{m.time}{me && (m.deliveryState === 'failed'
                   ? <Icon name="alertCircle" style={{ width: 14, height: 14, color: "#e0483d" }} />
@@ -673,36 +733,44 @@ function ChatThread({ thread, currentUserId, embedded, onOpenOrder, onOpenServic
 
 
       <div style={{ padding: '8px 14px', borderTop: '1px solid var(--line)' }}>
-        {linked && (() => { const s = chatServiceById(linked); return (
+        {linkedService && (
           <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, fontSize: 12, fontWeight: 600, color: 'var(--ink)', background: 'var(--surface-2)', border: '1px solid var(--line)', borderRadius: 999, padding: '5px 10px', marginBottom: 6 }}>
-            <Icon name={(SERVICE_KIND[s.kind] || {}).icon || 'route'} style={{ width: 14, height: 14, color: 'var(--blue)' }} />{s.kind} · {s.title}
+            <Icon name={(SERVICE_KIND[linkedService.kind] || {}).icon || 'route'} style={{ width: 14, height: 14, color: 'var(--blue)' }} />{linkedService.kind} · {linkedService.title}
             <button className="icon-btn btn-sm" style={{ width: 20, height: 20 }} onClick={() => setLinked(null)}><Icon name="x" style={{ width: 14, height: 14 }} /></button>
           </div>
-        ); })()}
+        )}
+        {pendingFile && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, color: 'var(--ink)', background: 'var(--surface-2)', border: '1px solid var(--line)', borderRadius: 10, padding: '6px 10px', marginBottom: 6 }}>
+            <Icon name="paperclip" style={{ width: 14, height: 14, color: 'var(--blue)', flexShrink: 0 }} />
+            <span style={{ fontWeight: 600, flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{pendingFile.name}</span>
+            <span style={{ color: 'var(--muted)', flexShrink: 0 }}>{chatFileSize(pendingFile.size)}</span>
+            <button type="button" className="icon-btn btn-sm" style={{ width: 20, height: 20 }} title="Убрать файл" disabled={sending} onClick={() => setPendingFile(null)}><Icon name="x" style={{ width: 14, height: 14 }} /></button>
+          </div>
+        )}
         <div className="trip-toggle" style={{ display: 'inline-flex', marginBottom: 6 }}>
           <button className={sub === 'message' ? 'on' : ''} onClick={() => setSub('message')}>Сообщение</button>
           <button className={sub === 'internal' ? 'on' : ''} onClick={() => setSub('internal')}><Icon name="lock" style={{ width: 14, height: 14, verticalAlign: -2, marginRight: 4 }} />Внутренний комментарий</button>
         </div>
         <div className="search" style={{ width: '100%', minWidth: 0 }}>
-          <input ref={fileRef} type="file" hidden onChange={uploadAttachment} />
-          <button className="icon-btn" onClick={attach} title="Прикрепить"><Icon name="paperclip" /></button>
+          <input ref={fileRef} type="file" hidden onChange={pickAttachment} />
+          <button className="icon-btn" onClick={attach} disabled={sending} title="Прикрепить файл"><Icon name="paperclip" /></button>
           <ActionMenu trigger={<button className="icon-btn" title="Привязать к услуге"><Icon name="route" /></button>}
             items={orderServices.length ? orderServices.map((s) => ({ icon: (SERVICE_KIND[s.kind] || {}).icon || 'route', label: s.kind + ' · ' + s.title, onClick: () => { setLinked(s.id); toast('Привязано к услуге: ' + s.title, 'ok'); } })) : [{ icon: 'route', label: 'Нет услуг в заказе', onClick: () => {} }]} />
           <ActionMenu trigger={<button className="icon-btn" title="Упомянуть"><span style={{ fontWeight: 700, fontSize: 16, color: 'var(--muted)' }}>@</span></button>}
             items={(mentionNames.length ? mentionNames : OPERATORS).map((o) => ({ icon: 'user', label: o, onClick: () => setDraft((d) => (d ? d + ' ' : '') + '@' + o.split(' ')[0] + ' ') }))} />
           <input value={draft} disabled={sending} onChange={(e) => setDraft(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && send()}
-            placeholder={sub === 'internal' ? 'Внутренний комментарий…' : 'Сообщение…'} style={{ flex: 1 }} />
-          <button className="icon-btn" style={{ color: 'var(--blue)' }} onClick={send}><Icon name="send" /></button>
+            placeholder={pendingFile ? 'Подпись к файлу (необязательно)…' : sub === 'internal' ? 'Внутренний комментарий…' : 'Сообщение…'} style={{ flex: 1 }} />
+          <button className="icon-btn" style={{ color: 'var(--blue)' }} onClick={send} disabled={sending || (!draft.trim() && !pendingFile)} title="Отправить"><Icon name="send" /></button>
         </div>
       </div>
-      {!onOpenTask && <ChatTaskDrawer open={selfTaskOpen} onClose={() => setSelfTaskOpen(false)} thread={thread} orders={orders} />}
+      {!onOpenTask && <ChatTaskDrawer open={selfTaskOpen} onClose={() => setSelfTaskOpen(false)} thread={thread} orders={orders} users={users} />}
       {!onOpenHistory && <ChatHistoryDrawer open={selfHistoryOpen} onClose={() => setSelfHistoryOpen(false)} thread={thread} />}
     </div>
   );
 }
 
 
-function ChatInfoPanel({ thread, orders = [], onOpenOrder, onOpenService, orderServices = [], onOpenTask, onOpenHistory }) {
+function ChatInfoPanel({ thread, orders = [], onOpenOrder, onOpenService, orderServices = [], users = [], onOpenTask, onOpenHistory }) {
   const toast = useToast();
   const [allPax, setAllPax] = useState(false);
   const [selfTaskOpen, setSelfTaskOpen] = useState(false);
@@ -786,7 +854,7 @@ function ChatInfoPanel({ thread, orders = [], onOpenOrder, onOpenService, orderS
           ))}
         </div>
       </div>
-      {!onOpenTask && <ChatTaskDrawer open={selfTaskOpen} onClose={() => setSelfTaskOpen(false)} thread={thread} orders={orders} />}
+      {!onOpenTask && <ChatTaskDrawer open={selfTaskOpen} onClose={() => setSelfTaskOpen(false)} thread={thread} orders={orders} users={users} />}
       {!onOpenHistory && <ChatHistoryDrawer open={selfHistoryOpen} onClose={() => setSelfHistoryOpen(false)} thread={thread} />}
     </div>
   );
@@ -820,7 +888,7 @@ function ChatsNav({ threads, activeId, onSelect, search, setSearch, mode, setMod
             <span style={{ fontWeight: 600, fontSize: 14, color: 'var(--ink)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', display: 'flex', alignItems: 'center', gap: 5 }}>
               {t.pinned && <Icon name="star" style={{ width: 12, height: 12, color: 'var(--amber)' }} />}{t.name}
             </span>
-            <span style={{ fontSize: 12, color: 'var(--muted-2)', whiteSpace: 'nowrap', flexShrink: 0 }}>№{t.order}</span>
+            <span style={{ fontSize: 12, color: 'var(--muted-2)', whiteSpace: 'nowrap', flexShrink: 0 }}>№{orderRef(t.order)}</span>
           </div>
           <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, alignItems: 'center', marginTop: 5 }}>
             <span style={{ fontSize: 13, color: 'var(--muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: 6, minWidth: 0 }}>
@@ -885,7 +953,7 @@ function ChatsNav({ threads, activeId, onSelect, search, setSearch, mode, setMod
 }
 
 
-function ChatsPage({ initialThreads = [], focusThread = null, orders = [], orderServices = [], currentUserId, onOpenOrder }) {
+function ChatsPage({ initialThreads = [], focusThread = null, orders = [], orderServices = [], users = [], currentUserId, onOpenOrder }) {
   const toast = useToast();
 
   const [taskOpen, setTaskOpen] = useState(false);
@@ -953,6 +1021,7 @@ function ChatsPage({ initialThreads = [], focusThread = null, orders = [], order
             onClose={() => setTaskOpen(false)}
             thread={active}
             orders={orders}
+            users={users}
           />
           <ChatHistoryDrawer
             open={historyOpen}

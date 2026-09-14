@@ -1,2 +1,2 @@
 export { useChats } from './model/useChats.js';
-export { toUiThread } from './model/chats.mapper.js';
+export { isBackendThread, isUuid, orderRef, toUiThread } from './model/chats.mapper.js';

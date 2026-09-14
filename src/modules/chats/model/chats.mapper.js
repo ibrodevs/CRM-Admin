@@ -1,11 +1,45 @@
 import { formatDate, formatTime } from '../../../shared/lib/adapter-dates.js';
 
+const UUID_EXACT = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const UUID_ANYWHERE = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/gi;
+
+function isUuid(value) {
+  return UUID_EXACT.test(String(value || ''));
+}
+
+function shortUuid(id) {
+  return id.slice(0, 8).toUpperCase();
+}
+
+// Номер заказа для показа. Когда номера нет, вместо полного UUID выводим
+// короткий фрагмент, чтобы шапка чата не растягивалась на всю ширину.
+function orderRef(value) {
+  const text = value == null ? '' : String(value).trim();
+  if (!text) return '—';
+  return text.replace(UUID_ANYWHERE, shortUuid);
+}
+
+// Треды, открытые из карточки заказа, раньше могли получить заголовок
+// «Заказ № <UUID>»: подставляем номер заказа вместо идентификатора.
+function threadTitle(title, orderNumber) {
+  const text = String(title || '').trim();
+  if (!text) return orderNumber ? `Заказ № ${orderNumber}` : 'Чат';
+  return text.replace(UUID_ANYWHERE, (id) => orderNumber || shortUuid(id));
+}
+
+// Тред в формате сервера (ещё не прошёл через toUiThread).
+function isBackendThread(value) {
+  return Boolean(value && value.id
+    && Object.prototype.hasOwnProperty.call(value, 'order_number')
+    && !Object.prototype.hasOwnProperty.call(value, 'orderId'));
+}
+
 function toUiThread(thread) {
   return {
     ...thread,
     orderId: thread.order,
     order: thread.order_number || thread.order,
-    name: thread.title,
+    name: threadTitle(thread.title, thread.order_number),
     unread: thread.unread_count || 0,
     last: thread.last_message?.body || '',
     time: thread.last_message?.created_at || thread.created_at,
@@ -48,4 +82,4 @@ function toUiMessage(message, currentUserId) {
   };
 }
 
-export { toUiThread, toUiMessage };
+export { isBackendThread, isUuid, orderRef, toUiThread, toUiMessage };

@@ -3,7 +3,7 @@ import { useState, useEffect } from 'react';
 import { Icon } from '../../shared/icons/index.jsx';
 import { ActionMenu } from '../../shared/ui/ActionMenu.jsx';
 import { EmptyState } from '../../shared/ui/EmptyState.jsx';
-import { ChatThread, threadUnread } from '../../modules/chats/index.js';
+import { ChatThread, isBackendThread, isUuid, orderRef, threadUnread, toUiThread } from '../../modules/chats/index.js';
 
 function findMatchingThread(threads, ctx) {
   if (!ctx || !Array.isArray(threads) || !threads.length) return null;
@@ -39,8 +39,9 @@ function findMatchingThread(threads, ctx) {
 
 function createFallbackThread(ctx) {
   if (!ctx) return null;
-  const orderNo = ctx.no || ctx.orderNo || ctx.order || '';
-  const orderId = ctx.id || ctx.serverId || ctx.orderId || null;
+  // В заголовок попадает номер заказа, а не его UUID.
+  const orderNo = [ctx.no, ctx.orderNo, ctx.order].find((value) => value && !isUuid(value)) || '';
+  const orderId = ctx.id || ctx.serverId || ctx.orderId || (isUuid(ctx.order) ? ctx.order : null);
   const name = ctx.client || ctx.name || (orderNo ? `Заказ № ${orderNo}` : 'Клиент');
   return {
     id: ctx.id && !orderNo ? `chat-${ctx.id}` : `order-${orderNo || orderId || Date.now()}`,
@@ -63,20 +64,29 @@ function createFallbackThread(ctx) {
   };
 }
 
-function GlobalChatDrawer({ open, onClose, contextOrder, initialThreads = [], orders = [], currentUserId, onOpenOrder }) {
+function GlobalChatDrawer({ open, onClose, contextOrder, initialThreads = [], orders = [], users = [], currentUserId, onOpenOrder }) {
   const [extraThreads, setExtraThreads] = useState([]);
-  const threads = [...initialThreads, ...extraThreads];
-  const matched = findMatchingThread(threads, contextOrder);
-  const [activeId, setActiveId] = useState(() => (matched?.id || threads[0]?.id || null));
+  const threads = [
+    ...initialThreads,
+    ...extraThreads.filter((extra) => !initialThreads.some((thread) => String(thread.id) === String(extra.id))),
+  ];
+  // Карточка заказа передаёт тред в формате сервера. Без приведения он принимался
+  // за заказ и превращался в заглушку с UUID в заголовке, куда нельзя отправить файл.
+  const fromServer = isBackendThread(contextOrder);
+  const target = fromServer ? toUiThread(contextOrder) : contextOrder;
+  const lookup = (list) => (fromServer
+    ? list.find((t) => String(t.id) === String(target.id))
+    : findMatchingThread(list, target));
+  const [activeId, setActiveId] = useState(() => (lookup(threads)?.id || threads[0]?.id || null));
 
   useEffect(() => {
     if (!open) return;
-    if (contextOrder) {
-      const hit = findMatchingThread(threads, contextOrder);
+    if (target) {
+      const hit = lookup(threads);
       if (hit) {
         setActiveId(hit.id);
       } else {
-        const created = createFallbackThread(contextOrder);
+        const created = fromServer ? target : createFallbackThread(target);
         if (created) {
           setExtraThreads((cur) => cur.some((t) => t.id === created.id) ? cur : [...cur, created]);
           setActiveId(created.id);
@@ -120,8 +130,8 @@ function GlobalChatDrawer({ open, onClose, contextOrder, initialThreads = [], or
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0, flex: 1 }}>
               <h2 className="modal-title" style={{ fontSize: 20 }}>Чат</h2>
               <ActionMenu
-                trigger={<button className="chip" style={{ height: 34 }}>№ {active.order}<Icon name="chevDown" /></button>}
-                items={threads.map((t) => ({ icon: 'chat', label: '№ ' + t.order + ' · ' + t.name + (totalUnread(t) ? '  (' + totalUnread(t) + ')' : ''), onClick: () => setActiveId(t.id) }))} />
+                trigger={<button className="chip" style={{ height: 34, maxWidth: '100%', minWidth: 0 }}><span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>№ {orderRef(active.order)}</span><Icon name="chevDown" /></button>}
+                items={threads.map((t) => ({ icon: 'chat', label: '№ ' + orderRef(t.order) + ' · ' + t.name + (totalUnread(t) ? '  (' + totalUnread(t) + ')' : ''), onClick: () => setActiveId(t.id) }))} />
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
               <button className="icon-btn" title="Открыть заказ" onClick={() => goOrder(active)}><Icon name="orders" /></button>
@@ -137,7 +147,7 @@ function GlobalChatDrawer({ open, onClose, contextOrder, initialThreads = [], or
           )}
         </div>
         <div style={{ flex: 1, minHeight: 0 }}>
-          <ChatThread thread={active} currentUserId={currentUserId} embedded onOpenOrder={() => goOrder(active)} recipients={recipients} onSwitchThread={switchThread} />
+          <ChatThread thread={active} currentUserId={currentUserId} embedded onOpenOrder={() => goOrder(active)} recipients={recipients} onSwitchThread={switchThread} users={users} />
         </div>
       </div>
     </div>
