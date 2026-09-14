@@ -8,6 +8,7 @@ export const communicationsApi = {
   read: (id, body = {}) => create(`chat/threads/${id}/read/`, body),
   pin: (id, pinned) => create(`chat/threads/${id}/pin/`, { pinned }),
   historyUrl: (id) => apiPath(`chat/threads/${id}/history/`),
+  history: (id, signal) => get(`chat/threads/${id}/history/`, signal),
   unreadCount: (signal) => get('chat/unread-count/', signal),
   createThread: (body) => create('chat/threads/', body),
   participants: (id, signal) => get(`chat/threads/${id}/participants/`, signal),
