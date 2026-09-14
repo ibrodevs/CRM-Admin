@@ -9,6 +9,16 @@ test('profile preferences map backend values in both directions', () => {
   assert.equal(preferencesToForm({}).timeFmt, '24 часа');
   assert.equal(formatProfileDate('2026-09-07T12:00:00Z', {date_format:'MM/DD/YYYY'}), '09/07/2026');
 });
+test('profile preferences save correctly when date and time formats are not in the form', () => {
+  const formState = { theme: 'Тёмная', currency: 'USD', pageSize: '100', startPage: 'Заказы' };
+  const payload = preferencesFromForm(formState);
+  assert.equal(payload.theme, 'dark');
+  assert.equal(payload.base_currency, 'USD');
+  assert.equal(payload.page_size, 100);
+  assert.equal(payload.start_page, 'orders');
+  assert.equal(payload.date_format, 'DD.MM.YYYY');
+  assert.equal(payload.time_format, '24h');
+});
 test('disabling every service cannot serialize as unrestricted access', () => {
   const rows = serviceAccessFromUi({fullAccess:false,kinds:{}});
   assert.ok(rows.length > 0);

@@ -14,9 +14,16 @@ export function preferencesToForm(value = {}) {
     startPage: label(START_PAGES, value.start_page, 'Главное'),
   };
 }
-export function preferencesFromForm(value) {
-  return { theme: THEMES[value.theme], date_format: DATE_FORMATS[value.dateFmt], time_format: TIME_FORMATS[value.timeFmt],
-    base_currency: value.currency, language: LANGUAGES[value.lang], page_size: Number(value.pageSize), start_page: START_PAGES[value.startPage] };
+export function preferencesFromForm(value = {}) {
+  return {
+    theme: THEMES[value.theme] || value.theme,
+    date_format: DATE_FORMATS[value.dateFmt] || value.date_format || 'DD.MM.YYYY',
+    time_format: TIME_FORMATS[value.timeFmt] || value.time_format || '24h',
+    base_currency: value.currency || value.base_currency,
+    language: LANGUAGES[value.lang] || value.language,
+    page_size: Number(value.pageSize || value.page_size),
+    start_page: START_PAGES[value.startPage] || value.start_page,
+  };
 }
 export function formatProfileDate(value, preferences = {}, time = false) {
   if (!value) return '—';

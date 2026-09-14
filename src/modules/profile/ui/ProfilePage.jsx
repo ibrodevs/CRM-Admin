@@ -624,8 +624,6 @@ function ProfilePage({ user, onNavigate, initialTab }) {
                   }}
                 />
               </Field>
-              <Field label={t("Формат даты")}><Select options={['ДД.ММ.ГГГГ', 'ММ/ДД/ГГГГ', 'ГГГГ-ММ-ДД']} value={prefs.dateFmt} onChange={(e) => setPrefs((p) => ({ ...p, dateFmt: e.target.value }))} /></Field>
-              <Field label={t("Формат времени")}><Select options={['24 часа', '12 часов (AM/PM)']} value={prefs.timeFmt} onChange={(e) => setPrefs((p) => ({ ...p, timeFmt: e.target.value }))} /></Field>
               <Field label={t("Валюта по умолчанию")}><Select options={CURRENCIES.map((c) => c.code)} value={prefs.currency} onChange={(e) => setPrefs((p) => ({ ...p, currency: e.target.value }))} /></Field>
               <Field label={t("Размер страницы списка")}><Select options={['10', '25', '50', '100']} value={prefs.pageSize} onChange={(e) => setPrefs((p) => ({ ...p, pageSize: e.target.value }))} /></Field>
               <Field label={t("Стартовая страница после входа")}><Select options={['Главное', 'Заказы', 'Оформление', 'Чаты']} value={prefs.startPage} onChange={(e) => setPrefs((p) => ({ ...p, startPage: e.target.value }))} /></Field>
