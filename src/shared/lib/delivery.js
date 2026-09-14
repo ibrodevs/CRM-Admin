@@ -61,3 +61,29 @@ export function deliverySummary(responses, { subject = 'Документы' } = 
     message: `${subject} поставлены в очередь отправки (${channel}). Статус доставки виден в карточке документа.`,
   };
 }
+
+// ——— Финансовые документы и выгрузки ————————————————————————————————————
+// `accounting_export` теперь отдаёт настоящий XLSX, а не ответ-заглушку, —
+// значит и сохранять его надо под своим расширением, а не под .txt.
+const FINANCE_DOCUMENT_FILE = {
+  reconciliation: { label: 'Акт-сверки', ext: 'txt' },
+  invoice: { label: 'Счёт', ext: 'txt' },
+  upd: { label: 'УПД', ext: 'txt' },
+  accounting_export: { label: 'Выгрузка-в-бухгалтерию', ext: 'xlsx' },
+};
+
+export function financeDocumentFilename(kind, counterpart) {
+  const file = FINANCE_DOCUMENT_FILE[kind] || { label: 'Документ', ext: 'txt' };
+  const name = String(counterpart || '').replace(/[\\/:*?"<>|]/g, '').trim() || 'контрагент';
+  return `${file.label}-${name}.${file.ext}`;
+}
+
+/** Скачивает полученный файл под корректным именем. */
+export function saveDocumentBlob(blob, filename) {
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = filename;
+  link.click();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}

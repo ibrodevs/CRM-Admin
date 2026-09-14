@@ -19,6 +19,7 @@ import { resultsOf } from '../../../shared/api/client.js';
 import { f$, FIN_ACCT_GROUPS, FIN_PAY_STATUS } from '../../../legacy/data/finance.jsx';
 import { currencySymbol, getDefaultCurrency, resolveCurrency } from '../../../shared/lib/money.js';
 import { PAYMENT_METHOD_LABEL, labelFor } from '../../../shared/constants/backend-labels.js';
+import { deliverySummary, financeDocumentFilename } from '../../../shared/lib/delivery.js';
 
 // Способы оплаты хранятся кодами (Payment.method): в интерфейсе показываем
 // русские подписи и выбираем из списка, а не вводим код руками.
@@ -809,8 +810,15 @@ function ReconActContent({ cp, meta }) {
           rows: rows.map((row) => ({ date: row.dateLabel, basis: row.basis, order: row.order, kind: row.kind, debit: row.debit, credit: row.credit })),
         },
       });
-      if (result instanceof Blob) saveFinanceBlob(result, `Акт-сверки-${cp.name}.txt`);
-      toast(kind === 'reconciliation' ? 'Акт сверки скачан' : 'Задача поставлена в очередь backend', 'ok');
+      if (result instanceof Blob) {
+        saveFinanceBlob(result, financeDocumentFilename(kind, cp.name));
+        toast(kind === 'accounting_export' ? 'Выгрузка в бухгалтерию скачана (XLSX)' : 'Акт сверки скачан', 'ok');
+        return;
+      }
+      // reconciliation_send — отправка контрагенту: ответ сообщает, настроен ли
+      // канал и найден ли адрес. Обещать отправку, не проверив этого, нельзя.
+      const summary = deliverySummary(result, { subject: 'Акт сверки' });
+      toast(summary.message, summary.tone);
     } catch (error) { toast(error.message || 'Не удалось обработать акт сверки', 'err'); }
   };
 
@@ -950,11 +958,11 @@ function FinCounterpartyDrawer({ cp, meta, onClose }) {
         payload: { counterpart: cp.name, debit, credit, balance: debit - credit, rows },
       });
       if (result instanceof Blob) {
-        const label = { invoice: 'Счёт', upd: 'УПД' }[kind] || 'Документ';
-        saveFinanceBlob(result, `${label}-${cp.name}.txt`);
-        toast('Документ сформирован по данным backend', 'ok');
+        saveFinanceBlob(result, financeDocumentFilename(kind, cp.name));
+        toast(kind === 'accounting_export' ? 'Выгрузка в бухгалтерию скачана (XLSX)' : 'Документ сформирован по данным backend', 'ok');
       } else {
-        toast(result?.status === 'queued' ? 'Выгрузка поставлена в очередь backend' : 'Запрос обработан backend', 'ok');
+        const summary = deliverySummary(result, { subject: 'Документ' });
+        toast(summary.message, summary.tone);
       }
     } catch (error) {
       toast(error.message || 'Не удалось сформировать документ', 'err');

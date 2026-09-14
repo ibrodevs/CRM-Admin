@@ -15,6 +15,7 @@ import { financeApi } from '../../finance/api.js';
 import { workspaceSettingsApi } from '../../settings/api.js';
 import { resultsOf } from '../../../shared/api/client.js';
 import { currencySymbol, getDefaultCurrency, resolveCurrency } from '../../../shared/lib/money.js';
+import { deliverySummary, financeDocumentFilename, saveDocumentBlob } from '../../../shared/lib/delivery.js';
 
 
 
@@ -540,16 +541,11 @@ function CompanySettlementsBlock({ co, currency }) {
         },
       });
       if (result instanceof Blob) {
-        const url = URL.createObjectURL(result);
-        const link = document.createElement('a');
-        const labels = { reconciliation: 'Акт-сверки', invoice: 'Счёт', upd: 'УПД' };
-        link.href = url;
-        link.download = `${labels[kind] || 'Документ'}-${co.name}.txt`;
-        link.click();
-        setTimeout(() => URL.revokeObjectURL(url), 1000);
-        toast('Документ сформирован по данным backend', 'ok');
+        saveDocumentBlob(result, financeDocumentFilename(kind, co.name));
+        toast(kind === 'accounting_export' ? 'Выгрузка в бухгалтерию скачана (XLSX)' : 'Документ сформирован по данным backend', 'ok');
       } else {
-        toast(result?.status === 'queued' ? 'Выгрузка поставлена в очередь backend' : 'Запрос обработан backend', 'ok');
+        const summary = deliverySummary(result, { subject: 'Документ' });
+        toast(summary.message, summary.tone);
       }
     } catch (error) { toast(error.message || 'Не удалось сформировать документ', 'err'); }
   };

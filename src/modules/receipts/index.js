@@ -12,3 +12,4 @@ export { receiptApplyPartsLabel } from './ui/ReceiptEditorPage.jsx';
 export { receiptSharedGroupPatch } from './ui/ReceiptEditorPage.jsx';
 export { ReceiptEditDrawer } from './ui/ReceiptEditorPage.jsx';
 export { ReceiptImportModal } from './ui/ReceiptEditorPage.jsx';
+export { useSupplierPdfSync } from './model/supplier-pdf-sync.js';

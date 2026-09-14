@@ -20,7 +20,7 @@ import { toLegacyDocument } from '../../../legacy/adapters/legacy-adapters.js';
 import { documentsApi } from '../api/documentsApi.js';
 import { workspaceActionsApi } from '../../workspace/api.js';
 import { resultsOf } from '../../../shared/api/client.js';
-import { ReceiptBrandDocumentDrawer, ReceiptParticipantSummary, normalizeReceiptDraft, receiptDetailsLines, receiptFinancialTotal, recType, guessType, serviceTypeFromBackend, recMoney, receiptApplyPartsLabel, receiptSharedGroupPatch, ReceiptEditDrawer, ReceiptImportModal } from '../../receipts/index.js';
+import { ReceiptBrandDocumentDrawer, ReceiptParticipantSummary, normalizeReceiptDraft, receiptDetailsLines, receiptFinancialTotal, recType, guessType, serviceTypeFromBackend, recMoney, receiptApplyPartsLabel, receiptSharedGroupPatch, ReceiptEditDrawer, ReceiptImportModal, useSupplierPdfSync } from '../../receipts/index.js';
 import { inlineSupplierDocumentUrl, freshSupplierDocumentUrl } from '../model/supplier-pdf.js';
 import { RU_DATE_TIME } from '../../../shared/lib/datetime.js';
 
@@ -498,6 +498,10 @@ function DocCenter({ scopeOrder, participants, services, onOpenDoc, initialDocum
   const [uploadFor, setUploadFor] = useState(null);
   const [editorFor, setEditorFor] = useState(null);
   const [receiptEdit, setReceiptEdit] = useState(null);
+  // Рабочая PDF-копия пересобирается на сервере при правке стоимости и при
+  // закрытии тарифа на IT. Без этого предпросмотр оставался прежним, и
+  // выглядело так, будто правка не применилась.
+  const receiptPdfSync = useSupplierPdfSync(setReceiptEdit, toast);
   const [receiptBrand, setReceiptBrand] = useState(null);
 
   const TYPE_TABS = [
@@ -529,8 +533,9 @@ function DocCenter({ scopeOrder, participants, services, onOpenDoc, initialDocum
     });
     setReceiptEdit({
       ...d, id: d.serverId, editorType, parsed,
-      originalUrl: documentsApi.supplierPreviewUrl(d.serverId),
+      originalUrl: freshSupplierDocumentUrl(documentsApi.supplierPreviewUrl(d.serverId)),
       sourceOriginalUrl: documentsApi.supplierSourcePreviewUrl(d.serverId),
+      supplierPdfRevision: Date.now(),
     });
   };
   const open = (d) => {
@@ -581,6 +586,7 @@ function DocCenter({ scopeOrder, participants, services, onOpenDoc, initialDocum
       const mapped = toLegacyDocument(saved, orders);
       setDocs((current) => current.map((row) => String(row.serverId) === String(fileId) ? mapped : row));
       setReceiptEdit((current) => current ? { ...current, parsed: { ...parsed, recognitionPending: false } } : current);
+      receiptPdfSync.refreshPreview(fileId);
 
       if (siblingIds.length) {
         const shared = receiptSharedGroupPatch(editorType, parsed, options.applyParts);
@@ -766,8 +772,12 @@ function DocCenter({ scopeOrder, participants, services, onOpenDoc, initialDocum
       )}
       <ReceiptEditDrawer open={!!receiptEdit}
         file={receiptEdit ? { ...receiptEdit, type: receiptEdit.editorType } : null}
-        onClose={() => setReceiptEdit(null)}
-        onChange={(fileId, parsed) => setReceiptEdit((current) => current && String(current.id) === String(fileId) ? { ...current, parsed } : current)}
+        onClose={() => { receiptPdfSync.cancelSync(); setReceiptEdit(null); }}
+        pdfSyncStatus={receiptPdfSync.status}
+        onChange={(fileId, parsed) => {
+          setReceiptEdit((current) => current && String(current.id) === String(fileId) ? { ...current, parsed } : current);
+          receiptPdfSync.syncIfSupplierPdfChanged(receiptEdit, parsed);
+        }}
         onReview={saveOrderReceipt} orders={orders} services={services || []}
         groupInfo={receiptGroupInfo}
         onBrand={() => { setReceiptBrand(receiptEdit); }} />
@@ -793,6 +803,9 @@ export function ServiceBlanksPanel({
   const [edit, setEdit] = useState(null);
   const [brand, setBrand] = useState(null);
   const [importing, setImporting] = useState(false);
+  // Та же живая пересборка рабочей PDF-копии, что и в реестре квитанций:
+  // иначе правка стоимости и закрытие тарифа на IT не доходили до бланка.
+  const blankPdfSync = useSupplierPdfSync(setEdit, toast);
   const [showAllOtherDocs, setShowAllOtherDocs] = useState(false);
   const serviceId = service?.serverId || service?.id || null;
   const boundOrder = orders.find((item) => String(item.id) === String(orderId));
@@ -855,6 +868,14 @@ export function ServiceBlanksPanel({
     };
   })();
 
+  // Рабочая копия могла быть пересобрана раньше, поэтому при открытии бланка
+  // адрес получает свежую метку: без неё браузер показал бы файл из кэша.
+  const openBlank = (blank) => setEdit(blank && {
+    ...blank,
+    originalUrl: freshSupplierDocumentUrl(blank.originalUrl),
+    supplierPdfRevision: Date.now(),
+  });
+
   const saveBlank = async (fileId, parsed, options = {}) => {
     const editorType = edit?.editorType || 'Авиа';
     const siblingIds = options.applyToGroup
@@ -901,7 +922,7 @@ export function ServiceBlanksPanel({
         const nextId = ids[ids.indexOf(fileId) + 1];
         const nextBlank = blanks.find((row) => String(row.id) === String(nextId));
         if (nextBlank) {
-          setEdit(nextBlank);
+          openBlank(nextBlank);
           toast('Бланк сохранён. Открыт следующий бланк услуги.', 'ok');
         } else {
           toast('Бланк сохранён в услуге заказа', 'ok');
@@ -909,6 +930,10 @@ export function ServiceBlanksPanel({
       } else {
         toast('Бланк сохранён в услуге заказа', 'ok');
       }
+      setEdit((current) => (current && String(current.id) === String(fileId)
+        ? { ...current, parsed: { ...parsed, recognitionPending: false } }
+        : current));
+      blankPdfSync.refreshPreview(fileId);
       await reload();
       await onChanged?.();
       return true;
@@ -955,7 +980,7 @@ export function ServiceBlanksPanel({
                     {details.map((line, index) => <span key={index}>{line}</span>)}
                   </div>
                   <footer>
-                    <Button size="sm" icon="edit" onClick={() => setEdit(document)}>Редактировать бланк</Button>
+                    <Button size="sm" icon="edit" onClick={() => openBlank(document)}>Редактировать бланк</Button>
                     <Button size="sm" variant="secondary" icon="template" onClick={() => setBrand(document)}>Фирменный бланк</Button>
                     <Button size="sm" variant="ghost" icon="eye" onClick={() => openFile(document.originalUrl)}>Оригинал с корректировками</Button>
                     <Button size="sm" variant="ghost" onClick={() => window.open(inlineSupplierDocumentUrl(document.sourceOriginalUrl), '_blank', 'noopener,noreferrer')}>Исходный файл</Button>
@@ -1006,8 +1031,12 @@ export function ServiceBlanksPanel({
       })()}
 
       <ReceiptEditDrawer open={!!edit} file={edit ? { ...edit, type: edit.editorType } : null}
-        onClose={() => setEdit(null)}
-        onChange={(fileId, parsed) => setEdit((current) => current && String(current.id) === String(fileId) ? { ...current, parsed } : current)}
+        onClose={() => { blankPdfSync.cancelSync(); setEdit(null); }}
+        pdfSyncStatus={blankPdfSync.status}
+        onChange={(fileId, parsed) => {
+          setEdit((current) => current && String(current.id) === String(fileId) ? { ...current, parsed } : current);
+          blankPdfSync.syncIfSupplierPdfChanged(edit, parsed);
+        }}
         onReview={saveBlank}
         groupInfo={groupInfo}
         orders={orders} services={service ? [service] : []} companies={companies}
