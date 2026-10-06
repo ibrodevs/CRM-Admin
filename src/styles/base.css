@@ -25,3 +25,9 @@ input,textarea,select{font-family:inherit}
 .chat-filter-scroll::-webkit-scrollbar{height:4px}
 .chat-filter-scroll::-webkit-scrollbar-thumb{background:#d9dde5;border-radius:8px}
 .chat-filter-scroll::-webkit-scrollbar-track{background:transparent}
+
+/* Flat visual system: shadows are intentionally disabled across controls and surfaces. */
+*,*::before,*::after{box-shadow:none!important}
+
+/* Keep keyboard focus visible without relying on a shadow ring. */
+:focus-visible{outline:2px solid var(--blue);outline-offset:2px}
