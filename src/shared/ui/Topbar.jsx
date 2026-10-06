@@ -72,7 +72,7 @@ function Topbar({ title, sub, children }) {
         .entity-detail-topbar + .content .oc-head {
           position: relative;
           padding: 0 !important;
-          margin: 0 0 18px !important;
+          margin: 0 0 14px !important;
           border: 0 !important;
           border-radius: 0 !important;
           background: transparent !important;
@@ -80,13 +80,13 @@ function Topbar({ title, sub, children }) {
         }
 
         .entity-detail-topbar + .content .oc-head > div:first-child {
-          min-height: 124px !important;
+          min-height: 78px !important;
           display: flex !important;
           grid-template-columns: none !important;
           align-items: center !important;
-          gap: 16px !important;
-          flex-wrap: wrap !important;
-          padding: 22px 26px !important;
+          gap: 12px !important;
+          flex-wrap: nowrap !important;
+          padding: 12px 18px !important;
           border: 1px solid var(--line);
           border-radius: var(--r-card);
           background: var(--surface);
@@ -95,14 +95,14 @@ function Topbar({ title, sub, children }) {
         .entity-detail-topbar + .content .oc-head .oc-id {
           display: flex;
           align-items: center;
-          gap: 10px !important;
+          gap: 9px !important;
           min-width: max-content;
           flex: 0 0 auto;
         }
 
         .entity-detail-topbar + .content .oc-head .oc-id h2 {
           margin: 0;
-          font-size: 21px !important;
+          font-size: 20px !important;
           line-height: 1.2 !important;
           letter-spacing: -.01em;
           white-space: nowrap;
@@ -110,10 +110,10 @@ function Topbar({ title, sub, children }) {
 
         .entity-detail-topbar + .content .oc-head > div:first-child > .oc-id + div {
           flex: 1 1 360px !important;
-          min-width: 240px !important;
+          min-width: 0 !important;
           color: var(--muted) !important;
-          font-size: 14px !important;
-          line-height: 1.45 !important;
+          font-size: 13.5px !important;
+          line-height: 1.35 !important;
         }
 
         .entity-detail-topbar + .content .oc-head > div:first-child > .oc-id + div > span {
@@ -138,9 +138,9 @@ function Topbar({ title, sub, children }) {
 
         .entity-detail-topbar + .content .oc-head > div:first-child > div:last-child > span > .btn.btn-ghost.btn-icon {
           width: auto !important;
-          min-width: 112px;
-          height: 38px;
-          padding: 0 14px !important;
+          min-width: 108px;
+          height: 36px;
+          padding: 0 13px !important;
           gap: 8px;
           border: 1px solid var(--blue) !important;
           border-radius: 10px;
@@ -156,13 +156,13 @@ function Topbar({ title, sub, children }) {
         }
 
         .entity-detail-topbar + .content .oc-head .oc-purpose {
-          margin: 10px 2px 0 !important;
+          margin: 7px 2px 0 !important;
           padding: 0 2px;
           max-width: 100%;
           color: var(--muted);
-          font-size: 13px;
+          font-size: 12.5px;
           font-weight: 500;
-          line-height: 1.4;
+          line-height: 1.35;
           overflow: hidden;
           text-overflow: ellipsis;
           white-space: nowrap;
@@ -172,7 +172,7 @@ function Topbar({ title, sub, children }) {
           display: flex !important;
           align-items: center !important;
           gap: 12px !important;
-          margin: 18px 0 0 !important;
+          margin: 14px 0 0 !important;
           padding: 0 0 2px !important;
           border: 0 !important;
           background: transparent !important;
@@ -182,18 +182,18 @@ function Topbar({ title, sub, children }) {
         }
 
         .entity-detail-topbar + .content .oc-workspace-nav button {
-          min-height: 42px !important;
+          min-height: 40px !important;
           display: inline-flex !important;
           align-items: center;
           justify-content: center;
           gap: 8px;
           flex: 0 0 auto;
-          padding: 0 17px !important;
+          padding: 0 16px !important;
           border: 1px solid var(--field-line) !important;
           border-radius: 12px !important;
           background: var(--surface) !important;
           color: var(--body) !important;
-          font-size: 14.5px !important;
+          font-size: 14px !important;
           font-weight: 600 !important;
           line-height: 1;
           white-space: nowrap;
@@ -208,16 +208,16 @@ function Topbar({ title, sub, children }) {
         }
 
         .entity-detail-topbar + .content .oc-workspace-nav button > b {
-          min-width: 24px;
-          height: 23px;
+          min-width: 22px;
+          height: 21px;
           display: inline-flex;
           align-items: center;
           justify-content: center;
-          padding: 0 7px;
+          padding: 0 6px;
           border-radius: 999px;
           background: var(--gray-bg);
           color: var(--gray-text);
-          font-size: 12.5px;
+          font-size: 12px;
           font-weight: 600;
         }
 
@@ -234,8 +234,10 @@ function Topbar({ title, sub, children }) {
 
         @media (max-width: 900px) {
           .entity-detail-topbar + .content .oc-head > div:first-child {
+            min-height: 0 !important;
             align-items: flex-start !important;
-            padding: 18px 20px !important;
+            flex-wrap: wrap !important;
+            padding: 14px 16px !important;
           }
 
           .entity-detail-topbar + .content .oc-head > div:first-child > .oc-id + div {
@@ -252,7 +254,7 @@ function Topbar({ title, sub, children }) {
 
           .entity-detail-topbar + .content .oc-head > div:first-child {
             min-height: 0 !important;
-            padding: 15px !important;
+            padding: 13px !important;
             gap: 10px !important;
           }
 
@@ -285,7 +287,7 @@ function Topbar({ title, sub, children }) {
           }
 
           .entity-detail-topbar + .content .oc-workspace-nav button {
-            min-height: 40px !important;
+            min-height: 38px !important;
             padding: 0 13px !important;
             font-size: 13.5px !important;
           }
