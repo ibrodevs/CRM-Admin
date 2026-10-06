@@ -11,17 +11,27 @@ import { Th, useSort } from '../../../shared/ui/Table.jsx';
 import { useToast } from '../../../shared/ui/Toast.jsx';
 import { Topbar } from '../../../shared/ui/Topbar.jsx';
 import { ORDER_OPS_SECTIONS } from '../../../shared/constants/navigation.js';
-import { ORDER_STATUS, REQUEST_TYPE, SERVICE_TYPE } from '../../../legacy/data/index.jsx';
 import { proposalsApi } from '../../proposals/api.js';
-import { companiesApi } from '../../companies/api.js';
 import { resolveCurrency } from '../../../shared/lib/money.js';
 import { moneyRowsText } from '../model/finance.jsx';
 import { OrderCard } from './OrderCard.jsx';
 import { OrderCreateModal } from './OrdersPage.jsx';
 
 const PAGE_SIZE = 9;
-
 const orderSelectionKey = (order) => String(order?.id || order?.no || '');
+
+const STATUS_TONE = {
+  'Новое': 'teal',
+  'В работе': 'blue',
+  'Ожидает подтверж.': 'amber',
+  'Ожидание оплаты': 'amber',
+  'Оплачено': 'green',
+  'Завершено': 'green',
+  'Требует проверки': 'red',
+  'На паузе': 'gray',
+  'Отменено': 'red',
+  'Нет данных': 'gray',
+};
 
 function OrdersMultiSelectList({ orders, onOpen, onCreate, onNavigate, currentUser, selectedIds, setSelectedIds }) {
   const toast = useToast();
@@ -77,6 +87,10 @@ function OrdersMultiSelectList({ orders, onOpen, onCreate, onNavigate, currentUs
   rows = apply(rows, { no: (r) => r.no, sum: (r) => r.sum });
   const pageRows = rows.slice(0, visibleCount);
 
+  const statusOptions = [...new Set(orders.map((order) => order.status).filter(Boolean))];
+  const requestTypeOptions = [...new Set(orders.map((order) => order.requestType).filter(Boolean))];
+  const serviceOptions = [...new Set(orders.map((order) => order.service).filter(Boolean))];
+
   const currentUserName = String(currentUser?.name || currentUser?.full_name || '').trim().toLowerCase();
   const ownOrders = orders.filter((order) => (currentUser?.id && String(order.operatorId) === String(currentUser.id))
     || (currentUserName && String(order.operator || '').trim().toLowerCase() === currentUserName)).length;
@@ -96,6 +110,7 @@ function OrdersMultiSelectList({ orders, onOpen, onCreate, onNavigate, currentUs
   const pageKeys = pageRows.map(orderSelectionKey).filter(Boolean);
   const pageAllSelected = pageKeys.length > 0 && pageKeys.every((key) => selectedIds.has(key));
   const pageSomeSelected = pageKeys.some((key) => selectedIds.has(key));
+  const filteredAllSelected = rows.length > 0 && rows.every((order) => selectedIds.has(orderSelectionKey(order)));
 
   const togglePage = () => {
     setSelectedIds((current) => {
@@ -137,36 +152,42 @@ function OrdersMultiSelectList({ orders, onOpen, onCreate, onNavigate, currentUs
           <div><span>По текущему фильтру</span><b>{rows.length}</b><small>из доступных заказов</small></div>
         </div>
 
-        <div className="orders-filters" style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: selectedCount ? 10 : 18, flexWrap: 'wrap' }}>
-          <FilterChip label="Статус" icon="chev" options={Object.keys(ORDER_STATUS)} value={filters.status} onChange={(v) => setFilters((f) => ({ ...f, status: v }))} />
+        <div className="orders-filters" style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 18, flexWrap: 'wrap' }}>
+          <FilterChip label="Статус" icon="chev" options={statusOptions} value={filters.status} onChange={(v) => setFilters((f) => ({ ...f, status: v }))} />
           <FilterChip label="Заказчик" icon="chev" options={[...new Set(orders.map((order) => order.client).filter(Boolean))]} value="" onChange={(v) => setSearch(v === '' ? '' : v)} />
-          <FilterChip label="Тип заявки" icon="chev" options={REQUEST_TYPE} value={filters.requestType} onChange={(v) => setFilters((f) => ({ ...f, requestType: v }))} />
-          <FilterChip label="Тип услуги" icon="chev" options={Object.keys(SERVICE_TYPE)} value={filters.service} onChange={(v) => setFilters((f) => ({ ...f, service: v }))} />
+          <FilterChip label="Тип заявки" icon="chev" options={requestTypeOptions} value={filters.requestType} onChange={(v) => setFilters((f) => ({ ...f, requestType: v }))} />
+          <FilterChip label="Тип услуги" icon="chev" options={serviceOptions} value={filters.service} onChange={(v) => setFilters((f) => ({ ...f, service: v }))} />
           <div className="topbar-spacer" />
           <SearchBox value={search} onChange={setSearch} style={{ width: 280 }} />
-        </div>
 
-        {selectedCount > 0 && (
-          <div className="orders-selection-bar" role="status" aria-live="polite">
-            <div className="orders-selection-summary">
-              <span className="orders-selection-icon"><Icon name="check" /></span>
-              <div>
-                <b>Выбрано заказов: {selectedCount}</b>
-                <span>Можно выбрать несколько заказов и выполнить действие для всей выборки.</span>
+          {selectedCount > 0 && (
+            <div role="status" aria-live="polite" style={{
+              flexBasis: '100%', width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+              gap: 12, padding: '10px 12px', border: '1px solid var(--blue)', borderRadius: 12,
+              background: 'var(--blue-soft)', color: 'var(--ink)',
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
+                <span style={{ width: 28, height: 28, borderRadius: 8, background: 'var(--blue)', color: '#fff', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', flex: '0 0 28px' }}>
+                  <Icon name="check" style={{ width: 15, height: 15 }} />
+                </span>
+                <div style={{ minWidth: 0 }}>
+                  <b style={{ display: 'block', fontSize: 13.5 }}>Выбрано заказов: {selectedCount}</b>
+                  <span style={{ display: 'block', marginTop: 1, fontSize: 12, color: 'var(--muted)' }}>Выбор сохраняется при открытии заказа и возвращении к списку.</span>
+                </div>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+                {!filteredAllSelected && rows.length > 0 && <Button size="sm" variant="secondary" onClick={selectAllFiltered}>Выбрать все по фильтру ({rows.length})</Button>}
+                <Button size="sm" variant="secondary" onClick={clearSelection}>Снять выбор</Button>
               </div>
             </div>
-            <div className="orders-selection-actions">
-              {rows.length > selectedCount && <Button size="sm" variant="secondary" onClick={selectAllFiltered}>Выбрать все по фильтру ({rows.length})</Button>}
-              <Button size="sm" variant="secondary" onClick={clearSelection}>Снять выбор</Button>
-            </div>
-          </div>
-        )}
+          )}
+        </div>
 
-        <div className="table-card orders-select-table">
+        <div className="table-card">
           <table className="tbl">
             <thead>
               <tr>
-                <th className="orders-select-col" title={pageSomeSelected && !pageAllSelected ? 'Выбрана часть заказов на странице' : 'Выбрать заказы на странице'}>
+                <th style={{ width: 46 }} title={pageSomeSelected && !pageAllSelected ? 'Выбрана часть заказов на странице' : 'Выбрать заказы на странице'}>
                   <Checkbox on={pageAllSelected} onChange={togglePage} />
                 </th>
                 <Th label="№" col="no" sort={sort} onSort={onSort} style={{ width: 80 }} />
@@ -182,16 +203,16 @@ function OrdersMultiSelectList({ orders, onOpen, onCreate, onNavigate, currentUs
                 {pageRows.map((o) => {
                   const checked = selectedIds.has(orderSelectionKey(o));
                   return (
-                    <tr key={o.id} className={checked ? 'is-selected' : ''} style={{ cursor: 'pointer' }} onClick={() => onOpen(o)}>
-                      <td className="orders-select-col" onClick={(e) => e.stopPropagation()}>
+                    <tr key={o.id} style={{ cursor: 'pointer', background: checked ? 'var(--blue-soft)' : undefined }} onClick={() => onOpen(o)}>
+                      <td onClick={(e) => e.stopPropagation()}>
                         <Checkbox on={checked} onChange={() => toggleOrder(o)} />
                       </td>
                       <td className="t-strong">{o.no}</td>
                       <td><span className="order-list-date"><Icon name="calendar" />{o.date || '—'}</span></td>
                       <td className="t-strong">{o.client}</td>
                       <td><Pill tone="blue">{o.requestType}</Pill></td>
-                      <td><Pill tone={ORDER_STATUS[o.status]}>{o.status}</Pill></td>
-                      <td><Pill tone={SERVICE_TYPE[o.service]}>{o.service}</Pill></td>
+                      <td><Pill tone={STATUS_TONE[o.status] || 'gray'}>{o.status}</Pill></td>
+                      <td><Pill tone="blue">{o.service}</Pill></td>
                       <td><div className="t-strong">{o.operator}</div><div className="t-sub">{o.operatorRole}</div></td>
                       <td className="t-strong">{moneyRowsText(o.totals || [{ amount: o.sum, currency: o.currency }], o.currency)}</td>
                       <td>
