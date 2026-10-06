@@ -2,7 +2,7 @@
 
 import { DashboardPage } from '../../modules/dashboard/index.js';
 import { FlightsPage } from '../../modules/services/index.js';
-import { OrdersPage } from '../../modules/orders/index.js';
+import { OrdersPage } from '../../modules/orders/ui/OrdersPageEnhanced.jsx';
 import { OffersPage } from '../../modules/proposals/index.js';
 import { DocCenterPage, FulfillmentPage } from '../../modules/documents/index.js';
 import { ReceiptEditorPage } from '../../modules/receipts/index.js';
