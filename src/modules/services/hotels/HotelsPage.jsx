@@ -1,3 +1,4 @@
+import { hotelDateOnly, hotelCitizenship, revalidationNeedsConfirmation } from './search-criteria.js';
 import { useEffect, useState } from 'react';
 import { Icon } from '../../../shared/icons/index.jsx';
 import { ActionMenu } from '../../../shared/ui/ActionMenu.jsx';
@@ -61,6 +62,8 @@ function hotelOfferToUi(offer, criteria = {}) {
       feats: [
         itinerary.meal_plan ? { ok: true, t: `Питание: ${itinerary.meal_plan}` } : null,
         cancellation ? { ok: true, t: String(cancellation) } : null,
+        ...(fare.information || []).map((info) => ({ ok: true, t: [info.title, info.text].filter(Boolean).join(': ') })),
+        ...(fare.additional_charges || []).map((charge) => ({ ok: true, t: `${charge.type}: ${hpM(charge.price?.amount, charge.price?.currency)} · ${charge.isIncluded ? 'включено' : 'оплачивается в отеле'}` })),
       ].filter(Boolean),
     }],
   };
@@ -234,8 +237,9 @@ function HotelPicker({ participants, group = false, onApply, onCancel, currency 
         kind: 'hotel',
         criteria: {
           location: dest,
-          check_in: checkin?.toISOString().slice(0, 10),
-          check_out: checkout?.toISOString().slice(0, 10),
+          check_in: hotelDateOnly(checkin),
+          check_out: hotelDateOnly(checkout),
+          citizenship: hotelCitizenship(citizenship),
           guests: searchGuests,
           rooms: searchRooms,
           meal_plan: meal,
@@ -243,18 +247,25 @@ function HotelPicker({ participants, group = false, onApply, onCancel, currency 
           currency,
         },
       });
-      for (let attempt = 0; attempt < 30; attempt += 1) {
+      for (let attempt = 0; attempt < 180; attempt += 1) {
         const status = await servicesApi.searchStatus(created.search_id);
+        const payload = await servicesApi.offers(created.search_id, { page_size: 100 });
+        const rows = resultsOf(payload);
+        for (let page = 2; rows.length < payload.count; page += 1) {
+          const batch = resultsOf(await servicesApi.offers(created.search_id, { page_size: 100, page }));
+          if (!batch.length) break;
+          rows.push(...batch);
+        }
+        const offers = rows.map((offer) => hotelOfferToUi(offer));
+        setLiveHotels(offers);
         if (['completed', 'partial', 'failed', 'cancelled'].includes(status.status)) {
           if (status.status === 'failed') throw new Error('Поставщики не вернули варианты гостиниц');
-          const offers = resultsOf(await servicesApi.offers(created.search_id)).map((offer) => hotelOfferToUi(offer, { guests: searchGuests, rooms: searchRooms }));
-          setLiveHotels(offers);
           toast(`Получено вариантов: ${offers.length}`, 'ok');
           return;
         }
         await new Promise((resolve) => setTimeout(resolve, 500));
       }
-      throw new Error('Поиск занимает больше обычного. Повторите попытку.');
+      toast('Поиск ещё выполняется. Уже полученные варианты доступны в списке.', 'info');
     } catch (error) {
       toast(error.message || 'Не удалось выполнить поиск гостиниц', 'err');
     }
@@ -326,7 +337,7 @@ function HotelPicker({ participants, group = false, onApply, onCancel, currency 
     sub,
     cost: grandTotal, fee: 0, supplier: activeHotel.supplier,
     info: [{ l: 'Заезд', v: fmtDate(checkin) }, { l: 'Выезд', v: fmtDate(checkout) }, { l: 'Ночей', v: nights }],
-    tags: [selRoom.name, HOTEL_MEALS.find((x) => x.id === meal).full].filter(Boolean),
+    tags: [selRoom.name, activeHotel.itinerary?.meal_plan].filter(Boolean),
     currency: activeHotel.currency,
   });
   const finalizeSingle = () => {
@@ -455,7 +466,12 @@ function HotelPicker({ participants, group = false, onApply, onCancel, currency 
           onContact={async () => {
             try {
               const result = await servicesApi.revalidate(activeHotel._backendOfferId);
-              toast(result.revalidation?.status === 'valid' ? 'Наличие и цена подтверждены поставщиком' : 'Ответ поставщика получен', 'ok');
+              const updated = hotelOfferToUi(result.offer);
+              setActiveHotel(updated);
+              setSelRoom(updated.rooms[0]);
+              setSelTariff(updated.rooms[0].tariffs[0]);
+              setLiveHotels((hotels) => hotels.map((hotel) => hotel.id === updated.id ? updated : hotel));
+              toast(result.revalidation?.status === 'price_changed' ? 'Цена изменилась. Показан актуальный тариф.' : 'Наличие и цена подтверждены поставщиком', 'ok');
             } catch (error) { toast(error.message, 'err'); }
           }} />
       )}
@@ -1158,7 +1174,14 @@ function HotelsPage({ orders = [] }) {
     const order = target.order;
     if (!order?.id || !selectedOffer?._backendOfferId) return;
     try {
-      await servicesApi.revalidate(selectedOffer._backendOfferId);
+      const validation = await servicesApi.revalidate(selectedOffer._backendOfferId);
+      if (revalidationNeedsConfirmation(selectedOffer, validation)) {
+        setSelectedOffer({ ...selectedOffer, cost: Number(validation.offer.price.amount), currency: validation.offer.price.currency,
+          title: `${validation.offer.itinerary.property_name} · ${hpM(validation.offer.price.amount, validation.offer.price.currency)}`,
+          sub: [validation.offer.itinerary.room, validation.offer.itinerary.meal_plan, validation.offer.fare?.cancellation_rules].filter(Boolean).join(' · ') });
+        toast('Цена или условия изменились. Проверьте актуальный тариф и повторно выберите заказ для подтверждения.', 'info');
+        return;
+      }
       await servicesApi.addToOrder(order.id, { offer_id: selectedOffer._backendOfferId });
       toast(`Гостиница добавлена в backend-заказ № ${order.no || order.number}`, 'ok');
       setSelectedOffer(null);
@@ -1172,7 +1195,7 @@ function HotelsPage({ orders = [] }) {
           onApply={setSelectedOffer}
           onCancel={() => {}} />
       </div>
-      {selectedOffer && <UnifiedBindPicker open title="Добавить гостиницу в заказ" sub={selectedOffer.title}
+      {selectedOffer && <UnifiedBindPicker open title="Добавить гостиницу в заказ" sub={[selectedOffer.title, selectedOffer.sub].filter(Boolean).join(' · ')}
         modes={['order']} orderOptions={orders} onClose={() => setSelectedOffer(null)} onPick={attach} />}
     </>
   );

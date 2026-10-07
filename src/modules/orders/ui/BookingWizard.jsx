@@ -139,9 +139,20 @@ function BookingWizard({ order, services, draft, onClose, onComplete, onSaveDraf
     }
     setBusy(true);
     try {
-      const created = await bookingApi.create({ order: order.id, services: bookingServices.map((service) => service.serverId || service.id) });
-      await bookingApi.preflight(created.id);
-      const started = await bookingApi.start(created.id, true);
+      const created = workflow && ['draft', 'preflight_ok'].includes(workflowState?.status)
+        ? workflowState
+        : await bookingApi.create({ order: order.id, services: bookingServices.map((service) => service.serverId || service.id) });
+      const preflight = created.status === 'preflight_ok' && created.preflight_result
+        ? created.preflight_result : await bookingApi.preflight(created.id);
+      setWorkflow(created.id);
+      setWorkflowState({ ...created, status: preflight.ok ? 'preflight_ok' : 'draft', preflight_result: preflight });
+      if (!preflight.ok) throw new Error(preflight.blocking_errors?.map((item) => item.message).join('; ') || 'Проверка бронирования не пройдена');
+      if (preflight.price_changes?.length || preflight.warnings?.length) {
+        const changes = (preflight.price_changes || []).map((item) => `${item.old} → ${item.new} ${item.currency}`).join('\n');
+        const warnings = (preflight.warnings || []).map((item) => [item.message, item.conditions].filter(Boolean).join(': ')).join('\n');
+        if (!window.confirm(`Поставщик обновил условия. Подтвердить бронирование?\n${changes}\n${warnings}`)) return;
+      }
+      const started = await bookingApi.start(created.id, Boolean(preflight.price_changes?.length || preflight.warnings?.length));
       setWorkflow(created.id);
       setWorkflowState(started.workflow || created);
       toast('Бронирование запущено — запросы отправлены поставщикам', 'ok');
@@ -164,7 +175,9 @@ function BookingWizard({ order, services, draft, onClose, onComplete, onSaveDraf
     if (!workflow) return toast('Сначала запустите бронирование', 'err');
     setBusy(true);
     try {
-      await bookingApi.issue(workflow, {});
+      const issueItems = (workflowState?.items || []).filter((item) => item.status === 'booked' && item.service_kind !== 'hotel');
+      if (!issueItems.length) { next(); return; }
+      await bookingApi.issue(workflow, { items: issueItems.map((item) => item.id) });
       toast('Выписка поставлена в очередь', 'ok');
       setIssueRequested(true);
     } catch (error) { toast(error.message, 'err'); }
@@ -217,7 +230,7 @@ function BookingWizard({ order, services, draft, onClose, onComplete, onSaveDraf
       const current = await bookingApi.status(workflow);
       setWorkflowState(current);
       const pending = current.items?.some((item) => ['booking', 'issuing', 'pending'].includes(item.status));
-      const allIssued = current.items?.length > 0 && current.items.every((item) => ['issued', 'skipped'].includes(item.status));
+      const allIssued = current.items?.length > 0 && current.items.every((item) => ['issued', 'skipped'].includes(item.status) || (item.status === 'booked' && item.service_kind === 'hotel'));
       if (allIssued) next();
       else if (pending) toast('Операции у поставщиков ещё выполняются', 'info');
       else toast('Выписка завершилась не по всем услугам. Проверьте статусы.', 'warn');
@@ -261,7 +274,7 @@ function BookingWizard({ order, services, draft, onClose, onComplete, onSaveDraf
     { tone: bookingServices.length ? 'ok' : 'wait', text: `Услуг к обработке: ${bookingServices.length}` },
     { tone: workflow ? 'ok' : 'wait', text: workflow ? 'Workflow создан в backend' : 'Workflow ещё не создан' },
     { tone: workflowState?.items?.some((item) => item.status === 'booked') ? 'ok' : 'wait', text: 'Есть подтверждённые бронирования' },
-    { tone: workflowState?.items?.length && workflowState.items.every((item) => ['issued', 'skipped'].includes(item.status)) ? 'ok' : 'wait', text: 'Выписка завершена' },
+    { tone: workflowState?.items?.length && workflowState.items.every((item) => ['issued', 'skipped'].includes(item.status) || (item.status === 'booked' && item.service_kind === 'hotel')) ? 'ok' : 'wait', text: 'Выписка завершена' },
   ];
 
 
@@ -324,13 +337,14 @@ function BookingWizard({ order, services, draft, onClose, onComplete, onSaveDraf
                 {wait ? (
                   <div className="bw-tl">
                     <span className="bw-tl-time"><Icon name="clock" />{v.status}</span>
-                    {v.item?.status === 'unknown' && <button className="bw-tl-btn" onClick={() => inquireItem(v.item)}><Icon name="loader" />Проверить</button>}
+                    {['unknown', 'booked'].includes(v.item?.status) && <button className="bw-tl-btn" onClick={() => inquireItem(v.item)}><Icon name="loader" />Проверить</button>}
                     <button className="bw-tl-btn alt" onClick={() => setContactSvc(s)}><Icon name="chat" />Создать задачу</button>
                   </div>
                 ) : (
                   <div style={{ textAlign: 'right' }}>
                     <div style={{ fontWeight: 700, color: 'var(--ink)' }}>{ocMoney(s.sum, s.currency)}</div>
-                    <div style={{ fontSize: 12, color: 'var(--green)' }}>{v.item?.locator ? `PNR ${v.item.locator}` : 'ответ получен'}</div>
+                    <div style={{ fontSize: 12, color: 'var(--green)' }}>{v.item?.locator ? `${v.item.service_kind === 'hotel' ? 'Бронь' : 'PNR'} ${v.item.locator}` : 'ответ получен'}</div>
+                    {v.item?.status === 'booked' && <button className="bw-tl-btn" onClick={() => inquireItem(v.item)}><Icon name="loader" />Проверить бронь</button>}
                   </div>
                 )}
               </div>} />
@@ -440,6 +454,7 @@ function BookingWizard({ order, services, draft, onClose, onComplete, onSaveDraf
     if (step === 0) return <><Button variant="secondary" onClick={onClose}>Отмена</Button><div style={{ flex: 1 }} /><Button icon="zap" disabled={busy || !bookingServices.length} onClick={() => setOpConfirm({ action: 'book', onConfirm: startBooking })}>Забронировать</Button></>;
     if (step === 1) return <><Button variant="secondary" icon="chevLeft" onClick={back}>Назад</Button><div style={{ flex: 1 }} /><Button icon="check" onClick={refreshWorkflow}>Проверить ответы</Button></>;
     if (step === 2) return <><Button variant="secondary" icon="chevLeft" onClick={back}>Назад</Button><div style={{ flex: 1 }} /><Button variant="secondary" icon="send" disabled={busy} onClick={sendProposal}>Отправить КП клиенту</Button><Button iconRight="arrowRight" onClick={next}>К выписке и оплате</Button></>;
+    if (step === 3 && bookingServices.every((service) => service.kind === 'Отель')) return <><Button variant="secondary" icon="chevLeft" onClick={back}>Назад</Button><div style={{ flex: 1 }} /><Button icon="check" onClick={next}>Продолжить</Button></>;
     if (step === 3) return <><Button variant="secondary" icon="chevLeft" onClick={back}>Назад</Button><div style={{ flex: 1 }} />{issueRequested ? <Button icon="loader" disabled={busy} onClick={refreshIssue}>Проверить выпуск</Button> : <Button icon="check" disabled={busy} onClick={() => setOpConfirm({ action: 'issue', onConfirm: issueWorkflow })}>Запустить выписку</Button>}</>;
     return <><div style={{ flex: 1 }} /><Button icon="check" onClick={() => { onComplete && onComplete(); onClose(); }}>Готово</Button></>;
   };
