@@ -1,4 +1,4 @@
-import { hotelDateOnly, hotelCitizenship, revalidationNeedsConfirmation } from './search-criteria.js';
+import { hotelDateOnly, hotelCitizenship, hotelBreakfastIncluded, revalidationNeedsConfirmation } from './search-criteria.js';
 import { useEffect, useState } from 'react';
 import { Icon } from '../../../shared/icons/index.jsx';
 import { ActionMenu } from '../../../shared/ui/ActionMenu.jsx';
@@ -82,7 +82,7 @@ function hotelOfferToUi(offer, criteria = {}) {
     ratingText: itinerary.rating_text || '',
     reviews: itinerary.reviews_count ?? null,
     base,
-    breakfast: itinerary.meal_plan && itinerary.meal_plan !== 'RO',
+    breakfast: hotelBreakfastIncluded(itinerary.meal_plan),
     freeCancel: fare.free_cancel_until || itinerary.free_cancel_until || null,
     cancellation,
     payAtHotel: Boolean(fare.pay_at_hotel || itinerary.pay_at_hotel),
@@ -594,7 +594,7 @@ function RoomPanel({ hotel, selRoom, selTariff, onPickRoom, checkin, checkout, g
             <span><Icon name="bed" />{selRoom.beds}</span>
           </div>
           <div className="hp-col-subtitle">Питание</div>
-          <div className="hp-room-line"><Icon name="coffee" />{hotel.breakfast ? 'Питание включено по данным поставщика' : 'Питание не включено или не указано'}</div>
+          <div className="hp-room-line"><Icon name="coffee" />{hotel.itinerary?.meal_plan || 'Питание не указано поставщиком'}</div>
           <div className="hp-col-subtitle">Условия отмены</div>
           <div className="hp-room-line"><Icon name="docs" />{hotel.cancellation || (hotel.freeCancel ? `Бесплатная отмена до ${hotel.freeCancel}` : 'Поставщик не передал условия отмены')}</div>
           <div className="hp-col-subtitle">Условия оплаты</div>

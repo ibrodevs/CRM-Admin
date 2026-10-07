@@ -15,7 +15,7 @@ import { CURRENT_USER, NOTIFICATIONS, OPERATORS, RETURN_TYPE, financeOverview } 
 import { SLA_QUEUE, slaLabel, slaTone } from '../../../legacy/data/access-control.jsx';
 import { UfOrderRow, UfPersonRow, ufOrderPickRows } from '../../clients/index.js';
 import { Topbar } from '../../../shared/ui/Topbar.jsx';
-import { PAX_DEFAULT_OPTIONS } from '../../services/index.js';
+import { PAX_DEFAULT_OPTIONS, revalidationNeedsConfirmation } from '../../services/index.js';
 import { PanelSub, StackPanel } from '../../locations/index.js';
 import { AddServicePanel } from '../../orders/index.js';
 import { ErrorCodesDrawer } from '../../notifications/index.js';
@@ -36,6 +36,7 @@ import { WorkCenter } from './WorkCenter.jsx';
 import { dashToneColor } from './DashboardCard.jsx';
 import { addDays, buildAgenda, dailySeries, formatPercent, isoDayKey, isoDayRange, percentChange, percentTone, sameDay, seriesTotal } from '../model/dashboard-metrics.js';
 import { formatMoney, getDefaultCurrency, resolveCurrency } from '../../../shared/lib/money.js';
+import { freeBookingAmount, freeBookingOfferId, freeBookingServiceBody, freeBookingTotals } from '../model/free-booking.js';
 import { RU_DATE_TIME } from '../../../shared/lib/datetime.js';
 
 
@@ -53,26 +54,23 @@ function FreeBookingFinalize({ draft, onClose, onDone, onOpenOrder, onNavigate, 
   const kpNo = proposal?.number || 'Новое КП';
 
   const svcTitle = (x) => x.title || x.route || x.fareName || (x.from && x.to ? x.from + ' → ' + x.to : x.kind || 'Услуга');
-  const svcSum = (x) => x.fareDeltaUsd || x.total || x.cost || x.price || x.sum || 0;
-  const total = draft.reduce((s, x) => s + svcSum(x), 0);
+  const svcSum = freeBookingAmount;
+  const totals = freeBookingTotals(draft);
   const finish = (msg, action) => { toast(msg, 'ok', action ? { action, duration: 7000 } : {}); onDone(); };
 
   const attachDraftToOrder = async (orderId) => {
-    await Promise.all(draft.map((svc) => {
-      const kindMap = { 'Авиа': 'avia', 'ЖД': 'rail', 'Гостиница': 'hotel', 'Отель': 'hotel', 'Трансфер': 'transfer', 'Страховка': 'insurance', 'Виза': 'visa', 'Тур': 'tour', 'Автобус': 'bus' };
-      const rawKind = svc.kind || 'avia';
-      const kind = kindMap[rawKind] || rawKind;
-      const body = {
-        kind,
-        title: svcTitle(svc),
-        currency: resolveCurrency(svc.currency),
-        client_total: svcSum(svc),
-        supplier_cost: svc.cost || svc.tariff || svcSum(svc),
-        agency_fee: svc.fee || 0,
-        markup: svc.markup || 0,
-      };
-      const offerId = svc.offerId || svc.backendOfferId;
-      return servicesApi.addToOrder(orderId, offerId ? { offer_id: offerId } : body);
+    await Promise.all(draft.map(async (svc) => {
+      const offerId = freeBookingOfferId(svc);
+      if (offerId) {
+        const validation = await servicesApi.revalidate(offerId);
+        if (revalidationNeedsConfirmation({ cost: svcSum(svc), currency: svc.currency }, validation)) {
+          const offer = validation.offer;
+          if (!window.confirm(`Обновились цена или условия поставщика. Добавить предложение в заказ?\n${formatMoney(offer.price.amount, offer.price.currency)}\n${offer.fare?.cancellation_rules || ''}`)) {
+            throw new Error('Добавление отменено: условия поставщика не подтверждены');
+          }
+        }
+      }
+      return servicesApi.addToOrder(orderId, freeBookingServiceBody(svc));
     }));
   };
 
@@ -123,7 +121,7 @@ function FreeBookingFinalize({ draft, onClose, onDone, onOpenOrder, onNavigate, 
           type: 'standard', purpose: 'Свободное бронирование', source: 'dashboard', recipient: recipient.trim(), currency,
           brief: { source: 'dashboard_free_booking' },
           variants: [{ name: 'Вариант 1', items: draft.map((item) => ({
-            ...(item.offerId || item.backendOfferId ? { offer: item.offerId || item.backendOfferId } : {}),
+            ...(freeBookingOfferId(item) ? { offer: freeBookingOfferId(item) } : {}),
             service_kind: kindCode(item.kind), title: svcTitle(item), description: item.supplier || '', quantity: 1,
             price_amount: svcSum(item), price_currency: item.currency || currency,
           })) }],
@@ -274,12 +272,12 @@ function FreeBookingFinalize({ draft, onClose, onDone, onOpenOrder, onNavigate, 
           {draft.map((x, i) => (
             <div key={i} style={{ display: 'flex', justifyContent: 'space-between', gap: 12, padding: '8px 0', borderBottom: i < draft.length - 1 ? '1px solid var(--line)' : 'none' }}>
               <div><div style={{ fontWeight: 600, color: 'var(--ink)' }}>{svcTitle(x)}</div><div style={{ fontSize: 12, color: 'var(--muted)' }}>{x.kind || 'Авиа'}{x.supplier ? ' · ' + x.supplier : ''}</div></div>
-              <div style={{ fontWeight: 600, whiteSpace: 'nowrap' }}>{svcSum(x) ? svcSum(x).toLocaleString('ru-RU') + ' $' : '—'}</div>
+              <div style={{ fontWeight: 600, whiteSpace: 'nowrap' }}>{svcSum(x) ? formatMoney(svcSum(x), x.currency) : '—'}</div>
             </div>
           ))}
-          {total > 0 && (
+          {Object.values(totals).some((amount) => amount > 0) && (
             <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 10, paddingTop: 10, borderTop: '1px solid var(--line)', fontWeight: 700, color: 'var(--ink)' }}>
-              <span>Итого</span><span>{total.toLocaleString('ru-RU')} $</span>
+              <span>Итого</span><span>{Object.entries(totals).map(([currency, amount]) => formatMoney(amount, currency)).join(' + ')}</span>
             </div>
           )}
         </div>
@@ -306,12 +304,12 @@ function FreeBookingFinalize({ draft, onClose, onDone, onOpenOrder, onNavigate, 
         {draft.map((x, i) => (
           <div key={i} style={{ display: 'flex', justifyContent: 'space-between', gap: 12, padding: '8px 0', borderBottom: i < draft.length - 1 ? '1px solid var(--line)' : 'none' }}>
             <div><div style={{ fontWeight: 600, color: 'var(--ink)' }}>{svcTitle(x)}</div><div style={{ fontSize: 12, color: 'var(--muted)' }}>{x.kind || 'Авиа'}{x.supplier ? ' · ' + x.supplier : ''}</div></div>
-            <div style={{ fontWeight: 600, whiteSpace: 'nowrap' }}>{svcSum(x) ? svcSum(x).toLocaleString('ru-RU') + ' $' : '—'}</div>
+            <div style={{ fontWeight: 600, whiteSpace: 'nowrap' }}>{svcSum(x) ? formatMoney(svcSum(x), x.currency) : '—'}</div>
           </div>
         ))}
-        {total > 0 && (
+        {Object.values(totals).some((amount) => amount > 0) && (
           <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 10, paddingTop: 10, borderTop: '1px solid var(--line)', fontWeight: 700, color: 'var(--ink)' }}>
-            <span>Итого</span><span>{total.toLocaleString('ru-RU')} $</span>
+            <span>Итого</span><span>{Object.entries(totals).map(([currency, amount]) => formatMoney(amount, currency)).join(' + ')}</span>
           </div>
         )}
       </div>

@@ -14,3 +14,9 @@ export function revalidationNeedsConfirmation(previous, result) {
     || (previous.cost != null && Number(previous.cost) !== Number(result.offer?.price?.amount))
     || (previous.currency && previous.currency !== result.offer?.price?.currency);
 }
+
+export function hotelBreakfastIncluded(mealPlan) {
+  const value = String(mealPlan || '').trim().toLowerCase();
+  return /^(bb|hb|fb|ai)$/.test(value)
+    || /завтрак|полупансион|полный пансион|всё включено|все включено|breakfast|half board|full board|all inclusive/.test(value);
+}

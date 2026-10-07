@@ -27,3 +27,5 @@ export { technicalStopsOf } from './flights/technical-stops.js';
 export { TechnicalStopsDetails } from './flights/TechnicalStops.jsx';
 export * from './api.js';
 export * from './model.js';
+
+export { revalidationNeedsConfirmation } from './hotels/search-criteria.js';
