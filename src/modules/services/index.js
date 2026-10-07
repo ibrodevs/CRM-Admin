@@ -29,3 +29,5 @@ export * from './api.js';
 export * from './model.js';
 
 export { revalidationNeedsConfirmation } from './hotels/search-criteria.js';
+
+export { resolveHotelParticipants } from './hotels/guests.js';

@@ -34,7 +34,7 @@ import { DocCenter } from '../../documents/index.js';
 import { listAll } from '../../../shared/api/operations.js';
 import { ReturnsModule } from '../../returns/index.js';
 import { AeroAddFlow, ManualAltForm, RailAddFlow, ServiceAddFlow, ServiceCardHistoryDrawer, ServiceCardSendPanel } from '../../services/index.js';
-import { HotelPicker } from '../../services/index.js';
+import { HotelPicker, resolveHotelParticipants } from '../../services/index.js';
 import { activeOrderServices, moneyRowsText, serviceMoneyRows, financeRowsTotal, financeSnapshot, normalizeCurrency, ocCurrency, ocMoney, opDebt, opPayable, orderFinanceCurrency, svcCalc } from '../model/finance.jsx';
 import { communicationsApi } from '../../chats/api.js';
 import { documentsApi } from '../../documents/api.js';
@@ -2642,9 +2642,10 @@ function OrderCard({ order, company, clients = [], onBack, initTab, initSvc, ini
     const kindCode = { 'Авиа': 'avia', 'ЖД': 'rail', 'Гостиница': 'hotel', 'Трансфер': 'transfer', 'Автобус': 'bus', 'Тур': 'tour', 'Аэроэкспресс': 'aeroexpress', 'Бизнес-зал': 'lounge', 'Страховка': 'insurance', 'Виза': 'visa' }[kind] || 'other';
     const amount = Number(offer.cost || 0) + Number(offer.fee || 0);
     try {
+      const participantIds = offer.participantIds || await resolveHotelParticipants(orderId, offer, ordersApi) || participants.map((p) => p.serverId || p.id).filter(Boolean);
       const body = offer._backendOfferId
-        ? { offer_id: offer._backendOfferId, participants: participants.map((p) => p.serverId || p.id).filter(Boolean) }
-        : { kind: kindCode, title: offer.title || kind, currency: resolveCurrency(offer.currency, cardOrder.base_currency, cardOrder.currency), supplier_cost: Number(offer.cost || 0), agency_fee: Number(offer.fee || 0), client_total: amount, participants: participants.map((p) => p.serverId || p.id).filter(Boolean) };
+        ? { offer_id: offer._backendOfferId, participants: participantIds }
+        : { kind: kindCode, title: offer.title || kind, currency: resolveCurrency(offer.currency, cardOrder.base_currency, cardOrder.currency), supplier_cost: Number(offer.cost || 0), agency_fee: Number(offer.fee || 0), client_total: amount, participants: participantIds };
       const created = await servicesApi.addToOrder(orderId, body);
       await refreshOrderSnapshot();
       setSvcView(null);

@@ -2946,3 +2946,35 @@ button.oc-fact:hover{border-color:#d3dbe8;background:#fff}
   .profile-head-login{text-align:left}
   .profile-notif-grid{grid-template-columns:1fr}
 }
+
+/* Supplier hotel conditions and asynchronous search feedback. */
+.hp-card{grid-template-columns:190px minmax(0,1fr) 200px 190px}
+.hp-card-main,.hp-card-rate,.hp-card-price{min-width:0;overflow-wrap:anywhere}
+.hp-condition{display:flex;align-items:flex-start;gap:7px;font-size:12px;color:var(--body)}
+.hp-condition>svg{width:14px;height:14px;flex:0 0 14px;margin-top:2px;color:var(--muted)}
+.hp-condition.ok>svg{color:var(--green)}
+.hp-condition>div{min-width:0;display:flex;flex-direction:column;gap:3px}
+.hp-condition b{font-weight:400;line-height:1.45}
+.hp-condition small{font-size:11px;color:var(--muted);line-height:1.5;overflow-wrap:anywhere}
+.hp-find-btn{min-width:115px}
+.hp-spinner{display:inline-block;width:18px;height:18px;flex:0 0 18px;border:2px solid currentColor;border-right-color:transparent;border-radius:50%;animation:hp-spin .8s linear infinite}
+@keyframes hp-spin{to{transform:rotate(360deg)}}
+.hp-search-progress{display:flex;align-items:center;gap:12px;padding:24px;border:1px solid var(--line);border-radius:var(--r-card);background:var(--accent-bg);color:var(--accent)}
+.hp-search-progress small{display:block;margin-top:4px;color:var(--muted)}
+.hp-search-error{padding:20px;border:1px solid var(--line);border-radius:var(--r-card);color:var(--body)}
+@media(max-width:1100px){.hp-card{grid-template-columns:140px minmax(0,1fr) 170px 165px}}
+@media(max-width:900px){.hp-card{grid-template-columns:1fr}}
+@media(prefers-reduced-motion:reduce){.hp-spinner{animation:none}}
+
+.drawer-stack-compact{align-items:center;padding:24px}
+.drawer-stack-compact .drawer-stack-panel{height:auto;max-height:calc(100dvh - 48px);border-radius:16px}
+.hp-room-col{min-width:0}
+.hp-room-line,.hp-tariff-feat{white-space:pre-line;overflow-wrap:anywhere;line-height:1.5}
+.hp-room-specs span{overflow-wrap:anywhere}
+.hp-gallery-main{width:100%;object-fit:cover}
+@media(max-width:700px){.drawer-stack-compact{padding:8px}.drawer-stack-compact .drawer-stack-panel{max-height:calc(100dvh - 16px)}}
+.hp-bed-opt input[type=radio],.hp-mg-row input[type=radio]{appearance:auto;width:18px;height:18px;flex:0 0 18px;accent-color:var(--blue);margin:0;cursor:pointer}
+.hp-pax-grid>div{min-width:0}
+.hp-sum-guests{overflow-wrap:anywhere}
+
+.hp-guest-row input[type=checkbox]{appearance:auto;width:18px;height:18px;flex:0 0 18px;accent-color:var(--blue);margin:0;cursor:pointer}

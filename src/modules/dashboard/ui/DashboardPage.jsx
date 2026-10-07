@@ -1,3 +1,4 @@
+import { resolveHotelParticipants } from '../../services/index.js';
 import { useState, useEffect } from 'react';
 import { Icon } from '../../../shared/icons/index.jsx';
 import { ActionMenu } from '../../../shared/ui/ActionMenu.jsx';
@@ -59,7 +60,7 @@ function FreeBookingFinalize({ draft, onClose, onDone, onOpenOrder, onNavigate, 
   const finish = (msg, action) => { toast(msg, 'ok', action ? { action, duration: 7000 } : {}); onDone(); };
 
   const attachDraftToOrder = async (orderId) => {
-    await Promise.all(draft.map(async (svc) => {
+    for (const svc of draft) {
       const offerId = freeBookingOfferId(svc);
       if (offerId) {
         const validation = await servicesApi.revalidate(offerId);
@@ -70,8 +71,9 @@ function FreeBookingFinalize({ draft, onClose, onDone, onOpenOrder, onNavigate, 
           }
         }
       }
-      return servicesApi.addToOrder(orderId, freeBookingServiceBody(svc));
-    }));
+      const participantIds = await resolveHotelParticipants(orderId, svc, ordersApi);
+      await servicesApi.addToOrder(orderId, { ...freeBookingServiceBody(svc), ...(participantIds ? { participants: participantIds } : {}) });
+    }
   };
 
   const createNewOrder = async (clientName, requestType) => {

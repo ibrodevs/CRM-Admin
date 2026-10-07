@@ -21,3 +21,18 @@ test('a changed price or currency requires review before attaching', () => {
   assert.equal(revalidationNeedsConfirmation(previous, { ...result, offer: { price: { amount: '130.00', currency: 'EUR' } } }), true);
   assert.equal(revalidationNeedsConfirmation(previous, { ...result, offer: { price: { amount: '120.25', currency: 'USD' } } }), true);
 });
+
+test('supplier cancellation deadlines are readable and retain their timezone', async () => {
+  const { hotelCancellationDeadline } = await import('../src/modules/services/hotels/search-criteria.js');
+  assert.equal(hotelCancellationDeadline('2026-10-18T14:00:00+03:00'), '18.10.2026, 14:00 (UTC+03:00)');
+  assert.equal(hotelCancellationDeadline('2026-10-20T15:00:00Z'), '20.10.2026, 15:00 (UTC)');
+  assert.equal(hotelCancellationDeadline('18.10.2026'), '18.10.2026');
+});
+
+test('hotel filter matches address and words regardless of hyphens and ё', async () => {
+  const { hotelMatchesQuery } = await import('../src/modules/services/hotels/search-criteria.js');
+  const hotel = { name: 'Мастер-Отель Первомайская', addr: 'Москва, Измайловский бульвар, 49' };
+  assert.equal(hotelMatchesQuery(hotel, 'мастер отель'), true);
+  assert.equal(hotelMatchesQuery(hotel, 'Измайловский 49'), true);
+  assert.equal(hotelMatchesQuery(hotel, 'другой адрес'), false);
+});

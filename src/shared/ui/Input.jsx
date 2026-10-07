@@ -64,6 +64,7 @@ function LocationAutocomplete(props) {
       return undefined;
     }
 
+    setLoading(true);
     const controller = new AbortController();
     requestRef.current = controller;
     const timer = setTimeout(async () => {
@@ -71,12 +72,17 @@ function LocationAutocomplete(props) {
       try {
         const params = new URLSearchParams({ q: query });
         if (locationScope) params.set('scope', locationScope);
-        const response = await fetch('/api/locations?' + params.toString(), {
+        let response = await fetch((locationScope === 'hotel' ? '/api/backend/service-searches/hotel-locations/?' : '/api/locations?') + params.toString(), {
           signal: controller.signal,
           headers: { Accept: 'application/json' },
         });
         if (!response.ok) throw new Error('Location lookup failed');
-        const payload = await response.json();
+        let payload = await response.json();
+        if (locationScope === 'hotel' && !payload.provider_specific) {
+          response = await fetch('/api/locations?' + params.toString(), { signal: controller.signal, headers: { Accept: 'application/json' } });
+          if (!response.ok) throw new Error('Location lookup failed');
+          payload = await response.json();
+        }
         if (!controller.signal.aborted) {
           setOptions(Array.isArray(payload.results) ? payload.results : []);
           setActive(0);
@@ -174,7 +180,7 @@ function LocationAutocomplete(props) {
       {open && hasTyped && text.trim().length >= 2 && (
         <div className="location-autocomplete-menu" role="listbox">
           {loading && (
-            <div className="location-autocomplete-status"><Icon name="loader" />Подбираем города и локации…</div>
+            <div className="location-autocomplete-status"><Icon name="loader" />{locationScope === 'hotel' ? 'Подбираем отели…' : 'Подбираем города и локации…'}</div>
           )}
           {!loading && options.map((option, index) => (
             <button
