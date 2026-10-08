@@ -18,7 +18,7 @@ import { UfOrderRow, UfPersonRow, ufOrderPickRows } from '../../clients/index.js
 import { Topbar } from '../../../shared/ui/Topbar.jsx';
 import { PAX_DEFAULT_OPTIONS, revalidationNeedsConfirmation } from '../../services/index.js';
 import { PanelSub, StackPanel } from '../../locations/index.js';
-import { AddServicePanel } from '../../orders/index.js';
+import { FreeBookingPanel } from '../../orders/index.js';
 import { ErrorCodesDrawer } from '../../notifications/index.js';
 import { SHIFT_DEMO_OPS, SHIFT_REQUESTS_HANDLED, motivationFor, shiftDate, shiftDuration, shiftFmtTime, shiftTotals } from '../../workforce/index.js';
 import { toLegacyProposal, toLegacyReturn } from '../../../legacy/adapters/legacy-adapters.js';
@@ -339,7 +339,7 @@ function DetailedSearchPanel({ onClose, initialKind, onOpenOrder, onCreateOrder,
   const [finalize, setFinalize] = useState(false);
   const add = (svc, k) => { setDraft((d) => [...d, { kind: k || 'Авиа', ...(svc || {}) }]); toast('Добавлено в свободное бронирование', 'ok'); };
   return (
-    <StackPanel title="Свободное бронирование" width="min(1320px,96vw)" onClose={onClose}
+    <StackPanel className="free-booking" title="Свободное бронирование" width="min(1320px,96vw)" onClose={onClose}
       footer={draft.length ? (
         <>
           <div style={{ flex: 1, alignSelf: 'center', color: 'var(--muted)', fontSize: 14 }}>В подборке: <b style={{ color: 'var(--ink)' }}>{draft.length}</b> {plural(draft.length, ['услуга', 'услуги', 'услуг'])}</div>
@@ -350,8 +350,7 @@ function DetailedSearchPanel({ onClose, initialKind, onOpenOrder, onCreateOrder,
       <div style={{ fontSize: 13, color: 'var(--muted)', marginBottom: 12 }}>
         Поиск без привязки к заказу. Можно добавить несколько услуг, затем сформировать КП, привязать к заказу или к физ. лицу.
       </div>
-      <AddServicePanel kind={kind} setKind={setKind} aviaParams={aviaParams} setAviaParams={setAviaParams}
-        paxCount={aviaParams.pax.adt + aviaParams.pax.chd}
+      <FreeBookingPanel kind={kind} setKind={setKind} aviaParams={aviaParams} setAviaParams={setAviaParams}
         onAddAvia={(r) => add(r, 'Авиа')}
         onAddOther={(o, k) => add(o, k)} />
       {finalize && <FreeBookingFinalize draft={draft} onClose={() => setFinalize(false)} onDone={() => { setFinalize(false); onClose(); }} onOpenOrder={onOpenOrder} onCreateOrder={onCreateOrder} onNavigate={onNavigate} clients={clients} companies={companies} orders={orders} />}

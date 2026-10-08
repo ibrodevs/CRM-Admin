@@ -31,3 +31,13 @@ export * from './model.js';
 export { revalidationNeedsConfirmation } from './hotels/search-criteria.js';
 
 export { resolveHotelParticipants } from './hotels/guests.js';
+
+export { FreeBookingPaxField, liveFlightOffer, liveFlightLeg } from './flights/FlightsPage.jsx';
+
+export { freeFlightSegments, validateFreeFlightSearch, searchFreeFlightOffers, freeFlightDraft } from './flights/free-flight-search.js';
+export { FreeBookingRailFlow } from './ui/ServicesPage.jsx';
+export { freeFlightFareOptions, freeFlightLocalPassengers, freeFlightFareDetails } from './flights/free-flight-search.js';
+
+export { FreeBookingExtrasTabs } from './flights/AviaPicker.jsx';
+
+export { FreeBookingServiceAddFlow, FreeBookingAeroAddFlow } from './ui/ServicesPage.jsx';

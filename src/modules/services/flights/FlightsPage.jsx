@@ -232,7 +232,7 @@ function PaxField({ pax, setPax, cabin, setCabin, options = PAX_DEFAULT_OPTIONS,
   const total = paxTotal(pax);
   const plural = (n) => n === 1 ? 'пассажир' : (n < 5 ? 'пассажира' : 'пассажиров');
   return (
-    <div className="av-field" style={{ position: 'relative', width: 230 }} ref={ref}>
+    <div className="av-field avia-pax-field" style={{ position: 'relative' }} ref={ref}>
       <span className="label">Пассажиры и класс</span>
       <div className="input" style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 9 }} onClick={() => setOpen((o) => !o)}>
         <Icon name="users" style={{ width: 18, height: 18, color: 'var(--muted-2)', flexShrink: 0 }} />
@@ -311,6 +311,141 @@ function FlightSearch({ params, setParams, onSearch, onBack }) {
         <Icon name="api" style={{ width: 16, height: 16 }} />
         Поиск выполняется одновременно по: Amadeus GDS · Sirena-Travel · Air Astana · Pegasus · Qatar API
       </div>
+    </div>
+  );
+}
+
+
+
+
+// Local glyphs match the supplied passenger/class screenshots without changing CRM icons.
+function FreeBookingPaxIcon({ kind, fallback }) {
+  let glyph;
+  if (kind === 'youth') glyph = <><path d="m2 8 10-5 10 5-10 5-10-5Z" /><path d="M6 10v7c4 3 8 3 12 0v-7M22 8v9" /></>;
+  else if (kind === 'disabled' || kind === 'disabledChild') glyph = <><circle cx="10" cy="4" r="2" /><path d="M10 7v7h7l3 6M10 10h6M8 12a6 6 0 1 0 7 7" /></>;
+  else if (kind === 'infNoSeat') glyph = <><path d="M8 4h6a6 6 0 0 1 6 6H8V4ZM4 6l3 4 2 7h9l3-7M7 10h13" /><circle cx="10" cy="20" r="1.5" /><circle cx="18" cy="20" r="1.5" /></>;
+  else if (kind === 'infSeat' || ['Эконом','Комфорт','Бизнес','allowDiffClasses'].includes(kind)) glyph = <><path d="M6 3c-2 0-2 2-1 5l3 8h10v4H7L3 9M8 12h9c2 0 2 3 0 3M8 20v2h12" />{kind === 'Комфорт' && <path d="M20 5v5M17.5 7.5h5" stroke="#f59e0b" />}{kind === 'Бизнес' && <path d="M17 15h5v5" />}</>;
+  else if (kind === 'Первый') glyph = <><path d="M5 12V8a3 3 0 0 1 3-3h8a3 3 0 0 1 3 3v4M3 11a2 2 0 0 1 2 2v4h14v-4a2 2 0 1 1 3 2v5H2v-5a2 2 0 0 1 1-4ZM5 20v2M19 20v2" /><path d="M21 2v4M19 4h4" stroke="#f59e0b" /></>;
+  if (!glyph) return <Icon name={fallback || 'user'} />;
+  return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">{glyph}</svg>;
+}
+
+const FREE_BOOKING_SPECIAL_CATEGORIES = [
+  ...SPECIAL_PAX_CATEGORIES.filter((category) => category.key !== 'disabledEscort'),
+  { key: 'disabledChild', label: 'Дети-инвалиды' },
+  { key: 'disabledEscort', label: 'Сопровождающие инвалидов' },
+];
+
+function FreeBookingPaxClassPicker({ pax, setPax, cabin, setCabin, options = PAX_DEFAULT_OPTIONS, setOptions }) {
+  const [panelOpen, setPanelOpen] = useState(true);
+  const [specialOpen, setSpecialOpen] = useState(false);
+  const [paxOpen, setPaxOpen] = useState(true);
+  const total = paxTotal(pax);
+  const setBase = (k, min) => (v) => setPax({ ...pax, [k]: Math.max(min, v) });
+  const setGrp = (grp, k) => (v) => setPax({ ...pax, [grp]: { ...(pax[grp] || {}), [k]: Math.max(0, v) } });
+  const specialCount = Object.values(pax.special || {}).reduce((a, n) => a + (n || 0), 0)
+    + Object.values(pax.subsidized || {}).reduce((a, n) => a + (n || 0), 0);
+  const opt = (k) => () => setOptions && setOptions({ [k]: !options[k] });
+
+  return (
+    <div className="pcp-shell">
+      <button type="button" className="pcp-shell-head" aria-expanded={panelOpen} onClick={() => setPanelOpen((value) => !value)}><Icon name="users" /><span>Пассажиры и класс</span><Icon name={panelOpen ? 'chevUp' : 'chevDown'} /></button>
+      <div className="pcp" hidden={!panelOpen}>
+      <div className="pcp-sec-head">
+        <span className="t">Пассажиры</span>
+        <span className="pcp-total">Всего: {total}</span>
+        <div style={{ flex: 1 }} />
+        <button type="button" className="pcp-link" onClick={() => setPaxOpen((o) => !o)}>{paxOpen ? 'Свернуть' : 'Развернуть'}<Icon name={paxOpen ? 'chevUp' : 'chevDown'} style={{ width: 14, height: 14 }} /></button>
+      </div>
+
+      {paxOpen && PAX_BASE_TYPES.map((t) => (
+        <div className="pcp-row" key={t.k}>
+          <span className={'pcp-ic ' + t.tone}><FreeBookingPaxIcon kind={t.k} fallback={t.icon} /></span>
+          <div className="pcp-row-body"><div className="l">{t.label}</div><div className="s">{t.sub}</div></div>
+          <PaxStepper val={pax[t.k] || 0} min={t.min} onChange={setBase(t.k, t.min)} />
+        </div>
+      ))}
+
+      <div className={'pcp-special-wrap' + (specialOpen ? ' open' : '')}>
+      <button type="button" aria-expanded={specialOpen} className={'pcp-special-toggle' + (specialOpen ? ' open' : '')} onClick={() => setSpecialOpen((o) => !o)}>
+        <span className="pm">{specialOpen ? '−' : '+'}</span>Специальные категории
+        {specialCount > 0 && <span className="tab-count">{specialCount}</span>}
+        <span style={{ flex: 1 }} />
+        <Icon name={specialOpen ? 'chevUp' : 'chevDown'} style={{ width: 16, height: 16 }} />
+      </button>
+      {specialOpen && (
+        <div className="pcp-special">
+          <div className="pcp-special-col">
+            <div className="pcp-col-h">Льготные категории</div>
+            {FREE_BOOKING_SPECIAL_CATEGORIES.map((c) => (
+              <div className="pcp-srow" key={c.key}>
+                <span className="pcp-sic"><FreeBookingPaxIcon kind={c.key} fallback={SPECIAL_PAX_ICONS[c.key]} /></span>
+                <span className="pcp-slabel">{c.label}{SPECIAL_PAX_INFO[c.key] && <Icon name="alertCircle" className="pcp-info" title={SPECIAL_PAX_INFO[c.key]} />}</span>
+                <PaxStepper val={(pax.special || {})[c.key] || 0} onChange={setGrp('special', c.key)} />
+              </div>
+            ))}
+          </div>
+          <div className="pcp-special-col">
+            <div className="pcp-col-h">Субсидированные программы</div>
+            {SUBSIDIZED_PAX_PROGRAMS.map((c) => (
+              <div className="pcp-srow" key={c.key}>
+                <span className="pcp-sic"><Icon name={SUBSIDIZED_PAX_ICONS[c.key] || 'mapPin'} /></span>
+                <span className="pcp-slabel">{c.label.replace(/ДВО/g, 'ДФО')}</span>
+                <PaxStepper val={(pax.subsidized || {})[c.key] || 0} onChange={setGrp('subsidized', c.key)} />
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      </div>
+      <div className="pcp-block-h">Класс обслуживания</div>
+      <div className="pcp-class-grid">
+        {CABIN_CLASSES.map((c) => (
+          <button type="button" key={c} className={'pcp-class' + (cabin === c ? ' sel' : '')} onClick={() => setCabin(c)}>
+            {cabin === c && <span className="pcp-class-check"><Icon name="check" /></span>}
+            <span className="pcp-class-ic"><FreeBookingPaxIcon kind={c} /></span>
+            <span className="pcp-class-l">{c}</span>
+          </button>
+        ))}
+      </div>
+
+      <div className="pcp-block-h">Дополнительные параметры</div>
+      <div className="pcp-opts">
+        {PAX_OPTION_META.map((o) => (
+          <label key={o.k} className={'pcp-opt' + (options[o.k] ? ' on' : '')}>
+            <Checkbox on={!!options[o.k]} onChange={opt(o.k)} />
+            <span className="pcp-opt-ic"><FreeBookingPaxIcon kind={o.k} fallback={o.icon} /></span>
+            <span className="pcp-opt-l">{o.label}</span>
+            <Icon name="alertCircle" className="pcp-info" title={o.info} />
+          </label>
+        ))}
+      </div>
+      </div>
+    </div>
+  );
+}
+
+function FreeBookingPaxField({ pax, setPax, cabin, setCabin, options = PAX_DEFAULT_OPTIONS, setOptions }) {
+  const [open, setOpen] = useState(false);
+  const total = paxTotal(pax);
+  const plural = (n) => n === 1 ? 'пассажир' : (n < 5 ? 'пассажира' : 'пассажиров');
+  return (
+    <div className="av-field avia-pax-field" style={{ position: 'relative' }}>
+      <span className="label">Пассажиры и класс</span>
+      <div className="input" style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 9 }} onClick={() => setOpen((o) => !o)}>
+        <Icon name="users" style={{ width: 18, height: 18, color: 'var(--muted-2)', flexShrink: 0 }} />
+        <span style={{ flex: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{total} {plural(total)} · {cabin}</span>
+        <Icon name="chevDown" style={{ width: 16, height: 16, color: 'var(--muted-2)' }} />
+      </div>
+      {open && (
+        <StackPanel className="free-booking" title="Пассажиры и класс" width="min(620px,95vw)" onClose={() => setOpen(false)}
+          footer={<Button style={{ width: '100%' }} icon="check" onClick={() => setOpen(false)}>Готово · {total} {plural(total)}</Button>}>
+          <div className="free-booking">
+            <FreeBookingPaxClassPicker pax={pax} setPax={setPax} cabin={cabin} setCabin={setCabin} options={options} setOptions={setOptions} />
+          </div>
+        </StackPanel>
+      )}
     </div>
   );
 }
@@ -2400,4 +2535,4 @@ Object.assign(window, { FlightsPage, AirlineLogo, FlightSearch, FlightResults, F
 
 
 
-export { AirlineLogo, durMin, money, AirportField, PAX_DEFAULT_OPTIONS, paxTotal, PAX_BASE_TYPES, SPECIAL_PAX_ICONS, SPECIAL_PAX_INFO, SUBSIDIZED_PAX_ICONS, CABIN_ICONS, PAX_OPTION_META, PaxStepper, PaxClassPicker, PaxField, FlightSearch, OfferLeg, OfferCard, FilterRail, CompareModal, FlightResults, SegmentRow, FareRulesInfo, flightStatusFlags, flightPassengers, RefundPanel, ExchangePanel, DOC_TEMPLATES, AGENCY_ENTITIES, DOC_CORR_KINDS, docCorrKind, CORR_FIELDS, corrCur, corrComputed, corrTotal, corrChanges, CorrectionPreview, CorrectionHistoryDrawer, DocCorrectionPanel, SendToPaxDrawer, ATTACH_MODES, AttachFlightDrawer, FlightReceiptDrawer, FlightCard, FlightsRegistry, liveFlightLeg, liveFlightOffer, loadLiveFlightOffers, FlightsPage };
+export { FreeBookingPaxField, AirlineLogo, durMin, money, AirportField, PAX_DEFAULT_OPTIONS, paxTotal, PAX_BASE_TYPES, SPECIAL_PAX_ICONS, SPECIAL_PAX_INFO, SUBSIDIZED_PAX_ICONS, CABIN_ICONS, PAX_OPTION_META, PaxStepper, PaxClassPicker, PaxField, FlightSearch, OfferLeg, OfferCard, FilterRail, CompareModal, FlightResults, SegmentRow, FareRulesInfo, flightStatusFlags, flightPassengers, RefundPanel, ExchangePanel, DOC_TEMPLATES, AGENCY_ENTITIES, DOC_CORR_KINDS, docCorrKind, CORR_FIELDS, corrCur, corrComputed, corrTotal, corrChanges, CorrectionPreview, CorrectionHistoryDrawer, DocCorrectionPanel, SendToPaxDrawer, ATTACH_MODES, AttachFlightDrawer, FlightReceiptDrawer, FlightCard, FlightsRegistry, liveFlightLeg, liveFlightOffer, loadLiveFlightOffers, FlightsPage };

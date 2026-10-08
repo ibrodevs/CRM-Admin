@@ -7,3 +7,5 @@ export { ExtrasCatalogModal } from './ui/OrderOperations.jsx';
 export { PAGE_SIZE } from './ui/OrdersPage.jsx';
 export * from './api.js';
 export * from './model.js';
+
+export { FreeBookingPanel } from './ui/OrderCard.jsx';

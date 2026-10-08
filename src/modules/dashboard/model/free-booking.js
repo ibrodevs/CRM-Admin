@@ -5,7 +5,7 @@ export function freeBookingOfferId(service) {
 }
 
 export function freeBookingAmount(service) {
-  return Number(service.fareDeltaUsd || service.total || service.cost || service.price || service.sum || 0);
+  return Number(service.cost ?? service.total ?? service.price?.amount ?? service.price ?? service.sum ?? 0);
 }
 
 export function freeBookingTotals(services) {
@@ -19,14 +19,15 @@ export function freeBookingTotals(services) {
 export function freeBookingServiceBody(service) {
   const offerId = freeBookingOfferId(service);
   if (offerId) return { offer_id: offerId };
-  const kinds = { 'Авиа': 'avia', 'ЖД': 'rail', 'Гостиница': 'hotel', 'Отель': 'hotel', 'Трансфер': 'transfer', 'Страховка': 'insurance', 'Виза': 'visa', 'Тур': 'tour', 'Автобус': 'bus' };
+  const kinds = { 'Авиа': 'avia', 'ЖД': 'rail', 'Гостиница': 'hotel', 'Отель': 'hotel', 'Трансфер': 'transfer', 'Страховка': 'insurance', 'Виза': 'visa', 'Тур': 'tour', 'Автобус': 'bus', 'Аэроэкспресс': 'aeroexpress', 'Бизнес-зал': 'lounge', 'Доп. услуга': 'other' };
   const kind = service.kind || 'avia';
   return {
     kind: kinds[kind] || kind,
     title: service.title || service.route || service.fareName || (service.from && service.to ? service.from + ' → ' + service.to : service.kind || 'Услуга'),
+    ...(service.starts_at ? { starts_at: service.starts_at } : {}),
     currency: resolveCurrency(service.currency),
     client_total: freeBookingAmount(service),
-    supplier_cost: service.cost || service.tariff || freeBookingAmount(service),
+    supplier_cost: service.cost ?? service.tariff ?? freeBookingAmount(service),
     agency_fee: service.fee || 0,
     markup: service.markup || 0,
   };

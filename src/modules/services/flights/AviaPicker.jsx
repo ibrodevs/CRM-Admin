@@ -352,6 +352,85 @@ function ExtrasTabs({ pax, state, set, embedded }) {
 }
 
 
+function FreeBookingExtrasTabs({ pax, state, set, embedded, currency }) {
+  const freeExtraMoney = (amount) => formatMoney(amount, currency);
+  const [tab, setTab] = useState('baggage');
+  const TABS = [
+    { key: 'seats', label: 'Места', icon: 'idcard' },
+    { key: 'baggage', label: 'Багаж', icon: 'luggage' },
+    { key: 'meal', label: 'Питание', icon: 'utensils' },
+    { key: 'insurance', label: 'Страхование', icon: 'shield' },
+    { key: 'comfort', label: 'Комфорт и сервис', icon: 'star' },
+  ];
+  const cnt = {
+    seats: Object.values(state.seats).filter(Boolean).length,
+    baggage: pax.filter((_, i) => (state.baggage[i] || 'none') !== 'none').length,
+    meal: pax.filter((_, i) => { const m = state.meal[i] || 'standard'; return m !== 'standard' && m !== 'none'; }).length,
+    insurance: pax.filter((_, i) => (state.insurance[i] || 'none') !== 'none').length,
+    comfort: Object.keys(state.comfort).filter((k) => state.comfort[k]).length,
+  };
+  const seatPrice = (id) => { if (!id) return 0; const row = +String(id).match(/\d+/)[0]; const kind = AVIA_SEATMAP.rowKind[row] || 'std'; return AVIA_SEATMAP.price[kind] || 0; };
+  const seatsTotal = Object.values(state.seats).reduce((a, id) => a + seatPrice(id), 0);
+  const baggageTotal = pax.reduce((a, _, i) => a + ((AVIA_BAGGAGE_OPTIONS.find((o) => o.id === (state.baggage[i] || 'none')) || {}).price || 0), 0)
+    + Object.entries(state.special || {}).reduce((a, [id, n]) => a + (n ? n * ((AVIA_SPECIAL_BAGGAGE.find((b) => b.id === id) || {}).from || 0) : 0), 0);
+  const mealTotal = pax.reduce((a, _, i) => a + ((AVIA_MEALS.find((o) => o.id === (state.meal[i] || 'standard')) || {}).price || 0), 0);
+  const insTotal = pax.reduce((a, _, i) => a + ((AVIA_INSURANCE_PLANS.find((o) => o.id === (state.insurance[i] || 'none')) || {}).price || 0), 0);
+  const comfortTotal = AVIA_COMFORT_GROUPS.reduce((a, g) => a + g.items.reduce((s, it) => s + it.price * pax.filter((_, i) => state.comfort[it.id + ':' + i]).length, 0), 0);
+  const tabTotal = { seats: seatsTotal, baggage: baggageTotal, meal: mealTotal, insurance: insTotal, comfort: comfortTotal };
+  const setSpecial = (id, n) => set({ ...state, special: { ...(state.special || {}), [id]: Math.max(0, n) } });
+
+  return (
+    <div className="xtr">
+      <div className="ap-svc-tabs">
+        {TABS.map((t) => (
+          <button key={t.key} className={'ap-svc-tab' + (tab === t.key ? ' active' : '')} onClick={() => setTab(t.key)}>
+            <Icon name={t.icon} />{t.label}{cnt[t.key] > 0 && <span className="b">{cnt[t.key]}</span>}
+          </button>
+        ))}
+      </div>
+
+      <div className="xtr-sec-head"><Icon name={(TABS.find((t) => t.key === tab) || {}).icon} /><span>{(TABS.find((t) => t.key === tab) || {}).label}</span></div>
+
+      {tab === 'seats' && <SeatSelector seats={state.seats} setSeats={(s) => set({ ...state, seats: s })} pax={pax} />}
+
+      {tab === 'baggage' && (AVIA_BAGGAGE_OPTIONS.length || AVIA_SPECIAL_BAGGAGE.length ? <>
+        <XtrPaxBlock pax={pax} options={AVIA_BAGGAGE_OPTIONS} value={state.baggage} onChange={(v) => set({ ...state, baggage: v })} kind="baggage" />
+        <div className="ap-sc-title" style={{ marginTop: 18 }}>Специальный багаж</div>
+        <div className="xtr-note-line">Оплачивается за место. Стоимость за 1 единицу.</div>
+        {AVIA_SPECIAL_BAGGAGE.map((b) => (
+          <div className="xtr-special-row" key={b.id}>
+            <span className="ic"><Icon name={b.icon} /></span>
+            <span className="t">{b.label}</span>
+            <span className="from">от {freeExtraMoney(b.from)}</span>
+            <PaxStepper val={(state.special || {})[b.id] || 0} onChange={(n) => setSpecial(b.id, n)} />
+          </div>
+        ))}
+        <div className="xtr-info-box"><Icon name="alertCircle" />Спецбагаж подтверждается авиакомпанией. Возможны ограничения по весу и габаритам.</div>
+      </> : <ExtrasUnavailable text="Поставщик не передал тарифы на багаж для этого рейса." />)}
+
+      {tab === 'meal' && (AVIA_MEALS.length ? <>
+        <XtrPaxBlock pax={pax} options={AVIA_MEALS} value={state.meal} onChange={(v) => set({ ...state, meal: v })} kind="meal" />
+        <div className="xtr-info-box"><Icon name="alertCircle" />Питание предоставляется на рейсах продолжительностью более 2 часов. На некоторых рейсах нужна заявка не менее чем за 24 часа до вылета.</div>
+      </> : <ExtrasUnavailable text="Поставщик не передал варианты питания для этого рейса." />)}
+
+      {tab === 'insurance' && (AVIA_INSURANCE_PLANS.length ? <>
+        <XtrPaxBlock pax={pax} options={AVIA_INSURANCE_PLANS} value={state.insurance} onChange={(v) => set({ ...state, insurance: v })} kind="insurance" />
+        <div className="ap-sc-title" style={{ marginTop: 18 }}>Что входит в страховое покрытие</div>
+        <div className="xtr-incl">
+          {AVIA_INSURANCE_INCLUDES.map((c) => (<div className="xtr-incl-item" key={c.title}><span className="ic"><Icon name={c.icon} /></span><div><div className="t">{c.title}</div><div className="s">{c.sub}</div></div></div>))}
+        </div>
+      </> : <ExtrasUnavailable text="Страховые программы не подключены. Добавьте поставщика страхования в разделе «Поставщики»." />)}
+
+      {tab === 'comfort' && (AVIA_COMFORT_GROUPS.length
+        ? <ComfortMatrix pax={pax} state={state} set={set} />
+        : <ExtrasUnavailable text="Поставщик не передал опции комфорта для этого рейса." />)}
+
+      <div className="xtr-total"><span>Итого по разделу «{(TABS.find((t) => t.key === tab) || {}).label}»</span><b>{tabTotal[tab] ? '+ ' + freeExtraMoney(tabTotal[tab]) : freeExtraMoney(0)}</b></div>
+    </div>
+  );
+}
+
+
 function fareClassGroup(code) { return ['C', 'J', 'D'].includes(code) ? 'business' : 'economy'; }
 function fareTiersForClass(code) { return fareClassGroup(code) === 'business' ? AVIA_FARE_TIERS_BUSINESS : AVIA_FARE_TIERS; }
 function fareCabinLabel(code) { return (AVIA_BOOKING_CLASSES.find((c) => c.code === code) || {}).cabin || 'Эконом'; }
@@ -1046,3 +1125,5 @@ Object.assign(window, { AviaPicker });
 
 
 export { rub, parseDurMin, fmtDurMin, ApFlightRow, tierBookingClass, FareRulesBlock, SeatSelector, PaxOptionBlock, xtrShortName, XtrPaxBlock, ComfortMatrix, ExtrasTabs, fareClassGroup, fareTiersForClass, fareCabinLabel, paxIsChild, FareSelectPanel, ApSumRow, AviaPicker, tierName, tierDelta, GroupManager, GroupEditPanel };
+
+export { FreeBookingExtrasTabs };

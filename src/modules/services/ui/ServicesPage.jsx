@@ -1,3 +1,4 @@
+import { freeBookingDate, validateFreeServiceSearch, waitFreeBookingOffers, freeBookingAvailabilityTags } from '../free-booking-search.js';
 import { useState, useEffect, useRef } from 'react';
 import { ChannelIcon, Icon } from '../../../shared/icons/index.jsx';
 import { ActionMenu } from '../../../shared/ui/ActionMenu.jsx';
@@ -1900,6 +1901,212 @@ function ServiceFlow({ routeKey, searchIntent, onConsumeSearch }) {
 
 function routeKeyForKind(kind) { return Object.keys(SVC_CFG).find((k) => SVC_CFG[k].kind === kind); }
 
+function FreeBookingServiceAddFlow({ routeKey, onAdd, currency, paxCount = 1 }) {
+  const cfg = SVC_CFG[routeKey];
+  const toast = useToast();
+  const [view, setView] = useState('search');
+  const [form, setForm] = useState(() => Object.fromEntries(cfg.fields.map((f) => [f.k, f.t === 'stepper' ? paxCount : f.t === 'select' ? f.o[0] : null])));
+  const [loading, setLoading] = useState(false);
+  const [liveOffers, setLiveOffers] = useState([]);
+  const [sort, setSort] = useState('best');
+  const bounds = svcPriceBounds(liveOffers);
+  const [flt, setFlt] = useState({ sup: [], tags: [], priceMax: bounds.max });
+  const requestId = useRef(0);
+  useEffect(() => () => { requestId.current += 1; }, []);
+  const setF = (k, v) => { requestId.current += 1; setLoading(false); setLiveOffers([]); setForm((f) => ({ ...f, [k]: v })); };
+  const runSearch = async () => {
+    const error = validateFreeServiceSearch(routeKey, form);
+    if (error) { toast(error, 'warn'); return; }
+    const request = ++requestId.current;
+    setView('results');
+    setLoading(true);
+    setLiveOffers([]);
+    const criteria = { ...backendCriteria(routeKey, form), date: freeBookingDate(form.date || form.dt), ...(form.trip === 'rt' ? { return_date: freeBookingDate(form.retDate) } : { return_date: undefined }), currency: resolveCurrency(currency), passengers: form.pax };
+    try {
+      const created = await servicesApi.search({ kind: BACKEND_SERVICE_KIND[routeKey], criteria });
+      const found = (await waitFreeBookingOffers(servicesApi, created.search_id)).map((offer) => { const mapped = backendOfferCard(offer, routeKey); return { ...mapped, tags: freeBookingAvailabilityTags(mapped.tags), selectedOffer: offer, searchCriteria: criteria }; });
+      if (request !== requestId.current) return;
+      setLiveOffers(found);
+      const nextBounds = svcPriceBounds(found);
+      setFlt({ sup: [], tags: [], priceMax: nextBounds.max });
+    } catch (error) {
+      if (request === requestId.current) toast(error.message || 'Не удалось выполнить поиск', 'err');
+    } finally {
+      if (request === requestId.current) setLoading(false);
+    }
+  };
+
+  let offers = liveOffers.filter((o) => {
+    if (flt.priceMax != null && (o.cost + o.fee) > flt.priceMax) return false;
+    if (flt.sup.length && !flt.sup.includes(o.supplier)) return false;
+    if (flt.tags.length && !(o.tags || []).some((t) => flt.tags.includes(t))) return false;
+    return true;
+  });
+  if (sort === 'cheap') offers = [...offers].sort((a, b) => (a.cost + a.fee) - (b.cost + b.fee));
+  if (sort === 'pricey') offers = [...offers].sort((a, b) => (b.cost + b.fee) - (a.cost + a.fee));
+
+  return (
+    <div className="fade-in">
+      <div style={{ marginBottom: 14, display: 'flex', gap: 10, alignItems: 'center' }}>
+        {view === 'results' && <Button variant="secondary" size="sm" icon="chevLeft" onClick={() => setView('search')}>Изменить поиск</Button>}
+        <span style={{ fontWeight: 600, color: 'var(--ink)' }}>{cfg.searchTitle}</span>
+      </div>
+
+      {view === 'search' && (
+        <>
+
+          {(cfg.kind === 'Трансфер' || cfg.kind === 'Автобус') && (
+            <div className="trip-toggle" style={{ marginBottom: 12 }}>
+              {[['ow', 'В одну сторону'], ['rt', 'Туда и обратно']].map(([k, l]) => (
+                <button key={k} className={(form.trip || 'ow') === k ? 'on' : ''} onClick={() => setF('trip', k)}>{l}</button>
+              ))}
+            </div>
+          )}
+          <div className="av-bar">
+            {cfg.fields.map((f) => <SvcField key={f.k} f={f} form={form} set={setF} />)}
+            {(cfg.kind === 'Трансфер' || cfg.kind === 'Автобус') && form.trip === 'rt' && (
+              <div className="av-field" style={{ width: 156 }}><span className="label">Обратно</span><DateField value={form.retDate} onChange={(d) => setF('retDate', d)} placeholder="Дата" /></div>
+            )}
+            <Button disabled={loading} icon="search" style={{ height: 46, marginBottom: 0 }} onClick={runSearch}>Найти</Button>
+          </div>
+          <div style={{ marginTop: 14, display: 'flex', alignItems: 'center', gap: 8, color: 'var(--muted)', fontSize: 13 }}>
+            <Icon name="api" style={{ width: 16, height: 16 }} />Поиск по подключённым поставщикам · {cfg.title}
+          </div>
+        </>
+      )}
+
+      {view === 'results' && (
+        <>
+          <div className="tabs" style={{ marginBottom: 16 }}>
+            {[['best', 'Оптимальные'], ['cheap', 'Дешевле'], ['pricey', 'Дороже']].map(([k, l]) => (<button key={k} className={'tab' + (sort === k ? ' active' : '')} onClick={() => setSort(k)}>{l}</button>))}
+            <div style={{ flex: 1 }} /><span style={{ color: 'var(--muted)', fontSize: 14, alignSelf: 'center' }}>{loading ? 'Поиск…' : `Найдено ${offers.length}`}</span>
+          </div>
+          <div className="hp-layout">
+            <SvcFilters allOffers={liveOffers} flt={flt} setFlt={setFlt} bounds={bounds} facetLabel={cfg.kind === 'ЖД' ? 'Класс и условия' : 'Особенности'} />
+            <div>
+              {loading
+                ? [0, 1, 2].map((i) => (<div key={i} className="off-card" style={{ marginBottom: 14 }}><div className="off-main"><div className="sk" style={{ height: 44, width: '55%' }} /><div className="sk" style={{ height: 26, width: '85%' }} /></div><div className="off-side"><div className="sk" style={{ height: 56 }} /></div></div>))
+                : offers.length
+                  ? offers.map((o) => <SvcOfferCard key={o.id} o={o} kind={cfg.kind} selectLabel="Добавить в подборку" onSelect={(x) => onAdd(x, cfg.kind)} />)
+                  : <EmptyState icon={SERVICE_KIND[cfg.kind].icon} title="Нет вариантов по фильтрам" sub="Смягчите условия фильтрации слева" />}
+            </div>
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
+
+
+
+function FreeBookingAeroAddFlow({ onAdd }) {
+  const toast = useToast();
+  const [view, setView] = useState('search');
+  const [fare, setFare] = useState('single');
+  const [dir, setDir] = useState(AERO_DIRS[0].label);
+  const [date, setDate] = useState(null);
+  const [retDate, setRetDate] = useState(null);
+  const [start, setStart] = useState(null);
+  const [pax, setPax] = useState(1);
+  const [loading, setLoading] = useState(false);
+  const [liveOffers, setLiveOffers] = useState([]);
+  const requestId = useRef(0);
+  useEffect(() => () => { requestId.current += 1; }, []);
+  const change = (setter, value) => { requestId.current += 1; setLoading(false); setLiveOffers([]); setter(value); };
+  const runSearch = async () => {
+    const departure = fare === 'pass' ? start : date;
+    if (!freeBookingDate(departure) || pax < 1 || (fare === 'rt' && (!retDate || freeBookingDate(retDate) < freeBookingDate(departure)))) { toast('Проверьте даты и количество пассажиров', 'warn'); return; }
+    const request = ++requestId.current;
+    setView('results'); setLoading(true); setLiveOffers([]);
+    try {
+      const created = await servicesApi.search({ kind: 'aeroexpress', criteria: { origin: dir, destination: dir, date: freeBookingDate(departure), ...(fare === 'rt' ? { return_date: freeBookingDate(retDate) } : {}), passengers: pax, fare_type: fare, currency: 'RUB' } });
+      const found = (await waitFreeBookingOffers(servicesApi, created.search_id)).map((offer) => { const mapped = backendOfferCard(offer, 'aero'); return { ...mapped, tags: freeBookingAvailabilityTags(mapped.tags), selectedOffer: offer }; });
+      if (request === requestId.current) setLiveOffers(found);
+    } catch (error) {
+      if (request === requestId.current) toast(error.message || 'Не удалось выполнить поиск Аэроэкспресса', 'err');
+    } finally { if (request === requestId.current) setLoading(false); }
+  };
+
+  const offers = liveOffers;
+  const fareLabel = (AERO_FARES.find(([k]) => k === fare) || [])[1];
+
+  const addOffer = (o) => {
+    const route = fare === 'single' ? dir.replace('⇄', '→') : dir;
+    const info = fare === 'pass'
+      ? [{ l: 'Направление', v: dir }, { l: 'Тариф', v: o.title }, { l: 'Начало действия', v: start ? fmtDate(start) : '—' }]
+      : [{ l: 'Направление', v: route }, { l: 'Тариф', v: o.title }, { l: 'Дата', v: date ? fmtDate(date) : '—' }]
+          .concat(fare === 'rt' ? [{ l: 'Обратно', v: retDate ? fmtDate(retDate) : '—' }] : [])
+          .concat([{ l: 'Пассажиров', v: pax }]);
+    onAdd({ ...o, sub: route + ' · ' + fareLabel, info }, 'Аэроэкспресс');
+  };
+
+  return (
+    <div className="fade-in">
+      <div style={{ marginBottom: 14, display: 'flex', gap: 10, alignItems: 'center' }}>
+        {view === 'results' && <Button variant="secondary" size="sm" icon="chevLeft" onClick={() => setView('search')}>Изменить поиск</Button>}
+        <img className="aero-logo" src="assets/Express-blue-logo.png" alt="Аэроэкспресс" style={{ height: 22, width: 'auto' }} />
+        <span style={{ fontWeight: 600, color: 'var(--ink)' }}>Аэроэкспресс — билеты и абонементы</span>
+      </div>
+
+      {view === 'search' && (
+        <>
+
+          <div className="trip-toggle" style={{ marginBottom: 12 }}>
+            {AERO_FARES.map(([k, l]) => (
+              <button key={k} className={fare === k ? 'on' : ''} onClick={() => change(setFare, k)}>{l}</button>
+            ))}
+          </div>
+          <div className="av-bar">
+            <div className="av-field" style={{ width: 320 }}><span className="label">Направление</span>
+              <Select options={AERO_DIRS.map((d) => d.label)} value={dir} onChange={(e) => change(setDir, e.target.value)} /></div>
+            {fare === 'pass' ? (
+              <div className="av-field" style={{ width: 156 }}><span className="label">Начало действия</span>
+                <DateField value={start} onChange={(value) => change(setStart, value)} placeholder="Дата" /></div>
+            ) : (
+              <>
+                <div className="av-field" style={{ width: 156 }}><span className="label">{fare === 'rt' ? 'Туда' : 'Дата'}</span>
+                  <DateField value={date} onChange={(value) => change(setDate, value)} placeholder="Дата" /></div>
+                {fare === 'rt' && <div className="av-field" style={{ width: 156 }}><span className="label">Обратно</span>
+                  <DateField value={retDate} onChange={(value) => change(setRetDate, value)} placeholder="Дата" /></div>}
+                <div className="av-field" style={{ width: 150 }}><span className="label">Пассажиров</span>
+                  <div className="input" style={{ display: 'flex', alignItems: 'center', gap: 8, justifyContent: 'space-between' }}>
+                    <button className="btn btn-secondary btn-icon btn-sm" disabled={pax <= 0} onClick={() => change(setPax, Math.max(0, pax - 1))}>−</button>
+                    <span style={{ fontWeight: 700 }}>{pax}</span>
+                    <button className="btn btn-secondary btn-icon btn-sm" onClick={() => change(setPax, pax + 1)}>+</button>
+                  </div>
+                </div>
+              </>
+            )}
+            <Button disabled={loading} icon="search" style={{ height: 46, marginBottom: 0 }} onClick={runSearch}>Найти</Button>
+          </div>
+          <div style={{ marginTop: 14, display: 'flex', alignItems: 'center', gap: 8, color: 'var(--muted)', fontSize: 13 }}>
+            <Icon name="api" style={{ width: 16, height: 16 }} />Билеты и абонементы Аэроэкспресс · цены в ₽
+          </div>
+        </>
+      )}
+
+      {view === 'results' && (
+        <>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>
+            <span style={{ color: 'var(--muted)', fontSize: 14 }}>{dir} · {fareLabel}</span>
+            <div style={{ flex: 1 }} />
+            <span style={{ color: 'var(--muted)', fontSize: 14 }}>{loading ? 'Поиск…' : `Найдено ${offers.length}`}</span>
+          </div>
+          {loading
+            ? [0, 1, 2].map((i) => (<div key={i} className="off-card" style={{ marginBottom: 14 }}><div className="off-main"><div className="sk" style={{ height: 44, width: '55%' }} /><div className="sk" style={{ height: 26, width: '85%' }} /></div><div className="off-side"><div className="sk" style={{ height: 56 }} /></div></div>))
+            : offers.length ? offers.map((o) => <SvcOfferCard key={o.id} o={o} kind="Аэроэкспресс" selectLabel="Добавить в подборку" onSelect={addOffer} />) : <EmptyState icon="rail" title="Нет вариантов" sub="Попробуйте другую дату или направление" />}
+        </>
+      )}
+    </div>
+  );
+}
+
+
+
+
+
+
 function ServiceAddFlow({ routeKey, onAdd, currency, paxCount = 1 }) {
   const cfg = SVC_CFG[routeKey];
   const toast = useToast();
@@ -2205,6 +2412,412 @@ function RailFilters({ flt, setFlt, bounds, offers = [] }) {
 
 const railTimeBucket = (t) => { const h = +(t || '0').split(':')[0]; return h < 6 ? 'night' : h < 12 ? 'morning' : h < 18 ? 'day' : 'evening'; };
 
+
+function FreeBookingRailOfferCard({ o, onSelect }) {
+  const toast = useToast();
+  const [details, setDetails] = useState(null);
+  const [detailsBusy, setDetailsBusy] = useState(false);
+  const openDetails = async () => {
+    setDetailsBusy(true);
+    try { const payload = await servicesApi.fareRules(o.id); setDetails(payload.fare_rules || payload); }
+    catch (error) { toast(error.message || 'Не удалось загрузить условия тарифа', 'err'); }
+    finally { setDetailsBusy(false); }
+  };
+  return (
+    <><div className="rail-offer">
+      <div className="ro-train">
+        <span className={'ro-logo ' + (o.carrier === 'РЖД' ? 'rzd' : 'alt')}>{o.carrier}</span>
+        <div style={{ minWidth: 0 }}>
+          <div className="ro-no">{o.number}<span className="ro-name">{o.name}</span></div>
+          <div className="ro-tags">{(o.tags || []).map((t, i) => <span key={i} className="ro-tag">{t}</span>)}</div>
+        </div>
+      </div>
+      <div className="ro-leg">
+        <div className="ro-time">{o.dep.time}</div>
+        <div className="ro-date">{o.dep.date}</div>
+        <div className="ro-city">{o.dep.city}</div>
+        <div className="ro-station">{o.dep.station}</div>
+      </div>
+      <div className="ro-mid">
+        <div className="ro-dur">{o.dur}</div>
+        <div className="ro-line"><span /></div>
+        <div className="ro-stops">{o.stops}</div>
+      </div>
+      <div className="ro-leg">
+        <div className="ro-time">{o.arr.time}</div>
+        <div className="ro-date">{o.arr.date}</div>
+        <div className="ro-city">{o.arr.city}</div>
+        <div className="ro-station">{o.arr.station}</div>
+      </div>
+      <div className="ro-side">
+        <div className="ro-price">от {ocMoney(o.cost, o.currency)}</div>
+        <div className="ro-per">за выбранное предложение</div>
+        <div className="ro-clsline">{o.cls}{o.freeSeats != null && <> · <span className="ro-free">{o.freeSeats} мест</span></>}</div>
+        <Button size="sm" onClick={() => onSelect(o)}>Выбрать поезд</Button>
+        <button type="button" className="ro-more" onClick={openDetails} disabled={detailsBusy}>{detailsBusy ? 'Загрузка…' : 'Условия тарифа'}</button>
+      </div>
+    </div>
+    {details && <Drawer open onClose={() => setDetails(null)} title="Условия тарифа" sub={`${o.carrier || ''} ${o.number || ''}`} footer={<Button variant="secondary" onClick={() => setDetails(null)}>Закрыть</Button>}>
+      {typeof details === 'string' ? <div style={{ whiteSpace: 'pre-wrap', lineHeight: 1.6 }}>{details}</div> : <div className="kv">{Object.entries(details || {}).map(([key, value]) => <div className="kv-row" key={key}><span className="k">{key}</span><span className="v" style={{ whiteSpace: 'pre-wrap' }}>{typeof value === 'object' ? JSON.stringify(value, null, 2) : String(value ?? '—')}</span></div>)}</div>}
+    </Drawer>}</>
+  );
+}
+
+
+function FreeBookingRailFilters({ flt, setFlt, bounds, offers = [] }) {
+  const carriers = [...new Set(offers.map((o) => o.carrier))];
+  const classes = [...new Set(offers.map((o) => o.cls))];
+  const tg = (key, val) => setFlt((f) => ({ ...f, [key]: f[key].includes(val) ? f[key].filter((x) => x !== val) : [...f[key], val] }));
+  const selCount = flt.times.length + flt.classes.length + flt.carriers.length + (flt.trainNo && flt.trainNo.trim() ? 1 : 0) + ((flt.priceMax != null && flt.priceMax < bounds.max) ? 1 : 0);
+  const formatRailMoney = (amount) => ocMoney(amount, offers[0]?.currency);
+  return (
+    <aside className="hp-filters">
+      <div className="hp-filters-head">
+        <span>Фильтры{selCount > 0 && <span className="flt-count">{selCount}</span>}</span>
+        <button className="hp-reset" onClick={() => setFlt({ priceMax: bounds.max, times: [], classes: [], carriers: [], trainNo: '' })}>Очистить</button>
+      </div>
+
+      <SearchBox value={flt.trainNo || ''} onChange={(v) => setFlt((f) => ({ ...f, trainNo: v }))} placeholder="Номер поезда" style={{ minWidth: 0, width: '100%', height: 42, margin: '4px 0 10px' }} />
+      <div className="hp-filter-block">
+        <div className="hp-filter-title">Цена</div>
+        <div className="hp-price-range"><span className="hp-pr-from">от {formatRailMoney(bounds.min)}</span><span className="hp-pr-to">{formatRailMoney(flt.priceMax == null ? bounds.max : flt.priceMax)}</span></div>
+        <input type="range" className="hp-slider" min={bounds.min} max={bounds.max} step="0.01"
+          value={flt.priceMax == null ? bounds.max : flt.priceMax} onChange={(e) => setFlt((f) => ({ ...f, priceMax: +e.target.value }))} />
+      </div>
+      <div className="hp-filter-block">
+        <div className="hp-filter-title">Время отправления</div>
+        {[['morning', 'Утро · 06–12'], ['day', 'День · 12–18'], ['evening', 'Вечер · 18–00'], ['night', 'Ночь · 00–06']].map(([v, l]) => (
+          <label key={v} className="hp-check-row"><Checkbox on={flt.times.includes(v)} onChange={() => tg('times', v)} /><span className="hp-check-label">{l}</span></label>
+        ))}
+      </div>
+      <div className="hp-filter-block">
+        <div className="hp-filter-title">Класс обслуживания</div>
+        {classes.map((c) => (
+          <label key={c} className="hp-check-row"><Checkbox on={flt.classes.includes(c)} onChange={() => tg('classes', c)} /><span className="hp-check-label">{c}</span></label>
+        ))}
+      </div>
+      <div className="hp-filter-block">
+        <div className="hp-filter-title">Перевозчик</div>
+        {carriers.map((c) => (
+          <label key={c} className="hp-check-row"><Checkbox on={flt.carriers.includes(c)} onChange={() => tg('carriers', c)} /><span className="hp-check-label">{c}</span></label>
+        ))}
+      </div>
+    </aside>
+  );
+}
+
+
+
+function FreeBookingRailSeatPanel({ offer, participants, groups, onClose, onApply }) {
+  const PAX = participants && participants.length ? participants : [{ name: 'Пассажир 1', role: 'Взрослый' }];
+  const tagClass = RAIL_SERVICE_CLASSES.find((c) => c.name === offer.cls) || RAIL_SERVICE_CLASSES.find((c) => (offer.tags || []).some((t) => t === c.type));
+  const availableClasses = tagClass ? [tagClass] : [{ id: 'provider', name: offer.cls || 'Класс поставщика', icon: 'train', type: offer.cls || 'Класс поставщика', seats: 0, amenities: [], kinds: [] }];
+  const [clsId, setClsId] = useState(availableClasses[0].id);
+  const cls = availableClasses.find((c) => c.id === clsId);
+  const wagons = RAIL_WAGONS[clsId] || [];
+  const [wagonNo, setWagonNo] = useState(wagons[0] ? wagons[0].no : '');
+  const [wagShow, setWagShow] = useState(8);
+  const [seats, setSeats] = useState({});
+  const [activePax, setActivePax] = useState(0);
+  const [showAll, setShowAll] = useState(false);
+
+  const changeClass = (id) => { setClsId(id); const w = RAIL_WAGONS[id] || []; setWagonNo(w[0] ? w[0].no : '01'); setSeats({}); setWagShow(8); };
+  const changeWagon = (no) => { setWagonNo(no); setSeats({}); };
+
+  // Занятые места отдаёт перевозчик. Пустая карта означает «данных нет»:
+  // помечать места занятыми наугад нельзя — оператор продаст не то место.
+  const seatMapKnown = Boolean(RAIL_OCCUPIED[clsId + ':' + wagonNo]);
+  const occupied = new Set(RAIL_OCCUPIED[clsId + ':' + wagonNo] || []);
+  const seatOwner = (n) => { const e = Object.entries(seats).find(([, v]) => v === n); return e ? +e[0] : null; };
+  const assignSeat = (i, val) => {
+    const n = val ? +val : null;
+    setSeats((s) => { const x = { ...s }; if (!n) { delete x[i]; return x; } Object.keys(x).forEach((k) => { if (x[k] === n) delete x[k]; }); x[i] = n; return x; });
+  };
+  const pickSeat = (n) => { if (occupied.has(n)) return; const owner = seatOwner(n); assignSeat(activePax, (owner === activePax) ? '' : String(n)); };
+
+  const assignedCount = Object.values(seats).filter(Boolean).length;
+  // Стоимость берётся из выбранного предложения поставщика. Раньше здесь стояла
+  // цена из зашитой таблицы классов — в заказ уходила сумма, не имеющая
+  // отношения к найденному поезду.
+  const pricePerPax = Number(offer.priceRub ?? offer.sum ?? offer.cost ?? 0);
+  const offerClassId = availableClasses[0].id;
+  const total = Number(offer.selectedOffer.price.amount);
+  const seatNumbers = Array.from({ length: seatMapKnown ? cls.seats : 0 }, (_, i) => i + 1);
+  const comps = cls.perComp ? railChunk(seatNumbers, cls.perComp) : null;
+  const seatOptions = (i) => [{ value: '', label: '— выбрать —' }].concat(
+    seatNumbers.filter((n) => !occupied.has(n) && (seatOwner(n) === null || seatOwner(n) === i))
+      .map((n) => ({ value: String(n), label: 'Место ' + n + ' · ' + RAIL_SEAT_LABEL[railSeatKind(cls, n)] })));
+  const visiblePax = showAll ? PAX.map((_, i) => i) : PAX.map((_, i) => i).slice(0, 5);
+
+  const seatNode = (n) => {
+    const kind = railSeatKind(cls, n);
+    const owner = seatOwner(n);
+    const isOcc = occupied.has(n);
+    const isSel = owner != null;
+    const mine = seats[activePax] === n;
+    return (
+      <button key={n} type="button" disabled={isOcc}
+        className={'rail-seat ' + kind + (isOcc ? ' occupied' : '') + (isSel ? ' sel' : '') + (mine ? ' mine' : '')}
+        title={isOcc ? 'Занято' : ('Место ' + n + ' · ' + RAIL_SEAT_LABEL[kind] + (isSel ? ' · ' + PAX[owner].name : ''))}
+        onClick={() => pickSeat(n)}>{n}</button>
+    );
+  };
+
+  const apply = () => onApply({
+    clsId, clsName: cls.name, wagonNo, seats, total,
+    summary: cls.name + (wagonNo ? ' · ваг. ' + wagonNo : '') + (assignedCount ? ' · места ' + PAX.map((_, i) => seats[i]).filter(Boolean).join(', ') : ''),
+    list: PAX.map((p, i) => ({ name: p.name, seat: seats[i] || null, kind: seats[i] ? railSeatKind(cls, seats[i]) : null })),
+  });
+
+  return (
+    <StackPanel className="free-booking" title="Выбор вагона и мест" width="min(1380px,97vw)" onClose={onClose}
+      footer={<>
+        <div className="rail-foot-note">
+          {seatMapKnown
+            ? 'Цены указаны за выбранное предложение. Включая налоги и сборы.'
+            : 'Перевозчик не передал занятость мест — подтвердите выбранные места при бронировании.'}
+        </div>
+        <div style={{ flex: 1 }} />
+        <Button variant="secondary" onClick={onClose}>Отмена</Button>
+        <Button icon="check" disabled={seatMapKnown && assignedCount < PAX.length} onClick={apply}>
+          {seatMapKnown && assignedCount < PAX.length ? `Назначьте места (${assignedCount}/${PAX.length})` : 'Добавить в подборку'}
+        </Button></>}>
+      <div className="free-booking">
+      <div className="rail-head">
+        <span className={'ro-logo ' + (offer.carrier === 'РЖД' ? 'rzd' : 'alt')} style={{ height: 34 }}>{offer.carrier}</span>
+        <div style={{ minWidth: 0 }}>
+          <div className="t">{offer.number} · {offer.name}</div>
+          <div className="s">{offer.dep.city} → {offer.arr.city} · {offer.dep.time}–{offer.arr.time} · {offer.dur}</div>
+        </div>
+      </div>
+
+      <div className="rail-layout">
+
+        <div className="rail-col">
+          <div className="rail-col-h">1. Выберите класс обслуживания</div>
+          <div className="rail-class-list">
+            {availableClasses.map((c) => (
+              <button key={c.id} type="button" className={'rail-class' + (clsId === c.id ? ' sel' : '')} onClick={() => changeClass(c.id)}>
+                <span className="rc-ic"><Icon name={c.icon} /></span>
+                <div className="rc-body">
+                  <div className="rc-name">{c.name}</div>
+                  {/* Цену знаем только для класса из найденного предложения.
+                      Для остальных классов поставщик её не присылал — раньше
+                      здесь стояли зашитые в код суммы. */}
+                  <div className="rc-price">{c.id === offerClassId ? ocMoney(total, offer.currency) : 'цена по запросу'}</div>
+                  <div className="rc-per">за выбранное предложение</div>
+                  {c.id === offerClassId && offer.freeSeats != null && <div className="rc-free">Свободно мест: {offer.freeSeats}</div>}
+                </div>
+              </button>
+            ))}
+          </div>
+        </div>
+
+
+        <div className="rail-col">
+          <div className="rail-col-h">2. Выберите вагон</div>
+          <div className="rail-col-sub">Вагоны класса {cls.name}</div>
+          <div className="rail-wlist">
+            {!wagons.length && (
+              <div className="rail-col-sub" style={{ padding: '10px 2px' }}>
+                Перевозчик не передал список вагонов. Выбор вагона будет доступен после уточнения у перевозчика.
+              </div>
+            )}
+            {wagons.slice(0, wagShow).map((w) => (
+              <button key={w.no} type="button" className={'rail-wrow' + (wagonNo === w.no ? ' sel' : '')} onClick={() => changeWagon(w.no)}>
+                <Radio on={wagonNo === w.no} onChange={() => changeWagon(w.no)} />
+                <span className="wno">{w.no}</span>
+                <span className="wtype">{cls.type}</span>
+                <span className={'wseats' + (w.seatsLeft <= 4 ? ' low' : '')}>{w.seatsLeft}</span>
+              </button>
+            ))}
+            {wagons.length > wagShow && <button type="button" className="rail-link" onClick={() => setWagShow(wagons.length)}>Показать ещё вагоны ({wagons.length - wagShow})</button>}
+          </div>
+        </div>
+
+
+        <div className="rail-col grow">
+          <div className="rail-col-h">3. Выберите места и назначьте их пассажирам</div>
+          {seatMapKnown ? <>
+          <div className="rail-wagon-line">Вагон {wagonNo} · {cls.type}</div>
+          <div className="rail-amenities">{cls.amenities.map((a) => <span key={a} className="rail-am"><Icon name="check" />{a}</span>)}</div>
+
+          <div className="rail-car">
+            <div className="rail-wc">WC</div>
+            {comps
+              ? comps.map((seatsInComp, ci) => {
+                  const top = seatsInComp.filter((n) => n % 2 === 0);
+                  const bottom = seatsInComp.filter((n) => n % 2 === 1);
+                  return (
+                    <div className="rail-comp" key={ci}>
+                      <div className="rail-comp-row">{top.map(seatNode)}</div>
+                      <div className="rail-comp-row">{bottom.map(seatNode)}</div>
+                      <div className="rail-comp-n">{ci + 1}</div>
+                    </div>
+                  );
+                })
+              : <div className="rail-sit-grid">{seatNumbers.map(seatNode)}</div>}
+          </div>
+          <div className="rail-legend">
+            {cls.kinds.map((kk) => <span key={kk} className="rail-leg"><span className={'rail-seat ' + kk} />{RAIL_SEAT_LABEL[kk]}</span>)}
+            <span className="rail-leg"><span className="rail-seat sel" />Выбрано</span>
+            <span className="rail-leg"><span className="rail-seat occupied" />Занято</span>
+          </div>
+
+          <div className="rail-assign">
+            <div className="rail-assign-head">
+              <span className="ttl">Назначьте места пассажирам</span>
+              <span className="ok">Назначено: {assignedCount} из {PAX.length}</span>
+              <span className="warn">Не назначено: {PAX.length - assignedCount}</span>
+              <div style={{ flex: 1 }} />
+              <button type="button" className="rail-link" onClick={() => setSeats({})}>Сбросить все места</button>
+            </div>
+            <table className="rail-ptbl">
+              <thead><tr><th>№</th><th>Пассажир</th><th>Тип</th><th>Место</th><th>Статус</th></tr></thead>
+              <tbody>
+                {visiblePax.map((i) => (
+                  <tr key={i} className={activePax === i ? 'active' : ''} onClick={() => setActivePax(i)}>
+                    <td className="t-muted">{i + 1}</td>
+                    <td className="t-strong">{PAX[i].name}</td>
+                    <td>{PAX[i].role || 'Взрослый'}</td>
+                    <td onClick={(e) => e.stopPropagation()} style={{ width: 180 }}>
+                      <Select options={seatOptions(i)} value={seats[i] ? String(seats[i]) : ''} onChange={(e) => assignSeat(i, e.target.value)} />
+                    </td>
+                    <td>
+                      {seats[i]
+                        ? <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}><Pill tone="green">Назначено</Pill><button type="button" className="rail-clear" onClick={(e) => { e.stopPropagation(); assignSeat(i, ''); }}><Icon name="x" /></button></span>
+                        : <Pill tone="amber">Не назначено</Pill>}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            {PAX.length > 5 && <button type="button" className="rail-link" onClick={() => setShowAll((v) => !v)}>{showAll ? 'Свернуть' : `Показать ещё ${PAX.length - 5} пассажиров`}</button>}
+          </div>
+          </> : <EmptyState icon="train" title="Схема мест недоступна" sub="Перевозчик не передал схему и занятость мест. В подборку будет добавлено выбранное предложение без назначения мест." />}
+        </div>
+      </div>
+      </div>
+    </StackPanel>
+  );
+}
+
+
+
+
+
+
+function FreeBookingRailFlow({ currency, onAdd }) {
+  const toast = useToast();
+  const [offersAll, setOffersAll] = useState([]);
+  const prices = offersAll.map((o) => o.priceRub);
+  const bounds = prices.length ? { min: Math.floor(Math.min(...prices)), max: Math.ceil(Math.max(...prices)) } : { min: 0, max: 0 };
+  const [loading, setLoading] = useState(false);
+  const [form, setForm] = useState({ trip: 'ow', from: 'Москва', to: 'Санкт-Петербург', dep: null, ret: null, pax: 1 });
+  const [sort, setSort] = useState('best');
+  const [flt, setFlt] = useState({ priceMax: bounds.max, times: [], classes: [], carriers: [], trainNo: '' });
+  const [seatOffer, setSeatOffer] = useState(null);
+  const requestId = useRef(0);
+  useEffect(() => () => { requestId.current += 1; }, []);
+  const clearResults = () => { requestId.current += 1; setLoading(false); setOffersAll([]); setSeatOffer(null); };
+  const setF = (k, v) => { clearResults(); setForm((f) => ({ ...f, [k]: v })); };
+  const swap = () => { clearResults(); setForm((f) => ({ ...f, from: f.to, to: f.from })); };
+  const runSearch = async () => {
+    if (!form.from || !form.to || !form.dep || (form.trip === 'rt' && !form.ret) || form.pax < 1) { toast('Заполните маршрут, даты и пассажиров', 'warn'); return; }
+    const error = validateFreeServiceSearch('rail', form);
+    if (error) { toast(error, 'warn'); return; }
+    const request = ++requestId.current;
+    setLoading(true); setOffersAll([]);
+    try {
+      const created = await servicesApi.search({ kind: 'rail', criteria: { origin: form.from, destination: form.to, date: freeBookingDate(form.dep), ...(form.trip === 'rt' ? { return_date: freeBookingDate(form.ret) } : {}), passengers: form.pax, currency: resolveCurrency(currency) } });
+      const found = (await waitFreeBookingOffers(servicesApi, created.search_id)).map((offer) => ({ ...backendOfferCard(offer, 'rail'), selectedOffer: offer, tags: freeBookingAvailabilityTags(backendOfferCard(offer, 'rail').tags), freeSeats: offer.availability?.seats == null ? null : Number(offer.availability.seats), priceRub: Number(offer.price?.amount || 0) }));
+      if (request !== requestId.current) return;
+      setOffersAll(found);
+      const next = found.map((offer) => offer.priceRub);
+      setFlt((current) => ({ ...current, priceMax: next.length ? Math.max(...next) : 0, classes: [], carriers: [] }));
+    } catch (error) {
+      if (request === requestId.current) toast(error.message || 'Не удалось выполнить поиск поездов', 'err');
+    } finally { if (request === requestId.current) setLoading(false); }
+  };
+
+  const trainNoMatch = (o, q) => { const n = q.replace(/\s+/g, '').toLowerCase(); return `${o.number} ${o.name}`.replace(/\s+/g, '').toLowerCase().includes(n); };
+  let offers = offersAll.filter((o) => {
+    if (flt.trainNo && flt.trainNo.trim() && !trainNoMatch(o, flt.trainNo)) return false;
+    if (flt.priceMax != null && o.priceRub > flt.priceMax) return false;
+    if (flt.times.length && !flt.times.includes(railTimeBucket(o.dep.time))) return false;
+    if (flt.classes.length && !flt.classes.includes(o.cls)) return false;
+    if (flt.carriers.length && !flt.carriers.includes(o.carrier)) return false;
+    return true;
+  });
+  if (sort === 'cheap') offers = [...offers].sort((a, b) => a.priceRub - b.priceRub);
+  if (sort === 'fast') offers = [...offers].sort((a, b) => (new Date(a.selectedOffer?.itinerary?.segments?.at(-1)?.arrival) - new Date(a.selectedOffer?.itinerary?.segments?.[0]?.departure)) - (new Date(b.selectedOffer?.itinerary?.segments?.at(-1)?.arrival) - new Date(b.selectedOffer?.itinerary?.segments?.[0]?.departure)));
+
+  return (
+    <div className="fade-in">
+      <div style={{ fontWeight: 600, color: 'var(--ink)', marginBottom: 12 }}>Поиск железнодорожных билетов</div>
+
+      <div className="trip-toggle" style={{ marginBottom: 12 }}>
+        {[['ow', 'В одну сторону'], ['rt', 'Туда и обратно']].map(([k, l]) => (
+          <button key={k} className={form.trip === k ? 'on' : ''} onClick={() => setF('trip', k)}>{l}</button>
+        ))}
+      </div>
+      <div className="av-bar">
+        <div className="av-field" style={{ width: 190 }}><span className="label">Откуда</span><Input
+          value={form.from}
+          onChange={(e) => setF('from', e.target.value)}
+          placeholder="Город или вокзал"
+          locationAutocomplete
+          locationScope="rail"
+          data-field-label="Откуда"
+        /></div>
+
+        <button className="av-swap" onClick={swap} title="Поменять местами" style={{ alignSelf: 'flex-end', marginBottom: 0 }}><Icon name="swap" style={{ width: 18, height: 18 }} /></button>
+        <div className="av-field" style={{ width: 190 }}><span className="label">Куда</span><Input
+          value={form.to}
+          onChange={(e) => setF('to', e.target.value)}
+          placeholder="Город или вокзал"
+          locationAutocomplete
+          locationScope="rail"
+          data-field-label="Куда"
+        /></div>
+        <div className="av-field" style={{ width: 150 }}><span className="label">{form.trip === 'rt' ? 'Туда' : 'Дата'}</span><DateField value={form.dep} onChange={(d) => setF('dep', d)} placeholder="Дата" /></div>
+        {form.trip === 'rt' && <div className="av-field" style={{ width: 150 }}><span className="label">Обратно</span><DateField value={form.ret} onChange={(d) => setF('ret', d)} placeholder="—" /></div>}
+        <div className="av-field" style={{ width: 130 }}><span className="label">Пассажиры</span>
+          <div className="input" style={{ display: 'flex', alignItems: 'center', gap: 8, justifyContent: 'space-between' }}>
+            <button className="btn btn-secondary btn-icon btn-sm" disabled={form.pax <= 1} onClick={() => setF('pax', Math.max(1, form.pax - 1))}>−</button>
+            <span style={{ fontWeight: 700 }}>{form.pax}</span>
+            <button className="btn btn-secondary btn-icon btn-sm" onClick={() => setF('pax', form.pax + 1)}>+</button>
+          </div>
+        </div>
+        <Button disabled={loading} icon="search" style={{ height: 46, marginBottom: 0 }} onClick={runSearch}>Найти</Button>
+      </div>
+
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12, margin: '16px 0 14px' }}>
+        <div className="tabs">
+          {[['best', 'Рекомендуемые'], ['cheap', 'Дешевле'], ['fast', 'Быстрее']].map(([k, l]) => (
+            <button key={k} className={'tab' + (sort === k ? ' active' : '')} onClick={() => setSort(k)}>{l}</button>
+          ))}
+        </div>
+        <div style={{ flex: 1 }} />
+        <span style={{ color: 'var(--muted)', fontSize: 14 }}>{loading ? 'Поиск…' : `Результаты поиска (${offers.length})`}</span>
+      </div>
+
+      <div className="hp-layout">
+        <FreeBookingRailFilters flt={flt} setFlt={setFlt} bounds={bounds} offers={offersAll} />
+        <div style={{ minWidth: 0 }}>
+          {offers.length ? offers.map((o) => <FreeBookingRailOfferCard key={o.id} o={o} onSelect={setSeatOffer} />)
+            : <EmptyState icon="train" title="Нет поездов по фильтрам" sub="Смягчите условия фильтрации слева" />}
+        </div>
+      </div>
+
+      {seatOffer && <FreeBookingRailSeatPanel offer={seatOffer} participants={Array.from({ length: form.pax }, (_, i) => ({ name: `Пассажир ${i + 1}`, role: 'Взрослый' }))} onClose={() => setSeatOffer(null)} onApply={(preferences) => {
+        onAdd({ ...seatOffer, cost: Number(seatOffer.selectedOffer.price.amount), currency: resolveCurrency(seatOffer.selectedOffer.price.currency), railSeats: preferences, searchCriteria: { origin: form.from, destination: form.to, date: freeBookingDate(form.dep), ...(form.trip === 'rt' ? { return_date: freeBookingDate(form.ret) } : {}), passengers: form.pax, currency: resolveCurrency(currency) } }, 'ЖД');
+        setSeatOffer(null);
+      }} />}
+
+    </div>
+  );
+}
 
 function RailAddFlow({ participants = [], groups, onAdd }) {
   const toast = useToast();
@@ -2601,3 +3214,7 @@ Object.assign(window, { ServiceFlow, SVC_CFG, ServiceAddFlow, AeroAddFlow, route
 
 
 export { svM, AERO_DIRS, AERO_FARES, SVC_CFG, SvcField, SvcOfferCard, clientFinRows, CardLifecycle, cardFinModel, CardFinancialBlock, CardActionButtons, CardCore, ChannelPreview, sc_tone_color, messengerBody, ManualAltForm, ServiceCardSendPanel, ServiceCardHistoryDrawer, SvcDocUploadDrawer, SvcCard, SvcAddPaxDrawer, SVC_CFG_TITLE, svcPriceBounds, SvcFilters, ServiceFlow, routeKeyForKind, ServiceAddFlow, AeroAddFlow, RAIL_SEAT_LABEL, railSeatKind, railChunk, railSections, RailOfferCard, RailFilters, railTimeBucket, RailAddFlow, RailSeatPanel, SERVICES_HUB, FLIGHTS_HUB_FIELDS, ServiceSearchDrawer, HUB_KIND, ServicesHubPage };
+
+export { FreeBookingRailFlow };
+
+export { FreeBookingServiceAddFlow, FreeBookingAeroAddFlow };
