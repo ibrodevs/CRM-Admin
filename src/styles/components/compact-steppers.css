@@ -420,25 +420,31 @@ table.tbl tbody td{
   overflow-y:hidden;
 }
 
+.orders-registry .order-list-id{min-width:128px;font-variant-numeric:tabular-nums;user-select:text}
+.orders-registry .order-list-date{font-variant-numeric:tabular-nums}
+.orders-registry .order-list-services{display:flex;align-items:center;gap:8px;white-space:nowrap}
+.orders-registry .order-list-services>*{flex-shrink:0}
+.orders-registry tbody td :is(.t-strong,.t-sub){white-space:normal;overflow:visible;text-overflow:clip;overflow-wrap:anywhere}
+
 /* Keep order identifiers intact; allow descriptive columns to wrap. */
 .orders-filters+.table-card table.orders-registry{
-  min-width:1220px;
+  min-width:1126px;
   table-layout:auto;
 }
-.orders-filters+.table-card table.orders-registry th{padding:12px;white-space:normal}
-.orders-filters+.table-card table.orders-registry th:nth-child(1){width:46px}
-.orders-filters+.table-card table.orders-registry th:nth-child(2){width:128px}
-.orders-filters+.table-card table.orders-registry th:nth-child(3){width:110px}
-.orders-filters+.table-card table.orders-registry th:nth-child(4){width:190px}
-.orders-filters+.table-card table.orders-registry th:nth-child(5){width:140px}
-.orders-filters+.table-card table.orders-registry th:nth-child(6){width:160px}
-.orders-filters+.table-card table.orders-registry th:nth-child(7){width:110px}
-.orders-filters+.table-card table.orders-registry th:nth-child(8){width:172px}
-.orders-filters+.table-card table.orders-registry th:nth-child(9){width:100px}
-.orders-filters+.table-card table.orders-registry th:nth-child(10){width:120px}
+.orders-filters+.table-card table.orders-registry th{padding:12px 10px;white-space:normal}
+.orders-filters+.table-card table.orders-registry th:nth-child(1){width:42px;min-width:42px}
+.orders-filters+.table-card table.orders-registry th:nth-child(2){width:128px;min-width:128px}
+.orders-filters+.table-card table.orders-registry th:nth-child(3){width:96px;min-width:96px}
+.orders-filters+.table-card table.orders-registry th:nth-child(4){width:150px;min-width:150px}
+.orders-filters+.table-card table.orders-registry th:nth-child(5){width:120px;min-width:120px}
+.orders-filters+.table-card table.orders-registry th:nth-child(6){width:140px;min-width:140px}
+.orders-filters+.table-card table.orders-registry th:nth-child(7){width:100px;min-width:100px}
+.orders-filters+.table-card table.orders-registry th:nth-child(8){width:152px;min-width:152px}
+.orders-filters+.table-card table.orders-registry th:nth-child(9){width:90px;min-width:90px}
+.orders-filters+.table-card table.orders-registry th:nth-child(10){width:108px;min-width:108px}
 .orders-filters+.table-card table.orders-registry tbody td{
   height:58px;
-  padding:9px 12px;
+  padding:10px;
   white-space:normal;
   overflow:visible;
   text-overflow:clip;
@@ -451,7 +457,14 @@ table.tbl tbody td{
 .orders-filters+.table-card table.orders-registry tbody td:nth-child(4),
 .orders-filters+.table-card table.orders-registry tbody td:nth-child(8){overflow-wrap:anywhere}
 .orders-filters+.table-card table.orders-registry tbody td .pill{
+  display:inline-block;
+  min-width:min-content;
+  word-break:normal;
+  height:auto;
+  min-height:30px;
+  padding:5px 10px;
   max-width:100%;
+  overflow-wrap:normal;
   white-space:normal;
   overflow:visible;
   text-overflow:clip;

@@ -1,3 +1,4 @@
+import { matchesOrderSearch } from '../model/order-search.js';
 import { useState, useEffect, useRef } from 'react';
 import ReactDOM from 'react-dom';
 import { Icon } from '../../../shared/icons/index.jsx';
@@ -933,7 +934,7 @@ function OrdersList({ orders, onOpen, onCreate, onNavigate, currentUser }) {
   };
 
   let rows = orders.filter((o) =>
-    (o.client.toLowerCase().includes(search.toLowerCase()) || String(o.no).includes(search)) &&
+    matchesOrderSearch(o, search) &&
     (!filters.status || o.status === filters.status) &&
     (!filters.requestType || o.requestType === filters.requestType) &&
     (!filters.service || o.service === filters.service));
@@ -976,7 +977,7 @@ function OrdersList({ orders, onOpen, onCreate, onNavigate, currentUser }) {
             <thead>
               <tr>
                 <th style={{ width: 36 }}></th>
-                <Th label="№" col="no" sort={sort} onSort={onSort} />
+                <Th label="ID заказа" col="no" sort={sort} onSort={onSort} />
                 <th>Дата</th><th>Клиент</th><th>Тип заявки</th><th>Статус заказа</th><th>Тип услуги</th>
                 <th>Ответственное лицо</th>
                 <Th label="Сумма" col="sum" sort={sort} onSort={onSort} />
@@ -999,7 +1000,7 @@ function OrdersList({ orders, onOpen, onCreate, onNavigate, currentUser }) {
                       <td><div className="t-strong">{o.operator}</div><div className="t-sub">{o.operatorRole}</div></td>
                       <td className="t-strong">{moneyRowsText(o.totals || [{ amount: o.sum, currency: o.currency }], o.currency)}</td>
                       <td>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                        <div className="order-list-services">
                           {o.services} <span className="info-dot">i</span>
                           <button className="icon-btn" style={{ color: 'var(--amber)' }} onClick={(e) => { e.stopPropagation(); onNavigate && onNavigate('chats'); }}><Icon name="chat" /></button>
                         </div>

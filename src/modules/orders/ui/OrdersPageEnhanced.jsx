@@ -1,3 +1,4 @@
+import { matchesOrderSearch } from '../model/order-search.js';
 import { useEffect, useState } from 'react';
 import { Icon } from '../../../shared/icons/index.jsx';
 import { ActionMenu } from '../../../shared/ui/ActionMenu.jsx';
@@ -80,7 +81,7 @@ function OrdersMultiSelectList({ orders, onOpen, onCreate, onNavigate, currentUs
   };
 
   let rows = orders.filter((o) =>
-    (String(o.client || '').toLowerCase().includes(search.toLowerCase()) || String(o.no || '').includes(search)) &&
+    matchesOrderSearch(o, search) &&
     (!filters.status || o.status === filters.status) &&
     (!filters.requestType || o.requestType === filters.requestType) &&
     (!filters.service || o.service === filters.service));
@@ -190,7 +191,7 @@ function OrdersMultiSelectList({ orders, onOpen, onCreate, onNavigate, currentUs
                 <th style={{ width: 46 }} title={pageSomeSelected && !pageAllSelected ? 'Выбрана часть заказов на странице' : 'Выбрать заказы на странице'}>
                   <Checkbox on={pageAllSelected} onChange={togglePage} />
                 </th>
-                <Th label="№" col="no" sort={sort} onSort={onSort} />
+                <Th label="ID заказа" col="no" sort={sort} onSort={onSort} />
                 <th>Дата</th><th>Клиент</th><th>Тип заявки</th><th>Статус заказа</th><th>Тип услуги</th>
                 <th>Ответственное лицо</th>
                 <Th label="Сумма" col="sum" sort={sort} onSort={onSort} />
@@ -216,7 +217,7 @@ function OrdersMultiSelectList({ orders, onOpen, onCreate, onNavigate, currentUs
                       <td><div className="t-strong">{o.operator}</div><div className="t-sub">{o.operatorRole}</div></td>
                       <td className="t-strong">{moneyRowsText(o.totals || [{ amount: o.sum, currency: o.currency }], o.currency)}</td>
                       <td>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                        <div className="order-list-services">
                           {o.services} <span className="info-dot">i</span>
                           <button className="icon-btn" style={{ color: 'var(--amber)' }} onClick={(e) => { e.stopPropagation(); onNavigate && onNavigate('chats'); }}><Icon name="chat" /></button>
                         </div>
