@@ -420,56 +420,42 @@ table.tbl tbody td{
   overflow-y:hidden;
 }
 
-.orders-filters+.table-card table.tbl{
+/* Keep order identifiers intact; allow descriptive columns to wrap. */
+.orders-filters+.table-card table.orders-registry{
   min-width:1220px;
-  table-layout:fixed;
+  table-layout:auto;
 }
-
-.orders-filters+.table-card table.tbl th:nth-child(1){width:46px}
-.orders-filters+.table-card table.tbl th:nth-child(2){width:112px}
-.orders-filters+.table-card table.tbl th:nth-child(3){width:118px}
-.orders-filters+.table-card table.tbl th:nth-child(4){width:190px}
-.orders-filters+.table-card table.tbl th:nth-child(5){width:150px}
-.orders-filters+.table-card table.tbl th:nth-child(6){width:138px}
-.orders-filters+.table-card table.tbl th:nth-child(7){width:126px}
-.orders-filters+.table-card table.tbl th:nth-child(8){width:172px}
-.orders-filters+.table-card table.tbl th:nth-child(9){width:112px}
-.orders-filters+.table-card table.tbl th:nth-child(10){width:110px}
-
-.orders-filters+.table-card table.tbl tbody td{
+.orders-filters+.table-card table.orders-registry th{padding:12px;white-space:normal}
+.orders-filters+.table-card table.orders-registry th:nth-child(1){width:46px}
+.orders-filters+.table-card table.orders-registry th:nth-child(2){width:128px}
+.orders-filters+.table-card table.orders-registry th:nth-child(3){width:110px}
+.orders-filters+.table-card table.orders-registry th:nth-child(4){width:190px}
+.orders-filters+.table-card table.orders-registry th:nth-child(5){width:140px}
+.orders-filters+.table-card table.orders-registry th:nth-child(6){width:160px}
+.orders-filters+.table-card table.orders-registry th:nth-child(7){width:110px}
+.orders-filters+.table-card table.orders-registry th:nth-child(8){width:172px}
+.orders-filters+.table-card table.orders-registry th:nth-child(9){width:100px}
+.orders-filters+.table-card table.orders-registry th:nth-child(10){width:120px}
+.orders-filters+.table-card table.orders-registry tbody td{
   height:58px;
-  max-height:58px;
   padding:9px 12px;
-  white-space:nowrap;
-  overflow:hidden;
-  text-overflow:ellipsis;
+  white-space:normal;
+  overflow:visible;
+  text-overflow:clip;
   vertical-align:middle;
 }
-
-.orders-filters+.table-card table.tbl tbody td>*{
+.orders-filters+.table-card table.orders-registry tbody td.order-list-id,
+.orders-filters+.table-card table.orders-registry tbody td:nth-child(3),
+.orders-filters+.table-card table.orders-registry tbody td:nth-child(9),
+.orders-filters+.table-card table.orders-registry tbody td:nth-child(10){white-space:nowrap}
+.orders-filters+.table-card table.orders-registry tbody td:nth-child(4),
+.orders-filters+.table-card table.orders-registry tbody td:nth-child(8){overflow-wrap:anywhere}
+.orders-filters+.table-card table.orders-registry tbody td .pill{
   max-width:100%;
-}
-
-.orders-filters+.table-card table.tbl tbody td:nth-child(2),
-.orders-filters+.table-card table.tbl tbody td:nth-child(3),
-.orders-filters+.table-card table.tbl tbody td:nth-child(9),
-.orders-filters+.table-card table.tbl tbody td:nth-child(10){
-  white-space:nowrap;
-}
-
-.orders-filters+.table-card table.tbl tbody td:nth-child(4) .t-strong,
-.orders-filters+.table-card table.tbl tbody td:nth-child(8) .t-strong,
-.orders-filters+.table-card table.tbl tbody td:nth-child(8) .t-sub{
-  display:block;
-  overflow:hidden;
-  text-overflow:ellipsis;
-  white-space:nowrap;
-}
-
-.orders-filters+.table-card table.tbl tbody td .pill{
-  max-width:100%;
-  overflow:hidden;
-  text-overflow:ellipsis;
+  white-space:normal;
+  overflow:visible;
+  text-overflow:clip;
+  line-height:1.4;
 }
 
 .orders-filters+.table-card table.tbl tbody td:first-child .radio{

@@ -20,7 +20,7 @@ npm run dev
 ```
 
 Приложение будет доступно по адресу `http://localhost:3000`.
-Локальный frontend использует backend `https://crmbackend21.pythonanywhere.com`: адрес задан через `BACKEND_URL` в `.env.local` (см. `.env.example`). После изменения `.env.local` перезапустите `npm run dev`. JWT не передаётся JavaScript-коду браузера: Next.js BFF хранит access/refresh в `HttpOnly` cookies, обновляет access-токен и проксирует `/api/v1` запросы.
+Локальный frontend использует backend `https://api.psc.su`: адрес задан через `BACKEND_URL` в `.env.local` (см. `.env.example`). После изменения `.env.local` перезапустите `npm run dev`. JWT не передаётся JavaScript-коду браузера: Next.js BFF хранит access/refresh в `HttpOnly` cookies, обновляет access-токен и проксирует `/api/v1` запросы.
 
 Для production-сборки:
 

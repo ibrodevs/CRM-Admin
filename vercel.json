@@ -2,6 +2,6 @@
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "framework": "nextjs",
   "env": {
-    "BACKEND_URL": "https://crmbackend21.pythonanywhere.com"
+    "BACKEND_URL": "https://api.psc.su"
   }
 }

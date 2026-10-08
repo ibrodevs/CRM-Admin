@@ -972,11 +972,11 @@ function OrdersList({ orders, onOpen, onCreate, onNavigate, currentUser }) {
         </div>
 
         <div className="table-card">
-          <table className="tbl">
+          <table className="tbl orders-registry">
             <thead>
               <tr>
                 <th style={{ width: 36 }}></th>
-                <Th label="№" col="no" sort={sort} onSort={onSort} style={{ width: 80 }} />
+                <Th label="№" col="no" sort={sort} onSort={onSort} />
                 <th>Дата</th><th>Клиент</th><th>Тип заявки</th><th>Статус заказа</th><th>Тип услуги</th>
                 <th>Ответственное лицо</th>
                 <Th label="Сумма" col="sum" sort={sort} onSort={onSort} />
@@ -990,8 +990,8 @@ function OrdersList({ orders, onOpen, onCreate, onNavigate, currentUser }) {
                   {pageRows.map((o, i) => (
                     <tr key={o.id} style={{ cursor: 'pointer' }} onClick={() => onOpen(o)}>
                       <td onClick={(e) => e.stopPropagation()}><Radio on={!!selected && selected.no === o.no} onChange={() => setSelected((cur) => (cur && cur.no === o.no ? null : o))} /></td>
-                      <td className="t-strong">{o.no}</td>
-                      <td><span className="order-list-date"><Icon name="calendar" />{o.date || '—'}</span></td>
+                      <td className="t-strong order-list-id">{o.no}</td>
+                      <td><span className="order-list-date">{o.date || '—'}</span></td>
                       <td className="t-strong">{o.client}</td>
                       <td><Pill tone="blue">{o.requestType}</Pill></td>
                       <td><Pill tone={ORDER_STATUS[o.status]}>{o.status}</Pill></td>

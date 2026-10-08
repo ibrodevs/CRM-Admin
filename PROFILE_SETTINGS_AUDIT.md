@@ -1,6 +1,6 @@
 # Проверка «Мой профиль» и «Настройки» — 08.09.2026
 
-Изменения внесены в CRM-Admin и CRM-AVIA-BACKEND локально. На PythonAnywhere не опубликованы. Локальный frontend по умолчанию продолжает обращаться к https://crmbackend21.pythonanywhere.com. Для проверки использована отдельная SQLite-база /tmp/crm-profile-settings.sqlite3 и локальный Django; рабочие данные не изменялись.
+Изменения внесены в CRM-Admin и CRM-AVIA-BACKEND локально. На PythonAnywhere не опубликованы. Локальный frontend по умолчанию продолжает обращаться к https://api.psc.su. Для проверки использована отдельная SQLite-база /tmp/crm-profile-settings.sqlite3 и локальный Django; рабочие данные не изменялись.
 
 ## Исправлено
 

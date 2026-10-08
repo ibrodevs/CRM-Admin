@@ -184,13 +184,13 @@ function OrdersMultiSelectList({ orders, onOpen, onCreate, onNavigate, currentUs
         </div>
 
         <div className="table-card">
-          <table className="tbl">
+          <table className="tbl orders-registry">
             <thead>
               <tr>
                 <th style={{ width: 46 }} title={pageSomeSelected && !pageAllSelected ? 'Выбрана часть заказов на странице' : 'Выбрать заказы на странице'}>
                   <Checkbox on={pageAllSelected} onChange={togglePage} />
                 </th>
-                <Th label="№" col="no" sort={sort} onSort={onSort} style={{ width: 80 }} />
+                <Th label="№" col="no" sort={sort} onSort={onSort} />
                 <th>Дата</th><th>Клиент</th><th>Тип заявки</th><th>Статус заказа</th><th>Тип услуги</th>
                 <th>Ответственное лицо</th>
                 <Th label="Сумма" col="sum" sort={sort} onSort={onSort} />
@@ -207,8 +207,8 @@ function OrdersMultiSelectList({ orders, onOpen, onCreate, onNavigate, currentUs
                       <td onClick={(e) => e.stopPropagation()}>
                         <Checkbox on={checked} onChange={() => toggleOrder(o)} />
                       </td>
-                      <td className="t-strong">{o.no}</td>
-                      <td><span className="order-list-date"><Icon name="calendar" />{o.date || '—'}</span></td>
+                      <td className="t-strong order-list-id">{o.no}</td>
+                      <td><span className="order-list-date">{o.date || '—'}</span></td>
                       <td className="t-strong">{o.client}</td>
                       <td><Pill tone="blue">{o.requestType}</Pill></td>
                       <td><Pill tone={STATUS_TONE[o.status] || 'gray'}>{o.status}</Pill></td>
