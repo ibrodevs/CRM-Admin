@@ -20,6 +20,7 @@ export const servicesApi = {
   updatePassengers: (id, body) => apiRequest(apiPath(`services/${id}/passengers/`), { method: 'PUT', body }),
   manualBook: (id, body) => create(`services/${id}/manual-book/`, body),
   manualIssue: (id, body) => create(`services/${id}/manual-issue/`, body),
+  providerStatus: (id) => create(`services/${id}/provider-status/`, {}),
   revalidateService: (id, body = {}) => create(`services/${id}/revalidate/`, body),
   book: (id, body = {}) => create(`services/${id}/book/`, body),
   issue: (id, body = {}) => create(`services/${id}/issue/`, body),

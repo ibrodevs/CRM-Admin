@@ -1,3 +1,5 @@
+import { TTBookingFields, TTBookingCredentials } from './TTBookingCredentials.jsx';
+import { TTBOOKING_DEFAULTS, ttbookingCredential, publicSupplierApi } from '../model/ttbooking.js';
 import { SupplierIntegrationJournal } from './SupplierIntegrationJournal.jsx';
 import { useState, useEffect } from 'react';
 import { Icon } from '../../../shared/icons/index.jsx';
@@ -285,7 +287,7 @@ function supExt(s) {
       api: {
         url: automation.api_url || '',
         apiKey: '', login: '', password: '', token: '',
-        version: automation.api_version || '', status: automation.adapter ? 'Требует проверки' : 'Не настроено', lastSync: '',
+        version: automation.api_version || '', status: s.connection_status === 'connected' ? 'Подключено' : s.connection_status === 'failed' ? 'Требует настройки' : automation.adapter ? 'Требует проверки' : 'Не настроено', lastSync: '',
       },
       local: { contact: s.contact_person || '', comm, commBind, processing: '', hours: s.work_hours || '' },
       // commType — тип комиссии (SUP_COMM_TYPES), а не тип взаиморасчётов:
@@ -712,7 +714,7 @@ function SupplierLegalEditor({ s, ext, onSaveSettings }) {
 }
 
 
-function SupplierTabBody({ s, ext, tab, isAirline, apiStatus, checkConn, setPreviewDoc, toast, onSaveSettings }) {
+function SupplierTabBody({ s, ext, tab, isAirline, apiStatus, checkConn, setPreviewDoc, toast, onSaveSettings, onCredentialState }) {
   const [, forceDocs] = useState(0);
   const uploadDocument = async (kind, event) => {
     const file = event.target.files?.[0]; if (!file) return;
@@ -790,7 +792,7 @@ function SupplierTabBody({ s, ext, tab, isAirline, apiStatus, checkConn, setPrev
       {tab === 'api' && (
         <div>
           <div className="kv">
-            {[['URL API', ext.api.url], ['API Key', ext.api.apiKey], ['Login', ext.api.login], ['Token', ext.api.token],
+            {[['URL API', ext.api.url], ['Адаптер', (s.provider_adapter || s.automation_capabilities?.adapter) === 'ttbooking' ? 'TT Booking' : s.provider_adapter || s.automation_capabilities?.adapter || '—'],
               ['Версия API', ext.api.version], ['Последняя синхронизация', ext.api.lastSync]].map(([k, v], i) => (
               <div className="kv-row" key={i}><span className="k">{k}</span><span className="v" style={{ maxWidth: 280, wordBreak: 'break-all' }}>{v}</span></div>
             ))}
@@ -809,6 +811,7 @@ function SupplierTabBody({ s, ext, tab, isAirline, apiStatus, checkConn, setPrev
           <div style={{ display: 'flex', gap: 10, marginTop: 12 }}>
             <Button variant="secondary" icon="zap" disabled={apiStatus === 'checking'} onClick={checkConn}>{apiStatus === 'checking' ? 'Проверка…' : 'Проверить подключение'}</Button>
           </div>
+          {ext.kinds.includes('Авиа') && <TTBookingCredentials supplierId={s.serverId || s.id} toast={toast} onCredentialState={onCredentialState} verificationStatus={apiStatus} preferredEnvironment={s.automation_capabilities?.ttbooking_environment} />}
           <SupplierIntegrationJournal supplierId={s.serverId || s.id} />
         </div>
       )}
@@ -859,7 +862,7 @@ function SupplierCard({ supplier, onBack, onOpenOrder, onOpenChat }) {
     suppliersApi.settings(s.serverId || s.id || s.no, controller.signal)
       .then((setting) => {
         if (setting.value && Object.keys(setting.value).length) {
-          Object.assign(ext, setting.value);
+          Object.assign(ext, { ...setting.value, api: { ...ext.api, ...(setting.value.api || {}) } });
           forceCard((value) => value + 1);
         }
       })
@@ -881,10 +884,12 @@ function SupplierCard({ supplier, onBack, onOpenOrder, onOpenChat }) {
   const checkConn = async () => {
     setApiStatus('checking');
     try {
-      await suppliersApi.checkConnection(s.serverId || s.id);
+      const result = await suppliersApi.checkConnection(s.serverId || s.id);
+      if (result.status !== 'connected') throw new Error(result.message || 'Подключение не подтверждено');
+      ext.api.status = 'Подключено';
       setApiStatus('ok');
       toast('Подключение успешно', 'ok');
-    } catch (error) { setApiStatus('error'); toast(error.message, 'err'); }
+    } catch (error) { ext.api.status = 'Требует настройки'; setApiStatus('error'); toast(error.message, 'err'); }
   };
   const openSupplierChat = async () => {
     try {
@@ -980,7 +985,14 @@ function SupplierCard({ supplier, onBack, onOpenOrder, onOpenChat }) {
       </>) : (
         <div className="card card-pad">
           <SupplierTabBody s={s} ext={ext} tab={tab} isAirline={isAirline} apiStatus={apiStatus}
-            checkConn={checkConn} setPreviewDoc={setPreviewDoc} toast={toast} onSaveSettings={saveSettings} />
+            checkConn={checkConn} setPreviewDoc={setPreviewDoc} toast={toast} onSaveSettings={saveSettings}
+              onCredentialState={(credential) => {
+                s.automation_capabilities = { ...s.automation_capabilities, adapter: 'ttbooking', ttbooking_environment: credential.environment };
+                s.provider_adapter = 'ttbooking';
+                ext.api.status = credential.connection_verified ? 'Подключено' : credential.status === 'failed' ? 'Требует настройки' : 'Требует проверки';
+                setApiStatus(credential.connection_verified ? 'ok' : 'idle');
+                forceModal((value) => value + 1);
+              }} />
         </div>
       )}
 
@@ -1005,7 +1017,7 @@ function SupplierModal({ supplier, onClose, onDelete }) {
     suppliersApi.settings(s.serverId || s.id || s.no, controller.signal)
       .then((setting) => {
         if (setting.value && Object.keys(setting.value).length) {
-          Object.assign(ext, setting.value);
+          Object.assign(ext, { ...setting.value, api: { ...ext.api, ...(setting.value.api || {}) } });
           forceModal((value) => value + 1);
         }
       })
@@ -1028,10 +1040,12 @@ function SupplierModal({ supplier, onClose, onDelete }) {
   const checkConn = async () => {
     setApiStatus('checking');
     try {
-      await suppliersApi.checkConnection(s.serverId || s.id);
+      const result = await suppliersApi.checkConnection(s.serverId || s.id);
+      if (result.status !== 'connected') throw new Error(result.message || 'Подключение не подтверждено');
+      ext.api.status = 'Подключено';
       setApiStatus('ok');
       toast('Подключение успешно', 'ok');
-    } catch (error) { setApiStatus('error'); toast(error.message, 'err'); }
+    } catch (error) { ext.api.status = 'Требует настройки'; setApiStatus('error'); toast(error.message, 'err'); }
   };
 
   const header = (
@@ -1077,7 +1091,14 @@ function SupplierModal({ supplier, onClose, onDelete }) {
           <div style={{ minHeight: 320 }}>
             {header}
             <SupplierTabBody s={s} ext={ext} tab={tab} isAirline={isAirline} apiStatus={apiStatus}
-              checkConn={checkConn} setPreviewDoc={setPreviewDoc} toast={toast} onSaveSettings={saveSettings} />
+              checkConn={checkConn} setPreviewDoc={setPreviewDoc} toast={toast} onSaveSettings={saveSettings}
+              onCredentialState={(credential) => {
+                s.automation_capabilities = { ...s.automation_capabilities, adapter: 'ttbooking', ttbooking_environment: credential.environment };
+                s.provider_adapter = 'ttbooking';
+                ext.api.status = credential.connection_verified ? 'Подключено' : credential.status === 'failed' ? 'Требует настройки' : 'Требует проверки';
+                setApiStatus(credential.connection_verified ? 'ok' : 'idle');
+                forceModal((value) => value + 1);
+              }} />
           </div>
         </div>
       </div>
@@ -1110,7 +1131,8 @@ function SupplierAddDrawer({ open, onClose, onCreated }) {
   const empty = {
     name: '', org: '', inn: '', supType: 'API', kinds: [], priority: 1, useDefault: false, country: 'Кыргызстан', city: 'Бишкек',
     status: 'Активный', orgType: 'Другое',
-    api: { url: '', apiKey: '', login: '', password: '', token: '', version: '' },
+    adapter: '',
+    api: { ...TTBOOKING_DEFAULTS, url: '', apiKey: '', login: '', password: '', token: '', version: '' },
     local: { contact: '', comm: [], commBind: {}, processing: '', hours: SUP_WORK_HOURS[2] },
     fin: { currency: getDefaultCurrency(), commType: '%', commValue: 0, vat: 'Без НДС', settlement: 'Предоплата', payTerm: '', perService: supEmptyFin(SUP_SERVICE_KINDS) },
     ops: { 'Бронирование': true, 'Выписка': true, 'Возврат': false, 'Обмен': false, 'Аннуляция': false, 'Дополнительные услуги': false },
@@ -1151,18 +1173,20 @@ function SupplierAddDrawer({ open, onClose, onCreated }) {
 
   const submit = async () => {
     const er = {};
-    const adapterKey = process.env.NEXT_PUBLIC_DEFAULT_PROVIDER_ADAPTER || (process.env.NODE_ENV !== 'production' ? 'mock' : '');
+    const adapterKey = f.adapter;
     if (!f.name.trim()) er.name = 'Введите название';
     if (!f.kinds.length) er.kinds = 'Выберите хотя бы один вид услуг';
     if (isApiType && !f.api.url.trim()) er.apiUrl = 'Укажите URL API';
-    if (isApiType && !adapterKey) er.adapter = 'Для production укажите NEXT_PUBLIC_DEFAULT_PROVIDER_ADAPTER';
+    if (isApiType && !adapterKey) er.adapter = 'Выберите адаптер поставщика';
+    if (isApiType && adapterKey === 'ttbooking' && (f.kinds.length !== 1 || !f.kinds.includes('Авиа'))) er.kinds = 'TT Booking поддерживает услугу Авиа';
+    if (isApiType && adapterKey === 'ttbooking' && (!f.api.agency || !f.api.user || !f.api.password_key)) er.adapter = 'Заполните Agency, User и Password Key';
     if (!isApiType && !f.local.contact.trim()) er.contact = 'Укажите контактное лицо';
     setErrs(er);
     if (er.name) setLegalOpen(true);
     if (Object.keys(er).length) { toast('Проверьте поля формы', 'err'); return; }
     const ext = {
       supType: f.supType, kinds: f.kinds, priority: f.priority, useDefault: f.useDefault, country: f.country, city: f.city,
-      api: { ...f.api, status: 'Не проверено', lastSync: '—' },
+      api: { ...publicSupplierApi(f.api), status: 'Не проверено', lastSync: '—' },
       local: { ...f.local, comm: f.local.comm.length ? f.local.comm : ['Email'], commBind: { ...(f.local.commBind || {}) }, processing: f.local.processing === '' ? 0 : f.local.processing },
       fin: { ...JSON.parse(JSON.stringify(f.fin)), payTerm: f.fin.payTerm === '' ? 0 : f.fin.payTerm },
       ops: { ...f.ops }, automation: f.automation, searchPriority: { ...f.searchPriority },
@@ -1202,14 +1226,14 @@ function SupplierAddDrawer({ open, onClose, onCreated }) {
         communication_methods: f.local.comm, work_hours: f.local.hours,
         settlement_type: { 'Предоплата': 'prepayment', 'Депозит': 'deposit', 'Отсрочка': 'credit', 'По факту': 'postpayment' }[f.fin.settlement] || '',
         contact_person: f.local.contact,
-        automation_capabilities: { operations: f.ops, search_mode: f.automation, finance: f.fin, api_url: f.api.url },
+        automation_capabilities: { operations: f.ops, search_mode: f.automation, finance: f.fin, api_url: isApiType ? f.api.url : '', adapter: isApiType ? adapterKey : '' },
       });
       await suppliersApi.saveSettings(created.id, ext);
       SUP_EXT[created.id] = ext;
       let connectionWarning = '';
       if (isApiType) {
         const secrets = Object.fromEntries(Object.entries(f.api).filter(([, value]) => value));
-        await suppliersApi.saveCredential(created.id, {
+        await suppliersApi.saveCredential(created.id, adapterKey === 'ttbooking' ? ttbookingCredential(f.api) : {
           provider_adapter: adapterKey,
           environment: process.env.NODE_ENV === 'production' ? 'production' : 'sandbox',
           secrets,
@@ -1301,6 +1325,14 @@ function SupplierAddDrawer({ open, onClose, onCreated }) {
 
       {isApiType && (
         <SupSection icon="api" title="API" sub="Параметры подключения — для типов API, Консолидатор и GDS">
+          <Field label="Адаптер" required error={errs.adapter}>
+            <Select options={[{ value: '', label: 'Выберите адаптер' }, { value: 'ttbooking', label: 'TT Booking' }, { value: 'hotelbook', label: 'Hotelbook' }, ...(process.env.NODE_ENV !== 'production' ? [{ value: 'mock', label: 'Mock (sandbox)' }] : [])]} value={f.adapter}
+              onChange={(event) => {
+                const adapter = event.target.value;
+                setF((current) => ({ ...current, adapter, ...(adapter === 'ttbooking' ? { supType: 'API', kinds: ['Авиа'], api: { ...TTBOOKING_DEFAULTS } } : {}) }));
+              }} />
+          </Field>
+          {f.adapter === 'ttbooking' ? <TTBookingFields value={f.api} onChange={(api) => setF((current) => ({ ...current, api }))} /> : <>
           <div className="form-grid">
             <div className="full"><Field label="URL API" required error={errs.apiUrl}><Input placeholder="https://api.example.com/v2" value={f.api.url} onChange={(e) => setSub('api', 'url', e.target.value)} error={errs.apiUrl} /></Field></div>
             <Field label="API Key"><Input placeholder="Ключ доступа" value={f.api.apiKey} onChange={(e) => setSub('api', 'apiKey', e.target.value)} /></Field>
@@ -1309,6 +1341,7 @@ function SupplierAddDrawer({ open, onClose, onCreated }) {
             <Field label="Password"><Input type="password" value={f.api.password} onChange={(e) => setSub('api', 'password', e.target.value)} /></Field>
             <div className="full"><Field label="Token"><Input value={f.api.token} onChange={(e) => setSub('api', 'token', e.target.value)} /></Field></div>
           </div>
+          </>}
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 12, padding: '10px 12px', borderRadius: 10, background: 'var(--surface-2)', fontSize: 12.5, color: 'var(--body)' }}>
             <Icon name="api" style={{ width: 16, height: 16, color: 'var(--blue)' }} />
             Подключение будет проверено автоматически после сохранения поставщика и защищённых реквизитов.

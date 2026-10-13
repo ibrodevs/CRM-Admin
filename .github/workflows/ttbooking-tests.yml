@@ -1,0 +1,34 @@
+name: TT Booking frontend tests
+on:
+  push:
+    branches: [main, "feat/ttbooking-*"]
+    paths:
+      - "src/modules/suppliers/**"
+      - "src/modules/services/flights/**"
+      - "src/modules/services/api/servicesApi.js"
+      - "test/ttbooking-flight-search.test.mjs"
+      - "test/ttbooking-provider-operations.test.mjs"
+      - "test/ttbooking-credentials.test.mjs"
+      - "package*.json"
+      - ".github/workflows/ttbooking-tests.yml"
+  pull_request:
+    paths:
+      - "src/modules/suppliers/**"
+      - "src/modules/services/flights/**"
+      - "src/modules/services/api/servicesApi.js"
+      - "test/ttbooking-flight-search.test.mjs"
+      - "test/ttbooking-provider-operations.test.mjs"
+      - "test/ttbooking-credentials.test.mjs"
+      - "package*.json"
+      - ".github/workflows/ttbooking-tests.yml"
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+      - run: npm ci
+      - run: npm run build

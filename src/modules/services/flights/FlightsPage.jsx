@@ -1,3 +1,6 @@
+import { jobsApi } from '../../integrations/api.js';
+import { waitForFlightProviderJob, flightTicketNumbers } from './provider-operations.js';
+import { flightSearchCriteria, flightLegData } from './search-criteria.js';
 import { clientsApi } from '../../clients/api.js';
 import { useState, useEffect, useRef } from 'react';
 import { Icon } from '../../../shared/icons/index.jsx';
@@ -261,12 +264,13 @@ function FlightSearch({ params, setParams, onSearch, onBack }) {
       <div style={{ marginBottom: 16 }}>
         <div className="trip-toggle">
           {TRIPS.map(([k, l]) => (
-            <button key={k} className={p.trip === k ? 'on' : ''} onClick={() => set({ trip: k })}>{l}</button>
+            <button key={k} className={p.trip === k ? 'on' : ''} onClick={() => set({ trip: k, ...(k === 'mc' && !p.segments?.length ? { segments: [{ from: p.from, to: p.to, date: p.depDate }, { from: p.to, to: '', date: null }] } : {}) })}>{l}</button>
           ))}
         </div>
       </div>
 
       <div className="av-bar">
+        {p.trip !== 'mc' && <>
         <AirportField label="Откуда" value={p.from} onChange={(v) => set({ from: v })} />
         <button className="av-swap" onClick={swap} title="Поменять местами"><Icon name="swap" style={{ width: 20, height: 20 }} /></button>
         <AirportField label="Куда" value={p.to} onChange={(v) => set({ to: v })} />
@@ -281,12 +285,25 @@ function FlightSearch({ params, setParams, onSearch, onBack }) {
             <DateField value={p.depDate} onChange={(d) => set({ depDate: d })} placeholder="Выбрать" />
           </div>
         )}
+        </>}
         <PaxField pax={p.pax} setPax={(v) => set({ pax: v })} cabin={p.cabin} setCabin={(v) => set({ cabin: v })}
           options={p} setOptions={(patch) => set(patch)} />
         <Button icon="search" style={{ height: 46, marginBottom: 0 }} onClick={onSearch}>Найти билеты</Button>
       </div>
 
 
+      {p.trip === 'mc' && <div className="card card-pad" style={{ marginTop: 16 }}>
+        {(p.segments || []).map((segment, index) => {
+          const change = (patch) => set({ segments: p.segments.map((row, rowIndex) => rowIndex === index ? { ...row, ...patch } : row) });
+          return <div className="av-bar" key={index} style={{ marginBottom: 12 }}>
+            <AirportField label={`Участок ${index + 1}: откуда`} value={segment.from} onChange={(from) => change({ from })} />
+            <AirportField label="Куда" value={segment.to} onChange={(to) => change({ to })} />
+            <DateField value={segment.date} onChange={(date) => change({ date })} placeholder="Дата вылета" />
+            <Button variant="secondary" disabled={p.segments.length <= 2} onClick={() => set({ segments: p.segments.filter((_, rowIndex) => rowIndex !== index) })}>Удалить участок</Button>
+          </div>;
+        })}
+        <Button variant="secondary" onClick={() => set({ segments: [...(p.segments || []), { from: p.segments?.at(-1)?.to || '', to: '', date: null }] })}>Добавить участок</Button>
+      </div>}
       <div className="card card-pad" style={{ marginTop: 16, display: 'flex', gap: 30, flexWrap: 'wrap', alignItems: 'center' }}>
         <label style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer' }}>
           <Toggle on={p.baggage} onChange={(v) => set({ baggage: v })} /> <span style={{ fontWeight: 500 }}>Только с багажом</span>
@@ -296,6 +313,9 @@ function FlightSearch({ params, setParams, onSearch, onBack }) {
         </label>
         <label style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer' }}>
           <Toggle on={p.direct} onChange={(v) => set({ direct: v })} /> <span style={{ fontWeight: 500 }}>Только прямые</span>
+        </label>
+        <label style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <Toggle on={p.eticketsOnly ?? true} onChange={(eticketsOnly) => set({ eticketsOnly })} /> Только электронные билеты
         </label>
         <div style={{ flex: 1 }} />
         <div style={{ minWidth: 240 }}>
@@ -309,7 +329,7 @@ function FlightSearch({ params, setParams, onSearch, onBack }) {
 
       <div style={{ marginTop: 14, display: 'flex', alignItems: 'center', gap: 8, color: 'var(--muted)', fontSize: 13 }}>
         <Icon name="api" style={{ width: 16, height: 16 }} />
-        Поиск выполняется одновременно по: Amadeus GDS · Sirena-Travel · Air Astana · Pegasus · Qatar API
+        Поиск по активным подключённым авиа-поставщикам CRM
       </div>
     </div>
   );
@@ -481,16 +501,15 @@ function OfferCard({ o, picked, onPick, onSelect, onSave, onCompare, compared })
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
           <AirlineLogo code={o.airline} />
           <div>
-            <div style={{ fontWeight: 700, color: 'var(--ink)' }}>{AIRLINES[o.airline].name}</div>
+            <div style={{ fontWeight: 700, color: 'var(--ink)' }}>{AIRLINES[o.airline]?.name || o.airline}</div>
             <div style={{ fontSize: 12, color: 'var(--muted)' }}>{o.out.flightNo}{o.back ? ' · ' + o.back.flightNo : ''} · {o.fareName}</div>
           </div>
         </div>
-        <OfferLeg leg={o.out} />
-        {o.back && <OfferLeg leg={o.back} />}
+        {(o.legs || [o.out, ...(o.back ? [o.back] : [])]).map((leg, index) => <OfferLeg key={index} leg={leg} />)}
         <div className="off-meta">
           <span className="off-tag"><Icon name="briefcase" />{o.cabin}</span>
           <span className={'off-tag ' + (o.baggage === 'Без багажа' ? 'no' : 'ok')}><Icon name="luggage" />{o.baggage}</span>
-          <span className={'off-tag ' + (o.refundable ? 'ok' : 'no')}><Icon name={o.refundable ? 'refund' : 'x'} />{o.refundable ? 'Возвратный' : 'Невозвратный'}</span>
+          <span className={'off-tag ' + (o.refundable ? 'ok' : 'no')}><Icon name={o.refundable ? 'refund' : 'x'} />{typeof o.refundable === 'boolean' ? (o.refundable ? 'Возвратный' : 'Невозвратный') : 'Условия возврата не получены'}</span>
           {Number.isFinite(o.seatsLeft) && o.seatsLeft <= 5 && <span className="off-tag no"><Icon name="alertCircle" />Осталось {o.seatsLeft} мест</span>}
         </div>
         <div style={{ marginTop: 10 }}>
@@ -544,7 +563,7 @@ function FilterRail({ flt, setFlt, allOffers = [] }) {
         <div className="flt-block">
           <div className="flt-h">Авиакомпании</div>
           {airlines.map((a) => (
-            <label key={a} className="flt-opt"><Checkbox on={flt.air.includes(a)} onChange={() => tg('air', a)} />{AIRLINES[a].name}
+            <label key={a} className="flt-opt"><Checkbox on={flt.air.includes(a)} onChange={() => tg('air', a)} />{AIRLINES[a]?.name || a}
               <span className="cnt">{allOffers.filter((o) => o.airline === a).length}</span></label>
           ))}
         </div>
@@ -562,7 +581,7 @@ function FilterRail({ flt, setFlt, allOffers = [] }) {
 function CompareModal({ open, offers, onClose, onSelect }) {
   if (!open) return null;
   const rows = [
-    ['Авиакомпания', (o) => AIRLINES[o.airline].name],
+    ['Авиакомпания', (o) => AIRLINES[o.airline]?.name || o.airline],
     ['Маршрут', (o) => `${o.out.from} → ${o.out.to}`],
     ['Вылет', (o) => `${o.out.dep} · ${o.out.date}`],
     ['В пути', (o) => o.out.dur],
@@ -707,9 +726,9 @@ function FareRulesInfo({ offerId, airline, fareName, refundable, baggage }) {
   };
   const labels = { refund: 'Возврат', exchange: 'Обмен', no_show: 'Неявка', baggage: 'Багаж', carry_on: 'Ручная кладь' };
   const pub = rules
-    ? Object.entries(rules).map(([key, value]) => ({ k: labels[key] || key, v: typeof value === 'string' ? value : JSON.stringify(value) }))
+    ? (rules.raw_available === false ? [{ k: 'Правила', v: 'Условия не получены от поставщика. Уточните их перед бронированием.' }] : [...(rules.rules || []).map((rule) => ({ k: rule.title || rule.code || 'Условия', v: rule.content || '' })), ...Object.entries(rules).filter(([key, value]) => labels[key] && typeof value === 'string' && value).map(([key, value]) => ({ k: labels[key], v: value }))])
     : [
-        ...(refundable === undefined ? [] : [{ k: 'Возвратность', v: refundable ? 'Возвратный' : 'Невозвратный', tone: refundable ? 'green' : 'red' }]),
+        ...(typeof refundable !== 'boolean' ? [] : [{ k: 'Возвратность', v: refundable ? 'Возвратный' : 'Невозвратный', tone: refundable ? 'green' : 'red' }]),
         ...(baggage ? [{ k: 'Багаж', v: baggage }] : []),
       ];
   return (
@@ -758,7 +777,7 @@ function flightPassengers(svc, offer, status) {
     name: passenger.name || 'Участник', type: passenger.role || 'Пассажир',
     participantId: passenger.participant, doc: passenger.document || '—', dob: passenger.dob || '—',
     airline: svc.airline || offer?.airline || '—', pnr: realPnr,
-    ticket: issued ? (passenger.ticket_number || passenger.document_number || svc.external_id || '—') : '—', docs: [],
+    ticket: issued ? (svc.provider_adapter === 'ttbooking' ? flightTicketNumbers(svc, passenger).join(', ') || '—' : passenger.ticket_number || passenger.document_number || svc.external_id || '—') : '—', docs: [],
   }));
 }
 
@@ -973,7 +992,7 @@ function ExchangePanel({ passengers, base, currency, origin, dest, onClose, onDo
                 <AirlineLogo code={v.airline} size="sm" />
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ fontWeight: 600, color: 'var(--ink)', fontSize: 13 }}>{v.leg.from} → {v.leg.to} · {v.leg.flightNo}</div>
-                  <div style={{ fontSize: 12, color: 'var(--muted)' }}>{AIRLINES[v.airline].name} · {v.leg.dep}–{v.leg.arr}{v.markupUsd > 0 ? ' · вкл. надбавку' : ''}</div>
+                  <div style={{ fontSize: 12, color: 'var(--muted)' }}>{AIRLINES[v.airline]?.name || v.airline} · {v.leg.dep}–{v.leg.arr}{v.markupUsd > 0 ? ' · вкл. надбавку' : ''}</div>
                 </div>
                 <div style={{ textAlign: 'right' }}>
                   <div style={{ fontWeight: 700, color: 'var(--ink)' }}>{v.fareUsd.toLocaleString('ru-RU')}{cur}</div>
@@ -1613,6 +1632,10 @@ function AttachFlightDrawer({ mode, svcTitle, offer, orders: orderOptions = [], 
     if (!offer?.id) { toast('Привязать можно только актуальное backend-предложение', 'err'); return; }
     setBusy(true);
     try {
+      if (offer.provider_adapter === 'ttbooking') {
+        const validation = await servicesApi.revalidate(offer.id);
+        if (validation.revalidation?.price_changed && !window.confirm(`Цена изменилась: ${validation.offer.price.amount} ${validation.offer.price.currency}. Добавить актуальный тариф в заказ?`)) return;
+      }
       let targetOrder = picked;
       if (!isOrder) {
         if (typeof picked === 'string' || !picked.id) throw new Error('Выберите клиента из backend-списка');
@@ -1871,15 +1894,22 @@ function FlightCard({ svc, offer, no: noProp, hideBackRow, onBack, onFormKp, onA
   };
   const cancelService = async () => {
     if (!svc?.id) throw new Error('Услуга не связана с backend');
-    const updated = await servicesApi.cancel(svc.id, { version: svc.version, reason: 'Аннуляция из карточки авиауслуги' });
-    svc.version = updated.version; svc.status = updated.status; setStatus('Отменено');
+    const response = await servicesApi.cancel(svc.id, { version: svc.version, reason: 'Аннуляция из карточки авиауслуги' });
+    const updated = response.job_id ? (await waitForFlightProviderJob(response.job_id, svc.id, { readJob: jobsApi.detail, readService: servicesApi.detail })).service : response;
+    if (updated.status !== 'cancelled') throw new Error('Поставщик не подтвердил отмену. Проверьте статус брони.');
+    svc.version = updated.version; svc.status = updated.status; svc.tickets = updated.tickets; setStatus('Отменено');
     toast('Услуга аннулирована в backend', 'ok');
   };
   const refreshProviderStatus = async () => {
     if (!svc?.id) throw new Error('Услуга не связана с backend');
-    const payload = await servicesApi.revalidateService(svc.id);
+    let payload;
+    if (svc.provider_adapter === 'ttbooking' && svc.has_provider_booking) {
+      const requested = await servicesApi.providerStatus(svc.id);
+      payload = await waitForFlightProviderJob(requested.job_id, svc.id, { readJob: jobsApi.detail, readService: servicesApi.detail });
+      if (['unknown', 'pending'].includes(payload.job.result?.provider_status) || payload.job.result?.status === 'inquiry_failed') throw new Error('Статус брони не подтверждён поставщиком. Повторите проверку позднее.');
+    } else { payload = await servicesApi.revalidateService(svc.id); }
     const updated = payload.service;
-    if (updated) { svc.version = updated.version; svc.status = updated.status; setStatus({ proposed: 'Предложение', booked: 'Забронировано', confirmed: 'Забронировано', issued: 'Выписано', cancelled: 'Отменено' }[updated.status] || updated.status); }
+    if (updated) { svc.version = updated.version; svc.status = updated.status; svc.tickets = updated.tickets; svc.provider_adapter = updated.provider_adapter; svc.has_provider_booking = updated.has_provider_booking; setStatus({ proposed: 'Предложение', booked: 'Забронировано', confirmed: 'Забронировано', issued: 'Выписано', cancelled: 'Отменено' }[updated.status] || updated.status); }
     toast('Статус и цена проверены у поставщика', 'ok');
   };
   const saveExtras = async () => {
@@ -2045,8 +2075,7 @@ function FlightCard({ svc, offer, no: noProp, hideBackRow, onBack, onFormKp, onA
         <div className="grid-2" style={{ alignItems: 'start' }}>
           <div className="card card-pad">
             <div className="section-title" style={{ fontSize: 18, marginBottom: 8 }}>Маршрут</div>
-            <SegmentRow leg={out} />
-            {back && <SegmentRow leg={back} />}
+            {(offer?.itinerary?.segments?.length ? offer.itinerary.segments.map(liveFlightLeg) : [out, ...(back ? [back] : [])]).map((leg, index) => <SegmentRow key={index} leg={leg} />)}
           </div>
           <div className="card card-pad">
             <div className="section-title" style={{ fontSize: 18, marginBottom: 14 }}>Тариф</div>
@@ -2054,7 +2083,7 @@ function FlightCard({ svc, offer, no: noProp, hideBackRow, onBack, onFormKp, onA
               <div className="kv-row"><span className="k">Тариф</span><span className="v">{offer ? offer.fareName : '—'}</span></div>
               <div className="kv-row"><span className="k">Класс</span><span className="v">{offer ? offer.cabin : '—'}</span></div>
               <div className="kv-row"><span className="k">Багаж</span><span className="v">{offer ? offer.baggage : '—'}</span></div>
-              <div className="kv-row"><span className="k">Возврат</span><span className="v">{offer ? (offer.refundable ? 'Возвратный' : 'Невозвратный') : '—'}</span></div>
+              <div className="kv-row"><span className="k">Возврат</span><span className="v">{offer && typeof offer.refundable === 'boolean' ? (offer.refundable ? 'Возвратный' : 'Невозвратный') : 'Условия не получены'}</span></div>
               <div className="kv-row"><span className="k">Тайм-лимит</span><span className="v">{ticketingDeadline ? <TimeLimitBadge>{ticketingDeadline}</TimeLimitBadge> : '—'}</span></div>
             </div>
 
@@ -2072,7 +2101,7 @@ function FlightCard({ svc, offer, no: noProp, hideBackRow, onBack, onFormKp, onA
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
             <div style={{ fontWeight: 700, color: 'var(--ink)', fontSize: 15 }}>Пассажиры</div>
             <Pill tone="blue">{passengers.length} {plural(passengers.length, ['пассажир', 'пассажира', 'пассажиров'])}</Pill>
-            {issued && <Pill tone="green">{passengers.filter((p) => p.ticket !== '—').length} билетов</Pill>}
+            {issued && <Pill tone="green">{svc?.provider_adapter === 'ttbooking' ? svc.tickets?.length || 0 : passengers.filter((p) => p.ticket !== '—').length} билетов</Pill>}
             <div style={{ flex: 1 }} />
             <Button size="sm" icon="plus" onClick={() => setAddPaxOpen(true)}>Добавить пассажира</Button>
           </div>
@@ -2354,33 +2383,23 @@ function FlightsRegistry({ onNew, onOpen, onFormKp, onReturn, liveRows = [] }) {
 }
 
 function liveFlightLeg(segment) {
-  const dep = segment.departure ? new Date(segment.departure) : null;
-  const arr = segment.arrival ? new Date(segment.arrival) : null;
-  const minutes = dep && arr ? Math.max(0, Math.round((arr - dep) / 60000)) : 0;
-  return {
-    from: segment.origin || '—', to: segment.destination || '—',
-    dep: dep ? dep.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' }) : '—',
-    arr: arr ? arr.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' }) : '—',
-    date: dep ? dep.toLocaleDateString('ru-RU', { day: '2-digit', month: 'short' }) : '—',
-    dur: Math.floor(minutes / 60) + 'ч ' + String(minutes % 60).padStart(2, '0') + 'м',
-    stops: 0,
-    stopText: 'Прямой',
-    flightNo: [segment.airline, segment.flight_number].filter(Boolean).join(' '),
-    technicalStops: technicalStopsOf(segment),
-  };
+  return { ...flightLegData([segment]), technicalStops: technicalStopsOf(segment) };
 }
 function liveFlightOffer(offer) {
   const segment = offer.itinerary?.segments?.[0] || {};
+  const groups = offer.itinerary?.legs || [{ segments: offer.itinerary?.segments || [] }];
+  const legs = groups.map((group) => ({ ...flightLegData(group.segments || []), technicalStops: (group.segments || []).flatMap(technicalStopsOf) }));
   return {
-    ...offer, id: offer.id, _backendOfferId: offer.id, airline: segment.airline || '—', supplier: offer.provider_adapter || 'Подключённый поставщик',
-    refundable: Boolean(offer.fare?.refundable), baggage: offer.fare?.baggage === '0PC' ? 'Без багажа' : (offer.fare?.baggage || '—'),
+    ...offer, id: offer.id, _backendOfferId: offer.id, airline: segment.airline || '—', supplier: offer.supplier_name || (offer.provider_adapter === 'ttbooking' ? 'TT Booking' : offer.provider_adapter) || 'Подключённый поставщик',
+    refundable: offer.fare?.refundable, baggage: offer.fare?.baggage === '0PC' ? 'Без багажа' : (offer.fare?.baggage || '—'),
     cabin: offer.fare?.cabin || '—', fareName: offer.fare?.booking_class ? `Класс ${offer.fare.booking_class}` : '—',
-    seatsLeft: offer.availability?.seats == null ? null : Number(offer.availability.seats), out: liveFlightLeg(segment), back: null,
+    seatsLeft: offer.availability?.seats == null ? null : Number(offer.availability.seats), out: legs[0] || liveFlightLeg(segment), back: legs[1] || null, legs,
     fare: Number(offer.price?.amount || 0), fee: 0, currency: resolveCurrency(offer.price?.currency),
   };
 }
 function serviceFlightRow(item) {
-  const airline = item.title.match(/·\s*([A-Z0-9]{2})\b/)?.[1] || '—';
+  const airline = item.itinerary?.segments?.[0]?.airline || item.title.match(/·\s*([A-Z0-9]{2})\b/)?.[1] || '—';
+  const providerOut = item.itinerary?.legs?.[0]?.segments ? flightLegData(item.itinerary.legs[0].segments) : null;
   const status = {
     searching: 'Поиск', proposed: 'Предложение', approval: 'Согласование', booked: 'Забронировано',
     confirmed: 'Забронировано', issued: 'Выписано', refund_in_progress: 'Возврат', refunded: 'Возврат',
@@ -2400,13 +2419,13 @@ function serviceFlightRow(item) {
     pax: item.passengers_count || 0,
     airline,
     pnr: item.external_id || '—',
-    ticket: item.status === 'issued' ? (item.external_id || 'Выписан') : '—',
+    ticket: item.status === 'issued' ? (item.provider_adapter === 'ttbooking' ? (item.tickets || []).map((ticket) => ticket.ticket_number).join(', ') || '—' : item.external_id || 'Выписан') : '—',
     supplier: item.supplier_name || 'Без поставщика',
     status,
     sum: Number(item.client_total || 0),
     currency: resolveCurrency(item.currency),
     dep: item.starts_at ? new Date(item.starts_at).toLocaleDateString('ru-RU') : '—',
-    out: {
+    out: providerOut || {
       from: routeParts[0] || '—', to: routeParts[1] || '—',
       dep: startsAt ? startsAt.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' }) : '—',
       arr: endsAt ? endsAt.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' }) : '—',
@@ -2418,15 +2437,7 @@ function serviceFlightRow(item) {
 }
 async function loadLiveFlightOffers(params) {
   const created = await servicesApi.search({
-    kind: 'avia', criteria: {
-      origin: params.from, destination: params.to,
-      date: params.depDate instanceof Date ? params.depDate.toISOString().slice(0, 10) : params.depDate || undefined,
-      return_date: params.retDate instanceof Date ? params.retDate.toISOString().slice(0, 10) : params.retDate || undefined,
-      cabin: { 'Эконом': 'economy', 'Бизнес': 'business', 'Первый': 'first' }[params.cabin] || 'economy',
-      passengers: paxTotal(params.pax), currency: resolveCurrency(params.currency),
-      trip: params.trip,
-      ...(params.trip === 'mc' ? { segments: (params.segments || []).map((segment) => ({ origin: segment.from, destination: segment.to, date: segment.date instanceof Date ? segment.date.toLocaleDateString('en-CA') : segment.date })) } : {}),
-    },
+    kind: 'avia', criteria: flightSearchCriteria(params, resolveCurrency(params.currency)),
   });
   for (let attempt = 0; attempt < 30; attempt += 1) {
     const status = await servicesApi.searchStatus(created.search_id);
@@ -2479,6 +2490,17 @@ function FlightsPage({ searchIntent, onConsumeSearch, orders = [], clients = [],
     catch (error) { toast(error.message || 'Не удалось выполнить поиск', 'err'); }
     finally { setSearching(false); }
   };
+  const selectLiveOffer = async (selected) => {
+    try {
+      let current = selected;
+      if (selected.provider_adapter === 'ttbooking') {
+        const result = await servicesApi.revalidate(selected.id);
+        current = liveFlightOffer(result.offer);
+        if (result.revalidation?.price_changed) toast('Цена изменилась. В карточке показан актуальный тариф.', 'warn');
+      }
+      setOffer(current); setSvc(null); setCardNo(`OF-${String(current.external_key || current.id).slice(0, 12).toUpperCase()}`); setView('card');
+    } catch (error) { toast(error.message || 'Тариф недоступен', 'err'); }
+  };
   const formKp = async (service) => {
     try {
       const until = new Date(); until.setDate(until.getDate() + 7);
@@ -2521,7 +2543,7 @@ function FlightsPage({ searchIntent, onConsumeSearch, orders = [], clients = [],
         {view === 'results' && (
           <FlightResults params={params} liveOffers={liveOffers} loading={searching}
             onBackToSearch={() => setView('search')}
-            onSelect={(o) => { setOffer(o); setSvc(null); setCardNo(`OF-${String(o.external_key || o.id).slice(0, 12).toUpperCase()}`); setView('card'); }} />
+            onSelect={selectLiveOffer} />
         )}
         {view === 'card' && (
           <FlightCard svc={svc} offer={offer} no={cardNo} hideBackRow onBack={() => setView(svc ? 'registry' : 'results')} onFormKp={svc ? () => formKp(svc) : undefined} orders={orders} clients={clients} companies={companies} />
