@@ -1,3 +1,4 @@
+import { SupplierIntegrationJournal } from './SupplierIntegrationJournal.jsx';
 import { useState, useEffect } from 'react';
 import { Icon } from '../../../shared/icons/index.jsx';
 import { Avatar } from '../../../shared/ui/Avatar.jsx';
@@ -808,6 +809,7 @@ function SupplierTabBody({ s, ext, tab, isAirline, apiStatus, checkConn, setPrev
           <div style={{ display: 'flex', gap: 10, marginTop: 12 }}>
             <Button variant="secondary" icon="zap" disabled={apiStatus === 'checking'} onClick={checkConn}>{apiStatus === 'checking' ? 'Проверка…' : 'Проверить подключение'}</Button>
           </div>
+          <SupplierIntegrationJournal supplierId={s.serverId || s.id} />
         </div>
       )}
       {tab === 'sla' && (

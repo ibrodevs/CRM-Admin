@@ -2,6 +2,8 @@ import { apiPath, apiRequest, queryString } from '../../../shared/api/client.js'
 import { list, listAll, get, create, patch, remove } from '../../../shared/api/operations.js';
 
 export const suppliersApi = {
+  integrationLogs: (id, page = 1, signal) => list('integration-operations/', { supplier: id, page, page_size: 20 }, signal),
+  integrationIncidents: (id, page = 1, signal) => list('integration-incidents/', { supplier: id, page, page_size: 20 }, signal),
   aviaMarkups: (id) => get(`suppliers/${id}/avia-markups/`),
   saveAviaMarkups: (id, value) => patch(`suppliers/${id}/avia-markups/`, { value }),
   list: (params = {}, signal) => listAll('suppliers/', params, signal),

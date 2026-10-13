@@ -2189,6 +2189,7 @@ function FreeBookingFlightPanel({ params, setParams, onAdd }) {
       )}
 
 
+      {(p.trip === 'mc' ? segs.some((segment) => !segment.date) : !p.depDate || (p.trip === 'rt' && !p.retDate)) && <div role="status" className="fare-hint">{p.trip === 'mc' ? 'Выберите дату вылета для каждого сегмента маршрута.' : p.trip === 'rt' ? 'Выберите даты вылета и возвращения.' : 'Выберите дату вылета.'}</div>}
       <div className="free-booking-results-toolbar" style={{ display: 'flex', alignItems: 'center', gap: 10, margin: '0 0 14px' }}>
         <div style={{ flex: 1 }} />
         <span style={{ color: 'var(--muted)', fontSize: 13 }}>{loading ? 'Поиск…' : `Найдено ${pool.length}`}</span>

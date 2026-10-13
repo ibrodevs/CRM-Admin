@@ -198,6 +198,7 @@ function HotelPicker({ participants, group = false, onApply, onCancel, currency 
   const [liveHotels, setLiveHotels] = useState([]);
   const [searching, setSearching] = useState(false);
   const [searchError, setSearchError] = useState('');
+  useEffect(() => { setSearchError(''); }, [dest, checkin, checkout, searchRooms, searchGuests]);
   const [hasSearched, setHasSearched] = useState(false);
 
 
@@ -255,7 +256,10 @@ function HotelPicker({ participants, group = false, onApply, onCancel, currency 
   const resetFilters = () => { setStars({}); setDistSel({}); setFreeCancelOnly(false); setHotelQ(''); };
   const runHotelSearch = async () => {
     if (searching) return;
-    if (!dest.trim() || !checkin || !checkout) { toast('Укажите локацию, даты заезда и выезда', 'err'); return; }
+    if (!dest.trim() || !checkin || !checkout || hotelDateOnly(checkout) <= hotelDateOnly(checkin) || searchRooms < 1 || searchGuests < 1) {
+      const message = !checkin || !checkout ? 'Выберите даты заезда и выезда' : hotelDateOnly(checkout) <= hotelDateOnly(checkin) ? 'Дата выезда должна быть позже даты заезда' : !dest.trim() ? 'Укажите локацию или отель' : 'Укажите хотя бы один номер и одного гостя';
+      setSearchError(message); toast(message, 'err'); return;
+    }
     setSearching(true); setSearchError(''); setHasSearched(true); setLiveHotels([]);
     setStars({}); setDistSel({}); setHotelQ('');
     try {
@@ -399,6 +403,8 @@ function HotelPicker({ participants, group = false, onApply, onCancel, currency 
     <div className="fade-in hp-root">
 
       <div className="hp-searchbar">
+        {(!checkin || !checkout) && <div className="hp-hint" role="status">Выберите даты заезда и выезда для поиска свободных номеров.</div>}
+        {checkin && checkout && hotelDateOnly(checkout) <= hotelDateOnly(checkin) && <div className="hp-hint" role="alert">Дата выезда должна быть позже даты заезда.</div>}
         <div className="hp-search-row" style={{ rowGap: 26, marginBottom: 6 }}>
           <div className="hp-field hp-field-dest">
             <span className="hp-flabel">Локация или отель</span>
@@ -603,7 +609,7 @@ function HotelPanelHead({ hotel, checkin, checkout, nights, guestsLabel, guests,
 function RoomPanel({ hotel, selRoom, selTariff, onPickRoom, checkin, checkout, guestsLabel, nights, onClose, onProceed, groupMode, onContact }) {
   const toast = useToast();
   return (
-    <StackPanel title="Выбор номера" width="min(1240px,96vw)" compact onClose={onClose}>
+    <StackPanel title="Выбор номера" width="min(1240px,96vw)" onClose={onClose}>
       <HotelPanelHead hotel={hotel} checkin={checkin} checkout={checkout} nights={nights} guestsLabel={guestsLabel} onEdit={onClose} />
 
       <div className="hp-room-grid">
@@ -675,7 +681,7 @@ function PaxPlacementPanel({ hotel, room, tariff, pax, nights, checkin, checkout
   };
   const total = tariff.price;
   return (
-    <StackPanel title="Пассажиры и размещение" width="min(1180px,96vw)" compact onClose={onClose}
+    <StackPanel title="Пассажиры и размещение" width="min(1180px,96vw)" onClose={onClose}
       footer={<>
         <Button variant="secondary" icon="chevLeft" onClick={onBack}>Назад</Button>
         <div style={{ flex: 1 }} />

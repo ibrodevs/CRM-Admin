@@ -1947,6 +1947,7 @@ function FreeBookingServiceAddFlow({ routeKey, onAdd, currency, paxCount = 1 }) 
 
   return (
     <div className="fade-in">
+      {(!freeBookingDate(form.date || form.dt) || (form.trip === 'rt' && !form.retDate)) && <div role="status" className="fare-hint">Выберите дату поездки и, для маршрута туда и обратно, дату возвращения.</div>}
       <div style={{ marginBottom: 14, display: 'flex', gap: 10, alignItems: 'center' }}>
         {view === 'results' && <Button variant="secondary" size="sm" icon="chevLeft" onClick={() => setView('search')}>Изменить поиск</Button>}
         <span style={{ fontWeight: 600, color: 'var(--ink)' }}>{cfg.searchTitle}</span>
@@ -2043,6 +2044,7 @@ function FreeBookingAeroAddFlow({ onAdd }) {
 
   return (
     <div className="fade-in">
+      {(!(fare === 'pass' ? start : date) || (fare === 'rt' && !retDate)) && <div role="status" className="fare-hint">Выберите дату поездки / начала действия билета и дату возвращения для тарифа туда и обратно.</div>}
       <div style={{ marginBottom: 14, display: 'flex', gap: 10, alignItems: 'center' }}>
         {view === 'results' && <Button variant="secondary" size="sm" icon="chevLeft" onClick={() => setView('search')}>Изменить поиск</Button>}
         <img className="aero-logo" src="assets/Express-blue-logo.png" alt="Аэроэкспресс" style={{ height: 22, width: 'auto' }} />
@@ -2754,6 +2756,7 @@ function FreeBookingRailFlow({ currency, onAdd }) {
 
   return (
     <div className="fade-in">
+      {(!form.dep || (form.trip === 'rt' && !form.ret)) && <div role="status" className="fare-hint">Выберите дату отправления и дату возвращения для поездки туда и обратно.</div>}
       <div style={{ fontWeight: 600, color: 'var(--ink)', marginBottom: 12 }}>Поиск железнодорожных билетов</div>
 
       <div className="trip-toggle" style={{ marginBottom: 12 }}>
