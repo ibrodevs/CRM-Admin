@@ -30,8 +30,19 @@ function supplierConnectionType(supplier) {
 
 function toUiSupplier(supplier) {
   const kind = supplier.service_kinds?.[0] || '';
+  const connectionType = supplierConnectionType(supplier);
+  const automation = supplier.automation_capabilities || {};
+
+  // SuppliersPage still detects API suppliers through automation.adapter/api_url.
+  // Keep that legacy detection in sync with the normalized connection type so
+  // existing API providers (including Hotelbook) are not shown as "Локальный".
+  const automationCapabilities = connectionType === 'API' && !automation.adapter && !automation.api_url
+    ? { ...automation, adapter: supplier.provider_adapter || supplier.api_adapter || supplier.adapter || '__api__' }
+    : automation;
+
   return {
     ...supplier,
+    automation_capabilities: automationCapabilities,
     no: supplier.id,
     name: supplier.name,
     org: supplier.legal_name || supplier.name,
@@ -39,7 +50,7 @@ function toUiSupplier(supplier) {
     service: SERVICE_KIND[kind] || kind || 'Другое',
     currency: resolveCurrency(supplier.currencies?.[0]),
     commission: 'По правилам наценки',
-    type: supplierConnectionType(supplier),
+    type: connectionType,
     scope: supplier.is_global ? 'Глобальный' : 'Локальный',
     orgType: labelFor(ORGANIZATION_TYPE_LABEL, supplier.organization_type, 'Другое'),
   };
