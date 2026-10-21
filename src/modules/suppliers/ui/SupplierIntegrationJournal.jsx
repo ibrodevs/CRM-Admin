@@ -6,6 +6,8 @@ const statuses = { success: 'Успешно', ok: 'Успешно', failed: 'О�
 const date = (value) => value ? new Date(value).toLocaleString('ru-RU') : '—';
 
 function Journal({ supplierId, incidents, refresh }) {
+  const [filters, setFilters] = useState({});
+  const filter = (key, value) => { setPage(1); setFilters((old) => ({ ...old, [key]: value || undefined })); };
   const [page, setPage] = useState(1);
   const [data, setData] = useState(null);
   const [error, setError] = useState('');
@@ -14,27 +16,32 @@ function Journal({ supplierId, incidents, refresh }) {
     const controller = new AbortController();
     setData(null); setError('');
     const fetch = incidents ? suppliersApi.integrationIncidents : suppliersApi.integrationLogs;
-    fetch(supplierId, page, controller.signal).then(setData).catch((failure) => {
+    fetch(supplierId, page, controller.signal, filters).then(setData).catch((failure) => {
       if (!controller.signal.aborted) setError(failure.message || 'Не удалось загрузить журнал');
     });
     return () => controller.abort();
-  }, [supplierId, page, incidents, refresh]);
+  }, [supplierId, page, incidents, refresh, filters]);
   const rows = data?.results || [];
   return <section style={{ marginTop: 24 }}>
     <h3>{incidents ? 'Ошибки и инциденты API' : 'Логи запросов API'}</h3>
+    {!incidents && <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, marginBottom: 12 }}>
+      {[['date_from', 'С даты', 'date'], ['date_to', 'По дату', 'date'], ['operation', 'Операция', 'text'], ['http_status', 'HTTP статус', 'number'], ['order_id', 'ID заказа', 'text']].map(([key, label, type]) => <label key={key}>{label}<input type={type} aria-label={label} value={filters[key] || ''} onChange={(event) => filter(key, event.target.value)} /></label>)}
+      <label>Результат<select aria-label="Результат" value={filters.result || ''} onChange={(event) => filter('result', event.target.value)}><option value="">Все</option><option value="success">Успешно</option><option value="error">Ошибка</option></select></label>
+    </div>}
     {error && <div role="alert">{error}</div>}
     {!error && !data && <div role="status">Загрузка…</div>}
     {data && !rows.length && <div style={{ color: 'var(--muted)' }}>{incidents ? 'Ошибок поставщика пока нет.' : 'Запросы к API поставщика пока не зарегистрированы.'}</div>}
     {rows.map((row) => <details key={row.id} className="card card-pad" style={{ marginTop: 10 }}>
       <summary style={{ cursor: 'pointer', overflowWrap: 'anywhere' }}>
         {date(row.created_at)} · {row.operation || 'Операция API'} · {statuses[row.status || row.result] || row.status || row.result || '—'}
+        {row.order_id && ` · Заказ ${row.order_id}`}{row.supplier_status && ` · ${row.supplier_status}`}
         {row.http_status != null && ` · HTTP ${row.http_status}`}{row.duration_ms != null && ` · ${row.duration_ms} мс`}{row.error_code && ` · ${row.error_code}`}
       </summary>
       <div className="kv" style={{ marginTop: 12 }}>
-        {[['Адаптер', row.provider_adapter], ['ID запроса', row.correlation_id], ['Повторы', row.retry_count ?? row.retries], ...(incidents ? [['Критичность', row.severity], ['Повторений', row.occurrences], ['Обновлено', date(row.updated_at)]] : [])].map(([key, value]) => <div className="kv-row" key={key}><span className="k">{key}</span><span className="v" style={{ overflowWrap: 'anywhere' }}>{value ?? '—'}</span></div>)}
+        {[['Окружение', row.environment], ['URL', row.url], ['HTTP метод', row.http_method], ['Адаптер', row.provider_adapter], ['ID запроса', row.correlation_id], ['Повторы', row.retry_count ?? row.retries], ...(incidents ? [['Критичность', row.severity], ['Повторений', row.occurrences], ['Обновлено', date(row.updated_at)]] : [])].map(([key, value]) => <div className="kv-row" key={key}><span className="k">{key}</span><span className="v" style={{ overflowWrap: 'anywhere' }}>{value ?? '—'}</span></div>)}
       </div>
       {(row.sanitized_error || row.raw_error) && <pre style={{ whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}>{row.sanitized_error || row.raw_error}</pre>}
-      {!incidents && [['Запрос API', row.request_sanitized], ['Ответ API', row.response_sanitized]].map(([title, payload]) => <div key={title}><h4>{title}</h4><pre style={{ whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}>{payload == null ? 'Данные не записаны' : JSON.stringify(payload, null, 2)}</pre></div>)}
+      {!incidents && [['Заголовки', row.request_headers], ['Запрос API', row.request_sanitized], ['Ответ API', row.response_sanitized], ['Идентификаторы поставщика', row.external_ids], ['Ошибка поставщика', row.provider_error]].map(([title, payload]) => <div key={title}><h4>{title}</h4><pre style={{ whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}>{payload == null ? 'Данные не записаны' : JSON.stringify(payload, null, 2)}</pre></div>)}
       {incidents && row.timeline?.map((entry) => <div key={entry.id} style={{ marginTop: 8 }}>{date(entry.created_at)} · {entry.actor_name} · {entry.action}<pre style={{ whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}>{JSON.stringify(entry.details, null, 2)}</pre></div>)}
     </details>)}
     {data && (page > 1 || data.next) && <div style={{ display: 'flex', gap: 10, alignItems: 'center', marginTop: 12 }}>
@@ -45,11 +52,11 @@ function Journal({ supplierId, incidents, refresh }) {
   </section>;
 }
 
-export function SupplierIntegrationJournal({ supplierId }) {
+export function SupplierIntegrationJournal({ supplierId, mode }) {
   const [refresh, setRefresh] = useState(0);
   return <div>
     <Button variant="secondary" onClick={() => setRefresh((value) => value + 1)} style={{ marginTop: 18 }}>Обновить логи и ошибки</Button>
-    <Journal key={`logs-${supplierId}`} supplierId={supplierId} refresh={refresh} />
-    <Journal key={`incidents-${supplierId}`} supplierId={supplierId} incidents refresh={refresh} />
+    {mode !== 'incidents' && <Journal key={`logs-${supplierId}`} supplierId={supplierId} refresh={refresh} />}
+    {mode !== 'logs' && <Journal key={`incidents-${supplierId}`} supplierId={supplierId} incidents refresh={refresh} />}
   </div>;
 }

@@ -616,7 +616,9 @@ const SUP_TABS = [
   { key: 'search', label: 'Для поиска', icon: 'search' },
   { key: 'stats', label: 'Статистика', icon: 'pie' },
   { key: 'markups', label: 'Надбавки / таксы', icon: 'calc', airlineOnly: true },
-  { key: 'api', label: 'Интеграция / API', icon: 'api' },
+  { key: 'api', label: 'Подключение / API', icon: 'api' },
+  { key: 'api-logs', label: 'API-логи', icon: 'api' },
+  { key: 'api-errors', label: 'Ошибки', icon: 'sla' },
   { key: 'sla', label: 'SLA', icon: 'sla' },
   { key: 'docs', label: 'Документы', icon: 'docs' },
 ];
@@ -712,7 +714,7 @@ function SupplierLegalEditor({ s, ext, onSaveSettings }) {
 }
 
 
-function SupplierTabBody({ s, ext, tab, isAirline, apiStatus, checkConn, setPreviewDoc, toast, onSaveSettings }) {
+function SupplierTabBody({ s, ext, tab, isAirline, apiStatus, connectionResult, checkConn, setPreviewDoc, toast, onSaveSettings }) {
   const [, forceDocs] = useState(0);
   const uploadDocument = async (kind, event) => {
     const file = event.target.files?.[0]; if (!file) return;
@@ -798,6 +800,9 @@ function SupplierTabBody({ s, ext, tab, isAirline, apiStatus, checkConn, setPrev
               <Pill tone={apiStatus === 'ok' || ext.api.status === 'Подключено' ? 'green' : ext.api.status === 'Не настроено' ? 'gray' : 'red'}>{apiStatus === 'checking' ? 'Проверка…' : (apiStatus === 'ok' ? 'Подключено' : ext.api.status)}</Pill>
             </span></div>
           </div>
+          {connectionResult?.checked?.map((check) => <div key={check.credential_id} className="kv" style={{ marginTop: 10 }}>
+            {[['Окружение', check.environment], ['Проверено', new Date(check.verified_at).toLocaleString('ru-RU')], ['Время ответа', `${check.latency_ms ?? '—'} мс`], ['Результат', check.message]].map(([label, value]) => <div className="kv-row" key={label}><span className="k">{label}</span><span className="v">{value}</span></div>)}
+          </div>)}
           <div className="card card-pad" style={{ marginTop: 18, background: 'var(--surface-2)' }}>
             <div style={{ fontWeight: 700, marginBottom: 8 }}>Как поставщик участвует в работе CRM</div>
             <div style={{ display: 'grid', gap: 7, fontSize: 13, color: 'var(--body)' }}>
@@ -809,9 +814,11 @@ function SupplierTabBody({ s, ext, tab, isAirline, apiStatus, checkConn, setPrev
           <div style={{ display: 'flex', gap: 10, marginTop: 12 }}>
             <Button variant="secondary" icon="zap" disabled={apiStatus === 'checking'} onClick={checkConn}>{apiStatus === 'checking' ? 'Проверка…' : 'Проверить подключение'}</Button>
           </div>
-          <SupplierIntegrationJournal supplierId={s.serverId || s.id} />
+
         </div>
       )}
+      {tab === 'api-logs' && <SupplierIntegrationJournal supplierId={s.serverId || s.id} mode="logs" />}
+      {tab === 'api-errors' && <SupplierIntegrationJournal supplierId={s.serverId || s.id} mode="incidents" />}
       {tab === 'sla' && (
         <div className="kv">
           {[['Время ответа (мин)', ext.sla?.responseMinutes], ['Дедлайн подтверждения (часы)', ext.sla?.confirmationHours], ['Каналы уведомлений', ext.local.comm.join(', ')], ['Приоритет поставщика', String(ext.priority || '')], ['Условия оплаты', [ext.fin.settlement, typeof ext.fin.payTerm === 'number' ? ext.fin.payTerm + ' дн.' : ext.fin.payTerm].filter(Boolean).join(' · ')]].map(([k, v], i) => (
@@ -877,11 +884,12 @@ function SupplierCard({ supplier, onBack, onOpenOrder, onOpenChat }) {
   const tabs = SUP_TABS.filter((t) => (!t.airlineOnly || isAirline) && (t.key !== 'api' || isApiType));
   const [tab, setTab] = useState('general');
   const [apiStatus, setApiStatus] = useState(null);
+  const [connectionResult, setConnectionResult] = useState(null);
   const [previewDoc, setPreviewDoc] = useState(null);
   const checkConn = async () => {
     setApiStatus('checking');
     try {
-      await suppliersApi.checkConnection(s.serverId || s.id);
+      setConnectionResult(await suppliersApi.checkConnection(s.serverId || s.id));
       setApiStatus('ok');
       toast('Подключение успешно', 'ok');
     } catch (error) { setApiStatus('error'); toast(error.message, 'err'); }
@@ -980,7 +988,7 @@ function SupplierCard({ supplier, onBack, onOpenOrder, onOpenChat }) {
       </>) : (
         <div className="card card-pad">
           <SupplierTabBody s={s} ext={ext} tab={tab} isAirline={isAirline} apiStatus={apiStatus}
-            checkConn={checkConn} setPreviewDoc={setPreviewDoc} toast={toast} onSaveSettings={saveSettings} />
+            connectionResult={connectionResult} checkConn={checkConn} setPreviewDoc={setPreviewDoc} toast={toast} onSaveSettings={saveSettings} />
         </div>
       )}
 
@@ -993,6 +1001,7 @@ function SupplierModal({ supplier, onClose, onDelete }) {
   const toast = useToast();
   const [tab, setTab] = useState('general');
   const [apiStatus, setApiStatus] = useState(null);
+  const [connectionResult, setConnectionResult] = useState(null);
   const [previewDoc, setPreviewDoc] = useState(null);
   const [, forceModal] = useState(0);
   const s = supplier;
@@ -1028,7 +1037,7 @@ function SupplierModal({ supplier, onClose, onDelete }) {
   const checkConn = async () => {
     setApiStatus('checking');
     try {
-      await suppliersApi.checkConnection(s.serverId || s.id);
+      setConnectionResult(await suppliersApi.checkConnection(s.serverId || s.id));
       setApiStatus('ok');
       toast('Подключение успешно', 'ok');
     } catch (error) { setApiStatus('error'); toast(error.message, 'err'); }
@@ -1077,7 +1086,7 @@ function SupplierModal({ supplier, onClose, onDelete }) {
           <div style={{ minHeight: 320 }}>
             {header}
             <SupplierTabBody s={s} ext={ext} tab={tab} isAirline={isAirline} apiStatus={apiStatus}
-              checkConn={checkConn} setPreviewDoc={setPreviewDoc} toast={toast} onSaveSettings={saveSettings} />
+              connectionResult={connectionResult} checkConn={checkConn} setPreviewDoc={setPreviewDoc} toast={toast} onSaveSettings={saveSettings} />
           </div>
         </div>
       </div>

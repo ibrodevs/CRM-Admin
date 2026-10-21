@@ -1,5 +1,5 @@
 import { clientsApi } from '../../clients/api.js';
-import { hotelPersonToGuest, hotelGuestSelection } from './guests.js';
+import { hotelPersonToGuest, hotelGuestSelection, hotelRoomAssignments } from './guests.js';
 import { hotelPlainText, hotelBedDescription, hotelPaymentDescription, hotelCancellationDescription } from './presentation.js';
 import { hotelDateOnly, hotelCitizenship, hotelBreakfastIncluded, revalidationNeedsConfirmation, hotelCancellationDeadline, hotelMatchesQuery } from './search-criteria.js';
 import { useEffect, useState } from 'react';
@@ -66,6 +66,8 @@ function hotelOfferToUi(offer, criteria = {}) {
       feats: [
         itinerary.meal_plan ? { ok: true, t: `Питание: ${itinerary.meal_plan}` } : null,
         cancellation ? { ok: true, t: String(cancellation) } : null,
+        fare.confirmation_mode ? { ok: true, t: fare.confirmation_mode === 'ON_REQUEST' ? 'Подтверждение по запросу поставщику' : 'Онлайн-подтверждение' } : null,
+        ...(fare.rooms || []).flatMap((room) => (room.information || []).map((info) => ({ ok: true, t: [room.roomName, info.title, info.text].map(hotelPlainText).filter(Boolean).join(': ') }))),
         ...(fare.information || []).map((info) => ({ ok: true, t: [info.title, info.text].map(hotelPlainText).filter(Boolean).join(': ') })),
         ...(fare.additional_charges || []).map((charge) => ({ ok: true, t: `${charge.type}: ${hpM(charge.price?.amount, charge.price?.currency)} · ${charge.isIncluded ? 'включено' : 'оплачивается в отеле'}` })),
       ].filter(Boolean),
@@ -214,6 +216,7 @@ function HotelPicker({ participants, group = false, onApply, onCancel, currency 
   const [mainGuest, setMainGuest] = useState(0);
   const [guestSel, setGuestSel] = useState({});
   const [specialReq, setSpecialReq] = useState('');
+  const [guestRooms, setGuestRooms] = useState({});
 
 
   const [roomGroups, setRoomGroups] = useState([]);
@@ -310,6 +313,8 @@ function HotelPicker({ participants, group = false, onApply, onCancel, currency 
   };
   const openHotel = (h) => {
     setActiveHotel(h);
+    setGuestRooms({});
+    setSpecialReq('');
     const r = h.rooms[0];
     setSelRoom(r);
     setGuestSel(hasOrderGuests ? Object.fromEntries(PAX.slice(0, Math.min(searchGuests, r.cap || searchGuests)).map((_, i) => [i, true])) : {});
@@ -329,6 +334,17 @@ function HotelPicker({ participants, group = false, onApply, onCancel, currency 
         return;
       }
 
+      if (activeHotel.provider_adapter === 'hotelbook') {
+        const slots = hotelRoomAssignments([], {}, 0, activeHotel.fare?.rooms).slots;
+        let offset = 0;
+        setRoomGroups(slots.map((slot, i) => {
+          const members = PAX.map((_, index) => index).slice(offset, offset + slot.capacity);
+          offset += slot.capacity;
+          return { id: `hb-rg-${i}`, cat: selRoom.id, bed: bedType, members };
+        }));
+        setPanel('group');
+        return;
+      }
       const seeded = [];
       const cats = activeHotel.rooms;
       let idx = 0;
@@ -373,6 +389,10 @@ function HotelPicker({ participants, group = false, onApply, onCancel, currency 
 
   const buildOffer = (sub) => ({
     _backendOfferId: activeHotel._backendOfferId,
+    ...(activeHotel.provider_adapter === 'hotelbook' ? {
+      guestRoomRefs: groupMode ? PAX.map((_, i) => `room:${roomGroups.findIndex((room) => room.members.includes(i))}`) : hotelRoomAssignments(PAX, guestSel, mainGuest, activeHotel.fare?.rooms, guestRooms).refs,
+      specialRequests: activeHotel.fare?.isRemarkFreeFormAllowed ? specialReq : '',
+    } : {}),
     title: activeHotel.name + ' · ' + activeHotel.stars + '★',
     sub,
     cost: grandTotal, fee: 0, supplier: activeHotel.supplier,
@@ -390,6 +410,14 @@ function HotelPicker({ participants, group = false, onApply, onCancel, currency 
     closeAll();
   };
   const finalizeGroup = () => {
+    if (activeHotel.provider_adapter === 'hotelbook') {
+      const slots = hotelRoomAssignments([], {}, 0, activeHotel.fare?.rooms).slots;
+      if (slots.length !== roomGroups.length || slots.some((slot, i) => roomGroups[i].members.length !== slot.capacity)
+        || PAX.some((_, i) => roomGroups.filter((room) => room.members.includes(i)).length !== 1)) {
+        toast('Распределение гостей должно соответствовать номерам тарифа HBPRO. Для другого состава выполните новый поиск.', 'err');
+        return;
+      }
+    }
     const sub = `${roomGroups.length} номеров · ${PAX.length} гостей · ${nights} ${nights === 1 ? 'ночь' : 'ночи'}`;
     onApply && onApply(buildOffer(sub));
     toast('Групповой вариант гостиницы выбран', 'ok');
@@ -528,7 +556,7 @@ function HotelPicker({ participants, group = false, onApply, onCancel, currency 
           checkin={checkin} checkout={checkout} requestedGuests={searchGuests} requestedRooms={searchRooms}
           guestsLoading={guestsLoading} guestsError={guestsError}
           bedType={bedType} setBedType={setBedType} mainGuest={mainGuest} setMainGuest={setMainGuest}
-          guestSel={guestSel} setGuestSel={setGuestSel} specialReq={specialReq} setSpecialReq={setSpecialReq}
+          guestSel={guestSel} setGuestSel={setGuestSel} guestRooms={guestRooms} setGuestRooms={setGuestRooms} specialReq={specialReq} setSpecialReq={setSpecialReq}
           onClose={closeAll} onBack={() => setPanel('room')} onAdd={finalizeSingle} />
       )}
 
@@ -595,6 +623,8 @@ function HotelPanelHead({ hotel, checkin, checkout, nights, guestsLabel, guests,
       <div className="hp-ph-dates">
         <div><span>Заезд</span><b>{fmtDate(checkin)}</b></div>
         <div><span>Выезд</span><b>{fmtDate(checkout)}</b></div>
+        {hotel.itinerary?.check_in_time && <div><span>Время заезда</span><b>{hotel.itinerary.check_in_time}</b></div>}
+        {hotel.itinerary?.check_out_time && <div><span>Время выезда</span><b>{hotel.itinerary.check_out_time}</b></div>}
         <div><span>Ночей</span><b>{nights}</b></div>
         {guestsLabel != null && <div><span>Размещение</span><b>{guestsLabel}</b></div>}
         {guests != null && <div><span>Гостей</span><b>{guests}</b></div>}
@@ -668,12 +698,13 @@ function RoomPanel({ hotel, selRoom, selTariff, onPickRoom, checkin, checkout, g
 }
 
 
-function PaxPlacementPanel({ hotel, room, tariff, pax, nights, checkin, checkout, requestedGuests, requestedRooms, guestsLoading, guestsError, bedType, setBedType, mainGuest, setMainGuest, guestSel, setGuestSel, specialReq, setSpecialReq, onClose, onBack, onAdd }) {
+function PaxPlacementPanel({ hotel, room, tariff, pax, nights, checkin, checkout, requestedGuests, requestedRooms, guestsLoading, guestsError, bedType, setBedType, mainGuest, setMainGuest, guestSel, setGuestSel, guestRooms, setGuestRooms, specialReq, setSpecialReq, onClose, onBack, onAdd }) {
   const selected = pax.map((_, i) => i).filter((i) => guestSel[i]);
   const cap = Math.min(room.cap || requestedGuests, requestedGuests);
   const fixedBeds = hotel.provider_adapter === 'hotelbook';
   const selectedPeople = hotelGuestSelection(pax, guestSel, mainGuest);
-  const placementReady = selected.length === requestedGuests && requestedGuests <= cap && selected.includes(mainGuest);
+  const roomAssignments = hotelRoomAssignments(pax, guestSel, mainGuest, hotel.fare?.rooms, guestRooms);
+  const placementReady = (!fixedBeds || roomAssignments.valid) && selected.length === requestedGuests && requestedGuests <= cap && selected.includes(mainGuest);
   useEffect(() => { if (selected.length && !selected.includes(mainGuest)) setMainGuest(selected[0]); }, [selected.join(','), mainGuest]);
   const toggleGuest = (i) => {
     if (guestSel[i]) { const n = { ...guestSel }; delete n[i]; setGuestSel(n); }
@@ -735,6 +766,15 @@ function PaxPlacementPanel({ hotel, room, tariff, pax, nights, checkin, checkout
         </div>
 
         <div>
+          {fixedBeds && roomAssignments.slots.length > 1 && <div>
+            <div className="hp-col-subtitle">Распределение по номерам</div>
+            {selected.map((i) => <label key={i} style={{ display: 'block', marginBottom: 8 }}>{pax[i].name}
+              <select aria-label={`Номер для ${pax[i].name}`} value={roomAssignments.byIndex[i] || ''} onChange={(event) => setGuestRooms((old) => ({ ...old, [i]: event.target.value }))}>
+                {roomAssignments.slots.map((slot, n) => <option key={n} value={`room:${n}`}>Номер {n + 1} · {slot.name} · {slot.capacity} гостя</option>)}
+              </select>
+            </label>)}
+            {!roomAssignments.valid && <div role="alert">Количество гостей в каждом номере должно соответствовать тарифу.</div>}
+          </div>}
           <div className="hp-col-subtitle">4. Основной гость</div>
           <div className="hp-hint">Укажите гостя, который будет основным при проживании</div>
           <div className="hp-main-guest">
@@ -747,9 +787,9 @@ function PaxPlacementPanel({ hotel, room, tariff, pax, nights, checkin, checkout
             {!selected.length && <div className="hp-hint">Сначала выберите гостей номера</div>}
           </div>
 
-          <div className="hp-col-subtitle">5. Специальные пожелания <span className="hp-opt">(необязательно)</span></div>
-          <textarea className="hp-textarea" rows={4} value={specialReq} onChange={(e) => setSpecialReq(e.target.value)}
-            placeholder="Например: высокий этаж, ранний заезд, кровати рядом, тихий номер и т.д." />
+          {(!fixedBeds || hotel.fare?.isRemarkFreeFormAllowed) && <><div className="hp-col-subtitle">5. Специальные пожелания <span className="hp-opt">(необязательно)</span></div>
+          <textarea className="hp-textarea" rows={4} maxLength={2000} value={specialReq} onChange={(e) => setSpecialReq(e.target.value)}
+            placeholder="Например: высокий этаж, ранний заезд, кровати рядом, тихий номер и т.д." /></>}
 
           <div className="hp-summary">
             <div className="hp-sum-title">Итог размещения</div>

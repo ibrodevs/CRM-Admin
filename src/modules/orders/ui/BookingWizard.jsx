@@ -337,13 +337,14 @@ function BookingWizard({ order, services, draft, onClose, onComplete, onSaveDraf
                 {wait ? (
                   <div className="bw-tl">
                     <span className="bw-tl-time"><Icon name="clock" />{v.status}</span>
-                    {['unknown', 'booked'].includes(v.item?.status) && <button className="bw-tl-btn" onClick={() => inquireItem(v.item)}><Icon name="loader" />Проверить</button>}
+                    {['unknown', 'booked'].includes(v.item?.status) && <button className="bw-tl-btn" onClick={() => inquireItem(v.item)}><Icon name="loader" />Обновить статус у поставщика</button>}
                     <button className="bw-tl-btn alt" onClick={() => setContactSvc(s)}><Icon name="chat" />Создать задачу</button>
                   </div>
                 ) : (
                   <div style={{ textAlign: 'right' }}>
                     <div style={{ fontWeight: 700, color: 'var(--ink)' }}>{ocMoney(s.sum, s.currency)}</div>
                     <div style={{ fontSize: 12, color: 'var(--green)' }}>{v.item?.locator ? `${v.item.service_kind === 'hotel' ? 'Бронь' : 'PNR'} ${v.item.locator}` : 'ответ получен'}</div>
+                    {v.item?.supplier_confirmation?.normalized_status === 'pending_supplier_confirmation' && <span>Ожидает подтверждения поставщика</span>}
                     {v.item?.status === 'booked' && <button className="bw-tl-btn" onClick={() => inquireItem(v.item)}><Icon name="loader" />Проверить бронь</button>}
                   </div>
                 )}

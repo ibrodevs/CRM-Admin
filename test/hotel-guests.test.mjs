@@ -23,3 +23,14 @@ test('free hotel selection reuses participants and adds missing people once', as
 test('non-hotel drafts retain existing participant behavior', async () => {
   assert.equal(await resolveHotelParticipants('order', {}, { participants: () => { throw new Error('unexpected call'); } }), undefined);
 });
+
+test('HBPRO keeps two rooms in one offer and maps main guest with room refs', async () => {
+  const { hotelRoomAssignments } = await import('../src/modules/services/hotels/guests.js');
+  const people = [{ id: 'a' }, { id: 'b' }, { id: 'c' }, { id: 'd' }];
+  const result = hotelRoomAssignments(people, { 0: true, 1: true, 2: true, 3: true }, 2,
+    [{ roomName: 'Twin', quantity: 2, adults: 2 }]);
+  assert.equal(result.valid, true);
+  assert.deepEqual(result.refs, ['room:1', 'room:0', 'room:0', 'room:1']);
+  assert.equal(hotelRoomAssignments(people, { 0: true, 1: true, 2: true, 3: true }, 0,
+    [{ quantity: 2, adults: 2 }], { 3: 'room:0' }).valid, false);
+});
