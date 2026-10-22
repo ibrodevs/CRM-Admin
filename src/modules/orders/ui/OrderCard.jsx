@@ -2944,6 +2944,11 @@ function OrderCard({ order, company, clients = [], onBack, initTab, initSvc, ini
       const body = offer._backendOfferId
         ? { offer_id: offer._backendOfferId, participants: participantIds }
         : { kind: kindCode, title: offer.title || kind, currency: resolveCurrency(offer.currency, cardOrder.base_currency, cardOrder.currency), supplier_cost: Number(offer.cost || 0), agency_fee: Number(offer.fee || 0), client_total: amount, participants: participantIds };
+      if (offer.guestRoomRefs) {
+        body.room_assignments = Object.fromEntries(participantIds.map((id, index) => [id, offer.guestRoomRefs[index]]));
+        body.main_guest = participantIds[0];
+        body.special_requests = offer.specialRequests || '';
+      }
       const created = await servicesApi.addToOrder(orderId, body);
       await refreshOrderSnapshot();
       setSvcView(null);
