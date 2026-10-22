@@ -7,7 +7,7 @@ import { Avatar } from '../../../shared/ui/Avatar.jsx';
 import { Button } from '../../../shared/ui/Button.jsx';
 import { Checkbox } from '../../../shared/ui/Checkbox.jsx';
 import { ConfirmDialog, Drawer } from '../../../shared/ui/Overlays.jsx';
-import { DateField, DateRangeField, fmtDate } from '../../../shared/ui/DateFields.jsx';
+import { DateField, TripDateRangeField, fmtDate } from '../../../shared/ui/DateFields.jsx';
 import { EmptyState } from '../../../shared/ui/EmptyState.jsx';
 import { Field } from '../../../shared/ui/Field.jsx';
 import { Input } from '../../../shared/ui/Input.jsx';
@@ -1866,8 +1866,9 @@ function AviaSearchPanel({ params, setParams, participants = [], onAdd }) {
       {params.trip !== 'mc' ? <>
         <Field label="Откуда"><AirportField value={params.from} onChange={(from) => set({ from })} /></Field>
         <Field label="Куда"><AirportField value={params.to} onChange={(to) => set({ to })} /></Field>
-        <Field label="Дата вылета"><DateField value={params.depDate} onChange={(depDate) => set({ depDate })} /></Field>
-        {params.trip === 'rt' && <Field label="Дата возвращения"><DateField value={params.retDate} onChange={(retDate) => set({ retDate })} /></Field>}
+        {params.trip === 'rt'
+          ? <Field label="Даты поездки"><TripDateRangeField startVal={params.depDate} endVal={params.retDate} onChange={(depDate, retDate) => set({ depDate, retDate })} /></Field>
+          : <Field label="Дата вылета"><DateField value={params.depDate} onChange={(depDate) => set({ depDate })} /></Field>}
       </> : segments.map((segment, index) => <div className="full form-grid" key={index}>
         <Field label={`Перелёт ${index + 1}: откуда`}><AirportField value={segment.from} onChange={(from) => set({ segments: segments.map((row, i) => i === index ? { ...row, from } : row) })} /></Field>
         <Field label="Куда"><AirportField value={segment.to} onChange={(to) => set({ segments: segments.map((row, i) => i === index ? { ...row, to } : row) })} /></Field>
@@ -2173,9 +2174,9 @@ function FreeBookingFlightPanel({ params, setParams, onAdd }) {
           {p.trip === 'rt' ? (
             <div className="av-field">
 
-              <DateRangeField label="Даты поездки" startVal={p.depDate} endVal={p.retDate} rangeStartLabel="Только туда"
+              <TripDateRangeField label="Даты поездки" startVal={p.depDate} endVal={p.retDate}
                 placeholder="Туда — обратно"
-                onChange={(s, e) => { if (e === null || e === undefined) set({ trip: 'ow', depDate: s, retDate: null }); else set({ depDate: s, retDate: e }); }} />
+                onChange={(s, e) => set({ depDate: s, retDate: e })} />
             </div>
           ) : (
             <div className="av-field">
@@ -3513,7 +3514,7 @@ function OrderEditDrawer({ open, order, status, onStatusChange, services, partic
                   ))}
                 </div>
                 <div style={{ marginBottom: 14 }}>
-                  <DateRangeField label="Даты поездки" startVal={depDate} endVal={retDate}
+                  <TripDateRangeField label="Даты поездки" startVal={depDate} endVal={retDate}
                     onChange={(s, e) => { setDepDate(s); setRetDate(e); }} placeholder="Туда — обратно" />
                 </div>
                 {pts.map((code, i) => (

@@ -112,7 +112,7 @@ test('only free booking routes through historical masks; order pages retain thei
   assert.doesNotMatch(dashboard, /<AddServicePanel/);
   assert.match(card, /<AddServicePanel kind=\{addKind\}/);
   const freeForm = card.slice(card.indexOf('function FreeBookingFlightPanel'), card.indexOf('function FreeBookingPanel'));
-  assert.match(freeForm, /<DateRangeField/);
+  assert.match(freeForm, /<TripDateRangeField/);
   assert.match(freeForm, /<FreeBookingPaxField/);
   const picker = flights.slice(flights.indexOf('function FreeBookingPaxClassPicker'), flights.indexOf('function FreeBookingPaxField'));
   assert.match(picker, /FREE_BOOKING_SPECIAL_CATEGORIES\.map/);

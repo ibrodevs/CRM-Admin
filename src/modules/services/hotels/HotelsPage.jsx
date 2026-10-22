@@ -8,7 +8,7 @@ import { ActionMenu } from '../../../shared/ui/ActionMenu.jsx';
 import { Avatar } from '../../../shared/ui/Avatar.jsx';
 import { Button } from '../../../shared/ui/Button.jsx';
 import { Checkbox } from '../../../shared/ui/Checkbox.jsx';
-import { DateField, fmtDate } from '../../../shared/ui/DateFields.jsx';
+import { DateRangeField, fmtDate } from '../../../shared/ui/DateFields.jsx';
 import { EmptyState } from '../../../shared/ui/EmptyState.jsx';
 import { Field } from '../../../shared/ui/Field.jsx';
 import { Input } from '../../../shared/ui/Input.jsx';
@@ -415,13 +415,10 @@ function HotelPicker({ participants, group = false, onApply, onCancel, currency 
             <span className="hp-flabel">Радиус</span>
             <Select options={HP_RADIUS_OPTS} value={radius} onChange={(e) => setRadius(e.target.value)} />
           </div>
-          <div className="hp-field hp-field-date">
-            <span className="hp-flabel">Заезд</span>
-            <DateField value={checkin} onChange={setCheckin} />
-          </div>
-          <div className="hp-field hp-field-date">
-            <span className="hp-flabel">Выезд</span>
-            <DateField value={checkout} onChange={setCheckout} />
+          <div className="hp-field hp-field-date" style={{ minWidth: 280 }}>
+            <span className="hp-flabel">Заезд — Выезд</span>
+            <DateRangeField startVal={checkin} endVal={checkout} minDate={new Date()} requireComplete placeholder="Выберите даты заезда и выезда"
+              onChange={(start, end) => { setCheckin(start); setCheckout(end); }} />
           </div>
           <div className="hp-field hp-field-guests">
             <span className="hp-flabel">Номера и гости</span>

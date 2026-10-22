@@ -4,7 +4,7 @@ import { ChannelIcon, Icon } from '../../../shared/icons/index.jsx';
 import { ActionMenu } from '../../../shared/ui/ActionMenu.jsx';
 import { Button } from '../../../shared/ui/Button.jsx';
 import { Checkbox } from '../../../shared/ui/Checkbox.jsx';
-import { DateField, DateRangeField, fmtDate } from '../../../shared/ui/DateFields.jsx';
+import { DateField, DateRangeField, TripDateRangeField, fmtDate } from '../../../shared/ui/DateFields.jsx';
 import { Drawer } from '../../../shared/ui/Overlays.jsx';
 import { EmptyState } from '../../../shared/ui/EmptyState.jsx';
 import { FilterChip } from '../../../shared/ui/FilterChip.jsx';
@@ -93,6 +93,7 @@ const SVC_CFG = {
 
 function SvcField({ f, form, set }) {
   const v = form[f.k];
+  if (f.t === 'date' && form.trip === 'rt' && (f.k === 'date' || f.k === 'dt')) return <div className="av-field" style={{ width: 280 }}><span className="label">Даты поездки</span><TripDateRangeField startVal={v} endVal={form.retDate} onChange={(start, end) => { set(f.k, start); set('retDate', end); }} /></div>;
   if (f.t === 'date') return <div className="av-field" style={{ width: f.w }}><span className="label">{f.l}</span><DateField value={v} onChange={(d) => set(f.k, d)} placeholder="Выбрать" /></div>;
   if (f.t === 'daterange') return <div className="av-field" style={{ width: f.w }}><span className="label">{f.l}</span><DateRangeField startVal={v && v.s} endVal={v && v.e} onChange={(s, e) => set(f.k, { s, e })} /></div>;
   if (f.t === 'select') return <div className="av-field" style={{ width: f.w }}><span className="label">{f.l}</span><Select options={f.o} value={v || f.o[0]} onChange={(e) => set(f.k, e.target.value)} /></div>;
@@ -1965,9 +1966,6 @@ function FreeBookingServiceAddFlow({ routeKey, onAdd, currency, paxCount = 1 }) 
           )}
           <div className="av-bar">
             {cfg.fields.map((f) => <SvcField key={f.k} f={f} form={form} set={setF} />)}
-            {(cfg.kind === 'Трансфер' || cfg.kind === 'Автобус') && form.trip === 'rt' && (
-              <div className="av-field" style={{ width: 156 }}><span className="label">Обратно</span><DateField value={form.retDate} onChange={(d) => setF('retDate', d)} placeholder="Дата" /></div>
-            )}
             <Button disabled={loading} icon="search" style={{ height: 46, marginBottom: 0 }} onClick={runSearch}>Найти</Button>
           </div>
           <div style={{ marginTop: 14, display: 'flex', alignItems: 'center', gap: 8, color: 'var(--muted)', fontSize: 13 }}>
@@ -2067,10 +2065,9 @@ function FreeBookingAeroAddFlow({ onAdd }) {
                 <DateField value={start} onChange={(value) => change(setStart, value)} placeholder="Дата" /></div>
             ) : (
               <>
-                <div className="av-field" style={{ width: 156 }}><span className="label">{fare === 'rt' ? 'Туда' : 'Дата'}</span>
-                  <DateField value={date} onChange={(value) => change(setDate, value)} placeholder="Дата" /></div>
-                {fare === 'rt' && <div className="av-field" style={{ width: 156 }}><span className="label">Обратно</span>
-                  <DateField value={retDate} onChange={(value) => change(setRetDate, value)} placeholder="Дата" /></div>}
+                {fare === 'rt' ? <div className="av-field" style={{ width: 280 }}><span className="label">Даты поездки</span>
+                  <TripDateRangeField startVal={date} endVal={retDate} onChange={(start, end) => { change(setDate, start); change(setRetDate, end); }} /></div>
+                  : <div className="av-field" style={{ width: 156 }}><span className="label">Дата</span><DateField value={date} onChange={(value) => change(setDate, value)} placeholder="Дата" /></div>}
                 <div className="av-field" style={{ width: 150 }}><span className="label">Пассажиров</span>
                   <div className="input" style={{ display: 'flex', alignItems: 'center', gap: 8, justifyContent: 'space-between' }}>
                     <button className="btn btn-secondary btn-icon btn-sm" disabled={pax <= 0} onClick={() => change(setPax, Math.max(0, pax - 1))}>−</button>
@@ -2165,9 +2162,6 @@ function ServiceAddFlow({ routeKey, onAdd, currency, paxCount = 1 }) {
           )}
           <div className="av-bar">
             {cfg.fields.map((f) => <SvcField key={f.k} f={f} form={form} set={setF} />)}
-            {(cfg.kind === 'Трансфер' || cfg.kind === 'Автобус') && form.trip === 'rt' && (
-              <div className="av-field" style={{ width: 156 }}><span className="label">Обратно</span><DateField value={form.retDate} onChange={(d) => setF('retDate', d)} placeholder="Дата" /></div>
-            )}
             <Button icon="search" style={{ height: 46, marginBottom: 0 }} onClick={runSearch}>Найти</Button>
           </div>
           <div style={{ marginTop: 14, display: 'flex', alignItems: 'center', gap: 8, color: 'var(--muted)', fontSize: 13 }}>
@@ -2259,10 +2253,9 @@ function AeroAddFlow({ onAdd }) {
                 <DateField value={start} onChange={setStart} placeholder="Дата" /></div>
             ) : (
               <>
-                <div className="av-field" style={{ width: 156 }}><span className="label">{fare === 'rt' ? 'Туда' : 'Дата'}</span>
-                  <DateField value={date} onChange={setDate} placeholder="Дата" /></div>
-                {fare === 'rt' && <div className="av-field" style={{ width: 156 }}><span className="label">Обратно</span>
-                  <DateField value={retDate} onChange={setRetDate} placeholder="Дата" /></div>}
+                {fare === 'rt' ? <div className="av-field" style={{ width: 280 }}><span className="label">Даты поездки</span>
+                  <TripDateRangeField startVal={date} endVal={retDate} onChange={(start, end) => { setDate(start); setRetDate(end); }} /></div>
+                  : <div className="av-field" style={{ width: 156 }}><span className="label">Дата</span><DateField value={date} onChange={setDate} placeholder="Дата" /></div>}
                 <div className="av-field" style={{ width: 150 }}><span className="label">Пассажиров</span>
                   <div className="input" style={{ display: 'flex', alignItems: 'center', gap: 8, justifyContent: 'space-between' }}>
                     <button className="btn btn-secondary btn-icon btn-sm" disabled={pax <= 0} onClick={() => setPax(Math.max(0, pax - 1))}>−</button>
@@ -2783,8 +2776,8 @@ function FreeBookingRailFlow({ currency, onAdd }) {
           locationScope="rail"
           data-field-label="Куда"
         /></div>
-        <div className="av-field" style={{ width: 150 }}><span className="label">{form.trip === 'rt' ? 'Туда' : 'Дата'}</span><DateField value={form.dep} onChange={(d) => setF('dep', d)} placeholder="Дата" /></div>
-        {form.trip === 'rt' && <div className="av-field" style={{ width: 150 }}><span className="label">Обратно</span><DateField value={form.ret} onChange={(d) => setF('ret', d)} placeholder="—" /></div>}
+        {form.trip === 'rt' ? <div className="av-field" style={{ width: 280 }}><span className="label">Даты поездки</span><TripDateRangeField startVal={form.dep} endVal={form.ret} onChange={(start, end) => { setF('dep', start); setF('ret', end); }} /></div>
+          : <div className="av-field" style={{ width: 150 }}><span className="label">Дата</span><DateField value={form.dep} onChange={(d) => setF('dep', d)} placeholder="Дата" /></div>}
         <div className="av-field" style={{ width: 130 }}><span className="label">Пассажиры</span>
           <div className="input" style={{ display: 'flex', alignItems: 'center', gap: 8, justifyContent: 'space-between' }}>
             <button className="btn btn-secondary btn-icon btn-sm" disabled={form.pax <= 1} onClick={() => setF('pax', Math.max(1, form.pax - 1))}>−</button>
@@ -2893,8 +2886,8 @@ function RailAddFlow({ participants = [], groups, onAdd }) {
           locationScope="rail"
           data-field-label="Куда"
         /></div>
-        <div className="av-field" style={{ width: 150 }}><span className="label">{form.trip === 'rt' ? 'Туда' : 'Дата'}</span><DateField value={form.dep} onChange={(d) => setF('dep', d)} placeholder="Дата" /></div>
-        {form.trip === 'rt' && <div className="av-field" style={{ width: 150 }}><span className="label">Обратно</span><DateField value={form.ret} onChange={(d) => setF('ret', d)} placeholder="—" /></div>}
+        {form.trip === 'rt' ? <div className="av-field" style={{ width: 280 }}><span className="label">Даты поездки</span><TripDateRangeField startVal={form.dep} endVal={form.ret} onChange={(start, end) => { setF('dep', start); setF('ret', end); }} /></div>
+          : <div className="av-field" style={{ width: 150 }}><span className="label">Дата</span><DateField value={form.dep} onChange={(d) => setF('dep', d)} placeholder="Дата" /></div>}
         <div className="av-field" style={{ width: 130 }}><span className="label">Пассажиры</span>
           <div className="input" style={{ display: 'flex', alignItems: 'center', gap: 8, justifyContent: 'space-between' }}>
             <button className="btn btn-secondary btn-icon btn-sm" disabled={form.pax <= 0} onClick={() => setF('pax', Math.max(0, form.pax - 1))}>−</button>
