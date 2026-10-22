@@ -1,14 +1,15 @@
+import { HotelOccupancyPicker } from './HotelOccupancyPicker.jsx';
 import { clientsApi } from '../../clients/api.js';
 import { hotelPersonToGuest, hotelGuestSelection, hotelRoomAssignments } from './guests.js';
 import { hotelPlainText, hotelBedDescription, hotelPaymentDescription, hotelCancellationDescription } from './presentation.js';
-import { hotelDateOnly, hotelCitizenship, hotelBreakfastIncluded, revalidationNeedsConfirmation, hotelCancellationDeadline, hotelMatchesQuery } from './search-criteria.js';
+import { hotelDateOnly, hotelDateError, hotelOccupancy, hotelCitizenship, hotelBreakfastIncluded, revalidationNeedsConfirmation, hotelCancellationDeadline, hotelMatchesQuery } from './search-criteria.js';
 import { useEffect, useState } from 'react';
 import { Icon } from '../../../shared/icons/index.jsx';
 import { ActionMenu } from '../../../shared/ui/ActionMenu.jsx';
 import { Avatar } from '../../../shared/ui/Avatar.jsx';
 import { Button } from '../../../shared/ui/Button.jsx';
 import { Checkbox } from '../../../shared/ui/Checkbox.jsx';
-import { DateField, fmtDate } from '../../../shared/ui/DateFields.jsx';
+import { DateRangeField, fmtDate } from '../../../shared/ui/DateFields.jsx';
 import { EmptyState } from '../../../shared/ui/EmptyState.jsx';
 import { Field } from '../../../shared/ui/Field.jsx';
 import { Input } from '../../../shared/ui/Input.jsx';
@@ -185,12 +186,15 @@ function HotelPicker({ participants, group = false, onApply, onCancel, currency 
   const [radius, setRadius] = useState('2 км');
   const [checkin, setCheckin] = useState(null);
   const [checkout, setCheckout] = useState(null);
-  const [searchRooms, setSearchRooms] = useState(group ? Math.ceil(PAX.length / 2) : 1);
-  const [searchGuests, setSearchGuests] = useState(group ? Math.max(1, PAX.length) : Math.max(1, Math.min(2, PAX.length)));
+  const [occupancyRooms, setOccupancyRooms] = useState(() => Array.from({ length: group ? Math.max(1, Math.ceil(PAX.length / 2)) : 1 }, (_, i) => ({ adults: group ? Math.max(1, Math.min(2, PAX.length - i * 2)) : 2, childrenAges: [] })));
+  const occupancy = hotelOccupancy(occupancyRooms);
+  const searchRooms = occupancyRooms.length;
+  const searchGuests = occupancy.guests;
+  const today = new Date(); today.setHours(0, 0, 0, 0);
+  const dateError = hotelDateError(checkin, checkout, today);
   const [meal, setMeal] = useState('BB');
   const [freeCancelOnly, setFreeCancelOnly] = useState(false);
   const [citizenship, setCitizenship] = useState('');
-  const [paxPopOpen, setPaxPopOpen] = useState(false);
 
 
   const [stars, setStars] = useState({});
@@ -200,7 +204,7 @@ function HotelPicker({ participants, group = false, onApply, onCancel, currency 
   const [liveHotels, setLiveHotels] = useState([]);
   const [searching, setSearching] = useState(false);
   const [searchError, setSearchError] = useState('');
-  useEffect(() => { setSearchError(''); }, [dest, checkin, checkout, searchRooms, searchGuests]);
+  useEffect(() => { setSearchError(''); }, [dest, checkin, checkout, occupancyRooms]);
   const [hasSearched, setHasSearched] = useState(false);
 
 
@@ -259,8 +263,8 @@ function HotelPicker({ participants, group = false, onApply, onCancel, currency 
   const resetFilters = () => { setStars({}); setDistSel({}); setFreeCancelOnly(false); setHotelQ(''); };
   const runHotelSearch = async () => {
     if (searching) return;
-    if (!dest.trim() || !checkin || !checkout || hotelDateOnly(checkout) <= hotelDateOnly(checkin) || searchRooms < 1 || searchGuests < 1) {
-      const message = !checkin || !checkout ? 'Выберите даты заезда и выезда' : hotelDateOnly(checkout) <= hotelDateOnly(checkin) ? 'Дата выезда должна быть позже даты заезда' : !dest.trim() ? 'Укажите локацию или отель' : 'Укажите хотя бы один номер и одного гостя';
+    if (dateError || !dest.trim() || !occupancy.valid) {
+      const message = dateError || (!dest.trim() ? 'Укажите локацию или отель' : 'Укажите возраст каждого ребёнка');
       setSearchError(message); toast(message, 'err'); return;
     }
     setSearching(true); setSearchError(''); setHasSearched(true); setLiveHotels([]);
@@ -274,7 +278,7 @@ function HotelPicker({ participants, group = false, onApply, onCancel, currency 
           check_out: hotelDateOnly(checkout),
           citizenship: hotelCitizenship(citizenship),
           guests: searchGuests,
-          rooms: searchRooms,
+          rooms: occupancy.rooms,
           meal_plan: meal,
           radius,
           currency,
@@ -431,8 +435,7 @@ function HotelPicker({ participants, group = false, onApply, onCancel, currency 
     <div className="fade-in hp-root">
 
       <div className="hp-searchbar">
-        {(!checkin || !checkout) && <div className="hp-hint" role="status">Выберите даты заезда и выезда для поиска свободных номеров.</div>}
-        {checkin && checkout && hotelDateOnly(checkout) <= hotelDateOnly(checkin) && <div className="hp-hint" role="alert">Дата выезда должна быть позже даты заезда.</div>}
+        {dateError && <div className={'hp-date-notice' + (searchError ? ' is-error' : '')} role={searchError ? 'alert' : 'status'}><Icon name="calendar" /><span>{dateError === 'Выберите даты заезда и выезда' ? 'Выберите даты заезда и выезда для поиска свободных номеров.' : dateError}</span></div>}
         <div className="hp-search-row" style={{ rowGap: 26, marginBottom: 6 }}>
           <div className="hp-field hp-field-dest">
             <span className="hp-flabel">Локация или отель</span>
@@ -443,41 +446,14 @@ function HotelPicker({ participants, group = false, onApply, onCancel, currency 
             <span className="hp-flabel">Радиус</span>
             <Select options={HP_RADIUS_OPTS} value={radius} onChange={(e) => setRadius(e.target.value)} />
           </div>
-          <div className="hp-field hp-field-date">
-            <span className="hp-flabel">Заезд</span>
-            <DateField value={checkin} onChange={setCheckin} />
-          </div>
-          <div className="hp-field hp-field-date">
-            <span className="hp-flabel">Выезд</span>
-            <DateField value={checkout} onChange={setCheckout} />
+          <div className="hp-field hp-field-date hp-field-period">
+            <span className="hp-flabel">Заезд — Выезд</span>
+            <DateRangeField startVal={checkin} endVal={checkout} minDate={today} requireComplete error={Boolean(searchError && dateError)} placeholder="Выберите даты заезда и выезда"
+              onChange={(start, end) => { setCheckin(start); setCheckout(end); }} />
           </div>
           <div className="hp-field hp-field-guests">
             <span className="hp-flabel">Номера и гости</span>
-            <div className="hp-guests-trigger" onClick={() => setPaxPopOpen((v) => !v)}>
-              <div><b>{guestsLabel}</b></div>
-              <Icon name="chevDown" />
-            </div>
-            {paxPopOpen && (
-              <div className="hp-guests-pop">
-                <div className="hp-stepper-row">
-                  <span>Номера</span>
-                  <div className="hp-stepper">
-                    <button disabled={searchRooms <= 0} onClick={() => setSearchRooms((n) => Math.max(0, n - 1))}>−</button>
-                    <b>{searchRooms}</b>
-                    <button onClick={() => setSearchRooms((n) => n + 1)}>+</button>
-                  </div>
-                </div>
-                <div className="hp-stepper-row">
-                  <span>Гостей</span>
-                  <div className="hp-stepper">
-                    <button disabled={searchGuests <= 0} onClick={() => setSearchGuests((n) => Math.max(0, n - 1))}>−</button>
-                    <b>{searchGuests}</b>
-                    <button onClick={() => setSearchGuests((n) => n + 1)}>+</button>
-                  </div>
-                </div>
-                <Button size="sm" style={{ width: '100%', marginTop: 8 }} onClick={() => setPaxPopOpen(false)}>Готово</Button>
-              </div>
-            )}
+            <HotelOccupancyPicker rooms={occupancyRooms} onChange={setOccupancyRooms} />
           </div>
           <Button className="hp-find-btn" disabled={searching} onClick={runHotelSearch}>{searching ? <><span className="hp-spinner" aria-hidden="true" />Поиск…</> : <><Icon name="search" />Найти</>}</Button>
         </div>
@@ -768,12 +744,15 @@ function PaxPlacementPanel({ hotel, room, tariff, pax, nights, checkin, checkout
         <div>
           {fixedBeds && roomAssignments.slots.length > 1 && <div>
             <div className="hp-col-subtitle">Распределение по номерам</div>
-            {selected.map((i) => <label key={i} style={{ display: 'block', marginBottom: 8 }}>{pax[i].name}
-              <select aria-label={`Номер для ${pax[i].name}`} value={roomAssignments.byIndex[i] || ''} onChange={(event) => setGuestRooms((old) => ({ ...old, [i]: event.target.value }))}>
-                {roomAssignments.slots.map((slot, n) => <option key={n} value={`room:${n}`}>Номер {n + 1} · {slot.name} · {slot.capacity} гостя</option>)}
-              </select>
-            </label>)}
-            {!roomAssignments.valid && <div role="alert">Количество гостей в каждом номере должно соответствовать тарифу.</div>}
+            <div className="hp-room-assignments">
+              {selected.map((i) => <div key={i} className="hp-room-assignment">
+                <div className="hp-room-assignment-guest"><Avatar name={pax[i].name} size={30} /><b>{pax[i].name}</b></div>
+                <Field label={`Номер для ${pax[i].name}`}><Select value={roomAssignments.byIndex[i] || ''} onChange={(event) => setGuestRooms((old) => ({ ...old, [i]: event.target.value }))}
+                  options={roomAssignments.slots.map((slot, n) => ({ value: `room:${n}`, label: `Номер ${n + 1} · ${slot.name} · ${slot.capacity} гостя` }))} /></Field>
+              </div>)}
+              {!selected.length && <div className="hp-hint">Выберите гостей, чтобы распределить их по номерам.</div>}
+            </div>
+            {!roomAssignments.valid && selected.length > 0 && <div className="hp-placement-alert" role="alert"><Icon name="alertCircle" /><span>Количество гостей в каждом номере должно соответствовать тарифу.</span></div>}
           </div>}
           <div className="hp-col-subtitle">4. Основной гость</div>
           <div className="hp-hint">Укажите гостя, который будет основным при проживании</div>

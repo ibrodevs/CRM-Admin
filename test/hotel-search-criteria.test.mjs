@@ -36,3 +36,22 @@ test('hotel filter matches address and words regardless of hyphens and ё', asyn
   assert.equal(hotelMatchesQuery(hotel, 'Измайловский 49'), true);
   assert.equal(hotelMatchesQuery(hotel, 'другой адрес'), false);
 });
+
+test('hotel search requires both dates, rejects past dates and same-day checkout', async () => {
+  const { hotelDateError } = await import('../src/modules/services/hotels/search-criteria.js');
+  const today = new Date(2026, 9, 22, 18, 30);
+  assert.match(hotelDateError(null, null, today), /Выберите даты/);
+  assert.match(hotelDateError(today, null, today), /Выберите даты/);
+  assert.match(hotelDateError(new Date(2026, 9, 21), new Date(2026, 9, 23), today), /прошлом/);
+  assert.match(hotelDateError(today, today, today), /позже/);
+  assert.equal(hotelDateError(new Date(2026, 9, 22), new Date(2026, 9, 23), today), '');
+});
+
+test('hotel occupancy retains adults and child ages separately in each supplier room', async () => {
+  const { hotelOccupancy } = await import('../src/modules/services/hotels/search-criteria.js');
+  const result = hotelOccupancy([{ adults: 2, childrenAges: [0, 7] }, { adults: 1, childrenAges: [17] }]);
+  assert.equal(result.valid, true);
+  assert.equal(result.guests, 6);
+  assert.deepEqual(result.rooms, [{ adults: 2, childrenAges: [0, 7], quantity: 1 }, { adults: 1, childrenAges: [17], quantity: 1 }]);
+  for (const rooms of [[], Array(6).fill({ adults: 2, childrenAges: [] }), [{ adults: 0, childrenAges: [] }], [{ adults: 2, childrenAges: [''] }], [{ adults: 2, childrenAges: [18] }]]) assert.equal(hotelOccupancy(rooms).valid, false);
+});

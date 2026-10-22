@@ -34,3 +34,20 @@ export function hotelMatchesQuery(hotel, query) {
   const text = normalize([hotel.name, hotel.addr, hotel.district, hotel.city].filter(Boolean).join(' '));
   return normalize(query).split(' ').every((word) => text.includes(word));
 }
+
+export function hotelDateError(checkin, checkout, today = new Date()) {
+  if (!checkin || !checkout) return 'Выберите даты заезда и выезда';
+  if (hotelDateOnly(checkin) < hotelDateOnly(today)) return 'Дата заезда не может быть в прошлом';
+  if (hotelDateOnly(checkout) <= hotelDateOnly(checkin)) return 'Дата выезда должна быть позже даты заезда';
+  return '';
+}
+
+export function hotelOccupancy(rooms) {
+  return {
+    rooms: rooms.map((room) => ({ adults: room.adults, childrenAges: [...room.childrenAges], quantity: 1 })),
+    guests: rooms.reduce((total, room) => total + room.adults + room.childrenAges.length, 0),
+    children: rooms.reduce((total, room) => total + room.childrenAges.length, 0),
+    valid: rooms.length >= 1 && rooms.length <= 5 && rooms.every((room) => Number.isInteger(room.adults) && room.adults >= 1 && room.adults <= 9
+      && room.childrenAges.length <= 4 && room.childrenAges.every((age) => Number.isInteger(age) && age >= 0 && age <= 17)),
+  };
+}
