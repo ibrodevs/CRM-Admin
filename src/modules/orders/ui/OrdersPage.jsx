@@ -6,7 +6,7 @@ import { ActionMenu } from '../../../shared/ui/ActionMenu.jsx';
 import { Avatar } from '../../../shared/ui/Avatar.jsx';
 import { Button } from '../../../shared/ui/Button.jsx';
 import { Checkbox } from '../../../shared/ui/Checkbox.jsx';
-import { DateField, DateRangeField, fmtDate } from '../../../shared/ui/DateFields.jsx';
+import { DateField, TripDateRangeField, fmtDate } from '../../../shared/ui/DateFields.jsx';
 import { EmptyState } from '../../../shared/ui/EmptyState.jsx';
 import { Field } from '../../../shared/ui/Field.jsx';
 import { FilterChip } from '../../../shared/ui/FilterChip.jsx';
@@ -590,7 +590,7 @@ function OrderCreateModal({ open, onClose, onCreated, initialGroup = false, init
 
               <div style={{ marginBottom: 14 }}>
                 {trip === 'rt' ? (
-                  <DateRangeField label="Даты поездки" startVal={depDate} endVal={retDate}
+                  <TripDateRangeField label="Даты поездки" startVal={depDate} endVal={retDate}
                     onChange={(s, e) => { setDepDate(s); setRetDate(e); }} placeholder="Туда — обратно" />
                 ) : (
                   <DateField label={trip === 'ow' ? 'Дата вылета' : 'Дата начала поездки'} value={depDate} onChange={setDepDate} placeholder="Выбрать дату" />

@@ -6,7 +6,7 @@ import { Avatar } from '../../../shared/ui/Avatar.jsx';
 import { Button } from '../../../shared/ui/Button.jsx';
 import { Checkbox } from '../../../shared/ui/Checkbox.jsx';
 import { ConfirmDialog, Drawer } from '../../../shared/ui/Overlays.jsx';
-import { DateField, DateRangeField, fmtDate } from '../../../shared/ui/DateFields.jsx';
+import { DateField, TripDateRangeField, fmtDate } from '../../../shared/ui/DateFields.jsx';
 import { EmptyState } from '../../../shared/ui/EmptyState.jsx';
 import { Field } from '../../../shared/ui/Field.jsx';
 import { FilterChip } from '../../../shared/ui/FilterChip.jsx';
@@ -273,7 +273,7 @@ function FlightSearch({ params, setParams, onSearch, onBack }) {
         {p.trip === 'rt' ? (
           <div className="av-field" style={{ width: 230 }}>
             <span className="label">Даты поездки</span>
-            <DateRangeField startVal={p.depDate} endVal={p.retDate} onChange={(s, e) => set({ depDate: s, retDate: e })} placeholder="Туда — обратно" />
+            <TripDateRangeField startVal={p.depDate} endVal={p.retDate} onChange={(s, e) => set({ depDate: s, retDate: e })} placeholder="Туда — обратно" />
           </div>
         ) : (
           <div className="av-field" style={{ width: 156 }}>

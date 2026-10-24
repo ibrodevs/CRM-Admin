@@ -1,3 +1,4 @@
+import { completeDateRange, localDay } from './date-range.js';
 import { useState, useEffect, useRef, useMemo } from 'react';
 import { calendarMonths } from './calendar-months.js';
 import ReactDOM from 'react-dom';
@@ -37,9 +38,9 @@ function sameDayEq(a, b) {
   return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
 }
 
-function CalendarPicker({ mode = 'range', startVal = null, endVal = null, onConfirm, onClose, autoConfirm = false, rangeStartLabel = 'Далее', minDate = null, requireComplete = false }) {
+function CalendarPicker({ mode = 'range', startVal = null, endVal = null, onConfirm, onClose, autoConfirm = false, rangeStartLabel = 'Далее', minDate = null, requireComplete = false, allowSameDay = false }) {
   const now = new Date();
-  const minimum = minDate ? new Date(minDate.getFullYear(), minDate.getMonth(), minDate.getDate()) : null;
+  const minimum = localDay(minDate);
   const [month, setMonth] = useState(startVal ? startVal.getMonth() : now.getMonth());
   const [year, setYear] = useState(startVal ? startVal.getFullYear() : now.getFullYear());
   const [selS, setSelS] = useState(startVal);
@@ -71,7 +72,7 @@ function CalendarPicker({ mode = 'range', startVal = null, endVal = null, onConf
     if (phase === 'start' || !selS) {
       setSelS(new Date(d)); setSelE(null); setPhase('end');
     } else {
-      if (requireComplete && sameDayEq(d, selS)) return;
+      if (requireComplete && !allowSameDay && sameDayEq(d, selS)) return;
       let s = selS, e = new Date(d);
       if (e < s) { const t = s; s = e; e = t; }
       setSelS(new Date(s)); setSelE(new Date(e)); setPhase('start');
@@ -145,13 +146,13 @@ function CalendarPicker({ mode = 'range', startVal = null, endVal = null, onConf
           style={{ width: '100%', border: '1px solid var(--line)', borderRadius: 8, padding: 10, background: 'var(--surface)', color: 'var(--blue)', cursor: 'pointer', fontFamily: 'inherit' }}>Показать ещё месяцы</button>}
       </div>
       <div style={{ flexShrink: 0, textAlign: 'center', fontSize: 13, color: 'var(--muted)', margin: '10px 0', minHeight: 18 }} aria-live="polite">
-        {mode === 'range' && !selE ? (selS ? (requireComplete ? 'Выберите дату выезда' : 'Выберите конец периода') : (requireComplete ? 'Выберите дату заезда' : 'Выберите начало периода')) : periodText ? (mode === 'range' ? `Выбранный период: ${periodText}` : periodText) : 'Выберите дату'}
+        {mode === 'range' && !selE ? (selS ? (requireComplete && !allowSameDay ? 'Выберите дату выезда' : 'Выберите конец периода') : (requireComplete && !allowSameDay ? 'Выберите дату заезда' : 'Выберите начало периода')) : periodText ? (mode === 'range' ? `Выбранный период: ${periodText}` : periodText) : 'Выберите дату'}
         {mode === 'range' && selS && !selE && <div>Начало: {readableDate(selS)}</div>}
       </div>
       <div style={{ flexShrink: 0 }}>
         <Button variant="primary" style={{ width: '100%', marginBottom: 6 }}
           onClick={() => { if (!selS) return; const onlyStart = mode === 'range' && !selE; onlyStart ? onConfirm(selS, null) : onConfirm(selS, mode === 'range' ? selE : undefined); }}
-          disabled={!selS || Boolean(minimum && selS < minimum) || (requireComplete && (!selE || selE <= selS))}>
+          disabled={!selS || Boolean(minimum && selS < minimum) || (requireComplete && !completeDateRange(selS, selE, { minDate, allowSameDay }))}>
           {mode === 'range' && selS && !selE ? rangeStartLabel : 'Далее'}
         </Button>
         <button type="button" onClick={onClose} style={{ width: '100%', border: 'none', background: 'none', color: 'var(--muted)', cursor: 'pointer', fontSize: 14, padding: '5px 0', fontFamily: 'inherit' }}>Закрыть</button>
@@ -215,7 +216,7 @@ function DateField({ label, value, onChange, placeholder = 'Выбрать да�
   );
 }
 
-function DateRangeField({ label, startVal, endVal, onChange, placeholder = 'Выбрать период', style, autoConfirm = true, rangeStartLabel = 'Далее', minDate = null, requireComplete = false, error = false }) {
+function DateRangeField({ label, startVal, endVal, onChange, placeholder = 'Выбрать период', style, autoConfirm = true, rangeStartLabel = 'Далее', minDate = null, requireComplete = false, allowSameDay = false, error = false }) {
   const [open, setOpen] = useState(false);
   const [pos, setPos] = useState({ top: 0, left: 0 });
   const ref = useRef(null);
@@ -252,7 +253,7 @@ function DateRangeField({ label, startVal, endVal, onChange, placeholder = 'Вы
     <div ref={ref} style={{ position: 'relative', ...style }}>
       {label && <label className="label" style={{ display: 'block', marginBottom: 7 }}>{label}</label>}
       <button type="button" aria-label={label || placeholder} aria-expanded={open} aria-invalid={Boolean(error)} className={'input' + (error ? ' err' : '')}
-        style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 10 }}
+        style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 10, textAlign: 'left' }}
         onClick={toggle}>
         <Icon name="calendar" style={{ width: 18, height: 18, color: 'var(--muted-2)', flexShrink: 0 }} />
         <span style={{ color: display ? 'var(--ink)' : 'var(--faint)', fontSize: 15, flex: 1 }}>
@@ -262,7 +263,7 @@ function DateRangeField({ label, startVal, endVal, onChange, placeholder = 'Вы
       {open && ReactDOM.createPortal(
         <div id="__calr_portal__" style={{ position: 'fixed', top: pos.top, left: pos.left, zIndex: 9999 }}>
           <CalendarPicker mode="range" startVal={startVal || null} endVal={endVal || null}
-            autoConfirm={autoConfirm} rangeStartLabel={rangeStartLabel} minDate={minDate} requireComplete={requireComplete}
+            autoConfirm={autoConfirm} rangeStartLabel={rangeStartLabel} minDate={minDate} requireComplete={requireComplete} allowSameDay={allowSameDay}
             onConfirm={(s, e) => { onChange(s, e); setOpen(false); }}
             onClose={() => setOpen(false)} />
         </div>,
@@ -270,6 +271,12 @@ function DateRangeField({ label, startVal, endVal, onChange, placeholder = 'Вы
       )}
     </div>
   );
+}
+
+// Travel searches require a complete, future range; same-day return is valid.
+function TripDateRangeField(props) {
+  const today = localDay(new Date());
+  return <DateRangeField placeholder="Туда — обратно" {...props} minDate={today} requireComplete allowSameDay />;
 }
 
 // Шаблонизированный выбор времени: только выбор из списка (часы + минуты), без произвольного ввода.
@@ -357,7 +364,7 @@ Object.assign(window, {
   printOverlayScope, holdOverlaysDuringPrint, isPrintGuardActive,
   ConfirmDialog, Tabs, FilterChip, Pagination, Th, useSort,
   EmptyState, SkeletonRows, ActionMenu,
-  fmtDate, CalendarPicker, DateField, DateRangeField, TimeField,
+  fmtDate, CalendarPicker, DateField, DateRangeField, TripDateRangeField, TimeField,
 });
 
-export { CAL_MONTHS, CAL_DAYS, fmtDate, sameDayEq, CalendarPicker, DateField, DateRangeField, TimeField };
+export { CAL_MONTHS, CAL_DAYS, fmtDate, sameDayEq, CalendarPicker, DateField, DateRangeField, TripDateRangeField, TimeField };
