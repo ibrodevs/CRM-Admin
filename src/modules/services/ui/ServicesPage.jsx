@@ -1,3 +1,4 @@
+import { HotelServiceTools } from '../hotels/HotelContent.jsx';
 import { freeBookingDate, validateFreeServiceSearch, waitFreeBookingOffers, freeBookingAvailabilityTags } from '../free-booking-search.js';
 import { useState, useEffect, useRef } from 'react';
 import { ChannelIcon, Icon } from '../../../shared/icons/index.jsx';
@@ -1371,6 +1372,7 @@ function SvcCard({ item, kind, participants = [], hideBackRow, onBack }) {
       {tab === 'pax' && (
         <div>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12, gap: 12, flexWrap: 'wrap' }}>
+            <HotelServiceTools serviceId={serviceId} capabilities={item.hotel_documents} />
             <div style={{ fontSize: 14, color: 'var(--muted)' }}>{pax.length ? pax.length + (isHotel ? ' гост.' : ' участ.') + ' в услуге' : (isHotel ? 'Гости не указаны' : 'Участники не указаны')}</div>
             <Button size="sm" icon="plus" onClick={() => setAddPaxOpen(true)}>{isHotel ? 'Добавить гостя' : 'Добавить пассажира'}</Button>
           </div>

@@ -995,7 +995,7 @@ function OrdersList({ orders, onOpen, onCreate, onNavigate, currentUser }) {
                       <td><span className="order-list-date">{o.date || '—'}</span></td>
                       <td className="t-strong">{o.client}</td>
                       <td><Pill tone="blue">{o.requestType}</Pill></td>
-                      <td><Pill tone={ORDER_STATUS[o.status]}>{o.status}</Pill></td>
+                      <td><Pill tone={ORDER_STATUS[o.status]}>{o.status === 'Требует проверки' ? 'Проверить' : o.status}</Pill></td>
                       <td><Pill tone={SERVICE_TYPE[o.service]}>{o.service}</Pill></td>
                       <td><div className="t-strong">{o.operator}</div><div className="t-sub">{o.operatorRole}</div></td>
                       <td className="t-strong">{moneyRowsText(o.totals || [{ amount: o.sum, currency: o.currency }], o.currency)}</td>

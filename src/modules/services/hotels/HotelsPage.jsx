@@ -1,3 +1,4 @@
+import { HotelContent } from './HotelContent.jsx';
 import { HotelOccupancyPicker } from './HotelOccupancyPicker.jsx';
 import { clientsApi } from '../../clients/api.js';
 import { hotelPersonToGuest, hotelGuestSelection, hotelRoomAssignments } from './guests.js';
@@ -105,7 +106,7 @@ function HotelResultCard({ h, onPick }) {
   return (
     <div className="hp-card">
       <div className="hp-card-photo">
-        <div className={'hp-photo hp-photo-' + h.id} />
+        {h.itinerary?.photo_url ? <img className="hp-photo" src={h.itinerary.photo_url} alt={h.name} loading="lazy" referrerPolicy="no-referrer" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <div className="hp-photo" style={{ display: 'grid', placeItems: 'center', color: 'var(--muted)' }}>Фото не передано</div>}
         {h.breakfast && <span className="hp-photo-badge"><Icon name="coffee" />Завтрак включён</span>}
       </div>
       <div className="hp-card-main">
@@ -590,7 +591,7 @@ function HotelPicker({ participants, group = false, onApply, onCancel, currency 
 function HotelPanelHead({ hotel, checkin, checkout, nights, guestsLabel, guests, rooms, onEdit }) {
   return (
     <div className="hp-panel-head">
-      <div className={'hp-photo hp-photo-sm hp-photo-' + hotel.id} />
+      {hotel.itinerary?.photo_url ? <img className="hp-photo hp-photo-sm" src={hotel.itinerary.photo_url} alt={hotel.name} referrerPolicy="no-referrer" style={{ objectFit: 'cover' }} /> : <div className="hp-photo hp-photo-sm" />}
       <div className="hp-ph-info">
         <div className="hp-ph-name">{hotel.name} <span className="hp-stars">{hpStars(hotel.stars)}</span></div>
         <div className="hp-ph-addr">{hotel.addr}{hotel.metro != null ? ` · ${hotel.metro} м до метро` : ''}</div>
@@ -618,6 +619,7 @@ function RoomPanel({ hotel, selRoom, selTariff, onPickRoom, checkin, checkout, g
     <StackPanel title="Выбор номера" width="min(1240px,96vw)" onClose={onClose}>
       <HotelPanelHead hotel={hotel} checkin={checkin} checkout={checkout} nights={nights} guestsLabel={guestsLabel} onEdit={onClose} />
 
+      {hotel.provider_adapter === 'hotelbook' && <HotelContent offerId={hotel._backendOfferId} />}
       <div className="hp-room-grid">
 
         <div className="hp-room-col">

@@ -1,7 +1,14 @@
 import { apiPath, apiRequest, queryString } from '../../../shared/api/client.js';
 import { list, get, create, patch, remove } from '../../../shared/api/operations.js';
 
+const hotelContentPath = ({ offerId, serviceId }) => serviceId
+  ? `services/${serviceId}/hotel-content/`
+  : `service-offers/${offerId}/hotel-content/`;
+
 export const servicesApi = {
+  hotelContent: (ids, signal) => get(hotelContentPath(ids), signal),
+  hotelRoomsCsv: (ids) => apiRequest(apiPath(`${hotelContentPath(ids)}?export=csv`), { accept: 'text/csv' }),
+  hotelCertificate: (id) => create(`services/${id}/hotel-certificate/`, {}),
   list: (params = {}, signal) => list('services/', { page_size: 100, ...params }, signal),
   detail: (id, signal) => get(`services/${id}/`, signal),
   update: (id, body) => patch(`services/${id}/`, body),

@@ -212,7 +212,7 @@ function OrdersMultiSelectList({ orders, onOpen, onCreate, onNavigate, currentUs
                       <td><span className="order-list-date">{o.date || '—'}</span></td>
                       <td className="t-strong">{o.client}</td>
                       <td><Pill tone="blue">{o.requestType}</Pill></td>
-                      <td><Pill tone={STATUS_TONE[o.status] || 'gray'}>{o.status}</Pill></td>
+                      <td><Pill tone={STATUS_TONE[o.status] || 'gray'}>{o.status === 'Требует проверки' ? 'Проверить' : o.status}</Pill></td>
                       <td><Pill tone="blue">{o.service}</Pill></td>
                       <td><div className="t-strong">{o.operator}</div><div className="t-sub">{o.operatorRole}</div></td>
                       <td className="t-strong">{moneyRowsText(o.totals || [{ amount: o.sum, currency: o.currency }], o.currency)}</td>

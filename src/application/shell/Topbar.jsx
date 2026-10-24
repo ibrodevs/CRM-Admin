@@ -20,7 +20,7 @@ function Breadcrumbs({ route, ctxOrder, onNavigate }) {
         return (
           <React.Fragment key={i}>
             {i > 0 && <Icon name="chevRight" className="crumb-sep" />}
-            <span className={'crumb' + (last ? ' cur' : '')}
+            <span className={'crumb' + (last ? ' cur' : '')} title={c.label}
               onClick={() => { if (!last && !c.noNav && c.key) onNavigate(c.key); }}>{c.label}</span>
           </React.Fragment>
         );
@@ -61,7 +61,7 @@ function GlobalTopbar({ route, ctxOrder, onNavigate, onOpenOrder, onCreateClient
   return (
     <div className="gtop">
       <style>{'.topbar .search[style*="width: 220px"],.topbar .search:has(input[placeholder="Поиск"]){display:none!important}'}</style>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
+      <div className="gtop-nav">
         {onToggleSidebar && (
           <button
             type="button"

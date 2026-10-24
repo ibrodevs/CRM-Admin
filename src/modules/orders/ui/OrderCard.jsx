@@ -35,7 +35,7 @@ import { DocCenter } from '../../documents/index.js';
 import { listAll } from '../../../shared/api/operations.js';
 import { ReturnsModule } from '../../returns/index.js';
 import { AeroAddFlow, ManualAltForm, RailAddFlow, ServiceAddFlow, ServiceCardHistoryDrawer, ServiceCardSendPanel } from '../../services/index.js';
-import { HotelPicker, resolveHotelParticipants } from '../../services/index.js';
+import { HotelPicker, resolveHotelParticipants, HotelServiceTools } from '../../services/index.js';
 import { activeOrderServices, moneyRowsText, serviceMoneyRows, financeRowsTotal, financeSnapshot, normalizeCurrency, ocCurrency, ocMoney, opDebt, opPayable, orderFinanceCurrency, svcCalc } from '../model/finance.jsx';
 import { communicationsApi } from '../../chats/api.js';
 import { documentsApi } from '../../documents/api.js';
@@ -899,7 +899,7 @@ function LiveServiceCardHistoryDrawer({ orderId, serviceId, title, onClose }) {
 
 function ServiceBlock({ s, participants, documents, orderNo, open, onToggle, onCancel, onExchange, onOpenChat,
   onOpenPassenger, onAddPassengerDoc, onUploadDocument, onOpenDocument, onDeleteService, selectable, selected, onSelect,
-  focusedParticipant, orderId, onSendServiceCard }) {
+  focusedParticipant, orderId, onSendServiceCard, onCertificateCreated }) {
   const toast = useToast();
   const fileRef = useRef(null);
   const [sendOpen, setSendOpen] = useState(false);
@@ -1056,6 +1056,7 @@ function ServiceBlock({ s, participants, documents, orderNo, open, onToggle, onC
               </div>
             </div>
 
+            <HotelServiceTools serviceId={s.serverId || s.id} capabilities={s.hotel_documents} onDocumentCreated={onCertificateCreated} />
             <div className="osrv-actions">
               <Button variant="secondary" icon="refund" onClick={() => onCancel(s)}>Отменить</Button>
               <Button icon="swap" onClick={() => onExchange(s)}>Запросить обмен</Button>
@@ -3172,7 +3173,7 @@ function OrderCard({ order, company, clients = [], onBack, initTab, initSvc, ini
             <Button size="sm" icon="template" disabled={sel.size === 0} onClick={assembleSelected}>Собрать КП</Button>
           </div>
         )}
-        <OrderServicesBoard services={services} participants={participants} documents={orderDocs} orderNo={order.no}
+        <OrderServicesBoard services={services} participants={participants} documents={orderDocs} orderNo={order.no} onCertificateCreated={() => refreshDocuments()}
           expanded={expandedSvc} onToggle={toggleSvc} onAdd={() => goAddType(addKind)}
           selMode={selMode} sel={sel} onSel={toggleSel}
           renderExtra={null}

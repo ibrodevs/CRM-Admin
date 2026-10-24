@@ -41,3 +41,5 @@ export { freeFlightFareOptions, freeFlightLocalPassengers, freeFlightFareDetails
 export { FreeBookingExtrasTabs } from './flights/AviaPicker.jsx';
 
 export { FreeBookingServiceAddFlow, FreeBookingAeroAddFlow } from './ui/ServicesPage.jsx';
+
+export { HotelServiceTools } from './hotels/HotelContent.jsx';
