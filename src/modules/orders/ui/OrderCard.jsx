@@ -2199,7 +2199,7 @@ function FreeBookingFlightPanel({ params, setParams, onAdd }) {
           <button className={view === 'cards' ? 'on' : ''} onClick={() => setView('cards')}><Icon name="grid" />Карточки</button>
           <button className={view === 'list' ? 'on' : ''} onClick={() => setView('list')}><Icon name="orders" />Список</button>
         </div>
-        {view === 'cards' && <div style={{ minWidth: 190 }}><Select options={[{ value: 'price', label: 'Сортировка: Цена' }]} value="price" onChange={() => {}} /></div>}
+        <div style={{ minWidth: 190 }}><Select options={[{ value: 'price', label: 'Сортировка: Цена' }]} value="price" onChange={() => {}} /></div>
       </div>
       <div className="hp-layout">
         <AviaFilters flt={flt} setFlt={setFlt} bounds={aviaBounds} offers={liveOffers} />
