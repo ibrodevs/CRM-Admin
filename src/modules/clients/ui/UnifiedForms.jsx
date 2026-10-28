@@ -248,7 +248,7 @@ function UnifiedPersonIntake({ mode, onMode, onApply, disabled }) {
   );
 }
 
-function UnifiedPersonFields({ value, onChange, errors = {}, departments = [], showRole = false, showStatus = true, showDocuments = false, onManageDocs, intake = null }) {
+function UnifiedPersonFields({ value, onChange, errors = {}, departments = [], showRole = false, showStatus = true, showDocuments = false, onManageDocs, intake = null, compact = false, showLatin = false, bookingDocumentRequired = false }) {
   const p = value;
   const set = (k, v) => onChange({ ...p, [k]: v });
   const isEmp = p.kind === 'employee';
@@ -257,12 +257,16 @@ function UnifiedPersonFields({ value, onChange, errors = {}, departments = [], s
       {intake}
       <PanelSub style={{ marginTop: 0 }}>Личные данные</PanelSub>
       <div className="form-grid">
-        <Field label="Фамилия" required error={errors.name}><Input value={p.lastName} onChange={(e) => set('lastName', e.target.value)} placeholder="Иванов" error={errors.name} /></Field>
-        <Field label="Имя" required><Input value={p.firstName} onChange={(e) => set('firstName', e.target.value)} placeholder="Иван" /></Field>
+        <Field label="Фамилия" required error={errors.lastName || errors.name}><Input value={p.lastName} onChange={(e) => set('lastName', e.target.value)} placeholder="Иванов" error={errors.lastName || errors.name} /></Field>
+        <Field label="Имя" required error={errors.firstName}><Input value={p.firstName} onChange={(e) => set('firstName', e.target.value)} placeholder="Иван" /></Field>
         <Field label="Отчество"><Input value={p.middleName} onChange={(e) => set('middleName', e.target.value)} placeholder="Иванович" /></Field>
-        <UFDateField label="Дата рождения" value={p.dob || null} onChange={(v) => set('dob', v)} placeholder="дд.мм.гггг" />
-        <Field label="Пол"><Select placeholder="Не указан" options={UF_GENDER} value={p.gender} onChange={(e) => set('gender', e.target.value)} /></Field>
-        <Field label="Гражданство"><Select options={UF_CITIZENSHIP} value={p.citizenship} onChange={(e) => set('citizenship', e.target.value)} /></Field>
+        {showLatin && <>
+          <Field label="Фамилия латиницей" required error={errors.latLast}><Input value={p.latLast || ''} onChange={(e) => set('latLast', e.target.value)} placeholder="IVANOV" /></Field>
+          <Field label="Имя латиницей" required error={errors.latFirst}><Input value={p.latFirst || ''} onChange={(e) => set('latFirst', e.target.value)} placeholder="IVAN" /></Field>
+        </>}
+        <UFDateField label="Дата рождения" required={compact} error={errors.dob} value={p.dob || null} onChange={(v) => set('dob', v)} placeholder="дд.мм.гггг" />
+        <Field label="Пол" required={compact} error={errors.gender}><Select placeholder="Не указан" options={UF_GENDER} value={p.gender} onChange={(e) => set('gender', e.target.value)} /></Field>
+        <Field label="Гражданство" required={compact} error={errors.citizenship}><Select placeholder="Выберите гражданство" options={p.citizenship && !UF_CITIZENSHIP.includes(p.citizenship) ? [...UF_CITIZENSHIP, p.citizenship] : UF_CITIZENSHIP} value={p.citizenship} onChange={(e) => set('citizenship', e.target.value)} /></Field>
         {showRole && <Field label="Категория в поездке"><Select options={UF_PAX_ROLES} value={p.role} onChange={(e) => set('role', e.target.value)} /></Field>}
       </div>
 
@@ -287,13 +291,16 @@ function UnifiedPersonFields({ value, onChange, errors = {}, departments = [], s
         </>
       )}
 
+      {(!compact || bookingDocumentRequired) && <>
       <PanelSub>Документ</PanelSub>
       <div className="form-grid">
         <Field label="Тип документа"><Select options={UF_DOC_TYPES} value={p.docType} onChange={(e) => set('docType', e.target.value)} /></Field>
-        <Field label="Номер документа"><Input value={p.docNo} onChange={(e) => set('docNo', e.target.value)} placeholder="AC 1234567" leadIcon="idcard" /></Field>
-        <UFDateField label="Срок действия" value={p.docExpiry || null} onChange={(v) => set('docExpiry', v)} placeholder="дд.мм.гггг" />
+        <Field label="Номер документа" required={bookingDocumentRequired} error={errors.docNo}><Input value={p.docNo} onChange={(e) => set('docNo', e.target.value)} placeholder="AC 1234567" leadIcon="idcard" /></Field>
+        <UFDateField label="Срок действия" error={errors.docExpiry} value={p.docExpiry || null} onChange={(v) => set('docExpiry', v)} placeholder="дд.мм.гггг" />
       </div>
 
+      </>}
+      {!compact && <>
       <PanelSub>Контакты</PanelSub>
       <div className="form-grid">
         <Field label="Основной телефон"><Input value={p.phone} onChange={(e) => set('phone', e.target.value)} placeholder="+996 (___) __-__-__" leadIcon="phone" /></Field>
@@ -326,6 +333,7 @@ function UnifiedPersonFields({ value, onChange, errors = {}, departments = [], s
 
       <PanelSub>Дополнительно <span style={{ textTransform: 'none', fontWeight: 400, color: 'var(--faint)' }}>(необязательно)</span></PanelSub>
       <textarea className="input" rows={3} placeholder="Комментарий" value={p.comment} onChange={(e) => set('comment', e.target.value)} style={{ resize: 'vertical', width: '100%' }} />
+      </>}
     </>
   );
 }

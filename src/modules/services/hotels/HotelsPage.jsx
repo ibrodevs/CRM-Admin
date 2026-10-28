@@ -1,3 +1,5 @@
+import { HotelGuestCreateDrawer } from './HotelGuestCreateDrawer.jsx';
+import { mergeHotelGuests, selectCreatedHotelGuest, validateHotelBookingGuests } from './guest-create.js';
 import { HotelContent } from './HotelContent.jsx';
 import { HotelOccupancyPicker } from './HotelOccupancyPicker.jsx';
 import { clientsApi } from '../../clients/api.js';
@@ -174,13 +176,18 @@ function HotelFilters({ stars, toggleStar, starCounts, districts, distSel, toggl
 
 
 
-function HotelPicker({ participants, group = false, onApply, onCancel, currency }) {
+function HotelPicker({ participants, group = false, onApply, onCancel, currency, orderId }) {
   const toast = useToast();
   const [crmGuests, setCrmGuests] = useState([]);
   const [guestsLoading, setGuestsLoading] = useState(false);
   const [guestsError, setGuestsError] = useState('');
-  const hasOrderGuests = Array.isArray(participants) && participants.length > 0;
-  const PAX = hasOrderGuests ? participants : crmGuests;
+  const [addedGuests, setAddedGuests] = useState([]);
+  const [createGuestOpen, setCreateGuestOpen] = useState(false);
+  const [editGuestPersonId, setEditGuestPersonId] = useState(null);
+  const [addingOffer, setAddingOffer] = useState(false);
+  const [guestBookingError, setGuestBookingError] = useState('');
+  const hasOrderGuests = !!orderId || (Array.isArray(participants) && participants.length > 0);
+  const PAX = hasOrderGuests ? mergeHotelGuests(participants || [], addedGuests) : crmGuests;
 
 
   const [dest, setDest] = useState('');
@@ -237,7 +244,7 @@ function HotelPicker({ participants, group = false, onApply, onCancel, currency 
     const controller = new AbortController();
     setGuestsLoading(true); setGuestsError('');
     clientsApi.persons({}, controller.signal).then((payload) => {
-      if (!controller.signal.aborted) setCrmGuests(resultsOf(payload).map(hotelPersonToGuest));
+      if (!controller.signal.aborted) setCrmGuests((current) => mergeHotelGuests(current, resultsOf(payload).map(hotelPersonToGuest)));
     }).catch((error) => {
       if (!controller.signal.aborted) setGuestsError(error.message || 'Не удалось загрузить гостей');
     }).finally(() => { if (!controller.signal.aborted) setGuestsLoading(false); });
@@ -402,6 +409,7 @@ function HotelPicker({ participants, group = false, onApply, onCancel, currency 
     } : {}),
     title: activeHotel.name + ' · ' + activeHotel.stars + '★',
     sub,
+    guestBookingDocuments: Object.fromEntries((groupMode ? PAX : hotelGuestSelection(PAX, guestSel, mainGuest)).filter((p) => p.person && p.bookingDocument).map((p) => [p.person, p.bookingDocument])),
     cost: grandTotal, fee: 0, supplier: activeHotel.supplier,
     info: [{ l: 'Заезд', v: fmtDate(checkin) }, { l: 'Выезд', v: fmtDate(checkout) }, { l: 'Ночей', v: nights }],
     tags: [selRoom.name, activeHotel.itinerary?.meal_plan].filter(Boolean),
@@ -410,11 +418,28 @@ function HotelPicker({ participants, group = false, onApply, onCancel, currency 
       ? { participantIds: (groupMode ? PAX : hotelGuestSelection(PAX, guestSel, mainGuest)).map((p) => p.serverId || p.id) }
       : { guestPersonIds: (groupMode ? PAX : hotelGuestSelection(PAX, guestSel, mainGuest)).map((p) => p.person), guestNames: (groupMode ? PAX : hotelGuestSelection(PAX, guestSel, mainGuest)).map((p) => p.name) }),
   });
-  const finalizeSingle = () => {
-    const sub = `${selRoom.name} · ${nights} ${nights === 1 ? 'ночь' : 'ночи'} · ${selTariff.name}`;
-    onApply && onApply(buildOffer(sub));
-    toast('Вариант гостиницы выбран', 'ok');
-    closeAll();
+  const acceptCreatedGuest = (guest) => {
+    const next = editGuestPersonId
+      ? { guests: mergeHotelGuests(PAX, [guest]), selection: guestSel, mainGuest }
+      : selectCreatedHotelGuest(PAX, guestSel, mainGuest, guest);
+    if (hasOrderGuests) setAddedGuests((current) => mergeHotelGuests(current, [guest]));
+    else setCrmGuests(next.guests);
+    setGuestSel(next.selection);
+    setMainGuest(next.mainGuest);
+    setGuestBookingError('');
+    toast(editGuestPersonId ? 'Данные гостя сохранены' : 'Гость сохранён в CRM и выбран для бронирования', 'ok');
+  };
+  const finalizeSingle = async () => {
+    if (addingOffer) return;
+    setAddingOffer(true); setGuestBookingError('');
+    try {
+      if (activeHotel.provider_adapter === 'hotelbook') await validateHotelBookingGuests(hotelGuestSelection(PAX, guestSel, mainGuest), clientsApi, { documentRequired: true, checkout: hotelDateOnly(checkout) });
+      const sub = `${selRoom.name} · ${nights} ${nights === 1 ? 'ночь' : 'ночи'} · ${selTariff.name}`;
+      await onApply?.(buildOffer(sub));
+      toast('Вариант гостиницы выбран', 'ok');
+      closeAll();
+    } catch (error) { setGuestBookingError(error.message || 'Не удалось добавить гостиницу'); }
+    finally { setAddingOffer(false); }
   };
   const finalizeGroup = () => {
     if (activeHotel.provider_adapter === 'hotelbook') {
@@ -533,11 +558,13 @@ function HotelPicker({ participants, group = false, onApply, onCancel, currency 
       {panel === 'pax' && activeHotel && (
         <PaxPlacementPanel hotel={activeHotel} room={selRoom} tariff={selTariff} pax={PAX} nights={nights}
           checkin={checkin} checkout={checkout} requestedGuests={searchGuests} requestedRooms={searchRooms}
-          guestsLoading={guestsLoading} guestsError={guestsError}
+          guestsLoading={guestsLoading} guestsError={guestsError} onCreateGuest={() => { setEditGuestPersonId(null); setCreateGuestOpen(true); }} onEditGuest={(guest) => { setEditGuestPersonId(guest.person); setCreateGuestOpen(true); }} addingOffer={addingOffer} guestBookingError={guestBookingError}
           bedType={bedType} setBedType={setBedType} mainGuest={mainGuest} setMainGuest={setMainGuest}
           guestSel={guestSel} setGuestSel={setGuestSel} guestRooms={guestRooms} setGuestRooms={setGuestRooms} specialReq={specialReq} setSpecialReq={setSpecialReq}
           onClose={closeAll} onBack={() => setPanel('room')} onAdd={finalizeSingle} />
       )}
+
+      {createGuestOpen && <HotelGuestCreateDrawer personId={editGuestPersonId} documentRequired={activeHotel?.provider_adapter !== 'aanda'} checkout={hotelDateOnly(checkout)} orderId={orderId} onClose={() => setCreateGuestOpen(false)} onCreated={acceptCreatedGuest} />}
 
       {panel === 'group' && activeHotel && (
         <GroupAccommodationPanel hotel={activeHotel} pax={PAX} nights={nights} checkin={checkin} checkout={checkout}
@@ -678,7 +705,7 @@ function RoomPanel({ hotel, selRoom, selTariff, onPickRoom, checkin, checkout, g
 }
 
 
-function PaxPlacementPanel({ hotel, room, tariff, pax, nights, checkin, checkout, requestedGuests, requestedRooms, guestsLoading, guestsError, bedType, setBedType, mainGuest, setMainGuest, guestSel, setGuestSel, guestRooms, setGuestRooms, specialReq, setSpecialReq, onClose, onBack, onAdd }) {
+function PaxPlacementPanel({ hotel, room, tariff, pax, nights, checkin, checkout, requestedGuests, requestedRooms, guestsLoading, guestsError, onCreateGuest, onEditGuest, addingOffer, guestBookingError, bedType, setBedType, mainGuest, setMainGuest, guestSel, setGuestSel, guestRooms, setGuestRooms, specialReq, setSpecialReq, onClose, onBack, onAdd }) {
   const selected = pax.map((_, i) => i).filter((i) => guestSel[i]);
   const cap = Math.min(room.cap || requestedGuests, requestedGuests);
   const fixedBeds = hotel.provider_adapter === 'hotelbook';
@@ -697,7 +724,7 @@ function PaxPlacementPanel({ hotel, room, tariff, pax, nights, checkin, checkout
         <Button variant="secondary" icon="chevLeft" onClick={onBack}>Назад</Button>
         <div style={{ flex: 1 }} />
         <div className="hp-foot-total">Итого<b>{hpM(total, tariff.currency)}</b></div>
-        <Button icon="check" disabled={!placementReady || guestsLoading} onClick={onAdd}>Добавить в заказ</Button>
+        <Button icon="check" disabled={!placementReady || guestsLoading || addingOffer} onClick={onAdd}>Добавить в заказ</Button>
       </>}>
       <HotelPanelHead hotel={hotel} checkin={checkin} checkout={checkout} nights={nights} guests={requestedGuests} rooms={requestedRooms} onEdit={onBack} />
 
@@ -728,7 +755,10 @@ function PaxPlacementPanel({ hotel, room, tariff, pax, nights, checkin, checkout
           <div className="hp-hint">Выерите гостей, которые будут проживать в номере. Назначено {selected.length} из {requestedGuests}</div>
           {guestsLoading && <div className="hp-hint" role="status">Загружаем гостей из CRM…</div>}
           {guestsError && <div className="hp-hint" role="alert">{guestsError}</div>}
-          {!guestsLoading && !guestsError && !pax.length && <div className="hp-hint">В CRM пока нет гостей. Добавьте человека в разделе «Клиенты», затем откройте подбор заново.</div>}
+          {!guestsLoading && !guestsError && !pax.length && <div className="hp-hint">Гостей пока нет. Добавьте нового гостя здесь — выбранный отель и тариф сохранятся.</div>}
+          <Button variant="secondary" size="sm" icon="plus" disabled={guestsLoading || addingOffer || selected.length >= cap} onClick={onCreateGuest}>Добавить нового гостя</Button>
+          {selected.length >= cap && <div className="hp-hint">Чтобы выбрать нового гостя, сначала снимите выбор с одного из текущих.</div>}
+          {guestBookingError && <div className="hp-placement-alert" role="alert">{guestBookingError}</div>}
           <div className="hp-guest-list">
             {pax.map((p, i) => {
               const on = !!guestSel[i]; const dis = !on && selected.length >= cap;
@@ -738,6 +768,7 @@ function PaxPlacementPanel({ hotel, room, tariff, pax, nights, checkin, checkout
                   <Avatar name={p.name} size={32} />
                   <div className="hp-guest-info"><div className="nm">{p.name}</div><div className="mt">{p.docType ? `${p.docType} ${p.docNo || p.doc || ''}` : p.dob ? `Дата рождения: ${String(p.dob).replace(/^(\d{4})-(\d{2})-(\d{2})$/, '$3.$2.$1')}` : 'Данные гостя из CRM'}</div></div>
                   <span className="hp-guest-role">{p.role}</span>
+                  {p.person && <Button variant="ghost" size="sm" icon="edit" title="Данные гостя" aria-label={`Изменить данные ${p.name}`} disabled={addingOffer} onClick={(event) => { event.preventDefault(); event.stopPropagation(); onEditGuest(p); }} />}
                 </label>
               );
             })}

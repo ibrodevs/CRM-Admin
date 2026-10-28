@@ -3,7 +3,7 @@ import { Icon } from '../../shared/icons/index.jsx';
 import { ActionMenu } from '../../shared/ui/ActionMenu.jsx';
 import { ShiftControl } from '../../modules/workforce/index.js';
 import { ROUTE_LABELS, SERVICE_PARENT, ORDER_OPS_PARENT } from '../routing/labels.js';
-import { roleHasPerm, RoleSwitcher } from '../../shared/auth/permissions.jsx';
+import { roleHasPerm } from '../../shared/auth/permissions.jsx';
 import { GlobalSearch } from './GlobalSearch.jsx';
 
 function Breadcrumbs({ route, ctxOrder, onNavigate }) {
@@ -43,21 +43,7 @@ function QuickCreate({ onCreateOrder, onCreateClient, onCreateCompany, onCreateK
   );
 }
 
-function GlobalTopbar({ route, ctxOrder, onNavigate, onOpenOrder, onCreateClient, onCreateCompany, onCreateKP, onOpenChat, onOpenNotif, unreadChat, unreadNotif, role, onRole, sidebarCollapsed, onToggleSidebar }) {
-  const [theme, setTheme] = React.useState(() => (typeof document !== 'undefined' ? document.documentElement.dataset.theme || 'light' : 'light'));
-  React.useEffect(() => {
-    if (typeof document === 'undefined') return;
-    const observer = new MutationObserver(() => {
-      setTheme(document.documentElement.dataset.theme || 'light');
-    });
-    observer.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
-    return () => observer.disconnect();
-  }, []);
-  const toggleTheme = () => {
-    const next = theme === 'dark' ? 'light' : 'dark';
-    document.documentElement.dataset.theme = next;
-    try { localStorage.setItem('crm_theme', next); } catch {}
-  };
+function GlobalTopbar({ route, ctxOrder, onNavigate, onOpenOrder, onCreateClient, onCreateCompany, onCreateKP, onOpenChat, role, sidebarCollapsed, onToggleSidebar }) {
   return (
     <div className="gtop">
       <style>{'.topbar .search[style*="width: 220px"],.topbar .search:has(input[placeholder="Поиск"]){display:none!important}'}</style>
@@ -78,17 +64,7 @@ function GlobalTopbar({ route, ctxOrder, onNavigate, onOpenOrder, onCreateClient
       <GlobalSearch onOpenOrder={onOpenOrder} onNavigate={onNavigate} onOpenChat={onOpenChat} />
       <div className="gtop-actions">
         <ShiftControl role={role} onOpenOrder={onOpenOrder} />
-        <RoleSwitcher role={role} onRole={onRole} />
         <QuickCreate onCreateOrder={() => onOpenOrder('__create__')} onCreateClient={onCreateClient} onCreateCompany={onCreateCompany} onCreateKP={onCreateKP} onNavigate={onNavigate} role={role} />
-        <button className="icon-btn gtop-ic" title={theme === 'dark' ? 'Светлая тема' : 'Тёмная тема'} onClick={toggleTheme}>
-          <Icon name={theme === 'dark' ? 'sun' : 'moon'} />
-        </button>
-        <button className="icon-btn gtop-ic" title="Чат" onClick={onOpenChat}>
-          <Icon name="chat" />{unreadChat > 0 && <span className="gtop-badge">{unreadChat}</span>}
-        </button>
-        <button className="icon-btn gtop-ic" title="Уведомления" onClick={onOpenNotif}>
-          <Icon name="bell" />{unreadNotif > 0 && <span className="gtop-badge">{unreadNotif}</span>}
-        </button>
       </div>
     </div>
   );

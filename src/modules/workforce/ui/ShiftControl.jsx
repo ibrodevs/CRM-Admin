@@ -11,6 +11,7 @@ import { useToast } from '../../../shared/ui/Toast.jsx';
 import { CURRENT_USER } from '../../../legacy/data/index.jsx';
 import { workforceApi } from '../api/workforceApi.js';
 import { resultsOf } from '../../../shared/api/client.js';
+import { canUseShiftControl } from '../model/shift-access.js';
 
 
 
@@ -418,6 +419,11 @@ function FeesReportDrawer({ open, onClose, operator, shift }) {
 
 
 function ShiftControl({ role, onOpenOrder }) {
+  if (!canUseShiftControl(role)) return null;
+  return <OperatorShiftControl onOpenOrder={onOpenOrder} />;
+}
+
+function OperatorShiftControl({ onOpenOrder }) {
   const toast = useToast();
   const operator = CURRENT_USER.name;
   const [shift, setShift] = useState(null);
@@ -443,7 +449,6 @@ function ShiftControl({ role, onOpenOrder }) {
     return () => clearInterval(t);
   }, [shift]);
 
-  if (role !== 'Оператор' && role !== 'Админ') return null;
 
   const openShift = async () => {
     setBusy(true);

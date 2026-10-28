@@ -36,6 +36,8 @@ const personPayloadFromUnified = (person) => ({
   surname: person.lastName || '',
   given_name: person.firstName || '',
   middle_name: person.middleName || '',
+  ...(person.latLast !== undefined ? { latin_surname: person.latLast.trim() } : {}),
+  ...(person.latFirst !== undefined ? { latin_given_name: person.latFirst.trim() } : {}),
   birth_date: ufDateIso(person.dob) || null,
   gender: { 'Мужской': 'male', 'Женский': 'female' }[person.gender] || '',
   citizenship: citizenshipCode(person.citizenship),

@@ -98,7 +98,7 @@
   .gtop{padding:10px 12px;gap:9px;align-items:stretch}
   .crumbs{width:100%;font-size:12.5px}
   .gtop-search{order:2;flex:1 1 100%;max-width:none;min-width:0;width:100%}
-  .gtop-actions{order:3;width:100%;margin-left:0;justify-content:flex-start;flex-wrap:nowrap;overflow-x:auto;padding-bottom:2px}
+  .gtop-actions{order:3;width:100%;margin-left:0;justify-content:flex-end;flex-wrap:nowrap;overflow-x:auto;padding-bottom:2px}
   .gtop-actions .chip,.gtop-actions .btn{flex:0 0 auto}
   .page-title{white-space:normal}
   .table-card{overflow-x:auto}

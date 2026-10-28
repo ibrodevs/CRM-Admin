@@ -178,23 +178,21 @@ const financeCounterpartyRows = (obligations = []) => {
   return [...grouped.values()];
 };
 
-function StatTile({ label, value, tone, sub, icon, onClick, accent }) {
+function StatTile({ label, value, sub, icon, onClick }) {
+  const Tag = onClick ? 'button' : 'div';
   return (
-    <div className="stat-card" style={{ cursor: onClick ? 'pointer' : 'default', padding: '18px 20px', borderColor: accent || 'var(--line)' }} onClick={onClick}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
-        {icon && <Icon name={icon} style={{ width: 15, height: 15, color: 'var(--muted-2)' }} />}
-        <span className="s-label" style={{ margin: 0, fontSize: 13 }}>{label}</span>
-      </div>
-      <div className="s-value" style={{ fontSize: 'var(--fs-stat)', color: tone || 'var(--ink)' }}>{value}</div>
-      {sub && <div style={{ fontSize: 12.5, color: 'var(--muted)', marginTop: 6 }}>{sub}</div>}
-    </div>
+    <Tag className="fin-stat" type={onClick ? 'button' : undefined} onClick={onClick}>
+      <span className="fin-stat-label">{icon && <Icon name={icon} />}{label}</span>
+      <span className="fin-stat-value">{value}</span>
+      {sub && <span className="fin-stat-sub">{sub}</span>}
+    </Tag>
   );
 }
 function WarnBanner({ tone = 'red', icon = 'alertTriangle', title, text, action }) {
   const bg = tone === 'red' ? 'var(--red-bg)' : 'var(--amber-bg)';
   const col = tone === 'red' ? 'var(--red)' : 'var(--amber)';
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 16px', borderRadius: 12, background: bg, marginBottom: 12 }}>
+    <div className="fin-warning" style={{ background: bg }}>
       <Icon name={icon} style={{ width: 20, height: 20, color: col, flexShrink: 0 }} />
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ fontWeight: 700, color: 'var(--ink)', fontSize: 13.5 }}>{title}</div>
@@ -308,7 +306,7 @@ function FinOverview({ onGoTab, overview, accounts = [], payments = [], receipts
   ];
 
   return (
-    <div className="fade-in">
+    <div className="fade-in fin-view">
       {overdue > 0 && <WarnBanner tone="red" title={'Просроченная дебиторская задолженность: ' + financeMoney(overdue, currency)}
         text={`${overdueRows.length} обязательств вышли за срок оплаты.`}
         action={<Button size="sm" variant="secondary" onClick={() => onGoTab('settlements')}>К взаиморасчётам</Button>} />}
@@ -316,7 +314,7 @@ function FinOverview({ onGoTab, overview, accounts = [], payments = [], receipts
         text={`К выплате ${financeMoney(planned, currency)}, доступно с ожидаемыми поступлениями ${financeMoney(totalCash + expected, currency)}.`}
         action={<Button size="sm" variant="secondary" onClick={() => onGoTab('treasury')}>В казначейство</Button>} />}
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(210px, 1fr))', gap: 12, marginBottom: 12 }}>
+      <div className="fin-stats">
         <StatTile label="Остаток денежных средств" value={financeMoney(totalCash, currency)} icon="finance" accent="var(--green)" onClick={() => onGoTab('balance')} />
         <StatTile label="Дебиторская задолженность" value={financeMoney(receivable, currency)} icon="arrowUpRight" tone="var(--amber)" onClick={() => onGoTab('settlements')} />
         <StatTile label="Кредиторская задолженность" value={financeMoney(payable, currency)} icon="arrowUpRight" tone="var(--red)" onClick={() => onGoTab('settlements')} />
@@ -326,7 +324,7 @@ function FinOverview({ onGoTab, overview, accounts = [], payments = [], receipts
         <StatTile label="Сервисные сборы" value={financeMoney(serviceFees, currency)} icon="sparkles" onClick={() => onGoTab('economics')} />
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1.5fr) minmax(0, 1fr)', gap: 12, alignItems: 'start' }}>
+      <div className="fin-panels">
         <div className="card card-pad">
           <h3 className="card-title" style={{ fontSize: 16, marginBottom: 6 }}>Подтверждённый денежный поток</h3>
           {flowData.length ? (
@@ -340,7 +338,7 @@ function FinOverview({ onGoTab, overview, accounts = [], payments = [], receipts
           <h3 className="card-title" style={{ fontSize: 16, marginBottom: 10 }}>Платёжный календарь</h3>
           {calendarRows.length ? <div style={{ display: 'grid', gap: 8 }}>
             {calendarRows.sort((a, b) => a.date.localeCompare(b.date)).slice(0, 6).map((item, index) => (
-              <div key={index} style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 12.5 }}>
+              <div key={index} className="fin-calendar-row">
                 <span style={{ width: 8, height: 8, borderRadius: '50%', background: item.dir === 'in' ? 'var(--green)' : 'var(--red)', flexShrink: 0 }} />
                 <span style={{ color: 'var(--muted-2)', width: 78, flexShrink: 0 }}>{item.date}</span>
                 <span style={{ flex: 1, color: 'var(--ink)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.party}</span>
@@ -356,15 +354,15 @@ function FinOverview({ onGoTab, overview, accounts = [], payments = [], receipts
           <h3 className="card-title" style={{ fontSize: 16 }}>Последние платежи</h3>
           <Button size="sm" variant="secondary" onClick={() => onGoTab('payments')}>Все платежи</Button>
         </div>
-        {!recent.length ? <EmptyState icon="finance" title="Платежей пока нет" /> : <div className="table-card" style={{ boxShadow: 'none', border: '1px solid var(--line)' }}>
-          <table className="tbl">
+        {!recent.length ? <EmptyState icon="finance" title="Платежей пока нет" /> : <div className="table-card fin-table-wrap" style={{ boxShadow: 'none', border: '1px solid var(--line)' }}>
+          <table className="tbl fin-recent-table">
             <thead><tr><th>Платёж</th><th>Дата</th><th>Контрагент</th><th>Назначение</th><th style={{ textAlign: 'right' }}>Сумма</th><th>Статус</th></tr></thead>
             <tbody>{recent.map((item) => (
               <tr key={item.id}>
-                <td style={{ fontWeight: 600 }}>{item.no}</td><td>{item.date}</td><td>{item.party}</td>
-                <td style={{ color: 'var(--muted)', maxWidth: 240, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.purpose}</td>
-                <td style={{ textAlign: 'right', fontWeight: 700, color: item.dir === 'in' ? 'var(--green)' : 'var(--body)' }}>{item.dir === 'in' ? '+' : '−'}{financeMoney(item.sum, item.currency)}</td>
-                <td><Pill tone={FIN_PAY_STATUS[item.status]}>{item.status}</Pill></td>
+                <td data-label="Платёж" style={{ fontWeight: 600 }}>{item.no}</td><td data-label="Дата">{item.date}</td><td data-label="Контрагент"><span className="fin-cell-text" title={item.party}>{item.party}</span></td>
+                <td data-label="Назначение" className="fin-purpose"><span className="fin-cell-text" title={item.purpose}>{item.purpose}</span></td>
+                <td data-label="Сумма" className="fin-amount">{item.dir === 'in' ? '+' : '−'}{financeMoney(item.sum, item.currency)}</td>
+                <td data-label="Статус"><Pill tone={FIN_PAY_STATUS[item.status]}>{item.status}</Pill></td>
               </tr>
             ))}</tbody>
           </table>
@@ -388,7 +386,7 @@ function FinAccountDrawer({ ac, onClose }) {
         <FinRow label="Статус" value={ac.is_active ? 'Активен' : 'Неактивен'} />
       </div>
       <div style={{ fontSize: 12.5, color: 'var(--muted)', marginTop: 12 }}>
-        Остаток рассчитан backend по проводкам этого финансового счёта.
+        Остаток рассчитан по проводкам этого финансового счёта.
       </div>
     </Drawer>
   );
@@ -400,10 +398,10 @@ function FinBalance({ accounts = [] }) {
     return map;
   }, {});
   return (
-    <div className="fade-in">
+    <div className="fade-in fin-view">
       {!accounts.length ? <EmptyState icon="bank" title="Финансовые счета не созданы" /> : (
         <>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px,1fr))', gap: 12, marginBottom: 16 }}>
+          <div className="fin-stats">
             {Object.entries(totals).map(([currency, value]) => (
               <StatTile key={currency} label={`Остаток · ${currency}`} value={financeMoney(value, currency)} tone={value >= 0 ? 'var(--green)' : 'var(--red)'} icon="finance" />
             ))}
@@ -417,16 +415,19 @@ function FinBalance({ accounts = [] }) {
                   <Icon name={group.icon} style={{ width: 16, height: 16, color: 'var(--muted-2)' }} />
                   <h3 className="card-title" style={{ fontSize: 15 }}>{group.key}</h3>
                 </div>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px,1fr))', gap: 12 }}>
-                  {groupAccounts.map((account) => (
-                    <button key={account.id} type="button" className="card card-pad"
-                      style={{ cursor: 'pointer', padding: '16px 18px', textAlign: 'left', border: '1px solid var(--line)', background: 'var(--surface)' }}
-                      onClick={() => setOpen(account)}>
-                      <div style={{ fontWeight: 700, color: 'var(--ink)', fontSize: 14 }}>{account.name}</div>
-                      <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 2 }}>{account.number || 'Без кода'}{account.bank !== '—' ? ' · ' + account.bank : ''}</div>
-                      <div className="s-value" style={{ fontSize: 22, marginTop: 10, color: account.balance >= 0 ? 'var(--ink)' : 'var(--red)' }}>{financeMoney(account.balance, account.currency)}</div>
-                    </button>
-                  ))}
+                <div className="table-card fin-table-wrap">
+                  <table className="tbl fin-accounts-table">
+                    <thead><tr><th>Счёт</th><th>Код / номер</th><th>Организация</th><th>Статус</th><th className="fin-amount">Остаток</th></tr></thead>
+                    <tbody>{groupAccounts.map((account) => (
+                      <tr key={account.id} className="fin-clickable-row" onClick={() => setOpen(account)}>
+                        <td data-label="Счёт"><button type="button" className="fin-record-link" onClick={() => setOpen(account)}>{account.name}</button></td>
+                        <td data-label="Код / номер">{account.number || '—'}</td>
+                        <td data-label="Организация">{account.bank || '—'}</td>
+                        <td data-label="Статус"><Pill tone={account.is_active ? 'gray' : 'amber'}>{account.is_active ? 'Активен' : 'Неактивен'}</Pill></td>
+                        <td data-label="Остаток" className={'fin-amount' + (account.balance < 0 ? ' fin-negative' : '')}>{financeMoney(account.balance, account.currency)}</td>
+                      </tr>
+                    ))}</tbody>
+                  </table>
                 </div>
               </div>
             );
@@ -625,26 +626,28 @@ function FinPayments({ payments = [], obligations = [], onPaymentCreated, onPaym
   const list = all.filter((p) => (dir === 'all' || p.dir === dir) && (!status || p.status === status)
     && (!ql || [p.no, p.party, p.purpose, p.order].some((v) => String(v || '').toLowerCase().includes(ql))));
   return (
-    <div className="fade-in">
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14, flexWrap: 'wrap' }}>
+    <div className="fade-in fin-view">
+      <div className="fin-payment-filters">
         <Tabs tabs={[{ key: 'all', label: 'Все' }, { key: 'in', label: 'Входящие' }, { key: 'out', label: 'Исходящие' }]} value={dir} onChange={setDir} />
-        <SearchBox value={q} onChange={setQ} placeholder="Поиск: №, контрагент, заказ, назначение" style={{ minWidth: 260 }} />
-        <div style={{ flex: 1 }} />
+        <SearchBox value={q} onChange={setQ} placeholder="Поиск: №, контрагент, заказ, назначение" style={{ flex: '1 1 260px', minWidth: 0 }} />
+
         <FilterChip label="Статус" value={status} onChange={setStatus} options={Object.keys(FIN_PAY_STATUS)} />
         <Button icon="plus" onClick={() => setCreating(true)}>Новый платёж</Button>
       </div>
-      {!list.length ? <EmptyState icon="finance" title="Платежей не найдено" /> : <div className="table-card">
-        <table className="tbl tbl-wide">
+      {!list.length ? <EmptyState icon="finance" title="Платежей не найдено" /> : <div className="table-card fin-table-wrap">
+        <table className="tbl fin-payments-table">
           <thead><tr><th>№</th><th>Дата</th><th>Направление</th><th>Контрагент</th><th>Заказ</th><th>Назначение</th><th style={{ textAlign: 'right' }}>Сумма</th><th>Статус</th></tr></thead>
           <tbody>
             {list.map((p) => (
-              <tr key={p.no} style={{ cursor: 'pointer' }} onClick={() => setOpen(p)}>
-                <td style={{ fontWeight: 600 }}>{p.no}</td><td>{p.date}</td>
-                <td><Pill tone={p.dir === 'in' ? 'green' : 'gray'}>{p.dir === 'in' ? 'Входящий' : 'Исходящий'}</Pill></td>
-                <td>{p.party}</td><td>{p.order ? '№ ' + p.order : '—'}</td>
-                <td style={{ color: 'var(--muted)', maxWidth: 220, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.purpose}</td>
-                <td style={{ textAlign: 'right', fontWeight: 700, color: p.dir === 'in' ? 'var(--green)' : 'var(--body)' }}>{p.dir === 'in' ? '+' : '−'}{financeMoney(p.sum, p.currency)}</td>
-                <td><Pill tone={FIN_PAY_STATUS[p.status]}>{p.status}</Pill></td>
+              <tr key={p.id || p.no} className="fin-clickable-row" onClick={() => setOpen(p)}>
+                <td data-label="Платёж"><button type="button" className="fin-record-link" onClick={() => setOpen(p)}>{p.no}</button></td>
+                <td data-label="Дата" className="fin-date">{p.date}</td>
+                <td data-label="Направление"><span className="fin-direction"><Icon name="arrowUpRight" style={p.dir === 'in' ? { transform: 'rotate(180deg)' } : undefined} />{p.dir === 'in' ? 'Входящий' : 'Исходящий'}</span></td>
+                <td data-label="Контрагент"><span className="fin-cell-text" title={p.party}>{p.party}</span></td>
+                <td data-label="Заказ">{p.order ? '№ ' + p.order : '—'}</td>
+                <td data-label="Назначение" className="fin-purpose"><span className="fin-cell-text" title={p.purpose}>{p.purpose}</span></td>
+                <td data-label="Сумма" className="fin-amount">{p.dir === 'in' ? '+' : '−'}{financeMoney(p.sum, p.currency)}</td>
+                <td data-label="Статус"><Pill tone={FIN_PAY_STATUS[p.status]}>{p.status}</Pill></td>
               </tr>
             ))}
           </tbody>
@@ -688,8 +691,8 @@ function FinTreasury({ accounts = [], payments = [], receipts = [], currency }) 
   const gap = withRunning.some((item) => item.after < 0);
 
   return (
-    <div className="fade-in">
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px,1fr))', gap: 12, marginBottom: 14 }}>
+    <div className="fade-in fin-view">
+      <div className="fin-stats">
         <StatTile label="Остаток на счетах и в кассе" value={financeMoney(startBalance, currency)} icon="finance" />
         <StatTile label="Ожидаемые поступления" value={financeMoney(totalIn, currency)} tone="var(--green)" icon="arrowUpRight" />
         <StatTile label="Непроведённые выплаты" value={financeMoney(totalOut, currency)} tone="var(--red)" icon="arrowUpRight" />
@@ -697,18 +700,18 @@ function FinTreasury({ accounts = [], payments = [], receipts = [], currency }) 
       </div>
       {gap && <WarnBanner tone="red" title="По текущим данным возможен кассовый разрыв"
         text="Сумма непроведённых исходящих платежей превышает остаток с учётом ожидаемых поступлений." />}
-      <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0,1.6fr) minmax(0,1fr)', gap: 12, alignItems: 'start' }}>
+      <div className="fin-panels">
         <div className="card card-pad">
           <h3 className="card-title" style={{ fontSize: 16, marginBottom: 4 }}>Исходящие платежи к проведению</h3>
-          <div style={{ fontSize: 12.5, color: 'var(--muted)', marginBottom: 12 }}>Показываются фактические непроведённые платежи backend в выбранной валюте.</div>
+          <div style={{ fontSize: 12.5, color: 'var(--muted)', marginBottom: 12 }}>Платежи, ожидающие проведения, в выбранной валюте.</div>
           {!withRunning.length ? <EmptyState icon="check" title="Платежей к проведению нет" /> : <div style={{ display: 'grid', gap: 8 }}>
             {withRunning.map((payment) => (
-              <div key={payment.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px', borderRadius: 10, border: '1px solid var(--line)', background: payment.after < 0 ? 'var(--red-bg)' : 'var(--surface)' }}>
+              <div key={payment.id} className={'fin-treasury-row' + (payment.after < 0 ? ' is-shortfall' : '')}>
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ fontWeight: 600, fontSize: 13, color: 'var(--ink)' }}>{payment.party}</div>
                   <div style={{ fontSize: 12, color: 'var(--muted)' }}>{payment.no} · создан {payment.date} · заказ {payment.order || '—'} · {payment.status}</div>
                 </div>
-                <span style={{ fontWeight: 700, color: 'var(--red)' }}>−{financeMoney(payment.sum, currency)}</span>
+                <span className="fin-amount">−{financeMoney(payment.sum, currency)}</span>
                 <span style={{ width: 118, textAlign: 'right', fontSize: 12.5, fontWeight: 700, color: payment.after < 0 ? 'var(--red)' : 'var(--muted)' }}>остаток {financeMoney(payment.after, currency)}</span>
               </div>
             ))}
@@ -721,9 +724,9 @@ function FinTreasury({ accounts = [], payments = [], receipts = [], currency }) 
           <FinRow label="К проведению" value={'−' + financeMoney(totalOut, currency)} tone="var(--red)" />
           <FinRow label="После операций" value={financeMoney(forecast, currency)} tone={forecast < 0 ? 'var(--red)' : 'var(--green)'} strong />
           <div style={{ marginTop: 12, fontSize: 12.5, color: 'var(--muted)' }}>Ближайшие обязательства клиентов</div>
-          {!incoming.length ? <div style={{ fontSize: 12.5, color: 'var(--muted-2)', marginTop: 8 }}>Нет ожидаемых поступлений</div> : <div style={{ display: 'grid', gap: 6, marginTop: 6 }}>
+          {!incoming.length ? <div style={{ fontSize: 12.5, color: 'var(--muted-2)', marginTop: 8 }}>Нет ожидаемых поступлений</div> : <div className="fin-incoming-list">
             {incoming.slice(0, 4).map((item, index) => (
-              <div key={index} style={{ display: 'flex', gap: 8, fontSize: 12.5 }}>
+              <div key={index} className="fin-incoming-row">
                 <span style={{ color: 'var(--muted-2)', width: 76 }}>{item.date}</span>
                 <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.party}</span>
                 <span style={{ fontWeight: 700, color: 'var(--green)' }}>+{financeMoney(item.sum, currency)}</span>
@@ -1249,8 +1252,8 @@ function FinancePage({ overview, clients = [], companies = [], suppliers = [], o
 
   return (
     <>
-      <Topbar title="Финансы" sub="Баланс, платежи, обязательства и экономика по данным backend" />
-      <div className="content">
+      <Topbar title="Финансы" sub="Счета, платежи и финансовые обязательства" />
+      <div className="content finance-page">
         <div className="fin-toolbar">
           <Tabs tabs={FIN_TABS} value={tab} onChange={setTab} />
           {FIN_CURRENCY_TABS.includes(tab) && (

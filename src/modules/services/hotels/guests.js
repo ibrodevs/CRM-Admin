@@ -2,7 +2,7 @@ import { resultsOf } from '../../../shared/api/client.js';
 
 export function hotelPersonToGuest(person) {
   return { id: person.id, person: person.id,
-    name: [person.surname, person.given_name, person.patronymic].filter(Boolean).join(' ') || person.full_name || 'Гость',
+    name: [person.surname, person.given_name, person.middle_name || person.patronymic].filter(Boolean).join(' ') || person.full_name || 'Гость',
     dob: person.birth_date || '', role: 'Гость', docType: '', docNo: '' };
 }
 
@@ -19,9 +19,12 @@ export async function resolveHotelParticipants(orderId, service, api) {
   for (const person of [...new Set(service.guestPersonIds)]) {
     let participant = existing.find((item) => String(item.person) === String(person) && item.status !== 'removed');
     if (!participant) {
-      participant = await api.addParticipant(orderId, { person, role: 'passenger' });
+      const document = service.guestBookingDocuments?.[person];
+      participant = await api.addParticipant(orderId, { person, role: 'passenger', ...(document ? { booking_document: document } : {}) });
       existing.push(participant);
     }
+    const document = service.guestBookingDocuments?.[person];
+    if (document && participant.booking_document !== document && api.updateParticipant) await api.updateParticipant(orderId, participant.id, { booking_document: document });
     ids.push(participant.id);
   }
   return ids;

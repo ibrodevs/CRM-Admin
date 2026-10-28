@@ -1927,7 +1927,7 @@ function QuickAddForm({ kind, onAdd, currency, addLabel = 'Добавить в �
   );
 }
 
-function AddServicePanel({ kind, setKind, aviaParams, setAviaParams, paxCount, participants, isGroup, onAddAvia, onAddAviaPerPax, onAddOther }) {
+function AddServicePanel({ kind, setKind, aviaParams, setAviaParams, paxCount, participants, isGroup, onAddAvia, onAddAviaPerPax, onAddOther, orderId }) {
   const cat = ADD_SVC_CATS.find((c) => c.kind === kind) || ADD_SVC_CATS[0];
   return (
     <div className="fade-in">
@@ -1941,7 +1941,7 @@ function AddServicePanel({ kind, setKind, aviaParams, setAviaParams, paxCount, p
       {kind === 'Авиа' && <AviaSearchPanel params={aviaParams} setParams={setAviaParams} paxCount={paxCount}
         participants={participants || []} isGroup={isGroup} onAdd={onAddAvia} onAddPerPax={onAddAviaPerPax} />}
 
-      {kind === 'Гостиница' && <HotelPicker currency={aviaParams?.currency} participants={participants} group={isGroup} onApply={(offer) => onAddOther(offer, 'Гостиница')} onCancel={() => {}} />}
+      {kind === 'Гостиница' && <HotelPicker orderId={orderId} currency={aviaParams?.currency} participants={participants} group={isGroup} onApply={(offer) => onAddOther(offer, 'Гостиница')} onCancel={() => {}} />}
       {kind === 'ЖД' && <ServiceAddFlow routeKey="rail" currency={aviaParams?.currency} paxCount={participants?.length} onAdd={onAddOther} />}
       {kind === 'Аэроэкспресс' && <AeroAddFlow onAdd={onAddOther} />}
       {kind !== 'Авиа' && kind !== 'Гостиница' && kind !== 'ЖД' && kind !== 'Аэроэкспресс' && cat.routeKey && <ServiceAddFlow currency={aviaParams?.currency} paxCount={participants?.length} routeKey={cat.routeKey} onAdd={onAddOther} />}
@@ -3159,7 +3159,7 @@ function OrderCard({ order, company, clients = [], onBack, initTab, initSvc, ini
           <h3 className="card-title" style={{ fontSize: 18 }}>Добавить услугу / Поиск</h3>
         </div>
         <AddServicePanel kind={addKind} setKind={setAddKind} aviaParams={aviaParams} setAviaParams={setAviaParams}
-          paxCount={participants.length} participants={participants} isGroup={requestType === 'Групповая'}
+          orderId={orderId} paxCount={participants.length} participants={participants} isGroup={requestType === 'Групповая'}
           onAddAvia={addAviaSimple} onAddOther={addSvcOffer} />
       </div>
     );
