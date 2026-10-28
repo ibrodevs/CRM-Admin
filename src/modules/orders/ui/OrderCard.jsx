@@ -35,7 +35,7 @@ import { DocCenter } from '../../documents/index.js';
 import { listAll } from '../../../shared/api/operations.js';
 import { ReturnsModule } from '../../returns/index.js';
 import { AeroAddFlow, ManualAltForm, RailAddFlow, ServiceAddFlow, ServiceCardHistoryDrawer, ServiceCardSendPanel } from '../../services/index.js';
-import { HotelPicker, resolveHotelParticipants, HotelServiceTools } from '../../services/index.js';
+import { HotelPicker, resolveHotelParticipants, HotelServiceTools, AandaBookingDetails } from '../../services/index.js';
 import { activeOrderServices, moneyRowsText, serviceMoneyRows, financeRowsTotal, financeSnapshot, normalizeCurrency, ocCurrency, ocMoney, opDebt, opPayable, orderFinanceCurrency, svcCalc } from '../model/finance.jsx';
 import { communicationsApi } from '../../chats/api.js';
 import { documentsApi } from '../../documents/api.js';
@@ -1056,6 +1056,7 @@ function ServiceBlock({ s, participants, documents, orderNo, open, onToggle, onC
               </div>
             </div>
 
+            <AandaBookingDetails details={s.hotel_details} />
             <HotelServiceTools serviceId={s.serverId || s.id} capabilities={s.hotel_documents} onDocumentCreated={onCertificateCreated} />
             <div className="osrv-actions">
               <Button variant="secondary" icon="refund" onClick={() => onCancel(s)}>Отменить</Button>

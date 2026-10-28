@@ -27,6 +27,18 @@ export function hotelPaymentDescription(payAtHotel) {
 }
 
 export function hotelCancellationDescription(fare = {}, fallback = '') {
+  if (Array.isArray(fare.cancellation_details) && fare.cancellation_details.length) {
+    return fare.cancellation_details.map((rule, index) => {
+      const deadline = rule.deadline || {};
+      const when = deadline.timestamp ? hotelCancellationDeadline(deadline.timestamp)
+        : [deadline.date, deadline.time, deadline.timezone].filter(Boolean).join(' ');
+      const amount = Number(rule.penalty);
+      const penalty = rule.penalty != null && Number.isFinite(amount)
+        ? `штраф ${amount.toLocaleString('ru-RU', { maximumFractionDigits: 2 })} ${currencySymbol(rule.currency) || rule.currency || ''}`
+        : 'размер штрафа не передан поставщиком';
+      return [`Номер ${index + 1}: ${when ? `с ${when} — ` : ''}${penalty}`, hotelPlainText(rule.information)].filter(Boolean).join('\n');
+    }).join('\n');
+  }
   const rules = Array.isArray(fare.cancel) ? fare.cancel : [];
   if (rules.length) {
     const lines = rules.map((rule) => {

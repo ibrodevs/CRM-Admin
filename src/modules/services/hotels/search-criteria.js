@@ -1,4 +1,4 @@
-// CRM search criteria; provider identifiers and credentials stay on the backend.
+// CRM search criteria; credentials stay on the backend.
 export function hotelDateOnly(value) {
   if (!value) return undefined;
   const pad = (part) => String(part).padStart(2, '0');
@@ -50,4 +50,15 @@ export function hotelOccupancy(rooms) {
     valid: rooms.length >= 1 && rooms.length <= 5 && rooms.every((room) => Number.isInteger(room.adults) && room.adults >= 1 && room.adults <= 9
       && room.childrenAges.length <= 4 && room.childrenAges.every((age) => Number.isInteger(age) && age >= 0 && age <= 17)),
   };
+}
+
+
+export function hotelProviderCriteria(location, text) {
+  if (location?.source === 'aanda' && location.value === text && /^\d{1,20}$/.test(String(location.city_code || ''))) {
+    return {
+      aanda: { city_code: String(location.city_code) },
+      ...(location.supplier_id ? { provider_selection: { provider_adapter: 'aanda', supplier_id: location.supplier_id } } : {}),
+    };
+  }
+  return {};
 }

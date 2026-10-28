@@ -3,7 +3,7 @@ import { HotelOccupancyPicker } from './HotelOccupancyPicker.jsx';
 import { clientsApi } from '../../clients/api.js';
 import { hotelPersonToGuest, hotelGuestSelection, hotelRoomAssignments } from './guests.js';
 import { hotelPlainText, hotelBedDescription, hotelPaymentDescription, hotelCancellationDescription } from './presentation.js';
-import { hotelDateOnly, hotelDateError, hotelOccupancy, hotelCitizenship, hotelBreakfastIncluded, revalidationNeedsConfirmation, hotelCancellationDeadline, hotelMatchesQuery } from './search-criteria.js';
+import { hotelProviderCriteria, hotelDateOnly, hotelDateError, hotelOccupancy, hotelCitizenship, hotelBreakfastIncluded, revalidationNeedsConfirmation, hotelCancellationDeadline, hotelMatchesQuery } from './search-criteria.js';
 import { useEffect, useState } from 'react';
 import { Icon } from '../../../shared/icons/index.jsx';
 import { ActionMenu } from '../../../shared/ui/ActionMenu.jsx';
@@ -184,6 +184,7 @@ function HotelPicker({ participants, group = false, onApply, onCancel, currency 
 
 
   const [dest, setDest] = useState('');
+  const [destLocation, setDestLocation] = useState(null);
   const [radius, setRadius] = useState('2 км');
   const [checkin, setCheckin] = useState(null);
   const [checkout, setCheckout] = useState(null);
@@ -275,6 +276,7 @@ function HotelPicker({ participants, group = false, onApply, onCancel, currency 
         kind: 'hotel',
         criteria: {
           location: dest,
+          ...hotelProviderCriteria(destLocation, dest),
           check_in: hotelDateOnly(checkin),
           check_out: hotelDateOnly(checkout),
           citizenship: hotelCitizenship(citizenship),
@@ -440,7 +442,7 @@ function HotelPicker({ participants, group = false, onApply, onCancel, currency 
         <div className="hp-search-row" style={{ rowGap: 26, marginBottom: 6 }}>
           <div className="hp-field hp-field-dest">
             <span className="hp-flabel">Локация или отель</span>
-            <Input locationScope="hotel" value={dest} onChange={(e) => setDest(e.target.value)} placeholder="Название отеля, город, адрес, организация или достопримечательность" leadIcon="mapPin" />
+            <Input locationScope="hotel" value={dest} onChange={(e) => { setDest(e.target.value); setDestLocation(e.target.location || null); }} placeholder="Название отеля, город, адрес, организация или достопримечательность" leadIcon="mapPin" />
             <span className="hp-fhint">Название отеля, адрес, организация, достопримечательность или точка на карте</span>
           </div>
           <div className="hp-field hp-field-radius">

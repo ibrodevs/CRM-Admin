@@ -25,3 +25,10 @@ test('unknown payment conditions never claim online prepayment', () => {
   assert.equal(hotelPaymentDescription(false), 'Предоплата');
   assert.equal(hotelPaymentDescription(true), 'Оплата в отеле');
 });
+
+
+test('A&A structured cancellation terms use hotel-local time and customer-facing room labels', () => {
+  const text = hotelCancellationDescription({ cancellation_details: [{ room_ref: 'room:0', penalty: '2583', currency: 'RUB', deadline: { timestamp: '2026-12-11T12:00:00+04:00' }, information: '' }] });
+  assert.equal(text, 'Номер 1: с 11.12.2026, 12:00 (UTC+04:00) — штраф 2 583 ₽');
+  assert.ok(!text.includes('room:0'));
+});
