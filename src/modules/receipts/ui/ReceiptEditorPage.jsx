@@ -5,7 +5,7 @@ import ReactDOM from 'react-dom';
 import { Icon } from '../../../shared/icons/index.jsx';
 import { Button } from '../../../shared/ui/Button.jsx';
 import { Checkbox } from '../../../shared/ui/Checkbox.jsx';
-import { ConfirmDialog, Drawer } from '../../../shared/ui/Overlays.jsx';
+import { ConfirmDialog, Drawer, Modal, ModalHeader } from '../../../shared/ui/Overlays.jsx';
 import { EmptyState } from '../../../shared/ui/EmptyState.jsx';
 import { Field } from '../../../shared/ui/Field.jsx';
 import { Input } from '../../../shared/ui/Input.jsx';
@@ -4172,6 +4172,7 @@ function ReceiptImportModal({ open, onClose, onDone, initialDraft, initialFiles 
 }
 
 function ReceiptEditorPage({ documents = [], orders = [], services = [], companies = [], clients = [], onChanged, onOpenOrder, onCreateOrder }) {
+  const [helpOpen, setHelpOpen] = useState(false);
   const toast = useToast();
   const [q, setQ] = useState('');
   const [edit, setEdit] = useState(null);
@@ -4464,15 +4465,20 @@ function ReceiptEditorPage({ documents = [], orders = [], services = [], compani
 
   return (
     <>
-      <Topbar title="Редактор квитанций" />
+      <Topbar title="Редактор квитанций">
+        <div className="topbar-spacer" />
+        <Button variant="ghost" size="sm" icon="alertCircle" onClick={() => setHelpOpen(true)}>О разделе</Button>
+      </Topbar>
+      <Modal open={helpOpen} onClose={() => setHelpOpen(false)} size="sm" ariaLabel="О разделе «Редактор квитанций»">
+        <ModalHeader title="О разделе" onClose={() => setHelpOpen(false)} />
+        <p style={{ color: 'var(--muted)', fontSize: 14, lineHeight: 1.5 }}>
+          Единый реестр авиа, ЖД, отельных и трансферных документов. Исходный PDF хранится отдельно без изменений; финансовые правки переносятся в рабочую копию оригинала поставщика.
+        </p>
+      </Modal>
       <div className="content">
         <div className="fade-in">
           <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16, flexWrap: 'wrap' }}>
-            <div style={{ flex: 1, minWidth: 200 }}>
-              <div style={{ fontSize: 13, color: 'var(--muted)' }}>
-                Единый реестр авиа, ЖД, отельных и трансферных документов. Исходный PDF хранится отдельно без изменений; финансовые правки переносятся в рабочую копию оригинала поставщика.
-              </div>
-            </div>
+            <div style={{ flex: 1 }} />
             <SearchBox value={q} onChange={setQ} placeholder="Документ, участник, маршрут…" style={{ width: 280 }} />
             <div className="seg-toggle" aria-label="Список квитанций">
               <button type="button" className={'seg-btn' + (registryView === 'active' ? ' active' : '')}
