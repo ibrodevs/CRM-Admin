@@ -284,22 +284,23 @@ function OrdersPage({ intent, onConsume, orders, clients = [], companies = [], a
     onConsume();
   }, [intent]);
 
-  if (detail) {
-    const company = companies.find((item) => String(item.id) === String(detail.client_company));
-    return <OrderCard key={detail.id} onOrderUpdated={onOrderUpdated} order={detail} company={company} clients={clients} fresh={fresh} initTab={detailTab} initSvc={detailSvc} initSvcSearch={svcSearch} onBack={() => { setDetail(null); onDetailChange && onDetailChange(null); }} onOpenChat={onOpenChat} />;
-  }
+  const company = detail && companies.find((item) => String(item.id) === String(detail.client_company));
 
   return (
     <>
-      <OrdersMultiSelectList
-        orders={orders}
-        onOpen={setDetail}
-        onCreate={() => { setCreateCustomer(null); setCreateOpen(true); }}
-        onNavigate={onNavigate}
-        currentUser={currentUser}
-        selectedIds={selectedIds}
-        setSelectedIds={setSelectedIds}
-      />
+      {detail && <OrderCard key={detail.id} onOrderUpdated={onOrderUpdated} order={detail} company={company} clients={clients} fresh={fresh} initTab={detailTab} initSvc={detailSvc} initSvcSearch={svcSearch} onBack={() => setDetail(null)} onOpenChat={onOpenChat} />}
+      {/* Keep search, filters, sorting and loaded rows when returning from a card. */}
+      <div hidden={!!detail}>
+        <OrdersMultiSelectList
+          orders={orders}
+          onOpen={setDetail}
+          onCreate={() => { setCreateCustomer(null); setCreateOpen(true); }}
+          onNavigate={onNavigate}
+          currentUser={currentUser}
+          selectedIds={selectedIds}
+          setSelectedIds={setSelectedIds}
+        />
+      </div>
       <OrderCreateModal open={createOpen} onClose={() => setCreateOpen(false)} onCreated={handleCreated} initialCustomer={createCustomer} clientOptions={clients} companyOptions={companies} />
     </>
   );
