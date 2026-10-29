@@ -1,3 +1,4 @@
+import { postSaleFlow } from '../../services/index.js';
 import React, { useState, useEffect, useRef } from 'react';
 import { Icon } from '../../../shared/icons/index.jsx';
 import { aftersalesApi } from '../api/aftersalesApi.js';
@@ -482,7 +483,7 @@ function ReturnsModule({ scopeOrder, onOpenOrder, compact, order, initialCases, 
   const toast = useToast();
   const effectiveOrder = order && participants.length ? { ...order, participants } : order;
   const contextOrders = effectiveOrder ? [effectiveOrder, ...orders.filter((item) => item.id !== effectiveOrder.id)] : orders;
-  const availableServices = Array.isArray(services) ? services : [];
+  const availableServices = (Array.isArray(services) ? services : []).filter((service) => postSaleFlow(service) === 'ticket');
   const mappedCases = () => (initialCases || []).map((item) => toLegacyReturn(item, contextOrders, availableServices)).filter((item) => !scopeOrder || item.order === scopeOrder);
   const [ops, setOps] = useState(mappedCases);
   useEffect(() => { if (Array.isArray(initialCases)) setOps(mappedCases()); }, [initialCases, orders, scopeOrder, order, services, participants]);

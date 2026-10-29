@@ -60,7 +60,8 @@ test('счётчик услуг из списка заказов не прини
 });
 
 test('блок услуги показывает пассажиров, документы и действия по услуге', () => {
-  assert.match(card, /Пассажиры \(\{pax\.length\}\)/);
+  assert.match(card, /postSaleFlow\(s\) === 'hotel' \? 'Гости' : 'Пассажиры'/);
+  assert.match(card, /\(\{pax\.length\}\)/);
   assert.match(card, /Документы \(\{docs\.length\}\)/);
   assert.match(card, /Добавить файл/);
   assert.match(card, /Запросить обмен/);

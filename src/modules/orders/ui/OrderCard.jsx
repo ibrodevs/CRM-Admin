@@ -1,3 +1,4 @@
+import { HotelBookingActionsDrawer, postSaleFlow } from '../../services/index.js';
 import { orderContact } from '../model/order-contact.js';
 import { FreeBookingPaxField, FreeBookingRailFlow, FreeBookingServiceAddFlow, FreeBookingAeroAddFlow, liveFlightOffer, liveFlightLeg, freeFlightSegments, validateFreeFlightSearch, searchFreeFlightOffers, freeFlightDraft, freeFlightFareOptions, freeFlightLocalPassengers, freeFlightFareDetails } from '../../services/index.js';
 import { clientsApi } from '../../clients/api.js';
@@ -900,7 +901,7 @@ function LiveServiceCardHistoryDrawer({ orderId, serviceId, title, onClose }) {
 
 function ServiceBlock({ s, participants, documents, orderNo, open, onToggle, onCancel, onExchange, onOpenChat,
   onOpenPassenger, onAddPassengerDoc, onUploadDocument, onOpenDocument, onDeleteService, selectable, selected, onSelect,
-  focusedParticipant, orderId, onSendServiceCard, onCertificateCreated }) {
+  focusedParticipant, orderId, onSendServiceCard, onCertificateCreated, onHotelActions }) {
   const toast = useToast();
   const fileRef = useRef(null);
   const [sendOpen, setSendOpen] = useState(false);
@@ -947,7 +948,7 @@ function ServiceBlock({ s, participants, documents, orderNo, open, onToggle, onC
         <span className="osrv-sum">{svcExactMoney(total, s.currency)}</span>
         <span onClick={(event) => event.stopPropagation()} className="osrv-head-actions">
           <button type="button" className="btn btn-ghost btn-icon btn-sm" title={open ? 'Свернуть услугу' : 'Показать детали услуги'} onClick={onToggle}><Icon name={open ? 'chevUp' : 'eye'} /></button>
-          <ActionMenu trigger={<button type="button" className="btn btn-ghost btn-icon btn-sm" aria-label={'Действия: ' + s.title}><Icon name="more" /></button>}
+          {postSaleFlow(s) === 'hotel' ? <button type="button" className="btn btn-secondary btn-sm" aria-label={'Действия: ' + s.title} onClick={() => onHotelActions(s)}>Действия</button> : <ActionMenu trigger={<button type="button" className="btn btn-ghost btn-icon btn-sm" aria-label={'Действия: ' + s.title}><Icon name="more" /></button>}
             items={[
               { icon: 'eye', label: open ? 'Свернуть детали' : 'Показать детали', onClick: onToggle },
               { icon: 'send', label: 'Отправить клиенту', onClick: () => setSendOpen(true) },
@@ -958,7 +959,7 @@ function ServiceBlock({ s, participants, documents, orderNo, open, onToggle, onC
               { icon: 'swap', label: 'Запросить обмен', onClick: () => onExchange(s) },
               { icon: 'refund', label: 'Отменить услугу', danger: true, onClick: () => onCancel(s) },
               { icon: 'trash', label: 'Удалить услугу', danger: true, onClick: () => onDeleteService(s) },
-            ]} />
+            ]} />}
         </span>
         <Icon name={open ? 'chevUp' : 'chevDown'} className="osrv-chev" />
       </div>
@@ -995,9 +996,9 @@ function ServiceBlock({ s, participants, documents, orderNo, open, onToggle, onC
             <Avatar name={focusedParticipant.name} size={28} />
             <span className="nm">{focusedParticipant.name}</span>
             <span className="dc">{focusedParticipant.docNo || focusedParticipant.doc || 'Документ не указан'}</span>
-            {focusedTicket
+            {postSaleFlow(s) !== 'hotel' && (focusedTicket
               ? <button type="button" className="osrv-tick" onClick={() => onOpenDocument(focusedTicket)}><Icon name="ticket" />{focusedTicket.document_number || focusedTicket.title || 'Открыть билет'}</button>
-              : <span className="osrv-no-ticket"><Icon name="alertCircle" />Билет не выписан</span>}
+              : <span className="osrv-no-ticket"><Icon name="alertCircle" />Билет не выписан</span>)}
             <ActionMenu trigger={<button type="button" className="btn btn-ghost btn-icon btn-sm" aria-label={'Действия пассажира: ' + focusedParticipant.name}><Icon name="more" /></button>}
               items={[
                 { icon: 'idcard', label: 'Карточка пассажира', onClick: () => onOpenPassenger(focusedParticipant) },
@@ -1010,7 +1011,7 @@ function ServiceBlock({ s, participants, documents, orderNo, open, onToggle, onC
         {open && (
           <>
             <div className="osrv-sec">
-              <div className="osrv-sec-t">Пассажиры ({pax.length})</div>
+              <div className="osrv-sec-t">{postSaleFlow(s) === 'hotel' ? 'Гости' : 'Пассажиры'} ({pax.length})</div>
               {pax.length === 0 && <div style={{ fontSize: 13, color: 'var(--muted)', padding: '6px 0' }}>Пассажиры к услуге не привязаны</div>}
               {pax.map((p, i) => {
                 const ticket = ticketForParticipant(docs, p);
@@ -1021,9 +1022,9 @@ function ServiceBlock({ s, participants, documents, orderNo, open, onToggle, onC
                       <div className="nm">{p.name}{p.lead && <span className="pill pill-blue" style={{ marginLeft: 6, height: 20, padding: '0 8px', fontSize: 12 }}>Лид</span>}</div>
                     </div>
                     <span className="dc">{p.docType ? p.docType + ': ' : 'Документ: '}{p.docNo || p.doc || '—'}</span>
-                    {ticket
+                    {postSaleFlow(s) !== 'hotel' && (ticket
                       ? <button type="button" className="osrv-tick" onClick={() => onOpenDocument(ticket)}><Icon name="ticket" />Билет {ticket.document_number || ticket.title}</button>
-                      : <span style={{ fontSize: 13, color: 'var(--muted-2)', whiteSpace: 'nowrap' }}>Билет не выписан</span>}
+                      : <span style={{ fontSize: 13, color: 'var(--muted-2)', whiteSpace: 'nowrap' }}>Билет не выписан</span>)}
                     <ActionMenu trigger={<button className="btn btn-ghost btn-icon btn-sm"><Icon name="more" /></button>}
                       items={[
                         { icon: 'idcard', label: 'Документы пассажира', onClick: () => onOpenPassenger(p) },
@@ -1060,8 +1061,10 @@ function ServiceBlock({ s, participants, documents, orderNo, open, onToggle, onC
             <AandaBookingDetails details={s.hotel_details} />
             <HotelServiceTools serviceId={s.serverId || s.id} capabilities={s.hotel_documents} onDocumentCreated={onCertificateCreated} />
             <div className="osrv-actions">
-              <Button variant="secondary" icon="refund" onClick={() => onCancel(s)}>Отменить</Button>
-              <Button icon="swap" onClick={() => onExchange(s)}>Запросить обмен</Button>
+              {postSaleFlow(s) === 'hotel' ? <Button variant="secondary" onClick={() => onHotelActions(s)}>Действия с бронью</Button> : <>
+                <Button variant="secondary" icon="refund" onClick={() => onCancel(s)}>Отменить</Button>
+                <Button icon="swap" onClick={() => onExchange(s)}>Запросить обмен</Button>
+              </>}
               <span className="sep" />
               <span style={{ flex: 1 }} />
               <button className="btn btn-ghost btn-icon" title="История карточки услуги" onClick={() => setHistOpen(true)}><Icon name="clock" /></button>
@@ -1072,7 +1075,7 @@ function ServiceBlock({ s, participants, documents, orderNo, open, onToggle, onC
                   { icon: 'eye', label: open ? 'Свернуть детали' : 'Показать детали', onClick: onToggle },
                   { icon: 'docs', label: 'Добавить файл', onClick: pickFile },
                   { sep: true },
-                  { icon: 'trash', label: 'Удалить услугу', danger: true, onClick: () => onDeleteService(s) },
+                  ...(postSaleFlow(s) !== 'hotel' ? [{ icon: 'trash', label: 'Удалить услугу', danger: true, onClick: () => onDeleteService(s) }] : []),
                 ]} />
             </div>
           </>
@@ -2677,6 +2680,7 @@ function OrderCard({ order, company, clients = [], onBack, initTab, initSvc, ini
   const [sel, setSel] = useState(() => new Set());
   const [confirmAction, setConfirmAction] = useState(null);
   const [aftersalePreset, setAftersalePreset] = useState(null);
+  const [hotelActionService, setHotelActionService] = useState(null);
 
 
 
@@ -3117,13 +3121,16 @@ function OrderCard({ order, company, clients = [], onBack, initTab, initSvc, ini
     }
   };
 
-  const askCancelService = (svc) => setConfirmAction({
+  const askCancelService = (svc) => {
+    if (postSaleFlow(svc) === 'hotel') { setHotelActionService(svc.serverId || svc.id); return; }
+    setConfirmAction({
     title: 'Отменить услугу?',
     message: <>Услуга <b>{svc.title}</b> будет отменена у поставщика. Штрафы и удержания фиксируются в постпродаже.</>,
     confirmLabel: 'Отменить услугу',
     confirmVariant: 'danger',
     run: () => cancelService(svc),
-  });
+    });
+  };
 
   const askDeleteService = (svc) => setConfirmAction({
     title: 'Удалить услугу из заказа?',
@@ -3136,6 +3143,7 @@ function OrderCard({ order, company, clients = [], onBack, initTab, initSvc, ini
   // Обмен ведётся штатным постпродажным модулем — карточка лишь открывает его
   // с предзаполненной услугой, чтобы оператор не искал её в списке заново.
   const requestExchange = (svc) => {
+    if (postSaleFlow(svc) === 'hotel') { setHotelActionService(svc.serverId || svc.id); return; }
     setAftersalePreset({ type: 'Обмен билета', serviceId: String(svc.serverId || svc.id), currency: resolveCurrency(svc.currency, cardOrder.currency, cardOrder.base_currency), stamp: Date.now() });
     setTab('aftersale');
   };
@@ -3182,6 +3190,7 @@ function OrderCard({ order, company, clients = [], onBack, initTab, initSvc, ini
           renderExtra={null}
           orderId={orderId}
           onSendServiceCard={sendServiceCardToClient}
+          onHotelActions={(service) => setHotelActionService(service.serverId || service.id)}
           onCancel={askCancelService}
           onExchange={requestExchange}
           onOpenChat={handleOpenChat}
@@ -3236,7 +3245,7 @@ function OrderCard({ order, company, clients = [], onBack, initTab, initSvc, ini
       case 'documents': return <DocCenter scopeOrder={order.no} initialDocuments={orderDocs} participants={participants} services={services} orders={[order]} />;
       case 'finance': return (<><OrderFinanceBlock orderNo={order.no} order={cardOrder} services={services} summary={financeSummary} /><OrderFinanceRecords orderId={orderId} /></>);
       case 'tasks': return <TabTasks tasks={tasks} assignees={operatorOptions} onAddTask={addTask} onToggleTask={toggleTask} onDeleteTask={deleteTask} />;
-      case 'aftersale': return <ReturnsModule scopeOrder={order.no} order={order} services={services} participants={participants} initialNew={aftersalePreset} compact />;
+      case 'aftersale': return <ReturnsModule scopeOrder={order.no} order={order} services={services.filter((service) => postSaleFlow(service) === 'ticket')} participants={participants} initialNew={aftersalePreset} compact />;
       case 'history': return <TabHistory liveItems={history} />;
       default: return null;
     }
@@ -3326,6 +3335,8 @@ function OrderCard({ order, company, clients = [], onBack, initTab, initSvc, ini
       </div>
 
 
+      {hotelActionService && <HotelBookingActionsDrawer serviceId={hotelActionService} onClose={() => setHotelActionService(null)} onChanged={refreshOrderSnapshot}
+        onNewBooking={() => { setHotelActionService(null); setTab('main'); goAddType('Гостиница'); }} />}
       <ReassignOperatorDrawer open={reassignOpen} current={operator} options={operatorOptions} onClose={() => setReassignOpen(false)}
         onPick={reassignOperator} />
       {paxOpen && <PassengerDrawer open={paxOpen} onClose={() => setPaxOpen(false)}

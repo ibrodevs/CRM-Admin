@@ -45,3 +45,6 @@ export { FreeBookingServiceAddFlow, FreeBookingAeroAddFlow } from './ui/Services
 export { HotelServiceTools } from './hotels/HotelContent.jsx';
 
 export { AandaBookingDetails } from './hotels/AandaBookingDetails.jsx';
+
+export { HotelBookingActionsDrawer } from './hotels/actions/HotelBookingActionsDrawer.jsx';
+export { postSaleFlow } from './hotels/actions/hotelCapabilities.js';
