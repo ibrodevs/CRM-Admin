@@ -38,7 +38,7 @@ function QuickCreate({ onCreateOrder, onCreateClient, onCreateCompany, onCreateK
   if (roleHasPerm(role, 'Поиск и бронирование услуг')) { items.push({ sep: true }); items.push({ icon: 'route', label: 'Подобрать услугу', onClick: () => onNavigate('services') }); }
   return (
     <ActionMenu
-      trigger={<button className="btn btn-primary btn-sm" style={{ height: 36 }}><Icon name="plus" />Создать</button>}
+      trigger={<button type="button" className="btn btn-primary"><Icon name="plus" />Создать</button>}
       items={items} />
   );
 }
@@ -61,10 +61,14 @@ function GlobalTopbar({ route, ctxOrder, onNavigate, onOpenOrder, onCreateClient
         )}
         <Breadcrumbs route={route} ctxOrder={ctxOrder} onNavigate={onNavigate} />
       </div>
-      <GlobalSearch onOpenOrder={onOpenOrder} onNavigate={onNavigate} onOpenChat={onOpenChat} />
-      <div className="gtop-actions">
-        <ShiftControl role={role} onOpenOrder={onOpenOrder} />
-        <QuickCreate onCreateOrder={() => onOpenOrder('__create__')} onCreateClient={onCreateClient} onCreateCompany={onCreateCompany} onCreateKP={onCreateKP} onNavigate={onNavigate} role={role} />
+      <div className="gtop-tools">
+        <div className="gtop-shift"><ShiftControl role={role} onOpenOrder={onOpenOrder} /></div>
+        <div className="gtop-search-create">
+          <GlobalSearch onOpenOrder={onOpenOrder} onNavigate={onNavigate} onOpenChat={onOpenChat} />
+          <div className="gtop-actions">
+            <QuickCreate onCreateOrder={() => onOpenOrder('__create__')} onCreateClient={onCreateClient} onCreateCompany={onCreateCompany} onCreateKP={onCreateKP} onNavigate={onNavigate} role={role} />
+          </div>
+        </div>
       </div>
     </div>
   );

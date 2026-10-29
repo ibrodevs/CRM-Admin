@@ -285,11 +285,14 @@ function GlobalSearch({ onOpenOrder, onNavigate, onOpenChat }) {
   const pick = (fn) => { if (fn) fn(); setOpen(false); setQ(''); };
 
   return (
-    <div className="gtop-search" ref={ref}>
+    <div className={'gtop-search' + (open ? ' is-expanded' : '')} ref={ref}
+      onBlur={(event) => { if (event.relatedTarget && !event.currentTarget.contains(event.relatedTarget)) setOpen(false); }}>
       <div className="search" style={{ width: '100%' }}>
         <Icon name="search" />
-        <input value={q} onChange={(e) => { setQ(e.target.value); setOpen(true); }} onFocus={() => setOpen(true)}
-          placeholder="Глобальный поиск: клиент, заказ, билет, документ…   ⌘K" />
+        <input aria-label="Глобальный поиск" aria-keyshortcuts="Meta+K Control+K" value={q}
+          onChange={(e) => { setQ(e.target.value); setOpen(true); }} onFocus={() => setOpen(true)} onClick={() => setOpen(true)}
+          onKeyDown={(e) => { if (e.key === 'Escape') { e.preventDefault(); setOpen(false); } }}
+          placeholder={open ? 'Клиент, заказ, билет, документ…' : 'Глобальный поиск'} />
       </div>
       {open && ql && (
         <div className="gsearch-pop scroll">

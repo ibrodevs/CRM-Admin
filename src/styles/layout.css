@@ -97,8 +97,10 @@
   .main{height:calc(100dvh - 72px);width:100%;overflow-x:hidden}
   .gtop{padding:10px 12px;gap:9px;align-items:stretch}
   .crumbs{width:100%;font-size:12.5px}
-  .gtop-search{order:2;flex:1 1 100%;max-width:none;min-width:0;width:100%}
-  .gtop-actions{order:3;width:100%;margin-left:0;justify-content:flex-end;flex-wrap:nowrap;overflow-x:auto;padding-bottom:2px}
+  .gtop-tools{width:100%;flex-wrap:wrap}
+  .gtop-search-create{width:100%}
+  .gtop-search,.gtop-search.is-expanded{flex:1 1 0;width:auto;min-width:0}
+  .gtop-actions{width:auto}
   .gtop-actions .chip,.gtop-actions .btn{flex:0 0 auto}
   .page-title{white-space:normal}
   .table-card{overflow-x:auto}
