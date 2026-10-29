@@ -197,6 +197,7 @@ export function WorkspaceProvider({ children }) {
       request_type: REQUEST_TYPE[draft.request_type || draft.requestType] || 'individual',
       client_person: draft.client_person || person?.id || null,
       client_company: draft.client_company || company?.id || null,
+      contact_person: draft.contact_person,
       priority: draft.priority || 'normal',
       source: draft.source || 'web',
       preferred_channel: draft.preferred_channel || draft.channel || '',

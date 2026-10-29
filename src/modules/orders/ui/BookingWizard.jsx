@@ -1,3 +1,5 @@
+import { OrderContactField } from './OrderContactField.jsx';
+import { orderContact } from '../model/order-contact.js';
 import { useState, useEffect } from 'react';
 import { Icon } from '../../../shared/icons/index.jsx';
 import { Button } from '../../../shared/ui/Button.jsx';
@@ -95,8 +97,11 @@ function offerFromServices(order, services) {
   };
 }
 
-function BookingWizard({ order, services, draft, onClose, onComplete, onSaveDraft }) {
+function BookingWizard({ order, services, draft, onClose, onComplete, onSaveDraft, onContactChanged }) {
   const toast = useToast();
+  const [effectiveOrder, setEffectiveOrder] = useState(order);
+  useEffect(() => { setEffectiveOrder(order); }, [order]);
+  const contact = orderContact(effectiveOrder);
 
 
   const isGroupOrder = !!(order && (order.requestType === 'Групповая' || order.requestType === 'Корпоративная'));
@@ -133,6 +138,7 @@ function BookingWizard({ order, services, draft, onClose, onComplete, onSaveDraf
   const next = () => setStep((s) => Math.min(STEPS.length - 1, s + 1));
   const back = () => setStep((s) => Math.max(0, s - 1));
   const startBooking = async () => {
+    if (contact.required && !contact.valid) { toast(contact.message, 'err'); return; }
     if (!bookingServices.length) {
       toast('Нет услуг в статусе «Предложено» или «На согласовании» для бронирования', 'info');
       return;
@@ -285,6 +291,7 @@ function BookingWizard({ order, services, draft, onClose, onComplete, onSaveDraf
     switch (step) {
       case 0: return (
         <div>
+          <OrderContactField order={effectiveOrder} onSaved={async (saved) => { setEffectiveOrder(saved); await onContactChanged?.(); }} />
           {isGroupOrder && (
             <>
               <div className="section-title" style={{ fontSize: 18, marginBottom: 12 }}>Выберите способ бронирования</div>

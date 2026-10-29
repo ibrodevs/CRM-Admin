@@ -1,3 +1,4 @@
+import { contactPersonForDraft } from '../model/order-contact.js';
 import { getDefaultCurrency } from '../../../shared/lib/money.js';
 import { apiPath, apiRequest, queryString } from '../../../shared/api/client.js';
 import { list, listAll, get, create, patch, remove } from '../../../shared/api/operations.js';
@@ -7,7 +8,7 @@ export const ordersApi = {
   list: (params = {}, signal) => list('orders/', { page_size: 100, ...params }, signal),
   detail: (id, signal) => get(`orders/${id}/`, signal),
   overview: (id, signal) => get(`orders/${id}/overview/`, signal),
-  create: (body) => create('orders/', { base_currency: getDefaultCurrency(), ...body }),
+  create: (body) => create('orders/', { base_currency: getDefaultCurrency(), ...body, contact_person: contactPersonForDraft(body) }),
   update: (id, body) => patch(`orders/${id}/`, body),
   transition: (id, body) => create(`orders/${id}/transition/`, body),
   cancel: (id, body) => create(`orders/${id}/cancel/`, body),

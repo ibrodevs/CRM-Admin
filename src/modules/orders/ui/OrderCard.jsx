@@ -1,3 +1,4 @@
+import { orderContact } from '../model/order-contact.js';
 import { FreeBookingPaxField, FreeBookingRailFlow, FreeBookingServiceAddFlow, FreeBookingAeroAddFlow, liveFlightOffer, liveFlightLeg, freeFlightSegments, validateFreeFlightSearch, searchFreeFlightOffers, freeFlightDraft, freeFlightFareOptions, freeFlightLocalPassengers, freeFlightFareDetails } from '../../services/index.js';
 import { clientsApi } from '../../clients/api.js';
 import React, { useState, useEffect, useRef } from 'react';
@@ -3140,7 +3141,7 @@ function OrderCard({ order, company, clients = [], onBack, initTab, initSvc, ini
   };
 
   const renderServicesArea = () => {
-    if (svcView === 'booking') return <BookingWizard order={cardOrder} services={services} draft={bookingDraft}
+    if (svcView === 'booking') return <BookingWizard order={cardOrder} services={services} draft={bookingDraft} onContactChanged={refreshOrderSnapshot}
       onSaveDraft={setBookingDraft} onClose={() => setSvcView(null)}
       onComplete={async () => {
         setBookingDraft(null);
@@ -3196,7 +3197,7 @@ function OrderCard({ order, company, clients = [], onBack, initTab, initSvc, ini
   const tabContent = () => {
     if (loadError) return <AsyncBlock state="error" onRetry={() => setReloadKey((key) => key + 1)} />;
     if (loading) return <AsyncBlock state="loading" skeletonRows={5} />;
-    const client = clients.find((item) => String(item.id) === String(cardOrder.contact_person || cardOrder.client_person));
+    const client = orderContact(cardOrder, participants, clients);
     switch (tab) {
       case 'overview': return <TabOverview order={cardOrder} company={company} />;
       case 'clients': return <TabClients order={cardOrder} company={company} client={client} onOpenChat={handleOpenChat} />;
@@ -3291,7 +3292,7 @@ function OrderCard({ order, company, clients = [], onBack, initTab, initSvc, ini
                   <StatusControl status={status} onChange={changeOrderStatus} />
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap', fontSize: 13, color: 'var(--muted)' }}>
-                  <span>Создан {order.date} · <b style={{ color: 'var(--ink)', fontWeight: 600 }}>{(participants.find((p) => p.lead) || participants[0] || {}).name || order.client}</b> · {requestType === 'Групповая' ? 'Групповая поездка' : requestType} · {aviaParams.cabin} · оператор <button type="button" className="oc-meta-action" onClick={() => setReassignOpen(true)}>{operator || order.operator || 'не назначен'}</button></span>
+                  <span>Создан {order.date} · <b style={{ color: 'var(--ink)', fontWeight: 600 }}>{orderContact(cardOrder, participants, clients).name || 'Контактное лицо не выбрано'}</b> · {requestType === 'Групповая' ? 'Групповая поездка' : requestType} · {aviaParams.cabin} · оператор <button type="button" className="oc-meta-action" onClick={() => setReassignOpen(true)}>{operator || order.operator || 'не назначен'}</button></span>
                 </div>
                 <div style={{ flex: 1 }} />
                 <Button variant="secondary" size="sm" icon="chat" onClick={handleOpenChat}>
