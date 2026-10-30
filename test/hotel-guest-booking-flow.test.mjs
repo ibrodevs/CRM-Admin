@@ -6,6 +6,8 @@ import { createRequire } from 'node:module';
 import * as guests from '../src/modules/services/hotels/guests.js';
 import * as creation from '../src/modules/services/hotels/guest-create.js';
 import * as criteria from '../src/modules/services/hotels/search-criteria.js';
+import * as presentation from '../src/modules/services/hotels/presentation.js';
+import * as money from '../src/shared/lib/money.js';
 
 const require = createRequire(import.meta.url);
 const React = require('react');
@@ -18,11 +20,13 @@ const compiled = babel.transformSync(ast.program.body.filter((node) => !['Import
 
 // Render the actual picker with controllable hooks; exercise its event handlers
 // without a network server, search provider, or extra React testing dependencies.
-function mountPicker({ orderId, participants } = {}) {
-  const state = [], results = [];
-  let cursor = 0;
+function mountPicker({ orderId, participants, searchApi } = {}) {
+  const state = [], results = [], refs = [];
+  let cursor = 0, refCursor = 0;
   const bindings = Object.fromEntries(ast.program.body.filter((n) => n.type === 'ImportDeclaration').flatMap((n) => n.specifiers.map((s) => [s.local.name, s.local.name])));
-  Object.assign(bindings, guests, creation, criteria, {
+  Object.assign(bindings, guests, creation, criteria, presentation, money, {
+    servicesApi: searchApi, resultsOf: (payload) => payload.results || [],
+    useRef(initial) { const index = refCursor++; return refs[index] ||= { current: initial }; },
     React, window: {}, useToast: () => () => {},
     useState(initial) { const index = cursor++; if (!(index in state)) state[index] = typeof initial === 'function' ? initial() : initial; return [state[index], (value) => { state[index] = typeof value === 'function' ? value(state[index]) : value; }]; },
     useEffect() {}, HOTEL_MEALS: [], fmtDate: (date) => criteria.hotelDateOnly(date),
@@ -30,7 +34,7 @@ function mountPicker({ orderId, participants } = {}) {
   });
   vm.createContext(bindings); vm.runInContext(compiled, bindings);
   const props = { orderId, participants, onApply: async (offer) => { results.push(offer); } };
-  const render = () => { cursor = 0; return bindings.HotelPicker(props); };
+  const render = () => { cursor = 0; refCursor = 0; return bindings.HotelPicker(props); };
   render();
   const set = (name, value) => { const index = hookNames.indexOf(name); assert.notEqual(index, -1, name); state[index] = value; };
   const get = (name) => state[hookNames.indexOf(name)];
@@ -40,7 +44,7 @@ function mountPicker({ orderId, participants } = {}) {
     if (tree.type === type) return tree;
     return find(tree.props?.children, type);
   };
-  return { set, get, render, results, placement: () => find(render(), bindings.PaxPlacementPanel), creation: () => find(render(), bindings.HotelGuestCreateDrawer) };
+  return { set, get, render, results, placement: () => find(render(), bindings.PaxPlacementPanel), creation: () => find(render(), bindings.HotelGuestCreateDrawer), room: () => find(render(), bindings.RoomPanel) };
 }
 
 function seed(picker, existing, provider = 'hotelbook') {
@@ -102,4 +106,42 @@ test('editing an unselected person does not change existing selection or exceed 
   await picker.creation().props.onCreated({ id: 'person-other', person: 'person-other', name: 'Исправленный гость' });
   assert.deepEqual(picker.placement().props.guestSel, { 0: true });
   assert.equal(picker.get('mainGuest'), 0);
+});
+
+
+test('editing the room header repeats search and replaces the old offer without leaving room selection', async () => {
+  let request;
+  const api = {
+    search: async (body) => { request = body; return { search_id: 'updated-search' }; },
+    searchStatus: async () => ({ status: 'completed' }),
+    offers: async () => ({ results: [{ id: 'new-offer', provider_adapter: 'hotelbook', price: { amount: 18000, currency: 'RUB' }, itinerary: { property_name: 'Отель', hotel_id: 'hb-1', address: 'Адрес', room: 'Twin', max_occupancy: 3 }, fare: {} }] }),
+  };
+  const picker = mountPicker({ searchApi: api });
+  seed(picker, {});
+  picker.set('panel', 'room'); picker.set('dest', 'Москва');
+  picker.set('activeHotel', { ...picker.get('activeHotel'), supplier: 'hotelbook', addr: 'Адрес', itinerary: { hotel_id: 'hb-1' } });
+  const draft = { checkin: new Date(2027, 1, 10), checkout: new Date(2027, 1, 14), occupancyRooms: [{ adults: 3, childrenAges: [] }] };
+  assert.equal(await picker.room().props.onSearchStay(draft), true);
+  assert.equal(request.criteria.check_in, '2027-02-10');
+  assert.equal(request.criteria.check_out, '2027-02-14');
+  assert.equal(request.criteria.guests, 3);
+  assert.equal(picker.get('panel'), 'room');
+  assert.equal(picker.get('activeHotel')._backendOfferId, 'new-offer');
+  assert.equal(picker.get('selTariff').price, 18000);
+  assert.equal(picker.get('roomSearchUnavailable'), false);
+  assert.equal(picker.get('checkin'), draft.checkin);
+});
+
+test('no matching rooms hides the previous tariff, and closing an in-flight search never reopens the panel', async () => {
+  let finish;
+  const api = { search: async () => ({ search_id: 'search' }), searchStatus: () => new Promise((resolve) => { finish = resolve; }), offers: async () => ({ results: [] }) };
+  const picker = mountPicker({ searchApi: api });
+  seed(picker, {}); picker.set('panel', 'room'); picker.set('dest', 'Москва');
+  const draft = { checkin: new Date(2027, 1, 10), checkout: new Date(2027, 1, 14), occupancyRooms: [{ adults: 2, childrenAges: [] }] };
+  let pending = picker.room().props.onSearchStay(draft);
+  await new Promise(setImmediate); finish({ status: 'completed' }); await pending;
+  assert.equal(picker.room().props.unavailable, true);
+  pending = picker.room().props.onSearchStay(draft);
+  await new Promise(setImmediate); picker.room().props.onClose(); finish({ status: 'completed' }); await pending;
+  assert.equal(picker.get('panel'), null);
 });

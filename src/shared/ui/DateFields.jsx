@@ -16,7 +16,7 @@ import { Select } from './Select.jsx';
 import { SearchBox } from './SearchBox.jsx';
 import { Combobox } from './Combobox.jsx';
 import { Avatar } from './Avatar.jsx';
-import { isPrintGuardActive, holdOverlaysDuringPrint, printOverlayScope, Modal, ModalHeader, Drawer, ConfirmDialog } from './Overlays.jsx';
+import { isPrintGuardActive, holdOverlaysDuringPrint, printOverlayScope, useOverlayLayer, Modal, ModalHeader, Drawer, ConfirmDialog } from './Overlays.jsx';
 import { Tabs } from './Tabs.jsx';
 import { FilterChip } from './FilterChip.jsx';
 import { Pagination } from './Pagination.jsx';
@@ -220,6 +220,7 @@ function DateRangeField({ label, startVal, endVal, onChange, placeholder = 'Вы
   const [open, setOpen] = useState(false);
   const [pos, setPos] = useState({ top: 0, left: 0 });
   const ref = useRef(null);
+  useOverlayLayer(open, () => setOpen(false));
   useEffect(() => {
     const h = (e) => {
       if (!ref.current) return;
@@ -227,8 +228,8 @@ function DateRangeField({ label, startVal, endVal, onChange, placeholder = 'Вы
       if (ref.current.contains(e.target) || (portal && portal.contains(e.target))) return;
       setOpen(false);
     };
-    document.addEventListener('mousedown', h);
-    return () => document.removeEventListener('mousedown', h);
+    document.addEventListener('mousedown', h, true);
+    return () => document.removeEventListener('mousedown', h, true);
   }, []);
   const toggle = () => {
     if (!open && ref.current) {

@@ -1,4 +1,5 @@
 import { useEffect, useId, useRef, useState } from 'react';
+import { useOverlayLayer } from '../../../shared/ui/Overlays.jsx';
 import { Icon } from '../../../shared/icons/index.jsx';
 import { Button } from '../../../shared/ui/Button.jsx';
 import { Field } from '../../../shared/ui/Field.jsx';
@@ -11,13 +12,13 @@ export function HotelOccupancyPicker({ rooms, onChange }) {
   const [open, setOpen] = useState(false);
   const ref = useRef(null);
   const id = useId();
+  useOverlayLayer(open, () => { setOpen(false); ref.current?.querySelector('button')?.focus(); });
   const occupancy = hotelOccupancy(rooms);
   const update = (index, patch) => onChange(rooms.map((room, i) => i === index ? { ...room, ...patch } : room));
   useEffect(() => {
     const close = (event) => { if (!ref.current?.contains(event.target)) setOpen(false); };
-    const escape = (event) => { if (event.key === 'Escape') { setOpen(false); ref.current?.querySelector('button')?.focus(); } };
-    if (open) { document.addEventListener('mousedown', close); document.addEventListener('keydown', escape); }
-    return () => { document.removeEventListener('mousedown', close); document.removeEventListener('keydown', escape); };
+    if (open) { document.addEventListener('mousedown', close, true); }
+    return () => { document.removeEventListener('mousedown', close, true); };
   }, [open]);
   return <div className="hp-occupancy" ref={ref}>
     <button type="button" className="hp-guests-trigger" aria-expanded={open} aria-controls={id} onClick={() => setOpen((value) => !value)}>
