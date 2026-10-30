@@ -1,0 +1,15 @@
+.hp-map-layout{display:grid;grid-template-columns:300px minmax(0,1fr);gap:20px;min-height:70vh}
+.hp-map-sidebar{min-width:0;max-height:76vh;overflow:auto;padding-right:6px}
+.hp-map-sidebar .hp-filters{width:100%;position:static}
+.hp-map-sidebar>p{font-size:13px;color:var(--muted);margin:14px 0}
+.hp-map-area{position:relative;min-width:0;min-height:520px}
+.hp-map-canvas{height:70vh;min-height:520px;width:100%;border:1px solid var(--line);border-radius:14px;z-index:0}
+.hp-map-status{padding:10px 2px;font-size:12px;color:var(--muted)}
+.hp-map-price-tag{display:block;white-space:nowrap;background:var(--surface);color:var(--ink);border:2px solid var(--blue);border-radius:18px;padding:7px 11px;font-family:inherit;font-size:13px;font-weight:700;line-height:1.2;box-shadow:0 2px 8px #0003;cursor:pointer;transform:translate(-50%,-50%)}
+.hp-map-price-tag:hover,.hp-map-price-tag:focus-visible{background:var(--blue);color:#fff;outline:2px solid var(--ink)}
+.hp-map-offers{display:grid;gap:10px}
+.hp-map-offer{display:grid;gap:6px;text-align:left;padding:14px;border:1px solid var(--line);border-radius:12px;background:var(--surface);color:var(--ink);cursor:pointer}
+.hp-map-offer:hover{border-color:var(--blue)}
+.hp-map-offer small{color:var(--muted)}
+.hp-map-offer strong,.hp-map-offer>span{color:var(--blue)}
+@media(max-width:800px){.hp-map-layout{grid-template-columns:1fr}.hp-map-sidebar{max-height:35vh}.hp-map-canvas{height:48vh;min-height:320px}.hp-map-area{min-height:350px}}

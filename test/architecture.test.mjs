@@ -35,6 +35,7 @@ test('stylesheet fragments parse independently and preserve their cascade order'
   const globals = fs.readFileSync(path.join(root, 'app/globals.css'), 'utf8');
   assert.deepEqual([...globals.matchAll(/@import '([^']+)';/g)].map((match) => match[1]), [
     '../src/styles/tokens.css', '../src/styles/base.css', '../src/styles/layout.css', '../src/styles/components.css',
+    'leaflet/dist/leaflet.css', '../src/styles/components/hotel-map.css',
   ]);
   const walk = (directory) => fs.readdirSync(directory, { withFileTypes: true }).flatMap((entry) => {
     const file = path.join(directory, entry.name);

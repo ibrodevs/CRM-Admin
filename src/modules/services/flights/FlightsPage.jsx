@@ -283,7 +283,7 @@ function FlightSearch({ params, setParams, onSearch, onBack }) {
         )}
         <PaxField pax={p.pax} setPax={(v) => set({ pax: v })} cabin={p.cabin} setCabin={(v) => set({ cabin: v })}
           options={p} setOptions={(patch) => set(patch)} />
-        <Button icon="search" style={{ height: 46, marginBottom: 0 }} onClick={onSearch}>Найти билеты</Button>
+        <Button icon="search" style={{ height: 'var(--h-control)', marginBottom: 0 }} onClick={onSearch}>Найти билеты</Button>
       </div>
 
 

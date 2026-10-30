@@ -168,9 +168,10 @@ function OrdersMultiSelectList({ orders, onOpen, onCreate, onNavigate, currentUs
               background: 'var(--blue-soft)', color: 'var(--ink)',
             }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
-                <span style={{ width: 28, height: 28, borderRadius: 8, background: 'var(--blue)', color: '#fff', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', flex: '0 0 28px' }}>
+                <button type="button" className="checkbox on" aria-label="Снять выбор всех заказов" title="Снять выбор всех заказов" onClick={clearSelection}
+                  style={{ width: 28, height: 28, borderRadius: 8, background: 'var(--blue)', color: '#fff', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', flex: '0 0 28px' }}>
                   <Icon name="check" style={{ width: 15, height: 15 }} />
-                </span>
+                </button>
                 <div style={{ minWidth: 0 }}>
                   <b style={{ display: 'block', fontSize: 13.5 }}>Выбрано заказов: {selectedCount}</b>
                   <span style={{ display: 'block', marginTop: 1, fontSize: 12, color: 'var(--muted)' }}>Выбор сохраняется при открытии заказа и возвращении к списку.</span>

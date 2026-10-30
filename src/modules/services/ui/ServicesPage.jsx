@@ -1862,7 +1862,7 @@ function ServiceFlow({ routeKey, searchIntent, onConsumeSearch }) {
           <div className="fade-in">
             <div className="av-bar">
               {cfg.fields.map((f) => <SvcField key={f.k} f={f} form={form} set={setF} />)}
-              <Button icon="search" style={{ height: 46, marginBottom: 0 }} onClick={runSearch}>Найти</Button>
+              <Button icon="search" style={{ height: 'var(--h-control)', marginBottom: 0 }} onClick={runSearch}>Найти</Button>
             </div>
             <div style={{ marginTop: 14, display: 'flex', alignItems: 'center', gap: 8, color: 'var(--muted)', fontSize: 13 }}>
               <Icon name="api" style={{ width: 16, height: 16 }} />Поиск по подключённым поставщикам · {cfg.title}
@@ -1968,7 +1968,7 @@ function FreeBookingServiceAddFlow({ routeKey, onAdd, currency, paxCount = 1 }) 
           )}
           <div className="av-bar">
             {cfg.fields.map((f) => <SvcField key={f.k} f={f} form={form} set={setF} />)}
-            <Button disabled={loading} icon="search" style={{ height: 46, marginBottom: 0 }} onClick={runSearch}>Найти</Button>
+            <Button disabled={loading} icon="search" style={{ height: 'var(--h-control)', marginBottom: 0 }} onClick={runSearch}>Найти</Button>
           </div>
           <div style={{ marginTop: 14, display: 'flex', alignItems: 'center', gap: 8, color: 'var(--muted)', fontSize: 13 }}>
             <Icon name="api" style={{ width: 16, height: 16 }} />Поиск по подключённым поставщикам · {cfg.title}
@@ -2079,7 +2079,7 @@ function FreeBookingAeroAddFlow({ onAdd }) {
                 </div>
               </>
             )}
-            <Button disabled={loading} icon="search" style={{ height: 46, marginBottom: 0 }} onClick={runSearch}>Найти</Button>
+            <Button disabled={loading} icon="search" style={{ height: 'var(--h-control)', marginBottom: 0 }} onClick={runSearch}>Найти</Button>
           </div>
           <div style={{ marginTop: 14, display: 'flex', alignItems: 'center', gap: 8, color: 'var(--muted)', fontSize: 13 }}>
             <Icon name="api" style={{ width: 16, height: 16 }} />Билеты и абонементы Аэроэкспресс · цены в ₽
@@ -2164,7 +2164,7 @@ function ServiceAddFlow({ routeKey, onAdd, currency, paxCount = 1 }) {
           )}
           <div className="av-bar">
             {cfg.fields.map((f) => <SvcField key={f.k} f={f} form={form} set={setF} />)}
-            <Button icon="search" style={{ height: 46, marginBottom: 0 }} onClick={runSearch}>Найти</Button>
+            <Button icon="search" style={{ height: 'var(--h-control)', marginBottom: 0 }} onClick={runSearch}>Найти</Button>
           </div>
           <div style={{ marginTop: 14, display: 'flex', alignItems: 'center', gap: 8, color: 'var(--muted)', fontSize: 13 }}>
             <Icon name="api" style={{ width: 16, height: 16 }} />Поиск по подключённым поставщикам · {cfg.title}
@@ -2267,7 +2267,7 @@ function AeroAddFlow({ onAdd }) {
                 </div>
               </>
             )}
-            <Button icon="search" style={{ height: 46, marginBottom: 0 }} onClick={runSearch}>Найти</Button>
+            <Button icon="search" style={{ height: 'var(--h-control)', marginBottom: 0 }} onClick={runSearch}>Найти</Button>
           </div>
           <div style={{ marginTop: 14, display: 'flex', alignItems: 'center', gap: 8, color: 'var(--muted)', fontSize: 13 }}>
             <Icon name="api" style={{ width: 16, height: 16 }} />Билеты и абонементы Аэроэкспресс · цены в ₽
@@ -2787,7 +2787,7 @@ function FreeBookingRailFlow({ currency, onAdd }) {
             <button className="btn btn-secondary btn-icon btn-sm" onClick={() => setF('pax', form.pax + 1)}>+</button>
           </div>
         </div>
-        <Button disabled={loading} icon="search" style={{ height: 46, marginBottom: 0 }} onClick={runSearch}>Найти</Button>
+        <Button disabled={loading} icon="search" style={{ height: 'var(--h-control)', marginBottom: 0 }} onClick={runSearch}>Найти</Button>
       </div>
 
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, margin: '16px 0 14px' }}>
@@ -2897,7 +2897,7 @@ function RailAddFlow({ participants = [], groups, onAdd }) {
             <button className="btn btn-secondary btn-icon btn-sm" onClick={() => setF('pax', form.pax + 1)}>+</button>
           </div>
         </div>
-        <Button icon="search" style={{ height: 46, marginBottom: 0 }} onClick={runSearch}>Найти</Button>
+        <Button icon="search" style={{ height: 'var(--h-control)', marginBottom: 0 }} onClick={runSearch}>Найти</Button>
       </div>
 
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, margin: '16px 0 14px' }}>

@@ -13,7 +13,7 @@ function StackPanel({ title, onClose, footer, children, width, compact = false, 
   const zIndex = useOverlayZIndex(true);
 
   const node = (
-    <div className={'drawer-stack' + (compact ? ' drawer-stack-compact' : '')} style={{ zIndex }} onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}>
+    <div className={'drawer-stack' + (compact ? ' drawer-stack-compact' : '')} style={{ zIndex }} onClick={(event) => event.stopPropagation()} onMouseDown={(event) => { event.stopPropagation(); if (event.target === event.currentTarget) onClose(); }}>
       <div className={'drawer-stack-panel scroll' + (className ? ' ' + className : '')} style={width ? { width } : undefined}>
         <div style={{ padding: '20px 26px 16px', position: 'sticky', top: 0, background: 'var(--surface)', zIndex: 2, borderBottom: '1px solid var(--line)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <h3 style={{ fontSize: 18, fontWeight: 700, color: 'var(--ink)', margin: 0 }}>{title}</h3>

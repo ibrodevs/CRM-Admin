@@ -30,6 +30,12 @@
   line-height: 1;
 }
 
+/* Search fields share the date field height; the inner +/- buttons stay compact. */
+.av-field > .input:has(> button.btn.btn-icon.btn-sm:first-child + span + button.btn.btn-icon.btn-sm:last-child) {
+  height: var(--h-control);
+  min-height: var(--h-control);
+}
+
 /* Hotel room and guest counters. */
 .hp-stepper {
   gap: 6px;

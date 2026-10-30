@@ -2168,7 +2168,7 @@ function FreeBookingFlightPanel({ params, setParams, onAdd }) {
             </Button>
             <div style={{ flex: 1 }} />
             {paxFieldNode}
-            <Button icon="search" className="avia-find-btn" style={{ height: 46, marginBottom: 0 }} disabled={loading} onClick={runSearch}>Найти</Button>
+            <Button icon="search" className="avia-find-btn" style={{ height: 'var(--h-control)', marginBottom: 0 }} disabled={loading} onClick={runSearch}>Найти</Button>
           </div>
         </div>
       ) : (
@@ -2191,7 +2191,7 @@ function FreeBookingFlightPanel({ params, setParams, onAdd }) {
           )}
 
           {paxFieldNode}
-          <Button icon="search" className="avia-find-btn" style={{ height: 46, marginBottom: 0 }} disabled={loading} onClick={runSearch}>Найти</Button>
+          <Button icon="search" className="avia-find-btn" style={{ height: 'var(--h-control)', marginBottom: 0 }} disabled={loading} onClick={runSearch}>Найти</Button>
         </div>
       )}
 

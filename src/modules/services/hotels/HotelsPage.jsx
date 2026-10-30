@@ -2,6 +2,7 @@ import { HotelGuestCreateDrawer } from './HotelGuestCreateDrawer.jsx';
 import { mergeHotelGuests, selectCreatedHotelGuest, validateHotelBookingGuests } from './guest-create.js';
 import { HotelContent } from './HotelContent.jsx';
 import { HotelOccupancyPicker } from './HotelOccupancyPicker.jsx';
+import { HotelMap } from './HotelMap.jsx';
 import { clientsApi } from '../../clients/api.js';
 import { hotelPersonToGuest, hotelGuestSelection, hotelRoomAssignments } from './guests.js';
 import { hotelPlainText, hotelBedDescription, hotelPaymentDescription, hotelCancellationDescription } from './presentation.js';
@@ -41,6 +42,13 @@ const HP_SORT_OPTS = [
 const HP_SORT_LABEL = HP_SORT_OPTS.reduce((m, [k, l]) => (m[k] = l, m), {});
 
 const HP_RADIUS_OPTS = ['500 м', '1 км', '2 км', '5 км', '10 км', 'Без ограничений'];
+const HP_STAY_TIME_OPTIONS = [
+  { value: '', label: 'Выберите время' },
+  ...Array.from({ length: 24 }, (_, hour) => {
+    const time = `${String(hour).padStart(2, '0')}:00`;
+    return { value: time, label: time };
+  }),
+];
 
 function hpM(n, currency) {
   return Number(n || 0).toLocaleString('ru-RU', { maximumFractionDigits: 2 }) + ' ' + currencySymbol(currency);
@@ -195,6 +203,8 @@ function HotelPicker({ participants, group = false, onApply, onCancel, currency,
   const [radius, setRadius] = useState('2 км');
   const [checkin, setCheckin] = useState(null);
   const [checkout, setCheckout] = useState(null);
+  const [earlyArrivalTime, setEarlyArrivalTime] = useState('');
+  const [lateDepartureTime, setLateDepartureTime] = useState('');
   const [occupancyRooms, setOccupancyRooms] = useState(() => Array.from({ length: group ? Math.max(1, Math.ceil(PAX.length / 2)) : 1 }, (_, i) => ({ adults: group ? Math.max(1, Math.min(2, PAX.length - i * 2)) : 2, childrenAges: [] })));
   const occupancy = hotelOccupancy(occupancyRooms);
   const searchRooms = occupancyRooms.length;
@@ -215,6 +225,7 @@ function HotelPicker({ participants, group = false, onApply, onCancel, currency,
   const [searchError, setSearchError] = useState('');
   useEffect(() => { setSearchError(''); }, [dest, checkin, checkout, occupancyRooms]);
   const [hasSearched, setHasSearched] = useState(false);
+  const [mapOpen, setMapOpen] = useState(false);
 
 
   const [activeHotel, setActiveHotel] = useState(null);
@@ -286,6 +297,8 @@ function HotelPicker({ participants, group = false, onApply, onCancel, currency,
           ...hotelProviderCriteria(destLocation, dest),
           check_in: hotelDateOnly(checkin),
           check_out: hotelDateOnly(checkout),
+          ...(earlyArrivalTime ? { early_arrival_time: earlyArrivalTime } : {}),
+          ...(lateDepartureTime ? { late_departure_time: lateDepartureTime } : {}),
           citizenship: hotelCitizenship(citizenship),
           guests: searchGuests,
           rooms: occupancy.rooms,
@@ -492,6 +505,14 @@ function HotelPicker({ participants, group = false, onApply, onCancel, currency,
               <button key={m.id} className={'hp-meal-tab' + (meal === m.id ? ' active' : '')} onClick={() => setMeal(m.id)} title={m.full}>{m.label}</button>
             ))}
           </div>
+          <label className="hp-field hp-field-stay-time">
+            <span className="hp-flabel">Ранний заезд</span>
+            <Select aria-label="Ранний заезд" options={HP_STAY_TIME_OPTIONS} value={earlyArrivalTime} onChange={(event) => setEarlyArrivalTime(event.target.value)} />
+          </label>
+          <label className="hp-field hp-field-stay-time">
+            <span className="hp-flabel">Поздний выезд</span>
+            <Select aria-label="Поздний выезд" options={HP_STAY_TIME_OPTIONS} value={lateDepartureTime} onChange={(event) => setLateDepartureTime(event.target.value)} />
+          </label>
           <div className="hp-field hp-field-sm">
             <span className="hp-flabel">Гражданство гостей</span>
             <Select options={['Все', 'РФ', 'Кыргызстан', 'Казахстан', 'Другое']} value={citizenship || 'Все'} onChange={(e) => setCitizenship(e.target.value)} />
@@ -517,7 +538,7 @@ function HotelPicker({ participants, group = false, onApply, onCancel, currency,
               trigger={<button className="hp-sort-btn"><span>{HP_SORT_LABEL[sort]}</span><Icon name="chevDown" /></button>}
               items={HP_SORT_OPTS.map(([k, l]) => ({ icon: sort === k ? 'check' : undefined, label: l, onClick: () => setSort(k) }))} />
           </div>
-          <button className="hp-map-btn" onClick={() => window.open(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(dest)}`, '_blank', 'noopener,noreferrer')}><Icon name="mapPin" />Карта</button>
+          <button type="button" className="hp-map-btn" onClick={() => setMapOpen(true)}><Icon name="mapPin" />Карта</button>
         </div>
       </div>
 
@@ -537,6 +558,24 @@ function HotelPicker({ participants, group = false, onApply, onCancel, currency,
         </div>
       </div>
 
+
+      {mapOpen && <StackPanel title="Отели на карте" width="min(1440px,96vw)" onClose={() => setMapOpen(false)} className="hp-map-panel">
+        <div className="hp-map-layout">
+          <div className="hp-map-sidebar">
+            <HotelFilters stars={stars} toggleStar={(s) => setStars((p) => ({ ...p, [s]: !p[s] }))} starCounts={starCounts}
+              districts={[...new Set(liveHotels.map((hotel) => hotel.district).filter((district) => district && district !== '—'))]}
+              distSel={distSel} toggleDist={(d) => setDistSel((p) => ({ ...p, [d]: !p[d] }))}
+              query={hotelQ} setQuery={setHotelQ} onReset={resetFilters} />
+            <label className="hp-inline-check"><Checkbox on={freeCancelOnly} onChange={() => setFreeCancelOnly((v) => !v)} />Бесплатная отмена</label>
+            <p role="status">Найдено вариантов: {list.length}</p>
+            <div className="hp-map-offers">{list.map((hotel) => <button type="button" className="hp-map-offer" key={hotel.id} disabled={searching} onClick={() => openHotel(hotel)}>
+              <b>{hotel.name}</b><small>{hotel.addr}</small><strong>{hpM(hotel.base, hotel.currency)}</strong><span>Выбрать номер</span>
+            </button>)}</div>
+            {!list.length && <EmptyState icon="building" title={hasSearched ? 'Ничего не найдено' : 'Сначала найдите отель'} sub="Задайте параметры поиска или измените фильтры" />}
+          </div>
+          <HotelMap hotels={list} onPick={(hotel) => !searching && openHotel(hotel)} />
+        </div>
+      </StackPanel>}
 
       {panel === 'room' && activeHotel && (
         <RoomPanel hotel={activeHotel} selRoom={selRoom} selTariff={selTariff} onPickRoom={pickRoom}

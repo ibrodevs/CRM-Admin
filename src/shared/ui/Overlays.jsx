@@ -81,12 +81,14 @@ function bindOverlayEscape() {
   window.addEventListener('keydown', (event) => {
     if (event.key !== 'Escape' || event.defaultPrevented) return;
     if (!OVERLAY_LAYERS.length) return;
+    // A held key must not close the search underneath the room details.
+    if (event.repeat) { event.preventDefault(); event.stopImmediatePropagation(); return; }
     if (isPrintGuardActive()) { event.preventDefault(); event.stopPropagation(); return; }
     const top = OVERLAY_LAYERS[OVERLAY_LAYERS.length - 1];
     event.preventDefault();
-    event.stopPropagation();
+    event.stopImmediatePropagation();
     top.close();
-  });
+  }, true);
 }
 
 // Регистрация окна в стеке. onClose читается через ref, поэтому пересоздание

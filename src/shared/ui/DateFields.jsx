@@ -250,13 +250,13 @@ function DateRangeField({ label, startVal, endVal, onChange, placeholder = 'Вы
     ? (endVal ? `${fmtDate(startVal)} — ${fmtDate(endVal)}` : fmtDate(startVal))
     : '';
   return (
-    <div ref={ref} style={{ position: 'relative', ...style }}>
+    <div ref={ref} style={{ position: 'relative', minWidth: 0, maxWidth: '100%', ...style }}>
       {label && <label className="label" style={{ display: 'block', marginBottom: 7 }}>{label}</label>}
       <button type="button" aria-label={label || placeholder} aria-expanded={open} aria-invalid={Boolean(error)} className={'input' + (error ? ' err' : '')}
-        style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 10, textAlign: 'left' }}
+        style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 10, textAlign: 'left', minWidth: 0, maxWidth: '100%' }}
         onClick={toggle}>
         <Icon name="calendar" style={{ width: 18, height: 18, color: 'var(--muted-2)', flexShrink: 0 }} />
-        <span style={{ color: display ? 'var(--ink)' : 'var(--faint)', fontSize: 15, flex: 1 }}>
+        <span title={display || placeholder} style={{ color: display ? 'var(--ink)' : 'var(--faint)', fontSize: 15, flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
           {display || placeholder}
         </span>
       </button>
