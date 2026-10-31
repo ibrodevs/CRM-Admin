@@ -15,6 +15,7 @@ export function HotelBookingSummary({ summary }) {
       ['Hotelbook itemId', (s.supplier_item_ids || []).join(', ')],
     ] : []),
     ['Статус бронирования', s.booking_status], ['Статус услуги CRM', s.service_status], ['Заезд', s.check_in], ['Выезд', s.check_out],
+    ...[['Время заезда', s.check_in_time], ['Время выезда', s.check_out_time]].filter(([, value]) => value),
     ['Ночей', s.nights], ['Номеров', s.room_count], ['Гостей', s.guest_count],
     ['Стоимость поставщика', hotelMoney(f.supplier_cost, f.currency)], ['Стоимость клиента', hotelMoney(f.client_cost, f.currency)],
     ['Сервисный сбор', hotelMoney(f.service_fee, f.currency)], ['Валюта', f.currency],

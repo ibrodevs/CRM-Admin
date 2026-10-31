@@ -62,3 +62,25 @@ export function hotelProviderCriteria(location, text) {
   }
   return {};
 }
+export function hotelStayTimes(itinerary = {}, overrides = {}) {
+  const earlyArrivalTime = overrides.earlyArrivalTime ?? itinerary.early_arrival_time ?? '';
+  const lateDepartureTime = overrides.lateDepartureTime ?? itinerary.late_departure_time ?? '';
+  const standardCheckin = itinerary.standard_check_in_time ?? (itinerary.early_arrival_time ? '' : itinerary.check_in_time) ?? '';
+  const standardCheckout = itinerary.standard_check_out_time ?? (itinerary.late_departure_time ? '' : itinerary.check_out_time) ?? '';
+  return { earlyArrivalTime, lateDepartureTime, standardCheckin, standardCheckout,
+    checkinTime: earlyArrivalTime || standardCheckin, checkoutTime: lateDepartureTime || standardCheckout };
+}
+
+export async function loadHotelStayOffer(hotel, revalidate) {
+  const times = hotelStayTimes(hotel.itinerary);
+  if (hotel.provider_adapter !== 'hotelbook' || (!times.earlyArrivalTime && !times.lateDepartureTime) || hotel.itinerary?.stay_times_validated) return hotel;
+  const { offer } = await revalidate(hotel._backendOfferId);
+  const updated = hotelStayTimes(offer?.itinerary);
+  if (!offer?.itinerary?.stay_times_validated || String(offer.id) !== String(hotel._backendOfferId)
+    || updated.earlyArrivalTime !== times.earlyArrivalTime || updated.lateDepartureTime !== times.lateDepartureTime
+    || (times.earlyArrivalTime && offer.itinerary.check_in_time !== times.earlyArrivalTime)
+    || (times.lateDepartureTime && offer.itinerary.check_out_time !== times.lateDepartureTime)) {
+    throw new Error('Не удалось подтвердить тариф для выбранного времени заезда и выезда. Повторите поиск.');
+  }
+  return offer;
+}

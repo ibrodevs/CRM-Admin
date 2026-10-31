@@ -2272,6 +2272,8 @@ table.tbl.tbl-wide thead th,table.tbl.tbl-wide tbody td{white-space:nowrap}
 .hp-head-fields{border:0;padding:0;margin:0;min-width:0;display:grid;grid-template-columns:220px 220px 144px;align-items:end;gap:12px}
 .hp-head-fields .hp-flabel{font-size:13px;font-weight:600;line-height:20px}
 .hp-head-fields .hp-field{min-width:0;gap:7px}
+.hp-head-stay-times{grid-column:1/-1;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+@container(max-width:420px){.hp-head-stay-times{grid-template-columns:1fr}}
 .hp-head-value{display:flex;align-items:center;gap:10px;height:var(--h-control);padding:0 15px;border:1px solid var(--field-line);border-radius:var(--r-input);background:var(--surface);color:var(--ink);font-size:15px;min-width:0}
 .hp-head-value>span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .hp-head-value>svg{width:18px;height:18px;flex:0 0 18px;color:var(--muted-2)}

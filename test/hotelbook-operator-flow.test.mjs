@@ -75,3 +75,8 @@ test('missing policy renders an explicit unknown-policy notice instead of zero p
   assert.ok(html.includes('Поставщик не передал условия отмены. Это не означает отсутствие штрафа.'));
   assert.ok(!html.includes('0 EUR'));
 });
+
+test('operator booking summary shows the selected check-in and check-out times', () => {
+  const html = render(HotelBookingSummary, { summary: { ...summary, check_in_time: '09:00', check_out_time: '18:00' } });
+  for (const text of ['Время заезда', '09:00', 'Время выезда', '18:00']) assert.ok(html.includes(text), text);
+});

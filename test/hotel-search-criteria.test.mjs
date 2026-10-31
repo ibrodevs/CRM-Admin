@@ -55,3 +55,37 @@ test('hotel occupancy retains adults and child ages separately in each supplier 
   assert.deepEqual(result.rooms, [{ adults: 2, childrenAges: [0, 7], quantity: 1 }, { adults: 1, childrenAges: [17], quantity: 1 }]);
   for (const rooms of [[], Array(6).fill({ adults: 2, childrenAges: [] }), [{ adults: 0, childrenAges: [] }], [{ adults: 2, childrenAges: [''] }], [{ adults: 2, childrenAges: [18] }]]) assert.equal(hotelOccupancy(rooms).valid, false);
 });
+
+
+test('nonstandard stay times override hotel defaults and clearing restores the standards', async () => {
+  const { hotelStayTimes } = await import('../src/modules/services/hotels/search-criteria.js');
+  const itinerary = { early_arrival_time: '09:00', late_departure_time: '18:00', check_in_time: '09:00', check_out_time: '18:00', standard_check_in_time: '14:00', standard_check_out_time: '12:00' };
+  assert.equal(hotelStayTimes(itinerary).checkinTime, '09:00');
+  assert.equal(hotelStayTimes(itinerary).checkoutTime, '18:00');
+  const cleared = hotelStayTimes(itinerary, { earlyArrivalTime: '', lateDepartureTime: '' });
+  assert.equal(cleared.checkinTime, '14:00');
+  assert.equal(cleared.checkoutTime, '12:00');
+  assert.equal(cleared.earlyArrivalTime, '');
+  assert.equal(hotelStayTimes(itinerary, { earlyArrivalTime: '00:00' }).checkinTime, '00:00');
+  assert.equal(itinerary.early_arrival_time, '09:00');
+});
+
+test('selected Hotelbook tariff is revalidated with requested times and uses the updated price', async () => {
+  const { loadHotelStayOffer } = await import('../src/modules/services/hotels/search-criteria.js');
+  const hotel = { provider_adapter: 'hotelbook', _backendOfferId: 'offer-id', itinerary: { early_arrival_time: '09:00', late_departure_time: '18:00' } };
+  const updated = { id: 'offer-id', price: { amount: '150', currency: 'EUR' }, itinerary: { ...hotel.itinerary, check_in_time: '09:00', check_out_time: '18:00', stay_times_validated: true } };
+  const calls = [];
+  assert.equal(await loadHotelStayOffer(hotel, async (id) => { calls.push(id); return { offer: updated }; }), updated);
+  assert.deepEqual(calls, ['offer-id']);
+  const never = () => { throw new Error('Unexpected request'); };
+  assert.equal(await loadHotelStayOffer({ ...hotel, provider_adapter: 'aanda' }, never).then(x => x.provider_adapter), 'aanda');
+  assert.equal((await loadHotelStayOffer({ ...hotel, itinerary: {} }, never))._backendOfferId, 'offer-id');
+});
+
+test('failed or lost Hotelbook time selection cannot silently use the standard tariff', async () => {
+  const { loadHotelStayOffer } = await import('../src/modules/services/hotels/search-criteria.js');
+  const hotel = { provider_adapter: 'hotelbook', _backendOfferId: 'offer-id', itinerary: { early_arrival_time: '09:00' } };
+  await assert.rejects(loadHotelStayOffer(hotel, async () => { throw new Error('Timeout'); }), /Timeout/);
+  await assert.rejects(loadHotelStayOffer(hotel, async () => ({ offer: { id: 'offer-id', itinerary: { check_in_time: '14:00' } } })), /подтвердить тариф/);
+  await assert.rejects(loadHotelStayOffer(hotel, async () => ({ offer: { id: 'offer-id', itinerary: { early_arrival_time: '09:00', check_in_time: '14:00', stay_times_validated: true } } })), /подтвердить тариф/);
+});

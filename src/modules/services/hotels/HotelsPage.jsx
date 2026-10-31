@@ -1,4 +1,5 @@
 import { SectionInfo } from '../../../shared/ui/SectionInfo.jsx';
+import { hotelStayTimes, loadHotelStayOffer } from './search-criteria.js';
 import { InfoNotice } from '../../../shared/ui/InfoNotice.jsx';
 import { HotelGuestCreateDrawer } from './HotelGuestCreateDrawer.jsx';
 import { mergeHotelGuests, selectCreatedHotelGuest, validateHotelBookingGuests } from './guest-create.js';
@@ -45,7 +46,7 @@ const HP_SORT_LABEL = HP_SORT_OPTS.reduce((m, [k, l]) => (m[k] = l, m), {});
 
 const HP_RADIUS_OPTS = ['500 м', '1 км', '2 км', '5 км', '10 км', 'Без ограничений'];
 const HP_STAY_TIME_OPTIONS = [
-  { value: '', label: 'Выберите время' },
+  { value: '', label: 'Стандартное время' },
   ...Array.from({ length: 24 }, (_, hour) => {
     const time = `${String(hour).padStart(2, '0')}:00`;
     return { value: time, label: time };
@@ -225,6 +226,8 @@ function HotelPicker({ participants, group = false, onApply, onCancel, currency,
   const [sort, setSort] = useState('rec');
   const [liveHotels, setLiveHotels] = useState([]);
   const [searching, setSearching] = useState(false);
+  const [openingHotel, setOpeningHotel] = useState(false);
+  const selectingHotel = useRef(false);
   const [searchError, setSearchError] = useState('');
   useEffect(() => { setSearchError(''); }, [dest, checkin, checkout, occupancyRooms]);
   const [hasSearched, setHasSearched] = useState(false);
@@ -287,9 +290,10 @@ function HotelPicker({ participants, group = false, onApply, onCancel, currency,
   });
   const resetFilters = () => { setStars({}); setDistSel({}); setFreeCancelOnly(false); setHotelQ(''); };
   const runHotelSearch = async (overrides = {}) => {
-    if (searching) return undefined;
+    if (searching || selectingHotel.current) return undefined;
     const requestedCheckin = overrides.checkin ?? checkin;
     const requestedCheckout = overrides.checkout ?? checkout;
+    const requestedTimes = hotelStayTimes({ early_arrival_time: earlyArrivalTime, late_departure_time: lateDepartureTime }, overrides);
     const requestedOccupancy = hotelOccupancy(overrides.occupancyRooms ?? occupancyRooms);
     const requestedDateError = hotelDateError(requestedCheckin, requestedCheckout, today);
     if (requestedDateError || !dest.trim() || !requestedOccupancy.valid) {
@@ -306,8 +310,8 @@ function HotelPicker({ participants, group = false, onApply, onCancel, currency,
           ...hotelProviderCriteria(destLocation, dest),
           check_in: hotelDateOnly(requestedCheckin),
           check_out: hotelDateOnly(requestedCheckout),
-          ...(earlyArrivalTime ? { early_arrival_time: earlyArrivalTime } : {}),
-          ...(lateDepartureTime ? { late_departure_time: lateDepartureTime } : {}),
+          ...(requestedTimes.earlyArrivalTime ? { early_arrival_time: requestedTimes.earlyArrivalTime } : {}),
+          ...(requestedTimes.lateDepartureTime ? { late_departure_time: requestedTimes.lateDepartureTime } : {}),
           citizenship: hotelCitizenship(citizenship),
           guests: requestedOccupancy.guests,
           rooms: requestedOccupancy.rooms,
@@ -347,7 +351,23 @@ function HotelPicker({ participants, group = false, onApply, onCancel, currency,
       setSearching(false);
     }
   };
-  const openHotel = (h, requestedGuests = searchGuests) => {
+  const openHotel = async (h, requestedGuests = searchGuests) => {
+    if (selectingHotel.current) return false;
+    const version = roomSearchVersion.current;
+    const times = hotelStayTimes(h.itinerary);
+    if (h.provider_adapter === 'hotelbook' && (times.earlyArrivalTime || times.lateDepartureTime) && !h.itinerary?.stay_times_validated) {
+      selectingHotel.current = true; setOpeningHotel(true); setSearchError('');
+      try {
+        const offer = await loadHotelStayOffer(h, servicesApi.revalidate);
+        if (version !== roomSearchVersion.current) return false;
+        h = hotelOfferToUi(offer);
+        setLiveHotels((rows) => rows.map((row) => row.id === h.id ? h : row));
+      } catch (error) {
+        const message = error.message || 'Не удалось уточнить тариф для выбранного времени заезда и выезда';
+        setSearchError(message); toast(message, 'err'); return false;
+      } finally { selectingHotel.current = false; setOpeningHotel(false); }
+    }
+    if (version !== roomSearchVersion.current) return false;
     setRoomSearchUnavailable(false);
     setActiveHotel(h);
     setGuestRooms({});
@@ -359,6 +379,7 @@ function HotelPicker({ participants, group = false, onApply, onCancel, currency,
     setSelTariff(r.tariffs[0]);
     setBedType(String(r.beds).toLowerCase().includes('twin') || String(r.beds).toLowerCase().includes('раздельн') ? 'twin' : 'double');
     setPanel('room');
+    return true;
   };
   const pickRoom = (r) => { setSelRoom(r); setSelTariff(r.tariffs[0]); setBedType(String(r.beds).toLowerCase().includes('twin') || String(r.beds).toLowerCase().includes('раздельн') ? 'twin' : 'double'); };
 
@@ -434,7 +455,8 @@ function HotelPicker({ participants, group = false, onApply, onCancel, currency,
     sub,
     guestBookingDocuments: Object.fromEntries((groupMode ? PAX : hotelGuestSelection(PAX, guestSel, mainGuest)).filter((p) => p.person && p.bookingDocument).map((p) => [p.person, p.bookingDocument])),
     cost: grandTotal, fee: 0, supplier: activeHotel.supplier,
-    info: [{ l: 'Заезд', v: fmtDate(checkin) }, { l: 'Выезд', v: fmtDate(checkout) }, { l: 'Ночей', v: nights }],
+    itinerary: activeHotel.itinerary,
+    info: [{ l: 'Заезд', v: [fmtDate(checkin), hotelStayTimes(activeHotel.itinerary).checkinTime].filter(Boolean).join(' ') }, { l: 'Выезд', v: [fmtDate(checkout), hotelStayTimes(activeHotel.itinerary).checkoutTime].filter(Boolean).join(' ') }, { l: 'Ночей', v: nights }],
     tags: [selRoom.name, activeHotel.itinerary?.meal_plan].filter(Boolean),
     currency: activeHotel.currency,
     ...(hasOrderGuests
@@ -488,16 +510,19 @@ function HotelPicker({ participants, group = false, onApply, onCancel, currency,
     const hotel = activeHotel;
     const offers = await runHotelSearch(draft);
     if (!offers) return false;
-    setCheckin(draft.checkin);
-    setCheckout(draft.checkout);
-    setOccupancyRooms(draft.occupancyRooms);
     if (version !== roomSearchVersion.current) return false;
     const updated = offers.find((offer) => offer.supplier === hotel.supplier && (
       hotel.itinerary?.hotel_id && offer.itinerary?.hotel_id
         ? String(offer.itinerary.hotel_id) === String(hotel.itinerary.hotel_id)
         : offer.name === hotel.name && offer.addr === hotel.addr
     ));
-    if (updated) openHotel(updated, hotelOccupancy(draft.occupancyRooms).guests);
+    if (updated && !await openHotel(updated, hotelOccupancy(draft.occupancyRooms).guests)) return false;
+    setCheckin(draft.checkin);
+    setCheckout(draft.checkout);
+    setOccupancyRooms(draft.occupancyRooms);
+    setEarlyArrivalTime(draft.earlyArrivalTime ?? earlyArrivalTime);
+    setLateDepartureTime(draft.lateDepartureTime ?? lateDepartureTime);
+    if (updated) setRoomSearchUnavailable(false);
     else setRoomSearchUnavailable(true);
     return true;
   };
@@ -539,11 +564,11 @@ function HotelPicker({ participants, group = false, onApply, onCancel, currency,
           </div>
           <label className="hp-field hp-field-stay-time">
             <span className="hp-flabel">Ранний заезд</span>
-            <Select aria-label="Ранний заезд" options={HP_STAY_TIME_OPTIONS} value={earlyArrivalTime} onChange={(event) => setEarlyArrivalTime(event.target.value)} />
+            <Select aria-label="Ранний заезд" options={HP_STAY_TIME_OPTIONS} value={earlyArrivalTime} disabled={searching || openingHotel} onChange={(event) => { setEarlyArrivalTime(event.target.value); setLiveHotels([]); setHasSearched(false); setSearchError(''); }} />
           </label>
           <label className="hp-field hp-field-stay-time">
             <span className="hp-flabel">Поздний выезд</span>
-            <Select aria-label="Поздний выезд" options={HP_STAY_TIME_OPTIONS} value={lateDepartureTime} onChange={(event) => setLateDepartureTime(event.target.value)} />
+            <Select aria-label="Поздний выезд" options={HP_STAY_TIME_OPTIONS} value={lateDepartureTime} disabled={searching || openingHotel} onChange={(event) => { setLateDepartureTime(event.target.value); setLiveHotels([]); setHasSearched(false); setSearchError(''); }} />
           </label>
           <div className="hp-field hp-field-sm">
             <span className="hp-flabel">Гражданство гостей</span>
@@ -583,6 +608,7 @@ function HotelPicker({ participants, group = false, onApply, onCancel, currency,
 
         <div className="hp-results" aria-busy={searching}>
           {searching && <div className="hp-search-progress" role="status"><span className="hp-spinner" aria-hidden="true" /><div><b>Ищем доступные номера</b><small>Получаем цены и условия от поставщиков…</small></div></div>}
+          {openingHotel && <InfoNotice role="status">Уточняем тариф для выбранного времени заезда и выезда…</InfoNotice>}
           {searchError && <div className="hp-search-error" role="alert">{searchError}</div>}
           {list.length ? list.map((h) => (
             <HotelResultCard key={h.id} h={h} onPick={(hotel) => !searching && openHotel(hotel)} />
@@ -613,7 +639,7 @@ function HotelPicker({ participants, group = false, onApply, onCancel, currency,
         <RoomPanel hotel={activeHotel} selRoom={selRoom} selTariff={selTariff} onPickRoom={pickRoom}
           checkin={checkin} checkout={checkout} guestsLabel={guestsLabel} nights={nights}
           onClose={closeAll} onProceed={proceedFromRoom} groupMode={groupMode}
-          occupancyRooms={occupancyRooms} onSearchStay={searchHotelStay} searching={searching} searchError={searchError} unavailable={roomSearchUnavailable}
+          occupancyRooms={occupancyRooms} onSearchStay={searchHotelStay} searching={searching || openingHotel} searchError={searchError} unavailable={roomSearchUnavailable}
           onContact={async () => {
             try {
               const result = await servicesApi.revalidate(activeHotel._backendOfferId);
@@ -694,7 +720,9 @@ function HotelPanelHead({ hotel, checkin, checkout, nights, guestsLabel, guests,
   const [draft, setDraft] = useState(null);
   const startEditing = () => {
     if (!onSearchStay) { onEdit?.(); return; }
-    setDraft({ checkin, checkout, occupancyRooms: occupancyRooms.map((room) => ({ ...room, childrenAges: [...room.childrenAges] })) });
+    const times = hotelStayTimes(hotel.itinerary);
+    setDraft({ checkin, checkout, earlyArrivalTime: times.earlyArrivalTime, lateDepartureTime: times.lateDepartureTime,
+      occupancyRooms: occupancyRooms.map((room) => ({ ...room, childrenAges: [...room.childrenAges] })) });
     setEditing(true); onEditingChange?.(true);
   };
   const stopEditing = () => { setEditing(false); onEditingChange?.(false); };
@@ -705,6 +733,7 @@ function HotelPanelHead({ hotel, checkin, checkout, nights, guestsLabel, guests,
   const roomCount = occupancyRooms?.length ?? rooms ?? 1;
   const guestCount = occupancyRooms ? hotelOccupancy(occupancyRooms).guests : guests;
   const stayNights = editing ? hpNights(draft.checkin, draft.checkout) : nights;
+  const stayTimes = hotelStayTimes(hotel.itinerary, editing ? draft : {});
   const nightsText = `${stayNights} ${stayNights % 10 === 1 && stayNights % 100 !== 11 ? 'ночь' : [2, 3, 4].includes(stayNights % 10) && ![12, 13, 14].includes(stayNights % 100) ? 'ночи' : 'ночей'}`;
   const placement = guestCount != null ? `${roomCount} ${roomCount === 1 ? 'номер' : 'номеров'} · ${guestCount} гостей` : guestsLabel;
   return (
@@ -734,11 +763,15 @@ function HotelPanelHead({ hotel, checkin, checkout, nights, guestsLabel, guests,
             disabled={searching || (editing && (!!draftError || !draftOccupancy.valid))} onClick={editing ? apply : startEditing}>
             {searching ? 'Поиск…' : editing ? 'Найти' : 'Изменить'}
           </Button>
+          {editing && hotel.provider_adapter === 'hotelbook' && <div className="hp-head-stay-times">
+            <div className="hp-field"><span className="hp-flabel">Ранний заезд</span><Select aria-label="Ранний заезд" options={HP_STAY_TIME_OPTIONS} value={draft.earlyArrivalTime} onChange={(event) => setDraft((value) => ({ ...value, earlyArrivalTime: event.target.value }))} /></div>
+            <div className="hp-field"><span className="hp-flabel">Поздний выезд</span><Select aria-label="Поздний выезд" options={HP_STAY_TIME_OPTIONS} value={draft.lateDepartureTime} onChange={(event) => setDraft((value) => ({ ...value, lateDepartureTime: event.target.value }))} /></div>
+          </div>}
         </fieldset>
         <div className="hp-head-meta">
           <span>{nightsText}</span>
-          {hotel.itinerary?.check_in_time && <span>Время заезда: {hotel.itinerary.check_in_time}</span>}
-          {hotel.itinerary?.check_out_time && <span>Время выезда: {hotel.itinerary.check_out_time}</span>}
+          {stayTimes.checkinTime && <span>{stayTimes.earlyArrivalTime ? 'Ранний заезд' : 'Заезд'}: {stayTimes.checkinTime}</span>}
+          {stayTimes.checkoutTime && <span>{stayTimes.lateDepartureTime ? 'Поздний выезд' : 'Выезд'}: {stayTimes.checkoutTime}</span>}
           <button type="button" style={{ visibility: editing ? 'visible' : 'hidden' }} aria-hidden={!editing} tabIndex={editing ? 0 : -1} disabled={!editing || searching} onClick={stopEditing}>Отменить изменения</button>
         </div>
         {editing && (draftError || searchError) && <div className="hp-head-error" role="alert">{draftError || searchError}</div>}
