@@ -20,6 +20,7 @@ test('a city suggestion cannot be used as a hotel price marker', () => {
   const city = { title: 'Москва', lat: 55, lon: 37 };
   const match = { title: 'Отель Заря', lat: 55.7, lon: 37.6 };
   assert.equal(hotelMapSuggestion(hotel, [city]), undefined);
+  assert.equal(hotelMapSuggestion(hotel, [{ ...match, kind: 'Город' }]), undefined);
   assert.equal(hotelMapSuggestion(hotel, [city, match]), match);
 });
 
@@ -59,6 +60,7 @@ test('Mapbox markers preserve coordinate order, cheapest prices, click selection
   assert.deepEqual(markers[0].point, [37.6, 55.7]);
   assert.deepEqual(instance.map.bounds, [[37.6, 55.7]]);
   const button = markers[0].options.element.children[0];
+  assert.equal(markers[0].options.element.attrs.role, 'group');
   assert.equal(button.textContent, '100 RUB');
   let stopped = false; button.events.click({ stopPropagation() { stopped = true; } });
   assert.equal(selected, cheaper); assert.equal(stopped, true);
@@ -66,4 +68,59 @@ test('Mapbox markers preserve coordinate order, cheapest prices, click selection
   assert.equal(markers[0].removed, true); assert.deepEqual(markers[1].point, [0, 0]);
   instance.destroy();
   assert.equal(markers[1].removed, true); assert.equal(instance.map.removed, true);
+});
+
+
+test('supplier coordinates arrive as normalized latitude/longitude and take priority over geocoding', async () => {
+  const { resolveHotelMapPoint } = await import('../src/modules/services/hotels/map-data.js');
+  const hotel = { provider_adapter: 'hotelbook', _backendOfferId: 'offer', itinerary: { latitude: 55.798, longitude: 37.817 } };
+  const unexpected = () => { throw new Error('Unnecessary lookup'); };
+  assert.deepEqual(await resolveHotelMapPoint(hotel, { getHotelContent: unexpected, searchLocations: unexpected }), [55.798, 37.817]);
+  for (const invalid of [null, { latitude: true, longitude: 20 }, { latitude: ' ', longitude: 20 }]) assert.equal(hotelCoordinates(invalid), null);
+});
+
+test('old search results recover exact supplier hotel coordinates from content by offer ID', async () => {
+  const { resolveHotelMapPoint } = await import('../src/modules/services/hotels/map-data.js');
+  const hotel = { provider_adapter: 'hotelbook', _backendOfferId: 'offer', itinerary: { hotel_id: 123 }, name: 'Hotel' };
+  let called = 0;
+  const point = await resolveHotelMapPoint(hotel, {
+    getHotelContent: async (ids) => { called++; assert.deepEqual(ids, { offerId: 'offer' }); return { hotel: { id: 123, latitude: 55.798, longitude: 37.817 } }; },
+    searchLocations: () => { throw new Error('Supplier already has coordinates'); },
+  });
+  assert.deepEqual(point, [55.798, 37.817]);
+  assert.equal(called, 1);
+});
+
+test('a different hotel ID or a city result cannot become a hotel marker', async () => {
+  const { resolveHotelMapPoint } = await import('../src/modules/services/hotels/map-data.js');
+  const point = await resolveHotelMapPoint({ provider_adapter: 'hotelbook', _backendOfferId: 'offer', itinerary: { hotel_id: 123 }, name: 'Hotel' }, {
+    getHotelContent: async () => ({ hotel: { id: 999, latitude: 55, longitude: 37 } }),
+    searchLocations: async () => [{ title: 'Москва', lat: 55, lon: 37 }],
+  });
+  assert.equal(point, null);
+});
+
+test('a transient content failure can recover on the next lookup', async () => {
+  const { resolveHotelMapPoint } = await import('../src/modules/services/hotels/map-data.js');
+  const hotel = { provider_adapter: 'hotelbook', _backendOfferId: 'offer', name: 'Hotel' };
+  let attempts = 0;
+  const deps = { getHotelContent: async () => { if (++attempts === 1) throw new Error('Timeout'); return { hotel: { latitude: 55, longitude: 37 } }; }, searchLocations: async () => [] };
+  assert.equal(await resolveHotelMapPoint(hotel, deps), null);
+  assert.deepEqual(await resolveHotelMapPoint(hotel, deps), [55, 37]);
+});
+
+test('hotel marker deduplication keeps supplier accounts separate', () => {
+  const hotel = { name: 'Hotel', supplier: 'hotelbook', supplierId: 'supplier-a', itinerary: { hotel_id: 123 }, currency: 'EUR', base: 120 };
+  assert.equal(hotelMapHotels([hotel, { ...hotel, supplierId: 'supplier-b' }]).length, 2);
+});
+
+test('cancelled location lookup does not publish a late supplier coordinate', async () => {
+  const { resolveHotelMapPoint } = await import('../src/modules/services/hotels/map-data.js');
+  const controller = new AbortController();
+  const point = await resolveHotelMapPoint({ provider_adapter: 'hotelbook', _backendOfferId: 'offer' }, {
+    signal: controller.signal,
+    getHotelContent: async () => { controller.abort(); return { hotel: { latitude: 55, longitude: 37 } }; },
+    searchLocations: () => { throw new Error('Aborted'); },
+  });
+  assert.equal(point, null);
 });

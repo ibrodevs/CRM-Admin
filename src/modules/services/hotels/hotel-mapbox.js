@@ -20,7 +20,7 @@ export function createHotelMapbox(mapbox, container, accessToken, { onLoad, onEr
       const bounds = new mapbox.LngLatBounds();
       for (const hotel of hotelMapHotels(hotels)) {
         const cached = points[hotelMapKey(hotel)];
-        const point = hotelCoordinates(hotel.itinerary) || (cached && hotelCoordinates({ lat: cached[0], lon: cached[1] }));
+        const point = hotelCoordinates(hotel.itinerary) || hotelCoordinates(hotel) || (cached && hotelCoordinates({ lat: cached[0], lon: cached[1] }));
         if (!point) continue;
         const coordinates = [point[1], point[0]];
         const element = document.createElement('div');
@@ -32,7 +32,11 @@ export function createHotelMapbox(mapbox, container, accessToken, { onLoad, onEr
         label.setAttribute('aria-label', label.title + ' · ' + label.textContent);
         label.addEventListener('click', (event) => { event.stopPropagation(); onPick(hotel); });
         element.append(label);
-        markers.push(new mapbox.Marker({ element, anchor: 'center' }).setLngLat(coordinates).addTo(map));
+        const marker = new mapbox.Marker({ element, anchor: 'center' });
+        // The SDK defaults to role=img, which hides the interactive price button.
+        element.setAttribute('role', 'group');
+        element.setAttribute('aria-label', hotel.name);
+        markers.push(marker.setLngLat(coordinates).addTo(map));
         bounds.extend(coordinates);
       }
       if (markers.length) map.fitBounds(bounds, { padding: 65, maxZoom: 15, duration: 0 });

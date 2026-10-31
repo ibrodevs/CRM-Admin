@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { createHotelMapbox } from './hotel-mapbox.js';
-import { hotelCoordinates, hotelMapHotels, hotelMapKey, hotelMapSuggestion } from './map-data.js';
+import { hotelCoordinates, hotelMapHotels, hotelMapKey, resolveHotelMapPoint } from './map-data.js';
+import { servicesApi } from '../api/servicesApi.js';
 
 export function HotelMap({ hotels, onPick }) {
   const container = useRef(null);
@@ -48,17 +49,21 @@ export function HotelMap({ hotels, onPick }) {
         while (index < unique.length && !controller.signal.aborted) {
           const hotel = unique[index++];
           const key = hotelMapKey(hotel);
-          const direct = hotelCoordinates(hotel.itinerary);
+          const direct = hotelCoordinates(hotel.itinerary) || hotelCoordinates(hotel);
           if (direct) cache.current.set(key, direct);
           if (!cache.current.has(key)) {
             try {
-              const query = [hotel.name, hotel.city, hotel.addr === '—' ? '' : hotel.addr].filter(Boolean).join(', ');
-              const response = await fetch(`/api/locations?q=${encodeURIComponent(query)}`, { signal: controller.signal });
-              if (!response.ok) throw new Error('location lookup failed');
-              const payload = await response.json();
-              const match = hotelMapSuggestion(hotel, payload.results || []);
-              cache.current.set(key, match ? hotelCoordinates(match) : null);
-            } catch { if (!controller.signal.aborted) cache.current.set(key, null); }
+              const point = await resolveHotelMapPoint(hotel, {
+                getHotelContent: servicesApi.hotelContent,
+                searchLocations: async (query, signal) => {
+                  const response = await fetch(`/api/locations?q=${encodeURIComponent(query)}`, { signal });
+                  if (!response.ok) throw new Error('location lookup failed');
+                  return (await response.json()).results || [];
+                },
+                signal: controller.signal,
+              });
+              if (point && !controller.signal.aborted) cache.current.set(key, point);
+            } catch { /* A transient failure must not become a permanent missing hotel. */ }
           }
           if (!controller.signal.aborted) setPoints(Object.fromEntries(cache.current));
         }
@@ -75,7 +80,7 @@ export function HotelMap({ hotels, onPick }) {
     mapRef.current.setHotels(hotels, points, (hotel) => pickRef.current(hotel));
   }, [ready, hotels, points]);
 
-  const mapped = hotelMapHotels(hotels).filter((hotel) => hotelCoordinates(hotel.itinerary) || points[hotelMapKey(hotel)]).length;
+  const mapped = hotelMapHotels(hotels).filter((hotel) => hotelCoordinates(hotel.itinerary) || hotelCoordinates(hotel) || points[hotelMapKey(hotel)]).length;
   return <div className="hp-map-area">
     <div ref={container} className="hp-map-canvas" aria-label="Карта отелей Mapbox с ценами" />
     {!configured && <div className="hp-map-unavailable" role="status"><strong>Карта Mapbox пока недоступна</strong><span>Обратитесь к администратору для подключения карты. Отели и цены доступны в списке слева.</span></div>}
