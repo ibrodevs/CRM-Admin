@@ -37,7 +37,7 @@ import { ExtrasTabs, FreeBookingExtrasTabs } from '../../services/index.js';
 import { BookingWizard } from './BookingWizard.jsx';
 import { PassengerDrawer, PassportModal } from './OrderExtras.jsx';
 import { DynamicExtrasPanel, OrderResponsiblesTab } from './OrderOperations.jsx';
-import { CityPickPanel, StackPanel } from '../../locations/index.js';
+import { AirportDetailsDrawer, CityPickPanel, StackPanel } from '../../locations/index.js';
 import { KPModule } from '../../proposals/index.js';
 import { DocCenter } from '../../documents/index.js';
 import { listAll } from '../../../shared/api/operations.js';
@@ -898,6 +898,15 @@ function LiveServiceCardHistoryDrawer({ orderId, serviceId, title, onClose }) {
 }
 
 
+function ServiceSummaryText({ text }) {
+  return String(text || '').split(/([→⇆])/).map((part, index) => part === '→' || part === '⇆'
+    ? <span key={index} className="osrv-direction" role="img" aria-label={part}>
+      {part === '→' ? <Icon name="arrowRight" /> : part}
+    </span>
+    : <React.Fragment key={index}>{part}</React.Fragment>);
+}
+
+
 function PassengerAttachments({ documents, participant, onOpenDocument }) {
   const files = passengerAttachments(documents, participant);
   return <div className="osrv-pax-attachments" aria-label={'Файлы пассажира: ' + participant.name}>
@@ -918,6 +927,7 @@ function ServiceBlock({ s, participants, documents, orderNo, open, onToggle, onC
   const [sendOpen, setSendOpen] = useState(false);
   const [histOpen, setHistOpen] = useState(false);
   const [documentsOpen, setDocumentsOpen] = useState(false);
+  const [airportCode, setAirportCode] = useState(null);
   const [uploading, setUploading] = useState(false);
   const kind = SERVICE_KIND[s.kind] || { icon: 'briefcase', color: '#2566ff' };
   const pax = serviceParticipants(s, participants);
@@ -952,8 +962,8 @@ function ServiceBlock({ s, participants, documents, orderNo, open, onToggle, onC
         {selectable && <Checkbox on={!!selected} onChange={onSelect} />}
         <button type="button" className="osrv-summary" onClick={onToggle} aria-expanded={open} aria-controls={'service-details-' + s.id}>
           <span className="osrv-ic" style={{ background: svcTint(kind.color), color: kind.color }}><Icon name={kind.icon} /></span>
-          <span className="osrv-summary-title">{summary?.title || head.join(' – ')}</span>
-          <span className="osrv-summary-date">{summary?.dates || facts.filter((f) => f.icon === 'calendar' || f.icon === 'plane' || f.icon === 'train' || f.icon === 'clock').map((f) => f.text).join(' · ')}</span>
+          <span className="osrv-summary-title"><ServiceSummaryText text={summary?.title || head.join(' – ')} /></span>
+          <span className="osrv-summary-date"><ServiceSummaryText text={summary?.dates || facts.filter((f) => f.icon === 'calendar' || f.icon === 'plane' || f.icon === 'train' || f.icon === 'clock').map((f) => f.text).join(' · ')} /></span>
           <span className="osrv-sum">{svcExactMoney(total, s.currency)}</span>
           <Pill tone={SERVICE_STATUS[s.status] || 'gray'}>{s.status}</Pill>
           <Icon name={open ? 'chevUp' : 'chevDown'} className="osrv-chev" />
@@ -969,7 +979,10 @@ function ServiceBlock({ s, participants, documents, orderNo, open, onToggle, onC
             )}
             {supplierLine && <span>{supplierLine}</span>}
             {flightSegments.map((segment, index) => <span className="osrv-flight-reference" key={index}>
-              <strong>{segment.origin || '—'}</strong><Icon name="arrowRight" /><strong>{segment.destination || '—'}{(segment.airline || segment.flight_number) && ' · ' + [segment.airline, segment.flight_number].filter(Boolean).join(' ')}</strong>
+              {segment.origin ? <button type="button" className="osrv-airport-link" aria-label={'Информация об аэропорте ' + segment.origin} onClick={() => setAirportCode(segment.origin)}>{segment.origin}</button> : <strong>—</strong>}
+              <Icon name="arrowRight" />
+              {segment.destination ? <button type="button" className="osrv-airport-link" aria-label={'Информация об аэропорте ' + segment.destination} onClick={() => setAirportCode(segment.destination)}>{segment.destination}</button> : <strong>—</strong>}
+              {(segment.airline || segment.flight_number) && <strong>· {[segment.airline, segment.flight_number].filter(Boolean).join(' ')}</strong>}
             </span>)}
           </div>
         )}
@@ -1082,6 +1095,7 @@ function ServiceBlock({ s, participants, documents, orderNo, open, onToggle, onC
         <input ref={fileRef} type="file" hidden onChange={takeFile} />
       </div>
 
+      {airportCode && <AirportDetailsDrawer code={airportCode} fallback={AIRPORTS.find((airport) => airport.code === airportCode)} onClose={() => setAirportCode(null)} />}
       {documentsOpen && <ServiceDocumentsDrawer service={s} documents={docs} participants={pax}
         initialParticipant={focusedParticipant} onClose={() => setDocumentsOpen(false)} onPreview={onOpenDocument} />}
       {sendOpen && <ServiceCardSendPanel item={cardItem} kind={s.kind} participants={pax} orderNo={orderNo}

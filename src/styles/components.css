@@ -3232,3 +3232,88 @@ button.oc-fact:hover{border-color:#d3dbe8;background:#fff}
 .osrv-pax-attachments .osrv-tick svg{flex-shrink:0}
 .osrv-no-files{font-size:12px;color:var(--muted)}
 @media(max-width:700px){.osrv-booking-reference{font-size:13px}.osrv-pax-attachments{max-width:100%;justify-content:flex-start;margin-left:0;flex-basis:100%}}
+
+.osrv-direction{display:inline-flex;align-items:center;justify-content:center;vertical-align:middle;color:var(--blue);margin:0 3px;font-size:18px;line-height:1}
+.osrv-direction svg{width:16px;height:16px}
+
+.osrv-airport-link{padding:2px 0;border:0;border-bottom:1px dotted var(--blue);background:transparent;color:var(--blue);font:inherit;font-weight:750;cursor:pointer}
+.osrv-airport-link:hover{color:var(--ink);border-bottom-style:solid}
+.osrv-airport-link:focus-visible{outline:2px solid var(--blue);outline-offset:4px;border-radius:2px}
+/* Airport detail panel: airport identity, map, and useful contacts. */
+.airport-panel{background:var(--surface-2)}
+.airport-panel .drawer-head{padding:20px 28px;background:var(--surface);border-color:var(--line)}
+.airport-panel .drawer-head .modal-title{font-size:18px!important;font-weight:700}
+.airport-panel .drawer-body{padding:24px;display:flex;flex-direction:column;gap:18px}
+.airport-panel .drawer-foot{padding:16px 24px;align-items:center;justify-content:space-between;background:var(--surface)}
+.airport-footer-note{display:inline-flex;align-items:center;gap:8px;font-size:12px;color:var(--muted);min-width:0;overflow-wrap:anywhere}
+.airport-footer-note svg{width:16px;height:16px;flex-shrink:0}
+.airport-panel .drawer-foot>.btn{min-width:110px}
+.airport-hero{position:relative;overflow:hidden;padding:24px;border:1px solid var(--line);border-radius:20px;background:linear-gradient(125deg,var(--blue-soft),var(--surface) 78%)}
+.airport-hero-top{position:relative;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:24px;z-index:1}
+.airport-country{display:inline-flex;align-items:center;gap:9px;color:var(--ink);font-size:13px;font-weight:600}
+.airport-flag{font-size:24px;line-height:1}
+.airport-type{color:var(--muted);font-size:12px;font-weight:500}
+.airport-hero h2{position:relative;z-index:1;margin:0;font-size:32px;line-height:1.15;font-weight:750;letter-spacing:-.035em;color:var(--ink);max-width:90%;overflow-wrap:anywhere}
+.airport-international-name{position:relative;z-index:1;color:var(--muted);font-size:14px;line-height:1.5;margin:9px 0 0;max-width:85%}
+.airport-hero-city{position:relative;z-index:1;display:flex;align-items:center;gap:6px;margin-top:12px;font-size:13px;color:var(--body);flex-wrap:wrap}
+.airport-hero-city svg{width:15px;height:15px;color:var(--blue)}
+.airport-hero-city>span{color:var(--muted)}
+.airport-hero .airport-hero-plane{position:absolute;width:170px;height:170px;right:-24px;top:50px;transform:rotate(-24deg);color:var(--blue);opacity:.055;stroke-width:.8;pointer-events:none}
+.airport-code-grid{position:relative;z-index:1;display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:10px;margin-top:24px}
+.airport-code-card{padding:12px 16px;border:1px solid var(--line);border-radius:12px;background:var(--surface);text-align:left;cursor:pointer;transition:border-color .15s,background .15s;font:inherit}
+.airport-code-card>span{color:var(--muted);font-size:11px;letter-spacing:.05em;text-transform:uppercase;font-weight:600}
+.airport-code-card strong{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:6px;font-size:24px;line-height:1.2;letter-spacing:.03em;color:var(--ink)}
+.airport-code-card strong svg{width:15px;height:15px;color:var(--muted);opacity:.6}
+.airport-code-card:hover{border-color:var(--blue);background:var(--blue-soft)}
+.airport-code-card:focus-visible,.airport-coordinates:focus-visible{outline:2px solid var(--blue);outline-offset:3px}
+.airport-map-card,.airport-contact-card,.airport-terminals-card{border:1px solid var(--line);border-radius:18px;background:var(--surface);overflow:hidden}
+.airport-section-heading{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;padding:16px 18px}
+.airport-section-heading>div{display:flex;align-items:center;gap:9px}
+.airport-section-heading h3{margin:0;font-size:15px;line-height:1.3;font-weight:700;color:var(--ink)}
+.airport-section-icon{display:grid;place-items:center;color:var(--muted)}
+.airport-section-icon svg{width:17px;height:17px}
+.airport-text-link{display:inline-flex;align-items:center;gap:5px;color:var(--blue);font-size:12px;font-weight:600;text-decoration:none}
+.airport-text-link svg{width:14px;height:14px}
+.airport-map-card iframe{display:block;width:100%;height:260px;border:0;border-top:1px solid var(--line);border-bottom:1px solid var(--line);background:var(--surface-2)}
+.airport-map-caption{display:flex;align-items:center;justify-content:space-between;gap:18px;padding:16px 18px;flex-wrap:wrap}
+.airport-map-caption>div{flex:1;min-width:180px}
+.airport-map-caption>div>span{font-size:11px;color:var(--muted)}
+.airport-map-caption p{font-size:13px;color:var(--ink);line-height:1.5;margin:5px 0 0}
+.airport-coordinates{display:flex;align-items:center;gap:10px;padding:8px 10px;border:1px solid var(--line);border-radius:8px;background:var(--surface-2);color:var(--muted);font-family:inherit;font-size:11px;cursor:pointer}
+.airport-coordinates svg{width:13px;height:13px;flex-shrink:0}
+.airport-coordinates:hover{color:var(--blue);border-color:var(--blue)}
+.airport-verified{display:inline-flex;align-items:center;gap:5px;font-size:11px;color:var(--teal);text-decoration:none}
+.airport-verified svg{width:13px;height:13px}
+.airport-contact-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;padding:0 18px 18px}
+.airport-contact-item{display:flex;align-items:center;gap:10px;padding:14px 12px;border:1px solid var(--line);border-radius:12px;text-decoration:none;color:var(--ink);min-width:0;transition:border-color .15s,background .15s}
+.airport-contact-item:hover{border-color:var(--blue);background:var(--blue-soft)}
+.airport-contact-icon{display:grid;place-items:center;flex:0 0 34px;width:34px;height:34px;background:var(--surface-2);color:var(--blue);border-radius:10px}
+.airport-contact-icon svg{width:17px;height:17px}
+.airport-contact-item>div{min-width:0;flex:1}
+.airport-contact-item>div>span{display:block;font-size:11px;color:var(--muted);line-height:1.4}
+.airport-contact-item strong{display:block;font-size:13px;font-weight:650;margin-top:5px;overflow-wrap:anywhere;line-height:1.4}
+.airport-contact-item>svg{flex:0 0 14px;width:14px;height:14px;color:var(--muted)}
+.airport-terminal-links{display:flex;gap:10px;flex-wrap:wrap;padding:0 18px 18px}
+.airport-terminal-links a{display:inline-flex;align-items:center;gap:16px;border:1px solid var(--line);border-radius:10px;padding:11px 16px;color:var(--blue);font-size:13px;font-weight:600;text-decoration:none}
+.airport-terminal-links a:hover{background:var(--blue-soft);border-color:var(--blue)}
+.airport-terminal-links svg{width:14px;height:14px}
+.airport-data-source{display:flex;align-items:flex-start;gap:7px;margin:0 3px;color:var(--muted);font-size:11px;line-height:1.6}
+.airport-data-source>svg{width:13px;height:13px;flex-shrink:0;margin-top:2px}
+.airport-data-source a{color:inherit;text-underline-offset:3px}
+.airport-load-state{display:flex;align-items:center;gap:10px;padding:14px 16px;border:1px solid var(--line);border-radius:12px;background:var(--surface);font-size:13px;color:var(--muted)}
+.airport-load-state>svg{width:18px;height:18px;flex-shrink:0}
+.airport-load-state .sk{width:20px;height:20px;flex-shrink:0;border-radius:6px}
+@media(max-width:520px){
+.airport-panel .drawer-head{padding:18px 20px}.airport-panel .drawer-body{padding:14px;gap:14px}.airport-panel .drawer-foot{padding:14px 18px}
+.airport-hero{padding:20px}.airport-hero h2{font-size:28px}.airport-hero-top{margin-bottom:20px}.airport-code-grid{gap:8px;margin-top:20px}.airport-code-card{padding:10px 12px}.airport-code-card strong{font-size:22px}
+.airport-contact-grid{grid-template-columns:1fr}.airport-map-card iframe{height:240px}.airport-footer-note{max-width:65%}.airport-map-caption{gap:12px}
+}
+
+.airport-map-visual{position:relative;height:260px;border-top:1px solid var(--line);border-bottom:1px solid var(--line);overflow:hidden;background:var(--surface-2)}
+.airport-map-canvas{width:100%;height:100%}
+.airport-map-visual iframe{height:100%;border:0}
+.airport-map-loading{position:absolute;inset:0;display:grid;place-items:center;background:var(--surface-2);color:var(--muted);font-size:13px}
+.airport-map-label{position:absolute;left:14px;bottom:30px;display:flex;align-items:center;gap:9px;max-width:calc(100% - 28px);padding:9px 12px;border:1px solid var(--line);border-radius:10px;background:var(--surface);box-shadow:0 2px 12px rgba(16,23,38,.1);pointer-events:none;font-size:12px;color:var(--ink)}
+.airport-map-label strong{color:var(--blue);letter-spacing:.03em}
+.airport-map-label span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+@media(max-width:520px){.airport-map-visual{height:240px}}

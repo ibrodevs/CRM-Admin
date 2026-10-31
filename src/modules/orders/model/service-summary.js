@@ -41,14 +41,14 @@ function itinerary(service) {
 export function travelDate(value, withTime = false) {
   const text = String(value || '');
   const iso = /^(\d{4})-(\d{2})-(\d{2})(?:[T ](\d{2}:\d{2}))?/.exec(text);
-  if (iso) return `${iso[3]}.${iso[2]}.${iso[1]}${withTime && iso[4] ? ', ' + iso[4] : ''}`;
-  return text;
+  if (iso) return `${iso[3]}.${iso[2]}.${iso[1]}${withTime && iso[4] ? ' • ' + iso[4] : ''}`;
+  return withTime ? text.replace(/,?\s+(\d{2}:\d{2})$/, ' • $1') : text;
 }
 
 export function serviceFlightSegments(service) {
   const trip = itinerary(service), d = detail(service);
   if (trip.segments?.length) return trip.segments;
-  const route = String(d.route || service.title || '').split(/[→–—]/).map((part) => part.trim().split(' · ')[0]);
+  const route = String(d.route || service.title || '').split(/[→⇆–—]/).map((part) => part.trim().split(' · ')[0]);
   const dateTime = (date, time) => time ? `${travelDate(date)}${date ? ', ' : ''}${time}` : date;
   return [{
     origin: d.from || d.origin || route[0], destination: d.to || d.destination || route[1],
@@ -64,11 +64,21 @@ export function serviceSummary(service, airports = []) {
   if (service.kind === 'Авиа') {
     const segments = serviceFlightSegments(service), first = segments[0], last = segments.at(-1);
     const city = (segment, side) => russianCity(segment[side + '_city_ru'] || segment[side + '_city'] || segment[side], airports);
-    const from = city(first, 'origin'), to = city(last, 'destination');
+    const endpoint = (segment, side) => city(segment, side) || segment[side];
+    const mirroredReturn = segments.length > 1 && segments.length % 2 === 0 && segments.every((segment, index) => {
+      const reverse = segments[segments.length - 1 - index];
+      return endpoint(segment, 'origin') && endpoint(segment, 'destination')
+        && endpoint(segment, 'origin') === endpoint(reverse, 'destination')
+        && endpoint(segment, 'destination') === endpoint(reverse, 'origin');
+    });
+    const roundTrip = mirroredReturn || /⇆/.test(d.route || service.title || '');
+    const destination = mirroredReturn ? segments[segments.length / 2 - 1] : last;
+    const from = city(first, 'origin'), to = city(destination, 'destination');
+    const separator = roundTrip ? '⇆' : '→';
     const departure = travelDate(first.departure, true), arrival = travelDate(last.arrival, true);
     return {
-      title: [from || 'Город вылета не указан', to || 'Город прилёта не указан'].join(' – '),
-      dates: `${departure || 'Вылет не указан'} — ${arrival || 'Прилёт не указан'}`,
+      title: [from || 'Город вылета не указан', to || 'Город прилёта не указан'].join(` ${separator} `),
+      dates: `${departure || 'Вылет не указан'} ${separator} ${arrival || 'Прилёт не указан'}`,
     };
   }
   if (service.kind === 'Гостиница') {
@@ -77,7 +87,7 @@ export function serviceSummary(service, airports = []) {
     const city = russianCity(trip.city_name_ru || trip.city_name || trip.city || d.city || cityFromName, airports);
     const start = travelDate(trip.check_in || d.checkIn || service.starts_at);
     const end = travelDate(trip.check_out || d.checkOut || service.ends_at);
-    return { title: `${city || 'Город не указан'} · ${hotel}`, dates: `${start || 'Заезд не указан'} — ${end || 'Выезд не указан'}` };
+    return { title: `${city || 'Город не указан'} · ${hotel}`, dates: `${start || 'Заезд не указан'} → ${end || 'Выезд не указан'}` };
   }
   return null;
 }
