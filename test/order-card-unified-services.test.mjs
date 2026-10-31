@@ -31,14 +31,14 @@ test('большой заказ можно отфильтровать по па�
 });
 
 test('все действия услуги доступны из компактной закрытой строки', () => {
-  const head = card.slice(card.indexOf('className="osrv-head"'), card.indexOf('<div className="osrv-body">'));
+  const head = card.slice(card.indexOf('function ServiceBlock('), card.indexOf('function OrderServicesBoard('));
   for (const label of ['Показать детали', 'Отправить клиенту', 'История услуги', 'Добавить файл', 'Обсудить в чате', 'Запросить обмен', 'Отменить услугу', 'Удалить услугу']) {
     assert.ok(head.includes(label), `в компактной строке нет действия «${label}»`);
   }
 });
 
 test('клик по услуге раскрывает её в заказе и не открывает старую карточку', () => {
-  assert.match(card, /className="osrv-title" onClick=\{onToggle\}/);
+  assert.match(card, /className="osrv-summary" onClick=\{onToggle\}/);
   assert.match(card, /setExpandedSvc\(new Set\(\[s\.id\]\)\)/);
   assert.doesNotMatch(card, /svcView === 'avia-card'/);
   assert.doesNotMatch(card, /svcView === 'svc-card'/);
@@ -70,7 +70,7 @@ test('блок услуги показывает пассажиров, доку�
 });
 
 test('документы услуги грузятся с backend и привязываются к услуге', () => {
-  assert.match(card, /documentsApi\.list\(\{ order: (?:orderId|order\.id) \}, signal\)/);
+  assert.match(card, /documentsApi\.all\(\{ order: (?:orderId|order\.id) \}, signal\)/);
   assert.match(card, /documentsApi\.upload\(file, \{ order: (?:orderId|order\.id), service: svc\.serverId \|\| svc\.id/);
   assert.match(card, /String\(d\.service\) === id/);
 });

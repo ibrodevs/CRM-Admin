@@ -296,98 +296,24 @@ table.tbl tbody td{
   color:#d5e0f2!important;
 }
 
-/* Order header: fixed structure, no jumping when metadata changes. */
-.oc-head{
-  padding:12px 16px!important;
-}
-
-.oc-head>div:first-child{
-  display:grid!important;
-  grid-template-columns:max-content minmax(180px,1fr) max-content max-content;
-  align-items:center!important;
-  gap:10px 12px!important;
-  min-height:38px;
-}
-
-.oc-head>div:first-child>.oc-id{
-  min-width:max-content;
-  flex-wrap:nowrap;
-  gap:9px;
-}
-
-.oc-head .oc-id h2{
-  font-size:19px;
-  line-height:1.2;
-  white-space:nowrap;
-}
-
-.oc-head>div:first-child>.oc-id+div{
-  min-width:0!important;
-  display:block!important;
-  font-size:12.5px!important;
-  line-height:1.35;
-  color:var(--body)!important;
-}
-
-.oc-head>div:first-child>.oc-id+div>span{
-  display:block;
-  min-width:0;
-  overflow:hidden;
-  text-overflow:ellipsis;
-  white-space:nowrap;
-}
-
-.oc-head>div:first-child>.oc-id+div b{
-  color:var(--ink)!important;
-  font-weight:600!important;
-}
-
-.oc-head>div:first-child>.oc-id+div+div{
-  display:none!important;
-}
-
-.oc-head .oc-meta-action{
-  color:var(--blue)!important;
-  font-weight:600!important;
-  white-space:nowrap;
-}
-
-.oc-head>div:first-child>.btn,
-.oc-head>div:first-child>.btn+div{
-  flex:0 0 auto;
-}
-
-.oc-head .oc-purpose{
-  margin-top:8px;
-  max-width:100%;
-  overflow:hidden;
-  text-overflow:ellipsis;
-  white-space:nowrap;
-  color:var(--body);
-  font-size:13px;
-  font-weight:500;
-  line-height:1.35;
-}
-
-@media(max-width:1180px){
-  .oc-head>div:first-child{
-    grid-template-columns:max-content minmax(0,1fr) max-content max-content;
-  }
-  .oc-head>div:first-child>.oc-id+div{
-    grid-column:1/-1;
-    grid-row:2;
-  }
-}
-
-@media(max-width:760px){
-  .oc-head{padding:10px 12px!important}
-  .oc-head>div:first-child{
-    grid-template-columns:minmax(0,1fr) max-content max-content;
-    gap:8px;
-  }
-  .oc-head>div:first-child>.oc-id{min-width:0}
-  .oc-head .oc-id h2{font-size:17px;overflow:hidden;text-overflow:ellipsis}
-  .oc-head>div:first-child>.oc-id+div{grid-column:1/-1}
+/* Order metadata wraps into labelled fields instead of truncating. */
+.oc-head{padding:20px!important;background:var(--surface)}
+.oc-heading{display:flex;align-items:center;gap:24px;flex-wrap:wrap}
+.oc-head .oc-id{min-width:0}
+.oc-head .oc-id h2{font-size:23px;line-height:1.3;overflow-wrap:anywhere}
+.oc-order-status{display:flex;align-items:center;gap:10px;padding-left:24px;border-left:1px solid var(--line)}
+.oc-meta-label,.oc-order-meta dt{font-size:12px;color:var(--muted);font-weight:500}
+.oc-heading-actions{display:flex;align-items:center;gap:10px;margin-left:auto}
+.oc-order-meta{display:grid;grid-template-columns:minmax(200px,2fr) repeat(3,minmax(100px,1fr)) minmax(150px,1.3fr);gap:16px 24px;margin:20px 0 0;padding-top:16px;border-top:1px solid var(--line)}
+.oc-order-meta>div{min-width:0}
+.oc-order-meta dd{margin:5px 0 0;color:var(--ink);font-size:14px;font-weight:600;overflow-wrap:anywhere}
+.oc-head .oc-meta-action{color:var(--blue);font:inherit;text-align:left;white-space:normal}
+.oc-head .oc-purpose{margin-top:16px;color:var(--muted);font-size:13px;overflow-wrap:anywhere}
+@media(max-width:1000px){.oc-order-meta{grid-template-columns:repeat(3,minmax(0,1fr))}}
+@media(max-width:600px){
+.oc-head{padding:14px!important}.oc-heading{gap:14px}.oc-head .oc-id{width:100%}.oc-head .oc-id h2{font-size:20px}
+.oc-order-status{border:0;padding:0;align-items:flex-start;flex-direction:column;gap:5px}
+.oc-order-meta{grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}.oc-order-meta>div:first-child{grid-column:1/-1}
 }
 
 /* Orders list: compact stable rows and predictable columns. */

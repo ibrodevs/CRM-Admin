@@ -1,3 +1,6 @@
+import { passengerAttachments, passengerAttachmentLabel } from '../model/passenger-attachments.js';
+import { serviceSummary, serviceFlightSegments, serviceStayDetails, serviceBookingReference } from '../model/service-summary.js';
+import { ServiceDocumentsDrawer } from './ServiceDocumentsDrawer.jsx';
 import { SectionInfo } from '../../../shared/ui/SectionInfo.jsx';
 import { FlightSearchHeader } from '../../services/index.js';
 import { InfoNotice } from '../../../shared/ui/InfoNotice.jsx';
@@ -160,7 +163,7 @@ function StatusControl({ status, onChange }) {
   const opts = Object.keys(ORDER_STATUS);
   return (
     <ActionMenu trigger={
-      <button style={{ border: 'none', background: 'none', cursor: 'pointer', padding: 0, display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+      <button type="button" aria-label={'Изменить статус заказа: ' + status} style={{ border: 'none', background: 'none', cursor: 'pointer', padding: 0, display: 'inline-flex', alignItems: 'center', gap: 6 }}>
         <Pill tone={ORDER_STATUS[status]}>{status}</Pill><Icon name="chevDown" style={{ width: 16, height: 16, color: 'var(--muted-2)' }} />
       </button>
     } items={opts.map((s) => ({ icon: status === s ? 'check' : null, label: s, onClick: () => onChange(s) }))} />
@@ -895,93 +898,98 @@ function LiveServiceCardHistoryDrawer({ orderId, serviceId, title, onClose }) {
 }
 
 
+function PassengerAttachments({ documents, participant, onOpenDocument }) {
+  const files = passengerAttachments(documents, participant);
+  return <div className="osrv-pax-attachments" aria-label={'Файлы пассажира: ' + participant.name}>
+    {files.length ? files.map((document) => <button type="button" className="osrv-tick" key={document.id}
+      title={document.title || passengerAttachmentLabel(document)} onClick={() => onOpenDocument(document)}>
+      <Icon name="paperclip" />{passengerAttachmentLabel(document)}
+    </button>) : <span className="osrv-no-files">Нет прикреплённых файлов</span>}
+  </div>;
+}
+
+
 function ServiceBlock({ s, participants, documents, orderNo, open, onToggle, onCancel, onExchange, onOpenChat,
   onOpenPassenger, onAddPassengerDoc, onUploadDocument, onOpenDocument, onDeleteService, selectable, selected, onSelect,
   focusedParticipant, orderId, onSendServiceCard, onCertificateCreated, onHotelActions }) {
   const toast = useToast();
   const fileRef = useRef(null);
+  const uploadPassengerRef = useRef(null);
   const [sendOpen, setSendOpen] = useState(false);
   const [histOpen, setHistOpen] = useState(false);
+  const [documentsOpen, setDocumentsOpen] = useState(false);
   const [uploading, setUploading] = useState(false);
   const kind = SERVICE_KIND[s.kind] || { icon: 'briefcase', color: '#2566ff' };
   const pax = serviceParticipants(s, participants);
   const docs = serviceDocuments(s, documents);
   const facts = serviceFacts(s);
   const head = serviceHeadline(s);
-  const supplierLine = serviceSupplierLine(s);
+  const summary = serviceSummary(s, AIRPORTS);
+  const supplierLine = s.kind === 'Авиа' ? s.supplier || (serviceDetailBlock(s) || {}).airline : serviceSupplierLine(s);
+  const flightSegments = s.kind === 'Авиа' ? serviceFlightSegments(s) : [];
   const airline = s.kind === 'Авиа' ? airlineCodeOf(s) : null;
   const total = svcCalc(s).total;
+  const bookingReference = serviceBookingReference(s);
   const focusedTicket = focusedParticipant ? ticketForParticipant(docs, focusedParticipant) : null;
   const cardCurrency = resolveCurrency(s.currency, s.svcOffer?.currency);
   const cardItem = s.svcOffer
     ? { ...s.svcOffer, title: s.title, sub: s.sub, kind: s.kind, status: s.status, date: s.date, order: orderNo, calc: s.calc, currency: cardCurrency }
     : { ...s, order: orderNo, currency: cardCurrency };
 
-  const pickFile = () => fileRef.current && fileRef.current.click();
+  const pickFile = () => { uploadPassengerRef.current = null; fileRef.current?.click(); };
+  const pickPassengerFile = (participant) => { uploadPassengerRef.current = participant; fileRef.current?.click(); };
   const takeFile = async (event) => {
     const file = event.target.files && event.target.files[0];
     event.target.value = '';
     if (!file) return;
     setUploading(true);
-    try { await onUploadDocument(s, file); } finally { setUploading(false); }
+    try { await onUploadDocument(s, file, uploadPassengerRef.current); } finally { setUploading(false); }
   };
 
   return (
     <div className={'osrv' + (open ? ' open' : '')}>
-      <div className="osrv-head" role="button" tabIndex={0} onClick={onToggle}
-        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onToggle(); } }}>
-        {selectable && (
-          <span onClick={(e) => e.stopPropagation()} style={{ display: 'inline-flex', alignItems: 'center' }}>
-            <Checkbox on={!!selected} onChange={onSelect} />
-          </span>
-        )}
-        <span className="osrv-ic" style={{ background: svcTint(kind.color), color: kind.color }}><Icon name={kind.icon} /></span>
-        <span className="osrv-kind">{s.kind}</span>
-        <Pill tone={SERVICE_STATUS[s.status] || 'gray'}>{s.status}</Pill>
-        <span className="osrv-count"><Icon name="users" />{pax.length}</span>
-        <span className="osrv-count"><Icon name="docs" />{docs.length}</span>
-        <span style={{ flex: 1 }} />
-        <span className="osrv-sum">{svcExactMoney(total, s.currency)}</span>
-        <span onClick={(event) => event.stopPropagation()} className="osrv-head-actions">
-          <button type="button" className="btn btn-ghost btn-icon btn-sm" title={open ? 'Свернуть услугу' : 'Показать детали услуги'} onClick={onToggle}><Icon name={open ? 'chevUp' : 'eye'} /></button>
-          {postSaleFlow(s) === 'hotel' ? <button type="button" className="btn btn-secondary btn-sm" aria-label={'Действия: ' + s.title} onClick={() => onHotelActions(s)}>Действия</button> : <ActionMenu trigger={<button type="button" className="btn btn-ghost btn-icon btn-sm" aria-label={'Действия: ' + s.title}><Icon name="more" /></button>}
-            items={[
-              { icon: 'eye', label: open ? 'Свернуть детали' : 'Показать детали', onClick: onToggle },
-              { icon: 'send', label: 'Отправить клиенту', onClick: () => setSendOpen(true) },
-              { icon: 'clock', label: 'История услуги', onClick: () => setHistOpen(true) },
-              { icon: 'docs', label: 'Добавить файл', onClick: pickFile },
-              { icon: 'chat', label: 'Обсудить в чате', onClick: onOpenChat },
-              { sep: true },
-              { icon: 'swap', label: 'Запросить обмен', onClick: () => onExchange(s) },
-              { icon: 'refund', label: 'Отменить услугу', danger: true, onClick: () => onCancel(s) },
-              { icon: 'trash', label: 'Удалить услугу', danger: true, onClick: () => onDeleteService(s) },
-            ]} />}
-        </span>
-        <Icon name={open ? 'chevUp' : 'chevDown'} className="osrv-chev" />
+      <div className="osrv-head">
+        {selectable && <Checkbox on={!!selected} onChange={onSelect} />}
+        <button type="button" className="osrv-summary" onClick={onToggle} aria-expanded={open} aria-controls={'service-details-' + s.id}>
+          <span className="osrv-ic" style={{ background: svcTint(kind.color), color: kind.color }}><Icon name={kind.icon} /></span>
+          <span className="osrv-summary-title">{summary?.title || head.join(' – ')}</span>
+          <span className="osrv-summary-date">{summary?.dates || facts.filter((f) => f.icon === 'calendar' || f.icon === 'plane' || f.icon === 'train' || f.icon === 'clock').map((f) => f.text).join(' · ')}</span>
+          <span className="osrv-sum">{svcExactMoney(total, s.currency)}</span>
+          <Pill tone={SERVICE_STATUS[s.status] || 'gray'}>{s.status}</Pill>
+          <Icon name={open ? 'chevUp' : 'chevDown'} className="osrv-chev" />
+        </button>
       </div>
 
       <div className="osrv-body">
-        <button type="button" className="osrv-title" onClick={onToggle}>
-          {head.map((part, i) => (
-            <React.Fragment key={part + i}>
-              {i > 0 && <Icon name="arrowRight" />}
-              <span>{part}</span>
-            </React.Fragment>
-          ))}
-        </button>
-
-        {supplierLine && (
+        <div className="osrv-service-meta">
+        {(supplierLine || flightSegments.length > 0) && (
           <div className="osrv-line">
             {airline ? <AirlineLogo code={airline} size="sm" /> : (
               <span className="osrv-dot" style={{ background: svcTint(kind.color), color: kind.color }}><Icon name={kind.icon} /></span>
             )}
-            <span>{supplierLine}</span>
+            {supplierLine && <span>{supplierLine}</span>}
+            {flightSegments.map((segment, index) => <span className="osrv-flight-reference" key={index}>
+              <strong>{segment.origin || '—'}</strong><Icon name="arrowRight" /><strong>{segment.destination || '—'}{(segment.airline || segment.flight_number) && ' · ' + [segment.airline, segment.flight_number].filter(Boolean).join(' ')}</strong>
+            </span>)}
           </div>
         )}
 
-        {facts.length > 0 && (
+        {open && <div className="osrv-booking-reference"><span>Бронирование:</span> <strong>{bookingReference || 'Номер не указан'}</strong></div>}
+        </div>
+
+        {open && flightSegments.some((segment) => segment.cabin || segment.booking_class || segment.baggage) && <div className="osrv-flight-conditions">
+          {flightSegments.map((segment, index) => [segment.cabin, segment.booking_class, segment.baggage].filter(Boolean).length > 0 && <span key={index}>
+            {[segment.cabin, segment.booking_class, segment.baggage].filter(Boolean).join(' · ')}
+          </span>)}
+        </div>}
+
+        {open && s.kind === 'Гостиница' && serviceStayDetails(s).length > 0 && <dl className="osrv-stay-details">
+          {serviceStayDetails(s).map(([label, value]) => <div key={label}><dt>{label}</dt><dd>{String(value)}</dd></div>)}
+        </dl>}
+
+        {open && facts.length > 0 && (
           <div className="osrv-facts">
-            {facts.map((f, i) => (
+            {facts.filter((f) => !summary || !['calendar', 'plane', 'clock'].includes(f.icon)).map((f, i) => (
               <span className="osrv-fact" key={f.icon + i}><Icon name={f.icon} />{f.text}</span>
             ))}
           </div>
@@ -992,20 +1000,19 @@ function ServiceBlock({ s, participants, documents, orderNo, open, onToggle, onC
             <Avatar name={focusedParticipant.name} size={28} />
             <span className="nm">{focusedParticipant.name}</span>
             <span className="dc">{focusedParticipant.docNo || focusedParticipant.doc || 'Документ не указан'}</span>
-            {postSaleFlow(s) !== 'hotel' && (focusedTicket
-              ? <button type="button" className="osrv-tick" onClick={() => onOpenDocument(focusedTicket)}><Icon name="ticket" />{focusedTicket.document_number || focusedTicket.title || 'Открыть билет'}</button>
-              : <span className="osrv-no-ticket"><Icon name="alertCircle" />Билет не выписан</span>)}
+            <PassengerAttachments documents={docs} participant={focusedParticipant} onOpenDocument={onOpenDocument} />
             <ActionMenu trigger={<button type="button" className="btn btn-ghost btn-icon btn-sm" aria-label={'Действия пассажира: ' + focusedParticipant.name}><Icon name="more" /></button>}
               items={[
                 { icon: 'idcard', label: 'Карточка пассажира', onClick: () => onOpenPassenger(focusedParticipant) },
                 { icon: 'docs', label: 'Добавить документ', onClick: () => onAddPassengerDoc(focusedParticipant) },
+                { icon: 'paperclip', label: 'Прикрепить файл к услуге', onClick: () => pickPassengerFile(focusedParticipant) },
                 ...(focusedTicket ? [{ icon: 'download', label: 'Открыть билет', onClick: () => onOpenDocument(focusedTicket) }] : []),
               ]} />
           </div>
         )}
 
         {open && (
-          <>
+          <div id={'service-details-' + s.id}>
             <div className="osrv-sec">
               <div className="osrv-sec-t">{postSaleFlow(s) === 'hotel' ? 'Гости' : 'Пассажиры'} ({pax.length})</div>
               {pax.length === 0 && <div style={{ fontSize: 13, color: 'var(--muted)', padding: '6px 0' }}>Пассажиры к услуге не привязаны</div>}
@@ -1018,13 +1025,12 @@ function ServiceBlock({ s, participants, documents, orderNo, open, onToggle, onC
                       <div className="nm">{p.name}{p.lead && <span className="pill pill-blue" style={{ marginLeft: 6, height: 20, padding: '0 8px', fontSize: 12 }}>Лид</span>}</div>
                     </div>
                     <span className="dc">{p.docType ? p.docType + ': ' : 'Документ: '}{p.docNo || p.doc || '—'}</span>
-                    {postSaleFlow(s) !== 'hotel' && (ticket
-                      ? <button type="button" className="osrv-tick" onClick={() => onOpenDocument(ticket)}><Icon name="ticket" />Билет {ticket.document_number || ticket.title}</button>
-                      : <span style={{ fontSize: 13, color: 'var(--muted-2)', whiteSpace: 'nowrap' }}>Билет не выписан</span>)}
+                    <PassengerAttachments documents={docs} participant={p} onOpenDocument={onOpenDocument} />
                     <ActionMenu trigger={<button className="btn btn-ghost btn-icon btn-sm"><Icon name="more" /></button>}
                       items={[
                         { icon: 'idcard', label: 'Документы пассажира', onClick: () => onOpenPassenger(p) },
                         { icon: 'docs', label: 'Добавить документ', onClick: () => onAddPassengerDoc(p) },
+                        { icon: 'paperclip', label: 'Прикрепить файл к услуге', onClick: () => pickPassengerFile(p) },
                         ...(ticket ? [{ icon: 'download', label: 'Открыть билет', onClick: () => onOpenDocument(ticket) }] : []),
                       ]} />
                   </div>
@@ -1050,34 +1056,34 @@ function ServiceBlock({ s, participants, documents, orderNo, open, onToggle, onC
                 <button type="button" className="osrv-adddoc" onClick={pickFile} disabled={uploading}>
                   <Icon name={uploading ? 'loader' : 'plus'} />{uploading ? 'Загрузка…' : 'Добавить файл'}
                 </button>
-                <input ref={fileRef} type="file" hidden onChange={takeFile} />
               </div>
             </div>
 
             <AandaBookingDetails details={s.hotel_details} />
             <HotelServiceTools serviceId={s.serverId || s.id} capabilities={s.hotel_documents} onDocumentCreated={onCertificateCreated} />
-            <div className="osrv-actions">
-              {postSaleFlow(s) === 'hotel' ? <Button variant="secondary" onClick={() => onHotelActions(s)}>Действия с бронью</Button> : <>
-                <Button variant="secondary" icon="refund" onClick={() => onCancel(s)}>Отменить</Button>
-                <Button icon="swap" onClick={() => onExchange(s)}>Запросить обмен</Button>
-              </>}
-              <span className="sep" />
-              <span style={{ flex: 1 }} />
-              <button className="btn btn-ghost btn-icon" title="История карточки услуги" onClick={() => setHistOpen(true)}><Icon name="clock" /></button>
-              <button className="btn btn-ghost btn-icon" title="Отправить карточку клиенту" onClick={() => setSendOpen(true)}><Icon name="send" /></button>
-              <button className="btn btn-ghost btn-icon" title="Обсудить в чате" onClick={onOpenChat}><Icon name="chat" /></button>
-              <ActionMenu trigger={<button className="btn btn-ghost btn-icon"><Icon name="more" /></button>}
-                items={[
-                  { icon: 'eye', label: open ? 'Свернуть детали' : 'Показать детали', onClick: onToggle },
-                  { icon: 'docs', label: 'Добавить файл', onClick: pickFile },
-                  { sep: true },
-                  ...(postSaleFlow(s) !== 'hotel' ? [{ icon: 'trash', label: 'Удалить услугу', danger: true, onClick: () => onDeleteService(s) }] : []),
-                ]} />
-            </div>
-          </>
+
+          </div>
         )}
+        <div className="osrv-actions">
+          <Button variant="secondary" onClick={() => setDocumentsOpen(true)}>Загрузить</Button>
+          {postSaleFlow(s) === 'hotel' ? <button type="button" className="btn btn-primary" aria-label={'Действия: ' + s.title} onClick={() => onHotelActions(s)}>Действия</button> : <ActionMenu trigger={<button type="button" className="btn btn-primary" aria-label={'Действия: ' + s.title}>Действия</button>}
+            items={[
+              { icon: 'eye', label: open ? 'Свернуть детали' : 'Показать детали', onClick: onToggle },
+              { icon: 'send', label: 'Отправить клиенту', onClick: () => setSendOpen(true) },
+              { icon: 'clock', label: 'История услуги', onClick: () => setHistOpen(true) },
+              { icon: 'docs', label: 'Добавить файл', onClick: pickFile },
+              { icon: 'chat', label: 'Обсудить в чате', onClick: onOpenChat },
+              { sep: true },
+              { icon: 'swap', label: 'Запросить обмен', onClick: () => onExchange(s) },
+              { icon: 'refund', label: 'Отменить услугу', danger: true, onClick: () => onCancel(s) },
+              { icon: 'trash', label: 'Удалить услугу', danger: true, onClick: () => onDeleteService(s) },
+            ]} />}
+        </div>
+        <input ref={fileRef} type="file" hidden onChange={takeFile} />
       </div>
 
+      {documentsOpen && <ServiceDocumentsDrawer service={s} documents={docs} participants={pax}
+        initialParticipant={focusedParticipant} onClose={() => setDocumentsOpen(false)} onPreview={onOpenDocument} />}
       {sendOpen && <ServiceCardSendPanel item={cardItem} kind={s.kind} participants={pax} orderNo={orderNo}
         currency={s.currency} serviceId={s.id} onSent={async (channels, draft) => {
           await onSendServiceCard(s, channels, draft);
@@ -1102,8 +1108,9 @@ function OrderServicesBoard({ services, participants, documents, orderNo, expand
     if (!needle) return true;
     const docs = serviceDocuments(service, documents);
     const pax = serviceParticipants(service, participants);
+    const summary = serviceSummary(service, AIRPORTS);
     const haystack = [
-      service.kind, service.title, service.sub, service.supplier, service.status, service.date,
+      summary?.title, summary?.dates, service.kind, service.title, service.sub, service.supplier, service.status, service.date,
       ...pax.flatMap((person) => [person.name, person.docNo, person.doc]),
       ...docs.flatMap((document) => [document.title, document.document_number, document.pnr]),
     ].filter(Boolean).join(' ').toLocaleLowerCase('ru');
@@ -1116,7 +1123,6 @@ function OrderServicesBoard({ services, participants, documents, orderNo, expand
       <div className="osrv-boardhead">
         <div>
           <h3>Услуги в заказе</h3>
-          <div className="sub">Найдите пассажира, билет, PNR или услугу без длинной прокрутки</div>
         </div>
         <Button icon="plus" onClick={onAdd}>Добавить услугу</Button>
       </div>
@@ -1131,6 +1137,7 @@ function OrderServicesBoard({ services, participants, documents, orderNo, expand
         <span className="osrv-found">Показано {visibleServices.length} из {services.length}</span>
       </div>
 
+      <section className="osrv-workspace" aria-label="Рабочая зона услуг заказа">
       {focusedParticipant && (
         <div className="osrv-focus-summary">
           <Avatar name={focusedParticipant.name} size={34} />
@@ -1154,7 +1161,8 @@ function OrderServicesBoard({ services, participants, documents, orderNo, expand
         </div>
       ))}
 
-      <button type="button" className="osrv-add" onClick={onAdd}><Icon name="plus" />Добавить ещё услугу в заказ</button>
+      {services.length > 0 && <button type="button" className="osrv-add" onClick={onAdd}><Icon name="plus" />Добавить ещё услугу в заказ</button>}
+      </section>
     </div>
   );
 }
@@ -2757,7 +2765,7 @@ function OrderCard({ order, company, clients = [], onBack, initTab, initSvc, ini
   const refreshDocuments = async (signal) => {
     if (!orderId) return;
     try {
-      const payload = await documentsApi.list({ order: orderId }, signal);
+      const payload = await documentsApi.all({ order: orderId }, signal);
       setOrderDocs(resultsOf(payload));
     } catch (error) {
       if (error.name !== 'AbortError') setOrderDocs([]);
@@ -3097,9 +3105,12 @@ function OrderCard({ order, company, clients = [], onBack, initTab, initSvc, ini
     window.open(documentsApi.previewUrl(id), '_blank', 'noopener,noreferrer');
   };
 
-  const uploadServiceDocument = async (svc, file) => {
+  const uploadServiceDocument = async (svc, file, participant) => {
     try {
-      await documentsApi.upload(file, { order: orderId, service: svc.serverId || svc.id, kind: 'other', title: file.name });
+      await documentsApi.upload(file, { order: orderId, service: svc.serverId || svc.id, kind: 'other', title: file.name,
+        ...(participant?.person ? { person: participant.person } : {}),
+        ...(participant ? { metadata: { participant_id: participant.serverId || participant.id } } : {}),
+      });
       await refreshDocuments();
       toast('Файл добавлен к услуге', 'ok');
     } catch (error) {
@@ -3301,20 +3312,23 @@ function OrderCard({ order, company, clients = [], onBack, initTab, initSvc, ini
         <div className="oc-grid">
           <div className="oc-main">
             <div className="oc-head">
-              <div style={{ display: 'flex', alignItems: 'flex-start', gap: 16, flexWrap: 'wrap' }}>
-                <div className="oc-id">
-                  <h2>Заказ № {order.no}</h2>
-                  <StatusControl status={status} onChange={changeOrderStatus} />
+              <div className="oc-heading">
+                <div className="oc-id"><h2>Заказ № {order.no}</h2></div>
+                <div className="oc-order-status"><span className="oc-meta-label">Статус заказа</span><StatusControl status={status} onChange={changeOrderStatus} /></div>
+                <div className="oc-heading-actions">
+                  <Button variant="secondary" size="sm" icon="chat" onClick={handleOpenChat}>
+                    Чат{chatUnread > 0 && <span className="pill pill-red" style={{ marginLeft: 6 }}>{chatUnread}</span>}
+                  </Button>
+                  <ActionMenu trigger={<button type="button" className="btn btn-primary btn-sm"><Icon name="more" />Действия</button>} items={headerMenuItems} />
                 </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap', fontSize: 13, color: 'var(--muted)' }}>
-                  <span>Создан {order.date} · <b style={{ color: 'var(--ink)', fontWeight: 600 }}>{orderContact(cardOrder, participants, clients).name || 'Контактное лицо не выбрано'}</b> · {requestType === 'Групповая' ? 'Групповая поездка' : requestType} · {aviaParams.cabin} · оператор <button type="button" className="oc-meta-action" onClick={() => setReassignOpen(true)}>{operator || order.operator || 'не назначен'}</button></span>
-                </div>
-                <div style={{ flex: 1 }} />
-                <Button variant="secondary" size="sm" icon="chat" onClick={handleOpenChat}>
-                  Чат{chatUnread > 0 && <span className="pill pill-red" style={{ marginLeft: 6 }}>{chatUnread}</span>}
-                </Button>
-                <ActionMenu trigger={<button className="btn btn-ghost btn-icon"><Icon name="more" /></button>} items={headerMenuItems} />
               </div>
+              <dl className="oc-order-meta">
+                <div><dt>Контактное лицо</dt><dd>{orderContact(cardOrder, participants, clients).name || 'Не выбрано'}</dd></div>
+                <div><dt>Создан</dt><dd>{order.date}</dd></div>
+                <div><dt>Тип поездки</dt><dd>{requestType === 'Групповая' ? 'Групповая поездка' : requestType}</dd></div>
+                <div><dt>Класс</dt><dd>{aviaParams.cabin || '—'}</dd></div>
+                <div><dt>Ответственный оператор</dt><dd><button type="button" className="oc-meta-action" onClick={() => setReassignOpen(true)}>{operator || order.operator || 'Назначить'}</button></dd></div>
+              </dl>
 
               {orderPurpose && <div className="oc-purpose">{orderPurpose}</div>}
 

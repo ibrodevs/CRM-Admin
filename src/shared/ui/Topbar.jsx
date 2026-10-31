@@ -68,105 +68,17 @@ function Topbar({ title, sub, children }) {
           padding-top: 10px !important;
         }
 
-        /* Карточка заказа следует тому же каркасу, что карточка компании. */
-        .entity-detail-topbar + .content .oc-head {
-          position: relative;
-          padding: 0 !important;
-          margin: 0 0 14px !important;
-          border: 0 !important;
-          border-radius: 0 !important;
-          background: transparent !important;
-          box-shadow: none !important;
-        }
 
-        .entity-detail-topbar + .content .oc-head > div:first-child {
-          min-height: 78px !important;
-          display: flex !important;
-          grid-template-columns: none !important;
-          align-items: center !important;
-          gap: 12px !important;
-          flex-wrap: nowrap !important;
-          padding: 12px 18px !important;
-          border: 1px solid var(--line);
-          border-radius: var(--r-card);
-          background: var(--surface);
-        }
 
-        .entity-detail-topbar + .content .oc-head .oc-id {
-          display: flex;
-          align-items: center;
-          gap: 9px !important;
-          min-width: max-content;
-          flex: 0 0 auto;
-        }
 
-        .entity-detail-topbar + .content .oc-head .oc-id h2 {
-          margin: 0;
-          font-size: 20px !important;
-          line-height: 1.2 !important;
-          letter-spacing: -.01em;
-          white-space: nowrap;
-        }
 
-        .entity-detail-topbar + .content .oc-head > div:first-child > .oc-id + div {
-          flex: 1 1 360px !important;
-          min-width: 0 !important;
-          color: var(--muted) !important;
-          font-size: 13.5px !important;
-          line-height: 1.35 !important;
-        }
 
-        .entity-detail-topbar + .content .oc-head > div:first-child > .oc-id + div > span {
-          display: block;
-          min-width: 0;
-          overflow: hidden;
-          text-overflow: ellipsis;
-          white-space: nowrap;
-        }
 
-        .entity-detail-topbar + .content .oc-head > div:first-child > .oc-id + div + div {
-          display: none !important;
-        }
 
-        .entity-detail-topbar + .content .oc-head > div:first-child > .btn {
-          flex: 0 0 auto;
-        }
 
-        .entity-detail-topbar + .content .oc-head > div:first-child > div:last-child {
-          flex: 0 0 auto;
-        }
 
-        .entity-detail-topbar + .content .oc-head > div:first-child > div:last-child > span > .btn.btn-ghost.btn-icon {
-          width: auto !important;
-          min-width: 108px;
-          height: 36px;
-          padding: 0 13px !important;
-          gap: 8px;
-          border: 1px solid var(--blue) !important;
-          border-radius: 10px;
-          background: var(--blue) !important;
-          color: #fff !important;
-        }
 
-        .entity-detail-topbar + .content .oc-head > div:first-child > div:last-child > span > .btn.btn-ghost.btn-icon::after {
-          content: 'Действия';
-          font-size: 14px;
-          font-weight: 600;
-          line-height: 1;
-        }
 
-        .entity-detail-topbar + .content .oc-head .oc-purpose {
-          margin: 7px 2px 0 !important;
-          padding: 0 2px;
-          max-width: 100%;
-          color: var(--muted);
-          font-size: 12.5px;
-          font-weight: 500;
-          line-height: 1.35;
-          overflow: hidden;
-          text-overflow: ellipsis;
-          white-space: nowrap;
-        }
 
         .entity-detail-topbar + .content .oc-workspace-nav {
           display: flex !important;
@@ -232,55 +144,16 @@ function Topbar({ title, sub, children }) {
           color: #fff;
         }
 
-        @media (max-width: 900px) {
-          .entity-detail-topbar + .content .oc-head > div:first-child {
-            min-height: 0 !important;
-            align-items: flex-start !important;
-            flex-wrap: wrap !important;
-            padding: 14px 16px !important;
-          }
-
-          .entity-detail-topbar + .content .oc-head > div:first-child > .oc-id + div {
-            order: 4;
-            flex-basis: 100% !important;
-            min-width: 0 !important;
-          }
-        }
 
         @media (max-width: 600px) {
           .entity-detail-topbar-nav {
             gap: 9px;
           }
 
-          .entity-detail-topbar + .content .oc-head > div:first-child {
-            min-height: 0 !important;
-            padding: 13px !important;
-            gap: 10px !important;
-          }
 
-          .entity-detail-topbar + .content .oc-head .oc-id {
-            width: 100%;
-            min-width: 0;
-            justify-content: space-between;
-          }
 
-          .entity-detail-topbar + .content .oc-head .oc-id h2 {
-            min-width: 0;
-            font-size: 18px !important;
-            overflow: hidden;
-            text-overflow: ellipsis;
-          }
 
-          .entity-detail-topbar + .content .oc-head > div:first-child > .btn,
-          .entity-detail-topbar + .content .oc-head > div:first-child > div:last-child {
-            flex: 1 1 calc(50% - 5px);
-          }
 
-          .entity-detail-topbar + .content .oc-head > div:first-child > .btn,
-          .entity-detail-topbar + .content .oc-head > div:first-child > div:last-child > span,
-          .entity-detail-topbar + .content .oc-head > div:first-child > div:last-child > span > .btn {
-            width: 100% !important;
-          }
 
           .entity-detail-topbar + .content .oc-workspace-nav {
             gap: 8px !important;
