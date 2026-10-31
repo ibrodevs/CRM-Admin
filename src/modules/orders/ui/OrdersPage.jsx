@@ -1,3 +1,4 @@
+import { InfoNotice } from '../../../shared/ui/InfoNotice.jsx';
 import { matchesOrderSearch } from '../model/order-search.js';
 import { useState, useEffect, useRef } from 'react';
 import ReactDOM from 'react-dom';
@@ -801,10 +802,7 @@ function BonusCardPanel({ client, onClose, onSave }) {
       </button>
       {extra && <textarea className="input" rows={3} value={comment} onChange={(event) => setComment(event.target.value)} placeholder="Комментарий" style={{ resize: 'vertical', marginTop: 10 }} />}
 
-      <div style={{ display: 'flex', gap: 9, alignItems: 'flex-start', padding: '11px 13px', borderRadius: 11, background: 'var(--blue-soft)', marginTop: 18 }}>
-        <Icon name="alertCircle" style={{ width: 18, height: 18, color: 'var(--blue)', flex: '0 0 17px', marginTop: 1 }} />
-        <span style={{ fontSize: 12, color: 'var(--body)' }}>Бонусные карты подставляются в подходящие услуги автоматически при бронировании. Их можно изменить в профиле клиента.</span>
-      </div>
+      <InfoNotice className="section-info">Бонусные карты подставляются в подходящие услуги автоматически при бронировании. Их можно изменить в профиле клиента.</InfoNotice>
     </StackPanel>
   );
 }

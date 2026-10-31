@@ -1,3 +1,4 @@
+import { SectionInfo } from '../../../shared/ui/SectionInfo.jsx';
 import { useEffect, useState } from 'react';
 import { Icon } from '../../../shared/icons/index.jsx';
 import { Button } from '../../../shared/ui/Button.jsx';
@@ -770,6 +771,7 @@ function TripCalendarPage({ role, feed, orders = [], clients = [], companies = [
             : view === 'month' ? <MonthView anchor={anchor} trips={trips} onOpen={setSel} onPickDay={openDayMenu} onOpenEvent={setEvtSel} onOpenDay={openDayList} evtTick={evtTick} />
             : <DayView anchor={anchor} trips={trips} onOpen={setSel} onPickDay={openDayMenu} onOpenEvent={setEvtSel} evtTick={evtTick} />}
         </div>
+        <SectionInfo section="calendar" />
       </div>
       <TripDetailPanel trip={sel} onClose={() => setSel(null)} onOpenOrder={onOpenOrder} />
       {dayMenu && <CalDayMenu day={dayMenu.day} pos={dayMenu.pos} onClose={() => setDayMenu(null)}

@@ -1,3 +1,4 @@
+import { SectionInfo } from '../../../shared/ui/SectionInfo.jsx';
 import { InfoNotice } from '../../../shared/ui/InfoNotice.jsx';
 import { translate as t } from '../../../shared/preferences/translations.js';
 import { useAuth } from '../../../shared/auth/auth-context.jsx';
@@ -644,6 +645,7 @@ function SettingsPage({ users = [], onUsersChange }) {
             ))}
           </div>
         )}
+        <SectionInfo section="settings" />
       </div>
       <Drawer open={modal === 'sla'} onClose={() => setModal(null)} title={t("Настройки SLA")} footer={<Button onClick={() => setModal(null)}>{t("Закрыть")}</Button>}>
         <p>{t("Выберите сотрудника для настройки норматива отклика.")}</p>

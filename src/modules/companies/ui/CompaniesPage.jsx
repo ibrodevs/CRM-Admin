@@ -1,3 +1,4 @@
+import { SectionInfo } from '../../../shared/ui/SectionInfo.jsx';
 import { ordersApi } from '../../orders/api.js';
 import { toUiOrder } from '../../orders/model.js';
 import { companiesApi } from '../api/companiesApi.js';
@@ -533,7 +534,9 @@ function CompaniesPage({ initialCompanies = [], orders = [], onCompaniesChange, 
 
   useEffect(() => { if (intent && intent.type === 'create') { setCreateOpen(true); onConsume && onConsume(); } }, [intent]);
 
-  if (view === 'card' && active) return (<><Topbar title="Карточка компании" /><div className="content"><CompanyCard co={active} logoUrl={logos[active.id]} orders={orders} onOpenChat={onOpenChat} onBack={() => setView('list')} onOpenOrder={onOpenOrder} onCreateOrder={onCreateOrder} onEdit={() => setEditing(active)} /><NewOrgDrawer open={!!editing} initial={editing ? { ...editing, logoUrl: logos[editing.id] } : null} onClose={() => setEditing(null)} onCreated={createCompany} onLogoUploaded={applyLogo} /></div></>);
+  if (view === 'card' && active) return (<><Topbar title="Карточка компании" /><div className="content"><CompanyCard co={active} logoUrl={logos[active.id]} orders={orders} onOpenChat={onOpenChat} onBack={() => setView('list')} onOpenOrder={onOpenOrder} onCreateOrder={onCreateOrder} onEdit={() => setEditing(active)} /><NewOrgDrawer open={!!editing} initial={editing ? { ...editing, logoUrl: logos[editing.id] } : null} onClose={() => setEditing(null)} onCreated={createCompany} onLogoUploaded={applyLogo} />
+        <SectionInfo section="companies" />
+      </div></>);
 
   let rows = companies.filter((c) => (!fStatus || c.status === fStatus) && (!q || `${shortCodeSearchable(c.id, 'ORG')} ${c.name} ${c.inn} ${c.dir}`.toLowerCase().includes(q.toLowerCase())));
   rows = apply(rows, { name: (r) => r.name, orders: (r) => r.orders, turnover: (r) => pUsd(r.turnover) });
@@ -580,6 +583,7 @@ function CompaniesPage({ initialCompanies = [], orders = [], onCompaniesChange, 
             </table>
           ) : <EmptyState icon="building" title="Компаний не найдено" />}
         </div>
+        <SectionInfo section="companies" />
       </div>
     </>
   );

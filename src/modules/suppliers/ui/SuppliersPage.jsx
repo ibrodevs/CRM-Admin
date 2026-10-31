@@ -1,3 +1,4 @@
+import { SectionInfo } from '../../../shared/ui/SectionInfo.jsx';
 import { InfoNotice } from '../../../shared/ui/InfoNotice.jsx';
 import { ProviderSetupFields } from './ProviderSetupFields.jsx';
 import { providerDefaults, providerSecrets, publicProviderSettings, providerConnectionState } from '../model/provider-setup.js';
@@ -1506,7 +1507,9 @@ function SuppliersPage({ intent, onConsume, suppliers, addSupplier, onNavigate, 
   if (active) return (
     <div className="fade-in">
       <Topbar title="Карточка поставщика" />
-      <div className="content"><SupplierCard supplier={active} onBack={() => setActive(null)} onOpenChat={onOpenChat || (() => onNavigate && onNavigate('chats'))} /></div>
+      <div className="content"><SupplierCard supplier={active} onBack={() => setActive(null)} onOpenChat={onOpenChat || (() => onNavigate && onNavigate('chats'))} />
+        <SectionInfo section="suppliers" />
+      </div>
     </div>
   );
 
@@ -1566,6 +1569,7 @@ function SuppliersPage({ intent, onConsume, suppliers, addSupplier, onNavigate, 
           </table>
           <Pagination page={page} pages={pages} onPage={setPage} />
         </div>
+        <SectionInfo section="suppliers" />
       </div>
 
       <SupplierAddDrawer open={addOpen} onClose={() => setAddOpen(false)} onCreated={addSupplier} />

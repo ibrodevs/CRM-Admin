@@ -97,9 +97,7 @@ function FareRulesBlock({ tier, airline }) {
 // не отдал, показываем это прямо, а не рисуем условный самолёт.
 function ExtrasUnavailable({ text }) {
   return (
-    <div className="xtr-info-box" style={{ margin: '8px 0' }}>
-      <Icon name="alertCircle" />{text}
-    </div>
+    <InfoNotice>{text}</InfoNotice>
   );
 }
 
@@ -327,12 +325,12 @@ function ExtrasTabs({ pax, state, set, embedded }) {
             <PaxStepper val={(state.special || {})[b.id] || 0} onChange={(n) => setSpecial(b.id, n)} />
           </div>
         ))}
-        <div className="xtr-info-box"><Icon name="alertCircle" />Спецбагаж подтверждается авиакомпанией. Возможны ограничения по весу и габаритам.</div>
+        <InfoNotice>Спецбагаж подтверждается авиакомпанией. Возможны ограничения по весу и габаритам.</InfoNotice>
       </> : <ExtrasUnavailable text="Поставщик не передал тарифы на багаж для этого рейса." />)}
 
       {tab === 'meal' && (AVIA_MEALS.length ? <>
         <XtrPaxBlock pax={pax} options={AVIA_MEALS} value={state.meal} onChange={(v) => set({ ...state, meal: v })} kind="meal" />
-        <div className="xtr-info-box"><Icon name="alertCircle" />Питание предоставляется на рейсах продолжительностью более 2 часов. На некоторых рейсах нужна заявка не менее чем за 24 часа до вылета.</div>
+        <InfoNotice>Питание предоставляется на рейсах продолжительностью более 2 часов. На некоторых рейсах нужна заявка не менее чем за 24 часа до вылета.</InfoNotice>
       </> : <ExtrasUnavailable text="Поставщик не передал варианты питания для этого рейса." />)}
 
       {tab === 'insurance' && (AVIA_INSURANCE_PLANS.length ? <>
@@ -406,12 +404,12 @@ function FreeBookingExtrasTabs({ pax, state, set, embedded, currency }) {
             <PaxStepper val={(state.special || {})[b.id] || 0} onChange={(n) => setSpecial(b.id, n)} />
           </div>
         ))}
-        <div className="xtr-info-box"><Icon name="alertCircle" />Спецбагаж подтверждается авиакомпанией. Возможны ограничения по весу и габаритам.</div>
+        <InfoNotice>Спецбагаж подтверждается авиакомпанией. Возможны ограничения по весу и габаритам.</InfoNotice>
       </> : <ExtrasUnavailable text="Поставщик не передал тарифы на багаж для этого рейса." />)}
 
       {tab === 'meal' && (AVIA_MEALS.length ? <>
         <XtrPaxBlock pax={pax} options={AVIA_MEALS} value={state.meal} onChange={(v) => set({ ...state, meal: v })} kind="meal" />
-        <div className="xtr-info-box"><Icon name="alertCircle" />Питание предоставляется на рейсах продолжительностью более 2 часов. На некоторых рейсах нужна заявка не менее чем за 24 часа до вылета.</div>
+        <InfoNotice>Питание предоставляется на рейсах продолжительностью более 2 часов. На некоторых рейсах нужна заявка не менее чем за 24 часа до вылета.</InfoNotice>
       </> : <ExtrasUnavailable text="Поставщик не передал варианты питания для этого рейса." />)}
 
       {tab === 'insurance' && (AVIA_INSURANCE_PLANS.length ? <>

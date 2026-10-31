@@ -1,3 +1,4 @@
+import { SectionInfo } from '../../../shared/ui/SectionInfo.jsx';
 import { matchesOrderSearch } from '../model/order-search.js';
 import { useEffect, useState } from 'react';
 import { Icon } from '../../../shared/icons/index.jsx';
@@ -235,6 +236,7 @@ function OrdersMultiSelectList({ orders, onOpen, onCreate, onNavigate, currentUs
             <span>Показано {Math.min(visibleCount, rows.length)} из {rows.length}</span>
           </div>}
         </div>
+        <SectionInfo section="orders" />
       </div>
     </div>
   );

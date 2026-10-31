@@ -1,3 +1,4 @@
+import { SectionInfo } from '../../../shared/ui/SectionInfo.jsx';
 import React from 'react';
 import { useState, useEffect, useRef } from 'react';
 import { Icon } from '../../../shared/icons/index.jsx';
@@ -1065,7 +1066,9 @@ export function ServiceBlanksPanel({
 }
 
 function DocCenterPage({ documents = [], orders = [] }) {
-  return (<><Topbar title="Документы" /><div className="content"><DocCenter initialDocuments={documents} orders={orders} /></div></>);
+  return (<><Topbar title="Документы" /><div className="content"><DocCenter initialDocuments={documents} orders={orders} />
+        <SectionInfo section="documents" />
+      </div></>);
 }
 
 export { companyForDoc, DOC_BOOKKEEPING, now, DOC_ORIGIN, docOrigin, docOriginShort, DocOriginPill, docSetKey, docSetTitle, groupDocSets, DocPreviewModal, DocCard, DocSetCard, DocServiceGroup, DocPassengerGroup, correctionSubjects, DOC_UPLOAD_TYPES, DocUploadModal, DocCenter, SERVICE_RECEIPT_DOC_TYPES, DocCenterPage };

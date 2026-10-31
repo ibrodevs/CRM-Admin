@@ -1,3 +1,4 @@
+import { SectionInfo } from '../../../shared/ui/SectionInfo.jsx';
 import { InfoNotice } from '../../../shared/ui/InfoNotice.jsx';
 import { resolveHotelParticipants } from '../../services/index.js';
 import { useState, useEffect } from 'react';
@@ -671,7 +672,7 @@ function SupplierErrorsDrawer({ supplier, onClose, onOpenOrder, errors, users = 
 }
 
 
-const WORK_TAB_ROUTE = { attention: 'orders', newreq: 'orders', deadlines: 'orders', approvals: 'offers' };
+const WORK_ITEM_ROUTE = { newreq: 'orders', mytasks: 'orders', approvals: 'offers', returns: 'returns', deadlines: 'returns' };
 const ORDER_CLOSED_STATUS = ['completed', 'cancelled'];
 const serviceSales = (service) => Number(service.calc?.total ?? service.client_total ?? service.sum ?? 0);
 const serviceProfit = (service) => Number(service.calc?.total ?? service.client_total ?? 0) - Number(service.calc?.tariff ?? service.supplier_cost ?? 0);
@@ -754,12 +755,12 @@ function DashboardPage({ role, user, orders = [], orderServices = [], clients = 
   const isActive = (s) => s !== 'Завершено' && s !== 'Отменено' && s !== 'Отклонено';
   const returnsActive = liveReturns.filter((r) => isActive(r.status));
   const approvals = [
-    ...liveProposals.filter((p) => p.status === 'На согласовании' || p.status === 'Отправлено клиенту').map((p) => ({ label: p.id, who: p.client, kind: 'КП', order: p.order })),
-    ...liveReturns.filter((r) => r.status === 'Ожидает согласования клиента').map((r) => ({ label: r.no + ' · ' + r.type, who: r.client, kind: 'Возврат', order: r.order })),
+    ...liveProposals.filter((p) => p.status === 'На согласовании' || p.status === 'Отправлено клиенту').map((p) => ({ label: p.id, who: p.client, kind: 'КП', order: p.order, route: 'offers' })),
+    ...liveReturns.filter((r) => r.status === 'Ожидает согласования клиента').map((r) => ({ label: r.no + ' · ' + r.type, who: r.client, kind: 'Возврат', order: r.order, route: 'returns' })),
   ];
   const deadlines = [
-    ...returnsActive.map((r) => ({ label: r.type + ' · ' + r.no, who: r.client, date: r.deadline, tone: 'red', order: r.order, icon: 'refund' })),
-    ...liveProposals.filter((p) => p.validUntil && p.status !== 'Согласовано' && p.status !== 'Отклонено').map((p) => ({ label: 'Срок КП · ' + p.id, who: p.client, date: p.validUntil, tone: 'amber', order: p.order, icon: 'template' })),
+    ...returnsActive.map((r) => ({ label: r.type + ' · ' + r.no, who: r.client, date: r.deadline, tone: 'red', order: r.order, route: 'returns', icon: 'refund' })),
+    ...liveProposals.filter((p) => p.validUntil && p.status !== 'Согласовано' && p.status !== 'Отклонено').map((p) => ({ label: 'Срок КП · ' + p.id, who: p.client, date: p.validUntil, tone: 'amber', order: p.order, route: 'offers', icon: 'template' })),
   ];
 
   const openErr = (code) => setErrCodeOpen(code || '');
@@ -783,12 +784,12 @@ function DashboardPage({ role, user, orders = [], orderServices = [], clients = 
     critErr.forEach((e) => attention.push({ icon: 'api', tone: 'red', title: e.reason, sub: e.supplier + (e.order ? ' · №' + e.order : ''), right: e.orderTL || 'критично', order: null, supplier: e.supplier, cat: 'suppliers' }));
     returnsActive.forEach((r) => attention.push({ icon: RETURN_TYPE[r.type] ? RETURN_TYPE[r.type].icon : 'refund', tone: 'amber', title: r.type + ' · ' + r.no, sub: [r.client, r.service].filter(Boolean).join(' · '), right: r.status, order: r.order, cat: 'returns' }));
     redRisk.forEach((u) => attention.push({ icon: 'bank', tone: 'red', title: u.co, sub: u.text, right: money(u.value), order: null, cat: 'overdue' }));
-    deadlines.filter((d) => d.tone === 'red').forEach((d) => attention.push({ icon: d.icon, tone: 'red', title: d.label, sub: d.who, right: d.date, order: d.order, cat: 'deadlines' }));
-    approvals.slice(0, 2).forEach((a) => attention.push({ icon: 'template', tone: 'amber', title: 'Согласование · ' + a.label, sub: a.who, right: a.kind, order: a.order, cat: 'approvals' }));
+    deadlines.filter((d) => d.tone === 'red').forEach((d) => attention.push({ icon: d.icon, tone: 'red', title: d.label, sub: d.who, right: d.date, order: d.order, route: d.route, cat: 'deadlines' }));
+    approvals.slice(0, 2).forEach((a) => attention.push({ icon: 'template', tone: 'amber', title: 'Согласование · ' + a.label, sub: a.who, right: a.kind, order: a.order, route: a.route, cat: 'approvals' }));
   } else {
     taskRows.forEach((t) => attention.push({ icon: 'clipboard', tone: t.tone, title: t.title, sub: 'Заказ №' + t.order, right: t.due, order: t.order, cat: 'mytasks' }));
     dashChats.filter((c) => c.unread > 0).forEach((c) => attention.push({ icon: c.type === 'supplier' ? 'api' : 'chat', tone: 'amber', title: 'Ответить · ' + c.name, sub: c.lastText, right: c.lastTime, order: c.order, chat: c, cat: 'chats' }));
-    deadlines.forEach((d) => attention.push({ icon: d.icon, tone: d.tone, title: d.label, sub: d.who, right: d.date, order: d.order, cat: 'deadlines' }));
+    deadlines.forEach((d) => attention.push({ icon: d.icon, tone: d.tone, title: d.label, sub: d.who, right: d.date, order: d.order, route: d.route, cat: 'deadlines' }));
   }
   attention.sort((a, b) => tonePri[a.tone] - tonePri[b.tone]);
 
@@ -796,8 +797,8 @@ function DashboardPage({ role, user, orders = [], orderServices = [], clients = 
   const workRows = {
     attention: attention.map((a, i) => ({ ...a, id: 'att-' + i, badge: badgeFor(a.tone) })),
     newreq: slaRows.map((r, i) => ({ id: 'req-' + i, icon: 'inbox', tone: r.tone, title: 'Заявка ждёт отклик', sub: '№' + r.no + ' · Клиент: ' + r.client, right: r.waited + ' мин', badge: slaLabel(r.tone), order: r.no, cat: 'newreq' })),
-    deadlines: deadlines.map((d, i) => ({ id: 'dl-' + i, icon: d.icon, tone: d.tone, title: d.label, sub: d.who, right: d.date, badge: d.tone === 'red' ? 'Срочно' : 'Дедлайн', order: d.order, cat: 'deadlines' })),
-    approvals: approvals.map((a, i) => ({ id: 'ap-' + i, icon: 'template', tone: 'amber', title: 'Согласование · ' + a.label, sub: a.who, right: a.kind, badge: 'На согласовании', order: a.order, cat: 'approvals' })),
+    deadlines: deadlines.map((d, i) => ({ id: 'dl-' + i, icon: d.icon, tone: d.tone, title: d.label, sub: d.who, right: d.date, badge: d.tone === 'red' ? 'Срочно' : 'Дедлайн', order: d.order, route: d.route, cat: 'deadlines' })),
+    approvals: approvals.map((a, i) => ({ id: 'ap-' + i, icon: 'template', tone: 'amber', title: 'Согласование · ' + a.label, sub: a.who, right: a.kind, badge: 'На согласовании', order: a.order, route: a.route, cat: 'approvals' })),
   };
   const workTabs = [
     { key: 'attention', label: isMgr ? 'Требуют внимания' : 'Мои задачи', count: attention.length, tone: attention.some((a) => a.tone === 'red') ? 'red' : 'gray' },
@@ -812,7 +813,7 @@ function DashboardPage({ role, user, orders = [], orderServices = [], clients = 
     if (item.cat === 'overdue' || item.cat === 'risk') { onNavigate('companies'); return; }
     if (item.cat === 'returns' && !item.order) { onNavigate('returns'); return; }
     if (item.order) { goOrder(item.order); return; }
-    onNavigate(WORK_TAB_ROUTE[item.cat] || 'orders');
+    onNavigate(item.route || WORK_ITEM_ROUTE[item.cat] || 'orders');
   };
 
 
@@ -935,9 +936,8 @@ function DashboardPage({ role, user, orders = [], orderServices = [], clients = 
           <WorkCenter
             tabs={workTabs} tab={tab} onTabChange={setTab}
             items={activeRows.slice(0, 5)} total={activeRows.length}
+            rowsByTab={workRows}
             loading={workLoading} error={workError} onRetry={onReload}
-            onOpenAll={() => onNavigate(WORK_TAB_ROUTE[tab] || 'orders')}
-            onShowAll={() => onNavigate(WORK_TAB_ROUTE[tab] || 'orders')}
             onOpenItem={openWorkItem}
             emptyTitle={tab === 'attention' ? 'Ничего не требует внимания' : 'В этой вкладке пусто'}
           />
@@ -970,6 +970,7 @@ function DashboardPage({ role, user, orders = [], orderServices = [], clients = 
             <span className="dsh-api-alert-go">Разобрать<Icon name="chevRight" /></span>
           </button>
         )}
+        <SectionInfo section="dashboard" />
       </div>
 
       <ErrorCodesDrawer open={errCodeOpen !== null} focusCode={errCodeOpen} onClose={() => setErrCodeOpen(null)} />

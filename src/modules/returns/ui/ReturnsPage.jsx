@@ -1,3 +1,4 @@
+import { SectionInfo } from '../../../shared/ui/SectionInfo.jsx';
 import { postSaleFlow } from '../../services/index.js';
 import React, { useState, useEffect, useRef } from 'react';
 import { Icon } from '../../../shared/icons/index.jsx';
@@ -703,7 +704,9 @@ function ReturnsModule({ scopeOrder, onOpenOrder, compact, order, initialCases, 
 }
 
 function ReturnsPage({ onOpenOrder, cases = [], orders = [] }) {
-  return (<><Topbar title="Возвраты и обмены" /><div className="content"><ReturnsModule initialCases={cases} orders={orders} onOpenOrder={onOpenOrder} /></div></>);
+  return (<><Topbar title="Возвраты и обмены" /><div className="content"><ReturnsModule initialCases={cases} orders={orders} onOpenOrder={onOpenOrder} />
+        <SectionInfo section="returns" />
+      </div></>);
 }
 
 Object.assign(window, { ReturnsModule, ReturnCard, ReturnsPage, NewReturnModal, ProcessFlow });

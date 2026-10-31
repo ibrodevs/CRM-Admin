@@ -1,3 +1,4 @@
+import { SectionInfo } from '../../../shared/ui/SectionInfo.jsx';
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { Icon } from '../../../shared/icons/index.jsx';
 import { Button } from '../../../shared/ui/Button.jsx';
@@ -1268,6 +1269,7 @@ function FinancePage({ overview, clients = [], companies = [], suppliers = [], o
         {tab === 'recon' && <FinReconciliation counterparties={counterparties} meta={meta} />}
         {tab === 'economics' && <FinEconomics economics={economics} />}
         {tab === 'analytics' && <FinAnalytics cashflow={cashflow} currency={currency} />}
+        <SectionInfo section="finance" />
       </div>
     </>
   );

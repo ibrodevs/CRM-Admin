@@ -1,3 +1,4 @@
+import { SectionInfo } from '../../../shared/ui/SectionInfo.jsx';
 import { InfoNotice } from '../../../shared/ui/InfoNotice.jsx';
 import { translate as t } from '../../../shared/preferences/translations.js';
 import { DEFAULT_CURRENCY, THEMES, preferencesToForm, preferencesFromForm, formatProfileDate } from '../../../shared/preferences/preferences.js';
@@ -663,6 +664,7 @@ function ProfilePage({ user, onNavigate, initialTab }) {
         {tab === 'motivation' && <ProfileMotivation operator={u.name} userId={u.id} canEdit={canManageSettings} />}
         {tab === 'stats' && <ProfileStats operator={u.name} userId={u.serverId || u.id} />}
         {tab === 'worktime' && <ProfileWorkTime user={u} canEdit={canManageUsers} />}
+        <SectionInfo section="profile" />
       </div>
 
 

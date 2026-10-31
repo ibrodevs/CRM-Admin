@@ -1,3 +1,4 @@
+import { SectionInfo } from '../../../shared/ui/SectionInfo.jsx';
 import { FlightSearchHeader } from '../../services/index.js';
 import { InfoNotice } from '../../../shared/ui/InfoNotice.jsx';
 import { HotelBookingActionsDrawer, postSaleFlow } from '../../services/index.js';
@@ -283,7 +284,6 @@ function OrderAside({ order, status, onStatusChange, services, participants, tas
         </button>
       </div>
 
-      <InfoNotice icon="sparkles" title="Подсказка">Вся основная информация и документы по каждой услуге доступны прямо в карточке заказа.</InfoNotice>
     </div>
   );
 }
@@ -3338,6 +3338,7 @@ function OrderCard({ order, company, clients = [], onBack, initTab, initSvc, ini
           <ServicesFooterBar order={cardOrder} services={services} bookingDraft={bookingDraft}
             onStartBooking={() => { setTab('main'); setSvcView('booking'); }} />
         )}
+        <SectionInfo section="orderCard" />
       </div>
 
 

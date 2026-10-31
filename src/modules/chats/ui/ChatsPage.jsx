@@ -1,3 +1,4 @@
+import { SectionInfo } from '../../../shared/ui/SectionInfo.jsx';
 import React, { useState, useEffect, useRef } from 'react';
 import { Icon } from '../../../shared/icons/index.jsx';
 import { ActionMenu } from '../../../shared/ui/ActionMenu.jsx';
@@ -1012,6 +1013,7 @@ function ChatsPage({ initialThreads = [], focusThread = null, orders = [], order
             />
           )}
         </div>
+        <SectionInfo section="chats" />
       </div>
 
       {active && (

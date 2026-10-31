@@ -1,3 +1,4 @@
+import { SectionInfo } from '../../../shared/ui/SectionInfo.jsx';
 import { ordersApi } from '../../orders/api.js';
 import { toUiOrder } from '../../orders/model.js';
 import { Drawer } from '../../../shared/ui/Overlays.jsx';
@@ -219,7 +220,9 @@ function ClientsPage({ initialClients = [], orders = [], onClientsChange, onOpen
   const addClient = (c) => commitClients((cur) => [c, ...cur]);
   const upsertClient = (c) => commitClients((cur) => cur.some((x) => x.id === c.id) ? cur.map((x) => x.id === c.id ? c : x) : [c, ...cur]);
 
-  if (view === 'card' && active) return (<><Topbar title="Карточка клиента" /><div className="content"><ClientCard c={active} orders={orders} onBack={() => setView('list')} onOpenOrder={onOpenOrder} onCreateOrder={onCreateOrder} onOpenChat={onOpenChat} onUpdate={(u) => { upsertClient(u); setActive(u); }} /></div></>);
+  if (view === 'card' && active) return (<><Topbar title="Карточка клиента" /><div className="content"><ClientCard c={active} orders={orders} onBack={() => setView('list')} onOpenOrder={onOpenOrder} onCreateOrder={onCreateOrder} onOpenChat={onOpenChat} onUpdate={(u) => { upsertClient(u); setActive(u); }} />
+        <SectionInfo section="clients" />
+      </div></>);
 
   let rows = clients.filter((c) => (!fStatus || c.status === fStatus) && (!q || `${shortCodeSearchable(c.id, 'CL')} ${c.name} ${c.company} ${c.phone}`.toLowerCase().includes(q.toLowerCase())));
   rows = apply(rows, { name: (r) => r.name, orders: (r) => r.orders, spent: (r) => pUsd(r.spent), debt: (r) => pUsd(r.debt) });
@@ -253,6 +256,7 @@ function ClientsPage({ initialClients = [], orders = [], onClientsChange, onOpen
             </table>
           ) : <EmptyState icon="user" title="Клиентов не найдено" />}
         </div>
+        <SectionInfo section="clients" />
       </div>
       <ClientCreateModal open={createOpen} onClose={() => setCreateOpen(false)} onCreated={addClient} />
     </>

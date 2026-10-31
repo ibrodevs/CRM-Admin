@@ -1,3 +1,4 @@
+import { SectionInfo } from '../../../shared/ui/SectionInfo.jsx';
 import { ServiceSearchHeader } from '../search/ServiceSearchHeader.jsx';
 import { searchHeaderValue } from '../search/search-header.js';
 import { InfoNotice } from '../../../shared/ui/InfoNotice.jsx';
@@ -1933,6 +1934,7 @@ function ServiceFlow({ routeKey, searchIntent, onConsumeSearch }) {
         )}
 
         {view === 'card' && item && (item._backendOfferId ? <SvcResultsHeader cfg={cfg} form={form} title={item.title} supplier={item.supplier} loading={loading} onSearch={async (draft) => { const found = await performSearch(draft, true); if (found !== false && found != null) { setForm(draft); if (found.length) setItem(found[0]); else setView('results'); } return found; }}><SvcCard key={`${item.id}:${JSON.stringify(form)}`} item={item} kind={cfg.kind} hideBackRow onBack={() => setView('results')} /></SvcResultsHeader> : <SvcCard item={item} kind={cfg.kind} hideBackRow onBack={() => setView('registry')} />)}
+        <SectionInfo section={routeKey} />
       </div>
     </>
   );
@@ -3284,7 +3286,7 @@ function ServicesHubPage({ onNavigate, onAddOrder, onOpenOrder, onCreateOrder, c
             </button>
           ))}
         </div>
-        <InfoNotice style={{ marginTop: 18 }}>Все виды услуг — в одной маске бронирования с вкладками. Подбор можно оформить в КП, привязать к заказу, к клиенту или отправить в чат.</InfoNotice>
+        <SectionInfo section="services" />
       </div>
       {maskKind && <DetailedSearchPanel open={maskOpen} initialKind={maskKind} onClose={() => setMaskOpen(false)} onOpenOrder={onOpenOrder} onCreateOrder={onCreateOrder} onNavigate={onNavigate} clients={clients} companies={companies} orders={orders} />}
     </>

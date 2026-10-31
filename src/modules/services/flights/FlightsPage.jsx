@@ -1,3 +1,4 @@
+import { SectionInfo } from '../../../shared/ui/SectionInfo.jsx';
 import { FlightSearchHeader } from '../search/FlightSearchHeader.jsx';
 import { InfoNotice } from '../../../shared/ui/InfoNotice.jsx';
 import { clientsApi } from '../../clients/api.js';
@@ -2533,6 +2534,7 @@ function FlightsPage({ searchIntent, onConsumeSearch, orders = [], clients = [],
         {view === 'card' && (
           svc ? <FlightCard key={offer ? `${offer.id}:${JSON.stringify(params)}` : svc?.id} svc={svc} offer={offer} no={cardNo} hideBackRow onBack={() => setView(svc ? 'registry' : 'results')} onFormKp={svc ? () => formKp(svc) : undefined} orders={orders} clients={clients} companies={companies} /> : <FlightSearchHeader values={params} title={offer?.airline || 'Авиабилеты'} supplier={offer?.supplier} busy={searching} onSearch={async (draft) => { const found = await runSearch(draft, true); if (found !== false && found != null) { setParams(draft); if (found.length) { setOffer(found[0]); setCardNo(`OF-${String(found[0].external_key || found[0].id).slice(0, 12).toUpperCase()}`); } else setView('results'); } return found; }} renderAirport={(label, value, onChange) => <AirportField label={label} value={value} onChange={onChange} />} renderPassengers={(draft, update) => <PaxField pax={draft.pax} setPax={(pax) => update({ pax })} cabin={draft.cabin} setCabin={(cabin) => update({ cabin })} options={draft} setOptions={update} />}><FlightCard key={offer ? `${offer.id}:${JSON.stringify(params)}` : svc?.id} svc={svc} offer={offer} no={cardNo} hideBackRow onBack={() => setView(svc ? 'registry' : 'results')} onFormKp={svc ? () => formKp(svc) : undefined} orders={orders} clients={clients} companies={companies} /></FlightSearchHeader>
         )}
+        <SectionInfo section="flights" />
       </div>
     </>
   );

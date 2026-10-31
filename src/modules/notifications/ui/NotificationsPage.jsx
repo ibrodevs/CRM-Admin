@@ -1,3 +1,4 @@
+import { SectionInfo } from '../../../shared/ui/SectionInfo.jsx';
 import { useState, useEffect } from 'react';
 import { Icon } from '../../../shared/icons/index.jsx';
 import { ActionMenu } from '../../../shared/ui/ActionMenu.jsx';
@@ -273,7 +274,9 @@ function NotificationsCenter({ notifications = [], orders = [], onChange, onNavi
 }
 
 function NotificationsPage({ notifications, orders, onChange, onNavigate, onOpenOrder }) {
-  return (<><Topbar title="Уведомления" /><div className="content"><NotificationsCenter notifications={notifications} orders={orders} onChange={onChange} onNavigate={onNavigate} onOpenOrder={onOpenOrder} /></div></>);
+  return (<><Topbar title="Уведомления" /><div className="content"><NotificationsCenter notifications={notifications} orders={orders} onChange={onChange} onNavigate={onNavigate} onOpenOrder={onOpenOrder} />
+        <SectionInfo section="notifications" />
+      </div></>);
 }
 
 

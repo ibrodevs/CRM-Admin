@@ -1,3 +1,4 @@
+import { SectionInfo } from '../../../shared/ui/SectionInfo.jsx';
 import { useState, useEffect } from 'react';
 import { Icon } from '../../../shared/icons/index.jsx';
 import { Button } from '../../../shared/ui/Button.jsx';
@@ -142,7 +143,9 @@ function FulfillmentPage({ onOpenOrder, orders = [], documents = [], returns = [
     }).catch((error) => { if (error.name !== 'AbortError') { setRows([]); toast(error.message || 'Не удалось загрузить очередь оформления', 'err'); } });
     return () => controller.abort();
   }, [documents, orders, returns, toast]);
-  return (<><Topbar title="Оформление" /><div className="content"><FulfillmentRegistry onOpenOrder={onOpenOrder} rows={rows} orders={orders} /></div></>);
+  return (<><Topbar title="Оформление" /><div className="content"><FulfillmentRegistry onOpenOrder={onOpenOrder} rows={rows} orders={orders} />
+        <SectionInfo section="fulfillment" />
+      </div></>);
 }
 
 export { buildFulfillmentRows, FulfillmentRegistry, FulfillmentPage };

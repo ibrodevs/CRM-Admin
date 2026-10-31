@@ -1,3 +1,4 @@
+import { SectionInfo } from '../../../shared/ui/SectionInfo.jsx';
 import { InfoNotice } from '../../../shared/ui/InfoNotice.jsx';
 import { HotelGuestCreateDrawer } from './HotelGuestCreateDrawer.jsx';
 import { mergeHotelGuests, selectCreatedHotelGuest, validateHotelBookingGuests } from './guest-create.js';
@@ -1408,6 +1409,7 @@ function HotelsPage({ orders = [] }) {
         <HotelPicker participants={[]} group={false}
           onApply={setSelectedOffer}
           onCancel={() => {}} />
+        <SectionInfo section="hotels" />
       </div>
       {selectedOffer && <UnifiedBindPicker open title="Добавить гостиницу в заказ" sub={[selectedOffer.title, selectedOffer.sub].filter(Boolean).join(' · ')}
         modes={['order']} orderOptions={orders} onClose={() => setSelectedOffer(null)} onPick={attach} />}

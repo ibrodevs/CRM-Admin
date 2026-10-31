@@ -1,3 +1,4 @@
+import { SectionInfo } from '../../../shared/ui/SectionInfo.jsx';
 import { useState, useEffect, useRef } from 'react';
 import { BrandMark, ChannelIcon, Icon } from '../../../shared/icons/index.jsx';
 import { ActionMenu } from '../../../shared/ui/ActionMenu.jsx';
@@ -1592,13 +1593,6 @@ function OffersRegistry({ onOpenOrder, intent, onConsume, initialProposals = [],
 
   return (
     <div className="fade-in">
-      <div className="card card-pad" style={{ marginBottom: 18, display: 'flex', gap: 12, alignItems: 'flex-start', background: 'var(--blue-soft)' }}>
-        <Icon name="template" style={{ width: 20, height: 20, color: 'var(--blue)', flex: '0 0 20px', marginTop: 2 }} />
-        <div style={{ fontSize: 13, color: 'var(--ink)' }}>
-          <b>Коммерческое предложение — контейнер из карточек услуг.</b> Объединяйте несколько услуг одной поездки или альтернативные варианты в один документ.
-          Отдельную <b>карточку услуги</b> можно отправить клиенту напрямую из заказа — без сборки КП (карточка → «Отправить клиенту»).
-        </div>
-      </div>
       <div className="grid-4" style={{ marginBottom: 22 }}>
         {STATS.map(([l, v]) => (<div className="stat-card" key={l}><div className="s-label">{l}</div><div className="s-value">{v}</div></div>))}
       </div>
@@ -1681,7 +1675,9 @@ function OffersPage({ onOpenOrder, intent, onConsume, proposals = [], orders = [
   return (
     <>
       <Topbar title="Коммерческие предложения" />
-      <div className="content"><OffersRegistry initialProposals={proposals} orders={orders} onOpenOrder={onOpenOrder} intent={intent} onConsume={onConsume} onChanged={onChanged} /></div>
+      <div className="content"><OffersRegistry initialProposals={proposals} orders={orders} onOpenOrder={onOpenOrder} intent={intent} onConsume={onConsume} onChanged={onChanged} />
+        <SectionInfo section="offers" />
+      </div>
     </>
   );
 }
