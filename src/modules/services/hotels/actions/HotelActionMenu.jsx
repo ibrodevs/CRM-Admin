@@ -2,7 +2,7 @@ import { Button } from '../../../../shared/ui/Button.jsx';
 import { HOTEL_ACTION_LABELS, hotelActionAvailability } from './hotelCapabilities.js';
 const groups = [
   ['Основные действия', ['change_dates', 'change_room', 'change_guests', 'add_room', 'remove_room', 'change_meal']],
-  ['Отмена', ['check_policy', 'cancel_free', 'cancel_booking', 'request_free_cancel']],
+  ['Отмена', ['check_policy', 'cancel_booking', 'request_free_cancel']],
   ['Дополнительно', ['early_checkin', 'late_checkout', 'extra_bed', 'special_requests', 'contact_supplier', 'documents']],
 ];
 export function HotelActionMenu({ data, selected, busy, onAction }) {

@@ -8,7 +8,7 @@ export const HOTEL_OPERATION_STATUS = {
 export const HOTEL_ACTION_LABELS = {
   refresh: 'Обновить данные у поставщика', change_dates: 'Изменить даты проживания', change_room: 'Изменить категорию номера',
   change_guests: 'Изменить состав гостей', add_room: 'Добавить номер', remove_room: 'Удалить номер', change_meal: 'Изменить питание',
-  cancel_booking: 'Отменить со штрафом', cancel_free: 'Отменить без штрафа', check_policy: 'Проверить условия отмены',
+  cancel_booking: 'Отменить бронирование', cancel_free: 'Отменить без штрафа', check_policy: 'Проверить условия отмены',
   request_free_cancel: 'Запросить отмену без штрафа', early_checkin: 'Ранний заезд', late_checkout: 'Поздний выезд',
   extra_bed: 'Дополнительная кровать', special_requests: 'Специальные пожелания', contact_supplier: 'Связаться с поставщиком', documents: 'Документы / ваучер',
 };

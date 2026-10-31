@@ -9,6 +9,11 @@ export function HotelBookingSummary({ summary }) {
   const rows = [
     ['Адрес', s.address], ['Поставщик', s.supplier], ['CRM service ID', s.service_id],
     ['Номер бронирования поставщика', s.supplier_booking_reference], ['Confirmation / reference ID', s.confirmation_references.join(', ')],
+    ...(s.provider_adapter === 'hotelbook' ? [
+      ['Номер заказа CRM', s.order_number],
+      ['clientOrderId Hotelbook', s.client_order_id],
+      ['Hotelbook itemId', (s.supplier_item_ids || []).join(', ')],
+    ] : []),
     ['Статус бронирования', s.booking_status], ['Статус услуги CRM', s.service_status], ['Заезд', s.check_in], ['Выезд', s.check_out],
     ['Ночей', s.nights], ['Номеров', s.room_count], ['Гостей', s.guest_count],
     ['Стоимость поставщика', hotelMoney(f.supplier_cost, f.currency)], ['Стоимость клиента', hotelMoney(f.client_cost, f.currency)],

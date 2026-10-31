@@ -148,7 +148,8 @@ function BookingWizard({ order, services, draft, onClose, onComplete, onSaveDraf
       const created = workflow && ['draft', 'preflight_ok'].includes(workflowState?.status)
         ? workflowState
         : await bookingApi.create({ order: order.id, services: bookingServices.map((service) => service.serverId || service.id) });
-      const preflight = created.status === 'preflight_ok' && created.preflight_result
+      const hasHotelbookPreflight = Object.keys(created.preflight_result?.hotelbook_inputs || {}).length > 0;
+      const preflight = created.status === 'preflight_ok' && created.preflight_result && !hasHotelbookPreflight
         ? created.preflight_result : await bookingApi.preflight(created.id);
       setWorkflow(created.id);
       setWorkflowState({ ...created, status: preflight.ok ? 'preflight_ok' : 'draft', preflight_result: preflight });
@@ -163,7 +164,10 @@ function BookingWizard({ order, services, draft, onClose, onComplete, onSaveDraf
       setWorkflowState(started.workflow || created);
       toast('Бронирование запущено — запросы отправлены поставщикам', 'ok');
       next();
-    } catch (error) { toast(error.message, 'err'); }
+    } catch (error) {
+      if (error.code === 'PREFLIGHT_REQUIRED') setWorkflowState((current) => current ? { ...current, status: 'draft', preflight_result: null } : current);
+      toast(error.message, 'err');
+    }
     finally { setBusy(false); }
   };
   const refreshWorkflow = async () => {

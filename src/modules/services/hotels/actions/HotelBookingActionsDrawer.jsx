@@ -54,7 +54,7 @@ export function HotelBookingActionsDrawer({ serviceId, onClose, onChanged, onNew
     finally { inFlight.current = false; setBusy(false); }
   };
   const create = async (action, description = '') => {
-    const body = { operation_type: action, scope: ['refresh', 'cancel_booking'].includes(action) ? 'booking' : selected.length ? 'rooms' : 'booking', room_refs: selected, requested_changes: description ? { description } : action === 'cancel_booking' ? { cancellation_mode: 'penalty' } : {} };
+    const body = { operation_type: action, scope: ['refresh', 'cancel_booking'].includes(action) ? 'booking' : selected.length ? 'rooms' : 'booking', room_refs: selected, requested_changes: description ? { description } : {} };
     const fingerprint = JSON.stringify(body);
     if (retryKey.current?.fingerprint !== fingerprint) retryKey.current = { fingerprint, key: crypto.randomUUID() };
     const operation = await hotelActionsApi.create(serviceId, body, retryKey.current.key);
