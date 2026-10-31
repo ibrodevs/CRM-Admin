@@ -1,3 +1,4 @@
+import { InfoNotice } from '../../../../shared/ui/InfoNotice.jsx';
 import { useEffect, useRef, useState } from 'react';
 import { Drawer } from '../../../../shared/ui/Overlays.jsx';
 import { Button } from '../../../../shared/ui/Button.jsx';
@@ -86,7 +87,7 @@ export function HotelBookingActionsDrawer({ serviceId, onClose, onChanged, onNew
       {!data && error && <Button variant="secondary" onClick={() => perform(() => load())}>Повторить загрузку</Button>}
       {data && <>
         <HotelBookingSummary summary={data.summary} />
-        <div style={{ margin: '16px 0' }}><Button variant="secondary" disabled={!hotelActionAvailability('refresh', data, selected, busy).enabled} onClick={() => act('refresh')}>Обновить данные у поставщика</Button><p className="hint">{hotelActionAvailability('refresh', data, selected, busy).reason || 'Status inquiry существующей брони; новое бронирование не создаётся.'}</p></div>
+        <div style={{ margin: '16px 0' }}><Button variant="secondary" disabled={!hotelActionAvailability('refresh', data, selected, busy).enabled} onClick={() => act('refresh')}>Обновить данные у поставщика</Button><InfoNotice icon="alertCircle">{hotelActionAvailability('refresh', data, selected, busy).reason || 'Status inquiry существующей брони; новое бронирование не создаётся.'}</InfoNotice></div>
         <section ref={policyRef}><h3>Условия отмены бронирования</h3><HotelPolicy value={data.summary.cancellation_policy} /></section>
         <HotelRoomsSelector rooms={data.summary.rooms} selected={selected} onChange={setSelected} disabled={busy || !!panel} />
         {panel === 'cancel' && cancelOperation ? <HotelCancellationPanel key={cancelOperation.id} operation={cancelOperation} busy={busy} onBack={() => setPanel(null)} onConfirm={() => perform(async () => {
@@ -95,13 +96,13 @@ export function HotelBookingActionsDrawer({ serviceId, onClose, onChanged, onNew
         })} /> : panel === 'new_booking' ? <section className="card card-pad" style={{ marginTop: 16 }}><h3>Добавление номера</h3><p>Существующая бронь не изменится. Для дополнительного номера нужно выполнить новый подбор и оформить отдельное бронирование.</p><div className="hotel-actions-row"><Button variant="secondary" onClick={() => setPanel(null)}>Назад</Button>{onNewBooking && <Button onClick={onNewBooking}>Перейти к подбору гостиницы</Button>}</div></section>
           : panel ? <HotelManualRequestPanel key={panel} action={panel} selected={selected} busy={busy} onBack={() => setPanel(null)} onSubmit={(description) => perform(async () => { await create(panel, description); setPanel(null); setNotice('Ручной запрос сохранён. Бронирование и финансовые значения не изменены.'); })} />
           : <HotelActionMenu data={data} selected={selected} busy={busy} onAction={act} />}
-        <section ref={docsRef}><h3>Документы / ваучер</h3>{!data.permissions.documents ? <p className="hint">Нет права просмотра документов.</p> : <>
+        <section ref={docsRef}><h3>Документы / ваучер</h3>{!data.permissions.documents ? <InfoNotice icon="alertCircle">Нет права просмотра документов.</InfoNotice> : <>
           <Button variant="secondary" disabled={busy} onClick={() => perform(loadDocuments)}>Загрузить документы услуги</Button>
           {data.permissions.generate_documents && data.summary.documents?.certificate_status && <Button variant="secondary" style={{ margin: '8px 0 8px 8px' }} disabled={busy || !['confirmed', 'cancelled'].includes(data.summary.documents.certificate_status)} onClick={() => perform(async () => { await servicesApi.hotelCertificate(serviceId); await loadDocuments(); setNotice('Сертификат CRM сохранён в документах услуги.'); })}>Сертификат на проживание</Button>}
-          {data.summary.documents?.certificate_status === 'pending' && <p className="hint">Сертификат доступен после подтверждения брони. Обновите данные у поставщика.</p>}
-          {docs && (docs.length ? <ul>{docs.map((doc) => <li key={doc.id}><a href={documentsApi.previewUrl(doc.id)} target="_blank" rel="noreferrer">{doc.title || doc.kind}</a></li>)}</ul> : <p className="hint">Сохранённых документов услуги пока нет.</p>)}
+          {data.summary.documents?.certificate_status === 'pending' && <InfoNotice icon="alertCircle">Сертификат доступен после подтверждения брони. Обновите данные у поставщика.</InfoNotice>}
+          {docs && (docs.length ? <ul>{docs.map((doc) => <li key={doc.id}><a href={documentsApi.previewUrl(doc.id)} target="_blank" rel="noreferrer">{doc.title || doc.kind}</a></li>)}</ul> : <InfoNotice icon="alertCircle">Сохранённых документов услуги пока нет.</InfoNotice>)}
         </>}</section>
-        <section><h3>История операций</h3>{!data.operations.length && <p className="hint">Операций пока нет.</p>}{data.operations.map((operation) => <HotelOperationHistory key={operation.id} operation={operation} busy={busy} permissions={data.permissions}
+        <section><h3>История операций</h3>{!data.operations.length && <InfoNotice icon="alertCircle">Операций пока нет.</InfoNotice>}{data.operations.map((operation) => <HotelOperationHistory key={operation.id} operation={operation} busy={busy} permissions={data.permissions}
           onConfirm={() => { setCancelOperation(operation); setPanel('cancel'); }} onResolve={(status, note) => perform(async () => { await hotelActionsApi.resolve(serviceId, operation, status, note); await load(); })} />)}</section>
       </>}
     </div>
@@ -116,7 +117,7 @@ function HotelOperationHistory({ operation: op, busy, permissions, onConfirm, on
     {op.requested_changes.description && <p style={{ whiteSpace: 'pre-wrap' }}>{op.requested_changes.description}</p>}
     {op.status === 'unknown' && <p className="err-text">Результат неизвестен. Не отправляйте отмену повторно. Используйте «Обновить данные у поставщика».</p>}
     {op.status === 'failed' && <p className="err-text">Операция не выполнена: {op.supplier_response?.error_code || 'Требуется проверка'}.</p>}
-    {op.execution_mode === 'manual' && op.status === 'completed' && <p className="hint">Ручной запрос обработан; автоматическое изменение брони не выполнялось.</p>}
+    {op.execution_mode === 'manual' && op.status === 'completed' && <InfoNotice icon="alertCircle">Ручной запрос обработан; автоматическое изменение брони не выполнялось.</InfoNotice>}
     {op.status === 'awaiting_operator_confirmation' && permissions.cancel && permissions.financial_confirmation && <Button variant="secondary" disabled={busy} onClick={onConfirm}>Открыть подтверждение отмены</Button>}
     <details style={{ marginTop: 10 }}><summary>История и обработка запроса</summary><ol>{op.history.map((entry) => <li key={entry.id}>{new Date(entry.created_at).toLocaleString('ru-RU')} · {entry.action} · {HOTEL_OPERATION_STATUS[entry.after?.status] || entry.after?.status}{entry.after?.result?.operator_note ? ` · ${entry.after.result.operator_note}` : ''}</li>)}</ol>
       {op.execution_mode === 'manual' && permissions.modify && targets[op.status] && <><label className="field"><span className="label">Комментарий обработки</span><textarea className="input" value={note} rows={3} maxLength={5000} onChange={(event) => setNote(event.target.value)} /></label><div className="hotel-actions-row">{targets[op.status].map((status) => <Button key={status} variant="secondary" disabled={busy || !note.trim()} onClick={() => onResolve(status, note.trim())}>{HOTEL_OPERATION_STATUS[status]}</Button>)}</div></>}

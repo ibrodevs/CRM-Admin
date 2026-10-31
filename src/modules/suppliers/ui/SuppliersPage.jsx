@@ -1,3 +1,6 @@
+import { InfoNotice } from '../../../shared/ui/InfoNotice.jsx';
+import { ProviderSetupFields } from './ProviderSetupFields.jsx';
+import { providerDefaults, providerSecrets, publicProviderSettings, providerConnectionState } from '../model/provider-setup.js';
 import { SupplierIntegrationJournal } from './SupplierIntegrationJournal.jsx';
 import { useState, useEffect } from 'react';
 import { Icon } from '../../../shared/icons/index.jsx';
@@ -357,9 +360,9 @@ function AviaMarkupEditor({ supplierName, supplierId }) {
 
   return (
     <div>
-      <div style={{ fontSize: 13, color: 'var(--muted)', marginBottom: 14 }}>
+      <InfoNotice icon="alertCircle" style={{ marginBottom: 14 }}>
         Наценка задаётся по авиакомпании и маршруту. Базовые строки — внутри РФ и международные; точечные маршруты имеют приоритет. Наценка отражается в поиске уже с надбавкой.
-      </div>
+      </InfoNotice>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
         {airCodes.length === 0 && <div className="card card-pad" style={{ color: 'var(--muted)' }}>Надбавки не заданы. Добавьте авиакомпанию ниже.</div>}
         {airCodes.map((code) => (
@@ -792,12 +795,12 @@ function SupplierTabBody({ s, ext, tab, isAirline, apiStatus, connectionResult, 
       {tab === 'api' && (
         <div>
           <div className="kv">
-            {[['URL API', ext.api.url], ['API Key', ext.api.apiKey], ['Login', ext.api.login], ['Token', ext.api.token],
+            {[['URL API', ext.api.url], ['Адаптер', ext.api.provider_adapter || '—'], ['Окружение', ext.api.environment || '—'],
               ['Версия API', ext.api.version], ['Последняя синхронизация', ext.api.lastSync]].map(([k, v], i) => (
               <div className="kv-row" key={i}><span className="k">{k}</span><span className="v" style={{ maxWidth: 280, wordBreak: 'break-all' }}>{v}</span></div>
             ))}
             <div className="kv-row"><span className="k">Статус подключения</span><span className="v">
-              <Pill tone={apiStatus === 'ok' || ext.api.status === 'Подключено' ? 'green' : ext.api.status === 'Не настроено' ? 'gray' : 'red'}>{apiStatus === 'checking' ? 'Проверка…' : (apiStatus === 'ok' ? 'Подключено' : ext.api.status)}</Pill>
+              <Pill tone={apiStatus ? (apiStatus === 'ok' ? 'green' : apiStatus === 'configured' ? 'amber' : apiStatus === 'checking' ? 'gray' : 'red') : (ext.api.status === 'Подключено' ? 'green' : 'gray')}>{apiStatus === 'checking' ? 'Проверка…' : apiStatus === 'ok' ? 'Подключено' : apiStatus === 'configured' ? 'Реквизиты настроены' : apiStatus === 'error' ? 'Ошибка проверки' : ext.api.status}</Pill>
             </span></div>
           </div>
           {connectionResult?.checked?.map((check) => <div key={check.credential_id} className="kv" style={{ marginTop: 10 }}>
@@ -889,9 +892,11 @@ function SupplierCard({ supplier, onBack, onOpenOrder, onOpenChat }) {
   const checkConn = async () => {
     setApiStatus('checking');
     try {
-      setConnectionResult(await suppliersApi.checkConnection(s.serverId || s.id));
-      setApiStatus('ok');
-      toast('Подключение успешно', 'ok');
+      const result = await suppliersApi.checkConnection(s.serverId || s.id);
+      setConnectionResult(result);
+      const state = providerConnectionState(result);
+      setApiStatus(state.status);
+      toast(state.message, state.tone);
     } catch (error) { setApiStatus('error'); toast(error.message, 'err'); }
   };
   const openSupplierChat = async () => {
@@ -1037,9 +1042,11 @@ function SupplierModal({ supplier, onClose, onDelete }) {
   const checkConn = async () => {
     setApiStatus('checking');
     try {
-      setConnectionResult(await suppliersApi.checkConnection(s.serverId || s.id));
-      setApiStatus('ok');
-      toast('Подключение успешно', 'ok');
+      const result = await suppliersApi.checkConnection(s.serverId || s.id);
+      setConnectionResult(result);
+      const state = providerConnectionState(result);
+      setApiStatus(state.status);
+      toast(state.message, state.tone);
     } catch (error) { setApiStatus('error'); toast(error.message, 'err'); }
   };
 
@@ -1119,7 +1126,7 @@ function SupplierAddDrawer({ open, onClose, onCreated }) {
   const empty = {
     name: '', org: '', inn: '', supType: 'API', kinds: [], priority: 1, useDefault: false, country: 'Кыргызстан', city: 'Бишкек',
     status: 'Активный', orgType: 'Другое',
-    api: { url: '', apiKey: '', login: '', password: '', token: '', version: '' },
+    providerKey: '', providerEnvironment: 'sandbox', api: {},
     local: { contact: '', comm: [], commBind: {}, processing: '', hours: SUP_WORK_HOURS[2] },
     fin: { currency: getDefaultCurrency(), commType: '%', commValue: 0, vat: 'Без НДС', settlement: 'Предоплата', payTerm: '', perService: supEmptyFin(SUP_SERVICE_KINDS) },
     ops: { 'Бронирование': true, 'Выписка': true, 'Возврат': false, 'Обмен': false, 'Аннуляция': false, 'Дополнительные услуги': false },
@@ -1128,6 +1135,16 @@ function SupplierAddDrawer({ open, onClose, onCreated }) {
     docsAttached: [],
   };
   const [f, setF] = useState(empty);
+  const [providerCatalog, setProviderCatalog] = useState([]);
+  const [providerError, setProviderError] = useState('');
+  useEffect(() => {
+    if (!open) return;
+    const controller = new AbortController();
+    setProviderError('');
+    suppliersApi.providers(controller.signal).then((payload) => { if (!controller.signal.aborted) setProviderCatalog(payload.results || []); })
+      .catch((error) => { if (!controller.signal.aborted) setProviderError(error.message || 'Не удалось загрузить список интеграций'); });
+    return () => controller.abort();
+  }, [open]);
   const [finKind, setFinKind] = useState(null);
   const [errs, setErrs] = useState({});
   const [legalOpen, setLegalOpen] = useState(false);
@@ -1160,18 +1177,20 @@ function SupplierAddDrawer({ open, onClose, onCreated }) {
 
   const submit = async () => {
     const er = {};
-    const adapterKey = process.env.NEXT_PUBLIC_DEFAULT_PROVIDER_ADAPTER || (process.env.NODE_ENV !== 'production' ? 'mock' : '');
+    const provider = providerCatalog.find((item) => item.key === f.providerKey);
+    const adapterKey = provider?.key;
+    let secrets = {};
+    if (isApiType) { try { secrets = providerSecrets(provider, f.api); } catch (error) { er.api = error.message; } }
     if (!f.name.trim()) er.name = 'Введите название';
     if (!f.kinds.length) er.kinds = 'Выберите хотя бы один вид услуг';
-    if (isApiType && !f.api.url.trim()) er.apiUrl = 'Укажите URL API';
-    if (isApiType && !adapterKey) er.adapter = 'Для production укажите NEXT_PUBLIC_DEFAULT_PROVIDER_ADAPTER';
+    if (isApiType && !adapterKey) er.adapter = 'Выберите API-поставщика';
     if (!isApiType && !f.local.contact.trim()) er.contact = 'Укажите контактное лицо';
     setErrs(er);
     if (er.name) setLegalOpen(true);
     if (Object.keys(er).length) { toast('Проверьте поля формы', 'err'); return; }
     const ext = {
       supType: f.supType, kinds: f.kinds, priority: f.priority, useDefault: f.useDefault, country: f.country, city: f.city,
-      api: { ...f.api, status: 'Не проверено', lastSync: '—' },
+      api: publicProviderSettings(provider, f.providerEnvironment, secrets),
       local: { ...f.local, comm: f.local.comm.length ? f.local.comm : ['Email'], commBind: { ...(f.local.commBind || {}) }, processing: f.local.processing === '' ? 0 : f.local.processing },
       fin: { ...JSON.parse(JSON.stringify(f.fin)), payTerm: f.fin.payTerm === '' ? 0 : f.fin.payTerm },
       ops: { ...f.ops }, automation: f.automation, searchPriority: { ...f.searchPriority },
@@ -1217,21 +1236,22 @@ function SupplierAddDrawer({ open, onClose, onCreated }) {
       SUP_EXT[created.id] = ext;
       let connectionWarning = '';
       if (isApiType) {
-        const secrets = Object.fromEntries(Object.entries(f.api).filter(([, value]) => value));
         await suppliersApi.saveCredential(created.id, {
           provider_adapter: adapterKey,
-          environment: process.env.NODE_ENV === 'production' ? 'production' : 'sandbox',
+          environment: f.providerEnvironment,
           secrets,
         });
         try {
-          await suppliersApi.checkConnection(created.id);
-          ext.api.status = 'Подключено';
+          const verification = await suppliersApi.checkConnection(created.id);
+          ext.api.status = verification.status === 'connected' ? 'Подключено' : 'Реквизиты настроены';
+          if (verification.status !== 'connected') connectionWarning = verification.message || 'Live-доступ ещё не подтверждён';
           ext.api.lastSync = new Date().toLocaleString('ru-RU', RU_DATE_TIME);
         } catch (error) {
           connectionWarning = error.message || 'Интеграция требует настройки';
           ext.api.status = 'Требует настройки';
         }
       }
+      await suppliersApi.saveSettings(created.id, ext);
       await Promise.all(Object.entries(docFiles).map(([kind, file]) => documentsApi.upload(file, {
         kind: 'contract', title: file.name, source: 'upload',
         metadata: { supplier_id: created.id, supplier_name: created.name, supplier_document_kind: kind },
@@ -1311,12 +1331,10 @@ function SupplierAddDrawer({ open, onClose, onCreated }) {
       {isApiType && (
         <SupSection icon="api" title="API" sub="Параметры подключения — для типов API, Консолидатор и GDS">
           <div className="form-grid">
-            <div className="full"><Field label="URL API" required error={errs.apiUrl}><Input placeholder="https://api.example.com/v2" value={f.api.url} onChange={(e) => setSub('api', 'url', e.target.value)} error={errs.apiUrl} /></Field></div>
-            <Field label="API Key"><Input placeholder="Ключ доступа" value={f.api.apiKey} onChange={(e) => setSub('api', 'apiKey', e.target.value)} /></Field>
-            <Field label="Версия API"><Input placeholder="v2" value={f.api.version} onChange={(e) => setSub('api', 'version', e.target.value)} /></Field>
-            <Field label="Login"><Input value={f.api.login} onChange={(e) => setSub('api', 'login', e.target.value)} /></Field>
-            <Field label="Password"><Input type="password" value={f.api.password} onChange={(e) => setSub('api', 'password', e.target.value)} /></Field>
-            <div className="full"><Field label="Token"><Input value={f.api.token} onChange={(e) => setSub('api', 'token', e.target.value)} /></Field></div>
+            <ProviderSetupFields providers={providerCatalog} selected={f.providerKey} environment={f.providerEnvironment} values={f.api} error={providerError || errs.api || errs.adapter}
+              onSelect={(key) => { const provider = providerCatalog.find((item) => item.key === key); setF((old) => ({ ...old, providerKey: key, providerEnvironment: provider?.environment || 'sandbox', api: providerDefaults(provider) })); }}
+              onEnvironment={(environment) => setF((old) => ({ ...old, providerEnvironment: environment, api: { ...old.api, ...(['ttbooking','iway','onelya'].includes(old.providerKey) && environment === 'production' ? { url: '' } : {}) } }))}
+              onChange={(key,value) => setSub('api',key,value)} />
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 12, padding: '10px 12px', borderRadius: 10, background: 'var(--surface-2)', fontSize: 12.5, color: 'var(--body)' }}>
             <Icon name="api" style={{ width: 16, height: 16, color: 'var(--blue)' }} />

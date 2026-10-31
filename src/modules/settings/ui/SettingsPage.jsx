@@ -1,3 +1,4 @@
+import { InfoNotice } from '../../../shared/ui/InfoNotice.jsx';
 import { translate as t } from '../../../shared/preferences/translations.js';
 import { useAuth } from '../../../shared/auth/auth-context.jsx';
 import { DocumentTemplatesDrawer, SettingsDirectory } from './SettingsCatalogs.jsx';
@@ -137,7 +138,7 @@ function ApiKeyModal({ open, onClose }) {
           : null}>
       <div>
         {stage === 'form' && <>
-          <p className="hint">{t("Ключ даёт доступ только для чтения выбранных разделов. Передавайте API в заголовке X-API-Token, а API-KEY — в X-API-Key.")}</p>
+          <InfoNotice icon="alertCircle">{t("Ключ даёт доступ только для чтения выбранных разделов. Передавайте API в заголовке X-API-Token, а API-KEY — в X-API-Key.")}</InfoNotice>
           <Field label={t("Наименование организации")} hint={t("Введите наименование на латинице")} error={err}>
             <Input placeholder={t("Введите значение")} value={org} onChange={(e) => { setOrg(e.target.value); setErr(''); }} error={err} />
           </Field>
@@ -324,7 +325,7 @@ function NotificationsModal({ open, onClose }) {
   return (
     <Drawer open={open} onClose={onClose} title={t("Настройки уведомлений")} width="min(460px, 94vw)"
       footer={<Button variant="primary" onClick={save} disabled={!ready || saving}>{t("Сохранить")}</Button>}>
-        <p className="hint">Правило определяет, кому и по какому поводу создаётся уведомление. Канал с пометкой «не настроен» отправить наружу не сможет — уведомление останется в центре уведомлений CRM.</p>
+        <InfoNotice icon="alertCircle">Правило определяет, кому и по какому поводу создаётся уведомление. Канал с пометкой «не настроен» отправить наружу не сможет — уведомление останется в центре уведомлений CRM.</InfoNotice>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
           {opts.map((l, i) => (
             <div key={i} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, padding: '12px 0', borderBottom: i < opts.length - 1 ? '1px solid var(--line)' : 'none' }}>

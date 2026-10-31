@@ -1,3 +1,4 @@
+import { InfoNotice } from '../../../shared/ui/InfoNotice.jsx';
 import { resolveHotelParticipants } from '../../services/index.js';
 import { useState, useEffect } from 'react';
 import { Icon } from '../../../shared/icons/index.jsx';
@@ -331,15 +332,16 @@ function FreeBookingFinalize({ draft, onClose, onDone, onOpenOrder, onNavigate, 
 
 
 
-function DetailedSearchPanel({ onClose, initialKind, onOpenOrder, onCreateOrder, onNavigate, clients = [], companies = [], orders = [] }) {
+function DetailedSearchPanel({ open = true, onClose, initialKind, onOpenOrder, onCreateOrder, onNavigate, clients = [], companies = [], orders = [] }) {
   const toast = useToast();
   const [kind, setKind] = useState(initialKind || 'Авиа');
+  useEffect(() => { if (open && initialKind) setKind(initialKind); }, [open, initialKind]);
   const [aviaParams, setAviaParams] = useState({ trip: 'rt', from: 'FRU', to: 'IST', depDate: null, retDate: null, pax: { adt: 1, chd: 0, infNoSeat: 0, infSeat: 0, special: {}, subsidized: {} }, cabin: 'Эконом', baggage: false, flex: false, direct: false, airline: '', ...PAX_DEFAULT_OPTIONS });
   const [draft, setDraft] = useState([]);
   const [finalize, setFinalize] = useState(false);
   const add = (svc, k) => { setDraft((d) => [...d, { kind: k || 'Авиа', ...(svc || {}) }]); toast('Добавлено в свободное бронирование', 'ok'); };
   return (
-    <StackPanel className="free-booking" title="Свободное бронирование" width="min(1320px,96vw)" onClose={onClose}
+    <StackPanel open={open} className="free-booking" title="Свободное бронирование" width="min(1320px,96vw)" onClose={onClose}
       footer={draft.length ? (
         <>
           <div style={{ flex: 1, alignSelf: 'center', color: 'var(--muted)', fontSize: 14 }}>В подборке: <b style={{ color: 'var(--ink)' }}>{draft.length}</b> {plural(draft.length, ['услуга', 'услуги', 'услуг'])}</div>
@@ -347,13 +349,13 @@ function DetailedSearchPanel({ onClose, initialKind, onOpenOrder, onCreateOrder,
           <Button icon="check" onClick={() => setFinalize(true)}>Оформить</Button>
         </>
       ) : null}>
-      <div style={{ fontSize: 13, color: 'var(--muted)', marginBottom: 12 }}>
+      <InfoNotice icon="alertCircle" style={{ marginBottom: 12 }}>
         Поиск без привязки к заказу. Можно добавить несколько услуг, затем сформировать КП, привязать к заказу или к физ. лицу.
-      </div>
+      </InfoNotice>
       <FreeBookingPanel kind={kind} setKind={setKind} aviaParams={aviaParams} setAviaParams={setAviaParams}
         onAddAvia={(r) => add(r, 'Авиа')}
         onAddOther={(o, k) => add(o, k)} />
-      {finalize && <FreeBookingFinalize draft={draft} onClose={() => setFinalize(false)} onDone={() => { setFinalize(false); onClose(); }} onOpenOrder={onOpenOrder} onCreateOrder={onCreateOrder} onNavigate={onNavigate} clients={clients} companies={companies} orders={orders} />}
+      {finalize && <FreeBookingFinalize draft={draft} onClose={() => setFinalize(false)} onDone={() => { setFinalize(false); setDraft([]); onClose(); }} onOpenOrder={onOpenOrder} onCreateOrder={onCreateOrder} onNavigate={onNavigate} clients={clients} companies={companies} orders={orders} />}
     </StackPanel>
   );
 }
@@ -677,6 +679,7 @@ const serviceProfit = (service) => Number(service.calc?.total ?? service.client_
 function DashboardPage({ role, user, orders = [], orderServices = [], clients = [], companies = [], proposals = [], returns = [], chats = [], dashboard, calendar, finance, resources, incidents = [], slaQueue = [], currentShift, motivationAccruals = [], users = [], suppliers = [], onNavigate, onAddOrder, onOpenOrder, onCreateOrder, onOpenChat, onReload }) {
   const [search, setSearch] = useState('');
   const [searchOpen, setSearchOpen] = useState(false);
+  const [searchMounted, setSearchMounted] = useState(false);
   const [errCodeOpen, setErrCodeOpen] = useState(null);
   const [errDrawer, setErrDrawer] = useState(null);
   const [incidentRows, setIncidentRows] = useState(incidents);
@@ -905,11 +908,11 @@ function DashboardPage({ role, user, orders = [], orderServices = [], clients = 
         <div className="topbar-spacer" />
         <SearchBox value={search} onChange={setSearch} placeholder="Поиск" style={{ width: 220 }} />
         <Button variant="secondary" icon="calendar" onClick={() => onNavigate('calendar')}>Календарь поездок</Button>
-        <Button variant="secondary" icon="search" onClick={() => setSearchOpen(true)}>Поиск услуг</Button>
+        <Button variant="secondary" icon="search" onClick={() => { setSearchMounted(true); setSearchOpen(true); }}>Поиск услуг</Button>
         <Button variant="primary" icon="plus" onClick={onAddOrder}>Добавить заказ</Button>
       </Topbar>
 
-      {searchOpen && <DetailedSearchPanel onClose={() => setSearchOpen(false)} onOpenOrder={onOpenOrder} onCreateOrder={onCreateOrder} onNavigate={onNavigate} clients={clients} companies={companies} orders={orders} />}
+      {searchMounted && <DetailedSearchPanel open={searchOpen} onClose={() => setSearchOpen(false)} onOpenOrder={onOpenOrder} onCreateOrder={onCreateOrder} onNavigate={onNavigate} clients={clients} companies={companies} orders={orders} />}
 
       <div className="dsh scroll">
         {shift && (

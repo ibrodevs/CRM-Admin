@@ -1,7 +1,8 @@
+import { InfoNotice } from '../../../../shared/ui/InfoNotice.jsx';
 import { hotelMoney, policyLines } from './hotelCapabilities.js';
 export function HotelPolicy({ value }) {
   const lines = policyLines(value);
-  return lines.length ? <ul style={{ margin: '8px 0', paddingLeft: 20 }}>{lines.map((line, index) => <li key={index} style={{ overflowWrap: 'anywhere' }}>{line}</li>)}</ul> : <p className="hint">Поставщик не передал условия отмены. Это не означает отсутствие штрафа.</p>;
+  return lines.length ? <ul style={{ margin: '8px 0', paddingLeft: 20 }}>{lines.map((line, index) => <li key={index} style={{ overflowWrap: 'anywhere' }}>{line}</li>)}</ul> : <InfoNotice icon="alertCircle">Поставщик не передал условия отмены. Это не означает отсутствие штрафа.</InfoNotice>;
 }
 export function HotelBookingSummary({ summary }) {
   const s = summary, f = s.financial;
@@ -15,5 +16,5 @@ export function HotelBookingSummary({ summary }) {
   ];
   return <section aria-label="Информация о гостиничной брони"><h3 style={{ marginTop: 0 }}>{s.hotel}</h3><dl className="hotel-actions-summary">
     {rows.map(([label, value]) => <div key={label}><dt className="hint">{label}</dt><dd>{value ?? 'Не указано'}{value === '' ? 'Не указано' : ''}</dd></div>)}
-  </dl>{s.unassigned_guests?.length > 0 && <p className="hint">Гости без подтверждённого распределения по номерам: {s.unassigned_guests.map((g) => g.name || 'Имя не указано').join(', ')}.</p>}</section>;
+  </dl>{s.unassigned_guests?.length > 0 && <InfoNotice icon="alertCircle">Гости без подтверждённого распределения по номерам: {s.unassigned_guests.map((g) => g.name || 'Имя не указано').join(', ')}.</InfoNotice>}</section>;
 }

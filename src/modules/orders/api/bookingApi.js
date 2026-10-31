@@ -7,6 +7,9 @@ export const bookingApi = {
   start: (id, confirm = false) => create(`booking-workflows/${id}/start/`, { confirm }),
   status: (id, signal) => get(`booking-workflows/${id}/status/`, signal),
   issue: (id, body = {}) => create(`booking-workflows/${id}/issue/`, body),
+  transferCancellation: (id, item, confirmation) => create(`booking-workflows/${id}/cancel-transfer/`, { item, ...(confirmation ? { confirmation } : {}) }),
+  void: (id, item) => create(`booking-workflows/${id}/void/`, { item, confirm: true }),
+  resume: (id, item) => create(`booking-workflows/${id}/resume/`, { item }),
   inquiry: (id, item) => create(`booking-workflows/${id}/status-inquiry/`, { item }),
   cancel: (id, reason) => create(`booking-workflows/${id}/cancel/`, { reason }),
 };

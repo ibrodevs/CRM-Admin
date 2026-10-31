@@ -1,3 +1,4 @@
+import { InfoNotice } from '../../../shared/ui/InfoNotice.jsx';
 import { useEffect, useRef, useState } from 'react';
 import { Drawer } from '../../../shared/ui/Overlays.jsx';
 import { Button } from '../../../shared/ui/Button.jsx';
@@ -63,7 +64,7 @@ export function HotelGuestCreateDrawer({ orderId, onClose, onCreated, documentRe
       <p>Возможно, этот человек уже есть в CRM. Выберите его, чтобы не создавать дубль.</p>
       {candidates.map((person) => <div key={person.id} className="hp-room-line"><span>{person.full_name || [person.surname, person.given_name].join(' ')} · {person.birth_date || 'Дата рождения не указана'}</span><Button size="sm" variant="secondary" disabled={saving} onClick={() => reuse(person)}>Использовать гостя</Button></div>)}
     </div>}
-    {form.documents.some((doc) => doc.id) && <div className="hp-hint">Действующий документ уже сохранён в CRM.</div>}
+    {form.documents.some((doc) => doc.id) && <InfoNotice icon="alertCircle">Действующий документ уже сохранён в CRM.</InfoNotice>}
     <fieldset disabled={saving || !!savedPerson} style={{ border: 0, padding: 0, margin: 0 }}>
       <UnifiedPersonFields value={form} onChange={(next) => { setForm(next); setErrors({}); setError(''); }} errors={errors} compact showLatin bookingDocumentRequired={documentRequired && !form.documents.some((doc) => doc.id)} showStatus={false} />
     </fieldset>

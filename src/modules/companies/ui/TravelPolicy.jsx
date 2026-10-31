@@ -1,3 +1,4 @@
+import { InfoNotice } from '../../../shared/ui/InfoNotice.jsx';
 import { companiesApi } from '../api/companiesApi.js';
 import { useState, useEffect, useRef } from 'react';
 import { Icon } from '../../../shared/icons/index.jsx';
@@ -400,9 +401,9 @@ function TpImportDrawer({ open, kind, companyId, onClose, onImported }) {
   return (
     <Drawer open={open} onClose={onClose} title={isEmp ? 'Импорт сотрудников' : 'Импорт тревел-политики'} width="min(560px,96vw)"
       footer={<><Button variant="secondary" onClick={onClose} disabled={busy}>Отмена</Button><Button icon="check" disabled={busy || !file} onClick={doImport}>{busy ? 'Импорт…' : 'Импортировать'}</Button></>}>
-      <div style={{ fontSize: 13, color: 'var(--muted)', marginBottom: 14 }}>
+      <InfoNotice icon="alertCircle" style={{ marginBottom: 14 }}>
         {isEmp ? 'Загрузите CSV/XLSX с колонками ФИО (или Фамилия и Имя), Телефон, Email, Подразделение, Должность. Backend создаст или обновит сотрудников.' : 'Загрузите JSON с полями API/объектом policy либо XLSX «поле — значение». Импорт обновит активную политику и увеличит её версию.'}
-      </div>
+      </InfoNotice>
       <label className="doc-chip" onDragOver={(event) => event.preventDefault()} onDrop={(event) => { event.preventDefault(); setFile(event.dataTransfer.files?.[0] || null); }} style={{ borderStyle: 'dashed', color: 'var(--blue)', height: 120, flexDirection: 'column', gap: 8, cursor: 'pointer', justifyContent: 'center' }}>
         <Icon name="download" style={{ width: 26, height: 26 }} />
         <span style={{ fontWeight: 600 }}>{file ? file.name : 'Выберите файл или перетащите сюда'}</span>

@@ -165,6 +165,7 @@ function DateField({ label, value, onChange, placeholder = 'Выбрать да�
   const [open, setOpen] = useState(false);
   const [pos, setPos] = useState({ top: 0, left: 0 });
   const ref = useRef(null);
+  useOverlayLayer(open, () => setOpen(false));
   useEffect(() => {
     const h = (e) => {
       if (!ref.current) return;
@@ -173,8 +174,8 @@ function DateField({ label, value, onChange, placeholder = 'Выбрать да�
       if (ref.current.contains(e.target) || (portal && portal.contains(e.target))) return;
       setOpen(false);
     };
-    document.addEventListener('mousedown', h);
-    return () => document.removeEventListener('mousedown', h);
+    document.addEventListener('mousedown', h, true);
+    return () => document.removeEventListener('mousedown', h, true);
   }, []);
   const toggle = () => {
     if (!open && ref.current) {

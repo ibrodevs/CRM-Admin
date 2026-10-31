@@ -48,3 +48,5 @@ export { AandaBookingDetails } from './hotels/AandaBookingDetails.jsx';
 
 export { HotelBookingActionsDrawer } from './hotels/actions/HotelBookingActionsDrawer.jsx';
 export { postSaleFlow } from './hotels/actions/hotelCapabilities.js';
+
+export { FlightSearchHeader } from './search/FlightSearchHeader.jsx';

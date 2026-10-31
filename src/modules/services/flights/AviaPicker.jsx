@@ -1,3 +1,4 @@
+import { InfoNotice } from '../../../shared/ui/InfoNotice.jsx';
 import React, { useState } from 'react';
 import { Icon } from '../../../shared/icons/index.jsx';
 import { Avatar } from '../../../shared/ui/Avatar.jsx';
@@ -511,7 +512,7 @@ function FareSelectPanel({ pax, groups, classByPax, setClassByPax, fareByPax, se
         <Button icon="check" onClick={onApply}>{applyLabel}</Button>
       </>}>
       {routeHeader}
-      <div className="fare-hint"><Icon name="alertCircle" />Стоимость может отличаться для каждого пассажира в зависимости от выбранного тарифа и условий.</div>
+      <InfoNotice icon="alertCircle">Стоимость может отличаться для каждого пассажира в зависимости от выбранного тарифа и условий.</InfoNotice>
 
       <div className="fare-layout">
 

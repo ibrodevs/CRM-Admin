@@ -1,19 +1,23 @@
 import ReactDOM from 'react-dom';
-import { useEffect, useState } from 'react';
+import { createContext, useContext, useEffect, useState } from 'react';
 import { AIRPORTS } from '../../../legacy/data/index.jsx';
 import { Icon } from '../../../shared/icons/index.jsx';
 import { EmptyState } from '../../../shared/ui/EmptyState.jsx';
 import { SearchBox } from '../../../shared/ui/SearchBox.jsx';
 import { useOverlayLayer, useOverlayZIndex } from '../../../shared/ui/Overlays.jsx';
 
-function StackPanel({ title, onClose, footer, children, width, compact = false, className = '' }) {
+const PanelVisibilityContext = createContext(true);
+export function usePanelVisibility() { return useContext(PanelVisibilityContext); }
+
+function StackPanel({ open = true, title, onClose, footer, children, width, compact = false, className = '' }) {
   // Панель участвует в общем стеке оверлеев: Escape закрывает только верхний
   // слой, а z-index ставит открытый изнутри Drawer поверх этой панели.
-  useOverlayLayer(true, onClose);
-  const zIndex = useOverlayZIndex(true);
+  const visible = usePanelVisibility() && open;
+  useOverlayLayer(visible, onClose);
+  const zIndex = useOverlayZIndex(visible);
 
   const node = (
-    <div className={'drawer-stack' + (compact ? ' drawer-stack-compact' : '')} style={{ zIndex }} onClick={(event) => event.stopPropagation()} onMouseDown={(event) => { event.stopPropagation(); if (event.target === event.currentTarget) onClose(); }}>
+    <div className={'drawer-stack' + (compact ? ' drawer-stack-compact' : '')} style={{ zIndex, display: visible ? undefined : 'none' }} aria-hidden={!visible || undefined} onClick={(event) => event.stopPropagation()} onMouseDown={(event) => { event.stopPropagation(); if (event.target === event.currentTarget) onClose(); }}>
       <div className={'drawer-stack-panel scroll' + (className ? ' ' + className : '')} style={width ? { width } : undefined}>
         <div style={{ padding: '20px 26px 16px', position: 'sticky', top: 0, background: 'var(--surface)', zIndex: 2, borderBottom: '1px solid var(--line)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <h3 style={{ fontSize: 18, fontWeight: 700, color: 'var(--ink)', margin: 0 }}>{title}</h3>
@@ -25,7 +29,7 @@ function StackPanel({ title, onClose, footer, children, width, compact = false, 
     </div>
   );
 
-  return (typeof document !== 'undefined') ? ReactDOM.createPortal(node, document.body) : node;
+  return (typeof document !== 'undefined') ? ReactDOM.createPortal(<PanelVisibilityContext.Provider value={visible}>{node}</PanelVisibilityContext.Provider>, document.body) : node;
 }
 
 function PanelSub({ children, style }) {

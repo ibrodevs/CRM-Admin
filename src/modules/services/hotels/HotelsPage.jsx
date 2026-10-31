@@ -1,3 +1,4 @@
+import { InfoNotice } from '../../../shared/ui/InfoNotice.jsx';
 import { HotelGuestCreateDrawer } from './HotelGuestCreateDrawer.jsx';
 import { mergeHotelGuests, selectCreatedHotelGuest, validateHotelBookingGuests } from './guest-create.js';
 import { HotelContent } from './HotelContent.jsx';
@@ -23,7 +24,7 @@ import { Select } from '../../../shared/ui/Select.jsx';
 import { useToast } from '../../../shared/ui/Toast.jsx';
 import { HOTEL_MEALS } from '../../../legacy/data/index.jsx';
 import { Topbar } from '../../../shared/ui/Topbar.jsx';
-import { StackPanel } from '../../locations/index.js';
+import { StackPanel, usePanelVisibility } from '../../locations/index.js';
 import { UnifiedBindPicker } from '../../clients/index.js';
 import { servicesApi } from '../api/servicesApi.js';
 import { resultsOf } from '../../../shared/api/client.js';
@@ -185,6 +186,7 @@ function HotelFilters({ stars, toggleStar, starCounts, districts, distSel, toggl
 
 
 function HotelPicker({ participants, group = false, onApply, onCancel, currency, orderId }) {
+  const panelVisible = usePanelVisibility();
   const toast = useToast();
   const [crmGuests, setCrmGuests] = useState([]);
   const [guestsLoading, setGuestsLoading] = useState(false);
@@ -476,6 +478,9 @@ function HotelPicker({ participants, group = false, onApply, onCancel, currency,
     closeAll();
   };
   const closeAll = () => { roomSearchVersion.current += 1; setPanel(null); setActiveHotel(null); setRoomGroups([]); setEditRoomId(null); setAddRoomOpen(false); };
+  useEffect(() => {
+    if (!panelVisible) { closeAll(); setMapOpen(false); setCreateGuestOpen(false); }
+  }, [panelVisible]);
 
   const searchHotelStay = async (draft) => {
     const version = ++roomSearchVersion.current;
@@ -502,7 +507,7 @@ function HotelPicker({ participants, group = false, onApply, onCancel, currency,
     <div className="fade-in hp-root">
 
       <div className="hp-searchbar">
-        {dateError && <div className={'hp-date-notice' + (searchError ? ' is-error' : '')} role={searchError ? 'alert' : 'status'}><Icon name="calendar" /><span>{dateError === 'Выберите даты заезда и выезда' ? 'Выберите даты заезда и выезда для поиска свободных номеров.' : dateError}</span></div>}
+        {dateError && <InfoNotice icon="calendar" tone={searchError ? 'error' : 'info'} role={searchError ? 'alert' : 'status'}>{dateError === 'Выберите даты заезда и выезда' ? 'Выберите даты заезда и выезда для поиска свободных номеров.' : dateError}</InfoNotice>}
         <div className="hp-search-row" style={{ rowGap: 26, marginBottom: 6 }}>
           <div className="hp-field hp-field-dest">
             <span className="hp-flabel">Локация или отель</span>
@@ -853,15 +858,15 @@ function PaxPlacementPanel({ hotel, room, tariff, pax, nights, checkin, checkout
               <span>{label}</span><Icon name="bed" />
             </label>)}
           </div>}
-          {fixedBeds && <div className="hp-hint">Тип кровати указан поставщиком для выбранного тарифа.</div>}
+          {fixedBeds && <InfoNotice icon="alertCircle">Тип кровати указан поставщиком для выбранного тарифа.</InfoNotice>}
 
           <div className="hp-col-subtitle">3. Гости номера</div>
-          <div className="hp-hint">Выерите гостей, которые будут проживать в номере. Назначено {selected.length} из {requestedGuests}</div>
+          <InfoNotice icon="alertCircle">Выерите гостей, которые будут проживать в номере. Назначено {selected.length} из {requestedGuests}</InfoNotice>
           {guestsLoading && <div className="hp-hint" role="status">Загружаем гостей из CRM…</div>}
           {guestsError && <div className="hp-hint" role="alert">{guestsError}</div>}
-          {!guestsLoading && !guestsError && !pax.length && <div className="hp-hint">Гостей пока нет. Добавьте нового гостя здесь — выбранный отель и тариф сохранятся.</div>}
+          {!guestsLoading && !guestsError && !pax.length && <InfoNotice icon="alertCircle">Гостей пока нет. Добавьте нового гостя здесь — выбранный отель и тариф сохранятся.</InfoNotice>}
           <Button variant="secondary" size="sm" icon="plus" disabled={guestsLoading || addingOffer || selected.length >= cap} onClick={onCreateGuest}>Добавить нового гостя</Button>
-          {selected.length >= cap && <div className="hp-hint">Чтобы выбрать нового гостя, сначала снимите выбор с одного из текущих.</div>}
+          {selected.length >= cap && <InfoNotice icon="alertCircle">Чтобы выбрать нового гостя, сначала снимите выбор с одного из текущих.</InfoNotice>}
           {guestBookingError && <div className="hp-placement-alert" role="alert">{guestBookingError}</div>}
           <div className="hp-guest-list">
             {pax.map((p, i) => {
@@ -889,12 +894,12 @@ function PaxPlacementPanel({ hotel, room, tariff, pax, nights, checkin, checkout
                 <Field label={`Номер для ${pax[i].name}`}><Select value={roomAssignments.byIndex[i] || ''} onChange={(event) => setGuestRooms((old) => ({ ...old, [i]: event.target.value }))}
                   options={roomAssignments.slots.map((slot, n) => ({ value: `room:${n}`, label: `Номер ${n + 1} · ${slot.name} · ${slot.capacity} гостя` }))} /></Field>
               </div>)}
-              {!selected.length && <div className="hp-hint">Выберите гостей, чтобы распределить их по номерам.</div>}
+              {!selected.length && <InfoNotice icon="alertCircle">Выберите гостей, чтобы распределить их по номерам.</InfoNotice>}
             </div>
             {!roomAssignments.valid && selected.length > 0 && <div className="hp-placement-alert" role="alert"><Icon name="alertCircle" /><span>Количество гостей в каждом номере должно соответствовать тарифу.</span></div>}
           </div>}
           <div className="hp-col-subtitle">4. Основной гость</div>
-          <div className="hp-hint">Укажите гостя, который будет основным при проживании</div>
+          <InfoNotice icon="alertCircle">Укажите гостя, который будет основным при проживании</InfoNotice>
           <div className="hp-main-guest">
             {selected.map((i) => (
               <label key={i} className={'hp-mg-row' + (mainGuest === i ? ' sel' : '')} onClick={() => setMainGuest(i)}>
@@ -902,7 +907,7 @@ function PaxPlacementPanel({ hotel, room, tariff, pax, nights, checkin, checkout
                 <div><div className="nm">{pax[i].name}</div><div className="mt">{pax[i].dob ? `Дата рождения: ${String(pax[i].dob).replace(/^(\d{4})-(\d{2})-(\d{2})$/, '$3.$2.$1')}` : 'Основной гость номера'}</div></div>
               </label>
             ))}
-            {!selected.length && <div className="hp-hint">Сначала выберите гостей номера</div>}
+            {!selected.length && <InfoNotice icon="alertCircle">Сначала выберите гостей номера</InfoNotice>}
           </div>
 
           {(!fixedBeds || hotel.fare?.isRemarkFreeFormAllowed) && <><div className="hp-col-subtitle">5. Специальные пожелания <span className="hp-opt">(необязательно)</span></div>
@@ -919,7 +924,7 @@ function PaxPlacementPanel({ hotel, room, tariff, pax, nights, checkin, checkout
             <div className="hp-sum-row"><span>Количество ночей</span><b>{nights}</b></div>
             <div className="hp-sum-total"><span>Итого</span><b>{hpM(total, tariff.currency)}</b></div>
           </div>
-          {!placementReady && <div className="hp-hint">Назначьте {requestedGuests} {requestedGuests === 1 ? 'гостя' : 'гостей'} и выберите основного гостя.</div>}
+          {!placementReady && <InfoNotice icon="alertCircle">Назначьте {requestedGuests} {requestedGuests === 1 ? 'гостя' : 'гостей'} и выберите основного гостя.</InfoNotice>}
           <div className="hp-room-footnote">Номер будет добавлен в заказ. Бронирование запускается отдельно после подтверждения.</div>
         </div>
       </div>
@@ -946,12 +951,12 @@ function GroupAccommodationPanel({ hotel, pax, nights, checkin, checkout, roomGr
       </>}>
       <HotelPanelHead hotel={hotel} checkin={checkin} checkout={checkout} nights={nights} guests={pax.length} rooms={roomGroups.length} onEdit={onBack} />
 
-      <div className="hp-info-banner"><Icon name="alertCircle" />Создайте группы проживания и распределите гостей по номерам. Одна группа = один номер.</div>
+      <InfoNotice icon="alertCircle">Создайте группы проживания и распределите гостей по номерам. Одна группа = один номер.</InfoNotice>
 
       <div className="hp-group-grid">
         <div>
           <div className="hp-col-title">1. Гости для размещения</div>
-          <div className="hp-hint">Выберите гостей, которых необходимо разместить</div>
+          <InfoNotice icon="alertCircle">Выберите гостей, которых необходимо разместить</InfoNotice>
           <SearchBox value={q} onChange={setQ} placeholder="Поиск пассажира" />
           <div className="hp-selcount">Выбрано {selectedGuests.length} из {pax.length}<button onClick={() => setRoomGroups((gs) => gs.map((g) => ({ ...g, members: [] })))}>Очистить</button></div>
           <div className="hp-guest-list">
@@ -973,7 +978,7 @@ function GroupAccommodationPanel({ hotel, pax, nights, checkin, checkout, roomGr
 
         <div>
           <div className="hp-col-title">2. Группы проживания (номера)</div>
-          <div className="hp-hint">Создайте группы проживания и укажите тип номера</div>
+          <InfoNotice icon="alertCircle">Создайте группы проживания и укажите тип номера</InfoNotice>
           <button className="hp-add-room" onClick={onAddRoom}><Icon name="plus" />Добавить группу</button>
           {roomGroups.map((g, idx) => {
             const cat = catById(g.cat);
@@ -1024,7 +1029,7 @@ function RoomingMatrixPanel({ hotel, pax, roomGroups, setRoomGroups, catById, co
       </>}>
       <HotelPanelHead hotel={hotel} checkin={checkin} checkout={checkout} nights={nights} guests={pax.length} rooms={roomGroups.length} onEdit={onBack} />
 
-      <div className="hp-info-banner"><Icon name="alertCircle" />Матрица показывает размещение гостей по номерам. Нажимайте на ячейки, чтобы переместить гостя между номерами.</div>
+      <InfoNotice icon="alertCircle">Матрица показывает размещение гостей по номерам. Нажимайте на ячейки, чтобы переместить гостя между номерами.</InfoNotice>
 
       {conflicts.length > 0 && (
         <div className="hp-conflict-banner">
@@ -1339,7 +1344,7 @@ function GroupCompositionEditor({ hotel, pax, roomGroups, group, catById, onClos
         <Button variant="secondary" onClick={onClose}>Отмена</Button>
         <Button icon="check" onClick={() => onSave(members)}>Сохранить</Button>
       </>}>
-      <div className="hp-info-banner"><Icon name="alertCircle" />Выберите гостей для номера.{cat.cap != null && <> Вместимость: {cat.cap} {cat.cap === 1 ? 'гость' : 'гостя'}. {members.length > cat.cap && <b style={{ color: 'var(--red)' }}>Превышение вместимости!</b>}</>}</div>
+      <InfoNotice icon="alertCircle">Выберите гостей для номера.{cat.cap != null && <> Вместимость: {cat.cap} {cat.cap === 1 ? 'гость' : 'гостя'}. {members.length > cat.cap && <b style={{ color: 'var(--red)' }}>Превышение вместимости!</b>}</>}</InfoNotice>
       <div className="hp-group-grid">
         <div>
           <div className="hp-col-title">Гости для размещения</div>
@@ -1358,7 +1363,7 @@ function GroupCompositionEditor({ hotel, pax, roomGroups, group, catById, onClos
         </div>
         <div>
           <div className="hp-col-title">В номере «{cat.name}»</div>
-          {members.length === 0 ? <div className="hp-hint">Пока никого не добавлено</div> : (
+          {members.length === 0 ? <InfoNotice icon="alertCircle">Пока никого не добавлено</InfoNotice> : (
             <div className="hp-guest-list">
               {members.map((i) => (
                 <div key={i} className="hp-guest-row sel">

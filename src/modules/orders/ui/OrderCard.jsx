@@ -1,3 +1,5 @@
+import { FlightSearchHeader } from '../../services/index.js';
+import { InfoNotice } from '../../../shared/ui/InfoNotice.jsx';
 import { HotelBookingActionsDrawer, postSaleFlow } from '../../services/index.js';
 import { orderContact } from '../model/order-contact.js';
 import { FreeBookingPaxField, FreeBookingRailFlow, FreeBookingServiceAddFlow, FreeBookingAeroAddFlow, liveFlightOffer, liveFlightLeg, freeFlightSegments, validateFreeFlightSearch, searchFreeFlightOffers, freeFlightDraft, freeFlightFareOptions, freeFlightLocalPassengers, freeFlightFareDetails } from '../../services/index.js';
@@ -281,13 +283,7 @@ function OrderAside({ order, status, onStatusChange, services, participants, tas
         </button>
       </div>
 
-      <div className="oc-hint">
-        <span className="ic"><Icon name="sparkles" /></span>
-        <div>
-          <div className="t">Подсказка</div>
-          <div className="d">Вся основная информация и документы по каждой услуге доступны прямо в карточке заказа.</div>
-        </div>
-      </div>
+      <InfoNotice icon="sparkles" title="Подсказка">Вся основная информация и документы по каждой услуге доступны прямо в карточке заказа.</InfoNotice>
     </div>
   );
 }
@@ -1975,7 +1971,8 @@ function FreeBookingAviaResultRow({ opt, onView, embedded }) {
 
 
 // FlightFarePanel presentation from 61593b4c, adapted to actual backend offers.
-function FreeBookingFlightFarePanel({ offer, offers, params, onClose, onAdd }) {
+function FreeBookingFlightFarePanel({ offer, offers, params, onClose, onAdd , onSearchStay, searching}) {
+  const [searchEditing, setSearchEditing] = useState(false);
   const alternatives = freeFlightFareOptions(offer, offers);
   const [fareId, setFareId] = useState(offer.id);
   const [infoFare, setInfoFare] = useState(null);
@@ -2011,8 +2008,8 @@ function FreeBookingFlightFarePanel({ offer, offers, params, onClose, onAdd }) {
   };
   return <>
     <StackPanel className="free-booking" title="Класс и тариф по рейсу" width="min(940px,95vw)" onClose={onClose}
-      footer={<><div className="ft-total" style={{ marginRight: 'auto' }}>Итого · {extrasPax.length} пассажиров <b>{money(total, selected.currency)}</b></div><Button variant="secondary" icon="users" onClick={() => setPerPaxOpen(true)}>Тарифы по пассажирам</Button><Button icon="check" onClick={() => onAdd({ ...freeFlightDraft(selected, params), extras })}>Добавить в подборку</Button></>}>
-      <div className="free-booking">
+      footer={<><div className="ft-total" style={{ marginRight: 'auto' }}>Итого · {extrasPax.length} пассажиров <b>{money(total, selected.currency)}</b></div><Button disabled={searchEditing || searching} variant="secondary" icon="users" onClick={() => setPerPaxOpen(true)}>Тарифы по пассажирам</Button><Button disabled={searchEditing || searching} icon="check" onClick={() => onAdd({ ...freeFlightDraft(selected, params), extras })}>Добавить в подборку</Button></>}>
+      <div className="free-booking"><FlightSearchHeader title={selected.airline} subtitle={routeTitle} supplier={selected.supplier} values={params} busy={searching} onSearch={onSearchStay} onEditingChange={setSearchEditing} renderAirport={(label, value, onChange) => <AirportField label={label} value={value} onChange={onChange} />} renderPassengers={(draft, update) => <FreeBookingPaxField pax={draft.pax} setPax={(pax) => update({ pax })} cabin={draft.cabin} setCabin={(cabin) => update({ cabin })} options={draft} setOptions={update} />}>
         <div className="card card-pad" style={{ marginBottom: 16 }}><div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}><AirlineLogo code={selected.airline} size="sm" /><b>{routeTitle}</b><span className="pill pill-gray" style={{ marginLeft: 'auto' }}>{classDetails.cabin} · класс {clsCode}</span></div>{legs.map((leg, i) => <LegTimeline key={i} opt={leg} title={legs.length > 1 ? `Сегмент ${i + 1}` : null} />)}</div>
       <div className="ap-sc-title">1. Выберите класс бронирования</div>
       <div className="fare-class-grid">
@@ -2072,13 +2069,13 @@ function FreeBookingFlightFarePanel({ offer, offers, params, onClose, onAdd }) {
         <Icon name="chevRight" style={{ width: 18, height: 18, color: 'var(--muted-2)', flex: '0 0 18px' }} />
       </div>
 
-      </div>
+      </FlightSearchHeader></div>
     </StackPanel>
     {infoFare && <StackPanel className="free-booking" title={'Тариф · ' + infoFare.name} width="min(540px,92vw)" onClose={() => setInfoFare(null)} footer={<><Button variant="secondary" onClick={() => setInfoFare(null)}>Закрыть</Button><Button icon="check" onClick={() => { setFareId(infoFare.id); setInfoFare(null); }}>Выбрать этот тариф</Button></>}>
       <div className="free-booking"><div className="fc-price">{money(infoFare.offer.fare + infoFare.offer.fee, infoFare.offer.currency)}</div>{infoFare.features.map((f, i) => <div key={i} className={'fare-feat ' + (f.ok ? 'ok' : 'no')}><Icon name={f.ok ? 'check' : 'x'} />{f.text}</div>)}<div className="ap-sc-title">Правила тарифа</div>{rulesBusy && <div>Загрузка…</div>}{rulesError && <div role="alert">{rulesError}</div>}{rules && (typeof rules === 'string' ? <div style={{ whiteSpace: 'pre-wrap' }}>{rules}</div> : <div className="kv">{Object.entries(rules).map(([key, value]) => <div className="kv-row" key={key}><span className="k">{{ refund: 'Возврат', exchange: 'Обмен', baggage: 'Багаж', carry_on: 'Ручная кладь', no_show: 'Неявка' }[key] || key}</span><span className="v">{typeof value === 'object' ? JSON.stringify(value) : String(value ?? '—')}</span></div>)}</div>)}</div>
     </StackPanel>}
     {extrasOpen && <StackPanel className="free-booking" title="Дополнительные услуги" width="min(1040px,96vw)" onClose={() => setExtrasOpen(false)} footer={<><Button variant="secondary" onClick={() => setExtrasOpen(false)}>Отмена</Button><Button icon="check" onClick={() => setExtrasOpen(false)}>Применить{extrasCount ? ' · выбрано ' + extrasCount : ''}</Button></>}><div className="free-booking"><FreeBookingExtrasTabs currency={selected.currency} pax={extrasPax} state={extras} set={setExtras} embedded /></div></StackPanel>}
-    {perPaxOpen && <StackPanel className="free-booking" title="Тарифы по пассажирам" width="min(740px,95vw)" onClose={() => setPerPaxOpen(false)} footer={<Button icon="check" onClick={() => setPerPaxOpen(false)}>Готово</Button>}><div className="free-booking"><div className="fare-hint">Предложение поставщика рассчитано на весь состав поиска. Выбранный тариф применяется ко всем пассажирам.</div><div className="fare-sel-list">{extrasPax.map((p) => <div className="fare-sel-row" key={p.id}><div className="nm">{p.name}</div><div className="tr">{tier.name} · класс {clsCode}</div></div>)}</div><div className="ft-total">Итого <b>{money(total, selected.currency)}</b></div></div></StackPanel>}
+    {perPaxOpen && <StackPanel className="free-booking" title="Тарифы по пассажирам" width="min(740px,95vw)" onClose={() => setPerPaxOpen(false)} footer={<Button icon="check" onClick={() => setPerPaxOpen(false)}>Готово</Button>}><div className="free-booking"><InfoNotice icon="alertCircle">Предложение поставщика рассчитано на весь состав поиска. Выбранный тариф применяется ко всем пассажирам.</InfoNotice><div className="fare-sel-list">{extrasPax.map((p) => <div className="fare-sel-row" key={p.id}><div className="nm">{p.name}</div><div className="tr">{tier.name} · класс {clsCode}</div></div>)}</div><div className="ft-total">Итого <b>{money(total, selected.currency)}</b></div></div></StackPanel>}
   </>;
 }
 
@@ -2109,18 +2106,23 @@ function FreeBookingFlightPanel({ params, setParams, onAdd }) {
   const addSeg = () => { if (segs.length < MC_MAX) setSegs([...segs, { from: segs.at(-1).to || '', to: '', date: null }]); };
   const removeSeg = (i) => { if (segs.length > 2) setSegs(segs.filter((_, idx) => idx !== i)); };
   const paxFieldNode = <FreeBookingPaxField pax={p.pax} setPax={(pax) => set({ pax })} cabin={p.cabin} setCabin={(cabin) => set({ cabin })} options={p} setOptions={set} />;
-  const runSearch = async () => {
+
+  const selectionVersion = useRef(0);
+  const currentSearchValues = p;
+  const runSearch = async (nextValues) => {
+    const p = nextValues && !nextValues.nativeEvent ? nextValues : currentSearchValues;
     const error = validateFreeFlightSearch(p);
-    if (error) { toast(error, 'warn'); return; }
+    if (error) { toast(error, 'warn'); return false; }
     const request = ++requestId.current;
-    setLoading(true); setLiveOffers([]); setSelected(null); setSearched(false);
+    setLoading(true); setLiveOffers([]); if (!nextValues || nextValues.nativeEvent) setSelected(null); setSearched(false);
     try {
       const raw = await searchFreeFlightOffers(p, servicesApi);
-      if (request !== requestId.current) return;
+      if (request !== requestId.current) return false;
       const found = raw.map((offer) => ({ ...liveFlightOffer(offer), backendOffer: offer }));
       setLiveOffers(found); setSearched(true); setVisible(6);
       setFlt((current) => ({ ...current, air: [], sup: [], priceMax: aviaPriceBounds(found).max }));
-    } catch (error) { if (request === requestId.current) toast(error.message || 'Не удалось выполнить поиск перелётов', 'err'); }
+      return found;
+    } catch (error) { if (request === requestId.current) toast(error.message || 'Не удалось выполнить поиск перелётов', 'err'); return false; }
     finally { if (request === requestId.current) setLoading(false); }
   };
   const aviaBounds = aviaPriceBounds(liveOffers);
@@ -2137,6 +2139,7 @@ function FreeBookingFlightPanel({ params, setParams, onAdd }) {
   }).sort((a, b) => a.fare + a.fee - b.fare - b.fee);
   const listRows = pool.map((o) => ({ id: o.id, airline: o.airline, leg: o.out, flightNo: o.out.flightNo, supplier: o.supplier, price: o.fare + o.fee, currency: o.currency, roundtrip: (o.itinerary?.segments?.length || 0) > 1 && o.itinerary.segments.at(-1).destination === o.itinerary.segments[0].origin, view: () => setSelected(o) }));
   return <div>
+
       <div className="trip-toggle" style={{ marginBottom: 14 }}>
         {TRIPS.map(([k, l]) => (
           <button key={k} className={p.trip === k ? 'on' : ''} onClick={() => set({ trip: k })}>{l}</button>
@@ -2196,7 +2199,8 @@ function FreeBookingFlightPanel({ params, setParams, onAdd }) {
       )}
 
 
-      {(p.trip === 'mc' ? segs.some((segment) => !segment.date) : !p.depDate || (p.trip === 'rt' && !p.retDate)) && <div role="status" className="fare-hint">{p.trip === 'mc' ? 'Выберите дату вылета для каждого сегмента маршрута.' : p.trip === 'rt' ? 'Выберите даты вылета и возвращения.' : 'Выберите дату вылета.'}</div>}
+
+      {(p.trip === 'mc' ? segs.some((segment) => !segment.date) : !p.depDate || (p.trip === 'rt' && !p.retDate)) && <InfoNotice icon="calendar" role="status">{p.trip === 'mc' ? 'Выберите дату вылета для каждого сегмента маршрута.' : p.trip === 'rt' ? 'Выберите даты вылета и возвращения.' : 'Выберите дату вылета.'}</InfoNotice>}
       <div className="free-booking-results-toolbar" style={{ display: 'flex', alignItems: 'center', gap: 10, margin: '0 0 14px' }}>
         <div style={{ flex: 1 }} />
         <span style={{ color: 'var(--muted)', fontSize: 13 }}>{loading ? 'Поиск…' : `Найдено ${pool.length}`}</span>
@@ -2224,13 +2228,15 @@ function FreeBookingFlightPanel({ params, setParams, onAdd }) {
           {visible < pool.length && <button className="svcf-more" onClick={() => setVisible((v) => v + 10)}>Показать ещё рейсы <Icon name="chevDown" /></button>}
         </div>
       </div>
-      {selected && <FreeBookingFlightFarePanel offer={selected} offers={liveOffers} params={p} onClose={() => setSelected(null)} onAdd={(draft) => { onAdd(draft); setSelected(null); }} />}
+
+      {selected && <FreeBookingFlightFarePanel key={`${selected.id}:${JSON.stringify(p)}`} searching={loading} onSearchStay={async (draft) => { const version = selectionVersion.current; const found = await runSearch(draft); if (found !== false && found != null) { setParams(draft); if (version === selectionVersion.current) setSelected(found[0] || null); } return found; }} offer={selected} offers={liveOffers} params={p} onClose={() => { selectionVersion.current += 1; setSelected(null); }} onAdd={(draft) => { onAdd(draft); setSelected(null); }} />}
     </div>;
 }
 
 // Specialized forms and category order from 82f6c623. Keep current Hotelbook/data logic.
 function FreeBookingPanel({ kind, setKind, aviaParams, setAviaParams, onAddAvia, onAddOther }) {
   const [visited, setVisited] = useState(() => new Set([kind]));
+  useEffect(() => { setVisited((current) => current.has(kind) ? current : new Set([...current, kind])); }, [kind]);
   const currency = resolveCurrency(aviaParams.currency);
   const select = (next) => { setVisited((current) => new Set([...current, next])); setKind(next); };
   return <div className="free-booking fade-in">

@@ -50,6 +50,16 @@
 .label{font-size:14px;font-weight:500;color:var(--body)}
 .label .req{color:var(--red-strong)}
 .hint{font-size:13px;color:var(--muted)}
+.info-notice{display:flex;align-items:flex-start;gap:12px;min-width:0;min-height:48px;padding:13px 16px;margin:0 0 16px;border:0;border-radius:12px;background:var(--blue-soft);color:var(--blue-soft-text);font-size:14px;font-weight:400;line-height:1.5;overflow-wrap:anywhere}
+.info-notice>svg{width:18px;height:18px;flex:0 0 18px;margin-top:2px;color:inherit}
+.info-notice-content{flex:1;min-width:0}
+.info-notice-title{display:block;margin-bottom:4px;font-size:inherit;color:inherit}
+.info-notice-content>:first-child{margin-top:0}
+.info-notice-content>:last-child{margin-bottom:0}
+.info-notice-error{background:var(--red-bg);color:var(--red-strong)}
+.info-notice-warning{background:var(--amber-bg);color:var(--amber)}
+@media(max-width:600px){.info-notice{gap:10px;padding:12px 14px}}
+
 .input,.select,textarea.input{
   height:var(--h-control);width:100%;padding:0 15px;border-radius:var(--r-input);border:1px solid var(--field-line);
   background:#fff;font-size:15px;color:var(--ink);transition:.14s;outline:none;
@@ -3109,3 +3119,33 @@ button.oc-fact:hover{border-color:#d3dbe8;background:#fff}
 .hotel-booking-actions textarea{width:100%;height:auto;min-height:90px;padding:12px;resize:vertical}
 .hotel-booking-actions section+section{margin-top:24px}
 @media(max-width:560px){.hotel-actions-summary,.hotel-actions-grid{grid-template-columns:1fr}.hotel-booking-actions .hotel-actions-row .btn{white-space:normal;height:auto;min-height:46px}}
+
+/* Shared result headers: the same field geometry in view and edit modes. */
+.service-search-header{display:flex;flex-wrap:wrap;align-items:center;gap:20px 24px;padding:20px 0 22px;margin-bottom:22px;border-bottom:1px solid var(--line)}
+.ssh-identity{display:flex;align-items:center;gap:14px;min-width:0;flex:1 1 240px}
+.ssh-icon{display:grid;place-items:center;width:64px;height:64px;flex:0 0 64px;border-radius:12px;background:var(--blue-soft);color:var(--blue)}
+.ssh-icon svg{width:28px;height:28px}
+.ssh-identity>div{min-width:0}
+.ssh-identity h3{margin:0;color:var(--ink);font-size:18px;line-height:1.35;overflow-wrap:anywhere}
+.ssh-identity p{margin:6px 0 0;color:var(--muted);font-size:14px;line-height:1.5;overflow-wrap:anywhere}
+.ssh-supplier{display:inline-flex;align-items:center;gap:6px;margin-top:7px;font-size:12px;color:var(--teal)}
+.ssh-supplier svg{width:15px;height:15px}
+.ssh-controls{flex:2 1 640px;min-width:0;container-type:inline-size}
+.ssh-fields{display:grid;grid-template-columns:minmax(0,1fr) 144px;align-items:end;gap:12px;border:0;padding:0;margin:0;min-width:0}
+.ssh-inputs{display:grid;grid-template-columns:repeat(var(--ssh-columns),minmax(0,1fr));gap:12px;min-width:0}
+.ssh-field{min-width:0;display:flex;flex-direction:column;gap:7px}
+.ssh-field .av-field,.ssh-field .field{width:100%!important;min-width:0;gap:7px}
+.ssh-field .label{display:block;font-size:13px;line-height:20px;font-weight:600;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ssh-field .input,.ssh-field .select,.ssh-value,.ssh-action{height:var(--h-control);min-height:var(--h-control)}
+.ssh-value{display:flex;align-items:center;gap:10px;min-width:0;padding:0 15px;border:1px solid var(--field-line);border-radius:var(--r-input);background:var(--surface);color:var(--ink);font-size:15px}
+.ssh-value>span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ssh-value>svg{width:18px;height:18px;flex:0 0 18px;color:var(--muted-2)}
+.ssh-action{width:144px;font-size:15px}
+.ssh-meta{min-height:22px;margin-top:8px;font-size:13px;line-height:22px}
+.ssh-meta button{border:0;background:none;padding:0;color:var(--blue);font:inherit;cursor:pointer}
+.ssh-error{font-size:13px;color:var(--red-strong);margin-top:8px}
+.service-search-body[inert]{opacity:.6}
+@container(max-width:850px){.ssh-inputs{grid-template-columns:repeat(2,minmax(0,1fr))}.ssh-fields{grid-template-columns:minmax(0,1fr) 144px}.ssh-action{justify-self:end;grid-column:2}}
+@container(max-width:420px){.ssh-inputs{grid-template-columns:minmax(0,1fr)}.ssh-fields{grid-template-columns:minmax(0,1fr)}.ssh-action{grid-column:1;width:100%}}
+@media(max-width:600px){.ssh-inputs{grid-template-columns:repeat(2,minmax(0,1fr))}.ssh-fields{grid-template-columns:minmax(0,1fr)}.ssh-action{grid-column:1;justify-self:end}.ssh-controls{flex-basis:100%}}
+@media(max-width:400px){.ssh-inputs{grid-template-columns:minmax(0,1fr)}.ssh-fields{grid-template-columns:minmax(0,1fr)}.ssh-action{grid-column:1;width:100%}}

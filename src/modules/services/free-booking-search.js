@@ -39,3 +39,16 @@ export async function waitFreeBookingOffers(api, searchId, pause = (ms) => new P
 export function freeBookingAvailabilityTags(tags) {
   return (tags || []).filter((tag) => typeof tag === 'string');
 }
+
+export function transferProviderCriteria(form) {
+  const day = freeBookingDate(form.dt || form.date);
+  return {
+    additional_service_types: form.additional_service_types || [],
+    text_tablet: form.text_tablet || undefined,
+    origin_address: form.from || '', destination_address: form.to || '',
+    start_place_point: form.start_point || '', finish_place_point: form.finish_point || '',
+    pickup_time: day && form.pickup_clock ? `${day} ${form.pickup_clock}` : undefined,
+    departure_time: form.departure_time || undefined,
+    flight_number: form.flight_number || undefined, train_number: form.train_number || undefined,
+  };
+}

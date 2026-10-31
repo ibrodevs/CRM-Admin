@@ -2,5 +2,5 @@
 @import '../src/styles/base.css';
 @import '../src/styles/layout.css';
 @import '../src/styles/components.css';
-@import 'leaflet/dist/leaflet.css';
+@import 'mapbox-gl/dist/mapbox-gl.css';
 @import '../src/styles/components/hotel-map.css';

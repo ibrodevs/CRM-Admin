@@ -1,3 +1,4 @@
+import { InfoNotice } from '../../../shared/ui/InfoNotice.jsx';
 import { companiesApi } from '../api/companiesApi.js';
 import { useState, useEffect } from 'react';
 import { Icon } from '../../../shared/icons/index.jsx';
@@ -699,13 +700,7 @@ function CompanyFinanceCreateDrawer({ open, co, onClose, onCreated }) {
         <Button icon="check" onClick={save} disabled={saving}>{saving ? 'Сохранение…' : 'Создать условия'}</Button>
       </>}>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
-        <div className="card" style={{ padding: '12px 14px', borderLeft: '3px solid var(--blue)', display: 'flex', gap: 10, alignItems: 'flex-start' }}>
-          <Icon name="finance" style={{ width: 18, height: 18, color: 'var(--blue)', marginTop: 1, flexShrink: 0 }} />
-          <div>
-            <div style={{ fontWeight: 700, color: 'var(--ink)', marginBottom: 3 }}>Настройте условия работы с компанией</div>
-            <div style={{ fontSize: 13, color: 'var(--muted)' }}>Будут созданы тип взаиморасчётов, договор и первое доп. соглашение со сборами по выбранному шаблону.</div>
-          </div>
-        </div>
+        <InfoNotice icon="finance" title="Настройте условия работы с компанией" style={{ marginBottom: 0 }}>Будут созданы тип взаиморасчётов, договор и первое доп. соглашение со сборами по выбранному шаблону.</InfoNotice>
 
         <div>
           <div style={{ fontWeight: 700, color: 'var(--ink)', marginBottom: 9 }}>1. Тип взаиморасчётов и валюта</div>

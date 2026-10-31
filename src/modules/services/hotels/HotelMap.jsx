@@ -1,35 +1,41 @@
 import { useEffect, useRef, useState } from 'react';
+import { createHotelMapbox } from './hotel-mapbox.js';
 import { hotelCoordinates, hotelMapHotels, hotelMapKey, hotelMapSuggestion } from './map-data.js';
 
 export function HotelMap({ hotels, onPick }) {
   const container = useRef(null);
   const mapRef = useRef(null);
-  const markersRef = useRef(null);
-  const leafletRef = useRef(null);
   const pickRef = useRef(onPick);
   pickRef.current = onPick;
   const [ready, setReady] = useState(false);
+  const [loaded, setLoaded] = useState(false);
+  const accessToken = process.env.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN?.trim();
+  const configured = Boolean(accessToken?.startsWith('pk.'));
   const [points, setPoints] = useState({});
   const [locating, setLocating] = useState(false);
   const [error, setError] = useState('');
   const cache = useRef(new Map());
 
   useEffect(() => {
+    if (!configured) return undefined;
     let disposed = false;
-    import('leaflet').then((module) => {
+    let observer;
+    setReady(false); setLoaded(false); setError('');
+    import('mapbox-gl').then((module) => {
       if (disposed) return;
-      const L = module.default || module;
-      leafletRef.current = L;
-      const map = L.map(container.current).setView([40, 40], 3);
-      mapRef.current = map;
-      L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        maxZoom: 19, attribution: '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">OpenStreetMap</a>',
-      }).on('tileerror', () => setError('Не удалось загрузить фон карты. Список отелей и цены доступны рядом.')).addTo(map);
-      markersRef.current = L.layerGroup().addTo(map);
+      const instance = createHotelMapbox(module.default || module, container.current, accessToken, {
+        onLoad: () => { if (!disposed) { setLoaded(true); setError(''); } },
+        onError: () => { if (!disposed) setError('Не удалось загрузить карту Mapbox. Список отелей и цены доступны рядом.'); },
+      });
+      mapRef.current = instance;
+      if (typeof ResizeObserver !== 'undefined') {
+        observer = new ResizeObserver(() => { if (!disposed) instance.map.resize(); });
+        observer.observe(container.current);
+      }
       setReady(true);
-    }).catch(() => { if (!disposed) setError('Не удалось загрузить карту. Закройте панель и попробуйте снова.'); });
-    return () => { disposed = true; mapRef.current?.remove(); mapRef.current = null; };
-  }, []);
+    }).catch(() => { if (!disposed) setError('Не удалось открыть карту Mapbox. Закройте панель и попробуйте снова.'); });
+    return () => { disposed = true; observer?.disconnect(); mapRef.current?.destroy(); mapRef.current = null; };
+  }, [accessToken, configured]);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -66,30 +72,13 @@ export function HotelMap({ hotels, onPick }) {
 
   useEffect(() => {
     if (!ready || !mapRef.current) return;
-    const L = leafletRef.current;
-    const layer = markersRef.current;
-    layer.clearLayers();
-    const bounds = [];
-    for (const hotel of hotelMapHotels(hotels)) {
-      const point = hotelCoordinates(hotel.itinerary) || points[hotelMapKey(hotel)];
-      if (!point) continue;
-      bounds.push(point);
-      const label = document.createElement('button');
-      label.type = 'button';
-      label.className = 'hp-map-price-tag';
-      label.textContent = Number(hotel.base).toLocaleString('ru-RU', { maximumFractionDigits: 2 }) + ' ' + hotel.currency;
-      label.title = `${hotel.name} · Выбрать номер`;
-      label.setAttribute('aria-label', label.title + ' · ' + label.textContent);
-      const marker = L.marker(point, { icon: L.divIcon({ html: label, className: 'hp-map-marker', iconSize: null }), keyboard: false });
-      marker.on('click', () => pickRef.current(hotel)).addTo(layer);
-    }
-    if (bounds.length) mapRef.current.fitBounds(bounds, { padding: [65, 65], maxZoom: 15 });
-    mapRef.current.invalidateSize();
+    mapRef.current.setHotels(hotels, points, (hotel) => pickRef.current(hotel));
   }, [ready, hotels, points]);
 
   const mapped = hotelMapHotels(hotels).filter((hotel) => hotelCoordinates(hotel.itinerary) || points[hotelMapKey(hotel)]).length;
   return <div className="hp-map-area">
-    <div ref={container} className="hp-map-canvas" aria-label="Карта отелей с ценами" />
-    <div className="hp-map-status" role="status">{error || (locating ? 'Определяем расположение отелей…' : `На карте: ${mapped}. Отели без подтверждённых координат доступны в списке.`)}</div>
+    <div ref={container} className="hp-map-canvas" aria-label="Карта отелей Mapbox с ценами" />
+    {!configured && <div className="hp-map-unavailable" role="status"><strong>Карта Mapbox пока недоступна</strong><span>Обратитесь к администратору для подключения карты. Отели и цены доступны в списке слева.</span></div>}
+    <div className="hp-map-status" role="status">{!configured ? 'Mapbox не подключён.' : error || (!loaded ? 'Загружаем карту Mapbox…' : locating ? 'Определяем расположение отелей…' : `На карте: ${mapped}. Отели без подтверждённых координат доступны в списке.`)}</div>
   </div>;
 }

@@ -22,19 +22,21 @@ const compiled = babel.transformSync(ast.program.body.filter((node) => !['Import
 // without a network server, search provider, or extra React testing dependencies.
 function mountPicker({ orderId, participants, searchApi } = {}) {
   const state = [], results = [], refs = [];
-  let cursor = 0, refCursor = 0;
+  let cursor = 0, refCursor = 0, effectCursor = 0, visible = true;
+  const effectDeps = [], pendingEffects = new Map();
   const bindings = Object.fromEntries(ast.program.body.filter((n) => n.type === 'ImportDeclaration').flatMap((n) => n.specifiers.map((s) => [s.local.name, s.local.name])));
   Object.assign(bindings, guests, creation, criteria, presentation, money, {
+    usePanelVisibility: () => visible,
     servicesApi: searchApi, resultsOf: (payload) => payload.results || [],
     useRef(initial) { const index = refCursor++; return refs[index] ||= { current: initial }; },
     React, window: {}, useToast: () => () => {},
     useState(initial) { const index = cursor++; if (!(index in state)) state[index] = typeof initial === 'function' ? initial() : initial; return [state[index], (value) => { state[index] = typeof value === 'function' ? value(state[index]) : value; }]; },
-    useEffect() {}, HOTEL_MEALS: [], fmtDate: (date) => criteria.hotelDateOnly(date),
+    useEffect(effect, deps) { const index = effectCursor++; if (!effectDeps[index] || deps.some((value, i) => !Object.is(value, effectDeps[index][i]))) { effectDeps[index] = deps; pendingEffects.set(index, effect); } }, HOTEL_MEALS: [], fmtDate: (date) => criteria.hotelDateOnly(date),
     clientsApi: { person: async () => ({ surname: 'Иванов', given_name: 'Иван', latin_surname: 'IVANOV', latin_given_name: 'IVAN', birth_date: '1990-01-01', gender: 'male', citizenship: 'KG' }), personDocuments: async () => [{ id: 'doc', status: 'active', expires_at: '2030-01-01' }] },
   });
   vm.createContext(bindings); vm.runInContext(compiled, bindings);
   const props = { orderId, participants, onApply: async (offer) => { results.push(offer); } };
-  const render = () => { cursor = 0; refCursor = 0; return bindings.HotelPicker(props); };
+  const render = () => { cursor = 0; refCursor = 0; effectCursor = 0; return bindings.HotelPicker(props); };
   render();
   const set = (name, value) => { const index = hookNames.indexOf(name); assert.notEqual(index, -1, name); state[index] = value; };
   const get = (name) => state[hookNames.indexOf(name)];
@@ -44,7 +46,8 @@ function mountPicker({ orderId, participants, searchApi } = {}) {
     if (tree.type === type) return tree;
     return find(tree.props?.children, type);
   };
-  return { set, get, render, results, placement: () => find(render(), bindings.PaxPlacementPanel), creation: () => find(render(), bindings.HotelGuestCreateDrawer), room: () => find(render(), bindings.RoomPanel) };
+  const setVisible = (value) => { visible = value; render(); const effects = [...pendingEffects.values()]; pendingEffects.clear(); effects.forEach((effect) => effect()); render(); };
+  return { set, get, render, results, setVisible, placement: () => find(render(), bindings.PaxPlacementPanel), creation: () => find(render(), bindings.HotelGuestCreateDrawer), room: () => find(render(), bindings.RoomPanel) };
 }
 
 function seed(picker, existing, provider = 'hotelbook') {
@@ -144,4 +147,29 @@ test('no matching rooms hides the previous tariff, and closing an in-flight sear
   pending = picker.room().props.onSearchStay(draft);
   await new Promise(setImmediate); picker.room().props.onClose(); finish({ status: 'completed' }); await pending;
   assert.equal(picker.get('panel'), null);
+});
+
+
+test('closing room details retains all found hotels, search criteria, filters and ordering', () => {
+  const picker = mountPicker(); seed(picker, {}); picker.set('panel', 'room');
+  const hotels = [picker.get('activeHotel'), { ...picker.get('activeHotel'), id: 'hotel-2' }];
+  picker.set('liveHotels', hotels); picker.set('hasSearched', true); picker.set('dest', 'Москва');
+  picker.set('hotelQ', 'Отель'); picker.set('stars', { 4: true }); picker.set('sort', 'cheap');
+  const preserved = Object.fromEntries(['liveHotels', 'hasSearched', 'dest', 'checkin', 'checkout', 'occupancyRooms', 'meal', 'stars', 'hotelQ', 'sort'].map((key) => [key, picker.get(key)]));
+  picker.room().props.onClose();
+  assert.equal(picker.room(), undefined);
+  for (const [key, value] of Object.entries(preserved)) assert.equal(picker.get(key), value, key);
+});
+
+test('hiding and reopening the booking mask retains results and closes only temporary hotel panels', () => {
+  const picker = mountPicker(); seed(picker, {}); picker.set('panel', 'room');
+  const hotels = [picker.get('activeHotel')]; picker.set('liveHotels', hotels); picker.set('hasSearched', true);
+  picker.set('mapOpen', true); picker.set('createGuestOpen', true);
+  const arrival = picker.get('checkin'), departure = picker.get('checkout');
+  picker.setVisible(false);
+  assert.equal(picker.get('panel'), null); assert.equal(picker.get('activeHotel'), null);
+  assert.equal(picker.get('mapOpen'), false); assert.equal(picker.get('createGuestOpen'), false);
+  picker.setVisible(true);
+  assert.equal(picker.get('liveHotels'), hotels); assert.equal(picker.get('hasSearched'), true);
+  assert.equal(picker.get('checkin'), arrival); assert.equal(picker.get('checkout'), departure);
 });

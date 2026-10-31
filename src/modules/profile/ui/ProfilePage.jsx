@@ -1,3 +1,4 @@
+import { InfoNotice } from '../../../shared/ui/InfoNotice.jsx';
 import { translate as t } from '../../../shared/preferences/translations.js';
 import { DEFAULT_CURRENCY, THEMES, preferencesToForm, preferencesFromForm, formatProfileDate } from '../../../shared/preferences/preferences.js';
 import { useEffect, useState } from 'react';
@@ -527,7 +528,7 @@ function ProfilePage({ user, onNavigate, initialTab }) {
         {tab === 'notif' && (
           <div className="card card-pad fade-in" style={{ maxWidth: 1080 }}>
             <div className="profile-notif-head">{t("Каналы доставки")}</div>
-            <p className="hint" style={{ marginTop: 0 }}>Здесь сохраняются ваши предпочтения. Канал, помеченный «не настроен», отправлять не может: уведомление останется только в центре уведомлений CRM.</p>
+            <InfoNotice icon="alertCircle" style={{ marginTop: 0 }}>Здесь сохраняются ваши предпочтения. Канал, помеченный «не настроен», отправлять не может: уведомление останется только в центре уведомлений CRM.</InfoNotice>
             <div className="profile-notif-grid">
               {channelRows.map(([k, l, icon]) => (
                 <label key={k} className={'profile-notif-item' + (notif[k] ? ' is-on' : '')} title={channelUnavailable(k) ? `Не настроено: ${channelUnavailable(k)}` : undefined}>

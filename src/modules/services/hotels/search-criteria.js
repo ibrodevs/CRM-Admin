@@ -54,10 +54,10 @@ export function hotelOccupancy(rooms) {
 
 
 export function hotelProviderCriteria(location, text) {
-  if (location?.source === 'aanda' && location.value === text && /^\d{1,20}$/.test(String(location.city_code || ''))) {
+  if (['aanda', 'ostrovok'].includes(location?.source) && location.value === text && /^\d{1,20}$/.test(String(location.city_code || ''))) {
     return {
-      aanda: { city_code: String(location.city_code) },
-      ...(location.supplier_id ? { provider_selection: { provider_adapter: 'aanda', supplier_id: location.supplier_id } } : {}),
+      [location.source]: location.source === 'ostrovok' ? { region_id: String(location.city_code) } : { city_code: String(location.city_code) },
+      ...(location.supplier_id ? { provider_selection: { provider_adapter: location.source, supplier_id: location.supplier_id } } : {}),
     };
   }
   return {};

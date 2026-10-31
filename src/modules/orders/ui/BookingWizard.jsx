@@ -227,6 +227,7 @@ function BookingWizard({ order, services, draft, onClose, onComplete, onSaveDraf
       issuing: ['Выписка', 'blue'], issued: ['Выписано', 'green'], failed: ['Ошибка', 'red'],
       unknown: ['Результат неизвестен', 'amber'], compensated: ['Отменено', 'gray'], skipped: ['Пропущено', 'gray'],
     };
+    if (item?.service_kind === 'transfer' && item?.status === 'unknown' && item?.supplier_confirmation?.payment_confirmed) return { item, status: 'Оплата подтверждена, ожидает обработки', tone: 'amber' };
     const [status, tone] = map[item?.status] || ['Ожидает данных backend', 'gray'];
     return { item, status, tone };
   };
@@ -241,6 +242,30 @@ function BookingWizard({ order, services, draft, onClose, onComplete, onSaveDraf
       else if (pending) toast('Операции у поставщиков ещё выполняются', 'info');
       else toast('Выписка завершилась не по всем услугам. Проверьте статусы.', 'warn');
     } catch (error) { toast(error.message, 'err'); }
+  };
+  const cancelTransfer = async (item) => {
+    setBusy(true);
+    try {
+      const quote = await bookingApi.transferCancellation(workflow, item.id);
+      if (quote.cancelled) { toast('Поездка уже отменена', 'info'); return; }
+      if (!window.confirm(quote.local_only ? 'Отозвать неподтверждённый черновик? Он не передан i’way в обработку. Оплата и отправка в обработку из CRM будут заблокированы; неоплаченный черновик останется у поставщика.' : `Отменить трансфер? Штраф поставщика: ${Number(quote.penalty).toLocaleString('ru-RU')} ${quote.currency} (${quote.percent}% стоимости).`)) return;
+      await bookingApi.transferCancellation(workflow, item.id, quote.confirmation);
+      toast('Подтверждённая отмена поставлена в очередь', 'ok');
+    } catch (error) { toast(error.message, 'err'); }
+    finally { setBusy(false); }
+  };
+  const voidItem = async (item) => {
+    if (!window.confirm('Аннулировать выписанные билеты (войд)? Поставщик выполнит операцию, если она разрешена. Возврат и обмен оформляются отдельно через менеджера.')) return;
+    setBusy(true);
+    try { await bookingApi.void(workflow, item.id); toast('Запрос на войд поставлен в очередь', 'ok'); }
+    catch (error) { toast(error.message, 'err'); }
+    finally { setBusy(false); }
+  };
+  const resumeItem = async (item) => {
+    setBusy(true);
+    try { await bookingApi.resume(workflow, item.id); toast('Возобновление бронирования поставлено в очередь', 'ok'); }
+    catch (error) { toast(error.message, 'err'); }
+    finally { setBusy(false); }
   };
   const inquireItem = async (item) => {
     try { await bookingApi.inquiry(workflow, item.id); toast('Проверка результата поставлена в очередь', 'ok'); }
@@ -344,6 +369,8 @@ function BookingWizard({ order, services, draft, onClose, onComplete, onSaveDraf
                 {wait ? (
                   <div className="bw-tl">
                     <span className="bw-tl-time"><Icon name="clock" />{v.status}</span>
+                    {v.item?.supplier_confirmation?.notice && <div className="hint">{v.item.supplier_confirmation.notice}</div>}
+                    {v.item?.can_resume && <button className="bw-tl-btn" disabled={busy} onClick={() => resumeItem(v.item)}><Icon name="refresh" />Возобновить бронирование</button>}
                     {['unknown', 'booked'].includes(v.item?.status) && <button className="bw-tl-btn" onClick={() => inquireItem(v.item)}><Icon name="loader" />Обновить статус у поставщика</button>}
                     <button className="bw-tl-btn alt" onClick={() => setContactSvc(s)}><Icon name="chat" />Создать задачу</button>
                   </div>
@@ -387,8 +414,8 @@ function BookingWizard({ order, services, draft, onClose, onComplete, onSaveDraf
           <div className="section-title" style={{ fontSize: 18, marginBottom: 14 }}>Выписка и оплата</div>
           {bookingServices.map((s) => { const v = svcView(s); return (
             <BwSvc key={s.id} s={s} status={v.status} tone={v.tone}
-              right={v.item?.status === 'unknown'
-                ? <Button size="sm" icon="loader" variant="secondary" disabled={busy} onClick={() => inquireItem(v.item)}>Проверить результат</Button>
+              right={v.item?.can_cancel_transfer ? <Button size="sm" variant="secondary" disabled={busy} onClick={() => cancelTransfer(v.item)}>Отменить трансфер</Button> : v.item?.can_void ? <Button size="sm" variant="secondary" disabled={busy} onClick={() => voidItem(v.item)}>Аннулировать билеты (войд)</Button> : v.item?.status === 'unknown'
+                ? <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>{v.item.can_resume && <Button size="sm" variant="secondary" disabled={busy} onClick={() => resumeItem(v.item)}>Возобновить бронирование</Button>}<Button size="sm" icon="loader" variant="secondary" disabled={busy} onClick={() => inquireItem(v.item)}>Проверить результат</Button></div>
                 : undefined} />
           ); })}
           <div className="card card-pad" style={{ marginTop: 8, color: 'var(--muted)', fontSize: 13 }}>Оплата регистрируется отдельно в финансовом модуле и не считается принятой до подтверждения платежа в backend.</div>

@@ -1,3 +1,5 @@
+import { FlightSearchHeader } from '../search/FlightSearchHeader.jsx';
+import { InfoNotice } from '../../../shared/ui/InfoNotice.jsx';
 import { clientsApi } from '../../clients/api.js';
 import { useState, useEffect, useRef } from 'react';
 import { Icon } from '../../../shared/icons/index.jsx';
@@ -265,6 +267,8 @@ function FlightSearch({ params, setParams, onSearch, onBack }) {
           ))}
         </div>
       </div>
+
+      {(!p.depDate || (p.trip === 'rt' && !p.retDate)) && <InfoNotice icon="calendar" role="status">{p.trip === 'rt' ? 'Выберите даты вылета и возвращения для поиска билетов.' : 'Выберите дату вылета для поиска билетов.'}</InfoNotice>}
 
       <div className="av-bar">
         <AirportField label="Откуда" value={p.from} onChange={(v) => set({ from: v })} />
@@ -592,7 +596,7 @@ function CompareModal({ open, offers, onClose, onSelect }) {
   );
 }
 
-function FlightResults({ params, liveOffers = [], loading = false, onSelect, onBackToSearch }) {
+function FlightResults({ params, liveOffers = [], loading = false, onSelect, onBackToSearch, onSearch }) {
   const [sort, setSort] = useState('best');
   const [flt, setFlt] = useState({ stops: [], air: [], sup: [], bagOnly: false, refundOnly: false, flightNo: '' });
   const [compare, setCompare] = useState([]);
@@ -624,6 +628,7 @@ function FlightResults({ params, liveOffers = [], loading = false, onSelect, onB
         <span className="pill pill-gray">{params.depDate ? fmtDate(params.depDate) : '24.06'}{params.trip === 'rt' ? ' — ' + (params.retDate ? fmtDate(params.retDate) : '01.07') : ''}</span>
         <span style={{ color: 'var(--muted)', fontSize: 14 }}>{paxTotal(params.pax)} пасс. · {params.cabin}</span>
       </div>
+
 
       <div style={{ display: 'flex', gap: 22, alignItems: 'flex-start' }}>
         <FilterRail flt={flt} setFlt={setFlt} allOffers={liveOffers} />
@@ -663,7 +668,8 @@ function FlightResults({ params, liveOffers = [], loading = false, onSelect, onB
       )}
       <CompareModal open={cmpOpen} offers={compare} onClose={() => setCmpOpen(false)}
         onSelect={(o) => { setCmpOpen(false); onSelect(o); }} />
-    </div>
+
+</div>
   );
 }
 
@@ -2132,7 +2138,7 @@ function FlightCard({ svc, offer, no: noProp, hideBackRow, onBack, onFormKp, onA
             <span className="oc-svc-ic" style={{ background: 'var(--blue)', flex: '0 0 auto' }}><Icon name="template" /></span>
             <div style={{ flex: 1, minWidth: 220 }}>
               <div style={{ fontWeight: 700, color: 'var(--ink)' }}>Бланк поставщика</div>
-              <div style={{ fontSize: 13, color: 'var(--muted)', marginTop: 2 }}>Оригинал сохраняется без изменений (v1). Клиентская версия — с правкой тарифа/такс/сборов, закрытием тарифа на «IT», единично или группово.</div>
+              <InfoNotice icon="alertCircle" style={{ marginTop: 2 }}>Оригинал сохраняется без изменений (v1). Клиентская версия — с правкой тарифа/такс/сборов, закрытием тарифа на «IT», единично или группово.</InfoNotice>
             </div>
             <Button variant="secondary" icon="template" onClick={() => setTab('docs')}>Бланки поставщика в редакторе</Button>
             <Button icon="edit" onClick={() => setBrandedOpen(true)}>Корректировать бланк</Button>
@@ -2420,8 +2426,8 @@ async function loadLiveFlightOffers(params) {
   const created = await servicesApi.search({
     kind: 'avia', criteria: {
       origin: params.from, destination: params.to,
-      date: params.depDate instanceof Date ? params.depDate.toISOString().slice(0, 10) : params.depDate || undefined,
-      return_date: params.retDate instanceof Date ? params.retDate.toISOString().slice(0, 10) : params.retDate || undefined,
+      date: params.depDate instanceof Date ? params.depDate.toLocaleDateString('en-CA') : params.depDate || undefined,
+      return_date: params.trip === 'rt' ? (params.retDate instanceof Date ? params.retDate.toLocaleDateString('en-CA') : params.retDate || undefined) : undefined,
       cabin: { 'Эконом': 'economy', 'Бизнес': 'business', 'Первый': 'first' }[params.cabin] || 'economy',
       passengers: paxTotal(params.pax), currency: resolveCurrency(params.currency),
       trip: params.trip,
@@ -2473,10 +2479,11 @@ function FlightsPage({ searchIntent, onConsumeSearch, orders = [], clients = [],
       cabin: s.cabin || base.cabin,
     };
   });
-  const runSearch = async () => {
-    setView('results'); setSearching(true); setLiveOffers([]);
-    try { setLiveOffers(await loadLiveFlightOffers(params)); }
-    catch (error) { toast(error.message || 'Не удалось выполнить поиск', 'err'); }
+  const runSearch = async (nextValues, stayOnCard = false) => {
+    const searchParams = nextValues && !nextValues.nativeEvent ? nextValues : params;
+    if (!stayOnCard) setView('results'); setSearching(true); setLiveOffers([]);
+    try { const found = await loadLiveFlightOffers(searchParams); setLiveOffers(found); return found; }
+    catch (error) { toast(error.message || 'Не удалось выполнить поиск', 'err'); return false; }
     finally { setSearching(false); }
   };
   const formKp = async (service) => {
@@ -2519,12 +2526,12 @@ function FlightsPage({ searchIntent, onConsumeSearch, orders = [], clients = [],
           <FlightSearch params={params} setParams={setParams} onSearch={runSearch} />
         )}
         {view === 'results' && (
-          <FlightResults params={params} liveOffers={liveOffers} loading={searching}
+          <FlightResults params={params} liveOffers={liveOffers} loading={searching} onSearch={async (draft) => { const result = await runSearch(draft); if (result !== false && result != null) setParams(draft); return result; }}
             onBackToSearch={() => setView('search')}
             onSelect={(o) => { setOffer(o); setSvc(null); setCardNo(`OF-${String(o.external_key || o.id).slice(0, 12).toUpperCase()}`); setView('card'); }} />
         )}
         {view === 'card' && (
-          <FlightCard svc={svc} offer={offer} no={cardNo} hideBackRow onBack={() => setView(svc ? 'registry' : 'results')} onFormKp={svc ? () => formKp(svc) : undefined} orders={orders} clients={clients} companies={companies} />
+          svc ? <FlightCard key={offer ? `${offer.id}:${JSON.stringify(params)}` : svc?.id} svc={svc} offer={offer} no={cardNo} hideBackRow onBack={() => setView(svc ? 'registry' : 'results')} onFormKp={svc ? () => formKp(svc) : undefined} orders={orders} clients={clients} companies={companies} /> : <FlightSearchHeader values={params} title={offer?.airline || 'Авиабилеты'} supplier={offer?.supplier} busy={searching} onSearch={async (draft) => { const found = await runSearch(draft, true); if (found !== false && found != null) { setParams(draft); if (found.length) { setOffer(found[0]); setCardNo(`OF-${String(found[0].external_key || found[0].id).slice(0, 12).toUpperCase()}`); } else setView('results'); } return found; }} renderAirport={(label, value, onChange) => <AirportField label={label} value={value} onChange={onChange} />} renderPassengers={(draft, update) => <PaxField pax={draft.pax} setPax={(pax) => update({ pax })} cabin={draft.cabin} setCabin={(cabin) => update({ cabin })} options={draft} setOptions={update} />}><FlightCard key={offer ? `${offer.id}:${JSON.stringify(params)}` : svc?.id} svc={svc} offer={offer} no={cardNo} hideBackRow onBack={() => setView(svc ? 'registry' : 'results')} onFormKp={svc ? () => formKp(svc) : undefined} orders={orders} clients={clients} companies={companies} /></FlightSearchHeader>
         )}
       </div>
     </>
