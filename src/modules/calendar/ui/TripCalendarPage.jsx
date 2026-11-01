@@ -1,4 +1,5 @@
 import { servicesApi } from '../../services/api.js';
+import { FlightFareSummary } from '../../services/index.js';
 import { ServicePreview } from '../../../shared/ui/ServicePreview.jsx';
 import { serviceExpandedRows } from '../../../shared/lib/service-presentation.js';
 import { SectionInfo } from '../../../shared/ui/SectionInfo.jsx';
@@ -486,7 +487,7 @@ function CalendarServiceCard({ service, onOpenOrder }) {
     <div className="service-disclosure-content">
       {loading && <p role="status">Загрузка подробностей услуги…</p>}
       {error && <div role="alert"><p>{error}</p><Button variant="secondary" size="sm" onClick={() => setRetry((value) => value + 1)}>Повторить загрузку</Button></div>}
-      {rows.length > 0 && <dl className="service-detail-grid">{rows.map((row, index) => <div key={index}><dt>{row.label}</dt><dd>{row.value}</dd></div>)}</dl>}
+      {service.kind === 'Авиа' ? <FlightFareSummary service={data} /> : rows.length > 0 && <dl className="service-detail-grid">{rows.map((row, index) => <div key={index}><dt>{row.label}</dt><dd>{row.value}</dd></div>)}</dl>}
       {!loading && !error && !rows.length && <p className="service-preview-source">Подробные условия услуги пока не указаны. Их можно уточнить в заказе.</p>}
       <div className="tc-svc-meta">
         {service.paid === false && <Pill tone="amber">Не оплачено</Pill>}

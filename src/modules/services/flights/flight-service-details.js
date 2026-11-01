@@ -38,8 +38,8 @@ export function flightServiceDetails(service, segments = []) {
     const primary = [
       { label: 'Класс перелёта', value: CABINS[cabin.toLowerCase()] || cabin || 'Не указан', icon: 'ticket' },
       { label: 'Багаж', value: baggage || 'Не указан', icon: 'briefcase' },
-      ...(handBaggage ? [{ label: 'Ручная кладь', value: handBaggage === 'Без багажа' ? 'Не включена' : handBaggage, icon: 'briefcase' }] : []),
-      ...(fareName ? [{ label: 'Тариф', value: fareName, icon: 'ticket' }] : []),
+      { label: 'Ручная кладь', value: handBaggage === 'Без багажа' ? 'Не включена' : handBaggage || 'Не указана', icon: 'briefcase' },
+      { label: 'Тариф', value: fareName || 'Не указан', icon: 'ticket' },
     ];
     const extra = [
       ...(bookingClass ? [{ label: 'Класс бронирования', value: bookingClass }] : []),

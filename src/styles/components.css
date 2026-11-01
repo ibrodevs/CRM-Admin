@@ -3318,23 +3318,14 @@ button.oc-fact:hover{border-color:#d3dbe8;background:#fff}
 @media(max-width:520px){.airport-map-visual{height:240px}}
 
 /* Flight conditions stay inside the service; advanced fare data is disclosed. */
-.flight-fare-summary{margin:16px 0;padding:16px;border:1px solid var(--line);border-radius:12px;background:var(--surface-2)}
+.flight-fare-summary{margin:14px 0;padding:14px;border:1px solid var(--line);border-radius:10px;background:var(--surface-2)}
 .flight-fare-loading{display:block;font-size:12px;color:var(--muted);line-height:1.5;margin:0 0 10px}
 .flight-fare-loading:last-child{margin:10px 0 0}
 .flight-fare-segment+.flight-fare-segment{margin-top:14px;padding-top:14px;border-top:1px solid var(--line)}
 .flight-fare-route{display:block;font-size:12px;margin-bottom:12px;color:var(--muted)}
-.flight-fare-primary{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:14px 20px;margin:0}
-.flight-fare-primary dt{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--muted)}
-.flight-fare-primary dt svg{width:14px;height:14px}
-.flight-fare-primary dd{font-size:14px;font-weight:650;color:var(--ink);margin:6px 0 0;overflow-wrap:anywhere}
-.flight-fare-extra{margin-top:14px;padding-top:12px;border-top:1px solid var(--line)}
-.flight-fare-extra summary{display:flex;align-items:center;gap:6px;cursor:pointer;font-size:12px;font-weight:600;color:var(--blue);list-style:none;width:fit-content}
-.flight-fare-extra summary::-webkit-details-marker{display:none}
-.flight-fare-extra summary svg{width:14px;height:14px;transition:transform .15s}
-.flight-fare-extra[open] summary svg{transform:rotate(180deg)}
-.flight-fare-extra dl{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px 20px;margin:14px 0 0}
-.flight-fare-extra dt{font-size:12px;color:var(--muted)}
-.flight-fare-extra dd{font-size:13px;color:var(--ink);margin:5px 0 0;overflow-wrap:anywhere}
+.flight-fare-fields{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:14px;margin:0}
+.flight-fare-fields dt{font-size:12px;color:var(--muted)}
+.flight-fare-fields dd{font-size:14px;color:var(--ink);margin:5px 0 0;overflow-wrap:anywhere}
 .flight-booking-drawer{background:var(--surface-2)}
 .flight-booking-drawer .drawer-head,.flight-booking-drawer .drawer-foot{background:var(--surface)}
 .flight-booking-drawer .drawer-head .modal-title{font-size:20px!important}
@@ -3363,7 +3354,7 @@ button.oc-fact:hover{border-color:#d3dbe8;background:#fff}
 .flight-booking-action.danger:hover{border-color:var(--red);background:var(--surface)}
 .flight-booking-other summary{cursor:pointer;color:var(--muted);font-size:12px;padding:4px 0}
 .flight-booking-other[open]>.flight-booking-action{margin-top:12px}
-@media(max-width:560px){.flight-booking-actions-grid{grid-template-columns:1fr}.flight-booking-drawer .drawer-body{padding:16px}.flight-fare-primary{grid-template-columns:repeat(2,minmax(0,1fr))}.flight-booking-summary{padding:18px}}
+@media(max-width:560px){.flight-booking-actions-grid{grid-template-columns:1fr}.flight-booking-drawer .drawer-body{padding:16px}.flight-fare-fields{grid-template-columns:repeat(2,minmax(0,1fr))}.flight-booking-summary{padding:18px}}
 
 /* All order sections share a visible title, return path, and working canvas. */
 .order-workspace-section{margin:20px 0}
@@ -3423,6 +3414,7 @@ button.oc-fact:hover{border-color:#d3dbe8;background:#fff}
 .service-disclosure-chevron{width:16px;height:16px;flex-shrink:0;color:var(--muted);transition:transform .15s}
 .service-disclosure[open] .service-disclosure-chevron{transform:rotate(180deg)}
 .service-disclosure-content{padding:18px;display:flex;flex-direction:column;gap:16px;align-items:flex-start}
+.service-disclosure-content>.flight-fare-summary{width:100%;margin:0}
 .service-detail-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px;width:100%;margin:0}
 .service-detail-grid dt{font-size:12px;color:var(--muted);margin-bottom:5px}
 .service-detail-grid dd{font-size:13px;color:var(--ink);margin:0;overflow-wrap:anywhere}
