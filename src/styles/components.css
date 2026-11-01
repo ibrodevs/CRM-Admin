@@ -3317,3 +3317,51 @@ button.oc-fact:hover{border-color:#d3dbe8;background:#fff}
 .airport-map-label strong{color:var(--blue);letter-spacing:.03em}
 .airport-map-label span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 @media(max-width:520px){.airport-map-visual{height:240px}}
+
+/* Flight conditions stay inside the service; advanced fare data is disclosed. */
+.flight-fare-summary{margin:16px 0;padding:16px;border:1px solid var(--line);border-radius:12px;background:var(--surface-2)}
+.flight-fare-loading{display:block;font-size:12px;color:var(--muted);line-height:1.5;margin:0 0 10px}
+.flight-fare-loading:last-child{margin:10px 0 0}
+.flight-fare-segment+.flight-fare-segment{margin-top:14px;padding-top:14px;border-top:1px solid var(--line)}
+.flight-fare-route{display:block;font-size:12px;margin-bottom:12px;color:var(--muted)}
+.flight-fare-primary{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:14px 20px;margin:0}
+.flight-fare-primary dt{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--muted)}
+.flight-fare-primary dt svg{width:14px;height:14px}
+.flight-fare-primary dd{font-size:14px;font-weight:650;color:var(--ink);margin:6px 0 0;overflow-wrap:anywhere}
+.flight-fare-extra{margin-top:14px;padding-top:12px;border-top:1px solid var(--line)}
+.flight-fare-extra summary{display:flex;align-items:center;gap:6px;cursor:pointer;font-size:12px;font-weight:600;color:var(--blue);list-style:none;width:fit-content}
+.flight-fare-extra summary::-webkit-details-marker{display:none}
+.flight-fare-extra summary svg{width:14px;height:14px;transition:transform .15s}
+.flight-fare-extra[open] summary svg{transform:rotate(180deg)}
+.flight-fare-extra dl{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px 20px;margin:14px 0 0}
+.flight-fare-extra dt{font-size:12px;color:var(--muted)}
+.flight-fare-extra dd{font-size:13px;color:var(--ink);margin:5px 0 0;overflow-wrap:anywhere}
+.flight-booking-drawer{background:var(--surface-2)}
+.flight-booking-drawer .drawer-head,.flight-booking-drawer .drawer-foot{background:var(--surface)}
+.flight-booking-drawer .drawer-head .modal-title{font-size:20px!important}
+.flight-booking-drawer .drawer-body{padding:24px;display:flex;flex-direction:column;gap:20px}
+.flight-booking-drawer .drawer-foot{justify-content:space-between;flex-wrap:wrap}
+.flight-booking-summary{padding:22px;border:1px solid var(--line);border-radius:16px;background:var(--surface)}
+.flight-booking-summary>div{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.flight-booking-eyebrow{font-size:12px;color:var(--muted)}
+.flight-booking-summary h3{margin:18px 0 6px;font-size:22px;font-weight:750;color:var(--ink);letter-spacing:-.02em}
+.flight-booking-summary p{margin:0;color:var(--muted);font-size:13px;line-height:1.5}
+.flight-booking-summary dl{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;margin:18px 0 0;padding-top:16px;border-top:1px solid var(--line)}
+.flight-booking-summary dt{font-size:12px;color:var(--muted)}
+.flight-booking-summary dd{margin:5px 0 0;font-size:14px;font-weight:600;color:var(--ink);overflow-wrap:anywhere}
+.flight-booking-drawer .flight-fare-summary{margin:0;background:var(--surface)}
+.flight-booking-section>h3{margin:0 0 12px;font-size:14px;font-weight:700;color:var(--ink)}
+.flight-booking-actions-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.flight-booking-action{display:flex;align-items:center;gap:12px;width:100%;padding:16px 14px;border:1px solid var(--line);border-radius:12px;background:var(--surface);color:var(--ink);font:inherit;text-align:left;cursor:pointer;transition:border-color .15s,background .15s}
+.flight-booking-action:hover{background:var(--blue-soft);border-color:var(--blue)}
+.flight-booking-action-icon{display:grid;place-items:center;width:36px;height:36px;flex:0 0 36px;border-radius:10px;background:var(--blue-soft);color:var(--blue)}
+.flight-booking-action-icon svg{width:18px;height:18px}
+.flight-booking-action>span:nth-child(2){flex:1;min-width:0}
+.flight-booking-action strong{display:block;font-size:13px;font-weight:700}
+.flight-booking-action small{display:block;color:var(--muted);font-size:11px;line-height:1.5;margin-top:5px}
+.flight-booking-action>svg{flex:0 0 14px;width:14px;height:14px;color:var(--muted)}
+.flight-booking-action.danger .flight-booking-action-icon{color:var(--red);background:var(--red-bg,var(--surface-2))}
+.flight-booking-action.danger:hover{border-color:var(--red);background:var(--surface)}
+.flight-booking-other summary{cursor:pointer;color:var(--muted);font-size:12px;padding:4px 0}
+.flight-booking-other[open]>.flight-booking-action{margin-top:12px}
+@media(max-width:560px){.flight-booking-actions-grid{grid-template-columns:1fr}.flight-booking-drawer .drawer-body{padding:16px}.flight-fare-primary{grid-template-columns:repeat(2,minmax(0,1fr))}.flight-booking-summary{padding:18px}}

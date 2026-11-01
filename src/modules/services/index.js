@@ -50,3 +50,6 @@ export { HotelBookingActionsDrawer } from './hotels/actions/HotelBookingActionsD
 export { postSaleFlow } from './hotels/actions/hotelCapabilities.js';
 
 export { FlightSearchHeader } from './search/FlightSearchHeader.jsx';
+
+export { FlightFareSummary } from './flights/FlightFareSummary.jsx';
+export { FlightBookingActionsDrawer } from './flights/FlightBookingActionsDrawer.jsx';

@@ -1,3 +1,4 @@
+import { FlightFareSummary, FlightBookingActionsDrawer } from '../../services/index.js';
 import { passengerAttachments, passengerAttachmentLabel } from '../model/passenger-attachments.js';
 import { serviceSummary, serviceFlightSegments, serviceStayDetails, serviceBookingReference } from '../model/service-summary.js';
 import { ServiceDocumentsDrawer } from './ServiceDocumentsDrawer.jsx';
@@ -920,7 +921,7 @@ function PassengerAttachments({ documents, participant, onOpenDocument }) {
 
 function ServiceBlock({ s, participants, documents, orderNo, open, onToggle, onCancel, onExchange, onOpenChat,
   onOpenPassenger, onAddPassengerDoc, onUploadDocument, onOpenDocument, onDeleteService, selectable, selected, onSelect,
-  focusedParticipant, orderId, onSendServiceCard, onCertificateCreated, onHotelActions }) {
+  focusedParticipant, orderId, onSendServiceCard, onCertificateCreated, onHotelActions, onRefund, onRefreshService }) {
   const toast = useToast();
   const fileRef = useRef(null);
   const uploadPassengerRef = useRef(null);
@@ -928,6 +929,26 @@ function ServiceBlock({ s, participants, documents, orderNo, open, onToggle, onC
   const [histOpen, setHistOpen] = useState(false);
   const [documentsOpen, setDocumentsOpen] = useState(false);
   const [airportCode, setAirportCode] = useState(null);
+  const [flightActionsOpen, setFlightActionsOpen] = useState(false);
+  const [flightDetail, setFlightDetail] = useState({ key: '', data: null, error: '' });
+  const flightDetailKey = String(s.serverId || s.id) + ':' + String(s.version || '');
+  const fetchFlightDetail = async (signal) => {
+    const data = await servicesApi.detail(s.serverId || s.id, signal);
+    setFlightDetail({ key: flightDetailKey, data, error: '' });
+  };
+  useEffect(() => {
+    if (s.kind !== 'Авиа' || (!open && !flightActionsOpen) || flightDetail.key === flightDetailKey) return undefined;
+    const controller = new AbortController();
+    fetchFlightDetail(controller.signal).catch((error) => {
+      if (error.name !== 'AbortError') setFlightDetail({ key: flightDetailKey, data: null, error: error.message });
+    });
+    return () => controller.abort();
+  }, [s.kind, flightDetailKey, open, flightActionsOpen]);
+  const flightData = flightDetail.key === flightDetailKey && flightDetail.data
+    ? { ...s, ...flightDetail.data, kind: s.kind, supplier: s.supplier, status: s.status }
+    : s;
+  const flightLoading = s.kind === 'Авиа' && (open || flightActionsOpen) && flightDetail.key !== flightDetailKey;
+  const flightError = flightDetail.key === flightDetailKey ? flightDetail.error : '';
   const [uploading, setUploading] = useState(false);
   const kind = SERVICE_KIND[s.kind] || { icon: 'briefcase', color: '#2566ff' };
   const pax = serviceParticipants(s, participants);
@@ -939,7 +960,7 @@ function ServiceBlock({ s, participants, documents, orderNo, open, onToggle, onC
   const flightSegments = s.kind === 'Авиа' ? serviceFlightSegments(s) : [];
   const airline = s.kind === 'Авиа' ? airlineCodeOf(s) : null;
   const total = svcCalc(s).total;
-  const bookingReference = serviceBookingReference(s);
+  const bookingReference = serviceBookingReference(s.kind === 'Авиа' ? flightData : s);
   const focusedTicket = focusedParticipant ? ticketForParticipant(docs, focusedParticipant) : null;
   const cardCurrency = resolveCurrency(s.currency, s.svcOffer?.currency);
   const cardItem = s.svcOffer
@@ -990,17 +1011,13 @@ function ServiceBlock({ s, participants, documents, orderNo, open, onToggle, onC
         {open && <div className="osrv-booking-reference"><span>Бронирование:</span> <strong>{bookingReference || 'Номер не указан'}</strong></div>}
         </div>
 
-        {open && flightSegments.some((segment) => segment.cabin || segment.booking_class || segment.baggage) && <div className="osrv-flight-conditions">
-          {flightSegments.map((segment, index) => [segment.cabin, segment.booking_class, segment.baggage].filter(Boolean).length > 0 && <span key={index}>
-            {[segment.cabin, segment.booking_class, segment.baggage].filter(Boolean).join(' · ')}
-          </span>)}
-        </div>}
+        {open && s.kind === 'Авиа' && <FlightFareSummary service={flightData} segments={serviceFlightSegments(flightData)} loading={flightLoading} error={flightError} />}
 
         {open && s.kind === 'Гостиница' && serviceStayDetails(s).length > 0 && <dl className="osrv-stay-details">
           {serviceStayDetails(s).map(([label, value]) => <div key={label}><dt>{label}</dt><dd>{String(value)}</dd></div>)}
         </dl>}
 
-        {open && facts.length > 0 && (
+        {open && s.kind !== 'Авиа' && facts.length > 0 && (
           <div className="osrv-facts">
             {facts.filter((f) => !summary || !['calendar', 'plane', 'clock'].includes(f.icon)).map((f, i) => (
               <span className="osrv-fact" key={f.icon + i}><Icon name={f.icon} />{f.text}</span>
@@ -1079,7 +1096,7 @@ function ServiceBlock({ s, participants, documents, orderNo, open, onToggle, onC
         )}
         <div className="osrv-actions">
           <Button variant="secondary" onClick={() => setDocumentsOpen(true)}>Загрузить</Button>
-          {postSaleFlow(s) === 'hotel' ? <button type="button" className="btn btn-primary" aria-label={'Действия: ' + s.title} onClick={() => onHotelActions(s)}>Действия</button> : <ActionMenu trigger={<button type="button" className="btn btn-primary" aria-label={'Действия: ' + s.title}>Действия</button>}
+          {s.kind === 'Авиа' ? <button type="button" className="btn btn-primary" aria-label={'Действия: ' + s.title} onClick={() => setFlightActionsOpen(true)}>Действия</button> : postSaleFlow(s) === 'hotel' ? <button type="button" className="btn btn-primary" aria-label={'Действия: ' + s.title} onClick={() => onHotelActions(s)}>Действия</button> : <ActionMenu trigger={<button type="button" className="btn btn-primary" aria-label={'Действия: ' + s.title}>Действия</button>}
             items={[
               { icon: 'eye', label: open ? 'Свернуть детали' : 'Показать детали', onClick: onToggle },
               { icon: 'send', label: 'Отправить клиенту', onClick: () => setSendOpen(true) },
@@ -1095,6 +1112,12 @@ function ServiceBlock({ s, participants, documents, orderNo, open, onToggle, onC
         <input ref={fileRef} type="file" hidden onChange={takeFile} />
       </div>
 
+      {flightActionsOpen && <FlightBookingActionsDrawer service={flightData} statusTone={SERVICE_STATUS[s.status]} summary={serviceSummary(flightData, AIRPORTS)} bookingReference={bookingReference} segments={serviceFlightSegments(flightData)} participants={pax} documents={docs}
+        loading={flightLoading} error={flightError} onClose={() => setFlightActionsOpen(false)}
+        onRefresh={async () => { await fetchFlightDetail(); await onRefreshService?.(); }}
+        onExchange={() => onExchange(s)} onRefund={() => onRefund(s)} onCancel={() => onCancel(s)}
+        onSend={() => setSendOpen(true)} onHistory={() => setHistOpen(true)} onDocuments={() => setDocumentsOpen(true)}
+        onUpload={pickFile} onChat={onOpenChat} onDelete={() => onDeleteService(s)} />}
       {airportCode && <AirportDetailsDrawer code={airportCode} fallback={AIRPORTS.find((airport) => airport.code === airportCode)} onClose={() => setAirportCode(null)} />}
       {documentsOpen && <ServiceDocumentsDrawer service={s} documents={docs} participants={pax}
         initialParticipant={focusedParticipant} onClose={() => setDocumentsOpen(false)} onPreview={onOpenDocument} />}
@@ -3179,6 +3202,11 @@ function OrderCard({ order, company, clients = [], onBack, initTab, initSvc, ini
     setTab('aftersale');
   };
 
+  const requestRefund = (svc) => {
+    setAftersalePreset({ type: 'Возврат билета', serviceId: String(svc.serverId || svc.id), currency: resolveCurrency(svc.currency, cardOrder.currency, cardOrder.base_currency), stamp: Date.now() });
+    setTab('aftersale');
+  };
+
   const renderServicesArea = () => {
     if (svcView === 'booking') return <BookingWizard order={cardOrder} services={services} draft={bookingDraft} onContactChanged={refreshOrderSnapshot}
       onSaveDraft={setBookingDraft} onClose={() => setSvcView(null)}
@@ -3224,6 +3252,7 @@ function OrderCard({ order, company, clients = [], onBack, initTab, initSvc, ini
           onHotelActions={(service) => setHotelActionService(service.serverId || service.id)}
           onCancel={askCancelService}
           onExchange={requestExchange}
+          onRefund={requestRefund} onRefreshService={refreshOrderSnapshot}
           onOpenChat={handleOpenChat}
           onOpenPassenger={(person) => setEditPax(person)}
           onAddPassengerDoc={(person) => setDocPax(person)}
@@ -3340,7 +3369,6 @@ function OrderCard({ order, company, clients = [], onBack, initTab, initSvc, ini
                 <div><dt>Контактное лицо</dt><dd>{orderContact(cardOrder, participants, clients).name || 'Не выбрано'}</dd></div>
                 <div><dt>Создан</dt><dd>{order.date}</dd></div>
                 <div><dt>Тип поездки</dt><dd>{requestType === 'Групповая' ? 'Групповая поездка' : requestType}</dd></div>
-                <div><dt>Класс</dt><dd>{aviaParams.cabin || '—'}</dd></div>
                 <div><dt>Ответственный оператор</dt><dd><button type="button" className="oc-meta-action" onClick={() => setReassignOpen(true)}>{operator || order.operator || 'Назначить'}</button></dd></div>
               </dl>
 
