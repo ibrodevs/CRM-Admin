@@ -57,7 +57,7 @@ test('a new tax row is picked from a searchable catalog', () => {
   assert.match(ui, /o\.keywords \|\| ''/);
   assert.match(ui, /String\(o\.value\)\.toLowerCase\(\)\.startsWith\(needle\)/);
   assert.match(ui, /event\.key === 'ArrowDown' \|\| event\.key === 'ArrowUp'/);
-  assert.match(ui, /maxHeight: 320, overflowY: 'auto'/);
+  assert.match(ui, /maxHeight=\{320\}/);
 });
 
 test('the tax catalog is complete, unique and grouped', () => {

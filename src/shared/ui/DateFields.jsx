@@ -1,3 +1,4 @@
+import { containsFloatingTarget } from './FloatingPanel.jsx';
 import { completeDateRange, localDay } from './date-range.js';
 import { useState, useEffect, useRef, useMemo } from 'react';
 import { calendarMonths } from './calendar-months.js';
@@ -85,22 +86,22 @@ function CalendarPicker({ mode = 'range', startVal = null, endVal = null, onConf
   const SOLO = sameDayEq(rS, rE);
 
   return (
-    <div role="dialog" aria-label={mode === 'range' ? 'Выбор периода' : 'Выбор даты'} style={{ background: 'var(--surface)', borderRadius: 20, padding: '18px 14px 12px', boxShadow: 'var(--shadow-pop)', width: 'min(320px, calc(100vw - 16px))', maxHeight: 'calc(100dvh - 16px)', display: 'flex', flexDirection: 'column', overflow: 'hidden', userSelect: 'none', border: '1px solid var(--line)' }}>
+    <div role="dialog" aria-label={mode === 'range' ? 'Выбор периода' : 'Выбор даты'} style={{ background: 'var(--surface)', borderRadius: 'var(--r-popover)', padding: '18px 14px 12px', boxShadow: 'var(--shadow-pop)', width: 'min(320px, calc(100vw - 16px))', maxHeight: 'calc(100dvh - 16px)', display: 'flex', flexDirection: 'column', overflow: 'hidden', userSelect: 'none', border: '1px solid var(--line)' }}>
       <div style={{ display: 'flex', flexShrink: 0, alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
         <button type="button" aria-label="Предыдущий месяц" onClick={prevMo} style={{ border: 'none', background: 'none', cursor: 'pointer', color: 'var(--blue)', padding: 6, borderRadius: 8, display: 'flex' }}>
           <Icon name="chevLeft" style={{ width: 20, height: 20 }} />
         </button>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, minWidth: 0 }}>
-          <select aria-label="Месяц" value={month} onChange={(e) => setMonth(Number(e.target.value))}
+          <Select aria-label="Месяц" value={month} onChange={(e) => setMonth(Number(e.target.value))}
             style={{ border: '1px solid var(--line)', borderRadius: 9, background: 'var(--surface)', color: 'var(--ink)', fontWeight: 700, fontSize: 14, padding: '6px 8px', minWidth: 0, cursor: 'pointer', fontFamily: 'inherit' }}>
             {CAL_MONTHS.map((name, index) => <option key={name} value={index}>{name}</option>)}
-          </select>
-          <select aria-label="Год" value={year} onChange={(e) => setYear(Number(e.target.value))}
+          </Select>
+          <Select aria-label="Год" value={year} onChange={(e) => setYear(Number(e.target.value))}
             style={{ border: '1px solid var(--line)', borderRadius: 9, background: 'var(--surface)', color: 'var(--ink)', fontWeight: 800, fontSize: 14, padding: '6px 8px', cursor: 'pointer', fontFamily: 'inherit' }}>
             {Array.from(new Set([...Array.from({ length: 101 }, (_, i) => now.getFullYear() - 80 + i), year]))
               .sort((a, b) => a - b)
               .map((value) => <option key={value} value={value}>{value}</option>)}
-          </select>
+          </Select>
         </div>
         <button type="button" aria-label="Следующий месяц" onClick={nextMo} style={{ border: 'none', background: 'none', cursor: 'pointer', color: 'var(--blue)', padding: 6, borderRadius: 8, display: 'flex' }}>
           <Icon name="chevRight" style={{ width: 20, height: 20 }} />
@@ -171,7 +172,7 @@ function DateField({ label, value, onChange, placeholder = 'Выбрать да�
       if (!ref.current) return;
 
       const portal = document.getElementById('__cal_portal__');
-      if (ref.current.contains(e.target) || (portal && portal.contains(e.target))) return;
+      if (containsFloatingTarget(ref.current, e.target) || (portal && containsFloatingTarget(portal, e.target))) return;
       setOpen(false);
     };
     document.addEventListener('mousedown', h, true);
@@ -226,7 +227,7 @@ function DateRangeField({ label, startVal, endVal, onChange, placeholder = 'Вы
     const h = (e) => {
       if (!ref.current) return;
       const portal = document.getElementById('__calr_portal__');
-      if (ref.current.contains(e.target) || (portal && portal.contains(e.target))) return;
+      if (containsFloatingTarget(ref.current, e.target) || (portal && containsFloatingTarget(portal, e.target))) return;
       setOpen(false);
     };
     document.addEventListener('mousedown', h, true);
@@ -298,7 +299,7 @@ function TimeField({ label, value, onChange, placeholder = 'чч:мм', required
     const h = (e) => {
       if (!ref.current) return;
       const portal = document.getElementById('__time_portal__');
-      if (ref.current.contains(e.target) || (portal && portal.contains(e.target))) return;
+      if (containsFloatingTarget(ref.current, e.target) || (portal && containsFloatingTarget(portal, e.target))) return;
       setOpen(false);
     };
     document.addEventListener('mousedown', h);
@@ -338,7 +339,7 @@ function TimeField({ label, value, onChange, placeholder = 'чч:мм', required
       {error && <div className="err-text"><Icon name="alertCircle" style={{ width: 14, height: 14 }} />{error}</div>}
       {open && ReactDOM.createPortal(
         <div id="__time_portal__" style={{ position: 'fixed', top: pos.top, left: pos.left, zIndex: 9999 }}>
-          <div style={{ background: 'var(--surface)', borderRadius: 16, boxShadow: 'var(--shadow-pop)', border: '1px solid var(--line)', width: 224, userSelect: 'none', overflow: 'hidden' }}>
+          <div style={{ background: 'var(--surface)', borderRadius: 'var(--r-popover)', boxShadow: 'var(--shadow-pop)', border: '1px solid var(--line)', width: 224, userSelect: 'none', overflow: 'hidden' }}>
             <div style={{ display: 'flex', textAlign: 'center', fontSize: 11, fontWeight: 800, color: 'var(--blue)', padding: '10px 6px 4px', letterSpacing: '.04em' }}>
               <div style={{ flex: 1 }}>ЧАСЫ</div><div style={{ flex: 1 }}>МИНУТЫ</div>
             </div>

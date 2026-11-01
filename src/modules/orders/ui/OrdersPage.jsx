@@ -1,3 +1,5 @@
+import { FloatingPanel, containsFloatingTarget } from '../../../shared/ui/FloatingPanel.jsx';
+import { Select } from '../../../shared/ui/Select.jsx';
 import { InfoNotice } from '../../../shared/ui/InfoNotice.jsx';
 import { matchesOrderSearch } from '../model/order-search.js';
 import { useState, useEffect, useRef } from 'react';
@@ -174,7 +176,7 @@ function FlightSearchBox({ value, onChange, onSelect, svcName }) {
   const ref = useRef(null);
 
   useEffect(() => {
-    const h = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); };
+    const h = (e) => { if (ref.current && !containsFloatingTarget(ref.current, e.target)) setOpen(false); };
     document.addEventListener('mousedown', h);
     return () => document.removeEventListener('mousedown', h);
   }, []);
@@ -190,7 +192,7 @@ function FlightSearchBox({ value, onChange, onSelect, svcName }) {
         />
       </div>
       {open && (
-        <div className="dropdown" style={{ top: 48, right: 0, minWidth: 220 }}>
+        <FloatingPanel anchorRef={ref} onClose={() => setOpen(false)} className="dropdown" width={260} align="end">
           {FLIGHT_SEARCH_OPTIONS.map((f) => (
             <div key={f.id} className="dropdown-item"
               onClick={() => { onSelect(f); setOpen(false); onChange(''); }}>
@@ -198,7 +200,7 @@ function FlightSearchBox({ value, onChange, onSelect, svcName }) {
               <span style={{ color: 'var(--red-strong)', fontWeight: 700 }}>{f.cost}</span>
             </div>
           ))}
-        </div>
+        </FloatingPanel>
       )}
     </div>
   );
@@ -225,18 +227,18 @@ function ServiceSection({ svcName, startDate, endDate, selectedFlight, onSelectF
           <input className="input" style={{ height: 40, width: 108, fontSize: 13 }} value={endDate instanceof Date ? fmtDate(endDate) : (endDate || '')} readOnly />
         </div>
         <button type="button" style={{ border: 'none', background: 'none', color: 'var(--muted)', fontSize: 13, cursor: 'pointer', paddingBottom: 2 }}>Изменить даты</button>
-        <select className="select" style={{ width: 160, height: 40, fontSize: 13 }}>
+        <Select className="select" style={{ width: 160, height: 40, fontSize: 13 }}>
           <option value="">Выбрать класс</option>
           <option>Эконом</option><option>Бизнес</option><option>Первый</option>
-        </select>
-        <select className="select" style={{ width: 130, height: 40, fontSize: 13 }}>
+        </Select>
+        <Select className="select" style={{ width: 130, height: 40, fontSize: 13 }}>
           <option value="">Выбрать</option>
           <option>Есть</option><option>Нет</option>
-        </select>
-        <select className="select" style={{ width: 140, height: 40, fontSize: 13 }}>
+        </Select>
+        <Select className="select" style={{ width: 140, height: 40, fontSize: 13 }}>
           <option value="">Выбрать</option>
           <option>Прямой</option><option>С пересадкой</option>
-        </select>
+        </Select>
         <div style={{ marginLeft: 'auto' }}>
           <FlightSearchBox
             svcName={svcName}
@@ -335,6 +337,7 @@ function OrderCreateModal({ open, onClose, onCreated, initialGroup = false, init
   const [clientType, setClientType] = useState('person');
 
   const [clientQuery, setClientQuery] = useState('');
+  const clientSearchRef = useRef(null);
   const [selClients, setSelClients] = useState(firstClient ? [firstClient] : []);
   const [company, setCompany] = useState(firstCompany);
   const [companyQuery, setCompanyQuery] = useState('');
@@ -382,7 +385,7 @@ function OrderCreateModal({ open, onClose, onCreated, initialGroup = false, init
   const companyRef = useRef(null);
   useEffect(() => {
     if (!companyOpen) return;
-    const h = (e) => { if (companyRef.current && !companyRef.current.contains(e.target)) setCompanyOpen(false); };
+    const h = (e) => { if (companyRef.current && !containsFloatingTarget(companyRef.current, e.target)) setCompanyOpen(false); };
     document.addEventListener('mousedown', h);
     return () => document.removeEventListener('mousedown', h);
   }, [companyOpen]);
@@ -506,10 +509,10 @@ function OrderCreateModal({ open, onClose, onCreated, initialGroup = false, init
 
             {clientType === 'person' ? (
               <OceSec n={2} title="Физическое лицо">
-                <div style={{ position: 'relative', marginBottom: 12 }}>
+                <div ref={clientSearchRef} style={{ position: 'relative', marginBottom: 12 }}>
                   <SearchBox value={clientQuery} onChange={setClientQuery} placeholder="Поиск по ФИО, телефону или документу" />
                   {clientMatches.length > 0 && (
-                    <div className="dropdown scroll" style={{ top: 46, left: 0, right: 0, maxHeight: 240, overflowY: 'auto', padding: 6 }}>
+                    <FloatingPanel anchorRef={clientSearchRef} onClose={() => setClientQuery('')} className="dropdown scroll" maxHeight={240} style={{ padding: 6 }}>
                       {clientMatches.map((c) => (
                         <div key={c.id} className="dropdown-item" onClick={() => { setSelClients((l) => [...l, c]); setClientQuery(''); }}>
                           <Avatar name={c.name} size={30} />
@@ -517,7 +520,7 @@ function OrderCreateModal({ open, onClose, onCreated, initialGroup = false, init
                             <div style={{ fontSize: 12, color: 'var(--muted)' }}>{c.phone} · {c.doc}</div></span>
                         </div>
                       ))}
-                    </div>
+                    </FloatingPanel>
                   )}
                 </div>
                 {selClients.map((c) => (
@@ -547,7 +550,7 @@ function OrderCreateModal({ open, onClose, onCreated, initialGroup = false, init
                       const cq = companyQuery.trim().toLowerCase();
                       const matches = availableCompanies.filter((c) => !cq || c.name.toLowerCase().includes(cq) || c.inn.includes(cq));
                       return (
-                        <div className="dropdown scroll" style={{ top: 50, left: 0, right: 0, maxHeight: 260, overflowY: 'auto', padding: 6 }}>
+                        <FloatingPanel anchorRef={companyRef} onClose={() => setCompanyOpen(false)} className="dropdown scroll" maxHeight={260} style={{ padding: 6 }}>
                           {matches.map((c) => (
                             <div key={c.id} className="dropdown-item" style={{ gap: 10 }}
                               onClick={() => { setCompany(c); setCompanyQuery(''); setCompanyOpen(false); setEmployees([]); }}>
@@ -560,7 +563,7 @@ function OrderCreateModal({ open, onClose, onCreated, initialGroup = false, init
                             </div>
                           ))}
                           {!matches.length && <div style={{ padding: 12, color: 'var(--muted)', fontSize: 14 }}>Ничего не найдено</div>}
-                        </div>
+                        </FloatingPanel>
                       );
                     })()}
                   </div>
@@ -740,7 +743,7 @@ function BonusCardPanel({ client, onClose, onSave }) {
   const [extra, setExtra] = useState(false);
   const ref = useRef(null);
   useEffect(() => {
-    const h = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); };
+    const h = (e) => { if (ref.current && !containsFloatingTarget(ref.current, e.target)) setOpen(false); };
     document.addEventListener('mousedown', h);
     return () => document.removeEventListener('mousedown', h);
   }, []);
@@ -763,7 +766,7 @@ function BonusCardPanel({ client, onClose, onSave }) {
             <Icon name="chevDown" style={{ width: 18, height: 18, color: 'var(--muted-2)' }} />
           </div>
           {open && (
-            <div className="dropdown scroll" style={{ top: 50, left: 0, right: 0, maxHeight: 280, overflowY: 'auto', padding: 6 }}>
+            <FloatingPanel anchorRef={ref} onClose={() => setOpen(false)} className="dropdown scroll" maxHeight={280} style={{ padding: 6 }}>
               <PanelSub style={{ margin: '6px 8px 4px' }}>Популярные программы</PanelSub>
               {LOYALTY_PROGRAMS.filter((p) => p.popular).map((p) => (
                 <div key={p.name} className="dropdown-item" style={{ gap: 10 }} onClick={() => { setProgram(p); setOpen(false); }}>
@@ -776,7 +779,7 @@ function BonusCardPanel({ client, onClose, onSave }) {
                   <Logo p={p} /><span style={{ flex: 1, fontWeight: 600 }}>{p.name}</span><Pill tone="gray">{p.type}</Pill>
                 </div>
               ))}
-            </div>
+            </FloatingPanel>
           )}
         </div>
       </Field>
@@ -786,7 +789,7 @@ function BonusCardPanel({ client, onClose, onSave }) {
       </Field>
       <Field label="3. Номер участника"><Input value={number} onChange={(event) => setNumber(event.target.value)} placeholder="Введите номер карты / участника" /></Field>
       <Field label={<>4. Статус <span style={{ fontWeight: 400, color: 'var(--faint)' }}>(необязательно)</span></>}>
-        <select className="select" value={cardStatus} onChange={(event) => setCardStatus(event.target.value)}><option value="">Выберите статус</option><option>Базовый</option><option>Серебряный</option><option>Золотой</option><option>Платиновый</option></select>
+        <Select className="select" value={cardStatus} onChange={(event) => setCardStatus(event.target.value)}><option value="">Выберите статус</option><option>Базовый</option><option>Серебряный</option><option>Золотой</option><option>Платиновый</option></Select>
       </Field>
 
       <div role="button" tabIndex={0} onClick={() => setAuto((v) => !v)} style={{ display: 'flex', alignItems: 'flex-start', gap: 10, cursor: 'pointer', marginTop: 12 }}>

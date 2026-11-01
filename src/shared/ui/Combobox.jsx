@@ -1,3 +1,4 @@
+import { FloatingPanel, containsFloatingTarget } from './FloatingPanel.jsx';
 import React from 'react';
 import { useState, useEffect, useRef } from 'react';
 import { Icon } from '../icons/index.jsx';
@@ -18,7 +19,7 @@ function Combobox({
   const opts = (options || []).map((o) => (typeof o === 'string' ? { value: o, label: o } : o));
   useEffect(() => {
     if (!open) return undefined;
-    const onDown = (e) => { if (wrapRef.current && !wrapRef.current.contains(e.target)) { setOpen(false); setQ(''); } };
+    const onDown = (e) => { if (wrapRef.current && !containsFloatingTarget(wrapRef.current, e.target)) { setOpen(false); setQ(''); } };
     document.addEventListener('mousedown', onDown);
     return () => document.removeEventListener('mousedown', onDown);
   }, [open]);
@@ -77,8 +78,7 @@ function Combobox({
         <Icon name="chevDown" style={{ width: 16, height: 16, color: 'var(--muted-2)' }} />
       </div>
       {open && (
-        <div className="dropdown combobox-dropdown" role="listbox" ref={listRef}
-          style={{ position: 'absolute', top: '100%', left: 0, marginTop: 4, zIndex: 60, maxHeight: 320, overflowY: 'auto', padding: 6 }}>
+        <FloatingPanel anchorRef={wrapRef} panelRef={listRef} onClose={() => { setOpen(false); setQ(''); }} className="dropdown combobox-dropdown" role="listbox" maxHeight={320} style={{ padding: 6 }}>
           <div className="search" style={{ margin: '2px 2px 6px', position: 'sticky', top: 0, zIndex: 1 }}>
             <Icon name="search" />
             <input autoFocus value={q} onChange={(e) => setQ(e.target.value)} placeholder={searchPlaceholder}
@@ -101,7 +101,7 @@ function Combobox({
               </React.Fragment>
             );
           })}
-        </div>
+        </FloatingPanel>
       )}
     </div>
   );

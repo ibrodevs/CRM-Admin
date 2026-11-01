@@ -3422,4 +3422,17 @@ button.oc-fact:hover{border-color:#d3dbe8;background:#fff}
 .dsh-agenda-services .service-preview{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:10px 12px}
 .tc-card-services{display:flex;flex-direction:column;gap:10px;margin:10px 0}
 .tc-card-services .service-preview{border-top:1px solid var(--line);padding-top:10px}
+
+/* One rounded surface for menus and form pickers, including nested overlays. */
+:root{--r-popover:16px}
+:is(.dropdown,.gsearch-pop,.location-autocomplete-menu,.hp-guests-pop,.receipt-participant-popover){border-radius:var(--r-popover)}
+.floating-panel{min-width:0;max-width:none;border:1px solid var(--line);border-radius:var(--r-popover);background:var(--surface);color:var(--ink);box-shadow:var(--shadow-pop);overflow:auto;overscroll-behavior:contain;isolation:isolate;animation:none;box-sizing:border-box}
+.floating-panel.dropdown,.floating-panel.combobox-dropdown,.floating-panel.location-autocomplete-menu,.floating-panel.hp-occupancy-pop{min-width:0;max-width:none;border-radius:var(--r-popover);background:var(--surface);animation:none;overflow:auto}
+.floating-panel .dropdown-item{white-space:normal;overflow-wrap:anywhere;border-radius:10px;flex-shrink:0}
+.floating-panel .dropdown-item.is-cursor{background:var(--hover)}
+.floating-panel .dropdown-item.is-disabled{opacity:.5;cursor:not-allowed}
+.floating-panel .dropdown-item svg{flex-shrink:0}
+.select-dropdown{padding:6px}
+.floating-panel.hp-occupancy-pop{padding:0}
+.floating-panel.hp-occupancy-pop .hp-occupancy-rooms{max-height:none;overflow:visible}
 @media(max-width:600px){.service-disclosure>summary{flex-wrap:wrap;padding:12px}.service-disclosure-content{padding:14px}.service-detail-grid{grid-template-columns:1fr}}

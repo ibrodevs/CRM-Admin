@@ -922,7 +922,7 @@
   max-height: min(360px, calc(100vh - 24px));
   overflow: hidden;
   border: 1px solid var(--line, #dbe3ef);
-  border-radius: 12px;
+  border-radius: var(--r-popover, 16px);
   background: var(--surface, #fff);
   box-shadow: 0 14px 38px rgba(15, 23, 42, .16), 0 3px 10px rgba(15, 23, 42, .08);
   color: var(--ink);

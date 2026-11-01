@@ -1,3 +1,4 @@
+import { FloatingPanel, containsFloatingTarget } from './FloatingPanel.jsx';
 import { useState, useEffect, useRef } from 'react';
 import { Icon } from '../icons/index.jsx';
 
@@ -5,7 +6,7 @@ function FilterChip({ label, options, value, onChange, icon = 'filter' }) {
   const [open, setOpen] = useState(false);
   const ref = useRef(null);
   useEffect(() => {
-    const h = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); };
+    const h = (e) => { if (ref.current && !containsFloatingTarget(ref.current, e.target)) setOpen(false); };
     document.addEventListener('mousedown', h);
     return () => document.removeEventListener('mousedown', h);
   }, []);
@@ -18,7 +19,7 @@ function FilterChip({ label, options, value, onChange, icon = 'filter' }) {
         <Icon name={icon === 'filter' ? 'filter' : 'chevDown'} />
       </button>
       {open && (
-        <div className="dropdown" style={{ top: 48, left: 0 }}>
+        <FloatingPanel anchorRef={ref} onClose={() => setOpen(false)} className="dropdown" width={240}>
           {/* Отметка выбранного стоит справа: колонка под галочку слева
               оставляла пустую полосу вдоль всего списка. */}
           <div className={'dropdown-item' + (value ? '' : ' is-selected')} onClick={() => { onChange(''); setOpen(false); }}>
@@ -34,7 +35,7 @@ function FilterChip({ label, options, value, onChange, icon = 'filter' }) {
               </div>
             );
           })}
-        </div>
+        </FloatingPanel>
       )}
     </div>
   );

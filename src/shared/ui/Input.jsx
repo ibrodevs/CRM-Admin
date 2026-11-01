@@ -1,3 +1,4 @@
+import { FloatingPanel, containsFloatingTarget } from './FloatingPanel.jsx';
 import { useState, useEffect, useRef } from 'react';
 import { Icon } from '../icons/index.jsx';
 
@@ -50,7 +51,7 @@ function LocationAutocomplete(props) {
 
   useEffect(() => {
     const close = (event) => {
-      if (rootRef.current && !rootRef.current.contains(event.target)) setOpen(false);
+      if (rootRef.current && !containsFloatingTarget(rootRef.current, event.target)) setOpen(false);
     };
     document.addEventListener('mousedown', close);
     return () => document.removeEventListener('mousedown', close);
@@ -178,7 +179,7 @@ function LocationAutocomplete(props) {
       ) : inputElement}
 
       {open && hasTyped && text.trim().length >= 2 && (
-        <div className="location-autocomplete-menu" role="listbox">
+        <FloatingPanel anchorRef={rootRef} onClose={() => setOpen(false)} className="location-autocomplete-menu" role="listbox">
           {loading && (
             <div className="location-autocomplete-status"><Icon name="loader" />{locationScope === 'hotel' ? 'Подбираем отели…' : 'Подбираем города и локации…'}</div>
           )}
@@ -207,7 +208,7 @@ function LocationAutocomplete(props) {
           {!selectedIsCurrent && (
             <div className="location-autocomplete-help"><Icon name="alertCircle" />Выберите вариант из списка, чтобы поиск получил корректную локацию.</div>
           )}
-        </div>
+        </FloatingPanel>
       )}
     </div>
   );

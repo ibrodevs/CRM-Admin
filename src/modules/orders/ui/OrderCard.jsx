@@ -1903,12 +1903,12 @@ function AviaSearchPanel({ params, setParams, participants = [], onAdd }) {
   };
   return <div>
     <div className="form-grid">
-      <Field label="Маршрут"><select className="select" value={params.trip} onChange={(event) => set({ trip: event.target.value })}>
+      <Field label="Маршрут"><Select className="select" value={params.trip} onChange={(event) => set({ trip: event.target.value })}>
         <option value="ow">В одну сторону</option><option value="rt">Туда-обратно</option><option value="mc">Сложный маршрут</option>
-      </select></Field>
-      <Field label="Валюта поиска"><select className="select" value={resolveCurrency(params.currency)} onChange={(event) => set({ currency: event.target.value })}>
+      </Select></Field>
+      <Field label="Валюта поиска"><Select className="select" value={resolveCurrency(params.currency)} onChange={(event) => set({ currency: event.target.value })}>
         {['RUB', 'USD', 'EUR', 'KGS'].map((code) => <option key={code}>{code}</option>)}
-      </select></Field>
+      </Select></Field>
       {params.trip !== 'mc' ? <>
         <Field label="Откуда"><AirportField value={params.from} onChange={(from) => set({ from })} /></Field>
         <Field label="Куда"><AirportField value={params.to} onChange={(to) => set({ to })} /></Field>
@@ -1922,9 +1922,9 @@ function AviaSearchPanel({ params, setParams, participants = [], onAdd }) {
         {segments.length > 2 && <Button variant="secondary" onClick={() => set({ segments: segments.filter((_, i) => i !== index) })}>Убрать сегмент</Button>}
       </div>)}
       {params.trip === 'mc' && segments.length < 6 && <Button variant="secondary" onClick={() => set({ segments: [...segments, { from: segments.at(-1).to, to: '', date: null }] })}>Добавить сегмент</Button>}
-      <Field label="Класс"><select className="select" value={params.cabin} onChange={(event) => set({ cabin: event.target.value })}>
+      <Field label="Класс"><Select className="select" value={params.cabin} onChange={(event) => set({ cabin: event.target.value })}>
         {['Эконом', 'Бизнес', 'Первый'].map((value) => <option key={value}>{value}</option>)}
-      </select></Field>
+      </Select></Field>
     </div>
     <Button disabled={loading} icon="search" onClick={runSearch}>{loading ? 'Поиск…' : `Найти для ${participants.length} пассажиров`}</Button>
     <div style={{ marginTop: 20 }}>

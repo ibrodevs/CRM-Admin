@@ -1,3 +1,4 @@
+import { FloatingPanel, containsFloatingTarget } from '../../../shared/ui/FloatingPanel.jsx';
 import { SectionInfo } from '../../../shared/ui/SectionInfo.jsx';
 import { FlightSearchHeader } from '../search/FlightSearchHeader.jsx';
 import { InfoNotice } from '../../../shared/ui/InfoNotice.jsx';
@@ -66,7 +67,7 @@ function AirportField({ label, value, onChange, placeholder = 'Город или
   const [q, setQ] = useState('');
   const ref = useRef(null);
   useEffect(() => {
-    const h = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); };
+    const h = (e) => { if (ref.current && !containsFloatingTarget(ref.current, e.target)) setOpen(false); };
     document.addEventListener('mousedown', h);
     return () => document.removeEventListener('mousedown', h);
   }, []);
@@ -84,7 +85,7 @@ function AirportField({ label, value, onChange, placeholder = 'Город или
         </span>
       </div>
       {open && (
-        <div className="dropdown scroll" style={{ top: 74, left: 0, right: 0, maxHeight: 280, overflowY: 'auto', padding: 8 }}>
+        <FloatingPanel anchorRef={ref} onClose={() => setOpen(false)} className="dropdown scroll" maxHeight={280} style={{ padding: 8 }}>
           <input className="input" autoFocus value={q} onChange={(e) => setQ(e.target.value)}
             placeholder="Поиск аэропорта" style={{ marginBottom: 6 }} />
           {list.map((a) => (
@@ -97,7 +98,7 @@ function AirportField({ label, value, onChange, placeholder = 'Город или
             </div>
           ))}
           {!list.length && <div style={{ padding: 12, color: 'var(--muted)', fontSize: 14 }}>Ничего не найдено</div>}
-        </div>
+        </FloatingPanel>
       )}
     </div>
   );
@@ -228,7 +229,7 @@ function PaxField({ pax, setPax, cabin, setCabin, options = PAX_DEFAULT_OPTIONS,
   const [open, setOpen] = useState(false);
   const ref = useRef(null);
   useEffect(() => {
-    const h = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); };
+    const h = (e) => { if (ref.current && !containsFloatingTarget(ref.current, e.target)) setOpen(false); };
     document.addEventListener('mousedown', h);
     return () => document.removeEventListener('mousedown', h);
   }, []);
@@ -243,9 +244,9 @@ function PaxField({ pax, setPax, cabin, setCabin, options = PAX_DEFAULT_OPTIONS,
         <Icon name="chevDown" style={{ width: 16, height: 16, color: 'var(--muted-2)' }} />
       </div>
       {open && (
-        <div className="dropdown scroll pcp-pop" style={{ top: 74, left: 0, width: 'min(620px,86vw)', maxHeight: 560, overflowY: 'auto', padding: 16 }}>
+        <FloatingPanel anchorRef={ref} onClose={() => setOpen(false)} className="dropdown scroll pcp-pop" width={620} maxHeight={560} align="end" style={{ padding: 16 }}>
           <PaxClassPicker pax={pax} setPax={setPax} cabin={cabin} setCabin={setCabin} options={options} setOptions={setOptions} />
-        </div>
+        </FloatingPanel>
       )}
     </div>
   );

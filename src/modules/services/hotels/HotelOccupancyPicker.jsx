@@ -1,3 +1,4 @@
+import { FloatingPanel, containsFloatingTarget } from '../../../shared/ui/FloatingPanel.jsx';
 import { useEffect, useId, useRef, useState } from 'react';
 import { useOverlayLayer } from '../../../shared/ui/Overlays.jsx';
 import { Icon } from '../../../shared/icons/index.jsx';
@@ -16,7 +17,7 @@ export function HotelOccupancyPicker({ rooms, onChange }) {
   const occupancy = hotelOccupancy(rooms);
   const update = (index, patch) => onChange(rooms.map((room, i) => i === index ? { ...room, ...patch } : room));
   useEffect(() => {
-    const close = (event) => { if (!ref.current?.contains(event.target)) setOpen(false); };
+    const close = (event) => { if (!containsFloatingTarget(ref.current, event.target)) setOpen(false); };
     if (open) { document.addEventListener('mousedown', close, true); }
     return () => { document.removeEventListener('mousedown', close, true); };
   }, [open]);
@@ -24,7 +25,7 @@ export function HotelOccupancyPicker({ rooms, onChange }) {
     <button type="button" className="hp-guests-trigger" aria-expanded={open} aria-controls={id} onClick={() => setOpen((value) => !value)}>
       <span>{rooms.length} {rooms.length === 1 ? 'номер' : rooms.length < 5 ? 'номера' : 'номеров'} · {occupancy.guests} гостей</span><Icon name="chevDown" />
     </button>
-    {open && <div className="hp-guests-pop hp-occupancy-pop" id={id} role="dialog" aria-label="Номера и гости">
+    {open && <FloatingPanel anchorRef={ref} onClose={() => setOpen(false)} className="hp-guests-pop hp-occupancy-pop" id={id} role="dialog" aria-label="Номера и гости" width={380} maxHeight={600} align="end">
       <div className="hp-occupancy-rooms">{rooms.map((room, index) => <section className="hp-occupancy-room" key={index} aria-label={`Номер ${index + 1}`}>
         <div className="hp-occupancy-heading"><b>{index + 1} номер</b>{rooms.length > 1 && <Button variant="ghost" size="sm" aria-label={`Удалить номер ${index + 1}`} onClick={() => onChange(rooms.filter((_, i) => i !== index))}>Удалить</Button>}</div>
         <div className="hp-stepper-row"><span>Взрослые<small>От 18 лет</small></span><div className="hp-stepper">
@@ -40,6 +41,6 @@ export function HotelOccupancyPicker({ rooms, onChange }) {
       </section>)}</div>
       {!occupancy.valid && <div className="hp-occupancy-hint" role="status">Укажите возраст каждого ребёнка на дату заезда.</div>}
       <div className="hp-occupancy-footer"><Button variant="ghost" size="sm" icon="plus" disabled={rooms.length >= 5} onClick={() => onChange([...rooms, { adults: 2, childrenAges: [] }])}>Добавить номер</Button><Button size="sm" disabled={!occupancy.valid} onClick={() => setOpen(false)}>Готово</Button></div>
-    </div>}
+    </FloatingPanel>}
   </div>;
 }

@@ -1,3 +1,4 @@
+import { Select } from './Select.jsx';
 import { useState } from 'react';
 
 function ClockTimePicker({ value = '09:00', onChange }) {
@@ -77,9 +78,9 @@ function WorkHoursPicker({ value = 'Пн–Пт 09:00–18:00', onChange }) {
       {!round && (
         <>
           <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap', marginBottom: 10 }}>
-            <select className="select" style={{ width: 'auto', minWidth: 110 }} value={days} onChange={(e) => set(e.target.value, from, to)}>
+            <Select className="select" style={{ width: 'auto', minWidth: 110 }} value={days} onChange={(e) => set(e.target.value, from, to)}>
               {WH_DAY_RANGES.map((d) => <option key={d} value={d}>{d}</option>)}
-            </select>
+            </Select>
             <button type="button" onClick={() => setEditing(editing === 'from' ? null : 'from')}
               style={{ padding: '8px 12px', borderRadius: 9, cursor: 'pointer', fontWeight: 700, fontSize: 14,
                 border: '1px solid ' + (editing === 'from' ? 'var(--blue)' : 'var(--line)'), background: editing === 'from' ? 'var(--blue-soft)' : 'var(--surface)', color: 'var(--ink)' }}>с {from}</button>
