@@ -1,3 +1,6 @@
+import { servicesApi } from '../../services/api.js';
+import { ServicePreview } from '../../../shared/ui/ServicePreview.jsx';
+import { serviceExpandedRows } from '../../../shared/lib/service-presentation.js';
 import { SectionInfo } from '../../../shared/ui/SectionInfo.jsx';
 import { useEffect, useState } from 'react';
 import { Icon } from '../../../shared/icons/index.jsx';
@@ -170,10 +173,11 @@ function TripCard({ trip, compact, onOpen }) {
       </div>
       {!compact && (
         <div className="tc-card-dates">
-          <Icon name="calendar" style={{ width: 12, height: 12 }} /> {trDay(trip.start)}–{trDay(trip.end)}
+          <Icon name="calendar" style={{ width: 12, height: 12 }} /> {trDay(trip.start)} → {trDay(trip.end)}
           <span className="tc-card-op"><Icon name="user" style={{ width: 12, height: 12 }} /> {trip.operator}</span>
         </div>
       )}
+      {!compact && trip.services.length > 0 && <span className="tc-card-services">{trip.services.map((service, index) => <ServicePreview key={service.id || index} service={service} />)}</span>}
       <div className="tc-card-kinds">
         {kinds.map((k) => <SvcGlyph key={k} kind={k} size={compact ? 18 : 22} />)}
         <span className="tc-card-status"><Pill tone={ORDER_STATUS[trip.status] || 'gray'}>{trip.status}</Pill></span>
@@ -404,7 +408,7 @@ function TimelineView({ anchor, trips, onOpen }) {
               <div className="tc-tl-track">
                 {days.map((d, i) => <div key={i} className={'tc-tl-daycol' + (trSameDay(d, LIVE_NOW) ? ' is-today' : '')} />)}
                 <button type="button" className={'tc-tl-bar tone-' + tcTone(crit)} style={{ left: l + '%', width: Math.max(2, r - l) + '%' }} onClick={() => onOpen(t)}>
-                  <span className="tc-tl-bar-lbl">{t.services.map((s) => s.kind === 'Гостиница' ? '🏨' : '').join('')}{trDay(t.start)}–{trDay(t.end)}</span>
+                  <span className="tc-tl-bar-lbl">{t.services.map((s) => s.kind === 'Гостиница' ? '🏨' : '').join('')}{trDay(t.start)} → {trDay(t.end)}</span>
                 </button>
                 {events.map((e, i) => <span key={i} className="tc-tl-ev" style={{ left: pct(e.at) + '%', background: 'var(--' + tcTone(e.crit) + ')' }} title={e.label + ' · ' + trTime(e.at)} />)}
               </div>
@@ -454,6 +458,46 @@ function ControlCenter({ trips, onOpen }) {
 }
 
 
+function CalendarServiceCard({ service, onOpenOrder }) {
+  const [open, setOpen] = useState(false);
+  const [detail, setDetail] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  const [retry, setRetry] = useState(0);
+  useEffect(() => {
+    // Older calendar feeds do not include the public itinerary; load it only on expansion.
+    if (!open || detail || 'itinerary' in service || !service.id) return undefined;
+    const controller = new AbortController();
+    setLoading(true); setError('');
+    servicesApi.detail(service.id, controller.signal).then(setDetail).catch((failure) => {
+      if (!controller.signal.aborted) setError(failure.message || 'Не удалось загрузить подробности услуги');
+    }).finally(() => { if (!controller.signal.aborted) setLoading(false); });
+    return () => controller.abort();
+  }, [open, service.id, detail, retry]);
+  const data = { ...service, ...detail, kind: service.kind, status: service.status, supplier: service.supplier };
+  const rows = serviceExpandedRows(data);
+  return <details className="tc-svc-item service-disclosure" onToggle={(event) => setOpen(event.currentTarget.open)}>
+    <summary>
+      <SvcGlyph kind={service.kind} size={34} />
+      <ServicePreview service={data} />
+      <Pill tone={ORDER_STATUS[service.status] || 'gray'}>{service.status}</Pill>
+      <Icon name="chevDown" className="service-disclosure-chevron" />
+    </summary>
+    <div className="service-disclosure-content">
+      {loading && <p role="status">Загрузка подробностей услуги…</p>}
+      {error && <div role="alert"><p>{error}</p><Button variant="secondary" size="sm" onClick={() => setRetry((value) => value + 1)}>Повторить загрузку</Button></div>}
+      {rows.length > 0 && <dl className="service-detail-grid">{rows.map((row, index) => <div key={index}><dt>{row.label}</dt><dd>{row.value}</dd></div>)}</dl>}
+      {!loading && !error && !rows.length && <p className="service-preview-source">Подробные условия услуги пока не указаны. Их можно уточнить в заказе.</p>}
+      <div className="tc-svc-meta">
+        {service.paid === false && <Pill tone="amber">Не оплачено</Pill>}
+        {service.ticketed === false && ['Авиа', 'ЖД'].includes(service.kind) && <Pill tone="blue">Не выписано</Pill>}
+        {service.delayed && <Pill tone="red">Задержка</Pill>}
+      </div>
+      <Button variant="secondary" size="sm" icon="orders" onClick={onOpenOrder}>Открыть заказ</Button>
+    </div>
+  </details>;
+}
+
 function TripDetailPanel({ trip, onClose, onOpenOrder }) {
   if (!trip) return null;
   const events = tripEvents(trip);
@@ -468,7 +512,7 @@ function TripDetailPanel({ trip, onClose, onOpenOrder }) {
     <>
     <Drawer open={!!trip} onClose={onClose} width="min(560px,96vw)"
       title={trip.routeLabel}
-      sub={(trip.company && trip.company !== '—' ? trip.company + ' · ' : '') + trip.client + ' · ' + trDay(trip.start) + '–' + trDay(trip.end)}
+      sub={(trip.company && trip.company !== '—' ? trip.company + ' · ' : '') + trip.client + ' · ' + trDay(trip.start) + ' → ' + trDay(trip.end)}
       footer={<>
         <Button variant="ghost" icon="orders" onClick={() => { onClose(); onOpenOrder && onOpenOrder(trip.orderNo); }}>Открыть заказ №{trip.orderNo}</Button>
         <div style={{ flex: 1 }} />
@@ -530,21 +574,7 @@ function TripDetailPanel({ trip, onClose, onOpenOrder }) {
           <div className="tc-panel-sec-h"><Icon name="route" style={{ width: 16, height: 16, color: 'var(--blue)' }} />Маршрут и услуги</div>
           <div className="tc-svc-timeline">
             {timeline.map((s, i) => (
-              <div key={i} className="tc-svc-item">
-                <SvcGlyph kind={s.kind} size={34} />
-                <div className="tc-svc-body">
-                  <div className="tc-svc-title">{s.title} <Pill tone={ORDER_STATUS[s.status] || 'gray'}>{s.status}</Pill>
-                  </div>
-                  <div className="tc-svc-sub">{s.sub}</div>
-                  <div className="tc-svc-meta">
-                    <span><Icon name="calendar" style={{ width: 12, height: 12 }} /> {trDayTime(s.start)}{s.end && s.kind !== 'Трансфер' ? ' → ' + (trSameDay(s.start, s.end) ? trTime(s.end) : trDayTime(s.end)) : ''}</span>
-                    <span><Icon name="api" style={{ width: 12, height: 12 }} /> {s.supplier}</span>
-                    {!s.paid && <Pill tone="amber">Не оплачено</Pill>}
-                    {!s.ticketed && <Pill tone="blue">Не выписано</Pill>}
-                    {s.delayed && <Pill tone="red">Задержка</Pill>}
-                  </div>
-                </div>
-              </div>
+              <CalendarServiceCard key={s.id || i} service={s} onOpenOrder={() => { onClose(); onOpenOrder?.(trip.orderNo); }} />
             ))}
           </div>
         </div>}

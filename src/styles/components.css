@@ -3412,3 +3412,23 @@ button.oc-fact:hover{border-color:#d3dbe8;background:#fff}
 .order-operation-quote .form-grid{margin:18px 0}
 @media(max-width:700px){.order-section-canvas{padding:12px;border-radius:16px}.order-section-heading{align-items:flex-start}.order-section-heading h3{font-size:18px}.order-operation-detail .drawer-body,.order-operation-form .drawer-body{padding:16px}.order-operation-row{padding:14px;gap:12px}.order-section-canvas .grid-4{grid-template-columns:repeat(2,minmax(0,1fr))}.order-operation-detail .grid-2{grid-template-columns:1fr}}
 .order-operation-help{font-size:13px;color:var(--muted);line-height:1.65;margin:0 0 18px}
+.service-preview{display:flex;flex-direction:column;gap:6px;min-width:0;text-align:left;line-height:1.45}
+.service-preview-title{font-size:14px;font-weight:700;color:var(--ink);overflow-wrap:anywhere}
+.service-preview-dates{font-size:13px;color:var(--body);font-variant-numeric:tabular-nums}
+.service-preview-source{font-size:12px;color:var(--muted);overflow-wrap:anywhere}
+.service-disclosure{display:block;border:1px solid var(--line);border-radius:14px;background:var(--surface);overflow:hidden}
+.service-disclosure>summary{display:flex;align-items:center;gap:12px;list-style:none;cursor:pointer;padding:16px;background:var(--surface-2)}
+.service-disclosure>summary::-webkit-details-marker{display:none}
+.service-disclosure>summary:focus-visible{outline:2px solid var(--blue);outline-offset:-3px}
+.service-disclosure>summary>.service-preview{flex:1}
+.service-disclosure-chevron{width:16px;height:16px;flex-shrink:0;color:var(--muted);transition:transform .15s}
+.service-disclosure[open] .service-disclosure-chevron{transform:rotate(180deg)}
+.service-disclosure-content{padding:18px;display:flex;flex-direction:column;gap:16px;align-items:flex-start}
+.service-detail-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px;width:100%;margin:0}
+.service-detail-grid dt{font-size:12px;color:var(--muted);margin-bottom:5px}
+.service-detail-grid dd{font-size:13px;color:var(--ink);margin:0;overflow-wrap:anywhere}
+.dsh-agenda-services{display:flex;flex-direction:column;gap:10px;margin-top:12px}
+.dsh-agenda-services .service-preview{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:10px 12px}
+.tc-card-services{display:flex;flex-direction:column;gap:10px;margin:10px 0}
+.tc-card-services .service-preview{border-top:1px solid var(--line);padding-top:10px}
+@media(max-width:600px){.service-disclosure>summary{flex-wrap:wrap;padding:12px}.service-disclosure-content{padding:14px}.service-detail-grid{grid-template-columns:1fr}}

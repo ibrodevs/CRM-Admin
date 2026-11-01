@@ -1,3 +1,5 @@
+import { ServicePreview } from '../../../shared/ui/ServicePreview.jsx';
+import { serviceSummary } from '../../../shared/lib/service-presentation.js';
 import { SectionInfo } from '../../../shared/ui/SectionInfo.jsx';
 import React, { useState, useEffect, useRef } from 'react';
 import { Icon } from '../../../shared/icons/index.jsx';
@@ -59,8 +61,6 @@ function ChatServiceCard({ svc, me, onOpen }) {
   const stTone = (typeof SERVICE_STATUS !== 'undefined' && SERVICE_STATUS[svc.status]) || 'gray';
   const paxLabel = svc.kind === 'Гостиница' ? 'Гостей' : 'Пассажиров';
   const rows = [
-    svc.date && ['Даты', svc.date],
-    svc.supplier && ['Поставщик', svc.supplier],
     svc.pax != null && [paxLabel, svc.pax],
   ].filter(Boolean);
   return (
@@ -71,8 +71,8 @@ function ChatServiceCard({ svc, me, onOpen }) {
         {svc.status && <Pill tone={stTone}>{svc.status}</Pill>}
         <span className="csc-sum">{chatMoney(svc.sum, svc.currency)}</span>
       </div>
-      <div className="csc-title">{svc.title}</div>
-      {svc.sub && <div className="csc-sub">{svc.sub}</div>}
+      <ServicePreview service={svc} />
+
       {rows.length > 0 && (
         <div className="csc-rows">
           {rows.map(([label, val], i) => (
@@ -756,7 +756,7 @@ function ChatThread({ thread, currentUserId, embedded, onOpenOrder, onOpenServic
           <input ref={fileRef} type="file" hidden onChange={pickAttachment} />
           <button className="icon-btn" onClick={attach} disabled={sending} title="Прикрепить файл"><Icon name="paperclip" /></button>
           <ActionMenu trigger={<button className="icon-btn" title="Привязать к услуге"><Icon name="route" /></button>}
-            items={orderServices.length ? orderServices.map((s) => ({ icon: (SERVICE_KIND[s.kind] || {}).icon || 'route', label: s.kind + ' · ' + s.title, onClick: () => { setLinked(s.id); toast('Привязано к услуге: ' + s.title, 'ok'); } })) : [{ icon: 'route', label: 'Нет услуг в заказе', onClick: () => {} }]} />
+            items={orderServices.length ? orderServices.map((s) => ({ icon: (SERVICE_KIND[s.kind] || {}).icon || 'route', label: s.kind + ' · ' + serviceSummary(s).title, onClick: () => { setLinked(s.id); toast('Привязано к услуге: ' + s.title, 'ok'); } })) : [{ icon: 'route', label: 'Нет услуг в заказе', onClick: () => {} }]} />
           <ActionMenu trigger={<button className="icon-btn" title="Упомянуть"><span style={{ fontWeight: 700, fontSize: 16, color: 'var(--muted)' }}>@</span></button>}
             items={(mentionNames.length ? mentionNames : OPERATORS).map((o) => ({ icon: 'user', label: o, onClick: () => setDraft((d) => (d ? d + ' ' : '') + '@' + o.split(' ')[0] + ' ') }))} />
           <input value={draft} disabled={sending} onChange={(e) => setDraft(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && send()}
@@ -811,8 +811,8 @@ function ChatInfoPanel({ thread, orders = [], onOpenOrder, onOpenService, orderS
             <div key={s.id} style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
               <span className="oc-svc-ic" style={{ background: k.color, width: 32, height: 32 }}><Icon name={k.icon} style={{ width: 16, height: 16 }} /></span>
               <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontWeight: 600, color: 'var(--ink)', fontSize: 13 }}>{s.kind} · {s.title}</div>
-                <div style={{ fontSize: 12, color: 'var(--muted)' }}>{s.date} · <Pill tone={SERVICE_STATUS[s.status] || 'gray'}>{s.status}</Pill></div>
+                <div style={{ fontWeight: 600, color: 'var(--ink)', fontSize: 13 }}><ServicePreview service={s} /></div>
+                <div style={{ fontSize: 12, color: 'var(--muted)' }}><Pill tone={SERVICE_STATUS[s.status] || 'gray'}>{s.status}</Pill></div>
               </div>
             </div>
           );
@@ -941,7 +941,7 @@ function ChatsNav({ threads, activeId, onSelect, search, setSearch, mode, setMod
               const s = chatServiceById(sid);
               return (
                 <div key={sid} style={{ marginBottom: 6 }}>
-                  <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--ink)', padding: '8px 6px 4px' }}>{s ? s.kind + ' · ' + s.title : 'Без привязки к услуге'}</div>
+                  <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--ink)', padding: '8px 6px 4px' }}>{s ? s.kind + ' · ' + serviceSummary(s).title : 'Без привязки к услуге'}</div>
                   {groups[sid].map(Row)}
                 </div>
               );

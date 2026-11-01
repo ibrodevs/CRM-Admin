@@ -119,13 +119,16 @@ export function buildAgenda({ day = new Date(), trips = [], events = [], deadlin
   const items = [];
 
   trips.forEach((trip) => {
-    const at = toDate(trip.starts_at);
-    if (!at || !sameDay(at, day)) return;
+    const scheduledServices = (trip.services || []).filter((service) => sameDay(toDate(service.starts_at || service.itinerary?.departure || service.itinerary?.check_in), day));
+    const tripStart = toDate(trip.starts_at);
+    const at = scheduledServices.length ? toDate(scheduledServices[0].starts_at || scheduledServices[0].itinerary?.departure || scheduledServices[0].itinerary?.check_in) : tripStart;
+    if (!at || (!sameDay(tripStart, day) && !scheduledServices.length)) return;
     items.push({
       id: `trip-${trip.id}`, at, icon: 'plane', tone: trip.criticality === 'critical' ? 'red' : 'blue',
       title: trip.title || 'Поездка',
       sub: [trip.order_number ? `Заказ № ${trip.order_number}` : '', trip.client_name || ''].filter(Boolean).join(' · '),
       order: trip.order_number || null,
+      services: scheduledServices.length ? scheduledServices : (trip.services || []),
     });
   });
 

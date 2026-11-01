@@ -1,3 +1,4 @@
+import { ServicePreview } from '../../../shared/ui/ServicePreview.jsx';
 import { SectionInfo } from '../../../shared/ui/SectionInfo.jsx';
 import { InfoNotice } from '../../../shared/ui/InfoNotice.jsx';
 import { resolveHotelParticipants } from '../../services/index.js';
@@ -275,7 +276,7 @@ function FreeBookingFinalize({ draft, onClose, onDone, onOpenOrder, onNavigate, 
         <div className="card card-pad" style={{ marginBottom: 16 }}>
           {draft.map((x, i) => (
             <div key={i} style={{ display: 'flex', justifyContent: 'space-between', gap: 12, padding: '8px 0', borderBottom: i < draft.length - 1 ? '1px solid var(--line)' : 'none' }}>
-              <div><div style={{ fontWeight: 600, color: 'var(--ink)' }}>{svcTitle(x)}</div><div style={{ fontSize: 12, color: 'var(--muted)' }}>{x.kind || 'Авиа'}{x.supplier ? ' · ' + x.supplier : ''}</div></div>
+              <ServicePreview service={{ ...x, kind: x.kind || 'Авиа' }} />
               <div style={{ fontWeight: 600, whiteSpace: 'nowrap' }}>{svcSum(x) ? formatMoney(svcSum(x), x.currency) : '—'}</div>
             </div>
           ))}
@@ -307,7 +308,7 @@ function FreeBookingFinalize({ draft, onClose, onDone, onOpenOrder, onNavigate, 
       <div className="card card-pad" style={{ marginBottom: 18 }}>
         {draft.map((x, i) => (
           <div key={i} style={{ display: 'flex', justifyContent: 'space-between', gap: 12, padding: '8px 0', borderBottom: i < draft.length - 1 ? '1px solid var(--line)' : 'none' }}>
-            <div><div style={{ fontWeight: 600, color: 'var(--ink)' }}>{svcTitle(x)}</div><div style={{ fontSize: 12, color: 'var(--muted)' }}>{x.kind || 'Авиа'}{x.supplier ? ' · ' + x.supplier : ''}</div></div>
+            <ServicePreview service={{ ...x, kind: x.kind || 'Авиа' }} />
             <div style={{ fontWeight: 600, whiteSpace: 'nowrap' }}>{svcSum(x) ? formatMoney(svcSum(x), x.currency) : '—'}</div>
           </div>
         ))}

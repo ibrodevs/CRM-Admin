@@ -1,3 +1,4 @@
+import { ServicePreview } from '../../../shared/ui/ServicePreview.jsx';
 import { SectionInfo } from '../../../shared/ui/SectionInfo.jsx';
 import { ServiceSearchHeader } from '../search/ServiceSearchHeader.jsx';
 import { searchHeaderValue } from '../search/search-header.js';
@@ -150,7 +151,7 @@ function SvcOfferCard({ o, kind, onSelect, onSave, selectLabel }) {
       <div className="off-main">
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
           <span className={'oc-svc-ic' + (k.img ? ' oc-svc-ic-img' : '')} style={{ background: k.img ? 'var(--blue-soft)' : k.color, width: 44, height: 44 }}>{k.img ? <img src={k.img} alt={kind} /> : <Icon name={k.icon} />}</span>
-          <div><div style={{ fontWeight: 700, color: 'var(--ink)' }}>{o.title}</div><div style={{ fontSize: 13, color: 'var(--muted)' }}>{o.sub}</div></div>
+          <ServicePreview service={{ ...o, kind }} showSupplier={false} />
         </div>
         <div style={{ display: 'flex', gap: 26, flexWrap: 'wrap' }}>
           {o.info.map((r, i) => (<div key={i}><div style={{ fontSize: 12, color: 'var(--muted)' }}>{r.l}</div><div style={{ fontWeight: 600, color: 'var(--ink)', fontSize: 14 }}>{r.v}</div></div>))}
@@ -1377,12 +1378,12 @@ function SvcCard({ item, kind, participants = [], hideBackRow, onBack }) {
         <span className="oc-svc-ic" style={{ background: k.color }}><Icon name={k.icon} /></span>
         <div style={{ flex: 1, minWidth: 200 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-            <h2 className="card-title">{title}</h2>
+            <ServicePreview service={{ ...item, kind }} />
             <Pill tone={SERVICE_STATUS[status] || 'gray'}>{status}</Pill>
             <Pill tone={cst.tone}><Icon name={cst.icon} style={{ width: 12, height: 12, verticalAlign: -2 }} /> Карточка: {cst.label}</Pill>
             <span style={{ fontSize: 12, color: 'var(--muted)', fontWeight: 600 }}>v{version}</span>
           </div>
-          <div style={{ color: 'var(--muted)', fontSize: 14, marginTop: 4 }}>{sub}{supplier && supplier !== '—' ? ' · ' + supplier : ''}</div>
+          <div style={{ color: 'var(--muted)', fontSize: 14, marginTop: 4 }}>{sub}</div>
         </div>
         <div style={{ textAlign: 'right' }}><div style={{ fontSize: 13, color: 'var(--muted)' }}>Итого к оплате</div><div style={{ fontSize: 24, fontWeight: 700, color: 'var(--ink)' }}>{total ? fmt(total) : '—'}</div></div>
         <Button icon="send" onClick={() => setSendOpen(true)}>Отправить клиенту</Button>

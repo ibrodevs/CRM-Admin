@@ -1,3 +1,4 @@
+import { serviceSummary } from '../../../shared/lib/service-presentation.js';
 import { SectionInfo } from '../../../shared/ui/SectionInfo.jsx';
 import React from 'react';
 import { useState, useEffect, useRef } from 'react';
@@ -465,7 +466,7 @@ function DocCenter({ scopeOrder, participants, services, onOpenDoc, initialDocum
     const service = (services || []).find((row) => String(row.serverId || row.id) === String(serviceId));
     const personId = item.personId || item.person;
     const participant = (participants || []).find((row) => (personId && String(row.person) === String(personId)) || (item.metadata?.participant_id && String(row.serverId || row.id) === String(item.metadata.participant_id)));
-    return { ...mapped, serviceId, service: service ? `${service.kind} · ${service.displayTitle || service.title}` : mapped.service,
+    return { ...mapped, serviceId, service: service ? `${service.kind} · ${service.displayTitle || serviceSummary(service).title}` : mapped.service,
       participant: participant?.name || mapped.participant };
   };
   const [q, setQ] = useState('');
@@ -483,7 +484,8 @@ function DocCenter({ scopeOrder, participants, services, onOpenDoc, initialDocum
     const s = services.find((x) => (code && (x.avia === code || x.code === code || x.id === code)) || (x.title && label.includes(x.title)))
       || (!code ? services.find((x) => x.kind === kind) : null);
     if (!s) return '';
-    return [s.title, s.date].filter(Boolean).join(' · ');
+    const summary = serviceSummary(s);
+    return [summary.title, summary.dates].filter(Boolean).join(' · ');
   };
   const liveDocuments = Array.isArray(initialDocuments) ? initialDocuments.map(normalizeDocument) : (scopeOrder ? [] : DOCS2);
   const scopedOrderId = orders.find((item) => item.no === scopeOrder)?.id;

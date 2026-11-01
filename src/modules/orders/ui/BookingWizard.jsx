@@ -1,3 +1,5 @@
+import { ServicePreview } from '../../../shared/ui/ServicePreview.jsx';
+import { serviceSummary } from '../../../shared/lib/service-presentation.js';
 import { OrderContactField } from './OrderContactField.jsx';
 import { orderContact } from '../model/order-contact.js';
 import { useState, useEffect } from 'react';
@@ -66,8 +68,8 @@ function BwSvc({ s, status, tone, right }) {
     <div className="bw-svc">
       <span className="ic" style={{ background: k.color }}><Icon name={k.icon} /></span>
       <div style={{ flex: 1, minWidth: 0 }}>
-        <div className="t">{s.title}</div>
-        <div className="s">{s.sub} · {s.supplier}</div>
+        <ServicePreview service={s} />
+        {s.sub && <div className="s">{s.sub}</div>}
       </div>
       {status && <Pill tone={tone || 'gray'}>{status}</Pill>}
       {right !== undefined ? right : <div style={{ fontWeight: 700, color: 'var(--ink)', minWidth: 96, textAlign: 'right' }}>{ocMoney(s.sum, s.currency)}</div>}
@@ -405,7 +407,7 @@ function BookingWizard({ order, services, draft, onClose, onComplete, onSaveDraf
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
                   <div style={{ fontWeight: 700, color: 'var(--ink)', fontSize: 15 }}>{title}</div>
                 </div>
-                {bookingServices.map((s) => <div key={s.id} className="kv-row"><span className="k">{s.title}</span><span className="v">{ocMoney(s.sum, s.currency)}</span></div>)}
+                {bookingServices.map((s) => <div key={s.id} className="kv-row"><span className="k">{serviceSummary(s).title}</span><span className="v">{ocMoney(s.sum, s.currency)}</span></div>)}
                 <div className="kv-row" style={{ borderBottom: 'none' }}><span className="k" style={{ fontWeight: 700, color: 'var(--ink)' }}>Итого</span><span className="v" style={{ fontSize: 18 }}>{sameCurrency ? bwMoney(sum, currency) : 'несколько валют'}</span></div>
                 <Button variant="secondary" size="sm" icon="eye" className="btn-block" style={{ marginTop: 12 }} onClick={() => setOfferPreview({})}>Просмотр предложения</Button>
               </div>

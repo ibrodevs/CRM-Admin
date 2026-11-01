@@ -1,3 +1,4 @@
+import { ServicePreview } from '../../../shared/ui/ServicePreview.jsx';
 import { Button } from '../../../shared/ui/Button.jsx';
 import { Icon } from '../../../shared/icons/index.jsx';
 import { DashboardCard, DashboardEmpty, DashboardError, DashboardSkeleton, dashToneColor, dashToneSoft } from './DashboardCard.jsx';
@@ -31,6 +32,7 @@ function AgendaItem({ item, onClick }) {
       <span className="dsh-agenda-main">
         <span className="dsh-row-title">{item.title}</span>
         {item.sub && <span className="dsh-row-sub">{item.sub}</span>}
+        {item.services?.length > 0 && <span className="dsh-agenda-services">{item.services.map((service, index) => <ServicePreview key={service.id || index} service={service} />)}</span>}
       </span>
     </button>
   );

@@ -1,3 +1,4 @@
+import { serviceSummary } from '../../../shared/lib/service-presentation.js';
 import { passengerAttachments } from '../model/passenger-attachments.js';
 import React, { useState } from 'react';
 import { Drawer } from '../../../shared/ui/Overlays.jsx';
@@ -20,7 +21,7 @@ export function ServiceDocumentsDrawer({ service, documents, participants, initi
     catch (err) { setError(err.message || 'Не удалось скачать документы. Попробуйте ещё раз.'); }
     finally { setBusy(false); }
   };
-  return <Drawer open title="Документы услуги" sub={service.title} onClose={onClose}
+  return <Drawer open title="Документы услуги" sub={[serviceSummary(service).title, serviceSummary(service).dates].join(' · ')} onClose={onClose}
     footer={<Button icon="download" onClick={download} disabled={busy || !visible.length}>
       {busy ? 'Подготовка архива…' : `Скачать ${person ? 'документы пассажира' : 'все документы'} (${visible.length})`}
     </Button>}>
