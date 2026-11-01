@@ -6,6 +6,7 @@ const card = await readFile(new URL('../src/modules/orders/ui/OrderCard.jsx', im
 const booking = await readFile(new URL('../src/modules/orders/ui/BookingWizard.jsx', import.meta.url), 'utf8');
 const returns = await readFile(new URL('../src/modules/returns/ui/ReturnsPage.jsx', import.meta.url), 'utf8');
 const legacy = await readFile(new URL('../src/legacy/adapters/legacy-adapters.js', import.meta.url), 'utf8');
+const actions = await readFile(new URL('../src/modules/services/flights/FlightBookingActionsDrawer.jsx', import.meta.url), 'utf8');
 const css = await readFile(new URL('../app/globals.css', import.meta.url), 'utf8');
 
 test('карточка заказа открывается единой лентой услуг, а не вкладками', () => {
@@ -17,8 +18,9 @@ test('карточка заказа открывается единой лент
   // повторного заголовка и кнопки закрытия внутри страницы.
   assert.doesNotMatch(card, /<BackRow/);
   assert.doesNotMatch(card, /title="Закрыть раздел"/);
-  assert.doesNotMatch(card, /ORDER_SECTIONS\[tab\]/);
-  assert.match(card, /tab === 'main' \? tabContent\(\) : <div className="fade-in">\{tabContent\(\)\}<\/div>/);
+  assert.match(card, /order-section-canvas/);
+  assert.match(card, /К услугам заказа/);
+  assert.match(card, /tab === 'main' \? tabContent\(\) : <section/);
 });
 
 test('большой заказ можно отфильтровать по пассажиру, билету и типу услуги', () => {
@@ -30,10 +32,11 @@ test('большой заказ можно отфильтровать по па�
   assert.doesNotMatch(card, /new Set\(\[services\[0\]\.id\]\)/);
 });
 
-test('все действия услуги доступны из компактной закрытой строки', () => {
-  const head = card.slice(card.indexOf('function ServiceBlock('), card.indexOf('function OrderServicesBoard('));
-  for (const label of ['Показать детали', 'Отправить клиенту', 'История услуги', 'Добавить файл', 'Обсудить в чате', 'Запросить обмен', 'Отменить услугу', 'Удалить услугу']) {
-    assert.ok(head.includes(label), `в компактной строке нет действия «${label}»`);
+test('действия услуги собраны в боковой панели, доступной из закрытой карточки', () => {
+  const block = card.slice(card.indexOf('function ServiceBlock('), card.indexOf('function OrderServicesBoard('));
+  assert.match(block, /setFlightActionsOpen\(true\)/);
+  for (const label of ['Отправить клиенту', 'История услуги', 'Добавить файл', 'Обсудить в чате', 'Обмен билета', 'Отменить услугу', 'Удалить услугу']) {
+    assert.ok(actions.includes(label), `в панели нет действия «${label}»`);
   }
 });
 
@@ -64,7 +67,7 @@ test('блок услуги показывает пассажиров, доку�
   assert.match(card, /\(\{pax\.length\}\)/);
   assert.match(card, /Документы \(\{docs\.length\}\)/);
   assert.match(card, /Добавить файл/);
-  assert.match(card, /Запросить обмен/);
+  assert.match(actions, /Обмен билета/);
   assert.match(card, /onCancel=\{askCancelService\}/);
   assert.match(card, /onExchange=\{requestExchange\}/);
 });
@@ -82,7 +85,7 @@ test('отмена услуги передаёт версию, обмен отк
   assert.match(returns, /preset=\{initialNew\}/);
   assert.match(returns, /setType\(\(preset && preset\.type\) \|\| 'Возврат билета'\)/);
   assert.match(returns, /currency: resolveCurrency\(d\.currency, selectedOrder\.currency, selectedOrder\.base_currency\)/);
-  assert.match(returns, /rUsd\(scoped, currency\)/);
+  assert.match(returns, /rUsd\(refund, currency\)/);
 });
 
 test('бронирование не отправляет уже выписанные услуги в workflow', () => {

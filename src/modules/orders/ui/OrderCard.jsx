@@ -1,6 +1,7 @@
+import { ORDER_SECTIONS, canonicalOrderSection } from '../model/workspace.js';
 import { FlightFareSummary, FlightBookingActionsDrawer } from '../../services/index.js';
 import { passengerAttachments, passengerAttachmentLabel } from '../model/passenger-attachments.js';
-import { serviceSummary, serviceFlightSegments, serviceStayDetails, serviceBookingReference } from '../model/service-summary.js';
+import { serviceSummary, serviceFlightSegments, serviceStayDetails, serviceBookingReference, serviceDetailRows } from '../model/service-summary.js';
 import { ServiceDocumentsDrawer } from './ServiceDocumentsDrawer.jsx';
 import { SectionInfo } from '../../../shared/ui/SectionInfo.jsx';
 import { FlightSearchHeader } from '../../services/index.js';
@@ -369,10 +370,10 @@ function TabOverview({ order, company }) {
     ['Дата создания', order.date],
     ['Валюта', resolveCurrency(order.currency, order.base_currency)],
     ['Назначение', visibleValue(order.purpose)],
-    ['Начало поездки', visibleValue(order.planned_start)],
-    ['Окончание поездки', visibleValue(order.planned_end)],
+    ['Начало поездки', order.planned_start ? fmtDate(order.planned_start) : 'Не указано'],
+    ['Окончание поездки', order.planned_end ? fmtDate(order.planned_end) : 'Не указано'],
     ['Источник', visibleValue(order.source)],
-    ['Канал связи', visibleValue(order.preferred_channel)],
+    ['Канал связи', ({ telegram: 'Телеграм', whatsapp: 'Ватсап', internal: 'Внутренний чат', email: 'Электронная почта', max: 'МАКС' })[order.preferred_channel] || visibleValue(order.preferred_channel)],
   ];
   return (
     <div className="grid-2 fade-in" style={{ alignItems: 'start' }}>
@@ -480,7 +481,7 @@ function PaxGroupCard({ index, name, members, onPassport, onEdit, onAddDoc, onRe
   const [open, setOpen] = useState(true);
   const [showAll, setShowAll] = useState(false);
   const isChild = (p) => /реб[её]н|child|инфант|infant/i.test(p.role || '');
-  const err = members.filter(({ p }) => p.docStatus === 'check').length;
+  const err = members.filter(({ p }) => p.docStatus !== 'ok').length;
   const status = members.length && members.every(({ p }) => isChild(p))
     ? { label: 'Дети', tone: 'blue' }
     : err ? { label: err + (err === 1 ? ' требует проверки' : ' требуют проверки'), tone: 'amber' }
@@ -505,7 +506,7 @@ function PaxGroupCard({ index, name, members, onPassport, onEdit, onAddDoc, onRe
             <div className="nm">{p.name} {p.lead && <span className="pill pill-blue" style={{ marginLeft: 4, height: 20, padding: '0 8px', fontSize: 12 }}>Лид</span>}</div>
             <div className="mt">{p.role} · {p.doc}</div>
           </div>
-          <Pill tone={p.docStatus === 'check' ? 'amber' : 'green'}>{p.docStatus === 'check' ? 'Требует проверки' : 'Без ошибок'}</Pill>
+          <Pill tone={p.docStatus === 'ok' ? 'green' : 'amber'}>{p.docStatus === 'ok' ? 'Документ указан' : p.docStatus === 'check' ? 'Требует проверки' : 'Нет документа'}</Pill>
           <span onClick={(e) => e.stopPropagation()}>
             <ActionMenu trigger={<button className="btn btn-ghost btn-icon btn-sm"><Icon name="more" /></button>}
               items={[
@@ -533,7 +534,7 @@ function TabParticipants({ list, isGroup, groups, fresh, onPassport, onAdd, onEd
       <div style={{ display: 'flex', justifyContent: 'center', marginTop: -12 }}><Button icon="plus" onClick={onAdd}>Добавить участника</Button></div>
     </div>
   );
-  const errCount = list.filter((p) => p.docStatus === 'check').length;
+  const errCount = list.filter((p) => p.docStatus !== 'ok').length;
   return (
     <div className="fade-in">
       {fresh && (
@@ -577,9 +578,13 @@ function TabParticipants({ list, isGroup, groups, fresh, onPassport, onAdd, onEd
   );
 }
 
-function TabRoute({ services = [], route }) {
+function TabRoute({ services = [], route, onOpenService, onEditRoute }) {
   const points = route?.points || [];
-  const validServices = (services || []).filter((s) => s.title || s.kind);
+  const validServices = (services || []).filter((s) => s.title || s.kind).sort((a, b) => {
+    const dateA = Date.parse(a.starts_at || a.itinerary?.departure || '');
+    const dateB = Date.parse(b.starts_at || b.itinerary?.departure || '');
+    return (Number.isFinite(dateA) ? dateA : Infinity) - (Number.isFinite(dateB) ? dateB : Infinity);
+  });
   const steps = [];
 
   if (validServices.length) {
@@ -587,7 +592,9 @@ function TabRoute({ services = [], route }) {
       const k = SERVICE_KIND[s.kind] || { icon: 'briefcase', color: 'var(--blue)' };
       steps.push({
         t: s.date || (s.starts_at ? new Date(s.starts_at).toLocaleString('ru-RU', RU_DATE_TIME) : 'Дата уточняется'),
-        text: `${s.kind}: ${s.title}${s.supplier ? ` · ${s.supplier}` : ''}`,
+        text: serviceSummary(s, AIRPORTS)?.title || s.title,
+        dates: serviceSummary(s, AIRPORTS)?.dates || s.date,
+        supplier: s.supplier, service: s,
         ic: k.icon || 'plane',
         status: s.status,
       });
@@ -608,15 +615,15 @@ function TabRoute({ services = [], route }) {
 
   if (!steps.length) {
     return (
-      <div className="card card-pad fade-in" style={{ maxWidth: 640 }}>
-        <EmptyState icon="route" title="Маршрут пока не сформирован" sub="Добавьте услуги в заказ (авиабилеты, проживание, трансферы) или укажите маршрут в параметрах заказа." />
+      <div className="card card-pad fade-in order-route-card">
+        <EmptyState icon="route" title="Маршрут пока не сформирован" sub="Добавьте услуги в заказ (авиабилеты, проживание, трансферы) или укажите маршрут в параметрах заказа." action={<Button variant="secondary" icon="edit" onClick={onEditRoute}>Указать маршрут</Button>} />
       </div>
     );
   }
 
   return (
-    <div className="card card-pad fade-in" style={{ maxWidth: 640 }}>
-      <h3 className="card-title" style={{ marginBottom: 18 }}>Маршрут поездки</h3>
+    <div className="card card-pad fade-in order-route-card">
+<div className="order-route-actions"><Button variant="secondary" size="sm" icon="edit" onClick={onEditRoute}>Изменить маршрут</Button></div>
       <div className="timeline">
         {steps.map((s, i) => (
           <div className="tl-item" key={i}>
@@ -624,8 +631,10 @@ function TabRoute({ services = [], route }) {
             <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
               <Icon name={s.ic} style={{ width: 18, height: 18, color: 'var(--blue)' }} />
               <div>
-                <div className="tl-time">{s.t}</div>
+                <div className="tl-time">{s.dates || s.t}</div>
                 <div className="tl-text">{s.text} {s.status && <span className="pill pill-gray" style={{ marginLeft: 6, fontSize: 11 }}>{s.status}</span>}</div>
+                {s.supplier && <p className="order-route-supplier">{s.supplier}</p>}
+                {s.service && <Button variant="secondary" size="sm" onClick={() => onOpenService?.(s.service)}>Открыть услугу</Button>}
               </div>
             </div>
           </div>
@@ -740,7 +749,7 @@ function ServicesFooterBar({ services, order, bookingDraft, onStartBooking }) {
   const { total, currency } = serviceTotals(services);
   return (
     <div className="oc-svc-footer">
-      <div className="grp"><span className="l">Итого по заказу</span><span className="v">{moneyRowsText(serviceMoneyRows(services, order?.base_currency || order?.currency), order?.base_currency || order?.currency)} <Icon name="alertCircle" style={{ width: 14, height: 14, color: 'var(--muted-2)', verticalAlign: -2 }} /></span></div>
+      <div className="grp"><span className="l">Итого:</span><span className="v">{moneyRowsText(serviceMoneyRows(services, order?.base_currency || order?.currency), order?.base_currency || order?.currency)} <Icon name="alertCircle" style={{ width: 14, height: 14, color: 'var(--muted-2)', verticalAlign: -2 }} /></span></div>
       <div style={{ flex: 1 }} />
       <Button iconRight="arrowRight" onClick={onStartBooking}>{bookingDraft ? 'Продолжить бронирование' : 'Перейти к бронированию'}</Button>
     </div>
@@ -937,7 +946,7 @@ function ServiceBlock({ s, participants, documents, orderNo, open, onToggle, onC
     setFlightDetail({ key: flightDetailKey, data, error: '' });
   };
   useEffect(() => {
-    if (s.kind !== 'Авиа' || (!open && !flightActionsOpen) || flightDetail.key === flightDetailKey) return undefined;
+    if (postSaleFlow(s) === 'hotel' || (!open && !flightActionsOpen) || flightDetail.key === flightDetailKey) return undefined;
     const controller = new AbortController();
     fetchFlightDetail(controller.signal).catch((error) => {
       if (error.name !== 'AbortError') setFlightDetail({ key: flightDetailKey, data: null, error: error.message });
@@ -947,7 +956,7 @@ function ServiceBlock({ s, participants, documents, orderNo, open, onToggle, onC
   const flightData = flightDetail.key === flightDetailKey && flightDetail.data
     ? { ...s, ...flightDetail.data, kind: s.kind, supplier: s.supplier, status: s.status }
     : s;
-  const flightLoading = s.kind === 'Авиа' && (open || flightActionsOpen) && flightDetail.key !== flightDetailKey;
+  const flightLoading = postSaleFlow(s) !== 'hotel' && (open || flightActionsOpen) && flightDetail.key !== flightDetailKey;
   const flightError = flightDetail.key === flightDetailKey ? flightDetail.error : '';
   const [uploading, setUploading] = useState(false);
   const kind = SERVICE_KIND[s.kind] || { icon: 'briefcase', color: '#2566ff' };
@@ -1013,7 +1022,8 @@ function ServiceBlock({ s, participants, documents, orderNo, open, onToggle, onC
 
         {open && s.kind === 'Авиа' && <FlightFareSummary service={flightData} segments={serviceFlightSegments(flightData)} loading={flightLoading} error={flightError} />}
 
-        {open && s.kind === 'Гостиница' && serviceStayDetails(s).length > 0 && <dl className="osrv-stay-details">
+        {open && !['Авиа', 'Гостиница'].includes(s.kind) && <dl className="order-service-details">{serviceDetailRows(flightData).map((field) => <div key={field.label}><dt>{field.label}</dt><dd>{field.value}</dd></div>)}</dl>}
+        {open && s.kind === 'Гостиница'  && serviceStayDetails(s).length > 0 && <dl className="osrv-stay-details">
           {serviceStayDetails(s).map(([label, value]) => <div key={label}><dt>{label}</dt><dd>{String(value)}</dd></div>)}
         </dl>}
 
@@ -1096,18 +1106,7 @@ function ServiceBlock({ s, participants, documents, orderNo, open, onToggle, onC
         )}
         <div className="osrv-actions">
           <Button variant="secondary" onClick={() => setDocumentsOpen(true)}>Загрузить</Button>
-          {s.kind === 'Авиа' ? <button type="button" className="btn btn-primary" aria-label={'Действия: ' + s.title} onClick={() => setFlightActionsOpen(true)}>Действия</button> : postSaleFlow(s) === 'hotel' ? <button type="button" className="btn btn-primary" aria-label={'Действия: ' + s.title} onClick={() => onHotelActions(s)}>Действия</button> : <ActionMenu trigger={<button type="button" className="btn btn-primary" aria-label={'Действия: ' + s.title}>Действия</button>}
-            items={[
-              { icon: 'eye', label: open ? 'Свернуть детали' : 'Показать детали', onClick: onToggle },
-              { icon: 'send', label: 'Отправить клиенту', onClick: () => setSendOpen(true) },
-              { icon: 'clock', label: 'История услуги', onClick: () => setHistOpen(true) },
-              { icon: 'docs', label: 'Добавить файл', onClick: pickFile },
-              { icon: 'chat', label: 'Обсудить в чате', onClick: onOpenChat },
-              { sep: true },
-              { icon: 'swap', label: 'Запросить обмен', onClick: () => onExchange(s) },
-              { icon: 'refund', label: 'Отменить услугу', danger: true, onClick: () => onCancel(s) },
-              { icon: 'trash', label: 'Удалить услугу', danger: true, onClick: () => onDeleteService(s) },
-            ]} />}
+          <button type="button" className="btn btn-primary" aria-label={'Действия: ' + s.title} onClick={() => postSaleFlow(s) === 'hotel' ? onHotelActions(s) : setFlightActionsOpen(true)}>Действия</button>
         </div>
         <input ref={fileRef} type="file" hidden onChange={takeFile} />
       </div>
@@ -2475,14 +2474,14 @@ function TabHistory({ liveItems = [] }) {
 
   if (!items.length) {
     return (
-      <div className="card card-pad fade-in" style={{ maxWidth: 560 }}>
+      <div className="card card-pad fade-in order-history-card">
         <EmptyState icon="clock" title="История изменений пуста" sub="Все изменения статусов, услуг и параметров заказа фиксируются здесь." />
       </div>
     );
   }
 
   return (
-    <div className="card card-pad fade-in" style={{ maxWidth: 560 }}>
+    <div className="card card-pad fade-in order-history-card">
       <h3 className="card-title" style={{ fontSize: 18, marginBottom: 14 }}>История заказа</h3>
       <div className="timeline">
         {items.map((h, i) => (
@@ -2616,13 +2615,14 @@ const ORDER_WORKSPACE_NAV = [
   { key: 'documents', label: 'Документы', icon: 'docs' },
   { key: 'finance', label: 'Финансы', icon: 'finance' },
   { key: 'tasks', label: 'Задачи', icon: 'checkCircle' },
+  { key: 'aftersale', label: 'Возвраты и обмены', icon: 'refund' },
   { key: 'history', label: 'История', icon: 'clock' },
 ];
 
 // Услуги живут на главном экране карточки, поэтому старый ключ вкладки ведёт туда же.
 function orderSection(key) {
-  if (!key || key === 'services' || key === 'main') return null;
-  return key;
+  const section = canonicalOrderSection(key);
+  return section === 'main' ? null : section;
 }
 
 function OrderCard({ order, company, clients = [], onBack, initTab, initSvc, initSvcSearch, fresh, onOpenChat, onOrderUpdated }) {
@@ -2974,8 +2974,8 @@ function OrderCard({ order, company, clients = [], onBack, initTab, initSvc, ini
     { key: 'clients', label: 'Клиенты', icon: 'contacts' },
     { key: 'responsibles', label: 'Ответственные', icon: 'users', count: operator ? 1 : null },
     { key: 'extras', label: 'Доп. услуги', icon: 'sparkles' },
-    { key: 'offers', label: 'КП', icon: 'template', count: proposalCount || null, locked: stageIdx < 2 && proposalCount === 0 },
-    { key: 'aftersale', label: 'Постпродажа', icon: 'refund', count: aftersaleCount || null, locked: stageIdx < 2 },
+    { key: 'offers', label: 'КП', icon: 'template', count: proposalCount || null, locked: false },
+
   ];
 
   const goAddType = (type) => { setAddKind(type || 'Авиа'); setSvcView('add-service'); };
@@ -3199,12 +3199,10 @@ function OrderCard({ order, company, clients = [], onBack, initTab, initSvc, ini
   const requestExchange = (svc) => {
     if (postSaleFlow(svc) === 'hotel') { setHotelActionService(svc.serverId || svc.id); return; }
     setAftersalePreset({ type: 'Обмен билета', serviceId: String(svc.serverId || svc.id), currency: resolveCurrency(svc.currency, cardOrder.currency, cardOrder.base_currency), stamp: Date.now() });
-    setTab('aftersale');
   };
 
   const requestRefund = (svc) => {
     setAftersalePreset({ type: 'Возврат билета', serviceId: String(svc.serverId || svc.id), currency: resolveCurrency(svc.currency, cardOrder.currency, cardOrder.base_currency), stamp: Date.now() });
-    setTab('aftersale');
   };
 
   const renderServicesArea = () => {
@@ -3285,7 +3283,7 @@ function OrderCard({ order, company, clients = [], onBack, initTab, initSvc, ini
           />
         );
       }
-      case 'route': return <TabRoute services={services} route={cardOrder.route} />;
+      case 'route': return <TabRoute services={services} route={cardOrder.route} onEditRoute={() => setEditOpen(true)} onOpenService={(service) => { setExpandedSvc(new Set([service.id])); setTab('main'); setSvcView(null); }} />;
       case 'main': case 'services': return renderServicesArea();
       case 'offers': return (
         <KPModule
@@ -3302,12 +3300,12 @@ function OrderCard({ order, company, clients = [], onBack, initTab, initSvc, ini
       case 'responsibles': return <OrderResponsiblesTab services={services} users={operatorOptions}
         onUpdated={(updated) => setServices((current) => current.map((service) => String(service.serverId || service.id) === String(updated.id) ? toLegacyOrderService(updated) : service))} />;
       case 'extras': return <DynamicExtrasPanel services={services} />;
-      case 'documents': return <DocCenter scopeOrder={order.no} initialDocuments={orderDocs} participants={participants} services={services} orders={[order]} />;
+      case 'documents': return <DocCenter scopeOrder={order.no} initialDocuments={orderDocs} participants={participants} services={services.map((service) => ({ ...service, displayTitle: serviceSummary(service, AIRPORTS)?.title || service.title }))} orders={[cardOrder]} />;
       case 'finance': return (<><OrderFinanceBlock orderNo={order.no} order={cardOrder} services={services} summary={financeSummary} /><OrderFinanceRecords orderId={orderId} /></>);
       case 'tasks': return <TabTasks tasks={tasks} assignees={operatorOptions} onAddTask={addTask} onToggleTask={toggleTask} onDeleteTask={deleteTask} />;
-      case 'aftersale': return <ReturnsModule scopeOrder={order.no} order={order} services={services.filter((service) => postSaleFlow(service) === 'ticket')} participants={participants} initialNew={aftersalePreset} compact />;
+      case 'aftersale': return <ReturnsModule scopeOrder={order.no} order={cardOrder} services={services} participants={participants} onCountChange={setAftersaleCount} compact />;
       case 'history': return <TabHistory liveItems={history} />;
-      default: return null;
+      default: return renderServicesArea();
     }
   };
 
@@ -3317,7 +3315,7 @@ function OrderCard({ order, company, clients = [], onBack, initTab, initSvc, ini
   const fullWidthFlow = tab === 'main' && svcView === 'booking';
 
 
-  const openSection = (key) => { setTab(key); if (svcView !== 'booking') setSvcView(null); };
+  const openSection = (key) => { setTab(canonicalOrderSection(key)); setSvcView(null); setSelMode(false); };
 
   const headerMenuItems = [
     { icon: 'edit', label: 'Редактировать заказ', onClick: () => setEditOpen(true) },
@@ -3327,7 +3325,6 @@ function OrderCard({ order, company, clients = [], onBack, initTab, initSvc, ini
     { icon: 'refund', label: 'Изменение по рейсу', onClick: () => {
       const flight = services.find((service) => service.kind === 'Авиа');
       setAftersalePreset({ type: 'Обмен билета', serviceId: flight ? String(flight.serverId || flight.id) : '', currency: resolveCurrency(flight?.currency, cardOrder.currency, cardOrder.base_currency), stamp: Date.now() });
-      setTab('aftersale');
     } },
     { icon: 'users', label: 'Переназначить оператора', onClick: () => setReassignOpen(true) },
     { icon: 'send', label: 'Отправить клиенту', onClick: () => setSendOpen(true) },
@@ -3342,6 +3339,7 @@ function OrderCard({ order, company, clients = [], onBack, initTab, initSvc, ini
     documents: orderDocs.length,
     tasks: tasks.filter((task) => !task.done).length,
     history: history.length,
+    aftersale: aftersaleCount,
   };
   return (
     <div className="fade-in">
@@ -3382,15 +3380,19 @@ function OrderCard({ order, company, clients = [], onBack, initTab, initSvc, ini
                     {workspaceCounts[item.key] != null && <b>{workspaceCounts[item.key]}</b>}
                   </button>
                 ))}
+                <ActionMenu trigger={<button type="button" className={MORE_TABS.some((item) => item.key === tab) ? 'active' : ''}><span>Ещё</span><Icon name="chevDown" /></button>} items={MORE_TABS.map((item) => ({ icon: item.icon, label: item.label, onClick: () => openSection(item.key) }))} />
               </div>
             </div>
 
-            {tab === 'main' ? tabContent() : <div className="fade-in">{tabContent()}</div>}
+            {tab === 'main' ? tabContent() : <section className={'order-workspace-section order-section-' + tab} aria-label={ORDER_SECTIONS[tab]?.title || 'Раздел заказа'}>
+              <header className="order-section-heading"><div><h3>{ORDER_SECTIONS[tab]?.title || 'Раздел заказа'}</h3><p>{ORDER_SECTIONS[tab]?.description}</p></div><Button variant="secondary" size="sm" icon="arrowLeft" onClick={() => openSection('main')}>К услугам заказа</Button></header>
+              <div className="order-section-canvas fade-in">{tabContent()}</div>
+            </section>}
           </div>
         </div>
 
 
-        {!fullWidthFlow && !loading && !loadError && (
+        {tab === 'main' && !fullWidthFlow && !loading && !loadError && (
           <ServicesFooterBar order={cardOrder} services={services} bookingDraft={bookingDraft}
             onStartBooking={() => { setTab('main'); setSvcView('booking'); }} />
         )}
@@ -3398,6 +3400,8 @@ function OrderCard({ order, company, clients = [], onBack, initTab, initSvc, ini
       </div>
 
 
+      {aftersalePreset && <ReturnsModule createOnly scopeOrder={order.no} order={cardOrder} services={services} participants={participants} initialNew={aftersalePreset}
+        onNewClose={() => setAftersalePreset(null)} onCreated={() => { setAftersalePreset(null); setAftersaleCount((count) => count + 1); openSection('aftersale'); refreshOrderSnapshot().catch((error) => toast(error.message || 'Не удалось обновить заказ', 'err')); }} />}
       {hotelActionService && <HotelBookingActionsDrawer serviceId={hotelActionService} onClose={() => setHotelActionService(null)} onChanged={refreshOrderSnapshot}
         onNewBooking={() => { setHotelActionService(null); setTab('main'); goAddType('Гостиница'); }} />}
       <ReassignOperatorDrawer open={reassignOpen} current={operator} options={operatorOptions} onClose={() => setReassignOpen(false)}

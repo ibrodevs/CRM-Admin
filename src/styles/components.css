@@ -996,8 +996,8 @@ table.tbl.tbl-wide thead th,table.tbl.tbl-wide tbody td{white-space:nowrap}
 .oc-svc-row .mcol .l{font-size:12px;color:var(--muted)}
 .oc-svc-row .mcol .v{font-weight:700;color:var(--ink);font-size:14px}
 .oc-svc-footer{position:sticky;bottom:0;z-index:6;display:flex;align-items:center;gap:14px;flex-wrap:wrap;background:#fff;border:1px solid var(--line);border-radius:12px;box-shadow:0 -2px 14px rgba(16,23,38,.06);padding:10px 12px;margin-top:12px}
-.oc-svc-footer .grp{display:flex;flex-direction:column;gap:2px}
-.oc-svc-footer .grp .l{font-size:12px;color:var(--muted)}
+.oc-svc-footer .grp{display:flex;align-items:center;gap:6px;white-space:nowrap}
+.oc-svc-footer .grp .l{font-size:14px;color:var(--muted)}
 .oc-svc-footer .grp .v{font-weight:700;color:var(--ink);font-size:15px}
 .oc-svc-footer .grp .v.amber{color:var(--amber)}
 .oc-svc-footer .grp .v.green{color:var(--green)}
@@ -3365,3 +3365,50 @@ button.oc-fact:hover{border-color:#d3dbe8;background:#fff}
 .flight-booking-other summary{cursor:pointer;color:var(--muted);font-size:12px;padding:4px 0}
 .flight-booking-other[open]>.flight-booking-action{margin-top:12px}
 @media(max-width:560px){.flight-booking-actions-grid{grid-template-columns:1fr}.flight-booking-drawer .drawer-body{padding:16px}.flight-fare-primary{grid-template-columns:repeat(2,minmax(0,1fr))}.flight-booking-summary{padding:18px}}
+
+/* All order sections share a visible title, return path, and working canvas. */
+.order-workspace-section{margin:20px 0}
+.order-section-heading{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-bottom:16px;flex-wrap:wrap}
+.order-section-heading h3{margin:0;font-size:20px;line-height:1.35;color:var(--ink);font-weight:750;letter-spacing:-.02em}
+.order-section-heading p{margin:6px 0 0;font-size:13px;color:var(--muted);line-height:1.5}
+.order-section-canvas{padding:22px;min-height:300px;border:1px solid var(--line);border-radius:20px;background:var(--surface-2)}
+.order-section-canvas .card,.order-section-canvas .table-card,.order-section-canvas .stat-card{background:var(--surface);box-shadow:none}
+.order-section-canvas>.fade-in>.card,.order-section-canvas>.card{max-width:100%!important}
+.order-section-canvas .table-card{overflow-x:auto;border-radius:14px}
+.order-section-canvas .tbl td{vertical-align:middle}
+.order-section-canvas .empty{background:var(--surface);border-radius:14px}
+.order-section-canvas .card-title{color:var(--ink)}
+.order-section-canvas .pax-group-card{background:var(--surface)}
+.order-section-canvas .trip-toggle{background:var(--surface)}
+.order-section-canvas .oc-svc{background:var(--surface);box-shadow:none;border-radius:14px;margin-bottom:12px}
+.order-section-canvas .oc-svc:hover{border-color:var(--blue)}
+.order-section-canvas>.fade-in>div:first-child{gap:12px;flex-wrap:wrap}
+.order-route-card{max-width:100%}
+.order-route-actions{display:flex;justify-content:flex-end;margin-bottom:20px}
+.order-route-card .tl-item{padding-bottom:22px}
+.order-route-card .tl-text{font-size:16px;font-weight:650;line-height:1.6;color:var(--ink)}
+.order-route-supplier{margin:6px 0 10px;color:var(--muted);font-size:13px}
+.order-history-card .timeline{padding-top:4px}
+.order-history-card .tl-item{padding-bottom:24px}
+.order-service-details{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:16px 20px;margin:16px 0;padding:16px;background:var(--surface-2);border:1px solid var(--line);border-radius:12px}
+.order-service-details dt{font-size:12px;color:var(--muted)}
+.order-service-details dd{font-size:14px;color:var(--ink);font-weight:600;margin:6px 0 0;overflow-wrap:anywhere}
+.order-aftersale-toolbar{gap:12px;flex-wrap:wrap}
+.order-operation-row{padding:18px;cursor:pointer;flex-wrap:wrap}
+.order-operation-row:focus-visible{outline:2px solid var(--blue);outline-offset:3px}
+.order-operation-detail{background:var(--surface-2)}
+.order-operation-detail .drawer-head,.order-operation-detail .drawer-foot,.order-operation-form .drawer-head,.order-operation-form .drawer-foot{background:var(--surface)}
+.order-operation-detail .drawer-body{padding:22px}
+.order-operation-detail .card{background:var(--surface);box-shadow:none}
+.order-operation-detail .grid-2{gap:16px}
+.order-operation-form{background:var(--surface-2)}
+.order-operation-form .drawer-body{padding:24px}
+.order-operation-form .add-svc-card{background:var(--surface)}
+.order-operation-form .hp-check-row{background:var(--surface)}
+.order-operation-form .svcp-search-bar{background:var(--surface);border-radius:12px;padding:14px}
+.order-operation-form .kp-sec-h{color:var(--ink);font-size:13px;text-transform:none;letter-spacing:0;margin-top:22px}
+.order-operation-quote{border:1px solid var(--line);border-radius:14px;padding:16px;background:var(--surface);margin-top:20px}
+.order-operation-quote>p{font-size:13px;line-height:1.6;color:var(--muted);margin-bottom:0}
+.order-operation-quote .form-grid{margin:18px 0}
+@media(max-width:700px){.order-section-canvas{padding:12px;border-radius:16px}.order-section-heading{align-items:flex-start}.order-section-heading h3{font-size:18px}.order-operation-detail .drawer-body,.order-operation-form .drawer-body{padding:16px}.order-operation-row{padding:14px;gap:12px}.order-section-canvas .grid-4{grid-template-columns:repeat(2,minmax(0,1fr))}.order-operation-detail .grid-2{grid-template-columns:1fr}}
+.order-operation-help{font-size:13px;color:var(--muted);line-height:1.65;margin:0 0 18px}

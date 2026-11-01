@@ -14,6 +14,8 @@ export function FlightBookingActionsDrawer({ service, statusTone, summary, booki
   const [busy, setBusy] = useState(false);
   const toast = useToast();
   const reference = bookingReference;
+  const isFlight = service.kind === 'Авиа';
+  const isTicket = ['Авиа', 'ЖД'].includes(service.kind);
   const run = (callback) => () => { onClose(); callback(); };
   const refresh = async () => {
     setBusy(true);
@@ -21,17 +23,17 @@ export function FlightBookingActionsDrawer({ service, statusTone, summary, booki
     catch (err) { toast(err.message || 'Не удалось обновить сведения', 'err'); }
     finally { setBusy(false); }
   };
-  return <Drawer open title="Действия с авиабронированием" onClose={onClose} width="min(760px, 100vw)" className="flight-booking-drawer"
+  return <Drawer open title={isFlight ? 'Действия с авиабронированием' : 'Действия с услугой'} onClose={onClose} width="min(760px, 100vw)" className="flight-booking-drawer"
     footer={<><Button variant="secondary" icon={busy ? 'loader' : 'loader'} onClick={refresh} disabled={busy || loading}>{busy ? 'Обновляем…' : 'Обновить сведения'}</Button><Button variant="secondary" onClick={onClose}>Закрыть</Button></>}>
     <section className="flight-booking-summary">
-      <div><span className="flight-booking-eyebrow">Авиауслуга · {participants.length} пасс.</span><Pill tone={statusTone || 'gray'}>{service.status}</Pill></div>
+      <div><span className="flight-booking-eyebrow">{service.kind} · {participants.length} пасс.</span><Pill tone={statusTone || 'gray'}>{service.status}</Pill></div>
       <h3>{summary?.title || service.title}</h3><p>{summary?.dates}</p>
       <dl><div><dt>Бронирование</dt><dd>{reference || 'Номер не указан'}</dd></div><div><dt>Поставщик</dt><dd>{service.supplier || 'Не указан'}</dd></div></dl>
     </section>
-    <FlightFareSummary service={service} segments={segments} loading={loading} error={error} />
+    {isFlight && <FlightFareSummary service={service} segments={segments} loading={loading} error={error} />}
     <section className="flight-booking-section"><h3>Изменение бронирования</h3><div className="flight-booking-actions-grid">
-      <Action icon="swap" title="Обмен билета" sub="Подобрать другой перелёт и рассчитать обмен" onClick={run(onExchange)} />
-      <Action icon="refund" title="Возврат билета" sub="Оформить запрос и расчёт возврата" onClick={run(onRefund)} />
+      <Action icon="swap" title={isTicket ? 'Обмен билета' : 'Изменить услугу'} sub={isFlight ? 'Подобрать другой перелёт и рассчитать обмен' : 'Создать запрос на изменение по этой услуге'} onClick={run(onExchange)} />
+      <Action icon="refund" title={isTicket ? 'Возврат билета' : 'Возврат по услуге'} sub="Оформить запрос и расчёт возврата" onClick={run(onRefund)} />
       <Action icon="x" title="Отменить услугу" sub="Открыть подтверждение отмены" onClick={run(onCancel)} danger />
     </div></section>
     <section className="flight-booking-section"><h3>Документы и общение</h3><div className="flight-booking-actions-grid">

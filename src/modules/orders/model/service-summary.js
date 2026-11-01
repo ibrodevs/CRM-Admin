@@ -89,7 +89,14 @@ export function serviceSummary(service, airports = []) {
     const end = travelDate(trip.check_out || d.checkOut || service.ends_at);
     return { title: `${city || 'Город не указан'} · ${hotel}`, dates: `${start || 'Заезд не указан'} → ${end || 'Выезд не указан'}` };
   }
-  return null;
+  const transport = ['ЖД', 'Трансфер', 'Автобус', 'Аэроэкспресс'].includes(service.kind);
+  const rawRoute = String(d.route || trip.route || service.title || '').split(' · ')[0].split(/[→–—]/).map((part) => part.trim());
+  const from = russianCity(trip.origin_city_ru || trip.origin_city || trip.origin || d.from || (rawRoute.length > 1 ? rawRoute[0] : ''), airports);
+  const to = russianCity(trip.destination_city_ru || trip.destination_city || trip.destination || d.to || (rawRoute.length > 1 ? rawRoute.at(-1) : ''), airports);
+  const departure = travelDate(trip.departure || trip.pickup_time || d.depDate || d.date || service.starts_at, transport);
+  const arrival = travelDate(trip.arrival || service.ends_at, transport);
+  const title = transport && from && to ? `${from} → ${to}` : (trip.description || d.name || service.title || service.kind || 'Услуга');
+  return { title, dates: [departure, arrival && arrival !== departure ? arrival : ''].filter(Boolean).join(' → ') || 'Даты не указаны' };
 }
 
 export function serviceStayDetails(service) {
@@ -105,4 +112,14 @@ export function serviceStayDetails(service) {
 export function serviceBookingReference(service) {
   const d = detail(service), booking = service.hotel_details?.booking || {};
   return String(service.booking_reference || d.pnr || d.bookingNo || booking.reference_number || booking.order_id || service.external_id || '');
+}
+
+
+export function serviceDetailRows(service) {
+  const trip = itinerary(service), d = detail(service);
+  const fields = { route: 'Маршрут', depDate: 'Дата отправления', depTime: 'Время отправления', arrDate: 'Дата прибытия', arrTime: 'Время прибытия', cabin: 'Класс обслуживания', trainNo: 'Номер поезда', car_class: 'Класс автомобиля', capacity: 'Пассажиров в автомобиле', luggage_capacity: 'Мест для багажа', description: 'Описание', name: 'Название', address: 'Адрес', city: 'Город', origin: 'Отправление', destination: 'Прибытие', train_number: 'Номер поезда', carrier: 'Перевозчик', car_type: 'Тип вагона', service_class: 'Класс обслуживания', places: 'Доступно мест', vehicle: 'Автомобиль', vehicle_class: 'Класс автомобиля', room: 'Номер', meal_plan: 'Питание', coverage: 'Покрытие', policy_number: 'Номер полиса', country: 'Страна', insured_amount: 'Страховая сумма', visa_type: 'Тип визы', duration: 'Продолжительность', meeting_point: 'Место встречи', notes: 'Примечание' };
+  const source = { ...d, ...trip };
+  const rows = Object.entries(fields).filter(([key]) => source[key] !== undefined && source[key] !== null && source[key] !== '').map(([key, label]) => ({ label, value: typeof source[key] === 'object' ? Object.values(source[key]).filter((value) => typeof value !== 'object').join(' · ') : String(source[key]) }));
+  if (service.title && !rows.some((row) => row.value === service.title)) rows.unshift({ label: 'Услуга', value: service.title });
+  return rows;
 }

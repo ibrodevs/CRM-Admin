@@ -459,7 +459,15 @@ function DocUploadModal({ open, scopeOrder, participants = [], defaultParticipan
 
 function DocCenter({ scopeOrder, participants, services, onOpenDoc, initialDocuments, orders = [] }) {
   const toast = useToast();
-  const normalizeDocument = (item) => item?.serverId ? item : toLegacyDocument(item, orders);
+  const normalizeDocument = (item) => {
+    const mapped = item?.serverId ? item : toLegacyDocument(item, orders);
+    const serviceId = item.serviceId || item.service;
+    const service = (services || []).find((row) => String(row.serverId || row.id) === String(serviceId));
+    const personId = item.personId || item.person;
+    const participant = (participants || []).find((row) => (personId && String(row.person) === String(personId)) || (item.metadata?.participant_id && String(row.serverId || row.id) === String(item.metadata.participant_id)));
+    return { ...mapped, serviceId, service: service ? `${service.kind} · ${service.displayTitle || service.title}` : mapped.service,
+      participant: participant?.name || mapped.participant };
+  };
   const [q, setQ] = useState('');
   const [tab, setTab] = useState('all');
   const [fStatus, setFStatus] = useState('');
@@ -484,13 +492,13 @@ function DocCenter({ scopeOrder, participants, services, onOpenDoc, initialDocum
     if (!Array.isArray(initialDocuments)) return;
     const mapped = initialDocuments.map(normalizeDocument);
     setDocs(scopeOrder ? mapped.filter((d) => d.order === scopeOrder) : mapped);
-  }, [initialDocuments, orders, scopeOrder]);
+  }, [initialDocuments, orders, scopeOrder, services, participants]);
   useEffect(() => {
     if (Array.isArray(initialDocuments) || !scopeOrder) return;
     if (!scopedOrderId) return;
     const controller = new AbortController();
     documentsApi.list({ order: scopedOrderId }, controller.signal)
-      .then((payload) => setDocs(resultsOf(payload).map((item) => toLegacyDocument(item, orders))))
+      .then((payload) => setDocs(resultsOf(payload).map(normalizeDocument)))
       .catch((error) => { if (error.name !== 'AbortError') toast(error.message || 'Не удалось загрузить документы', 'err'); });
     return () => controller.abort();
   }, [initialDocuments, scopeOrder, scopedOrderId]);
@@ -744,7 +752,7 @@ function DocCenter({ scopeOrder, participants, services, onOpenDoc, initialDocum
             const order = orders.find((item) => item.no === scopeOrder);
             const person = (participants || []).find((item) => item.name === doc.participant);
             const created = await documentsApi.upload(doc.file.raw, { order: order?.id || null, person: person?.serverId || null, kind, title: doc.file.name, source: doc.origin || 'upload', document_date: new Date().toISOString().slice(0, 10) });
-            setDocs((cur) => [toLegacyDocument(created, orders), ...cur]);
+            setDocs((cur) => [normalizeDocument(created), ...cur]);
             setUploadFor(null);
             toast('Файл добавлен в документы заказа', 'ok', { title: 'Документ загружен', action: { label: 'Открыть «Документы»', route: 'documents' } });
           } catch (error) { toast(error.message || 'Не удалось загрузить документ', 'err'); }

@@ -1,3 +1,5 @@
+import { ReturnQuoteDrawer } from './ReturnQuoteDrawer.jsx';
+import { participantsForService, validateManualQuote } from '../model/request-context.js';
 import { SectionInfo } from '../../../shared/ui/SectionInfo.jsx';
 import { postSaleFlow } from '../../services/index.js';
 import React, { useState, useEffect, useRef } from 'react';
@@ -5,7 +7,7 @@ import { Icon } from '../../../shared/icons/index.jsx';
 import { aftersalesApi } from '../api/aftersalesApi.js';
 import { documentsApi } from '../../documents/api.js';
 import { workspaceActionsApi } from '../../workspace/api.js';
-import { toLegacyReturn } from '../../../legacy/adapters/legacy-adapters.js';
+import { toLegacyReturn, toLegacyDocument } from '../../../legacy/adapters/legacy-adapters.js';
 import { resultsOf } from '../../../shared/api/client.js';
 import { ActionMenu } from '../../../shared/ui/ActionMenu.jsx';
 import { Button } from '../../../shared/ui/Button.jsx';
@@ -71,19 +73,26 @@ function NewReturnModal({ open, order, services, participants = [], preset, onCl
   const [nf, setNf] = useState({ from: '', to: '', date: null, flightNo: '' });
   const [reqMode, setReqMode] = useState('request');
   const [confirm, setConfirm] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [manualQuote, setManualQuote] = useState(false);
+  const [amounts, setAmounts] = useState({ paid: '', penalty: '', fee: '', difference: '' });
+  const attachmentRef = useRef(null);
   useEffect(() => {
     if (!open) return;
     setType((preset && preset.type) || 'Возврат билета');
     setSvc((preset && preset.serviceId) ? String(preset.serviceId) : '');
     setReason(''); setVoluntary(true); setPax([]); setDocs([]);
+    setManualQuote(false); setAmounts({ paid: '', penalty: '', fee: '', difference: '' });
     setNf({ from: '', to: '', date: null, flightNo: '' }); setReqMode('request'); setConfirm(false);
   }, [open, preset]);
   if (!open) return null;
 
-  const roster = (participants && participants.length
+  const serviceRows = Array.isArray(services) ? services : [];
+  const selectedService = serviceRows.find((service) => String(service.serverId || service.id) === String(svc));
+  const roster = participantsForService((participants && participants.length
     ? participants
     : (order && order.participants && order.participants.length ? order.participants : [])
-  ).map((p) => (typeof p === 'string' ? { name: p, role: '' } : { ...p, id: p.serverId || p.id, name: p.name || p.person_name || p.guest_snapshot?.name || 'Участник' }));
+  ), selectedService).map((p) => (typeof p === 'string' ? { name: p, role: '' } : { ...p, id: p.serverId || p.id, name: p.name || p.person_name || p.guest_snapshot?.name || 'Участник' }));
   const availableServices = Array.isArray(services) ? services : [];
   const serviceOptions = availableServices.map((s) => {
     const id = s.serverId || s.id;
@@ -91,61 +100,60 @@ function NewReturnModal({ open, order, services, participants = [], preset, onCl
   });
   const base = availableServices.find((s) => String(s.serverId || s.id) === String(svc));
   const currency = resolveCurrency(preset?.currency, base?.currency, order?.currency, order?.base_currency);
-  const original = base ? base.sum : 0;
+  const original = manualQuote ? Number(amounts.paid || 0) : Number(base?.sum || 0);
+  const flightExchange = type === 'Обмен билета' && ['Авиа', 'avia'].includes(base?.kind);
   const isRefund = type === 'Возврат билета';
   const isExchange = type === 'Обмен билета';
   const isAnnul = type === 'Аннуляция бронирования';
   const needsPax = isRefund || isExchange;
-  const paxCount = Math.max(1, pax.length || (needsPax ? 0 : 1));
-  const perUnit = original / Math.max(1, roster.length);
-  const scoped = needsPax && pax.length ? Math.round(perUnit * pax.length) : original;
-  const penalty = isAnnul ? scoped : (voluntary ? Math.round(scoped * 0.2) : 0);
-  const fixedFee = String(currency).toUpperCase() === 'RUB' ? 1200 : 14;
-  const certificateFee = String(currency).toUpperCase() === 'RUB' ? 900 : 10;
-  const fee = type === 'Оформление справки' ? certificateFee : (voluntary || isAnnul ? fixedFee : 0);
-  const refund = Math.max(0, scoped - penalty - fee);
-  const togglePax = (i) => setPax((s) => s.includes(i) ? s.filter((x) => x !== i) : [...s, i]);
-  const addDoc = () => setDocs((d) => [...d, { name: 'Документ ' + (d.length + 1) + '.pdf' }]);
+  const scoped = original;
+  const penalty = manualQuote ? Number(amounts.penalty || 0) : 0;
+  const fee = manualQuote ? Number(amounts.fee || 0) : 0;
+  const refund = type === 'Обмен билета' ? Number(amounts.difference || 0) : Math.max(0, scoped - penalty - fee);
+  const togglePax = (i) => setPax((current) => current.includes(i) ? current.filter((x) => x !== i) : [...current, i]);
+  const addDoc = () => attachmentRef.current?.click();
+  const operationLabel = (value) => base && !['Авиа', 'avia', 'ЖД', 'rail'].includes(base.kind)
+    ? ({ 'Обмен билета': 'Изменение услуги', 'Возврат билета': 'Возврат по услуге' }[value] || value) : value;
 
 
   const validate = () => {
     if (!svc) { toast('Выберите услугу заказа', 'err'); return false; }
     if (needsPax && !pax.length) { toast('Выберите, на кого оформляется ' + (isExchange ? 'обмен' : 'возврат'), 'err'); return false; }
     if (isRefund && !voluntary && !docs.length) { toast('Приложите документ-основание для вынужденного возврата', 'err'); return false; }
-    if (isExchange && (!nf.to || !nf.date)) { toast('Заполните новый рейс (направление и дату)', 'err'); return false; }
+    if (manualQuote && !validateManualQuote(amounts, isExchange)) { toast('Укажите подтверждённые суммы расчёта; нулевые значения тоже нужно заполнить.', 'err'); return false; }
+    if (isExchange && !flightExchange && !reason.trim()) { toast('Опишите требуемые изменения услуги', 'err'); return false; }
+    if (flightExchange && (!nf.to || !nf.date)) { toast('Заполните новый рейс (направление и дату)', 'err'); return false; }
     return true;
   };
-  const submit = () => {
-    onCreate({ type, serviceId: svc, serviceLabel: serviceOptions.find((item) => item.value === svc)?.label || svc, reason, original, penalty, fee, refund, voluntary, currency,
-      participantIds: pax.map((i) => roster[i].id).filter(Boolean), participants: pax.map((i) => roster[i].name), docs: docs.map((d) => d.name),
-      newFlight: isExchange ? nf : null, reqMode: isExchange ? reqMode : null });
+  const submit = async () => {
+    setSaving(true);
+    try { await onCreate({ type, serviceId: svc, serviceLabel: serviceOptions.find((item) => item.value === svc)?.label || svc, reason, original, penalty, fee, refund, voluntary, currency, hasQuote: manualQuote,
+      participantIds: pax.map((i) => roster[i].id).filter(Boolean), participants: pax.map((i) => roster[i].name), docs: docs.map((d) => d.name), files: docs,
+      newFlight: flightExchange ? nf : null, reqMode: isExchange ? 'request' : null }); }
+    finally { setSaving(false); }
   };
+  const confirmMsg = `Будет создан запрос «${operationLabel(type)}» по услуге «${serviceOptions.find((item) => item.value === svc)?.label || ''}». Изменение бронирования выполняется отдельно, после проверки и согласования.`;
 
-  const confirmMsg = isAnnul
-    ? 'Бронирование по услуге «' + svc + '» будет аннулировано. Действие необратимо.'
-    : isExchange
-      ? (reqMode === 'request' ? 'Будет отправлен запрос на обмен авиакомпании' : 'Обмен будет проведён') + ' для ' + pax.length + ' пасс. Новый рейс: ' + (nf.from || '—') + ' → ' + (nf.to || '—') + '.'
-      : 'Будет создан ' + (voluntary ? 'добровольный' : 'вынужденный') + ' возврат для ' + pax.length + ' пасс. на сумму ' + rUsd(refund, currency) + '.';
 
   return (
     <>
-    <Drawer open={open} onClose={onClose} title="Новый запрос" sub={order ? `Заказ № ${order.no} · ${order.client}` : 'Постпродажное обслуживание'}
+    <Drawer open={open} onClose={onClose} className="order-operation-form" width="min(760px,100vw)" title={operationLabel(type)} sub={order ? `Заказ № ${order.no} · ${order.client}` : 'Постпродажное обслуживание'}
       footer={<>
         <Button variant="secondary" onClick={onClose}>Отмена</Button>
-        <Button icon={isAnnul ? 'trash' : 'plus'} variant={isAnnul ? 'danger' : 'primary'} disabled={!svc} onClick={() => { if (validate()) setConfirm(true); }}>
-          {isExchange ? (reqMode === 'request' ? 'Запросить обмен' : 'Провести обмен') : isAnnul ? 'Аннулировать' : 'Создать запрос'}
+        <Button icon={isAnnul ? 'trash' : 'plus'} variant={isAnnul ? 'danger' : 'primary'} disabled={!svc || saving} onClick={() => { if (validate()) setConfirm(true); }}>
+          {saving ? 'Сохраняем…' : 'Создать запрос'}
         </Button>
       </>}>
         <div className="kp-sec-h" style={{ marginTop: 0 }}>Тип операции</div>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 18 }}>
           {Object.keys(RETURN_TYPE).map((t) => (
-            <button key={t} className="add-svc-card" style={{ flexDirection: 'row', justifyContent: 'flex-start', gap: 12, borderColor: type === t ? 'var(--blue)' : 'var(--line)', background: type === t ? 'var(--blue-soft)' : '#fff' }} onClick={() => setType(t)}>
+            <button key={t} className="add-svc-card" style={{ flexDirection: 'row', justifyContent: 'flex-start', gap: 12, borderColor: type === t ? 'var(--blue)' : 'var(--line)', background: type === t ? 'var(--blue-soft)' : 'var(--surface)' }} onClick={() => setType(t)}>
               <span className="ic" style={{ width: 36, height: 36, background: 'var(--blue)' }}><Icon name={RETURN_TYPE[t].icon} style={{ width: 18, height: 18 }} /></span>
-              <span className="nm">{t}</span>
+              <span className="nm">{operationLabel(t)}</span>
             </button>
           ))}
         </div>
-        <Field label="Услуга"><Select placeholder="Выберите услугу заказа" options={serviceOptions} value={svc} onChange={(e) => setSvc(e.target.value)} /></Field>
+        <Field label="Услуга"><Select placeholder="Выберите услугу заказа" options={serviceOptions} value={svc} onChange={(e) => { setSvc(e.target.value); setPax([]); }} /></Field>
 
 
         {(isRefund || isExchange) && (
@@ -194,7 +202,8 @@ function NewReturnModal({ open, order, services, participants = [], preset, onCl
                   <button className="btn btn-ghost btn-icon btn-sm" onClick={() => setDocs((x) => x.filter((_, j) => j !== i))}><Icon name="trash" /></button>
                 </div>
               ))}
-              <button className="doc-chip" style={{ borderStyle: 'dashed', color: 'var(--blue)', width: '100%' }} onClick={addDoc}>
+              <input ref={attachmentRef} type="file" multiple hidden onChange={(event) => { setDocs((current) => [...current, ...Array.from(event.target.files || [])]); event.target.value = ''; }} />
+              <button type="button" className="doc-chip" style={{ borderStyle: 'dashed', color: 'var(--blue)', width: '100%' }} onClick={addDoc}>
                 <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}><Icon name="plus" style={{ width: 16, height: 16 }} />Загрузить документ</span>
               </button>
             </div>
@@ -202,7 +211,7 @@ function NewReturnModal({ open, order, services, participants = [], preset, onCl
         )}
 
 
-        {isExchange && (
+        {flightExchange && (
           <>
             <div className="card" style={{ padding: 12, borderLeft: '3px solid var(--amber)', marginTop: 8, display: 'flex', gap: 10 }}>
               <Icon name="alertCircle" style={{ width: 18, height: 18, color: 'var(--amber)', flexShrink: 0 }} />
@@ -215,31 +224,26 @@ function NewReturnModal({ open, order, services, participants = [], preset, onCl
               <div className="av-field" style={{ minWidth: 150 }}><DateField label="Дата вылета" value={nf.date} onChange={(d) => setNf((s) => ({ ...s, date: d }))} placeholder="Выбрать" /></div>
               <div className="av-field" style={{ minWidth: 140 }}><span className="label">Рейс (если известен)</span><Input value={nf.flightNo} onChange={(e) => setNf((s) => ({ ...s, flightNo: e.target.value }))} placeholder="напр. KC 132" /></div>
             </div>
-            <div className="kp-sec-h">Как оформить</div>
-            <div className="seg-toggle" style={{ maxWidth: 420 }}>
-              <button className={'seg-btn' + (reqMode === 'request' ? ' active' : '')} onClick={() => setReqMode('request')}>Запросить у авиакомпании</button>
-              <button className={'seg-btn' + (reqMode === 'now' ? ' active' : '')} onClick={() => setReqMode('now')}>Провести сразу</button>
-            </div>
+
           </>
         )}
 
         <div style={{ height: 12 }} />
-        <Field label="Причина обращения"><Input placeholder="Кратко опишите причину…" value={reason} onChange={(e) => setReason(e.target.value)} /></Field>
+        <Field label={isExchange && !flightExchange ? "Что нужно изменить" : "Причина обращения"}><Input placeholder="Кратко опишите причину…" value={reason} onChange={(e) => setReason(e.target.value)} /></Field>
 
-        {svc && type !== 'Оформление справки' && (
-          <div className="card card-pad" style={{ margin: '16px 0 4px', background: 'var(--surface-2)' }}>
-            <div className="amt-row"><span className="k">{needsPax && pax.length ? 'Стоимость выбранных (' + pax.length + ')' : 'Первоначальная стоимость'}</span><span className="v">{rUsd(scoped, currency)}</span></div>
-            <div className="amt-row minus"><span className="k">Предв. штраф поставщика</span><span className="v">− {rUsd(penalty, currency)}</span></div>
-            <div className="amt-row minus"><span className="k">Сервисный сбор</span><span className="v">− {rUsd(fee, currency)}</span></div>
-            <div className="amt-row total"><span className="k">{isExchange ? 'Предв. доплата/возврат' : 'Предв. сумма к возврату'}</span><span className="v">{rUsd(refund, currency)}</span></div>
-          </div>
-        )}
+        {svc && ['Возврат билета', 'Обмен билета'].includes(type) && <section className="order-operation-quote">
+          <label className="hp-check-row"><Checkbox on={manualQuote} onChange={() => setManualQuote((current) => !current)} /><span>Добавить согласованный расчёт</span></label>
+          {!manualQuote ? <p>Запрос можно создать без расчёта. Штрафы, сборы и итоговая сумма уточняются по условиям поставщика.</p> : <>
+            <div className="form-grid">{[['paid', 'Оплачено по выбранным пассажирам'], ['penalty', 'Штраф поставщика'], ['fee', 'Сервисный сбор'], ...(isExchange ? [['difference', 'Разница тарифа: доплата / возврат']] : [])].map(([key, label]) => <Field key={key} label={`${label}, ${currency}`}><Input type="number" step="0.01" min={key === 'difference' ? undefined : '0'} value={amounts[key]} onChange={(event) => setAmounts((current) => ({ ...current, [key]: event.target.value }))} /></Field>)}</div>
+            <div className="amt-row total"><span>{isExchange ? 'Разница по расчёту' : 'К возврату по расчёту'}</span><strong>{rUsd(refund, currency)}</strong></div>
+          </>}
+        </section>}
 
     </Drawer>
 
 
       <ConfirmDialog open={confirm} title={'Подтвердите: ' + type + '?'} message={confirmMsg}
-        confirmLabel={isAnnul ? 'Аннулировать' : isExchange ? (reqMode === 'request' ? 'Запросить' : 'Провести') : 'Создать'}
+        confirmLabel="Создать запрос"
         confirmVariant={isAnnul ? 'danger' : 'primary'}
         onConfirm={() => { setConfirm(false); submit(); }} onCancel={() => setConfirm(false)} />
     </>
@@ -247,15 +251,16 @@ function NewReturnModal({ open, order, services, participants = [], preset, onCl
 }
 
 
-function ReturnCard({ op, onBack, onChange }) {
+function ReturnCard({ op, onBack, onChange, onReload, embedded = false }) {
   const toast = useToast();
   const meta = RETURN_TYPE[op.type] || RETURN_TYPE['Возврат билета'];
   const refund = calcRefund(op.fin);
   const isExchange = op.type === 'Обмен билета';
-  const terminal = isTerminal(op.status);
+  const terminal = isTerminal(op.status) || op.status === 'Завершено';
 
 
   const [confirm, setConfirm] = useState(null);
+  const [quoteOpen, setQuoteOpen] = useState(false);
   const [documents, setDocuments] = useState(op.documents || []);
   const [history, setHistory] = useState(op.history || []);
   const [comment, setComment] = useState('');
@@ -280,14 +285,14 @@ function ReturnCard({ op, onBack, onChange }) {
     const file = event.target.files?.[0]; event.target.value = '';
     if (!file) return;
     try {
-      const created = await documentsApi.upload(file, { order: op.orderId, service: op.service || null, kind: 'other', title: file.name, source: 'upload', metadata: { aftersale_case: op.serverId } });
+      const created = await documentsApi.upload(file, { order: op.orderId, service: op.serviceId || null, kind: 'other', title: file.name, source: 'upload', metadata: { aftersale_case: op.serverId } });
       setDocuments((current) => [...current, { ...created, name: created.title, kind: created.kind, v: created.current_version, status: created.status }]);
       toast('Документ загружен', 'ok');
     } catch (error) { toast(error.message, 'err'); }
   };
   const generateCertificate = async () => {
     try {
-      const created = await documentsApi.create({ order: op.orderId, service: op.service || null, kind: 'certificate', title: `Справка ${op.no}`, source: 'generated', metadata: { aftersale_case: op.serverId } });
+      const created = await documentsApi.create({ order: op.orderId, service: op.serviceId || null, kind: 'certificate', title: `Справка ${op.no}`, source: 'generated', metadata: { aftersale_case: op.serverId } });
       await documentsApi.generate(created.id, { context: { case_number: op.no, type: op.type } });
       const refreshed = await aftersalesApi.documents(op.serverId);
       setDocuments(refreshed.map((doc) => ({ ...doc, name: doc.title, kind: doc.kind, v: doc.current_version, status: doc.status })));
@@ -324,7 +329,8 @@ function ReturnCard({ op, onBack, onChange }) {
         doAdvance, isExchange ? 'Переоформить' : 'Исполнить', 'primary');
     } else { doAdvance(); }
   };
-  const primaryLabel = {
+  const needsQuote = !op.currentQuoteVersion && ['На проверке', 'Ожидает согласования клиента'].includes(op.status);
+  const primaryLabel = needsQuote ? 'Добавить расчёт' : {
     'Создано': 'Отправить на проверку', 'На проверке': 'Запросить согласование',
     'Ожидает согласования клиента': 'Согласовано клиентом', 'Передано поставщику': 'Взять в обработку',
     'В обработке': isExchange ? 'Переоформить' : 'Исполнить возврат',
@@ -333,7 +339,7 @@ function ReturnCard({ op, onBack, onChange }) {
   return (
     <div className="fade-in">
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>
-        <Button variant="secondary" size="sm" icon="chevLeft" onClick={onBack}>К реестру</Button>
+        <Button variant="secondary" size="sm" icon="chevLeft" onClick={onBack}>{embedded ? 'К операциям заказа' : 'К реестру'}</Button>
         <span style={{ color: 'var(--muted)', fontSize: 14 }}>Возвраты и обмены / {op.no}</span>
       </div>
 
@@ -343,16 +349,15 @@ function ReturnCard({ op, onBack, onChange }) {
         <div style={{ flex: 1, minWidth: 200 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
             <h2 className="card-title">{op.type}</h2>
-            <ActionMenu trigger={<button style={{ border: 'none', background: 'none', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 6 }}><Pill tone={RETURN_STATUS[op.status]}>{op.status}</Pill><Icon name="chevDown" style={{ width: 16, height: 16, color: 'var(--muted-2)' }} /></button>}
-              items={Object.keys(RETURN_STATUS).map((s) => ({ icon: op.status === s ? 'check' : null, label: s, onClick: () => setStatus(s) }))} />
+            <Pill tone={RETURN_STATUS[op.status]}>{op.status}</Pill>
           </div>
           <div style={{ color: 'var(--muted)', fontSize: 14, marginTop: 4 }}>{op.no} · {op.service} · заказ № {op.order}</div>
         </div>
         <div style={{ textAlign: 'right' }}>
           <div style={{ fontSize: 12, color: 'var(--muted)' }}>Дедлайн исполнения</div>
-          <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--red)' }}>{op.deadline}</div>
+          <div style={{ fontSize: 16, fontWeight: 700, color: terminal ? 'var(--muted)' : 'var(--red)' }}>{op.deadline}</div>
         </div>
-        {!terminal && primaryLabel && <Button icon="arrowRight" onClick={advance}>{primaryLabel}</Button>}
+        {!terminal && primaryLabel && <Button icon="arrowRight" onClick={needsQuote ? () => setQuoteOpen(true) : advance}>{primaryLabel}</Button>}
         {!terminal && <ActionMenu trigger={<button className="btn btn-secondary btn-icon"><Icon name="more" /></button>}
           items={[
             { icon: 'x', label: 'Отклонить', danger: true, onClick: () => ask('Отклонить запрос?', 'Запрос ' + op.no + ' будет отклонён. Дальнейшие действия по нему станут недоступны.', () => setStatus('Отклонено'), 'Отклонить') },
@@ -387,6 +392,7 @@ function ReturnCard({ op, onBack, onChange }) {
 
         <div className="card card-pad">
           <h3 className="card-title" style={{ fontSize: 17, marginBottom: 14 }}>Финансовый расчёт</h3>
+          {op.hasFinancialQuote === false ? <p className="order-operation-help">Расчёт ещё не добавлен. Итоговая сумма станет известна после проверки условий поставщика.</p> : <>
           <div className="amt-row"><span className="k">Первоначальная стоимость</span><span className="v">{rUsd(op.fin.original, op.currency)}</span></div>
           <div className="amt-row minus"><span className="k">Штраф поставщика</span><span className="v">− {rUsd(op.fin.supplierPenalty, op.currency)}</span></div>
           <div className="amt-row minus"><span className="k">Сервисный сбор</span><span className="v">− {rUsd(op.fin.serviceFee, op.currency)}</span></div>
@@ -397,6 +403,8 @@ function ReturnCard({ op, onBack, onChange }) {
             <div className="amt-row total"><span className="k">Сумма к возврату</span><span className="v" style={{ color: 'var(--green)' }}>{rUsd(refund, op.currency)}</span></div>
           )}
           {op.status === 'Завершено' && op.finOp && <div style={{ marginTop: 10 }}><span className="link-chip"><Icon name="finance" />Фин. операция {op.finOp}</span></div>}
+          </>}
+          {!terminal && op.status !== 'Завершено' && onReload && <Button variant="secondary" size="sm" icon="edit" onClick={() => setQuoteOpen(true)}>{op.hasFinancialQuote === false ? 'Добавить расчёт' : 'Новая версия расчёта'}</Button>}
         </div>
       </div>
 
@@ -442,9 +450,9 @@ function ReturnCard({ op, onBack, onChange }) {
         {documents.length ? documents.map((d, i) => (
           <div className="ver-row" key={i}>
             <span className="ver-badge" style={{ background: 'var(--blue-soft)' }}><Icon name="docs" style={{ width: 16, height: 16 }} /></span>
-            <div style={{ flex: 1 }}><div style={{ fontWeight: 600, fontSize: 14 }}>{d.name}</div><div style={{ fontSize: 12, color: 'var(--muted)' }}>{d.kind} · v{d.v}</div></div>
-            <Pill tone={DOC_STATUS2[d.status] || 'gray'}>{d.status}</Pill>
-            <button className="icon-btn" onClick={() => window.location.assign(documentsApi.downloadUrl(d.id))} style={{ marginLeft: 8 }}><Icon name="download" /></button>
+            <div style={{ flex: 1 }}><div style={{ fontWeight: 600, fontSize: 14 }}>{d.name}</div><div style={{ fontSize: 12, color: 'var(--muted)' }}>{toLegacyDocument(d).type} · версия {d.v}</div></div>
+            <Pill tone={DOC_STATUS2[toLegacyDocument(d).status] || 'gray'}>{toLegacyDocument(d).status}</Pill>
+            <button className="icon-btn" aria-label={'Скачать ' + d.name} onClick={() => window.location.assign(documentsApi.downloadUrl(d.id))} style={{ marginLeft: 8 }}><Icon name="download" /></button>
           </div>
         )) : <div style={{ color: 'var(--muted-2)', padding: '8px 0' }}>Документы ещё не приложены</div>}
         <div style={{ display: 'flex', gap: 10, marginTop: 14 }}>
@@ -469,6 +477,7 @@ function ReturnCard({ op, onBack, onChange }) {
         </div>
       </div>
 
+      {quoteOpen && <ReturnQuoteDrawer operation={op} onClose={() => setQuoteOpen(false)} onSaved={onReload} />}
       <ConfirmDialog open={!!confirm} title={confirm && confirm.title} message={confirm && confirm.message}
         confirmLabel={confirm && confirm.confirmLabel} confirmVariant={confirm && confirm.confirmVariant}
         onConfirm={() => { const c = confirm; setConfirm(null); c && c.onConfirm && c.onConfirm(); }}
@@ -480,21 +489,26 @@ function ReturnCard({ op, onBack, onChange }) {
 
 
 
-function ReturnsModule({ scopeOrder, onOpenOrder, compact, order, initialCases, initialNew, orders = EMPTY_LIST, services = EMPTY_LIST, participants = EMPTY_LIST }) {
+function ReturnsModule({ scopeOrder, onOpenOrder, compact, order, initialCases, initialNew, createOnly = false, onNewClose, onCreated, onCountChange, orders = EMPTY_LIST, services = EMPTY_LIST, participants = EMPTY_LIST }) {
   const toast = useToast();
   const effectiveOrder = order && participants.length ? { ...order, participants } : order;
   const contextOrders = effectiveOrder ? [effectiveOrder, ...orders.filter((item) => item.id !== effectiveOrder.id)] : orders;
   const availableServices = (Array.isArray(services) ? services : []).filter((service) => postSaleFlow(service) === 'ticket');
   const mappedCases = () => (initialCases || []).map((item) => toLegacyReturn(item, contextOrders, availableServices)).filter((item) => !scopeOrder || item.order === scopeOrder);
   const [ops, setOps] = useState(mappedCases);
+  const [loading, setLoading] = useState(!createOnly && !Array.isArray(initialCases));
+  const pendingCreate = useRef(null);
+  useEffect(() => { if (!loading) onCountChange?.(ops.length); }, [ops.length, loading, onCountChange]);
   useEffect(() => { if (Array.isArray(initialCases)) setOps(mappedCases()); }, [initialCases, orders, scopeOrder, order, services, participants]);
   useEffect(() => {
     const orderId = order?.id || order?.serverId || order?.orderId;
-    if (Array.isArray(initialCases) || !orderId) return;
+    if (createOnly || Array.isArray(initialCases) || !orderId) return;
     const controller = new AbortController();
+    setLoading(true);
     aftersalesApi.list({ order: orderId }, controller.signal)
       .then((payload) => setOps(resultsOf(payload).map((item) => toLegacyReturn(item, contextOrders, availableServices))))
-      .catch((error) => { if (error.name !== 'AbortError') toast(error.message || 'Не удалось загрузить постпродажные операции', 'err'); });
+      .catch((error) => { if (error.name !== 'AbortError') toast(error.message || 'Не удалось загрузить постпродажные операции', 'err'); })
+      .finally(() => { if (!controller.signal.aborted) setLoading(false); });
     return () => controller.abort();
   }, [initialCases, order?.id, services, participants]);
   const [view, setView] = useState('list');
@@ -512,7 +526,7 @@ function ReturnsModule({ scopeOrder, onOpenOrder, compact, order, initialCases, 
   const updateOp = async (no, patch, histText) => {
     const current = ops.find((item) => item.no === no);
     if (!current || !patch.status || !current.serverId) {
-      const local = current ? { ...current, ...patch, history: histText ? [...current.history, { t: 'сейчас', text: histText, who: 'Даниель' }] : current.history } : null;
+      const local = current ? { ...current, ...patch, history: histText ? [...current.history, { t: 'сейчас', text: histText, who: 'Сотрудник' }] : current.history } : null;
       setOps((cur) => cur.map((item) => item.no === no ? local : item));
       return local;
     }
@@ -520,7 +534,7 @@ function ReturnsModule({ scopeOrder, onOpenOrder, compact, order, initialCases, 
     try {
       let updated;
       if (target === 'completed') {
-        updated = await aftersalesApi.execute(current.serverId, current.currentQuoteVersion ? {} : { manual_exception: true, reason: histText || 'Исключение подтверждено оператором' });
+        updated = await aftersalesApi.execute(current.serverId, {});
       } else if (target === 'cancelled') {
         updated = await aftersalesApi.cancel(current.serverId, histText || 'Отменено оператором');
       } else if (target === 'awaiting_client_approval') {
@@ -540,13 +554,21 @@ function ReturnsModule({ scopeOrder, onOpenOrder, compact, order, initialCases, 
       return mapped;
     } catch (error) { toast(error.message || 'Не удалось изменить статус', 'err'); return null; }
   };
+  const reloadOperation = async (operation) => {
+    const updated = toLegacyReturn(await aftersalesApi.detail(operation.serverId), contextOrders, availableServices);
+    setOps((current) => current.map((item) => item.serverId === operation.serverId ? { ...item, ...updated } : item));
+  };
+  const closeNew = () => { setNewOpen(false); pendingCreate.current = null; onNewClose?.(); };
   const createOp = async (d) => {
     const selectedOrder = order || orders.find((item) => item.no === scopeOrder) || orders[0];
     if (!selectedOrder) { toast('Сначала создайте или выберите заказ', 'err'); return; }
     const parts = d.participants && d.participants.length ? d.participants : ['—'];
     const kinds = { 'Возврат билета': 'refund', 'Обмен билета': 'exchange', 'Аннуляция бронирования': 'cancellation', 'Оформление справки': 'certificate' };
     try {
-      const created = await aftersalesApi.create({
+      const signature = JSON.stringify([selectedOrder.id, d.serviceId, d.type, d.reason, d.participantIds]);
+      if (pendingCreate.current?.signature !== signature) pendingCreate.current = { signature, created: null, quoted: false, uploaded: new Set() };
+      const pending = pendingCreate.current;
+      const created = pending.created || await aftersalesApi.create({
         order: selectedOrder.id,
         service: d.serviceId || null,
         participants: d.participantIds?.length ? d.participantIds : undefined,
@@ -561,8 +583,9 @@ function ReturnsModule({ scopeOrder, onOpenOrder, compact, order, initialCases, 
           exchange_mode: d.reqMode || null,
         },
       });
+      pending.created = created;
       let detail = created;
-      if (['Возврат билета', 'Обмен билета'].includes(d.type)) {
+      if (d.hasQuote && ['Возврат билета', 'Обмен билета'].includes(d.type) && !pending.quoted) {
         await aftersalesApi.quote(created.id, {
           currency: resolveCurrency(d.currency, selectedOrder.currency, selectedOrder.base_currency),
           original_paid: String(d.original || 0),
@@ -574,18 +597,28 @@ function ReturnsModule({ scopeOrder, onOpenOrder, compact, order, initialCases, 
           exchange_difference: d.type === 'Обмен билета' ? String(d.refund || 0) : null,
           details: { reason: d.reason || '', voluntary: d.voluntary },
         });
+        pending.quoted = true;
         detail = await aftersalesApi.detail(created.id);
+      }
+      for (const file of d.files || []) {
+        if (pending.uploaded.has(file)) continue;
+        await documentsApi.upload(file, { order: selectedOrder.id, service: d.serviceId, kind: 'other', title: file.name, metadata: { aftersale_case: created.id, forced_refund_evidence: !d.voluntary } });
+        pending.uploaded.add(file);
       }
       const np = { ...toLegacyReturn(detail, contextOrders, availableServices), participants: parts };
       setOps((cur) => [np, ...cur]); setNewOpen(false); setActiveNo(np.no); setView('card');
-      toast(np.no + ' создан', 'ok', { title: 'Запрос оформлен', action: { label: 'Открыть «Возвраты и обмены»', route: 'returns' } });
+      pendingCreate.current = null;
+      onCreated?.(np);
+      toast(np.no + ' создан', 'ok');
     } catch (error) { toast(error.message, 'err'); }
   };
 
-  if (view === 'card' && active) return (
+  if (createOnly) return <NewReturnModal open={newOpen} order={order} services={availableServices} participants={participants} preset={initialNew} onClose={closeNew} onCreate={createOp} />;
+
+  if (!compact && view === 'card' && active) return (
     <>
-      <ReturnCard op={active} onBack={() => setView('list')} onChange={updateOp} />
-      <NewReturnModal open={newOpen} order={order} services={availableServices} participants={participants} preset={initialNew} onClose={() => setNewOpen(false)} onCreate={createOp} />
+      <ReturnCard op={active} onBack={() => setView('list')} onChange={updateOp} onReload={() => reloadOperation(active)} />
+      <NewReturnModal open={newOpen} order={order} services={availableServices} participants={participants} preset={initialNew} onClose={closeNew} onCreate={createOp} />
     </>
   );
 
@@ -595,25 +628,27 @@ function ReturnsModule({ scopeOrder, onOpenOrder, compact, order, initialCases, 
     const activeExch = ops.filter((o) => o.type === 'Обмен билета' && !isTerminal(o.status) && o.status !== 'Завершено');
     const done = ops.filter((o) => o.status === 'Завершено' || isTerminal(o.status));
     const Row = (o) => (
-      <div className="oc-svc" key={o.no} onClick={() => { setActiveNo(o.no); setView('card'); }}>
+      <div className="oc-svc order-operation-row" role="button" tabIndex={0} onKeyDown={(event) => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); setActiveNo(o.no); setView('card'); } }} key={o.no} onClick={() => { setActiveNo(o.no); setView('card'); }}>
         <span className="oc-svc-ic" style={{ background: o.status === 'Завершено' ? 'var(--green)' : isTerminal(o.status) ? '#9aa3b2' : 'var(--blue)' }}><Icon name={RETURN_TYPE[o.type].icon} /></span>
         <div style={{ flex: 1, minWidth: 0 }}><div className="oc-svc-t">{o.type}</div><div className="oc-svc-s">{o.no} · {o.service}</div></div>
         <Pill tone={RETURN_STATUS[o.status]}>{o.status}</Pill>
-        <div style={{ width: 96, textAlign: 'right', fontWeight: 700 }}>{o.type === 'Обмен билета' ? (o.exchange.diff >= 0 ? '+' : '−') + rUsd(Math.abs(o.exchange.diff), o.currency) : rUsd(calcRefund(o.fin), o.currency)}</div>
+        <div style={{ width: 96, textAlign: 'right', fontWeight: 700 }}>{o.type === 'Обмен билета' ? (o.hasFinancialQuote === false ? 'Расчёт уточняется' : (o.exchange.diff >= 0 ? '+' : '−') + rUsd(Math.abs(o.exchange.diff), o.currency)) : (o.hasFinancialQuote === false ? 'Расчёт уточняется' : rUsd(calcRefund(o.fin), o.currency))}</div>
         <Icon name="chevRight" style={{ width: 20, height: 20, color: 'var(--faint)' }} />
       </div>
     );
     return (
-      <div className="fade-in">
-        <div style={{ display: 'flex', alignItems: 'center', marginBottom: 16 }}>
-          <span style={{ color: 'var(--muted)', fontSize: 14 }}>Постпродажное обслуживание заказа</span>
-          <div style={{ flex: 1 }} /><Button icon="plus" onClick={() => setNewOpen(true)}>Возврат / обмен</Button>
+      <div className="fade-in order-aftersale-board">
+        <div className="order-aftersale-toolbar" style={{ display: 'flex', alignItems: 'center', marginBottom: 16 }}>
+          <span style={{ color: 'var(--muted)', fontSize: 14 }}>Запросы по услугам этого заказа</span>
+          <div style={{ flex: 1 }} /><Button icon="plus" onClick={() => setNewOpen(true)}>Создать запрос</Button>
         </div>
-        {!ops.length && <EmptyState icon="refund" title="Операций постпродажи нет" sub="Создайте возврат, обмен, аннуляцию или справку" />}
+        {loading && !ops.length && <p role="status" className="order-operation-help">Загрузка запросов по заказу…</p>}
+        {!loading && !ops.length && <EmptyState icon="refund" title="Операций постпродажи нет" sub="Создайте возврат, обмен, аннуляцию или справку" />}
         {activeReturns.length > 0 && <><div className="kp-sec-h">Активные возвраты</div>{activeReturns.map(Row)}</>}
         {activeExch.length > 0 && <><div className="kp-sec-h">Активные обмены</div>{activeExch.map(Row)}</>}
         {done.length > 0 && <><div className="kp-sec-h">История завершённых</div>{done.map(Row)}</>}
-        <NewReturnModal open={newOpen} order={order} services={availableServices} participants={participants} preset={initialNew} onClose={() => setNewOpen(false)} onCreate={createOp} />
+        {view === 'card' && active && <Drawer open title={active.type + ' · ' + active.no} width="min(1040px,100vw)" className="order-operation-detail" onClose={() => setView('list')}><ReturnCard op={active} embedded onBack={() => setView('list')} onChange={updateOp} onReload={() => reloadOperation(active)} /></Drawer>}
+        <NewReturnModal open={newOpen} order={order} services={availableServices} participants={participants} preset={initialNew} onClose={closeNew} onCreate={createOp} />
       </div>
     );
   }
@@ -698,7 +733,7 @@ function ReturnsModule({ scopeOrder, onOpenOrder, compact, order, initialCases, 
           </table>
         ) : <EmptyState icon="refund" title="Операций не найдено" sub="Измените фильтры или создайте запрос" />}
       </div>
-      <NewReturnModal open={newOpen} order={order} services={availableServices} participants={participants} preset={initialNew} onClose={() => setNewOpen(false)} onCreate={createOp} />
+      <NewReturnModal open={newOpen} order={order} services={availableServices} participants={participants} preset={initialNew} onClose={closeNew} onCreate={createOp} />
     </div>
   );
 }

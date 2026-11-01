@@ -56,7 +56,7 @@ function OrderResponsiblesTab({ services = [], users = [], onUpdated }) {
   const reassign = async (service, user) => {
     const serviceId = service.serverId || service.id;
     if (!serviceId || !user.id) {
-      toast('Для услуги или пользователя не найден backend ID', 'err');
+      toast('Не удалось определить услугу или сотрудника. Обновите заказ', 'err');
       return;
     }
     try {
@@ -72,7 +72,7 @@ function OrderResponsiblesTab({ services = [], users = [], onUpdated }) {
     <div className="fade-in">
       <div style={{ marginBottom: 12 }}>
         <h3 className="card-title" style={{ fontSize: 18, margin: 0 }}>Ответственные по услугам</h3>
-        <div style={{ fontSize: 12, color: 'var(--muted)' }}>Назначения загружены из услуг заказа и сохраняются непосредственно в backend.</div>
+        <div style={{ fontSize: 12, color: 'var(--muted)' }}>Сотрудники, ответственные за работу с каждой услугой заказа.</div>
       </div>
       {!rows.length ? <EmptyState icon="users" title="В заказе пока нет услуг" sub="Ответственного можно назначить после добавления услуги." /> : (
         <div className="table-card">
@@ -181,7 +181,7 @@ function DynamicExtrasPanel({ services = [] }) {
       const service = services.find((item) => String(item.serverId || item.id) === String(draft.service));
       setRows((current) => [...current, { ...created, serviceId: draft.service, serviceTitle: service?.title || service?.kind || 'Услуга' }]);
       setFormOpen(false);
-      toast('Дополнительная услуга сохранена в backend', 'ok');
+      toast('Дополнительная услуга сохранена', 'ok');
     } catch (error) {
       toast(error.message || 'Не удалось добавить дополнительную услугу', 'err');
     }
@@ -192,7 +192,7 @@ function DynamicExtrasPanel({ services = [] }) {
       <div style={{ display: 'flex', alignItems: 'center', marginBottom: 12, gap: 12 }}>
         <div style={{ flex: 1 }}>
           <h3 className="card-title" style={{ fontSize: 18, margin: 0 }}>Дополнительные услуги</h3>
-          <div style={{ fontSize: 12, color: 'var(--muted)' }}>Показаны только услуги, сохранённые в backend у услуг этого заказа.</div>
+          <div style={{ fontSize: 12, color: 'var(--muted)' }}>Дополнения к услугам этого заказа и их текущее состояние.</div>
         </div>
         <Button size="sm" icon="plus" disabled={!services.length} onClick={openForm}>Добавить</Button>
       </div>
@@ -269,7 +269,7 @@ function ExtrasCatalogModal({ open, onClose }) {
       setCatalog((current) => [...current, created]);
       setFormOpen(false);
       setDraft({ name: '', kind: 'avia', stage: 'before_booking', default_fee: '', currency: '' });
-      toast('Услуга добавлена в backend-справочник', 'ok');
+      toast('Услуга добавлена в справочник', 'ok');
     } catch (error) {
       toast(error.message || 'Не удалось добавить услугу', 'err');
     }
@@ -277,7 +277,7 @@ function ExtrasCatalogModal({ open, onClose }) {
 
   if (!open) return null;
   return (
-    <Drawer open onClose={onClose} title="Справочник дополнительных услуг" sub="Настраиваемые позиции организации из backend." width="min(900px, 96vw)"
+    <Drawer open onClose={onClose} title="Справочник дополнительных услуг" sub="Дополнительные услуги вашей организации." width="min(900px, 96vw)"
       footer={<><Button variant="secondary" icon="plus" onClick={() => setFormOpen((value) => !value)}>Добавить услугу</Button><Button onClick={onClose}>Закрыть</Button></>}>
       {formOpen && <div className="card card-pad" style={{ marginBottom: 14 }}>
         <div className="grid-2">
