@@ -8,10 +8,10 @@ import { Button } from '../../../shared/ui/Button.jsx';
 import { Drawer } from '../../../shared/ui/Overlays.jsx';
 import { EmptyState } from '../../../shared/ui/EmptyState.jsx';
 import { Field } from '../../../shared/ui/Field.jsx';
-import { FilterChip } from '../../../shared/ui/FilterChip.jsx';
 import { Input } from '../../../shared/ui/Input.jsx';
 import { Pill } from '../../../shared/ui/Pill.jsx';
 import { SearchBox } from '../../../shared/ui/SearchBox.jsx';
+import { SearchToolbar } from '../../../shared/ui/SearchToolbar.jsx';
 import { Select } from '../../../shared/ui/Select.jsx';
 import { Tabs } from '../../../shared/ui/Tabs.jsx';
 import { plural } from '../../../shared/ui/plural.js';
@@ -672,7 +672,14 @@ function DocCenter({ scopeOrder, participants, services, onOpenDoc, initialDocum
 
   return (
     <div className="fade-in">
-      <div className="documents-toolbar">
+      <SearchToolbar className="documents-toolbar" label="Поиск и фильтры документов">
+        <SearchBox value={q} onChange={setQ} placeholder={view === 'byType' ? 'Поиск документа…' : 'Поиск пассажира или документа…'} />
+        <Select aria-label="Статус документов" value={fStatus} onChange={(event) => setFStatus(event.target.value)} options={[{ value: '', label: 'Все статусы' }, ...Object.keys(DOC_STATUS2).map((status) => ({ value: status, label: status }))]} />
+        <Button icon="plus" onClick={() => setUploadFor({})}>Загрузить</Button>
+      </SearchToolbar>
+
+      <div className={scopeOrder ? 'order-document-workspace' : 'documents-content'}>
+      <div className="documents-view-switch">
         {canGroupByPax && (
           <div className="trip-toggle" style={{ display: 'inline-flex' }}>
             <button className={view === 'byService' ? 'on' : ''} onClick={() => setView('byService')}>По услуге</button>
@@ -680,9 +687,6 @@ function DocCenter({ scopeOrder, participants, services, onOpenDoc, initialDocum
           </div>
         )}
         {view === 'byType' && <Tabs tabs={TYPE_TABS.map((t) => ({ key: t.key, label: t.label, count: docs.filter(t.test).length }))} value={tab} onChange={setTab} />}
-        <SearchBox value={q} onChange={setQ} placeholder={view === 'byType' ? 'Поиск документа…' : 'Поиск пассажира или документа…'} />
-        <FilterChip label="Статус" value={fStatus} onChange={setFStatus} options={Object.keys(DOC_STATUS2)} />
-        <Button icon="plus" onClick={() => setUploadFor({})}>Загрузить</Button>
       </div>
 
       {view === 'byService' ? (
@@ -742,6 +746,7 @@ function DocCenter({ scopeOrder, participants, services, onOpenDoc, initialDocum
           ) : <EmptyState icon="docs" title="Документы не найдены" />}
         </div>
       )}
+      </div>
       {card && <DocCard doc={card} onClose={() => setOpenNo(null)} onChange={updateDoc} />}
 
       <DocUploadModal open={!!uploadFor} scopeOrder={scopeOrder} participants={participants || []}

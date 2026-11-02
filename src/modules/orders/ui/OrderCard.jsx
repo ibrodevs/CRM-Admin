@@ -24,6 +24,7 @@ import { Input } from '../../../shared/ui/Input.jsx';
 import { Pill } from '../../../shared/ui/Pill.jsx';
 import { Radio } from '../../../shared/ui/Radio.jsx';
 import { SearchBox } from '../../../shared/ui/SearchBox.jsx';
+import { SearchToolbar } from '../../../shared/ui/SearchToolbar.jsx';
 import { Select } from '../../../shared/ui/Select.jsx';
 import { Th, useSort } from '../../../shared/ui/Table.jsx';
 import { plural } from '../../../shared/ui/plural.js';
@@ -1163,7 +1164,7 @@ function OrderServicesBoard({ services, participants, documents, orderNo, expand
         <Button icon="plus" onClick={onAdd}>Добавить услугу</Button>
       </div>
 
-      <div className="osrv-toolbar" aria-label="Поиск и фильтры услуг">
+      <SearchToolbar className="osrv-toolbar" label="Поиск и фильтры услуг">
         <SearchBox value={query} onChange={setQuery} placeholder="Пассажир, билет, PNR, маршрут…" />
         <Select aria-label="Пассажир" value={participantId} onChange={(event) => setParticipantId(event.target.value)}
           options={[{ value: '', label: `Все пассажиры · ${participants.length}` }, ...participants.map((participant) => ({ value: participantKey(participant), label: participant.name }))]} />
@@ -1171,7 +1172,7 @@ function OrderServicesBoard({ services, participants, documents, orderNo, expand
           options={[{ value: '', label: `Все услуги · ${services.length}` }, ...serviceKinds.map((value) => ({ value, label: value }))]} />
         {(query || participantId || kind) && <button type="button" className="osrv-reset" onClick={resetFilters}><Icon name="x" />Сбросить</button>}
         <span className="osrv-found">Показано {visibleServices.length} из {services.length}</span>
-      </div>
+      </SearchToolbar>
 
       <section className="osrv-workspace" aria-label="Рабочая зона услуг заказа">
       {focusedParticipant && (
