@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 import { Drawer } from '../../../shared/ui/Overlays.jsx';
 import { Button } from '../../../shared/ui/Button.jsx';
 import { Input } from '../../../shared/ui/Input.jsx';
+import { SearchBox } from '../../../shared/ui/SearchBox.jsx';
 import { Field } from '../../../shared/ui/Field.jsx';
 import { Select } from '../../../shared/ui/Select.jsx';
 import { Checkbox } from '../../../shared/ui/Checkbox.jsx';
@@ -64,7 +65,7 @@ export function SettingsDirectory({ kind, onClose }) {
     return () => { clearTimeout(timer); controller.abort(); };
   }, [kind, query]);
   return <Drawer open={!!kind} onClose={onClose} title={kind === 'locations' ? 'Аэропорты и города' : 'Типы услуг'} footer={<Button onClick={onClose}>{t("Закрыть")}</Button>}>
-    <Input aria-label="Поиск в справочнике" placeholder={t("Поиск в справочнике")} value={query} onChange={(e) => setQuery(e.target.value)} />
+    <SearchBox aria-label="Поиск в справочнике" placeholder={t("Поиск в справочнике")} value={query} onChange={setQuery} />
     {kind === 'locations' ? <>{error && <p role="alert">{error}</p>}{busy && <p>{t("Загрузка…")}</p>}{!rows.length && !busy && <p>{query.length < 2 ? 'Введите не менее двух символов' : 'Ничего не найдено'}</p>}{rows.map((row, i) => <div className="kv-row" key={row.id || i}><span>{row.name || row.label || row.city}</span><span>{row.country || ''} {row.code || row.iata || ''}</span></div>)}</> : KINDS.filter((row) => row.join(' ').toLowerCase().includes(query.toLowerCase())).map(([code, name]) => <div className="kv-row" key={code}><span>{name}</span><span>{code}</span></div>)}
   </Drawer>;
 }

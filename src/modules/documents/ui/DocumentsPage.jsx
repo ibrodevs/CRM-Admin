@@ -672,7 +672,7 @@ function DocCenter({ scopeOrder, participants, services, onOpenDoc, initialDocum
 
   return (
     <div className="fade-in">
-      <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16, flexWrap: 'wrap' }}>
+      <div className="documents-toolbar">
         {canGroupByPax && (
           <div className="trip-toggle" style={{ display: 'inline-flex' }}>
             <button className={view === 'byService' ? 'on' : ''} onClick={() => setView('byService')}>По услуге</button>
@@ -680,8 +680,7 @@ function DocCenter({ scopeOrder, participants, services, onOpenDoc, initialDocum
           </div>
         )}
         {view === 'byType' && <Tabs tabs={TYPE_TABS.map((t) => ({ key: t.key, label: t.label, count: docs.filter(t.test).length }))} value={tab} onChange={setTab} />}
-        <div style={{ flex: 1 }} />
-        <SearchBox value={q} onChange={setQ} placeholder={view === 'byType' ? 'Поиск документа…' : 'Поиск пассажира или документа…'} style={{ width: 230 }} />
+        <SearchBox value={q} onChange={setQ} placeholder={view === 'byType' ? 'Поиск документа…' : 'Поиск пассажира или документа…'} />
         <FilterChip label="Статус" value={fStatus} onChange={setFStatus} options={Object.keys(DOC_STATUS2)} />
         <Button icon="plus" onClick={() => setUploadFor({})}>Загрузить</Button>
       </div>
