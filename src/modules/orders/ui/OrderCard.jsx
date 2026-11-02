@@ -940,25 +940,26 @@ function ServiceBlock({ s, participants, documents, orderNo, open, onToggle, onC
   const [documentsOpen, setDocumentsOpen] = useState(false);
   const [airportCode, setAirportCode] = useState(null);
   const [flightActionsOpen, setFlightActionsOpen] = useState(false);
-  const [flightDetail, setFlightDetail] = useState({ key: '', data: null, error: '' });
-  const flightDetailKey = String(s.serverId || s.id) + ':' + String(s.version || '');
-  const fetchFlightDetail = async (signal) => {
+  const [detailState, setDetailState] = useState({ key: '', data: null, error: '' });
+  const detailsKey = String(s.serverId || s.id) + ':' + String(s.version || '');
+  const fetchDetails = async (signal) => {
     const data = await servicesApi.detail(s.serverId || s.id, signal);
-    setFlightDetail({ key: flightDetailKey, data, error: '' });
+    if (signal?.aborted) return;
+    setDetailState({ key: detailsKey, data, error: '' });
   };
   useEffect(() => {
-    if (postSaleFlow(s) === 'hotel' || (!open && !flightActionsOpen) || flightDetail.key === flightDetailKey) return undefined;
+    if ((!open && !flightActionsOpen) || detailState.key === detailsKey) return undefined;
     const controller = new AbortController();
-    fetchFlightDetail(controller.signal).catch((error) => {
-      if (error.name !== 'AbortError') setFlightDetail({ key: flightDetailKey, data: null, error: error.message });
+    fetchDetails(controller.signal).catch((error) => {
+      if (!controller.signal.aborted) setDetailState({ key: detailsKey, data: null, error: error.message });
     });
     return () => controller.abort();
-  }, [s.kind, flightDetailKey, open, flightActionsOpen]);
-  const flightData = flightDetail.key === flightDetailKey && flightDetail.data
-    ? { ...s, ...flightDetail.data, kind: s.kind, supplier: s.supplier, status: s.status }
+  }, [s.kind, detailsKey, open, flightActionsOpen, detailState.key]);
+  const serviceData = detailState.key === detailsKey && detailState.data
+    ? { ...s, ...detailState.data, kind: s.kind, supplier: s.supplier, status: s.status }
     : s;
-  const flightLoading = postSaleFlow(s) !== 'hotel' && (open || flightActionsOpen) && flightDetail.key !== flightDetailKey;
-  const flightError = flightDetail.key === flightDetailKey ? flightDetail.error : '';
+  const detailsLoading = (open || flightActionsOpen) && detailState.key !== detailsKey;
+  const detailsError = detailState.key === detailsKey ? detailState.error : '';
   const [uploading, setUploading] = useState(false);
   const kind = SERVICE_KIND[s.kind] || { icon: 'briefcase', color: '#2566ff' };
   const pax = serviceParticipants(s, participants);
@@ -970,7 +971,9 @@ function ServiceBlock({ s, participants, documents, orderNo, open, onToggle, onC
   const flightSegments = s.kind === 'Авиа' ? serviceFlightSegments(s) : [];
   const airline = s.kind === 'Авиа' ? airlineCodeOf(s) : null;
   const total = svcCalc(s).total;
-  const bookingReference = serviceBookingReference(s.kind === 'Авиа' ? flightData : s);
+  const bookingReference = serviceBookingReference(serviceData);
+  const stayDetails = serviceStayDetails(serviceData);
+  const stayFields = serviceStayDetails(serviceData, { includeMissing: true });
   const focusedTicket = focusedParticipant ? ticketForParticipant(docs, focusedParticipant) : null;
   const cardCurrency = resolveCurrency(s.currency, s.svcOffer?.currency);
   const cardItem = s.svcOffer
@@ -1021,12 +1024,15 @@ function ServiceBlock({ s, participants, documents, orderNo, open, onToggle, onC
         {open && <div className="osrv-booking-reference"><span>Бронирование:</span> <strong>{bookingReference || 'Номер не указан'}</strong></div>}
         </div>
 
-        {open && s.kind === 'Авиа' && <FlightFareSummary service={flightData} segments={serviceFlightSegments(flightData)} loading={flightLoading} error={flightError} />}
+        {open && s.kind === 'Авиа' && <FlightFareSummary service={serviceData} segments={serviceFlightSegments(serviceData)} loading={detailsLoading} error={detailsError} />}
 
-        {open && !['Авиа', 'Гостиница'].includes(s.kind) && <dl className="order-service-details">{serviceDetailRows(flightData).map((field) => <div key={field.label}><dt>{field.label}</dt><dd>{field.value}</dd></div>)}</dl>}
-        {open && s.kind === 'Гостиница'  && serviceStayDetails(s).length > 0 && <dl className="osrv-stay-details">
-          {serviceStayDetails(s).map(([label, value]) => <div key={label}><dt>{label}</dt><dd>{String(value)}</dd></div>)}
-        </dl>}
+        {open && !['Авиа', 'Гостиница'].includes(s.kind) && <dl className="order-service-details">{serviceDetailRows(serviceData).map((field) => <div key={field.label}><dt>{field.label}</dt><dd>{field.value}</dd></div>)}</dl>}
+        {open && s.kind === 'Гостиница' && <section className="osrv-stay-summary" aria-label="Подробности проживания">
+          {detailsLoading && <p className="osrv-stay-notice" role="status">Загружаем подробности проживания…</p>}
+          <dl className="osrv-stay-details">{stayFields.map(([label, value]) => <div key={label}><dt>{label}</dt><dd>{String(value)}</dd></div>)}</dl>
+          {detailsError ? <div className="osrv-stay-notice" role="alert">Не удалось загрузить подробности проживания. <Button variant="secondary" size="sm" onClick={() => setDetailState({ key: '', data: null, error: '' })}>Повторить</Button></div>
+            : !detailsLoading && !stayDetails.length && <p className="osrv-stay-notice">Подробности проживания пока не заполнены в карточке услуги.</p>}
+        </section>}
 
         {open && s.kind !== 'Авиа' && facts.length > 0 && (
           <div className="osrv-facts">
@@ -1112,9 +1118,9 @@ function ServiceBlock({ s, participants, documents, orderNo, open, onToggle, onC
         <input ref={fileRef} type="file" hidden onChange={takeFile} />
       </div>
 
-      {flightActionsOpen && <FlightBookingActionsDrawer service={flightData} statusTone={SERVICE_STATUS[s.status]} summary={serviceSummary(flightData, AIRPORTS)} bookingReference={bookingReference} segments={serviceFlightSegments(flightData)} participants={pax} documents={docs}
-        loading={flightLoading} error={flightError} onClose={() => setFlightActionsOpen(false)}
-        onRefresh={async () => { await fetchFlightDetail(); await onRefreshService?.(); }}
+      {flightActionsOpen && <FlightBookingActionsDrawer service={serviceData} statusTone={SERVICE_STATUS[s.status]} summary={serviceSummary(serviceData, AIRPORTS)} bookingReference={bookingReference} segments={serviceFlightSegments(serviceData)} participants={pax} documents={docs}
+        loading={detailsLoading} error={detailsError} onClose={() => setFlightActionsOpen(false)}
+        onRefresh={async () => { await fetchDetails(); await onRefreshService?.(); }}
         onExchange={() => onExchange(s)} onRefund={() => onRefund(s)} onCancel={() => onCancel(s)}
         onSend={() => setSendOpen(true)} onHistory={() => setHistOpen(true)} onDocuments={() => setDocumentsOpen(true)}
         onUpload={pickFile} onChat={onOpenChat} onDelete={() => onDeleteService(s)} />}

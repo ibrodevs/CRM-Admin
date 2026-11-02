@@ -108,13 +108,39 @@ export function serviceSummary(service, airports = []) {
   return { title, dates: [departure, arrival && arrival !== departure ? arrival : ''].filter(Boolean).join(' → ') || service.date || 'Даты не указаны' };
 }
 
-export function serviceStayDetails(service) {
-  const trip = itinerary(service), d = detail(service);
-  return [
-    ['Адрес', trip.address || d.address], ['Номер', trip.room || d.room],
-    ['Питание', trip.meal_plan || d.board], ['Время заезда', trip.check_in_time],
-    ['Время выезда', trip.check_out_time], ['Ночей', trip.nights || d.nights],
-  ].filter(([, value]) => value !== undefined && value !== null && value !== '');
+export function serviceStayDetails(service, { includeMissing = false } = {}) {
+  const d = detail(service);
+  const present = (value) => value !== undefined && value !== null && value !== '' && (typeof value !== 'string' || value.trim() !== '') && (typeof value !== 'object' || Object.keys(value).length > 0);
+  // A partial itinerary must not hide fields supplied by the selected offer.
+  const trip = Object.assign({}, ...[service.svcOffer?.itinerary, service.offer?.itinerary, service.hotel_details?.itinerary, service.itinerary]
+    .filter((source) => source && typeof source === 'object' && !Array.isArray(source))
+    .map((source) => Object.fromEntries(Object.entries(source).filter(([, value]) => present(value)))));
+  const text = (value) => {
+    if (!present(value)) return '';
+    if (Array.isArray(value)) return value.map(text).filter(Boolean).join(' / ');
+    if (typeof value === 'object') return text(value.description || value.name || value.title || value.text);
+    return String(value);
+  };
+  const first = (...values) => values.map(text).find((value) => value !== '');
+  const info = (label) => (Array.isArray(service.info) ? service.info : []).find((row) => String(row.l || row.label || '').toLowerCase() === label.toLowerCase());
+  const legacy = (label) => { const row = info(label); return row?.v ?? row?.value; };
+  const rooms = Array.isArray(service.hotel_details?.rooms) ? service.hotel_details.rooms : [];
+  const roomField = (...keys) => {
+    const values = rooms.map((room, index) => ({ index, value: first(...keys.map((key) => room[key])) })).filter((row) => row.value);
+    const unique = [...new Set(values.map((row) => row.value))];
+    return unique.length === 1 ? unique[0] : values.map((row) => `Номер ${row.index + 1}: ${row.value}`).join('; ');
+  };
+  const fields = [
+    ['Адрес', first(trip.address, d.address, service.address, legacy('Адрес')), 'Не указан'],
+    ['Номер', first(trip.room, d.room, d.roomName, roomField('room_name', 'category'), legacy('Номер')), 'Не указан'],
+    ['Питание', first(trip.meal_plan, d.board, d.meal_plan, roomField('meal'), legacy('Питание')), 'Не указано'],
+    ['Время заезда', first(trip.check_in_time, d.checkInTime, d.check_in_time, roomField('arrival_time'), legacy('Время заезда')), 'Не указано'],
+    ['Время выезда', first(trip.check_out_time, d.checkOutTime, d.check_out_time, roomField('departure_time'), legacy('Время выезда')), 'Не указано'],
+  ];
+  const rows = fields.filter(([, value]) => includeMissing || present(value)).map(([label, value, missing]) => [label, present(value) ? value : missing]);
+  const nights = first(trip.nights, d.nights, legacy('Ночей'));
+  if (present(nights)) rows.push(['Ночей', nights]);
+  return rows;
 }
 
 

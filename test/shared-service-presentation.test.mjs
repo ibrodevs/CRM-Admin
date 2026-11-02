@@ -41,3 +41,32 @@ test('older service cards keep supplied dates and fare description without API i
   assert.equal(serviceSummary(service).dates, service.date);
   assert.ok(serviceTechnicalLabel(service).includes(service.sub));
 });
+
+test('a partial hotel itinerary retains stay details from its offer and legacy fields', async () => {
+  const { serviceStayDetails } = await import('../src/shared/lib/service-presentation.js');
+  const rows = Object.fromEntries(serviceStayDetails({ kind: 'Гостиница', itinerary: { city: 'Москва', room: '', meal_plan: null }, offer: { itinerary: { address: 'Адрес отеля', room: 'Стандарт', meal_plan: 'Завтрак', check_in_time: '14:00' } }, details: { 'Гостиница': { checkOutTime: '12:00' } } }));
+  assert.equal(rows['Адрес'], 'Адрес отеля');
+  assert.equal(rows['Номер'], 'Стандарт');
+  assert.equal(rows['Питание'], 'Завтрак');
+  assert.equal(rows['Время заезда'], '14:00');
+  assert.equal(rows['Время выезда'], '12:00');
+});
+
+test('empty hotel details remain explicit without inventing room, meal or standard arrival time', async () => {
+  const { serviceStayDetails } = await import('../src/shared/lib/service-presentation.js');
+  assert.deepEqual(serviceStayDetails({ kind: 'Гостиница' }), []);
+  const rows = Object.fromEntries(serviceStayDetails({ kind: 'Гостиница' }, { includeMissing: true }));
+  assert.equal(Object.keys(rows).length, 5);
+  assert.equal(rows['Номер'], 'Не указан');
+  assert.equal(rows['Питание'], 'Не указано');
+  assert.equal(rows['Время заезда'], 'Не указано');
+});
+
+test('provider room details and legacy hotel facts remain readable and distinguish different rooms', async () => {
+  const { serviceStayDetails } = await import('../src/shared/lib/service-presentation.js');
+  const rows = Object.fromEntries(serviceStayDetails({ info: [{ l: 'Адрес', v: 'Адрес из карточки' }], hotel_details: { rooms: [{ room_name: 'Стандарт', meal: { name: 'Завтрак' }, arrival_time: '14:00' }, { room_name: 'Люкс', meal: { name: 'Завтрак' }, arrival_time: '14:00' }] } }));
+  assert.equal(rows['Адрес'], 'Адрес из карточки');
+  assert.equal(rows['Номер'], 'Номер 1: Стандарт; Номер 2: Люкс');
+  assert.equal(rows['Питание'], 'Завтрак');
+  assert.equal(rows['Время заезда'], '14:00');
+});
