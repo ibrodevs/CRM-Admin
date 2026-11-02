@@ -65,3 +65,12 @@ test('real request helpers preserve idempotency key, operation identity and expl
     assert.deepEqual(calls[3].body, { version: 4, status: 'completed', note: 'Supplier answered' });
   } finally { globalThis.fetch = original; }
 });
+
+test('supplier policy text uses Russian labels and local dates without exposing HTML markup', () => {
+  const lines = policyLines({ information: '<p>Важные <strong>условия</strong>&nbsp;отеля.</p><p>Туристический налог.</p>', free_cancel_until: '2026-11-16T15:00:00+03:00', additional_charges: { type: 'meal', vatType: 'notTaxed', isIncluded: false } });
+  assert.ok(lines.includes('Информация об отеле: Важные условия отеля.\nТуристический налог.'));
+  assert.ok(lines.includes('Бесплатная отмена до: 16.11.2026 • 15:00'));
+  assert.ok(lines.some((line) => line.includes('Вид услуги: Питание')));
+  assert.ok(lines.some((line) => line.includes('Включено в стоимость: Нет')));
+  assert.ok(!lines.some((line) => line.includes('<strong>') || line.includes('free_cancel_until')));
+});

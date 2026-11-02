@@ -1,14 +1,10 @@
 import React, { useState } from 'react';
 import { Drawer } from '../../../shared/ui/Overlays.jsx';
 import { Button } from '../../../shared/ui/Button.jsx';
-import { Icon } from '../../../shared/icons/index.jsx';
+import { BookingAction as Action } from '../../../shared/ui/BookingAction.jsx';
 import { Pill } from '../../../shared/ui/Pill.jsx';
 import { useToast } from '../../../shared/ui/Toast.jsx';
 import { FlightFareSummary } from './FlightFareSummary.jsx';
-
-function Action({ icon, title, sub, onClick, danger = false }) {
-  return <button type="button" className={'flight-booking-action' + (danger ? ' danger' : '')} onClick={onClick}><span className="flight-booking-action-icon"><Icon name={icon} /></span><span><strong>{title}</strong><small>{sub}</small></span><Icon name="chevRight" /></button>;
-}
 
 export function FlightBookingActionsDrawer({ service, statusTone, summary, bookingReference, segments, participants, documents, onClose, onRefresh, onExchange, onRefund, onCancel, onSend, onHistory, onDocuments, onUpload, onChat, onDelete, loading, error }) {
   const [busy, setBusy] = useState(false);

@@ -1,5 +1,14 @@
+import { travelDate } from '../../../../shared/lib/service-presentation.js';
+
 export const isHotelService = (service) => ['hotel', 'Гостиница'].includes(service?.kind);
 export const postSaleFlow = (service) => isHotelService(service) ? 'hotel' : 'ticket';
+export const HOTEL_BOOKING_STATUS = {
+  searching: 'Поиск', proposed: 'Предложено', approval: 'На согласовании', pending: 'Ожидает подтверждения',
+  requested: 'Запрос отправлен', processing: 'В обработке', booked: 'Забронировано', confirmed: 'Подтверждено',
+  issued: 'Оформлено', cancelled: 'Отменено', canceled: 'Отменено', failed: 'Ошибка', rejected: 'Отклонено',
+  unknown: 'Требуется сверка', refund_in_progress: 'Возврат в обработке', refunded: 'Возвращено', completed: 'Завершено',
+};
+export const hotelStatusLabel = (status) => HOTEL_BOOKING_STATUS[status] || status || 'Не указан';
 export const HOTEL_OPERATION_STATUS = {
   created: 'Запрос создан', checking: 'На проверке', awaiting_operator_confirmation: 'Ожидает подтверждения',
   submitted_to_supplier: 'Поставлено в очередь', awaiting_supplier: 'Ожидает поставщика',
@@ -28,10 +37,20 @@ export function hotelActionAvailability(action, data, refs, busy = false) {
   return { enabled: true, ...cap };
 }
 export function policyLines(value) {
-  const labels = { cancel: 'Отмена', change: 'Изменение', noShow: 'Незаезд', from: 'С', to: 'До', price: 'Сумма', amount: '', currency: '', info: 'Условия', description: '', text: '', deadline: 'Срок' };
+  const labels = { cancel: 'Отмена', change: 'Изменение', noShow: 'Незаезд', from: 'С', to: 'До', price: 'Сумма', amount: '', currency: '', info: 'Условия', description: '', text: '', deadline: 'Срок', information: 'Информация об отеле', free_cancel_until: 'Бесплатная отмена до', additional_charges: 'Дополнительные платежи', vat: 'НДС', type: 'Вид услуги', vatRate: 'Ставка НДС', vatType: 'Налогообложение', isIncluded: 'Включено в стоимость', cancellation_rules: 'Правила отмены', cancellation_information: 'Условия отмены' };
   if (value == null || value === '') return [];
   if (Array.isArray(value)) return value.flatMap(policyLines);
-  if (typeof value !== 'object') return [String(value)];
+  if (typeof value === 'boolean') return [value ? 'Да' : 'Нет'];
+  if (typeof value !== 'object') {
+    const names = { meal: 'Питание', accommodation: 'Проживание', notTaxed: 'Не облагается налогом', taxed: 'Облагается налогом' };
+    const text = String(names[value] || value)
+      .replace(/<(?:script|style)\b[^>]*>[\s\S]*?<\/(?:script|style)>/gi, '')
+      .replace(/<br\s*\/?\s*>|<\/p>|<\/li>/gi, '\n').replace(/<[^>]*>/g, '')
+      .replace(/&nbsp;|&#160;/g, ' ').replace(/&amp;/g, '&').replace(/&quot;/g, '"').replace(/&#39;|&apos;/g, "'")
+      .replace(/&lt;/g, '<').replace(/&gt;/g, '>')
+      .replace(/\b\d{4}-\d{2}-\d{2}(?:T\d{2}:\d{2}(?::\d{2}(?:\.\d+)?)?(?:Z|[+-]\d{2}:\d{2})?)?/g, (date) => travelDate(date, true)).trim();
+    return text ? [text] : [];
+  }
   if (value.amount != null) return [[value.amount, value.currency].filter((v) => v != null).join(' ')];
   return Object.entries(value).flatMap(([key, item]) => policyLines(item).map((line) => `${labels[key] ?? key}${(labels[key] ?? key) ? ': ' : ''}${line}`));
 }

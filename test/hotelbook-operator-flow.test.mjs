@@ -30,7 +30,7 @@ function compile(filename) {
 }
 const originalWindow = globalThis.window;
 globalThis.window = {};
-const { HotelBookingSummary, HotelPolicy } = load('../src/modules/services/hotels/actions/HotelBookingSummary.jsx');
+const { HotelBookingSummary, HotelBookingDetails, HotelPolicy } = load('../src/modules/services/hotels/actions/HotelBookingSummary.jsx');
 const { HotelActionMenu } = load('../src/modules/services/hotels/actions/HotelActionMenu.jsx');
 const { HotelCancellationPanel } = load('../src/modules/services/hotels/actions/HotelCancellationPanel.jsx');
 if (originalWindow === undefined) delete globalThis.window; else globalThis.window = originalWindow;
@@ -44,8 +44,8 @@ const summary = {
 };
 
 test('operator summary renders distinct CRM, supplier, item and clientOrderId identifiers', () => {
-  const html = render(HotelBookingSummary, { summary });
-  for (const value of ['CRM service ID', 'crm-service-id', 'Номер бронирования поставщика', 'hb-order-id', 'provider-ref-id', 'clientOrderId Hotelbook', 'workflow-id:item-id', 'Hotelbook itemId', 'hb-item-id']) assert.ok(html.includes(value), value);
+  const html = render(HotelBookingSummary, { summary }) + render(HotelBookingDetails, { summary });
+  for (const value of ['Идентификатор услуги CRM', 'crm-service-id', 'Бронирование', 'hb-order-id', 'provider-ref-id', 'Идентификатор заказа Hotelbook', 'workflow-id:item-id', 'Идентификаторы позиций Hotelbook', 'hb-item-id']) assert.ok(html.includes(value), value);
 });
 
 test('normal cancellation and a manual free-cancellation request are separate visible actions', () => {
@@ -77,6 +77,20 @@ test('missing policy renders an explicit unknown-policy notice instead of zero p
 });
 
 test('operator booking summary shows the selected check-in and check-out times', () => {
-  const html = render(HotelBookingSummary, { summary: { ...summary, check_in_time: '09:00', check_out_time: '18:00' } });
-  for (const text of ['Время заезда', '09:00', 'Время выезда', '18:00']) assert.ok(html.includes(text), text);
+  const html = render(HotelBookingSummary, { summary: { ...summary, check_in: '2026-11-19', check_out: '2026-11-20', check_in_time: '09:00', check_out_time: '18:00' } });
+  for (const text of ['19.11.2026 • 09:00', '→', '20.11.2026 • 18:00']) assert.ok(html.includes(text), text);
+});
+
+
+test('compact hotel summary uses Russian statuses and keeps integration IDs in closed details', () => {
+  const value = { ...summary, booking_status: 'confirmed', service_status: 'booked' };
+  const compact = render(HotelBookingSummary, { summary: value });
+  const details = render(HotelBookingDetails, { summary: value });
+  assert.ok(compact.includes('Подтверждено'));
+  assert.ok(compact.includes('Забронировано'));
+  assert.ok(!compact.includes('crm-service-id'));
+  assert.ok(!compact.includes('workflow-id:item-id'));
+  assert.match(details, /<details class="hotel-booking-disclosure hotel-booking-technical"><summary>/);
+  assert.ok(details.includes('crm-service-id'));
+  assert.ok(details.includes('workflow-id:item-id'));
 });
