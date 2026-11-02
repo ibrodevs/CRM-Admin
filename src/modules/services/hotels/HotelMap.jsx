@@ -13,7 +13,8 @@ export function HotelMap({ hotels, onPick }) {
   const accessToken = process.env.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN?.trim();
   const configured = Boolean(accessToken?.startsWith('pk.'));
   const [points, setPoints] = useState({});
-  const [locating, setLocating] = useState(false);
+  const [locating, setLocating] = useState(true);
+  const [lookup, setLookup] = useState(0);
   const [error, setError] = useState('');
   const cache = useRef(new Map());
 
@@ -30,7 +31,7 @@ export function HotelMap({ hotels, onPick }) {
       });
       mapRef.current = instance;
       if (typeof ResizeObserver !== 'undefined') {
-        observer = new ResizeObserver(() => { if (!disposed) instance.map.resize(); });
+        observer = new ResizeObserver(() => { if (!disposed) instance.resize(); });
         observer.observe(container.current);
       }
       setReady(true);
@@ -73,7 +74,7 @@ export function HotelMap({ hotels, onPick }) {
     }
     locate();
     return () => controller.abort();
-  }, [hotels]);
+  }, [hotels, lookup]);
 
   useEffect(() => {
     if (!ready || !mapRef.current) return;
@@ -83,6 +84,13 @@ export function HotelMap({ hotels, onPick }) {
   const mapped = hotelMapHotels(hotels).filter((hotel) => hotelCoordinates(hotel.itinerary) || hotelCoordinates(hotel) || points[hotelMapKey(hotel)]).length;
   return <div className="hp-map-area">
     <div ref={container} className="hp-map-canvas" aria-label="Карта отелей Mapbox с ценами" />
+    {configured && !loaded && error && <div className="hp-map-unavailable" role="alert"><strong>Не удалось открыть карту</strong><span>{error}</span></div>}
+    {configured && (loaded || !error) && !mapped && <div className="hp-map-unavailable" role="status">
+      <span className="hp-map-empty-icon" aria-hidden="true">⌖</span>
+      <strong>{locating ? 'Определяем расположение отелей…' : 'Расположение не подтверждено'}</strong>
+      <span>{locating ? 'Уточняем координаты у поставщика.' : 'Для этих отелей нет точных координат. Выберите отель в списке слева — его цены и условия доступны.'}</span>
+      {!locating && <button type="button" className="btn btn-secondary" onClick={() => setLookup((value) => value + 1)}>Повторить поиск расположения</button>}
+    </div>}
     {!configured && <div className="hp-map-unavailable" role="status"><strong>Карта Mapbox пока недоступна</strong><span>Обратитесь к администратору для подключения карты. Отели и цены доступны в списке слева.</span></div>}
     <div className="hp-map-status" role="status">{!configured ? 'Mapbox не подключён.' : error || (!loaded ? 'Загружаем карту Mapbox…' : locating ? 'Определяем расположение отелей…' : `На карте: ${mapped}. Отели без подтверждённых координат доступны в списке.`)}</div>
   </div>;

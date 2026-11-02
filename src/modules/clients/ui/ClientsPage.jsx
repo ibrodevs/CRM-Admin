@@ -237,7 +237,7 @@ function ClientsPage({ initialClients = [], orders = [], onClientsChange, onOpen
           <SearchBox value={q} onChange={setQ} placeholder="Поиск: имя, телефон, ID…" style={{ width: 280 }} />
           <FilterChip label="Статус" value={fStatus} onChange={setFStatus} options={Object.keys(CLIENT_STATUS)} />
         </div>
-        <div className="table-card">
+        <section className="section-workspace" aria-label="Рабочая область списка"><div className="table-card">
           {rows.length ? (
             <table className="tbl">
               <thead><tr><th>ID</th><Th label="Клиент" col="name" sort={sort} onSort={onSort} /><th>Тип</th><th>Компания</th><th>Город</th><Th label="Заказов" col="orders" sort={sort} onSort={onSort} /><Th label="Покупки" col="spent" sort={sort} onSort={onSort} style={{ textAlign: 'right' }} /><Th label="Долг" col="debt" sort={sort} onSort={onSort} style={{ textAlign: 'right' }} /><th>Статус</th></tr></thead>
@@ -255,7 +255,7 @@ function ClientsPage({ initialClients = [], orders = [], onClientsChange, onOpen
               </tbody>
             </table>
           ) : <EmptyState icon="user" title="Клиентов не найдено" />}
-        </div>
+        </div></section>
         <SectionInfo section="clients" />
       </div>
       <ClientCreateModal open={createOpen} onClose={() => setCreateOpen(false)} onCreated={addClient} />

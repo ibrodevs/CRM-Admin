@@ -933,7 +933,7 @@ function DashboardPage({ role, user, orders = [], orderServices = [], clients = 
 
         <DashboardKpiGrid items={kpiItems} />
 
-        <div className="dsh-main">
+        <div className="dsh-main section-workspace">
           <WorkCenter
             tabs={workTabs} tab={tab} onTabChange={setTab}
             items={activeRows.slice(0, 5)} total={activeRows.length}
@@ -950,7 +950,7 @@ function DashboardPage({ role, user, orders = [], orderServices = [], clients = 
           />
         </div>
 
-        <div className="dsh-analytics">
+        <div className="dsh-analytics section-workspace">
           <SalesChart
             series={salesSeries} total={money(salesWeek)} format={money}
             delta={formatPercent(salesWeekDelta)} deltaTone={percentTone(salesWeekDelta)}

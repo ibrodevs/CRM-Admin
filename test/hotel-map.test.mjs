@@ -34,7 +34,7 @@ test('Mapbox markers preserve coordinate order, cheapest prices, click selection
     constructor(options) { this.options = options; this.events = {}; }
     addControl(control, position) { this.controlPosition = position; }
     on(name, callback) { this.events[name] = callback; }
-    fitBounds(bounds, options) { this.bounds = bounds.points; this.fitOptions = options; }
+    fitBounds(bounds, options) { this.bounds = bounds.points; this.fitOptions = options; this.fits = (this.fits || 0) + 1; assert.equal(this.resized, true); }
     resize() { this.resized = true; }
     remove() { this.removed = true; }
   }
@@ -50,14 +50,21 @@ test('Mapbox markers preserve coordinate order, cheapest prices, click selection
   const instance = createHotelMapbox(sdk, {}, 'pk.public', { onLoad: () => { loaded = true; }, onError: () => { failed = true; } });
   assert.equal(instance.map.options.style, HOTEL_MAPBOX_STYLE);
   assert.equal(instance.map.options.accessToken, 'pk.public');
+  assert.equal(instance.map.options.projection, 'mercator');
   assert.equal(instance.map.controlPosition, 'top-right');
-  instance.map.events.load(); instance.map.events.error();
-  assert.equal(loaded, true); assert.equal(failed, true);
+
   const hotel = { name: 'Hotel', addr: 'Street 1', supplier: 'provider', currency: 'RUB', base: 200, itinerary: { lat: 55.7, lon: 37.6 } };
   const cheaper = { ...hotel, base: 100 };
   instance.setHotels([hotel, cheaper, { ...hotel, name: 'Unknown', itinerary: {} }], {}, (value) => { selected = value; });
   assert.equal(markers.length, 1);
   assert.deepEqual(markers[0].point, [37.6, 55.7]);
+  assert.deepEqual(instance.map.bounds, [[37.6, 55.7]]);
+  const beforeLoad = instance.map.fits;
+  instance.map.events.load(); instance.map.events.error();
+  assert.equal(loaded, true); assert.equal(failed, true);
+  assert.equal(instance.map.fits, beforeLoad + 1, 'Loading the style must refit markers added before load');
+  instance.resize();
+  assert.equal(instance.map.fits, beforeLoad + 2, 'Opening or resizing a drawer must refit its hotel');
   assert.deepEqual(instance.map.bounds, [[37.6, 55.7]]);
   const button = markers[0].options.element.children[0];
   assert.equal(markers[0].options.element.attrs.role, 'group');
@@ -66,6 +73,10 @@ test('Mapbox markers preserve coordinate order, cheapest prices, click selection
   assert.equal(selected, cheaper); assert.equal(stopped, true);
   instance.setHotels([{ ...hotel, itinerary: { lat: 0, lon: 0 } }], {}, () => {});
   assert.equal(markers[0].removed, true); assert.deepEqual(markers[1].point, [0, 0]);
+  instance.setHotels([], {}, () => {});
+  const beforeEmptyResize = instance.map.fits;
+  instance.resize();
+  assert.equal(instance.map.fits, beforeEmptyResize, 'An empty result must not fit stale bounds');
   instance.destroy();
   assert.equal(markers[1].removed, true); assert.equal(instance.map.removed, true);
 });

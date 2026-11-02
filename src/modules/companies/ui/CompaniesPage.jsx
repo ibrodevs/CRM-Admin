@@ -552,7 +552,7 @@ function CompaniesPage({ initialCompanies = [], orders = [], onCompaniesChange, 
           <SearchBox value={q} onChange={setQ} placeholder="Поиск: название, ИНН, директор…" style={{ width: 300 }} />
           <FilterChip label="Статус" value={fStatus} onChange={setFStatus} options={Object.keys(COMPANY_STATUS)} />
         </div>
-        <div className="table-card">
+        <section className="section-workspace" aria-label="Рабочая область списка"><div className="table-card">
           {rows.length ? (
             <table className="tbl">
               <thead><tr><th>ID</th><Th label="Компания" col="name" sort={sort} onSort={onSort} /><th>Тип</th><th>Взаиморасчёты</th><th style={{ textAlign: 'right' }}>Баланс / долг</th><Th label="Заказов" col="orders" sort={sort} onSort={onSort} /><Th label="Оборот" col="turnover" sort={sort} onSort={onSort} style={{ textAlign: 'right' }} /><th>Статус</th></tr></thead>
@@ -582,7 +582,7 @@ function CompaniesPage({ initialCompanies = [], orders = [], onCompaniesChange, 
               </tbody>
             </table>
           ) : <EmptyState icon="building" title="Компаний не найдено" />}
-        </div>
+        </div></section>
         <SectionInfo section="companies" />
       </div>
     </>

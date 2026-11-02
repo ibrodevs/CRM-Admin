@@ -109,7 +109,7 @@ function FulfillmentRegistry({ onOpenOrder, rows = [], orders = [] }) {
         })}
       </div>
 
-      <div className="table-card">
+      <section className="section-workspace" aria-label="Рабочая область списка"><div className="table-card">
         {shownRows.length ? (
           <table className="tbl">
             <thead><tr><th>Заказ</th><th>Клиент</th><th>Действие</th><th>Сумма</th><th>Срок</th><th>Ответственный</th><th></th></tr></thead>
@@ -128,7 +128,7 @@ function FulfillmentRegistry({ onOpenOrder, rows = [], orders = [] }) {
             </tbody>
           </table>
         ) : <EmptyState icon="checkCircle" title="Здесь чисто" sub="Нет задач в этой категории" />}
-      </div>
+      </div></section>
     </div>
   );
 }

@@ -202,7 +202,7 @@ function FinanceRegistry({ scopeOrder, onOpenOp, initialOps }) {
         <SearchBox value={q} onChange={setQ} placeholder="Поиск: №, заказ…" style={{ width: 230 }} />
         <FilterChip label="Источник" value={fSource} onChange={setFSource} options={['Авиа', 'Гостиница', 'Трансфер', 'ЖД', 'Группа']} />
       </div>
-      <div className="table-card">
+      <section className="section-workspace" aria-label="Рабочая область списка"><div className="table-card">
         {rows.length ? (
           <table className="tbl">
             <thead><tr>
@@ -230,7 +230,7 @@ function FinanceRegistry({ scopeOrder, onOpenOp, initialOps }) {
             </tbody>
           </table>
         ) : <EmptyState icon="finance" title="Операций не найдено" />}
-      </div>
+      </div></section>
       {card && <FinanceOpCard op={card} onClose={() => setCard(null)} onChange={updateOp} />}
     </div>
   );

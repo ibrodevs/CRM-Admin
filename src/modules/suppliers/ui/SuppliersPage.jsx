@@ -1537,7 +1537,7 @@ function SuppliersPage({ intent, onConsume, suppliers, addSupplier, onNavigate, 
           <div className="topbar-spacer" />
           <SearchBox value={search} onChange={setSearch} style={{ width: 280 }} />
         </div>
-        <div className="table-card">
+        <section className="section-workspace" aria-label="Рабочая область списка"><div className="table-card">
           <table className="tbl">
             <thead>
               <tr>
@@ -1568,7 +1568,7 @@ function SuppliersPage({ intent, onConsume, suppliers, addSupplier, onNavigate, 
               )}
           </table>
           <Pagination page={page} pages={pages} onPage={setPage} />
-        </div>
+        </div></section>
         <SectionInfo section="suppliers" />
       </div>
 

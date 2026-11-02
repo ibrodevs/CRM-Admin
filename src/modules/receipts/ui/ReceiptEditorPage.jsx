@@ -4504,7 +4504,7 @@ function ReceiptEditorPage({ documents = [], orders = [], services = [], compani
           ))}
 
           {receipts.length ? (
-            <div className="table-card receipt-registry-card" style={{ overflowX: 'auto' }}>
+            <section className="section-workspace" aria-label="Рабочая область квитанций"><div className="table-card receipt-registry-card" style={{ overflowX: 'auto' }}>
               <table className="tbl receipt-registry-table">
                 <thead><tr><th>Документ</th><th>Детали услуги</th><th>Стоимость</th><th>Проверка</th><th>Операции</th></tr></thead>
                 <tbody>
@@ -4595,7 +4595,7 @@ function ReceiptEditorPage({ documents = [], orders = [], services = [], compani
                   })}
                 </tbody>
               </table>
-            </div>
+            </div></section>
           ) : registryView === 'drafts' && importDrafts.length ? null : <EmptyState icon={registryView === 'drafts' ? 'save' : 'route'}
             title={registryView === 'drafts' ? 'Черновики не найдены' : 'Документы не найдены'}
             sub={registryView === 'drafts' ? 'Сохранённые черновики появятся в этом списке.' : 'Импортируйте авиа, ЖД, отельный или трансферный документ.'} />}

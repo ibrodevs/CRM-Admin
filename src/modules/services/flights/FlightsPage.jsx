@@ -632,7 +632,7 @@ function FlightResults({ params, liveOffers = [], loading = false, onSelect, onB
       </div>
 
 
-      <div style={{ display: 'flex', gap: 22, alignItems: 'flex-start' }}>
+      <div className="section-workspace flight-results-workspace" style={{ display: 'flex', gap: 22, alignItems: 'flex-start' }}>
         <FilterRail flt={flt} setFlt={setFlt} allOffers={liveOffers} />
         <div style={{ flex: 1, minWidth: 0 }}>
 
@@ -2323,7 +2323,7 @@ function FlightsRegistry({ onNew, onOpen, onFormKp, onReturn, liveRows = [] }) {
           options={[...new Set(liveRows.map((r) => r.supplier))]} />
       </div>
 
-      <div className="table-card">
+      <section className="section-workspace" aria-label="Список авиаперелётов"><div className="table-card">
         {rows.length ? (
           <table className="tbl">
             <thead><tr>
@@ -2356,7 +2356,7 @@ function FlightsRegistry({ onNew, onOpen, onFormKp, onReturn, liveRows = [] }) {
             </tbody>
           </table>
         ) : <EmptyState icon="plane" title="Авиауслуг не найдено" sub="Создайте новый поиск или измените фильтры" />}
-      </div>
+      </div></section>
     </div>
   );
 }

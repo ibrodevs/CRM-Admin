@@ -1919,7 +1919,7 @@ function ServiceFlow({ routeKey, searchIntent, onConsumeSearch }) {
               <div style={{ flex: 1 }} />
               <span style={{ color: 'var(--muted)', fontSize: 14 }}>{loading ? 'Поиск…' : `Найдено ${offers.length}`}</span>
             </div>
-            <div className="hp-layout">
+            <div className="hp-layout section-workspace">
               <SvcFilters allOffers={allOffers} flt={flt} setFlt={setFlt} bounds={bounds} facetLabel={cfg.kind === 'ЖД' ? 'Класс и условия' : 'Особенности'} />
               <div>
                 {loading
@@ -2031,7 +2031,7 @@ function FreeBookingServiceAddFlow({ routeKey, onAdd, currency, paxCount = 1 }) 
             {[['best', 'Оптимальные'], ['cheap', 'Дешевле'], ['pricey', 'Дороже']].map(([k, l]) => (<button key={k} className={'tab' + (sort === k ? ' active' : '')} onClick={() => setSort(k)}>{l}</button>))}
             <div style={{ flex: 1 }} /><span style={{ color: 'var(--muted)', fontSize: 14, alignSelf: 'center' }}>{loading ? 'Поиск…' : `Найдено ${offers.length}`}</span>
           </div>
-          <div className="hp-layout">
+          <div className="hp-layout section-workspace">
             <SvcFilters allOffers={liveOffers} flt={flt} setFlt={setFlt} bounds={bounds} facetLabel={cfg.kind === 'ЖД' ? 'Класс и условия' : 'Особенности'} />
             <div>
               {loading
@@ -2242,7 +2242,7 @@ function ServiceAddFlow({ routeKey, onAdd, currency, paxCount = 1 }) {
             {[['best', 'Оптимальные'], ['cheap', 'Дешевле'], ['pricey', 'Дороже']].map(([k, l]) => (<button key={k} className={'tab' + (sort === k ? ' active' : '')} onClick={() => setSort(k)}>{l}</button>))}
             <div style={{ flex: 1 }} /><span style={{ color: 'var(--muted)', fontSize: 14, alignSelf: 'center' }}>{loading ? 'Поиск…' : `Найдено ${offers.length}`}</span>
           </div>
-          <div className="hp-layout">
+          <div className="hp-layout section-workspace">
             <SvcFilters allOffers={liveOffers} flt={flt} setFlt={setFlt} bounds={bounds} facetLabel={cfg.kind === 'ЖД' ? 'Класс и условия' : 'Особенности'} />
             <div>
               {loading
@@ -2655,7 +2655,7 @@ function FreeBookingRailSeatPanel({ offer, participants, groups, onClose, onAppl
       <div className="free-booking"><RailResultsHeader form={form} title={`${offer.number} · ${offer.name}`} subtitle={`${offer.dep.city} → ${offer.arr.city} · ${offer.dep.time}–${offer.arr.time}`} supplier={offer.carrier} loading={searching} onSearch={onSearchStay} onEditingChange={setSearchEditing}>
 
 
-      <div className="rail-layout">
+      <div className="rail-layout section-workspace">
 
         <div className="rail-col">
           <div className="rail-col-h">1. Выберите класс обслуживания</div>
@@ -2878,7 +2878,7 @@ function FreeBookingRailFlow({ currency, onAdd }) {
         <span style={{ color: 'var(--muted)', fontSize: 14 }}>{loading ? 'Поиск…' : `Результаты поиска (${offers.length})`}</span>
       </div>
 
-      <div className="hp-layout">
+      <div className="hp-layout section-workspace">
         <FreeBookingRailFilters flt={flt} setFlt={setFlt} bounds={bounds} offers={offersAll} />
         <div style={{ minWidth: 0 }}>
           {offers.length ? offers.map((o) => <FreeBookingRailOfferCard key={o.id} o={o} onSelect={setSeatOffer} />)
@@ -3002,7 +3002,7 @@ function RailAddFlow({ participants = [], groups, onAdd }) {
         <span style={{ color: 'var(--muted)', fontSize: 14 }}>{loading ? 'Поиск…' : `Результаты поиска (${offers.length})`}</span>
       </div>
 
-      <div className="hp-layout">
+      <div className="hp-layout section-workspace">
         <RailFilters flt={flt} setFlt={setFlt} bounds={bounds} offers={offersAll} />
         <div style={{ minWidth: 0 }}>
           {offers.length ? offers.map((o) => <RailOfferCard key={o.id} o={o} onSelect={setSeatOffer} />)
@@ -3095,7 +3095,7 @@ function RailSeatPanel({ offer, participants, groups, onClose, onApply , form, o
         </Button></>}><RailResultsHeader form={form} title={`${offer.number} · ${offer.name}`} subtitle={`${offer.dep.city} → ${offer.arr.city} · ${offer.dep.time}–${offer.arr.time}`} supplier={offer.carrier} loading={searching} onSearch={onSearchStay} onEditingChange={setSearchEditing}>
 
 
-      <div className="rail-layout">
+      <div className="rail-layout section-workspace">
 
         <div className="rail-col">
           <div className="rail-col-h">1. Выберите класс обслуживания</div>
@@ -3275,7 +3275,7 @@ function ServicesHubPage({ onNavigate, onAddOrder, onOpenOrder, onCreateOrder, c
         {onAddOrder && <Button icon="plus" onClick={onAddOrder}>Новый заказ</Button>}
       </Topbar>
       <div className="content fade-in">
-        <div className="svc-hub-grid">
+        <div className="svc-hub-grid section-workspace">
           {SERVICES_HUB.map((s) => (
             <button key={s.key} type="button" className="svc-hub-card" onClick={() => openMask(HUB_KIND[s.key] || 'Авиа')}>
               <span className={'svc-hub-ic' + (s.img ? ' svc-hub-ic-img' : '')}>{s.img ? <img src={s.img} alt={s.title} /> : <Icon name={s.icon} />}</span>

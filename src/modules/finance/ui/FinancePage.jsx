@@ -1261,6 +1261,7 @@ function FinancePage({ overview, clients = [], companies = [], suppliers = [], o
             <FinCurrencySwitch currencies={currencies} value={currency} onChange={setSelectedCurrency} />
           )}
         </div>
+        <section className="section-workspace" aria-label="Рабочая область финансов">
         {tab === 'overview' && <FinOverview onGoTab={setTab} overview={overview} accounts={accounts} payments={payments} receipts={receipts} counterparties={counterparties} cashflow={cashflow} economics={economics} currency={currency} />}
         {tab === 'balance' && <FinBalance accounts={accounts} />}
         {tab === 'payments' && <FinPayments payments={payments} obligations={obligations} onPaymentCreated={createPayment} onPaymentConfirmed={() => loadFinance()} clientRows={clientRows} supplierRows={supplierRows} orderRows={orderRows} />}
@@ -1269,6 +1270,7 @@ function FinancePage({ overview, clients = [], companies = [], suppliers = [], o
         {tab === 'recon' && <FinReconciliation counterparties={counterparties} meta={meta} />}
         {tab === 'economics' && <FinEconomics economics={economics} />}
         {tab === 'analytics' && <FinAnalytics cashflow={cashflow} currency={currency} />}
+        </section>
         <SectionInfo section="finance" />
       </div>
     </>

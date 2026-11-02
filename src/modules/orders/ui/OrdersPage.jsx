@@ -973,7 +973,7 @@ function OrdersList({ orders, onOpen, onCreate, onNavigate, currentUser }) {
           <SearchBox value={search} onChange={setSearch} style={{ width: 280 }} />
         </div>
 
-        <div className="table-card">
+        <section className="section-workspace" aria-label="Рабочая область списка"><div className="table-card">
           <table className="tbl orders-registry">
             <thead>
               <tr>
@@ -1017,7 +1017,7 @@ function OrdersList({ orders, onOpen, onCreate, onNavigate, currentUser }) {
             </Button>
             <span>Показано {Math.min(visibleCount, rows.length)} из {rows.length}</span>
           </div>}
-        </div>
+        </div></section>
       </div>
 
 

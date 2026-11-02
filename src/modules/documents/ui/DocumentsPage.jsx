@@ -678,7 +678,7 @@ function DocCenter({ scopeOrder, participants, services, onOpenDoc, initialDocum
         <Button icon="plus" onClick={() => setUploadFor({})}>Загрузить</Button>
       </SearchToolbar>
 
-      <div className={scopeOrder ? 'order-document-workspace' : 'documents-content'}>
+      <div className={scopeOrder ? 'order-document-workspace' : 'documents-content section-workspace'}>
       <div className="documents-view-switch">
         {canGroupByPax && (
           <div className="trip-toggle" style={{ display: 'inline-flex' }}>

@@ -927,7 +927,7 @@ function GroupsPage({ onOpenOrder }) {
           <div style={{ flex: 1 }} />
           <Button icon="plus" onClick={() => setCreate(true)}>Создать групповой заказ</Button>
         </div>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(420px,1fr))', gap: 14 }}>
+        <div className="section-workspace" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(min(100%, 420px),1fr))', gap: 14 }}>
           {orders.map((o) => {
             const agg = grAgg(o);
             return (

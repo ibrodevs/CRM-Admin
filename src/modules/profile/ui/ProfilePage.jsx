@@ -449,6 +449,7 @@ function ProfilePage({ user, onNavigate, initialTab }) {
         </div>
 
         <div style={{ marginBottom: 20, overflowX: 'auto' }}><Tabs tabs={TABS} value={tab} onChange={setTab} /></div>
+        <section className="section-workspace" aria-label="Настройки профиля">
 
 
         {tab === 'profile' && (
@@ -665,6 +666,7 @@ function ProfilePage({ user, onNavigate, initialTab }) {
         {tab === 'stats' && <ProfileStats operator={u.name} userId={u.serverId || u.id} />}
         {tab === 'worktime' && <ProfileWorkTime user={u} canEdit={canManageUsers} />}
         <SectionInfo section="profile" />
+      </section>
       </div>
 
 

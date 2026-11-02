@@ -695,7 +695,7 @@ function ReturnsModule({ scopeOrder, onOpenOrder, compact, order, initialCases, 
         </div>
       )}
 
-      <div className="table-card">
+      <section className="section-workspace" aria-label="Рабочая область списка"><div className="table-card">
         {rows.length ? (
           <table className="tbl">
             <thead><tr>
@@ -732,7 +732,7 @@ function ReturnsModule({ scopeOrder, onOpenOrder, compact, order, initialCases, 
             </tbody>
           </table>
         ) : <EmptyState icon="refund" title="Операций не найдено" sub="Измените фильтры или создайте запрос" />}
-      </div>
+      </div></section>
       <NewReturnModal open={newOpen} order={order} services={availableServices} participants={participants} preset={initialNew} onClose={closeNew} onCreate={createOp} />
     </div>
   );

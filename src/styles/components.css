@@ -3512,3 +3512,23 @@ button.oc-fact:hover{border-color:#d3dbe8;background:#fff}
   .dropdown-item.is-selected{font-weight:var(--list-title-weight)}
   .dropdown-item :is(b,strong,[style*="font-weight"]):not(.avatar-ph,.airline-logo){font-weight:var(--list-title-weight)!important}
 }
+
+/* Shared working canvas: controls stay above it, operational cards stay white. */
+.section-workspace{
+  min-width:0;box-sizing:border-box;padding:22px;border:1px solid var(--line);
+  border-radius:20px;background:var(--surface-2);min-height:240px;
+}
+.section-workspace>.table-card{margin:0;background:var(--surface);box-shadow:none}
+.section-workspace :is(.card,.hp-card,.hp-filters,.rail-filters,.stat-card,.fin-panel,.fin-table-wrap){background:var(--surface);box-shadow:none}
+.section-workspace>.empty-state{min-height:220px;background:var(--surface);border:1px solid var(--line);border-radius:16px}
+.section-workspace :is(input,textarea,.search,.select-wrap){background:var(--surface)}
+.section-workspace .section-workspace{padding:0;border:0;min-height:0;background:transparent}
+.notification-workspace{display:grid;align-content:start;gap:12px}
+.notification-workspace>div{margin-bottom:0!important}
+.chats-workspace{min-height:0}
+@media(max-width:760px){.section-workspace{padding:14px;border-radius:16px;min-height:200px}.chats-workspace{padding:10px;min-height:0}}
+
+@media(max-width:760px){.flight-results-workspace{flex-wrap:wrap}.flight-results-workspace>aside{width:100%;flex-basis:100%}}
+
+.dsh>.section-workspace{flex-shrink:0}
+.section-workspace[aria-label="Рабочая область списка"]>.table-card .tbl td:first-child{white-space:nowrap}

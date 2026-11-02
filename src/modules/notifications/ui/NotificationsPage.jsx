@@ -263,10 +263,12 @@ function NotificationsCenter({ notifications = [], orders = [], onChange, onNavi
         <Button variant="secondary" size="sm" icon="settings" onClick={() => setSetOpen(true)}>Настройки</Button>
       </div>
 
+      <section className="section-workspace notification-workspace" aria-label="Список уведомлений">
       {rows.length ? rows.map((n) => (
         <NotificationRow key={n.id} n={n} onAct={act} onRead={(id) => setRead(id)} onPin={pin} onDismiss={dismiss} onOpenCode={openCode} />
       )) : <EmptyState icon="bell" title="Здесь пусто" sub="Нет уведомлений по выбранным условиям" />}
 
+      </section>
       <NotifSettingsDrawer open={setOpen} onClose={() => setSetOpen(false)} />
       <ErrorCodesDrawer open={errOpen !== null} focusCode={errOpen} onClose={() => setErrOpen(null)} />
     </div>

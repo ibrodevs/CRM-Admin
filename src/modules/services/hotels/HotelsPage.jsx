@@ -599,7 +599,7 @@ function HotelPicker({ participants, group = false, onApply, onCancel, currency,
         </div>
       </div>
 
-      <div className="hp-layout">
+      <div className="hp-layout section-workspace">
         <HotelFilters
           stars={stars} toggleStar={(s) => setStars((p) => ({ ...p, [s]: !p[s] }))} starCounts={starCounts}
           districts={[...new Set(liveHotels.map((hotel) => hotel.district).filter((district) => district && district !== '—'))]} distSel={distSel} toggleDist={(d) => setDistSel((p) => ({ ...p, [d]: !p[d] }))}

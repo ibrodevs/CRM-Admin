@@ -625,6 +625,7 @@ function SettingsPage({ users = [], onUsersChange }) {
       <Topbar title={t("Настройки")} />
       <div className="content">
         <div style={{ marginBottom: 20 }}><Tabs tabs={TABS} value={tab} onChange={setTab} /></div>
+        <section className="section-workspace" aria-label="Рабочая область настроек">
         {tab === 'users' && usersLoading && <p>{t("Загрузка пользователей…")}</p>}
         {tab === 'users' && !usersLoading && <UsersTab users={users} onUsersChange={onUsersChange} onAdd={() => setModal('adduser')} />}
         {tab === 'roles' && <RolesTab readOnly={!permissions.includes('roles.manage')} />}
@@ -645,6 +646,7 @@ function SettingsPage({ users = [], onUsersChange }) {
             ))}
           </div>
         )}
+        </section>
         <SectionInfo section="settings" />
       </div>
       <Drawer open={modal === 'sla'} onClose={() => setModal(null)} title={t("Настройки SLA")} footer={<Button onClick={() => setModal(null)}>{t("Закрыть")}</Button>}>

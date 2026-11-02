@@ -1602,7 +1602,7 @@ function OffersRegistry({ onOpenOrder, intent, onConsume, initialProposals = [],
         <div style={{ flex: 1 }} />
         <Button icon="plus" onClick={() => setCreateOpen(true)}>Создать КП</Button>
       </div>
-      <div className="table-card">
+      <section className="section-workspace" aria-label="Рабочая область списка"><div className="table-card">
         {rows.length ? (
           <table className="tbl">
             <thead><tr>
@@ -1636,7 +1636,7 @@ function OffersRegistry({ onOpenOrder, intent, onConsume, initialProposals = [],
             </tbody>
           </table>
         ) : <EmptyState icon="template" title="Предложений не найдено" sub="Измените поиск или фильтры" />}
-      </div>
+      </div></section>
 
       {preview && (
         <Drawer open onClose={() => setPreview(null)}
