@@ -3471,3 +3471,44 @@ button.oc-fact:hover{border-color:#d3dbe8;background:#fff}
 .floating-panel.hp-occupancy-pop{padding:0}
 .floating-panel.hp-occupancy-pop .hp-occupancy-rooms{max-height:none;overflow:visible}
 @media(max-width:600px){.service-disclosure>summary{flex-wrap:wrap;padding:12px}.service-disclosure-content{padding:14px}.service-detail-grid{grid-template-columns:1fr}}
+
+/* Calm data typography shared by registries, tables and compact lists.
+   Legacy inline weights are normalized only inside data cells/rows. */
+@media screen {
+  :is(table.tbl,table.kp2-table,table.rail-ptbl,table.hp-matrix){font-variant-numeric:tabular-nums}
+  :is(table.tbl,table.kp2-table,table.rail-ptbl,table.hp-matrix) thead th{
+    font-size:14px;font-weight:var(--list-heading-weight)!important;line-height:1.5;color:var(--body)
+  }
+  :is(table.tbl,table.kp2-table,table.rail-ptbl,table.hp-matrix) tbody td{
+    font-size:var(--list-font-size);font-weight:var(--list-weight)!important;line-height:1.5
+  }
+  :is(table.tbl,table.kp2-table,table.rail-ptbl,table.hp-matrix) tbody td
+  :is(span,div,p,a,b,strong,em,small,code,time,label,.t-strong):not(:is(button,input,select,textarea,.btn,.pill,.badge,.tag,.avatar,.avatar-ph,.airline-logo,[role="button"],[role="alert"])):not(:is(button,.btn,.pill,.badge,.tag,.avatar,.avatar-ph,.airline-logo,[role="button"],[role="alert"]) *){
+    font-weight:var(--list-weight)!important
+  }
+  :is(table.tbl,table.kp2-table,table.rail-ptbl,table.hp-matrix) tfoot td{font-weight:var(--list-title-weight)!important}
+  :is(table.tbl,table.kp2-table,table.rail-ptbl,table.hp-matrix) .t-sub{font-size:var(--list-meta-size);font-weight:var(--list-weight)}
+
+  :is(.service-preview-title,.osrv-summary-title,.osrv-airport-link,.osrv-flight-reference strong,
+    .oc-svc-t,.oc-svc-row .ttl,.ap-list-row .t,.pax-group-row .nm,.pxr-nm,.uf-doc-t,
+    .osrv-pax .nm,.osrv-doc .nm,.doc-svc-title,.doc-set-title,.feed-t,
+    .tc-card-route,.tc-wchip-route,.dsh-row-title,.dsh-op-name,.ntf-title,.gsearch-t,.csc-title,
+    .hp-guest-info .nm,.cal-operator-name,.airport-contact-item strong,.hp-card-name,
+    .fare-card .fc-name,.ap-sc-item .t,.ap-sc-route){font-weight:var(--list-title-weight)!important}
+  :is(.osrv-summary-title,.oc-svc-t,.doc-svc-title,.doc-set-title,.pax-group-row .nm,.uf-doc-t){font-size:var(--list-font-size);line-height:1.5}
+  :is(.osrv-sum,.oc-svc-row .mcol .v,.dsh-row-right,.dsh-op-count,.dsh-op-delta,.dsh-agenda-time,
+    .doc-version-pill .v,.receipt-participants-name,.receipt-participants-count){font-weight:var(--list-weight)!important;font-variant-numeric:tabular-nums}
+  :is(.ro-no,.ro-price,.ro-leg .ro-time,.off-time,.off-total,.hp-price-val,.fare-card .fc-price,
+    .ap-fl-time,.ap-fl-pr .v,.ap-sc-item .pr,.ap-route-totals .rt-price .v){font-weight:var(--list-title-weight)!important}
+  :is(.kv-row .v,.amt-row .v,.hotel-actions-summary dd,.hotel-booking-stay dd,.osrv-stay-details dd,.flight-fare-fields dd,.service-detail-grid dd,.fin-amount,
+    .fin-calendar-row [style*="font-weight"],.fin-treasury-row [style*="font-weight"],.fin-incoming-row [style*="font-weight"]){font-weight:var(--list-weight)!important}
+  .amt-row.total .v{font-weight:var(--list-title-weight)!important}
+
+  :is(.pax-group-row,.osrv-pax,.osrv-download-row,.doc-version-row,.ver-row,.feed-item,.chat-row,.uf-doc-row)
+  :is(b,strong,[style*="font-weight"]):not(:is(button,input,select,textarea,.btn,.pill,.badge,.tag,.avatar,.avatar-ph,.airline-logo,[role="button"],[role="alert"])):not(:is(button,.btn,.pill,.badge,.tag,.avatar,.avatar-ph,.airline-logo,[role="button"],[role="alert"]) *){font-weight:var(--list-title-weight)!important}
+  :is(.oc-svc-s,.doc-svc-sub,.doc-set-sub,.pax-group-row .mt,.dsh-row-sub){font-size:var(--list-meta-size);font-weight:var(--list-weight);line-height:1.5}
+
+  .dropdown-item{font-weight:var(--list-weight)}
+  .dropdown-item.is-selected{font-weight:var(--list-title-weight)}
+  .dropdown-item :is(b,strong,[style*="font-weight"]):not(.avatar-ph,.airline-logo){font-weight:var(--list-title-weight)!important}
+}

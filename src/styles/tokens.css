@@ -12,6 +12,8 @@
   --amber:#c47e22; --amber-bg:#fbe7cf;
   --gray-bg:#eef0f4; --gray-text:#596579;
   --h-control:48px;
+  --list-font-size:15px; --list-meta-size:13px;
+  --list-weight:400; --list-title-weight:500; --list-heading-weight:600;
   --r-card:16px; --r-input:12px; --r-pill:999px; --r-modal:22px;
   --sb-w:300px;
   --shadow-card:none;
