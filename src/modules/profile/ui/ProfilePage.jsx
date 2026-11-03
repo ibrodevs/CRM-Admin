@@ -1,3 +1,4 @@
+import { Statistics, Statistic } from '../../../shared/ui/Statistics.jsx';
 import { SectionInfo } from '../../../shared/ui/SectionInfo.jsx';
 import { InfoNotice } from '../../../shared/ui/InfoNotice.jsx';
 import { translate as t } from '../../../shared/preferences/translations.js';
@@ -140,7 +141,7 @@ function ProfileStats({ operator, userId }) {
     <UFDateField label={t("Начало периода")} value={ufDateFromIso(from)} onChange={(value) => { const iso = ufDateIso(value); if (iso) setFrom(iso); }} />
     <UFDateField label={t("Конец периода")} value={ufDateFromIso(to)} onChange={(value) => { const iso = ufDateIso(value); if (iso) setTo(iso); }} />
     <Button variant="secondary" icon="download" disabled={busy || !!error} onClick={exportStats}>{t("Экспорт")}</Button>
-  </div>{error && <p role="alert">{error}</p>}{busy ? <p>{t("Загрузка статистики…")}</p> : <div className="grid-2">{stats.map(([label, value]) => <div className="stat-card" key={t(label)}><div className="s-label">{t(label)}</div><div className="s-value" style={{fontSize:22}}>{value}</div></div>)}</div>}
+  </div>{error && <p role="alert">{error}</p>}{busy ? <p>{t("Загрузка статистики…")}</p> : <Statistics label={t("Статистика сотрудника")} columns={2}>{stats.map(([label, value]) => <Statistic key={label} label={t(label)} value={value} />)}</Statistics>}
     <p className="hint">{formatProfileDate(from, user?.preferences)} — {formatProfileDate(to, user?.preferences)}{t(". Суммы показаны отдельно по валютам; прибыль рассчитана по выписанным услугам.")}</p>
   </div>;
 }
@@ -198,11 +199,9 @@ function ProfileWorkTime({ user, canEdit = false }) {
         </div>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12, marginBottom: 16 }}>
-        {metrics.map(([l, v], i) => (
-          <div className="stat-card" key={i}><div className="s-label">{t(l)}</div><div className="s-value" style={{ fontSize: 20 }}>{v}</div></div>
-        ))}
-      </div>
+      <Statistics label={t("Показатели работы")} style={{ marginBottom: 16 }}>
+        {metrics.map(([label, value]) => <Statistic key={label} label={t(label)} value={value} />)}
+      </Statistics>
 
       <h4 style={{ margin: '0 0 10px', fontSize: 15, fontWeight: 700, color: 'var(--ink)' }}>{t("История смен")}</h4>
       <div className="table-card">

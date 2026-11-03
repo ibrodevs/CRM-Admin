@@ -1,3 +1,4 @@
+import { Statistics, Statistic } from '../../../shared/ui/Statistics.jsx';
 import React from 'react';
 import { useState } from 'react';
 import { Icon } from '../../../shared/icons/index.jsx';
@@ -177,16 +178,13 @@ function FinanceRegistry({ scopeOrder, onOpenOp, initialOps }) {
         const curs = [...new Set(ops.map((o) => o.currency))];
         const sumCur = (c, fn) => ops.filter((o) => o.currency === c).reduce((s, o) => s + fn(o), 0);
         return (
-          <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginBottom: 18 }}>
+          <div style={{ display: 'grid', gap: 10, marginBottom: 18 }}>
             {curs.map((c) => (
-              <div className="stat-card" key={c} style={{ flex: '1 1 220px' }}>
-                <div className="s-label">Итоги по операциям · {c}</div>
-                <div style={{ display: 'flex', gap: 22, marginTop: 8, flexWrap: 'wrap' }}>
-                  <div><div style={{ fontSize: 12, color: 'var(--muted)' }}>К оплате</div><div style={{ fontWeight: 700, fontSize: 16 }}>{fUsd(sumCur(c, finPayable), c)}</div></div>
-                  <div><div style={{ fontSize: 12, color: 'var(--muted)' }}>Оплачено</div><div style={{ fontWeight: 700, fontSize: 16, color: 'var(--green)' }}>{fUsd(sumCur(c, (o) => o.paid), c)}</div></div>
-                  <div><div style={{ fontSize: 12, color: 'var(--muted)' }}>Задолженность</div><div style={{ fontWeight: 700, fontSize: 16, color: sumCur(c, finDebt) ? 'var(--red)' : 'var(--ink)' }}>{fUsd(sumCur(c, finDebt), c)}</div></div>
-                </div>
-              </div>
+              <Statistics key={c} label={'Итоги по операциям · ' + c}>
+                <Statistic label={'К оплате · ' + c} value={fUsd(sumCur(c, finPayable), c)} />
+                <Statistic label="Оплачено" value={fUsd(sumCur(c, (o) => o.paid), c)} color="var(--green)" />
+                <Statistic label="Задолженность" value={fUsd(sumCur(c, finDebt), c)} color={sumCur(c, finDebt) ? 'var(--red)' : undefined} />
+              </Statistics>
             ))}
             {curs.length > 1 && (
               <div style={{ width: '100%', fontSize: 12, color: 'var(--muted)', display: 'flex', alignItems: 'center', gap: 6 }}>

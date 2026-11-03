@@ -1,3 +1,4 @@
+import { Statistics, Statistic } from '../../../shared/ui/Statistics.jsx';
 import { ORDER_SECTIONS, canonicalOrderSection } from '../model/workspace.js';
 import { FlightFareSummary, FlightBookingActionsDrawer } from '../../services/index.js';
 import { passengerAttachments, passengerAttachmentLabel } from '../model/passenger-attachments.js';
@@ -2410,14 +2411,11 @@ function OrderFinanceCurrencyBlock({ order, services, summary, selectedCurrency 
         <div style={{ flex: 1 }} />
         <Pill tone={debt > 0 ? 'amber' : 'gray'}>{debt > 0 ? 'Есть задолженность' : paid >= total && total > 0 ? 'Полностью оплачен' : 'Нет открытых начислений'}</Pill>
       </div>
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(150px,1fr))', gap: 10, marginBottom: 16 }}>
-        {[['Стоимость заказа · ' + currency, money(total), null], ['Оплачено', money(paid), 'var(--green)'], ['Остаток', money(debt), debt > 0 ? 'var(--amber)' : 'var(--green)']].map(([l, v, c]) => (
-          <div key={l} style={{ padding: '12px 14px', borderRadius: 12, background: 'var(--surface-2)', border: '1px solid var(--line)' }}>
-            <div style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 4 }}>{l}</div>
-            <div style={{ fontSize: 18, fontWeight: 800, color: c || 'var(--ink)' }}>{v}</div>
-          </div>
-        ))}
-      </div>
+      <Statistics label="Финансовая сводка заказа" style={{ marginBottom: 16 }}>
+        <Statistic label={'Стоимость заказа · ' + currency} value={money(total)} />
+        <Statistic label="Оплачено" value={money(paid)} color="var(--green)" />
+        <Statistic label="Остаток" value={money(debt)} color={debt > 0 ? 'var(--amber)' : 'var(--green)'} />
+      </Statistics>
       {!summary && <div style={{ fontSize: 12.5, color: 'var(--muted)' }}>Платежи и финансовые условия формируются на основе услуг заказа.</div>}
     </div>
   );

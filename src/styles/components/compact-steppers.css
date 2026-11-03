@@ -722,3 +722,62 @@ button.fin-stat:hover{border-color:var(--blue);background:var(--hover)}
 @container finance (max-width:340px){.fin-stats{grid-template-columns:1fr}}
 
 .fin-view table.tbl th.fin-amount{text-align:right}
+
+/* Shared statistics: equal metrics, with the final row filling available width. */
+.statistics{display:flex;flex-wrap:wrap;width:100%;min-width:0;box-sizing:border-box;gap:0;
+  border:1px solid var(--line);border-radius:13px;background:var(--surface);overflow:hidden}
+.statistics>.statistic{display:flex;flex:1 1 calc(100% / var(--stat-columns,4));flex-wrap:wrap;
+  align-items:center;align-content:center;justify-content:space-between;gap:6px 12px;
+  min-width:0;min-height:64px;padding:12px 16px;box-sizing:border-box;
+  border:0;border-left:1px solid var(--line);border-radius:0;background:transparent;
+  box-shadow:none;color:var(--ink);text-align:left;font:inherit}
+.statistics[data-stat-columns="4"]>.statistic:nth-child(4n+1),
+.statistics[data-stat-columns="3"]>.statistic:nth-child(3n+1),
+.statistics[data-stat-columns="2"]>.statistic:nth-child(2n+1),
+.statistics[data-stat-columns="1"]>.statistic{border-left:0}
+.statistics[data-stat-columns="4"]>.statistic:nth-child(n+5),
+.statistics[data-stat-columns="3"]>.statistic:nth-child(n+4),
+.statistics[data-stat-columns="2"]>.statistic:nth-child(n+3),
+.statistics[data-stat-columns="1"]>.statistic:nth-child(n+2){border-top:1px solid var(--line)}
+.statistics .statistic-label,.grid-4:has(>.stat-card)>.stat-card .s-label{
+  display:inline-flex;align-items:center;gap:7px;flex:1 1 100px;min-width:0;margin:0;
+  font-size:var(--stat-label-size);font-weight:500;line-height:1.4;color:var(--muted)}
+.statistic-label>span{display:inline-flex;flex-shrink:0}
+.statistic-label svg{width:14px;height:14px}
+.statistics .statistic-value,.grid-4:has(>.stat-card)>.stat-card .s-value{
+  min-width:0;max-width:100%;font-size:var(--stat-value-size)!important;font-weight:var(--stat-value-weight);
+  line-height:1.25;letter-spacing:-.02em;font-variant-numeric:tabular-nums;white-space:normal;overflow-wrap:anywhere}
+.statistic-sub{flex-basis:100%;font-size:12px;line-height:1.4;color:var(--muted)}
+button.statistic{cursor:pointer}
+.statistics>button.statistic:hover{background:var(--hover)}
+.statistics>button.statistic:focus-visible{outline:2px solid var(--blue);outline-offset:-3px}
+.statistics>button.statistic[aria-pressed="true"]{background:var(--blue-soft)}
+.statistics>button.statistic[aria-pressed="true"] .statistic-label{color:var(--blue)}
+.grid-4:has(>.stat-card){grid-template-columns:repeat(var(--legacy-stat-columns,4),minmax(0,1fr))}
+.grid-4:has(>.stat-card:last-child:nth-child(3)){--legacy-stat-columns:3}
+.grid-4:has(>.stat-card:last-child:nth-child(2)){--legacy-stat-columns:2}
+.grid-4:has(>.stat-card:only-child){--legacy-stat-columns:1}
+.grid-4:has(>.stat-card)>.stat-card{min-height:64px;flex-wrap:wrap;gap:6px 12px;padding:12px 16px!important}
+.orders-access-summary b,.dsh-kpi-value{font-size:var(--stat-value-size);font-weight:var(--stat-value-weight)}
+.orders-access-summary span,.dsh-kpi-label{font-size:var(--stat-label-size);font-weight:500}
+@media(max-width:900px){
+  .statistics>.statistic:nth-child(n){flex-basis:50%;border-left:1px solid var(--line);border-top:0}
+  .statistics>.statistic:nth-child(2n+1){border-left:0}
+  .statistics>.statistic:nth-child(n+3){border-top:1px solid var(--line)}
+  .grid-4:has(>.stat-card:nth-child(n+2)){grid-template-columns:repeat(2,minmax(0,1fr))}
+}
+@media(max-width:520px){
+  .statistics>.statistic:nth-child(n){flex-basis:100%;border-left:0;border-top:1px solid var(--line)}
+  .statistics>.statistic:first-child{border-top:0}
+  .grid-4:has(>.stat-card:nth-child(n)){grid-template-columns:1fr}
+}
+@container finance (max-width:900px){
+  .statistics.fin-stats>.statistic:nth-child(n){flex-basis:50%;border-left:1px solid var(--line);border-top:0}
+  .statistics.fin-stats>.statistic:nth-child(2n+1){border-left:0}
+  .statistics.fin-stats>.statistic:nth-child(n+3){border-top:1px solid var(--line)}
+}
+@container finance (max-width:340px){
+  .statistics.fin-stats>.statistic:nth-child(n){flex-basis:100%;border-left:0;border-top:1px solid var(--line)}
+  .statistics.fin-stats>.statistic:first-child{border-top:0}
+}
+.statistics[data-stat-columns="1"]>.statistic{flex-basis:100%}

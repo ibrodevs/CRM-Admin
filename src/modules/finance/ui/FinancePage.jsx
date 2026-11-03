@@ -1,3 +1,4 @@
+import { Statistics, Statistic } from '../../../shared/ui/Statistics.jsx';
 import { SectionInfo } from '../../../shared/ui/SectionInfo.jsx';
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { Icon } from '../../../shared/icons/index.jsx';
@@ -180,14 +181,7 @@ const financeCounterpartyRows = (obligations = []) => {
 };
 
 function StatTile({ label, value, sub, icon, onClick }) {
-  const Tag = onClick ? 'button' : 'div';
-  return (
-    <Tag className="fin-stat" type={onClick ? 'button' : undefined} onClick={onClick}>
-      <span className="fin-stat-label">{icon && <Icon name={icon} />}{label}</span>
-      <span className="fin-stat-value">{value}</span>
-      {sub && <span className="fin-stat-sub">{sub}</span>}
-    </Tag>
-  );
+  return <Statistic label={label} value={value} sub={sub} icon={icon} onClick={onClick} />;
 }
 function WarnBanner({ tone = 'red', icon = 'alertTriangle', title, text, action }) {
   const bg = tone === 'red' ? 'var(--red-bg)' : 'var(--amber-bg)';
@@ -315,7 +309,7 @@ function FinOverview({ onGoTab, overview, accounts = [], payments = [], receipts
         text={`К выплате ${financeMoney(planned, currency)}, доступно с ожидаемыми поступлениями ${financeMoney(totalCash + expected, currency)}.`}
         action={<Button size="sm" variant="secondary" onClick={() => onGoTab('treasury')}>В казначейство</Button>} />}
 
-      <div className="fin-stats">
+      <Statistics label="Финансовые показатели" className="fin-stats">
         <StatTile label="Остаток денежных средств" value={financeMoney(totalCash, currency)} icon="finance" accent="var(--green)" onClick={() => onGoTab('balance')} />
         <StatTile label="Дебиторская задолженность" value={financeMoney(receivable, currency)} icon="arrowUpRight" tone="var(--amber)" onClick={() => onGoTab('settlements')} />
         <StatTile label="Кредиторская задолженность" value={financeMoney(payable, currency)} icon="arrowUpRight" tone="var(--red)" onClick={() => onGoTab('settlements')} />
@@ -323,7 +317,7 @@ function FinOverview({ onGoTab, overview, accounts = [], payments = [], receipts
         <StatTile label="Платежи к исполнению" value={financeMoney(planned, currency)} icon="calendar" tone="var(--red)" onClick={() => onGoTab('treasury')} />
         <StatTile label="Валовая прибыль услуг" value={financeMoney(gross, currency)} icon="pie" tone={gross >= 0 ? 'var(--green)' : 'var(--red)'} onClick={() => onGoTab('economics')} />
         <StatTile label="Сервисные сборы" value={financeMoney(serviceFees, currency)} icon="sparkles" onClick={() => onGoTab('economics')} />
-      </div>
+      </Statistics>
 
       <div className="fin-panels">
         <div className="card card-pad">
@@ -402,11 +396,11 @@ function FinBalance({ accounts = [] }) {
     <div className="fade-in fin-view">
       {!accounts.length ? <EmptyState icon="bank" title="Финансовые счета не созданы" /> : (
         <>
-          <div className="fin-stats">
+          <Statistics label="Финансовые показатели" className="fin-stats">
             {Object.entries(totals).map(([currency, value]) => (
               <StatTile key={currency} label={`Остаток · ${currency}`} value={financeMoney(value, currency)} tone={value >= 0 ? 'var(--green)' : 'var(--red)'} icon="finance" />
             ))}
-          </div>
+          </Statistics>
           {FIN_ACCT_GROUPS.map((group) => {
             const groupAccounts = accounts.filter((account) => account.group === group.key);
             if (!groupAccounts.length) return null;
@@ -693,12 +687,12 @@ function FinTreasury({ accounts = [], payments = [], receipts = [], currency }) 
 
   return (
     <div className="fade-in fin-view">
-      <div className="fin-stats">
+      <Statistics label="Финансовые показатели" className="fin-stats">
         <StatTile label="Остаток на счетах и в кассе" value={financeMoney(startBalance, currency)} icon="finance" />
         <StatTile label="Ожидаемые поступления" value={financeMoney(totalIn, currency)} tone="var(--green)" icon="arrowUpRight" />
         <StatTile label="Непроведённые выплаты" value={financeMoney(totalOut, currency)} tone="var(--red)" icon="arrowUpRight" />
         <StatTile label="Расчётный остаток" value={financeMoney(forecast, currency)} tone={forecast < 0 ? 'var(--red)' : 'var(--green)'} icon="pie" />
-      </div>
+      </Statistics>
       {gap && <WarnBanner tone="red" title="По текущим данным возможен кассовый разрыв"
         text="Сумма непроведённых исходящих платежей превышает остаток с учётом ожидаемых поступлений." />}
       <div className="fin-panels">

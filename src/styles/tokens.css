@@ -20,7 +20,8 @@
   --shadow-pop:none;
   --shadow-modal:none;
   --fs-display:30px;
-  --fs-stat:26px;
+  --fs-stat:20px;
+  --stat-label-size:12px; --stat-value-size:20px; --stat-value-weight:600;
   --fs-h1:32px;
   --fs-h2:22px;
   --fs-h3:16px;

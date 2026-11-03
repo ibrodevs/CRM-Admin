@@ -1,3 +1,4 @@
+import { Statistics, Statistic } from '../../../shared/ui/Statistics.jsx';
 import { SectionInfo } from '../../../shared/ui/SectionInfo.jsx';
 import { InfoNotice } from '../../../shared/ui/InfoNotice.jsx';
 import { ProviderSetupFields } from './ProviderSetupFields.jsx';
@@ -783,12 +784,12 @@ function SupplierTabBody({ s, ext, tab, isAirline, apiStatus, connectionResult, 
       {tab === 'search' && <SupplierSearchEditor ext={ext} supplierName={s.name} onSaveSettings={onSaveSettings} />}
       {tab === 'stats' && (
         <div>
-          <div className="grid-2" style={{ gap: 12, marginBottom: 16 }}>
+          <Statistics label="Статистика поставщика" columns={2} style={{ marginBottom: 16 }}>
             {[['Бронирований', ext.stats.bookings], ['Выписок', ext.stats.issues], ['Возвратов', ext.stats.refunds],
               ['Среднее время ответа', ext.stats.avgResponse], ['Успешных бронирований', ext.stats.successRate], ['Последнее использование', ext.stats.lastUsed]].map(([l, v], i) => (
-              <div className="stat-card" key={i}><div className="s-label">{l}</div><div className="s-value" style={{ fontSize: 22 }}>{v}</div></div>
+              <Statistic key={l} label={l} value={v} />
             ))}
-          </div>
+          </Statistics>
           <EmptyState icon="chart" title="Динамика по дням пока не загружена" sub="График появится после появления временного ряда в backend" />
         </div>
       )}
@@ -937,7 +938,7 @@ function SupplierCard({ supplier, onBack, onOpenOrder, onOpenChat }) {
         </div>
         <div style={{ textAlign: 'right' }}>
           <div style={{ fontSize: 12, color: 'var(--muted)' }}>Успешных бронирований</div>
-          <div style={{ fontSize: 20, fontWeight: 700, color: 'var(--green)' }}>{ext.stats.successRate}</div>
+          <div style={{ fontSize: 'var(--stat-value-size)', fontWeight: 'var(--stat-value-weight)', color: 'var(--green)' }}>{ext.stats.successRate}</div>
           <div style={{ fontSize: 12, color: 'var(--muted)' }}>{ext.stats.bookings} бронирований</div>
         </div>
         {isApiType

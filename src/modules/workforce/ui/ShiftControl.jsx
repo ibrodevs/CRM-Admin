@@ -1,3 +1,4 @@
+import { Statistics, Statistic } from '../../../shared/ui/Statistics.jsx';
 import { useState, useEffect } from 'react';
 import ReactDOM from 'react-dom';
 import { Icon } from '../../../shared/icons/index.jsx';
@@ -279,11 +280,9 @@ function ShiftReportDrawer({ open, onClose, operator, shift, closing, onConfirmC
       </div>
 
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 10, marginBottom: 16 }}>
-        {METRICS.map(([l, v], i) => (
-          <div className="stat-card" key={i}><div className="s-label">{l}</div><div className="s-value" style={{ fontSize: 18 }}>{v}</div></div>
-        ))}
-      </div>
+      <Statistics label="Показатели смены" style={{ marginBottom: 16 }}>
+        {METRICS.map(([label, value]) => <Statistic key={label} label={label} value={value} />)}
+      </Statistics>
 
 
       <div className="card card-pad" style={{ marginBottom: 16 }}>

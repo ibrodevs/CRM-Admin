@@ -1,3 +1,4 @@
+import { Statistics, Statistic } from '../../../shared/ui/Statistics.jsx';
 import { SectionInfo } from '../../../shared/ui/SectionInfo.jsx';
 import { useState, useEffect } from 'react';
 import { Icon } from '../../../shared/icons/index.jsx';
@@ -96,18 +97,14 @@ function FulfillmentRegistry({ onOpenOrder, rows = [], orders = [] }) {
 
   return (
     <div className="fade-in">
-      <div className="grid-4" style={{ marginBottom: 22 }}>
-        {CATS.map((c) => {
-          const n = rows.filter((r) => r.cat === c.key).length;
-          const overdue = c.key === 'overdue' || rows.some((r) => r.cat === c.key && r.overdue);
-          return (
-            <div key={c.key} className="stat-card" style={{ cursor: 'pointer', borderColor: cat === c.key ? 'var(--blue)' : 'var(--line)', boxShadow: cat === c.key ? '0 0 0 3px var(--blue-soft)' : 'var(--shadow-card)' }} onClick={() => setCat(c.key)}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}><Icon name={c.icon} style={{ width: 18, height: 18, color: cat === c.key ? 'var(--blue)' : 'var(--muted-2)' }} /><span className="s-label" style={{ margin: 0 }}>{c.label}</span></div>
-              <div className="s-value" style={c.key === 'overdue' && n ? { color: 'var(--red)' } : null}>{n}</div>
-            </div>
-          );
+      <Statistics label="Статистика оформления" style={{ marginBottom: 22 }}>
+        {CATS.map((category) => {
+          const count = rows.filter((row) => row.cat === category.key).length;
+          return <Statistic key={category.key} label={category.label} value={count} icon={category.icon}
+            color={category.key === 'overdue' && count ? 'var(--red)' : undefined}
+            selected={cat === category.key} onClick={() => setCat(category.key)} />;
         })}
-      </div>
+      </Statistics>
 
       <section className="section-workspace" aria-label="Рабочая область списка"><div className="table-card">
         {shownRows.length ? (

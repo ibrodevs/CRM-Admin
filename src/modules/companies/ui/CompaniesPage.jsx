@@ -367,7 +367,7 @@ function CompanyCard({ co, logoUrl, orders: allOrders = ORDERS, onBack, onOpenOr
         {bal && bal.kind !== 'предоплата' && (
           <div style={{ textAlign: 'right' }}>
             <div style={{ fontSize: 12, color: 'var(--muted)' }}>{bal.label}</div>
-            <div style={{ fontSize: 20, fontWeight: 700, color: 'var(--' + (bal.tone === 'red' ? 'red' : bal.tone === 'green' ? 'green' : 'ink') + ')' }}>{formatMoney(bal.value, bal.currency)}</div>
+            <div style={{ fontSize: 'var(--stat-value-size)', fontWeight: 'var(--stat-value-weight)', color: 'var(--' + (bal.tone === 'red' ? 'red' : bal.tone === 'green' ? 'green' : 'ink') + ')' }}>{formatMoney(bal.value, bal.currency)}</div>
             {bal.overdue > 0 && <div style={{ fontSize: 12, color: 'var(--red)' }}>просрочено {Math.round(bal.overdue).toLocaleString('ru-RU')} $</div>}
           </div>
         )}

@@ -1,3 +1,4 @@
+import { Statistics, Statistic } from '../../../shared/ui/Statistics.jsx';
 import { InfoNotice } from '../../../shared/ui/InfoNotice.jsx';
 import { companiesApi } from '../api/companiesApi.js';
 import { useState, useEffect } from 'react';
@@ -127,14 +128,11 @@ function DepositCard({ deposit, currency }) {
         <Icon name="bank" style={{ width: 18, height: 18, color: 'var(--blue)' }} />
         <h3 className="card-title" style={{ fontSize: 16, margin: 0 }}>Депозитный баланс</h3>
       </div>
-      <div className="grid-2" style={{ gap: 12 }}>
-        <div className="stat-card"><div className="s-label">Текущий остаток</div><div className="s-value" style={{ fontSize: 22 }}>{fM(deposit.balance, currency)}</div></div>
-        <div className="stat-card"><div className="s-label">Зарезервировано</div><div className="s-value" style={{ fontSize: 22, color: 'var(--amber)' }}>{fM(deposit.reserved, currency)}</div></div>
-      </div>
-      <div className="stat-card" style={{ marginTop: 12, background: 'var(--green-bg, #eafaf0)' }}>
-        <div className="s-label">Доступный остаток</div>
-        <div className="s-value" style={{ fontSize: 26, color: avail > 0 ? 'var(--green)' : 'var(--red)' }}>{fM(avail, currency)}</div>
-      </div>
+      <Statistics label="Депозитный баланс" columns={2}>
+        <Statistic label="Текущий остаток" value={fM(deposit.balance, currency)} />
+        <Statistic label="Зарезервировано" value={fM(deposit.reserved, currency)} color="var(--amber)" />
+        <Statistic label="Доступный остаток" value={fM(avail, currency)} color={avail > 0 ? 'var(--green)' : 'var(--red)'} />
+      </Statistics>
     </div>
   );
 }
@@ -550,12 +548,9 @@ function CompanySettlementsBlock({ co, currency }) {
       }
     } catch (error) { toast(error.message || 'Не удалось сформировать документ', 'err'); }
   };
-  const stat = (label, value, tone) => (
-    <div style={{ padding: '12px 14px', border: '1px solid var(--line)', borderRadius: 12, background: 'var(--surface)' }}>
-      <div style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 4 }}>{label}</div>
-      <div style={{ fontSize: 20, fontWeight: 700, color: tone || 'var(--ink)' }}>{value}</div>
-    </div>
-  );
+  const stat = (label, value, tone) => <Statistics label={label}>
+    <Statistic label={label} value={value} color={tone} />
+  </Statistics>;
 
   if (loading) return <div className="card card-pad" style={{ color: 'var(--muted)' }}>Загрузка взаиморасчётов…</div>;
   if (loadError) return <div className="card card-pad" style={{ color: 'var(--red)' }}>{loadError}</div>;
@@ -576,11 +571,11 @@ function CompanySettlementsBlock({ co, currency }) {
       </div>
 
       {Object.keys(totals).length ? Object.entries(totals).map(([code, value]) => (
-        <div key={code} style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(150px,1fr))', gap: 10, marginBottom: 12 }}>
-          {stat(`Начислено · ${code}`, fM(value.debit, code))}
-          {stat(`Оплачено · ${code}`, fM(value.credit, code), 'var(--green)')}
-          {stat(`Остаток · ${code}`, fM(value.balance, code), value.balance > 0 ? 'var(--amber)' : 'var(--green)')}
-        </div>
+        <Statistics key={code} label={'Взаиморасчёты · ' + code} style={{ marginBottom: 12 }}>
+          <Statistic label={`Начислено · ${code}`} value={fM(value.debit, code)} />
+          <Statistic label={`Оплачено · ${code}`} value={fM(value.credit, code)} color="var(--green)" />
+          <Statistic label={`Остаток · ${code}`} value={fM(value.balance, code)} color={value.balance > 0 ? 'var(--amber)' : 'var(--green)'} />
+        </Statistics>
       )) : (
         <div style={{ color: 'var(--muted)', marginBottom: 12 }}>По компании пока нет финансовых обязательств.</div>
       )}
