@@ -354,8 +354,7 @@ function HotelPicker({ participants, group = false, onApply, onCancel, currency,
   const openHotel = async (h, requestedGuests = searchGuests) => {
     if (selectingHotel.current) return false;
     const version = roomSearchVersion.current;
-    const times = hotelStayTimes(h.itinerary);
-    if (h.provider_adapter === 'hotelbook' && (times.earlyArrivalTime || times.lateDepartureTime) && !h.itinerary?.stay_times_validated) {
+    if (h.provider_adapter === 'hotelbook') {
       selectingHotel.current = true; setOpeningHotel(true); setSearchError('');
       try {
         const offer = await loadHotelStayOffer(h, servicesApi.revalidate);
@@ -363,7 +362,7 @@ function HotelPicker({ participants, group = false, onApply, onCancel, currency,
         h = hotelOfferToUi(offer);
         setLiveHotels((rows) => rows.map((row) => row.id === h.id ? h : row));
       } catch (error) {
-        const message = error.message || 'Не удалось уточнить тариф для выбранного времени заезда и выезда';
+        const message = error.message || 'Не удалось получить актуальные условия тарифа. Повторите выбор.';
         setSearchError(message); toast(message, 'err'); return false;
       } finally { selectingHotel.current = false; setOpeningHotel(false); }
     }
@@ -449,7 +448,7 @@ function HotelPicker({ participants, group = false, onApply, onCancel, currency,
     _backendOfferId: activeHotel._backendOfferId,
     ...(activeHotel.provider_adapter === 'hotelbook' ? {
       guestRoomRefs: groupMode ? PAX.map((_, i) => `room:${roomGroups.findIndex((room) => room.members.includes(i))}`) : hotelRoomAssignments(PAX, guestSel, mainGuest, activeHotel.fare?.rooms, guestRooms).refs,
-      specialRequests: activeHotel.fare?.isRemarkFreeFormAllowed ? specialReq : '',
+      specialRequests: specialReq,
     } : {}),
     title: activeHotel.name + ' · ' + activeHotel.stars + '★',
     sub,
@@ -608,7 +607,7 @@ function HotelPicker({ participants, group = false, onApply, onCancel, currency,
 
         <div className="hp-results" aria-busy={searching}>
           {searching && <div className="hp-search-progress" role="status"><span className="hp-spinner" aria-hidden="true" /><div><b>Ищем доступные номера</b><small>Получаем цены и условия от поставщиков…</small></div></div>}
-          {openingHotel && <InfoNotice role="status">Уточняем тариф для выбранного времени заезда и выезда…</InfoNotice>}
+          {openingHotel && <InfoNotice role="status">Уточняем цену, штрафы и условия тарифа…</InfoNotice>}
           {searchError && <div className="hp-search-error" role="alert">{searchError}</div>}
           {list.length ? list.map((h) => (
             <HotelResultCard key={h.id} h={h} onPick={(hotel) => !searching && openHotel(hotel)} />
@@ -947,6 +946,7 @@ function PaxPlacementPanel({ hotel, room, tariff, pax, nights, checkin, checkout
           {(!fixedBeds || hotel.fare?.isRemarkFreeFormAllowed) && <><div className="hp-col-subtitle">5. Специальные пожелания <span className="hp-opt">(необязательно)</span></div>
           <textarea className="hp-textarea" rows={4} maxLength={2000} value={specialReq} onChange={(e) => setSpecialReq(e.target.value)}
             placeholder="Например: высокий этаж, ранний заезд, кровати рядом, тихий номер и т.д." /></>}
+          {fixedBeds && !hotel.fare?.isRemarkFreeFormAllowed && <InfoNotice>Поставщик не разрешил специальные пожелания для этого тарифа.</InfoNotice>}
 
           <div className="hp-summary">
             <div className="hp-sum-title">Итог размещения</div>

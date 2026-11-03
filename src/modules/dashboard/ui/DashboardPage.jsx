@@ -74,8 +74,8 @@ function FreeBookingFinalize({ draft, onClose, onDone, onOpenOrder, onNavigate, 
           }
         }
       }
-      const participantIds = await resolveHotelParticipants(orderId, svc, ordersApi);
-      await servicesApi.addToOrder(orderId, { ...freeBookingServiceBody(svc), ...(participantIds ? { participants: participantIds } : {}) });
+      const participantIds = svc.participantIds || await resolveHotelParticipants(orderId, svc, ordersApi);
+      await servicesApi.addToOrder(orderId, { ...freeBookingServiceBody(svc, participantIds), ...(participantIds ? { participants: participantIds } : {}) });
     }
   };
 

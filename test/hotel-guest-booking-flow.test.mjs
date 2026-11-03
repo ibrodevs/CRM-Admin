@@ -116,6 +116,7 @@ test('editing the room header repeats search and replaces the old offer without 
   let request;
   const api = {
     search: async (body) => { request = body; return { search_id: 'updated-search' }; },
+    revalidate: async (id) => { assert.equal(id, 'new-offer'); const raw = (await api.offers()).results[0]; return { offer: { ...raw, price: { amount: 19000, currency: 'RUB' }, fare: { cancel: [{ price: { amount: '500', currency: 'RUB' } }], isRemarkFreeFormAllowed: true } } }; },
     searchStatus: async () => ({ status: 'completed' }),
     offers: async () => ({ results: [{ id: 'new-offer', provider_adapter: 'hotelbook', price: { amount: 18000, currency: 'RUB' }, itinerary: { property_name: 'Отель', hotel_id: 'hb-1', address: 'Адрес', room: 'Twin', max_occupancy: 3 }, fare: {} }] }),
   };
@@ -130,7 +131,8 @@ test('editing the room header repeats search and replaces the old offer without 
   assert.equal(request.criteria.guests, 3);
   assert.equal(picker.get('panel'), 'room');
   assert.equal(picker.get('activeHotel')._backendOfferId, 'new-offer');
-  assert.equal(picker.get('selTariff').price, 18000);
+  assert.equal(picker.get('selTariff').price, 19000);
+  assert.equal(picker.get('activeHotel').fare.cancel[0].price.amount, '500');
   assert.equal(picker.get('roomSearchUnavailable'), false);
   assert.equal(picker.get('checkin'), draft.checkin);
 });

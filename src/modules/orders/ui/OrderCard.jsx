@@ -1,3 +1,4 @@
+import { hotelBookingOptions } from '../../../shared/lib/hotel-booking-options.js';
 import { Statistics, Statistic } from '../../../shared/ui/Statistics.jsx';
 import { ORDER_SECTIONS, canonicalOrderSection } from '../model/workspace.js';
 import { FlightFareSummary, FlightBookingActionsDrawer } from '../../services/index.js';
@@ -3006,11 +3007,7 @@ function OrderCard({ order, company, clients = [], onBack, initTab, initSvc, ini
       const body = offer._backendOfferId
         ? { offer_id: offer._backendOfferId, participants: participantIds }
         : { kind: kindCode, title: offer.title || kind, currency: resolveCurrency(offer.currency, cardOrder.base_currency, cardOrder.currency), supplier_cost: Number(offer.cost || 0), agency_fee: Number(offer.fee || 0), client_total: amount, participants: participantIds };
-      if (offer.guestRoomRefs) {
-        body.room_assignments = Object.fromEntries(participantIds.map((id, index) => [id, offer.guestRoomRefs[index]]));
-        body.main_guest = participantIds[0];
-        body.special_requests = offer.specialRequests || '';
-      }
+      Object.assign(body, hotelBookingOptions(offer, participantIds));
       const created = await servicesApi.addToOrder(orderId, body);
       await refreshOrderSnapshot();
       setSvcView(null);

@@ -1,3 +1,4 @@
+import { hotelBookingOptions } from '../../../shared/lib/hotel-booking-options.js';
 import { resolveCurrency } from '../../../shared/lib/money.js';
 
 export function freeBookingOfferId(service) {
@@ -16,9 +17,9 @@ export function freeBookingTotals(services) {
   }, {});
 }
 
-export function freeBookingServiceBody(service) {
+export function freeBookingServiceBody(service, participantIds) {
   const offerId = freeBookingOfferId(service);
-  if (offerId) return { offer_id: offerId };
+  if (offerId) return { offer_id: offerId, ...hotelBookingOptions(service, participantIds) };
   const kinds = { 'Авиа': 'avia', 'ЖД': 'rail', 'Гостиница': 'hotel', 'Отель': 'hotel', 'Трансфер': 'transfer', 'Страховка': 'insurance', 'Виза': 'visa', 'Тур': 'tour', 'Автобус': 'bus', 'Аэроэкспресс': 'aeroexpress', 'Бизнес-зал': 'lounge', 'Доп. услуга': 'other' };
   const kind = service.kind || 'avia';
   return {

@@ -79,7 +79,7 @@ test('selected Hotelbook tariff is revalidated with requested times and uses the
   assert.deepEqual(calls, ['offer-id']);
   const never = () => { throw new Error('Unexpected request'); };
   assert.equal(await loadHotelStayOffer({ ...hotel, provider_adapter: 'aanda' }, never).then(x => x.provider_adapter), 'aanda');
-  assert.equal((await loadHotelStayOffer({ ...hotel, itinerary: {} }, never))._backendOfferId, 'offer-id');
+  assert.equal(await loadHotelStayOffer({ ...hotel, itinerary: {} }, async () => ({ offer: updated })), updated);
 });
 
 test('failed or lost Hotelbook time selection cannot silently use the standard tariff', async () => {
@@ -88,4 +88,19 @@ test('failed or lost Hotelbook time selection cannot silently use the standard t
   await assert.rejects(loadHotelStayOffer(hotel, async () => { throw new Error('Timeout'); }), /Timeout/);
   await assert.rejects(loadHotelStayOffer(hotel, async () => ({ offer: { id: 'offer-id', itinerary: { check_in_time: '14:00' } } })), /подтвердить тариф/);
   await assert.rejects(loadHotelStayOffer(hotel, async () => ({ offer: { id: 'offer-id', itinerary: { early_arrival_time: '09:00', check_in_time: '14:00', stay_times_validated: true } } })), /подтвердить тариф/);
+});
+
+test('Hotelbook details are loaded even for standard stay times before displaying penalties and wishes', async () => {
+  const { loadHotelStayOffer } = await import('../src/modules/services/hotels/search-criteria.js');
+  const hotel = { provider_adapter: 'hotelbook', _backendOfferId: 'hb', itinerary: {}, fare: { cancel: [] } };
+  const detailed = { id: 'hb', itinerary: {}, fare: { isRemarkFreeFormAllowed: true,
+    cancel: [{ from: '2027-03-08T12:00:00+01:00', price: { amount: '120.25', currency: 'EUR' } }] } };
+  const calls = [];
+  const result = await loadHotelStayOffer(hotel, async (id) => { calls.push(id); return { offer: detailed }; });
+  assert.deepEqual(calls, ['hb']);
+  assert.equal(result.fare.isRemarkFreeFormAllowed, true);
+  assert.equal(result.fare.cancel[0].price.amount, '120.25');
+  assert.deepEqual(hotel.fare.cancel, []);
+  await assert.rejects(loadHotelStayOffer(hotel, async () => { throw new Error('details unavailable'); }), /details unavailable/);
+  await assert.rejects(loadHotelStayOffer(hotel, async () => ({ offer: { ...detailed, id: 'another' } })), /актуальные условия/);
 });

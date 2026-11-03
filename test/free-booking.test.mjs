@@ -238,3 +238,16 @@ test('free rail selection cannot change a provider offer to an unquoted class or
   assert.match(panel, /Схема мест недоступна/);
   assert.doesNotMatch(panel, /\{RAIL_SERVICE_CLASSES.map/);
 });
+
+test('free booking keeps Hotelbook wishes and guest room assignments when attaching to an order', () => {
+  const service = { _backendOfferId: 'hb-offer', kind: 'Гостиница', specialRequests: 'Тихий номер, высокий этаж',
+    guestRoomRefs: ['room:1', 'room:0'], guestPersonIds: ['person-main', 'person-second'] };
+  const before = structuredClone(service);
+  assert.deepEqual(freeBookingServiceBody(service, ['participant-main', 'participant-second']), {
+    offer_id: 'hb-offer', special_requests: 'Тихий номер, высокий этаж',
+    room_assignments: { 'participant-main': 'room:1', 'participant-second': 'room:0' }, main_guest: 'participant-main',
+  });
+  assert.deepEqual(service, before);
+  assert.throws(() => freeBookingServiceBody(service, ['participant-main']), /сопоставить гостей/);
+  assert.deepEqual(freeBookingServiceBody({ offerId: 'hb', specialRequests: '' }), { offer_id: 'hb', special_requests: '' });
+});

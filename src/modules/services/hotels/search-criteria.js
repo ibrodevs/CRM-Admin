@@ -72,14 +72,18 @@ export function hotelStayTimes(itinerary = {}, overrides = {}) {
 }
 
 export async function loadHotelStayOffer(hotel, revalidate) {
+  if (hotel.provider_adapter !== 'hotelbook') return hotel;
   const times = hotelStayTimes(hotel.itinerary);
-  if (hotel.provider_adapter !== 'hotelbook' || (!times.earlyArrivalTime && !times.lateDepartureTime) || hotel.itinerary?.stay_times_validated) return hotel;
   const { offer } = await revalidate(hotel._backendOfferId);
-  const updated = hotelStayTimes(offer?.itinerary);
-  if (!offer?.itinerary?.stay_times_validated || String(offer.id) !== String(hotel._backendOfferId)
-    || updated.earlyArrivalTime !== times.earlyArrivalTime || updated.lateDepartureTime !== times.lateDepartureTime
-    || (times.earlyArrivalTime && offer.itinerary.check_in_time !== times.earlyArrivalTime)
-    || (times.lateDepartureTime && offer.itinerary.check_out_time !== times.lateDepartureTime)) {
+  if (!offer || String(offer.id) !== String(hotel._backendOfferId)) {
+    throw new Error('Не удалось получить актуальные условия тарифа. Повторите поиск.');
+  }
+  const updated = hotelStayTimes(offer.itinerary);
+  if ((times.earlyArrivalTime || times.lateDepartureTime)
+    && (!offer.itinerary?.stay_times_validated
+      || updated.earlyArrivalTime !== times.earlyArrivalTime || updated.lateDepartureTime !== times.lateDepartureTime
+      || (times.earlyArrivalTime && offer.itinerary.check_in_time !== times.earlyArrivalTime)
+      || (times.lateDepartureTime && offer.itinerary.check_out_time !== times.lateDepartureTime))) {
     throw new Error('Не удалось подтвердить тариф для выбранного времени заезда и выезда. Повторите поиск.');
   }
   return offer;
