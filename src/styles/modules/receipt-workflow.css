@@ -485,3 +485,13 @@
 .receipt-next-blocked-list li.is-more { color: var(--muted-2); }
 
 .receipt-next-blocked-actions { display: flex; gap: 8px; flex-wrap: wrap; align-items: flex-start; }
+
+/* Shared operational canvas, with separate white preview and editing sections. */
+.receipt-editor-drawer .receipt-edit-layout{background:var(--surface-2);border:1px solid var(--line);border-radius:20px;padding:20px;gap:20px}
+.receipt-editor-drawer .receipt-edit-preview{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:12px 12px 28px}
+.receipt-editor-drawer .receipt-edit-preview-head{background:var(--surface);border:0;border-bottom:1px solid var(--line);border-radius:0;padding:0 0 12px}
+.receipt-editor-drawer .receipt-section{background:var(--surface);border-radius:16px;box-shadow:none}
+.receipt-editor-drawer .receipt-section-head{border-color:var(--line)}
+.receipt-import-workspace{padding:20px;border:1px solid var(--line);border-radius:20px;background:var(--surface-2)}
+.receipt-import-workspace>.card,.receipt-import-workspace .rec-import-table-card{background:var(--surface);box-shadow:none}
+@media(max-width:760px){.receipt-editor-drawer .receipt-edit-layout,.receipt-import-workspace{padding:12px;border-radius:16px;gap:14px}.receipt-editor-drawer .receipt-edit-preview{position:static;max-height:65dvh}}

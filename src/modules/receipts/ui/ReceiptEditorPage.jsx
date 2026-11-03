@@ -1326,7 +1326,7 @@ function ReceiptEditDrawer({ open, file, onClose, onChange, onSubChange, onBrand
                 ? 'Сохранить и далее'
                 : 'Проверено'}</Button>}
         </>}>
-        <div className="receipt-edit-layout">
+        <div className="receipt-edit-layout section-workspace">
           {!hasTicketGroup && groupInfo?.count > 1 && <section className="receipt-similar-group-banner">
             <Icon name="users" />
             <span><b>Последовательная проверка: бланк {groupInfo.position} из {groupInfo.count}</b><small>{groupInfo.position < groupInfo.count ? 'Следующий бланк откроется после сохранения.' : 'Это последний бланк группы.'} Пассажир, номер билета и маршрут остаются индивидуальными.</small></span>
@@ -3619,8 +3619,8 @@ function ReceiptImportModal({ open, onClose, onDone, initialDraft, initialFiles 
   return (
     <Drawer open={open} onClose={requestClose} title="Импорт документов услуг"
       sub="Авиа, ЖД, отели и трансферы сверяются в специализированных формах. Оригиналы поставщиков не меняются."
-      width="min(1180px,98vw)">
-      <div>
+      width="min(1180px,98vw)" className="receipt-import-drawer">
+      <div className="receipt-import-workspace">
 
         <input ref={fileRef} type="file" multiple style={{ display: 'none' }} onChange={onPick} accept=".pdf,.jpg,.jpeg,.png" />
 
