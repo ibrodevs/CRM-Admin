@@ -83,6 +83,7 @@ export function HotelMap({ hotels, onPick }) {
 
   const mapped = hotelMapHotels(hotels).filter((hotel) => hotelCoordinates(hotel.itinerary) || hotelCoordinates(hotel) || points[hotelMapKey(hotel)]).length;
   return <div className="hp-map-area">
+    <div className="hp-map-frame">
     <div ref={container} className="hp-map-canvas" aria-label="Карта отелей Mapbox с ценами" />
     {configured && !loaded && error && <div className="hp-map-unavailable" role="alert"><strong>Не удалось открыть карту</strong><span>{error}</span></div>}
     {configured && (loaded || !error) && !mapped && <div className="hp-map-unavailable" role="status">
@@ -92,6 +93,7 @@ export function HotelMap({ hotels, onPick }) {
       {!locating && <button type="button" className="btn btn-secondary" onClick={() => setLookup((value) => value + 1)}>Повторить поиск расположения</button>}
     </div>}
     {!configured && <div className="hp-map-unavailable" role="status"><strong>Карта Mapbox пока недоступна</strong><span>Обратитесь к администратору для подключения карты. Отели и цены доступны в списке слева.</span></div>}
+    </div>
     <div className="hp-map-status" role="status">{!configured ? 'Mapbox не подключён.' : error || (!loaded ? 'Загружаем карту Mapbox…' : locating ? 'Определяем расположение отелей…' : `На карте: ${mapped}. Отели без подтверждённых координат доступны в списке.`)}</div>
   </div>;
 }
