@@ -24,6 +24,26 @@ test('a city suggestion cannot be used as a hotel price marker', () => {
   assert.equal(hotelMapSuggestion(hotel, [city, match]), match);
 });
 
+test('supplier service labels do not prevent finding Hilton Cologne', async () => {
+  const { resolveHotelMapPoint } = await import('../src/modules/services/hotels/map-data.js');
+  const queries = [];
+  const point = await resolveHotelMapPoint({ name: 'Hilton Cologne (ОТЕЛЬ ДЛЯ ТЕСТИРОВАНИЯ)', city: 'Кёльн', addr: 'Marzellenstraße 13-17' }, {
+    searchLocations: async (query) => {
+      queries.push(query);
+      return queries.length === 1 ? [] : [{ title: 'Hilton Cologne', kind: 'Отель', lat: 50.9432931, lon: 6.9554425 }];
+    },
+  });
+  assert.deepEqual(queries, ['Hilton Cologne, Кёльн, Marzellenstraße 13-17', 'Hilton Cologne, Кёльн']);
+  assert.deepEqual(point, [50.9432931, 6.9554425]);
+});
+
+test('hotel lookup rejects addresses and ambiguous hotels but preserves meaningful name suffixes', () => {
+  const place = { title: 'Hilton Cologne', kind: 'Отель', lat: 50.94, lon: 6.95 };
+  assert.equal(hotelMapSuggestion({ name: place.title }, [{ ...place, kind: 'Адрес' }]), undefined);
+  assert.equal(hotelMapSuggestion({ name: place.title }, [place, { ...place, lon: 7 }]), undefined);
+  assert.equal(hotelMapSuggestion({ name: 'Hilton Cologne (Airport)' }, [place]), undefined);
+});
+
 test('Mapbox markers preserve coordinate order, cheapest prices, click selection and cleanup', async (t) => {
   const { createHotelMapbox, HOTEL_MAPBOX_STYLE } = await import('../src/modules/services/hotels/hotel-mapbox.js');
   const originalDocument = globalThis.document;

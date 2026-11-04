@@ -26,6 +26,7 @@
   min-width: min(360px, 90vw);
   max-height: min(390px, 54vh);
   overflow-y: auto;
+  scrollbar-gutter: stable;
   padding: 7px;
   border: 1px solid var(--line);
   border-radius: var(--r-popover);

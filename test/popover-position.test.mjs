@@ -27,3 +27,25 @@ test('a short search result can grow without being locked to its first height', 
   assert.equal(position.top, 564);
   assert.equal(position.maxHeight, 360);
 });
+
+test('async search results keep the same side as the loading message', () => {
+  const anchor = { left: 100, right: 400, top: 450, bottom: 500 };
+  const viewport = { width: 1024, height: 768 };
+  const positions = [40, 120, 360, 80].map((contentHeight) =>
+    popoverPosition(anchor, { width: 300, height: 360, contentHeight }, viewport));
+  for (const [index, position] of positions.entries()) {
+    assert.equal(position.top + [40, 120, 360, 80][index], anchor.top - 6);
+    assert.equal(position.left, anchor.left);
+    assert.equal(position.width, 300);
+    assert.equal(position.maxHeight, 360);
+  }
+});
+
+test('async results stay below the field when that side has more space', () => {
+  const anchor = { left: 100, right: 400, top: 230, bottom: 280 };
+  for (const contentHeight of [40, 120, 360, 80]) {
+    const position = popoverPosition(anchor, { width: 300, height: 360, contentHeight }, { width: 1024, height: 600 });
+    assert.equal(position.top, 286);
+    assert.equal(position.maxHeight, 306);
+  }
+});

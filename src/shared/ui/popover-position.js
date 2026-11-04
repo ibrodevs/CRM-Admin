@@ -3,7 +3,9 @@ export function popoverPosition(anchor, size, viewport, { align = 'start', gap =
   const below = Math.max(0, viewport.height - anchor.bottom - gap - padding);
   const above = Math.max(0, anchor.top - gap - padding);
   const contentHeight = Math.min(size.height, size.contentHeight ?? size.height);
-  const upward = contentHeight > below && above > below;
+  // Choose the side from the height budget, not the async result count.
+  // Otherwise a loading message can open below and jump above when results arrive.
+  const upward = size.height > below && above > below;
   const maxHeight = Math.min(size.height, upward ? above : below);
   const desiredLeft = align === 'end' ? anchor.right - width : anchor.left;
   return {

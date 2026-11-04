@@ -118,7 +118,7 @@ function localSuggestions(query) {
 }
 
 function photonKind(properties) {
-  const type = String(properties.type || properties.osm_value || '').toLowerCase();
+  const type = String(properties.osm_value || properties.type || '').toLowerCase();
   if (['city', 'town', 'village', 'hamlet', 'municipality'].includes(type)) return 'Город';
   if (['airport', 'aerodrome'].includes(type)) return 'Аэропорт';
   if (['hotel', 'hostel', 'guest_house', 'resort', 'motel'].includes(type)) return 'Отель';
@@ -171,7 +171,7 @@ async function remoteSuggestions(query) {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 3500);
   try {
-    const params = new URLSearchParams({ q: query, limit: '10', lang: 'ru' });
+    const params = new URLSearchParams({ q: query, limit: '10' });
     const response = await fetch(`https://photon.komoot.io/api/?${params.toString()}`, {
       headers: {
         Accept: 'application/json',
@@ -196,7 +196,7 @@ export async function GET(request) {
     return NextResponse.json({ results: [], query, source: 'empty' });
   }
 
-  const key = normalize(query);
+  const key = `v2:${normalize(query)}`;
   const cached = CACHE.get(key);
   if (cached && Date.now() - cached.savedAt < 24 * 60 * 60 * 1000) {
     return NextResponse.json(cached.payload, {
@@ -208,6 +208,9 @@ export async function GET(request) {
   const remote = await remoteSuggestions(query);
   const results = mergeSuggestions(local, remote);
   const payload = { results, query, source: remote.length ? 'photon+local' : 'local' };
+  if (!remote.length) {
+    return NextResponse.json(payload, { headers: { 'Cache-Control': 'no-store' } });
+  }
   CACHE.set(key, { savedAt: Date.now(), payload });
 
   return NextResponse.json(payload, {

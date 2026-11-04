@@ -5,6 +5,7 @@
   --bg: #0c121c;
   --surface: #141c2b;
   --surface-2: #1b263b;
+  --table-head-bg: #24334a;
   --hover: #22324b;
 
   /* ── Линии и разделители ─────────────────────────────────────────────── */
@@ -302,7 +303,6 @@ html[data-theme="dark"] body {
 }
 
 :root[data-theme="dark"] .search:focus-within {
-  background: var(--surface);
   border-color: var(--blue);
   box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2);
 }
@@ -585,7 +585,7 @@ html[data-theme="dark"] body {
 }
 
 :root[data-theme="dark"] table.tbl thead th {
-  background: var(--surface-2);
+  background: var(--table-head-bg);
   color: var(--muted);
   border-bottom-color: var(--line);
 }

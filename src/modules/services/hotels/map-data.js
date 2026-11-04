@@ -24,9 +24,17 @@ export function hotelMapHotels(hotels) {
   return [...unique.values()];
 }
 
+function hotelSearchName(value) {
+  return String(value || '').replace(/\s*\(\s*отель\s+для\s+[^)]*\)\s*/giu, ' ').trim();
+}
+
 export function hotelMapSuggestion(hotel, suggestions) {
   const normalize = (value) => String(value || '').toLowerCase().replace(/ё/g, 'е').replace(/[^\p{L}\p{N}]/gu, '');
-  return suggestions.find((place) => place.kind !== 'Город' && normalize(place.title) === normalize(hotel.name) && hotelCoordinates(place));
+  const name = normalize(hotelSearchName(hotel.name));
+  if (!name) return undefined;
+  const matches = suggestions.filter((place) => (!place.kind || place.kind === 'Отель')
+    && normalize(hotelSearchName(place.title)) === name && hotelCoordinates(place));
+  return matches.length === 1 ? matches[0] : undefined;
 }
 
 export async function resolveHotelMapPoint(hotel, { getHotelContent, searchLocations, signal }) {
@@ -43,9 +51,18 @@ export async function resolveHotelMapPoint(hotel, { getHotelContent, searchLocat
     } catch (error) { if (signal?.aborted) throw error; }
   }
   if (signal?.aborted || !searchLocations) return null;
-  const query = [hotel.name, hotel.city, hotel.addr === '—' ? '' : hotel.addr].filter(Boolean).join(', ');
-  const suggestions = await searchLocations(query, signal);
-  if (signal?.aborted) return null;
-  const match = hotelMapSuggestion(hotel, suggestions);
-  return match ? hotelCoordinates(match) : null;
+  const name = hotelSearchName(hotel.name);
+  if (!name) return null;
+  const locality = [hotel.city, hotel.itinerary?.country].filter(Boolean);
+  const queries = new Set([
+    [name, ...locality, hotel.addr === '—' || hotel.addr === hotel.city ? '' : hotel.addr].filter(Boolean).join(', '),
+    [name, ...locality].join(', '),
+  ]);
+  for (const query of queries) {
+    const suggestions = await searchLocations(query, signal);
+    if (signal?.aborted) return null;
+    const match = hotelMapSuggestion(hotel, suggestions);
+    if (match) return hotelCoordinates(match);
+  }
+  return null;
 }
