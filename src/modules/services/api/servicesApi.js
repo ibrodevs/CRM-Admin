@@ -6,6 +6,7 @@ const hotelContentPath = ({ offerId, serviceId }) => serviceId
   : `service-offers/${offerId}/hotel-content/`;
 
 export const servicesApi = {
+  hotelRemarks: (offerId, signal) => get(`service-offers/${offerId}/hotel-remarks/`, signal),
   hotelContent: (ids, signal) => get(hotelContentPath(ids), signal),
   hotelRoomsCsv: (ids) => apiRequest(apiPath(`${hotelContentPath(ids)}?export=csv`), { accept: 'text/csv' }),
   hotelCertificate: (id) => create(`services/${id}/hotel-certificate/`, {}),

@@ -59,7 +59,8 @@ function seed(picker, existing, provider = 'hotelbook') {
 test('actual booking picker creates and automatically selects a guest without resetting the search, tariff, dates or requests', async () => {
   const picker = mountPicker();
   seed(picker, { id: 'person-old', person: 'person-old', name: 'Первый гость' });
-  const preserved = Object.fromEntries(['activeHotel', 'selRoom', 'selTariff', 'checkin', 'checkout', 'specialReq', 'guestRooms', 'occupancyRooms', 'liveHotels'].map((name) => [name, picker.get(name)]));
+  picker.set('hotelRemarks', [{ remarkId: 7, data: null }]);
+  const preserved = Object.fromEntries(['activeHotel', 'selRoom', 'selTariff', 'checkin', 'checkout', 'specialReq', 'hotelRemarks', 'guestRooms', 'occupancyRooms', 'liveHotels'].map((name) => [name, picker.get(name)]));
   picker.placement().props.onCreateGuest();
   assert.ok(picker.creation());
   await picker.creation().props.onCreated({ id: 'person-new', person: 'person-new', name: 'Новый гость' });
@@ -71,7 +72,8 @@ test('actual booking picker creates and automatically selects a guest without re
   await placement.props.onAdd();
   assert.deepEqual(picker.results[0].guestPersonIds, ['person-old', 'person-new']);
   assert.deepEqual(picker.results[0].guestRoomRefs, ['room:0', 'room:0']);
-  assert.equal(picker.results[0].specialRequests, 'Тихий номер');
+  assert.deepEqual(picker.results[0].hotelRemarks, [{ remarkId: 7, data: null }]);
+  assert.equal(Object.hasOwn(picker.results[0], 'specialRequests'), false);
   assert.equal(picker.results[0]._backendOfferId, 'offer-1');
 });
 

@@ -250,4 +250,5 @@ test('free booking keeps Hotelbook wishes and guest room assignments when attach
   assert.deepEqual(service, before);
   assert.throws(() => freeBookingServiceBody(service, ['participant-main']), /сопоставить гостей/);
   assert.deepEqual(freeBookingServiceBody({ offerId: 'hb', specialRequests: '' }), { offer_id: 'hb', special_requests: '' });
+  assert.deepEqual(freeBookingServiceBody({ offerId: 'hb', hotelRemarks: [{ remarkId: 7, data: null }] }), { offer_id: 'hb', hotel_remarks: [{ remarkId: 7, data: null }] });
 });

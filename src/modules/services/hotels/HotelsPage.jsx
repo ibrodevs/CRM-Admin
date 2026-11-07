@@ -4,6 +4,7 @@ import { InfoNotice } from '../../../shared/ui/InfoNotice.jsx';
 import { HotelGuestCreateDrawer } from './HotelGuestCreateDrawer.jsx';
 import { mergeHotelGuests, selectCreatedHotelGuest, validateHotelBookingGuests } from './guest-create.js';
 import { HotelContent } from './HotelContent.jsx';
+import { HotelRemarks } from './HotelRemarks.jsx';
 import { HotelOccupancyPicker } from './HotelOccupancyPicker.jsx';
 import { HotelMap } from './HotelMap.jsx';
 import { clientsApi } from '../../clients/api.js';
@@ -248,6 +249,7 @@ function HotelPicker({ participants, group = false, onApply, onCancel, currency,
   const [mainGuest, setMainGuest] = useState(0);
   const [guestSel, setGuestSel] = useState({});
   const [specialReq, setSpecialReq] = useState('');
+  const [hotelRemarks, setHotelRemarks] = useState([]);
   const [guestRooms, setGuestRooms] = useState({});
 
 
@@ -371,6 +373,7 @@ function HotelPicker({ participants, group = false, onApply, onCancel, currency,
     setActiveHotel(h);
     setGuestRooms({});
     setSpecialReq('');
+    setHotelRemarks([]);
     const r = h.rooms[0];
     setSelRoom(r);
     setGuestSel(hasOrderGuests ? Object.fromEntries(PAX.slice(0, Math.min(requestedGuests, r.cap || requestedGuests)).map((_, i) => [i, true])) : {});
@@ -448,7 +451,7 @@ function HotelPicker({ participants, group = false, onApply, onCancel, currency,
     _backendOfferId: activeHotel._backendOfferId,
     ...(activeHotel.provider_adapter === 'hotelbook' ? {
       guestRoomRefs: groupMode ? PAX.map((_, i) => `room:${roomGroups.findIndex((room) => room.members.includes(i))}`) : hotelRoomAssignments(PAX, guestSel, mainGuest, activeHotel.fare?.rooms, guestRooms).refs,
-      specialRequests: specialReq,
+      hotelRemarks,
     } : {}),
     title: activeHotel.name + ' · ' + activeHotel.stars + '★',
     sub,
@@ -657,7 +660,7 @@ function HotelPicker({ participants, group = false, onApply, onCancel, currency,
           checkin={checkin} checkout={checkout} requestedGuests={searchGuests} requestedRooms={searchRooms}
           guestsLoading={guestsLoading} guestsError={guestsError} onCreateGuest={() => { setEditGuestPersonId(null); setCreateGuestOpen(true); }} onEditGuest={(guest) => { setEditGuestPersonId(guest.person); setCreateGuestOpen(true); }} addingOffer={addingOffer} guestBookingError={guestBookingError}
           bedType={bedType} setBedType={setBedType} mainGuest={mainGuest} setMainGuest={setMainGuest}
-          guestSel={guestSel} setGuestSel={setGuestSel} guestRooms={guestRooms} setGuestRooms={setGuestRooms} specialReq={specialReq} setSpecialReq={setSpecialReq}
+          guestSel={guestSel} setGuestSel={setGuestSel} guestRooms={guestRooms} setGuestRooms={setGuestRooms} specialReq={specialReq} setSpecialReq={setSpecialReq} hotelRemarks={hotelRemarks} setHotelRemarks={setHotelRemarks}
           onClose={closeAll} onBack={() => setPanel('room')} onAdd={finalizeSingle} />
       )}
 
@@ -847,13 +850,13 @@ function RoomPanel({ hotel, selRoom, selTariff, onPickRoom, checkin, checkout, g
 }
 
 
-function PaxPlacementPanel({ hotel, room, tariff, pax, nights, checkin, checkout, requestedGuests, requestedRooms, guestsLoading, guestsError, onCreateGuest, onEditGuest, addingOffer, guestBookingError, bedType, setBedType, mainGuest, setMainGuest, guestSel, setGuestSel, guestRooms, setGuestRooms, specialReq, setSpecialReq, onClose, onBack, onAdd }) {
+function PaxPlacementPanel({ hotel, room, tariff, pax, nights, checkin, checkout, requestedGuests, requestedRooms, guestsLoading, guestsError, onCreateGuest, onEditGuest, addingOffer, guestBookingError, bedType, setBedType, mainGuest, setMainGuest, guestSel, setGuestSel, guestRooms, setGuestRooms, specialReq, setSpecialReq, hotelRemarks, setHotelRemarks, onClose, onBack, onAdd }) {
   const selected = pax.map((_, i) => i).filter((i) => guestSel[i]);
   const cap = Math.min(room.cap || requestedGuests, requestedGuests);
   const fixedBeds = hotel.provider_adapter === 'hotelbook';
   const selectedPeople = hotelGuestSelection(pax, guestSel, mainGuest);
   const roomAssignments = hotelRoomAssignments(pax, guestSel, mainGuest, hotel.fare?.rooms, guestRooms);
-  const placementReady = (!fixedBeds || roomAssignments.valid) && selected.length === requestedGuests && requestedGuests <= cap && selected.includes(mainGuest);
+  const placementReady = (!fixedBeds || roomAssignments.valid && hotelRemarks.every((item) => item.data === null || item.data.trim())) && selected.length === requestedGuests && requestedGuests <= cap && selected.includes(mainGuest);
   useEffect(() => { if (selected.length && !selected.includes(mainGuest)) setMainGuest(selected[0]); }, [selected.join(','), mainGuest]);
   const toggleGuest = (i) => {
     if (guestSel[i]) { const n = { ...guestSel }; delete n[i]; setGuestSel(n); }
@@ -943,10 +946,10 @@ function PaxPlacementPanel({ hotel, room, tariff, pax, nights, checkin, checkout
             {!selected.length && <InfoNotice icon="alertCircle">Сначала выберите гостей номера</InfoNotice>}
           </div>
 
-          {(!fixedBeds || hotel.fare?.isRemarkFreeFormAllowed) && <><div className="hp-col-subtitle">5. Специальные пожелания <span className="hp-opt">(необязательно)</span></div>
+          {fixedBeds && <HotelRemarks offerId={hotel._backendOfferId} value={hotelRemarks} onChange={setHotelRemarks} />}
+          {!fixedBeds && <><div className="hp-col-subtitle">5. Специальные пожелания <span className="hp-opt">(необязательно)</span></div>
           <textarea className="hp-textarea" rows={4} maxLength={2000} value={specialReq} onChange={(e) => setSpecialReq(e.target.value)}
             placeholder="Например: высокий этаж, ранний заезд, кровати рядом, тихий номер и т.д." /></>}
-          {fixedBeds && !hotel.fare?.isRemarkFreeFormAllowed && <InfoNotice>Поставщик не разрешил специальные пожелания для этого тарифа.</InfoNotice>}
 
           <div className="hp-summary">
             <div className="hp-sum-title">Итог размещения</div>
