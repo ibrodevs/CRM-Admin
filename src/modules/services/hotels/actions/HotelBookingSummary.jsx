@@ -19,11 +19,10 @@ export function HotelBookingSummary({ summary: s }) {
   const tone = ['confirmed', 'issued', 'completed'].includes(status) ? 'green' : ['failed', 'rejected'].includes(status) ? 'red' : ['cancelled', 'canceled'].includes(status) ? 'gray' : 'blue';
   const endpoint = (date, time) => [travelDate(date) || 'Дата не указана', time].filter(Boolean).join(' • ');
   return <section className="flight-booking-summary hotel-booking-summary" aria-label="Информация о гостиничной брони">
-      <div><span className="flight-booking-eyebrow">Гостиница · заказ № {s.order_number || 'не указан'}</span><Pill tone={tone}>{hotelStatusLabel(status)}</Pill></div>
+      <div><span className="flight-booking-eyebrow">Гостиница</span><Pill tone={tone}>{hotelStatusLabel(status)}</Pill></div>
       <h3>{s.hotel || 'Гостиница не указана'}</h3>
       <p>{endpoint(s.check_in, s.check_in_time)} → {endpoint(s.check_out, s.check_out_time)}</p>
       <Facts rows={[
-        ['Бронирование', s.supplier_booking_reference], ['Поставщик', s.supplier],
         ['Адрес', s.address], ['Статус услуги', hotelStatusLabel(s.service_status)],
       ]} />
       <Facts className="hotel-booking-stay" rows={[
@@ -37,6 +36,7 @@ export function HotelBookingSummary({ summary: s }) {
 export function HotelBookingDetails({ summary: s }) {
   const f = s.financial || {};
   const technical = [
+    ['Поставщик', s.supplier], ['Номер бронирования поставщика', s.supplier_booking_reference],
     ['Идентификатор услуги CRM', s.service_id],
     ['Номера подтверждения поставщика', (s.confirmation_references || []).join(', ')],
     ['Номер заказа CRM', s.order_number],
@@ -47,10 +47,10 @@ export function HotelBookingDetails({ summary: s }) {
     ['Код статуса у поставщика', s.booking_status], ['Код статуса услуги CRM', s.service_status],
   ];
   return <>
-    <details className="hotel-booking-disclosure"><summary>Стоимость и расчёты</summary><Facts rows={[
+    <details className="hotel-booking-disclosure hotel-internal-only"><summary>Стоимость и расчёты · только для сотрудников</summary><Facts rows={[
       ['Стоимость поставщика', hotelMoney(f.supplier_cost, f.currency ? currencySymbol(f.currency) : '')], ['Стоимость клиента', hotelMoney(f.client_cost, f.currency ? currencySymbol(f.currency) : '')],
       ['Сервисный сбор', hotelMoney(f.service_fee, f.currency ? currencySymbol(f.currency) : '')], ['Валюта', f.currency],
     ]} /></details>
-    <details className="hotel-booking-disclosure hotel-booking-technical"><summary>Технические сведения о бронировании</summary><Facts rows={technical} /></details>
+    <details className="hotel-booking-disclosure hotel-booking-technical hotel-internal-only"><summary>Технические сведения о бронировании</summary><Facts rows={technical} /></details>
   </>;
 }

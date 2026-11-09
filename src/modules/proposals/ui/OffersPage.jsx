@@ -133,7 +133,7 @@ function KPPreviewDoc({ proposal, participants, compact }) {
 
       <div className="kp2-section">
         <div className="kp2-tabs">
-          <KPTab tone="gray" emoji="🧳"><div className="kp2-tab-title">{p.order ? `Заказ № ${p.order}` : 'Без привязки к заказу'}</div></KPTab>
+          <KPTab tone="gray" emoji="🧳"><div className="kp2-tab-title">Предложение услуг</div></KPTab>
           <KPTab tone="amber" emoji=""><div className="kp2-tab-amber-row"><div className="kp2-tab-num">{pax.length}</div><div className="kp2-tab-cap">{plural(pax.length, ['участник', 'участника', 'участников'])}</div></div></KPTab>
           <KPTab tone="coral" emoji=""><div className="kp2-tab-cap kp2-tab-cap-light">валюта предложения</div><div className="kp2-tab-strong">{p.currency}</div></KPTab>
         </div>

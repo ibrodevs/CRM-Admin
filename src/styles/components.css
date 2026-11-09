@@ -3532,3 +3532,5 @@ button.oc-fact:hover{border-color:#d3dbe8;background:#fff}
 
 .dsh>.section-workspace{flex-shrink:0}
 .section-workspace[aria-label="Рабочая область списка"]>.table-card .tbl td:first-child{white-space:nowrap}
+
+@media print { .hotel-internal-only { display: none !important; } }

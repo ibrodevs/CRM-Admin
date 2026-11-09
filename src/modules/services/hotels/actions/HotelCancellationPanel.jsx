@@ -8,9 +8,11 @@ export function HotelCancellationPanel({ operation, busy, onConfirm, onBack }) {
   const s = operation.original_snapshot, f = operation.financial_snapshot;
   return <section className="card card-pad" aria-label="Подтверждение отмены гостиничной брони">
     <h3>Подтвердите отмену всей брони</h3><p><b>{s.hotel}</b> · {travelDate(s.check_in)} → {travelDate(s.check_out)}</p>
-    <p>Номер бронирования поставщика: <b>{operation.supplier_reference || 'Не указан'}</b></p>
     <p>Номера: {operation.room_refs.map((ref) => { const index = (s.rooms || []).findIndex((room) => room.ref === ref); return index < 0 ? ref : `Номер ${index + 1} · ${s.rooms[index].category || 'Категория не указана'}`; }).join(', ') || 'Все номера поставщика'}</p>
-    <p>Стоимость поставщика: {hotelMoney(f.supplier_cost, f.currency)}<br />Стоимость клиента: {hotelMoney(f.client_cost, f.currency)}<br />Сервисный сбор: {hotelMoney(f.service_fee, f.currency)}</p>
+    <p>Стоимость клиента: {hotelMoney(f.client_cost, f.currency)}<br />Сервисный сбор: {hotelMoney(f.service_fee, f.currency)}</p>
+    <details className="hotel-booking-disclosure hotel-internal-only"><summary>Служебные данные · только для сотрудников</summary>
+      <p>Поставщик: {s.supplier || 'Не указан'}<br />Номер бронирования поставщика: {operation.supplier_reference || 'Не указан'}<br />Стоимость поставщика: {hotelMoney(f.supplier_cost, f.currency)}</p>
+    </details>
     <HotelPolicy value={s.cancellation_policy} />
     <p>Штраф за отмену сейчас: {f.penalty == null ? 'Не удалось определить' : hotelMoney(f.penalty, f.currency)}</p>
     {f.reported_penalty && <p>Последний сообщённый поставщиком штраф: {hotelMoney(f.reported_penalty.amount, f.reported_penalty.currency)}. Перед отменой он может измениться.</p>}

@@ -1,3 +1,4 @@
+import { clientHotelCard } from '../../../shared/lib/client-hotel-presentation.js';
 import { ServicePreview } from '../../../shared/ui/ServicePreview.jsx';
 import { SectionInfo } from '../../../shared/ui/SectionInfo.jsx';
 import { ServiceSearchHeader } from '../search/ServiceSearchHeader.jsx';
@@ -608,12 +609,16 @@ function ServiceCardSendPanel({ item, kind, participants = [], orderNo, currency
       ? chainState[i].alts.filter((a) => chainState[i].sel.has(a.id)).map((a) => ({ scope: c.kind + ' · ' + c.service, title: a.title, meta: a.meta, price: a.price, delta: a.delta }))
       : []),
   ];
-  const vm = {
+  const rawVm = {
     sc, badge: clientLabel, statuses, title: item.title || item.main, sub: item.sub, warning,
     info, fieldBlocks: cardFields.blocks, fmRows, altBlocks, extras: item.tags || [], passengers: paxNames, paxLabel: (kind === 'Гостиница' || kind === 'Гостиницы') ? 'Гости' : 'Пассажиры',
     validity, responseDeadline, accompanyingText, attachments, actions, operator,
     ex, finModel, showTotal: vis.clientTotal !== false,
   };
+
+  const hotelCard = kind === 'Гостиница' || kind === 'Гостиницы';
+  const privateIds = [oNo, backendOrderId, backendServiceId];
+  const vm = hotelCard ? clientHotelCard(rawVm, privateIds) : rawVm;
 
   const toggle = (set, val, on) => { const n = new Set(set); on ? n.add(val) : n.delete(val); return n; };
   const toggleChannel = (c) => setChannels((cs) => cs.includes(c) ? cs.filter((x) => x !== c) : [...cs, c]);
@@ -644,7 +649,7 @@ function ServiceCardSendPanel({ item, kind, participants = [], orderNo, currency
     };
     try {
       if (!onSent) throw new Error('Отправка недоступна: услуга не связана с backend-заказом');
-      const result = await Promise.resolve(onSent(channels.join(', '), draft));
+      const result = await Promise.resolve(onSent(channels.join(', '), hotelCard ? clientHotelCard(draft, privateIds) : draft));
       if (!result?.persisted) throw new Error('Карточка не была сохранена в backend');
       onClose && onClose();
     } catch (error) { toast(error.message || 'Не удалось отправить карточку услуги', 'err'); }

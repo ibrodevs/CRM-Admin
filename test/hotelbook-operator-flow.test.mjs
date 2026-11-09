@@ -45,7 +45,7 @@ const summary = {
 
 test('operator summary renders distinct CRM, supplier, item and clientOrderId identifiers', () => {
   const html = render(HotelBookingSummary, { summary }) + render(HotelBookingDetails, { summary });
-  for (const value of ['Идентификатор услуги CRM', 'crm-service-id', 'Бронирование', 'hb-order-id', 'provider-ref-id', 'Идентификатор заказа Hotelbook', 'workflow-id:item-id', 'Идентификаторы позиций Hotelbook', 'hb-item-id']) assert.ok(html.includes(value), value);
+  for (const value of ['Идентификатор услуги CRM', 'crm-service-id', 'Номер бронирования поставщика', 'hb-order-id', 'provider-ref-id', 'Идентификатор заказа Hotelbook', 'workflow-id:item-id', 'Идентификаторы позиций Hotelbook', 'hb-item-id']) assert.ok(html.includes(value), value);
 });
 
 test('normal cancellation and a manual free-cancellation request are separate visible actions', () => {
@@ -90,7 +90,19 @@ test('compact hotel summary uses Russian statuses and keeps integration IDs in c
   assert.ok(compact.includes('Забронировано'));
   assert.ok(!compact.includes('crm-service-id'));
   assert.ok(!compact.includes('workflow-id:item-id'));
-  assert.match(details, /<details class="hotel-booking-disclosure hotel-booking-technical"><summary>/);
+  assert.match(details, /<details class="hotel-booking-disclosure hotel-booking-technical hotel-internal-only"><summary>/);
   assert.ok(details.includes('crm-service-id'));
   assert.ok(details.includes('workflow-id:item-id'));
+});
+
+
+test('supplier costs and booking references appear only inside employee disclosures', () => {
+  const html = render(HotelCancellationPanel, { operation: { original_snapshot: { ...summary, supplier: 'HbPro' }, financial_snapshot: { ...summary.financial, supplier_cost: 891.23, client_cost: 1000, penalty: 250, currency: 'RUB' }, room_refs: ['room:0'], supplier_reference: 'hb-order-id' } });
+  const internal = html.match(/<details class="hotel-booking-disclosure hotel-internal-only">[\s\S]*?<\/details>/)?.[0];
+  assert.ok(internal?.includes('891,23'));
+  assert.ok(internal?.includes('hb-order-id'));
+  assert.ok(internal?.includes('HbPro'));
+  const main = html.replace(internal, '');
+  assert.ok(!main.includes('891,23') && !main.includes('hb-order-id') && !main.includes('HbPro'));
+  assert.ok(main.replace(/\s/g, '').includes('1000,00') && main.includes('250'));
 });

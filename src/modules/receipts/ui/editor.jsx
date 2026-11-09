@@ -1,3 +1,4 @@
+import { clientHotelText } from '../../../shared/lib/client-hotel-presentation.js';
 import React, { useEffect, useMemo, useState, useRef } from 'react';
 import ReactDOM from 'react-dom';
 import { Icon } from '../../../shared/icons/index.jsx';
@@ -906,7 +907,7 @@ function ReceiptHotelDocumentPreview({ draft }) {
         <div><small>Гостей</small><b>{receiptParticipantNames(p).length}</b></div>
         <div><small>Номеров / размещений</small><b>{rooms.length}</b></div>
         <div><small>Ночей</small><b>{p.nights || '—'}</b></div>
-        <div><small>Бронирование</small><b>{p.hotelBookingNo || p.supplierOrderNo || p.ref || 'по ФИО'}</b></div>
+        <div><small>Бронирование</small><b>{p.hotelBookingNo || 'по ФИО'}</b></div>
       </div>
       <h4>Размещение по гостям</h4>
       <div className="receipt-hotel-preview-rooms">
@@ -1136,7 +1137,7 @@ export function ReceiptBrandDocumentDrawer({ open, type, draft, originalUrl, sou
       ) : (
         <article className="receipt-brand-document">
           <header><div className="receipt-brand-logo">P</div><div><b>{organization}</b><span>{TYPE_META[type]?.document || 'Документ'}</span></div>
-            <div><small>Заказ CRM</small><b>{p.crmOrderNo || '—'}</b></div></header>
+            {type !== 'Гостиница' && <div><small>Заказ CRM</small><b>{p.crmOrderNo || '—'}</b></div>}</header>
           {type === 'Авиа' && <section className="receipt-brand-passengers">
             <h4>Пассажиры</h4>
             {p.passengers.map((passenger, index) => {
@@ -1157,9 +1158,9 @@ export function ReceiptBrandDocumentDrawer({ open, type, draft, originalUrl, sou
             })}
           </section>}
           <div className="receipt-brand-meta">
-            <div><small>Заказ поставщика/API</small><b>{p.supplierOrderNo || '—'}</b></div>
+            {type !== 'Гостиница' && <div><small>Заказ поставщика/API</small><b>{p.supplierOrderNo || '—'}</b></div>}
             <div><small>{type === 'Авиа' ? 'PNR / код бронирования' : type === 'Гостиница' ? 'Бронь отеля' : 'Бронь / билет'}</small>
-              <b>{type === 'Гостиница' ? p.hotelBookingNo || p.ref || '—' : p.ref || p.ticketNo || '—'}</b></div>
+              <b>{type === 'Гостиница' ? p.hotelBookingNo || 'по ФИО' : p.ref || p.ticketNo || '—'}</b></div>
             <div><small>Дата оформления</small><b>{p.issueDate || '—'}</b></div>
             <div><small>Статус</small><b>{p.bookingStatus || 'Подтверждено'}</b></div>
           </div>
@@ -1259,7 +1260,7 @@ export function ReceiptBrandDocumentDrawer({ open, type, draft, originalUrl, sou
           {type === 'Авиа' && p.extras.length > 0 && <><h4>Дополнительные услуги</h4>
             <div className="receipt-brand-names">{p.extras.map((row, index) => <span key={index}>{row.name}{row.details ? ` · ${row.details}` : ''}</span>)}</div></>}
           {(type === 'Гостиница' || type === 'Трансфер') && terms.length > 0 && <><h4>Условия и важная информация</h4>
-            <div className="receipt-brand-terms">{terms.map(([label, value]) => <div key={label}><b>{label}</b><span>{value}</span></div>)}</div></>}
+            <div className="receipt-brand-terms">{terms.map(([label, value]) => <div key={label}><b>{label}</b><span>{type === 'Гостиница' ? clientHotelText(value, [p.crmOrderNo, p.supplierOrderNo]) : value}</span></div>)}</div></>}
           {type === 'Авиа' && <><h4>Расчёт стоимости</h4>
             <div className="receipt-brand-finance-groups">
               <section><h5>Тариф</h5><div className="receipt-brand-finance">
