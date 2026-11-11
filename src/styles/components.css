@@ -3448,6 +3448,7 @@ button.oc-fact:hover{border-color:#d3dbe8;background:#fff}
 
 .workspace-search-toolbar{display:flex;align-items:center;flex-wrap:wrap;gap:12px;margin-bottom:16px;min-width:0}
 .workspace-search-toolbar>.search{flex:1 1 300px;min-width:0;max-width:none;margin-left:0;background:var(--surface-2)}
+.workspace-search-toolbar>.search:focus-within{background:var(--surface-2)}
 .workspace-search-toolbar>.search,.workspace-search-toolbar>.select{height:44px;border:1px solid var(--line);border-radius:var(--r-input)}
 .workspace-search-toolbar>.select{flex:0 1 220px;width:auto;min-width:0;background-color:var(--surface)}
 .workspace-search-toolbar>.btn{height:44px;flex-shrink:0}
@@ -3521,7 +3522,9 @@ button.oc-fact:hover{border-color:#d3dbe8;background:#fff}
 .section-workspace>.table-card{margin:0;background:var(--surface);box-shadow:none}
 .section-workspace :is(.card,.hp-card,.hp-filters,.rail-filters,.stat-card,.fin-panel,.fin-table-wrap){background:var(--surface);box-shadow:none}
 .section-workspace>.empty-state{min-height:220px;background:var(--surface);border:1px solid var(--line);border-radius:16px}
-.section-workspace :is(input,textarea,.search,.select-wrap){background:var(--surface)}
+.section-workspace :is(input,textarea,.select-wrap){background:var(--surface)}
+/* The search wrapper owns the fill, including inside a working canvas. */
+.search>input,.search>input:focus,.search>input:focus-visible,.section-workspace .search>input{background:transparent;box-shadow:none}
 .section-workspace .section-workspace{padding:0;border:0;min-height:0;background:transparent}
 .notification-workspace{display:grid;align-content:start;gap:12px}
 .notification-workspace>div{margin-bottom:0!important}
