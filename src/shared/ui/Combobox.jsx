@@ -2,6 +2,7 @@ import { FloatingPanel, containsFloatingTarget } from './FloatingPanel.jsx';
 import React from 'react';
 import { useState, useEffect, useRef } from 'react';
 import { Icon } from '../icons/index.jsx';
+import { scrollPopoverOption } from './scroll-popover-option.js';
 
 // Выпадающий список с поиском: элементы можно листать скроллом, а можно
 // сузить набор, набрав первые буквы кода или названия. Поддерживает группы,
@@ -16,6 +17,7 @@ function Combobox({
   const [cursor, setCursor] = useState(0);
   const wrapRef = useRef(null);
   const listRef = useRef(null);
+  const keyboardCursor = useRef(true);
   const opts = (options || []).map((o) => (typeof o === 'string' ? { value: o, label: o } : o));
   useEffect(() => {
     if (!open) return undefined;
@@ -37,11 +39,11 @@ function Combobox({
     : shown;
   const cur = opts.find((o) => o.value === value);
   const safeCursor = ranked.length ? Math.min(cursor, ranked.length - 1) : 0;
-  useEffect(() => { setCursor(0); }, [q, open]);
+  useEffect(() => { keyboardCursor.current = true; setCursor(0); }, [q, open]);
   useEffect(() => {
-    if (!open || !listRef.current) return;
+    if (!open || !listRef.current || !keyboardCursor.current) return;
     const node = listRef.current.querySelector('[data-cursor="1"]');
-    node?.scrollIntoView({ block: 'nearest' });
+    scrollPopoverOption(listRef.current, node);
   }, [open, safeCursor, q]);
   const pick = (option) => { onChange(option.value); setOpen(false); setQ(''); };
   const onKeyDown = (event) => {
@@ -56,6 +58,7 @@ function Combobox({
       event.preventDefault();
       if (!ranked.length) return;
       const shift = event.key === 'ArrowDown' ? 1 : -1;
+      keyboardCursor.current = true;
       setCursor((index) => (Math.min(index, ranked.length - 1) + shift + ranked.length) % ranked.length);
       return;
     }
@@ -94,7 +97,7 @@ function Combobox({
                 <div role="option" aria-selected={o.value === value}
                   data-cursor={index === safeCursor ? '1' : '0'}
                   className={'dropdown-item' + (o.value === value ? ' active' : '') + (index === safeCursor ? ' is-cursor' : '')}
-                  onMouseEnter={() => setCursor(index)}
+                  onMouseEnter={() => { keyboardCursor.current = false; setCursor(index); }}
                   onClick={() => pick(o)}>
                   {o.label}{o.value === value && <Icon name="check" className="dropdown-item-mark" />}
                 </div>

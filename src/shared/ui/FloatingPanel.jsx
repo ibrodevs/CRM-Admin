@@ -34,28 +34,33 @@ export function FloatingPanel({ anchorRef, panelRef, onClose, children, width, m
       if (!anchor.isConnected) { closeRef.current?.(); return; }
       const a = anchor.getBoundingClientRect();
       if (a.bottom < 0 || a.top > window.innerHeight) { closeRef.current?.(); return; }
-      const p = panel.getBoundingClientRect();
-      // Keep viewport coordinates correct when CRM interface scaling is enabled.
-      const scale = panel.offsetWidth ? p.width / panel.offsetWidth : 1;
-      const preferredWidth = width || a.width / scale;
-      const measured = popoverPosition(a, { width: preferredWidth * scale, height: maxHeight * scale, contentHeight: panel.scrollHeight * scale }, { width: window.innerWidth, height: window.innerHeight }, { align });
-      const next = { left: measured.left / scale, top: measured.top / scale, width: measured.width / scale, maxHeight: measured.maxHeight / scale };
+      // This portal is attached to body, outside the zoomed CRM root. Anchor
+      // bounds already use viewport pixels; measuring scale from our own rounded
+      // offsetWidth feeds fractional sizing changes back into the next layout.
+      const contentHeight = panel.scrollHeight + panel.offsetHeight - panel.clientHeight;
+      const next = popoverPosition(a, { width: width || a.width, height: maxHeight, contentHeight }, { width: window.innerWidth, height: window.innerHeight }, { align });
       setPosition((previous) => previous && Object.keys(next).every((key) => Math.abs(previous[key] - next[key]) < 0.5) ? previous : next);
     };
     const outside = (event) => {
       if (!containsFloatingTarget(panel, event.target) && !containsFloatingTarget(anchor, event.target)) closeRef.current?.();
     };
+    const scroll = (event) => {
+      // Scrolling options does not move the field. Only track scrolling outside
+      // this panel (including a parent picker containing a nested field).
+      if (event.target && panel.contains(event.target)) return;
+      update();
+    };
     const observer = new ResizeObserver(update);
     observer.observe(anchor); observer.observe(panel);
     document.addEventListener('mousedown', outside, true);
     window.addEventListener('resize', update);
-    window.addEventListener('scroll', update, true);
+    window.addEventListener('scroll', scroll, true);
     update();
     return () => {
       panels.delete(entry); observer.disconnect();
       document.removeEventListener('mousedown', outside, true);
       window.removeEventListener('resize', update);
-      window.removeEventListener('scroll', update, true);
+      window.removeEventListener('scroll', scroll, true);
     };
   }, [anchorRef, width, maxHeight, align]);
   if (typeof document === 'undefined') return null;

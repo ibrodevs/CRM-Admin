@@ -1,0 +1,58 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { createRequire, Module } from 'node:module';
+import { readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
+import { popoverPosition } from '../src/shared/ui/popover-position.js';
+import { scrollPopoverOption } from '../src/shared/ui/scroll-popover-option.js';
+
+const require = createRequire(import.meta.url);
+const babel = require('next/dist/compiled/babel/core');
+
+test('floating menus stay fixed across internal scrolling and repeated resize notifications at fractional field widths', (t) => {
+  const old = { window: globalThis.window, document: globalThis.document, ResizeObserver: globalThis.ResizeObserver };
+  t.after(() => { cleanup?.(); for (const [key, value] of Object.entries(old)) { if (value === undefined) delete globalThis[key]; else globalThis[key] = value; } });
+  const listeners = new Map(), effects = [], positions = [];
+  let observed, position = null, setters = 0, cleanup;
+  globalThis.window = { innerWidth: 1024, innerHeight: 800, addEventListener: (name, callback) => listeners.set(name, callback), removeEventListener: (name) => listeners.delete(name) };
+  globalThis.document = { body: {}, addEventListener() {}, removeEventListener() {} };
+  globalThis.ResizeObserver = class { constructor(callback) { observed = callback; } observe() {} disconnect() {} };
+  const filename = fileURLToPath(new URL('../src/shared/ui/FloatingPanel.jsx', import.meta.url));
+  const mod = new Module(filename);
+  mod.require = (name) => {
+    if (name === 'react') return { ...require('react'), useRef: (current) => ({ current }), useLayoutEffect: (effect) => effects.push(effect), useState: () => [position, (update) => { setters++; const next = update(position); if (next !== position) positions.push(next); position = next; }] };
+    if (name === 'react-dom') return { createPortal: (element) => element };
+    if (name === './Overlays.jsx') return { useOverlayLayer() {} };
+    if (name === './popover-position.js') return { popoverPosition };
+    return require(name);
+  };
+  mod._compile(babel.transformSync(readFileSync(filename, 'utf8'), { filename, presets: ['next/babel'], configFile: false, babelrc: false, envName: 'test' }).code, filename);
+  let bounds = { left: 180.25, right: 465.75, top: 680, bottom: 730, width: 285.5 };
+  const anchor = { isConnected: true, getBoundingClientRect: () => bounds };
+  const panel = { scrollHeight: 142, offsetHeight: 144, clientHeight: 142, offsetWidth: 286, contains: (node) => node === panel, getBoundingClientRect: () => ({ width: 285.5 }) };
+  const element = mod.exports.FloatingPanel({ anchorRef: { current: anchor }, children: 'Options' });
+  element.ref(panel);
+  cleanup = effects[0]();
+  assert.deepEqual(position, { left: 180.25, top: 530, width: 285.5, maxHeight: 360 });
+  const before = setters;
+  for (let i = 0; i < 30; i++) listeners.get('scroll')({ target: panel });
+  assert.equal(setters, before, 'scrolling options must not reposition the menu');
+  for (let i = 0; i < 30; i++) observed();
+  assert.equal(positions.length, 1, 'own resize notifications converge without fractional sizing feedback');
+  bounds = { ...bounds, top: 620, bottom: 670 };
+  listeners.get('scroll')({ target: {} });
+  assert.equal(position.top, 470, 'scrolling the containing drawer still tracks the field');
+});
+
+test('keyboard navigation scrolls only the list, with borders excluded from its visible area', () => {
+  const row = { getBoundingClientRect: () => ({ top: 192, bottom: 228 }), scrollIntoView() { throw new Error('must not scroll page or drawers'); } };
+  const panel = { scrollTop: 20, clientTop: 1, clientHeight: 100, contains: (node) => node === row, getBoundingClientRect: () => ({ top: 100 }) };
+  scrollPopoverOption(panel, row);
+  assert.equal(panel.scrollTop, 47);
+  row.getBoundingClientRect = () => ({ top: 90, bottom: 120 });
+  scrollPopoverOption(panel, row);
+  assert.equal(panel.scrollTop, 36);
+  row.getBoundingClientRect = () => ({ top: 120, bottom: 150 });
+  scrollPopoverOption(panel, row);
+  assert.equal(panel.scrollTop, 36, 'a visible hovered row does not need scrolling');
+});

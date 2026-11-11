@@ -2,6 +2,7 @@ import React, { useEffect, useId, useRef, useState } from 'react';
 import { translate } from '../preferences/translations.js';
 import { FloatingPanel } from './FloatingPanel.jsx';
 import { Icon } from '../icons/index.jsx';
+import { scrollPopoverOption } from './scroll-popover-option.js';
 
 function childOptions(children, groupDisabled = false) {
   return React.Children.toArray(children).flatMap((child) => {
@@ -13,14 +14,16 @@ function childOptions(children, groupDisabled = false) {
 
 function Select({ options, error, placeholder, className = '', children, onChange, onKeyDown, onMouseDown, onClick, onBlur, ...rest }) {
   const ref = useRef(null);
+  const panelRef = useRef(null);
+  const keyboardCursor = useRef(true);
   const id = useId();
   const [open, setOpen] = useState(false);
   const [cursor, setCursor] = useState(0);
   const typed = useRef({ text: '', at: 0 });
-  useEffect(() => { if (open) document.getElementById(`${id}-${cursor}`)?.scrollIntoView({ block: 'nearest' }); }, [open, cursor, id]);
+  useEffect(() => { if (open && keyboardCursor.current) scrollPopoverOption(panelRef.current, document.getElementById(`${id}-${cursor}`)); }, [open, cursor, id]);
   const rows = [...(placeholder ? [{ value: '', label: placeholder }] : []), ...(options ? options.map((option) => typeof option === 'object' ? option : { value: option, label: option }) : childOptions(children))];
   const enabled = rows.map((row, index) => !row.disabled ? index : -1).filter((index) => index >= 0);
-  const show = () => { if (rest.disabled) return; setCursor(Math.max(0, rows.findIndex((row) => String(row.value) === ref.current?.value))); setOpen(true); };
+  const show = () => { if (rest.disabled) return; keyboardCursor.current = true; setCursor(Math.max(0, rows.findIndex((row) => String(row.value) === ref.current?.value))); setOpen(true); };
   const pick = (index) => {
     const row = rows[index];
     if (!row || row.disabled || !ref.current) return;
@@ -43,7 +46,7 @@ function Select({ options, error, placeholder, className = '', children, onChang
       const step = event.key === 'ArrowUp' ? -1 : 1;
       const at = enabled.indexOf(cursor);
       const next = event.key === 'Home' ? enabled[0] : event.key === 'End' ? enabled.at(-1) : enabled[(at + step + enabled.length) % enabled.length];
-      if (next !== undefined) { setCursor(next); document.getElementById(`${id}-${next}`)?.scrollIntoView({ block: 'nearest' }); }
+      if (next !== undefined) { keyboardCursor.current = true; setCursor(next); }
       return;
     }
     if (event.key.length === 1 && !event.ctrlKey && !event.metaKey && !event.altKey) {
@@ -51,7 +54,7 @@ function Select({ options, error, placeholder, className = '', children, onChang
       const now = Date.now();
       typed.current = { text: (now - typed.current.at < 700 ? typed.current.text : '') + event.key.toLocaleLowerCase(), at: now };
       const next = rows.findIndex((row) => !row.disabled && String(translate(row.label)).toLocaleLowerCase().startsWith(typed.current.text));
-      if (next >= 0) { if (open) setCursor(next); else pick(next); }
+      if (next >= 0) { if (open) { keyboardCursor.current = true; setCursor(next); } else pick(next); }
     }
   };
   return <>
@@ -63,10 +66,10 @@ function Select({ options, error, placeholder, className = '', children, onChang
       onBlur={(event) => { onBlur?.(event); setOpen(false); }}>
       {rows.map((row, index) => <option key={index} value={row.value} disabled={row.disabled}>{translate(row.label)}</option>)}
     </select>
-    {open && !rest.disabled && <FloatingPanel anchorRef={ref} onClose={() => setOpen(false)} className="dropdown select-dropdown" role="listbox" id={id} aria-label={rest['aria-label'] || 'Варианты выбора'}>
+    {open && !rest.disabled && <FloatingPanel anchorRef={ref} panelRef={panelRef} onClose={() => setOpen(false)} className="dropdown select-dropdown" role="listbox" id={id} aria-label={rest['aria-label'] || 'Варианты выбора'}>
       {rows.map((row, index) => <div key={index} id={`${id}-${index}`} role="option" aria-disabled={row.disabled || undefined} aria-selected={String(row.value) === ref.current?.value}
         className={'dropdown-item' + (String(row.value) === ref.current?.value ? ' is-selected' : '') + (cursor === index ? ' is-cursor' : '') + (row.disabled ? ' is-disabled' : '')}
-        onMouseDown={(event) => event.preventDefault()} onMouseEnter={() => !row.disabled && setCursor(index)} onClick={() => pick(index)}>
+        onMouseDown={(event) => event.preventDefault()} onMouseEnter={() => { keyboardCursor.current = false; if (!row.disabled) setCursor(index); }} onClick={() => pick(index)}>
         {translate(row.label)}{String(row.value) === ref.current?.value && <Icon name="check" className="dropdown-item-mark" />}
       </div>)}
     </FloatingPanel>}
