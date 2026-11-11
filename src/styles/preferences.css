@@ -303,6 +303,7 @@ html[data-theme="dark"] body {
 }
 
 :root[data-theme="dark"] .search:focus-within {
+  background: var(--surface);
   border-color: var(--blue);
   box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2);
 }
