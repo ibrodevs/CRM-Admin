@@ -35,13 +35,12 @@ test('центр уведомлений показывает время и от�
   assert.match(styles, /\.ntf\{display:grid;grid-template-columns:42px minmax\(0,1fr\) auto/);
 });
 
-test('всплывающие уведомления идут одной ровной колонкой', () => {
-  assert.doesNotMatch(ui, /translateX\(' \+ \(-depth \* 18\)/);
+test('всплывающие уведомления ограничены общей панелью с внутренней прокруткой', () => {
   assert.match(styles, /\.toast-wrap\{[^}]*bottom:16px;left:16px;right:auto;[^}]*align-items:stretch/);
   assert.doesNotMatch(styles, /body:has\(\.sidebar\.collapsed\) \.toast-wrap/);
-  assert.match(styles, /\.toast\{[^}]*background:rgba\(235,243,255,\.92\);[^}]*backdrop-filter:blur\(16px\)/);
-  assert.match(styles, /@keyframes toastin\{from\{opacity:0;transform:translateX\(-40px\)\}/);
+  assert.match(styles, /\.toast-wrap\{[^}]*max-height:min\(500px,calc\(100dvh - 32px\)\)[^}]*overflow:hidden/);
+  assert.match(styles, /\.toast-center-list\{[^}]*min-height:0;[^}]*overflow-y:auto;overscroll-behavior:contain/);
   assert.match(styles, /@media\(max-width:760px\)\{[\s\S]*?\.toast-wrap[^}]*bottom:88px;[^}]*width:calc\(100vw - 24px\)/);
-  assert.match(styles, /\.toast-slot\{width:100%\}/);
-  assert.match(styles, /\.toast\{[^}]*width:100%/);
+  assert.match(styles, /\.toast-slot\{width:100%;flex:0 0 auto\}/);
+  assert.match(ui, /Все уведомления/);
 });
