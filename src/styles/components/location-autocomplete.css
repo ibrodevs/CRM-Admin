@@ -94,6 +94,12 @@
   height: 17px;
 }
 
+.location-autocomplete-country-flag {
+  font-family: "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif;
+  font-size: 22px;
+  line-height: 1;
+}
+
 .location-autocomplete-option-main {
   min-width: 0;
   display: grid;

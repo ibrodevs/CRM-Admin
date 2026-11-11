@@ -4,14 +4,11 @@ import { Drawer } from '../../../shared/ui/Overlays.jsx';
 import { Button } from '../../../shared/ui/Button.jsx';
 import { Icon } from '../../../shared/icons/index.jsx';
 import { useToast } from '../../../shared/ui/Toast.jsx';
+import { countryFlag } from '../../../shared/lib/country-flag.js';
 
 function safeWebsite(value) {
   try { const url = new URL(value); return ['https:', 'http:'].includes(url.protocol) ? url.href : null; }
   catch { return null; }
-}
-
-function countryFlag(country) {
-  return /^[A-Z]{2}$/.test(country || '') ? String.fromCodePoint(...[...country].map((letter) => letter.charCodeAt(0) + 127397)) : null;
 }
 
 function AirportCode({ label, value, onCopy }) {

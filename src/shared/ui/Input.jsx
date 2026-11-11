@@ -1,9 +1,10 @@
 import { FloatingPanel, containsFloatingTarget } from './FloatingPanel.jsx';
 import { useState, useEffect, useRef } from 'react';
 import { Icon } from '../icons/index.jsx';
+import { countryFlag } from '../lib/country-flag.js';
 
 const LOCATION_CONTEXT_HINTS = [
-  'город', 'аэропорт', 'локац', 'адрес', 'отел', 'место отправления', 'место назначения',
+  'город', 'страна', 'аэропорт', 'локац', 'адрес', 'отел', 'место отправления', 'место назначения',
   'пункт отправления', 'пункт назначения', 'точка отправления', 'точка назначения', 'место подачи',
 ];
 
@@ -24,12 +25,19 @@ function shouldUseLocationAutocomplete(props) {
 }
 
 function locationOptionIcon(kind) {
-  if (kind === 'Аэропорт') return 'plane';
-  if (kind === 'Отель') return 'hotel';
-  if (kind === 'Вокзал') return 'train';
-  if (kind === 'Достопримечательность') return 'star';
-  if (kind === 'Адрес') return 'building';
-  return 'mapPin';
+  return ({ страна: 'flag', country: 'flag', город: 'mapPin', city: 'mapPin',
+    аэропорт: 'plane', airport: 'plane', отель: 'hotel', hotel: 'hotel',
+    вокзал: 'train', station: 'train', достопримечательность: 'star',
+    attraction: 'star', адрес: 'building', address: 'building',
+  })[String(kind || '').trim().toLowerCase()] || 'mapPin';
+}
+
+function LocationOptionSymbol({ option }) {
+  const icon = locationOptionIcon(option.kind);
+  const flag = icon === 'flag' ? countryFlag(option.countryCode || option.country_code || option.code) : '';
+  return <span className="location-autocomplete-option-icon" aria-hidden="true">
+    {flag ? <span className="location-autocomplete-country-flag">{flag}</span> : <Icon name={icon} />}
+  </span>;
 }
 
 function LocationAutocomplete(props) {
@@ -194,7 +202,7 @@ function LocationAutocomplete(props) {
               onMouseDown={(event) => event.preventDefault()}
               onClick={() => choose(option)}
             >
-              <span className="location-autocomplete-option-icon"><Icon name={locationOptionIcon(option.kind)} /></span>
+              <LocationOptionSymbol option={option} />
               <span className="location-autocomplete-option-main">
                 <b>{option.title || option.value || option.label}</b>
                 <span>{option.subtitle || option.label || 'Выберите подходящий вариант'}</span>
@@ -234,4 +242,4 @@ function Input(props) {
   return <input className={inputClass} {...rest} />;
 }
 
-export { LOCATION_CONTEXT_HINTS, locationContextText, shouldUseLocationAutocomplete, locationOptionIcon, LocationAutocomplete, Input };
+export { LOCATION_CONTEXT_HINTS, locationContextText, shouldUseLocationAutocomplete, locationOptionIcon, LocationOptionSymbol, LocationAutocomplete, Input };

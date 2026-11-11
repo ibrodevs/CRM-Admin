@@ -119,6 +119,7 @@ function localSuggestions(query) {
 
 function photonKind(properties) {
   const type = String(properties.osm_value || properties.type || '').toLowerCase();
+  if (type === 'country') return 'Страна';
   if (['city', 'town', 'village', 'hamlet', 'municipality'].includes(type)) return 'Город';
   if (['airport', 'aerodrome'].includes(type)) return 'Аэропорт';
   if (['hotel', 'hostel', 'guest_house', 'resort', 'motel'].includes(type)) return 'Отель';
@@ -136,12 +137,12 @@ function photonSuggestion(feature, index) {
   const locality = properties.city || properties.town || properties.village || properties.district || properties.county;
   const country = properties.country || '';
   const address = [properties.street, properties.housenumber].filter(Boolean).join(' ');
-  const detailParts = [address && address !== name ? address : '', locality && locality !== name ? locality : '', properties.state, country]
+  const detailParts = [address && address !== name ? address : '', locality && locality !== name ? locality : '', properties.state, country !== name ? country : '']
     .filter(Boolean)
     .filter((item, position, items) => items.indexOf(item) === position);
   const subtitle = detailParts.join(', ');
   const kind = photonKind(properties);
-  const value = kind === 'Город' ? name : [name, locality && locality !== name ? locality : '', country].filter(Boolean).join(', ');
+  const value = ['Город', 'Страна'].includes(kind) ? name : [name, locality && locality !== name ? locality : '', country].filter(Boolean).join(', ');
   return {
     id: `photon:${properties.osm_type || ''}:${properties.osm_id || index}`,
     value,
@@ -152,7 +153,7 @@ function photonSuggestion(feature, index) {
     source: 'photon',
     lat: Number(coordinates[1]) || null,
     lon: Number(coordinates[0]) || null,
-    countryCode: properties.countrycode || '',
+    countryCode: String(properties.countrycode || '').toUpperCase(),
   };
 }
 
@@ -196,7 +197,7 @@ export async function GET(request) {
     return NextResponse.json({ results: [], query, source: 'empty' });
   }
 
-  const key = `v2:${normalize(query)}`;
+  const key = `v3:${normalize(query)}`;
   const cached = CACHE.get(key);
   if (cached && Date.now() - cached.savedAt < 24 * 60 * 60 * 1000) {
     return NextResponse.json(cached.payload, {
