@@ -60,7 +60,7 @@
 .location-autocomplete-option {
   width: 100%;
   display: grid;
-  grid-template-columns: 34px minmax(0, 1fr) auto;
+  grid-template-columns: 28px minmax(0, 1fr) auto;
   align-items: center;
   gap: 9px;
   min-width: 0;
@@ -79,19 +79,20 @@
 }
 
 .location-autocomplete-option-icon {
-  width: 34px;
-  height: 34px;
-  border-radius: 9px;
+  width: 28px;
+  height: 28px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  background: var(--surface-2);
+  background: transparent;
   color: var(--blue);
 }
 
 .location-autocomplete-option-icon svg {
-  width: 17px;
-  height: 17px;
+  display: block;
+  flex: none;
+  width: 22px;
+  height: 22px;
 }
 
 .location-autocomplete-country-flag {

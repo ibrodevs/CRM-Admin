@@ -35,8 +35,19 @@ function locationOptionIcon(kind) {
 function LocationOptionSymbol({ option }) {
   const icon = locationOptionIcon(option.kind);
   const flag = icon === 'flag' ? countryFlag(option.countryCode || option.country_code || option.code) : '';
-  return <span className="location-autocomplete-option-icon" aria-hidden="true">
-    {flag ? <span className="location-autocomplete-country-flag">{flag}</span> : <Icon name={icon} />}
+  // Keep the three geographic symbols self-contained: a missing registry entry
+  // must never leave a logo-sized empty tile in a search suggestion.
+  const paths = icon === 'hotel' ? <>
+    <rect x="5" y="3" width="14" height="18" rx="2" />
+    <path d="M9 7h1M14 7h1M9 11h1M14 11h1M10 21v-5h4v5M3 21h18" />
+  </> : icon === 'mapPin' ? <>
+    <path d="M12 21s7-5.3 7-11a7 7 0 0 0-14 0c0 5.7 7 11 7 11Z" />
+    <circle cx="12" cy="10" r="2.5" />
+  </> : icon === 'flag' ? <path d="M5 21V3m0 1c5-3 9 3 14 0v10c-5 3-9-3-14 0" /> : null;
+  return <span className="location-autocomplete-option-icon" data-location-symbol={icon} aria-hidden="true">
+    {flag ? <span className="location-autocomplete-country-flag">{flag}</span>
+      : paths ? <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">{paths}</svg>
+        : <Icon name={icon} />}
   </span>;
 }
 
