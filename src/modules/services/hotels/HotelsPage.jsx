@@ -452,6 +452,7 @@ function HotelPicker({ participants, group = false, onApply, onCancel, currency,
     ...(activeHotel.provider_adapter === 'hotelbook' ? {
       guestRoomRefs: groupMode ? PAX.map((_, i) => `room:${roomGroups.findIndex((room) => room.members.includes(i))}`) : hotelRoomAssignments(PAX, guestSel, mainGuest, activeHotel.fare?.rooms, guestRooms).refs,
       hotelRemarks,
+      hotelOperatorRequest: specialReq,
     } : {}),
     title: activeHotel.name + ' · ' + activeHotel.stars + '★',
     sub,
@@ -946,7 +947,7 @@ function PaxPlacementPanel({ hotel, room, tariff, pax, nights, checkin, checkout
             {!selected.length && <InfoNotice icon="alertCircle">Сначала выберите гостей номера</InfoNotice>}
           </div>
 
-          {fixedBeds && <HotelRemarks offerId={hotel._backendOfferId} value={hotelRemarks} onChange={setHotelRemarks} />}
+          {fixedBeds && <HotelRemarks offerId={hotel._backendOfferId} value={hotelRemarks} onChange={setHotelRemarks} operatorRequest={specialReq} onOperatorRequestChange={setSpecialReq} />}
           {!fixedBeds && <><div className="hp-col-subtitle">5. Специальные пожелания <span className="hp-opt">(необязательно)</span></div>
           <textarea className="hp-textarea" rows={4} maxLength={2000} value={specialReq} onChange={(e) => setSpecialReq(e.target.value)}
             placeholder="Например: высокий этаж, ранний заезд, кровати рядом, тихий номер и т.д." /></>}

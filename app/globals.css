@@ -4,3 +4,4 @@
 @import '../src/styles/components.css';
 @import 'mapbox-gl/dist/mapbox-gl.css';
 @import '../src/styles/components/hotel-map.css';
+@import '../src/styles/components/hotel-remarks.css';

@@ -106,3 +106,12 @@ test('supplier costs and booking references appear only inside employee disclosu
   assert.ok(!main.includes('891,23') && !main.includes('hb-order-id') && !main.includes('HbPro'));
   assert.ok(main.replace(/\s/g, '').includes('1000,00') && main.includes('250'));
 });
+
+
+test('operator request is visible in booking summary with an explicit manual coordination label', () => {
+  const html = render(HotelBookingSummary, { summary: { ...summary, hotel_operator_request: 'Связаться с отелем' } });
+  assert.ok(html.includes('Запрос оператору · требует согласования'));
+  assert.ok(html.includes('Связаться с отелем'));
+  assert.ok(html.includes('Автоматически в отель не отправляется.'));
+  assert.ok(html.includes('hotel-internal-only'));
+});

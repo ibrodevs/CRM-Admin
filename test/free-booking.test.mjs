@@ -252,3 +252,10 @@ test('free booking keeps Hotelbook wishes and guest room assignments when attach
   assert.deepEqual(freeBookingServiceBody({ offerId: 'hb', specialRequests: '' }), { offer_id: 'hb', special_requests: '' });
   assert.deepEqual(freeBookingServiceBody({ offerId: 'hb', hotelRemarks: [{ remarkId: 7, data: null }] }), { offer_id: 'hb', hotel_remarks: [{ remarkId: 7, data: null }] });
 });
+
+
+test('operator hotel request is retained when attaching a selected offer to an order', () => {
+  assert.deepEqual(freeBookingServiceBody({ offerId: 'hb', hotelOperatorRequest: 'Связаться с отелем', hotelRemarks: [{ remarkId: 7, data: null }] }), {
+    offer_id: 'hb', hotel_operator_request: 'Связаться с отелем', hotel_remarks: [{ remarkId: 7, data: null }],
+  });
+});

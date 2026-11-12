@@ -74,6 +74,7 @@ test('actual booking picker creates and automatically selects a guest without re
   assert.deepEqual(picker.results[0].guestRoomRefs, ['room:0', 'room:0']);
   assert.deepEqual(picker.results[0].hotelRemarks, [{ remarkId: 7, data: null }]);
   assert.equal(Object.hasOwn(picker.results[0], 'specialRequests'), false);
+  assert.equal(picker.results[0].hotelOperatorRequest, 'Тихий номер');
   assert.equal(picker.results[0]._backendOfferId, 'offer-1');
 });
 

@@ -29,6 +29,7 @@ export function HotelBookingSummary({ summary: s }) {
         ['Ночей', s.nights], ['Номеров', s.room_count], ['Гостей', s.guest_count],
         ['Стоимость для клиента', hotelMoney(f.client_cost, f.currency ? currencySymbol(f.currency) : '')],
       ]} />
+      {s.hotel_operator_request && <aside className="hotel-remarks-saved hotel-internal-only"><b>Запрос оператору · требует согласования</b><p>{s.hotel_operator_request}</p><small>Сохранён в CRM. Автоматически в отель не отправляется.</small></aside>}
       {s.unassigned_guests?.length > 0 && <InfoNotice icon="alertCircle">Гости без подтверждённого распределения по номерам: {s.unassigned_guests.map((g) => g.name || 'Имя не указано').join(', ')}.</InfoNotice>}
     </section>;
 }
