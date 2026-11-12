@@ -36,7 +36,7 @@ test('центр уведомлений показывает время и от�
 });
 
 test('всплывающие уведомления ограничены общей панелью с внутренней прокруткой', () => {
-  assert.match(styles, /\.toast-wrap\{[^}]*bottom:16px;left:16px;right:auto;[^}]*align-items:stretch/);
+  assert.match(styles, /\.toast-wrap\{[^}]*bottom:16px;left:auto;right:16px;[^}]*align-items:stretch/);
   assert.doesNotMatch(styles, /body:has\(\.sidebar\.collapsed\) \.toast-wrap/);
   assert.match(styles, /\.toast-wrap\{[^}]*max-height:min\(500px,calc\(100dvh - 32px\)\)[^}]*overflow:hidden/);
   assert.match(styles, /\.toast-center-list\{[^}]*min-height:0;[^}]*overflow-y:auto;overscroll-behavior:contain/);
