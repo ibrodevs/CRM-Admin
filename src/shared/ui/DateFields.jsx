@@ -319,7 +319,7 @@ function TimeField({ label, value, onChange, placeholder = 'чч:мм', required
       </button>
       {error && <div className="err-text"><Icon name="alertCircle" style={{ width: 14, height: 14 }} />{error}</div>}
       {open && (
-        <FloatingPanel anchorRef={ref} onClose={() => setOpen(false)} width={224} maxHeight={300} role="dialog" aria-label={label || 'Выбор времени'} style={{ userSelect: 'none' }}>
+        <FloatingPanel anchorRef={ref} onClose={() => setOpen(false)} closeOnScroll width={224} maxHeight={300} role="dialog" aria-label={label || 'Выбор времени'} style={{ userSelect: 'none' }}>
           <div>
             <div style={{ display: 'flex', textAlign: 'center', fontSize: 11, fontWeight: 800, color: 'var(--blue)', padding: '10px 6px 4px', letterSpacing: '.04em' }}>
               <div style={{ flex: 1 }}>ЧАСЫ</div><div style={{ flex: 1 }}>МИНУТЫ</div>

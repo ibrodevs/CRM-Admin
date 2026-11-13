@@ -35,6 +35,7 @@ test('time picker closes without changing time and can reopen and select hours o
   trigger(render()).props.onClick();
   let tree = render();
   assert.equal(popup(tree).props.anchorRef, trigger(tree).ref);
+  assert.equal(popup(tree).props.closeOnScroll, true, 'scrolling the form dismisses time selection instead of moving it');
   const columns = nodes(popup(tree)).filter((n) => n.props.className === 'scroll');
   columns[0].props.children[15].props.onClick();
   assert.equal(value, '15:17');

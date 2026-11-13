@@ -18,7 +18,7 @@ export function containsFloatingTarget(root, target) {
   return false;
 }
 
-export function FloatingPanel({ anchorRef, panelRef, onClose, children, width, minWidth = 0, maxHeight = 360, align = 'start', className = '', style, ...props }) {
+export function FloatingPanel({ anchorRef, panelRef, onClose, children, width, minWidth = 0, maxHeight = 360, align = 'start', closeOnScroll = false, className = '', style, ...props }) {
   const ref = useRef(null);
   const [position, setPosition] = useState(null);
   const closeRef = useRef(onClose);
@@ -48,6 +48,7 @@ export function FloatingPanel({ anchorRef, panelRef, onClose, children, width, m
       // Scrolling options does not move the field. Only track scrolling outside
       // this panel (including a parent picker containing a nested field).
       if (event.target && panel.contains(event.target)) return;
+      if (closeOnScroll) { closeRef.current?.(); return; }
       update();
     };
     const observer = new ResizeObserver(update);
@@ -62,7 +63,7 @@ export function FloatingPanel({ anchorRef, panelRef, onClose, children, width, m
       window.removeEventListener('resize', update);
       window.removeEventListener('scroll', scroll, true);
     };
-  }, [anchorRef, width, minWidth, maxHeight, align]);
+  }, [anchorRef, width, minWidth, maxHeight, align, closeOnScroll]);
   if (typeof document === 'undefined') return null;
   return createPortal(<div {...props} ref={(node) => { ref.current = node; if (panelRef) panelRef.current = node; }} className={'floating-panel ' + className} style={{ ...style, position: 'fixed', right: 'auto', bottom: 'auto', margin: 0, ...position, visibility: position ? 'visible' : 'hidden', zIndex: 10000 }}>{children}</div>, document.body);
 }
