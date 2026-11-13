@@ -1,3 +1,5 @@
+import { PassengerCompositionField } from '../search/PassengerCompositionField.jsx';
+import { passengerCriteria, railPassengerDrafts } from '../search/passenger-composition.js';
 import { TransferSearchOptions } from '../transfers/TransferSearchOptions.jsx';
 import { clientHotelCard } from '../../../shared/lib/client-hotel-presentation.js';
 import { ServicePreview } from '../../../shared/ui/ServicePreview.jsx';
@@ -83,11 +85,11 @@ const AERO_FARES = [['single', 'Разовый'], ['rt', 'Туда и обрат
 
 const SVC_CFG = {
   rail: { title: 'ЖД билеты', kind: 'ЖД', searchTitle: 'Поиск ЖД билетов', mainLabel: 'Маршрут', qtyLabel: 'Пасс.',
-    fields: [{ k: 'from', l: 'Откуда', t: 'text', w: 190 }, { k: 'to', l: 'Куда', t: 'text', w: 190 }, { k: 'date', l: 'Дата', t: 'date', w: 156 }, { k: 'pax', l: 'Пассажиры', t: 'stepper', w: 150 }, { k: 'cls', l: 'Класс', t: 'select', w: 150, o: ['Плацкарт', 'Купе', 'СВ'] }] },
+    fields: [{ k: 'from', l: 'Откуда', t: 'text', w: 190 }, { k: 'to', l: 'Куда', t: 'text', w: 190 }, { k: 'date', l: 'Дата', t: 'date', w: 156 }, { k: 'pax', l: 'Пассажиры', t: 'stepper', w: 150, passengerKind: 'rail' }, { k: 'cls', l: 'Класс', t: 'select', w: 150, o: ['Плацкарт', 'Купе', 'СВ'] }] },
   hotels: { title: 'Гостиницы', kind: 'Гостиница', searchTitle: 'Поиск гостиниц', mainLabel: 'Отель', qtyLabel: 'Гостей',
     fields: [{ k: 'city', l: 'Город', t: 'text', w: 210 }, { k: 'dates', l: 'Заезд — выезд', t: 'daterange', w: 230 }, { k: 'guests', l: 'Гостей', t: 'stepper', w: 140 }, { k: 'rooms', l: 'Номеров', t: 'stepper', w: 140 }, { k: 'stars', l: 'Категория', t: 'select', w: 140, o: ['3★', '4★', '5★'] }] },
   transfers: { title: 'Трансферы', kind: 'Трансфер', searchTitle: 'Поиск трансфера', mainLabel: 'Маршрут', qtyLabel: 'Пасс.',
-    fields: [{ k: 'from', l: 'Откуда', t: 'text', w: 210 }, { k: 'to', l: 'Куда', t: 'text', w: 210 }, { k: 'dt', l: 'Дата', t: 'date', w: 156 }, { k: 'pax', l: 'Пассажиров', t: 'stepper', w: 150 }, { k: 'cls', l: 'Класс авто', t: 'select', w: 150, o: ['Эконом', 'Комфорт', 'Минивэн', 'VIP'] }] },
+    fields: [{ k: 'from', l: 'Откуда', t: 'text', w: 210 }, { k: 'to', l: 'Куда', t: 'text', w: 210 }, { k: 'dt', l: 'Дата', t: 'date', w: 156 }, { k: 'pax', l: 'Пассажиров', t: 'stepper', w: 150, passengerKind: 'transfer' }, { k: 'cls', l: 'Класс авто', t: 'select', w: 150, o: ['Эконом', 'Комфорт', 'Минивэн', 'VIP'] }] },
   buses: { title: 'Автобусы', kind: 'Автобус', searchTitle: 'Поиск автобусов', mainLabel: 'Маршрут', qtyLabel: 'Мест',
     fields: [{ k: 'from', l: 'Откуда', t: 'text', w: 210 }, { k: 'to', l: 'Куда', t: 'text', w: 210 }, { k: 'date', l: 'Дата', t: 'date', w: 156 }, { k: 'pax', l: 'Пассажиров', t: 'stepper', w: 150 }] },
   tours: { title: 'Групповые поездки', kind: 'Группа', searchTitle: 'Подбор тура', mainLabel: 'Тур', qtyLabel: 'Чел.',
@@ -105,6 +107,7 @@ function SvcField({ f, form, set }) {
   if (f.t === 'date') return <div className="av-field" style={{ width: f.w }}><span className="label">{f.l}</span><DateField value={v} onChange={(d) => set(f.k, d)} placeholder="Выбрать" /></div>;
   if (f.t === 'daterange') return <div className="av-field" style={{ width: f.w }}><span className="label">{f.l}</span><DateRangeField startVal={v && v.s} endVal={v && v.e} onChange={(s, e) => set(f.k, { s, e })} /></div>;
   if (f.t === 'select') return <div className="av-field" style={{ width: f.w }}><span className="label">{f.l}</span><Select options={f.o} value={v || f.o[0]} onChange={(e) => set(f.k, e.target.value)} /></div>;
+  if (f.t === 'stepper' && f.passengerKind) return <PassengerCompositionField form={form} set={set} kind={f.passengerKind} />;
   if (f.t === 'stepper') {
     const n = Math.max(0, Number(v == null ? 1 : v) || 0);
     return <div className="av-field" style={{ width: f.w }}><span className="label">{f.l}</span>
@@ -137,7 +140,7 @@ function SvcResultsHeader({ cfg, form, loading, onSearch, title, subtitle, suppl
 function RailResultsHeader({ form, loading, onSearch, title, subtitle, supplier, onEditingChange, children }) {
   const cfg = { title: 'ЖД билеты', kind: 'ЖД', searchTitle: 'Поиск железнодорожных билетов', fields: [
     { k: 'from', l: 'Откуда', t: 'text' }, { k: 'to', l: 'Куда', t: 'text' },
-    { k: 'date', l: 'Дата отправления', t: 'date' }, { k: 'pax', l: 'Пассажиров', t: 'stepper' },
+    { k: 'date', l: 'Дата отправления', t: 'date' }, { k: 'pax', l: 'Пассажиров', t: 'stepper', passengerKind: 'rail' },
   ] };
   return <SvcResultsHeader cfg={cfg} form={{ ...form, date: form.dep, retDate: form.ret }} loading={loading} title={title} subtitle={subtitle} supplier={supplier} onEditingChange={onEditingChange}
     onSearch={async (draft) => onSearch({ ...draft, dep: draft.date, ret: draft.retDate })}>{children}</SvcResultsHeader>;
@@ -1676,7 +1679,7 @@ function backendCriteria(routeKey, form) {
   if (routeKey === 'hotels') return { ...common, location: form.city, check_in: isoDate(form.dates?.s), check_out: isoDate(form.dates?.e), guests: form.guests ?? 0, rooms: form.rooms ?? 0, stars: form.stars };
   if (routeKey === 'transfers') return { ...common, origin: form.from, destination: form.to, date: isoDate(form.dt), passengers: form.pax, return_date: form.trip === 'rt' ? isoDate(form.retDate) : undefined, ...transferProviderCriteria(form) };
   if (routeKey === 'tours') return { ...common, destination: form.dest, date: isoDate(form.dates?.s), return_date: isoDate(form.dates?.e), passengers: form.pax ?? 0, meal_plan: form.board };
-  return { ...common, origin: form.from || form.dir || form.airport, destination: form.to, date: isoDate(form.date || form.dt), return_date: form.trip === 'rt' ? isoDate(form.retDate) : undefined, passengers: form.pax ?? 0, class: form.cls };
+  return { ...common, ...(routeKey === 'rail' ? passengerCriteria(form, 'rail') : {}), origin: form.from || form.dir || form.airport, destination: form.to, date: isoDate(form.date || form.dt), return_date: form.trip === 'rt' ? isoDate(form.retDate) : undefined, passengers: form.pax ?? 0, class: form.cls };
 }
 function offerDates(itinerary) {
   const departure = itinerary?.segments?.[0]?.departure;
@@ -1902,7 +1905,7 @@ function ServiceFlow({ routeKey, searchIntent, onConsumeSearch }) {
 
         {view === 'search' && (
           <div className="fade-in">
-            <div className="av-bar">
+            <div className={'av-bar' + (routeKey === 'transfers' ? ' service-search-mask' : '')}>
               {cfg.fields.map((f) => <SvcField key={f.k} f={f} form={form} set={setF} />)}
             {routeKey === 'transfers' && <TransferSearchOptions form={form} set={setF} />}
               <Button icon="search" style={{ height: 'var(--h-control)', marginBottom: 0 }} onClick={runSearch}>Найти</Button>
@@ -2016,7 +2019,7 @@ function FreeBookingServiceAddFlow({ routeKey, onAdd, currency, paxCount = 1 }) 
               ))}
             </div>
           )}
-          <div className="av-bar">
+          <div className={'av-bar' + (routeKey === 'transfers' ? ' service-search-mask' : '')}>
             {cfg.fields.map((f) => <SvcField key={f.k} f={f} form={form} set={setF} />)}
             {routeKey === 'transfers' && <TransferSearchOptions form={form} set={setF} />}
             <Button disabled={loading} icon="search" style={{ height: 'var(--h-control)', marginBottom: 0 }} onClick={runSearch}>Найти</Button>
@@ -2225,7 +2228,7 @@ function ServiceAddFlow({ routeKey, onAdd, currency, paxCount = 1 }) {
               ))}
             </div>
           )}
-          <div className="av-bar">
+          <div className={'av-bar' + (routeKey === 'transfers' ? ' service-search-mask' : '')}>
             {cfg.fields.map((f) => <SvcField key={f.k} f={f} form={form} set={setF} />)}
             {routeKey === 'transfers' && <TransferSearchOptions form={form} set={setF} />}
             <Button icon="search" style={{ height: 'var(--h-control)', marginBottom: 0 }} onClick={runSearch}>Найти</Button>
@@ -2579,7 +2582,7 @@ function FreeBookingRailFilters({ flt, setFlt, bounds, offers = [] }) {
 
 function FreeBookingRailSeatPanel({ offer, participants, groups, onClose, onApply , form, onSearchStay, searching}) {
   const [searchEditing, setSearchEditing] = useState(false);
-  const PAX = participants && participants.length ? participants : [{ name: 'Пассажир 1', role: 'Взрослый' }];
+  const PAX = participants && participants.length ? participants.filter((p) => p.with_seat !== false) : [{ name: 'Пассажир 1', role: 'Взрослый' }];
   const tagClass = RAIL_SERVICE_CLASSES.find((c) => c.name === offer.cls) || RAIL_SERVICE_CLASSES.find((c) => (offer.tags || []).some((t) => t === c.type));
   const availableClasses = tagClass ? [tagClass] : [{ id: 'provider', name: offer.cls || 'Класс поставщика', icon: 'train', type: offer.cls || 'Класс поставщика', seats: 0, amenities: [], kinds: [] }];
   const [clsId, setClsId] = useState(availableClasses[0].id);
@@ -2797,7 +2800,7 @@ function FreeBookingRailFlow({ currency, onAdd }) {
     const request = ++requestId.current;
      setLoading(true); setOffersAll([]);
     try {
-      const created = await servicesApi.search({ kind: 'rail', criteria: { origin: form.from, destination: form.to, date: freeBookingDate(form.dep), ...(form.trip === 'rt' ? { return_date: freeBookingDate(form.ret) } : {}), passengers: form.pax, currency: resolveCurrency(currency) } });
+      const created = await servicesApi.search({ kind: 'rail', criteria: { origin: form.from, destination: form.to, date: freeBookingDate(form.dep), ...(form.trip === 'rt' ? { return_date: freeBookingDate(form.ret) } : {}), passengers: form.pax, ...passengerCriteria(form, 'rail'), currency: resolveCurrency(currency) } });
       const found = (await waitFreeBookingOffers(servicesApi, created.search_id)).map((offer) => ({ ...backendOfferCard(offer, 'rail'), selectedOffer: offer, tags: freeBookingAvailabilityTags(backendOfferCard(offer, 'rail').tags), freeSeats: offer.availability?.seats == null ? null : Number(offer.availability.seats), priceRub: Number(offer.price?.amount || 0) }));
       if (request !== requestId.current) return false;
       setOffersAll(found);
@@ -2856,13 +2859,7 @@ function FreeBookingRailFlow({ currency, onAdd }) {
         /></div>
         {form.trip === 'rt' ? <div className="av-field" style={{ width: 280 }}><span className="label">Даты поездки</span><TripDateRangeField startVal={form.dep} endVal={form.ret} onChange={(start, end) => { setF('dep', start); setF('ret', end); }} /></div>
           : <div className="av-field" style={{ width: 150 }}><span className="label">Дата</span><DateField value={form.dep} onChange={(d) => setF('dep', d)} placeholder="Дата" /></div>}
-        <div className="av-field" style={{ width: 130 }}><span className="label">Пассажиры</span>
-          <div className="input" style={{ display: 'flex', alignItems: 'center', gap: 8, justifyContent: 'space-between' }}>
-            <button className="btn btn-secondary btn-icon btn-sm" disabled={form.pax <= 1} onClick={() => setF('pax', Math.max(1, form.pax - 1))}>−</button>
-            <span style={{ fontWeight: 700 }}>{form.pax}</span>
-            <button className="btn btn-secondary btn-icon btn-sm" onClick={() => setF('pax', form.pax + 1)}>+</button>
-          </div>
-        </div>
+        <PassengerCompositionField form={form} set={setF} kind="rail" />
         <Button disabled={loading} icon="search" style={{ height: 'var(--h-control)', marginBottom: 0 }} onClick={runSearch}>Найти</Button>
       </div>
 
@@ -2887,8 +2884,8 @@ function FreeBookingRailFlow({ currency, onAdd }) {
       </div>
 
 
-      {seatOffer && <FreeBookingRailSeatPanel key={`${seatOffer.id}:${JSON.stringify(form)}`} form={form} searching={loading} onSearchStay={async (draft) => { const version = seatPanelVersion.current; const found = await runSearch(draft); if (found !== false && found != null) { setForm(draft); if (version === seatPanelVersion.current) setSeatOffer(found[0] || null); } return found; }} offer={seatOffer} participants={Array.from({ length: form.pax }, (_, i) => ({ name: `Пассажир ${i + 1}`, role: 'Взрослый' }))} onClose={() => { seatPanelVersion.current += 1; setSeatOffer(null); }} onApply={(preferences) => {
-        onAdd({ ...seatOffer, cost: Number(seatOffer.selectedOffer.price.amount), currency: resolveCurrency(seatOffer.selectedOffer.price.currency), railSeats: preferences, searchCriteria: { origin: form.from, destination: form.to, date: freeBookingDate(form.dep), ...(form.trip === 'rt' ? { return_date: freeBookingDate(form.ret) } : {}), passengers: form.pax, currency: resolveCurrency(currency) } }, 'ЖД');
+      {seatOffer && <FreeBookingRailSeatPanel key={`${seatOffer.id}:${JSON.stringify(form)}`} form={form} searching={loading} onSearchStay={async (draft) => { const version = seatPanelVersion.current; const found = await runSearch(draft); if (found !== false && found != null) { setForm(draft); if (version === seatPanelVersion.current) setSeatOffer(found[0] || null); } return found; }} offer={seatOffer} participants={railPassengerDrafts(form)} onClose={() => { seatPanelVersion.current += 1; setSeatOffer(null); }} onApply={(preferences) => {
+        onAdd({ ...seatOffer, cost: Number(seatOffer.selectedOffer.price.amount), currency: resolveCurrency(seatOffer.selectedOffer.price.currency), railSeats: preferences, searchCriteria: { origin: form.from, destination: form.to, date: freeBookingDate(form.dep), ...(form.trip === 'rt' ? { return_date: freeBookingDate(form.ret) } : {}), passengers: form.pax, ...passengerCriteria(form, 'rail'), currency: resolveCurrency(currency) } }, 'ЖД');
         setSeatOffer(null);
       }} />}
 
@@ -2915,7 +2912,7 @@ function RailAddFlow({ participants = [], groups, onAdd }) {
     const form = nextValues && !nextValues.nativeEvent ? nextValues : currentSearchValues;
      setLoading(true); setOffersAll([]);
     try {
-      const created = await servicesApi.search({ kind: 'rail', criteria: { origin: form.from, destination: form.to, date: isoDate(form.dep), return_date: form.trip === 'rt' ? isoDate(form.ret) : undefined, passengers: form.pax, currency: getDefaultCurrency() } });
+      const created = await servicesApi.search({ kind: 'rail', criteria: { origin: form.from, destination: form.to, date: isoDate(form.dep), return_date: form.trip === 'rt' ? isoDate(form.ret) : undefined, passengers: form.pax, ...passengerCriteria(form, 'rail'), currency: getDefaultCurrency() } });
       const found = (await waitForBackendOffers(created.search_id)).map((offer) => backendOfferCard(offer, 'rail'));
       setOffersAll(found);
       const next = found.map((offer) => offer.priceRub);
@@ -2980,13 +2977,7 @@ function RailAddFlow({ participants = [], groups, onAdd }) {
         /></div>
         {form.trip === 'rt' ? <div className="av-field" style={{ width: 280 }}><span className="label">Даты поездки</span><TripDateRangeField startVal={form.dep} endVal={form.ret} onChange={(start, end) => { setF('dep', start); setF('ret', end); }} /></div>
           : <div className="av-field" style={{ width: 150 }}><span className="label">Дата</span><DateField value={form.dep} onChange={(d) => setF('dep', d)} placeholder="Дата" /></div>}
-        <div className="av-field" style={{ width: 130 }}><span className="label">Пассажиры</span>
-          <div className="input" style={{ display: 'flex', alignItems: 'center', gap: 8, justifyContent: 'space-between' }}>
-            <button className="btn btn-secondary btn-icon btn-sm" disabled={form.pax <= 0} onClick={() => setF('pax', Math.max(0, form.pax - 1))}>−</button>
-            <span style={{ fontWeight: 700 }}>{form.pax}</span>
-            <button className="btn btn-secondary btn-icon btn-sm" onClick={() => setF('pax', form.pax + 1)}>+</button>
-          </div>
-        </div>
+        <PassengerCompositionField form={form} set={setF} kind="rail" />
         <Button icon="search" style={{ height: 'var(--h-control)', marginBottom: 0 }} onClick={runSearch}>Найти</Button>
       </div>
 

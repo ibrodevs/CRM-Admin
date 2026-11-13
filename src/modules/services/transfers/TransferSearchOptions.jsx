@@ -1,3 +1,5 @@
+import { transferChildSeats } from '../search/passenger-composition.js';
+import { useState } from 'react';
 import { DateField, TimeField } from '../../../shared/ui/DateFields.jsx';
 import { Input } from '../../../shared/ui/Input.jsx';
 import { Select } from '../../../shared/ui/Select.jsx';
@@ -7,12 +9,14 @@ import { transferDepartureParts } from '../free-booking-search.js';
 
 const extras = [['infant_seat', 'Кресло до 1 года'], ['seat', 'Кресло 1–3 года'], ['booster', 'Бустер от 3 лет'], ['table', 'Встреча с табличкой'], ['tollroad', 'Платная дорога']];
 export function TransferSearchOptions({ form, set }) {
+  const [open, setOpen] = useState(false);
   const arrival = form.arrival_transport || (form.flight_number ? 'flight' : form.train_number ? 'train' : 'none');
+  const requiredSeats = transferChildSeats(form);
   const departure = transferDepartureParts(form);
   const date = departure.date ? new Date(`${departure.date}T12:00:00`) : null;
-  return <details className="transfer-search-options">
-    <summary><Icon name="filter" /><span>Расширенный поиск трансфера</span><Icon name="chevDown" className="transfer-search-options-chevron" /></summary>
-    <div className="transfer-options-body">
+  return <>
+    <button type="button" className="btn btn-secondary transfer-search-options-trigger" aria-expanded={open} onClick={() => setOpen(!open)}><Icon name="filter" />Параметры<Icon name="chevDown" /></button>
+    {open && <div className="transfer-options-body">
       <InfoNotice icon="clock">Время указывается по местному времени точки подачи. Все дополнительные поля необязательны.</InfoNotice>
       <fieldset className="transfer-options-section"><legend>Подача и встреча</legend>
         <div className="transfer-options-grid">
@@ -34,10 +38,10 @@ export function TransferSearchOptions({ form, set }) {
         {(departure.date || departure.clock) && <button type="button" className="transfer-options-clear" onClick={() => { set('departure_date', ''); set('departure_clock', ''); }}>Сбросить отправление</button>}
       </fieldset>
       <fieldset className="transfer-options-section"><legend>Дополнительные услуги</legend>
-        <div className="transfer-options-extras">{extras.map(([type, label]) => <label key={type}><input type="checkbox" checked={(form.additional_service_types || []).includes(type)} onChange={(event) => set('additional_service_types', event.target.checked ? [...(form.additional_service_types || []), type] : (form.additional_service_types || []).filter((value) => value !== type))} /><span>{label}</span></label>)}</div>
-        <p className="transfer-options-hint">Для детей младше 12 лет выберите подходящее кресло. Допуслуги учитываются в цене предложения.</p>
+        <div className="transfer-options-extras">{extras.map(([type, label]) => <label key={type}><input type="checkbox" checked={(form.additional_service_types || []).includes(type) || requiredSeats.includes(type)} disabled={requiredSeats.includes(type)} onChange={(event) => set('additional_service_types', event.target.checked ? [...(form.additional_service_types || []), type] : (form.additional_service_types || []).filter((value) => value !== type))} /><span>{label}</span></label>)}</div>
+        <p className="transfer-options-hint">Кресла по возрасту указанных детей выбраны автоматически. Допуслуги учитываются в цене предложения. Несколько кресел одного типа требуют согласования с оператором.</p>
       </fieldset>
       <p className="transfer-options-hint">Обратный трансфер оформляется отдельной поездкой. После срока бесплатной отмены штраф — 100% стоимости заказа.</p>
-    </div>
-  </details>;
+    </div>}
+  </>;
 }

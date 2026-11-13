@@ -11,8 +11,7 @@ test('счётчики пассажиров в общих формах умен�
   assert.match(source, /set\(f\.k, Math\.max\(0, n - 1\)\)/);
   assert.match(source, /disabled=\{pax <= 0\}/);
   assert.match(source, /setPax\(Math\.max\(0, pax - 1\)\)/);
-  assert.match(source, /disabled=\{form\.pax <= 0\}/);
-  assert.match(source, /setF\('pax', Math\.max\(0, form\.pax - 1\)\)/);
+  assert.match(source, /<PassengerCompositionField form=\{form\} set=\{setF\} kind="rail"/);
 });
 
 test('новый состав номеров не отправляет пустой номер или ноль взрослых поставщику', async () => {

@@ -3,12 +3,15 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { createRequire, Module } from 'node:module';
 import { fileURLToPath } from 'node:url';
+import { transferChildSeats } from '../src/modules/services/search/passenger-composition.js';
 import { transferDepartureParts, transferProviderCriteria, validateFreeServiceSearch } from '../src/modules/services/free-booking-search.js';
 const require = createRequire(import.meta.url);
 const babel = require('next/dist/compiled/babel/core');
 const filename = fileURLToPath(new URL('../src/modules/services/transfers/TransferSearchOptions.jsx', import.meta.url));
 const mod = new Module(filename);
 mod.require = (name) => {
+  if (name === 'react') return { ...require('react'), useState: () => [true, () => {}] };
+  if (name.endsWith('passenger-composition.js')) return { transferChildSeats };
   if (name.endsWith('free-booking-search.js')) return { transferDepartureParts };
   if (name.endsWith('DateFields.jsx')) return { DateField: 'DatePicker', TimeField: 'TimePicker' };
   if (name.endsWith('Input.jsx')) return { Input: 'TextInput' };

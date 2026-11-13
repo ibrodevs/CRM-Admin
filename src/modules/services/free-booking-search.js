@@ -1,3 +1,4 @@
+import { passengerCriteria, transferChildSeats } from './search/passenger-composition.js';
 import { resultsOf } from '../../shared/api/client.js';
 
 export function freeBookingDate(value) {
@@ -15,8 +16,8 @@ export function validateFreeServiceSearch(routeKey, form) {
   const returning = form.trip === 'rt';
   const ret = form.retDate || form.ret;
   if (returning && (!freeBookingDate(ret) || freeBookingDate(ret) < freeBookingDate(date))) return 'Выберите дату возвращения не раньше отправления';
-  if (routeKey === 'transfers') {
-    try { transferProviderCriteria(form); } catch (error) { return error.message; }
+  if (routeKey === 'transfers' || routeKey === 'rail') {
+    try { if (routeKey === 'transfers') transferProviderCriteria(form); else passengerCriteria(form, 'rail'); } catch (error) { return error.message; }
   }
   return null;
 }
@@ -60,7 +61,8 @@ export function transferProviderCriteria(form) {
     throw new Error('Выберите и дату, и время отправления рейса или поезда');
   }
   return {
-    additional_service_types: form.additional_service_types || [],
+    ...passengerCriteria(form, 'transfer'),
+    additional_service_types: [...new Set([...(form.additional_service_types || []), ...transferChildSeats(form)])],
     text_tablet: form.text_tablet || undefined,
     origin_address: form.from || '', destination_address: form.to || '',
     start_place_point: form.start_point || '', finish_place_point: form.finish_point || '',
