@@ -3635,8 +3635,9 @@ button.oc-fact:hover{border-color:#d3dbe8;background:#fff}
 .calendar-picker-header button:disabled,.calendar-period-grid button:disabled{opacity:.35;cursor:default}
 .calendar-period-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;padding:4px 0 12px;overflow:auto;min-height:0}
 .calendar-period-grid button{min-height:44px;border:1px solid var(--line);border-radius:10px;padding:8px 3px;background:var(--surface);color:var(--ink);font:inherit;font-size:13px;cursor:pointer;white-space:nowrap}
-.calendar-period-grid button:hover:not(:disabled){background:var(--hover);border-color:var(--blue)}
+.calendar-period-grid button:hover:not(:disabled):not([aria-pressed=true]){background:var(--hover);border-color:var(--blue);color:var(--ink)}
 .calendar-period-grid button[aria-pressed=true]{background:var(--blue);border-color:var(--blue);color:#fff;font-weight:700}
+.calendar-period-grid button[aria-pressed=true]:hover:not(:disabled){background:var(--blue-hover);border-color:var(--blue-hover);color:#fff}
 .calendar-years{min-height:0;overflow:auto}
 .calendar-years-label{padding:2px 0 10px;text-align:center;font-size:13px;font-weight:600;color:var(--muted)}
 .calendar-close{flex-shrink:0;margin-top:4px}
