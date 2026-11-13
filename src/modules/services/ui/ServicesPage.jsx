@@ -1,3 +1,4 @@
+import { PassengerCountField } from '../search/PassengerPickerField.jsx';
 import { PassengerCompositionField } from '../search/PassengerCompositionField.jsx';
 import { passengerCriteria, railPassengerDrafts } from '../search/passenger-composition.js';
 import { TransferSearchOptions } from '../transfers/TransferSearchOptions.jsx';
@@ -108,15 +109,7 @@ function SvcField({ f, form, set }) {
   if (f.t === 'daterange') return <div className="av-field" style={{ width: f.w }}><span className="label">{f.l}</span><DateRangeField startVal={v && v.s} endVal={v && v.e} requireComplete onChange={(s, e) => set(f.k, { s, e })} /></div>;
   if (f.t === 'select') return <div className="av-field" style={{ width: f.w }}><span className="label">{f.l}</span><Select options={f.o} value={v || f.o[0]} onChange={(e) => set(f.k, e.target.value)} /></div>;
   if (f.t === 'stepper' && f.passengerKind) return <PassengerCompositionField form={form} set={set} kind={f.passengerKind} />;
-  if (f.t === 'stepper') {
-    const n = Math.max(0, Number(v == null ? 1 : v) || 0);
-    return <div className="av-field" style={{ width: f.w }}><span className="label">{f.l}</span>
-      <div className="input" style={{ display: 'flex', alignItems: 'center', gap: 8, justifyContent: 'space-between' }}>
-        <button className="btn btn-secondary btn-icon btn-sm" disabled={n <= 0} onClick={() => set(f.k, Math.max(0, n - 1))}>−</button>
-        <span style={{ fontWeight: 700 }}>{n}</span>
-        <button className="btn btn-secondary btn-icon btn-sm" onClick={() => set(f.k, n + 1)}>+</button>
-      </div></div>;
-  }
+  if (f.t === 'stepper') return <PassengerCountField label={f.l} value={v ?? 1} onChange={(value) => set(f.k, value)} style={{ width: f.w }} />;
   return <div className="av-field" style={{ width: f.w }}><span className="label">{f.l}</span><Input value={v || ''} onChange={(e) => set(f.k, e.target.value)} placeholder={f.l} /></div>;
 }
 
@@ -2130,13 +2123,7 @@ function FreeBookingAeroAddFlow({ onAdd }) {
                 {fare === 'rt' ? <div className="av-field" style={{ width: 280 }}><span className="label">Даты поездки</span>
                   <TripDateRangeField startVal={date} endVal={retDate} onChange={(start, end) => { change(setDate, start); change(setRetDate, end); }} /></div>
                   : <div className="av-field" style={{ width: 156 }}><span className="label">Дата</span><DateField value={date} onChange={(value) => change(setDate, value)} placeholder="Дата" /></div>}
-                <div className="av-field" style={{ width: 150 }}><span className="label">Пассажиров</span>
-                  <div className="input" style={{ display: 'flex', alignItems: 'center', gap: 8, justifyContent: 'space-between' }}>
-                    <button className="btn btn-secondary btn-icon btn-sm" disabled={pax <= 0} onClick={() => change(setPax, Math.max(0, pax - 1))}>−</button>
-                    <span style={{ fontWeight: 700 }}>{pax}</span>
-                    <button className="btn btn-secondary btn-icon btn-sm" onClick={() => change(setPax, pax + 1)}>+</button>
-                  </div>
-                </div>
+                <PassengerCountField value={pax} onChange={(value) => change(setPax, value)} style={{ width: 150 }} />
               </>
             )}
             <Button disabled={loading} icon="search" style={{ height: 'var(--h-control)', marginBottom: 0 }} onClick={runSearch}>Найти</Button>
@@ -2333,13 +2320,7 @@ function AeroAddFlow({ onAdd }) {
                 {fare === 'rt' ? <div className="av-field" style={{ width: 280 }}><span className="label">Даты поездки</span>
                   <TripDateRangeField startVal={date} endVal={retDate} onChange={(start, end) => { setDate(start); setRetDate(end); }} /></div>
                   : <div className="av-field" style={{ width: 156 }}><span className="label">Дата</span><DateField value={date} onChange={setDate} placeholder="Дата" /></div>}
-                <div className="av-field" style={{ width: 150 }}><span className="label">Пассажиров</span>
-                  <div className="input" style={{ display: 'flex', alignItems: 'center', gap: 8, justifyContent: 'space-between' }}>
-                    <button className="btn btn-secondary btn-icon btn-sm" disabled={pax <= 0} onClick={() => setPax(Math.max(0, pax - 1))}>−</button>
-                    <span style={{ fontWeight: 700 }}>{pax}</span>
-                    <button className="btn btn-secondary btn-icon btn-sm" onClick={() => setPax(pax + 1)}>+</button>
-                  </div>
-                </div>
+                <PassengerCountField value={pax} onChange={setPax} style={{ width: 150 }} />
               </>
             )}
             <Button icon="search" style={{ height: 'var(--h-control)', marginBottom: 0 }} onClick={runSearch}>Найти</Button>

@@ -1,3 +1,4 @@
+import { PassengerPickerField } from '../search/PassengerPickerField.jsx';
 import { validateFreeFlightSearch } from './free-flight-search.js';
 import { airportOption, searchAirportOptions, flightLocationCode } from './airport-options.js';
 import { FloatingPanel, containsFloatingTarget } from '../../../shared/ui/FloatingPanel.jsx';
@@ -233,34 +234,9 @@ function PaxClassPicker({ pax, setPax, cabin, setCabin, options = PAX_DEFAULT_OP
   );
 }
 
-function PaxField({ pax, setPax, cabin, setCabin, options = PAX_DEFAULT_OPTIONS, setOptions }) {
-  const [open, setOpen] = useState(false);
-  const ref = useRef(null);
-  useEffect(() => {
-    const h = (e) => { if (ref.current && !containsFloatingTarget(ref.current, e.target)) setOpen(false); };
-    document.addEventListener('mousedown', h);
-    return () => document.removeEventListener('mousedown', h);
-  }, []);
-  const total = paxTotal(pax);
-  const plural = (n) => n === 1 ? 'пассажир' : (n < 5 ? 'пассажира' : 'пассажиров');
-  return (
-    <div className="av-field avia-pax-field" style={{ position: 'relative' }} ref={ref}>
-      <span className="label">Пассажиры и класс</span>
-      <div className="input" style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 9 }} onClick={() => setOpen((o) => !o)}>
-        <Icon name="users" style={{ width: 18, height: 18, color: 'var(--muted-2)', flexShrink: 0 }} />
-        <span style={{ flex: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{total} {plural(total)} · {cabin}</span>
-        <Icon name="chevDown" style={{ width: 16, height: 16, color: 'var(--muted-2)' }} />
-      </div>
-      {open && (
-        <FloatingPanel anchorRef={ref} onClose={() => setOpen(false)} className="dropdown scroll pcp-pop" width={620} maxHeight={560} align="end" style={{ padding: 16 }}>
-          <PaxClassPicker pax={pax} setPax={setPax} cabin={cabin} setCabin={setCabin} options={options} setOptions={setOptions} />
-        </FloatingPanel>
-      )}
-    </div>
-  );
+function PaxField(props) {
+  return <FreeBookingPaxField {...props} />;
 }
-
-
 
 
 function FlightSearch({ params, setParams, onSearch, onBack }) {
@@ -441,30 +417,12 @@ function FreeBookingPaxClassPicker({ pax, setPax, cabin, setCabin, options = PAX
 }
 
 function FreeBookingPaxField({ pax, setPax, cabin, setCabin, options = PAX_DEFAULT_OPTIONS, setOptions }) {
-  const [open, setOpen] = useState(false);
   const total = paxTotal(pax);
-  const plural = (n) => n === 1 ? 'пассажир' : (n < 5 ? 'пассажира' : 'пассажиров');
-  return (
-    <div className="av-field avia-pax-field" style={{ position: 'relative' }}>
-      <span className="label">Пассажиры и класс</span>
-      <div className="input" style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 9 }} onClick={() => setOpen((o) => !o)}>
-        <Icon name="users" style={{ width: 18, height: 18, color: 'var(--muted-2)', flexShrink: 0 }} />
-        <span style={{ flex: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{total} {plural(total)} · {cabin}</span>
-        <Icon name="chevDown" style={{ width: 16, height: 16, color: 'var(--muted-2)' }} />
-      </div>
-      {open && (
-        <StackPanel className="free-booking" title="Пассажиры и класс" width="min(620px,95vw)" onClose={() => setOpen(false)}
-          footer={<Button style={{ width: '100%' }} icon="check" onClick={() => setOpen(false)}>Готово · {total} {plural(total)}</Button>}>
-          <div className="free-booking">
-            <FreeBookingPaxClassPicker pax={pax} setPax={setPax} cabin={cabin} setCabin={setCabin} options={options} setOptions={setOptions} />
-          </div>
-        </StackPanel>
-      )}
-    </div>
-  );
+  const noun = total === 1 ? 'пассажир' : total < 5 ? 'пассажира' : 'пассажиров';
+  return <PassengerPickerField label="Пассажиры и класс" summary={`${total} ${noun} · ${cabin}`} total={total} className="avia-pax-field">
+    <FreeBookingPaxClassPicker pax={pax} setPax={setPax} cabin={cabin} setCabin={setCabin} options={options} setOptions={setOptions} />
+  </PassengerPickerField>;
 }
-
-
 
 
 function OfferLeg({ leg }) {

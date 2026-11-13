@@ -1,3 +1,4 @@
+import { PassengerCountField } from './PassengerPickerField.jsx';
 import { DateField, TripDateRangeField } from '../../../shared/ui/DateFields.jsx';
 import { Select } from '../../../shared/ui/Select.jsx';
 import { Input } from '../../../shared/ui/Input.jsx';
@@ -22,7 +23,7 @@ export function FlightSearchHeader({ values, onSearch, busy, title = 'Авиаб
         render: (draft, update) => wrap(draft.trip === 'rt' ? 'Даты поездки' : 'Дата вылета', draft.trip === 'rt' ? <TripDateRangeField startVal={draft.depDate} endVal={draft.retDate} onChange={(start, end) => update({ depDate: start, retDate: end })} /> : <DateField value={draft.depDate} onChange={(value) => update({ depDate: value })} />) });
     }
     list.push({ key: 'passengers', label: 'Пассажиры и класс', value: `${fixedPassengers ?? searchPassengerCount(active.pax)} пасс. · ${active.cabin || 'Эконом'}`, icon: 'users',
-      render: (draft, update) => renderPassengers ? renderPassengers(draft, update) : wrap('Пассажиры', <Input aria-label="Пассажиры" type="number" min={1} value={draft.pax?.adt || 1} onChange={(event) => update({ pax: { ...draft.pax, adt: Math.max(1, Number(event.target.value)) } })} />) });
+      render: (draft, update) => renderPassengers ? renderPassengers(draft, update) : <PassengerCountField label="Пассажиры" min={1} value={draft.pax?.adt || 1} onChange={(adults) => update({ pax: { ...draft.pax, adt: adults } })} /> });
     return list;
   };
   return <ServiceSearchHeader title={title} subtitle={subtitle || (values.trip === 'mc' ? 'Перелёт с несколькими сегментами' : `${values.from || 'Откуда'} → ${values.to || 'Куда'}`)} supplier={supplier} icon="plane" values={values} fields={fields} onSearch={onSearch} busy={busy} onEditingChange={onEditingChange}>{children}</ServiceSearchHeader>;

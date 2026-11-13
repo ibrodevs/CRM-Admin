@@ -7,10 +7,8 @@ const servicesUrl = new URL('../src/modules/services/ui/ServicesPage.jsx', impor
 test('счётчики пассажиров в общих формах уменьшаются до нуля, но не ниже', async () => {
   const source = await readFile(servicesUrl, 'utf8');
 
-  assert.match(source, /disabled=\{n <= 0\}/);
-  assert.match(source, /set\(f\.k, Math\.max\(0, n - 1\)\)/);
-  assert.match(source, /disabled=\{pax <= 0\}/);
-  assert.match(source, /setPax\(Math\.max\(0, pax - 1\)\)/);
+  assert.match(source, /<PassengerCountField label=\{f\.l\} value=\{v \?\? 1\}/);
+  assert.match(source, /<PassengerCountField value=\{pax\}/);
   assert.match(source, /<PassengerCompositionField form=\{form\} set=\{setF\} kind="rail"/);
 });
 

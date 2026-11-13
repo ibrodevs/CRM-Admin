@@ -13,7 +13,7 @@ const mod = new Module(filename);
 mod.require = (name) => {
   if (name === 'react') return { ...require('react'), useState: () => [true, () => {}], useRef: (current) => ({ current }) };
   if (name.endsWith('passenger-composition.js')) return composition;
-  if (name.endsWith('FloatingPanel.jsx')) return { FloatingPanel: 'Panel' };
+  if (name.endsWith('PassengerPickerField.jsx')) return { PassengerPickerField: 'Panel', PassengerCounterRow: 'Counter' };
   if (name.endsWith('Select.jsx')) return { Select: 'Choice' };
   if (name.includes('icons')) return { Icon: 'Icon' };
   return require(name);

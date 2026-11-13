@@ -3642,3 +3642,20 @@ button.oc-fact:hover{border-color:#d3dbe8;background:#fff}
 .calendar-close{flex-shrink:0;margin-top:4px}
 .calendar-datetime{display:grid;grid-template-columns:minmax(0,1fr) minmax(100px,.7fr);gap:10px;margin-top:6px}
 @media(max-width:480px){.calendar-datetime{grid-template-columns:1fr}}
+
+/* One passenger drawer across service search forms. */
+.passenger-picker-field{min-width:0}
+.passenger-picker-trigger{display:flex;align-items:center;gap:10px;width:100%;text-align:left;cursor:pointer}
+.passenger-picker-trigger>svg{width:18px;height:18px;flex-shrink:0;color:var(--muted-2)}
+.passenger-picker-trigger>span{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.passenger-picker-panel{overflow:hidden;background:var(--surface)}
+.passenger-picker-panel>.drawer-head,.passenger-picker-panel>.drawer-foot{flex-shrink:0;background:var(--surface)}
+.passenger-picker-panel>.drawer-body{overflow:auto;min-height:0;overscroll-behavior:contain}
+.passenger-picker-panel .hp-occupancy-rooms{max-height:none;overflow:visible;display:grid;gap:16px}
+.passenger-picker-panel .hp-occupancy-room{padding:18px;margin:0}
+.passenger-picker-panel .hp-occupancy-heading{margin-bottom:16px}
+.passenger-picker-panel .hp-occupancy-footer{padding:14px 0 0}
+.passenger-picker-child,.passenger-picker-panel .hp-occupancy-child{border:1px solid var(--line);border-radius:14px;padding:14px;margin:12px 0;background:var(--surface)}
+.passenger-picker-child>div{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:8px}
+.passenger-picker-panel .passenger-composition-hint{font-size:13px}
+@media(max-width:560px){.passenger-picker-panel>.drawer-head,.passenger-picker-panel>.drawer-body,.passenger-picker-panel>.drawer-foot{padding:16px}.passenger-picker-panel .hp-occupancy-room{padding:12px}.passenger-picker-panel .pcp-row{padding:10px;gap:8px}.passenger-picker-panel .pcp-stepper{gap:5px}.passenger-picker-panel .pcp-stepper button{width:32px;height:34px}.passenger-picker-panel .pcp-stepper .n{min-width:26px;height:34px}}
