@@ -3569,3 +3569,21 @@ button.oc-fact:hover{border-color:#d3dbe8;background:#fff}
 /* Calendar headers can be compact; month/year menus must keep labels intact. */
 .floating-panel.calendar-select-dropdown .dropdown-item{white-space:nowrap;overflow-wrap:normal;min-height:36px}
 .floating-panel.calendar-select-dropdown .dropdown-item-mark{margin-left:auto}
+
+.transfer-options-body{display:grid;gap:16px;margin-top:14px;min-width:0}
+.transfer-options-body>.info-notice{margin:0}
+.transfer-options-section{min-width:0;margin:0;padding:16px;border:1px solid var(--line);border-radius:14px;background:var(--surface)}
+.transfer-options-section legend{padding:0 6px;color:var(--ink);font-size:14px;font-weight:700}
+.transfer-options-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,240px),1fr));gap:16px;align-items:start}
+.transfer-options-grid>*{min-width:0}
+.transfer-options-grid .label{display:block;margin-bottom:7px;line-height:1.4}
+.transfer-options-grid .input,.transfer-options-grid .input-wrap,.transfer-options-grid .select{width:100%;min-width:0}
+.transfer-options-hint{margin:12px 0 0;color:var(--muted);font-size:12px;line-height:1.6}
+.transfer-options-body>.transfer-options-hint{margin:0}
+.transfer-options-clear{border:0;padding:4px 0;margin-top:6px;background:transparent;color:var(--blue);font:inherit;font-size:12px;cursor:pointer}
+.transfer-options-clear:hover{text-decoration:underline}
+.transfer-options-extras{display:flex;flex-wrap:wrap;gap:10px}
+.transfer-options-extras label{display:flex;align-items:center;gap:9px;padding:10px 12px;border:1px solid var(--line);border-radius:10px;font-size:13px;color:var(--body);cursor:pointer;background:var(--surface)}
+.transfer-options-extras label:has(input:checked){border-color:var(--blue);background:var(--blue-soft);color:var(--blue)}
+.transfer-options-extras input{width:16px;height:16px;accent-color:var(--blue);flex-shrink:0;margin:0}
+.transfer-options-extras input:focus-visible,.transfer-options-clear:focus-visible{outline:2px solid var(--blue);outline-offset:3px}

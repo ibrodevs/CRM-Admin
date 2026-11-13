@@ -1,3 +1,4 @@
+import { TransferSearchOptions } from '../transfers/TransferSearchOptions.jsx';
 import { clientHotelCard } from '../../../shared/lib/client-hotel-presentation.js';
 import { ServicePreview } from '../../../shared/ui/ServicePreview.jsx';
 import { SectionInfo } from '../../../shared/ui/SectionInfo.jsx';
@@ -1903,9 +1904,7 @@ function ServiceFlow({ routeKey, searchIntent, onConsumeSearch }) {
           <div className="fade-in">
             <div className="av-bar">
               {cfg.fields.map((f) => <SvcField key={f.k} f={f} form={form} set={setF} />)}
-            {routeKey === 'transfers' && <details className="transfer-search-options"><summary><Icon name="filter" /><span>Расширенный поиск трансфера</span><Icon name="chevDown" className="transfer-search-options-chevron" /></summary><InfoNotice icon="alertCircle">Время — местное для точки подачи. Обратный трансфер оформляется отдельной поездкой. Для детей младше 12 лет выберите подходящее кресло. Дополнительные услуги войдут в цену предложения. После срока бесплатной отмены штраф — 100% стоимости заказа.</InfoNotice><div className="av-bar">
-              {[{ k: 'text_tablet', l: 'Текст таблички (необязательно)' }, { k: 'start_point', l: 'Координаты подачи (широта,долгота)' }, { k: 'finish_point', l: 'Координаты назначения (широта,долгота)' }, { k: 'pickup_clock', l: 'Время подачи (ЧЧ:ММ)' }, { k: 'departure_time', l: 'Отправление рейса/поезда (ГГГГ-ММ-ДД ЧЧ:ММ)' }, { k: 'flight_number', l: 'Номер прибывающего рейса' }, { k: 'train_number', l: 'Номер прибывающего поезда' }].map((field) => <SvcField key={field.k} f={{ ...field, t: 'text', w: 250 }} form={form} set={setF} />)}
-            </div><div style={{ display: 'flex', flexWrap: 'wrap', gap: 16, padding: '12px 0' }}>{[['infant_seat', 'Кресло до 1 года'], ['seat', 'Кресло 1–3 года'], ['booster', 'Бустер от 3 лет'], ['table', 'Встреча с табличкой'], ['tollroad', 'Платная дорога']].map(([type, label]) => <label key={type} style={{ display: 'flex', gap: 6, alignItems: 'center' }}><input type="checkbox" checked={(form.additional_service_types || []).includes(type)} onChange={(event) => setF('additional_service_types', event.target.checked ? [...(form.additional_service_types || []), type] : (form.additional_service_types || []).filter((value) => value !== type))} />{label}</label>)}</div></details>}
+            {routeKey === 'transfers' && <TransferSearchOptions form={form} set={setF} />}
               <Button icon="search" style={{ height: 'var(--h-control)', marginBottom: 0 }} onClick={runSearch}>Найти</Button>
             </div>
             <InfoNotice icon="api" style={{ marginTop: 14 }}>
@@ -2019,9 +2018,7 @@ function FreeBookingServiceAddFlow({ routeKey, onAdd, currency, paxCount = 1 }) 
           )}
           <div className="av-bar">
             {cfg.fields.map((f) => <SvcField key={f.k} f={f} form={form} set={setF} />)}
-            {routeKey === 'transfers' && <details className="transfer-search-options"><summary><Icon name="filter" /><span>Расширенный поиск трансфера</span><Icon name="chevDown" className="transfer-search-options-chevron" /></summary><InfoNotice icon="alertCircle">Время — местное для точки подачи. Обратный трансфер оформляется отдельной поездкой. Для детей младше 12 лет выберите подходящее кресло. Дополнительные услуги войдут в цену предложения. После срока бесплатной отмены штраф — 100% стоимости заказа.</InfoNotice><div className="av-bar">
-              {[{ k: 'text_tablet', l: 'Текст таблички (необязательно)' }, { k: 'start_point', l: 'Координаты подачи (широта,долгота)' }, { k: 'finish_point', l: 'Координаты назначения (широта,долгота)' }, { k: 'pickup_clock', l: 'Время подачи (ЧЧ:ММ)' }, { k: 'departure_time', l: 'Отправление рейса/поезда (ГГГГ-ММ-ДД ЧЧ:ММ)' }, { k: 'flight_number', l: 'Номер прибывающего рейса' }, { k: 'train_number', l: 'Номер прибывающего поезда' }].map((field) => <SvcField key={field.k} f={{ ...field, t: 'text', w: 250 }} form={form} set={setF} />)}
-            </div><div style={{ display: 'flex', flexWrap: 'wrap', gap: 16, padding: '12px 0' }}>{[['infant_seat', 'Кресло до 1 года'], ['seat', 'Кресло 1–3 года'], ['booster', 'Бустер от 3 лет'], ['table', 'Встреча с табличкой'], ['tollroad', 'Платная дорога']].map(([type, label]) => <label key={type} style={{ display: 'flex', gap: 6, alignItems: 'center' }}><input type="checkbox" checked={(form.additional_service_types || []).includes(type)} onChange={(event) => setF('additional_service_types', event.target.checked ? [...(form.additional_service_types || []), type] : (form.additional_service_types || []).filter((value) => value !== type))} />{label}</label>)}</div></details>}
+            {routeKey === 'transfers' && <TransferSearchOptions form={form} set={setF} />}
             <Button disabled={loading} icon="search" style={{ height: 'var(--h-control)', marginBottom: 0 }} onClick={runSearch}>Найти</Button>
           </div>
           <InfoNotice icon="api" style={{ marginTop: 14 }}>
@@ -2230,9 +2227,7 @@ function ServiceAddFlow({ routeKey, onAdd, currency, paxCount = 1 }) {
           )}
           <div className="av-bar">
             {cfg.fields.map((f) => <SvcField key={f.k} f={f} form={form} set={setF} />)}
-            {routeKey === 'transfers' && <details className="transfer-search-options"><summary><Icon name="filter" /><span>Расширенный поиск трансфера</span><Icon name="chevDown" className="transfer-search-options-chevron" /></summary><InfoNotice icon="alertCircle">Время — местное для точки подачи. Обратный трансфер оформляется отдельной поездкой. Для детей младше 12 лет выберите подходящее кресло. Дополнительные услуги войдут в цену предложения. После срока бесплатной отмены штраф — 100% стоимости заказа.</InfoNotice><div className="av-bar">
-              {[{ k: 'text_tablet', l: 'Текст таблички (необязательно)' }, { k: 'start_point', l: 'Координаты подачи (широта,долгота)' }, { k: 'finish_point', l: 'Координаты назначения (широта,долгота)' }, { k: 'pickup_clock', l: 'Время подачи (ЧЧ:ММ)' }, { k: 'departure_time', l: 'Отправление рейса/поезда (ГГГГ-ММ-ДД ЧЧ:ММ)' }, { k: 'flight_number', l: 'Номер прибывающего рейса' }, { k: 'train_number', l: 'Номер прибывающего поезда' }].map((field) => <SvcField key={field.k} f={{ ...field, t: 'text', w: 250 }} form={form} set={setF} />)}
-            </div><div style={{ display: 'flex', flexWrap: 'wrap', gap: 16, padding: '12px 0' }}>{[['infant_seat', 'Кресло до 1 года'], ['seat', 'Кресло 1–3 года'], ['booster', 'Бустер от 3 лет'], ['table', 'Встреча с табличкой'], ['tollroad', 'Платная дорога']].map(([type, label]) => <label key={type} style={{ display: 'flex', gap: 6, alignItems: 'center' }}><input type="checkbox" checked={(form.additional_service_types || []).includes(type)} onChange={(event) => setF('additional_service_types', event.target.checked ? [...(form.additional_service_types || []), type] : (form.additional_service_types || []).filter((value) => value !== type))} />{label}</label>)}</div></details>}
+            {routeKey === 'transfers' && <TransferSearchOptions form={form} set={setF} />}
             <Button icon="search" style={{ height: 'var(--h-control)', marginBottom: 0 }} onClick={runSearch}>Найти</Button>
           </div>
           <InfoNotice icon="api" style={{ marginTop: 14 }}>
