@@ -197,7 +197,7 @@ function OrdersMultiSelectList({ orders, onOpen, onCreate, onNavigate, currentUs
                 <th>Дата</th><th>Клиент</th><th>Тип заявки</th><th>Статус заказа</th><th>Тип услуги</th>
                 <th>Ответственное лицо</th>
                 <Th label="Сумма" col="sum" sort={sort} onSort={onSort} />
-                <th>Кол-во услуг</th>
+                <th title="Количество услуг">Услуг</th>
               </tr>
             </thead>
             {pageRows.length === 0
@@ -220,7 +220,7 @@ function OrdersMultiSelectList({ orders, onOpen, onCreate, onNavigate, currentUs
                       <td className="t-strong">{moneyRowsText(o.totals || [{ amount: o.sum, currency: o.currency }], o.currency)}</td>
                       <td>
                         <div className="order-list-services">
-                          {o.services} <span className="info-dot">i</span>
+                          {o.services}
                           <button className="icon-btn" style={{ color: 'var(--amber)' }} onClick={(e) => { e.stopPropagation(); onNavigate && onNavigate('chats'); }}><Icon name="chat" /></button>
                         </div>
                       </td>
