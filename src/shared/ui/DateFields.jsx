@@ -92,12 +92,12 @@ function CalendarPicker({ mode = 'range', startVal = null, endVal = null, onConf
           <Icon name="chevLeft" style={{ width: 20, height: 20 }} />
         </button>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, minWidth: 0 }}>
-          <Select aria-label="Месяц" value={month} onChange={(e) => setMonth(Number(e.target.value))}
-            style={{ border: '1px solid var(--line)', borderRadius: 9, background: 'var(--surface)', color: 'var(--ink)', fontWeight: 700, fontSize: 14, padding: '6px 8px', minWidth: 0, cursor: 'pointer', fontFamily: 'inherit' }}>
+          <Select menuMinWidth={180} menuClassName="calendar-select-dropdown" aria-label="Месяц" value={month} onChange={(e) => setMonth(Number(e.target.value))}
+            style={{ border: '1px solid var(--line)', borderRadius: 9, background: 'var(--surface)', color: 'var(--ink)', fontWeight: 700, fontSize: 14, padding: '6px 8px', width: 120, minWidth: 110, cursor: 'pointer', fontFamily: 'inherit' }}>
             {CAL_MONTHS.map((name, index) => <option key={name} value={index}>{name}</option>)}
           </Select>
-          <Select aria-label="Год" value={year} onChange={(e) => setYear(Number(e.target.value))}
-            style={{ border: '1px solid var(--line)', borderRadius: 9, background: 'var(--surface)', color: 'var(--ink)', fontWeight: 800, fontSize: 14, padding: '6px 8px', cursor: 'pointer', fontFamily: 'inherit' }}>
+          <Select menuMinWidth={140} menuClassName="calendar-select-dropdown" aria-label="Год" value={year} onChange={(e) => setYear(Number(e.target.value))}
+            style={{ border: '1px solid var(--line)', borderRadius: 9, background: 'var(--surface)', color: 'var(--ink)', fontWeight: 800, fontSize: 14, padding: '6px 8px', width: 84, minWidth: 80, cursor: 'pointer', fontFamily: 'inherit' }}>
             {Array.from(new Set([...Array.from({ length: 101 }, (_, i) => now.getFullYear() - 80 + i), year]))
               .sort((a, b) => a - b)
               .map((value) => <option key={value} value={value}>{value}</option>)}

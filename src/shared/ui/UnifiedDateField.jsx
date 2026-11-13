@@ -118,10 +118,10 @@ function UFDateField(_uf) {
       <div style={{ background: 'var(--surface)', borderRadius: 'var(--r-popover)', padding: 16, boxShadow: 'var(--shadow-pop)', border: '1px solid var(--line)', width: 318, userSelect: 'none' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
           <button type="button" onClick={() => moveMonth(-1)} className="icon-btn" style={{ width: 34, height: 34 }}><Icon name="chevLeft" style={{ width: 18, height: 18 }} /></button>
-          <Select className="select" value={month} onChange={(e) => setMonth(Number(e.target.value))} style={{ flex: 1, height: 36, padding: '0 9px', fontWeight: 700 }}>
+          <Select menuMinWidth={180} menuClassName="calendar-select-dropdown" aria-label="Месяц" className="select" value={month} onChange={(e) => setMonth(Number(e.target.value))} style={{ flex: 1, height: 36, padding: '0 9px', fontWeight: 700 }}>
             {UF_MONTHS.map((m, i) => <option key={m} value={i}>{m}</option>)}
           </Select>
-          <Select className="select" value={year} onChange={(e) => setYear(Number(e.target.value))} style={{ width: 92, height: 36, padding: '0 9px', fontWeight: 700 }}>
+          <Select menuMinWidth={140} menuClassName="calendar-select-dropdown" aria-label="Год" className="select" value={year} onChange={(e) => setYear(Number(e.target.value))} style={{ width: 92, height: 36, padding: '0 9px', fontWeight: 700 }}>
             {years.map((y) => <option key={y} value={y}>{y}</option>)}
           </Select>
           <button type="button" onClick={() => moveMonth(1)} className="icon-btn" style={{ width: 34, height: 34 }}><Icon name="chevRight" style={{ width: 18, height: 18 }} /></button>

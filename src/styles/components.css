@@ -3565,3 +3565,7 @@ button.oc-fact:hover{border-color:#d3dbe8;background:#fff}
 .transfer-search-options-chevron{margin-left:8px;transition:transform .14s}
 .transfer-search-options[open] .transfer-search-options-chevron{transform:rotate(180deg)}
 .transfer-search-options>summary+.info-notice{margin-top:14px}
+
+/* Calendar headers can be compact; month/year menus must keep labels intact. */
+.floating-panel.calendar-select-dropdown .dropdown-item{white-space:nowrap;overflow-wrap:normal;min-height:36px}
+.floating-panel.calendar-select-dropdown .dropdown-item-mark{margin-left:auto}

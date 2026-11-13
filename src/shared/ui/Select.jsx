@@ -12,7 +12,7 @@ function childOptions(children, groupDisabled = false) {
   });
 }
 
-function Select({ options, error, placeholder, className = '', children, onChange, onKeyDown, onMouseDown, onClick, onBlur, ...rest }) {
+function Select({ options, error, placeholder, menuMinWidth = 0, menuClassName = '', className = '', children, onChange, onKeyDown, onMouseDown, onClick, onBlur, ...rest }) {
   const ref = useRef(null);
   const panelRef = useRef(null);
   const keyboardCursor = useRef(true);
@@ -20,7 +20,15 @@ function Select({ options, error, placeholder, className = '', children, onChang
   const [open, setOpen] = useState(false);
   const [cursor, setCursor] = useState(0);
   const typed = useRef({ text: '', at: 0 });
-  useEffect(() => { if (open && keyboardCursor.current) scrollPopoverOption(panelRef.current, document.getElementById(`${id}-${cursor}`)); }, [open, cursor, id]);
+  useEffect(() => {
+    if (!open || !keyboardCursor.current) return undefined;
+    // Wait for the portal's viewport position and height before revealing the
+    // selected year. Scrolling an unpositioned panel has no effect.
+    const frame = requestAnimationFrame(() => {
+      if (keyboardCursor.current) scrollPopoverOption(panelRef.current, document.getElementById(`${id}-${cursor}`));
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [open, cursor, id]);
   const rows = [...(placeholder ? [{ value: '', label: placeholder }] : []), ...(options ? options.map((option) => typeof option === 'object' ? option : { value: option, label: option }) : childOptions(children))];
   const enabled = rows.map((row, index) => !row.disabled ? index : -1).filter((index) => index >= 0);
   const show = () => { if (rest.disabled) return; keyboardCursor.current = true; setCursor(Math.max(0, rows.findIndex((row) => String(row.value) === ref.current?.value))); setOpen(true); };
@@ -66,7 +74,7 @@ function Select({ options, error, placeholder, className = '', children, onChang
       onBlur={(event) => { onBlur?.(event); setOpen(false); }}>
       {rows.map((row, index) => <option key={index} value={row.value} disabled={row.disabled}>{translate(row.label)}</option>)}
     </select>
-    {open && !rest.disabled && <FloatingPanel anchorRef={ref} panelRef={panelRef} onClose={() => setOpen(false)} className="dropdown select-dropdown" role="listbox" id={id} aria-label={rest['aria-label'] || 'Варианты выбора'}>
+    {open && !rest.disabled && <FloatingPanel anchorRef={ref} panelRef={panelRef} onClose={() => setOpen(false)} minWidth={menuMinWidth} className={'dropdown select-dropdown' + (menuClassName ? ' ' + menuClassName : '')} role="listbox" id={id} aria-label={rest['aria-label'] || 'Варианты выбора'}>
       {rows.map((row, index) => <div key={index} id={`${id}-${index}`} role="option" aria-disabled={row.disabled || undefined} aria-selected={String(row.value) === ref.current?.value}
         className={'dropdown-item' + (String(row.value) === ref.current?.value ? ' is-selected' : '') + (cursor === index ? ' is-cursor' : '') + (row.disabled ? ' is-disabled' : '')}
         onMouseDown={(event) => event.preventDefault()} onMouseEnter={() => { keyboardCursor.current = false; if (!row.disabled) setCursor(index); }} onClick={() => pick(index)}>
