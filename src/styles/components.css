@@ -3554,3 +3554,14 @@ button.oc-fact:hover{border-color:#d3dbe8;background:#fff}
 .section-workspace[aria-label="Рабочая область списка"]>.table-card .tbl td:first-child{white-space:nowrap}
 
 @media print { .hotel-internal-only { display: none !important; } }
+
+/* Transfer search: make the additional fields clearly discoverable. */
+.transfer-search-options{flex-basis:100%;min-width:0}
+.transfer-search-options>summary{display:flex;align-items:center;gap:9px;width:fit-content;max-width:100%;padding:11px 14px;border:1px solid var(--field-line);border-radius:11px;background:var(--surface);color:var(--blue);font-size:14px;font-weight:600;line-height:1.4;list-style:none;cursor:pointer;user-select:none;transition:background .14s,border-color .14s}
+.transfer-search-options>summary::-webkit-details-marker{display:none}
+.transfer-search-options>summary:hover,.transfer-search-options[open]>summary{background:var(--blue-soft);border-color:var(--blue)}
+.transfer-search-options>summary:focus-visible{outline:2px solid var(--blue);outline-offset:3px}
+.transfer-search-options>summary svg{width:18px;height:18px;flex-shrink:0}
+.transfer-search-options-chevron{margin-left:8px;transition:transform .14s}
+.transfer-search-options[open] .transfer-search-options-chevron{transform:rotate(180deg)}
+.transfer-search-options>summary+.info-notice{margin-top:14px}

@@ -110,9 +110,9 @@
 .location-autocomplete-option-main b,
 .location-autocomplete-option-main span {
   min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  overflow: visible;
+  white-space: normal;
+  overflow-wrap: anywhere;
 }
 
 .location-autocomplete-option-main b {

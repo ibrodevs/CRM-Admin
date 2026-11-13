@@ -9,7 +9,7 @@ import { scrollPopoverOption } from '../src/shared/ui/scroll-popover-option.js';
 const require = createRequire(import.meta.url);
 const babel = require('next/dist/compiled/babel/core');
 
-test('floating menus stay fixed across internal scrolling and repeated resize notifications at fractional field widths', (t) => {
+for (const minWidth of [0, 360]) test(`floating menus stay fixed across internal scrolling and repeated resize notifications (minimum width ${minWidth})`, (t) => {
   const old = { window: globalThis.window, document: globalThis.document, ResizeObserver: globalThis.ResizeObserver };
   t.after(() => { cleanup?.(); for (const [key, value] of Object.entries(old)) { if (value === undefined) delete globalThis[key]; else globalThis[key] = value; } });
   const listeners = new Map(), effects = [], positions = [];
@@ -30,10 +30,10 @@ test('floating menus stay fixed across internal scrolling and repeated resize no
   let bounds = { left: 180.25, right: 465.75, top: 680, bottom: 730, width: 285.5 };
   const anchor = { isConnected: true, getBoundingClientRect: () => bounds };
   const panel = { scrollHeight: 142, offsetHeight: 144, clientHeight: 142, offsetWidth: 286, contains: (node) => node === panel, getBoundingClientRect: () => ({ width: 285.5 }) };
-  const element = mod.exports.FloatingPanel({ anchorRef: { current: anchor }, children: 'Options' });
+  const element = mod.exports.FloatingPanel({ anchorRef: { current: anchor }, minWidth, children: 'Options' });
   element.ref(panel);
   cleanup = effects[0]();
-  assert.deepEqual(position, { left: 180.25, top: 530, width: 285.5, maxHeight: 360 });
+  assert.deepEqual(position, { left: 180.25, top: 530, width: Math.max(285.5, minWidth), maxHeight: 360 });
   const before = setters;
   for (let i = 0; i < 30; i++) listeners.get('scroll')({ target: panel });
   assert.equal(setters, before, 'scrolling options must not reposition the menu');
@@ -42,6 +42,12 @@ test('floating menus stay fixed across internal scrolling and repeated resize no
   bounds = { ...bounds, top: 620, bottom: 670 };
   listeners.get('scroll')({ target: {} });
   assert.equal(position.top, 470, 'scrolling the containing drawer still tracks the field');
+  if (minWidth) {
+    window.innerWidth = 320;
+    listeners.get('resize')();
+    assert.equal(position.width, 304, 'wide suggestions remain inside a narrow viewport');
+    assert.equal(position.left, 8);
+  }
 });
 
 test('keyboard navigation scrolls only the list, with borders excluded from its visible area', () => {
