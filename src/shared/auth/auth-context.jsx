@@ -1,5 +1,5 @@
 import { setRuntimePreferences } from '../preferences/preferences.js';
-import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 
 import { authApi } from './auth.api.js';
 import { onUnauthorized } from '../api/client.js';
@@ -19,25 +19,49 @@ export function AuthProvider({ children, syncLegacyCurrentUser = ignoreLegacyUse
   const [user, setUser] = useState(null);
   const [challengeToken, setChallengeToken] = useState('');
   const [expired, setExpired] = useState(false);
+  const [locked, setLocked] = useState(false);
+  const currentUser = useRef(null);
+  const checkInFlight = useRef(null);
+  const sessionVersion = useRef(0);
+
+  const endSession = useCallback(() => {
+    if (!currentUser.current) return;
+    setExpired(true);
+    setLocked(true);
+  }, []);
 
   const refreshSession = useCallback(async (signal) => {
-    try {
-      const session = await authApi.session(signal);
-      const uiUser = toUiUser(session.user);
-      setRuntimePreferences({ ...uiUser.preferences, timezone: uiUser.timezone });
-      syncLegacyCurrentUser(uiUser);
-      setUser(uiUser);
-      setStatus('authenticated');
-      return session;
-    } catch (error) {
-      if (error.name === 'AbortError') return null;
-      setRuntimePreferences();
-      syncLegacyCurrentUser(null);
-      setUser(null);
-      setStatus(error.status === 503 ? 'unavailable' : 'anonymous');
-      return null;
-    }
-  }, []);
+    if (checkInFlight.current) return checkInFlight.current;
+    const version = sessionVersion.current;
+    const pending = (async () => {
+      try {
+        const session = await authApi.session(signal);
+        if (version !== sessionVersion.current) return null;
+        const uiUser = toUiUser(session.user);
+        setRuntimePreferences({ ...uiUser.preferences, timezone: uiUser.timezone });
+        syncLegacyCurrentUser(uiUser);
+        currentUser.current = uiUser;
+        setUser(uiUser);
+        setStatus('authenticated');
+        return session;
+      } catch (error) {
+        if (error.name === 'AbortError' || version !== sessionVersion.current) return null;
+        // A network/server failure is not proof of an expired session.
+        // Keep the mounted workspace and its unsaved forms during recovery.
+        if (currentUser.current) {
+          if (error.status === 401) endSession();
+          return null;
+        }
+        setStatus(error.status === 401 ? 'anonymous' : 'unavailable');
+        return null;
+      }
+    })();
+    checkInFlight.current = pending;
+    const clearAborted = () => { if (checkInFlight.current === pending) checkInFlight.current = null; };
+    signal?.addEventListener('abort', clearAborted, { once: true });
+    try { return await pending; }
+    finally { signal?.removeEventListener('abort', clearAborted); if (checkInFlight.current === pending) checkInFlight.current = null; }
+  }, [endSession]);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -45,27 +69,13 @@ export function AuthProvider({ children, syncLegacyCurrentUser = ignoreLegacyUse
     return () => controller.abort();
   }, [refreshSession]);
 
-  // Любой 401 из рабочих запросов означает, что сессии больше нет. Оставаться
-  // на рабочем экране в таком состоянии нельзя: данные всё равно не придут,
-  // а оператор видит пустые списки и не понимает, что произошло.
-  const endSession = useCallback(() => {
-    setRuntimePreferences();
-    syncLegacyCurrentUser(null);
-    setUser(null);
-    setChallengeToken('');
-    setStatus((current) => {
-      if (current === 'authenticated') setExpired(true);
-      return 'anonymous';
-    });
-  }, []);
-
-  useEffect(() => onUnauthorized(endSession), [endSession]);
+  useEffect(() => onUnauthorized(() => { refreshSession(); }), [refreshSession]);
 
   // Фоновая перепроверка: по таймеру, при возврате на вкладку и при
   // восстановлении сети. Так истёкшая сессия обнаруживается сама, а не при
   // следующем клике оператора.
   useEffect(() => {
-    if (status !== 'authenticated') return undefined;
+    if (status !== 'authenticated' || locked) return undefined;
     let cancelled = false;
     const revalidate = () => {
       if (cancelled || (typeof document !== 'undefined' && document.hidden)) return;
@@ -83,9 +93,10 @@ export function AuthProvider({ children, syncLegacyCurrentUser = ignoreLegacyUse
       window.removeEventListener('online', revalidate);
       window.removeEventListener('focus', onVisible);
     };
-  }, [status, refreshSession]);
+  }, [status, locked, refreshSession]);
 
   const login = useCallback(async (loginValue, password) => {
+    sessionVersion.current += 1;
     const result = await authApi.login(loginValue, password);
     if (result.two_factor_required) {
       setChallengeToken(result.challenge_token);
@@ -94,28 +105,36 @@ export function AuthProvider({ children, syncLegacyCurrentUser = ignoreLegacyUse
     const uiUser = toUiUser(result.user);
     setRuntimePreferences({ ...uiUser.preferences, timezone: uiUser.timezone });
     syncLegacyCurrentUser(uiUser);
+    currentUser.current = uiUser;
     setUser(uiUser);
+    setLocked(false);
     setStatus('authenticated');
     setExpired(false);
     return { authenticated: true };
   }, []);
 
   const verifyTwoFactor = useCallback(async (code) => {
+    sessionVersion.current += 1;
     const result = await authApi.verifyTwoFactor(challengeToken, code);
     setChallengeToken('');
     const uiUser = toUiUser(result.user);
     setRuntimePreferences({ ...uiUser.preferences, timezone: uiUser.timezone });
     syncLegacyCurrentUser(uiUser);
+    currentUser.current = uiUser;
     setUser(uiUser);
+    setLocked(false);
     setStatus('authenticated');
     setExpired(false);
   }, [challengeToken]);
 
   const logout = useCallback(async () => {
+    sessionVersion.current += 1;
     try { await authApi.logout(); } finally {
       setRuntimePreferences();
       syncLegacyCurrentUser(null);
+      currentUser.current = null;
       setUser(null);
+      setLocked(false);
       setStatus('anonymous');
       setChallengeToken('');
       setExpired(false);
@@ -123,9 +142,9 @@ export function AuthProvider({ children, syncLegacyCurrentUser = ignoreLegacyUse
   }, []);
 
   const value = useMemo(() => ({
-    status, user, expired, login, logout, verifyTwoFactor, refreshSession,
+    status, user, expired, locked, login, logout, verifyTwoFactor, refreshSession,
     requestPasswordReset: authApi.requestPasswordReset,
-  }), [status, user, expired, login, logout, verifyTwoFactor, refreshSession]);
+  }), [status, user, expired, locked, login, logout, verifyTwoFactor, refreshSession]);
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }

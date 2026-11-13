@@ -80,6 +80,7 @@ function bindOverlayEscape() {
   overlayEscapeBound = true;
   window.addEventListener('keydown', (event) => {
     if (event.key !== 'Escape' || event.defaultPrevented) return;
+    if (document.querySelector('.session-lock')) { event.preventDefault(); event.stopImmediatePropagation(); return; }
     if (!OVERLAY_LAYERS.length) return;
     // A held key must not close the search underneath the room details.
     if (event.repeat) { event.preventDefault(); event.stopImmediatePropagation(); return; }

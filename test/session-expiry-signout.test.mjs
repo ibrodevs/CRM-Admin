@@ -51,12 +51,11 @@ test('a throwing subscriber cannot break the original request', () => {
   assert.deepEqual(seen, ['second']);
 });
 
-test('an expired session drops the operator to the login screen', () => {
-  assert.match(auth, /useEffect\(\(\) => onUnauthorized\(endSession\), \[endSession\]\)/);
-  assert.match(auth, /const endSession = useCallback\(\(\) => \{/);
-  assert.match(auth, /setStatus\(\(current\) => \{\n\s+if \(current === 'authenticated'\) setExpired\(true\);\n\s+return 'anonymous';/);
-  // Приложение показывает рабочий экран только авторизованным.
-  assert.match(app, /if \(auth\.status !== 'authenticated'\) return <LoginScreen expired=\{auth\.expired\}/);
+test('session loss locks the existing workspace and opens recovery above it', () => {
+  const end = auth.slice(auth.indexOf('  const endSession'), auth.indexOf('  const refreshSession'));
+  assert.match(end, /setLocked\(true\)/);
+  assert.doesNotMatch(end, /setUser\(null\)|setStatus|setRuntimePreferences/);
+  assert.match(app, /auth\.locked && <SessionRecovery auth=\{auth\}/);
   assert.match(login, /Сессия истекла — войдите снова, чтобы продолжить работу/);
 });
 

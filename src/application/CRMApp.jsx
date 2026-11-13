@@ -21,6 +21,7 @@ import { useAuth } from '../shared/auth/auth-context.jsx';
 import { useWorkspace } from '../shared/workspace/context.jsx';
 import { AppShell } from './shell/AppShell.jsx';
 import { LoginScreen } from '../shared/auth/LoginScreen.jsx';
+import { SessionRecovery } from '../shared/auth/SessionRecovery.jsx';
 
 import { threadUnread } from '../modules/chats/index.js';
 
@@ -129,11 +130,14 @@ function App() {
   );
 
   return (
+    <>
+    {auth.locked && <SessionRecovery auth={auth} />}
     <AppShell route={route} onNavigate={navigate} onLogout={async () => { await auth.logout(); setRoute('dashboard'); }}
       role={role} user={auth.user} topbar={topbar} overlays={<GlobalOverlays {...{ workspace, orders, navigate, openOrder, notifOpen, setNotifOpen, chatOpen, setChatOpen, setChatTarget, chatTarget, ctxOrder, auth }} />} sidebarCollapsed={sidebarCollapsed} onToggleSidebar={toggleSidebar}>
       {blocked && <AccessDenied onNavigate={navigate} />}
       {!blocked && (isServicePage ? <div className="svc-zoom">{gatedPage}</div> : gatedPage)}
     </AppShell>
+    </>
   );
 }
 

@@ -3660,3 +3660,9 @@ button.oc-fact:hover{border-color:#d3dbe8;background:#fff}
 .passenger-picker-child>div{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:8px}
 .passenger-picker-panel .passenger-composition-hint{font-size:13px}
 @media(max-width:560px){.passenger-picker-panel>.drawer-head,.passenger-picker-panel>.drawer-body,.passenger-picker-panel>.drawer-foot{padding:16px}.passenger-picker-panel .hp-occupancy-room{padding:12px}.passenger-picker-panel .pcp-row{padding:10px;gap:8px}.passenger-picker-panel .pcp-stepper{gap:5px}.passenger-picker-panel .pcp-stepper button{width:32px;height:34px}.passenger-picker-panel .pcp-stepper .n{min-width:26px;height:34px}}
+
+/* Keep the working tree mounted behind reauthentication, including portal drawers. */
+.session-lock{position:fixed;inset:0;z-index:2147483647;background:var(--surface,#fff);overflow:auto;isolation:isolate}
+.session-lock-notice{position:relative;margin:0;padding:14px 24px;background:var(--blue-soft,#eaf0ff);color:var(--ink,#141c2c);text-align:center;font-size:14px}
+
+.session-lock{display:flex;flex-direction:column}.session-lock>.lp-root{flex:1;min-height:0}.session-lock-notice{flex-shrink:0}
