@@ -1,4 +1,5 @@
-import { containsFloatingTarget } from './FloatingPanel.jsx';
+import { containsFloatingTarget, FloatingPanel } from './FloatingPanel.jsx';
+import { scrollPopoverOption } from './scroll-popover-option.js';
 import { completeDateRange, localDay } from './date-range.js';
 import { useState, useEffect, useRef, useMemo } from 'react';
 import { calendarMonths } from './calendar-months.js';
@@ -285,7 +286,6 @@ function TripDateRangeField(props) {
 // Шаблонизированный выбор времени: только выбор из списка (часы + минуты), без произвольного ввода.
 function TimeField({ label, value, onChange, placeholder = 'чч:мм', required, error, style, minuteStep = 5 }) {
   const [open, setOpen] = useState(false);
-  const [pos, setPos] = useState({ top: 0, left: 0 });
   const ref = useRef(null);
   const hourRef = useRef(null);
   const minRef = useRef(null);
@@ -296,50 +296,31 @@ function TimeField({ label, value, onChange, placeholder = 'чч:мм', required
   const hours = Array.from({ length: 24 }, (_, i) => i);
   const minutes = Array.from({ length: Math.ceil(60 / minuteStep) }, (_, i) => i * minuteStep);
   useEffect(() => {
-    const h = (e) => {
-      if (!ref.current) return;
-      const portal = document.getElementById('__time_portal__');
-      if (containsFloatingTarget(ref.current, e.target) || (portal && containsFloatingTarget(portal, e.target))) return;
-      setOpen(false);
-    };
-    document.addEventListener('mousedown', h);
-    return () => document.removeEventListener('mousedown', h);
-  }, []);
-  useEffect(() => {
     if (!open) return;
-    const t = setTimeout(() => {
-      [hourRef.current, minRef.current].forEach((el) => {
-        if (el) { const sel = el.querySelector('[data-sel="1"]'); if (sel) sel.scrollIntoView({ block: 'center' }); }
+    const frame = requestAnimationFrame(() => {
+      [hourRef.current, minRef.current].forEach((list) => {
+        scrollPopoverOption(list, list?.querySelector('[data-sel="1"]'));
       });
-    }, 0);
-    return () => clearTimeout(t);
+    });
+    return () => cancelAnimationFrame(frame);
   }, [open]);
-  const toggle = () => {
-    if (!open && ref.current) {
-      const r = ref.current.getBoundingClientRect();
-      const boxH = 280, boxW = 232, vh = window.innerHeight;
-      let top = r.bottom + 6;
-      if (top + boxH > vh - 8) { const above = r.top - boxH - 6; top = above >= 8 ? above : Math.max(8, vh - boxH - 8); }
-      setPos({ top, left: Math.max(8, Math.min(r.left, window.innerWidth - boxW - 8)) });
-    }
-    setOpen((o) => !o);
-  };
+  const toggle = () => setOpen((current) => !current);
   const emit = (h, mi) => { onChange && onChange(pad(h) + ':' + pad(mi)); };
   const col = { flex: 1, maxHeight: 210, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 3, padding: '2px 6px' };
   const cell = (active) => ({ padding: '7px 0', borderRadius: 8, border: 'none', cursor: 'pointer', fontSize: 14,
     fontWeight: active ? 800 : 600, background: active ? 'var(--blue)' : 'transparent', color: active ? '#fff' : 'var(--ink)', fontFamily: 'inherit' });
   return (
-    <div ref={ref} style={{ position: 'relative', ...style }}>
+    <div style={{ position: 'relative', ...style }}>
       {label && <label className="label" style={{ display: 'block', marginBottom: 7 }}>{label}{required && <span className="req"> *</span>}</label>}
-      <div className={'input' + (error ? ' err' : '')} style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 10 }} onClick={toggle}>
+      <button ref={ref} type="button" aria-label={label || 'Выбрать время'} aria-haspopup="dialog" aria-expanded={open} className={'input' + (error ? ' err' : '')} style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 10, textAlign: 'left' }} onClick={toggle}>
         <Icon name="clock" style={{ width: 18, height: 18, color: 'var(--muted-2)', flexShrink: 0 }} />
         <span style={{ color: m ? 'var(--ink)' : 'var(--faint)', fontSize: 15, flex: 1 }}>{m ? pad(hour) + ':' + pad(minute) : placeholder}</span>
         <Icon name="chevDown" style={{ width: 16, height: 16, color: 'var(--muted-2)' }} />
-      </div>
+      </button>
       {error && <div className="err-text"><Icon name="alertCircle" style={{ width: 14, height: 14 }} />{error}</div>}
-      {open && ReactDOM.createPortal(
-        <div id="__time_portal__" style={{ position: 'fixed', top: pos.top, left: pos.left, zIndex: 9999 }}>
-          <div style={{ background: 'var(--surface)', borderRadius: 'var(--r-popover)', boxShadow: 'var(--shadow-pop)', border: '1px solid var(--line)', width: 224, userSelect: 'none', overflow: 'hidden' }}>
+      {open && (
+        <FloatingPanel anchorRef={ref} onClose={() => setOpen(false)} width={224} maxHeight={300} role="dialog" aria-label={label || 'Выбор времени'} style={{ userSelect: 'none' }}>
+          <div>
             <div style={{ display: 'flex', textAlign: 'center', fontSize: 11, fontWeight: 800, color: 'var(--blue)', padding: '10px 6px 4px', letterSpacing: '.04em' }}>
               <div style={{ flex: 1 }}>ЧАСЫ</div><div style={{ flex: 1 }}>МИНУТЫ</div>
             </div>
@@ -354,8 +335,7 @@ function TimeField({ label, value, onChange, placeholder = 'чч:мм', required
             </div>
             <button type="button" onClick={() => setOpen(false)} style={{ width: '100%', border: 'none', borderTop: '1px solid var(--line)', background: 'none', color: 'var(--muted)', cursor: 'pointer', fontSize: 13.5, padding: '9px 0', fontFamily: 'inherit' }}>Готово</button>
           </div>
-        </div>,
-        document.body
+        </FloatingPanel>
       )}
     </div>
   );
