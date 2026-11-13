@@ -1,3 +1,4 @@
+import { validateFreeFlightSearch } from './free-flight-search.js';
 import { airportOption, searchAirportOptions, flightLocationCode } from './airport-options.js';
 import { FloatingPanel, containsFloatingTarget } from '../../../shared/ui/FloatingPanel.jsx';
 import { SectionInfo } from '../../../shared/ui/SectionInfo.jsx';
@@ -2432,6 +2433,8 @@ function serviceFlightRow(item) {
   };
 }
 async function loadLiveFlightOffers(params) {
+  const validationError = validateFreeFlightSearch(params);
+  if (validationError) throw new Error(validationError);
   const created = await servicesApi.search({
     kind: 'avia', criteria: {
       origin: flightLocationCode(params.from), destination: flightLocationCode(params.to),

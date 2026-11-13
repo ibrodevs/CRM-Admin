@@ -62,7 +62,7 @@ function Journal({ supplierId, incidents, refresh }) {
       {data && <Pill tone="gray">Всего: {data.count ?? rows.length}</Pill>}
     </div>
     {!incidents && <div className="supplier-journal-filters">
-      <Field label="Период запросов"><DateRangeField placeholder="Все даты" startVal={calendarDate(filters.date_from)} endVal={calendarDate(filters.date_to)}
+      <Field label="Период запросов"><DateRangeField minDate={null} placeholder="Все даты" startVal={calendarDate(filters.date_from)} endVal={calendarDate(filters.date_to)}
         onChange={(start, end) => { setPage(1); setFilters((old) => ({ ...old, date_from: filterDate(start), date_to: filterDate(end) })); }} /></Field>
       <Field label="Операция"><Select options={operationOptions} value={filters.operation || ''} onChange={(event) => filter('operation', event.target.value)} /></Field>
       <Field label="HTTP статус"><Select options={httpOptions} value={filters.http_status || ''} onChange={(event) => filter('http_status', event.target.value)} /></Field>

@@ -1,3 +1,4 @@
+import { dateWithinBounds } from '../../shared/ui/date-range.js';
 import { passengerCriteria, transferChildSeats } from './search/passenger-composition.js';
 import { resultsOf } from '../../shared/api/client.js';
 
@@ -8,14 +9,15 @@ export function freeBookingDate(value) {
   }
   return value || undefined;
 }
-export function validateFreeServiceSearch(routeKey, form) {
+export function validateFreeServiceSearch(routeKey, form, today = new Date()) {
   const date = form.date || form.dt || form.dep;
   const origin = form.from || form.airport;
   if (!String(origin || '').trim() || (routeKey !== 'lounge' && !String(form.to || '').trim()) || !freeBookingDate(date)) return 'Заполните маршрут и дату поездки';
+  if (!dateWithinBounds(freeBookingDate(date), today)) return 'Дата поездки должна быть не раньше сегодняшнего дня';
   if (!Number.isInteger(form.pax) || form.pax < 1) return 'Укажите хотя бы одного пассажира или гостя';
   const returning = form.trip === 'rt';
   const ret = form.retDate || form.ret;
-  if (returning && (!freeBookingDate(ret) || freeBookingDate(ret) < freeBookingDate(date))) return 'Выберите дату возвращения не раньше отправления';
+  if (returning && (!dateWithinBounds(freeBookingDate(ret), today) || freeBookingDate(ret) < freeBookingDate(date))) return 'Выберите дату возвращения не раньше отправления';
   if (routeKey === 'transfers' || routeKey === 'rail') {
     try { if (routeKey === 'transfers') transferProviderCriteria(form); else passengerCriteria(form, 'rail'); } catch (error) { return error.message; }
   }

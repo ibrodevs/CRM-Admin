@@ -105,7 +105,7 @@ function SvcField({ f, form, set }) {
   const v = form[f.k];
   if (f.t === 'date' && form.trip === 'rt' && (f.k === 'date' || f.k === 'dt')) return <div className="av-field trip-dates-field"><span className="label">Даты поездки</span><TripDateRangeField startVal={v} endVal={form.retDate} onChange={(start, end) => { set(f.k, start); set('retDate', end); }} /></div>;
   if (f.t === 'date') return <div className="av-field" style={{ width: f.w }}><span className="label">{f.l}</span><DateField value={v} onChange={(d) => set(f.k, d)} placeholder="Выбрать" /></div>;
-  if (f.t === 'daterange') return <div className="av-field" style={{ width: f.w }}><span className="label">{f.l}</span><DateRangeField startVal={v && v.s} endVal={v && v.e} onChange={(s, e) => set(f.k, { s, e })} /></div>;
+  if (f.t === 'daterange') return <div className="av-field" style={{ width: f.w }}><span className="label">{f.l}</span><DateRangeField startVal={v && v.s} endVal={v && v.e} requireComplete onChange={(s, e) => set(f.k, { s, e })} /></div>;
   if (f.t === 'select') return <div className="av-field" style={{ width: f.w }}><span className="label">{f.l}</span><Select options={f.o} value={v || f.o[0]} onChange={(e) => set(f.k, e.target.value)} /></div>;
   if (f.t === 'stepper' && f.passengerKind) return <PassengerCompositionField form={form} set={set} kind={f.passengerKind} />;
   if (f.t === 'stepper') {

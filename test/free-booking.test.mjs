@@ -26,7 +26,8 @@ test('HB no-meal descriptions never promise included breakfast', () => {
   for (const value of ['BB', 'Завтрак', 'Breakfast', 'HB', 'Полупансион']) assert.equal(hotelBreakfastIncluded(value), true);
 });
 
-const { freeFlightCriteria, validateFreeFlightSearch, freeFlightDraft, searchFreeFlightOffers } = await import('../src/modules/services/flights/free-flight-search.js');
+const { freeFlightCriteria, validateFreeFlightSearch: validateFlight, freeFlightDraft, searchFreeFlightOffers } = await import('../src/modules/services/flights/free-flight-search.js');
+const validateFreeFlightSearch = (params) => validateFlight(params, new Date(2026, 8, 1));
 const flightParams = () => ({
   trip: 'rt', from: 'FRU', to: 'IST', depDate: new Date(2026, 9, 15), retDate: new Date(2026, 9, 20),
   pax: { adt: 2, chd: 1, infNoSeat: 1, infSeat: 1, special: { youth: 1, disabledChild: 1 }, subsidized: { dvoResident: 1, kldChild: 1 } },
@@ -198,7 +199,9 @@ test('free booking uses the historical class/tariff/extras panels without synthe
   assert.match(extras, /formatMoney\(amount, currency\)/);
 });
 
-const { freeBookingDate, validateFreeServiceSearch, waitFreeBookingOffers, freeBookingAvailabilityTags } = await import('../src/modules/services/free-booking-search.js');
+const { freeBookingDate, validateFreeServiceSearch: validateService, waitFreeBookingOffers, freeBookingAvailabilityTags } = await import('../src/modules/services/free-booking-search.js');
+const validateFreeServiceSearch = (kind, params) => validateService(kind, params, new Date(2026, 8, 1));
+
 test('free service dates preserve the selected local day and reject missing or reversed dates', () => {
   const date = new Date(2026, 9, 15);
   assert.equal(freeBookingDate(date), '2026-10-15');

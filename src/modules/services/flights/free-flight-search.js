@@ -1,3 +1,4 @@
+import { dateWithinBounds } from '../../../shared/ui/date-range.js';
 import { flightLocationCode } from './airport-options.js';
 import { resolveCurrency } from '../../../shared/lib/money.js';
 import { resultsOf } from '../../../shared/api/client.js';
@@ -14,9 +15,10 @@ export function freeFlightDate(value) {
   if (!Number.isFinite(value.getTime())) return undefined;
   return `${value.getFullYear()}-${String(value.getMonth() + 1).padStart(2, '0')}-${String(value.getDate()).padStart(2, '0')}`;
 }
-export function validateFreeFlightSearch(params) {
+export function validateFreeFlightSearch(params, today = new Date()) {
   const segments = params.trip === 'mc' ? freeFlightSegments(params) : [{ from: params.from, to: params.to, date: params.depDate }];
   if (segments.some((s) => !s.from || !s.to || !freeFlightDate(s.date)) || (params.trip === 'rt' && !freeFlightDate(params.retDate))) return 'Заполните маршрут и даты поездки';
+  if (segments.some((segment) => !dateWithinBounds(freeFlightDate(segment.date), today)) || (params.trip === 'rt' && !dateWithinBounds(freeFlightDate(params.retDate), today))) return 'Дата поездки должна быть не раньше сегодняшнего дня';
   if (segments.some((s) => flightLocationCode(s.from) === flightLocationCode(s.to))) return 'Выберите разные аэропорты отправления и прибытия';
   if (params.trip === 'rt' && freeFlightDate(params.retDate) < freeFlightDate(params.depDate)) return 'Дата возвращения должна быть не раньше вылета';
   if (params.trip === 'mc' && segments.some((s, i) => i > 0 && freeFlightDate(s.date) < freeFlightDate(segments[i - 1].date))) return 'Даты перелётов должны идти по порядку';

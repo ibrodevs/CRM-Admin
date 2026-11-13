@@ -1,9 +1,9 @@
-import { containsFloatingTarget, FloatingPanel } from './FloatingPanel.jsx';
+import { CAL_MONTHS, CAL_DAYS, fmtDate, sameDayEq, CalendarPicker } from './CalendarPicker.jsx';
+import { DateField } from './CalendarField.jsx';
+import { FloatingPanel } from './FloatingPanel.jsx';
 import { scrollPopoverOption } from './scroll-popover-option.js';
-import { completeDateRange, localDay } from './date-range.js';
-import { useState, useEffect, useRef, useMemo } from 'react';
-import { calendarMonths } from './calendar-months.js';
-import ReactDOM from 'react-dom';
+import { localDay, parseCalendarDate, dateWithinBounds, completeDateRange } from './date-range.js';
+import { useState, useEffect, useRef } from 'react';
 import { Icon } from '../icons/index.jsx';
 import { useToast, ToastProvider } from './Toast.jsx';
 import { Button } from './Button.jsx';
@@ -18,7 +18,7 @@ import { Select } from './Select.jsx';
 import { SearchBox } from './SearchBox.jsx';
 import { Combobox } from './Combobox.jsx';
 import { Avatar } from './Avatar.jsx';
-import { isPrintGuardActive, holdOverlaysDuringPrint, printOverlayScope, useOverlayLayer, Modal, ModalHeader, Drawer, ConfirmDialog } from './Overlays.jsx';
+import { isPrintGuardActive, holdOverlaysDuringPrint, printOverlayScope, Modal, ModalHeader, Drawer, ConfirmDialog } from './Overlays.jsx';
 import { Tabs } from './Tabs.jsx';
 import { FilterChip } from './FilterChip.jsx';
 import { Pagination } from './Pagination.jsx';
@@ -26,233 +26,13 @@ import { Th, useSort } from './Table.jsx';
 import { EmptyState, SkeletonRows } from './EmptyState.jsx';
 import { ActionMenu } from './ActionMenu.jsx';
 
-const CAL_MONTHS = ['Январь','Февраль','Март','Апрель','Май','Июнь','Июль','Август','Сентябрь','Октябрь','Ноябрь','Декабрь'];
-
-const CAL_DAYS  = ['ПН','ВТ','СР','ЧТ','ПТ','СБ','ВС'];
-
-function fmtDate(d) {
-  if (!d || !(d instanceof Date) || Number.isNaN(d.getTime())) return '';
-  return `${String(d.getDate()).padStart(2,'0')}.${String(d.getMonth()+1).padStart(2,'0')}.${String(d.getFullYear()).slice(2)}`;
-}
-
-function sameDayEq(a, b) {
-  if (!a || !b) return false;
-  return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
-}
-
-function CalendarPicker({ mode = 'range', startVal = null, endVal = null, onConfirm, onClose, autoConfirm = false, rangeStartLabel = 'Далее', minDate = null, requireComplete = false, allowSameDay = false }) {
-  const now = new Date();
-  const minimum = localDay(minDate);
-  const [month, setMonth] = useState(startVal ? startVal.getMonth() : now.getMonth());
-  const [year, setYear] = useState(startVal ? startVal.getFullYear() : now.getFullYear());
-  const [selS, setSelS] = useState(startVal);
-  const [selE, setSelE] = useState(endVal);
-  const [hover, setHover] = useState(null);
-  const [phase, setPhase] = useState(mode === 'range' && startVal && !endVal ? 'end' : 'start');
-  const [visibleMonths, setVisibleMonths] = useState(2);
-  const monthsRef = useRef(null);
-
-  const prevMo = () => { if (month === 0) { setMonth(11); setYear(y => y - 1); } else setMonth(m => m - 1); };
-  const nextMo = () => { if (month === 11) { setMonth(0); setYear(y => y + 1); } else setMonth(m => m + 1); };
-  useEffect(() => {
-    setVisibleMonths(2);
-    setHover(null);
-    if (monthsRef.current) monthsRef.current.scrollTop = 0;
-  }, [month, year]);
-  const months = useMemo(() => calendarMonths(year, month, mode === 'range' ? visibleMonths : 1), [year, month, mode, visibleMonths]);
-
-  const effEnd = selE || (mode === 'range' && phase === 'end' && selS && hover ? hover : null);
-  const rS = selS ? (effEnd && effEnd < selS ? effEnd : selS) : null;
-  const rE = selS ? (effEnd && effEnd > selS ? effEnd : selS) : null;
-  const handleClick = (d) => {
-    if (minimum && d < minimum) return;
-    if (mode === 'single') {
-      setSelS(new Date(d)); setSelE(null);
-      if (autoConfirm) onConfirm(new Date(d));
-      return;
-    }
-    if (phase === 'start' || !selS) {
-      setSelS(new Date(d)); setSelE(null); setPhase('end');
-    } else {
-      if (requireComplete && !allowSameDay && sameDayEq(d, selS)) return;
-      let s = selS, e = new Date(d);
-      if (e < s) { const t = s; s = e; e = t; }
-      setSelS(new Date(s)); setSelE(new Date(e)); setPhase('start');
-      if (autoConfirm) onConfirm(new Date(s), new Date(e));
-    }
-  };
-  const readableDate = (d) => d.toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', year: 'numeric' });
-  const periodText = selS ? (selE && mode === 'range' ? `${readableDate(selS)} — ${readableDate(selE)}` : readableDate(selS)) : '';
-  const BG = 'var(--blue-soft)';
-  const SOLO = sameDayEq(rS, rE);
-
-  return (
-    <div role="dialog" aria-label={mode === 'range' ? 'Выбор периода' : 'Выбор даты'} style={{ background: 'var(--surface)', borderRadius: 'var(--r-popover)', padding: '18px 14px 12px', boxShadow: 'var(--shadow-pop)', width: 'min(320px, calc(100vw - 16px))', maxHeight: 'calc(100dvh - 16px)', display: 'flex', flexDirection: 'column', overflow: 'hidden', userSelect: 'none', border: '1px solid var(--line)' }}>
-      <div style={{ display: 'flex', flexShrink: 0, alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
-        <button type="button" aria-label="Предыдущий месяц" onClick={prevMo} style={{ border: 'none', background: 'none', cursor: 'pointer', color: 'var(--blue)', padding: 6, borderRadius: 8, display: 'flex' }}>
-          <Icon name="chevLeft" style={{ width: 20, height: 20 }} />
-        </button>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, minWidth: 0 }}>
-          <Select menuMinWidth={180} menuClassName="calendar-select-dropdown" aria-label="Месяц" value={month} onChange={(e) => setMonth(Number(e.target.value))}
-            style={{ border: '1px solid var(--line)', borderRadius: 9, background: 'var(--surface)', color: 'var(--ink)', fontWeight: 700, fontSize: 14, padding: '6px 8px', width: 120, minWidth: 110, cursor: 'pointer', fontFamily: 'inherit' }}>
-            {CAL_MONTHS.map((name, index) => <option key={name} value={index}>{name}</option>)}
-          </Select>
-          <Select menuMinWidth={140} menuClassName="calendar-select-dropdown" aria-label="Год" value={year} onChange={(e) => setYear(Number(e.target.value))}
-            style={{ border: '1px solid var(--line)', borderRadius: 9, background: 'var(--surface)', color: 'var(--ink)', fontWeight: 800, fontSize: 14, padding: '6px 8px', width: 84, minWidth: 80, cursor: 'pointer', fontFamily: 'inherit' }}>
-            {Array.from(new Set([...Array.from({ length: 101 }, (_, i) => now.getFullYear() - 80 + i), year]))
-              .sort((a, b) => a - b)
-              .map((value) => <option key={value} value={value}>{value}</option>)}
-          </Select>
-        </div>
-        <button type="button" aria-label="Следующий месяц" onClick={nextMo} style={{ border: 'none', background: 'none', cursor: 'pointer', color: 'var(--blue)', padding: 6, borderRadius: 8, display: 'flex' }}>
-          <Icon name="chevRight" style={{ width: 20, height: 20 }} />
-        </button>
-      </div>
-      {mode === 'range' && <div style={{ flexShrink: 0, fontSize: 12, color: 'var(--muted)', marginBottom: 8 }}>Прокрутите вниз для выбора следующего месяца</div>}
-      <div ref={monthsRef} className="calendar-months scroll" tabIndex={0} role="region" aria-label="Месяцы календаря"
-        onMouseLeave={() => { if (hover) setHover(null); }}
-        style={{ overflowY: 'auto', minHeight: 0, maxHeight: 330, overscrollBehavior: 'contain', touchAction: 'pan-y', scrollbarGutter: 'stable' }}>
-        {months.map(({ year: shownYear, month: shownMonth, cells }) => (
-          <section key={`${shownYear}-${shownMonth}`} aria-label={`${CAL_MONTHS[shownMonth]} ${shownYear}`} style={{ paddingBottom: 12 }}>
-            <div style={{ position: 'sticky', top: 0, zIndex: 1, background: 'var(--surface)', paddingTop: 2 }}>
-            <h3 style={{ margin: '4px 0 10px', textAlign: 'center', fontSize: 15, color: 'var(--ink)' }}>{CAL_MONTHS[shownMonth]} {shownYear}</h3>
-            <div aria-hidden="true" style={{ display: 'grid', gridTemplateColumns: 'repeat(7,1fr)', marginBottom: 2 }}>
-              {CAL_DAYS.map(d => <div key={d} style={{ textAlign: 'center', fontSize: 12, fontWeight: 700, color: 'var(--blue)', padding: '3px 0 6px' }}>{d}</div>)}
-            </div>
-            </div>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7,1fr)' }}>
-              {cells.map((d, i) => {
-                // Adjacent months have their own labelled section, never duplicate day numbers.
-                if (!d) return <span key={i} aria-hidden="true" style={{ height: 38 }} />;
-                const disabled = Boolean(minimum && d < minimum);
-                const isSt = rS && sameDayEq(d, rS);
-                const isEn = rE && sameDayEq(d, rE);
-                const inR = rS && rE && d > rS && d < rE;
-                const isSel = mode === 'single' && selS && sameDayEq(d, selS);
-                const circle = isSt || isEn || isSel;
-                let cellBg = 'transparent';
-                if (inR) cellBg = BG;
-                else if (isSt && !SOLO) cellBg = `linear-gradient(to right, transparent 50%, ${BG} 50%)`;
-                else if (isEn && !SOLO) cellBg = `linear-gradient(to left, transparent 50%, ${BG} 50%)`;
-                return <button type="button" key={i} disabled={disabled} aria-label={readableDate(d)} aria-pressed={Boolean(circle || inR)}
-                  onClick={() => handleClick(d)}
-                  onMouseEnter={() => { if (!disabled && mode === 'range' && phase === 'end' && selS && !sameDayEq(hover, d)) setHover(new Date(d)); }}
-                  style={{ border: 'none', padding: 0, fontFamily: 'inherit', height: 38, display: 'flex', alignItems: 'center', justifyContent: 'center', background: cellBg, cursor: disabled ? 'default' : 'pointer' }}>
-                  <span style={{ width: 34, height: 34, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', background: circle ? 'var(--blue)' : 'transparent', color: circle ? '#fff' : (disabled ? 'var(--faint)' : 'var(--ink)'), fontWeight: circle ? 700 : 400, fontSize: 14 }}>{d.getDate()}</span>
-                </button>;
-              })}
-            </div>
-          </section>
-        ))}
-        {mode === 'range' && <button type="button" onClick={() => setVisibleMonths((count) => count + 2)}
-          style={{ width: '100%', border: '1px solid var(--line)', borderRadius: 8, padding: 10, background: 'var(--surface)', color: 'var(--blue)', cursor: 'pointer', fontFamily: 'inherit' }}>Показать ещё месяцы</button>}
-      </div>
-      <div style={{ flexShrink: 0, textAlign: 'center', fontSize: 13, color: 'var(--muted)', margin: '10px 0', minHeight: 18 }} aria-live="polite">
-        {mode === 'range' && !selE ? (selS ? (requireComplete && !allowSameDay ? 'Выберите дату выезда' : 'Выберите конец периода') : (requireComplete && !allowSameDay ? 'Выберите дату заезда' : 'Выберите начало периода')) : periodText ? (mode === 'range' ? `Выбранный период: ${periodText}` : periodText) : 'Выберите дату'}
-        {mode === 'range' && selS && !selE && <div>Начало: {readableDate(selS)}</div>}
-      </div>
-      <div style={{ flexShrink: 0 }}>
-        <Button variant="primary" style={{ width: '100%', marginBottom: 6 }}
-          onClick={() => { if (!selS) return; const onlyStart = mode === 'range' && !selE; onlyStart ? onConfirm(selS, null) : onConfirm(selS, mode === 'range' ? selE : undefined); }}
-          disabled={!selS || Boolean(minimum && selS < minimum) || (requireComplete && !completeDateRange(selS, selE, { minDate, allowSameDay }))}>
-          {mode === 'range' && selS && !selE ? rangeStartLabel : 'Далее'}
-        </Button>
-        <button type="button" onClick={onClose} style={{ width: '100%', border: 'none', background: 'none', color: 'var(--muted)', cursor: 'pointer', fontSize: 14, padding: '5px 0', fontFamily: 'inherit' }}>Закрыть</button>
-      </div>
-    </div>
-  );
-}
-
-function DateField({ label, value, onChange, placeholder = 'Выбрать дату', required, error, style, autoConfirm = true }) {
+function DateRangeField({ label, startVal, endVal, onChange, placeholder = 'Выбрать период', style, autoConfirm = true, rangeStartLabel = 'Далее', minDate = new Date(), maxDate = null, requireComplete = false, allowSameDay = false, error = false }) {
   const [open, setOpen] = useState(false);
-  const [pos, setPos] = useState({ top: 0, left: 0 });
   const ref = useRef(null);
-  useOverlayLayer(open, () => setOpen(false));
-  useEffect(() => {
-    const h = (e) => {
-      if (!ref.current) return;
-
-      const portal = document.getElementById('__cal_portal__');
-      if (containsFloatingTarget(ref.current, e.target) || (portal && containsFloatingTarget(portal, e.target))) return;
-      setOpen(false);
-    };
-    document.addEventListener('mousedown', h, true);
-    return () => document.removeEventListener('mousedown', h, true);
-  }, []);
-  const toggle = () => {
-    if (!open && ref.current) {
-      const r = ref.current.getBoundingClientRect();
-
-
-      const calH = 580, calW = 320, vh = window.innerHeight;
-      let top = r.bottom + 6;
-      if (top + calH > vh - 8) {
-        const above = r.top - calH - 6;
-        top = above >= 8 ? above : Math.max(8, vh - calH - 8);
-      }
-      const left = Math.max(8, Math.min(r.left, window.innerWidth - calW - 8));
-      setPos({ top, left });
-    }
-    setOpen(o => !o);
-  };
-  return (
-    <div ref={ref} style={{ position: 'relative', ...style }}>
-      {label && <label className="label" style={{ display: 'block', marginBottom: 7 }}>{label}{required && <span className="req"> *</span>}</label>}
-      <div className={'input' + (error ? ' err' : '')}
-        style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 10 }}
-        onClick={toggle}>
-        <Icon name="calendar" style={{ width: 18, height: 18, color: 'var(--muted-2)', flexShrink: 0 }} />
-        <span style={{ color: value ? 'var(--ink)' : 'var(--faint)', fontSize: 15, flex: 1 }}>
-          {value ? fmtDate(value) : placeholder}
-        </span>
-      </div>
-      {error && <div className="err-text"><Icon name="alertCircle" style={{ width: 14, height: 14 }} />{error}</div>}
-      {open && ReactDOM.createPortal(
-        <div id="__cal_portal__" style={{ position: 'fixed', top: pos.top, left: pos.left, zIndex: 9999 }}>
-          <CalendarPicker mode="single" startVal={value || null} autoConfirm={autoConfirm}
-            onConfirm={(d) => { onChange(d); setOpen(false); }}
-            onClose={() => setOpen(false)} />
-        </div>,
-        document.body
-      )}
-    </div>
-  );
-}
-
-function DateRangeField({ label, startVal, endVal, onChange, placeholder = 'Выбрать период', style, autoConfirm = true, rangeStartLabel = 'Далее', minDate = null, requireComplete = false, allowSameDay = false, error = false }) {
-  const [open, setOpen] = useState(false);
-  const [pos, setPos] = useState({ top: 0, left: 0 });
-  const ref = useRef(null);
-  useOverlayLayer(open, () => setOpen(false));
-  useEffect(() => {
-    const h = (e) => {
-      if (!ref.current) return;
-      const portal = document.getElementById('__calr_portal__');
-      if (containsFloatingTarget(ref.current, e.target) || (portal && containsFloatingTarget(portal, e.target))) return;
-      setOpen(false);
-    };
-    document.addEventListener('mousedown', h, true);
-    return () => document.removeEventListener('mousedown', h, true);
-  }, []);
-  const toggle = () => {
-    if (!open && ref.current) {
-      const r = ref.current.getBoundingClientRect();
-
-
-      const calH = 580, calW = 320, vh = window.innerHeight;
-      let top = r.bottom + 6;
-      if (top + calH > vh - 8) {
-        const above = r.top - calH - 6;
-        top = above >= 8 ? above : Math.max(8, vh - calH - 8);
-      }
-      const left = Math.max(8, Math.min(r.left, window.innerWidth - calW - 8));
-      setPos({ top, left });
-    }
-    setOpen(o => !o);
-  };
-  const display = startVal
-    ? (endVal ? `${fmtDate(startVal)} — ${fmtDate(endVal)}` : fmtDate(startVal))
-    : '';
+  const toggle = () => setOpen((current) => !current);
+  const start = parseCalendarDate(startVal);
+  const end = parseCalendarDate(endVal);
+  const display = start ? (end ? `${fmtDate(start)} — ${fmtDate(end)}` : fmtDate(start)) : '';
   return (
     <div ref={ref} style={{ position: 'relative', minWidth: 0, maxWidth: '100%', ...style }}>
       {label && <label className="label" style={{ display: 'block', marginBottom: 7 }}>{label}</label>}
@@ -264,14 +44,17 @@ function DateRangeField({ label, startVal, endVal, onChange, placeholder = 'Вы
           {display || placeholder}
         </span>
       </button>
-      {open && ReactDOM.createPortal(
-        <div id="__calr_portal__" style={{ position: 'fixed', top: pos.top, left: pos.left, zIndex: 9999 }}>
+      {open && (
+        <FloatingPanel anchorRef={ref} width={320} maxHeight={580} closeOnScroll className="calendar-floating" onClose={() => setOpen(false)}>
           <CalendarPicker mode="range" startVal={startVal || null} endVal={endVal || null}
-            autoConfirm={autoConfirm} rangeStartLabel={rangeStartLabel} minDate={minDate} requireComplete={requireComplete} allowSameDay={allowSameDay}
-            onConfirm={(s, e) => { onChange(s, e); setOpen(false); }}
+            autoConfirm={autoConfirm} rangeStartLabel={rangeStartLabel} minDate={minDate} maxDate={maxDate} requireComplete={requireComplete} allowSameDay={allowSameDay}
+            onConfirm={(s, e) => {
+              if (!dateWithinBounds(s, minDate, maxDate) || (e && !dateWithinBounds(e, minDate, maxDate))) return;
+              if (requireComplete && !completeDateRange(s, e, { minDate, maxDate, allowSameDay })) return;
+              onChange(s, e); setOpen(false);
+            }}
             onClose={() => setOpen(false)} />
-        </div>,
-        document.body
+        </FloatingPanel>
       )}
     </div>
   );

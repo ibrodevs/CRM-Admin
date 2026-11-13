@@ -763,7 +763,7 @@ function TripCalendarPage({ role, feed, orders = [], clients = [], companies = [
             </div>
             <div className="tc-date-range">
               <Icon name="calendar" />
-              <DateRangeField startVal={dateFrom} endVal={dateTo} onChange={setCalendarRange} placeholder="Дата от — до" rangeStartLabel="До" />
+              <DateRangeField minDate={null} startVal={dateFrom} endVal={dateTo} onChange={setCalendarRange} placeholder="Дата от — до" rangeStartLabel="До" />
             </div>
             <span className="tc-range">{rangeLabel()}</span>
           </>}

@@ -1,3 +1,4 @@
+import { DateTimeField } from '../../../shared/ui/DateTimeField.jsx';
 import { useEffect, useId, useState } from 'react';
 import { servicesApi } from '../api/servicesApi.js';
 import { REMARK_GROUPS, REMARK_LIMIT, remarkGroup, remarkPage } from './remarks.js';
@@ -33,10 +34,12 @@ export function HotelRemarks({ offerId, value, onChange, operatorRequest = '', o
           const title = row?.title.replaceAll('{value}', '…') || `Пожелание №${item.remarkId}`;
           return <div className="hotel-remarks-chosen" key={item.remarkId}>
             <div><span>{title}</span><button type="button" className="hotel-remarks-remove" aria-label={`Убрать: ${title}`} onClick={() => remove(item.remarkId)}>×</button></div>
-            {row && row.dataType !== 'NONE' && <label className="hotel-remarks-value">Уточнение к пожеланию
-              <input className="input" type={row.dataType === 'DATETIME' ? 'datetime-local' : 'text'} maxLength={2000} required value={item.data || ''}
-                onChange={(event) => onChange(value.map((entry) => entry.remarkId === item.remarkId ? { ...entry, data: event.target.value } : entry))} />
-            </label>}
+            {row && row.dataType !== 'NONE' && <div className="hotel-remarks-value">Уточнение к пожеланию
+              {row.dataType === 'DATETIME'
+                ? <DateTimeField value={item.data || ''} onChange={(data) => onChange(value.map((entry) => entry.remarkId === item.remarkId ? { ...entry, data } : entry))} />
+                : <input className="input" type="text" aria-label="Уточнение к пожеланию" maxLength={2000} required value={item.data || ''}
+                  onChange={(event) => onChange(value.map((entry) => entry.remarkId === item.remarkId ? { ...entry, data: event.target.value } : entry))} />}
+            </div>}
           </div>;
         })}
       </div>

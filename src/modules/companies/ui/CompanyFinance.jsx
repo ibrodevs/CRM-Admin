@@ -751,7 +751,7 @@ function CompanyFinanceCreateDrawer({ open, co, onClose, onCreated }) {
             </label>
             <label style={{ display: 'block' }}>
               <span className="label">Дата договора</span>
-              <DateField value={contractDate} onChange={setContractDate} placeholder="Выберите дату договора" />
+              <DateField value={contractDate} onChange={setContractDate} minDate={null} placeholder="Выберите дату договора" />
             </label>
           </div>
         </div>
