@@ -66,6 +66,13 @@ function AirportField({ label, value, onChange, placeholder = 'Город или
   const [open, setOpen] = useState(false);
   const [q, setQ] = useState('');
   const ref = useRef(null);
+  const searchRef = useRef(null);
+  useEffect(() => {
+    if (!open) return;
+    // The portal starts hidden until FloatingPanel has positioned it.
+    const frame = requestAnimationFrame(() => searchRef.current?.focus({ preventScroll: true }));
+    return () => cancelAnimationFrame(frame);
+  }, [open]);
   useEffect(() => {
     const h = (e) => { if (ref.current && !containsFloatingTarget(ref.current, e.target)) setOpen(false); };
     document.addEventListener('mousedown', h);
@@ -86,7 +93,7 @@ function AirportField({ label, value, onChange, placeholder = 'Город или
       </div>
       {open && (
         <FloatingPanel anchorRef={ref} onClose={() => setOpen(false)} className="dropdown scroll" maxHeight={280} style={{ padding: 8 }}>
-          <input className="input" autoFocus value={q} onChange={(e) => setQ(e.target.value)}
+          <input ref={searchRef} className="input" aria-label="Поиск города или аэропорта" value={q} onChange={(e) => setQ(e.target.value)}
             placeholder="Поиск аэропорта" style={{ marginBottom: 6 }} />
           {list.map((a) => (
             <div key={a.code} className="dropdown-item" onClick={() => { onChange(a.code); setOpen(false); setQ(''); }}>
