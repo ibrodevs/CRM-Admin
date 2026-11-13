@@ -1,3 +1,4 @@
+import { DraftProvider } from '../shared/drafts/Drafts.jsx';
 import { PreferenceEffects } from './PreferenceEffects.jsx';
 import { ToastProvider } from '../shared/ui/Toast.jsx';
 import { AuthProvider, useAuth } from '../shared/auth/auth-context.jsx';
@@ -6,7 +7,7 @@ import { syncLegacyCurrentUser, syncLegacyCurrencies } from '../legacy/adapters/
 
 function AccountWorkspace({ children }) {
   const { user } = useAuth();
-  return <WorkspaceProvider key={user ? `${user.tenant_id || ''}:${user.id}` : 'anonymous'}><PreferenceEffects syncCurrencies={syncLegacyCurrencies} />{children}</WorkspaceProvider>;
+  return <DraftProvider key={user ? `${user.tenant_id || ''}:${user.id}` : 'anonymous'} owner={user ? `${user.tenant_id || ''}:${user.id}` : null}><WorkspaceProvider><PreferenceEffects syncCurrencies={syncLegacyCurrencies} />{children}</WorkspaceProvider></DraftProvider>;
 }
 
 export function AppProviders({ children }) {

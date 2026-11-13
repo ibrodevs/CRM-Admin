@@ -27,7 +27,7 @@ test('document recognition is offered as an alternative at the top of the form',
   // Блок стоит первым в анкете, а не в конце.
   assert.match(forms, /return \(\n    <>\n      \{intake\}\n      <PanelSub style=\{\{ marginTop: 0 \}\}>Личные данные<\/PanelSub>/);
   // Для новой карточки распознавание предлагается сразу.
-  assert.match(forms, /const \[intakeMode, setIntakeMode\] = useState\(mode === 'edit' \? 'manual' : 'ocr'\)/);
+  assert.match(forms, /const \[intakeMode, setIntakeMode\] = useDraftState\([^\n]+mode === 'edit' \? 'manual' : 'ocr'\)/);
   assert.match(styles, /\.uf-intake \{/);
 });
 

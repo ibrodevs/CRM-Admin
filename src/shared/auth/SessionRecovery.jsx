@@ -1,11 +1,13 @@
 import { useEffect, useRef } from 'react';
 import ReactDOM from 'react-dom';
+import { useDraftStatus } from '../drafts/Drafts.jsx';
 import { LoginScreen } from './LoginScreen.jsx';
 
 // Keep every editor mounted, but make its DOM and portals inaccessible until
 // authentication succeeds. A different account gets a new workspace key.
 export function SessionRecovery({ auth }) {
   const root = useRef(null);
+  const drafts = useDraftStatus();
   useEffect(() => {
     const previous = new Map();
     const protect = () => {
@@ -22,7 +24,7 @@ export function SessionRecovery({ auth }) {
     return () => { observer.disconnect(); previous.forEach((inert, node) => { node.inert = inert; }); };
   }, []);
   return ReactDOM.createPortal(<div ref={root} className="session-lock" role="dialog" aria-modal="true" aria-label="Повторный вход">
-    <p className="session-lock-notice">Данные остались в открытых формах. Войдите в тот же аккаунт, чтобы продолжить. Не закрывайте и не обновляйте вкладку.</p>
+    <p className="session-lock-notice">{drafts.failed ? 'Автосохранение недоступно. Не закрывайте вкладку до повторного входа.' : 'Черновики сохранены в этом браузере. Войдите в тот же аккаунт, чтобы продолжить работу.'}</p>
     <LoginScreen expired={auth.expired} onLogin={auth.login} onVerifyTwoFactor={auth.verifyTwoFactor} onPasswordReset={auth.requestPasswordReset} />
   </div>, document.body);
 }

@@ -1,8 +1,9 @@
+import { useDraftState, useDraftControls, DraftScope } from '../../../shared/drafts/Drafts.jsx';
 import { ServicePreview } from '../../../shared/ui/ServicePreview.jsx';
 import { SectionInfo } from '../../../shared/ui/SectionInfo.jsx';
 import { InfoNotice } from '../../../shared/ui/InfoNotice.jsx';
 import { resolveHotelParticipants } from '../../services/index.js';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Icon } from '../../../shared/icons/index.jsx';
 import { ActionMenu } from '../../../shared/ui/ActionMenu.jsx';
 import { Avatar } from '../../../shared/ui/Avatar.jsx';
@@ -49,11 +50,11 @@ import { RU_DATE_TIME } from '../../../shared/lib/datetime.js';
 
 function FreeBookingFinalize({ draft, onClose, onDone, onOpenOrder, onNavigate, clients = [], companies = [], orders = [] }) {
   const toast = useToast();
-  const [step, setStep] = useState('menu');
-  const [entity, setEntity] = useState('legal');
-  const [q, setQ] = useState('');
-  const [recipient, setRecipient] = useState('');
-  const [proposal, setProposal] = useState(null);
+  const [step, setStep] = useDraftState('FreeBookingFinalize', "step", 'menu');
+  const [entity, setEntity] = useDraftState('FreeBookingFinalize', "entity", 'legal');
+  const [q, setQ] = useDraftState('FreeBookingFinalize', "q", '');
+  const [recipient, setRecipient] = useDraftState('FreeBookingFinalize', "recipient", '');
+  const [proposal, setProposal] = useDraftState('FreeBookingFinalize', "proposal", null);
   const [busy, setBusy] = useState(false);
   const kpNo = proposal?.number || 'Новое КП';
 
@@ -334,13 +335,18 @@ function FreeBookingFinalize({ draft, onClose, onDone, onOpenOrder, onNavigate, 
 
 
 
-function DetailedSearchPanel({ open = true, onClose, initialKind, onOpenOrder, onCreateOrder, onNavigate, clients = [], companies = [], orders = [] }) {
+function DetailedSearchPanel(props) { return <DraftScope name="free-booking"><DetailedSearchPanelContent {...props} /></DraftScope>; }
+
+function DetailedSearchPanelContent({ open = true, onClose, initialKind, onOpenOrder, onCreateOrder, onNavigate, clients = [], companies = [], orders = [] }) {
   const toast = useToast();
-  const [kind, setKind] = useState(initialKind || 'Авиа');
-  useEffect(() => { if (open && initialKind) setKind(initialKind); }, [open, initialKind]);
-  const [aviaParams, setAviaParams] = useState({ trip: 'rt', from: 'FRU', to: 'IST', depDate: null, retDate: null, pax: { adt: 1, chd: 0, infNoSeat: 0, infSeat: 0, special: {}, subsidized: {} }, cabin: 'Эконом', baggage: false, flex: false, direct: false, airline: '', ...PAX_DEFAULT_OPTIONS });
-  const [draft, setDraft] = useState([]);
-  const [finalize, setFinalize] = useState(false);
+  const saved = useDraftControls('DetailedSearchPanel');
+  const allDrafts = useDraftControls();
+  const initialApplied = useRef(false);
+  const [kind, setKind] = useDraftState('DetailedSearchPanel', "kind", initialKind || 'Авиа');
+  useEffect(() => { if (open && initialKind && (initialApplied.current || !saved.has('kind'))) setKind(initialKind); initialApplied.current = true; }, [open, initialKind]);
+  const [aviaParams, setAviaParams] = useDraftState('DetailedSearchPanel', "aviaParams", { trip: 'rt', from: 'FRU', to: 'IST', depDate: null, retDate: null, pax: { adt: 1, chd: 0, infNoSeat: 0, infSeat: 0, special: {}, subsidized: {} }, cabin: 'Эконом', baggage: false, flex: false, direct: false, airline: '', ...PAX_DEFAULT_OPTIONS });
+  const [draft, setDraft] = useDraftState('DetailedSearchPanel', "draft", []);
+  const [finalize, setFinalize] = useDraftState('DetailedSearchPanel', "finalize", false);
   const add = (svc, k) => { setDraft((d) => [...d, { kind: k || 'Авиа', ...(svc || {}) }]); toast('Добавлено в свободное бронирование', 'ok'); };
   return (
     <StackPanel open={open} className="free-booking" title="Свободное бронирование" width="min(1320px,96vw)" onClose={onClose}
@@ -357,7 +363,7 @@ function DetailedSearchPanel({ open = true, onClose, initialKind, onOpenOrder, o
       <FreeBookingPanel kind={kind} setKind={setKind} aviaParams={aviaParams} setAviaParams={setAviaParams}
         onAddAvia={(r) => add(r, 'Авиа')}
         onAddOther={(o, k) => add(o, k)} />
-      {finalize && <FreeBookingFinalize draft={draft} onClose={() => setFinalize(false)} onDone={() => { setFinalize(false); setDraft([]); onClose(); }} onOpenOrder={onOpenOrder} onCreateOrder={onCreateOrder} onNavigate={onNavigate} clients={clients} companies={companies} orders={orders} />}
+      {finalize && <FreeBookingFinalize draft={draft} onClose={() => setFinalize(false)} onDone={() => { setFinalize(false); setDraft([]); onClose(); allDrafts.clear(); }} onOpenOrder={onOpenOrder} onCreateOrder={onCreateOrder} onNavigate={onNavigate} clients={clients} companies={companies} orders={orders} />}
     </StackPanel>
   );
 }
@@ -680,8 +686,8 @@ const serviceProfit = (service) => Number(service.calc?.total ?? service.client_
 
 function DashboardPage({ role, user, orders = [], orderServices = [], clients = [], companies = [], proposals = [], returns = [], chats = [], dashboard, calendar, finance, resources, incidents = [], slaQueue = [], currentShift, motivationAccruals = [], users = [], suppliers = [], onNavigate, onAddOrder, onOpenOrder, onCreateOrder, onOpenChat, onReload }) {
   const [search, setSearch] = useState('');
-  const [searchOpen, setSearchOpen] = useState(false);
-  const [searchMounted, setSearchMounted] = useState(false);
+  const [searchOpen, setSearchOpen] = useDraftState('dashboard', "searchOpen", false);
+  const [searchMounted, setSearchMounted] = useDraftState('dashboard', "searchMounted", false);
   const [errCodeOpen, setErrCodeOpen] = useState(null);
   const [errDrawer, setErrDrawer] = useState(null);
   const [incidentRows, setIncidentRows] = useState(incidents);

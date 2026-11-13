@@ -1,3 +1,4 @@
+import { useDraftState } from '../../../shared/drafts/Drafts.jsx';
 import { PassengerPickerField } from '../search/PassengerPickerField.jsx';
 import { validateFreeFlightSearch } from './free-flight-search.js';
 import { airportOption, searchAirportOptions, flightLocationCode } from './airport-options.js';
@@ -1570,11 +1571,11 @@ const ATTACH_MODES = [
 ];
 function AttachFlightDrawer({ mode, svcTitle, offer, orders: orderOptions = [], clients: clientOptions = [], companies: companyOptions = [], onClose, onDone }) {
   const toast = useToast();
-  const [q, setQ] = useState('');
-  const [picked, setPicked] = useState(null);
+  const [q, setQ] = useDraftState(`AttachFlight/${offer?.id || svcTitle}`, "q", '');
+  const [picked, setPicked] = useDraftState(`AttachFlight/${offer?.id || svcTitle}`, "picked", null);
   const [busy, setBusy] = useState(false);
 
-  const [m, setM] = useState(mode === 'person' ? 'newPerson' : (mode || 'order'));
+  const [m, setM] = useDraftState(`AttachFlight/${offer?.id || svcTitle}`, "m", mode === 'person' ? 'newPerson' : (mode || 'order'));
   const isOrder = m === 'order';
   const isCompany = m === 'newCompany';
   const orders = orderOptions.filter((o) => `${o.no} ${o.client}`.toLowerCase().includes(q.toLowerCase())).slice(0, 20);
@@ -1727,13 +1728,13 @@ function FlightCard({ svc, offer, no: noProp, hideBackRow, onBack, onFormKp, onA
   const toast = useToast();
   const [tab, setTab] = useState('segments');
 
-  const [extrasOpen, setExtrasOpen] = useState(false);
-  const [extras, setExtras] = useState({ seats: {}, baggage: {}, meal: {}, insurance: {}, special: {}, comfort: {} });
+  const [extrasOpen, setExtrasOpen] = useDraftState(`FlightCard/${svc?.id || offer?.id || noProp}`, "extrasOpen", false);
+  const [extras, setExtras] = useDraftState(`FlightCard/${svc?.id || offer?.id || noProp}`, "extras", { seats: {}, baggage: {}, meal: {}, insurance: {}, special: {}, comfort: {} });
   const [refundOpen, setRefundOpen] = useState(false);
   const [exchangeOpen, setExchangeOpen] = useState(false);
   const [brandedOpen, setBrandedOpen] = useState(false);
   const [sendOpen, setSendOpen] = useState(false);
-  const [attach, setAttach] = useState(null);
+  const [attach, setAttach] = useDraftState(`FlightCard/${svc?.id || offer?.id || noProp}`, "attach", null);
   const [receiptOpen, setReceiptOpen] = useState(false);
   const [receiptPax, setReceiptPax] = useState(null);
 
@@ -1753,11 +1754,11 @@ function FlightCard({ svc, offer, no: noProp, hideBackRow, onBack, onFormKp, onA
   const cur = currencySymbol(currency);
 
   const { issued, booked, offered, free } = flightStatusFlags(status, svc, offer);
-  const [addPaxOpen, setAddPaxOpen] = useState(false);
-  const [extraPax, setExtraPax] = useState([]);
+  const [addPaxOpen, setAddPaxOpen] = useDraftState(`FlightCard/${svc?.id || offer?.id || noProp}`, "addPaxOpen", false);
+  const [extraPax, setExtraPax] = useDraftState(`FlightCard/${svc?.id || offer?.id || noProp}`, "extraPax", []);
   const [uploadOpen, setUploadOpen] = useState(false);
   const [uploadedDocs, setUploadedDocs] = useState([]);
-  const [comment, setComment] = useState('');
+  const [comment, setComment] = useDraftState(`FlightCard/${svc?.id || offer?.id || noProp}`, "comment", '');
   const [serverHistory, setServerHistory] = useState([]);
   const passengers = [...flightPassengers(svc, offer, status), ...extraPax];
   const pnr = passengers[0] ? passengers[0].pnr : (svc ? svc.pnr : '—');
@@ -2416,11 +2417,11 @@ async function loadLiveFlightOffers(params) {
 }
 
 function FlightsPage({ searchIntent, onConsumeSearch, orders = [], clients = [], companies = [] }) {
-  const [view, setView] = useState(searchIntent ? 'results' : 'registry');
-  const [svc, setSvc] = useState(null);
-  const [offer, setOffer] = useState(null);
-  const [cardNo, setCardNo] = useState(null);
-  const [liveOffers, setLiveOffers] = useState([]);
+  const [view, setView] = useDraftState('FlightsPage', "view", searchIntent ? 'results' : 'registry');
+  const [svc, setSvc] = useDraftState('FlightsPage', "svc", null);
+  const [offer, setOffer] = useDraftState('FlightsPage', "offer", null);
+  const [cardNo, setCardNo] = useDraftState('FlightsPage', "cardNo", null);
+  const [liveOffers, setLiveOffers] = useDraftState('FlightsPage', "liveOffers", []);
   const [registryRows, setRegistryRows] = useState([]);
   const [searching, setSearching] = useState(!!searchIntent);
   const toast = useToast();
@@ -2431,7 +2432,7 @@ function FlightsPage({ searchIntent, onConsumeSearch, orders = [], clients = [],
       .catch((error) => { if (error.name !== 'AbortError') toast(error.message || 'Не удалось загрузить авиауслуги', 'err'); });
     return () => controller.abort();
   }, []);
-  const [params, setParams] = useState(() => {
+  const [params, setParams] = useDraftState('FlightsPage', "params", () => {
     const base = {
       trip: 'rt', from: '', to: '', depDate: null, retDate: null,
       pax: { adt: 1, chd: 0, infNoSeat: 0, infSeat: 0, special: {}, subsidized: {} }, cabin: 'Эконом',

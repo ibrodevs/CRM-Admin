@@ -1,3 +1,4 @@
+import { useDraftState } from '../../../shared/drafts/Drafts.jsx';
 import { PassengerCountField } from '../search/PassengerPickerField.jsx';
 import { PassengerCompositionField } from '../search/PassengerCompositionField.jsx';
 import { passengerCriteria, railPassengerDrafts } from '../search/passenger-composition.js';
@@ -1785,11 +1786,11 @@ function ServiceFlow({ routeKey, searchIntent, onConsumeSearch }) {
   const k = SERVICE_KIND[cfg.kind];
   const toast = useToast();
 
-  const [view, setView] = useState(searchIntent ? 'results' : 'registry');
-  const [form, setForm] = useState(searchIntent ? (searchIntent.form || {}) : {});
-  const [item, setItem] = useState(null);
+  const [view, setView] = useDraftState(`ServiceFlow/${routeKey}`, "view", searchIntent ? 'results' : 'registry');
+  const [form, setForm] = useDraftState(`ServiceFlow/${routeKey}`, "form", searchIntent ? (searchIntent.form || {}) : {});
+  const [item, setItem] = useDraftState(`ServiceFlow/${routeKey}`, "item", null);
   const [loading, setLoading] = useState(!!searchIntent);
-  const [liveOffers, setLiveOffers] = useState([]);
+  const [liveOffers, setLiveOffers] = useDraftState(`ServiceFlow/${routeKey}`, "liveOffers", []);
   const [liveRegistry, setLiveRegistry] = useState([]);
   useEffect(() => {
     const controller = new AbortController();
@@ -1803,12 +1804,12 @@ function ServiceFlow({ routeKey, searchIntent, onConsumeSearch }) {
     performSearch(searchIntent.form || {});
     onConsumeSearch && onConsumeSearch();
   }, []);
-  const [sort, setSort] = useState('best');
-  const [q, setQ] = useState('');
+  const [sort, setSort] = useDraftState(`ServiceFlow/${routeKey}`, "sort", 'best');
+  const [q, setQ] = useDraftState(`ServiceFlow/${routeKey}`, "q", '');
   const [fStatus, setFStatus] = useState('');
   const allOffers = liveOffers;
   const bounds = svcPriceBounds(allOffers);
-  const [flt, setFlt] = useState({ sup: [], tags: [], priceMax: bounds.max });
+  const [flt, setFlt] = useDraftState(`ServiceFlow/${routeKey}`, "flt", { sup: [], tags: [], priceMax: bounds.max });
   const setF = (key, val) => setForm((f) => ({ ...f, [key]: val }));
 
   const TITLES = { registry: cfg.title, search: cfg.searchTitle, results: 'Результаты поиска', card: cfg.title };
@@ -1947,13 +1948,13 @@ function routeKeyForKind(kind) { return Object.keys(SVC_CFG).find((k) => SVC_CFG
 function FreeBookingServiceAddFlow({ routeKey, onAdd, currency, paxCount = 1 }) {
   const cfg = SVC_CFG[routeKey];
   const toast = useToast();
-  const [view, setView] = useState('search');
-  const [form, setForm] = useState(() => Object.fromEntries(cfg.fields.map((f) => [f.k, f.t === 'stepper' ? paxCount : f.t === 'select' ? f.o[0] : null])));
+  const [view, setView] = useDraftState(`FreeBookingServiceAddFlow/${routeKey}`, "view", 'search');
+  const [form, setForm] = useDraftState(`FreeBookingServiceAddFlow/${routeKey}`, "form", () => Object.fromEntries(cfg.fields.map((f) => [f.k, f.t === 'stepper' ? paxCount : f.t === 'select' ? f.o[0] : null])));
   const [loading, setLoading] = useState(false);
-  const [liveOffers, setLiveOffers] = useState([]);
-  const [sort, setSort] = useState('best');
+  const [liveOffers, setLiveOffers] = useDraftState(`FreeBookingServiceAddFlow/${routeKey}`, "liveOffers", []);
+  const [sort, setSort] = useDraftState(`FreeBookingServiceAddFlow/${routeKey}`, "sort", 'best');
   const bounds = svcPriceBounds(liveOffers);
-  const [flt, setFlt] = useState({ sup: [], tags: [], priceMax: bounds.max });
+  const [flt, setFlt] = useDraftState(`FreeBookingServiceAddFlow/${routeKey}`, "flt", { sup: [], tags: [], priceMax: bounds.max });
   const requestId = useRef(0);
   useEffect(() => () => { requestId.current += 1; }, []);
   const setF = (k, v) => { requestId.current += 1; setLoading(false); setLiveOffers([]); setForm((f) => ({ ...f, [k]: v })); };
@@ -2050,15 +2051,15 @@ function FreeBookingServiceAddFlow({ routeKey, onAdd, currency, paxCount = 1 }) 
 
 function FreeBookingAeroAddFlow({ onAdd }) {
   const toast = useToast();
-  const [view, setView] = useState('search');
-  const [fare, setFare] = useState('single');
-  const [dir, setDir] = useState(AERO_DIRS[0].label);
-  const [date, setDate] = useState(null);
-  const [retDate, setRetDate] = useState(null);
-  const [start, setStart] = useState(null);
-  const [pax, setPax] = useState(1);
+  const [view, setView] = useDraftState('FreeBookingAeroAddFlow', "view", 'search');
+  const [fare, setFare] = useDraftState('FreeBookingAeroAddFlow', "fare", 'single');
+  const [dir, setDir] = useDraftState('FreeBookingAeroAddFlow', "dir", AERO_DIRS[0].label);
+  const [date, setDate] = useDraftState('FreeBookingAeroAddFlow', "date", null);
+  const [retDate, setRetDate] = useDraftState('FreeBookingAeroAddFlow', "retDate", null);
+  const [start, setStart] = useDraftState('FreeBookingAeroAddFlow', "start", null);
+  const [pax, setPax] = useDraftState('FreeBookingAeroAddFlow', "pax", 1);
   const [loading, setLoading] = useState(false);
-  const [liveOffers, setLiveOffers] = useState([]);
+  const [liveOffers, setLiveOffers] = useDraftState('FreeBookingAeroAddFlow', "liveOffers", []);
   const requestId = useRef(0);
   useEffect(() => () => { requestId.current += 1; }, []);
   const change = (setter, value) => { requestId.current += 1; setLoading(false); setLiveOffers([]); setter(value); };
@@ -2158,13 +2159,13 @@ function FreeBookingAeroAddFlow({ onAdd }) {
 function ServiceAddFlow({ routeKey, onAdd, currency, paxCount = 1 }) {
   const cfg = SVC_CFG[routeKey];
   const toast = useToast();
-  const [view, setView] = useState('search');
-  const [form, setForm] = useState({});
+  const [view, setView] = useDraftState(`ServiceAddFlow/${routeKey}`, "view", 'search');
+  const [form, setForm] = useDraftState(`ServiceAddFlow/${routeKey}`, "form", {});
   const [loading, setLoading] = useState(false);
-  const [liveOffers, setLiveOffers] = useState([]);
-  const [sort, setSort] = useState('best');
+  const [liveOffers, setLiveOffers] = useDraftState(`ServiceAddFlow/${routeKey}`, "liveOffers", []);
+  const [sort, setSort] = useDraftState(`ServiceAddFlow/${routeKey}`, "sort", 'best');
   const bounds = svcPriceBounds(liveOffers);
-  const [flt, setFlt] = useState({ sup: [], tags: [], priceMax: bounds.max });
+  const [flt, setFlt] = useDraftState(`ServiceAddFlow/${routeKey}`, "flt", { sup: [], tags: [], priceMax: bounds.max });
   const setF = (k, v) => setForm((f) => ({ ...f, [k]: v }));
   const currentSearchValues = form;
   const runSearch = async (nextValues) => {
@@ -2253,15 +2254,15 @@ function ServiceAddFlow({ routeKey, onAdd, currency, paxCount = 1 }) {
 
 function AeroAddFlow({ onAdd }) {
   const toast = useToast();
-  const [view, setView] = useState('search');
-  const [fare, setFare] = useState('single');
-  const [dir, setDir] = useState(AERO_DIRS[0].label);
-  const [date, setDate] = useState(null);
-  const [retDate, setRetDate] = useState(null);
-  const [start, setStart] = useState(null);
-  const [pax, setPax] = useState(1);
+  const [view, setView] = useDraftState('AeroAddFlow', "view", 'search');
+  const [fare, setFare] = useDraftState('AeroAddFlow', "fare", 'single');
+  const [dir, setDir] = useDraftState('AeroAddFlow', "dir", AERO_DIRS[0].label);
+  const [date, setDate] = useDraftState('AeroAddFlow', "date", null);
+  const [retDate, setRetDate] = useDraftState('AeroAddFlow', "retDate", null);
+  const [start, setStart] = useDraftState('AeroAddFlow', "start", null);
+  const [pax, setPax] = useDraftState('AeroAddFlow', "pax", 1);
   const [loading, setLoading] = useState(false);
-  const [liveOffers, setLiveOffers] = useState([]);
+  const [liveOffers, setLiveOffers] = useDraftState('AeroAddFlow', "liveOffers", []);
   const currentSearchValues = { fare, dir, date, retDate, start, pax };
   const runSearch = async (nextValues) => {
     const { fare, dir, date, retDate, start, pax } = nextValues && !nextValues.nativeEvent ? nextValues : currentSearchValues;
@@ -2571,8 +2572,8 @@ function FreeBookingRailSeatPanel({ offer, participants, groups, onClose, onAppl
   const wagons = RAIL_WAGONS[clsId] || [];
   const [wagonNo, setWagonNo] = useState(wagons[0] ? wagons[0].no : '');
   const [wagShow, setWagShow] = useState(8);
-  const [seats, setSeats] = useState({});
-  const [activePax, setActivePax] = useState(0);
+  const [seats, setSeats] = useDraftState(`FreeBookingRailSeatPanel/${offer.id}`, "seats", {});
+  const [activePax, setActivePax] = useDraftState(`FreeBookingRailSeatPanel/${offer.id}`, "activePax", 0);
   const [showAll, setShowAll] = useState(false);
 
   const changeClass = (id) => { setClsId(id); const w = RAIL_WAGONS[id] || []; setWagonNo(w[0] ? w[0].no : '01'); setSeats({}); setWagShow(8); };
@@ -2758,14 +2759,14 @@ function FreeBookingRailSeatPanel({ offer, participants, groups, onClose, onAppl
 function FreeBookingRailFlow({ currency, onAdd }) {
   const seatPanelVersion = useRef(0);
   const toast = useToast();
-  const [offersAll, setOffersAll] = useState([]);
+  const [offersAll, setOffersAll] = useDraftState('FreeBookingRailFlow', "offersAll", []);
   const prices = offersAll.map((o) => o.priceRub);
   const bounds = prices.length ? { min: Math.floor(Math.min(...prices)), max: Math.ceil(Math.max(...prices)) } : { min: 0, max: 0 };
   const [loading, setLoading] = useState(false);
-  const [form, setForm] = useState({ trip: 'ow', from: 'Москва', to: 'Санкт-Петербург', dep: null, ret: null, pax: 1 });
-  const [sort, setSort] = useState('best');
-  const [flt, setFlt] = useState({ priceMax: bounds.max, times: [], classes: [], carriers: [], trainNo: '' });
-  const [seatOffer, setSeatOffer] = useState(null);
+  const [form, setForm] = useDraftState('FreeBookingRailFlow', "form", { trip: 'ow', from: 'Москва', to: 'Санкт-Петербург', dep: null, ret: null, pax: 1 });
+  const [sort, setSort] = useDraftState('FreeBookingRailFlow', "sort", 'best');
+  const [flt, setFlt] = useDraftState('FreeBookingRailFlow', "flt", { priceMax: bounds.max, times: [], classes: [], carriers: [], trainNo: '' });
+  const [seatOffer, setSeatOffer] = useDraftState('FreeBookingRailFlow', "seatOffer", null);
   const requestId = useRef(0);
   useEffect(() => () => { requestId.current += 1; }, []);
   const clearResults = () => { requestId.current += 1; setLoading(false); setOffersAll([]); setSeatOffer(null); };
@@ -2877,14 +2878,14 @@ function FreeBookingRailFlow({ currency, onAdd }) {
 function RailAddFlow({ participants = [], groups, onAdd }) {
   const seatPanelVersion = useRef(0);
   const toast = useToast();
-  const [offersAll, setOffersAll] = useState([]);
+  const [offersAll, setOffersAll] = useDraftState('RailAddFlow', "offersAll", []);
   const prices = offersAll.map((o) => o.priceRub);
   const bounds = prices.length ? { min: Math.floor(Math.min(...prices)), max: Math.ceil(Math.max(...prices)) } : { min: 0, max: 0 };
   const [loading, setLoading] = useState(false);
-  const [form, setForm] = useState({ trip: 'ow', from: 'Москва', to: 'Санкт-Петербург', dep: null, ret: null, pax: Math.max(1, participants.length) });
-  const [sort, setSort] = useState('best');
-  const [flt, setFlt] = useState({ priceMax: bounds.max, times: [], classes: [], carriers: [], trainNo: '' });
-  const [seatOffer, setSeatOffer] = useState(null);
+  const [form, setForm] = useDraftState('RailAddFlow', "form", { trip: 'ow', from: 'Москва', to: 'Санкт-Петербург', dep: null, ret: null, pax: Math.max(1, participants.length) });
+  const [sort, setSort] = useDraftState('RailAddFlow', "sort", 'best');
+  const [flt, setFlt] = useDraftState('RailAddFlow', "flt", { priceMax: bounds.max, times: [], classes: [], carriers: [], trainNo: '' });
+  const [seatOffer, setSeatOffer] = useDraftState('RailAddFlow', "seatOffer", null);
   const setF = (k, v) => setForm((f) => ({ ...f, [k]: v }));
   const swap = () => setForm((f) => ({ ...f, from: f.to, to: f.from }));
 
@@ -2995,13 +2996,13 @@ function RailSeatPanel({ offer, participants, groups, onClose, onApply , form, o
   const [searchEditing, setSearchEditing] = useState(false);
   const PAX = participants && participants.length ? participants : [{ name: 'Пассажир 1', role: 'Взрослый' }];
   const tagClass = RAIL_SERVICE_CLASSES.find((c) => c.name === offer.cls) || RAIL_SERVICE_CLASSES.find((c) => (offer.tags || []).some((t) => t === c.type));
-  const [clsId, setClsId] = useState(tagClass ? tagClass.id : 'kupe');
+  const [clsId, setClsId] = useDraftState(`RailSeatPanel/${offer.id}`, "clsId", tagClass ? tagClass.id : 'kupe');
   const cls = RAIL_SERVICE_CLASSES.find((c) => c.id === clsId);
   const wagons = RAIL_WAGONS[clsId] || [];
-  const [wagonNo, setWagonNo] = useState(wagons[0] ? wagons[0].no : '01');
+  const [wagonNo, setWagonNo] = useDraftState(`RailSeatPanel/${offer.id}`, "wagonNo", wagons[0] ? wagons[0].no : '01');
   const [wagShow, setWagShow] = useState(8);
-  const [seats, setSeats] = useState({});
-  const [activePax, setActivePax] = useState(0);
+  const [seats, setSeats] = useDraftState(`RailSeatPanel/${offer.id}`, "seats", {});
+  const [activePax, setActivePax] = useDraftState(`RailSeatPanel/${offer.id}`, "activePax", 0);
   const [showAll, setShowAll] = useState(false);
 
   const changeClass = (id) => { setClsId(id); const w = RAIL_WAGONS[id] || []; setWagonNo(w[0] ? w[0].no : '01'); setSeats({}); setWagShow(8); };
@@ -3236,8 +3237,8 @@ const HUB_KIND = { flights: 'Авиа', rail: 'ЖД', hotels: 'Гостиниц�
 
 function ServicesHubPage({ onNavigate, onAddOrder, onOpenOrder, onCreateOrder, clients = [], companies = [], orders = [] }) {
 
-  const [maskKind, setMaskKind] = useState(null);
-  const [maskOpen, setMaskOpen] = useState(false);
+  const [maskKind, setMaskKind] = useDraftState('services-hub', "maskKind", null);
+  const [maskOpen, setMaskOpen] = useDraftState('services-hub', "maskOpen", false);
   const openMask = (kind) => { setMaskKind(kind); setMaskOpen(true); };
   return (
     <>

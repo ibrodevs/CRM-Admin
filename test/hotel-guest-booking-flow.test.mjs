@@ -15,17 +15,19 @@ const babel = require('next/dist/compiled/babel/core');
 const source = fs.readFileSync(new URL('../src/modules/services/hotels/HotelsPage.jsx', import.meta.url), 'utf8');
 const ast = babel.parseSync(source, { babelrc: false, configFile: false, presets: ['next/dist/compiled/babel/preset-react'] });
 const picker = ast.program.body.find((node) => node.type === 'FunctionDeclaration' && node.id.name === 'HotelPicker');
-const hookNames = picker.body.body.flatMap((node) => node.type === 'VariableDeclaration' ? node.declarations.filter((d) => d.id.type === 'ArrayPattern' && d.init?.callee?.name === 'useState').map((d) => d.id.elements[0].name) : []);
+const hookNames = picker.body.body.flatMap((node) => node.type === 'VariableDeclaration' ? node.declarations.filter((d) => d.id.type === 'ArrayPattern' && ['useState', 'useDraftState'].includes(d.init?.callee?.name)).map((d) => d.id.elements[0].name) : []);
 const compiled = babel.transformSync(ast.program.body.filter((node) => !['ImportDeclaration', 'ExportNamedDeclaration'].includes(node.type)).map((node) => source.slice(node.start, node.end)).join('\n'), { babelrc: false, configFile: false, presets: ['next/dist/compiled/babel/preset-react'] }).code;
 
 // Render the actual picker with controllable hooks; exercise its event handlers
 // without a network server, search provider, or extra React testing dependencies.
-function mountPicker({ orderId, participants, searchApi } = {}) {
+function mountPicker({ orderId, participants, searchApi, applyError } = {}) {
   const state = [], results = [], refs = [];
   let cursor = 0, refCursor = 0, effectCursor = 0, visible = true;
   const effectDeps = [], pendingEffects = new Map();
+  const useState = (initial) => { const index = cursor++; if (!(index in state)) state[index] = typeof initial === 'function' ? initial() : initial; return [state[index], (value) => { state[index] = typeof value === 'function' ? value(state[index]) : value; }]; };
   const bindings = Object.fromEntries(ast.program.body.filter((n) => n.type === 'ImportDeclaration').flatMap((n) => n.specifiers.map((s) => [s.local.name, s.local.name])));
   Object.assign(bindings, guests, creation, criteria, presentation, money, {
+    useDraftState: (_scope, _field, initial) => useState(initial), useDraftControls: () => ({ clear() {}, has: () => false }),
     usePanelVisibility: () => visible,
     servicesApi: searchApi, resultsOf: (payload) => payload.results || [],
     useRef(initial) { const index = refCursor++; return refs[index] ||= { current: initial }; },
@@ -35,7 +37,7 @@ function mountPicker({ orderId, participants, searchApi } = {}) {
     clientsApi: { person: async () => ({ surname: 'Иванов', given_name: 'Иван', latin_surname: 'IVANOV', latin_given_name: 'IVAN', birth_date: '1990-01-01', gender: 'male', citizenship: 'KG' }), personDocuments: async () => [{ id: 'doc', status: 'active', expires_at: '2030-01-01' }] },
   });
   vm.createContext(bindings); vm.runInContext(compiled, bindings);
-  const props = { orderId, participants, onApply: async (offer) => { results.push(offer); } };
+  const props = { orderId, participants, onApply: async (offer) => { if (applyError) throw applyError; results.push(offer); } };
   const render = () => { cursor = 0; refCursor = 0; effectCursor = 0; return bindings.HotelPicker(props); };
   render();
   const set = (name, value) => { const index = hookNames.indexOf(name); assert.notEqual(index, -1, name); state[index] = value; };
@@ -177,4 +179,18 @@ test('hiding and reopening the booking mask retains results and closes only temp
   picker.setVisible(true);
   assert.equal(picker.get('liveHotels'), hotels); assert.equal(picker.get('hasSearched'), true);
   assert.equal(picker.get('checkin'), arrival); assert.equal(picker.get('checkout'), departure);
+});
+
+
+test('failed attachment keeps hotel, guests and operator requests available for retry', async () => {
+  const picker = mountPicker({ applyError: new Error('Connection interrupted') });
+  seed(picker, { id: 'person-old', person: 'person-old', name: 'Иванов Иван', dob: '1990-01-01' });
+  const before = { hotel: picker.get('activeHotel'), notes: picker.get('specialReq'), guests: picker.get('guestSel') };
+  await picker.placement().props.onAdd();
+  assert.equal(picker.get('activeHotel'), before.hotel);
+  assert.equal(picker.get('specialReq'), before.notes);
+  assert.equal(picker.get('guestSel'), before.guests);
+  assert.equal(picker.get('panel'), 'pax');
+  assert.equal(picker.get('guestBookingError'), 'Connection interrupted');
+  assert.equal(picker.get('addingOffer'), false);
 });

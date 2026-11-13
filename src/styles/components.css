@@ -3666,3 +3666,8 @@ button.oc-fact:hover{border-color:#d3dbe8;background:#fff}
 .session-lock-notice{position:relative;margin:0;padding:14px 24px;background:var(--blue-soft,#eaf0ff);color:var(--ink,#141c2c);text-align:center;font-size:14px}
 
 .session-lock{display:flex;flex-direction:column}.session-lock>.lp-root{flex:1;min-height:0}.session-lock-notice{flex-shrink:0}
+
+.draft-recovery-notice{position:fixed;bottom:16px;left:50%;transform:translateX(-50%);z-index:190;max-width:min(680px,calc(100vw - 32px));padding:14px 18px;border:1px solid var(--line);border-radius:16px;background:var(--surface);color:var(--ink);box-shadow:var(--shadow-pop);font-size:13px;line-height:1.5}
+.draft-recovery-notice.error{border-color:var(--danger,#d14343)}
+.draft-recovery-notice>div{display:flex;gap:14px;margin-top:8px;flex-wrap:wrap}
+.draft-recovery-notice button{border:0;background:none;padding:0;color:var(--blue);font:inherit;font-weight:600;cursor:pointer}

@@ -150,9 +150,9 @@ function BookingWizard({ order, services, draft, onClose, onComplete, onSaveDraf
       const created = workflow && ['draft', 'preflight_ok'].includes(workflowState?.status)
         ? workflowState
         : await bookingApi.create({ order: order.id, services: bookingServices.map((service) => service.serverId || service.id) });
-      const hasHotelbookPreflight = Object.keys(created.preflight_result?.hotelbook_inputs || {}).length > 0;
-      const preflight = created.status === 'preflight_ok' && created.preflight_result && !hasHotelbookPreflight
-        ? created.preflight_result : await bookingApi.preflight(created.id);
+      // A restored draft may contain yesterday's preflight. Always obtain
+      // current supplier prices and conditions before an explicit start.
+      const preflight = await bookingApi.preflight(created.id);
       setWorkflow(created.id);
       setWorkflowState({ ...created, status: preflight.ok ? 'preflight_ok' : 'draft', preflight_result: preflight });
       if (!preflight.ok) throw new Error(preflight.blocking_errors?.map((item) => item.message).join('; ') || 'Проверка бронирования не пройдена');

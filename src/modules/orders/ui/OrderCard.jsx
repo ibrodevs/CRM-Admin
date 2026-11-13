@@ -1,3 +1,4 @@
+import { useDraftState, useDraftControls } from '../../../shared/drafts/Drafts.jsx';
 import { hotelBookingOptions } from '../../../shared/lib/hotel-booking-options.js';
 import { Statistics, Statistic } from '../../../shared/ui/Statistics.jsx';
 import { ORDER_SECTIONS, canonicalOrderSection } from '../model/workspace.js';
@@ -1955,10 +1956,10 @@ function AviaSearchPanel({ params, setParams, participants = [], onAdd }) {
 function QuickAddForm({ kind, onAdd, currency, addLabel = 'Добавить в заказ', strict = false }) {
   const toast = useToast();
   const k = SERVICE_KIND[kind] || { icon: 'briefcase', color: 'var(--blue)' };
-  const [title, setTitle] = useState('');
-  const [date, setDate] = useState(null);
-  const [supplier, setSupplier] = useState('');
-  const [cost, setCost] = useState('');
+  const [title, setTitle] = useDraftState(`QuickAddForm/${kind}`, "title", '');
+  const [date, setDate] = useDraftState(`QuickAddForm/${kind}`, "date", null);
+  const [supplier, setSupplier] = useDraftState(`QuickAddForm/${kind}`, "supplier", '');
+  const [cost, setCost] = useDraftState(`QuickAddForm/${kind}`, "cost", '');
   const submit = () => {
     if (!title.trim() || !cost || (strict && (!Number.isFinite(Number(cost)) || Number(cost) < 0))) { toast('Заполните название и стоимость', 'err'); return; }
     onAdd({ title: title.trim(), sub: kind, cost: +cost, fee: 0, currency, starts_at: formatIsoDateTime(date), supplier: supplier.trim() || '—', info: [{ l: 'Дата', v: date ? fmtDate(date) : '—' }] }, kind);
@@ -2027,7 +2028,7 @@ function FreeBookingAviaResultRow({ opt, onView, embedded }) {
 function FreeBookingFlightFarePanel({ offer, offers, params, onClose, onAdd , onSearchStay, searching}) {
   const [searchEditing, setSearchEditing] = useState(false);
   const alternatives = freeFlightFareOptions(offer, offers);
-  const [fareId, setFareId] = useState(offer.id);
+  const [fareId, setFareId] = useDraftState(`FreeBookingFlightFarePanel/${offer.id}`, "fareId", offer.id);
   const [infoFare, setInfoFare] = useState(null);
   const rulesRequest = useRef(0);
   useEffect(() => () => { rulesRequest.current += 1; }, []);
@@ -2036,7 +2037,7 @@ function FreeBookingFlightFarePanel({ offer, offers, params, onClose, onAdd , on
   const [rulesBusy, setRulesBusy] = useState(false);
   const [extrasOpen, setExtrasOpen] = useState(false);
   const [perPaxOpen, setPerPaxOpen] = useState(false);
-  const [extras, setExtras] = useState({ seats: {}, baggage: {}, meal: {}, insurance: {}, special: {}, comfort: {} });
+  const [extras, setExtras] = useDraftState(`FreeBookingFlightFarePanel/${offer.id}`, "extras", { seats: {}, baggage: {}, meal: {}, insurance: {}, special: {}, comfort: {} });
   const selected = alternatives.find((o) => o.id === fareId) || offer;
   const classDetails = freeFlightFareDetails(selected);
   const clsCode = classDetails.code;
@@ -2136,13 +2137,13 @@ function FreeBookingFlightFarePanel({ offer, offers, params, onClose, onAdd , on
 function FreeBookingFlightPanel({ params, setParams, onAdd }) {
   const toast = useToast();
   const p = params;
-  const [liveOffers, setLiveOffers] = useState([]);
+  const [liveOffers, setLiveOffers] = useDraftState('FreeBookingFlightPanel', "liveOffers", []);
   const [loading, setLoading] = useState(false);
-  const [visible, setVisible] = useState(6);
-  const [view, setView] = useState('cards');
-  const [selected, setSelected] = useState(null);
-  const [searched, setSearched] = useState(false);
-  const [flt, setFlt] = useState({ stops: [], air: [], sup: [], bagOnly: false, refundOnly: false, priceMax: 0, flightNo: '' });
+  const [visible, setVisible] = useDraftState('FreeBookingFlightPanel', "visible", 6);
+  const [view, setView] = useDraftState('FreeBookingFlightPanel', "view", 'cards');
+  const [selected, setSelected] = useDraftState('FreeBookingFlightPanel', "selected", null);
+  const [searched, setSearched] = useDraftState('FreeBookingFlightPanel', "searched", false);
+  const [flt, setFlt] = useDraftState('FreeBookingFlightPanel', "flt", { stops: [], air: [], sup: [], bagOnly: false, refundOnly: false, priceMax: 0, flightNo: '' });
   const requestId = useRef(0);
   useEffect(() => () => { requestId.current += 1; }, []);
   const set = (patch) => {
@@ -2634,7 +2635,7 @@ function OrderCard({ order, company, clients = [], onBack, initTab, initSvc, ini
   const toast = useToast();
   const [loadError, setLoadError] = useState(null);
   const [reloadKey, setReloadKey] = useState(0);
-  const [tab, setTab] = useState(initTab === 'edit' ? 'main' : orderSection(initTab) || 'main');
+  const [tab, setTab] = useDraftState('OrderCard', "tab", initTab === 'edit' ? 'main' : orderSection(initTab) || 'main');
   const [loading, setLoading] = useState(true);
   const [cardOrder, setCardOrder] = useState(order);
   const [status, setStatus] = useState(order.status === 'Нет данных' ? 'Новое' : order.status);
@@ -2651,7 +2652,7 @@ function OrderCard({ order, company, clients = [], onBack, initTab, initSvc, ini
   const [routeVersion, setRouteVersion] = useState(null);
   const [allowedTransitions, setAllowedTransitions] = useState(null);
   const requestType = order.requestType;
-  const [editOpen, setEditOpen] = useState(initTab === 'edit');
+  const [editOpen, setEditOpen] = useDraftState('OrderCard', "editOpen", initTab === 'edit');
   const [sendOpen, setSendOpen] = useState(false);
   const [participants, setParticipants] = useState(() => (order.participants || []).map(toLegacyParticipant));
   useEffect(() => { if (order.participants?.length) setParticipants(order.participants.map(toLegacyParticipant)); }, [order.no, requestType]);
@@ -2662,10 +2663,10 @@ function OrderCard({ order, company, clients = [], onBack, initTab, initSvc, ini
   const [stageIdx, setStageIdx] = useState(initStage());
 
 
-  const [svcView, setSvcView] = useState(null);
+  const [svcView, setSvcView] = useDraftState('OrderCard', "svcView", null);
 
 
-  const [bookingDraft, setBookingDraft] = useState(null);
+  const [bookingDraft, setBookingDraft] = useDraftState('OrderCard', "bookingDraft", null);
 
   const removeParticipantFromOrder = (participant) => {
     const participantId = participant.serverId || participant.id;
@@ -2728,7 +2729,7 @@ function OrderCard({ order, company, clients = [], onBack, initTab, initSvc, ini
   const [operator, setOperator] = useState(order.operator);
   const [operatorOptions, setOperatorOptions] = useState([]);
   const [reassignOpen, setReassignOpen] = useState(false);
-  const [addKind, setAddKind] = useState('Авиа');
+  const [addKind, setAddKind] = useDraftState('OrderCard', "addKind", 'Авиа');
 
   const [orderDocs, setOrderDocs] = useState([]);
   const [expandedSvc, setExpandedSvc] = useState(() => new Set());
@@ -2742,7 +2743,7 @@ function OrderCard({ order, company, clients = [], onBack, initTab, initSvc, ini
 
 
 
-  const [aviaParams, setAviaParams] = useState(() => {
+  const [aviaParams, setAviaParams] = useDraftState('OrderCard', "aviaParams", () => {
     const points = order.route?.points || [];
     return {
       currency: resolveCurrency(order.base_currency, order.currency),
@@ -3014,6 +3015,7 @@ function OrderCard({ order, company, clients = [], onBack, initTab, initSvc, ini
       toast(kind + ': услуга добавлена в заказ', 'ok');
     } catch (error) {
       toast(error.message || 'Не удалось добавить услугу в заказ', 'err');
+      if (kind === 'Гостиница') throw error;
     }
   };
 
@@ -3420,11 +3422,11 @@ function OrderCard({ order, company, clients = [], onBack, initTab, initSvc, ini
             setEditPax(null);
             toast('Данные участника обновлены', 'ok');
           } catch (error) {
-            toast(error.message || 'Не удалось обновить участника', 'err');
+            toast(error.message || 'Не удалось обновить участника', 'err'); return false;
           }
         }} />
 
-      <UnifiedDocumentDrawer open={!!docPax} person={{ name: docPax && docPax.name, citizenship: docPax && docPax.citizenship }}
+      <UnifiedDocumentDrawer open={!!docPax} person={{ id: docPax?.person || docPax?.serverId || docPax?.id, name: docPax && docPax.name, citizenship: docPax && docPax.citizenship }}
         onClose={() => setDocPax(null)}
         onSave={async (doc) => {
           try {
@@ -3432,7 +3434,7 @@ function OrderCard({ order, company, clients = [], onBack, initTab, initSvc, ini
             setDocPax(null);
             toast('Документ добавлен участнику', 'ok');
           } catch (error) {
-            toast(error.message || 'Не удалось добавить документ участнику', 'err');
+            toast(error.message || 'Не удалось добавить документ участнику', 'err'); return false;
           }
         }} />
       <OrderEditDrawer open={editOpen && !loading && !loadError} order={cardOrder} status={status} onStatusChange={changeOrderStatus}
@@ -3477,17 +3479,18 @@ const EDIT_TABS = [
 ];
 
 function OrderEditDrawer({ open, order, status, onStatusChange, services, participants, onClose, onAddPassenger, onSave }) {
+  const draft = useDraftControls('OrderEditDrawer');
   const toast = useToast();
-  const [tab, setTab] = useState('pax');
+  const [tab, setTab] = useDraftState('OrderEditDrawer', "tab", 'pax');
   const secRefs = useRef({});
-  const [trip, setTrip] = useState('rt');
-  const [pts, setPts] = useState(['', '']);
-  const [ptNames, setPtNames] = useState({});
-  const [depDate, setDepDate] = useState(null);
-  const [retDate, setRetDate] = useState(null);
+  const [trip, setTrip] = useDraftState('OrderEditDrawer', "trip", 'rt');
+  const [pts, setPts] = useDraftState('OrderEditDrawer', "pts", ['', '']);
+  const [ptNames, setPtNames] = useDraftState('OrderEditDrawer', "ptNames", {});
+  const [depDate, setDepDate] = useDraftState('OrderEditDrawer', "depDate", null);
+  const [retDate, setRetDate] = useDraftState('OrderEditDrawer', "retDate", null);
   const [cityPick, setCityPick] = useState(null);
-  const [eventType, setEventType] = useState('');
-  const [note, setNote] = useState('');
+  const [eventType, setEventType] = useDraftState('OrderEditDrawer', "eventType", '');
+  const [note, setNote] = useDraftState('OrderEditDrawer', "note", '');
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
@@ -3499,6 +3502,7 @@ function OrderEditDrawer({ open, order, status, onStatusChange, services, partic
 
   useEffect(() => {
     if (!open) return;
+    if (draft.has('trip')) return;
     const route = order.route || {};
     const routePoints = route.points || [];
     const kindToTrip = { one_way: 'ow', round_trip: 'rt', multi_city: 'mc' };
@@ -3546,6 +3550,7 @@ function OrderEditDrawer({ open, order, status, onStatusChange, services, partic
           comment: note,
         });
       }
+      draft.clear();
       onClose();
     } catch (error) {
       toast(error.message || 'Не удалось сохранить изменения', 'err');

@@ -1,3 +1,4 @@
+import { useDraftState, useDraftControls, DraftScope } from '../../../shared/drafts/Drafts.jsx';
 import { FloatingPanel, containsFloatingTarget } from '../../../shared/ui/FloatingPanel.jsx';
 import { Select } from '../../../shared/ui/Select.jsx';
 import { InfoNotice } from '../../../shared/ui/InfoNotice.jsx';
@@ -317,6 +318,7 @@ function OceSec({ n, title, children }) {
 }
 
 function OrderCreateModal({ open, onClose, onCreated, initialGroup = false, initialCustomer = null, clientOptions = [], companyOptions = [] }) {
+  const saved = useDraftControls(`OrderCreateModal/${initialCustomer?.id || 'new'}/${initialGroup}`);
   const toast = useToast();
   const availableClients = clientOptions.map((client) => {
     const person = client.person_detail || client.source || {};
@@ -334,28 +336,28 @@ function OrderCreateModal({ open, onClose, onCreated, initialGroup = false, init
   const firstCompany = availableCompanies[0] || null;
 
 
-  const [clientType, setClientType] = useState('person');
+  const [clientType, setClientType] = useDraftState(`OrderCreateModal/${initialCustomer?.id || 'new'}/${initialGroup}`, "clientType", 'person');
 
-  const [clientQuery, setClientQuery] = useState('');
+  const [clientQuery, setClientQuery] = useDraftState(`OrderCreateModal/${initialCustomer?.id || 'new'}/${initialGroup}`, "clientQuery", '');
   const clientSearchRef = useRef(null);
-  const [selClients, setSelClients] = useState(firstClient ? [firstClient] : []);
-  const [company, setCompany] = useState(firstCompany);
-  const [companyQuery, setCompanyQuery] = useState('');
+  const [selClients, setSelClients] = useDraftState(`OrderCreateModal/${initialCustomer?.id || 'new'}/${initialGroup}`, "selClients", firstClient ? [firstClient] : []);
+  const [company, setCompany] = useDraftState(`OrderCreateModal/${initialCustomer?.id || 'new'}/${initialGroup}`, "company", firstCompany);
+  const [companyQuery, setCompanyQuery] = useDraftState(`OrderCreateModal/${initialCustomer?.id || 'new'}/${initialGroup}`, "companyQuery", '');
   const [companyOpen, setCompanyOpen] = useState(false);
-  const [employees, setEmployees] = useState([]);
+  const [employees, setEmployees] = useDraftState(`OrderCreateModal/${initialCustomer?.id || 'new'}/${initialGroup}`, "employees", []);
   const [creating, setCreating] = useState(false);
 
-  const [trip, setTrip] = useState('rt');
-  const [pts, setPts] = useState(['', '']);
+  const [trip, setTrip] = useDraftState(`OrderCreateModal/${initialCustomer?.id || 'new'}/${initialGroup}`, "trip", 'rt');
+  const [pts, setPts] = useDraftState(`OrderCreateModal/${initialCustomer?.id || 'new'}/${initialGroup}`, "pts", ['', '']);
   // Названия мест, выбранных из справочника: у них нет IATA-кода, и без этого
   // в заказ ушёл бы только усечённый код без человекочитаемого имени.
-  const [ptNames, setPtNames] = useState({});
-  const [depDate, setDepDate] = useState(null);
-  const [retDate, setRetDate] = useState(null);
+  const [ptNames, setPtNames] = useDraftState(`OrderCreateModal/${initialCustomer?.id || 'new'}/${initialGroup}`, "ptNames", {});
+  const [depDate, setDepDate] = useDraftState(`OrderCreateModal/${initialCustomer?.id || 'new'}/${initialGroup}`, "depDate", null);
+  const [retDate, setRetDate] = useDraftState(`OrderCreateModal/${initialCustomer?.id || 'new'}/${initialGroup}`, "retDate", null);
   const [dragIdx, setDragIdx] = useState(null);
 
-  const [svc, setSvc] = useState({});
-  const [isGroup, setIsGroup] = useState(initialGroup);
+  const [svc, setSvc] = useDraftState(`OrderCreateModal/${initialCustomer?.id || 'new'}/${initialGroup}`, "svc", {});
+  const [isGroup, setIsGroup] = useDraftState(`OrderCreateModal/${initialCustomer?.id || 'new'}/${initialGroup}`, "isGroup", initialGroup);
 
   const [cityPick, setCityPick] = useState(null);
   const [docFor, setDocFor] = useState(null);
@@ -365,7 +367,7 @@ function OrderCreateModal({ open, onClose, onCreated, initialGroup = false, init
 
 
   useEffect(() => {
-    if (!open) return;
+    if (!open || saved.has('trip')) return;
     setClientType('person'); setClientQuery('');
     setClientType(initialCustomer?.kind === 'company' ? 'org' : 'person');
     setSelClients(initialCustomer?.kind === 'person' ? availableClients.filter((client) => String(client.id) === String(initialCustomer.id)) : firstClient ? [firstClient] : []); setCompany(initialCustomer?.kind === 'company' ? availableCompanies.find((company) => String(company.id) === String(initialCustomer.id)) || null : firstCompany); setCompanyQuery(''); setCompanyOpen(false); setEmployees([]); setCreating(false);
@@ -450,6 +452,7 @@ function OrderCreateModal({ open, onClose, onCreated, initialGroup = false, init
         },
       });
       const order = toUiOrder({ ...created, services_count: 0, service_kind: null });
+      saved.clear();
       onCreated(order, searchKind);
       toast('Заказ создан — подберите услуги', 'ok');
       onClose();
@@ -697,7 +700,7 @@ function OrderCreateModal({ open, onClose, onCreated, initialGroup = false, init
             await clientsApi.createClient({ person: saved.id, client_type: 'individual' });
             setSelClients((rows) => [...rows, { ...client, id: saved.id, source: saved }]);
             setNewPerson(false); toast('Клиент сохранён', 'ok');
-          } catch (error) { toast(error.message, 'err'); }
+          } catch (error) { toast(error.message, 'err'); return false; }
         }} />
     </>
   );
@@ -1027,12 +1030,12 @@ function OrdersList({ orders, onOpen, onCreate, onNavigate, currentUser }) {
 
 
 function OrdersPage({ intent, onConsume, orders, clients = [], companies = [], addOrder, onOrderUpdated, onDetailChange, onOpenChat, onNavigate, currentUser }) {
-  const [detail, setDetailRaw] = useState(null);
-  const [detailTab, setDetailTab] = useState(null);
-  const [detailSvc, setDetailSvc] = useState(null);
-  const [svcSearch, setSvcSearch] = useState(null);
-  const [createOpen, setCreateOpen] = useState(false);
-  const [createCustomer, setCreateCustomer] = useState(null);
+  const [detail, setDetailRaw] = useDraftState('orders', "detail", null);
+  const [detailTab, setDetailTab] = useDraftState('orders', "detailTab", null);
+  const [detailSvc, setDetailSvc] = useDraftState('orders', "detailSvc", null);
+  const [svcSearch, setSvcSearch] = useDraftState('orders', "svcSearch", null);
+  const [createOpen, setCreateOpen] = useDraftState('orders', "createOpen", false);
+  const [createCustomer, setCreateCustomer] = useDraftState('orders', "createCustomer", null);
   const [fresh, setFresh] = useState(false);
   const setDetail = (o, tab, svc) => { setFresh(false); setDetailRaw(o); setDetailTab(tab || null); setDetailSvc(svc || null); setSvcSearch(null); onDetailChange && onDetailChange(o); };
 
@@ -1051,7 +1054,7 @@ function OrdersPage({ intent, onConsume, orders, clients = [], companies = [], a
 
   if (detail) {
     const company = companies.find((item) => String(item.id) === String(detail.client_company));
-    return <OrderCard key={detail.id} onOrderUpdated={onOrderUpdated} order={detail} company={company} clients={clients} fresh={fresh} initTab={detailTab} initSvc={detailSvc} initSvcSearch={svcSearch} onBack={() => { setDetail(null); onDetailChange && onDetailChange(null); }} onOpenChat={onOpenChat} />;
+    return <DraftScope name={`order/${detail.id}`}><OrderCard key={detail.id} onOrderUpdated={onOrderUpdated} order={detail} company={company} clients={clients} fresh={fresh} initTab={detailTab} initSvc={detailSvc} initSvcSearch={svcSearch} onBack={() => { setDetail(null); onDetailChange && onDetailChange(null); }} onOpenChat={onOpenChat} /></DraftScope>;
   }
   return (
     <>

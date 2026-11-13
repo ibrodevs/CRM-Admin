@@ -1,3 +1,4 @@
+import { useDraftState } from '../../../shared/drafts/Drafts.jsx';
 import { InfoNotice } from '../../../shared/ui/InfoNotice.jsx';
 import React, { useState } from 'react';
 import { Icon } from '../../../shared/icons/index.jsx';
@@ -627,13 +628,13 @@ function AviaPicker({ params, setParams, services = [], onApply, onCancel, onAdd
   const [paxPanel, setPaxPanel] = useState(false);
 
 
-  const [legs, setLegs] = useState({});
-  const [fare, setFare] = useState('optimum');
-  const [classByPax, setClassByPax] = useState({});
-  const [fareByPax, setFareByPax] = useState({});
-  const [individualMode, setIndividualMode] = useState(true);
-  const [groups, setGroups] = useState(() => AVIA_GROUPS_SEED.map((g) => ({ ...g, members: [...g.members] })));
-  const [extras, setExtras] = useState({ seats: {}, baggage: {}, meal: {}, insurance: {}, special: {}, comfort: {} });
+  const [legs, setLegs] = useDraftState('AviaPicker', "legs", {});
+  const [fare, setFare] = useDraftState('AviaPicker', 'fare', 'optimum');
+  const [classByPax, setClassByPax] = useDraftState('AviaPicker', 'classByPax', {});
+  const [fareByPax, setFareByPax] = useDraftState('AviaPicker', 'fareByPax', {});
+  const [individualMode, setIndividualMode] = useDraftState('AviaPicker', 'individualMode', true);
+  const [groups, setGroups] = useDraftState('AviaPicker', 'groups', () => AVIA_GROUPS_SEED.map((g) => ({ ...g, members: [...g.members] })));
+  const [extras, setExtras] = useDraftState('AviaPicker', "extras", { seats: {}, baggage: {}, meal: {}, insurance: {}, special: {}, comfort: {} });
 
 
 

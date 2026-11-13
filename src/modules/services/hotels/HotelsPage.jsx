@@ -1,3 +1,4 @@
+import { useDraftState, useDraftControls } from '../../../shared/drafts/Drafts.jsx';
 import { SectionInfo } from '../../../shared/ui/SectionInfo.jsx';
 import { hotelStayTimes, loadHotelStayOffer } from './search-criteria.js';
 import { InfoNotice } from '../../../shared/ui/InfoNotice.jsx';
@@ -8,7 +9,7 @@ import { HotelRemarks } from './HotelRemarks.jsx';
 import { HotelOccupancyPicker } from './HotelOccupancyPicker.jsx';
 import { HotelMap } from './HotelMap.jsx';
 import { clientsApi } from '../../clients/api.js';
-import { hotelPersonToGuest, hotelGuestSelection, hotelRoomAssignments } from './guests.js';
+import { hotelPersonToGuest, hotelGuestSelection, hotelRoomAssignments, remapHotelDraft } from './guests.js';
 import { hotelPlainText, hotelBedDescription, hotelPaymentDescription, hotelCancellationDescription } from './presentation.js';
 import { hotelProviderCriteria, hotelDateOnly, hotelDateError, hotelOccupancy, hotelCitizenship, hotelBreakfastIncluded, revalidationNeedsConfirmation, hotelCancellationDeadline, hotelMatchesQuery } from './search-criteria.js';
 import { useEffect, useRef, useState } from 'react';
@@ -191,74 +192,85 @@ function HotelFilters({ stars, toggleStar, starCounts, districts, distSel, toggl
 function HotelPicker({ participants, group = false, onApply, onCancel, currency, orderId }) {
   const panelVisible = usePanelVisibility();
   const toast = useToast();
-  const [crmGuests, setCrmGuests] = useState([]);
+  const [crmGuests, setCrmGuests] = useDraftState(`HotelPicker/${orderId || 'free'}`, 'crmGuests', []);
+  const hotelDraft = useDraftControls(`HotelPicker/${orderId || 'free'}`);
   const [guestsLoading, setGuestsLoading] = useState(false);
   const [guestsError, setGuestsError] = useState('');
-  const [addedGuests, setAddedGuests] = useState([]);
-  const [createGuestOpen, setCreateGuestOpen] = useState(false);
-  const [editGuestPersonId, setEditGuestPersonId] = useState(null);
+  const [addedGuests, setAddedGuests] = useDraftState(`HotelPicker/${orderId || 'free'}`, "addedGuests", []);
+  const [createGuestOpen, setCreateGuestOpen] = useDraftState(`HotelPicker/${orderId || 'free'}`, "createGuestOpen", false);
+  const [editGuestPersonId, setEditGuestPersonId] = useDraftState(`HotelPicker/${orderId || 'free'}`, "editGuestPersonId", null);
   const [addingOffer, setAddingOffer] = useState(false);
   const [guestBookingError, setGuestBookingError] = useState('');
   const hasOrderGuests = !!orderId || (Array.isArray(participants) && participants.length > 0);
   const PAX = hasOrderGuests ? mergeHotelGuests(participants || [], addedGuests) : crmGuests;
 
 
-  const [dest, setDest] = useState('');
-  const [destLocation, setDestLocation] = useState(null);
-  const [radius, setRadius] = useState('2 км');
-  const [checkin, setCheckin] = useState(null);
-  const [checkout, setCheckout] = useState(null);
-  const [earlyArrivalTime, setEarlyArrivalTime] = useState('');
-  const [lateDepartureTime, setLateDepartureTime] = useState('');
-  const [occupancyRooms, setOccupancyRooms] = useState(() => Array.from({ length: group ? Math.max(1, Math.ceil(PAX.length / 2)) : 1 }, (_, i) => ({ adults: group ? Math.max(1, Math.min(2, PAX.length - i * 2)) : 2, childrenAges: [] })));
+  const [dest, setDest] = useDraftState(`HotelPicker/${orderId || 'free'}`, "dest", '');
+  const [destLocation, setDestLocation] = useDraftState(`HotelPicker/${orderId || 'free'}`, "destLocation", null);
+  const [radius, setRadius] = useDraftState(`HotelPicker/${orderId || 'free'}`, "radius", '2 км');
+  const [checkin, setCheckin] = useDraftState(`HotelPicker/${orderId || 'free'}`, "checkin", null);
+  const [checkout, setCheckout] = useDraftState(`HotelPicker/${orderId || 'free'}`, "checkout", null);
+  const [earlyArrivalTime, setEarlyArrivalTime] = useDraftState(`HotelPicker/${orderId || 'free'}`, "earlyArrivalTime", '');
+  const [lateDepartureTime, setLateDepartureTime] = useDraftState(`HotelPicker/${orderId || 'free'}`, "lateDepartureTime", '');
+  const [occupancyRooms, setOccupancyRooms] = useDraftState(`HotelPicker/${orderId || 'free'}`, "occupancyRooms", () => Array.from({ length: group ? Math.max(1, Math.ceil(PAX.length / 2)) : 1 }, (_, i) => ({ adults: group ? Math.max(1, Math.min(2, PAX.length - i * 2)) : 2, childrenAges: [] })));
   const occupancy = hotelOccupancy(occupancyRooms);
   const searchRooms = occupancyRooms.length;
   const searchGuests = occupancy.guests;
   const today = new Date(); today.setHours(0, 0, 0, 0);
   const dateError = hotelDateError(checkin, checkout, today);
-  const [meal, setMeal] = useState('BB');
-  const [freeCancelOnly, setFreeCancelOnly] = useState(false);
-  const [citizenship, setCitizenship] = useState('');
+  const [meal, setMeal] = useDraftState(`HotelPicker/${orderId || 'free'}`, "meal", 'BB');
+  const [freeCancelOnly, setFreeCancelOnly] = useDraftState(`HotelPicker/${orderId || 'free'}`, "freeCancelOnly", false);
+  const [citizenship, setCitizenship] = useDraftState(`HotelPicker/${orderId || 'free'}`, "citizenship", '');
 
 
-  const [stars, setStars] = useState({});
-  const [distSel, setDistSel] = useState({});
-  const [hotelQ, setHotelQ] = useState('');
-  const [sort, setSort] = useState('rec');
-  const [liveHotels, setLiveHotels] = useState([]);
+  const [stars, setStars] = useDraftState(`HotelPicker/${orderId || 'free'}`, "stars", {});
+  const [distSel, setDistSel] = useDraftState(`HotelPicker/${orderId || 'free'}`, "distSel", {});
+  const [hotelQ, setHotelQ] = useDraftState(`HotelPicker/${orderId || 'free'}`, "hotelQ", '');
+  const [sort, setSort] = useDraftState(`HotelPicker/${orderId || 'free'}`, "sort", 'rec');
+  const [liveHotels, setLiveHotels] = useDraftState(`HotelPicker/${orderId || 'free'}`, "liveHotels", []);
   const [searching, setSearching] = useState(false);
   const [openingHotel, setOpeningHotel] = useState(false);
   const selectingHotel = useRef(false);
   const [searchError, setSearchError] = useState('');
   useEffect(() => { setSearchError(''); }, [dest, checkin, checkout, occupancyRooms]);
-  const [hasSearched, setHasSearched] = useState(false);
+  const [hasSearched, setHasSearched] = useDraftState(`HotelPicker/${orderId || 'free'}`, "hasSearched", false);
   const [mapOpen, setMapOpen] = useState(false);
 
 
-  const [activeHotel, setActiveHotel] = useState(null);
-  const [panel, setPanel] = useState(null);
+  const [activeHotel, setActiveHotel] = useDraftState(`HotelPicker/${orderId || 'free'}`, "activeHotel", null);
+  const [panel, setPanel] = useDraftState(`HotelPicker/${orderId || 'free'}`, "panel", null);
   const roomSearchVersion = useRef(0);
   const [roomSearchUnavailable, setRoomSearchUnavailable] = useState(false);
-  const [groupMode, setGroupMode] = useState(group);
+  const [groupMode, setGroupMode] = useDraftState(`HotelPicker/${orderId || 'free'}`, "groupMode", group);
 
-  const [selRoom, setSelRoom] = useState(null);
-  const [selTariff, setSelTariff] = useState(null);
-
-
-  const [bedType, setBedType] = useState('double');
-  const [mainGuest, setMainGuest] = useState(0);
-  const [guestSel, setGuestSel] = useState({});
-  const [specialReq, setSpecialReq] = useState('');
-  const [hotelRemarks, setHotelRemarks] = useState([]);
-  const [guestRooms, setGuestRooms] = useState({});
+  const [selRoom, setSelRoom] = useDraftState(`HotelPicker/${orderId || 'free'}`, "selRoom", null);
+  const [selTariff, setSelTariff] = useDraftState(`HotelPicker/${orderId || 'free'}`, "selTariff", null);
 
 
-  const [roomGroups, setRoomGroups] = useState([]);
+  const [bedType, setBedType] = useDraftState(`HotelPicker/${orderId || 'free'}`, "bedType", 'double');
+  const [mainGuest, setMainGuest] = useDraftState(`HotelPicker/${orderId || 'free'}`, "mainGuest", 0);
+  const [guestSel, setGuestSel] = useDraftState(`HotelPicker/${orderId || 'free'}`, "guestSel", {});
+  const [specialReq, setSpecialReq] = useDraftState(`HotelPicker/${orderId || 'free'}`, "specialReq", '');
+  const [hotelRemarks, setHotelRemarks] = useDraftState(`HotelPicker/${orderId || 'free'}`, "hotelRemarks", []);
+  const [guestRooms, setGuestRooms] = useDraftState(`HotelPicker/${orderId || 'free'}`, "guestRooms", {});
+
+
+  const [roomGroups, setRoomGroups] = useDraftState(`HotelPicker/${orderId || 'free'}`, "roomGroups", []);
   const [editRoomId, setEditRoomId] = useState(null);
   const [addRoomOpen, setAddRoomOpen] = useState(false);
 
 
-  const [supplierComment, setSupplierComment] = useState('');
+  const [supplierComment, setSupplierComment] = useDraftState(`HotelPicker/${orderId || 'free'}`, "supplierComment", '');
+  const [savedGuestIds, setSavedGuestIds] = useDraftState(`HotelPicker/${orderId || 'free'}`, 'guestIds', []);
+  const currentGuestIds = JSON.stringify(PAX.map((guest) => String(guest.person || guest.id)));
+  useEffect(() => {
+    if (!PAX.length || JSON.stringify(savedGuestIds) === currentGuestIds) return;
+    if (savedGuestIds.length) {
+      const next = remapHotelDraft(savedGuestIds, PAX, { selection: guestSel, assignments: guestRooms, mainGuest, groups: roomGroups });
+      setGuestSel(next.selection); setGuestRooms(next.assignments); setMainGuest(next.mainGuest); setRoomGroups(next.groups);
+    }
+    setSavedGuestIds(JSON.parse(currentGuestIds));
+  }, [currentGuestIds]);
 
   useEffect(() => {
     if (panel !== 'pax' || hasOrderGuests) return undefined;
@@ -484,12 +496,14 @@ function HotelPicker({ participants, group = false, onApply, onCancel, currency,
       if (activeHotel.provider_adapter === 'hotelbook') await validateHotelBookingGuests(hotelGuestSelection(PAX, guestSel, mainGuest), clientsApi, { documentRequired: true, checkout: hotelDateOnly(checkout) });
       const sub = `${selRoom.name} · ${nights} ${nights === 1 ? 'ночь' : 'ночи'} · ${selTariff.name}`;
       await onApply?.(buildOffer(sub));
+      hotelDraft.clear();
       toast('Вариант гостиницы выбран', 'ok');
       closeAll();
     } catch (error) { setGuestBookingError(error.message || 'Не удалось добавить гостиницу'); }
     finally { setAddingOffer(false); }
   };
-  const finalizeGroup = () => {
+  const finalizeGroup = async () => {
+    if (addingOffer) return;
     if (activeHotel.provider_adapter === 'hotelbook') {
       const slots = hotelRoomAssignments([], {}, 0, activeHotel.fare?.rooms).slots;
       if (slots.length !== roomGroups.length || slots.some((slot, i) => roomGroups[i].members.length !== slot.capacity)
@@ -499,10 +513,16 @@ function HotelPicker({ participants, group = false, onApply, onCancel, currency,
       }
     }
     const sub = `${roomGroups.length} номеров · ${PAX.length} гостей · ${nights} ${nights === 1 ? 'ночь' : 'ночи'}`;
-    onApply && onApply(buildOffer(sub));
-    toast('Групповой вариант гостиницы выбран', 'ok');
-    closeAll();
+    setAddingOffer(true); setGuestBookingError('');
+    try {
+      await onApply?.(buildOffer(sub));
+      hotelDraft.clear();
+      toast('Групповой вариант гостиницы выбран', 'ok');
+      closeAll();
+    } catch (error) { setGuestBookingError(error.message || 'Не удалось добавить гостиницу'); }
+    finally { setAddingOffer(false); }
   };
+
   const closeAll = () => { roomSearchVersion.current += 1; setPanel(null); setActiveHotel(null); setRoomGroups([]); setEditRoomId(null); setAddRoomOpen(false); };
   useEffect(() => {
     if (!panelVisible) { closeAll(); setMapOpen(false); setCreateGuestOpen(false); }
@@ -719,8 +739,8 @@ function HotelPicker({ participants, group = false, onApply, onCancel, currency,
 
 
 function HotelPanelHead({ hotel, checkin, checkout, nights, guestsLabel, guests, rooms, onEdit, occupancyRooms, onSearchStay, searching = false, searchError = '', onEditingChange }) {
-  const [editing, setEditing] = useState(false);
-  const [draft, setDraft] = useState(null);
+  const [editing, setEditing] = useDraftState(`hotel-header/${hotel.id}`, "editing", false);
+  const [draft, setDraft] = useDraftState(`hotel-header/${hotel.id}`, "draft", null);
   const startEditing = () => {
     if (!onSearchStay) { onEdit?.(); return; }
     const times = hotelStayTimes(hotel.itinerary);
@@ -1346,8 +1366,8 @@ function ConfirmPanel({ hotel, pax, roomGroups, catById, nights, checkin, checko
 
 
 function RoomGroupEditor({ title, hotel, onClose, onSave }) {
-  const [cat, setCat] = useState(hotel.rooms[0].id);
-  const [bed, setBed] = useState('double');
+  const [cat, setCat] = useDraftState(`room-editor/${hotel.id}`, "cat", hotel.rooms[0].id);
+  const [bed, setBed] = useDraftState(`room-editor/${hotel.id}`, "bed", 'double');
   return (
     <StackPanel title={title} width="min(560px,92vw)" onClose={onClose}
       footer={<><Button variant="secondary" style={{ flex: 1 }} onClick={onClose}>Отмена</Button>
@@ -1367,8 +1387,8 @@ function RoomGroupEditor({ title, hotel, onClose, onSave }) {
 
 
 function GroupCompositionEditor({ hotel, pax, roomGroups, group, catById, onClose, onSave, onRemove }) {
-  const [members, setMembers] = useState([...group.members]);
-  const [q, setQ] = useState('');
+  const [members, setMembers] = useDraftState(`group-editor/${hotel.id}/${group.id}`, "members", [...group.members]);
+  const [q, setQ] = useDraftState(`group-editor/${hotel.id}/${group.id}`, "q", '');
   const cat = catById(group.cat);
   const otherRoomOf = (i) => roomGroups.find((g) => g.id !== group.id && g.members.includes(i));
   const toggle = (i) => setMembers((m) => m.includes(i) ? m.filter((x) => x !== i) : [...m, i]);
@@ -1421,7 +1441,7 @@ function GroupCompositionEditor({ hotel, pax, roomGroups, group, catById, onClos
 
 function HotelsPage({ orders = [] }) {
   const toast = useToast();
-  const [selectedOffer, setSelectedOffer] = useState(null);
+  const [selectedOffer, setSelectedOffer] = useDraftState('HotelsPage', "selectedOffer", null);
   const attach = async (target) => {
     const order = target.order;
     if (!order?.id || !selectedOffer?._backendOfferId) return;

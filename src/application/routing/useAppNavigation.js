@@ -1,3 +1,4 @@
+import { useDraftState, useDraftControls } from '../../shared/drafts/Drafts.jsx';
 import { useAuth } from '../../shared/auth/auth-context.jsx';
 import { useState, useEffect, useRef } from 'react';
 import { toUiThread } from '../../modules/chats/model.js';
@@ -5,13 +6,15 @@ import { toUiThread } from '../../modules/chats/model.js';
 export function useAppNavigation() {
   const { user } = useAuth();
   const initialized = useRef(null);
-  const [route, setRoute] = useState('dashboard');
+  const navigationDraft = useDraftControls('navigation');
+  const [route, setRoute] = useDraftState('navigation', 'route', 'dashboard');
   useEffect(() => {
     if (!user) { initialized.current = null; return; }
     if (initialized.current === user.id) return;
     initialized.current = user.id;
     const supplierMatch = window.location.hash.match(/^#supplier-([a-f0-9-]{36})$/i);
     if (supplierMatch) { setRoute('suppliers'); setIntent({ type: 'open', supplierId: supplierMatch[1] }); return; }
+    if (navigationDraft.has('route')) return;
     const start = user.preferences?.start_page;
     setRoute(['dashboard', 'orders', 'fulfillment', 'chats'].includes(start) ? start : 'dashboard');
   }, [user?.id, user?.preferences?.start_page]);

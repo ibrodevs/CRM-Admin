@@ -53,7 +53,7 @@ function EmployeeCreateDrawer({ open, departments, defaultDept, coName, initial,
         + (person.inPolicy && mode !== 'edit' ? ' · включён в тревел-политику' : ''), 'ok');
       onClose();
     } catch (error) {
-      toast(error.message || 'Не удалось сохранить сотрудника', 'err');
+      toast(error.message || 'Не удалось сохранить сотрудника', 'err'); return false;
     }
   };
   return (

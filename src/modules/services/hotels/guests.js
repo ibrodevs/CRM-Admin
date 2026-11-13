@@ -43,3 +43,11 @@ export function hotelRoomAssignments(guests, selection, mainGuest, rooms = [], a
     valid: slots.every((room, n) => indices.filter((i) => byIndex[i] === `room:${n}`).length === room.capacity)
       && indices.length === defaults.length };
 }
+
+export function remapHotelDraft(previousIds, guests, draft) {
+  const nextIds = guests.map((guest) => String(guest.person || guest.id));
+  const index = (old) => nextIds.indexOf(String(previousIds[old]));
+  const remap = (values) => Object.fromEntries(Object.entries(values || {}).flatMap(([old, value]) => index(old) < 0 ? [] : [[index(old), value]]));
+  return { selection: remap(draft.selection), assignments: remap(draft.assignments), mainGuest: index(draft.mainGuest),
+    groups: (draft.groups || []).map((group) => ({ ...group, members: (group.members || []).map(index).filter((id) => id >= 0) })) };
+}

@@ -1,3 +1,4 @@
+import { useDraftState } from '../../../shared/drafts/Drafts.jsx';
 import { SectionInfo } from '../../../shared/ui/SectionInfo.jsx';
 import { ordersApi } from '../../orders/api.js';
 import { toUiOrder } from '../../orders/model.js';
@@ -90,7 +91,7 @@ function ClientCard({ c: c0, orders: allOrders = ORDERS, onBack, onOpenOrder, on
       setDocs((cur) => [...cur, { ...saved, docType: doc.docType || saved.type, docNo: saved.number_masked || doc.docNo }]);
       setDocOpen(false);
       toast('Документ добавлен в backend', 'ok');
-    } catch (error) { toast(error.message || 'Не удалось добавить документ', 'err'); }
+    } catch (error) { toast(error.message || 'Не удалось добавить документ', 'err'); return false; }
   };
   const orders = ordersForClient(c, entityOrders);
   return (
@@ -192,7 +193,7 @@ function ClientCreateModal({ open, initial, onClose, onCreated }) {
       }
       onCreated(profile); toast('Клиент «' + profile.name + '» ' + (mode === 'edit' ? 'обновлён' : 'добавлен'), 'ok'); onClose();
     } catch (error) {
-      toast(error.message || 'Не удалось сохранить клиента', 'err');
+      toast(error.message || 'Не удалось сохранить клиента', 'err'); return false;
     }
   };
   return (
@@ -202,12 +203,12 @@ function ClientCreateModal({ open, initial, onClose, onCreated }) {
 }
 
 function ClientsPage({ initialClients = [], orders = [], onClientsChange, onOpenOrder, onCreateOrder, onOpenChat, intent, onConsume }) {
-  const [view, setView] = useState('list');
-  const [active, setActive] = useState(null);
+  const [view, setView] = useDraftState('ClientsPage', 'view', 'list');
+  const [active, setActive] = useDraftState('ClientsPage', 'active', null);
   const [q, setQ] = useState('');
   const [fStatus, setFStatus] = useState('');
   const [clients, setClients] = useState(initialClients);
-  const [createOpen, setCreateOpen] = useState(false);
+  const [createOpen, setCreateOpen] = useDraftState('ClientsPage', 'createOpen', false);
   const { sort, onSort, apply } = useSort(null);
 
   useEffect(() => { setClients(initialClients); }, [initialClients]);

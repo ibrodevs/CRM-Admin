@@ -1,3 +1,4 @@
+import { useDraftState, useDraftControls } from '../../../shared/drafts/Drafts.jsx';
 import { clientsApi } from '../api/clientsApi.js';
 import { useState, useEffect, useRef } from 'react';
 import { Icon } from '../../../shared/icons/index.jsx';
@@ -340,26 +341,28 @@ function UnifiedPersonFields({ value, onChange, errors = {}, departments = [], s
 
 function UnifiedPersonDrawer({ open, kind = 'person', mode = 'create', initial, company, departments = [], showRole = false, title, onClose, onSave }) {
   const toast = useToast();
-  const [p, setP] = useState(ufBlankPerson(kind));
+  const draft = useDraftControls(`Person/${kind}/${initial?.id || initial?.serverId || 'new'}/${(typeof company === 'string' ? company : company?.id || company?.name) || ''}`);
+  const [p, setP] = useDraftState(`Person/${kind}/${initial?.id || initial?.serverId || 'new'}/${(typeof company === 'string' ? company : company?.id || company?.name) || ''}`, "p", ufBlankPerson(kind));
   const [errs, setErrs] = useState({});
-  const [docFor, setDocFor] = useState(false);
+  const [docFor, setDocFor] = useDraftState(`Person/${kind}/${initial?.id || initial?.serverId || 'new'}/${(typeof company === 'string' ? company : company?.id || company?.name) || ''}`, "docFor", false);
   // Новая карточка по умолчанию предлагает распознавание документа: это
   // альтернатива ручному вводу, а не действие в конце анкеты. При
   // редактировании данные уже есть — там сразу ручной режим.
-  const [intakeMode, setIntakeMode] = useState(mode === 'edit' ? 'manual' : 'ocr');
+  const [intakeMode, setIntakeMode] = useDraftState(`Person/${kind}/${initial?.id || initial?.serverId || 'new'}/${(typeof company === 'string' ? company : company?.id || company?.name) || ''}`, "intakeMode", mode === 'edit' ? 'manual' : 'ocr');
   useEffect(() => {
-    if (!open) return;
+    if (!open || draft.has('p')) return;
     const base = initial ? (initial.kind ? { ...ufBlankPerson(kind), ...initial } : ufFromClient(initial, kind)) : ufBlankPerson(kind);
     setP({ ...base, kind });
     setErrs({});
     setIntakeMode(mode === 'edit' || initial ? 'manual' : 'ocr');
   }, [open, kind, initial, mode]);
   if (!open) return null;
-  const submit = () => {
+  const submit = async () => {
     const er = ufValidatePerson(p);
     setErrs(er);
     if (Object.keys(er).length) { toast('Проверьте обязательные поля', 'err'); return; }
-    onSave && onSave(p, ufToClient(p));
+    try { if (onSave) { const result = await onSave(p, ufToClient(p)); if (result !== false) draft.clear(); } }
+    catch (error) { toast(error.message || 'Не удалось сохранить данные', 'err'); }
   };
   const heading = title || (mode === 'edit'
     ? (kind === 'employee' ? 'Редактирование сотрудника' : 'Редактирование клиента')
@@ -401,15 +404,16 @@ function ufBlankDoc(person) {
 
 function UnifiedDocumentDrawer({ open, person = {}, initial, mode = 'create', onClose, onSave }) {
   const toast = useToast();
-  const [mth, setMth] = useState('ocr');
-  const [scanned, setScanned] = useState(false);
+  const [mth, setMth] = useDraftState(`Document/${person.id || person.name || 'new'}/${initial?.id || 'new'}`, "mth", 'ocr');
+  const [scanned, setScanned] = useDraftState(`Document/${person.id || person.name || 'new'}/${initial?.id || 'new'}`, "scanned", false);
   const [ocrBusy, setOcrBusy] = useState(false);
   const [ocrNote, setOcrNote] = useState('');
   const fileRef = useRef(null);
-  const [d, setD] = useState(ufBlankDoc(person));
+  const draft = useDraftControls(`Document/${person.id || person.name || 'new'}/${initial?.id || 'new'}`);
+  const [d, setD] = useDraftState(`Document/${person.id || person.name || 'new'}/${initial?.id || 'new'}`, "d", ufBlankDoc(person));
   const set = (k, v) => setD((s) => ({ ...s, [k]: v }));
   useEffect(() => {
-    if (!open) return;
+    if (!open || draft.has('d')) return;
     setD(initial ? { ...ufBlankDoc(person), ...initial } : ufBlankDoc(person));
     setMth(initial ? 'manual' : 'ocr'); setScanned(!!initial);
     setOcrBusy(false); setOcrNote('');
@@ -448,9 +452,10 @@ function UnifiedDocumentDrawer({ open, person = {}, initial, mode = 'create', on
       setOcrBusy(false);
     }
   };
-  const submit = () => {
+  const submit = async () => {
     if (!d.docNo.trim()) { toast('Укажите номер документа', 'err'); return; }
-    onSave && onSave({ ...d });
+    try { if (onSave) { const result = await onSave({ ...d }); if (result !== false) draft.clear(); } }
+    catch (error) { toast(error.message || 'Не удалось сохранить документ', 'err'); }
   };
   return (
     <Drawer open={open} onClose={onClose} title={mode === 'edit' ? 'Редактирование документа' : 'Добавление документа'}

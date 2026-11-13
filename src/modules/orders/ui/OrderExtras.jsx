@@ -161,7 +161,7 @@ function PassengerDrawer({ open, onClose, onAdd }) {
           toast('Пассажир добавлен', 'ok');
           onClose();
         } catch (error) {
-          toast(error.message || 'Не удалось добавить пассажира', 'err');
+          toast(error.message || 'Не удалось добавить пассажира', 'err'); return false;
         }
       }} />
   );

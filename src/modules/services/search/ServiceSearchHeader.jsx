@@ -1,11 +1,12 @@
+import { useDraftState } from '../../../shared/drafts/Drafts.jsx';
 import { useEffect, useRef, useState } from 'react';
 import { Button } from '../../../shared/ui/Button.jsx';
 import { Icon } from '../../../shared/icons/index.jsx';
 import { cloneSearchValues } from './search-header.js';
 
 export function ServiceSearchHeader({ title, subtitle, supplier, icon = 'search', values, fields, onSearch, busy = false, onEditingChange, children }) {
-  const [editing, setEditing] = useState(false);
-  const [draft, setDraft] = useState(null);
+  const [editing, setEditing] = useDraftState(`SearchHeader/${title}`, 'editing', false);
+  const [draft, setDraft] = useDraftState(`SearchHeader/${title}`, 'draft', null);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
   const mounted = useRef(true);

@@ -1,3 +1,4 @@
+import { useDraftState, useDraftControls } from '../../../shared/drafts/Drafts.jsx';
 import { InfoNotice } from '../../../shared/ui/InfoNotice.jsx';
 import { useEffect, useRef, useState } from 'react';
 import { Drawer } from '../../../shared/ui/Overlays.jsx';
@@ -9,13 +10,15 @@ import { ordersApi } from '../../orders/api.js';
 import { hotelGuestErrors, hotelGuestApiErrors, persistHotelGuest, hotelGuestDocumentErrors, suitableHotelDocument } from './guest-create.js';
 
 export function HotelGuestCreateDrawer({ orderId, onClose, onCreated, documentRequired = false, checkout, personId }) {
-  const [form, setForm] = useState(() => ({ ...ufBlankPerson('person'), latFirst: '', latLast: '', citizenship: '', city: '' }));
+  const scope = `HotelGuest/${orderId || 'free'}/${personId || 'new'}`;
+  const draft = useDraftControls(scope);
+  const [form, setForm] = useDraftState(scope, 'form', () => ({ ...ufBlankPerson('person'), latFirst: '', latLast: '', citizenship: '', city: '' }));
   const [errors, setErrors] = useState({});
   const [error, setError] = useState('');
   const [candidates, setCandidates] = useState([]);
   const [saving, setSaving] = useState(false);
-  const [savedPerson, setSavedPerson] = useState(null);
-  const [editPersonId, setEditPersonId] = useState(personId || null);
+  const [savedPerson, setSavedPerson] = useDraftState(scope, 'savedPerson', null);
+  const [editPersonId, setEditPersonId] = useDraftState(scope, 'editPersonId', personId || null);
   const busy = useRef(false);
   const save = async (reusePerson) => {
     if (busy.current) return;
@@ -29,6 +32,7 @@ export function HotelGuestCreateDrawer({ orderId, onClose, onCreated, documentRe
     try {
       const guest = await persistHotelGuest({ payload, api: clientsApi, orderId, orderApi: ordersApi, documentRequired, checkout, savedPerson: reusePerson || savedPerson, editPersonId, onPersonSaved: setSavedPerson });
       await onCreated(guest);
+      draft.clear();
       onClose();
     } catch (err) {
       setError(err.message || 'Не удалось сохранить гостя');
@@ -56,7 +60,7 @@ export function HotelGuestCreateDrawer({ orderId, onClose, onCreated, documentRe
     } catch (err) { setError(err.message || 'Не удалось загрузить данные человека'); }
     finally { busy.current = false; setSaving(false); }
   };
-  useEffect(() => { if (personId) reuse({ id: personId }, true); }, [personId]);
+  useEffect(() => { if (personId && !draft.has('form')) reuse({ id: personId }, true); }, [personId]);
   return <Drawer open title={editPersonId ? 'Данные гостя' : 'Новый гость'} sub="Единая карточка человека в CRM" width="min(640px,96vw)" onClose={saving ? undefined : onClose}
     footer={<><Button variant="secondary" disabled={saving} onClick={onClose}>Отмена</Button><div style={{ flex: 1 }} /><Button icon="check" disabled={saving} onClick={() => save()}>{saving ? 'Сохранение…' : savedPerson ? 'Повторить добавление' : editPersonId ? 'Сохранить и выбрать' : 'Создать и выбрать'}</Button></>}>
     {error && <div className="hp-placement-alert" role="alert">{error}</div>}
