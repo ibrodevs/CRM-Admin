@@ -1,3 +1,4 @@
+import { flightLocationCode } from './airport-options.js';
 import { resolveCurrency } from '../../../shared/lib/money.js';
 import { resultsOf } from '../../../shared/api/client.js';
 
@@ -16,7 +17,7 @@ export function freeFlightDate(value) {
 export function validateFreeFlightSearch(params) {
   const segments = params.trip === 'mc' ? freeFlightSegments(params) : [{ from: params.from, to: params.to, date: params.depDate }];
   if (segments.some((s) => !s.from || !s.to || !freeFlightDate(s.date)) || (params.trip === 'rt' && !freeFlightDate(params.retDate))) return 'Заполните маршрут и даты поездки';
-  if (segments.some((s) => s.from === s.to)) return 'Выберите разные аэропорты отправления и прибытия';
+  if (segments.some((s) => flightLocationCode(s.from) === flightLocationCode(s.to))) return 'Выберите разные аэропорты отправления и прибытия';
   if (params.trip === 'rt' && freeFlightDate(params.retDate) < freeFlightDate(params.depDate)) return 'Дата возвращения должна быть не раньше вылета';
   if (params.trip === 'mc' && segments.some((s, i) => i > 0 && freeFlightDate(s.date) < freeFlightDate(segments[i - 1].date))) return 'Даты перелётов должны идти по порядку';
   if (!(params.pax?.adt >= 1)) return 'Укажите хотя бы одного взрослого пассажира';
@@ -26,7 +27,7 @@ export function freeFlightCriteria(params) {
   const pax = params.pax;
   const first = params.trip === 'mc' ? freeFlightSegments(params)[0] : { from: params.from, to: params.to, date: params.depDate };
   return {
-    origin: first.from, destination: first.to, date: freeFlightDate(first.date),
+    origin: flightLocationCode(first.from), destination: flightLocationCode(first.to), date: freeFlightDate(first.date),
     ...(params.trip === 'rt' ? { return_date: freeFlightDate(params.retDate) } : {}),
     cabin: { 'Эконом': 'economy', 'Комфорт': 'premium_economy', 'Бизнес': 'business', 'Первый': 'first' }[params.cabin] || 'economy',
     passengers: pax.adt + pax.chd + pax.infNoSeat + pax.infSeat,
@@ -37,7 +38,7 @@ export function freeFlightCriteria(params) {
     seek_subsidized: !!params.seekSubsidized, seek_group_fares: !!params.seekGroupFares,
     baggage: !!params.baggage, flexible_dates: !!params.flex, direct_only: !!params.direct, airline: params.airline || '',
     currency: resolveCurrency(params.currency), trip: params.trip,
-    ...(params.trip === 'mc' ? { segments: freeFlightSegments(params).map((s) => ({ origin: s.from, destination: s.to, date: freeFlightDate(s.date) })) } : {}),
+    ...(params.trip === 'mc' ? { segments: freeFlightSegments(params).map((s) => ({ origin: flightLocationCode(s.from), destination: flightLocationCode(s.to), date: freeFlightDate(s.date) })) } : {}),
   };
 }
 export async function searchFreeFlightOffers(params, api, pause = (ms) => new Promise((resolve) => setTimeout(resolve, ms))) {

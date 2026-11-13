@@ -1,3 +1,4 @@
+import { airportOption, searchAirportOptions, flightLocationCode } from './airport-options.js';
 import { FloatingPanel, containsFloatingTarget } from '../../../shared/ui/FloatingPanel.jsx';
 import { SectionInfo } from '../../../shared/ui/SectionInfo.jsx';
 import { FlightSearchHeader } from '../search/FlightSearchHeader.jsx';
@@ -24,7 +25,7 @@ import { Th, useSort } from '../../../shared/ui/Table.jsx';
 import { Toggle } from '../../../shared/ui/Toggle.jsx';
 import { plural } from '../../../shared/ui/plural.js';
 import { useToast } from '../../../shared/ui/Toast.jsx';
-import { AIRLINES, AIRPORTS, AIR_STATS, AIR_STATUS, CABIN_CLASSES, SPECIAL_PAX_CATEGORIES, SUBSIDIZED_PAX_PROGRAMS } from '../../../legacy/data/index.jsx';
+import { AIRLINES, AIR_STATS, AIR_STATUS, CABIN_CLASSES, SPECIAL_PAX_CATEGORIES, SUBSIDIZED_PAX_PROGRAMS } from '../../../legacy/data/index.jsx';
 import { Topbar } from '../../../shared/ui/Topbar.jsx';
 import { ExtrasTabs } from './AviaPicker.jsx';
 import { OperationConfirmModal } from '../../orders/index.js';
@@ -78,9 +79,8 @@ function AirportField({ label, value, onChange, placeholder = 'Город или
     document.addEventListener('mousedown', h);
     return () => document.removeEventListener('mousedown', h);
   }, []);
-  const sel = AIRPORTS.find((a) => a.code === value);
-  const s = q.trim().toLowerCase();
-  const list = AIRPORTS.filter((a) => !s || a.city.toLowerCase().includes(s) || a.code.toLowerCase().includes(s) || a.name.toLowerCase().includes(s));
+  const sel = airportOption(value);
+  const list = searchAirportOptions(q);
   return (
     <div className="av-field" style={{ position: 'relative', width: 196 }} ref={ref}>
       {label && <span className="label">{label}</span>}
@@ -88,18 +88,18 @@ function AirportField({ label, value, onChange, placeholder = 'Город или
         onClick={() => setOpen((o) => !o)}>
         <Icon name="plane" style={{ width: 18, height: 18, color: 'var(--muted-2)', flexShrink: 0 }} />
         <span style={{ color: sel ? 'var(--ink)' : 'var(--faint)', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-          {sel ? `${sel.city} · ${sel.code}` : placeholder}
+          {sel ? `${sel.city} · ${sel.kind === 'city' ? 'все аэропорты' : sel.code}` : value || placeholder}
         </span>
       </div>
       {open && (
-        <FloatingPanel anchorRef={ref} onClose={() => setOpen(false)} className="dropdown scroll" maxHeight={280} style={{ padding: 8 }}>
+        <FloatingPanel anchorRef={ref} onClose={() => setOpen(false)} className="dropdown scroll" minWidth={340} maxHeight={360} style={{ padding: 8 }}>
           <input ref={searchRef} className="input" aria-label="Поиск города или аэропорта" value={q} onChange={(e) => setQ(e.target.value)}
             placeholder="Поиск аэропорта" style={{ marginBottom: 6 }} />
           {list.map((a) => (
-            <div key={a.code} className="dropdown-item" onClick={() => { onChange(a.code); setOpen(false); setQ(''); }}>
+            <div key={a.value} className="dropdown-item" onClick={() => { onChange(a.value); setOpen(false); setQ(''); }}>
               <span style={{ width: 34, fontWeight: 700, color: 'var(--blue)' }}>{a.code}</span>
               <span style={{ flex: 1 }}>
-                <div style={{ fontWeight: 600 }}>{a.city}</div>
+                <div style={{ fontWeight: 600 }}>{a.city}{a.kind === 'city' ? ' — все аэропорты' : ''}</div>
                 <div style={{ fontSize: 12, color: 'var(--muted)' }}>{a.name}, {a.country}</div>
               </span>
             </div>
@@ -625,8 +625,8 @@ function FlightResults({ params, liveOffers = [], loading = false, onSelect, onB
   const SORTS = { cheap: (a, b) => (a.fare + a.fee) - (b.fare + b.fee), fast: (a, b) => durMin(a.out.dur) - durMin(b.out.dur), early: (a, b) => a.out.dep.localeCompare(b.out.dep), best: (a, b) => (a.fare + a.fee + durMin(a.out.dur)) - (b.fare + b.fee + durMin(b.out.dur)) };
   offers = [...offers].sort(SORTS[sort]);
 
-  const fromCity = (AIRPORTS.find((a) => a.code === params.from) || {}).city || params.from;
-  const toCity = (AIRPORTS.find((a) => a.code === params.to) || {}).city || params.to;
+  const fromCity = airportOption(params.from)?.city || params.from;
+  const toCity = airportOption(params.to)?.city || params.to;
   const toggleCompare = (o) => setCompare((c) => c.find((x) => x.id === o.id) ? c.filter((x) => x.id !== o.id) : (c.length >= 3 ? (toast('Можно сравнить до 3 вариантов', 'err'), c) : [...c, o]));
 
   return (
@@ -2434,13 +2434,13 @@ function serviceFlightRow(item) {
 async function loadLiveFlightOffers(params) {
   const created = await servicesApi.search({
     kind: 'avia', criteria: {
-      origin: params.from, destination: params.to,
+      origin: flightLocationCode(params.from), destination: flightLocationCode(params.to),
       date: params.depDate instanceof Date ? params.depDate.toLocaleDateString('en-CA') : params.depDate || undefined,
       return_date: params.trip === 'rt' ? (params.retDate instanceof Date ? params.retDate.toLocaleDateString('en-CA') : params.retDate || undefined) : undefined,
       cabin: { 'Эконом': 'economy', 'Бизнес': 'business', 'Первый': 'first' }[params.cabin] || 'economy',
       passengers: paxTotal(params.pax), currency: resolveCurrency(params.currency),
       trip: params.trip,
-      ...(params.trip === 'mc' ? { segments: (params.segments || []).map((segment) => ({ origin: segment.from, destination: segment.to, date: segment.date instanceof Date ? segment.date.toLocaleDateString('en-CA') : segment.date })) } : {}),
+      ...(params.trip === 'mc' ? { segments: (params.segments || []).map((segment) => ({ origin: flightLocationCode(segment.from), destination: flightLocationCode(segment.to), date: segment.date instanceof Date ? segment.date.toLocaleDateString('en-CA') : segment.date })) } : {}),
     },
   });
   for (let attempt = 0; attempt < 30; attempt += 1) {
