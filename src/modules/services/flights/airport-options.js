@@ -5,7 +5,7 @@ import catalog from './airport-catalog.json' with { type: 'json' };
 const countries = new Intl.DisplayNames(['ru'], { type: 'region' });
 const normalize = (value) => String(value || '').toLowerCase().replaceAll('ё', 'е');
 const airports = catalog.map(([code, cityCode, city, name, countryCode, cityEnglish, nameEnglish]) => ({
-  value: code, code, cityCode, city, name, country: countries.of(countryCode) || countryCode,
+  value: code, code, cityCode, city: city || cityEnglish || cityCode || code, name: name || nameEnglish || code, country: countries.of(countryCode) || countryCode,
   kind: 'airport', search: normalize([code, cityCode, city, name, cityEnglish, nameEnglish].join(' ')),
 }));
 // Keep the old Manas code usable in existing search drafts and orders.

@@ -38,3 +38,14 @@ test('city searches send IATA city codes for one-way, return and multi-city rout
   const criteria = freeFlightCriteria({ ...base, trip: 'mc', segments: [{ from: 'city:MOW', to: 'city:LON', date: base.depDate }, { from: 'LHR', to: 'SVO', date: base.retDate }] });
   assert.deepEqual(criteria.segments.map((row) => [row.origin, row.destination]), [['MOW', 'LON'], ['LHR', 'SVO']]);
 });
+
+test('every searchable catalog record has a sortable display label, including missing supplier names', () => {
+  // Search single letters to exercise sparse records absent from popular-city examples.
+  for (const query of [...'abcdefghijklmnopqrstuvwxyzабвгдежзийклмнопрстуфхцчшщэюя', 'ни']) {
+    for (const option of searchAirportOptions(query)) {
+      assert.equal(typeof option.city, 'string');
+      assert.equal(typeof option.name, 'string');
+      assert.ok(option.city && option.name);
+    }
+  }
+});
