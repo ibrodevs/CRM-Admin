@@ -668,7 +668,6 @@ table.tbl.tbl-wide thead th,table.tbl.tbl-wide tbody td{white-space:nowrap}
 .toast-dismiss:focus-visible,.toast-center-open:focus-visible,.toast-link:focus-visible{outline:2px solid var(--blue);outline-offset:2px}
 .toast-center-control svg{width:17px;height:17px}
 .toast-center-list{min-height:0;max-height:350px;overflow-y:auto;overscroll-behavior:contain;scrollbar-gutter:stable;display:flex;flex-direction:column;gap:10px;padding:10px;background:color-mix(in srgb,var(--blue) 5%,var(--surface-2))}
-.toast-center[data-urgency=warn]{border-color:var(--amber)}
 .toast-center[data-urgency=err]{border-color:var(--red-strong)}
 .toast-center[data-urgency=warn] .toast-center-count{background:#ffd680;color:#392400}
 .toast-center[data-urgency=err] .toast-center-count{background:#b91c1c;color:#fff}
@@ -691,7 +690,7 @@ table.tbl.tbl-wide thead th,table.tbl.tbl-wide tbody td{white-space:nowrap}
 .toast-dismiss svg{width:14px;height:14px}
 .toast.ok{--toast-accent:var(--green);--toast-tint:var(--green-bg-2)}
 .toast.info{--toast-accent:var(--blue);--toast-tint:var(--blue-soft)}
-.toast.warn{--toast-accent:var(--amber);--toast-tint:var(--amber-bg)}
+.toast.warn{--toast-accent:var(--amber);--toast-tint:var(--amber-bg);border-color:var(--line-strong);border-left-color:var(--line-strong)}
 .toast.err{--toast-accent:var(--red-strong);--toast-tint:var(--red-bg)}
 .toast-center-footer{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:11px 13px;border-top:1px solid var(--line);flex:0 0 auto;background:var(--surface)}
 .toast-center-footer>span{font-size:11px;color:var(--muted)}
