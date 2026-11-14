@@ -2189,7 +2189,7 @@ function FreeBookingFlightPanel({ params, setParams, onAdd }) {
   }).sort((a, b) => a.fare + a.fee - b.fare - b.fee);
   const listRows = pool.map((o) => ({ id: o.id, airline: o.airline, leg: o.out, flightNo: o.out.flightNo, supplier: o.supplier, price: o.fare + o.fee, currency: o.currency, roundtrip: (o.itinerary?.segments?.length || 0) > 1 && o.itinerary.segments.at(-1).destination === o.itinerary.segments[0].origin, view: () => setSelected(o) }));
   return <div>
-      {(p.trip === 'mc' ? segs.some((segment) => !segment.date) : !p.depDate || (p.trip === 'rt' && !p.retDate)) && <InfoNotice icon="calendar" role="status">{p.trip === 'mc' ? 'Выберите дату вылета для каждого сегмента маршрута.' : p.trip === 'rt' ? 'Выберите даты вылета и возвращения.' : 'Выберите дату вылета.'}</InfoNotice>}
+      {(p.trip === 'mc' ? segs.some((segment) => !segment.date) : !p.depDate || (p.trip === 'rt' && !p.retDate)) && <InfoNotice icon="calendar" role="status" dismissible>{p.trip === 'mc' ? 'Выберите дату вылета для каждого сегмента маршрута.' : p.trip === 'rt' ? 'Выберите даты вылета и возвращения.' : 'Выберите дату вылета.'}</InfoNotice>}
       <div className="trip-toggle" style={{ marginBottom: 14 }}>
         {TRIPS.map(([k, l]) => (
           <button key={k} className={p.trip === k ? 'on' : ''} onClick={() => set({ trip: k })}>{l}</button>
