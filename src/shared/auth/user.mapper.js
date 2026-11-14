@@ -17,7 +17,7 @@ function toUiUser(user) {
     name: user?.full_name || [user?.last_name, user?.first_name, user?.middle_name].filter(Boolean).join(' '),
     role,
     avatar: proxiedMediaUrl(user?.avatar),
-    position: user?.position || role,
+    position: user?.position || '',
     dept: user?.department || '',
     workEmail: user?.email || '',
     workPhone: user?.work_phone || user?.phone || '',

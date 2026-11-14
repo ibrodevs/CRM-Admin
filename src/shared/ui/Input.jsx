@@ -1,3 +1,5 @@
+import { PhoneInput } from './PhoneInput.jsx';
+import { isPhoneInput } from '../lib/phone.js';
 import { useRecentLocations } from '../drafts/Drafts.jsx';
 import { FloatingPanel, containsFloatingTarget } from './FloatingPanel.jsx';
 import { useState, useEffect, useRef } from 'react';
@@ -243,11 +245,12 @@ function LocationAutocomplete(props) {
 }
 
 function Input(props) {
+  if (isPhoneInput(props)) return <PhoneInput {...props} />;
   if (shouldUseLocationAutocomplete(props)) return <LocationAutocomplete {...props} />;
   const { error, leadIcon, trailIcon, onTrail, locationAutocomplete, locationScope, onLocationSelect, className } = props;
   const rest = {};
   for (const k in props) {
-    if (!['error', 'leadIcon', 'trailIcon', 'onTrail', 'locationAutocomplete', 'locationScope', 'onLocationSelect', 'className'].includes(k)) rest[k] = props[k];
+    if (!['error', 'leadIcon', 'trailIcon', 'onTrail', 'locationAutocomplete', 'locationScope', 'onLocationSelect', 'className', 'phoneInput', 'defaultCountry'].includes(k)) rest[k] = props[k];
   }
   const inputClass = ['input', trailIcon ? 'has-trail' : '', error ? 'err' : '', className || ''].filter(Boolean).join(' ');
   if (leadIcon || trailIcon) {

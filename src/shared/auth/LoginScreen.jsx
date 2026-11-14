@@ -1,3 +1,4 @@
+import { PhoneInput } from '../ui/PhoneInput.jsx';
 import { useState } from 'react';
 import { Icon } from '../icons/index.jsx';
 import { useToast } from '../ui/Toast.jsx';
@@ -355,7 +356,7 @@ function LoginScreen({ onLogin, onVerifyTwoFactor, onPasswordReset, expired = fa
                 <input className={'lp-input' + (errs.email ? ' err' : '')} type="email" placeholder="you@company.ru" value={demo.email} onChange={(e) => setD('email', e.target.value)} />
                 {errs.email && <div className="lp-errtxt"><Icon name="alertCircle" />{errs.email}</div>}
                 <label className="lp-lbl" style={{ marginTop: 14 }}>Телефон <span style={{ color: '#aeb5c4', fontWeight: 500 }}>· необязательно</span></label>
-                <input className="lp-input" type="tel" placeholder="+7 (___) ___-__-__" value={demo.phone} onChange={(e) => setD('phone', e.target.value)} />
+                <PhoneInput className="lp-input" aria-label="Телефон для демонстрации" value={demo.phone} onChange={(e) => setD('phone', e.target.value)} />
                 {errs.form && <div className="lp-errtxt"><Icon name="alertCircle" />{errs.form}</div>}
                 <button type="submit" className="lp-btn lp-btn-primary" style={{ marginTop: 22 }} disabled={loading}>
                   {loading ? <><Icon name="loader" className="lp-spin" style={{ width: 18, height: 18 }} />Отправка…</> : <>Получить демо-доступ <Icon name="arrowRight" style={{ width: 18, height: 18 }} /></>}

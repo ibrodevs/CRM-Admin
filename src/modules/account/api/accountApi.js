@@ -2,6 +2,8 @@ import { apiPath, apiRequest, queryString } from '../../../shared/api/client.js'
 import { list, get, create, patch, remove } from '../../../shared/api/operations.js';
 
 export const accountApi = {
+  messengerBindings: (signal) => get('me/messenger-bindings/', signal),
+  messengerAction: (channel, action, data = {}) => create(`me/messenger-bindings/${channel}/${action}/`, data),
   statistics: (params, signal) => list('me/statistics/', params, signal),
   me: (signal) => get('me/', signal),
   uploadAvatar: (file) => { const body = new FormData(); body.append('avatar', file); return apiRequest(apiPath('me/avatar/'), { method: 'PUT', body }); },

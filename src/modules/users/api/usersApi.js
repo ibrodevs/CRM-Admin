@@ -2,6 +2,11 @@ import { apiPath, apiRequest, queryString } from '../../../shared/api/client.js'
 import { list, listAll, get, create, patch, remove } from '../../../shared/api/operations.js';
 
 export const usersApi = {
+  rejectOrgCatalog: (kind, id, comment) => create(`org-structure/catalog/${kind}/${id}/reject/`, { comment }),
+  orgStructure: (signal) => get('org-structure/', signal),
+  saveOrgCatalog: (kind, data) => create(`org-structure/catalog/${kind}/`, data),
+  requestOrgChange: (data) => create('org-structure/requests/', data),
+  decideOrgChange: (id, action, comment = '') => create(`org-structure/requests/${id}/decision/`, { action, comment }),
   absences: (signal) => listAll('absences/', {}, signal),
   createAbsence: (body) => create('absences/', body),
   decideAbsence: (id, action, comment = '') => create(`absences/${id}/decision/`, { action, comment }),

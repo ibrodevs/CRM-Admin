@@ -1,3 +1,5 @@
+import { OrgStructure } from './OrgStructure.jsx';
+import { MessengerAccounts } from './MessengerAccounts.jsx';
 import { WorkAbsences } from './WorkAbsences.jsx';
 import { Statistics, Statistic } from '../../../shared/ui/Statistics.jsx';
 import { SectionInfo } from '../../../shared/ui/SectionInfo.jsx';
@@ -285,9 +287,8 @@ function ProfilePage({ user, onNavigate, initialTab }) {
     try {
       const updated = await accountApi.updateMe({
         last_name: lastName, first_name: firstName, middle_name: middle.join(' '),
-        work_phone: pf.workPhone, internal_phone: pf.internalPhone, telegram: pf.telegram, max: pf.max || '', whatsapp: pf.whatsapp || '',
-        position: pf.position, department: pf.dept, hired_at: pf.hired || null,
-        timezone: (pf.tz || '').includes('Москва') ? 'Europe/Moscow' : (pf.tz || '').includes('Ташкент') ? 'Asia/Tashkent' : 'Asia/Bishkek',
+
+        timezone: pf.timezone || 'Asia/Bishkek',
         language: { 'Русский': 'ru', 'Кыргызча': 'ky', English: 'en' }[pf.lang] || 'ru',
       });
       setPf(toUiUser(updated));
@@ -362,10 +363,10 @@ function ProfilePage({ user, onNavigate, initialTab }) {
   };
 
   const TABS = [
-    { key: 'profile', label: 'Профиль' }, { key: 'security', label: 'Безопасность' },
+    { key: 'profile', label: 'Личные данные' }, { key: 'org', label: 'Работа и структура' }, { key: 'contacts', label: 'Контакты и мессенджеры' }, { key: 'security', label: 'Безопасность' },
     { key: 'notif', label: 'Уведомления' }, { key: 'prefs', label: 'Предпочтения' },
     { key: 'access', label: 'Доступы' }, { key: 'motivation', label: 'Мотивация' },
-    { key: 'stats', label: 'Статистика' }, { key: 'worktime', label: 'Рабочее время' },
+    { key: 'stats', label: 'Статистика' }, { key: 'worktime', label: 'Время и отсутствие' },
   ];
 
   const sessionRows = devices.map((session) => ({
@@ -451,31 +452,22 @@ function ProfilePage({ user, onNavigate, initialTab }) {
         <section className="section-workspace" aria-label="Настройки профиля">
 
 
-        {tab === 'profile' && (
-          <div className="card card-pad fade-in" style={{ maxWidth: 900 }}>
-            <div className="form-grid">
-              <Field label={t("ФИО")}><Input value={pf.name} onChange={setField('name')} /></Field>
-              <Field label={t("Должность")}><Input value={pf.position} onChange={setField('position')} /></Field>
-              <Field label={t("Подразделение")}><Input value={pf.dept} onChange={setField('dept')} /></Field>
-              <Field label={t("Роль в системе")}><Input value={pf.role} readOnly /></Field>
-              <Field label={t("Руководитель")}><Input value={pf.manager_name || '—'} readOnly /></Field>
-              <UFDateField label={t("Дата приёма на работу")} value={pf.hired || null} onChange={(v) => setField('hired')({ target: { value: v } })} placeholder={t("дд.мм.гггг")} />
-              <Field label={t("Рабочий e-mail")}><Input value={pf.workEmail} readOnly leadIcon="mail" /></Field>
-              <Field label={t("Рабочий телефон")}><Input value={pf.workPhone} onChange={setField('workPhone')} leadIcon="phone" /></Field>
-              <Field label={t("Внутренний номер")}><Input value={pf.internalPhone} onChange={setField('internalPhone')} /></Field>
-              <Field label="Telegram"><Input value={pf.telegram} onChange={setField('telegram')} placeholder="@username" /></Field>
-              <Field label="MAX"><Input value={pf.max || ''} onChange={setField('max')} placeholder={t("ID или номер")} /></Field>
-              <Field label="WhatsApp"><Input value={pf.whatsapp || ''} onChange={setField('whatsapp')} leadIcon="phone" placeholder="+996 700 000 000" /></Field>
-              <Field label={t("Текущий статус")}><Input value={u.workStatus} readOnly /></Field>
-              <Field label={t("Часовой пояс")}><Select options={['(GMT+6) Бишкек', '(GMT+3) Москва', '(GMT+5) Ташкент']} value={pf.tz} onChange={setField('tz')} /></Field>
-            </div>
-            <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 22 }}>
-              <Button variant="primary" onClick={saveProfile} disabled={saving}>{saving ? 'Сохранение…' : 'Сохранить изменения'}</Button>
-            </div>
-            <WorkAbsences user={u} canManage={canManageUsers} onSaved={() => auth.refreshSession()} />
-          </div>
-        )}
+        {tab === 'profile' && <section className="card card-pad" style={{ maxWidth: 900 }}><h3>Личные данные</h3><div className="form-grid">
+          <Field label="ФИО"><Input value={pf.name} onChange={setField('name')} /></Field>
+          <Field label="Часовой пояс"><Select options={[...new Set(['Asia/Bishkek', 'Europe/Moscow', 'Asia/Tashkent', ...(Intl.supportedValuesOf?.('timeZone') || []), pf.timezone].filter(Boolean))].map((zone) => ({ value: zone, label: zone }))} value={pf.timezone || 'Asia/Bishkek'} onChange={setField('timezone')} /></Field>
+        </div><div className="profile-section-actions"><Button onClick={saveProfile} disabled={saving}>{saving ? 'Сохранение…' : 'Сохранить личные данные'}</Button></div></section>}
 
+        {tab === 'org' && <div className="profile-sections"><section className="card card-pad"><h3>Текущее назначение</h3><div className="form-grid">
+          <Field label="Подразделение"><Input readOnly value={u.dept || 'Не назначено'} /></Field><Field label="Должность"><Input readOnly value={u.position || 'Не назначена'} /></Field>
+          <Field label="Роли и права"><Input readOnly value={u.role} /></Field><Field label="Руководитель"><Input readOnly value={u.manager_name || 'Не назначен'} /></Field>
+          <Field label="Дата приёма на работу"><Input readOnly value={u.hired ? formatProfileDate(u.hired, u.preferences) : 'Не указана'} /></Field>
+        </div></section><OrgStructure user={u} canManage={canManageUsers} onSaved={() => auth.refreshSession()} /></div>}
+
+        {tab === 'contacts' && <div className="profile-sections"><section className="card card-pad"><h3>Рабочие контакты</h3><div className="form-grid">
+          <Field label="Рабочий e-mail"><Input value={pf.workEmail} readOnly leadIcon="mail" /></Field>
+          <Field label="Рабочий телефон"><Input value={pf.workPhone} onChange={setField('workPhone')} leadIcon="phone" /></Field>
+          <Field label="Внутренний номер" hint="Добавочный номер, без кода страны"><Input value={pf.internalPhone} onChange={(e) => setField('internalPhone')({ target: { value: e.target.value.replace(/\D/g, '') } })} inputMode="numeric" maxLength={16} phoneInput={false} /></Field>
+        </div><div className="profile-section-actions"><Button disabled={saving} onClick={async () => { setSaving(true); try { await accountApi.updateMe({ work_phone: pf.workPhone, internal_phone: pf.internalPhone }); await auth.refreshSession(); toast('Рабочие контакты сохранены', 'ok'); } catch (e) { toast(e.message, 'err'); } finally { setSaving(false); } }}>Сохранить контакты</Button></div></section><MessengerAccounts onSaved={() => auth.refreshSession()} /></div>}
 
         {tab === 'security' && (
           <div className="fade-in grid-2" style={{ alignItems: 'start' }}>
@@ -664,7 +656,7 @@ function ProfilePage({ user, onNavigate, initialTab }) {
 
         {tab === 'motivation' && <ProfileMotivation operator={u.name} userId={u.id} canEdit={canManageSettings} />}
         {tab === 'stats' && <ProfileStats operator={u.name} userId={u.serverId || u.id} />}
-        {tab === 'worktime' && <ProfileWorkTime user={u} canEdit={canManageUsers} />}
+        {tab === 'worktime' && <div className="profile-sections"><section className="card card-pad"><WorkAbsences user={u} canManage={canManageUsers} onSaved={() => auth.refreshSession()} /></section><ProfileWorkTime user={u} canEdit={canManageUsers} /></div>}
         <SectionInfo section="profile" />
       </section>
       </div>
