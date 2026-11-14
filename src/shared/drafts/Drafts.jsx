@@ -1,22 +1,42 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useState, useSyncExternalStore } from 'react';
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import ReactDOM from 'react-dom';
+import { Icon } from '../icons/index.jsx';
 import { createDraftStore } from './store.js';
 const DraftContext = createContext(null);
 const ScopeContext = createContext('');
+const DraftNoticeTargetContext = createContext(null);
 export function DraftScope({ name, children }) {
   const parent = useContext(ScopeContext);
   return <ScopeContext.Provider value={[parent, name].filter(Boolean).join('/')}>{children}</ScopeContext.Provider>;
 }
 const emptyStatus = { restored: false, failed: false };
 
+export function DraftNoticeSlot({ active = true, priority = 0 }) {
+  const register = useContext(DraftNoticeTargetContext);
+  const ref = useRef(null);
+  useEffect(() => {
+    if (!active || !register || !ref.current) return undefined;
+    return register(ref.current, priority);
+  }, [active, priority, register]);
+  return <div ref={ref} className="draft-notice-slot" />;
+}
+
 export function DraftProvider({ owner, children }) {
+  const [targets, setTargets] = useState([]);
+  const register = useCallback((node, priority) => {
+    const entry = { node, priority };
+    setTargets((current) => [...current, entry]);
+    return () => setTargets((current) => current.filter((item) => item !== entry));
+  }, []);
+  const target = targets.reduce((top, item) => !top || item.priority >= top.priority ? item : top, null)?.node;
+
   const store = useMemo(() => {
     if (!owner || typeof window === 'undefined') return null;
     // Keep failures visible when browser storage is blocked.
     const storage = { getItem: (key) => window.localStorage.getItem(key), setItem: (key, value) => window.localStorage.setItem(key, value), removeItem: (key) => window.localStorage.removeItem(key) };
     return createDraftStore(new Proxy(storage, { ownKeys: () => Object.keys(window.localStorage), getOwnPropertyDescriptor: () => ({ enumerable: true, configurable: true }) }), owner);
   }, [owner]);
-  return <DraftContext.Provider value={store}>{children}<DraftRecoveryNotice store={store} /></DraftContext.Provider>;
+  return <DraftContext.Provider value={store}><DraftNoticeTargetContext.Provider value={register}>{children}<DraftRecoveryNotice store={store} target={target} /></DraftNoticeTargetContext.Provider></DraftContext.Provider>;
 }
 
 export function useDraftState(scope, field, initial) {
@@ -45,7 +65,7 @@ export function useDraftStatus() {
   const store = useContext(DraftContext);
   return useSyncExternalStore(store?.subscribe || (() => () => {}), store?.status || (() => emptyStatus), () => emptyStatus);
 }
-function DraftRecoveryNotice({ store }) {
+function DraftRecoveryNotice({ store, target }) {
   const status = useSyncExternalStore(store?.subscribe || (() => () => {}), store?.status || (() => emptyStatus), () => emptyStatus);
   const [confirmClear, setConfirmClear] = useState(false);
   useEffect(() => { store?.notify(); }, [store]);
@@ -55,9 +75,13 @@ function DraftRecoveryNotice({ store }) {
     window.addEventListener('beforeunload', warn);
     return () => window.removeEventListener('beforeunload', warn);
   }, [status.failed]);
-  if (!store || (!status.restored && !status.failed && !confirmClear)) return null;
-  return ReactDOM.createPortal(<div className={'draft-recovery-notice' + (status.failed ? ' error' : '')} role="status">
-    <span>{status.failed ? 'Не удалось сохранить черновик в браузере. Не закрывайте вкладку.' : confirmClear ? 'Удалить сохранённые черновики этого аккаунта в этом браузере?' : 'Черновик восстановлен. Перед бронированием проверим актуальную цену и наличие.'}</span>
-    {!status.failed && <div>{confirmClear ? <><button type="button" onClick={() => { store.clear(); setConfirmClear(false); }}>Удалить</button><button type="button" onClick={() => setConfirmClear(false)}>Отмена</button></> : <><button type="button" onClick={() => store.dismiss()}>Продолжить</button><button type="button" onClick={() => setConfirmClear(true)}>Очистить черновики</button></>}</div>}
-  </div>, document.body);
+  if (!store || !target || (!status.restored && !status.failed && !confirmClear)) return null;
+  return ReactDOM.createPortal(<section className={'draft-recovery-notice' + (status.failed ? ' error' : '')} role="status" aria-label="Состояние черновика">
+    <span className="draft-recovery-icon"><Icon name={status.failed ? 'alertCircle' : confirmClear ? 'trash' : 'checkCircle'} /></span>
+    <div className="draft-recovery-content">
+      <strong>{status.failed ? 'Автосохранение недоступно' : confirmClear ? 'Удалить черновики?' : 'Черновик восстановлен'}</strong>
+      <span>{status.failed ? 'Не удалось сохранить данные в браузере. Не закрывайте вкладку.' : confirmClear ? 'Будут удалены черновики этого аккаунта в этом браузере.' : 'Перед бронированием проверим актуальную цену и наличие.'}</span>
+    </div>
+    {!status.failed && <div className="draft-recovery-actions">{confirmClear ? <><button type="button" className="draft-recovery-delete" onClick={() => { store.clear(); setConfirmClear(false); }}>Удалить</button><button type="button" onClick={() => setConfirmClear(false)}>Отмена</button></> : <><button type="button" onClick={() => setConfirmClear(true)}>Очистить черновики</button><button type="button" className="draft-recovery-dismiss" aria-label="Скрыть сообщение о восстановлении черновика" title="Скрыть сообщение" onClick={() => store.dismiss()}><Icon name="x" /></button></>}</div>}
+  </section>, target);
 }

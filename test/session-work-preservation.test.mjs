@@ -67,6 +67,7 @@ test('parallel background checks share one request', async () => {
 test('clicking the backdrop keeps hotel search and placement panels open', () => {
   let closed = 0;
   const { StackPanel } = load('../src/modules/locations/ui/SharedPanels.jsx', (name) => {
+    if (name.includes('Drafts')) return { DraftNoticeSlot: 'DraftNoticeSlot' };
     if (name === 'react') return { ...require('react'), useContext: () => true };
     if (name.includes('Overlays')) return { useOverlayLayer() {}, useOverlayZIndex: () => 100 };
     if (name.includes('data/index')) return { AIRPORTS: [] };

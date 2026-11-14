@@ -104,7 +104,7 @@ test('the React hook persists functional input updates and scopes them to the ac
   const react = { ...require('react'), createContext: () => ({ index: contextNumber++ }), useContext: (context) => context.index === 0 ? store : prefix,
     useMemo: (fn) => fn(), useCallback: (fn) => fn, useSyncExternalStore: (_subscribe, snapshot) => snapshot(), useState: (initial) => [initial, () => {}] };
   const module = new Module(import.meta.filename);
-  module.require = (name) => name === 'react' ? react : name === './store.js' ? { createDraftStore } : require(name);
+  module.require = (name) => name === 'react' ? react : name === './store.js' ? { createDraftStore } : name.includes('icons') ? { Icon: 'Icon' } : require(name);
   module._compile(babel.transformSync(readFileSync(new URL('../src/shared/drafts/Drafts.jsx', import.meta.url), 'utf8'), { filename: 'Drafts.jsx', presets: ['next/babel'], configFile: false, babelrc: false, envName: 'test' }).code, import.meta.filename);
   const useDraftState = module.exports.useDraftState;
   const [, setForm] = useDraftState('hotel', 'form', { city: '', guests: 1 });

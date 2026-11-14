@@ -1,3 +1,4 @@
+import { DraftNoticeSlot } from '../../shared/drafts/Drafts.jsx';
 import { ORDER_OPS_SECTIONS, SERVICE_KEYS } from '../../shared/constants/navigation.js';
 import { NAV_ITEMS } from '../routing/navigation.js';
 import { NavGroup, Sidebar, ProfileCard } from './Sidebar.jsx';
@@ -9,6 +10,7 @@ function AppShell({ route, onNavigate, onLogout, role, user, topbar, overlays, c
       <Sidebar route={route} onNavigate={onNavigate} onLogout={onLogout} role={role} user={user} collapsed={sidebarCollapsed} onToggleCollapse={onToggleSidebar} />
       <main className="main scroll">
         {topbar}
+        <DraftNoticeSlot />
         {children}
       </main>
       {overlays}
