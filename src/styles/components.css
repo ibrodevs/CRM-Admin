@@ -3673,3 +3673,8 @@ button.oc-fact:hover{border-color:#d3dbe8;background:#fff}
 .draft-recovery-notice button{border:0;background:none;padding:0;color:var(--blue);font:inherit;font-weight:600;cursor:pointer}
 
 .airport-field-trigger:focus-within{border-color:var(--blue);box-shadow:0 0 0 3px rgba(37,102,255,.13)}
+
+.info-notice-close{display:flex;align-items:center;justify-content:center;flex:0 0 28px;width:28px;height:28px;margin:-3px -4px -3px 0;padding:4px;border:0;border-radius:8px;background:transparent;color:var(--muted);cursor:pointer}
+.info-notice-close svg{width:18px;height:18px}
+.info-notice-close:hover{background:var(--hover);color:var(--ink)}
+.info-notice-close:focus-visible{outline:2px solid var(--blue);outline-offset:2px}

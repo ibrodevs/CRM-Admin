@@ -242,7 +242,6 @@ function FlightSearch({ params, setParams, onSearch, onBack }) {
   const TRIPS = [['ow', 'В одну сторону'], ['rt', 'Туда-обратно'], ['mc', 'Сложный маршрут']];
   return (
     <div className="fade-in">
-      {(!p.depDate || (p.trip === 'rt' && !p.retDate)) && <InfoNotice icon="calendar" role="status">{p.trip === 'rt' ? 'Выберите даты вылета и возвращения для поиска билетов.' : 'Выберите дату вылета для поиска билетов.'}</InfoNotice>}
       <div style={{ marginBottom: 16 }}>
         <div className="trip-toggle">
           {TRIPS.map(([k, l]) => (

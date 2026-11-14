@@ -31,7 +31,7 @@ const SECTION_INFO = {
 function SectionInfo({ section }) {
   const text = SECTION_INFO[section];
   if (!text) return null;
-  return <InfoNotice className="section-info" role="note">{text}</InfoNotice>;
+  return <InfoNotice dismissible className="section-info" role="note">{text}</InfoNotice>;
 }
 
 export { SECTION_INFO, SectionInfo };

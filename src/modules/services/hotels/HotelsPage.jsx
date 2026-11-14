@@ -556,7 +556,7 @@ function HotelPicker({ participants, group = false, onApply, onCancel, currency,
     <div className="fade-in hp-root">
 
       <div className="hp-searchbar">
-        {dateError && <InfoNotice icon="calendar" tone={searchError ? 'error' : 'info'} role={searchError ? 'alert' : 'status'}>{dateError === 'Выберите даты заезда и выезда' ? 'Выберите даты заезда и выезда для поиска свободных номеров.' : dateError}</InfoNotice>}
+        {searchError && dateError && <InfoNotice icon="calendar" tone={searchError ? 'error' : 'info'} role={searchError ? 'alert' : 'status'}>{dateError === 'Выберите даты заезда и выезда' ? 'Выберите даты заезда и выезда для поиска свободных номеров.' : dateError}</InfoNotice>}
         <div className="hp-search-row" style={{ rowGap: 26, marginBottom: 6 }}>
           <div className="hp-field hp-field-dest">
             <span className="hp-flabel">Локация или отель</span>

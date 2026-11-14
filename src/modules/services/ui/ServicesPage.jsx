@@ -1904,7 +1904,7 @@ function ServiceFlow({ routeKey, searchIntent, onConsumeSearch }) {
             {routeKey === 'transfers' && <TransferSearchOptions form={form} set={setF} />}
               <Button icon="search" style={{ height: 'var(--h-control)', marginBottom: 0 }} onClick={runSearch}>Найти</Button>
             </div>
-            <InfoNotice icon="api" style={{ marginTop: 14 }}>
+            <InfoNotice dismissible icon="api" style={{ marginTop: 14 }}>
               Поиск по подключённым поставщикам · {cfg.title}
             </InfoNotice>
           </div>
@@ -1997,11 +1997,7 @@ function FreeBookingServiceAddFlow({ routeKey, onAdd, currency, paxCount = 1 }) 
 
   return (
     <div className="fade-in">
-      {(!freeBookingDate(form.date || form.dt) || (form.trip === 'rt' && !form.retDate)) && <InfoNotice icon="calendar" role="status">Выберите дату поездки и, для маршрута туда и обратно, дату возвращения.</InfoNotice>}
-      <div style={{ marginBottom: 14, display: 'flex', gap: 10, alignItems: 'center' }}>
-        {view === 'results' && <Button variant="secondary" size="sm" icon="chevLeft" onClick={() => setView('search')}>Изменить поиск</Button>}
-        <span style={{ fontWeight: 600, color: 'var(--ink)' }}>{cfg.searchTitle}</span>
-      </div>
+      {view === 'results' && <div style={{ marginBottom: 14 }}><Button variant="secondary" size="sm" icon="chevLeft" onClick={() => setView('search')}>Изменить поиск</Button></div>}
 
       {view === 'search' && (
         <>
@@ -2018,7 +2014,7 @@ function FreeBookingServiceAddFlow({ routeKey, onAdd, currency, paxCount = 1 }) 
             {routeKey === 'transfers' && <TransferSearchOptions form={form} set={setF} />}
             <Button disabled={loading} icon="search" style={{ height: 'var(--h-control)', marginBottom: 0 }} onClick={runSearch}>Найти</Button>
           </div>
-          <InfoNotice icon="api" style={{ marginTop: 14 }}>
+          <InfoNotice dismissible icon="api" style={{ marginTop: 14 }}>
             Поиск по подключённым поставщикам · {cfg.title}
           </InfoNotice>
         </>
@@ -2098,12 +2094,7 @@ function FreeBookingAeroAddFlow({ onAdd }) {
 
   return (
     <div className="fade-in">
-      {(!(fare === 'pass' ? start : date) || (fare === 'rt' && !retDate)) && <InfoNotice icon="calendar" role="status">Выберите дату поездки / начала действия билета и дату возвращения для тарифа туда и обратно.</InfoNotice>}
-      <div style={{ marginBottom: 14, display: 'flex', gap: 10, alignItems: 'center' }}>
-        {view === 'results' && <Button variant="secondary" size="sm" icon="chevLeft" onClick={() => setView('search')}>Изменить поиск</Button>}
-        <img className="aero-logo" src="assets/Express-blue-logo.png" alt="Аэроэкспресс" style={{ height: 22, width: 'auto' }} />
-        <span style={{ fontWeight: 600, color: 'var(--ink)' }}>Аэроэкспресс — билеты и абонементы</span>
-      </div>
+      {view === 'results' && <div style={{ marginBottom: 14 }}><Button variant="secondary" size="sm" icon="chevLeft" onClick={() => setView('search')}>Изменить поиск</Button></div>}
 
       {view === 'search' && (
         <>
@@ -2129,7 +2120,7 @@ function FreeBookingAeroAddFlow({ onAdd }) {
             )}
             <Button disabled={loading} icon="search" style={{ height: 'var(--h-control)', marginBottom: 0 }} onClick={runSearch}>Найти</Button>
           </div>
-          <InfoNotice icon="api" style={{ marginTop: 14 }}>
+          <InfoNotice dismissible icon="api" style={{ marginTop: 14 }}>
             Билеты и абонементы Аэроэкспресс · цены в ₽
           </InfoNotice>
         </>
@@ -2201,10 +2192,7 @@ function ServiceAddFlow({ routeKey, onAdd, currency, paxCount = 1 }) {
 
   return (
     <div className="fade-in">
-      <div style={{ marginBottom: 14, display: 'flex', gap: 10, alignItems: 'center' }}>
-        {view === 'results' && <Button variant="secondary" size="sm" icon="chevLeft" onClick={() => setView('search')}>Изменить поиск</Button>}
-        <span style={{ fontWeight: 600, color: 'var(--ink)' }}>{cfg.searchTitle}</span>
-      </div>
+      {view === 'results' && <div style={{ marginBottom: 14 }}><Button variant="secondary" size="sm" icon="chevLeft" onClick={() => setView('search')}>Изменить поиск</Button></div>}
 
       {view === 'search' && (
         <>
@@ -2221,7 +2209,7 @@ function ServiceAddFlow({ routeKey, onAdd, currency, paxCount = 1 }) {
             {routeKey === 'transfers' && <TransferSearchOptions form={form} set={setF} />}
             <Button icon="search" style={{ height: 'var(--h-control)', marginBottom: 0 }} onClick={runSearch}>Найти</Button>
           </div>
-          <InfoNotice icon="api" style={{ marginTop: 14 }}>
+          <InfoNotice dismissible icon="api" style={{ marginTop: 14 }}>
             Поиск по подключённым поставщикам · {cfg.title}
           </InfoNotice>
         </>
@@ -2294,15 +2282,10 @@ function AeroAddFlow({ onAdd }) {
 
   return (
     <div className="fade-in">
-      <div style={{ marginBottom: 14, display: 'flex', gap: 10, alignItems: 'center' }}>
-        {view === 'results' && <Button variant="secondary" size="sm" icon="chevLeft" onClick={() => setView('search')}>Изменить поиск</Button>}
-        <img className="aero-logo" src="assets/Express-blue-logo.png" alt="Аэроэкспресс" style={{ height: 22, width: 'auto' }} />
-        <span style={{ fontWeight: 600, color: 'var(--ink)' }}>Аэроэкспресс — билеты и абонементы</span>
-      </div>
+      {view === 'results' && <div style={{ marginBottom: 14 }}><Button variant="secondary" size="sm" icon="chevLeft" onClick={() => setView('search')}>Изменить поиск</Button></div>}
 
       {view === 'search' && (
         <>
-          {(!(fare === 'pass' ? start : date) || (fare === 'rt' && !retDate)) && <InfoNotice icon="calendar" role="status">Выберите дату поездки / начала действия билета и дату возвращения для тарифа туда и обратно.</InfoNotice>}
 
 
           <div className="trip-toggle" style={{ marginBottom: 12 }}>
@@ -2326,7 +2309,7 @@ function AeroAddFlow({ onAdd }) {
             )}
             <Button icon="search" style={{ height: 'var(--h-control)', marginBottom: 0 }} onClick={runSearch}>Найти</Button>
           </div>
-          <InfoNotice icon="api" style={{ marginTop: 14 }}>
+          <InfoNotice dismissible icon="api" style={{ marginTop: 14 }}>
             Билеты и абонементы Аэроэкспресс · цены в ₽
           </InfoNotice>
         </>
@@ -2812,8 +2795,6 @@ function FreeBookingRailFlow({ currency, onAdd }) {
   return (
     <div className="fade-in">
 
-      {(!form.dep || (form.trip === 'rt' && !form.ret)) && <InfoNotice icon="calendar" role="status">Выберите дату отправления и дату возвращения для поездки туда и обратно.</InfoNotice>}
-      <div style={{ fontWeight: 600, color: 'var(--ink)', marginBottom: 12 }}>Поиск железнодорожных билетов</div>
 
       <div className="trip-toggle" style={{ marginBottom: 12 }}>
         {[['ow', 'В одну сторону'], ['rt', 'Туда и обратно']].map(([k, l]) => (
@@ -2929,9 +2910,7 @@ function RailAddFlow({ participants = [], groups, onAdd }) {
   return (
     <div className="fade-in">
 
-      {(!form.dep || (form.trip === 'rt' && !form.ret)) && <InfoNotice icon="calendar" role="status">Выберите дату отправления и дату возвращения для поездки туда и обратно.</InfoNotice>}
 
-      <div style={{ fontWeight: 600, color: 'var(--ink)', marginBottom: 12 }}>Поиск железнодорожных билетов</div>
 
       <div className="trip-toggle" style={{ marginBottom: 12 }}>
         {[['ow', 'В одну сторону'], ['rt', 'Туда и обратно']].map(([k, l]) => (

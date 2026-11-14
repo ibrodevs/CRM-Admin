@@ -357,7 +357,7 @@ function DetailedSearchPanelContent({ open = true, onClose, initialKind, onOpenO
           <Button icon="check" onClick={() => setFinalize(true)}>Оформить</Button>
         </>
       ) : null}>
-      <InfoNotice icon="alertCircle" style={{ marginBottom: 12 }}>
+      <InfoNotice dismissible icon="alertCircle" style={{ marginBottom: 12 }}>
         Поиск без привязки к заказу. Можно добавить несколько услуг, затем сформировать КП, привязать к заказу или к физ. лицу.
       </InfoNotice>
       <FreeBookingPanel kind={kind} setKind={setKind} aviaParams={aviaParams} setAviaParams={setAviaParams}
