@@ -2203,13 +2203,6 @@ function FreeBookingFlightPanel({ params, setParams, onAdd }) {
       {p.trip === 'mc' ? (
 
         <div className="avia-mc-mask">
-          <div className="avia-mc-head">
-            <span className="l" style={{ flex: '1 1 0' }}>Откуда</span>
-            <span style={{ flex: '0 0 40px' }} />
-            <span className="l" style={{ flex: '1 1 0' }}>Куда</span>
-            <span className="l" style={{ flex: '0 0 168px' }}>Дата вылета</span>
-            <span style={{ flex: '0 0 34px' }} />
-          </div>
           {segs.map((s, i) => (
             <div className="avia-mc-row" key={i}>
               <AirportField label="Откуда" value={s.from} onChange={(v) => updateSeg(i, { from: v })} />
@@ -2223,7 +2216,6 @@ function FreeBookingFlightPanel({ params, setParams, onAdd }) {
             <Button variant="secondary" icon="plus" disabled={segs.length >= MC_MAX} onClick={addSeg}>
               {segs.length >= MC_MAX ? 'Добавлено максимальное кол-во маршрутов' : 'Добавить маршрут'}
             </Button>
-            <div style={{ flex: 1 }} />
             {paxFieldNode}
             <Button icon="search" className="avia-find-btn" style={{ height: 'var(--h-control)', marginBottom: 0 }} disabled={loading} onClick={runSearch}>Найти</Button>
           </div>

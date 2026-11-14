@@ -125,7 +125,10 @@ test('only free booking routes through historical masks; order pages retain thei
   assert.match(wrapper, /<FreeBookingAeroAddFlow/);
   assert.match(wrapper, /<FreeBookingRailFlow/);
   assert.match(freeForm, /svcp-search-bar avia-search-bar/);
-  assert.match(freeForm, /avia-mc-head/);
+  assert.doesNotMatch(freeForm, /className="avia-mc-head"/, 'segment fields carry their own labels without a duplicate header');
+  const multiCity = freeForm.slice(freeForm.indexOf('className="avia-mc-mask"'), freeForm.indexOf('svcp-search-bar avia-search-bar'));
+  assert.equal((multiCity.match(/label="Дата вылета"/g) || []).length, 1);
+  assert.match(multiCity, /className="avia-mc-foot"/);
   assert.match(freeForm, /<AviaFilters/);
   assert.match(freeForm, /<AviaListTable/);
   assert.doesNotMatch(freeForm, /\* 0\.6|\* 0\.4|\* 0\.045/);

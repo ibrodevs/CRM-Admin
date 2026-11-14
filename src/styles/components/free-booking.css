@@ -198,8 +198,10 @@
 .free-booking .avia-mc-row .avia-mc-del{flex:0 0 34px;border:none;background:none;cursor:pointer;color:var(--red);display:flex;align-items:center;justify-content:center;height:42px;border-radius:8px;transition:.12s}
 .free-booking .avia-mc-row .avia-mc-del:hover:not(:disabled){background:rgba(220,53,69,.1)}
 .free-booking .avia-mc-row .avia-mc-del:disabled{color:var(--muted-2);opacity:.4;cursor:not-allowed}
-.free-booking .avia-mc-foot{display:flex;align-items:flex-end;gap:12px;margin-top:6px;flex-wrap:wrap}
-.free-booking .avia-mc-foot .avia-pax-field{flex:1 1 180px;min-width:0}
+.free-booking .avia-mc-foot{display:grid;grid-template-columns:minmax(0,1fr) minmax(240px,360px) auto;align-items:end;gap:12px;margin-top:16px;padding-top:16px;border-top:1px solid var(--line)}
+.free-booking .avia-mc-foot>.btn:first-child{justify-self:start}
+.free-booking .avia-mc-foot>.avia-find-btn{white-space:nowrap}
+.free-booking .avia-mc-foot .avia-pax-field{width:100%;min-width:0}
 .free-booking .avia-result{cursor:pointer;border-radius:12px;transition:.12s}
 .free-booking .avia-result:not(.embedded):hover{background:var(--blue-soft)}
 .free-booking .avia-result.embedded{cursor:inherit}
@@ -467,7 +469,6 @@
 .free-booking .pcp-opt-ic svg{width:20px;height:20px}
 
 /* Keep historical desktop layouts readable on narrow panels. */
-.free-booking .avia-mc-row .label{display:none}
 .free-booking .free-booking-results-toolbar{flex-wrap:wrap}
 .free-booking .hp-layout>div{min-width:0}
 @media(max-width:640px){
@@ -528,3 +529,6 @@
 .free-booking .pcp-special-col { min-width: 0; }
 @media (max-width: 560px) { .free-booking .pcp-special { grid-template-columns: minmax(0, 1fr); } }
 @media (max-width: 640px) { .free-booking .hp-fhint { position: static; display: block; } }
+
+@media(max-width:900px){.free-booking .avia-mc-foot{grid-template-columns:minmax(0,1fr) auto}.free-booking .avia-mc-foot>.btn:first-child{grid-column:1 / -1}}
+@media(max-width:480px){.free-booking .avia-mc-foot{grid-template-columns:minmax(0,1fr)}.free-booking .avia-mc-foot>.avia-find-btn{width:100%}}
