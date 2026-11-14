@@ -2,6 +2,9 @@ import { apiPath, apiRequest, queryString } from '../../../shared/api/client.js'
 import { list, listAll, get, create, patch, remove } from '../../../shared/api/operations.js';
 
 export const usersApi = {
+  absences: (signal) => listAll('absences/', {}, signal),
+  createAbsence: (body) => create('absences/', body),
+  decideAbsence: (id, action, comment = '') => create(`absences/${id}/decision/`, { action, comment }),
   all: (signal) => listAll('users/', {}, signal),
   list: (params = {}, signal) => list('users/', { page_size: 100, ...params }, signal),
   create: (body) => create('users/', body),

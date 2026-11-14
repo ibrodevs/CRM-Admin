@@ -70,7 +70,7 @@ function toUiNotification(notification) {
   const deepLink = String(notification.deep_link || '');
   const deepOrder = deepLink.match(/\/orders\/([^/?#]+)/);
   const resourceType = String(notification.resource_type || '').toLowerCase();
-  const section = resourceType.includes('document') ? 'documents'
+  const section = resourceType === 'absence' ? 'profile' : resourceType.includes('document') ? 'documents'
     : resourceType.includes('return') || resourceType.includes('aftersale') ? 'returns'
       : resourceType.includes('finance') || resourceType.includes('payment') ? 'finance'
         : resourceType.includes('service') ? 'services'

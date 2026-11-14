@@ -1,3 +1,4 @@
+import { WorkAbsences } from './WorkAbsences.jsx';
 import { Statistics, Statistic } from '../../../shared/ui/Statistics.jsx';
 import { SectionInfo } from '../../../shared/ui/SectionInfo.jsx';
 import { InfoNotice } from '../../../shared/ui/InfoNotice.jsx';
@@ -288,7 +289,6 @@ function ProfilePage({ user, onNavigate, initialTab }) {
         position: pf.position, department: pf.dept, hired_at: pf.hired || null,
         timezone: (pf.tz || '').includes('Москва') ? 'Europe/Moscow' : (pf.tz || '').includes('Ташкент') ? 'Asia/Tashkent' : 'Asia/Bishkek',
         language: { 'Русский': 'ru', 'Кыргызча': 'ky', English: 'en' }[pf.lang] || 'ru',
-        work_status: { 'Работает': 'working', 'Отпуск': 'vacation', 'Больничный': 'sick_leave', 'Выходной': 'day_off' }[pf.workStatus] || 'working',
       });
       setPf(toUiUser(updated));
       setPrefs((current) => ({ ...current, lang: toUiUser(updated).lang }));
@@ -466,12 +466,13 @@ function ProfilePage({ user, onNavigate, initialTab }) {
               <Field label="Telegram"><Input value={pf.telegram} onChange={setField('telegram')} placeholder="@username" /></Field>
               <Field label="MAX"><Input value={pf.max || ''} onChange={setField('max')} placeholder={t("ID или номер")} /></Field>
               <Field label="WhatsApp"><Input value={pf.whatsapp || ''} onChange={setField('whatsapp')} leadIcon="phone" placeholder="+996 700 000 000" /></Field>
-              <Field label={t("Статус")}><Select options={WORK_STATUS} value={pf.workStatus} onChange={setField('workStatus')} /></Field>
+              <Field label={t("Текущий статус")}><Input value={u.workStatus} readOnly /></Field>
               <Field label={t("Часовой пояс")}><Select options={['(GMT+6) Бишкек', '(GMT+3) Москва', '(GMT+5) Ташкент']} value={pf.tz} onChange={setField('tz')} /></Field>
             </div>
             <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 22 }}>
               <Button variant="primary" onClick={saveProfile} disabled={saving}>{saving ? 'Сохранение…' : 'Сохранить изменения'}</Button>
             </div>
+            <WorkAbsences user={u} canManage={canManageUsers} onSaved={() => auth.refreshSession()} />
           </div>
         )}
 
