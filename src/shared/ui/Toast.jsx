@@ -41,12 +41,15 @@ function ToastItem({ t, onClose, onNav, paused: parentPaused = false }) {
     <article className={'toast ' + t.kind} onMouseEnter={() => setHovered(true)} onMouseLeave={() => setHovered(false)}>
       <span className="toast-ic" aria-hidden="true"><Icon name={TOAST_ICON[t.kind] || 'bell'} /></span>
       <div className="toast-body">
-        <div className="toast-meta">{urgency && <span className="toast-urgency">{urgency}</span>}
+        <div className="toast-item-head">
+          {t.title && <div className="toast-title">{t.title}</div>}
           {t.createdAt && <time dateTime={new Date(t.createdAt).toISOString()}>{new Date(t.createdAt).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })}</time>}
         </div>
-        {t.title && <div className="toast-title">{t.title}</div>}
         <div className="toast-msg">{t.msg}</div>
-        {t.action && <button type="button" className="toast-link" onClick={act}>{t.action.label}<Icon name="arrowRight" /></button>}
+        <div className="toast-item-foot">
+          <span className="toast-urgency">{urgency}</span>
+          {t.action && <button type="button" className="toast-link" title={t.action.label || 'Перейти'} onClick={act}>Перейти</button>}
+        </div>
       </div>
       <button type="button" className="toast-dismiss" onClick={() => onClose(t.id)} title="Скрыть уведомление" aria-label="Скрыть уведомление"><Icon name="x" /></button>
     </article>

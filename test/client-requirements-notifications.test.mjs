@@ -25,7 +25,7 @@ test('backend-уведомление сохраняет точное время,
   assert.equal(notification.link.type, 'order');
   assert.equal(notification.resp, 'Иванов Иван');
   assert.ok(notification.created);
-  assert.equal(notification.act, 'Перейти к разделу');
+  assert.equal(notification.act, 'Перейти');
 });
 
 test('центр уведомлений показывает время и ответственного, карточки выровнены', () => {

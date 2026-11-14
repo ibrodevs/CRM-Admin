@@ -21,7 +21,7 @@ export function DesktopNotifier({ enabled, desktop = false, notifications = [], 
         shown.current.add(n.id);
         const kind = NOTIF_PRIORITY_KIND[n.priority] || 'info';
         const type = n.link?.type;
-        const action = { label: n.act || 'Открыть' };
+        const action = { label: 'Перейти' };
         if (type === 'order' && n.order) {
           const target = orders.find((o) => String(o.no) === String(n.order) || String(o.id) === String(n.order));
           action.onClick = target ? () => onOpenOrder(target, n.tab) : () => toast('Связанный заказ не найден или недоступен', 'warn');

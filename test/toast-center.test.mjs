@@ -212,3 +212,17 @@ test('moving notifications into the sidebar portal preserves actions and unregis
   assert.equal(stack.props.docked, false);
   assert.equal(stack.props.toasts[0].id, 'kept');
 });
+
+test('compact notification uses the one-word action while preserving its exact destination and full text', () => {
+  let destination, closed;
+  const message = 'Полный текст уведомления с подробностями и сроком выполнения';
+  const item = harness().render('ToastItem', { t: { ...sample(1), msg: message, action: { label: 'Перейти к разделу', route: 'documents' } }, onClose: (id) => { closed = id; }, onNav: (route) => { destination = route; } });
+  const all = (node) => React.Children.toArray(node?.props?.children).flatMap((child) => typeof child === 'object' ? [child, ...all(child)] : []);
+  const elements = all(item);
+  assert.equal(elements.find((node) => node.props.className === 'toast-msg').props.children, message);
+  const action = elements.find((node) => node.props.className === 'toast-link');
+  assert.equal(action.props.children, 'Перейти');
+  action.props.onClick();
+  assert.equal(destination, 'documents');
+  assert.equal(closed, 'event-1');
+});

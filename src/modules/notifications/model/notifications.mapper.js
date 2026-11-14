@@ -89,7 +89,7 @@ function toUiNotification(notification) {
     resp: notification.responsible_name || 'Не назначен',
     order: deepOrder?.[1] || (resourceType === 'order' ? notification.resource_id : null),
     link,
-    act: section ? 'Перейти к разделу' : null,
+    act: section ? 'Перейти' : null,
     undelivered: undeliveredChannels(notification),
   };
 }
