@@ -1,5 +1,5 @@
 import { SearchToolbar } from '../../../shared/ui/SearchToolbar.jsx';
-import { useDraftState } from '../../../shared/drafts/Drafts.jsx';
+import { useDraftState, useRecentLocations } from '../../../shared/drafts/Drafts.jsx';
 import { PassengerPickerField } from '../search/PassengerPickerField.jsx';
 import { validateFreeFlightSearch } from './free-flight-search.js';
 import { airportOption, searchAirportOptions, flightLocationCode } from './airport-options.js';
@@ -68,6 +68,7 @@ function money(n, c) { return n.toLocaleString('ru-RU') + ' ' + currencySymbol(c
 
 
 function AirportField({ label, value, onChange, placeholder = 'Город или аэропорт' }) {
+  const [recent, remember] = useRecentLocations('airports');
   const [open, setOpen] = useState(false);
   const [q, setQ] = useState('');
   const ref = useRef(null);
@@ -78,7 +79,8 @@ function AirportField({ label, value, onChange, placeholder = 'Город или
     return () => document.removeEventListener('mousedown', h);
   }, []);
   const sel = airportOption(value);
-  const list = searchAirportOptions(q);
+  const history = !q.trim() && recent.length > 0;
+  const list = history ? recent : searchAirportOptions(q);
   return (
     <div className="av-field" style={{ position: 'relative', width: 196 }} ref={ref}>
       {label && <span className="label">{label}</span>}
@@ -94,9 +96,10 @@ function AirportField({ label, value, onChange, placeholder = 'Город или
       </div>
       {open && (
         <FloatingPanel anchorRef={ref} placement="bottom" onClose={() => setOpen(false)} className="dropdown scroll" minWidth={340} maxHeight={360} style={{ padding: 8 }}>
+          {history && <div className="location-history-title">Последние выбранные места</div>}
           {list.map((a) => (
-            <div key={a.value} className="dropdown-item" onClick={() => { onChange(a.value); setOpen(false); setQ(''); }}>
-              <span style={{ width: 34, fontWeight: 700, color: 'var(--blue)' }}>{a.code}</span>
+            <div key={a.value} className="dropdown-item" onClick={() => { remember(a); onChange(a.value); setOpen(false); setQ(''); }}>
+              <span style={{ width: 34, fontWeight: 700, color: 'var(--blue)' }}>{history ? <Icon name="clock" style={{ width: 20, height: 20 }} /> : a.code}</span>
               <span style={{ flex: 1 }}>
                 <div style={{ fontWeight: 600 }}>{a.city}{a.kind === 'city' ? ' — все аэропорты' : ''}</div>
                 <div style={{ fontSize: 12, color: 'var(--muted)' }}>{a.name}, {a.country}</div>

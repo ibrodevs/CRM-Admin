@@ -1,3 +1,4 @@
+import { useRecentLocations } from '../drafts/Drafts.jsx';
 import { FloatingPanel, containsFloatingTarget } from './FloatingPanel.jsx';
 import { useState, useEffect, useRef } from 'react';
 import { Icon } from '../icons/index.jsx';
@@ -56,6 +57,7 @@ function LocationAutocomplete(props) {
     error, leadIcon, trailIcon, onTrail, locationAutocomplete, locationScope, onLocationSelect,
     className, value = '', onChange, onFocus, onBlur, onKeyDown, ...rest
   } = props;
+  const [recent, remember] = useRecentLocations(locationScope || 'general');
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [options, setOptions] = useState([]);
@@ -131,6 +133,7 @@ function LocationAutocomplete(props) {
 
   const choose = (option) => {
     if (!option) return;
+    remember(option);
     setChosen(option);
     setHasTyped(false);
     setOptions([]);
@@ -147,16 +150,17 @@ function LocationAutocomplete(props) {
   };
 
   const handleKeyDown = (event) => {
-    if (open && options.length) {
+    const choices = !hasTyped ? recent : options;
+    if (open && choices.length) {
       if (event.key === 'ArrowDown') {
         event.preventDefault();
-        setActive((current) => (current + 1) % options.length);
+        setActive((current) => (current + 1) % choices.length);
       } else if (event.key === 'ArrowUp') {
         event.preventDefault();
-        setActive((current) => (current - 1 + options.length) % options.length);
+        setActive((current) => (current - 1 + choices.length) % choices.length);
       } else if (event.key === 'Enter') {
         event.preventDefault();
-        choose(options[active] || options[0]);
+        choose(choices[active] || choices[0]);
       } else if (event.key === 'Escape') {
         event.preventDefault();
         setOpen(false);
@@ -178,7 +182,7 @@ function LocationAutocomplete(props) {
       onChange={handleChange}
       onKeyDown={handleKeyDown}
       onFocus={(event) => {
-        if (hasTyped && text.trim().length >= 2 && !selectedIsCurrent) setOpen(true);
+        setHasTyped(false); setActive(0); setOpen(true);
         onFocus && onFocus(event);
       }}
       onBlur={(event) => {
@@ -197,12 +201,17 @@ function LocationAutocomplete(props) {
         </div>
       ) : inputElement}
 
-      {open && hasTyped && text.trim().length >= 2 && (
+      {open && ((!hasTyped && recent.length > 0) || (hasTyped && text.trim().length >= 2)) && (
         <FloatingPanel anchorRef={rootRef} placement="bottom" minWidth={360} onClose={() => setOpen(false)} className="location-autocomplete-menu" role="listbox">
-          {loading && (
+          {!hasTyped && <div className="location-history-title">Последние выбранные места</div>}
+          {!hasTyped && recent.map((option, index) => <button type="button" role="option" aria-selected={index === active} key={option.value || option.id || index} className="location-autocomplete-option" onMouseDown={(event) => event.preventDefault()} onClick={() => choose(option)}>
+            <Icon name="clock" className="location-history-icon" />
+            <span className="location-autocomplete-option-main"><b>{option.title || option.value || option.label}</b><span>{option.subtitle || option.label || option.kind || 'Локация'}</span></span>
+          </button>)}
+          {hasTyped && loading && (
             <div className="location-autocomplete-status"><Icon name="loader" />{locationScope === 'hotel' ? 'Подбираем отели…' : 'Подбираем города и локации…'}</div>
           )}
-          {!loading && options.map((option, index) => (
+          {hasTyped && !loading && options.map((option, index) => (
             <button
               type="button"
               role="option"
@@ -221,10 +230,10 @@ function LocationAutocomplete(props) {
               <span className="location-autocomplete-kind">{option.kind || 'Локация'}</span>
             </button>
           ))}
-          {!loading && !options.length && (
+          {hasTyped && !loading && !options.length && (
             <div className="location-autocomplete-empty">Ничего не найдено. Проверьте написание или уточните страну.</div>
           )}
-          {!selectedIsCurrent && (
+          {hasTyped && !selectedIsCurrent && (
             <div className="location-autocomplete-help"><Icon name="alertCircle" />Выберите вариант из списка, чтобы поиск получил корректную локацию.</div>
           )}
         </FloatingPanel>

@@ -9,6 +9,7 @@ export function DraftScope({ name, children }) {
   const parent = useContext(ScopeContext);
   return <ScopeContext.Provider value={[parent, name].filter(Boolean).join('/')}>{children}</ScopeContext.Provider>;
 }
+const emptyLocations = [];
 const emptyStatus = { restored: false, failed: false };
 
 export function DraftNoticeSlot({ active = true, priority = 0 }) {
@@ -55,11 +56,25 @@ export function useDraftState(scope, field, initial) {
   }, [store, scope, field, fallback]);
   return [store ? value : local, set];
 }
+export function useRecentLocations(kind = 'general') {
+  const store = useContext(DraftContext);
+  const [local, setLocal] = useState(emptyLocations);
+  const subscribe = useCallback((fn) => store ? store.subscribe(fn) : () => {}, [store]);
+  const snapshot = useCallback(() => store ? store.read('location-history', kind, emptyLocations) : emptyLocations, [store, kind]);
+  const recent = useSyncExternalStore(subscribe, snapshot, () => emptyLocations);
+  const remember = (option) => {
+    const current = store ? store.read('location-history', kind, emptyLocations) : local;
+    const id = (item) => String(item.value || item.id || item.title || item.label || '').trim().toLocaleLowerCase('ru');
+    const next = [option, ...current.filter((item) => id(item) !== id(option))].slice(0, 4);
+    if (store) store.write('location-history', kind, next); else setLocal(next);
+  };
+  return [store ? recent : local, remember];
+}
 export function useDraftControls(scope = '') {
   const store = useContext(DraftContext);
   const prefix = useContext(ScopeContext);
   scope = [prefix, scope].filter(Boolean).join('/');
-  return useMemo(() => ({ clear: () => store?.clear(scope), has: (field) => store?.has(scope, field) || false }), [store, scope]);
+  return useMemo(() => ({ clear: () => store?.clear(scope), hasWork: () => store?.workspaces().some((entry) => !scope || entry.scope === scope || entry.scope.startsWith(scope + '/')) || false, has: (field) => store?.has(scope, field) || false }), [store, scope]);
 }
 export function useDraftNavigation(handler) {
   const store = useContext(DraftContext);

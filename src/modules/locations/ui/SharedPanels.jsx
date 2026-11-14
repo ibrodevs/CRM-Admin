@@ -18,7 +18,7 @@ function StackPanel({ open = true, title, onClose, footer, children, width, comp
   const zIndex = useOverlayZIndex(visible);
 
   const node = (
-    <div className={'drawer-stack' + (compact ? ' drawer-stack-compact' : '')} style={{ zIndex, display: visible ? undefined : 'none' }} aria-hidden={!visible || undefined} onClick={(event) => event.stopPropagation()} onMouseDown={(event) => { event.stopPropagation(); if (closeOnBackdrop && event.target === event.currentTarget) onClose(); }}>
+    <div className={'drawer-stack' + (compact ? ' drawer-stack-compact' : '')} style={{ zIndex, display: visible ? undefined : 'none' }} aria-hidden={!visible || undefined} onClick={(event) => event.stopPropagation()} onMouseDown={(event) => { event.stopPropagation(); if (event.target === event.currentTarget && (typeof closeOnBackdrop === 'function' ? closeOnBackdrop() : closeOnBackdrop)) onClose(); }}>
       <div className={'drawer-stack-panel scroll' + (className ? ' ' + className : '')} style={width ? { width } : undefined}>
         <div className="drawer-stack-header" style={{ padding: '20px 26px 16px', position: 'sticky', top: 0, background: 'var(--surface)', zIndex: 2, borderBottom: '1px solid var(--line)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <h3 style={{ fontSize: 18, fontWeight: 700, color: 'var(--ink)', margin: 0 }}>{title}</h3>

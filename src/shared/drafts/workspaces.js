@@ -3,6 +3,9 @@ const KINDS = { Авиа: 'Авиабилеты', Гостиница: 'Отел�
 const filled = (value) => value != null && value !== '' && value !== false;
 function hasWork(fields) {
   const params = fields.aviaParams || fields.params;
+  const pax = params?.pax || fields.form?.pax;
+  if (pax && typeof pax === 'object' && (Number(pax.adt) > 1 || Number(pax.chd) > 0 || Number(pax.infSeat) > 0 || Number(pax.infNoSeat) > 0)) return true;
+  if (Number(fields.form?.pax) > 1 || Number(fields.pax) > 1) return true;
   if (params && (params.depDate || params.retDate || params.segments?.some((item) => item.date) || (params.from && params.from !== 'FRU') || (params.to && params.to !== 'IST'))) return true;
   if (['dest', 'checkin', 'checkout', 'date', 'retDate', 'start', 'specialReq', 'supplierComment', 'title', 'cost', 'bookingDraft', 'depDate', 'retDate'].some((key) => filled(fields[key]))) return true;
   if (fields.draft?.length || fields.selClients?.length || fields.employees?.length || fields.pts?.some(Boolean)) return true;

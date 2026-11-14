@@ -113,4 +113,11 @@ test('the React hook persists functional input updates and scopes them to the ac
   assert.deepEqual(useDraftState('hotel', 'form', {})[0], { city: 'Москва', guests: 3 });
   prefix = 'order/2';
   assert.deepEqual(useDraftState('hotel', 'form', { city: '', guests: 1 })[0], { city: '', guests: 1 });
+  const history = module.exports.useRecentLocations;
+  for (const value of ['MOW', 'LED', 'GOJ', 'IST', 'FRU', 'LED']) history('airports')[1]({ value, city: value });
+  assert.deepEqual(history('airports')[0].map((entry) => entry.value), ['LED', 'FRU', 'IST', 'GOJ']);
+  prefix = 'free-booking';
+  assert.equal(history('airports')[0][0].value, 'LED', 'history follows the account, not the currently open order');
+  assert.deepEqual(history('rail')[0], [], 'different location namespaces never mix');
+
 });

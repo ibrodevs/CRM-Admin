@@ -20,7 +20,7 @@ test('airport cities can be typed in the clicked field without focusing a second
   } : require(name);
   mod._compile(babel.transformSync(`import {useState,useRef,useEffect} from 'react';
     import {airportOption,searchAirportOptions} from './airport-options.js';
-    const FloatingPanel='FloatingPanel',Icon='Icon';
+    const FloatingPanel='FloatingPanel',Icon='Icon',useRecentLocations=()=>[[],()=>{}];
     ${body} export {AirportField};`, { filename: 'airport-field.jsx', presets: ['next/babel'], configFile: false, babelrc: false, envName: 'test' }).code, import.meta.filename);
   const render = () => { hook = 0; refIndex = 0; effects.length = 0; return mod.exports.AirportField({ value: 'FRU', onChange() {} }); };
   const nodes = (n) => Array.isArray(n) ? n.flatMap(nodes) : n?.props ? [n, ...nodes(n.props.children)] : [];

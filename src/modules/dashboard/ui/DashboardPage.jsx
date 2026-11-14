@@ -349,7 +349,7 @@ function DetailedSearchPanelContent({ open = true, onClose, initialKind, onOpenO
   const [finalize, setFinalize] = useDraftState('DetailedSearchPanel', "finalize", false);
   const add = (svc, k) => { setDraft((d) => [...d, { kind: k || 'Авиа', ...(svc || {}) }]); toast('Добавлено в свободное бронирование', 'ok'); };
   return (
-    <StackPanel open={open} className="free-booking" title="Свободное бронирование" width="min(1320px,96vw)" onClose={onClose}
+    <StackPanel open={open} className="free-booking" title="Свободное бронирование" width="min(1320px,96vw)" onClose={onClose} closeOnBackdrop={() => !draft.length && !allDrafts.hasWork()}
       footer={draft.length ? (
         <>
           <div style={{ flex: 1, alignSelf: 'center', color: 'var(--muted)', fontSize: 14 }}>В подборке: <b style={{ color: 'var(--ink)' }}>{draft.length}</b> {plural(draft.length, ['услуга', 'услуги', 'услуг'])}</div>

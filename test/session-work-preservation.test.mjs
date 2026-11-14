@@ -81,6 +81,17 @@ test('clicking the backdrop keeps hotel search and placement panels open', () =>
   assert.equal(closed, 0);
   tree.props.children.props.children[0].props.children[1].props.onClick();
   assert.equal(closed, 1, 'the explicit close button still works');
+  let empty = true;
+  const dismissible = StackPanel({ title: 'Свободное бронирование', onClose: () => closed++, closeOnBackdrop: () => empty });
+  dismissible.props.onMouseDown({ target: backdrop, currentTarget: backdrop, stopPropagation() {} });
+  assert.equal(closed, 2, 'an empty form closes on its backdrop');
+  empty = false;
+  dismissible.props.onMouseDown({ target: backdrop, currentTarget: backdrop, stopPropagation() {} });
+  assert.equal(closed, 2, 'the click checks the latest form state and keeps entered data open');
+  empty = true;
+  dismissible.props.onMouseDown({ target: {}, currentTarget: backdrop, stopPropagation() {} });
+  assert.equal(closed, 2, 'clicks inside the form do not dismiss it');
+
 });
 
 test('a late background response cannot restore a logged-out account', async () => {

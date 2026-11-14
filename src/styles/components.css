@@ -3733,3 +3733,6 @@ button.oc-fact:hover{border-color:#d3dbe8;background:#fff}
 .draft-recovery-row button svg{width:16px;height:16px}
 .draft-recovery-list>p{font-size:12px;line-height:1.5;color:var(--muted);margin:12px 0}
 @media(max-width:640px){.draft-recovery-row{align-items:flex-start;flex-wrap:wrap}}
+
+.location-history-title{padding:8px 10px;font-size:12px;font-weight:600;color:var(--muted)}
+.location-history-icon{width:20px;height:20px;flex:0 0 20px;color:var(--muted-2);margin:0 8px}
