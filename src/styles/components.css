@@ -3736,3 +3736,20 @@ button.oc-fact:hover{border-color:#d3dbe8;background:#fff}
 
 .location-history-title{padding:8px 10px;font-size:12px;font-weight:600;color:var(--muted)}
 .location-history-icon{width:20px;height:20px;flex:0 0 20px;color:var(--muted-2);margin:0 8px}
+
+.registry-stats{margin:0 0 12px;color:var(--muted);font-size:12px}
+.registry-stats>summary{display:flex;align-items:center;gap:7px;width:max-content;max-width:100%;cursor:pointer;padding:5px 0;list-style:none;font-weight:600}
+.registry-stats>summary::-webkit-details-marker{display:none}
+.registry-stats>summary svg{width:15px;height:15px;flex-shrink:0}
+.registry-stats>summary:hover{color:var(--blue)}
+.registry-stats>summary:focus-visible{outline:2px solid var(--blue);outline-offset:3px;border-radius:4px}
+.registry-stats[open]>summary>svg:last-child{transform:rotate(180deg)}
+.registry-stats-content{margin-top:10px;padding:12px 14px;border:1px solid var(--line);border-radius:12px;background:var(--surface-2)}
+.registry-stats-content>.grid-4{margin-bottom:0!important}
+.registry-assignment{display:flex;align-items:center;gap:4px;border-radius:10px;padding:3px;background:var(--surface-2);max-width:100%;flex-wrap:wrap}
+.registry-assignment button{display:flex;align-items:center;gap:8px;border:0;border-radius:8px;padding:9px 10px;background:transparent;color:var(--muted);font:inherit;font-size:13px;font-weight:600;cursor:pointer}
+.registry-assignment button[aria-pressed=true]{background:var(--blue-soft);color:var(--blue)}
+.registry-assignment button:hover{color:var(--blue)}
+.registry-assignment button:focus-visible{outline:2px solid var(--blue);outline-offset:2px}
+.registry-assignment button span{font-size:12px;font-variant-numeric:tabular-nums}
+.registry-found{color:var(--muted);font-size:12px;white-space:nowrap}

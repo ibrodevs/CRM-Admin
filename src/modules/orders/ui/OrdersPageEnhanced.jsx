@@ -1,7 +1,7 @@
 import { useDraftState, DraftScope } from '../../../shared/drafts/Drafts.jsx';
 import { SearchToolbar } from '../../../shared/ui/SearchToolbar.jsx';
 import { SectionInfo } from '../../../shared/ui/SectionInfo.jsx';
-import { matchesOrderSearch } from '../model/order-search.js';
+import { matchesOrderSearch, orderAssignedTo } from '../model/order-search.js';
 import { useEffect, useState } from 'react';
 import { Icon } from '../../../shared/icons/index.jsx';
 import { ActionMenu } from '../../../shared/ui/ActionMenu.jsx';
@@ -41,6 +41,7 @@ function OrdersMultiSelectList({ orders, onOpen, onCreate, onNavigate, currentUs
   const toast = useToast();
   const [search, setSearch] = useState('');
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
+  const [assignment, setAssignment] = useState('all');
   const [filters, setFilters] = useState({ status: '', requestType: '', service: '' });
   const { sort, onSort, apply } = useSort(null);
   const [proposalBusy, setProposalBusy] = useState(false);
@@ -83,8 +84,10 @@ function OrdersMultiSelectList({ orders, onOpen, onCreate, onNavigate, currentUs
     }
   };
 
+  const assignedToMe = (order) => orderAssignedTo(order, currentUser);
+  const ownOrders = orders.filter(assignedToMe).length;
   let rows = orders.filter((o) =>
-    matchesOrderSearch(o, search) &&
+    matchesOrderSearch(o, search) && (assignment !== 'mine' || assignedToMe(o)) &&
     (!filters.status || o.status === filters.status) &&
     (!filters.requestType || o.requestType === filters.requestType) &&
     (!filters.service || o.service === filters.service));
@@ -95,11 +98,9 @@ function OrdersMultiSelectList({ orders, onOpen, onCreate, onNavigate, currentUs
   const requestTypeOptions = [...new Set(orders.map((order) => order.requestType).filter(Boolean))];
   const serviceOptions = [...new Set(orders.map((order) => order.service).filter(Boolean))];
 
-  const currentUserName = String(currentUser?.name || currentUser?.full_name || '').trim().toLowerCase();
-  const ownOrders = orders.filter((order) => (currentUser?.id && String(order.operatorId) === String(currentUser.id))
-    || (currentUserName && String(order.operator || '').trim().toLowerCase() === currentUserName)).length;
 
-  useEffect(() => { setVisibleCount(PAGE_SIZE); }, [search, filters]);
+
+  useEffect(() => { setVisibleCount(PAGE_SIZE); }, [search, filters, assignment]);
 
   const toggleOrder = (order) => {
     const key = orderSelectionKey(order);
@@ -150,13 +151,15 @@ function OrdersMultiSelectList({ orders, onOpen, onCreate, onNavigate, currentUs
       </Topbar>
 
       <div className="content">
-        <div className="orders-access-summary" aria-label="Количество доступных заказов">
-          <div><span>Доступно по роли</span><b>{orders.length}</b><small>{currentUser?.role || 'Текущая роль'}</small></div>
-          <div><span>Назначено вам</span><b>{ownOrders}</b><small>{currentUser?.name || currentUser?.full_name || 'Текущий оператор'}</small></div>
-          <div><span>По текущему фильтру</span><b>{rows.length}</b><small>из доступных заказов</small></div>
-        </div>
+
 
         <SearchToolbar className="orders-filters" >
+          <div className="registry-assignment" role="group" aria-label="Доступно по роли и назначено вам">
+            <button type="button" aria-pressed={assignment === 'all'} onClick={() => setAssignment('all')}>Все доступные <span>{orders.length}</span></button>
+            <button type="button" aria-pressed={assignment === 'mine'} onClick={() => setAssignment('mine')}>Назначены мне <span>{ownOrders}</span></button>
+          </div>
+          <span className="registry-found" role="status">Найдено: <b>{rows.length}</b></span>
+
           <FilterChip label="Статус" icon="chev" options={statusOptions} value={filters.status} onChange={(v) => setFilters((f) => ({ ...f, status: v }))} />
           <FilterChip label="Заказчик" icon="chev" options={[...new Set(orders.map((order) => order.client).filter(Boolean))]} value="" onChange={(v) => setSearch(v === '' ? '' : v)} />
           <FilterChip label="Тип заявки" icon="chev" options={requestTypeOptions} value={filters.requestType} onChange={(v) => setFilters((f) => ({ ...f, requestType: v }))} />

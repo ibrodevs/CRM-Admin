@@ -1,3 +1,4 @@
+import { RegistryStats } from '../../../shared/ui/RegistryStats.jsx';
 import { SearchToolbar } from '../../../shared/ui/SearchToolbar.jsx';
 import { useDraftState, useRecentLocations } from '../../../shared/drafts/Drafts.jsx';
 import { PassengerPickerField } from '../search/PassengerPickerField.jsx';
@@ -2271,14 +2272,14 @@ function FlightsRegistry({ onNew, onOpen, onFormKp, onReturn, liveRows = [] }) {
 
   return (
     <div className="fade-in">
-      <div className="grid-4" style={{ marginBottom: 22 }}>
+      <RegistryStats><div className="grid-4" style={{ marginBottom: 22 }}>
         {AIR_STATS.map((s, index) => ({ ...s, value: [liveRows.filter((r) => ['Забронировано', 'Согласование'].includes(r.status)).length, liveRows.filter((r) => r.status === 'Забронировано').length, liveRows.filter((r) => r.status === 'Согласование').length, liveRows.filter((r) => r.status === 'Возврат').length][index] || 0 })).map((s) => (
           <div className="stat-card" key={s.label}>
             <div className="s-label">{s.label}</div>
             <div className="s-value" style={s.tone === 'red' ? { color: 'var(--red)' } : null}>{s.value}</div>
           </div>
         ))}
-      </div>
+      </div></RegistryStats>
 
       <SearchToolbar>
         <Tabs tabs={TABS} value={tab} onChange={setTab} />

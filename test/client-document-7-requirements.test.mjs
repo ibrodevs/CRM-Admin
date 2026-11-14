@@ -73,7 +73,7 @@ test('draft action is visible and stores complete ticket calculation state', () 
 
 test('orders list has date, access counts and load-more behavior', () => {
   assert.match(orders, /Доступно по роли/);
-  assert.match(orders, /Назначено вам/);
+  assert.match(orders, /Назначены мне/);
   assert.match(orders, /<th>Дата<\/th>/);
   assert.match(orders, /\{o\.date \|\| '—'\}/);
   assert.match(orders, /Загрузить ещё/);
