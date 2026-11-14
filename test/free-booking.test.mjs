@@ -265,3 +265,11 @@ test('operator hotel request is retained when attaching a selected offer to an o
     offer_id: 'hb', hotel_operator_request: 'Связаться с отелем', hotel_remarks: [{ remarkId: 7, data: null }],
   });
 });
+
+test('manual insurance choice retains its supplier when a selection becomes an order', () => {
+  const body = freeBookingServiceBody({ kind: 'Страховка', title: 'ВЗР', supplierId: 'insurance-supplier', cost: 0, currency: 'RUB' });
+  assert.equal(body.kind, 'insurance');
+  assert.equal(body.supplier, 'insurance-supplier');
+  assert.equal(body.client_total, 0);
+  assert.equal(body.supplier_cost, 0);
+});

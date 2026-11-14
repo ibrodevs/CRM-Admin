@@ -26,6 +26,7 @@ export function freeBookingServiceBody(service, participantIds) {
     kind: kinds[kind] || kind,
     title: service.title || service.route || service.fareName || (service.from && service.to ? service.from + ' → ' + service.to : service.kind || 'Услуга'),
     ...(service.starts_at ? { starts_at: service.starts_at } : {}),
+    ...(service.supplierId ? { supplier: service.supplierId } : {}),
     currency: resolveCurrency(service.currency),
     client_total: freeBookingAmount(service),
     supplier_cost: service.cost ?? service.tariff ?? freeBookingAmount(service),
