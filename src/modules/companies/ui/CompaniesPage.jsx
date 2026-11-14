@@ -501,6 +501,7 @@ function CompaniesPage({ initialCompanies = [], orders = [], onCompaniesChange, 
   const { sort, onSort, apply } = useSort(null);
 
   useEffect(() => { setCompanies(initialCompanies); }, [initialCompanies]);
+  useEffect(() => { if (intent?.type === 'open') { const co = companies.find((row) => row.id === intent.id); if (co) { setActive(co); setView('card'); onConsume?.(); } } }, [intent, companies]);
 
   // Логотипы подгружаются одним запросом на всю страницу; их отсутствие
   // не должно ломать список, поэтому ошибка просто оставляет иконку.

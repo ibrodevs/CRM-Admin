@@ -1,3 +1,7 @@
+import { clientRegistry, filterClientRegistry } from '../model/client-registry.js';
+import { companiesApi } from '../../companies/api.js';
+import { toUiCompany } from '../../companies/model.js';
+import { resultsOf } from '../../../shared/api/client.js';
 import { RegistryStats } from '../../../shared/ui/RegistryStats.jsx';
 import { SearchToolbar } from '../../../shared/ui/SearchToolbar.jsx';
 import { useDraftState } from '../../../shared/drafts/Drafts.jsx';
@@ -24,7 +28,7 @@ import { Topbar } from '../../../shared/ui/Topbar.jsx';
 import { communicationsApi } from '../../chats/api.js';
 import { toUiClient } from '../model/clients.mapper.js';
 import { pUsd, orderDate, sumCurrencies, hasDebt } from '../model/people-helpers.js';
-import { shortCode, shortCodeSearchable } from '../../../shared/lib/short-id.js';
+import { shortCode } from '../../../shared/lib/short-id.js';
 import { currencySymbol } from '../../../shared/lib/money.js';
 
 function ordersForClient(client, orders = ORDERS) {
@@ -204,16 +208,26 @@ function ClientCreateModal({ open, initial, onClose, onCreated }) {
   );
 }
 
-function ClientsPage({ initialClients = [], orders = [], onClientsChange, onOpenOrder, onCreateOrder, onOpenChat, intent, onConsume }) {
+function ClientsPage({ initialClients = [], orders = [], onClientsChange, onOpenOrder, onCreateOrder, onOpenChat, onOpenCompany, intent, onConsume }) {
   const [view, setView] = useDraftState('ClientsPage', 'view', 'list');
   const [active, setActive] = useDraftState('ClientsPage', 'active', null);
   const [q, setQ] = useState('');
   const [fStatus, setFStatus] = useState('');
+  const [fType, setFType] = useState('');
+  const [companies, setCompanies] = useState([]);
+  const [companiesError, setCompaniesError] = useState('');
+  const [companiesLoading, setCompaniesLoading] = useState(true);
+  const [retry, setRetry] = useState(0);
   const [clients, setClients] = useState(initialClients);
   const [createOpen, setCreateOpen] = useDraftState('ClientsPage', 'createOpen', false);
   const { sort, onSort, apply } = useSort(null);
 
   useEffect(() => { setClients(initialClients); }, [initialClients]);
+  useEffect(() => {
+    const controller = new AbortController(); setCompaniesLoading(true); setCompaniesError('');
+    companiesApi.companies({}, controller.signal).then((payload) => setCompanies(resultsOf(payload).map(toUiCompany))).catch((e) => { if (e.name !== 'AbortError') setCompaniesError(e.message || 'Не удалось загрузить юридических лиц'); }).finally(() => { if (!controller.signal.aborted) setCompaniesLoading(false); });
+    return () => controller.abort();
+  }, [retry]);
 
   useEffect(() => { if (intent && intent.type === 'create') { setCreateOpen(true); onConsume && onConsume(); } }, [intent]);
   const commitClients = (updater) => {
@@ -227,9 +241,10 @@ function ClientsPage({ initialClients = [], orders = [], onClientsChange, onOpen
         <SectionInfo section="clients" />
       </div></>);
 
-  let rows = clients.filter((c) => (!fStatus || c.status === fStatus) && (!q || `${shortCodeSearchable(c.id, 'CL')} ${c.name} ${c.company} ${c.phone}`.toLowerCase().includes(q.toLowerCase())));
+  const registry = clientRegistry(clients, companies);
+  let rows = filterClientRegistry(registry, { type: fType, status: fStatus, query: q });
   rows = apply(rows, { name: (r) => r.name, orders: (r) => r.orders, spent: (r) => pUsd(r.spent), debt: (r) => pUsd(r.debt) });
-  const STATS = [['Всего клиентов', clients.length], ['Активные', clients.filter((c) => c.status === 'Активный' || c.status === 'VIP').length], ['VIP', clients.filter((c) => c.status === 'VIP').length], ['С задолженностью', pUsd(sumCurrencies(clients, 'debt'))]];
+  const STATS = [['Всего клиентов', registry.length], ['Активные', registry.filter((c) => c.status === 'Активный' || c.status === 'VIP').length], ['VIP', registry.filter((c) => c.status === 'VIP').length], ['С задолженностью', pUsd(sumCurrencies(registry, 'debt'))]];
 
   return (
     <>
@@ -237,17 +252,20 @@ function ClientsPage({ initialClients = [], orders = [], onClientsChange, onOpen
       <div className="content fade-in">
         <RegistryStats><div className="grid-4" style={{ marginBottom: 22 }}>{STATS.map(([l, v]) => (<div className="stat-card" key={l}><div className="s-label">{l}</div><div className="s-value">{v}</div></div>))}</div></RegistryStats>
         <SearchToolbar>
-          <SearchBox value={q} onChange={setQ} placeholder="Поиск: имя, телефон, ID…" style={{ width: 280 }} />
+          <SearchBox value={q} onChange={setQ} placeholder="Имя, компания, ИНН, телефон, ID…" style={{ width: 280 }} />
+          <FilterChip label="Тип клиента" value={fType} onChange={setFType} options={[{ value: 'individual', label: 'Физлица' }, { value: 'legal', label: 'Юрлица' }]} />
           <FilterChip label="Статус" value={fStatus} onChange={setFStatus} options={Object.keys(CLIENT_STATUS)} />
         </SearchToolbar>
+        {fType !== 'individual' && companiesLoading && <p role="status">Загрузка юридических лиц…</p>}
+        {fType !== 'individual' && companiesError && <div role="alert"><p>{companiesError}</p><Button variant="secondary" onClick={() => setRetry((n) => n + 1)}>Повторить загрузку</Button></div>}
         <section className="section-workspace" aria-label="Рабочая область списка"><div className="table-card">
           {rows.length ? (
             <table className="tbl">
               <thead><tr><th>ID</th><Th label="Клиент" col="name" sort={sort} onSort={onSort} /><th>Тип</th><th>Компания</th><th>Город</th><Th label="Заказов" col="orders" sort={sort} onSort={onSort} /><Th label="Покупки" col="spent" sort={sort} onSort={onSort} style={{ textAlign: 'right' }} /><Th label="Долг" col="debt" sort={sort} onSort={onSort} style={{ textAlign: 'right' }} /><th>Статус</th></tr></thead>
               <tbody>
                 {rows.map((c) => (
-                  <tr key={c.id} style={{ cursor: 'pointer' }} onClick={() => { setActive(c); setView('card'); }}>
-                    <td className="t-strong" title={c.id}>{shortCode(c.id, 'CL')}</td>
+                  <tr key={`${c.entityType}:${c.id}`} style={{ cursor: 'pointer' }} onClick={() => { if (c.entityType === 'legal') { onOpenCompany?.(c.id); return; } setActive(c); setView('card'); }}>
+                    <td className="t-strong" title={c.id}>{shortCode(c.id, c.entityType === 'legal' ? 'CO' : 'CL')}</td>
                     <td><span style={{ display: 'flex', alignItems: 'center', gap: 10 }}><Avatar name={c.name} size={32} /><span style={{ fontWeight: 600 }}>{c.name}</span></span></td>
                     <td>{c.type}</td><td className="t-muted">{c.company}</td><td>{c.city}</td><td>{c.orders}</td>
                     <td style={{ textAlign: 'right', fontWeight: 600 }}>{pUsd(c.spent)}</td>
