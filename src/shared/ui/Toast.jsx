@@ -81,7 +81,11 @@ function ToastStack({ toasts, onClose, onClear, onNav }) {
   return <section className={'toast-wrap toast-center' + (collapsed ? ' is-collapsed' : '')} aria-label="Всплывающие уведомления" data-urgency={urgency}
     onPointerEnter={() => setHovered(true)} onPointerLeave={() => setHovered(false)}
     onFocusCapture={() => setFocused(true)} onBlurCapture={(event) => { if (!event.currentTarget.contains(event.relatedTarget)) setFocused(false); }}>
-    <header className="toast-center-header">
+    <header className="toast-center-header" onClick={(event) => {
+      // Controls handle their own action; their bubbling click must not toggle twice.
+      if (event.target.closest?.('button')) return;
+      setCollapsed((value) => !value);
+    }}>
       <span className="toast-center-bell" aria-hidden="true"><Icon name="bell" /></span>
       <h2>Уведомления</h2>
       <span className="toast-center-count" aria-live="polite" aria-atomic="true" aria-label={`Уведомлений в блоке: ${toasts.length}`}>{toasts.length}</span>

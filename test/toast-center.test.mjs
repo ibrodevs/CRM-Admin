@@ -152,3 +152,26 @@ test('collapsed notifications expose the strongest remaining severity and cards 
     assert.equal(all(item).find((node) => node.props.className === 'toast-urgency').props.children, label);
   }
 });
+
+
+test('notification header toggles from its title, counter and empty area while close and arrow act only once', () => {
+  const h = harness();
+  let cleared = 0;
+  const props = { toasts: [sample(1)], onClose() {}, onClear() { cleared++; }, onNav() {} };
+  const header = () => children(h.render('ToastStack', props))[0];
+  const hidden = () => children(h.render('ToastStack', props))[1].props.hidden;
+  for (const area of ['title', 'counter', 'space']) {
+    const before = hidden();
+    header().props.onClick({ target: { closest: () => null, area } });
+    assert.equal(hidden(), !before);
+  }
+  const before = hidden();
+  const arrow = children(header()).find((n) => n.props['aria-expanded'] != null);
+  arrow.props.onClick();
+  header().props.onClick({ target: { closest: () => ({ tagName: 'BUTTON' }) } });
+  assert.equal(hidden(), !before, 'arrow bubbling must not toggle the header a second time');
+  children(header()).find((n) => n.props.title === 'Скрыть все').props.onClick();
+  header().props.onClick({ target: { closest: () => ({ tagName: 'BUTTON' }) } });
+  assert.equal(cleared, 1);
+  assert.equal(hidden(), false, 'clearing must not collapse an emptied queue through click bubbling');
+});
