@@ -13,6 +13,7 @@ mod.require = (name) => {
   if (name === 'react') return { ...require('react'), useState: () => [true, () => {}] };
   if (name.endsWith('passenger-composition.js')) return { transferChildSeats };
   if (name.endsWith('free-booking-search.js')) return { transferDepartureParts };
+  if (name.endsWith('SearchExtras.jsx')) return { TransferSearchExtras: 'Extras' };
   if (name.endsWith('DateFields.jsx')) return { DateField: 'DatePicker', TimeField: 'TimePicker' };
   if (name.endsWith('Input.jsx')) return { Input: 'TextInput' };
   if (name.endsWith('Select.jsx')) return { Select: 'Choice' };

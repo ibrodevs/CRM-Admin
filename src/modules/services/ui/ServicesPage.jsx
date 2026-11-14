@@ -1,3 +1,5 @@
+import { OfferSearchExtras, TransferSearchExtras } from '../search/SearchExtras.jsx';
+import { offerSearchExtras } from '../search/search-extras.js';
 import { SearchToolbar } from '../../../shared/ui/SearchToolbar.jsx';
 import { useDraftState } from '../../../shared/drafts/Drafts.jsx';
 import { PassengerCountField } from '../search/PassengerPickerField.jsx';
@@ -156,12 +158,13 @@ function SvcOfferCard({ o, kind, onSelect, onSave, selectLabel }) {
         <div style={{ display: 'flex', gap: 26, flexWrap: 'wrap' }}>
           {o.info.map((r, i) => (<div key={i}><div style={{ fontSize: 12, color: 'var(--muted)' }}>{r.l}</div><div style={{ fontWeight: 600, color: 'var(--ink)', fontSize: 14 }}>{r.v}</div></div>))}
         </div>
+        <OfferSearchExtras service={o} />
         <div className="off-meta">{o.tags.map((t, i) => <span key={i} className="off-tag">{t}</span>)}</div>
       </div>
       <div className="off-side">
         <div>
           <div className="off-supplier"><Icon name="api" style={{ width: 14, height: 14, verticalAlign: -2 }} /> {o.supplier}</div>
-          <div className="off-price-line"><span>Тариф</span><span>{fmt(o.cost)}</span></div>
+          <div className="off-price-line"><span>{offerSearchExtras(o).length ? 'Тариф с допуслугами' : 'Тариф'}</span><span>{fmt(o.cost)}</span></div>
           <div className="off-price-line"><span>Сервисный сбор</span><span>{fmt(o.fee)}</span></div>
           <div className="off-total">{fmt(total)}</div>
         </div>
@@ -1905,6 +1908,7 @@ function ServiceFlow({ routeKey, searchIntent, onConsumeSearch }) {
             {routeKey === 'transfers' && <TransferSearchOptions form={form} set={setF} />}
               <Button icon="search" style={{ height: 'var(--h-control)', marginBottom: 0 }} onClick={runSearch}>Найти</Button>
             </div>
+            {routeKey === 'transfers' && <TransferSearchExtras form={form} set={setF} selectedOnly />}
             <InfoNotice dismissible icon="api" style={{ marginTop: 14 }}>
               Поиск по подключённым поставщикам · {cfg.title}
             </InfoNotice>
@@ -2015,6 +2019,7 @@ function FreeBookingServiceAddFlow({ routeKey, onAdd, currency, paxCount = 1 }) 
             {routeKey === 'transfers' && <TransferSearchOptions form={form} set={setF} />}
             <Button disabled={loading} icon="search" style={{ height: 'var(--h-control)', marginBottom: 0 }} onClick={runSearch}>Найти</Button>
           </div>
+          {routeKey === 'transfers' && <TransferSearchExtras form={form} set={setF} selectedOnly />}
           <InfoNotice dismissible icon="api" style={{ marginTop: 14 }}>
             Поиск по подключённым поставщикам · {cfg.title}
           </InfoNotice>
@@ -2210,6 +2215,7 @@ function ServiceAddFlow({ routeKey, onAdd, currency, paxCount = 1 }) {
             {routeKey === 'transfers' && <TransferSearchOptions form={form} set={setF} />}
             <Button icon="search" style={{ height: 'var(--h-control)', marginBottom: 0 }} onClick={runSearch}>Найти</Button>
           </div>
+          {routeKey === 'transfers' && <TransferSearchExtras form={form} set={setF} selectedOnly />}
           <InfoNotice dismissible icon="api" style={{ marginTop: 14 }}>
             Поиск по подключённым поставщикам · {cfg.title}
           </InfoNotice>

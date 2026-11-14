@@ -53,3 +53,5 @@ export { FlightSearchHeader } from './search/FlightSearchHeader.jsx';
 
 export { FlightFareSummary } from './flights/FlightFareSummary.jsx';
 export { FlightBookingActionsDrawer } from './flights/FlightBookingActionsDrawer.jsx';
+
+export { OfferSearchExtras } from './search/SearchExtras.jsx';

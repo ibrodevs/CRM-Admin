@@ -3760,3 +3760,18 @@ button.oc-fact:hover{border-color:#d3dbe8;background:#fff}
 .page-header-actions>.btn{white-space:nowrap}
 .content .page-header-actions{margin-bottom:16px}
 @media(max-width:760px){.topbar:has(.page-action-target:not(:empty)){flex-wrap:wrap;row-gap:12px}.page-action-target{flex:1 1 100%}.page-header-actions{justify-content:flex-end}}
+
+/* Search extras share one presentation in passenger drawers, results and selections. */
+.search-extras{margin-top:16px;padding:16px;border:1px solid var(--line);border-radius:16px;background:var(--surface,#fff);min-width:0}
+.search-extras-heading{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:12px;color:var(--ink)}
+.search-extras-heading>span,.search-extras p,.search-extra-description small{font-size:12px;color:var(--muted)}
+.search-extras-list{display:grid;gap:8px}
+.search-extra-row{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:12px;border-radius:10px;background:var(--bg,#f6f7f9)}
+.search-extra-row.is-selected{background:var(--blue-soft)}
+.search-extra-description{min-width:0;display:grid;gap:5px}
+.search-extra-description label{display:flex;align-items:flex-start;gap:10px;cursor:pointer;line-height:1.4}
+.search-extra-description input{margin-top:3px;accent-color:var(--blue);flex-shrink:0}
+.search-extra-description small{line-height:1.4}
+.search-extra-price{flex-shrink:0;font-size:13px;color:var(--ink);text-align:right}
+.search-extras p{margin:12px 0 0;line-height:1.5}
+@media(max-width:480px){.search-extra-row{flex-wrap:wrap;gap:8px}.search-extra-price{margin-left:auto}}

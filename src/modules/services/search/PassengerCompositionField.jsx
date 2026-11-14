@@ -1,3 +1,4 @@
+import { TransferSearchExtras } from './SearchExtras.jsx';
 import { PassengerPickerField, PassengerCounterRow } from './PassengerPickerField.jsx';
 import { Select } from '../../../shared/ui/Select.jsx';
 import { Icon } from '../../../shared/icons/index.jsx';
@@ -18,10 +19,10 @@ export function PassengerCompositionField({ form, set, kind = 'rail' }) {
         <div><b>Ребёнок {index + 1}</b><button type="button" className="icon-btn" aria-label={`Убрать ребёнка ${index + 1}`} onClick={() => update({ ...value, children: value.children.filter((_, i) => i !== index) })}><Icon name="x" /></button></div>
         <Select aria-label={`Возраст ребёнка ${index + 1}`} menuMinWidth={170} placeholder="Выберите возраст" value={row.age ?? ''} options={Array.from({ length: kind === 'transfer' ? 12 : 18 }, (_, age) => ({ value: age, label: age === 0 ? 'До 1 года' : `${age} лет` }))} onChange={(event) => { const age = event.target.value === '' ? null : Number(event.target.value); child(index, { age, with_seat: kind === 'transfer' || age >= 5 ? true : row.with_seat }); }} />
         {kind === 'rail' && <label className="passenger-composition-seat"><input type="checkbox" checked={row.with_seat !== false} disabled={row.age >= 5} onChange={(event) => child(index, { with_seat: event.target.checked })} />Отдельное место{row.age >= 5 ? ' · обязательно' : ''}</label>}
-        {kind === 'transfer' && row.age !== null && <small>{row.age < 1 ? 'Кресло до 1 года' : row.age < 3 ? 'Кресло 1–3 года' : 'Бустер от 3 лет'}</small>}
       </section>)}
       <button type="button" className="btn btn-secondary btn-sm btn-block" onClick={() => update({ ...value, children: [...value.children, { age: null, with_seat: true }] })}><Icon name="plus" />Добавить ребёнка</button>
       {kind === 'rail' && <p className="passenger-composition-hint">Без отдельного места можно указать ребёнка младше 5 лет. Право на такой проезд подтверждается при оформлении.</p>}
+      {kind === 'transfer' && <TransferSearchExtras form={form} set={set} />}
       {repeatChair && <p className="passenger-composition-warning">Несколько кресел одного типа требуют согласования с оператором i’way.</p>}
     </div></div>
   </PassengerPickerField>;

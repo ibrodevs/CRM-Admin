@@ -1,4 +1,4 @@
-import { transferChildSeats } from '../search/passenger-composition.js';
+import { TransferSearchExtras } from '../search/SearchExtras.jsx';
 import { useState } from 'react';
 import { DateField, TimeField } from '../../../shared/ui/DateFields.jsx';
 import { Input } from '../../../shared/ui/Input.jsx';
@@ -7,11 +7,9 @@ import { Icon } from '../../../shared/icons/index.jsx';
 import { InfoNotice } from '../../../shared/ui/InfoNotice.jsx';
 import { transferDepartureParts } from '../free-booking-search.js';
 
-const extras = [['infant_seat', 'Кресло до 1 года'], ['seat', 'Кресло 1–3 года'], ['booster', 'Бустер от 3 лет'], ['table', 'Встреча с табличкой'], ['tollroad', 'Платная дорога']];
 export function TransferSearchOptions({ form, set }) {
   const [open, setOpen] = useState(false);
   const arrival = form.arrival_transport || (form.flight_number ? 'flight' : form.train_number ? 'train' : 'none');
-  const requiredSeats = transferChildSeats(form);
   const departure = transferDepartureParts(form);
   const date = departure.date ? new Date(`${departure.date}T12:00:00`) : null;
   return <>
@@ -37,10 +35,8 @@ export function TransferSearchOptions({ form, set }) {
         <p className="transfer-options-hint">Номер прибытия — для встречи в аэропорту или на вокзале. Дату и время отправления укажите при поездке к вылетающему рейсу или отправляющемуся поезду.</p>
         {(departure.date || departure.clock) && <button type="button" className="transfer-options-clear" onClick={() => { set('departure_date', ''); set('departure_clock', ''); }}>Сбросить отправление</button>}
       </fieldset>
-      <fieldset className="transfer-options-section"><legend>Дополнительные услуги</legend>
-        <div className="transfer-options-extras">{extras.map(([type, label]) => <label key={type}><input type="checkbox" checked={(form.additional_service_types || []).includes(type) || requiredSeats.includes(type)} disabled={requiredSeats.includes(type)} onChange={(event) => set('additional_service_types', event.target.checked ? [...(form.additional_service_types || []), type] : (form.additional_service_types || []).filter((value) => value !== type))} /><span>{label}</span></label>)}</div>
-        <p className="transfer-options-hint">Кресла по возрасту указанных детей выбраны автоматически. Допуслуги учитываются в цене предложения. Несколько кресел одного типа требуют согласования с оператором.</p>
-      </fieldset>
+      <TransferSearchExtras form={form} set={set} />
+      <p className="transfer-options-hint">Кресла по возрасту указанных детей выбраны автоматически. Несколько кресел одного типа требуют согласования с оператором.</p>
       <p className="transfer-options-hint">Обратный трансфер оформляется отдельной поездкой. После срока бесплатной отмены штраф — 100% стоимости заказа.</p>
     </div>}
   </>;
