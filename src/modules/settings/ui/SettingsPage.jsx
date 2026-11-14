@@ -1,3 +1,5 @@
+import { OrgStructure } from '../../users/index.js';
+import { resultsOf } from '../../../shared/api/client.js';
 import { SectionInfo } from '../../../shared/ui/SectionInfo.jsx';
 import { InfoNotice } from '../../../shared/ui/InfoNotice.jsx';
 import { translate as t } from '../../../shared/preferences/translations.js';
@@ -131,7 +133,7 @@ function ApiKeyModal({ open, onClose }) {
   return (
     <Drawer open={open} onClose={onClose}
       title={stage === 'result' ? 'Результаты API ключа' : 'Генерация API ключа'}
-      sub={stage === 'result' ? `ОсОО "${org}" ✓` : (stage === 'loading' ? `ОсОО "${org}"` : null)}
+      sub={stage === 'result' || stage === 'loading' ? org : null}
       footer={stage === 'form'
         ? <Button variant="primary" iconRight="arrowRight" onClick={gen}>{t("Сгенерировать")}</Button>
         : stage === 'result'
@@ -164,11 +166,10 @@ function ApiKeyModal({ open, onClose }) {
           <div style={{ textAlign: 'center', padding: '50px 20px' }}>
             <Icon name="loader" style={{ width: 48, height: 48, color: 'var(--blue)', animation: 'spin 1s linear infinite' }} />
             <div style={{ fontSize: 20, fontWeight: 700, color: 'var(--ink)', marginTop: 16 }}>{t("Идет генерация API ключа")}</div>
-            <div style={{ color: 'var(--muted)', marginTop: 4 }}>{t("ОсОО \"")}{org}"</div>
+            <div style={{ color: 'var(--muted)', marginTop: 4 }}>{org}</div>
           </div>
         )}
         {stage === 'result' && <>
-          <ModalHeader title={t("Результаты API ключа")} sub={`ОсОО "${org}" ✓`} onClose={onClose} />
           {[['API', 'Введите его в поле с API', credentials?.api || ''], ['API-KEY', 'Введите ключ для активации API', credentials?.api_key || ''], ['API-ENDPOINT', 'Введите ENDPOINT для работы с API', credentials?.endpoint || '']].map(([t, h, v], i) => (
             <div key={i} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 24, marginBottom: 18 }}>
               <div><div style={{ fontWeight: 700, color: 'var(--ink)' }}>{t}</div><div style={{ fontSize: 13, color: 'var(--muted)' }}>{h}</div></div>
@@ -188,23 +189,31 @@ function ApiAccessModal({ open, onClose }) {
   const toast = useToast();
   const [confirm, setConfirm] = useState(null);
   const [accesses, setAccesses] = useState([]);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+  const [editing, setEditing] = useState(null);
   useEffect(() => {
     if (!open) return;
+    setBusy(true); setError(''); setAccesses([]); setEditing(null); setConfirm(null);
     workspaceActionsApi.list({ action: 'integration.api_key.generate' }).then((rows) => setAccesses(rows.map((row) => ({
       no: row.id, org: row.payload?.organization || '—', orgType: row.payload?.organization_type || '—',
       date: new Date(row.created_at).toLocaleDateString('ru-RU'),
-    })))).catch((error) => toast(error.message, 'err'));
+    })))).catch((error) => setError(error.message || 'Не удалось загрузить API-доступы')).finally(() => setBusy(false));
   }, [open]);
-  const editAccess = async (access) => {
-    const org = window.prompt('Организация', access.org);
-    if (!org?.trim()) return;
-    try { await workspaceActionsApi.execute('settings.api_access.update', { resourceType: 'api_access', resourceId: String(access.no), payload: { ...access, org: org.trim() } }); setAccesses((items) => items.map((item) => item.no === access.no ? { ...item, org: org.trim() } : item)); toast('Доступ обновлён', 'ok'); }
+  const editAccess = async () => {
+    if (!editing?.org.trim() || busy) return;
+    setBusy(true);
+    try { await workspaceActionsApi.execute('settings.api_access.update', { resourceType: 'api_access', resourceId: String(editing.no), payload: { org: editing.org.trim() } }); setAccesses((items) => items.map((item) => item.no === editing.no ? { ...item, org: editing.org.trim() } : item)); setEditing(null); toast('Доступ обновлён', 'ok'); }
     catch (error) { toast(error.message, 'err'); }
+    finally { setBusy(false); }
   };
   const deleteAccess = async () => {
     const access = accesses[confirm];
+    if (!access || busy) return;
+    setBusy(true);
     try { await workspaceActionsApi.execute('settings.api_access.revoke', { resourceType: 'api_access', resourceId: String(access.no), payload: { org: access.org } }); setAccesses((items) => items.filter((item) => item.no !== access.no)); setConfirm(null); toast('Доступ отозван', 'ok'); }
     catch (error) { toast(error.message, 'err'); }
+    finally { setBusy(false); }
   };
   return (
     <>
@@ -213,13 +222,14 @@ function ApiAccessModal({ open, onClose }) {
           <table className="tbl">
             <thead><tr><th style={{ width: 70 }}>№</th><th>{t("Организация")}</th><th>{t("Тип организации")}</th><th>{t("Дата создания")}</th><th style={{ width: 100 }}>{t("Действия")}</th></tr></thead>
             <tbody>
+              {!accesses.length && <tr><td colSpan={5}>{busy ? 'Загрузка API-доступов…' : error || 'API-ключей пока нет. Создайте ключ в разделе «API / интеграции».'}</td></tr>}
               {accesses.map((a, i) => (
                 <tr key={i}>
                   <td className="t-strong">{a.no}</td><td className="t-strong">{a.org}</td>
                   <td><Pill tone={ORG_TYPE[a.orgType]}>{a.orgType}</Pill></td><td>{a.date}</td>
                   <td><div className="row-actions">
-                    <button className="icon-btn green" aria-label="Изменить API-доступ" onClick={() => editAccess(a)}><Icon name="edit" /></button>
-                    <button className="icon-btn red" aria-label="Отозвать API-доступ" onClick={() => setConfirm(i)}><Icon name="trash" /></button>
+                    <button className="icon-btn green" aria-label="Изменить API-доступ" disabled={busy} onClick={() => setEditing({ ...a })}><Icon name="edit" /></button>
+                    <button className="icon-btn red" aria-label="Отозвать API-доступ" disabled={busy} onClick={() => setConfirm(i)}><Icon name="trash" /></button>
                   </div></td>
                 </tr>
               ))}
@@ -227,6 +237,7 @@ function ApiAccessModal({ open, onClose }) {
           </table>
         </div>
     </Drawer>
+      <Drawer open={!!editing} onClose={() => { if (!busy) setEditing(null); }} title="Изменить API-доступ" footer={<Button disabled={busy || !editing?.org.trim()} onClick={editAccess}>Сохранить</Button>}><Field label="Организация"><Input value={editing?.org || ''} onChange={(e) => setEditing((old) => ({ ...old, org: e.target.value }))} /></Field></Drawer>
       <ConfirmDialog open={confirm !== null} message="Данное действие невозможно будет отменить!"
         onCancel={() => setConfirm(null)} onConfirm={deleteAccess} />
     </>
@@ -252,7 +263,7 @@ function AddUserDrawer({ open, onClose, onCreated }) {
     if (!f.name.trim()) er.name = 'Введите ФИО';
     if (!f.email.trim()) er.email = 'Введите e-mail';
     else if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(f.email)) er.email = 'Некорректный e-mail';
-    if (!f.role) er.role = 'Выберите роль';
+    if (!roles.some((role) => role.code === f.role)) er.role = 'Выберите роль';
     if (f.status === 'Активный' && f.password.length < 10) er.password = 'Минимум 10 символов';
     setErrs(er);
     if (Object.keys(er).length) { toast('Проверьте поля формы', 'err'); return; }
@@ -263,7 +274,7 @@ function AddUserDrawer({ open, onClose, onCreated }) {
         email: f.email.trim(), phone: f.phone.trim(),
         last_name: parts.shift() || '', first_name: parts.shift() || '', middle_name: parts.join(' '),
         timezone: 'Asia/Bishkek', language: 'ru',
-        roles: roles.filter((item) => (ROLE_LABEL[item.code] || item.name) === f.role).map((item) => item.code),
+        roles: [f.role],
         status: f.status === 'Заблокированный' ? 'suspended' : 'active',
         ...(f.password ? { password: f.password } : {}),
       });
@@ -280,7 +291,7 @@ function AddUserDrawer({ open, onClose, onCreated }) {
         <div className="full"><Field label={t("ФИО")} required error={errs.name}><Input placeholder={t("Введите ФИО")} value={f.name} onChange={set('name')} error={errs.name} /></Field></div>
         <Field label="E-mail" required error={errs.email}><Input placeholder="mail@example.com" value={f.email} onChange={set('email')} error={errs.email} /></Field>
         <Field label={t("Телефон")}><Input placeholder="+996 (___) __-__-__" value={f.phone} onChange={set('phone')} /></Field>
-        <Field label={t("Роль")} required error={errs.role}><Select placeholder={t("Выберите роль")} options={roles.map((role) => ROLE_LABEL[role.code] || role.name)} value={f.role} onChange={set('role')} error={errs.role} /></Field>
+        <Field label={t("Роль")} required error={errs.role}><Select placeholder={t("Выберите роль")} options={roles.map((role) => ({ value: role.code, label: ROLE_LABEL[role.code] || role.name }))} value={f.role} onChange={set('role')} error={errs.role} /></Field>
         <Field label={t("Начальный пароль")} error={errs.password}><Input type="password" value={f.password} onChange={set('password')} placeholder={t("Минимум 10 символов")} autoComplete="new-password" /></Field>
         <Field label={t("Статус")}><Select options={['Активный', 'Заблокированный']} value={f.status} onChange={set('status')} /></Field>
       </div>
@@ -298,14 +309,15 @@ function NotificationsModal({ open, onClose }) {
   const [ready, setReady] = useState(false);
   const [saving, setSaving] = useState(false);
   const [channelStatus, setChannelStatus] = useState({});
+  const [error, setError] = useState('');
   const opts = ['Уведомления о новых заказах', 'Уведомления о платежах', 'SMS-уведомления', 'E-mail уведомления', 'Push в Telegram', 'Просрочки и дедлайны SLA'];
   useEffect(() => {
     if (!open) return;
-    setReady(false);
+    setReady(false); setError(''); setChannelStatus({});
     notificationsApi.rules().then((data) => {
       setTg(opts.map((_, i) => data.find((rule) => rule.event_type === `ui.preference.${i}`)?.is_active ?? [true, true, false, true, false, true][i]));
       setReady(true);
-    }).catch((error) => toast(error.message || 'Не удалось загрузить уведомления', 'err'));
+    }).catch((error) => setError(error.message || 'Не удалось загрузить уведомления'));
     notificationsApi.channels()
       .then((payload) => setChannelStatus(Object.fromEntries((payload.channels || []).map((row) => [row.channel, row]))))
       .catch(() => setChannelStatus({}));
@@ -314,7 +326,8 @@ function NotificationsModal({ open, onClose }) {
     const channel = NOTIFICATION_RULE_CHANNEL[index];
     if (!channel) return '';
     const status = channelStatus[channel];
-    if (!status || status.configured) return '';
+    if (!status) return 'Состояние канала пока не получено';
+    if (status.configured) return '';
     return status.requirement || 'канал не настроен на сервере';
   };
   const save = async () => {
@@ -326,6 +339,7 @@ function NotificationsModal({ open, onClose }) {
   return (
     <Drawer open={open} onClose={onClose} title={t("Настройки уведомлений")} width="min(460px, 94vw)"
       footer={<Button variant="primary" onClick={save} disabled={!ready || saving}>{t("Сохранить")}</Button>}>
+        {error && <p role="alert">{error}</p>}{!ready && !error && <p>Загрузка правил…</p>}
         <InfoNotice icon="alertCircle">Правило определяет, кому и по какому поводу создаётся уведомление. Канал с пометкой «не настроен» отправить наружу не сможет — уведомление останется в центре уведомлений CRM.</InfoNotice>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
           {opts.map((l, i) => (
@@ -347,11 +361,18 @@ function OperatorAccessDrawer({ open, operator, onClose }) {
   const toast = useToast();
   const operatorName = operator?.name || operator || '';
   const [sla, setSla] = useState(() => (operatorName ? operatorSla(operatorName) : 15));
-  useEffect(() => { if (open && operatorName) usersApi.sla(operator.serverId).then((data) => setSla(data.sla_response_minutes || operatorSla(operatorName))).catch(() => setSla(operatorSla(operatorName))); }, [open, operatorName]);
+  const [ready, setReady] = useState(false), [saving, setSaving] = useState(false), [error, setError] = useState('');
+  useEffect(() => {
+    if (!open || !operator?.serverId) return;
+    const controller = new AbortController(); setReady(false); setError('');
+    usersApi.sla(operator.serverId, controller.signal).then((data) => { setSla(data.sla_response_minutes); setReady(true); }).catch((e) => { if (e.name !== 'AbortError') setError(e.message || 'Не удалось загрузить норматив'); });
+    return () => controller.abort();
+  }, [open, operator?.serverId]);
   if (!open || !operator) return null;
   return (
-    <Drawer open={open} onClose={onClose} title={t("Доступ и нормативы оператора")} sub={operatorName} width="min(720px,96vw)"
+    <Drawer open={open} onClose={onClose} title={t("Доступ к услугам и норматив отклика")} sub={operatorName} width="min(720px,96vw)"
       footer={<Button variant="secondary" style={{ width: '100%' }} onClick={onClose}>{t("Закрыть")}</Button>}>
+      {error && <p role="alert">{error}</p>}{!ready && !error && <p>Загрузка норматива…</p>}
       <div className="card card-pad" style={{ marginBottom: 16, display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap' }}>
         <div style={{ flex: 1, minWidth: 200 }}>
           <div style={{ fontWeight: 700, color: 'var(--ink)' }}>{t("Отклик на заявку")}</div>
@@ -359,7 +380,7 @@ function OperatorAccessDrawer({ open, operator, onClose }) {
         </div>
         <div style={{ width: 110 }}><Input type="number" min="1" value={sla} onChange={(e) => setSla(Math.max(1, parseInt(e.target.value) || 1))} /></div>
         <span style={{ color: 'var(--muted)', fontSize: 13 }}>{t("минут")}</span>
-        <Button size="sm" icon="check" onClick={async () => { try { await usersApi.setSla(operator.serverId, sla); toast('Норматив сохранён: ' + sla + ' мин', 'ok'); } catch (error) { toast(error.message || 'Не удалось сохранить норматив', 'err'); } }}>{t("Сохранить")}</Button>
+        <Button size="sm" icon="check" disabled={!ready || saving} onClick={async () => { if (!ready || saving) return; setSaving(true); try { await usersApi.setSla(operator.serverId, sla); toast('Норматив сохранён: ' + sla + ' мин', 'ok'); } catch (error) { toast(error.message || 'Не удалось сохранить норматив', 'err'); } finally { setSaving(false); } }}>{t("Сохранить")}</Button>
       </div>
       <h3 className="card-title" style={{ fontSize: 16, marginBottom: 4 }}>{t("Доступ по видам услуг")}</h3>
       <div style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 12 }}>{t("Область ответственности оператора в заказах.")}</div>
@@ -489,6 +510,7 @@ function UsersTab({ onAdd, users = [], onUsersChange }) {
         <table className="tbl">
           <thead><tr><th>{t("Сотрудник")}</th><th>E-mail</th><th>{t("Роль")}</th><th>{t("Был активен")}</th><th>{t("Статус")}</th><th></th></tr></thead>
           <tbody>
+            {!liveUsers.length && <tr><td colSpan={6}>Пользователей пока нет. Добавьте сотрудника кнопкой в заголовке.</td></tr>}
             {pageUsers.map((u, i) => (
               <tr key={i}>
                 <td><span style={{ display: 'flex', alignItems: 'center', gap: 10 }}><Avatar src={u.avatar} name={u.name} size={32} /><span style={{ fontWeight: 600 }}>{u.name}</span></span></td>
@@ -527,45 +549,49 @@ function UsersTab({ onAdd, users = [], onUsersChange }) {
 function RolesTab({ readOnly = false }) {
   const toast = useToast();
   const [roles, setRoles] = useState([]);
+  const [error, setError] = useState('');
+  const auth = useAuth();
   const [loading, setLoading] = useState(false);
   const loadRoles = () => {
-    setLoading(true);
+    setLoading(true); setError('');
     usersApi.roles()
       .then((rows) => setRoles(rows))
-      .catch((error) => toast(error.message || 'Не удалось загрузить роли', 'err'))
+      .catch((error) => setError(error.message || 'Не удалось загрузить роли'))
       .finally(() => setLoading(false));
   };
   const toggle = (roleId, code) => {
     setRoles((current) => current.map((role) => {
-      if (readOnly || role.id !== roleId || role.code === 'admin') return role;
+      if (loading || readOnly || role.id !== roleId || role.code === 'admin') return role;
       const enabled = role.permissions.includes(code);
       return { ...role, permissions: enabled ? role.permissions.filter((item) => item !== code) : [...role.permissions, code].sort() };
     }));
   };
   useEffect(loadRoles, []);
   const save = async () => {
-    if (readOnly) return;
+    if (readOnly || loading || error || !roles.length) return;
     setLoading(true);
     try {
       const saved = await Promise.all(roles.filter((role) => role.code !== 'admin').map((role) => usersApi.updateRole(role.id, role.permissions)));
       setRoles((current) => current.map((role) => saved.find((item) => item.id === role.id) || role));
-      toast('Права ролей сохранены в RBAC', 'ok');
+      await auth.refreshSession();
+      toast('Права ролей сохранены', 'ok');
     } catch (error) { toast(error.message || 'Не удалось сохранить права', 'err'); }
     finally { setLoading(false); }
   };
   return (
     <div className="fade-in">
+      {error && <p role="alert">{error}</p>}
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', marginBottom: 16 }}>
         <span style={{ color: 'var(--muted)', fontSize: 14 }}>{t("Матрица прав доступа по ролям · «Админ» всегда имеет полный доступ")}</span>
         <div style={{ flex: 1 }} />
         <Button variant="secondary" icon="settings" onClick={loadRoles} disabled={loading}>{t("Обновить")}</Button>
-        <Button icon="check" onClick={save} disabled={loading || readOnly}>{t("Сохранить")}</Button>
+        <Button icon="check" onClick={save} disabled={loading || readOnly || !!error || !roles.length}>{t("Сохранить")}</Button>
       </div>
       <div className="table-card">
         <table className="tbl">
           <thead><tr><th style={{ minWidth: 280 }}>{t("Право доступа")}</th>{roles.map((role) => <th key={role.id} style={{ textAlign: 'center' }}>{ROLE_LABEL[role.code] || role.name}</th>)}</tr></thead>
           <tbody>
-            {PERMISSION_GROUPS.map((g) => (
+            {roles.length > 0 && PERMISSION_GROUPS.map((g) => (
               <React.Fragment key={g.group}>
                 <tr><td colSpan={roles.length + 1} style={{ background: 'var(--surface-2)', fontWeight: 700, color: 'var(--ink)', fontSize: 13 }}>{g.group}</td></tr>
                 {g.items.map(([code, label]) => (
@@ -604,22 +630,27 @@ function SettingsPage({ users = [], onUsersChange }) {
   const canIntegrations = canSettings || permissions.includes('integrations.manage');
   const [slaUser, setSlaUser] = useState(null);
   const [usersLoading, setUsersLoading] = useState(canUsers);
+  const [usersError, setUsersError] = useState('');
+  const [reload, setReload] = useState(0);
   useEffect(() => {
     if (!canUsers) return;
+    setUsersLoading(true); setUsersError('');
     const controller = new AbortController();
-    usersApi.all(controller.signal).then((payload) => onUsersChange?.(payload.results)).catch((error) => { if (error.name !== 'AbortError') toast(error.message, 'err'); }).finally(() => setUsersLoading(false));
+    usersApi.all(controller.signal).then((payload) => onUsersChange?.(resultsOf(payload))).catch((error) => { if (error.name !== 'AbortError') setUsersError(error.message || 'Не удалось загрузить пользователей'); }).finally(() => { if (!controller.signal.aborted) setUsersLoading(false); });
     return () => controller.abort();
-  }, [canUsers]);
+  }, [canUsers, reload]);
   const [tab, setTab] = useState(canUsers ? 'users' : canIntegrations ? 'params' : 'roles');
   const groups = [
-    { title: 'Курсы валют', items: [['Изменить курс валют', () => setModal('currency')], ['Добавить / удалить валюту', () => setModal('currency')]] },
-    { title: 'Общие настройки', items: [['Настройки уведомления', () => setModal('notif')]] },
-    { title: 'API / интеграции', items: [['Доступы к API', () => setModal('apiaccess')], ['Сгенерировать API ключ', () => setModal('apikey')], ['Коды ошибок интеграций', () => setModal('errcodes')], ['Убрать доступ к API', () => setModal('apiaccess')], ['Настройки SLA', () => setModal('sla')]] },
+    { title: 'Курсы валют', items: [['Валюты и курсы организации', () => setModal('currency')]] },
+    { title: 'Общие настройки', items: [['Правила уведомлений', () => setModal('notif')]] },
+    { title: 'API / интеграции', items: [['API-ключи: просмотр и отзыв', () => setModal('apiaccess')], ['Сгенерировать API ключ', () => setModal('apikey')], ['Коды ошибок интеграций', () => setModal('errcodes')]] },
+    ...(canUsers ? [{ title: 'Сотрудники', items: [['Нормативы отклика и доступ к услугам', () => setModal('sla')]] }] : []),
     { title: 'Шаблоны документов', items: [['Добавить шаблон', () => setModal('template-add')], ['Изменить шаблон', () => setModal('templates')]] },
     { title: 'Справочники', items: [['Аэропорты и города', () => setModal('locations')], ['Типы услуг', () => setModal('service-kinds')], ['Справочник доп. услуг', () => setModal('extras')]] },
     { title: 'Карточки услуг', items: [['Настройки карточек услуг', () => setModal('cardadmin')], ['Видимость полей для клиента', () => setModal('cardvis')]] },
   ];
-  const TABS = [...(canUsers ? [{ key: 'users', label: 'Пользователи', count: users.length }] : []), { key: 'roles', label: 'Роли и права' }, { key: 'params', label: 'Параметры системы' }];
+  const TABS = [...(canUsers ? [{ key: 'users', label: 'Пользователи', count: users.length }, { key: 'organization', label: 'Организация и подразделения' }] : []), { key: 'roles', label: 'Роли и права' }, ...(canSettings || canIntegrations || canUsers ? [{ key: 'params', label: 'Параметры системы' }] : [])];
+  useEffect(() => { if (!TABS.some((item) => item.key === tab)) setTab(TABS[0].key); }, [tab, canUsers, canSettings, canIntegrations]);
   return (
     <div className="fade-in">
       <Topbar title={t("Настройки")}><div className="topbar-spacer" />{tab === 'users' && canUsers && <Button icon="plus" onClick={() => setModal('adduser')}>{t("Добавить пользователя")}</Button>}</Topbar>
@@ -627,16 +658,18 @@ function SettingsPage({ users = [], onUsersChange }) {
         <div style={{ marginBottom: 20 }}><Tabs tabs={TABS} value={tab} onChange={setTab} /></div>
         <section className="section-workspace" aria-label="Рабочая область настроек">
         {tab === 'users' && usersLoading && <p>{t("Загрузка пользователей…")}</p>}
-        {tab === 'users' && !usersLoading && <UsersTab users={users} onUsersChange={onUsersChange} onAdd={() => setModal('adduser')} />}
+        {tab === 'users' && usersError && <div role="alert"><p>{usersError}</p><Button variant="secondary" onClick={() => setReload((n) => n + 1)}>Повторить загрузку</Button></div>}
+        {tab === 'organization' && canUsers && <><p className="hint">Общая оргструктура организации используется в личных кабинетах сотрудников. Роли берутся из вкладки «Роли и права»; назначение по схеме проходит через согласование.</p><OrgStructure user={auth.user} canManage={canUsers} onSaved={async () => { await auth.refreshSession(); setReload((n) => n + 1); }} /></>}
+        {tab === 'users' && !usersLoading && !usersError && <UsersTab users={users} onUsersChange={onUsersChange} onAdd={() => setModal('adduser')} />}
         {tab === 'roles' && <RolesTab readOnly={!permissions.includes('roles.manage')} />}
         {tab === 'params' && (
-          <div className="fade-in" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '36px 46px', maxWidth: 1100 }}>
-            {groups.filter((group) => group.title === 'API / интеграции' ? canIntegrations : canSettings).map((g, i) => (
+          <div className="fade-in" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 280px), 1fr))', gap: '28px', maxWidth: 1100 }}>
+            {groups.filter((group) => group.title === 'API / интеграции' ? canIntegrations : group.title === 'Сотрудники' ? canUsers : canSettings).map((g, i) => (
               <div key={i}>
                 <h3 style={{ fontSize: 18, fontWeight: 700, color: 'var(--ink)', margin: '0 0 14px' }}>{t(g.title)}</h3>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
                   {g.items.map(([label, fn, hint], j) => (
-                    <button key={j} className="doc-chip" disabled={!fn} title={hint || ''} style={{ height: 50, padding: '0 18px', opacity: fn ? 1 : 0.55, cursor: fn ? 'pointer' : 'not-allowed' }} onClick={fn || undefined}>
+                    <button key={j} className="doc-chip" disabled={!fn} title={hint || ''} style={{ minHeight: 50, height: 'auto', padding: '12px 18px', textAlign: 'left', opacity: fn ? 1 : 0.55, cursor: fn ? 'pointer' : 'not-allowed' }} onClick={fn || undefined}>
                       <span>{t(label)}{hint && <span style={{ display: 'block', fontSize: 11, color: 'var(--muted)', fontWeight: 500 }}>{hint}</span>}</span>
                       {fn && <Icon name="chevRight" />}
                     </button>
@@ -686,17 +719,26 @@ function CardVisibilityModal({ open, onClose }) {
   const toast = useToast();
   const [vis, setVis] = useState(() => ({ ...(window.CARD_CLIENT_VISIBILITY || {}) }));
   const [config, setConfig] = useState({});
-  useEffect(() => { if (open) workspaceSettingsApi.getTenant('service-cards').then((data) => { setConfig(data.value || {}); setVis(data.value?.visibility || { ...(window.CARD_CLIENT_VISIBILITY || {}) }); }).catch((error) => toast(error.message || 'Не удалось загрузить настройки видимости', 'err')); }, [open]);
+  const [ready, setReady] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState('');
+  useEffect(() => {
+    if (!open) return;
+    const controller = new AbortController(); setReady(false); setError('');
+    workspaceSettingsApi.getTenant('service-cards', controller.signal).then((data) => { setConfig(data.value || {}); setVis(data.value?.visibility || { ...(window.CARD_CLIENT_VISIBILITY || {}) }); setReady(true); }).catch((e) => { if (e.name !== 'AbortError') setError(e.message || 'Не удалось загрузить настройки видимости'); });
+    return () => controller.abort();
+  }, [open]);
   if (!open) return null;
   const tg = (k) => setVis((v) => ({ ...v, [k]: !v[k] }));
-  const save = async () => { try { await workspaceSettingsApi.saveTenant('service-cards', { ...config, visibility: vis }); Object.assign(window.CARD_CLIENT_VISIBILITY || {}, vis); toast('Настройки видимости сохранены в backend для организации', 'ok'); onClose(); } catch (error) { toast(error.message || 'Не удалось сохранить настройки', 'err'); } };
+  const save = async () => { if (!ready || saving) return; setSaving(true); try { await workspaceSettingsApi.saveTenant('service-cards', { ...config, visibility: vis }); Object.assign(window.CARD_CLIENT_VISIBILITY ||= {}, vis); toast('Настройки видимости сохранены в backend для организации', 'ok'); onClose(); } catch (error) { toast(error.message || 'Не удалось сохранить настройки', 'err'); } finally { setSaving(false); } };
   return (
     <Drawer open={open} onClose={onClose} title={t("Видимость полей карточки для клиента")} sub={t("Отметьте, какие поля клиент видит в карточке услуги и КП. Неотмеченные остаются внутренними и клиенту не отправляются.")} width="min(520px, 94vw)"
       footer={<>
         <Button variant="secondary" onClick={onClose}>{t("Отмена")}</Button>
-        <Button icon="check" onClick={save}>{t("Сохранить")}</Button>
+        <Button icon="check" onClick={save} disabled={!ready || saving}>{t("Сохранить")}</Button>
       </>}>
         <div style={{ display: 'flex', flexDirection: 'column' }}>
+          {error && <p role="alert">{error}</p>}{!ready && !error && <p>Загрузка настроек…</p>}
           {CARD_VIS_FIELDS.map(([k, label]) => (
             <label key={k} className="hp-check-row" style={{ padding: '11px 4px', borderBottom: '1px solid var(--line)' }}>
               <Checkbox on={!!vis[k]} onChange={() => tg(k)} />

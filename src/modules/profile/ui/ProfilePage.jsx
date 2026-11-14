@@ -1,4 +1,4 @@
-import { OrgStructure } from './OrgStructure.jsx';
+import { OrgStructure } from '../../users/index.js';
 import { MessengerAccounts } from './MessengerAccounts.jsx';
 import { WorkAbsences } from './WorkAbsences.jsx';
 import { Statistics, Statistic } from '../../../shared/ui/Statistics.jsx';

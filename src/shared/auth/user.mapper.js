@@ -11,7 +11,7 @@ const TIMEZONE_LABEL = {
 
 function toUiUser(user) {
   const roleCode = user?.roles?.[0] || 'operator';
-  const role = { admin: 'Админ', operator: 'Оператор', accountant: 'Бухгалтер', manager: 'Руководитель' }[roleCode] || roleCode;
+  const role = { admin: 'Админ', operator: 'Оператор', accountant: 'Бухгалтер', manager: 'Менеджер' }[roleCode] || roleCode;
   return {
     ...user,
     name: user?.full_name || [user?.last_name, user?.first_name, user?.middle_name].filter(Boolean).join(' '),

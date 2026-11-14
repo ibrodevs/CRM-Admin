@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { usersApi } from '../../users/api.js';
+import { usersApi } from '../api.js';
 import { resultsOf } from '../../../shared/api/client.js';
 import { useToast } from '../../../shared/ui/Toast.jsx';
 import { Field } from '../../../shared/ui/Field.jsx';
@@ -17,7 +17,7 @@ export function OrgStructure({ user, canManage, onSaved }) {
   const [catalog, setCatalog] = useState(null);
   useEffect(() => {
     const abort = new AbortController();
-    const load = () => usersApi.orgStructure(abort.signal).then(setData).catch((e) => { if (e.name !== 'AbortError') setError(e.message); });
+    const load = () => usersApi.orgStructure(abort.signal).then((value) => { setData(value); setError(''); }).catch((e) => { if (e.name !== 'AbortError') setError(e.message); });
     load(); const timer = setInterval(load, 30000);
     if (canManage) usersApi.all(abort.signal).then((rows) => setPeople(resultsOf(rows))).catch((e) => { if (e.name !== 'AbortError') setError(e.message); });
     return () => { abort.abort(); clearInterval(timer); };
@@ -46,7 +46,7 @@ export function OrgStructure({ user, canManage, onSaved }) {
     </section>
     {error && <p role="alert" className="work-absence-error">{error}</p>}
     {canManage && <section className="card card-pad"><h3>Справочники и схемы</h3><p className="hint">Здесь задаются руководитель, родительское подразделение и роль. Изменение схемы создаёт заявки на пересогласование сотрудников. Их профиль и права сохраняются до подтверждения каждой заявки.</p>
-      <div className="org-catalog-grid">{data.units.map((row) => <button type="button" className="org-catalog-row" key={row.id} onClick={() => newCatalog('units', row)}><b>{row.name}</b><span>{row.status === 'pending' ? 'Требует согласования' : row.status === 'rejected' ? `Отклонено: ${row.decision_comment}` : row.manager_name || 'Руководитель не задан'}</span></button>)}{data.positions.filter((row) => row.status === 'pending').map((row) => <button type="button" className="org-catalog-row" key={`job-${row.id}`} onClick={() => newCatalog('positions', row)}><b>{row.name}</b><span>Новая должность · требует согласования</span></button>)}</div>
+      <div className="org-catalog-grid">{!data.units.length && !data.positions.length && <p className="hint">Подразделений и должностей пока нет. Добавьте подразделение, затем должности и назначьте сотрудников.</p>}{data.units.map((row) => <button type="button" className="org-catalog-row" key={row.id} onClick={() => newCatalog('units', row)}><b>{row.name}</b><span>{row.status === 'pending' ? 'Требует согласования' : row.status === 'rejected' ? `Отклонено: ${row.decision_comment}` : row.manager_name || 'Руководитель не задан'}</span></button>)}{data.positions.map((row) => <button type="button" className="org-catalog-row" key={`job-${row.id}`} onClick={() => newCatalog('positions', row)}><b>{row.name}</b><span>{row.status === 'pending' ? 'Должность · требует согласования' : row.status === 'rejected' ? `Отклонено: ${row.decision_comment}` : `Должность · ${row.role_name || 'роль наследуется от подразделения'}`}</span></button>)}</div>
     </section>}
     <section className="card card-pad"><h3>Заявки и история изменений</h3>{!data.requests.length && <p className="hint">Заявок пока нет</p>}
       <div className="work-absence-history">{data.requests.map((row) => <article className="work-absence-row" key={row.id}><div><strong>{row.user_name} · {STATE[row.status]}</strong><span>{row.unit_name} → {row.position_name}</span><span>Роль: {row.role_name} · Руководитель: {row.manager_name || 'не задан'}</span>{row.decision_comment && <span>Причина: {row.decision_comment}</span>}</div>

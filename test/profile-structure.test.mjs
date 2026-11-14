@@ -8,7 +8,7 @@ const require = createRequire(import.meta.url), babel = require('next/dist/compi
 const all = (n) => Array.isArray(n) ? n.flatMap(all) : n && typeof n === 'object' ? [n, ...all(n.props?.children)] : [];
 function harness(file, seed, api) {
   let cursor = 0; const values = [];
-  const filename = fileURLToPath(new URL(`../src/modules/profile/ui/${file}.jsx`, import.meta.url)), mod = new Module(filename);
+  const filename = fileURLToPath(new URL(`../src/modules/${file === 'OrgStructure' ? 'users' : 'profile'}/ui/${file}.jsx`, import.meta.url)), mod = new Module(filename);
   mod.require = (id) => {
     if (id === 'react') return { ...React, useEffect() {}, useState(initial) { const i = cursor++; if (!(i in values)) values[i] = i === 0 ? seed : typeof initial === 'function' ? initial() : initial; return [values[i], (v) => { values[i] = typeof v === 'function' ? v(values[i]) : v; }]; } };
     if (id.endsWith('api.js')) return { usersApi: api, accountApi: api };

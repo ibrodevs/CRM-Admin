@@ -4,3 +4,4 @@ export { CityPickPanel } from './ui/SharedPanels.jsx';
 
 export { usePanelVisibility } from './ui/SharedPanels.jsx';
 export { AirportDetailsDrawer } from './ui/AirportDetailsDrawer.jsx';
+export { airportOption, searchAirportOptions, flightLocationCode } from './model/airport-options.js';
