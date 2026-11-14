@@ -1955,7 +1955,7 @@ function AviaSearchPanel({ params, setParams, participants = [], onAdd }) {
 
 function QuickAddForm({ kind, onAdd, currency, addLabel = 'Добавить в заказ', strict = false }) {
   const toast = useToast();
-  const k = SERVICE_KIND[kind] || { icon: 'briefcase', color: 'var(--blue)' };
+  const k = SERVICE_KIND[kind] || { icon: kind === 'Страховка' ? 'shield' : 'briefcase', color: 'var(--blue)' };
   const [title, setTitle] = useDraftState(`QuickAddForm/${kind}`, "title", '');
   const [date, setDate] = useDraftState(`QuickAddForm/${kind}`, "date", null);
   const [supplier, setSupplier] = useDraftState(`QuickAddForm/${kind}`, "supplier", '');
@@ -1965,18 +1965,18 @@ function QuickAddForm({ kind, onAdd, currency, addLabel = 'Добавить в �
     onAdd({ title: title.trim(), sub: kind, cost: +cost, fee: 0, currency, starts_at: formatIsoDateTime(date), supplier: supplier.trim() || '—', info: [{ l: 'Дата', v: date ? fmtDate(date) : '—' }] }, kind);
   };
   return (
-    <div>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 18 }}>
+    <div className="quick-add-service">
+      <div className="quick-add-service-header">
         <span className="oc-svc-ic" style={{ background: k.color }}><Icon name={k.icon} /></span>
         <div style={{ fontWeight: 700, color: 'var(--ink)', fontSize: 16 }}>{kind}</div>
       </div>
-      <div className="form-grid">
-        <div className="full"><Field label="Название услуги"><Input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Например, Страховка ВЗР" /></Field></div>
-        <Field label="Дата"><DateField value={date} onChange={setDate} placeholder="Выбрать дату" /></Field>
+      <div className="quick-add-service-fields">
+        <Field label="Название услуги"><Input value={title} onChange={(e) => setTitle(e.target.value)} placeholder={kind === 'Страховка' ? 'Например, Страховка ВЗР' : 'Название дополнительной услуги'} /></Field>
         <Field label="Поставщик"><Input value={supplier} onChange={(e) => setSupplier(e.target.value)} placeholder="Название поставщика" /></Field>
+        <Field label="Дата"><DateField value={date} onChange={setDate} placeholder="Выбрать дату" /></Field>
         <Field label={`Стоимость, ${currency}`}><Input type="number" value={cost} onChange={(e) => setCost(e.target.value)} placeholder="0" /></Field>
       </div>
-      <Button icon="plus" onClick={submit} style={{ marginTop: 8 }}>{addLabel}</Button>
+      <div className="quick-add-service-actions"><Button icon="plus" onClick={submit}>{addLabel}</Button></div>
     </div>
   );
 }

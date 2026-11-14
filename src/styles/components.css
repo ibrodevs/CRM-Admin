@@ -3678,3 +3678,10 @@ button.oc-fact:hover{border-color:#d3dbe8;background:#fff}
 .info-notice-close svg{width:18px;height:18px}
 .info-notice-close:hover{background:var(--hover);color:var(--ink)}
 .info-notice-close:focus-visible{outline:2px solid var(--blue);outline-offset:2px}
+
+.quick-add-service{width:100%;max-width:880px;min-width:0;box-sizing:border-box;padding:20px;border:1px solid var(--line);border-radius:16px;background:var(--surface-2);container-type:inline-size}
+.quick-add-service-header{display:flex;align-items:center;gap:12px;margin-bottom:20px}
+.quick-add-service-fields{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px 20px}
+.quick-add-service-fields>.field{min-width:0;margin:0}
+.quick-add-service-actions{display:flex;justify-content:flex-start;margin-top:20px;padding-top:16px;border-top:1px solid var(--line)}
+@container(max-width:560px){.quick-add-service-fields{grid-template-columns:1fr}.quick-add-service-actions .btn{width:100%}}
