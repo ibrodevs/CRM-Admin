@@ -3622,8 +3622,8 @@ button.oc-fact:hover{border-color:#d3dbe8;background:#fff}
 @media(max-width:640px){.service-search-mask>.av-field{flex-basis:calc(50% - 12px);min-width:min(100%,150px)}.service-search-mask>.btn{flex:1 1 auto!important}.service-search-mask>.transfer-search-options-trigger{margin-left:0}}
 
 /* Shared calendar for travel, passenger, document and reporting forms. */
-.floating-panel.calendar-floating{padding:0;border:0;overflow:hidden;display:flex;flex-direction:column}
-.calendar-picker{width:100%;min-height:0;max-height:inherit;display:flex;flex-direction:column;overflow:hidden;padding:14px;border:1px solid var(--line);border-radius:var(--r-popover);background:var(--surface);color:var(--ink);user-select:none;box-sizing:border-box}
+.floating-panel.calendar-floating{padding:0;border:0;overflow:auto;display:block}
+.calendar-picker{width:100%;min-height:0;max-height:none;display:flex;flex-direction:column;overflow:visible;padding:14px;border:1px solid var(--line);border-radius:var(--r-popover);background:var(--surface);color:var(--ink);user-select:none;box-sizing:border-box}
 .calendar-picker-header{display:flex;gap:6px;align-items:center;flex-shrink:0;margin-bottom:12px}
 .calendar-picker-header button{height:40px;display:flex;align-items:center;justify-content:center;gap:6px;border-radius:10px;font:inherit;cursor:pointer}
 .calendar-picker-header .calendar-nav{width:30px;flex-shrink:0;padding:4px;border:0;background:transparent;color:var(--blue)}

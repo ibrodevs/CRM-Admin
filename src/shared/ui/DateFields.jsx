@@ -45,7 +45,7 @@ function DateRangeField({ label, startVal, endVal, onChange, placeholder = 'Вы
         </span>
       </button>
       {open && (
-        <FloatingPanel anchorRef={ref} width={320} maxHeight={580} closeOnScroll className="calendar-floating" onClose={() => setOpen(false)}>
+        <FloatingPanel anchorRef={ref} placement="calendar" width={320} maxHeight={580} closeOnScroll className="calendar-floating" onClose={() => setOpen(false)}>
           <CalendarPicker mode="range" startVal={startVal || null} endVal={endVal || null}
             autoConfirm={autoConfirm} rangeStartLabel={rangeStartLabel} minDate={minDate} maxDate={maxDate} requireComplete={requireComplete} allowSameDay={allowSameDay}
             onConfirm={(s, e) => {

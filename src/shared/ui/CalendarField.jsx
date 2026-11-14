@@ -23,7 +23,7 @@ export function DateField({ label, id, 'aria-label': ariaLabel, value, onChange,
       <Icon name="chevDown" style={{ width: 16, height: 16, color: 'var(--muted-2)' }} />
     </button>
     {error && <div className="err-text"><Icon name="alertCircle" style={{ width: 14, height: 14 }} />{error}</div>}
-    {open && <FloatingPanel anchorRef={ref} width={320} maxHeight={580} closeOnScroll className="calendar-floating" onClose={() => setOpen(false)}>
+    {open && <FloatingPanel anchorRef={ref} placement="calendar" width={320} maxHeight={580} closeOnScroll className="calendar-floating" onClose={() => setOpen(false)}>
       <CalendarPicker mode="single" startVal={parsed} minDate={minDate} maxDate={maxDate} autoConfirm={autoConfirm} onConfirm={choose} onClose={() => setOpen(false)} />
     </FloatingPanel>}
   </div>;

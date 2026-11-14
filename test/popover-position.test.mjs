@@ -60,3 +60,22 @@ test('city suggestions open below the field and scroll instead of flipping upwar
     assert.ok(position.top + position.maxHeight <= viewport.height - 8);
   }
 });
+
+test('calendar keeps a usable viewport instead of using the small space above a mid-page field', () => {
+  const anchor = { left: 620, right: 930, top: 400, bottom: 460 };
+  for (const height of [804, 600, 400]) {
+    for (const contentHeight of [250, 560, 800]) {
+      const p = popoverPosition(anchor, { width: 320, height: 580, contentHeight }, { width: 1024, height }, { placement: 'calendar' });
+      assert.equal(p.maxHeight, Math.min(580, height - 16));
+      assert.equal(p.top, (height - p.maxHeight) / 2);
+      assert.ok(p.top >= 8);
+      assert.ok(p.top + p.maxHeight <= height - 8);
+    }
+  }
+});
+
+test('calendar can open normally below a high field when the whole form fits', () => {
+  const p = popoverPosition({ left: 100, right: 420, top: 20, bottom: 70 }, { width: 320, height: 580 }, { width: 1024, height: 804 }, { placement: 'calendar' });
+  assert.equal(p.top, 76);
+  assert.equal(p.maxHeight, 580);
+});

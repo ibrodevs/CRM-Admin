@@ -109,7 +109,7 @@ function CalendarPicker({ mode = 'range', startVal = null, endVal = null, onConf
       {mode === 'range' && <div style={{ flexShrink: 0, fontSize: 12, color: 'var(--muted)', marginBottom: 8 }}>Прокрутите вниз для выбора следующего месяца</div>}
       <div ref={monthsRef} className="calendar-months scroll" tabIndex={0} role="region" aria-label="Месяцы календаря"
         onMouseLeave={() => { if (hover) setHover(null); }}
-        style={{ overflowY: 'auto', minHeight: 0, maxHeight: 330, overscrollBehavior: 'contain', touchAction: 'pan-y', scrollbarGutter: 'stable' }}>
+        style={{ overflowY: 'auto', flexShrink: 0, height: 330, minHeight: 330, maxHeight: 330, overscrollBehavior: 'contain', touchAction: 'pan-y', scrollbarGutter: 'stable' }}>
         {months.map(({ year: shownYear, month: shownMonth, cells }) => (
           <section key={`${shownYear}-${shownMonth}`} aria-label={`${CAL_MONTHS[shownMonth]} ${shownYear}`} style={{ paddingBottom: 12 }}>
             <div style={{ position: 'sticky', top: 0, zIndex: 1, background: 'var(--surface)', paddingTop: 2 }}>
