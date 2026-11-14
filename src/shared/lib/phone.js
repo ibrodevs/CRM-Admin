@@ -1,3 +1,4 @@
+import phoneMetadata from 'libphonenumber-js/metadata.min.json';
 import { AsYouType, getCountries, getCountryCallingCode, parsePhoneNumberFromString } from 'libphonenumber-js';
 
 const names = new Intl.DisplayNames(['ru'], { type: 'region' });
@@ -22,6 +23,7 @@ export function phoneValue(value, country = 'RU') {
   if (!digits) return text === '+' ? '+' : '';
   if (text.startsWith('+')) return `+${digits}`;
   if (text.startsWith('00')) return `+${digits.slice(2)}`;
+  if (digits.startsWith('8')) return `+7${digits.slice(1)}`;
   const parsed = parsePhoneNumberFromString(text, country);
   return parsed?.number || `+${getCountryCallingCode(country)}${digits}`;
 }
@@ -41,4 +43,18 @@ export function isPhoneInput(props) {
   if (props.phoneInput === false || /внутренн|добавоч|internal|extension/.test(context)) return false;
   if (props.phoneInput !== true && (!['text', 'tel'].includes(props.type || 'text') || /поиск|search|email|e-mail|электронн/.test(context))) return false;
   return props.phoneInput === true || props.type === 'tel' || props.leadIcon === 'phone' || /телефон|(?:^|\s)(?:phone|mobile|whatsapp)(?:\s|$)/.test(context);
+}
+
+export function phoneInputValue(value, country = 'RU') {
+  const canonical = phoneValue(value, country);
+  const detected = phoneCountry(canonical, country);
+  const callingCode = getCountryCallingCode(detected);
+  let limit = 15;
+  if (canonical.startsWith(`+${callingCode}`)) {
+    // Metadata possible lengths, plus the standard 10-digit +7 subscriber form.
+    const lengths = phoneMetadata.countries[detected]?.[3] || [15 - callingCode.length];
+    const nationalLimit = callingCode === '7' ? 10 : Math.max(...lengths);
+    limit = Math.min(15, callingCode.length + nationalLimit);
+  }
+  return canonical.startsWith('+') ? `+${canonical.slice(1).slice(0, limit)}` : canonical;
 }

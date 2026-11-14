@@ -3851,3 +3851,6 @@ button.oc-fact:hover{border-color:#d3dbe8;background:#fff}
   .draft-recovery-row{align-items:flex-start;flex-wrap:wrap;gap:10px}
   .draft-recovery-row>div{flex-basis:100%}
 }
+
+.phone-country-indicator{display:flex;align-items:center;justify-content:center;flex:0 0 52px;font-size:23px;user-select:none;pointer-events:none}
+.phone-country-indicator svg{border:1px solid var(--line);border-radius:2px;box-sizing:border-box}
