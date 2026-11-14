@@ -4474,6 +4474,7 @@ function ReceiptEditorPage({ documents = [], orders = [], services = [], compani
         }}>Импорт документов</Button>
       </Topbar>
       <div className="content">
+        <SectionInfo section="receipts" />
         <div className="fade-in">
           <SearchToolbar>
             <div style={{ flex: 1 }} />
@@ -4602,7 +4603,7 @@ function ReceiptEditorPage({ documents = [], orders = [], services = [], compani
             title={registryView === 'drafts' ? 'Черновики не найдены' : 'Документы не найдены'}
             sub={registryView === 'drafts' ? 'Сохранённые черновики появятся в этом списке.' : 'Импортируйте авиа, ЖД, отельный или трансферный документ.'} />}
         </div>
-        <SectionInfo section="receipts" />
+
       </div>
 
       <ReceiptEditDrawer open={!!edit} file={edit ? { ...edit, type: edit.editorType } : null} onClose={closeReceiptEditor}

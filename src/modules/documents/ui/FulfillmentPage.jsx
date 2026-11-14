@@ -140,8 +140,9 @@ function FulfillmentPage({ onOpenOrder, orders = [], documents = [], returns = [
     }).catch((error) => { if (error.name !== 'AbortError') { setRows([]); toast(error.message || 'Не удалось загрузить очередь оформления', 'err'); } });
     return () => controller.abort();
   }, [documents, orders, returns, toast]);
-  return (<><Topbar title="Оформление" /><div className="content"><FulfillmentRegistry onOpenOrder={onOpenOrder} rows={rows} orders={orders} />
-        <SectionInfo section="fulfillment" />
+  return (<><Topbar title="Оформление" /><div className="content">
+        <SectionInfo section="fulfillment" /><FulfillmentRegistry onOpenOrder={onOpenOrder} rows={rows} orders={orders} />
+
       </div></>);
 }
 

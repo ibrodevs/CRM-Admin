@@ -27,7 +27,7 @@ const SECTION_INFO = {
   profile: 'Выберите вкладку для просмотра показателей, настройки уведомлений, личных предпочтений и безопасности аккаунта.',
 };
 
-// Section help always follows the page content and uses the shared notice style.
+// Section help is the first item below the page heading, before filters and content.
 function SectionInfo({ section }) {
   const text = SECTION_INFO[section];
   if (!text) return null;

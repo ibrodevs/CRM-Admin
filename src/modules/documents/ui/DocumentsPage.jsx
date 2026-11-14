@@ -1082,8 +1082,9 @@ export function ServiceBlanksPanel({
 }
 
 function DocCenterPage({ documents = [], orders = [] }) {
-  return (<PageActionProvider><Topbar title="Документы" /><div className="content"><DocCenter initialDocuments={documents} orders={orders} />
-        <SectionInfo section="documents" />
+  return (<PageActionProvider><Topbar title="Документы" /><div className="content">
+        <SectionInfo section="documents" /><DocCenter initialDocuments={documents} orders={orders} />
+
       </div></PageActionProvider>);
 }
 

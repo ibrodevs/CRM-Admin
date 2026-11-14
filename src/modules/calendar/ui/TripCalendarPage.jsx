@@ -750,6 +750,7 @@ function TripCalendarPage({ role, feed, orders = [], clients = [], companies = [
         <Button variant={control ? 'primary' : 'secondary'} icon="alertCircle" onClick={() => setControl((c) => !c)}>Центр контроля</Button>
       </Topbar>
       <div className="content fade-in tc-page">
+        <SectionInfo section="calendar" />
 
         <div className="tc-toolbar">
           <div className="tc-viewseg">
@@ -802,7 +803,7 @@ function TripCalendarPage({ role, feed, orders = [], clients = [], companies = [
             : view === 'month' ? <MonthView anchor={anchor} trips={trips} onOpen={setSel} onPickDay={openDayMenu} onOpenEvent={setEvtSel} onOpenDay={openDayList} evtTick={evtTick} />
             : <DayView anchor={anchor} trips={trips} onOpen={setSel} onPickDay={openDayMenu} onOpenEvent={setEvtSel} evtTick={evtTick} />}
         </div>
-        <SectionInfo section="calendar" />
+
       </div>
       <TripDetailPanel trip={sel} onClose={() => setSel(null)} onOpenOrder={onOpenOrder} />
       {dayMenu && <CalDayMenu day={dayMenu.day} pos={dayMenu.pos} onClose={() => setDayMenu(null)}

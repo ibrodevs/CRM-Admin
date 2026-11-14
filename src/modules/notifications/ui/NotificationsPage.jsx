@@ -278,8 +278,9 @@ function NotificationsCenter({ notifications = [], orders = [], onChange, onNavi
 }
 
 function NotificationsPage({ notifications, orders, onChange, onNavigate, onOpenOrder }) {
-  return (<PageActionProvider><Topbar title="Уведомления" /><div className="content"><NotificationsCenter notifications={notifications} orders={orders} onChange={onChange} onNavigate={onNavigate} onOpenOrder={onOpenOrder} />
-        <SectionInfo section="notifications" />
+  return (<PageActionProvider><Topbar title="Уведомления" /><div className="content">
+        <SectionInfo section="notifications" /><NotificationsCenter notifications={notifications} orders={orders} onChange={onChange} onNavigate={onNavigate} onOpenOrder={onOpenOrder} />
+
       </div></PageActionProvider>);
 }
 

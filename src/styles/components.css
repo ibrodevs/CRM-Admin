@@ -59,7 +59,7 @@
 .info-notice-error{background:var(--red-bg);color:var(--red-strong)}
 .info-notice-warning{background:var(--amber-bg);color:var(--amber)}
 .info-notice-error>svg,.info-notice-warning>svg{color:inherit}
-.section-info{margin:18px 0 0;flex-shrink:0}
+.section-info{margin:0 0 18px;flex-shrink:0}
 @media(max-width:600px){.info-notice{gap:10px;padding:12px 14px}}
 
 .input,.select,textarea.input{

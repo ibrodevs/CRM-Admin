@@ -655,6 +655,7 @@ function SettingsPage({ users = [], onUsersChange }) {
     <div className="fade-in">
       <Topbar title={t("Настройки")}><div className="topbar-spacer" />{tab === 'users' && canUsers && <Button icon="plus" onClick={() => setModal('adduser')}>{t("Добавить пользователя")}</Button>}</Topbar>
       <div className="content">
+        <SectionInfo section="settings" />
         <div style={{ marginBottom: 20 }}><Tabs tabs={TABS} value={tab} onChange={setTab} /></div>
         <section className="section-workspace" aria-label="Рабочая область настроек">
         {tab === 'users' && usersLoading && <p>{t("Загрузка пользователей…")}</p>}
@@ -680,7 +681,7 @@ function SettingsPage({ users = [], onUsersChange }) {
           </div>
         )}
         </section>
-        <SectionInfo section="settings" />
+
       </div>
       <Drawer open={modal === 'sla'} onClose={() => setModal(null)} title={t("Настройки SLA")} footer={<Button onClick={() => setModal(null)}>{t("Закрыть")}</Button>}>
         <p>{t("Выберите сотрудника для настройки норматива отклика.")}</p>

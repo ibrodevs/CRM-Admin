@@ -151,6 +151,7 @@ function OrdersMultiSelectList({ orders, onOpen, onCreate, onNavigate, currentUs
       </Topbar>
 
       <div className="content">
+        <SectionInfo section="orders" />
 
 
         <SearchToolbar className="orders-filters" >
@@ -241,7 +242,7 @@ function OrdersMultiSelectList({ orders, onOpen, onCreate, onNavigate, currentUs
             <span>Показано {Math.min(visibleCount, rows.length)} из {rows.length}</span>
           </div>}
         </div></section>
-        <SectionInfo section="orders" />
+
       </div>
     </div>
   );

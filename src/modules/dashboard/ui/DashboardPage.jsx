@@ -924,6 +924,7 @@ function DashboardPage({ role, user, orders = [], orderServices = [], clients = 
       {searchMounted && <DetailedSearchPanel open={searchOpen} onClose={() => setSearchOpen(false)} onOpenOrder={onOpenOrder} onCreateOrder={onCreateOrder} onNavigate={onNavigate} clients={clients} companies={companies} orders={orders} />}
 
       <div className="dsh scroll">
+        <SectionInfo section="dashboard" />
         {shift && (
           <div className="card dsh-shift">
             <span className="dsh-shift-dot" />
@@ -978,7 +979,7 @@ function DashboardPage({ role, user, orders = [], orderServices = [], clients = 
             <span className="dsh-api-alert-go">Разобрать<Icon name="chevRight" /></span>
           </button>
         )}
-        <SectionInfo section="dashboard" />
+
       </div>
 
       <ErrorCodesDrawer open={errCodeOpen !== null} focusCode={errCodeOpen} onClose={() => setErrCodeOpen(null)} />

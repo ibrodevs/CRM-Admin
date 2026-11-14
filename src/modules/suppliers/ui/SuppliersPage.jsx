@@ -1509,8 +1509,9 @@ function SuppliersPage({ intent, onConsume, suppliers, addSupplier, onNavigate, 
   if (active) return (
     <div className="fade-in">
       <Topbar title="Карточка поставщика" />
-      <div className="content"><SupplierCard supplier={active} onBack={() => setActive(null)} onOpenChat={onOpenChat || (() => onNavigate && onNavigate('chats'))} />
-        <SectionInfo section="suppliers" />
+      <div className="content">
+        <SectionInfo section="suppliers" /><SupplierCard supplier={active} onBack={() => setActive(null)} onOpenChat={onOpenChat || (() => onNavigate && onNavigate('chats'))} />
+
       </div>
     </div>
   );
@@ -1532,6 +1533,7 @@ function SuppliersPage({ intent, onConsume, suppliers, addSupplier, onNavigate, 
         <Button variant="primary" icon="plus" onClick={() => setAddOpen(true)}>Добавить поставщика</Button>
       </Topbar>
       <div className="content">
+        <SectionInfo section="suppliers" />
         <SearchToolbar>
           <FilterChip label="Типы поставщиков" options={SUPPLIER_TYPES} value={filters.supType} onChange={(v) => setFilters((f) => ({ ...f, supType: v }))} />
           <FilterChip label="Статусы" options={Object.keys(SUPPLIER_STATUS)} value={filters.status} onChange={(v) => setFilters((f) => ({ ...f, status: v }))} />
@@ -1571,7 +1573,7 @@ function SuppliersPage({ intent, onConsume, suppliers, addSupplier, onNavigate, 
           </table>
           <Pagination page={page} pages={pages} onPage={setPage} />
         </div></section>
-        <SectionInfo section="suppliers" />
+
       </div>
 
       <SupplierAddDrawer open={addOpen} onClose={() => setAddOpen(false)} onCreated={addSupplier} />

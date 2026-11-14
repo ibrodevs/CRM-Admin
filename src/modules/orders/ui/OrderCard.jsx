@@ -3340,6 +3340,7 @@ function OrderCard({ order, company, clients = [], onBack, initTab, initSvc, ini
       </Topbar>
 
       <div className="content" style={{ paddingTop: 8 }}>
+        <SectionInfo section="orderCard" />
 
         <div className="oc-grid">
           <div className="oc-main">
@@ -3387,7 +3388,7 @@ function OrderCard({ order, company, clients = [], onBack, initTab, initSvc, ini
           <ServicesFooterBar order={cardOrder} services={services} bookingDraft={bookingDraft}
             onStartBooking={() => { setTab('main'); setSvcView('booking'); }} />
         )}
-        <SectionInfo section="orderCard" />
+
       </div>
 
 

@@ -743,8 +743,9 @@ function ReturnsModule({ scopeOrder, onOpenOrder, compact, order, initialCases, 
 }
 
 function ReturnsPage({ onOpenOrder, cases = [], orders = [] }) {
-  return (<PageActionProvider><Topbar title="Возвраты и обмены" /><div className="content"><ReturnsModule initialCases={cases} orders={orders} onOpenOrder={onOpenOrder} />
-        <SectionInfo section="returns" />
+  return (<PageActionProvider><Topbar title="Возвраты и обмены" /><div className="content">
+        <SectionInfo section="returns" /><ReturnsModule initialCases={cases} orders={orders} onOpenOrder={onOpenOrder} />
+
       </div></PageActionProvider>);
 }
 

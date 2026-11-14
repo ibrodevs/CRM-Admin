@@ -1252,6 +1252,7 @@ function FinancePage({ overview, clients = [], companies = [], suppliers = [], o
     <PageActionProvider>
       <Topbar title="Финансы" sub="Счета, платежи и финансовые обязательства" />
       <div className="content finance-page">
+        <SectionInfo section="finance" />
         <div className="fin-toolbar">
           <Tabs tabs={FIN_TABS} value={tab} onChange={setTab} />
           {FIN_CURRENCY_TABS.includes(tab) && (
@@ -1268,7 +1269,7 @@ function FinancePage({ overview, clients = [], companies = [], suppliers = [], o
         {tab === 'economics' && <FinEconomics economics={economics} />}
         {tab === 'analytics' && <FinAnalytics cashflow={cashflow} currency={currency} />}
         </section>
-        <SectionInfo section="finance" />
+
       </div>
     </PageActionProvider>
   );

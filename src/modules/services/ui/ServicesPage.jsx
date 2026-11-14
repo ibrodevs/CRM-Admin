@@ -1870,6 +1870,7 @@ function ServiceFlow({ routeKey, searchIntent, onConsumeSearch }) {
         {view === 'card' && item && <Button variant="secondary" icon="chevLeft" onClick={() => setView(item.cost ? 'results' : 'registry')}>{item.cost ? 'К результатам' : 'К реестру'}</Button>}
       </Topbar>
       <div className="content">
+        <SectionInfo section={routeKey} />
         {view === 'registry' && (
           <div className="fade-in">
             <SearchToolbar>
@@ -1941,7 +1942,7 @@ function ServiceFlow({ routeKey, searchIntent, onConsumeSearch }) {
         )}
 
         {view === 'card' && item && (item._backendOfferId ? <SvcResultsHeader cfg={cfg} form={form} title={item.title} supplier={item.supplier} loading={loading} onSearch={async (draft) => { const found = await performSearch(draft, true); if (found !== false && found != null) { setForm(draft); if (found.length) setItem(found[0]); else setView('results'); } return found; }}><SvcCard key={`${item.id}:${JSON.stringify(form)}`} item={item} kind={cfg.kind} hideBackRow onBack={() => setView('results')} /></SvcResultsHeader> : <SvcCard item={item} kind={cfg.kind} hideBackRow onBack={() => setView('registry')} />)}
-        <SectionInfo section={routeKey} />
+
       </div>
     </>
   );
@@ -3234,6 +3235,7 @@ function ServicesHubPage({ onNavigate, onAddOrder, onOpenOrder, onCreateOrder, c
         {onAddOrder && <Button icon="plus" onClick={onAddOrder}>Новый заказ</Button>}
       </Topbar>
       <div className="content fade-in">
+        <SectionInfo section="services" />
         <div className="svc-hub-grid section-workspace">
           {SERVICES_HUB.map((s) => (
             <button key={s.key} type="button" className="svc-hub-card" onClick={() => openMask(HUB_KIND[s.key] || 'Авиа')}>
@@ -3246,7 +3248,7 @@ function ServicesHubPage({ onNavigate, onAddOrder, onOpenOrder, onCreateOrder, c
             </button>
           ))}
         </div>
-        <SectionInfo section="services" />
+
       </div>
       {maskKind && <DetailedSearchPanel open={maskOpen} initialKind={maskKind} onClose={() => setMaskOpen(false)} onOpenOrder={onOpenOrder} onCreateOrder={onCreateOrder} onNavigate={onNavigate} clients={clients} companies={companies} orders={orders} />}
     </>

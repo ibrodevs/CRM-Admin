@@ -988,6 +988,7 @@ function ChatsPage({ initialThreads = [], focusThread = null, orders = [], order
   return (
     <div className="fade-in" style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
       <div className="content" style={{ flex: 1, minHeight: 0, padding: '20px 20px 20px' }}>
+        <SectionInfo section="chats" />
         <div className="section-workspace chats-workspace" style={{ display: 'grid', gridTemplateColumns: '340px 1fr 252px', gap: 10, height: 'calc(100vh - 100px)' }}>
           <ChatsNav threads={threads} activeId={activeId} onSelect={setActiveId} search={search} setSearch={setSearch} mode={mode} setMode={setMode} />
 
@@ -1013,7 +1014,7 @@ function ChatsPage({ initialThreads = [], focusThread = null, orders = [], order
             />
           )}
         </div>
-        <SectionInfo section="chats" />
+
       </div>
 
       {active && (

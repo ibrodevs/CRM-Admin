@@ -237,8 +237,9 @@ function ClientsPage({ initialClients = [], orders = [], onClientsChange, onOpen
   const addClient = (c) => commitClients((cur) => [c, ...cur]);
   const upsertClient = (c) => commitClients((cur) => cur.some((x) => x.id === c.id) ? cur.map((x) => x.id === c.id ? c : x) : [c, ...cur]);
 
-  if (view === 'card' && active) return (<><Topbar title="Карточка клиента" /><div className="content"><ClientCard c={active} orders={orders} onBack={() => setView('list')} onOpenOrder={onOpenOrder} onCreateOrder={onCreateOrder} onOpenChat={onOpenChat} onUpdate={(u) => { upsertClient(u); setActive(u); }} />
-        <SectionInfo section="clients" />
+  if (view === 'card' && active) return (<><Topbar title="Карточка клиента" /><div className="content">
+        <SectionInfo section="clients" /><ClientCard c={active} orders={orders} onBack={() => setView('list')} onOpenOrder={onOpenOrder} onCreateOrder={onCreateOrder} onOpenChat={onOpenChat} onUpdate={(u) => { upsertClient(u); setActive(u); }} />
+
       </div></>);
 
   const registry = clientRegistry(clients, companies);
@@ -250,6 +251,7 @@ function ClientsPage({ initialClients = [], orders = [], onClientsChange, onOpen
     <>
       <Topbar title="Клиенты"><div className="topbar-spacer" /><Button icon="plus" onClick={() => setCreateOpen(true)}>Добавить клиента</Button></Topbar>
       <div className="content fade-in">
+        <SectionInfo section="clients" />
         <RegistryStats><div className="grid-4" style={{ marginBottom: 22 }}>{STATS.map(([l, v]) => (<div className="stat-card" key={l}><div className="s-label">{l}</div><div className="s-value">{v}</div></div>))}</div></RegistryStats>
         <SearchToolbar>
           <SearchBox value={q} onChange={setQ} placeholder="Имя, компания, ИНН, телефон, ID…" style={{ width: 280 }} />
@@ -277,7 +279,7 @@ function ClientsPage({ initialClients = [], orders = [], onClientsChange, onOpen
             </table>
           ) : <EmptyState icon="user" title="Клиентов не найдено" />}
         </div></section>
-        <SectionInfo section="clients" />
+
       </div>
       <ClientCreateModal open={createOpen} onClose={() => setCreateOpen(false)} onCreated={addClient} />
     </>

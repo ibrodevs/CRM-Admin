@@ -537,8 +537,9 @@ function CompaniesPage({ initialCompanies = [], orders = [], onCompaniesChange, 
 
   useEffect(() => { if (intent && intent.type === 'create') { setCreateOpen(true); onConsume && onConsume(); } }, [intent]);
 
-  if (view === 'card' && active) return (<><Topbar title="Карточка компании" /><div className="content"><CompanyCard co={active} logoUrl={logos[active.id]} orders={orders} onOpenChat={onOpenChat} onBack={() => setView('list')} onOpenOrder={onOpenOrder} onCreateOrder={onCreateOrder} onEdit={() => setEditing(active)} /><NewOrgDrawer open={!!editing} initial={editing ? { ...editing, logoUrl: logos[editing.id] } : null} onClose={() => setEditing(null)} onCreated={createCompany} onLogoUploaded={applyLogo} />
-        <SectionInfo section="companies" />
+  if (view === 'card' && active) return (<><Topbar title="Карточка компании" /><div className="content">
+        <SectionInfo section="companies" /><CompanyCard co={active} logoUrl={logos[active.id]} orders={orders} onOpenChat={onOpenChat} onBack={() => setView('list')} onOpenOrder={onOpenOrder} onCreateOrder={onCreateOrder} onEdit={() => setEditing(active)} /><NewOrgDrawer open={!!editing} initial={editing ? { ...editing, logoUrl: logos[editing.id] } : null} onClose={() => setEditing(null)} onCreated={createCompany} onLogoUploaded={applyLogo} />
+
       </div></>);
 
   let rows = companies.filter((c) => (!fStatus || c.status === fStatus) && (!q || `${shortCodeSearchable(c.id, 'ORG')} ${c.name} ${c.inn} ${c.dir}`.toLowerCase().includes(q.toLowerCase())));
@@ -550,6 +551,7 @@ function CompaniesPage({ initialCompanies = [], orders = [], onCompaniesChange, 
       <Topbar title="Компании"><div className="topbar-spacer" /><Button icon="plus" onClick={() => setCreateOpen(true)}>Добавить компанию</Button></Topbar>
       <NewOrgDrawer open={createOpen} onClose={() => setCreateOpen(false)} onCreated={createCompany} onLogoUploaded={applyLogo} />
       <div className="content fade-in">
+        <SectionInfo section="companies" />
         <RegistryStats><div className="grid-4" style={{ marginBottom: 22 }}>{STATS.map(([l, v]) => (<div className="stat-card" key={l}><div className="s-label">{l}</div><div className="s-value">{v}</div></div>))}</div></RegistryStats>
         <SearchToolbar>
           <SearchBox value={q} onChange={setQ} placeholder="Поиск: название, ИНН, директор…" style={{ width: 300 }} />
@@ -586,7 +588,7 @@ function CompaniesPage({ initialCompanies = [], orders = [], onCompaniesChange, 
             </table>
           ) : <EmptyState icon="building" title="Компаний не найдено" />}
         </div></section>
-        <SectionInfo section="companies" />
+
       </div>
     </>
   );

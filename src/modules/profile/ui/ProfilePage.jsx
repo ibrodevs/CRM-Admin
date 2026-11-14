@@ -405,6 +405,7 @@ function ProfilePage({ user, onNavigate, initialTab }) {
         <Button variant="secondary" icon="chevLeft" onClick={() => onNavigate('dashboard')}>{t("Вернуться")}</Button>
       </Topbar>
       <div className="content">
+        <SectionInfo section="profile" />
 
         {/* Шапка: фото со скрытыми под наведением действиями — две кнопки
             столбиком под аватаром растягивали блок и выглядели тяжело. */}
@@ -657,7 +658,7 @@ function ProfilePage({ user, onNavigate, initialTab }) {
         {tab === 'motivation' && <ProfileMotivation operator={u.name} userId={u.id} canEdit={canManageSettings} />}
         {tab === 'stats' && <ProfileStats operator={u.name} userId={u.serverId || u.id} />}
         {tab === 'worktime' && <div className="profile-sections"><section className="card card-pad"><WorkAbsences user={u} canManage={canManageUsers} onSaved={() => auth.refreshSession()} /></section><ProfileWorkTime user={u} canEdit={canManageUsers} /></div>}
-        <SectionInfo section="profile" />
+
       </section>
       </div>
 

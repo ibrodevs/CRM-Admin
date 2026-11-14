@@ -1679,8 +1679,9 @@ function OffersPage({ onOpenOrder, intent, onConsume, proposals = [], orders = [
   return (
     <PageActionProvider>
       <Topbar title="Коммерческие предложения" />
-      <div className="content"><OffersRegistry initialProposals={proposals} orders={orders} onOpenOrder={onOpenOrder} intent={intent} onConsume={onConsume} onChanged={onChanged} />
-        <SectionInfo section="offers" />
+      <div className="content">
+        <SectionInfo section="offers" /><OffersRegistry initialProposals={proposals} orders={orders} onOpenOrder={onOpenOrder} intent={intent} onConsume={onConsume} onChanged={onChanged} />
+
       </div>
     </PageActionProvider>
   );

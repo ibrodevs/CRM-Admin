@@ -1463,10 +1463,11 @@ function HotelsPage({ orders = [] }) {
     <>
       <Topbar title="Гостиницы" />
       <div className="content">
+        <SectionInfo section="hotels" />
         <HotelPicker participants={[]} group={false}
           onApply={setSelectedOffer}
           onCancel={() => {}} />
-        <SectionInfo section="hotels" />
+
       </div>
       {selectedOffer && <UnifiedBindPicker open title="Добавить гостиницу в заказ" sub={[selectedOffer.title, selectedOffer.sub].filter(Boolean).join(' · ')}
         modes={['order']} orderOptions={orders} onClose={() => setSelectedOffer(null)} onPick={attach} />}
