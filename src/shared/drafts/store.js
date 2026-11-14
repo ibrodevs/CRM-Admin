@@ -1,4 +1,4 @@
-import { savedWorkspaces } from './workspaces.js';
+import { savedWorkspaces, hasDraftWork } from './workspaces.js';
 export const DRAFT_TTL = 7 * 24 * 60 * 60 * 1000;
 const PREFIX = 'psc:work-draft:v1:';
 const pack = (value) => {
@@ -62,6 +62,16 @@ export function createDraftStore(storage, owner, now = Date.now) {
     status: () => status,
     setOpener(handler) { opener = handler; return () => { if (opener === handler) opener = null; }; },
     open(entry) { return opener ? opener(entry) : false; },
+    hasWork(scopePrefix = '') {
+      try {
+        for (const name of Object.keys(storage)) {
+          if (!name.startsWith(prefix)) continue;
+          const scope = decodeURIComponent(name.slice(prefix.length));
+          if (!scopePrefix || scope === scopePrefix || scope.startsWith(scopePrefix + '/')) load(scope);
+        }
+      } catch { /* Unsaved in-memory work still protects the active form. */ }
+      return [...cache].some(([scope, fields]) => (!scopePrefix || scope === scopePrefix || scope.startsWith(scopePrefix + '/')) && hasDraftWork(fields));
+    },
     workspaces() {
       const records = [];
       let names;

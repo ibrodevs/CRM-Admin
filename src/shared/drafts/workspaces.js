@@ -1,7 +1,7 @@
 const ROUTES = { flights: 'Авиабилеты', rail: 'ЖД билеты', hotels: 'Отели', transfers: 'Трансферы', buses: 'Автобусы', tours: 'Туры' };
 const KINDS = { Авиа: 'Авиабилеты', Гостиница: 'Отели', ЖД: 'ЖД билеты', Трансфер: 'Трансферы', Автобус: 'Автобусы', Аэроэкспресс: 'Аэроэкспресс', Страховка: 'Страховка' };
 const filled = (value) => value != null && value !== '' && value !== false;
-function hasWork(fields) {
+export function hasDraftWork(fields) {
   const params = fields.aviaParams || fields.params;
   const pax = params?.pax || fields.form?.pax;
   if (pax && typeof pax === 'object' && (Number(pax.adt) > 1 || Number(pax.chd) > 0 || Number(pax.infSeat) > 0 || Number(pax.infNoSeat) > 0)) return true;
@@ -29,7 +29,7 @@ export function savedWorkspaces(records) {
   if (lastOrder?.id && !contexts.has(String(lastOrder.id))) contexts.set(String(lastOrder.id), lastOrder);
   for (const record of records) {
     const { scope, fields } = record;
-    if (!hasWork(fields)) continue;
+    if (!hasDraftWork(fields)) continue;
     let group;
     if (scope.startsWith('free-booking/')) {
       group = { id: 'free-booking', scope: 'free-booking', type: 'free-booking', title: 'Подбор услуг без заказа' };
@@ -59,4 +59,9 @@ export function savedWorkspaces(records) {
     groups.set(group.id, { ...group, services: [...services], savedAt: Math.max(previous?.savedAt || 0, record.savedAt), count: Math.max(previous?.count || 0, fields.draft?.length || 0) });
   }
   return [...groups.values()].sort((a, b) => b.savedAt - a.savedAt);
+}
+
+export function freeBookingFormScope(kind) {
+  const scopes = { 'Авиа': 'DetailedSearchPanel', 'Гостиница': 'HotelPicker/free', 'ЖД': 'FreeBookingRailFlow', 'Трансфер': 'FreeBookingServiceAddFlow/transfers', 'Автобус': 'FreeBookingServiceAddFlow/buses', 'Аэроэкспресс': 'FreeBookingAeroAddFlow', 'Бизнес-зал': 'FreeBookingServiceAddFlow/lounge' };
+  return scopes[kind] || `QuickAddForm/${kind}`;
 }

@@ -104,3 +104,9 @@ test('a late background response cannot restore a logged-out account', async () 
   assert.equal(render().user, null);
   assert.equal(render().status, 'anonymous');
 });
+
+test('free booking backdrop checks the active service form rather than hidden drafts', () => {
+  const source = readFileSync(new URL('../src/modules/dashboard/ui/DashboardPage.jsx', import.meta.url), 'utf8');
+  assert.match(source, /useDraftControls\(freeBookingFormScope\(kind\)\)/);
+  assert.match(source, /closeOnBackdrop=\{\(\) => !draft.length && !activeForm.hasWork\(\)\}/);
+});

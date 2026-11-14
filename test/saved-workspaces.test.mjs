@@ -56,3 +56,23 @@ test('separate new order forms remain independently identifiable including compa
   assert.ok(entries.find((row) => row.scope.endsWith('/true')).title.includes('группового заказа · ООО Пример'));
   assert.ok(entries.find((row) => row.scope.endsWith('/false')).title.includes('Иван Иванов'));
 });
+
+test('empty active hotel form is not blocked by saved searches in other service tabs', () => {
+  const disk = storage(), store = createDraftStore(disk, 'operator');
+  store.write('free-booking/DetailedSearchPanel', 'aviaParams', { from: 'MOW', to: 'LED', depDate: new Date(2026,11,1) });
+  store.write('free-booking/HotelPicker/free', 'dest', '');
+  store.write('free-booking/HotelPicker/free', 'checkin', null);
+  store.write('free-booking/HotelPicker/free', 'radius', '2 км');
+  store.write('free-booking/HotelPicker/free', 'meal', 'BB');
+  store.write('free-booking/HotelPicker/free', 'occupancyRooms', [{adults:2,childrenAges:[]}]);
+  assert.equal(store.hasWork('free-booking'), true);
+  assert.equal(store.hasWork('free-booking/HotelPicker/free'), false);
+  store.write('free-booking/HotelPicker/free', 'dest', 'Москва');
+  assert.equal(store.hasWork('free-booking/HotelPicker/free'), true);
+  store.write('free-booking/HotelPicker/free', 'dest', '');
+  assert.equal(store.hasWork('free-booking/HotelPicker/free'), false);
+  const reopened = createDraftStore(disk, 'operator');
+  assert.equal(reopened.hasWork('free-booking/HotelPicker/free'), false);
+  assert.equal(reopened.hasWork('free-booking/DetailedSearchPanel'), true);
+  assert.equal(reopened.read('free-booking/DetailedSearchPanel','aviaParams').from, 'MOW');
+});

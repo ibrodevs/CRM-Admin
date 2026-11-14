@@ -74,7 +74,7 @@ export function useDraftControls(scope = '') {
   const store = useContext(DraftContext);
   const prefix = useContext(ScopeContext);
   scope = [prefix, scope].filter(Boolean).join('/');
-  return useMemo(() => ({ clear: () => store?.clear(scope), hasWork: () => store?.workspaces().some((entry) => !scope || entry.scope === scope || entry.scope.startsWith(scope + '/')) || false, has: (field) => store?.has(scope, field) || false }), [store, scope]);
+  return useMemo(() => ({ clear: () => store?.clear(scope), hasWork: () => store?.hasWork?.(scope) ?? store?.workspaces().some((entry) => !scope || entry.scope === scope || entry.scope.startsWith(scope + '/')) ?? false, has: (field) => store?.has(scope, field) || false }), [store, scope]);
 }
 export function useDraftNavigation(handler) {
   const store = useContext(DraftContext);
