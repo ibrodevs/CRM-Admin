@@ -3824,6 +3824,10 @@ button.oc-fact:hover{border-color:#d3dbe8;background:#fff}
 
 .toast-dock .toast-center-header:focus-visible{outline:2px solid var(--blue);outline-offset:-3px;border-radius:14px}
 
+/* Separate the expanded overlay from the navigation without tinting its rows. */
+.toast-dock .toast-center:not(.is-collapsed){border-color:color-mix(in srgb,var(--ink) 32%,var(--surface));box-shadow:0 12px 38px rgba(15,23,42,.24),0 2px 8px rgba(15,23,42,.14)}
+.toast-dock .toast-center:not(.is-collapsed) .toast-center-header{border-top:1px solid var(--line-strong)}
+
 .work-absences{margin-top:28px;padding-top:24px;border-top:1px solid var(--line)}
 .work-absence-history{margin-top:24px;display:grid;gap:12px}.work-absence-row{display:grid;gap:12px;padding:16px;border:1px solid var(--line);border-radius:14px;background:var(--surface-2)}
 .work-absence-row>div:first-child{display:grid;gap:6px}.work-absence-row span{color:var(--muted);font-size:13px;overflow-wrap:anywhere}.work-absence-actions{display:flex;flex-wrap:wrap;gap:8px}.work-absence-error{color:var(--red,#b91c1c)}
