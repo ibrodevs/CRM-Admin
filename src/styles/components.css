@@ -3630,12 +3630,13 @@ button.oc-fact:hover{border-color:#d3dbe8;background:#fff}
 /* Shared calendar for travel, passenger, document and reporting forms. */
 .floating-panel.calendar-floating{padding:0;border:0;overflow:auto;display:block}
 .calendar-picker{width:100%;min-height:0;max-height:none;display:flex;flex-direction:column;overflow:visible;padding:14px;border:1px solid var(--line);border-radius:var(--r-popover);background:var(--surface);color:var(--ink);user-select:none;box-sizing:border-box}
-.calendar-picker-header{display:flex;gap:6px;align-items:center;flex-shrink:0;margin-bottom:12px}
+.calendar-picker-header{display:grid;grid-template-columns:30px minmax(0,1fr) 92px 30px;gap:6px;align-items:center;flex-shrink:0;margin-bottom:12px}
 .calendar-picker-header button{height:40px;display:flex;align-items:center;justify-content:center;gap:6px;border-radius:10px;font:inherit;cursor:pointer}
 .calendar-picker-header .calendar-nav{width:30px;flex-shrink:0;padding:4px;border:0;background:transparent;color:var(--blue)}
 .calendar-picker-header svg{width:16px;height:16px;flex-shrink:0}
-.calendar-picker-header .calendar-period{flex:1;min-width:0;padding:0 9px;border:1px solid var(--line);background:var(--surface);color:var(--ink);font-size:14px;font-weight:700;white-space:nowrap}
-.calendar-picker-header .calendar-year{flex:0 0 82px}
+.calendar-picker-header .calendar-period{display:grid;grid-template-columns:minmax(0,1fr) 16px;min-width:0;box-sizing:border-box;line-height:20px;letter-spacing:normal;transform:none;transition:background-color .15s,border-color .15s,color .15s;padding:0 9px;border:1px solid var(--line);background:var(--surface);color:var(--ink);font-size:14px;font-weight:700;white-space:nowrap}
+.calendar-picker-header .calendar-year{font-variant-numeric:tabular-nums}
+.calendar-period-label{display:block;min-width:0;text-align:center;white-space:nowrap}
 .calendar-picker-header .calendar-period:hover,.calendar-picker-header .calendar-period[aria-expanded=true]{background:var(--blue-soft);border-color:var(--blue);color:var(--blue)}
 .calendar-picker button:focus-visible{outline:2px solid var(--blue);outline-offset:2px}
 .calendar-picker-header button:disabled,.calendar-period-grid button:disabled{opacity:.35;cursor:default}
@@ -3712,7 +3713,7 @@ button.oc-fact:hover{border-color:#d3dbe8;background:#fff}
 .calendar-drawer>.drawer-body{display:flex;flex-direction:column;flex:1;min-height:0;padding:0;overflow:hidden}
 .calendar-drawer>.drawer-body>.draft-notice-slot{flex-shrink:0;margin:12px 24px 0}
 .calendar-drawer .calendar-picker{flex:1;min-height:0;overflow:hidden;border:0;border-radius:0;padding:0;background:transparent}
-.calendar-drawer .calendar-picker-content{flex:1;min-height:0;overflow:auto;overscroll-behavior:contain;padding:24px 28px 12px}
+.calendar-drawer .calendar-picker-content{flex:1;min-height:0;overflow:auto;scrollbar-gutter:stable;overscroll-behavior:contain;padding:24px 28px 12px}
 .calendar-drawer .calendar-picker-footer{flex:0 0 auto;padding:6px 28px max(16px,env(safe-area-inset-bottom));border-top:1px solid var(--line);background:var(--surface)}
 .calendar-drawer .calendar-picker-header{margin-bottom:20px;gap:10px}
 .calendar-drawer .calendar-picker-header button{height:46px}

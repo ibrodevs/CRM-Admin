@@ -91,8 +91,8 @@ function CalendarPicker({ mode = 'range', startVal = null, endVal = null, onConf
       <div className="calendar-picker-content">
       <div className="calendar-picker-header">
         <button type="button" className="calendar-nav" aria-label={view === 'years' ? 'Предыдущие годы' : view === 'months' ? 'Предыдущий год' : 'Предыдущий месяц'} disabled={!navigationAvailable(-1)} onClick={() => navigate(-1)}><Icon name="chevLeft" /></button>
-        <button type="button" className="calendar-period" aria-label="Выбрать месяц" aria-expanded={view === 'months'} onClick={() => setView((current) => current === 'months' ? 'days' : 'months')}>{CAL_MONTHS[month]}<Icon name="chevDown" /></button>
-        <button type="button" className="calendar-period calendar-year" aria-label="Выбрать год" aria-expanded={view === 'years'} onClick={() => { setYearPage(Math.max(minimum?.getFullYear() ?? -Infinity, Math.floor(year / 12) * 12)); setView((current) => current === 'years' ? 'days' : 'years'); }}>{year}<Icon name="chevDown" /></button>
+        <button type="button" className="calendar-period" aria-label="Выбрать месяц" aria-expanded={view === 'months'} onClick={() => setView((current) => current === 'months' ? 'days' : 'months')}><span className="calendar-period-label">{CAL_MONTHS[month]}</span><Icon name="chevDown" /></button>
+        <button type="button" className="calendar-period calendar-year" aria-label="Выбрать год" aria-expanded={view === 'years'} onClick={() => { setYearPage(Math.max(minimum?.getFullYear() ?? -Infinity, Math.floor(year / 12) * 12)); setView((current) => current === 'years' ? 'days' : 'years'); }}><span className="calendar-period-label">{year}</span><Icon name="chevDown" /></button>
         <button type="button" className="calendar-nav" aria-label={view === 'years' ? 'Следующие годы' : view === 'months' ? 'Следующий год' : 'Следующий месяц'} disabled={!navigationAvailable(1)} onClick={() => navigate(1)}><Icon name="chevRight" /></button>
       </div>
       {view === 'months' && <div className="calendar-period-grid" role="group" aria-label="Месяцы">
