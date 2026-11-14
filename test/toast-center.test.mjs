@@ -175,3 +175,40 @@ test('notification header toggles from its title, counter and empty area while c
   assert.equal(cleared, 1);
   assert.equal(hidden(), false, 'clearing must not collapse an emptied queue through click bubbling');
 });
+
+test('sidebar notification dock persists at zero, opens above navigation, and retains the queue when cleared', () => {
+  const h = harness(); let cleared = 0;
+  let props = { toasts: [], docked: true, onClose() {}, onClear() { cleared++; }, onNav() {} };
+  let panel = h.render('ToastStack', props);
+  assert.match(panel.props.className, /is-docked/);
+  assert.match(panel.props.className, /is-empty/);
+  assert.equal(children(panel)[1].props.hidden, true);
+  children(children(panel)[0]).find((node) => node.props['aria-expanded'] != null).props.onClick();
+  panel = h.render('ToastStack', props);
+  assert.equal(children(panel)[1].props.hidden, false);
+  props = { ...props, toasts: [sample(1)] };
+  panel = h.render('ToastStack', props);
+  assert.doesNotMatch(panel.props.className, /is-empty/);
+  children(children(panel)[0]).find((node) => node.props.title === 'Скрыть все').props.onClick();
+  assert.equal(cleared, 1);
+  panel = h.render('ToastStack', { ...props, toasts: [] });
+  assert.ok(panel, 'zero events leaves a persistent outlined entry instead of disappearing');
+  assert.equal(children(panel)[1].props.hidden, true);
+});
+
+test('moving notifications into the sidebar portal preserves actions and unregisters its target on exit', () => {
+  const h = harness(undefined, { 'react-dom': { createPortal: (content, target) => React.createElement('Portal', { target }, content) } });
+  let provider = h.render('ToastProvider');
+  provider.props.value('Event', 'info', { id: 'kept', action: { route: 'orders', label: 'Заказ' } });
+  const target = {};
+  const cleanup = children(provider)[0].props.value(target);
+  provider = h.render('ToastProvider');
+  const portal = children(provider).at(-1);
+  assert.equal(portal.props.target, target);
+  assert.equal(portal.props.children.props.docked, true);
+  assert.equal(portal.props.children.props.toasts[0].action.route, 'orders');
+  cleanup();
+  const stack = children(h.render('ToastProvider')).at(-1);
+  assert.equal(stack.props.docked, false);
+  assert.equal(stack.props.toasts[0].id, 'kept');
+});

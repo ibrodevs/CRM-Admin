@@ -3775,3 +3775,54 @@ button.oc-fact:hover{border-color:#d3dbe8;background:#fff}
 .search-extra-price{flex-shrink:0;font-size:13px;color:var(--ink);text-align:right}
 .search-extras p{margin:12px 0 0;line-height:1.5}
 @media(max-width:480px){.search-extra-row{flex-wrap:wrap;gap:8px}.search-extra-price{margin-left:auto}}
+
+/* Account entry stays in the global header; notifications belong to navigation. */
+.profile-trigger{display:grid;place-items:center;flex:0 0 48px;width:48px;height:48px;padding:3px;border:1px solid transparent;border-radius:50%;background:transparent;cursor:pointer}
+.profile-trigger:hover{border-color:var(--line);background:var(--hover)}
+.profile-trigger:focus-visible{outline:2px solid var(--blue);outline-offset:2px}
+.account-panel-person{display:flex;align-items:center;gap:16px;padding-bottom:24px;margin-bottom:24px;border-bottom:1px solid var(--line)}
+.account-panel-person>div{display:grid;gap:6px;min-width:0;overflow-wrap:anywhere}
+.account-panel-person strong{font-size:18px;color:var(--ink)}
+.account-panel-person span{color:var(--muted);font-size:14px}
+.account-panel-actions{display:grid;gap:12px}
+.account-panel-actions .btn{justify-content:flex-start;white-space:normal;text-align:left}
+.account-panel-actions .btn svg:last-child:not(:first-child){margin-left:auto}
+.account-panel-actions .account-panel-logout{margin-top:16px;color:var(--red,#b91c1c)}
+.toast-dock{position:relative;min-height:58px;flex:0 0 58px;margin-top:16px;z-index:200}
+.toast-dock .toast-wrap{position:absolute;bottom:0;left:0;right:0;width:100%;max-height:calc(100dvh - 110px);border-radius:16px}
+.toast-dock .toast-center-header{order:2;padding:12px 10px;min-height:58px;border:0}
+.toast-dock .toast-center-list{order:0;gap:6px;padding:8px;max-height:min(430px,calc(100dvh - 230px))}
+.toast-dock .toast-center-footer{order:1;gap:6px;padding:9px 10px}
+.toast-dock .toast-center-header h2{font-size:13px}
+.toast-dock .toast-center-count{min-width:22px;height:22px;padding:0 5px}
+.toast-dock .toast-center-control{width:24px;height:26px;flex-basis:24px}
+.toast-dock .toast{padding:10px;gap:8px;border-radius:12px}
+.toast-dock .toast-ic{width:28px;height:28px;flex-basis:28px;border-radius:9px}
+.toast-dock .toast-title,.toast-dock .toast-msg{font-size:12px;line-height:1.4}
+.toast-dock .toast-link{font-size:12px;padding:7px 9px}
+.toast-dock .toast-dismiss{width:22px;height:22px}
+.toast-dock .toast-center.is-collapsed{box-shadow:none}
+.toast-dock .toast-center.is-empty{border:1px solid #172b4d;box-shadow:none}
+.toast-dock .is-empty .toast-center-header{background:var(--surface);color:#172b4d}
+.toast-dock .is-empty .toast-center-header h2,.toast-dock .is-empty .toast-center-control{color:var(--ink)}
+.toast-dock .is-empty .toast-center-bell,.toast-dock .is-empty .toast-center-count{background:var(--surface-2);color:var(--ink)}
+.toast-empty-message{padding:18px 8px;text-align:center;font-size:13px;color:var(--muted)}
+.sidebar.collapsed .toast-dock .toast-center.is-collapsed .toast-center-header{justify-content:center;padding:8px;position:relative}
+.sidebar.collapsed .toast-dock .is-collapsed .toast-center-header h2,.sidebar.collapsed .toast-dock .is-collapsed .toast-center-control{display:none}
+.sidebar.collapsed .toast-dock .is-collapsed .toast-center-count{position:absolute;right:-4px;top:-5px;min-width:18px;height:18px;font-size:10px}
+.sidebar.collapsed .toast-dock .toast-center:not(.is-collapsed){width:calc(var(--sb-w) - 36px)}
+@media(max-width:760px){
+  .gtop{padding-top:14px}
+  .gtop-nav{padding-right:56px;min-height:44px}
+  .gtop-tools>.profile-trigger{position:absolute;top:12px;right:12px}
+  .toast-dock{position:fixed;left:12px;bottom:84px;width:min(310px,calc(100vw - 24px));height:0;min-height:0;margin:0;flex:0 0 0}
+  .toast-dock .toast-wrap{width:100%;max-height:calc(100dvh - 110px)}
+  .sidebar.collapsed .toast-dock .toast-center:not(.is-collapsed){width:100%}
+  .sidebar.collapsed .toast-dock .toast-center.is-collapsed .toast-center-header{justify-content:flex-start;padding:12px 10px}
+  .sidebar.collapsed .toast-dock .is-collapsed .toast-center-header h2,.sidebar.collapsed .toast-dock .is-collapsed .toast-center-control{display:initial}
+  .sidebar.collapsed .toast-dock .is-collapsed .toast-center-count{position:static;min-width:22px;height:22px;font-size:12px}
+}
+
+.toast-dock .is-empty .toast-center-control:hover{background:var(--hover);color:var(--ink)}
+
+.toast-dock .toast-center-header:focus-visible{outline:2px solid var(--blue);outline-offset:-3px;border-radius:14px}

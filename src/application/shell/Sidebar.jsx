@@ -1,6 +1,8 @@
 import { useState, useEffect, useRef } from 'react';
 import { BrandMark, Icon } from '../../shared/icons/index.jsx';
 import { Avatar } from '../../shared/ui/Avatar.jsx';
+import { Drawer } from '../../shared/ui/Overlays.jsx';
+import { ToastDock } from '../../shared/ui/Toast.jsx';
 import { ORDER_OPS_SECTIONS, SERVICE_KEYS } from '../../shared/constants/navigation.js';
 import { NAV_ITEMS } from '../routing/navigation.js';
 
@@ -66,7 +68,7 @@ function Sidebar({ route, onNavigate, onLogout, role, user, collapsed }) {
           </button>
         ))}
       </nav>
-      <ProfileCard user={user} onLogout={onLogout} onNavigate={onNavigate} collapsed={collapsed} />
+      <ToastDock />
     </aside>
   );
 }
@@ -75,11 +77,6 @@ function ProfileCard({ user, onLogout, onNavigate, collapsed }) {
   const [open, setOpen] = useState(false);
   const [theme, setTheme] = useState(() => (typeof document !== 'undefined' ? document.documentElement.dataset.theme || 'light' : 'light'));
   const ref = useRef(null);
-  useEffect(() => {
-    const h = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); };
-    document.addEventListener('mousedown', h);
-    return () => document.removeEventListener('mousedown', h);
-  }, []);
   useEffect(() => {
     if (typeof document === 'undefined') return;
     const observer = new MutationObserver(() => {
@@ -95,30 +92,21 @@ function ProfileCard({ user, onLogout, onNavigate, collapsed }) {
   };
   const go = (r) => { setOpen(false); onNavigate && onNavigate(r); };
   const profile = user || { name: 'Пользователь', role: 'CRM', avatar: null };
-  return (
-    <div style={{ position: 'relative' }} ref={ref}>
-      {open && (
-        <div className="dropdown" style={collapsed ? { bottom: 74, left: 0, minWidth: 220 } : { bottom: 74, left: 0, right: 0, minWidth: 0 }}>
-          <div className="dropdown-item" onClick={() => go('profile')}><Icon name="user" />Мой профиль</div>
-          <div className="dropdown-item" onClick={() => go('account')}><Icon name="settings" />Настройки аккаунта</div>
-          <div className="dropdown-item" onClick={toggleTheme}>
-            <Icon name={theme === 'dark' ? 'sun' : 'moon'} />
-            {theme === 'dark' ? 'Светлая тема' : 'Тёмная тема'}
-          </div>
-          <div className="dropdown-sep" />
-          <div className="dropdown-item danger" onClick={onLogout}><Icon name="logout" />Выйти</div>
-        </div>
-      )}
-      <div className="profile-card" title={profile.name} onClick={() => setOpen((o) => !o)}>
-        <Avatar src={profile.avatar} name={profile.name} size={44} />
-        <div className="pc-info" style={{ minWidth: 0 }}>
-          <div className="pc-name">{profile.name}</div>
-          <div className="pc-role">{profile.role}</div>
-        </div>
-        <Icon name="chevRight" className="chev" />
+  const close = () => { setOpen(false); ref.current?.focus(); };
+  return <>
+    <button ref={ref} type="button" className="profile-trigger" title={`Личный кабинет: ${profile.name}`} aria-label="Открыть личный кабинет" aria-haspopup="dialog" aria-expanded={open} onClick={() => setOpen(true)}>
+      <Avatar src={profile.avatar} name={profile.name} size={42} />
+    </button>
+    <Drawer open={open} title="Личный кабинет" onClose={close} width="min(420px,100vw)" className="account-panel">
+      <div className="account-panel-person"><Avatar src={profile.avatar} name={profile.name} size={64} /><div><strong>{profile.name}</strong><span>{profile.role}</span>{profile.email && <span>{profile.email}</span>}</div></div>
+      <div className="account-panel-actions">
+        <button type="button" className="btn btn-secondary" onClick={() => go('profile')}><Icon name="user" />Мой профиль<Icon name="chevRight" /></button>
+        <button type="button" className="btn btn-secondary" onClick={() => go('account')}><Icon name="settings" />Настройки аккаунта<Icon name="chevRight" /></button>
+        <button type="button" className="btn btn-secondary" onClick={toggleTheme}><Icon name={theme === 'dark' ? 'sun' : 'moon'} />{theme === 'dark' ? 'Светлая тема' : 'Тёмная тема'}</button>
+        <button type="button" className="btn btn-secondary account-panel-logout" onClick={() => { setOpen(false); onLogout?.(); }}><Icon name="logout" />Выйти из аккаунта</button>
       </div>
-    </div>
-  );
+    </Drawer>
+  </>;
 }
 
 export { NavGroup, Sidebar, ProfileCard };

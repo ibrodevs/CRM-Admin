@@ -1,4 +1,5 @@
 import React from 'react';
+import { ProfileCard } from './Sidebar.jsx';
 import { Icon } from '../../shared/icons/index.jsx';
 import { ActionMenu } from '../../shared/ui/ActionMenu.jsx';
 import { ShiftControl } from '../../modules/workforce/index.js';
@@ -43,7 +44,7 @@ function QuickCreate({ onCreateOrder, onCreateClient, onCreateCompany, onCreateK
   );
 }
 
-function GlobalTopbar({ route, ctxOrder, onNavigate, onOpenOrder, onCreateClient, onCreateCompany, onCreateKP, onOpenChat, role, sidebarCollapsed, onToggleSidebar }) {
+function GlobalTopbar({ route, ctxOrder, onNavigate, onOpenOrder, onCreateClient, onCreateCompany, onCreateKP, onOpenChat, role, user, onLogout, sidebarCollapsed, onToggleSidebar }) {
   return (
     <div className="gtop">
       <style>{'.topbar .search[style*="width: 220px"],.topbar .search:has(input[placeholder="Поиск"]){display:none!important}'}</style>
@@ -69,6 +70,7 @@ function GlobalTopbar({ route, ctxOrder, onNavigate, onOpenOrder, onCreateClient
             <QuickCreate onCreateOrder={() => onOpenOrder('__create__')} onCreateClient={onCreateClient} onCreateCompany={onCreateCompany} onCreateKP={onCreateKP} onNavigate={onNavigate} role={role} />
           </div>
         </div>
+        <ProfileCard user={user} onLogout={onLogout} onNavigate={onNavigate} />
       </div>
     </div>
   );

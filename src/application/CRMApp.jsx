@@ -133,7 +133,7 @@ function App() {
       onCreateClient={createClient} onCreateCompany={createCompany} onCreateKP={createKP}
       onOpenChat={() => openChat(ctxOrder)} onOpenNotif={() => setNotifOpen(true)}
       unreadChat={unreadChat} unreadNotif={unreadNotif}
-      role={role}
+      role={role} user={auth.user} onLogout={async () => { await auth.logout(); setRoute('dashboard'); }}
       sidebarCollapsed={sidebarCollapsed}
       onToggleSidebar={toggleSidebar} />
   );
