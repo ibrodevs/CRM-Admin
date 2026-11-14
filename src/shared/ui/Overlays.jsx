@@ -178,7 +178,7 @@ function ModalHeader({ title, sub, onClose }) {
   );
 }
 
-function Drawer({ open, onClose, title, sub, children, footer, width, className = '' }) {
+function Drawer({ open, onClose, title, sub, children, footer, width, className = '', showDraftNotice = true }) {
   useOverlayLayer(open, onClose);
   const zIndex = useOverlayZIndex(open);
   if (!open) return null;
@@ -194,7 +194,7 @@ function Drawer({ open, onClose, title, sub, children, footer, width, className 
           </div>
           <button className="modal-close" aria-label={'Закрыть окно «' + title + '»'} onClick={onClose}><Icon name="x" /></button>
         </div>
-        <div className="drawer-body"><DraftNoticeSlot priority={zIndex} />{children}</div>
+        <div className="drawer-body">{showDraftNotice && <DraftNoticeSlot priority={zIndex} />}{children}</div>
         {footer && <div className="drawer-foot">{footer}</div>}
       </div>
     </div>

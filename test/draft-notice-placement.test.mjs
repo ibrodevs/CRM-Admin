@@ -49,3 +49,18 @@ test('inline draft notice can be hidden and keeps destructive clearing behind co
   nodes(show().node).find((n) => n.type === 'button' && n.props.children === 'Удалить').props.onClick();
   assert.equal(cleared, 1);
 });
+
+test('account navigation drawer does not capture saved booking forms', () => {
+  const source = readFileSync(new URL('../src/application/shell/Sidebar.jsx', import.meta.url), 'utf8');
+  const ast = babel.parseSync(source, { filename: 'Sidebar.jsx', presets: ['next/babel'], configFile: false, babelrc: false });
+  let found = false;
+  babel.traverse(ast, { JSXOpeningElement(path) {
+    if (path.node.name.name !== 'Drawer') return;
+    const attrs = path.node.attributes;
+    if (!attrs.some((a) => a.name?.name === 'className' && a.value?.value === 'account-panel')) return;
+    found = true;
+    const enabled = attrs.find((a) => a.name?.name === 'showDraftNotice');
+    assert.equal(enabled?.value?.expression?.value, false);
+  } });
+  assert.equal(found, true);
+});

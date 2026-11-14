@@ -3838,3 +3838,16 @@ button.oc-fact:hover{border-color:#d3dbe8;background:#fff}
 .phone-country-trigger{display:flex;align-items:center;justify-content:center;gap:8px;flex:0 0 64px;border:0;background:transparent;border-radius:14px 0 0 14px;cursor:pointer}.phone-country-trigger>span{font-size:23px}.phone-country-trigger svg{width:14px;height:14px;color:var(--muted)}.phone-country-list{display:grid;gap:6px;margin-top:16px}.phone-country-option{display:flex;align-items:center;gap:12px;padding:12px;border:0;border-radius:12px;background:transparent;color:var(--ink);cursor:pointer;text-align:left}.phone-country-option:hover,.phone-country-option.active{background:var(--blue-soft)}.phone-country-option>span:first-child{font-size:24px}.phone-country-option strong{margin-left:auto;white-space:nowrap}
 
 .profile-sections{display:grid;gap:20px;max-width:1080px}.profile-sections h3{margin:0 0 16px;color:var(--ink);font-size:18px}.profile-section-actions{display:flex;justify-content:flex-end;margin-top:20px}.profile-sections>.card>.work-absences{margin:0;border:0;padding:0}.org-catalog-grid,.messenger-account-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,250px),1fr));gap:12px}.org-catalog-row,.messenger-account{display:flex;flex-direction:column;align-items:stretch;gap:10px;padding:16px;border:1px solid var(--line);border-radius:14px;background:var(--surface-2);color:var(--ink);text-align:left}.org-catalog-row{cursor:pointer}.org-catalog-row:hover{background:var(--blue-soft)}.org-catalog-row span,.messenger-account>span{color:var(--muted);font-size:13px}.messenger-account b{overflow-wrap:anywhere}.profile-sections .field>.btn{margin-top:8px}.profile-sections .form-grid{align-items:start}
+
+/* Recovery controls respond to panel width, including drawers on a wide screen. */
+.draft-notice-slot{min-width:0;container-type:inline-size}
+.draft-recovery-block{min-width:0}
+@container (max-width:560px){
+  .draft-recovery-notice{display:grid;grid-template-columns:32px minmax(0,1fr);align-items:start;gap:10px}
+  .draft-recovery-icon{grid-column:1;grid-row:1}
+  .draft-recovery-content{grid-column:2;overflow-wrap:break-word}
+  .draft-recovery-actions{grid-column:1/-1;width:100%;min-width:0;justify-content:flex-start;gap:10px 14px}
+  .draft-recovery-actions .draft-recovery-open{white-space:normal;text-align:left;max-width:100%}
+  .draft-recovery-row{align-items:flex-start;flex-wrap:wrap;gap:10px}
+  .draft-recovery-row>div{flex-basis:100%}
+}

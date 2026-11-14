@@ -97,7 +97,7 @@ function ProfileCard({ user, onLogout, onNavigate, collapsed }) {
     <button ref={ref} type="button" className="profile-trigger" title={`Личный кабинет: ${profile.name}`} aria-label="Открыть личный кабинет" aria-haspopup="dialog" aria-expanded={open} onClick={() => setOpen(true)}>
       <Avatar src={profile.avatar} name={profile.name} size={42} />
     </button>
-    <Drawer open={open} title="Личный кабинет" onClose={close} width="min(420px,100vw)" className="account-panel">
+    <Drawer open={open} title="Личный кабинет" onClose={close} width="min(420px,100vw)" className="account-panel" showDraftNotice={false}>
       <div className="account-panel-person"><Avatar src={profile.avatar} name={profile.name} size={64} /><div><strong>{profile.name}</strong><span>{profile.role}</span>{profile.email && <span>{profile.email}</span>}</div></div>
       <div className="account-panel-actions">
         <button type="button" className="btn btn-secondary" onClick={() => go('profile')}><Icon name="user" />Мой профиль<Icon name="chevRight" /></button>
