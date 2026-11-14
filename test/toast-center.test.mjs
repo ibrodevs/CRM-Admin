@@ -135,3 +135,20 @@ test('workspace refreshes do not repeat desktop popups for already shown notific
   while (timers.length) timers.shift()();
   assert.deepEqual(delivered, Array.from({ length: 21 }, (_, i) => `notification:${i + 1}`));
 });
+
+test('collapsed notifications expose the strongest remaining severity and cards include readable type labels', () => {
+  const h = harness();
+  const props = { toasts: [{ ...sample(1), kind: 'warn' }, { ...sample(2), kind: 'err' }], onClose() {}, onClear() {}, onNav() {} };
+  let panel = h.render('ToastStack', props);
+  assert.equal(panel.props['data-urgency'], 'err');
+  children(children(panel)[0]).find((node) => node.props['aria-label'] === 'Свернуть уведомления').props.onClick();
+  panel = h.render('ToastStack', props);
+  assert.equal(panel.props['data-urgency'], 'err');
+  assert.equal(children(panel)[1].props.hidden, true);
+  assert.equal(h.render('ToastStack', { ...props, toasts: [props.toasts[0]] }).props['data-urgency'], 'warn');
+  const all = (node) => React.Children.toArray(node?.props?.children).flatMap((child) => typeof child === 'object' ? [child, ...all(child)] : []);
+  for (const [kind, label] of [['ok', 'Успешно'], ['info', 'Информация'], ['warn', 'Важно'], ['err', 'Срочно']]) {
+    const item = harness().render('ToastItem', { t: { ...sample(1), kind }, onClose() {}, onNav() {} });
+    assert.equal(all(item).find((node) => node.props.className === 'toast-urgency').props.children, label);
+  }
+});

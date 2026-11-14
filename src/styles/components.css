@@ -654,7 +654,7 @@ table.tbl.tbl-wide thead th,table.tbl.tbl-wide tbody td{white-space:nowrap}
 .tl-item:last-child .tl-line{display:none}
 .tl-time{font-size:13px;color:var(--muted)}
 .tl-text{font-size:15px;color:var(--ink);font-weight:600;margin-top:1px}
-.toast-wrap{position:fixed;bottom:16px;left:auto;right:16px;z-index:200;display:flex;flex-direction:column;align-items:stretch;width:min(400px,calc(100vw - 32px));max-height:min(500px,calc(100dvh - 32px));pointer-events:auto;background:var(--surface);border:1px solid color-mix(in srgb,var(--blue) 35%,var(--line-strong));border-radius:18px;box-shadow:0 18px 56px rgba(15,30,60,.26),0 3px 12px rgba(15,30,60,.16);overflow:hidden}
+.toast-wrap{position:fixed;bottom:16px;left:auto;right:16px;z-index:200;display:flex;flex-direction:column;align-items:stretch;width:min(400px,calc(100vw - 32px));max-height:min(500px,calc(100dvh - 32px));pointer-events:auto;background:var(--surface);border:2px solid var(--blue);border-top-width:4px;border-radius:18px;box-shadow:0 18px 56px rgba(15,30,60,.26),0 3px 12px rgba(15,30,60,.16);overflow:hidden}
 .toast-center-header{display:flex;align-items:center;gap:8px;padding:13px 12px;border-bottom:1px solid rgba(255,255,255,.12);flex:0 0 auto;background:#172b4d;color:#fff}
 .toast-center-header h2{margin:0;font-size:14px;line-height:1.3;font-weight:700;color:#fff}
 .toast-center-bell{display:grid;place-items:center;width:30px;height:30px;flex:0 0 30px;border-radius:9px;background:rgba(255,255,255,.14);color:#fff}
@@ -668,27 +668,31 @@ table.tbl.tbl-wide thead th,table.tbl.tbl-wide tbody td{white-space:nowrap}
 .toast-dismiss:focus-visible,.toast-center-open:focus-visible,.toast-link:focus-visible{outline:2px solid var(--blue);outline-offset:2px}
 .toast-center-control svg{width:17px;height:17px}
 .toast-center-list{min-height:0;max-height:350px;overflow-y:auto;overscroll-behavior:contain;scrollbar-gutter:stable;display:flex;flex-direction:column;gap:10px;padding:10px;background:color-mix(in srgb,var(--blue) 5%,var(--surface-2))}
+.toast-center[data-urgency=warn]{border-color:var(--amber)}
+.toast-center[data-urgency=err]{border-color:var(--red-strong)}
+.toast-center[data-urgency=warn] .toast-center-count{background:#ffd680;color:#392400}
+.toast-center[data-urgency=err] .toast-center-count{background:#b91c1c;color:#fff}
 .toast-center-list[hidden],.toast-center-footer[hidden]{display:none}
 .toast-slot{width:100%;flex:0 0 auto}
-.toast{display:flex;align-items:flex-start;gap:10px;background:var(--surface);border:1px solid var(--line);border-left:4px solid var(--blue);border-radius:12px;padding:12px;width:100%;min-height:90px;box-sizing:border-box;box-shadow:0 2px 6px rgba(15,30,60,.06);animation:toastin .18s ease}
+.toast{--toast-accent:var(--blue);--toast-tint:var(--blue-soft);display:flex;align-items:flex-start;gap:10px;background:color-mix(in srgb,var(--toast-tint) 50%,var(--surface));border:1px solid color-mix(in srgb,var(--toast-accent) 35%,var(--line));border-left:5px solid var(--toast-accent);border-radius:12px;padding:12px;width:100%;min-height:90px;box-sizing:border-box;box-shadow:0 2px 6px rgba(15,30,60,.06);animation:toastin .18s ease}
 @keyframes toastin{from{opacity:0}to{opacity:1}}
-.toast-ic{width:30px;height:30px;flex:0 0 30px;border-radius:9px;display:flex;align-items:center;justify-content:center;background:var(--blue-soft);color:var(--blue)}
+.toast-ic{width:34px;height:34px;flex:0 0 34px;border-radius:10px;display:flex;align-items:center;justify-content:center;background:var(--toast-accent);color:#fff}
 .toast-ic svg{width:18px;height:18px}
 .toast-body{flex:1;min-width:0}
 .toast-meta{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:3px;min-height:14px;font-size:11px;color:var(--muted-2)}
 .toast-meta time{margin-left:auto;font-variant-numeric:tabular-nums}
-.toast-urgency{font-size:10px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--blue)}
-.toast-title{font-size:13px;font-weight:700;color:var(--ink);margin-bottom:3px;line-height:1.35;overflow-wrap:anywhere}
-.toast-msg{font-size:13px;color:var(--body);line-height:1.45;overflow-wrap:anywhere}
-.toast-link{margin-top:8px;display:inline-flex;align-items:center;gap:5px;font:inherit;font-size:12px;font-weight:600;color:var(--blue);background:none;border:none;cursor:pointer;padding:0;text-align:left}
-.toast-link:hover{text-decoration:underline}
+.toast-urgency{display:inline-flex;font-size:10px;font-weight:700;letter-spacing:.03em;text-transform:uppercase;color:var(--ink);background:var(--toast-tint);border-radius:5px;padding:3px 6px}
+.toast-title{font-size:14px;font-weight:700;color:var(--ink);margin-bottom:3px;line-height:1.35;overflow-wrap:anywhere}
+.toast-msg{font-size:14px;color:var(--ink);line-height:1.5;overflow-wrap:anywhere}
+.toast-link{margin-top:10px;display:inline-flex;align-items:center;gap:6px;font:inherit;font-size:12px;font-weight:600;color:#fff;background:var(--blue);border:none;border-radius:8px;cursor:pointer;padding:7px 10px;text-align:left}
+.toast-link:hover{background:var(--blue-hover);color:#fff;text-decoration:none}
 .toast-link svg{width:13px;height:13px;flex-shrink:0}
 .toast-dismiss{width:22px;height:22px}
 .toast-dismiss svg{width:14px;height:14px}
-.toast.ok{border-left-color:var(--green)} .toast.ok .toast-ic{background:var(--green-bg);color:var(--green)}
-.toast.info{border-left-color:var(--blue)}
-.toast.warn{border-left-color:var(--amber)} .toast.warn .toast-ic{background:var(--amber-bg);color:var(--amber)} .toast.warn .toast-urgency{color:var(--amber)}
-.toast.err{border-left-color:var(--red-strong)} .toast.err .toast-ic{background:var(--red-bg);color:var(--red-strong)} .toast.err .toast-urgency{color:var(--red-strong)}
+.toast.ok{--toast-accent:var(--green);--toast-tint:var(--green-bg-2)}
+.toast.info{--toast-accent:var(--blue);--toast-tint:var(--blue-soft)}
+.toast.warn{--toast-accent:var(--amber);--toast-tint:var(--amber-bg)}
+.toast.err{--toast-accent:var(--red-strong);--toast-tint:var(--red-bg)}
 .toast-center-footer{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:11px 13px;border-top:1px solid var(--line);flex:0 0 auto;background:var(--surface)}
 .toast-center-footer>span{font-size:11px;color:var(--muted)}
 .toast-center-open{display:inline-flex;align-items:center;gap:5px;padding:0;background:none;border:0;color:var(--blue);font-size:12px;font-weight:600;cursor:pointer}

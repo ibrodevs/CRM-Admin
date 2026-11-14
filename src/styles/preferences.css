@@ -974,8 +974,8 @@ html[data-theme="dark"] body {
 }
 
 :root[data-theme="dark"] .toast {
-  background: rgba(20, 28, 43, 0.94);
-  box-shadow: none;
+  background: color-mix(in srgb, var(--toast-tint) 35%, var(--surface));
+  box-shadow: 0 2px 8px rgba(0, 0, 0, .2);
 }
 
 :root[data-theme="dark"] .toast-title {

@@ -27,7 +27,7 @@ function ToastItem({ t, onClose, onNav, paused: parentPaused = false }) {
     else if (t.action?.route) onNav(t.action.route);
     onClose(t.id);
   };
-  const urgency = TOAST_URGENCY[t.kind];
+  const urgency = TOAST_URGENCY[t.kind] || (t.kind === 'ok' ? 'Успешно' : 'Информация');
   return (
     <article className={'toast ' + t.kind} onMouseEnter={() => setHovered(true)} onMouseLeave={() => setHovered(false)}>
       <span className="toast-ic" aria-hidden="true"><Icon name={TOAST_ICON[t.kind] || 'bell'} /></span>
@@ -77,7 +77,8 @@ function ToastStack({ toasts, onClose, onClear, onNav }) {
   const clear = () => { setFocused(false); setHovered(false); setCollapsed(false); onClear(); };
   if (!toasts.length) return null;
   const paused = collapsed || hovered || focused;
-  return <section className={'toast-wrap toast-center' + (collapsed ? ' is-collapsed' : '')} aria-label="Всплывающие уведомления"
+  const urgency = toasts.some((item) => item.kind === 'err') ? 'err' : toasts.some((item) => item.kind === 'warn') ? 'warn' : 'info';
+  return <section className={'toast-wrap toast-center' + (collapsed ? ' is-collapsed' : '')} aria-label="Всплывающие уведомления" data-urgency={urgency}
     onPointerEnter={() => setHovered(true)} onPointerLeave={() => setHovered(false)}
     onFocusCapture={() => setFocused(true)} onBlurCapture={(event) => { if (!event.currentTarget.contains(event.relatedTarget)) setFocused(false); }}>
     <header className="toast-center-header">
