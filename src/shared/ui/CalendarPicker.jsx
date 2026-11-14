@@ -88,6 +88,7 @@ function CalendarPicker({ mode = 'range', startVal = null, endVal = null, onConf
   };
   return (
     <div className="calendar-picker" role="dialog" aria-label={mode === 'range' ? 'Выбор периода' : 'Выбор даты'}>
+      <div className="calendar-picker-content">
       <div className="calendar-picker-header">
         <button type="button" className="calendar-nav" aria-label={view === 'years' ? 'Предыдущие годы' : view === 'months' ? 'Предыдущий год' : 'Предыдущий месяц'} disabled={!navigationAvailable(-1)} onClick={() => navigate(-1)}><Icon name="chevLeft" /></button>
         <button type="button" className="calendar-period" aria-label="Выбрать месяц" aria-expanded={view === 'months'} onClick={() => setView((current) => current === 'months' ? 'days' : 'months')}>{CAL_MONTHS[month]}<Icon name="chevDown" /></button>
@@ -145,6 +146,10 @@ function CalendarPicker({ mode = 'range', startVal = null, endVal = null, onConf
         {mode === 'range' && (!maximum || months.at(-1).cells.filter(Boolean).at(-1) < maximum) && <button type="button" onClick={() => setVisibleMonths((count) => count + 2)}
           style={{ width: '100%', border: '1px solid var(--line)', borderRadius: 8, padding: 10, background: 'var(--surface)', color: 'var(--blue)', cursor: 'pointer', fontFamily: 'inherit' }}>Показать ещё месяцы</button>}
       </div>
+      </>}
+      </div>
+      <div className="calendar-picker-footer">
+      {view === 'days' && <>
       <div style={{ flexShrink: 0, textAlign: 'center', fontSize: 13, color: 'var(--muted)', margin: '10px 0', minHeight: 18 }} aria-live="polite">
         {mode === 'range' && !selE ? (selS ? (requireComplete && !allowSameDay ? 'Выберите дату выезда' : 'Выберите конец периода') : (requireComplete && !allowSameDay ? 'Выберите дату заезда' : 'Выберите начало периода')) : periodText ? (mode === 'range' ? `Выбранный период: ${periodText}` : periodText) : 'Выберите дату'}
         {mode === 'range' && selS && !selE && <div>Начало: {readableDate(selS)}</div>}
@@ -159,6 +164,7 @@ function CalendarPicker({ mode = 'range', startVal = null, endVal = null, onConf
       </>}
       <div className="calendar-close">
         <button type="button" onClick={onClose} style={{ width: '100%', border: 'none', background: 'none', color: 'var(--muted)', cursor: 'pointer', fontSize: 14, padding: '5px 0', fontFamily: 'inherit' }}>Закрыть</button>
+      </div>
       </div>
     </div>
   );

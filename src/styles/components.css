@@ -3710,10 +3710,16 @@ button.oc-fact:hover{border-color:#d3dbe8;background:#fff}
 .quick-add-service-fields>.btn{height:var(--h-control);white-space:nowrap}
 @container(max-width:900px){.quick-add-service-fields{grid-template-columns:repeat(2,minmax(0,1fr))}.quick-add-service-fields>.btn{grid-column:1 / -1;justify-self:end}}
 @container(max-width:480px){.quick-add-service-fields{grid-template-columns:minmax(0,1fr)}.quick-add-service-fields>.btn{width:100%}}
-.calendar-drawer .calendar-picker{border:0;padding:0;background:transparent}
+.calendar-drawer{overflow:hidden}
+.calendar-drawer>.drawer-head{flex-shrink:0}
+.calendar-drawer>.drawer-body{display:flex;flex-direction:column;flex:1;min-height:0;padding:0;overflow:hidden}
+.calendar-drawer>.drawer-body>.draft-notice-slot{flex-shrink:0;margin:12px 24px 0}
+.calendar-drawer .calendar-picker{flex:1;min-height:0;overflow:hidden;border:0;border-radius:0;padding:0;background:transparent}
+.calendar-drawer .calendar-picker-content{flex:1;min-height:0;overflow:auto;overscroll-behavior:contain;padding:24px 28px 12px}
+.calendar-drawer .calendar-picker-footer{flex:0 0 auto;padding:6px 28px max(16px,env(safe-area-inset-bottom));border-top:1px solid var(--line);background:var(--surface)}
 .calendar-drawer .calendar-picker-header{margin-bottom:20px;gap:10px}
 .calendar-drawer .calendar-picker-header button{height:46px}
-.calendar-drawer .calendar-months{height:min(420px,55dvh)!important;min-height:280px!important;max-height:none!important}
+.calendar-drawer .calendar-months{height:auto!important;min-height:0!important;max-height:none!important;overflow:visible!important}
 .calendar-drawer .calendar-months button{min-height:40px}
 .calendar-drawer .calendar-close{margin-top:12px}
 
