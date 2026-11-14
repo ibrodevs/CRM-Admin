@@ -1,3 +1,4 @@
+import { SearchToolbar } from '../../../shared/ui/SearchToolbar.jsx';
 import { Statistics, Statistic } from '../../../shared/ui/Statistics.jsx';
 import { SectionInfo } from '../../../shared/ui/SectionInfo.jsx';
 import { InfoNotice } from '../../../shared/ui/InfoNotice.jsx';
@@ -1531,13 +1532,13 @@ function SuppliersPage({ intent, onConsume, suppliers, addSupplier, onNavigate, 
         <Button variant="primary" icon="plus" onClick={() => setAddOpen(true)}>Добавить поставщика</Button>
       </Topbar>
       <div className="content">
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 18, flexWrap: 'wrap' }}>
+        <SearchToolbar>
           <FilterChip label="Типы поставщиков" options={SUPPLIER_TYPES} value={filters.supType} onChange={(v) => setFilters((f) => ({ ...f, supType: v }))} />
           <FilterChip label="Статусы" options={Object.keys(SUPPLIER_STATUS)} value={filters.status} onChange={(v) => setFilters((f) => ({ ...f, status: v }))} />
           <FilterChip label="Типы услуг" options={SUP_SERVICE_KINDS} value={filters.service} onChange={(v) => setFilters((f) => ({ ...f, service: v }))} />
           <div className="topbar-spacer" />
           <SearchBox value={search} onChange={setSearch} style={{ width: 280 }} />
-        </div>
+        </SearchToolbar>
         <section className="section-workspace" aria-label="Рабочая область списка"><div className="table-card">
           <table className="tbl">
             <thead>

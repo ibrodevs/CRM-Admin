@@ -1,3 +1,4 @@
+import { SearchToolbar } from '../../../shared/ui/SearchToolbar.jsx';
 import { Statistics, Statistic } from '../../../shared/ui/Statistics.jsx';
 import { SectionInfo } from '../../../shared/ui/SectionInfo.jsx';
 import { useState, useEffect, useMemo, useCallback } from 'react';
@@ -622,13 +623,13 @@ function FinPayments({ payments = [], obligations = [], onPaymentCreated, onPaym
     && (!ql || [p.no, p.party, p.purpose, p.order].some((v) => String(v || '').toLowerCase().includes(ql))));
   return (
     <div className="fade-in fin-view">
-      <div className="fin-payment-filters">
+      <SearchToolbar>
         <Tabs tabs={[{ key: 'all', label: 'Все' }, { key: 'in', label: 'Входящие' }, { key: 'out', label: 'Исходящие' }]} value={dir} onChange={setDir} />
         <SearchBox value={q} onChange={setQ} placeholder="Поиск: №, контрагент, заказ, назначение" style={{ flex: '1 1 260px', minWidth: 0 }} />
 
         <FilterChip label="Статус" value={status} onChange={setStatus} options={Object.keys(FIN_PAY_STATUS)} />
         <Button icon="plus" onClick={() => setCreating(true)}>Новый платёж</Button>
-      </div>
+      </SearchToolbar>
       {!list.length ? <EmptyState icon="finance" title="Платежей не найдено" /> : <div className="table-card fin-table-wrap">
         <table className="tbl fin-payments-table">
           <thead><tr><th>№</th><th>Дата</th><th>Направление</th><th>Контрагент</th><th>Заказ</th><th>Назначение</th><th style={{ textAlign: 'right' }}>Сумма</th><th>Статус</th></tr></thead>
@@ -1022,7 +1023,7 @@ function FinSettlements({ counterparties = [], receipts = [], meta }) {
 
   return (
     <div className="fade-in">
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14, flexWrap: 'wrap' }}>
+      <SearchToolbar>
         <Tabs tabs={[{ key: 'client', label: 'Клиенты' }, { key: 'supplier', label: 'Поставщики' }]} value={type} onChange={setType} />
         <SearchBox value={q} onChange={setQ} placeholder="Поиск по контрагенту или заказу" style={{ minWidth: 260 }} />
         <button type="button" onClick={() => setOnlyOverdue((value) => !value)}
@@ -1031,7 +1032,7 @@ function FinSettlements({ counterparties = [], receipts = [], meta }) {
         </button>
         <div style={{ flex: 1 }} />
         <span style={{ fontSize: 12.5, color: 'var(--muted)' }}>Найдено: <b>{list.length}</b> · задолженность: <b style={{ color: 'var(--amber)' }}>{debtText}</b></span>
-      </div>
+      </SearchToolbar>
 
       {!list.length ? <EmptyState icon="finance" title="Взаиморасчётов не найдено" /> : (
         <div className="table-card">

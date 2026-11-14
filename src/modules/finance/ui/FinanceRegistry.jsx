@@ -1,3 +1,4 @@
+import { SearchToolbar } from '../../../shared/ui/SearchToolbar.jsx';
 import { Statistics, Statistic } from '../../../shared/ui/Statistics.jsx';
 import React from 'react';
 import { useState } from 'react';
@@ -194,12 +195,12 @@ function FinanceRegistry({ scopeOrder, onOpenOp, initialOps }) {
           </div>
         );
       })()}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16, flexWrap: 'wrap' }}>
+      <SearchToolbar>
         <Tabs tabs={TABS} value={tab} onChange={setTab} />
         <div style={{ flex: 1 }} />
         <SearchBox value={q} onChange={setQ} placeholder="Поиск: №, заказ…" style={{ width: 230 }} />
         <FilterChip label="Источник" value={fSource} onChange={setFSource} options={['Авиа', 'Гостиница', 'Трансфер', 'ЖД', 'Группа']} />
-      </div>
+      </SearchToolbar>
       <section className="section-workspace" aria-label="Рабочая область списка"><div className="table-card">
         {rows.length ? (
           <table className="tbl">

@@ -1,3 +1,4 @@
+import { SearchToolbar } from '../../../shared/ui/SearchToolbar.jsx';
 import { SectionInfo } from '../../../shared/ui/SectionInfo.jsx';
 import { serviceFeeApi } from '../../finance/api.js';
 import React from 'react';
@@ -4470,7 +4471,7 @@ function ReceiptEditorPage({ documents = [], orders = [], services = [], compani
       </Topbar>
       <div className="content">
         <div className="fade-in">
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16, flexWrap: 'wrap' }}>
+          <SearchToolbar>
             <div style={{ flex: 1 }} />
             <SearchBox value={q} onChange={setQ} placeholder="Документ, участник, маршрут…" style={{ width: 280 }} />
             <div className="seg-toggle" aria-label="Список квитанций">
@@ -4483,7 +4484,7 @@ function ReceiptEditorPage({ documents = [], orders = [], services = [], compani
               setResumeImportDraftId(null);
               setImporting(true);
             }}>Импорт документов</Button>
-          </div>
+          </SearchToolbar>
 
           {registryView === 'drafts' && importDrafts.map((draft) => (
             <div className="receipt-import-draft-banner" key={draft.id}>

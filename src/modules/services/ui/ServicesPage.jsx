@@ -1,3 +1,4 @@
+import { SearchToolbar } from '../../../shared/ui/SearchToolbar.jsx';
 import { useDraftState } from '../../../shared/drafts/Drafts.jsx';
 import { PassengerCountField } from '../search/PassengerPickerField.jsx';
 import { PassengerCompositionField } from '../search/PassengerCompositionField.jsx';
@@ -1868,10 +1869,10 @@ function ServiceFlow({ routeKey, searchIntent, onConsumeSearch }) {
       <div className="content">
         {view === 'registry' && (
           <div className="fade-in">
-            <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16, flexWrap: 'wrap' }}>
+            <SearchToolbar>
               <SearchBox value={q} onChange={setQ} placeholder="Поиск: №, маршрут, заказ…" style={{ width: 280 }} />
               <FilterChip label="Статус" value={fStatus} onChange={setFStatus} options={[...new Set(liveRegistry.map((r) => r.status))]} />
-            </div>
+            </SearchToolbar>
             <div className="table-card">
               {rows.length ? (
                 <table className="tbl">

@@ -1,3 +1,4 @@
+import { SearchToolbar } from '../../../shared/ui/SearchToolbar.jsx';
 import { useDraftState, useDraftControls, DraftScope } from '../../../shared/drafts/Drafts.jsx';
 import { FloatingPanel, containsFloatingTarget } from '../../../shared/ui/FloatingPanel.jsx';
 import { Select } from '../../../shared/ui/Select.jsx';
@@ -967,14 +968,14 @@ function OrdersList({ orders, onOpen, onCreate, onNavigate, currentUser }) {
           <div><span>Назначено вам</span><b>{ownOrders}</b><small>{currentUser?.name || currentUser?.full_name || 'Текущий оператор'}</small></div>
           <div><span>По текущему фильтру</span><b>{rows.length}</b><small>из доступных заказов</small></div>
         </div>
-        <div className="orders-filters" style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 18, flexWrap: 'wrap' }}>
+        <SearchToolbar className="orders-filters" >
           <FilterChip label="Статус" icon="chev" options={Object.keys(ORDER_STATUS)} value={filters.status} onChange={(v) => setFilters((f) => ({ ...f, status: v }))} />
           <FilterChip label="Заказчик" icon="chev" options={[...new Set(orders.map((order) => order.client).filter(Boolean))]} value={filters.client} onChange={(v) => setSearch(v === '' ? '' : v)} />
           <FilterChip label="Тип заявки" icon="chev" options={REQUEST_TYPE} value={filters.requestType} onChange={(v) => setFilters((f) => ({ ...f, requestType: v }))} />
           <FilterChip label="Тип услуги" icon="chev" options={Object.keys(SERVICE_TYPE)} value={filters.service} onChange={(v) => setFilters((f) => ({ ...f, service: v }))} />
           <div className="topbar-spacer" />
           <SearchBox value={search} onChange={setSearch} style={{ width: 280 }} />
-        </div>
+        </SearchToolbar>
 
         <section className="section-workspace" aria-label="Рабочая область списка"><div className="table-card">
           <table className="tbl orders-registry">

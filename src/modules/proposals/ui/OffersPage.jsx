@@ -1,3 +1,4 @@
+import { SearchToolbar } from '../../../shared/ui/SearchToolbar.jsx';
 import { SectionInfo } from '../../../shared/ui/SectionInfo.jsx';
 import { useState, useEffect, useRef } from 'react';
 import { BrandMark, ChannelIcon, Icon } from '../../../shared/icons/index.jsx';
@@ -1596,12 +1597,12 @@ function OffersRegistry({ onOpenOrder, intent, onConsume, initialProposals = [],
       <div className="grid-4" style={{ marginBottom: 22 }}>
         {STATS.map(([l, v]) => (<div className="stat-card" key={l}><div className="s-label">{l}</div><div className="s-value">{v}</div></div>))}
       </div>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16, flexWrap: 'wrap' }}>
+      <SearchToolbar>
         <SearchBox value={q} onChange={setQ} placeholder="Поиск: № КП, клиент, заказ…" style={{ width: 300 }} />
         <FilterChip label="Статус" value={fStatus} onChange={setFStatus} options={KP_STATUS_FLOW} />
         <div style={{ flex: 1 }} />
         <Button icon="plus" onClick={() => setCreateOpen(true)}>Создать КП</Button>
-      </div>
+      </SearchToolbar>
       <section className="section-workspace" aria-label="Рабочая область списка"><div className="table-card">
         {rows.length ? (
           <table className="tbl">

@@ -1,3 +1,4 @@
+import { SearchToolbar } from '../../../shared/ui/SearchToolbar.jsx';
 import { SectionInfo } from '../../../shared/ui/SectionInfo.jsx';
 import { matchesOrderSearch } from '../model/order-search.js';
 import { useEffect, useState } from 'react';
@@ -154,7 +155,7 @@ function OrdersMultiSelectList({ orders, onOpen, onCreate, onNavigate, currentUs
           <div><span>По текущему фильтру</span><b>{rows.length}</b><small>из доступных заказов</small></div>
         </div>
 
-        <div className="orders-filters" style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 18, flexWrap: 'wrap' }}>
+        <SearchToolbar className="orders-filters" >
           <FilterChip label="Статус" icon="chev" options={statusOptions} value={filters.status} onChange={(v) => setFilters((f) => ({ ...f, status: v }))} />
           <FilterChip label="Заказчик" icon="chev" options={[...new Set(orders.map((order) => order.client).filter(Boolean))]} value="" onChange={(v) => setSearch(v === '' ? '' : v)} />
           <FilterChip label="Тип заявки" icon="chev" options={requestTypeOptions} value={filters.requestType} onChange={(v) => setFilters((f) => ({ ...f, requestType: v }))} />
@@ -184,7 +185,7 @@ function OrdersMultiSelectList({ orders, onOpen, onCreate, onNavigate, currentUs
               </div>
             </div>
           )}
-        </div>
+        </SearchToolbar>
 
         <section className="section-workspace" aria-label="Рабочая область списка"><div className="table-card">
           <table className="tbl orders-registry">

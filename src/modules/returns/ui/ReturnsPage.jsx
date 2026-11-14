@@ -1,3 +1,4 @@
+import { SearchToolbar } from '../../../shared/ui/SearchToolbar.jsx';
 import { ReturnQuoteDrawer } from './ReturnQuoteDrawer.jsx';
 import { participantsForService, validateManualQuote } from '../model/request-context.js';
 import { SectionInfo } from '../../../shared/ui/SectionInfo.jsx';
@@ -678,13 +679,13 @@ function ReturnsModule({ scopeOrder, onOpenOrder, compact, order, initialCases, 
       <div className="grid-4" style={{ marginBottom: 22 }}>
         {STATS.map(([l, v]) => (<div className="stat-card" key={l}><div className="s-label">{l}</div><div className="s-value">{v}</div></div>))}
       </div>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16, flexWrap: 'wrap' }}>
+      <SearchToolbar>
         <SearchBox value={q} onChange={setQ} placeholder="Поиск: №, заказ, клиент…" style={{ width: 260 }} />
         <FilterChip label="Тип" value={fType} onChange={setFType} options={Object.keys(RETURN_TYPE)} />
         <FilterChip label="Статус" value={fStatus} onChange={setFStatus} options={Object.keys(RETURN_STATUS)} />
         <div style={{ flex: 1 }} />
         <Button icon="plus" onClick={() => setNewOpen(true)}>Новый запрос</Button>
-      </div>
+      </SearchToolbar>
 
       {sel.length > 0 && (
         <div className="cmp-tray" style={{ position: 'static', marginBottom: 16, marginTop: 0 }}>

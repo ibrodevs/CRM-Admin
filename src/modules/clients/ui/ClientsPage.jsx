@@ -1,3 +1,4 @@
+import { SearchToolbar } from '../../../shared/ui/SearchToolbar.jsx';
 import { useDraftState } from '../../../shared/drafts/Drafts.jsx';
 import { SectionInfo } from '../../../shared/ui/SectionInfo.jsx';
 import { ordersApi } from '../../orders/api.js';
@@ -234,10 +235,10 @@ function ClientsPage({ initialClients = [], orders = [], onClientsChange, onOpen
       <Topbar title="Клиенты"><div className="topbar-spacer" /><Button icon="plus" onClick={() => setCreateOpen(true)}>Добавить клиента</Button></Topbar>
       <div className="content fade-in">
         <div className="grid-4" style={{ marginBottom: 22 }}>{STATS.map(([l, v]) => (<div className="stat-card" key={l}><div className="s-label">{l}</div><div className="s-value">{v}</div></div>))}</div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16, flexWrap: 'wrap' }}>
+        <SearchToolbar>
           <SearchBox value={q} onChange={setQ} placeholder="Поиск: имя, телефон, ID…" style={{ width: 280 }} />
           <FilterChip label="Статус" value={fStatus} onChange={setFStatus} options={Object.keys(CLIENT_STATUS)} />
-        </div>
+        </SearchToolbar>
         <section className="section-workspace" aria-label="Рабочая область списка"><div className="table-card">
           {rows.length ? (
             <table className="tbl">

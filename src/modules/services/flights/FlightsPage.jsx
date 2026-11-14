@@ -1,3 +1,4 @@
+import { SearchToolbar } from '../../../shared/ui/SearchToolbar.jsx';
 import { useDraftState } from '../../../shared/drafts/Drafts.jsx';
 import { PassengerPickerField } from '../search/PassengerPickerField.jsx';
 import { validateFreeFlightSearch } from './free-flight-search.js';
@@ -2276,13 +2277,13 @@ function FlightsRegistry({ onNew, onOpen, onFormKp, onReturn, liveRows = [] }) {
         ))}
       </div>
 
-      <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16, flexWrap: 'wrap' }}>
+      <SearchToolbar>
         <Tabs tabs={TABS} value={tab} onChange={setTab} />
         <div style={{ flex: 1 }} />
         <SearchBox value={q} onChange={setQ} placeholder="Поиск: №, маршрут, PNR…" style={{ width: 260 }} />
         <FilterChip label="Поставщик" value={fSup} onChange={setFSup}
           options={[...new Set(liveRows.map((r) => r.supplier))]} />
-      </div>
+      </SearchToolbar>
 
       <section className="section-workspace" aria-label="Список авиаперелётов"><div className="table-card">
         {rows.length ? (

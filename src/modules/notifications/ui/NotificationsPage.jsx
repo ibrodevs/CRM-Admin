@@ -1,3 +1,4 @@
+import { SearchToolbar } from '../../../shared/ui/SearchToolbar.jsx';
 import { SectionInfo } from '../../../shared/ui/SectionInfo.jsx';
 import { useState, useEffect } from 'react';
 import { Icon } from '../../../shared/icons/index.jsx';
@@ -149,11 +150,11 @@ function ErrorCodesDrawer({ open, focusCode, onClose }) {
       sub="Сбои API поставщиков и GDS, платёжного шлюза и внутренние ошибки — с расшифровкой и действиями"
       width="min(880px,96vw)"
       footer={<Button className="btn-block" variant="secondary" onClick={onClose}>Закрыть</Button>}>
-      <div style={{ display: 'flex', gap: 10, marginBottom: 16, flexWrap: 'wrap' }}>
+      <SearchToolbar>
         <SearchBox value={q} onChange={setQ} placeholder="Код, система, описание…" style={{ width: 240 }} />
         <FilterChip label="Система" value={fSys} onChange={setFSys} options={ERR_SYSTEMS} />
         <FilterChip label="Категория" value={fCat} onChange={setFCat} options={ERR_CATEGORIES} />
-      </div>
+      </SearchToolbar>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
         {rows.map((e) => (
           <div key={e.code} className="card card-pad" style={{ borderLeft: '3px solid var(--' + (ERR_SEVERITY[e.severity] || 'muted') + ')' }}>
@@ -247,13 +248,13 @@ function NotificationsCenter({ notifications = [], orders = [], onChange, onNavi
         </div>
       )}
 
-      <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16, flexWrap: 'wrap' }}>
+      <SearchToolbar>
         <Tabs tabs={TABS} value={tab} onChange={setTab} />
         <div style={{ flex: 1 }} />
         <SearchBox value={q} onChange={setQ} placeholder="Поиск уведомления…" style={{ width: 220 }} />
         <FilterChip label="Приоритет" value={fPrio} onChange={setFPrio} options={Object.keys(NOTIF_PRIORITY)} />
         <FilterChip label="Источник" value={fSource} onChange={setFSource} options={Object.keys(NOTIF_SOURCE)} />
-      </div>
+      </SearchToolbar>
 
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
         <Button variant="secondary" size="sm" icon="check" onClick={async () => { try { await notificationsApi.readAll(); commit((l) => l.map((n) => ({ ...n, read: true }))); toast('Все отмечены прочитанными', 'ok'); } catch (error) { toast(error.message, 'err'); } }}>Прочитать все</Button>
