@@ -6,13 +6,9 @@ import { readFileSync } from 'node:fs';
 const require = createRequire(import.meta.url);
 const babel = require('next/dist/compiled/babel/core');
 
-test('opening either airport field focuses its search after portal placement, including reopening', (t) => {
-  const original = { requestAnimationFrame: globalThis.requestAnimationFrame, cancelAnimationFrame: globalThis.cancelAnimationFrame };
-  t.after(() => { for (const [key, value] of Object.entries(original)) { if (value === undefined) delete globalThis[key]; else globalThis[key] = value; } });
-  const frames = [], effects = [], refs = [], states = [false, ''];
+test('airport cities can be typed in the clicked field without focusing a second portal input', () => {
+  const effects = [], refs = [], states = [false, ''];
   let hook = 0, refIndex = 0, focused = 0;
-  globalThis.requestAnimationFrame = (callback) => { frames.push(callback); return frames.length; };
-  globalThis.cancelAnimationFrame = () => {};
   const source = readFileSync(new URL('../src/modules/services/flights/FlightsPage.jsx', import.meta.url), 'utf8');
   const body = source.slice(source.indexOf('function AirportField('), source.indexOf('const PAX_DEFAULT_OPTIONS'));
   const mod = new Module(import.meta.filename);
@@ -29,19 +25,26 @@ test('opening either airport field focuses its search after portal placement, in
   const render = () => { hook = 0; refIndex = 0; effects.length = 0; return mod.exports.AirportField({ value: 'FRU', onChange() {} }); };
   const nodes = (n) => Array.isArray(n) ? n.flatMap(nodes) : n?.props ? [n, ...nodes(n.props.children)] : [];
   let tree = render();
-  nodes(tree).find((n) => n.props.className === 'input').props.onClick();
+  const field = () => nodes(render()).find((n) => n.type === 'input');
+  assert.equal(field().props.value, 'Бишкек · FRU');
+  assert.equal(field().props.role, 'combobox');
+  assert.equal(field().props['aria-expanded'], false);
+  field().ref.current = { focus(options) { assert.deepEqual(options, { preventScroll: true }); focused++; } };
   for (let attempt = 0; attempt < 2; attempt++) {
+    nodes(tree).find((n) => n.props.className === 'input airport-field-trigger').props.onClick();
+    assert.equal(focused, attempt + 1, 'clicking any part of the field immediately focuses the real input');
+    field().props.onFocus();
+    assert.equal(field().props.value, '');
+    field().props.onChange({ target: { value: 'Москва' } });
     tree = render();
-    const input = nodes(tree).find((n) => n.type === 'input');
-    input.ref.current = { focus(options) { assert.deepEqual(options, { preventScroll: true }); focused++; } };
-    effects[0]();
-    assert.equal(focused, attempt);
-    frames.pop()();
-    assert.equal(focused, attempt + 1);
-    input.props.onChange({ target: { value: 'Москва' } });
-    assert.equal(states[1], 'Москва');
-    nodes(tree).find((n) => n.type === 'FloatingPanel').props.onClose();
+    assert.equal(field().props.value, 'Москва');
+    assert.equal(field().props['aria-expanded'], true);
+    const panel = nodes(tree).find((n) => n.type === 'FloatingPanel');
+    assert.equal(nodes(panel.props.children).filter((n) => n.type === 'input').length, 0, 'no second search field in the popup');
+    const options = nodes(panel.props.children).filter((n) => n.props.className === 'dropdown-item');
+    assert.ok(options.some((n) => JSON.stringify(n.props.children).includes('все аэропорты')));
+    panel.props.onClose();
     tree = render();
-    nodes(tree).find((n) => n.props.className === 'input').props.onClick();
+    assert.equal(field().props['aria-expanded'], false);
   }
 });

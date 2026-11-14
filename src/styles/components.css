@@ -3671,3 +3671,5 @@ button.oc-fact:hover{border-color:#d3dbe8;background:#fff}
 .draft-recovery-notice.error{border-color:var(--danger,#d14343)}
 .draft-recovery-notice>div{display:flex;gap:14px;margin-top:8px;flex-wrap:wrap}
 .draft-recovery-notice button{border:0;background:none;padding:0;color:var(--blue);font:inherit;font-weight:600;cursor:pointer}
+
+.airport-field-trigger:focus-within{border-color:var(--blue);box-shadow:0 0 0 3px rgba(37,102,255,.13)}

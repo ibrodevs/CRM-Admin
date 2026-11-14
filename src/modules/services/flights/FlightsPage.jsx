@@ -72,12 +72,6 @@ function AirportField({ label, value, onChange, placeholder = 'Город или
   const ref = useRef(null);
   const searchRef = useRef(null);
   useEffect(() => {
-    if (!open) return;
-    // The portal starts hidden until FloatingPanel has positioned it.
-    const frame = requestAnimationFrame(() => searchRef.current?.focus({ preventScroll: true }));
-    return () => cancelAnimationFrame(frame);
-  }, [open]);
-  useEffect(() => {
     const h = (e) => { if (ref.current && !containsFloatingTarget(ref.current, e.target)) setOpen(false); };
     document.addEventListener('mousedown', h);
     return () => document.removeEventListener('mousedown', h);
@@ -87,17 +81,18 @@ function AirportField({ label, value, onChange, placeholder = 'Город или
   return (
     <div className="av-field" style={{ position: 'relative', width: 196 }} ref={ref}>
       {label && <span className="label">{label}</span>}
-      <div className="input" style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 9 }}
-        onClick={() => setOpen((o) => !o)}>
+      <div className="input airport-field-trigger" style={{ cursor: 'text', display: 'flex', alignItems: 'center', gap: 9 }}
+        onClick={() => { searchRef.current?.focus({ preventScroll: true }); setOpen(true); }}>
         <Icon name="plane" style={{ width: 18, height: 18, color: 'var(--muted-2)', flexShrink: 0 }} />
-        <span style={{ color: sel ? 'var(--ink)' : 'var(--faint)', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-          {sel ? `${sel.city} · ${sel.kind === 'city' ? 'все аэропорты' : sel.code}` : value || placeholder}
-        </span>
+        <input ref={searchRef} role="combobox" aria-label={label || 'Город или аэропорт'} aria-expanded={open} aria-autocomplete="list" autoComplete="off"
+          value={open ? q : sel ? `${sel.city} · ${sel.kind === 'city' ? 'все аэропорты' : sel.code}` : value || ''}
+          onFocus={() => { setQ(''); setOpen(true); }}
+          onClick={() => setOpen(true)}
+          onChange={(event) => { setQ(event.target.value); setOpen(true); }}
+          placeholder={placeholder} style={{ flex: 1, minWidth: 0, width: '100%', border: 0, outline: 0, background: 'transparent', color: 'var(--ink)', font: 'inherit', padding: 0 }} />
       </div>
       {open && (
         <FloatingPanel anchorRef={ref} onClose={() => setOpen(false)} className="dropdown scroll" minWidth={340} maxHeight={360} style={{ padding: 8 }}>
-          <input ref={searchRef} className="input" aria-label="Поиск города или аэропорта" value={q} onChange={(e) => setQ(e.target.value)}
-            placeholder="Поиск аэропорта" style={{ marginBottom: 6 }} />
           {list.map((a) => (
             <div key={a.value} className="dropdown-item" onClick={() => { onChange(a.value); setOpen(false); setQ(''); }}>
               <span style={{ width: 34, fontWeight: 700, color: 'var(--blue)' }}>{a.code}</span>
