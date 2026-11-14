@@ -1,3 +1,4 @@
+import { useDraftState, DraftScope } from '../../../shared/drafts/Drafts.jsx';
 import { SearchToolbar } from '../../../shared/ui/SearchToolbar.jsx';
 import { SectionInfo } from '../../../shared/ui/SectionInfo.jsx';
 import { matchesOrderSearch } from '../model/order-search.js';
@@ -244,12 +245,16 @@ function OrdersMultiSelectList({ orders, onOpen, onCreate, onNavigate, currentUs
 }
 
 function OrdersPage({ intent, onConsume, orders, clients = [], companies = [], addOrder, onOrderUpdated, onDetailChange, onOpenChat, onNavigate, currentUser }) {
-  const [detail, setDetailRaw] = useState(null);
-  const [detailTab, setDetailTab] = useState(null);
-  const [detailSvc, setDetailSvc] = useState(null);
-  const [svcSearch, setSvcSearch] = useState(null);
-  const [createOpen, setCreateOpen] = useState(false);
-  const [createCustomer, setCreateCustomer] = useState(null);
+  const [detail, setDetailRaw] = useDraftState('orders', 'detail', null);
+  const [detailTab, setDetailTab] = useDraftState('orders', 'detailTab', null);
+  const [detailSvc, setDetailSvc] = useDraftState('orders', 'detailSvc', null);
+  const [svcSearch, setSvcSearch] = useDraftState('orders', 'svcSearch', null);
+  const [createOpen, setCreateOpen] = useDraftState('orders', 'createOpen', false);
+  const [createCustomer, setCreateCustomer] = useDraftState('orders', 'createCustomer', null);
+  const [orderContext, setOrderContext] = useDraftState(detail?.id ? `order/${detail.id}/context` : 'order-context', 'order', null);
+  useEffect(() => {
+    if (detail?.id && (orderContext?.id !== detail.id || orderContext?.no !== detail.no || orderContext?.service !== detail.service)) setOrderContext({ id: detail.id, no: detail.no, service: detail.service });
+  }, [detail?.id, detail?.no, detail?.service, orderContext]);
   const [fresh, setFresh] = useState(false);
   const [selectedIds, setSelectedIds] = useState(() => new Set());
 
@@ -292,7 +297,7 @@ function OrdersPage({ intent, onConsume, orders, clients = [], companies = [], a
 
   return (
     <>
-      {detail && <OrderCard key={detail.id} onOrderUpdated={onOrderUpdated} order={detail} company={company} clients={clients} fresh={fresh} initTab={detailTab} initSvc={detailSvc} initSvcSearch={svcSearch} onBack={() => setDetail(null)} onOpenChat={onOpenChat} />}
+      {detail && <DraftScope name={`order/${detail.id}`}><OrderCard key={detail.id} onOrderUpdated={onOrderUpdated} order={detail} company={company} clients={clients} fresh={fresh} initTab={detailTab} initSvc={detailSvc} initSvcSearch={svcSearch} onBack={() => setDetail(null)} onOpenChat={onOpenChat} /></DraftScope>}
       {/* Keep search, filters, sorting and loaded rows when returning from a card. */}
       <div hidden={!!detail}>
         <OrdersMultiSelectList

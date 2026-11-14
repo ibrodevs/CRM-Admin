@@ -37,14 +37,14 @@ test('inline draft notice can be hidden and keeps destructive clearing behind co
   first.reset();
   const { render } = first;
   let cleared = 0, dismissed = 0;
-  const store = { status: () => ({ restored: true, failed: false }), subscribe() {}, clear() { cleared++; }, dismiss() { dismissed++; } };
+  const store = { workspaces: () => [{ id: 'free-booking', type: 'free-booking', title: 'Подбор услуг без заказа', services: ['Отели'], savedAt: 1794600000000 }], open() { return true; }, status: () => ({ restored: true, failed: false }), subscribe() {}, clear() { cleared++; }, dismiss() { dismissed++; } };
   const target = {};
   const show = () => render(Notice, { store, target });
   assert.equal(show().target, target, 'the banner is portalled into its form slot, never the viewport footer');
   let buttons = nodes(show().node).filter((n) => n.type === 'button');
   buttons.find((n) => n.props['aria-label']).props.onClick();
   assert.equal(dismissed, 1);
-  buttons.find((n) => n.props.children === 'Очистить черновики').props.onClick();
+  buttons.find((n) => n.props.children === 'Очистить все').props.onClick();
   assert.equal(cleared, 0);
   nodes(show().node).find((n) => n.type === 'button' && n.props.children === 'Удалить').props.onClick();
   assert.equal(cleared, 1);

@@ -1,3 +1,4 @@
+import { savedWorkspaces } from './workspaces.js';
 export const DRAFT_TTL = 7 * 24 * 60 * 60 * 1000;
 const PREFIX = 'psc:work-draft:v1:';
 const pack = (value) => {
@@ -26,6 +27,7 @@ const unpack = (value) => {
 export function createDraftStore(storage, owner, now = Date.now) {
   const prefix = PREFIX + encodeURIComponent(owner) + ':';
   const cache = new Map(), serialized = new Map(), dirty = new Map(), listeners = new Set();
+  let opener = null;
   let status = { restored: false, failed: false, saved: false };
   const announce = (patch) => { status = { ...status, ...patch }; listeners.forEach((fn) => fn()); };
   const key = (scope) => prefix + encodeURIComponent(scope);
@@ -58,6 +60,23 @@ export function createDraftStore(storage, owner, now = Date.now) {
   return {
     subscribe(fn) { listeners.add(fn); return () => listeners.delete(fn); },
     status: () => status,
+    setOpener(handler) { opener = handler; return () => { if (opener === handler) opener = null; }; },
+    open(entry) { return opener ? opener(entry) : false; },
+    workspaces() {
+      const records = [];
+      let names;
+      try { names = Object.keys(storage); } catch { return []; }
+      for (const name of names) {
+        if (!name.startsWith(prefix)) continue;
+        try {
+          const record = JSON.parse(storage.getItem(name));
+          if (record?.version !== 1 || record.owner !== owner || !Number.isFinite(record.savedAt) || now() - record.savedAt > DRAFT_TTL || record.savedAt > now() + 60_000 || !record.fields || typeof record.fields !== 'object' || Array.isArray(record.fields)) continue;
+          const scope = decodeURIComponent(name.slice(prefix.length));
+          records.push({ scope, savedAt: record.savedAt, fields: cache.get(scope) || unpack(record.fields) });
+        } catch { /* A damaged record is ignored; saving and recovery still work. */ }
+      }
+      return savedWorkspaces(records);
+    },
     notify() { listeners.forEach((fn) => fn()); },
     has(scope, field) { return Object.hasOwn(load(scope), field); },
     read(scope, field, fallback) { const fields = load(scope); return Object.hasOwn(fields, field) ? fields[field] : fallback; },

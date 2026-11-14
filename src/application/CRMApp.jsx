@@ -1,3 +1,4 @@
+import { useDraftNavigation } from '../shared/drafts/Drafts.jsx';
 import '../legacy/compatibility/shell-globals.js';
 import '../legacy/compatibility/receipt-globals.js';
 import '../legacy/compatibility/people-globals.js';
@@ -75,6 +76,26 @@ function App() {
   const suppliers = workspace.suppliers;
 
   const role = auth.user?.role || 'Оператор';
+  useDraftNavigation((draft, store) => {
+    const target = draft.type === 'free-booking' ? 'dashboard' : draft.type === 'order' || draft.type === 'new-order' ? 'orders' : draft.route;
+    if (!auth.user || !target || !roleCanSee(role, target)) { toast('Нет доступа к разделу с этим черновиком', 'warn'); return false; }
+    if (draft.type === 'order') {
+      const order = orders.find((item) => String(item.id) === String(draft.orderId));
+      if (!order) { toast('Заказ не найден среди доступных. Обновите список заказов или проверьте доступ.', 'warn'); return false; }
+      openOrder(order);
+    } else if (draft.type === 'new-order') {
+      store.write('orders', 'detail', null);
+      createOrder(store.read('orders', 'createCustomer', null));
+    } else {
+      if (draft.type === 'free-booking') {
+        store.write('dashboard', 'searchMounted', true);
+        store.write('dashboard', 'searchOpen', true);
+      } else if (['FlightsPage', 'ServiceFlow/' + draft.route].includes(draft.scope) && store.read(draft.scope, 'view', 'registry') === 'registry') store.write(draft.scope, 'view', 'search');
+      setRoute(target); setIntent(null); setCtxOrder(null);
+    }
+    return true;
+  });
+
 
   const unreadChat = workspace.chats.reduce((s, t) => s + threadUnread(t), 0);
   const unreadNotif = workspace.notifications.filter((n) => !n.read).length;

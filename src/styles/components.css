@@ -3710,3 +3710,14 @@ button.oc-fact:hover{border-color:#d3dbe8;background:#fff}
 .quick-add-service-fields>.field{min-width:0;margin:0}
 .quick-add-service-actions{display:flex;justify-content:flex-start;margin-top:20px;padding-top:16px;border-top:1px solid var(--line)}
 @container(max-width:560px){.quick-add-service-fields{grid-template-columns:1fr}.quick-add-service-actions .btn{width:100%}}
+
+.draft-recovery-actions .draft-recovery-open{padding:7px 11px;border-radius:8px;background:var(--blue);color:#fff;white-space:nowrap}
+.draft-recovery-actions .draft-recovery-open:hover{background:var(--blue-hover);color:#fff}
+.draft-recovery-list{margin:-6px 0 16px;padding:0 14px;border:1px solid var(--line);border-radius:12px;background:var(--surface)}
+.draft-recovery-row{display:flex;align-items:center;gap:16px;padding:14px 0;border-bottom:1px solid var(--line)}
+.draft-recovery-row>div{display:flex;flex:1;min-width:0;flex-direction:column;gap:4px;font-size:13px}
+.draft-recovery-row span{font-size:12px;color:var(--muted);overflow-wrap:anywhere}
+.draft-recovery-row button{display:flex;align-items:center;gap:7px;padding:8px 10px;border:1px solid var(--line);border-radius:8px;background:var(--surface);color:var(--blue);font:inherit;font-size:12px;font-weight:600;cursor:pointer}
+.draft-recovery-row button svg{width:16px;height:16px}
+.draft-recovery-list>p{font-size:12px;line-height:1.5;color:var(--muted);margin:12px 0}
+@media(max-width:640px){.draft-recovery-row{align-items:flex-start;flex-wrap:wrap}}
