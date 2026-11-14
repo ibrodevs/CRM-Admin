@@ -100,8 +100,8 @@ function AirportField({ label, value, onChange, placeholder = 'Город или
           {history && <div className="location-history-title">Последние выбранные места</div>}
           {list.map((a) => (
             <div key={a.value} className="dropdown-item" onClick={() => { remember(a); onChange(a.value); setOpen(false); setQ(''); }}>
-              <span style={{ width: 34, fontWeight: 700, color: 'var(--blue)' }}>{history ? <Icon name="clock" style={{ width: 20, height: 20 }} /> : a.code}</span>
-              <span style={{ flex: 1 }}>
+              <span style={{ flex: '0 0 42px', whiteSpace: 'nowrap', wordBreak: 'normal', overflowWrap: 'normal', fontWeight: 700, color: 'var(--blue)' }}>{history ? <Icon name="clock" style={{ width: 20, height: 20 }} /> : a.code}</span>
+              <span style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ fontWeight: 600 }}>{a.city}{a.kind === 'city' ? ' — все аэропорты' : ''}</div>
                 <div style={{ fontSize: 12, color: 'var(--muted)' }}>{a.name}, {a.country}</div>
               </span>
