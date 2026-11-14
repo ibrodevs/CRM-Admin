@@ -44,3 +44,15 @@ test('completed and cleared selection disappears without removing another order 
   assert.equal(store.workspaces().length, 1);
   assert.equal(store.workspaces()[0].orderId, 'one');
 });
+
+test('separate new order forms remain independently identifiable including company and group selections', () => {
+  const store = createDraftStore(storage(), 'operator');
+  store.write('OrderCreateModal/one/false', 'selClients', [{ id: 'a', name: 'Иван Иванов' }]);
+  store.write('OrderCreateModal/two/true', 'clientType', 'org');
+  store.write('OrderCreateModal/two/true', 'company', { id: 'b', name: 'ООО Пример' });
+  const entries = store.workspaces();
+  assert.equal(entries.length, 2);
+  assert.equal(new Set(entries.map((row) => row.id)).size, 2);
+  assert.ok(entries.find((row) => row.scope.endsWith('/true')).title.includes('группового заказа · ООО Пример'));
+  assert.ok(entries.find((row) => row.scope.endsWith('/false')).title.includes('Иван Иванов'));
+});

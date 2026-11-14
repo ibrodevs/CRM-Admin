@@ -8,6 +8,7 @@ function hasWork(fields) {
   if (Number(fields.form?.pax) > 1 || Number(fields.pax) > 1) return true;
   if (params && (params.depDate || params.retDate || params.segments?.some((item) => item.date) || (params.from && params.from !== 'FRU') || (params.to && params.to !== 'IST'))) return true;
   if (['dest', 'checkin', 'checkout', 'date', 'retDate', 'start', 'specialReq', 'supplierComment', 'title', 'cost', 'bookingDraft', 'depDate', 'retDate'].some((key) => filled(fields[key]))) return true;
+  if (fields.clientType === 'org' && fields.company?.id || Object.values(fields.svc || {}).some(Boolean) || fields.clientQuery?.trim() || fields.companyQuery?.trim()) return true;
   if (fields.draft?.length || fields.selClients?.length || fields.employees?.length || fields.pts?.some(Boolean)) return true;
   return fields.form && ['from', 'to', 'dep', 'date', 'dt', 'ret', 'title', 'first_name', 'last_name'].some((key) => filled(fields.form[key]));
 }
@@ -36,7 +37,8 @@ export function savedWorkspaces(records) {
       const orderId = scope.split('/')[1], order = contexts.get(orderId);
       group = { id: `order/${orderId}`, scope: `order/${orderId}`, type: 'order', orderId, title: `Заказ ${order?.no || order?.number || orderId.slice(0, 8)}` };
     } else if (scope.startsWith('OrderCreateModal/')) {
-      group = { id: 'new-order', scope, type: 'new-order', title: 'Создание нового заказа' };
+      const customer = fields.clientType === 'org' ? fields.company?.name : fields.selClients?.map((person) => person.name).filter(Boolean).join(', ');
+      group = { id: scope, scope, type: 'new-order', title: `Создание ${fields.isGroup || scope.endsWith('/true') ? 'группового ' : 'нового '}заказа${customer ? ` · ${customer}` : ''}` };
     } else if (scope === 'FlightsPage') {
       group = { id: 'flights', scope, type: 'route', route: 'flights', title: 'Поиск авиабилетов' };
     } else if (/^HotelPicker\/free$/.test(scope)) {

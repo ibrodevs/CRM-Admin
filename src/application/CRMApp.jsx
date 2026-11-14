@@ -85,7 +85,8 @@ function App() {
       openOrder(order);
     } else if (draft.type === 'new-order') {
       store.write('orders', 'detail', null);
-      createOrder(store.read('orders', 'createCustomer', null));
+      createOrder(null);
+      setIntent({ type: 'create', draftScope: draft.scope });
     } else {
       if (draft.type === 'free-booking') {
         store.write('dashboard', 'searchMounted', true);

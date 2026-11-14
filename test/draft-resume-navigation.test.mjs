@@ -11,7 +11,7 @@ function resume(allowed = true) {
   const calls = [], values = new Map();
   const deps = { orders: [{ id: 'one', no: 'ORD-000042' }], auth: { user: { id: 1 } }, role: 'Оператор', roleCanSee: () => allowed,
     toast: (...args) => calls.push(['toast', ...args]), openOrder: (order) => calls.push(['order', order]), createOrder: () => calls.push(['create']),
-    setRoute: (route) => calls.push(['route', route]), setIntent() {}, setCtxOrder() {} };
+    setRoute: (route) => calls.push(['route', route]), setIntent: (value) => { values.set('intent', value); }, setCtxOrder() {} };
   const callback = new Function(...Object.keys(deps), `return (${body});`)(...Object.values(deps));
   const store = { write(scope, field, value) { values.set(`${scope}/${field}`, value); }, read(scope, field, fallback) { return values.get(`${scope}/${field}`) ?? fallback; } };
   return { calls, values, open: (entry) => callback(entry, store) };
@@ -32,4 +32,12 @@ test('order drafts open only their matching available order and inaccessible rec
   const denied = resume(false);
   assert.equal(denied.open({ type: 'free-booking' }), false);
   assert.deepEqual([...denied.values], []);
+});
+
+test('new order resume identifies the exact saved form instead of the last selected customer', () => {
+  const h = resume();
+  assert.equal(h.open({ type: 'new-order', scope: 'OrderCreateModal/company-2/true' }), true);
+  assert.deepEqual(h.values.get('intent'), { type: 'create', draftScope: 'OrderCreateModal/company-2/true' });
+  assert.equal(h.values.get('orders/detail'), null);
+  assert.equal(h.calls.filter((c) => c[0] === 'create').length, 1);
 });

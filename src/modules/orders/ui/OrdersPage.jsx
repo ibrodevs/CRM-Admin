@@ -318,8 +318,9 @@ function OceSec({ n, title, children }) {
   );
 }
 
-function OrderCreateModal({ open, onClose, onCreated, initialGroup = false, initialCustomer = null, clientOptions = [], companyOptions = [] }) {
-  const saved = useDraftControls(`OrderCreateModal/${initialCustomer?.id || 'new'}/${initialGroup}`);
+function OrderCreateModal({ open, onClose, onCreated, initialGroup = false, initialCustomer = null, clientOptions = [], companyOptions = [], draftScope = null }) {
+  const scope = draftScope || `OrderCreateModal/${initialCustomer?.id || 'new'}/${initialGroup}`;
+  const saved = useDraftControls(scope);
   const toast = useToast();
   const availableClients = clientOptions.map((client) => {
     const person = client.person_detail || client.source || {};
@@ -337,28 +338,28 @@ function OrderCreateModal({ open, onClose, onCreated, initialGroup = false, init
   const firstCompany = availableCompanies[0] || null;
 
 
-  const [clientType, setClientType] = useDraftState(`OrderCreateModal/${initialCustomer?.id || 'new'}/${initialGroup}`, "clientType", 'person');
+  const [clientType, setClientType] = useDraftState(scope, "clientType", 'person');
 
-  const [clientQuery, setClientQuery] = useDraftState(`OrderCreateModal/${initialCustomer?.id || 'new'}/${initialGroup}`, "clientQuery", '');
+  const [clientQuery, setClientQuery] = useDraftState(scope, "clientQuery", '');
   const clientSearchRef = useRef(null);
-  const [selClients, setSelClients] = useDraftState(`OrderCreateModal/${initialCustomer?.id || 'new'}/${initialGroup}`, "selClients", firstClient ? [firstClient] : []);
-  const [company, setCompany] = useDraftState(`OrderCreateModal/${initialCustomer?.id || 'new'}/${initialGroup}`, "company", firstCompany);
-  const [companyQuery, setCompanyQuery] = useDraftState(`OrderCreateModal/${initialCustomer?.id || 'new'}/${initialGroup}`, "companyQuery", '');
+  const [selClients, setSelClients] = useDraftState(scope, "selClients", firstClient ? [firstClient] : []);
+  const [company, setCompany] = useDraftState(scope, "company", firstCompany);
+  const [companyQuery, setCompanyQuery] = useDraftState(scope, "companyQuery", '');
   const [companyOpen, setCompanyOpen] = useState(false);
-  const [employees, setEmployees] = useDraftState(`OrderCreateModal/${initialCustomer?.id || 'new'}/${initialGroup}`, "employees", []);
+  const [employees, setEmployees] = useDraftState(scope, "employees", []);
   const [creating, setCreating] = useState(false);
 
-  const [trip, setTrip] = useDraftState(`OrderCreateModal/${initialCustomer?.id || 'new'}/${initialGroup}`, "trip", 'rt');
-  const [pts, setPts] = useDraftState(`OrderCreateModal/${initialCustomer?.id || 'new'}/${initialGroup}`, "pts", ['', '']);
+  const [trip, setTrip] = useDraftState(scope, "trip", 'rt');
+  const [pts, setPts] = useDraftState(scope, "pts", ['', '']);
   // Названия мест, выбранных из справочника: у них нет IATA-кода, и без этого
   // в заказ ушёл бы только усечённый код без человекочитаемого имени.
-  const [ptNames, setPtNames] = useDraftState(`OrderCreateModal/${initialCustomer?.id || 'new'}/${initialGroup}`, "ptNames", {});
-  const [depDate, setDepDate] = useDraftState(`OrderCreateModal/${initialCustomer?.id || 'new'}/${initialGroup}`, "depDate", null);
-  const [retDate, setRetDate] = useDraftState(`OrderCreateModal/${initialCustomer?.id || 'new'}/${initialGroup}`, "retDate", null);
+  const [ptNames, setPtNames] = useDraftState(scope, "ptNames", {});
+  const [depDate, setDepDate] = useDraftState(scope, "depDate", null);
+  const [retDate, setRetDate] = useDraftState(scope, "retDate", null);
   const [dragIdx, setDragIdx] = useState(null);
 
-  const [svc, setSvc] = useDraftState(`OrderCreateModal/${initialCustomer?.id || 'new'}/${initialGroup}`, "svc", {});
-  const [isGroup, setIsGroup] = useDraftState(`OrderCreateModal/${initialCustomer?.id || 'new'}/${initialGroup}`, "isGroup", initialGroup);
+  const [svc, setSvc] = useDraftState(scope, "svc", {});
+  const [isGroup, setIsGroup] = useDraftState(scope, "isGroup", initialGroup);
 
   const [cityPick, setCityPick] = useState(null);
   const [docFor, setDocFor] = useState(null);

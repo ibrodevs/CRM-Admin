@@ -255,6 +255,7 @@ function OrdersPage({ intent, onConsume, orders, clients = [], companies = [], a
   const [svcSearch, setSvcSearch] = useDraftState('orders', 'svcSearch', null);
   const [createOpen, setCreateOpen] = useDraftState('orders', 'createOpen', false);
   const [createCustomer, setCreateCustomer] = useDraftState('orders', 'createCustomer', null);
+  const [createDraftScope, setCreateDraftScope] = useDraftState('orders', 'createDraftScope', null);
   const [orderContext, setOrderContext] = useDraftState(detail?.id ? `order/${detail.id}/context` : 'order-context', 'order', null);
   useEffect(() => {
     if (detail?.id && (orderContext?.id !== detail.id || orderContext?.no !== detail.no || orderContext?.service !== detail.service)) setOrderContext({ id: detail.id, no: detail.no, service: detail.service });
@@ -291,7 +292,7 @@ function OrdersPage({ intent, onConsume, orders, clients = [], companies = [], a
 
   useEffect(() => {
     if (!intent) return;
-    if (intent.type === 'create') { setCreateCustomer(intent.customer || null); setCreateOpen(true); }
+    if (intent.type === 'create') { setCreateDraftScope(intent.draftScope || null); setCreateCustomer(intent.customer || null); setCreateOpen(true); }
     if (intent.type === 'open') setDetail(intent.order, intent.tab, intent.svc);
     if (intent.type === 'list') setDetail(null);
     onConsume();
@@ -307,14 +308,14 @@ function OrdersPage({ intent, onConsume, orders, clients = [], companies = [], a
         <OrdersMultiSelectList
           orders={orders}
           onOpen={setDetail}
-          onCreate={() => { setCreateCustomer(null); setCreateOpen(true); }}
+          onCreate={() => { setCreateDraftScope(null); setCreateCustomer(null); setCreateOpen(true); }}
           onNavigate={onNavigate}
           currentUser={currentUser}
           selectedIds={selectedIds}
           setSelectedIds={setSelectedIds}
         />
       </div>
-      <OrderCreateModal open={createOpen} onClose={() => setCreateOpen(false)} onCreated={handleCreated} initialCustomer={createCustomer} clientOptions={clients} companyOptions={companies} />
+      <OrderCreateModal key={createDraftScope || createCustomer?.id || 'new'} draftScope={createDraftScope} initialGroup={Boolean(createDraftScope?.endsWith('/true'))} open={createOpen} onClose={() => setCreateOpen(false)} onCreated={handleCreated} initialCustomer={createCustomer} clientOptions={clients} companyOptions={companies} />
     </>
   );
 }
