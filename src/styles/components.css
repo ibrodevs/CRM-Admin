@@ -3704,12 +3704,18 @@ button.oc-fact:hover{border-color:#d3dbe8;background:#fff}
 .info-notice-close:hover{background:var(--hover);color:var(--ink)}
 .info-notice-close:focus-visible{outline:2px solid var(--blue);outline-offset:2px}
 
-.quick-add-service{width:100%;max-width:880px;min-width:0;box-sizing:border-box;padding:20px;border:1px solid var(--line);border-radius:16px;background:var(--surface-2);container-type:inline-size}
-.quick-add-service-header{display:flex;align-items:center;gap:12px;margin-bottom:20px}
-.quick-add-service-fields{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px 20px}
+.quick-add-service{width:100%;min-width:0;box-sizing:border-box;padding:18px 20px;border:1px solid var(--line);border-radius:16px;background:var(--surface-2);container-type:inline-size}
+.quick-add-service-fields{display:grid;grid-template-columns:minmax(180px,1.3fr) minmax(170px,1fr) minmax(150px,.8fr) minmax(120px,.7fr) auto;align-items:end;gap:14px}
 .quick-add-service-fields>.field{min-width:0;margin:0}
-.quick-add-service-actions{display:flex;justify-content:flex-start;margin-top:20px;padding-top:16px;border-top:1px solid var(--line)}
-@container(max-width:560px){.quick-add-service-fields{grid-template-columns:1fr}.quick-add-service-actions .btn{width:100%}}
+.quick-add-service-fields>.btn{height:var(--h-control);white-space:nowrap}
+@container(max-width:900px){.quick-add-service-fields{grid-template-columns:repeat(2,minmax(0,1fr))}.quick-add-service-fields>.btn{grid-column:1 / -1;justify-self:end}}
+@container(max-width:480px){.quick-add-service-fields{grid-template-columns:minmax(0,1fr)}.quick-add-service-fields>.btn{width:100%}}
+.calendar-drawer .calendar-picker{border:0;padding:0;background:transparent}
+.calendar-drawer .calendar-picker-header{margin-bottom:20px;gap:10px}
+.calendar-drawer .calendar-picker-header button{height:46px}
+.calendar-drawer .calendar-months{height:min(420px,55dvh)!important;min-height:280px!important;max-height:none!important}
+.calendar-drawer .calendar-months button{min-height:40px}
+.calendar-drawer .calendar-close{margin-top:12px}
 
 .draft-recovery-actions .draft-recovery-open{padding:7px 11px;border-radius:8px;background:var(--blue);color:#fff;white-space:nowrap}
 .draft-recovery-actions .draft-recovery-open:hover{background:var(--blue-hover);color:#fff}

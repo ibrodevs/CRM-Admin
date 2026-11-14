@@ -30,31 +30,33 @@ function DateRangeField({ label, startVal, endVal, onChange, placeholder = 'Вы
   const [open, setOpen] = useState(false);
   const ref = useRef(null);
   const toggle = () => setOpen((current) => !current);
+  const close = () => { setOpen(false); ref.current?.querySelector('button')?.focus(); };
   const start = parseCalendarDate(startVal);
   const end = parseCalendarDate(endVal);
   const display = start ? (end ? `${fmtDate(start)} — ${fmtDate(end)}` : fmtDate(start)) : '';
   return (
     <div ref={ref} style={{ position: 'relative', minWidth: 0, maxWidth: '100%', ...style }}>
       {label && <label className="label" style={{ display: 'block', marginBottom: 7 }}>{label}</label>}
-      <button type="button" aria-label={label || placeholder} aria-expanded={open} aria-invalid={Boolean(error)} className={'input' + (error ? ' err' : '')}
+      <button type="button" aria-label={label || placeholder} aria-haspopup="dialog" aria-expanded={open} aria-invalid={Boolean(error)} className={'input' + (error ? ' err' : '')}
         style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 10, textAlign: 'left', minWidth: 0, maxWidth: '100%' }}
         onClick={toggle}>
         <Icon name="calendar" style={{ width: 18, height: 18, color: 'var(--muted-2)', flexShrink: 0 }} />
         <span title={display || placeholder} style={{ color: display ? 'var(--ink)' : 'var(--faint)', fontSize: 15, flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
           {display || placeholder}
         </span>
+        <Icon name="panelRight" style={{ width: 16, height: 16, color: 'var(--muted-2)', flexShrink: 0 }} />
       </button>
       {open && (
-        <FloatingPanel anchorRef={ref} placement="calendar" width={320} maxHeight={580} closeOnScroll className="calendar-floating" onClose={() => setOpen(false)}>
+        <Drawer open title={label || 'Выбор периода'} width="min(480px,100vw)" className="calendar-drawer" onClose={close}>
           <CalendarPicker mode="range" startVal={startVal || null} endVal={endVal || null}
             autoConfirm={autoConfirm} rangeStartLabel={rangeStartLabel} minDate={minDate} maxDate={maxDate} requireComplete={requireComplete} allowSameDay={allowSameDay}
             onConfirm={(s, e) => {
               if (!dateWithinBounds(s, minDate, maxDate) || (e && !dateWithinBounds(e, minDate, maxDate))) return;
               if (requireComplete && !completeDateRange(s, e, { minDate, maxDate, allowSameDay })) return;
-              onChange(s, e); setOpen(false);
+              onChange(s, e); close();
             }}
-            onClose={() => setOpen(false)} />
-        </FloatingPanel>
+            onClose={close} />
+        </Drawer>
       )}
     </div>
   );

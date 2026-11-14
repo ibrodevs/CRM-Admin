@@ -1966,17 +1966,13 @@ function QuickAddForm({ kind, onAdd, currency, addLabel = 'Добавить в �
   };
   return (
     <div className="quick-add-service">
-      <div className="quick-add-service-header">
-        <span className="oc-svc-ic" style={{ background: k.color }}><Icon name={k.icon} /></span>
-        <div style={{ fontWeight: 700, color: 'var(--ink)', fontSize: 16 }}>{kind}</div>
-      </div>
       <div className="quick-add-service-fields">
         <Field label="Название услуги"><Input value={title} onChange={(e) => setTitle(e.target.value)} placeholder={kind === 'Страховка' ? 'Например, Страховка ВЗР' : 'Название дополнительной услуги'} /></Field>
         <Field label="Поставщик"><Input value={supplier} onChange={(e) => setSupplier(e.target.value)} placeholder="Название поставщика" /></Field>
         <Field label="Дата"><DateField value={date} onChange={setDate} placeholder="Выбрать дату" /></Field>
         <Field label={`Стоимость, ${currency}`}><Input type="number" value={cost} onChange={(e) => setCost(e.target.value)} placeholder="0" /></Field>
+        <Button icon="plus" onClick={submit}>{addLabel}</Button>
       </div>
-      <div className="quick-add-service-actions"><Button icon="plus" onClick={submit}>{addLabel}</Button></div>
     </div>
   );
 }
