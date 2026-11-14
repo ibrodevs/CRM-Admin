@@ -9,8 +9,8 @@ export function PassengerPickerField({ label = 'Пассажиры', title = lab
   const close = () => { setOpen(false); trigger.current?.focus(); };
   return <div className={`av-field passenger-picker-field ${className}`} style={style}>
     {label && <span className="label">{label}</span>}
-    <button ref={trigger} type="button" className={`input passenger-picker-trigger ${triggerClassName}`} aria-label={title} aria-haspopup="dialog" aria-expanded={open} onClick={() => setOpen(true)}>
-      <Icon name="users" /><span title={summary}>{summary}</span><Icon name="chevDown" />
+    <button ref={trigger} type="button" className={`input passenger-picker-trigger ${triggerClassName}`} aria-label={title} title={`Открыть боковую панель: ${title}`} aria-haspopup="dialog" aria-expanded={open} onClick={() => setOpen(true)}>
+      <Icon name="users" /><span title={summary}>{summary}</span><Icon name="panelRight" />
     </button>
     <Drawer open={open} title={title} onClose={close} width="min(620px,100vw)" className="free-booking passenger-picker-panel"
       footer={<Button icon="check" style={{ width: '100%' }} disabled={doneDisabled} onClick={close}>Готово{total != null ? ` · ${total}` : ''}</Button>}>

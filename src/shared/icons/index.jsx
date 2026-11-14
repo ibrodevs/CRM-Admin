@@ -18,6 +18,7 @@ const ICON_PATHS = {
   search: '<circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/>',
   filter: '<path d="M4 6h16M7 12h10M10 18h4"/>',
   chevDown: '<path d="m6 9 6 6 6-6"/>',
+  panelRight: '<rect x="3" y="4" width="18" height="16" rx="2.5"/><path d="M15 4v16M6 12h6m-3-3 3 3-3 3"/>',
   chevRight: '<path d="m9 6 6 6-6 6"/>',
   chevLeft: '<path d="m15 6-6 6 6 6"/>',
   chevUp: '<path d="m6 15 6-6 6 6"/>',
