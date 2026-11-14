@@ -1,3 +1,4 @@
+import { PageActionTarget } from './PageActions.jsx';
 import { Children, cloneElement, isValidElement } from 'react';
 import { translate } from '../preferences/translations.js';
 import { Icon } from '../icons/index.jsx';
@@ -31,6 +32,8 @@ function Topbar({ title, sub, children }) {
           {detailChildren}
         </div>
       ) : children}
+
+      {!isDetail && <PageActionTarget />}
 
       {isDetail && <style jsx global>{`
         .entity-detail-topbar {

@@ -1,3 +1,4 @@
+import { PageActionProvider, PageActions } from '../../../shared/ui/PageActions.jsx';
 import { SearchToolbar } from '../../../shared/ui/SearchToolbar.jsx';
 import { Statistics, Statistic } from '../../../shared/ui/Statistics.jsx';
 import { SectionInfo } from '../../../shared/ui/SectionInfo.jsx';
@@ -623,12 +624,13 @@ function FinPayments({ payments = [], obligations = [], onPaymentCreated, onPaym
     && (!ql || [p.no, p.party, p.purpose, p.order].some((v) => String(v || '').toLowerCase().includes(ql))));
   return (
     <div className="fade-in fin-view">
+      <PageActions><Button icon="plus" onClick={() => setCreating(true)}>Новый платёж</Button></PageActions>
       <SearchToolbar>
         <Tabs tabs={[{ key: 'all', label: 'Все' }, { key: 'in', label: 'Входящие' }, { key: 'out', label: 'Исходящие' }]} value={dir} onChange={setDir} />
         <SearchBox value={q} onChange={setQ} placeholder="Поиск: №, контрагент, заказ, назначение" style={{ flex: '1 1 260px', minWidth: 0 }} />
 
         <FilterChip label="Статус" value={status} onChange={setStatus} options={Object.keys(FIN_PAY_STATUS)} />
-        <Button icon="plus" onClick={() => setCreating(true)}>Новый платёж</Button>
+
       </SearchToolbar>
       {!list.length ? <EmptyState icon="finance" title="Платежей не найдено" /> : <div className="table-card fin-table-wrap">
         <table className="tbl fin-payments-table">
@@ -1247,7 +1249,7 @@ function FinancePage({ overview, clients = [], companies = [], suppliers = [], o
   };
 
   return (
-    <>
+    <PageActionProvider>
       <Topbar title="Финансы" sub="Счета, платежи и финансовые обязательства" />
       <div className="content finance-page">
         <div className="fin-toolbar">
@@ -1268,7 +1270,7 @@ function FinancePage({ overview, clients = [], companies = [], suppliers = [], o
         </section>
         <SectionInfo section="finance" />
       </div>
-    </>
+    </PageActionProvider>
   );
 }
 

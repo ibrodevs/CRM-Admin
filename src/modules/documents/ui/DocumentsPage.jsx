@@ -1,3 +1,4 @@
+import { PageActionProvider, PageActions } from '../../../shared/ui/PageActions.jsx';
 import { serviceSummary } from '../../../shared/lib/service-presentation.js';
 import { SectionInfo } from '../../../shared/ui/SectionInfo.jsx';
 import React from 'react';
@@ -672,10 +673,11 @@ function DocCenter({ scopeOrder, participants, services, onOpenDoc, initialDocum
 
   return (
     <div className="fade-in">
+      <PageActions><Button icon="plus" onClick={() => setUploadFor({})}>Загрузить</Button></PageActions>
       <SearchToolbar className="documents-toolbar" label="Поиск и фильтры документов">
         <SearchBox value={q} onChange={setQ} placeholder={view === 'byType' ? 'Поиск документа…' : 'Поиск пассажира или документа…'} />
         <Select aria-label="Статус документов" value={fStatus} onChange={(event) => setFStatus(event.target.value)} options={[{ value: '', label: 'Все статусы' }, ...Object.keys(DOC_STATUS2).map((status) => ({ value: status, label: status }))]} />
-        <Button icon="plus" onClick={() => setUploadFor({})}>Загрузить</Button>
+
       </SearchToolbar>
 
       <div className={scopeOrder ? 'order-document-workspace' : 'documents-content section-workspace'}>
@@ -1080,9 +1082,9 @@ export function ServiceBlanksPanel({
 }
 
 function DocCenterPage({ documents = [], orders = [] }) {
-  return (<><Topbar title="Документы" /><div className="content"><DocCenter initialDocuments={documents} orders={orders} />
+  return (<PageActionProvider><Topbar title="Документы" /><div className="content"><DocCenter initialDocuments={documents} orders={orders} />
         <SectionInfo section="documents" />
-      </div></>);
+      </div></PageActionProvider>);
 }
 
 export { companyForDoc, DOC_BOOKKEEPING, now, DOC_ORIGIN, docOrigin, docOriginShort, DocOriginPill, docSetKey, docSetTitle, groupDocSets, DocPreviewModal, DocCard, DocSetCard, DocServiceGroup, DocPassengerGroup, correctionSubjects, DOC_UPLOAD_TYPES, DocUploadModal, DocCenter, SERVICE_RECEIPT_DOC_TYPES, DocCenterPage };

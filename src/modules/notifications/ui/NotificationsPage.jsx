@@ -1,3 +1,4 @@
+import { PageActionProvider, PageActions } from '../../../shared/ui/PageActions.jsx';
 import { RegistryStats } from '../../../shared/ui/RegistryStats.jsx';
 import { SearchToolbar } from '../../../shared/ui/SearchToolbar.jsx';
 import { SectionInfo } from '../../../shared/ui/SectionInfo.jsx';
@@ -257,13 +258,12 @@ function NotificationsCenter({ notifications = [], orders = [], onChange, onNavi
         <FilterChip label="Источник" value={fSource} onChange={setFSource} options={Object.keys(NOTIF_SOURCE)} />
       </SearchToolbar>
 
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
+      <PageActions>
         <Button variant="secondary" size="sm" icon="check" onClick={async () => { try { await notificationsApi.readAll(); commit((l) => l.map((n) => ({ ...n, read: true }))); toast('Все отмечены прочитанными', 'ok'); } catch (error) { toast(error.message, 'err'); } }}>Прочитать все</Button>
         <Button variant="secondary" size="sm" icon="trash" onClick={async () => { try { await notificationsApi.dismissRead(); commit((l) => l.filter((n) => !n.read || n.pinned)); toast('Прочитанные закрыты', 'ok'); } catch (error) { toast(error.message, 'err'); } }}>Закрыть прочитанные</Button>
-        <div style={{ flex: 1 }} />
         <Button variant="secondary" size="sm" icon="api" onClick={() => openCode('')}>Коды ошибок</Button>
         <Button variant="secondary" size="sm" icon="settings" onClick={() => setSetOpen(true)}>Настройки</Button>
-      </div>
+      </PageActions>
 
       <section className="section-workspace notification-workspace" aria-label="Список уведомлений">
       {rows.length ? rows.map((n) => (
@@ -278,9 +278,9 @@ function NotificationsCenter({ notifications = [], orders = [], onChange, onNavi
 }
 
 function NotificationsPage({ notifications, orders, onChange, onNavigate, onOpenOrder }) {
-  return (<><Topbar title="Уведомления" /><div className="content"><NotificationsCenter notifications={notifications} orders={orders} onChange={onChange} onNavigate={onNavigate} onOpenOrder={onOpenOrder} />
+  return (<PageActionProvider><Topbar title="Уведомления" /><div className="content"><NotificationsCenter notifications={notifications} orders={orders} onChange={onChange} onNavigate={onNavigate} onOpenOrder={onOpenOrder} />
         <SectionInfo section="notifications" />
-      </div></>);
+      </div></PageActionProvider>);
 }
 
 

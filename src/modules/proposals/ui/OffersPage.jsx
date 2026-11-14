@@ -1,3 +1,4 @@
+import { PageActionProvider, PageActions } from '../../../shared/ui/PageActions.jsx';
 import { RegistryStats } from '../../../shared/ui/RegistryStats.jsx';
 import { SearchToolbar } from '../../../shared/ui/SearchToolbar.jsx';
 import { SectionInfo } from '../../../shared/ui/SectionInfo.jsx';
@@ -1598,11 +1599,12 @@ function OffersRegistry({ onOpenOrder, intent, onConsume, initialProposals = [],
       <RegistryStats><div className="grid-4" style={{ marginBottom: 22 }}>
         {STATS.map(([l, v]) => (<div className="stat-card" key={l}><div className="s-label">{l}</div><div className="s-value">{v}</div></div>))}
       </div></RegistryStats>
+      <PageActions><Button icon="plus" onClick={() => setCreateOpen(true)}>Создать КП</Button></PageActions>
       <SearchToolbar>
         <SearchBox value={q} onChange={setQ} placeholder="Поиск: № КП, клиент, заказ…" style={{ width: 300 }} />
         <FilterChip label="Статус" value={fStatus} onChange={setFStatus} options={KP_STATUS_FLOW} />
         <div style={{ flex: 1 }} />
-        <Button icon="plus" onClick={() => setCreateOpen(true)}>Создать КП</Button>
+
       </SearchToolbar>
       <section className="section-workspace" aria-label="Рабочая область списка"><div className="table-card">
         {rows.length ? (
@@ -1675,12 +1677,12 @@ function OffersRegistry({ onOpenOrder, intent, onConsume, initialProposals = [],
 
 function OffersPage({ onOpenOrder, intent, onConsume, proposals = [], orders = [], onChanged }) {
   return (
-    <>
+    <PageActionProvider>
       <Topbar title="Коммерческие предложения" />
       <div className="content"><OffersRegistry initialProposals={proposals} orders={orders} onOpenOrder={onOpenOrder} intent={intent} onConsume={onConsume} onChanged={onChanged} />
         <SectionInfo section="offers" />
       </div>
-    </>
+    </PageActionProvider>
   );
 }
 

@@ -483,7 +483,7 @@ function UsersTab({ onAdd, users = [], onUsersChange }) {
     <div className="fade-in">
       <div style={{ display: 'flex', alignItems: 'center', marginBottom: 16 }}>
         <span style={{ color: 'var(--muted)', fontSize: 14 }}>{liveUsers.length} {t("пользователей")}</span>
-        <div style={{ flex: 1 }} /><Button icon="plus" onClick={onAdd}>{t("Добавить пользователя")}</Button>
+
       </div>
       <div className="table-card">
         <table className="tbl">
@@ -622,7 +622,7 @@ function SettingsPage({ users = [], onUsersChange }) {
   const TABS = [...(canUsers ? [{ key: 'users', label: 'Пользователи', count: users.length }] : []), { key: 'roles', label: 'Роли и права' }, { key: 'params', label: 'Параметры системы' }];
   return (
     <div className="fade-in">
-      <Topbar title={t("Настройки")} />
+      <Topbar title={t("Настройки")}><div className="topbar-spacer" />{tab === 'users' && canUsers && <Button icon="plus" onClick={() => setModal('adduser')}>{t("Добавить пользователя")}</Button>}</Topbar>
       <div className="content">
         <div style={{ marginBottom: 20 }}><Tabs tabs={TABS} value={tab} onChange={setTab} /></div>
         <section className="section-workspace" aria-label="Рабочая область настроек">

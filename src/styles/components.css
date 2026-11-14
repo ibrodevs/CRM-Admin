@@ -3753,3 +3753,10 @@ button.oc-fact:hover{border-color:#d3dbe8;background:#fff}
 .registry-assignment button:focus-visible{outline:2px solid var(--blue);outline-offset:2px}
 .registry-assignment button span{font-size:12px;font-variant-numeric:tabular-nums}
 .registry-found{color:var(--muted);font-size:12px;white-space:nowrap}
+
+.page-action-target{margin-left:auto;min-width:0;max-width:100%}
+.page-action-target:empty{display:none}
+.page-header-actions{display:flex;align-items:center;justify-content:flex-end;gap:10px;flex-wrap:wrap;min-width:0}
+.page-header-actions>.btn{white-space:nowrap}
+.content .page-header-actions{margin-bottom:16px}
+@media(max-width:760px){.topbar:has(.page-action-target:not(:empty)){flex-wrap:wrap;row-gap:12px}.page-action-target{flex:1 1 100%}.page-header-actions{justify-content:flex-end}}

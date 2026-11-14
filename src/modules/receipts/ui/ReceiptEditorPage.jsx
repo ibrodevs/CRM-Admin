@@ -4468,6 +4468,10 @@ function ReceiptEditorPage({ documents = [], orders = [], services = [], compani
     <>
       <Topbar title="Редактор квитанций">
         <div className="topbar-spacer" />
+        <Button icon="download" onClick={() => {
+          setResumeImportDraftId(null);
+          setImporting(true);
+        }}>Импорт документов</Button>
       </Topbar>
       <div className="content">
         <div className="fade-in">
@@ -4480,10 +4484,7 @@ function ReceiptEditorPage({ documents = [], orders = [], services = [], compani
               <button type="button" className={'seg-btn' + (registryView === 'drafts' ? ' active' : '')}
                 onClick={() => setRegistryView('drafts')}>Черновики ({registryDraftCount + importDrafts.length})</button>
             </div>
-            <Button icon="download" onClick={() => {
-              setResumeImportDraftId(null);
-              setImporting(true);
-            }}>Импорт документов</Button>
+
           </SearchToolbar>
 
           {registryView === 'drafts' && importDrafts.map((draft) => (

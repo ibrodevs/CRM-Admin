@@ -1,3 +1,4 @@
+import { PageActionProvider, PageActions } from '../../../shared/ui/PageActions.jsx';
 import { RegistryStats } from '../../../shared/ui/RegistryStats.jsx';
 import { SearchToolbar } from '../../../shared/ui/SearchToolbar.jsx';
 import { ReturnQuoteDrawer } from './ReturnQuoteDrawer.jsx';
@@ -680,12 +681,13 @@ function ReturnsModule({ scopeOrder, onOpenOrder, compact, order, initialCases, 
       <RegistryStats><div className="grid-4" style={{ marginBottom: 22 }}>
         {STATS.map(([l, v]) => (<div className="stat-card" key={l}><div className="s-label">{l}</div><div className="s-value">{v}</div></div>))}
       </div></RegistryStats>
+      <PageActions><Button icon="plus" onClick={() => setNewOpen(true)}>Новый запрос</Button></PageActions>
       <SearchToolbar>
         <SearchBox value={q} onChange={setQ} placeholder="Поиск: №, заказ, клиент…" style={{ width: 260 }} />
         <FilterChip label="Тип" value={fType} onChange={setFType} options={Object.keys(RETURN_TYPE)} />
         <FilterChip label="Статус" value={fStatus} onChange={setFStatus} options={Object.keys(RETURN_STATUS)} />
         <div style={{ flex: 1 }} />
-        <Button icon="plus" onClick={() => setNewOpen(true)}>Новый запрос</Button>
+
       </SearchToolbar>
 
       {sel.length > 0 && (
@@ -741,9 +743,9 @@ function ReturnsModule({ scopeOrder, onOpenOrder, compact, order, initialCases, 
 }
 
 function ReturnsPage({ onOpenOrder, cases = [], orders = [] }) {
-  return (<><Topbar title="Возвраты и обмены" /><div className="content"><ReturnsModule initialCases={cases} orders={orders} onOpenOrder={onOpenOrder} />
+  return (<PageActionProvider><Topbar title="Возвраты и обмены" /><div className="content"><ReturnsModule initialCases={cases} orders={orders} onOpenOrder={onOpenOrder} />
         <SectionInfo section="returns" />
-      </div></>);
+      </div></PageActionProvider>);
 }
 
 Object.assign(window, { ReturnsModule, ReturnCard, ReturnsPage, NewReturnModal, ProcessFlow });

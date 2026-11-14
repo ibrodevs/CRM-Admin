@@ -920,12 +920,12 @@ function GroupsPage({ onOpenOrder }) {
   };
   return (
     <>
-      <Topbar title="Групповые бронирования" sub="Те же заказы — карточка как у обычного, отличаются только вкладки" />
+      <Topbar title="Групповые бронирования" sub="Те же заказы — карточка как у обычного, отличаются только вкладки"><div className="topbar-spacer" /><Button icon="plus" onClick={() => setCreate(true)}>Создать групповой заказ</Button></Topbar>
       <div className="content">
         <div style={{ display: 'flex', alignItems: 'center', marginBottom: 16 }}>
           <div style={{ fontSize: 13, color: 'var(--muted)' }}>Основной групповой заказ = одна поездка, один состав, одна финсводка. Различие — только в способе оформления у поставщика.</div>
           <div style={{ flex: 1 }} />
-          <Button icon="plus" onClick={() => setCreate(true)}>Создать групповой заказ</Button>
+
         </div>
         <div className="section-workspace" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(min(100%, 420px),1fr))', gap: 14 }}>
           {orders.map((o) => {
