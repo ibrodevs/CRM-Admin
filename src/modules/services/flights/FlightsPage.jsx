@@ -92,7 +92,7 @@ function AirportField({ label, value, onChange, placeholder = 'Город или
           placeholder={placeholder} style={{ flex: 1, minWidth: 0, width: '100%', border: 0, outline: 0, background: 'transparent', color: 'var(--ink)', font: 'inherit', padding: 0 }} />
       </div>
       {open && (
-        <FloatingPanel anchorRef={ref} onClose={() => setOpen(false)} className="dropdown scroll" minWidth={340} maxHeight={360} style={{ padding: 8 }}>
+        <FloatingPanel anchorRef={ref} placement="bottom" onClose={() => setOpen(false)} className="dropdown scroll" minWidth={340} maxHeight={360} style={{ padding: 8 }}>
           {list.map((a) => (
             <div key={a.value} className="dropdown-item" onClick={() => { onChange(a.value); setOpen(false); setQ(''); }}>
               <span style={{ width: 34, fontWeight: 700, color: 'var(--blue)' }}>{a.code}</span>

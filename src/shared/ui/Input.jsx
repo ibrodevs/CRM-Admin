@@ -198,7 +198,7 @@ function LocationAutocomplete(props) {
       ) : inputElement}
 
       {open && hasTyped && text.trim().length >= 2 && (
-        <FloatingPanel anchorRef={rootRef} minWidth={360} onClose={() => setOpen(false)} className="location-autocomplete-menu" role="listbox">
+        <FloatingPanel anchorRef={rootRef} placement="bottom" minWidth={360} onClose={() => setOpen(false)} className="location-autocomplete-menu" role="listbox">
           {loading && (
             <div className="location-autocomplete-status"><Icon name="loader" />{locationScope === 'hotel' ? 'Подбираем отели…' : 'Подбираем города и локации…'}</div>
           )}

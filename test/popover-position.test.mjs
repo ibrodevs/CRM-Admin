@@ -49,3 +49,14 @@ test('async results stay below the field when that side has more space', () => {
     assert.equal(position.maxHeight, 306);
   }
 });
+
+test('city suggestions open below the field and scroll instead of flipping upward as results grow', () => {
+  const anchor = { left: 340, right: 650, top: 450, bottom: 510 };
+  const viewport = { width: 1024, height: 768 };
+  for (const contentHeight of [40, 120, 360, 80]) {
+    const position = popoverPosition(anchor, { width: 340, height: 360, contentHeight }, viewport, { placement: 'bottom' });
+    assert.equal(position.top, 516);
+    assert.equal(position.maxHeight, 244);
+    assert.ok(position.top + position.maxHeight <= viewport.height - 8);
+  }
+});

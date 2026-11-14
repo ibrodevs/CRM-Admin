@@ -18,7 +18,7 @@ export function containsFloatingTarget(root, target) {
   return false;
 }
 
-export function FloatingPanel({ anchorRef, panelRef, onClose, children, width, minWidth = 0, maxHeight = 360, align = 'start', closeOnScroll = false, className = '', style, ...props }) {
+export function FloatingPanel({ anchorRef, panelRef, onClose, children, width, minWidth = 0, maxHeight = 360, align = 'start', placement = 'auto', closeOnScroll = false, className = '', style, ...props }) {
   const ref = useRef(null);
   const [position, setPosition] = useState(null);
   const closeRef = useRef(onClose);
@@ -38,7 +38,7 @@ export function FloatingPanel({ anchorRef, panelRef, onClose, children, width, m
       // bounds already use viewport pixels; measuring scale from our own rounded
       // offsetWidth feeds fractional sizing changes back into the next layout.
       const contentHeight = panel.scrollHeight + panel.offsetHeight - panel.clientHeight;
-      const next = popoverPosition(a, { width: Math.max(width || a.width, minWidth), height: maxHeight, contentHeight }, { width: window.innerWidth, height: window.innerHeight }, { align });
+      const next = popoverPosition(a, { width: Math.max(width || a.width, minWidth), height: maxHeight, contentHeight }, { width: window.innerWidth, height: window.innerHeight }, { align, placement });
       setPosition((previous) => previous && Object.keys(next).every((key) => Math.abs(previous[key] - next[key]) < 0.5) ? previous : next);
     };
     const outside = (event) => {
@@ -63,7 +63,7 @@ export function FloatingPanel({ anchorRef, panelRef, onClose, children, width, m
       window.removeEventListener('resize', update);
       window.removeEventListener('scroll', scroll, true);
     };
-  }, [anchorRef, width, minWidth, maxHeight, align, closeOnScroll]);
+  }, [anchorRef, width, minWidth, maxHeight, align, placement, closeOnScroll]);
   if (typeof document === 'undefined') return null;
   return createPortal(<div {...props} ref={(node) => { ref.current = node; if (panelRef) panelRef.current = node; }} className={'floating-panel ' + className} style={{ ...style, position: 'fixed', right: 'auto', bottom: 'auto', margin: 0, ...position, visibility: position ? 'visible' : 'hidden', zIndex: 10000 }}>{children}</div>, document.body);
 }
