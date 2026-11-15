@@ -10,7 +10,7 @@ import { useOverlayLayer, useOverlayZIndex } from '../../../shared/ui/Overlays.j
 const PanelVisibilityContext = createContext(true);
 export function usePanelVisibility() { return useContext(PanelVisibilityContext); }
 
-function StackPanel({ open = true, title, onClose, footer, children, width, compact = false, className = '', closeOnBackdrop = false }) {
+function StackPanel({ open = true, title, onClose, footer, children, width, compact = false, className = '', closeOnBackdrop = false, showDraftNotice = true }) {
   // Панель участвует в общем стеке оверлеев: Escape закрывает только верхний
   // слой, а z-index ставит открытый изнутри Drawer поверх этой панели.
   const visible = usePanelVisibility() && open;
@@ -34,7 +34,7 @@ function StackPanel({ open = true, title, onClose, footer, children, width, comp
           <h3 style={{ fontSize: 18, fontWeight: 700, color: 'var(--ink)', margin: 0 }}>{title}</h3>
           <button type="button" className="modal-close" onClick={onClose} aria-label="Закрыть панель"><Icon name="x" /></button>
         </div>
-        <div className="drawer-stack-body" style={{ padding: '20px 26px', flex: 1 }}><DraftNoticeSlot active={visible} priority={zIndex} />{children}</div>
+        <div className="drawer-stack-body" style={{ padding: '20px 26px', flex: 1 }}>{showDraftNotice && <DraftNoticeSlot active={visible} priority={zIndex} />}{children}</div>
         {footer && <div className="drawer-stack-footer" style={{ padding: '14px 26px', borderTop: '1px solid var(--line)', position: 'sticky', bottom: 0, background: 'var(--surface)', display: 'flex', gap: 10 }}>{footer}</div>}
       </div>
     </div>

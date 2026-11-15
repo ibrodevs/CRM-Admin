@@ -1806,7 +1806,7 @@ function AviaPaxPanel({ params, setParams, participants = [], groups, onClose })
   })();
 
   return (
-    <StackPanel title="Пассажиры и класс" width="min(620px,95vw)" onClose={onClose}
+    <StackPanel showDraftNotice={false} title="Пассажиры и класс" width="min(620px,95vw)" onClose={onClose}
       footer={<Button style={{ width: '100%' }} icon="check" onClick={onClose}>Готово · {total} {plural(total)}</Button>}>
 
       <PaxClassPicker pax={pax} setPax={(v) => set({ pax: v })} cabin={p.cabin} setCabin={(v) => set({ cabin: v })}

@@ -12,7 +12,7 @@ export function PassengerPickerField({ label = 'Пассажиры', title = lab
     <button ref={trigger} type="button" className={`input passenger-picker-trigger ${triggerClassName}`} aria-label={title} title={`Открыть боковую панель: ${title}`} aria-haspopup="dialog" aria-expanded={open} onClick={() => setOpen(true)}>
       <Icon name="users" /><span title={summary}>{summary}</span><Icon name="chevRight" />
     </button>
-    <Drawer open={open} title={title} onClose={close} width="min(620px,100vw)" className="free-booking passenger-picker-panel"
+    <Drawer open={open} title={title} onClose={close} width="min(620px,100vw)" className="free-booking passenger-picker-panel" showDraftNotice={false}
       footer={<Button icon="check" style={{ width: '100%' }} disabled={doneDisabled} onClick={close}>Готово{total != null ? ` · ${total}` : ''}</Button>}>
       <div className="passenger-picker-content">{children}</div>
     </Drawer>

@@ -47,7 +47,7 @@ function DateRangeField({ label, startVal, endVal, onChange, placeholder = 'Вы
         <Icon name="chevRight" style={{ width: 16, height: 16, color: 'var(--muted-2)', flexShrink: 0 }} />
       </button>
       {open && (
-        <Drawer open title={label || 'Выбор периода'} width="min(480px,100vw)" className="calendar-drawer" onClose={close}>
+        <Drawer open title={label || 'Выбор периода'} width="min(480px,100vw)" className="calendar-drawer" showDraftNotice={false} onClose={close}>
           <CalendarPicker mode="range" startVal={startVal || null} endVal={endVal || null}
             autoConfirm={autoConfirm} rangeStartLabel={rangeStartLabel} minDate={minDate} maxDate={maxDate} requireComplete={requireComplete} allowSameDay={allowSameDay}
             onConfirm={(s, e) => {

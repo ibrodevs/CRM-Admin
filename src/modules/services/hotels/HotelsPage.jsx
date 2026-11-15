@@ -884,7 +884,7 @@ function PaxPlacementPanel({ hotel, room, tariff, pax, nights, checkin, checkout
   };
   const total = tariff.price;
   return (
-    <StackPanel title="Пассажиры и размещение" width="min(1180px,96vw)" onClose={onClose}
+    <StackPanel showDraftNotice={false} title="Пассажиры и размещение" width="min(1180px,96vw)" onClose={onClose}
       footer={<>
         <Button variant="secondary" icon="chevLeft" onClick={onBack}>Назад</Button>
         <div style={{ flex: 1 }} />

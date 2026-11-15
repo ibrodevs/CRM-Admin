@@ -24,7 +24,7 @@ export function DateField({ label, id, 'aria-label': ariaLabel, value, onChange,
       <Icon name="chevRight" style={{ width: 16, height: 16, color: 'var(--muted-2)' }} />
     </button>
     {error && <div className="err-text"><Icon name="alertCircle" style={{ width: 14, height: 14 }} />{error}</div>}
-    {open && <Drawer open title={label || 'Выбор даты'} width="min(480px,100vw)" className="calendar-drawer" onClose={close}>
+    {open && <Drawer open title={label || 'Выбор даты'} width="min(480px,100vw)" className="calendar-drawer" showDraftNotice={false} onClose={close}>
       <CalendarPicker mode="single" startVal={parsed} minDate={minDate} maxDate={maxDate} autoConfirm={autoConfirm} onConfirm={choose} onClose={close} />
     </Drawer>}
   </div>;

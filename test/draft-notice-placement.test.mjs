@@ -64,3 +64,22 @@ test('account navigation drawer does not capture saved booking forms', () => {
   } });
   assert.equal(found, true);
 });
+
+test('calendar and passenger pickers do not become targets for the workspace draft banner', () => {
+  const paths = ['src/shared/ui/CalendarField.jsx', 'src/shared/ui/DateFields.jsx', 'src/modules/services/search/PassengerPickerField.jsx', 'src/modules/orders/ui/OrderCard.jsx', 'src/modules/services/hotels/HotelsPage.jsx'];
+  let pickers = 0;
+  for (const file of paths) {
+    const source = readFileSync(new URL('../' + file, import.meta.url), 'utf8');
+    const ast = babel.parseSync(source, { filename: file, presets: ['next/babel'], configFile: false, babelrc: false });
+    babel.traverse(ast, { JSXOpeningElement(path) {
+      if (!['Drawer', 'StackPanel'].includes(path.node.name.name)) return;
+      const attrs = path.node.attributes;
+      const className = attrs.find((a) => a.name?.name === 'className')?.value?.value || '';
+      const title = attrs.find((a) => a.name?.name === 'title')?.value?.value || '';
+      if (!/calendar-drawer|passenger-picker-panel/.test(className) && !['Пассажиры и класс', 'Пассажиры и размещение'].includes(title)) return;
+      pickers++;
+      assert.equal(attrs.find((a) => a.name?.name === 'showDraftNotice')?.value?.expression?.value, false, file);
+    } });
+  }
+  assert.equal(pickers, 5, 'single/range calendars, shared passenger picker and order/hotel placement panels');
+});
