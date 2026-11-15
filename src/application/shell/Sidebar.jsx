@@ -101,7 +101,6 @@ function ProfileCard({ user, onLogout, onNavigate, collapsed }) {
       <div className="account-panel-person"><Avatar src={profile.avatar} name={profile.name} size={64} /><div><strong>{profile.name}</strong><span>{profile.role}</span>{profile.email && <span>{profile.email}</span>}</div></div>
       <div className="account-panel-actions">
         <button type="button" className="btn btn-secondary" onClick={() => go('profile')}><Icon name="user" />Мой профиль<Icon name="chevRight" /></button>
-        <button type="button" className="btn btn-secondary" onClick={() => go('account')}><Icon name="settings" />Настройки аккаунта<Icon name="chevRight" /></button>
         <button type="button" className="btn btn-secondary" onClick={toggleTheme}><Icon name={theme === 'dark' ? 'sun' : 'moon'} />{theme === 'dark' ? 'Светлая тема' : 'Тёмная тема'}</button>
         <button type="button" className="btn btn-secondary account-panel-logout" onClick={() => { setOpen(false); onLogout?.(); }}><Icon name="logout" />Выйти из аккаунта</button>
       </div>
