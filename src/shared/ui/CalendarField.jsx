@@ -21,7 +21,7 @@ export function DateField({ label, id, 'aria-label': ariaLabel, value, onChange,
       style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 10, textAlign: 'left', ...triggerProps.style }} disabled={triggerProps.disabled || triggerProps.readOnly} onClick={() => setOpen((current) => !current)}>
       <Icon name="calendar" style={{ width: 18, height: 18, color: 'var(--muted-2)', flexShrink: 0 }} />
       <span style={{ color: parsed ? 'var(--ink)' : 'var(--faint)', fontSize: 15, flex: 1 }}>{parsed ? formatValue(parsed) : placeholder}</span>
-      <Icon name="panelRight" style={{ width: 16, height: 16, color: 'var(--muted-2)' }} />
+      <Icon name="chevRight" style={{ width: 16, height: 16, color: 'var(--muted-2)' }} />
     </button>
     {error && <div className="err-text"><Icon name="alertCircle" style={{ width: 14, height: 14 }} />{error}</div>}
     {open && <Drawer open title={label || 'Выбор даты'} width="min(480px,100vw)" className="calendar-drawer" onClose={close}>

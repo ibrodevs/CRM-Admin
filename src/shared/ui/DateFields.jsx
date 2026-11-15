@@ -44,7 +44,7 @@ function DateRangeField({ label, startVal, endVal, onChange, placeholder = 'Вы
         <span title={display || placeholder} style={{ color: display ? 'var(--ink)' : 'var(--faint)', fontSize: 15, flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
           {display || placeholder}
         </span>
-        <Icon name="panelRight" style={{ width: 16, height: 16, color: 'var(--muted-2)', flexShrink: 0 }} />
+        <Icon name="chevRight" style={{ width: 16, height: 16, color: 'var(--muted-2)', flexShrink: 0 }} />
       </button>
       {open && (
         <Drawer open title={label || 'Выбор периода'} width="min(480px,100vw)" className="calendar-drawer" onClose={close}>
