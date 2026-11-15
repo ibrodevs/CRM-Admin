@@ -1,3 +1,4 @@
+import { RegistryStats } from '../../../shared/ui/RegistryStats.jsx';
 import { SearchToolbar } from '../../../shared/ui/SearchToolbar.jsx';
 import { Statistics, Statistic } from '../../../shared/ui/Statistics.jsx';
 import React from 'react';
@@ -170,9 +171,9 @@ function FinanceRegistry({ scopeOrder, onOpenOp, initialOps }) {
   return (
     <div className="fade-in">
       {!scopeOrder && (
-        <div className="grid-4" style={{ marginBottom: 22 }}>
+        <RegistryStats><div className="grid-4" style={{ marginBottom: 22 }}>
           {STATS.map((s) => (<div className="stat-card" key={s.l}><div className="s-label">{s.l}</div><div className="s-value" style={s.tone === 'red' ? { color: 'var(--red)' } : s.tone === 'teal' ? { color: 'var(--teal)' } : null}>{s.v}</div></div>))}
-        </div>
+        </div></RegistryStats>
       )}
       {scopeOrder && (() => {
 
