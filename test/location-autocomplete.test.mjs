@@ -20,7 +20,8 @@ test('global Input enables autocomplete for city and location contexts', async (
 test('hotel and generic service fields are covered by shared Input detection', async () => {
   const hotel = await readFile(hotelUrl, 'utf8');
   const services = await readFile(servicesUrl, 'utf8');
-  assert.match(hotel, /placeholder="Название отеля, город, адрес/);
+  assert.match(hotel, /<Input locationScope="hotel"/);
+  assert.match(hotel, /aria-label="Локация или отель"/);
   assert.match(services, /placeholder=\{f\.l\}/);
   assert.match(services, /l: 'Город'/);
   assert.match(services, /l: 'Откуда'/);

@@ -2175,14 +2175,14 @@ table.tbl.tbl-wide thead th,table.tbl.tbl-wide tbody td{white-space:nowrap}
 .pxh-item:hover{box-shadow:var(--shadow-card)}
 .pxh-ic{flex-shrink:0;width:36px;height:36px;border-radius:10px;background:var(--blue-soft);color:var(--blue);display:flex;align-items:center;justify-content:center}
 .hp-root{display:flex;flex-direction:column;gap:16px}
-.hp-searchbar{background:#fff;border:1px solid var(--line);border-radius:var(--r-card);box-shadow:var(--shadow-card);padding:16px 18px;display:flex;flex-direction:column;gap:14px}
-.hp-search-row{display:flex;align-items:flex-end;gap:12px;flex-wrap:wrap}
-.hp-search-row-2{align-items:flex-end}
+.hp-searchbar{display:flex;flex-direction:column;align-items:stretch;gap:14px}
+.hp-search-row{display:flex;align-items:flex-end;gap:14px;flex-wrap:wrap}
+.hp-search-row-2{align-items:flex-end;padding-top:14px;border-top:1px solid var(--line)}
 .hp-search-row-2 .hp-inline-check{height:var(--h-control)}
 .hp-search-row-2 .hp-meal-tabs{height:var(--h-control);align-items:center}
 .hp-search-row-2 .hp-meal-tab{height:var(--h-control)}
-.hp-field{display:flex;flex-direction:column;gap:6px;position:relative}
-.hp-flabel{font-size:12px;font-weight:600;color:var(--muted)}
+.hp-field{display:flex;flex-direction:column;gap:7px;position:relative;max-width:100%}
+.hp-flabel{font-size:13px;font-weight:600;color:var(--muted)}
 .hp-field-dest{flex:1;min-width:260px}
 .hp-field-radius{min-width:150px}
 .hp-fhint{position:absolute;top:100%;left:0;margin-top:5px;font-size:11px;color:var(--muted-2);white-space:nowrap;pointer-events:none}

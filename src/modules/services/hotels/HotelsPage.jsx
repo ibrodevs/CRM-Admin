@@ -555,13 +555,12 @@ function HotelPicker({ participants, group = false, onApply, onCancel, currency,
   return (
     <div className="fade-in hp-root">
 
-      <div className="hp-searchbar">
+      <div className="av-bar hp-searchbar">
         {searchError && dateError && <InfoNotice icon="calendar" tone={searchError ? 'error' : 'info'} role={searchError ? 'alert' : 'status'}>{dateError === 'Выберите даты заезда и выезда' ? 'Выберите даты заезда и выезда для поиска свободных номеров.' : dateError}</InfoNotice>}
-        <div className="hp-search-row" style={{ rowGap: 26, marginBottom: 6 }}>
-          <div className="hp-field hp-field-dest">
+        <div className="hp-search-row">
+          <div className="hp-field hp-field-dest" title="Поиск по названию отеля, городу, адресу, организации или достопримечательности">
             <span className="hp-flabel">Локация или отель</span>
-            <Input locationScope="hotel" value={dest} onChange={(e) => { setDest(e.target.value); setDestLocation(e.target.location || null); }} placeholder="Название отеля, город, адрес, организация или достопримечательность" leadIcon="mapPin" />
-            <span className="hp-fhint">Название отеля, адрес, организация, достопримечательность или точка на карте</span>
+            <Input locationScope="hotel" value={dest} onChange={(e) => { setDest(e.target.value); setDestLocation(e.target.location || null); }} aria-label="Локация или отель" placeholder="Город, отель или адрес" leadIcon="mapPin" />
           </div>
           <div className="hp-field hp-field-radius">
             <span className="hp-flabel">Радиус</span>
@@ -580,11 +579,11 @@ function HotelPicker({ participants, group = false, onApply, onCancel, currency,
         </div>
 
         <div className="hp-search-row hp-search-row-2">
-          <div className="hp-meal-tabs">
+          <div className="hp-field hp-field-meal"><span className="hp-flabel">Питание</span><div className="hp-meal-tabs">
             {HOTEL_MEALS.map((m) => (
               <button key={m.id} className={'hp-meal-tab' + (meal === m.id ? ' active' : '')} onClick={() => setMeal(m.id)} title={m.full}>{m.label}</button>
             ))}
-          </div>
+          </div></div>
           <label className="hp-field hp-field-stay-time">
             <span className="hp-flabel">Ранний заезд</span>
             <Select aria-label="Ранний заезд" options={HP_STAY_TIME_OPTIONS} value={earlyArrivalTime} disabled={searching || openingHotel} onChange={(event) => { setEarlyArrivalTime(event.target.value); setLiveHotels([]); setHasSearched(false); setSearchError(''); }} />
