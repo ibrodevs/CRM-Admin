@@ -155,11 +155,8 @@ function OrdersMultiSelectList({ orders, onOpen, onCreate, onNavigate, currentUs
 
 
         <SearchToolbar className="orders-filters" >
-          <div className="registry-assignment" role="group" aria-label="Доступно по роли и назначено вам">
-            <button type="button" aria-pressed={assignment === 'all'} onClick={() => setAssignment('all')}>Все доступные <span>{orders.length}</span></button>
-            <button type="button" aria-pressed={assignment === 'mine'} onClick={() => setAssignment('mine')}>Назначены мне <span>{ownOrders}</span></button>
-          </div>
-          <span className="registry-found" role="status">Найдено: <b>{rows.length}</b></span>
+          <FilterChip label={`Все доступные · ${orders.length}`} allLabel={`Все доступные · ${orders.length}`} title="Доступно по роли и назначено вам" icon="chev"
+            options={[{ value: 'mine', label: `Назначены мне · ${ownOrders}` }]} value={assignment === 'mine' ? 'mine' : ''} onChange={(value) => setAssignment(value || 'all')} />
 
           <FilterChip label="Статус" icon="chev" options={statusOptions} value={filters.status} onChange={(v) => setFilters((f) => ({ ...f, status: v }))} />
           <FilterChip label="Заказчик" icon="chev" options={[...new Set(orders.map((order) => order.client).filter(Boolean))]} value="" onChange={(v) => setSearch(v === '' ? '' : v)} />
@@ -168,9 +165,11 @@ function OrdersMultiSelectList({ orders, onOpen, onCreate, onNavigate, currentUs
           <div className="topbar-spacer" />
           <SearchBox value={search} onChange={setSearch} style={{ width: 280 }} />
 
+        </SearchToolbar>
+
           {selectedCount > 0 && (
             <div role="status" aria-live="polite" style={{
-              flexBasis: '100%', width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+              width: '100%', marginBottom: 16, display: 'flex', alignItems: 'center', justifyContent: 'space-between',
               gap: 12, padding: '10px 12px', border: '1px solid var(--blue)', borderRadius: 12,
               background: 'var(--blue-soft)', color: 'var(--ink)',
             }}>
@@ -190,10 +189,11 @@ function OrdersMultiSelectList({ orders, onOpen, onCreate, onNavigate, currentUs
               </div>
             </div>
           )}
-        </SearchToolbar>
+
 
         <section className="section-workspace" aria-label="Рабочая область списка"><div className="table-card">
           <table className="tbl orders-registry">
+            <caption className="orders-registry-count">Найдено: {rows.length}</caption>
             <thead>
               <tr>
                 <th style={{ width: 46 }} title={pageSomeSelected && !pageAllSelected ? 'Выбрана часть заказов на странице' : 'Выбрать заказы на странице'}>

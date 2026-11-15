@@ -2,7 +2,7 @@ import { FloatingPanel, containsFloatingTarget } from './FloatingPanel.jsx';
 import { useState, useEffect, useRef } from 'react';
 import { Icon } from '../icons/index.jsx';
 
-function FilterChip({ label, options, value, onChange, icon = 'filter' }) {
+function FilterChip({ label, options, value, onChange, icon = 'filter', allLabel = 'Все', title }) {
   const [open, setOpen] = useState(false);
   const ref = useRef(null);
   useEffect(() => {
@@ -14,7 +14,7 @@ function FilterChip({ label, options, value, onChange, icon = 'filter' }) {
   const curLabel = value ? (cur ? (cur.label ?? cur) : value) : label;
   return (
     <div style={{ position: 'relative' }} ref={ref}>
-      <button className={'chip' + (value ? '' : '')} onClick={() => setOpen((o) => !o)}>
+      <button type="button" title={title} className={'chip' + (value ? '' : '')} onClick={() => setOpen((o) => !o)}>
         {curLabel}
         <Icon name={icon === 'filter' ? 'filter' : 'chevDown'} />
       </button>
@@ -23,7 +23,7 @@ function FilterChip({ label, options, value, onChange, icon = 'filter' }) {
           {/* Отметка выбранного стоит справа: колонка под галочку слева
               оставляла пустую полосу вдоль всего списка. */}
           <div className={'dropdown-item' + (value ? '' : ' is-selected')} onClick={() => { onChange(''); setOpen(false); }}>
-            Все{!value && <Icon name="check" className="dropdown-item-mark" />}
+            {allLabel}{!value && <Icon name="check" className="dropdown-item-mark" />}
           </div>
           <div className="dropdown-sep" />
           {options.filter((o) => (o?.value ?? o) !== '' && (o?.value ?? o) != null).map((o) => {

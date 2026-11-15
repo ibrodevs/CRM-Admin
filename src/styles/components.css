@@ -3743,12 +3743,6 @@ button.oc-fact:hover{border-color:#d3dbe8;background:#fff}
 .registry-stats-content .stat-card{min-width:0;padding:10px 14px;border:0;border-radius:8px;background:transparent;box-shadow:none}
 .registry-stats-content .stat-card .s-label{font-size:12px;margin-bottom:6px}
 .registry-stats-content .stat-card .s-value{font-size:22px;overflow-wrap:anywhere}
-.registry-assignment{display:flex;align-items:center;gap:4px;border-radius:10px;padding:3px;background:var(--surface-2);max-width:100%;flex-wrap:wrap}
-.registry-assignment button{display:flex;align-items:center;gap:8px;border:0;border-radius:8px;padding:9px 10px;background:transparent;color:var(--muted);font:inherit;font-size:13px;font-weight:600;cursor:pointer}
-.registry-assignment button[aria-pressed=true]{background:var(--blue-soft);color:var(--blue)}
-.registry-assignment button:hover{color:var(--blue)}
-.registry-assignment button:focus-visible{outline:2px solid var(--blue);outline-offset:2px}
-.registry-assignment button span{font-size:12px;font-variant-numeric:tabular-nums}
 .registry-found{color:var(--muted);font-size:12px;white-space:nowrap}
 
 .page-action-target{margin-left:auto;min-width:0;max-width:100%}
@@ -3893,3 +3887,11 @@ button.oc-fact:hover{border-color:#d3dbe8;background:#fff}
 .chat-recipient-actions>div:first-child{min-width:0;max-width:100%;flex:1}
 .chat-recipient-actions>div:first-child>span{max-width:100%}
 .chat-drawer-conversation .search>input:not([type=file]){min-width:0;width:0}
+
+/* Order filters share one desktop row; long selections scroll within the filter area. */
+.orders-filters{grid-template-columns:minmax(0,1fr) minmax(200px,280px);align-items:center}
+.orders-filters>.workspace-search-controls{flex-wrap:nowrap;gap:10px;overflow-x:auto;padding:3px 0;scrollbar-width:thin}
+.orders-filters>.workspace-search-controls>div{flex-shrink:0}
+.orders-filters .chip{height:48px;padding:0 14px;white-space:nowrap}
+.orders-registry-count{caption-side:bottom;text-align:right;padding:10px 14px;color:var(--muted);font-size:12px}
+@media(max-width:900px){.orders-filters{grid-template-columns:minmax(0,1fr)}.orders-filters>.workspace-search-controls{width:100%}}

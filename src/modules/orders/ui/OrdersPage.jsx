@@ -967,11 +967,8 @@ function OrdersList({ orders, onOpen, onCreate, onNavigate, currentUser }) {
       <div className="content">
 
         <SearchToolbar className="orders-filters" >
-          <div className="registry-assignment" role="group" aria-label="Доступно по роли и назначено вам">
-            <button type="button" aria-pressed={assignment === 'all'} onClick={() => setAssignment('all')}>Все доступные <span>{orders.length}</span></button>
-            <button type="button" aria-pressed={assignment === 'mine'} onClick={() => setAssignment('mine')}>Назначены мне <span>{ownOrders}</span></button>
-          </div>
-          <span className="registry-found" role="status">Найдено: <b>{rows.length}</b></span>
+          <FilterChip label={`Все доступные · ${orders.length}`} allLabel={`Все доступные · ${orders.length}`} title="Доступно по роли и назначено вам" icon="chev"
+            options={[{ value: 'mine', label: `Назначены мне · ${ownOrders}` }]} value={assignment === 'mine' ? 'mine' : ''} onChange={(value) => setAssignment(value || 'all')} />
 
           <FilterChip label="Статус" icon="chev" options={Object.keys(ORDER_STATUS)} value={filters.status} onChange={(v) => setFilters((f) => ({ ...f, status: v }))} />
           <FilterChip label="Заказчик" icon="chev" options={[...new Set(orders.map((order) => order.client).filter(Boolean))]} value={filters.client} onChange={(v) => setSearch(v === '' ? '' : v)} />
@@ -983,6 +980,7 @@ function OrdersList({ orders, onOpen, onCreate, onNavigate, currentUser }) {
 
         <section className="section-workspace" aria-label="Рабочая область списка"><div className="table-card">
           <table className="tbl orders-registry">
+            <caption className="orders-registry-count">Найдено: {rows.length}</caption>
             <thead>
               <tr>
                 <th style={{ width: 36 }}></th>
