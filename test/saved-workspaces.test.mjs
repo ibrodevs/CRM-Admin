@@ -76,3 +76,24 @@ test('empty active hotel form is not blocked by saved searches in other service 
   assert.equal(reopened.hasWork('free-booking/DetailedSearchPanel'), true);
   assert.equal(reopened.read('free-booking/DetailedSearchPanel','aviaParams').from, 'MOW');
 });
+
+
+test('empty hotel search dismisses despite stale room wishes, without erasing its draft', () => {
+  const disk = storage(), store = createDraftStore(disk, 'operator');
+  const scope = 'free-booking/HotelPicker/free';
+  const fields = { dest: '  ', checkin: null, checkout: null, radius: '2 км', meal: 'BB', occupancyRooms: [{ adults: 2, childrenAges: [] }], specialReq: 'Тихий номер', supplierComment: 'Уточнить', crmGuests: [{ id: 1 }], guestSel: { 1: true } };
+  for (const [key, value] of Object.entries(fields)) store.write(scope, key, value);
+  assert.equal(store.hasWork(scope), true, 'saved guest wishes remain recoverable');
+  assert.equal(store.hasWork(scope, 'Гостиница'), false, 'defaults and hidden room data cannot block empty search dismissal');
+  store.write(scope, 'dest', 'Москва');
+  assert.equal(store.hasWork(scope, 'Гостиница'), true);
+  store.write(scope, 'dest', '');
+  store.write(scope, 'checkin', new Date(2026, 11, 1));
+  assert.equal(store.hasWork(scope, 'Гостиница'), true);
+  store.write(scope, 'checkin', null);
+  const reopened = createDraftStore(disk, 'operator');
+  assert.equal(reopened.hasWork(scope, 'Гостиница'), false);
+  assert.equal(reopened.read(scope, 'specialReq'), 'Тихий номер');
+  reopened.write(scope, 'occupancyRooms', [{ adults: 3, childrenAges: [] }]);
+  assert.equal(reopened.hasWork(scope, 'Гостиница'), true, 'changed visible guest counts are meaningful input');
+});

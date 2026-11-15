@@ -91,6 +91,17 @@ test('clicking the backdrop keeps hotel search and placement panels open', () =>
   empty = true;
   dismissible.props.onMouseDown({ target: {}, currentTarget: backdrop, stopPropagation() {} });
   assert.equal(closed, 2, 'clicks inside the form do not dismiss it');
+  const pointer = (target = backdrop) => ({ target, currentTarget: backdrop, button: 0, preventDefault() { this.prevented = true; }, stopPropagation() {} });
+  dismissible.props.onPointerDownCapture(pointer({}));
+  assert.equal(closed, 2, 'pointer capture must leave inner and nested panels alone');
+  const outside = pointer();
+  dismissible.props.onPointerDownCapture(outside);
+  assert.equal(closed, 3, 'empty search dismisses before bubbling outside-click handlers');
+  assert.equal(outside.prevented, true, 'the click cannot reach the navigation underneath');
+  empty = false;
+  dismissible.props.onPointerDownCapture(pointer());
+  assert.equal(closed, 3, 'pointer capture preserves entered search data');
+
 
 });
 
@@ -108,5 +119,5 @@ test('a late background response cannot restore a logged-out account', async () 
 test('free booking backdrop checks the active service form rather than hidden drafts', () => {
   const source = readFileSync(new URL('../src/modules/dashboard/ui/DashboardPage.jsx', import.meta.url), 'utf8');
   assert.match(source, /useDraftControls\(freeBookingFormScope\(kind\)\)/);
-  assert.match(source, /closeOnBackdrop=\{\(\) => !draft.length && !activeForm.hasWork\(\)\}/);
+  assert.match(source, /closeOnBackdrop=\{\(\) => !draft.length && !activeForm.hasWork\(kind\)\}/);
 });

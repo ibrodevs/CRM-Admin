@@ -1,4 +1,4 @@
-import { savedWorkspaces, hasDraftWork } from './workspaces.js';
+import { savedWorkspaces, hasDraftWork, hasSearchWork } from './workspaces.js';
 export const DRAFT_TTL = 7 * 24 * 60 * 60 * 1000;
 const PREFIX = 'psc:work-draft:v1:';
 const pack = (value) => {
@@ -62,7 +62,7 @@ export function createDraftStore(storage, owner, now = Date.now) {
     status: () => status,
     setOpener(handler) { opener = handler; return () => { if (opener === handler) opener = null; }; },
     open(entry) { return opener ? opener(entry) : false; },
-    hasWork(scopePrefix = '') {
+    hasWork(scopePrefix = '', searchKind) {
       try {
         for (const name of Object.keys(storage)) {
           if (!name.startsWith(prefix)) continue;
@@ -70,7 +70,7 @@ export function createDraftStore(storage, owner, now = Date.now) {
           if (!scopePrefix || scope === scopePrefix || scope.startsWith(scopePrefix + '/')) load(scope);
         }
       } catch { /* Unsaved in-memory work still protects the active form. */ }
-      return [...cache].some(([scope, fields]) => (!scopePrefix || scope === scopePrefix || scope.startsWith(scopePrefix + '/')) && hasDraftWork(fields));
+      return [...cache].some(([scope, fields]) => (!scopePrefix || scope === scopePrefix || scope.startsWith(scopePrefix + '/')) && (searchKind ? hasSearchWork(searchKind, fields) : hasDraftWork(fields)));
     },
     workspaces() {
       const records = [];

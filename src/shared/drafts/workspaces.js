@@ -12,6 +12,20 @@ export function hasDraftWork(fields) {
   if (fields.draft?.length || fields.selClients?.length || fields.employees?.length || fields.pts?.some(Boolean)) return true;
   return fields.form && ['from', 'to', 'dep', 'date', 'dt', 'ret', 'title', 'first_name', 'last_name'].some((key) => filled(fields.form[key]));
 }
+// Dismissing search must depend on visible search inputs, not cached room
+// placement or guest wishes left by a previously opened accommodation panel.
+export function hasSearchWork(kind, fields) {
+  if (kind !== 'Гостиница') return hasDraftWork(fields);
+  const text = (value) => typeof value === 'string' && value.trim().length > 0;
+  const date = (value) => (value instanceof Date || text(value)) && Number.isFinite(new Date(value).getTime());
+  return text(fields.dest) || date(fields.checkin) || date(fields.checkout)
+    || text(fields.earlyArrivalTime) || text(fields.lateDepartureTime)
+    || text(fields.citizenship) || fields.freeCancelOnly === true
+    || (text(fields.radius) && fields.radius !== '2 км')
+    || (text(fields.meal) && fields.meal !== 'BB')
+    || (Array.isArray(fields.occupancyRooms) && (fields.occupancyRooms.length !== 1
+      || fields.occupancyRooms.some((room) => Number(room.adults) !== 2 || room.childrenAges?.length > 0)));
+}
 function serviceLabel(scope) {
   if (/Hotel|RoomPanel/.test(scope)) return 'Отели';
   if (/Flight|Avia|Aviation/.test(scope)) return 'Авиабилеты';
