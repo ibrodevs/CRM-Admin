@@ -4,3 +4,5 @@ export { ChatThread } from './ui/ChatsPage.jsx';
 export { getThreadForOrder } from './ui/ChatsPage.jsx';
 export * from './api.js';
 export * from './model.js';
+
+export { ChatInfoPanel, ChatTaskDrawer, ChatHistoryDrawer } from './ui/ChatsPage.jsx';

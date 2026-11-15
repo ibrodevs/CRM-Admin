@@ -1,7 +1,6 @@
 import { useDraftState, useDraftControls } from '../../shared/drafts/Drafts.jsx';
 import { useAuth } from '../../shared/auth/auth-context.jsx';
 import { useState, useEffect, useRef } from 'react';
-import { toUiThread } from '../../modules/chats/model.js';
 
 export function useAppNavigation() {
   const { user } = useAuth();
@@ -33,18 +32,12 @@ export function useAppNavigation() {
     if (b === 'orders') setIntent({ type: 'list' });
   };
   const openChat = (target) => {
-    if (target) {
-      setChatTarget(target);
-      if (target.no || target.client) setCtxOrder(target);
-      if (target.id) setFocusedChat(target.id ? toUiThread(target) : target);
-    }
+    setChatTarget(target || null);
     setChatOpen(true);
   };
-  const openChatThread = (thread) => {
-    if (thread) setFocusedChat(thread.id ? toUiThread(thread) : thread);
-    setRoute('chats');
-    setCtxOrder(null);
-  };
+  // Every chat entry point opens over the current workspace, without navigation.
+  const openChatThread = (thread) => openChat(thread);
+
 
   const openOrder = (o, tab, svc) => {
     if (o === '__create__') { setRoute('orders'); setIntent({ type: 'create' }); setCtxOrder(null); return; }

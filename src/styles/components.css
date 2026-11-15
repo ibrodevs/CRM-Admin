@@ -3870,3 +3870,26 @@ button.oc-fact:hover{border-color:#d3dbe8;background:#fff}
   .hp-search-row>.hp-field-dest,.hp-search-row-2>.hp-field-meal{grid-column:auto}
   .hp-search-row-2 .hp-meal-tabs{flex-wrap:wrap;height:auto}
 }
+
+/* One conversation drawer for every chat entry point. Only the feed scrolls. */
+.chat-conversation-drawer{overflow:hidden}
+.chat-conversation-drawer>.drawer-head{padding:18px 20px;flex-shrink:0}
+.chat-conversation-drawer>.drawer-body{display:flex;flex-direction:column;min-height:0;overflow:hidden;padding:0}
+.chat-drawer-toolbar{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 20px;border-bottom:1px solid var(--line);flex-shrink:0}
+.chat-switch-trigger{min-width:0;max-width:100%}
+.chat-switch-trigger>span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.chat-drawer-actions{display:flex;gap:6px;flex-shrink:0}
+.chat-drawer-conversation{flex:1;min-height:0;overflow:hidden}
+.chat-recipient-actions{display:flex;align-items:center;flex-wrap:wrap;gap:6px;margin-top:10px}
+.chat-recipient-actions>.action-menu{min-width:0;max-width:100%}
+.chat-recipient-actions .chip{max-width:100%;height:auto!important;min-height:32px;white-space:normal;text-align:left}
+.chats-registry{height:calc(100dvh - 230px);min-height:320px;display:flex;flex-direction:column}
+.chats-registry>.card{flex:1;min-height:0}
+.chats-registry .chat-row{max-width:100%}
+.chats-registry .chat-row:focus-visible{outline:2px solid var(--blue);outline-offset:-2px}
+@media(max-width:520px){.chat-drawer-toolbar{padding:10px 14px}.chat-conversation-drawer>.drawer-head{padding:16px 14px}.chats-registry{height:calc(100dvh - 210px)}}
+.chat-drawer-toolbar>div:first-child{min-width:0;flex:1}
+.chat-drawer-toolbar>div:first-child>span{max-width:100%}
+.chat-recipient-actions>div:first-child{min-width:0;max-width:100%;flex:1}
+.chat-recipient-actions>div:first-child>span{max-width:100%}
+.chat-drawer-conversation .search>input:not([type=file]){min-width:0;width:0}

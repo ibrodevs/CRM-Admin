@@ -2,8 +2,9 @@ import React from 'react';
 import { useState, useEffect } from 'react';
 import { Icon } from '../../shared/icons/index.jsx';
 import { ActionMenu } from '../../shared/ui/ActionMenu.jsx';
+import { Drawer } from '../../shared/ui/Overlays.jsx';
 import { EmptyState } from '../../shared/ui/EmptyState.jsx';
-import { ChatThread, isBackendThread, isUuid, orderRef, threadUnread, toUiThread } from '../../modules/chats/index.js';
+import { ChatThread, ChatInfoPanel, ChatTaskDrawer, ChatHistoryDrawer, isBackendThread, isUuid, orderRef, threadUnread, toUiThread } from '../../modules/chats/index.js';
 
 function findMatchingThread(threads, ctx) {
   if (!ctx || !Array.isArray(threads) || !threads.length) return null;
@@ -48,7 +49,7 @@ function createFallbackThread(ctx) {
     order: orderNo || orderId || '—',
     orderId,
     type: ctx.type || 'client',
-    channel: 'MAX',
+    channel: 'CRM',
     name,
     client: ctx.client || ctx.name || name,
     online: '—',
@@ -64,8 +65,11 @@ function createFallbackThread(ctx) {
   };
 }
 
-function GlobalChatDrawer({ open, onClose, contextOrder, initialThreads = [], orders = [], users = [], currentUserId, onOpenOrder }) {
+function GlobalChatDrawer({ open, onClose, contextOrder, initialThreads = [], orders = [], orderServices = [], users = [], currentUserId, onOpenOrder }) {
   const [extraThreads, setExtraThreads] = useState([]);
+  const [infoOpen, setInfoOpen] = useState(false);
+  const [taskOpen, setTaskOpen] = useState(false);
+  const [historyOpen, setHistoryOpen] = useState(false);
   const threads = [
     ...initialThreads,
     ...extraThreads.filter((extra) => !initialThreads.some((thread) => String(thread.id) === String(extra.id))),
@@ -74,7 +78,8 @@ function GlobalChatDrawer({ open, onClose, contextOrder, initialThreads = [], or
   // за заказ и превращался в заглушку с UUID в заголовке, куда нельзя отправить файл.
   const fromServer = isBackendThread(contextOrder);
   const target = fromServer ? toUiThread(contextOrder) : contextOrder;
-  const lookup = (list) => (fromServer
+  const isThread = fromServer || (target && Object.hasOwn(target, 'orderId'));
+  const lookup = (list) => (isThread
     ? list.find((t) => String(t.id) === String(target.id))
     : findMatchingThread(list, target));
   const [activeId, setActiveId] = useState(() => (lookup(threads)?.id || threads[0]?.id || null));
@@ -86,7 +91,7 @@ function GlobalChatDrawer({ open, onClose, contextOrder, initialThreads = [], or
       if (hit) {
         setActiveId(hit.id);
       } else {
-        const created = fromServer ? target : createFallbackThread(target);
+        const created = isThread ? target : createFallbackThread(target);
         if (created) {
           setExtraThreads((cur) => cur.some((t) => t.id === created.id) ? cur : [...cur, created]);
           setActiveId(created.id);
@@ -96,62 +101,48 @@ function GlobalChatDrawer({ open, onClose, contextOrder, initialThreads = [], or
       setActiveId(threads[0].id);
     }
   }, [open, contextOrder, initialThreads]);
-  useEffect(() => {
-    if (!open) return;
-    const h = (e) => { if (e.key === 'Escape') onClose(); };
-    window.addEventListener('keydown', h);
-    return () => window.removeEventListener('keydown', h);
-  }, [open, onClose]);
-  if (!open) return null;
+  useEffect(() => { setInfoOpen(false); setTaskOpen(false); setHistoryOpen(false); }, [activeId, open]);
+  const active = threads.find((t) => t.id === activeId) || threads[0];
 
-  const active = threads.find((t) => t.id === activeId) ||
-    threads[0];
-  if (!active) return (
-    <div className="drawer-overlay" onMouseDown={(e) => { if (e.target === e.currentTarget) onClose(); }}>
-      <div className="shell-drawer" style={{ width: 'min(480px,96vw)' }}><button className="modal-close" onClick={onClose}><Icon name="x" /></button><EmptyState icon="chat" title="Чатов пока нет" /></div>
-    </div>
-  );
   const totalUnread = (t) => threadUnread(t);
-  const goOrder = (t) => { const o = orders.find((x) => x.no === t.order); onClose(); o && onOpenOrder(o); };
-  const recipients = threads.filter((thread) => thread.order === active.order);
+  const relatedOrder = (t) => orders.find((item) => String(item.id) === String(t?.orderId) || String(item.no) === String(t?.order));
+  const goOrder = (t, tab, serviceId) => { const order = relatedOrder(t); if (order) { onClose(); onOpenOrder?.(order, tab, serviceId); } };
+  const recipients = active?.order && active.order !== '—' ? threads.filter((thread) => thread.order === active.order) : active ? [active] : [];
   const switchThread = (t) => {
     if (t.virtual) { const real = { ...t, virtual: false }; setExtraThreads((cur) => [...cur, real]); setActiveId(real.id); }
     else setActiveId(t.id);
   };
 
-  const ord = orders.find((x) => x.no === active.order);
-  const meta = [active.client || active.name, ord && ord.requestType, (ord && ord.operator) && ('отв. ' + ord.operator)].filter(Boolean);
-
-  return (
-    <div className="drawer-overlay" onMouseDown={(e) => { if (e.target === e.currentTarget) onClose(); }}>
-      <div className="shell-drawer" style={{ width: 'min(480px,96vw)' }}>
-        <div className="drawer-head" style={{ padding: '14px 22px', flexDirection: 'column', alignItems: 'stretch', justifyContent: 'flex-start', gap: 6 }}>
-          <div style={{ display: 'flex', alignItems: 'center' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0, flex: 1 }}>
-              <h2 className="modal-title" style={{ fontSize: 20 }}>Чат</h2>
-              <ActionMenu
-                trigger={<button className="chip" style={{ height: 34, maxWidth: '100%', minWidth: 0 }}><span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>№ {orderRef(active.order)}</span><Icon name="chevDown" /></button>}
-                items={threads.map((t) => ({ icon: 'chat', label: '№ ' + orderRef(t.order) + ' · ' + t.name + (totalUnread(t) ? '  (' + totalUnread(t) + ')' : ''), onClick: () => setActiveId(t.id) }))} />
-            </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-              <button className="icon-btn" title="Открыть заказ" onClick={() => goOrder(active)}><Icon name="orders" /></button>
-              <button className="modal-close" onClick={onClose}><Icon name="x" /></button>
-            </div>
+  const ord = relatedOrder(active);
+  const services = ord ? orderServices.filter((service) => String(service.orderId || service.order) === String(ord.id)) : [];
+  const meta = [ord && `Заказ № ${ord.no}`, ord?.operator && `отв. ${ord.operator}`].filter(Boolean).join(' · ');
+  return <>
+    <Drawer open={open} onClose={onClose} title="Чат" sub={meta} width="min(620px,100vw)" className="chat-conversation-drawer" showDraftNotice={false}>
+      {active ? <>
+        <div className="chat-drawer-toolbar">
+          <ActionMenu trigger={<button type="button" className="chip chat-switch-trigger"><span>{active.order && active.order !== '—' ? '№ ' + orderRef(active.order) : active.name}</span><Icon name="chevDown" /></button>}
+            items={threads.map((thread) => ({ icon: 'chat', label: thread.name + (totalUnread(thread) ? ` (${totalUnread(thread)})` : ''), onClick: () => setActiveId(thread.id) }))} />
+          <div className="chat-drawer-actions">
+            {ord && <button type="button" className="icon-btn" title="Открыть заказ" onClick={() => goOrder(active)}><Icon name="orders" /></button>}
+            <button type="button" className="icon-btn" title="Информация о чате" onClick={() => setInfoOpen(true)}><Icon name="alertCircle" /></button>
           </div>
-          {meta.length > 0 && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap', fontSize: 13, color: 'var(--muted)' }}>
-              {meta.map((m, i) => (
-                <React.Fragment key={i}>{i > 0 && <span style={{ color: 'var(--faint)' }}>·</span>}<span>{m}</span></React.Fragment>
-              ))}
-            </div>
-          )}
         </div>
-        <div style={{ flex: 1, minHeight: 0 }}>
-          <ChatThread thread={active} currentUserId={currentUserId} embedded onOpenOrder={() => goOrder(active)} recipients={recipients} onSwitchThread={switchThread} users={users} />
+        <div className="chat-drawer-conversation">
+          <ChatThread thread={active} currentUserId={currentUserId} embedded orders={orders} services={services} users={users}
+            onOpenOrder={() => goOrder(active)} onOpenService={(id) => goOrder(active, 'services', id)}
+            recipients={recipients} onSwitchThread={switchThread} onOpenTask={() => setTaskOpen(true)} onOpenHistory={() => setHistoryOpen(true)} />
         </div>
-      </div>
-    </div>
-  );
+      </> : <EmptyState icon="chat" title="Чатов пока нет" />}
+    </Drawer>
+    {open && active && <>
+      <Drawer open={infoOpen} onClose={() => setInfoOpen(false)} title="Информация о чате" width="min(460px,100vw)" showDraftNotice={false}>
+        <ChatInfoPanel thread={active} orders={orders} orderServices={services} users={users} onOpenOrder={() => goOrder(active)} onOpenService={(id) => goOrder(active, 'services', id)} onOpenTask={() => setTaskOpen(true)} onOpenHistory={() => setHistoryOpen(true)} />
+      </Drawer>
+      <ChatTaskDrawer open={taskOpen} onClose={() => setTaskOpen(false)} thread={active} orders={orders} users={users} />
+      <ChatHistoryDrawer open={historyOpen} onClose={() => setHistoryOpen(false)} thread={active} />
+    </>}
+  </>;
+
 }
 
 export { findMatchingThread, createFallbackThread, GlobalChatDrawer };

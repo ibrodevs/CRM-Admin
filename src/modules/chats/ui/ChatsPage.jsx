@@ -1,3 +1,4 @@
+import { useDraftState } from '../../../shared/drafts/Drafts.jsx';
 import { ServicePreview } from '../../../shared/ui/ServicePreview.jsx';
 import { serviceSummary } from '../../../shared/lib/service-presentation.js';
 import { SectionInfo } from '../../../shared/ui/SectionInfo.jsx';
@@ -534,7 +535,7 @@ function ChatThread({ thread, currentUserId, embedded, onOpenOrder, onOpenServic
   const [sub, setSub] = useState('message');
   const [msgs, setMsgs] = useState(thread.messages || []);
   const [intl, setIntl] = useState(thread.internal || []);
-  const [draft, setDraft] = useState('');
+  const [draft, setDraft] = useDraftState(`chat/${thread.id}`, `${sub}-draft`, '');
   const [pendingFile, setPendingFile] = useState(null);
   const [linked, setLinked] = useState(null);
   const [pinned, setPinned] = useState(!!thread.pinned);
@@ -641,8 +642,8 @@ function ChatThread({ thread, currentUserId, embedded, onOpenOrder, onOpenServic
     ...(thread.participants || []).map((person) => person.name),
     thread.responsibleOperator,
   ].filter((name) => name && name !== 'Не назначен'))];
-  // Услуги заказа приходят с backend; демо-массив используется только как запасной.
-  const orderServices = services.length ? services : (typeof ORDER_SERVICES !== 'undefined' ? ORDER_SERVICES : []);
+  // В чате доступны только реальные услуги связанного заказа.
+  const orderServices = services;
   const linkedService = linked ? chatServiceById(linked, orderServices) : null;
   const tMeta = chatTypeMeta(thread.type);
 
@@ -672,7 +673,16 @@ function ChatThread({ thread, currentUserId, embedded, onOpenOrder, onOpenServic
             </div>
             <ChannelBadge channel={thread.channel} />
           </div>
-          {recipientPicker && <div style={{ marginTop: 10 }}>{recipientPicker}</div>}
+          <div className="chat-recipient-actions">
+            {recipientPicker}
+            <button type="button" className="icon-btn" title="Создать задачу" onClick={handleOpenTask}><Icon name="clipboard" /></button>
+            <button type="button" className="icon-btn" title={pinned ? 'Открепить чат' : 'Закрепить чат'} aria-pressed={pinned} onClick={togglePin}><Icon name="star" /></button>
+            <ActionMenu trigger={<button type="button" className="icon-btn" aria-label="Действия с чатом"><Icon name="more" /></button>}
+              items={[
+                { icon: 'mail', label: 'Отправить email', onClick: queueEmail },
+                { icon: 'clock', label: 'История изменений', onClick: handleOpenHistory },
+              ]} />
+          </div>
         </div>
       ) : (
         <div style={{ padding: '8px 14px', borderBottom: '1px solid var(--line)' }}>
@@ -880,7 +890,7 @@ function ChatsNav({ threads, activeId, onSelect, search, setSearch, mode, setMod
     const tMeta = chatTypeMeta(t.type);
     const u = threadUnread(t);
     return (
-      <div key={t.id} onClick={() => onSelect(t.id)} className={'chat-row' + (t.id === activeId ? ' active' : '')}>
+      <div key={t.id} role="button" tabIndex={0} onClick={() => onSelect(t.id)} onKeyDown={(event) => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); onSelect(t.id); } }} className={'chat-row' + (t.id === activeId ? ' active' : '')}>
         {t.type === 'system'
           ? <span className="oc-svc-ic" style={{ background: 'var(--amber)', width: 40, height: 40, flexShrink: 0 }}><Icon name="bell" style={{ width: 18, height: 18 }} /></span>
           : <Avatar name={t.name} size={40} />}
@@ -954,87 +964,24 @@ function ChatsNav({ threads, activeId, onSelect, search, setSearch, mode, setMod
 }
 
 
-function ChatsPage({ initialThreads = [], focusThread = null, orders = [], orderServices = [], users = [], currentUserId, onOpenOrder }) {
-  const toast = useToast();
-
-  const [taskOpen, setTaskOpen] = useState(false);
-  const [historyOpen, setHistoryOpen] = useState(false);
-  const [extraThreads, setExtraThreads] = useState([]);
-  const threads = [...initialThreads, ...extraThreads];
-  const [activeId, setActiveId] = useState(initialThreads[0]?.id || null);
+function ChatsPage({ initialThreads = [], onOpenChat, users = [] }) {
+  const [activeId, setActiveId] = useState(null);
   const [search, setSearch] = useState('');
   const [mode, setMode] = useState('byType');
-
-  const active = threads.find((t) => t.id === activeId) || threads[0];
-  useEffect(() => { if (!activeId && initialThreads[0]) setActiveId(initialThreads[0].id); }, [initialThreads, activeId]);
-  useEffect(() => {
-    if (!focusThread?.id) return;
-    setExtraThreads((cur) => initialThreads.concat(cur).some((thread) => String(thread.id) === String(focusThread.id)) ? cur : [focusThread, ...cur]);
-    setActiveId(focusThread.id);
-  }, [focusThread?.id, initialThreads]);
-  const recipients = active ? threads.filter((thread) => thread.order === active.order) : [];
-  const switchThread = (t) => {
-    if (t.virtual) { const real = { ...t, virtual: false }; setExtraThreads((cur) => [...cur, real]); setActiveId(real.id); }
-    else setActiveId(t.id);
+  const select = (id) => {
+    const thread = initialThreads.find((item) => String(item.id) === String(id));
+    if (!thread) return;
+    setActiveId(thread.id);
+    onOpenChat?.(thread);
   };
-  const openOrderFromThread = (t) => { const o = orders.find((x) => x.no === t.order); if (o) onOpenOrder && onOpenOrder(o); };
-  const openServiceFromThread = (sid) => { const o = orders.find((x) => x.no === active.order); if (o) onOpenOrder && onOpenOrder(o, 'services', sid || null); };
-  // Услуги активного заказа — из загруженных с backend, по id или номеру заказа.
-  const activeOrder = active ? orders.find((x) => String(x.no) === String(active.order)) : null;
-  const activeServices = activeOrder
-    ? orderServices.filter((service) => String(service.orderId || service.order) === String(activeOrder.id))
-    : [];
-
-  return (
-    <div className="fade-in" style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
-      <div className="content" style={{ flex: 1, minHeight: 0, padding: '20px 20px 20px' }}>
-        <SectionInfo section="chats" />
-        <div className="section-workspace chats-workspace" style={{ display: 'grid', gridTemplateColumns: '340px 1fr 252px', gap: 10, height: 'calc(100vh - 100px)' }}>
-          <ChatsNav threads={threads} activeId={activeId} onSelect={setActiveId} search={search} setSearch={setSearch} mode={mode} setMode={setMode} />
-
-
-          <div className="card" style={{ display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-            {active ? <ChatThread thread={active} currentUserId={currentUserId} onOpenOrder={openOrderFromThread} onOpenService={openServiceFromThread}
-              orders={orders} services={activeServices}
-              recipients={recipients} onSwitchThread={switchThread}
-              onOpenTask={() => setTaskOpen(true)}
-              onOpenHistory={() => setHistoryOpen(true)} /> : <EmptyState icon="chat" title="Выберите чат" />}
-          </div>
-
-
-          {active && (
-            <ChatInfoPanel
-              thread={active}
-              orders={orders}
-              orderServices={activeServices}
-              onOpenOrder={openOrderFromThread}
-              onOpenService={openServiceFromThread}
-              onOpenTask={() => setTaskOpen(true)}
-              onOpenHistory={() => setHistoryOpen(true)}
-            />
-          )}
-        </div>
-
+  return <div className="fade-in">
+    <div className="content">
+      <SectionInfo section="chats" />
+      <div className="section-workspace chats-workspace chats-registry">
+        <ChatsNav threads={initialThreads} activeId={activeId} onSelect={select} search={search} setSearch={setSearch} mode={mode} setMode={setMode} />
       </div>
-
-      {active && (
-        <>
-          <ChatTaskDrawer
-            open={taskOpen}
-            onClose={() => setTaskOpen(false)}
-            thread={active}
-            orders={orders}
-            users={users}
-          />
-          <ChatHistoryDrawer
-            open={historyOpen}
-            onClose={() => setHistoryOpen(false)}
-            thread={active}
-          />
-        </>
-      )}
     </div>
-  );
+  </div>;
 }
 
 Object.assign(window, { ChatsPage, ChatThread, ChatInfoPanel, ChatsNav, ChatTaskDrawer, ChatHistoryDrawer, getThreadForOrder, threadUnread, lastMessage, chatRecipients, recipientLabel });

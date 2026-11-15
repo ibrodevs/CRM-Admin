@@ -14,7 +14,6 @@ import { OperationConfirmModal } from './OrderOperations.jsx';
 import { BackRow } from '../../../shared/ui/BackRow.jsx';
 import { ocMoney, svcCalc } from '../model/finance.jsx';
 import { KPPreviewDoc } from '../../proposals/index.js';
-import { ChatThread, getThreadForOrder } from '../../chats/index.js';
 import { bookingApi } from '../api/bookingApi.js';
 import { documentsApi } from '../../documents/api.js';
 import { ordersApi } from '../api/ordersApi.js';
@@ -99,7 +98,7 @@ function offerFromServices(order, services) {
   };
 }
 
-function BookingWizard({ order, services, draft, onClose, onComplete, onSaveDraft, onContactChanged }) {
+function BookingWizard({ order, services, draft, onClose, onComplete, onSaveDraft, onContactChanged, onOpenChat }) {
   const toast = useToast();
   const [effectiveOrder, setEffectiveOrder] = useState(order);
   useEffect(() => { setEffectiveOrder(order); }, [order]);
@@ -111,7 +110,6 @@ function BookingWizard({ order, services, draft, onClose, onComplete, onSaveDraf
   const [method, setMethod] = useState(isGroupOrder ? (draft ? draft.method : 'ind') : 'ind');
   const [pay, setPay] = useState(draft ? draft.pay : 'invoice');
   const [histOpen, setHistOpen] = useState(false);
-  const [supportOpen, setSupportOpen] = useState(false);
   const [offerPreview, setOfferPreview] = useState(null);
   const [contactSvc, setContactSvc] = useState(null);
   const [opConfirm, setOpConfirm] = useState(null);
@@ -365,7 +363,7 @@ function BookingWizard({ order, services, draft, onClose, onComplete, onSaveDraf
           <div style={{ display: 'flex', alignItems: 'center', marginBottom: 6 }}>
             <div className="section-title" style={{ fontSize: 18 }}>Получение ответов от поставщиков</div>
             <div style={{ flex: 1 }} />
-            <Button variant="secondary" size="sm" icon="chat" onClick={() => setSupportOpen(true)}>Написать в поддержку</Button>
+            <Button variant="secondary" size="sm" icon="chat" onClick={() => onOpenChat?.(order)}>Открыть чат заказа</Button>
             <Button variant="secondary" size="sm" icon="clock" onClick={() => setHistOpen(true)}>История запросов</Button>
           </div>
           <div style={{ color: 'var(--muted)', fontSize: 13, marginBottom: 16 }}>Тайм-лимиты идут по каждой услуге. Продлите лимит или свяжитесь с поставщиком, чтобы ускорить ответ.</div>
@@ -536,13 +534,6 @@ function BookingWizard({ order, services, draft, onClose, onComplete, onSaveDraf
       </Drawer>
 
 
-      <Drawer open={supportOpen} onClose={() => setSupportOpen(false)} title="Поддержка">
-        <div style={{ height: 560, display: 'flex', flexDirection: 'column', overflow: 'hidden', margin: '-28px -32px' }}>
-          {order && <ChatThread thread={getThreadForOrder(order)} embedded initChannel="supplier" />}
-        </div>
-      </Drawer>
-
-
       <Drawer open={!!contactSvc} onClose={() => setContactSvc(null)} title={contactSvc ? 'Поставщик · ' + contactSvc.supplier : 'Поставщик'}>
         {contactSvc && (
           <div style={{ margin: '-4px 0 14px' }}>
@@ -555,9 +546,7 @@ function BookingWizard({ order, services, draft, onClose, onComplete, onSaveDraf
               <Button variant="secondary" icon="phone" onClick={() => supplierAction('supplier.callback', contactSvc)}>Задача на звонок</Button>
               <Button icon="send" onClick={() => supplierAction('supplier.expedite', contactSvc)}>Срочная задача</Button>
             </div>
-            <div style={{ height: 460, display: 'flex', flexDirection: 'column', overflow: 'hidden', margin: '0 -32px -28px' }}>
-              {order && <ChatThread thread={getThreadForOrder(order)} embedded initChannel="supplier" />}
-            </div>
+            <Button variant="secondary" icon="chat" onClick={() => { setContactSvc(null); onOpenChat?.(order); }}>Открыть чат заказа</Button>
           </div>
         )}
       </Drawer>

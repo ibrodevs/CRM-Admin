@@ -3214,7 +3214,7 @@ function OrderCard({ order, company, clients = [], onBack, initTab, initSvc, ini
   };
 
   const renderServicesArea = () => {
-    if (svcView === 'booking') return <BookingWizard order={cardOrder} services={services} draft={bookingDraft} onContactChanged={refreshOrderSnapshot}
+    if (svcView === 'booking') return <BookingWizard onOpenChat={onOpenChat} order={cardOrder} services={services} draft={bookingDraft} onContactChanged={refreshOrderSnapshot}
       onSaveDraft={setBookingDraft} onClose={() => setSvcView(null)}
       onComplete={async () => {
         setBookingDraft(null);
