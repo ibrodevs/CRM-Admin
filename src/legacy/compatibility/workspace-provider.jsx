@@ -99,7 +99,7 @@ export function WorkspaceProvider({ children }) {
       persons: clientsApi.persons({}, signal), clients: clientsApi.clients({}, signal), companies: companiesApi.companies({}, signal),
       notifications: notificationsApi.list({}, signal), chats: communicationsApi.threads({}, signal),
       proposals: proposalListApi.proposals({}, signal), documents: documentListApi.documents({}, signal),
-      returns: returnListApi.returns({}, signal), orderServices: servicesApi.list({}, signal),
+      returns: returnListApi.returns({}, signal), orderServices: servicesApi.all({}, signal),
       transactions: transactionListApi.transactions({}, signal),
       users: userListApi.users({}, signal), calendar: calendarFeedApi.calendar({}, signal), dashboard: dashboardApi.dashboard({ role_scope: 'tenant' }, signal),
       finance: financeOverviewApi.financeOverview(signal), meta: workspaceInfoApi.meta(signal),

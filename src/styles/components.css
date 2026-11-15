@@ -3895,3 +3895,23 @@ button.oc-fact:hover{border-color:#d3dbe8;background:#fff}
 .orders-filters .chip{height:48px;padding:0 14px;white-space:nowrap}
 .orders-registry-count{caption-side:bottom;text-align:right;padding:10px 14px;color:var(--muted);font-size:12px}
 @media(max-width:900px){.orders-filters{grid-template-columns:minmax(0,1fr)}.orders-filters>.workspace-search-controls{width:100%}}
+
+.dsh-chart-controls{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:16px}
+.dsh-chart-periods{display:flex;gap:4px;flex-wrap:wrap}
+.dsh-chart-periods button{padding:8px 10px;border:1px solid transparent;border-radius:9px;background:transparent;color:var(--muted);font:inherit;font-size:12px;font-weight:600;cursor:pointer}
+.dsh-chart-periods button:hover{background:var(--surface-2);color:var(--blue)}
+.dsh-chart-periods button[aria-pressed=true]{background:var(--blue-soft);border-color:var(--blue);color:var(--blue)}
+.dsh-chart-controls>.dsh-date-range,.dsh-chart-controls>div:last-child{max-width:100%}
+.dsh-chart-controls .input{height:40px;font-size:12px;padding:0 10px}
+.dsh-chart-controls .input>span{font-size:12px!important}
+.dsh-interactive-chart{position:relative;min-width:0;margin-top:12px}
+.dsh-interactive-chart .dsh-chart{height:260px;margin-top:0;overflow:visible;cursor:crosshair;touch-action:pan-y}
+.dsh-interactive-chart .dsh-chart:focus-visible{outline:2px solid var(--blue);outline-offset:3px;border-radius:8px}
+.dsh-chart-tooltip{position:absolute;top:8px;transform:translateX(-50%);display:flex;flex-direction:column;gap:4px;min-width:174px;max-width:190px;padding:10px 12px;border:1px solid var(--line);border-radius:12px;background:var(--surface);box-shadow:var(--shadow-card);color:var(--ink);font-size:12px;pointer-events:none;z-index:1}
+.dsh-chart-tooltip strong{font-size:17px;color:var(--blue)}
+.dsh-chart-tooltip small{color:var(--muted)}
+.dsh-chart-footer{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-top:8px;color:var(--muted);font-size:11px}
+.dsh-chart-zoom{display:flex;gap:5px;flex-shrink:0}
+.dsh-chart-zoom button{height:30px;min-width:30px;padding:0 8px;border:1px solid var(--line);border-radius:8px;background:var(--surface);color:var(--ink);font:inherit;font-size:12px;cursor:pointer}
+.dsh-chart-zoom button:hover{border-color:var(--blue);color:var(--blue);background:var(--blue-soft)}
+@media(max-width:600px){.dsh-interactive-chart .dsh-chart{height:230px}.dsh-chart-periods{width:100%}.dsh-chart-controls>div:last-child{width:100%}.dsh-chart-controls .input{width:100%}.dsh-chart-footer{align-items:flex-start}}

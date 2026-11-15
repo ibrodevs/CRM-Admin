@@ -41,7 +41,7 @@ import { SalesChart } from './SalesChart.jsx';
 import { TodayAgenda } from './TodayAgenda.jsx';
 import { WorkCenter } from './WorkCenter.jsx';
 import { dashToneColor } from './DashboardCard.jsx';
-import { addDays, buildAgenda, dailySeries, formatPercent, isoDayKey, isoDayRange, percentChange, percentTone, sameDay, seriesTotal } from '../model/dashboard-metrics.js';
+import { addDays, buildAgenda, dailySeries, formatPercent, isoDayKey, isoDayRange, percentChange, percentTone, sameDay } from '../model/dashboard-metrics.js';
 import { formatMoney, getDefaultCurrency, resolveCurrency } from '../../../shared/lib/money.js';
 import { freeBookingAmount, freeBookingOfferId, freeBookingServiceBody, freeBookingTotals } from '../model/free-booking.js';
 import { RU_DATE_TIME } from '../../../shared/lib/datetime.js';
@@ -848,11 +848,8 @@ function DashboardPage({ role, user, orders = [], orderServices = [], clients = 
 
   // ——— Аналитика: ряды строятся из уже загруженных услуг и заказов ———
   const salesSeries = dailySeries(orderServices, { days: 7, now: today, key: (s) => s.created_at, value: serviceSales });
-  const salesPrevSeries = dailySeries(orderServices, { days: 7, now: addDays(today, -7), key: (s) => s.created_at, value: serviceSales });
   const profitSeries = dailySeries(orderServices, { days: 7, now: today, key: (s) => s.created_at, value: serviceProfit });
   const ordersSeries = dailySeries(orders, { days: 7, now: today, key: (o) => o.created_at });
-  const salesWeek = seriesTotal(salesSeries);
-  const salesWeekDelta = percentChange(salesWeek, seriesTotal(salesPrevSeries));
   const salesDayDelta = percentChange(salesSeries[6]?.value, salesSeries[5]?.value);
   const profitDayDelta = percentChange(profitSeries[6]?.value, profitSeries[5]?.value);
 
@@ -962,8 +959,7 @@ function DashboardPage({ role, user, orders = [], orderServices = [], clients = 
 
         <div className="dsh-analytics section-workspace">
           <SalesChart
-            series={salesSeries} total={money(salesWeek)} format={money}
-            delta={formatPercent(salesWeekDelta)} deltaTone={percentTone(salesWeekDelta)}
+            rows={orderServices} getValue={serviceSales} now={today} format={money}
             loading={salesLoading} error={salesError} onRetry={onReload}
             onOpenAll={() => onNavigate('finance')}
           />
