@@ -1,3 +1,4 @@
+import { notificationPresentation } from '../../../shared/lib/notification-presentation.js';
 import { PageActionProvider, PageActions } from '../../../shared/ui/PageActions.jsx';
 import { RegistryStats } from '../../../shared/ui/RegistryStats.jsx';
 import { SearchToolbar } from '../../../shared/ui/SearchToolbar.jsx';
@@ -35,21 +36,25 @@ function notifGo(n, onNavigate, onOpenOrder, orders = []) {
 }
 
 
-function NotificationRow({ n, onAct, onRead, onPin, onDismiss, onOpenCode }) {
+function NotificationRow({ n, orders = [], onAct, onRead, onPin, onDismiss, onOpenCode }) {
   const src = NOTIF_SOURCE[n.source] || NOTIF_SOURCE['Система'];
+  const details = notificationPresentation(n, { orders });
+  const createdAt = n.date || n.created_at;
+  const date = createdAt ? new Date(createdAt) : null;
+  const created = date && Number.isFinite(date.getTime()) ? date.toLocaleString('ru-RU', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : n.created || '—';
   return (
-    <div className={'ntf p-' + n.priority + (n.read ? '' : ' unread')}>
+    <div className={'ntf ntf-compact p-' + n.priority + (n.read ? '' : ' unread')}>
       <span className="ntf-ic" style={{ background: src.color }}><Icon name={src.icon} /></span>
       <div style={{ flex: 1, minWidth: 0 }}>
-        <div className="ntf-title">{!n.read && <span className="ntf-unread-dot" />}{n.title}</div>
-        <div className="ntf-desc">{n.desc}</div>
+        <div className="ntf-title">{!n.read && <span className="ntf-unread-dot" />}{n.title}{n.pinned && <Icon name="star" className="ntf-pinned" title="Закреплено" />}</div>
+        <div className="ntf-desc" title={n.desc}>{details.order?.client && <strong className="ntf-client">{details.order.client} · </strong>}{n.desc}</div>
         <div className="ntf-meta">
           <Pill tone={NOTIF_PRIORITY[n.priority]}>{n.priority}</Pill>
-          <span>·</span><span>{n.source}</span>
-          {n.errCode && <span className="link-chip" title="Открыть код ошибки" onClick={() => onOpenCode && onOpenCode(n.errCode)} style={{ padding: '3px 8px', fontFamily: 'ui-monospace, Menlo, monospace', fontWeight: 700 }}><Icon name="api" />{n.errCode}</span>}
-          {n.order && <span className="link-chip" onClick={() => onAct(n)} style={{ padding: '3px 8px' }}><Icon name="orders" />№ {n.order}</span>}
-          <span>·</span><span>Ответственный: {n.resp || 'Не назначен'}</span>
-          <span>·</span><span>Создано: {n.created || '—'}</span>
+          <span>{n.source}</span>
+          {n.errCode && <button type="button" className="ntf-resource" title="Открыть код ошибки" onClick={() => onOpenCode?.(n.errCode)}><Icon name="api" />{n.errCode}</button>}
+          {details.orderNumber ? <button type="button" className="ntf-resource" onClick={() => onAct(n)} title="Открыть связанный заказ"><Icon name="orders" />{details.orderNumber}</button> : n.order && <span className="ntf-resource-missing">Заказ недоступен</span>}
+          <span className="ntf-owner" title={`Ответственный: ${n.resp || 'Не назначен'}`}><Icon name="user" />{n.resp || 'Не назначен'}</span>
+          <time className="ntf-time" title={`Создано: ${n.created || created}`}>{created}</time>
         </div>
         {(n.undelivered || []).length > 0 && (
           <div className="ntf-meta" style={{ marginTop: 4 }}>
@@ -61,10 +66,9 @@ function NotificationRow({ n, onAct, onRead, onPin, onDismiss, onOpenCode }) {
           </div>
         )}
       </div>
-      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 10, flex: '0 0 auto' }}>
+      <div className="ntf-actions">
         <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-          {n.act && <Button size="sm" iconRight="arrowRight" onClick={() => onAct(n)}>{n.act}</Button>}
-          <button className={'icon-btn' + (n.pinned ? ' green' : '')} title="Закрепить" onClick={() => onPin(n.id)}><Icon name="star" /></button>
+          {n.act && <Button variant="ghost" size="sm" iconRight="chevRight" onClick={() => onAct(n)}>{n.act === 'Перейти' ? 'Открыть' : n.act}</Button>}
           <ActionMenu trigger={<button className="btn btn-ghost btn-icon btn-sm"><Icon name="more" /></button>}
             items={[
               { icon: n.read ? 'eyeOff' : 'check', label: n.read ? 'Отметить непрочитанным' : 'Отметить прочитанным', onClick: () => onRead(n.id) },
@@ -267,7 +271,7 @@ function NotificationsCenter({ notifications = [], orders = [], onChange, onNavi
 
       <section className="section-workspace notification-workspace" aria-label="Список уведомлений">
       {rows.length ? rows.map((n) => (
-        <NotificationRow key={n.id} n={n} onAct={act} onRead={(id) => setRead(id)} onPin={pin} onDismiss={dismiss} onOpenCode={openCode} />
+        <NotificationRow key={n.id} n={n} orders={orders} onAct={act} onRead={(id) => setRead(id)} onPin={pin} onDismiss={dismiss} onOpenCode={openCode} />
       )) : <EmptyState icon="bell" title="Здесь пусто" sub="Нет уведомлений по выбранным условиям" />}
 
       </section>

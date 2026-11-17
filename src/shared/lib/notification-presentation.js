@@ -30,7 +30,7 @@ export function notificationPresentation(notification, { orders = [], services =
   const deadlineAt = parsed && Number.isFinite(new Date(parsed).getTime()) ? new Date(parsed).toISOString() : null;
   const deadlineLabel = ticketing ? 'До выписки' : payment ? 'До оплаты' : response ? 'До ответа' : /sign|подпис/i.test(event) ? 'До подписания' : 'До срока';
   const actionLabel = document || type.includes('document') ? order ? 'Документы заказа' : 'К документам' : thread || notification.source === 'Чаты' ? 'Открыть чат' : service ? 'Услуги заказа' : order ? 'Открыть заказ' : 'Подробнее';
-  return { context, order, service, document, thread, deadlineAt, deadlineLabel, actionLabel };
+  return { context, order, orderNumber, service, document, thread, deadlineAt, deadlineLabel, actionLabel };
 }
 
 export function notificationCountdown(deadlineAt, now = Date.now()) {
