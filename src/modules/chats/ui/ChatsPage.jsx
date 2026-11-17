@@ -1,3 +1,4 @@
+import { UnifiedBindPicker } from '../../clients/index.js';
 import { enrichChatThread, chatUnread, mergeChatMessages } from '../model/chat-registry.js';
 import { useDraftState } from '../../../shared/drafts/Drafts.jsx';
 import { ServicePreview } from '../../../shared/ui/ServicePreview.jsx';
@@ -203,6 +204,7 @@ function ChatTaskDrawer({ open, onClose, thread, orders = [], users = [] }) {
   const [priority, setPriority] = useState('normal');
   const [dueAt, setDueAt] = useState('');
   const [selectedOrderId, setSelectedOrderId] = useState('');
+  const [orderPickerOpen, setOrderPickerOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
@@ -215,6 +217,7 @@ function ChatTaskDrawer({ open, onClose, thread, orders = [], users = [] }) {
     setDueAt('');
     setAssignee(null);
     setAssigneeOpen(false);
+    setOrderPickerOpen(false);
 
     let initialOrderId = '';
     if (thread.orderId) {
@@ -223,11 +226,8 @@ function ChatTaskDrawer({ open, onClose, thread, orders = [], users = [] }) {
       const match = orders.find((o) => String(o.no) === String(thread.order) || String(o.id) === String(thread.order));
       if (match?.id) initialOrderId = String(match.id);
     }
-    if (!initialOrderId && orders.length > 0) {
-      initialOrderId = String(orders[0].id);
-    }
     setSelectedOrderId(initialOrderId);
-  }, [open, thread, orders]);
+  }, [open, thread?.id]);
 
   // Список сотрудников workspace бывает пуст (не загрузился или нет прав на
   // настройки) — тогда подгружаем его сами, иначе назначить ответственного не из кого.
@@ -246,17 +246,11 @@ function ChatTaskDrawer({ open, onClose, thread, orders = [], users = [] }) {
     .filter((user) => !['suspended', 'archived', 'Заблокированный'].includes(user.status));
   const assigneeName = assignee ? assignee.name : 'Не назначен';
 
-  const orderOptions = orders.map((o) => ({
-    value: String(o.id),
-    label: `№ ${o.no}${o.client ? ` · ${o.client}` : ''}`,
-  }));
-
-  if (thread.orderId && !orderOptions.some((o) => o.value === String(thread.orderId))) {
-    orderOptions.unshift({
-      value: String(thread.orderId),
-      label: `№ ${orderRef(thread.order || thread.orderId)}${thread.client ? ` · ${thread.client}` : ''}`,
-    });
+  const orderOptions = [...orders];
+  if (thread.orderId && !orderOptions.some((order) => String(order.id) === String(thread.orderId))) {
+    orderOptions.unshift({ id: thread.orderId, no: orderRef(thread.order || thread.orderId), client: thread.client || '' });
   }
+  const selectedOrder = orderOptions.find((order) => String(order.id) === String(selectedOrderId));
 
   const handleSubmit = async (e) => {
     e?.preventDefault?.();
@@ -299,18 +293,10 @@ function ChatTaskDrawer({ open, onClose, thread, orders = [], users = [] }) {
     >
       <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
         <Field label="Связанный заказ" required hint={orderOptions.length ? undefined : 'Список заказов пуст'}>
-          {orderOptions.length > 0 ? (
-            <Select
-              value={selectedOrderId}
-              onChange={(e) => setSelectedOrderId(e.target.value)}
-              options={orderOptions}
-            />
-          ) : (
-            <Input
-              value={thread.order && thread.order !== '—' ? `Заказ № ${orderRef(thread.order)}` : 'Заказ не привязан'}
-              disabled
-            />
-          )}
+          <button type="button" className="input chat-task-order-field" onClick={() => setOrderPickerOpen(true)} disabled={submitting} aria-label="Выбрать заказ для задачи">
+            <Icon name="orders" /><span>{selectedOrder ? `№ ${selectedOrder.no}${selectedOrder.client ? ` · ${selectedOrder.client}` : ''}` : 'Выберите заказ'}</span><Icon name="chevRight" />
+          </button>
+          <UnifiedBindPicker open={orderPickerOpen} title="Выбрать заказ для задачи" modes={['order']} orderOptions={orderOptions} onClose={() => setOrderPickerOpen(false)} onPick={({ order }) => { if (order?.id) setSelectedOrderId(String(order.id)); setOrderPickerOpen(false); }} />
         </Field>
 
         <Field label="Название задачи" required>
