@@ -1,6 +1,6 @@
 import { freeBookingFormScope } from '../../../shared/drafts/workspaces.js';
 import { OfferSearchExtras } from '../../services/index.js';
-import { useDraftState, useDraftControls, DraftScope } from '../../../shared/drafts/Drafts.jsx';
+import { useDraftState, useDraftControls, DraftScope, DraftWorkspaceList } from '../../../shared/drafts/Drafts.jsx';
 import { ServicePreview } from '../../../shared/ui/ServicePreview.jsx';
 import { SectionInfo } from '../../../shared/ui/SectionInfo.jsx';
 import { InfoNotice } from '../../../shared/ui/InfoNotice.jsx';
@@ -956,6 +956,8 @@ function DashboardPage({ role, user, orders = [], orderServices = [], clients = 
             onOpenCalendar={() => onNavigate('calendar')}
           />
         </div>
+
+        <DraftWorkspaceList />
 
         <div className="dsh-analytics section-workspace">
           <SalesChart

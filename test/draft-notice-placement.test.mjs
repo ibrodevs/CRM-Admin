@@ -2,84 +2,57 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createRequire, Module } from 'node:module';
 import { readFileSync } from 'node:fs';
+import { draftsForRoute } from '../src/shared/drafts/workspaces.js';
 const require = createRequire(import.meta.url);
 const babel = require('next/dist/compiled/babel/core');
-function harness() {
+const entries = [
+  { id: 'free-booking', scope: 'free-booking', type: 'free-booking', title: 'Подбор услуг без заказа' },
+  { id: 'order/1', scope: 'order/1', type: 'order', title: 'Заказ ORD-1' },
+  { id: 'new', scope: 'OrderCreateModal/false', type: 'new-order', title: 'Новый заказ' },
+  { id: 'flights', scope: 'FlightsPage', type: 'route', route: 'flights', title: 'Поиск авиабилетов' },
+  { id: 'hotels', scope: 'HotelPicker/free', type: 'route', route: 'hotels', title: 'Поиск отелей' },
+].map((entry) => ({ ...entry, services: [], savedAt: 1794600000000 }));
+const nodes = (node) => Array.isArray(node) ? node.flatMap(nodes) : node?.props ? [node, ...nodes(node.props.children)] : [];
+
+test('desktop aggregates drafts and other sections show only their own work', () => {
+  assert.deepEqual(draftsForRoute(entries, 'dashboard'), entries);
+  assert.deepEqual(draftsForRoute(entries, 'orders'), entries.slice(1, 3));
+  assert.deepEqual(draftsForRoute(entries, 'flights/search'), [entries[3]]);
+  assert.deepEqual(draftsForRoute(entries, 'hotels'), [entries[4]]);
+  for (const route of ['settings', 'clients', 'companies', 'calendar']) assert.deepEqual(draftsForRoute(entries, route), []);
+});
+
+test('saved drafts stay expanded after dismissal and deleting one requires confirmation', () => {
   let index = 0;
   const state = [];
-  const react = { ...require('react'), useMemo: (fn) => fn(), useCallback: (fn) => fn,
-    useState: (initial) => { const i = index++; if (!(i in state)) state[i] = typeof initial === 'function' ? initial() : initial; return [state[i], (next) => { state[i] = typeof next === 'function' ? next(state[i]) : next; }]; },
-    useEffect() {}, useSyncExternalStore: (_subscribe, snapshot) => snapshot() };
+  let cleared = null, opened = null;
+  const store = { workspaces: () => entries, status: () => ({ restored: false, failed: false }), subscribe() {}, open(entry) { opened = entry; }, clear(scope) { cleared = scope; } };
+  const react = { ...require('react'), useContext: () => store, useMemo: (fn) => fn(),
+    useState: (initial) => { const i = index++; if (!(i in state)) state[i] = initial; return [state[i], (next) => { state[i] = next; }]; },
+    useSyncExternalStore: (_subscribe, snapshot) => snapshot() };
   const mod = new Module(import.meta.filename);
-  mod.require = (name) => name === 'react' ? react : name === 'react-dom' ? { createPortal: (node, target) => ({ node, target }) }
-    : name.includes('icons') ? { Icon: 'Icon' } : name === './store.js' ? {} : require(name);
+  mod.require = (name) => name === 'react' ? react : name.includes('icons') ? { Icon: 'Icon' } : name === './store.js' ? {} : name === './workspaces.js' ? { draftsForRoute } : require(name);
   mod._compile(babel.transformSync(readFileSync(new URL('../src/shared/drafts/Drafts.jsx', import.meta.url), 'utf8'), { filename: 'Drafts.jsx', presets: ['next/babel'], configFile: false, babelrc: false, envName: 'test' }).code, import.meta.filename);
-  return { reset: () => { state.length = 0; }, render: (fn, props) => { index = 0; return fn(props); }, Provider: mod.exports.DraftProvider };
-}
-const nodes = (node) => Array.isArray(node) ? node.flatMap(nodes) : node?.props ? [node, ...nodes(node.props.children)] : [];
-test('draft banner follows the topmost form and returns to the underlying workspace when it closes', () => {
-  const { render, Provider } = harness();
-  const tree = () => render(Provider, { owner: null });
-  const register = tree().props.children.props.value;
-  const root = {}, parent = {}, child = {};
-  const clearRoot = register(root, 0);
-  const clearChild = register(child, 160);
-  const clearParent = register(parent, 120); // Parent effects may run after their children.
-  const target = () => tree().props.children.props.children[1].props.target;
-  assert.equal(target(), child);
-  clearChild(); assert.equal(target(), parent);
-  clearParent(); assert.equal(target(), root);
-  clearRoot(); assert.equal(target(), undefined);
-});
-test('inline draft notice can be hidden and keeps destructive clearing behind confirmation', () => {
-  const first = harness();
-  const Notice = first.render(first.Provider, { owner: null }).props.children.props.children[1].type;
-  first.reset();
-  const { render } = first;
-  let cleared = 0, dismissed = 0;
-  const store = { workspaces: () => [{ id: 'free-booking', type: 'free-booking', title: 'Подбор услуг без заказа', services: ['Отели'], savedAt: 1794600000000 }], open() { return true; }, status: () => ({ restored: true, failed: false }), subscribe() {}, clear() { cleared++; }, dismiss() { dismissed++; } };
-  const target = {};
-  const show = () => render(Notice, { store, target });
-  assert.equal(show().target, target, 'the banner is portalled into its form slot, never the viewport footer');
-  let buttons = nodes(show().node).filter((n) => n.type === 'button');
-  buttons.find((n) => n.props['aria-label']).props.onClick();
-  assert.equal(dismissed, 1);
-  buttons.find((n) => n.props.children === 'Очистить все').props.onClick();
-  assert.equal(cleared, 0);
-  nodes(show().node).find((n) => n.type === 'button' && n.props.children === 'Удалить').props.onClick();
-  assert.equal(cleared, 1);
+  const show = () => { index = 0; return mod.exports.DraftWorkspaceList({ route: 'orders' }); };
+  assert.equal(nodes(show()).filter((node) => node.props.className === 'draft-recovery-row').length, 2);
+  const buttons = nodes(show()).filter((node) => node.type === 'button');
+  buttons[0].props.onClick();
+  assert.equal(opened, entries[1]);
+  buttons[1].props.onClick();
+  assert.equal(cleared, null);
+  nodes(show()).find((node) => node.type === 'button' && node.props.children === 'Удалить').props.onClick();
+  assert.equal(cleared, 'order/1');
 });
 
-test('account navigation drawer does not capture saved booking forms', () => {
-  const source = readFileSync(new URL('../src/application/shell/Sidebar.jsx', import.meta.url), 'utf8');
-  const ast = babel.parseSync(source, { filename: 'Sidebar.jsx', presets: ['next/babel'], configFile: false, babelrc: false });
-  let found = false;
-  babel.traverse(ast, { JSXOpeningElement(path) {
-    if (path.node.name.name !== 'Drawer') return;
-    const attrs = path.node.attributes;
-    if (!attrs.some((a) => a.name?.name === 'className' && a.value?.value === 'account-panel')) return;
-    found = true;
-    const enabled = attrs.find((a) => a.name?.name === 'showDraftNotice');
-    assert.equal(enabled?.value?.expression?.value, false);
-  } });
-  assert.equal(found, true);
-});
-
-test('calendar and passenger pickers do not become targets for the workspace draft banner', () => {
-  const paths = ['src/shared/ui/CalendarField.jsx', 'src/shared/ui/DateFields.jsx', 'src/modules/services/search/PassengerPickerField.jsx', 'src/modules/orders/ui/OrderCard.jsx', 'src/modules/services/hotels/HotelsPage.jsx'];
-  let pickers = 0;
-  for (const file of paths) {
-    const source = readFileSync(new URL('../' + file, import.meta.url), 'utf8');
-    const ast = babel.parseSync(source, { filename: file, presets: ['next/babel'], configFile: false, babelrc: false });
-    babel.traverse(ast, { JSXOpeningElement(path) {
-      if (!['Drawer', 'StackPanel'].includes(path.node.name.name)) return;
-      const attrs = path.node.attributes;
-      const className = attrs.find((a) => a.name?.name === 'className')?.value?.value || '';
-      const title = attrs.find((a) => a.name?.name === 'title')?.value?.value || '';
-      if (!/calendar-drawer|passenger-picker-panel/.test(className) && !['Пассажиры и класс', 'Пассажиры и размещение'].includes(title)) return;
-      pickers++;
-      assert.equal(attrs.find((a) => a.name?.name === 'showDraftNotice')?.value?.expression?.value, false, file);
-    } });
+test('shared side panels never render the workspace draft list', () => {
+  for (const file of ['src/shared/ui/Overlays.jsx', 'src/modules/locations/ui/SharedPanels.jsx']) {
+    assert.doesNotMatch(readFileSync(new URL('../' + file, import.meta.url), 'utf8'), /DraftNoticeSlot|DraftWorkspaceList/);
   }
-  assert.equal(pickers, 5, 'single/range calendars, shared passenger picker and order/hotel placement panels');
+});
+
+test('dashboard lists drafts next to agenda and tasks; shell scopes other sections', () => {
+  const dashboard = readFileSync(new URL('../src/modules/dashboard/ui/DashboardPage.jsx', import.meta.url), 'utf8');
+  assert.match(dashboard, /<TodayAgenda[\s\S]*<DraftWorkspaceList\s*\/>/);
+  const shell = readFileSync(new URL('../src/application/shell/AppShell.jsx', import.meta.url), 'utf8');
+  assert.match(shell, /!== 'dashboard' && <DraftWorkspaceList route=\{route\}/);
 });

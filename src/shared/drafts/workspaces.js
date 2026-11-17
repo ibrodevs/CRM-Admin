@@ -79,3 +79,11 @@ export function freeBookingFormScope(kind) {
   const scopes = { 'Авиа': 'DetailedSearchPanel', 'Гостиница': 'HotelPicker/free', 'ЖД': 'FreeBookingRailFlow', 'Трансфер': 'FreeBookingServiceAddFlow/transfers', 'Автобус': 'FreeBookingServiceAddFlow/buses', 'Аэроэкспресс': 'FreeBookingAeroAddFlow', 'Бизнес-зал': 'FreeBookingServiceAddFlow/lounge' };
   return scopes[kind] || `QuickAddForm/${kind}`;
 }
+
+// Only the desktop aggregates work from every section.
+export function draftsForRoute(entries, route) {
+  const section = route.split('/')[0];
+  return entries.filter((entry) => section === 'dashboard'
+    || (section === 'orders' && ['order', 'new-order'].includes(entry.type))
+    || (entry.type === 'route' && entry.route === section));
+}
