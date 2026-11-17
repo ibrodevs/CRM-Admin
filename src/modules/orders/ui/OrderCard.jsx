@@ -2136,6 +2136,7 @@ function FreeBookingFlightPanel({ params, setParams, onAdd }) {
   const [liveOffers, setLiveOffers] = useDraftState('FreeBookingFlightPanel', "liveOffers", []);
   const [loading, setLoading] = useState(false);
   const [searchError, setSearchError] = useState('');
+  const [reusedSearch, setReusedSearch] = useState(false);
   const [activeSearchId, setActiveSearchId] = useDraftState('FreeBookingFlightPanel', 'activeSearchId', null);
   const [visible, setVisible] = useDraftState('FreeBookingFlightPanel', "visible", 6);
   const [view, setView] = useDraftState('FreeBookingFlightPanel', "view", 'cards');
@@ -2161,14 +2162,23 @@ function FreeBookingFlightPanel({ params, setParams, onAdd }) {
 
   const selectionVersion = useRef(0);
   const currentSearchValues = p;
-  const runSearch = async (nextValues, resumeId = null) => {
+  const runSearch = async (nextValues, resumeId = null, refresh = false) => {
     const p = nextValues && !nextValues.nativeEvent ? nextValues : currentSearchValues;
     const error = validateFreeFlightSearch(p);
     if (error) { toast(error, 'warn'); return false; }
     const request = ++requestId.current;
-    setSearchError(''); setLoading(true); setLiveOffers([]); if (!nextValues || nextValues.nativeEvent) setSelected(null); setSearched(false);
+    setReusedSearch(false); setSearchError(''); setLoading(true); setLiveOffers([]); if (!nextValues || nextValues.nativeEvent) setSelected(null); setSearched(false);
     try {
-      const options = { shouldContinue: () => request === requestId.current, onCreated: (id) => { if (request === requestId.current) setActiveSearchId(id); } };
+      const options = {
+        refresh, shouldContinue: () => request === requestId.current,
+        onCreated: (id, data) => { if (request === requestId.current) { setActiveSearchId(id); setReusedSearch(Boolean(data.reused)); } },
+        onProgress: (rows) => {
+          if (request !== requestId.current) return;
+          const found = rows.map((offer) => ({ ...liveFlightOffer(offer), backendOffer: offer }));
+          setLiveOffers(found); setSearched(true);
+          setFlt({ stops: [], air: [], sup: [], bagOnly: false, refundOnly: false, priceMax: aviaPriceBounds(found).max, flightNo: '' });
+        },
+      };
       const raw = resumeId
         ? await waitFreeFlightOffers(resumeId, servicesApi, undefined, options)
         : await searchFreeFlightOffers(p, servicesApi, undefined, options);
@@ -2254,7 +2264,9 @@ function FreeBookingFlightPanel({ params, setParams, onAdd }) {
       </InfoNotice>}
       <div className="free-booking-results-toolbar" style={{ display: 'flex', alignItems: 'center', gap: 10, margin: '0 0 14px' }}>
         <div style={{ flex: 1 }} />
-        <span style={{ color: 'var(--muted)', fontSize: 13 }}>{loading ? 'Поиск…' : `Найдено ${pool.length}`}</span>
+        <span style={{ color: 'var(--muted)', fontSize: 13 }}>{loading ? `Найдено ${pool.length} · поиск продолжается…` : `Найдено ${pool.length}`}</span>
+        {reusedSearch && !loading && <span style={{ color: 'var(--muted)', fontSize: 12 }}>Недавний поиск</span>}
+        {searched && !loading && <Button variant="secondary" size="sm" onClick={() => runSearch(undefined, null, true)}>Обновить</Button>}
         <div className="avia-view-toggle">
           <button className={view === 'cards' ? 'on' : ''} onClick={() => setView('cards')}><Icon name="grid" />Карточки</button>
           <button className={view === 'list' ? 'on' : ''} onClick={() => setView('list')}><Icon name="orders" />Список</button>

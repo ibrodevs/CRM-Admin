@@ -43,9 +43,10 @@ export function freeFlightCriteria(params) {
     ...(params.trip === 'mc' ? { segments: freeFlightSegments(params).map((s) => ({ origin: flightLocationCode(s.from), destination: flightLocationCode(s.to), date: freeFlightDate(s.date) })) } : {}),
   };
 }
-export async function waitFreeFlightOffers(searchId, api, pause = (ms) => new Promise((resolve) => setTimeout(resolve, ms)), { shouldContinue = () => true } = {}) {
+export async function waitFreeFlightOffers(searchId, api, pause = (ms) => new Promise((resolve) => setTimeout(resolve, ms)), { shouldContinue = () => true, onProgress } = {}) {
   // TTBooking SEARCHRESULT can take over a minute; never create another search
   // merely because the browser stopped waiting before the worker finished.
+  let shownCount = 0;
   for (let attempt = 0; attempt < 240; attempt += 1) {
     if (!shouldContinue()) return null;
     const status = await api.searchStatus(searchId);
@@ -71,13 +72,20 @@ export async function waitFreeFlightOffers(searchId, api, pause = (ms) => new Pr
       }
       return shouldContinue() ? rows : null;
     }
+    if (onProgress && Number(status.offers_count) > shownCount) {
+      const payload = await api.offers(searchId, { page_size: 100 });
+      if (!shouldContinue()) return null;
+      const rows = resultsOf(payload);
+      shownCount = Number(payload.count) || rows.length;
+      onProgress(rows, shownCount);
+    }
     await pause(1000);
   }
   throw new Error('Поиск ещё выполняется. Нажмите «Продолжить ожидание», чтобы получить результат без повторного запроса.');
 }
 export async function searchFreeFlightOffers(params, api, pause, options = {}) {
-  const created = await api.search({ kind: 'avia', criteria: freeFlightCriteria(params) });
-  options.onCreated?.(created.search_id);
+  const created = await api.search({ kind: 'avia', criteria: freeFlightCriteria(params), ...(options.refresh ? { refresh: true } : {}) });
+  options.onCreated?.(created.search_id, created);
   return waitFreeFlightOffers(created.search_id, api, pause, options);
 }
 

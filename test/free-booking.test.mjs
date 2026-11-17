@@ -311,3 +311,28 @@ test('changing route stops old polling and supplier configuration errors do not 
   api.searchStatus = async () => ({ status: 'failed', provider_runs: [{ error_code: 'AUTH_ERROR' }] });
   await assert.rejects(waitFreeFlightOffers('denied', api), /авторизацию/);
 });
+
+test('flight offers appear while other providers are still running, followed by complete results', async () => {
+  const { waitFreeFlightOffers } = await import('../src/modules/services/flights/free-flight-search.js');
+  let checks = 0, pages = 0;
+  const progress = [];
+  const rows = await waitFreeFlightOffers('stream', {
+    searchStatus: async () => ({ status: ++checks < 3 ? 'running' : 'completed', offers_count: 1 }),
+    offers: async () => { pages++; return { count: 1, results: [{ id: 'first-flight' }] }; },
+  }, async () => {}, { onProgress: (rows, count) => progress.push({ rows, count }) });
+  assert.equal(progress.length, 1, 'unchanged offer count must not fetch the same partial page again');
+  assert.equal(progress[0].rows[0].id, 'first-flight');
+  assert.equal(progress[0].count, 1);
+  assert.equal(rows[0].id, 'first-flight');
+  assert.equal(pages, 2);
+});
+
+test('explicit refresh bypasses recent search reuse and ordinary search retains its contract', async () => {
+  let body, metadata;
+  const api = { search: async (data) => { body = data; return { search_id: 'reused', reused: true }; }, searchStatus: async () => ({ status: 'completed' }), offers: async () => ({ results: [], count: 0 }) };
+  await searchFreeFlightOffers(flightParams(), api, undefined, { refresh: true, onCreated: (_id, data) => { metadata = data; } });
+  assert.equal(body.refresh, true);
+  assert.equal(metadata.reused, true);
+  await searchFreeFlightOffers(flightParams(), api);
+  assert.equal(body.refresh, undefined);
+});
