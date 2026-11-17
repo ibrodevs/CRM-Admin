@@ -639,7 +639,7 @@ function HotelPicker({ participants, group = false, onApply, onCancel, currency,
       </div>
 
 
-      {mapOpen && <StackPanel title="Отели на карте" width="min(1440px,96vw)" onClose={() => setMapOpen(false)} className="hp-map-panel">
+      {mapOpen && <StackPanel title="Отели на карте" width="min(1440px,96vw)" onClose={() => setMapOpen(false)} closeOnBackdrop className="hp-map-panel">
         <div className="hp-map-layout">
           <div className="hp-map-sidebar">
             <HotelFilters stars={stars} toggleStar={(s) => setStars((p) => ({ ...p, [s]: !p[s] }))} starCounts={starCounts}

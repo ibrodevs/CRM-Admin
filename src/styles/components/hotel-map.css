@@ -1,9 +1,9 @@
-.hp-map-panel{min-width:0;overflow:hidden;background:var(--surface)}
+.hp-map-panel{container-name:hotel-map;min-width:0;overflow:hidden;background:var(--surface)}
 .hp-map-panel>.drawer-stack-header{flex-shrink:0;gap:16px}
-.hp-map-panel>.drawer-stack-body{display:flex;min-width:0;min-height:0;overflow:hidden}
-.hp-map-layout{display:grid;grid-template-columns:minmax(260px,320px) minmax(0,1fr);gap:20px;flex:1;min-width:0;min-height:0}
+.hp-map-panel>.drawer-stack-body{display:block;min-width:0;min-height:0;overflow:hidden}
+.hp-map-layout{display:grid;grid-template-columns:minmax(260px,320px) minmax(0,1fr);gap:20px;width:100%;height:100%;min-width:0;min-height:0}
 .hp-map-sidebar{min-width:0;min-height:0;overflow:auto;overscroll-behavior:contain;scrollbar-gutter:stable;padding:0 8px 8px 0}
-.hp-map-sidebar .hp-filters{width:100%;position:static;max-height:none;overflow:visible;background:var(--surface)}
+.hp-map-sidebar .hp-filters{display:block;box-sizing:border-box;width:100%;min-width:0;position:static;max-height:none;overflow:visible;background:var(--surface)}
 .hp-map-sidebar>p{font-size:13px;color:var(--muted);margin:14px 0}
 .hp-map-area{display:flex;flex-direction:column;gap:10px;min-width:0;min-height:0}
 .hp-map-frame{position:relative;flex:1;min-height:0;border:1px solid var(--line);border-radius:14px;overflow:hidden;isolation:isolate}
@@ -17,9 +17,9 @@
 .hp-map-offer small{color:var(--muted)}
 .hp-map-offer strong,.hp-map-offer>span{color:var(--blue)}
 .hp-map-sidebar>.hp-inline-check{display:flex;align-items:center;gap:8px;margin-top:14px;white-space:normal}
-@container(max-width:800px){
+@container hotel-map (max-width:800px){
   .hp-map-panel>.drawer-stack-body{display:block;overflow:auto;padding:16px!important}
-  .hp-map-layout{display:flex;flex-direction:column;gap:16px}
+  .hp-map-layout{display:flex;flex-direction:column;gap:16px;height:auto}
   .hp-map-sidebar{overflow:visible;padding:0}
   .hp-map-area{order:-1;flex:none;height:clamp(320px,52dvh,480px)}
 }
@@ -30,3 +30,7 @@
 .hp-map-unavailable span{max-width:360px;color:var(--muted);font-size:14px;line-height:1.5}
 
 .hp-map-empty-icon{display:grid;place-items:center;width:56px;height:56px;border-radius:16px;background:var(--blue-soft);color:var(--blue);font-size:32px}
+
+.hp-map-sidebar>*{min-width:0;max-width:100%;box-sizing:border-box}
+.hp-map-sidebar>.empty{padding:32px 16px;overflow-wrap:break-word}
+.hp-map-sidebar>.empty svg{flex-shrink:0}

@@ -121,3 +121,18 @@ test('free booking backdrop checks the active service form rather than hidden dr
   assert.match(source, /useDraftControls\(freeBookingFormScope\(kind\)\)/);
   assert.match(source, /closeOnBackdrop=\{\(\) => !draft.length && !activeForm.hasWork\(kind\)\}/);
 });
+
+test('hotel map backdrop closes only the map and retains the search underneath', () => {
+  const source = readFileSync(new URL('../src/modules/services/hotels/HotelsPage.jsx', import.meta.url), 'utf8');
+  const ast = babel.parseSync(source, { filename: 'HotelsPage.jsx', presets: ['next/babel'], configFile: false, babelrc: false });
+  let mapPanel;
+  babel.traverse(ast, { JSXOpeningElement(path) {
+    if (path.node.name.name === 'StackPanel' && path.node.attributes.some((attr) => attr.name?.name === 'className' && attr.value?.value === 'hp-map-panel')) mapPanel = path.node;
+  } });
+  assert.ok(mapPanel);
+  assert.ok(mapPanel.attributes.some((attr) => attr.name?.name === 'closeOnBackdrop' && attr.value === null));
+  const close = mapPanel.attributes.find((attr) => attr.name?.name === 'onClose').value.expression;
+  assert.equal(close.body.callee.name, 'setMapOpen');
+  assert.equal(close.body.arguments[0].value, false);
+  assert.equal(close.body.arguments.length, 1, 'closing the map does not reset search or clear drafts');
+});
