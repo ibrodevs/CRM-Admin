@@ -1,4 +1,4 @@
-import { suppliersApi } from '../../suppliers/api.js';
+import { InsuranceSearchPanel } from '../../services/index.js';
 import { useDraftState, useDraftControls } from '../../../shared/drafts/Drafts.jsx';
 import { hotelBookingOptions } from '../../../shared/lib/hotel-booking-options.js';
 import { Statistics, Statistic } from '../../../shared/ui/Statistics.jsx';
@@ -1954,44 +1954,27 @@ function AviaSearchPanel({ params, setParams, participants = [], onAdd }) {
   </div>;
 }
 
-function QuickAddForm({ kind, onAdd, currency, addLabel = 'Добавить в заказ', strict = false }) {
+function QuickAddForm(props) {
+  return props.kind === 'Страховка' ? <InsuranceSearchPanel {...props} /> : <ManualServiceForm {...props} />;
+}
+
+function ManualServiceForm({ kind, onAdd, currency, addLabel = 'Добавить в заказ' }) {
   const toast = useToast();
-  const k = SERVICE_KIND[kind] || { icon: kind === 'Страховка' ? 'shield' : 'briefcase', color: 'var(--blue)' };
-  const [title, setTitle] = useDraftState(`QuickAddForm/${kind}`, "title", '');
-  const [date, setDate] = useDraftState(`QuickAddForm/${kind}`, "date", null);
-  const [supplier, setSupplier] = useDraftState(`QuickAddForm/${kind}`, "supplier", '');
-  const [cost, setCost] = useDraftState(`QuickAddForm/${kind}`, "cost", '');
-  const insurance = kind === 'Страховка';
-  const [providers, setProviders] = useState([]), [providerError, setProviderError] = useState(''), [providerLoading, setProviderLoading] = useState(false), [retry, setRetry] = useState(0);
-  const [quotes, setQuotes] = useDraftState(`QuickAddForm/${kind}`, 'supplierQuotes', {});
-  useEffect(() => {
-    if (!insurance) return;
-    const controller = new AbortController(); setProviderLoading(true); setProviderError('');
-    suppliersApi.list({ service_kind: 'insurance', status: 'active' }, controller.signal).then((payload) => setProviders(resultsOf(payload))).catch((e) => { if (e.name !== 'AbortError') setProviderError(e.message || 'Не удалось загрузить поставщиков'); }).finally(() => { if (!controller.signal.aborted) setProviderLoading(false); });
-    return () => controller.abort();
-  }, [insurance, retry]);
-  const selectedProvider = providers.find((row) => String(row.id) === supplier || row.name === supplier);
-  const allProviders = insurance && supplier === '__all__';
-  const validAmount = (value) => value !== '' && value != null && Number.isFinite(Number(value)) && Number(value) >= 0;
-  const submit = (provider = selectedProvider, amount = cost) => {
-    if (!title.trim() || !validAmount(amount)) { toast('Заполните название и стоимость', 'err'); return; }
-    if (insurance && (!provider || providerLoading || providerError)) { toast('Выберите доступного страхового поставщика', 'err'); return; }
-    onAdd({ title: title.trim(), sub: kind, cost: Number(amount), fee: 0, currency, starts_at: formatIsoDateTime(date), supplier: insurance ? provider.name : supplier.trim() || '—', ...(insurance ? { supplierId: provider.id } : {}), info: [{ l: 'Дата', v: date ? fmtDate(date) : '—' }] }, kind);
+  const [title, setTitle] = useDraftState(`QuickAddForm/${kind}`, 'title', '');
+  const [date, setDate] = useDraftState(`QuickAddForm/${kind}`, 'date', null);
+  const [supplier, setSupplier] = useDraftState(`QuickAddForm/${kind}`, 'supplier', '');
+  const [cost, setCost] = useDraftState(`QuickAddForm/${kind}`, 'cost', '');
+  const submit = () => {
+    if (!title.trim() || cost === '' || !Number.isFinite(Number(cost)) || Number(cost) < 0) { toast('Заполните название и стоимость', 'err'); return; }
+    onAdd({ title: title.trim(), sub: kind, cost: Number(cost), fee: 0, currency, starts_at: formatIsoDateTime(date), supplier: supplier.trim() || '—', info: [{ l: 'Дата', v: date ? fmtDate(date) : '—' }] }, kind);
   };
-  return (
-    <div className="quick-add-service">
-      <div className="quick-add-service-fields">
-        <Field label="Название услуги"><Input value={title} onChange={(e) => setTitle(e.target.value)} placeholder={kind === 'Страховка' ? 'Например, Страховка ВЗР' : 'Название дополнительной услуги'} /></Field>
-        <Field label="Поставщик">{insurance ? <Select aria-label="Страховой поставщик" value={selectedProvider ? String(selectedProvider.id) : supplier === '__all__' ? '__all__' : ''} onChange={(e) => setSupplier(e.target.value)} placeholder={providerLoading ? 'Загрузка…' : 'Выберите поставщика'} disabled={providerLoading || !!providerError || !providers.length} options={[{ value: '__all__', label: 'Все поставщики' }, ...providers.map((row) => ({ value: String(row.id), label: row.name }))]} /> : <Input value={supplier} onChange={(e) => setSupplier(e.target.value)} placeholder="Название поставщика" />}</Field>
-        <Field label="Дата"><DateField value={date} onChange={setDate} placeholder="Выбрать дату" /></Field>
-        <Field label={`Стоимость, ${currency}`}><Input type="number" min="0" step="0.01" disabled={allProviders} value={allProviders ? '' : cost} onChange={(e) => setCost(e.target.value)} placeholder={allProviders ? 'В сравнении ниже' : '0'} /></Field>
-        <Button icon="plus" disabled={insurance && (allProviders || !selectedProvider || providerLoading || !!providerError)} onClick={() => submit()}>{addLabel}</Button>
-      </div>
-      {insurance && providerError && <div role="alert"><p>{providerError}</p><Button variant="secondary" onClick={() => setRetry((n) => n + 1)}>Повторить загрузку</Button></div>}
-      {insurance && !providerLoading && !providerError && !providers.length && <p className="hint">В справочнике нет активных поставщиков страховки. Добавьте поставщика с видом услуги «Страхование» в разделе «Поставщики».</p>}
-      {allProviders && providers.length > 0 && <section className="insurance-comparison" aria-label="Сравнение страховых предложений"><h3>Сравнение предложений</h3><p className="hint">Введите стоимость из предложений поставщиков в одной валюте ({currency}). Автоматический расчёт пока не подключён. Перед выбором сравните покрытие и условия полисов.</p><div className="table-card"><table className="tbl"><thead><tr><th>Поставщик</th><th>Стоимость, {currency}</th><th /></tr></thead><tbody>{providers.map((row) => <tr key={row.id}><td>{row.name}</td><td><Input aria-label={`Стоимость страховки: ${row.name}`} type="number" min="0" step="0.01" value={quotes[row.id] ?? ''} onChange={(e) => setQuotes((current) => ({ ...current, [row.id]: e.target.value }))} placeholder="Не указана" /></td><td><Button size="sm" disabled={!title.trim() || !validAmount(quotes[row.id])} onClick={() => submit(row, quotes[row.id])}>Выбрать</Button></td></tr>)}</tbody></table></div></section>}
-    </div>
-  );
+  return <div className="quick-add-service"><div className="quick-add-service-fields">
+    <Field label="Название услуги"><Input value={title} onChange={(event) => setTitle(event.target.value)} placeholder="Название дополнительной услуги" /></Field>
+    <Field label="Поставщик"><Input value={supplier} onChange={(event) => setSupplier(event.target.value)} placeholder="Название поставщика" /></Field>
+    <Field label="Дата"><DateField value={date} onChange={setDate} placeholder="Выбрать дату" /></Field>
+    <Field label={`Стоимость, ${currency}`}><Input type="number" min="0" step="0.01" value={cost} onChange={(event) => setCost(event.target.value)} placeholder="0" /></Field>
+    <Button icon="plus" onClick={submit}>{addLabel}</Button>
+  </div></div>;
 }
 
 function AddServicePanel({ kind, setKind, aviaParams, setAviaParams, paxCount, participants, isGroup, onAddAvia, onAddAviaPerPax, onAddOther, orderId }) {
@@ -2012,7 +1995,7 @@ function AddServicePanel({ kind, setKind, aviaParams, setAviaParams, paxCount, p
       {kind === 'ЖД' && <ServiceAddFlow routeKey="rail" currency={aviaParams?.currency} paxCount={participants?.length} onAdd={onAddOther} />}
       {kind === 'Аэроэкспресс' && <AeroAddFlow onAdd={onAddOther} />}
       {kind !== 'Авиа' && kind !== 'Гостиница' && kind !== 'ЖД' && kind !== 'Аэроэкспресс' && cat.routeKey && <ServiceAddFlow currency={aviaParams?.currency} paxCount={participants?.length} routeKey={cat.routeKey} onAdd={onAddOther} />}
-      {kind !== 'Авиа' && kind !== 'Гостиница' && kind !== 'ЖД' && kind !== 'Аэроэкспресс' && !cat.routeKey && <QuickAddForm currency={aviaParams?.currency} kind={kind} onAdd={onAddOther} />}
+      {kind !== 'Авиа' && kind !== 'Гостиница' && kind !== 'ЖД' && kind !== 'Аэроэкспресс' && !cat.routeKey && <QuickAddForm orderId={orderId} participants={participants} currency={aviaParams?.currency} kind={kind} onAdd={onAddOther} />}
     </div>
   );
 }

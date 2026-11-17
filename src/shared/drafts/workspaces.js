@@ -2,6 +2,8 @@ const ROUTES = { flights: 'Авиабилеты', rail: 'ЖД билеты', hot
 const KINDS = { Авиа: 'Авиабилеты', Гостиница: 'Отели', ЖД: 'ЖД билеты', Трансфер: 'Трансферы', Автобус: 'Автобусы', Аэроэкспресс: 'Аэроэкспресс', Страховка: 'Страховка' };
 const filled = (value) => value != null && value !== '' && value !== false;
 export function hasDraftWork(fields) {
+  const insurance = fields.request;
+  if (insurance && (insurance.countries?.trim() || insurance.start || insurance.end || insurance.citizenship?.trim() || insurance.travellers?.some((person) => person.birth_date) || insurance.purpose && insurance.purpose !== 'tourism')) return true;
   const params = fields.aviaParams || fields.params;
   const pax = params?.pax || fields.form?.pax;
   if (pax && typeof pax === 'object' && (Number(pax.adt) > 1 || Number(pax.chd) > 0 || Number(pax.infSeat) > 0 || Number(pax.infNoSeat) > 0)) return true;
