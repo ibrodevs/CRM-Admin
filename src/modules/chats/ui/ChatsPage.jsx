@@ -1,4 +1,4 @@
-import { enrichChatThread, chatUnread } from '../model/chat-registry.js';
+import { enrichChatThread, chatUnread, mergeChatMessages } from '../model/chat-registry.js';
 import { useDraftState } from '../../../shared/drafts/Drafts.jsx';
 import { ServicePreview } from '../../../shared/ui/ServicePreview.jsx';
 import { serviceSummary } from '../../../shared/lib/service-presentation.js';
@@ -531,7 +531,7 @@ function chatFileSize(bytes) {
   return `${(bytes / (1024 * 1024)).toFixed(1).replace('.', ',')} МБ`;
 }
 
-function ChatThread({ thread, currentUserId, embedded, onOpenOrder, onOpenService, initChannel, recipients, onSwitchThread, orders = [], services = [], users = [], onOpenTask, onOpenHistory }) {
+function ChatThread({ thread, currentUserId, embedded, onOpenOrder, onOpenService, initChannel, recipients, onSwitchThread, onChooseRecipient, onThreadResolved, orders = [], services = [], users = [], onOpenTask, onOpenHistory }) {
   const toast = useToast();
   const [sub, setSub] = useState('message');
   const [msgs, setMsgs] = useState(thread.messages || []);
@@ -541,30 +541,82 @@ function ChatThread({ thread, currentUserId, embedded, onOpenOrder, onOpenServic
   const [linked, setLinked] = useState(null);
   const [pinned, setPinned] = useState(!!thread.pinned);
   const [sending, setSending] = useState(false);
+  const [servicePickerOpen, setServicePickerOpen] = useState(false);
+  const [loadingMessages, setLoadingMessages] = useState(!thread.virtual);
+  const [messageError, setMessageError] = useState('');
+  const [resolvingThread, setResolvingThread] = useState(Boolean(thread.virtual && isUuid(thread.orderId)));
+  const [messageRetry, setMessageRetry] = useState(0);
+  const [hasOlderMessages, setHasOlderMessages] = useState(false);
+  const [loadingOlder, setLoadingOlder] = useState(false);
+  const oldestMessageRef = useRef(null);
   const [selfTaskOpen, setSelfTaskOpen] = useState(false);
   const [selfHistoryOpen, setSelfHistoryOpen] = useState(false);
   const scrollRef = useRef(null);
   const fileRef = useRef(null);
   const serverThreadRef = useRef(null);
+  const resolvedServerRef = useRef(null);
+  const [resolvedThreadId, setResolvedThreadId] = useState(!thread.virtual && isUuid(thread.id) ? thread.id : null);
+  const stickToBottomRef = useRef(true);
 
   const handleOpenTask = onOpenTask || (() => setSelfTaskOpen(true));
   const handleOpenHistory = onOpenHistory || (() => setSelfHistoryOpen(true));
 
   useEffect(() => { setMsgs(thread.messages || []); setIntl(thread.internal || []); setSub('message'); setLinked(null); setPendingFile(null); serverThreadRef.current = null; setPinned(!!thread.pinned); }, [thread.id]);
   useEffect(() => {
-    if (!thread.id || thread.virtual) return undefined;
+    if (!thread.virtual || !isUuid(thread.orderId)) return undefined;
     const controller = new AbortController();
-    communicationsApi.messages(thread.id, {}, controller.signal)
-      .then((payload) => {
-        const loaded = (payload.results || []).map((message) => toUiMessage(message, currentUserId));
-        setMsgs(loaded.filter((message) => !message.internal));
-        setIntl(loaded.filter((message) => message.internal));
-        return communicationsApi.read(thread.id, loaded.length ? { message: loaded[loaded.length - 1].id } : {});
-      })
-      .catch((error) => { if (error.name !== 'AbortError') toast(error.message, 'err'); });
+    setResolvingThread(true);
+    communicationsApi.threads({ order: thread.orderId, type: thread.type === 'operator' ? 'internal' : thread.type }, controller.signal).then((payload) => {
+      if (controller.signal.aborted) return;
+      const candidates = payload.results || (Array.isArray(payload) ? payload : []);
+      if (candidates.length === 1 || (thread.type === 'client' && candidates.length > 0)) { serverThreadRef.current = candidates[0].id; setResolvedThreadId(candidates[0].id); resolvedServerRef.current = toUiThread(candidates[0]); onThreadResolved?.({ ...thread, ...resolvedServerRef.current, virtual: false }); }
+    }).catch((error) => { if (!controller.signal.aborted) setMessageError(error.message || 'Не удалось открыть переписку'); }).finally(() => { if (!controller.signal.aborted) setResolvingThread(false); });
     return () => controller.abort();
-  }, [thread.id, currentUserId]);
-  useEffect(() => { if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight; }, [sub, msgs, intl]);
+  }, [thread.id, thread.virtual, thread.orderId]);
+  useEffect(() => {
+    if (!resolvedThreadId) { setLoadingMessages(false); return undefined; }
+    const controller = new AbortController();
+    let pending = false, readId = null, first = true;
+    const refresh = async () => {
+      if (pending || controller.signal.aborted) return;
+      pending = true;
+      try {
+        const payload = await communicationsApi.messages(resolvedThreadId, {}, controller.signal);
+        if (controller.signal.aborted) return;
+        const loaded = (payload.results || []).map((message) => toUiMessage(message, currentUserId));
+        setMsgs((current) => mergeChatMessages(current, loaded.filter((message) => !message.internal)));
+        setIntl((current) => mergeChatMessages(current, loaded.filter((message) => message.internal)));
+        if (first) { setHasOlderMessages(Boolean(payload.has_more)); oldestMessageRef.current = loaded[0]?.id; first = false; }
+        setMessageError('');
+        const lastId = loaded.at(-1)?.id;
+        if (lastId && lastId !== readId) { await communicationsApi.read(resolvedThreadId, { message: lastId }); readId = lastId; }
+      } catch (error) { if (!controller.signal.aborted) setMessageError(error.message || 'Не удалось загрузить сообщения'); }
+      finally { pending = false; if (!controller.signal.aborted) setLoadingMessages(false); }
+    };
+    setLoadingMessages(true);
+    refresh();
+    const timer = window.setInterval(refresh, 5000);
+    window.addEventListener('focus', refresh);
+    return () => { controller.abort(); window.clearInterval(timer); window.removeEventListener('focus', refresh); };
+  }, [resolvedThreadId, currentUserId, messageRetry]);
+  const loadOlder = async () => {
+    if (loadingOlder || !oldestMessageRef.current) return;
+    setLoadingOlder(true);
+    stickToBottomRef.current = false;
+    const previousHeight = scrollRef.current?.scrollHeight || 0;
+    const previousTop = scrollRef.current?.scrollTop || 0;
+    try {
+      const payload = await communicationsApi.messages(resolvedThreadId, { before: oldestMessageRef.current });
+      const loaded = (payload.results || []).map((message) => toUiMessage(message, currentUserId));
+      setMsgs((current) => mergeChatMessages(current, loaded.filter((message) => !message.internal)));
+      setIntl((current) => mergeChatMessages(current, loaded.filter((message) => message.internal)));
+      window.requestAnimationFrame(() => { if (scrollRef.current) scrollRef.current.scrollTop = previousTop + scrollRef.current.scrollHeight - previousHeight; });
+      oldestMessageRef.current = loaded[0]?.id;
+      setHasOlderMessages(Boolean(payload.has_more));
+    } catch (error) { toast(error.message || 'Не удалось загрузить историю', 'err'); }
+    finally { setLoadingOlder(false); }
+  };
+  useEffect(() => { if (scrollRef.current && stickToBottomRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight; }, [sub, msgs, intl]);
 
   const feed = sub === 'internal' ? intl : msgs;
   const setFeed = sub === 'internal' ? setIntl : setMsgs;
@@ -576,10 +628,14 @@ function ChatThread({ thread, currentUserId, embedded, onOpenOrder, onOpenServic
     if (!isUuid(thread.orderId)) throw new Error('Чат не связан с заказом: откройте его из карточки заказа или раздела «Чаты»');
     const type = ['client', 'supplier', 'internal'].includes(thread.type) ? thread.type : 'internal';
     const existing = await communicationsApi.threads({ order: thread.orderId, type });
-    const found = (existing?.results || (Array.isArray(existing) ? existing : []))[0];
+    const candidates = existing?.results || (Array.isArray(existing) ? existing : []);
+    if (type === 'supplier' && candidates.length > 1) throw new Error('Выберите конкретную переписку поставщика');
+    const found = candidates[0];
     const hasOrderNo = thread.order && thread.order !== '—' && !isUuid(thread.order);
     const server = found || await communicationsApi.createThread({ type, order: thread.orderId, title: hasOrderNo ? `Заказ № ${thread.order}` : '' });
     serverThreadRef.current = server.id;
+    resolvedServerRef.current = toUiThread(server);
+    setResolvedThreadId(server.id);
     return server.id;
   };
   // Файл хранится документом. К заказу и услуге привязываем, только если чат
@@ -598,18 +654,21 @@ function ChatThread({ thread, currentUserId, embedded, onOpenOrder, onOpenServic
   };
   const send = async () => {
     const text = draft.trim();
-    if (sending || (!text && !pendingFile)) return;
+    if (sending || resolvingThread || (!text && !pendingFile)) return;
     setSending(true);
+    stickToBottomRef.current = true;
     try {
       const threadId = await ensureServerThreadId();
       const internal = sub === 'internal';
       const body = pendingFile
         ? { body: text || pendingFile.name, type: 'file', attachment: await uploadChatFile(pendingFile), internal_note: internal }
         : { body: text, type: 'text', internal_note: internal };
+      if (linked) body.service_card = linked;
       const message = await communicationsApi.send(threadId, body);
       setFeed((current) => [...current, { ...toUiMessage(message, currentUserId), from: 'me', service: linked }]);
       setDraft('');
       setPendingFile(null);
+      if (thread.virtual && resolvedServerRef.current) onThreadResolved?.({ ...thread, ...resolvedServerRef.current, virtual: false });
     } catch (error) { toast(error.message || 'Не удалось отправить сообщение', 'err'); }
     finally { setSending(false); }
   };
@@ -622,8 +681,9 @@ function ChatThread({ thread, currentUserId, embedded, onOpenOrder, onOpenServic
   const togglePin = async () => {
     const next = !pinned;
     try {
-      const result = await communicationsApi.pin(thread.id, next);
+      const result = await communicationsApi.pin(await ensureServerThreadId(), next);
       setPinned(result.pinned);
+      if (thread.virtual && resolvedServerRef.current) onThreadResolved?.({ ...thread, ...resolvedServerRef.current, virtual: false });
       toast(result.pinned ? 'Чат закреплён' : 'Чат откреплён', 'ok');
     } catch (error) { toast(error.message, 'err'); }
   };
@@ -649,17 +709,8 @@ function ChatThread({ thread, currentUserId, embedded, onOpenOrder, onOpenServic
   const tMeta = chatTypeMeta(thread.type);
 
 
-  const recipientPicker = recipients && onSwitchThread && (
-    <ActionMenu trigger={
-      <button className="chip" style={{ height: 32, fontSize: 12, padding: '0 11px' }} title="Выбрать получателя">
-        <Icon name="users" style={{ width: 14, height: 14 }} />Кому: {recipientLabel(thread)}<Icon name="chevDown" style={{ width: 14, height: 14 }} />
-      </button>
-    } items={recipients.map((r) => ({
-      icon: r.isAdmin ? 'user' : chatTypeMeta(r.type).icon,
-      label: recipientLabel(r) + (threadUnread(r) ? `  (${threadUnread(r)})` : ''),
-      onClick: () => onSwitchThread(r),
-    }))} />
-  );
+  const [recipientPanelOpen, setRecipientPanelOpen] = useState(false);
+  const recipientPicker = recipients && onSwitchThread && <button type="button" className="chip chat-recipient-trigger" onClick={() => onChooseRecipient ? onChooseRecipient() : setRecipientPanelOpen(true)} title="Выбрать переписку в боковом окне"><Icon name="users" />{tMeta.label} · {thread.name}<Icon name="chevRight" /></button>;
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden' }}>
@@ -670,7 +721,7 @@ function ChatThread({ thread, currentUserId, embedded, onOpenOrder, onOpenServic
             <Avatar name={thread.name} size={38} />
             <div style={{ flex: 1, minWidth: 0 }}>
               <div style={{ fontWeight: 600, color: 'var(--ink)' }}>{thread.name}</div>
-              <div style={{ fontSize: 13, color: 'var(--muted)' }}>{tMeta.label} · был в сети {thread.online}</div>
+              <div style={{ fontSize: 13, color: 'var(--muted)' }}>{thread.route || tMeta.label}{thread.online && thread.online !== '—' ? ` · ${thread.online}` : ''}</div>
             </div>
             <ChannelBadge channel={thread.channel} />
           </div>
@@ -708,10 +759,13 @@ function ChatThread({ thread, currentUserId, embedded, onOpenOrder, onOpenServic
       )}
 
 
-      <div ref={scrollRef} className="scroll" style={{ flex: 1, overflowY: 'auto', padding: '12px 16px', display: 'flex', flexDirection: 'column', gap: 8, minHeight: 0 }}>
+      <div ref={scrollRef} onScroll={(event) => { const node = event.currentTarget; stickToBottomRef.current = node.scrollHeight - node.scrollTop - node.clientHeight < 80; }} className="scroll" style={{ flex: 1, overflowY: 'auto', padding: '12px 16px', display: 'flex', flexDirection: 'column', gap: 8, minHeight: 0 }}>
         {sub === 'internal' && <div className="chan-note"><Icon name="lock" style={{ width: 14, height: 14 }} />Внутренний комментарий — виден только сотрудникам агентства</div>}
         {sub === 'message' && thread.type === 'supplier' && <div className="chan-note" style={{ color: 'var(--gray-text)', background: 'var(--gray-bg)' }}><Icon name="suppliers" style={{ width: 14, height: 14 }} />Канал с поставщиком · {thread.supplier || thread.name} · {thread.channel}</div>}
-        {!feed.length && <EmptyState icon="chat" title="Сообщений пока нет" sub={sub === 'internal' ? 'Оставьте внутренний комментарий' : 'Начните переписку'} />}
+        {loadingMessages && !feed.length && <p className="chat-load-state" role="status">Загружаем сообщения…</p>}
+        {messageError && <div className="chat-load-error" role="alert"><span>{messageError}</span><Button variant="secondary" size="sm" onClick={() => setMessageRetry((value) => value + 1)}>Повторить</Button></div>}
+        {hasOlderMessages && <Button variant="ghost" size="sm" disabled={loadingOlder} onClick={loadOlder}>{loadingOlder ? 'Загружаем…' : 'Загрузить предыдущие сообщения'}</Button>}
+        {!loadingMessages && !messageError && !feed.length && <EmptyState icon="chat" title="Сообщений пока нет" sub={sub === 'internal' ? 'Оставьте внутренний комментарий' : 'Начните переписку'} />}
         {feed.map((m, i) => {
           if (m.from === 'system') return (
             <div className="chat-sys" key={i}>
@@ -756,7 +810,7 @@ function ChatThread({ thread, currentUserId, embedded, onOpenOrder, onOpenServic
             <Icon name="paperclip" style={{ width: 14, height: 14, color: 'var(--blue)', flexShrink: 0 }} />
             <span style={{ fontWeight: 600, flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{pendingFile.name}</span>
             <span style={{ color: 'var(--muted)', flexShrink: 0 }}>{chatFileSize(pendingFile.size)}</span>
-            <button type="button" className="icon-btn btn-sm" style={{ width: 20, height: 20 }} title="Убрать файл" disabled={sending} onClick={() => setPendingFile(null)}><Icon name="x" style={{ width: 14, height: 14 }} /></button>
+            <button type="button" className="icon-btn btn-sm" style={{ width: 20, height: 20 }} title="Убрать файл" disabled={sending || resolvingThread} onClick={() => setPendingFile(null)}><Icon name="x" style={{ width: 14, height: 14 }} /></button>
           </div>
         )}
         <div className="trip-toggle" style={{ display: 'inline-flex', marginBottom: 6 }}>
@@ -765,16 +819,22 @@ function ChatThread({ thread, currentUserId, embedded, onOpenOrder, onOpenServic
         </div>
         <div className="search" style={{ width: '100%', minWidth: 0 }}>
           <input ref={fileRef} type="file" hidden onChange={pickAttachment} />
-          <button className="icon-btn" onClick={attach} disabled={sending} title="Прикрепить файл"><Icon name="paperclip" /></button>
-          <ActionMenu trigger={<button className="icon-btn" title="Привязать к услуге"><Icon name="route" /></button>}
-            items={orderServices.length ? orderServices.map((s) => ({ icon: (SERVICE_KIND[s.kind] || {}).icon || 'route', label: s.kind + ' · ' + serviceSummary(s).title, onClick: () => { setLinked(s.id); toast('Привязано к услуге: ' + s.title, 'ok'); } })) : [{ icon: 'route', label: 'Нет услуг в заказе', onClick: () => {} }]} />
+          <button className="icon-btn" onClick={attach} disabled={sending || resolvingThread} title="Прикрепить файл"><Icon name="paperclip" /></button>
+          <button type="button" className="icon-btn" title="Привязать к услуге" onClick={() => setServicePickerOpen(true)}><Icon name="route" /></button>
           <ActionMenu trigger={<button className="icon-btn" title="Упомянуть"><span style={{ fontWeight: 700, fontSize: 16, color: 'var(--muted)' }}>@</span></button>}
             items={(mentionNames.length ? mentionNames : OPERATORS).map((o) => ({ icon: 'user', label: o, onClick: () => setDraft((d) => (d ? d + ' ' : '') + '@' + o.split(' ')[0] + ' ') }))} />
-          <input value={draft} disabled={sending} onChange={(e) => setDraft(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && send()}
-            placeholder={pendingFile ? 'Подпись к файлу (необязательно)…' : sub === 'internal' ? 'Внутренний комментарий…' : 'Сообщение…'} style={{ flex: 1 }} />
-          <button className="icon-btn" style={{ color: 'var(--blue)' }} onClick={send} disabled={sending || (!draft.trim() && !pendingFile)} title="Отправить"><Icon name="send" /></button>
+          <input value={draft} disabled={sending || resolvingThread} onChange={(e) => setDraft(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && send()}
+            placeholder={resolvingThread ? 'Открываем переписку…' : pendingFile ? 'Подпись к файлу (необязательно)…' : sub === 'internal' ? 'Внутренний комментарий…' : 'Сообщение…'} style={{ flex: 1 }} />
+          <button className="icon-btn" style={{ color: 'var(--blue)' }} onClick={send} disabled={sending || resolvingThread || (!draft.trim() && !pendingFile)} title="Отправить"><Icon name="send" /></button>
         </div>
       </div>
+      <Drawer open={servicePickerOpen} onClose={() => setServicePickerOpen(false)} title="Выбрать услугу для сообщения" width="min(620px,96vw)">
+        <div className="chat-service-picker">{orderServices.map((service) => <button type="button" key={service.id} className="chat-service-option" onClick={() => { setLinked(service.id); setServicePickerOpen(false); }}><ServicePreview service={service} /><span>Выбрать услугу<Icon name="chevRight" /></span></button>)}</div>
+        {!orderServices.length && <EmptyState icon="route" title="В заказе пока нет услуг" />}
+      </Drawer>
+      <Drawer open={recipientPanelOpen} onClose={() => setRecipientPanelOpen(false)} title="Выбрать переписку" width="min(520px,96vw)">
+        <div className="chat-conversation-picker">{(recipients || []).map((recipient) => <button type="button" className="chat-conversation-option" key={recipient.id} onClick={() => { onSwitchThread?.(recipient); setRecipientPanelOpen(false); }}><strong>{recipient.name}</strong><span>{[chatTypeMeta(recipient.type).label, recipient.channel, recipient.route].filter(Boolean).join(' · ')}</span></button>)}</div>
+      </Drawer>
       {!onOpenTask && <ChatTaskDrawer open={selfTaskOpen} onClose={() => setSelfTaskOpen(false)} thread={thread} orders={orders} users={users} />}
       {!onOpenHistory && <ChatHistoryDrawer open={selfHistoryOpen} onClose={() => setSelfHistoryOpen(false)} thread={thread} />}
     </div>

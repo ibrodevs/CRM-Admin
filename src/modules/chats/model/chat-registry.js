@@ -24,3 +24,18 @@ export function chatUnread(thread) {
   const value = thread.unread ?? thread.unread_count ?? 0;
   return typeof value === 'number' ? Math.max(0, value) : Object.values(value).reduce((sum, count) => sum + (Number(count) || 0), 0);
 }
+
+// Keep a message sent while a refresh is in flight; server delivery updates win.
+export function mergeChatMessages(current, incoming) {
+  const byId = new Map(current.map((message) => [String(message.id), message]));
+  for (const message of incoming) {
+    if (message.deleted) byId.delete(String(message.id));
+    else {
+      const previous = byId.get(String(message.id));
+      const merged = { ...previous, ...message };
+      byId.set(String(message.id), previous && JSON.stringify(previous) === JSON.stringify(merged) ? previous : merged);
+    }
+  }
+  const next = [...byId.values()].sort((a, b) => (Date.parse(a.createdAt) || 0) - (Date.parse(b.createdAt) || 0));
+  return current.length === next.length && next.every((message, index) => message === current[index]) ? current : next;
+}

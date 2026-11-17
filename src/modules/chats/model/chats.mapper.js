@@ -65,6 +65,9 @@ const DELIVERY_HINTS = {
 function toUiMessage(message, currentUserId) {
   return {
     id: message.id,
+    createdAt: message.created_at,
+    deleted: Boolean(message.deleted_at),
+    service: message.service_card || null,
     from: message.author_user === currentUserId ? 'me' : message.author_user ? 'operator' : 'external',
     author: message.author_name || message.author_external || '',
     text: message.body || '',
