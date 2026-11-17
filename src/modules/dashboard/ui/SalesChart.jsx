@@ -1,10 +1,11 @@
 import { useEffect, useId, useMemo, useRef, useState } from 'react';
+import { Drawer } from '../../../shared/ui/Overlays.jsx';
 import { Button } from '../../../shared/ui/Button.jsx';
 import { Icon } from '../../../shared/icons/index.jsx';
 import { DateRangeField } from '../../../shared/ui/DateFields.jsx';
 import { DashboardCard, DashboardError, DashboardSkeleton, dashToneColor } from './DashboardCard.jsx';
 import { percentChange, formatPercent, percentTone, seriesTotal } from '../model/dashboard-metrics.js';
-import { SALES_PERIODS, chartDate, chartDayKey, rangeDays, salesPeriodRange, salesRangeSeries, previousSalesRange, zoomSalesRange } from '../model/sales-chart.js';
+import { SALES_PERIODS, chartDate, chartDayKey, rangeDays, salesPeriodRange, salesRangeSeries, previousSalesRange, zoomSalesRange, salesDayStatistics } from '../model/sales-chart.js';
 
 const VIEW_W = 720, VIEW_H = 260;
 const PAD = { top: 18, right: 22, bottom: 32, left: 76 };
@@ -15,7 +16,7 @@ function niceCeil(value) {
   return Math.ceil(value / power) * power;
 }
 
-function LineChart({ series, format = String, onZoom }) {
+function LineChart({ series, format = String, onZoom, onSelectDay }) {
   const svg = useRef(null);
   const lastWheel = useRef(0);
   const gradientId = useId().replace(/:/g, '');
@@ -67,11 +68,13 @@ function LineChart({ series, format = String, onZoom }) {
   const labelEvery = Math.max(1, Math.ceil((series.length - 1) / Math.max(2, Math.floor(innerW / 100))));
   return <div className="dsh-interactive-chart">
     <svg ref={svg} className="dsh-chart" viewBox={`0 0 ${viewWidth} ${VIEW_H}`} preserveAspectRatio="none" role="img" tabIndex={0}
-      aria-label={`Продажи с ${prettyDate(series[0].key)} по ${prettyDate(series[series.length - 1].key)}. Стрелки влево и вправо — просмотр значений.`}
+      aria-label={`Продажи с ${prettyDate(series[0].key)} по ${prettyDate(series[series.length - 1].key)}. Стрелки влево и вправо — просмотр значений. Enter — статистика за день.`}
       onPointerMove={(event) => setHovered(Math.round(ratioAt(event) * (series.length - 1)))} onPointerLeave={() => setHovered(null)}
+      onClick={(event) => onSelectDay?.(series[Math.round(ratioAt(event) * (series.length - 1))].key)}
       onPointerDown={(event) => { event.currentTarget.focus({ preventScroll: true }); setHovered(Math.round(ratioAt(event) * (series.length - 1))); }}
       onFocus={() => setHovered((index) => index ?? 0)} onBlur={() => setHovered(null)}
       onKeyDown={(event) => {
+        if (['Enter', ' '].includes(event.key) && onSelectDay) { event.preventDefault(); onSelectDay(series[activeIndex ?? 0].key); return; }
         if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return;
         event.preventDefault();
         setHovered((index) => event.key === 'Home' ? 0 : event.key === 'End' ? series.length - 1 : Math.max(0, Math.min(series.length - 1, (index ?? 0) + (event.key === 'ArrowRight' ? 1 : -1))));
@@ -93,7 +96,9 @@ function LineChart({ series, format = String, onZoom }) {
   </div>;
 }
 
-function SalesChart({ rows = [], getValue = (row) => row.value, now = new Date(), loading, error, onRetry, onOpenAll, format = String }) {
+function SalesChart({ rows = [], getValue = (row) => row.value, now = new Date(), loading, error, onRetry, onOpenAll, format = String, orders = [], onOpenOrder }) {
+  const [selectedDay, setSelectedDay] = useState(null);
+  const dayStats = useMemo(() => salesDayStatistics(rows, selectedDay, getValue), [rows, selectedDay, getValue]);
   const [period, setPeriod] = useState('7');
   const [range, setRange] = useState(() => salesPeriodRange('7', now));
   const series = useMemo(() => salesRangeSeries(rows, range, getValue), [rows, range, getValue]);
@@ -115,11 +120,30 @@ function SalesChart({ rows = [], getValue = (row) => row.value, now = new Date()
         {delta != null && <span className="dsh-kpi-delta" style={{ color: dashToneColor(percentTone(delta)) }}><Icon name="arrowUpRight" style={{ visibility: delta === 0 ? 'hidden' : undefined, transform: delta < 0 ? 'rotate(90deg)' : undefined }} />{formatPercent(delta)}</span>}
       </div>
       <div className="dsh-chart-sub">Общий объём продаж · {rangeDays(range)} дн. · сравнение с предыдущим равным периодом</div>
-      <LineChart series={series} format={format} onZoom={zoom} />
-      <div className="dsh-chart-footer"><span>{series.some((point) => point.value) ? 'Наведите на график · прокрутка изменяет масштаб' : 'Продаж за выбранный период нет · измените даты или масштаб'}</span>
+      <LineChart series={series} format={format} onZoom={zoom} onSelectDay={setSelectedDay} />
+      <div className="dsh-chart-footer"><span>{series.some((point) => point.value) ? 'Нажмите на дату — статистика за день · прокрутка изменяет масштаб' : 'Продаж за выбранный период нет · нажмите на дату для просмотра статистики'}</span>
         <div className="dsh-chart-zoom"><button type="button" aria-label="Увеличить масштаб по датам" onClick={() => zoom(-1)}>+</button><button type="button" aria-label="Уменьшить масштаб по датам" onClick={() => zoom(1)}>−</button><button type="button" onClick={() => choose('7')}>Сбросить</button></div>
       </div>
     </>}
+    <Drawer open={Boolean(selectedDay)} onClose={() => setSelectedDay(null)} title={`Продажи за ${prettyDate(selectedDay) || ''}`} width="min(680px,96vw)">
+      <div className="dsh-sales-day-stats" aria-label="Статистика продаж за день">
+        <div><span>Объём продаж</span><strong>{format(dayStats.total)}</strong></div>
+        <div><span>Услуг</span><strong>{dayStats.count}</strong></div>
+        <div><span>Заказов</span><strong>{dayStats.orderIds.length}</strong></div>
+        <div><span>Средняя стоимость услуги</span><strong>{format(dayStats.average)}</strong></div>
+      </div>
+      {!dayStats.count ? <p className="dsh-sales-day-empty">За этот день продаж нет.</p> : <div className="dsh-sales-day-list">
+        <h3>Продажи за день</h3>
+        {dayStats.sales.map((row, index) => {
+          const order = orders.find((order) => String(order.id) === String(row.orderId || row.order) || String(order.no || order.number) === String(row.order));
+          return <div className="dsh-sales-day-row" key={row.id || index}>
+            <div><strong>{row.title || row.route || row.kind || 'Услуга'}</strong>{order && <span>{[order.client, `Заказ № ${order.no || order.number}`].filter(Boolean).join(' · ')}</span>}</div>
+            <strong>{format(Number(getValue(row)))}</strong>
+            {order && onOpenOrder && <Button size="sm" variant="secondary" onClick={() => { setSelectedDay(null); onOpenOrder(order); }}>Открыть заказ</Button>}
+          </div>;
+        })}
+      </div>}
+    </Drawer>
   </DashboardCard>;
 }
 export { LineChart, SalesChart };

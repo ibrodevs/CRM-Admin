@@ -56,3 +56,11 @@ export function zoomSalesRange(range, direction, anchorRatio = 0.5, now = new Da
   if (end > today) { end = today; start = addDays(end, 1 - nextDays); }
   return { start: chartDayKey(start), end: chartDayKey(end) };
 }
+
+export function salesDayStatistics(rows, day, getValue = (row) => row.value) {
+  const key = chartDayKey(day);
+  const sales = key ? rows.filter((row) => chartDayKey(row.created_at) === key && Number.isFinite(Number(getValue(row)))) : [];
+  const total = sales.reduce((sum, row) => sum + Number(getValue(row)), 0);
+  const orderIds = [...new Set(sales.map((row) => row.orderId || row.order).filter(Boolean).map(String))];
+  return { key, sales, total, count: sales.length, orderIds, average: sales.length ? total / sales.length : 0 };
+}

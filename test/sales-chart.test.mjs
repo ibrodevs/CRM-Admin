@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { chartDayKey, rangeDays, salesPeriodRange, salesRangeSeries, previousSalesRange, zoomSalesRange } from '../src/modules/dashboard/model/sales-chart.js';
+import { chartDayKey, rangeDays, salesPeriodRange, salesRangeSeries, previousSalesRange, zoomSalesRange, salesDayStatistics } from '../src/modules/dashboard/model/sales-chart.js';
 const now = new Date(2026, 10, 16, 12);
 
 test('sales presets include today and calendar month starts at its first day', () => {
@@ -49,4 +49,26 @@ test('zoom changes the date range around the cursor and never adds future days',
   const center = zoomSalesRange({ start: '2026-10-01', end: '2026-10-30' }, -1, 0.5, now);
   assert.equal(center.start, '2026-10-04');
   assert.equal(center.end, '2026-10-27');
+});
+
+test('daily statistics use the plotted sales amounts and count each order once', () => {
+  const rows = [
+    { id: 'a', orderId: 'one', created_at: '2026-11-17T10:00:00', amount: 100 },
+    { id: 'b', order: 'one', created_at: '2026-11-17T11:00:00', amount: 200 },
+    { id: 'c', orderId: 'two', created_at: '2026-11-17T12:00:00', amount: 0 },
+    { id: 'old', orderId: 'three', created_at: '2026-11-16T12:00:00', amount: 900 },
+    { id: 'bad', created_at: '2026-11-17T12:00:00', amount: 'invalid' },
+  ];
+  const stats = salesDayStatistics(rows, '2026-11-17', (row) => row.amount);
+  assert.equal(stats.total, 300);
+  assert.equal(stats.count, 3);
+  assert.equal(stats.average, 100);
+  assert.deepEqual(stats.orderIds, ['one', 'two']);
+  assert.deepEqual(stats.sales.map((row) => row.id), ['a', 'b', 'c']);
+  assert.equal(salesRangeSeries(rows, { start: '2026-11-17', end: '2026-11-17' }, (row) => row.amount)[0].value, stats.total);
+  const empty = salesDayStatistics(rows, '2026-11-18', (row) => row.amount);
+  assert.equal(empty.count, 0);
+  assert.equal(empty.average, 0);
+  assert.equal(empty.total, 0);
+  assert.deepEqual(salesDayStatistics(rows, null, (row) => row.amount).sales, []);
 });

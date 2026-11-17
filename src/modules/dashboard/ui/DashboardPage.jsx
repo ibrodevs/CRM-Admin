@@ -961,7 +961,7 @@ function DashboardPage({ role, user, orders = [], orderServices = [], clients = 
 
         <div className="dsh-analytics section-workspace">
           <SalesChart
-            rows={orderServices} getValue={serviceSales} now={today} format={money}
+            orders={orders} onOpenOrder={onOpenOrder} rows={orderServices} getValue={serviceSales} now={today} format={money}
             loading={salesLoading} error={salesError} onRetry={onReload}
             onOpenAll={() => onNavigate('finance')}
           />

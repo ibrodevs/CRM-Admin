@@ -3934,3 +3934,14 @@ button.oc-fact:hover{border-color:#d3dbe8;background:#fff}
 .chat-registry-time{font-size:11px;color:var(--muted-2);white-space:nowrap;margin-left:8px}
 .chats-registry .chat-row{align-items:flex-start;padding-top:14px;padding-bottom:14px}
 @media(max-width:640px){.chat-registry-time{display:none}.chat-registry-summary{gap:8px}}
+
+.dsh-interactive-chart .dsh-chart{cursor:pointer}
+.dsh-sales-day-stats{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.dsh-sales-day-stats>div{display:flex;flex-direction:column;gap:8px;padding:16px;background:var(--surface-2);border:1px solid var(--line);border-radius:12px}
+.dsh-sales-day-stats span,.dsh-sales-day-row span{font-size:12px;color:var(--muted)}
+.dsh-sales-day-stats strong{font-size:22px;overflow-wrap:anywhere}
+.dsh-sales-day-list{margin-top:24px}
+.dsh-sales-day-list h3{font-size:16px;margin-bottom:8px}
+.dsh-sales-day-row{display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:16px 0;border-bottom:1px solid var(--line);font-size:13px}
+.dsh-sales-day-row>div{display:flex;flex:1;min-width:160px;flex-direction:column;gap:5px;overflow-wrap:anywhere}
+.dsh-sales-day-empty{padding:24px 0;color:var(--muted);text-align:center}
