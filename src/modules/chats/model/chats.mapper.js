@@ -47,7 +47,7 @@ function toUiThread(thread) {
     pinned: Boolean(thread.pinned),
     connectionStatus: thread.status === 'active' ? 'Подключено' : thread.status,
     createdAt: formatDate(thread.created_at),
-    messages: [], internal: [], participants: [], relatedServices: thread.service ? [thread.service] : [],
+    messages: [], internal: [], participants: thread.participants || [], relatedServices: thread.service ? [thread.service] : [],
   };
 }
 

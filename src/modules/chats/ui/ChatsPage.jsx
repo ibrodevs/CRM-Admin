@@ -1,3 +1,4 @@
+import { enrichChatThread, chatUnread } from '../model/chat-registry.js';
 import { useDraftState } from '../../../shared/drafts/Drafts.jsx';
 import { ServicePreview } from '../../../shared/ui/ServicePreview.jsx';
 import { serviceSummary } from '../../../shared/lib/service-presentation.js';
@@ -24,7 +25,7 @@ import { documentsApi } from '../../documents/api.js';
 import { ordersApi } from '../../orders/api.js';
 import { workspaceActionsApi } from '../../workspace/api.js';
 import { userListApi } from '../../users/api.js';
-import { isUuid, orderRef, toUiMessage } from '../model/chats.mapper.js';
+import { isUuid, orderRef, toUiMessage, toUiThread } from '../model/chats.mapper.js';
 import { currencySymbol } from '../../../shared/lib/money.js';
 
 
@@ -41,11 +42,11 @@ function chatText(text) {
 function lastMessage(thread) {
   const all = thread.messages || [];
   const m = all[all.length - 1];
-  if (!m) return '';
+  if (!m) return thread.last || thread.last_message?.body || (thread.last_message?.type === 'file' ? 'Вложение' : 'Сообщений пока нет');
   if (m.from === 'system') return m.text;
   return (m.from === 'me' ? 'Вы: ' : '') + (m.attach ? '📎 ' + m.attach.name : m.text);
 }
-function threadUnread(t) { return typeof t.unread === 'number' ? t.unread : Object.values(t.unread || {}).reduce((s, n) => s + n, 0); }
+function threadUnread(t) { return chatUnread(t); }
 function chatServiceById(id, services = []) {
   const source = services.length ? services : (typeof ORDER_SERVICES !== 'undefined' ? ORDER_SERVICES : []);
   return source.find((s) => String(s.id) === String(id)) || null;
@@ -872,17 +873,20 @@ function ChatInfoPanel({ thread, orders = [], onOpenOrder, onOpenService, orderS
 }
 
 
-function ChatsNav({ threads, activeId, onSelect, search, setSearch, mode, setMode }) {
+function ChatsNav({ threads, activeId, onSelect, search, setSearch, mode, setMode, orderServices = [] }) {
   const [typeFilter, setTypeFilter] = useState('all');
+  const [unreadOnly, setUnreadOnly] = useState(false);
+  const unreadTotal = threads.reduce((sum, thread) => sum + threadUnread(thread), 0);
+  const unreadChats = threads.filter((thread) => threadUnread(thread) > 0).length;
   const matchesSearch = (t) => {
-    const hay = `${t.name} ${t.order} ${t.client} ${t.channel} ${(t.relatedServices || []).map((id) => { const s = chatServiceById(id); return s ? s.kind + ' ' + s.title : ''; }).join(' ')} ${lastMessage(t)}`.toLowerCase();
+    const hay = `${t.name} ${t.order} ${t.client} ${t.route || ''} ${t.contact || ''} ${(t.participants || []).map((person) => person.name).join(' ')} ${t.channel} ${(t.relatedServices || []).map((id) => { const s = chatServiceById(id, orderServices); return s ? s.kind + ' ' + s.title : ''; }).join(' ')} ${lastMessage(t)}`.toLowerCase();
     return hay.includes(search.toLowerCase());
   };
-  const searched = threads.filter(matchesSearch);
+  const searched = threads.filter(matchesSearch).filter((thread) => !unreadOnly || threadUnread(thread) > 0);
   const typeCount = (k) => searched.filter((t) => t.type === k).length;
   const filtered = (mode === 'byType' && typeFilter !== 'all') ? searched.filter((t) => t.type === typeFilter) : searched;
 
-  const sorted = [...filtered].sort((a, b) => (b.pinned ? 1 : 0) - (a.pinned ? 1 : 0) || b.id - a.id);
+  const sorted = [...filtered].sort((a, b) => (b.pinned ? 1 : 0) - (a.pinned ? 1 : 0) || (new Date(b.time || b.created_at).getTime() || 0) - (new Date(a.time || a.created_at).getTime() || 0));
 
   const TYPE_FILTERS = [{ key: 'all', label: 'Все чаты' }].concat(CHAT_TYPES.map((t) => ({ key: t.key, label: t.label })));
 
@@ -901,12 +905,15 @@ function ChatsNav({ threads, activeId, onSelect, search, setSearch, mode, setMod
             </span>
             <span style={{ fontSize: 12, color: 'var(--muted-2)', whiteSpace: 'nowrap', flexShrink: 0 }}>№{orderRef(t.order)}</span>
           </div>
+          {(t.client || t.route) && <div className="chat-registry-context" title={t.route}>{[t.client && t.client !== t.name ? t.client : '', t.route].filter(Boolean).join(' · ')}</div>}
+          <div className="chat-registry-people">{t.participants?.length ? `Участники (${t.participants.length}): ${t.participants.map((person) => `${person.name} (${person.role})`).join(', ')}` : t.participantsLoaded ? 'Участники не указаны' : 'Участники не загружены'}{t.responsibleOperator && ` · Ответственный: ${t.responsibleOperator}`}</div>
+          {t.contact && <div className="chat-registry-people">{t.contact}</div>}
           <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, alignItems: 'center', marginTop: 5 }}>
             <span style={{ fontSize: 13, color: 'var(--muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: 6, minWidth: 0 }}>
               <ChannelBadge channel={t.channel} sm />
-              <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{lastMessage(t)}</span>
+              <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{lastMessage(t)}</span>{t.time && <time className="chat-registry-time">{formatDateTime(t.time)}</time>}
             </span>
-            {u > 0 && <span className="chan-tab-badge" style={{ marginLeft: 0, flexShrink: 0 }}>{u}</span>}
+            {u > 0 && <span className="chan-tab-badge" aria-label={`Новых сообщений: ${u}`} style={{ marginLeft: 0, flexShrink: 0 }}>{u}</span>}
           </div>
         </div>
       </div>
@@ -916,6 +923,7 @@ function ChatsNav({ threads, activeId, onSelect, search, setSearch, mode, setMod
   return (
     <div className="card" style={{ display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
       <div style={{ padding: '10px 12px', borderBottom: '1px solid var(--line)' }}>
+        <div className="chat-registry-summary"><span>Чатов: <b>{threads.length}</b></span><span>Новых сообщений: <b>{unreadTotal}</b></span><button type="button" className={'chip' + (unreadOnly ? ' active' : ' ghost')} aria-pressed={unreadOnly} onClick={() => setUnreadOnly((value) => !value)}>Непрочитанные · {unreadChats}</button></div>
         <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
           <SearchBox value={search} onChange={setSearch} placeholder="Поиск чатов…" style={{ flex: 1, minWidth: 0 }} />
           <div className="trip-toggle" style={{ display: 'flex', flexShrink: 0, padding: 3 }}>
@@ -935,7 +943,7 @@ function ChatsNav({ threads, activeId, onSelect, search, setSearch, mode, setMod
               </button>
             } items={TYPE_FILTERS.map((f) => ({
               icon: typeFilter === f.key ? 'check' : null,
-              label: f.label + '  ' + (f.key === 'all' ? searched.length : typeCount(f.key)),
+              label: f.label + ' · ' + (f.key === 'all' ? searched.length : typeCount(f.key)) + ' · новых сообщений: ' + searched.filter((thread) => f.key === 'all' || thread.type === f.key).reduce((sum, thread) => sum + threadUnread(thread), 0),
               onClick: () => setTypeFilter(f.key),
             }))} />
           </div>
@@ -948,10 +956,10 @@ function ChatsNav({ threads, activeId, onSelect, search, setSearch, mode, setMod
             sorted.forEach((t) => { const sid = (t.relatedServices || [])[0] || '—'; (groups[sid] = groups[sid] || []).push(t); });
             const order = Object.keys(groups).sort((a, b) => (a === '—' ? 1 : 0) - (b === '—' ? 1 : 0));
             return order.length ? order.map((sid) => {
-              const s = chatServiceById(sid);
+              const s = chatServiceById(sid, orderServices);
               return (
                 <div key={sid} style={{ marginBottom: 6 }}>
-                  <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--ink)', padding: '8px 6px 4px' }}>{s ? s.kind + ' · ' + serviceSummary(s).title : 'Без привязки к услуге'}</div>
+                  <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--ink)', padding: '8px 6px 4px' }}>{s ? s.kind + ' · ' + serviceSummary(s).title : 'Без привязки к услуге'} · Чатов: {groups[sid].length} · Новых сообщений: {groups[sid].reduce((sum, thread) => sum + threadUnread(thread), 0)}</div>
                   {groups[sid].map(Row)}
                 </div>
               );
@@ -964,12 +972,50 @@ function ChatsNav({ threads, activeId, onSelect, search, setSearch, mode, setMod
 }
 
 
-function ChatsPage({ initialThreads = [], onOpenChat, users = [] }) {
+function ChatsPage({ initialThreads = [], onOpenChat, users = [], orders = [], orderServices = [], clients = [] }) {
+  const [liveThreads, setLiveThreads] = useState(initialThreads);
+  const [participants, setParticipants] = useState({});
+  const [refreshError, setRefreshError] = useState('');
+  useEffect(() => { setLiveThreads(initialThreads); }, [initialThreads]);
+  useEffect(() => {
+    const controller = new AbortController();
+    let refreshing = false;
+    const refresh = async () => {
+      if (refreshing || controller.signal.aborted) return;
+      refreshing = true;
+      try {
+        const payload = await communicationsApi.allThreads({}, controller.signal);
+        if (!controller.signal.aborted) { setLiveThreads((payload.results || payload).map(toUiThread)); setRefreshError(''); }
+      } catch (error) { if (!controller.signal.aborted) setRefreshError('Не удалось обновить чаты. Показаны последние загруженные данные.'); }
+      finally { refreshing = false; }
+    };
+    const timer = window.setInterval(refresh, 30000);
+    window.addEventListener('focus', refresh);
+    return () => { controller.abort(); window.clearInterval(timer); window.removeEventListener('focus', refresh); };
+  }, []);
+  const threadIds = liveThreads.map((thread) => thread.id).join(',');
+  useEffect(() => {
+    const controller = new AbortController();
+    const ids = liveThreads.filter((thread) => isUuid(thread.id)).map((thread) => thread.id);
+    let cursor = 0;
+    const load = async () => {
+      while (cursor < ids.length && !controller.signal.aborted) {
+        const id = ids[cursor++];
+        try {
+          const payload = await communicationsApi.participants(id, controller.signal);
+          if (!controller.signal.aborted) setParticipants((current) => ({ ...current, [id]: payload.results || payload }));
+        } catch { /* Leave membership unknown rather than presenting made-up members. */ }
+      }
+    };
+    Promise.all([load(), load(), load()]);
+    return () => controller.abort();
+  }, [threadIds]);
+  const threads = liveThreads.map((thread) => enrichChatThread(thread, { orders, services: orderServices, users, clients, participants: participants[thread.id] }));
   const [activeId, setActiveId] = useState(null);
   const [search, setSearch] = useState('');
   const [mode, setMode] = useState('byType');
   const select = (id) => {
-    const thread = initialThreads.find((item) => String(item.id) === String(id));
+    const thread = threads.find((item) => String(item.id) === String(id));
     if (!thread) return;
     setActiveId(thread.id);
     onOpenChat?.(thread);
@@ -977,8 +1023,9 @@ function ChatsPage({ initialThreads = [], onOpenChat, users = [] }) {
   return <div className="fade-in">
     <div className="content">
       <SectionInfo section="chats" />
+      {refreshError && <p role="status">{refreshError}</p>}
       <div className="section-workspace chats-workspace chats-registry">
-        <ChatsNav threads={initialThreads} activeId={activeId} onSelect={select} search={search} setSearch={setSearch} mode={mode} setMode={setMode} />
+        <ChatsNav orderServices={orderServices} threads={threads} activeId={activeId} onSelect={select} search={search} setSearch={setSearch} mode={mode} setMode={setMode} />
       </div>
     </div>
   </div>;

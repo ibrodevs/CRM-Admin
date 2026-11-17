@@ -1,7 +1,8 @@
 import { apiPath, apiRequest, queryString } from '../../../shared/api/client.js';
-import { list, get, create, patch, remove } from '../../../shared/api/operations.js';
+import { list, listAll, get, create, patch, remove } from '../../../shared/api/operations.js';
 
 export const communicationsApi = {
+  allThreads: (params = {}, signal) => listAll('chat/threads/', params, signal),
   threads: (params = {}, signal) => list('chat/threads/', { page_size: 100, ...params }, signal),
   messages: (id, params = {}, signal) => list(`chat/threads/${id}/messages/`, params, signal),
   send: (id, body) => create(`chat/threads/${id}/send/`, body),
