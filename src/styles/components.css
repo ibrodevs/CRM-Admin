@@ -100,9 +100,9 @@ textarea.input{height:auto;padding:13px 15px;resize:vertical;line-height:1.5}
 .toggle.on{background:var(--blue)}
 .toggle.on::after{left:22px}
 
-.checkbox{width:21px;height:21px;border-radius:6px;border:1.6px solid var(--field-line);background:#fff;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;flex:0 0 21px;transition:.14s}
+.checkbox{width:21px;height:21px;padding:0;border-radius:6px;border:1.6px solid var(--field-line);background:#fff;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;flex:0 0 21px;transition:.14s}
 .checkbox.on{background:var(--blue);border-color:var(--blue)}
-.checkbox svg{width:14px;height:14px;color:#fff}
+.checkbox svg{display:block;flex:0 0 14px;width:14px;height:14px;color:#fff}
 .radio{width:22px;height:22px;border-radius:50%;border:1.8px solid var(--field-line);cursor:pointer;flex:0 0 22px;display:inline-flex;align-items:center;justify-content:center;transition:.14s}
 .radio.on{border-color:var(--blue)}
 .radio.on::after{content:"";width:11px;height:11px;border-radius:50%;background:var(--blue)}
