@@ -273,3 +273,41 @@ test('manual insurance choice retains its supplier when a selection becomes an o
   assert.equal(body.client_total, 0);
   assert.equal(body.supplier_cost, 0);
 });
+
+test('TTBooking results taking 42 seconds remain in the same search and are returned', async () => {
+  let checks = 0, creates = 0, elapsed = 0;
+  const api = {
+    search: async () => { creates++; return { search_id: 'slow-tt' }; },
+    searchStatus: async (id) => { assert.equal(id, 'slow-tt'); return { status: ++checks <= 42 ? 'running' : 'completed' }; },
+    offers: async () => ({ count: 1, results: [{ id: 'delayed-flight' }] }),
+  };
+  const rows = await searchFreeFlightOffers(flightParams(), api, async (ms) => { elapsed += ms; });
+  assert.equal(elapsed, 42000);
+  assert.equal(creates, 1);
+  assert.equal(rows[0].id, 'delayed-flight');
+});
+
+test('an unfinished flight search can be resumed without creating another supplier query', async () => {
+  const { waitFreeFlightOffers } = await import('../src/modules/services/flights/free-flight-search.js');
+  let creates = 0, savedId;
+  const api = {
+    search: async () => { creates++; return { search_id: 'resume-tt' }; },
+    searchStatus: async () => ({ status: 'running' }),
+    offers: async () => ({ count: 0, results: [] }),
+  };
+  await assert.rejects(searchFreeFlightOffers(flightParams(), api, async () => {}, { onCreated: (id) => { savedId = id; } }), /Продолжить ожидание/);
+  assert.equal(savedId, 'resume-tt');
+  api.searchStatus = async () => ({ status: 'completed' });
+  assert.deepEqual(await waitFreeFlightOffers(savedId, api), []);
+  assert.equal(creates, 1);
+});
+
+test('changing route stops old polling and supplier configuration errors do not masquerade as empty offers', async () => {
+  const { waitFreeFlightOffers } = await import('../src/modules/services/flights/free-flight-search.js');
+  let checked = 0;
+  const api = { searchStatus: async () => { checked++; return { status: 'running' }; } };
+  assert.equal(await waitFreeFlightOffers('old', api, async () => {}, { shouldContinue: () => false }), null);
+  assert.equal(checked, 0);
+  api.searchStatus = async () => ({ status: 'failed', provider_runs: [{ error_code: 'AUTH_ERROR' }] });
+  await assert.rejects(waitFreeFlightOffers('denied', api), /авторизацию/);
+});

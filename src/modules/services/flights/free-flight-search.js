@@ -43,26 +43,44 @@ export function freeFlightCriteria(params) {
     ...(params.trip === 'mc' ? { segments: freeFlightSegments(params).map((s) => ({ origin: flightLocationCode(s.from), destination: flightLocationCode(s.to), date: freeFlightDate(s.date) })) } : {}),
   };
 }
-export async function searchFreeFlightOffers(params, api, pause = (ms) => new Promise((resolve) => setTimeout(resolve, ms))) {
-  const created = await api.search({ kind: 'avia', criteria: freeFlightCriteria(params) });
-  for (let attempt = 0; attempt < 30; attempt += 1) {
-    const status = await api.searchStatus(created.search_id);
+export async function waitFreeFlightOffers(searchId, api, pause = (ms) => new Promise((resolve) => setTimeout(resolve, ms)), { shouldContinue = () => true } = {}) {
+  // TTBooking SEARCHRESULT can take over a minute; never create another search
+  // merely because the browser stopped waiting before the worker finished.
+  for (let attempt = 0; attempt < 240; attempt += 1) {
+    if (!shouldContinue()) return null;
+    const status = await api.searchStatus(searchId);
+    if (!shouldContinue()) return null;
     if (['completed', 'partial', 'failed', 'cancelled'].includes(status.status)) {
       if (status.status === 'cancelled') throw new Error('Поиск отменён');
-      if (status.status === 'failed') throw new Error('Поставщики не вернули варианты перелёта');
-      const payload = await api.offers(created.search_id, { page_size: 100 });
-      const rows = resultsOf(payload);
+      if (status.status === 'failed') {
+        const codes = (status.provider_runs || []).map((run) => run.error_code);
+        const messages = {
+          PROVIDER_NOT_CONFIGURED: 'Авиа API не настроен. Обратитесь к администратору.',
+          AUTH_ERROR: 'Поставщик отклонил авторизацию. Требуется проверка API-доступа.',
+          TIMEOUT: 'Поставщик не ответил в отведённое время. Попробуйте поиск позднее.',
+        };
+        throw new Error(codes.map((code) => messages[code]).find(Boolean) || 'Поиск у поставщика завершился ошибкой. Попробуйте позднее.');
+      }
+      const payload = await api.offers(searchId, { page_size: 100 });
+      const rows = [...resultsOf(payload)];
       for (let page = 2; rows.length < payload.count; page += 1) {
-        const batch = resultsOf(await api.offers(created.search_id, { page_size: 100, page }));
+        if (!shouldContinue()) return null;
+        const batch = resultsOf(await api.offers(searchId, { page_size: 100, page }));
         if (!batch.length) break;
         rows.push(...batch);
       }
-      return rows;
+      return shouldContinue() ? rows : null;
     }
-    await pause(500);
+    await pause(1000);
   }
-  throw new Error('Поиск занимает больше обычного. Повторите попытку.');
+  throw new Error('Поиск ещё выполняется. Нажмите «Продолжить ожидание», чтобы получить результат без повторного запроса.');
 }
+export async function searchFreeFlightOffers(params, api, pause, options = {}) {
+  const created = await api.search({ kind: 'avia', criteria: freeFlightCriteria(params) });
+  options.onCreated?.(created.search_id);
+  return waitFreeFlightOffers(created.search_id, api, pause, options);
+}
+
 export function freeFlightDraft(offer, params) {
   return {
     ...offer, _backendOfferId: offer._backendOfferId || offer.id,

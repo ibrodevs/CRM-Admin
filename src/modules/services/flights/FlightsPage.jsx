@@ -2,7 +2,7 @@ import { RegistryStats } from '../../../shared/ui/RegistryStats.jsx';
 import { SearchToolbar } from '../../../shared/ui/SearchToolbar.jsx';
 import { useDraftState, useRecentLocations } from '../../../shared/drafts/Drafts.jsx';
 import { PassengerPickerField } from '../search/PassengerPickerField.jsx';
-import { validateFreeFlightSearch } from './free-flight-search.js';
+import { validateFreeFlightSearch, searchFreeFlightOffers } from './free-flight-search.js';
 import { airportOption, searchAirportOptions, flightLocationCode } from './airport-options.js';
 import { FloatingPanel, containsFloatingTarget } from '../../../shared/ui/FloatingPanel.jsx';
 import { SectionInfo } from '../../../shared/ui/SectionInfo.jsx';
@@ -2393,26 +2393,7 @@ function serviceFlightRow(item) {
 async function loadLiveFlightOffers(params) {
   const validationError = validateFreeFlightSearch(params);
   if (validationError) throw new Error(validationError);
-  const created = await servicesApi.search({
-    kind: 'avia', criteria: {
-      origin: flightLocationCode(params.from), destination: flightLocationCode(params.to),
-      date: params.depDate instanceof Date ? params.depDate.toLocaleDateString('en-CA') : params.depDate || undefined,
-      return_date: params.trip === 'rt' ? (params.retDate instanceof Date ? params.retDate.toLocaleDateString('en-CA') : params.retDate || undefined) : undefined,
-      cabin: { 'Эконом': 'economy', 'Бизнес': 'business', 'Первый': 'first' }[params.cabin] || 'economy',
-      passengers: paxTotal(params.pax), currency: resolveCurrency(params.currency),
-      trip: params.trip,
-      ...(params.trip === 'mc' ? { segments: (params.segments || []).map((segment) => ({ origin: flightLocationCode(segment.from), destination: flightLocationCode(segment.to), date: segment.date instanceof Date ? segment.date.toLocaleDateString('en-CA') : segment.date })) } : {}),
-    },
-  });
-  for (let attempt = 0; attempt < 30; attempt += 1) {
-    const status = await servicesApi.searchStatus(created.search_id);
-    if (['completed', 'partial', 'failed', 'cancelled'].includes(status.status)) {
-      if (status.status === 'failed') throw new Error('Поставщики не вернули варианты перелёта');
-      return resultsOf(await servicesApi.offers(created.search_id)).map(liveFlightOffer);
-    }
-    await new Promise((resolve) => setTimeout(resolve, 500));
-  }
-  throw new Error('Поиск занимает больше обычного. Повторите попытку.');
+  return (await searchFreeFlightOffers(params, servicesApi)).map(liveFlightOffer);
 }
 
 function FlightsPage({ searchIntent, onConsumeSearch, orders = [], clients = [], companies = [] }) {

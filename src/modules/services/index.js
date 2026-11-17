@@ -34,7 +34,7 @@ export { resolveHotelParticipants } from './hotels/guests.js';
 
 export { FreeBookingPaxField, liveFlightOffer, liveFlightLeg } from './flights/FlightsPage.jsx';
 
-export { freeFlightSegments, validateFreeFlightSearch, searchFreeFlightOffers, freeFlightDraft } from './flights/free-flight-search.js';
+export { freeFlightSegments, validateFreeFlightSearch, searchFreeFlightOffers, waitFreeFlightOffers, freeFlightDraft } from './flights/free-flight-search.js';
 export { FreeBookingRailFlow } from './ui/ServicesPage.jsx';
 export { freeFlightFareOptions, freeFlightLocalPassengers, freeFlightFareDetails } from './flights/free-flight-search.js';
 

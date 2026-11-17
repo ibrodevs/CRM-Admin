@@ -12,7 +12,7 @@ import { FlightSearchHeader } from '../../services/index.js';
 import { InfoNotice } from '../../../shared/ui/InfoNotice.jsx';
 import { HotelBookingActionsDrawer, postSaleFlow } from '../../services/index.js';
 import { orderContact } from '../model/order-contact.js';
-import { FreeBookingPaxField, FreeBookingRailFlow, FreeBookingServiceAddFlow, FreeBookingAeroAddFlow, liveFlightOffer, liveFlightLeg, freeFlightSegments, validateFreeFlightSearch, searchFreeFlightOffers, freeFlightDraft, freeFlightFareOptions, freeFlightLocalPassengers, freeFlightFareDetails } from '../../services/index.js';
+import { FreeBookingPaxField, FreeBookingRailFlow, FreeBookingServiceAddFlow, FreeBookingAeroAddFlow, liveFlightOffer, liveFlightLeg, freeFlightSegments, validateFreeFlightSearch, searchFreeFlightOffers, waitFreeFlightOffers, freeFlightDraft, freeFlightFareOptions, freeFlightLocalPassengers, freeFlightFareDetails } from '../../services/index.js';
 import { clientsApi } from '../../clients/api.js';
 import React, { useState, useEffect, useRef } from 'react';
 import { Icon } from '../../../shared/icons/index.jsx';
@@ -2135,6 +2135,8 @@ function FreeBookingFlightPanel({ params, setParams, onAdd }) {
   const p = params;
   const [liveOffers, setLiveOffers] = useDraftState('FreeBookingFlightPanel', "liveOffers", []);
   const [loading, setLoading] = useState(false);
+  const [searchError, setSearchError] = useState('');
+  const [activeSearchId, setActiveSearchId] = useDraftState('FreeBookingFlightPanel', 'activeSearchId', null);
   const [visible, setVisible] = useDraftState('FreeBookingFlightPanel', "visible", 6);
   const [view, setView] = useDraftState('FreeBookingFlightPanel', "view", 'cards');
   const [selected, setSelected] = useDraftState('FreeBookingFlightPanel', "selected", null);
@@ -2144,7 +2146,7 @@ function FreeBookingFlightPanel({ params, setParams, onAdd }) {
   useEffect(() => () => { requestId.current += 1; }, []);
   const set = (patch) => {
     requestId.current += 1;
-    setLoading(false); setSelected(null); setLiveOffers([]); setSearched(false); setFlt((f) => ({ ...f, priceMax: 0 }));
+    setSearchError(''); setActiveSearchId(null); setLoading(false); setSelected(null); setLiveOffers([]); setSearched(false); setFlt((f) => ({ ...f, priceMax: 0 }));
     setParams({ ...p, ...patch });
   };
   const swap = () => set({ from: p.to, to: p.from });
@@ -2159,20 +2161,24 @@ function FreeBookingFlightPanel({ params, setParams, onAdd }) {
 
   const selectionVersion = useRef(0);
   const currentSearchValues = p;
-  const runSearch = async (nextValues) => {
+  const runSearch = async (nextValues, resumeId = null) => {
     const p = nextValues && !nextValues.nativeEvent ? nextValues : currentSearchValues;
     const error = validateFreeFlightSearch(p);
     if (error) { toast(error, 'warn'); return false; }
     const request = ++requestId.current;
-    setLoading(true); setLiveOffers([]); if (!nextValues || nextValues.nativeEvent) setSelected(null); setSearched(false);
+    setSearchError(''); setLoading(true); setLiveOffers([]); if (!nextValues || nextValues.nativeEvent) setSelected(null); setSearched(false);
     try {
-      const raw = await searchFreeFlightOffers(p, servicesApi);
-      if (request !== requestId.current) return false;
+      const options = { shouldContinue: () => request === requestId.current, onCreated: (id) => { if (request === requestId.current) setActiveSearchId(id); } };
+      const raw = resumeId
+        ? await waitFreeFlightOffers(resumeId, servicesApi, undefined, options)
+        : await searchFreeFlightOffers(p, servicesApi, undefined, options);
+      if (request !== requestId.current || raw == null) return false;
+      setActiveSearchId(null);
       const found = raw.map((offer) => ({ ...liveFlightOffer(offer), backendOffer: offer }));
       setLiveOffers(found); setSearched(true); setVisible(6);
-      setFlt((current) => ({ ...current, air: [], sup: [], priceMax: aviaPriceBounds(found).max }));
+      setFlt({ stops: [], air: [], sup: [], bagOnly: false, refundOnly: false, priceMax: aviaPriceBounds(found).max, flightNo: '' });
       return found;
-    } catch (error) { if (request === requestId.current) toast(error.message || 'Не удалось выполнить поиск перелётов', 'err'); return false; }
+    } catch (error) { if (request === requestId.current) setSearchError(error.message || 'Не удалось выполнить поиск перелётов'); return false; }
     finally { if (request === requestId.current) setLoading(false); }
   };
   const aviaBounds = aviaPriceBounds(liveOffers);
@@ -2242,6 +2248,10 @@ function FreeBookingFlightPanel({ params, setParams, onAdd }) {
 
 
 
+      {(loading || searchError || (activeSearchId && !searched)) && <InfoNotice role="status" tone={searchError ? 'warning' : 'info'} style={{ marginBottom: 14 }}>
+        <div>{loading ? 'Ожидаем ответ поставщика. Поиск может занять до нескольких минут — результаты появятся автоматически.' : searchError || 'Сохранён незавершённый поиск. Можно получить его результат без повторной отправки.'}</div>
+        {activeSearchId && !loading && <Button variant="secondary" size="sm" style={{ marginTop: 8 }} onClick={() => runSearch(undefined, activeSearchId)}>Продолжить ожидание</Button>}
+      </InfoNotice>}
       <div className="free-booking-results-toolbar" style={{ display: 'flex', alignItems: 'center', gap: 10, margin: '0 0 14px' }}>
         <div style={{ flex: 1 }} />
         <span style={{ color: 'var(--muted)', fontSize: 13 }}>{loading ? 'Поиск…' : `Найдено ${pool.length}`}</span>
@@ -2255,7 +2265,7 @@ function FreeBookingFlightPanel({ params, setParams, onAdd }) {
         <AviaFilters flt={flt} setFlt={setFlt} bounds={aviaBounds} offers={liveOffers} />
         <div style={{ minWidth: 0 }}>
           {loading && <div className="card card-pad"><div className="sk" style={{ height: 90 }} /></div>}
-          {!loading && !pool.length && <EmptyState icon="plane" title={searched ? 'Предложения не найдены' : 'Варианты ещё не загружены'} sub="Задайте маршрут и нажмите «Найти»" />}
+          {!loading && !pool.length && <EmptyState icon="plane" title={searched ? 'Предложения не найдены' : 'Варианты ещё не загружены'} sub={searched ? (liveOffers.length ? 'Измените или сбросьте фильтры — они скрыли найденные рейсы.' : 'Поставщик не предложил перелётов по этому маршруту и датам. Попробуйте другие даты или маршрут.') : 'Задайте маршрут и нажмите «Найти»'} />}
           {view === 'list' ? <AviaListTable rows={listRows.slice(0, visible)} /> : <div className="ap-route-section">
             {pool.slice(0, visible).map((offer) => {
               const segments = offer.itinerary?.segments || [];
