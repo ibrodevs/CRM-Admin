@@ -3945,3 +3945,19 @@ button.oc-fact:hover{border-color:#d3dbe8;background:#fff}
 .dsh-sales-day-row{display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:16px 0;border-bottom:1px solid var(--line);font-size:13px}
 .dsh-sales-day-row>div{display:flex;flex:1;min-width:160px;flex-direction:column;gap:5px;overflow-wrap:anywhere}
 .dsh-sales-day-empty{padding:24px 0;color:var(--muted);text-align:center}
+
+/* Expanded notification cards have room for their customer and resource context. */
+.toast-dock .toast-wrap:not(.is-collapsed){width:min(460px,calc(100vw - 32px));max-height:min(640px,calc(100dvh - 110px))}
+.toast-dock .toast-wrap:not(.is-collapsed) .toast-center-list{max-height:min(500px,calc(100dvh - 230px))}
+.toast-dock .toast-wrap:not(.is-collapsed) .toast{padding:14px;gap:10px}
+.toast-dock .toast-wrap:not(.is-collapsed) .toast-title{font-size:14px;line-height:1.45}
+.toast-dock .toast-wrap:not(.is-collapsed) .toast-msg{font-size:13px;line-height:1.5}
+.toast-context{margin:7px 0;padding-left:9px;border-left:2px solid var(--line-strong);font-size:12px;line-height:1.5;color:var(--ink);overflow-wrap:anywhere}
+.toast-context>div+div{margin-top:2px;color:var(--muted)}
+.toast-deadline{display:flex;align-items:flex-start;gap:7px;margin:8px 0;padding:8px;border-radius:8px;background:var(--amber-bg);color:var(--ink);font-size:12px}
+.toast-deadline>svg{width:16px;height:16px;flex:0 0 16px}
+.toast-deadline strong{font-variant-numeric:tabular-nums;white-space:nowrap}
+.toast-deadline small{display:block;margin-top:3px;color:var(--muted);font-size:11px}
+.toast-deadline.is-overdue{background:var(--red-bg);color:var(--red)}
+.toast.err{border-left:3px solid var(--red)}
+.toast.warn{border-left:3px solid var(--amber)}

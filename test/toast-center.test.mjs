@@ -4,6 +4,7 @@ import { createRequire, Module } from 'node:module';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import React from 'react';
+import * as presentation from '../src/shared/lib/notification-presentation.js';
 const require = createRequire(import.meta.url);
 const babel = require('next/dist/compiled/babel/core');
 
@@ -13,6 +14,7 @@ function harness(file = '../src/shared/ui/Toast.jsx', overrides = {}) {
   const filename = fileURLToPath(new URL(file, import.meta.url));
   const mod = new Module(filename);
   mod.require = (id) => {
+    if (id.includes('notification-presentation.js')) return presentation;
     if (id in overrides) return overrides[id];
     if (id === 'react') return { ...React,
       useState(initial) { const slot = cursor++; if (!(slot in values)) values[slot] = typeof initial === 'function' ? initial() : initial; return [values[slot], (next) => { values[slot] = typeof next === 'function' ? next(values[slot]) : next; }]; },
@@ -213,7 +215,7 @@ test('moving notifications into the sidebar portal preserves actions and unregis
   assert.equal(stack.props.toasts[0].id, 'kept');
 });
 
-test('compact notification uses the one-word action while preserving its exact destination and full text', () => {
+test('notification uses the specific action label while preserving its exact destination and full text', () => {
   let destination, closed;
   const message = 'Полный текст уведомления с подробностями и сроком выполнения';
   const item = harness().render('ToastItem', { t: { ...sample(1), msg: message, action: { label: 'Перейти к разделу', route: 'documents' } }, onClose: (id) => { closed = id; }, onNav: (route) => { destination = route; } });
@@ -221,8 +223,30 @@ test('compact notification uses the one-word action while preserving its exact d
   const elements = all(item);
   assert.equal(elements.find((node) => node.props.className === 'toast-msg').props.children, message);
   const action = elements.find((node) => node.props.className === 'toast-link');
-  assert.equal(action.props.children, 'Перейти');
+  assert.equal(action.props.children, 'Перейти к разделу');
   action.props.onClick();
   assert.equal(destination, 'documents');
   assert.equal(closed, 'event-1');
+});
+
+test('deadline notifications retain customer context and do not expire as transient toasts', (t) => {
+  const old = globalThis.setTimeout;
+  let scheduled = false;
+  globalThis.setTimeout = () => { scheduled = true; return 1; };
+  t.after(() => { globalThis.setTimeout = old; });
+  const h = harness();
+  const item = { ...sample(1), context: ['Иван Петров', 'Заказ № ORD-1', 'Бишкек → Стамбул'], deadlineAt: new Date(Date.now() + 60000).toISOString(), deadlineLabel: 'До выписки' };
+  const tree = h.render('ToastItem', { t: item, onClose() {}, onNav() {} });
+  h.effects[0]();
+  assert.equal(scheduled, false);
+  const all = (node) => React.Children.toArray(node?.props?.children).flatMap((child) => typeof child === 'object' ? [child, ...all(child)] : []);
+  assert.deepEqual(children(all(tree).find((node) => node.props.className === 'toast-context')).map((node) => node.props.children), item.context);
+  assert.equal(all(tree).find((node) => node.props.role === 'timer').props['aria-label'], 'До выписки');
+});
+
+test('urgent cards are shown before routine notices and deadlines sort nearest first', () => {
+  const h = harness();
+  const toasts = [{ ...sample(1), id: 'later', deadlineAt: '2026-11-17T11:00:00Z' }, { ...sample(2), id: 'first', deadlineAt: '2026-11-17T10:00:00Z' }, { ...sample(3), id: 'routine', kind: 'info' }];
+  const panel = h.render('ToastStack', { toasts, onClose() {}, onClear() {}, onNav() {} });
+  assert.deepEqual(children(children(panel)[1]).map((slot) => slot.props['data-toast-id']), ['first', 'later', 'routine']);
 });

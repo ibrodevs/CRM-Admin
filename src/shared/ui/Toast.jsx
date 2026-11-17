@@ -1,3 +1,4 @@
+import { notificationCountdown } from '../lib/notification-presentation.js';
 import { useState, useEffect, useRef, createContext, useContext, useCallback } from 'react';
 import { Icon } from '../icons/index.jsx';
 import { createPortal } from 'react-dom';
@@ -26,11 +27,19 @@ function ToastItem({ t, onClose, onNav, paused: parentPaused = false }) {
   const closeRef = useRef(onClose);
   closeRef.current = onClose;
   useEffect(() => {
-    if (paused) return undefined;
+    if (paused || t.deadlineAt || t.persistent) return undefined;
     const started = Date.now();
     const timer = setTimeout(() => closeRef.current(t.id), Math.max(0, remain.current));
     return () => { clearTimeout(timer); remain.current = Math.max(0, remain.current - (Date.now() - started)); };
-  }, [paused, t.id]);
+  }, [paused, t.id, t.deadlineAt, t.persistent]);
+  const [now, setNow] = useState(Date.now);
+  useEffect(() => {
+    if (!t.deadlineAt) return undefined;
+    setNow(Date.now());
+    const timer = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(timer);
+  }, [t.deadlineAt]);
+  const countdown = notificationCountdown(t.deadlineAt, now);
   const act = () => {
     if (t.action?.onClick) t.action.onClick();
     else if (t.action?.route) onNav(t.action.route);
@@ -45,10 +54,12 @@ function ToastItem({ t, onClose, onNav, paused: parentPaused = false }) {
           {t.title && <div className="toast-title">{t.title}</div>}
           {t.createdAt && <time dateTime={new Date(t.createdAt).toISOString()}>{new Date(t.createdAt).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })}</time>}
         </div>
+        {t.context?.length > 0 && <div className="toast-context">{t.context.map((line, index) => <div key={index}>{line}</div>)}</div>}
+        {countdown && <div className={'toast-deadline' + (countdown.overdue ? ' is-overdue' : '')} role="timer" aria-label={countdown.overdue ? 'Срок просрочен' : t.deadlineLabel || 'До срока'}><Icon name="clock" /><span>{countdown.overdue ? 'Просрочено на' : t.deadlineLabel || 'До срока'} <strong>{countdown.text}</strong><small>Срок: {new Date(t.deadlineAt).toLocaleString('ru-RU', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}</small></span></div>}
         <div className="toast-msg">{t.msg}</div>
         <div className="toast-item-foot">
           <span className="toast-urgency">{urgency}</span>
-          {t.action && <button type="button" className="toast-link" title={t.action.label || 'Перейти'} onClick={act}>Перейти</button>}
+          {t.action && <button type="button" className="toast-link" title={t.action.label || 'Перейти'} onClick={act}>{t.action.label || 'Перейти'}</button>}
         </div>
       </div>
       <button type="button" className="toast-dismiss" onClick={() => onClose(t.id)} title="Скрыть уведомление" aria-label="Скрыть уведомление"><Icon name="x" /></button>
@@ -118,7 +129,7 @@ function ToastStack({ toasts, onClose, onClear, onNav, docked = false }) {
     </header>
     <div ref={listRef} className="toast-center-list" hidden={collapsed} role="list" aria-label="Последние события">
       {!toasts.length && <p className="toast-empty-message">Новых уведомлений нет</p>}
-      {[...toasts].reverse().map((t, index) => <div key={t.id} className="toast-slot" role="listitem" data-toast-id={t.id}>
+      {[...toasts].sort((a, b) => ({ err: 0, warn: 1, info: 2, ok: 2 }[a.kind] ?? 2) - ({ err: 0, warn: 1, info: 2, ok: 2 }[b.kind] ?? 2) || (a.deadlineAt ? new Date(a.deadlineAt).getTime() : Infinity) - (b.deadlineAt ? new Date(b.deadlineAt).getTime() : Infinity) || (b.createdAt || 0) - (a.createdAt || 0)).map((t, index) => <div key={t.id} className="toast-slot" role="listitem" data-toast-id={t.id}>
         <ToastItem t={t} onClose={dismiss} onNav={onNav} paused={paused || index >= VISIBLE_TOAST_TIMERS || (visibleIds !== null && !visibleIds.has(String(t.id)))} />
       </div>)}
     </div>
@@ -139,7 +150,7 @@ function ToastProvider({ children }) {
   const push = useCallback((msg, kind = 'ok', opts = {}) => {
     const id = opts.id || Math.random().toString(36).slice(2);
     setToasts((current) => current.some((item) => item.id === id) ? current
-      : [...current, { id, msg, kind, title: opts.title, action: opts.action, duration: opts.duration, createdAt: Date.now() }].slice(-MAX_TOASTS));
+      : [...current, { id, msg, kind, title: opts.title, persistent: opts.persistent, context: opts.context, deadlineAt: opts.deadlineAt, deadlineLabel: opts.deadlineLabel, action: opts.action, duration: opts.duration, createdAt: opts.createdAt && Number.isFinite(new Date(opts.createdAt).getTime()) ? new Date(opts.createdAt).getTime() : Date.now() }].slice(-MAX_TOASTS));
   }, []);
   const remove = useCallback((id) => setToasts((current) => current.filter((item) => item.id !== id)), []);
   const clear = useCallback(() => setToasts([]), []);
