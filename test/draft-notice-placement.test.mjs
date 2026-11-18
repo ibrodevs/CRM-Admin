@@ -22,12 +22,14 @@ test('desktop aggregates drafts and other sections show only their own work', ()
   for (const route of ['settings', 'clients', 'companies', 'calendar']) assert.deepEqual(draftsForRoute(entries, route), []);
 });
 
-test('saved drafts stay expanded after dismissal and deleting one requires confirmation', () => {
+test('drafts can collapse and reopen without removal; deleting one requires confirmation', () => {
   let index = 0;
   const state = [];
   let cleared = null, opened = null;
-  const store = { workspaces: () => entries, status: () => ({ restored: false, failed: false }), subscribe() {}, open(entry) { opened = entry; }, clear(scope) { cleared = scope; } };
+  const saved = {};
+  const store = { read: (_scope, field, fallback) => saved[field] ?? fallback, write: (_scope, field, value) => { saved[field] = value; }, workspaces: () => entries, status: () => ({ restored: false, failed: false }), subscribe() {}, open(entry) { opened = entry; }, clear(scope) { cleared = scope; } };
   const react = { ...require('react'), useContext: () => store, useMemo: (fn) => fn(),
+    useEffect() {}, useId: () => 'draft-workspace-list', useCallback: (fn) => fn, useRef: (value) => ({ current: value }),
     useState: (initial) => { const i = index++; if (!(i in state)) state[i] = initial; return [state[i], (next) => { state[i] = next; }]; },
     useSyncExternalStore: (_subscribe, snapshot) => snapshot() };
   const mod = new Module(import.meta.filename);
@@ -35,7 +37,17 @@ test('saved drafts stay expanded after dismissal and deleting one requires confi
   mod._compile(babel.transformSync(readFileSync(new URL('../src/shared/drafts/Drafts.jsx', import.meta.url), 'utf8'), { filename: 'Drafts.jsx', presets: ['next/babel'], configFile: false, babelrc: false, envName: 'test' }).code, import.meta.filename);
   const show = () => { index = 0; return mod.exports.DraftWorkspaceList({ route: 'orders' }); };
   assert.equal(nodes(show()).filter((node) => node.props.className === 'draft-recovery-row').length, 2);
-  const buttons = nodes(show()).filter((node) => node.type === 'button');
+  const toggle = () => nodes(show()).find((node) => node.props.className === 'draft-workspace-toggle');
+  toggle().props.onClick();
+  assert.equal(toggle().props['aria-expanded'], false);
+  assert.equal(nodes(show()).find((node) => node.props.className === 'draft-workspace-list').props.hidden, true);
+  assert.equal(cleared, null);
+  assert.equal(saved.draftsCollapsed, true);
+  state.length = 0; // A remount restores display preference through the store.
+  assert.equal(toggle().props['aria-expanded'], false);
+  toggle().props.onClick();
+  assert.equal(toggle().props['aria-expanded'], true);
+  const buttons = nodes(show()).filter((node) => node.type === 'button' && node.props.className !== 'draft-workspace-toggle');
   buttons[0].props.onClick();
   assert.equal(opened, entries[1]);
   buttons[1].props.onClick();
