@@ -4192,3 +4192,13 @@ button.oc-fact:hover{border-color:#d3dbe8;background:#fff}
 .draft-workspace-list[hidden]{display:none}
 .draft-workspace-toggle:focus-visible{outline:2px solid var(--blue);outline-offset:4px;border-radius:4px}
 @media(max-width:640px){.draft-workspace.is-collapsed .draft-workspace-head{padding:12px 14px}}
+
+.draft-workspace-actions>button{transition:background-color .14s ease,border-color .14s ease,color .14s ease}
+.draft-workspace-actions>button:hover,.draft-workspace-actions>button:focus-visible{background:var(--blue-soft);border-color:var(--blue);color:var(--blue)}
+.draft-workspace-actions>button:active{background:var(--blue-soft-2)}
+.draft-workspace-actions>button.draft-workspace-delete:hover,.draft-workspace-actions>button.draft-workspace-delete:focus-visible{background:var(--red-bg);border-color:var(--red);color:var(--red)}
+.draft-workspace-actions>button:focus-visible{outline:2px solid var(--blue);outline-offset:2px}
+.draft-workspace-actions>button.draft-workspace-delete:focus-visible{outline-color:var(--red)}
+.draft-workspace-head .draft-workspace-toggle:hover .draft-workspace-title,.draft-workspace-head .draft-workspace-toggle:focus-visible .draft-workspace-title{color:var(--blue)}
+.draft-workspace-toggle:hover .draft-workspace-toggle-action{text-decoration:underline;text-underline-offset:3px}
+@media(prefers-reduced-motion:reduce){.draft-workspace-actions>button{transition:none}}
