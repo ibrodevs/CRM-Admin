@@ -1,7 +1,7 @@
 import { PassengerCountField } from './PassengerPickerField.jsx';
 import { DateField, TripDateRangeField } from '../../../shared/ui/DateFields.jsx';
 import { Select } from '../../../shared/ui/Select.jsx';
-import { Input } from '../../../shared/ui/Input.jsx';
+import { flightHeaderSummary } from './flight-header-summary.js';
 import { ServiceSearchHeader } from './ServiceSearchHeader.jsx';
 import { searchHeaderDate, searchPassengerCount } from './search-header.js';
 
@@ -26,5 +26,6 @@ export function FlightSearchHeader({ values, onSearch, busy, title = 'Авиаб
       render: (draft, update) => renderPassengers ? renderPassengers(draft, update) : <PassengerCountField label="Пассажиры" min={1} value={draft.pax?.adt || 1} onChange={(adults) => update({ pax: { ...draft.pax, adt: adults } })} /> });
     return list;
   };
-  return <ServiceSearchHeader title={title} subtitle={subtitle || (values.trip === 'mc' ? 'Перелёт с несколькими сегментами' : `${values.from || 'Откуда'} → ${values.to || 'Куда'}`)} supplier={supplier} icon="plane" values={values} fields={fields} onSearch={onSearch} busy={busy} onEditingChange={onEditingChange}>{children}</ServiceSearchHeader>;
+  const summary = flightHeaderSummary(values, fixedPassengers);
+  return <ServiceSearchHeader className="flight-search-header" summaryFields={summary.fields} title={title} subtitle={summary.route || subtitle} supplier={supplier} icon="plane" values={values} fields={fields} onSearch={onSearch} busy={busy} onEditingChange={onEditingChange}>{children}</ServiceSearchHeader>;
 }

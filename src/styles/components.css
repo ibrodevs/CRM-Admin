@@ -4016,3 +4016,16 @@ button.oc-fact:hover{border-color:#d3dbe8;background:#fff}
 .insurance-traveller>.field{flex:1;min-width:0;margin:0}
 @container(max-width:900px){.insurance-search-form{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @container(max-width:540px){.insurance-search-form{grid-template-columns:minmax(0,1fr);padding:12px}.insurance-search-actions>.btn{width:100%}}
+
+/* Match the hotel detail header: identity on the left, two fields and action on the right. */
+.flight-search-header{display:grid;grid-template-columns:minmax(230px,1fr) minmax(0,584px);gap:24px;padding-top:0}
+.flight-search-header .ssh-controls{container-type:normal}
+.flight-search-header .ssh-fields{grid-template-columns:minmax(0,1fr) 144px}
+.flight-search-header .ssh-inputs{grid-template-columns:repeat(2,minmax(0,1fr))}
+.flight-search-header .ssh-action{grid-column:2;width:144px;justify-self:end}
+.flight-search-header:not(.is-editing) .ssh-meta{display:none}
+.flight-search-header.is-editing .ssh-controls{grid-column:1/-1}
+.flight-search-header.is-editing .ssh-inputs{grid-template-columns:repeat(3,minmax(0,1fr))}
+@container(max-width:1000px){.flight-search-header{grid-template-columns:minmax(0,1fr);gap:18px}.flight-search-header .ssh-controls{width:100%}}
+@container(max-width:680px){.flight-search-header .ssh-fields{grid-template-columns:minmax(0,1fr)}.flight-search-header .ssh-action{grid-column:1;width:100%;max-width:220px}.flight-search-header.is-editing .ssh-inputs{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@container(max-width:420px){.flight-search-header .ssh-inputs,.flight-search-header.is-editing .ssh-inputs{grid-template-columns:minmax(0,1fr)}.flight-search-header .ssh-action{max-width:none}}

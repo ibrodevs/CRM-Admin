@@ -4,7 +4,7 @@ import { Button } from '../../../shared/ui/Button.jsx';
 import { Icon } from '../../../shared/icons/index.jsx';
 import { cloneSearchValues } from './search-header.js';
 
-export function ServiceSearchHeader({ title, subtitle, supplier, icon = 'search', values, fields, onSearch, busy = false, onEditingChange, children }) {
+export function ServiceSearchHeader({ title, subtitle, supplier, icon = 'search', values, fields, onSearch, busy = false, onEditingChange, summaryFields, className = '', children }) {
   const [editing, setEditing] = useDraftState(`SearchHeader/${title}`, 'editing', false);
   const [draft, setDraft] = useDraftState(`SearchHeader/${title}`, 'draft', null);
   const [submitting, setSubmitting] = useState(false);
@@ -27,13 +27,14 @@ export function ServiceSearchHeader({ title, subtitle, supplier, icon = 'search'
     finally { if (mounted.current) setSubmitting(false); }
   };
   const activeFields = typeof fields === 'function' ? fields(editing ? draft : values) : fields;
+  const visibleFields = !editing && summaryFields ? summaryFields : activeFields;
   const update = (patch) => setDraft((current) => ({ ...current, ...patch }));
   return <>
-    <section className="service-search-header" aria-label={`Параметры поиска: ${title}`}>
+    <section className={`service-search-header ${className}${editing ? ' is-editing' : ''}`} aria-label={`Параметры поиска: ${title}`}>
       <div className="ssh-identity"><span className="ssh-icon"><Icon name={icon} /></span><div><h3>{title}</h3>{subtitle && <p>{subtitle}</p>}{supplier && <span className="ssh-supplier"><Icon name="api" />{supplier}</span>}</div></div>
       <div className="ssh-controls">
-        <fieldset disabled={pending} className="ssh-fields" style={{ '--ssh-columns': Math.min(activeFields.length, 3) }} aria-busy={pending}>
-          <div className="ssh-inputs">{activeFields.map((field) => <div className="ssh-field" key={field.key}>
+        <fieldset disabled={pending} className="ssh-fields" style={{ '--ssh-columns': Math.min(visibleFields.length, 3) }} aria-busy={pending}>
+          <div className="ssh-inputs">{visibleFields.map((field) => <div className="ssh-field" key={field.key}>
             {editing ? field.render(draft, update) : <><span className="label">{field.label}</span><div className="ssh-value" title={String(field.value ?? '')}>{field.icon && <Icon name={field.icon} />}<span>{field.value || 'Не указано'}</span></div></>}
           </div>)}</div>
           <Button className="ssh-action" variant={editing ? 'primary' : 'secondary'} icon={editing ? 'search' : undefined} disabled={pending || !onSearch} onClick={editing ? apply : edit}>{pending ? 'Поиск…' : editing ? 'Найти' : 'Изменить'}</Button>
