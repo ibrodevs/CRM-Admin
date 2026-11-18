@@ -190,8 +190,7 @@ test('free booking uses the historical class/tariff/extras panels without synthe
   const card = await readFile(new URL('../src/modules/orders/ui/OrderCard.jsx', import.meta.url), 'utf8');
   const panel = card.slice(card.indexOf('function FreeBookingFlightFarePanel'), card.indexOf('// AviaSearchPanel mask'));
   assert.match(panel, /title="Класс и тариф по рейсу"/);
-  assert.match(panel, /fare-class-grid/);
-  assert.match(panel, /fare-grid/);
+  assert.match(panel, /<FlightFareSelector/);
   assert.match(panel, /Багаж, выбор места, питание, страховка/);
   assert.match(panel, /servicesApi\.fareRules\(fare.id\)/);
   assert.match(panel, /<FreeBookingExtrasTabs currency=\{selected.currency\}/);
