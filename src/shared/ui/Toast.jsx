@@ -5,6 +5,8 @@ import { createPortal } from 'react-dom';
 
 const ToastCtx = createContext(() => {});
 const ToastDockCtx = createContext(null);
+const ToastActivityCtx = createContext({ toasts: [], remove() {}, clear() {}, nav() {} });
+export const useToastActivity = () => useContext(ToastActivityCtx);
 const useToast = () => useContext(ToastCtx);
 
 function ToastDock() {
@@ -19,7 +21,7 @@ const VISIBLE_TOAST_TIMERS = 3;
 const TOAST_ICON = { ok: 'checkCircle', info: 'bell', warn: 'alertCircle', err: 'alertCircle' };
 const TOAST_URGENCY = { err: 'Срочно', warn: 'Важно' };
 
-function ToastItem({ t, onClose, onNav, paused: parentPaused = false }) {
+function ToastItem({ t, onClose, onNav, paused: parentPaused = false, onAction }) {
   const total = t.duration || ((t.kind === 'err' || t.kind === 'warn') ? 6000 : 4500);
   const [hovered, setHovered] = useState(false);
   const paused = parentPaused || hovered;
@@ -41,6 +43,7 @@ function ToastItem({ t, onClose, onNav, paused: parentPaused = false }) {
   }, [t.deadlineAt]);
   const countdown = notificationCountdown(t.deadlineAt, now);
   const act = () => {
+    onAction?.();
     if (t.action?.onClick) t.action.onClick();
     else if (t.action?.route) onNav(t.action.route);
     onClose(t.id);
@@ -142,11 +145,6 @@ function ToastStack({ toasts, onClose, onClear, onNav, docked = false }) {
 
 function ToastProvider({ children }) {
   const [toasts, setToasts] = useState([]);
-  const [dock, setDock] = useState(null);
-  const register = useCallback((node) => {
-    setDock(node);
-    return () => setDock((current) => current === node ? null : current);
-  }, []);
   const push = useCallback((msg, kind = 'ok', opts = {}) => {
     const id = opts.id || Math.random().toString(36).slice(2);
     setToasts((current) => current.some((item) => item.id === id) ? current
@@ -155,10 +153,8 @@ function ToastProvider({ children }) {
   const remove = useCallback((id) => setToasts((current) => current.filter((item) => item.id !== id)), []);
   const clear = useCallback(() => setToasts([]), []);
   const nav = useCallback((route) => { if (window.__toastNav) window.__toastNav(route); }, []);
-  const stack = <ToastStack toasts={toasts} onClose={remove} onClear={clear} onNav={nav} docked={Boolean(dock)} />;
   return <ToastCtx.Provider value={push}>
-    <ToastDockCtx.Provider value={register}>{children}</ToastDockCtx.Provider>
-    {dock ? createPortal(stack, dock) : stack}
+    <ToastActivityCtx.Provider value={{ toasts, remove, clear, nav }}>{children}</ToastActivityCtx.Provider>
   </ToastCtx.Provider>;
 }
 

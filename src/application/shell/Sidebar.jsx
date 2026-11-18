@@ -2,7 +2,6 @@ import { useState, useEffect, useRef } from 'react';
 import { BrandMark, Icon } from '../../shared/icons/index.jsx';
 import { Avatar } from '../../shared/ui/Avatar.jsx';
 import { Drawer } from '../../shared/ui/Overlays.jsx';
-import { ToastDock } from '../../shared/ui/Toast.jsx';
 import { ORDER_OPS_SECTIONS, SERVICE_KEYS } from '../../shared/constants/navigation.js';
 import { NAV_ITEMS } from '../routing/navigation.js';
 
@@ -68,7 +67,6 @@ function Sidebar({ route, onNavigate, onLogout, role, user, collapsed }) {
           </button>
         ))}
       </nav>
-      <ToastDock />
     </aside>
   );
 }

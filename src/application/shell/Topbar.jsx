@@ -1,3 +1,4 @@
+import { useToastActivity } from '../../shared/ui/Toast.jsx';
 import React from 'react';
 import { ProfileCard } from './Sidebar.jsx';
 import { Icon } from '../../shared/icons/index.jsx';
@@ -44,7 +45,9 @@ function QuickCreate({ onCreateOrder, onCreateClient, onCreateCompany, onCreateK
   );
 }
 
-function GlobalTopbar({ route, ctxOrder, onNavigate, onOpenOrder, onCreateClient, onCreateCompany, onCreateKP, onOpenChat, role, user, onLogout, sidebarCollapsed, onToggleSidebar }) {
+function GlobalTopbar({ route, ctxOrder, onNavigate, onOpenOrder, onCreateClient, onCreateCompany, onCreateKP, onOpenChat, onOpenNotif, unreadNotif = 0, notifOpen = false, role, user, onLogout, sidebarCollapsed, onToggleSidebar }) {
+  const { toasts } = useToastActivity();
+  const notificationCount = unreadNotif + toasts.filter((item) => !String(item.id).startsWith('notification:')).length;
   return (
     <div className="gtop">
       <style>{'.topbar .search[style*="width: 220px"],.topbar .search:has(input[placeholder="Поиск"]){display:none!important}'}</style>
@@ -70,6 +73,7 @@ function GlobalTopbar({ route, ctxOrder, onNavigate, onOpenOrder, onCreateClient
             <QuickCreate onCreateOrder={() => onOpenOrder('__create__')} onCreateClient={onCreateClient} onCreateCompany={onCreateCompany} onCreateKP={onCreateKP} onNavigate={onNavigate} role={role} />
           </div>
         </div>
+        <button type="button" className="gtop-notifications" onClick={onOpenNotif} aria-label={`Уведомления${notificationCount ? `: ${notificationCount}` : ''}`} title="Уведомления" aria-haspopup="dialog" aria-expanded={notifOpen}><Icon name="bell" />{notificationCount > 0 && <span className="gtop-notification-count" aria-live="polite" aria-atomic="true">{notificationCount > 99 ? '99+' : notificationCount}</span>}</button>
         <ProfileCard user={user} onLogout={onLogout} onNavigate={onNavigate} />
       </div>
     </div>

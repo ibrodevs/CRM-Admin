@@ -37,15 +37,15 @@ test('a burst of 20 events is retained and individually dismissible, without mar
   for (let i = 0; i < 20; i++) provider.props.value(`Сообщение ${i}`, 'info', { id: `event-${i}` });
   provider.props.value('Повтор доставки', 'info', { id: 'event-7' });
   provider = h.render('ToastProvider');
-  let stack = children(provider).at(-1);
-  assert.equal(stack.props.toasts.length, 20);
-  assert.equal(new Set(stack.props.toasts.map((item) => item.id)).size, 20);
-  stack.props.onClose('event-7');
-  stack = children(h.render('ToastProvider')).at(-1);
-  assert.equal(stack.props.toasts.length, 19);
-  assert.ok(!stack.props.toasts.some((item) => item.id === 'event-7'));
-  stack.props.onClear();
-  assert.equal(children(h.render('ToastProvider')).at(-1).props.toasts.length, 0);
+  let stack = children(provider)[0].props.value;
+  assert.equal(stack.toasts.length, 20);
+  assert.equal(new Set(stack.toasts.map((item) => item.id)).size, 20);
+  stack.remove('event-7');
+  stack = children(h.render('ToastProvider'))[0].props.value;
+  assert.equal(stack.toasts.length, 19);
+  assert.ok(!stack.toasts.some((item) => item.id === 'event-7'));
+  stack.clear();
+  assert.equal(children(h.render('ToastProvider'))[0].props.value.toasts.length, 0);
 });
 
 test('the counter, collapse, hover pause, viewport visibility and notification-center link work for a large stack', (t) => {
@@ -198,21 +198,17 @@ test('sidebar notification dock persists at zero, opens above navigation, and re
   assert.equal(children(panel)[1].props.hidden, true);
 });
 
-test('moving notifications into the sidebar portal preserves actions and unregisters its target on exit', () => {
-  const h = harness(undefined, { 'react-dom': { createPortal: (content, target) => React.createElement('Portal', { target }, content) } });
-  let provider = h.render('ToastProvider');
+test('provider retains activity for the drawer without rendering any popup or sidebar portal', () => {
+  const h = harness();
+  let provider = h.render('ToastProvider', { children: 'application' });
   provider.props.value('Event', 'info', { id: 'kept', action: { route: 'orders', label: 'Заказ' } });
-  const target = {};
-  const cleanup = children(provider)[0].props.value(target);
-  provider = h.render('ToastProvider');
-  const portal = children(provider).at(-1);
-  assert.equal(portal.props.target, target);
-  assert.equal(portal.props.children.props.docked, true);
-  assert.equal(portal.props.children.props.toasts[0].action.route, 'orders');
-  cleanup();
-  const stack = children(h.render('ToastProvider')).at(-1);
-  assert.equal(stack.props.docked, false);
-  assert.equal(stack.props.toasts[0].id, 'kept');
+  provider = h.render('ToastProvider', { children: 'application' });
+  const activity = children(provider)[0];
+  assert.equal(activity.props.children, 'application');
+  assert.equal(children(provider).length, 1);
+  assert.equal(activity.props.value.toasts[0].action.route, 'orders');
+  activity.props.value.remove('kept');
+  assert.equal(children(h.render('ToastProvider'))[0].props.value.toasts.length, 0);
 });
 
 test('notification uses the specific action label while preserving its exact destination and full text', () => {

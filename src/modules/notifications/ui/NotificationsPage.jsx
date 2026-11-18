@@ -245,6 +245,7 @@ function NotificationsCenter({ notifications = [], orders = [], onChange, onNavi
     { key: 'pinned', label: 'Закреплённые', count: cnt('pinned') },
   ];
 
+  const Actions = compact ? 'div' : PageActions;
   return (
     <div className="fade-in">
 
@@ -262,12 +263,12 @@ function NotificationsCenter({ notifications = [], orders = [], onChange, onNavi
         <FilterChip label="Источник" value={fSource} onChange={setFSource} options={Object.keys(NOTIF_SOURCE)} />
       </SearchToolbar>
 
-      <PageActions>
+      <Actions className={compact ? 'notification-drawer-actions' : undefined}>
         <Button variant="secondary" size="sm" icon="check" onClick={async () => { try { await notificationsApi.readAll(); commit((l) => l.map((n) => ({ ...n, read: true }))); toast('Все отмечены прочитанными', 'ok'); } catch (error) { toast(error.message, 'err'); } }}>Прочитать все</Button>
         <Button variant="secondary" size="sm" icon="trash" onClick={async () => { try { await notificationsApi.dismissRead(); commit((l) => l.filter((n) => !n.read || n.pinned)); toast('Прочитанные закрыты', 'ok'); } catch (error) { toast(error.message, 'err'); } }}>Закрыть прочитанные</Button>
         <Button variant="secondary" size="sm" icon="api" onClick={() => openCode('')}>Коды ошибок</Button>
         <Button variant="secondary" size="sm" icon="settings" onClick={() => setSetOpen(true)}>Настройки</Button>
-      </PageActions>
+      </Actions>
 
       <section className="section-workspace notification-workspace" aria-label="Список уведомлений">
       {rows.length ? rows.map((n) => (

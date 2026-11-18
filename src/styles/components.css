@@ -4202,3 +4202,32 @@ button.oc-fact:hover{border-color:#d3dbe8;background:#fff}
 .draft-workspace-head .draft-workspace-toggle:hover .draft-workspace-title,.draft-workspace-head .draft-workspace-toggle:focus-visible .draft-workspace-title{color:var(--blue)}
 .draft-workspace-toggle:hover .draft-workspace-toggle-action{text-decoration:underline;text-underline-offset:3px}
 @media(prefers-reduced-motion:reduce){.draft-workspace-actions>button{transition:none}}
+
+/* One notification entry in the top bar, opening the shared overlay drawer. */
+.gtop-notifications{position:relative;display:grid;place-items:center;flex:0 0 42px;width:42px;height:42px;padding:0;border:1px solid var(--field-line);border-radius:12px;background:var(--surface);color:var(--muted);cursor:pointer}
+.gtop-notifications>svg{width:20px;height:20px}
+.gtop-notifications:hover,.gtop-notifications[aria-expanded=true]{border-color:var(--blue);background:var(--blue-soft);color:var(--blue)}
+.gtop-notifications:focus-visible{outline:2px solid var(--blue);outline-offset:3px}
+.gtop-notification-count{position:absolute;top:-6px;right:-6px;min-width:20px;height:20px;display:grid;place-items:center;padding:0 5px;border:2px solid var(--surface);border-radius:12px;background:var(--blue);color:#fff;font-size:10px;font-weight:700;line-height:1}
+.notification-center-drawer.drawer{overflow:hidden;background:var(--surface)}
+.notification-center-drawer>.drawer-head,.notification-center-drawer>.drawer-foot{flex-shrink:0}
+.notification-center-drawer>.drawer-body{min-height:0;overflow-y:auto;overscroll-behavior:contain;scrollbar-gutter:stable;padding:20px 24px}
+.notification-drawer-tabs{display:flex;gap:6px;border-bottom:1px solid var(--line);padding-bottom:14px;margin-bottom:18px}
+.notification-drawer-tabs>button{display:flex;align-items:center;gap:8px;padding:10px 12px;border:1px solid var(--line);border-radius:10px;background:var(--surface);color:var(--muted);font:inherit;font-size:13px;cursor:pointer}
+.notification-drawer-tabs>button[aria-selected=true]{background:var(--blue-soft);border-color:var(--blue-soft);color:var(--blue)}
+.notification-drawer-tabs>button>span{font-size:11px;font-weight:600}
+.notification-drawer-tabs>button:hover{border-color:var(--blue)}
+.notification-activity-head{display:flex;align-items:center;gap:12px;margin-bottom:14px}
+.notification-activity-head p{flex:1;font-size:12px;line-height:1.6;color:var(--muted);margin:0}
+.notification-activity-list{border:1px solid var(--line);border-radius:12px;overflow:hidden}
+.notification-activity-list>.toast{border:0;border-left:0;background:var(--surface);padding:16px;animation:none}
+.notification-activity-list>.toast+.toast{border-top:1px solid var(--line)}
+.notification-drawer-empty{display:grid;justify-items:center;gap:12px;padding:42px 16px;color:var(--muted);text-align:center;font-size:13px}
+.notification-drawer-empty>svg{width:28px;height:28px;color:var(--muted-2)}
+.notification-drawer-empty p{margin:0}
+.notification-center-drawer .workspace-search-toolbar{grid-template-columns:minmax(0,1fr);gap:12px}
+.notification-center-drawer .workspace-search-query{grid-row:2;justify-self:stretch}
+.notification-center-drawer .ntf{border-left:0;box-shadow:none}
+@container(max-width:500px){.notification-center-drawer>.drawer-body{padding:16px}.notification-drawer-tabs{flex-wrap:wrap}.notification-activity-head{align-items:flex-start;flex-wrap:wrap}.notification-center-drawer .ntf{grid-template-columns:28px minmax(0,1fr)}.notification-center-drawer .ntf>.ntf-actions{grid-column:2;justify-self:end}.notification-center-drawer .ntf-actions{width:100%;justify-content:flex-end}}
+.notification-drawer-actions{display:flex;flex-wrap:wrap;gap:8px;margin:14px 0}
+@media(max-width:760px){.gtop-tools>.gtop-notifications{position:absolute;top:14px;right:70px}.gtop-nav{padding-right:110px}}

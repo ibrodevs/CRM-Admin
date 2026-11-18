@@ -37,8 +37,8 @@ test('account avatar opens a drawer and profile navigation and logout retain the
   nodes.find((node) => node.props.className?.includes('account-panel-logout')).props.onClick();
   assert.equal(loggedOut, true);
 });
-test('sidebar footer contains the notification dock instead of the former account menu', () => {
+test('sidebar has no notification popup dock or former account menu', () => {
   const nodes = all(harness()('Sidebar', { route: 'orders', user: {}, onNavigate() {} }));
-  assert.equal(nodes.filter((node) => node.type === 'Dock').length, 1);
+  assert.equal(nodes.filter((node) => node.type === 'Dock').length, 0);
   assert.equal(nodes.filter((node) => node.type?.name === 'ProfileCard').length, 0);
 });
