@@ -1,3 +1,4 @@
+import { CountryField } from '../../../shared/ui/CountryField.jsx';
 import { clientHotelText } from '../../../shared/lib/client-hotel-presentation.js';
 import React, { useEffect, useMemo, useState, useRef } from 'react';
 import ReactDOM from 'react-dom';
@@ -1766,8 +1767,8 @@ export function ReceiptSpecializedForm({
       <div className="receipt-form-grid">{[
         ['name', 'Название отеля'], ['category', 'Категория'], ['country', 'Страна'], ['city', 'Город'],
         ['address', 'Адрес'], ['phone', 'Телефон'], ['email', 'Электронная почта'], ['map', 'Координаты / ссылка на карту'],
-      ].map(([key, label]) => <Field key={key} label={label}><LockedInput correctionMode={correctionMode}
-        value={p.hotel[key]} onChange={(e) => setObject('hotel', key, e.target.value, `Отель: ${label}`)} /></Field>)}</div>
+      ].map(([key, label]) => <Field key={key} label={label}>{key === 'country' ? <CountryField valueFormat="name" value={p.hotel.country} title="Страна отеля" disabled={!correctionMode} allowEmpty onChange={(value) => setObject('hotel', key, value, `Отель: ${label}`)} /> : <LockedInput correctionMode={correctionMode}
+        value={p.hotel[key]} onChange={(e) => setObject('hotel', key, e.target.value, `Отель: ${label}`)} />}</Field>)}</div>
     </Section>
     {routeBlock}
     <Section title="4. Размещение по номерам" action={correctionMode ? <Button size="sm" variant="ghost" icon="plus" onClick={() => addRow('rooms', emptyRoom(), 'Добавлен номер размещения')}>Добавить номер</Button> : null}>

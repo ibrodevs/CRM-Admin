@@ -1,3 +1,5 @@
+import { CountryField } from '../../../shared/ui/CountryField.jsx';
+import { COUNTRY_OPTIONS, countryName } from '../../../shared/lib/countries.js';
 import { useDraftState, useDraftControls } from '../../../shared/drafts/Drafts.jsx';
 import { clientsApi } from '../api/clientsApi.js';
 import { useState, useEffect, useRef } from 'react';
@@ -19,7 +21,7 @@ import { UF_MONTHS, UF_DAYS, ufParseDate, ufDateString, ufDateIso, ufDateFromIso
 
 const UF_DOC_TYPES = ['Загранпаспорт', 'Общегражданский паспорт', 'ID-карта', 'Свидетельство о рождении', 'Вид на жительство', 'Виза'];
 
-const UF_CITIZENSHIP = ['Кыргызстан', 'Казахстан', 'Россия', 'Узбекистан', 'Таджикистан', 'Туркменистан', 'Азербайджан', 'Турция', 'Германия', 'Китай', 'ОАЭ', 'Другое'];
+const UF_CITIZENSHIP = COUNTRY_OPTIONS.map((country) => country.label);
 
 const UF_PAX_ROLES = ['Взрослый', 'Ребёнок', 'Младенец'];
 
@@ -61,7 +63,7 @@ function ufFromClient(c, kind) {
     ...nm,
     id: c.id,
     dob: c.dob && c.dob !== '—' ? c.dob : '',
-    citizenship: ({ KG: 'Кыргызстан', KZ: 'Казахстан', RU: 'Россия', UZ: 'Узбекистан', TJ: 'Таджикистан', TM: 'Туркменистан', AZ: 'Азербайджан', TR: 'Турция', DE: 'Германия', CN: 'Китай', AE: 'ОАЭ' })[c.citizenship] || c.citizenship || 'Другое',
+    citizenship: countryName(c.citizenship) || c.citizenship || '',
     gender: ({ male: 'Мужской', female: 'Женский' })[c.source?.gender || c.personSource?.gender] || c.gender || 'Не указан',
     comment: c.source?.notes || c.personSource?.notes || c.comment || '',
     docType: c.docType || 'Загранпаспорт',
@@ -142,7 +144,7 @@ function ufApplyRecognizedFields(person, fields = {}) {
   fill('docExpiry', ufDateFromRecognized(fields.expiry_date));
   const docLabel = fields.document_label || UF_INTAKE_DOC_LABELS[fields.document_kind];
   if (docLabel && UF_DOC_TYPES.includes(docLabel)) next.docType = docLabel;
-  if (fields.citizenship && UF_CITIZENSHIP.includes(fields.citizenship)) next.citizenship = fields.citizenship;
+  if (countryName(fields.citizenship)) next.citizenship = countryName(fields.citizenship);
   const documentRow = {
     docType: next.docType,
     citizenship: next.citizenship,
@@ -267,7 +269,7 @@ function UnifiedPersonFields({ value, onChange, errors = {}, departments = [], s
         </>}
         <UFDateField label="Дата рождения" required={compact} error={errors.dob} value={p.dob || null} onChange={(v) => set('dob', v)} placeholder="дд.мм.гггг" />
         <Field label="Пол" required={compact} error={errors.gender}><Select placeholder="Не указан" options={UF_GENDER} value={p.gender} onChange={(e) => set('gender', e.target.value)} /></Field>
-        <Field label="Гражданство" required={compact} error={errors.citizenship}><Select placeholder="Выберите гражданство" options={p.citizenship && !UF_CITIZENSHIP.includes(p.citizenship) ? [...UF_CITIZENSHIP, p.citizenship] : UF_CITIZENSHIP} value={p.citizenship} onChange={(e) => set('citizenship', e.target.value)} /></Field>
+        <Field label="Гражданство" required={compact} error={errors.citizenship}><CountryField valueFormat="name" placeholder="Выберите гражданство" title="Гражданство" value={p.citizenship} error={errors.citizenship} onChange={(value) => set('citizenship', value)} /></Field>
         {showRole && <Field label="Категория в поездке"><Select options={UF_PAX_ROLES} value={p.role} onChange={(e) => set('role', e.target.value)} /></Field>}
       </div>
 
@@ -434,7 +436,7 @@ function UnifiedDocumentDrawer({ open, person = {}, initial, mode = 'create', on
       setD((s) => ({
         ...s,
         docType: (fields.document_label && UF_DOC_TYPES.includes(fields.document_label)) ? fields.document_label : s.docType,
-        citizenship: (fields.citizenship && UF_CITIZENSHIP.includes(fields.citizenship)) ? fields.citizenship : s.citizenship,
+        citizenship: countryName(fields.citizenship) || s.citizenship,
         docNo: fields.number || s.docNo,
         docExpiry: ufDateFromRecognized(fields.expiry_date) || s.docExpiry,
         dob: ufDateFromRecognized(fields.birth_date) || s.dob,
@@ -501,7 +503,7 @@ function UnifiedDocumentDrawer({ open, person = {}, initial, mode = 'create', on
       <PanelSub style={{ marginTop: mth === 'ocr' ? 4 : 0 }}>Данные документа</PanelSub>
       <div className="form-grid">
         <Field label="Тип документа"><Select options={UF_DOC_TYPES} value={d.docType} onChange={(e) => set('docType', e.target.value)} /></Field>
-        <Field label="Гражданство"><Select options={UF_CITIZENSHIP} value={d.citizenship} onChange={(e) => set('citizenship', e.target.value)} /></Field>
+        <Field label="Гражданство"><CountryField valueFormat="name" value={d.citizenship} title="Гражданство в документе" placeholder="Выберите гражданство" onChange={(value) => set('citizenship', value)} /></Field>
         <Field label="Номер документа" required><Input value={d.docNo} onChange={(e) => set('docNo', e.target.value)} placeholder="AC 1234567" /></Field>
         <UFDateField label="Срок действия" value={d.docExpiry || null} onChange={(v) => set('docExpiry', v)} placeholder="дд.мм.гггг" />
       </div>

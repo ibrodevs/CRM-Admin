@@ -1,3 +1,4 @@
+import { countryCode } from '../../../shared/lib/countries.js';
 import { RegistryStats } from '../../../shared/ui/RegistryStats.jsx';
 import { SearchToolbar } from '../../../shared/ui/SearchToolbar.jsx';
 import { useDraftState, useRecentLocations } from '../../../shared/drafts/Drafts.jsx';
@@ -1874,7 +1875,7 @@ function FlightCard({ svc, offer, no: noProp, hideBackRow, onBack, onFormKp, onA
       const createdPerson = await clientsApi.createPerson({
         surname: draft.lastName || parts[0] || '', given_name: draft.firstName || parts[1] || '', middle_name: draft.middleName || parts.slice(2).join(' '),
         birth_date: toIso(draft.dob || person.dob), gender: { 'Мужской': 'male', 'Женский': 'female' }[draft.gender] || '',
-        citizenship: { Кыргызстан: 'KG', Казахстан: 'KZ', Россия: 'RU', Узбекистан: 'UZ', Таджикистан: 'TJ', Турция: 'TR', Германия: 'DE', Китай: 'CN', ОАЭ: 'AE' }[draft.citizenship || person.citizenship] || '',
+        citizenship: countryCode(draft.citizenship || person.citizenship),
         phone: draft.phone || person.phone || '', email: draft.email || person.email || '', city: draft.city || '', notes: draft.comment || '',
       });
       let bookingDocument = null;

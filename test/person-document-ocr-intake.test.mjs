@@ -1,3 +1,4 @@
+import { COUNTRY_OPTIONS, countryName } from '../src/shared/lib/countries.js';
 import assert from 'node:assert/strict';
 import { readFile } from './helpers/source.mjs';
 import test from 'node:test';
@@ -17,7 +18,7 @@ function loadIntakeHelpers() {
   const docTypes = forms.slice(forms.indexOf('const UF_DOC_TYPES'), forms.indexOf('\n', forms.indexOf('const UF_DOC_TYPES')));
   const citizenship = forms.slice(forms.indexOf('const UF_CITIZENSHIP'), forms.indexOf('\n', forms.indexOf('const UF_CITIZENSHIP')));
   const labels = forms.slice(forms.indexOf('const UF_INTAKE_DOC_LABELS'), forms.indexOf('\n};', forms.indexOf('const UF_INTAKE_DOC_LABELS')) + 3);
-  return Function(`${docTypes}\n${citizenship}\n${labels}\n${sources.join('\n')}\nreturn { ${names.join(', ')} };`)();
+  return Function('COUNTRY_OPTIONS', 'countryName', `${docTypes}\n${citizenship}\n${labels}\n${sources.join('\n')}\nreturn { ${names.join(', ')} };`)(COUNTRY_OPTIONS, countryName);
 }
 
 test('document recognition is offered as an alternative at the top of the form', () => {
@@ -85,7 +86,7 @@ test('an unknown citizenship or document type does not corrupt the card', () => 
   const { ufApplyRecognizedFields } = loadIntakeHelpers();
   const filled = ufApplyRecognizedFields(
     { citizenship: 'Кыргызстан', docType: 'Загранпаспорт', documents: [] },
-    { citizenship: 'Уругвай', document_label: 'Служебный паспорт', number: 'X1' },
+    { citizenship: 'Неизвестная страна', document_label: 'Служебный паспорт', number: 'X1' },
   );
   assert.equal(filled.citizenship, 'Кыргызстан');
   assert.equal(filled.docType, 'Загранпаспорт');

@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useDraftState } from '../../../shared/drafts/Drafts.jsx';
 import { Button } from '../../../shared/ui/Button.jsx';
+import { CountryField } from '../../../shared/ui/CountryField.jsx';
 import { Field } from '../../../shared/ui/Field.jsx';
 import { Input } from '../../../shared/ui/Input.jsx';
 import { Select } from '../../../shared/ui/Select.jsx';
@@ -75,10 +76,10 @@ export function InsuranceSearchPanel({ onAdd, currency, addLabel = 'Добави
   const visible = result?.key === fingerprint ? result : null;
   return <div className="insurance-search">
     <div className="insurance-search-form">
-      <Field label="Страны / территория страхования"><Input value={form.countries} onChange={(event) => set({ countries: event.target.value })} placeholder="Например, Турция, Грузия" /></Field>
+      <Field label="Страны страхования"><CountryField multiple valueFormat="name" value={form.countries} onChange={(countries) => set({ countries })} title="Страны страхования" placeholder="Выберите страны" /></Field>
       <Field label="Период страхования"><DateRangeField startVal={form.start} endVal={form.end} onChange={(start, end) => set({ start, end })} minDate={new Date()} allowSameDay requireComplete placeholder="Начало — окончание" /></Field>
       <Field label="Застрахованные"><button type="button" className="input insurance-people-trigger" aria-label="Выбрать застрахованных" aria-haspopup="dialog" aria-expanded={peopleOpen} onClick={() => setPeopleOpen(true)}><Icon name="users" /><span>{form.travellers.length} чел.{form.travellers.some((person) => person.name) ? ` · ${form.travellers.map((person) => person.name).filter(Boolean).join(", ")}` : " · выбрать людей"}</span><Icon name="chevRight" /></button></Field>
-      <Field label="Гражданство"><Input value={form.citizenship} onChange={(event) => set({ citizenship: event.target.value })} placeholder="Укажите гражданство" /></Field>
+      <Field label="Гражданство"><CountryField value={form.citizenship} onChange={(citizenship) => set({ citizenship })} title="Гражданство застрахованных" placeholder="Выберите гражданство" /></Field>
       <Field label="Цель поездки"><Select value={form.purpose} onChange={(event) => set({ purpose: event.target.value })} options={[{ value: 'tourism', label: 'Туризм' }, { value: 'business', label: 'Деловая поездка' }, { value: 'study', label: 'Учёба' }, { value: 'sports', label: 'Спорт / активный отдых' }]} /></Field>
       <Field label="Страховое покрытие"><div className="insurance-coverage"><Input type="number" min="1" value={form.coverage} onChange={(event) => set({ coverage: event.target.value })} /><Select aria-label="Валюта страхового покрытия" value={form.coverageCurrency} onChange={(event) => set({ coverageCurrency: event.target.value })} options={['EUR', 'USD'].map((value) => ({ value, label: value }))} /></div></Field>
     </div>

@@ -1,3 +1,4 @@
+import { countryCode } from '../../../shared/lib/countries.js';
 import { parseCalendarDate } from '../../../shared/ui/date-range.js';
 import { freeBookingDate } from '../free-booking-search.js';
 
@@ -14,11 +15,11 @@ export function insuranceCriteria(form, today = new Date()) {
     if (!birth || birth > now) throw new Error(`Укажите корректную дату рождения застрахованного № ${index + 1}`);
     return { birth_date: freeBookingDate(birth) };
   });
-  if (!String(form.citizenship || '').trim()) throw new Error('Укажите гражданство застрахованных');
+  if (!countryCode(form.citizenship)) throw new Error('Укажите гражданство застрахованных');
   const coverage = Number(form.coverage);
   if (!Number.isFinite(coverage) || coverage <= 0) throw new Error('Укажите страховое покрытие больше нуля');
   return { destination_countries: countries, start_date: freeBookingDate(start), end_date: freeBookingDate(end), travellers,
-    citizenship: form.citizenship.trim(), coverage_amount: coverage, coverage_currency: form.coverageCurrency,
+    citizenship: countryCode(form.citizenship), coverage_amount: coverage, coverage_currency: form.coverageCurrency,
     purpose: form.purpose, currency: form.currency };
 }
 

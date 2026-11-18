@@ -18,7 +18,7 @@ function harness(revalidateAmount = 1250) {
   :name.includes('suppliers/api')?{suppliersApi:{async list(){return{results:[{id:'company',name:'Страховая А'}]};}}}
   :name.includes('servicesApi')?{servicesApi:api}:name.includes('client.js')?{resultsOf:data=>data.results||data}
   :name.includes('money.js')?{resolveCurrency:value=>value||'RUB',formatMoney:(amount,currency)=>`${amount} ${currency}`}
-  :name.includes('icons')?{Icon:'Icon'}:name.includes('InsuranceTravellersDrawer')?{InsuranceTravellersDrawer:'InsuranceTravellersDrawer'}:name.includes('DateFields')?{DateField:'DateField',DateRangeField:'DateRangeField'}:name.includes('Overlays')?{Drawer:'Drawer'}
+  :name.includes('CountryField')?{CountryField:'CountryField'}:name.includes('icons')?{Icon:'Icon'}:name.includes('InsuranceTravellersDrawer')?{InsuranceTravellersDrawer:'InsuranceTravellersDrawer'}:name.includes('DateFields')?{DateField:'DateField',DateRangeField:'DateRangeField'}:name.includes('Overlays')?{Drawer:'Drawer'}
   :Object.fromEntries(['Button','Field','Input','Select','EmptyState'].map(name=>[name,name]))[name.split('/').at(-1).replace('.jsx','')]?{[name.split('/').at(-1).replace('.jsx','')]:name.split('/').at(-1).replace('.jsx','')}:require(name);
  mod._compile(babel.transformSync(readFileSync(new URL('../src/modules/services/insurance/InsuranceSearchPanel.jsx',import.meta.url),'utf8'),{filename:'InsuranceSearchPanel.jsx',presets:['next/babel'],configFile:false,babelrc:false,envName:'test'}).code,import.meta.filename);
  return {render(){cursor=0;return mod.exports.InsuranceSearchPanel({currency:'RUB',addLabel:'Добавить в подборку',onAdd:async(offer,kind)=>{added={offer,kind};}});},async load(){effects.splice(0).forEach(fn=>fn());await new Promise(setImmediate);},added:()=>added,body:()=>requestBody,revalidated:()=>revalidated};
@@ -35,7 +35,7 @@ test('insurance prices appear only after calculation and are taken from the supp
 test('editing the request removes previous calculated prices',async()=>{
  const h=harness();h.render();await h.load();let tree=h.render();
  await nodes(tree).find(node=>node.type==='Button'&&node.props.children==='Рассчитать стоимость').props.onClick();
- tree=h.render();nodes(tree).find(node=>node.type==='Input'&&node.props.placeholder==='Например, Турция, Грузия').props.onChange({target:{value:'Грузия'}});
+ tree=h.render();nodes(tree).find(node=>node.type==='CountryField'&&node.props.title==='Страны страхования').props.onChange('Грузия');
  tree=h.render();assert.ok(!nodes(tree).some(node=>node.props['aria-label']==='Предложения страховых компаний'));assert.equal(h.added(),undefined);
 });
 

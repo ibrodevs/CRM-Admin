@@ -1,3 +1,4 @@
+import { countryCode } from '../../../shared/lib/countries.js';
 // CRM search criteria; credentials stay on the backend.
 export function hotelDateOnly(value) {
   if (!value) return undefined;
@@ -6,7 +7,7 @@ export function hotelDateOnly(value) {
 }
 
 export function hotelCitizenship(value) {
-  return ({ 'РФ': 'RU', 'Кыргызстан': 'KG', 'Казахстан': 'KZ' })[value] || undefined;
+  return countryCode(value) || undefined;
 }
 
 export function revalidationNeedsConfirmation(previous, result) {

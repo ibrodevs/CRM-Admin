@@ -1,3 +1,4 @@
+import { countryCode } from '../../../shared/lib/countries.js';
 import { clientRegistry, filterClientRegistry } from '../model/client-registry.js';
 import { companiesApi } from '../../companies/api.js';
 import { toUiCompany } from '../../companies/model.js';
@@ -38,7 +39,7 @@ function ordersForClient(client, orders = ORDERS) {
   ));
 }
 
-const citizenshipCode = (value) => ({ 'Туркменистан': 'TM', 'Азербайджан': 'AZ', 'Другое': '', 'Кыргызстан': 'KG', 'Казахстан': 'KZ', 'Россия': 'RU', 'Узбекистан': 'UZ', 'Таджикистан': 'TJ', 'Турция': 'TR', 'Германия': 'DE', 'Китай': 'CN', 'ОАЭ': 'AE' }[value] || value || '');
+const citizenshipCode = countryCode;
 
 const personPayloadFromUnified = (person) => ({
   surname: person.lastName || '',

@@ -1,3 +1,4 @@
+import { CountryField } from '../../../shared/ui/CountryField.jsx';
 import { useDraftState, useDraftControls } from '../../../shared/drafts/Drafts.jsx';
 import { SectionInfo } from '../../../shared/ui/SectionInfo.jsx';
 import { hotelStayTimes, loadHotelStayOffer } from './search-criteria.js';
@@ -594,7 +595,7 @@ function HotelPicker({ participants, group = false, onApply, onCancel, currency,
           </label>
           <div className="hp-field hp-field-sm">
             <span className="hp-flabel">Гражданство гостей</span>
-            <Select options={['Все', 'РФ', 'Кыргызстан', 'Казахстан', 'Другое']} value={citizenship || 'Все'} onChange={(e) => setCitizenship(e.target.value)} />
+            <CountryField value={citizenship} onChange={setCitizenship} title="Гражданство гостей" placeholder="Все" allowEmpty emptyLabel="Все" />
           </div>
           <label className="hp-inline-check">
             <Checkbox on={freeCancelOnly} onChange={() => setFreeCancelOnly((v) => !v)} />

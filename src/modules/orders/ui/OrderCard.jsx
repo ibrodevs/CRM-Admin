@@ -1,3 +1,4 @@
+import { countryCode } from '../../../shared/lib/countries.js';
 import { InsuranceSearchPanel } from '../../services/index.js';
 import { useDraftState, useDraftControls } from '../../../shared/drafts/Drafts.jsx';
 import { hotelBookingOptions } from '../../../shared/lib/hotel-booking-options.js';
@@ -83,20 +84,6 @@ const ORDER_STATUS_CODE = {
 
 const ORDER_STATUS_LABEL = Object.fromEntries(Object.entries(ORDER_STATUS_CODE).map(([label, code]) => [code, label]));
 
-const PERSON_CITIZENSHIP = {
-  'Кыргызстан': 'KG',
-  'Казахстан': 'KZ',
-  'Россия': 'RU',
-  'Узбекистан': 'UZ',
-  'Таджикистан': 'TJ',
-  'Туркменистан': 'TM',
-  'Азербайджан': 'AZ',
-  'Турция': 'TR',
-  'Германия': 'DE',
-  'Китай': 'CN',
-  'ОАЭ': 'AE',
-};
-
 const PERSON_DOC_KIND = {
   'Загранпаспорт': 'foreign_passport',
   'Общегражданский паспорт': 'national_passport',
@@ -106,11 +93,7 @@ const PERSON_DOC_KIND = {
   'Виза': 'visa',
 };
 
-function citizenshipCode(value) {
-  if (!value) return '';
-  const text = String(value);
-  return PERSON_CITIZENSHIP[text] || (text.length === 2 ? text.toUpperCase() : '');
-}
+const citizenshipCode = countryCode;
 
 function personPayloadFromUnified(person = {}, client = {}) {
   return {
