@@ -136,3 +136,50 @@ test('hotel map backdrop closes only the map and retains the search underneath',
   assert.equal(close.body.arguments[0].value, false);
   assert.equal(close.body.arguments.length, 1, 'closing the map does not reset search or clear drafts');
 });
+
+test('flight fare and nested details close only their own layer on the backdrop', () => {
+  const { StackPanel } = load('../src/modules/locations/ui/SharedPanels.jsx', (name) => {
+    if (name === 'react') return { ...require('react'), useContext: () => true };
+    if (name.includes('Overlays')) return { useOverlayLayer() {}, useOverlayZIndex: () => 100 };
+    if (name.includes('data/index')) return { AIRPORTS: [] };
+    if (name.includes('icons')) return { Icon: 'Icon' };
+    if (name.includes('EmptyState')) return { EmptyState: 'EmptyState' };
+    if (name.includes('SearchBox')) return { SearchBox: 'SearchBox' };
+  });
+  const closed = [];
+  const search = StackPanel({ title: 'Поиск', onClose: () => closed.push('search') });
+  const fare = StackPanel({ title: 'Тарифы', closeOnBackdrop: true, onClose: () => closed.push('fare') });
+  const details = StackPanel({ title: 'Условия', closeOnBackdrop: true, onClose: () => closed.push('details') });
+  const backdrop = {}, parentBackdrop = {};
+  const pointer = (target, currentTarget = target) => ({ target, currentTarget, button: 0, preventDefault() { this.prevented = true; }, stopPropagation() { this.stopped = true; } });
+  search.props.onPointerDownCapture(pointer(backdrop, parentBackdrop));
+  fare.props.onPointerDownCapture(pointer(backdrop, parentBackdrop));
+  const click = pointer(backdrop);
+  details.props.onPointerDownCapture(click);
+  assert.deepEqual(closed, ['details']);
+  assert.equal(click.prevented, true, 'prevent compatibility mouse events from closing the next layer');
+  assert.equal(click.stopped, true);
+  fare.props.onPointerDownCapture(pointer({}, backdrop));
+  assert.deepEqual(closed, ['details'], 'interacting inside the restored fare panel does not close it');
+  fare.props.onPointerDownCapture(pointer(backdrop));
+  assert.deepEqual(closed, ['details', 'fare']);
+});
+
+test('all flight fare detail panels explicitly enable backdrop dismissal', () => {
+  const source = readFileSync(new URL('../src/modules/orders/ui/OrderCard.jsx', import.meta.url), 'utf8');
+  const ast = babel.parseSync(source, { filename: 'OrderCard.jsx', presets: ['next/babel'], configFile: false, babelrc: false });
+  const panels = [];
+  babel.traverse(ast, { FunctionDeclaration(path) {
+    if (path.node.id?.name !== 'FreeBookingFlightFarePanel') return;
+    path.traverse({ JSXOpeningElement(element) { if (element.node.name.name === 'StackPanel') panels.push(element.node); } });
+  } });
+  assert.equal(panels.length, 3);
+  for (const panel of panels) assert.ok(panel.attributes.some((attr) => attr.name?.name === 'closeOnBackdrop' && attr.value === null));
+  const close = (panel) => panel.attributes.find((attr) => attr.name?.name === 'onClose').value.expression;
+  assert.equal(close(panels[0]).name, 'onClose');
+  assert.equal(close(panels[1]).body.callee.name, 'setInfoFare');
+  assert.equal(close(panels[1]).body.arguments[0].value, undefined); // NullLiteral: close rules only.
+  assert.equal(close(panels[1]).body.arguments[0].type, 'NullLiteral');
+  assert.equal(close(panels[2]).body.callee.name, 'setPerPaxOpen');
+  assert.equal(close(panels[2]).body.arguments[0].value, false);
+});
