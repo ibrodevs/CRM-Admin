@@ -191,9 +191,10 @@ test('free booking uses the historical class/tariff/extras panels without synthe
   const panel = card.slice(card.indexOf('function FreeBookingFlightFarePanel'), card.indexOf('// AviaSearchPanel mask'));
   assert.match(panel, /title="Класс и тариф по рейсу"/);
   assert.match(panel, /<FlightFareSelector/);
-  assert.match(panel, /Багаж, выбор места, питание, страховка/);
+  assert.match(panel, /<FlightExtrasPreview offer=\{selected\}/);
   assert.match(panel, /servicesApi\.fareRules\(fare.id\)/);
-  assert.match(panel, /<FreeBookingExtrasTabs currency=\{selected.currency\}/);
+  assert.match(panel, /<FlightExtrasDrawer offer=\{selected\}/);
+  assert.doesNotMatch(panel, /setExtras\b|extrasCount/);
   assert.doesNotMatch(panel, /AVIA_FARE_TIERS|AVIA_BOOKING_CLASSES|RUB_PER_USD/);
   const source = await readFile(new URL('../src/modules/services/flights/AviaPicker.jsx', import.meta.url), 'utf8');
   const extras = source.slice(source.indexOf('function FreeBookingExtrasTabs'), source.indexOf('function fareClassGroup'));

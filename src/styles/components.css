@@ -4079,3 +4079,41 @@ button.oc-fact:hover{border-color:#d3dbe8;background:#fff}
 .flight-fare-class:focus-visible,.flight-fare-rules-link:focus-visible{outline:2px solid var(--blue);outline-offset:3px}
 @container(max-width:680px){.flight-fare-drawer .flight-fare-grid.fare-grid{grid-template-columns:minmax(0,1fr)}.flight-fare-drawer>.drawer-stack-footer .flight-fare-total{width:100%;margin-bottom:4px}.flight-fare-drawer>.drawer-stack-footer>.btn{flex:1}}
 @container(max-width:420px){.flight-fare-option-actions{align-items:stretch;flex-direction:column}.flight-fare-option-actions>.btn{width:100%}.flight-fare-option{padding:14px}.flight-fare-drawer>.drawer-stack-body{padding:16px!important}.flight-fare-pagination{flex-wrap:wrap}}
+
+/* Flight extras: scoped availability, no zero-price placeholders or unrelated drafts. */
+.flight-extras-preview{display:flex;align-items:center;gap:14px;padding:18px;border:1px solid var(--line);border-radius:14px;background:var(--surface-2)}
+.flight-fare-drawer .flight-extras-preview{margin-bottom:24px}
+.flight-extras-preview-icon{display:grid;place-items:center;flex:0 0 38px;width:38px;height:38px;border-radius:10px;background:var(--surface);color:var(--muted)}
+.flight-extras-preview>div:nth-child(2){flex:1;min-width:0}
+.flight-extras-preview h4,.flight-extras-context h4,.flight-extras-status h4,.flight-extras-included h4{margin:0;color:var(--ink);font-size:15px;line-height:1.5}
+.flight-extras-preview strong{display:block;font-size:13px;font-weight:500;color:var(--muted);margin-top:4px}
+.flight-extras-preview p{margin:4px 0 0;color:var(--muted);font-size:13px;line-height:1.5}
+.flight-extras-drawer.drawer-stack-panel{overflow:hidden;background:var(--surface)}
+.flight-extras-drawer>.drawer-stack-header,.flight-extras-drawer>.drawer-stack-footer{flex-shrink:0}
+.flight-extras-drawer>.drawer-stack-body{min-height:0;overflow-y:auto;overscroll-behavior:contain;scrollbar-gutter:stable}
+.flight-extras-drawer>.drawer-stack-footer{align-items:center;flex-wrap:wrap;gap:12px!important}
+.flight-extras-content{display:grid;gap:20px}
+.flight-extras-context{padding-bottom:18px;border-bottom:1px solid var(--line)}
+.flight-extras-eyebrow{display:block;color:var(--muted);font-size:12px;margin-bottom:6px}
+.flight-extras-context h4{font-size:17px;overflow-wrap:anywhere}
+.flight-extras-context p,.flight-extras-segments{color:var(--muted);font-size:13px;line-height:1.5;margin:6px 0 0}
+.flight-extras-segments{display:flex;gap:6px 16px;flex-wrap:wrap}
+.flight-extras-status{display:flex;align-items:flex-start;gap:12px;padding:16px;border:1px solid var(--line);border-radius:12px;background:var(--surface-2)}
+.flight-extras-status>svg{width:18px;height:18px;flex:0 0 18px;margin-top:3px;color:var(--muted)}
+.flight-extras-status p{font-size:13px;line-height:1.6;color:var(--muted);margin:6px 0 0}
+.flight-extras-included{display:flex;align-items:flex-start;justify-content:space-between;gap:14px;padding-bottom:20px;border-bottom:1px solid var(--line)}
+.flight-extras-included p{font-size:14px;line-height:1.5;margin:8px 0;color:var(--ink)}
+.flight-extras-included span,.flight-extras-next{font-size:12px;line-height:1.6;color:var(--muted)}
+.flight-extras-included>.flight-fare-rules-link{flex-shrink:0}
+.flight-extras-categories{border:1px solid var(--line);border-radius:12px;overflow:hidden}
+.flight-extras-category{display:flex;align-items:flex-start;gap:12px;padding:16px}
+.flight-extras-category+.flight-extras-category{border-top:1px solid var(--line)}
+.flight-extras-category>svg{flex:0 0 18px;width:18px;height:18px;color:var(--muted);margin-top:2px}
+.flight-extras-category>div{flex:1;min-width:0}
+.flight-extras-category h5{margin:0;color:var(--ink);font-size:14px;line-height:1.5}
+.flight-extras-category p{margin:4px 0 0;color:var(--muted);font-size:12px;line-height:1.6}
+.flight-extras-category>span{font-size:11px;color:var(--muted);white-space:nowrap;padding-top:3px}
+.flight-extras-next{margin:0}
+.flight-extras-footer-note{display:grid;gap:4px;margin-right:auto;color:var(--muted);font-size:12px}
+.flight-extras-footer-note strong{color:var(--ink);font-size:13px;font-weight:600}
+@container(max-width:520px){.flight-extras-preview{flex-wrap:wrap}.flight-extras-preview>.btn{margin-left:52px}.flight-extras-included{flex-direction:column}.flight-extras-category{flex-wrap:wrap}.flight-extras-category>div{flex-basis:calc(100% - 30px)}.flight-extras-category>span{margin-left:30px}.flight-extras-drawer>.drawer-stack-body{padding:16px!important}.flight-extras-drawer>.drawer-stack-footer>.flight-extras-footer-note{flex-basis:100%}.flight-extras-drawer>.drawer-stack-footer>button.btn{flex:0 0 100%;width:100%;white-space:nowrap}}

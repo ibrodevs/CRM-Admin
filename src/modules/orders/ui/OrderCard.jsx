@@ -8,7 +8,7 @@ import { passengerAttachments, passengerAttachmentLabel } from '../model/passeng
 import { serviceSummary, serviceFlightSegments, serviceStayDetails, serviceBookingReference, serviceDetailRows } from '../model/service-summary.js';
 import { ServiceDocumentsDrawer } from './ServiceDocumentsDrawer.jsx';
 import { SectionInfo } from '../../../shared/ui/SectionInfo.jsx';
-import { FlightFareSelector, FlightSearchHeader } from '../../services/index.js';
+import { FlightExtrasDrawer, FlightExtrasPreview, FlightFareSelector, FlightSearchHeader } from '../../services/index.js';
 import { InfoNotice } from '../../../shared/ui/InfoNotice.jsx';
 import { HotelBookingActionsDrawer, postSaleFlow } from '../../services/index.js';
 import { orderContact } from '../model/order-contact.js';
@@ -40,7 +40,7 @@ import { CASE_SVC_STATUS, CASE_TRIGGERS, ORDER_CHANGE_CASES, caseNow, caseProgre
 import { UnifiedDocumentDrawer, UnifiedPersonDrawer } from '../../clients/index.js';
 import { Topbar } from '../../../shared/ui/Topbar.jsx';
 import { AirlineLogo, AirportField, PAX_DEFAULT_OPTIONS, PaxClassPicker, durMin, loadLiveFlightOffers, money, paxTotal } from '../../services/index.js';
-import { ExtrasTabs, FreeBookingExtrasTabs } from '../../services/index.js';
+import { ExtrasTabs } from '../../services/index.js';
 import { BookingWizard } from './BookingWizard.jsx';
 import { PassengerDrawer, PassportModal } from './OrderExtras.jsx';
 import { DynamicExtrasPanel, OrderResponsiblesTab } from './OrderOperations.jsx';
@@ -2033,7 +2033,7 @@ function FreeBookingFlightFarePanel({ offer, offers, params, onClose, onAdd , on
   const [rulesBusy, setRulesBusy] = useState(false);
   const [extrasOpen, setExtrasOpen] = useState(false);
   const [perPaxOpen, setPerPaxOpen] = useState(false);
-  const [extras, setExtras] = useDraftState(`FreeBookingFlightFarePanel/${offer.id}`, "extras", { seats: {}, baggage: {}, meal: {}, insurance: {}, special: {}, comfort: {} });
+  const fareSelectorRef = useRef(null);
   const selected = alternatives.find((o) => o.id === fareId) || offer;
   const classDetails = freeFlightFareDetails(selected);
   const clsCode = classDetails.code;
@@ -2045,7 +2045,6 @@ function FreeBookingFlightFarePanel({ offer, offers, params, onClose, onAdd , on
   const tiers = alternatives.filter((o) => freeFlightFareDetails(o).code === clsCode).map((o) => ({ ...freeFlightFareDetails(o), id: o.id, delta: o.fare + o.fee - offer.fare - offer.fee, recommended: o.backendOffer?.fare?.recommended === true, desc: o.backendOffer?.fare?.rules || o.backendOffer?.fare?.cancellation_rules || '', offer: o }));
   const tier = tiers.find((f) => f.id === selected.id) || tiers[0];
   const extrasPax = freeFlightLocalPassengers(params.pax);
-  const extrasCount = Object.values(extras).reduce((sum, group) => sum + Object.values(group).filter((v) => v && v !== 'none' && v !== 'standard').length, 0);
   const legs = (selected.itinerary?.segments || []).map((segment) => ({ airline: segment.airline, leg: liveFlightLeg(segment), currency: selected.currency, supplier: selected.supplier }));
   const routeTitle = (selected.itinerary?.segments || []).map((s) => `${s.origin} → ${s.destination}`).join(' · ');
   const total = selected.fare + selected.fee;
@@ -2058,29 +2057,18 @@ function FreeBookingFlightFarePanel({ offer, offers, params, onClose, onAdd , on
   };
   return <>
     <StackPanel className="free-booking flight-fare-drawer" title="Класс и тариф по рейсу" width="min(1180px,96vw)" onClose={onClose}
-      footer={<><div className="flight-fare-total"><span>Итого за всех · пассажиров: {extrasPax.length}</span><b>{money(total, selected.currency)}</b><small>{classDetails.cabin} · {tier.name}</small></div><Button disabled={searchEditing || searching} variant="secondary" icon="users" onClick={() => setPerPaxOpen(true)}>Пассажиры</Button><Button disabled={searchEditing || searching} icon="check" onClick={() => onAdd({ ...freeFlightDraft(selected, params), extras })}>Добавить в подборку</Button></>}>
+      footer={<><div className="flight-fare-total"><span>Итого за всех · пассажиров: {extrasPax.length}</span><b>{money(total, selected.currency)}</b><small>{classDetails.cabin} · {tier.name}</small></div><Button disabled={searchEditing || searching} variant="secondary" icon="users" onClick={() => setPerPaxOpen(true)}>Пассажиры</Button><Button disabled={searchEditing || searching} icon="check" onClick={() => onAdd(freeFlightDraft(selected, params))}>Добавить в подборку</Button></>}>
       <div className="free-booking"><FlightSearchHeader title={selected.airline} subtitle={routeTitle} supplier={selected.supplier} values={params} busy={searching} onSearch={onSearchStay} onEditingChange={setSearchEditing} renderAirport={(label, value, onChange) => <AirportField label={label} value={value} onChange={onChange} />} renderPassengers={(draft, update) => <FreeBookingPaxField pax={draft.pax} setPax={(pax) => update({ pax })} cabin={draft.cabin} setCabin={(cabin) => update({ cabin })} options={draft} setOptions={update} />}>
         <div className="card card-pad flight-fare-itinerary"><div className="flight-fare-itinerary-head"><AirlineLogo code={selected.airline} size="sm" /><b>{routeTitle}</b><span className="pill pill-gray" style={{ marginLeft: 'auto' }}>{classDetails.cabin} · класс {clsCode}</span></div>{legs.map((leg, i) => <LegTimeline key={i} opt={leg} title={legs.length > 1 ? `Сегмент ${i + 1}` : null} />)}</div>
-      <FlightFareSelector classes={classes} classCode={clsCode} cabin={classDetails.cabin} tiers={tiers} selectedId={selected.id} currency={selected.currency} passengerCount={extrasPax.length} onClassChange={changeClass} onSelect={setFareId} onInspect={inspect} />
-
-      <div className="flight-fare-section-head"><h4>Дополнительные услуги</h4><span>Необязательно</span></div>
-
-      <div className="ap-list-row ap-sum-row" style={{ cursor: 'pointer' }} onClick={() => setExtrasOpen(true)}>
-        <span className="ic"><Icon name="briefcase" /></span>
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <div className="t">Багаж, выбор места, питание, страховка</div>
-          <div className="s">{extrasCount ? 'Выбрано доп. услуг: ' + extrasCount : 'Доп. услуги авиакомпании — по желанию'}</div>
-        </div>
-        <span className="pr">{extrasCount ? extrasCount + ' шт.' : 'Добавить'}</span>
-        <Icon name="chevRight" style={{ width: 18, height: 18, color: 'var(--muted-2)', flex: '0 0 18px' }} />
-      </div>
+      <FlightExtrasPreview offer={selected} onOpen={() => setExtrasOpen(true)} />
+      <div ref={fareSelectorRef}><FlightFareSelector classes={classes} classCode={clsCode} cabin={classDetails.cabin} tiers={tiers} selectedId={selected.id} currency={selected.currency} passengerCount={extrasPax.length} onClassChange={changeClass} onSelect={setFareId} onInspect={inspect} /></div>
 
       </FlightSearchHeader></div>
     </StackPanel>
     {infoFare && <StackPanel className="free-booking" title={'Тариф · ' + infoFare.name} width="min(540px,92vw)" onClose={() => setInfoFare(null)} footer={<><Button variant="secondary" onClick={() => setInfoFare(null)}>Закрыть</Button><Button icon="check" onClick={() => { setFareId(infoFare.id); setInfoFare(null); }}>Выбрать этот тариф</Button></>}>
       <div className="free-booking"><div className="fc-price">{money(infoFare.offer.fare + infoFare.offer.fee, infoFare.offer.currency)}</div>{infoFare.features.map((f, i) => <div key={i} className={'fare-feat ' + (f.ok ? 'ok' : 'no')}><Icon name={f.ok ? 'check' : 'x'} />{f.text}</div>)}<div className="ap-sc-title">Правила тарифа</div>{rulesBusy && <div role="status">Загрузка условий…</div>}{rulesError && <div role="alert">{rulesError}<Button variant="secondary" size="sm" onClick={() => inspect(infoFare)}>Повторить</Button></div>}{!rulesBusy && !rulesError && (!rules || (typeof rules === 'object' && !Object.keys(rules).length)) && <p className="flight-fare-caption">Поставщик не передал подробные условия тарифа.</p>}{rules && (typeof rules === 'string' ? <div style={{ whiteSpace: 'pre-wrap' }}>{rules}</div> : <div className="kv">{Object.entries(rules).map(([key, value]) => <div className="kv-row" key={key}><span className="k">{{ refund: 'Возврат', exchange: 'Обмен', baggage: 'Багаж', carry_on: 'Ручная кладь', no_show: 'Неявка' }[key] || key}</span><span className="v">{typeof value === 'object' ? JSON.stringify(value) : String(value ?? '—')}</span></div>)}</div>)}</div>
     </StackPanel>}
-    {extrasOpen && <StackPanel className="free-booking" title="Дополнительные услуги" width="min(1040px,96vw)" onClose={() => setExtrasOpen(false)} footer={<><Button variant="secondary" onClick={() => setExtrasOpen(false)}>Отмена</Button><Button icon="check" onClick={() => setExtrasOpen(false)}>Применить{extrasCount ? ' · выбрано ' + extrasCount : ''}</Button></>}><div className="free-booking"><FreeBookingExtrasTabs currency={selected.currency} pax={extrasPax} state={extras} set={setExtras} embedded /></div></StackPanel>}
+    {extrasOpen && <FlightExtrasDrawer offer={selected} passengerCount={extrasPax.length} onClose={() => setExtrasOpen(false)} onRules={() => { setExtrasOpen(false); inspect(tier); }} onBackToFares={() => { setExtrasOpen(false); fareSelectorRef.current?.scrollIntoView({ block: 'start', behavior: 'smooth' }); }} />}
     {perPaxOpen && <StackPanel className="free-booking" title="Тарифы по пассажирам" width="min(740px,95vw)" onClose={() => setPerPaxOpen(false)} footer={<Button icon="check" onClick={() => setPerPaxOpen(false)}>Готово</Button>}><div className="free-booking"><InfoNotice icon="alertCircle">Предложение поставщика рассчитано на весь состав поиска. Выбранный тариф применяется ко всем пассажирам.</InfoNotice><div className="fare-sel-list">{extrasPax.map((p) => <div className="fare-sel-row" key={p.id}><div className="nm">{p.name}</div><div className="tr">{tier.name} · класс {clsCode}</div></div>)}</div><div className="ft-total">Итого <b>{money(total, selected.currency)}</b></div></div></StackPanel>}
   </>;
 }

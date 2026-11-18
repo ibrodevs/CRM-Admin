@@ -59,3 +59,4 @@ export { OfferSearchExtras } from './search/SearchExtras.jsx';
 export { InsuranceSearchPanel } from './insurance/InsuranceSearchPanel.jsx';
 
 export { FlightFareSelector } from './flights/FlightFareSelector.jsx';
+export { FlightExtrasPreview, FlightExtrasDrawer } from './flights/FlightExtrasDrawer.jsx';
