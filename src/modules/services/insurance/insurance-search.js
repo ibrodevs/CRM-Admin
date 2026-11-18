@@ -80,3 +80,19 @@ export async function requestInsuranceQuotes(api, body, { signal, pause = (ms) =
     throw error;
   }
 }
+
+export function insurancePerson(person, participant = false) {
+  return {
+    person_id: person.person?.id || person.person || person.person_id || (participant ? null : person.id) || null,
+    name: person.full_name || person.name || [person.surname, person.given_name, person.middle_name].filter(Boolean).join(' '),
+    birth_date: person.birth_date || person.dob || null,
+  };
+}
+
+export function addInsurancePerson(travellers, person, replaceIndex = null) {
+  const entry = insurancePerson(person);
+  const duplicate = travellers.findIndex((row) => entry.person_id && String(row.person_id) === String(entry.person_id));
+  if (duplicate >= 0 && duplicate !== replaceIndex) return travellers;
+  const target = replaceIndex ?? travellers.findIndex((row) => !row.person_id && !row.name && !row.birth_date);
+  return target >= 0 ? travellers.map((row, i) => i === target ? entry : row) : [...travellers, entry];
+}

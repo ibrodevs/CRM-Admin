@@ -18,7 +18,7 @@ function harness(revalidateAmount = 1250) {
   :name.includes('suppliers/api')?{suppliersApi:{async list(){return{results:[{id:'company',name:'Страховая А'}]};}}}
   :name.includes('servicesApi')?{servicesApi:api}:name.includes('client.js')?{resultsOf:data=>data.results||data}
   :name.includes('money.js')?{resolveCurrency:value=>value||'RUB',formatMoney:(amount,currency)=>`${amount} ${currency}`}
-  :name.includes('DateFields')?{DateField:'DateField',DateRangeField:'DateRangeField'}:name.includes('Overlays')?{Drawer:'Drawer'}
+  :name.includes('icons')?{Icon:'Icon'}:name.includes('InsuranceTravellersDrawer')?{InsuranceTravellersDrawer:'InsuranceTravellersDrawer'}:name.includes('DateFields')?{DateField:'DateField',DateRangeField:'DateRangeField'}:name.includes('Overlays')?{Drawer:'Drawer'}
   :Object.fromEntries(['Button','Field','Input','Select','EmptyState'].map(name=>[name,name]))[name.split('/').at(-1).replace('.jsx','')]?{[name.split('/').at(-1).replace('.jsx','')]:name.split('/').at(-1).replace('.jsx','')}:require(name);
  mod._compile(babel.transformSync(readFileSync(new URL('../src/modules/services/insurance/InsuranceSearchPanel.jsx',import.meta.url),'utf8'),{filename:'InsuranceSearchPanel.jsx',presets:['next/babel'],configFile:false,babelrc:false,envName:'test'}).code,import.meta.filename);
  return {render(){cursor=0;return mod.exports.InsuranceSearchPanel({currency:'RUB',addLabel:'Добавить в подборку',onAdd:async(offer,kind)=>{added={offer,kind};}});},async load(){effects.splice(0).forEach(fn=>fn());await new Promise(setImmediate);},added:()=>added,body:()=>requestBody,revalidated:()=>revalidated};
@@ -47,4 +47,17 @@ test('a changed supplier price must be reviewed before the policy can be added',
  tree=h.render();assert.ok(nodes(tree).some(node=>node.props.children==='1450 RUB'));
  await nodes(tree).find(node=>node.type==='Button'&&node.props.children==='Добавить в подборку').props.onClick();
  assert.equal(h.added().offer.cost,1450);
+});
+
+test('cart selection recalculates the quote and retains CRM identities when added', async () => {
+ const h=harness();h.render();await h.load();let tree=h.render();
+ await nodes(tree).find(node=>node.type==='Button'&&node.props.children==='Рассчитать стоимость').props.onClick();
+ tree=h.render();
+ nodes(tree).find(node=>node.type==='InsuranceTravellersDrawer').props.onChange([{person_id:'crm-person',name:'Иванов Пётр',birth_date:'1991-04-16'}]);
+ tree=h.render();assert.ok(!nodes(tree).some(node=>node.props['aria-label']==='Предложения страховых компаний'));
+ await nodes(tree).find(node=>node.type==='Button'&&node.props.children==='Рассчитать стоимость').props.onClick();
+ assert.deepEqual(h.body().criteria.travellers,[{birth_date:'1991-04-16'}],'calculation needs DOB only, not unrelated card contacts');
+ tree=h.render();await nodes(tree).find(node=>node.type==='Button'&&node.props.children==='Добавить в подборку').props.onClick();
+ assert.deepEqual(h.added().offer.insuredPersonIds,['crm-person']);
+ assert.deepEqual(h.added().offer.insuredTravellers,[{person_id:'crm-person',name:'Иванов Пётр',birth_date:'1991-04-16'}]);
 });

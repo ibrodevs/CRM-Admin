@@ -13,10 +13,11 @@ export function hotelGuestSelection(guests, selection, mainGuest) {
 }
 
 export async function resolveHotelParticipants(orderId, service, api) {
-  if (!Array.isArray(service.guestPersonIds)) return undefined;
+  const personIds = service.guestPersonIds ?? service.insuredPersonIds;
+  if (!Array.isArray(personIds)) return undefined;
   const existing = resultsOf(await api.participants(orderId));
   const ids = [];
-  for (const person of [...new Set(service.guestPersonIds)]) {
+  for (const person of [...new Set(personIds)]) {
     let participant = existing.find((item) => String(item.person) === String(person) && item.status !== 'removed');
     if (!participant) {
       const document = service.guestBookingDocuments?.[person];

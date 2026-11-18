@@ -4117,3 +4117,39 @@ button.oc-fact:hover{border-color:#d3dbe8;background:#fff}
 .flight-extras-footer-note{display:grid;gap:4px;margin-right:auto;color:var(--muted);font-size:12px}
 .flight-extras-footer-note strong{color:var(--ink);font-size:13px;font-weight:600}
 @container(max-width:520px){.flight-extras-preview{flex-wrap:wrap}.flight-extras-preview>.btn{margin-left:52px}.flight-extras-included{flex-direction:column}.flight-extras-category{flex-wrap:wrap}.flight-extras-category>div{flex-basis:calc(100% - 30px)}.flight-extras-category>span{margin-left:30px}.flight-extras-drawer>.drawer-stack-body{padding:16px!important}.flight-extras-drawer>.drawer-stack-footer>.flight-extras-footer-note{flex-basis:100%}.flight-extras-drawer>.drawer-stack-footer>button.btn{flex:0 0 100%;width:100%;white-space:nowrap}}
+
+.insurance-people-hint{font-size:13px;line-height:1.6;color:var(--muted);margin:0 0 18px}
+.insurance-people-actions{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:20px}
+.insurance-person-catalog{padding:16px;border:1px solid var(--line);border-radius:14px;background:var(--surface-2);margin-bottom:24px}
+.insurance-person-catalog .search{width:100%}
+.insurance-catalog-close{display:inline-flex;align-items:center;justify-content:center;flex:0 0 28px;width:28px;height:28px;border:0;border-radius:6px;background:none;color:var(--muted);cursor:pointer}
+.insurance-catalog-close:hover{background:var(--hover);color:var(--ink)}
+.insurance-catalog-close svg{width:17px;height:17px}
+.insurance-person-results{display:grid;gap:6px;margin-top:12px}
+.insurance-person-option{display:flex;align-items:center;gap:10px;width:100%;padding:12px;border:1px solid var(--line);border-radius:10px;background:var(--surface);text-align:left;font:inherit;color:var(--ink);cursor:pointer}
+.insurance-person-option:hover:not(:disabled){border-color:var(--blue)}
+.insurance-person-option:disabled{cursor:default;color:var(--muted)}
+.insurance-person-icon{display:grid;place-items:center;flex:0 0 30px;width:30px;height:30px;border-radius:50%;background:var(--surface-2);color:var(--blue)}
+.insurance-person-icon svg{width:17px;height:17px}
+.insurance-person-option>span:nth-child(2){flex:1;min-width:0}
+.insurance-person-option strong{display:block;font-size:13px;line-height:1.5;overflow-wrap:anywhere}
+.insurance-person-option small{display:block;color:var(--muted);font-size:12px;line-height:1.5;margin-top:3px}
+.insurance-person-option>span:last-child{font-size:12px;color:var(--blue);flex-shrink:0}
+.insurance-order-people{display:flex;gap:8px;flex-wrap:wrap;margin-top:14px}
+.insurance-order-people>span{width:100%;font-size:12px;color:var(--muted)}
+.insurance-selected-people{display:grid;gap:14px;margin-bottom:18px}
+.insurance-insured-card{padding:16px;border:1px solid var(--line);border-radius:14px;background:var(--surface);min-width:0}
+.insurance-insured-card>header{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:12px;color:var(--muted);font-size:12px}
+.insurance-insured-card>.field{margin:12px 0 0}
+.insurance-insured-card .input{width:100%}
+.insurance-insured-name{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:12px}
+.insurance-insured-name>strong{font-size:15px;line-height:1.5;overflow-wrap:anywhere}
+.insurance-birth-missing{display:block;margin-top:8px;font-size:12px;color:var(--muted)}
+@container(max-width:420px){.insurance-person-catalog{padding:12px}.insurance-person-option{flex-wrap:wrap}.insurance-person-option>span:nth-child(2){flex-basis:calc(100% - 40px)}.insurance-person-option>span:last-child{margin-left:40px}.insurance-insured-name{align-items:flex-start;flex-direction:column}.insurance-people-actions>.btn{flex:1;min-width:0;white-space:normal}}
+.insurance-travellers-drawer.drawer{overflow:hidden;background:var(--surface)}
+.insurance-travellers-drawer>.drawer-head,.insurance-travellers-drawer>.drawer-foot{flex-shrink:0}
+.insurance-travellers-drawer>.drawer-body{min-height:0;overflow-y:auto;overscroll-behavior:contain;scrollbar-gutter:stable}
+@container(max-width:420px){.insurance-travellers-drawer>.drawer-body{padding:20px 16px}.insurance-travellers-drawer>.drawer-head,.insurance-travellers-drawer>.drawer-foot{padding:20px 16px}.insurance-travellers-drawer>.drawer-foot>.btn{width:100%}}
+.insurance-people-trigger{display:flex;align-items:center;gap:10px}
+.insurance-people-trigger>svg{width:18px;height:18px;flex:0 0 18px;color:var(--muted)}
+.insurance-people-trigger>span{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis}
