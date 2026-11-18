@@ -2229,13 +2229,13 @@ function FreeBookingPanel({ kind, setKind, aviaParams, setAviaParams, onAddAvia,
   useEffect(() => { setVisited((current) => current.has(kind) ? current : new Set([...current, kind])); }, [kind]);
   const currency = resolveCurrency(aviaParams.currency);
   const select = (next) => { setVisited((current) => new Set([...current, next])); setKind(next); };
-  return <div className="free-booking fade-in">
+  return <div className="free-booking free-booking-search fade-in">
     <div className="svcp-cattabs">
       {ADD_SVC_CATS.map((cat) => <button type="button" key={cat.kind} className={'svcp-cattab' + (kind === cat.kind ? ' active' : '')} onClick={() => select(cat.kind)}>
         {cat.img ? <img className="svcp-cattab-img" src={cat.img} alt={cat.label} /> : <Icon name={cat.icon} />}{cat.label}
       </button>)}
     </div>
-    {ADD_SVC_CATS.filter((cat) => visited.has(cat.kind)).map((cat) => <div key={cat.kind} hidden={kind !== cat.kind}>
+    {ADD_SVC_CATS.filter((cat) => visited.has(cat.kind)).map((cat) => <div className="free-booking-service-pane" key={cat.kind} hidden={kind !== cat.kind}>
       {cat.kind === 'Авиа' ? <FreeBookingFlightPanel params={aviaParams} setParams={setAviaParams} onAdd={onAddAvia} />
         : cat.kind === 'Гостиница' ? <HotelPicker currency={currency} onApply={(offer) => onAddOther(offer, cat.kind)} onCancel={() => {}} />
         : cat.kind === 'ЖД' ? <FreeBookingRailFlow currency={currency} onAdd={onAddOther} />

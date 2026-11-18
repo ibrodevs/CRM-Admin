@@ -41,3 +41,21 @@ test('calendar year menu waits for portal placement before scrolling to the sele
   frames[0]();
   assert.equal(panel.scrollTop, 2635);
 });
+
+test('a narrow currency select reserves menu width for its code and selection mark', () => {
+  let hook = 0, ref = 0;
+  const filename = fileURLToPath(new URL('../src/shared/ui/Select.jsx', import.meta.url));
+  const mod = new Module(filename);
+  mod.require = (name) => name === 'react' ? { ...require('react'), useRef: (current) => ({ current: ref++ === 0 ? { value: 'EUR' } : current }), useEffect() {}, useId: () => 'currency-menu', useState: () => [[true, 0][hook++], () => {}] }
+    : name.includes('translations') ? { translate: (s) => s } : name.includes('FloatingPanel') ? { FloatingPanel: 'FloatingPanel' }
+    : name.includes('icons') ? { Icon: 'Icon' } : name.includes('scroll-popover-option') ? { scrollPopoverOption } : require(name);
+  mod._compile(babel.transformSync(readFileSync(filename, 'utf8'), { filename, presets: ['next/babel'], configFile: false, babelrc: false, envName: 'test' }).code, filename);
+  const tree = mod.exports.Select({ value: 'EUR', options: ['EUR', 'USD'] });
+  const [select, menu] = tree.props.children;
+  assert.equal(menu.props.minWidth, 160);
+  assert.equal(select.props.menuMinWidth, undefined);
+  const chosen = menu.props.children.find((node) => node.props['aria-selected']);
+  assert.equal(chosen.props.children[0].props.className, 'select-option-label');
+  assert.equal(chosen.props.children[0].props.children, 'EUR');
+  assert.equal(chosen.props.children[1].props.className, 'dropdown-item-mark');
+});

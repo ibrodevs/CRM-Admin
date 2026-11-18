@@ -12,7 +12,7 @@ function childOptions(children, groupDisabled = false) {
   });
 }
 
-function Select({ options, error, placeholder, menuMinWidth = 0, menuClassName = '', className = '', children, onChange, onKeyDown, onMouseDown, onClick, onBlur, ...rest }) {
+function Select({ options, error, placeholder, menuMinWidth = 160, menuClassName = '', className = '', children, onChange, onKeyDown, onMouseDown, onClick, onBlur, ...rest }) {
   const ref = useRef(null);
   const panelRef = useRef(null);
   const keyboardCursor = useRef(true);
@@ -78,7 +78,7 @@ function Select({ options, error, placeholder, menuMinWidth = 0, menuClassName =
       {rows.map((row, index) => <div key={index} id={`${id}-${index}`} role="option" aria-disabled={row.disabled || undefined} aria-selected={String(row.value) === ref.current?.value}
         className={'dropdown-item' + (String(row.value) === ref.current?.value ? ' is-selected' : '') + (cursor === index ? ' is-cursor' : '') + (row.disabled ? ' is-disabled' : '')}
         onMouseDown={(event) => event.preventDefault()} onMouseEnter={() => { keyboardCursor.current = false; if (!row.disabled) setCursor(index); }} onClick={() => pick(index)}>
-        {translate(row.label)}{String(row.value) === ref.current?.value && <Icon name="check" className="dropdown-item-mark" />}
+        <span className="select-option-label">{translate(row.label)}</span>{String(row.value) === ref.current?.value && <Icon name="check" className="dropdown-item-mark" />}
       </div>)}
     </FloatingPanel>}
   </>;
