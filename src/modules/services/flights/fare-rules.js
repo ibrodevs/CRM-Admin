@@ -14,6 +14,17 @@ export function fareRuleSections(value) {
       return;
     }
     if (Array.isArray(node)) { node.forEach((item) => walk(item, title, depth + 1)); return; }
+    if (node.segment && node.remarks) {
+      const segment = node.segment;
+      const from = segment.locationBegin?.name || segment.locationBegin?.code;
+      const to = segment.locationEnd?.name || segment.locationEnd?.code;
+      const date = String(segment.travelDate || '').replace(/^(\d{4})-(\d{2})-(\d{2}).*$/, '$3.$2.$1');
+      const route = [[from, to].filter(Boolean).join(' → '), date].filter(Boolean).join(' · ');
+      const start = sections.length;
+      walk(node.remarks, title, depth + 1);
+      sections.slice(start).forEach((section) => { if (route) section.route = route; });
+      return;
+    }
     const heading = node.title || node.name || node.header;
     const content = node.text ?? node.body ?? node.content ?? node.description;
     if (heading && content != null) { walk(content, plainText(heading), depth + 1); return; }
@@ -24,5 +35,5 @@ export function fareRuleSections(value) {
     });
   };
   walk(value);
-  return sections.filter((item, index) => sections.findIndex((other) => other.title === item.title && other.text === item.text) === index);
+  return sections.filter((item, index) => sections.findIndex((other) => other.title === item.title && other.text === item.text && other.route === item.route) === index);
 }

@@ -4296,3 +4296,5 @@ button.oc-fact:hover{border-color:#d3dbe8;background:#fff}
 @container(max-width:500px){.flight-rules-summary{flex-direction:column;gap:16px;padding:16px}.flight-rules-state{padding:16px}.flight-rules-drawer>.drawer-stack-body{padding:16px!important}.flight-rules-drawer>.drawer-stack-footer>.btn{flex:1 1 100%;min-width:0;white-space:normal;height:auto;min-height:46px}}
 
 .flight-rules-retry{display:flex;flex-wrap:wrap;gap:8px}
+
+.flight-rules-segment{display:block;font-size:12px;line-height:1.5;color:var(--muted);margin-bottom:8px}
