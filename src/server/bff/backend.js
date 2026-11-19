@@ -108,6 +108,10 @@ function forwardedHeaders(request, access, contentType) {
   headers.set('Accept', request.headers.get('accept') || 'application/json');
   if (contentType) headers.set('Content-Type', contentType);
   if (access) headers.set('Authorization', `Bearer ${access}`);
+  const range = request.headers.get('range');
+  if (range) headers.set('Range', range);
+  const ifRange = request.headers.get('if-range');
+  if (ifRange) headers.set('If-Range', ifRange);
   const idempotencyKey = request.headers.get('idempotency-key');
   if (idempotencyKey) headers.set('Idempotency-Key', idempotencyKey);
   const requestId = request.headers.get('x-request-id');
@@ -160,7 +164,8 @@ export async function proxyToBackend(request, pathname) {
       }
     }
 
-    const responseBody = await parseBody(backendResponse);
+    const isBinary = backendResponse.ok && !(backendResponse.headers.get('content-type') || '').includes('application/json');
+    const responseBody = isBinary ? backendResponse.body : await parseBody(backendResponse);
     const headers = new Headers();
     const contentType = backendResponse.headers.get('content-type');
     const disposition = backendResponse.headers.get('content-disposition');
@@ -173,6 +178,10 @@ export async function proxyToBackend(request, pathname) {
     // diagnostic headers through the BFF; otherwise a browser/PDF viewer may
     // keep rendering the earlier source response even after correction.
     for (const name of [
+      'accept-ranges',
+      'content-range',
+      'etag',
+      'last-modified',
       'cache-control',
       'pragma',
       'expires',
@@ -187,7 +196,7 @@ export async function proxyToBackend(request, pathname) {
 
     const response = responseBody === null
       ? new NextResponse(null, { status: backendResponse.status, headers })
-      : responseBody instanceof ArrayBuffer
+      : isBinary || responseBody instanceof ArrayBuffer
         ? new NextResponse(responseBody, { status: backendResponse.status, headers })
         : NextResponse.json(responseBody, { status: backendResponse.status, headers });
 

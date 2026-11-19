@@ -4298,3 +4298,13 @@ button.oc-fact:hover{border-color:#d3dbe8;background:#fff}
 .flight-rules-retry{display:flex;flex-wrap:wrap;gap:8px}
 
 .flight-rules-segment{display:block;font-size:12px;line-height:1.5;color:var(--muted);margin-bottom:8px}
+
+/* Quiet notification list: source pictograms and text priority, no signal strips. */
+.ntf::before{display:none}
+.ntf.p-Критический{border-color:var(--line);background:var(--surface)}
+.ntf .ntf-ic{background:var(--surface-2);border:1px solid var(--line);color:var(--muted)}
+.ntf .ntf-priority{font-size:11px;font-weight:600;color:var(--muted);line-height:1.5}
+.ntf.p-Критический .ntf-priority{color:var(--ink)}
+.ntf.unread{background:var(--surface)}
+.ntf .ntf-unread-dot{width:6px;height:6px;flex-basis:6px}
+.ntf:hover{border-color:var(--field-line);background:var(--surface-2)}

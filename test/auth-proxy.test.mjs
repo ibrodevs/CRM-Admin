@@ -256,3 +256,24 @@ test('logout clears both cookies', async () => {
   assert.match(cookies, /travelhub_refresh=/);
   assert.match(cookies, /Max-Age=0/i);
 });
+
+test('PDF proxy streams before download completes and preserves range headers', async () => {
+  const { proxyToBackend } = await import('../src/server/bff/backend.js');
+  let upstream;
+  const stream = new ReadableStream({ start(controller) { upstream = controller; } });
+  mockFetch((url, init) => {
+    assert.equal(init.headers.get('Range'), 'bytes=0-1023');
+    return new Response(stream, { status: 206, headers: {
+      'Content-Type': 'application/pdf', 'Content-Range': 'bytes 0-1023/2048',
+      'Accept-Ranges': 'bytes', 'Cache-Control': 'private, no-cache',
+    } });
+  });
+  const response = await proxyToBackend(makeRequest({ cookies: { travelhub_access: 'valid-access' }, headers: { Range: 'bytes=0-1023' } }), '/documents/pdf/');
+  assert.equal(response.status, 206);
+  assert.equal(response.headers.get('content-range'), 'bytes 0-1023/2048');
+  const reader = response.body.getReader();
+  upstream.enqueue(new TextEncoder().encode('%PDF'));
+  assert.equal(new TextDecoder().decode((await reader.read()).value), '%PDF');
+  upstream.close();
+  assert.equal((await reader.read()).done, true);
+});

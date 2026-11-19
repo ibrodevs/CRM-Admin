@@ -37,19 +37,19 @@ function notifGo(n, onNavigate, onOpenOrder, orders = []) {
 
 
 function NotificationRow({ n, orders = [], onAct, onRead, onPin, onDismiss, onOpenCode }) {
-  const src = NOTIF_SOURCE[n.source] || NOTIF_SOURCE['Система'];
+  const sourceIcon = ({ 'Заказы': 'orders', 'Авиа': 'plane', 'КП': 'template', 'Финансы': 'clock', 'Документы': 'notificationDocument', 'Возвраты': 'refund', 'Чаты': 'notificationMessage', 'Поставщики': 'suppliers', 'Интеграции': 'api', 'Система': 'bell' })[n.source] || 'bell';
   const details = notificationPresentation(n, { orders });
   const createdAt = n.date || n.created_at;
   const date = createdAt ? new Date(createdAt) : null;
   const created = date && Number.isFinite(date.getTime()) ? date.toLocaleString('ru-RU', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : n.created || '—';
   return (
     <div className={'ntf ntf-compact p-' + n.priority + (n.read ? '' : ' unread')}>
-      <span className="ntf-ic" style={{ background: src.color }}><Icon name={src.icon} /></span>
+      <span className="ntf-ic" aria-hidden="true"><Icon name={sourceIcon} /></span>
       <div style={{ flex: 1, minWidth: 0 }}>
         <div className="ntf-title">{!n.read && <span className="ntf-unread-dot" />}{n.title}{n.pinned && <Icon name="star" className="ntf-pinned" title="Закреплено" />}</div>
         <div className="ntf-desc" title={n.desc}>{details.order?.client && <strong className="ntf-client">{details.order.client} · </strong>}{n.desc}</div>
         <div className="ntf-meta">
-          <Pill tone={NOTIF_PRIORITY[n.priority]}>{n.priority}</Pill>
+          <span className="ntf-priority">{n.priority === 'Критический' ? 'Срочно · Критический' : n.priority === 'Высокий' ? 'Требует внимания' : n.priority}</span>
           <span>{n.source}</span>
           {n.errCode && <button type="button" className="ntf-resource" title="Открыть код ошибки" onClick={() => onOpenCode?.(n.errCode)}><Icon name="api" />{n.errCode}</button>}
           {details.orderNumber ? <button type="button" className="ntf-resource" onClick={() => onAct(n)} title="Открыть связанный заказ"><Icon name="orders" />{details.orderNumber}</button> : n.order && <span className="ntf-resource-missing">Заказ недоступен</span>}
