@@ -3600,11 +3600,11 @@ button.oc-fact:hover{border-color:#d3dbe8;background:#fff}
 .trip-dates-field>div>.input{width:max-content;max-width:100%}
 
 /* A compact search toolbar; only the expanded parameter content takes a new row. */
-.service-search-mask{gap:12px;align-items:flex-end}
-.service-search-mask>.av-field{flex:1 1 140px;min-width:130px;width:auto!important}
+.service-search-mask.av-bar,.free-booking .service-search-mask.av-bar{display:grid;grid-template-columns:repeat(5,minmax(0,1fr)) auto auto;gap:12px;align-items:end;overflow-anchor:none}
+.service-search-mask>.av-field{min-width:0;width:auto!important}
 .service-search-mask>.transfer-search-options-trigger{order:1;flex:0 0 auto;margin-left:auto;height:var(--h-control)}
 .service-search-mask>.btn:not(.transfer-search-options-trigger){order:2;flex:0 0 auto}
-.service-search-mask>.transfer-options-body{order:3;flex:1 0 100%;margin-top:4px}
+.service-search-mask>.transfer-options-body{order:3;grid-column:1/-1;margin-top:4px;overflow-anchor:none}
 .transfer-search-options-trigger[aria-expanded=true]{background:var(--blue-soft);border-color:var(--blue);color:var(--blue)}
 .transfer-search-options-trigger[aria-expanded=true]>svg:last-child{transform:rotate(180deg)}
 .passenger-composition-field{min-width:150px}
@@ -3626,7 +3626,9 @@ button.oc-fact:hover{border-color:#d3dbe8;background:#fff}
 .passenger-composition-seat input{accent-color:var(--blue)}
 .passenger-composition-menu>.btn{margin-top:10px}
 .passenger-composition-warning{font-size:12px;line-height:1.5;color:var(--amber);background:var(--amber-bg);padding:10px;border-radius:9px}
-@media(max-width:640px){.service-search-mask>.av-field{flex-basis:calc(50% - 12px);min-width:min(100%,150px)}.service-search-mask>.btn{flex:1 1 auto!important}.service-search-mask>.transfer-search-options-trigger{margin-left:0}}
+@container(max-width:1100px){.service-search-mask.av-bar,.free-booking .service-search-mask.av-bar{grid-template-columns:repeat(3,minmax(0,1fr))}.service-search-mask>.transfer-search-options-trigger{margin-left:0}.service-search-mask>.btn{width:100%;min-width:0}}
+@container(max-width:640px){.service-search-mask.av-bar,.free-booking .service-search-mask.av-bar{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@container(max-width:400px){.service-search-mask.av-bar,.free-booking .service-search-mask.av-bar{grid-template-columns:minmax(0,1fr)}}
 
 /* Shared calendar for travel, passenger, document and reporting forms. */
 .floating-panel.calendar-floating{padding:0;border:0;overflow:auto;display:block}
@@ -4233,3 +4235,6 @@ button.oc-fact:hover{border-color:#d3dbe8;background:#fff}
 @container(max-width:500px){.notification-center-drawer>.drawer-body{padding:16px}.notification-drawer-tabs{flex-wrap:wrap}.notification-activity-head{align-items:flex-start;flex-wrap:wrap}.notification-center-drawer .ntf{grid-template-columns:28px minmax(0,1fr)}.notification-center-drawer .ntf>.ntf-actions{grid-column:2;justify-self:end}.notification-center-drawer .ntf-actions{width:100%;justify-content:flex-end}}
 .notification-drawer-actions{display:flex;flex-wrap:wrap;gap:8px;margin:14px 0}
 @media(max-width:760px){.gtop-tools>.gtop-notifications{position:absolute;top:14px;right:70px}.gtop-nav{padding-right:110px}}
+
+/* Expanding search parameters must not change the scroll container width. */
+.free-booking.drawer-stack-panel,.main{scrollbar-gutter:stable}
