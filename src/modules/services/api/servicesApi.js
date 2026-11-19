@@ -22,7 +22,17 @@ export const servicesApi = {
   cancelSearch: (id) => create(`service-searches/${id}/cancel/`, {}),
   compare: (offerIds) => create('service-offers/compare/', { offer_ids: offerIds }),
   revalidate: (id) => create(`service-offers/${id}/revalidate/`, {}),
-  fareRules: (id, signal) => get(`service-offers/${id}/fare-rules/`, signal),
+  fareRules: async (id, signal) => {
+    try { return await get(`service-offers/${id}/fare-rules/`, signal); }
+    catch (error) {
+      if (error.code !== 'PREFLIGHT_REQUIRED' || signal?.aborted) throw error;
+      const checked = await create(`service-offers/${id}/revalidate/`, {}, { signal });
+      try {
+        const payload = await get(`service-offers/${id}/fare-rules/`, signal);
+        return { ...payload, offer: checked.offer, revalidation: checked.revalidation };
+      } catch (error) { error.offer = checked.offer; throw error; }
+    }
+  },
   addToOrder: (orderId, body) => create(`orders/${orderId}/services/`, body),
   transition: (id, body) => create(`services/${id}/transition/`, body),
   passengers: (id, signal) => get(`services/${id}/passengers/`, signal),

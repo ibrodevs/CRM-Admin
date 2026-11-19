@@ -4267,3 +4267,32 @@ button.oc-fact:hover{border-color:#d3dbe8;background:#fff}
 
 .free-booking-workspace>.drawer-stack-footer{flex-wrap:wrap;align-items:center}
 @container(max-width:520px){.flight-fare-drawer>.drawer-stack-footer>.btn{flex:1 1 calc(50% - 6px);min-width:0;height:auto;min-height:46px;padding:10px 12px;white-space:normal}.flight-fare-drawer>.drawer-stack-footer>.btn:last-child{flex-basis:100%}.free-booking-workspace>.drawer-stack-footer>div:first-child{flex-basis:100%!important}.free-booking-workspace>.drawer-stack-footer>.btn{flex:1;min-width:0}}
+
+.flight-rules-drawer.drawer-stack-panel{overflow:hidden;background:var(--surface)}
+.flight-rules-drawer>.drawer-stack-header,.flight-rules-drawer>.drawer-stack-footer{flex-shrink:0}
+.flight-rules-drawer>.drawer-stack-body{min-height:0;overflow-y:auto;overscroll-behavior:contain;scrollbar-gutter:stable}
+.flight-rules-drawer>.drawer-stack-footer{justify-content:space-between;gap:12px;flex-wrap:wrap}
+.flight-rules-summary{display:flex;justify-content:space-between;align-items:flex-start;gap:24px;padding:20px;border:1px solid var(--line);border-radius:14px;background:var(--surface-2);margin-bottom:18px}
+.flight-rules-summary>div{min-width:0}
+.flight-rules-summary span{display:block;color:var(--muted);font-size:12px;line-height:1.5}
+.flight-rules-summary h4{font-size:17px;margin:4px 0;color:var(--ink)}
+.flight-rules-summary p{font-size:13px;color:var(--body);margin:8px 0 0;overflow-wrap:anywhere}
+.flight-rules-summary strong{display:block;font-size:22px;color:var(--ink);font-variant-numeric:tabular-nums;white-space:nowrap;margin-bottom:5px}
+.flight-rules-features{display:flex;flex-wrap:wrap;gap:8px 16px;margin-bottom:20px}
+.flight-rules-features>span{display:flex;align-items:center;gap:6px;font-size:13px;color:var(--body)}
+.flight-rules-features svg{width:16px;height:16px;color:var(--muted);flex-shrink:0}
+.flight-rules-state{display:flex;gap:14px;padding:20px;border:1px solid var(--line);border-radius:14px;background:var(--surface-2)}
+.flight-rules-state>svg{width:22px;height:22px;color:var(--blue);flex-shrink:0;margin-top:2px}
+.flight-rules-state.warning>svg{color:var(--amber)}
+.flight-rules-state>div{min-width:0}
+.flight-rules-state h4{font-size:15px;line-height:1.5;margin:0 0 8px;color:var(--ink)}
+.flight-rules-state p{font-size:13px;line-height:1.65;color:var(--muted);margin:0 0 12px;overflow-wrap:anywhere}
+.flight-rules-state .btn{margin-top:2px}
+.flight-rules-sections{display:grid;gap:14px}
+.flight-rules-sections>section{padding:18px;border:1px solid var(--line);border-radius:12px;min-width:0}
+.flight-rules-sections h4{font-size:14px;line-height:1.5;margin:0 0 10px;color:var(--ink)}
+.flight-rules-sections p{font-size:13px;line-height:1.7;white-space:pre-wrap;overflow-wrap:anywhere;color:var(--body);margin:0}
+.flight-rules-note{font-size:12px;line-height:1.65;color:var(--muted);margin:20px 0 0}
+@container(max-width:500px){.flight-rules-summary{flex-direction:column;gap:16px;padding:16px}.flight-rules-state{padding:16px}.flight-rules-drawer>.drawer-stack-body{padding:16px!important}.flight-rules-drawer>.drawer-stack-footer>.btn{flex:1 1 100%;min-width:0;white-space:normal;height:auto;min-height:46px}}
+
+.flight-rules-retry{display:flex;flex-wrap:wrap;gap:8px}

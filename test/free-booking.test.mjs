@@ -192,7 +192,7 @@ test('free booking uses the historical class/tariff/extras panels without synthe
   assert.match(panel, /title="Класс и тариф по рейсу"/);
   assert.match(panel, /<FlightFareSelector/);
   assert.match(panel, /<FlightExtrasPreview offer=\{selected\}/);
-  assert.match(panel, /servicesApi\.fareRules\(fare.id\)/);
+  assert.match(panel, /servicesApi\.fareRules\(fare.id, controller.signal\)/);
   assert.match(panel, /<FlightExtrasDrawer offer=\{selected\}/);
   assert.doesNotMatch(panel, /setExtras\b|extrasCount/);
   assert.doesNotMatch(panel, /AVIA_FARE_TIERS|AVIA_BOOKING_CLASSES|RUB_PER_USD/);

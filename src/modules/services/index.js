@@ -60,3 +60,5 @@ export { InsuranceSearchPanel } from './insurance/InsuranceSearchPanel.jsx';
 
 export { FlightFareSelector } from './flights/FlightFareSelector.jsx';
 export { FlightExtrasPreview, FlightExtrasDrawer } from './flights/FlightExtrasDrawer.jsx';
+
+export { FlightFareRulesPanel } from './flights/FlightFareRulesPanel.jsx';

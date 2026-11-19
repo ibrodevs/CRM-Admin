@@ -187,13 +187,16 @@ test('all flight fare detail panels explicitly enable backdrop dismissal', () =>
     if (path.node.id?.name !== 'FreeBookingFlightFarePanel') return;
     path.traverse({ JSXOpeningElement(element) { if (element.node.name.name === 'StackPanel') panels.push(element.node); } });
   } });
-  assert.equal(panels.length, 3);
+  assert.equal(panels.length, 2);
   for (const panel of panels) assert.ok(panel.attributes.some((attr) => attr.name?.name === 'closeOnBackdrop' && attr.value === null));
   const close = (panel) => panel.attributes.find((attr) => attr.name?.name === 'onClose').value.expression;
   assert.equal(close(panels[0]).name, 'onClose');
-  assert.equal(close(panels[1]).body.callee.name, 'setInfoFare');
-  assert.equal(close(panels[1]).body.arguments[0].value, undefined); // NullLiteral: close rules only.
-  assert.equal(close(panels[1]).body.arguments[0].type, 'NullLiteral');
-  assert.equal(close(panels[2]).body.callee.name, 'setPerPaxOpen');
-  assert.equal(close(panels[2]).body.arguments[0].value, false);
+  assert.equal(close(panels[1]).body.callee.name, 'setPerPaxOpen');
+  assert.equal(close(panels[1]).body.arguments[0].value, false);
+  const rulesSource = readFileSync(new URL('../src/modules/services/flights/FlightFareRulesPanel.jsx', import.meta.url), 'utf8');
+  const rulesAst = babel.parseSync(rulesSource, { filename: 'FlightFareRulesPanel.jsx', presets: ['next/babel'], configFile: false, babelrc: false });
+  let rulesPanel;
+  babel.traverse(rulesAst, { JSXOpeningElement(path) { if (path.node.name.name === 'StackPanel') rulesPanel = path.node; } });
+  assert.ok(rulesPanel.attributes.some((attr) => attr.name?.name === 'closeOnBackdrop' && attr.value === null));
+  assert.equal(close(rulesPanel).name, 'onClose');
 });

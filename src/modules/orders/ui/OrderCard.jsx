@@ -13,7 +13,7 @@ import { FlightExtrasDrawer, FlightExtrasPreview, FlightFareSelector, FlightSear
 import { InfoNotice } from '../../../shared/ui/InfoNotice.jsx';
 import { HotelBookingActionsDrawer, postSaleFlow } from '../../services/index.js';
 import { orderContact } from '../model/order-contact.js';
-import { FreeBookingPaxField, FreeBookingRailFlow, FreeBookingServiceAddFlow, FreeBookingAeroAddFlow, liveFlightOffer, liveFlightLeg, freeFlightSegments, validateFreeFlightSearch, searchFreeFlightOffers, waitFreeFlightOffers, freeFlightDraft, freeFlightFareOptions, freeFlightLocalPassengers, freeFlightFareDetails } from '../../services/index.js';
+import { FlightFareRulesPanel, FreeBookingPaxField, FreeBookingRailFlow, FreeBookingServiceAddFlow, FreeBookingAeroAddFlow, liveFlightOffer, liveFlightLeg, freeFlightSegments, validateFreeFlightSearch, searchFreeFlightOffers, waitFreeFlightOffers, freeFlightDraft, freeFlightFareOptions, freeFlightLocalPassengers, freeFlightFareDetails } from '../../services/index.js';
 import { clientsApi } from '../../clients/api.js';
 import React, { useState, useEffect, useRef } from 'react';
 import { Icon } from '../../../shared/icons/index.jsx';
@@ -2004,13 +2004,14 @@ function FreeBookingAviaResultRow({ opt, onView, embedded }) {
 
 
 // FlightFarePanel presentation from 61593b4c, adapted to actual backend offers.
-function FreeBookingFlightFarePanel({ offer, offers, params, onClose, onAdd , onSearchStay, searching}) {
+function FreeBookingFlightFarePanel({ offer, offers, params, onClose, onAdd, onOfferUpdated, onSearchStay, searching}) {
   const [searchEditing, setSearchEditing] = useState(false);
   const alternatives = freeFlightFareOptions(offer, offers);
   const [fareId, setFareId] = useDraftState(`FreeBookingFlightFarePanel/${offer.id}`, "fareId", offer.id);
   const [infoFare, setInfoFare] = useState(null);
   const rulesRequest = useRef(0);
-  useEffect(() => () => { rulesRequest.current += 1; }, []);
+  const rulesAbort = useRef(null);
+  useEffect(() => () => { rulesRequest.current += 1; rulesAbort.current?.abort(); }, []);
   const [rules, setRules] = useState(null);
   const [rulesError, setRulesError] = useState('');
   const [rulesBusy, setRulesBusy] = useState(false);
@@ -2033,9 +2034,24 @@ function FreeBookingFlightFarePanel({ offer, offers, params, onClose, onAdd , on
   const total = selected.fare + selected.fee;
   const inspect = async (fare) => {
     const request = ++rulesRequest.current;
+    rulesAbort.current?.abort();
+    const controller = new AbortController();
+    rulesAbort.current = controller;
+    const updateOffer = (raw) => {
+      if (!raw) return;
+      const updated = { ...liveFlightOffer(raw), backendOffer: raw };
+      setInfoFare({ ...fare, ...freeFlightFareDetails(updated), offer: updated, priceChanged: fare.priceChanged || updated.fare + updated.fee !== fare.offer.fare + fare.offer.fee || updated.currency !== fare.offer.currency });
+      onOfferUpdated?.(updated);
+    };
     setInfoFare(fare); setRules(null); setRulesError(''); setRulesBusy(true);
-    try { const data = await servicesApi.fareRules(fare.id); if (request === rulesRequest.current) setRules(data.fare_rules || data); }
-    catch (error) { if (request === rulesRequest.current) setRulesError(error.message || 'Не удалось загрузить условия тарифа'); }
+    try {
+      const data = await servicesApi.fareRules(fare.id, controller.signal);
+      if (request === rulesRequest.current) {
+        setRules(data.fare_rules ?? null);
+        updateOffer(data.offer);
+      }
+    }
+    catch (error) { if (request === rulesRequest.current) { updateOffer(error.offer); setRulesError(['SELECT_NOT_CONFIRMED', 'RATE_UNAVAILABLE', 'OFFER_EXPIRED', 'AVAILABILITY_CONFLICT'].includes(error.code) ? 'Поставщик не подтвердил актуальность тарифа. Повторите поиск или выберите другой вариант.' : error.message || 'Не удалось загрузить условия тарифа'); } }
     finally { if (request === rulesRequest.current) setRulesBusy(false); }
   };
   return <>
@@ -2048,9 +2064,7 @@ function FreeBookingFlightFarePanel({ offer, offers, params, onClose, onAdd , on
 
       </FlightSearchHeader></div>
     </StackPanel>
-    {infoFare && <StackPanel closeOnBackdrop className="free-booking" title={'Тариф · ' + infoFare.name} width="min(540px,92vw)" onClose={() => setInfoFare(null)} footer={<><Button variant="secondary" onClick={() => setInfoFare(null)}>Закрыть</Button><Button icon="check" onClick={() => { setFareId(infoFare.id); setInfoFare(null); }}>Выбрать этот тариф</Button></>}>
-      <div className="free-booking"><div className="fc-price">{money(infoFare.offer.fare + infoFare.offer.fee, infoFare.offer.currency)}</div>{infoFare.features.map((f, i) => <div key={i} className={'fare-feat ' + (f.ok ? 'ok' : 'no')}><Icon name={f.ok ? 'check' : 'x'} />{f.text}</div>)}<div className="ap-sc-title">Правила тарифа</div>{rulesBusy && <div role="status">Загрузка условий…</div>}{rulesError && <div role="alert">{rulesError}<Button variant="secondary" size="sm" onClick={() => inspect(infoFare)}>Повторить</Button></div>}{!rulesBusy && !rulesError && (!rules || (typeof rules === 'object' && !Object.keys(rules).length)) && <p className="flight-fare-caption">Поставщик не передал подробные условия тарифа.</p>}{rules && (typeof rules === 'string' ? <div style={{ whiteSpace: 'pre-wrap' }}>{rules}</div> : <div className="kv">{Object.entries(rules).map(([key, value]) => <div className="kv-row" key={key}><span className="k">{{ refund: 'Возврат', exchange: 'Обмен', baggage: 'Багаж', carry_on: 'Ручная кладь', no_show: 'Неявка' }[key] || key}</span><span className="v">{typeof value === 'object' ? JSON.stringify(value) : String(value ?? '—')}</span></div>)}</div>)}</div>
-    </StackPanel>}
+    {infoFare && <FlightFareRulesPanel fare={infoFare} route={routeTitle} rules={rules} loading={rulesBusy} error={rulesError} onRetry={() => inspect(infoFare)} onRefreshSearch={onSearchStay ? () => { rulesRequest.current += 1; rulesAbort.current?.abort(); setInfoFare(null); onSearchStay(params); } : undefined} onClose={() => { rulesRequest.current += 1; rulesAbort.current?.abort(); setInfoFare(null); }} onSelect={() => { rulesRequest.current += 1; rulesAbort.current?.abort(); setFareId(infoFare.id); setInfoFare(null); }} />}
     {extrasOpen && <FlightExtrasDrawer offer={selected} passengerCount={extrasPax.length} onClose={() => setExtrasOpen(false)} onRules={() => { setExtrasOpen(false); inspect(tier); }} onBackToFares={() => { setExtrasOpen(false); fareSelectorRef.current?.scrollIntoView({ block: 'start', behavior: 'smooth' }); }} />}
     {perPaxOpen && <StackPanel closeOnBackdrop className="free-booking" title="Тарифы по пассажирам" width="min(740px,95vw)" onClose={() => setPerPaxOpen(false)} footer={<Button icon="check" onClick={() => setPerPaxOpen(false)}>Готово</Button>}><div className="free-booking"><InfoNotice icon="alertCircle">Предложение поставщика рассчитано на весь состав поиска. Выбранный тариф применяется ко всем пассажирам.</InfoNotice><div className="fare-sel-list">{extrasPax.map((p) => <div className="fare-sel-row" key={p.id}><div className="nm">{p.name}</div><div className="tr">{tier.name} · класс {clsCode}</div></div>)}</div><div className="ft-total">Итого <b>{money(total, selected.currency)}</b></div></div></StackPanel>}
   </>;
@@ -2219,7 +2233,7 @@ function FreeBookingFlightPanel({ params, setParams, onAdd }) {
         </div>
       </div>
 
-      {selected && <FreeBookingFlightFarePanel key={`${selected.id}:${JSON.stringify(p)}`} searching={loading} onSearchStay={async (draft) => { const version = selectionVersion.current; const found = await runSearch(draft); if (found !== false && found != null) { setParams(draft); if (version === selectionVersion.current) setSelected(found[0] || null); } return found; }} offer={selected} offers={liveOffers} params={p} onClose={() => { selectionVersion.current += 1; setSelected(null); }} onAdd={(draft, options) => { onAdd(draft, options); setSelected(null); }} />}
+      {selected && <FreeBookingFlightFarePanel key={`${selected.id}:${JSON.stringify(p)}`} searching={loading} onSearchStay={async (draft) => { const version = selectionVersion.current; const found = await runSearch(draft); if (found !== false && found != null) { setParams(draft); if (version === selectionVersion.current) setSelected(found[0] || null); } return found; }} onOfferUpdated={(updated) => { setLiveOffers((current) => current.map((item) => item.id === updated.id ? updated : item)); setSelected((current) => current?.id === updated.id ? updated : current); }} offer={selected} offers={liveOffers} params={p} onClose={() => { selectionVersion.current += 1; setSelected(null); }} onAdd={(draft, options) => { onAdd(draft, options); setSelected(null); }} />}
     </div>;
 }
 
