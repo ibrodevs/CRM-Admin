@@ -4053,22 +4053,24 @@ button.oc-fact:hover{border-color:#d3dbe8;background:#fff}
 .flight-fare-class strong{display:block;font-size:14px;font-weight:600}
 .flight-fare-class small{display:block;font-size:12px;color:var(--muted);margin-top:3px}
 .flight-fare-class>svg{width:16px;height:16px;color:var(--blue);margin-left:auto}
-.flight-fare-drawer .flight-fare-grid.fare-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
-.flight-fare-option{display:flex;flex-direction:column;min-width:0;padding:18px;border:1px solid var(--line);border-radius:14px;background:var(--surface)}
-.flight-fare-option.selected{border-color:var(--blue);box-shadow:0 0 0 1px var(--blue)}
-.flight-fare-option-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;min-height:42px}
-.flight-fare-option-head h5{margin:0;font-size:15px;line-height:1.4;color:var(--ink);overflow-wrap:anywhere}
-.flight-fare-option-head>div>span{display:block;font-size:12px;color:var(--muted);margin-top:3px}
+.flight-fare-drawer .flight-fare-grid.fare-grid{grid-template-columns:minmax(0,1fr);gap:8px}
+.flight-fare-option{display:grid;grid-template-columns:minmax(0,1fr) minmax(180px,220px) 104px;align-items:center;gap:20px;min-width:0;padding:14px 16px;border:1px solid var(--line);border-radius:12px;background:var(--surface)}
+.flight-fare-option.selected{border-color:var(--blue);background:var(--blue-soft)}
+.flight-fare-option-info,.flight-fare-option-cost{min-width:0}
+.flight-fare-option-head{display:flex;align-items:baseline;flex-wrap:wrap;gap:4px 10px}
+.flight-fare-option-head h5{margin:0;font-size:14px;line-height:1.5;color:var(--ink);overflow-wrap:anywhere}
+.flight-fare-option-head>span{font-size:12px;color:var(--muted)}
+.flight-fare-option-head>.flight-fare-selected{color:var(--blue)}
 .flight-fare-selected{display:inline-flex;align-items:center;gap:4px;color:var(--blue);font-size:12px;white-space:nowrap}
-.flight-fare-selected svg{width:14px;height:14px}
-.flight-fare-option-price{font-size:22px;font-weight:700;line-height:1.4;color:var(--ink);margin-top:10px;font-variant-numeric:tabular-nums}
-.flight-fare-option-delta{font-size:12px;line-height:1.5;color:var(--muted);margin:3px 0 14px}
-.flight-fare-conditions{display:grid;gap:8px;margin:0 0 16px;padding-top:12px;border-top:1px solid var(--line)}
-.flight-fare-conditions>div{display:flex;justify-content:space-between;gap:14px;font-size:13px;line-height:1.5}
-.flight-fare-conditions dt{color:var(--muted)}
-.flight-fare-conditions dd{margin:0;color:var(--ink);text-align:right;overflow-wrap:anywhere}
-.flight-fare-no-conditions{font-size:13px;line-height:1.5;color:var(--muted);margin:0 0 16px;padding-top:12px;border-top:1px solid var(--line)}
-.flight-fare-option-actions{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-top:auto}
+.flight-fare-option-price{font-size:18px;font-weight:700;line-height:1.5;color:var(--ink);font-variant-numeric:tabular-nums}
+.flight-fare-option-delta{font-size:11px;line-height:1.5;color:var(--muted);margin-top:2px}
+.flight-fare-conditions{display:flex;flex-wrap:wrap;gap:3px 14px;margin:4px 0 0}
+.flight-fare-conditions>div{display:flex;gap:4px;min-width:0;font-size:12px;line-height:1.5}
+.flight-fare-conditions dt{color:var(--muted);flex-shrink:0}
+.flight-fare-conditions dd{margin:0;color:var(--ink);overflow-wrap:anywhere}
+.flight-fare-no-conditions{font-size:12px;line-height:1.5;color:var(--muted);margin:4px 0 0}
+.flight-fare-option-actions{display:flex;justify-content:flex-end;align-items:center;min-width:0}
+.flight-fare-option-actions>.btn{width:100%}
 .flight-fare-rules-link{display:inline-flex;align-items:center;gap:4px;padding:6px 0;border:0;background:none;color:var(--blue);font:inherit;font-size:13px;font-weight:600;cursor:pointer;text-align:left}
 .flight-fare-rules-link svg{width:14px;height:14px;flex-shrink:0}
 .flight-fare-pagination,.flight-fare-pagination>div{display:flex;align-items:center;justify-content:space-between;gap:12px}
@@ -4077,8 +4079,8 @@ button.oc-fact:hover{border-color:#d3dbe8;background:#fff}
 .flight-fare-total>span,.flight-fare-total>small{font-size:12px;color:var(--muted);overflow-wrap:anywhere}
 .flight-fare-total>b{font-size:22px;color:var(--ink);font-variant-numeric:tabular-nums}
 .flight-fare-class:focus-visible,.flight-fare-rules-link:focus-visible{outline:2px solid var(--blue);outline-offset:3px}
-@container(max-width:680px){.flight-fare-drawer .flight-fare-grid.fare-grid{grid-template-columns:minmax(0,1fr)}.flight-fare-drawer>.drawer-stack-footer .flight-fare-total{width:100%;margin-bottom:4px}.flight-fare-drawer>.drawer-stack-footer>.btn{flex:1}}
-@container(max-width:420px){.flight-fare-option-actions{align-items:stretch;flex-direction:column}.flight-fare-option-actions>.btn{width:100%}.flight-fare-option{padding:14px}.flight-fare-drawer>.drawer-stack-body{padding:16px!important}.flight-fare-pagination{flex-wrap:wrap}}
+@container(max-width:680px){.flight-fare-option{grid-template-columns:minmax(0,1fr) 104px;gap:10px 16px}.flight-fare-option-info{grid-column:1/-1}.flight-fare-drawer>.drawer-stack-footer .flight-fare-total{width:100%;margin-bottom:4px}.flight-fare-drawer>.drawer-stack-footer>.btn{flex:1}}
+@container(max-width:420px){.flight-fare-option{padding:12px;gap:8px 12px}.flight-fare-option-price{font-size:17px}.flight-fare-drawer>.drawer-stack-body{padding:16px!important}.flight-fare-pagination{flex-wrap:wrap}}
 
 /* Flight extras: scoped availability, no zero-price placeholders or unrelated drafts. */
 .flight-extras-preview{display:flex;align-items:center;gap:14px;padding:18px;border:1px solid var(--line);border-radius:14px;background:var(--surface-2)}
