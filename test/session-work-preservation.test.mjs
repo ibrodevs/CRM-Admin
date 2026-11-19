@@ -116,10 +116,24 @@ test('a late background response cannot restore a logged-out account', async () 
   assert.equal(render().status, 'anonymous');
 });
 
-test('free booking backdrop checks the active service form rather than hidden drafts', () => {
+test('free booking backdrop stays dismissible with populated or default-valued forms and preserves saved work', () => {
   const source = readFileSync(new URL('../src/modules/dashboard/ui/DashboardPage.jsx', import.meta.url), 'utf8');
-  assert.match(source, /useDraftControls\(freeBookingFormScope\(kind\)\)/);
-  assert.match(source, /closeOnBackdrop=\{\(\) => !draft.length && !activeForm.hasWork\(kind\)\}/);
+  const ast = babel.parseSync(source, { filename: 'DashboardPage.jsx', presets: ['next/babel'], configFile: false, babelrc: false });
+  const fn = ast.program.body.find((node) => node.type === 'FunctionDeclaration' && node.id.name === 'DetailedSearchPanelContent');
+  let closed = 0, cleared = 0;
+  const stored = { kind: 'Страховка', draft: [{ id: 'selected-offer' }], aviaParams: { from: 'MOW', to: 'LED', pax: { adt: 2 } } };
+  const bindings = { useToast: () => () => {}, useDraftControls: () => ({ has: () => true, clear: () => cleared++ }), useDraftState: (_scope, key, initial) => [stored[key] ?? initial, () => {}], PAX_DEFAULT_OPTIONS: {}, plural: () => 'услуга', ...Object.fromEntries(['StackPanel','Button','InfoNotice','FreeBookingPanel','FreeBookingFinalize'].map((key) => [key,key])) };
+  const mod = new Module(import.meta.filename);
+  mod.require = (name) => name === 'react' ? { ...require('react'), useRef: () => ({ current: false }), useEffect() {} } : name === 'bindings' ? bindings : require(name);
+  mod._compile(babel.transformSync(`import {useRef,useEffect} from 'react';import {${Object.keys(bindings)}} from 'bindings';${source.slice(fn.start,fn.end)};export {DetailedSearchPanelContent};`, { filename: 'BookingPanel.jsx', presets: ['next/babel'], configFile: false, babelrc: false, envName: 'test' }).code, import.meta.filename);
+  const render = () => mod.exports.DetailedSearchPanelContent({ onClose: () => closed++ });
+  const panel = render();
+  assert.equal(panel.props.closeOnBackdrop, true, 'passengers, default criteria and selected offers must not block backdrop dismissal');
+  panel.props.onClose();
+  assert.equal(closed, 1);
+  assert.equal(cleared, 0, 'closing must not clear any workspace drafts');
+  assert.equal(render().props.footer.props.children[0].props.children[1].props.children, 1, 'selected service remains in the selection after reopening');
+  assert.equal(stored.aviaParams.pax.adt, 2);
 });
 
 test('hotel map backdrop closes only the map and retains the search underneath', () => {

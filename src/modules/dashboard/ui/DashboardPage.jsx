@@ -1,4 +1,3 @@
-import { freeBookingFormScope } from '../../../shared/drafts/workspaces.js';
 import { OfferSearchExtras } from '../../services/index.js';
 import { useDraftState, useDraftControls, DraftScope, DraftWorkspaceList } from '../../../shared/drafts/Drafts.jsx';
 import { ServicePreview } from '../../../shared/ui/ServicePreview.jsx';
@@ -345,14 +344,13 @@ function DetailedSearchPanelContent({ open = true, onClose, initialKind, onOpenO
   const allDrafts = useDraftControls();
   const initialApplied = useRef(false);
   const [kind, setKind] = useDraftState('DetailedSearchPanel', "kind", initialKind || 'Авиа');
-  const activeForm = useDraftControls(freeBookingFormScope(kind));
   useEffect(() => { if (open && initialKind && (initialApplied.current || !saved.has('kind'))) setKind(initialKind); initialApplied.current = true; }, [open, initialKind]);
   const [aviaParams, setAviaParams] = useDraftState('DetailedSearchPanel', "aviaParams", { trip: 'rt', from: 'FRU', to: 'IST', depDate: null, retDate: null, pax: { adt: 1, chd: 0, infNoSeat: 0, infSeat: 0, special: {}, subsidized: {} }, cabin: 'Эконом', baggage: false, flex: false, direct: false, airline: '', ...PAX_DEFAULT_OPTIONS });
   const [draft, setDraft] = useDraftState('DetailedSearchPanel', "draft", []);
   const [finalize, setFinalize] = useDraftState('DetailedSearchPanel', "finalize", false);
   const add = (svc, k) => { setDraft((d) => [...d, { kind: k || 'Авиа', ...(svc || {}) }]); toast('Добавлено в свободное бронирование', 'ok'); };
   return (
-    <StackPanel open={open} className="free-booking" title="Свободное бронирование" width="min(1320px,96vw)" onClose={onClose} closeOnBackdrop={() => !draft.length && !activeForm.hasWork(kind)}
+    <StackPanel open={open} className="free-booking" title="Свободное бронирование" width="min(1320px,96vw)" onClose={onClose} closeOnBackdrop
       footer={draft.length ? (
         <>
           <div style={{ flex: 1, alignSelf: 'center', color: 'var(--muted)', fontSize: 14 }}>В подборке: <b style={{ color: 'var(--ink)' }}>{draft.length}</b> {plural(draft.length, ['услуга', 'услуги', 'услуг'])}</div>
