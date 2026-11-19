@@ -4264,3 +4264,6 @@ button.oc-fact:hover{border-color:#d3dbe8;background:#fff}
 .chat-registry-loaded{text-align:center;font-size:12px;color:var(--muted);margin:12px}
 .chat-registry-summary>.select{width:190px;max-width:100%}
 @container(max-width:680px){.chat-registry-itinerary{flex-direction:column;gap:2px}.chat-registry-itinerary>span:last-child{max-width:100%}.chat-registry-row-preview>time{display:none}.chat-registry-row-heading{flex-wrap:wrap;gap:2px 8px}.chat-registry-row-actions{flex-direction:column}.chats-registry .chat-registry-row{min-height:128px}.chat-registry-row-heading>strong{display:block}}
+
+.free-booking-workspace>.drawer-stack-footer{flex-wrap:wrap;align-items:center}
+@container(max-width:520px){.flight-fare-drawer>.drawer-stack-footer>.btn{flex:1 1 calc(50% - 6px);min-width:0;height:auto;min-height:46px;padding:10px 12px;white-space:normal}.flight-fare-drawer>.drawer-stack-footer>.btn:last-child{flex-basis:100%}.free-booking-workspace>.drawer-stack-footer>div:first-child{flex-basis:100%!important}.free-booking-workspace>.drawer-stack-footer>.btn{flex:1;min-width:0}}

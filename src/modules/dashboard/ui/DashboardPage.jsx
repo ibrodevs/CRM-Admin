@@ -99,6 +99,7 @@ function FreeBookingFinalize({ draft, onClose, onDone, onOpenOrder, onNavigate, 
       toast('Создан заказ № ' + order.no + ' на «' + clientName + '» · услуг: ' + draft.length, 'ok',
         onOpenOrder ? { action: { label: 'Открыть заказ № ' + order.no, onClick: () => onOpenOrder(order) }, duration: 7000 } : {});
       onDone();
+      onOpenOrder?.(order, 'services');
     } catch (error) {
       toast(error.message || 'Не удалось создать заказ', 'err');
       return;
@@ -161,7 +162,8 @@ function FreeBookingFinalize({ draft, onClose, onDone, onOpenOrder, onNavigate, 
             <UfOrderRow key={o.id} order={o} onClick={async () => {
               try {
                 await attachDraftToOrder(o.id);
-                finish('Услуги (' + draft.length + ') привязаны к заказу № ' + o.no);
+                finish('Услуги (' + draft.length + ') добавлены в заказ № ' + o.no);
+                onOpenOrder?.(o, 'services');
               } catch (error) {
                 toast(error.message || 'Не удалось привязать услуги к заказу', 'err');
               }
@@ -302,10 +304,10 @@ function FreeBookingFinalize({ draft, onClose, onDone, onOpenOrder, onNavigate, 
   }
 
   return (
-    <Drawer open onClose={onClose} title="Оформление свободного бронирования"
-      footer={<Button variant="secondary" style={{ width: '100%' }} onClick={onClose}>Закрыть</Button>}>
+    <Drawer open onClose={onClose} title="Выбранные услуги"
+      footer={<Button variant="secondary" style={{ width: '100%' }} onClick={onClose}>Продолжить подбор услуг</Button>}>
       <div style={{ color: 'var(--muted)', fontSize: 13, marginBottom: 14 }}>
-        В подборке {draft.length} {plural(draft.length, ['услуга', 'услуги', 'услуг'])}. Выберите, что сделать дальше.
+        Выбрано: {draft.length} {plural(draft.length, ['услуга', 'услуги', 'услуг'])}. Добавьте их в существующий или новый заказ. В заказе проверьте пассажиров и подтвердите бронирование. До подтверждения бронь у поставщика не создаётся.
       </div>
       <div className="card card-pad" style={{ marginBottom: 18 }}>
         {draft.map((x, i) => (
@@ -348,21 +350,23 @@ function DetailedSearchPanelContent({ open = true, onClose, initialKind, onOpenO
   const [aviaParams, setAviaParams] = useDraftState('DetailedSearchPanel', "aviaParams", { trip: 'rt', from: 'FRU', to: 'IST', depDate: null, retDate: null, pax: { adt: 1, chd: 0, infNoSeat: 0, infSeat: 0, special: {}, subsidized: {} }, cabin: 'Эконом', baggage: false, flex: false, direct: false, airline: '', ...PAX_DEFAULT_OPTIONS });
   const [draft, setDraft] = useDraftState('DetailedSearchPanel', "draft", []);
   const [finalize, setFinalize] = useDraftState('DetailedSearchPanel', "finalize", false);
-  const add = (svc, k) => { setDraft((d) => [...d, { kind: k || 'Авиа', ...(svc || {}) }]); toast('Добавлено в свободное бронирование', 'ok'); };
+  const [, setCheckoutStep] = useDraftState('FreeBookingFinalize', 'step', 'menu');
+  const openCheckout = () => { setCheckoutStep('menu'); setFinalize(true); };
+  const add = (svc, k, options = {}) => { setDraft((d) => [...d, { kind: k || 'Авиа', ...(svc || {}) }]); if (options.proceed) openCheckout(); else toast('Услуга добавлена в подборку. Откройте «Выбранные услуги» для оформления.', 'ok'); };
   return (
-    <StackPanel open={open} className="free-booking" title="Свободное бронирование" width="min(1320px,96vw)" onClose={onClose} closeOnBackdrop
+    <StackPanel open={open} className="free-booking free-booking-workspace" title="Свободное бронирование" width="min(1320px,96vw)" onClose={onClose} closeOnBackdrop
       footer={draft.length ? (
         <>
-          <div style={{ flex: 1, alignSelf: 'center', color: 'var(--muted)', fontSize: 14 }}>В подборке: <b style={{ color: 'var(--ink)' }}>{draft.length}</b> {plural(draft.length, ['услуга', 'услуги', 'услуг'])}</div>
+          <div style={{ flex: 1, alignSelf: 'center', color: 'var(--muted)', fontSize: 14 }}>Выбрано: <b style={{ color: 'var(--ink)' }}>{draft.length}</b> {plural(draft.length, ['услуга', 'услуги', 'услуг'])}</div>
           <Button variant="secondary" onClick={() => setDraft([])}>Очистить</Button>
-          <Button icon="check" onClick={() => setFinalize(true)}>Оформить</Button>
+          <Button icon="chevRight" onClick={openCheckout}>Выбранные услуги</Button>
         </>
       ) : null}>
       <InfoNotice dismissible icon="alertCircle" style={{ marginBottom: 12 }}>
         Поиск без привязки к заказу. Можно добавить несколько услуг, затем сформировать КП, привязать к заказу или к физ. лицу.
       </InfoNotice>
       <FreeBookingPanel kind={kind} setKind={setKind} aviaParams={aviaParams} setAviaParams={setAviaParams}
-        onAddAvia={(r) => add(r, 'Авиа')}
+        onAddAvia={(r, options) => add(r, 'Авиа', options)}
         onAddOther={(o, k) => add(o, k)} />
       {finalize && <FreeBookingFinalize draft={draft} onClose={() => setFinalize(false)} onDone={() => { setFinalize(false); setDraft([]); onClose(); allDrafts.clear(); }} onOpenOrder={onOpenOrder} onCreateOrder={onCreateOrder} onNavigate={onNavigate} clients={clients} companies={companies} orders={orders} />}
     </StackPanel>
