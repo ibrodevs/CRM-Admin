@@ -7,6 +7,7 @@ export const communicationsApi = {
   messages: (id, params = {}, signal) => list(`chat/threads/${id}/messages/`, params, signal),
   send: (id, body) => create(`chat/threads/${id}/send/`, body),
   read: (id, body = {}) => create(`chat/threads/${id}/read/`, body),
+  archive: (id, archived) => create(`chat/threads/${id}/archive/`, { archived }),
   pin: (id, pinned) => create(`chat/threads/${id}/pin/`, { pinned }),
   historyUrl: (id) => apiPath(`chat/threads/${id}/history/`),
   history: (id, signal) => get(`chat/threads/${id}/history/`, signal),

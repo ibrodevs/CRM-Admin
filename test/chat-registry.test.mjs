@@ -37,3 +37,11 @@ test('unread counters support both server counts and channel counts', () => {
   assert.equal(chatUnread({ unread: { CRM: 2, telegram: 3 } }), 5);
   assert.equal(chatUnread({ unread: 0, unread_count: 5 }), 0);
 });
+
+test('registry includes actual trip dates from related services and omits missing-date filler', () => {
+  const thread={name:'Клиент',orderId:'o1'};
+  const result=enrichChatThread(thread,{orders,services:[{id:'s1',order:'o1',kind:'Трансфер',title:'Москва → Казань',starts_at:'2026-11-20T09:00:00Z',ends_at:'2026-11-21T09:00:00Z'}]});
+  assert.match(result.tripDates,/20.*11.*2026/);
+  assert.match(result.route,/Москва → Казань/);
+  assert.equal(enrichChatThread(thread,{orders,services}).tripDates,'');
+});

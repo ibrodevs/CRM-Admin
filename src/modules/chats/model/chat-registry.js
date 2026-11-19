@@ -11,10 +11,12 @@ export function enrichChatThread(thread, { orders = [], services = [], users = [
     return { ...person, name: nameOf(user) || nameOf(client) || nameOf(person) || person.external_identity || 'Участник', role: ({ operator: 'Оператор', client: 'Клиент', admin: 'Администратор', owner: 'Владелец', member: 'Участник', observer: 'Наблюдатель' })[person.role] || person.role || (person.user ? 'Сотрудник' : 'Клиент') };
   });
   const client = known(thread.client) ? thread.client : known(order?.client) ? order.client : '';
-  const route = [...new Set(related.map((service) => serviceSummary(service).title).filter(known))].join(' · ') || order?.title || '';
+  const summaries = related.map((service) => serviceSummary(service));
+  const route = [...new Set(summaries.map((summary) => summary.title).filter(known))].join(' · ') || order?.title || '';
+  const tripDates = [...new Set(summaries.map((summary) => summary.dates).filter((value) => value && /\d/.test(value)))].join(' · ');
   const genericTitle = !thread.name || /^Заказ\s*№?\s*/i.test(thread.name);
   const customer = clients.find((row) => order && [order.client_person, order.contact_person].filter(Boolean).some((id) => String(row.id) === String(id)));
-  return { ...thread, name: genericTitle && client ? client : thread.name, client, route,
+  return { ...thread, name: genericTitle && client ? client : thread.name, client, route, tripDates,
     contact: [customer?.phone, customer?.email].filter(known).join(' · '),
     responsibleOperator: thread.responsibleOperator || order?.operator || '', participants: people, participantsLoaded: participants !== undefined || Boolean(thread.participants?.length),
     relatedServices: related.length ? related.map((service) => service.id) : thread.relatedServices || [] };

@@ -919,48 +919,50 @@ function ChatInfoPanel({ thread, orders = [], onOpenOrder, onOpenService, orderS
 }
 
 
-function ChatsNav({ threads, activeId, onSelect, search, setSearch, mode, setMode, orderServices = [] }) {
+const knownOrder = (value) => value && value !== '—';
+
+function ChatsNav({ threads, activeId, onSelect, search, setSearch, mode, setMode, orderServices = [], onArchive, archivingId }) {
   const [typeFilter, setTypeFilter] = useState('all');
+  const [folder, setFolder] = useState('active');
+  const [visibleCount, setVisibleCount] = useState(20);
+  const moreRef = useRef(null);
+  useEffect(() => { setVisibleCount(20); }, [search, mode, typeFilter, folder]);
   const [unreadOnly, setUnreadOnly] = useState(false);
   const unreadTotal = threads.reduce((sum, thread) => sum + threadUnread(thread), 0);
   const unreadChats = threads.filter((thread) => threadUnread(thread) > 0).length;
   const matchesSearch = (t) => {
-    const hay = `${t.name} ${t.order} ${t.client} ${t.route || ''} ${t.contact || ''} ${(t.participants || []).map((person) => person.name).join(' ')} ${t.channel} ${(t.relatedServices || []).map((id) => { const s = chatServiceById(id, orderServices); return s ? s.kind + ' ' + s.title : ''; }).join(' ')} ${lastMessage(t)}`.toLowerCase();
+    const hay = `${t.name} ${t.order} ${t.client} ${t.route || ''} ${t.tripDates || ''} ${t.contact || ''} ${(t.participants || []).map((person) => person.name).join(' ')} ${t.channel} ${(t.relatedServices || []).map((id) => { const s = chatServiceById(id, orderServices); return s ? s.kind + ' ' + s.title : ''; }).join(' ')} ${lastMessage(t)}`.toLowerCase();
     return hay.includes(search.toLowerCase());
   };
-  const searched = threads.filter(matchesSearch).filter((thread) => !unreadOnly || threadUnread(thread) > 0);
+  const searched = threads.filter((thread) => folder === 'all' || Boolean(thread.is_archived) === (folder === 'archive')).filter(matchesSearch).filter((thread) => !unreadOnly || threadUnread(thread) > 0);
   const typeCount = (k) => searched.filter((t) => t.type === k).length;
   const filtered = (mode === 'byType' && typeFilter !== 'all') ? searched.filter((t) => t.type === typeFilter) : searched;
 
   const sorted = [...filtered].sort((a, b) => (b.pinned ? 1 : 0) - (a.pinned ? 1 : 0) || (new Date(b.time || b.created_at).getTime() || 0) - (new Date(a.time || a.created_at).getTime() || 0));
 
+  const visible = sorted.slice(0, visibleCount);
+  useEffect(() => {
+    if (!moreRef.current || visibleCount >= sorted.length || typeof IntersectionObserver === 'undefined') return;
+    const observer = new IntersectionObserver(([entry]) => { if (entry.isIntersecting) setVisibleCount((count) => Math.min(count + 20, sorted.length)); }, { rootMargin: '180px' });
+    observer.observe(moreRef.current);
+    return () => observer.disconnect();
+  }, [visibleCount, sorted.length, folder, search, mode, typeFilter]);
+
   const TYPE_FILTERS = [{ key: 'all', label: 'Все чаты' }].concat(CHAT_TYPES.map((t) => ({ key: t.key, label: t.label })));
 
   const Row = (t) => {
-    const tMeta = chatTypeMeta(t.type);
     const u = threadUnread(t);
     return (
-      <div key={t.id} role="button" tabIndex={0} onClick={() => onSelect(t.id)} onKeyDown={(event) => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); onSelect(t.id); } }} className={'chat-row' + (t.id === activeId ? ' active' : '')}>
-        {t.type === 'system'
-          ? <span className="oc-svc-ic" style={{ background: 'var(--amber)', width: 40, height: 40, flexShrink: 0 }}><Icon name="bell" style={{ width: 18, height: 18 }} /></span>
-          : <Avatar name={t.name} size={40} />}
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, alignItems: 'center' }}>
-            <span style={{ fontWeight: 600, fontSize: 14, color: 'var(--ink)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', display: 'flex', alignItems: 'center', gap: 5 }}>
-              {t.pinned && <Icon name="star" style={{ width: 12, height: 12, color: 'var(--amber)' }} />}{t.name}
-            </span>
-            <span style={{ fontSize: 12, color: 'var(--muted-2)', whiteSpace: 'nowrap', flexShrink: 0 }}>№{orderRef(t.order)}</span>
-          </div>
-          {(t.client || t.route) && <div className="chat-registry-context" title={t.route}>{[t.client && t.client !== t.name ? t.client : '', t.route].filter(Boolean).join(' · ')}</div>}
-          <div className="chat-registry-people">{t.participants?.length ? `Участники (${t.participants.length}): ${t.participants.map((person) => `${person.name} (${person.role})`).join(', ')}` : t.participantsLoaded ? 'Участники не указаны' : 'Участники не загружены'}{t.responsibleOperator && ` · Ответственный: ${t.responsibleOperator}`}</div>
-          {t.contact && <div className="chat-registry-people">{t.contact}</div>}
-          <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, alignItems: 'center', marginTop: 5 }}>
-            <span style={{ fontSize: 13, color: 'var(--muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: 6, minWidth: 0 }}>
-              <ChannelBadge channel={t.channel} sm />
-              <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{lastMessage(t)}</span>{t.time && <time className="chat-registry-time">{formatDateTime(t.time)}</time>}
-            </span>
-            {u > 0 && <span className="chan-tab-badge" aria-label={`Новых сообщений: ${u}`} style={{ marginLeft: 0, flexShrink: 0 }}>{u}</span>}
-          </div>
+      <div key={t.id} role="button" tabIndex={0} onClick={() => onSelect(t.id)} onKeyDown={(event) => { if (event.target !== event.currentTarget) return; if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); onSelect(t.id); } }} className={'chat-row chat-registry-row' + (t.id === activeId ? ' active' : '')} aria-label={`${t.name}, ${t.order || 'без заказа'}`}>
+        <Avatar name={t.name} size={36} />
+        <div className="chat-registry-row-main">
+          <div className="chat-registry-row-heading"><strong title={t.name}>{t.pinned && <Icon name="star" />}{t.name}</strong>{knownOrder(t.order) && <span>№ {orderRef(t.order)}</span>}</div>
+          <div className="chat-registry-itinerary" title={[t.route, t.tripDates].filter(Boolean).join(' · ')}><span>{t.route || 'Маршрут не указан'}</span><span>{t.tripDates || 'Даты поездки не указаны'}</span></div>
+          <div className="chat-registry-row-preview"><ChannelBadge channel={t.channel} sm /><span title={lastMessage(t)}>{lastMessage(t)}</span>{t.time && <time>{formatDateTime(t.time)}</time>}</div>
+        </div>
+        <div className="chat-registry-row-actions" onClick={(event) => event.stopPropagation()}>
+          {u > 0 && <span className="chat-registry-unread" aria-label={`Новых сообщений: ${u}`}>{u > 99 ? '99+' : u}</span>}
+          {onArchive && <button type="button" className="chat-registry-archive" disabled={archivingId === t.id} aria-label={t.is_archived ? 'Вернуть чат из архива' : 'Архивировать чат'} title={t.is_archived ? 'Вернуть из архива' : 'В архив'} onClick={() => onArchive(t, !t.is_archived)}><Icon name={t.is_archived ? 'chevLeft' : 'inbox'} /></button>}
         </div>
       </div>
     );
@@ -969,7 +971,7 @@ function ChatsNav({ threads, activeId, onSelect, search, setSearch, mode, setMod
   return (
     <div className="card" style={{ display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
       <div style={{ padding: '10px 12px', borderBottom: '1px solid var(--line)' }}>
-        <div className="chat-registry-summary"><span>Чатов: <b>{threads.length}</b></span><span>Новых сообщений: <b>{unreadTotal}</b></span><button type="button" className={'chip' + (unreadOnly ? ' active' : ' ghost')} aria-pressed={unreadOnly} onClick={() => setUnreadOnly((value) => !value)}>Непрочитанные · {unreadChats}</button></div>
+        <div className="chat-registry-summary"><Select aria-label="Папка чатов" value={folder} onChange={(event) => setFolder(event.target.value)} options={[{ value: 'active', label: `Активные · ${threads.filter((thread) => !thread.is_archived).length}` }, { value: 'archive', label: `Архив · ${threads.filter((thread) => thread.is_archived).length}` }, { value: 'all', label: `Все чаты · ${threads.length}` }]} /><span>Чатов: <b>{threads.length}</b></span><span>Новых сообщений: <b>{unreadTotal}</b></span><button type="button" className={'chip' + (unreadOnly ? ' active' : ' ghost')} aria-pressed={unreadOnly} onClick={() => setUnreadOnly((value) => !value)}>Непрочитанные · {unreadChats}</button></div>
         <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
           <SearchBox value={search} onChange={setSearch} placeholder="Поиск чатов…" style={{ flex: 1, minWidth: 0 }} />
           <div className="trip-toggle" style={{ display: 'flex', flexShrink: 0, padding: 3 }}>
@@ -995,11 +997,11 @@ function ChatsNav({ threads, activeId, onSelect, search, setSearch, mode, setMod
           </div>
         )}
       </div>
-      <div className="scroll" style={{ flex: 1, overflowY: 'auto', padding: '5px 7px 7px' }}>
+      <div className="chat-registry-list">
         {mode === 'byService'
           ? (() => {
             const groups = {};
-            sorted.forEach((t) => { const sid = (t.relatedServices || [])[0] || '—'; (groups[sid] = groups[sid] || []).push(t); });
+            visible.forEach((t) => { const sid = (t.relatedServices || [])[0] || '—'; (groups[sid] = groups[sid] || []).push(t); });
             const order = Object.keys(groups).sort((a, b) => (a === '—' ? 1 : 0) - (b === '—' ? 1 : 0));
             return order.length ? order.map((sid) => {
               const s = chatServiceById(sid, orderServices);
@@ -1011,7 +1013,9 @@ function ChatsNav({ threads, activeId, onSelect, search, setSearch, mode, setMod
               );
             }) : <div style={{ padding: 24 }}><EmptyState icon="chat" title="Ничего не найдено" /></div>;
           })()
-          : (sorted.length ? sorted.map(Row) : <div style={{ padding: 24 }}><EmptyState icon="chat" title="Ничего не найдено" /></div>)}
+          : (sorted.length ? visible.map(Row) : <div style={{ padding: 24 }}><EmptyState icon="chat" title="Ничего не найдено" /></div>)}
+        {visibleCount < sorted.length && <div ref={moreRef} className="chat-registry-more"><Button variant="secondary" onClick={() => setVisibleCount((count) => count + 20)}>Показать ещё · {sorted.length - visible.length}</Button></div>}
+        {sorted.length > 0 && <p className="chat-registry-loaded">Показано {visible.length} из {sorted.length}</p>}
       </div>
     </div>
   );
@@ -1020,43 +1024,41 @@ function ChatsNav({ threads, activeId, onSelect, search, setSearch, mode, setMod
 
 function ChatsPage({ initialThreads = [], onOpenChat, users = [], orders = [], orderServices = [], clients = [] }) {
   const [liveThreads, setLiveThreads] = useState(initialThreads);
-  const [participants, setParticipants] = useState({});
+  const [archivingId, setArchivingId] = useState(null);
+  const toast = useToast();
+  const archiveVersion = useRef(0);
+  const archive = async (thread, archived) => {
+    if (archivingId) return;
+    setArchivingId(thread.id);
+    archiveVersion.current += 1;
+    try {
+      const result = await communicationsApi.archive(thread.id, archived);
+      archiveVersion.current += 1;
+      setLiveThreads((current) => current.map((row) => String(row.id) === String(thread.id) ? { ...row, is_archived: result.is_archived } : row));
+      toast(archived ? 'Чат перенесён в архив' : 'Чат возвращён из архива', 'ok');
+    } catch (error) { toast(error.message || 'Не удалось изменить архив чата', 'err'); }
+    finally { setArchivingId(null); }
+  };
   const [refreshError, setRefreshError] = useState('');
-  useEffect(() => { setLiveThreads(initialThreads); }, [initialThreads]);
   useEffect(() => {
     const controller = new AbortController();
     let refreshing = false;
     const refresh = async () => {
       if (refreshing || controller.signal.aborted) return;
       refreshing = true;
+      const version = archiveVersion.current;
       try {
         const payload = await communicationsApi.allThreads({}, controller.signal);
-        if (!controller.signal.aborted) { setLiveThreads((payload.results || payload).map(toUiThread)); setRefreshError(''); }
+        if (!controller.signal.aborted && version === archiveVersion.current) { setLiveThreads((payload.results || payload).map(toUiThread)); setRefreshError(''); }
       } catch (error) { if (!controller.signal.aborted) setRefreshError('Не удалось обновить чаты. Показаны последние загруженные данные.'); }
       finally { refreshing = false; }
     };
+    refresh();
     const timer = window.setInterval(refresh, 30000);
     window.addEventListener('focus', refresh);
     return () => { controller.abort(); window.clearInterval(timer); window.removeEventListener('focus', refresh); };
   }, []);
-  const threadIds = liveThreads.map((thread) => thread.id).join(',');
-  useEffect(() => {
-    const controller = new AbortController();
-    const ids = liveThreads.filter((thread) => isUuid(thread.id)).map((thread) => thread.id);
-    let cursor = 0;
-    const load = async () => {
-      while (cursor < ids.length && !controller.signal.aborted) {
-        const id = ids[cursor++];
-        try {
-          const payload = await communicationsApi.participants(id, controller.signal);
-          if (!controller.signal.aborted) setParticipants((current) => ({ ...current, [id]: payload.results || payload }));
-        } catch { /* Leave membership unknown rather than presenting made-up members. */ }
-      }
-    };
-    Promise.all([load(), load(), load()]);
-    return () => controller.abort();
-  }, [threadIds]);
-  const threads = liveThreads.map((thread) => enrichChatThread(thread, { orders, services: orderServices, users, clients, participants: participants[thread.id] }));
+  const threads = liveThreads.map((thread) => enrichChatThread(thread, { orders, services: orderServices, users, clients }));
   const [activeId, setActiveId] = useState(null);
   const [search, setSearch] = useState('');
   const [mode, setMode] = useState('byType');
@@ -1071,7 +1073,7 @@ function ChatsPage({ initialThreads = [], onOpenChat, users = [], orders = [], o
       <SectionInfo section="chats" />
       {refreshError && <p role="status">{refreshError}</p>}
       <div className="section-workspace chats-workspace chats-registry">
-        <ChatsNav orderServices={orderServices} threads={threads} activeId={activeId} onSelect={select} search={search} setSearch={setSearch} mode={mode} setMode={setMode} />
+        <ChatsNav onArchive={archive} archivingId={archivingId} orderServices={orderServices} threads={threads} activeId={activeId} onSelect={select} search={search} setSearch={setSearch} mode={mode} setMode={setMode} />
       </div>
     </div>
   </div>;

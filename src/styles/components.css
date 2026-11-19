@@ -3879,11 +3879,11 @@ button.oc-fact:hover{border-color:#d3dbe8;background:#fff}
 .chat-recipient-actions{display:flex;align-items:center;flex-wrap:wrap;gap:6px;margin-top:10px}
 .chat-recipient-actions>.action-menu{min-width:0;max-width:100%}
 .chat-recipient-actions .chip{max-width:100%;height:auto!important;min-height:32px;white-space:normal;text-align:left}
-.chats-registry{height:calc(100dvh - 230px);min-height:320px;display:flex;flex-direction:column}
+.chats-registry{height:auto;min-height:0;display:flex;flex-direction:column}
 .chats-registry>.card{flex:1;min-height:0}
 .chats-registry .chat-row{max-width:100%}
 .chats-registry .chat-row:focus-visible{outline:2px solid var(--blue);outline-offset:-2px}
-@media(max-width:520px){.chat-drawer-toolbar{padding:10px 14px}.chat-conversation-drawer>.drawer-head{padding:16px 14px}.chats-registry{height:calc(100dvh - 210px)}}
+@media(max-width:520px){.chat-drawer-toolbar{padding:10px 14px}.chat-conversation-drawer>.drawer-head{padding:16px 14px}.chats-registry{height:auto}}
 .chat-drawer-toolbar>div:first-child{min-width:0;flex:1}
 .chat-drawer-toolbar>div:first-child>span{max-width:100%}
 .chat-recipient-actions>div:first-child{min-width:0;max-width:100%;flex:1}
@@ -4238,3 +4238,29 @@ button.oc-fact:hover{border-color:#d3dbe8;background:#fff}
 
 /* Expanding search parameters must not change the scroll container width. */
 .free-booking.drawer-stack-panel,.main{scrollbar-gutter:stable}
+
+/* Chat registry: uniform rows, trip context and progressive loading in the page. */
+.chat-registry-list{padding:5px 7px 7px;min-width:0}
+.chats-registry .chat-registry-row{min-height:108px;padding:12px;gap:12px;align-items:flex-start}
+.chat-registry-row-main{flex:1;min-width:0;display:grid;gap:6px}
+.chat-registry-row-heading{display:flex;justify-content:space-between;gap:12px;align-items:center;min-width:0}
+.chat-registry-row-heading>strong{display:flex;align-items:center;gap:5px;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:14px;line-height:1.5}
+.chat-registry-row-heading>strong svg{width:13px;height:13px;flex-shrink:0;color:var(--amber)}
+.chat-registry-row-heading>span{font-size:12px;color:var(--muted);white-space:nowrap;flex-shrink:0}
+.chat-registry-itinerary{display:flex;gap:16px;min-width:0;color:var(--body);font-size:12px;line-height:1.5}
+.chat-registry-itinerary>span{min-width:0;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
+.chat-registry-itinerary>span:last-child{color:var(--muted);flex-shrink:0;max-width:45%}
+.chat-registry-row-preview{display:flex;align-items:center;gap:8px;min-width:0;font-size:12px;color:var(--muted);line-height:1.5}
+.chat-registry-row-preview>span:nth-child(2){flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.chat-registry-row-preview>time{flex-shrink:0;white-space:nowrap;font-size:11px;color:var(--muted-2)}
+.chat-registry-row-actions{display:flex;align-items:center;gap:8px;align-self:center;flex-shrink:0}
+.chat-registry-unread{display:grid;place-items:center;min-width:24px;height:24px;padding:0 6px;border-radius:8px;background:var(--blue-soft);color:var(--blue);font-size:12px;font-weight:700;font-variant-numeric:tabular-nums}
+.chat-registry-archive{display:grid;place-items:center;width:30px;height:30px;padding:0;border:1px solid var(--line);border-radius:8px;background:var(--surface);color:var(--muted);cursor:pointer}
+.chat-registry-archive svg{width:16px;height:16px}
+.chat-registry-archive:hover{color:var(--blue);background:var(--blue-soft);border-color:var(--blue)}
+.chat-registry-archive:focus-visible{outline:2px solid var(--blue);outline-offset:2px}
+.chat-registry-archive:disabled{opacity:.5;cursor:wait}
+.chat-registry-more{text-align:center;padding:18px}
+.chat-registry-loaded{text-align:center;font-size:12px;color:var(--muted);margin:12px}
+.chat-registry-summary>.select{width:190px;max-width:100%}
+@container(max-width:680px){.chat-registry-itinerary{flex-direction:column;gap:2px}.chat-registry-itinerary>span:last-child{max-width:100%}.chat-registry-row-preview>time{display:none}.chat-registry-row-heading{flex-wrap:wrap;gap:2px 8px}.chat-registry-row-actions{flex-direction:column}.chats-registry .chat-registry-row{min-height:128px}.chat-registry-row-heading>strong{display:block}}
