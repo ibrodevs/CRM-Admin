@@ -1,3 +1,4 @@
+import { SessionSecurity } from './SessionSecurity.jsx';
 import { OrgStructure } from '../../users/index.js';
 import { MessengerAccounts } from './MessengerAccounts.jsx';
 import { WorkAbsences } from './WorkAbsences.jsx';
@@ -472,6 +473,7 @@ function ProfilePage({ user, onNavigate, initialTab }) {
 
         {tab === 'security' && (
           <div className="fade-in grid-2" style={{ alignItems: 'start' }}>
+            <SessionSecurity auth={auth} />
             <div className="card card-pad">
               <h3 className="card-title" style={{ marginBottom: 16 }}>{t("Смена пароля")}</h3>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>

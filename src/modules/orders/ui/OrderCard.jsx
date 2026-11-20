@@ -1,3 +1,4 @@
+import { flightCarriers, matchesFlightFilters, PassengerFaresPanel } from '../../services/index.js';
 import { countryCode } from '../../../shared/lib/countries.js';
 import { InsuranceSearchPanel } from '../../services/index.js';
 import { useDraftState, useDraftControls } from '../../../shared/drafts/Drafts.jsx';
@@ -1583,7 +1584,7 @@ function RadioFlightRow({ opt, selected, onSelect }) {
 
 function aviaPriceBounds(offers = []) { const t = (offers || []).map((o) => o.fare + o.fee); return t.length ? { min: Math.floor(Math.min(...t)), max: Math.ceil(Math.max(...t)) } : { min: 0, max: 0 }; }
 function AviaFilters({ flt, setFlt, bounds, offers = [] }) {
-  const airlines = [...new Set(offers.map((o) => o.airline))];
+  const airlines = [...new Set(offers.flatMap(flightCarriers))];
   const suppliers = [...new Set(offers.map((o) => o.supplier))];
   const tg = (key, val) => setFlt((f) => ({ ...f, [key]: f[key].includes(val) ? f[key].filter((x) => x !== val) : [...f[key], val] }));
   const selCount = flt.stops.length + flt.air.length + flt.sup.length + (flt.bagOnly ? 1 : 0) + (flt.refundOnly ? 1 : 0) + (flt.flightNo && flt.flightNo.trim() ? 1 : 0) + ((flt.priceMax != null && flt.priceMax < bounds.max) ? 1 : 0);
@@ -1614,7 +1615,7 @@ function AviaFilters({ flt, setFlt, bounds, offers = [] }) {
       <div className="hp-filter-block">
         <div className="hp-filter-title">Авиакомпании</div>
         {airlines.map((a) => (
-          <label key={a} className="hp-check-row"><Checkbox on={flt.air.includes(a)} onChange={() => tg('air', a)} /><span className="hp-check-label">{AIRLINES[a]?.name || a}</span><span className="hp-check-cnt">{offers.filter((o) => o.airline === a).length}</span></label>
+          <label key={a} className="hp-check-row"><Checkbox on={flt.air.includes(a)} onChange={() => tg('air', a)} /><span className="hp-check-label">{AIRLINES[a]?.name || a}</span><span className="hp-check-cnt">{offers.filter((o) => flightCarriers(o).includes(a)).length}</span></label>
         ))}
       </div>
       <div className="hp-filter-block">
@@ -1684,6 +1685,12 @@ function legRouteSummary(leg) {
 
 
 
+function FlightAirportCode({ code }) {
+  const [open, setOpen] = useState(false);
+  return <><button type="button" className="flight-inline-link" onClick={e=>{e.stopPropagation();setOpen(true);}} title={`Информация об аэропорте ${code}`}>{code}</button>
+    {open && <AirportDetailsDrawer code={code} onClose={()=>setOpen(false)} />}</>;
+}
+
 function LegTimeline({ opt, title }) {
   const leg = opt.leg;
   const segs = legSegments(leg);
@@ -1695,13 +1702,13 @@ function LegTimeline({ opt, title }) {
       {segs.map((s, i) => (
         <React.Fragment key={`${s.flightNo || 'segment'}-${s.dep || i}`}>
           <div className="leg-seg">
-            <div className="leg-seg-time"><div className="t">{s.dep}</div><div className="ap">{s.from}</div></div>
+            <div className="leg-seg-time"><div className="t">{s.dep}</div><div className="ap"><FlightAirportCode code={s.from} /></div></div>
             <div className="leg-seg-mid">
               <div className="d">{s.dur}</div>
               <div className="line" />
               <div className="fn">{air.name} · рейс {s.flightNo}</div>
             </div>
-            <div className="leg-seg-time"><div className="t">{s.arr}</div><div className="ap">{s.to}</div></div>
+            <div className="leg-seg-time"><div className="t">{s.arr}</div><div className="ap"><FlightAirportCode code={s.to} /></div></div>
           </div>
           <TechnicalStopsDetails stops={technicalStopsOf(s)} />
           {i < segs.length - 1 && (
@@ -1715,7 +1722,7 @@ function LegTimeline({ opt, title }) {
 
 
 
-function FlightScaleBar({ leg }) {
+function FlightScaleBar({ leg, onFlightFilter }) {
   const segs = legSegments(leg);
   const lays = leg.layovers || [];
   const hasNonDirectRouting = segs.length > 1 || technicalStopCount(leg) > 0;
@@ -1724,12 +1731,12 @@ function FlightScaleBar({ leg }) {
       <div className="fsb-track">
         {segs.map((s, i) => (
           <React.Fragment key={i}>
-            <div className="fsb-seg"><span className="fsb-flno">{s.flightNo} · {s.dur}</span></div>
+            <div className="fsb-seg"><button type="button" className="fsb-flno flight-inline-link" disabled={!onFlightFilter} onClick={(e) => { e.stopPropagation(); onFlightFilter?.(s.flightNo); }}>{s.flightNo} · {s.dur}</button></div>
             {i < segs.length - 1 && (
               <div className="fsb-stop">
                 <span className="fsb-lay">Пересадка {(lays[i] && lays[i].dur) || ''}</span>
                 <span className="fsb-dot" />
-                <span className="fsb-via">{(lays[i] && lays[i].at) || s.to}</span>
+                <span className="fsb-via"><FlightAirportCode code={(lays[i] && lays[i].at) || s.to} /></span>
               </div>
             )}
           </React.Fragment>
@@ -1821,7 +1828,7 @@ function AviaPaxPanel({ params, setParams, participants = [], groups, onClose })
 
 
 function aviaDepMin(t) { const m = (t || '').match(/(\d{1,2}):(\d{2})/); return m ? (+m[1]) * 60 + (+m[2]) : 0; }
-function AviaListTable({ rows }) {
+function AviaListTable({ rows, onFlightFilter }) {
   const { sort, onSort, apply } = useSort({ col: 'price', dir: 'asc' });
   const sorted = apply(rows, { dep: (r) => aviaDepMin(r.leg.dep), arr: (r) => aviaDepMin(r.leg.arr), dur: (r) => durMin(r.leg.dur), stops: (r) => r.leg.stops || 0, price: (r) => r.price });
   return (
@@ -1843,10 +1850,10 @@ function AviaListTable({ rows }) {
             const leg = r.leg; const air = AIRLINES[r.airline] || { name: r.airline };
             return (
               <tr key={r.id} style={{ cursor: 'pointer' }} onClick={r.view}>
-                <td><span style={{ fontWeight: 700 }}>{leg.dep}</span> <span style={{ color: 'var(--muted-2)', fontSize: 12 }}>{leg.from}</span></td>
-                <td><span style={{ fontWeight: 700 }}>{leg.arr}</span> <span style={{ color: 'var(--muted-2)', fontSize: 12 }}>{leg.to}</span>{r.roundtrip && <span style={{ color: 'var(--blue)', fontSize: 12 }}> · +обр</span>}</td>
+                <td><span style={{ fontWeight: 700 }}>{leg.dep}</span> <span style={{ color: 'var(--muted-2)', fontSize: 12 }}><FlightAirportCode code={leg.from} /></span></td>
+                <td><span style={{ fontWeight: 700 }}>{leg.arr}</span> <span style={{ color: 'var(--muted-2)', fontSize: 12 }}><FlightAirportCode code={leg.to} /></span>{r.roundtrip && <span style={{ color: 'var(--blue)', fontSize: 12 }}> · +обр</span>}</td>
                 <td><span style={{ display: 'flex', alignItems: 'center', gap: 8, whiteSpace: 'nowrap' }}><AirlineLogo code={r.airline} size="sm" />{air.name}</span></td>
-                <td style={{ whiteSpace: 'nowrap' }}>{r.flightNo || '—'}</td>
+                <td>{(leg.segs || [leg]).map((segment,i)=><button key={i} type="button" className="flight-inline-link" disabled={!onFlightFilter} onClick={e=>{e.stopPropagation();onFlightFilter?.(segment.flightNo);}}>{segment.flightNo || '—'}</button>)}</td>
                 <td style={{ whiteSpace: 'nowrap' }}>{leg.dur}</td>
                 <td>{leg.stops
                   ? connectionLabel(leg.stops)
@@ -1983,14 +1990,14 @@ function AddServicePanel({ kind, setKind, aviaParams, setAviaParams, paxCount, p
   );
 }
 
-function FreeBookingAviaResultRow({ opt, onView, embedded }) {
+function FreeBookingAviaResultRow({ opt, onView, embedded, onFlightFilter, onAirport }) {
   const leg = opt.leg;
   return (
     <div className={'ap-flight avia-result' + (embedded ? ' embedded' : '')} onClick={!embedded && onView ? onView : undefined}>
       <AirlineLogo code={opt.airline} size="sm" />
-      <div className="ap-fl-time">{leg.dep}<div className="ap">{leg.from}</div></div>
-      <FlightScaleBar leg={leg} />
-      <div className="ap-fl-time">{leg.arr}<div className="ap">{leg.to}</div></div>
+      <div className="ap-fl-time">{leg.dep}<small className="flight-result-date">{leg.date}</small><button type="button" className="ap flight-inline-link" onClick={(e) => { e.stopPropagation(); onAirport(leg.from); }}>{leg.from}</button></div>
+      <FlightScaleBar leg={leg} onFlightFilter={onFlightFilter} />
+      <div className="ap-fl-time">{leg.arr}<small className="flight-result-date">{leg.arrivalDate}</small><button type="button" className="ap flight-inline-link" onClick={(e) => { e.stopPropagation(); onAirport(leg.to); }}>{leg.to}</button></div>
       <div className="ap-fl-pr">
         {!embedded && <div className="v">{money(opt.price, opt.currency)}</div>}
         <div className="c">{AIRLINES[opt.airline]?.name || opt.airline}</div>
@@ -2029,7 +2036,7 @@ function FreeBookingFlightFarePanel({ offer, offers, params, onClose, onAdd, onO
   const tiers = alternatives.filter((o) => freeFlightFareDetails(o).code === clsCode).map((o) => ({ ...freeFlightFareDetails(o), id: o.id, delta: o.fare + o.fee - offer.fare - offer.fee, recommended: o.backendOffer?.fare?.recommended === true, desc: o.backendOffer?.fare?.rules || o.backendOffer?.fare?.cancellation_rules || '', offer: o }));
   const tier = tiers.find((f) => f.id === selected.id) || tiers[0];
   const extrasPax = freeFlightLocalPassengers(params.pax);
-  const legs = (selected.itinerary?.segments || []).map((segment) => ({ airline: segment.airline, leg: liveFlightLeg(segment), currency: selected.currency, supplier: selected.supplier }));
+  const legs = (selected.journeys || [selected.out]).map((leg) => ({ airline: selected.airline, leg, currency: selected.currency, supplier: selected.supplier }));
   const routeTitle = (selected.itinerary?.segments || []).map((s) => `${s.origin} → ${s.destination}`).join(' · ');
   const total = selected.fare + selected.fee;
   const inspect = async (fare) => {
@@ -2066,13 +2073,14 @@ function FreeBookingFlightFarePanel({ offer, offers, params, onClose, onAdd, onO
     </StackPanel>
     {infoFare && <FlightFareRulesPanel fare={infoFare} route={routeTitle} rules={rules} loading={rulesBusy} error={rulesError} onRetry={() => inspect(infoFare)} onRefreshSearch={onSearchStay ? () => { rulesRequest.current += 1; rulesAbort.current?.abort(); setInfoFare(null); onSearchStay(params); } : undefined} onClose={() => { rulesRequest.current += 1; rulesAbort.current?.abort(); setInfoFare(null); }} onSelect={() => { rulesRequest.current += 1; rulesAbort.current?.abort(); setFareId(infoFare.id); setInfoFare(null); }} />}
     {extrasOpen && <FlightExtrasDrawer offer={selected} passengerCount={extrasPax.length} onClose={() => setExtrasOpen(false)} onRules={() => { setExtrasOpen(false); inspect(tier); }} onBackToFares={() => { setExtrasOpen(false); fareSelectorRef.current?.scrollIntoView({ block: 'start', behavior: 'smooth' }); }} />}
-    {perPaxOpen && <StackPanel closeOnBackdrop className="free-booking" title="Тарифы по пассажирам" width="min(740px,95vw)" onClose={() => setPerPaxOpen(false)} footer={<Button icon="check" onClick={() => setPerPaxOpen(false)}>Готово</Button>}><div className="free-booking"><InfoNotice icon="alertCircle">Предложение поставщика рассчитано на весь состав поиска. Выбранный тариф применяется ко всем пассажирам.</InfoNotice><div className="fare-sel-list">{extrasPax.map((p) => <div className="fare-sel-row" key={p.id}><div className="nm">{p.name}</div><div className="tr">{tier.name} · класс {clsCode}</div></div>)}</div><div className="ft-total">Итого <b>{money(total, selected.currency)}</b></div></div></StackPanel>}
+    {perPaxOpen && <PassengerFaresPanel offer={selected} params={params} onClose={() => setPerPaxOpen(false)} onAdd={(drafts) => { onAdd(drafts, { proceed: true }); }} />}
   </>;
 }
 
 // AviaSearchPanel mask from 61593b4cee50157943f8a004864e4885ab2c8d7c (before cfcc01e), with current provider offers.
 function FreeBookingFlightPanel({ params, setParams, onAdd }) {
   const toast = useToast();
+  const [airportCode, setAirportCode] = useState(null);
   const p = params;
   const [liveOffers, setLiveOffers] = useDraftState('FreeBookingFlightPanel', "liveOffers", []);
   const [loading, setLoading] = useState(false);
@@ -2108,16 +2116,16 @@ function FreeBookingFlightPanel({ params, setParams, onAdd }) {
     const error = validateFreeFlightSearch(p);
     if (error) { toast(error, 'warn'); return false; }
     const request = ++requestId.current;
-    setReusedSearch(false); setSearchError(''); setLoading(true); setLiveOffers([]); if (!nextValues || nextValues.nativeEvent) setSelected(null); setSearched(false);
+    setReusedSearch(false); setSearchError(''); setLoading(true); setLiveOffers([]); if (!nextValues || nextValues.nativeEvent) setSelected(null); setSearched(false); setFlt({ stops: [], air: [], sup: [], bagOnly: false, refundOnly: false, priceMax: null, flightNo: '' });
     try {
       const options = {
         refresh, shouldContinue: () => request === requestId.current,
         onCreated: (id, data) => { if (request === requestId.current) { setActiveSearchId(id); setReusedSearch(Boolean(data.reused)); } },
         onProgress: (rows) => {
           if (request !== requestId.current) return;
-          const found = rows.map((offer) => ({ ...liveFlightOffer(offer), backendOffer: offer }));
+          const found = rows.map((offer) => ({ ...liveFlightOffer(offer, p), backendOffer: offer }));
           setLiveOffers(found); setSearched(true);
-          setFlt({ stops: [], air: [], sup: [], bagOnly: false, refundOnly: false, priceMax: aviaPriceBounds(found).max, flightNo: '' });
+
         },
       };
       const raw = resumeId
@@ -2125,25 +2133,15 @@ function FreeBookingFlightPanel({ params, setParams, onAdd }) {
         : await searchFreeFlightOffers(p, servicesApi, undefined, options);
       if (request !== requestId.current || raw == null) return false;
       setActiveSearchId(null);
-      const found = raw.map((offer) => ({ ...liveFlightOffer(offer), backendOffer: offer }));
+      const found = raw.map((offer) => ({ ...liveFlightOffer(offer, p), backendOffer: offer }));
       setLiveOffers(found); setSearched(true); setVisible(6);
-      setFlt({ stops: [], air: [], sup: [], bagOnly: false, refundOnly: false, priceMax: aviaPriceBounds(found).max, flightNo: '' });
+
       return found;
     } catch (error) { if (request === requestId.current) setSearchError(error.message || 'Не удалось выполнить поиск перелётов'); return false; }
     finally { if (request === requestId.current) setLoading(false); }
   };
   const aviaBounds = aviaPriceBounds(liveOffers);
-  const pool = liveOffers.filter((o) => {
-    const segments = o.itinerary?.segments || [];
-    const stops = o.out.stops >= 2 ? '2plus' : String(o.out.stops || 0);
-    if (flt.flightNo && !segments.some((s) => `${s.airline || ''}${s.flight_number || ''}`.toLowerCase().includes(flt.flightNo.replace(/\s/g, '').toLowerCase()))) return false;
-    if (flt.stops.length && !flt.stops.includes(stops)) return false;
-    if (flt.air.length && !flt.air.includes(o.airline)) return false;
-    if (flt.sup.length && !flt.sup.includes(o.supplier)) return false;
-    if (flt.bagOnly && o.baggage === 'Без багажа') return false;
-    if (flt.refundOnly && !o.refundable) return false;
-    return flt.priceMax == null || o.fare + o.fee <= flt.priceMax;
-  }).sort((a, b) => a.fare + a.fee - b.fare - b.fee);
+  const pool = liveOffers.filter((offer) => matchesFlightFilters(offer, flt, p)).sort((a, b) => a.fare + a.fee - b.fare - b.fee);
   const listRows = pool.map((o) => ({ id: o.id, airline: o.airline, leg: o.out, flightNo: o.out.flightNo, supplier: o.supplier, price: o.fare + o.fee, currency: o.currency, roundtrip: (o.itinerary?.segments?.length || 0) > 1 && o.itinerary.segments.at(-1).destination === o.itinerary.segments[0].origin, view: () => setSelected(o) }));
   return <div>
       {(p.trip === 'mc' ? segs.some((segment) => !segment.date) : !p.depDate || (p.trip === 'rt' && !p.retDate)) && <InfoNotice icon="calendar" role="status" dismissible>{p.trip === 'mc' ? 'Выберите дату вылета для каждого сегмента маршрута.' : p.trip === 'rt' ? 'Выберите даты вылета и возвращения.' : 'Выберите дату вылета.'}</InfoNotice>}
@@ -2214,17 +2212,18 @@ function FreeBookingFlightPanel({ params, setParams, onAdd }) {
         </div>
         <div style={{ minWidth: 190 }}><Select options={[{ value: 'price', label: 'Сортировка: Цена' }]} value="price" onChange={() => {}} /></div>
       </div>
+      {flt.flightNo && <div className="flight-active-filter"><span>Рейс: {flt.flightNo}</span><button type="button" onClick={() => setFlt((f) => ({ ...f, flightNo: '' }))} aria-label="Убрать фильтр рейса"><Icon name="x" /></button></div>}
       <div className="hp-layout">
         <AviaFilters flt={flt} setFlt={setFlt} bounds={aviaBounds} offers={liveOffers} />
         <div style={{ minWidth: 0 }}>
           {loading && <div className="card card-pad"><div className="sk" style={{ height: 90 }} /></div>}
           {!loading && !pool.length && <EmptyState icon="plane" title={searched ? 'Предложения не найдены' : 'Варианты ещё не загружены'} sub={searched ? (liveOffers.length ? 'Измените или сбросьте фильтры — они скрыли найденные рейсы.' : 'Поставщик не предложил перелётов по этому маршруту и датам. Попробуйте другие даты или маршрут.') : 'Задайте маршрут и нажмите «Найти»'} />}
-          {view === 'list' ? <AviaListTable rows={listRows.slice(0, visible)} /> : <div className="ap-route-section">
+          {view === 'list' ? <AviaListTable rows={listRows.slice(0, visible)} onFlightFilter={(flightNo) => { setFlt(f => ({ ...f, flightNo })); setVisible(6); }} /> : <div className="ap-route-section">
             {pool.slice(0, visible).map((offer) => {
               const segments = offer.itinerary?.segments || [];
-              const legs = segments.length ? segments.map(liveFlightLeg) : [offer.out];
+              const legs = offer.journeys?.length ? offer.journeys : [offer.out];
               return <div key={offer.id} className={'ap-route-card' + (legs.length > 1 ? (p.trip === 'rt' ? ' avia-rt-card' : ' chain') : '')}>
-                {legs.map((leg, index) => <FreeBookingAviaResultRow key={index} opt={{ leg, airline: segments[index]?.airline || offer.airline, supplier: offer.supplier, price: offer.fare + offer.fee, currency: offer.currency }} embedded={legs.length > 1} onView={() => setSelected(offer)} />)}
+                {legs.map((leg, index) => <FreeBookingAviaResultRow key={index} opt={{ leg, airline: segments[index]?.airline || offer.airline, supplier: offer.supplier, price: offer.fare + offer.fee, currency: offer.currency }} embedded={legs.length > 1} onAirport={setAirportCode} onFlightFilter={(flightNo) => { setFlt((f) => ({ ...f, flightNo })); setVisible(6); }} onView={() => setSelected(offer)} />)}
                 {legs.length > 1 && <div className="ap-route-totals"><div className="rt-price"><div className="l">Итого за маршрут</div><div className="v">{money(offer.fare + offer.fee, offer.currency)}</div></div><Button size="sm" iconRight="chevRight" onClick={() => setSelected(offer)}>Тарифы</Button></div>}
               </div>;
             })}
@@ -2233,6 +2232,7 @@ function FreeBookingFlightPanel({ params, setParams, onAdd }) {
         </div>
       </div>
 
+      {airportCode && <AirportDetailsDrawer code={airportCode} onClose={() => setAirportCode(null)} />}
       {selected && <FreeBookingFlightFarePanel key={`${selected.id}:${JSON.stringify(p)}`} searching={loading} onSearchStay={async (draft) => { const version = selectionVersion.current; const found = await runSearch(draft); if (found !== false && found != null) { setParams(draft); if (version === selectionVersion.current) setSelected(found[0] || null); } return found; }} onOfferUpdated={(updated) => { setLiveOffers((current) => current.map((item) => item.id === updated.id ? updated : item)); setSelected((current) => current?.id === updated.id ? updated : current); }} offer={selected} offers={liveOffers} params={p} onClose={() => { selectionVersion.current += 1; setSelected(null); }} onAdd={(draft, options) => { onAdd(draft, options); setSelected(null); }} />}
     </div>;
 }

@@ -6,14 +6,14 @@
 .btn svg{width:18px;height:18px}
 .btn:disabled{opacity:.55;cursor:not-allowed}
 .btn-primary{background:var(--blue);color:#fff;box-shadow:0 8px 18px rgba(37,102,255,.22)}
-.btn-primary:hover{background:var(--blue-hover)}
+.btn-primary:not(:disabled):hover{background:var(--blue-hover)}
 .btn-primary:active{background:var(--blue-press)}
 .btn-secondary{background:#fff;color:var(--body);border-color:var(--field-line)}
-.btn-secondary:hover{background:var(--hover);border-color:#cfd5df}
+.btn-secondary:not(:disabled):hover{background:var(--hover);border-color:#cfd5df}
 .btn-ghost{background:transparent;color:var(--muted)}
-.btn-ghost:hover{background:var(--hover);color:var(--body)}
+.btn-ghost:not(:disabled):hover{background:var(--hover);color:var(--body)}
 .btn-danger{background:var(--red-strong);color:#fff}
-.btn-danger:hover{background:#dc3030}
+.btn-danger:not(:disabled):hover{background:#dc3030}
 .btn-sm{height:38px;padding:0 15px;font-size:14px;border-radius:10px}
 .btn-lg{height:50px;padding:0 26px}
 .btn-icon{width:42px;height:42px;padding:0;border-radius:11px}
@@ -4329,3 +4329,37 @@ button.oc-fact:hover{border-color:#d3dbe8;background:#fff}
 .draft-close-discard:hover{color:var(--ink);text-decoration:underline}
 .draft-close-discard:focus-visible{outline:2px solid var(--blue);outline-offset:2px;border-radius:6px}
 @media(max-width:380px){.draft-close-dialog-actions{grid-template-columns:1fr}.draft-close-context{align-items:flex-start;flex-direction:column}.draft-close-context span{text-align:left}}
+/* Flight links stay compact; loading-more icons must never grow with SVG viewBox. */
+.svcf-more>svg{width:18px;height:18px;flex:0 0 18px}
+.flight-inline-link{border:0;background:transparent;color:var(--blue);padding:2px;font:inherit;cursor:pointer;white-space:nowrap}
+.flight-inline-link:hover{background:var(--blue-soft);text-decoration:underline;border-radius:5px}
+.flight-inline-link:disabled{color:inherit;cursor:default;text-decoration:none;background:transparent}
+.flight-inline-link:focus-visible{outline:2px solid var(--blue);outline-offset:2px}
+.flight-active-filter{display:flex;align-items:center;gap:8px;margin:12px 0;color:var(--blue);font-size:13px}
+.flight-active-filter>button{border:0;background:var(--blue-soft);display:inline-flex;cursor:pointer;border-radius:6px;padding:4px;color:inherit}
+.flight-active-filter svg{width:14px;height:14px}
+/* Primary commits are blue; secondary actions use the same neutral outline. */
+.btn{transition:background-color .14s,border-color .14s,color .14s,box-shadow .14s}
+.btn-secondary{background:var(--surface);color:var(--ink);border-color:var(--field-line)}
+.btn:focus-visible,.icon-btn:focus-visible{outline:2px solid var(--blue);outline-offset:3px}
+.btn:disabled:hover{cursor:not-allowed}
+.btn svg,.icon-btn svg{flex-shrink:0}
+.notification-center-drawer .notification-search-toolbar{grid-template-columns:minmax(0,1fr) minmax(220px,1fr);gap:12px;align-items:center}
+.notification-center-drawer .notification-search-toolbar>.workspace-search-query{grid-row:1;grid-column:2}
+.notification-center-drawer .notification-search-toolbar>.workspace-search-controls{grid-row:1;flex-wrap:nowrap;gap:8px}
+.notification-search-toolbar .filter-chip{white-space:nowrap}
+@container(max-width:600px){.notification-center-drawer .notification-search-toolbar{grid-template-columns:minmax(0,1fr)}.notification-center-drawer .notification-search-toolbar>.workspace-search-query{grid-row:2;grid-column:1}}
+.pin-unlock{width:min(440px,calc(100vw - 32px));margin:auto;box-shadow:var(--shadow-modal)}
+.pin-unlock h2{font-size:22px;margin:0 0 12px}
+.pin-unlock p,.session-security-settings>p{color:var(--muted);font-size:13px;line-height:1.6}
+.pin-unlock form{display:grid;gap:16px;margin:20px 0 12px}
+.session-security-disable{display:flex;gap:10px;align-items:center;margin:16px 0;font-size:13px}
+.passenger-fare-rows{display:grid;gap:12px;margin-top:16px}
+.passenger-fare-row{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.2fr);gap:16px;padding:16px;border:1px solid var(--line);border-radius:12px;background:var(--surface)}
+@media(max-width:600px){.passenger-fare-row{grid-template-columns:1fr}}
+.receipt-upload-progress.is-active .receipt-upload-progress-head>strong{font-size:18px}
+.receipt-upload-progress.is-active .receipt-upload-progress-track{position:relative;overflow:hidden}
+.receipt-upload-progress.is-active .receipt-upload-progress-track>span{width:30%!important;animation:receipt-indeterminate 1.6s ease-in-out infinite}
+@keyframes receipt-indeterminate{from{transform:translateX(-100%)}to{transform:translateX(350%)}}
+@media(prefers-reduced-motion:reduce){.receipt-upload-progress.is-active .receipt-upload-progress-track>span{animation:none;transform:none}}
+.flight-result-date{display:block;font-size:11px;color:var(--muted);font-weight:400;line-height:1.5}

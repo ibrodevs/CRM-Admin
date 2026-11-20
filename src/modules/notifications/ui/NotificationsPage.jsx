@@ -255,8 +255,8 @@ function NotificationsCenter({ notifications = [], orders = [], onChange, onNavi
         </div></RegistryStats>
       )}
 
-      <SearchToolbar>
-        <Tabs tabs={TABS} value={tab} onChange={setTab} />
+      <Tabs tabs={TABS} value={tab} onChange={setTab} />
+      <SearchToolbar className="notification-search-toolbar">
         <div style={{ flex: 1 }} />
         <SearchBox value={q} onChange={setQ} placeholder="Поиск уведомления…" style={{ width: 220 }} />
         <FilterChip label="Приоритет" value={fPrio} onChange={setFPrio} options={Object.keys(NOTIF_PRIORITY)} />

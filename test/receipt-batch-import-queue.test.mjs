@@ -40,5 +40,5 @@ test('temporary backend overload is retried for upload and result', async () => 
   assert.match(source, /documentsApi\.importReceipt\(file, \{ idempotencyKey \}\)/);
   assert.match(source, /result = await receiptResultWithRetry\(importId\);/);
   assert.match(resources, /importReceipt: \(file, options = \{\}\)/);
-  assert.match(resources, /apiRequest\(apiPath\('receipt-imports\/'\), \{ method: 'POST', body, \.\.\.options \}\)/);
+  assert.match(resources, /apiRequest\(apiPath\('receipt-imports\/'\) \+ '\?async=1', \{ method: 'POST', body, \.\.\.options, signal \}\)/);
 });

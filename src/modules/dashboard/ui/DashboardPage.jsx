@@ -357,7 +357,7 @@ function DetailedSearchPanelContent({ open = true, onClose, initialKind, onOpenO
   const [finalize, setFinalize] = useDraftState('DetailedSearchPanel', "finalize", false);
   const [, setCheckoutStep] = useDraftState('FreeBookingFinalize', 'step', 'menu');
   const openCheckout = () => { setCheckoutStep('menu'); setFinalize(true); };
-  const add = (svc, k, options = {}) => { setDraft((d) => [...d, { kind: k || 'Авиа', ...(svc || {}) }]); if (options.proceed) openCheckout(); else toast('Услуга добавлена в подборку. Откройте «Выбранные услуги» для оформления.', 'ok'); };
+  const add = (svc, k, options = {}) => { setDraft((d) => [...d, ...(Array.isArray(svc) ? svc : [svc]).map(item => ({ kind: k || 'Авиа', ...(item || {}) }))]); if (options.proceed) openCheckout(); else toast('Услуга добавлена в подборку. Откройте «Выбранные услуги» для оформления.', 'ok'); };
   const requestClose = () => {
     if (draft.length || activeForm.hasWork(kind)) setConfirmClose(true);
     else onClose();

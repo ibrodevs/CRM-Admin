@@ -571,7 +571,7 @@ const receiptImportSleep = (ms) => new Promise((resolve) => setTimeout(resolve, 
 
 const receiptRetryDelay = (attempt, base = 1200) => Math.min(12000, base * (2 ** attempt)) + Math.round(Math.random() * 350);
 
-const isTransientReceiptError = (error) => RECEIPT_TRANSIENT_STATUSES.has(Number(error?.status || 0));
+const isTransientReceiptError = (error) => error?.code !== 'RECEIPT_TIMEOUT' && RECEIPT_TRANSIENT_STATUSES.has(Number(error?.status || 0));
 
 async function importReceiptWithRetry(file) {
   const idempotencyKey = typeof crypto !== 'undefined' && crypto.randomUUID
@@ -665,13 +665,13 @@ function receiptStatus(parsed, seen, type, error, file) {
 
 async function waitForReceiptResult(importId) {
   let result = null;
-  for (let attempt = 0; attempt < 30; attempt += 1) {
+  for (let attempt = 0; attempt < 120; attempt += 1) {
     result = await receiptResultWithRetry(importId);
     const status = String(result?.parser_status || '').toLowerCase();
     if (!['queued', 'pending', 'processing', 'scanning'].includes(status)) return result;
     await receiptImportSleep(Math.min(2200, 700 + attempt * 80));
   }
-  return result || {};
+  throw new Error('Файл сохранён, но распознавание ещё не завершилось. Оригинал доступен в рабочем списке редактора.');
 }
 
 // Причина, по которой рабочий PDF не опубликован. Незакрытый тариф называется
@@ -2576,7 +2576,10 @@ function ReceiptImportModal({ open, onClose, onDone, initialDraft, initialFiles 
       setFiles((cur) => cur.map((item) => item.id === entry.id ? { ...item, status: 'scanning' } : item));
       try {
         const imported = await importReceiptWithRetry(entry.raw);
+        setFiles((cur) => cur.map((item) => item.id === entry.id ? { ...item, importId: imported.id, sourceDocumentId: imported.document_id,
+          originalUrl: documentsApi.supplierPreviewUrl(imported.document_id), sourceOriginalUrl: documentsApi.supplierSourcePreviewUrl(imported.document_id) } : item));
         const result = await waitForReceiptResult(imported.id);
+        if (['failed', 'error'].includes(result.parser_status)) throw new Error(result.warnings?.[0] || 'Не удалось распознать документ. Оригинал сохранён.');
         const draft = result.draft || {};
         const extracted = result.extracted || {};
         const verified = result.verified_data || {};
@@ -3679,7 +3682,7 @@ function ReceiptImportModal({ open, onClose, onDone, initialDraft, initialFiles 
             <RSub>{step === 1 ? 'Распознавание бланков' : 'Квитанции обработаны'}</RSub>
             <div className={'receipt-upload-progress' + (processing ? ' is-active' : ' is-complete')}
               role="progressbar" aria-label="Прогресс загрузки и распознавания квитанций"
-              aria-valuemin="0" aria-valuemax="100" aria-valuenow={importProgress}>
+              aria-valuemin="0" aria-valuemax="100" aria-valuenow={processing ? undefined : importProgress} aria-valuetext={processing ? `Обработка файла ${done.length + 1} из ${files.length}` : "Обработка завершена"}>
               <div className="receipt-upload-progress-head">
                 <span className="receipt-upload-progress-icon">
                   <Icon name={processing ? 'loader' : 'check'} />
@@ -3688,7 +3691,7 @@ function ReceiptImportModal({ open, onClose, onDone, initialDraft, initialFiles 
                   <b>{processing ? 'Загрузка и распознавание квитанций' : 'Все квитанции обработаны'}</b>
                   <span>{processing && activeImport ? `Сейчас обрабатывается: ${activeImport.name}` : 'Можно переходить к проверке данных'}</span>
                 </div>
-                <strong>{importProgress}%</strong>
+                <strong>{processing ? 'Обработка' : `${importProgress}%`}</strong>
               </div>
               <div className="receipt-upload-progress-track" aria-hidden="true">
                 <span style={{ width: `${importProgress}%` }} />

@@ -1,3 +1,4 @@
+import { PinUnlock } from './PinUnlock.jsx';
 import { useEffect, useRef } from 'react';
 import ReactDOM from 'react-dom';
 import { useDraftStatus } from '../drafts/Drafts.jsx';
@@ -24,7 +25,7 @@ export function SessionRecovery({ auth }) {
     return () => { observer.disconnect(); previous.forEach((inert, node) => { node.inert = inert; }); };
   }, []);
   return ReactDOM.createPortal(<div ref={root} className="session-lock" role="dialog" aria-modal="true" aria-label="Повторный вход">
-    <p className="session-lock-notice">{drafts.failed ? 'Автосохранение недоступно. Не закрывайте вкладку до повторного входа.' : 'Черновики сохранены в этом браузере. Войдите в тот же аккаунт, чтобы продолжить работу.'}</p>
-    <LoginScreen expired={auth.expired} onLogin={auth.login} onVerifyTwoFactor={auth.verifyTwoFactor} onPasswordReset={auth.requestPasswordReset} />
+    <p className="session-lock-notice">{drafts.failed ? 'Автосохранение недоступно. Не закрывайте вкладку до повторного входа.' : auth.pinLocked ? 'Рабочие формы сохранены. Разблокируйте экран, чтобы продолжить.' : 'Черновики сохранены в этом браузере. Войдите в тот же аккаунт, чтобы продолжить работу.'}</p>
+    {auth.pinLocked ? <PinUnlock auth={auth} /> : <LoginScreen expired={auth.expired} onLogin={auth.login} onVerifyTwoFactor={auth.verifyTwoFactor} onPasswordReset={auth.requestPasswordReset} />}
   </div>, document.body);
 }

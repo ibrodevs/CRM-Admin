@@ -205,12 +205,12 @@ test('all flight fare detail panels explicitly enable backdrop dismissal', () =>
     if (path.node.id?.name !== 'FreeBookingFlightFarePanel') return;
     path.traverse({ JSXOpeningElement(element) { if (element.node.name.name === 'StackPanel') panels.push(element.node); } });
   } });
-  assert.equal(panels.length, 2);
+  assert.equal(panels.length, 1);
   for (const panel of panels) assert.ok(panel.attributes.some((attr) => attr.name?.name === 'closeOnBackdrop' && attr.value === null));
   const close = (panel) => panel.attributes.find((attr) => attr.name?.name === 'onClose').value.expression;
   assert.equal(close(panels[0]).name, 'onClose');
-  assert.equal(close(panels[1]).body.callee.name, 'setPerPaxOpen');
-  assert.equal(close(panels[1]).body.arguments[0].value, false);
+  const passengerSource = readFileSync(new URL('../src/modules/services/flights/PassengerFaresPanel.jsx', import.meta.url), 'utf8');
+  assert.match(passengerSource, /closeOnBackdrop onClose=\{onClose\}/);
   const rulesSource = readFileSync(new URL('../src/modules/services/flights/FlightFareRulesPanel.jsx', import.meta.url), 'utf8');
   const rulesAst = babel.parseSync(rulesSource, { filename: 'FlightFareRulesPanel.jsx', presets: ['next/babel'], configFile: false, babelrc: false });
   let rulesPanel;

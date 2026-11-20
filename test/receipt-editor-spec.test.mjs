@@ -300,7 +300,7 @@ test('зона загрузки даёт явную обратную связь 
 test('импорт показывает заметный прогресс загрузки и распознавания', () => {
   assert.match(page, /const importProgress = files\.length \? Math\.round/);
   assert.match(page, /role="progressbar"/);
-  assert.match(page, /aria-valuenow=\{importProgress\}/);
+  assert.match(page, /aria-valuenow=\{processing \? undefined : importProgress\}/);
   assert.match(page, /Загрузка и распознавание квитанций/);
   assert.match(page, /Обработано <b>\{done\.length\}<\/b> из <b>\{files\.length\}<\/b> файлов/);
   assert.match(styles, /\.receipt-upload-progress\{/);

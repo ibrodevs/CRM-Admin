@@ -20,7 +20,7 @@ function loadClientHooks() {
 test('any 401 from a working request is broadcast to the auth layer', () => {
   assert.match(client, /const unauthorizedHandlers = new Set\(\);/);
   assert.match(client, /export function onUnauthorized\(handler\)/);
-  assert.match(client, /if \(response\.status === 401 && options\.handlesUnauthorized !== true\) notifyUnauthorized\(path\);/);
+  assert.match(client, /if \(\[401, 423\]\.includes\(response\.status\) && options\.handlesUnauthorized !== true\) notifyUnauthorized\(path\);/);
 });
 
 test('session endpoints handle their own 401 and never trigger a sign-out loop', () => {

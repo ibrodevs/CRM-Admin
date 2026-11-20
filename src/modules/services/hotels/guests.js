@@ -13,7 +13,7 @@ export function hotelGuestSelection(guests, selection, mainGuest) {
 }
 
 export async function resolveHotelParticipants(orderId, service, api) {
-  const personIds = service.guestPersonIds ?? service.insuredPersonIds;
+  const personIds = service.guestPersonIds ?? service.insuredPersonIds ?? service.flightPersonIds;
   if (!Array.isArray(personIds)) return undefined;
   const existing = resultsOf(await api.participants(orderId));
   const ids = [];

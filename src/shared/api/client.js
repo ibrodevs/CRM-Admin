@@ -83,7 +83,7 @@ export async function apiRequest(path, options = {}) {
   if (!response.ok) {
     // Собственные эндпоинты сессии разбирает сам слой авторизации: их 401 —
     // это нормальный ответ «не авторизован», а не потеря сессии.
-    if (response.status === 401 && options.handlesUnauthorized !== true) notifyUnauthorized(path);
+    if ([401, 423].includes(response.status) && options.handlesUnauthorized !== true) notifyUnauthorized(path);
     throw errorFrom(response, payload);
   }
   return payload;

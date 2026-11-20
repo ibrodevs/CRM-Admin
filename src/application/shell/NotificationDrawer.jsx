@@ -11,7 +11,7 @@ function NotificationDrawer({ open, notifications = [], orders, onNotificationsC
   const events = toasts.filter((item) => !String(item.id).startsWith('notification:')).slice().reverse();
   const unread = notifications.filter((item) => !item.read).length;
   const navigate = (route) => { onClose(); onNavigate(route); };
-  return <Drawer open={open} title="Уведомления" sub={unread ? `Непрочитанных: ${unread}` : 'Все события в одном месте'} onClose={onClose} width="min(760px,100vw)" className="notification-center-drawer" showDraftNotice={false}
+  return <Drawer open={open} title="Уведомления" sub={unread ? `Непрочитанных: ${unread}` : 'Все события в одном месте'} onClose={onClose} width="min(880px,100vw)" className="notification-center-drawer" showDraftNotice={false}
     footer={<Button variant="secondary" iconRight="chevRight" onClick={() => navigate('notifications')}>Все уведомления</Button>}>
     <div className="notification-drawer-tabs" role="tablist" aria-label="Категории уведомлений">
       <button type="button" role="tab" aria-selected={tab === 'notifications'} onClick={() => setTab('notifications')}>Уведомления<span>{unread}</span></button>

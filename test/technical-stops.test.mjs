@@ -67,7 +67,7 @@ test('техническая посадка считается отдельно 
 
 test('боковая панель показывает детали, а live-ответ сохраняет technical_stops', async () => {
   const panel = await readFile(new URL('../src/modules/orders/ui/OrderCard.jsx', import.meta.url), 'utf8');
-  const live = await readFile(new URL('../src/modules/services/flights/FlightsPage.jsx', import.meta.url), 'utf8');
+  const live = await readFile(new URL('../src/modules/services/flights/live-flight-offer.js', import.meta.url), 'utf8');
   const details = await readFile(new URL('../src/modules/services/flights/TechnicalStops.jsx', import.meta.url), 'utf8');
 
   assert.match(panel, /<TechnicalStopsDetails stops=\{technicalStopsOf\(s\)\} \/>/);

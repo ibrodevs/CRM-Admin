@@ -1,3 +1,4 @@
+import { receiptRequest } from './receipt-request.js';
 import { documentListApi } from './documentListApi.js';
 import { apiPath, apiRequest, queryString } from '../../../shared/api/client.js';
 import { list, listAll, get, create, patch, remove } from '../../../shared/api/operations.js';
@@ -29,8 +30,8 @@ export const documentsApi = {
   originalPreviewUrl: (id) => apiPath(`documents/${id}/download/?file_version=1&disposition=inline`),
   supplierPreviewUrl: (id) => apiPath(`documents/${id}/supplier-pdf/?disposition=inline`),
   supplierSourcePreviewUrl: (id) => apiPath(`documents/${id}/supplier-pdf/?source=1&disposition=inline`),
-  importReceipt: (file, options = {}) => { const body = new FormData(); body.append('file', file); return apiRequest(apiPath('receipt-imports/'), { method: 'POST', body, ...options }); },
-  receiptResult: (id, signal) => get(`receipt-imports/${id}/result/`, signal),
+  importReceipt: (file, options = {}) => { const body = new FormData(); body.append('file', file); return receiptRequest((signal) => apiRequest(apiPath('receipt-imports/') + '?async=1', { method: 'POST', body, ...options, signal })); },
+  receiptResult: (id, signal) => receiptRequest((deadline) => get(`receipt-imports/${id}/result/`, signal || deadline), 20000),
   confirmReceipt: (id, body) => create(`receipt-imports/${id}/confirm/`, body),
   updateReceipt: (id, body) => create(`documents/${id}/receipt/`, body),
 };

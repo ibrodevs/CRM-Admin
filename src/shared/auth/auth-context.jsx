@@ -20,6 +20,7 @@ export function AuthProvider({ children, syncLegacyCurrentUser = ignoreLegacyUse
   const [challengeToken, setChallengeToken] = useState('');
   const [expired, setExpired] = useState(false);
   const [locked, setLocked] = useState(false);
+  const [pinLocked, setPinLocked] = useState(false);
   const currentUser = useRef(null);
   const checkInFlight = useRef(null);
   const sessionVersion = useRef(0);
@@ -30,7 +31,8 @@ export function AuthProvider({ children, syncLegacyCurrentUser = ignoreLegacyUse
     setLocked(true);
   }, []);
 
-  const refreshSession = useCallback(async (signal) => {
+  const refreshSession = useCallback(async (signal, force = false) => {
+    if (force) { sessionVersion.current += 1; checkInFlight.current = null; }
     if (checkInFlight.current) return checkInFlight.current;
     const version = sessionVersion.current;
     const pending = (async () => {
@@ -42,6 +44,7 @@ export function AuthProvider({ children, syncLegacyCurrentUser = ignoreLegacyUse
         syncLegacyCurrentUser(uiUser);
         currentUser.current = uiUser;
         setUser(uiUser);
+        if (uiUser.session_security) { setPinLocked(Boolean(uiUser.session_security.locked)); setLocked(Boolean(uiUser.session_security.locked)); }
         setStatus('authenticated');
         return session;
       } catch (error) {
@@ -107,6 +110,7 @@ export function AuthProvider({ children, syncLegacyCurrentUser = ignoreLegacyUse
     syncLegacyCurrentUser(uiUser);
     currentUser.current = uiUser;
     setUser(uiUser);
+    setPinLocked(false);
     setLocked(false);
     setStatus('authenticated');
     setExpired(false);
@@ -122,6 +126,7 @@ export function AuthProvider({ children, syncLegacyCurrentUser = ignoreLegacyUse
     syncLegacyCurrentUser(uiUser);
     currentUser.current = uiUser;
     setUser(uiUser);
+    setPinLocked(false);
     setLocked(false);
     setStatus('authenticated');
     setExpired(false);
@@ -134,17 +139,52 @@ export function AuthProvider({ children, syncLegacyCurrentUser = ignoreLegacyUse
       syncLegacyCurrentUser(null);
       currentUser.current = null;
       setUser(null);
-      setLocked(false);
+      setPinLocked(false);
+    setLocked(false);
       setStatus('anonymous');
       setChallengeToken('');
       setExpired(false);
     }
   }, []);
 
+  const unlock = useCallback(async (pin) => {
+    await authApi.unlock(pin);
+    await refreshSession(undefined, true);
+  }, [refreshSession]);
+
+  // Only actual operator input renews activity. Polling notifications does not.
+  useEffect(() => {
+    const security = user?.session_security;
+    if (status !== 'authenticated' || locked || !security || (!security.auto_lock_minutes && !security.auto_logout_minutes)) return undefined;
+    let lastActivity = Date.now(), lastSent = 0, pending = false, stopped = false;
+    const key = `psc:activity:${user.id}`;
+    const touch = () => { lastActivity = Date.now(); try { localStorage.setItem(key, String(lastActivity)); } catch {} };
+    const sync = (event) => { if (event.key === key) lastActivity = Math.max(lastActivity, Number(event.newValue) || 0); };
+    const tick = async () => {
+      if (pending || stopped) return;
+      const idle = Date.now() - lastActivity;
+      if (security.auto_logout_minutes && idle >= security.auto_logout_minutes * 60000) {
+        pending = true; sessionVersion.current += 1;
+        try { await authApi.logout(); } finally { if (!stopped) { setPinLocked(false); endSession(); } }
+      } else if (security.pin_enabled && security.auto_lock_minutes && idle >= security.auto_lock_minutes * 60000) {
+        pending = true;
+        try { await authApi.lock(); } catch {} finally { if (!stopped) { setPinLocked(true); setLocked(true); } }
+      } else if (lastActivity > lastSent && Date.now() - lastSent >= 20000) {
+        lastSent = Date.now();
+        try { await authApi.activity(); } catch { /* Preserve the workspace during network recovery. */ }
+      }
+    };
+    const events = ['pointerdown', 'keydown', 'wheel', 'touchstart'];
+    events.forEach(event => window.addEventListener(event, touch, { passive: true }));
+    window.addEventListener('storage', sync);
+    const timer = setInterval(tick, 1000);
+    return () => { stopped = true; clearInterval(timer); events.forEach(event => window.removeEventListener(event, touch)); window.removeEventListener('storage', sync); };
+  }, [status, locked, user?.id, user?.session_security?.auto_lock_minutes, user?.session_security?.auto_logout_minutes, user?.session_security?.pin_enabled, endSession]);
+
   const value = useMemo(() => ({
-    status, user, expired, locked, login, logout, verifyTwoFactor, refreshSession,
+    status, user, expired, locked, pinLocked, unlock, login, logout, verifyTwoFactor, refreshSession,
     requestPasswordReset: authApi.requestPasswordReset,
-  }), [status, user, expired, locked, login, logout, verifyTwoFactor, refreshSession]);
+  }), [status, user, expired, locked, pinLocked, unlock, login, logout, verifyTwoFactor, refreshSession]);
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }

@@ -1,3 +1,4 @@
+import { liveFlightLeg, liveFlightOffer } from './live-flight-offer.js';
 import { countryCode } from '../../../shared/lib/countries.js';
 import { RegistryStats } from '../../../shared/ui/RegistryStats.jsx';
 import { SearchToolbar } from '../../../shared/ui/SearchToolbar.jsx';
@@ -2328,32 +2329,6 @@ function FlightsRegistry({ onNew, onOpen, onFormKp, onReturn, liveRows = [] }) {
   );
 }
 
-function liveFlightLeg(segment) {
-  const dep = segment.departure ? new Date(segment.departure) : null;
-  const arr = segment.arrival ? new Date(segment.arrival) : null;
-  const minutes = dep && arr ? Math.max(0, Math.round((arr - dep) / 60000)) : 0;
-  return {
-    from: segment.origin || '—', to: segment.destination || '—',
-    dep: dep ? dep.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' }) : '—',
-    arr: arr ? arr.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' }) : '—',
-    date: dep ? dep.toLocaleDateString('ru-RU', { day: '2-digit', month: 'short' }) : '—',
-    dur: Math.floor(minutes / 60) + 'ч ' + String(minutes % 60).padStart(2, '0') + 'м',
-    stops: 0,
-    stopText: 'Прямой',
-    flightNo: [segment.airline, segment.flight_number].filter(Boolean).join(' '),
-    technicalStops: technicalStopsOf(segment),
-  };
-}
-function liveFlightOffer(offer) {
-  const segment = offer.itinerary?.segments?.[0] || {};
-  return {
-    ...offer, id: offer.id, _backendOfferId: offer.id, airline: segment.airline || '—', supplier: offer.provider_adapter || 'Подключённый поставщик',
-    refundable: Boolean(offer.fare?.refundable), baggage: offer.fare?.baggage === '0PC' ? 'Без багажа' : (offer.fare?.baggage || '—'),
-    cabin: offer.fare?.cabin || '—', fareName: offer.fare?.booking_class ? `Класс ${offer.fare.booking_class}` : '—',
-    seatsLeft: offer.availability?.seats == null ? null : Number(offer.availability.seats), out: liveFlightLeg(segment), back: null,
-    fare: Number(offer.price?.amount || 0), fee: 0, currency: resolveCurrency(offer.price?.currency),
-  };
-}
 function serviceFlightRow(item) {
   const airline = item.title.match(/·\s*([A-Z0-9]{2})\b/)?.[1] || '—';
   const status = {

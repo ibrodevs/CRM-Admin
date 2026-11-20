@@ -15,3 +15,14 @@ test('continue to checkout adds the selected flight and opens the selection with
 test('attachment revalidates then opens the chosen order; failure retains selection',async()=>{for(const failure of [false,true]){const h=harness(),order={id:'existing',no:'ORD-1'};h.stored['FreeBookingFinalize/step']='order';if(failure)h.fail();const tree=h.render('FreeBookingFinalize',{draft:[{backendOfferId:'flight',participantIds:['pax'],cost:1000}],orders:[order],onDone:()=>h.calls.push(['done']),onOpenOrder:(o,tab)=>h.calls.push(['open',o.id,tab])});await nodes(tree).find(n=>n.type==='UfOrderRow').props.onClick();assert.equal(h.calls[0][0],'revalidate');if(failure)assert.deepEqual(h.calls,[['revalidate','flight']]);else assert.deepEqual(h.calls.map(c=>c[0]),['revalidate','attach','done','open']);if(!failure)assert.deepEqual(h.calls.at(-1),['open','existing','services']);}});
 
 test('creating an order opens its services directly after attaching the selection',async()=>{const h=harness();h.stored['FreeBookingFinalize/step']='person';const tree=h.render('FreeBookingFinalize',{draft:[{backendOfferId:'flight',participantIds:['pax'],cost:1000}],clients:[{id:'client',name:'Иван'}],onDone:()=>h.calls.push(['done']),onOpenOrder:(o,tab)=>h.calls.push(['open',o.id,tab])});await nodes(tree).find(n=>n.type==='UfPersonRow').props.onClick();assert.deepEqual(h.calls.map(c=>c[0]),['create','revalidate','attach','done','open']);assert.deepEqual(h.calls.at(-1),['open','new-order','services']);});
+
+test('individual adult fares stay separate when opening the shared checkout',()=>{
+ const h=harness(),items=Array.from({length:4},(_,i)=>({backendOfferId:'offer-'+i,cost:1000+i*100,flightPersonIds:['person-'+i]}));
+ let tree=h.render('DetailedSearchPanelContent',{});
+ nodes(tree).find(n=>n.type==='FreeBookingPanel').props.onAddAvia(items,{proceed:true});
+ tree=h.render('DetailedSearchPanelContent',{});
+ const checkout=nodes(tree).find(n=>n.type?.name==='FreeBookingFinalize');
+ assert.equal(checkout.props.draft.length,4);
+ assert.deepEqual(checkout.props.draft.map(s=>s.flightPersonIds[0]),items.map(s=>s.flightPersonIds[0]));
+ assert.deepEqual(h.calls,[],'selecting tariffs must not issue or reserve tickets');
+});
