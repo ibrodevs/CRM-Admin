@@ -173,7 +173,7 @@ test('компактное имя, ЖД-место, live preview и сворач
 test('прогресс импорта можно сохранить черновиком и продолжить из редактора', () => {
   assert.match(page, /const hasImportProgress/);
   assert.match(page, /title="Закрыть импорт\?"/);
-  assert.match(page, /Сохранить черновик и выйти/);
+  assert.match(page, /onSave=\{saveDraftAndClose\}/);
   assert.match(page, /Продолжить черновик/);
   assert.match(page, /Продолжить редактирование/);
   assert.match(page, /readReceiptImportDrafts/);

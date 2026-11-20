@@ -5,15 +5,13 @@ import { readFile } from './helpers/source.mjs';
 const pageUrl = new URL('../src/modules/receipts/ui/ReceiptEditorPage.jsx', import.meta.url);
 const cssUrl = new URL('../src/styles/modules/receipt-ui-fixes.css', import.meta.url);
 
-test('receipt import close drawer contains a structured file summary', async () => {
+test('receipt import uses the shared compact decision and excludes unfinished files from saving', async () => {
   const source = await readFile(pageUrl, 'utf8');
-
-  assert.match(source, /className="receipt-close-summary"/);
-  assert.match(source, /Бланки в текущем импорте/);
-  assert.match(source, /rows\.map\(\(row, index\)/);
-  assert.match(source, /Сохранится в черновик/);
-  assert.match(source, /Что сохранится в черновике/);
-  assert.doesNotMatch(source, /Загружено файлов: \{files\.length\}\. Можно сохранить текущую проверку/);
+  assert.match(source, /<DraftCloseDialog open=\{confirmClose\}/);
+  assert.match(source, /onSave=\{saveDraftAndClose\}/);
+  assert.match(source, /saveDisabled=\{processing \|\| !files.some/);
+  assert.match(source, /file.status === 'done' && file.importId/);
+  assert.doesNotMatch(source, /className="receipt-close-overview"/);
 });
 
 test('receipt close actions and rows have responsive styles', async () => {

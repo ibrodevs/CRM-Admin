@@ -116,13 +116,13 @@ test('a late background response cannot restore a logged-out account', async () 
   assert.equal(render().status, 'anonymous');
 });
 
-test('free booking backdrop stays dismissible with populated or default-valued forms and preserves saved work', () => {
+test('free booking asks before closing entered work and retains drafts on save or cancel', () => {
   const source = readFileSync(new URL('../src/modules/dashboard/ui/DashboardPage.jsx', import.meta.url), 'utf8');
   const ast = babel.parseSync(source, { filename: 'DashboardPage.jsx', presets: ['next/babel'], configFile: false, babelrc: false });
   const fn = ast.program.body.find((node) => node.type === 'FunctionDeclaration' && node.id.name === 'DetailedSearchPanelContent');
-  let closed = 0, cleared = 0;
+  let closed = 0, cleared = 0, confirming = false, hasWork = true, failed = false;
   const stored = { kind: 'Страховка', draft: [{ id: 'selected-offer' }], aviaParams: { from: 'MOW', to: 'LED', pax: { adt: 2 } } };
-  const bindings = { useToast: () => () => {}, useDraftControls: () => ({ has: () => true, clear: () => cleared++ }), useDraftState: (_scope, key, initial) => [stored[key] ?? initial, () => {}], PAX_DEFAULT_OPTIONS: {}, plural: () => 'услуга', ...Object.fromEntries(['StackPanel','Button','InfoNotice','FreeBookingPanel','FreeBookingFinalize'].map((key) => [key,key])) };
+  const bindings = { freeBookingFormScope:()=>'', useDraftStatus:()=>({failed}), DraftCloseDialog:'DraftCloseDialog', useState:()=>[confirming,next=>confirming=next], useToast: () => () => {}, useDraftControls: () => ({ has: () => true, hasWork:()=>hasWork, clear: () => cleared++ }), useDraftState: (_scope, key, initial) => [stored[key] ?? initial, () => {}], PAX_DEFAULT_OPTIONS: {}, plural: () => 'услуга', ...Object.fromEntries(['StackPanel','Button','InfoNotice','FreeBookingPanel','FreeBookingFinalize'].map((key) => [key,key])) };
   const mod = new Module(import.meta.filename);
   mod.require = (name) => name === 'react' ? { ...require('react'), useRef: () => ({ current: false }), useEffect() {} } : name === 'bindings' ? bindings : require(name);
   mod._compile(babel.transformSync(`import {useRef,useEffect} from 'react';import {${Object.keys(bindings)}} from 'bindings';${source.slice(fn.start,fn.end)};export {DetailedSearchPanelContent};`, { filename: 'BookingPanel.jsx', presets: ['next/babel'], configFile: false, babelrc: false, envName: 'test' }).code, import.meta.filename);
@@ -130,10 +130,28 @@ test('free booking backdrop stays dismissible with populated or default-valued f
   const panel = render();
   assert.equal(panel.props.closeOnBackdrop, true, 'passengers, default criteria and selected offers must not block backdrop dismissal');
   panel.props.onClose();
+  assert.equal(closed, 0);
+  assert.equal(confirming, true);
+  const dialog = () => render().props.children.find(n=>n?.type==='DraftCloseDialog');
+  dialog().props.onCancel();
+  assert.equal(confirming, false);
+  assert.equal(closed, 0);
+  panel.props.onClose();
+  failed = true;
+  assert.equal(dialog().props.saveDisabled, true);
+  dialog().props.onSave();
+  assert.equal(closed, 0, 'failed storage cannot masquerade as a saved draft');
+  failed = false;
+  dialog().props.onSave();
   assert.equal(closed, 1);
-  assert.equal(cleared, 0, 'closing must not clear any workspace drafts');
+  assert.equal(cleared, 0, 'saving must not clear workspace drafts');
   assert.equal(render().props.footer.props.children[0].props.children[1].props.children, 1, 'selected service remains in the selection after reopening');
   assert.equal(stored.aviaParams.pax.adt, 2);
+  dialog().props.onDiscard();
+  assert.equal(cleared, 1);
+  stored.draft = []; hasWork = false;
+  render().props.onClose();
+  assert.equal(closed, 3, 'empty criteria close immediately');
 });
 
 test('hotel map backdrop closes only the map and retains the search underneath', () => {

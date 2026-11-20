@@ -1,5 +1,7 @@
+import { freeBookingFormScope } from '../../../shared/drafts/workspaces.js';
+import { DraftCloseDialog } from '../../../shared/ui/DraftCloseDialog.jsx';
 import { OfferSearchExtras } from '../../services/index.js';
-import { useDraftState, useDraftControls, DraftScope, DraftWorkspaceList } from '../../../shared/drafts/Drafts.jsx';
+import { useDraftState, useDraftControls, useDraftStatus, DraftScope, DraftWorkspaceList } from '../../../shared/drafts/Drafts.jsx';
 import { ServicePreview } from '../../../shared/ui/ServicePreview.jsx';
 import { SectionInfo } from '../../../shared/ui/SectionInfo.jsx';
 import { InfoNotice } from '../../../shared/ui/InfoNotice.jsx';
@@ -346,6 +348,9 @@ function DetailedSearchPanelContent({ open = true, onClose, initialKind, onOpenO
   const allDrafts = useDraftControls();
   const initialApplied = useRef(false);
   const [kind, setKind] = useDraftState('DetailedSearchPanel', "kind", initialKind || 'Авиа');
+  const activeForm = useDraftControls(freeBookingFormScope(kind));
+  const draftStatus = useDraftStatus();
+  const [confirmClose, setConfirmClose] = useState(false);
   useEffect(() => { if (open && initialKind && (initialApplied.current || !saved.has('kind'))) setKind(initialKind); initialApplied.current = true; }, [open, initialKind]);
   const [aviaParams, setAviaParams] = useDraftState('DetailedSearchPanel', "aviaParams", { trip: 'rt', from: 'FRU', to: 'IST', depDate: null, retDate: null, pax: { adt: 1, chd: 0, infNoSeat: 0, infSeat: 0, special: {}, subsidized: {} }, cabin: 'Эконом', baggage: false, flex: false, direct: false, airline: '', ...PAX_DEFAULT_OPTIONS });
   const [draft, setDraft] = useDraftState('DetailedSearchPanel', "draft", []);
@@ -353,8 +358,12 @@ function DetailedSearchPanelContent({ open = true, onClose, initialKind, onOpenO
   const [, setCheckoutStep] = useDraftState('FreeBookingFinalize', 'step', 'menu');
   const openCheckout = () => { setCheckoutStep('menu'); setFinalize(true); };
   const add = (svc, k, options = {}) => { setDraft((d) => [...d, { kind: k || 'Авиа', ...(svc || {}) }]); if (options.proceed) openCheckout(); else toast('Услуга добавлена в подборку. Откройте «Выбранные услуги» для оформления.', 'ok'); };
+  const requestClose = () => {
+    if (draft.length || activeForm.hasWork(kind)) setConfirmClose(true);
+    else onClose();
+  };
   return (
-    <StackPanel open={open} className="free-booking free-booking-workspace" title="Свободное бронирование" width="min(1320px,96vw)" onClose={onClose} closeOnBackdrop
+    <StackPanel open={open} className="free-booking free-booking-workspace" title="Свободное бронирование" width="min(1320px,96vw)" onClose={requestClose} closeOnBackdrop
       footer={draft.length ? (
         <>
           <div style={{ flex: 1, alignSelf: 'center', color: 'var(--muted)', fontSize: 14 }}>Выбрано: <b style={{ color: 'var(--ink)' }}>{draft.length}</b> {plural(draft.length, ['услуга', 'услуги', 'услуг'])}</div>
@@ -368,6 +377,14 @@ function DetailedSearchPanelContent({ open = true, onClose, initialKind, onOpenO
       <FreeBookingPanel kind={kind} setKind={setKind} aviaParams={aviaParams} setAviaParams={setAviaParams}
         onAddAvia={(r, options) => add(r, 'Авиа', options)}
         onAddOther={(o, k) => add(o, k)} />
+      <DraftCloseDialog open={confirmClose} onCancel={() => setConfirmClose(false)}
+        description="Сохранить введённые данные и выбранные услуги в черновик?"
+        note={draftStatus.failed ? 'Не удалось сохранить черновик в браузере. Продолжите работу, чтобы не потерять данные.' : 'Продолжить можно из раздела «Черновики». Перед бронированием проверим актуальную цену и наличие.'}
+        saveDisabled={draftStatus.failed}
+        onSave={() => { if (!draftStatus.failed) { setConfirmClose(false); onClose(); } }}
+        onDiscard={() => { allDrafts.clear(); setConfirmClose(false); onClose(); }}>
+        <div className="draft-close-context"><strong>{kind}</strong><span>Выбрано услуг: {draft.length}</span></div>
+      </DraftCloseDialog>
       {finalize && <FreeBookingFinalize draft={draft} onClose={() => setFinalize(false)} onDone={() => { setFinalize(false); setDraft([]); onClose(); allDrafts.clear(); }} onOpenOrder={onOpenOrder} onCreateOrder={onCreateOrder} onNavigate={onNavigate} clients={clients} companies={companies} orders={orders} />}
     </StackPanel>
   );

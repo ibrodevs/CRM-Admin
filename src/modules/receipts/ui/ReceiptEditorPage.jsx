@@ -1,3 +1,4 @@
+import { DraftCloseDialog } from '../../../shared/ui/DraftCloseDialog.jsx';
 import { SearchToolbar } from '../../../shared/ui/SearchToolbar.jsx';
 import { SectionInfo } from '../../../shared/ui/SectionInfo.jsx';
 import { serviceFeeApi } from '../../finance/api.js';
@@ -4089,86 +4090,22 @@ function ReceiptImportModal({ open, onClose, onDone, initialDraft, initialFiles 
         clients={clients} companies={companies}
         onCancel={closeOrderPlanRequest}
         onSubmit={(draft) => onCreateOrder(draft)} />
-      <Drawer open={confirmClose} onClose={() => setConfirmClose(false)} title="Закрыть импорт?"
-        sub="Проверьте, какие бланки сохранятся в черновик"
-        width="min(780px,96vw)"
-        footer={
-          <div className="receipt-close-actions">
-            <Button variant="secondary" onClick={() => setConfirmClose(false)}>Продолжить работу</Button>
-            <Button variant="danger" onClick={() => {
-              onDraftCleared?.(draftIdRef.current);
-              setConfirmClose(false);
-              onClose();
-            }}>Закрыть без сохранения</Button>
-            <Button icon="save" disabled={processing || !done.length} onClick={saveDraftAndClose}>
-              Сохранить черновик и выйти
-            </Button>
-          </div>
-        }>
-        <div className="receipt-close-summary">
-          <div className="receipt-close-overview">
-            <div><span>Всего загружено</span><b>{files.length}</b><small>файлов</small></div>
-            <div><span>Обработано</span><b>{done.length}</b><small>из {files.length}</small></div>
-            <div><span>Требуют внимания</span><b>{(counts['Требует проверки'] || 0) + (counts['Ошибка'] || 0) + (files.length - done.length)}</b><small>проверить</small></div>
-            <div><span>Сохранится</span><b>{doneRows.filter((row) => !excluded[row.f.id]).length}</b><small>бланков</small></div>
-          </div>
-
-          <section className="receipt-close-section">
-            <div className="receipt-close-section-head">
-              <span><Icon name="docs" /></span>
-              <div><b>Бланки в текущем импорте</b><small>Название, услуга, участник и статус — каждый файл отдельной строкой</small></div>
-            </div>
-            <div className="receipt-close-files">
-              {rows.map((row, index) => {
-                const file = row.f;
-                const parsed = file.parsed || {};
-                const typeMeta = recType(file.type);
-                const statusCfg = REC_STATUS[row.status] || { tone: 'gray' };
-                const participant = receiptParticipantLabel(parsed, 'Участники не распознаны');
-                const route = routeSummary(parsed);
-                const excludedFromDraft = !!excluded[file.id];
-                return (
-                  <div className={'receipt-close-file' + (excludedFromDraft ? ' is-muted' : '')} key={file.id}>
-                    <span className="receipt-close-file-index">{index + 1}</span>
-                    <span className="receipt-close-file-icon" style={{ background: typeMeta.color }}><Icon name={typeMeta.icon} /></span>
-                    <span className="receipt-close-file-main">
-                      <b>{file.name}</b>
-                      <span>{file.type} · {participant}</span>
-                      {route && route !== '—' && <small>{route}</small>}
-                    </span>
-                    <span className="receipt-close-file-state">
-                      <Pill tone={statusCfg.tone}>{row.status}</Pill>
-                      <small>{row.pending
-                        ? 'Распознавание не завершено'
-                        : excludedFromDraft
-                          ? 'Исключён из добавления'
-                          : reviewed[file.id]
-                            ? 'Проверено — сохранится'
-                            : 'Сохранится в черновик'}</small>
-                    </span>
-                  </div>
-                );
-              })}
-              {!rows.length && <EmptyState icon="docs" title="Бланки не загружены" />}
-            </div>
-          </section>
-
-          <div className="receipt-close-save-note">
-            <span><Icon name="save" /></span>
-            <div>
-              <b>Что сохранится в черновике</b>
-              <span>Распознанные поля, разбивка на бланки, результаты проверки, привязки и настройки стоимости.</span>
-            </div>
-          </div>
-
-          {processing && (
-            <div className="receipt-close-warning">
-              <Icon name="alertCircle" />
-              <span><b>Распознавание ещё идёт.</b> Дождитесь обработки всех файлов, чтобы сохранить полный черновик.</span>
-            </div>
-          )}
+      <DraftCloseDialog open={confirmClose} title="Закрыть импорт?"
+        description="Сохранить обработанные бланки и внесённые изменения в черновик?"
+        onCancel={() => setConfirmClose(false)} onSave={saveDraftAndClose}
+        saveDisabled={processing || !files.some((file) => file.status === 'done' && file.importId)}
+        onDiscard={() => { onDraftCleared?.(draftIdRef.current); setConfirmClose(false); onClose(); }}
+        note={processing
+          ? 'Распознавание ещё идёт. Чтобы сохранить все бланки, дождитесь его завершения.'
+          : 'Сохранятся распознанные данные, проверка, привязки и настройки стоимости. Продолжить можно в черновиках редактора.'}>
+        <div className="draft-close-context"><strong>Бланки: {files.length}</strong><span>Готово к сохранению: {files.filter((file) => file.status === 'done' && file.importId).length}</span></div>
+        <div className="draft-close-files">
+          {rows.map((row) => <div key={row.f.id} className="draft-close-file">
+            <span title={row.f.name}>{row.f.name}</span>
+            <small>{row.pending ? 'Распознаётся' : row.f.importId ? 'В черновик' : 'Не загружен'}</small>
+          </div>)}
         </div>
-      </Drawer>
+      </DraftCloseDialog>
     </Drawer>
   );
 }

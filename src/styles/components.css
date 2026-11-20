@@ -4308,3 +4308,24 @@ button.oc-fact:hover{border-color:#d3dbe8;background:#fff}
 .ntf.unread{background:var(--surface)}
 .ntf .ntf-unread-dot{width:6px;height:6px;flex-basis:6px}
 .ntf:hover{border-color:var(--field-line);background:var(--surface-2)}
+
+/* Compact decisions share the same neutral design in search and import. */
+.draft-close-dialog>.modal-content{padding:24px;scrollbar-gutter:auto}
+.draft-close-dialog .modal-head{margin-bottom:14px;align-items:center}
+.draft-close-dialog .modal-title{font-size:20px;line-height:1.3}
+.draft-close-dialog .modal-close{width:30px;height:30px;flex-basis:30px;margin:0}
+.draft-close-dialog .modal-close svg{width:18px;height:18px}
+.draft-close-description{font-size:14px;line-height:1.6;color:var(--ink);margin:0 0 16px}
+.draft-close-context{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 0;border-top:1px solid var(--line);border-bottom:1px solid var(--line);font-size:13px}
+.draft-close-context span{color:var(--muted);text-align:right}
+.draft-close-note{font-size:12px;line-height:1.6;color:var(--muted);margin:16px 0 0}
+.draft-close-files{max-height:180px;overflow:auto}
+.draft-close-file{display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid var(--line);font-size:12px}
+.draft-close-file>span{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.draft-close-file small{flex-shrink:0;color:var(--muted);font-size:11px}
+.draft-close-dialog-actions{margin-top:20px;display:grid;grid-template-columns:1fr 1.4fr;gap:10px;width:100%}
+.draft-close-dialog-actions>.btn{padding:0 10px;font-size:13px;min-width:0}
+.draft-close-discard{grid-column:1/-1;border:0;background:transparent;color:var(--muted);padding:8px;cursor:pointer;font:inherit;font-size:12px}
+.draft-close-discard:hover{color:var(--ink);text-decoration:underline}
+.draft-close-discard:focus-visible{outline:2px solid var(--blue);outline-offset:2px;border-radius:6px}
+@media(max-width:380px){.draft-close-dialog-actions{grid-template-columns:1fr}.draft-close-context{align-items:flex-start;flex-direction:column}.draft-close-context span{text-align:left}}
