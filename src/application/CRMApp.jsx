@@ -60,7 +60,7 @@ function App() {
     });
   };
   useEffect(() => {
-    if (auth.status !== 'authenticated') return;
+    if (auth.status !== 'authenticated' || auth.locked) return;
     const controller = new AbortController();
     workspaceSettingsApi.getTenant('service-cards', controller.signal).then(({ value = {} }) => {
       if (value.scenarios && window.CARD_SCENARIOS) Object.keys(value.scenarios).forEach((key) => Object.assign(window.CARD_SCENARIOS[key] || (window.CARD_SCENARIOS[key] = {}), value.scenarios[key]));
@@ -70,7 +70,7 @@ function App() {
       if (value.visibility && window.CARD_CLIENT_VISIBILITY) Object.assign(window.CARD_CLIENT_VISIBILITY, value.visibility);
     }).catch((error) => { if (error.name !== 'AbortError') toast(error.message || 'Не удалось загрузить настройки карточек услуг', 'err'); });
     return () => controller.abort();
-  }, [auth.status, auth.user?.id]);
+  }, [auth.status, auth.locked, auth.user?.id]);
 
   const orders = workspace.orders;
   const suppliers = workspace.suppliers;

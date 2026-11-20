@@ -80,18 +80,19 @@ const REQUEST_TYPE = {
 function sameId(a, b) { return String(a || '') === String(b || ''); }
 
 export function WorkspaceProvider({ children }) {
-  const { status } = useAuth();
+  const { status, locked } = useAuth();
   const [data, setData] = useState(EMPTY);
   const [resources, setResources] = useState(() => initialResources());
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
   const reload = useCallback(async (signal) => {
-    if (status !== 'authenticated') return;
+    if (status !== 'authenticated' || locked) return;
     setLoading(true);
     setError(null);
     setResources((current) => RESOURCE_KEYS.reduce((acc, key) => {
-      acc[key] = makeResource(current[key]?.data ?? emptyFor(key), 'loading', null, current[key]?.lastLoadedAt || null);
+      // Keep mounted forms while refreshing after session recovery.
+      acc[key] = current[key]?.lastLoadedAt ? current[key] : makeResource(current[key]?.data ?? emptyFor(key), 'loading', null, null);
       return acc;
     }, {}));
     const calls = {
@@ -160,7 +161,7 @@ export function WorkspaceProvider({ children }) {
     syncLegacyDataFromWorkspace(legacyWorkspaceFromData(next));
     setError(failures[0] || null);
     setLoading(false);
-  }, [status]);
+  }, [status, locked]);
 
   useEffect(() => {
     if (status !== 'authenticated') {
@@ -168,10 +169,11 @@ export function WorkspaceProvider({ children }) {
       setResources(initialResources());
       return undefined;
     }
+    if (locked) return undefined;
     const controller = new AbortController();
     reload(controller.signal);
     return () => controller.abort();
-  }, [status, reload]);
+  }, [status, locked, reload]);
 
   // UI-only updates remain available for temporary presentation state. Business
   // mutations must use the backend-first methods below.
