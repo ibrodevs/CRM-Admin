@@ -1907,7 +1907,7 @@ function ServiceFlow({ routeKey, searchIntent, onConsumeSearch }) {
             <div className={'av-bar' + (routeKey === 'transfers' ? ' service-search-mask' : '')}>
               {cfg.fields.map((f) => <SvcField key={f.k} f={f} form={form} set={setF} />)}
             {routeKey === 'transfers' && <TransferSearchOptions form={form} set={setF} />}
-              <Button icon="search" style={{ height: 'var(--h-control)', marginBottom: 0 }} onClick={runSearch}>Найти</Button>
+              <Button icon="search" size="field" style={{ marginBottom: 0 }} onClick={runSearch}>Найти</Button>
             </div>
             {routeKey === 'transfers' && <TransferSearchExtras form={form} set={setF} selectedOnly />}
             <InfoNotice dismissible icon="api" style={{ marginTop: 14 }}>
@@ -2018,7 +2018,7 @@ function FreeBookingServiceAddFlow({ routeKey, onAdd, currency, paxCount = 1 }) 
           <div className={'av-bar' + (routeKey === 'transfers' ? ' service-search-mask' : '')}>
             {cfg.fields.map((f) => <SvcField key={f.k} f={f} form={form} set={setF} />)}
             {routeKey === 'transfers' && <TransferSearchOptions form={form} set={setF} />}
-            <Button disabled={loading} icon="search" style={{ height: 'var(--h-control)', marginBottom: 0 }} onClick={runSearch}>Найти</Button>
+            <Button disabled={loading} icon="search" size="field" style={{ marginBottom: 0 }} onClick={runSearch}>Найти</Button>
           </div>
           {routeKey === 'transfers' && <TransferSearchExtras form={form} set={setF} selectedOnly />}
           <InfoNotice dismissible icon="api" style={{ marginTop: 14 }}>
@@ -2125,7 +2125,7 @@ function FreeBookingAeroAddFlow({ onAdd }) {
                 <PassengerCountField value={pax} onChange={(value) => change(setPax, value)} style={{ width: 150 }} />
               </>
             )}
-            <Button disabled={loading} icon="search" style={{ height: 'var(--h-control)', marginBottom: 0 }} onClick={runSearch}>Найти</Button>
+            <Button disabled={loading} icon="search" size="field" style={{ marginBottom: 0 }} onClick={runSearch}>Найти</Button>
           </div>
           <InfoNotice dismissible icon="api" style={{ marginTop: 14 }}>
             Билеты и абонементы Аэроэкспресс · цены в ₽
@@ -2214,7 +2214,7 @@ function ServiceAddFlow({ routeKey, onAdd, currency, paxCount = 1 }) {
           <div className={'av-bar' + (routeKey === 'transfers' ? ' service-search-mask' : '')}>
             {cfg.fields.map((f) => <SvcField key={f.k} f={f} form={form} set={setF} />)}
             {routeKey === 'transfers' && <TransferSearchOptions form={form} set={setF} />}
-            <Button icon="search" style={{ height: 'var(--h-control)', marginBottom: 0 }} onClick={runSearch}>Найти</Button>
+            <Button icon="search" size="field" style={{ marginBottom: 0 }} onClick={runSearch}>Найти</Button>
           </div>
           {routeKey === 'transfers' && <TransferSearchExtras form={form} set={setF} selectedOnly />}
           <InfoNotice dismissible icon="api" style={{ marginTop: 14 }}>
@@ -2315,7 +2315,7 @@ function AeroAddFlow({ onAdd }) {
                 <PassengerCountField value={pax} onChange={setPax} style={{ width: 150 }} />
               </>
             )}
-            <Button icon="search" style={{ height: 'var(--h-control)', marginBottom: 0 }} onClick={runSearch}>Найти</Button>
+            <Button icon="search" size="field" style={{ marginBottom: 0 }} onClick={runSearch}>Найти</Button>
           </div>
           <InfoNotice dismissible icon="api" style={{ marginTop: 14 }}>
             Билеты и абонементы Аэроэкспресс · цены в ₽
@@ -2831,7 +2831,7 @@ function FreeBookingRailFlow({ currency, onAdd }) {
         {form.trip === 'rt' ? <div className="av-field" style={{ width: 280 }}><span className="label">Даты поездки</span><TripDateRangeField startVal={form.dep} endVal={form.ret} onChange={(start, end) => { setF('dep', start); setF('ret', end); }} /></div>
           : <div className="av-field" style={{ width: 150 }}><span className="label">Дата</span><DateField value={form.dep} onChange={(d) => setF('dep', d)} placeholder="Дата" /></div>}
         <PassengerCompositionField form={form} set={setF} kind="rail" />
-        <Button disabled={loading} icon="search" style={{ height: 'var(--h-control)', marginBottom: 0 }} onClick={runSearch}>Найти</Button>
+        <Button disabled={loading} icon="search" size="field" style={{ marginBottom: 0 }} onClick={runSearch}>Найти</Button>
       </div>
 
 
@@ -2947,7 +2947,7 @@ function RailAddFlow({ participants = [], groups, onAdd }) {
         {form.trip === 'rt' ? <div className="av-field" style={{ width: 280 }}><span className="label">Даты поездки</span><TripDateRangeField startVal={form.dep} endVal={form.ret} onChange={(start, end) => { setF('dep', start); setF('ret', end); }} /></div>
           : <div className="av-field" style={{ width: 150 }}><span className="label">Дата</span><DateField value={form.dep} onChange={(d) => setF('dep', d)} placeholder="Дата" /></div>}
         <PassengerCompositionField form={form} set={setF} kind="rail" />
-        <Button icon="search" style={{ height: 'var(--h-control)', marginBottom: 0 }} onClick={runSearch}>Найти</Button>
+        <Button icon="search" size="field" style={{ marginBottom: 0 }} onClick={runSearch}>Найти</Button>
       </div>
 
 

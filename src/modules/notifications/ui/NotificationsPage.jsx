@@ -68,8 +68,8 @@ function NotificationRow({ n, orders = [], onAct, onRead, onPin, onDismiss, onOp
       </div>
       <div className="ntf-actions">
         <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-          {n.act && <Button variant="ghost" size="sm" iconRight="chevRight" onClick={() => onAct(n)}>{n.act === 'Перейти' ? 'Открыть' : n.act}</Button>}
-          <ActionMenu trigger={<button className="btn btn-ghost btn-icon btn-sm"><Icon name="more" /></button>}
+          {n.act && <Button variant="secondary" iconRight="chevRight" onClick={() => onAct(n)}>{n.act === 'Перейти' ? 'Открыть' : n.act}</Button>}
+          <ActionMenu trigger={<Button variant="ghost" icon="more" aria-label="Действия с уведомлением" />}
             items={[
               { icon: n.read ? 'eyeOff' : 'check', label: n.read ? 'Отметить непрочитанным' : 'Отметить прочитанным', onClick: () => onRead(n.id) },
               { icon: 'star', label: n.pinned ? 'Открепить' : 'Закрепить', onClick: () => onPin(n.id) },
@@ -263,10 +263,10 @@ function NotificationsCenter({ notifications = [], orders = [], onChange, onNavi
       </SearchToolbar>
 
       <Actions className={compact ? 'notification-drawer-actions' : undefined}>
-        <Button variant="secondary" size="sm" icon="check" onClick={async () => { try { await notificationsApi.readAll(); commit((l) => l.map((n) => ({ ...n, read: true }))); toast('Все отмечены прочитанными', 'ok'); } catch (error) { toast(error.message, 'err'); } }}>Прочитать все</Button>
-        <Button variant="secondary" size="sm" icon="trash" onClick={async () => { try { await notificationsApi.dismissRead(); commit((l) => l.filter((n) => !n.read || n.pinned)); toast('Прочитанные закрыты', 'ok'); } catch (error) { toast(error.message, 'err'); } }}>Закрыть прочитанные</Button>
-        <Button variant="secondary" size="sm" icon="api" onClick={() => openCode('')}>Коды ошибок</Button>
-        <Button variant="secondary" size="sm" icon="settings" onClick={() => setSetOpen(true)}>Настройки</Button>
+        <Button variant="secondary" icon="check" onClick={async () => { try { await notificationsApi.readAll(); commit((l) => l.map((n) => ({ ...n, read: true }))); toast('Все отмечены прочитанными', 'ok'); } catch (error) { toast(error.message, 'err'); } }}>Прочитать все</Button>
+        <Button variant="secondary" icon="trash" onClick={async () => { try { await notificationsApi.dismissRead(); commit((l) => l.filter((n) => !n.read || n.pinned)); toast('Прочитанные закрыты', 'ok'); } catch (error) { toast(error.message, 'err'); } }}>Закрыть прочитанные</Button>
+        <Button variant="secondary" icon="api" onClick={() => openCode('')}>Коды ошибок</Button>
+        <Button variant="secondary" icon="settings" onClick={() => setSetOpen(true)}>Настройки</Button>
       </Actions>
 
       <section className="section-workspace notification-workspace" aria-label="Список уведомлений">

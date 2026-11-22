@@ -5,6 +5,7 @@ import '../src/styles/components/location-autocomplete.css';
 import '../src/styles/components/compact-steppers.css';
 import '../src/styles/preferences.css';
 import '../src/styles/components/free-booking.css';
+import '../src/styles/components/button-system.css';
 
 export const metadata = {
   title: 'ПСЦ — Travel Hub · CRM',

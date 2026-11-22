@@ -3983,8 +3983,7 @@ button.oc-fact:hover{border-color:#d3dbe8;background:#fff}
 .ntf-resource:focus-visible{outline:2px solid var(--blue);outline-offset:3px}
 .ntf-pinned{color:var(--amber)}
 .ntf-actions{align-self:start;display:flex}
-.ntf-actions .btn{height:28px;min-height:28px;padding:0 7px;font-size:11px}
-.ntf-actions .btn-icon{width:28px;padding:0}
+.ntf-actions .btn{flex-shrink:0}
 @media(max-width:640px){.ntf.ntf-compact{grid-template-columns:28px minmax(0,1fr);gap:8px}.ntf-compact .ntf-ic{width:28px;height:28px}.ntf-compact>.ntf-actions{grid-column:2;justify-self:end;margin-top:-3px}.ntf-compact .ntf-meta{gap:4px 8px}}
 
 .chat-conversation-picker,.chat-service-picker{display:flex;flex-direction:column;gap:8px}
@@ -4269,9 +4268,8 @@ button.oc-fact:hover{border-color:#d3dbe8;background:#fff}
 .notification-center-drawer .ntf-desc{margin-top:4px;font-size:12px;line-height:18px}
 .notification-center-drawer .ntf-meta{margin-top:8px;gap:4px 12px;font-size:11px;line-height:16px}
 .notification-center-drawer .ntf-actions{gap:4px}
-.notification-center-drawer .ntf-actions .btn{height:32px;min-height:32px;font-size:12px}
-.notification-center-drawer .ntf-actions .btn-icon{width:32px}
-@container(max-width:600px){.notification-center-drawer>.drawer-body{padding:16px}.notification-drawer-tabs{gap:20px}.notification-drawer-actions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.notification-drawer-actions>.btn{width:100%;padding:0 8px;font-size:12px}.notification-drawer-actions>.btn:nth-child(3){margin-left:0}.notification-center-drawer .ntf{grid-template-columns:28px minmax(0,1fr)}.notification-center-drawer .ntf>.ntf-actions{grid-column:2;justify-self:end}.notification-activity-head{align-items:flex-start;flex-wrap:wrap}}
+.notification-center-drawer .ntf-actions .btn{flex-shrink:0}
+@container(max-width:600px){.notification-center-drawer>.drawer-body{padding:16px}.notification-drawer-tabs{gap:20px}.notification-drawer-actions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.notification-drawer-actions>.btn{width:100%;padding:0 8px;font-size:12px}.notification-drawer-actions>.btn:nth-child(3){margin-left:0}.notification-drawer-actions>.btn:nth-child(-n+2){grid-column:1/-1}.notification-center-drawer .ntf{grid-template-columns:28px minmax(0,1fr)}.notification-center-drawer .ntf>.ntf-actions{grid-column:2;justify-self:end}.notification-activity-head{align-items:flex-start;flex-wrap:wrap}}
 @container(max-width:380px){.notifications-center>.tabs{display:grid;grid-template-columns:repeat(2,minmax(0,1fr))}.notifications-center>.tabs>.tab{justify-content:space-between;padding:0 10px;font-size:12px}.notification-drawer-tabs{gap:16px}.notification-drawer-tabs>button{font-size:12px;gap:6px}}
 
 /* Expanding search parameters must not change the scroll container width. */

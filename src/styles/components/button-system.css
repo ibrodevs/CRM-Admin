@@ -1,0 +1,71 @@
+/* Shared Button geometry is owned here, after legacy page styles.
+   Contexts may arrange buttons, but must choose sm/md/lg/field for sizing. */
+:root {
+  --button-height-sm: 36px;
+  --button-height-md: 40px;
+  --button-height-lg: 48px;
+  --button-radius: 8px;
+  --button-font-size: 13px;
+  --button-line-height: 20px;
+  --button-font-weight: 500;
+  --button-gap: 8px;
+}
+
+.btn[data-ui-button][data-size][data-variant] {
+  --button-height: var(--button-height-md);
+  --button-padding-x: 14px;
+  --button-padding-y: 9px;
+  --button-text-size: var(--button-font-size);
+  --button-icon-size: 16px;
+  height: auto;
+  min-height: var(--button-height);
+  align-self: center;
+  padding: var(--button-padding-y) var(--button-padding-x);
+  gap: var(--button-gap);
+  border-radius: var(--button-radius);
+  font-family: inherit;
+  font-size: var(--button-text-size);
+  font-weight: var(--button-font-weight);
+  line-height: var(--button-line-height);
+  box-shadow: none;
+}
+
+.btn[data-ui-button][data-size="sm"][data-variant] {
+  --button-height: var(--button-height-sm);
+  --button-padding-x: 12px;
+  --button-padding-y: 7px;
+}
+
+.btn[data-ui-button][data-size="lg"][data-variant],
+.btn[data-ui-button][data-size="field"][data-variant] {
+  --button-height: var(--button-height-lg);
+  --button-padding-x: 18px;
+  --button-padding-y: 13px;
+  --button-icon-size: 18px;
+}
+
+.btn[data-ui-button][data-size="lg"][data-variant] {
+  --button-text-size: 15px;
+}
+
+.btn[data-ui-button][data-size][data-variant] > svg {
+  width: var(--button-icon-size);
+  height: var(--button-icon-size);
+  flex-shrink: 0;
+}
+
+.btn.btn-icon[data-ui-button][data-size][data-variant] {
+  width: var(--button-height);
+  height: var(--button-height);
+  min-width: var(--button-height);
+  padding: 0;
+}
+
+.btn[data-ui-button][data-size][data-variant]:focus-visible {
+  outline: 2px solid var(--blue);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .btn[data-ui-button][data-size][data-variant] { transition: none; }
+}

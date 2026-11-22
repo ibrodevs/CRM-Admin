@@ -2168,7 +2168,7 @@ function FreeBookingFlightPanel({ params, setParams, onAdd }) {
               {segs.length >= MC_MAX ? 'Добавлено максимальное кол-во маршрутов' : 'Добавить маршрут'}
             </Button>
             {paxFieldNode}
-            <Button icon="search" className="avia-find-btn" style={{ height: 'var(--h-control)', marginBottom: 0 }} disabled={loading} onClick={runSearch}>Найти</Button>
+            <Button icon="search" className="avia-find-btn" size="field" style={{ marginBottom: 0 }} disabled={loading} onClick={runSearch}>Найти</Button>
           </div>
         </div>
       ) : (
@@ -2191,7 +2191,7 @@ function FreeBookingFlightPanel({ params, setParams, onAdd }) {
           )}
 
           {paxFieldNode}
-          <Button icon="search" className="avia-find-btn" style={{ height: 'var(--h-control)', marginBottom: 0 }} disabled={loading} onClick={runSearch}>Найти</Button>
+          <Button icon="search" className="avia-find-btn" size="field" style={{ marginBottom: 0 }} disabled={loading} onClick={runSearch}>Найти</Button>
         </div>
       )}
 
