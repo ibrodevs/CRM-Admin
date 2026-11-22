@@ -41,3 +41,9 @@ test('screens choose shared button sizes rather than overriding typography or ge
   for (const file of files(root)) walk(babel.parseSync(readFileSync(file, 'utf8'), { filename: file, presets: ['next/babel'], configFile: false, babelrc: false }), file);
   assert.deepEqual(violations, [], 'Use the size prop; typography and geometry belong to the shared Button system.');
 });
+
+
+test('application pages and portalled drawers do not use different CSS zoom factors', () => {
+  const layout = readFileSync(new URL('../src/styles/layout.css', import.meta.url), 'utf8');
+  assert.doesNotMatch(layout, /\bzoom\s*:/);
+});
