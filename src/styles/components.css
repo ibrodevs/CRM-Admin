@@ -4055,8 +4055,8 @@ button.oc-fact:hover{border-color:#d3dbe8;background:#fff}
 .flight-fare-class strong{display:block;font-size:14px;font-weight:600}
 .flight-fare-class small{display:block;font-size:12px;color:var(--muted);margin-top:3px}
 .flight-fare-class>svg{width:16px;height:16px;color:var(--blue);margin-left:auto}
-.flight-fare-drawer .flight-fare-grid.fare-grid{grid-template-columns:minmax(0,1fr);gap:8px}
-.flight-fare-option{display:grid;grid-template-columns:minmax(0,1fr) minmax(180px,220px) 104px;align-items:center;gap:20px;min-width:0;padding:14px 16px;border:1px solid var(--line);border-radius:12px;background:var(--surface)}
+.flight-fare-grid{display:grid;grid-template-columns:minmax(0,1fr);gap:8px}
+.flight-fare-option{display:grid;grid-template-columns:minmax(120px,.7fr) minmax(0,2.6fr) minmax(140px,.8fr) 104px;align-items:center;gap:16px;min-width:0;padding:12px 16px;border:1px solid var(--line);border-radius:12px;background:var(--surface)}
 .flight-fare-option.selected{border-color:var(--blue);background:var(--blue-soft)}
 .flight-fare-option-info,.flight-fare-option-cost{min-width:0}
 .flight-fare-option-head{display:flex;align-items:baseline;flex-wrap:wrap;gap:4px 10px}
@@ -4066,11 +4066,18 @@ button.oc-fact:hover{border-color:#d3dbe8;background:#fff}
 .flight-fare-selected{display:inline-flex;align-items:center;gap:4px;color:var(--blue);font-size:12px;white-space:nowrap}
 .flight-fare-option-price{font-size:18px;font-weight:700;line-height:1.5;color:var(--ink);font-variant-numeric:tabular-nums}
 .flight-fare-option-delta{font-size:11px;line-height:1.5;color:var(--muted);margin-top:2px}
-.flight-fare-conditions{display:flex;flex-wrap:wrap;gap:3px 14px;margin:4px 0 0}
-.flight-fare-conditions>div{display:flex;gap:4px;min-width:0;font-size:12px;line-height:1.5}
-.flight-fare-conditions dt{color:var(--muted);flex-shrink:0}
-.flight-fare-conditions dd{margin:0;color:var(--ink);overflow-wrap:anywhere}
-.flight-fare-no-conditions{font-size:12px;line-height:1.5;color:var(--muted);margin:4px 0 0}
+.flight-fare-conditions{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin:0;min-width:0}
+.flight-fare-condition{display:flex;align-items:flex-start;gap:7px;min-width:0;font-size:12px;line-height:1.4}
+.flight-fare-condition>svg{width:18px;height:18px;flex-shrink:0;margin-top:1px;color:var(--muted)}
+.flight-fare-condition.green>svg{color:var(--green)}
+.flight-fare-condition.red>svg{color:var(--red)}
+.flight-fare-condition>div{min-width:0}
+.flight-fare-condition dt{color:var(--muted);font-size:11px;margin-bottom:3px}
+.flight-fare-condition dd{margin:0;color:var(--ink);font-weight:600;overflow-wrap:anywhere}
+.flight-fare-condition.unknown dd{color:var(--muted);font-weight:400}
+.flight-fare-condition-segment{display:block;font-size:11px}
+.flight-fare-condition-segment+.flight-fare-condition-segment{margin-top:4px}
+.flight-fare-condition-segment>span{color:var(--muted);font-weight:400}
 .flight-fare-option-actions{display:flex;justify-content:flex-end;align-items:center;min-width:0}
 .flight-fare-option-actions>.btn{width:100%}
 .flight-fare-rules-link{display:inline-flex;align-items:center;gap:4px;padding:6px 0;border:0;background:none;color:var(--blue);font:inherit;font-size:13px;font-weight:600;cursor:pointer;text-align:left}
@@ -4081,8 +4088,9 @@ button.oc-fact:hover{border-color:#d3dbe8;background:#fff}
 .flight-fare-total>span,.flight-fare-total>small{font-size:12px;color:var(--muted);overflow-wrap:anywhere}
 .flight-fare-total>b{font-size:22px;color:var(--ink);font-variant-numeric:tabular-nums}
 .flight-fare-class:focus-visible,.flight-fare-rules-link:focus-visible{outline:2px solid var(--blue);outline-offset:3px}
-@container(max-width:680px){.flight-fare-option{grid-template-columns:minmax(0,1fr) 104px;gap:10px 16px}.flight-fare-option-info{grid-column:1/-1}.flight-fare-drawer>.drawer-stack-footer .flight-fare-total{width:100%;margin-bottom:4px}.flight-fare-drawer>.drawer-stack-footer>.btn{flex:1}}
-@container(max-width:420px){.flight-fare-option{padding:12px;gap:8px 12px}.flight-fare-option-price{font-size:17px}.flight-fare-drawer>.drawer-stack-body{padding:16px!important}.flight-fare-pagination{flex-wrap:wrap}}
+@container(max-width:1000px){.flight-fare-option{grid-template-columns:minmax(0,1fr) minmax(140px,auto) 104px;gap:10px 16px}.flight-fare-conditions{grid-row:2;grid-column:1/-1}.flight-fare-option-info{grid-column:1}.flight-fare-option-cost{grid-column:2;grid-row:1}.flight-fare-option-actions{grid-column:3;grid-row:1}}
+@container(max-width:680px){.flight-fare-option{grid-template-columns:minmax(0,1fr) 104px}.flight-fare-option-info{grid-column:1/-1}.flight-fare-conditions{grid-row:2}.flight-fare-option-cost{grid-column:1;grid-row:3}.flight-fare-option-actions{grid-column:2;grid-row:3}.flight-fare-drawer>.drawer-stack-footer .flight-fare-total{width:100%;margin-bottom:4px}.flight-fare-drawer>.drawer-stack-footer>.btn{flex:1}}
+@container(max-width:420px){.flight-fare-conditions{grid-template-columns:repeat(2,minmax(0,1fr))}.flight-fare-option{padding:12px;gap:8px 12px}.flight-fare-option-price{font-size:17px}.flight-fare-drawer>.drawer-stack-body{padding:16px!important}.flight-fare-pagination{flex-wrap:wrap}}
 
 /* Flight extras: scoped availability, no zero-price placeholders or unrelated drafts. */
 .flight-extras-preview{display:flex;align-items:center;gap:14px;padding:18px;border:1px solid var(--line);border-radius:14px;background:var(--surface-2)}
@@ -4353,7 +4361,20 @@ button.oc-fact:hover{border-color:#d3dbe8;background:#fff}
 .pin-unlock h2{font-size:22px;margin:0 0 12px}
 .pin-unlock p,.session-security-settings>p{color:var(--muted);font-size:13px;line-height:1.6}
 .pin-unlock form{display:grid;gap:16px;margin:20px 0 12px}
-.session-security-disable{display:flex;gap:10px;align-items:center;margin:16px 0;font-size:13px}
+.session-security-status{display:flex;align-items:center;gap:12px;padding:14px;margin:18px 0;border:1px solid var(--line);border-radius:12px;background:var(--surface-2)}
+.session-security-status.enabled{background:var(--green-bg-2)}
+.session-security-status-icon{display:flex;color:var(--muted)}
+.session-security-status.enabled .session-security-status-icon{color:var(--green)}
+.session-security-status-icon>svg{width:24px;height:24px}
+.session-security-status>div{flex:1;min-width:0}
+.session-security-status p,.session-security-disable-action p{font-size:12px;line-height:1.5;color:var(--muted);margin:6px 0 0}
+.session-security-fields{border:0;padding:0;margin:0;min-width:0}
+.session-security-pin-edit{margin-bottom:20px}
+.session-security-pin-edit>.btn{margin-top:8px}
+.session-security-disable-action{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-top:20px;padding-top:20px;border-top:1px solid var(--line)}
+.session-security-disable-action strong{font-size:13px}
+.session-security-disable-action>.btn{flex-shrink:0;color:var(--red)}
+@container(max-width:520px){.session-security-status,.session-security-disable-action{flex-wrap:wrap}.session-security-status>.btn,.session-security-disable-action>.btn{width:100%}}
 .passenger-fare-rows{display:grid;gap:12px;margin-top:16px}
 .passenger-fare-row{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.2fr);gap:16px;padding:16px;border:1px solid var(--line);border-radius:12px;background:var(--surface)}
 @media(max-width:600px){.passenger-fare-row{grid-template-columns:1fr}}
@@ -4363,3 +4384,12 @@ button.oc-fact:hover{border-color:#d3dbe8;background:#fff}
 @keyframes receipt-indeterminate{from{transform:translateX(-100%)}to{transform:translateX(350%)}}
 @media(prefers-reduced-motion:reduce){.receipt-upload-progress.is-active .receipt-upload-progress-track>span{animation:none;transform:none}}
 .flight-result-date{display:block;font-size:11px;color:var(--muted);font-weight:400;line-height:1.5}
+
+.password-input>.input{padding-right:88px}
+.password-input-actions{position:absolute;right:8px;top:50%;transform:translateY(-50%);display:flex;gap:2px}
+.password-input-actions>.icon-btn{width:32px;height:32px;padding:6px;color:var(--muted)}
+.password-input-actions>.icon-btn>svg{width:18px;height:18px}
+
+@keyframes crm-search-autofill{from{opacity:1}to{opacity:1}}
+.gtop-search input:-webkit-autofill{animation-name:crm-search-autofill;animation-duration:1ms}
+.gtop-search input:autofill{animation-name:crm-search-autofill;animation-duration:1ms}

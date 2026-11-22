@@ -4,7 +4,7 @@ function SearchBox({ value, onChange, placeholder = 'Поиск', style, classNa
   return (
     <div className={'search' + (className ? ' ' + className : '')} style={style}>
       <Icon name="search" />
-      <input {...inputProps} aria-label={inputProps['aria-label'] || placeholder} value={value} onChange={(e) => onChange(e.target.value)} placeholder={placeholder} />
+      <input type="search" name="registry-search-query" autoComplete="off" data-1p-ignore="true" data-lpignore="true" {...inputProps} aria-label={inputProps['aria-label'] || placeholder} value={value} onChange={(e) => onChange(e.target.value)} placeholder={placeholder} />
     </div>
   );
 }

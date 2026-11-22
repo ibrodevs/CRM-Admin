@@ -26,16 +26,21 @@ export function FlightFareSelector({ classes, classCode, cabin, tiers, selectedI
     <section className="flight-fare-section" aria-label="Тарифы перелёта">
       <div className="flight-fare-section-head"><div><h4>Выберите тариф</h4><p>{cabin} · класс {classCode} · пассажиров: {passengerCount}</p></div><span>Тарифов: {ordered.length}</span></div>
       <p className="flight-fare-caption">Полная стоимость за всех пассажиров и все сегменты маршрута.</p>
-      <div className="fare-grid flight-fare-grid">
+      <div className="flight-fare-grid">
         {shown.map((tier, index) => {
           const selected = tier.id === selectedId;
           const duplicateName = ordered.filter((item) => item.name === tier.name).length > 1;
           return <article key={tier.id} className={`flight-fare-option${selected ? ' selected' : ''}`} aria-label={`${tier.name}, ${price(tier.offer.fare + tier.offer.fee, currency)}`}>
             <div className="flight-fare-option-info">
               <div className="flight-fare-option-head"><h5>{tier.name || `Класс ${classCode}`}</h5>{duplicateName && <span>Вариант {currentPage * PAGE_SIZE + index + 1}</span>}{tier.recommended && !selected && <span className="flight-fare-selected">Рекомендуем</span>}</div>
-              {tier.rules?.length > 0 ? <dl className="flight-fare-conditions">{tier.rules.map((rule, i) => <div key={i}><dt>{rule.k}:</dt><dd>{rule.v}</dd></div>)}</dl> : <p className="flight-fare-no-conditions">Краткие условия не переданы</p>}
               <button type="button" className="flight-fare-rules-link" onClick={() => onInspect(tier)}>Условия тарифа<Icon name="chevRight" /></button>
             </div>
+            <dl className="flight-fare-conditions">{(tier.rules?.length ? tier.rules : [
+              { k: 'Багаж', icon: 'luggage' }, { k: 'Ручная кладь', icon: 'briefcase' }, { k: 'Возврат', icon: 'refund' }, { k: 'Обмен', icon: 'swap' },
+            ]).map((rule) => <div key={rule.k} className={`flight-fare-condition ${rule.tone || 'unknown'}`}>
+              <Icon name={rule.icon || 'ticket'} />
+              <div><dt>{rule.k}</dt><dd>{rule.segments ? rule.segments.map((segment, i) => <span key={i} className="flight-fare-condition-segment">{segment.route && <span>{segment.route}: </span>}{segment.v}</span>) : rule.v || 'Не указано'}</dd></div>
+            </div>)}</dl>
             <div className="flight-fare-option-cost"><div className="flight-fare-option-price">{price(tier.offer.fare + tier.offer.fee, currency)}</div><div className="flight-fare-option-delta">{tier.delta === 0 ? 'Исходная цена' : `${tier.delta > 0 ? '+' : '−'} ${price(Math.abs(tier.delta), currency)} к исходной цене`}</div></div>
             <div className="flight-fare-option-actions"><Button size="sm" variant={selected ? 'secondary' : 'primary'} icon={selected ? 'check' : undefined} aria-pressed={selected} onClick={() => onSelect(tier.id)}>{selected ? 'Выбран' : 'Выбрать'}</Button></div>
           </article>;

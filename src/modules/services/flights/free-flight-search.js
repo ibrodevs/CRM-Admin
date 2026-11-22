@@ -2,6 +2,7 @@ import { dateWithinBounds } from '../../../shared/ui/date-range.js';
 import { flightLocationCode } from './airport-options.js';
 import { resolveCurrency } from '../../../shared/lib/money.js';
 import { resultsOf } from '../../../shared/api/client.js';
+import { flightFareConditions } from './flight-fare-conditions.js';
 
 // Counts belong to the free search; no order or participant IDs exist yet.
 export function freeFlightSegments(params) {
@@ -113,13 +114,10 @@ export function freeFlightLocalPassengers(pax) {
   ].flatMap(([key, role]) => Array.from({ length: pax[key] || 0 }, (_, i) => ({ id: `${key}-${i}`, name: `${role} ${i + 1}`, role })));
 }
 export function freeFlightFareDetails(offer) {
-  const fare = offer.backendOffer?.fare || {};
-  const features = [];
-  if (fare.baggage != null) features.push({ text: fare.baggage === '0PC' ? 'Багаж не включён' : `Багаж: ${fare.baggage}`, ok: fare.baggage !== '0PC' });
-  if (fare.refundable != null) features.push({ text: fare.refundable ? 'Возвратный' : 'Невозвратный', ok: !!fare.refundable });
-  const rules = [
-    ...(fare.refundable == null ? [] : [{ k: 'Возврат', v: fare.refundable ? 'Возвратный' : 'Невозвратный', tone: fare.refundable ? 'green' : 'red' }]),
-    ...(fare.baggage == null ? [] : [{ k: 'Багаж', v: fare.baggage, tone: fare.baggage === '0PC' ? 'red' : 'green' }]),
-  ];
-  return { name: fare.name || fare.brand || offer.fareName, code: fare.booking_class || '—', cabin: { economy: 'Эконом', premium_economy: 'Комфорт', business: 'Бизнес', first: 'Первый' }[fare.cabin] || offer.cabin, features, rules };
+  const source = offer.backendOffer || offer.selectedOffer || offer;
+  const fare = typeof source.fare === 'object' && source.fare ? source.fare : {};
+  const segment = source.itinerary?.segments?.[0] || {};
+  const rules = flightFareConditions(source);
+  const features = rules.map((rule) => ({ text: `${rule.k}: ${rule.v}`, ok: rule.tone === 'green' }));
+  return { name: fare.fare_name || fare.name || fare.brand || offer.fareName, code: fare.booking_class || segment.booking_class || '—', cabin: { economy: 'Эконом', premium_economy: 'Комфорт', business: 'Бизнес', first: 'Первый' }[fare.cabin || segment.cabin] || offer.cabin, features, rules };
 }

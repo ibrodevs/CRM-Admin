@@ -240,6 +240,8 @@ function GlobalSearch({ onOpenOrder, onNavigate, onOpenChat }) {
   const [backendHits, setBackendHits] = useState([]);
   const [backendState, setBackendState] = useState('idle');
   const ref = useRef(null);
+  const inputRef = useRef(null);
+  const searchEditRef = useRef(false);
   const handlersRef = useRef({ onOpenOrder, onNavigate, onOpenChat });
   useEffect(() => {
     handlersRef.current = { onOpenOrder, onNavigate, onOpenChat };
@@ -254,6 +256,9 @@ function GlobalSearch({ onOpenOrder, onNavigate, onOpenChat }) {
     window.addEventListener('keydown', h);
     return () => window.removeEventListener('keydown', h);
   }, []);
+
+  // Also discard a credential value retained by Fast Refresh from the old input.
+  useEffect(() => { setQ(''); if (inputRef.current) inputRef.current.value = ''; }, []);
 
   const ql = q.trim();
   useEffect(() => {
@@ -284,16 +289,45 @@ function GlobalSearch({ onOpenOrder, onNavigate, onOpenChat }) {
   const empty = ql && backendState !== 'loading' && !allHits.length;
   const pick = (fn) => { if (fn) fn(); setOpen(false); setQ(''); };
 
+  const restoreQuery = (input) => {
+    input.value = q;
+    searchEditRef.current = false;
+  };
+  const markSearchEdit = event => {
+    const native = event.nativeEvent || {};
+    if (native.type === 'textInput' || /^(insertText|insertCompositionText|delete|history)/.test(native.inputType || '')) searchEditRef.current = true;
+  };
+  const changeQuery = event => {
+    const input = event.currentTarget;
+    const inputType = event.nativeEvent?.inputType || '';
+    let autofilled = false;
+    try { autofilled = input.matches(':-webkit-autofill'); } catch { /* Other browser engines use the standard selector. */ }
+    try { autofilled = autofilled || input.matches(':autofill'); } catch { /* Older browsers do not support :autofill. */ }
+    // Credential/history autofill emits replacement/change events without a user edit.
+    // Focus alone never authorizes a search query; typing, paste, cut and IME do.
+    const userEdit = input.value === '' || searchEditRef.current || /^(insertText|insertCompositionText|delete|history)/.test(inputType);
+    if (autofilled || !userEdit) { restoreQuery(input); return; }
+    searchEditRef.current = false;
+    setQ(input.value); setOpen(true);
+  };
+
   return (
     <div className={'gtop-search' + (open ? ' is-expanded' : '')} ref={ref}
       onBlur={(event) => { if (event.relatedTarget && !event.currentTarget.contains(event.relatedTarget)) setOpen(false); }}>
-      <div className="search" style={{ width: '100%' }}>
+      <form className="search" role="search" aria-label="Поиск по CRM" autoComplete="off" onSubmit={event => event.preventDefault()} style={{ width: '100%', margin: 0 }}>
         <Icon name="search" />
-        <input aria-label="Глобальный поиск" aria-keyshortcuts="Meta+K Control+K" value={q}
-          onChange={(e) => { setQ(e.target.value); setOpen(true); }} onFocus={() => setOpen(true)} onClick={() => setOpen(true)}
-          onKeyDown={(e) => { if (e.key === 'Escape') { e.preventDefault(); setOpen(false); } }}
+        <input ref={inputRef} type="search" name="crm-global-query" autoComplete="off" data-1p-ignore="true" data-lpignore="true" aria-label="Глобальный поиск" aria-keyshortcuts="Meta+K Control+K" value={q}
+          onChange={changeQuery} onBeforeInput={markSearchEdit}
+          onPaste={() => { searchEditRef.current = true; }} onCut={() => { searchEditRef.current = true; }}
+          onAnimationStart={event => { if (event.animationName === 'crm-search-autofill') restoreQuery(event.currentTarget); }}
+          onFocus={event => { if (event.currentTarget.value !== q) restoreQuery(event.currentTarget); setOpen(true); }} onClick={() => setOpen(true)}
+          onBlur={() => { searchEditRef.current = false; }}
+          onKeyDown={event => {
+            if (event.key === 'Escape') { event.preventDefault(); setOpen(false); }
+            else if ((!event.metaKey && !event.ctrlKey && !event.altKey && event.key.length === 1) || ['Backspace', 'Delete'].includes(event.key)) searchEditRef.current = true;
+          }} onKeyUp={() => { searchEditRef.current = false; }}
           placeholder={open ? 'Клиент, заказ, билет, документ…' : 'Глобальный поиск'} />
-      </div>
+      </form>
       {open && ql && (
         <div className="gsearch-pop scroll">
           {hits.map((r) => {

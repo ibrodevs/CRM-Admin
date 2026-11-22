@@ -247,22 +247,22 @@ function LocationAutocomplete(props) {
 function Input(props) {
   if (isPhoneInput(props)) return <PhoneInput {...props} />;
   if (shouldUseLocationAutocomplete(props)) return <LocationAutocomplete {...props} />;
-  const { error, leadIcon, trailIcon, onTrail, locationAutocomplete, locationScope, onLocationSelect, className } = props;
+  const { error, leadIcon, trailIcon, onTrail, locationAutocomplete, locationScope, onLocationSelect, className, inputRef } = props;
   const rest = {};
   for (const k in props) {
-    if (!['error', 'leadIcon', 'trailIcon', 'onTrail', 'locationAutocomplete', 'locationScope', 'onLocationSelect', 'className', 'phoneInput', 'defaultCountry'].includes(k)) rest[k] = props[k];
+    if (!['error', 'leadIcon', 'trailIcon', 'onTrail', 'locationAutocomplete', 'locationScope', 'onLocationSelect', 'className', 'phoneInput', 'defaultCountry', 'inputRef'].includes(k)) rest[k] = props[k];
   }
   const inputClass = ['input', trailIcon ? 'has-trail' : '', error ? 'err' : '', className || ''].filter(Boolean).join(' ');
   if (leadIcon || trailIcon) {
     return (
       <div className="input-wrap">
         {leadIcon && <Icon name={leadIcon} className="lead" />}
-        <input className={inputClass} {...rest} />
+        <input ref={inputRef} className={inputClass} {...rest} />
         {trailIcon && <Icon name={trailIcon} className="trail" onClick={onTrail} />}
       </div>
     );
   }
-  return <input className={inputClass} {...rest} />;
+  return <input ref={inputRef} className={inputClass} {...rest} />;
 }
 
 export { LOCATION_CONTEXT_HINTS, locationContextText, shouldUseLocationAutocomplete, locationOptionIcon, LocationOptionSymbol, LocationAutocomplete, Input };

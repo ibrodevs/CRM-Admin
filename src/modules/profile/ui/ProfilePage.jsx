@@ -15,6 +15,7 @@ import { Checkbox } from '../../../shared/ui/Checkbox.jsx';
 import { Drawer } from '../../../shared/ui/Overlays.jsx';
 import { Field } from '../../../shared/ui/Field.jsx';
 import { Input } from '../../../shared/ui/Input.jsx';
+import { PasswordInput } from '../../../shared/ui/PasswordInput.jsx';
 import { Pill } from '../../../shared/ui/Pill.jsx';
 import { Select } from '../../../shared/ui/Select.jsx';
 import { Tabs } from '../../../shared/ui/Tabs.jsx';
@@ -232,7 +233,6 @@ function ProfilePage({ user, onNavigate, initialTab }) {
   const [tab, setTab] = useState(initialTab || 'profile');
   const [pf, setPf] = useState({ ...u });
   const [pw, setPw] = useState({ cur: '', next: '', confirm: '' });
-  const [showPw, setShowPw] = useState(false);
   const [pwErr, setPwErr] = useState({});
   const [notif, setNotif] = useState({ incrm: true, email: true, telegram: true, max: true, whatsapp: false, sms: false, push: true, desktop: false, newReq: true, exchRet: true, overdue: true, chat: true, orderChg: false });
   const [rolesOpen, setRolesOpen] = useState(false);
@@ -266,16 +266,19 @@ function ProfilePage({ user, onNavigate, initialTab }) {
   }, []);
 
   const setField = (k) => (e) => setPf((p) => ({ ...p, [k]: e.target.value }));
-  const savePassword = async () => {
+  const savePassword = async (event) => {
+    event.preventDefault();
+    const values = new FormData(event.currentTarget);
+    const password = { cur: String(values.get('current_password') || ''), next: String(values.get('new_password') || ''), confirm: String(values.get('confirm_password') || '') };
     const er = {};
-    if (!pw.cur) er.cur = 'Введите текущий пароль';
-    if (!pw.next) er.next = 'Введите новый пароль'; else if (pw.next.length < 10) er.next = 'Минимум 10 символов';
-    if (pw.confirm !== pw.next) er.confirm = 'Пароли не совпадают';
+    if (!password.cur) er.cur = 'Введите текущий пароль';
+    if (!password.next) er.next = 'Введите новый пароль'; else if (password.next.length < 10) er.next = 'Минимум 10 символов';
+    if (password.confirm !== password.next) er.confirm = 'Пароли не совпадают';
     setPwErr(er);
     if (Object.keys(er).length) { toast('Проверьте поля формы', 'err'); return; }
     setSaving(true);
     try {
-      await accountApi.changePassword(pw.cur, pw.next);
+      await accountApi.changePassword(password.cur, password.next);
       setPw({ cur: '', next: '', confirm: '' }); setDevices((current) => current.filter((item) => item.is_current)); toast('Пароль изменён. Другие сессии завершены.', 'ok');
     } catch (error) { toast(error.message, 'err'); }
     finally { setSaving(false); }
@@ -476,12 +479,13 @@ function ProfilePage({ user, onNavigate, initialTab }) {
             <SessionSecurity auth={auth} />
             <div className="card card-pad">
               <h3 className="card-title" style={{ marginBottom: 16 }}>{t("Смена пароля")}</h3>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-                <Field label={t("Текущий пароль")} error={pwErr.cur}><Input type={showPw ? 'text' : 'password'} value={pw.cur} onChange={(e) => setPw((p) => ({ ...p, cur: e.target.value }))} error={pwErr.cur} trailIcon={showPw ? 'eyeOff' : 'eye'} onTrail={() => setShowPw((s) => !s)} placeholder={t("Введите текущий пароль")} /></Field>
-                <Field label={t("Новый пароль")} error={pwErr.next}><Input type={showPw ? 'text' : 'password'} value={pw.next} onChange={(e) => setPw((p) => ({ ...p, next: e.target.value }))} error={pwErr.next} trailIcon={showPw ? 'eyeOff' : 'eye'} onTrail={() => setShowPw((v) => !v)} placeholder={t("Минимум 10 символов")} /></Field>
-                <Field label={t("Подтвердите пароль")} error={pwErr.confirm}><Input type={showPw ? 'text' : 'password'} value={pw.confirm} onChange={(e) => setPw((p) => ({ ...p, confirm: e.target.value }))} error={pwErr.confirm} trailIcon={showPw ? 'eyeOff' : 'eye'} onTrail={() => setShowPw((v) => !v)} placeholder={t("Повторите новый пароль")} /></Field>
-                <Button variant="primary" onClick={savePassword} disabled={saving} style={{ alignSelf: 'flex-start' }}>{t("Изменить пароль")}</Button>
-              </div>
+              <form onSubmit={savePassword} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+                <input type="hidden" name="username" autoComplete="username" value={auth.user?.email || ''} />
+                <Field label={t("Текущий пароль")} error={pwErr.cur}><PasswordInput name="current_password" autoComplete="current-password" value={pw.cur} onChange={(e) => setPw((p) => ({ ...p, cur: e.target.value }))} error={pwErr.cur} placeholder={t("Введите текущий пароль")} /></Field>
+                <Field label={t("Новый пароль")} error={pwErr.next}><PasswordInput name="new_password" autoComplete="new-password" value={pw.next} onChange={(e) => setPw((p) => ({ ...p, next: e.target.value }))} error={pwErr.next} placeholder={t("Минимум 10 символов")} /></Field>
+                <Field label={t("Подтвердите пароль")} error={pwErr.confirm}><PasswordInput name="confirm_password" autoComplete="new-password" value={pw.confirm} onChange={(e) => setPw((p) => ({ ...p, confirm: e.target.value }))} error={pwErr.confirm} placeholder={t("Повторите новый пароль")} /></Field>
+                <Button type="submit" variant="primary" disabled={saving} style={{ alignSelf: 'flex-start' }}>{t("Изменить пароль")}</Button>
+              </form>
               <div style={{ borderTop: '1px solid var(--line)', marginTop: 22, paddingTop: 18, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                 <div>
                   <div style={{ fontWeight: 600, color: 'var(--ink)' }}>{t("Двухфакторная аутентификация")}</div>

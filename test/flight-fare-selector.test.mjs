@@ -21,8 +21,10 @@ test('fare comparison pages real offers, shows full totals and selects the exact
   const cards = () => tree.filter((node) => node.type === 'article');
   assert.equal(cards().length, 6);
   assert.match(cards()[0].props['aria-label'], /1.050 ₽/);
-  assert.equal(tree.filter((node) => node.type === 'dl').length, 1, 'no empty rules sections');
-  assert.ok(tree.find((node) => node.props.className === 'flight-fare-no-conditions'));
+  assert.equal(tree.filter((node) => node.type === 'dl').length, 6, 'each tariff has a visible comparison summary');
+  assert.equal(tree.filter((node) => node.type === 'dt').length, 21, 'missing conditions retain their labelled comparison slots');
+  assert.ok(tree.find((node) => node.type === 'dd' && node.props.children === 'Не указано'));
+  assert.equal(tree.filter((node) => node.type === 'Icon' && node.props.name === 'luggage').length, 5);
   assert.equal(tree.find((node) => node.props.className?.includes('flight-fare-class ')).props['aria-pressed'], true);
   tree.find((node) => node.props['aria-label'] === 'Следующие тарифы').props.onClick();
   tree = render();
