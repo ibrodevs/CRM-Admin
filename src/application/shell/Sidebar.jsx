@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { BrandMark, Icon } from '../../shared/icons/index.jsx';
 import { Avatar } from '../../shared/ui/Avatar.jsx';
+import { Button } from '../../shared/ui/Button.jsx';
 import { Drawer } from '../../shared/ui/Overlays.jsx';
 import { ORDER_OPS_SECTIONS, SERVICE_KEYS } from '../../shared/constants/navigation.js';
 import { NAV_ITEMS } from '../routing/navigation.js';
@@ -93,14 +94,14 @@ function ProfileCard({ user, onLogout, onNavigate, collapsed }) {
   const close = () => { setOpen(false); ref.current?.focus(); };
   return <>
     <button ref={ref} type="button" className="profile-trigger" title={`Личный кабинет: ${profile.name}`} aria-label="Открыть личный кабинет" aria-haspopup="dialog" aria-expanded={open} onClick={() => setOpen(true)}>
-      <Avatar src={profile.avatar} name={profile.name} size={42} />
+      <Avatar src={profile.avatar} name={profile.name} size={40} />
     </button>
     <Drawer open={open} title="Личный кабинет" onClose={close} width="min(420px,100vw)" className="account-panel" showDraftNotice={false}>
       <div className="account-panel-person"><Avatar src={profile.avatar} name={profile.name} size={64} /><div><strong>{profile.name}</strong><span>{profile.role}</span>{profile.email && <span>{profile.email}</span>}</div></div>
       <div className="account-panel-actions">
-        <button type="button" className="btn btn-secondary" onClick={() => go('profile')}><Icon name="user" />Мой профиль<Icon name="chevRight" /></button>
-        <button type="button" className="btn btn-secondary" onClick={toggleTheme}><Icon name={theme === 'dark' ? 'sun' : 'moon'} />{theme === 'dark' ? 'Светлая тема' : 'Тёмная тема'}</button>
-        <button type="button" className="btn btn-secondary account-panel-logout" onClick={() => { setOpen(false); onLogout?.(); }}><Icon name="logout" />Выйти из аккаунта</button>
+        <Button type="button" variant="secondary" icon="user" iconRight="chevRight" onClick={() => go('profile')}>Мой профиль</Button>
+        <Button type="button" variant="secondary" icon={theme === 'dark' ? 'sun' : 'moon'} onClick={toggleTheme}>{theme === 'dark' ? 'Светлая тема' : 'Тёмная тема'}</Button>
+        <Button type="button" variant="secondary" className="account-panel-logout" icon="logout" onClick={() => { setOpen(false); onLogout?.(); }}>Выйти из аккаунта</Button>
       </div>
     </Drawer>
   </>;

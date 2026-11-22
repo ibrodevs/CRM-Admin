@@ -69,3 +69,12 @@
 @media (prefers-reduced-motion: reduce) {
   .btn[data-ui-button][data-size][data-variant] { transition: none; }
 }
+
+/* Shell controls use the same regular control size as the shared button. */
+.gtop-search > .search { height: var(--button-height-md); border-radius: var(--button-radius); }
+.gtop-search input { font-size: var(--button-font-size); line-height: var(--button-line-height); }
+.gtop-notifications { width: var(--button-height-md); height: var(--button-height-md); flex-basis: var(--button-height-md); border-radius: var(--button-radius); }
+.gtop-notifications > svg { width: 16px; height: 16px; }
+.gtop-tools > .profile-trigger { width: 40px; height: 40px; flex-basis: 40px; padding: 0; border: 0; }
+.gtop-nav .gtop-sidebar-btn { width: 40px; height: 40px; }
+.gtop-nav .gtop-sidebar-btn > svg { width: 16px; height: 16px; }

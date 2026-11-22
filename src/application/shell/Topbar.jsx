@@ -2,6 +2,7 @@ import { useToastActivity } from '../../shared/ui/Toast.jsx';
 import React from 'react';
 import { ProfileCard } from './Sidebar.jsx';
 import { Icon } from '../../shared/icons/index.jsx';
+import { Button } from '../../shared/ui/Button.jsx';
 import { ActionMenu } from '../../shared/ui/ActionMenu.jsx';
 import { ShiftControl } from '../../modules/workforce/index.js';
 import { ROUTE_LABELS, SERVICE_PARENT, ORDER_OPS_PARENT } from '../routing/labels.js';
@@ -40,7 +41,7 @@ function QuickCreate({ onCreateOrder, onCreateClient, onCreateCompany, onCreateK
   if (roleHasPerm(role, 'Поиск и бронирование услуг')) { items.push({ sep: true }); items.push({ icon: 'route', label: 'Подобрать услугу', onClick: () => onNavigate('services') }); }
   return (
     <ActionMenu
-      trigger={<button type="button" className="btn btn-primary"><Icon name="plus" />Создать</button>}
+      trigger={<Button type="button" icon="plus">Создать</Button>}
       items={items} />
   );
 }

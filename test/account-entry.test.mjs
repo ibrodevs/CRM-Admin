@@ -13,6 +13,7 @@ function harness() {
   mod.require = (id) => {
     if (id === 'react') return { ...React, useEffect() {}, useRef: () => ({ current: null }), useState(initial) { const i = cursor++; if (!(i in values)) values[i] = typeof initial === 'function' ? initial() : initial; return [values[i], (v) => { values[i] = typeof v === 'function' ? v(values[i]) : v; }]; } };
     if (id.endsWith('icons/index.jsx')) return { Icon: 'Icon', BrandMark: 'Brand' };
+    if (id.endsWith('Button.jsx')) return { Button: 'Button' };
     if (id.endsWith('Avatar.jsx')) return { Avatar: 'Avatar' };
     if (id.endsWith('Overlays.jsx')) return { Drawer: 'Drawer' };
     if (id.endsWith('Toast.jsx')) return { ToastDock: 'Dock' };
@@ -31,7 +32,7 @@ test('account avatar opens a drawer and profile navigation and logout retain the
   nodes.find((node) => node.props['aria-label'] === 'Открыть личный кабинет').props.onClick();
   nodes = all(render('ProfileCard', props));
   assert.equal(nodes.find((node) => node.type === 'Drawer').props.open, true);
-  nodes.find((node) => node.type === 'button' && React.Children.toArray(node.props.children).includes('Мой профиль')).props.onClick();
+  nodes.find((node) => node.type === 'Button' && React.Children.toArray(node.props.children).includes('Мой профиль')).props.onClick();
   assert.equal(route, 'profile');
   assert.equal(all(render('ProfileCard', props)).find((node) => node.type === 'Drawer').props.open, false);
   nodes.find((node) => node.props.className?.includes('account-panel-logout')).props.onClick();
