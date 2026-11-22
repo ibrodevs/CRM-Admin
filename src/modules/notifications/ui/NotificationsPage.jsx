@@ -247,7 +247,7 @@ function NotificationsCenter({ notifications = [], orders = [], onChange, onNavi
 
   const Actions = compact ? 'div' : PageActions;
   return (
-    <div className="fade-in">
+    <div className={`fade-in notifications-center${compact ? ' is-compact' : ''}`}>
 
       {!compact && (
         <RegistryStats><div className="grid-4" style={{ marginBottom: 22 }}>
@@ -257,10 +257,9 @@ function NotificationsCenter({ notifications = [], orders = [], onChange, onNavi
 
       <Tabs tabs={TABS} value={tab} onChange={setTab} />
       <SearchToolbar className="notification-search-toolbar">
-        <div style={{ flex: 1 }} />
-        <SearchBox value={q} onChange={setQ} placeholder="Поиск уведомления…" style={{ width: 220 }} />
-        <FilterChip label="Приоритет" value={fPrio} onChange={setFPrio} options={Object.keys(NOTIF_PRIORITY)} />
-        <FilterChip label="Источник" value={fSource} onChange={setFSource} options={Object.keys(NOTIF_SOURCE)} />
+        <SearchBox value={q} onChange={setQ} placeholder="Поиск уведомлений" />
+        <div className={`notification-filter${fPrio ? ' is-active' : ''}`}><FilterChip label="Приоритет" value={fPrio} onChange={setFPrio} options={Object.keys(NOTIF_PRIORITY)} /></div>
+        <div className={`notification-filter${fSource ? ' is-active' : ''}`}><FilterChip label="Источник" value={fSource} onChange={setFSource} options={Object.keys(NOTIF_SOURCE)} /></div>
       </SearchToolbar>
 
       <Actions className={compact ? 'notification-drawer-actions' : undefined}>
