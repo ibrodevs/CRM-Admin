@@ -241,7 +241,6 @@ function GlobalSearch({ onOpenOrder, onNavigate, onOpenChat }) {
   const [backendState, setBackendState] = useState('idle');
   const ref = useRef(null);
   const inputRef = useRef(null);
-  const searchEditRef = useRef(false);
   const handlersRef = useRef({ onOpenOrder, onNavigate, onOpenChat });
   useEffect(() => {
     handlersRef.current = { onOpenOrder, onNavigate, onOpenChat };
@@ -252,7 +251,7 @@ function GlobalSearch({ onOpenOrder, onNavigate, onOpenChat }) {
     return () => document.removeEventListener('mousedown', h);
   }, []);
   useEffect(() => {
-    const h = (e) => { if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') { e.preventDefault(); ref.current && ref.current.querySelector('input').focus(); setOpen(true); } };
+    const h = (e) => { if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') { e.preventDefault(); inputRef.current?.focus(); setOpen(true); } };
     window.addEventListener('keydown', h);
     return () => window.removeEventListener('keydown', h);
   }, []);
@@ -289,43 +288,23 @@ function GlobalSearch({ onOpenOrder, onNavigate, onOpenChat }) {
   const empty = ql && backendState !== 'loading' && !allHits.length;
   const pick = (fn) => { if (fn) fn(); setOpen(false); setQ(''); };
 
-  const restoreQuery = (input) => {
-    input.value = q;
-    searchEditRef.current = false;
-  };
-  const markSearchEdit = event => {
-    const native = event.nativeEvent || {};
-    if (native.type === 'textInput' || /^(insertText|insertCompositionText|delete|history)/.test(native.inputType || '')) searchEditRef.current = true;
-  };
-  const changeQuery = event => {
-    const input = event.currentTarget;
-    const inputType = event.nativeEvent?.inputType || '';
-    let autofilled = false;
-    try { autofilled = input.matches(':-webkit-autofill'); } catch { /* Other browser engines use the standard selector. */ }
-    try { autofilled = autofilled || input.matches(':autofill'); } catch { /* Older browsers do not support :autofill. */ }
-    // Credential/history autofill emits replacement/change events without a user edit.
-    // Focus alone never authorizes a search query; typing, paste, cut and IME do.
-    const userEdit = input.value === '' || searchEditRef.current || /^(insertText|insertCompositionText|delete|history)/.test(inputType);
-    if (autofilled || !userEdit) { restoreQuery(input); return; }
-    searchEditRef.current = false;
-    setQ(input.value); setOpen(true);
-  };
 
   return (
     <div className={'gtop-search' + (open ? ' is-expanded' : '')} ref={ref}
       onBlur={(event) => { if (event.relatedTarget && !event.currentTarget.contains(event.relatedTarget)) setOpen(false); }}>
       <form className="search" role="search" aria-label="Поиск по CRM" autoComplete="off" onSubmit={event => event.preventDefault()} style={{ width: '100%', margin: 0 }}>
         <Icon name="search" />
-        <input ref={inputRef} type="search" name="crm-global-query" autoComplete="off" data-1p-ignore="true" data-lpignore="true" aria-label="Глобальный поиск" aria-keyshortcuts="Meta+K Control+K" value={q}
-          onChange={changeQuery} onBeforeInput={markSearchEdit}
-          onPaste={() => { searchEditRef.current = true; }} onCut={() => { searchEditRef.current = true; }}
-          onAnimationStart={event => { if (event.animationName === 'crm-search-autofill') restoreQuery(event.currentTarget); }}
-          onFocus={event => { if (event.currentTarget.value !== q) restoreQuery(event.currentTarget); setOpen(true); }} onClick={() => setOpen(true)}
-          onBlur={() => { searchEditRef.current = false; }}
+        {/* Textareas are excluded from credential autofill. Keep this visually single-line
+            instead of relying on autocomplete hints that password managers override. */}
+        <textarea ref={inputRef} rows={1} wrap="off" role="searchbox" aria-multiline="false"
+          name="crm-global-query" autoComplete="off" autoCapitalize="none" spellCheck={false}
+          aria-label="Глобальный поиск" aria-keyshortcuts="Meta+K Control+K" value={q}
+          onChange={event => { setQ(event.currentTarget.value.replace(/[\r\n]+/g, ' ')); setOpen(true); }}
+          onFocus={() => setOpen(true)} onClick={() => setOpen(true)}
           onKeyDown={event => {
             if (event.key === 'Escape') { event.preventDefault(); setOpen(false); }
-            else if ((!event.metaKey && !event.ctrlKey && !event.altKey && event.key.length === 1) || ['Backspace', 'Delete'].includes(event.key)) searchEditRef.current = true;
-          }} onKeyUp={() => { searchEditRef.current = false; }}
+            if (event.key === 'Enter' && !event.nativeEvent.isComposing) event.preventDefault();
+          }}
           placeholder={open ? 'Клиент, заказ, билет, документ…' : 'Глобальный поиск'} />
       </form>
       {open && ql && (

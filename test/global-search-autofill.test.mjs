@@ -12,39 +12,39 @@ function harness() {
   mod._compile(babel.transformSync(readFileSync(new URL('../src/application/shell/GlobalSearch.jsx',import.meta.url),'utf8'),{filename:'GlobalSearch.jsx',presets:['next/babel'],configFile:false,babelrc:false,envName:'test'}).code,import.meta.filename);
   return()=>{cursor=0;return nodes(mod.exports.GlobalSearch({}));};
 }
-const input=tree=>tree.find(node=>node.type==='input');
-const change=(control,value,inputType,autofilled=false)=>{const target={value,matches:()=>autofilled};control.props.onChange({currentTarget:target,target,nativeEvent:{inputType}});return target;};
+const input=tree=>tree.find(node=>node.type==='textarea');
+const change=(control,value)=>control.props.onChange({currentTarget:{value}});
 
-test('credential autofill and replacement events never become a global search query',()=>{
-  const render=harness();let control=input(render());
-  assert.equal(render().find(node=>node.type==='form').props.autoComplete,'off');
-  const auto=change(control,'admin@example.test',undefined);
-  assert.equal(auto.value,'');assert.equal(input(render()).props.value,'');
-  control=input(render());
-  control.props.onBeforeInput({nativeEvent:{inputType:'insertReplacementText'}});
-  assert.equal(change(control,'admin@example.test','insertReplacementText').value,'');
-  assert.equal(input(render()).props.value,'');
-  assert.ok(!render().find(node=>node.props.className==='gsearch-pop scroll'));
+test('global search is a single-line searchbox outside username/password input heuristics',()=>{
+  const render=harness();const tree=render(),control=input(tree);
+  assert.ok(control);
+  assert.equal(tree.some(node=>node.type==='input'),false);
+  assert.equal(control.props.role,'searchbox');
+  assert.equal(control.props['aria-multiline'],'false');
+  assert.equal(control.props.rows,1);
+  assert.equal(control.props.wrap,'off');
+  assert.equal(control.props.autoComplete,'off');
+  assert.equal(control.props.value,'');
 });
 
-test('typing and deliberate paste still allow searching for an email; autofill restores that query',()=>{
-  const render=harness();let control=input(render());
-  control.props.onKeyDown({key:'a'});change(control,'a');
-  assert.equal(input(render()).props.value,'a');
-  control=input(render());control.props.onPaste();change(control,'client@example.test','insertFromPaste');
-  assert.equal(input(render()).props.value,'client@example.test');
-  control=input(render());
-  assert.equal(change(control,'admin@example.test','insertReplacementText',true).value,'client@example.test');
-  assert.equal(input(render()).props.value,'client@example.test');
-  const target={value:'admin@example.test'};
-  control.props.onAnimationStart({animationName:'crm-search-autofill',currentTarget:target});
-  assert.equal(target.value,'client@example.test');
-  change(input(render()),'');assert.equal(input(render()).props.value,'');
+test('typing, email paste, mobile and IME text remain searchable; multiline paste stays single-line',()=>{
+  const render=harness();
+  for(const value of ['И','Иван','client@example.test','']){
+    change(input(render()),value);
+    assert.equal(input(render()).props.value,value);
+  }
+  change(input(render()),'Иван\r\nПетров');
+  assert.equal(input(render()).props.value,'Иван Петров');
 });
 
-test('mobile text input and IME are accepted without a physical keyboard event',()=>{
-  const render=harness();let control=input(render());
-  control.props.onBeforeInput({nativeEvent:{type:'textInput',data:'И'}});change(control,'И');
-  assert.equal(input(render()).props.value,'И');
-  change(input(render()),'Иван','insertCompositionText');assert.equal(input(render()).props.value,'Иван');
+test('Enter cannot insert a new line, IME confirmation is preserved and Escape closes results',()=>{
+  const render=harness();change(input(render()),'Иван');
+  let prevented=false;
+  input(render()).props.onKeyDown({key:'Enter',nativeEvent:{isComposing:false},preventDefault(){prevented=true;}});
+  assert.equal(prevented,true);
+  prevented=false;
+  input(render()).props.onKeyDown({key:'Enter',nativeEvent:{isComposing:true},preventDefault(){prevented=true;}});
+  assert.equal(prevented,false);
+  input(render()).props.onKeyDown({key:'Escape',preventDefault(){}});
+  assert.equal(render().some(node=>node.props.className==='gsearch-pop scroll'),false);
 });

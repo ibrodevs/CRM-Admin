@@ -4443,6 +4443,7 @@ button.oc-fact:hover{border-color:#d3dbe8;background:#fff}
 .password-input-actions>.icon-btn{width:32px;height:32px;padding:6px;color:var(--muted)}
 .password-input-actions>.icon-btn>svg{width:18px;height:18px}
 
-@keyframes crm-search-autofill{from{opacity:1}to{opacity:1}}
-.gtop-search input:-webkit-autofill{animation-name:crm-search-autofill;animation-duration:1ms}
-.gtop-search input:autofill{animation-name:crm-search-autofill;animation-duration:1ms}
+
+/* A single-line textarea keeps global search outside credential autofill heuristics. */
+.gtop-search textarea{display:block;flex:1 1 0;min-width:0;width:0;height:20px;min-height:0;margin:0;padding:0;border:0;border-radius:0;background:none;outline:none;resize:none;overflow:hidden;white-space:pre;box-shadow:none;font-family:inherit;color:var(--ink);box-sizing:border-box}
+.gtop-search textarea::placeholder{color:var(--muted-2)}
