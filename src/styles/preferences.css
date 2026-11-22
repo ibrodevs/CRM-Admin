@@ -941,28 +941,18 @@ html[data-theme="dark"] body {
 }
 
 /* ── Уведомления и всплывающие плашки (Toasts) ────────────────────────── */
-:root[data-theme="dark"] .ntf {
+:root[data-theme="dark"] .ntf,
+:root[data-theme="dark"] .ntf.unread,
+:root[data-theme="dark"] .ntf.p-Критический,
+:root[data-theme="dark"] .ntf.p-Высокий {
   background: var(--surface);
   border-color: var(--line);
 }
 
 :root[data-theme="dark"] .ntf:hover {
+  background: var(--surface-2);
   border-color: var(--line-strong);
-  box-shadow: var(--shadow-card);
-}
-
-:root[data-theme="dark"] .ntf.unread {
-  background: #172437;
-}
-
-:root[data-theme="dark"] .ntf.p-Критический {
-  border-color: #6b262a;
-  background: #351a1d;
-}
-
-:root[data-theme="dark"] .ntf.p-Высокий {
-  border-color: #5c4418;
-  background: #2f2210;
+  box-shadow: none;
 }
 
 :root[data-theme="dark"] .ntf-title {

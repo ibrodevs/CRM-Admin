@@ -35,3 +35,22 @@ test('derived flattened flags never turn missing supplier conditions into restri
   assert.equal(details.rules.length, 4);
   assert.ok(details.rules.every(rule => rule.tone === 'unknown'));
 });
+
+test('zero structured allowances are excluded and provider placeholders remain unknown', () => {
+  const details = freeFlightFareDetails({ fare: { baggage: { pieces: 0 }, hand_baggage: '—' } });
+  assert.equal(condition(details, 'Багаж').v, 'Не включён');
+  assert.equal(condition(details, 'Багаж').tone, 'red');
+  assert.equal(condition(details, 'Ручная кладь').v, 'Не указано');
+  assert.equal(condition(details, 'Ручная кладь').tone, 'unknown');
+});
+
+
+test('missing segment markers do not hide known fare conditions while explicit exclusions still win', () => {
+  const details = freeFlightFareDetails({ fare: { baggage:'1PC', hand_baggage:'8KG', refundable:true }, itinerary:{ segments:[{baggage:'—', hand_baggage:'N/A', refundable:'unknown'}] } });
+  assert.equal(condition(details, 'Багаж').v, '1 место');
+  assert.equal(condition(details, 'Ручная кладь').v, '8 кг');
+  assert.equal(condition(details, 'Возврат').v, 'Разрешён');
+  const excluded = freeFlightFareDetails({ fare:{baggage:'1PC',refundable:true}, itinerary:{segments:[{baggage:{pieces:0},refundable:false}]} });
+  assert.equal(condition(excluded, 'Багаж').v, 'Не включён');
+  assert.equal(condition(excluded, 'Возврат').v, 'Невозвратный');
+});

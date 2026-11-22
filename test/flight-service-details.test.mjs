@@ -31,3 +31,11 @@ test('shared conditions are shown once and legacy cancellation rules supply fare
   assert.equal(details[0].primary[1].value,'1 место');
   assert.equal(baggageLabel({pieces:1,weight:23}),'1 место · 23 кг');
 });
+
+test('structured zero baggage and missing provider markers are not positive allowances', () => {
+  for (const value of [{pieces:0}, {weight:0}, {pieces:0,weight:0}, '0 KG', 'false']) assert.equal(baggageLabel(value), 'Без багажа');
+  for (const value of ['—', '-', 'N/A', 'unknown', {}]) assert.equal(baggageLabel(value), '');
+  assert.equal(baggageLabel(true), 'Включено');
+  assert.equal(baggageLabel({pieces:1,weight:23}), '1 место · 23 кг');
+  assert.equal(baggageLabel('21PC'), '21 место');
+});

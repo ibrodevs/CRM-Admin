@@ -1,7 +1,5 @@
 import { baggageLabel } from './flight-service-details.js';
 
-const present = value => value !== undefined && value !== null && value !== '';
-const first = (...values) => values.find(present);
 const boolean = value => value === true || value === 'true' ? true : value === false || value === 'false' ? false : null;
 const fields = [
   { k: 'Багаж', icon: 'luggage', keys: ['baggage'], absent: 'Не включён' },
@@ -17,13 +15,13 @@ export function flightFareConditions(source = {}) {
   const segments = source.itinerary?.segments?.length ? source.itinerary.segments : [{}];
   return fields.map(field => {
     const values = segments.map(segment => {
-      const raw = first(...field.keys.map(key => segment[key]), ...field.keys.map(key => fare[key]));
+      const candidates = [...field.keys.map(key => segment[key]), ...field.keys.map(key => fare[key])];
       let v = 'Не указано', tone = 'unknown';
       if (field.yes) {
-        const allowed = boolean(raw);
-        if (allowed !== null) { v = allowed ? field.yes : field.no; tone = allowed ? 'green' : 'red'; }
-      } else if (present(raw)) {
-        const label = baggageLabel(raw);
+        const allowed = candidates.map(boolean).find(value => value !== null);
+        if (allowed !== undefined) { v = allowed ? field.yes : field.no; tone = allowed ? 'green' : 'red'; }
+      } else {
+        const label = candidates.map(baggageLabel).find(Boolean);
         if (label) { v = label === 'Без багажа' ? field.absent : label; tone = label === 'Без багажа' ? 'red' : 'green'; }
       }
       return { v, tone, route: [segment.origin, segment.destination].filter(Boolean).join(' → ') };

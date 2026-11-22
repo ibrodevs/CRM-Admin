@@ -16,9 +16,15 @@ function text(value) {
 export function baggageLabel(value) {
   if (!present(value)) return '';
   const raw = text(value).trim();
-  if (/^(0PC|0|NO|NONE)$/i.test(raw) || value === false) return 'Без багажа';
+  if (/^(?:[—–-]|N\/?A|UNKNOWN|NOT SPECIFIED)$/i.test(raw)) return '';
+  if (value && typeof value === 'object' && !value.description && !value.text) {
+    const limits = [value.pieces, value.weight].filter(present);
+    if (limits.length && limits.every(limit => String(limit).trim() !== '' && Number(limit) === 0)) return 'Без багажа';
+  }
+  if (/^(?:0\s*(?:PC|KGS?)?|NO|NONE|FALSE)$/i.test(raw) || value === false) return 'Без багажа';
+  if (value === true) return 'Включено';
   const pieces = /^(\d+)\s*PC$/i.exec(raw);
-  if (pieces) return `${pieces[1]} ${Number(pieces[1]) === 1 ? 'место' : Number(pieces[1]) < 5 ? 'места' : 'мест'}`;
+  if (pieces) return `${pieces[1]} ${plural(Number(pieces[1]), ['место', 'места', 'мест'])}`;
   return raw.replace(/(\d)\s*(KG|KGS)\b/i, '$1 кг');
 }
 
